@@ -1849,6 +1849,19 @@ trans_code (gfc_code * code, tree cond)
 	  res = gfc_trans_omp_directive (code);
 	  break;
 
+	case EXEC_ACC_CACHE:
+	case EXEC_ACC_WAIT:
+	case EXEC_ACC_UPDATE:
+	case EXEC_ACC_LOOP:
+	case EXEC_ACC_HOST_DATA:
+	case EXEC_ACC_DATA:
+	case EXEC_ACC_KERNELS:
+	case EXEC_ACC_KERNELS_LOOP:
+	case EXEC_ACC_PARALLEL:
+	case EXEC_ACC_PARALLEL_LOOP:
+	  res = gfc_trans_acc_directive (code);
+	  break;
+
 	default:
 	  internal_error ("gfc_trans_code(): Bad statement code");
 	}

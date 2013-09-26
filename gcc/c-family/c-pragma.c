@@ -1182,18 +1182,40 @@ static const struct omp_pragma_def omp_pragmas[] = {
   { "threadprivate", PRAGMA_OMP_THREADPRIVATE }
 };
 
+struct acc_pragma_def { const char *name; unsigned int id; };
+static const struct acc_pragma_def acc_pragmas[] = {
+  { "parallel", PRAGMA_ACC_PARALLEL },
+  { "kernels", PRAGMA_ACC_KERNELS },
+  { "data", PRAGMA_ACC_DATA },
+  { "host_data", PRAGMA_ACC_HOST_DATA },
+  { "cache", PRAGMA_ACC_CACHE },
+  { "wait", PRAGMA_ACC_WAIT },
+  { "update", PRAGMA_ACC_UPDATE },
+  { "loop", PRAGMA_ACC_LOOP },
+  { "declare", PRAGMA_ACC_DECLARE }
+};
+
 void
 c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
 {
   const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
+  const int n_acc_pragmas = sizeof (acc_pragmas) / sizeof (*acc_pragmas);
   int i;
 
   for (i = 0; i < n_omp_pragmas; ++i)
     if (omp_pragmas[i].id == id)
       {
-	*space = "omp";
-	*name = omp_pragmas[i].name;
-	return;
+		*space = "omp";
+		*name = omp_pragmas[i].name;
+		return;
+      }
+
+  for (i = 0; i < n_acc_pragmas; ++i)
+    if (acc_pragmas[i].id == id)
+      {
+		*space = "acc";
+		*name = acc_pragmas[i].name;
+		return;
       }
 
   if (id >= PRAGMA_FIRST_EXTERNAL
@@ -1345,8 +1367,18 @@ init_pragma (void)
       int i;
 
       for (i = 0; i < n_omp_pragmas; ++i)
-	cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas[i].name,
+        cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas[i].name,
 				      omp_pragmas[i].id, true, true);
+    }
+
+  if (flag_openacc)
+    {
+      const int n_acc_pragmas = sizeof (acc_pragmas) / sizeof (*acc_pragmas);
+      int i;
+
+      for (i = 0; i < n_acc_pragmas; ++i)
+    	  cpp_register_deferred_pragma (parse_in, "acc", acc_pragmas[i].name,
+				      acc_pragmas[i].id, true, true);
     }
 
   if (!flag_preprocess_only)
@@ -1382,6 +1414,111 @@ init_pragma (void)
 
   /* Allow plugins to register their own pragmas. */
   invoke_plugin_callbacks (PLUGIN_PRAGMAS, NULL);
+}
+
+
+pragma_acc_clause
+pragma_acc_clause_get_name(const char* p, pragma_acc_clause result)
+{
+  switch (p[0]) {
+  case 'a':
+    if (!strcmp("async", p))
+      result = PRAGMA_ACC_CLAUSE_ASYNC;
+
+    break;
+  case 'c':
+    if (!strcmp("collapse", p))
+      result = PRAGMA_ACC_CLAUSE_COLLAPSE;
+    else if (!strcmp("create", p))
+      result = PRAGMA_ACC_CLAUSE_CREATE;
+    else if (!strcmp("copy", p))
+      result = PRAGMA_ACC_CLAUSE_COPY;
+    else if (!strcmp("copyin", p))
+      result = PRAGMA_ACC_CLAUSE_COPYIN;
+    else if (!strcmp("copyout", p))
+      result = PRAGMA_ACC_CLAUSE_COPYOUT;
+
+    break;
+  case 'd':
+    if (!strcmp("device", p))
+      result = PRAGMA_ACC_CLAUSE_DEVICE;
+    else if (!strcmp("deviceptr", p))
+      result = PRAGMA_ACC_CLAUSE_DEVICEPTR;
+    else if (!strcmp("device_resident", p))
+      result = PRAGMA_ACC_CLAUSE_DEVICE_RESIDENT;
+
+    break;
+  case 'f':
+    if (!strcmp("firstprivate", p))
+      result = PRAGMA_ACC_CLAUSE_FIRSTPRIVATE;
+
+    break;
+  case 'g':
+    if (!strcmp("gang", p))
+      result = PRAGMA_ACC_CLAUSE_GANG;
+
+    break;
+  case 'h':
+    if (!strcmp("host", p))
+      result = PRAGMA_ACC_CLAUSE_HOST;
+
+    break;
+  case 's':
+    if (!strcmp("seq", p))
+      result = PRAGMA_ACC_CLAUSE_SEQ;
+
+    break;
+  case 'i':
+    if (!strcmp("independent", p))
+      result = PRAGMA_ACC_CLAUSE_INDEPENDENT;
+
+    break;
+  case 'n':
+    if (!strcmp("num_gangs", p))
+      result = PRAGMA_ACC_CLAUSE_NUM_GANGS;
+    else if (!strcmp("num_workers", p))
+      result = PRAGMA_ACC_CLAUSE_NUM_WORKERS;
+
+    break;
+  case 'p':
+    if (!strcmp("private", p))
+      result = PRAGMA_ACC_CLAUSE_PRIVATE;
+    else if (!strcmp("present", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT;
+    else if (!strcmp("present_or_copy", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPY;
+    else if (!strcmp("present_or_copyin", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYIN;
+    else if (!strcmp("present_or_copyout", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYOUT;
+    else if (!strcmp("present_or_create", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_CREATE;
+
+    break;
+  case 'r':
+   if (!strcmp("reduction", p))
+     result = PRAGMA_ACC_CLAUSE_REDUCTION;
+
+   break;
+  case 'v':
+    if (!strcmp("vector", p))
+      result = PRAGMA_ACC_CLAUSE_VECTOR;
+    else if (!strcmp("vector_length", p))
+      result = PRAGMA_ACC_CLAUSE_VECTOR_LENGTH;
+
+    break;
+  case 'u':
+    if (!strcmp("use_device", p))
+      result = PRAGMA_ACC_CLAUSE_USE_DEVICE;
+
+    break;
+  case 'w':
+    if (!strcmp("worker", p))
+      result = PRAGMA_ACC_CLAUSE_WORKER;
+
+    break;
+  }
+  return result;
 }
 
 #include "gt-c-family-c-pragma.h"

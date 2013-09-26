@@ -711,10 +711,18 @@ dequeue_and_dump (dump_info_p di)
       break;
     case OMP_CLAUSE:
       {
-	int i;
-	fprintf (di->stream, "%s\n", omp_clause_code_name[OMP_CLAUSE_CODE (t)]);
-	for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (t)]; i++)
-	  dump_child ("op: ", OMP_CLAUSE_OPERAND (t, i));
+        int i;
+        fprintf (di->stream, "%s\n", omp_clause_code_name[OMP_CLAUSE_CODE (t)]);
+        for (i = 0; i < omp_clause_num_ops[OMP_CLAUSE_CODE (t)]; i++)
+          dump_child ("op: ", OMP_CLAUSE_OPERAND (t, i));
+      }
+      break;
+    case ACC_CLAUSE:
+      {
+        int i;
+        fprintf (di->stream, "%s\n", acc_clause_code_name[ACC_CLAUSE_CODE (t)]);
+        for (i = 0; i < acc_clause_num_ops[ACC_CLAUSE_CODE (t)]; i++)
+          dump_child ("op: ", ACC_CLAUSE_OPERAND (t, i));
       }
       break;
     default:

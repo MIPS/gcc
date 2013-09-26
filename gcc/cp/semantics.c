@@ -789,6 +789,8 @@ finish_return_stmt (tree expr)
 
   if (flag_openmp && !check_omp_return ())
     return error_mark_node;
+  if (flag_openacc && !check_acc_return ())
+    return error_mark_node;
   if (!processing_template_decl)
     {
       if (warn_sequence_point)
@@ -4041,7 +4043,448 @@ finalize_nrv (tree *tp, tree var, tree result)
   cp_walk_tree (tp, finalize_nrv_r, &data, 0);
   data.visited.dispose ();
 }
-
+
+/********************** OpenACC parsing routines ******************************/
+/******************************************************************************/
+tree
+begin_acc_structured_block (void)
+{
+  return do_pushlevel (sk_acc);
+}
+
+tree
+finish_acc_structured_block (tree block)
+{
+  return do_poplevel (block);
+}
+
+tree
+begin_acc_parallel (void)
+{
+  keep_next_level (true);
+  return begin_acc_structured_block ();
+}
+
+tree
+finish_acc_parallel (tree clauses, tree body)
+{
+  tree stmt;
+
+  body = finish_acc_structured_block (body);
+
+  stmt = make_node (ACC_PARALLEL);
+  TREE_TYPE (stmt) = void_type_node;
+  ACC_PARALLEL_CLAUSES (stmt) = clauses;
+  ACC_PARALLEL_BODY (stmt) = body;
+
+  return add_stmt (stmt);
+}
+
+tree
+begin_acc_kernels (void)
+{
+  keep_next_level (true);
+  return begin_acc_structured_block ();
+}
+
+tree
+finish_acc_kernels (tree clauses, tree body)
+{
+  tree stmt;
+
+  body = finish_acc_structured_block (body);
+
+  stmt = make_node (ACC_KERNELS);
+  TREE_TYPE (stmt) = void_type_node;
+  ACC_KERNELS_CLAUSES (stmt) = clauses;
+  ACC_KERNELS_BODY (stmt) = body;
+
+  return add_stmt (stmt);
+}
+
+/* Create CP_ACC_CLAUSE_INFO for clause C.
+ * Returns true if it is invalid.  */
+
+bool
+cxx_acc_create_clause_info (tree c,
+                            tree type,
+                            bool need_default_ctor,
+                            bool need_copy_ctor,
+                            bool need_copy_assignment)
+{
+  int save_errorcount = errorcount;
+  tree info, t;
+
+  /* Always allocate 3 elements for simplicity.  These are the
+     function decls for the ctor, dtor, and assignment op.
+     This layout is known to the three lang hooks,
+     cxx_acc_clause_default_init, cxx_acc_clause_copy_init,
+     and cxx_acc_clause_assign_op.  */
+  info = make_tree_vec (3);
+  CP_ACC_CLAUSE_INFO (c) = info;
+
+  if (need_default_ctor || need_copy_ctor)
+    {
+      if (need_default_ctor)
+        t = get_default_ctor (type);
+      else
+        t = get_copy_ctor (type, tf_warning_or_error);
+
+      if (t && !trivial_fn_p (t))
+        TREE_VEC_ELT (info, 0) = t;
+    }
+
+  if ((need_default_ctor || need_copy_ctor)
+      && TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+    TREE_VEC_ELT (info, 1) = get_dtor (type, tf_warning_or_error);
+
+  if (need_copy_assignment)
+    {
+      t = get_copy_assign (type);
+
+      if (t && !trivial_fn_p (t))
+        TREE_VEC_ELT (info, 2) = t;
+    }
+
+  return errorcount != save_errorcount;
+}
+
+/* Validata all CLAUSES
+   Remove any invalid.  */
+tree
+finish_acc_clauses (tree clauses)
+{
+  bitmap_head generic_head, firstprivate_head;
+  tree c, t, *pc = &clauses;
+  const char *name;
+
+  bitmap_obstack_initialize (NULL);
+  bitmap_initialize (&generic_head, &bitmap_default_obstack);
+  bitmap_initialize (&firstprivate_head, &bitmap_default_obstack);
+
+  for (pc = &clauses, c = clauses; c ; c = *pc)
+  {
+    bool remove = false;
+
+    switch (ACC_CLAUSE_CODE (c))
+    {
+    case ACC_CLAUSE_PRIVATE:
+      name = "private";
+      goto check_dup_generic;
+    case ACC_CLAUSE_REDUCTION:
+      name = "reduction";
+      goto check_dup_generic;
+    case ACC_CLAUSE_CREATE:
+      name = "create";
+      goto check_dup_generic;
+    case ACC_CLAUSE_COPY:
+      name = "copy";
+      goto check_dup_generic;
+    case ACC_CLAUSE_COPYIN:
+      name = "copyin";
+      goto check_dup_generic;
+    case ACC_CLAUSE_COPYOUT:
+      name = "copyout";
+      goto check_dup_generic;
+    case ACC_CLAUSE_PRESENT:
+      name = "present";
+      goto check_dup_generic;
+    case ACC_CLAUSE_PRESENT_OR_COPY:
+      name = "present_or_copy";
+      goto check_dup_generic;
+    case ACC_CLAUSE_PRESENT_OR_COPYIN:
+      name = "present_or_copyin";
+      goto check_dup_generic;
+    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+      name = "present_or_copyout";
+      goto check_dup_generic;
+    check_dup_generic:
+      t = ACC_CLAUSE_DECL (c);
+      if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+      {
+        if (processing_template_decl)
+          break;
+        if (DECL_P (t))
+          error ("%qD is not a variable in clause %qs", t, name);
+        else
+          error ("%qE is not a variable in clause %qs", t, name);
+        remove = true;
+      }
+      else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+               || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+      {
+        error ("%qD appears more than once in data clauses", t);
+        remove = true;
+      }
+      else
+        bitmap_set_bit (&generic_head, DECL_UID (t));
+      break;
+
+    case ACC_CLAUSE_FIRSTPRIVATE:
+      t = ACC_CLAUSE_DECL (c);
+      if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
+      {
+        if (processing_template_decl)
+          break;
+        if (DECL_P (t))
+          error ("%qD is not a variable in clause %<firstprivate%>", t);
+        else
+          error ("%qE is not a variable in clause %<firstprivate%>", t);
+        remove = true;
+      }
+      else if (bitmap_bit_p (&generic_head, DECL_UID (t))
+               || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+      {
+        error ("%qD appears more than once in data clauses", t);
+        remove = true;
+      }
+      else
+        bitmap_set_bit (&firstprivate_head, DECL_UID (t));
+      break;
+
+    case ACC_CLAUSE_IF:
+      t = ACC_CLAUSE_IF_EXPR (c);
+      t = maybe_convert_cond (t);
+      if (t == error_mark_node)
+      {
+        remove = true;
+      }
+      else if (!processing_template_decl)
+      {
+        t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+      }
+      ACC_CLAUSE_IF_EXPR (c) = t;
+      break;
+
+    case ACC_CLAUSE_NUM_GANGS:
+      t = ACC_CLAUSE_NUM_GANGS_EXPR (c);
+      if (t == error_mark_node)
+      {
+        remove = true;
+      }
+      else if (!type_dependent_expression_p (t)
+               && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+      {
+        error ("num_gangs expression must be integral");
+        remove = true;
+      }
+      else
+      {
+        t = mark_rvalue_use (t);
+        if (!processing_template_decl)
+          t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+        ACC_CLAUSE_NUM_GANGS_EXPR (c) = t;
+      }
+      break;
+
+    case ACC_CLAUSE_NUM_WORKERS:
+      t = ACC_CLAUSE_NUM_WORKERS_EXPR (c);
+      if (t == error_mark_node)
+      {
+        remove = true;
+      }
+      else if (!type_dependent_expression_p (t)
+               && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+      {
+        error ("num_workers expression must be integral");
+        remove = true;
+      }
+      else
+      {
+        t = mark_rvalue_use (t);
+        if (!processing_template_decl)
+          t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+        ACC_CLAUSE_NUM_WORKERS_EXPR (c) = t;
+      }
+      break;
+
+    case ACC_CLAUSE_VECTOR_LENGTH:
+      t = ACC_CLAUSE_VECTOR_LENGTH_EXPR (c);
+      if (t == error_mark_node)
+      {
+        remove = true;
+      }
+      else if (!type_dependent_expression_p (t)
+               && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
+      {
+        error ("vector_length expression must be integral");
+        remove = true;
+      }
+      else
+      {
+        t = mark_rvalue_use (t);
+        if (!processing_template_decl)
+          t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
+        ACC_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
+      }
+      break;
+
+    case ACC_CLAUSE_INDEPENDENT:
+    case ACC_CLAUSE_SEQ:
+      break;
+
+
+    default:
+      gcc_unreachable ();
+    }
+
+    if (remove)
+      *pc = ACC_CLAUSE_CHAIN (c);
+    else
+      pc = &ACC_CLAUSE_CHAIN (c);
+  }
+
+  for (pc = &clauses, c = clauses; c ; c = *pc)
+  {
+    enum acc_clause_code c_kind = ACC_CLAUSE_CODE (c);
+    bool remove = false;
+    bool need_complete_non_reference = false;
+    bool need_default_ctor = false;
+    bool need_copy_ctor = false;
+    bool need_copy_assignment = false;
+    bool need_implicitly_determined = false;
+    tree type, inner_type;
+/*
+    switch (c_kind)
+      {
+      case OMP_CLAUSE_SHARED:
+        name = "shared";
+        need_implicitly_determined = true;
+        break;
+      case OMP_CLAUSE_PRIVATE:
+        name = "private";
+        need_complete_non_reference = true;
+        need_default_ctor = true;
+        need_implicitly_determined = true;
+        break;
+      case OMP_CLAUSE_FIRSTPRIVATE:
+        name = "firstprivate";
+        need_complete_non_reference = true;
+        need_copy_ctor = true;
+        need_implicitly_determined = true;
+        break;
+      case OMP_CLAUSE_LASTPRIVATE:
+        name = "lastprivate";
+        need_complete_non_reference = true;
+        need_copy_assignment = true;
+        need_implicitly_determined = true;
+        break;
+      case OMP_CLAUSE_REDUCTION:
+        name = "reduction";
+        need_implicitly_determined = true;
+        break;
+      case OMP_CLAUSE_COPYPRIVATE:
+        name = "copyprivate";
+        need_copy_assignment = true;
+        break;
+      case OMP_CLAUSE_COPYIN:
+        name = "copyin";
+        need_copy_assignment = true;
+        break;
+      default:
+        pc = &ACC_CLAUSE_CHAIN (c);
+        continue;
+      }*/pc = &ACC_CLAUSE_CHAIN (c);
+
+    t = ACC_CLAUSE_DECL (c);
+    if (processing_template_decl
+        && !VAR_P (t)
+        && TREE_CODE (t) != PARM_DECL)
+      {
+        pc = &ACC_CLAUSE_CHAIN (c);
+        continue;
+      }
+
+    switch (c_kind)
+      {
+      case ACC_CLAUSE_REDUCTION:
+        if (AGGREGATE_TYPE_P (TREE_TYPE (t))
+            || POINTER_TYPE_P (TREE_TYPE (t)))
+          {
+            error ("%qE has invalid type for %<reduction%>", t);
+            remove = true;
+          }
+        else if (FLOAT_TYPE_P (TREE_TYPE (t)))
+          {
+            enum tree_code r_code = ACC_CLAUSE_REDUCTION_CODE (c);
+            switch (r_code)
+              {
+              case PLUS_EXPR:
+              case MULT_EXPR:
+              case MINUS_EXPR:
+              case MIN_EXPR:
+              case MAX_EXPR:
+                break;
+              default:
+                error ("%qE has invalid type for %<reduction(%s)%>",
+                       t, operator_name_info[r_code].name);
+                remove = true;
+              }
+          }
+        break;
+
+      case ACC_CLAUSE_COPYIN:
+        /*if (!VAR_P (t) || !DECL_THREAD_LOCAL_P (t))
+          {
+            error ("%qE must be %<private%> for %<copyin%>", t);
+            remove = true;
+          }*/
+        break;
+
+      default:
+        break;
+      }
+
+    if (need_complete_non_reference || need_copy_assignment)
+    {
+      t = require_complete_type (t);
+      if (t == error_mark_node)
+      {
+        remove = true;
+      }
+      else if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
+               && need_complete_non_reference)
+      {
+        error ("%qE has reference type for %qs", t, name);
+        remove = true;
+      }
+    }
+
+    /* We're interested in the base element, not arrays.  */
+    inner_type = type = TREE_TYPE (t);
+    while (TREE_CODE (inner_type) == ARRAY_TYPE)
+    {
+      inner_type = TREE_TYPE (inner_type);
+    }
+
+    /* Check for special function availability by building a call to one.
+       Save the results, because later we won't be in the right context
+       for making these queries.  */
+    if (CLASS_TYPE_P (inner_type)
+        && COMPLETE_TYPE_P (inner_type)
+        && (need_default_ctor || need_copy_ctor || need_copy_assignment)
+        && !type_dependent_expression_p (t)
+        && cxx_acc_create_clause_info (c, inner_type, need_default_ctor,
+                                       need_copy_ctor, need_copy_assignment))
+    {
+      remove = true;
+    }
+
+    if (remove)
+      *pc = ACC_CLAUSE_CHAIN (c);
+    else
+      pc = &ACC_CLAUSE_CHAIN (c);
+  }
+
+  bitmap_obstack_release (NULL);
+  return clauses;
+}
+
+
+/********************** OpenACC parsing routines ******************************/
+/******************************************************************************/
+
+
 /* Create CP_OMP_CLAUSE_INFO for clause C.  Returns true if it is invalid.  */
 
 bool

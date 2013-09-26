@@ -120,7 +120,8 @@ typedef enum scope_kind {
 			specialization.  Since, by definition, an
 			explicit specialization is introduced by
 			"template <>", this scope is always empty.  */
-  sk_omp	     /* An OpenMP structured block.  */
+  sk_omp,            /* An OpenMP structured block.  */
+  sk_acc             /* An OpenACC structured block.  */
 } scope_kind;
 
 /* The scope where the class/struct/union/enum tag applies.  */

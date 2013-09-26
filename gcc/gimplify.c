@@ -85,8 +85,29 @@ struct gimplify_omp_ctx
   enum omp_region_type region_type;
 };
 
+
+enum acc_region_type
+{
+  ART_PARALLEL = 1,
+  ART_COMBINED_PARALLEL = 2,
+  ART_KERNELS = 3,
+  ART_COMBINED_KERNELS = 4
+};
+
+struct gimplify_acc_ctx
+{
+  struct gimplify_acc_ctx *outer_context;
+  splay_tree variables;
+  struct pointer_set_t *privatized_types;
+  location_t location;
+  //enum acc_clause_default_kind default_kind;
+  enum acc_region_type region_type;
+};
+
+
 static struct gimplify_ctx *gimplify_ctxp;
 static struct gimplify_omp_ctx *gimplify_omp_ctxp;
+static struct gimplify_acc_ctx *gimplify_acc_ctxp;
 
 
 /* Forward declaration.  */
@@ -4717,6 +4738,15 @@ is_gimple_stmt (tree t)
     case OMP_ORDERED:
     case OMP_CRITICAL:
     case OMP_TASK:
+    case ACC_PARALLEL:
+    case ACC_KERNELS:
+    case ACC_DATA:
+    case ACC_CACHE:
+    case ACC_WAIT:
+    case ACC_HOST_DATA:
+    case ACC_LOOP:
+    case ACC_DECLARE:
+    case ACC_UPDATE:
       /* These are always void.  */
       return true;
 
@@ -7061,6 +7091,554 @@ gimplify_transaction (tree *expr_p, gimple_seq *pre_p)
   return GS_ALL_DONE;
 }
 
+
+/******************* Begin of OpenACC gimplification routines *****************/
+/******************************************************************************/
+
+static struct gimplify_acc_ctx*
+new_acc_context (enum acc_region_type region_type)
+{
+  struct gimplify_acc_ctx *c;
+
+  c = XCNEW (struct gimplify_acc_ctx);
+  c->outer_context = gimplify_acc_ctxp;
+  c->variables = splay_tree_new (splay_tree_compare_decl_uid, 0, 0);
+  c->privatized_types = pointer_set_create ();
+  c->location = input_location;
+  c->region_type = region_type;
+
+  return c;
+}
+
+static void
+delete_acc_context (struct gimplify_acc_ctx *c)
+{
+  splay_tree_delete (c->variables);
+  pointer_set_destroy (c->privatized_types);
+  XDELETE (c);
+}
+
+/* Scan the OpenACC clauses and validate for some specification rules.
+   If clause is invalid it will be removed.  */ /* TODO Fill rules */
+static void
+gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
+                           enum acc_region_type region_type)
+{
+  struct gimplify_acc_ctx *ctx, *outer_ctx;
+  struct gimplify_ctx gctx;
+  tree c;
+
+  ctx = new_acc_context (region_type);
+  outer_ctx = ctx->outer_context;
+
+  while ((c = *list_p) != NULL)
+  {
+    bool remove = false;
+    bool notice_outer = true;
+    const char *check_non_private = NULL;
+    unsigned int flags;
+    tree decl;
+/*
+    switch (ACC_CLAUSE_CODE (c))
+    {
+    case ACC_CLAUSE_ASYNC:
+      break;
+    case ACC_CLAUSE_COLLAPSE:
+      break;
+    case ACC_CLAUSE_COPY:
+      break;
+    case ACC_CLAUSE_COPYIN:
+      break;
+    case ACC_CLAUSE_COPYOUT:
+      break;
+    case ACC_CLAUSE_CREATE:
+      break;
+    case ACC_CLAUSE_DEVICE:
+      break;
+    case ACC_CLAUSE_DEVICEPTR:
+      break;
+    case ACC_CLAUSE_DEVICE_RESIDENT:
+      break;
+    case ACC_CLAUSE_FIRSTPRIVATE:
+      break;
+    case ACC_CLAUSE_GANG:
+      break;
+    case ACC_CLAUSE_HOST:
+      break;
+    case ACC_CLAUSE_IF:
+      break;
+    case ACC_CLAUSE_INDEPENDENT:
+      break;
+    case ACC_CLAUSE_NUM_GANGS:
+      break;
+    case ACC_CLAUSE_NUM_WORKERS:
+      break;
+    case ACC_CLAUSE_PRESENT:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_COPY:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_COPYIN:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_CREATE:
+      break;
+    case ACC_CLAUSE_PRIVATE:
+      break;
+    case ACC_CLAUSE_REDUCTION:
+      break;
+    case ACC_CLAUSE_SEQ:
+      break;
+    case ACC_CLAUSE_VECTOR:
+      break;
+    case ACC_CLAUSE_VECTOR_LENGTH:
+      break;
+    case ACC_CLAUSE_WORKER:
+      break;
+    default:
+      gcc_unreachable ();
+    }
+*/
+    if (remove)
+    {
+      *list_p = ACC_CLAUSE_CHAIN (c);
+    }
+    else
+    {
+      list_p = &ACC_CLAUSE_CHAIN (c);
+    }
+  }
+
+  gimplify_acc_ctxp = ctx;
+}
+
+/* For all variables that were not actually used within the context,
+   remove PRIVATE, SHARED, and FIRSTPRIVATE clauses.  */
+/*static int
+gimplify_adjust_acc_clauses_1 (splay_tree_node n, void *data)
+{
+  tree *list_p = (tree *) data;
+  tree decl = (tree) n->key;
+  unsigned flags = n->value;
+  enum omp_clause_code code;
+  tree clause;
+  bool private_debug;
+
+  if (flags & (GOVD_EXPLICIT | GOVD_LOCAL))
+    return 0;
+  if ((flags & GOVD_SEEN) == 0)
+    return 0;
+  if (flags & GOVD_DEBUG_PRIVATE)
+    {
+      gcc_assert ((flags & GOVD_DATA_SHARE_CLASS) == GOVD_PRIVATE);
+      private_debug = true;
+    }
+  else
+    private_debug
+      = lang_hooks.decls.omp_private_debug_clause (decl,
+                                                   !!(flags & GOVD_SHARED));
+  if (private_debug)
+    code = OMP_CLAUSE_PRIVATE;
+  else if (flags & GOVD_SHARED)
+    {
+      if (is_global_var (decl))
+	{
+	  struct gimplify_omp_ctx *ctx = gimplify_omp_ctxp->outer_context;
+	  while (ctx != NULL)
+	    {
+	      splay_tree_node on
+		= splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+	      if (on && (on->value & (GOVD_FIRSTPRIVATE | GOVD_LASTPRIVATE
+				      | GOVD_PRIVATE | GOVD_REDUCTION)) != 0)
+		break;
+	      ctx = ctx->outer_context;
+	    }
+	  if (ctx == NULL)
+	    return 0;
+	}
+      code = OMP_CLAUSE_SHARED;
+    }
+  else if (flags & GOVD_PRIVATE)
+    code = OMP_CLAUSE_PRIVATE;
+  else if (flags & GOVD_FIRSTPRIVATE)
+    code = OMP_CLAUSE_FIRSTPRIVATE;
+  else
+    gcc_unreachable ();
+
+  clause = build_omp_clause (input_location, code);
+  OMP_CLAUSE_DECL (clause) = decl;
+  OMP_CLAUSE_CHAIN (clause) = *list_p;
+  if (private_debug)
+    OMP_CLAUSE_PRIVATE_DEBUG (clause) = 1;
+  else if (code == OMP_CLAUSE_PRIVATE && (flags & GOVD_PRIVATE_OUTER_REF))
+    OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
+  *list_p = clause;
+  lang_hooks.decls.omp_finish_clause (clause);
+
+  return 0;
+}*/
+
+static void
+gimplify_adjust_acc_clauses (tree *list_p)
+{
+  struct gimplify_acc_ctx *ctx = gimplify_acc_ctxp;
+  tree c, decl;
+
+  while ((c = *list_p) != NULL)
+  {
+    splay_tree_node n;
+    bool remove = false;
+
+    switch (ACC_CLAUSE_CODE (c))
+    {
+/*    case OMP_CLAUSE_PRIVATE:
+    case OMP_CLAUSE_FIRSTPRIVATE:
+      decl = OMP_CLAUSE_DECL (c);
+      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+      remove = !(n->value & GOVD_SEEN);
+      if (! remove)
+      {
+        bool shared = OMP_CLAUSE_CODE (c) == OMP_CLAUSE_SHARED;
+        if ((n->value & GOVD_DEBUG_PRIVATE)
+            || lang_hooks.decls.omp_private_debug_clause (decl, shared))
+        {
+          gcc_assert ((n->value & GOVD_DEBUG_PRIVATE) == 0
+                  || ((n->value & GOVD_DATA_SHARE_CLASS)
+              == GOVD_PRIVATE));
+          OMP_CLAUSE_SET_CODE (c, OMP_CLAUSE_PRIVATE);
+          OMP_CLAUSE_PRIVATE_DEBUG (c) = 1;
+        }
+      }
+      break;
+
+    case OMP_CLAUSE_LASTPRIVATE:
+      // Make sure OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE is set to
+      // accurately reflect the presence of a FIRSTPRIVATE clause.
+      decl = OMP_CLAUSE_DECL (c);
+      n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
+      OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c)
+        = (n->value & GOVD_FIRSTPRIVATE) != 0;
+      break;
+*/
+    case ACC_CLAUSE_ASYNC:
+      break;
+    case ACC_CLAUSE_COLLAPSE:
+      break;
+    case ACC_CLAUSE_COPY:
+      break;
+    case ACC_CLAUSE_COPYIN:
+      break;
+    case ACC_CLAUSE_COPYOUT:
+      break;
+    case ACC_CLAUSE_CREATE:
+      break;
+    case ACC_CLAUSE_DEVICE:
+      break;
+    case ACC_CLAUSE_DEVICEPTR:
+      break;
+    case ACC_CLAUSE_DEVICE_RESIDENT:
+      break;
+    case ACC_CLAUSE_FIRSTPRIVATE:
+      break;
+    case ACC_CLAUSE_GANG:
+      break;
+    case ACC_CLAUSE_HOST:
+      break;
+    case ACC_CLAUSE_IF:
+      break;
+    case ACC_CLAUSE_INDEPENDENT:
+      break;
+    case ACC_CLAUSE_NUM_GANGS:
+      break;
+    case ACC_CLAUSE_NUM_WORKERS:
+      break;
+    case ACC_CLAUSE_PRESENT:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_COPY:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_COPYIN:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+      break;
+    case ACC_CLAUSE_PRESENT_OR_CREATE:
+      break;
+    case ACC_CLAUSE_PRIVATE:
+      break;
+    case ACC_CLAUSE_REDUCTION:
+      break;
+    case ACC_CLAUSE_SEQ:
+      break;
+    case ACC_CLAUSE_VECTOR:
+      break;
+    case ACC_CLAUSE_VECTOR_LENGTH:
+      break;
+    case ACC_CLAUSE_WORKER:
+      break;
+/*
+    default:
+      gcc_unreachable ();*/
+    }
+
+    if (remove)
+    {
+      *list_p = ACC_CLAUSE_CHAIN (c);
+    }
+    else
+    {
+      list_p = &ACC_CLAUSE_CHAIN (c);
+    }
+  }
+
+  /* Add in any implicit data sharing.  */
+  //splay_tree_foreach (ctx->variables, gimpliufy_adjust_acc_clauses_1, list_p);
+
+  gimplify_acc_ctxp = ctx->outer_context;
+  delete_acc_context (ctx);
+}
+
+/* Gimplify the contents of an ACC_PARALLEL statement. */
+static void
+gimplify_acc_parallel (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple stmt;
+  gimple_seq body = NULL;
+
+  gimplify_scan_acc_clauses (&ACC_PARALLEL_CLAUSES (expr),
+                             pre_p, ART_PARALLEL);
+  gimplify_and_add (ACC_BODY (expr), &body);
+  gimplify_adjust_acc_clauses (&ACC_PARALLEL_CLAUSES (expr));
+
+  stmt = gimple_alloc (GIMPLE_ACC_PARALLEL, 0);
+
+  gimplify_seq_add_stmt (pre_p, stmt);
+}
+
+/* Gimplify the contents of an ACC_KERNELS statement. */
+static void
+gimplify_acc_kernels (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  gimplify_scan_acc_clauses (&ACC_KERNELS_CLAUSES (expr), pre_p, ART_KERNELS);
+
+  push_gimplify_context (&gctx);
+
+  g = gimplify_and_return_first (ACC_KERNELS_BODY (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  gimplify_adjust_acc_clauses (&ACC_KERNELS_CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_KERNELS, 0);
+  if (body)
+    p->acc.body = body;
+
+  /*g = gimple_build_acc_kernels (body,
+                                   ACC_KERNELS_CLAUSES (expr),
+                                   NULL_TREE, NULL_TREE); */
+  gimplify_seq_add_stmt (pre_p, p);
+  *expr_p = NULL_TREE;
+}
+
+/* Gimplify the contents of an ACC_DATA statement. */
+static void
+gimplify_acc_data (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  //gimplify_scan_acc_clauses (&ACC_DATA_CLAUSES (expr), pre_p, ART_DATA);
+
+  push_gimplify_context (&gctx);
+
+  //g = gimplify_and_return_first (ACC_DATA (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_DATA, 0);
+
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
+/* Gimplify the contents of an ACC_HOST_DATA statement. */
+static void
+gimplify_acc_host_data (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  //gimplify_scan_acc_clauses (&ACC_HOST_DATA_CLAUSES (expr), pre_p,
+  //                           ART_HOST_DATA);
+
+  push_gimplify_context (&gctx);
+
+  //g = gimplify_and_return_first (ACC_HOST_DATA (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_HOST_DATA, 0);
+
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
+/* Gimplify the contents of an ACC_LOOP statement. */
+static void
+gimplify_acc_loop (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  push_gimplify_context (&gctx);
+
+  //g = gimplify_and_return_first (ACC_LOOP (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_LOOP, 0);
+  if (body)
+    p->acc.body = body;
+
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
+/* Gimplify the contents of an ACC_CACHE statement. */
+static void
+gimplify_acc_cache (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  //gimplify_scan_acc_clauses (&ACC_CACHE_CLAUSES (expr), pre_p, ART_);
+
+  push_gimplify_context (&gctx);
+
+  //g = gimplify_and_return_first (ACC_CACHE (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_CACHE, 0);
+
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
+/* Gimplify the contents of an ACC_DECLARE statement. */
+static void
+gimplify_acc_declare (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  //gimplify_scan_acc_clauses (&ACC_DECLARE_CLAUSES (expr), pre_p, ART_);
+
+  push_gimplify_context (&gctx);
+
+  //g = gimplify_and_return_first (ACC_DECLARE (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_DECLARE, 0);
+
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
+/* Gimplify the contents of an ACC_UPDATE statement. */
+static void
+gimplify_acc_update (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  //gimplify_scan_acc_clauses (&ACC_UPDATE_CLAUSES (expr), pre_p, ART_);
+
+  push_gimplify_context (&gctx);
+
+  //g = gimplify_and_return_first (ACC_UPDATE (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_UPDATE, 0);
+
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
+/* Gimplify the contents of an ACC_WAIT statement. */
+static void
+gimplify_acc_wait (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  //gimplify_scan_acc_clauses (&ACC_WAIT_CLAUSES (expr), pre_p, ART_);
+
+  push_gimplify_context (&gctx);
+
+  //g = gimplify_and_return_first (ACC_WAIT (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+
+  gimple p = gimple_alloc (GIMPLE_ACC_WAIT, 0);
+
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
+/******************** End of OpenACC gimplification routines ******************/
+/******************************************************************************/
+
 /* Convert the GENERIC expression tree *EXPR_P to GIMPLE.  If the
    expression produces a value to be used as an operand inside a GIMPLE
    statement, the value will be stored back in *EXPR_P.  This value will
@@ -7736,6 +8314,51 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case SSA_NAME:
 	  /* Allow callbacks into the gimplifier during optimization.  */
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_PARALLEL:
+	  //gimplify_acc_parallel (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_KERNELS:
+	  gimplify_acc_kernels (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_DATA:
+	  //gimplify_acc_data (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_HOST_DATA:
+	  //gimplify_acc_host_data (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_LOOP:
+	  //gimplify_acc_loop (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_CACHE:
+	  //gimplify_acc_cache (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_DECLARE:
+	  //gimplify_acc_declare (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_UPDATE:
+	  //gimplify_acc_update (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case ACC_WAIT:
+	  //gimplify_acc_wait (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
 

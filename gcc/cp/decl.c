@@ -196,6 +196,8 @@ struct GTY((chain_next ("%h.next"))) named_label_use_entry {
      the goto appeared.  This means that the branch from the label will
      illegally exit an OpenMP scope.  */
   bool in_omp_scope;
+
+  bool in_acc_scope;
 };
 
 /* A list of all LABEL_DECLs in the function that have names.  Here so
@@ -227,6 +229,7 @@ struct GTY(()) named_label_entry {
   bool in_try_scope;
   bool in_catch_scope;
   bool in_omp_scope;
+  bool in_acc_scope;
 };
 
 #define named_labels cp_function_chain->x_named_labels
@@ -494,9 +497,12 @@ poplevel_named_label_1 (void **slot, void *data)
 	case sk_catch:
 	  ent->in_catch_scope = true;
 	  break;
-	case sk_omp:
-	  ent->in_omp_scope = true;
-	  break;
+        case sk_omp:
+          ent->in_omp_scope = true;
+          break;
+        case sk_acc:
+          ent->in_acc_scope = true;
+          break;
 	default:
 	  break;
 	}
@@ -510,8 +516,10 @@ poplevel_named_label_1 (void **slot, void *data)
 	  {
 	    use->binding_level = obl;
 	    use->names_in_scope = obl->names;
-	    if (bl->kind == sk_omp)
-	      use->in_omp_scope = true;
+            if (bl->kind == sk_omp)
+              use->in_omp_scope = true;
+            if (bl->kind == sk_acc)
+              use->in_acc_scope = true;
 	  }
     }
 
@@ -2768,11 +2776,12 @@ identify_goto (tree decl, const location_t *locus)
    true if all is well.  */
 
 static bool
-check_previous_goto_1 (tree decl, cp_binding_level* level, tree names,
-		       bool exited_omp, const location_t *locus)
+check_previous_goto_1 (tree decl, cp_binding_level* level,
+                       tree names, bool exited_omp,
+                       bool exited_acc, const location_t *locus)
 {
   cp_binding_level *b;
-  bool identified = false, saw_eh = false, saw_omp = false;
+  bool identified = false, saw_eh = false, saw_omp = false, saw_acc = false;
 
   if (exited_omp)
     {
@@ -2780,6 +2789,13 @@ check_previous_goto_1 (tree decl, cp_binding_level* level, tree names,
       error ("  exits OpenMP structured block");
       identified = saw_omp = true;
     }
+
+  if (exited_acc)
+  {
+    identify_goto (decl, locus);
+    error ("  exits OpenACC structured block");
+    identified = saw_acc = true;
+  }
 
   for (b = current_binding_level; b ; b = b->level_chain)
     {
@@ -2821,15 +2837,25 @@ check_previous_goto_1 (tree decl, cp_binding_level* level, tree names,
 	  saw_eh = true;
 	}
       if (b->kind == sk_omp && !saw_omp)
-	{
-	  if (!identified)
-	    {
-	      identify_goto (decl, locus);
-	      identified = true;
-	    }
-	  error ("  enters OpenMP structured block");
-	  saw_omp = true;
-	}
+        {
+          if (!identified)
+            {
+              identify_goto (decl, locus);
+              identified = true;
+            }
+          error ("  enters OpenMP structured block");
+          saw_omp = true;
+        }
+      if (b->kind == sk_acc && !saw_acc)
+      {
+        if (!identified)
+          {
+            identify_goto (decl, locus);
+            identified = true;
+          }
+        error ("  enters OpenACC structured block");
+        saw_acc = true;
+      }
     }
 
   return !identified;
@@ -2839,14 +2865,17 @@ static void
 check_previous_goto (tree decl, struct named_label_use_entry *use)
 {
   check_previous_goto_1 (decl, use->binding_level,
-			 use->names_in_scope, use->in_omp_scope,
+			 use->names_in_scope,
+			 use->in_omp_scope,
+			 use->in_acc_scope,
 			 &use->o_goto_locus);
 }
 
 static bool
 check_switch_goto (cp_binding_level* level)
 {
-  return check_previous_goto_1 (NULL_TREE, level, level->names, false, NULL);
+  return check_previous_goto_1 (NULL_TREE, level, level->names,
+                                false, false, NULL);
 }
 
 /* Check that a new jump to a label DECL is OK.  Called by
@@ -2890,14 +2919,18 @@ check_goto (tree decl)
       new_use->names_in_scope = current_binding_level->names;
       new_use->o_goto_locus = input_location;
       new_use->in_omp_scope = false;
+      new_use->in_acc_scope = false;
 
       new_use->next = ent->uses;
       ent->uses = new_use;
       return;
     }
 
-  if (ent->in_try_scope || ent->in_catch_scope
-      || ent->in_omp_scope || !vec_safe_is_empty (ent->bad_decls))
+  if (ent->in_try_scope
+      || ent->in_catch_scope
+      || ent->in_omp_scope
+      || ent->in_acc_scope
+      || !vec_safe_is_empty (ent->bad_decls))
     {
       permerror (input_location, "jump to label %q+D", decl);
       permerror (input_location, "  from here");
@@ -2948,6 +2981,29 @@ check_goto (tree decl)
 	    }
 	}
     }
+
+  if (ent->in_acc_scope)
+    error ("  enters OpenACC structured block");
+  else if (flag_openacc)
+    {
+      cp_binding_level *b;
+      for (b = current_binding_level; b ; b = b->level_chain)
+        {
+          if (b == ent->binding_level)
+            break;
+          if (b->kind == sk_acc)
+            {
+              if (!identified)
+                {
+                  permerror (input_location, "jump to label %q+D", decl);
+                  permerror (input_location, "  from here");
+                  identified = true;
+                }
+              error ("  exits OpenACC structured block");
+              break;
+            }
+        }
+    }
 }
 
 /* Check that a return is ok wrt OpenMP structured blocks.
@@ -2962,6 +3018,24 @@ check_omp_return (void)
       {
 	error ("invalid exit from OpenMP structured block");
 	return false;
+      }
+    else if (b->kind == sk_function_parms)
+      break;
+  return true;
+}
+
+/* Check that a return is ok wrt OpenACC structured blocks.
+ * Called by finish_return_stmt.  Returns true if all is well.
+ */
+bool
+check_acc_return (void)
+{
+  cp_binding_level *b;
+  for (b = current_binding_level; b ; b = b->level_chain)
+    if (b->kind == sk_acc)
+      {
+        error ("invalid exit from OpenACC structured block");
+        return false;
       }
     else if (b->kind == sk_function_parms)
       break;

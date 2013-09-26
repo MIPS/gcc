@@ -995,6 +995,65 @@ DEFTREECODE (TARGET_MEM_REF, "target_mem_ref", tcc_reference, 5)
    chain of component references offsetting p by c.  */
 DEFTREECODE (MEM_REF, "mem_ref", tcc_reference, 2)
 
+/* OpenACC */
+/* 3rd param - num of statements */
+
+/* #pragma acc parallel */
+/* Operand 0: BODY
+   Operand 1: CLAUSES   
+*/
+DEFTREECODE (ACC_PARALLEL, "acc_parallel", tcc_statement, 2)
+
+/* #pragma acc kernels */
+/* Operand 0: BODY
+   Operand 1: CLAUSES   
+*/
+DEFTREECODE (ACC_KERNELS, "acc_kernels", tcc_statement, 2)
+
+/* #pragma acc data */
+/* Operand 0: BODY
+   Operand 1: CLAUSES   
+*/
+DEFTREECODE (ACC_DATA, "acc_data", tcc_statement, 2)
+
+/* #pragma acc loop */
+/* Operand 0: BODY
+   Operand 1: CLAUSES
+   Operand 2: INIT
+   Operand 3: COND
+   Operand 4: INCR
+   Operand 5: PRE_BODY
+*/
+DEFTREECODE (ACC_LOOP, "acc_loop", tcc_statement, 6)
+
+/* #pragma acc host_data */
+/* Operand 0: BODY
+   Operand 1: CLAUSES   
+*/
+DEFTREECODE (ACC_HOST_DATA, "acc_host_data", tcc_statement, 2)
+
+/* #pragma acc declare */
+/* Operand 0: CLAUSES   
+*/
+DEFTREECODE (ACC_DECLARE, "acc_declare", tcc_statement, 1)
+
+/* #pragma acc update */
+/* Operand 0: CLAUSES   
+*/
+DEFTREECODE (ACC_UPDATE, "acc_update", tcc_statement, 1)
+
+/* #pragma acc wait */
+/* Operand 0: INT_EXPR
+*/
+DEFTREECODE (ACC_WAIT, "acc_wait", tcc_statement, 1)
+
+/* #pragma acc cache */
+/* Operand 0: LIST
+*/
+DEFTREECODE (ACC_CACHE, "acc_cache", tcc_statement, 1)
+
+DEFTREECODE (ACC_CLAUSE, "acc_clause", tcc_exceptional, 1)
+
 /* The ordering of the codes between OMP_PARALLEL and OMP_CRITICAL is
    exposed to TREE_RANGE_CHECK.  */
 /* OpenMP - #pragma omp parallel [clause1 ... clauseN]

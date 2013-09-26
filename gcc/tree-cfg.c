@@ -699,6 +699,17 @@ make_edges (void)
 	      }
 	      break;
 
+        case GIMPLE_ACC_PARALLEL:
+        case GIMPLE_ACC_KERNELS:
+        case GIMPLE_ACC_DATA:
+        case GIMPLE_ACC_CACHE:
+        case GIMPLE_ACC_WAIT:
+        case GIMPLE_ACC_HOST_DATA:
+        case GIMPLE_ACC_DECLARE:
+        case GIMPLE_ACC_UPDATE:
+        case GIMPLE_ACC_LOOP:
+          break;
+
 	    default:
 	      gcc_assert (!stmt_ends_bb_p (last));
 	      fallthru = true;
@@ -2278,6 +2289,11 @@ is_ctrl_altering_stmt (gimple t)
     CASE_GIMPLE_OMP:
       /* OpenMP directives alter control flow.  */
       return true;
+
+    CASE_GIMPLE_ACC:
+      /* OpenACC directives alter control flow.  */
+      //return true;
+			return false;
 
     case GIMPLE_TRANSACTION:
       /* A transaction start alters control flow.  */
@@ -4336,6 +4352,9 @@ verify_gimple_stmt (gimple stmt)
 	 its address taken.  This does not affect the loop itself
 	 because the header of an GIMPLE_OMP_FOR is merely used to determine
 	 how to setup the parallel iteration.  */
+      return false;
+
+    CASE_GIMPLE_ACC:
       return false;
 
     case GIMPLE_DEBUG:

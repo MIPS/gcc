@@ -936,7 +936,7 @@ gimple_build_omp_for (gimple_seq body, int kind, tree clauses, size_t collapse,
 
 gimple
 gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
-			   tree data_arg)
+                           tree data_arg)
 {
   gimple p = gimple_alloc (GIMPLE_OMP_PARALLEL, 0);
   if (body)
@@ -1118,6 +1118,182 @@ gimple_build_omp_atomic_store (tree val)
   gimple_omp_atomic_store_set_val (p, val);
   return p;
 }
+
+/********************* Begin of GIMPLE building routines **********************/
+/******************************************************************************/
+
+
+
+/* Set CLAUSES to be associated with ACC_PARALLEL GS.  */
+static inline void
+gimple_acc_parallel_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
+  gs->gimple_acc_parallel.clauses = clauses;
+}
+
+/* Return the child function of OMP_PARALLEL GS.  */
+static inline tree
+gimple_acc_parallel_child_fn (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
+  return gs->gimple_acc_parallel.child_fn;
+}
+
+/* Set CHILD_FN for ACC_PARALLEL GS.  */
+static inline void
+gimple_acc_parallel_set_child_fn (gimple gs, tree child_fn)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
+  gs->gimple_acc_parallel.child_fn = child_fn;
+}
+
+/* Set DATA_ARG for ACC_PARALLEL GS.  */
+static inline void
+gimple_acc_parallel_set_data_arg (gimple gs, tree data_arg)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
+  gs->gimple_acc_parallel.data_arg = data_arg;
+}
+
+
+gimple
+gimple_build_acc_parallel (gimple_seq body, tree clauses, tree child_fn,
+                           tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_PARALLEL, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  gimple_acc_parallel_set_clauses (p, clauses);
+  gimple_acc_parallel_set_child_fn (p, child_fn);
+  gimple_acc_parallel_set_data_arg (p, data_arg);
+
+  return p;
+}
+
+gimple
+gimple_build_acc_kernels (gimple_seq body, tree clauses, tree child_fn,
+                          tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_KERNELS, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  gimple_acc_kernels_set_clauses (p, clauses);
+  gimple_acc_kernels_set_child_fn (p, child_fn);
+  //gimple_acc_kernels_set_data_arg (p, data_arg);
+
+  return p;
+}
+
+gimple
+gimple_build_acc_data (gimple_seq body, tree clauses, tree child_fn,
+                       tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_DATA, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  return p;
+}
+
+gimple
+gimple_build_acc_cache (gimple_seq body, tree clauses, tree child_fn,
+                        tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_CACHE, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  return p;
+}
+
+gimple
+gimple_build_acc_wait (gimple_seq body, tree clauses, tree child_fn,
+                       tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_WAIT, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  return p;
+}
+
+gimple
+gimple_build_acc_host_data (gimple_seq body, tree clauses, tree child_fn,
+                            tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_HOST_DATA, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  return p;
+}
+
+gimple
+gimple_build_acc_loop (gimple_seq body, tree clauses, tree child_fn,
+                       tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_LOOP, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  return p;
+}
+
+gimple
+gimple_build_acc_declare (gimple_seq body, tree clauses, tree child_fn,
+                          tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_DECLARE, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  return p;
+}
+
+gimple
+gimple_build_acc_update (gimple_seq body, tree clauses, tree child_fn,
+                         tree data_arg)
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_UPDATE, 0);
+
+  if (body)
+  {
+    gimple_acc_set_body (p, body);
+  }
+
+  return p;
+}
+
+
+/********************** End of GIMPLE building routines ***********************/
+/******************************************************************************/
 
 /* Build a GIMPLE_TRANSACTION statement.  */
 
@@ -1792,6 +1968,32 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 			     callback_op, wi);
       if (ret)
 	return wi->callback_result;
+      break;
+
+/*  case GIMPLE_ACC_LOOP:
+      ret = walk_gimple_seq_mod (gimple_acc_for_pre_body_ptr (stmt),
+                                 callback_stmt,
+                                 callback_op,
+                                 wi);
+      if (ret)
+        return wi->callback_result;*/
+
+      /* FALL THROUGH.  */
+    case GIMPLE_ACC_PARALLEL:
+    case GIMPLE_ACC_KERNELS:
+    case GIMPLE_ACC_DATA:
+    case GIMPLE_ACC_CACHE:
+    case GIMPLE_ACC_WAIT:
+    case GIMPLE_ACC_HOST_DATA:
+    case GIMPLE_ACC_DECLARE:
+    case GIMPLE_ACC_UPDATE:
+      ret = walk_gimple_seq_mod (gimple_acc_body_ptr (stmt),
+                                 callback_stmt,
+                                 callback_op,
+                                 wi);
+
+      if (ret)
+        return wi->callback_result;
       break;
 
     case GIMPLE_WITH_CLEANUP_EXPR:

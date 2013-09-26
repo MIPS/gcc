@@ -8991,6 +8991,16 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OMP_TASKWAIT:
 	case EXEC_OMP_TASKYIELD:
 	case EXEC_OMP_WORKSHARE:
+	case EXEC_ACC_PARALLEL_LOOP:
+	case EXEC_ACC_PARALLEL:
+	case EXEC_ACC_KERNELS_LOOP:
+	case EXEC_ACC_KERNELS:
+	case EXEC_ACC_DATA:
+	case EXEC_ACC_HOST_DATA:
+	case EXEC_ACC_LOOP:
+	case EXEC_ACC_UPDATE:
+	case EXEC_ACC_WAIT:
+	case EXEC_ACC_CACHE:
 	  break;
 
 	default:
@@ -9733,6 +9743,14 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	      gfc_resolve_blocks (code->block, ns);
 	      gfc_do_concurrent_flag = 2;
 	      break;
+            case EXEC_ACC_PARALLEL:
+            case EXEC_ACC_KERNELS:
+            case EXEC_ACC_DATA:
+            case EXEC_ACC_HOST_DATA:
+            case EXEC_ACC_PARALLEL_LOOP:
+            case EXEC_ACC_KERNELS_LOOP:
+              gfc_resolve_acc_blocks (code, ns);
+              break;
 	    case EXEC_OMP_WORKSHARE:
 	      omp_workshare_save = omp_workshare_flag;
 	      omp_workshare_flag = 1;
@@ -10058,6 +10076,19 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	  omp_workshare_flag = 0;
 	  gfc_resolve_omp_directive (code, ns);
 	  omp_workshare_flag = omp_workshare_save;
+	  break;
+
+	case EXEC_ACC_PARALLEL_LOOP:
+	case EXEC_ACC_PARALLEL:
+	case EXEC_ACC_KERNELS_LOOP:
+	case EXEC_ACC_KERNELS:
+	case EXEC_ACC_DATA:
+	case EXEC_ACC_HOST_DATA:
+	case EXEC_ACC_LOOP:
+	case EXEC_ACC_UPDATE:
+	case EXEC_ACC_WAIT:
+	case EXEC_ACC_CACHE:
+	  gfc_resolve_acc_directive (code, ns);
 	  break;
 
 	default:
@@ -14500,6 +14531,39 @@ resolve_types (gfc_namespace *ns)
 }
 
 
+/* Insert an implicit data construct to the program or function */
+
+static void
+insert_acc_data_construct (gfc_namespace *ns, gfc_acc_clauses *acc_clauses)
+{
+  gfc_code *head = ns->code;
+  gfc_code *tail, *end;
+  gfc_code *new_root = gfc_get_code ();
+  gfc_code *block = gfc_get_code ();
+
+  new_root->op = block->op = EXEC_ACC_DATA;
+  new_root->block = block;
+  new_root->ext.acc_clauses = acc_clauses;
+
+  /* when there are no executable statements */
+  if (head->next == NULL)
+    new_root->next = head;
+  else
+    {
+      /* go to the end of function or program */
+      tail = head;
+      while(tail->next->next)
+        tail = tail->next;
+      end = tail->next;
+
+      new_root->next = end;
+      block->next = head;
+      tail->next = NULL;
+    }
+  ns->code = new_root;
+}
+
+
 /* Call resolve_code recursively.  */
 
 static void
@@ -14525,6 +14589,9 @@ resolve_codes (gfc_namespace *ns)
 
   old_obstack = labels_obstack;
   bitmap_obstack_initialize (&labels_obstack);
+
+  if (ns->declare_clauses)
+    insert_acc_data_construct(ns, ns->declare_clauses);
 
   resolve_code (ns->code, ns);
 

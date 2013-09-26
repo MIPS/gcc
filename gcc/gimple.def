@@ -349,6 +349,18 @@ DEFGSCODE(GIMPLE_OMP_SECTIONS_SWITCH, "gimple_omp_sections_switch", GSS_BASE)
    CLAUSES is an OMP_CLAUSE chain holding the associated clauses.  */
 DEFGSCODE(GIMPLE_OMP_SINGLE, "gimple_omp_single", GSS_OMP_SINGLE)
 
+/* OpenACC DEFGSCODEs */
+DEFGSCODE(GIMPLE_ACC, "gimple_acc", GSS_ACC)
+DEFGSCODE(GIMPLE_ACC_PARALLEL, "gimple_acc_parallel", GSS_ACC_PARALLEL)
+DEFGSCODE(GIMPLE_ACC_KERNELS, "gimple_acc_kernels", GSS_ACC_KERNELS)
+DEFGSCODE(GIMPLE_ACC_DATA, "gimple_acc_data", GSS_ACC_DATA)
+DEFGSCODE(GIMPLE_ACC_CACHE, "gimple_acc_cache", GSS_ACC_CACHE)
+DEFGSCODE(GIMPLE_ACC_WAIT, "gimple_acc_wait", GSS_ACC_WAIT)
+DEFGSCODE(GIMPLE_ACC_HOST_DATA, "gimple_acc_host_data", GSS_ACC_HOST_DATA)
+DEFGSCODE(GIMPLE_ACC_LOOP, "gimple_acc_loop", GSS_ACC_LOOP)
+DEFGSCODE(GIMPLE_ACC_DECLARE, "gimple_acc_declare", GSS_ACC_DECLARE)
+DEFGSCODE(GIMPLE_ACC_UPDATE, "gimple_acc_update", GSS_ACC_UPDATE)
+
 /* GIMPLE_PREDICT <PREDICT, OUTCOME> specifies a hint for branch prediction.
 
    PREDICT is one of the predictors from predict.def.

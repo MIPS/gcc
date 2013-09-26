@@ -1547,6 +1547,7 @@ begin_scope (scope_kind kind, tree entity)
     case sk_scoped_enum:
     case sk_function_parms:
     case sk_omp:
+    case sk_acc:
       scope->keep = keep_next_level_flag;
       break;
 
@@ -1711,7 +1712,7 @@ bool
 local_bindings_p (void)
 {
   cp_binding_level *b = innermost_nonclass_level ();
-  return b->kind < sk_function_parms || b->kind == sk_omp;
+  return b->kind < sk_function_parms || b->kind == sk_omp || b->kind == sk_acc;
 }
 
 /* True if the current level needs to have a BLOCK made.  */

@@ -5992,6 +5992,7 @@ gfc_match_end (gfc_statement *st)
 
     case COMP_CONTAINS:
     case COMP_DERIVED_CONTAINS:
+    case COMP_ACC_STRUCTURED_BLOCK:
       state = gfc_state_stack->previous->state;
       block_name = gfc_state_stack->previous->sym == NULL
 		 ? NULL : gfc_state_stack->previous->sym->name;

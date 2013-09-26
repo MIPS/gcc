@@ -532,6 +532,88 @@ decode_statement (void)
 }
 
 static gfc_statement
+decode_acc_directive (void)
+{
+  locus old_locus;
+  char c;
+
+  gfc_enforce_clean_symbol_state ();
+
+  gfc_clear_error ();   /* Clear any pending errors.  */
+  gfc_clear_warning (); /* Clear any pending warnings.  */
+
+  if (gfc_pure (NULL))
+    {
+      gfc_error_now ("OpenACC directives at %C may not appear in PURE "
+                     "or ELEMENTAL procedures");
+      gfc_error_recovery ();
+      return ST_NONE;
+    }
+
+  if (gfc_implicit_pure (NULL))
+    gfc_current_ns->proc_name->attr.implicit_pure = 0;
+
+  old_locus = gfc_current_locus;
+
+  /* General OpenACC directive matching: Instead of testing every possible
+     statement, we eliminate most possibilities by peeking at the
+     first character.  */
+
+  c = gfc_peek_ascii_char ();
+
+  switch (c)
+    {
+    case 'c':
+      match ("cache", gfc_match_acc_cache, ST_ACC_CACHE);
+      break;
+    case 'd':
+      match ("data", gfc_match_acc_data, ST_ACC_DATA);
+      match ("declare", gfc_match_acc_declare, ST_ACC_DECLARE);
+      break;
+    case 'e':
+      match ("end data", gfc_match_acc_eos, ST_ACC_END_DATA);
+      match ("end host_data", gfc_match_acc_eos, ST_ACC_END_HOST_DATA);
+      match ("end kernels loop", gfc_match_acc_eos, ST_ACC_END_KERNELS_LOOP);
+      match ("end kernels", gfc_match_acc_eos, ST_ACC_END_KERNELS);
+      match ("end parallel loop", gfc_match_acc_eos, ST_ACC_END_PARALLEL_LOOP);
+      match ("end parallel", gfc_match_acc_eos, ST_ACC_END_PARALLEL);
+      break;
+    case 'h':
+      match ("host_data", gfc_match_acc_host_data, ST_ACC_HOST_DATA);
+      break;
+    case 'p':
+      match ("parallel loop", gfc_match_acc_parallel_loop, ST_ACC_PARALLEL_LOOP);
+      match ("parallel", gfc_match_acc_parallel, ST_ACC_PARALLEL);
+      break;
+    case 'k':
+      match ("kernels loop", gfc_match_acc_kernels_loop, ST_ACC_KERNELS_LOOP);
+      match ("kernels", gfc_match_acc_kernels, ST_ACC_KERNELS);
+      break;
+    case 'l':
+      match ("loop", gfc_match_acc_loop, ST_ACC_LOOP);
+      break;
+    case 'u':
+      match ("update", gfc_match_acc_update, ST_ACC_UPDATE);
+      break;
+    case 'w':
+      match ("wait", gfc_match_acc_wait, ST_ACC_WAIT);
+      break;
+    }
+
+  /* All else has failed, so give up.  See if any of the matchers has
+       stored an error message of some sort.  */
+
+  if (gfc_error_check () == 0)
+    gfc_error_now ("Unclassifiable OpenACC directive at %C");
+
+  reject_statement ();
+
+  gfc_error_recovery ();
+
+  return ST_NONE;
+}
+
+static gfc_statement
 decode_omp_directive (void)
 {
   locus old_locus;
@@ -737,7 +819,7 @@ next_free (void)
   else if (c == '!')
     {
       /* Comments have already been skipped by the time we get here,
-	 except for GCC attributes and OpenMP directives.  */
+	 except for GCC attributes and OpenMP/OpenACC directives.  */
 
       gfc_next_ascii_char (); /* Eat up the exclamation sign.  */
       c = gfc_peek_ascii_char ();
@@ -754,20 +836,73 @@ next_free (void)
 	  return decode_gcc_attribute ();
 
 	}
-      else if (c == '$' && gfc_option.gfc_flag_openmp)
-	{
-	  int i;
+      else if (c == '$')
+        {
+          /* Since both OpenMP and OpenACC directives starts with !$ character sequence,
+             we must check all flags combinations */
+          if (gfc_option.gfc_flag_openmp && !gfc_option.gfc_flag_openacc)
+            {
+              int i;
 
-	  c = gfc_next_ascii_char ();
-	  for (i = 0; i < 4; i++, c = gfc_next_ascii_char ())
-	    gcc_assert (c == "$omp"[i]);
+              c = gfc_next_ascii_char ();
+              for (i = 0; i < 4; i++, c = gfc_next_ascii_char ())
+                gcc_assert (c == "$omp"[i]);
 
-	  gcc_assert (c == ' ' || c == '\t');
-	  gfc_gobble_whitespace ();
-	  if (last_was_use_stmt)
-	    use_modules ();
-	  return decode_omp_directive ();
-	}
+              gcc_assert (c == ' ' || c == '\t');
+              gfc_gobble_whitespace ();
+              if (last_was_use_stmt)
+                use_modules ();
+              return decode_omp_directive ();
+            }
+          else if (gfc_option.gfc_flag_openmp && gfc_option.gfc_flag_openacc)
+            {
+              gfc_next_ascii_char (); /* Eat up dollar character */
+              c = gfc_peek_ascii_char ();
+
+              if (c == 'o')
+                {
+                  int i;
+
+                  c = gfc_next_ascii_char ();
+                  for (i = 0; i < 3; i++, c = gfc_next_ascii_char ())
+                    gcc_assert (c == "omp"[i]);
+
+                  gcc_assert (c == ' ' || c == '\t');
+                  gfc_gobble_whitespace ();
+                  if (last_was_use_stmt)
+                    use_modules ();
+                  return decode_omp_directive ();
+                }
+              else if (c == 'a')
+                {
+                  int i;
+
+                  c = gfc_next_ascii_char ();
+                  for (i = 0; i < 3; i++, c = gfc_next_ascii_char ())
+                    gcc_assert (c == "acc"[i]);
+
+                  gcc_assert (c == ' ' || c == '\t');
+                  gfc_gobble_whitespace ();
+                  if (last_was_use_stmt)
+                    use_modules ();
+                  return decode_acc_directive ();
+                }
+            }
+          else if (gfc_option.gfc_flag_openacc)
+            {
+              int i;
+
+              c = gfc_next_ascii_char ();
+              for (i = 0; i < 4; i++, c = gfc_next_ascii_char ())
+                gcc_assert (c == "$acc"[i]);
+
+              gcc_assert (c == ' ' || c == '\t');
+              gfc_gobble_whitespace ();
+              if (last_was_use_stmt)
+                use_modules ();
+              return decode_acc_directive ();
+            }
+        }
 
       gcc_unreachable (); 
     }
@@ -843,20 +978,72 @@ next_fixed (void)
 
 	      return decode_gcc_attribute ();
 	    }
-	  else if (c == '$' && gfc_option.gfc_flag_openmp)
+	  else if (c == '$')
 	    {
-	      for (i = 0; i < 4; i++, c = gfc_next_char_literal (NONSTRING))
-		gcc_assert ((char) gfc_wide_tolower (c) == "$omp"[i]);
+              if (gfc_option.gfc_flag_openmp && !gfc_option.gfc_flag_openacc)
+                {
+                  for (i = 0; i < 4; i++, c = gfc_next_char_literal (NONSTRING))
+                    gcc_assert ((char) gfc_wide_tolower (c) == "$omp"[i]);
 
-	      if (c != ' ' && c != '0')
-		{
-		  gfc_buffer_error (0);
-		  gfc_error ("Bad continuation line at %C");
-		  return ST_NONE;
-		}
-	      if (last_was_use_stmt)
-		use_modules ();
-	      return decode_omp_directive ();
+                  if (c != ' ' && c != '0')
+                    {
+                      gfc_buffer_error (0);
+                      gfc_error ("Bad continuation line at %C");
+                      return ST_NONE;
+                    }
+                  if (last_was_use_stmt)
+                    use_modules ();
+                  return decode_omp_directive ();
+                }
+              else if (gfc_option.gfc_flag_openmp && gfc_option.gfc_flag_openacc)
+                {
+                  c = gfc_next_char_literal(NONSTRING);
+                  if (c == 'o' || c == 'O')
+                    {
+                      for (i = 0; i < 3; i++, c = gfc_next_char_literal (NONSTRING))
+                        gcc_assert ((char) gfc_wide_tolower (c) == "omp"[i]);
+
+                      if (c != ' ' && c != '0')
+                        {
+                          gfc_buffer_error (0);
+                          gfc_error ("Bad continuation line at %C");
+                          return ST_NONE;
+                        }
+                      if (last_was_use_stmt)
+                        use_modules ();
+                      return decode_omp_directive ();
+                    }
+                  else if (c == 'a' || c == 'A')
+                    {
+                      for (i = 0; i < 3; i++, c = gfc_next_char_literal (NONSTRING))
+                        gcc_assert ((char) gfc_wide_tolower (c) == "acc"[i]);
+
+                      if (c != ' ' && c != '0')
+                        {
+                          gfc_buffer_error (0);
+                          gfc_error ("Bad continuation line at %C");
+                          return ST_NONE;
+                        }
+                      if (last_was_use_stmt)
+                        use_modules ();
+                      return decode_acc_directive ();
+                    }
+                }
+              else if (gfc_option.gfc_flag_openacc)
+                {
+                  for (i = 0; i < 4; i++, c = gfc_next_char_literal (NONSTRING))
+                    gcc_assert ((char) gfc_wide_tolower (c) == "$acc"[i]);
+
+                  if (c != ' ' && c != '0')
+                    {
+                      gfc_buffer_error (0);
+                      gfc_error ("Bad continuation line at %C");
+                      return ST_NONE;
+                    }
+                  if (last_was_use_stmt)
+                    use_modules ();
+                  return decode_acc_directive ();
+                }
 	    }
 	  /* FALLTHROUGH */
 
@@ -1015,7 +1202,8 @@ next_statement (void)
   case ST_LABEL_ASSIGNMENT: case ST_FLUSH: case ST_OMP_FLUSH: \
   case ST_OMP_BARRIER: case ST_OMP_TASKWAIT: case ST_OMP_TASKYIELD: \
   case ST_ERROR_STOP: case ST_SYNC_ALL: case ST_SYNC_IMAGES: \
-  case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK
+  case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK: case ST_ACC_UPDATE: \
+  case ST_ACC_WAIT: case ST_ACC_CACHE
 
 /* Statements that mark other executable statements.  */
 
@@ -1027,7 +1215,9 @@ next_statement (void)
   case ST_OMP_CRITICAL: case ST_OMP_MASTER: case ST_OMP_SINGLE: \
   case ST_OMP_DO: case ST_OMP_PARALLEL_DO: case ST_OMP_ATOMIC: \
   case ST_OMP_WORKSHARE: case ST_OMP_PARALLEL_WORKSHARE: \
-  case ST_OMP_TASK: case ST_CRITICAL
+  case ST_OMP_TASK: case ST_CRITICAL: \
+  case ST_ACC_PARALLEL_LOOP: case ST_ACC_PARALLEL: case ST_ACC_KERNELS: \
+  case ST_ACC_DATA: case ST_ACC_HOST_DATA: case ST_ACC_LOOP: case ST_ACC_KERNELS_LOOP
 
 /* Declaration statements */
 
@@ -1054,6 +1244,8 @@ push_state (gfc_state_data *p, gfc_compile_state new_state, gfc_symbol *sym)
   p->sym = sym;
   p->head = p->tail = NULL;
   p->do_variable = NULL;
+  if (p->state != COMP_DO && p->state != COMP_DO_CONCURRENT)
+    p->ext.declare_clauses = NULL;
 
   /* If this the state of a construct like BLOCK, DO or IF, the corresponding
      construct statement was accepted right before pushing the state.  Thus,
@@ -1615,6 +1807,57 @@ gfc_ascii_statement (gfc_statement st)
     case ST_OMP_WORKSHARE:
       p = "!$OMP WORKSHARE";
       break;
+    case ST_ACC_PARALLEL_LOOP:
+      p = "!$ACC PARALLEL LOOP";
+      break;
+    case ST_ACC_END_PARALLEL_LOOP:
+      p = "!$ACC END PARALLEL LOOP";
+      break;
+    case ST_ACC_PARALLEL:
+      p = "!$ACC PARALLEL";
+      break;
+    case ST_ACC_END_PARALLEL:
+      p = "!$ACC END PARALLEL";
+      break;
+    case ST_ACC_KERNELS:
+      p = "!$ACC KERNELS";
+      break;
+    case ST_ACC_END_KERNELS:
+      p = "!$ACC END KERNELS";
+      break;
+    case ST_ACC_KERNELS_LOOP:
+      p = "!$ACC KERNELS LOOP";
+      break;
+    case ST_ACC_END_KERNELS_LOOP:
+      p = "!$ACC END KERNELS LOOP";
+      break;
+    case ST_ACC_DATA:
+      p = "!$ACC DATA";
+      break;
+    case ST_ACC_END_DATA:
+      p = "!$ACC END DATA";
+      break;
+    case ST_ACC_HOST_DATA:
+      p = "!$ACC HOST_DATA";
+      break;
+    case ST_ACC_END_HOST_DATA:
+      p = "!$ACC END HOST_DATA";
+      break;
+    case ST_ACC_LOOP:
+      p = "!$ACC LOOP";
+      break;
+    case ST_ACC_DECLARE:
+      p = "!$ACC DECLARE";
+      break;
+    case ST_ACC_UPDATE:
+      p = "!$ACC UPDATE";
+      break;
+    case ST_ACC_WAIT:
+      p = "!$ACC WAIT";
+      break;
+    case ST_ACC_CACHE:
+      p = "!$ACC CACHE";
+      break;
     default:
       gfc_internal_error ("gfc_ascii_statement(): Bad statement code");
     }
@@ -1883,6 +2126,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
     case ST_PUBLIC:
     case ST_PRIVATE:
     case ST_DERIVED_DECL:
+    case ST_ACC_DECLARE:
     case_decl:
       if (p->state >= ORDER_EXEC)
 	goto order;
@@ -2754,6 +2998,22 @@ declSt:
       if (match_deferred_characteristics (ts) != MATCH_YES)
 	bad_characteristic = true;
 
+      st = next_statement ();
+      goto loop;
+
+      /* In case of !$ACC DECLARE directive we have to transform it to !$ACC DATA construct */
+    case ST_ACC_DECLARE:
+      if (!verify_st_order(&ss, st, false))
+        {
+          reject_statement ();
+          st = next_statement ();
+          goto loop;
+        }
+      if (gfc_state_stack->ext.declare_clauses == NULL)
+        {
+          gfc_state_stack->ext.declare_clauses = new_st.ext.acc_clauses;
+        }
+      accept_statement (st);
       st = next_statement ();
       goto loop;
 
@@ -3785,6 +4045,112 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 }
 
 
+/* Parse the statements of an OpenACC structured block.  */
+
+static void
+parse_acc_structured_block (gfc_statement acc_st)
+{
+  gfc_statement st, acc_end_st;
+  gfc_code *cp, *np;
+  gfc_state_data s;
+
+  accept_statement (acc_st);
+
+  cp = gfc_state_stack->tail;
+  push_state (&s, COMP_ACC_STRUCTURED_BLOCK, NULL);
+  np = new_level (cp);
+  np->op = cp->op;
+  np->block = NULL;
+  switch (acc_st)
+    {
+    case ST_ACC_PARALLEL:
+      acc_end_st = ST_ACC_END_PARALLEL;
+      break;
+    case ST_ACC_KERNELS:
+      acc_end_st = ST_ACC_END_KERNELS;
+      break;
+    case ST_ACC_DATA:
+      acc_end_st = ST_ACC_END_DATA;
+      break;
+    case ST_ACC_HOST_DATA:
+      acc_end_st = ST_ACC_END_HOST_DATA;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  do
+    {
+      st = parse_executable (ST_NONE);
+      if (st == ST_NONE)
+        unexpected_eof ();
+      else if (st != acc_end_st)
+        unexpected_statement (st);
+    }
+  while (st != acc_end_st);
+
+  gcc_assert (new_st.op == EXEC_NOP);
+
+  gfc_clear_new_st ();
+  gfc_commit_symbols ();
+  gfc_warning_check ();
+  pop_state ();
+}
+
+/* Parse the statements of OpenACC loop/parallel loop/kernels loop.  */
+
+static gfc_statement
+parse_acc_loop (gfc_statement acc_st)
+{
+  gfc_statement st;
+  gfc_code *cp, *np;
+  gfc_state_data s;
+
+  accept_statement (acc_st);
+
+  cp = gfc_state_stack->tail;
+  push_state (&s, COMP_ACC_STRUCTURED_BLOCK, NULL);
+  np = new_level (cp);
+  np->op = cp->op;
+  np->block = NULL;
+
+  for (;;)
+    {
+      st = next_statement ();
+      if (st == ST_NONE)
+        unexpected_eof ();
+      else if (st == ST_DO)
+        break;
+      else
+        unexpected_statement (st);
+    }
+
+  parse_do_block ();
+  if (gfc_statement_label != NULL
+      && gfc_state_stack->previous != NULL
+      && gfc_state_stack->previous->state == COMP_DO
+      && gfc_state_stack->previous->ext.end_do_label == gfc_statement_label)
+    {
+      pop_state ();
+      return ST_IMPLIED_ENDDO;
+    }
+
+  check_do_closure ();
+  pop_state ();
+
+  st = next_statement ();
+  if (acc_st == ST_ACC_PARALLEL_LOOP && st == ST_ACC_END_PARALLEL_LOOP ||
+      acc_st == ST_ACC_KERNELS_LOOP && st == ST_ACC_END_KERNELS_LOOP)
+    {
+      gcc_assert (new_st.op == EXEC_NOP);
+      gfc_clear_new_st ();
+      gfc_commit_symbols ();
+      gfc_warning_check ();
+      st = next_statement ();
+    }
+  return st;
+}
+
 /* Accept a series of executable statements.  We return the first
    statement that doesn't fit to the caller.  Any block statements are
    passed on to the correct handler, which usually passes the buck
@@ -3909,6 +4275,21 @@ parse_executable (gfc_statement st)
 	case ST_OMP_ATOMIC:
 	  st = parse_omp_atomic ();
 	  continue;
+
+	case ST_ACC_PARALLEL_LOOP:
+	case ST_ACC_KERNELS_LOOP:
+	case ST_ACC_LOOP:
+	  st = parse_acc_loop (st);
+          if (st == ST_IMPLIED_ENDDO)
+            return st;
+	  continue;
+
+	case ST_ACC_PARALLEL:
+	case ST_ACC_KERNELS:
+	case ST_ACC_DATA:
+	case ST_ACC_HOST_DATA:
+	  parse_acc_structured_block (st);
+	  break;
 
 	default:
 	  return st;
@@ -4193,6 +4574,11 @@ contains:
 
 done:
   gfc_current_ns->code = gfc_state_stack->head;
+  if (gfc_state_stack->state == COMP_PROGRAM ||
+      gfc_state_stack->state == COMP_MODULE ||
+      gfc_state_stack->state == COMP_SUBROUTINE ||
+      gfc_state_stack->state == COMP_FUNCTION)
+    gfc_current_ns->declare_clauses = gfc_state_stack->ext.declare_clauses;
 }
 
 
@@ -4685,7 +5071,7 @@ prog_units:
   pop_state ();
   goto loop;
 
-  done:
+done:
 
   /* Do the resolution.  */
   resolve_all_program_units (gfc_global_ns_list);

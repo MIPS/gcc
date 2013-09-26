@@ -836,6 +836,10 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.gfc_flag_openmp = value;
       break;
 
+    case OPT_fopenacc:
+      gfc_option.gfc_flag_openacc = value;
+      break;
+
     case OPT_ffree_line_length_none:
       gfc_option.free_line_length = 0;
       break;

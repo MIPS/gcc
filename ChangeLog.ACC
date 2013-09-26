@@ -1,0 +1,79 @@
+26-09-2013 Evgeny Gavrin <e.gavrin@samsung.com>
+    Initial source drop for OpenACC implementation
+
+    Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Evgeny Gavrin <e.gavrin@samsung.com>
+    Ilmir Usmanov <i.usmanov@samsung.com>
+
+    * liboacc/*: Add runtime library for OpenACC.
+    * gcc/Makefile.in: Likewise.
+    * gcc/oacc-builtins.def: Add builtins for ACC.
+    * gcc/gimple-opencl.c: Add OpenCL generation.
+    * gcc/gimple-opencl.h: Likewise.
+    * gcc/oacc-low.c: Add OpenACC lowering pass.
+    * gcc/gimple-low.c: Likewise.
+    * gcc/builtin-types.def: Add support of OpenACC.
+    * gcc/gsstruct.def: Likewise.
+    * gcc/tree.def: Likewise.
+    * gcc/treestruct.def: Likewise.
+    * gcc/tree-cfg.c: Likewise.
+    * gcc/tree-core.h: Likewise.
+    * gcc/cp/cp-tree.h: Likewise.
+    * gcc/cp/decl.c: Likewise.
+    * gcc/cp/semantics.c: Likewise.
+    * gcc/cp/parser.c: Likewise.
+    * gcc/cp/parser.h: Likewise.
+    * gcc/cp/name-lookup.c: Likewise.
+    * gcc/cp/name-lookup.h: Likewise.
+    * gcc/tree-pass.h: Likewise.
+    * gcc/gimple.def: Likewise.
+    * gcc/testsuite/gfortran.dg/gacc: Add Fortran tests
+    * gcc/passes.def: Add OpenACC passes.
+    * gcc/tree-pretty-print.c: Add some pp funcs.
+    * gcc/tree-pretty-print.h: Likewise.
+    * gcc/builtins.def: Add builtins for OpenACC.
+    * gcc/fortran/*: Add ACC support for Fortran.
+    * gcc/fortran/gfortran.h: Likewise.
+    * gcc/fortran/lang.opt: Likewise..
+    * gcc/fortran/trans-stmt.h: Likewise.
+    * gcc/fortran/scanner.c: Likewise.
+    * gcc/fortran/trans-openacc.c: Likewise.
+    * gcc/fortran/resolve.c: Likewise.
+    * gcc/fortran/f95-lang.c: Likewise.
+    * gcc/fortran/match.c: Likewise.
+    * gcc/fortran/match.h: Likewise.
+    * gcc/fortran/types.def: Likewise.
+    * gcc/fortran/decl.c: Likewise.
+    * gcc/fortran/openacc.c: Likewise.
+    * gcc/fortran/dump-parse-tree.c: Likewise.
+    * gcc/fortran/Make-lang.in: Likewise.
+    * gcc/fortran/trans.c: Likewise.
+    * gcc/fortran/st.c: Likewise.
+    * gcc/fortran/parse.c: Likewise.
+    * gcc/fortran/parse.h: Likewise.
+    * gcc/fortran/options.c: Likewise.
+    * gcc/gimplify.c: Add gimplification functions.
+    * gcc/diagnose-gotos.c: Add ACC support for BE.
+    * gcc/diagnose-gotos.h: Likewise.
+    * gcc/common.opt: Add profiling flags for ACC.
+    * gcc/c/c-parser.c: Add parsing routing for ACC.
+    * gcc/gimple.c: Add ACC representation.
+    * gcc/gimple.h: Likewise.
+    * gcc/gimple-pretty-print.c: Likewise.
+    * gcc/tree-inline.c: Add dependency checks, loop unfolding.
+    * gcc/tree-inline.h: Likewise.
+    * gcc/c-family/c-pragma.c: Add ACC pragma's and clauses.
+    * gcc/c-family/c-pragma.h: Likewise.
+    * gcc/c-family/c.opt: Add flag to enable OpenACC
+    * gcc/c-family/c-cppbuiltin.c: Add ACC builtins.
+    * gcc/tree.c: Add support of OpenACC.
+    * gcc/tree.h: Likewise.
+    * gcc/gcc.c: Likewise.
+    * gcc/tree-dump.c: Likewise.
+    * gcc/omp-low.c: Likewise.
+    * README.ACC: Add README for OpenACC.
+    * Makefile.in: Integrate with GCC build.
+    * Makefile.def: Likewise.
+    * ChangeLog.ACC : Add ChangeLog for ACC.
+    * configure.ac : Add configure flag for OpenCL.
+    * configure: Regenerate.

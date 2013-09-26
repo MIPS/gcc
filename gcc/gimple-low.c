@@ -474,6 +474,17 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       lower_sequence (gimple_transaction_body_ptr (stmt), data);
       break;
 
+    case GIMPLE_ACC_LOOP:
+    case GIMPLE_ACC_PARALLEL:
+    case GIMPLE_ACC_KERNELS:
+    case GIMPLE_ACC_DATA:
+    case GIMPLE_ACC_CACHE:
+    case GIMPLE_ACC_WAIT:
+    case GIMPLE_ACC_HOST_DATA:
+    case GIMPLE_ACC_DECLARE:
+    case GIMPLE_ACC_UPDATE:
+      break;
+
     default:
       gcc_unreachable ();
     }

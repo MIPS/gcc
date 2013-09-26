@@ -4020,6 +4020,11 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
   TREE_TYPE (OMP_CLAUSE_RANGE_CHECK (NODE, OMP_CLAUSE_PRIVATE, \
 				     OMP_CLAUSE_LINEAR))
 
+/* A language-specific token attached to the OpenACC data clauses to
+   hold code (or code fragments) related to ctors, dtors, and op=.
+   See semantics.c for details.  */
+#define CP_ACC_CLAUSE_INFO(NODE)                   TREE_TYPE (NODE)
+
 /* Nonzero if this transaction expression's body contains statements.  */
 #define TRANSACTION_EXPR_IS_STMT(NODE) \
    TREE_LANG_FLAG_0 (TRANSACTION_EXPR_CHECK (NODE))
@@ -5167,7 +5172,8 @@ extern tree duplicate_decls			(tree, tree, bool);
 extern tree declare_local_label			(tree);
 extern tree define_label			(location_t, tree);
 extern void check_goto				(tree);
-extern bool check_omp_return			(void);
+extern bool check_omp_return                    (void);
+extern bool check_acc_return                    (void);
 extern tree make_typename_type			(tree, tree, enum tag_types, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tree, tsubst_flags_t);
 extern tree build_library_fn_ptr		(const char *, tree, int);
@@ -5774,6 +5780,16 @@ extern tree finish_qualified_id_expr		(tree, tree, bool, bool,
 extern void simplify_aggr_init_expr		(tree *);
 extern void finalize_nrv			(tree *, tree, tree);
 extern void note_decl_for_pch			(tree);
+
+extern tree begin_acc_structured_block          (void);
+extern tree finish_acc_structured_block         (tree);
+extern tree begin_acc_parallel                  (void);
+extern tree finish_acc_parallel                 (tree, tree);
+extern tree begin_acc_kernels                   (void);
+extern tree finish_acc_kernels                  (tree, tree);
+extern tree finish_acc_clauses                  (tree);
+
+
 extern tree finish_omp_clauses			(tree);
 extern void finish_omp_threadprivate		(tree);
 extern tree begin_omp_structured_block		(void);

@@ -2367,6 +2367,71 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
   return true;
 }
 
+tree
+acc_reduction_init (tree clause, tree type)
+{
+  location_t loc = ACC_CLAUSE_LOCATION (clause);
+  switch (ACC_CLAUSE_REDUCTION_CODE (clause))
+    {
+    case PLUS_EXPR:
+    case MINUS_EXPR:
+    case BIT_IOR_EXPR:
+    case BIT_XOR_EXPR:
+    case TRUTH_OR_EXPR:
+    case TRUTH_ORIF_EXPR:
+    case TRUTH_XOR_EXPR:
+    case NE_EXPR:
+      return build_zero_cst (type);
+
+    case MULT_EXPR:
+    case TRUTH_AND_EXPR:
+    case TRUTH_ANDIF_EXPR:
+    case EQ_EXPR:
+      return fold_convert_loc (loc, type, integer_one_node);
+
+    case BIT_AND_EXPR:
+      return fold_convert_loc (loc, type, integer_minus_one_node);
+
+    case MAX_EXPR:
+      if (SCALAR_FLOAT_TYPE_P (type))
+        {
+          REAL_VALUE_TYPE max, min;
+          if (HONOR_INFINITIES (TYPE_MODE (type)))
+            {
+              real_inf (&max);
+              real_arithmetic (&min, NEGATE_EXPR, &max, NULL);
+            }
+          else
+            real_maxval (&min, 1, TYPE_MODE (type));
+          return build_real (type, min);
+        }
+      else
+        {
+          gcc_assert (INTEGRAL_TYPE_P (type));
+          return TYPE_MIN_VALUE (type);
+        }
+
+    case MIN_EXPR:
+      if (SCALAR_FLOAT_TYPE_P (type))
+        {
+          REAL_VALUE_TYPE max;
+          if (HONOR_INFINITIES (TYPE_MODE (type)))
+            real_inf (&max);
+          else
+            real_maxval (&max, 0, TYPE_MODE (type));
+          return build_real (type, max);
+        }
+      else
+        {
+          gcc_assert (INTEGRAL_TYPE_P (type));
+          return TYPE_MAX_VALUE (type);
+        }
+
+    default:
+      gcc_unreachable ();
+    }
+}
+
 /* Generate code to implement the input clauses, FIRSTPRIVATE and COPYIN,
    from the receiver (aka child) side and initializers for REFERENCE_TYPE
    private variables.  Initialization statements go in ILIST, while calls

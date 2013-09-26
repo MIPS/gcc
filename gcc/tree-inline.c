@@ -3839,6 +3839,21 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return (weights->tm_cost
 	      + estimate_num_insns_seq (gimple_transaction_body (stmt),
 					weights));
+    
+    case GIMPLE_ACC_KERNELS:
+			return weights->acc_cost;
+		case GIMPLE_ACC_PARALLEL:
+    /*case GIMPLE_ACC_KERNELS:*/
+    case GIMPLE_ACC_DATA:
+    case GIMPLE_ACC_CACHE:
+    case GIMPLE_ACC_WAIT:
+    case GIMPLE_ACC_HOST_DATA:
+    case GIMPLE_ACC_DECLARE:
+    case GIMPLE_ACC_UPDATE:
+    case GIMPLE_ACC_LOOP:
+      return (weights->acc_cost
+				+ (gimple_acc_body(stmt) ? estimate_num_insns_seq (gimple_acc_body (stmt), weights) : 1000));
+
 
     default:
       gcc_unreachable ();

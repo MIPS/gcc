@@ -145,6 +145,21 @@ match gfc_match_omp_workshare (void);
 match gfc_match_omp_end_nowait (void);
 match gfc_match_omp_end_single (void);
 
+/* openacc.h */
+
+match gfc_match_acc_eos (void);
+match gfc_match_acc_cache (void);
+match gfc_match_acc_wait (void);
+match gfc_match_acc_update (void);
+match gfc_match_acc_declare (void);
+match gfc_match_acc_loop (void);
+match gfc_match_acc_host_data (void);
+match gfc_match_acc_data (void);
+match gfc_match_acc_kernels (void);
+match gfc_match_acc_kernels_loop (void);
+match gfc_match_acc_parallel (void);
+match gfc_match_acc_parallel_loop (void);
+
 /* decl.c.  */
 
 match gfc_match_data (void);

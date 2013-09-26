@@ -147,6 +147,13 @@ along with GCC; see the file COPYING3.  If not see
                false, true, true, ATTRS, false, \
 	       (flag_openmp || flag_tree_parallelize_loops))
 
+/* Builtin used by the implementation of OpenACC.  None of these are
+   actually implemented in the compiler; they're all in lib???.  */
+#undef DEF_OACC_BUILTIN
+#define DEF_OACC_BUILTIN(ENUM, NAME, TYPE, ATTRS) \
+  DEF_BUILTIN (ENUM, "__builtin_" NAME, BUILT_IN_NORMAL, TYPE, TYPE,    \
+               false, true, true, ATTRS, false, flag_openacc)
+
 /* Builtin used by the implementation of GNU TM.  These
    functions are mapped to the actual implementation of the STM library. */
 #undef DEF_TM_BUILTIN
@@ -845,6 +852,9 @@ DEF_GCC_BUILTIN (BUILT_IN_LINE, "LINE", BT_FN_INT, ATTR_NOTHROW_LEAF_LIST)
 
 /* OpenMP builtins.  */
 #include "omp-builtins.def"
+
+/* OpenACC builtins.  */
+#include "oacc-builtins.def"
 
 /* GTM builtins. */
 #include "gtm-builtins.def"

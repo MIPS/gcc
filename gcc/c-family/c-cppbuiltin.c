@@ -898,6 +898,9 @@ c_cpp_builtins (cpp_reader *pfile)
   if (flag_openmp)
     cpp_define (pfile, "_OPENMP=201107");
 
+  if (flag_openacc)
+    cpp_define (pfile, "_OPENACC=201111");
+
   if (int128_integer_type_node != NULL_TREE)
     builtin_define_type_sizeof ("__SIZEOF_INT128__",
 			        int128_integer_type_node);

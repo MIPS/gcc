@@ -143,6 +143,7 @@ static const char * const tree_node_kind_names[] = {
   "lang_decl kinds",
   "lang_type kinds",
   "omp clauses",
+  "acc clauses"
 };
 
 /* Unique id for next decl created.  */
@@ -278,6 +279,74 @@ const char * const omp_clause_code_name[] =
   "_simduid_"
 };
 
+/* Number of operands for each OpenACC clause.  */
+/* TODO On first view - is okay, but number of operand maybe incorrect,
+ * because this values accounts only single values
+ * On my view, 3 - for ranges is okay. Evgeny Gavrin */
+unsigned const char acc_clause_num_ops[] =
+{
+  0,  //  PRAGMA_ACC_CLAUSE_ERROR,
+  1,  //  PRAGMA_ACC_CLAUSE_IF,
+  1,  //  PRAGMA_ACC_CLAUSE_ASYNC,
+  3,  //  PRAGMA_ACC_CLAUSE_COLLAPSE,
+  0,  //  PRAGMA_ACC_CLAUSE_SEQ,
+  0,  //  PRAGMA_ACC_CLAUSE_INDEPENDENT,
+  1,  //  PRAGMA_ACC_CLAUSE_GANG,
+  1,  //  PRAGMA_ACC_CLAUSE_WORKER,
+  1,  //  PRAGMA_ACC_CLAUSE_VECTOR,
+  1,  //  PRAGMA_ACC_CLAUSE_NUM_GANGS,
+  1,  //  PRAGMA_ACC_CLAUSE_NUM_WORKERS,
+  1,  //  PRAGMA_ACC_CLAUSE_VECTOR_LENGTH,
+  4,  //  PRAGMA_ACC_CLAUSE_REDUCTION,
+  3,  //  PRAGMA_ACC_CLAUSE_COPY,
+  3,  //  PRAGMA_ACC_CLAUSE_COPYIN,
+  3,  //  PRAGMA_ACC_CLAUSE_COPYOUT,
+  3,  //  PRAGMA_ACC_CLAUSE_CREATE,
+  3,  //  PRAGMA_ACC_CLAUSE_PRESENT,
+  3,  //  PRAGMA_ACC_CLAUSE_PRESENT_OR_COPY,
+  3,  //  PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYIN,
+  3,  //  PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYOUT,
+  3,  //  PRAGMA_ACC_CLAUSE_PRESENT_OR_CREATE,
+  1,  //  PRAGMA_ACC_CLAUSE_HOST,
+  1,  //  PRAGMA_ACC_CLAUSE_DEVICE,
+  1,  //  PRAGMA_ACC_CLAUSE_DEVICEPTR,
+  1,  //  PRAGMA_ACC_CLAUSE_DEVICE_RESIDENT,
+  1,  //  PRAGMA_ACC_CLAUSE_USE_DEVICE,
+  3,  //  PRAGMA_ACC_CLAUSE_PRIVATE,
+  3   //  PRAGMA_ACC_CLAUSE_FIRSTPRIVATE
+};
+
+const char * const acc_clause_code_name[] =
+{
+  "if",
+  "async",
+  "collapse",
+  "seq",
+  "indepentend",
+  "gang",
+  "worker",
+  "vector",
+  "num_gangs",
+  "num_workers",
+  "vector_length",
+  "reduction",
+  "copy",
+  "copyin",
+  "copyout",
+  "create",
+  "present",
+  "present_or_copy",
+  "present_or_copyin",
+  "present_or_copyout",
+  "present_or_create",
+  "host",
+  "device",
+  "deviceptr",
+  "device_resident",
+  "use_device",
+  "private",
+  "firstprivate"
+};
 
 /* Return the tree node structure used by tree code CODE.  */
 
@@ -348,6 +417,7 @@ tree_node_structure_for_code (enum tree_code code)
     case CONSTRUCTOR:		return TS_CONSTRUCTOR;
     case TREE_BINFO:		return TS_BINFO;
     case OMP_CLAUSE:		return TS_OMP_CLAUSE;
+    case ACC_CLAUSE:		return TS_ACC_CLAUSE;
     case OPTIMIZATION_NODE:	return TS_OPTIMIZATION;
     case TARGET_OPTION_NODE:	return TS_TARGET_OPTION;
 
@@ -405,6 +475,7 @@ initialize_tree_contains_struct (void)
 	case TS_VEC:
 	case TS_BINFO:
 	case TS_OMP_CLAUSE:
+	case TS_ACC_CLAUSE:
 	case TS_OPTIMIZATION:
 	case TS_TARGET_OPTION:
 	  MARK_TS_COMMON (code);
@@ -693,7 +764,8 @@ tree_code_size (enum tree_code code)
 	case PLACEHOLDER_EXPR:	return sizeof (struct tree_common);
 
 	case TREE_VEC:
-	case OMP_CLAUSE:	gcc_unreachable ();
+        case OMP_CLAUSE:        gcc_unreachable ();
+        case ACC_CLAUSE:        gcc_unreachable ();
 
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
 
@@ -738,8 +810,13 @@ tree_size (const_tree node)
 
     case OMP_CLAUSE:
       return (sizeof (struct tree_omp_clause)
-	      + (omp_clause_num_ops[OMP_CLAUSE_CODE (node)] - 1)
-	        * sizeof (tree));
+              + (omp_clause_num_ops[OMP_CLAUSE_CODE (node)] - 1)
+                * sizeof (tree));
+
+    case ACC_CLAUSE:
+      return (sizeof (struct tree_acc_clause)
+              + (acc_clause_num_ops[ACC_CLAUSE_CODE (node)] - 1)
+                * sizeof (tree));
 
     default:
       if (TREE_CODE_CLASS (code) == tcc_vl_exp)
@@ -821,6 +898,10 @@ record_node_allocation_statistics (enum tree_code code ATTRIBUTE_UNUSED,
 
 	case OMP_CLAUSE:
 	  kind = omp_clause_kind;
+	  break;
+
+	case ACC_CLAUSE:
+	  kind = acc_clause_kind;
 	  break;
 
 	default:
@@ -10363,6 +10444,29 @@ build_omp_clause (location_t loc, enum omp_clause_code code)
   TREE_SET_CODE (t, OMP_CLAUSE);
   OMP_CLAUSE_SET_CODE (t, code);
   OMP_CLAUSE_LOCATION (t) = loc;
+
+  return t;
+}
+
+
+/* Build an OpenACC clause with code CODE.  LOC is the location of the
+   clause.  */
+tree
+build_acc_clause (location_t loc, enum acc_clause_code code)
+{
+  tree t;
+  int size, length;
+
+  length = acc_clause_num_ops[code];
+  size = (sizeof (struct tree_acc_clause) + (length - 1) * sizeof (tree));
+
+  record_node_allocation_statistics (ACC_CLAUSE, size);
+
+  t = ggc_alloc_tree_node (size);
+  memset (t, 0, size);
+  TREE_SET_CODE (t, ACC_CLAUSE);
+  ACC_CLAUSE_SET_CODE (t, code);
+  ACC_CLAUSE_LOCATION (t) = loc;
 
   return t;
 }

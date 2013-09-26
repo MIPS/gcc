@@ -317,6 +317,16 @@ struct GTY(()) gimple_statement_omp {
   gimple_seq body;
 };
 
+/* OpenACC statements (#pragma acc).  */
+
+struct GTY(()) gimple_statement_acc {
+  /* [ WORD 1-6 ]  */
+  struct gimple_statement_base gsbase;
+
+  /* [ WORD 7 ]  */
+  gimple_seq body;
+};
+
 
 /* GIMPLE_BIND */
 
@@ -649,6 +659,169 @@ struct GTY(()) gimple_statement_omp_atomic_store {
   tree val;
 };
 
+
+/* GIMPLE OpenACC structs */
+/* GIMPLE_ACC_LOOP_ITER */
+
+struct GTY(()) gimple_acc_loop_iter {
+  /* Condition code.  */
+  enum tree_code cond;
+
+  /* Index variable.  */
+  tree index;
+
+  /* Initial value.  */
+  tree initial;
+
+  /* Final value.  */
+  tree final;
+
+  /* Increment.  */
+  tree incr;
+};
+
+/* GIMPLE_ACC_LOOP */
+
+struct GTY(()) gimple_statement_acc_loop {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]  */
+  tree clauses;
+
+  /* [ WORD 9 ]
+     Number of elements in iter array.  */
+  size_t collapse;
+
+  /* [ WORD 10 ]  */
+  struct gimple_acc_loop_iter * GTY((length ("%h.collapse"))) iter;
+
+  /* [ WORD 11 ]
+     Pre-body evaluated before the loop body begins.  */
+  gimple_seq pre_body;
+};
+
+
+/* GIMPLE_ACC_PARALLEL */
+
+struct GTY(()) gimple_statement_acc_parallel {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]
+     Clauses.  */
+  tree clauses;
+
+  /* [ WORD 9 ]
+     Child function holding the body of the parallel region.  */
+  tree child_fn;
+
+  /* [ WORD 10 ]
+     Shared data argument.  */
+  tree data_arg;
+};
+
+
+/* GIMPLE_ACC_KERNELS */
+
+struct GTY(()) gimple_statement_acc_kernels {
+  ///* [ WORD 1-7 ]  */
+  //struct gimple_statement_acc acc;
+  /* [ WORD 1-9 ]  */
+  struct gimple_statement_with_memory_ops_base membase;
+
+  /* [ WORD 10 ]  */
+  gimple_seq body;
+
+  /* [ WORD 11 ]
+     Clauses.  */
+  tree clauses;
+
+  /* [ WORD 12 ]
+     Child function holding the body of the kernels region.  */
+  tree child_fn;
+
+  //tree data_arg;
+	//unsigned nparams;
+  /* [ WORD 13 ]
+     Shared data argument.  */
+	tree GTY((length("%h.membase.opbase.gsbase.num_ops"))) op[1];
+};
+
+/* GIMPLE_ACC_DATA */
+
+struct GTY(()) gimple_statement_acc_data {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]
+     Clauses.  */
+  tree clauses;
+
+  /* [ WORD 9 ]
+     Child region.  */
+  tree child_fn;
+};
+
+/* GIMPLE_ACC_HOST_DATA */
+
+struct GTY(()) gimple_statement_acc_host_data {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]
+     Clauses.  */
+  tree clauses;
+
+  /* [ WORD 9 ]
+     Child region.  */
+  tree child_fn;
+};
+
+/* GIMPLE_ACC_CACHE */
+
+struct GTY(()) gimple_statement_acc_cache {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]
+     List of cache arguments.  */
+  tree list_arg;
+};
+
+/* GIMPLE_ACC_WAIT */
+
+struct GTY(()) gimple_statement_acc_wait {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]
+     scalar-integer-expression  */
+  tree expression;
+};
+
+/* GIMPLE_ACC_DECLARE */
+
+struct GTY(()) gimple_statement_acc_declare {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]
+     Clauses.  */
+  tree clauses;
+};
+
+/* GIMPLE_ACC_UPDATE */
+
+struct GTY(()) gimple_statement_acc_update {
+  /* [ WORD 1-7 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 8 ]
+     Clauses.  */
+  tree clauses;
+};
+
 /* GIMPLE_TRANSACTION.  */
 
 /* Bits to be stored in the GIMPLE_TRANSACTION subcode.  */
@@ -727,6 +900,19 @@ union GTY ((desc ("gimple_statement_structure (&%h)"),
   struct gimple_statement_omp_continue GTY ((tag ("GSS_OMP_CONTINUE"))) gimple_omp_continue;
   struct gimple_statement_omp_atomic_load GTY ((tag ("GSS_OMP_ATOMIC_LOAD"))) gimple_omp_atomic_load;
   struct gimple_statement_omp_atomic_store GTY ((tag ("GSS_OMP_ATOMIC_STORE"))) gimple_omp_atomic_store;
+
+  /* OpenACC */
+  struct gimple_statement_acc GTY ((tag ("GSS_ACC"))) acc;
+  struct gimple_statement_acc_parallel GTY ((tag ("GSS_ACC_PARALLEL"))) gimple_acc_parallel;
+  struct gimple_statement_acc_kernels GTY ((tag ("GSS_ACC_KERNELS"))) gimple_acc_kernels;
+  struct gimple_statement_acc_data GTY ((tag ("GSS_ACC_DATA"))) gimple_acc_data;
+  struct gimple_statement_acc_cache GTY ((tag ("GSS_ACC_CACHE"))) gimple_acc_cache;
+  struct gimple_statement_acc_wait GTY ((tag ("GSS_ACC_WAIT"))) gimple_acc_wait;
+  struct gimple_statement_acc_host_data GTY ((tag ("GSS_ACC_HOST_DATA"))) gimple_acc_host_data;
+  struct gimple_statement_acc_loop GTY ((tag ("GSS_ACC_LOOP"))) gimple_acc_loop;
+  struct gimple_statement_acc_declare GTY ((tag ("GSS_ACC_DECLARE"))) gimple_acc_declare;
+  struct gimple_statement_acc_update GTY ((tag ("GSS_ACC_UPDATE"))) gimple_acc_update;
+
   struct gimple_statement_transaction GTY((tag ("GSS_TRANSACTION"))) gimple_transaction;
 };
 
@@ -815,6 +1001,18 @@ gimple gimple_build_omp_single (gimple_seq, tree);
 gimple gimple_build_cdt (tree, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
+
+/* TODO FIX ACC Check arguments number */
+gimple gimple_build_acc_parallel (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_kernels (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_data (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_cache (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_wait (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_host_data (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_loop (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_declare (gimple_seq, tree, tree, tree);
+gimple gimple_build_acc_update (gimple_seq, tree, tree, tree);
+
 gimple gimple_build_transaction (gimple_seq, tree);
 gimple gimple_build_predict (enum br_predictor, enum prediction);
 enum gimple_statement_structure_enum gss_for_assign (enum tree_code);
@@ -1082,6 +1280,7 @@ extern tree canonicalize_cond_expr_cond (tree);
 
 /* In omp-low.c.  */
 extern tree omp_reduction_init (tree, tree);
+extern tree acc_reduction_init (tree, tree);
 
 /* In trans-mem.c.  */
 extern void diagnose_tm_safe_errors (tree);
@@ -1261,6 +1460,17 @@ gimple_has_substatements (gimple g)
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
     case GIMPLE_OMP_CRITICAL:
+
+    case GIMPLE_ACC_PARALLEL:
+    case GIMPLE_ACC_KERNELS:
+    case GIMPLE_ACC_LOOP:
+    case GIMPLE_ACC_DATA:
+    case GIMPLE_ACC_HOST_DATA:
+    case GIMPLE_ACC_CACHE:
+    case GIMPLE_ACC_DECLARE:
+    case GIMPLE_ACC_UPDATE:
+    case GIMPLE_ACC_WAIT:
+
     case GIMPLE_WITH_CLEANUP_EXPR:
     case GIMPLE_TRANSACTION:
       return true;
@@ -4908,6 +5118,101 @@ gimple_return_set_retval (gimple gs, tree retval)
   GIMPLE_CHECK (gs, GIMPLE_RETURN);
   gimple_set_op (gs, 0, retval);
 }
+
+#define CASE_GIMPLE_ACC \
+    case GIMPLE_ACC_PARALLEL: \
+    case GIMPLE_ACC_KERNELS: \
+    case GIMPLE_ACC_DATA: \
+    case GIMPLE_ACC_CACHE: \
+    case GIMPLE_ACC_WAIT: \
+    case GIMPLE_ACC_HOST_DATA: \
+    case GIMPLE_ACC_LOOP: \
+    case GIMPLE_ACC_DECLARE: \
+    case GIMPLE_ACC_UPDATE
+
+static inline bool
+is_gimple_acc (const_gimple stmt)
+{
+  switch (gimple_code (stmt))
+  {
+  CASE_GIMPLE_ACC:
+    return true;
+  default:
+    return false;
+  }
+}
+
+/* Set BODY to be for the ACC statement GS.  */
+static inline void
+gimple_acc_set_body (gimple gs, gimple_seq body)
+{
+  gs->acc.body = body;
+}
+
+static inline gimple_seq *
+gimple_acc_body_ptr (gimple gs)
+{
+  return &gs->acc.body;
+}
+
+static inline gimple_seq
+gimple_acc_body (gimple gs)
+{
+  return *gimple_acc_body_ptr (gs);
+}
+
+/* Return the child function of ACC_KERNELS GS.  */
+static inline tree
+gimple_acc_kernels_child_fn (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+  return gs->gimple_acc_kernels.child_fn;
+}
+
+static inline unsigned
+gimple_acc_kernels_nparams(const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+  return gs->gimple_acc_kernels.membase.opbase.gsbase.num_ops;
+}
+
+static inline void
+gimple_acc_kernels_set_nparams(gimple gs, unsigned nparams)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+  gs->gimple_acc_kernels.membase.opbase.gsbase.num_ops = nparams;
+}
+
+static inline tree*
+gimple_acc_kernels_params_ptr(gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+  return gs->gimple_acc_kernels.op;
+}
+
+/* Set CHILD_FN for ACC_KERNELS GS.  */
+static inline void
+gimple_acc_kernels_set_child_fn (gimple gs, tree child_fn)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+  gs->gimple_acc_kernels.child_fn = child_fn;
+}
+
+/* Set CLAUSES to be associated with ACC_KERNELS GS.  */
+static inline void
+gimple_acc_kernels_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+  gs->gimple_acc_kernels.clauses = clauses;
+}
+
+/* Set DATA_ARG for ACC_KERNELS GS.  */
+//static inline void
+//gimple_acc_kernels_set_data_arg (gimple gs, tree data_arg)
+//{
+//  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+//  gs->gimple_acc_kernels.data_arg = data_arg;
+//}
 
 
 /* Returns true when the gimple statement STMT is any of the OpenMP types.  */

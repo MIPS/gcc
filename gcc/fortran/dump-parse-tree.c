@@ -1015,11 +1015,36 @@ show_code (int level, gfc_code *c)
 }
 
 static void
+show_subarray (const char *name, struct gfc_acc_subarray* sa)
+{
+  int i = 0;
+
+  fprintf (dumpfile, "%s(", name);
+  for (; i < sa->dimensions; i++)
+    {
+      show_expr(sa->left[i]);
+      fputc(':', dumpfile);
+      show_expr(sa->right[i]);
+      if (i == sa->dimensions - 1)
+        fputc(')', dumpfile);
+      else
+        fputc(',', dumpfile);
+    }
+}
+
+static void
 show_namelist (gfc_namelist *n)
 {
   for (; n->next; n = n->next)
-    fprintf (dumpfile, "%s,", n->sym->name);
-  fprintf (dumpfile, "%s", n->sym->name);
+    if (n->acc_subarray == NULL)
+      fprintf (dumpfile, "%s,", n->sym->name);
+    else
+      show_subarray (n->sym->name, n->acc_subarray);
+
+  if (n->acc_subarray == NULL)
+    fprintf (dumpfile, "%s", n->sym->name);
+  else
+    show_subarray (n->sym->name, n->acc_subarray);
 }
 
 /* Show a single OpenMP directive node and everything underneath it
@@ -1230,6 +1255,197 @@ show_omp_node (int level, gfc_code *c)
     fprintf (dumpfile, " (%s)", c->ext.omp_name);
 }
 
+/* Show a single OpenACC directive node and everything underneath it
+   if necessary.  */
+
+static void
+show_acc_node (int level, gfc_code *c)
+{
+  gfc_acc_clauses *acc_clauses = NULL;
+  const char *name = NULL;
+
+  switch (c->op)
+    {
+    case EXEC_ACC_PARALLEL_LOOP: name = "PARALLEL LOOP"; break;
+    case EXEC_ACC_PARALLEL: name = "PARALLEL"; break;
+    case EXEC_ACC_KERNELS_LOOP: name = "KERNELS LOOP"; break;
+    case EXEC_ACC_KERNELS: name = "KERNELS"; break;
+    case EXEC_ACC_DATA: name = "DATA"; break;
+    case EXEC_ACC_HOST_DATA: name = "HOST_DATA"; break;
+    case EXEC_ACC_LOOP: name = "LOOP"; break;
+    case EXEC_ACC_UPDATE: name = "UPDATE"; break;
+    case EXEC_ACC_WAIT: name = "WAIT"; break;
+    case EXEC_ACC_CACHE: name = "CACHE"; break;
+    default:
+      gcc_unreachable ();
+    }
+  fprintf (dumpfile, "!$ACC %s", name);
+  switch (c->op)
+    {
+    case EXEC_ACC_CACHE:
+    case EXEC_ACC_WAIT:
+    case EXEC_ACC_UPDATE:
+    case EXEC_ACC_LOOP:
+    case EXEC_ACC_HOST_DATA:
+    case EXEC_ACC_DATA:
+    case EXEC_ACC_KERNELS:
+    case EXEC_ACC_KERNELS_LOOP:
+    case EXEC_ACC_PARALLEL:
+    case EXEC_ACC_PARALLEL_LOOP:
+      acc_clauses = c->ext.acc_clauses;
+      break;
+    default:
+      break;
+    }
+  if (acc_clauses)
+    {
+      int list;
+
+      if (acc_clauses->if_expr)
+        {
+          fputs (" IF(", dumpfile);
+          show_expr (acc_clauses->if_expr);
+          fputc (')', dumpfile);
+        }
+      if (acc_clauses->async)
+        {
+          fputs (" ASYNC", dumpfile);
+          if (acc_clauses->async_expr)
+            {
+              fputc ('(', dumpfile);
+              show_expr (acc_clauses->async_expr);
+              fputc (')', dumpfile);
+            }
+        }
+      if (acc_clauses->num_gangs_expr)
+        {
+          fputs (" NUM_GANGS(", dumpfile);
+          show_expr (acc_clauses->num_gangs_expr);
+          fputc (')', dumpfile);
+        }
+      if (acc_clauses->num_workers_expr)
+        {
+          fputs (" NUM_WORKERS(", dumpfile);
+          show_expr (acc_clauses->num_workers_expr);
+          fputc (')', dumpfile);
+        }
+      if (acc_clauses->vector_length_expr)
+        {
+          fputs (" VECTOR_LENGTH(", dumpfile);
+          show_expr (acc_clauses->vector_length_expr);
+          fputc (')', dumpfile);
+        }
+      if (acc_clauses->collapse)
+        {
+          fputs (" COLLAPSE(", dumpfile);
+          fprintf (dumpfile, "%d", acc_clauses->collapse);
+          fputc (')', dumpfile);
+        }
+      if (acc_clauses->gang)
+        {
+          fputs (" GANG", dumpfile);
+          if (acc_clauses->gang_expr)
+            {
+              fputc ('(', dumpfile);
+              show_expr (acc_clauses->gang_expr);
+              fputc (')', dumpfile);
+            }
+        }
+      if (acc_clauses->worker)
+        {
+          fputs (" WORKER", dumpfile);
+          if (acc_clauses->worker_expr)
+            {
+              fputc ('(', dumpfile);
+              show_expr (acc_clauses->worker_expr);
+              fputc (')', dumpfile);
+            }
+        }
+      if (acc_clauses->vector)
+        {
+          fputs (" VECTOR", dumpfile);
+          if (acc_clauses->vector_expr)
+            {
+              fputc ('(', dumpfile);
+              show_expr (acc_clauses->vector_expr);
+              fputc (')', dumpfile);
+            }
+        }
+      if (acc_clauses->wait_expr)
+        {
+          fputc ('(', dumpfile);
+          show_expr (acc_clauses->wait_expr);
+          fputc (')', dumpfile);
+        }
+      if (acc_clauses->seq)
+        fputs (" SEQ", dumpfile);
+      if (acc_clauses->independent)
+        fputs (" INDEPENDENT", dumpfile);
+      for (list = 0; list < ACC_LIST_NUM; list++)
+        if (acc_clauses->lists[list] != NULL)
+          {
+            const char *name;
+            if (list < ACC_LIST_REDUCTION_FIRST)
+              {
+                switch (list)
+                  {
+                  case ACC_LIST_COPY: name = "COPY"; break;
+                  case ACC_LIST_COPYIN: name = "COPYIN"; break;
+                  case ACC_LIST_COPYOUT: name = "COPYOUT"; break;
+                  case ACC_LIST_CREATE: name = "CREATE"; break;
+                  case ACC_LIST_PRESENT: name = "PRESENT"; break;
+                  case ACC_LIST_PRESENT_OR_COPY: name = "PRESENT_OR_COPY"; break;
+                  case ACC_LIST_PRESENT_OR_COPYIN: name = "PRESENT_OR_COPYIN"; break;
+                  case ACC_LIST_PRESENT_OR_COPYOUT: name = "PRESENT_OR_COPYOUT"; break;
+                  case ACC_LIST_PRESENT_OR_CREATE: name = "PRESENT_OR_CREATE"; break;
+                  case ACC_LIST_DEVICEPTR: name = "DEVICEPTR"; break;
+                  case ACC_LIST_PRIVATE: name = "PRIVATE"; break;
+                  case ACC_LIST_FIRSTPRIVATE: name = "FIRSTPRIVATE"; break;
+                  case ACC_LIST_USE_DEVICE: name = "USE_DEVICE"; break;
+                  case ACC_LIST_DEVICE_RESIDENT: name = "USE_DEVICE"; break;
+                  case ACC_LIST_HOST: name = "HOST"; break;
+                  case ACC_LIST_DEVICE: name = "DEVICE"; break;
+                  case ACC_LIST_CACHE: name = ""; break;
+                  default:
+                    gcc_unreachable ();
+                  }
+                fprintf (dumpfile, " %s(", name);
+              }
+            else
+              {
+                switch (list)
+                  {
+                  case ACC_LIST_PLUS: name = "+"; break;
+                  case ACC_LIST_MULT: name = "*"; break;
+                  case ACC_LIST_SUB: name = "-"; break;
+                  case ACC_LIST_AND: name = ".AND."; break;
+                  case ACC_LIST_OR: name = ".OR."; break;
+                  case ACC_LIST_EQV: name = ".EQV."; break;
+                  case ACC_LIST_NEQV: name = ".NEQV."; break;
+                  case ACC_LIST_MAX: name = "MAX"; break;
+                  case ACC_LIST_MIN: name = "MIN"; break;
+                  case ACC_LIST_IAND: name = "IAND"; break;
+                  case ACC_LIST_IOR: name = "IOR"; break;
+                  case ACC_LIST_IEOR: name = "IEOR"; break;
+                  default:
+                    gcc_unreachable ();
+                  }
+                fprintf (dumpfile, " REDUCTION(%s:", name);
+              }
+            show_namelist (acc_clauses->lists[list]);
+            fputc (')', dumpfile);
+          }
+    }
+  if (c->op == EXEC_ACC_UPDATE || c->op == EXEC_ACC_WAIT
+      || c->op == EXEC_ACC_CACHE)
+    return;
+  show_code (level + 1, c->block->next);
+  fputc ('\n', dumpfile);
+  if (c->op == EXEC_ACC_LOOP)
+    return;
+  code_indent (level, 0);
+  fprintf (dumpfile, "!$ACC END %s", name);
+}
 
 /* Show a single code node and everything underneath it if necessary.  */
 
@@ -2211,6 +2427,19 @@ show_code_node (int level, gfc_code *c)
     case EXEC_OMP_TASKYIELD:
     case EXEC_OMP_WORKSHARE:
       show_omp_node (level, c);
+      break;
+
+    case EXEC_ACC_PARALLEL_LOOP:
+    case EXEC_ACC_PARALLEL:
+    case EXEC_ACC_KERNELS_LOOP:
+    case EXEC_ACC_KERNELS:
+    case EXEC_ACC_DATA:
+    case EXEC_ACC_HOST_DATA:
+    case EXEC_ACC_LOOP:
+    case EXEC_ACC_UPDATE:
+    case EXEC_ACC_WAIT:
+    case EXEC_ACC_CACHE:
+      show_acc_node (level, c);
       break;
 
     default:

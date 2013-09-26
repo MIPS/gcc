@@ -1,0 +1,3 @@
+# This spec file is read by gcc when linking. It is used to specify the
+# libraries we need in order to link with -fopenacc.
+*link_oacc: -loacc -L@opencllib@ -lOpenCL
