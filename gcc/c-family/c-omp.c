@@ -832,6 +832,8 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 	      OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
 	      OMP_CLAUSE_REDUCTION_CODE (c)
 		= OMP_CLAUSE_REDUCTION_CODE (clauses);
+	      OMP_CLAUSE_REDUCTION_PLACEHOLDER (c)
+		= OMP_CLAUSE_REDUCTION_PLACEHOLDER (clauses);
 	      OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_SIMD];
 	      cclauses[C_OMP_CLAUSE_SPLIT_SIMD] = c;
 	    }
@@ -844,6 +846,8 @@ c_omp_split_clauses (location_t loc, enum tree_code code,
 		  OMP_CLAUSE_DECL (c) = OMP_CLAUSE_DECL (clauses);
 		  OMP_CLAUSE_REDUCTION_CODE (c)
 		    = OMP_CLAUSE_REDUCTION_CODE (clauses);
+		  OMP_CLAUSE_REDUCTION_PLACEHOLDER (c)
+		    = OMP_CLAUSE_REDUCTION_PLACEHOLDER (clauses);
 		  OMP_CLAUSE_CHAIN (c) = cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL];
 		  cclauses[C_OMP_CLAUSE_SPLIT_PARALLEL] = c;
 		  s = C_OMP_CLAUSE_SPLIT_TEAMS;

@@ -1,3 +1,9 @@
+2013-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/58482
+	* c-omp.c (c_omp_split_clauses) <case OMP_CLAUSE_REDUCTION>: Copy
+	also OMP_CLAUSE_REDUCTION_PLACEHOLDER.
+
 2013-09-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-common.h (c_finish_omp_taskgroup): New prototype.
