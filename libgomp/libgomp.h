@@ -39,6 +39,7 @@
 
 #include <pthread.h>
 #include <stdbool.h>
+#include <stdlib.h>
 
 #ifdef HAVE_ATTRIBUTE_VISIBILITY
 # pragma GCC visibility push(hidden)
@@ -253,7 +254,26 @@ enum gomp_task_kind
   GOMP_TASK_TIED
 };
 
+struct gomp_task;
 struct gomp_taskgroup;
+struct htab;
+
+struct gomp_task_depend_entry
+{
+  void *addr;
+  struct gomp_task_depend_entry *next;
+  struct gomp_task_depend_entry *prev;
+  struct gomp_task *task;
+  bool is_in;
+  bool redundant;
+};
+
+struct gomp_dependers_vec
+{
+  size_t n_elem;
+  size_t allocated;
+  struct gomp_task *elem[];
+};
 
 /* This structure describes a "task" to be run by a thread.  */
 
@@ -268,6 +288,10 @@ struct gomp_task
   struct gomp_task *next_taskgroup;
   struct gomp_task *prev_taskgroup;
   struct gomp_taskgroup *taskgroup;
+  struct gomp_dependers_vec *dependers;
+  struct htab *depend_hash;
+  size_t depend_count;
+  size_t num_dependees;
   struct gomp_task_icv icv;
   void (*fn) (void *);
   void *fn_data;
@@ -277,6 +301,7 @@ struct gomp_task
   bool final_task;
   bool copy_ctors_done;
   gomp_sem_t taskwait_sem;
+  struct gomp_task_depend_entry depend[];
 };
 
 struct gomp_taskgroup
@@ -286,6 +311,7 @@ struct gomp_taskgroup
   bool in_taskgroup_wait;
   bool cancelled;
   gomp_sem_t taskgroup_sem;
+  size_t num_children;
 };
 
 /* This structure describes a "team" of threads.  These are the threads
@@ -525,6 +551,8 @@ extern void gomp_barrier_handle_tasks (gomp_barrier_state_t);
 static void inline
 gomp_finish_task (struct gomp_task *task)
 {
+  if (__builtin_expect (task->depend_hash != NULL, 0))
+    free (task->depend_hash);
   gomp_sem_destroy (&task->taskwait_sem);
 }
 

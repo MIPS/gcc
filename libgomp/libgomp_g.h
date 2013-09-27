@@ -178,7 +178,7 @@ extern bool GOMP_cancellation_point (int);
 /* task.c */
 
 extern void GOMP_task (void (*) (void *), void *, void (*) (void *, void *),
-		       long, long, bool, unsigned);
+		       long, long, bool, unsigned, void **);
 extern void GOMP_taskwait (void);
 extern void GOMP_taskyield (void);
 extern void GOMP_taskgroup_start (void);

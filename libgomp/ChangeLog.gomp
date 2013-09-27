@@ -1,3 +1,51 @@
+2013-09-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h: Include stdlib.h.
+	(struct gomp_task_depend_entry,
+	struct gomp_dependers_vec): New types.
+	(struct gomp_task): Add dependers, depend_hash, depend_count,
+	num_dependees and depend fields.
+	(struct gomp_taskgroup): Add num_children field.
+	(gomp_finish_task): Free depend_hash if non-NULL.
+	* libgomp_g.h (GOMP_task): Add depend argument.
+	* hashtab.h: New file.
+	* task.c: Include hashtab.h.
+	(hash_entry_type): New typedef.
+	(htab_alloc, htab_free, htab_hash, htab_eq): New inlines.
+	(gomp_init_task): Clear dependers, depend_hash and depend_count
+	fields.
+	(GOMP_task): Add depend argument, handle depend clauses.  Increment
+	num_children field in taskgroup.
+	(gomp_task_run_pre): Don't increment task_running_count here,
+	nor clear task_pending bit.
+	(gomp_task_run_post_handle_depend_hash,
+	gomp_task_run_post_handle_dependers,
+	gomp_task_run_post_handle_depend): New functions.
+	(gomp_task_run_post_remove_parent): Clear in_taskwait before
+	signalling corresponding semaphore.
+	(gomp_task_run_post_remove_taskgroup): Decrement num_children
+	field and make the decrement to 0 MEMMODEL_RELEASE operation,
+	rather than storing NULL to taskgroup->children.  Clear
+	in_taskgroup_wait before signalling corresponding semaphore.
+	(gomp_barrier_handle_tasks): Move task_running_count increment
+	and task_pending bit clearing here.  Call
+	gomp_task_run_post_handle_depend.  If more than one new tasks
+	have been queued, wake other threads if needed.
+	(GOMP_taskwait): Call gomp_task_run_post_handle_depend.  If more
+	than one new tasks have been queued, wake other threads if needed.
+	After waiting on taskwait_sem, enter critical section again.
+	(GOMP_taskgroup_start): Initialize num_children field.
+	(GOMP_taskgroup_end): Check num_children instead of children
+	before critical section.  If children is NULL, but num_children
+	is non-zero, wait on taskgroup_sem.  Call
+	gomp_task_run_post_handle_depend.  If more than one new tasks have
+	been queued, wake other threads if needed.  After waiting on
+	taskgroup_sem, enter critical section again.
+	* testsuite/libgomp.c/depend-1.c: New test.
+	* testsuite/libgomp.c/depend-2.c: New test.
+	* testsuite/libgomp.c/depend-3.c: New test.
+	* testsuite/libgomp.c/depend-4.c: New test.
+
 2013-09-26  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libgomp/58482
