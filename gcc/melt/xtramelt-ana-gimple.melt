@@ -2,7 +2,7 @@
 ;; file xtramelt-ana-gimple.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2012 Free Software Foundation, Inc.
+    Copyright 2008 - 2013 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -1866,8 +1866,8 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 
 
 (gccif 
- ("4.7." "4.8.")
-;;; match a transaction - only in GCC 4.7 or 4.8
+ ("4.7." "4.8." "4.9.")
+;;; match a transaction - only in GCC 4.7 or 4.8 or 4.9
  (defcmatcher gimple_transaction
    (:gimple gr)
    (:gimple_seq gsbody

@@ -1,5 +1,13 @@
 
 2013-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/xtramelt-ana-gimple.melt: Update copyright year.
+	(gimple_transaction): Also for GCC 4.9 ...
+
+	* melt/xtramelt-ana-simple.melt: New gofindgimple mode.
+	(gofindgimple_docmd, gofindgimple_mode): New.
+
+2013-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-outobj.melt (translate_run_melt_expressions): More
 	debug.
 
