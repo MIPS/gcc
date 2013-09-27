@@ -594,6 +594,7 @@
 			       (return ()))))))
 	     (gatefunexp 
 	      (if treepatsrc 
+		  ;; explicit tree pattern
 		  `(lambda (,pass)
 		     (debug "findgimple/gate start pass=" ,pass)
 		     (with_cfun_decl
@@ -615,13 +616,44 @@
 			(assert_msg "findgimple/gate check nbfun" (is_integerbox nbfun) nbfun)
 			(assert_msg "findgimple/gate check goodfuncount" (is_integerbox goodfuncount) goodfuncount)
 			(when thistreefun
-			  (debug "findgimple/gate thistreefun=" thistreefun)
+			  (debug "findgimple/gate seen thistreefun=" thistreefun " treefundecl=" ,treefundecl)
 			  ;; already seen function
 			  (return ()))
 			(put_int nbfun (+i 1 (get_int nbfun)))
-			(maptree_put maptreefun ,treefundecl (constant_box nbfun))
+			(debug "findgimple/gate nbfun=" nbfun " treefundecl=" ,treefundecl)
+			(maptree_put maptreefun ,treefundecl (constant_box (get_int nbfun)))
 			,matchdeclexp
-			)))))
+			)))
+		;;; no tree pattern
+		`(lambda (,pass)
+		   (debug "findgimple/notreegate start pass=" ,pass)
+		     (with_cfun_decl
+		      ()
+		      (:tree ,treefundecl)
+		      (debug "findgimple/notreegate treefundecl=" ,treefundecl)
+		      (let ( (passdata (get_field :gccpass_data ,pass))
+			     (maptreefun (get_field :fndgimp_maptreefun passdata))
+			     (nbfun (get_field :fndgimp_nbfun passdata))
+			     (goodfuncount (get_field :fndgimp_goodfuncount passdata))
+			     (thistreefun (maptree_get maptreefun ,treefundecl))
+			     )
+			(assert_msg "findgimple/notreegate check passdata" 
+				    (is_a passdata class_findgimple_data) passdata)
+			(debug "findgimple/notreegate passdata=" passdata " treefundecl=" ,treefundecl
+			       "\n.. maptreefun=" maptreefun "\n.. nbfun=" nbfun "\n.. goodfuncount=" goodfuncount
+			       "\n.. thistreefun=" thistreefun)
+			(assert_msg "findgimple/notreegate check maptreefun" (is_maptree maptreefun) maptreefun)
+			(assert_msg "findgimple/notreegate check nbfun" (is_integerbox nbfun) nbfun)
+			(assert_msg "findgimple/notreegate check goodfuncount" (is_integerbox goodfuncount) goodfuncount)
+			(when thistreefun
+			  (debug "findgimple/notreegate seen thistreefun=" thistreefun " treefundecl=" ,treefundecl)
+			  ;; already seen function
+			  (return ()))
+			(put_int nbfun (+i 1 (get_int nbfun)))
+			(debug "findgimple/notreegate nbfun=" nbfun " treefundecl=" ,treefundecl)
+			(maptree_put maptreefun ,treefundecl (constant_box (get_int nbfun)))
+			(return :true))))
+		))
 	     ;;
 	     (matchgimpexp
 	      `(match ,gimp
@@ -700,7 +732,10 @@
 	    ))
 	  (:else
 	   (let ( (curenv !(current_module_environment_reference))
-		  (dorun (eval dorunexp curenv))
+		  (dorun (let ( (dr (eval dorunexp curenv))
+				)
+			   (debug "findgimple_docmd dorun=" dr)
+			   dr))
 		  (findata (instance class_findgimple_data
 				     :fndgimp_data ()
 				     :fndgimp_maptreefun (make_maptree discr_map_trees 59)

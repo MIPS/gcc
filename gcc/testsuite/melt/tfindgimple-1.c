@@ -18,7 +18,7 @@ int main (int argc, char** argv)
   int xx = (argc>1)?atoi(argv[1]):2;
   int yy = (argc>2)?atoi(argv[2]):3;
   printf ("xx=%d y=%d sum=%d\n", xx, yy, sum(xx,yy));
-  printf ("2*xx=%d sum(2*xx,1)=%d\n", xx, sum(xx,1));
+  printf ("2*xx=%d sum(2*xx,1)=%d\n", 2*xx, sum(2*xx,1));
   printf("sum(3,4)=%d\n", sum(3,4));
   return 0;
 }
