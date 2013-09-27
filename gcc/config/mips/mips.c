@@ -2143,7 +2143,7 @@ mips_regno_mode_ok_for_base_p (int regno, enum machine_mode mode,
      All in all, it seems more consistent to only enforce this restriction
      during and after reload.  */
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
-    return !strict_p || GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
+    return  GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
@@ -17271,7 +17271,7 @@ mips_conditional_register_usage (void)
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
-      if (optimize_size)
+      if (optimize_size && !targetm.lra_p())
 	{
 	  fixed_regs[8] = call_used_regs[8] = 1;
 	  fixed_regs[9] = call_used_regs[9] = 1;
@@ -18670,6 +18670,20 @@ mips_case_values_threshold (void)
     return default_case_values_threshold ();
 }
 
+static reg_class_t
+mips_spill_class (reg_class_t rclass, enum machine_mode mode)
+{
+  if (TARGET_MIPS16)
+   return SPILL_REGS;
+  return NO_REGS;
+}
+
+static bool
+mips_lra_p (void)
+{
+  return !TARGET_RELOAD;
+}
+
 static bool
 mips_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
 {
@@ -18921,6 +18935,15 @@ mips_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
 
 #undef TARGET_CASE_VALUES_THRESHOLD
 #define TARGET_CASE_VALUES_THRESHOLD mips_case_values_threshold
+
+#undef TARGET_SPILL_CLASS
+#define TARGET_SPILL_CLASS mips_spill_class
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P mips_lra_p
+
+#undef TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
+#define TARGET_DIFFERENT_ADDR_DISPLACEMENT_P hook_bool_void_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
