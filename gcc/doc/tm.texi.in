@@ -2539,6 +2539,8 @@ as below:
 @end smallexample
 @end defmac
 
+@hook TARGET_IRA_USE_ALT_CLASS_P
+
 @hook TARGET_LRA_P
 
 @hook TARGET_REGISTER_PRIORITY
