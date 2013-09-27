@@ -1811,7 +1811,8 @@ find_costs_and_classes (FILE *dump_file)
 		}
 	      else if (i_costs[k] == best_cost)
 		best = ira_reg_class_subunion[best][rclass];
-	      if (pass == flag_expensive_optimizations
+	      if (targetm.ira_use_alt_class_p ()
+		  && pass == flag_expensive_optimizations
 		  /* We still prefer registers to memory even at this
 		     stage if their costs are the same.  We will make
 		     a final decision during assigning hard registers
