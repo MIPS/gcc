@@ -2898,6 +2898,14 @@ as below:
 @end smallexample
 @end defmac
 
+@deftypefn {Target Hook} bool TARGET_IRA_USE_ALT_CLASS_P (void)
+This target hook controls whether alternate classes are calculated for
+  each pseudo register. Return false to disable alternate classes and
+  therefore only consider the preferred class during register allocation.
+  
+  The default value of this hook is true.
+@end deftypefn
+
 @deftypefn {Target Hook} bool TARGET_LRA_P (void)
 A target hook which returns true if we use LRA instead of reload pass.  It means that LRA was ported to the target.    The default version of this target hook returns always false.
 @end deftypefn
