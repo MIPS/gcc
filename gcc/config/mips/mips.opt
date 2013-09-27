@@ -420,6 +420,10 @@ mcase-threshold
 Target Report Var(TARGET_CASE_THRESHOLD) Init(0)
 Use a larger case threshold for MIPS16
 
+mno-alt-class
+Target Report RejectNegative Var(TARGET_NO_ALT_CLASS) Init(0)
+Do not use alternate reg classes for MIPS16
+
 msym32
 Target Report Var(TARGET_SYM32)
 Assume all symbols have 32-bit values
