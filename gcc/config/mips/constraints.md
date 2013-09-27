@@ -19,7 +19,7 @@
 
 ;; Register constraints
 
-(define_register_constraint "d" "BASE_REG_CLASS"
+(define_register_constraint "d" "ADDR_REG_CLASS"
   "An address register.  This is equivalent to @code{r} unless
    generating MIPS16 code.")
 
@@ -101,7 +101,7 @@
 (define_constraint "ks"
   "@internal"
   (and (match_code "reg")
-       (match_test "REGNO (op) == STACK_POINTER_REGNUM")))
+       (match_test "REGNO (op) == STACK_POINTER_REGNUM || REGNO (op) == FRAME_POINTER_REGNUM")))
 
 ;; Integer constraints
 

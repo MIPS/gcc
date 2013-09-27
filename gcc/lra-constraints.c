@@ -1554,7 +1554,7 @@ process_alt_operands (int only_alternative)
   for (nalt = 0; nalt < n_alternatives; nalt++)
     {
       /* Loop over operands for one constraint alternative.  */
-#if HAVE_ATTR_enabled
+#if 0 //HAVE_ATTR_enabled
       if (curr_id->alternative_enabled_p != NULL
 	  && ! curr_id->alternative_enabled_p[nalt])
 	continue;
@@ -2595,7 +2595,10 @@ base_plus_disp_to_reg (struct address_info *ad)
 		       get_index_code (ad));
   new_reg = lra_create_new_reg (GET_MODE (*ad->base_term), NULL_RTX,
 				cl, "base + disp");
-  lra_emit_add (new_reg, *ad->base_term, *ad->disp_term);
+  if (ad->disp_term != NULL)
+    lra_emit_add (new_reg, *ad->base_term, *ad->disp_term);
+  else
+    lra_emit_move (new_reg, *ad->base_term);
   return new_reg;
 }
 

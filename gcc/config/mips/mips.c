@@ -2255,7 +2255,7 @@ mips_regno_mode_ok_for_base_p (int regno, enum machine_mode mode,
      All in all, it seems more consistent to only enforce this restriction
      during and after reload.  */
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
-    return !strict_p || GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
+    return  GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
@@ -17447,7 +17447,7 @@ mips_conditional_register_usage (void)
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
-      if (optimize_size)
+      if (optimize_size && !targetm.lra_p())
 	{
 	  fixed_regs[8] = call_used_regs[8] = 1;
 	  fixed_regs[9] = call_used_regs[9] = 1;
@@ -18888,6 +18888,21 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   *update = build2 (COMPOUND_EXPR, void_type_node, *update,
 		    atomic_feraiseexcept_call);
 }
+
+static reg_class_t
+mips_spill_class (reg_class_t rclass, enum machine_mode mode)
+{
+  if (TARGET_MIPS16)
+   return SPILL_REGS;
+  return NO_REGS;
+}
+
+static bool
+mips_lra_p (void)
+{
+  return !TARGET_RELOAD;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -19124,6 +19139,15 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV mips_atomic_assign_expand_fenv
+
+#undef TARGET_SPILL_CLASS
+#define TARGET_SPILL_CLASS mips_spill_class
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P mips_lra_p
+
+#undef TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
+#define TARGET_DIFFERENT_ADDR_DISPLACEMENT_P hook_bool_void_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

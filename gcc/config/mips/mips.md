@@ -2986,31 +2986,22 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*and<mode>3_mips16"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d")
-	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0")
-		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d")))]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+	(and:GPR (match_operand:GPR 1 "register_operand" "%d,0")
+		 (match_operand:GPR 2 "and_operand" "Yw,d")))]
   "TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   switch (which_alternative)
     {
     case 0:
-      operands[1] = gen_lowpart (QImode, operands[1]);
-      return "lbu\t%0,%1";
-    case 1:
-      operands[1] = gen_lowpart (HImode, operands[1]);
-      return "lhu\t%0,%1";
-    case 2:
-      operands[1] = gen_lowpart (SImode, operands[1]);
-      return "lwu\t%0,%1";
-    case 3:
       return "#";
-    case 4:
+    case 1:
       return "and\t%0,%2";
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "move_type" "load,load,load,shift_shift,logical")
+  [(set_attr "move_type" "shift_shift,logical")
    (set_attr "mode" "<MODE>")])
 
 (define_expand "ior<mode>3"
