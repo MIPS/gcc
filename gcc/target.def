@@ -3188,6 +3188,18 @@ The default value of this hook is @code{NULL}, which disables any special\n\
 allocation.",
  rtx, (rtx hard_reg), NULL)
 
+/* Return true if alternate classes should be considered during register
+   allocation. */
+DEFHOOK
+(ira_use_alt_class_p,
+ "This target hook controls whether alternate classes are calculated for\n\
+  each pseudo register. Return false to disable alternate classes and\n\
+  therefore only consider the preferred class during register allocation.\n\
+  \n\
+  The default value of this hook is true.",
+ bool, (void),
+ hook_bool_void_true)
+
 /* Return nonzero if evaluating UNSPEC X might cause a trap.
    FLAGS has the same meaning as in rtlanal.c: may_trap_p_1.  */
 DEFHOOK
