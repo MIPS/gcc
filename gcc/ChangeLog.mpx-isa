@@ -1,4 +1,4 @@
-2013-09-16  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-09-30  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* config/i386/constraints.md (B): New.
 	(Ti): New.
@@ -59,11 +59,13 @@
 	(prefix_0f): Likewise.
 	(memory): Likewise.
 	(prefix_rep): Check for bnd prefix.
+	(length_nobnd): New.
+	(length): Use length_nobnd if specified.
 	(BND): New.
 	(bnd_ptr): New.
 	(BNDCHECK): New.
 	(bndcheck): New.
-	(*jcc_1): Add MPX bnd prefix and fix length.
+	(*jcc_1): Add bnd prefix and rename length attr to length_nobnd.
 	(*jcc_2): Likewise.
 	(jump): Likewise.
 	(simple_return_internal): Likewise.
