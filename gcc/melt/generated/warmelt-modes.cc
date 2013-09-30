@@ -13299,7 +13299,8 @@ N] ;\n   switch (i) {\n     case 0: return \"MeltObMag!0\" ;", sizeof (meltcdat-
     /*small inistring*/
     strncpy(meltcdat->dstr_411__not_map_magic_.val, ") /* not map magic */\n\t\t\t       return NULL ;\
 \n\t\t\t       return (melt_ptr_t) meltgc_raw_new_mappointers (discr\
-, len) ;\n\t\t\t       } /*end generated new map for ", sizeof (meltcdat->dstr_411__not_map_magic_.val)-1);
+, len) ;\n\t\t\t       } /*end generated new map\
+ for ", sizeof (meltcdat->dstr_411__not_map_magic_.val)-1);
     meltcdat->dstr_411__not_map_magic_.val[158] = (char)0 ;
     meltcdat->dstr_411__not_map_magic_.slen = 158 ;
 

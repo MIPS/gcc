@@ -38,7 +38,7 @@ const char melt_modulename[]="warmelt-macro";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-linux-gnu/4.9.0/melt-modules/0.9.9-post/warmelt-macro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="35212261f4ade66476746278a1a3c454";
+const char melt_prepromd5meltrun[]="a528da0fbbbc1152bb11e5384d284a9f";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="01b6252edf1a687843aa10b64b518650";
 
