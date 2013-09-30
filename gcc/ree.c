@@ -298,7 +298,8 @@ combine_set_extension (ext_cand *cand, rtx curr_insn, rtx *orig_set)
 	     the source mode.  */
 	  enum machine_mode src_mode = GET_MODE (SET_DEST (*orig_set));
 	  rtx new_const_int
-	    = GEN_INT (INTVAL (orig_src) & GET_MODE_MASK (src_mode));
+	    = gen_int_mode (INTVAL (orig_src) & GET_MODE_MASK (src_mode),
+			    GET_MODE (new_reg));
 	  new_set = gen_rtx_SET (VOIDmode, new_reg, new_const_int);
 	}
     }
@@ -799,7 +800,7 @@ add_removable_extension (const_rtx expr, rtx insn,
       /* Second, make sure the reaching definitions don't feed another and
 	 different extension.  FIXME: this obviously can be improved.  */
       for (def = defs; def; def = def->next)
-	if ((idx = def_map[INSN_UID(DF_REF_INSN (def->ref))])
+	if ((idx = def_map[INSN_UID (DF_REF_INSN (def->ref))])
 	    && (cand = &(*insn_list)[idx - 1])
 	    && cand->code != code)
 	  {
@@ -819,7 +820,7 @@ add_removable_extension (const_rtx expr, rtx insn,
       idx = insn_list->length ();
 
       for (def = defs; def; def = def->next)
-	def_map[INSN_UID(DF_REF_INSN (def->ref))] = idx;
+	def_map[INSN_UID (DF_REF_INSN (def->ref))] = idx;
     }
 }
 
@@ -960,8 +961,8 @@ const pass_data pass_data_ree =
 class pass_ree : public rtl_opt_pass
 {
 public:
-  pass_ree(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_ree, ctxt)
+  pass_ree (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_ree, ctxt)
   {}
 
   /* opt_pass methods: */
