@@ -237,6 +237,8 @@ unsigned int melthk_rtl_execute(void)
 	   melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 debugeprintf("installing MELT gimple new pass named %s w.r.t %s", 
+		      gimpass->pass.name, rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
 #else /* GCC 4.9 or newer has C++ passes */
@@ -261,10 +263,8 @@ unsigned int melthk_rtl_execute(void)
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
-			    NULL, &rpassinfo);
-	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
-	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 debugeprintf("installing MELT gimple pass named %s w.r.t. %s", 
+		      rpassdata.name,  rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
 #endif /* GCC 4.9 */
@@ -299,9 +299,11 @@ unsigned int melthk_rtl_execute(void)
 	 simipass->pass.todo_flags_finish = melt_val2passflag ((melt_ptr_t) $TODOFINISHV);
 	 rpassinfo.pass = (struct opt_pass*) simipass;
 	 rpassinfo.reference_pass_name = 
-	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
+	    melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 debugeprintf("installing MELT simple_ipa pass named %s w.r.t %s", 
+		      simipass->pass.name, rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
 #else /* GCC >= 4.9 */
@@ -326,10 +328,8 @@ unsigned int melthk_rtl_execute(void)
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
-			    NULL, &rpassinfo);
-	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
-	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 debugeprintf("installing MELT simple_ipa pass named %s w.r.t %s", 
+		      rpassdata.name, rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
 #endif /* GCC 4.9 or better */
@@ -365,6 +365,7 @@ unsigned int melthk_rtl_execute(void)
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
+	 debugeprintf("installing MELT rtl pass named %s", rtlpass->pass.name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
 #else /* GCC >= 4.9 */

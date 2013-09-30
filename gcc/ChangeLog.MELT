@@ -1,5 +1,13 @@
 
 2013-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/xtramelt-ana-base.melt (install_melt_pass_in_gcc): Add
+	debugprintf...
+
+	* melt/xtramelt-ana-simple.melt (justcountipa_docmd) probably
+	don't work...
+
+2013-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

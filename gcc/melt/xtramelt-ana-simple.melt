@@ -827,7 +827,9 @@
 			  :gccpass_exec justcountipa_exec
 			  :gccpass_data ()))
 	 )
-    (install_melt_pass_in_gcc ipass :before '"profile" 0)
+    (debug "justcountipa_docmd ipass=" ipass)
+    (install_melt_pass_in_gcc ipass :before '"ipa-visibility" -1)
+    (debug "justcountipa_docmd inserted ipass=" ipass)
     (return :true)
     ))
 
@@ -843,7 +845,7 @@
 (defun justshowpass (name :long num :value ptype)
   (debug "justshowpass name=" name " num=" num " ptype=" ptype)
   (shortbacktrace_dbg "justshowpass" 14)
-  (inform_at () "showing pass $1 number $2 of type $3" name num ptype)
+  (inform_at () "pass $1 number $2 of type $3" name num ptype)
   )
 
 (defun justshowpasses_docmd (cmd moduldata)
