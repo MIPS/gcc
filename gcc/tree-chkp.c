@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
+#include "tree-ssanames.h"
 
 /*  Pointers checker pass instruments code with memory checks to find
     out-of-bounds memory accesses.  Checks are performed by computing
