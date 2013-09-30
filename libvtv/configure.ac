@@ -20,6 +20,13 @@ AC_ARG_ENABLE(version-specific-runtime-libs,
 [version_specific_libs=no])
 AC_MSG_RESULT($version_specific_libs)
 
+# Do not delete or change the following two lines.  For why, see
+# http://gcc.gnu.org/ml/libstdc++/2003-07/msg00451.html
+AC_CANONICAL_SYSTEM
+target_alias=${target_alias-$host_alias}
+AC_SUBST(target_alias)
+GCC_LIBSTDCXX_RAW_CXX_FLAGS
+
 # Use same top-level configure hooks in libgcc/libstdc++/libvtv.
 AC_MSG_CHECKING([for --enable-vtable-verify])
 AC_ARG_ENABLE(vtable-verify,
@@ -47,13 +54,6 @@ if test "x$VTV_SUPPORTED" = "xyes"; then
   fi
 fi 
 AM_CONDITIONAL(ENABLE_VTABLE_VERIFY, test $use_vtable_verify = yes)
-
-# Do not delete or change the following two lines.  For why, see
-# http://gcc.gnu.org/ml/libstdc++/2003-07/msg00451.html
-AC_CANONICAL_SYSTEM
-target_alias=${target_alias-$host_alias}
-AC_SUBST(target_alias)
-GCC_LIBSTDCXX_RAW_CXX_FLAGS
 
 AM_INIT_AUTOMAKE(foreign no-dist)
 AM_ENABLE_MULTILIB(, ..)
@@ -141,7 +141,7 @@ fi
 AC_CONFIG_FILES([Makefile])
 
 if test "x$VTV_SUPPORTED" = "xyes"; then
-  AC_CONFIG_FILES(AC_FOREACH([DIR], [. testsuite], [DIR/Makefile ]), 
+  AC_CONFIG_FILES(AC_FOREACH([DIR], [testsuite], [DIR/Makefile ]), 
     [cat > vpsed$$ << \_EOF
 s!`test -f '$<' || echo '$(srcdir)/'`!!
 _EOF

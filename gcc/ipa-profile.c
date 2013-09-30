@@ -17,6 +17,33 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+/* ipa-profile pass implements the following analysis propagating profille
+   inter-procedurally.
+
+   - Count histogram construction.  This is a histogram analyzing how much
+     time is spent executing statements with a given execution count read
+     from profile feedback. This histogram is complette only with LTO,
+     otherwise it contains information only about the current unit.
+
+     Similar histogram is also estimated by coverage runtime.  This histogram
+     is not dependent on LTO, but it suffers from various defects; first
+     gcov runtime is not weighting individual basic block by estimated execution
+     time and second the merging of multiple runs makes assumption that the
+     histogram distribution did not change.  Consequentely histogram constructed
+     here may be more precise.
+
+     The information is used to set hot/cold thresholds.
+   - Next speculative indirect call resolution is performed:  the local
+     profile pass assigns profile-id to each function and provide us with a
+     histogram specifying the most common target.  We look up the callgraph
+     node corresponding to the target and produce a speculative call.
+
+     This call may or may not survive through IPA optimization based on decision
+     of inliner. 
+   - Finally we propagate the following flags: unlikely executed, executed
+     once, executed at startup and executed at exit.  These flags are used to
+     control code size/performance threshold and and code placement (by producing
+     .text.unlikely/.text.hot/.text.startup/.text.exit subsections).  */
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -213,7 +240,7 @@ ipa_profile_write_summary (void)
     = lto_create_simple_output_block (LTO_section_ipa_profile);
   unsigned int i;
 
-  streamer_write_uhwi_stream (ob->main_stream, histogram.length());
+  streamer_write_uhwi_stream (ob->main_stream, histogram.length ());
   for (i = 0; i < histogram.length (); i++)
     {
       streamer_write_gcov_count_stream (ob->main_stream, histogram[i]->count);
@@ -301,6 +328,18 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
 	    d->only_called_at_startup = 0;
           d->only_called_at_exit &= edge->caller->only_called_at_exit;
 	}
+
+      /* When profile feedback is available, do not try to propagate too hard;
+	 counts are already good guide on function frequencies and roundoff
+	 errors can make us to push function into unlikely section even when
+	 it is executed by the train run.  Transfer the function only if all
+	 callers are unlikely executed.  */
+      if (profile_info && flag_branch_probabilities
+	  && (edge->caller->frequency != NODE_FREQUENCY_UNLIKELY_EXECUTED
+	      || (edge->caller->global.inlined_to
+		  && edge->caller->global.inlined_to->frequency
+		     != NODE_FREQUENCY_UNLIKELY_EXECUTED)))
+	  d->maybe_unlikely_executed = false;
       if (!edge->frequency)
 	continue;
       switch (edge->caller->frequency)
@@ -332,6 +371,24 @@ ipa_propagate_frequency_1 (struct cgraph_node *node, void *data)
   return edge != NULL;
 }
 
+/* Return ture if NODE contains hot calls.  */
+
+bool
+contains_hot_call_p (struct cgraph_node *node)
+{
+  struct cgraph_edge *e;
+  for (e = node->callees; e; e = e->next_callee)
+    if (cgraph_maybe_hot_edge_p (e))
+      return true;
+    else if (!e->inline_failed
+	     && contains_hot_call_p (e->callee))
+      return true;
+  for (e = node->indirect_calls; e; e = e->next_callee)
+    if (cgraph_maybe_hot_edge_p (e))
+      return true;
+  return false;
+}
+
 /* See if the frequency of NODE can be updated based on frequencies of its
    callers.  */
 bool
@@ -343,6 +400,7 @@ ipa_propagate_frequency (struct cgraph_node *node)
   /* We can not propagate anything useful about externally visible functions
      nor about virtuals.  */
   if (!node->local.local
+      || node->symbol.alias
       || (flag_devirtualize && DECL_VIRTUAL_P (node->symbol.decl)))
     return false;
   gcc_assert (node->symbol.analyzed);
@@ -368,6 +426,36 @@ ipa_propagate_frequency (struct cgraph_node *node)
          fprintf (dump_file, "Node %s promoted to only called at exit.\n",
 		  cgraph_node_name (node));
        changed = true;
+    }
+
+  /* With profile we can decide on hot/normal based on count.  */
+  if (node->count)
+    {
+      bool hot = false;
+      if (node->count >= get_hot_bb_threshold ())
+	hot = true;
+      if (!hot)
+	hot |= contains_hot_call_p (node);
+      if (hot)
+	{
+	  if (node->frequency != NODE_FREQUENCY_HOT)
+	    {
+	      if (dump_file)
+		fprintf (dump_file, "Node %s promoted to hot.\n",
+			 cgraph_node_name (node));
+	      node->frequency = NODE_FREQUENCY_HOT;
+	      return true;
+	    }
+	  return false;
+	}
+      else if (node->frequency == NODE_FREQUENCY_HOT)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "Node %s reduced to normal.\n",
+		     cgraph_node_name (node));
+	  node->frequency = NODE_FREQUENCY_NORMAL;
+	  changed = true;
+	}
     }
   /* These come either from profile or user hints; never update them.  */
   if (node->frequency == NODE_FREQUENCY_HOT
@@ -472,7 +560,7 @@ ipa_profile (void)
           set_hot_bb_threshold (threshold);
 	}
     }
-  histogram.release();
+  histogram.release ();
   free_alloc_pool (histogram_pool);
 
   /* Produce speculative calls: we saved common traget from porfiling into
@@ -537,7 +625,13 @@ ipa_profile (void)
 			 of N2.  Speculate on the local alias to allow inlining.
 		       */
 		      if (!symtab_can_be_discarded ((symtab_node) n2))
-			n2 = cgraph (symtab_nonoverwritable_alias ((symtab_node)n2));
+			{
+			  cgraph_node *alias;
+			  alias = cgraph (symtab_nonoverwritable_alias
+					   ((symtab_node)n2));
+			  if (alias)
+			    n2 = alias;
+			}
 		      nconverted++;
 		      cgraph_turn_edge_to_speculative
 			(e, n2,
@@ -638,17 +732,17 @@ const pass_data pass_data_ipa_profile =
 class pass_ipa_profile : public ipa_opt_pass_d
 {
 public:
-  pass_ipa_profile(gcc::context *ctxt)
-    : ipa_opt_pass_d(pass_data_ipa_profile, ctxt,
-		     ipa_profile_generate_summary, /* generate_summary */
-		     ipa_profile_write_summary, /* write_summary */
-		     ipa_profile_read_summary, /* read_summary */
-		     NULL, /* write_optimization_summary */
-		     NULL, /* read_optimization_summary */
-		     NULL, /* stmt_fixup */
-		     0, /* function_transform_todo_flags_start */
-		     NULL, /* function_transform */
-		     NULL) /* variable_transform */
+  pass_ipa_profile (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_profile, ctxt,
+		      ipa_profile_generate_summary, /* generate_summary */
+		      ipa_profile_write_summary, /* write_summary */
+		      ipa_profile_read_summary, /* read_summary */
+		      NULL, /* write_optimization_summary */
+		      NULL, /* read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      NULL, /* function_transform */
+		      NULL) /* variable_transform */
   {}
 
   /* opt_pass methods: */

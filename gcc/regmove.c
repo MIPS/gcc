@@ -652,7 +652,7 @@ copy_src_to_dest (rtx insn, rtx src, rtx dest)
       for (link = REG_NOTES (insn); link != NULL_RTX; link = next)
 	{
 	  next = XEXP (link, 1);
-	  if (XEXP (link, 0) == src)
+	  if (GET_CODE (link) == EXPR_LIST && XEXP (link, 0) == src)
 	    {
 	      *p_move_notes = link;
 	      p_move_notes = &XEXP (link, 1);
@@ -786,7 +786,8 @@ fixup_match_2 (rtx insn, rtx dst, rtx src, rtx offset)
 	{
 	  HOST_WIDE_INT newconst
 	    = INTVAL (offset) - INTVAL (XEXP (SET_SRC (pset), 1));
-	  rtx add = gen_add3_insn (dst, dst, GEN_INT (newconst));
+	  rtx add = gen_add3_insn (dst, dst,
+				   gen_int_mode (newconst, GET_MODE (dst)));
 
 	  if (add && validate_change (insn, &PATTERN (insn), add, 0))
 	    {
@@ -1381,8 +1382,8 @@ const pass_data pass_data_regmove =
 class pass_regmove : public rtl_opt_pass
 {
 public:
-  pass_regmove(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_regmove, ctxt)
+  pass_regmove (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_regmove, ctxt)
   {}
 
   /* opt_pass methods: */
