@@ -293,7 +293,7 @@ gfc_trans_acc_array_reduction (tree c, gfc_symbol *sym, locus where)
       gfc_start_block (&block);
       gfc_add_expr_to_block (&block, gfc_trans_assignment (e3, e4, false,
                              true));
-      gfc_add_expr_to_block (&block, gfc_trans_dealloc_allocated (decl, false));
+      gfc_add_expr_to_block (&block, gfc_trans_dealloc_allocated (decl, false, NULL));
       stmt = gfc_finish_block (&block);
     }
   else
@@ -739,7 +739,6 @@ typedef struct dovar_init_d {
   tree init;
 } dovar_init;
 
-/* In statement like DO I = 1, 10 variable i must be private, since i is dovar */
 static tree
 gfc_trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
                     gfc_acc_clauses *do_clauses)
@@ -864,21 +863,7 @@ gfc_trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
           dovar_init e = {dovar, tmp};
           inits.safe_push (e);
         }
-
-      if (!dovar_found)
-        {
-          tmp = build_acc_clause (input_location, ACC_CLAUSE_PRIVATE);
-          ACC_CLAUSE_DECL (tmp) = dovar_decl;
-          acc_clauses = gfc_trans_add_clause (tmp, acc_clauses);
-        }
-      else if (dovar_found == 2)
-        gcc_unreachable();
-      if (!simple)
-        {
-          tmp = build_acc_clause (input_location, ACC_CLAUSE_PRIVATE);
-          ACC_CLAUSE_DECL (tmp) = count;
-          acc_clauses = gfc_trans_add_clause (tmp, acc_clauses);
-        }
+      gcc_assert (dovar_found != 2);
 
       if (i + 1 < collapse)
         code = code->block->next;
@@ -1058,6 +1043,16 @@ gfc_trans_acc_kernels_loop (gfc_code *code)
                      acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
   return gfc_finish_block (&block);
+}
+
+tree
+gfc_trans_acc_declare (stmtblock_t *block, gfc_namespace *ns)
+{
+  tree acc_clauses;
+  acc_clauses = gfc_trans_acc_clauses (block, ns->declare_clauses,
+                                       ns->code->loc);
+  return build1_loc (input_location, ACC_DECLARE, void_type_node,
+                                       acc_clauses);
 }
 
 tree

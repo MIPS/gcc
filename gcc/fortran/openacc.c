@@ -762,63 +762,6 @@ struct acc_context
   struct acc_context *previous;
 } *acc_current_ctx;
 
-static void
-add_var_to_pcopy_clause (gfc_symbol *sym, gfc_code **acc, locus loc)
-{
-  gfc_namelist *tail, *nl;
-  struct acc_context *ctx;
-  int i;
-
-  for (i = ACC_LIST_DATA_CLAUSE_FIRST; i <= ACC_LIST_DATA_CLAUSE_LAST; i++)
-    for (nl = (*acc)->ext.acc_clauses->lists[i]; nl; nl = nl->next)
-      if (nl->sym == sym)
-        return;
-
-  for (ctx = acc_current_ctx; ctx; ctx = ctx->previous)
-    if (ctx->code->op == EXEC_ACC_DATA)
-      for (i = ACC_LIST_DATA_CLAUSE_FIRST; i <= ACC_LIST_DATA_CLAUSE_LAST; i++)
-        for (nl = ctx->code->ext.acc_clauses->lists[i]; nl; nl = nl->next)
-          if (nl->sym == sym)
-            return;
-
-  gfc_warning ("Inserting present_or_copy(%s) clause to ACC region %L", sym->name, &loc);
-
-  tail = gfc_get_namelist ();
-  tail->sym = sym;
-
-  nl = (*acc)->ext.acc_clauses->lists[ACC_LIST_PRESENT_OR_COPY];
-  if (nl == NULL)
-    (*acc)->ext.acc_clauses->lists[ACC_LIST_PRESENT_OR_COPY] = tail;
-  else
-    {
-      /* Jump to the tail of the namelist. */
-      for (; nl->next; nl = nl->next)
-        {}
-      nl->next = tail;
-    }
-}
-
-static void
-add_pcopy_clause (gfc_code *code, gfc_code **acc)
-{
-  if (code == NULL)
-    return;
-  if (code->block)
-    add_pcopy_clause (code->block->next, acc);
-
-  if (code->expr1 && code->expr1->expr_type == EXPR_VARIABLE)
-    add_var_to_pcopy_clause (code->expr1->symtree->n.sym, acc, code->loc);
-  if (code->expr2 && code->expr2->expr_type == EXPR_VARIABLE)
-    add_var_to_pcopy_clause (code->expr2->symtree->n.sym, acc, code->loc);
-  if (code->expr3 && code->expr3->expr_type == EXPR_VARIABLE)
-    add_var_to_pcopy_clause (code->expr3->symtree->n.sym, acc, code->loc);
-  if (code->expr4 && code->expr4->expr_type == EXPR_VARIABLE)
-    add_var_to_pcopy_clause (code->expr4->symtree->n.sym, acc, code->loc);
-
-  if (code->next)
-    add_pcopy_clause (code->next, acc);
-}
-
 void
 gfc_resolve_acc_blocks (gfc_code *code, gfc_namespace *ns)
 {
@@ -848,13 +791,6 @@ gfc_resolve_acc_blocks (gfc_code *code, gfc_namespace *ns)
   acc_current_ctx = &ctx;
 
   gfc_resolve_blocks (code->block, ns);
-
-  /* Now we should add present_or_copy clause. */
-  if (code->op == EXEC_ACC_KERNELS ||
-      code->op == EXEC_ACC_PARALLEL ||
-      code->op == EXEC_ACC_KERNELS_LOOP ||
-      code->op == EXEC_ACC_PARALLEL_LOOP)
-    add_pcopy_clause (code->block->next, &code);
 
   acc_current_ctx = ctx.previous;
 }

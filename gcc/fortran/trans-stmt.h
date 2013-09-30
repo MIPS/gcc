@@ -66,6 +66,7 @@ tree gfc_trans_omp_directive (gfc_code *);
 
 /* trans-openacc.c */
 tree gfc_trans_acc_directive (gfc_code *);
+tree gfc_trans_acc_declare (stmtblock_t *block, gfc_namespace *);
 
 /* trans-io.c */
 tree gfc_trans_open (gfc_code *);

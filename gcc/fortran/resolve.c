@@ -14531,39 +14531,6 @@ resolve_types (gfc_namespace *ns)
 }
 
 
-/* Insert an implicit data construct to the program or function */
-
-static void
-insert_acc_data_construct (gfc_namespace *ns, gfc_acc_clauses *acc_clauses)
-{
-  gfc_code *head = ns->code;
-  gfc_code *tail, *end;
-  gfc_code *new_root = gfc_get_code ();
-  gfc_code *block = gfc_get_code ();
-
-  new_root->op = block->op = EXEC_ACC_DATA;
-  new_root->block = block;
-  new_root->ext.acc_clauses = acc_clauses;
-
-  /* when there are no executable statements */
-  if (head->next == NULL)
-    new_root->next = head;
-  else
-    {
-      /* go to the end of function or program */
-      tail = head;
-      while(tail->next->next)
-        tail = tail->next;
-      end = tail->next;
-
-      new_root->next = end;
-      block->next = head;
-      tail->next = NULL;
-    }
-  ns->code = new_root;
-}
-
-
 /* Call resolve_code recursively.  */
 
 static void
@@ -14589,9 +14556,6 @@ resolve_codes (gfc_namespace *ns)
 
   old_obstack = labels_obstack;
   bitmap_obstack_initialize (&labels_obstack);
-
-  if (ns->declare_clauses)
-    insert_acc_data_construct(ns, ns->declare_clauses);
 
   resolve_code (ns->code, ns);
 
