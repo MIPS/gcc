@@ -36,7 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "langhooks.h"
@@ -541,7 +541,8 @@ check_call (funct_state local, gimple call, bool ipa)
     }
 
   /* When not in IPA mode, we can still handle self recursion.  */
-  if (!ipa && callee_t == current_function_decl)
+  if (!ipa && callee_t
+      && recursive_call_p (current_function_decl, callee_t))
     {
       if (dump_file)
         fprintf (dump_file, "    Recursive call can loop.\n");
@@ -758,7 +759,7 @@ analyze_function (struct cgraph_node *fn, bool ipa)
       gimple_stmt_iterator gsi;
       struct walk_stmt_info wi;
 
-      memset (&wi, 0, sizeof(wi));
+      memset (&wi, 0, sizeof (wi));
       for (gsi = gsi_start_bb (this_block);
 	   !gsi_end_p (gsi);
 	   gsi_next (&gsi))
@@ -1079,8 +1080,9 @@ ignore_edge (struct cgraph_edge *e)
 }
 
 /* Return true if NODE is self recursive function.
-   ??? self recursive and indirectly recursive funcions should
-   be the same, so this function seems unnecessary.  */
+   Indirectly recursive functions appears as non-trivial strongly
+   connected components, so we need to care about self recursion
+   only.  */
 
 static bool
 self_recursive_p (struct cgraph_node *node)
@@ -1518,17 +1520,17 @@ const pass_data pass_data_ipa_pure_const =
 class pass_ipa_pure_const : public ipa_opt_pass_d
 {
 public:
-  pass_ipa_pure_const(gcc::context *ctxt)
-    : ipa_opt_pass_d(pass_data_ipa_pure_const, ctxt,
-		     pure_const_generate_summary, /* generate_summary */
-		     pure_const_write_summary, /* write_summary */
-		     pure_const_read_summary, /* read_summary */
-		     NULL, /* write_optimization_summary */
-		     NULL, /* read_optimization_summary */
-		     NULL, /* stmt_fixup */
-		     0, /* function_transform_todo_flags_start */
-		     NULL, /* function_transform */
-		     NULL) /* variable_transform */
+  pass_ipa_pure_const (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_pure_const, ctxt,
+		      pure_const_generate_summary, /* generate_summary */
+		      pure_const_write_summary, /* write_summary */
+		      pure_const_read_summary, /* read_summary */
+		      NULL, /* write_optimization_summary */
+		      NULL, /* read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      NULL, /* function_transform */
+		      NULL) /* variable_transform */
   {}
 
   /* opt_pass methods: */
@@ -1702,8 +1704,8 @@ const pass_data pass_data_local_pure_const =
 class pass_local_pure_const : public gimple_opt_pass
 {
 public:
-  pass_local_pure_const(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_local_pure_const, ctxt)
+  pass_local_pure_const (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_local_pure_const, ctxt)
   {}
 
   /* opt_pass methods: */

@@ -104,7 +104,7 @@
 #include "regs.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cselib.h"
 #include "target.h"
 #include "params.h"
@@ -1045,9 +1045,10 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
     case PRE_INC:
     case PRE_DEC:
       addr = gen_rtx_PLUS (GET_MODE (loc), XEXP (loc, 0),
-			   GEN_INT (GET_CODE (loc) == PRE_INC
-				    ? GET_MODE_SIZE (amd->mem_mode)
-				    : -GET_MODE_SIZE (amd->mem_mode)));
+			   gen_int_mode (GET_CODE (loc) == PRE_INC
+					 ? GET_MODE_SIZE (amd->mem_mode)
+					 : -GET_MODE_SIZE (amd->mem_mode),
+					 GET_MODE (loc)));
     case POST_INC:
     case POST_DEC:
       if (addr == loc)
@@ -1055,10 +1056,11 @@ adjust_mems (rtx loc, const_rtx old_rtx, void *data)
       gcc_assert (amd->mem_mode != VOIDmode && amd->mem_mode != BLKmode);
       addr = simplify_replace_fn_rtx (addr, old_rtx, adjust_mems, data);
       tem = gen_rtx_PLUS (GET_MODE (loc), XEXP (loc, 0),
-			   GEN_INT ((GET_CODE (loc) == PRE_INC
-				     || GET_CODE (loc) == POST_INC)
-				    ? GET_MODE_SIZE (amd->mem_mode)
-				    : -GET_MODE_SIZE (amd->mem_mode)));
+			  gen_int_mode ((GET_CODE (loc) == PRE_INC
+					 || GET_CODE (loc) == POST_INC)
+					? GET_MODE_SIZE (amd->mem_mode)
+					: -GET_MODE_SIZE (amd->mem_mode),
+					GET_MODE (loc)));
       amd->side_effects = alloc_EXPR_LIST (0,
 					   gen_rtx_SET (VOIDmode,
 							XEXP (loc, 0),
@@ -2875,7 +2877,7 @@ variable_union (variable src, dataflow_set *set)
 	      /* The most common case, much simpler, no qsort is needed.  */
 	      location_chain dstnode = dst->var_part[j].loc_chain;
 	      dst->var_part[k].loc_chain = dstnode;
-	      VAR_PART_OFFSET (dst, k) = VAR_PART_OFFSET(dst, j);
+	      VAR_PART_OFFSET (dst, k) = VAR_PART_OFFSET (dst, j);
 	      node2 = dstnode;
 	      for (node = src->var_part[i].loc_chain; node; node = node->next)
 		if (!((REG_P (dstnode->loc)
@@ -10254,8 +10256,8 @@ const pass_data pass_data_variable_tracking =
 class pass_variable_tracking : public rtl_opt_pass
 {
 public:
-  pass_variable_tracking(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_variable_tracking, ctxt)
+  pass_variable_tracking (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_variable_tracking, ctxt)
   {}
 
   /* opt_pass methods: */
