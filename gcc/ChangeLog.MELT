@@ -1,4 +1,30 @@
 
+2013-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (melt_pass_instance_counter)
+	(melt_current_pass_index_var): New extern variable.
+
+	* melt-runtime.cc: Ditto.
+
+	* melt/generated/meltrunsup.h (melthookproc_HOOK_PASS_EXECUTION):
+	Add third ptype long parameter.
+
+	* melt/generated/meltrunsup-inc.cc: Ditto.
+
+	* melt/warmelt-hooks.melt (melt_pass_execution_hook_callback):
+	pass the type number.
+	(hook_pass_execution): Handle that type number. Don't accumulate
+	results.
+	(register_pass_execution_first, register_pass_execution_last):
+	Improve :doc string.
+
+	* melt/xtramelt-ana-base.melt (melt_gimple_pass)
+	(melt_simple_ipa_pass): Handle the pass index.
+
+	* melt/xtramelt-ana-simple.melt (justshowpass)
+	(justshowpasses_docmd): New functions.
+	(justshowpasses_mode): New justshowpasses mode.
+
 2013-09-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/xtramelt-ana-gimple.melt: Update copyright year.

@@ -3243,6 +3243,9 @@ void meltgc_notify_inchannel_data (void);
 /* convert a MELT value to a plugin flag or option */
 unsigned long melt_val2passflag(melt_ptr_t val_p);
 
+MELT_EXTERN long melt_pass_instance_counter;
+MELT_EXTERN long melt_current_pass_index_var;
+
 /* ====== safer output routines ===== */
 
 /* output a string */

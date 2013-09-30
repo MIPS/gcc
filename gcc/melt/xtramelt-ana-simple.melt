@@ -215,7 +215,7 @@
 		    :gccpass_properties_required ()
 	      ))
         )
-  (install_melt_pass_in_gcc justscanpass :after '"phiopt" 0)
+  (install_melt_pass_in_gcc justscanpass :after '"cp" 0) ;; interprocedural constant propagation
   (debug  "justscan_mode installed pass=" justscanpass)
   (return cmd)			;return non-nil to continue compilation
   ))
@@ -798,5 +798,66 @@
   :meltmode_help '"after having loaded an extra module built with findgimple, run that module to find the compiled Gimple patterns."
   :meltmode_fun gofindgimple_docmd)
 (install_melt_mode gofindgimple_mode)
+
+
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; a just count IPA pass
+
+;; no gate functions in simple IPA passes
+
+(defun justcountipa_exec (pass)
+  (let ( (passix 0)
+	 )
+    (code_chunk getpassix_chk
+		#{ /* justcountipa_exec $GETPASSIX_CHK */
+#if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
+       $PASSIX = melt_current_pass_index_var;
+#endif
+}#)
+  (debug "justcountipa_exec pass=" pass " passix=" passix)
+  (shortbacktrace_dbg "justcountipa_exec" 14)
+  (return :true)
+))
+
+(defun justcountipa_docmd (cmd moduldata)
+  (debug "justcountipa_docmd start cmd=" cmd)
+  (let ( (ipass (instance class_gcc_simple_ipa_pass
+			  :named_name '"melt_justcountipa"
+			  :gccpass_exec justcountipa_exec
+			  :gccpass_data ()))
+	 )
+    (install_melt_pass_in_gcc ipass :before '"profile" 0)
+    (return :true)
+    ))
+
+(definstance justcountipa_mode
+  class_melt_mode
+  :named_name '"justcountipa"
+  :meltmode_help '"count GIMPLE in IPA [interprocedural analysis] pass"
+  :meltmode_fun justcountipa_docmd)
+(install_melt_mode justcountipa_mode)
+
+;;;;;;;;;;;;;;;;
+
+(defun justshowpass (name :long num :value ptype)
+  (debug "justshowpass name=" name " num=" num " ptype=" ptype)
+  (shortbacktrace_dbg "justshowpass" 14)
+  (inform_at () "showing pass $1 number $2 of type $3" name num ptype)
+  )
+
+(defun justshowpasses_docmd (cmd moduldata)
+  (debug "justshowpasses_docmd start cmd=" cmd)
+  (register_pass_execution_first justshowpass)
+  (return :true)
+  )
+
+(definstance justshowpasses_mode
+  class_melt_mode
+  :named_name '"justshowpasses"
+  :meltmode_help '"show all the executed passes"
+  :meltmode_fun justshowpasses_docmd)
+(install_melt_mode justshowpasses_mode)
+
 
 ;;**************** eof xtramelt-ana-simple.melt

@@ -152,6 +152,9 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 
 struct plugin_gcc_version *melt_plugin_gcc_version;
 
+long melt_pass_instance_counter;
+long melt_current_pass_index_var;
+
 #if defined (GCCPLUGIN_VERSION)
 const int melt_gccplugin_version = GCCPLUGIN_VERSION;
 #else

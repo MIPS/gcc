@@ -1725,7 +1725,7 @@ bool  melthk_pass_execution_registered_flag;
 			      void* user_data ATTRIBUTE_UNUSED)
  {
    struct opt_pass* pass = (struct opt_pass*) gcc_data;
-   melthookproc_HOOK_PASS_EXECUTION (pass->name, (long) pass->static_pass_number);
+   melthookproc_HOOK_PASS_EXECUTION (pass->name, (long) pass->static_pass_number, (long) pass->type);
  }
  }#)
 
@@ -1739,7 +1739,7 @@ bool  melthk_pass_execution_registered_flag;
 		       melt_pass_execution_hook_callback, NULL);
  }#)
 
-(defhook hook_pass_execution (:cstring passname :long passnum) () :void
+(defhook hook_pass_execution (:cstring passname :long passnum typenum) () :void
   :predef HOOK_PASS_EXECUTION
   (let (
 	(passnameval (expr_chunk
@@ -1750,16 +1750,36 @@ bool  melthk_pass_execution_registered_flag;
 		      ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
 		       $PASSNAME)
 		      }#))
+	(ptype ())
 	(firstlist (get_field :delqu_first pass_execution_delayed_queue))
 	(lastlist (get_field :delqu_last  pass_execution_delayed_queue))
 	(revlastlist (make_list discr_list))
-	(res ())
 	)
+    (code_chunk 
+     fillptype_chk #{ /* hook_pass_execution $FILLPTYPE_CHK */
+     switch ($TYPENUM) {
+     case (int) GIMPLE_PASS: 
+       $(progn (setq ptype :gimple_pass) (void)); 
+       break;
+     case (int) RTL_PASS: 
+       $(progn (setq ptype :rtl_pass) (void)); 
+       break;
+     case (int) SIMPLE_IPA_PASS: 
+       $(progn (setq ptype :simple_ipa_pass) (void)); 
+       break;
+     case (int) IPA_PASS: 
+       $(progn (setq ptype :ipa_pass) (void)); 
+       break;
+     default: 
+       $(progn (setq ptype (constant_box typenum)) (void));
+       break;
+     } /* end switch typenum in $FILLPTYPE_CHK*/
+     }#)
 ;;; call the first routines in natural order
     (foreach_pair_component_in_list
      (firstlist)
      (firstpair firstproc)
-     (setq res (firstproc passnameval passnum res))
+     (firstproc passnameval passnum ptype)
      )
 ;;; reverse the last list
     (foreach_pair_component_in_list
@@ -1770,7 +1790,7 @@ bool  melthk_pass_execution_registered_flag;
     (foreach_pair_component_in_list
      (revlastlist)
      (revlastpair revlastproc)
-     (setq res (revlastproc passnameval passnum res))
+     (revlastproc passnameval passnum ptype)
      )
     )
   ;; always force a minor garbage collection, otherwise other GCC
@@ -1782,7 +1802,7 @@ bool  melthk_pass_execution_registered_flag;
 (defun register_pass_execution_first (fun)
   :doc #{Use $REGISTER_PASS_EXECUTION_FIRST to register a function $FUN to
   be run at PLUGIN_PASS_EXECUTION hook, in first place.  $FUN must be a closure
-  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  which take as arguments @var{boxed-pass-name} @var{raw-pass-number} @var{pass-type-keyword}.}#
   (let ( (firstlist (get_field :delqu_first pass_execution_delayed_queue))
 	     )
     (if (null firstlist)
@@ -1803,7 +1823,7 @@ bool  melthk_pass_execution_registered_flag;
 (defun register_pass_execution_last (fun)
   :doc #{Use $REGISTER_PASS_EXECUTION_LAST to register a function $FUN to
   be run at PLUGIN_PASS_EXECUTION hook, in last place.  $FUN must be a closure
-  which take 1 argument (the boxed tree of function declaration being parsed).}#
+  which take as arguments @var{boxed-pass-name} @var{raw-pass-number} @var{pass-type-keyword}.}#
   (let ( (lastlist (get_field :delqu_first pass_execution_delayed_queue))
 	     )
     (if (null lastlist)

@@ -3679,7 +3679,7 @@ void melthookproc_HOOK_OVERRIDE_GATE(long meltin_BEFOREGATE_p0, long* meltout_AF
 
 
 /*predefined hook definition HOOK_PASS_EXECUTION #132*/
-void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long meltin_PASSNUM_p1)
+void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long meltin_PASSNUM_p1, long ptyp)
 {
     /* code emitted by generate_runtypesupport_predefined_hooks for HOOK_PASS_EXECUTION*/
 #ifndef MELT_SKIP_HOOK_PREDEFINED_CODE

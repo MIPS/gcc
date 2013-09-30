@@ -56,33 +56,61 @@ MELT_EXTERN bool melthk_rtl_gate(void) MELT_MODULE_VISIBILITY;
 MELT_EXTERN unsigned int melthk_rtl_execute(void) MELT_MODULE_VISIBILITY;
 
 #if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
-MELT_EXTERN long melt_pass_instance_counter_ MELT_MODULE_VISIBILITY;
+
 class melt_gimple_pass : public gimple_opt_pass {
   long _instance_index;
 public:
+  long index () const { return _instance_index; };
   melt_gimple_pass (const pass_data& passdata, gcc::context*ctxt) 
-    : gimple_opt_pass (passdata, ctxt), _instance_index(++melt_pass_instance_counter_) {};
-  bool gate () { return melthk_gimple_gate(); };
-  unsigned execute () { return melthk_gimple_execute(); };
+    : gimple_opt_pass (passdata, ctxt), _instance_index(++melt_pass_instance_counter) {};
+  bool gate () { 
+    bool fla;
+    long oldindex = melt_current_pass_index_var;
+    melt_current_pass_index_var = index ();
+    fla = melthk_gimple_gate(); 
+    melt_current_pass_index_var = oldindex;
+    return fla;
+ };
+  unsigned execute () { 
+    unsigned r = 0;
+    long oldindex = melt_current_pass_index_var;
+    melt_current_pass_index_var = index ();
+    r = melthk_gimple_execute(); 
+    melt_current_pass_index_var = oldindex;
+    return r;
+  };
   opt_pass* clone () { 
     melt_gimple_pass *p = new melt_gimple_pass(*this); 
-    p->_instance_index = ++melt_pass_instance_counter_;
+    p->_instance_index = ++melt_pass_instance_counter;
     return p;
   };
-  long index () const { return _instance_index; };
 }; // end of melt_gimple_pass class
 
 class melt_simple_ipa_pass : public simple_ipa_opt_pass {
-  long _instance_index;
+  long _simpleipa_instance_index;
 public:
-  long index () const { return _instance_index; };
+  long index () const { return _simpleipa_instance_index; };
    melt_simple_ipa_pass (const pass_data& passdata, gcc::context*ctxt) 
-    : simple_ipa_opt_pass(passdata, ctxt),  _instance_index(++melt_pass_instance_counter_) {};
+    : simple_ipa_opt_pass(passdata, ctxt),  _simpleipa_instance_index(++melt_pass_instance_counter) {};
    unsigned int execute () 
     {
-      return melthk_simple_ipa_execute(); 
+      unsigned r = 0;
+      long oldindex = melt_current_pass_index_var;
+      melt_current_pass_index_var = index ();
+      r = melthk_simple_ipa_execute(); 
+      melt_current_pass_index_var = oldindex;
+      return r;
     };
+  opt_pass* clone () { 
+    melt_simple_ipa_pass *p = new melt_simple_ipa_pass(*this); 
+    p->_simpleipa_instance_index = ++melt_pass_instance_counter;
+    return p;
+  };
 }; // end of melt_simple_ipa_pass class
+
+static inline long melt_get_current_pass_index (void) {
+   return current_pass?melt_current_pass_index_var:0L;
+}
 
 #endif /* GCC 4.9 or newer */
 
@@ -114,9 +142,6 @@ bool melthk_rtl_gate(void)
 unsigned int melthk_rtl_execute(void) 
 {return (unsigned) melthookproc_HOOK_RTL_EXECUTE (); }
 
-#if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
-long melt_pass_instance_counter_ = 0;
-#endif /* GCC 4.9 or newer */
 }#)
 
 

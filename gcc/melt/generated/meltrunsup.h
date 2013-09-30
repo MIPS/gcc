@@ -2517,7 +2517,7 @@ MELT_EXTERN melt_ptr_t melthookproc_HOOK_NAMED_SYMBOL(const char* meltin_NAM_p0,
 MELT_EXTERN void melthookproc_HOOK_OVERRIDE_GATE(long meltin_BEFOREGATE_p0, long* meltout_AFTERGATE_o0);
 
 /*predefined hook declaration HOOK_PASS_EXECUTION #132*/
-MELT_EXTERN void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long meltin_PASSNUM_p1);
+MELT_EXTERN void melthookproc_HOOK_PASS_EXECUTION(const char* meltin_PASSNAME_p0, long meltin_PASSNUM_p1, long ptyp=0);
 
 /*predefined hook declaration HOOK_POLL_INPUTS #133*/
 MELT_EXTERN void melthookproc_HOOK_POLL_INPUTS(long meltin_DELAYMS_p0);
