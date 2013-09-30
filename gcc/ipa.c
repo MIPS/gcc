@@ -149,6 +149,84 @@ process_references (struct ipa_ref_list *list,
     }
 }
 
+/* EDGE is an polymorphic call.  If BEFORE_INLINING_P is set, mark
+   all its potential targets as reachable to permit later inlining if
+   devirtualization happens.  After inlining still keep their declarations
+   around, so we can devirtualize to a direct call.
+
+   Also try to make trivial devirutalization when no or only one target is
+   possible.  */
+
+static void
+walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
+			       struct cgraph_edge *edge,
+			       symtab_node *first,
+			       pointer_set_t *reachable, bool before_inlining_p)
+{
+  unsigned int i;
+  void *cache_token;
+  bool final;
+  vec <cgraph_node *>targets
+    = possible_polymorphic_call_targets
+	(edge, &final, &cache_token);
+
+  if (!pointer_set_insert (reachable_call_targets,
+			   cache_token))
+    {
+      for (i = 0; i < targets.length (); i++)
+	{
+	  struct cgraph_node *n = targets[i];
+
+	  /* Do not bother to mark virtual methods in anonymous namespace;
+	     either we will find use of virtual table defining it, or it is
+	     unused.  */
+	  if (TREE_CODE (TREE_TYPE (n->symbol.decl)) == METHOD_TYPE
+	      && type_in_anonymous_namespace_p
+		    (method_class_type (TREE_TYPE (n->symbol.decl))))
+	    continue;
+
+	  /* Prior inlining, keep alive bodies of possible targets for
+	     devirtualization.  */
+	   if (n->symbol.definition
+	       && before_inlining_p)
+	     pointer_set_insert (reachable, n);
+
+	  /* Even after inlining we want to keep the possible targets in the
+	     boundary, so late passes can still produce direct call even if
+	     the chance for inlining is lost.  */
+	  enqueue_node ((symtab_node) n, first, reachable);
+	}
+    }
+
+  /* Very trivial devirtualization; when the type is
+     final or anonymous (so we know all its derivation)
+     and there is only one possible virtual call target,
+     make the edge direct.  */
+  if (final)
+    {
+      if (targets.length () <= 1)
+	{
+	  cgraph_node *target, *node = edge->caller;
+	  if (targets.length () == 1)
+	    target = targets[0];
+	  else
+	    target = cgraph_get_create_node
+		       (builtin_decl_implicit (BUILT_IN_UNREACHABLE));
+
+	  if (dump_file)
+	    fprintf (dump_file,
+		     "Devirtualizing call in %s/%i to %s/%i\n",
+		     cgraph_node_name (edge->caller),
+		     edge->caller->symbol.order,
+		     cgraph_node_name (target), target->symbol.order);
+	  edge = cgraph_make_edge_direct (edge, target);
+	  if (!inline_summary_vec && edge->call_stmt)
+	    cgraph_redirect_edge_call_stmt_to_callee (edge);
+	  else
+	    inline_update_overall_summary (node);
+	}
+    }
+}
 
 /* Perform reachability analysis and reclaim all unreachable nodes.
 
@@ -214,10 +292,14 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
   bool changed = false;
   struct pointer_set_t *reachable = pointer_set_create ();
   struct pointer_set_t *body_needed_for_clonning = pointer_set_create ();
+  struct pointer_set_t *reachable_call_targets = pointer_set_create ();
 
+  timevar_push (TV_IPA_UNREACHABLE);
 #ifdef ENABLE_CHECKING
   verify_symtab ();
 #endif
+  if (optimize && flag_devirtualize)
+    build_type_inheritance_graph ();
   if (file)
     fprintf (file, "\nReclaiming functions:");
 #ifdef ENABLE_CHECKING
@@ -236,10 +318,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
       if (node->symbol.definition
 	  && !node->global.inlined_to
 	  && !node->symbol.in_other_partition
-	  && (!cgraph_can_remove_if_no_direct_calls_and_refs_p (node)
-	      /* Keep around virtual functions for possible devirtualization.  */
-	      || (before_inlining_p
-		  && DECL_VIRTUAL_P (node->symbol.decl))))
+	  && !cgraph_can_remove_if_no_direct_calls_and_refs_p (node))
 	{
 	  gcc_assert (!node->global.inlined_to);
 	  pointer_set_insert (reachable, node);
@@ -302,6 +381,19 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 	  if (!in_boundary_p)
 	    {
 	      struct cgraph_edge *e;
+	      /* Keep alive possible targets for devirtualization.  */
+	      if (optimize && flag_devirtualize)
+		{
+		  struct cgraph_edge *next;
+		  for (e = cnode->indirect_calls; e; e = next)
+		    {
+		      next = e->next_callee;
+		      if (e->indirect_info->polymorphic)
+			walk_polymorphic_call_targets (reachable_call_targets,
+						       e, &first, reachable,
+						       before_inlining_p);
+		    }
+		}
 	      for (e = cnode->callees; e; e = e->next_callee)
 		{
 		  if (e->callee->symbol.definition
@@ -447,6 +539,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 
   pointer_set_destroy (reachable);
   pointer_set_destroy (body_needed_for_clonning);
+  pointer_set_destroy (reachable_call_targets);
 
   /* Now update address_taken flags and try to promote functions to be local.  */
   if (file)
@@ -481,6 +574,7 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
     FOR_EACH_DEFINED_FUNCTION (node)
       ipa_propagate_frequency (node);
 
+  timevar_pop (TV_IPA_UNREACHABLE);
   return changed;
 }
 
@@ -788,7 +882,7 @@ function_and_variable_visibility (bool whole_program)
   struct varpool_node *vnode;
 
   /* All aliases should be procssed at this point.  */
-  gcc_checking_assert (!alias_pairs || !alias_pairs->length());
+  gcc_checking_assert (!alias_pairs || !alias_pairs->length ());
 
   FOR_EACH_FUNCTION (node)
     {
@@ -904,7 +998,7 @@ function_and_variable_visibility (bool whole_program)
 	{
 	  struct cgraph_node *alias = cgraph (symtab_nonoverwritable_alias ((symtab_node) node));
 
-	  if (alias != node)
+	  if (alias && alias != node)
 	    {
 	      while (node->callers)
 		{
@@ -1028,8 +1122,9 @@ const pass_data pass_data_ipa_function_and_variable_visibility =
 class pass_ipa_function_and_variable_visibility : public simple_ipa_opt_pass
 {
 public:
-  pass_ipa_function_and_variable_visibility(gcc::context *ctxt)
-    : simple_ipa_opt_pass(pass_data_ipa_function_and_variable_visibility, ctxt)
+  pass_ipa_function_and_variable_visibility (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_function_and_variable_visibility,
+			   ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1076,8 +1171,8 @@ const pass_data pass_data_ipa_free_inline_summary =
 class pass_ipa_free_inline_summary : public simple_ipa_opt_pass
 {
 public:
-  pass_ipa_free_inline_summary(gcc::context *ctxt)
-    : simple_ipa_opt_pass(pass_data_ipa_free_inline_summary, ctxt)
+  pass_ipa_free_inline_summary (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_free_inline_summary, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1132,17 +1227,17 @@ const pass_data pass_data_ipa_whole_program_visibility =
 class pass_ipa_whole_program_visibility : public ipa_opt_pass_d
 {
 public:
-  pass_ipa_whole_program_visibility(gcc::context *ctxt)
-    : ipa_opt_pass_d(pass_data_ipa_whole_program_visibility, ctxt,
-		     NULL, /* generate_summary */
-		     NULL, /* write_summary */
-		     NULL, /* read_summary */
-		     NULL, /* write_optimization_summary */
-		     NULL, /* read_optimization_summary */
-		     NULL, /* stmt_fixup */
-		     0, /* function_transform_todo_flags_start */
-		     NULL, /* function_transform */
-		     NULL) /* variable_transform */
+  pass_ipa_whole_program_visibility (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_whole_program_visibility, ctxt,
+		      NULL, /* generate_summary */
+		      NULL, /* write_summary */
+		      NULL, /* read_summary */
+		      NULL, /* write_optimization_summary */
+		      NULL, /* read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      NULL, /* function_transform */
+		      NULL) /* variable_transform */
   {}
 
   /* opt_pass methods: */
@@ -1465,17 +1560,17 @@ const pass_data pass_data_ipa_cdtor_merge =
 class pass_ipa_cdtor_merge : public ipa_opt_pass_d
 {
 public:
-  pass_ipa_cdtor_merge(gcc::context *ctxt)
-    : ipa_opt_pass_d(pass_data_ipa_cdtor_merge, ctxt,
-		     NULL, /* generate_summary */
-		     NULL, /* write_summary */
-		     NULL, /* read_summary */
-		     NULL, /* write_optimization_summary */
-		     NULL, /* read_optimization_summary */
-		     NULL, /* stmt_fixup */
-		     0, /* function_transform_todo_flags_start */
-		     NULL, /* function_transform */
-		     NULL) /* variable_transform */
+  pass_ipa_cdtor_merge (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_cdtor_merge, ctxt,
+		      NULL, /* generate_summary */
+		      NULL, /* write_summary */
+		      NULL, /* read_summary */
+		      NULL, /* write_optimization_summary */
+		      NULL, /* read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      NULL, /* function_transform */
+		      NULL) /* variable_transform */
   {}
 
   /* opt_pass methods: */

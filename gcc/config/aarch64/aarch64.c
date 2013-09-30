@@ -109,6 +109,7 @@ enum aarch64_code_model aarch64_cmodel;
 #define TARGET_HAVE_TLS 1
 #endif
 
+static bool aarch64_lra_p (void);
 static bool aarch64_composite_type_p (const_tree, enum machine_mode);
 static bool aarch64_vfp_is_call_or_return_candidate (enum machine_mode,
 						     const_tree,
@@ -3313,14 +3314,15 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
 	  || GET_CODE (x) == NEG))
     return CC_NZmode;
 
-  /* A compare with a shifted operand.  Because of canonicalization,
+  /* A compare with a shifted or negated operand.  Because of canonicalization,
      the comparison will have to be swapped when we emit the assembly
      code.  */
   if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
       && (GET_CODE (y) == REG || GET_CODE (y) == SUBREG)
       && (GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
 	  || GET_CODE (x) == LSHIFTRT
-	  || GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND))
+	  || GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND
+	  || GET_CODE (x) == NEG))
     return CC_SWPmode;
 
   /* A compare of a mode narrower than SI mode against zero can be done
@@ -3856,13 +3858,6 @@ aarch64_print_operand_address (FILE *f, rtx x)
   output_addr_const (f, x);
 }
 
-void
-aarch64_function_profiler (FILE *f ATTRIBUTE_UNUSED,
-			   int labelno ATTRIBUTE_UNUSED)
-{
-  sorry ("function profiling");
-}
-
 bool
 aarch64_label_mentioned_p (rtx x)
 {
@@ -4236,10 +4231,18 @@ aarch64_class_max_nregs (reg_class_t regclass, enum machine_mode mode)
 }
 
 static reg_class_t
-aarch64_preferred_reload_class (rtx x ATTRIBUTE_UNUSED, reg_class_t regclass)
+aarch64_preferred_reload_class (rtx x, reg_class_t regclass)
 {
-  return ((regclass == POINTER_REGS || regclass == STACK_REG)
-	  ? GENERAL_REGS : regclass);
+  if (regclass == POINTER_REGS || regclass == STACK_REG)
+    return GENERAL_REGS;
+
+  /* If it's an integer immediate that MOVI can't handle, then
+     FP_REGS is not an option, so we return NO_REGS instead.  */
+  if (CONST_INT_P (x) && reg_class_subset_p (regclass, FP_REGS)
+      && !aarch64_simd_imm_scalar_p (x, GET_MODE (x)))
+    return NO_REGS;
+
+  return regclass;
 }
 
 void
@@ -6083,6 +6086,13 @@ aapcs_vfp_sub_candidate (const_tree type, enum machine_mode *modep)
   return -1;
 }
 
+/* Return true if we use LRA instead of reload pass.  */
+static bool
+aarch64_lra_p (void)
+{
+  return aarch64_lra_flag;
+}
+
 /* Return TRUE if the type, as described by TYPE and MODE, is a composite
    type as described in AAPCS64 \S 4.3.  This includes aggregate, union and
    array types.  The C99 floating-point complex types are also considered
@@ -7153,10 +7163,10 @@ aarch64_emit_store_exclusive (enum machine_mode mode, rtx bval,
 static void
 aarch64_emit_unlikely_jump (rtx insn)
 {
-  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
 
   insn = emit_jump_insn (insn);
-  add_reg_note (insn, REG_BR_PROB, very_unlikely);
+  add_int_reg_note (insn, REG_BR_PROB, very_unlikely);
 }
 
 /* Expand a compare and swap pattern.  */
@@ -7932,6 +7942,55 @@ aarch64_evpc_zip (struct expand_vec_perm_d *d)
 }
 
 static bool
+aarch64_evpc_dup (struct expand_vec_perm_d *d)
+{
+  rtx (*gen) (rtx, rtx, rtx);
+  rtx out = d->target;
+  rtx in0;
+  enum machine_mode vmode = d->vmode;
+  unsigned int i, elt, nelt = d->nelt;
+  rtx lane;
+
+  /* TODO: This may not be big-endian safe.  */
+  if (BYTES_BIG_ENDIAN)
+    return false;
+
+  elt = d->perm[0];
+  for (i = 1; i < nelt; i++)
+    {
+      if (elt != d->perm[i])
+	return false;
+    }
+
+  /* The generic preparation in aarch64_expand_vec_perm_const_1
+     swaps the operand order and the permute indices if it finds
+     d->perm[0] to be in the second operand.  Thus, we can always
+     use d->op0 and need not do any extra arithmetic to get the
+     correct lane number.  */
+  in0 = d->op0;
+  lane = GEN_INT (elt);
+
+  switch (vmode)
+    {
+    case V16QImode: gen = gen_aarch64_dup_lanev16qi; break;
+    case V8QImode: gen = gen_aarch64_dup_lanev8qi; break;
+    case V8HImode: gen = gen_aarch64_dup_lanev8hi; break;
+    case V4HImode: gen = gen_aarch64_dup_lanev4hi; break;
+    case V4SImode: gen = gen_aarch64_dup_lanev4si; break;
+    case V2SImode: gen = gen_aarch64_dup_lanev2si; break;
+    case V2DImode: gen = gen_aarch64_dup_lanev2di; break;
+    case V4SFmode: gen = gen_aarch64_dup_lanev4sf; break;
+    case V2SFmode: gen = gen_aarch64_dup_lanev2sf; break;
+    case V2DFmode: gen = gen_aarch64_dup_lanev2df; break;
+    default:
+      return false;
+    }
+
+  emit_insn (gen (out, in0, lane));
+  return true;
+}
+
+static bool
 aarch64_evpc_tbl (struct expand_vec_perm_d *d)
 {
   rtx rperm[MAX_VECT_LEN], sel;
@@ -7987,6 +8046,8 @@ aarch64_expand_vec_perm_const_1 (struct expand_vec_perm_d *d)
       else if (aarch64_evpc_uzp (d))
 	return true;
       else if (aarch64_evpc_trn (d))
+	return true;
+      else if (aarch64_evpc_dup (d))
 	return true;
       return aarch64_evpc_tbl (d);
     }
@@ -8207,6 +8268,9 @@ aarch64_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 
 #undef TARGET_LIBGCC_CMP_RETURN_MODE
 #define TARGET_LIBGCC_CMP_RETURN_MODE aarch64_libgcc_cmp_return_mode
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P aarch64_lra_p
 
 #undef TARGET_MANGLE_TYPE
 #define TARGET_MANGLE_TYPE aarch64_mangle_type

@@ -23,7 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "dumpfile.h"
 #include "langhooks.h"
@@ -54,9 +54,9 @@ ipa_print_order (FILE* out,
   fprintf (out, "\n\n ordered call graph: %s\n", note);
 
   for (i = count - 1; i >= 0; i--)
-    dump_cgraph_node(dump_file, order[i]);
+    dump_cgraph_node (dump_file, order[i]);
   fprintf (out, "\n");
-  fflush(out);
+  fflush (out);
 }
 
 
@@ -791,3 +791,14 @@ ipa_merge_profiles (struct cgraph_node *dst,
   src->symbol.decl = oldsrcdecl;
 }
 
+/* Return true if call to DEST is known to be self-recusive call withing FUNC.   */
+
+bool
+recursive_call_p (tree func, tree dest)
+{
+  struct cgraph_node *dest_node = cgraph_get_create_node (dest);
+  struct cgraph_node *cnode = cgraph_get_create_node (func);
+
+  return symtab_semantically_equivalent_p ((symtab_node)dest_node,
+					   (symtab_node)cnode);
+}

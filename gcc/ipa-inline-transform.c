@@ -38,7 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "coverage.h"
 #include "ggc.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "ipa-prop.h"
 #include "ipa-inline.h"
 #include "tree-inline.h"
@@ -432,7 +432,7 @@ inline_transform (struct cgraph_node *node)
   ipa_remove_all_references (&node->symbol.ref_list);
 
   timevar_push (TV_INTEGRATION);
-  if (node->callees)
+  if (node->callees && optimize)
     todo = optimize_inline_calls (current_function_decl);
   timevar_pop (TV_INTEGRATION);
 
