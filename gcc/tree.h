@@ -2096,11 +2096,6 @@ extern void decl_value_expr_insert (tree, tree);
 #define SET_DECL_BOUNDS_RTL(NODE, VAL) \
   (chkp_set_rtl_bounds (DECL_WRTL_CHECK (NODE), VAL))
 
-struct GTY(()) tree_decl_with_rtl {
-  struct tree_decl_common common;
-  rtx rtl;
-};
-
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
    DECL_OFFSET_ALIGN-bit-sized word containing the bit closest to the beginning
    of the structure.  */
