@@ -132,6 +132,8 @@ DEFGSCODE(GIMPLE_CALL, "gimple_call", GSS_CALL)
    so that it can clobber global memory.  */
 DEFGSCODE(GIMPLE_TRANSACTION, "gimple_transaction", GSS_TRANSACTION)
 
+DEFGSCODE(GIMPLE_ACC_KERNELS, "gimple_acc_kernels", GSS_ACC_KERNELS)
+
 /* GIMPLE_RETURN <RETVAL> represents return statements.
 
    RETVAL is the value to return or NULL.  If a value is returned it
@@ -352,7 +354,6 @@ DEFGSCODE(GIMPLE_OMP_SINGLE, "gimple_omp_single", GSS_OMP_SINGLE)
 /* OpenACC DEFGSCODEs */
 DEFGSCODE(GIMPLE_ACC, "gimple_acc", GSS_ACC)
 DEFGSCODE(GIMPLE_ACC_PARALLEL, "gimple_acc_parallel", GSS_ACC_PARALLEL)
-DEFGSCODE(GIMPLE_ACC_KERNELS, "gimple_acc_kernels", GSS_ACC_KERNELS)
 DEFGSCODE(GIMPLE_ACC_DATA, "gimple_acc_data", GSS_ACC_DATA)
 DEFGSCODE(GIMPLE_ACC_CACHE, "gimple_acc_cache", GSS_ACC_CACHE)
 DEFGSCODE(GIMPLE_ACC_WAIT, "gimple_acc_wait", GSS_ACC_WAIT)

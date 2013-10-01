@@ -1,3 +1,9 @@
+01-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Fix several ICEs
+    
+    * gcc/gimple.def: Change position of GIMPLE_ACC_KERNELS
+    * gcc/passes.def: Change position of pass_expand_oacc
+    
 26-09-2013 Evgeny Gavrin <e.gavrin@samsung.com>
     Initial source drop for OpenACC implementation
 
