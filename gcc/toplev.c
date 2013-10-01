@@ -91,10 +91,11 @@ along with GCC; see the file COPYING3.  If not see
 				   declarations for e.g. AIX 4.x.  */
 #endif
 
-/* we don't include melt.h but declare its initializer & finalizer here */
+/* we don't include melt-runtime.h but declare its initializer &
+   finalizer here.  */
 
-extern void melt_initialize(void); /* in melt.c */
-extern void melt_finalize(void); /* in melt.c */
+extern void melt_initialize(void); /* in melt-runtime.cc */
+extern void melt_finalize(void); /* in melt-runtime.cc */
 
 
 static void general_init (const char *);
@@ -334,6 +335,19 @@ set_random_seed (const char *val)
 static void
 crash_signal (int signo)
 {
+
+  static int noticemelt;
+  if (!noticemelt) 
+    {
+      static const char melt_notice_crash_message[] = 
+	"**In MELT branch, signal processing could be disabled "
+	"with -fmelt-dont-catch-signals program option\n";
+
+      noticemelt = 1;
+      write (STDERR_FILENO, 
+	     melt_notice_crash_message, sizeof(melt_notice_crash_message)-1);
+    }
+
   signal (signo, SIG_DFL);
 
   /* If we crashed while processing an ASM statement, then be a little more
@@ -755,7 +769,7 @@ print_version (FILE *file, const char *indent)
 
   print_plugins_versions (file, indent);
   {
-    /* defined in file melt-runtime.c */
+    /* defined in file melt-runtime.cc */
     extern void melt_print_version_info (FILE *fil, const char* indent);
     melt_print_version_info (file, indent);
   }
@@ -1098,6 +1112,8 @@ open_auxiliary_file (const char *ext)
   return file;
 }
 
+extern "C" int melt_flag_dont_catch_crashing_signals; // from melt-runtime.cc
+
 /* Initialization of the front end environment, before command line
    options are parsed.  Signal handlers, internationalization etc.
    ARGV0 is main's argv[0].  */
@@ -1148,7 +1164,7 @@ general_init (const char *argv0)
 
 
   /* MELT don't like the signal handling; using GDB is simpler */
-#if !ENABLE_CHECKING
+  if (melt_flag_dont_catch_crashing_signals == 0) {
   /* Trap fatal signals, e.g. SIGSEGV, and convert them to ICE messages.  */
 #ifdef SIGSEGV
   signal (SIGSEGV, crash_signal);
@@ -1171,9 +1187,7 @@ general_init (const char *argv0)
 
   /* Other host-specific signal setup.  */
   (*host_hooks.extra_signals)();
-#else
-#warning MELT removed signal handling in toplev.c
-#endif /*!ENABLE_CHECKING*/
+  } // end if melt_flag_dont_catch_crashing_signals
 
   /* Initialize the garbage-collector, string pools and tree type hash
      table.  */
@@ -2013,15 +2027,17 @@ toplev_main (int argc, char **argv)
   if (!exit_after_options)
     do_compile ();
 
-  /* finalize melt if needed */
-  if (nbmeltarg > 0)
-    melt_finalize();
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
   diagnostic_finish (global_dc);
 
   /* Invoke registered plugin callbacks if any.  */
   invoke_plugin_callbacks (PLUGIN_FINISH, NULL);
+
+
+  /* finalize melt if needed */
+  if (nbmeltarg > 0)
+    melt_finalize();
 
   finalize_plugins ();
   location_adhoc_data_fini (line_table);

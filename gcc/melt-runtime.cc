@@ -145,6 +145,40 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 #error should be given a MELT_GCC_VERSION
 #endif
 
+
+////// builtin MELT parameter settings
+
+
+/* The GC minor zone size, in kilowords, should be comparable to or
+   perhaps twice as biggger as the L3 or L4 cache size on desktop
+   processors. So, some megabytes i.e. thousands of kilowords. */
+#define MELT_MIN_MINORSIZE_KW 384
+#define MELT_DEFAULT_MINORSIZE_KW 1024
+#define MELT_MAX_MINORSIZE_KW 16384
+
+/* The full GC threshold size, in kilowords, is the allocation
+   threshold for triggering the full GC.  When MELT cumulated
+   allocation inside the minor zone and even after some minor GCs
+   reaches that threshold, a full GC is necessarily run.  In practice,
+   most MELT are temporary so don't survive minor GCs, and this
+   threshold can be quite high; in principle it is nearly useless so
+   could be very high.  */
+#define MELT_MIN_FULLTHRESHOLD_KW 32768
+#define MELT_DEFAULT_FULLTHRESHOLD_KW 98304
+#define MELT_MAX_FULLTHRESHOLD_KW 4194304
+
+/* Periodically the full GC [including Ggc] is forcibly run after a
+   MELT minor GC. You don't want that to happen often, so the default
+   period is quite high; in principle it could be very high. */
+#define MELT_MIN_PERIODFULL 384
+#define MELT_DEFAULT_PERIODFULL 1024
+#define MELT_MAX_PERIODFULL 262144
+
+////// end of MELT parameter settings
+
+
+
+
 #ifndef MELT_ENTERFRAME
 #error MELT runtime needs a MELT_ENTERFRAME macro
 #endif
@@ -236,6 +270,7 @@ melt_resize_scangcvect (unsigned long size)
       newgcvec->vv_ulen = ulen;
       memcpy (newgcvec->vv_tab, oldgcvec->vv_tab,
               ulen * sizeof(melt_ptr_t));
+      memset (oldgcvec, 0, sizeof(struct melt_valuevector_st)+ulen*sizeof(melt_ptr_t));
       ggc_free (oldgcvec), oldgcvec = NULL;
       melt_scangcvect = newgcvec;
     }
@@ -246,13 +281,15 @@ melt_resize_scangcvect (unsigned long size)
 /* A nice buffer size for input or output. */
 #define MELT_BUFSIZE 8192
 
-int melt_flag_debug = 0;	/* for MELT plugin */
+// melt_flag_dont_catch_crashing_signals is used in toplev.c to
+// disable the catching of crashing signals.
+MELT_EXTERN int melt_flag_dont_catch_crashing_signals;
+int melt_flag_dont_catch_crashing_signals = 0;
+
+int melt_flag_debug = 0;
 int melt_flag_bootstrapping = 0;
 int melt_flag_generate_work_link = 0;
 int melt_flag_keep_temporary_files = 0;
-/* In the MELT branch melt_flag_debug is #define-d in generated "options.h"
-   as global_options.x_melt_flag_debug. */
-
 
 /**
    NOTE:  october 2009
@@ -925,7 +962,8 @@ static std::map<std::string,std::string> melt_branch_argument_map;
 // and -fmelt-* ...)
 extern "C" int melt_branch_process_arguments (int *, char***);
 
-int melt_branch_process_arguments (int *argcp, char***argvp)
+int
+melt_branch_process_arguments (int *argcp, char***argvp)
 {
   typedef std::map<std::string,std::string> meltargdict_t;
   int ret=0;
@@ -990,6 +1028,11 @@ int melt_branch_process_arguments (int *argcp, char***argvp)
     const char* dbgarg = melt_argument("debugging");
     if (dbgarg && !strcmp(dbgarg, "all"))
       melt_flag_debug=1;
+  }
+  {
+    const char* catarg = melt_argument ("dont-catch-signals");
+    if (catarg)
+      melt_flag_dont_catch_crashing_signals = 1;
   }
   return ret;
 }
@@ -1539,6 +1582,9 @@ melt_minor_copying_garbage_collector (size_t wanted)
         continue;
       melt_scanning (p);
     }
+  memset (melt_scangcvect, 0, 
+	  sizeof (struct melt_valuevector_st)
+	  +melt_scangcvect->vv_size * sizeof(melt_ptr_t));
   ggc_free (melt_scangcvect), melt_scangcvect = NULL;
 
   melt_delete_unmarked_new_specialdata ();
@@ -1684,6 +1730,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   const char* needfullreason = NULL;
   if (melt_prohibit_garbcoll)
     fatal_error ("MELT garbage collection prohibited");
+  gcc_assert (melt_scangcvect == NULL);
   melt_nb_garbcoll++;
   if (gckd == MELT_NEED_FULL)
     {
@@ -1699,29 +1746,34 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   if (melt_minorsizekilow == 0)
     {
       const char* minzstr = melt_argument ("minor-zone");
-      melt_minorsizekilow = minzstr? (atol (minzstr)) : 1024;
-      if (melt_minorsizekilow < 512)
-        melt_minorsizekilow = 512;
-      else if (melt_minorsizekilow > 16384)
-        melt_minorsizekilow = 16384;
+      melt_minorsizekilow = minzstr? (atol (minzstr)) 
+	: MELT_DEFAULT_MINORSIZE_KW;
+      if (melt_minorsizekilow < MELT_MIN_MINORSIZE_KW)
+        melt_minorsizekilow = MELT_MIN_MINORSIZE_KW;
+      else if (melt_minorsizekilow > MELT_MAX_MINORSIZE_KW)
+        melt_minorsizekilow = MELT_MAX_MINORSIZE_KW;
     }
   if (melt_fullthresholdkilow == 0)
     {
       const char* fullthstr = melt_argument ("full-threshold");
-      melt_fullthresholdkilow = fullthstr ? (atol (fullthstr)) : 8*1024;
-      if (melt_fullthresholdkilow < 16*1024)
-        melt_fullthresholdkilow = 16*1024;
+      melt_fullthresholdkilow = fullthstr ? (atol (fullthstr)) 
+	: MELT_DEFAULT_FULLTHRESHOLD_KW;
+      if (melt_fullthresholdkilow < MELT_MIN_FULLTHRESHOLD_KW)
+        melt_fullthresholdkilow = MELT_MIN_FULLTHRESHOLD_KW;
       if (melt_fullthresholdkilow < 32*melt_minorsizekilow)
         melt_fullthresholdkilow =  32*melt_minorsizekilow;
-      if (melt_fullthresholdkilow > 1024*1024)
-        melt_fullthresholdkilow  = 1024*1024;
+      if (melt_fullthresholdkilow > MELT_MAX_FULLTHRESHOLD_KW )
+        melt_fullthresholdkilow  = MELT_MAX_FULLTHRESHOLD_KW;
     }
   if (melt_fullperiod == 0)
     {
       const char* fullperstr = melt_argument ("full-period");
-      melt_fullperiod = fullperstr ? (atoi (fullperstr)) : 2048;
-      if (melt_fullperiod < 256) melt_fullperiod = 256;
-      else if (melt_fullperiod > 32768) melt_fullperiod = 32768;
+      melt_fullperiod = fullperstr ? (atoi (fullperstr))
+	: MELT_DEFAULT_PERIODFULL;
+      if (melt_fullperiod < MELT_MIN_PERIODFULL) 
+	melt_fullperiod = MELT_MIN_PERIODFULL;
+      else if (melt_fullperiod > MELT_MAX_PERIODFULL) 
+	melt_fullperiod = MELT_MAX_PERIODFULL;
     }
 
   if (!needfullreason &&  gckd > MELT_ONLY_MINOR
@@ -1747,7 +1799,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   melt_debuggc_eprintf ("melt_garbcoll melt_forwarded_copy_byte_count=%ld",
                         melt_forwarded_copy_byte_count);
   if (!needfullreason && gckd > MELT_ONLY_MINOR
-      && melt_forwarded_copy_byte_count > (long) 4*melt_minorsizekilow*(1024*sizeof(void*)))
+      && melt_forwarded_copy_byte_count > (long) 5*melt_minorsizekilow*(1024*sizeof(void*)))
     {
       melt_kilowords_forwarded += melt_forwarded_copy_byte_count/(1024*sizeof(void*));
       melt_debuggc_eprintf ("melt_kilowords_forwarded %ld", melt_kilowords_forwarded);
@@ -1784,6 +1836,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
       /* end of MELT full garbage collection */
     }
   melt_check_call_frames (MELT_NOYOUNG, "after garbage collection");
+  gcc_assert (melt_scangcvect == NULL);
 }
 
 static void meltpayload_file_destroy (struct meltspecialdata_st*, const struct melt_payload_descriptor_st*);

@@ -1,4 +1,29 @@
 
+2013-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT full GC happens much less often}}
+	* melt-runtime.cc (MELT_MIN_MINORSIZE_KW)
+	(MELT_DEFAULT_MINORSIZE_KW, MELT_MAX_MINORSIZE_KW)
+	(MELT_MIN_FULLTHRESHOLD_KW, MELT_DEFAULT_FULLTHRESHOLD_KW)
+	(MELT_MAX_FULLTHRESHOLD_KW, MELT_MIN_PERIODFULL)
+	(MELT_DEFAULT_PERIODFULL, MELT_MAX_PERIODFULL): New constant
+	macros for MELT garbage-collector related parameters, which have
+	been significantly increased.
+	(melt_resize_scangcvect): Clear the old melt_scangcvect before
+	freeing it.
+	(melt_flag_dont_catch_crashing_signals): New C variable.
+	(melt_branch_process_arguments): Set it appropriately and early
+	with -fmelt-dont-catch-signals program argument.
+	(melt_minor_copying_garbage_collector): Clear the melt_scangcvect.
+	(melt_garbcoll): Set the GC parameters using the constant macros
+	above, with much higher default and minimal levels.
+	(melt_garbcoll): The factor for fowarded copy byte count
+	threshold is increased from 4 to 5.
+
+	* toplev.c (general_init): Only install the crash_signal handlers
+	for crashing signals if -fmelt-dont-catch-signals is not given.
+	(toplev_main): Move the melt_finalize call after PLUGIN_FINISH.
+
 2013-09-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/xtramelt-ana-base.melt (install_melt_pass_in_gcc): Add
