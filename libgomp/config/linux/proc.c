@@ -39,19 +39,27 @@
 #endif
 
 #ifdef HAVE_PTHREAD_AFFINITY_NP
+unsigned long gomp_cpuset_size;
+cpu_set_t *gomp_cpusetp;
+
 unsigned long
 gomp_cpuset_popcount (cpu_set_t *cpusetp)
 {
-#ifdef CPU_COUNT
-  /* glibc 2.6 and above provide a macro for this.  */
-  return CPU_COUNT (cpusetp);
+#ifdef CPU_COUNT_S
+  /* glibc 2.7 and above provide a macro for this.  */
+  return CPU_COUNT_S (gomp_cpuset_size, cpusetp);
 #else
+#ifdef CPU_COUNT
+  if (gomp_cpuset_size == sizeof (cpu_set_t))
+    /* glibc 2.6 and above provide a macro for this.  */
+    return CPU_COUNT (cpusetp);
+#endif
   size_t i;
   unsigned long ret = 0;
   extern int check[sizeof (cpusetp->__bits[0]) == sizeof (unsigned long int)];
 
   (void) check;
-  for (i = 0; i < sizeof (*cpusetp) / sizeof (cpusetp->__bits[0]); i++)
+  for (i = 0; i < gomp_cpuset_size / sizeof (cpusetp->__bits[0]); i++)
     {
       unsigned long int mask = cpusetp->__bits[i];
       if (mask == 0)
@@ -70,15 +78,27 @@ void
 gomp_init_num_threads (void)
 {
 #ifdef HAVE_PTHREAD_AFFINITY_NP
-  cpu_set_t cpuset;
+#if defined (_SC_NPROCESSORS_CONF) && defined (CPU_ALLOC_SIZE)
+  gomp_cpuset_size = sysconf (_SC_NPROCESSORS_CONF);
+  gomp_cpuset_size = CPU_ALLOC_SIZE (gomp_cpuset_size);
+#else
+  gomp_cpuset_size = sizeof (cpuset);
+#endif
 
-  if (pthread_getaffinity_np (pthread_self (), sizeof (cpuset), &cpuset) == 0)
+  gomp_cpusetp = (cpu_set_t *) gomp_malloc (gomp_cpuset_size);
+  if (pthread_getaffinity_np (pthread_self (), gomp_cpuset_size,
+			      gomp_cpusetp) == 0)
     {
       /* Count only the CPUs this process can use.  */
-      gomp_global_icv.nthreads_var = gomp_cpuset_popcount (&cpuset);
+      gomp_global_icv.nthreads_var = gomp_cpuset_popcount (gomp_cpusetp);
       if (gomp_global_icv.nthreads_var == 0)
 	gomp_global_icv.nthreads_var = 1;
       return;
+    }
+  else
+    {
+      free (gomp_cpusetp);
+      gomp_cpusetp = NULL;
     }
 #endif
 #ifdef _SC_NPROCESSORS_ONLN
@@ -90,15 +110,14 @@ static int
 get_num_procs (void)
 {
 #ifdef HAVE_PTHREAD_AFFINITY_NP
-  cpu_set_t cpuset;
-
   if (gomp_cpu_affinity == NULL)
     {
       /* Count only the CPUs this process can use.  */
-      if (pthread_getaffinity_np (pthread_self (), sizeof (cpuset),
-				  &cpuset) == 0)
+      if (gomp_cpusetp
+	  && pthread_getaffinity_np (pthread_self (), gomp_cpuset_size,
+				     gomp_cpusetp) == 0)
 	{
-	  int ret = gomp_cpuset_popcount (&cpuset);
+	  int ret = gomp_cpuset_popcount (gomp_cpusetp);
 	  return ret != 0 ? ret : 1;
 	}
     }

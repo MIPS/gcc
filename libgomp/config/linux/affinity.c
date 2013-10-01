@@ -33,17 +33,22 @@
 #include <unistd.h>
 
 #ifdef HAVE_PTHREAD_AFFINITY_NP
-
 static unsigned int affinity_counter;
+
+#ifndef CPU_ALLOC_SIZE
+#define CPU_ISSET_S(idx, size, set) CPU_ISSET(idx, set)
+#define CPU_ZERO_S(size, set) CPU_ZERO(set)
+#define CPU_SET_S(idx, size, set) CPU_SET(idx, set)
+#endif
 
 void
 gomp_init_affinity (void)
 {
-  cpu_set_t cpuset, cpusetnew;
   size_t idx, widx;
   unsigned long cpus = 0;
+  cpu_set_t *cpusetnewp;
 
-  if (pthread_getaffinity_np (pthread_self (), sizeof (cpuset), &cpuset))
+  if (gomp_cpusetp == NULL)
     {
       gomp_error ("could not get CPU affinity set");
       free (gomp_cpu_affinity);
@@ -52,10 +57,16 @@ gomp_init_affinity (void)
       return;
     }
 
-  CPU_ZERO (&cpusetnew);
+#ifdef CPU_ALLOC_SIZE
+  cpusetnewp = (cpu_set_t *) gomp_alloca (gomp_cpuset_size);
+#else
+  cpu_set_t cpusetnew;
+  cpusetnewp = &cpusetnew;
+#endif
+
   if (gomp_cpu_affinity_len == 0)
     {
-      unsigned long count = gomp_cpuset_popcount (&cpuset);
+      unsigned long count = gomp_cpuset_popcount (gomp_cpusetp);
       if (count >= 65536)
 	count = 65536;
       gomp_cpu_affinity = malloc (count * sizeof (unsigned short));
@@ -65,24 +76,30 @@ gomp_init_affinity (void)
 	  return;
 	}
       for (widx = idx = 0; widx < count && idx < 65536; idx++)
-	if (CPU_ISSET (idx, &cpuset))
+	if (CPU_ISSET_S (idx, gomp_cpuset_size, gomp_cpusetp))
 	  {
 	    cpus++;
 	    gomp_cpu_affinity[widx++] = idx;
 	  }
     }
   else
-    for (widx = idx = 0; idx < gomp_cpu_affinity_len; idx++)
-      if (gomp_cpu_affinity[idx] < CPU_SETSIZE
-	  && CPU_ISSET (gomp_cpu_affinity[idx], &cpuset))
-	{
-	  if (! CPU_ISSET (gomp_cpu_affinity[idx], &cpusetnew))
-	    {
-	      cpus++;
-	      CPU_SET (gomp_cpu_affinity[idx], &cpusetnew);
+    {
+      CPU_ZERO_S (gomp_cpuset_size, cpusetnewp);
+      for (widx = idx = 0; idx < gomp_cpu_affinity_len; idx++)
+	if (gomp_cpu_affinity[idx] < 8 * gomp_cpuset_size
+	    && CPU_ISSET_S (gomp_cpu_affinity[idx], gomp_cpuset_size,
+			    gomp_cpusetp))
+	  {
+	    if (! CPU_ISSET_S (gomp_cpu_affinity[idx], gomp_cpuset_size,
+			       cpusetnewp))
+	      {
+		cpus++;
+		CPU_SET_S (gomp_cpu_affinity[idx], gomp_cpuset_size,
+			   cpusetnewp);
 	    }
 	  gomp_cpu_affinity[widx++] = gomp_cpu_affinity[idx];
 	}
+    }
 
   if (widx == 0)
     {
@@ -96,9 +113,10 @@ gomp_init_affinity (void)
   gomp_cpu_affinity_len = widx;
   if (cpus < gomp_available_cpus)
     gomp_available_cpus = cpus;
-  CPU_ZERO (&cpuset);
-  CPU_SET (gomp_cpu_affinity[0], &cpuset);
-  pthread_setaffinity_np (pthread_self (), sizeof (cpuset), &cpuset);
+  CPU_ZERO_S (gomp_cpuset_size, cpusetnewp);
+  CPU_SET_S (gomp_cpu_affinity[0], gomp_cpuset_size, cpusetnewp);
+  pthread_setaffinity_np (pthread_self (), gomp_cpuset_size,
+			  cpusetnewp);
   affinity_counter = 1;
 }
 
@@ -106,13 +124,20 @@ void
 gomp_init_thread_affinity (pthread_attr_t *attr)
 {
   unsigned int cpu;
+  cpu_set_t *cpusetp;
+
+#ifdef CPU_ALLOC_SIZE
+  cpusetp = (cpu_set_t *) gomp_alloca (gomp_cpuset_size);
+#else
   cpu_set_t cpuset;
+  cpusetp = &cpuset;
+#endif
 
   cpu = __atomic_fetch_add (&affinity_counter, 1, MEMMODEL_RELAXED);
   cpu %= gomp_cpu_affinity_len;
-  CPU_ZERO (&cpuset);
-  CPU_SET (gomp_cpu_affinity[cpu], &cpuset);
-  pthread_attr_setaffinity_np (attr, sizeof (cpu_set_t), &cpuset);
+  CPU_ZERO_S (gomp_cpuset_size, cpusetp);
+  CPU_SET_S (gomp_cpu_affinity[cpu], gomp_cpuset_size, cpusetp);
+  pthread_attr_setaffinity_np (attr, gomp_cpuset_size, cpusetp);
 }
 
 #else

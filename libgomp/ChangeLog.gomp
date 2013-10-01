@@ -1,3 +1,29 @@
+2013-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/57298
+	* config/linux/proc.c (gomp_cpuset_size, gomp_cpusetp): New variables.
+	(gomp_cpuset_popcount): Use CPU_COUNT_S if available, or CPU_COUNT if
+	gomp_cpuset_size is sizeof (cpu_set_t).  Use gomp_cpuset_size instead
+	of sizeof (cpu_set_t) to determine number of iterations.
+	(gomp_init_num_threads): Initialize gomp_cpuset_size and gomp_cpusetp
+	here, use gomp_cpusetp instead of &cpuset and pass gomp_cpuset_size
+	instead of sizeof (cpu_set_t) to pthread_getaffinity_np.
+	(get_num_procs): Don't call pthread_getaffinity_np if gomp_cpusetp
+	is NULL.  Use gomp_cpusetp instead of &cpuset and pass gomp_cpuset_size
+	instead of sizeof (cpu_set_t) to pthread_getaffinity_np.
+	* config/linux/proc.h (gomp_cpuset_popcount): Add attribute_hidden.
+	(gomp_cpuset_size, gomp_cpusetp): Declare.
+	* config/linux/affinity.c (CPU_ISSET_S, CPU_ZERO_S, CPU_SET_S): Define
+	if CPU_ALLOC_SIZE isn't defined.
+	(gomp_init_affinity): Don't call pthread_getaffinity_np here, instead
+	use gomp_cpusetp computed by gomp_init_num_threads.  Use CPU_*_S
+	variants of macros with gomp_cpuset_size as set size, for cpusetnew
+	use alloca for it if CPU_ALLOC_SIZE is defined, otherwise local
+	fixed size variable.
+	(gomp_init_thread_affinity): Use CPU_*_S variants of macros with
+	gomp_cpuset_size as set size, for cpuset use alloca for it if
+	CPU_ALLOC_SIZE is defined, otherwise local fixed size variable.
+
 2013-09-27  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h: Include stdlib.h.
