@@ -1,3 +1,27 @@
+2013-10-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58535
+	* g++.dg/parse/crash62.C: New.
+
+2013-10-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58574
+	* gcc.c-torture/execute/pr58574.c: New test.
+
+2013-09-30  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58564
+	* gcc.c-torture/execute/pr58564.c: New test.
+
+2013-09-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt28.ad[sb]: New test.
+	* gnat.dg/opt28_pkg.ads: New helper.
+
+2013-09-23  Alan Modra  <amodra@gmail.com>
+
+	* gcc.target/powerpc/pr58330.c: New.
+
 2013-09-18  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/58457
