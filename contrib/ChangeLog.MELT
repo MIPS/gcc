@@ -1,5 +1,10 @@
 
 2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile:
+	(_melt-runtime.c, _meltrunsup-inc.c): Correct rules.
+	(melt.so): Use GCCMELT_CXX & MELT_RUNTIME_CC.
+
+2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* MELT-Plugin-Makefile: Switch to C++ only. So
 	(GCCMELT_CXX): Variable for C++ compiler, replacing...

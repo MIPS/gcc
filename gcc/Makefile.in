@@ -5619,7 +5619,7 @@ melt-build-settings.sh:  ./cc1$(exeext) $(melt_make_cc1_dependency) Makefile | m
 meltbuild-empty-file.c:
 	date "+/* empty $@ generated %c */" > $@
 
-melt-build-param.sh:  Makefile ./cc1$(exeext)
+melt-build-param.sh:  Makefile ./cc1plus$(exeext)
 	date "+#file $@ generated %c%n" > $@-tmp
 	echo '## compiler GCCMELT_COMPILER and flags GCCMELT_COMPILER_FLAGS to compile MELT generated code' >> $@-tmp
 	echo "GCCMELT_COMPILER='$(GCCMELT_COMPILER)'" >> $@-tmp
@@ -5635,20 +5635,18 @@ melt-build-param.sh:  Makefile ./cc1$(exeext)
 	echo 'GCCMELT_VERSION_STRING=$(shell $(AWK) -F\" '/^.define +MELT_VERSION_STRING/{print $$2}' $(srcdir)/melt-runtime.h)'  >> $@-tmp
 	echo '## GCCMELT_MAKE is the make utility' >> $@-tmp
 	+echo 'GCCMELT_MAKE="$(MAKE)"' >> $@-tmp
-	echo '## GCCMELT_CC1 is the C compiler to use MELT for its bootstrapping' >> $@-tmp
-	echo GCCMELT_CC1=$(realpath ./cc1$(exeext))  >> $@-tmp
 	echo '## GCCMELT_CC1PLUS is the C++ compiler to use MELT for its bootstrapping' >> $@-tmp
 	echo GCCMELT_CC1PLUS=$(realpath ./cc1plus$(exeext))  >> $@-tmp
-	echo '## GCCMELT_CC1_PREFIX can be set to a prefix like "time" or "nice" to alter above' >> $@-tmp
-	$(if $(GCCMELT_CC1_PREFIX),echo GCCMELT_CC1_PREFIX='$(GCCMELT_CC1_PREFIX)' >> $@-tmp)
-	echo '## GCCMELT_CC1_DEPENDENCIES is the dependencies, including MELT runtime, for GCCMELT_CC1' >> $@-tmp
-	echo 'GCCMELT_CC1_DEPENDENCIES="$(realpath  ./cc1$(exeext) $(MELT_H) melt-runtime.o)"'  >> $@-tmp
-	echo '## GCCMELT_RUNTIME_DEPENDENCY is the dependency for the MELT runtime, eg. melt.so or cc1 (for MELT branch)'  >> $@-tmp
-	echo 'GCCMELT_RUNTIME_DEPENDENCY="$(realpath  ./cc1$(exeext))"' >> $@-tmp
+	echo '## GCCMELT_CC1PLUS_PREFIX can be set to a prefix like "time" or "nice" to alter above' >> $@-tmp
+	$(if $(GCCMELT_CC1PLUS_PREFIX),echo GCCMELT_CC1PLUS_PREFIX='$(GCCMELT_CC1PLUS_PREFIX)' >> $@-tmp)
+	echo '## GCCMELT_CC1PLUS_DEPENDENCIES is the dependencies, including MELT runtime, for GCCMELT_CC1PLUS' >> $@-tmp
+	echo 'GCCMELT_CC1PLUS_DEPENDENCIES="$(realpath  ./cc1plus$(exeext) $(MELT_H) melt-runtime.o)"'  >> $@-tmp
+	echo '## GCCMELT_RUNTIME_DEPENDENCY is the dependency for the MELT runtime, eg. melt.so or cc1plus (for MELT branch)'  >> $@-tmp
+	echo 'GCCMELT_RUNTIME_DEPENDENCY="$(realpath  ./cc1plus$(exeext))"' >> $@-tmp
 	echo '## GCCMELT_RUNTIME_ARGS is the argument file passed with @melt-runtime.arg to compile the MELT runtime'  >> $@-tmp
 	echo 'GCCMELT_RUNTIME_ARGS=$(realpath melt-runtime.args)' >> $@-tmp
-	echo '## GCCMELT_RUNTIME_C is the C source file of the runtime' >> $@-tmp
-	echo 'GCCMELT_RUNTIME_C="$(realpath $(MELT_RUNTIME_C))"'   >> $@-tmp
+	echo '## GCCMELT_RUNTIME_CC is the C++ source file of the runtime' >> $@-tmp
+	echo 'GCCMELT_RUNTIME_CC="$(realpath $(MELT_RUNTIME_CC))"'   >> $@-tmp
 	echo '## GCCMELT_INCLUDES is the include flags for the MELT runtime' >> $@-tmp
 	echo 'GCCMELT_INCLUDES="-I $(realpath .) -I $(realpath $(srcdir)/melt/generated) $(INCLUDES)"'  >> $@-tmp
 	echo '## GCCMELT_MODULE_MK is the source location of the makefile melt-module.mk invoked by MELT'   >> $@-tmp

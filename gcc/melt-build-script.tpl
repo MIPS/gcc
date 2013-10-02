@@ -104,8 +104,8 @@ if [ ! -f "$GCCMELT_RUNTIME_DEPENDENCY" ]; then
     meltbuild_error  [+(.(fromline))+] missing MELT runtime dependency "$GCCMELT_RUNTIME_DEPENDENCY" 
 fi
 
-if [ -z "$GCCMELT_CC1" ]; then
-   meltbuild_error  [+(.(fromline))+] missing GCCMELT_CC1
+if [ -z "$GCCMELT_CC1PLUS" ]; then
+   meltbuild_error  [+(.(fromline))+] missing GCCMELT_CC1PLUS
 fi
 
 if [ ! -f meltrunsup.h ]; then 
@@ -219,7 +219,7 @@ meltbuild_notice STAGE0+  [+(.(fromline))+] starting stage zero
       GCCMELT_MODULE_SOURCEBASE=$GCCMELT_STAGE_ZERO/[+base+] \
       GCCMELT_CUMULATED_MD5=$MELT_ZERO_GENERATED_[+varsuf+]_CUMULMD5 \
       GCCMELT_MODULE_BINARYBASE=$GCCMELT_STAGE_ZERO/[+base+] \
-      GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1_DEPENDENCIES" \
+      GCCMELT_MODULE_DEPENDENCIES="$GCCMELT_CC1PLUS_DEPENDENCIES" \
       || meltbuild_error  [+(.(fromline))+] stage0 [+base+] did not build "(with $GCCMELT_MAKE  -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER cflags $GCCMELT_COMPILER_FLAGS
 
   meltbuild_info [+(.(fromline))+] stage0 [+base+] module 
@@ -304,7 +304,7 @@ function meltbuild_emit () {
     meltbuild_info $meltfrom argument file $meltargs is
     cat  $meltargs < /dev/null >&2
     if [ -z "$GCCMELT_SKIPEMITC" ]; then
-	$GCCMELT_CC1_PREFIX $GCCMELT_CC1 @$meltargs || meltbuild_error $meltfrom failed with arguments @$meltargs
+	$GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltargs || meltbuild_error $meltfrom failed with arguments @$meltargs
         ## remove obsolete secondary C files left previously in $meltstage 
 	for meltcsecfil in $meltstage/$meltbase+[0-9][0-9].cc ; do
 	    if grep -q `basename $meltcsecfil` "$meltstage/$meltbase.cfilist" ; then
@@ -748,11 +748,11 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
 	meltbuild_info [+(.(fromline))+] $meltcheckruntime_args  is
 	cat $meltcheckruntime_args < /dev/null >&2
 	if [ -n "$MELTGCCBUILTIN_BUILD_WITH_CXX" ]; then
-	    $GCCMELT_CC1_PREFIX $GCCMELT_CC1PLUS @$meltcheckruntime_args \
+	    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltcheckruntime_args \
 		|| meltbuild_error [+(.(fromline))+] failed  $GCCMELT_CC1PLUS with arguments @$meltcheckruntime_args
 	else
-	    $GCCMELT_CC1_PREFIX $GCCMELT_CC1 @$meltcheckruntime_args \
-		|| meltbuild_error [+(.(fromline))+] failed  $GCCMELT_CC1 with arguments @$meltcheckruntime_args
+	    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltcheckruntime_args \
+		|| meltbuild_error [+(.(fromline))+] failed  $GCCMELT_CC1PLUS with arguments @$meltcheckruntime_args
 	fi
 	meltbuild_info [+(.(fromline))+] done check runtime with $meltcheckruntime_args
     fi
@@ -777,7 +777,7 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
     [ -f "$meltcheckhelloworld_args" ] || meltbuild_error  [+(.(fromline))+] missing check helloworld args  "$meltcheckhelloworld_args"
    meltbuild_info [+(.(fromline))+] $meltcheckhelloworld_args  is
    cat $meltcheckhelloworld_args < /dev/null >&2
-    $GCCMELT_CC1_PREFIX $GCCMELT_CC1 @$meltcheckhelloworld_args \
+    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltcheckhelloworld_args \
 	|| meltbuild_error [+(.(fromline))+] running helloworld failed with arguments @$meltcheckhelloworld_args
    meltbuild_info [+(.(fromline))+] done check helloworld with $meltcheckhelloworld_args
    #@ [+(.(fromline))+] runtime stamp
@@ -821,7 +821,7 @@ if [ "$melt_overall_goal" = "regenerate" ]; then
     $GCCMELT_MOVE_IF_CHANGE  $meltregen_argstemp $meltregen_args
    meltbuild_info [+(.(fromline))+] $meltregen_args  is
    cat $meltregen_args < /dev/null >&2
-    $GCCMELT_CC1_PREFIX $GCCMELT_CC1 @$meltregen_args \
+    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @$meltregen_args \
 	|| meltbuild_error [+(.(fromline))+] failed with arguments @$meltregen_args
     meltbuild_info [+(.(fromline))+] done regenerate overall goal
     exit 0
@@ -851,7 +851,7 @@ meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltgen_args
    $GCCMELT_MOVE_IF_CHANGE  $meltgen_args meltbuild-gendoc.args
    meltbuild_info [+(.(fromline))+]  meltbuild-gendoc.args is
    cat meltbuild-gendoc.args < /dev/null >&2
-   $GCCMELT_CC1_PREFIX $GCCMELT_CC1 @meltbuild-gendoc.args \
+   $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @meltbuild-gendoc.args \
      || meltbuild_error [+(.(fromline))+] failed with arguments @meltbuild-gendoc.args
 else
    meltbuild_info [+(.(fromline))+] keeping meltgendoc.texi

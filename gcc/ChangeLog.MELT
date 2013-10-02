@@ -1,6 +1,23 @@
 
 2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* Makefile.in (melt-build-param.sh): Generate for C++ only, so use
+	GCCMELT_CC1PLUS instead of GCCMELT_CC1, GCCMELT_RUNTIME_CC etc
+	etc...
+
+	* melt-build-script.tpl: Use GCCMELT_CC1PLUS,
+	GCCMELT_CC1PLUS_PREFIX etc.., likewise.
+	* melt-build-script.sh: Regenerate.
+
+	* melt-run.proto.h (gt_ggc_mx_melt_un): Move declaration to
+	melt-runtime.h file.
+
+	* melt-runtime.h (gt_ggc_mx_melt_un): Add declaration.
+	(Melt_CallProtoFrame, debug_hook, debug_closure, dbg_file)
+	(dbg_line): Add stub methods to Melt_CallProtoFrame class.
+
+2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* obsolete-melt/: New directory.
 	* xtramelt-c-generator.melt: Moved to obsolete-melt/
 	* xtramelt-opengpu.melt: Ditto.

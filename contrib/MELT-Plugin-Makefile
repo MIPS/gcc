@@ -255,11 +255,11 @@ melt-predef.h:  make-melt-predefh.awk melt-predef.list
     _melt-runtime.c _meltrunsup-inc.c
 
 _melt-runtime.c: $(MELT_RUNTIME_CC)
-	$(LN_S) $> $@
+	$(LN_S) $^ $@
 
 
 _meltrunsup-inc.c: melt/generated/meltrunsup-inc.cc
-	$(LN_S) $> $@
+	$(LN_S) $^ $@
 
 melt-run.h melt-run-md5.h:
 
@@ -328,7 +328,7 @@ melt.so melt-runtime.args: $(MELT_RUNTIME_CC) $(MELTGCC_RUNTIME_INCLUDES) \
            '-DMELT_REVISION=\"$(shell cat gfmeltgcc_revision)\"' \
 	 >> melt-runtime.args-tmp
 	@echo $(MELTGCC_OPTIMFLAGS) >> melt-runtime.args-tmp
-	@echo -Wall melt-runtime.c >> melt-runtime.args-tmp
+	@echo -Wall $(MELT_RUNTIME_CC) >> melt-runtime.args-tmp
 	@mv melt-runtime.args-tmp melt-runtime.args
 	$(GCCMELT_CXX) $(GCCMELT_CFLAGS) -fPIC  -shared  @melt-runtime.args \
 	      -o $@ $(MELTGCC_LIBES)
