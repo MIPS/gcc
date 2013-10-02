@@ -1,0 +1,4 @@
+These files xtramelt-c-generator.melt & xtramelt-opengpu.melt are
+obsolete and used to be in the MELT 0.9.9 plugin.  We don't maintain
+them anymore. They are placed in obsolete-melt/ subdirectory for
+historical reference.

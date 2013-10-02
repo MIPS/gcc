@@ -1,6 +1,14 @@
 
 2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* MELT-Plugin-Makefile: Switch to C++ only. So
+	(GCCMELT_CXX): Variable for C++ compiler, replacing...
+	(GCCMELT_CC): Removed variable.
+	(melt.so, melt-runtime.args, melt-build-param.sh): Update
+	accordingly.
+
+2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* make-melt-plugin-source-tar.sh: No need to copy realmpfr.h,
 	gimple-pretty-print.h, tree-pretty-print.h since they are in GCC
 	4.7 or better plugins headers.

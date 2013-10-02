@@ -108,6 +108,8 @@ echo $0: You should have recently run in gcc/ of build tree: make upgrade-warmel
 
 mkdir $gccmelt_tarbase/testmelt
 
+mkdir $gccmelt_tarbase/obsolete-melt
+
 copymelt COPYING3
 copymelt move-if-change
 copymelt gcc/DATESTAMP GCCMELT-DATESTAMP
@@ -122,6 +124,10 @@ copymelt gcc/doc/include/texinfo.tex
 
 for f in gcc/testsuite/melt/* ; do
    copymelt $f testmelt/
+done
+
+for f in gcc/obsolete-melt/* ; do
+   copymelt $f obsolete-melt/
 done
 
 copymelt gcc/doc/melt.texi
@@ -139,13 +145,14 @@ copymelt gcc/make-warmelt-predef.awk make-warmelt-predef.awk
 copymelt gcc/melt-build-script.tpl
 copymelt gcc/melt-build-script.def 
 copymelt gcc/melt-build-script.sh
-
+copymelt gcc/melt-runtime.cc
+copymelt gcc/melt-runtime.h
 
 for mf in $gccmelt_source_tree/gcc/melt/*.melt ; do 
     $gccmelt_copy $mf  $gccmelt_tarbase/melt/
 done
 
-for mf in $gccmelt_source_tree/gcc/melt/generated/*.[ch] ; do 
+for mf in $gccmelt_source_tree/gcc/melt/generated/*.{c,cc,h} ; do 
     $gccmelt_copy $mf  $gccmelt_tarbase/melt/generated/
 done
 

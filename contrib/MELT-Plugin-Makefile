@@ -66,18 +66,17 @@ endif
 ## compile MELT generated code.  Notice that melt-module.mk use the
 ## same Make variables.  For a melt plugin to GCC 4.7 or later, that
 ## should be a C++ compiler! eg
-##   make MELTGCC=gcc-4.7 GCCMELT_CC=g++-4.7
-ifndef GCCMELT_CC
-GCCMELT_CC = $(or $(CXX),g++)
-$(info building MELT: GCCMELT_CC= $(GCCMELT_CC) is a C++ compiler)
-endif
+##   make MELTGCC=gcc-4.7 GCCMELT_CXX=g++-4.7
+ifndef GCCMELT_CXX
+GCCMELT_CXX = $(or $(CXX),g++)
+$(info building MELT: GCCMELT_CXX= $(GCCMELT_CXX) is a C++ compiler)
 else
-$(info building MELT: GCCMELT_CC= $(GCCMELT_CC) is explicitly given $(origin GCCMELT_CC))
+$(info building MELT: GCCMELT_CXX= $(GCCMELT_CXX) is explicitly given $(origin GCCMELT_CXX))
 endif
 
 GCCMELT_CFLAGS ?= -g -O -Wall
 
-$(info building MELT: MELT plugin for MELTGCC= $(MELTGCC) to be compiled with GCCMELT_CC= $(GCCMELT_CC) flags $(GCCMELT_CFLAGS) $(if $(MELTGCC_BUILD_WITH_CXX),built with C++ $(MELTGCC_BUILD_WITH_CXX)))
+$(info building MELT: MELT plugin for MELTGCC= $(MELTGCC) to be compiled with GCCMELT_CXX= $(GCCMELT_CXX) flags $(GCCMELT_CFLAGS) $(if $(MELTGCC_BUILD_WITH_CXX),built with C++ $(MELTGCC_BUILD_WITH_CXX)))
 
 # Some versions of `touch' (such as the version on Solaris 2.8)
 # do not correctly set the timestamp due to buggy versions of `utime'
@@ -276,7 +275,7 @@ gfmeltgcc_revision: GCCMELT-REVISION MELT-Plugin-Makefile
 # intermediate file for the md5sum of preprocessed expansion of melt-run.proto.h
 gfmeltgcc_run_md5: $(MELTGCC_RUNTIME_INCLUDES) MELT-Plugin-Makefile  melt-run.proto.h \
                    $(wildcard $(MELTGCC_PLUGIN_DIR)/include/*.h) melt-runtime.h  melt/generated/meltrunsup.h melt-predef.h
-	$(GCCMELT_CC)  -C -E -DMELT_IS_PLUGIN -Imelt/generated -I. $(MELTGCC_INCLUDEFLAGS) melt-run.proto.h \
+	$(GCCMELT_CXX)  -C -E -DMELT_IS_PLUGIN -Imelt/generated -I. $(MELTGCC_INCLUDEFLAGS) melt-run.proto.h \
 	 | grep -v '^#' | md5sum | cut -c 1-32 > $@-tmp
 	mv $@-tmp $@
 
@@ -314,11 +313,11 @@ melt-runtime-params-inc.c: melt-make-string gfmeltgcc_revision
 	mv $@-tmp $@
 
 melt-make-string: melt-make-string.c
-	$(GCCMELT_CC) $^ -o $@
+	$(GCCMELT_CXX) $^ -o $@
 melt-mv-if-changed: melt-mv-if-changed.c
-	$(GCCMELT_CC) -O $^ -o $@
+	$(GCCMELT_CXX) -O $^ -o $@
 
-melt.so melt-runtime.args: melt-runtime.c $(MELTGCC_RUNTIME_INCLUDES) \
+melt.so melt-runtime.args: $(MELT_RUNTIME_CC) $(MELTGCC_RUNTIME_INCLUDES) \
    melt-runtime-params-inc.c melt-mv-if-changed \
    gt-melt-runtime.h $(wildcard $(MELTGCC_PLUGIN_DIR)/include/*.h) \
    melt-predef.h melt-run.h melt-run-md5.h GCCMELT-REVISION \
@@ -331,17 +330,17 @@ melt.so melt-runtime.args: melt-runtime.c $(MELTGCC_RUNTIME_INCLUDES) \
 	@echo $(MELTGCC_OPTIMFLAGS) >> melt-runtime.args-tmp
 	@echo -Wall melt-runtime.c >> melt-runtime.args-tmp
 	@mv melt-runtime.args-tmp melt-runtime.args
-	$(GCCMELT_CC) $(GCCMELT_CFLAGS) -fPIC  -shared  @melt-runtime.args \
+	$(GCCMELT_CXX) $(GCCMELT_CFLAGS) -fPIC  -shared  @melt-runtime.args \
 	      -o $@ $(MELTGCC_LIBES)
 
 
 melt-build-param.sh:  Makefile melt-mv-if-changed melt.so
 	date "+#file $@ generated %c%n" > $@-tmp
 	echo '## compiler GCCMELT_COMPILER and flags GCCMELT_COMPILER_FLAGS to compile MELT generated code' >> $@-tmp
-	echo "GCCMELT_COMPILER='$(GCCMELT_CC)'" >> $@-tmp
+	echo "GCCMELT_COMPILER='$(GCCMELT_CXX)'" >> $@-tmp
 	echo 'GCCMELT_COMPILER_FLAGS="$(filter-out -O% -g% -O -g, $(MELTGCC_INCLUDEFLAGS) -I $(realpath melt/generated) -I $(realpath .))"' >> $@-tmp
 	echo '## linker GCCMELT_LINKER and flags GCCMELT_LINKER_FLAGS to link MELT generated module' >> $@-tmp
-	echo "GCCMELT_LINKER='$(GCCMELT_CC)'" >> $@-tmp
+	echo "GCCMELT_LINKER='$(GCCMELT_CXX)'" >> $@-tmp
 	echo 'GCCMELT_LINKER_FLAGS="$(filter-out -O% -g% -O -g, $(LINKER_FLAGS))"' >> $@-tmp
 	echo '## source directory containing MELT code is GCCMELT_MELTSOURCEDIR' >> $@-tmp
 	echo GCCMELT_MELTSOURCEDIR=melt/ >> $@-tmp
@@ -351,21 +350,18 @@ melt-build-param.sh:  Makefile melt-mv-if-changed melt.so
 	echo 'GCCMELT_VERSION_STRING=$(shell $(AWK) -F\" '/^.define +MELT_VERSION_STRING/{print $$2}' melt-runtime.h)'  >> $@-tmp
 	echo '## GCCMELT_MAKE is the make utility' >> $@-tmp
 	+echo 'GCCMELT_MAKE="$(MAKE)"' >> $@-tmp
-	echo '## GCCMELT_CC1 is the C compiler to use MELT for its bootstrapping' >> $@-tmp
+	echo '## GCCMELT_CXX1PLUS is the C++ compiler to use MELT for its bootstrapping' >> $@-tmp
 #we pass the melt.so plugin, and we need to pass -c to avoid any linking!
-	echo 'GCCMELT_CC1="$(MELTGCC) -fplugin=./melt.so -c"' >> $@-tmp
-	echo '## GCCMELT_CC1PLUS is the C++ compiler to use MELT for its bootstrapping' >> $@-tmp
-#we pass the melt.so plugin, and we need to pass -c to avoid any linking!
-	echo 'GCCMELT_CC1PLUS="$(MELTGXX) -fplugin=./melt.so -c"' >> $@-tmp
-	echo '## GCCMELT_CC1_PREFIX can be set to a prefix like "time" or "nice" to alter above' >> $@-tmp
-	$(if $(GCCMELT_CC1_PREFIX),echo GCCMELT_CC1_PREFIX='$(GCCMELT_CC1_PREFIX)' >> $@-tmp)
-	echo '## GCCMELT_CC1_DEPENDENCIES is the dependencies, including MELT runtime, for GCCMELT_CC1' >> $@-tmp
-	echo 'GCCMELT_CC1_DEPENDENCIES="$(realpath $(MELTGCC) melt.so  $(MELT_H))"'  >> $@-tmp
+	echo 'GCCMELT_CXX1PLUS="$(MELTGXX) -fplugin=./melt.so -c"' >> $@-tmp
+	echo '## GCCMELT_CXX1_PREFIX can be set to a prefix like "time" or "nice" to alter above' >> $@-tmp
+	$(if $(GCCMELT_CXX1_PREFIX),echo GCCMELT_CXX1_PREFIX='$(GCCMELT_CXX1_PREFIX)' >> $@-tmp)
+	echo '## GCCMELT_CXX1_DEPENDENCIES is the dependencies, including MELT runtime, for GCCMELT_CC1' >> $@-tmp
+	echo 'GCCMELT_CXX1_DEPENDENCIES="$(realpath $(MELTGCC) melt.so  $(MELT_H))"'  >> $@-tmp
 	echo '## GCCMELT_RUNTIME_DEPENDENCY is the dependency for the MELT runtime, eg. melt.so'  >> $@-tmp
 	echo 'GCCMELT_RUNTIME_DEPENDENCY="$(realpath ./melt.so)"' >> $@-tmp
 	echo '## GCCMELT_RUNTIME_ARGS is the argument file passed with @melt-runtime.arg to compile the MELT runtime'  >> $@-tmp
 	echo 'GCCMELT_RUNTIME_ARGS=$(realpath melt-runtime.args)' >> $@-tmp
-	echo '## GCCMELT_RUNTIME_CC is the C source file of the runtime' >> $@-tmp
+	echo '## GCCMELT_RUNTIME_CC is the C++ source file of the runtime' >> $@-tmp
 	echo 'GCCMELT_RUNTIME_CC="$(realpath $(MELT_RUNTIME_CC))"'   >> $@-tmp
 	echo '## GCCMELT_INCLUDES is the include flags for the MELT runtime' >> $@-tmp
 	echo 'GCCMELT_INCLUDES="-I $(realpath .) -I $(realpath melt/generated) $(INCLUDES)"'  >> $@-tmp

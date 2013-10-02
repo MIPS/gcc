@@ -1,5 +1,19 @@
 
 2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* obsolete-melt/: New directory.
+	* xtramelt-c-generator.melt: Moved to obsolete-melt/
+	* xtramelt-opengpu.melt: Ditto.
+	* obsolete-melt/xtramelt-c-generator.melt: New file, has moved.
+	* obsolete-melt/xtramelt-opengpu.melt: New file, has moved.
+	* obsolete-melt/README: New file.
+
+	* melt-build-script.def: Remove xtramelt-c-generator &
+	xtramelt-opengpu application files.
+
+	* melt-build-script.sh: Regenerate.
+
+2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/xtramelt-ana-simple.melt (justcountipa_docmd) install the
 	pass before "*free_lang_data".
 

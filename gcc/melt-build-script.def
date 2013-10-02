@@ -112,16 +112,6 @@ melt_application_file = {
 };
 
 melt_application_file = {
-  base = "xtramelt-c-generator";
-  varsuf = C_GENERATOR;
-};
-
-melt_application_file = {
-  base = "xtramelt-opengpu";
-  varsuf = OPENGPU;
-};
-
-melt_application_file = {
   base = "xtramelt-playground";
   varsuf = PLAYGROUND;
 };
