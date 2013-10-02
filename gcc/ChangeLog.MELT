@@ -1,4 +1,8 @@
 
+2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/xtramelt-ana-simple.melt (justcountipa_docmd) install the
+	pass before "*free_lang_data".
+
 2013-10-01  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{MELT full GC happens much less often}}

@@ -828,7 +828,7 @@
 			  :gccpass_data ()))
 	 )
     (debug "justcountipa_docmd ipass=" ipass)
-    (install_melt_pass_in_gcc ipass :before '"ipa-visibility" -1)
+    (install_melt_pass_in_gcc ipass :before '"*free_lang_data" -1)
     (debug "justcountipa_docmd inserted ipass=" ipass)
     (return :true)
     ))
