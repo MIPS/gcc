@@ -1,4 +1,10 @@
 
+2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* make-melt-plugin-source-tar.sh: No need to copy realmpfr.h,
+	gimple-pretty-print.h, tree-pretty-print.h since they are in GCC
+	4.7 or better plugins headers.
+
 2013-09-11  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile: Improve, and add symlinks for gengtype
 	which still dislikes *.cc files..

@@ -7,7 +7,7 @@
 ##
 ##    Middle End Lisp Translator = MELT
 ##
-##    Copyright (C)  2010 - 2012 Free Software Foundation, Inc.
+##    Copyright (C)  2010 - 2013 Free Software Foundation, Inc.
 ##    Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 ## 
 ## This file is part of GCC.
@@ -134,12 +134,6 @@ copymelt contrib/MELT-Plugin-Makefile
 (cd $gccmelt_tarbase/; ln -s MELT-Plugin-Makefile Makefile)
 
 
-## copy the non MELT files which are in MISSINGMELT_PLUGIN_HEADERS, that is
-## the files which really should be available in the plugin/include/
-## directory but are not yet.  Keep in sync with gcc/Makefile.in
-copymelt gcc/realmpfr.h realmpfr.h
-copymelt gcc/gimple-pretty-print.h gimple-pretty-print.h
-copymelt gcc/tree-pretty-print.h tree-pretty-print.h
 copymelt gcc/make-melt-predefh.awk make-melt-predefh.awk
 copymelt gcc/make-warmelt-predef.awk make-warmelt-predef.awk
 copymelt gcc/melt-build-script.tpl
