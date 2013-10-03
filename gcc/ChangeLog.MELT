@@ -1,4 +1,7 @@
 
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* obsolete-melt/libmeltopengpu/: Moved directory from topdir.
+
 2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* Makefile.in (melt-build-param.sh): Generate for C++ only, so use

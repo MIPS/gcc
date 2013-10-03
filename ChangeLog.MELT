@@ -1,4 +1,8 @@
 
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* libmeltopengpu/: directory moved into gcc/obsolete-melt
+
 2013-09-20  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	MELT branch merged with trunk rev 202766 using svnmerge.py
