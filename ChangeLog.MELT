@@ -1,5 +1,8 @@
 
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{MELT 1.0 rc1 release candidate}}
+
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* libmeltopengpu/: directory moved into gcc/obsolete-melt
 

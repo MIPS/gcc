@@ -1,5 +1,11 @@
 
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile (melt-gendoc): Test that we have a
+	texi2html and a texi2pdf utility.
+	(install-melt-sources): Test that melt-normal.cc [not old
+	melt-normal.c] has been generated.
+
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile: Use GCCMELT_CC1PLUS, GCCMELT_CXX1_PREFIX,
 	GCCMELT_CC1PLUS_DEPENDENCIES...
 

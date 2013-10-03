@@ -416,6 +416,8 @@ melt-modlists: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh 
 
 melt-gendoc: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
 	@echo melt-gendoc script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
+	@[ which $(TEXI2HTML) > /dev/null ] || (echo MELT bad TEXI2HTML: $(TEXI2HTML) ; exit 1)
+	@[ which $(TEXI2PDF) > /dev/null ] || (echo MELT bad TEXI2PDF: $(TEXI2PDF) ; exit 1)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh gendoc
 
 
@@ -490,11 +492,11 @@ install-melt-so: melt.so
 install-melt-sources: 
 	@echo installing MELT sources directory $(melt_source_dir)
 # we check that warmelt-normal.c exist in the build sources
-	@[ -f  meltbuild-sources/warmelt-normal.c ] \
-	   || (echo incomplete meltbuild-sources; exit 1)
+	@[ -f  meltbuild-sources/warmelt-normal.cc ] \
+	   || (echo incomplete meltbuild-sources missing warmelt-normal.cc ; exit 1)
 	$(mkinstalldirs) $(DESTDIR)$(melt_source_dir)
 	$(RM) meltbuild-sources/*~
-	for f in meltbuild-sources/*.[ch]  meltbuild-sources/*.mk meltbuild-sources/*.melt meltbuild-sources/*.modlis ; do \
+	for f in meltbuild-sources/*.{cc,c,h}  meltbuild-sources/*.mk meltbuild-sources/*.melt meltbuild-sources/*.modlis ; do \
 	   $(INSTALL_DATA) $$f $(DESTDIR)$(melt_source_dir)/ ; \
 	done
 
@@ -503,7 +505,7 @@ install-melt-modules:
 	@echo installing MELT modules directory $(melt_module_dir)
 # we check that some xtramelt-ana-base module exist
 	@[ -f meltbuild-modules/xtramelt-ana-base.meltmod*.optimized.so ] \
-          || (echo incomplete meltbuild-modules; exit 1)
+          || (echo incomplete meltbuild-modules missing xtramelt-ana-base optimized; exit 1)
 	$(mkinstalldirs) $(DESTDIR)$(melt_module_dir)
 	for l in  meltbuild-modules/[a-z]*.meltmod*.so ; do \
 	  $(INSTALL_PROGRAM) $$l $(DESTDIR)$(melt_module_dir)/ ; \
