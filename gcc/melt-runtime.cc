@@ -433,7 +433,7 @@ public:
   static Melt_Module* nth_module(int rk)
   {
     if (rk<0) rk +=  _mm_vect_.size();
-    if (rk > 0 && rk < _mm_vect_.size()) return _mm_vect_[rk];
+    if (rk > 0 && rk < (int) _mm_vect_.size()) return _mm_vect_[rk];
     return NULL;
   };
   void set_forwarding_routine (melt_forwarding_rout_t* r)
@@ -1799,10 +1799,13 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   melt_debuggc_eprintf ("melt_garbcoll melt_forwarded_copy_byte_count=%ld",
                         melt_forwarded_copy_byte_count);
   if (!needfullreason && gckd > MELT_ONLY_MINOR
-      && melt_forwarded_copy_byte_count > (long) 5*melt_minorsizekilow*(1024*sizeof(void*)))
+      && melt_forwarded_copy_byte_count
+         > (long) 5*melt_minorsizekilow*(1024*sizeof(void*)))
     {
-      melt_kilowords_forwarded += melt_forwarded_copy_byte_count/(1024*sizeof(void*));
-      melt_debuggc_eprintf ("melt_kilowords_forwarded %ld", melt_kilowords_forwarded);
+      melt_kilowords_forwarded
+	+= melt_forwarded_copy_byte_count/(1024*sizeof(void*));
+      melt_debuggc_eprintf ("melt_kilowords_forwarded %ld", 
+			    melt_kilowords_forwarded);
       melt_forwarded_copy_byte_count = 0;
       melt_nb_fullgc_because_copied++;
       needfullreason = "copied";
@@ -11275,8 +11278,9 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   /* Return immediately if no mode is given.  */
   if (!modstr || *modstr=='\0')
     {
-      if (!melt_flag_bootstrapping)
-        inform  (UNKNOWN_LOCATION, "MELT don't do anything without a mode.");
+      if (!melt_flag_bootstrapping && !printset)
+        inform  (UNKNOWN_LOCATION, 
+		 "MELT don't do anything without a mode; try -fplugin-arg-melt-mode=help");
       debugeprintf ("melt_really_initialize return immediately since no mode (inistr=%s)",
                     inistr);
       return;
@@ -12130,7 +12134,7 @@ melt_dbgbacktrace (int depth)
   fprintf (stderr, "    <{\n");
   Melt_CallFrame *cfr = NULL;
   for (cfr = (Melt_CallFrame*)melt_top_call_frame;
-       cfr != NULL & curdepth < depth;
+       cfr != NULL && curdepth < depth;
        (cfr = (Melt_CallFrame*)cfr->previous_frame()), (curdepth++))
     {
       const char* sloc = cfr->srcloc();

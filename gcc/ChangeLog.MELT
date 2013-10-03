@@ -1,5 +1,12 @@
 
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (MELT_VERSION_STRING): Update to 1.0-pre...
+
+	* melt-runtime.cc (melt_really_initialize): Improve warning when without mode.
+	(melt_dbgbacktrace): Replace & by && in test.
+
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* obsolete-melt/libmeltopengpu/: Moved directory from topdir.
 
 2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
