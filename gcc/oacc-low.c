@@ -307,7 +307,11 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
   vec<tree> args;
   args.create(16);
   splay_tree_foreach(ctx->param_map, create_call_params, (void*)&args);
-  size_t size = sizeof(struct gimple_statement_acc_kernels) + (args.length() - 1) * sizeof(tree);
+  size_t size;
+  if (args.length() != 0)
+    size = sizeof(struct gimple_statement_acc_kernels) + (args.length() - 1) * sizeof(tree);
+  else
+    size = sizeof(struct gimple_statement_acc_kernels);
   gimple new_stmt = ggc_alloc_gimple_statement_d (size);
   memcpy(new_stmt, stmt, sizeof(struct gimple_statement_acc_kernels));
 
