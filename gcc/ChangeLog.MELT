@@ -1,6 +1,12 @@
 
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* Makefile.in (MELT_RUNTIME_CC, melt-runtime.args, melt-runtime.o)
+	(GTFILES, check-melt-runtime): Use MELT_RUNTIME_CC not
+	MELT_RUNTIME_C everywhere.
+
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* Makefile.in (melt-build-script.sh): Reorder dependencies.
 
 	* melt-build-script.tpl: Use GCCMELT_RUNTIME_CC unstead of GCCMELT_RUNTIME_C everywhere.

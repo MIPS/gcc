@@ -1517,7 +1517,7 @@ MELT_H= $(srcdir)/melt/generated/meltrunsup.h \
     $(srcdir)/melt-runtime.h \
     melt-predef.h 
 
-MELT_RUNTIME_C= $(srcdir)/melt-runtime.cc
+MELT_RUNTIME_CC= $(srcdir)/melt-runtime.cc
 #### end of MELT things
 
 # This is defined to "yes" if Tree checking is enabled, which roughly means
@@ -2768,7 +2768,7 @@ MELT_RUNTIME_CPPDEFS= \
 	  -DMELT_REVISION='\"$(MELT_REVISION_STR)\"' \
 	  -DMELT_GCC_VERSION=$(shell cat $(BASEVER) | $(AWK) '{split($$0,vertab,"."); printf "%d", vertab[1]*1000+vertab[2]}')
 
-melt-runtime.args:  $(MELT_RUNTIME_C) melt-run-md5.h melt-runtime-params-inc.c $(C_COMMON_H) \
+melt-runtime.args:  $(MELT_RUNTIME_CC) melt-run-md5.h melt-runtime-params-inc.c $(C_COMMON_H) \
     $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) \
     $(GGC_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(CFGLOOP_H) \
     tree-pass.h $(MELT_H) \
@@ -2782,11 +2782,11 @@ melt-runtime.args:  $(MELT_RUNTIME_C) melt-run-md5.h melt-runtime-params-inc.c $
 	@echo " -I" $(realpath .) >> melt-runtime.args-tmp
 	@echo " -I" $(realpath include) >> melt-runtime.args-tmp
 	@echo " -I" $(realpath include-fixed) >> melt-runtime.args-tmp
-	@echo $(realpath $(MELT_RUNTIME_C))  >> melt-runtime.args-tmp
+	@echo $(realpath $(MELT_RUNTIME_CC))  >> melt-runtime.args-tmp
 	$(melt_move_if_change) melt-runtime.args-tmp melt-runtime.args
 	@echo -n '@@**@@' melt-runtime.args: ; cat melt-runtime.args ; echo
 
-melt-runtime.o:  $(MELT_RUNTIME_C) melt-run-md5.h melt-runtime-params-inc.c  $(C_COMMON_H) \
+melt-runtime.o:  $(MELT_RUNTIME_CC) melt-run-md5.h melt-runtime-params-inc.c  $(C_COMMON_H) \
     $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) $(TREE_H) \
     $(GGC_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(CFGLOOP_H) \
     tree-pass.h $(MELT_H) \
@@ -3945,7 +3945,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssa-alias.h \
   $(srcdir)/tree-ssanames.h \
   $(srcdir)/ipa-prop.h \
-  $(MELT_RUNTIME_C) \
+  $(MELT_RUNTIME_CC) \
   $(srcdir)/melt/generated/meltrunsup-inc.cc \
   $(srcdir)/trans-mem.c \
   $(srcdir)/lto-streamer.h \
@@ -5691,9 +5691,9 @@ install-melt-includes: melt-runtime.h melt-predef.h melt-run.h melt-run-md5.h me
 ## meltframe MELT pass, and to check that melt-runtime.cc follows some
 ## MELT coding rules.
 
-check-melt-runtime: $(MELT_RUNTIME_C) xgcc$(exeext)		\
-    melt-sources melt-all-sources melt-modules melt-all-modules
-	@echo checking melt-runtime.cc with MELT				\
+check-melt-runtime: $(MELT_RUNTIME_CC) xgcc$(exeext)			\
+    melt-sources melt-all-sources melt-modules melt-all-modules	
+	@echo checking melt-runtime.cc with MELT			\
 	$(GCC_FOR_TARGET)  $(ALL_CFLAGS) $(ALL_CPPFLAGS) -Wno-error	\
  -I $(srcdir)/melt/generated/						\
 	    $(MELT_RUNTIME_CPPDEFS)					\
