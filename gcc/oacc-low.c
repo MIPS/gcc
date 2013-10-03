@@ -1523,19 +1523,19 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
       gen_add(gsi, call_stmt);
 
       gen_add(gsi, build_call(locus, builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3, queue_handle, 
-                              build_int_cst(uint32_type_node, gimple_acc_kernels_nparams(stmt)), build_int_cst(uint32_type_node, OACC_PF_DATAIN)));
+                              build_int_cst(uint32_type_node, gimple_acc_nparams(stmt)), build_int_cst(uint32_type_node, OACC_PF_DATAIN)));
 
       gen_add(gsi, build_call(locus, builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3, queue_handle, 
                               build_int_cst(uint32_type_node, 1), build_int_cst(uint32_type_node, OACC_PF_EXEC)));
 
       gen_add(gsi, build_call(locus, builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3, queue_handle,
-                              build_int_cst(uint32_type_node, gimple_acc_kernels_nparams(stmt)), build_int_cst(uint32_type_node, OACC_PF_DATAOUT)));
+                              build_int_cst(uint32_type_node, gimple_acc_nparams(stmt)), build_int_cst(uint32_type_node, OACC_PF_DATAOUT)));
 
       /* OACC_set_arg */
       tree bits_per_byte = build_int_cst(uint32_type_node, 8);
       tree chk_presence = integer_one_node;
 
-      for(i = 0; i < gimple_acc_kernels_nparams(stmt); ++i) {
+      for(i = 0; i < gimple_acc_nparams(stmt); ++i) {
           tree arg = gimple_acc_kernels_params_ptr(stmt)[i];
           if(is_gimple_reg(arg)) continue;
           tree type = TREE_TYPE(arg);
@@ -1566,7 +1566,7 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
       gen_add(gsi, build_call(locus, builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1, queue_handle));
 
       /* OACC_copyout */
-      for(i = 0; i < gimple_acc_kernels_nparams(stmt); ++i) {
+      for(i = 0; i < gimple_acc_nparams(stmt); ++i) {
           tree arg = gimple_acc_kernels_params_ptr(stmt)[i];
           if(is_gimple_reg(arg)) continue;
           tree type = TREE_TYPE(arg);

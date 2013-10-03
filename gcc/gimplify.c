@@ -7435,14 +7435,10 @@ gimplify_acc_kernels (tree *expr_p, gimple_seq *pre_p)
 
   gimplify_adjust_acc_clauses (&ACC_KERNELS_CLAUSES (expr));
 
-  gimple p = gimple_alloc (GIMPLE_ACC_KERNELS, 0);
-  if (body)
-    p->acc.body = body;
-
-  /*g = gimple_build_acc_kernels (body,
+  g = gimple_build_acc_kernels (body,
                                    ACC_KERNELS_CLAUSES (expr),
-                                   NULL_TREE, NULL_TREE); */
-  gimplify_seq_add_stmt (pre_p, p);
+                                   NULL_TREE, NULL_TREE);
+  gimplify_seq_add_stmt (pre_p, g);
   *expr_p = NULL_TREE;
 }
 

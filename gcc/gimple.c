@@ -1121,42 +1121,6 @@ gimple_build_omp_atomic_store (tree val)
 
 /********************* Begin of GIMPLE building routines **********************/
 /******************************************************************************/
-
-
-
-/* Set CLAUSES to be associated with ACC_PARALLEL GS.  */
-static inline void
-gimple_acc_parallel_set_clauses (gimple gs, tree clauses)
-{
-  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
-  gs->gimple_acc_parallel.clauses = clauses;
-}
-
-/* Return the child function of OMP_PARALLEL GS.  */
-static inline tree
-gimple_acc_parallel_child_fn (const_gimple gs)
-{
-  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
-  return gs->gimple_acc_parallel.child_fn;
-}
-
-/* Set CHILD_FN for ACC_PARALLEL GS.  */
-static inline void
-gimple_acc_parallel_set_child_fn (gimple gs, tree child_fn)
-{
-  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
-  gs->gimple_acc_parallel.child_fn = child_fn;
-}
-
-/* Set DATA_ARG for ACC_PARALLEL GS.  */
-static inline void
-gimple_acc_parallel_set_data_arg (gimple gs, tree data_arg)
-{
-  GIMPLE_CHECK (gs, GIMPLE_ACC_PARALLEL);
-  gs->gimple_acc_parallel.data_arg = data_arg;
-}
-
-
 gimple
 gimple_build_acc_parallel (gimple_seq body, tree clauses, tree child_fn,
                            tree data_arg)
@@ -1170,7 +1134,6 @@ gimple_build_acc_parallel (gimple_seq body, tree clauses, tree child_fn,
 
   gimple_acc_parallel_set_clauses (p, clauses);
   gimple_acc_parallel_set_child_fn (p, child_fn);
-  gimple_acc_parallel_set_data_arg (p, data_arg);
 
   return p;
 }
@@ -1188,7 +1151,6 @@ gimple_build_acc_kernels (gimple_seq body, tree clauses, tree child_fn,
 
   gimple_acc_kernels_set_clauses (p, clauses);
   gimple_acc_kernels_set_child_fn (p, child_fn);
-  //gimple_acc_kernels_set_data_arg (p, data_arg);
 
   return p;
 }
@@ -1287,6 +1249,22 @@ gimple_build_acc_update (gimple_seq body, tree clauses, tree child_fn,
   {
     gimple_acc_set_body (p, body);
   }
+
+  return p;
+}
+
+gimple
+gimple_build_acc_compute_region_end ()
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_COMPUTE_REGION_END, 0);
+
+  return p;
+}
+
+gimple
+gimple_build_acc_data_region_end ()
+{
+  gimple p = gimple_alloc (GIMPLE_ACC_DATA_REGION_END, 0);
 
   return p;
 }

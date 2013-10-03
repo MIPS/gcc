@@ -1,3 +1,12 @@
+03-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Rewrite GIMPLE_ACC_* structures
+    
+    * gcc/gimple.c: Rewrite gimple_acc_* structures
+    * gcc/gimple.def: Move GIMPLE_ACC_* before GIMPLE_RETURN
+    * gcc/gimple.h: Rewrite gimple_acc_* structures
+    * gcc/gimplify.c: Likewise.
+    * gcc/oacc-low.c: Change accessors.
+
 03-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Fix ICE on empty kernel
     
