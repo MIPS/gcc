@@ -1,6 +1,14 @@
 
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* Makefile.in (melt-build-script.sh): Reorder dependencies.
+
+	* melt-build-script.tpl: Use GCCMELT_RUNTIME_CC unstead of GCCMELT_RUNTIME_C everywhere.
+
+	* melt-build-script.sh: Regenerate.
+
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (MELT_VERSION_STRING): Update to 1.0-pre...
 
 	* melt-runtime.cc (melt_really_initialize): Improve warning when without mode.

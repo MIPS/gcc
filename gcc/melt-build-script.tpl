@@ -723,9 +723,14 @@ fi
 
 ##  [+(.(fromline))+] FIXME: should skip that when cross-compiler MELT plugin..
 
+if [ -z "$GCCMELT_RUNTIME_CC" ]; then 
+    meltbuild_error [+(.(fromline))+] failed because no GCCMELT_RUNTIME_CC shell variable
+    exit 1
+fi
+
 meltcheckruntime_stamp=meltbuild-checkruntime.stamp
 if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_ARGS" \
-    -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_C" \
+    -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTIME_CC" \
     -o $meltcheckruntime_stamp -ot $melt_final_application_stamp ]; then
     #@ [+(.(fromline))+] checkruntime
     if [ -f melt-no-check-runtime -o -n "$MELTGCC_NO_CHECK_RUNTIME" -o ! -f melt-runtime.i ]; then
@@ -782,10 +787,10 @@ if [ ! -f $meltcheckruntime_stamp -o $meltcheckruntime_stamp -ot "$GCCMELT_RUNTI
    meltbuild_info [+(.(fromline))+] done check helloworld with $meltcheckhelloworld_args
    #@ [+(.(fromline))+] runtime stamp
     meltcheckruntime_stamptemp=$meltcheckruntime_stamp-tmp$$
-    [ -f "$GCCMELT_RUNTIME_C" ] || meltbuild_error [+(.(fromline))+] missing MELT runtime C file $GCCMELT_RUNTIME_C
+    [ -f "$GCCMELT_RUNTIME_CC" ] || meltbuild_error [+(.(fromline))+] missing MELT runtime C++ file $GCCMELT_RUNTIME_CC
     echo "/// MELT check runtime timestamp file $meltcheckruntime_stamp" > $meltcheckruntime_stamptemp
     echo $GCCMELT_RUNTIME_DEPENDENCY_MD5SUM $GCCMELT_RUNTIME_DEPENDENCY >> $meltcheckruntime_stamptemp
-    $MD5SUM $GCCMELT_RUNTIME_C < /dev/null >>  $meltcheckruntime_stamptemp
+    $MD5SUM $GCCMELT_RUNTIME_CC < /dev/null >>  $meltcheckruntime_stamptemp
     $MD5SUM meltbuild-hello.melt < /dev/null >>  $meltcheckruntime_stamptemp
     [ -f "$melt_final_translator_stamp" ] || meltbuild_error [+(.(fromline))+] missing final translator stamp "$melt_final_translator_stamp"
     [ -f "$melt_final_application_stamp" ] || meltbuild_error [+(.(fromline))+] missing final application stamp "$melt_final_application_stamp"

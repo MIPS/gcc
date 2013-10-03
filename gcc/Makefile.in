@@ -5579,7 +5579,7 @@ export GCCMELT_LINKER= $(LINKER)
 export GCCMELT_LINKER_FLAGS= $(LINKER_FLAGS)
 
 MELT_MAKE_MODULE_XTRAMAKEFLAGS ?= -j 2
-$(srcdir)/melt-build-script.sh:  @MAINT@ $(srcdir)/melt-build-script.def $(srcdir)/melt-build-script.tpl
+$(srcdir)/melt-build-script.sh: $(srcdir)/melt-build-script.def $(srcdir)/melt-build-script.tpl  @MAINT@ 
 	cd $(srcdir) && $(AUTOGEN) melt-build-script.def
 
 .PHONY: melt.encap melt-clean melt-translator melt-applications melt-modlists melt-gendoc
