@@ -1,9 +1,27 @@
+03-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Fix ICE on empty kernel
+    
+    * gcc/oacc-low-c: Add check for empty kernel
+    * gcc/testsuite/gcc.dg/gacc/gacc.exp: New test directory
+    * gcc/testsuite/gcc.dg/gacc/empty-kernel.c: New test case
+
 01-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Fix several ICEs
     
     * gcc/gimple.def: Change position of GIMPLE_ACC_KERNELS
     * gcc/passes.def: Change position of pass_expand_oacc
     
+30-09-2013 Ilmir Usmanov <i.usmanov@sansung.com>
+    Remove tree transformations from fortran front-end
+    
+    * gcc/fortran/openacc.c: Remove inserting !$ACC DATA
+    * gcc/fortran/resolve.c: Likewise
+    * gcc/fortran/trans-decl.c: Add lowering of !$ACC DECLARE
+    * gcc/fortran/trans-openacc.c: Remove inserting PRIVATE(dovar)
+    * gcc/fortran/trans-stmt.h: Add gfc_trans_acc_declare declaration
+    * gcc/testsuite/gfortran.dg/gacc/_declare-1.f95: Fix testcase
+    * gcc/testsuite/gfortran.dg/gacc/_present_or_copy.f95: Remove testcase
+
 26-09-2013 Evgeny Gavrin <e.gavrin@samsung.com>
     Initial source drop for OpenACC implementation
 
