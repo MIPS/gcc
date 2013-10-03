@@ -350,13 +350,13 @@ melt-build-param.sh:  Makefile melt-mv-if-changed melt.so
 	echo 'GCCMELT_VERSION_STRING=$(shell $(AWK) -F\" '/^.define +MELT_VERSION_STRING/{print $$2}' melt-runtime.h)'  >> $@-tmp
 	echo '## GCCMELT_MAKE is the make utility' >> $@-tmp
 	+echo 'GCCMELT_MAKE="$(MAKE)"' >> $@-tmp
-	echo '## GCCMELT_CXX1PLUS is the C++ compiler to use MELT for its bootstrapping' >> $@-tmp
+	echo '## GCCMELT_CC1PLUS is the C++ compiler to use MELT for its bootstrapping' >> $@-tmp
 #we pass the melt.so plugin, and we need to pass -c to avoid any linking!
-	echo 'GCCMELT_CXX1PLUS="$(MELTGXX) -fplugin=./melt.so -c"' >> $@-tmp
-	echo '## GCCMELT_CXX1_PREFIX can be set to a prefix like "time" or "nice" to alter above' >> $@-tmp
-	$(if $(GCCMELT_CXX1_PREFIX),echo GCCMELT_CXX1_PREFIX='$(GCCMELT_CXX1_PREFIX)' >> $@-tmp)
-	echo '## GCCMELT_CXX1_DEPENDENCIES is the dependencies, including MELT runtime, for GCCMELT_CC1' >> $@-tmp
-	echo 'GCCMELT_CXX1_DEPENDENCIES="$(realpath $(MELTGCC) melt.so  $(MELT_H))"'  >> $@-tmp
+	echo 'GCCMELT_CC1PLUS="$(MELTGXX) -fplugin=./melt.so -c"' >> $@-tmp
+	echo '## GCCMELT_CC1PLUS_PREFIX can be set to a prefix like "time" or "nice" to alter above' >> $@-tmp
+	$(if $(GCCMELT_CC1PLUS_PREFIX),echo GCCMELT_CC1PLUS_PREFIX='$(GCCMELT_CC1PLUS_PREFIX)' >> $@-tmp)
+	echo '## GCCMELT_CC1PLUS_DEPENDENCIES is the dependencies, including MELT runtime, for GCCMELT_CXX1' >> $@-tmp
+	echo 'GCCMELT_CC1PLUS_DEPENDENCIES="$(realpath $(MELTGCC) melt.so  $(MELT_H))"'  >> $@-tmp
 	echo '## GCCMELT_RUNTIME_DEPENDENCY is the dependency for the MELT runtime, eg. melt.so'  >> $@-tmp
 	echo 'GCCMELT_RUNTIME_DEPENDENCY="$(realpath ./melt.so)"' >> $@-tmp
 	echo '## GCCMELT_RUNTIME_ARGS is the argument file passed with @melt-runtime.arg to compile the MELT runtime'  >> $@-tmp

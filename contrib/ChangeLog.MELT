@@ -1,4 +1,8 @@
 
+2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile: Use GCCMELT_CC1PLUS, GCCMELT_CXX1_PREFIX,
+	GCCMELT_CC1PLUS_DEPENDENCIES...
+
 2013-10-02  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile:
 	(_melt-runtime.c, _meltrunsup-inc.c): Correct rules.
