@@ -375,6 +375,12 @@ hook_constcharptr_const_tree_null (const_tree t ATTRIBUTE_UNUSED)
 }
 
 tree
+hook_tree_void_null ()
+{
+  return NULL;
+}
+
+tree
 hook_tree_tree_int_treep_bool_null (tree t0 ATTRIBUTE_UNUSED,
 				    int i ATTRIBUTE_UNUSED,
 				    tree *p ATTRIBUTE_UNUSED,

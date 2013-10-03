@@ -2023,6 +2023,26 @@ built-in function.",
  (tree exp, rtx target, rtx subtarget, enum machine_mode mode, int ignore),
  default_expand_builtin)
 
+DEFHOOK
+(builtin_chkp_function,
+ "Pointers checker instrumentation pass uses this hook to obtain\n\
+target-specific functions which implement specified generic checker\n\
+builtins.",
+ tree, (unsigned fcode),
+ default_builtin_chkp_function)
+
+DEFHOOK
+(chkp_bound_type,
+ "Return type to be used for bounds",
+ tree, (void),
+ hook_tree_void_null)
+
+DEFHOOK
+(chkp_bound_mode,
+ "Return mode to be used for bounds.",
+ enum machine_mode, (void),
+ default_chkp_bound_mode)
+
 /* Select a replacement for a target-specific builtin.  This is done
    *before* regular type checking, and so allows the target to
    implement a crude form of function overloading.  The result is a
@@ -3273,6 +3293,13 @@ The default version of this hook returns @code{va_list_type_node}.",
  tree, (tree fndecl),
  std_fn_abi_va_list)
 
+DEFHOOK
+(fn_abi_va_list_bounds_size,
+ "This hook returns size for va_list object or integer_zero_node if\n\
+it does not have any (e.g. is scalar pointer to the stack).",
+ tree, (tree fndecl),
+ default_fn_abi_va_list_bounds_size)
+
 /* Get the __builtin_va_list type dependent on input type.  */
 DEFHOOK
 (canonical_va_list_type,
@@ -3702,6 +3729,25 @@ not generate any instructions in this case.",
  void, (cumulative_args_t args_so_far, enum machine_mode mode, tree type,
 	int *pretend_args_size, int second_time),
  default_setup_incoming_varargs)
+
+DEFHOOK
+(load_bounds_for_arg,
+ "This hook is used to emit insn to load arg's bounds\n\
+in case bounds are not passed on register.  Return loaded bounds",
+ rtx, (rtx, rtx, rtx),
+ default_load_bounds_for_arg)
+
+DEFHOOK
+(store_bounds_for_arg,
+ "This hook is used to emit insn to store arg's bounds\n\
+in case bounds are not passed on register.",
+ void, (rtx, rtx, rtx, rtx),
+ default_store_bounds_for_arg)
+
+DEFHOOK
+(init_returned_bounds,
+ "Put specified bounds into returned bounds slot of the current function.",
+ void, (tree), default_init_returned_bounds)
 
 DEFHOOK
 (strict_argument_naming,
