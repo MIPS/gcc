@@ -416,8 +416,8 @@ melt-modlists: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh 
 
 melt-gendoc: melt-build-settings.sh  melt-build-param.sh melt-build-script.sh $(melt_make_cc1_dependency) $(MELTBUILD_MKFILE) warmelt-predef.melt melt-predef.h $(wildcard melt/*.melt melt/generated/*.[ch])
 	@echo melt-gendoc script $(realpath melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
-	@[ which $(TEXI2HTML) > /dev/null ] || (echo MELT bad TEXI2HTML: $(TEXI2HTML) ; exit 1)
-	@[ which $(TEXI2PDF) > /dev/null ] || (echo MELT bad TEXI2PDF: $(TEXI2PDF) ; exit 1)
+	@which "$(TEXI2HTML)" > /dev/null || (echo MELT bad TEXI2HTML: $(TEXI2HTML) ; exit 1)
+	@which "$(TEXI2PDF)" > /dev/null || (echo MELT bad TEXI2PDF: $(TEXI2PDF) ; exit 1)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(BASH) ./melt-build-script.sh gendoc
 
 
