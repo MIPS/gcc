@@ -12047,7 +12047,7 @@ generic or @code{__flash} is used, then @code{RAMPZ} is set
 as needed before the operation.
 
 @item
-If the device supports RAM larger than 64@tie{KiB} and the compiler
+If the device supports RAM larger than 64@tie{}KiB and the compiler
 needs to change @code{RAMPZ} to accomplish an operation, @code{RAMPZ}
 is reset to zero after the operation.
 
@@ -12057,7 +12057,7 @@ prologue/epilogue saves/restores that SFR and initializes it with
 zero in case the ISR code might (implicitly) use it.
 
 @item
-RAM larger than 64@tie{KiB} is not supported by GCC for AVR targets.
+RAM larger than 64@tie{}KiB is not supported by GCC for AVR targets.
 If you use inline assembler to read from locations outside the
 16-bit address range and change one of the @code{RAMP} registers,
 you must reset it to zero after the access.
@@ -21168,14 +21168,6 @@ instruction.  In the previous example, that might be a 32-bit load
 instruction, even though that accesses bytes that do not contain
 any portion of the bit-field, or memory-mapped registers unrelated to
 the one being updated.
-
-If the target requires strict alignment, and honoring the field
-type would require violating this alignment, a warning is issued.
-If the field has @code{packed} attribute, the access is done without
-honoring the field type.  If the field doesn't have @code{packed}
-attribute, the access is done honoring the field type.  In both cases,
-GCC assumes that the user knows something about the target hardware
-that it is unaware of.
 
 The default value of this option is determined by the application binary
 interface for the target processor.
