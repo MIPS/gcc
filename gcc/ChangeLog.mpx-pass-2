@@ -23,3 +23,4 @@
 	BUILT_IN_CHKP_EXTRACT_LOWER, BUILT_IN_CHKP_EXTRACT_UPPER.
 	* common.opt (fcheck-pointers): New.
 	* toplev.c (process_options): Check Pointers Checker is supported.
+	* doc/extend.texi: Document Pointers Checker built-in functions.
