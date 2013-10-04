@@ -206,6 +206,16 @@ gcc_jit_function_new_forward_label (gcc_jit_function *func,
   return (gcc_jit_label *)func->new_forward_label (name);
 }
 
+gcc_jit_lvalue *
+gcc_jit_context_new_global (gcc_jit_context *ctxt,
+			    gcc_jit_location *loc,
+			    gcc_jit_type *type,
+			    const char *name)
+{
+  ASSERT_WITHIN_CALLBACK (ctxt);
+  return (gcc_jit_lvalue *)ctxt->new_global (loc, type, name);
+}
+
 gcc_jit_local *
 gcc_jit_context_new_local (gcc_jit_context *ctxt,
 			   gcc_jit_location *loc,

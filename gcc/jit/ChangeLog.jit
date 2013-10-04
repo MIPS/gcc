@@ -1,3 +1,11 @@
+2013-10-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::context::new_global): New.
+	* internal-api.h (gcc::jit::context::new_global): New.
+	* libgccjit.c (gcc_jit_context_new_global) New.
+	* libgccjit.h (gcc_jit_context_new_global) New.
+	* libgccjit.map: Add gcc_jit_context_new_global.
+
 2013-10-03  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.c (gcc_jit_param_as_lvalue): New.

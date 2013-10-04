@@ -206,6 +206,25 @@ new_function (location *loc,
   return func;
 }
 
+gcc::jit::lvalue *
+gcc::jit::context::
+new_global (location *loc,
+            type *type,
+            const char *name)
+{
+  gcc_assert (NULL == loc);
+  gcc_assert (type);
+  gcc_assert (name);
+  tree inner = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+			   get_identifier (name),
+			   type->as_tree ());
+  TREE_PUBLIC (inner) = 1;
+  DECL_COMMON (inner) = 1;
+  DECL_EXTERNAL (inner) = 1;
+
+  return new lvalue (inner);
+}
+
 gcc::jit::local *
 gcc::jit::context::
 new_local (location *loc,

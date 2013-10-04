@@ -142,6 +142,12 @@ extern gcc_jit_label *
 gcc_jit_function_new_forward_label (gcc_jit_function *func,
 				    const char *name);
 
+extern gcc_jit_lvalue *
+gcc_jit_context_new_global (gcc_jit_context *ctxt,
+			    gcc_jit_location *loc,
+			    gcc_jit_type *type,
+			    const char *name);
+
 extern gcc_jit_local *
 gcc_jit_context_new_local (gcc_jit_context *ctxt,
 			   gcc_jit_location *loc,

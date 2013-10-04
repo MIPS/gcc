@@ -70,6 +70,11 @@ public:
 		param **params,
 		int is_variadic);
 
+  lvalue *
+  new_global (location *loc,
+	      type *type,
+	      const char *name);
+
   local *
   new_local (location *loc,
 	     type *type,

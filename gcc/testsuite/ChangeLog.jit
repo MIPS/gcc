@@ -1,3 +1,7 @@
+2013-10-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-using-global.c: New.
+
 2013-10-03  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg: New subdirectory
