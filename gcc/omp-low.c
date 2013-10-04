@@ -7881,9 +7881,16 @@ expand_omp_target (struct omp_region *region)
       tree tmp_var;
 
       tmp_var = create_tmp_var (TREE_TYPE (device), NULL);
-      e = split_block (entry_bb, NULL);
+      if (kind != GF_OMP_TARGET_KIND_REGION)
+	{
+	  gsi = gsi_last_bb (new_bb);
+	  gsi_prev (&gsi);
+	  e = split_block (new_bb, gsi_stmt (gsi));
+	}
+      else
+	e = split_block (new_bb, NULL);
       cond_bb = e->src;
-      entry_bb = e->dest;
+      new_bb = e->dest;
       remove_edge (e);
 
       then_bb = create_empty_bb (cond_bb);
@@ -7892,7 +7899,7 @@ expand_omp_target (struct omp_region *region)
       set_immediate_dominator (CDI_DOMINATORS, else_bb, cond_bb);
 
       stmt = gimple_build_cond_empty (cond);
-      gsi = gsi_start_bb (cond_bb);
+      gsi = gsi_last_bb (cond_bb);
       gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
 
       gsi = gsi_start_bb (then_bb);
@@ -7911,8 +7918,8 @@ expand_omp_target (struct omp_region *region)
 	  add_bb_to_loop (then_bb, cond_bb->loop_father);
 	  add_bb_to_loop (else_bb, cond_bb->loop_father);
 	}
-      make_edge (then_bb, entry_bb, EDGE_FALLTHRU);
-      make_edge (else_bb, entry_bb, EDGE_FALLTHRU);
+      make_edge (then_bb, new_bb, EDGE_FALLTHRU);
+      make_edge (else_bb, new_bb, EDGE_FALLTHRU);
 
       device = tmp_var;
     }

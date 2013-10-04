@@ -244,6 +244,7 @@ main ()
   print_affinity (places_array[test_places].places[0]);
   printf ("\n");
   omp_set_nested (1);
+  omp_set_dynamic (0);
 
   #pragma omp parallel if (0)
   {

@@ -37,18 +37,19 @@
 unsigned
 gomp_resolve_num_threads (unsigned specified, unsigned count)
 {
-  struct gomp_thread *thread = gomp_thread();
+  struct gomp_thread *thr = gomp_thread ();
   struct gomp_task_icv *icv;
   unsigned threads_requested, max_num_threads, num_threads;
-  unsigned long remaining;
+  unsigned long busy;
+  struct gomp_thread_pool *pool;
 
   icv = gomp_icv (false);
 
   if (specified == 1)
     return 1;
-  else if (thread->ts.active_level >= 1 && !icv->nest_var)
+  else if (thr->ts.active_level >= 1 && !icv->nest_var)
     return 1;
-  else if (thread->ts.active_level >= gomp_max_active_levels_var)
+  else if (thr->ts.active_level >= gomp_max_active_levels_var)
     return 1;
 
   /* If NUM_THREADS not specified, use nthreads_var.  */
@@ -72,30 +73,46 @@ gomp_resolve_num_threads (unsigned specified, unsigned count)
 	max_num_threads = count;
     }
 
-  /* ULONG_MAX stands for infinity.  */
-  if (__builtin_expect (gomp_thread_limit_var == ULONG_MAX, 1)
+  /* UINT_MAX stands for infinity.  */
+  if (__builtin_expect (icv->thread_limit_var == UINT_MAX, 1)
       || max_num_threads == 1)
     return max_num_threads;
+
+  /* The threads_busy counter lives in thread_pool, if there
+     isn't a thread_pool yet, there must be just one thread
+     in the contention group.  If thr->team is NULL, this isn't
+     nested parallel, so there is just one thread in the
+     contention group as well, no need to handle it atomically.  */
+  pool = thr->thread_pool;
+  if (thr->ts.team == NULL)
+    {
+      num_threads = max_num_threads;
+      if (num_threads > icv->thread_limit_var)
+	num_threads = icv->thread_limit_var;
+      if (pool)
+	pool->threads_busy = num_threads;
+      return num_threads;
+    }
 
 #ifdef HAVE_SYNC_BUILTINS
   do
     {
-      remaining = gomp_remaining_threads_count;
+      busy = pool->threads_busy;
       num_threads = max_num_threads;
-      if (num_threads > remaining)
-	num_threads = remaining + 1;
+      if (icv->thread_limit_var - busy + 1 < num_threads)
+	num_threads = icv->thread_limit_var - busy + 1;
     }
-  while (__sync_val_compare_and_swap (&gomp_remaining_threads_count,
-				      remaining, remaining - num_threads + 1)
-	 != remaining);
+  while (__sync_val_compare_and_swap (&pool->threads_busy,
+				      busy, busy + num_threads - 1)
+	 != busy);
 #else
-  gomp_mutex_lock (&gomp_remaining_threads_lock);
+  gomp_mutex_lock (&gomp_managed_threads_lock);
   num_threads = max_num_threads;
-  remaining = gomp_remaining_threads_count;
-  if (num_threads > remaining)
-    num_threads = remaining + 1;
-  gomp_remaining_threads_count -= num_threads - 1;
-  gomp_mutex_unlock (&gomp_remaining_threads_lock);
+  busy = pool->threads_busy;
+  if (icv->thread_limit_var - busy + 1 < num_threads)
+    num_threads = icv->thread_limit_var - busy + 1;
+  pool->threads_busy += num_threads - 1;
+  gomp_mutex_unlock (&gomp_managed_threads_lock);
 #endif
 
   return num_threads;
@@ -111,23 +128,34 @@ GOMP_parallel_start (void (*fn) (void *), void *data, unsigned num_threads)
 void
 GOMP_parallel_end (void)
 {
-  if (__builtin_expect (gomp_thread_limit_var != ULONG_MAX, 0))
+  struct gomp_task_icv *icv = gomp_icv (false);
+  if (__builtin_expect (icv->thread_limit_var != UINT_MAX, 0))
     {
       struct gomp_thread *thr = gomp_thread ();
       struct gomp_team *team = thr->ts.team;
-      if (team && team->nthreads > 1)
+      unsigned int nthreads = team ? team->nthreads : 1;
+      gomp_team_end ();
+      if (nthreads > 1)
 	{
+	  /* If not nested, there is just one thread in the
+	     contention group left, no need for atomicity.  */
+	  if (thr->ts.team == NULL)
+	    thr->thread_pool->threads_busy = 1;
+	  else
+	    {
 #ifdef HAVE_SYNC_BUILTINS
-	  __sync_fetch_and_add (&gomp_remaining_threads_count,
-				1UL - team->nthreads);
+	      __sync_fetch_and_add (&thr->thread_pool->threads_busy,
+				    1UL - nthreads);
 #else
-	  gomp_mutex_lock (&gomp_remaining_threads_lock);
-	  gomp_remaining_threads_count -= team->nthreads - 1;
-	  gomp_mutex_unlock (&gomp_remaining_threads_lock);
+	      gomp_mutex_lock (&gomp_managed_threads_lock);
+	      thr->thread_pool->threads_busy -= nthreads - 1;
+	      gomp_mutex_unlock (&gomp_managed_threads_lock);
 #endif
+	    }
 	}
     }
-  gomp_team_end ();
+  else
+    gomp_team_end ();
 }
 ialias (GOMP_parallel_end)
 

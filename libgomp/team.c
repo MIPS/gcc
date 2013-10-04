@@ -128,6 +128,8 @@ gomp_thread_start (void *xdata)
     }
 
   gomp_sem_destroy (&thr->release);
+  thr->thread_pool = NULL;
+  thr->task = NULL;
   return NULL;
 }
 
@@ -204,16 +206,19 @@ static struct gomp_thread_pool *gomp_new_thread_pool (void)
 static void
 gomp_free_pool_helper (void *thread_pool)
 {
+  struct gomp_thread *thr = gomp_thread ();
   struct gomp_thread_pool *pool
     = (struct gomp_thread_pool *) thread_pool;
   gomp_barrier_wait_last (&pool->threads_dock);
-  gomp_sem_destroy (&gomp_thread ()->release);
+  gomp_sem_destroy (&thr->release);
+  thr->thread_pool = NULL;
+  thr->task = NULL;
   pthread_exit (NULL);
 }
 
 /* Free a thread pool and release its threads. */
 
-static void
+void
 gomp_free_thread (void *arg __attribute__((unused)))
 {
   struct gomp_thread *thr = gomp_thread ();
@@ -241,9 +246,9 @@ gomp_free_thread (void *arg __attribute__((unused)))
 	  __sync_fetch_and_add (&gomp_managed_threads,
 				1L - pool->threads_used);
 #else
-	  gomp_mutex_lock (&gomp_remaining_threads_lock);
+	  gomp_mutex_lock (&gomp_managed_threads_lock);
 	  gomp_managed_threads -= pool->threads_used - 1L;
-	  gomp_mutex_unlock (&gomp_remaining_threads_lock);
+	  gomp_mutex_unlock (&gomp_managed_threads_lock);
 #endif
 	}
       free (pool->threads);
@@ -285,6 +290,7 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
   if (__builtin_expect (thr->thread_pool == NULL, 0))
     {
       thr->thread_pool = gomp_new_thread_pool ();
+      thr->thread_pool->threads_busy = nthreads;
       pthread_setspecific (gomp_thread_destructor, thr);
     }
   pool = thr->thread_pool;
@@ -678,9 +684,9 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 #ifdef HAVE_SYNC_BUILTINS
       __sync_fetch_and_add (&gomp_managed_threads, diff);
 #else
-      gomp_mutex_lock (&gomp_remaining_threads_lock);
+      gomp_mutex_lock (&gomp_managed_threads_lock);
       gomp_managed_threads += diff;
-      gomp_mutex_unlock (&gomp_remaining_threads_lock);
+      gomp_mutex_unlock (&gomp_managed_threads_lock);
 #endif
     }
 
@@ -822,9 +828,9 @@ gomp_team_start (void (*fn) (void *), void *data, unsigned nthreads,
 #ifdef HAVE_SYNC_BUILTINS
       __sync_fetch_and_add (&gomp_managed_threads, diff);
 #else
-      gomp_mutex_lock (&gomp_remaining_threads_lock);
+      gomp_mutex_lock (&gomp_managed_threads_lock);
       gomp_managed_threads += diff;
-      gomp_mutex_unlock (&gomp_remaining_threads_lock);
+      gomp_mutex_unlock (&gomp_managed_threads_lock);
 #endif
     }
   if (__builtin_expect (affinity_thr != NULL, 0)
@@ -871,9 +877,9 @@ gomp_team_end (void)
 #ifdef HAVE_SYNC_BUILTINS
       __sync_fetch_and_add (&gomp_managed_threads, 1L - team->nthreads);
 #else
-      gomp_mutex_lock (&gomp_remaining_threads_lock);
+      gomp_mutex_lock (&gomp_managed_threads_lock);
       gomp_managed_threads -= team->nthreads - 1L;
-      gomp_mutex_unlock (&gomp_remaining_threads_lock);
+      gomp_mutex_unlock (&gomp_managed_threads_lock);
 #endif
       /* This barrier has gomp_barrier_wait_last counterparts
 	 and ensures the team can be safely destroyed.  */
@@ -914,8 +920,6 @@ gomp_team_end (void)
 static void __attribute__((constructor))
 initialize_team (void)
 {
-  struct gomp_thread *thr;
-
 #ifndef HAVE_TLS
   static struct gomp_thread initial_thread_tls_data;
 
@@ -925,13 +929,6 @@ initialize_team (void)
 
   if (pthread_key_create (&gomp_thread_destructor, gomp_free_thread) != 0)
     gomp_fatal ("could not create thread pool destructor.");
-
-#ifdef HAVE_TLS
-  thr = &gomp_tls_data;
-#else
-  thr = &initial_thread_tls_data;
-#endif
-  gomp_sem_init (&thr->release, 0);
 }
 
 static void __attribute__((destructor))

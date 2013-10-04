@@ -1,5 +1,66 @@
 2013-10-04  Jakub Jelinek  <jakub@redhat.com>
 
+	* libgomp.h (struct gomp_task_icv): Add thread_limit_var.
+	(gomp_thread_limit_var, gomp_remaining_threads_count,
+	gomp_remaining_threads_lock): Remove.
+	(gomp_managed_threads_lock): New variable.
+	(struct gomp_thread_pool): Add threads_busy field.
+	(gomp_free_thread): New prototype.
+	* parallel.c (gomp_resolve_num_threads): Adjust for
+	thread_limit now being in icv->thread_limit_var.  Use
+	UINT_MAX instead of ULONG_MAX as infinity.  If not nested,
+	just return minimum of max_num_threads and icv->thread_limit_var
+	and if thr->thread_pool, set threads_busy to the returned value.
+	Otherwise, don't update atomically gomp_remaining_threads_count,
+	but instead thr->thread_pool->threads_busy.
+	(GOMP_parallel_end): Adjust for thread_limit now being in
+	icv->thread_limit_var.  Use UINT_MAX instead of ULONG_MAX as
+	infinity.  Adjust threads_busy in the pool rather than
+	gomp_remaining_threads_count.  Remember team->nthreads and call
+	gomp_team_end before adjusting threads_busy, if not nested
+	afterwards, just set it to 1 non-atomically.
+	* team.c (gomp_thread_start): Clear thr->thread_pool and
+	thr->task before returning.
+	(gomp_free_pool_helper): Clear thr->thread_pool and thr->task
+	before calling pthread_exit.
+	(gomp_free_thread): No longer static.  Use
+	gomp_managed_threads_lock instead of gomp_remaining_threads_lock.
+	(gomp_team_start): Set thr->thread_pool->threads_busy to
+	nthreads immediately after creating new pool.  Use
+	gomp_managed_threads_lock instead of gomp_remaining_threads_lock.
+	(gomp_team_end): Use gomp_managed_threads_lock instead of
+	gomp_remaining_threads_lock.
+	(initialize_team): Don't call gomp_sem_init here.
+	* env.c (gomp_global_icv): Initialize thread_limit_var field.
+	(gomp_thread_limit_var, gomp_remaining_threads_count,
+	gomp_remaining_threads_lock): Remove.
+	(gomp_managed_threads_locks): New variable.
+	(handle_omp_display_env): Adjust for thread_limit var being
+	in gomp_global_icv.
+	(initialize_env): Likewise.  If user provided value is > INT_MAX,
+	set gomp_global_icv.thread_limit_var to UINT_MAX (infinity).
+	Initialize gomp_managed_threads_lock instead of
+	gomp_remaining_threads_lock.
+	(omp_get_thread_limit): Adjust for thread_limit var in
+	icv->thread_limit_var.
+	* target.c: Include limits.h.
+	(resolve_device): If device_id is < -1, return NULL.
+	(gomp_map_vars): Make sure tgt->array, tgt->to_free, tgt->tgt_start,
+	tgt->tgt_end and k->copy_from aren't left uninitialized.
+	(GOMP_target): Arrange for host callback to be performed in a
+	separate initial thread and contention group, inheriting ICVs from
+	gomp_global_icv etc.
+	(GOMP_teams): Adjust thread_limit_var ICV.
+	* testsuite/libgomp.c/affinity-1.c (main): Call omp_set_dynamic (0).
+	* testsuite/libgomp.c/target-3.c: New test.
+	* testsuite/libgomp.c/target-4.c: New test.
+	* testsuite/libgomp.c/target-5.c: New test.
+	* testsuite/libgomp.c/target-6.c: New test.
+	* testsuite/libgomp.c/target-7.c: New test.
+	* testsuite/libgomp.c/thread-limit-1.c: New test.
+	* testsuite/libgomp.c/thread-limit-2.c: New test.
+	* testsuite/libgomp.c/thread-limit-3.c: New test.
+
 	* libgomp.h (struct gomp_team_state): Add place_partition_off
 	and place_partition_len fields.
 	(struct gomp_task_icv): Add bind_var field.

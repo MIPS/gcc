@@ -232,6 +232,7 @@ struct gomp_task_icv
   enum gomp_schedule_type run_sched_var;
   int run_sched_modifier;
   int default_device_var;
+  unsigned int thread_limit_var;
   bool dyn_var;
   bool nest_var;
   char bind_var;
@@ -240,10 +241,8 @@ struct gomp_task_icv
 };
 
 extern struct gomp_task_icv gomp_global_icv;
-extern unsigned long gomp_thread_limit_var;
-extern unsigned long gomp_remaining_threads_count;
 #ifndef HAVE_SYNC_BUILTINS
-extern gomp_mutex_t gomp_remaining_threads_lock;
+extern gomp_mutex_t gomp_managed_threads_lock;
 #endif
 extern unsigned long gomp_max_active_levels_var;
 extern bool gomp_cancel_var;
@@ -431,6 +430,8 @@ struct gomp_thread_pool
   unsigned threads_size;
   unsigned threads_used;
   struct gomp_team *last_team;
+  /* Number of threads running in this contention group.  */
+  unsigned long threads_busy;
 
   /* This barrier holds and releases threads waiting in threads.  */
   gomp_barrier_t threads_dock;
@@ -580,6 +581,7 @@ extern struct gomp_team *gomp_new_team (unsigned);
 extern void gomp_team_start (void (*) (void *), void *, unsigned,
 			     unsigned, struct gomp_team *);
 extern void gomp_team_end (void);
+extern void gomp_free_thread (void *);
 
 /* target.c */
 

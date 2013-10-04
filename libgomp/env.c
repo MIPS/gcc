@@ -54,6 +54,7 @@
 
 struct gomp_task_icv gomp_global_icv = {
   .nthreads_var = 1,
+  .thread_limit_var = UINT_MAX,
   .run_sched_var = GFS_DYNAMIC,
   .run_sched_modifier = 1,
   .default_device_var = 0,
@@ -64,11 +65,9 @@ struct gomp_task_icv gomp_global_icv = {
 };
 
 unsigned long gomp_max_active_levels_var = INT_MAX;
-unsigned long gomp_thread_limit_var = ULONG_MAX;
 bool gomp_cancel_var = false;
-unsigned long gomp_remaining_threads_count;
 #ifndef HAVE_SYNC_BUILTINS
-gomp_mutex_t gomp_remaining_threads_lock;
+gomp_mutex_t gomp_managed_threads_lock;
 #endif
 unsigned long gomp_available_cpus = 1, gomp_managed_threads = 1;
 unsigned long long gomp_spin_count_var, gomp_throttled_spin_count_var;
@@ -1126,8 +1125,8 @@ handle_omp_display_env (unsigned long stacksize, int wait_policy)
   /* GOMP's default value is actually neither active nor passive.  */
   fprintf (stderr, "  OMP_WAIT_POLICY = '%s'\n",
 	   wait_policy > 0 ? "ACTIVE" : "PASSIVE");
-  fprintf (stderr, "  OMP_THREAD_LIMIT = '%lu'\n",
-	   gomp_thread_limit_var);
+  fprintf (stderr, "  OMP_THREAD_LIMIT = '%u'\n",
+	   gomp_global_icv.thread_limit_var);
   fprintf (stderr, "  OMP_MAX_ACTIVE_LEVELS = '%lu'\n",
 	   gomp_max_active_levels_var);
 
@@ -1156,7 +1155,7 @@ handle_omp_display_env (unsigned long stacksize, int wait_policy)
 static void __attribute__((constructor))
 initialize_env (void)
 {
-  unsigned long stacksize;
+  unsigned long thread_limit_var, stacksize;
   int wait_policy;
 
   /* Do a compile time check that mkomp_h.pl did good job.  */
@@ -1169,11 +1168,13 @@ initialize_env (void)
   parse_int ("OMP_DEFAULT_DEVICE", &gomp_global_icv.default_device_var, true);
   parse_unsigned_long ("OMP_MAX_ACTIVE_LEVELS", &gomp_max_active_levels_var,
 		       true);
-  parse_unsigned_long ("OMP_THREAD_LIMIT", &gomp_thread_limit_var, false);
-  if (gomp_thread_limit_var != ULONG_MAX)
-    gomp_remaining_threads_count = gomp_thread_limit_var - 1;
+  if (parse_unsigned_long ("OMP_THREAD_LIMIT", &thread_limit_var, false))
+    {
+      gomp_global_icv.thread_limit_var
+	= thread_limit_var > INT_MAX ? UINT_MAX : thread_limit_var;
+    }
 #ifndef HAVE_SYNC_BUILTINS
-  gomp_mutex_init (&gomp_remaining_threads_lock);
+  gomp_mutex_init (&gomp_managed_threads_lock);
 #endif
   gomp_init_num_threads ();
   gomp_available_cpus = gomp_global_icv.nthreads_var;
@@ -1325,7 +1326,8 @@ omp_get_max_threads (void)
 int
 omp_get_thread_limit (void)
 {
-  return gomp_thread_limit_var > INT_MAX ? INT_MAX : gomp_thread_limit_var;
+  struct gomp_task_icv *icv = gomp_icv (false);
+  return icv->thread_limit_var > INT_MAX ? INT_MAX : icv->thread_limit_var;
 }
 
 void
