@@ -104,6 +104,9 @@ gcc_jit_context_new_param (gcc_jit_context *ctxt,
 			   gcc_jit_type *type,
 			   const char *name);
 
+extern gcc_jit_lvalue *
+gcc_jit_param_as_lvalue (gcc_jit_param *param);
+
 extern gcc_jit_rvalue *
 gcc_jit_param_as_rvalue (gcc_jit_param *param);
 

@@ -14,6 +14,7 @@
     gcc_jit_context_new_field;
     gcc_jit_context_new_struct_type;
     gcc_jit_context_new_param;
+    gcc_jit_param_as_lvalue;
     gcc_jit_param_as_rvalue;
     gcc_jit_context_new_function;
     gcc_jit_function_new_forward_label;

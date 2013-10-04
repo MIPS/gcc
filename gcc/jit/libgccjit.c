@@ -169,6 +169,12 @@ gcc_jit_context_new_param (gcc_jit_context *ctxt,
   return (gcc_jit_param *)ctxt->new_param (loc, type, name);
 }
 
+gcc_jit_lvalue *
+gcc_jit_param_as_lvalue (gcc_jit_param *param)
+{
+  return (gcc_jit_lvalue *)param->as_lvalue ();
+}
+
 gcc_jit_rvalue *
 gcc_jit_param_as_rvalue (gcc_jit_param *param)
 {
