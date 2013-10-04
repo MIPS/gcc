@@ -139,7 +139,7 @@ GOMP_parallel_sections_start (void (*fn) (void *), void *data,
   num_threads = gomp_resolve_num_threads (num_threads, count);
   team = gomp_new_team (num_threads);
   gomp_sections_init (&team->work_shares[0], count);
-  gomp_team_start (fn, data, num_threads, team);
+  gomp_team_start (fn, data, num_threads, 0, team);
 }
 
 ialias_redirect (GOMP_parallel_end)
@@ -150,11 +150,10 @@ GOMP_parallel_sections (void (*fn) (void *), void *data,
 {
   struct gomp_team *team;
 
-  (void) flags;
   num_threads = gomp_resolve_num_threads (num_threads, count);
   team = gomp_new_team (num_threads);
   gomp_sections_init (&team->work_shares[0], count);
-  gomp_team_start (fn, data, num_threads, team);
+  gomp_team_start (fn, data, num_threads, flags, team);
   fn (data);
   GOMP_parallel_end ();
 }

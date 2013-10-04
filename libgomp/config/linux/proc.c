@@ -56,9 +56,9 @@ gomp_cpuset_popcount (cpu_set_t *cpusetp)
 #endif
   size_t i;
   unsigned long ret = 0;
-  extern int check[sizeof (cpusetp->__bits[0]) == sizeof (unsigned long int)];
+  extern int check[sizeof (cpusetp->__bits[0]) == sizeof (unsigned long int)
+		   ? 1 : -1];
 
-  (void) check;
   for (i = 0; i < gomp_cpuset_size / sizeof (cpusetp->__bits[0]); i++)
     {
       unsigned long int mask = cpusetp->__bits[i];
@@ -82,7 +82,7 @@ gomp_init_num_threads (void)
   gomp_cpuset_size = sysconf (_SC_NPROCESSORS_CONF);
   gomp_cpuset_size = CPU_ALLOC_SIZE (gomp_cpuset_size);
 #else
-  gomp_cpuset_size = sizeof (cpuset);
+  gomp_cpuset_size = sizeof (cpu_set_t);
 #endif
 
   gomp_cpusetp = (cpu_set_t *) gomp_malloc (gomp_cpuset_size);
@@ -92,7 +92,11 @@ gomp_init_num_threads (void)
       /* Count only the CPUs this process can use.  */
       gomp_global_icv.nthreads_var = gomp_cpuset_popcount (gomp_cpusetp);
       if (gomp_global_icv.nthreads_var == 0)
-	gomp_global_icv.nthreads_var = 1;
+	{
+	  gomp_global_icv.nthreads_var = 1;
+	  free (gomp_cpusetp);
+	  gomp_cpusetp = NULL;
+	}
       return;
     }
   else
@@ -110,7 +114,7 @@ static int
 get_num_procs (void)
 {
 #ifdef HAVE_PTHREAD_AFFINITY_NP
-  if (gomp_cpu_affinity == NULL)
+  if (gomp_places_list == NULL)
     {
       /* Count only the CPUs this process can use.  */
       if (gomp_cpusetp

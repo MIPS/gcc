@@ -202,6 +202,10 @@ struct gomp_team_state
   /* Active nesting level.  Only active parallel regions are counted.  */
   unsigned active_level;
 
+  /* Place-partition-var, offset and length into gomp_places_list array.  */
+  unsigned place_partition_off;
+  unsigned place_partition_len;
+
 #ifdef HAVE_SYNC_BUILTINS
   /* Number of single stmts encountered.  */
   unsigned long single_count;
@@ -230,6 +234,7 @@ struct gomp_task_icv
   int default_device_var;
   bool dyn_var;
   bool nest_var;
+  char bind_var;
   /* Internal ICV.  */
   struct target_mem_desc *target_data;
 };
@@ -245,6 +250,10 @@ extern bool gomp_cancel_var;
 extern unsigned long long gomp_spin_count_var, gomp_throttled_spin_count_var;
 extern unsigned long gomp_available_cpus, gomp_managed_threads;
 extern unsigned long *gomp_nthreads_var_list, gomp_nthreads_var_list_len;
+extern char *gomp_bind_var_list;
+extern unsigned long gomp_bind_var_list_len;
+extern void **gomp_places_list;
+extern unsigned long gomp_places_list_len;
 
 enum gomp_task_kind
 {
@@ -405,7 +414,11 @@ struct gomp_thread
   /* This semaphore is used for ordered loops.  */
   gomp_sem_t release;
 
-  /* user pthread thread pool */
+  /* Place this thread is bound to plus one, or zero if not bound
+     to any place.  */
+  unsigned int place;
+
+  /* User pthread thread pool */
   struct gomp_thread_pool *thread_pool;
 };
 
@@ -467,17 +480,22 @@ static inline struct gomp_task_icv *gomp_icv (bool write)
 /* The attributes to be used during thread creation.  */
 extern pthread_attr_t gomp_thread_attr;
 
-/* Other variables.  */
-
-extern unsigned short *gomp_cpu_affinity;
-extern size_t gomp_cpu_affinity_len;
-
 /* Function prototypes.  */
 
 /* affinity.c */
 
 extern void gomp_init_affinity (void);
-extern void gomp_init_thread_affinity (pthread_attr_t *);
+extern void gomp_init_thread_affinity (pthread_attr_t *, unsigned int);
+extern void **gomp_affinity_alloc (unsigned long, bool);
+extern void gomp_affinity_init_place (void *);
+extern bool gomp_affinity_add_cpus (void *, unsigned long, unsigned long,
+				    long, bool);
+extern bool gomp_affinity_remove_cpu (void *, unsigned long);
+extern bool gomp_affinity_copy_place (void *, void *, long);
+extern bool gomp_affinity_same_place (void *, void *);
+extern bool gomp_affinity_finalize_place_list (bool);
+extern bool gomp_affinity_init_level (int, unsigned long, bool);
+extern void gomp_affinity_print_place (void *);
 
 /* alloc.c */
 
@@ -560,7 +578,7 @@ gomp_finish_task (struct gomp_task *task)
 
 extern struct gomp_team *gomp_new_team (unsigned);
 extern void gomp_team_start (void (*) (void *), void *, unsigned,
-			     struct gomp_team *);
+			     unsigned, struct gomp_team *);
 extern void gomp_team_end (void);
 
 /* target.c */

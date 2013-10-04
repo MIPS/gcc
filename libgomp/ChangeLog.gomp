@@ -1,3 +1,77 @@
+2013-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* libgomp.h (struct gomp_team_state): Add place_partition_off
+	and place_partition_len fields.
+	(struct gomp_task_icv): Add bind_var field.
+	(gomp_bind_var_list, gomp_bind_var_list_len, gomp_places_list,
+	gomp_places_list_len): New extern decls.
+	(struct gomp_thread): Add place field.
+	(gomp_cpu_affinity, gomp_cpu_affinity_len): Remove.
+	(gomp_init_thread_affinity): Add place argument.
+	(gomp_affinity_alloc, gomp_affinity_init_place, gomp_affinity_add_cpus,
+	gomp_affinity_remove_cpu, gomp_affinity_copy_place,
+	gomp_affinity_same_place, gomp_affinity_finalize_place_list,
+	gomp_affinity_init_level, gomp_affinity_print_place): New prototypes.
+	(gomp_team_start): Add flags argument.
+	* team.c (struct gomp_thread_start_data): Add place field.
+	(gomp_thread_start): Initialize thr->place.
+	(gomp_team_start): Add flags argument.  Handle OpenMP 4.0 affinity.
+	* env.c (gomp_global_icv): Initialize bind_var field.
+	(gomp_cpu_affinity, gomp_cpu_affinity_len): Remove.
+	(gomp_bind_var_list, gomp_bind_var_list_len, gomp_places_list,
+	gomp_places_list_len): New variables.
+	(parse_bind_var, parse_one_place, parse_places_var): New functions.
+	(parse_affinity): Rewritten to construct OMP_PLACES list with unit
+	sized places.
+	(handle_omp_display_env): Remove proc_bind argument.  Set display
+	to true for OMP_DISPLAY_ENV=true.  Print 201307 instead of 201107
+	as _OPENMP.  Enhance printing of OMP_PROC_BIND, add printing
+	of OMP_PLACES, don't print anything for GOMP_CPU_AFFINITY.
+	(initialize_env): Use parse_bind_var to parse OMP_PROC_BIND
+	instead of parse_boolean.  Use parse_places_var for OMP_PLACES
+	parsing.  Don't call parse_affinity if OMP_PLACES has been
+	successfully parsed (and call gomp_init_affinity in that case).
+	Adjust handle_omp_display_env caller.
+	(omp_get_proc_bind): Return bind_var ICV.
+	* config/posix/affinity.c (gomp_init_thread_affinity): Add place
+	argument.
+	(gomp_affinity_alloc, gomp_affinity_init_place, gomp_affinity_add_cpus,
+	gomp_affinity_remove_cpu, gomp_affinity_copy_place,
+	gomp_affinity_same_place, gomp_affinity_finalize_place_list,
+	gomp_affinity_init_level, gomp_affinity_print_place): New stubs.
+	* config/linux/proc.c (gomp_cpuset_popcount): Fix up check extern decl.
+	(gomp_init_num_threads): If HAVE_PTHREAD_AFFINITY_NP isn't defined,
+	fix up sizeof argument.  Free and clear gomp_cpusetp if it didn't
+	contain any logical CPUs.
+	(get_num_procs): Check gomp_places_list instead of gomp_cpu_affinity.
+	* config/linux/affinity.c: Include errno.h, stdio.h and string.h.
+	(affinity_counter): Remove.
+	(CPU_CLR_S): Define if CPU_ALLOC_SIZE is not defined.
+	(gomp_init_affinity): Rewritten, if gomp_places_list is NULL, try
+	silently create OMP_PLACES=threads, if it is non-NULL afterwards,
+	bind current thread to the first place.
+	(gomp_init_thread_affinity): Rewritten.  Add place argument, just
+	pthread_setaffinity_np to gomp_places_list[place].
+	(gomp_affinity_alloc, gomp_affinity_init_place, gomp_affinity_add_cpus,
+	gomp_affinity_remove_cpu, gomp_affinity_copy_place,
+	gomp_affinity_same_place, gomp_affinity_finalize_place_list,
+	gomp_affinity_init_level, gomp_affinity_print_place): New functions.
+	* parallel.c (GOMP_parallel_start): Adjust gomp_team_start caller.
+	(GOMP_parallel): Likewise, pass through flags parameter to it.
+	* sections.c (GOMP_parallel_sections_start): Adjust gomp_team_start
+	caller.
+	(GOMP_parallel_sections): Likewise, pass through flags parameter to it.
+	* loop.c (gomp_parallel_loop_start): Add flags argument, pass it through
+	to gomp_team_start.
+	(GOMP_parallel_loop_static_start, GOMP_parallel_loop_dynamic_start,
+	GOMP_parallel_loop_guided_start, GOMP_parallel_loop_runtime_start):
+	Adjust gomp_parallel_loop_start callers.
+	(GOMP_parallel_loop_static, GOMP_parallel_loop_dynamic,
+	GOMP_parallel_loop_guided, GOMP_parallel_loop_runtime): Likewise, pass
+	through flags parameter to it.
+	* testsuite/libgomp.c/affinity-1.c: New test.
+	* testsuite/libgomp.c++/affinity-1.C: New test.
+
 2013-10-01  Jakub Jelinek  <jakub@redhat.com>
 
 	PR libgomp/57298
