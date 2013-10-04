@@ -13,6 +13,8 @@
 #include "gimple.h"
 #include "gimple-pretty-print.h"
 #include "timevar.h"
+#include "dumpfile.h"
+#include "tree-dump.h"
 
 #include <pthread.h>
 
@@ -526,11 +528,8 @@ postprocess ()
 
       current_function_decl = m_inner_fndecl;
       if (m_ctxt->get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE))
-	{
-	  gimple_seq gs = gimple_body (m_inner_fndecl);
-	  debug_gimple_seq (gs);
-	  debug_tree (m_inner_fndecl);
-	}
+	dump_function_to_file (m_inner_fndecl, stderr, TDF_VOPS|TDF_MEMSYMS);
+      //debug_tree (m_inner_fndecl);
 
       //printf("about to add to cgraph\n");
       /* Add to cgraph: */

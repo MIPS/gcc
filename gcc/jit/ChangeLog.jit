@@ -1,5 +1,11 @@
 2013-10-03  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit/internal-api.c (gcc::jit::function::postprocess): Dump
+	gimple using dump_function_to_file rather than debug_gimple_seq
+	so that we also get the declaration.
+
+2013-10-03  David Malcolm  <dmalcolm@redhat.com>
+
 	* Make-lang.in: New.
 	* TODO.rst: New.
 	* config-lang.in: New.
