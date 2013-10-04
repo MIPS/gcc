@@ -1591,6 +1591,15 @@ default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
 }
 
+tree
+default_chkp_bound_type (void)
+{
+  tree res = make_node (BOUND_TYPE);
+  TYPE_PRECISION (res) = TYPE_PRECISION (size_type_node) * 2;
+  layout_type (res);
+  return res;
+}
+
 enum machine_mode
 default_chkp_bound_mode (void)
 {

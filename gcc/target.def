@@ -2035,7 +2035,7 @@ DEFHOOK
 (chkp_bound_type,
  "Return type to be used for bounds",
  tree, (void),
- hook_tree_void_null)
+ default_chkp_bound_type)
 
 DEFHOOK
 (chkp_bound_mode,
