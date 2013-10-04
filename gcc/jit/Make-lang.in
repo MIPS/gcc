@@ -1,0 +1,143 @@
+# Top level -*- makefile -*- fragment for libgccjit.so.
+#   Copyright (C) 2013 Free Software Foundation, Inc.
+
+#This file is part of GCC.
+
+#GCC is free software; you can redistribute it and/or modify
+#it under the terms of the GNU General Public License as published by
+#the Free Software Foundation; either version 3, or (at your option)
+#any later version.
+
+#GCC is distributed in the hope that it will be useful,
+#but WITHOUT ANY WARRANTY; without even the implied warranty of
+#MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#GNU General Public License for more details.
+
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
+# This file provides the language dependent support in the main Makefile.
+# Each language makefile fragment must provide the following targets:
+#
+# foo.all.cross, foo.start.encap, foo.rest.encap,
+# foo.install-common, foo.install-man, foo.install-info, foo.install-pdf,
+# foo.install-html, foo.info, foo.dvi, foo.pdf, foo.html, foo.uninstall,
+# foo.mostlyclean, foo.clean, foo.distclean,
+# foo.maintainer-clean, foo.stage1, foo.stage2, foo.stage3, foo.stage4
+#
+# where `foo' is the name of the language.
+#
+# It should also provide rules for:
+#
+# - making any compiler driver (eg: g++)
+# - the compiler proper (eg: cc1plus)
+# - define the names for selecting the language in LANGUAGES.
+
+#
+# Define the names for selecting jit in LANGUAGES.
+# Note that it would be nice to move the dependency on g++
+# into the jit rule, but that needs a little bit of work
+# to do the right thing within all.cross.
+
+jit: libgccjit.so
+
+# Tell GNU make to ignore these if they exist.
+.PHONY: jit
+
+JIT_OBJS = attribs.o jit/dummy-frontend.o jit/libgccjit.o jit/internal-api.o
+
+# Use strict warnings for this front end.
+jit-warn = $(STRICT_WARN)
+
+# We avoid using $(BACKEND) from Makefile.in in order to avoid pulling
+# in main.o
+libgccjit.so: $(JIT_OBJS) \
+	libbackend.a libcommon-target.a libcommon.a \
+	$(CPPLIB) $(LIBDECNUMBER) \
+	$(LIBDEPS) $(srcdir)/jit/libgccjit.map
+	+$(LLINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -o $@ -shared \
+	     $(JIT_OBJS) libbackend.a libcommon-target.a libcommon.a \
+	     $(CPPLIB) $(LIBDECNUMBER) $(LIBS) $(BACKENDLIBS) \
+	     -Wl,--version-script=$(srcdir)/jit/libgccjit.map
+
+#
+# Build hooks:
+
+jit.all.cross:
+jit.start.encap:
+jit.rest.encap:
+jit.info:
+jit.install-info:
+jit.dvi:
+jit.pdf:
+jit.install-pdf:
+jit.install-html:
+jit.html:
+jit.srcinfo:
+jit.srcextra:
+
+jit.tags:
+
+jit.man:
+
+jit.srcman:
+
+#
+# Install hooks:
+jit.install-common:
+
+jit.install-man:
+
+jit.install-plugin:
+
+jit.uninstall:
+
+#
+# Clean hooks:
+# A lot of the ancillary files are deleted by the main makefile.
+# We just have to delete files specific to us.
+
+jit.mostlyclean:
+
+jit.clean:
+
+jit.distclean:
+
+jit.maintainer-clean:
+
+#
+# Stage hooks:
+# The main makefile has already created stage?/jit.
+
+jit.stage1: stage1-start
+	-mv jit/*$(objext) stage1/jit
+jit.stage2: stage2-start
+	-mv jit/*$(objext) stage2/jit
+jit.stage3: stage3-start
+	-mv jit/*$(objext) stage3/jit
+jit.stage4: stage4-start
+	-mv jit/*$(objext) stage4/jit
+jit.stageprofile: stageprofile-start
+	-mv jit/*$(objext) stageprofile/jit
+jit.stagefeedback: stagefeedback-start
+	-mv jit/*$(objext) stagefeedback/jit
+
+#
+# .o: .h dependencies.
+JIT_INTERNAL_API_H = jit/libgccjit.h $(TREE_H) $(TREE_ITERATOR_H) jit/internal-api.h
+
+jit/dummy-frontend.o: jit/dummy-frontend.c $(CONFIG_H) $(SYSTEM_H) \
+		$(CORETYPES_H) $(OPTS_H) $(TREE_H) $(DEBUG_H) langhooks.h \
+		$(LANGHOOKS_DEF_H) $(CGRAPH_H) \
+		$(TREE_ITERATOR_H) $(GIMPLE_H) $(GIMPLE_PRETTY_PRINT_h) \
+		gt-jit-dummy-frontend.h gtype-jit.h $(JIT_INTERNAL_API_H)
+
+jit/libgccjit.o: jit/libgccjit.c $(CONFIG_H) $(SYSTEM_H) \
+		$(CORETYPES_H) $(OPTS_H) jit/libgccjit.h $(JIT_INTERNAL_API_H) \
+
+jit/internal-api.o: jit/internal-api.c $(CONFIG_H) $(SYSTEM_H) \
+		$(CORETYPES_H) $(OPTS_H) $(TREE_H) $(DEBUG_H) \
+		langhooks.h langhooks-def.h $(CGRAPH_H) $(TOPLEV_H) \
+		$(TREE_ITERATOR_H) $(GIMPLE_H) $(GIMPLE_PRETTY_PRINT_H) \
+		 $(JIT_INTERNAL_API_H)

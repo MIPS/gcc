@@ -1,0 +1,15 @@
+2013-10-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg: New subdirectory
+	* jit.dg/harness.h: New.
+	* jit.dg/jit.exp: New.
+	* jit.dg/test-accessing-struct.c: New.
+	* jit.dg/test-calling-external-function.c: New.
+	* jit.dg/test-dot-product.c: New.
+	* jit.dg/test-factorial.c: New.
+	* jit.dg/test-failure.c: New.
+	* jit.dg/test-fibonacci.c: New.
+	* jit.dg/test-hello-world.c: New.
+	* jit.dg/test-string-literal.c: New.
+	* jit.dg/test-sum-of-squares.c: New.
+

@@ -220,6 +220,14 @@ case $target in
 		 [Define to 1 if you can assemble SSE4 insns.])])
 esac
 
+# Enable --enable-host-shared.
+AC_ARG_ENABLE(host-shared,
+[AS_HELP_STRING([--enable-host-shared],
+		[build host code as shared libraries])],
+[CFLAGS="-fPIC $CFLAGS"; CXXFLAGS="-fPIC $CXXFLAGS"], [])
+AC_SUBST(CFLAGS)
+AC_SUBST(CXXFLAGS)
+
 # Output.
 
 AC_CONFIG_HEADERS(config.h:config.in, [echo timestamp > stamp-h1])

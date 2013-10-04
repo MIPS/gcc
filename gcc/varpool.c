@@ -682,3 +682,7 @@ varpool_for_node_and_aliases (struct varpool_node *node,
       }
   return false;
 }
+
+void varpool_c_finalize (void)
+{
+}

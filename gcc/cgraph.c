@@ -2996,4 +2996,30 @@ cgraph_get_body (struct cgraph_node *node)
   return true;
 }
 
+void cgraph_c_finalize (void)
+{
+  x_cgraph_nodes_queue = NULL;
+  cgraph_n_nodes = 0;
+  cgraph_max_uid = 0;
+  cgraph_edge_max_uid = 0;
+  cgraph_global_info_ready = false;
+  cgraph_state = CGRAPH_STATE_PARSING;
+  cgraph_function_flags_ready = false;
+
+  cgraph_new_nodes = 0;
+  asm_nodes = NULL;
+  symtab_order = 0;
+  cpp_implicit_aliases_done = false;
+
+  first_cgraph_edge_removal_hook = NULL;
+  first_cgraph_node_removal_hook = NULL;
+  first_cgraph_edge_duplicated_hook = NULL;
+  first_cgraph_node_duplicated_hook = NULL;
+  first_cgraph_function_insertion_hook = NULL;
+  free_nodes = NULL;
+  free_edges = NULL;
+  cgraph_fnver_htab = NULL;
+  version_info_node = NULL;
+}
+
 #include "gt-cgraph.h"

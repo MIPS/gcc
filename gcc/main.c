@@ -33,5 +33,8 @@ int main (int argc, char **argv);
 int
 main (int argc, char **argv)
 {
-  return toplev_main (argc, argv);
+  toplev_options toplev_opts;
+  toplev_opts.use_TV_TOTAL = true;
+
+  return toplev_main (argc, argv, &toplev_opts);
 }

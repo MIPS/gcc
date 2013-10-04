@@ -597,6 +597,7 @@ extern GTY(()) int symtab_order;
 extern bool cpp_implicit_aliases_done;
 
 /* In symtab.c  */
+void symtab_c_finalize (void);
 void symtab_register_node (symtab_node);
 void symtab_unregister_node (symtab_node);
 void symtab_remove_node (symtab_node);
@@ -630,6 +631,7 @@ enum availability symtab_node_availability (symtab_node);
 bool symtab_semantically_equivalent_p (symtab_node, symtab_node);
 
 /* In cgraph.c  */
+void cgraph_c_finalize (void);
 void dump_cgraph (FILE *);
 void debug_cgraph (void);
 void dump_cgraph_node (FILE *, struct cgraph_node *);
@@ -744,6 +746,7 @@ void cgraph_speculative_call_info (struct cgraph_edge *,
 				   struct ipa_ref *&);
 
 /* In cgraphunit.c  */
+void cgraphunit_c_finalize (void);
 struct asm_node *add_asm_node (tree);
 extern FILE *cgraph_dump_file;
 void cgraph_finalize_function (tree, bool);
@@ -794,6 +797,7 @@ void tree_function_versioning (tree, tree, vec<ipa_replace_map_p, va_gc> *,
 struct cgraph_edge *cgraph_resolve_speculation (struct cgraph_edge *, tree);
 
 /* In cgraphbuild.c  */
+void cgraphbuild_c_finalize (void);
 unsigned int rebuild_cgraph_edges (void);
 void cgraph_rebuild_references (void);
 int compute_call_stmt_bb_frequency (tree, basic_block bb);
@@ -801,6 +805,7 @@ void record_references_in_initializer (tree, bool);
 void ipa_record_stmt_references (struct cgraph_node *, gimple);
 
 /* In ipa.c  */
+void ipa_c_finalize (void);
 bool symtab_remove_unreachable_nodes (bool, FILE *);
 cgraph_node_set cgraph_node_set_new (void);
 cgraph_node_set_iterator cgraph_node_set_find (cgraph_node_set,
@@ -824,10 +829,12 @@ void ipa_discover_readonly_nonaddressable_vars (void);
 bool varpool_externally_visible_p (struct varpool_node *);
 
 /* In predict.c  */
+void predict_c_finalize (void);
 bool cgraph_maybe_hot_edge_p (struct cgraph_edge *e);
 bool cgraph_optimize_for_size_p (struct cgraph_node *);
 
 /* In varpool.c  */
+void varpool_c_finalize (void);
 struct varpool_node *varpool_create_empty_node (void);
 struct varpool_node *varpool_node_for_decl (tree);
 struct varpool_node *varpool_node_for_asm (tree asmname);

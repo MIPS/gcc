@@ -1,0 +1,61 @@
+2013-10-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in (LIBIBERTY): Use pic build of libiberty.a if
+	configured with --enable-host-shared.
+	(BUILD_LIBIBERTY): Likewise.
+	* cgraph.c (cgraph_c_finalize): New.
+	* cgraph.h (symtab_c_finalize): New declaration.
+	(cgraph_c_finalize): Likewise.
+	(cgraphunit_c_finalize): Likewise.
+	(cgraphbuild_c_finalize): Likewise.
+	(ipa_c_finalize): Likewise.
+	(predict_c_finalize): Likewise.
+	(varpool_c_finalize): Likewise.
+	* cgraphbuild.c (cgraphbuild_c_finalize): New.
+	* cgraphunit.c (first_analyzed): Move from analyze_functions
+	to file-scope.
+	(first_analyzed_var): Likewise.
+	(analyze_functions): Move static variables into file-scope.
+	(cgraphunit_c_finalize): New.
+	* configure.ac: Add --enable-host-shared, adding -fPIC.
+	* configure: Regenerate.
+	* dwarf2out.c (dwarf2out_c_finalize): New.
+	* dwarf2out.h (dwarf2out_c_finalize): Declare.
+	* ggc-page.c (init_ggc): Make idempotent.
+	* ipa-pure-const.c (function_insertion_hook_holder): Move to be
+	a field of class pass_ipa_pure_const.
+	(node_duplication_hook_holder): Likewise.
+	(node_removal_hook_holder): Likewise.
+	(register_hooks): Convert to method...
+	(pass_ipa_pure_const::register_hooks): ...here, converting
+	static variable init_p into...
+	(pass_ipa_pure_const::init_p): ...new field.
+	(pure_const_generate_summary): Update invocation of
+	register_hooks to invoke as a method of current_pass.
+	(pure_const_read_summary): Likewise.
+	(propagate): Convert to...
+	(pass_ipa_pure_const::execute): ...method.
+	* ipa.c (ipa_c_finalize): New.
+	* main.c (main): Update usage of toplev_main.
+	* params.c (global_init_params): Make idempotent.
+	* passes.c (execute_ipa_summary_passes): Set current_pass.
+	* predict.c (predict_c_finalize): New.
+	* stringpool.c (init_stringpool): Clean up if we're called more
+	than once.
+	* symtab.c (symtab_c_finalize): New.
+	* timevar.c (timevar_init): Ignore repeated calls.
+	* timevar.def (TV_CLIENT_CALLBACK): Add.
+	(TV_ASSEMBLE): Add.
+	(TV_LINK): Add.
+	(TV_LOAD): Add.
+	* toplev.c (do_compile) Add parameter (const toplev_options *);
+	use it to avoid starting/stopping/reporting timevar TV_TOTAL
+	for the case where toplev_main does not emcompass all timevars.
+	(toplev_main): Add parameter (const toplev_options *); pass it
+	to do_compile.
+	(toplev_finalize): New.
+	* toplev.h (struct toplev_options): New.
+	(toplev_main): Add parameter (const toplev_options *).
+	(toplev_finalize): New.
+	* varpool.c (varpool_c_finalize): New.
+

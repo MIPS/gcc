@@ -3038,3 +3038,7 @@ rebuild_frequencies (void)
     gcc_unreachable ();
   timevar_pop (TV_REBUILD_FREQUENCIES);
 }
+
+void predict_c_finalize (void)
+{
+}

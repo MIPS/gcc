@@ -77,6 +77,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-color.h"
 #include "context.h"
 #include "pass_manager.h"
+#include "dwarf2out.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -92,7 +93,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 static void general_init (const char *);
-static void do_compile (void);
+static void do_compile (const toplev_options *toplev_opts);
 static void process_options (void);
 static void backend_init (void);
 static int lang_dependent_init (const char *);
@@ -1849,13 +1850,17 @@ finalize (bool no_backend)
 
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile (void)
+do_compile (const toplev_options *toplev_opts)
 {
   /* Initialize timing first.  The C front ends read the main file in
      the post_options hook, and C++ does file timings.  */
-  if (time_report || !quiet_flag  || flag_detailed_statistics)
-    timevar_init ();
-  timevar_start (TV_TOTAL);
+  if (toplev_opts->use_TV_TOTAL)
+    {
+      if (time_report || !quiet_flag  || flag_detailed_statistics)
+        timevar_init ();
+
+      timevar_start (TV_TOTAL);
+    }
 
   process_options ();
 
@@ -1902,9 +1907,12 @@ do_compile (void)
       timevar_stop (TV_PHASE_FINALIZE);
     }
 
-  /* Stop timing and print the times.  */
-  timevar_stop (TV_TOTAL);
-  timevar_print (stderr);
+  if (toplev_opts->use_TV_TOTAL)
+    {
+      /* Stop timing and print the times.  */
+      timevar_stop (TV_TOTAL);
+      timevar_print (stderr);
+    }
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
@@ -1914,7 +1922,7 @@ do_compile (void)
    It is not safe to call this function more than once.  */
 
 int
-toplev_main (int argc, char **argv)
+toplev_main (int argc, char **argv, const toplev_options *toplev_opts)
 {
   /* Parsing and gimplification sometimes need quite large stack.
      Increase stack size limits if possible.  */
@@ -1964,7 +1972,7 @@ toplev_main (int argc, char **argv)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    do_compile ();
+    do_compile (toplev_opts);
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
@@ -1979,4 +1987,18 @@ toplev_main (int argc, char **argv)
     return (FATAL_EXIT_CODE);
 
   return (SUCCESS_EXIT_CODE);
+}
+
+/* For those that want to, this function aims to clean up enough state that
+   you can call toplev_main again. */
+void toplev_finalize (void)
+{
+  cgraph_c_finalize ();
+  cgraphbuild_c_finalize ();
+  cgraphunit_c_finalize ();
+  dwarf2out_c_finalize ();
+  ipa_c_finalize ();
+  predict_c_finalize ();
+  symtab_c_finalize ();
+  varpool_c_finalize ();
 }

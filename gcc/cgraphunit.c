@@ -906,15 +906,15 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
 
 /* Discover all functions and variables that are trivially needed, analyze
    them as well as all functions and variables referred by them  */
+static struct cgraph_node *first_analyzed;
+static struct varpool_node *first_analyzed_var;
 
 static void
 analyze_functions (void)
 {
   /* Keep track of already processed nodes when called multiple times for
      intermodule optimization.  */
-  static struct cgraph_node *first_analyzed;
   struct cgraph_node *first_handled = first_analyzed;
-  static struct varpool_node *first_analyzed_var;
   struct varpool_node *first_handled_var = first_analyzed_var;
   struct pointer_set_t *reachable_call_targets = pointer_set_create ();
 
@@ -2271,5 +2271,16 @@ finalize_compilation_unit (void)
   timevar_pop (TV_CGRAPH);
 }
 
+void cgraphunit_c_finalize (void)
+{
+  cgraph_new_nodes = NULL;
+  cgraph_dump_file = NULL;
+  asm_last_node = NULL;
+  vtable_entry_type =NULL;
+  first = (symtab_node)(void *)1;
+
+  first_analyzed = NULL;
+  first_analyzed_var = NULL;
+}
 
 #include "gt-cgraphunit.h"

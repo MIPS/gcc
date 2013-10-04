@@ -24,7 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 extern struct cl_decoded_option *save_decoded_options;
 extern unsigned int save_decoded_options_count;
 
-extern int toplev_main (int, char **);
+/* Options for invoking toplev_main.  */
+struct toplev_options
+{
+  /* Should do_compile use TV_TOTAL, or is some other wrapper
+     using it? */
+  bool use_TV_TOTAL;
+};
+
+extern int toplev_main (int, char **, const toplev_options *toplev_opts);
+extern void toplev_finalize (void);
 extern void rest_of_decl_compilation (tree, int, int);
 extern void rest_of_type_compilation (tree, int);
 extern void init_optimization_passes (void);

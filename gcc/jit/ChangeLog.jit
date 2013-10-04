@@ -1,0 +1,12 @@
+2013-10-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* Make-lang.in: New.
+	* TODO.rst: New.
+	* config-lang.in: New.
+	* dummy-frontend.c: New.
+	* internal-api.c: New.
+	* internal-api.h: New.
+	* libgccjit.c: New.
+	* libgccjit.h: New.
+	* libgccjit.map: New.
+	* notes.txt: New.

@@ -1642,7 +1642,12 @@ compute_inverse (unsigned order)
 void
 init_ggc (void)
 {
+  static bool init_p = false;
   unsigned order;
+
+  if (init_p)
+    return;
+  init_p = true;
 
   G.pagesize = getpagesize();
   G.lg_pagesize = exact_log2 (G.pagesize);

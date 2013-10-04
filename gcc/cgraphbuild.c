@@ -592,3 +592,7 @@ make_pass_remove_cgraph_callee_edges (gcc::context *ctxt)
 {
   return new pass_remove_cgraph_callee_edges (ctxt);
 }
+
+void cgraphbuild_c_finalize (void)
+{
+}

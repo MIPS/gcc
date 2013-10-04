@@ -69,6 +69,9 @@ add_params (const param_info params[], size_t n)
 void
 global_init_params (void)
 {
+  /* Make param initialization be idempotent.  */
+  if (params_finished)
+    return;
   add_params (lang_independent_params, LAST_PARAM);
   targetm_common.option_default_params ();
 }

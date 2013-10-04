@@ -1,0 +1,82 @@
+Client Code   . Generated .            libgccjit.so
+              . code      .
+              .           . JIT API  . JIT "Frontend". (libbackend.a)
+....................................................................................
+   │          .           .          .               .
+   │          .           .          .               .
+   │          .           .          .               .
+   V          .           .  gcc_jit_context_compile .
+    ──────────────────────────>      .               .
+              .           .    │     .               .
+              .           .    │ ACQUIRE MUTEX       .
+              .           .    │     .               .
+              .           .    V───────────────────────> toplev_main (for now)
+              .           .          .               .       │
+              .           .          .               .   (various code)
+              .           .          .               .       │
+              .           .          .               .       V
+              .           .          .    <───────────────── langhook:parse_file
+              .           .          .    │          .
+              .           .          .    │ (jit_langhook_parse_file)
+              .           .          .    │          .
+..........................................│..................VVVVVVVVVVVVV...
+ code factory .           .          .    │          .       No GC in here
+ callback     .           .          .    │          .
+       <───────────────────────────────────          .
+       │      .           .          .   (invoke_cb) .
+       │      .           .  C API   .               .
+       ──────────────────────>       .               .
+              .           .  │ Internal API          .
+              .           .  ───>    .               .
+              .           .      │   .               .
+              .           .      ────────────────────────> creation of functions,
+              .           .          .               .     types, expression trees
+              .           .      <──────────────────────── etc
+              .           .  <───    .               .
+              .           .  │       .               .
+       ──────────────────────        .               .
+       │etc   .           .          .               .
+       │      .           .          .               .
+       ──────────────────────────────────>           .
+              .           .          .    │          .       No GC in here
+..........................................│..................AAAAAAAAAAAAA...
+              .           .          .    │ for each function
+              .           .          .    ──> postprocess
+              .           .          .        │      .
+              .           .          .        ────────────> cgraph_finalize_function
+              .           .          .        <────────────
+              .           .          .     <──       .
+              .           .          .    │          .
+              .           .          .    ──────────────────> (end of
+              .           .          .               .       │ langhook_parse_file)
+              .           .          .               .       │
+              .           .          .               .   (various code)
+              .           .          .               .       │
+              .           .          .               .       ↓
+              .           .          .    <───────────────── langhook:write_globals
+              .           .          .    │          .
+              .           .          .    │ (jit_langhook_write_globals)
+              .           .          .    │          .
+              .           .          .    │          .
+              .           .          .    ──────────────────> finalize_compilation_unit
+              .           .          .               .       │
+              .           .          .               .   (the middle─end and backend)
+              .           .          .               .       ↓
+              .           .    <───────────────────────────── end of toplev_main
+              .           .    │ RELEASE MUTEX       .
+              .           .    │     .               .
+              .           .    │ Convert assembler to DSO
+              .           .    │     .               .
+              .           .    │ Load DSO            .
+   <───────────────────────────      .               .
+   │          .           .          .               .
+   Get (void*).           .          .               .
+   │          .           .          .               .
+   │ Call it  .           .          .               .
+   ───────────────>       .          .               .
+              .    │      .          .               .
+              .    │      .          .               .
+   <───────────────       .          .               .
+   │          .           .          .               .
+   │          .           .          .               .
+etc

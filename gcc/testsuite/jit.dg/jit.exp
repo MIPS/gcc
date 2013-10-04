@@ -1,0 +1,95 @@
+# Test code for libgccjit.so
+#
+# We will compile each of jit.dg/test-*.c into an executable
+# dynamically linked against libgccjit.so, and then run each
+# such executable.
+#
+# These executables call into the libgccjit.so API to create
+# code, compile it, and run it, verifying that the results
+# are as expected.  See harness.h for shared code used by all
+# such executables.
+#
+# The executables call into DejaGnu's unit testing C API to
+# report PASS/FAIL results, which this script gathers back
+# up into the Tcl world, reporting a summary of all results
+# across all of the executables.
+
+load_lib dg.exp
+load_lib prune.exp
+load_lib gcc-defs.exp
+load_lib timeout.exp
+load_lib target-libpath.exp
+load_lib gcc.exp
+load_lib dejagnu.exp
+
+# GCC_UNDER_TEST is needed by gcc_target_compile
+global GCC_UNDER_TEST
+if ![info exists GCC_UNDER_TEST] {
+    set GCC_UNDER_TEST "[find_gcc]"
+}
+
+# Initialize dg.
+dg-init
+
+# Gather a list of all tests.
+set tests [lsort [find $srcdir/$subdir test-*.c]]
+verbose "tests: $tests"
+
+proc jit-dg-test { prog do_what extra_tool_flags } {
+    verbose "within jit-dg-test..."
+    verbose "  prog: $prog"
+    verbose "  do_what: $do_what"
+    verbose "  extra_tool_flags: $extra_tool_flags"
+
+    # Determine what to name the built executable.
+    set output_file "[file rootname [file tail $prog]].exe"
+    verbose "output_file: $output_file"
+
+    # Create the test executable:
+    gcc_target_compile $prog $output_file $do_what \
+        "{additional_flags=$extra_tool_flags}"
+
+    # Run the test executable, capturing the PASS/FAIL textual output
+    # from the C API, converting it into the Tcl API.
+
+    # We need to set LD_LIBRARY_PATH so that the test files can find
+    # libgccjit.so
+    # Do this using set_ld_library_path_env_vars from target-libpath.exp
+    global ld_library_path
+    global base_dir
+    set ld_library_path "$base_dir/../../"
+    set_ld_library_path_env_vars
+
+    # If running with just a "make" and not a "make install", then I was
+    # running into
+    #   "fatal error: -fuse-linker-plugin, but liblto_plugin.so not found"
+    # emitted by the inner gcc invoked to convert the .s into .so
+    # This appears to be due to not installing the built compiler;
+    # libto_plugin is a .la at build time, with the .so becoming installed
+    # at install time; the "set_ld_library_path_env_vars" function from
+    # target-libpath.exp that I'm using to set LD_LIBRARY_PATH to find
+    # the library under test, libgccjit.so, was setting GCC_EXEC_PREFIX to
+    # the builddir, thus picking up the built-but-not-installed toolchain.
+    # Hacking in an "unsetenv GCC_EXEC_PREFIX" here fixes the issue,
+    # allowing quick running of testsuite without needing a full install.
+    #
+    unsetenv GCC_EXEC_PREFIX
+
+    # dejagnu.exp's host_execute has code to scrape out test results
+    # from the DejaGnu C API and bring back into the tcl world, so we
+    # use that to invoke the built code:
+    set result [host_execute $output_file]
+    verbose "result: $result"
+
+    restore_ld_library_path_env_vars
+}
+
+# We need to link with --export-dynamic for test-calling-external-function.c
+# so that the JIT-built code can call into functions from the main program.
+set DEFAULT_CFLAGS "-I$srcdir/../jit -lgccjit -g -Wall -Werror -Wl,--export-dynamic"
+
+# Main loop.  This will invoke jig-dg-test on each test-*.c file.
+dg-runtest $tests "" $DEFAULT_CFLAGS
+
+# All done.
+dg-finish

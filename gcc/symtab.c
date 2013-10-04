@@ -1154,4 +1154,13 @@ symtab_semantically_equivalent_p (symtab_node a,
     bb = b;
   return bb == ba;
 }
+
+void symtab_c_finalize (void)
+{
+  symtab_hash = NULL;
+  assembler_name_hash = NULL;
+  symtab_nodes = NULL;
+  symtab_order = 0;
+}
+
 #include "gt-symtab.h"

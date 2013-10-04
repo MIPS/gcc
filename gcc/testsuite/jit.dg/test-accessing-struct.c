@@ -1,0 +1,109 @@
+#include <stdlib.h>
+#include <stdio.h>
+
+#include "libgccjit.h"
+
+#include "harness.h"
+
+struct foo
+{
+  int x;
+  int y;
+  int z;
+};
+
+int
+code_making_callback (gcc_jit_context *ctxt, void *user_data)
+{
+  /* Let's try to inject the equivalent of:
+     void
+     test_fn (struct foo *f)
+     {
+        f->z = f->x * f->y;
+     }
+  */
+  gcc_jit_type *void_type = gcc_jit_context_get_void_type (ctxt);
+  gcc_jit_type *int_type = gcc_jit_context_get_int_type (ctxt);
+  gcc_jit_field *x =
+    gcc_jit_context_new_field (ctxt,
+                               NULL,
+                               int_type,
+                               "x");
+  gcc_jit_field *y =
+    gcc_jit_context_new_field (ctxt,
+                               NULL,
+                               int_type,
+                               "y");
+  gcc_jit_field *z =
+    gcc_jit_context_new_field (ctxt,
+                               NULL,
+                               int_type,
+                               "z");
+  gcc_jit_field *fields[] = {x, y, z};
+  gcc_jit_type *struct_type =
+    gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 3, fields);
+  gcc_jit_type *ptr_type = gcc_jit_type_get_pointer (struct_type);
+
+  /* Build the test_fn.  */
+  gcc_jit_param *param_f =
+    gcc_jit_context_new_param (ctxt, NULL, ptr_type, "f");
+  gcc_jit_function *test_fn =
+    gcc_jit_context_new_function (ctxt, NULL,
+                                  GCC_JIT_FUNCTION_EXPORTED,
+                                  void_type,
+                                  "test_fn",
+                                  1, &param_f,
+                                  0);
+
+  /* f->x * f->y */
+  gcc_jit_rvalue *sum =
+    gcc_jit_context_new_binary_op (
+      ctxt, NULL,
+      GCC_JIT_BINARY_OP_MULT,
+      int_type,
+      gcc_jit_lvalue_as_rvalue (
+        gcc_jit_context_new_field_access (
+          ctxt, NULL,
+          gcc_jit_param_as_rvalue (param_f),
+          "x")),
+      gcc_jit_lvalue_as_rvalue (
+        gcc_jit_context_new_field_access (
+          ctxt, NULL,
+          gcc_jit_param_as_rvalue (param_f),
+          "y")));
+
+  /* f->z = ... */
+  gcc_jit_function_add_assignment (
+    test_fn,
+    NULL,
+    gcc_jit_context_new_field_access (
+      ctxt, NULL,
+      gcc_jit_param_as_rvalue (param_f),
+      "z"),
+    sum);
+
+  return 0;
+}
+
+void
+verify_code (gcc_jit_result *result)
+{
+  typedef void (*fn_type) (struct foo *);
+  CHECK_NON_NULL (result);
+
+  fn_type test_fn =
+    (fn_type)gcc_jit_result_get_code (result, "test_fn");
+  CHECK_NON_NULL (test_fn);
+
+  struct foo tmp;
+  tmp.x = 5;
+  tmp.y = 7;
+  tmp.z = 0;
+
+  /* Call the JIT-generated function.  */
+  test_fn (&tmp);
+
+  /* Verify that the code correctly modified the field "z".  */
+  CHECK_VALUE (tmp.z, 35);
+}
+

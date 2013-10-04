@@ -95,6 +95,14 @@ AC_SUBST(ADDITIONAL_OBJS)
 
 AC_C_BIGENDIAN
 
+# Enable --enable-host-shared.
+AC_ARG_ENABLE(host-shared,
+[AS_HELP_STRING([--enable-host-shared],
+		[build host code as shared libraries])],
+[CFLAGS="-fPIC $CFLAGS"; CXXFLAGS="-fPIC $CXXFLAGS"], [])
+AC_SUBST(CFLAGS)
+AC_SUBST(CXXFLAGS)
+
 # Output.
 
 AC_CONFIG_HEADERS(config.h:config.in, [echo timestamp > stamp-h1])

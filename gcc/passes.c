@@ -1997,6 +1997,7 @@ execute_ipa_summary_passes (struct ipa_opt_pass_d *ipa_pass)
 	  if (pass->tv_id)
 	    timevar_push (pass->tv_id);
 
+          current_pass = pass;
 	  ipa_pass->generate_summary ();
 
 	  /* Stop timevar.  */
