@@ -1644,18 +1644,21 @@ struct processor_costs slm_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-/* Generic64 should produce code tuned for Nocona and K8.  */
+/* Generic should produce code tuned for Core-i7 (and newer chips)
+   and btver1 (and newer chips).  */
 
-static stringop_algs generic64_memcpy[2] = {
-  DUMMY_STRINGOP_ALGS,
+static stringop_algs generic_memcpy[2] = {
+  {libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
+             {-1, libcall, false}}},
   {libcall, {{32, loop, false}, {8192, rep_prefix_8_byte, false},
              {-1, libcall, false}}}};
-static stringop_algs generic64_memset[2] = {
-  DUMMY_STRINGOP_ALGS,
+static stringop_algs generic_memset[2] = {
+  {libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
+             {-1, libcall, false}}},
   {libcall, {{32, loop, false}, {8192, rep_prefix_8_byte, false},
              {-1, libcall, false}}}};
 static const
-struct processor_costs generic64_cost = {
+struct processor_costs generic_cost = {
   COSTS_N_INSNS (1),			/* cost of an add instruction */
   /* On all chips taken into consideration lea is 2 cycles and more.  With
      this cost however our current implementation of synth_mult results in
@@ -1713,8 +1716,8 @@ struct processor_costs generic64_cost = {
   COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
   COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
   COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
-  generic64_memcpy,
-  generic64_memset,
+  generic_memcpy,
+  generic_memset,
   1,					/* scalar_stmt_cost.  */
   1,					/* scalar load_cost.  */
   1,					/* scalar_store_cost.  */
@@ -1814,83 +1817,6 @@ struct processor_costs core_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
-/* Generic32 should produce code tuned for PPro, Pentium4, Nocona,
-   Athlon and K8.  */
-static stringop_algs generic32_memcpy[2] = {
-  {libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
-             {-1, libcall, false}}},
-  DUMMY_STRINGOP_ALGS};
-static stringop_algs generic32_memset[2] = {
-  {libcall, {{32, loop, false}, {8192, rep_prefix_4_byte, false},
-             {-1, libcall, false}}},
-  DUMMY_STRINGOP_ALGS};
-static const
-struct processor_costs generic32_cost = {
-  COSTS_N_INSNS (1),			/* cost of an add instruction */
-  COSTS_N_INSNS (1) + 1,		/* cost of a lea instruction */
-  COSTS_N_INSNS (1),			/* variable shift costs */
-  COSTS_N_INSNS (1),			/* constant shift costs */
-  {COSTS_N_INSNS (3),			/* cost of starting multiply for QI */
-   COSTS_N_INSNS (4),			/*				 HI */
-   COSTS_N_INSNS (3),			/*				 SI */
-   COSTS_N_INSNS (4),			/*				 DI */
-   COSTS_N_INSNS (2)},			/*			      other */
-  0,					/* cost of multiply per each bit set */
-  {COSTS_N_INSNS (18),			/* cost of a divide/mod for QI */
-   COSTS_N_INSNS (26),			/*			    HI */
-   COSTS_N_INSNS (42),			/*			    SI */
-   COSTS_N_INSNS (74),			/*			    DI */
-   COSTS_N_INSNS (74)},			/*			    other */
-  COSTS_N_INSNS (1),			/* cost of movsx */
-  COSTS_N_INSNS (1),			/* cost of movzx */
-  8,					/* "large" insn */
-  17,					/* MOVE_RATIO */
-  4,				     /* cost for loading QImode using movzbl */
-  {4, 4, 4},				/* cost of loading integer registers
-					   in QImode, HImode and SImode.
-					   Relative to reg-reg move (2).  */
-  {4, 4, 4},				/* cost of storing integer registers */
-  4,					/* cost of reg,reg fld/fst */
-  {12, 12, 12},				/* cost of loading fp registers
-					   in SFmode, DFmode and XFmode */
-  {6, 6, 8},				/* cost of storing fp registers
-					   in SFmode, DFmode and XFmode */
-  2,					/* cost of moving MMX register */
-  {8, 8},				/* cost of loading MMX registers
-					   in SImode and DImode */
-  {8, 8},				/* cost of storing MMX registers
-					   in SImode and DImode */
-  2,					/* cost of moving SSE register */
-  {8, 8, 8},				/* cost of loading SSE registers
-					   in SImode, DImode and TImode */
-  {8, 8, 8},				/* cost of storing SSE registers
-					   in SImode, DImode and TImode */
-  5,					/* MMX or SSE register to integer */
-  32,					/* size of l1 cache.  */
-  256,					/* size of l2 cache.  */
-  64,					/* size of prefetch block */
-  6,					/* number of parallel prefetches */
-  3,					/* Branch cost */
-  COSTS_N_INSNS (8),			/* cost of FADD and FSUB insns.  */
-  COSTS_N_INSNS (8),			/* cost of FMUL instruction.  */
-  COSTS_N_INSNS (20),			/* cost of FDIV instruction.  */
-  COSTS_N_INSNS (8),			/* cost of FABS instruction.  */
-  COSTS_N_INSNS (8),			/* cost of FCHS instruction.  */
-  COSTS_N_INSNS (40),			/* cost of FSQRT instruction.  */
-  generic32_memcpy,
-  generic32_memset,
-  1,					/* scalar_stmt_cost.  */
-  1,					/* scalar load_cost.  */
-  1,					/* scalar_store_cost.  */
-  1,					/* vec_stmt_cost.  */
-  1,					/* vec_to_scalar_cost.  */
-  1,					/* scalar_to_vec_cost.  */
-  1,					/* vec_align_load_cost.  */
-  2,					/* vec_unalign_load_cost.  */
-  1,					/* vec_store_cost.  */
-  3,					/* cond_taken_branch_cost.  */
-  1,					/* cond_not_taken_branch_cost.  */
-};
 
 /* Set by -mtune.  */
 const struct processor_costs *ix86_tune_cost = &pentium_cost;
@@ -1929,12 +1855,7 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_BTVER (m_BTVER1 | m_BTVER2)
 #define m_AMD_MULTIPLE (m_ATHLON_K8 | m_AMDFAM10 | m_BDVER | m_BTVER)
 
-#define m_GENERIC32 (1<<PROCESSOR_GENERIC32)
-#define m_GENERIC64 (1<<PROCESSOR_GENERIC64)
-
-/* Generic instruction choice should be common subset of supported CPUs
-   (PPro/PENT4/NOCONA/CORE2/Athlon/K8).  */
-#define m_GENERIC (m_GENERIC32 | m_GENERIC64)
+#define m_GENERIC (1<<PROCESSOR_GENERIC)
 
 const char* ix86_tune_feature_names[X86_TUNE_LAST] = {
 #undef DEF_TUNE
@@ -1978,7 +1899,7 @@ static unsigned int initial_ix86_arch_features[X86_ARCH_LAST] = {
 };
 
 static const unsigned int x86_accumulate_outgoing_args
-  = m_PPRO | m_P4_NOCONA | m_ATOM | m_SLM | m_CORE_ALL | m_AMD_MULTIPLE | m_GENERIC;
+  = m_PPRO | m_P4_NOCONA | m_ATOM | m_SLM | m_AMD_MULTIPLE | m_GENERIC;
 
 static const unsigned int x86_arch_always_fancy_math_387
   = m_PENT | m_PPRO | m_P4_NOCONA | m_CORE_ALL | m_ATOM | m_SLM | m_AMD_MULTIPLE | m_GENERIC;
@@ -2384,8 +2305,7 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {&core_cost, 16, 10, 16, 10, 16},
   /* Core avx2  */
   {&core_cost, 16, 10, 16, 10, 16},
-  {&generic32_cost, 16, 7, 16, 7, 16},
-  {&generic64_cost, 16, 10, 16, 10, 16},
+  {&generic_cost, 16, 10, 16, 10, 16},
   {&amdfam10_cost, 32, 24, 32, 7, 32},
   {&bdver1_cost, 16, 10, 16, 7, 11},
   {&bdver2_cost, 16, 10, 16, 7, 11},
@@ -3182,7 +3102,7 @@ ix86_option_override_internal (bool main_args_p)
 	| PTA_XOP | PTA_LWP | PTA_BMI | PTA_TBM | PTA_F16C
 	| PTA_FMA | PTA_PRFCHW | PTA_FXSR | PTA_XSAVE 
 	| PTA_XSAVEOPT | PTA_FSGSBASE},
-      {"btver1", PROCESSOR_BTVER1, CPU_GENERIC64,
+      {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
 	| PTA_FXSR | PTA_XSAVE},
@@ -3193,9 +3113,7 @@ ix86_option_override_internal (bool main_args_p)
 	| PTA_BMI | PTA_F16C | PTA_MOVBE | PTA_PRFCHW
 	| PTA_FXSR | PTA_XSAVE | PTA_XSAVEOPT},
 
-      {"generic32", PROCESSOR_GENERIC32, CPU_PENTIUMPRO,
-	PTA_HLE /* flags are only used for -march switch.  */ },
-      {"generic64", PROCESSOR_GENERIC64, CPU_GENERIC64,
+      {"generic", PROCESSOR_GENERIC, CPU_GENERIC,
 	PTA_64BIT
 	| PTA_HLE /* flags are only used for -march switch.  */ },
     };
@@ -3295,16 +3213,12 @@ ix86_option_override_internal (bool main_args_p)
 	     -mtune=native, as it was changed by the driver.  */
 	  || !strcmp (ix86_tune_string, "native"))
 	{
-	  if (TARGET_64BIT)
-	    ix86_tune_string = "generic64";
-	  else
-	    ix86_tune_string = "generic32";
+	  ix86_tune_string = "generic";
 	}
       /* If this call is for setting the option attribute, allow the
-	 generic32/generic64 that was previously set.  */
+	 generic that was previously set.  */
       else if (!main_args_p
-	       && (!strcmp (ix86_tune_string, "generic32")
-		   || !strcmp (ix86_tune_string, "generic64")))
+	       && !strcmp (ix86_tune_string, "generic"))
 	;
       else if (!strncmp (ix86_tune_string, "generic", 7))
         error ("bad value (%s) for %stune=%s %s",
@@ -3330,10 +3244,7 @@ ix86_option_override_internal (bool main_args_p)
 	  || !strcmp (ix86_tune_string, "x86-64")
 	  || !strcmp (ix86_tune_string, "i686"))
 	{
-	  if (TARGET_64BIT)
-	    ix86_tune_string = "generic64";
-	  else
-	    ix86_tune_string = "generic32";
+	  ix86_tune_string = "generic";
 	}
     }
 
@@ -3630,20 +3541,6 @@ ix86_option_override_internal (bool main_args_p)
 			 "instruction set");
 	      }
 	  }
-	else
-	  {
-	    /* Adjust tuning when compiling for 32-bit ABI.  */
-	    switch (ix86_tune)
-	      {
-	      case PROCESSOR_GENERIC64:
-		ix86_tune = PROCESSOR_GENERIC32;
-		ix86_schedule = CPU_PENTIUMPRO;
-		break;
-
-	      default:
-		break;
-	      }
-	  }
 	/* Intel CPUs have always interpreted SSE prefetch instructions as
 	   NOPs; so, we can enable SSE prefetch instructions even when
 	   -mtune (rather than -march) points us to a processor that has them.
@@ -3896,27 +3793,10 @@ ix86_option_override_internal (bool main_args_p)
       }
 
   ix86_tune_mask = 1u << ix86_tune;
-  if ((!USE_IX86_FRAME_POINTER
-       || (x86_accumulate_outgoing_args & ix86_tune_mask))
+  if ((x86_accumulate_outgoing_args & ix86_tune_mask)
       && !(target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
       && !optimize_size)
     target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
-
-  /* ??? Unwind info is not correct around the CFG unless either a frame
-     pointer is present or M_A_O_A is set.  Fixing this requires rewriting
-     unwind info generation to be aware of the CFG and propagating states
-     around edges.  */
-  if ((flag_unwind_tables || flag_asynchronous_unwind_tables
-       || flag_exceptions || flag_non_call_exceptions)
-      && flag_omit_frame_pointer
-      && !(target_flags & MASK_ACCUMULATE_OUTGOING_ARGS))
-    {
-      if (target_flags_explicit & MASK_ACCUMULATE_OUTGOING_ARGS)
-	warning (0, "unwind tables currently require either a frame pointer "
-		 "or %saccumulate-outgoing-args%s for correctness",
-		 prefix, suffix);
-      target_flags |= MASK_ACCUMULATE_OUTGOING_ARGS;
-    }
 
   /* If stack probes are required, the space used for large function
      arguments on the stack must also be probed, so enable
@@ -11614,8 +11494,8 @@ ix86_expand_split_stack_prologue (void)
   JUMP_LABEL (jump_insn) = label;
 
   /* Mark the jump as very likely to be taken.  */
-  add_reg_note (jump_insn, REG_BR_PROB,
-		GEN_INT (REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100));
+  add_int_reg_note (jump_insn, REG_BR_PROB,
+		    REG_BR_PROB_BASE - REG_BR_PROB_BASE / 100);
 
   if (split_stack_fn == NULL_RTX)
     split_stack_fn = gen_rtx_SYMBOL_REF (Pmode, "__morestack");
@@ -14911,7 +14791,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    x = find_reg_note (current_output_insn, REG_BR_PROB, 0);
 	    if (x)
 	      {
-		int pred_val = INTVAL (XEXP (x, 0));
+		int pred_val = XINT (x, 0);
 
 		if (pred_val < REG_BR_PROB_BASE * 45 / 100
 		    || pred_val > REG_BR_PROB_BASE * 55 / 100)
@@ -16560,8 +16440,8 @@ ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
       gcc_unreachable ();
     case V32QImode:
       extract = gen_avx_vextractf128v32qi;
-      load_unaligned = gen_avx_loaddqu256;
-      store_unaligned = gen_avx_storedqu256;
+      load_unaligned = gen_avx_loaddquv32qi;
+      store_unaligned = gen_avx_storedquv32qi;
       mode = V16QImode;
       break;
     case V8SFmode:
@@ -16664,9 +16544,55 @@ void
 ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 {
   rtx op0, op1, m;
+  rtx (*load_unaligned) (rtx, rtx);
+  rtx (*store_unaligned) (rtx, rtx);
 
   op0 = operands[0];
   op1 = operands[1];
+
+  if (GET_MODE_SIZE (mode) == 64)
+    {
+      switch (GET_MODE_CLASS (mode))
+	{
+	case MODE_VECTOR_INT:
+	case MODE_INT:
+	  op0 = gen_lowpart (V16SImode, op0);
+	  op1 = gen_lowpart (V16SImode, op1);
+	  /* FALLTHRU */
+
+	case MODE_VECTOR_FLOAT:
+	  switch (GET_MODE (op0))
+	    {
+	    default:
+	      gcc_unreachable ();
+	    case V16SImode:
+	      load_unaligned = gen_avx512f_loaddquv16si;
+	      store_unaligned = gen_avx512f_storedquv16si;
+	      break;
+	    case V16SFmode:
+	      load_unaligned = gen_avx512f_loadups512;
+	      store_unaligned = gen_avx512f_storeups512;
+	      break;
+	    case V8DFmode:
+	      load_unaligned = gen_avx512f_loadupd512;
+	      store_unaligned = gen_avx512f_storeupd512;
+	      break;
+	    }
+
+	  if (MEM_P (op1))
+	    emit_insn (load_unaligned (op0, op1));
+	  else if (MEM_P (op0))
+	    emit_insn (store_unaligned (op0, op1));
+	  else
+	    gcc_unreachable ();
+	  break;
+
+	default:
+	  gcc_unreachable ();
+	}
+
+      return;
+    }
 
   if (TARGET_AVX
       && GET_MODE_SIZE (mode) == 32)
@@ -16700,7 +16626,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  op0 = gen_lowpart (V16QImode, op0);
 	  op1 = gen_lowpart (V16QImode, op1);
 	  /* We will eventually emit movups based on insn attributes.  */
-	  emit_insn (gen_sse2_loaddqu (op0, op1));
+	  emit_insn (gen_sse2_loaddquv16qi (op0, op1));
 	}
       else if (TARGET_SSE2 && mode == V2DFmode)
         {
@@ -16775,7 +16701,7 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	  op0 = gen_lowpart (V16QImode, op0);
 	  op1 = gen_lowpart (V16QImode, op1);
 	  /* We will eventually emit movups based on insn attributes.  */
-	  emit_insn (gen_sse2_storedqu (op0, op1));
+	  emit_insn (gen_sse2_storedquv16qi (op0, op1));
 	}
       else if (TARGET_SSE2 && mode == V2DFmode)
 	{
@@ -19557,7 +19483,7 @@ ix86_split_fp_branch (enum rtx_code code, rtx op1, rtx op2,
 		       gen_rtx_IF_THEN_ELSE (VOIDmode,
 					     condition, target1, target2)));
   if (split_branch_probability >= 0)
-    add_reg_note (i, REG_BR_PROB, GEN_INT (split_branch_probability));
+    add_int_reg_note (i, REG_BR_PROB, split_branch_probability);
 }
 
 void
@@ -22064,7 +21990,7 @@ predict_jump (int prob)
 {
   rtx insn = get_last_insn ();
   gcc_assert (JUMP_P (insn));
-  add_reg_note (insn, REG_BR_PROB, GEN_INT (prob));
+  add_int_reg_note (insn, REG_BR_PROB, prob);
 }
 
 /* Helper function for the string operations below.  Dest VARIABLE whether
@@ -24492,24 +24418,25 @@ ix86_issue_rate (void)
     case PROCESSOR_SLM:
     case PROCESSOR_K6:
     case PROCESSOR_BTVER2:
+    case PROCESSOR_PENTIUM4:
+    case PROCESSOR_NOCONA:
       return 2;
 
     case PROCESSOR_PENTIUMPRO:
-    case PROCESSOR_PENTIUM4:
-    case PROCESSOR_CORE2:
-    case PROCESSOR_COREI7:
-    case PROCESSOR_HASWELL:
     case PROCESSOR_ATHLON:
     case PROCESSOR_K8:
     case PROCESSOR_AMDFAM10:
-    case PROCESSOR_NOCONA:
-    case PROCESSOR_GENERIC32:
-    case PROCESSOR_GENERIC64:
+    case PROCESSOR_GENERIC:
     case PROCESSOR_BDVER1:
     case PROCESSOR_BDVER2:
     case PROCESSOR_BDVER3:
     case PROCESSOR_BTVER1:
       return 3;
+
+    case PROCESSOR_CORE2:
+    case PROCESSOR_COREI7:
+    case PROCESSOR_HASWELL:
+      return 4;
 
     default:
       return 1;
@@ -24767,10 +24694,14 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     case PROCESSOR_BDVER3:
     case PROCESSOR_BTVER1:
     case PROCESSOR_BTVER2:
-    case PROCESSOR_ATOM:
-    case PROCESSOR_GENERIC32:
-    case PROCESSOR_GENERIC64:
+    case PROCESSOR_GENERIC:
       memory = get_attr_memory (insn);
+
+      /* Stack engine allows to execute push&pop instructions in parall.  */
+      if (((insn_type == TYPE_PUSH || insn_type == TYPE_POP)
+	   && (dep_insn_type == TYPE_PUSH || dep_insn_type == TYPE_POP))
+	  && (ix86_tune != PROCESSOR_ATHLON && ix86_tune != PROCESSOR_K8))
+	return 0;
 
       /* Show ability of reorder buffer to hide latency of load by executing
 	 in parallel with previous instruction in case
@@ -24793,6 +24724,29 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
 
 	  if (cost >= loadcost)
 	    cost -= loadcost;
+	  else
+	    cost = 0;
+	}
+      break;
+
+    case PROCESSOR_CORE2:
+    case PROCESSOR_COREI7:
+    case PROCESSOR_HASWELL:
+      memory = get_attr_memory (insn);
+
+      /* Stack engine allows to execute push&pop instructions in parall.  */
+      if ((insn_type == TYPE_PUSH || insn_type == TYPE_POP)
+	  && (dep_insn_type == TYPE_PUSH || dep_insn_type == TYPE_POP))
+	return 0;
+
+      /* Show ability of reorder buffer to hide latency of load by executing
+	 in parallel with previous instruction in case
+	 previous instruction is not needed to compute the address.  */
+      if ((memory == MEMORY_LOAD || memory == MEMORY_BOTH)
+	  && !ix86_agi_dependent (dep_insn, insn))
+	{
+	  if (cost >= 4)
+	    cost -= 4;
 	  else
 	    cost = 0;
 	}
@@ -27505,13 +27459,13 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_lfence, "__builtin_ia32_lfence", IX86_BUILTIN_LFENCE, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_mfence, 0, IX86_BUILTIN_MFENCE, UNKNOWN, (int) VOID_FTYPE_VOID },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_storeupd, "__builtin_ia32_storeupd", IX86_BUILTIN_STOREUPD, UNKNOWN, (int) VOID_FTYPE_PDOUBLE_V2DF },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_storedqu, "__builtin_ia32_storedqu", IX86_BUILTIN_STOREDQU, UNKNOWN, (int) VOID_FTYPE_PCHAR_V16QI },
+  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_storedquv16qi, "__builtin_ia32_storedqu", IX86_BUILTIN_STOREDQU, UNKNOWN, (int) VOID_FTYPE_PCHAR_V16QI },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntv2df, "__builtin_ia32_movntpd", IX86_BUILTIN_MOVNTPD, UNKNOWN, (int) VOID_FTYPE_PDOUBLE_V2DF },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntv2di, "__builtin_ia32_movntdq", IX86_BUILTIN_MOVNTDQ, UNKNOWN, (int) VOID_FTYPE_PV2DI_V2DI },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_movntisi, "__builtin_ia32_movnti", IX86_BUILTIN_MOVNTI, UNKNOWN, (int) VOID_FTYPE_PINT_INT },
   { OPTION_MASK_ISA_SSE2 | OPTION_MASK_ISA_64BIT, CODE_FOR_sse2_movntidi, "__builtin_ia32_movnti64", IX86_BUILTIN_MOVNTI64, UNKNOWN, (int) VOID_FTYPE_PLONGLONG_LONGLONG },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loadupd, "__builtin_ia32_loadupd", IX86_BUILTIN_LOADUPD, UNKNOWN, (int) V2DF_FTYPE_PCDOUBLE },
-  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loaddqu, "__builtin_ia32_loaddqu", IX86_BUILTIN_LOADDQU, UNKNOWN, (int) V16QI_FTYPE_PCCHAR },
+  { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loaddquv16qi, "__builtin_ia32_loaddqu", IX86_BUILTIN_LOADDQU, UNKNOWN, (int) V16QI_FTYPE_PCCHAR },
 
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loadhpd_exp, "__builtin_ia32_loadhpd", IX86_BUILTIN_LOADHPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_PCDOUBLE },
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sse2_loadlpd_exp, "__builtin_ia32_loadlpd", IX86_BUILTIN_LOADLPD, UNKNOWN, (int) V2DF_FTYPE_V2DF_PCDOUBLE },
@@ -27540,8 +27494,8 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_loadups256, "__builtin_ia32_loadups256", IX86_BUILTIN_LOADUPS256, UNKNOWN, (int) V8SF_FTYPE_PCFLOAT },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storeupd256, "__builtin_ia32_storeupd256", IX86_BUILTIN_STOREUPD256, UNKNOWN, (int) VOID_FTYPE_PDOUBLE_V4DF },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storeups256, "__builtin_ia32_storeups256", IX86_BUILTIN_STOREUPS256, UNKNOWN, (int) VOID_FTYPE_PFLOAT_V8SF },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_loaddqu256, "__builtin_ia32_loaddqu256", IX86_BUILTIN_LOADDQU256, UNKNOWN, (int) V32QI_FTYPE_PCCHAR },
-  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storedqu256, "__builtin_ia32_storedqu256", IX86_BUILTIN_STOREDQU256, UNKNOWN, (int) VOID_FTYPE_PCHAR_V32QI },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_loaddquv32qi, "__builtin_ia32_loaddqu256", IX86_BUILTIN_LOADDQU256, UNKNOWN, (int) V32QI_FTYPE_PCCHAR },
+  { OPTION_MASK_ISA_AVX, CODE_FOR_avx_storedquv32qi, "__builtin_ia32_storedqu256", IX86_BUILTIN_STOREDQU256, UNKNOWN, (int) VOID_FTYPE_PCHAR_V32QI },
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_lddqu256, "__builtin_ia32_lddqu256", IX86_BUILTIN_LDDQU256, UNKNOWN, (int) V32QI_FTYPE_PCCHAR },
 
   { OPTION_MASK_ISA_AVX, CODE_FOR_avx_movntv4di, "__builtin_ia32_movntdq256", IX86_BUILTIN_MOVNTDQ256, UNKNOWN, (int) VOID_FTYPE_PV4DI_V4DI },
@@ -42841,20 +42795,17 @@ ix86_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   unsigned *cost = (unsigned *) data;
   unsigned retval = 0;
 
-  if (flag_vect_cost_model)
-    {
-      tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
-      int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
+  tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
+  int stmt_cost = ix86_builtin_vectorization_cost (kind, vectype, misalign);
 
-      /* Statements in an inner loop relative to the loop being
-	 vectorized are weighted more heavily.  The value here is
-	 arbitrary and could potentially be improved with analysis.  */
-      if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
-	count *= 50;  /* FIXME.  */
+  /* Statements in an inner loop relative to the loop being
+     vectorized are weighted more heavily.  The value here is
+      arbitrary and could potentially be improved with analysis.  */
+  if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
+    count *= 50;  /* FIXME.  */
 
-      retval = (unsigned) (count * stmt_cost);
-      cost[where] += retval;
-    }
+  retval = (unsigned) (count * stmt_cost);
+  cost[where] += retval;
 
   return retval;
 }

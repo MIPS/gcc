@@ -6025,11 +6025,11 @@ s390_split_branches (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
-      if (! JUMP_P (insn))
+      if (! JUMP_P (insn) || tablejump_p (insn, NULL, NULL))
 	continue;
 
       pat = PATTERN (insn);
-      if (GET_CODE (pat) == PARALLEL && XVECLEN (pat, 0) > 2)
+      if (GET_CODE (pat) == PARALLEL)
 	pat = XVECEXP (pat, 0, 0);
       if (GET_CODE (pat) != SET || SET_DEST (pat) != pc_rtx)
 	continue;
@@ -7049,6 +7049,8 @@ s390_chunkify_start (void)
 
   for (insn = get_insns (); insn; insn = NEXT_INSN (insn))
     {
+      rtx table;
+
       /* Labels marked with LABEL_PRESERVE_P can be target
 	 of non-local jumps, so we have to mark them.
 	 The same holds for named labels.
@@ -7063,42 +7065,41 @@ s390_chunkify_start (void)
 	  if (! vec_insn || ! JUMP_TABLE_DATA_P (vec_insn))
 	    bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (insn));
 	}
+      /* Check potential targets in a table jump (casesi_jump).  */
+      else if (tablejump_p (insn, NULL, &table))
+	{
+	  rtx vec_pat = PATTERN (table);
+	  int i, diff_p = GET_CODE (vec_pat) == ADDR_DIFF_VEC;
 
-      /* If we have a direct jump (conditional or unconditional)
-	 or a casesi jump, check all potential targets.  */
+	  for (i = 0; i < XVECLEN (vec_pat, diff_p); i++)
+	    {
+	      rtx label = XEXP (XVECEXP (vec_pat, diff_p, i), 0);
+
+	      if (s390_find_pool (pool_list, label)
+		  != s390_find_pool (pool_list, insn))
+		bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (label));
+	    }
+	}
+      /* If we have a direct jump (conditional or unconditional),
+	 check all potential targets.  */
       else if (JUMP_P (insn))
 	{
-          rtx pat = PATTERN (insn);
-          rtx table;
+	  rtx pat = PATTERN (insn);
 
-	  if (GET_CODE (pat) == PARALLEL && XVECLEN (pat, 0) > 2)
+	  if (GET_CODE (pat) == PARALLEL)
 	    pat = XVECEXP (pat, 0, 0);
 
-          if (GET_CODE (pat) == SET)
-            {
+	  if (GET_CODE (pat) == SET)
+	    {
 	      rtx label = JUMP_LABEL (insn);
 	      if (label)
 		{
-	          if (s390_find_pool (pool_list, label)
+		  if (s390_find_pool (pool_list, label)
 		      != s390_find_pool (pool_list, insn))
 		    bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (label));
 		}
-            }
-         else if (tablejump_p (insn, NULL, &table))
-           {
-             rtx vec_pat = PATTERN (table);
-             int i, diff_p = GET_CODE (vec_pat) == ADDR_DIFF_VEC;
-
-             for (i = 0; i < XVECLEN (vec_pat, diff_p); i++)
-               {
-                 rtx label = XEXP (XVECEXP (vec_pat, diff_p, i), 0);
-
-                 if (s390_find_pool (pool_list, label)
-                     != s390_find_pool (pool_list, insn))
-                   bitmap_set_bit (far_labels, CODE_LABEL_NUMBER (label));
-		}
 	    }
-        }
+	}
     }
 
   /* Insert base register reload insns before every pool.  */
@@ -9589,7 +9590,7 @@ s390_expand_tbegin (rtx dest, rtx tdb, rtx retry, bool clobber_fprs_p)
   rtx retry_reg = gen_reg_rtx (SImode);
   rtx retry_label = NULL_RTX;
   rtx jump;
-  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
 
   if (retry != NULL_RTX)
     {
@@ -9612,7 +9613,7 @@ s390_expand_tbegin (rtx dest, rtx tdb, rtx retry, bool clobber_fprs_p)
 
   JUMP_LABEL (jump) = abort_label;
   LABEL_NUSES (abort_label) = 1;
-  add_reg_note (jump, REG_BR_PROB, very_unlikely);
+  add_int_reg_note (jump, REG_BR_PROB, very_unlikely);
 
   /* Initialize CC return value.  */
   emit_move_insn (dest, const0_rtx);
@@ -9632,7 +9633,7 @@ s390_expand_tbegin (rtx dest, rtx tdb, rtx retry, bool clobber_fprs_p)
 			       gen_rtx_REG (CCRAWmode, CC_REGNUM),
 			       gen_rtx_CONST_INT (VOIDmode, CC1 | CC3)));
       LABEL_NUSES (leave_label) = 2;
-      add_reg_note (jump, REG_BR_PROB, very_unlikely);
+      add_int_reg_note (jump, REG_BR_PROB, very_unlikely);
 
       /* CC2 - transient failure. Perform retry with ppa.  */
       emit_move_insn (count, retry);

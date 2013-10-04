@@ -853,6 +853,7 @@ copy_var_decl (tree var, tree name, tree type)
   TREE_NO_WARNING (copy) = TREE_NO_WARNING (var);
   TREE_USED (copy) = 1;
   DECL_SEEN_IN_BIND_EXPR_P (copy) = 1;
+  DECL_ATTRIBUTES (copy) = DECL_ATTRIBUTES (var);
 
   return copy;
 }
@@ -2774,6 +2775,9 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
   if (lane)
     {
       tree uid = create_tmp_var (ptr_type_node, "simduid");
+      /* Don't want uninit warnings on simduid, it is always uninitialized,
+	 but we use it not for the value, but for the DECL_UID only.  */
+      TREE_NO_WARNING (uid) = 1;
       gimple g
 	= gimple_build_call_internal (IFN_GOMP_SIMD_LANE, 1, uid);
       gimple_call_set_lhs (g, lane);
@@ -5868,8 +5872,7 @@ expand_omp_sections (struct omp_region *region)
     {
       /* If we are not inside a combined parallel+sections region,
 	 call GOMP_sections_start.  */
-      t = build_int_cst (unsigned_type_node,
-			 exit_reachable ? len - 1 : len);
+      t = build_int_cst (unsigned_type_node, len - 1);
       u = builtin_decl_explicit (BUILT_IN_GOMP_SECTIONS_START);
       stmt = gimple_build_call (u, 1, t);
     }
@@ -6857,8 +6860,8 @@ const pass_data pass_data_expand_omp =
 class pass_expand_omp : public gimple_opt_pass
 {
 public:
-  pass_expand_omp(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_expand_omp, ctxt)
+  pass_expand_omp (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_expand_omp, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -8053,8 +8056,8 @@ const pass_data pass_data_lower_omp =
 class pass_lower_omp : public gimple_opt_pass
 {
 public:
-  pass_lower_omp(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_lower_omp, ctxt)
+  pass_lower_omp (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_omp, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -8334,8 +8337,8 @@ const pass_data pass_data_diagnose_omp_blocks =
 class pass_diagnose_omp_blocks : public gimple_opt_pass
 {
 public:
-  pass_diagnose_omp_blocks(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_diagnose_omp_blocks, ctxt)
+  pass_diagnose_omp_blocks (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_diagnose_omp_blocks, ctxt)
   {}
 
   /* opt_pass methods: */

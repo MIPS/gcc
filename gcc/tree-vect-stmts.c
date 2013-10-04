@@ -2675,7 +2675,7 @@ vectorizable_conversion (gimple stmt, gimple_stmt_iterator *gsi,
     {
       if (modifier == WIDEN)
 	{
-	  vec_oprnds0.create (multi_step_cvt ? vect_pow2(multi_step_cvt) : 1);
+	  vec_oprnds0.create (multi_step_cvt ? vect_pow2 (multi_step_cvt) : 1);
 	  if (op_type == binary_op)
 	    vec_oprnds1.create (1);
 	}
@@ -4182,6 +4182,7 @@ vectorizable_store (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	      dataref_ptr = unshare_expr (DR_BASE_ADDRESS (first_dr));
 	      dataref_offset = build_int_cst (reference_alias_ptr_type
 					      (DR_REF (first_dr)), 0);
+	      inv_p = false;
 	    }
 	  else
 	    dataref_ptr
@@ -4789,7 +4790,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    (unshare_expr (DR_BASE_ADDRESS (dr)),
 	     size_binop (PLUS_EXPR,
 			 convert_to_ptrofftype (unshare_expr (DR_OFFSET (dr))),
-			 convert_to_ptrofftype (DR_INIT(dr))));
+			 convert_to_ptrofftype (DR_INIT (dr))));
       stride_step = fold_convert (sizetype, unshare_expr (DR_STEP (dr)));
 
       /* For a load with loop-invariant (but other than power-of-2)
@@ -5077,6 +5078,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	      dataref_ptr = unshare_expr (DR_BASE_ADDRESS (first_dr));
 	      dataref_offset = build_int_cst (reference_alias_ptr_type
 					      (DR_REF (first_dr)), 0);
+	      inv_p = false;
 	    }
 	  else
 	    dataref_ptr

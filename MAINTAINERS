@@ -213,6 +213,7 @@ config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pth@suse.de
 i18n			Joseph Myers		joseph@codesourcery.com
+diagnostic messages	Dodji Seketeli		dodji@redhat.com
 build machinery (*.in)	Paolo Bonzini		bonzini@gnu.org
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Nathanael Nerode	neroden@gcc.gnu.org
@@ -525,7 +526,7 @@ Johannes Singler				singler@kit.edu
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Jan Sjodin					jan.sjodin@amd.com
 Edward Smith-Rowland				3dw4rd@verizon.net
-Jayant Sonar					jayant.sonar@kpitcummins.com
+Jayant Sonar					rsonar.jayant@gmail.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
 Basile Starynkevitch				basile@starynkevitch.net
