@@ -874,6 +874,11 @@ fbounds-check
 Common Report Var(flag_bounds_check)
 Generate code to check bounds before indexing arrays
 
+fcheck-pointers
+Common Report Var(flag_check_pointers)
+Add pointers checker instrumentation.  fchkp-* flags are used to
+control instrumentation.  Currently available for C, C++ and ObjC.
+
 fbranch-count-reg
 Common Report Var(flag_branch_on_count_reg) Init(1) Optimization
 Replace add, compare, branch with branch on count register

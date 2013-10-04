@@ -1290,6 +1290,18 @@ process_options (void)
   if (flag_mudflap && flag_lto)
     sorry ("mudflap cannot be used together with link-time optimization");
 
+  if (flag_check_pointers)
+    {
+      if (flag_lto)
+	sorry ("Pointers checker is not yet fully supported for link-time optimization");
+
+      if (targetm.chkp_bound_mode () == VOIDmode)
+	error ("-fcheck-pointers is not supported for this target.");
+
+      if (!lang_hooks.chkp_supported)
+	flag_check_pointers = 0;
+    }
+
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
     flag_ira_region
