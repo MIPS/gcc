@@ -1,0 +1,4 @@
+2013-10-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* configure.ac: Add --enable-host-shared.
+	* configure: Regenerate.
