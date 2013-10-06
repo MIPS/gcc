@@ -576,6 +576,9 @@ extern int dot_symbols;
 /* The default value isn't sufficient in 64-bit mode.  */
 #define STACK_CHECK_PROTECT (TARGET_64BIT ? 16 * 1024 : 12 * 1024)
 
+#undef PROFILE_USE_ATOMIC
+#define PROFILE_USE_ATOMIC "-latomic"
+
 /* Software floating point support for exceptions and rounding modes
    depends on the C library in use.  */
 #undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P

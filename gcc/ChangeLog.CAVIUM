@@ -218,6 +218,10 @@
 	
 2013-10-06  Andrew Pinski  <apinski@cavium.com>
 
+	* config/rs6000/linux64.h (PROFILE_USE_ATOMIC): Define.
+
+2013-10-06  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #8305
 	* config/linux.h (PROFILE_USE_ATOMIC): New define.
 	* config/rs6000/linux.h (PROFILE_USE_ATOMIC): Likewise.
