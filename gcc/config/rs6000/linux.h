@@ -146,6 +146,9 @@
 /* Static stack checking is supported by means of probes.  */
 #define STACK_CHECK_STATIC_BUILTIN 1
 
++#undef PROFILE_USE_ATOMIC
++#define PROFILE_USE_ATOMIC "-latomic"
+
 /* Software floating point support for exceptions and rounding modes
    depends on the C library in use.  */
 #undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P

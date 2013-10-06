@@ -126,4 +126,6 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 # undef TARGET_LIBC_HAS_FUNCTION
 # define TARGET_LIBC_HAS_FUNCTION linux_libc_has_function
 
+#undef PROFILE_USE_ATOMIC
+#define PROFILE_USE_ATOMIC "-latomic"
 #endif

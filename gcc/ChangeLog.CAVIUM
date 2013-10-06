@@ -216,6 +216,14 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2013-10-06  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #8305
+	* config/linux.h (PROFILE_USE_ATOMIC): New define.
+	* config/rs6000/linux.h (PROFILE_USE_ATOMIC): Likewise.
+	* gcc/gcc.c (PROFILE_USE_ATOMIC): Define.
+	(LINK_COMMAND_SPEC): Use PROFILE_USE_ATOMIC.
+
 2013-08-16  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #7620
