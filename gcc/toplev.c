@@ -579,6 +579,9 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
+      if (flag_check_pointers)
+	chkp_finish_file ();
+
       output_shared_constant_pool ();
       output_object_blocks ();
       finish_tm_clone_pairs ();
