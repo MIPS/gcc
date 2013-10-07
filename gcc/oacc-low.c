@@ -291,7 +291,7 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
   tree child_fn;
   gimple stmt = gsi_stmt (*gsi), call_stmt;
   gimple_seq* pbody;
-  int i;
+  unsigned i;
 
   pbody = gimple_acc_body_ptr(stmt);
   lower_oacc(pbody, ctx);
@@ -692,7 +692,7 @@ generate_ocl_module_name(void)
 static bool
 switch_ocl_module(char* cur_module)
 {
-  if(ocl_module == NULL || strcmp(ocl_module, cur_module) != 0) {
+  if(ocl_module == NULL || strcmp((const char*)ocl_module, (const char*)cur_module) != 0) {
       if(access(cur_module, 0) == 0) {
           unlink(cur_module);
       }
@@ -1108,7 +1108,7 @@ ctrl_var_cb(tree var, gimple stmt, void* data)
         {
           if(gimple_code (stmt) == GIMPLE_PHI)
             {
-              int i;
+              unsigned i;
               for(i = 0; i < piter->length(); ++i)
                 {
                   if(gsi_stmt((*piter)[i]) == stmt)
@@ -1141,7 +1141,7 @@ static void
 dump_fn_body(FILE* dump_file, const char* title)
 {
   tree var;
-  int i;
+  unsigned i;
   basic_block bb;
 
   fprintf(dump_file, "==============================\n%s\n========================\n", title);
@@ -1243,7 +1243,7 @@ parallelize_loop(struct loop* l)
   vec<gimple_stmt_iterator> ctrl_var_defs;
   gather_control_var_defs(ctrl_var, &ctrl_var_defs);
   if(dump_file) {
-      int i;
+      unsigned i;
       for(i = 0; i < ctrl_var_defs.length(); ++i) {
           print_gimple_stmt(dump_file, gsi_stmt(ctrl_var_defs[i]), 0, 0);
       }
@@ -1354,7 +1354,7 @@ parallelize_loop(struct loop* l)
   }
 
   for(i = 0; i < ctrl_var_defs.length(); ++i) {
-      int j;
+      unsigned j;
       gimple_stmt_iterator gsi = ctrl_var_defs[i];
       for(j = 0; j < loop_blocks.length(); ++j) {
           if(gsi.bb == loop_blocks[j]) {
@@ -1598,9 +1598,9 @@ static void
 finish_current_fn(void)
 {
   if(dump_file) {
-      fprintf(dump_file, "gimple_body=%p\n", cfun->gimple_body);
-      fprintf(dump_file, "gimple_df=%p\n", cfun->gimple_df);
-      fprintf(dump_file, "cfg=%p\n", cfun->cfg);
+      fprintf(dump_file, "gimple_body=%p\n", (void*)cfun->gimple_body);
+      fprintf(dump_file, "gimple_df=%p\n", (void*)cfun->gimple_df);
+      fprintf(dump_file, "cfg=%p\n", (void*)cfun->cfg);
   }
   /*
      struct cgraph_node* node = cgraph_get_node(current_function_decl);

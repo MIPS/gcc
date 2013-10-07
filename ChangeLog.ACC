@@ -1,3 +1,8 @@
+07-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Fix some warnings
+    
+    * gcc/oacc-low.c: Fix some warnings.
+
 03-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Rewrite GIMPLE_ACC_* structures
     
