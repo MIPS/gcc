@@ -45,6 +45,7 @@
 	(chkp_build_make_bounds_call): New.
 	(chkp_build_bndstx_call): New.
 	(chkp_expand_bounds_reset_for_mem): New.
+	(chkp_put_regs_to_expr_list): New.
 	(chkp_find_bound_slots): New.
 	(chkp_build_bndstx): New.
 	(chkp_parm_for_arg_bnd_arg): New.
