@@ -14,3 +14,4 @@
 	* gimple.c (gimple_build_return): Increase number of ops
 	for return statement.
 	(gimple_call_get_nobnd_arg_index): New.
+	* gimple-pretty-print.c (dump_gimple_return): Print second op.
