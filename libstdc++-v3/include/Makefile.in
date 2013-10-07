@@ -282,7 +282,7 @@ toolexeclibdir = $(glibcxx_toolexeclibdir)
 # or configure.ac to see how they are set.  See GLIBCXX_EXPORT_FLAGS.
 CONFIG_CXXFLAGS = \
 	$(SECTION_FLAGS) $(HWCAP_FLAGS) -frandom-seed=$@ \
-	$(subst yes,-fcheck-pointers -mmpx,$(enable_mpx:no=))
+	$(subst yes,-fcheck-pointers -fno-chkp-use-static-bounds -fno-chkp-check-incomplete-type -mmpx,$(enable_mpx:no=))
 
 WARN_CXXFLAGS = \
 	$(WARN_FLAGS) $(WERROR_FLAG) -fdiagnostics-show-location=once 
@@ -390,11 +390,13 @@ bits_headers = \
 	${bits_srcdir}/ostream_insert.h \
 	${bits_srcdir}/parse_numbers.h \
 	${bits_srcdir}/postypes.h \
+	${bits_srcdir}/predefined_ops.h \
 	${bits_srcdir}/ptr_traits.h \
 	${bits_srcdir}/random.h \
 	${bits_srcdir}/random.tcc \
 	${bits_srcdir}/range_access.h \
 	${bits_srcdir}/regex.h \
+	${bits_srcdir}/regex.tcc \
 	${bits_srcdir}/regex_constants.h \
 	${bits_srcdir}/regex_error.h \
 	${bits_srcdir}/regex_scanner.h \

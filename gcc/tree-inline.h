@@ -60,6 +60,9 @@ typedef struct copy_body_data
   /* The VAR_DECL for the return value.  */
   tree retvar;
 
+  /* The VAR_DECL for the return bounds.  */
+  tree retbnd;
+
   /* The map from local declarations in the inlined function to
      equivalents in the function into which it is being inlined.  */
   struct pointer_map_t *decl_map;
@@ -96,6 +99,10 @@ typedef struct copy_body_data
      MODIFY_EXPR.  The branch semantics of the return will be handled
      by manipulating the CFG rather than a statement.  */
   bool transform_return_to_modify;
+
+  /* True if the parameters of the source function are transformed.
+     Only true for inlining.  */
+  bool transform_parameter;
 
   /* True if this statement will need to be regimplified.  */
   bool regimplify;

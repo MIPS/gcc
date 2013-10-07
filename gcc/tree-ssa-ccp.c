@@ -119,7 +119,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "value-prof.h"
@@ -1728,6 +1728,14 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
 	insert_clobber_before_stack_restore (gimple_phi_result (stmt), var,
 					     visited);
       }
+    else if (gimple_assign_ssa_name_copy_p (stmt))
+      insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
+					   visited);
+    else if (flag_check_pointers
+	     && gimple_code (stmt) == GIMPLE_CALL
+	     && gimple_call_fndecl (stmt)
+	     == targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET))
+      continue;
     else
       gcc_assert (is_gimple_debug (stmt));
 }
@@ -2163,8 +2171,8 @@ const pass_data pass_data_ccp =
 class pass_ccp : public gimple_opt_pass
 {
 public:
-  pass_ccp(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_ccp, ctxt)
+  pass_ccp (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_ccp, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -2580,8 +2588,8 @@ const pass_data pass_data_fold_builtins =
 class pass_fold_builtins : public gimple_opt_pass
 {
 public:
-  pass_fold_builtins(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_fold_builtins, ctxt)
+  pass_fold_builtins (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_fold_builtins, ctxt)
   {}
 
   /* opt_pass methods: */

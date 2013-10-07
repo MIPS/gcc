@@ -81,7 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -475,6 +475,31 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
     }
   if (!VOID_TYPE_P (TREE_TYPE (current_function_decl)))
     call_overhead += estimate_move_cost (TREE_TYPE (current_function_decl));
+
+  /* Currently bounds passing and return is not supported for
+     splitted functions.  */
+  if (flag_check_pointers)
+    {
+      unsigned i;
+      bitmap_iterator bi;
+      EXECUTE_IF_SET_IN_BITMAP (current->ssa_names_to_pass, 0, i, bi)
+	{
+	  if (BOUND_TYPE_P (TREE_TYPE (ssa_name (i))))
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file,
+			 "  Refused: need to pass bounds\n");
+	      return;
+	    }
+	}
+      if (chkp_type_has_pointer (TREE_TYPE (current_function_decl)))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "  Refused: need to return bounds\n");
+	  return;
+	}
+    }
 
   if (current->split_size <= call_overhead)
     {
@@ -1111,6 +1136,12 @@ split_function (struct split_point *split_point)
 	if (!useless_type_conversion_p (DECL_ARG_TYPE (parm), TREE_TYPE (arg)))
 	  arg = fold_convert (DECL_ARG_TYPE (parm), arg);
 	args_to_pass.safe_push (arg);
+
+	/* We know no bounds need to be passed but still
+	   pass zero bounds to avoid heterogeneity in calls.  */
+	if (flag_check_pointers)
+	  for (i = 0; i < chkp_type_bounds_count (TREE_TYPE (arg)); i++)
+	    args_to_pass.safe_push (chkp_get_zero_bounds_var ());
       }
 
   /* See if the split function will return.  */
@@ -1222,6 +1253,9 @@ split_function (struct split_point *split_point)
       DECL_BUILT_IN_CLASS (node->symbol.decl) = NOT_BUILT_IN;
       DECL_FUNCTION_CODE (node->symbol.decl) = (enum built_in_function) 0;
     }
+  /* If the original function is declared inline, there is no point in issuing
+     a warning for the non-inlinable part.  */
+  DECL_NO_INLINE_WARNING_P (node->symbol.decl) = 1;
   cgraph_node_remove_callees (cur_node);
   ipa_remove_all_references (&cur_node->symbol.ref_list);
   if (!split_part_return_p)
@@ -1537,7 +1571,9 @@ execute_split_functions (void)
      Note that we are not completely conservative about disqualifying functions
      called once.  It is possible that the caller is called more then once and
      then inlining would still benefit.  */
-  if ((!node->callers || !node->callers->next_caller)
+  if ((!node->callers
+       /* Local functions called once will be completely inlined most of time.  */
+       || (!node->callers->next_caller && node->local.local))
       && !node->symbol.address_taken
       && (!flag_lto || !node->symbol.externally_visible))
     {
@@ -1645,8 +1681,8 @@ const pass_data pass_data_split_functions =
 class pass_split_functions : public gimple_opt_pass
 {
 public:
-  pass_split_functions(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_split_functions, ctxt)
+  pass_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_split_functions, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1705,8 +1741,8 @@ const pass_data pass_data_feedback_split_functions =
 class pass_feedback_split_functions : public gimple_opt_pass
 {
 public:
-  pass_feedback_split_functions(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_feedback_split_functions, ctxt)
+  pass_feedback_split_functions (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_feedback_split_functions, ctxt)
   {}
 
   /* opt_pass methods: */

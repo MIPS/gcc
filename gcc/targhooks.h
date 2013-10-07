@@ -193,7 +193,7 @@ extern int default_label_align_max_skip (rtx);
 extern int default_jump_align_max_skip (rtx);
 extern section * default_function_section(tree decl, enum node_frequency freq,
 					  bool startup, bool exit);
-extern enum machine_mode default_get_reg_raw_mode(int);
+extern enum machine_mode default_get_reg_raw_mode (int);
 
 extern void *default_get_pch_validity (size_t *);
 extern const char *default_pch_valid_p (const void *, size_t);
@@ -204,8 +204,9 @@ extern enum machine_mode default_cstore_mode (enum insn_code);
 extern bool default_member_type_forces_blk (const_tree, enum machine_mode);
 
 extern rtx default_load_bounds_for_arg (rtx, rtx, rtx);
-extern rtx default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
+extern void default_store_bounds_for_arg (rtx, rtx, rtx, rtx);
 extern tree default_fn_abi_va_list_bounds_size (tree);
 extern void default_init_returned_bounds (tree);
+extern tree default_chkp_bound_type (void);
 extern enum machine_mode default_chkp_bound_mode (void);
 extern tree default_builtin_chkp_function (unsigned int);

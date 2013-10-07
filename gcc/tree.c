@@ -47,7 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-iterator.h"
 #include "basic-block.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "params.h"
 #include "pointer-set.h"
 #include "tree-pass.h"
@@ -1007,7 +1007,7 @@ copy_node_stat (tree node MEM_STAT_DECL)
       TYPE_SYMTAB_ADDRESS (t) = 0;
 
       /* Do not copy the values cache.  */
-      if (TYPE_CACHED_VALUES_P(t))
+      if (TYPE_CACHED_VALUES_P (t))
 	{
 	  TYPE_CACHED_VALUES_P (t) = 0;
 	  TYPE_CACHED_VALUES (t) = NULL_TREE;
@@ -1112,7 +1112,7 @@ force_fit_type_double (tree type, double_int cst, int overflowable,
   bool sign_extended_type = !TYPE_UNSIGNED (type);
 
   /* If we need to set overflow flags, return a new unshared node.  */
-  if (overflowed || !double_int_fits_to_tree_p(type, cst))
+  if (overflowed || !double_int_fits_to_tree_p (type, cst))
     {
       if (overflowed
 	  || overflowable < 0
@@ -1727,7 +1727,7 @@ build_one_cst (tree type)
     case FIXED_POINT_TYPE:
       /* We can only generate 1 for accum types.  */
       gcc_assert (ALL_SCALAR_ACCUM_MODE_P (TYPE_MODE (type)));
-      return build_fixed (type, FCONST1(TYPE_MODE (type)));
+      return build_fixed (type, FCONST1 (TYPE_MODE (type)));
 
     case VECTOR_TYPE:
       {
@@ -4120,8 +4120,8 @@ build2_stat (enum tree_code code, tree tt, tree arg0, tree arg1 MEM_STAT_DECL)
   read_only = 1;
   side_effects = TREE_SIDE_EFFECTS (t);
 
-  PROCESS_ARG(0);
-  PROCESS_ARG(1);
+  PROCESS_ARG (0);
+  PROCESS_ARG (1);
 
   TREE_READONLY (t) = read_only;
   TREE_CONSTANT (t) = constant;
@@ -4160,9 +4160,9 @@ build3_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
   else
     side_effects = TREE_SIDE_EFFECTS (t);
 
-  PROCESS_ARG(0);
-  PROCESS_ARG(1);
-  PROCESS_ARG(2);
+  PROCESS_ARG (0);
+  PROCESS_ARG (1);
+  PROCESS_ARG (2);
 
   if (code == COND_EXPR)
     TREE_READONLY (t) = read_only;
@@ -4189,10 +4189,10 @@ build4_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 
   side_effects = TREE_SIDE_EFFECTS (t);
 
-  PROCESS_ARG(0);
-  PROCESS_ARG(1);
-  PROCESS_ARG(2);
-  PROCESS_ARG(3);
+  PROCESS_ARG (0);
+  PROCESS_ARG (1);
+  PROCESS_ARG (2);
+  PROCESS_ARG (3);
 
   TREE_SIDE_EFFECTS (t) = side_effects;
   TREE_THIS_VOLATILE (t)
@@ -4216,11 +4216,11 @@ build5_stat (enum tree_code code, tree tt, tree arg0, tree arg1,
 
   side_effects = TREE_SIDE_EFFECTS (t);
 
-  PROCESS_ARG(0);
-  PROCESS_ARG(1);
-  PROCESS_ARG(2);
-  PROCESS_ARG(3);
-  PROCESS_ARG(4);
+  PROCESS_ARG (0);
+  PROCESS_ARG (1);
+  PROCESS_ARG (2);
+  PROCESS_ARG (3);
+  PROCESS_ARG (4);
 
   TREE_SIDE_EFFECTS (t) = side_effects;
   TREE_THIS_VOLATILE (t)
@@ -4263,24 +4263,6 @@ mem_ref_offset (const_tree t)
 {
   tree toff = TREE_OPERAND (t, 1);
   return tree_to_double_int (toff).sext (TYPE_PRECISION (TREE_TYPE (toff)));
-}
-
-/* Return the pointer-type relevant for TBAA purposes from the
-   gimple memory reference tree T.  This is the type to be used for
-   the offset operand of MEM_REF or TARGET_MEM_REF replacements of T.  */
-
-tree
-reference_alias_ptr_type (const_tree t)
-{
-  const_tree base = t;
-  while (handled_component_p (base))
-    base = TREE_OPERAND (base, 0);
-  if (TREE_CODE (base) == MEM_REF)
-    return TREE_TYPE (TREE_OPERAND (base, 1));
-  else if (TREE_CODE (base) == TARGET_MEM_REF)
-    return TREE_TYPE (TMR_OFFSET (base)); 
-  else
-    return build_pointer_type (TYPE_MAIN_VARIANT (TREE_TYPE (base)));
 }
 
 /* Return an invariant ADDR_EXPR of type TYPE taking the address of BASE
@@ -5535,8 +5517,8 @@ const pass_data pass_data_ipa_free_lang_data =
 class pass_ipa_free_lang_data : public simple_ipa_opt_pass
 {
 public:
-  pass_ipa_free_lang_data(gcc::context *ctxt)
-    : simple_ipa_opt_pass(pass_data_ipa_free_lang_data, ctxt)
+  pass_ipa_free_lang_data (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_free_lang_data, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -6700,9 +6682,11 @@ attribute_list_contained (const_tree l1, const_tree l2)
       /* This CONST_CAST is okay because lookup_attribute does not
 	 modify its argument and the return value is assigned to a
 	 const_tree.  */
-      for (attr = lookup_ident_attribute (get_attribute_name (t2), CONST_CAST_TREE(l1));
+      for (attr = lookup_ident_attribute (get_attribute_name (t2),
+					  CONST_CAST_TREE (l1));
 	   attr != NULL_TREE && !attribute_value_equal (t2, attr);
-	   attr = lookup_ident_attribute (get_attribute_name (t2), TREE_CHAIN (attr)))
+	   attr = lookup_ident_attribute (get_attribute_name (t2),
+					  TREE_CHAIN (attr)))
 	;
 
       if (attr == NULL_TREE)
@@ -7300,21 +7284,6 @@ iterative_hash_expr (const_tree t, hashval_t val)
 	  }
 	return val;
       }
-    case MEM_REF:
-      {
-	/* The type of the second operand is relevant, except for
-	   its top-level qualifiers.  */
-	tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_OPERAND (t, 1)));
-
-	val = iterative_hash_object (TYPE_HASH (type), val);
-
-	/* We could use the standard hash computation from this point
-	   on.  */
-	val = iterative_hash_object (code, val);
-	val = iterative_hash_expr (TREE_OPERAND (t, 1), val);
-	val = iterative_hash_expr (TREE_OPERAND (t, 0), val);
-	return val;
-      }
     case FUNCTION_DECL:
       /* When referring to a built-in FUNCTION_DECL, use the __builtin__ form.
 	 Otherwise nodes that compare equal according to operand_equal_p might
@@ -7836,9 +7805,9 @@ strip_array_types (tree type)
    true) or would not differ from ARGTYPES.  */
 
 static tree
-maybe_canonicalize_argtypes(tree argtypes,
-			    bool *any_structural_p,
-			    bool *any_noncanonical_p)
+maybe_canonicalize_argtypes (tree argtypes,
+			     bool *any_structural_p,
+			     bool *any_noncanonical_p)
 {
   tree arg;
   bool any_noncanonical_argtypes_p = false;
@@ -9377,7 +9346,7 @@ tree_contains_struct_check_failed (const_tree node,
 {
   internal_error
     ("tree check: expected tree that contains %qs structure, have %qs in %s, at %s:%d",
-     TS_ENUM_NAME(en),
+     TS_ENUM_NAME (en),
      tree_code_name[TREE_CODE (node)], function, trim_filename (file), line);
 }
 
@@ -9666,9 +9635,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   void_type_node = make_node (VOID_TYPE);
   layout_type (void_type_node);
 
-  bound_type_node = make_node (BOUND_TYPE);
-  TYPE_PRECISION (bound_type_node) = TYPE_PRECISION (size_type_node) * 2;
-  layout_type (bound_type_node);
+  bound_type_node = targetm.chkp_bound_type ();
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
@@ -11037,7 +11004,8 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	unsigned HOST_WIDE_INT idx;
 	constructor_elt *ce;
 
-	for (idx = 0; vec_safe_iterate(CONSTRUCTOR_ELTS (*tp), idx, &ce); idx++)
+	for (idx = 0; vec_safe_iterate (CONSTRUCTOR_ELTS (*tp), idx, &ce);
+	     idx++)
 	  WALK_SUBTREE (ce->value);
       }
       break;
@@ -11343,7 +11311,7 @@ stdarg_p (const_tree fntype)
   if (!fntype)
     return false;
 
-  FOREACH_FUNCTION_ARGS(fntype, t, args_iter)
+  FOREACH_FUNCTION_ARGS (fntype, t, args_iter)
     {
       n = t;
     }
@@ -11859,11 +11827,6 @@ types_same_for_odr (tree type1, tree type2)
   if (type1 == type2)
     return true;
 
-  /* If types are not structuraly same, do not bother to contnue.
-     Match in the remainder of code would mean ODR violation.  */
-  if (!types_compatible_p (type1, type2))
-    return false;
-
 #ifndef ENABLE_CHECKING
   if (!in_lto_p)
     return false;
@@ -11874,7 +11837,39 @@ types_same_for_odr (tree type1, tree type2)
   if (type_in_anonymous_namespace_p (type1)
       || type_in_anonymous_namespace_p (type2))
     return false;
+  /* When assembler name of virtual table is available, it is
+     easy to compare types for equivalence.  */
+  if (TYPE_BINFO (type1) && TYPE_BINFO (type2)
+      && BINFO_VTABLE (TYPE_BINFO (type1))
+      && BINFO_VTABLE (TYPE_BINFO (type2)))
+    {
+      tree v1 = BINFO_VTABLE (TYPE_BINFO (type1));
+      tree v2 = BINFO_VTABLE (TYPE_BINFO (type2));
 
+      if (TREE_CODE (v1) == POINTER_PLUS_EXPR)
+	{
+	  if (TREE_CODE (v2) != POINTER_PLUS_EXPR
+	      || !operand_equal_p (TREE_OPERAND (v1, 1),
+			     TREE_OPERAND (v2, 1), 0))
+	    return false;
+	  v1 = TREE_OPERAND (TREE_OPERAND (v1, 0), 0);
+	  v2 = TREE_OPERAND (TREE_OPERAND (v2, 0), 0);
+	}
+      v1 = DECL_ASSEMBLER_NAME (v1);
+      v2 = DECL_ASSEMBLER_NAME (v2);
+      return (v1 == v2);
+    }
+
+  /* FIXME: the code comparing type names consider all instantiations of the
+     same template to have same name.  This is because we have no access
+     to template parameters.  For types with no virtual method tables
+     we thus can return false positives.  At the moment we do not need
+     to compare types in other scenarios than devirtualization.  */
+
+  /* If types are not structuraly same, do not bother to contnue.
+     Match in the remainder of code would mean ODR violation.  */
+  if (!types_compatible_p (type1, type2))
+    return false;
   if (!TYPE_NAME (type1))
     return false;
   if (!decls_same_for_odr (TYPE_NAME (type1), TYPE_NAME (type2)))

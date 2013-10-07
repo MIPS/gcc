@@ -68,7 +68,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "intl.h"
 #include "opts.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-ssa-alias.h"
 #include "insn-codes.h"
 
@@ -93,7 +93,7 @@ void
 default_external_libcall (rtx fun ATTRIBUTE_UNUSED)
 {
 #ifdef ASM_OUTPUT_EXTERNAL_LIBCALL
-  ASM_OUTPUT_EXTERNAL_LIBCALL(asm_out_file, fun);
+  ASM_OUTPUT_EXTERNAL_LIBCALL (asm_out_file, fun);
 #endif
 }
 
@@ -1057,20 +1057,17 @@ default_add_stmt_cost (void *data, int count, enum vect_cost_for_stmt kind,
   unsigned *cost = (unsigned *) data;
   unsigned retval = 0;
 
-  if (flag_vect_cost_model)
-    {
-      tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
-      int stmt_cost = default_builtin_vectorization_cost (kind, vectype,
+  tree vectype = stmt_info ? stmt_vectype (stmt_info) : NULL_TREE;
+  int stmt_cost = default_builtin_vectorization_cost (kind, vectype,
 							  misalign);
-      /* Statements in an inner loop relative to the loop being
-	 vectorized are weighted more heavily.  The value here is
-	 arbitrary and could potentially be improved with analysis.  */
-      if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
-	count *= 50;  /* FIXME.  */
+   /* Statements in an inner loop relative to the loop being
+      vectorized are weighted more heavily.  The value here is
+      arbitrary and could potentially be improved with analysis.  */
+  if (where == vect_body && stmt_info && stmt_in_inner_loop_p (stmt_info))
+    count *= 50;  /* FIXME.  */
 
-      retval = (unsigned) (count * stmt_cost);
-      cost[where] += retval;
-    }
+  retval = (unsigned) (count * stmt_cost);
+  cost[where] += retval;
 
   return retval;
 }
@@ -1430,7 +1427,7 @@ default_debug_unwind_info (void)
    mode for registers used in apply_builtin_return and apply_builtin_arg.  */
 
 enum machine_mode
-default_get_reg_raw_mode(int regno)
+default_get_reg_raw_mode (int regno)
 {
   return reg_raw_mode[regno];
 }
@@ -1567,7 +1564,7 @@ default_load_bounds_for_arg (rtx addr ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
-rtx
+void
 default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
 			      rtx addr ATTRIBUTE_UNUSED,
 			      rtx bounds ATTRIBUTE_UNUSED,
@@ -1592,6 +1589,15 @@ default_fn_abi_va_list_bounds_size (tree fndecl ATTRIBUTE_UNUSED)
 void
 default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
+}
+
+tree
+default_chkp_bound_type (void)
+{
+  tree res = make_node (BOUND_TYPE);
+  TYPE_PRECISION (res) = TYPE_PRECISION (size_type_node) * 2;
+  layout_type (res);
+  return res;
 }
 
 enum machine_mode

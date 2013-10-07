@@ -52,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "dce.h"
 #include "dbgcnt.h"
+#include "cgraph.h"
 
 #define FORWARDER_BLOCK_P(BB) ((BB)->flags & BB_FORWARDER_BLOCK)
 
@@ -923,6 +924,24 @@ merge_memattrs (rtx x, rtx y)
 
 	  set_mem_align (x, MIN (MEM_ALIGN (x), MEM_ALIGN (y)));
 	  set_mem_align (y, MEM_ALIGN (x));
+	}
+    }
+  if (code == MEM)
+    {
+      if (MEM_READONLY_P (x) != MEM_READONLY_P (y))
+	{
+	  MEM_READONLY_P (x) = 0;
+	  MEM_READONLY_P (y) = 0;
+	}
+      if (MEM_NOTRAP_P (x) != MEM_NOTRAP_P (y))
+	{
+	  MEM_NOTRAP_P (x) = 0;
+	  MEM_NOTRAP_P (y) = 0;
+	}
+      if (MEM_VOLATILE_P (x) != MEM_VOLATILE_P (y))
+	{
+	  MEM_VOLATILE_P (x) = 1;
+	  MEM_VOLATILE_P (y) = 1;
 	}
     }
 
@@ -3071,8 +3090,8 @@ const pass_data pass_data_jump =
 class pass_jump : public rtl_opt_pass
 {
 public:
-  pass_jump(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_jump, ctxt)
+  pass_jump (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_jump, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -3115,8 +3134,8 @@ const pass_data pass_data_jump2 =
 class pass_jump2 : public rtl_opt_pass
 {
 public:
-  pass_jump2(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_jump2, ctxt)
+  pass_jump2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_jump2, ctxt)
   {}
 
   /* opt_pass methods: */

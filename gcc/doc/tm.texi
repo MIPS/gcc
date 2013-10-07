@@ -4335,7 +4335,8 @@ The default version of this hook returns @code{va_list_type_node}.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE (tree @var{fndecl})
-This hook returns bounds for va_list object or integer_zero_node ifit does not have any (e.g. is scalar pointer to the stack).
+This hook returns size for va_list object or integer_zero_node if
+it does not have any (e.g. is scalar pointer to the stack).
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_CANONICAL_VA_LIST_TYPE (tree @var{type})
@@ -5156,17 +5157,17 @@ Otherwise, you should not define this hook.
 @end deftypefn
 
 @deftypefn {Target Hook} rtx TARGET_LOAD_BOUNDS_FOR_ARG (rtx, @var{rtx}, @var{rtx})
-Extend pass uses this hook to emit insn for arg
-bounds in case bounds are not passed on register.
+This hook is used to emit insn to load arg's bounds
+in case bounds are not passed on register.  Return loaded bounds
 @end deftypefn
 
-@deftypefn {Target Hook} rtx TARGET_STORE_BOUNDS_FOR_ARG (rtx, @var{rtx}, @var{rtx}, @var{rtx})
-Extend pass uses this hook to emit insn for arg
-bounds in case bounds are not passed on register.
+@deftypefn {Target Hook} void TARGET_STORE_BOUNDS_FOR_ARG (rtx, @var{rtx}, @var{rtx}, @var{rtx})
+This hook is used to emit insn to store arg's bounds
+in case bounds are not passed on register.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_INIT_RETURNED_BOUNDS (tree)
-Put bounds into place where returned bounds are expected.
+Put specified bounds into returned bounds slot of the current function.
 @end deftypefn
 
 @node Trampolines
@@ -5914,7 +5915,6 @@ interested in most macros in this section.
 @menu
 * CC0 Condition Codes::      Old style representation of condition codes.
 * MODE_CC Condition Codes::  Modern representation of condition codes.
-* Cond Exec Macros::         Macros to control conditional execution.
 @end menu
 
 @node CC0 Condition Codes
@@ -6123,15 +6123,6 @@ The default version of this hook checks whether the modes are the
 same.  If they are, it returns that mode.  If they are different, it
 returns @code{VOIDmode}.
 @end deftypefn
-
-@node Cond Exec Macros
-@subsection Macros to control conditional execution
-@findex conditional execution
-@findex predication
-
-There is one macro that may need to be defined for targets
-supporting conditional execution, independent of how they
-represent conditional branches.
 
 @node Costs
 @section Describing Relative Costs of Operations
@@ -10669,6 +10660,10 @@ Define this hook to return the name of a header file to be included at the start
  This hook can be used together with a header provided by the system C library to implement ISO C requirements for certain macros to be predefined that describe properties of the whole implementation rather than just the compiler.
 @end deftypefn
 
+@deftypefn {C Target Hook} bool TARGET_CXX_IMPLICIT_EXTERN_C (const char*@var{})
+Define this hook to add target-specific C++ implicit extern C functions. If this function returns true for the name of a file-scope function, that function implicitly gets extern "C" linkage rather than whatever language linkage the declaration would normally have.  An example of such function is WinMain on Win32 targets.
+@end deftypefn
+
 @defmac NO_IMPLICIT_EXTERN_C
 Define this macro if the system header files support C++ as well as C@.
 This macro inhibits the usual method of using system header files in
@@ -10933,7 +10928,7 @@ built-in function.
 
 @deftypefn {Target Hook} tree TARGET_BUILTIN_CHKP_FUNCTION (unsigned @var{fcode})
 Pointers checker instrumentation pass uses this hook to obtain
-target-specific functions which implement generic checker
+target-specific functions which implement specified generic checker
 builtins.
 @end deftypefn
 @deftypefn {Target Hook} tree TARGET_CHKP_BOUND_TYPE (void)

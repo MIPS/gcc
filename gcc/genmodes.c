@@ -419,7 +419,7 @@ complete_all_modes (void)
 }
 
 /* For each mode in class CLASS, construct a corresponding complex mode.  */
-#define COMPLEX_MODES(C) make_complex_modes(MODE_##C, __FILE__, __LINE__)
+#define COMPLEX_MODES(C) make_complex_modes (MODE_##C, __FILE__, __LINE__)
 static void
 make_complex_modes (enum mode_class cl,
 		    const char *file, unsigned int line)
@@ -475,7 +475,7 @@ make_complex_modes (enum mode_class cl,
 
 /* For all modes in class CL, construct vector modes of width
    WIDTH, having as many components as necessary.  */
-#define VECTOR_MODES(C, W) make_vector_modes(MODE_##C, W, __FILE__, __LINE__)
+#define VECTOR_MODES(C, W) make_vector_modes (MODE_##C, W, __FILE__, __LINE__)
 static void ATTRIBUTE_UNUSED
 make_vector_modes (enum mode_class cl, unsigned int width,
 		   const char *file, unsigned int line)
@@ -523,7 +523,8 @@ make_vector_modes (enum mode_class cl, unsigned int width,
 
 /* Input.  */
 
-#define _SPECIAL_MODE(C, N) make_special_mode(MODE_##C, #N, __FILE__, __LINE__)
+#define _SPECIAL_MODE(C, N) \
+  make_special_mode (MODE_##C, #N, __FILE__, __LINE__)
 #define RANDOM_MODE(N) _SPECIAL_MODE (RANDOM, N)
 #define CC_MODE(N) _SPECIAL_MODE (CC, N)
 
@@ -536,7 +537,7 @@ make_special_mode (enum mode_class cl, const char *name,
 
 #define BOUND_MODE(N, Y) make_bound_mode (#N, Y, __FILE__, __LINE__)
 
-static void
+static void ATTRIBUTE_UNUSED
 make_bound_mode (const char *name,
                unsigned int bytesize,
                const char *file, unsigned int line)
@@ -717,11 +718,11 @@ make_vector_mode (enum mode_class bclass,
 #define _ADD_ADJUST(A, M, X, C1, C2) \
   new_adjust (#M, &adj_##A, #A, #X, MODE_##C1, MODE_##C2, __FILE__, __LINE__)
 
-#define ADJUST_BYTESIZE(M, X)  _ADD_ADJUST(bytesize, M, X, RANDOM, RANDOM)
-#define ADJUST_ALIGNMENT(M, X) _ADD_ADJUST(alignment, M, X, RANDOM, RANDOM)
-#define ADJUST_FLOAT_FORMAT(M, X)    _ADD_ADJUST(format, M, X, FLOAT, FLOAT)
-#define ADJUST_IBIT(M, X)  _ADD_ADJUST(ibit, M, X, ACCUM, UACCUM)
-#define ADJUST_FBIT(M, X)  _ADD_ADJUST(fbit, M, X, FRACT, UACCUM)
+#define ADJUST_BYTESIZE(M, X)  _ADD_ADJUST (bytesize, M, X, RANDOM, RANDOM)
+#define ADJUST_ALIGNMENT(M, X) _ADD_ADJUST (alignment, M, X, RANDOM, RANDOM)
+#define ADJUST_FLOAT_FORMAT(M, X)    _ADD_ADJUST (format, M, X, FLOAT, FLOAT)
+#define ADJUST_IBIT(M, X)  _ADD_ADJUST (ibit, M, X, ACCUM, UACCUM)
+#define ADJUST_FBIT(M, X)  _ADD_ADJUST (fbit, M, X, FRACT, UACCUM)
 
 static void
 create_modes (void)

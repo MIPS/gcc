@@ -80,7 +80,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple.h"
 #include "cgraph.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "tree-pass.h"
 #include "ipa-prop.h"
 #include "statistics.h"
@@ -91,6 +91,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
+#include "ipa-utils.h"
 
 /* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode { SRA_MODE_EARLY_IPA,   /* early call regularization */
@@ -1256,8 +1257,7 @@ scan_function (void)
 		      if (DECL_BUILT_IN_CLASS (dest) == BUILT_IN_NORMAL
 			  && DECL_FUNCTION_CODE (dest) == BUILT_IN_APPLY_ARGS)
 			encountered_apply_args = true;
-		      if (cgraph_get_node (dest)
-			  == cgraph_get_node (current_function_decl))
+		      if (recursive_call_p (current_function_decl, dest))
 			{
 			  encountered_recursive_call = true;
 			  if (!callsite_has_enough_arguments_p (stmt))
@@ -3468,8 +3468,8 @@ const pass_data pass_data_sra_early =
 class pass_sra_early : public gimple_opt_pass
 {
 public:
-  pass_sra_early(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_sra_early, ctxt)
+  pass_sra_early (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_sra_early, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -3506,8 +3506,8 @@ const pass_data pass_data_sra =
 class pass_sra : public gimple_opt_pass
 {
 public:
-  pass_sra(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_sra, ctxt)
+  pass_sra (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_sra, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -3642,7 +3642,8 @@ find_param_candidates (void)
 
       if (TREE_THIS_VOLATILE (parm)
 	  || TREE_ADDRESSABLE (parm)
-	  || (!is_gimple_reg_type (type) && is_va_list_type (type)))
+	  || (!is_gimple_reg_type (type) && is_va_list_type (type))
+	  || (flag_check_pointers && chkp_type_has_pointer (type)))
 	continue;
 
       if (is_unused_scalar_param (parm))
@@ -4292,7 +4293,7 @@ analyze_all_param_acesses (void)
 
   repr_state = splice_all_param_accesses (representatives);
   if (repr_state == NO_GOOD_ACCESS)
-    return ipa_parm_adjustment_vec();
+    return ipa_parm_adjustment_vec ();
 
   /* If there are any parameters passed by reference which are not modified
      directly, we need to check whether they can be modified indirectly.  */
@@ -4356,7 +4357,7 @@ analyze_all_param_acesses (void)
     adjustments = turn_representatives_into_adjustments (representatives,
 							 adjustments_count);
   else
-    adjustments = ipa_parm_adjustment_vec();
+    adjustments = ipa_parm_adjustment_vec ();
 
   representatives.release ();
   return adjustments;
@@ -4906,6 +4907,16 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
   return cfg_changed;
 }
 
+/* If NODE has a caller, return true.  */
+
+static bool
+has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+  if (node->callers)
+    return true;
+  return false;
+}
+
 /* Return false the function is apparently unsuitable for IPA-SRA based on it's
    attributes, return true otherwise.  NODE is the cgraph node of the current
    function.  */
@@ -4942,14 +4953,14 @@ ipa_sra_preliminary_function_checks (struct cgraph_node *node)
     }
 
   if ((DECL_COMDAT (node->symbol.decl) || DECL_EXTERNAL (node->symbol.decl))
-      && inline_summary(node)->size >= MAX_INLINE_INSNS_AUTO)
+      && inline_summary (node)->size >= MAX_INLINE_INSNS_AUTO)
     {
       if (dump_file)
 	fprintf (dump_file, "Function too big to be made truly local.\n");
       return false;
     }
 
-  if (!node->callers)
+  if (!cgraph_for_node_and_aliases (node, has_caller_p, NULL, true))
     {
       if (dump_file)
 	fprintf (dump_file,
@@ -5078,8 +5089,8 @@ const pass_data pass_data_early_ipa_sra =
 class pass_early_ipa_sra : public gimple_opt_pass
 {
 public:
-  pass_early_ipa_sra(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_early_ipa_sra, ctxt)
+  pass_early_ipa_sra (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_ipa_sra, ctxt)
   {}
 
   /* opt_pass methods: */

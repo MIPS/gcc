@@ -26,7 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "flags.h"
 #include "function.h"
 #include "diagnostic-core.h"
@@ -118,7 +118,8 @@ lower_function_body (void)
      need to do anything special.  Otherwise build one by hand.  */
   if (gimple_seq_may_fallthru (lowered_body)
       && (data.return_statements.is_empty ()
-	  || gimple_return_retval (data.return_statements.last().stmt) != NULL))
+	  || (gimple_return_retval (data.return_statements.last().stmt)
+	      != NULL)))
     {
       x = gimple_build_return (NULL);
       gimple_set_location (x, cfun->function_end_locus);
@@ -197,8 +198,8 @@ const pass_data pass_data_lower_cf =
 class pass_lower_cf : public gimple_opt_pass
 {
 public:
-  pass_lower_cf(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_lower_cf, ctxt)
+  pass_lower_cf (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_lower_cf, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -245,40 +246,52 @@ gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
     {
       for (i = 0, p = DECL_ARGUMENTS (fndecl);
 	   i < nargs;
-	   i++, p = DECL_CHAIN (p))
+	   i++)
 	{
-	  tree arg;
+	  tree arg = gimple_call_arg (stmt, i);
+
+	  /* Skip bound args inserted by pointers checker.  */
+	  if (BOUND_TYPE_P (TREE_TYPE (arg)))
+	    continue;
+
 	  /* We cannot distinguish a varargs function from the case
 	     of excess parameters, still deferring the inlining decision
 	     to the callee is possible.  */
 	  if (!p)
 	    break;
-	  arg = gimple_call_arg (stmt, i);
+
 	  if (p == error_mark_node
 	      || arg == error_mark_node
 	      || (!types_compatible_p (DECL_ARG_TYPE (p), TREE_TYPE (arg))
 		  && !fold_convertible_p (DECL_ARG_TYPE (p), arg)))
             return false;
+
+	  p = DECL_CHAIN (p);
 	}
       if (args_count_match && p)
 	return false;
     }
   else if (parms)
     {
-      for (i = 0, p = parms; i < nargs; i++, p = TREE_CHAIN (p))
+      for (i = 0, p = parms; i < nargs; i++)
 	{
-	  tree arg;
-	  /* If this is a varargs function defer inlining decision
-	     to callee.  */
+	  tree arg = gimple_call_arg (stmt, i);
+
+	  /* Skip bound args inserted by pointers checker.  */
+	  if (BOUND_TYPE_P (TREE_TYPE (arg)))
+	    continue;
+
 	  if (!p)
 	    break;
-	  arg = gimple_call_arg (stmt, i);
+
 	  if (TREE_VALUE (p) == error_mark_node
 	      || arg == error_mark_node
 	      || TREE_CODE (TREE_VALUE (p)) == VOID_TYPE
 	      || (!types_compatible_p (TREE_VALUE (p), TREE_TYPE (arg))
 		  && !fold_convertible_p (TREE_VALUE (p), arg)))
             return false;
+
+	  p = TREE_CHAIN (p);
 	}
     }
   else
@@ -707,7 +720,7 @@ block_may_fallthru (const_tree block)
 {
   /* This CONST_CAST is okay because expr_last returns its argument
      unmodified and we assign it to a const_tree.  */
-  const_tree stmt = expr_last (CONST_CAST_TREE(block));
+  const_tree stmt = expr_last (CONST_CAST_TREE (block));
 
   switch (stmt ? TREE_CODE (stmt) : ERROR_MARK)
     {

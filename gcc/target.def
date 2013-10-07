@@ -2023,24 +2023,20 @@ built-in function.",
  (tree exp, rtx target, rtx subtarget, enum machine_mode mode, int ignore),
  default_expand_builtin)
 
-/* Return target-specific builtin function which implements
-   generic memory protection builtin.  */
 DEFHOOK
 (builtin_chkp_function,
  "Pointers checker instrumentation pass uses this hook to obtain\n\
-target-specific functions which implement generic checker\n\
+target-specific functions which implement specified generic checker\n\
 builtins.",
  tree, (unsigned fcode),
  default_builtin_chkp_function)
 
-/* Bounds type pointers checker should use.  */
 DEFHOOK
 (chkp_bound_type,
  "Return type to be used for bounds",
  tree, (void),
- hook_tree_void_null)
+ default_chkp_bound_type)
 
-/* Bounds mode pointers checker should use.  */
 DEFHOOK
 (chkp_bound_mode,
  "Return mode to be used for bounds.",
@@ -3297,12 +3293,9 @@ The default version of this hook returns @code{va_list_type_node}.",
  tree, (tree fndecl),
  std_fn_abi_va_list)
 
-/* Get the cfun/fndecl calling abi __builtin_va_list bounds size or
-   0 if va_list does not have own bounds (e.g. is scalar pointing
-   to args in the stack.  */
 DEFHOOK
 (fn_abi_va_list_bounds_size,
-"This hook returns bounds for va_list object or integer_zero_node if\
+ "This hook returns size for va_list object or integer_zero_node if\n\
 it does not have any (e.g. is scalar pointer to the stack).",
  tree, (tree fndecl),
  default_fn_abi_va_list_bounds_size)
@@ -3737,27 +3730,23 @@ not generate any instructions in this case.",
 	int *pretend_args_size, int second_time),
  default_setup_incoming_varargs)
 
-/* Returns rtx for bounds for specified incoming arg.  */
 DEFHOOK
 (load_bounds_for_arg,
- "Extend pass uses this hook to emit insn for arg\n\
-bounds in case bounds are not passed on register.",
+ "This hook is used to emit insn to load arg's bounds\n\
+in case bounds are not passed on register.  Return loaded bounds",
  rtx, (rtx, rtx, rtx),
  default_load_bounds_for_arg)
 
-/* Returns rtx for bounds store for specified arg.  */
 DEFHOOK
 (store_bounds_for_arg,
- "Extend pass uses this hook to emit insn for arg\n\
-bounds in case bounds are not passed on register.",
- rtx, (rtx, rtx, rtx, rtx),
+ "This hook is used to emit insn to store arg's bounds\n\
+in case bounds are not passed on register.",
+ void, (rtx, rtx, rtx, rtx),
  default_store_bounds_for_arg)
 
-/* Put zero bounds into place where returned
-bounds are expected.  */
 DEFHOOK
 (init_returned_bounds,
- "Put bounds into place where returned bounds are expected.",
+ "Put specified bounds into returned bounds slot of the current function.",
  void, (tree), default_init_returned_bounds)
 
 DEFHOOK
