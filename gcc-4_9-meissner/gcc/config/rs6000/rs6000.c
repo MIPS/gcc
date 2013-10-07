@@ -326,6 +326,12 @@ enum rs6000_reload_reg_type {
   N_RELOAD_REG
 };
 
+/* For setting up register classes, loop through the 3 register classes mapping
+   into real registers, and skip the ANY class, which is just an OR of the
+   bits.  */
+#define FIRST_RELOAD_REG_CLASS	RELOAD_REG_GPR
+#define LAST_RELOAD_REG_CLASS	RELOAD_REG_AV
+
 /* Map reload register type to a register in the register class.  */
 struct reload_reg_map_type {
   const char *name;			/* Register class name.  */
@@ -1863,11 +1869,12 @@ rs6000_debug_print_mode (ssize_t m)
     {
       addr_mask_type mask = reg_addr[m].addr_mask[rc];
       fprintf (stderr,
-	       "  %s: %c%c%c%c%c",
+	       "  %s: %c%c%c%c%c%c",
 	       reload_reg_map[rc].name,
 	       (mask & RELOAD_REG_VALID)      != 0 ? 'v' : ' ',
 	       (mask & RELOAD_REG_MULTIPLE)   != 0 ? 'm' : ' ',
 	       (mask & RELOAD_REG_INDEXED)    != 0 ? 'i' : ' ',
+	       (mask & RELOAD_REG_OFFSET)     != 0 ? 'o' : ' ',
 	       (mask & RELOAD_REG_PRE_INCDEC) != 0 ? '+' : ' ',
 	       (mask & RELOAD_REG_PRE_MODIFY) != 0 ? '+' : ' ');
     }
@@ -2281,81 +2288,84 @@ rs6000_setup_reg_addr_masks (void)
 
   for (m = 0; m < NUM_MACHINE_MODES; ++m)
     {
+      /* SDmode is special in that we want to access it only via REG+REG
+	 addressing on power7 and above, since we want to use the LFIWZX and
+	 STFIWZX instructions to load it.  */
+      bool indexed_only_p = (m == SDmode && TARGET_NO_SDMODE_STACK);
+
       any_addr_mask = 0;
-      for (rc = 0; rc < (int)N_RELOAD_REG; rc++)
+      for (rc = FIRST_RELOAD_REG_CLASS; rc <= LAST_RELOAD_REG_CLASS; rc++)
 	{
 	  addr_mask = 0;
 	  reg = reload_reg_map[rc].reg;
-	  if (reg >= 0)
+
+	  /* Can mode values go in the GPR/FPR/Altivec registers?  */
+	  if (reg >= 0 && rs6000_hard_regno_mode_ok_p[m][reg])
 	    {
 	      nregs = rs6000_hard_regno_nregs[m][reg];
+	      addr_mask |= RELOAD_REG_VALID;
 
-	      /* If the mode takes at least one register in the register class,
-		 it is valid.  */
-	      if (nregs != 0)
+	      /* Indicate if the mode takes more than 1 physical register.  If
+		 it takes a single register, indicate it can do REG+REG
+		 addressing.  */
+	      if (nregs > 1 || m == BLKmode)
+		addr_mask |= RELOAD_REG_MULTIPLE;
+	      else
+		addr_mask |= RELOAD_REG_INDEXED;
+
+	      /* Figure out if we can do PRE_INC, PRE_DEC, or PRE_MODIFY
+		 addressing.  Restrict addressing on SPE for 64-bit types
+		 because of the SUBREG hackery used to address 64-bit floats in
+		 '32-bit' GPRs.  To simplify secondary reload, don't allow
+		 update forms on scalar floating point types that can go in the
+		 upper registers.  */
+
+	      if (TARGET_UPDATE
+		  && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR)
+		  && GET_MODE_SIZE (m) <= 8
+		  && !VECTOR_MODE_P (m)
+		  && !COMPLEX_MODE_P (m)
+		  && !indexed_only_p
+		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m) == 8)
+		  && !(m == DFmode && TARGET_UPPER_REGS_DF)
+		  && !(m == SFmode && TARGET_UPPER_REGS_SF))
 		{
-		  addr_mask |= RELOAD_REG_VALID;
+		  addr_mask |= RELOAD_REG_PRE_INCDEC;
 
-		  /* Indicate if the mode takes more than 1 physical register.
-		     If it takes a single register, indicate it can do REG+REG
-		     addressing.  */
-		  if (nregs > 1)
-		    addr_mask |= RELOAD_REG_MULTIPLE;
-		  else
-		    addr_mask |= RELOAD_REG_INDEXED;
-
-		  /* Figure out if we can do PRE_INC, PRE_DEC, or PRE_MODIFY
-		     addressing.  */
-		  if (TARGET_UPDATE
-		      && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR)
-		      && !VECTOR_MODE_P (m)
-		      && GET_MODE_SIZE (m) <= 8
-		      /* Restrict addressing on SPE for DI because of the
-			 SUBREG hackery.  */
-		      && !(TARGET_E500_DOUBLE
-			   && (m == DFmode || m == DDmode || m == DImode)))
+		  /* PRE_MODIFY is more restricted than PRE_INC/PRE_DEC in that
+		     we don't allow PRE_MODIFY for some multi-register
+		     operations.  */
+		  switch (m)
 		    {
-		      addr_mask |= RELOAD_REG_PRE_INCDEC;
+		    default:
+		      addr_mask |= RELOAD_REG_PRE_MODIFY;
+		      break;
 
-		      /* PRE_MODIFY is more restricted than PRE_INC/PRE_DEC in
-			 that we don't allow PRE_MODIFY for some multi-register
-			 operations.  */
-		      switch (m)
-			{
-			default:
-			  addr_mask |= RELOAD_REG_PRE_MODIFY;
-			  break;
+		    case DImode:
+		      if (TARGET_POWERPC64)
+			addr_mask |= RELOAD_REG_PRE_MODIFY;
+		      break;
 
-			case DImode:
-			  if (TARGET_POWERPC64)
-			    addr_mask |= RELOAD_REG_PRE_MODIFY;
-			  break;
-
-			case DFmode:
-			case DDmode:
-			  if (TARGET_DF_INSN)
-			    addr_mask |= RELOAD_REG_PRE_MODIFY;
-			  break;
-			}
+		    case DFmode:
+		    case DDmode:
+		      if (TARGET_DF_INSN)
+			addr_mask |= RELOAD_REG_PRE_MODIFY;
+		      break;
 		    }
 		}
-
-	      /* Special case BLKmode to be valid.  */
-	      else if (m == BLKmode)
-		addr_mask = RELOAD_REG_VALID | RELOAD_REG_MULTIPLE;
-
-	      /* GPR and FPR registers can do REG+OFFSET addressing.  */
-	      if ((addr_mask != 0) &&
-		  (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR))
-		addr_mask |= RELOAD_REG_OFFSET;
-
-
-	      reg_addr[m].addr_mask[rc] = addr_mask;
-	      any_addr_mask |= addr_mask;
 	    }
 
-	  reg_addr[m].addr_mask[RELOAD_REG_ANY] = any_addr_mask;
+	  /* GPR and FPR registers can do REG+OFFSET addressing, except
+	     possibly for SDmode.  */
+	  if ((addr_mask != 0) && !indexed_only_p
+	      && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR))
+	    addr_mask |= RELOAD_REG_OFFSET;
+
+	  reg_addr[m].addr_mask[rc] = addr_mask;
+	  any_addr_mask |= addr_mask;
 	}
+
+      reg_addr[m].addr_mask[RELOAD_REG_ANY] = any_addr_mask;
     }
 }
 

@@ -1,3 +1,17 @@
+2013-10-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (FIRST_RELOAD_REG_CLASS): Define so we
+	can iterate over GPR, FPR, and Altivec reload register classes and
+	skip the ANY field.
+	(LAST_RELOAD_REG_CLASS): Likewise.
+	(rs6000_debug_print_mode): Print whether offset addresses are
+	allowed.
+	(rs6000_setup_reg_addr_masks): Don't allow update forms if scalar
+	floating point can occupy the Altivec registers.  Restrict SD
+	addressing to just REG+REG if LFIWZX and STFIWZX are available.
+	Only set valid bit if mode can really go in the reload register
+	class.
+
 2013-10-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (enum rs6000_reload_reg_type): Add new
