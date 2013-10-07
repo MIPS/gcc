@@ -1820,10 +1820,14 @@ remaining_arguments (tree arg)
   return n;
 }
 
-// Returns true if fn is a non-template member function.
-static bool
-is_non_template_member_fn (tree fn)
+// Returns true if FN is a non-template member function or non-template 
+// friend function. Both kinds of declaration can be constrained.
+static inline bool
+is_constrainable_non_template_fn (tree fn) 
 {
+  if (DECL_FRIEND_PSEUDO_TEMPLATE_INSTANTIATION (fn))
+    return true;
+
   return DECL_FUNCTION_MEMBER_P (fn) &&
          DECL_TEMPLATE_INFO (fn) &&
          !DECL_MEMBER_TEMPLATE_P (DECL_TI_TEMPLATE (fn));
@@ -1892,7 +1896,7 @@ add_function_candidate (struct z_candidate **candidates,
   // class template instantiation and setting a flag indicating whether
   // or not the declaration is viable. This could be set as a flag in
   // TEMPLATE_INFO (there should be a bunch of unused bits there).
-  if (is_non_template_member_fn (fn)) 
+  if (is_constrainable_non_template_fn (fn)) 
     {
       tree tmpl = DECL_TI_TEMPLATE (fn);
       tree args = DECL_TI_ARGS (fn);

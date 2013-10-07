@@ -1,3 +1,17 @@
+2013-10-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/parser.c (cp_parser_member_declaration): Check that
+	a constrained friend definition is valid.
+	* gcc/cp/decl.c (grokfndecl): Disallow constrained friend template
+	specializations.
+	* gcc/cp/constraints.cc (check_constrained_friend): New.
+	* gcc/cp/typeck.c (cp_build_function_call_vec): Diagnose constraints
+	in the presence of the failure of a single candidate.
+	* gcc/cp/cp-tree.h (check_constrained_friend): New.
+	* gcc/cp/call.c (is_non_template_member_fn): Make inline.
+	(is_non_template_friend), (is_constrainable_non_template_fn): New.
+	(add_function_candidate): Predicate check on
+	is_constrainable_non_template_fn.
+
 2013-09-10  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cp-tree.h (TEMPLATE_PARMS_CONSTRAINTS): New.
 	* gcc/cp/parser.c (cp_parser_template_declaration_after_export),

@@ -6274,6 +6274,8 @@ extern tree finish_validexpr_expr               (tree);
 extern tree finish_validtype_expr               (tree);
 extern tree finish_constexpr_expr               (tree);
 
+extern void check_constrained_friend            (tree);
+
 extern tree tsubst_requires_expr                (tree, tree, tsubst_flags_t, tree);
 extern tree tsubst_validexpr_expr               (tree, tree, tree);
 extern tree tsubst_validtype_expr               (tree, tree, tree);

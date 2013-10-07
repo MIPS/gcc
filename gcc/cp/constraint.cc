@@ -731,6 +731,26 @@ finish_constexpr_expr (tree expr)
   return NULL_TREE;
 }
 
+// Check that a constrained friend declaration function declaration,
+// FN, is admissable. This is the case only when the declaration depends 
+// on template parameters and does not declare a specialization.
+void
+check_constrained_friend (tree fn)
+{
+  gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+
+  // Constrained friend functions that don't depend on template
+  // arguments are effectively meaningless.
+  tree parms = DECL_ARGUMENTS (fn);
+  tree result = TREE_TYPE (TREE_TYPE (fn));
+  if (!(parms && uses_template_parms (parms)) && !uses_template_parms (result))
+    {
+      error ("constrained friend does not depend on template parameters");
+      return;
+    }
+}
+
+
 // -------------------------------------------------------------------------- //
 // Substitution Rules
 //

@@ -20142,6 +20142,10 @@ cp_parser_member_declaration (cp_parser* parser)
 		  /* If the member was not a friend, declare it here.  */
 		  if (!friend_p)
 		    finish_member_declaration (decl);
+
+                  if (friend_p)
+                     check_constrained_friend (decl);
+
 		  /* Peek at the next token.  */
 		  token = cp_lexer_peek_token (parser->lexer);
 		  /* If the next token is a semicolon, consume it.  */
