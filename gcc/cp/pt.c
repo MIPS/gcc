@@ -13261,9 +13261,7 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 		  /* We already did a pushtag.  */;
 		else if (TREE_CODE (decl) == FUNCTION_DECL
 			 && DECL_OMP_DECLARE_REDUCTION_P (decl)
-			 && DECL_CONTEXT (pattern_decl)
-			 && TREE_CODE (DECL_CONTEXT (pattern_decl))
-			    == FUNCTION_DECL)
+			 && DECL_FUNCTION_SCOPE_P (pattern_decl))
 		  {
 		    DECL_CONTEXT (decl) = NULL_TREE;
 		    pushdecl (decl);
@@ -13776,7 +13774,8 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 }
 
 /* Instantiate the special body of the artificial DECL_OMP_DECLARE_REDUCTION
-   function.  */
+   function.  For description of the body see comment above
+   cp_parser_omp_declare_reduction_exprs.  */
 
 static void
 tsubst_omp_udr (tree t, tree args, tsubst_flags_t complain, tree in_decl)

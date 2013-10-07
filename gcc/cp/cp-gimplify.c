@@ -1415,8 +1415,8 @@ cxx_omp_clause_dtor (tree clause, tree decl)
 bool
 cxx_omp_privatize_by_reference (const_tree decl)
 {
-  return TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE
-	 || is_invisiref_parm (decl);
+  return (TREE_CODE (TREE_TYPE (decl)) == REFERENCE_TYPE
+	  || is_invisiref_parm (decl));
 }
 
 /* Return true if DECL is const qualified var having no mutable member.  */

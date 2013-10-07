@@ -1,5 +1,14 @@
 2013-10-07  Jakub Jelinek  <jakub@redhat.com>
 
+	* parser.c (cp_parser_omp_declare_reduction_exprs): Document the
+	statements in the artificial function body of UDRs.
+	* pt.c (tsubst_expr): Use DECL_FUNCTION_SCOPE_P macro for UDRs.
+	(tsubst_omp_udr): Refer to cp_parser_omp_declare_reduction_exprs
+	in function comment.
+	(finish_omp_reduction_clause): New function.
+	(finish_omp_clauses): Use it.
+	* cp-gimplify.c (cxx_omp_privatize_by_reference): Fix up formatting.
+
 	* parser.c (cp_parser_omp_declare_reduction): Use different wording
 	of error message between function/method/array type and reference type.
 	Include %qT in the type related error messages.
