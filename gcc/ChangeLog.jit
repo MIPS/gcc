@@ -1,3 +1,11 @@
+2013-10-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* Makefile.in: Set PICFLAG from configure script; add it to
+	INTERNAL_CFLAGS.
+	* configure.ac (--enable-host-shared): Set up PICFLAG rather
+	than attempting to append -fPIC to CFLAGS, CXXFLAGS, LDFLAGS.
+	* configure: Regenerate.
+
 2013-10-03  David Malcolm  <dmalcolm@redhat.com>
 
 	* Makefile.in (LIBIBERTY): Use pic build of libiberty.a if

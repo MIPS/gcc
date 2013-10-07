@@ -99,9 +99,8 @@ AC_C_BIGENDIAN
 AC_ARG_ENABLE(host-shared,
 [AS_HELP_STRING([--enable-host-shared],
 		[build host code as shared libraries])],
-[CFLAGS="-fPIC $CFLAGS"; CXXFLAGS="-fPIC $CXXFLAGS"], [])
-AC_SUBST(CFLAGS)
-AC_SUBST(CXXFLAGS)
+[PICFLAG=-fPIC], [PICFLAG=])
+AC_SUBST(PICFLAG)
 
 # Output.
 

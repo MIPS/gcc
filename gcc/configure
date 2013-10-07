@@ -600,6 +600,7 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+PICFLAG
 enable_host_shared
 enable_plugin
 pluginlibs
@@ -17896,7 +17897,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17899 "configure"
+#line 17900 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18002,7 +18003,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18005 "configure"
+#line 18006 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -27697,13 +27698,14 @@ $as_echo "#define ENABLE_PLUGIN 1" >>confdefs.h
 fi
 
 
-# Enable --enable-host-shared, adding -fPIC
+# Enable --enable-host-shared
 # Check whether --enable-host-shared was given.
 if test "${enable_host_shared+set}" = set; then :
-  enableval=$enable_host_shared; CFLAGS="$CFLAGS -fPIC"
- CXXFLAGS="$CXXFLAGS -fPIC"
- LDFLAGS="$LDFLAGS -fPIC"
+  enableval=$enable_host_shared; PICFLAG=-fPIC
+else
+  PICFLAG=
 fi
+
 
 
 

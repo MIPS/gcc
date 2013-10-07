@@ -602,6 +602,7 @@ ac_subst_vars='am__EXEEXT_FALSE
 am__EXEEXT_TRUE
 LTLIBOBJS
 LIBOBJS
+PICFLAG
 TARGET_LIBRARY_FALSE
 TARGET_LIBRARY_TRUE
 toolexeclibdir
@@ -10402,7 +10403,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10405 "configure"
+#line 10406 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -10508,7 +10509,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10511 "configure"
+#line 10512 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11206,8 +11207,11 @@ fi
 
 # Check whether --enable-host-shared was given.
 if test "${enable_host_shared+set}" = set; then :
-  enableval=$enable_host_shared; CFLAGS="-fPIC $CFLAGS"
+  enableval=$enable_host_shared; PICFLAG=-fPIC
+else
+  PICFLAG=
 fi
+
 
 
 ac_config_files="$ac_config_files Makefile"

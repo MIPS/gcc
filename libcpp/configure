@@ -592,6 +592,7 @@ ac_includes_default="\
 #endif"
 
 ac_subst_vars='LTLIBOBJS
+PICFLAG
 MAINT
 USED_CATALOGS
 PACKAGE
@@ -7209,9 +7210,10 @@ esac
 # Enable --enable-host-shared.
 # Check whether --enable-host-shared was given.
 if test "${enable_host_shared+set}" = set; then :
-  enableval=$enable_host_shared; CFLAGS="-fPIC $CFLAGS"; CXXFLAGS="-fPIC $CXXFLAGS"
+  enableval=$enable_host_shared; PICFLAG=-fPIC
+else
+  PICFLAG=
 fi
-
 
 
 
