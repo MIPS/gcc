@@ -1,3 +1,8 @@
+2013-10-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* Make-lang.in: Rename JIT_OBJS to jit_OBJS.  Delete manual
+	dependencies.
+
 2013-10-04  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::context::new_global): New.

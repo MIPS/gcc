@@ -45,19 +45,19 @@ jit: libgccjit.so
 # Tell GNU make to ignore these if they exist.
 .PHONY: jit
 
-JIT_OBJS = attribs.o jit/dummy-frontend.o jit/libgccjit.o jit/internal-api.o
+jit_OBJS = attribs.o jit/dummy-frontend.o jit/libgccjit.o jit/internal-api.o
 
 # Use strict warnings for this front end.
 jit-warn = $(STRICT_WARN)
 
 # We avoid using $(BACKEND) from Makefile.in in order to avoid pulling
 # in main.o
-libgccjit.so: $(JIT_OBJS) \
+libgccjit.so: $(jit_OBJS) \
 	libbackend.a libcommon-target.a libcommon.a \
 	$(CPPLIB) $(LIBDECNUMBER) \
 	$(LIBDEPS) $(srcdir)/jit/libgccjit.map
 	+$(LLINKER) $(ALL_LINKERFLAGS) $(LDFLAGS) -o $@ -shared \
-	     $(JIT_OBJS) libbackend.a libcommon-target.a libcommon.a \
+	     $(jit_OBJS) libbackend.a libcommon-target.a libcommon.a \
 	     $(CPPLIB) $(LIBDECNUMBER) $(LIBS) $(BACKENDLIBS) \
 	     -Wl,--version-script=$(srcdir)/jit/libgccjit.map
 
@@ -122,22 +122,3 @@ jit.stageprofile: stageprofile-start
 	-mv jit/*$(objext) stageprofile/jit
 jit.stagefeedback: stagefeedback-start
 	-mv jit/*$(objext) stagefeedback/jit
-
-#
-# .o: .h dependencies.
-JIT_INTERNAL_API_H = jit/libgccjit.h $(TREE_H) $(TREE_ITERATOR_H) jit/internal-api.h
-
-jit/dummy-frontend.o: jit/dummy-frontend.c $(CONFIG_H) $(SYSTEM_H) \
-		$(CORETYPES_H) $(OPTS_H) $(TREE_H) $(DEBUG_H) langhooks.h \
-		$(LANGHOOKS_DEF_H) $(CGRAPH_H) \
-		$(TREE_ITERATOR_H) $(GIMPLE_H) $(GIMPLE_PRETTY_PRINT_h) \
-		gt-jit-dummy-frontend.h gtype-jit.h $(JIT_INTERNAL_API_H)
-
-jit/libgccjit.o: jit/libgccjit.c $(CONFIG_H) $(SYSTEM_H) \
-		$(CORETYPES_H) $(OPTS_H) jit/libgccjit.h $(JIT_INTERNAL_API_H) \
-
-jit/internal-api.o: jit/internal-api.c $(CONFIG_H) $(SYSTEM_H) \
-		$(CORETYPES_H) $(OPTS_H) $(TREE_H) $(DEBUG_H) \
-		langhooks.h langhooks-def.h $(CGRAPH_H) $(TOPLEV_H) \
-		$(TREE_ITERATOR_H) $(GIMPLE_H) $(GIMPLE_PRETTY_PRINT_H) \
-		 $(JIT_INTERNAL_API_H)
