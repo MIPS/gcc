@@ -1,3 +1,7 @@
+2013-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/udr-1.C: Adjust expected error messages.
+
 2013-09-25  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/target-1.C: New test.

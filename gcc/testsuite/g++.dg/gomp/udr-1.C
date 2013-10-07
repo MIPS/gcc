@@ -36,11 +36,11 @@ namespace N2
 namespace N3
 {
   void bar ();
-  #pragma omp declare reduction (| : __typeof (bar) : omp_out |= omp_in)// { dg-error "function, array or reference" }
-  #pragma omp declare reduction (+ : char () : omp_out += omp_in)	// { dg-error "function, array or reference" }
+  #pragma omp declare reduction (| : __typeof (bar) : omp_out |= omp_in)// { dg-error "function or array type" }
+  #pragma omp declare reduction (+ : char () : omp_out += omp_in)	// { dg-error "function or array type" }
   typedef short T;
-  #pragma omp declare reduction (min : T[2] : omp_out += omp_in)	// { dg-error "function, array or reference" }
-  #pragma omp declare reduction (baz : char & : omp_out *= omp_in)	// { dg-error "function, array or reference" }
+  #pragma omp declare reduction (min : T[2] : omp_out += omp_in)	// { dg-error "function or array type" }
+  #pragma omp declare reduction (baz : char & : omp_out *= omp_in)	// { dg-error "reference type" }
 }
 namespace N4
 {
@@ -48,21 +48,21 @@ namespace N4
   template <typename T1, typename T2, typename T3, typename T4>
   struct S
   {
-    #pragma omp declare reduction (| : T1 : omp_out |= omp_in)		// { dg-error "function, array or reference" }
-    #pragma omp declare reduction (+ : T2 : omp_out += omp_in)		// { dg-error "function, array or reference" }
+    #pragma omp declare reduction (| : T1 : omp_out |= omp_in)		// { dg-error "function or array type" }
+    #pragma omp declare reduction (+ : T2 : omp_out += omp_in)		// { dg-error "function or array type" }
     typedef T3 T;
-    #pragma omp declare reduction (min : T : omp_out += omp_in)		// { dg-error "function, array or reference" }
-    #pragma omp declare reduction (baz : T4 : omp_out *= omp_in)	// { dg-error "function, array or reference" }
+    #pragma omp declare reduction (min : T : omp_out += omp_in)		// { dg-error "function or array type" }
+    #pragma omp declare reduction (baz : T4 : omp_out *= omp_in)	// { dg-error "function or array type" }
   };
   S<__typeof (bar), char (), short [3], char []> s;
   template <typename T1, typename T2, typename T3, typename T4>
   int foo ()
   {
-    #pragma omp declare reduction (| : T1 : omp_out |= omp_in)		// { dg-error "function, array or reference" }
-    #pragma omp declare reduction (+ : T2 : omp_out += omp_in)		// { dg-error "function, array or reference" }
+    #pragma omp declare reduction (| : T1 : omp_out |= omp_in)		// { dg-error "function or array type" }
+    #pragma omp declare reduction (+ : T2 : omp_out += omp_in)		// { dg-error "function or array type" }
     typedef T3 T;
-    #pragma omp declare reduction (min : T : omp_out += omp_in)		// { dg-error "function, array or reference" }
-    #pragma omp declare reduction (baz : T4 : omp_out *= omp_in)	// { dg-error "function, array or reference" }
+    #pragma omp declare reduction (min : T : omp_out += omp_in)		// { dg-error "function or array type" }
+    #pragma omp declare reduction (baz : T4 : omp_out *= omp_in)	// { dg-error "function or array type" }
     return 0;
   }
   int x = foo <__typeof (bar), char (), short[], char [2]> ();
@@ -72,13 +72,13 @@ namespace N5
   template <typename T>
   struct S
   {
-    #pragma omp declare reduction (baz : T : omp_out *= omp_in)		// { dg-error "function, array or reference" }
+    #pragma omp declare reduction (baz : T : omp_out *= omp_in)		// { dg-error "reference type" }
   };
   S<char &> s;
   template <typename T>
   int foo ()
   {
-    #pragma omp declare reduction (baz : T : omp_out *= omp_in)		// { dg-error "function, array or reference" }
+    #pragma omp declare reduction (baz : T : omp_out *= omp_in)		// { dg-error "reference type" }
     return 0;
   }
   int x = foo <char &> ();

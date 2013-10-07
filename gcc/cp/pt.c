@@ -10413,8 +10413,8 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	    argtype = tsubst (argtype, args, complain, in_decl);
 	    if (TREE_CODE (argtype) == REFERENCE_TYPE)
 	      error_at (DECL_SOURCE_LOCATION (t),
-			"function, array or reference type in "
-			"%<#pragma omp declare reduction%>");
+			"reference type %qT in "
+			"%<#pragma omp declare reduction%>", argtype);
 	    if (strchr (IDENTIFIER_POINTER (DECL_NAME (t)), '~') == NULL)
 	      DECL_NAME (r) = omp_reduction_id (ERROR_MARK, DECL_NAME (t),
 						argtype);

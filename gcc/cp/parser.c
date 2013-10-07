@@ -30118,17 +30118,19 @@ cp_parser_omp_declare_reduction (cp_parser *parser, cp_token *pragma_tok,
 				   "min") == 0
 			   || strcmp (IDENTIFIER_POINTER (orig_reduc_id),
 				      "max") == 0))))
-	error_at (loc, "predeclared arithmetic type in "
-		       "%<#pragma omp declare reduction%>");
+	error_at (loc, "predeclared arithmetic type in %qT"
+		       "%<#pragma omp declare reduction%>", type);
       else if (TREE_CODE (type) == FUNCTION_TYPE
 	       || TREE_CODE (type) == METHOD_TYPE
-	       || TREE_CODE (type) == ARRAY_TYPE
-	       || TREE_CODE (type) == REFERENCE_TYPE)
-	error_at (loc, "function, array or reference type in "
-		       "%<#pragma omp declare reduction%>");
+	       || TREE_CODE (type) == ARRAY_TYPE)
+	error_at (loc, "function or array type %qT in "
+		       "%<#pragma omp declare reduction%>", type);
+      else if (TREE_CODE (type) == REFERENCE_TYPE)
+	error_at (loc, "reference type in %qT"
+		       "%<#pragma omp declare reduction%>", type);
       else if (TYPE_QUALS_NO_ADDR_SPACE (type))
-	error_at (loc, "const, volatile or __restrict qualified type in "
-		       "%<#pragma omp declare reduction%>");
+	error_at (loc, "const, volatile or __restrict qualified type %qT in "
+		       "%<#pragma omp declare reduction%>", type);
       else
 	types.safe_push (type);
 

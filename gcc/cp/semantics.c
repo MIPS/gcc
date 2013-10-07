@@ -4775,24 +4775,29 @@ cp_check_omp_declare_reduction (tree udr)
 	}
       if (i < 8)
 	{
-	  error_at (loc, "predeclared arithmetic type in "
-			 "%<#pragma omp declare reduction%>");
+	  error_at (loc, "predeclared arithmetic type %qT in "
+			 "%<#pragma omp declare reduction%>", type);
 	  return;
 	}
     }
   else if (TREE_CODE (type) == FUNCTION_TYPE
 	   || TREE_CODE (type) == METHOD_TYPE
-	   || TREE_CODE (type) == ARRAY_TYPE
-	   || TREE_CODE (type) == REFERENCE_TYPE)
+	   || TREE_CODE (type) == ARRAY_TYPE)
     {
-      error_at (loc, "function, array or reference type in "
-		     "%<#pragma omp declare reduction%>");
+      error_at (loc, "function or array type %qT in "
+		     "%<#pragma omp declare reduction%>", type);
+      return;
+    }
+  else if (TREE_CODE (type) == REFERENCE_TYPE)
+    {
+      error_at (loc, "reference type %qT in %<#pragma omp declare reduction%>",
+		type);
       return;
     }
   else if (TYPE_QUALS_NO_ADDR_SPACE (type))
     {
-      error_at (loc, "const, volatile or __restrict qualified type in "
-		     "%<#pragma omp declare reduction%>");
+      error_at (loc, "const, volatile or __restrict qualified type %qT in "
+		     "%<#pragma omp declare reduction%>", type);
       return;
     }
 
