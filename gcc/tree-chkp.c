@@ -131,15 +131,7 @@ along with GCC; see the file COPYING3.  If not see
     e) Returns.
 
     If function returns a pointer value we have to return bounds also.
-    Bounds for returned value are computed and associated with retval in
-    checker structures.  Instrumentation pass exports method
-    chkp_get_registered_bounds to obtain bounds associated with decls
-    and ssa names which is used by expand pass to obtain returned bounds.
-
-    To have explicit usage of SSA_NAME corresponding to bounds of return
-    value we also add new operand to return statement.  We do not actually
-    use this operands for expand, but need it to prevent removal of bounds
-    creation as dead code by DCE.
+    A new operand was added for return statement to hold returned bounds.
 
     Example:
 
@@ -699,25 +691,6 @@ chkp_join_splitted_slot (rtx val, rtx bnd)
   return res;
 }
 
-/* If PAR is PARALLEL holding registers then transform
-   it into PARALLEL holding EXPR_LISTs of those regs
-   and zero constant (similar to how function value
-   on multiple registers looks like).  */
-void
-chkp_put_regs_to_expr_list (rtx par)
-{
-  int n;
-
-  if (GET_CODE (par) != PARALLEL
-      || GET_CODE (XVECEXP (par, 0, 0)) == EXPR_LIST)
-    return;
-
-  for (n = 0; n < XVECLEN (par, 0); n++)
-    XVECEXP (par, 0, n) = gen_rtx_EXPR_LIST (VOIDmode,
-					     XVECEXP (par, 0, n),
-					     const0_rtx);
-}
-
 /* Build and return bndmk call which creates bounds for structure
    pointed by PTR.  Structure should have complete type.  */
 tree
@@ -736,6 +709,27 @@ chkp_make_bounds_for_struct_addr (tree ptr)
 			  build_fold_addr_expr (chkp_bndmk_fndecl),
 			  2, ptr, size);
 }
+
+/*  Search rtx PAR describing function return value for an
+    item related to value at offset OFFS and return it.
+    Return NULL if item was not found.  */
+static rtx
+chkp_get_value_with_offs (rtx par, rtx offs)
+{
+  int n;
+
+  gcc_assert (GET_CODE (par) == PARALLEL);
+
+  for (n = 0; n < XVECLEN (par, 0); n++)
+    {
+      rtx par_offs = XEXP (XVECEXP (par, 0, n), 1);
+      if (INTVAL (offs) == INTVAL (par_offs))
+	return XEXP (XVECEXP (par, 0, n), 0);
+    }
+
+  return NULL;
+}
+extern tree chkp_get_arg_bounds (tree arg);
 
 /* Emit instructions to store BOUNDS for pointer VALUE
    stored in MEM.
@@ -1309,7 +1303,7 @@ chkp_register_bounds (tree ptr, tree bnd)
 }
 
 /* Get bounds registered for object PTR in global bounds table.  */
-tree
+static tree
 chkp_get_registered_bounds (tree ptr)
 {
   tree *slot = (tree *)pointer_map_contains (chkp_reg_bounds, ptr);
@@ -1943,26 +1937,6 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       SSA_NAME_DEF_STMT (op) = new_call;
     }
   gsi_replace (gsi, new_call, true);
-}
-
-/*  Search rtx PAR describing function return value for an
-    item related to value at offset OFFS and return it.
-    Return NULL if item was not found.  */
-rtx
-chkp_get_value_with_offs (rtx par, rtx offs)
-{
-  int n;
-
-  gcc_assert (GET_CODE (par) == PARALLEL);
-
-  for (n = 0; n < XVECLEN (par, 0); n++)
-    {
-      rtx par_offs = XEXP (XVECEXP (par, 0, n), 1);
-      if (INTVAL (offs) == INTVAL (par_offs))
-	return XEXP (XVECEXP (par, 0, n), 0);
-    }
-
-  return NULL;
 }
 
 /* Emit code to copy bounds for structure VALUE of type TYPE
