@@ -710,6 +710,25 @@ chkp_make_bounds_for_struct_addr (tree ptr)
 			  2, ptr, size);
 }
 
+/* If PAR is PARALLEL holding registers then transform
+   it into PARALLEL holding EXPR_LISTs of those regs
+   and zero constant (similar to how function value
+   on multiple registers looks like).  */
+void
+chkp_put_regs_to_expr_list (rtx par)
+{
+  int n;
+
+  if (GET_CODE (par) != PARALLEL
+      || GET_CODE (XVECEXP (par, 0, 0)) == EXPR_LIST)
+    return;
+
+  for (n = 0; n < XVECLEN (par, 0); n++)
+    XVECEXP (par, 0, n) = gen_rtx_EXPR_LIST (VOIDmode,
+					     XVECEXP (par, 0, n),
+					     const0_rtx);
+}
+
 /*  Search rtx PAR describing function return value for an
     item related to value at offset OFFS and return it.
     Return NULL if item was not found.  */
@@ -729,7 +748,6 @@ chkp_get_value_with_offs (rtx par, rtx offs)
 
   return NULL;
 }
-extern tree chkp_get_arg_bounds (tree arg);
 
 /* Emit instructions to store BOUNDS for pointer VALUE
    stored in MEM.
