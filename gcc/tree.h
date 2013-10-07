@@ -5022,6 +5022,7 @@ extern bool chkp_register_var_initializer (tree var);
 extern void chkp_finish_file (void);
 extern void chkp_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd);
 extern rtx chkp_join_splitted_slot (rtx val, rtx bnd);
+extern rtx chkp_get_value_with_offs (rtx par, rtx offs);
 extern void chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
 extern bool chkp_type_has_pointer (tree type);
 extern unsigned chkp_type_bounds_count (tree type);

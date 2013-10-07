@@ -713,7 +713,7 @@ chkp_make_bounds_for_struct_addr (tree ptr)
 /*  Search rtx PAR describing function return value for an
     item related to value at offset OFFS and return it.
     Return NULL if item was not found.  */
-static rtx
+rtx
 chkp_get_value_with_offs (rtx par, rtx offs)
 {
   int n;

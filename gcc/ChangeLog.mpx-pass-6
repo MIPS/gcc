@@ -34,6 +34,7 @@
 	(chkp_finish_file): New.
 	(chkp_split_slot): New.
 	(chkp_join_splitted_slot): New.
+	(chkp_get_value_with_offs): New.
 	(chkp_copy_bounds_for_stack_parm): New.
 	(chkp_type_has_pointer): New.
 	(chkp_type_bounds_count): New.
