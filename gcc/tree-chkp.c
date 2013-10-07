@@ -1939,26 +1939,6 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gsi_replace (gsi, new_call, true);
 }
 
-/*  Search rtx PAR describing function return value for an
-    item related to value at offset OFFS and return it.
-    Return NULL if item was not found.  */
-rtx
-chkp_get_value_with_offs (rtx par, rtx offs)
-{
-  int n;
-
-  gcc_assert (GET_CODE (par) == PARALLEL);
-
-  for (n = 0; n < XVECLEN (par, 0); n++)
-    {
-      rtx par_offs = XEXP (XVECEXP (par, 0, n), 1);
-      if (INTVAL (offs) == INTVAL (par_offs))
-	return XEXP (XVECEXP (par, 0, n), 0);
-    }
-
-  return NULL;
-}
-
 /* Emit code to copy bounds for structure VALUE of type TYPE
    copied to SLOT.  */
 void
