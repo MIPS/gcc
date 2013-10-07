@@ -36,14 +36,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
-#include "gimple-fold.h"
+#include "tree-ssa-threadupdate.h"
 #include "expr.h"
 #include "optabs.h"
 
 
-/* Type of value ranges.  See value_range_d for a description of these
-   types.  */
-enum value_range_type { VR_UNDEFINED, VR_RANGE, VR_ANTI_RANGE, VR_VARYING };
 
 /* Range of values that can be associated with an SSA_NAME after VRP
    has executed.  */
@@ -1054,7 +1051,15 @@ gimple_stmt_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
     case GIMPLE_ASSIGN:
       return gimple_assign_nonzero_warnv_p (stmt, strict_overflow_p);
     case GIMPLE_CALL:
-      return gimple_alloca_call_p (stmt);
+      {
+	tree fndecl = gimple_call_fndecl (stmt);
+	if (!fndecl) return false;
+	if (flag_delete_null_pointer_checks && !flag_check_new
+	    && DECL_IS_OPERATOR_NEW (fndecl)
+	    && !TREE_NOTHROW (fndecl))
+	  return true;
+	return gimple_alloca_call_p (stmt);
+      }
     default:
       gcc_unreachable ();
     }
@@ -5856,7 +5861,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
     }
 
   /* Traverse all PHI nodes in BB, updating live.  */
-  for (si = gsi_start_phis (bb); !gsi_end_p(si); gsi_next (&si))
+  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
       use_operand_p arg_p;
       ssa_op_iter i;
@@ -6493,7 +6498,8 @@ stmt_interesting_for_vrp (gimple stmt)
 	      || POINTER_TYPE_P (TREE_TYPE (lhs)))
 	  && ((is_gimple_call (stmt)
 	       && gimple_call_fndecl (stmt) != NULL_TREE
-	       && DECL_BUILT_IN (gimple_call_fndecl (stmt)))
+	       && (DECL_BUILT_IN (gimple_call_fndecl (stmt))
+		   || DECL_IS_OPERATOR_NEW (gimple_call_fndecl (stmt))))
 	      || !gimple_vuse (stmt)))
 	return true;
     }
@@ -7414,16 +7420,7 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
   if (!stmt_interesting_for_vrp (stmt))
     gcc_assert (stmt_ends_bb_p (stmt));
   else if (is_gimple_assign (stmt) || is_gimple_call (stmt))
-    {
-      /* In general, assignments with virtual operands are not useful
-	 for deriving ranges, with the obvious exception of calls to
-	 builtin functions.  */
-      if ((is_gimple_call (stmt)
-	   && gimple_call_fndecl (stmt) != NULL_TREE
-	   && DECL_BUILT_IN (gimple_call_fndecl (stmt)))
-	  || !gimple_vuse (stmt))
-	return vrp_visit_assignment_or_call (stmt, output_p);
-    }
+    return vrp_visit_assignment_or_call (stmt, output_p);
   else if (gimple_code (stmt) == GIMPLE_COND)
     return vrp_visit_cond_stmt (stmt, taken_edge_p);
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
@@ -9452,6 +9449,51 @@ vrp_finalize (void)
      the datastructures built by VRP.  */
   identify_jump_threads ();
 
+  /* Set value range to non pointer SSA_NAMEs.  */
+  for (i  = 0; i < num_vr_values; i++)
+    if (vr_value[i])
+      {
+	tree name = ssa_name (i);
+
+      if (!name
+	  || POINTER_TYPE_P (TREE_TYPE (name))
+	  || (vr_value[i]->type == VR_VARYING)
+	  || (vr_value[i]->type == VR_UNDEFINED))
+	continue;
+
+	if ((TREE_CODE (vr_value[i]->min) == INTEGER_CST)
+	    && (TREE_CODE (vr_value[i]->max) == INTEGER_CST))
+	  {
+	    if (vr_value[i]->type == VR_RANGE)
+	      set_range_info (name,
+			      tree_to_double_int (vr_value[i]->min),
+			      tree_to_double_int (vr_value[i]->max));
+	    else if (vr_value[i]->type == VR_ANTI_RANGE)
+	      {
+		/* VR_ANTI_RANGE ~[min, max] is encoded compactly as
+		   [max + 1, min - 1] without additional attributes.
+		   When min value > max value, we know that it is
+		   VR_ANTI_RANGE; it is VR_RANGE otherwise.  */
+
+		/* ~[0,0] anti-range is represented as
+		   range.  */
+		if (TYPE_UNSIGNED (TREE_TYPE (name))
+		    && integer_zerop (vr_value[i]->min)
+		    && integer_zerop (vr_value[i]->max))
+		  set_range_info (name,
+				  double_int_one,
+				  double_int::max_value
+				  (TYPE_PRECISION (TREE_TYPE (name)), true));
+		else
+		  set_range_info (name,
+				  tree_to_double_int (vr_value[i]->max)
+				  + double_int_one,
+				  tree_to_double_int (vr_value[i]->min)
+				  - double_int_one);
+	      }
+	  }
+      }
+
   /* Free allocated memory.  */
   for (i = 0; i < num_vr_values; i++)
     if (vr_value[i])
@@ -9622,12 +9664,12 @@ const pass_data pass_data_vrp =
 class pass_vrp : public gimple_opt_pass
 {
 public:
-  pass_vrp(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_vrp, ctxt)
+  pass_vrp (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_vrp, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_vrp (ctxt_); }
+  opt_pass * clone () { return new pass_vrp (m_ctxt); }
   bool gate () { return gate_vrp (); }
   unsigned int execute () { return execute_vrp (); }
 

@@ -1226,10 +1226,12 @@ splice_template_attributes (tree *attr_p, tree decl)
 static void
 save_template_attributes (tree *attr_p, tree *decl_p)
 {
-  tree late_attrs = splice_template_attributes (attr_p, *decl_p);
   tree *q;
-  tree old_attrs = NULL_TREE;
 
+  if (attr_p && *attr_p == error_mark_node)
+    return;
+
+  tree late_attrs = splice_template_attributes (attr_p, *decl_p);
   if (!late_attrs)
     return;
 
@@ -1238,7 +1240,7 @@ save_template_attributes (tree *attr_p, tree *decl_p)
   else
     q = &TYPE_ATTRIBUTES (*decl_p);
 
-  old_attrs = *q;
+  tree old_attrs = *q;
 
   /* Merge the late attributes at the beginning with the attribute
      list.  */
@@ -1326,6 +1328,9 @@ cp_reconstruct_complex_type (tree type, tree bottom)
 static void
 cp_check_const_attributes (tree attributes)
 {
+  if (attributes == error_mark_node)
+    return;
+
   tree attr;
   for (attr = attributes; attr; attr = TREE_CHAIN (attr))
     {

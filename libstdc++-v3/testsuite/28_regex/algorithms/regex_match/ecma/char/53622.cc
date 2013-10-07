@@ -21,10 +21,13 @@
 // <http://www.gnu.org/licenses/>.
 
 // 28.11.2 regex_match
-// Tests Extended grouping against a std::string target.
 
 #include <regex>
 #include <testsuite_hooks.h>
+#include <testsuite_regex.h>
+
+using namespace __gnu_test;
+using namespace std;
 
 // libstdc++/53622
 void
@@ -33,11 +36,11 @@ test01()
   bool test __attribute__((unused)) = true;
 
   {
-    std::regex  re("zxcv/(one.*)abc", std::regex::extended);
+    std::regex  re("zxcv/(one.*)abc", std::regex::ECMAScript);
     std::string target("zxcv/onetwoabc");
     std::smatch m;
 
-    VERIFY( std::regex_match(target, m, re) );
+    VERIFY( regex_match_debug(target, m, re) );
     VERIFY( m.size() == 2 );
     VERIFY( m[0].matched == true );
     VERIFY( std::string(m[0].first, m[0].second) == "zxcv/onetwoabc" );
@@ -46,11 +49,11 @@ test01()
   }
 
   {
-    std::regex  re("zxcv/(one.*)abc()\\2", std::regex::extended);
+    std::regex  re("zxcv/(one.*)abc()\\2", std::regex::ECMAScript);
     std::string target("zxcv/onetwoabc");
     std::smatch m;
 
-    VERIFY( std::regex_match(target, m, re) );
+    VERIFY( regex_match_debug(target, m, re) );
     VERIFY( m.size() == 3 );
     VERIFY( m[0].matched == true );
     VERIFY( std::string(m[0].first, m[0].second) == "zxcv/onetwoabc" );

@@ -2288,9 +2288,7 @@ Type::is_backend_type_size_known(Gogo* gogo)
       }
 
     case TYPE_NAMED:
-      // Begin converting this type to the backend representation.
-      // This will create a placeholder if necessary.
-      this->get_backend(gogo);
+      this->named_type()->convert(gogo);
       return this->named_type()->is_named_backend_type_size_known();
 
     case TYPE_FORWARD:
@@ -5667,8 +5665,10 @@ Array_type::get_length_tree(Gogo* gogo)
 	    t = Type::lookup_integer_type("int");
 	  else if (t->is_abstract())
 	    t = t->make_non_abstract_type();
-	  tree tt = type_to_tree(t->get_backend(gogo));
-	  this->length_tree_ = Expression::integer_constant_tree(val, tt);
+          Btype* btype = t->get_backend(gogo);
+          Bexpression* iexpr =
+              gogo->backend()->integer_constant_expression(btype, val);
+	  this->length_tree_ = expr_to_tree(iexpr);
 	  mpz_clear(val);
 	}
       else
@@ -9271,7 +9271,11 @@ Type::bind_field_or_method(Gogo* gogo, const Type* type, Expression* expr,
     }
   else
     {
-      if (!ambig1.empty())
+      if (Gogo::is_erroneous_name(name))
+	{
+	  // An error was already reported.
+	}
+      else if (!ambig1.empty())
 	error_at(location, "%qs is ambiguous via %qs and %qs",
 		 Gogo::message_name(name).c_str(), ambig1.c_str(),
 		 ambig2.c_str());

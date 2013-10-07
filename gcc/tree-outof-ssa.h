@@ -18,10 +18,12 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 
-#ifndef _SSAEXPAND_H
-#define _SSAEXPAND_H 1
+#ifndef GCC_TREE_OUTOF_SSA_H
+#define GCC_TREE_OUTOF_SSA_H
 
 #include "tree-ssa-live.h"
+#include "tree-ssa-ter.h"
+#include "tree-ssa-coalesce.h"
 
 /* This structure (of which only a singleton SA exists) is used to
    pass around information between the outof-SSA functions, cfgexpand
@@ -71,9 +73,9 @@ get_gimple_for_ssa_name (tree exp)
   return NULL;
 }
 
-/* In tree-outof-ssa.c.  */
-void finish_out_of_ssa (struct ssaexpand *sa);
-unsigned int rewrite_out_of_ssa (struct ssaexpand *sa);
-void expand_phi_nodes (struct ssaexpand *sa);
+extern bool ssa_is_replaceable_p (gimple stmt);
+extern void finish_out_of_ssa (struct ssaexpand *sa);
+extern unsigned int rewrite_out_of_ssa (struct ssaexpand *sa);
+extern void expand_phi_nodes (struct ssaexpand *sa);
 
-#endif
+#endif /* GCC_TREE_OUTOF_SSA_H */

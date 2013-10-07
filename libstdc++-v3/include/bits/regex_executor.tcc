@@ -66,7 +66,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  if (!_M_cur_results[__state._M_subexpr].matched
 	      || _M_cur_results[__state._M_subexpr].first != __current)
 	    {
-	      auto __back = __current;
+	      auto __back = _M_cur_results[__state._M_subexpr].first;
 	      _M_cur_results[__state._M_subexpr].first = __current;
 	      __ret = _M_dfs(__state._M_next);
 	      _M_cur_results[__state._M_subexpr].first = __back;
@@ -148,17 +148,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      && (this->_M_flags & regex_constants::match_not_null))
 	    __ret = false;
 	  if (__ret)
-	    {
-	      _ResultsVec& __res(this->_M_results);
-	      if (this->_M_re.flags() & regex_constants::nosubs)
-		{
-		  _M_cur_results.resize(3); // truncate
-		  __res.resize(3);
-		}
-	      for (unsigned int __i = 0; __i < _M_cur_results.size(); ++__i)
-		if (_M_cur_results[__i].matched)
-		  __res[__i] = _M_cur_results[__i];
-	    }
+	    this->_M_set_results(_M_cur_results);
 	  break;
 	default:
 	  _GLIBCXX_DEBUG_ASSERT(false);
@@ -187,18 +177,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       if (this->_M_match_mode)
 	__ret = _M_includes_some();
       if (__ret)
-	{
-	  _ResultsVec& __res(this->_M_results);
-	  if (this->_M_re.flags() & regex_constants::nosubs)
-	    {
-	      // truncate
-	      _M_cur_results->resize(3);
-	      __res.resize(3);
-	    }
-	  for (unsigned int __i = 0; __i < _M_cur_results->size(); ++__i)
-	    if ((*_M_cur_results)[__i].matched)
-	      __res[__i] = (*_M_cur_results)[__i];
-	}
+	this->_M_set_results(_M_cur_results->_M_get());
       return __ret;
     }
 
@@ -386,27 +365,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __ans;
     }
 
-  // Return whether now match the given sub-NFA.
   template<typename _BiIter, typename _Alloc,
     typename _CharT, typename _TraitsT>
-    bool _Executor<_BiIter, _Alloc, _CharT, _TraitsT>::
-    _M_lookahead(_State<_CharT, _TraitsT> __state) const
+    void _Executor<_BiIter, _Alloc, _CharT, _TraitsT>::
+    _M_set_results(_ResultsVec& __cur_results)
     {
-      auto __sub = __get_executor(this->_M_current,
-				  this->_M_end,
-				  this->_M_results,
-				  this->_M_re,
-				  this->_M_flags);
-      __sub->_M_set_start(__state._M_alt);
-      return __sub->_M_search_from_first();
+      for (size_t __i = 0; __i < __cur_results.size(); ++__i)
+	if (__cur_results[__i].matched)
+	  _M_results[__i] = __cur_results[__i];
     }
 
+  enum class _RegexExecutorPolicy : int
+    { _S_auto, _S_force_dfs };
+
   template<typename _BiIter, typename _Alloc,
-    typename _CharT, typename _TraitsT>
+    typename _CharT, typename _TraitsT,
+    _RegexExecutorPolicy __policy>
     std::unique_ptr<_Executor<_BiIter, _Alloc, _CharT, _TraitsT>>
     __get_executor(_BiIter __b,
 		   _BiIter __e,
-		   match_results<_BiIter, _Alloc>& __m,
+		   std::vector<sub_match<_BiIter>, _Alloc>& __m,
 		   const basic_regex<_CharT, _TraitsT>& __re,
 		   regex_constants::match_flag_type __flags)
     {
@@ -416,7 +394,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       typedef _BFSExecutor<_BiIter, _Alloc, _CharT, _TraitsT> _BFSExecutorT;
       auto __p = std::static_pointer_cast<_NFA<_CharT, _TraitsT>>
 	(__re._M_automaton);
-      if (__p->_M_has_backref)
+      if (__policy == _RegexExecutorPolicy::_S_force_dfs
+	  || (__policy == _RegexExecutorPolicy::_S_auto && __p->_M_has_backref))
 	return _ExecutorPtr(new _DFSExecutorT(__b, __e, __m, __re, __flags));
       return _ExecutorPtr(new _BFSExecutorT(__b, __e, __m, __re, __flags));
     }

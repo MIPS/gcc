@@ -6639,7 +6639,9 @@ finish_transaction_stmt (tree stmt, tree compound_stmt, int flags, tree noex)
     {
       tree body = build_must_not_throw_expr (TRANSACTION_EXPR_BODY (stmt),
 					     noex);
-      SET_EXPR_LOCATION (body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
+      /* This may not be true when the STATEMENT_LIST is empty.  */
+      if (EXPR_P (body))
+        SET_EXPR_LOCATION (body, EXPR_LOCATION (TRANSACTION_EXPR_BODY (stmt)));
       TREE_SIDE_EFFECTS (body) = 1;
       TRANSACTION_EXPR_BODY (stmt) = body;
     }
@@ -9860,6 +9862,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
     case OVERLOAD:
     case TEMPLATE_ID_EXPR:
     case LABEL_DECL:
+    case LABEL_EXPR:
     case CONST_DECL:
     case SIZEOF_EXPR:
     case ALIGNOF_EXPR:

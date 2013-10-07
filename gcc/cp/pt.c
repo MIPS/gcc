@@ -11309,7 +11309,7 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
   enum tree_code code;
   tree type, r = NULL_TREE;
 
-  if (t == NULL_TREE || t == error_mark_node
+  if (t == NULL_TREE
       || t == integer_type_node
       || t == void_type_node
       || t == char_type_node
@@ -11317,6 +11317,9 @@ tsubst (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       || TREE_CODE (t) == NAMESPACE_DECL
       || TREE_CODE (t) == TRANSLATION_UNIT_DECL)
     return t;
+
+  if (error_operand_p (t))
+    return error_mark_node;
 
   if (DECL_P (t))
     return tsubst_decl (t, args, complain);
@@ -12471,7 +12474,8 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       return t;
 
     case BASELINK:
-      return tsubst_baselink (t, current_class_type, args, complain, in_decl);
+      return tsubst_baselink (t, current_nonlambda_class_type (),
+			      args, complain, in_decl);
 
     case TEMPLATE_DECL:
       if (DECL_TEMPLATE_TEMPLATE_PARM_P (t))
@@ -20618,6 +20622,10 @@ type_dependent_expression_p (tree expression)
       /* SCOPE_REF with non-null TREE_TYPE is always non-dependent.  */
       if (TREE_CODE (expression) == SCOPE_REF)
 	return false;
+
+      /* Always dependent, on the number of arguments if nothing else.  */
+      if (TREE_CODE (expression) == EXPR_PACK_EXPANSION)
+	return true;
 
       if (BASELINK_P (expression))
 	expression = BASELINK_FUNCTIONS (expression);

@@ -1725,6 +1725,54 @@ DF modes
 @end table
 
 
+@item ARC ---@file{config/arc/constraints.md}
+@table @code
+@item q
+Registers usable in ARCompact 16-bit instructions: @code{r0}-@code{r3},
+@code{r12}-@code{r15}.  This constraint can only match when the @option{-mq}
+option is in effect.
+
+@item e
+Registers usable as base-regs of memory addresses in ARCompact 16-bit memory
+instructions: @code{r0}-@code{r3}, @code{r12}-@code{r15}, @code{sp}.
+This constraint can only match when the @option{-mq}
+option is in effect.
+@item D
+ARC FPX (dpfp) 64-bit registers. @code{D0}, @code{D1}.
+
+@item I
+A signed 12-bit integer constant.
+
+@item Cal
+constant for arithmetic/logical operations.  This might be any constant
+that can be put into a long immediate by the assmbler or linker without
+involving a PIC relocation.
+
+@item K
+A 3-bit unsigned integer constant.
+
+@item L
+A 6-bit unsigned integer constant.
+
+@item CnL
+One's complement of a 6-bit unsigned integer constant.
+
+@item CmL
+Two's complement of a 6-bit unsigned integer constant.
+
+@item M
+A 5-bit unsigned integer constant.
+
+@item O
+A 7-bit unsigned integer constant.
+
+@item P
+A 8-bit unsigned integer constant.
+
+@item H
+Any const_double value.
+@end table
+
 @item ARM family---@file{config/arm/constraints.md}
 @table @code
 @item w
@@ -2067,40 +2115,52 @@ Floating point register (containing 32-bit value)
 Altivec vector register
 
 @item wa
-Any VSX register
+Any VSX register if the -mvsx option was used or NO_REGS.
 
 @item wd
-VSX vector register to hold vector double data
+VSX vector register to hold vector double data or NO_REGS.
 
 @item wf
-VSX vector register to hold vector float data
+VSX vector register to hold vector float data or NO_REGS.
 
 @item wg
-If @option{-mmfpgpr} was used, a floating point register
+If @option{-mmfpgpr} was used, a floating point register or NO_REGS.
 
 @item wl
-If the LFIWAX instruction is enabled, a floating point register
+Floating point register if the LFIWAX instruction is enabled or NO_REGS.
 
 @item wm
-If direct moves are enabled, a VSX register.
+VSX register if direct move instructions are enabled, or NO_REGS.
 
 @item wn
-No register.
+No register (NO_REGS).
 
 @item wr
-General purpose register if 64-bit mode is used
+General purpose register if 64-bit instructions are enabled or NO_REGS.
 
 @item ws
-VSX vector register to hold scalar float data
+VSX vector register to hold scalar double values or NO_REGS.
 
 @item wt
-VSX vector register to hold 128 bit integer
+VSX vector register to hold 128 bit integer or NO_REGS.
+
+@item wu
+Altivec register to use for float/32-bit int loads/stores  or NO_REGS.
+
+@item wv
+Altivec register to use for double loads/stores  or NO_REGS.
+
+@item ww
+FP or VSX register to perform float operations under @option{-mvsx} or NO_REGS.
 
 @item wx
-If the STFIWX instruction is enabled, a floating point register
+Floating point register if the STFIWX instruction is enabled or NO_REGS.
+
+@item wy
+VSX vector register to hold scalar float values or NO_REGS.
 
 @item wz
-If the LFIWZX instruction is enabled, a floating point register
+Floating point register if the LFIWZX instruction is enabled or NO_REGS.
 
 @item wQ
 A memory address that will work with the @code{lq} and @code{stq}

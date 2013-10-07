@@ -511,8 +511,8 @@ const pass_data pass_data_slp_vectorize =
 class pass_slp_vectorize : public gimple_opt_pass
 {
 public:
-  pass_slp_vectorize(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_slp_vectorize, ctxt)
+  pass_slp_vectorize (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_slp_vectorize, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -551,7 +551,7 @@ increase_alignment (void)
       tree t;
       unsigned int alignment;
 
-      t = TREE_TYPE(decl);
+      t = TREE_TYPE (decl);
       if (TREE_CODE (t) != ARRAY_TYPE)
         continue;
       vectype = get_vectype_for_scalar_type (strip_array_types (t));
@@ -601,8 +601,8 @@ const pass_data pass_data_ipa_increase_alignment =
 class pass_ipa_increase_alignment : public simple_ipa_opt_pass
 {
 public:
-  pass_ipa_increase_alignment(gcc::context *ctxt)
-    : simple_ipa_opt_pass(pass_data_ipa_increase_alignment, ctxt)
+  pass_ipa_increase_alignment (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_increase_alignment, ctxt)
   {}
 
   /* opt_pass methods: */
