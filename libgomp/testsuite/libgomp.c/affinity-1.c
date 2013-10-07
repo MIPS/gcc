@@ -76,23 +76,26 @@ int
 pthread_getaffinity_np (pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset)
 {
   int ret;
+  unsigned long i, max;
   if (orig_getaffinity_np == NULL)
     {
-      unsigned long i, max;
       orig_getaffinity_np = (int (*) (pthread_t, size_t, cpu_set_t *))
 			    dlsym (RTLD_NEXT, "pthread_getaffinity_np");
       if (orig_getaffinity_np == NULL)
 	exit (0);
-      ret = orig_getaffinity_np (thread, cpusetsize, cpuset);
-      if (ret != 0)
-	return ret;
+    }
+  ret = orig_getaffinity_np (thread, cpusetsize, cpuset);
+  if (ret != 0)
+    return ret;
+  if (contig_cpucount == 0)
+    {
       max = 8 * cpusetsize;
       for (i = 0; i < max; i++)
 	if (!CPU_ISSET_S (i, cpusetsize, cpuset))
 	  break;
       contig_cpucount = i;
     }
-  return orig_getaffinity_np (thread, cpusetsize, cpuset);
+  return ret;
 }
 #endif
 

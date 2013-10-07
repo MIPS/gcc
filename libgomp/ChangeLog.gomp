@@ -1,3 +1,24 @@
+2013-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/58642
+	* config/linux/proc.c: Include errno.h.
+	(gomp_get_cpuset_size): New variable.
+	(gomp_cpuset_popcount): Add cpusetsize argument, use it instead of
+	gomp_cpuset_size.
+	(gomp_init_num_threads): If CPU_ALLOC_SIZE is defined and
+	pthread_getaffinity_np returned EINVAL, increase gomp_cpuset_size
+	and retry.  After successful pthread_getaffinity_np copy
+	gomp_cpuset_size to gomp_get_cpuset_size and try to find out
+	minimum gomp_cpuset_size that covers all the CPUs set in gomp_cpusetp.
+	(get_num_procs): Pass gomp_get_cpuset_size rather than gomp_cpuset_size
+	to pthread_getaffinity_np, adjust gomp_cpuset_popcount caller.
+	* config/linux/proc.h (gomp_cpuset_popcount): Add cpusetsize argument.
+	* config/linux/affinity.c (gomp_affinity_finalize_place_list,
+	gomp_affinity_init_level): Adjust gomp_cpuset_popcount callers.
+	* testsuite/libgomp.c/affinity-1.c (pthread_getaffinity_np): Set
+	contig_cpucount from the first successful pthread_getaffinity_np
+	call, rather than just first call.
+
 2013-10-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* libgomp.h (struct gomp_task_icv): Add thread_limit_var.

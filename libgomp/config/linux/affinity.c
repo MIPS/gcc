@@ -193,7 +193,7 @@ gomp_affinity_finalize_place_list (bool quiet)
       bool nonempty = false;
 #ifdef CPU_AND_S
       CPU_AND_S (gomp_cpuset_size, cpusetp, cpusetp, gomp_cpusetp);
-      nonempty = gomp_cpuset_popcount (cpusetp) != 0;
+      nonempty = gomp_cpuset_popcount (gomp_cpuset_size, cpusetp) != 0;
 #else
       unsigned long k, max = gomp_cpuset_size / sizeof (cpusetp->__bits[0]);
       for (k = 0; k < max; k++)
@@ -228,7 +228,8 @@ gomp_affinity_init_level (int level, unsigned long count, bool quiet)
 
   if (gomp_cpusetp)
     {
-      unsigned long maxcount = gomp_cpuset_popcount (gomp_cpusetp);
+      unsigned long maxcount
+	= gomp_cpuset_popcount (gomp_cpuset_size, gomp_cpusetp);
       if (count > maxcount)
 	count = maxcount;
     }
