@@ -1,5 +1,8 @@
 2013-10-07  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c/affinity-1.c (main): Fork even if
+	contig_cpucount is > 8.
+
 	PR libgomp/58642
 	* config/linux/proc.c: Include errno.h.
 	(gomp_get_cpuset_size): New variable.

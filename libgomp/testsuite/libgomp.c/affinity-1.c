@@ -178,7 +178,7 @@ main ()
   int test_places = 0;
 
 #ifdef DO_FORK
-  if (env_places == NULL && contig_cpucount == 8 && test_false
+  if (env_places == NULL && contig_cpucount >= 8 && test_false
       && getenv ("GOMP_AFFINITY") == NULL)
     {
       int i, j, status;
