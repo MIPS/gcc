@@ -1,5 +1,13 @@
 2013-10-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::context::compile): Implement
+	GCC_JIT_BOOL_OPTION_SELFCHECK_GC.
+
+	* libgccjit.h (enum gcc_jit_bool_option): Add
+	GCC_JIT_BOOL_OPTION_SELFCHECK_GC.
+
+2013-10-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* Make-lang.in: Rename JIT_OBJS to jit_OBJS.  Delete manual
 	dependencies.
 

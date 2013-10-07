@@ -879,7 +879,7 @@ compile ()
     }
 
   /* Aggressively garbage-collect, to shake out bugs: */
-  if (0)
+  if (m_bool_options[GCC_JIT_BOOL_OPTION_SELFCHECK_GC])
     {
       ADD_ARG ("--param");
       ADD_ARG ("ggc-min-expand=0");

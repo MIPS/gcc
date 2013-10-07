@@ -1,3 +1,8 @@
+2013-10-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h (test_jit): Set
+	GCC_JIT_BOOL_OPTION_SELFCHECK_GC when running selftests.
+
 2013-10-04  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-using-global.c: New.

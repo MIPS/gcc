@@ -319,6 +319,12 @@ enum gcc_jit_bool_option
   GCC_JIT_BOOL_OPTION_DEBUGINFO,
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+
+  /* If true, libgccjit will aggressively run its garbage collector, to
+     shake out bugs.  This is likely to only be of interest to
+     developers *of* the library.  */
+  GCC_JIT_BOOL_OPTION_SELFCHECK_GC,
+
   GCC_JIT_NUM_BOOL_OPTIONS
 };
 
