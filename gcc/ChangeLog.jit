@@ -1,3 +1,7 @@
+2013-10-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* coverage.c (coverage_finish): Fix leak of da_file_name.
+
 2013-10-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* Makefile.in: Set PICFLAG from configure script; add it to
