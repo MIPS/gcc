@@ -1,5 +1,10 @@
 
 2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{justcountipa on tfindgimple-1.c works as expected}}
+	* melt/xtramelt-ana-base.melt (each_cgraph_fun_call_flow_graph):
+	Assign the funtree local parameter.
+
+2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{justcountipa on tfindgimple-1.c don't crash anymore when
 	debugging but still don't show locations.}}
 	* melt-runtime.cc (meltgc_ppout_gimple, meltgc_ppout_gimple_seq):

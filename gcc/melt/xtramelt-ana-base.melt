@@ -1315,6 +1315,7 @@ unsigned int melthk_rtl_execute(void)
       if (!$EACHCGRAFUNCFG#_fun) 
         continue;
       debugeprintf("$EACHCGRAFUNCFG#_fun %p", (void*) $EACHCGRAFUNCFG#_fun);
+      $FUNTREE = $EACHCGRAFUNCFG#_dcl;
       $TMPV = NULL;
       /*  each_cgraph_fun_call_flow_graph this assert fails when in a pass without control flow graph */
       melt_assertmsg ("no cfg in each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG",
@@ -1330,7 +1331,7 @@ unsigned int melthk_rtl_execute(void)
 	   $EACHCGRAFUNCFG#_curbb =
 	   BASIC_BLOCK_FOR_FUNCTION($EACHCGRAFUNCFG#_fun, $EACHCGRAFUNCFG#_ix);
 	   if (!$EACHCGRAFUNCFG#_curbb) 
-	   continue;
+	     continue;
 	   $TMPV = 
 	   meltgc_new_basicblock 
 	   ((meltobject_ptr_t) MELT_PREDEF (DISCR_BASIC_BLOCK),
