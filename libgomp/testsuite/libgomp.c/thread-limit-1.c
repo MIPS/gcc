@@ -27,9 +27,15 @@ main ()
   #pragma omp parallel num_threads (5)
   #pragma omp parallel num_threads (5)
   #pragma omp parallel num_threads (2)
-  #pragma omp atomic
-  cnt++;
-  if (cnt > 6)
-    abort ();
+  {
+    int v;
+    #pragma omp atomic capture
+    v = ++cnt;
+    if (v > 6)
+      abort ();
+    usleep (10000);
+    #pragma omp atomic
+    --cnt;
+  }
   return 0;
 }

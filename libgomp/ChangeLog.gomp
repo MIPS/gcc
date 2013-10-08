@@ -1,5 +1,10 @@
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c/thread-limit-1.c (main): Check if
+	cnt isn't bigger than 6 at any point in time, sleep 10ms after
+	incrementing it and then atomically decrement.
+	* testsuite/libgomp.c/thread-limit-2.c (main): Likewise.
+
 	* libgomp.h (struct gomp_team): Add task_queued_count field.
 	Add comments about task_{,queued_,running_}count.
 	* team.c (gomp_new_team): Clear task_queued_count.
