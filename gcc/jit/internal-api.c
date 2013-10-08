@@ -174,7 +174,7 @@ new_function (location *loc,
   else
     fn_type = build_function_type_array (return_type->as_tree (),
 					 num_params, arg_types);
-  // FIXME: free arg_types
+  free (arg_types);
 
   /* FIXME: this uses input_location: */
   tree fndecl = build_fn_decl (name, fn_type);
