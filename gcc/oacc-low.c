@@ -853,15 +853,47 @@ gen_add(gimple_stmt_iterator* gsi, gimple stmt)
 }
 
 static bool
+loop_irreducible_p(struct loop* l)
+{
+  unsigned i;
+  basic_block *bbs;
+  bool res = false;
+
+	if(loop_preheader_edge (l)->src->flags & BB_IRREDUCIBLE_LOOP)
+    {
+		  return true;
+	  }
+
+	bbs = get_loop_body_in_dom_order (l);
+	for (i = 0; i < l->num_nodes; i++)
+    {
+		  if (bbs[i]->flags & BB_IRREDUCIBLE_LOOP)
+        {
+			    res = true;
+          break;
+		    }
+	  }
+  free (bbs);
+
+	return res;
+}
+
+static bool
 loop_precheck(struct loop* l)
 {
-  if(!single_dom_exit(l)) {
-      if(dump_file) {
-          fprintf(dump_file, " !single_dom_exit\n");
-      }
-      return false;
-  }
-  return true;
+	if(!single_dom_exit(l))
+    {
+		  if(dump_file)
+        {
+			    fprintf(dump_file, " !single_dom_exit\n");
+		    }
+		  return false;
+	  }
+	else if(!can_duplicate_loop_p(l) || loop_irreducible_p(l))
+    {
+		  return false;
+	  }
+	return true;
 }
 
 static bool

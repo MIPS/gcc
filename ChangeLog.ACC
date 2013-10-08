@@ -1,4 +1,9 @@
 08-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add check for irreducible loops
+    
+    * gcc/oacc-low.c: loop_irreducible_p added.
+
+08-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add check for nesting restrictions
     
     * gcc/oacc-low.c: check_oacc_nesting_restrictions implemenation.
