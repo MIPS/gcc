@@ -2957,15 +2957,20 @@ canonicalize_cond_expr_cond (tree t)
 gimple
 gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 {
-  int i;
+  int i, bit;
   int nargs = gimple_call_num_args (stmt);
   vec<tree> vargs;
   vargs.create (nargs);
   gimple new_stmt;
 
-  for (i = 0; i < nargs; i++)
-    if (!bitmap_bit_p (args_to_skip, i))
-      vargs.quick_push (gimple_call_arg (stmt, i));
+  for (i = 0, bit = 0; i < nargs; i++, bit++)
+      if (BOUND_P (gimple_call_arg (stmt, i)))
+	{
+	  if (!bitmap_bit_p (args_to_skip, --bit))
+	    vargs.quick_push (gimple_call_arg (stmt, i));
+	}
+      else if (!bitmap_bit_p (args_to_skip, bit))
+	  vargs.quick_push (gimple_call_arg (stmt, i));
 
   if (gimple_call_internal_p (stmt))
     new_stmt = gimple_build_call_internal_vec (gimple_call_internal_fn (stmt),
@@ -4060,6 +4065,9 @@ validate_call (gimple stmt, tree fndecl)
       if (!targs)
 	return true;
       tree arg = gimple_call_arg (stmt, i);
+      /* Skip bounds.  */
+      if (flag_check_pointers && BOUND_P (arg))
+	continue;
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg))
 	  && INTEGRAL_TYPE_P (TREE_VALUE (targs)))
 	;
