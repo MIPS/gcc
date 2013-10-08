@@ -804,28 +804,86 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; a just count IPA pass
 
+(defclass class_justcountipa_data
+  :super class_proped
+  :fields (jcntipa_data
+	   jcntipa_nbfunctions
+	   jcntipa_nbbasicblocks
+	   jcntipa_nbgimples
+	   ))
 ;; no gate functions in simple IPA passes
 
 (defun justcountipa_exec (pass)
   (let ( (passix 0)
+	 (jcdata (get_field :gccpass_data pass))
 	 )
     (code_chunk getpassix_chk
 		#{ /* justcountipa_exec $GETPASSIX_CHK */
-#if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
-       $PASSIX = melt_current_pass_index_var;
-#endif
-}#)
-  (debug "justcountipa_exec pass=" pass " passix=" passix)
-  (shortbacktrace_dbg "justcountipa_exec" 14)
-  (return :true)
-))
+		#if GCCPLUGIN_VERSION >= 4009 || MELT_GCC_VERSION >= 4009 /* GCC 4.9 and later have classes for passes */
+		$PASSIX = melt_current_pass_index_var ;
+		#endif
+		}#)
+    (debug "justcountipa_exec pass=" pass " passix=" passix " jcdata=" jcdata)
+    (assert_msg "check jcdata" (is_a jcdata class_justcountipa_data) jcdata)
+    (shortbacktrace_dbg "justcountipa_exec" 14)
+    (let ( 
+	  (jcnbfun (get_field :jcntipa_nbfunctions jcdata))
+	  (jcnbbb (get_field :jcntipa_nbbasicblocks jcdata))
+	  (jcnbgimp (get_field :jcntipa_nbgimples jcdata))
+	  )
+      (assert_msg "check jcnbfun" (is_integerbox jcnbfun) jcnbfun)
+      (assert_msg "check jcnbbb" (is_integerbox jcnbbb) jcnbbb)
+      (assert_msg "check jcnbgimp" (is_integerbox jcnbgimp) jcnbgimp)
+      (each_cgraph_fun_call_flow_graph
+       ()
+       (:tree fundecl :basic_block entrybb exitbb
+	      :value bbtup tmp)
+       (debug "justcountipa_exec fundecl=" fundecl " entrybb=" entrybb " exitbb=" exitbb " bbtup=" bbtup)
+       (put_int jcnbfun (+i (get_int jcnbfun) 1))
+       (let ( (:long nbbb (multiple_length bbtup))
+	      (:long nbgimp 0)
+	      (vfundecl (box fundecl))
+	      )
+	 (debug "justcountipa_exec vfundecl=" vfundecl)
+	 (put_int jcnbbb (+i (get_int jcnbbb) nbbb))
+	 (foreach_in_multiple
+	  (bbtup)
+	  (curbbv :long bbix)
+	  (debug "justcountipa_exec curbbv=" curbbv " bbix=" bbix)
+	  (assert_msg "check curbbv" (is_basicblock curbbv) curbbv)
+	  (let ( (:basic_block rawbb (basicblock_content curbbv))
+		 )
+	    (debug "justcountipa_exec rawbb=" rawbb)
+	    (assert_msg "check rawbb" rawbb)
+	    (eachgimple_in_basicblock
+	     (rawbb)
+	     (:gimple g)
+	     (debug "justcountipa_exec g=" g)
+	     (assert_msg "check gimple g" g)
+	     (setq nbgimp (+i nbgimp 1))
+	     )))
+	 (debug "justcountipa_exec nbgimp=" nbgimp " in vfundecl=" vfundecl)
+	 (put_int jcnbgimp (+i (get_int jcnbgimp) nbgimp))
+	 (inform_at vfundecl "just counted $1 basic blocks and $2 gimple-s in function $3"
+		    nbbb nbgimp fundecl)
+	 ))
+      (inform_at () "just counted $1 functions, cumulating $2 basic blocks and $3 gimples"
+		 (get_int jcnbfun) (get_int jcnbbb) (get_int jcnbgimp))
+      (return :true)
+      )))
 
 (defun justcountipa_docmd (cmd moduldata)
   (debug "justcountipa_docmd start cmd=" cmd)
-  (let ( (ipass (instance class_gcc_simple_ipa_pass
+  (let (
+	(jcdata (instance class_justcountipa_data
+			  :jcntipa_data ()
+			  :jcntipa_nbfunctions (box 0)
+			  :jcntipa_nbbasicblocks (box 0)
+			  :jcntipa_nbgimples (box 0)))
+	(ipass (instance class_gcc_simple_ipa_pass
 			  :named_name '"melt_justcountipa"
 			  :gccpass_exec justcountipa_exec
-			  :gccpass_data ()))
+			  :gccpass_data jcdata))
 	 )
     (debug "justcountipa_docmd ipass=" ipass)
     (install_melt_pass_in_gcc ipass :before '"*free_lang_data" -1)

@@ -1,6 +1,13 @@
 
 2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{Unstable: justdcountipa pass crashes when debugging with
+	tfindgimple-1.c and don't show function locations...}}
+	* melt/xtramelt-ana-simple.melt (class_justcountipa_data): New class.
+	(justcountipa_exec, justcountipa_docmd): Use it.
+
+2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/xtramelt-ana-base.melt (install_melt_pass_in_gcc): More
 	debug. The rpassdata for simple_ipa should be SIMPLE_IPA_PASS.
 
