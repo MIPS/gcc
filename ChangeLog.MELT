@@ -1,4 +1,9 @@
 
+2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Updated instructions still
+	incomplete for MELT 1.0 plugin.
+
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT 1.0 rc1 release candidate}}
 
