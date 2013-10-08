@@ -1,3 +1,23 @@
+2013-10-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h: Wrap parts of harness within a
+	#ifndef TEST_COMBINATION so that it can be included multiple
+	times.
+	* jit.dg/test-accessing-struct.c (code_making_callback): Rename
+	the generated function from test_fn to test_access to avoid a
+	naming collision in the combined test.
+	(verify_code): Likewise.
+	* jit.dg/test-calling-external-function.c (code_making_callback):
+	Rename the generated function from test_fn to test_caller.
+	(verify_code): Likewise.
+	* jit.dg/test-combination.c: New.
+	* jit.dg/test-string-literal.c (code_making_callback): Rename
+	the generated function from test_fn to test_string_literal.
+	(verify_code): Likewise.
+	* jit.dg/test-using-global.c (code_making_callback): Rename
+	the generated function from test_fn to test_using_global.
+	(verify_code): Likewise.
+
 2013-10-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/harness.h (test_jit): Set

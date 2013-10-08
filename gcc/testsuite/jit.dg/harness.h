@@ -54,8 +54,13 @@ code_making_callback (gcc_jit_context *ctxt, void * user_data);
 extern void
 verify_code (gcc_jit_result *result);
 
-/* Run one iteration of the test.  */
+/* Implement framework needed for turning the testcase hooks into an
+   executable.  test-combination.c combines multiple testcases into one
+   testcase, so we have TEST_COMBINATION as a way of temporarily turning
+   off this part of harness.h.  */
+#ifndef TEST_COMBINATION
 
+/* Run one iteration of the test.  */
 static void
 test_jit (const char *argv0)
 {
@@ -143,3 +148,4 @@ main (int argc, char **argv)
 
   return 0;
 }
+#endif /* #ifndef TEST_COMBINATION */

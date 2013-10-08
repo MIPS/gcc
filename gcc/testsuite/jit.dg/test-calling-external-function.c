@@ -23,7 +23,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
      extern void called_function (int i, int j, int k);
 
      void
-     test_fn (int a)
+     test_caller (int a)
      {
         called_function (a * 3, a * 4, a * 5);
      }
@@ -55,7 +55,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_context_new_function (ctxt, NULL,
                                   GCC_JIT_FUNCTION_EXPORTED,
                                   void_type,
-                                  "test_fn",
+                                  "test_caller",
                                   1, &param_a,
                                   0);
   /* "a * 3, a * 4, a * 5"  */
@@ -98,16 +98,16 @@ verify_code (gcc_jit_result *result)
   typedef void (*fn_type) (int);
   CHECK_NON_NULL (result);
 
-  fn_type test_fn =
-    (fn_type)gcc_jit_result_get_code (result, "test_fn");
-  CHECK_NON_NULL (test_fn);
+  fn_type test_caller =
+    (fn_type)gcc_jit_result_get_code (result, "test_caller");
+  CHECK_NON_NULL (test_caller);
 
   called_with[0] = 0;
   called_with[1] = 0;
   called_with[2] = 0;
 
   /* Call the JIT-generated function.  */
-  test_fn (5);
+  test_caller (5);
 
   /* Verify that it correctly called "called_function".  */
   CHECK_VALUE (called_with[0], 15);

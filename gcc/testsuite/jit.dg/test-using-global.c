@@ -22,7 +22,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
      extern int the_global;
 
      void
-     test_fn (void)
+     test_using_global (void)
      {
 	the_global += 1;
      }
@@ -35,7 +35,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_context_new_function (ctxt, NULL,
 				  GCC_JIT_FUNCTION_EXPORTED,
 				  void_type,
-				  "test_fn",
+				  "test_using_global",
 				  0, NULL,
 				  0);
 
@@ -56,14 +56,14 @@ verify_code (gcc_jit_result *result)
   typedef void (*fn_type) (void);
   CHECK_NON_NULL (result);
 
-  fn_type test_fn =
-    (fn_type)gcc_jit_result_get_code (result, "test_fn");
-  CHECK_NON_NULL (test_fn);
+  fn_type test_using_global =
+    (fn_type)gcc_jit_result_get_code (result, "test_using_global");
+  CHECK_NON_NULL (test_using_global);
 
   the_global = 42;
 
   /* Call the JIT-generated function.  */
-  test_fn ();
+  test_using_global ();
 
   /* Verify that it correctly modified the_global.  */
   CHECK_VALUE (the_global, 43);

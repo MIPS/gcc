@@ -12,7 +12,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   /* Let's try to inject the equivalent of:
 
      const char *
-     test_fn (void)
+     test_string_literal (void)
      {
         return "hello world";
      }
@@ -26,7 +26,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_context_new_function (ctxt, NULL,
                                   GCC_JIT_FUNCTION_EXPORTED,
                                   const_char_ptr_type,
-                                  "test_fn",
+                                  "test_string_literal",
                                   0, NULL,
                                   0);
 
@@ -42,12 +42,12 @@ verify_code (gcc_jit_result *result)
 {
   typedef const char *(*fn_type) (void);
   CHECK_NON_NULL (result);
-  fn_type test_fn =
-    (fn_type)gcc_jit_result_get_code (result, "test_fn");
-  CHECK_NON_NULL (test_fn);
+  fn_type test_string_literal =
+    (fn_type)gcc_jit_result_get_code (result, "test_string_literal");
+  CHECK_NON_NULL (test_string_literal);
 
   /* Call the JIT-generated function.  */
-  const char *str = test_fn ();
+  const char *str = test_string_literal ();
   CHECK_NON_NULL (str);
   CHECK_VALUE (strcmp (str, "hello world"), 0);
 }

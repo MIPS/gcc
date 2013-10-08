@@ -17,7 +17,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
      void
-     test_fn (struct foo *f)
+     test_access (struct foo *f)
      {
         f->z = f->x * f->y;
      }
@@ -44,14 +44,14 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 3, fields);
   gcc_jit_type *ptr_type = gcc_jit_type_get_pointer (struct_type);
 
-  /* Build the test_fn.  */
+  /* Build the test function.  */
   gcc_jit_param *param_f =
     gcc_jit_context_new_param (ctxt, NULL, ptr_type, "f");
   gcc_jit_function *test_fn =
     gcc_jit_context_new_function (ctxt, NULL,
                                   GCC_JIT_FUNCTION_EXPORTED,
                                   void_type,
-                                  "test_fn",
+                                  "test_access",
                                   1, &param_f,
                                   0);
 
@@ -91,9 +91,9 @@ verify_code (gcc_jit_result *result)
   typedef void (*fn_type) (struct foo *);
   CHECK_NON_NULL (result);
 
-  fn_type test_fn =
-    (fn_type)gcc_jit_result_get_code (result, "test_fn");
-  CHECK_NON_NULL (test_fn);
+  fn_type test_access =
+    (fn_type)gcc_jit_result_get_code (result, "test_access");
+  CHECK_NON_NULL (test_access);
 
   struct foo tmp;
   tmp.x = 5;
@@ -101,7 +101,7 @@ verify_code (gcc_jit_result *result)
   tmp.z = 0;
 
   /* Call the JIT-generated function.  */
-  test_fn (&tmp);
+  test_access (&tmp);
 
   /* Verify that the code correctly modified the field "z".  */
   CHECK_VALUE (tmp.z, 35);
