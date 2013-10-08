@@ -1,3 +1,9 @@
+08-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Add new test case.
+    
+    * gcc/testsuite/gcc.dg/gacc/simple-kernel.c: New test case
+    * gcc/testsuite/gcc.dg/gacc/gacc.exp: Remove testing omp tests
+
 07-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Fix some warnings
     
