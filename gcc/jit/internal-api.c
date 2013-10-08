@@ -23,6 +23,21 @@
 gcc::jit::context::
 ~context ()
 {
+  /* Clean up .s/.so and tempdir. */
+  if (m_path_s_file)
+    unlink (m_path_s_file);
+  if (m_path_so_file)
+    unlink (m_path_so_file);
+  if (m_path_tempdir)
+    rmdir (m_path_tempdir);
+
+  free (m_path_template);
+  /* m_path_tempdir aliases m_path_template, or is NULL, so don't
+     attempt to free it .  */
+  free (m_path_c_file);
+  free (m_path_s_file);
+  free (m_path_so_file);
+
   m_functions.release ();
 }
 
@@ -819,6 +834,9 @@ compile ()
 {
   void *handle = NULL;
   result *result_obj = NULL;
+  const char *progname;
+  const char *fake_args[20];
+  unsigned int num_args;
 
   /* Acquire the big GCC mutex. */
   pthread_mutex_lock (&mutex);
@@ -826,17 +844,31 @@ compile ()
   gcc_assert (NULL == active_jit_ctxt);
   active_jit_ctxt = this;
 
+  m_path_template = xstrdup ("/tmp/libgccjit-XXXXXX");
+  if (!m_path_template)
+    goto error;
+
+  /* Create tempdir using mkdtemp.  This is created with 0700 perms and
+     is unique.  Hence no other (non-root) users should have access to
+     the paths within it.  */
+  m_path_tempdir = mkdtemp (m_path_template);
+  if (!m_path_tempdir)
+    goto error;
+  m_path_c_file = concat (m_path_tempdir, "/fake.c", NULL);
+  m_path_s_file = concat (m_path_tempdir, "/fake.s", NULL);
+  m_path_so_file = concat (m_path_tempdir, "/fake.so", NULL);
+
   /* Call into the rest of gcc.
      For now, we have to assemble command-line options to pass into
      toplev_main, so that they can be parsed. */
-  const char *fake_args[20];
+
   /* Pass in user-provided "progname", if any, so that it makes it
      into GCC's "progname" global, used in various diagnostics. */
-  const char *progname = m_str_options[GCC_JIT_STR_OPTION_PROGNAME];
+  progname = m_str_options[GCC_JIT_STR_OPTION_PROGNAME];
   fake_args[0] = progname ? progname : "libgccjit.so";
 
-  fake_args[1] = "fake.c";
-  unsigned int num_args = 2;
+  fake_args[1] = m_path_c_file;
+  num_args = 2;
 
 #define ADD_ARG(arg) \
   do \
@@ -917,10 +949,16 @@ compile ()
      For now, just use the /usr/bin/gcc on the system...
    */
   /* FIXME: totally faking it for now, not even using pex */
-  /* FIXME: don't use the same filename for everything;
-     also TOCTTOU issues, presumably. */
-  system ("gcc -shared fake.s -o fake.so");
-
+  {
+    char cmd[1024];
+    snprintf (cmd, 1024, "gcc -shared %s -o %s",
+              m_path_s_file, m_path_so_file);
+    if (0)
+      printf ("cmd: %s\n", cmd);
+    int ret = system (cmd);
+    if (ret)
+      goto error;
+  }
   timevar_pop (TV_ASSEMBLE);
 
   // TODO: split out assembles vs linker
@@ -934,7 +972,7 @@ compile ()
     /* Clear any existing error.  */
     dlerror ();
 
-    handle = dlopen ("./fake.so", RTLD_NOW | RTLD_LOCAL);
+    handle = dlopen (m_path_so_file, RTLD_NOW | RTLD_LOCAL);
     if ((error = dlerror()) != NULL)  {
       fprintf(stderr, "%s\n", error);
     }

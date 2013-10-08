@@ -149,6 +149,18 @@ private:
   gcc_jit_code_callback m_code_factory;
   bool m_within_code_factory;
   void *m_user_data;
+
+  /* Allocated using xmalloc (by xstrdup).  */
+  char *m_path_template;
+
+  /* This either aliases m_path_template, or is NULL.  */
+  char *m_path_tempdir;
+
+  /* The following are allocated using xmalloc.  */
+  char *m_path_c_file;
+  char *m_path_s_file;
+  char *m_path_so_file;
+
   int m_cb_result; /* Result from client-provided code factory.  */
   vec<function *> m_functions;
   const char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];

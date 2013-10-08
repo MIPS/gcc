@@ -1,5 +1,19 @@
 2013-10-08  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::context::compile): Use mkdtemp to
+	create a temporary directory and create the .s and .so files
+	there, rather than writing to "fake.s" and then reading it to
+	make "fake.so", then using it, fixing various possible race
+	attacks by processes that can write to the process' current
+	working directory.
+	(gcc::jit::context::~context): Clean up tempfiles and path
+	buffers.
+	* internal-api.h (gcc::jit::context): Add fields
+	m_path_template, m_path_tempdir, m_path_c_file, m_path_s_file,
+	m_path_so_file.
+
+2013-10-08  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::context::new_function): Fix leak of
 	arg_types.
 
