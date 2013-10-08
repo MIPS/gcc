@@ -1,0 +1,17 @@
+2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* builtins.c (expand_builtin_mempcpy_args): Add orig exp as argument.
+	Support BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK.
+	(expand_builtin_cexpi): Generate call with bound args when required.
+	(expand_builtin_mempcpy): Adjust expand_builtin_mempcpy_args call.
+	(expand_builtin_stpcpy): Likewise.
+	(expand_builtin_memset_args): Support BUILT_IN_CHKP_MEMSET_NOBND_NOCHK.
+	(std_expand_builtin_va_start): Initialize bounds for va_list.
+	(expand_builtin_va_copy): Initialize bounds returned by built-in.
+	(expand_builtin): Support bound args in call expr.
+	(fold_builtin_next_arg): Likewise.
+	* except.c (expand_builtin_eh_pointer): Initialize bounds returned by
+	built-in.
+	* expr.c (emit_block_move_via_libcall): Generate call with bound args
+	when required.
+	* optabs.c (expand_unop): Handle bounds in libcall return value.
