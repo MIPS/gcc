@@ -583,7 +583,36 @@ scan_oacc_kernels (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
 static bool
 check_oacc_nesting_restrictions (gimple stmt, oacc_context *ctx)
 {
-  // TODO
+  gimple outer_ctx = ctx->stmt;
+
+  switch(gimple_code(stmt))
+  {
+  case GIMPLE_ACC_KERNELS:
+  case GIMPLE_ACC_PARALLEL:
+    if(gimple_code(outer_ctx) == GIMPLE_ACC_KERNELS ||
+      gimple_code(outer_ctx) == GIMPLE_ACC_PARALLEL)
+    {
+      error("invalid nesting of OpenACC parallel/kernels regions");
+      return false;
+    }
+    break;
+  case GIMPLE_ACC_LOOP:
+    if(gimple_code(outer_ctx) != GIMPLE_ACC_KERNELS &&
+      gimple_code(outer_ctx) != GIMPLE_ACC_PARALLEL)
+    {
+      error("OpenACC 'loop' directive is not nested inside compute region");
+      return false;
+    }
+    break;
+  case GIMPLE_ACC_CACHE:
+    if(gimple_code(outer_ctx) != GIMPLE_ACC_LOOP)
+    {
+      error("OpenACC 'cache'  directive is not nested inside 'loop' directive");
+      return false;
+    }
+  default:
+    break;
+  }
   return true;
 }
 

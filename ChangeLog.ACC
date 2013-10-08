@@ -1,3 +1,8 @@
+08-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add check for nesting restrictions
+    
+    * gcc/oacc-low.c: check_oacc_nesting_restrictions implemenation.
+
 08-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Add new test case.
     
