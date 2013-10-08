@@ -4896,9 +4896,14 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	    || TREE_CODE (to) == SSA_NAME))
     {
       rtx value;
+      rtx bounds;
 
       push_temp_slots ();
       value = expand_normal (from);
+
+      /* Split value and bounds to store them separately.  */
+      chkp_split_slot (value, &value, &bounds);
+
       if (to_rtx == 0)
 	to_rtx = expand_expr (to, NULL_RTX, VOIDmode, EXPAND_WRITE);
 
@@ -4932,6 +4937,18 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
 	  emit_move_insn (to_rtx, value);
 	}
+
+      /* Store bounds if required.  */
+      if (bounds
+	  && !BOUNDED_P (to)
+	  && chkp_type_has_pointer (TREE_TYPE (to)))
+	{
+	  gcc_assert (MEM_P (to_rtx));
+	  gcc_assert (!CONST_INT_P (bounds));
+
+	  chkp_emit_bounds_store (bounds, value, to_rtx);
+	}
+
       preserve_temp_slots (to_rtx);
       pop_temp_slots ();
       return;
@@ -5049,7 +5066,7 @@ emit_storent_insn (rtx to, rtx from)
 rtx
 store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 {
-  rtx temp;
+  rtx temp, temp_bnd;
   rtx alt_rtl = NULL_RTX;
   location_t loc = curr_insn_location ();
 
@@ -5141,6 +5158,10 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
       temp = expand_expr (exp, inner_target, VOIDmode,
 			  call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
 
+      /* Bounds returned by the call are atored separately.  */
+      if (TREE_CODE (exp) == CALL_EXPR)
+	chkp_split_slot (temp, &temp, &temp_bnd);
+
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
       if (CONSTANT_P (temp) && GET_MODE (temp) == VOIDmode)
@@ -5222,6 +5243,10 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl);
+
+      /* Bounds returned by the call are stored separately.  */
+      if (TREE_CODE (exp) == CALL_EXPR)
+	chkp_split_slot (temp, &temp, &temp_bnd);
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not

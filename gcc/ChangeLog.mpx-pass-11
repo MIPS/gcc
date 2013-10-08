@@ -1,0 +1,27 @@
+2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* calls.c (arg_data): Add fields for bounds information
+	and to store value pushed to the stack.
+	(precompute_register_parameters): Expand bounds of the arg.
+	(initialize_argument_information): Fill bounds information.
+	(load_register_parameters): Load passed bounds.
+	(expand_call): Handle passed and returned bounds.
+	(emit_library_call_value_1): Filter out returned bounds.
+	(store_one_arg): Store bounds of arg.
+	* stmt.c (expand_return): Handle returned bounds.
+	* tree.h (expand_return): Adjust to new expand_return signature.
+	* cfgexpand.c (expand_gimple_stmt_1): Likewise.
+	* explow.c (hard_function_value): Handle returned bounds.
+	* expr.c (expand_assignment): Likewise.
+	(store_expr): Likewise.
+	* function.c (aggregate_value_p): Likewise.
+	(use_register_for_decl): Do no registerize decls used for bounds
+	stores and loads.
+	(assign_parm_data_one): Add field for bounds.
+	(assign_parm_find_entry_rtl): Fill bounds info.
+	(assign_parms): Initialize input bounds for args.
+	(expand_function_start): Handle returned bounds.
+	(diddle_return_value_1): New.
+	(diddle_return_value): Handle returned bounds.
+	(expand_function_end): Likewise.
+	* function.h (rtl_data): Add field for returned bounds.

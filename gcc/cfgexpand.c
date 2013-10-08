@@ -2245,7 +2245,7 @@ expand_gimple_stmt_1 (gimple stmt)
       if (!op0)
 	expand_null_return ();
       else
-	expand_return (op0);
+	expand_return (op0, gimple_return_retbnd (stmt));
       break;
 
     case GIMPLE_ASSIGN:
