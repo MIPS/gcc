@@ -385,8 +385,18 @@ struct gomp_team
 
   gomp_mutex_t task_lock;
   struct gomp_task *task_queue;
-  int task_count;
-  int task_running_count;
+  /* Number of all GOMP_TASK_{WAITING,TIED} tasks in the team.  */
+  unsigned int task_count;
+  /* Number of GOMP_TASK_WAITING tasks currently waiting to be scheduled.  */
+  unsigned int task_queued_count;
+  /* Number of GOMP_TASK_{WAITING,TIED} tasks currently running
+     directly in gomp_barrier_handle_tasks; tasks spawned
+     from e.g. GOMP_taskwait or GOMP_taskgroup_end don't count, even when
+     that is called from a task run from gomp_barrier_handle_tasks.
+     task_running_count should be always <= team->nthreads,
+     and if current task isn't in_tied_task, then it will be
+     even < team->nthreads.  */
+  unsigned int task_running_count;
   int work_share_cancelled;
   int team_cancelled;
 

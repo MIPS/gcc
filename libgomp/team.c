@@ -172,6 +172,7 @@ gomp_new_team (unsigned nthreads)
   gomp_mutex_init (&team->task_lock);
   team->task_queue = NULL;
   team->task_count = 0;
+  team->task_queued_count = 0;
   team->task_running_count = 0;
   team->work_share_cancelled = 0;
   team->team_cancelled = 0;

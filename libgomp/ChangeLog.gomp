@@ -1,5 +1,15 @@
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>
 
+	* libgomp.h (struct gomp_team): Add task_queued_count field.
+	Add comments about task_{,queued_,running_}count.
+	* team.c (gomp_new_team): Clear task_queued_count.
+	* task.c (GOMP_task): Increment task_queued_count.
+	(gomp_task_run_pre): Decrement task_queued_count.  If it is
+	decremented to zero, call gomp_team_barrier_clear_task_pending.
+	(gomp_task_run_post_handle_dependers): Increment task_queued_count.
+	(gomp_barrier_handle_tasks): Don't call
+	gomp_team_barrier_clear_task_pending here.
+
 	* testsuite/libgomp.c/udr-2.c (main): Remove unused variable i.
 	* testsuite/libgomp.c/udr-3.c (main): Initialize i to 0.
 	* testsuite/libgomp.c++/udr-8.C (main): Likewise.

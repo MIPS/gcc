@@ -407,6 +407,7 @@ GOMP_task (void (*fn) (void *), void *data, void (*cpyfn) (void *, void *),
 	  team->task_queue = task;
 	}
       ++team->task_count;
+      ++team->task_queued_count;
       gomp_team_barrier_set_task_pending (&team->barrier);
       do_wake = team->task_running_count + !parent->in_tied_task
 		< team->nthreads;
@@ -434,6 +435,8 @@ gomp_task_run_pre (struct gomp_task *child_task, struct gomp_task *parent,
 	team->task_queue = NULL;
     }
   child_task->kind = GOMP_TASK_TIED;
+  if (--team->task_queued_count == 0)
+    gomp_team_barrier_clear_task_pending (&team->barrier);
   if ((gomp_team_barrier_cancelled (&team->barrier)
        || (taskgroup && taskgroup->cancelled))
       && !child_task->copy_ctors_done)
@@ -538,6 +541,7 @@ gomp_task_run_post_handle_dependers (struct gomp_task *child_task,
 	  team->task_queue = task;
 	}
       ++team->task_count;
+      ++team->task_queued_count;
       ++ret;
     }
   free (child_task->dependers);
@@ -670,8 +674,6 @@ gomp_barrier_handle_tasks (gomp_barrier_state_t state)
 	    }
 	  team->task_running_count++;
 	  child_task->in_tied_task = true;
-	  if (team->task_count == team->task_running_count)
-	    gomp_team_barrier_clear_task_pending (&team->barrier);
 	}
       gomp_mutex_unlock (&team->task_lock);
       if (do_wake)
