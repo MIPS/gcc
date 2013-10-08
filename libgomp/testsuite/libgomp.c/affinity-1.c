@@ -65,6 +65,7 @@ struct places
 };
 
 unsigned long contig_cpucount;
+unsigned long min_cpusetsize;
 
 #if defined (HAVE_PTHREAD_AFFINITY_NP) && defined (_SC_NPROCESSORS_CONF) \
     && defined (CPU_ALLOC_SIZE)
@@ -94,6 +95,7 @@ pthread_getaffinity_np (pthread_t thread, size_t cpusetsize, cpu_set_t *cpuset)
 	if (!CPU_ISSET_S (i, cpusetsize, cpuset))
 	  break;
       contig_cpucount = i;
+      min_cpusetsize = cpusetsize;
     }
   return ret;
 }
@@ -105,8 +107,15 @@ print_affinity (struct place p)
   static unsigned long size;
   if (size == 0)
     {
-      size = sysconf (_SC_NPROCESSORS_CONF);
-      size = CPU_ALLOC_SIZE (size);
+      if (min_cpusetsize)
+	size = min_cpusetsize;
+      else
+	{
+	  size = sysconf (_SC_NPROCESSORS_CONF);
+	  size = CPU_ALLOC_SIZE (size);
+	  if (size < sizeof (cpu_set_t))
+	    size = sizeof (cpu_set_t);
+	}
     }
   cpu_set_t *cpusetp = (cpu_set_t *) alloca (size);
   if (pthread_getaffinity_np (pthread_self (), size, cpusetp) == 0)

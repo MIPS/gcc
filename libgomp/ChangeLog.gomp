@@ -1,3 +1,10 @@
+2013-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c/affinity-1.c (min_cpusetsize): New variable.
+	(pthread_getaffinity_np): Set it when setting contig_cpucount.
+	(print_affinity): Use it for size, only use sysconf value if that is not
+	set and if it is smaller than sizeof (cpu_set_t), use sizeof (cpu_set_t).
+
 2013-10-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/affinity-1.c (main): Fork even if
