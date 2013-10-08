@@ -23,6 +23,8 @@ class loop;
 class context
 {
 public:
+  ~context ();
+
   void gt_ggc_mx ();
 
   void

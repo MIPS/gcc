@@ -20,6 +20,12 @@
 
 #include "internal-api.h"
 
+gcc::jit::context::
+~context ()
+{
+  m_functions.release ();
+}
+
 void
 gcc::jit::context::
 gt_ggc_mx ()

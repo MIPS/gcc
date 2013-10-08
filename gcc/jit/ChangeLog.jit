@@ -1,3 +1,8 @@
+2013-10-08  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::context::~context): New.
+	* internal-api.h (gcc::jit::context::~context): New.
+
 2013-10-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::context::compile): Implement
