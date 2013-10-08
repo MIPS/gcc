@@ -11233,7 +11233,6 @@ c_finish_omp_clauses (tree clauses)
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
   tree c, t, *pc = &clauses;
-  const char *name;
   bool branch_seen = false;
   bool copyprivate_seen = false;
   tree *nowait_clause = NULL;
@@ -11253,18 +11252,15 @@ c_finish_omp_clauses (tree clauses)
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_SHARED:
-	  name = "shared";
 	  need_implicitly_determined = true;
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_PRIVATE:
-	  name = "private";
 	  need_complete = true;
 	  need_implicitly_determined = true;
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_REDUCTION:
-	  name = "reduction";
 	  need_implicitly_determined = true;
 	  t = OMP_CLAUSE_DECL (c);
 	  if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) == NULL_TREE
@@ -11377,7 +11373,6 @@ c_finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_COPYPRIVATE:
-	  name = "copyprivate";
 	  copyprivate_seen = true;
 	  if (nowait_clause)
 	    {
@@ -11390,7 +11385,6 @@ c_finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_COPYIN:
-	  name = "copyin";
 	  t = OMP_CLAUSE_DECL (c);
 	  if (TREE_CODE (t) != VAR_DECL || !DECL_THREAD_LOCAL_P (t))
 	    {
@@ -11401,7 +11395,6 @@ c_finish_omp_clauses (tree clauses)
 	  goto check_dup_generic;
 
 	case OMP_CLAUSE_LINEAR:
-	  name = "linear";
 	  t = OMP_CLAUSE_DECL (c);
 	  if (!INTEGRAL_TYPE_P (TREE_TYPE (t))
 	      && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
@@ -11429,7 +11422,8 @@ c_finish_omp_clauses (tree clauses)
 	  if (TREE_CODE (t) != VAR_DECL && TREE_CODE (t) != PARM_DECL)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
-			"%qE is not a variable in clause %qs", t, name);
+			"%qE is not a variable in clause %qs", t,
+			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
@@ -11445,7 +11439,6 @@ c_finish_omp_clauses (tree clauses)
 	  break;
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	  name = "firstprivate";
 	  t = OMP_CLAUSE_DECL (c);
 	  need_complete = true;
 	  need_implicitly_determined = true;
@@ -11467,7 +11460,6 @@ c_finish_omp_clauses (tree clauses)
 	  break;
 
 	case OMP_CLAUSE_LASTPRIVATE:
-	  name = "lastprivate";
 	  t = OMP_CLAUSE_DECL (c);
 	  need_complete = true;
 	  need_implicitly_determined = true;
@@ -11694,7 +11686,8 @@ c_finish_omp_clauses (tree clauses)
 		{
 		  error_at (OMP_CLAUSE_LOCATION (c),
 			    "%qE is predetermined %qs for %qs",
-			    t, share_name, name);
+			    t, share_name,
+			    omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 		  remove = true;
 		}
 	    }

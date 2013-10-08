@@ -5085,7 +5085,6 @@ finish_omp_clauses (tree clauses)
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
   tree c, t, *pc = &clauses;
-  const char *name;
   bool branch_seen = false;
   bool copyprivate_seen = false;
 
@@ -5102,23 +5101,17 @@ finish_omp_clauses (tree clauses)
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_SHARED:
-	  name = "shared";
 	  goto check_dup_generic;
 	case OMP_CLAUSE_PRIVATE:
-	  name = "private";
 	  goto check_dup_generic;
 	case OMP_CLAUSE_REDUCTION:
-	  name = "reduction";
 	  goto check_dup_generic;
 	case OMP_CLAUSE_COPYPRIVATE:
-	  name = "copyprivate";
 	  copyprivate_seen = true;
 	  goto check_dup_generic;
 	case OMP_CLAUSE_COPYIN:
-	  name = "copyin";
 	  goto check_dup_generic;
 	case OMP_CLAUSE_LINEAR:
-	  name = "linear";
 	  t = OMP_CLAUSE_DECL (c);
 	  if (!type_dependent_expression_p (t)
 	      && !INTEGRAL_TYPE_P (TREE_TYPE (t))
@@ -5167,9 +5160,11 @@ finish_omp_clauses (tree clauses)
 	      if (processing_template_decl)
 		break;
 	      if (DECL_P (t))
-		error ("%qD is not a variable in clause %qs", t, name);
+		error ("%qD is not a variable in clause %qs", t,
+		       omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      else
-		error ("%qE is not a variable in clause %qs", t, name);
+		error ("%qE is not a variable in clause %qs", t,
+		       omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
@@ -5607,39 +5602,32 @@ finish_omp_clauses (tree clauses)
       switch (c_kind)
 	{
 	case OMP_CLAUSE_SHARED:
-	  name = "shared";
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_PRIVATE:
-	  name = "private";
 	  need_complete_non_reference = true;
 	  need_default_ctor = true;
 	  need_dtor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_FIRSTPRIVATE:
-	  name = "firstprivate";
 	  need_complete_non_reference = true;
 	  need_copy_ctor = true;
 	  need_dtor = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_LASTPRIVATE:
-	  name = "lastprivate";
 	  need_complete_non_reference = true;
 	  need_copy_assignment = true;
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_REDUCTION:
-	  name = "reduction";
 	  need_implicitly_determined = true;
 	  break;
 	case OMP_CLAUSE_COPYPRIVATE:
-	  name = "copyprivate";
 	  need_copy_assignment = true;
 	  break;
 	case OMP_CLAUSE_COPYIN:
-	  name = "copyin";
 	  need_copy_assignment = true;
 	  break;
 	case OMP_CLAUSE_NOWAIT:
@@ -5703,7 +5691,8 @@ finish_omp_clauses (tree clauses)
 	  else if (TREE_CODE (TREE_TYPE (t)) == REFERENCE_TYPE
 		   && need_complete_non_reference)
 	    {
-	      error ("%qE has reference type for %qs", t, name);
+	      error ("%qE has reference type for %qs", t,
+		     omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
 	}
@@ -5733,7 +5722,7 @@ finish_omp_clauses (tree clauses)
 	  if (share_name)
 	    {
 	      error ("%qE is predetermined %qs for %qs",
-		     t, share_name, name);
+		     t, share_name, omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
 	}

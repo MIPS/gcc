@@ -1,3 +1,8 @@
+2013-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses): Remove name variable, use
+	omp_clause_code_name[OMP_CLAUSE_CODE (c) instead.
+
 2013-10-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* parser.c (cp_parser_omp_declare_reduction_exprs): Document the
