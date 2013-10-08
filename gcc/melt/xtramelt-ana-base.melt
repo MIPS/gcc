@@ -63,6 +63,7 @@ public:
   long index () const { return _instance_index; };
   melt_gimple_pass (const pass_data& passdata, gcc::context*ctxt) 
     : gimple_opt_pass (passdata, ctxt), _instance_index(++melt_pass_instance_counter) {};
+  virtual ~melt_gimple_pass() { _instance_index=0; };
   bool gate () { 
     bool fla;
     long oldindex = melt_current_pass_index_var;
@@ -92,6 +93,7 @@ public:
   long index () const { return _simpleipa_instance_index; };
    melt_simple_ipa_pass (const pass_data& passdata, gcc::context*ctxt) 
     : simple_ipa_opt_pass(passdata, ctxt),  _simpleipa_instance_index(++melt_pass_instance_counter) {};
+  virtual ~melt_simple_ipa_pass() { _simpleipa_instance_index=0; };
    unsigned int execute () 
     {
       unsigned r = 0;
@@ -159,6 +161,7 @@ unsigned int melthk_rtl_execute(void)
 	 " positioning=" positioning " refpassname=" refpassname " refpassnum=" refpassnum)
   ;; check that we have a mode
   (let ( (:long badmodeflag 0)
+	 (passname (get_field :named_name pass))
 	 )
     (code_chunk badmode_chk
        #{/*install_melt_gcc_pass $BADMODE_CHK */
@@ -166,24 +169,25 @@ unsigned int melthk_rtl_execute(void)
 	 if (!modstr || !modstr[0])
            $BADMODEFLAG = 1;
 	   }#)
-    (if badmodeflag (return)))  
+    (when (not (is_string passname))
+      (error_at () "MELT corrupted nameless pass to install")
+      (return))
+    (when badmodeflag 
+      (warning_at () "MELT does not install pass $1 without a mode" passname)
+      (return)) 
   ;;; check the pass
   (when (is_not_a pass class_gcc_pass)
-    (errormsg_plain "MELT bad pass to install")
+    (error_at () "MELT bad pass $1 to install" passname)
     (return))
-  (let ( (passname (get_field :named_name pass))
-	 (passdict (get_field :sysdata_pass_dict initial_system_data))
+  (let ( (passdict (get_field :sysdata_pass_dict initial_system_data))
 	 )
-    (when (not (is_string passname))
-      (errormsg_plain "MELT corrupted nameless pass to install")
-      (return))
   ;; check the refpassname
     (when (not (is_string refpassname))
-      (errormsg_strv "cannot install MELT pass without reference pass name" passname)
+      (error_at () "cannot install MELT pass $1 without reference pass name" passname)
       (return))
   ;; check that the pass is not already installed
     (when (mapstring_getstr passdict passname)
-      (errormsg_strv "MELT pass of same name already installed" passname)
+      (error_at () "MELT pass of same name $1 already installed" passname)
       (return)
       )
     (let (
@@ -210,6 +214,7 @@ unsigned int melthk_rtl_execute(void)
 			 )))
 	  )
       (cond 
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
        ;; installing gimple passes
        ((is_a pass class_gcc_gimple_pass)
 	(code_chunk 
@@ -263,16 +268,19 @@ unsigned int melthk_rtl_execute(void)
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 debugeprintf("installing MELT gimple pass named %s w.r.t. %s", 
+	 debugeprintf("installing MELT gimple classy pass named %s w.r.t. %s", 
 		      rpassdata.name,  rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
+	 debugeprintf("installed MELT gimple classy pass named %s", 
+		      rpassdata.name);
 #endif /* GCC 4.9 */
 	 /* end install_melt_gcc_pass $GIMPLEPASS_CHK */
 	 }#)
 	(mapstring_putstr passdict passname pass)
 	(debug "install_melt_pass_in_gcc installed gimple pass=" pass)
 	)
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
        ;; installing simple_ipa passes
        ((is_a pass class_gcc_simple_ipa_pass)
 	(if gatefun 
@@ -306,12 +314,14 @@ unsigned int melthk_rtl_execute(void)
 		      simipass->pass.name, rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
+	 debugeprintf("installed MELT simple_ipa pass named %s",
+		      simipass->pass.name);
 #else /* GCC >= 4.9 */
 	 struct register_pass_info rpassinfo;
 	 memset (&rpassinfo, 0, sizeof(rpassinfo));
 	 struct pass_data rpassdata;
 	 memset (&rpassdata, 0, sizeof(rpassdata));
-	 rpassdata.type = GIMPLE_PASS;
+	 rpassdata.type = SIMPLE_IPA_PASS;
 	 rpassdata.name = melt_intern_cstring (melt_string_str((melt_ptr_t) $PASSNAME));
 	 rpassdata.optinfo_flags = OPTGROUP_NONE;
 	 rpassdata.has_gate = false;
@@ -328,16 +338,19 @@ unsigned int melthk_rtl_execute(void)
 	 melt_intern_cstring (melt_string_str((melt_ptr_t) $REFPASSNAME));
 	 rpassinfo.ref_pass_instance_number = $REFPASSNUM;
 	 rpassinfo.pos_op = (enum pass_positioning_ops)$POSOPL;
-	 debugeprintf("installing MELT simple_ipa pass named %s w.r.t %s", 
+	 debugeprintf("installing MELT simple_ipa classy pass named %s w.r.t %s", 
 		      rpassdata.name, rpassinfo.reference_pass_name);
 	 register_callback (melt_plugin_name, PLUGIN_PASS_MANAGER_SETUP,
 			    NULL, &rpassinfo);
+	 debugeprintf("installed MELT simple_ipa classy pass named %s", 
+		      rpassdata.name);
 #endif /* GCC 4.9 or better */
 	 /* end install_melt_gcc_pass $SIMIPAPASS_CHK */
 	 }#)
 	(debug "install_melt_pass_in_gcc installed simple ipa pass=" pass)
 	(mapstring_putstr passdict passname pass)
 	)
+       ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
        ;; installing rtl passes
        ((is_a pass class_gcc_rtl_pass)
 	(code_chunk 
@@ -380,13 +393,15 @@ unsigned int melthk_rtl_execute(void)
 	)
        ;;
        (:else
-	(errormsg_strv "MELT failed to install pass" passname)
+	(error_at () 
+		  "MELT failed to install pass $1 of unexpected class" passname
+		  (get_field :named_name (discrim pass)))
 	(return)
 	)
        )	     
     )
     (debug "install_melt_pass_in_gcc end pass=" pass "\n ... updated passdict=" passdict)
-    ))					;end install_melt_pass_in_gcc
+    )))					;end install_melt_pass_in_gcc
 
 
 ;;;;;;;;;;;;;;;;;;;;;; obsolete install a MELT GCC PASS; for compatibility

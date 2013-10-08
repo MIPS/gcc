@@ -1,4 +1,11 @@
 
+2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/xtramelt-ana-base.melt (install_melt_pass_in_gcc): More
+	debug. The rpassdata for simple_ipa should be SIMPLE_IPA_PASS.
+
+	* melt-build-script.sh: Regenerate.
+
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (MELT_VERSION_STRING): Update to 1.0-rc1 
