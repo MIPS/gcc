@@ -12340,13 +12340,14 @@ meltgc_ppout_gimple (melt_ptr_t out_p, int indentsp, gimple gstmt)
                       "%nullgimple%");
       goto end;
     }
+  // Nota Bene: passing TDF_VOPS give a crash from an IPA pass like justcount
   switch (outmagic)
     {
     case MELTOBMAG_STRBUF:
     {
       FILE* oldfil = melt_open_ppfile ();
       print_gimple_stmt (meltppfile, gstmt, indentsp,
-                         TDF_LINENO | TDF_SLIM | TDF_VOPS);
+                         TDF_LINENO | TDF_SLIM);
       melt_close_ppfile (oldfil);
       meltgc_add_out_raw_len ((melt_ptr_t) outv, meltppbuffer, (int) meltppbufsiz);
       free(meltppbuffer);
@@ -12360,7 +12361,7 @@ meltgc_ppout_gimple (melt_ptr_t out_p, int indentsp, gimple gstmt)
       if (!f)
         goto end;
       print_gimple_stmt (f, gstmt, indentsp,
-                         TDF_LINENO | TDF_SLIM | TDF_VOPS);
+                         TDF_LINENO | TDF_SLIM);
       fflush (f);
     }
     break;
@@ -12392,11 +12393,12 @@ meltgc_ppout_gimple_seq (melt_ptr_t out_p, int indentsp,
   outmagic = melt_magic_discr ((melt_ptr_t) outv);
   switch (outmagic)
     {
+      // Nota Bene: passing TDF_VOPS give a crash from an IPA pass like justcount
     case MELTOBMAG_STRBUF:
     {
       FILE* oldfil = melt_open_ppfile ();
       print_gimple_seq (meltppfile, gseq, indentsp,
-                        TDF_LINENO | TDF_SLIM | TDF_VOPS);
+                        TDF_LINENO | TDF_SLIM);
       melt_close_ppfile (oldfil);
       meltgc_add_out_raw_len ((melt_ptr_t) outv, meltppbuffer, (int) meltppbufsiz);
       free(meltppbuffer);
@@ -12410,7 +12412,7 @@ meltgc_ppout_gimple_seq (melt_ptr_t out_p, int indentsp,
       if (!f)
         goto end;
       print_gimple_seq (f, gseq, indentsp,
-                        TDF_LINENO | TDF_SLIM | TDF_VOPS);
+                        TDF_LINENO | TDF_SLIM);
       fflush (f);
     }
     break;

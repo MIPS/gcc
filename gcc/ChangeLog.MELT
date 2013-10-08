@@ -1,7 +1,13 @@
 
 2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{justcountipa on tfindgimple-1.c don't crash anymore when
+	debugging but still don't show locations.}}
+	* melt-runtime.cc (meltgc_ppout_gimple, meltgc_ppout_gimple_seq):
+	Remove the TDF_VOPS flag...
 
-	{{Unstable: justdcountipa pass crashes when debugging with
+2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Unstable: justcountipa pass crashes when debugging with
 	tfindgimple-1.c and don't show function locations...}}
 	* melt/xtramelt-ana-simple.melt (class_justcountipa_data): New class.
 	(justcountipa_exec, justcountipa_docmd): Use it.
