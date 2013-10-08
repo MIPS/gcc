@@ -9960,11 +9960,15 @@ do_range_for_auto_deduction (tree decl, tree range_expr)
       range_temp = convert_from_reference (build_range_temp (range_expr));
       iter_type = (cp_parser_perform_range_for_lookup
 		   (range_temp, &begin_dummy, &end_dummy));
-      iter_decl = build_decl (input_location, VAR_DECL, NULL_TREE, iter_type);
-      iter_decl = build_x_indirect_ref (input_location, iter_decl, RO_NULL,
-					tf_warning_or_error);
-      TREE_TYPE (decl) = do_auto_deduction (TREE_TYPE (decl),
-					    iter_decl, auto_node);
+      if (iter_type)
+	{
+	  iter_decl = build_decl (input_location, VAR_DECL, NULL_TREE,
+				  iter_type);
+	  iter_decl = build_x_indirect_ref (input_location, iter_decl, RO_NULL,
+					    tf_warning_or_error);
+	  TREE_TYPE (decl) = do_auto_deduction (TREE_TYPE (decl),
+						iter_decl, auto_node);
+	}
     }
 }
 
@@ -10171,6 +10175,11 @@ cp_parser_perform_range_for_lookup (tree range, tree *begin, tree *end)
 	  *begin = *end = error_mark_node;
 	  return error_mark_node;
 	}
+      else if (type_dependent_expression_p (*begin)
+	       || type_dependent_expression_p (*end))
+	/* Can happen, when, eg, in a template context, Koenig lookup
+	   can't resolve begin/end (c++/58503).  */
+	return NULL_TREE;
       else
 	{
 	  tree iter_type = cv_unqualified (TREE_TYPE (*begin));
@@ -16548,7 +16557,7 @@ cp_parser_init_declarator (cp_parser* parser,
       decl = grokfield (declarator, decl_specifiers,
 			initializer, !is_non_constant_init,
 			/*asmspec=*/NULL_TREE,
-			prefix_attributes);
+			chainon (attributes, prefix_attributes));
       if (decl && TREE_CODE (decl) == FUNCTION_DECL)
 	cp_parser_save_default_args (parser, decl);
     }
@@ -21458,6 +21467,8 @@ cp_parser_std_attribute_spec (cp_parser *parser)
 	  alignas_expr =
 	    cp_parser_assignment_expression (parser, /*cast_p=*/false,
 					     /**cp_id_kind=*/NULL);
+	  if (alignas_expr == error_mark_node)
+	    cp_parser_skip_to_end_of_statement (parser);
 	  if (alignas_expr == NULL_TREE
 	      || alignas_expr == error_mark_node)
 	    return alignas_expr;

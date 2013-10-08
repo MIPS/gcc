@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-O -fdump-tree-ccp1" } */
 
+// See pr19476-5.C for a version without including <new>.
 #include <new>
 
 int f(){

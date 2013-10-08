@@ -1,3 +1,137 @@
+2013-10-08  Andrew MacLeod  <amacleod@redhat.com>
+
+	* tree-flow.h: Remove some prototypes.
+	* tree.h: Remove some protypes, add a couple.
+	* tree.c (using_eh_for_cleanups_flag, using_eh_for_cleanups,
+	using_eh_for_cleanups_p): Add interface routines for front ends.
+	* tree-eh.h: New file.  Add protoptyes.
+	* tree-eh.c (using_eh_for_cleanups_p, using_eh_for_cleanups): Delete.
+	(add_stmt_to_eh_lp_fn): Make static.
+	(lower_try_finally): Use new using_eh_for_cleanups_p.
+	* emit-rtl.c: Include tree-eh.h.
+	* gimple.h: Include tree-eh.h.
+
+2013-10-08  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/58480
+	* tree-vrp.c (infer_nonnull_range): New function.
+	(infer_value_range): Call infer_nonnull_range.
+
+2013-10-08  Dehao Chen  <dehao@google.com>
+
+	PR tree-optimization/58619
+	* tree-inline.c (copy_phis_for_bb): Combine location data
+	only if non-null.
+
+2013-10-08  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	PR target/58423
+	* config/arm/arm.c (arm_emit_ldrd_pop): Attach
+	RTX_FRAME_RELATED_P on INSN.
+
+2013-10-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const_le): New.
+	(altivec_expand_vec_perm_const): Call it.
+
+2013-10-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (mov<mode>): Emit permuted move
+	sequences for LE VSX loads and stores at expand time.
+	* config/rs6000/rs6000-protos.h (rs6000_emit_le_vsx_move): New
+	prototype.
+	* config/rs6000/rs6000.c (rs6000_const_vec): New.
+	(rs6000_gen_le_vsx_permute): New.
+	(rs6000_gen_le_vsx_load): New.
+	(rs6000_gen_le_vsx_store): New.
+	(rs6000_gen_le_vsx_move): New.
+	* config/rs6000/vsx.md (*vsx_le_perm_load_v2di): New.
+	(*vsx_le_perm_load_v4si): New.
+	(*vsx_le_perm_load_v8hi): New.
+	(*vsx_le_perm_load_v16qi): New.
+	(*vsx_le_perm_store_v2di): New.
+	(*vsx_le_perm_store_v4si): New.
+	(*vsx_le_perm_store_v8hi): New.
+	(*vsx_le_perm_store_v16qi): New.
+	(*vsx_xxpermdi2_le_<mode>): New.
+	(*vsx_xxpermdi4_le_<mode>): New.
+	(*vsx_xxpermdi8_le_V8HI): New.
+	(*vsx_xxpermdi16_le_V16QI): New.
+	(*vsx_lxvd2x2_le_<mode>): New.
+	(*vsx_lxvd2x4_le_<mode>): New.
+	(*vsx_lxvd2x8_le_V8HI): New.
+	(*vsx_lxvd2x16_le_V16QI): New.
+	(*vsx_stxvd2x2_le_<mode>): New.
+	(*vsx_stxvd2x4_le_<mode>): New.
+	(*vsx_stxvd2x8_le_V8HI): New.
+	(*vsx_stxvd2x16_le_V16QI): New.
+
+2013-10-07  Renlin Li  <Renlin.Li@arm.com>
+
+	* config/arm/arm-cores.def (cortex-a53): Use cortex tuning.
+
+2013-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.c (s390_register_info): Make the call-saved FPR
+	loop to work also for 31bit ABI.
+	Save the stack pointer for frame_size > 0.
+
+2013-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("tbegin", "tbegin_nofloat", "tbegin_retry")
+	("tbegin_retry_nofloat", "tend", "tabort", "tx_assist"): Remove
+	constraint letters from expanders.
+	("tbegin_retry", "tbegin_retry_nofloat"): Change predicate of the
+	retry count to general_operand.
+	("tabort"): Give operand 0 a mode.
+	("tabort_1"): Add mode and constraint letter for operand 0.
+	* doc/extend.texi: Fix protoype of __builtin_non_tx_store.
+
+2013-10-04  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c: Fix some trailing whitespace problems.
+
+	* tree-ssa-threadedge.c (thread_through_normal_block): Broken out of ...
+	(thread_across_edge): Here.  Call it.
+
+2013-10-04  Cary Coutant  <ccoutant@google.com>
+
+	* dwarf2out.c (dw_sra_loc_expr): Release addr_table entries when
+        discarding a location list expression (or a piece of one).
+
+2013-10-03  Jan Hubicka  <jh@suse.cz>
+
+	* config/i386/i386.c (ix86_issue_rate): Pentium4, Nocona has issue
+	rate of 2.  Core2, Corei7 and Haswell has issue rate of 4.
+	(ix86_adjust_cost): Remove Atom case; fix core2/corei7/Haswell case.
+
+2013-10-03  Jan Hubicka  <jh@suse.cz>
+
+	* config/i386/i386.c (ix86_option_override_internal): Do not enable
+	accumulate-outgoing-args when producing unwind info.
+
+2013-10-03  Wei Mi  <wmi@google.com>
+
+	* lra-constraints.c (insert_move_for_subreg): New function
+	extracted from simplify_operand_subreg.
+	(simplify_operand_subreg): Add reload for paradoxical subreg.
+
+2013-10-03  Rong Xu  <xur@google.com>
+
+	* ipa-inline-analysis.c (find_foldable_builtin_expect): Find
+	the candidate of builtin_expect such that we should fix the
+	size/time estimation.
+	(estimate_function_body_sizes): Do the acutally size/time fix-up
+	for builtin_expect.
+
+2013-10-03  Rong Xu  <xur@google.com>
+
+	* predict.c (tree_predict_by_opcode): Get the probability
+	for builtin_expect from param builtin_expect_probability.
+	* params.def (BUILTIN_EXPECT_PROBABILITY): New parameter.
+	* predict.def (PRED_BUILTIN_EXPECT_RELAXED): Fix comments.
+	* doc/invoke.texi: Add documentation for builtin-expect-probability.
+
 2013-10-03  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR c++/19476
@@ -142,7 +276,7 @@
 	(nfms<mode>4_fpr): Likewise.
 
 2013-10-03  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
-            Richard Earnshaw  <richard.earnshaw@arm.com>
+	    Richard Earnshaw  <richard.earnshaw@arm.com>
 
 	* config/arm/aarch-common-protos.h (struct alu_cost_table): New.
 	(struct mult_cost_table): Likewise.
@@ -217,8 +351,7 @@
 
 	PR target/58587
 	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Turn off
-	setting -mvsx-timode by default until the underlying problem is
-	fixed.
+	setting -mvsx-timode by default until the underlying problem is fixed.
 	(RS6000_CPU, power7 defaults): Likewise.
 
 2013-10-02  Uros Bizjak  <ubizjak@gmail.com>

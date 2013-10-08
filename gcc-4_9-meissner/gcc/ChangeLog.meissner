@@ -1,3 +1,8 @@
+2013-10-08  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 203283.
+	* REVISION: Update subversion id.
+
 2013-10-07  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (FIRST_RELOAD_REG_CLASS): Define so we

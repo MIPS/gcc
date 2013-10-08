@@ -1,3 +1,75 @@
+2013-10-08  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/htm-nofloat-2.c: Add -mzarch to asm options.
+
+2013-10-08  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/58480
+	* gcc.dg/tree-ssa/pr58480.c: New file.
+
+2013-10-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/pr43154.c: Skip for ppc64 little endian.
+	* gcc.target/powerpc/fusion.c: Likewise.
+
+2013-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/htm-nofloat-2.c: New testcase.
+
+2013-10-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* gcc.target/s390/htm-1.c: Add more tests to cover different
+	operand types.
+
+2013-10-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58126
+	* g++.dg/init/uninitialized1.C: New.
+
+2013-10-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56060
+	* g++.dg/cpp0x/variadic144.C: New.
+
+2013-10-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58560
+	* g++.dg/cpp0x/auto39.C: New.
+
+2013-10-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58503
+	* g++.dg/cpp0x/range-for26.C: New.
+	* g++.dg/cpp0x/range-for27.C: Likewise.
+
+2013-10-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58448
+	* g++.dg/template/crash117.C: New.
+
+2013-10-04  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/19476
+	* g++.dg/tree-ssa/pr19476-5.C: New file.
+	* g++.dg/tree-ssa/pr19476-1.C: Mention pr19476-5.C.
+
+2013-10-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58584
+	* g++.dg/cpp0x/gen-attrs-55.C: New.
+
+2013-10-03  Easwaran Raman  <eraman@google.com>
+
+	PR c++/33911
+	* g++.dg/ext/attribute47.C: New.
+
+2013-10-03  Rong Xu  <xur@google.com>
+
+	* gcc.target/i386/cold-attribute-2.c: Fix the test by using original
+	probability.
+	* gcc.dg/tree-ssa/ipa-split-5.c: Ditto.
+	* gcc.dg/tree-ssa/ipa-split-6.c: Ditto.
+
 2013-10-03  Marek Polacek  <polacek@redhat.com>
 
 	PR c++/58510
