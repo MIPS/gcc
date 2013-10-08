@@ -25,7 +25,7 @@ int
 main ()
 {
   S s, t;
-  int i;
+  int i = 0;
   #pragma omp parallel reduction (+:s, i) reduction (*:t)
   {
     if (s.s != 0 || t.s != 0)

@@ -1,5 +1,9 @@
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>
 
+	* testsuite/libgomp.c/udr-2.c (main): Remove unused variable i.
+	* testsuite/libgomp.c/udr-3.c (main): Initialize i to 0.
+	* testsuite/libgomp.c++/udr-8.C (main): Likewise.
+
 	* testsuite/libgomp.c/affinity-1.c (min_cpusetsize): New variable.
 	(pthread_getaffinity_np): Set it when setting contig_cpucount.
 	(print_affinity): Use it for size, only use sysconf value if that is not

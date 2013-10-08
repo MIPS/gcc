@@ -17,7 +17,7 @@ int
 main ()
 {
   struct S s;
-  int i;
+  int i = 0;
   s.s = 0;
   #pragma omp parallel reduction (+:s, i)
   {
