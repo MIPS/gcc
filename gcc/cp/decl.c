@@ -6370,6 +6370,12 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	     the class specifier.  */
 	  if (!DECL_EXTERNAL (decl))
 	    var_definition_p = true;
+
+	  /* If var has initilizer then we need to register it in
+	     pointers checker to generate static bounds initilizer
+	     if required.  */
+	  if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
+	    chkp_register_var_initializer (decl);
 	}
       /* If the variable has an array type, lay out the type, even if
 	 there is no initializer.  It is valid to index through the

@@ -4080,6 +4080,11 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 		walk_tree (&ctor, force_labels_r, NULL, NULL);
 		ctor = tree_output_constant_def (ctor);
+
+		/* We need to register created constant object to
+		   initialize bounds for pointers in it.  */
+		chkp_register_var_initializer (ctor);
+
 		if (!useless_type_conversion_p (type, TREE_TYPE (ctor)))
 		  ctor = build1 (VIEW_CONVERT_EXPR, type, ctor);
 		TREE_OPERAND (*expr_p, 1) = ctor;
