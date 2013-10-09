@@ -1,0 +1,5 @@
+2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-split.c (consider_split): Do not split when splitted
+	part needs bounds transfer.
+	(split_function): Add bound args to created call.
