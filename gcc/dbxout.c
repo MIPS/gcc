@@ -2365,6 +2365,10 @@ dbxout_type (tree type, int full)
       dbxout_type (TREE_TYPE (type), 0);
       break;
 
+    case BOUND_TYPE:
+      /* No debug info for bound types supported yet.  */
+      break;
+
     default:
       gcc_unreachable ();
     }
