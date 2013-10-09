@@ -152,6 +152,9 @@ along with GCC; see the file COPYING3.  If not see
 #define MIPS_JR(DEST) \
   (((DEST) << 21) | 0x8)
 
+#define MIPS_JALR0(DEST) \
+  (((DEST) << 21) | 0x9)
+
 /* Return the opcode for:
 
        bal     . + (1 + OFFSET) * 4.  */
@@ -3967,7 +3970,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case DIV:
       /* Check for a reciprocal.  */
       if (float_mode_p
-	  && ISA_HAS_FP4
+	  && ISA_HAS_FP4RECIP
 	  && flag_unsafe_math_optimizations
 	  && XEXP (x, 0) == CONST1_RTX (mode))
 	{
@@ -4953,7 +4956,9 @@ mips_expand_conditional_trap (rtx comparison)
 
   mode = GET_MODE (XEXP (comparison, 0));
   op0 = force_reg (mode, op0);
-  if (!arith_operand (op1, mode))
+  if (!arith_operand (op1, mode)
+      || (!ISA_HAS_COND_TRAPI
+          && !register_operand (op1, mode)))
     op1 = force_reg (mode, op1);
 
   emit_insn (gen_rtx_TRAP_IF (VOIDmode,
@@ -7300,6 +7305,10 @@ mips_block_move_loop (rtx dest, rtx src, HOST_WIDE_INT length,
 bool
 mips_expand_block_move (rtx dest, rtx src, rtx length)
 {
+  /* This is very suboptimal. Need to allow aligned moves */
+  if (!ISA_HAS_LWL_LWR)
+    return false;
+
   if (CONST_INT_P (length))
     {
       if (INTVAL (length) <= MIPS_MAX_MOVE_BYTES_STRAIGHT)
@@ -9893,8 +9902,9 @@ mips_compute_frame_info (void)
   /* Set this function's interrupt properties.  */
   if (mips_interrupt_type_p (TREE_TYPE (current_function_decl)))
     {
-      if (!ISA_MIPS32R2)
-	error ("the %<interrupt%> attribute requires a MIPS32r2 processor");
+      if (!ISA_MIPS32R2 && !ISA_MIPS32R6)
+	error ("the %<interrupt%> attribute requires a MIPS32r2 or "
+               "MIPS32r6 processor");
       else if (TARGET_HARD_FLOAT)
 	error ("the %<interrupt%> attribute requires %<-msoft-float%>");
       else if (TARGET_MIPS16)
@@ -16837,7 +16847,10 @@ mips_option_override (void)
 
   if ((target_flags_explicit & MASK_FLOAT64) != 0)
     {
-      if (TARGET_SINGLE_FLOAT && TARGET_FLOAT64)
+      if ((ISA_MIPS32R6 || ISA_MIPS64R6)
+          && !TARGET_FLOAT64)
+	error ("unsupported combination: %s", "-mips[32|64]r6 -mfp32");
+      else if (TARGET_SINGLE_FLOAT && TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mfp64 -msingle-float");
       else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT && !TARGET_FLOAT64)
 	error ("unsupported combination: %s", "-mgp64 -mfp32 -mdouble-float");
@@ -16854,8 +16867,11 @@ mips_option_override (void)
   else
     {
       /* -msingle-float selects 32-bit float registers.  Otherwise the
-	 float registers should be the same size as the integer ones.  */
-      if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
+	 float registers should be the same size as the integer ones.
+         MIPS R6 has 64-bit float registers regardless. */
+      if (ISA_MIPS32R6 || ISA_MIPS64R6)
+	target_flags |= MASK_FLOAT64;
+      else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
 	target_flags |= MASK_FLOAT64;
       else
 	target_flags &= ~MASK_FLOAT64;
@@ -17041,8 +17057,11 @@ mips_option_override (void)
   /* Make sure that the ISA supports TARGET_PAIRED_SINGLE_FLOAT when it is
      enabled.  */
   if (TARGET_PAIRED_SINGLE_FLOAT && !ISA_HAS_PAIRED_SINGLE)
-    warning (0, "the %qs architecture does not support paired-single"
-	     " instructions", mips_arch_info->name);
+    {
+      warning (0, "the %qs architecture does not support paired-single"
+	       " instructions", mips_arch_info->name);
+      target_flags &= ~MASK_PAIRED_SINGLE_FLOAT;
+    }
 
   if (mips_r10k_cache_barrier != R10K_CACHE_BARRIER_NONE
       && !TARGET_CACHE_BUILTIN)
@@ -17799,7 +17818,10 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       trampoline[i++] = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
 					   static_chain_offset,
 					   PIC_FUNCTION_ADDR_REGNUM));
-      trampoline[i++] = OP (MIPS_JR (AT_REGNUM));
+      if (ISA_HAS_JR)
+        trampoline[i++] = OP (MIPS_JR (AT_REGNUM));
+      else
+        trampoline[i++] = OP (MIPS_JALR0 (AT_REGNUM));
       trampoline[i++] = OP (MIPS_MOVE (PIC_FUNCTION_ADDR_REGNUM, AT_REGNUM));
     }
   else if (ptr_mode == DImode)
@@ -17825,7 +17847,10 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       trampoline[i++] = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
 					   static_chain_offset - 12,
 					   RETURN_ADDR_REGNUM));
-      trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+      if (ISA_HAS_JR)
+        trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+      else
+        trampoline[i++] = OP (MIPS_JALR0 (PIC_FUNCTION_ADDR_REGNUM));
       trampoline[i++] = OP (MIPS_MOVE (RETURN_ADDR_REGNUM, AT_REGNUM));
     }
   else
@@ -17867,7 +17892,12 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
 
       /* Emit the JR here, if we can.  */
       if (!ISA_HAS_LOAD_DELAY)
-	trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+        {
+          if (ISA_HAS_JR)
+	    trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+          else
+	    trampoline[i++] = OP (MIPS_JALR0 (PIC_FUNCTION_ADDR_REGNUM));
+        }
 
       /* Emit the load of the static chain register.  */
       opcode = OP (MIPS_LOAD_PTR (STATIC_CHAIN_REGNUM,
@@ -17879,7 +17909,10 @@ mips_trampoline_init (rtx m_tramp, tree fndecl, rtx chain_value)
       /* Emit the JR, if we couldn't above.  */
       if (ISA_HAS_LOAD_DELAY)
 	{
-	  trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+          if (ISA_HAS_JR)
+	    trampoline[i++] = OP (MIPS_JR (PIC_FUNCTION_ADDR_REGNUM));
+          else
+	    trampoline[i++] = OP (MIPS_JALR0 (PIC_FUNCTION_ADDR_REGNUM));
 	  trampoline[i++] = OP (MIPS_NOP);
 	}
     }

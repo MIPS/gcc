@@ -28,6 +28,8 @@ along with GCC; see the file COPYING3.  If not see
       /* Deprecated: use __mips_isa_rev >= 2.  */	\
       if (ISA_MIPS32R2)					\
         builtin_define ("__mipsr2");			\
+      if (ISA_MIPS32R6)					\
+        builtin_define ("__mipsr6");			\
 							\
       /* Deprecated: use __mips_fpr == 64.  */		\
       if (TARGET_FLOAT64)				\
