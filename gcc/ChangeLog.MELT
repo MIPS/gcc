@@ -1,4 +1,9 @@
 
+2013-10-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (some_integer_!=, some_integer_=, some_integer_>=, some_integer_>, some_integer_<=, some_integer_<): New synonyms.
+	(some_integer_between): New cmatcher.
+
 2013-10-08  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{justcountipa on tfindgimple-1.c works as expected}}
 	* melt/xtramelt-ana-base.melt (each_cgraph_fun_call_flow_graph):

@@ -625,20 +625,35 @@ from $IMIN to $IMAX included.}#
 integer $I if $N is positive and $I is multiple of $N and the quotient
 matches the subpattern $Q.}#
   ;; test expansion
-  #{ /*$INTMULT ?*/ ($N>0 && (($I) % ($N))==0) }#
+  #{ /*some_integer_multiple $INTMULT ?*/ ($N>0 && (($I) % ($N))==0) }#
   ;; fill expansion
-  #{ /*$INTMULT !*/ $Q = ($I) / ($N); }#
+  #{ /*some_integer_multiple $INTMULT !*/ $Q = ($I) / ($N); }#
   )
+
+
+;;; match an integer i inside a given interval i.e. between limits lo
+;;; and hi inclusive
+
+(defcmatcher some_integer_between 
+  (:long i lo hi)
+  ()
+  intbetween
+  :doc #{The $SOME_INTEGER_BETWEEN matcher matches integers $I between a given $LO and $HI interval inclusively.}#
+  ;; test expansion
+  #{ /*some_integer_between $INTBETWEEN ?*/ (($I) >= ($LO) && (($I) <= ($HI))) }#
+  ;; no fill
+  )
+
 
 ;;; match an integer i different from a given number n
 (defcmatcher some_integer_different_from
   (:long i n)
   ()
   intdiffrom
-  :doc #{The $SOME_INTEGER_DIFFRERENT_FROM matcher with input number $N matches
+  :doc #{The $SOME_INTEGER_DIFFRERENT_FROM or @code{some_integer_!=} matcher with input number $N matches
 an integer $I if $I is different from $N.}#
   ;; test expansion
-  #{ /*$INTDIFFROM ?*/ ($I != $N) }#
+  #{ /* some_integer_different_from $INTDIFFROM ?*/ ($I != $N) }#
   ;; no fill expansion
 )
 
@@ -647,7 +662,7 @@ an integer $I if $I is different from $N.}#
   (:long i n)
   ()
   intequalto
-  :doc #{The $SOME_INTEGER_EQUAL_TO matcher with input number $N matches
+  :doc #{The $SOME_INTEGER_EQUAL_TO  -or @code{some_integer_=} matcher with input number $N matches
 an integer $I if $I is or equal to $N.}#
   ;; test expansion
   #{ /*$INTEQUALTO ?*/ ($I == $N) }#
@@ -659,7 +674,7 @@ an integer $I if $I is or equal to $N.}#
   (:long i n)
   ()
   intgreatorequal
-  :doc #{The $SOME_INTEGER_GREATER_OR_EQUAL_TO matcher with input number $N matches
+  :doc #{The $SOME_INTEGER_GREATER_OR_EQUAL_TO matcher or @code{some_integer_>=} with input number $N matches
 an integer $I if $I is greater or equal to $N.}#
   ;; test expansion
   #{ /*$INTGREATOREQUAL ?*/ ($I >= $N) }#
@@ -671,7 +686,7 @@ an integer $I if $I is greater or equal to $N.}#
   (:long i n)
   ()
   intgreathan
-  :doc #{The $SOME_INTEGER_GREATER_THAN matcher with input number $N matches
+  :doc #{The $SOME_INTEGER_GREATER_THAN matcher  or @code{some_integer_>} with input number $N matches
 an integer $I if $I is greater than $N.}#
   ;; test expansion
   #{ /*$INTGREATHAN ?*/ ($I > $N) }#
@@ -683,7 +698,7 @@ an integer $I if $I is greater than $N.}#
   (:long i n)
   ()
   intloworequal
-  :doc #{The $SOME_INTEGER_LOWER_OR_EQUAL_TO matcher with input number $N matches
+  :doc #{The $SOME_INTEGER_LOWER_OR_EQUAL_TO or @code{some_integer_<=} matcher with input number $N matches
 an integer $I if $I is lower or equal to $N.}#
   ;; test expansion
   #{ /*$INTLOWOREQUAL ?*/ ($I <= $N) }#
@@ -695,7 +710,7 @@ an integer $I if $I is lower or equal to $N.}#
   (:long i n)
   ()
   intlowthan
-  :doc #{The $SOME_INTEGER_LOWER_THAN matcher with input number $N matches
+  :doc #{The $SOME_INTEGER_LOWER_THAN  or @code{some_integer_<} matcher with input number $N matches
 an integer $I if $I is lower than $N.}#
   ;; test expansion
   #{ /*$INTLOWTHAN ?*/ ($I < $N) }#
@@ -3276,6 +3291,7 @@ typedef struct melthook_st *melthook_ptr_t;
  set_reference
  set_real_timer_millisec
  some_hook_with_data
+ some_integer_between
  some_integer_different_from
  some_integer_equal_to
  some_integer_greater_or_equal_to
@@ -3341,5 +3357,10 @@ typedef struct melthook_st *melthook_ptr_t;
 
 
 (export_synonym set_content set_reference)
-
+(export_synonym some_integer_!= some_integer_different_from)
+(export_synonym some_integer_= some_integer_equal_to)
+(export_synonym some_integer_>= some_integer_greater_or_equal_to)
+(export_synonym some_integer_> some_integer_greater_than)
+(export_synonym some_integer_<= some_integer_lower_or_equal_to)
+(export_synonym some_integer_< some_integer_lower_than)
 ;;;; eof warmelt-base.melt
