@@ -35,6 +35,9 @@ MULTILIB_EXCEPTIONS += mabi=64*
 # We do not want to build mips16 versions of mips64* architectures.
 MULTILIB_EXCEPTIONS += *mips64*/*mips16*
 MULTILIB_EXCEPTIONS += *mips16/mabi=64*
+#
+# We do not want mips16 for mips32r6 as it is not supported
+MULTILIB_EXCEPTIONS += *mips32r6*/*mips16
 
 # We only want micromips for mips32r2 architecture.
 MULTILIB_EXCEPTIONS += *mips32/mmicromips*

@@ -1103,16 +1103,25 @@
 			    [(match_operand:GPR 1 "reg_or_0_operand")
 			     (match_operand:GPR 2 "arith_operand")])
 	    (match_operand 3 "const_0_operand"))]
-  "ISA_HAS_COND_TRAP"
+  "ISA_HAS_COND_TRAPI || ISA_HAS_COND_TRAP"
 {
   mips_expand_conditional_trap (operands[0]);
   DONE;
 })
 
-(define_insn "*conditional_trap<mode>"
+(define_insn "*conditional_trapi<mode>"
   [(trap_if (match_operator:GPR 0 "trap_comparison_operator"
 				[(match_operand:GPR 1 "reg_or_0_operand" "dJ")
 				 (match_operand:GPR 2 "arith_operand" "dI")])
+	    (const_int 0))]
+  "ISA_HAS_COND_TRAPI && ISA_HAS_COND_TRAP"
+  "t%C0\t%z1,%2"
+  [(set_attr "type" "trap")])
+
+(define_insn "*conditional_trap<mode>"
+  [(trap_if (match_operator:GPR 0 "trap_comparison_operator"
+				[(match_operand:GPR 1 "reg_or_0_operand" "dJ")
+				 (match_operand:GPR 2 "register_operand" "d")])
 	    (const_int 0))]
   "ISA_HAS_COND_TRAP"
   "t%C0\t%z1,%2"
@@ -3870,7 +3879,7 @@
 	(sign_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "!TARGET_MIPS16"
+  "ISA_HAS_LWL_LWR && !TARGET_MIPS16"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -3907,7 +3916,7 @@
 	(zero_extract:GPR (match_operand:BLK 1 "memory_operand")
 			  (match_operand 2 "const_int_operand")
 			  (match_operand 3 "const_int_operand")))]
-  "!TARGET_MIPS16"
+  "ISA_HAS_LWL_LWR && !TARGET_MIPS16"
 {
   if (mips_expand_ext_as_unaligned_load (operands[0], operands[1],
 					 INTVAL (operands[2]),
@@ -3958,7 +3967,7 @@
 			  (match_operand 1 "const_int_operand")
 			  (match_operand 2 "const_int_operand"))
 	(match_operand:GPR 3 "reg_or_0_operand"))]
-  "!TARGET_MIPS16"
+  "!TARGET_MIPS16 && ISA_HAS_LWL_LWR"
 {
   if (mips_expand_ins_as_unaligned_store (operands[0], operands[3],
 					  INTVAL (operands[1]),
@@ -7040,7 +7049,12 @@
   [(set (reg:P TLS_GET_TP_REGNUM)
 	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))]
   "HAVE_AS_TLS && !TARGET_MIPS16"
-  ".set\tpush\;.set\tmips32r2\t\;rdhwr\t$3,$29\;.set\tpop"
+  {
+    if (ISA_MIPS32R6 || ISA_MIPS64R6)
+      return ".set\tpush\;.set\tmips32r6\t\;rdhwr\t$3,$29\;.set\tpop";
+
+    return ".set\tpush\;.set\tmips32r2\t\;rdhwr\t$3,$29\;.set\tpop";
+  }
   [(set_attr "type" "unknown")
    ; Since rdhwr always generates a trap for now, putting it in a delay
    ; slot would make the kernel's emulation of it much slower.
