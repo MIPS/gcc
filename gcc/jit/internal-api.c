@@ -23,22 +23,26 @@
 gcc::jit::context::
 ~context ()
 {
-  /* Clean up .s/.so and tempdir. */
-  if (m_path_s_file)
-    unlink (m_path_s_file);
-  if (m_path_so_file)
-    unlink (m_path_so_file);
-  if (m_path_tempdir)
-    rmdir (m_path_tempdir);
+  if (m_bool_options[GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES])
+      fprintf (stderr, "intermediate files written to %s\n", m_path_tempdir);
+  else
+    {
+      /* Clean up .s/.so and tempdir. */
+      if (m_path_s_file)
+        unlink (m_path_s_file);
+      if (m_path_so_file)
+        unlink (m_path_so_file);
+      if (m_path_tempdir)
+        rmdir (m_path_tempdir);
 
-  free (m_path_template);
-  /* m_path_tempdir aliases m_path_template, or is NULL, so don't
-     attempt to free it .  */
-  free (m_path_c_file);
-  free (m_path_s_file);
-  free (m_path_so_file);
-
-  m_functions.release ();
+      free (m_path_template);
+      /* m_path_tempdir aliases m_path_template, or is NULL, so don't
+         attempt to free it .  */
+      free (m_path_c_file);
+      free (m_path_s_file);
+      free (m_path_so_file);
+      m_functions.release ();
+    }
 }
 
 void

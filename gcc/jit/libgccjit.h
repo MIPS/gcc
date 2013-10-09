@@ -325,6 +325,11 @@ enum gcc_jit_bool_option
      developers *of* the library.  */
   GCC_JIT_BOOL_OPTION_SELFCHECK_GC,
 
+  /* If true, gcc_jit_context_release will not clean up
+     intermediate files written to the filesystem, and will display
+     their location on stderr.  */
+  GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
+
   GCC_JIT_NUM_BOOL_OPTIONS
 };
 
