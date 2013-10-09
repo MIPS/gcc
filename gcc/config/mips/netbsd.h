@@ -92,6 +92,11 @@ along with GCC; see the file COPYING3.  If not see
 	  builtin_define ("__mips=32");				\
 	  builtin_define ("__mips_isa_rev=2");			\
 	}							\
+      else if (ISA_MIPS32R6)					\
+	{							\
+	  builtin_define ("__mips=32");				\
+	  builtin_define ("__mips_isa_rev=6");			\
+	}							\
       else if (ISA_MIPS64)					\
 	{							\
 	  builtin_define ("__mips=64");				\
@@ -139,7 +144,8 @@ along with GCC; see the file COPYING3.  If not see
   "%{EL:-m elf32lmip} \
    %{EB:-m elf32bmip} \
    %(endian_spec) \
-   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips32r2} %{mips64} \
+   %{G*} %{mips1} %{mips2} %{mips3} %{mips4} %{mips32} %{mips32r2} \
+   %{mips32r6} %{mips64} \
    %(netbsd_link_spec)"
 
 #define NETBSD_ENTRY_POINT "__start"
