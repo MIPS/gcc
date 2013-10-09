@@ -929,6 +929,13 @@ compile ()
       ADD_ARG ("ggc-min-heapsize=0");
     }
 
+  if (m_bool_options[GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING])
+    {
+      ADD_ARG ("-fdump-tree-all");
+      ADD_ARG ("-fdump-rtl-all");
+      ADD_ARG ("-fdump-ipa-all");
+    }
+
   toplev_options toplev_opts;
   toplev_opts.use_TV_TOTAL = false;
 

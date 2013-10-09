@@ -320,6 +320,15 @@ enum gcc_jit_bool_option
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
 
+  /* If true, gcc_jit_context_compile will dump copious
+     amount of information on what it's doing to various
+     files within a temporary directory.  Use
+     GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES (see below) to
+     see the results.  The files are intended to be human-readable,
+     but the exact files and their formats are subject to change.
+  */
+  GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
+
   /* If true, libgccjit will aggressively run its garbage collector, to
      shake out bugs.  This is likely to only be of interest to
      developers *of* the library.  */
