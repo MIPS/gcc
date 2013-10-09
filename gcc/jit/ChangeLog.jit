@@ -1,5 +1,11 @@
 2013-10-09  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::context::~context): Fix indentation;
+	clean up memory allocations when using
+	GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES.
+
+2013-10-09  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (enum gcc_jit_bool_option): Add
 	GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING.
 	* internal-api.c (gcc::jit::context::compile): Implement
