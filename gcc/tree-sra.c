@@ -3642,7 +3642,8 @@ find_param_candidates (void)
 
       if (TREE_THIS_VOLATILE (parm)
 	  || TREE_ADDRESSABLE (parm)
-	  || (!is_gimple_reg_type (type) && is_va_list_type (type)))
+	  || (!is_gimple_reg_type (type) && is_va_list_type (type))
+	  || (flag_check_pointers && chkp_type_has_pointer (type)))
 	continue;
 
       if (is_unused_scalar_param (parm))
