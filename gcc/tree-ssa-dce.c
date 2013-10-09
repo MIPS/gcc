@@ -749,7 +749,8 @@ propagate_necessity (bool aggressive)
 	  /* If this is a call to free which is directly fed by an
 	     allocation function do not mark that necessary through
 	     processing the argument.  */
-	  if (gimple_call_builtin_p (stmt, BUILT_IN_FREE))
+	  if (gimple_call_builtin_p (stmt, BUILT_IN_FREE)
+	      && !flag_check_pointers)
 	    {
 	      tree ptr = gimple_call_arg (stmt, 0);
 	      gimple def_stmt;
