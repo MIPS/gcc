@@ -1731,6 +1731,11 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
     else if (gimple_assign_ssa_name_copy_p (stmt))
       insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
 					   visited);
+    else if (flag_check_pointers
+	     && gimple_code (stmt) == GIMPLE_CALL
+	     && gimple_call_fndecl (stmt)
+	     == targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET))
+      continue;
     else
       gcc_assert (is_gimple_debug (stmt));
 }
