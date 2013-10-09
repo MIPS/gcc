@@ -3021,7 +3021,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
 	      i++;
 	      gcc_assert (i < gimple_call_num_args (stmt));
 	      bounds = gimple_call_arg (stmt, i);
-	      gcc_assert (BOUND_TYPE_P (TREE_TYPE (bounds)));
+	      gcc_assert (BOUND_P (bounds));
 	      SET_DECL_BOUNDS (vars, bounds);
 	    }
 	  else if (chkp_type_has_pointer (TREE_TYPE (p)))
@@ -3039,7 +3039,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
 		    i++;
 		    gcc_assert (i < gimple_call_num_args (stmt));
 		    bounds = gimple_call_arg (stmt, i);
-		    gcc_assert (BOUND_TYPE_P (TREE_TYPE (bounds)));
+		    gcc_assert (BOUND_P (bounds));
 		    chkp_build_bndstx (addr, ptr, bounds, &si);
 		  }
 	      have_bound.release ();
