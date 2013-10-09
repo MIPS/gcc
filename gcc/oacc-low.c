@@ -1263,7 +1263,6 @@ dump_fn_body(FILE* dump_file, const char* title)
   fflush(dump_file);
 }
 
-
 static void
 parallelize_loop(struct loop* l)
 {
@@ -1436,21 +1435,45 @@ parallelize_loop(struct loop* l)
           }
           gimple stmt = gsi_stmt(gsi);
           if(gimple_code(stmt) != GIMPLE_PHI) {
+        	  location_t location = gimple_location(stmt);
               tree lhs = get_gimple_def_var(stmt);
-              gimple call_stmt = build_call(gimple_location(stmt), builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID), 1, build_int_cst(TREE_TYPE(lhs), 0));
+              tree builtin_decl = builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID);
+              tree builtin_return_type = TREE_TYPE (TREE_TYPE (builtin_decl));
+              //FIXME: add more conversion magic???
+              gcc_assert(TREE_CODE(builtin_return_type) == TREE_CODE(TREE_TYPE(lhs)));
 
-              tree tmp_var = create_tmp_reg(TREE_TYPE(lhs), "_oacc_tmp");
+              int builtin_unsigned = TYPE_UNSIGNED(builtin_return_type);
+              int lhs_unsigned = TYPE_UNSIGNED(TREE_TYPE(lhs));
+
+              /* _oacc_tmp = __builtin_get_global_id (0); */
+              gimple call_stmt = build_call(location, builtin_decl, 1, build_int_cst(builtin_return_type, 0));
+              tree tmp_var = create_tmp_reg(builtin_return_type, "_oacc_tmp");
               tmp_var = make_ssa_name_fn(cfun, tmp_var, call_stmt);
               set_gimple_def_var(call_stmt, tmp_var);
-
-              gimple add_stmt = build_assign(PLUS_EXPR, tmp_var, lhs);
-              tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
-              set_gimple_def_var(add_stmt, new_var);
-
               gen_add(&gsi, call_stmt);
-              gen_add(&gsi, add_stmt);
 
+              if (builtin_unsigned != lhs_unsigned)
+                {
+            	  /* _ = (int) _oacc_tmp; */
+            	  gimple convert_stmt = build_type_cast (TREE_TYPE(lhs), tmp_var);
+            	  tree convert_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), convert_stmt);
+				  set_gimple_def_var(convert_stmt, convert_var);
+            	  gen_add (&gsi, convert_stmt);
 
+            	  /* i = _ + i; */
+            	  gimple add_stmt = build_assign(PLUS_EXPR, convert_var, lhs);
+				  tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
+				  set_gimple_def_var(add_stmt, new_var);
+	              gen_add(&gsi, add_stmt);
+                }
+              else
+                {
+            	  /* i = _oacc_tmp + i; */
+            	  gimple add_stmt = build_assign(PLUS_EXPR, tmp_var, lhs);
+				  tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
+				  set_gimple_def_var(add_stmt, new_var);
+	              gen_add(&gsi, add_stmt);
+                }
           }
       }
   }
@@ -1505,6 +1528,7 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
           gimple_stmt_iterator gsi;
           for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
               gimple stmt = gsi_stmt(gsi);
+
               gimple_set_modified (stmt, true);
               update_stmt_operands(stmt);
           }

@@ -1,3 +1,11 @@
+09-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Fix return and param types of get_global_id() builtin 
+    
+    * gcc/builtin-types.def: Add new function type size_t(unsigned int)
+    * gcc/fortran/types.def: Likewise
+    * gcc/oacc-builtins.def: Change type of get_global_id() function
+    * gcc/oacc-low.c: Add convert expression to ssa form
+
 08-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add check for irreducible loops
     

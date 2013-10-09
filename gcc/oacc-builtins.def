@@ -25,7 +25,7 @@
    See builtins.def for details.  */
 
 DEF_OACC_BUILTIN (BUILT_IN_OACC_GET_GLOBAL_ID, "get_global_id",
-                  BT_FN_INT_INT, ATTR_CONST_NOTHROW_LEAF_LIST)
+                  BT_FN_SIZE_UINT, ATTR_CONST_NOTHROW_LEAF_LIST)
 
 DEF_OACC_BUILTIN (BUILT_IN_OACC_CHECK_CUR_DEV, "OACC_check_cur_dev",
                   BT_FN_VOID , ATTR_NOTHROW_LEAF_LIST)
