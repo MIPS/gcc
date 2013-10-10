@@ -160,7 +160,7 @@ enum gcc_jit_bool_option
 
   /* If true, gcc_jit_context_compile will dump the "gimple"
      representation of your code to stderr, before any optimizations
-     are performed.  This is a C-like internal representation.  */
+     are performed.  The dump resembles C code.  */
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
 
   /* If true, gcc_jit_context_compile will dump copious
@@ -173,8 +173,9 @@ enum gcc_jit_bool_option
   GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
 
   /* If true, libgccjit will aggressively run its garbage collector, to
-     shake out bugs.  This is likely to only be of interest to
-     developers *of* the library.  */
+     shake out bugs (greatly slowing down the compile).  This is likely
+     to only be of interest to developers *of* the library.  It is
+     used when running the selftest suite.  */
   GCC_JIT_BOOL_OPTION_SELFCHECK_GC,
 
   /* If true, gcc_jit_context_release will not clean up
