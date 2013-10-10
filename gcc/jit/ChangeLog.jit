@@ -1,5 +1,11 @@
 2013-10-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (GCC_JIT_BOOL_OPTION_DUMP_SUMMARY): New.
+	* internal-api.c ((gcc::jit::context::compile): Implement
+	GCC_JIT_BOOL_OPTION_DUMP_SUMMARY.
+
+2013-10-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (GCC_JIT_BOOL_OPTION_SELFCHECK_GC): Improve
 	documentation.
 	(GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE): Likewise.

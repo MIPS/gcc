@@ -163,6 +163,12 @@ enum gcc_jit_bool_option
      are performed.  The dump resembles C code.  */
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
 
+  /* If true, gcc_jit_context_compile will print information to stderr
+     on the actions it is performing, followed by a profile showing
+     the time taken and memory usage of each phase.
+   */
+  GCC_JIT_BOOL_OPTION_DUMP_SUMMARY,
+
   /* If true, gcc_jit_context_compile will dump copious
      amount of information on what it's doing to various
      files within a temporary directory.  Use

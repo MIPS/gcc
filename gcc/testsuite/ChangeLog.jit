@@ -1,3 +1,8 @@
+2013-10-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h: Set GCC_JIT_BOOL_OPTION_DUMP_SUMMARY when
+	running selftests.
+
 2013-10-08  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/harness.h: Wrap parts of harness within a

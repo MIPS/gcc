@@ -97,6 +97,10 @@ test_jit (const char *argv0)
     ctxt,
     GCC_JIT_BOOL_OPTION_SELFCHECK_GC,
     1);
+  gcc_jit_context_set_bool_option (
+    ctxt,
+    GCC_JIT_BOOL_OPTION_DUMP_SUMMARY,
+    1);
 
   /* This actually calls into GCC and runs the build, all
      in a mutex for now.  */

@@ -914,7 +914,7 @@ compile ()
     ADD_ARG ("-g");
 
   /* Suppress timing (and other) info.  */
-  if (1)
+  if (!m_bool_options[GCC_JIT_BOOL_OPTION_DUMP_SUMMARY])
     {
       ADD_ARG ("-quiet");
       quiet_flag = 1;
