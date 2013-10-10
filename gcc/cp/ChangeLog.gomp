@@ -1,3 +1,21 @@
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* decl.c (decls_match): Revert DECL_OMP_DECLARE_REDUCTION_P
+	special cases.
+	(duplicate_decls): Move DECL_OMP_DECLARE_REDUCTION_P case
+	earlier.
+	* parser.c (cp_parser_omp_declare_reduction): Fix spelling
+	of some error messages.  Set DECL_CONTEXT (fndecl) to
+	global_namespace first.
+	* decl2.c (mark_used): Force immediate instantiation of
+	DECL_OMP_DECLARE_REDUCTION_P decls.
+	* semantics.c (omp_reduction_lookup): Add baselinkp and
+	ambiguousp arguments, diagnose ambiguities, perform access
+	check only if non-ambiguous.
+	(finish_omp_reduction_clause): Adjust omp_reduction_lookup
+	caller, if it returned error_mark_node, just return true,
+	use mark_used instead of instantiate_decl.
+
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* semantics.c (finish_omp_clauses): Remove name variable, use

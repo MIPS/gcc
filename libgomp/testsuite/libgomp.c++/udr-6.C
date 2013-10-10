@@ -11,8 +11,6 @@ struct F : C, D {};
 struct G : E, F {};
 void foo (B &);
 void foo (F &);
-#pragma omp declare reduction (+:F:omp_out.c += omp_in.c) \
-		    initializer(foo (omp_priv))
 #pragma omp declare reduction (+:B:omp_out.b += omp_in.b) \
 		    initializer(foo (omp_priv))
 

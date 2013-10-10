@@ -4601,9 +4601,11 @@ omp_reduction_id (enum tree_code reduction_code, tree reduction_id, tree type)
    FUNCTION_DECL or NULL_TREE if not found.  */
 
 static tree
-omp_reduction_lookup (location_t loc, tree id, tree type)
+omp_reduction_lookup (location_t loc, tree id, tree type, tree *baselinkp,
+		      vec<tree> *ambiguousp)
 {
   tree orig_id = id;
+  tree baselink = NULL_TREE;
   if (identifier_p (id))
     {
       cp_id_kind idk;
@@ -4643,20 +4645,61 @@ omp_reduction_lookup (location_t loc, tree id, tree type)
 	    break;
 	}
     }
+  if (id && BASELINK_P (fns))
+    {
+      if (baselinkp)
+	*baselinkp = fns;
+      else
+	baselink = fns;
+    }
   if (id == NULL_TREE && CLASS_TYPE_P (type) && TYPE_BINFO (type))
     {
-      tree binfo = TYPE_BINFO (type), base_binfo;
+      vec<tree> ambiguous = vNULL;
+      tree binfo = TYPE_BINFO (type), base_binfo, ret = NULL_TREE;
       unsigned int ix;
+      if (ambiguousp == NULL)
+	ambiguousp = &ambiguous;
       for (ix = 0; BINFO_BASE_ITERATE (binfo, ix, base_binfo); ix++)
 	{
-	  id = omp_reduction_lookup (loc, orig_id, BINFO_TYPE (base_binfo));
-	  if (id != NULL_TREE)
-	    return id;
+	  id = omp_reduction_lookup (loc, orig_id, BINFO_TYPE (base_binfo),
+				     baselinkp ? baselinkp : &baselink,
+				     ambiguousp);
+	  if (id == NULL_TREE)
+	    continue;
+	  if (!ambiguousp->is_empty ())
+	    ambiguousp->safe_push (id);
+	  else if (ret != NULL_TREE)
+	    {
+	      ambiguousp->safe_push (ret);
+	      ambiguousp->safe_push (id);
+	      ret = NULL_TREE;
+	    }
+	  else
+	    ret = id;
 	}
+      if (ambiguousp != &ambiguous)
+	return ret;
+      if (!ambiguous.is_empty ())
+	{
+	  const char *str = _("candidates are:");
+	  unsigned int idx;
+	  tree udr;
+	  error_at (loc, "user defined reduction lookup is ambiguous");
+	  FOR_EACH_VEC_ELT (ambiguous, idx, udr)
+	    {
+	      inform (DECL_SOURCE_LOCATION (udr), "%s %#D", str, udr);
+	      if (idx == 0)
+		str = get_spaces (str);
+	    }
+	  ambiguous.release ();
+	  ret = error_mark_node;
+	  baselink = NULL_TREE;
+	}
+      id = ret;
     }
-  if (id && BASELINK_P (fns))
-    perform_or_defer_access_check (BASELINK_BINFO (fns), id, id,
-				   tf_warning_or_error);
+  if (id && baselink)
+    perform_or_defer_access_check (BASELINK_BINFO (baselink),
+				   id, id, tf_warning_or_error);
   return id;
 }
 
@@ -4949,12 +4992,13 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
   if (id == NULL_TREE)
     id = omp_reduction_id (OMP_CLAUSE_REDUCTION_CODE (c),
 			   NULL_TREE, NULL_TREE);
-  id = omp_reduction_lookup (OMP_CLAUSE_LOCATION (c), id, type);
+  id = omp_reduction_lookup (OMP_CLAUSE_LOCATION (c), id, type, NULL, NULL);
   if (id)
     {
+      if (id == error_mark_node)
+	return true;
       id = OVL_CURRENT (id);
-      if (DECL_TEMPLATE_INFO (id))
-	id = instantiate_decl (id, /*defer_ok*/0, true);
+      mark_used (id);
       tree body = DECL_SAVED_TREE (id);
       if (TREE_CODE (body) == STATEMENT_LIST)
 	{

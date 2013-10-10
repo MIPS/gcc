@@ -978,15 +978,12 @@ decls_match (tree newdecl, tree olddecl)
       tree t2 = (DECL_USE_TEMPLATE (olddecl)
 		 ? DECL_TI_TEMPLATE (olddecl)
 		 : NULL_TREE);
-      if (t1 != t2 && !DECL_OMP_DECLARE_REDUCTION_P (newdecl))
+      if (t1 != t2)
 	return 0;
 
       if (CP_DECL_CONTEXT (newdecl) != CP_DECL_CONTEXT (olddecl)
 	  && ! (DECL_EXTERN_C_P (newdecl)
-		&& DECL_EXTERN_C_P (olddecl))
-	  && ! (DECL_OMP_DECLARE_REDUCTION_P (newdecl)
-		&& DECL_CONTEXT (newdecl) == NULL_TREE
-		&& DECL_CONTEXT (olddecl) == current_function_decl))
+		&& DECL_EXTERN_C_P (olddecl)))
 	return 0;
 
       /* A new declaration doesn't match a built-in one unless it
@@ -1344,6 +1341,15 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 	    }
 	  return NULL_TREE;
 	}
+      else if (DECL_OMP_DECLARE_REDUCTION_P (olddecl))
+	{
+	  gcc_assert (DECL_OMP_DECLARE_REDUCTION_P (newdecl));
+	  error_at (DECL_SOURCE_LOCATION (newdecl),
+		    "redeclaration of %<pragma omp declare reduction%>");
+	  error_at (DECL_SOURCE_LOCATION (olddecl),
+		    "previous %<pragma omp declare reduction%> declaration");
+	  return error_mark_node;
+	}
       else if (!types_match)
 	{
 	  /* Avoid warnings redeclaring built-ins which have not been
@@ -1421,15 +1427,6 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 
 	  type = cp_build_type_attribute_variant (type, attribs);
 	  TREE_TYPE (newdecl) = TREE_TYPE (olddecl) = type;
-	}
-      else if (DECL_OMP_DECLARE_REDUCTION_P (olddecl))
-	{
-	  gcc_assert (DECL_OMP_DECLARE_REDUCTION_P (newdecl));
-	  error_at (DECL_SOURCE_LOCATION (newdecl),
-		    "redeclaration of %<pragma omp declare reduction%>");
-	  error_at (DECL_SOURCE_LOCATION (olddecl),
-		    "previous %<pragma omp declare reduction%> declaration");
-	  return error_mark_node;
 	}
 
       /* If a function is explicitly declared "throw ()", propagate that to

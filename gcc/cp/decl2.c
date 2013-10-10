@@ -4686,13 +4686,16 @@ mark_used (tree decl, tsubst_flags_t complain)
      or a constexpr function, we need it right now because a reference to
      such a data member or a call to such function is not value-dependent.
      For a function that uses auto in the return type, we need to instantiate
-     it to find out its type.  */
-  if ((decl_maybe_constant_var_p (decl)
-       || (TREE_CODE (decl) == FUNCTION_DECL
-	   && DECL_DECLARED_CONSTEXPR_P (decl))
-       || undeduced_auto_decl (decl))
-      && DECL_LANG_SPECIFIC (decl)
+     it to find out its type.  For OpenMP user defined reductions, we need
+     them instantiated for reduction clauses which inline them by hand
+     directly.  */
+  if (DECL_LANG_SPECIFIC (decl)
       && DECL_TEMPLATE_INFO (decl)
+      && (decl_maybe_constant_var_p (decl)
+	  || (TREE_CODE (decl) == FUNCTION_DECL
+	      && (DECL_DECLARED_CONSTEXPR_P (decl)
+		  || DECL_OMP_DECLARE_REDUCTION_P (decl)))
+	  || undeduced_auto_decl (decl))
       && !uses_template_parms (DECL_TI_ARGS (decl)))
     {
       /* Instantiating a function will result in garbage collection.  We

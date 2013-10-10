@@ -1,3 +1,7 @@
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.c++/udr-6.C: Remove UDR + on type F.
+
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c/thread-limit-1.c (main): Check if

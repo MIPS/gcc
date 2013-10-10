@@ -1,3 +1,7 @@
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/udr-6.C: New test.
+
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/autopar/outer-1.c: Expect 4 instead of 5 loopfn matches.
