@@ -7403,15 +7403,28 @@ gimplify_acc_parallel (tree *expr_p, gimple_seq *pre_p)
   tree expr = *expr_p;
   gimple stmt;
   gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
 
   gimplify_scan_acc_clauses (&ACC_PARALLEL_CLAUSES (expr),
                              pre_p, ART_PARALLEL);
-  gimplify_and_add (ACC_BODY (expr), &body);
+  push_gimplify_context (&gctx);
+
+  stmt = gimplify_and_return_first (ACC_PARALLEL_BODY (expr), &body);
+  if (gimple_code (stmt) == GIMPLE_BIND)
+    pop_gimplify_context (stmt);
+  else
+    pop_gimplify_context (NULL);
+
+  //gimplify_and_add (ACC_BODY (expr), &body);
   gimplify_adjust_acc_clauses (&ACC_PARALLEL_CLAUSES (expr));
 
-  stmt = gimple_alloc (GIMPLE_ACC_PARALLEL, 0);
+  //stmt = gimple_alloc (GIMPLE_ACC_PARALLEL, 0);
+  stmt = gimple_build_acc_parallel (body,
+                                   ACC_PARALLEL_CLAUSES (expr),
+                                   NULL_TREE, NULL_TREE);
 
   gimplify_seq_add_stmt (pre_p, stmt);
+  *expr_p = NULL_TREE;
 }
 
 /* Gimplify the contents of an ACC_KERNELS statement. */
@@ -8314,7 +8327,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case ACC_PARALLEL:
-	  //gimplify_acc_parallel (expr_p, pre_p);
+	  gimplify_acc_parallel (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
 

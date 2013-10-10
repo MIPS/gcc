@@ -52,7 +52,7 @@ DEFGSSTRUCT(GSS_OMP_ATOMIC_LOAD, gimple_statement_omp_atomic_load, false)
 DEFGSSTRUCT(GSS_OMP_ATOMIC_STORE, gimple_statement_omp_atomic_store, false)
 
 DEFGSSTRUCT(GSS_ACC, gimple_statement_acc, false)
-DEFGSSTRUCT(GSS_ACC_PARALLEL, gimple_statement_acc_parallel, false)
+DEFGSSTRUCT(GSS_ACC_PARALLEL, gimple_statement_acc_parallel, true)
 DEFGSSTRUCT(GSS_ACC_KERNELS, gimple_statement_acc_kernels, true)
 DEFGSSTRUCT(GSS_ACC_DATA, gimple_statement_acc_data, false)
 DEFGSSTRUCT(GSS_ACC_CACHE, gimple_statement_acc_cache, false)

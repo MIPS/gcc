@@ -5281,6 +5281,16 @@ gimple_acc_loop_set_child_fn (gimple gs, tree child_fn)
   gs->gimple_acc_loop.child_fn = child_fn;
 }
 
+#define GIMPLE_ACC_CHILD_FN(g)  ((gimple_code(g) == GIMPLE_ACC_KERNELS) ? \
+                                  gimple_acc_kernels_child_fn(g) : \
+                                  (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
+                                  gimple_acc_parallel_child_fn(g) : NULL_TREE)
+#define GIMPLE_ACC_PARAMS_PTR(g) ((gimple_code(g) == GIMPLE_ACC_KERNELS) ? \
+                                  gimple_acc_kernels_params_ptr(g) : \
+                                  (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
+                                  gimple_acc_parallel_params_ptr(g) : 0)
+
+
 /* Returns true when the gimple statement STMT is any of the OpenMP types.  */
 
 #define CASE_GIMPLE_OMP				\

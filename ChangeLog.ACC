@@ -1,3 +1,12 @@
+10-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add initial support for regions and acc parallel. Formatting.
+    
+    * gcc/gimple-pretty-print.c (dump_gimple_acc_parallel): New function.
+    * gcc/gimple.h (GIMPLE_ACC_CHILD_FN, GIMPLE_ACC_PARAMS_PTR): New macros.
+    * gcc/gimplify.c (gimplify_acc_parallel): Rewrite.
+    * gcc/gsstruct.def: Change ops for GIMPLE_ACC_PARALLEL.
+    * gcc/oacc-low.c (struct acc_region_t): New structure.
+
 10-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Quickfix: change name of temporary variable
     
