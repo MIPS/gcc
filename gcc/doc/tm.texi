@@ -5166,10 +5166,6 @@ This hook is used to emit insn to store arg's bounds
 in case bounds are not passed on register.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_INIT_RETURNED_BOUNDS (tree)
-Put specified bounds into returned bounds slot of the current function.
-@end deftypefn
-
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions

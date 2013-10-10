@@ -1573,11 +1573,6 @@ default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
   gcc_unreachable ();
 }
 
-extern void default_init_returned_bounds (tree bounds ATTRIBUTE_UNUSED)
-{
-  gcc_unreachable ();
-}
-
 tree
 default_fn_abi_va_list_bounds_size (tree fndecl ATTRIBUTE_UNUSED)
 {
