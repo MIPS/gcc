@@ -1,6 +1,11 @@
 
 2013-10-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (at_macro_expansion): New macro.
+	(mexpand_at_macro_expansion): Unimplemented yet.
+
+2013-10-09  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/warmelt-base+01.cc: Regenerate.

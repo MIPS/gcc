@@ -3712,12 +3712,14 @@ $EXPORT_VALUES to be visible outside its module.}#)
 (export_macro defmacro mexpand_defmacro
 	      :doc #{The $DEFMACRO macro defines a macro. Syntax
 is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
-@var{body}...). At most four @var{formals} are permitted
-of ctype @code{:value}.}#)
+@var{body}...). At most four @var{formals} are permitted of ctype
+@code{:value}, for the @var{s-expression} invoking the macro, the
+@var{environment} at macro-expansion time, the current
+@var{macro-expander} closure and at last the @var{module context}.}#)
 
 
 ;;;;;;;;;;;;;;;;
-;;;;;;;;;;;;;;;; ther hook to install a macro
+;;;;;;;;;;;;;;;; the hook to install a macro
 (defhook hook_macro_installer (mbind mexpclos)
   ()
   :void
@@ -3731,6 +3733,31 @@ of ctype @code{:value}.}#)
   (debug "hook_macro_installer updated mbind=" mbind)
   )
 
+;;;;;;;;;;;;;;;;;; the at_macro_expansion expander
+;;;(AT_MACRO_EXPANSION  body...)
+(defun mexpand_at_macro_expansion (sexpr env mexpander modctx)
+  (debug "mexp.at_macro_expansion sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check modctx" (is_object modctx) modctx)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (newenv (fresh_env env))
+	 (curpair (pair_tail (list_first cont)))
+	 (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
+	 (maclist (get_field :mocx_macrolist modctx))
+	 )
+    (debug "mexp.at_macro_expansion bodytup=" bodytup "\n.. newenv=" newenv "\n.. maclist=" maclist)
+    (assert_msg "@$@mexpand_at_macro_expansion unimplemented" () bodytup maclist)
+))
+(install_initial_macro 'at_macro_expansion mexpand_at_macro_expansion)
+(export_macro at_macro_expansion mexpand_at_macro_expansion
+	      :doc #{The $AT_MACRO_EXPANSION macro will evaluate its
+ body, e.g. containing @code{defun} or @code{definstance}
+ at macro-expansion time. In particular, functions used
+ inside a $DEFMACRO should be defined inside
+ $AT_MACRO_EXPANSION and are not available in ordinary
+ code.}#)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;; the defvar expander
 ;;;(DEFVAR varname [:doc documentation])
