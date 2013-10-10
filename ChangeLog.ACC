@@ -1,3 +1,8 @@
+10-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Quickfix: change name of temporary variable
+    
+    * gcc/oacc-low.c: Change name of temp var
+
 09-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Fix return and param types of get_global_id() builtin 
     

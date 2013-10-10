@@ -1456,7 +1456,8 @@ parallelize_loop(struct loop* l)
                 {
             	  /* _ = (int) _oacc_tmp; */
             	  gimple convert_stmt = build_type_cast (TREE_TYPE(lhs), tmp_var);
-            	  tree convert_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), convert_stmt);
+                  tree convert_var = create_tmp_reg(TREE_TYPE(lhs), "_tmp");
+            	  convert_var = make_ssa_name_fn(cfun, convert_var, convert_stmt);
 				  set_gimple_def_var(convert_stmt, convert_var);
             	  gen_add (&gsi, convert_stmt);
 
