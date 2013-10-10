@@ -1,5 +1,11 @@
 2013-10-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h: Clarify the separation of the API into "outside
+	the callback" and "within the callback" entrypoints, moving the
+	latter to the bottom of the header.
+
+2013-10-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h: Add comments throughout.
 
 2013-10-09  David Malcolm  <dmalcolm@redhat.com>

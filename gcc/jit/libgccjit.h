@@ -8,9 +8,10 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/* Data structures.
-
-   All structs within the API are opaque. */
+/**********************************************************************
+ Data structures.
+ **********************************************************************/
+/* All structs within the API are opaque. */
 
 /* A gcc_jit_context encapsulates the state of a compilation.  It goes
    through three states:
@@ -79,6 +80,9 @@ typedef struct gcc_jit_local gcc_jit_local;
    to manually manage gcc_jit_label instances.  */
 typedef struct gcc_jit_loop gcc_jit_loop;
 
+/**********************************************************************
+ Functions for use outside of the code-creation callback.
+ **********************************************************************/
 /*
    Acquire a JIT-compilation context.
 
@@ -112,6 +116,115 @@ gcc_jit_context_set_code_factory (gcc_jit_context *ctxt,
 	control returns out of the callback, you can't use them.  This
 	avoids having to expose details of GCC's garbage-collector,
 	I hope. */
+
+/* Options taking string values. */
+enum gcc_jit_str_option
+{
+  /* The name of the program, for use as a prefix when printing error
+     messages to stderr.  If NULL, or default, "libgccjit.so" is used.  */
+  GCC_JIT_STR_OPTION_PROGNAME,
+
+  GCC_JIT_NUM_STR_OPTIONS
+};
+
+/* Options taking int values. */
+enum gcc_jit_int_option
+{
+  /* How much to optimize the code.
+     Valid values are 0-3, corresponding to GCC's command-line options
+     -O0 through -O3.
+
+     The default value is 0 (unoptimized).  */
+  GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+
+  GCC_JIT_NUM_INT_OPTIONS
+};
+
+/* Options taking boolean values.
+   These all default to "false".  */
+enum gcc_jit_bool_option
+{
+  /* If true, gcc_jit_context_compile will attempt to do the right
+     thing so that if you attach a debugger to the process, it will
+     be able to inspect variables and step through your code.
+
+     Note that you can't step through code unless you set up source
+     location information for the code, and that isn't yet supported
+     in the API.  */
+  GCC_JIT_BOOL_OPTION_DEBUGINFO,
+
+  /* If true, gcc_jit_context_compile will dump its initial "tree"
+     representation of your code to stderr (before any
+     optimizations).  */
+  GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
+
+  /* If true, gcc_jit_context_compile will dump the "gimple"
+     representation of your code to stderr, before any optimizations
+     are performed.  This is a C-like internal representation.  */
+  GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+
+  /* If true, gcc_jit_context_compile will dump copious
+     amount of information on what it's doing to various
+     files within a temporary directory.  Use
+     GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES (see below) to
+     see the results.  The files are intended to be human-readable,
+     but the exact files and their formats are subject to change.
+  */
+  GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
+
+  /* If true, libgccjit will aggressively run its garbage collector, to
+     shake out bugs.  This is likely to only be of interest to
+     developers *of* the library.  */
+  GCC_JIT_BOOL_OPTION_SELFCHECK_GC,
+
+  /* If true, gcc_jit_context_release will not clean up
+     intermediate files written to the filesystem, and will display
+     their location on stderr.  */
+  GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
+
+  GCC_JIT_NUM_BOOL_OPTIONS
+};
+
+/* Set a string option on the given context.
+
+   The context directly stores the (const char *), so the passed string
+   must outlive the context.  */
+extern void
+gcc_jit_context_set_str_option (gcc_jit_context *ctxt,
+				enum gcc_jit_str_option opt,
+				const char *value);
+
+/* Set an int option on the given context.  */
+extern void
+gcc_jit_context_set_int_option (gcc_jit_context *ctxt,
+				enum gcc_jit_int_option opt,
+				int value);
+
+/* Set a boolean option on the given context.
+
+   Zero is "false" (the default), non-zero is "true".  */
+extern void
+gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
+				 enum gcc_jit_bool_option opt,
+				 int value);
+
+extern gcc_jit_result *
+gcc_jit_context_compile (gcc_jit_context *ctxt);
+  /* This actually calls into GCC and runs the build, all
+     in a mutex for now.  The result is a wrapper around a .so file.
+     Can we only call this once on a given context?  */
+
+
+/* Locate a given function within the built machine code.
+   This will need to be cast to a function pointer of the
+   correct type before it can be called. */
+extern void *
+gcc_jit_result_get_code (gcc_jit_result *result,
+			 const char *funcname);
+
+extern void
+gcc_jit_result_release (gcc_jit_result *result);
+  /* Once we're done with the code, this unloads the built .so file: */
 
 /**********************************************************************
  Functions for use within the code factory.
@@ -351,119 +464,6 @@ gcc_jit_function_new_loop (gcc_jit_function *func,
 extern void
 gcc_jit_loop_end (gcc_jit_loop *loop,
 		  gcc_jit_location *loc);
-
-/**********************************************************************
- Option-management
- **********************************************************************/
-
-/* Options taking string values. */
-enum gcc_jit_str_option
-{
-  /* The name of the program, for use as a prefix when printing error
-     messages to stderr.  If NULL, or default, "libgccjit.so" is used.  */
-  GCC_JIT_STR_OPTION_PROGNAME,
-
-  GCC_JIT_NUM_STR_OPTIONS
-};
-
-/* Options taking int values. */
-enum gcc_jit_int_option
-{
-  /* How much to optimize the code.
-     Valid values are 0-3, corresponding to GCC's command-line options
-     -O0 through -O3.
-
-     The default value is 0 (unoptimized).  */
-  GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
-
-  GCC_JIT_NUM_INT_OPTIONS
-};
-
-/* Options taking boolean values.
-   These all default to "false".  */
-enum gcc_jit_bool_option
-{
-  /* If true, gcc_jit_context_compile will attempt to do the right
-     thing so that if you attach a debugger to the process, it will
-     be able to inspect variables and step through your code.
-
-     Note that you can't step through code unless you set up source
-     location information for the code, and that isn't yet supported
-     in the API.  */
-  GCC_JIT_BOOL_OPTION_DEBUGINFO,
-
-  /* If true, gcc_jit_context_compile will dump its initial "tree"
-     representation of your code to stderr (before any
-     optimizations).  */
-  GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
-
-  /* If true, gcc_jit_context_compile will dump the "gimple"
-     representation of your code to stderr, before any optimizations
-     are performed.  This is a C-like internal representation.  */
-  GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
-
-  /* If true, gcc_jit_context_compile will dump copious
-     amount of information on what it's doing to various
-     files within a temporary directory.  Use
-     GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES (see below) to
-     see the results.  The files are intended to be human-readable,
-     but the exact files and their formats are subject to change.
-  */
-  GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING,
-
-  /* If true, libgccjit will aggressively run its garbage collector, to
-     shake out bugs.  This is likely to only be of interest to
-     developers *of* the library.  */
-  GCC_JIT_BOOL_OPTION_SELFCHECK_GC,
-
-  /* If true, gcc_jit_context_release will not clean up
-     intermediate files written to the filesystem, and will display
-     their location on stderr.  */
-  GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES,
-
-  GCC_JIT_NUM_BOOL_OPTIONS
-};
-
-/* Set a string option on the given context.
-
-   The context directly stores the (const char *), so the passed string
-   must outlive the context.  */
-extern void
-gcc_jit_context_set_str_option (gcc_jit_context *ctxt,
-				enum gcc_jit_str_option opt,
-				const char *value);
-
-/* Set an int option on the given context.  */
-extern void
-gcc_jit_context_set_int_option (gcc_jit_context *ctxt,
-				enum gcc_jit_int_option opt,
-				int value);
-
-/* Set a boolean option on the given context.
-
-   Zero is "false" (the default), non-zero is "true".  */
-extern void
-gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
-				 enum gcc_jit_bool_option opt,
-				 int value);
-
-extern gcc_jit_result *
-gcc_jit_context_compile (gcc_jit_context *ctxt);
-  /* This actually calls into GCC and runs the build, all
-     in a mutex for now.  The result is a wrapper around a .so file.
-     Can we only call this once on a given context?  */
-
-
-/* Locate a given function within the built machine code.
-   This will need to be cast to a function pointer of the
-   correct type before it can be called. */
-extern void *
-gcc_jit_result_get_code (gcc_jit_result *result,
-			 const char *funcname);
-
-extern void
-gcc_jit_result_release (gcc_jit_result *result);
-  /* Once we're done with the code, this unloads the built .so file: */
 
 #ifdef __cplusplus
 }
