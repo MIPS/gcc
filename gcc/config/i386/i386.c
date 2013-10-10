@@ -13754,6 +13754,10 @@ output_pic_addr_const (FILE *file, rtx x, int code)
 	  machopic_output_function_base_name (file);
 	  break;
 #endif
+	case UNSPEC_SIZEOF:
+	  fputs ("@SIZE", file);
+	  break;
+
 	default:
 	  output_operand_lossage ("invalid UNSPEC as operand");
 	  break;
@@ -15323,6 +15327,11 @@ i386_asm_output_addr_const_extra (FILE *file, rtx x)
 
 	fprintf (file, "%s:%d", TARGET_64BIT ? "%fs" : "%gs", offset);
       }
+      break;
+
+    case UNSPEC_SIZEOF:
+      output_addr_const (file, op);
+      fputs ("@SIZE", file);
       break;
 
     default:
