@@ -1,6 +1,19 @@
 
 2013-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (dbgout_mapobject_method): Stronger
+	condition to avoid writing all the entries.
+	(debug_less_fun): New internal function.
+	(debug_less): New debug manipulator to give less output in debug
+	expressions.
+
+	* melt/warmelt-normal.melt (normexp_symbol): more debug.
+
+	* melt/warmelt-genobj.melt (compilobj_nrep_constocc): More debug,
+	using debug_less...
+
+2013-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tmacro-3.melt: New file. Should give an error at
 	macro-expansion but does not...
 

@@ -1062,9 +1062,9 @@ $TORANK}#
     (add2out_longdec out (mapobject_count self))
     (if (and
 	 (melt_really_need_dbglim (+i depth 2) maxdepth)
-	 (<i (+i depth 2) maxdepth) 
-	 (or (<i depth 4)
-	     (<i mapcount (*i 3 (+i depth 2)))))
+	 ; (<i (+i depth 2) maxdepth) 
+	 (or (<i depth 3)
+	     (<i mapcount (*i 3 (+i depth 1)))))
 	(let (
 	      (nextdepthbox (make_integerbox discr_integer (+i 2 depth)))
 	      (countbox (make_integerbox discr_integer 0))
@@ -1128,7 +1128,9 @@ $TORANK}#
 		   (add2out_indent out (+i nextdepth 1))
 		   (dbg_out elva dbgi (+i nextdepth 2))
 		   (add2out_strconst out "; ")
-		   )))))))
+		   ))))))
+      (add2out_strconst out " ..:..")
+      )
     (add2out_strconst out "}")))
 (install_method discr_map_objects dbg_output dbgout_mapobject_method)
 
@@ -1559,7 +1561,19 @@ $TORANK}#
 (install_method class_any_binding dbg_output dbgout_anybinding_method)
 (install_method class_any_binding dbg_outputagain dbgout_anybinding_method)
 
+;;;;;;;;;;;;;;;;;;;;;;;; less deep debug
+(defun debug_less_fun (dbgi v)
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (let ( (oldmaxdepth (get_field :dbgi_maxdepth dbgi))
+	 (newmaxdepth (box (-i (get_int oldmaxdepth) 1)))
+	 (out (get_field :dbgi_out dbgi))
+	 )
+    (put_fields dbgi :dbgi_maxdepth newmaxdepth)
+    (dbg_out v dbgi 1)
+    (put_fields dbgi :dbgi_maxdepth oldmaxdepth)))
 
+(define debug_less :doc #{$DEBUG_LESS is a $DEBUG manipulator to show the following argument value a bit more briefly.}#
+  (clone_with_discriminant debug_less_fun discr_debug_closure))
 
 ;;;;;;;;;;;;;;;;;;;;;;;; debug message function
 
@@ -1596,6 +1610,7 @@ $TORANK}#
  dbgoutagain_fields
  debug_depth
  debug_msg_fun
+ debug_less
  discr_debug_closure
  display_debug_message  
  melt_debug_fun
