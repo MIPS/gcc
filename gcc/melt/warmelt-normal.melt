@@ -1756,14 +1756,15 @@ source location.}#
 ;;;; normalize a symbol occurrence
 (defun normexp_symbol (recv env ncx psloc)
   (debug "normexp_symbol recv=" recv 
-	 "\n.. env=" env "\n.. ncx=" ncx "\n.. psloc=" psloc 
+	 "\n.. env=" debug_less env "\n.. ncx=" debug_less ncx "\n.. psloc=" psloc 
 	 )
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (assert_msg "check recv" (is_a recv class_symbol) recv)
   (multicall
    (bind procs gotenv)
    (find_enclosing_env env recv)
-   (debug "normexp_symbol after find_enclosing_env bind=" bind "\n.. procs=" procs "\n.. gotenv=" gotenv)
+   (debug "normexp_symbol after find_enclosing_env bind=" debug_less bind 
+	  "\n.. procs=" debug_less procs "\n.. gotenv=" debug_less gotenv)
    (assert_msg "normexp_symbol check recv" (is_a recv class_symbol) recv)
    (let ( (modctx  (unsafe_get_field :nctx_modulcontext ncx))
 	  (valbindmap (unsafe_get_field :nctx_valbindmap ncx))
@@ -1776,8 +1777,6 @@ source location.}#
      (when (null bind)
        (error_at psloc "unknown name $1; symbol is not bound"
 		   symbname)
-       (assert_msg "check not bootstrapping unknown name" 
-		   (not (melt_is_bootstrapping)) recv)
        (shortbacktrace_dbg "normexp_symbol null bind" 15)
        (debug "normexp_symbol bad name recv=" recv "\n.. env=" env)
        (debug "normexp_symbol bad name envprev=" (get_field :env_prev env))
@@ -1859,13 +1858,13 @@ source location.}#
 		  ;; cache the result
 		  (mapobject_put sycmap recv fxocc)
 		  (debug "normexp_symbol const value fxocc=" fxocc
-			 " updated sycmap=" sycmap "\n.. procs=" procs)
+			 " updated sycmap=" sycmap "\n.. procs=" debug_less procs "\n.. for symbname=" symbname)
 		  ;; put the const occurrence if needed in the const
 		  ;; list of each proc
 		  (foreach_pair_component_in_list
 		   (procs)
 		   (curpairpro pr)
-		   (debug "normexp_symbol pr=" pr)
+		   (debug "normexp_symbol const symbname=" debug_less symbname " pr=" debug_less pr)
 		   (assert_msg "check pr" (is_a pr class_nrep_anyproc) pr)
 		   (cond ( (is_a pr class_nrep_routproc)
 			   (let ( (clcont
@@ -1912,7 +1911,7 @@ source location.}#
 	      (progn
 		;; cache the result
 		(mapobject_put sycmap recv bvar)
-		(debug "normexp_symbol local value bvar=" bvar "\n.. updated sycmap=" sycmap)
+		(debug "normexp_symbol local value bvar=" bvar "\n.. updated sycmap=" sycmap "\n.. symbname=" symbname)
 		(return bvar ())
 		)
 	      )))
