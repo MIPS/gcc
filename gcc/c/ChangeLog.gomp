@@ -1,5 +1,8 @@
 2013-10-10  Jakub Jelinek  <jakub@redhat.com>
 
+	* c-parser.c (c_parser_binary_expression): Document omp_atomic_lhs
+	argument in function comment and drop prec argument description.
+
 	* c-typeck.c (handle_omp_array_sections_1): Change wording
 	of errors requesting specification of length.
 	(c_finish_omp_clauses): For error about non-integral non-pointer

@@ -5638,8 +5638,13 @@ c_parser_conditional_expression (c_parser *parser, struct c_expr *after,
 /* Parse a binary expression; that is, a logical-OR-expression (C90
    6.3.5-6.3.14, C99 6.5.5-6.5.14).  If AFTER is not NULL then it is
    an Objective-C message expression which is the primary-expression
-   starting the expression as an initializer.  PREC is the starting
-   precedence, usually PREC_NONE.
+   starting the expression as an initializer.
+
+   OMP_ATOMIC_LHS is NULL, unless parsing OpenMP #pragma omp atomic,
+   when it should be the unfolded lhs.  In a valid OpenMP source,
+   one of the operands of the toplevel binary expression must be equal
+   to it.  In that case, just return a build2 created binary operation
+   rather than result of parser_build_binary_op.
 
    multiplicative-expression:
      cast-expression
