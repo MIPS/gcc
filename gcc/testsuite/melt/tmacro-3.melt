@@ -1,0 +1,60 @@
+; -*- lisp -*-
+;; file tmacro-3.melt
+
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tmacro-3.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tmacro-3.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(defun makebitup3 (arg) 
+  (debug "makebitup3 arg=" arg)
+  (let ( (res `(tuple ,arg ,arg))
+	 )
+    (debug "makebitup3 res=" res)
+    (return res)))
+
+(defmacro bitup3 (sexp env mexpander modctx)
+  (debug "macro bitup3 sexp=" sexp " modctx=" modctx)
+  (shortbacktrace_dbg "bitup3" 15)
+  ;; sexp is the entire (bitup2 ...) s-expression
+  (assert_msg "check sexp" (is_a sexp class_sexpr) sexp)
+  (let ( 
+	(sloc (get_field :loca_location sexp))
+	(scont (get_field :sexp_contents sexp))
+	)
+    (assert_msg "check scont" (is_list scont) scont sloc sexp)
+    (let ( 
+	  (tcont (list_to_multiple scont discr_multiple))
+	  (:long tcontlen (multiple_length tcont))
+	  )
+      (assert_msg "check tcont" (is_multiple tcont) tcont scont)
+      (assert_msg "check tcontlen" (>i tcontlen 0) tcontlen tcont)
+      (debug "bitup3 tcont=" tcont)
+      (when (!=i tcontlen 2)
+	(error_plain sloc "bitup3 needs one argument")
+	(return))
+      (let ( (arg1 (multiple_nth tcont 1))
+	     )
+	(debug "bitup3 arg1=" arg1 " makebitup3=" makebitup3)
+	(assert_msg "check makebitup3 in bitup3" 
+		    (is_closure makebitup3) makebitup3)
+	(let  (
+	       (resexp (makebitup3 arg1))
+	       )
+	  (debug "bitup3 plain resexp=" resexp)
+	  (let ( (mexp (mexpander resexp env mexpander modctx))
+		 )
+	    (debug "bitup3 mexp=" mexp)
+	    (put_fields mexp :loca_location sloc)
+	    (debug "bitup3 relocated mexp=" mexp)
+	    (return mexp)))))))
+	  
+(debug "here bitup3=" bitup3 " makebitup3=" makebitup3)
+
+(debug "using bitup3:" (bitup3 'a))
+
+;; eof tmacro-3.melt

@@ -1,5 +1,10 @@
 
-2013-10-09  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* testsuite/melt/tmacro-3.melt: New file. Should give an error at
+	macro-expansion but does not...
+
+2013-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (at_macro_expansion): New macro.
 	(mexpand_at_macro_expansion): Unimplemented yet.
