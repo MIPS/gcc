@@ -4805,11 +4805,11 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  if (COMPLEX_MODE_P (TYPE_MODE (TREE_TYPE (from)))
 	      && bitpos == 0
 	      && bitsize == mode_bitsize)
-	    result = store_expr (from, to_rtx, false, nontemporal);
+	    result = store_expr (from, to_rtx, false, nontemporal, NULL);
 	  else if (bitsize == mode_bitsize / 2
 		   && (bitpos == 0 || bitpos == mode_bitsize / 2))
 	    result = store_expr (from, XEXP (to_rtx, bitpos != 0), false,
-				 nontemporal);
+				 nontemporal, NULL);
 	  else if (bitpos + bitsize <= mode_bitsize / 2)
 	    result = store_field (XEXP (to_rtx, 0), bitsize, bitpos,
 				  bitregion_start, bitregion_end,
@@ -4939,9 +4939,8 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	}
 
       /* Store bounds if required.  */
-      if (bounds
-	  && !BOUNDED_P (to)
-	  && chkp_type_has_pointer (TREE_TYPE (to)))
+      if (flag_check_pointers && bounds
+	  && (BOUNDED_P (to) || chkp_type_has_pointer (TREE_TYPE (to))))
 	{
 	  gcc_assert (MEM_P (to_rtx));
 	  gcc_assert (!CONST_INT_P (bounds));
@@ -5024,7 +5023,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
   /* Compute FROM and store the value in the rtx we got.  */
 
   push_temp_slots ();
-  result = store_expr (from, to_rtx, 0, nontemporal);
+  result = store_expr (from, to_rtx, 0, nontemporal, to);
   preserve_temp_slots (result);
   pop_temp_slots ();
   return;
@@ -5061,12 +5060,16 @@ emit_storent_insn (rtx to, rtx from)
    If CALL_PARAM_P is nonzero, this is a store into a call param on the
    stack, and block moves may need to be treated specially.
 
-   If NONTEMPORAL is true, try using a nontemporal store instruction.  */
+   If NONTEMPORAL is true, try using a nontemporal store instruction.
+
+   If BTARGET is not NULL then computed bounds of TARGET are
+   associated with BTARGET.  */
 
 rtx
-store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
+store_expr (tree exp, rtx target, int call_param_p, bool nontemporal,
+	    tree btarget)
 {
-  rtx temp, temp_bnd;
+  rtx temp;
   rtx alt_rtl = NULL_RTX;
   location_t loc = curr_insn_location ();
 
@@ -5086,7 +5089,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
       expand_expr (TREE_OPERAND (exp, 0), const0_rtx, VOIDmode,
 		   call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
       return store_expr (TREE_OPERAND (exp, 1), target, call_param_p,
-			 nontemporal);
+			 nontemporal, btarget);
     }
   else if (TREE_CODE (exp) == COND_EXPR && GET_MODE (target) == BLKmode)
     {
@@ -5101,12 +5104,12 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
       NO_DEFER_POP;
       jumpifnot (TREE_OPERAND (exp, 0), lab1, -1);
       store_expr (TREE_OPERAND (exp, 1), target, call_param_p,
-		  nontemporal);
+		  nontemporal, btarget);
       emit_jump_insn (gen_jump (lab2));
       emit_barrier ();
       emit_label (lab1);
       store_expr (TREE_OPERAND (exp, 2), target, call_param_p,
-		  nontemporal);
+		  nontemporal, btarget);
       emit_label (lab2);
       OK_DEFER_POP;
 
@@ -5158,9 +5161,20 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
       temp = expand_expr (exp, inner_target, VOIDmode,
 			  call_param_p ? EXPAND_STACK_PARM : EXPAND_NORMAL);
 
-      /* Bounds returned by the call are atored separately.  */
+      /* Handle bounds returned by call.  */
       if (TREE_CODE (exp) == CALL_EXPR)
-	chkp_split_slot (temp, &temp, &temp_bnd);
+	{
+	  rtx bounds;
+	  chkp_split_slot (temp, &temp, &bounds);
+	  if (bounds && btarget)
+	    {
+	      gcc_assert (TREE_CODE (btarget) == SSA_NAME);
+	      gcc_assert (REG_P (bounds));
+	      rtx tmp = gen_reg_rtx (targetm.chkp_bound_mode ());
+	      emit_move_insn (tmp, bounds);
+	      chkp_set_rtl_bounds (btarget, tmp);
+	    }
+	}
 
       /* If TEMP is a VOIDmode constant, use convert_modes to make
 	 sure that we properly convert it.  */
@@ -5244,9 +5258,20 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal)
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
 			       &alt_rtl);
 
-      /* Bounds returned by the call are stored separately.  */
+      /* Handle bounds returned by call.  */
       if (TREE_CODE (exp) == CALL_EXPR)
-	chkp_split_slot (temp, &temp, &temp_bnd);
+	{
+	  rtx bounds;
+	  chkp_split_slot (temp, &temp, &bounds);
+	  if (bounds && btarget)
+	    {
+	      gcc_assert (TREE_CODE (btarget) == SSA_NAME);
+	      gcc_assert (REG_P (bounds));
+	      rtx tmp = gen_reg_rtx (targetm.chkp_bound_mode ());
+	      emit_move_insn (tmp, bounds);
+	      chkp_set_rtl_bounds (btarget, tmp);
+	    }
+	}
     }
 
   /* If TEMP is a VOIDmode constant and the mode of the type of EXP is not
@@ -6118,7 +6143,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 					VAR_DECL, NULL_TREE, domain);
 		    index_r = gen_reg_rtx (promote_decl_mode (index, NULL));
 		    SET_DECL_RTL (index, index_r);
-		    store_expr (lo_index, index_r, 0, false);
+		    store_expr (lo_index, index_r, 0, false, NULL);
 
 		    /* Build the head of the loop.  */
 		    do_pending_stack_adjust ();
@@ -6145,7 +6170,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 		      store_constructor (value, xtarget, cleared,
 					 bitsize / BITS_PER_UNIT);
 		    else
-		      store_expr (value, xtarget, 0, false);
+		      store_expr (value, xtarget, 0, false, NULL);
 
 		    /* Generate a conditional jump to exit the loop.  */
 		    exit_cond = build2 (LT_EXPR, integer_type_node,
@@ -6188,7 +6213,7 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 					  expand_normal (position),
 					  highest_pow2_factor (position));
 		xtarget = adjust_address (xtarget, mode, 0);
-		store_expr (value, xtarget, 0, false);
+		store_expr (value, xtarget, 0, false, NULL);
 	      }
 	    else
 	      {
@@ -6382,7 +6407,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       /* We're storing into a struct containing a single __complex.  */
 
       gcc_assert (!bitpos);
-      return store_expr (exp, target, 0, nontemporal);
+      return store_expr (exp, target, 0, nontemporal, NULL);
     }
 
   /* If the structure is in a register or if the component
@@ -6535,7 +6560,7 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
       if (!MEM_KEEP_ALIAS_SET_P (to_rtx) && MEM_ALIAS_SET (to_rtx) != 0)
 	set_mem_alias_set (to_rtx, alias_set);
 
-      return store_expr (exp, to_rtx, 0, nontemporal);
+      return store_expr (exp, to_rtx, 0, nontemporal, NULL);
     }
 }
 
@@ -8071,7 +8096,7 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
 	    store_expr (treeop0,
 			adjust_address (target, TYPE_MODE (valtype), 0),
 			modifier == EXPAND_STACK_PARM,
-			false);
+			false, NULL);
 
 	  else
 	    {
@@ -9125,14 +9150,14 @@ expand_expr_real_2 (sepops ops, rtx target, enum machine_mode tmode,
       jumpifnot (treeop0, op0, -1);
       store_expr (treeop1, temp,
 		  modifier == EXPAND_STACK_PARM,
-		  false);
+		  false, NULL);
 
       emit_jump_insn (gen_jump (op1));
       emit_barrier ();
       emit_label (op0);
       store_expr (treeop2, temp,
 		  modifier == EXPAND_STACK_PARM,
-		  false);
+		  false, NULL);
 
       emit_label (op1);
       OK_DEFER_POP;
@@ -9660,7 +9685,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	      {
 		temp = assign_stack_temp (DECL_MODE (base),
 					  GET_MODE_SIZE (DECL_MODE (base)));
-		store_expr (base, temp, 0, false);
+		store_expr (base, temp, 0, false, NULL);
 		temp = adjust_address (temp, BLKmode, offset);
 		set_mem_size (temp, int_size_in_bytes (type));
 		return temp;

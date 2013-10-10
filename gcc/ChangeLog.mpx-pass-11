@@ -12,10 +12,16 @@
 	* tree.h (expand_return): Adjust to new expand_return signature.
 	* cfgexpand.c (expand_gimple_stmt_1): Likewise.
 	* explow.c (hard_function_value): Handle returned bounds.
-	* expr.c (expand_assignment): Likewise.
+	* expr.h (store_expr): Add param for bounds target.
+	* expr.c (expand_assignment): Handle returned bounds.
 	(store_expr): Likewise.
-	* function.c (aggregate_value_p): Likewise.
-	(use_register_for_decl): Do no registerize decls used for bounds
+	(store_constructor): Adjust to new store_expr signature.
+	(store_field): Likewise.
+	(expand_expr_real_2): Likewise.
+	(expand_expr_real_1): Likewise.
+	* tree-outof-ssa.c (insert_value_copy_on_edge): Likewise.
+	* function.c (aggregate_value_p): Handle returned bounds.
+	(use_register_for_decl): Do not registerize decls used for bounds
 	stores and loads.
 	(assign_parm_data_one): Add field for bounds.
 	(assign_parm_find_entry_rtl): Fill bounds info.

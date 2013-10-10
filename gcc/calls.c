@@ -1372,7 +1372,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      else
 		copy = assign_temp (type, 1, 0);
 
-	      store_expr (args[i].tree_value, copy, 0, false);
+	      store_expr (args[i].tree_value, copy, 0, false, NULL);
 
 	      /* Just change the const function to pure and then let
 		 the next test clear the pure based on
