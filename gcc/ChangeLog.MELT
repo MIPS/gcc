@@ -1,5 +1,12 @@
 
 2013-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): More debug.
+
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Remove
+	spurious emission of semi-colon ';' char...
+
+2013-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

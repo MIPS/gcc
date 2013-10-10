@@ -3605,7 +3605,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 ;;;;;;;;;;;;;;;;;; the defmacro expander
 ;;;(DEFMACRO macroname formals [:doc documentation] body...)
 (defun mexpand_defmacro (sexpr env mexpander modctx)
-  (debug "mexp.defmacro sexpr=" sexpr)
+  (debug "mexp.defmacro sexpr=" sexpr "\n modctx=" debug_less modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check modctx" (is_object modctx) modctx)

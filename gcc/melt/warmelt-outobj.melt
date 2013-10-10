@@ -2094,7 +2094,6 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
     (add2sbuf_indentnl declbuf 0)
     (add2sbuf_strconst implbuf "/* the frame for initial routine */")
     (output_curframe_declstruct pini implbuf)
-    (add2sbuf_strconst implbuf ";")
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
     (add2sbuf_indentnl implbuf 0)
