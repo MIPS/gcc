@@ -8,18 +8,75 @@
 extern "C" {
 #endif /* __cplusplus */
 
-/* Various opaque structs. */
+/* Data structures.
+
+   All structs within the API are opaque. */
+
+/* A gcc_jit_context encapsulates the state of a compilation.  It goes
+   through three states:
+
+   (1) "initial", during which you can set up options on it.
+       Invoking gcc_jit_context_compile on it transisions it to the
+       "within compilation" state.
+
+   (2) "within compilation", during which you can call functions to create
+       code.
+
+   (3) "after compilation", when you can call gcc_jit_context_release to
+       clean up.  */
 typedef struct gcc_jit_context gcc_jit_context;
+
+/* A gcc_jit_result encapsulates the result of a compilation.  */
 typedef struct gcc_jit_result gcc_jit_result;
+
+/* A gcc_jit_location will encapsulate a source code location, so that
+   you can associated locations in your language with statements in the
+   JIT-compiled code, allowing the debugger to single-step through
+   your language.
+
+   This part of the API is a placeholder to allow future expansion
+   without breaking ABI: there currently is no way of creating a
+   gcc_jit_location.
+
+   For now you must pass NULL into parameters expecting a
+   (gcc_jit_location *).  */
 typedef struct gcc_jit_location gcc_jit_location;
+
+/* A gcc_jit_type encapsulates a type e.g. "int" or a "struct foo*".  */
 typedef struct gcc_jit_type gcc_jit_type;
+
+/* A gcc_jit_field encapsulates a field within a struct; it is used
+   when creating a struct type (using gcc_jit_context_new_struct_type).  */
 typedef struct gcc_jit_field gcc_jit_field;
+
+/* A gcc_jit_function encapsulates a function: either one that you're
+   creating yourself, or a reference to one that you're dynamically
+   linking to within the rest of the process.  */
 typedef struct gcc_jit_function gcc_jit_function;
+
+/* A gcc_jit_label is a jump target within a function, for control flow.  */
 typedef struct gcc_jit_label gcc_jit_label;
+
+/* A gcc_jit_rvalue is an expression within your code, with some type.  */
 typedef struct gcc_jit_rvalue gcc_jit_rvalue;
+
+/* A gcc_jit_lvalue is a storage location within your code (e.g. a
+   variable, a parameter, etc).  It is also a gcc_jit_rvalue; use
+   gcc_jit_lvalue_as_rvalue to cast.  */
 typedef struct gcc_jit_lvalue gcc_jit_lvalue;
+
+/* A gcc_jit_param is a function parameter, used when creating a
+   gcc_jit_function.  It is also a gcc_jit_lvalue (and thus also an
+   rvalue); use gcc_jit_param_as_lvalue to convert.  */
 typedef struct gcc_jit_param gcc_jit_param;
+
+/* A gcc_jit_local is a local variable within a function.  It is also
+   a gcc_jit_lvalue (and thus also an rvalue); use gcc_jit_local_as_lvalue
+   to convert.  */
 typedef struct gcc_jit_local gcc_jit_local;
+
+/* A gcc_jit_loop is a pre-canned way of creating loops without needing
+   to manually manage gcc_jit_label instances.  */
 typedef struct gcc_jit_loop gcc_jit_loop;
 
 /*
@@ -299,25 +356,50 @@ gcc_jit_loop_end (gcc_jit_loop *loop,
  Option-management
  **********************************************************************/
 
-/* Options taking string values */
+/* Options taking string values. */
 enum gcc_jit_str_option
 {
+  /* The name of the program, for use as a prefix when printing error
+     messages to stderr.  If NULL, or default, "libgccjit.so" is used.  */
   GCC_JIT_STR_OPTION_PROGNAME,
+
   GCC_JIT_NUM_STR_OPTIONS
 };
 
-/* Options taking int values */
+/* Options taking int values. */
 enum gcc_jit_int_option
 {
+  /* How much to optimize the code.
+     Valid values are 0-3, corresponding to GCC's command-line options
+     -O0 through -O3.
+
+     The default value is 0 (unoptimized).  */
   GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
+
   GCC_JIT_NUM_INT_OPTIONS
 };
 
-/* Options taking boolean values */
+/* Options taking boolean values.
+   These all default to "false".  */
 enum gcc_jit_bool_option
 {
+  /* If true, gcc_jit_context_compile will attempt to do the right
+     thing so that if you attach a debugger to the process, it will
+     be able to inspect variables and step through your code.
+
+     Note that you can't step through code unless you set up source
+     location information for the code, and that isn't yet supported
+     in the API.  */
   GCC_JIT_BOOL_OPTION_DEBUGINFO,
+
+  /* If true, gcc_jit_context_compile will dump its initial "tree"
+     representation of your code to stderr (before any
+     optimizations).  */
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE,
+
+  /* If true, gcc_jit_context_compile will dump the "gimple"
+     representation of your code to stderr, before any optimizations
+     are performed.  This is a C-like internal representation.  */
   GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
 
   /* If true, gcc_jit_context_compile will dump copious
@@ -342,18 +424,24 @@ enum gcc_jit_bool_option
   GCC_JIT_NUM_BOOL_OPTIONS
 };
 
-/* The context directly stores the (const char *), so the passed string
+/* Set a string option on the given context.
+
+   The context directly stores the (const char *), so the passed string
    must outlive the context.  */
 extern void
 gcc_jit_context_set_str_option (gcc_jit_context *ctxt,
 				enum gcc_jit_str_option opt,
 				const char *value);
 
+/* Set an int option on the given context.  */
 extern void
 gcc_jit_context_set_int_option (gcc_jit_context *ctxt,
 				enum gcc_jit_int_option opt,
 				int value);
 
+/* Set a boolean option on the given context.
+
+   Zero is "false" (the default), non-zero is "true".  */
 extern void
 gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
 				 enum gcc_jit_bool_option opt,
