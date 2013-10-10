@@ -4569,10 +4569,6 @@ expand_builtin_va_copy (tree exp)
 static rtx
 expand_builtin_frame_address (tree fndecl, tree exp)
 {
-  /*  Set zero bounds for returned value.  */
-  if (flag_check_pointers)
-    targetm.calls.init_returned_bounds (NULL_TREE);
-
   /* The argument must be a nonnegative integer constant.
      It counts the number of frames to scan up the stack.
      The value is the return address saved in that frame.  */
@@ -6325,7 +6321,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	{
 	  /* We need to set returned bounds if checker is on.  */
 	  if (flag_check_pointers)
-	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
+	    {
+	      rtx bnd = force_reg (BNDmode,
+				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
+	      target = chkp_join_splitted_slot (target, bnd);
+	    }
 	  return target;
 	}
       break;
@@ -6338,7 +6338,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       if (target)
 	{
 	  if (flag_check_pointers)
-	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
+	    {
+	      rtx bnd = force_reg (BNDmode,
+				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
+	      target = chkp_join_splitted_slot (target, bnd);
+	    }
 	  return target;
 	}
       break;
@@ -6352,7 +6356,11 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	{
 	  /* We need to set returned bounds if cheker is on.  */
 	  if (flag_check_pointers)
-	    targetm.calls.init_returned_bounds (CALL_EXPR_ARG (orig_exp, 1));
+	    {
+	      rtx bnd = force_reg (BNDmode,
+				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
+	      target = chkp_join_splitted_slot (target, bnd);
+	    }
 	  return target;
 	}
       break;
