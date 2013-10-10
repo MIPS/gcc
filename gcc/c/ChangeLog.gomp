@@ -1,3 +1,14 @@
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections_1): Change wording
+	of errors requesting specification of length.
+	(c_finish_omp_clauses): For error about non-integral non-pointer
+	linear clause include type in the diagnostic message.
+	* c-parser.c (c_finish_omp_declare_simd): If
+	c_omp_declare_simd_clauses_to_numbers returned non-NULL, store
+	the clauses into TREE_VALUE of an extra TREE_LIST pointed out
+	by TREE_VALUE of the attribute.
+
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-typeck.c (c_finish_omp_clauses): Remove name variable, use

@@ -29816,6 +29816,8 @@ cp_parser_late_parsing_omp_declare_simd (cp_parser *parser, tree attrs)
       cl = cp_parser_omp_all_clauses (parser, OMP_DECLARE_SIMD_CLAUSE_MASK,
 				      "#pragma omp declare simd", pragma_tok);
       cp_parser_pop_lexer (parser);
+      if (cl)
+	cl = tree_cons (NULL_TREE, cl, NULL_TREE);
       c = build_tree_list (get_identifier ("omp declare simd"), cl);
       TREE_CHAIN (c) = attrs;
       if (processing_template_decl)
@@ -29837,7 +29839,7 @@ static void
 cp_parser_omp_declare_target (cp_parser *parser, cp_token *pragma_tok)
 {
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
-  current_omp_declare_target_attribute++;
+  scope_chain->omp_declare_target_attribute++;
 }
 
 static void
@@ -29874,12 +29876,12 @@ cp_parser_omp_end_declare_target (cp_parser *parser, cp_token *pragma_tok)
       return;
     }
   cp_parser_skip_to_pragma_eol (parser, pragma_tok);
-  if (!current_omp_declare_target_attribute)
+  if (!scope_chain->omp_declare_target_attribute)
     error_at (pragma_tok->location,
 	      "%<#pragma omp end declare target%> without corresponding "
 	      "%<#pragma omp declare target%>");
   else
-    current_omp_declare_target_attribute--;
+    scope_chain->omp_declare_target_attribute--;
 }
 
 /* Helper function of cp_parser_omp_declare_reduction.  Parse the combiner

@@ -10865,8 +10865,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	      || TYPE_MAX_VALUE (TYPE_DOMAIN (type)) == NULL_TREE))
 	{
 	  error_at (OMP_CLAUSE_LOCATION (c),
-		    "for unknown bound array type length expression is "
-		    "not optional");
+		    "for unknown bound array type length expression must "
+		    "be specified");
 	  return error_mark_node;
 	}
       if (TREE_CODE (low_bound) == INTEGER_CST
@@ -10970,7 +10970,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
       if (length == NULL_TREE)
 	{
 	  error_at (OMP_CLAUSE_LOCATION (c),
-		    "for pointer type length expression is not optional");
+		    "for pointer type length expression must be specified");
 	  return error_mark_node;
 	}
       /* If there is a pointer type anywhere but in the very first
@@ -11400,7 +11400,8 @@ c_finish_omp_clauses (tree clauses)
 	      && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
-			"linear clause applied to non-integral non-pointer");
+			"linear clause applied to non-integral non-pointer "
+			"variable with type %qT", TREE_TYPE (t));
 	      remove = true;
 	      break;
 	    }

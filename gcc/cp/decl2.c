@@ -101,10 +101,6 @@ static GTY(()) vec<tree, va_gc> *no_linkage_decls;
 /* Nonzero if we're done parsing and into end-of-file activities.  */
 
 int at_eof;
-
-/* If non-zero, implicit "omp declare target" attribute is added into the
-   attribute lists.  */
-int current_omp_declare_target_attribute;
 
 
 /* Return a member function type (a METHOD_TYPE), given FNTYPE (a
@@ -1138,7 +1134,7 @@ is_late_template_attribute (tree attr, tree decl)
   if (is_attribute_p ("unused", name))
     return false;
 
-  /* #pragma omp declare simd attribute needs to be always finalized.  */
+  /* #pragma omp declare simd attribute needs to be always deferred.  */
   if (flag_openmp
       && is_attribute_p ("omp declare simd", name))
     return true;
@@ -1335,9 +1331,6 @@ cp_check_const_attributes (tree attributes)
   for (attr = attributes; attr; attr = TREE_CHAIN (attr))
     {
       tree arg;
-      if (TREE_VALUE (attr) == NULL_TREE
-	  || TREE_CODE (TREE_VALUE (attr)) != TREE_LIST)
-	continue;
       for (arg = TREE_VALUE (attr); arg; arg = TREE_CHAIN (arg))
 	{
 	  tree expr = TREE_VALUE (arg);
@@ -1385,16 +1378,16 @@ cplus_decl_attributes (tree *decl, tree attributes, int flags)
     return;
 
   /* Add implicit "omp declare target" attribute if requested.  */
-  if (current_omp_declare_target_attribute
+  if (scope_chain->omp_declare_target_attribute
       && ((TREE_CODE (*decl) == VAR_DECL && TREE_STATIC (*decl))
 	  || TREE_CODE (*decl) == FUNCTION_DECL))
     {
       if (TREE_CODE (*decl) == VAR_DECL
-	  && RECORD_OR_UNION_CODE_P (TREE_CODE (CP_DECL_CONTEXT (*decl))))
+	  && DECL_CLASS_SCOPE_P (*decl))
 	error ("%q+D static data member inside of declare target directive",
 	       *decl);
       else if (TREE_CODE (*decl) == VAR_DECL
-	       && (TREE_CODE (CP_DECL_CONTEXT (*decl)) == FUNCTION_DECL
+	       && (DECL_FUNCTION_SCOPE_P (*decl)
 		   || (current_function_decl && !DECL_EXTERNAL (*decl))))
 	error ("%q+D in block scope inside of declare target directive",
 	       *decl);

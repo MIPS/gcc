@@ -1,3 +1,9 @@
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (omp_remove_redundant_declare_simd_attrs): Adjust
+	for the clauses being stored into TREE_VALUE of an extra TREE_LIST
+	pointed out by TREE_VALUE of the attribute.
+
 2013-10-04  Jakub Jelinek  <jakub@redhat.com>
 
 	* omp-low.c (expand_omp_target): When handling IF clause on

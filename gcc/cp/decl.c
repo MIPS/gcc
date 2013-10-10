@@ -7658,9 +7658,16 @@ grokfndecl (tree ctype,
 	      if (TREE_CODE (type) == METHOD_TYPE)
 		walk_tree (&TREE_VALUE (attr), declare_simd_adjust_this,
 			   DECL_ARGUMENTS (decl), NULL);
-	      TREE_VALUE (attr)
-		= c_omp_declare_simd_clauses_to_numbers (DECL_ARGUMENTS (decl),
-							 TREE_VALUE (attr));
+	      if (TREE_VALUE (attr) != NULL_TREE)
+		{
+		  tree cl = TREE_VALUE (TREE_VALUE (attr));
+		  cl = c_omp_declare_simd_clauses_to_numbers
+						(DECL_ARGUMENTS (decl), cl);
+		  if (cl)
+		    TREE_VALUE (TREE_VALUE (attr)) = cl;
+		  else
+		    TREE_VALUE (attr) = NULL_TREE;
+		}
 	    }
 	}
     }

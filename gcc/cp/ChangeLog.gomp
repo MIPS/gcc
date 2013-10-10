@@ -1,5 +1,34 @@
 2013-10-10  Jakub Jelinek  <jakub@redhat.com>
 
+	* decl.c (grokfndecl): If omp declare simd has any clauses,
+	store them into TREE_VALUE of an extra TREE_LIST pointed out
+	by TREE_VALUE of the attribute.
+	* pt.c (apply_late_template_attributes): Likewise.
+	* parser.c (cp_parser_late_parsing_omp_declare_simd): Likewise.
+	(cp_parser_omp_declare_target, cp_parser_omp_end_declare_target):
+	Use scope_chain->omp_declare_target_attribute instead of
+	current_omp_declare_target_attribute.
+	* cp-tree.h (struct saved_scope): Add omp_declare_target_attribute
+	field.
+	(current_omp_declare_target_attribute): Remove.
+	* cp-gimplify.c (cp_genericize_r) <case OMP_CLAUSE_REDUCTION>: Add
+	comment.
+	* decl2.c (current_omp_declare_target_attribute): Remove.
+	(is_late_template_attribute): Fix up comment about "omp declare simd"
+	attribute.
+	(cp_check_const_attributes): Don't expect TREE_VALUEs other
+	than NULL_TREE or TREE_LIST.
+	(cplus_decl_attributes): Use scope_chain->omp_declare_target_attribute
+	instead of current_omp_declare_target_attribute.  Use
+	DECL_CLASS_SCOPE_P and DECL_FUNCTION_SCOPE_P macros.
+	* semantics.c (handle_omp_array_sections_1): Change wording
+	of errors requesting specification of length.
+	(finish_omp_reduction_clause): Static cast omp_{out,in,priv,orig}
+	to reference type and convert_from_reference, instead of
+	taking address, static cast to pointer type and INDIRECT_REF.
+	(finish_omp_clauses): For error about non-integral non-pointer
+	linear clause include type in the diagnostic message.
+
 	* decl.c (decls_match): Revert DECL_OMP_DECLARE_REDUCTION_P
 	special cases.
 	(duplicate_decls): Move DECL_OMP_DECLARE_REDUCTION_P case

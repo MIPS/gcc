@@ -8593,14 +8593,18 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 				     get_attribute_name (t))
 		  && TREE_VALUE (t))
 		{
-		  tree clauses = TREE_VALUE (t);
+		  tree clauses = TREE_VALUE (TREE_VALUE (t));
 		  clauses = tsubst_omp_clauses (clauses, true, args,
 						complain, in_decl);
 		  c_omp_declare_simd_clauses_to_decls (*decl_p, clauses);
 		  clauses = finish_omp_clauses (clauses);
 		  tree parms = DECL_ARGUMENTS (*decl_p);
-		  TREE_VALUE (t)
+		  clauses
 		    = c_omp_declare_simd_clauses_to_numbers (parms, clauses);
+		  if (clauses)
+		    TREE_VALUE (TREE_VALUE (t)) = clauses;
+		  else
+		    TREE_VALUE (t) = NULL_TREE;
 		}
 	      /* If the first attribute argument is an identifier, don't
 		 pass it through tsubst.  Attributes like mode, format,

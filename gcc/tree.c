@@ -4654,8 +4654,18 @@ omp_remove_redundant_declare_simd_attrs (tree fndecl)
 	  if (is_attribute_p ("omp declare simd", TREE_PURPOSE (*pc)))
 	    {
 	      last_attr = TREE_CHAIN (*pc);
-	      if (omp_declare_simd_clauses_equal (TREE_VALUE (*pc),
-						  TREE_VALUE (attr)))
+	      if (TREE_VALUE (attr) == NULL_TREE)
+		{
+		  if (TREE_VALUE (*pc) == NULL_TREE)
+		    {
+		      *pc = TREE_CHAIN (*pc);
+		      continue;
+		    }
+		}
+	      else if (TREE_VALUE (*pc) != NULL_TREE
+		       && omp_declare_simd_clauses_equal
+				(TREE_VALUE (TREE_VALUE (*pc)),
+				 TREE_VALUE (TREE_VALUE (attr))))
 		{
 		  *pc = TREE_CHAIN (*pc);
 		  continue;

@@ -32,7 +32,7 @@ foo (int g[3][10], int h[4][8], int i[2][10], int j[][9],
     ;
   #pragma omp target map(to: o[2:5]) /* { dg-error "does not have pointer or array type" } */
     ;
-  #pragma omp target map(to: a[:][:]) /* { dg-error "array type length expression is not optional" } */
+  #pragma omp target map(to: a[:][:]) /* { dg-error "array type length expression must be specified" } */
     bar (&a[0][0]); /* { dg-error "referenced in target region does not have a mappable type" } */
   #pragma omp target map(tofrom: b[-1:]) /* { dg-error "negative low bound in array section" } */
     bar (b);
@@ -44,7 +44,7 @@ foo (int g[3][10], int h[4][8], int i[2][10], int j[][9],
     bar (e);
   #pragma omp target map(to: f[1:10]) /* { dg-error "high bound \[^\n\r]* above array section size" } */
     bar (f);
-  #pragma omp target map(from: g[:][0:10]) /* { dg-error "for pointer type length expression is not optional" } */
+  #pragma omp target map(from: g[:][0:10]) /* { dg-error "for pointer type length expression must be specified" } */
     bar (&g[0][0]);
   #pragma omp target map(from: h[2:1][-1:]) /* { dg-error "negative low bound in array section" } */
     bar (&h[0][0]);

@@ -1037,6 +1037,9 @@ struct GTY(()) saved_scope {
 
   int unevaluated_operand;
   int inhibit_evaluation_warnings;
+  /* If non-zero, implicit "omp declare target" attribute is added into the
+     attribute lists.  */
+  int omp_declare_target_attribute;
 
   struct stmt_tree_s x_stmt_tree;
 
@@ -4432,10 +4435,6 @@ extern GTY(()) vec<tree, va_gc> *local_classes;
 /* Nonzero if we're done parsing and into end-of-file activities.  */
 
 extern int at_eof;
-
-/* If non-zero, implicit "omp declare target" attribute is added into the
-   attribute lists.  */
-extern GTY(()) int current_omp_declare_target_attribute;
 
 /* A list of namespace-scope objects which have constructors or
    destructors which reside in the global scope.  The decl is stored

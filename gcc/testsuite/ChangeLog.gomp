@@ -1,5 +1,12 @@
 2013-10-10  Jakub Jelinek  <jakub@redhat.com>
 
+	* g++.dg/gomp/depend-1.C (foo): Adjust expected error messages.
+	* g++.dg/gomp/depend-2.C (foo): Likewise.
+	* c-c++-common/gomp/depend-1.c (foo): Likewise.
+	* c-c++-common/gomp/map-1.c (foo): Likewise.
+
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
 	* g++.dg/gomp/udr-6.C: New test.
 
 2013-10-08  Jakub Jelinek  <jakub@redhat.com>

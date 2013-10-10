@@ -4199,8 +4199,8 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
 	      || TYPE_MAX_VALUE (TYPE_DOMAIN (type)) == NULL_TREE))
 	{
 	  error_at (OMP_CLAUSE_LOCATION (c),
-		    "for unknown bound array type length expression is "
-		    "not optional");
+		    "for unknown bound array type length expression must "
+		    "be specified");
 	  return error_mark_node;
 	}
       if (TREE_CODE (low_bound) == INTEGER_CST
@@ -4304,7 +4304,7 @@ handle_omp_array_sections_1 (tree c, tree t, vec<tree> &types,
       if (length == NULL_TREE)
 	{
 	  error_at (OMP_CLAUSE_LOCATION (c),
-		    "for pointer type length expression is not optional");
+		    "for pointer type length expression must be specified");
 	  return error_mark_node;
 	}
       /* If there is a pointer type anywhere but in the very first
@@ -5034,17 +5034,15 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 	      tree omp_in = convert_from_reference (OMP_CLAUSE_DECL (c));
 	      if (need_static_cast)
 		{
-		  tree ptype = build_pointer_type (atype);
-		  omp_out = build_fold_addr_expr (omp_out);
-		  omp_out = build_static_cast (ptype, omp_out,
+		  tree rtype = build_reference_type (atype);
+		  omp_out = build_static_cast (rtype, omp_out,
 					       tf_warning_or_error);
-		  omp_in = build_fold_addr_expr (omp_in);
-		  omp_in = build_static_cast (ptype, omp_in,
+		  omp_in = build_static_cast (rtype, omp_in,
 					      tf_warning_or_error);
 		  if (omp_out == error_mark_node || omp_in == error_mark_node)
 		    return true;
-		  omp_out = build1 (INDIRECT_REF, atype, omp_out);
-		  omp_in = build1 (INDIRECT_REF, atype, omp_in);
+		  omp_out = convert_from_reference (omp_out);
+		  omp_in = convert_from_reference (omp_in);
 		}
 	      OMP_CLAUSE_REDUCTION_MERGE (c)
 		= clone_omp_udr (stmts[2], DECL_EXPR_DECL (stmts[0]),
@@ -5069,18 +5067,16 @@ finish_omp_reduction_clause (tree c, bool *need_default_ctor, bool *need_dtor)
 				"initializer for base class %qT", atype);
 		      return true;
 		    }
-		  tree ptype = build_pointer_type (atype);
-		  omp_priv = build_fold_addr_expr (omp_priv);
-		  omp_priv = build_static_cast (ptype, omp_priv,
+		  tree rtype = build_reference_type (atype);
+		  omp_priv = build_static_cast (rtype, omp_priv,
 						tf_warning_or_error);
-		  omp_orig = build_fold_addr_expr (omp_orig);
-		  omp_orig = build_static_cast (ptype, omp_orig,
+		  omp_orig = build_static_cast (rtype, omp_orig,
 						tf_warning_or_error);
 		  if (omp_priv == error_mark_node
 		      || omp_orig == error_mark_node)
 		    return true;
-		  omp_priv = build1 (INDIRECT_REF, atype, omp_priv);
-		  omp_orig = build1 (INDIRECT_REF, atype, omp_orig);
+		  omp_priv = convert_from_reference (omp_priv);
+		  omp_orig = convert_from_reference (omp_orig);
 		}
 	      if (i == 6)
 		*need_default_ctor = true;
@@ -5161,7 +5157,8 @@ finish_omp_clauses (tree clauses)
 	      && !INTEGRAL_TYPE_P (TREE_TYPE (t))
 	      && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE)
 	    {
-	      error ("linear clause applied to non-integral non-pointer");
+	      error ("linear clause applied to non-integral non-pointer "
+		     "variable with %qT type", TREE_TYPE (t));
 	      remove = true;
 	      break;
 	    }

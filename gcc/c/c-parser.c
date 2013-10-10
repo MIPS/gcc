@@ -12388,6 +12388,8 @@ c_finish_omp_declare_simd (c_parser *parser, tree fndecl, tree parms,
       tree c = c_parser_omp_all_clauses (parser, OMP_DECLARE_SIMD_CLAUSE_MASK,
 					 "#pragma omp declare simd");
       c = c_omp_declare_simd_clauses_to_numbers (parms, c);
+      if (c != NULL_TREE)
+	c = tree_cons (NULL_TREE, c, NULL_TREE);
       c = build_tree_list (get_identifier ("omp declare simd"), c);
       TREE_CHAIN (c) = DECL_ATTRIBUTES (fndecl);
       DECL_ATTRIBUTES (fndecl) = c;
