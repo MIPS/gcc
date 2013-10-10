@@ -3745,11 +3745,6 @@ in case bounds are not passed on register.",
  default_store_bounds_for_arg)
 
 DEFHOOK
-(init_returned_bounds,
- "Put specified bounds into returned bounds slot of the current function.",
- void, (tree), default_init_returned_bounds)
-
-DEFHOOK
 (strict_argument_naming,
  "Define this hook to return @code{true} if the location where a function\n\
 argument is passed depends on whether or not it is a named argument.\n\
