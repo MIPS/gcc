@@ -4335,7 +4335,20 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 
       /* Remember where to copy returned bounds.  */
       if (flag_check_pointers && TREE_CODE (modify_dest) == SSA_NAME)
-	return_bounds = chkp_returned_bound_by_val (modify_dest);
+	{
+	  gimple retbnd = chkp_retbnd_call_by_val (modify_dest);
+	  if (retbnd)
+	    {
+	      return_bounds = gimple_call_lhs (retbnd);
+	      /* If returned bounds are not used then just
+		 remove unused call.  */
+	      if (!return_bounds)
+		{
+		  gimple_stmt_iterator iter = gsi_for_stmt (retbnd);
+		  gsi_remove (&iter, true);
+		}
+	    }
+	}
 
       /* The function which we are inlining might not return a value,
 	 in which case we should issue a warning that the function
