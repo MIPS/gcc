@@ -1,5 +1,11 @@
 2013-10-11  David Malcolm  <dmalcolm@redhat.com>
 
+	* doc/install.texi (--enable-shared): Add note contrasting it
+	with...
+	(--enable-host-shared): New option.
+
+2013-10-11  David Malcolm  <dmalcolm@redhat.com>
+
 	* dumpfile.h (gcc::dump_manager): New class, to hold state
 	relating to dumpfile management.
 	(get_dump_file_name): Remove in favor of method of dump_manager.
