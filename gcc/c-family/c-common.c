@@ -371,6 +371,7 @@ static tree ignore_attribute (tree *, tree, tree, int, bool *);
 static tree handle_no_split_stack_attribute (tree *, tree, tree, int, bool *);
 static tree handle_fnspec_attribute (tree *, tree, tree, int, bool *);
 static tree handle_warn_unused_attribute (tree *, tree, tree, int, bool *);
+static tree handle_returns_nonnull_attribute (tree *, tree, tree, int, bool *);
 static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
@@ -751,6 +752,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_fnspec_attribute, false },
   { "warn_unused",            0, 0, false, false, false,
 			      handle_warn_unused_attribute, false },
+  { "returns_nonnull",        0, 0, false, true, true,
+			      handle_returns_nonnull_attribute, false },
   { "omp declare simd",       0, -1, true,  false, false,
 			      handle_omp_declare_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
@@ -9080,6 +9083,23 @@ handle_no_split_stack_attribute (tree *node, tree name,
 
   return NULL_TREE;
 }
+
+/* Handle a "returns_nonnull" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_returns_nonnull_attribute (tree *node, tree, tree, int,
+				  bool *no_add_attrs)
+{
+  // Even without a prototype we still have a return type we can check.
+  if (TREE_CODE (TREE_TYPE (*node)) != POINTER_TYPE)
+    {
+      error ("returns_nonnull attribute on a function not returning a pointer");
+      *no_add_attrs = true;
+    }
+  return NULL_TREE;
+}
+
 
 /* Check for valid arguments being passed to a function with FNTYPE.
    There are NARGS arguments in the array ARGARRAY.  */

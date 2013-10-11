@@ -4287,15 +4287,6 @@ extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
 extern void expand_return (tree);
 
-/* In tree-eh.c */
-extern void using_eh_for_cleanups (void);
-
-extern bool tree_could_trap_p (tree);
-extern bool operation_could_trap_helper_p (enum tree_code, bool, bool, bool,
-					   bool, tree, bool *);
-extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
-extern bool tree_could_throw_p (tree);
-
 /* Compare and hash for any structure which begins with a canonical
    pointer.  Assumes all pointers are interchangeable, which is sort
    of already assumed by gcc elsewhere IIRC.  */
@@ -4602,6 +4593,8 @@ extern bool types_same_for_odr (tree type1, tree type2);
 extern bool contains_bitfld_component_ref_p (const_tree);
 extern bool type_in_anonymous_namespace_p (tree);
 extern bool block_may_fallthru (const_tree);
+extern void using_eh_for_cleanups (void);
+extern bool using_eh_for_cleanups_p (void);
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);
@@ -4815,10 +4808,6 @@ extern unsigned int tree_decl_map_hash (const void *);
 #define tree_vec_map_hash tree_decl_map_hash
 #define tree_vec_map_marked_p tree_map_base_marked_p
 
-/* In tree-ssa-address.c.  */
-extern tree tree_mem_ref_addr (tree, tree);
-extern void copy_ref_info (tree, tree);
-
 /* In tree-vrp.c */
 extern bool ssa_name_nonnegative_p (const_tree);
 
@@ -5027,6 +5016,31 @@ builtin_decl_implicit_p (enum built_in_function fncode)
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
   return (builtin_info.decl[uns_fncode] != NULL_TREE
 	  && builtin_info.implicit_p[uns_fncode]);
+}
+
+/* Return true if T (assumed to be a DECL) is a global variable.
+   A variable is considered global if its storage is not automatic.  */
+
+static inline bool
+is_global_var (const_tree t)
+{
+  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+}
+
+/* Return true if VAR may be aliased.  A variable is considered as
+   maybe aliased if it has its address taken by the local TU
+   or possibly by another TU and might be modified through a pointer.  */
+
+static inline bool
+may_be_aliased (const_tree var)
+{
+  return (TREE_CODE (var) != CONST_DECL
+	  && !((TREE_STATIC (var) || TREE_PUBLIC (var) || DECL_EXTERNAL (var))
+	       && TREE_READONLY (var)
+	       && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (var)))
+	  && (TREE_PUBLIC (var)
+	      || DECL_EXTERNAL (var)
+	      || TREE_ADDRESSABLE (var)));
 }
 
 /* For anonymous aggregate types, we need some sort of name to

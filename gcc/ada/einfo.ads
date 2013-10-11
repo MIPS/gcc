@@ -1022,9 +1022,9 @@ package Einfo is
 --       'COUNT when it applies to a family member.
 
 --    Contract (Node24)
---       Defined in entries, and in subprogram and generic subprogram entities.
---       Points to the contract of the entity, holding both pre- and
---       postconditions as well as test-cases.
+--       Defined in entry and entry family entities, subprogram body entities,
+--       subprograms, and generic subprograms. Points to the contract of the
+--       entity, holding both preconditions, postconditions, and test cases.
 
 --    Entry_Parameters_Type (Node15)
 --       Defined in entries. Points to the access-to-record type that is
@@ -1645,6 +1645,10 @@ package Einfo is
 --       are not considered to be significant since they do not affect
 --       stored bit patterns.
 
+--    Has_Null_Abstract_State (synth)
+--       Defined in package entities. True if the package is subject to a null
+--       Abstract_State aspect/pragma.
+
 --    Has_Object_Size_Clause (Flag172)
 --       Defined in entities for types and subtypes. Set if an Object_Size
 --       clause has been processed for the type Used to prevent multiple
@@ -1969,11 +1973,6 @@ package Einfo is
 --       instantiated within the given generic. Used to diagnose circular
 --       instantiations.
 
---    Integrity_Level (Uint8)
---       Defined for E_Abstract_State entities. Contains the numerical value of
---       the integrity level state property. A value of Uint_0 designates a non
---       existent integrity.
-
 --    Interface_Alias (Node25)
 --       Defined in subprograms that cover a primitive operation of an abstract
 --       interface type. Can be set only if the Is_Hidden flag is also set,
@@ -2263,6 +2262,10 @@ package Einfo is
 --       and variables, but that may well change later on. Exceptions can only
 --       be exported in the OpenVMS and Java VM implementations of GNAT.
 
+--    Is_External_State (synthesized)
+--       Applies to all entities, true for abstract states that are subject to
+--       option External.
+
 --    Is_Finalizer (synthesized)
 --       Applies to all entities, true for procedures containing finalization
 --       code to process local or library level objects.
@@ -2380,9 +2383,9 @@ package Einfo is
 --       inherited by their instances. It is also set on the body entities
 --       of inlined subprograms. See also Has_Pragma_Inline.
 
---    Is_Input_State (synthesized)
+--    Is_Input_Only_State (synthesized)
 --       Applies to all entities, true for abstract states that are subject to
---       property Input.
+--       option Input_Only.
 
 --    Is_Instantiated (Flag126)
 --       Defined in generic packages and generic subprograms. Set if the unit
@@ -2613,9 +2616,9 @@ package Einfo is
 --       Applies to all entities, true for ordinary fixed point types and
 --       subtypes.
 
---    Is_Output_State (synthesized)
+--    Is_Output_Only_State (synthesized)
 --       Applies to all entities, true for abstract states that are subject to
---       property Output.
+--       option Output_Only.
 
 --    Is_Package_Or_Generic_Package (synthesized)
 --       Applies to all entities. True for packages and generic packages.
@@ -2976,7 +2979,7 @@ package Einfo is
 
 --    Is_Volatile_State (synthesized)
 --       Applies to all entities, true for abstract states that are subject to
---       property Volatile.
+--       option Volatile.
 
 --    Is_Wrapper_Package (synthesized)
 --       Defined in package entities. Indicates that the package has been
@@ -3534,9 +3537,9 @@ package Einfo is
 --       we have a separate warning for variables that are only assigned and
 --       never read, and out parameters are a special case.
 
---    Refined_State (Node9)
---       Defined in E_Abstract_State entities. Contains the entity of the
---       abstract state completion which is usually foung in package bodies.
+--    Refined_State_Pragma (Node8)
+--       Defined in [generic] package bodies. Contains the pragma that refines
+--       all abstract states defined in the corresponding package declaration.
 
 --    Register_Exception_Call (Node20)
 --       Defined in exception entities. When an exception is declared,
@@ -5093,11 +5096,10 @@ package Einfo is
    ------------------------------------------
 
    --  E_Abstract_State
-   --    Integrity_Level                     (Uint8)
-   --    Refined_State                       (Node9)
-   --    Is_Input_State                      (synth)
+   --    Is_External_State                   (synth)
+   --    Is_Input_Only_State                 (synth)
    --    Is_Null_State                       (synth)
-   --    Is_Output_State                     (synth)
+   --    Is_Output_Only_State                (synth)
    --    Is_Volatile_State                   (synth)
 
    --  E_Access_Protected_Subprogram_Type
@@ -5307,7 +5309,7 @@ package Einfo is
    --    Accept_Address                      (Elist21)
    --    Scope_Depth_Value                   (Uint22)
    --    Protection_Object                   (Node23)   (protected kind)
-   --    Contract                            (Node24)   (for entry only)
+   --    Contract                            (Node24)
    --    PPC_Wrapper                         (Node25)
    --    Extra_Formals                       (Node28)
    --    Default_Expressions_Processed       (Flag108)
@@ -5568,6 +5570,7 @@ package Einfo is
    --    Alias                               (Node18)
    --    Extra_Accessibility_Of_Result       (Node19)
    --    Last_Entity                         (Node20)
+   --    Contract                            (Node24)
    --    Overridden_Operation                (Node26)
    --    Subprograms_For_Type                (Node29)
    --    Has_Invariants                      (Flag232)
@@ -5636,10 +5639,12 @@ package Einfo is
    --    Is_Visible_Lib_Unit                 (Flag116)
    --    Renamed_In_Spec                     (Flag231)  (non-generic case only)
    --    Static_Elaboration_Desired          (Flag77)   (non-generic case only)
+   --    Has_Null_Abstract_State             (synth)
    --    Is_Wrapper_Package                  (synth)    (non-generic case only)
    --    Scope_Depth                         (synth)
 
    --  E_Package_Body
+   --    Refined_State_Pragma                (Node8)
    --    Handler_Records                     (List10)   (non-generic case only)
    --    Related_Instance                    (Node15)   (non-generic case only)
    --    First_Entity                        (Node17)
@@ -5864,6 +5869,7 @@ package Einfo is
    --    Corresponding_Protected_Entry       (Node18)
    --    Last_Entity                         (Node20)
    --    Scope_Depth_Value                   (Uint22)
+   --    Contract                            (Node24)
    --    Extra_Formals                       (Node28)
    --    SPARK_Mode_Pragmas                  (Node32)
    --    Scope_Depth                         (synth)
@@ -6377,7 +6383,6 @@ package Einfo is
    function In_Private_Part                     (Id : E) return B;
    function In_Use                              (Id : E) return B;
    function Initialization_Statements           (Id : E) return N;
-   function Integrity_Level                     (Id : E) return U;
    function Inner_Instances                     (Id : E) return L;
    function Interface_Alias                     (Id : E) return E;
    function Interface_Name                      (Id : E) return N;
@@ -6535,7 +6540,7 @@ package Einfo is
    function Referenced                          (Id : E) return B;
    function Referenced_As_LHS                   (Id : E) return B;
    function Referenced_As_Out_Parameter         (Id : E) return B;
-   function Refined_State                       (Id : E) return E;
+   function Refined_State_Pragma                (Id : E) return E;
    function Register_Exception_Call             (Id : E) return N;
    function Related_Array_Object                (Id : E) return E;
    function Related_Expression                  (Id : E) return N;
@@ -6674,18 +6679,20 @@ package Einfo is
    function Has_Attach_Handler                  (Id : E) return B;
    function Has_Entries                         (Id : E) return B;
    function Has_Foreign_Convention              (Id : E) return B;
+   function Has_Null_Abstract_State             (Id : E) return B;
    function Implementation_Base_Type            (Id : E) return E;
    function Is_Base_Type                        (Id : E) return B;
    function Is_Boolean_Type                     (Id : E) return B;
    function Is_Constant_Object                  (Id : E) return B;
    function Is_Discriminal                      (Id : E) return B;
    function Is_Dynamic_Scope                    (Id : E) return B;
+   function Is_External_State                   (Id : E) return B;
    function Is_Finalizer                        (Id : E) return B;
    function Is_Ghost_Entity                     (Id : E) return B;
    function Is_Ghost_Subprogram                 (Id : E) return B;
-   function Is_Input_State                      (Id : E) return B;
+   function Is_Input_Only_State                 (Id : E) return B;
    function Is_Null_State                       (Id : E) return B;
-   function Is_Output_State                     (Id : E) return B;
+   function Is_Output_Only_State                (Id : E) return B;
    function Is_Package_Or_Generic_Package       (Id : E) return B;
    function Is_Prival                           (Id : E) return B;
    function Is_Protected_Component              (Id : E) return B;
@@ -6988,7 +6995,6 @@ package Einfo is
    procedure Set_In_Private_Part                 (Id : E; V : B := True);
    procedure Set_In_Use                          (Id : E; V : B := True);
    procedure Set_Initialization_Statements       (Id : E; V : N);
-   procedure Set_Integrity_Level                 (Id : E; V : U);
    procedure Set_Inner_Instances                 (Id : E; V : L);
    procedure Set_Interface_Alias                 (Id : E; V : E);
    procedure Set_Interface_Name                  (Id : E; V : N);
@@ -7152,7 +7158,7 @@ package Einfo is
    procedure Set_Referenced                      (Id : E; V : B := True);
    procedure Set_Referenced_As_LHS               (Id : E; V : B := True);
    procedure Set_Referenced_As_Out_Parameter     (Id : E; V : B := True);
-   procedure Set_Refined_State                   (Id : E; V : E);
+   procedure Set_Refined_State_Pragma            (Id : E; V : N);
    procedure Set_Register_Exception_Call         (Id : E; V : N);
    procedure Set_Related_Array_Object            (Id : E; V : E);
    procedure Set_Related_Expression              (Id : E; V : N);
@@ -7696,7 +7702,6 @@ package Einfo is
    pragma Inline (In_Package_Body);
    pragma Inline (In_Private_Part);
    pragma Inline (In_Use);
-   pragma Inline (Integrity_Level);
    pragma Inline (Inner_Instances);
    pragma Inline (Interface_Alias);
    pragma Inline (Interface_Name);
@@ -7903,7 +7908,7 @@ package Einfo is
    pragma Inline (Referenced);
    pragma Inline (Referenced_As_LHS);
    pragma Inline (Referenced_As_Out_Parameter);
-   pragma Inline (Refined_State);
+   pragma Inline (Refined_State_Pragma);
    pragma Inline (Register_Exception_Call);
    pragma Inline (Related_Array_Object);
    pragma Inline (Related_Expression);
@@ -8157,7 +8162,6 @@ package Einfo is
    pragma Inline (Set_In_Private_Part);
    pragma Inline (Set_In_Use);
    pragma Inline (Set_Inner_Instances);
-   pragma Inline (Set_Integrity_Level);
    pragma Inline (Set_Interface_Alias);
    pragma Inline (Set_Interface_Name);
    pragma Inline (Set_Interfaces);
@@ -8320,7 +8324,7 @@ package Einfo is
    pragma Inline (Set_Referenced);
    pragma Inline (Set_Referenced_As_LHS);
    pragma Inline (Set_Referenced_As_Out_Parameter);
-   pragma Inline (Set_Refined_State);
+   pragma Inline (Set_Refined_State_Pragma);
    pragma Inline (Set_Register_Exception_Call);
    pragma Inline (Set_Related_Array_Object);
    pragma Inline (Set_Related_Expression);

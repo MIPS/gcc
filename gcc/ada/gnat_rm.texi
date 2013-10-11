@@ -1375,7 +1375,9 @@ ID_ASSERTION_KIND ::= Assertions           |
                       Loop_Variant         |
                       Postcondition        |
                       Precondition         |
-                      Predicate
+                      Predicate            |
+                      Refined_Post         |
+                      Refined_Pre          |
                       Statement_Assertions
 
 POLICY_IDENTIFIER ::= Check | Disable | Ignore
@@ -8665,11 +8667,15 @@ denotes a function identical to
 @code{System.Storage_Elements.To_Address} except that
 it is a static attribute.  This means that if its argument is
 a static expression, then the result of the attribute is a
-static expression.  The result is that such an expression can be
+static expression.  This means that such an expression can be
 used in contexts (e.g.@: preelaborable packages) which require a
 static expression and where the function call could not be used
 (since the function call is always non-static, even if its
-argument is static).
+argument is static). The argument must be in the range
+-(2**(m-1) .. 2**m-1, where m is the memory size
+(typically 32 or 64). Negative values are intepreted in a
+modular manner (e.g. -1 means the same as 16#FFFF_FFFF# on
+a 32 bits machine).
 
 @node Attribute Type_Class
 @unnumberedsec Attribute Type_Class
@@ -8777,7 +8783,7 @@ The @code{Update} attribute creates a copy of an array or record value
 with one or more modified components. The syntax is:
 
 @smallexample @c ada
-PREFIX'Update (AGGREGATE);
+PREFIX'Update (AGGREGATE)
 @end smallexample
 
 @noindent
@@ -8825,6 +8831,8 @@ kept in mind when considering efficiency.
 
 The @code{Update} attribute cannot be applied to prefixes of a limited
 type, and cannot reference discriminants in the case of a record type.
+The accessibility level of an Update attribute result object is defined
+as for an aggregate.
 
 In the record case, no component can be mentioned more than once. In
 the array case, two overlapping ranges can appear in the aggregate,
@@ -16991,9 +16999,11 @@ is specifically authorized by the Ada Reference Manual
 @cindex Formal container for doubly linked lists
 
 @noindent
-This child of @code{Ada.Containers} defines a modified version of the Ada 2005
-container for doubly linked lists, meant to facilitate formal verification of
-code using such containers.
+This child of @code{Ada.Containers} defines a modified version of the
+Ada 2005 container for doubly linked lists, meant to facilitate formal
+verification of code using such containers. The specification of this
+unit is compatible with SPARK 2014. Note that the API of this unit may
+be subject to incompatible changes as SPARK 2014 evolves.
 
 @node Ada.Containers.Formal_Hashed_Maps (a-cfhama.ads)
 @section @code{Ada.Containers.Formal_Hashed_Maps} (@file{a-cfhama.ads})
@@ -17001,9 +17011,11 @@ code using such containers.
 @cindex Formal container for hashed maps
 
 @noindent
-This child of @code{Ada.Containers} defines a modified version of the Ada 2005
-container for hashed maps, meant to facilitate formal verification of
-code using such containers.
+This child of @code{Ada.Containers} defines a modified version of the
+Ada 2005 container for hashed maps, meant to facilitate formal
+verification of code using such containers. The specification of this
+unit is compatible with SPARK 2014. Note that the API of this unit may
+be subject to incompatible changes as SPARK 2014 evolves.
 
 @node Ada.Containers.Formal_Hashed_Sets (a-cfhase.ads)
 @section @code{Ada.Containers.Formal_Hashed_Sets} (@file{a-cfhase.ads})
@@ -17011,9 +17023,11 @@ code using such containers.
 @cindex Formal container for hashed sets
 
 @noindent
-This child of @code{Ada.Containers} defines a modified version of the Ada 2005
-container for hashed sets, meant to facilitate formal verification of
-code using such containers.
+This child of @code{Ada.Containers} defines a modified version of the
+Ada 2005 container for hashed sets, meant to facilitate formal
+verification of code using such containers. The specification of this
+unit is compatible with SPARK 2014. Note that the API of this unit may
+be subject to incompatible changes as SPARK 2014 evolves.
 
 @node Ada.Containers.Formal_Ordered_Maps (a-cforma.ads)
 @section @code{Ada.Containers.Formal_Ordered_Maps} (@file{a-cforma.ads})
@@ -17021,9 +17035,11 @@ code using such containers.
 @cindex Formal container for ordered maps
 
 @noindent
-This child of @code{Ada.Containers} defines a modified version of the Ada 2005
-container for ordered maps, meant to facilitate formal verification of
-code using such containers.
+This child of @code{Ada.Containers} defines a modified version of the
+Ada 2005 container for ordered maps, meant to facilitate formal
+verification of code using such containers. The specification of this
+unit is compatible with SPARK 2014. Note that the API of this unit may
+be subject to incompatible changes as SPARK 2014 evolves.
 
 @node Ada.Containers.Formal_Ordered_Sets (a-cforse.ads)
 @section @code{Ada.Containers.Formal_Ordered_Sets} (@file{a-cforse.ads})
@@ -17031,9 +17047,11 @@ code using such containers.
 @cindex Formal container for ordered sets
 
 @noindent
-This child of @code{Ada.Containers} defines a modified version of the Ada 2005
-container for ordered sets, meant to facilitate formal verification of
-code using such containers.
+This child of @code{Ada.Containers} defines a modified version of the
+Ada 2005 container for ordered sets, meant to facilitate formal
+verification of code using such containers. The specification of this
+unit is compatible with SPARK 2014. Note that the API of this unit may
+be subject to incompatible changes as SPARK 2014 evolves.
 
 @node Ada.Containers.Formal_Vectors (a-cofove.ads)
 @section @code{Ada.Containers.Formal_Vectors} (@file{a-cofove.ads})
@@ -17041,9 +17059,11 @@ code using such containers.
 @cindex Formal container for vectors
 
 @noindent
-This child of @code{Ada.Containers} defines a modified version of the Ada 2005
-container for vectors, meant to facilitate formal verification of
-code using such containers.
+This child of @code{Ada.Containers} defines a modified version of the
+Ada 2005 container for vectors, meant to facilitate formal
+verification of code using such containers. The specification of this
+unit is compatible with SPARK 2014. Note that the API of this unit may
+be subject to incompatible changes as SPARK 2014 evolves.
 
 @node Ada.Command_Line.Environment (a-colien.ads)
 @section @code{Ada.Command_Line.Environment} (@file{a-colien.ads})
