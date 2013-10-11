@@ -5038,6 +5038,6 @@ extern vec<bool> chkp_find_bound_slots (tree type);
 extern void chkp_build_bndstx (tree addr, tree ptr, tree bounds,
 			       gimple_stmt_iterator *gsi);
 extern tree chkp_parm_for_arg_bnd_arg (tree arg);
-extern tree chkp_returned_bound_by_val (tree val);
+extern gimple chkp_retbnd_call_by_val (tree val);
 
 #endif  /* GCC_TREE_H  */

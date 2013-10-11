@@ -49,4 +49,4 @@
 	(chkp_find_bound_slots): New.
 	(chkp_build_bndstx): New.
 	(chkp_parm_for_arg_bnd_arg): New.
-	(chkp_returned_bound_by_val): New.
+	(chkp_retbnd_call_by_val): New.

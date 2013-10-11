@@ -2262,8 +2262,8 @@ chkp_build_returned_bound (gimple call)
 
 /* Return bounds used as returned by call
    which produced SSA name VAL.  */
-tree
-chkp_returned_bound_by_val (tree val)
+gimple
+chkp_retbnd_call_by_val (tree val)
 {
   gcc_assert (TREE_CODE (val) == SSA_NAME);
   gcc_assert (gimple_code (SSA_NAME_DEF_STMT (val)) == GIMPLE_CALL);
@@ -2273,7 +2273,7 @@ chkp_returned_bound_by_val (tree val)
   FOR_EACH_IMM_USE_FAST (use_p, use_iter, val)
     if (gimple_code (USE_STMT (use_p)) == GIMPLE_CALL
 	&& gimple_call_fndecl (USE_STMT (use_p)) == chkp_ret_bnd_fndecl)
-      return gimple_call_lhs (USE_STMT (use_p));
+      return USE_STMT (use_p);
 
   return NULL;
 }
