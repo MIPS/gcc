@@ -2651,15 +2651,11 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	    {
 	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_di_store;
 	      reg_addr[DFmode].reload_load   = CODE_FOR_reload_df_di_load;
-	      reg_addr[DDmode].reload_store  = CODE_FOR_reload_dd_di_store;
-	      reg_addr[DDmode].reload_load   = CODE_FOR_reload_dd_di_load;
 	    }
-	  if (TARGET_P8_VECTOR)
+	  if (TARGET_P8_VECTOR && TARGET_UPPER_REGS_SF)
 	    {
 	      reg_addr[SFmode].reload_store  = CODE_FOR_reload_sf_di_store;
 	      reg_addr[SFmode].reload_load   = CODE_FOR_reload_sf_di_load;
-	      reg_addr[SDmode].reload_store  = CODE_FOR_reload_sd_di_store;
-	      reg_addr[SDmode].reload_load   = CODE_FOR_reload_sd_di_load;
 	    }
 	  if (TARGET_VSX_TIMODE)
 	    {
@@ -2714,10 +2710,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	    {
 	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_si_store;
 	      reg_addr[DFmode].reload_load   = CODE_FOR_reload_df_si_load;
-	      reg_addr[DDmode].reload_store  = CODE_FOR_reload_dd_si_store;
-	      reg_addr[DDmode].reload_load   = CODE_FOR_reload_dd_si_load;
 	    }
-	  if (TARGET_P8_VECTOR)
+	  if (TARGET_P8_VECTOR && TARGET_UPPER_REGS_SF)
 	    {
 	      reg_addr[SFmode].reload_store  = CODE_FOR_reload_sf_si_store;
 	      reg_addr[SFmode].reload_load   = CODE_FOR_reload_sf_si_load;
@@ -3302,6 +3296,20 @@ rs6000_option_override_internal (bool global_init_p)
       if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
 	error ("-mvsx-timode requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+    }
+
+  if (TARGET_UPPER_REGS_DF && !TARGET_VSX)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
+	error ("-mupper-regs-df requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
+    }
+
+  if (TARGET_UPPER_REGS_SF && !TARGET_P8_VECTOR)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF)
+	error ("-mupper-regs-sf requires -mpower8-vector");
+      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_SF;
     }
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
@@ -7365,12 +7373,12 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
   if (reg_offset_p
       && legitimate_constant_pool_address_p (x, mode, reg_ok_strict))
     return 1;
-  /* For TImode, if we have load/store quad, only allow register indirect
-     addresses.  This will allow the values to go in either GPRs or VSX
-     registers without reloading.  The vector types would tend to go into VSX
-     registers, so we allow REG+REG, while TImode seems somewhat split, in that
-     some uses are GPR based, and some VSX based.  */
-  if (mode == TImode && TARGET_QUAD_MEMORY)
+  /* For TImode, if we have load/store quad and TImode in VSX registers, only
+     allow register indirect addresses.  This will allow the values to go in
+     either GPRs or VSX registers without reloading.  The vector types would
+     tend to go into VSX registers, so we allow REG+REG, while TImode seems
+     somewhat split, in that some uses are GPR based, and some VSX based.  */
+  if (mode == TImode && TARGET_QUAD_MEMORY && TARGET_VSX_TIMODE)
     return 0;
   /* If not REG_OK_STRICT (before reload) let pass any stack offset.  */
   if (! reg_ok_strict
@@ -15173,6 +15181,7 @@ rs6000_secondary_reload (bool in_p,
   reg_class_t ret = ALL_REGS;
   enum insn_code icode;
   bool default_p = false;
+  bool done_p = false;
 
   sri->icode = CODE_FOR_nothing;
   icode = ((in_p)
@@ -15198,12 +15207,13 @@ rs6000_secondary_reload (bool in_p,
 	{
 	  icode = (enum insn_code)sri->icode;
 	  default_p = false;
+	  done_p = true;
 	  ret = NO_REGS;
 	}
     }
 
   /* Handle vector moves with reload helper functions.  */
-  if (ret == ALL_REGS && icode != CODE_FOR_nothing)
+  if (!done_p && icode != CODE_FOR_nothing)
     {
       ret = NO_REGS;
       sri->icode = CODE_FOR_nothing;
@@ -16230,13 +16240,8 @@ rs6000_output_move_128bit (rtx operands[])
     {
       if (dest_gpr_p)
 	{
-	  if (TARGET_QUAD_MEMORY && (dest_regno & 1) == 0
-	      && quad_memory_operand (src, mode)
-	      && !reg_overlap_mentioned_p (dest, src))
-	    {
-	      /* lq/stq only has DQ-form, so avoid X-form that %y produces.  */
-	      return REG_P (XEXP (src, 0)) ? "lq %0,%1" : "lq %0,%y1";
-	    }
+	  if (TARGET_QUAD_MEMORY && quad_load_store_p (dest, src))
+	    return "lq %0,%1";
 	  else
 	    return "#";
 	}
@@ -16265,12 +16270,8 @@ rs6000_output_move_128bit (rtx operands[])
     {
       if (src_gpr_p)
 	{
-	  if (TARGET_QUAD_MEMORY && (src_regno & 1) == 0
-	      && quad_memory_operand (dest, mode))
-	    {
-	      /* lq/stq only has DQ-form, so avoid X-form that %y produces.  */
-	      return REG_P (XEXP (dest, 0)) ? "stq %1,%0" : "stq %1,%y0";
-	    }
+ 	  if (TARGET_QUAD_MEMORY && quad_load_store_p (dest, src))
+	    return "stq %1,%0";
 	  else
 	    return "#";
 	}
