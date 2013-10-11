@@ -4835,7 +4835,7 @@ source location.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; normalize a DEFUN or a DEFMACRO
-(defun normexp_defun_defmacro (recv  env ncx psloc)
+(defun normexp_defun_defmacro (recv env ncx psloc)
   (debug "normexp_defun_defmacro recv=" recv)
   (assert_msg "check defun recv" (is_a recv class_source_defun) recv)
   (assert_msg "check env" (is_a env class_environment) env)
@@ -4845,8 +4845,11 @@ source location.}#
 	 (sformals (unsafe_get_field :sformal_args recv))
 	 (sbody (unsafe_get_field :sfun_body recv))
 	 (:long ismacro (is_a recv class_source_defmacro))
-	 (sfubind (find_env env snam))
-	 (newenv (fresh_env env))
+	 (modctx (get_field :nctx_modulcontext ncx))
+	 (modinienv (get_field :mocx_initialenv modctx))
+	 (basenv (if ismacro modinienv env))
+	 (sfubind (find_env basenv snam))
+	 (newenv (fresh_env basenv))
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
 	 (oldsymbcache (unsafe_get_field :nctx_symbcachemap ncx))
 	 (closblis (make_list discr_list))
@@ -4888,10 +4891,8 @@ source location.}#
 	   "\n.. ndataclos=" ndataclos)
     (add_nctx_data ncx ndatarout)
     (add_nctx_data ncx ndataclos)
-    (debug "normexp_defun_defmacro updated ncx=" ncx)
-    (debug "normexp_defun_defmacro sfubind=" sfubind)
-    (debug "normexp_defun_defmacro class_function_binding=" class_function_binding
-	   "\n ... class_defined_macro_binding=" class_defined_macro_binding)
+    (debug "normexp_defun_defmacro updated ncx=" debug_less ncx
+	   "\n.. sfubind=" sfubind)
     (when (and 
 	   (is_not_a sfubind class_function_binding)
 	   (is_not_a sfubind class_defined_macro_binding))
@@ -4941,8 +4942,8 @@ source location.}#
 		(assert_msg "normexp_defun_defmacro check bnd" (is_a bnd class_any_binding) bnd)
 		(let ( (sy (unsafe_get_field :binder bnd)) 
 		       ;; since sy is a symbol, its normalized form does not add any binding
-		       ;; we normalize it in the *old* environment, not the new one
-		       (nsy (normal_exp sy env ncx sloc))
+		       ;; we normalize it in the *old* base environment, not the new one
+		       (nsy (normal_exp sy basenv ncx sloc))
 		       )
 		  nsy
 		  )))) )

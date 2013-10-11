@@ -1,4 +1,16 @@
 
+2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{defmacro and at_macro_expansion are expanded in the module
+	initial environment, not in the current one!}}
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): Expand in the module
+	initial environment.
+	(mexpand_at_macro_expansion): Likewise.
+
+	* melt/warmelt-normal.melt (normexp_defun_defmacro): For macros,
+	use the module initial environment, not the current one.
+
 2013-10-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-macro.melt (mexpand_defmacro): More debug.
