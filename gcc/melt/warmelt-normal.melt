@@ -1704,7 +1704,7 @@ source location.}#
       (assert_msg "normbind_defmacrobind check no procs" () procs))
     (when (is_not_a mdata class_nrep_dataclosure)
       (error_at psloc "not yet defined macro $1 referenced"_ (get_field :named_name symb))
-      (assert_msg "normbind_defmacrobind bad macro data" () mdata))
+      (assert_msg "normbind_defmacrobind bad macro data" () mdata bind (discrim bind)))
     (mapobject_put sycmap symb mdata)
     (return mdata)
 ))
@@ -4895,10 +4895,11 @@ source location.}#
 	   "\n.. sfubind=" sfubind)
     (when (and 
 	   (is_not_a sfubind class_function_binding)
+	   (is_not_a sfubind class_macro_binding)
 	   (is_not_a sfubind class_defined_macro_binding))
       (error_at sloc
-		"bad DEFUN-ed function [nested definitions are prohibited; consider using LETREC]"
-		(get_field :named_name snam))
+		"bad defun-ed function $1 with binding of $2 [nested definitions are prohibited; consider using LETREC]"
+		(get_field :named_name snam) (get_field :named_name (discrim sfubind)))
       (shortbacktrace_dbg "normexp_defun_defmacro bad DEFUNed function" 14)
       (return))
     (unsafe_put_fields nproc :nrpro_datarout ndatarout :nrpro_dataclos ndataclos)
@@ -4949,14 +4950,24 @@ source location.}#
 		  )))) )
        (unsafe_put_fields ndataclos :ndclo_closv clovtup)
        )
-     ;; link the bindind and the data
+     ;; link the binding and the data
      (cond ( (is_a sfubind class_function_binding)
 	     (unsafe_put_fields sfubind :fixbind_data ndataclos))
 	   ( (is_a sfubind class_defined_macro_binding)
 	     (unsafe_put_fields sfubind :mbind_data ndataclos))
+	   ( (is_a sfubind class_macro_binding)
+	     (cond ( (and (melt_is_bootstrapping)
+			  (== (get_field :binder sfubind) (get_field :ndata_name ndataclos)))
+		     (debug "normexp_defun_defmacro good bootstrapping macro sfubind=" sfubind "\n ndataclos=" ndataclos)
+		     (void))
+		   (:else
+		    (error_at  sloc "messy definition of $1 with existing macro binding"
+			       snam)
+		    (assert_msg "strange macro sfubind & ndataclos" () sfubind ndataclos)
+		    (return))))
 	   (:else
-	    (debug "normexp_defun_defmacro strange sfubind=" sfubind)
-	    (assert_msg "bad sfubind" () sfubind)))
+	    (debug "normexp_defun_defmacro strange sfubind=" sfubind "\n.. for ndataclos=" ndataclos)
+	    (assert_msg "bad sfubind" () sfubind ndataclos)))
      (debug "normexp_defun_defmacro return ndataclos=" ndataclos)
      (return ndataclos ())
      )

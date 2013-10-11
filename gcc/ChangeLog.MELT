@@ -2,6 +2,15 @@
 
 2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-normal.melt (normbind_defmacrobind): More debug.
+	(normexp_defun_defmacro): Better error message.
+	Handle bootstrapped macros...
+
+	* melt/warmelt-outobj.melt (translate_to_cc_module_melt_sources):
+	Use error_at and when.
+
+2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{open ticket MELT-SFT-3}}
 	* testsuite/melt/tbad-5.melt: Mention MELT-SFT-3.
 

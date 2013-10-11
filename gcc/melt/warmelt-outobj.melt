@@ -7638,14 +7638,13 @@ if (1) return;
        (strchr(modsrcbase,'.') == NULL) && (strchr(modsrcbase,'+') == NULL);
        } /* end translate_to_cc_module_melt_sources $SETISVALIDMODSRCCH */
      }#)
-    (if (not isvalidmodsrc)
-	(progn
+    (when (not isvalidmodsrc)
 	  (debug "translate_to_cc_module_melt_sources bad generated modsrcname=" modsrcname)
-	  (errormsg_strv 
-	   "invalid generated source name [basename should have no dot or plus]" 
+	  (error_at ()
+	   "invalid generated source name $1 [basename should have no dot or plus]" 
 	   modsrcname)
 	  (return)
-	  ))
+	  )
     (read_melt_expressions sources rlist 0)
     (debug "after read translate_to_cc_module_melt_sources rlist=" rlist)
     (assert_msg "check non empty rlist" (>i (list_length rlist) 0) rlist)
