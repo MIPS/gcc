@@ -735,9 +735,13 @@ finish_constexpr_expr (tree expr)
 // FN, is admissable. This is the case only when the declaration depends 
 // on template parameters and does not declare a specialization.
 void
-check_constrained_friend (tree fn)
+check_constrained_friend (tree fn, tree reqs)
 {
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
+
+  // If there are not constraints, this cannot be an error.
+  if (!reqs)
+    return;
 
   // Constrained friend functions that don't depend on template
   // arguments are effectively meaningless.

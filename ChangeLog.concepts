@@ -1,4 +1,12 @@
 2013-10-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/cp-tree.h (check_constrained_friend): Take requirements as
+	an argument.
+	* gcc/cp/constraints.cc (check_constrained_friend): Do not diagnose
+	errors in unconstrained friend declarations.
+	* gcc/cp/parser.cc (cp_parser_member_declaration): Pass current
+	requirements to check_constrained_friend.
+
+2013-10-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (cp_parser_member_declaration): Check that
 	a constrained friend definition is valid.
 	* gcc/cp/decl.c (grokfndecl): Disallow constrained friend template

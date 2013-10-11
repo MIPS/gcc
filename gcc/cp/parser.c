@@ -20144,7 +20144,7 @@ cp_parser_member_declaration (cp_parser* parser)
 		    finish_member_declaration (decl);
 
                   if (friend_p)
-                     check_constrained_friend (decl);
+                     check_constrained_friend (decl, current_template_reqs);
 
 		  /* Peek at the next token.  */
 		  token = cp_lexer_peek_token (parser->lexer);
