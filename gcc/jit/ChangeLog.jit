@@ -1,3 +1,9 @@
+2013-10-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c: Update includes to reflect move of decl of
+	dump_function_to_file from tree-dump.h to tree-flow.h in
+	r203320.
+
 2013-10-10  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (GCC_JIT_BOOL_OPTION_DUMP_SUMMARY): New.

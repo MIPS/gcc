@@ -102,22 +102,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       }
 
       bool
-      _M_search()
-      {
-	if (_M_flags & regex_constants::match_continuous)
-	  return _M_search_from_first();
-	auto __cur = _M_begin;
-	do
-	  {
-	    _M_match_mode = false;
-	    _M_init(__cur);
-	    if (_M_main())
-	      return true;
-	  }
-	// Continue when __cur == _M_end
-	while (__cur++ != _M_end);
-	return false;
-      }
+      _M_search();
 
       bool
       _M_is_word(_CharT __ch) const
@@ -145,8 +130,17 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       bool
       _M_word_boundry(_State<_CharT, _TraitsT> __state) const;
 
+      virtual std::unique_ptr<_Executor>
+      _M_clone() const = 0;
+
+      // Return whether now match the given sub-NFA.
       bool
-      _M_lookahead(_State<_CharT, _TraitsT> __state) const;
+      _M_lookahead(_State<_CharT, _TraitsT> __state) const
+      {
+	auto __sub = this->_M_clone();
+	__sub->_M_set_start(__state._M_alt);
+	return __sub->_M_search_from_first();
+      }
 
       void
       _M_set_results(_ResultsVec& __cur_results);
@@ -226,6 +220,16 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       bool
       _M_dfs(_StateIdT __start);
 
+      std::unique_ptr<_BaseT>
+      _M_clone() const
+      {
+	return std::unique_ptr<_BaseT>(new _DFSExecutor(this->_M_current,
+							this->_M_end,
+							this->_M_results,
+							this->_M_re,
+							this->_M_flags));
+      }
+
       // To record current solution.
       _ResultsVec     _M_cur_results;
       const _NFAT&    _M_nfa;
@@ -268,8 +272,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // greedy policy.
       //
       // The definition of `greedy`:
-      // For the sequence of quantifiers in NFA sorted by there start position,
-      // now maintain a vector in every matching state, with equal length to
+      // For the sequence of quantifiers in NFA sorted by their start positions,
+      // now maintain a vector in every matching state, with length equal to
       // quantifier seq, recording repeating times of every quantifier. Now to
       // compare two matching states, we just lexically compare these two
       // vectors. To win the compare(to survive), one matching state needs to
@@ -281,26 +285,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       // operator<() for lexicographical_compare will emit the answer.
       //
       // When two vectors equal, it means the `where`, `when` and quantifier
-      // counts are identical, and indicates the same solution; so just return
-      // false.
+      // counts are identical, and indicates the same solution; so
+      // _ResultsEntry::operator<() just return false.
       struct _ResultsEntry
       : private _ResultsVec
       {
       public:
-	_ResultsEntry(unsigned int __res_sz, unsigned int __sz)
+	_ResultsEntry(size_t __res_sz, size_t __sz)
 	: _ResultsVec(__res_sz), _M_quant_keys(__sz)
 	{ }
 
 	void
-	resize(unsigned int __n)
+	resize(size_t __n)
 	{ _ResultsVec::resize(__n); }
 
-	unsigned int
+	size_t
 	size()
 	{ return _ResultsVec::size(); }
 
 	sub_match<_BiIter>&
-	operator[](unsigned int __idx)
+	operator[](size_t __idx)
 	{ return _ResultsVec::operator[](__idx); }
 
 	bool
@@ -315,7 +319,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
 
 	void
-	_M_inc(unsigned int __idx, bool __neg)
+	_M_inc(size_t __idx, bool __neg)
 	{ _M_quant_keys[__idx] += __neg ? 1 : -1; }
 
 	_ResultsVec&
@@ -327,6 +331,46 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       };
       typedef std::unique_ptr<_ResultsEntry>               _ResultsPtr;
 
+      class _TodoList
+      {
+      public:
+	explicit
+	_TodoList(size_t __sz)
+	: _M_states(), _M_exists(__sz, false)
+	{ }
+
+	void _M_push(_StateIdT __u)
+	{
+	  _GLIBCXX_DEBUG_ASSERT(__u < _M_exists.size());
+	  if (!_M_exists[__u])
+	    {
+	      _M_exists[__u] = true;
+	      _M_states.push_back(__u);
+	    }
+	}
+
+	_StateIdT _M_pop()
+	{
+	  auto __ret = _M_states.back();
+	  _M_states.pop_back();
+	  _M_exists[__ret] = false;
+	  return __ret;
+	}
+
+	bool _M_empty() const
+	{ return _M_states.empty(); }
+
+	void _M_clear()
+	{
+	  _M_states.clear();
+	  _M_exists.assign(_M_exists.size(), false);
+	}
+
+      private:
+	std::vector<_StateIdT>         _M_states;
+	std::vector<bool>              _M_exists;
+      };
+
     public:
       _BFSExecutor(_BiIter         __begin,
 		   _BiIter         __end,
@@ -336,6 +380,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       : _BaseT(__begin, __end, __results, __re, __flags),
       _M_nfa(*std::static_pointer_cast<_NFA<_CharT, _TraitsT>>
 	     (__re._M_automaton)),
+      _M_match_stack(_M_nfa.size()),
+      _M_stack(_M_nfa.size()),
       _M_start_state(_M_nfa._M_start())
       { }
 
@@ -343,14 +389,13 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       void
       _M_init(_BiIter __cur)
       {
-	_GLIBCXX_DEBUG_ASSERT(this->_M_start_state != _S_invalid_state_id);
 	this->_M_current = __cur;
 	_M_covered.clear();
 	_ResultsVec& __res(this->_M_results);
 	_M_covered[this->_M_start_state] =
 	  _ResultsPtr(new _ResultsEntry(__res.size(),
 					_M_nfa._M_quant_count));
-	_M_e_closure();
+	_M_stack._M_push(this->_M_start_state);
       }
 
       void
@@ -369,21 +414,24 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       bool
       _M_includes_some();
 
+      std::unique_ptr<_BaseT>
+      _M_clone() const
+      {
+	return std::unique_ptr<_BaseT>(new _BFSExecutor(this->_M_current,
+							this->_M_end,
+							this->_M_results,
+							this->_M_re,
+							this->_M_flags));
+      }
+
+      const _NFAT&                     _M_nfa;
       std::map<_StateIdT, _ResultsPtr> _M_covered;
+      _TodoList                        _M_match_stack;
+      _TodoList                        _M_stack;
+      _StateIdT                        _M_start_state;
       // To record global optimal solution.
       _ResultsPtr                      _M_cur_results;
-      const _NFAT&                     _M_nfa;
-      _StateIdT                        _M_start_state;
     };
-
-  template<typename _BiIter, typename _Alloc,
-    typename _CharT, typename _TraitsT>
-    std::unique_ptr<_Executor<_BiIter, _Alloc, _CharT, _TraitsT>>
-    __get_executor(_BiIter __b,
-		   _BiIter __e,
-		   std::vector<sub_match<_BiIter>, _Alloc>& __m,
-		   const basic_regex<_CharT, _TraitsT>& __re,
-		   regex_constants::match_flag_type __flags);
 
  //@} regex-detail
 _GLIBCXX_END_NAMESPACE_VERSION

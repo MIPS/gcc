@@ -14,7 +14,7 @@
 #include "gimple-pretty-print.h"
 #include "timevar.h"
 #include "dumpfile.h"
-#include "tree-dump.h"
+#include "tree-flow.h"
 
 #include <pthread.h>
 
