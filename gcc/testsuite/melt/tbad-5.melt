@@ -1,0 +1,28 @@
+; -*- lisp -*-
+;; file tbad-5.melt; should not compile because macros don't see current environment
+;; but it does compile in MELT branch svn rev 203405.
+
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tbad-5.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=tbad-5.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+;; this should not compile because macros are evaluated in the initial module environment
+
+(defun badmacroexpanser (sexp env mexpander modctx)
+  (debug "badmacroexpanser sexp=" sexp " env=" env " mexpander=" mexpander " modctx=" modctx)
+  (assert_msg "badmacroexpanser called" ()))
+
+(defmacro badmacro (sexp env mexpander modctx)
+  (debug "badmacro sexp=" sexp " env=" env " mexpander=" mexpander " modctx=" modctx)
+  (badmacroexpanser sexp env mexpander modctx))
+
+(debug "badmacroexpanser=" badmacroexpanser " badmacro=" badmacro)
+
+(debug "badmacro test:" (badmacro '1))
+
+;; eof tbad-5.melt 

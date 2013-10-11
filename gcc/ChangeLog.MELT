@@ -1,6 +1,9 @@
 
 
 2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
+	* testsuite/melt/tbad-5.melt: New file which should not compile.
+
+2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
