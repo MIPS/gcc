@@ -1,6 +1,7 @@
 ; -*- lisp -*-
 ;; file tbad-5.melt; should not compile because macros don't see current environment
 ;; but it does compile in MELT branch svn rev 203405.
+;; MELT-SFT-3 
 
 #| run in buildir/gcc
  ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/tbad-5.melt

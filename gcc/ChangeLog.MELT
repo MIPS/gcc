@@ -1,6 +1,11 @@
 
 
 2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{open ticket MELT-SFT-3}}
+	* testsuite/melt/tbad-5.melt: Mention MELT-SFT-3.
+
+2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
 	* testsuite/melt/tbad-5.melt: New file which should not compile.
 
 2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
