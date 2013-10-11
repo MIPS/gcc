@@ -34,8 +34,9 @@
 ;;    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;; This warmelt-first.melt file is translated in translateinit mode
-;; when bootstrapping, so thet MELT_HAS_INITIAL_ENVIRONMENT is 0 in
-;; that particular case. 
+;; when bootstrapping, so that MELT_HAS_INITIAL_ENVIRONMENT is 0 in
+;; that particular case. It should not contain any macro definition
+;; with defmacro or export_macro.
 
 (code_chunk warn_hasinit_chk #{
 #if MELT_HAS_INITIAL_ENVIRONMENT
@@ -46,7 +47,7 @@
 
 ;;; Avoid using debug_msg or debug here.  If needed, use the following
 (defprimitive melt_low_debug (:cstring msg :value val) :void
-  :doc #{Low level macro for debugging, only useful in file
+  :doc #{Low level primitive for debugging, only useful in file
   warmelt-first.melt only. Use $DEBUG instead.}#
   #{/* melt_low_debug */ melt_low_debug_value($MSG,(melt_ptr_t)$VAL)}#
   )

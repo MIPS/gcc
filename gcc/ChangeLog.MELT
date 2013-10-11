@@ -1,6 +1,15 @@
 
 2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt: Add a comment about forbidden macros in
+	this first file.
+	(melt_low_debug): Improve documentation.
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): Reject macro in
+	first file.
+
+2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/warmelt-base.cc: Regenerate.
 	* melt/generated/warmelt-base+meltdesc.c: Regenerate.
