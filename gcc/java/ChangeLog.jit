@@ -1,0 +1,4 @@
+2013-10-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* lang.c (java_handle_option): Update for introduction of
+	gcc::dump_manager.
