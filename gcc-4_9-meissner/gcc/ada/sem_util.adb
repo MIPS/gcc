@@ -212,25 +212,25 @@ package body Sem_Util is
    -- Add_Contract_Item --
    -----------------------
 
-   procedure Add_Contract_Item (Item : Node_Id; Subp_Id : Entity_Id) is
+   procedure Add_Contract_Item (Prag : Node_Id; Subp_Id : Entity_Id) is
       Items : constant Node_Id := Contract (Subp_Id);
       Nam   : Name_Id;
 
    begin
-      if Present (Items) and then Nkind (Item) = N_Pragma then
-         Nam := Pragma_Name (Item);
+      --  The related subprogram [body] must have a contract and the item to be
+      --  added must be a pragma.
 
-         if Nam_In (Nam, Name_Precondition, Name_Postcondition) then
-            Set_Next_Pragma (Item, Pre_Post_Conditions (Items));
-            Set_Pre_Post_Conditions (Items, Item);
+      pragma Assert (Present (Items));
+      pragma Assert (Nkind (Prag) = N_Pragma);
 
-         elsif Nam_In (Nam, Name_Contract_Cases, Name_Test_Case) then
-            Set_Next_Pragma (Item, Contract_Test_Cases (Items));
-            Set_Contract_Test_Cases (Items, Item);
+      Nam := Pragma_Name (Prag);
 
-         elsif Nam_In (Nam, Name_Depends, Name_Global) then
-            Set_Next_Pragma (Item, Classifications (Items));
-            Set_Classifications (Items, Item);
+      --  Contract items related to subprogram bodies
+
+      if Ekind (Subp_Id) = E_Subprogram_Body then
+         if Nam_In (Nam, Name_Refined_Depends, Name_Refined_Global) then
+            Set_Next_Pragma (Prag, Classifications (Items));
+            Set_Classifications (Items, Prag);
 
          --  The pragma is not a proper contract item
 
@@ -238,10 +238,26 @@ package body Sem_Util is
             raise Program_Error;
          end if;
 
-      --  The subprogram has not been properly decorated or the item is illegal
+      --  Contract items related to subprogram declarations
 
       else
-         raise Program_Error;
+         if Nam_In (Nam, Name_Precondition, Name_Postcondition) then
+            Set_Next_Pragma (Prag, Pre_Post_Conditions (Items));
+            Set_Pre_Post_Conditions (Items, Prag);
+
+         elsif Nam_In (Nam, Name_Contract_Cases, Name_Test_Case) then
+            Set_Next_Pragma (Prag, Contract_Test_Cases (Items));
+            Set_Contract_Test_Cases (Items, Prag);
+
+         elsif Nam_In (Nam, Name_Depends, Name_Global) then
+            Set_Next_Pragma (Prag, Classifications (Items));
+            Set_Classifications (Items, Prag);
+
+         --  The pragma is not a proper contract item
+
+         else
+            raise Program_Error;
+         end if;
       end if;
    end Add_Contract_Item;
 
@@ -5184,9 +5200,9 @@ package body Sem_Util is
          Discrim := First (Choices (Assoc));
          exit Find_Constraint when Chars (Discrim_Name) = Chars (Discrim)
            or else (Present (Corresponding_Discriminant (Entity (Discrim)))
-                      and then
-                    Chars (Corresponding_Discriminant (Entity (Discrim)))
-                         = Chars  (Discrim_Name))
+                     and then
+                       Chars (Corresponding_Discriminant (Entity (Discrim))) =
+                                                       Chars  (Discrim_Name))
            or else Chars (Original_Record_Component (Entity (Discrim)))
                          = Chars (Discrim_Name);
 
@@ -5274,7 +5290,6 @@ package body Sem_Util is
          Find_Discrete_Value : while Present (Variant) loop
             Discrete_Choice := First (Discrete_Choices (Variant));
             while Present (Discrete_Choice) loop
-
                exit Find_Discrete_Value when
                  Nkind (Discrete_Choice) = N_Others_Choice;
 
@@ -5305,8 +5320,8 @@ package body Sem_Util is
       --  If we have found the corresponding choice, recursively add its
       --  components to the Into list.
 
-      Gather_Components (Empty,
-        Component_List (Variant), Governed_By, Into, Report_Errors);
+      Gather_Components
+        (Empty, Component_List (Variant), Governed_By, Into, Report_Errors);
    end Gather_Components;
 
    ------------------------
@@ -6440,6 +6455,45 @@ package body Sem_Util is
 
       return False;
    end Has_Interfaces;
+
+   ---------------------------------
+   -- Has_No_Obvious_Side_Effects --
+   ---------------------------------
+
+   function Has_No_Obvious_Side_Effects (N : Node_Id) return Boolean is
+   begin
+      --  For now, just handle literals, constants, and non-volatile
+      --  variables and expressions combining these with operators or
+      --  short circuit forms.
+
+      if Nkind (N) in N_Numeric_Or_String_Literal then
+         return True;
+
+      elsif Nkind (N) = N_Character_Literal then
+         return True;
+
+      elsif Nkind (N) in N_Unary_Op then
+         return Has_No_Obvious_Side_Effects (Right_Opnd (N));
+
+      elsif Nkind (N) in N_Binary_Op or else Nkind (N) in N_Short_Circuit then
+         return Has_No_Obvious_Side_Effects (Left_Opnd (N))
+                   and then
+                Has_No_Obvious_Side_Effects (Right_Opnd (N));
+
+      elsif Nkind (N) in N_Has_Entity then
+         return Present (Entity (N))
+           and then Ekind_In (Entity (N), E_Variable,
+                                          E_Constant,
+                                          E_Enumeration_Literal,
+                                          E_In_Parameter,
+                                          E_Out_Parameter,
+                                          E_In_Out_Parameter)
+           and then not Is_Volatile (Entity (N));
+
+      else
+         return False;
+      end if;
+   end Has_No_Obvious_Side_Effects;
 
    ------------------------
    -- Has_Null_Exclusion --
@@ -8655,6 +8709,7 @@ package body Sem_Util is
                return Is_Fully_Initialized_Variant (U);
             end if;
          end;
+
       else
          return False;
       end if;
@@ -8863,10 +8918,12 @@ package body Sem_Util is
             when N_Function_Call =>
                return Etype (N) /= Standard_Void_Type;
 
-            --  Attributes 'Input and 'Result produce objects
+            --  Attributes 'Input, 'Old and 'Result produce objects
 
             when N_Attribute_Reference =>
-               return Nam_In (Attribute_Name (N), Name_Input, Name_Result);
+               return
+                 Nam_In
+                   (Attribute_Name (N), Name_Input, Name_Old, Name_Result);
 
             when N_Selected_Component =>
                return
@@ -12215,8 +12272,8 @@ package body Sem_Util is
                end if;
 
                if Nkind (P) = N_Selected_Component
-                 and then Present (
-                   Entry_Formal (Entity (Selector_Name (P))))
+                 and then
+                   Present (Entry_Formal (Entity (Selector_Name (P))))
                then
                   --  Case of a reference to an entry formal
 
@@ -12240,15 +12297,15 @@ package body Sem_Util is
                end if;
             end;
 
-         elsif     Nkind (Exp) = N_Type_Conversion
-           or else Nkind (Exp) = N_Unchecked_Type_Conversion
+         elsif Nkind_In (Exp, N_Type_Conversion,
+                              N_Unchecked_Type_Conversion)
          then
             Exp := Expression (Exp);
             goto Continue;
 
-         elsif     Nkind (Exp) = N_Slice
-           or else Nkind (Exp) = N_Indexed_Component
-           or else Nkind (Exp) = N_Selected_Component
+         elsif Nkind_In (Exp, N_Slice,
+                              N_Indexed_Component,
+                              N_Selected_Component)
          then
             Exp := Prefix (Exp);
             goto Continue;
@@ -12307,7 +12364,9 @@ package body Sem_Util is
                --  source. This excludes, for example, calls to a dispatching
                --  assignment operation when the left-hand side is tagged.
 
-               if Modification_Comes_From_Source or else SPARK_Mode then
+               --  Why is SPARK mode different here ???
+
+               if Modification_Comes_From_Source or SPARK_Mode then
                   Generate_Reference (Ent, Exp, 'm');
 
                   --  If the target of the assignment is the bound variable

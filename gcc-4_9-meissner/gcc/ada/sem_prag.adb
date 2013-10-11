@@ -75,7 +75,6 @@ with Stand;    use Stand;
 with Sinfo;    use Sinfo;
 with Sinfo.CN; use Sinfo.CN;
 with Sinput;   use Sinput;
-with Snames;   use Snames;
 with Stringt;  use Stringt;
 with Stylesw;  use Stylesw;
 with Table;
@@ -169,9 +168,9 @@ package body Sem_Prag is
    -------------------------------------
 
    procedure Add_Item (Item : Entity_Id; To_List : in out Elist_Id);
-   --  Subsidiary routine to the analysis of pragmas Depends and Global. Append
-   --  an input or output item to a list. If the list is empty, a new one is
-   --  created.
+   --  Subsidiary routine to the analysis of pragmas Depends, Global and
+   --  Refined_State. Append an entity to a list. If the list is empty, create
+   --  a new list.
 
    function Adjust_External_Name_Case (N : Node_Id) return Node_Id;
    --  This routine is used for possible casing adjustment of an explicit
@@ -286,7 +285,7 @@ package body Sem_Prag is
          To_List := New_Elmt_List;
       end if;
 
-      Append_Unique_Elmt (Item, To_List);
+      Append_Elmt (Item, To_List);
    end Add_Item;
 
    -------------------------------
@@ -408,6 +407,9 @@ package body Sem_Prag is
       Subp_Decl : Node_Id;
       Subp_Id   : Entity_Id;
 
+      Restore_Scope : Boolean := False;
+      --  Gets set True if we do a Push_Scope needing a Pop_Scope on exit
+
    --  Start of processing for Analyze_Contract_Cases_In_Decl_Part
 
    begin
@@ -432,6 +434,7 @@ package body Sem_Prag is
             --  for subprogram bodies because the formals are already visible.
 
             if Requires_Profile_Installation (N, Subp_Decl) then
+               Restore_Scope := True;
                Push_Scope (Subp_Id);
                Install_Formals (Subp_Id);
             end if;
@@ -442,7 +445,7 @@ package body Sem_Prag is
                Next (CCase);
             end loop;
 
-            if Requires_Profile_Installation (N, Subp_Decl) then
+            if Restore_Scope then
                End_Scope;
             end if;
          end if;
@@ -1235,6 +1238,9 @@ package body Sem_Prag is
       Last_Clause : Node_Id;
       Subp_Decl   : Node_Id;
 
+      Restore_Scope : Boolean := False;
+      --  Gets set True if we do a Push_Scope needing a Pop_Scope on exit
+
    --  Start of processing for Analyze_Depends_In_Decl_Part
 
    begin
@@ -1288,6 +1294,7 @@ package body Sem_Prag is
          --  bodies because the formals are already visible.
 
          if Requires_Profile_Installation (N, Subp_Decl) then
+            Restore_Scope := True;
             Push_Scope (Subp_Id);
             Install_Formals (Subp_Id);
          end if;
@@ -1318,7 +1325,7 @@ package body Sem_Prag is
             Next (Clause);
          end loop;
 
-         if Requires_Profile_Installation (N, Subp_Decl) then
+         if Restore_Scope then
             End_Scope;
          end if;
 
@@ -1464,27 +1471,27 @@ package body Sem_Prag is
             --  valid choices. Perform mode- and usage-specific checks.
 
             if Ekind (Item_Id) = E_Abstract_State
-              and then Is_Volatile_State (Item_Id)
+              and then Is_External_State (Item_Id)
             then
-               --  A global item of mode In_Out or Output cannot denote a
-               --  volatile Input state.
+               --  A global item of mode In_Out or Output cannot denote an
+               --  external Input_Only state.
 
-               if Is_Input_State (Item_Id)
+               if Is_Input_Only_State (Item_Id)
                  and then Nam_In (Global_Mode, Name_In_Out, Name_Output)
                then
                   Error_Msg_N
                     ("global item of mode In_Out or Output cannot reference "
-                     & "Volatile Input state", Item);
+                     & "External Input_Only state", Item);
 
-               --  A global item of mode In_Out or Input cannot reference a
-               --  volatile Output state.
+               --  A global item of mode In_Out or Input cannot reference an
+               --  external Output_Only state.
 
-               elsif Is_Output_State (Item_Id)
+               elsif Is_Output_Only_State (Item_Id)
                  and then Nam_In (Global_Mode, Name_In_Out, Name_Input)
                then
                   Error_Msg_N
                     ("global item of mode In_Out or Input cannot reference "
-                     & "Volatile Output state", Item);
+                     & "External Output_Only state", Item);
                end if;
             end if;
 
@@ -1691,6 +1698,9 @@ package body Sem_Prag is
       List      : Node_Id;
       Subp_Decl : Node_Id;
 
+      Restore_Scope : Boolean := False;
+      --  Set True if we do a Push_Scope requiring a Pop_Scope on exit
+
    --  Start of processing for Analyze_Global_In_Decl_List
 
    begin
@@ -1715,170 +1725,18 @@ package body Sem_Prag is
          --  subprogram declarations.
 
          if Requires_Profile_Installation (N, Subp_Decl) then
+            Restore_Scope := True;
             Push_Scope (Subp_Id);
             Install_Formals (Subp_Id);
          end if;
 
          Analyze_Global_List (List);
 
-         if Requires_Profile_Installation (N, Subp_Decl) then
+         if Restore_Scope then
             End_Scope;
          end if;
       end if;
    end Analyze_Global_In_Decl_Part;
-
-   ------------------------------
-   -- Analyze_PPC_In_Decl_Part --
-   ------------------------------
-
-   procedure Analyze_PPC_In_Decl_Part (N : Node_Id; S : Entity_Id) is
-      Arg1 : constant Node_Id := First (Pragma_Argument_Associations (N));
-
-   begin
-      --  Install formals and push subprogram spec onto scope stack so that we
-      --  can see the formals from the pragma.
-
-      Install_Formals (S);
-      Push_Scope (S);
-
-      --  Preanalyze the boolean expression, we treat this as a spec expression
-      --  (i.e. similar to a default expression).
-
-      --  In ASIS mode, for a pragma generated from a source aspect, analyze
-      --  directly the the original aspect expression, which is shared with
-      --  the generated pragma.
-
-      if ASIS_Mode and then Present (Corresponding_Aspect (N)) then
-         Preanalyze_Assert_Expression
-           (Expression (Corresponding_Aspect (N)), Standard_Boolean);
-      else
-         Preanalyze_Assert_Expression
-            (Get_Pragma_Arg (Arg1), Standard_Boolean);
-      end if;
-
-      --  For a class-wide condition, a reference to a controlling formal must
-      --  be interpreted as having the class-wide type (or an access to such)
-      --  so that the inherited condition can be properly applied to any
-      --  overriding operation (see ARM12 6.6.1 (7)).
-
-      if Class_Present (N) then
-         Class_Wide_Condition : declare
-            T   : constant Entity_Id := Find_Dispatching_Type (S);
-
-            ACW : Entity_Id := Empty;
-            --  Access to T'class, created if there is a controlling formal
-            --  that is an access parameter.
-
-            function Get_ACW return Entity_Id;
-            --  If the expression has a reference to an controlling access
-            --  parameter, create an access to T'class for the necessary
-            --  conversions if one does not exist.
-
-            function Process (N : Node_Id) return Traverse_Result;
-            --  ARM 6.1.1: Within the expression for a Pre'Class or Post'Class
-            --  aspect for a primitive subprogram of a tagged type T, a name
-            --  that denotes a formal parameter of type T is interpreted as
-            --  having type T'Class. Similarly, a name that denotes a formal
-            --  accessparameter of type access-to-T is interpreted as having
-            --  type access-to-T'Class. This ensures the expression is well-
-            --  defined for a primitive subprogram of a type descended from T.
-            --  Note that this replacement is not done for selector names in
-            --  parameter associations. These carry an entity for reference
-            --  purposes, but semantically they are just identifiers.
-
-            -------------
-            -- Get_ACW --
-            -------------
-
-            function Get_ACW return Entity_Id is
-               Loc  : constant Source_Ptr := Sloc (N);
-               Decl : Node_Id;
-
-            begin
-               if No (ACW) then
-                  Decl := Make_Full_Type_Declaration (Loc,
-                    Defining_Identifier => Make_Temporary (Loc, 'T'),
-                    Type_Definition =>
-                       Make_Access_To_Object_Definition (Loc,
-                       Subtype_Indication =>
-                         New_Occurrence_Of (Class_Wide_Type (T), Loc),
-                       All_Present => True));
-
-                  Insert_Before (Unit_Declaration_Node (S), Decl);
-                  Analyze (Decl);
-                  ACW := Defining_Identifier (Decl);
-                  Freeze_Before (Unit_Declaration_Node (S), ACW);
-               end if;
-
-               return ACW;
-            end Get_ACW;
-
-            -------------
-            -- Process --
-            -------------
-
-            function Process (N : Node_Id) return Traverse_Result is
-               Loc : constant Source_Ptr := Sloc (N);
-               Typ : Entity_Id;
-
-            begin
-               if Is_Entity_Name (N)
-                 and then Present (Entity (N))
-                 and then Is_Formal (Entity (N))
-                 and then Nkind (Parent (N)) /= N_Type_Conversion
-                 and then
-                   (Nkind (Parent (N)) /= N_Parameter_Association
-                     or else N /= Selector_Name (Parent (N)))
-               then
-                  if Etype (Entity (N)) = T then
-                     Typ := Class_Wide_Type (T);
-
-                  elsif Is_Access_Type (Etype (Entity (N)))
-                    and then Designated_Type (Etype (Entity (N))) = T
-                  then
-                     Typ := Get_ACW;
-                  else
-                     Typ := Empty;
-                  end if;
-
-                  if Present (Typ) then
-                     Rewrite (N,
-                       Make_Type_Conversion (Loc,
-                         Subtype_Mark =>
-                           New_Occurrence_Of (Typ, Loc),
-                         Expression  => New_Occurrence_Of (Entity (N), Loc)));
-                     Set_Etype (N, Typ);
-                  end if;
-               end if;
-
-               return OK;
-            end Process;
-
-            procedure Replace_Type is new Traverse_Proc (Process);
-
-         --  Start of processing for Class_Wide_Condition
-
-         begin
-            if not Present (T) then
-               Error_Msg_Name_1 :=
-                 Chars (Identifier (Corresponding_Aspect (N)));
-
-               Error_Msg_Name_2 := Name_Class;
-
-               Error_Msg_N
-                 ("aspect `%''%` can only be specified for a primitive "
-                  & "operation of a tagged type", Corresponding_Aspect (N));
-            end if;
-
-            Replace_Type (Get_Pragma_Arg (Arg1));
-         end Class_Wide_Condition;
-      end if;
-
-      --  Remove the subprogram from the scope stack now that the pre-analysis
-      --  of the precondition/postcondition is done.
-
-      End_Scope;
-   end Analyze_PPC_In_Decl_Part;
 
    --------------------
    -- Analyze_Pragma --
@@ -1922,6 +1780,10 @@ package body Sem_Prag is
       --  Called for pragmas defined in Ada 2012, that are not in Ada 95 or 05.
       --  In Ada 95 or 05 mode, these are implementation defined pragmas, so
       --  should be caught by the No_Implementation_Pragmas restriction.
+
+      procedure Analyze_Refined_Pre_Post_Condition;
+      --  Subsidiary routine to the analysis of pragmas Refined_Pre and
+      --  Refined_Post.
 
       procedure Check_Ada_83_Warning;
       --  Issues a warning message for the current pragma if operating in Ada
@@ -2448,6 +2310,121 @@ package body Sem_Prag is
             Check_Restriction (No_Implementation_Pragmas, N);
          end if;
       end Ada_2012_Pragma;
+
+      ----------------------------------------
+      -- Analyze_Refined_Pre_Post_Condition --
+      ----------------------------------------
+
+      procedure Analyze_Refined_Pre_Post_Condition is
+         Body_Decl : Node_Id := Parent (N);
+         Pack_Spec : Node_Id;
+         Spec_Decl : Node_Id;
+         Spec_Id   : Entity_Id;
+         Stmt      : Node_Id;
+
+      begin
+         GNAT_Pragma;
+         Check_Arg_Count (1);
+         Check_No_Identifiers;
+
+         --  Verify the placement of the pragma and check for duplicates
+
+         Stmt := Prev (N);
+         while Present (Stmt) loop
+
+            --  Skip prior pragmas, but check for duplicates
+
+            if Nkind (Stmt) = N_Pragma then
+               if Pragma_Name (Stmt) = Pname then
+                  Error_Msg_Name_1 := Pname;
+                  Error_Msg_Sloc   := Sloc (Stmt);
+                  Error_Msg_N ("pragma % duplicates pragma declared #", N);
+               end if;
+
+            --  Emit an error when the pragma applies to an expression function
+            --  that does not act as a completion.
+
+            elsif Nkind (Stmt) = N_Subprogram_Declaration
+              and then Nkind (Original_Node (Stmt)) = N_Expression_Function
+              and then not
+                Has_Completion (Defining_Unit_Name (Specification (Stmt)))
+            then
+               Error_Pragma
+                 ("pragma % cannot apply to a stand alone expression "
+                  & "function");
+               return;
+
+            --  The pragma applies to a subprogram body stub
+
+            elsif Nkind (Stmt) = N_Subprogram_Body_Stub then
+               Body_Decl := Stmt;
+               exit;
+
+            --  Skip internally generated code
+
+            elsif not Comes_From_Source (Stmt) then
+               null;
+
+            --  The pragma does not apply to a legal construct, issue an error
+            --  and stop the analysis.
+
+            else
+               Pragma_Misplaced;
+               return;
+            end if;
+
+            Stmt := Prev (Stmt);
+         end loop;
+
+         --  Pragma Refined_Pre/Post must apply to a subprogram body [stub]
+
+         if not Nkind_In (Body_Decl, N_Subprogram_Body,
+                                     N_Subprogram_Body_Stub)
+         then
+            Pragma_Misplaced;
+            return;
+         end if;
+
+         --  The body [stub] must not act as a spec, in other words it has to
+         --  be paired with a corresponding spec.
+
+         if Nkind (Body_Decl) = N_Subprogram_Body then
+            Spec_Id := Corresponding_Spec (Body_Decl);
+         else
+            Spec_Id := Corresponding_Spec_Of_Stub (Body_Decl);
+         end if;
+
+         if No (Spec_Id) then
+            Error_Pragma ("pragma % cannot apply to a stand alone body");
+            return;
+         end if;
+
+         --  Refined_Pre/Post may only apply to the body [stub] of a subprogram
+         --  declared in the visible part of a package. Retrieve the context of
+         --  the subprogram declaration.
+
+         Spec_Decl := Parent (Parent (Spec_Id));
+
+         pragma Assert
+           (Nkind_In (Spec_Decl, N_Abstract_Subprogram_Declaration,
+                                 N_Generic_Subprogram_Declaration,
+                                 N_Subprogram_Declaration));
+
+         Pack_Spec := Parent (Spec_Decl);
+
+         if Nkind (Pack_Spec) /= N_Package_Specification
+           or else List_Containing (Spec_Decl) /=
+                     Visible_Declarations (Pack_Spec)
+         then
+            Error_Pragma
+              ("pragma % must apply to the body of a visible subprogram");
+            return;
+         end if;
+
+         --  Analyze the boolean expression as a "spec expression"
+
+         Analyze_Pre_Post_Condition_In_Decl_Part (N, Spec_Id);
+      end Analyze_Refined_Pre_Post_Condition;
 
       --------------------------
       -- Check_Ada_83_Warning --
@@ -3654,10 +3631,12 @@ package body Sem_Prag is
          elsif Nkind (PO) = N_Compilation_Unit_Aux then
 
             --  In formal verification mode, analyze pragma expression for
-            --  correctness, as it is not expanded later.
+            --  correctness, as it is not expanded later. Ditto in ASIS_Mode
+            --  where there is no later point at which the aspect will be
+            --  analyzed.
 
-            if SPARK_Mode then
-               Analyze_PPC_In_Decl_Part
+            if SPARK_Mode or else ASIS_Mode then
+               Analyze_Pre_Post_Condition_In_Decl_Part
                  (N, Defining_Entity (Unit (Parent (PO))));
             end if;
 
@@ -8283,19 +8262,21 @@ package body Sem_Prag is
 
          --  ABSTRACT_STATE_LIST ::=
          --    null
-         --  | STATE_NAME_WITH_PROPERTIES {, STATE_NAME_WITH_PROPERTIES}
+         --  | STATE_NAME_WITH_OPTIONS
+         --  | (STATE_NAME_WITH_OPTIONS {, STATE_NAME_WITH_OPTIONS})
 
-         --  STATE_NAME_WITH_PROPERTIES ::=
-         --    STATE_NAME
-         --  | (STATE_NAME with PROPERTY_LIST)
+         --  STATE_NAME_WITH_OPTIONS ::=
+         --    state_NAME
+         --  | (state_NAME with OPTION_LIST)
 
-         --  PROPERTY_LIST ::= PROPERTY {, PROPERTY}
-         --  PROPERTY      ::= SIMPLE_PROPERTY | NAME_VALUE_PROPERTY
+         --  OPTION_LIST ::= OPTION {, OPTION}
 
-         --  SIMPLE_PROPERTY      ::= IDENTIFIER
-         --  NAME_VALUE_PROPERTY  ::= IDENTIFIER => EXPRESSION
+         --  OPTION ::= SIMPLE_OPTION | NAME_VALUE_OPTION
 
-         --  STATE_NAME ::= DEFINING_IDENTIFIER
+         --  SIMPLE_OPTION ::=
+         --    External | Non_Volatile | Input_Only | Output_Only
+
+         --  NAME_VALUE_OPTION ::= Part_Of => abstract_state_NAME
 
          when Pragma_Abstract_State => Abstract_State : declare
             Pack_Id : Entity_Id;
@@ -8315,46 +8296,47 @@ package body Sem_Prag is
             ----------------------------
 
             procedure Analyze_Abstract_State (State : Node_Id) is
-               procedure Check_Duplicate_Property
-                 (Prop   : Node_Id;
+               procedure Check_Duplicate_Option
+                 (Opt    : Node_Id;
                   Status : in out Boolean);
-               --  Flag Status denotes whether a particular property has been
+               --  Flag Status denotes whether a particular option has been
                --  seen while processing a state. This routine verifies that
-               --  Prop is not a duplicate property and sets the flag Status.
+               --  Opt is not a duplicate property and sets the flag Status.
 
-               ------------------------------
-               -- Check_Duplicate_Property --
-               ------------------------------
+               ----------------------------
+               -- Check_Duplicate_Option --
+               ----------------------------
 
-               procedure Check_Duplicate_Property
-                 (Prop   : Node_Id;
+               procedure Check_Duplicate_Option
+                 (Opt    : Node_Id;
                   Status : in out Boolean)
                is
                begin
                   if Status then
-                     Error_Msg_N ("duplicate state property", Prop);
+                     Error_Msg_N ("duplicate state option", Opt);
                   end if;
 
                   Status := True;
-               end Check_Duplicate_Property;
+               end Check_Duplicate_Option;
 
                --  Local variables
 
-               Errors  : constant Nat := Serious_Errors_Detected;
-               Loc     : constant Source_Ptr := Sloc (State);
-               Assoc   : Node_Id;
-               Id      : Entity_Id;
-               Is_Null : Boolean := False;
-               Level   : Uint := Uint_0;
-               Name    : Name_Id;
-               Prop    : Node_Id;
+               Errors    : constant Nat := Serious_Errors_Detected;
+               Loc       : constant Source_Ptr := Sloc (State);
+               Assoc     : Node_Id;
+               Id        : Entity_Id;
+               Is_Null   : Boolean := False;
+               Name      : Name_Id;
+               Opt       : Node_Id;
+               Par_State : Node_Id;
 
-               --  Flags used to verify the consistency of properties
+               --  Flags used to verify the consistency of options
 
-               Input_Seen     : Boolean := False;
-               Integrity_Seen : Boolean := False;
-               Output_Seen    : Boolean := False;
-               Volatile_Seen  : Boolean := False;
+               External_Seen     : Boolean := False;
+               Input_Seen        : Boolean := False;
+               Non_Volatile_Seen : Boolean := False;
+               Output_Seen       : Boolean := False;
+               Part_Of_Seen      : Boolean := False;
 
             --  Start of processing for Analyze_Abstract_State
 
@@ -8388,7 +8370,7 @@ package body Sem_Prag is
                   Name := Chars (State);
                   Non_Null_Seen := True;
 
-               --  State declaration with various properties. This construct
+               --  State declaration with various options. This construct
                --  appears as an extension aggregate in the tree.
 
                elsif Nkind (State) = N_Extension_Aggregate then
@@ -8401,69 +8383,93 @@ package body Sem_Prag is
                         Ancestor_Part (State));
                   end if;
 
-                  --  Process properties Input, Output and Volatile. Ensure
-                  --  that none of them appear more than once.
+                  --  Process options External, Input_Only, Output_Only and
+                  --  Volatile. Ensure that none of them appear more than once.
 
-                  Prop := First (Expressions (State));
-                  while Present (Prop) loop
-                     if Nkind (Prop) = N_Identifier then
-                        if Chars (Prop) = Name_Input then
-                           Check_Duplicate_Property (Prop, Input_Seen);
-                        elsif Chars (Prop) = Name_Output then
-                           Check_Duplicate_Property (Prop, Output_Seen);
-                        elsif Chars (Prop) = Name_Volatile then
-                           Check_Duplicate_Property (Prop, Volatile_Seen);
+                  Opt := First (Expressions (State));
+                  while Present (Opt) loop
+                     if Nkind (Opt) = N_Identifier then
+                        if Chars (Opt) = Name_External then
+                           Check_Duplicate_Option (Opt, External_Seen);
+                        elsif Chars (Opt) = Name_Input_Only then
+                           Check_Duplicate_Option (Opt, Input_Seen);
+                        elsif Chars (Opt) = Name_Output_Only then
+                           Check_Duplicate_Option (Opt, Output_Seen);
+                        elsif Chars (Opt) = Name_Non_Volatile then
+                           Check_Duplicate_Option (Opt, Non_Volatile_Seen);
+
+                        --  Ensure that the abstract state component of option
+                        --  Part_Of has not been omitted.
+
+                        elsif Chars (Opt) = Name_Part_Of then
+                           Error_Msg_N
+                             ("option Part_Of requires an abstract state",
+                              Opt);
                         else
-                           Error_Msg_N ("invalid state property", Prop);
+                           Error_Msg_N ("invalid state option", Opt);
                         end if;
                      else
-                        Error_Msg_N ("invalid state property", Prop);
+                        Error_Msg_N ("invalid state option", Opt);
                      end if;
 
-                     Next (Prop);
+                     Next (Opt);
                   end loop;
 
-                  --  Volatile requires exactly one Input or Output
+                  --  External requires exactly one Input_Only or Output_Only
 
-                  if Volatile_Seen and then Input_Seen = Output_Seen then
+                  if External_Seen and then Input_Seen = Output_Seen then
                      Error_Msg_N
-                       ("property Volatile requires exactly one Input or "
-                        & "Output", State);
+                       ("option External requires exactly one option "
+                        & "Input_Only or Output_Only", State);
                   end if;
 
-                  --  Either Input or Output require Volatile
+                  --  Either Input_Only or Output_Only require External
 
                   if (Input_Seen or Output_Seen)
-                    and then not Volatile_Seen
+                    and then not External_Seen
                   then
                      Error_Msg_N
-                       ("properties Input and Output require Volatile", State);
+                       ("options Input_Only and Output_Only require option "
+                        & "External", State);
                   end if;
 
-                  --  State property Integrity appears as a component
-                  --  association.
+                  --  Option Part_Of appears as a component association
 
                   Assoc := First (Component_Associations (State));
                   while Present (Assoc) loop
-                     Prop := First (Choices (Assoc));
-                     while Present (Prop) loop
-                        if Nkind (Prop) = N_Identifier
-                          and then Chars (Prop) = Name_Integrity
+                     Opt := First (Choices (Assoc));
+                     while Present (Opt) loop
+                        if Nkind (Opt) = N_Identifier
+                          and then Chars (Opt) = Name_Part_Of
                         then
-                           Check_Duplicate_Property (Prop, Integrity_Seen);
+                           Check_Duplicate_Option (Opt, Part_Of_Seen);
                         else
-                           Error_Msg_N ("invalid state property", Prop);
+                           Error_Msg_N ("invalid state option", Opt);
                         end if;
 
-                        Next (Prop);
+                        Next (Opt);
                      end loop;
 
-                     if Nkind (Expression (Assoc)) = N_Integer_Literal then
-                        Level := Intval (Expression (Assoc));
+                     --  Part_Of must denote a parent state. Ensure that the
+                     --  tree is not malformed by checking the expression of
+                     --  the component association.
+
+                     Par_State := Expression (Assoc);
+                     pragma Assert (Present (Par_State));
+
+                     Analyze (Par_State);
+
+                     --  Part_Of specified a legal state
+
+                     if Is_Entity_Name (Par_State)
+                       and then Present (Entity (Par_State))
+                       and then Ekind (Entity (Par_State)) = E_Abstract_State
+                     then
+                        null;
                      else
                         Error_Msg_N
-                          ("integrity level must be an integer literal",
-                           Expression (Assoc));
+                         ("option Part_Of must denote an abstract state",
+                          Par_State);
                      end if;
 
                      Next (Assoc);
@@ -8490,8 +8496,6 @@ package body Sem_Prag is
                Set_Parent            (Id, State);
                Set_Ekind             (Id, E_Abstract_State);
                Set_Etype             (Id, Standard_Void_Type);
-               Set_Integrity_Level   (Id, Level);
-               Set_Refined_State     (Id, Empty);
 
                --  Every non-null state must be nameable and resolvable the
                --  same way a constant is.
@@ -8520,8 +8524,8 @@ package body Sem_Prag is
 
             --  Local variables
 
-            Par   : Node_Id;
-            State : Node_Id;
+            Context : constant Node_Id := Parent (Parent (N));
+            State   : Node_Id;
 
          --  Start of processing for Abstract_State
 
@@ -8533,24 +8537,14 @@ package body Sem_Prag is
             --  Ensure the proper placement of the pragma. Abstract states must
             --  be associated with a package declaration.
 
-            if From_Aspect_Specification (N) then
-               Par := Parent (Corresponding_Aspect (N));
-            else
-               Par := Parent (Parent (N));
-            end if;
-
-            if Nkind (Par) = N_Compilation_Unit then
-               Par := Unit (Par);
-            end if;
-
-            if not Nkind_In (Par, N_Generic_Package_Declaration,
-                                  N_Package_Declaration)
+            if not Nkind_In (Context, N_Generic_Package_Declaration,
+                                      N_Package_Declaration)
             then
                Pragma_Misplaced;
                return;
             end if;
 
-            Pack_Id := Defining_Entity (Par);
+            Pack_Id := Defining_Entity (Context);
             State   := Expression (Arg1);
 
             --  Multiple abstract states appear as an aggregate
@@ -8967,8 +8961,10 @@ package body Sem_Prag is
          --                        Postcondition        |
          --                        Precondition         |
          --                        Predicate            |
+         --                        Refined_Post         |
+         --                        Refined_Pre          |
          --                        Statement_Assertions
-         --
+
          --  Note: The RM_ASSERTION_KIND list is language-defined, and the
          --  ID_ASSERTION_KIND list contains implementation-defined additions
          --  recognized by GNAT. The effect is to control the behavior of
@@ -10110,9 +10106,7 @@ package body Sem_Prag is
          -- Contract_Cases --
          --------------------
 
-         --  pragma Contract_Cases (CONTRACT_CASE_LIST);
-
-         --  CONTRACT_CASE_LIST ::= CONTRACT_CASE {, CONTRACT_CASE}
+         --  pragma Contract_Cases ((CONTRACT_CASE {, CONTRACT_CASE));
 
          --  CONTRACT_CASE ::= CASE_GUARD => CONSEQUENCE
 
@@ -13736,10 +13730,13 @@ package body Sem_Prag is
             Check_Arg_Is_Library_Level_Local_Name (Arg1);
             Check_Arg_Is_Static_Expression (Arg2, Standard_String);
 
-            --  This pragma applies only to objects
+            --  This pragma applies to objects and types
 
-            if not Is_Object (Entity (Get_Pragma_Arg (Arg1))) then
-               Error_Pragma_Arg ("pragma% applies only to objects", Arg1);
+            if not Is_Object (Entity (Get_Pragma_Arg (Arg1)))
+              and then not Is_Type (Entity (Get_Pragma_Arg (Arg1)))
+            then
+               Error_Pragma_Arg
+                 ("pragma% applies only to objects and types", Arg1);
             end if;
 
             --  The only processing required is to link this item on to the
@@ -15928,6 +15925,101 @@ package body Sem_Prag is
 
          when Pragma_Rational =>
             Set_Rational_Profile;
+
+         ---------------------
+         -- Refined_Depends --
+         ---------------------
+
+         --  ??? To be implemented
+
+         when Pragma_Refined_Depends =>
+            null;
+
+         --------------------
+         -- Refined_Global --
+         --------------------
+
+         --  ??? To be implemented
+
+         --  Would be better if these generated an error message saying that
+         --  the feature was not yet implemented ???
+
+         when Pragma_Refined_Global =>
+            null;
+
+         ------------------
+         -- Refined_Post --
+         ------------------
+
+         --  pragma Refined_Post (boolean_EXPRESSION);
+
+         when Pragma_Refined_Post =>
+            Analyze_Refined_Pre_Post_Condition;
+
+         -----------------
+         -- Refined_Pre --
+         -----------------
+
+         --  pragma Refined_Pre (boolean_EXPRESSION);
+
+         when Pragma_Refined_Pre =>
+            Analyze_Refined_Pre_Post_Condition;
+
+         -------------------
+         -- Refined_State --
+         -------------------
+
+         --  pragma Refined_State (REFINEMENT_LIST);
+
+         --  REFINEMENT_LIST ::=
+         --    REFINEMENT_CLAUSE
+         --    | (REFINEMENT_CLAUSE {, REFINEMENT_CLAUSE})
+
+         --  REFINEMENT_CLAUSE ::= state_NAME => CONSTITUENT_LIST
+
+         --  CONSTITUENT_LIST ::=
+         --    null
+         --    | CONSTITUENT
+         --    | (CONSTITUENT {, CONSTITUENT})
+
+         --  CONSTITUENT ::= object_NAME | state_NAME
+
+         when Pragma_Refined_State => Refined_State : declare
+            Context : constant Node_Id := Parent (N);
+            Spec_Id : Entity_Id;
+
+         begin
+            GNAT_Pragma;
+            S14_Pragma;
+            Check_Arg_Count (1);
+
+            --  Ensure the proper placement of the pragma. Refined states must
+            --  be associated with a package body.
+
+            if Nkind (Context) /= N_Package_Body then
+               Pragma_Misplaced;
+               return;
+            end if;
+
+            --  State refinement is allowed only when the corresponding package
+            --  declaration has a non-null aspect/pragma Abstract_State.
+
+            Spec_Id := Corresponding_Spec (Context);
+
+            if No (Abstract_States (Spec_Id))
+              or else Has_Null_Abstract_State (Spec_Id)
+            then
+               Error_Pragma
+                 ("useless pragma %, package does not define abstract states");
+               return;
+            end if;
+
+            --  The pragma must be analyzed at the end of the declarations as
+            --  it has visibility over the whole declarative region. Save the
+            --  pragma for later (see Analyze_Refined_Depends_In_Decl_Part).
+
+            Set_Refined_State_Pragma (Defining_Entity (Context), N);
+         end Refined_State;
 
          -----------------------
          -- Relative_Deadline --
@@ -18260,6 +18352,692 @@ package body Sem_Prag is
       when Pragma_Exit => null;
    end Analyze_Pragma;
 
+   ---------------------------------------------
+   -- Analyze_Pre_Post_Condition_In_Decl_Part --
+   ---------------------------------------------
+
+   procedure Analyze_Pre_Post_Condition_In_Decl_Part
+     (Prag    : Node_Id;
+      Subp_Id : Entity_Id)
+   is
+      Arg1 : constant Node_Id := First (Pragma_Argument_Associations (Prag));
+      Expr : Node_Id;
+
+      Restore_Scope : Boolean := False;
+      --  Gets set True if we do a Push_Scope needing a Pop_Scope on exit
+
+   begin
+      --  Ensure that the subprogram and its formals are visible when analyzing
+      --  the expression of the pragma.
+
+      if Current_Scope /= Subp_Id then
+         Restore_Scope := True;
+         Push_Scope (Subp_Id);
+         Install_Formals (Subp_Id);
+      end if;
+
+      --  Preanalyze the boolean expression, we treat this as a spec expression
+      --  (i.e. similar to a default expression).
+
+      Expr := Get_Pragma_Arg (Arg1);
+
+      --  In ASIS mode, for a pragma generated from a source aspect, analyze
+      --  the original aspect expression, which is shared with the generated
+      --  pragma.
+
+      if ASIS_Mode and then Present (Corresponding_Aspect (Prag)) then
+         Expr := Expression (Corresponding_Aspect (Prag));
+      end if;
+
+      Preanalyze_Assert_Expression (Expr, Standard_Boolean);
+
+      --  For a class-wide condition, a reference to a controlling formal must
+      --  be interpreted as having the class-wide type (or an access to such)
+      --  so that the inherited condition can be properly applied to any
+      --  overriding operation (see ARM12 6.6.1 (7)).
+
+      if Class_Present (Prag) then
+         Class_Wide_Condition : declare
+            T : constant Entity_Id := Find_Dispatching_Type (Subp_Id);
+
+            ACW : Entity_Id := Empty;
+            --  Access to T'class, created if there is a controlling formal
+            --  that is an access parameter.
+
+            function Get_ACW return Entity_Id;
+            --  If the expression has a reference to an controlling access
+            --  parameter, create an access to T'class for the necessary
+            --  conversions if one does not exist.
+
+            function Process (N : Node_Id) return Traverse_Result;
+            --  ARM 6.1.1: Within the expression for a Pre'Class or Post'Class
+            --  aspect for a primitive subprogram of a tagged type T, a name
+            --  that denotes a formal parameter of type T is interpreted as
+            --  having type T'Class. Similarly, a name that denotes a formal
+            --  accessparameter of type access-to-T is interpreted as having
+            --  type access-to-T'Class. This ensures the expression is well-
+            --  defined for a primitive subprogram of a type descended from T.
+            --  Note that this replacement is not done for selector names in
+            --  parameter associations. These carry an entity for reference
+            --  purposes, but semantically they are just identifiers.
+
+            -------------
+            -- Get_ACW --
+            -------------
+
+            function Get_ACW return Entity_Id is
+               Loc  : constant Source_Ptr := Sloc (Prag);
+               Decl : Node_Id;
+
+            begin
+               if No (ACW) then
+                  Decl :=
+                    Make_Full_Type_Declaration (Loc,
+                      Defining_Identifier => Make_Temporary (Loc, 'T'),
+                      Type_Definition     =>
+                         Make_Access_To_Object_Definition (Loc,
+                           Subtype_Indication =>
+                             New_Occurrence_Of (Class_Wide_Type (T), Loc),
+                           All_Present        => True));
+
+                  Insert_Before (Unit_Declaration_Node (Subp_Id), Decl);
+                  Analyze (Decl);
+                  ACW := Defining_Identifier (Decl);
+                  Freeze_Before (Unit_Declaration_Node (Subp_Id), ACW);
+               end if;
+
+               return ACW;
+            end Get_ACW;
+
+            -------------
+            -- Process --
+            -------------
+
+            function Process (N : Node_Id) return Traverse_Result is
+               Loc : constant Source_Ptr := Sloc (N);
+               Typ : Entity_Id;
+
+            begin
+               if Is_Entity_Name (N)
+                 and then Present (Entity (N))
+                 and then Is_Formal (Entity (N))
+                 and then Nkind (Parent (N)) /= N_Type_Conversion
+                 and then
+                   (Nkind (Parent (N)) /= N_Parameter_Association
+                     or else N /= Selector_Name (Parent (N)))
+               then
+                  if Etype (Entity (N)) = T then
+                     Typ := Class_Wide_Type (T);
+
+                  elsif Is_Access_Type (Etype (Entity (N)))
+                    and then Designated_Type (Etype (Entity (N))) = T
+                  then
+                     Typ := Get_ACW;
+                  else
+                     Typ := Empty;
+                  end if;
+
+                  if Present (Typ) then
+                     Rewrite (N,
+                       Make_Type_Conversion (Loc,
+                         Subtype_Mark =>
+                           New_Occurrence_Of (Typ, Loc),
+                         Expression  => New_Occurrence_Of (Entity (N), Loc)));
+                     Set_Etype (N, Typ);
+                  end if;
+               end if;
+
+               return OK;
+            end Process;
+
+            procedure Replace_Type is new Traverse_Proc (Process);
+
+         --  Start of processing for Class_Wide_Condition
+
+         begin
+            if not Present (T) then
+               Error_Msg_Name_1 :=
+                 Chars (Identifier (Corresponding_Aspect (Prag)));
+
+               Error_Msg_Name_2 := Name_Class;
+
+               Error_Msg_N
+                 ("aspect `%''%` can only be specified for a primitive "
+                  & "operation of a tagged type", Corresponding_Aspect (Prag));
+            end if;
+
+            Replace_Type (Get_Pragma_Arg (Arg1));
+         end Class_Wide_Condition;
+      end if;
+
+      --  Remove the subprogram from the scope stack now that the pre-analysis
+      --  of the precondition/postcondition is done.
+
+      if Restore_Scope then
+         End_Scope;
+      end if;
+   end Analyze_Pre_Post_Condition_In_Decl_Part;
+
+   ------------------------------------------
+   -- Analyze_Refined_Depends_In_Decl_Part --
+   ------------------------------------------
+
+   --  ??? To be implemented
+
+   procedure Analyze_Refined_Depends_In_Decl_Part (N : Node_Id) is
+      pragma Unreferenced (N);
+   begin
+      null;
+   end Analyze_Refined_Depends_In_Decl_Part;
+
+   -----------------------------------------
+   -- Analyze_Refined_Global_In_Decl_Part --
+   -----------------------------------------
+
+   --  ??? To be implemented
+
+   procedure Analyze_Refined_Global_In_Decl_Part (N : Node_Id) is
+      pragma Unreferenced (N);
+   begin
+      null;
+   end Analyze_Refined_Global_In_Decl_Part;
+
+   ----------------------------------------
+   -- Analyze_Refined_State_In_Decl_Part --
+   ----------------------------------------
+
+   procedure Analyze_Refined_State_In_Decl_Part (N : Node_Id) is
+      Pack_Body : constant Node_Id   := Parent (N);
+      Spec_Id   : constant Entity_Id := Corresponding_Spec (Pack_Body);
+
+      Abstr_States : Elist_Id := No_Elist;
+      --  A list of all abstract states defined in the package declaration. The
+      --  list is used to report unrefined states.
+
+      Constituents_Seen : Elist_Id := No_Elist;
+      --  A list that contains all constituents processed so far. The list is
+      --  used to detect multiple uses of the same constituent.
+
+      Hidden_States : Elist_Id := No_Elist;
+      --  A list of all hidden states (abstract states and variables) that
+      --  appear in the package spec and body. The list is used to report
+      --  unused hidden states.
+
+      Refined_States_Seen : Elist_Id := No_Elist;
+      --  A list that contains all refined states processed so far. The list is
+      --  used to detect duplicate refinements.
+
+      procedure Analyze_Refinement_Clause (Clause : Node_Id);
+      --  Perform full analysis of a single refinement clause
+
+      function Collect_Hidden_States return Elist_Id;
+      --  Gather the entities of all hidden states that appear in the spec and
+      --  body of the related package.
+
+      procedure Report_Unrefined_States;
+      --  Emit errors for all abstract states that have not been refined by
+      --  the pragma.
+
+      procedure Report_Unused_Hidden_States;
+      --  Emit errors for all hidden states of the related package that do not
+      --  participate in a refinement.
+
+      -------------------------------
+      -- Analyze_Refinement_Clause --
+      -------------------------------
+
+      procedure Analyze_Refinement_Clause (Clause : Node_Id) is
+         Non_Null_Seen : Boolean := False;
+         Null_Seen     : Boolean := False;
+         --  Flags used to detect multiple uses of null in a single clause or a
+         --  mixture of null and non-null constituents.
+
+         procedure Analyze_Constituent (Constit : Node_Id);
+         --  Perform full analysis of a single constituent
+
+         procedure Check_Matching_State
+           (State    : Node_Id;
+            State_Id : Entity_Id);
+         --  Determine whether state State denoted by its name State_Id appears
+         --  in Abstr_States. Emit an error when attempting to re-refine the
+         --  state or when the state is not defined in the package declaration.
+         --  Otherwise remove the state from Abstr_States.
+
+         -------------------------
+         -- Analyze_Constituent --
+         -------------------------
+
+         procedure Analyze_Constituent (Constit : Node_Id) is
+            procedure Check_Matching_Constituent (Constit_Id : Entity_Id);
+            --  Determine whether constituent Constit denoted by its entity
+            --  Constit_Id appears in Hidden_States. Emit an error when the
+            --  constituent is not a valid hidden state of the related package
+            --  or when it is used more than once. Otherwise remove the
+            --  constituent from Hidden_States.
+
+            --------------------------------
+            -- Check_Matching_Constituent --
+            --------------------------------
+
+            procedure Check_Matching_Constituent (Constit_Id : Entity_Id) is
+               State_Elmt : Elmt_Id;
+
+            begin
+               --  Detect a duplicate use of a constituent
+
+               if Contains (Constituents_Seen, Constit_Id) then
+                  Error_Msg_NE
+                    ("duplicate use of constituent &", Constit, Constit_Id);
+                  return;
+               end if;
+
+               --  Inspect the hidden states of the related package looking for
+               --  a match.
+
+               State_Elmt := First_Elmt (Hidden_States);
+               while Present (State_Elmt) loop
+
+                  --  A valid hidden state or variable participates in a
+                  --  refinement. Add the constituent to the list of processed
+                  --  items to aid with the detection of duplicate constituent
+                  --  use. Remove the constituent from Hidden_States to signal
+                  --  that it has already been used.
+
+                  if Node (State_Elmt) = Constit_Id then
+                     Add_Item (Constit_Id, Constituents_Seen);
+                     Remove_Elmt (Hidden_States, State_Elmt);
+
+                     return;
+                  end if;
+
+                  Next_Elmt (State_Elmt);
+               end loop;
+
+               --  If we get here, we are refining a state that is not hidden
+               --  with respect to the related package.
+
+               Error_Msg_Name_1 := Chars (Spec_Id);
+               Error_Msg_NE
+                 ("cannot use & in refinement, constituent is not a hidden "
+                  & "state of package %", Constit, Constit_Id);
+            end Check_Matching_Constituent;
+
+            --  Local variables
+
+            Constit_Id : Entity_Id;
+
+         --  Start of processing for Analyze_Constituent
+
+         begin
+            --  Detect multiple uses of null in a single refinement clause or a
+            --  mixture of null and non-null constituents.
+
+            if Nkind (Constit) = N_Null then
+               if Null_Seen then
+                  Error_Msg_N
+                    ("multiple null constituents not allowed", Constit);
+
+               elsif Non_Null_Seen then
+                  Error_Msg_N
+                    ("cannot mix null and non-null constituents", Constit);
+
+               else
+                  Null_Seen := True;
+               end if;
+
+            --  Non-null constituents
+
+            else
+               Non_Null_Seen := True;
+
+               if Null_Seen then
+                  Error_Msg_N
+                    ("cannot mix null and non-null constituents", Constit);
+               end if;
+
+               Analyze (Constit);
+
+               --  Ensure that the constituent denotes a valid state or a
+               --  whole variable.
+
+               if Is_Entity_Name (Constit) then
+                  Constit_Id := Entity (Constit);
+
+                  if Ekind_In (Constit_Id, E_Abstract_State, E_Variable) then
+                     Check_Matching_Constituent (Constit_Id);
+                  else
+                     Error_Msg_NE
+                       ("constituent & must denote a variable or state",
+                        Constit, Constit_Id);
+                  end if;
+
+               --  The constituent is illegal
+
+               else
+                  Error_Msg_N ("malformed constituent", Constit);
+               end if;
+            end if;
+         end Analyze_Constituent;
+
+         --------------------------
+         -- Check_Matching_State --
+         --------------------------
+
+         procedure Check_Matching_State
+           (State    : Node_Id;
+            State_Id : Entity_Id)
+         is
+            State_Elmt : Elmt_Id;
+
+         begin
+            --  Detect a duplicate refinement of a state
+
+            if Contains (Refined_States_Seen, State_Id) then
+               Error_Msg_NE
+                 ("duplicate refinement of state &", State, State_Id);
+               return;
+            end if;
+
+            --  Inspect the abstract states defined in the package declaration
+            --  looking for a match.
+
+            State_Elmt := First_Elmt (Abstr_States);
+            while Present (State_Elmt) loop
+
+               --  A valid abstract state is being refined in the body. Add
+               --  the state to the list of processed refined states to aid
+               --  with the detection of duplicate refinements. Remove the
+               --  state from Abstr_States to signal that it has already been
+               --  refined.
+
+               if Node (State_Elmt) = State_Id then
+                  Add_Item (State_Id, Refined_States_Seen);
+                  Remove_Elmt (Abstr_States, State_Elmt);
+
+                  return;
+               end if;
+
+               Next_Elmt (State_Elmt);
+            end loop;
+
+            --  If we get here, we are refining a state that is not defined in
+            --  the package declaration.
+
+            Error_Msg_Name_1 := Chars (Spec_Id);
+            Error_Msg_NE
+              ("cannot refine state, & is not defined in package %",
+               State, State_Id);
+         end Check_Matching_State;
+
+         --  Local declarations
+
+         Constit  : Node_Id;
+         State    : Node_Id;
+         State_Id : Entity_Id := Empty;
+
+      --  Start of processing for Analyze_Refinement_Clause
+
+      begin
+         --  Analyze the state name of a refinement clause
+
+         State := First (Choices (Clause));
+         while Present (State) loop
+            if Present (State_Id) then
+               Error_Msg_N
+                 ("refinement clause cannot cover multiple states", State);
+
+            else
+               Analyze (State);
+
+               --  Ensure that the state name denotes a valid abstract state
+               --  that is defined in the spec of the related package.
+
+               if Is_Entity_Name (State) then
+                  State_Id := Entity (State);
+
+                  --  Catch any attempts to re-refine a state or refine a
+                  --  state that is not defined in the package declaration.
+
+                  if Ekind (State_Id) = E_Abstract_State then
+                     Check_Matching_State (State, State_Id);
+                  else
+                     Error_Msg_NE
+                       ("& must denote an abstract state", State, State_Id);
+                  end if;
+
+               --  The state name is illegal
+
+               else
+                  Error_Msg_N
+                    ("malformed state name in refinement clause", State);
+               end if;
+            end if;
+
+            Next (State);
+         end loop;
+
+         --  Analyze all constituents of the refinement. Multiple constituents
+         --  appear as an aggregate.
+
+         Constit := Expression (Clause);
+
+         if Nkind (Constit) = N_Aggregate then
+            if Present (Component_Associations (Constit)) then
+               Error_Msg_N
+                 ("constituents of refinement clause must appear in "
+                  & "positional form", Constit);
+
+            else pragma Assert (Present (Expressions (Constit)));
+               Constit := First (Expressions (Constit));
+               while Present (Constit) loop
+                  Analyze_Constituent (Constit);
+
+                  Next (Constit);
+               end loop;
+            end if;
+
+         --  Various forms of a single constituent. Note that these may include
+         --  malformed constituents.
+
+         else
+            Analyze_Constituent (Constit);
+         end if;
+      end Analyze_Refinement_Clause;
+
+      ---------------------------
+      -- Collect_Hidden_States --
+      ---------------------------
+
+      function Collect_Hidden_States return Elist_Id is
+         Result : Elist_Id := No_Elist;
+
+         procedure Collect_Hidden_States_In_Decls (Decls : List_Id);
+         --  Find all hidden states that appear in declarative list Decls and
+         --  append their entities to Result.
+
+         ------------------------------------
+         -- Collect_Hidden_States_In_Decls --
+         ------------------------------------
+
+         procedure Collect_Hidden_States_In_Decls (Decls : List_Id) is
+            procedure Collect_Abstract_States (States : Elist_Id);
+            --  Copy the abstract states defined in list States to list Result
+
+            -----------------------------
+            -- Collect_Abstract_States --
+            -----------------------------
+
+            procedure Collect_Abstract_States (States : Elist_Id) is
+               State_Elmt : Elmt_Id;
+
+            begin
+               State_Elmt := First_Elmt (States);
+               while Present (State_Elmt) loop
+                  Add_Item (Node (State_Elmt), Result);
+
+                  Next_Elmt (State_Elmt);
+               end loop;
+            end Collect_Abstract_States;
+
+            --  Local variables
+
+            Decl : Node_Id;
+
+         --  Start of processing for Collect_Hidden_States_In_Decls
+
+         begin
+            Decl := First (Decls);
+            while Present (Decl) loop
+
+               --  Source objects (non-constants) are valid hidden states
+
+               --  This is a very odd test, it misses many cases, e.g.
+               --  renamings of objects, in-out parameters etc ???. Why
+               --  not test the Ekind ???
+
+               if Nkind (Decl) = N_Object_Declaration
+                 and then not Constant_Present (Decl)
+                 and then Comes_From_Source (Decl)
+               then
+                  Add_Item (Defining_Entity (Decl), Result);
+
+               --  Gather the abstract states of a package along with all
+               --  hidden states in its visible declarations.
+
+               elsif Nkind (Decl) = N_Package_Declaration then
+                  Collect_Abstract_States
+                    (Abstract_States (Defining_Entity (Decl)));
+
+                  Collect_Hidden_States_In_Decls
+                    (Visible_Declarations (Specification (Decl)));
+               end if;
+
+               Next (Decl);
+            end loop;
+         end Collect_Hidden_States_In_Decls;
+
+         --  Local variables
+
+         Pack_Spec : constant Node_Id := Parent (Spec_Id);
+
+      --  Start of processing for Collect_Hidden_States
+
+      begin
+         --  Process the private declarations of the package spec and the
+         --  declarations of the body.
+
+         Collect_Hidden_States_In_Decls (Private_Declarations (Pack_Spec));
+         Collect_Hidden_States_In_Decls (Declarations (Pack_Body));
+
+         return Result;
+      end Collect_Hidden_States;
+
+      -----------------------------
+      -- Report_Unrefined_States --
+      -----------------------------
+
+      procedure Report_Unrefined_States is
+         State_Elmt : Elmt_Id;
+
+      begin
+         if Present (Abstr_States) then
+            State_Elmt := First_Elmt (Abstr_States);
+            while Present (State_Elmt) loop
+               Error_Msg_N
+                 ("abstract state & must be refined", Node (State_Elmt));
+
+               Next_Elmt (State_Elmt);
+            end loop;
+         end if;
+      end Report_Unrefined_States;
+
+      ---------------------------------
+      -- Report_Unused_Hidden_States --
+      ---------------------------------
+
+      procedure Report_Unused_Hidden_States is
+         Posted     : Boolean := False;
+         State_Elmt : Elmt_Id;
+         State_Id   : Entity_Id;
+
+      begin
+         if Present (Hidden_States) then
+            State_Elmt := First_Elmt (Hidden_States);
+            while Present (State_Elmt) loop
+               State_Id := Node (State_Elmt);
+
+               --  Generate an error message of the form:
+
+               --    package ... has unused hidden states
+               --      abstract state ... defined at ...
+               --      variable ... defined at ...
+
+               if not Posted then
+                  Posted := True;
+                  Error_Msg_NE
+                    ("package & has unused hidden states", N, Spec_Id);
+               end if;
+
+               Error_Msg_Sloc := Sloc (State_Id);
+
+               if Ekind (State_Id) = E_Abstract_State then
+                  Error_Msg_NE ("\  abstract state & defined #", N, State_Id);
+               else
+                  Error_Msg_NE ("\  variable & defined #", N, State_Id);
+               end if;
+
+               Next_Elmt (State_Elmt);
+            end loop;
+         end if;
+      end Report_Unused_Hidden_States;
+
+      --  Local declarations
+
+      Clauses : constant Node_Id :=
+                  Expression (First (Pragma_Argument_Associations (N)));
+      Clause  : Node_Id;
+
+   --  Start of processing for Analyze_Refined_State_In_Decl_Part
+
+   begin
+      Set_Analyzed (N);
+
+      --  Initialize the various lists used during analysis
+
+      Abstr_States  := Clone (Abstract_States (Spec_Id));
+      Hidden_States := Collect_Hidden_States;
+
+      --  Multiple state refinements appear as an aggregate
+
+      if Nkind (Clauses) = N_Aggregate then
+         if Present (Expressions (Clauses)) then
+            Error_Msg_N
+              ("state refinements must appear as component associations",
+               Clauses);
+
+         else pragma Assert (Present (Component_Associations (Clauses)));
+            Clause := First (Component_Associations (Clauses));
+            while Present (Clause) loop
+               Analyze_Refinement_Clause (Clause);
+
+               Next (Clause);
+            end loop;
+         end if;
+
+      --  Various forms of a single state refinement. Note that these may
+      --  include malformed refinements.
+
+      else
+         Analyze_Refinement_Clause (Clauses);
+      end if;
+
+      --  Ensure that all abstract states have been refined and all hidden
+      --  states of the related package unilized in refinements.
+
+      Report_Unrefined_States;
+      Report_Unused_Hidden_States;
+   end Analyze_Refined_State_In_Decl_Part;
+
    ------------------------------------
    -- Analyze_Test_Case_In_Decl_Part --
    ------------------------------------
@@ -18991,12 +19769,12 @@ package body Sem_Prag is
       Pragma_Page                           => -1,
       Pragma_Partition_Elaboration_Policy   => -1,
       Pragma_Passive                        => -1,
-      Pragma_Preelaborable_Initialization   => -1,
-      Pragma_Polling                        => -1,
       Pragma_Persistent_BSS                 =>  0,
+      Pragma_Polling                        => -1,
       Pragma_Postcondition                  => -1,
       Pragma_Precondition                   => -1,
       Pragma_Predicate                      => -1,
+      Pragma_Preelaborable_Initialization   => -1,
       Pragma_Preelaborate                   => -1,
       Pragma_Preelaborate_05                => -1,
       Pragma_Priority                       => -1,
@@ -19012,6 +19790,11 @@ package body Sem_Prag is
       Pragma_Queuing_Policy                 => -1,
       Pragma_Rational                       => -1,
       Pragma_Ravenscar                      => -1,
+      Pragma_Refined_Depends                => -1,
+      Pragma_Refined_Global                 => -1,
+      Pragma_Refined_Post                   => -1,
+      Pragma_Refined_Pre                    => -1,
+      Pragma_Refined_State                  => -1,
       Pragma_Relative_Deadline              => -1,
       Pragma_Remote_Access_Type             => -1,
       Pragma_Remote_Call_Interface          => -1,
@@ -19241,6 +20024,8 @@ package body Sem_Prag is
             Name_Postcondition        |
             Name_Precondition         |
             Name_Predicate            |
+            Name_Refined_Post         |
+            Name_Refined_Pre          |
             Name_Statement_Assertions => return True;
 
          when others                  => return False;
@@ -19445,6 +20230,116 @@ package body Sem_Prag is
       --  Nothing else to do at the current time!
 
    end Process_Compilation_Unit_Pragmas;
+
+   ------------------------------
+   -- Relocate_Pragmas_To_Body --
+   ------------------------------
+
+   procedure Relocate_Pragmas_To_Body
+     (Subp_Body   : Node_Id;
+      Target_Body : Node_Id := Empty)
+   is
+      procedure Relocate_Pragma (Prag : Node_Id);
+      --  Remove a single pragma from its current list and add it to the
+      --  declarations of the proper body (either Subp_Body or Target_Body).
+
+      ---------------------
+      -- Relocate_Pragma --
+      ---------------------
+
+      procedure Relocate_Pragma (Prag : Node_Id) is
+         Decls  : List_Id;
+         Target : Node_Id;
+
+      begin
+         --  When subprogram stubs or expression functions are involves, the
+         --  destination declaration list belongs to the proper body.
+
+         if Present (Target_Body) then
+            Target := Target_Body;
+         else
+            Target := Subp_Body;
+         end if;
+
+         Decls := Declarations (Target);
+
+         if No (Decls) then
+            Decls := New_List;
+            Set_Declarations (Target, Decls);
+         end if;
+
+         --  Unhook the pragma from its current list
+
+         Remove  (Prag);
+         Prepend (Prag, Decls);
+      end Relocate_Pragma;
+
+      --  Local variables
+
+      Body_Id   : constant Entity_Id :=
+                    Defining_Unit_Name (Specification (Subp_Body));
+      Next_Stmt : Node_Id;
+      Stmt      : Node_Id;
+
+   --  Start of processing for Relocate_Pragmas_To_Body
+
+   begin
+      --  Do not process a body that comes from a separate unit as no construct
+      --  can possibly follow it.
+
+      if not Is_List_Member (Subp_Body) then
+         return;
+
+      --  Do not relocate pragmas that follow a stub if the stub does not have
+      --  a proper body.
+
+      elsif Nkind (Subp_Body) = N_Subprogram_Body_Stub
+        and then No (Target_Body)
+      then
+         return;
+
+      --  Do not process internally generated routine _Postconditions
+
+      elsif Ekind (Body_Id) = E_Procedure
+        and then Chars (Body_Id) = Name_uPostconditions
+      then
+         return;
+      end if;
+
+      --  Look at what is following the body. We are interested in certain kind
+      --  of pragmas (either from source or byproducts of expansion) that can
+      --  apply to a body [stub].
+
+      Stmt := Next (Subp_Body);
+      while Present (Stmt) loop
+
+         --  Preserve the following statement for iteration purposes due to a
+         --  possible relocation of a pragma.
+
+         Next_Stmt := Next (Stmt);
+
+         --  Move a candidate pragma following the body to the declarations of
+         --  the body.
+
+         if Nkind (Stmt) = N_Pragma
+           and then Pragma_On_Body_Or_Stub_OK (Get_Pragma_Id (Stmt))
+         then
+            Relocate_Pragma (Stmt);
+
+         --  Skip internally generated code
+
+         elsif not Comes_From_Source (Stmt) then
+            null;
+
+         --  No candidate pragmas are available for relocation
+
+         else
+            exit;
+         end if;
+
+         Stmt := Next_Stmt;
+      end loop;
+   end Relocate_Pragmas_To_Body;
 
    ----------------------------
    -- Rewrite_Assertion_Kind --
