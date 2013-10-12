@@ -366,6 +366,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		  #{ /* start error_at $ERROR_CHK */
 		  melt_error_str (($LOC), melt_string_str ($DIAGMSG), NULL);
 		  /* end error_at $ERROR_CHK */ }#)
+      (assert_msg "bootstrapping error" (not (melt_is_bootstrapping)))
     )))					;end ERROR_AT
 
 

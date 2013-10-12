@@ -1,5 +1,9 @@
 
 2013-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-macro.melt (error_at): Assert failure when
+	bootstrapping error.
+
+2013-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
