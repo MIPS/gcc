@@ -5158,8 +5158,8 @@ source location.}#
     (add_nctx_data ncx insdata)
     (when (is_not_a shobind class_hook_binding)
       (error_at sloc
-		"bad DEFHOOK $1, not bound to a hook [nested hooks are prohibited]"
-		symbname)
+		"bad hook definition $1, not bound to a hook but $2 [nested hooks are prohibited]"
+		symbname (get_field :named_name (discrim shobind)))
       (return))
 ;;; fill the named_name of insdata
     (debug "normexp_defhook namstrdata=" namstrdata)
