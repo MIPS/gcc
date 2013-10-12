@@ -3685,6 +3685,10 @@ $EXPORT_VALUES to be visible outside its module.}#)
 			:smacinst_defmacro sdefmacro
 			))
 	     )
+	(when (not (is_list maclist))
+	  (error_at loc "macros, i.e. DEFMACRO, are forbidden in this module $1" 
+		    (get_field :mocx_modulename modctx))
+	  (return))
 	(debug "mexpand_defmacro bodytup=" bodytup)
 	(put_fields mbind :mbind_defmacro sdefmacro)
 	(debug "mexpand_defmacro sdefmacro=" sdefmacro "\n old maclist=" maclist 
@@ -3761,9 +3765,12 @@ is ($DEFMACRO @var{funame} @var{formals} [:doc @var{documentation}]
 	 (maclist (get_field :mocx_macrolist modctx))
 	 (curpair (pair_tail (list_first cont)))
 	 (bodytup (expand_pairlist_as_tuple curpair modinienv mexpander modctx))
-	 (maclist (get_field :mocx_macrolist modctx))
 	 )
     (debug "mexpand_at_macro_expansion bodytup=" bodytup "\n.. modinienv=" modinienv "\n.. maclist=" maclist)
+    (when (not (is_list maclist))
+      (error_at loc "macros, i.e. AT_MACRO_EXPANSION, are forbidden in this module $1" 
+		(get_field :mocx_modulename modctx))
+      (return))
     (assert_msg "check bodytup" (is_multiple bodytup) bodytup)
     (foreach_in_multiple 
      (bodytup)

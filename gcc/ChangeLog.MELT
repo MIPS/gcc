@@ -1,4 +1,17 @@
 
+2013-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{more specific code for bootstrapping first translation}}
+	* melt/warmelt-macro.melt (mexpand_defmacro)
+	(mexpand_at_macro_expansion): Error when the module context don't
+	have a mocx_macrolist, i.e. for the first module.
+
+	* melt/warmelt-outobj.melt (class_first_module_context): New
+	internal class.
+	(compile_first_bootstrap_list_sexpr): New function.
+
+	* melt/warmelt-modes.melt (translateinit_docmd): Call it.
+
 2013-10-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-first.melt: Add a comment about forbidden macros in

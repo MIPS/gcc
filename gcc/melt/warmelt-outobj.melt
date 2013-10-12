@@ -6977,17 +6977,79 @@ if (1) return;
     (let ( (xlist (macroexpand_toplevel_list lsexp inienv macroexpand_1 modctx)) 
 	   (:long lenxlist (list_length xlist))
 	   )
-      (debug "compile_list_sexpr after macroexpansion modctx=" modctx)
-      ;;
-      (debug "compile_list_sexpr before translation modctx=" modctx)
+      (debug "compile_list_sexpr after macroexpansion and before translation modctx=" debug_less modctx)
       ;;
       (translate_macroexpanded_list xlist modnamstr modctx ncx inienv () compile2obj_initproc)
-      (debug "compile_list_sexpr after translation modctx=" modctx)
+      (debug "compile_list_sexpr after translation modctx=" debug_less modctx)
       )))
 
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defclass class_first_module_context 
+  :doc #{$CLASS_FIRST_MODULE_CONTEXT is for compiling the bootstrapped first module warmelt-first. For Gurus.}#
+  :super class_module_context
+  :fields (
+	   ))
+
+;; compile a list of sexpressions as a the first bootstrapping module ie bootstrap warmelt-first
+(defun compile_first_bootstrap_list_sexpr (lsexp modnamstr)
+  (debug "compile_first_bootstrap_list_sexpr modnamstr=" modnamstr " lsexp=" debug_less lsexp)
+  (shortbacktrace_dbg "compile_list_sexpr" 10)
+  (assert_msg "check lsexp" (is_list lsexp) lsexp)
+  (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
+  (assert_msg "compile_first_bootstrap_list_sexpr modulename not ended with MELT_DYNLOADED_SUFFIX."
+	      (not (string_dynloaded_suffixed modnamstr)) modnamstr)
+  (assert_msg "compile_first_bootstrap_list_sexpr modulename not ended with .melt"
+	      (not (string_suffixed modnamstr ".melt")) modnamstr)
+  (assert_msg "compile_first_bootstrap_list_sexpr modulename not ended with .c"
+	      (not (string_suffixed modnamstr ".c")) modnamstr)
+  (assert_msg "compile_first_bootstrap_list_sexpr modulename not ended with .cc"
+	      (not (string_suffixed modnamstr ".cc")) modnamstr)
+  (code_chunk 
+   check_warmelt_first_bootstrapping_chunk #{ 
+   /* compile_first_bootstrap_list_sexpr $CHECK_WARMELT_FIRST_BOOTSTRAPPING_CHUNK */ 
+   melt_checkmsg ("bootstrapping first file",
+		  melt_flag_bootstrapping 
+		  && melt_string_str((melt_ptr_t) $MODNAMSTR)
+		  && strstr(melt_string_str((melt_ptr_t) $MODNAMSTR), "first")) ;
+   }#)
+  (let (
+	(modnakedname (make_string_nakedbasename discr_string modnamstr))
+	(modctx (instance class_first_module_context
+			  :mocx_modulename  modnakedname
+			  :mocx_expfieldict (make_mapstring discr_map_strings 490)
+			  :mocx_expclassdict (make_mapstring discr_map_strings 240)
+			  :mocx_initialenv ()
+			  :mocx_funcount (make_integerbox discr_integer 0)
+			  :mocx_filetuple ()
+			  :mocx_cheaderlist (make_list discr_list)
+			  :mocx_cimplementlist (make_list discr_list)
+			  ;; :mocx_cflags (make_list discr_list)
+			  ;; :mocx_linkflags (make_list discr_list)
+			  :mocx_packagepclist (make_list discr_list)
+			  :mocx_gendevlist (make_list discr_list)
+			  :mocx_errorhandler (lambda (v) (fatal_compile_error modnamstr v))
+			  :mocx_varcount (make_integerbox discr_integer 0)
+			  :mocx_varlist (make_list discr_list)
+			  :mocx_hookdict (make_mapstring discr_map_strings 31)
+			  :mocx_macrolist () ;; no macro list because macros are forbidden in first
+			  ))
+	(ncx (create_normcontext modctx)) 
+	)
+    (debug "compile_first_bootstrap_list_sexpr modctx=" debug_less modctx "\n ncx=" debug_less ncx)
+    (assert_msg "compile_first_bootstrap_list_sexpr check initial_environment" 
+		(is_a initial_environment class_environment) initial_environment)
+    (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+    (let ( (xlist (macroexpand_toplevel_list lsexp initial_environment macroexpand_1 modctx)) 
+	   (:long lenxlist (list_length xlist))
+	   )
+      (debug "compile_first_bootstrap_list_sexpr after macroexpansion and before translation modctx=" debug_less modctx)
+      (inform_at () "compile first got $1 expanded expressions in $2" lenxlist modnamstr)
+      ;;
+      (translate_macroexpanded_list xlist modnamstr modctx ncx initial_environment () compile2obj_initproc)
+      )))
 
 ;;;;;**********************************************************
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -7744,6 +7806,7 @@ notice for file named $NAME.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values 
  compile_list_sexpr
+ compile_first_bootstrap_list_sexpr
  eval
  generate_gplv3plus_copyright_notice_c_comment 
  get_code_buffer_limit

@@ -4464,14 +4464,14 @@ ASSERT_MSG) is enabled"
 		  (split_string_comma discr_string (make_stringconst discr_string progarglist))
 		  )
 		(:else
-		 (errormsg_plain "invalid arg or arglist to translateinit mode")
+		 (error_at () "invalid arg $1 or arglist $2 to translateinit mode" progarg progarglist)
 		 (return))))
 	 (outarg (make_stringconst discr_string (melt_argument "output")))
 	 (basnam (cond
 		  ( (is_string outarg) outarg)
 		  ( (is_string inarg) (make_string_nakedbasename discr_string inarg))
 		  (:else
-		   (errormsg_plain "invalid translateinit mode")
+		   (error_at () "invalid translateinit mode inarg $1 outarg $2" inarg outarg)
 		   (return)
 		   )))
 	 )
@@ -4481,7 +4481,7 @@ ASSERT_MSG) is enabled"
 	    (string_suffixed basnam ".c")
 	    (string_suffixed basnam ".cc"))
 	(progn 
-	  (errormsg_strv "tranlateinit mode needs a base name without suffix" 
+	  (error_at () "tranlateinit mode needs a base name $1 without suffix" 
 			 basnam)
 	  (return)
 	  ))
@@ -4491,7 +4491,7 @@ ASSERT_MSG) is enabled"
      ((is_list inarg)
       (list_every inarg 
 		  (lambda (curarg)
-		    (informsg_strv "reading from file" curarg)
+		    (inform_at () "translateinit reading from file $1" curarg)
 		    (let ( (curead (read_file curarg))
 			   )
 		      (assert_msg "check rlist" (is_list rlist) rlist)
@@ -4500,12 +4500,8 @@ ASSERT_MSG) is enabled"
 		      (list_append2list rlist curead)))))
      )
     (debug "after read translateinit_mode rlist=" rlist)
-    ;; we pass a null initial environment, so that
-    ;; MELT_HAS_INITIAL_ENVIRONMENT is emitted as 0, to avoid spurious
-    ;; warnings about unexistent EXPORT_VALUE routine in early
-    ;; initialization of warmelt-first.melt.  This is crazy magic
-    ;; which happens to work.
-    (compile_list_sexpr rlist () basnam)
+    ;; special magic for the initial first file
+    (compile_first_bootstrap_list_sexpr rlist basnam)
     ;; we trigger explicitly a full GC to stress the runtime. The
     ;; translateinit mode is not useful to the casual user.
     (full_garbcoll 10000)
