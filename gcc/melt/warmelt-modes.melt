@@ -4512,7 +4512,7 @@ ASSERT_MSG) is enabled"
 (definstance translateinit_mode
   class_melt_mode
   :named_name '"translateinit"
-  :meltmode_help '"translate the very first *.melt file;\n
+  :meltmode_help '"translate the very first (warmelt-first.melt) file for bootstrapping;\n
 \t useful only at MELT installation! ARGUMENT= input file; OUTPUT= generated file."
   :meltmode_fun translateinit_docmd
 )

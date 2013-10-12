@@ -8263,9 +8263,9 @@ source location.}#
        ;;
        ))))
 
-;;;; normalize an export_macro
+;;;; normalize an export_macro with an explicit expander
 (defun normexp_export_macro (recv env ncx psloc)
-  (debug "normexp export_macro recv=" recv)
+  (debug "normexp export_macro recv=" recv " env=" debug_less env)
   (assert_msg "check export_macro recv" (is_a recv class_source_export_macro) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -8291,6 +8291,38 @@ source location.}#
      (return nrepnil bindslist)
      )))
 (install_method class_source_export_macro normal_exp normexp_export_macro)
+
+;;;; normalize an export_macro for a defmacro
+(defun normexp_export_defmacro (recv env ncx psloc)
+  (debug "normexp export_defmacro recv=" recv " env=" debug_less env)
+  (assert_msg "check export_defmacro recv" (is_a recv class_source_export_defmacro) recv)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+  (let ( 
+	(modctx (get_field :nctx_modulcontext ncx))
+	(sloc (unsafe_get_field :loca_location recv))
+	(mname (unsafe_get_field :sexpmac_mname recv))
+	(bindslist (make_list discr_list))
+	(nrepnil (instance class_nrep_nil :nrep_loc sloc))
+	)
+    (assert_msg "check mname" (is_a mname class_symbol) mname)
+    (assert_msg "@$@unimplemented normexp_export_defmacro" () recv env modctx)
+#|
+    (multicall 
+     (nexp nbinds)
+     (normal_exp mvalexp env ncx sloc)
+     (list_append2list bindslist nbinds)
+     (let ( 
+	   (nexpm (normal_exported_macro mname nexp env ncx sloc bindslist))
+	   )
+       (debug "normexp_export_macro nexpm" nexpm)
+       )
+     (debug "normexp_export_macro final nrepnil=" nrepnil
+	    " bindslist=" bindslist)
+     (return nrepnil bindslist)
+|#
+     ))
+(install_method class_source_export_defmacro normal_exp normexp_export_defmacro)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

@@ -1,6 +1,19 @@
 
 
 2013-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (class_source_export_any_macro): New abstract class.
+	(class_source_export_macro): Made subclass of class_source_export_any_macro.
+	(class_source_export_defmacro): New subclass, with moved field sexpmac_mval.
+
+	* melt/warmelt-normal.melt (normexp_export_defmacro): New method
+	for normal_exp on class_source_export_defmacro.
+
+	* melt/warmelt-outobj.melt (eval): Improve warning message.
+
+	* melt/warmelt-modes.melt (translateinit_mode): Improve help message.
+
+2013-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.

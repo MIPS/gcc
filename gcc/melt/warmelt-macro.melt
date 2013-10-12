@@ -674,17 +674,34 @@ syntax of $EXPORT_CLASS directives.}#
   :fields (
 	   ))
 
-;; export one macro - (export_macro <macroname> <value>)
-;; beware that the evaluation of the value is done near end of initial routine!
-(defclass class_source_export_macro
-  :doc #{The internal $CLASS_SOURCE_EXPORT_MACRO is for abstract syntax of
+
+(defclass class_source_export_any_macro
+  :doc #{The internal $CLASS_SOURCE_EXPORT_ANY_MACRO is for abstract syntax of
 $EXPORT_MACRO directives. $SEXPMAC_MNAME is the macro-name,
-$SEXPMAC_MVAL is the expanser value, and $SEXPMAC_DOC is the
+and $SEXPMAC_DOC is the
 documentation.}#
   :super class_source
   :fields (sexpmac_mname
-	   sexpmac_mval
 	   sexpmac_doc
+	   ))
+
+;; export one macro - (export_macro <macroname> <value>)
+;; beware that the evaluation of the value is done near end of initial routine!
+(defclass class_source_export_macro
+  :doc #{The internal $CLASS_SOURCE_EXPORT_MACRO is for abstract
+syntax of $EXPORT_MACRO directives with an explicit expanser.
+$SEXPMAC_MVAL is the expanser value.}#
+  :super class_source_export_any_macro
+  :fields (sexpmac_mval
+	   ))
+
+;; export one defined macro - (export_macro <macroname>)
+;; beware that the evaluation of the value is done near end of initial routine!
+(defclass class_source_export_defmacro
+  :doc #{The internal $CLASS_SOURCE_EXPORT_DEFMACRO is for abstract
+syntax of $EXPORT_MACRO directives for macros defined with $DEFMACRO.}#
+  :super class_source_export_any_macro
+  :fields (
 	   ))
 
 ;; export one pattern - (export_patmacro <macroname> <patexpvalue> <macexpvalue>)
@@ -8563,8 +8580,9 @@ $COMMA It is often noted with a prefix comma-character
 			)
 		   (debug "mexpand_export_macro cbind=" cb)
 		   cb))
+	  (:long isdefmacro (is_a cbind class_defined_macro_binding))
 	  (expv (cond ( (null sexpv)
-			(when (is_not_a cbind class_defined_macro_binding)
+			(when (not isdefmacro)
 			  (error_at loc "(EXPORT_MACRO $1 <expander>) needs an expander for non-macro symbol"
 				      symbname)
 			  (return))
@@ -8934,7 +8952,9 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_defunmatcher
  class_source_defvar
  class_source_exit
+ class_source_export_any_macro
  class_source_export_class
+ class_source_export_defmacro
  class_source_export_macro
  class_source_export_patmacro
  class_source_export_synonym

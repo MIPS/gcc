@@ -7726,7 +7726,8 @@ if (1) return;
       (setq env (parent_module_environment)))
   (when (is_not_a env class_environment)
     (debug "eval returns nil with bad env=" env)
-    (warningmsg_plain "EVAL got a bad environment")
+    (warning_at () "EVAL got a bad environment of $1" 
+		(get_field :named_name (discrim env)))
     (return ())
     )
   (let ( (listexps
