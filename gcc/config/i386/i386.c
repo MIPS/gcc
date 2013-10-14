@@ -7516,9 +7516,6 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
   else if (X87_FLOAT_MODE_P (mode) && TARGET_FLOAT_RETURNS_IN_80387)
     regno = FIRST_FLOAT_REG;
 
-  /* Bounds are returnd in the first bound register.  */
-  else if (mode == BND32mode)
-    regno = FIRST_BND_REG;
   else
     /* Most things go in %eax.  */
     regno = AX_REG;
@@ -7642,8 +7639,7 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
      function value.  */
   if (flag_check_pointers && BOUNDED_TYPE_P (valtype))
     {
-      rtx b0 = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
-			    FIRST_BND_REG);
+      rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
       res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, res, b0));
     }
 
