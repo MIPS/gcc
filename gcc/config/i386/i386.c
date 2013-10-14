@@ -32471,8 +32471,8 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 
     case IX86_BUILTIN_BNDNARROW:
       {
-	enum machine_mode mode = TARGET_64BIT ? BND64mode : BND32mode;
-	enum machine_mode hmode = TARGET_64BIT ? DImode : SImode;
+	enum machine_mode mode = BNDmode;
+	enum machine_mode hmode = Pmode;
 	rtx m1, m1h1, m1h2, lb, ub, t1, t2;
 
 	/* Return value and lb.  */
