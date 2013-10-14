@@ -1361,6 +1361,34 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	  e->speculative = false;
 	  cgraph_set_call_stmt_including_clones (e->caller, e->call_stmt,
 						 new_stmt, false);
+	  if (flag_check_pointers
+	      && gimple_call_lhs (new_stmt)
+	      && chkp_retbnd_call_by_val (gimple_call_lhs (e2->call_stmt)))
+	    {
+	      tree dresult = gimple_call_lhs (new_stmt);
+	      tree iresult = gimple_call_lhs (e2->call_stmt);
+	      gimple dbndret = chkp_retbnd_call_by_val (dresult);
+	      gimple ibndret = chkp_retbnd_call_by_val (iresult);
+	      struct cgraph_edge *iedge = cgraph_edge (e2->caller, ibndret);
+	      struct cgraph_edge *dedge;
+	      /*	      if (!iedge)
+		{
+		  struct cgraph_node *retbnd_node = cgraph_get_node
+		    (targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET));
+		  iedge = cgraph_create_edge (e->caller, retbnd_node, ibndret,
+					      e2->count, e2->frequency);
+					      }*/
+	      if (dbndret)
+		{
+		  dedge = cgraph_create_edge (iedge->caller, iedge->callee,
+					      dbndret, e->count,
+					      e->frequency);
+		  dedge->frequency = compute_call_stmt_bb_frequency
+		    (dedge->caller->symbol.decl, gimple_bb (dedge->call_stmt));
+		}
+	      iedge->frequency = compute_call_stmt_bb_frequency
+		(iedge->caller->symbol.decl, gimple_bb (iedge->call_stmt));
+	    }
 	  e->frequency = compute_call_stmt_bb_frequency
 			   (e->caller->symbol.decl, gimple_bb (e->call_stmt));
 	  e2->frequency = compute_call_stmt_bb_frequency
