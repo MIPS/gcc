@@ -8000,8 +8000,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 	  rtx bounds;
 
 	  if (bnd_reg <= LAST_BND_REG)
-	    bounds = gen_rtx_REG (TARGET_64BIT ? BND64mode : BND32mode,
-				  bnd_reg);
+	    bounds = gen_rtx_REG (BNDmode, bnd_reg);
 	  else
 	    {
 	      rtx ldx_addr;
@@ -8009,7 +8008,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -8);
 	      else
 		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -16);
-	      bounds = gen_reg_rtx (TARGET_64BIT ? BND64mode : BND32mode);
+	      bounds = gen_reg_rtx (BNDmode);
 	      emit_insn (TARGET_64BIT
 			 ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
 			 : gen_bnd32_ldx (bounds, ldx_addr, ptr));
