@@ -2,6 +2,12 @@
 
 2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (mexpand_defmacro)
+	(mexpand_at_macro_expansion): Use the mocx_macroenv of the module
+	context.
+
+2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
