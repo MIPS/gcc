@@ -3072,6 +3072,7 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; normalize an application
 (defun normexp_apply (recv env ncx psloc)
+  (debug "normexp_apply recv=" recv "\n env=" env)
   (assert_msg "check apply recv" (is_a recv class_source_apply) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -3080,11 +3081,12 @@ source location.}#
 	 (sargs (unsafe_get_field :sargop_args recv))
 	 (sfusymb (if (is_a sfun class_symbol) sfun '_fun_))
 	 )
+    (debug "normexp_apply sloc=" sloc "; sfun=" sfun)
     (multicall 
      (nfun nbindfun)
      (normal_exp sfun env ncx sloc)
+     (debug "normexp_apply nfun=" nfun "\n nbindfun=" nbindfun)
      (assert_msg "check nbindfun" (is_list_or_null nbindfun) nbindfun)
-     (debug "normexp_apply nfun" nfun)
      (let ( (nfunctyp (get_ctype nfun env)) 
 	    )
        (debug "normexp_apply nfunctyp" nfunctyp)
@@ -3103,6 +3105,7 @@ source location.}#
 		(error_at (get_field :loca_location sfun) 
 			  "here is the wrong applied function")))
 	     )))
+     (debug "normexp_apply sloc=" sloc "; sargs=" sargs)
      (multicall
       (nargs nbindargs)
       (normalize_tuple sargs env ncx sloc)
@@ -3492,7 +3495,7 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;; normalize an ifelse
 (defun normexp_ifelse (recv env ncx psloc)
-  (debug "normexp_ifelse recv=" recv)
+  (debug "normexp_ifelse recv=" recv "\n.. env=" debug_more env)
   (assert_msg "check if recv" (is_a recv class_source_ifelse) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -3502,10 +3505,11 @@ source location.}#
 	 (sthen (unsafe_get_field :sif_then recv))
 	 (selse (unsafe_get_field :sif_else recv))
 	 )
+    (debug "normexp_ifelse sloc=" debug_less sloc "; stest=" stest)
     (multicall 
      (ntest nbindif)	     ;nbindif is also the whole result binding
      (normal_exp stest env ncx sloc)
-     (debug "normexp_ifelse ntest" ntest)
+     (debug "normexp_ifelse ntest=" ntest "; nbindif=" nbindif)
      (assert_msg "check nbindif test" (is_list_or_null nbindif) nbindif)
      ;; prepend interrupt check void binding
      (let ( (cintsymb (clone_symbol '_ifelse_inter_))
@@ -3523,21 +3527,24 @@ source location.}#
      ;; environment with nbindif since all relevant bindings there are
      ;; generated, with unique cloned symbols, and these bindings 
      ;; are local to the test part
+     (debug "normexp_ifelse sloc=" debug_less sloc "; sthen=" sthen)
      (multicall 
       (nthen nbindthen)
       (normal_exp sthen env ncx sloc)
-      (debug "normexp_ifelse nthen" nthen)
+      (debug "normexp_ifelse nthen=" nthen " nbindthen=" nbindthen)
       (assert_msg "check nbindthen" (is_list_or_null nbindthen) nbindthen)
       (let ( (newthenenv (fresh_env env)) )
+	(debug "normexp_ifelse sloc=" debug_less sloc "; newthenenv=" newthenenv)
 	(list_every 
 	 nbindthen
 	 (lambda (b) (put_env newthenenv b)))
 	;; the ctyp of the whole if is initialized to the ctype of the then part
 	(setq ctypif (get_ctype nthen newthenenv))
+	(debug "normexp_ifelse sloc=" debug_less sloc "; selse=" selse)
 	(multicall 
 	 (nelse nbindelse)
 	 (normal_exp selse env ncx sloc)
-	 (debug "normexp_ifelse nelse" nelse)
+	 (debug "normexp_ifelse nelse=" nelse " nbindelse=" nbindelse)
 	 (assert_msg "check nbindelse" (is_list_or_null nbindelse) nbindelse)
 	 ;; if we have both then & else branches,
 	 ;; ensure their compatibility of types
@@ -3547,7 +3554,9 @@ source location.}#
 			       (lambda (b) (put_env nenv b)))
 			      nenv
 			      ))
-		(ctypelse (get_ctype nelse newelseenv)) )
+		(ctypelse (get_ctype nelse newelseenv)) 
+		)
+	   (debug "normexp_ifelse sloc=" debug_less sloc " newelseenv=" newelseenv)
 	   (assert_msg "check ctypif" (is_a ctypif class_ctype) ctypif)
 	   (assert_msg "check ctypelse" (is_a ctypelse class_ctype) ctypelse)
 	   (cond
@@ -4836,7 +4845,8 @@ source location.}#
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;; normalize a DEFUN or a DEFMACRO
 (defun normexp_defun_defmacro (recv env ncx psloc)
-  (debug "normexp_defun_defmacro recv=" recv)
+  (debug "normexp_defun_defmacro recv=" recv "\n env=" env)
+  (shortbacktrace_dbg "normexp_defun_defmacro" 8)
   (assert_msg "check defun recv" (is_a recv class_source_defun) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
@@ -4847,7 +4857,8 @@ source location.}#
 	 (:long ismacro (is_a recv class_source_defmacro))
 	 (modctx (get_field :nctx_modulcontext ncx))
 	 (modinienv (get_field :mocx_initialenv modctx))
-	 (basenv (if ismacro modinienv env))
+	 (macroenv (get_field :mocx_macroenv modctx))
+	 (basenv (if ismacro macroenv env))
 	 (sfubind (find_env basenv snam))
 	 (newenv (fresh_env basenv))
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
@@ -4883,12 +4894,16 @@ source location.}#
 			      :ndclo_closv () ;filled below
 			      ))
 	 )
+    (debug "normexp_defun_defmacro ismacro=" ismacro "; sloc=" sloc 
+	   "\n.. basenv=" (if ismacro debug_more debug_less) basenv 
+	   "\n.. newenv=" newenv)
     (unsafe_put_fields ncx 
 		       :nctx_curproc nproc
 		       :nctx_symbcachemap (make_mapobject discr_map_objects 40))
     (debug "normexp_defun_defmacro nproc=" nproc 
 	   "\n.. ndatarout=" ndatarout 
-	   "\n.. ndataclos=" ndataclos)
+	   "\n.. ndataclos=" ndataclos
+	   "\n.. newenv=" newenv)
     (add_nctx_data ncx ndatarout)
     (add_nctx_data ncx ndataclos)
     (debug "normexp_defun_defmacro updated ncx=" debug_less ncx

@@ -1575,6 +1575,37 @@ $TORANK}#
 (define debug_less :doc #{$DEBUG_LESS is a $DEBUG manipulator to show the following argument value a bit more briefly.}#
   (clone_with_discriminant debug_less_fun discr_debug_closure))
 
+;;;;;;;;;;;;;;;;;;;;;;;; more deep debug
+(defun debug_more_fun (dbgi v)
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information))
+  (let ( (oldmaxdepth (get_field :dbgi_maxdepth dbgi))
+	 (newmoredepth (box (+i (get_int oldmaxdepth) 1)))
+	 (newlessdepth (box (-i (get_int oldmaxdepth) 1)))
+	 (out (get_field :dbgi_out dbgi))
+	 )
+    (put_fields dbgi :dbgi_maxdepth newmoredepth)
+    (if (is_object v)
+	(progn
+	  (add2out out (get_field :named_name (discrim v)) "/")
+	  (add2sbuf_longhex out (obj_hash v))
+	  (let ( (:long onum (get_int v)) 
+		 )
+	    (when onum
+	      (add2sbuf_strconst out "#")
+	      (add2sbuf_longdec out onum))
+	    )
+	  (add2out out "<{")
+	  (add2out_indentnl out 0)
+	  (dbgout_fields v dbgi 0 0 -1)
+	  (add2out_indentnl out 0)
+	  (add2out out "}>")
+	  (add2out_indentnl out 0))
+      (dbg_out v dbgi 0))
+    (put_fields dbgi :dbgi_maxdepth oldmaxdepth)))
+
+(define debug_more :doc #{$DEBUG_MORE is a $DEBUG manipulator to show the following argument value a bit more extensively.}#
+  (clone_with_discriminant debug_more_fun discr_debug_closure))
+
 ;;;;;;;;;;;;;;;;;;;;;;;; debug message function
 
 ;; this is a rarely used function
@@ -1609,8 +1640,9 @@ $TORANK}#
  dbgout_fields
  dbgoutagain_fields
  debug_depth
- debug_msg_fun
  debug_less
+ debug_more
+ debug_msg_fun
  discr_debug_closure
  display_debug_message  
  melt_debug_fun

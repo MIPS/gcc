@@ -20,7 +20,10 @@
 
 (defmacro badmacro (sexp env mexpander modctx)
   (debug "badmacro sexp=" sexp " env=" env " mexpander=" mexpander " modctx=" modctx)
-  (badmacroexpanser sexp env mexpander modctx))
+  ;; we have an if-then-else to go thru normexp_ifelse...
+  (if sexp
+      (badmacroexpanser sexp env mexpander modctx)
+    :true))
 
 (debug "badmacroexpanser=" badmacroexpanser " badmacro=" badmacro)
 

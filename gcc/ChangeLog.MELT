@@ -2,6 +2,16 @@
 
 2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (debug_more_fun): New function.
+	(debug_more): New debug manipulator.
+
+	* melt/warmelt-normal.melt (normexp_apply)
+	(normexp_defun_defmacro): More debug.
+
+	* testsuite/melt/tbad-5.melt: Improve.
+
+2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
 	* melt/generated/meltrunsup.h: Regenerate.
