@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMACRO_h1006619106; // forward declaration fromline 6543
-typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h1006619106 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiMACRO_h74996062; // forward declaration fromline 6543
+typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h74996062 Melt_InitialFrame;
 /*** 6 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
 MELT_EXTERN void melt_marking_module_data (void);
@@ -1038,7 +1038,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h1006619106 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h74996062 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -9418,7 +9418,7 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /2be406c0 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V40*/ meltfptr[39]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /2aece3eb checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V40*/ meltfptr[39]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V40*/ meltfptr[39]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V41*/ meltfptr[40]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
@@ -9431,7 +9431,7 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /29e4fbc3 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[40]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /1976925b checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[40]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V41*/ meltfptr[40]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V42*/ meltfptr[41]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
@@ -9664,7 +9664,7 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /181da2e3 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V51*/ meltfptr[39]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /26c68fdd checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V51*/ meltfptr[39]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V51*/ meltfptr[39]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V52*/ meltfptr[41]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
@@ -9677,7 +9677,7 @@ meltlabloop_ARGLOOP_4:;/*^loopbody*/
                                                                                                                                                                     ;
                                                                                                                                                                     /*^putpairtail*/
                                                                                                                                                                     /*putpairtail*/
-                                                                                                                                                                    melt_assertmsg("putpairtail /188723b8 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V52*/ meltfptr[41]))== MELTOBMAG_PAIR);
+                                                                                                                                                                    melt_assertmsg("putpairtail /a22e6f4 checkpair", melt_magic_discr((melt_ptr_t)(/*_._PAIROFLIST__V52*/ meltfptr[41]))== MELTOBMAG_PAIR);
                                                                                                                                                                     ((meltpair_ptr_t)(/*_._PAIROFLIST__V52*/ meltfptr[41]))->tl = (meltpair_ptr_t) (/*_._PAIROFLIST__V53*/ meltfptr[52]);
                                                                                                                                                                     ;
                                                                                                                                                                     /*^touch*/
