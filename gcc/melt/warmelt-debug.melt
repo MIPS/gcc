@@ -1595,7 +1595,6 @@ $TORANK}#
 	      (add2sbuf_longdec out onum))
 	    )
 	  (add2out out "<{")
-	  (add2out_indentnl out 0)
 	  (dbgout_fields v dbgi 0 0 -1)
 	  (add2out_indentnl out 0)
 	  (add2out out "}>")

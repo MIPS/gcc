@@ -6921,12 +6921,13 @@ if (1) return;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; compile a list of sexpressions as a module starting from a given environment
 (defun compile_list_sexpr (lsexp inienv modnamstr)
-  (debug "@*@@@@ compile_list_sexpr lsexp=" lsexp "\n@ compile_list_sexpr  inienv=" inienv
+  (debug "@*@@@@ compile_list_sexpr lsexp=" lsexp 
+	 "\n@ compile_list_sexpr  inienv=" debug_more inienv
 	 "\n@ compile_list_sexpr  modnamstr=" modnamstr) 
   (shortbacktrace_dbg "compile_list_sexpr" 10)
   (assert_msg "check lsexp" (is_list lsexp) lsexp)
   (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
-  (assert_msg "check inienv" (or (null inienv) (is_a inienv class_environment)) inienv)
+  (assert_msg "check inienv" (is_a inienv class_environment) inienv)
   (assert_msg "compile_list_sexpr modulename not ended with MELT_DYNLOADED_SUFFIX."
 	      (not (string_dynloaded_suffixed modnamstr)) modnamstr)
   (assert_msg "compile_list_sexpr modulename not ended with .melt"
@@ -6962,19 +6963,8 @@ if (1) return;
 	)
     (debug "compile_list_sexpr modctx=" modctx 
 	   "\n of class " (discrim modctx))
-    ;; is it very unusual that inienv is null, only happenning in
-    ;; translateinit mode, when bootstrapping warmelt-first.melt
-    (when (null inienv)
-      (code_chunk 
-       checkbootstrapping_chk
-       #{ /* $CHECKBOOTSTRAPPING_CHK */
-       if (!melt_flag_bootstrapping)
-       melt_fatal_error ("lack of initial environment can only happen during MELT bootstrapping in module %s",
-			 melt_string_str ((melt_ptr_t) $MODNAKEDNAME)) ;
-       }#)
-      ;; we set inienv to be able to macroexpand and translate the rest. However, mocx_initialenv is null.
-      (setq inienv initial_environment))
-    (debug "compile_list_sexpr initial ncx=" ncx)
+    (debug "compile_list_sexpr macroenv=" debug_more macroenv)
+    (debug "compile_list_sexpr initial ncx=" debug_more ncx)
     (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
     (let ( (xlist (macroexpand_toplevel_list lsexp inienv macroexpand_1 modctx)) 
 	   (:long lenxlist (list_length xlist))
@@ -7214,7 +7204,7 @@ if (1) return;
   $ENV environment, which can be modified, e.g. by definitions inside
   the $EXPRS. The last expression should preferably gives a value,
   which is returned...}#
-  (debug "translate_run_melt_expressions start exprs=" exprs "\n*env=" env)
+  (debug "translate_run_melt_expressions start exprs=" exprs "\n*env=" debug_more env)
   (shortbacktrace_dbg "translate_run_melt_expressions" 12)
   (assert_msg "check env" (is_a env class_environment) env)
   (when (not (is_list exprs))
@@ -7271,7 +7261,10 @@ if (1) return;
 	  (litvalist 
 	   (list ()))	    ;first element of list is ignored, so null
 	  (macroenv 
-	   (fresh_env env (tuple 'macro-extension nakedbasnam)))
+	   (let ( (menv (fresh_env env (tuple 'macro-extension nakedbasnam)))
+		  )
+	     (debug "translate_run_melt_expressions macroenv=" debug_more menv)
+	     menv))
 	  (modctx
 	   (instance class_running_extension_module_context
 		     :mocx_modulename  nakedbasnam

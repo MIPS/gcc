@@ -2,6 +2,18 @@
 
 2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (debug_more_fun): Remove useless
+	indent-newline.
+
+	* melt/warmelt-normal.melt (normexp_ifelse)
+	(normexp_defun_defmacro): More debug.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr): inienv cannot be
+	null.
+	(translate_run_melt_expressions): More debug.
+
+2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-debug.melt (debug_more_fun): New function.
 	(debug_more): New debug manipulator.
 
