@@ -1025,7 +1025,12 @@ package body Exp_Ch11 is
                --        ...
                --     end;
 
-               if Present (Choice_Parameter (Handler)) then
+               --  This expansion is not performed when using GCC ZCX. Gigi
+               --  will insert a call to initialize the choice parameter.
+
+               if Present (Choice_Parameter (Handler))
+                 and then Exception_Mechanism /= Back_End_Exceptions
+               then
                   declare
                      Cparm : constant Entity_Id  := Choice_Parameter (Handler);
                      Cloc  : constant Source_Ptr := Sloc (Cparm);
@@ -1039,7 +1044,7 @@ package body Exp_Ch11 is
 
                      Save :=
                        Make_Procedure_Call_Statement (No_Location,
-                         Name =>
+                         Name                   =>
                            New_Occurrence_Of
                              (RTE (RE_Save_Occurrence), No_Location),
                          Parameter_Associations => New_List (
@@ -1056,20 +1061,18 @@ package body Exp_Ch11 is
                      Prepend (Save, Statements (Handler));
 
                      Obj_Decl :=
-                       Make_Object_Declaration
-                         (Cloc,
-                          Defining_Identifier => Cparm,
-                          Object_Definition   =>
-                            New_Occurrence_Of
-                              (RTE (RE_Exception_Occurrence), Cloc));
+                       Make_Object_Declaration (Cloc,
+                         Defining_Identifier => Cparm,
+                         Object_Definition   =>
+                           New_Occurrence_Of
+                             (RTE (RE_Exception_Occurrence), Cloc));
                      Set_No_Initialization (Obj_Decl, True);
 
                      Rewrite (Handler,
                        Make_Exception_Handler (Hloc,
                          Choice_Parameter  => Empty,
                          Exception_Choices => Exception_Choices (Handler),
-
-                         Statements => New_List (
+                         Statements        => New_List (
                            Make_Block_Statement (Hloc,
                              Declarations => New_List (Obj_Decl),
                              Handled_Statement_Sequence =>
@@ -1166,18 +1169,17 @@ package body Exp_Ch11 is
 
    --  Generates:
    --     exceptE : constant String := "A.B.EXCEP";   -- static data
-   --     except : exception_data :=  (
-   --                    Handled_By_Other => False,
-   --                    Lang             => 'A',
-   --                    Name_Length      => exceptE'Length,
-   --                    Full_Name        => exceptE'Address,
-   --                    HTable_Ptr       => null,
-   --                    Import_Code      => 0,
-   --                    Raise_Hook       => null,
-   --                    );
+   --     except : exception_data :=
+   --                (Handled_By_Other => False,
+   --                 Lang             => 'A',
+   --                 Name_Length      => exceptE'Length,
+   --                 Full_Name        => exceptE'Address,
+   --                 HTable_Ptr       => null,
+   --                 Foreign_Data     => null,
+   --                 Raise_Hook       => null);
 
    --  (protecting test only needed if not at library level)
-   --
+
    --     exceptF : Boolean := True --  static data
    --     if exceptF then
    --        exceptF := False;
@@ -1319,9 +1321,9 @@ package body Exp_Ch11 is
 
       Append_To (L, Make_Null (Loc));
 
-      --  Import_Code component: 0
+      --  Foreign_Data component: null
 
-      Append_To (L, Make_Integer_Literal (Loc, 0));
+      Append_To (L, Make_Null (Loc));
 
       --  Raise_Hook component: null
 

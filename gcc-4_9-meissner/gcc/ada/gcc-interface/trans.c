@@ -565,6 +565,15 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
      NULL_TREE, is_disabled, true, true, true, NULL, Empty);
   DECL_IGNORED_P (get_excptr_decl) = 1;
 
+  set_exception_parameter_decl
+    = create_subprog_decl
+      (get_identifier ("__gnat_set_exception_parameter"), NULL_TREE,
+       build_function_type_list (void_type_node,
+				 ptr_void_type_node,
+				 ptr_void_type_node,
+				 NULL_TREE),
+       NULL_TREE, is_disabled, true, true, true, NULL, Empty);
+
   raise_nodefer_decl
     = create_subprog_decl
       (get_identifier ("__gnat_raise_nodefer_with_msg"), NULL_TREE,
@@ -632,20 +641,20 @@ gigi (Node_Id gnat_root, int max_gnat_node, int number_name ATTRIBUTE_UNUSED,
   others_decl
     = create_var_decl (get_identifier ("OTHERS"),
 		       get_identifier ("__gnat_others_value"),
-		       integer_type_node, NULL_TREE, true, false, true, false,
-		       NULL, Empty);
+		       unsigned_char_type_node,
+		       NULL_TREE, true, false, true, false, NULL, Empty);
 
   all_others_decl
     = create_var_decl (get_identifier ("ALL_OTHERS"),
 		       get_identifier ("__gnat_all_others_value"),
-		       integer_type_node, NULL_TREE, true, false, true, false,
-		       NULL, Empty);
+		       unsigned_char_type_node,
+		       NULL_TREE, true, false, true, false, NULL, Empty);
 
   unhandled_others_decl
     = create_var_decl (get_identifier ("UNHANDLED_OTHERS"),
 		       get_identifier ("__gnat_unhandled_others_value"),
-		       integer_type_node, NULL_TREE, true, false, true, false,
-		       NULL, Empty);
+		       unsigned_char_type_node,
+		       NULL_TREE, true, false, true, false, NULL, Empty);
 
   main_identifier_node = get_identifier ("main");
 
@@ -4885,6 +4894,19 @@ Exception_Handler_to_gnu_zcx (Node_Id gnat_node)
   add_stmt_with_node (build_call_n_expr (begin_handler_decl, 1,
 					 gnu_incoming_exc_ptr),
 		      gnat_node);
+
+  /* Declare and initialize the choice parameter, if present.  */
+  if (Present (Choice_Parameter (gnat_node)))
+    {
+      tree gnu_param = gnat_to_gnu_entity
+	(Choice_Parameter (gnat_node), NULL_TREE, 1);
+
+      add_stmt (build_call_n_expr
+		(set_exception_parameter_decl, 2,
+		 build_unary_op (ADDR_EXPR, NULL_TREE, gnu_param),
+		 gnu_incoming_exc_ptr));
+    }
+
   /* We don't have an End_Label at hand to set the location of the cleanup
      actions, so we use that of the exception handler itself instead.  */
   add_cleanup (build_call_n_expr (end_handler_decl, 1, gnu_incoming_exc_ptr),

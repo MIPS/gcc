@@ -3596,7 +3596,7 @@ package Sinfo is
       --  Sloc points to first selector name
       --  Choices (List1)
       --  Loop_Actions (List2-Sem)
-      --  Expression (Node3)
+      --  Expression (Node3) (empty if Box_Present)
       --  Box_Present (Flag15)
       --  Inherited_Discriminant (Flag13)
 
@@ -7151,9 +7151,14 @@ package Sinfo is
       -- Contract --
       --------------
 
-      --  This node is used to hold the various parts of an entry or subprogram
-      --  [body] contract, consisting of precondition, postconditions, contract
-      --  cases, test cases and global dependencies.
+      --  This node is used to hold the various parts of an entry, subprogram
+      --  [body] or package [body] contract, in particular:
+      --     Abstract states declared by a package declaration
+      --     Contract cases that apply to a subprogram
+      --     Dependency relations of inputs and output of a subprogram
+      --     Global annotations classifying data as input or output
+      --     Initialization sequences for a package declaration
+      --     Pre- and postconditions that apply to a subprogram
 
       --  The node appears in an entry and [generic] subprogram [body] entity.
 
@@ -7170,8 +7175,13 @@ package Sinfo is
       --  Pre_Post_Conditions contains a collection of pragmas that correspond
       --  to pre- and postconditions associated with an entry or a subprogram
       --  [body or stub]. The pragmas can either come from source or be the
-      --  byproduct of aspect expansion. The ordering in the list is in LIFO
-      --  fashion.
+      --  byproduct of aspect expansion. Currently the following pragmas appear
+      --  in this list:
+      --    Post
+      --    Postcondition
+      --    Pre
+      --    Precondition
+      --  The ordering in the list is in LIFO fashion.
 
       --  Note that there might be multiple preconditions or postconditions
       --  in this list, either because they come from separate pragmas in the
@@ -7182,10 +7192,18 @@ package Sinfo is
       --  to aspects/pragmas Contract_Cases and Test_Case. The ordering in the
       --  list is in LIFO fashion.
 
-      --  Classifications contains pragmas that either categorize subprogram
-      --  inputs and outputs or establish dependencies between them. Currently
-      --  pragmas Depends, Global, Refined_Depends and Refined_Global are
-      --  stored in this list. The ordering is in LIFO fashion.
+      --  Classifications contains pragmas that either declare, categorize or
+      --  establish dependencies between subprogram or package inputs and
+      --  outputs. Currently the following pragmas appear in this list:
+      --    Abstract_States
+      --    Depends
+      --    Global
+      --    Initial_Condition
+      --    Initializes
+      --    Refined_Depends
+      --    Refined_Global
+      --    Refined_States
+      --  The ordering is in LIFO fashion.
 
       -------------------
       -- Expanded_Name --
@@ -7629,7 +7647,7 @@ package Sinfo is
       --  N_Subprogram_Info
       --  Sloc points to the entity for the procedure
       --  Identifier (Node1) identifier referencing the procedure
-      --  Etype (Node5-Sem) type (always set to Ada.Exceptions.Code_Loc
+      --  Etype (Node5-Sem) type (always set to Ada.Exceptions.Code_Loc)
 
       --  Note: in the case where a debug source file is generated, the Sloc
       --  for this node points to the quote in the Sprint file output.

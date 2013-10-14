@@ -3962,6 +3962,14 @@ the command line when linking a shared library.
 
 Value is a list of options that are to be used when linking a shared library.
 
+@item @b{Library_Rpath_Options}: list, indexed, case-insensitive index
+
+Index is a language name. Value is a list of options for an invocation of the
+compiler of the language. This invocation is done for a shared library project
+with sources of the language. The output of the invocation is the path name
+of a shared library file. The directory name is to be put in the run path
+option switch when linking the shared library for the project.
+
 @item @b{Library_Src_Dir}: single
 
 Value is the name of the directory where copies of the sources of the
@@ -4291,6 +4299,16 @@ directory of the project.
 Index is a language names. Value is the list of extensions for file names
 derived from source file names that need to be cleaned in the object
 directory of the project.
+
+@item @b{Artifacts_In_Object_Dir}: single
+
+Value is a list of file names expressed as regular expressions that are to be
+deleted by gprclean in the object directory of the project.
+
+@item @b{Artifacts_In_Exec_Dir}: single
+
+Value is list of file names expressed as regular expressions that are to be
+deleted by gprclean in the exec directory of the main project.
 
 @end itemize
 

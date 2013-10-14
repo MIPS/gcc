@@ -22076,6 +22076,21 @@ counter_mode (rtx count_exp)
   return SImode;
 }
 
+/* Copy the address to a Pmode register.  This is used for x32 to
+   truncate DImode TLS address to a SImode register. */
+
+static rtx
+ix86_copy_addr_to_reg (rtx addr)
+{
+  if (GET_MODE (addr) == Pmode)
+    return copy_addr_to_reg (addr);
+  else
+    {
+      gcc_assert (GET_MODE (addr) == DImode && Pmode == SImode);
+      return gen_rtx_SUBREG (SImode, copy_to_mode_reg (DImode, addr), 0);
+    }
+}
+
 /* When SRCPTR is non-NULL, output simple loop to move memory
    pointer to SRCPTR to DESTPTR via chunks of MODE unrolled UNROLL times,
    overall size is COUNT specified in bytes.  When SRCPTR is NULL, output the
@@ -23032,8 +23047,8 @@ ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
 
   if (!count)
     count_exp = copy_to_mode_reg (GET_MODE (count_exp), count_exp);
-  destreg = copy_addr_to_reg (XEXP (dst, 0));
-  srcreg = copy_addr_to_reg (XEXP (src, 0));
+  destreg = ix86_copy_addr_to_reg (XEXP (dst, 0));
+  srcreg = ix86_copy_addr_to_reg (XEXP (src, 0));
 
   unroll_factor = 1;
   move_mode = word_mode;
@@ -23436,7 +23451,7 @@ ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
 
   if (!count)
     count_exp = copy_to_mode_reg (counter_mode (count_exp), count_exp);
-  destreg = copy_addr_to_reg (XEXP (dst, 0));
+  destreg = ix86_copy_addr_to_reg (XEXP (dst, 0));
 
   move_mode = word_mode;
   unroll_factor = 1;
@@ -38289,6 +38304,7 @@ static rtx
 ix86_expand_sse_compare_and_jump (enum rtx_code code, rtx op0, rtx op1,
                                   bool swap_operands)
 {
+  enum machine_mode fpcmp_mode = ix86_fp_compare_mode (code);
   rtx label, tmp;
 
   if (swap_operands)
@@ -38299,9 +38315,9 @@ ix86_expand_sse_compare_and_jump (enum rtx_code code, rtx op0, rtx op1,
     }
 
   label = gen_label_rtx ();
-  tmp = gen_rtx_REG (CCFPUmode, FLAGS_REG);
+  tmp = gen_rtx_REG (fpcmp_mode, FLAGS_REG);
   emit_insn (gen_rtx_SET (VOIDmode, tmp,
-			  gen_rtx_COMPARE (CCFPUmode, op0, op1)));
+			  gen_rtx_COMPARE (fpcmp_mode, op0, op1)));
   tmp = gen_rtx_fmt_ee (code, VOIDmode, tmp, const0_rtx);
   tmp = gen_rtx_IF_THEN_ELSE (VOIDmode, tmp,
 			      gen_rtx_LABEL_REF (VOIDmode, label), pc_rtx);
