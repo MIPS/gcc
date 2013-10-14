@@ -24,6 +24,8 @@
 	(ix86_gimplify_va_arg): Adjust construct_container and
 	examine_argument calls.
 	(ix86_expand_call): Generate returned bounds.
+	(ix86_bnd_prefixed_insn_p): Use bnd prefix
+	whe compiling with Pointers Checker instrumentation.
 	* config/i386/i386.h (ix86_args): Add bnd_nregs, bnd_regno
 	and stdarg fields.
 	* config/i386/i386.md (UNSPEC_BNDRET): New.
@@ -32,3 +34,5 @@
 	(*call_value_rex64_ms_sysv): Likewise.
 	(*call_value_pop): Likewise.
 	(*sibcall_value_pop): Likewise.
+	* config/i386/predicates.md (call_rex64_ms_sysv_operation): Adjust
+	to changed call patterns.

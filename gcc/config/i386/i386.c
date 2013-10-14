@@ -42502,7 +42502,8 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
 bool
 ix86_bnd_prefixed_insn_p (rtx insn ATTRIBUTE_UNUSED)
 {
-  return false;
+  return flag_check_pointers
+    && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (cfun->decl));
 }
 
 /* Expand an insert into a vector register through pinsr insn.
