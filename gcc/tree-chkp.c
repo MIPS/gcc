@@ -2265,7 +2265,9 @@ chkp_build_returned_bound (gimple call)
 gimple
 chkp_retbnd_call_by_val (tree val)
 {
-  gcc_assert (TREE_CODE (val) == SSA_NAME);
+  if (TREE_CODE (val) != SSA_NAME)
+    return NULL;
+
   gcc_assert (gimple_code (SSA_NAME_DEF_STMT (val)) == GIMPLE_CALL);
 
   imm_use_iterator use_iter;
