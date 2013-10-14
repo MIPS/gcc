@@ -6937,11 +6937,13 @@ if (1) return;
 	      (not (string_suffixed modnamstr ".cc")) modnamstr)
   (let (
 	(modnakedname (make_string_nakedbasename discr_string modnamstr))
+	(macroenv (fresh_env inienv (tuple 'macro-compile modnamstr)))
 	(modctx (instance class_module_context
 			  :mocx_modulename  modnakedname
 			  :mocx_expfieldict (make_mapstring discr_map_strings 390)
 			  :mocx_expclassdict (make_mapstring discr_map_strings 140)
 			  :mocx_initialenv inienv
+			  :mocx_macroenv macroenv
 			  :mocx_funcount (make_integerbox discr_integer 0)
 			  :mocx_filetuple ()
 			  :mocx_cheaderlist (make_list discr_list)
@@ -7017,11 +7019,13 @@ if (1) return;
    }#)
   (let (
 	(modnakedname (make_string_nakedbasename discr_string modnamstr))
+	(macroenv (fresh_env initial_environment (tuple 'macro-first modnamstr)))
 	(modctx (instance class_first_module_context
 			  :mocx_modulename  modnakedname
 			  :mocx_expfieldict (make_mapstring discr_map_strings 490)
 			  :mocx_expclassdict (make_mapstring discr_map_strings 240)
 			  :mocx_initialenv ()
+			  :mocx_macroenv macroenv
 			  :mocx_funcount (make_integerbox discr_integer 0)
 			  :mocx_filetuple ()
 			  :mocx_cheaderlist (make_list discr_list)
@@ -7266,12 +7270,15 @@ if (1) return;
 	     (set_ref referr (or v :true))))
 	  (litvalist 
 	   (list ()))	    ;first element of list is ignored, so null
+	  (macroenv 
+	   (fresh_env env (tuple 'macro-extension nakedbasnam)))
 	  (modctx
 	   (instance class_running_extension_module_context
 		     :mocx_modulename  nakedbasnam
 		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		     :mocx_expclassdict (make_mapstring discr_map_strings 19)
 		     :mocx_initialenv env
+		     :mocx_macroenv macroenv
 		     :mocx_funcount (make_integerbox discr_integer 0)
 		     :mocx_filetuple ()
 		     :mocx_cheaderlist (make_list discr_list)
@@ -7544,13 +7551,16 @@ if (1) return;
 	      )
 	     (set_ref referr (or v :true))))
 	  (litvalist 
-	   (list ()))	    ;first element of list is ignored, so null
+	   (list ()))	    ;first element of list is ignored, so null	  
+	  (macroenv 
+	   (fresh_env env (tuple 'macro-extension nakedbasnam)))
 	  (newmodctx
 	   (instance class_running_extension_module_context
 		     :mocx_modulename  nakedbasnam
 		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		     :mocx_expclassdict (make_mapstring discr_map_strings 19)
 		     :mocx_initialenv env
+		     :mocx_macroenv macroenv
 		     :mocx_funcount (make_integerbox discr_integer 0)
 		     :mocx_filetuple ()
 		     :mocx_cheaderlist (make_list discr_list)

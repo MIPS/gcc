@@ -1720,12 +1720,14 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		  (add2out sbuf "meltmakedoc_")
 		  (add2out_cident sbuf (make_string_nakedbasename discr_string outarg))
 		  (strbuf2string discr_string sbuf)))
+	(macroenv (fresh_env curenv (tuple 'macro modnam)))
 	(mdinfo 
 	 (instance class_makedoc_module_context
 		   :mocx_modulename modnam
 		   :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		   :mocx_expclassdict (make_mapstring discr_map_strings 19)
 		   :mocx_initialenv curenv
+		   :mocx_macroenv macroenv
 		   :mocx_funcount (make_integerbox discr_integer 0)
 		   :mocx_filetuple ()
 		   :mocx_cheaderlist (make_list discr_list)

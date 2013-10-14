@@ -1,4 +1,16 @@
 
+2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (class_module_context): New mocx_macroenv
+	field.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr)
+	(compile_first_bootstrap_list_sexpr)
+	(melt_translate_run_macroexpansions_list): Fill it to a fresh
+	environment.
+
+	* melt/warmelt-modes.melt (makedoc_docmd): Likewise.
+
 2013-10-12  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-normal.melt (normexp_defhook): Improve error
 	message.
