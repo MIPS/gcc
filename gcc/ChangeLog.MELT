@@ -2,6 +2,10 @@
 
 2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.0-rc1+
+
+2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (melt_delayed_macro_expander): Call
 	melt_invoke_translator_runner_macroexpansions with the macro
 	environment.
