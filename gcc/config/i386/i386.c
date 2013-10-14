@@ -6477,6 +6477,8 @@ classify_argument (enum machine_mode mode, const_tree type,
     case V8QImode:
       classes[0] = X86_64_SSE_CLASS;
       return 1;
+    case BND32mode:
+    case BND64mode:
     case BLKmode:
     case VOIDmode:
       return 0;
