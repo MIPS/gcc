@@ -2,6 +2,22 @@
 
 2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-macro.melt (melt_delayed_macro_expander): Call
+	melt_invoke_translator_runner_macroexpansions with the macro
+	environment.
+	(mexpand_defmacro): Check about the macro environment.
+
+	* melt/warmelt-outobj.melt
+	(melt_translate_run_macroexpansions_list): Debug the macro
+	environment, and pass it to translate_macroexpanded_list...
+
+2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_defmacro) check maclist
+	earlier.
+
+2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-macro.melt (mexpand_defmacro)
 	(mexpand_at_macro_expansion): Use the mocx_macroenv of the module
 	context.

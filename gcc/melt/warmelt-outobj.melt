@@ -7501,7 +7501,10 @@ if (1) return;
 	 ;; we need to store the normlist for debugging purposes
 	 (refnormlist (instance class_reference))
 	 (modnam (get_field :mocx_modulename parmodctx))
+	 (macroenv (get_field :mocx_macroenv parmodctx))
 	 )
+    (debug "melt_translate_run_macroexpansions_list env=" env 
+	   "\n.. macroenv=" macroenv)
     (code_chunk numchk #{/* melt_translate_run_macroexpansions_list $NUMCHK */ 
          char basbuf_$NUMCHK[64] ;
          long num_$NUMCHK = 0 ;
@@ -7583,13 +7586,14 @@ if (1) return;
 	  (:long lenxlist (list_length lismexp))
 	  
 	  )
-      (debug "melt_translate_run_macroexpansions_list here lismexp=" lismexp)
+      (debug "melt_translate_run_macroexpansions_list here lismexp=" lismexp
+	     "\n.. macroenv=" debug_less macroenv)
       (let ( (basename (make_string_tempname_suffixed discr_string nakedbasnam "_eXt"))
 	     )
 	(debug "melt_translate_run_macroexpansions_list basename=" basename 
 	       "\n.. refnormlist=" refnormlist)
 	;; translate to C code
-	(translate_macroexpanded_list lismexp basename newmodctx ncx env 
+	(translate_macroexpanded_list lismexp basename newmodctx ncx macroenv 
 				      () compile2obj_initextendproc)
 	(debug "melt_translate_run_macroexpansions_list after translation"
 	       " refnormlist=" refnormlist

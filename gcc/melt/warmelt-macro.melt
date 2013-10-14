@@ -3608,17 +3608,26 @@ $EXPORT_VALUES to be visible outside its module.}#)
 ;; this magic function should expand and compile all the macro definitions of maclist
 
 (defun melt_delayed_macro_expander (mbind maclist env mexpander modctx)
-  (debug "melt_delayed_macro_expander mbind=" mbind " maclist=" maclist " modctx=" modctx)
+  (debug "melt_delayed_macro_expander mbind=" mbind "\n.. maclist=" maclist 
+	 "\n.. modctx=" debug_less modctx
+	 "\n.. env=" debug_less env)
+  (shortbacktrace_dbg "melt_delayed_macro_expander" 12)
   (assert_msg "check maclist" (is_list maclist) maclist)
   (block_signals 
    () ()
    (put_fields modctx :mocx_macrolist (make_list discr_list)))
   ;;
-  (let ( (res (melt_invoke_translator_runner_macroexpansions maclist env modctx))
+  (let ( (macroenv (get_field :mocx_macroenv modctx))
 	 )
-    (debug "melt_delayed_macro_expander after melt_invoke_translator_runner_macroexpansions res=" res
+    (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
+  (debug "melt_delayed_macro_expander maclist=" maclist " env=" env "\n macroenv=" macroenv 
+	 "\n modctx=" debug_less modctx
+	 "\n.. mbind=" debug_less mbind)
+  (let ( (res (melt_invoke_translator_runner_macroexpansions maclist macroenv modctx))
+	 )
+    (debug "melt_delayed_macro_expander final res=" res
 	   "\n mbind=" mbind)
-  ))
+    )))
 
 ;;;;;;;;;;;;;;;;;; the defmacro expander
 ;;;(DEFMACRO macroname formals [:doc documentation] body...)
@@ -3636,6 +3645,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	 (symbname (get_field :named_name symb))
 	 (modinienv (get_field :mocx_initialenv modctx))
 	 (modmacroenv (get_field :mocx_macroenv modctx))
+	 (maclist (get_field :mocx_macrolist modctx))
 	 (newenv (fresh_env modmacroenv))
 	 (docv ())
 	 (mbind 
@@ -3649,8 +3659,13 @@ $EXPORT_VALUES to be visible outside its module.}#)
       (error_at loc "missing symbol for DEFMACRO"_)
       (return))
     (when (null modinienv)
-      (error_at loc "DEFMACRO prohibited in cold bootstrap of warmelt-first file")
+      (error_at loc "DEFMACRO $1 prohibited in cold bootstrap of warmelt-first file"
+		symbname)
       (assert_msg "unexpected DEFMACRO in code bootstrap of warmelt-first file" ())
+      (return))
+    (when (not (is_list maclist))
+      (error_at loc "DEFMACRO $1 requires a module context with macro list" symbname)
+      (assert_msg "bad maclist in DEFMACRO" () maclist)
       (return))
     (warn_if_redefined symb env loc)
     (put_env env mbind)
@@ -3688,7 +3703,6 @@ $EXPORT_VALUES to be visible outside its module.}#)
       ;; should put a :mbind_expanser closure into mbind
       ;; handle the body
       (let ( (bodytup (expand_pairlist_as_tuple curpair newenv mexpander modctx))
-	     (maclist (get_field :mocx_macrolist modctx))
 	     (sdefmacro
 	      (instance class_source_defmacro
 			:loca_location loc
