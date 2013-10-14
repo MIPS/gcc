@@ -1975,12 +1975,73 @@ package body Sem_Ch6 is
    -- Analyze_Subprogram_Body_Contract --
    --------------------------------------
 
-   --  ??? To be implemented
+   procedure Analyze_Subprogram_Body_Contract (Body_Id : Entity_Id) is
+      Body_Decl   : constant Node_Id   := Parent (Parent (Body_Id));
+      Spec_Id     : constant Entity_Id := Corresponding_Spec (Body_Decl);
+      Prag        : Node_Id;
+      Ref_Depends : Node_Id := Empty;
+      Ref_Global  : Node_Id := Empty;
 
-   procedure Analyze_Subprogram_Body_Contract (Subp : Entity_Id) is
-      pragma Unreferenced (Subp);
    begin
-      null;
+      --  When a subprogram body declaration is erroneous, its defining entity
+      --  is left unanalyzed. There is nothing left to do in this case because
+      --  the body lacks a contract.
+
+      if not Analyzed (Body_Id) then
+         return;
+      end if;
+
+      --  Locate and store pragmas Refined_Depends and Refined_Global since
+      --  their order of analysis matters.
+
+      Prag := Classifications (Contract (Body_Id));
+      while Present (Prag) loop
+         if Pragma_Name (Prag) = Name_Refined_Depends then
+            Ref_Depends := Prag;
+         elsif Pragma_Name (Prag) = Name_Refined_Global then
+            Ref_Global := Prag;
+         end if;
+
+         Prag := Next_Pragma (Prag);
+      end loop;
+
+      --  Analyze Refined_Global first as Refined_Depends may mention items
+      --  classified in the global refinement.
+
+      if Present (Ref_Global) then
+         Analyze_Refined_Global_In_Decl_Part (Ref_Global);
+
+      --  When the corresponding Global aspect/pragma references a state with
+      --  visible refinement, the body requires Refined_Global.
+
+      elsif Present (Spec_Id) then
+         Prag := Get_Pragma (Spec_Id, Pragma_Global);
+
+         if Present (Prag) and then Contains_Refined_State (Prag) then
+            Error_Msg_NE
+              ("body of subprogram & requires global refinement",
+               Body_Decl, Spec_Id);
+         end if;
+      end if;
+
+      --  Refined_Depends must be analyzed after Refined_Global in order to see
+      --  the modes of all global refinements.
+
+      if Present (Ref_Depends) then
+         Analyze_Refined_Depends_In_Decl_Part (Ref_Depends);
+
+      --  When the corresponding Depends aspect/pragma references a state with
+      --  visible refinement, the body requires Refined_Depends.
+
+      elsif Present (Spec_Id) then
+         Prag := Get_Pragma (Spec_Id, Pragma_Depends);
+
+         if Present (Prag) and then Contains_Refined_State (Prag) then
+            Error_Msg_NE
+              ("body of subprogram & requires dependance refinement",
+               Body_Decl, Spec_Id);
+         end if;
+      end if;
    end Analyze_Subprogram_Body_Contract;
 
    ------------------------------------
@@ -3536,17 +3597,16 @@ package body Sem_Ch6 is
       --  Local variables
 
       Items       : constant Node_Id := Contract (Subp);
-      Error_CCase : Node_Id;
-      Error_Post  : Node_Id;
+      Depends     : Node_Id := Empty;
+      Error_CCase : Node_Id := Empty;
+      Error_Post  : Node_Id := Empty;
+      Global      : Node_Id := Empty;
       Nam         : Name_Id;
       Prag        : Node_Id;
 
    --  Start of processing for Analyze_Subprogram_Contract
 
    begin
-      Error_CCase := Empty;
-      Error_Post  := Empty;
-
       if Present (Items) then
 
          --  Analyze pre- and postconditions
@@ -3601,14 +3661,27 @@ package body Sem_Ch6 is
             Nam := Pragma_Name (Prag);
 
             if Nam = Name_Depends then
-               Analyze_Depends_In_Decl_Part (Prag);
-            else
-               pragma Assert (Nam = Name_Global);
-               Analyze_Global_In_Decl_Part (Prag);
+               Depends := Prag;
+            else pragma Assert (Nam = Name_Global);
+               Global := Prag;
             end if;
 
             Prag := Next_Pragma (Prag);
          end loop;
+
+         --  Analyze Global first as Depends may mention items classified in
+         --  the global categorization.
+
+         if Present (Global) then
+            Analyze_Global_In_Decl_Part (Global);
+         end if;
+
+         --  Depends must be analyzed after Global in order to see the modes of
+         --  all global items.
+
+         if Present (Depends) then
+            Analyze_Depends_In_Decl_Part (Depends);
+         end if;
       end if;
 
       --  Emit an error when none of the postconditions or contract-cases
@@ -10245,8 +10318,7 @@ package body Sem_Ch6 is
            and then In_Private_Part (Current_Scope)
          then
             Priv_Decls :=
-              Private_Declarations
-                (Specification (Unit_Declaration_Node (Current_Scope)));
+              Private_Declarations (Package_Specification (Current_Scope));
 
             return In_Package_Body (Current_Scope)
               or else

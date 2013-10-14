@@ -43,16 +43,20 @@ package Sem_Util is
    --  Add A to the list of access types to process when expanding the
    --  freeze node of E.
 
-   procedure Add_Contract_Item (Prag : Node_Id; Subp_Id : Entity_Id);
-   --  Add one of the following contract item to the contract of a subprogram.
-   --  Prag denotes a pragma and Subp_Id is the related subprogram [body].
+   procedure Add_Contract_Item (Prag : Node_Id; Id : Entity_Id);
+   --  Add pragma Prag to the contract of an entry, a package [body] or a
+   --  subprogram [body] denoted by Id. The following are valid pragmas:
+   --    Abstract_States
    --    Contract_Cases
    --    Depends
    --    Global
+   --    Initial_Condition
+   --    Initializes
    --    Postcondition
    --    Precondition
    --    Refined_Depends
    --    Refined_Global
+   --    Refined_States
    --    Test_Case
 
    procedure Add_Global_Declaration (N : Node_Id);
@@ -325,6 +329,13 @@ package Sem_Util is
    procedure Conditional_Delay (New_Ent, Old_Ent : Entity_Id);
    --  Sets the Has_Delayed_Freeze flag of New if the Delayed_Freeze flag of
    --  Old is set and Old has no yet been Frozen (i.e. Is_Frozen is false).
+
+   function Contains_Refined_State (Prag : Node_Id) return Boolean;
+   --  Determine whether pragma Prag contains a reference to the entity of an
+   --  abstract state with a visible refinement. Prag must denote one of the
+   --  following pragmas:
+   --    Depends
+   --    Global
 
    function Copy_Parameter_List (Subp_Id : Entity_Id) return List_Id;
    --  Utility to create a parameter profile for a new subprogram spec, when
@@ -892,6 +903,9 @@ package Sem_Util is
    --  Determines if the given node denotes an atomic object in the sense of
    --  the legality checks described in RM C.6(12).
 
+   function Is_Attribute_Result (N : Node_Id) return Boolean;
+   --  Determine whether node N denotes attribute 'Result
+
    function Is_Body_Or_Package_Declaration (N : Node_Id) return Boolean;
    --  Determine whether node N denotes a body or a package declaration
 
@@ -1357,6 +1371,16 @@ package Sem_Util is
    --  Return the accessibility level of the view of the object Obj. For
    --  convenience, qualified expressions applied to object names are also
    --  allowed as actuals for this function.
+
+   function Original_Aspect_Name (N : Node_Id) return Name_Id;
+   --  N is a pragma node or aspect specification node. This function returns
+   --  the name of the pragma or aspect in original source form, taking into
+   --  account possible rewrites, and also cases where a pragma comes from an
+   --  aspect (in such cases, the name can be different from the pragma name,
+   --  e.g. a Pre aspect generates a Precondition pragma). This also deals with
+   --  the presence of 'Class, which results in one of the special names
+   --  Name_uPre, Name_uPost, Name_uInvariant, or Name_uType_Invariant being
+   --  returned to represent the corresponding aspects with x'Class names.
 
    function Primitive_Names_Match (E1, E2 : Entity_Id) return Boolean;
    --  Returns True if the names of both entities correspond with matching

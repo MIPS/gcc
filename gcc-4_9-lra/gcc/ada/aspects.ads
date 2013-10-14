@@ -96,6 +96,8 @@ package Aspects is
       Aspect_External_Tag,
       Aspect_Global,                        -- GNAT
       Aspect_Implicit_Dereference,
+      Aspect_Initial_Condition,             -- GNAT
+      Aspect_Initializes,                   -- GNAT
       Aspect_Input,
       Aspect_Interrupt_Priority,
       Aspect_Invariant,                     -- GNAT
@@ -309,6 +311,8 @@ package Aspects is
       Aspect_External_Tag            => Expression,
       Aspect_Global                  => Expression,
       Aspect_Implicit_Dereference    => Name,
+      Aspect_Initial_Condition       => Expression,
+      Aspect_Initializes             => Expression,
       Aspect_Input                   => Name,
       Aspect_Interrupt_Priority      => Expression,
       Aspect_Invariant               => Expression,
@@ -398,6 +402,8 @@ package Aspects is
       Aspect_Independent_Components       => Name_Independent_Components,
       Aspect_Inline                       => Name_Inline,
       Aspect_Inline_Always                => Name_Inline_Always,
+      Aspect_Initial_Condition            => Name_Initial_Condition,
+      Aspect_Initializes                  => Name_Initializes,
       Aspect_Input                        => Name_Input,
       Aspect_Interrupt_Handler            => Name_Interrupt_Handler,
       Aspect_Interrupt_Priority           => Name_Interrupt_Priority,
@@ -597,6 +603,8 @@ package Aspects is
       Aspect_Independent_Components       => Always_Delay,
       Aspect_Inline                       => Always_Delay,
       Aspect_Inline_Always                => Always_Delay,
+      Aspect_Initial_Condition            => Always_Delay,
+      Aspect_Initializes                  => Always_Delay,
       Aspect_Input                        => Always_Delay,
       Aspect_Interrupt_Handler            => Always_Delay,
       Aspect_Interrupt_Priority           => Always_Delay,
