@@ -1,5 +1,10 @@
 2013-10-14  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/jit.exp (jit-dg-test): Detect compilation errors and
+	make them be test failures.
+
+2013-10-14  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-factorial.c (code_making_callback): Update
 	for change to gcc_jit_function_place_forward_label.
 	* jit.dg/test-fibonacci.c (code_making_callback): Add line

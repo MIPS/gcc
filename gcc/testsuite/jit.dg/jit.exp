@@ -46,8 +46,12 @@ proc jit-dg-test { prog do_what extra_tool_flags } {
     verbose "output_file: $output_file"
 
     # Create the test executable:
-    gcc_target_compile $prog $output_file $do_what \
-        "{additional_flags=$extra_tool_flags}"
+    set comp_output [gcc_target_compile $prog $output_file $do_what \
+			"{additional_flags=$extra_tool_flags}"]
+    if ![jit_check_compile "$prog" "initial compilation" \
+	    $output_file $comp_output] then {
+      return
+    }
 
     # Run the test executable, capturing the PASS/FAIL textual output
     # from the C API, converting it into the Tcl API.
