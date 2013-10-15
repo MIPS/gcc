@@ -8600,7 +8600,7 @@ $COMMA It is often noted with a prefix comma-character
 	  (:long isdefmacro (is_a cbind class_defined_macro_binding))
 	  (expv (cond ( (null sexpv)
 			(when (not isdefmacro)
-			  (error_at loc "(EXPORT_MACRO $1 <expander>) needs an expander for non-macro symbol"
+			  (error_at loc "(EXPORT_MACRO $1 <expander>) needs an expander for non-defmacro symbol"
 				      symbname)
 			  (return))
 			symb
@@ -8615,14 +8615,19 @@ $COMMA It is often noted with a prefix comma-character
 	    (setq doc (pair_head curpair))))
       (if (null expv)
 	  (error_at loc  "(EXPORT_MACRO $1 <expander> [:doc <docum>]) expecting expander"_ symbname))
-      (let ( (res (instance class_source_export_macro
+      (let ( (res (if (and isdefmacro (null sexpv))
+		      (instance class_source_export_defmacro
+				:loca_location loc
+				:sexpmac_mname symb
+				:sexpmac_doc doc)
+		      (instance class_source_export_macro
 			    :loca_location loc
 			    :sexpmac_mname symb
-			    :sexpmac_mval expv
 			    :sexpmac_doc doc
-			    ))
+			    :sexpmac_mval expv
+			    )))
 	     )
-	(debug "mexpand_export_macro result res" res)
+	(debug "mexpand_export_macro result res=" res)
 	(return res)
 	))))
 (install_initial_macro 'export_macro mexpand_export_macro)

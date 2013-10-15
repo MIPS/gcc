@@ -1,5 +1,10 @@
 
-2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (mexpand_export_macro): Give an instance
+	of class_source_export_defmacro for defmacro-ed exports.
+
+2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate all}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
