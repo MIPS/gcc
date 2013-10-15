@@ -36,7 +36,7 @@ const char melt_versionmeltstr[]="1.0-rc1+ [melt-branch_revision_203521]";
 /*MELTMODULENAME meltbuild-sources/warmelt-macro */
 const char melt_modulename[]="warmelt-macro";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.0-rc1/warmelt-macro";
+/1.0-rc1+/warmelt-macro";
 
 /* hash of preprocessed melt-run.h generating this */
 const char melt_prepromd5meltrun[]="ba6b070c0387c092e66b5d4b23e1fd71";
