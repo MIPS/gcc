@@ -148,6 +148,26 @@ libtool_VERSION=1:0:0
 AC_SUBST(libtool_VERSION)
 
 # Checks for libraries.
+# Create a spec file, so that compile/link tests don't fail
+test -f libgfortran.spec || touch libgfortran.spec
+FCFLAGS="$FCFLAGS -L."
+
+# We need gfortran to compile parts of the library
+# We can't use AC_PROG_FC because it expects a fully working gfortran.
+#AC_PROG_FC(gfortran)
+case `echo $GFORTRAN` in
+  -* | no* )
+    FC=no ;;
+  *)
+    set dummy $GFORTRAN; ac_word=$2
+    if test -x "$ac_word"; then
+      FC="$GFORTRAN"
+    else
+      FC=no
+    fi ;;
+esac
+AC_PROG_FC(gfortran)
+FCFLAGS="$FCFLAGS -Wall -L../libgfortran/.libs"
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h])
 if test "x$THREADS" == xposix ; then

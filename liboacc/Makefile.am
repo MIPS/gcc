@@ -27,6 +27,9 @@ liboacc_la_SOURCES = liboacc.h \
 					runtime.c \
 					program.c \
 					memory.c \
-					synchro.c
+					synchro.c \
+					openacc_lib.h \
+					openacc_lib.f90 \
+					fortran.c
 					
 liboacc_la_CPPFLAGS = -I$(openclinc)
