@@ -43,6 +43,7 @@ struct function;
 struct real_value;
 struct fixed_value;
 struct ptr_info_def;
+struct range_info_def;
 struct die_struct;
 struct pointer_set_t;
 
@@ -242,8 +243,26 @@ enum omp_clause_code {
   /* OpenMP clause: linear (variable-list[:linear-step]).  */
   OMP_CLAUSE_LINEAR,
 
+  /* OpenMP clause: aligned (variable-list[:alignment]).  */
+  OMP_CLAUSE_ALIGNED,
+
+  /* OpenMP clause: depend ({in,out,inout}:variable-list).  */
+  OMP_CLAUSE_DEPEND,
+
   /* OpenMP clause: uniform (argument-list).  */
   OMP_CLAUSE_UNIFORM,
+
+  /* OpenMP clause: from (variable-list).  */
+  OMP_CLAUSE_FROM,
+
+  /* OpenMP clause: to (variable-list).  */
+  OMP_CLAUSE_TO,
+
+  /* OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
+  OMP_CLAUSE_MAP,
+
+  /* Internal clause: temporary for combined loops expansion.  */
+  OMP_CLAUSE__LOOPTEMP_,
 
   /* OpenMP clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
@@ -275,8 +294,44 @@ enum omp_clause_code {
   /* OpenMP clause: mergeable.  */
   OMP_CLAUSE_MERGEABLE,
 
+  /* OpenMP clause: device (integer-expression).  */
+  OMP_CLAUSE_DEVICE,
+
+  /* OpenMP clause: dist_schedule (static[:chunk-size]).  */
+  OMP_CLAUSE_DIST_SCHEDULE,
+
+  /* OpenMP clause: inbranch.  */
+  OMP_CLAUSE_INBRANCH,
+
+  /* OpenMP clause: notinbranch.  */
+  OMP_CLAUSE_NOTINBRANCH,
+
+  /* OpenMP clause: num_teams(integer-expression).  */
+  OMP_CLAUSE_NUM_TEAMS,
+
+  /* OpenMP clause: thread_limit(integer-expression).  */
+  OMP_CLAUSE_THREAD_LIMIT,
+
+  /* OpenMP clause: proc_bind ({master,close,spread}).  */
+  OMP_CLAUSE_PROC_BIND,
+
   /* OpenMP clause: safelen (constant-integer-expression).  */
   OMP_CLAUSE_SAFELEN,
+
+  /* OpenMP clause: simdlen (constant-integer-expression).  */
+  OMP_CLAUSE_SIMDLEN,
+
+  /* OpenMP clause: for.  */
+  OMP_CLAUSE_FOR,
+
+  /* OpenMP clause: parallel.  */
+  OMP_CLAUSE_PARALLEL,
+
+  /* OpenMP clause: sections.  */
+  OMP_CLAUSE_SECTIONS,
+
+  /* OpenMP clause: taskgroup.  */
+  OMP_CLAUSE_TASKGROUP,
 
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_
@@ -780,6 +835,15 @@ struct GTY(()) tree_base {
        OMP_CLAUSE_PRIVATE_DEBUG in
            OMP_CLAUSE_PRIVATE
 
+       OMP_CLAUSE_LINEAR_NO_COPYIN in
+	   OMP_CLAUSE_LINEAR
+
+       OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION in
+	   OMP_CLAUSE_MAP
+
+       OMP_CLAUSE_REDUCTION_OMP_ORIG_REF in
+	   OMP_CLAUSE_REDUCTION
+
        TRANSACTION_EXPR_RELAXED in
 	   TRANSACTION_EXPR
 
@@ -797,8 +861,14 @@ struct GTY(()) tree_base {
        OMP_PARALLEL_COMBINED in
            OMP_PARALLEL
 
+       OMP_ATOMIC_SEQ_CST in
+	   OMP_ATOMIC*
+
        OMP_CLAUSE_PRIVATE_OUTER_REF in
 	   OMP_CLAUSE_PRIVATE
+
+       OMP_CLAUSE_LINEAR_NO_COPYOUT in
+	   OMP_CLAUSE_LINEAR
 
        TYPE_REF_IS_RVALUE in
 	   REFERENCE_TYPE
@@ -935,6 +1005,9 @@ struct GTY(()) tree_base {
 
        DECL_NONLOCAL_FRAME in
 	   VAR_DECL
+
+       TYPE_FINAL_P in
+	   RECORD_TYPE, UNION_TYPE and QUAL_UNION_TYPE
 */
 
 struct GTY(()) tree_typed {
@@ -1010,6 +1083,35 @@ struct GTY(()) tree_constructor {
   vec<constructor_elt, va_gc> *elts;
 };
 
+enum omp_clause_depend_kind
+{
+  OMP_CLAUSE_DEPEND_IN,
+  OMP_CLAUSE_DEPEND_OUT,
+  OMP_CLAUSE_DEPEND_INOUT
+};
+
+enum omp_clause_map_kind
+{
+  OMP_CLAUSE_MAP_ALLOC,
+  OMP_CLAUSE_MAP_TO,
+  OMP_CLAUSE_MAP_FROM,
+  OMP_CLAUSE_MAP_TOFROM,
+  /* The following kind is an internal only map kind, used for pointer based
+     array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
+     which is implicitly POINTER_SIZE / BITS_PER_UNIT, but the bias.  */
+  OMP_CLAUSE_MAP_POINTER
+};
+
+enum omp_clause_proc_bind_kind
+{
+  /* Numbers should match omp_proc_bind_t enum in omp.h.  */
+  OMP_CLAUSE_PROC_BIND_FALSE = 0,
+  OMP_CLAUSE_PROC_BIND_TRUE = 1,
+  OMP_CLAUSE_PROC_BIND_MASTER = 2,
+  OMP_CLAUSE_PROC_BIND_CLOSE = 3,
+  OMP_CLAUSE_PROC_BIND_SPREAD = 4
+};
+
 struct GTY(()) tree_exp {
   struct tree_typed typed;
   location_t locus;
@@ -1041,8 +1143,14 @@ struct GTY(()) tree_ssa_name {
   /* Statement that defines this SSA name.  */
   gimple def_stmt;
 
-  /* Pointer attributes used for alias analysis.  */
-  struct ptr_info_def *ptr_info;
+  /* Value range information.  */
+  union ssa_name_info_type {
+    /* Pointer attributes used for alias analysis.  */
+    struct GTY ((tag ("0"))) ptr_info_def *ptr_info;
+    /* Value range attributes used for zero/sign extension elimination.  */
+    struct GTY ((tag ("1"))) range_info_def *range_info;
+  } GTY ((desc ("%1.typed.type ?" \
+		"!POINTER_TYPE_P (TREE_TYPE ((tree)&%1)) : 2"))) info;
 
   /* Immediate uses list for this SSA_NAME.  */
   struct ssa_use_operand_d imm_uses;
@@ -1061,9 +1169,12 @@ struct GTY(()) tree_omp_clause {
   location_t locus;
   enum omp_clause_code code;
   union omp_clause_subcode {
-    enum omp_clause_default_kind  default_kind;
-    enum omp_clause_schedule_kind schedule_kind;
-    enum tree_code                reduction_code;
+    enum omp_clause_default_kind   default_kind;
+    enum omp_clause_schedule_kind  schedule_kind;
+    enum omp_clause_depend_kind    depend_kind;
+    enum omp_clause_map_kind       map_kind;
+    enum omp_clause_proc_bind_kind proc_bind_kind;
+    enum tree_code                 reduction_code;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's
@@ -1197,8 +1308,7 @@ struct GTY(()) tree_decl_common {
   unsigned lang_flag_7 : 1;
   unsigned lang_flag_8 : 1;
 
-  /* In LABEL_DECL, this is DECL_ERROR_ISSUED.
-     In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
+  /* In VAR_DECL and PARM_DECL, this is DECL_REGISTER.  */
   unsigned decl_flag_0 : 1;
   /* In FIELD_DECL, this is DECL_BIT_FIELD
      In VAR_DECL and FUNCTION_DECL, this is DECL_EXTERNAL.
@@ -1403,6 +1513,9 @@ struct GTY(()) tree_statement_list
   struct tree_statement_list_node *tail;
 };
 
+
+/* Optimization options used by a function.  */
+
 struct GTY(()) tree_optimization_option {
   struct tree_common common;
 
@@ -1417,6 +1530,8 @@ struct GTY(()) tree_optimization_option {
      generated.  */
   struct target_optabs *GTY ((skip)) base_optabs;
 };
+
+/* Target options used by a function.  */
 
 struct GTY(()) tree_target_option {
   struct tree_common common;
@@ -1562,6 +1677,8 @@ struct function_args_iterator {
 struct GTY(()) tree_map_base {
   tree from;
 };
+
+/* Map from a tree to another tree.  */
 
 struct GTY(()) tree_map {
   struct tree_map_base base;

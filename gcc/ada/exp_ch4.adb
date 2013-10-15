@@ -725,20 +725,23 @@ package body Exp_Ch4 is
         (Ref            : Node_Id;
          Built_In_Place : Boolean := False)
       is
-         Cond    : Node_Id;
-         Obj_Ref : Node_Id;
-         Stmts   : List_Id;
+         Pool_Id   : constant Entity_Id := Associated_Storage_Pool (PtrT);
+         Cond      : Node_Id;
+         Fin_Call  : Node_Id;
+         Free_Stmt : Node_Id;
+         Obj_Ref   : Node_Id;
+         Stmts     : List_Id;
 
       begin
          if Ada_Version >= Ada_2005
            and then Is_Class_Wide_Type (DesigT)
+           and then (Tagged_Type_Expansion or else VM_Target /= No_VM)
            and then not Scope_Suppress.Suppress (Accessibility_Check)
            and then
              (Type_Access_Level (Etype (Exp)) > Type_Access_Level (PtrT)
                or else
                  (Is_Class_Wide_Type (Etype (Exp))
                    and then Scope (PtrT) /= Current_Scope))
-           and then (Tagged_Type_Expansion or else VM_Target /= No_VM)
          then
             --  If the allocator was built in place, Ref is already a reference
             --  to the access object initialized to the result of the allocator
@@ -750,7 +753,7 @@ package body Exp_Ch4 is
 
             if Built_In_Place then
                Remove_Side_Effects (Ref);
-               Obj_Ref := New_Copy (Ref);
+               Obj_Ref := New_Copy_Tree (Ref);
             else
                Obj_Ref := New_Reference_To (Ref, Loc);
             end if;
@@ -759,26 +762,67 @@ package body Exp_Ch4 is
 
             Stmts := New_List;
 
-            --  Why don't we free the object ??? discussion and explanation
-            --  needed of why old approach did not work ???
+            --  Deallocate the object if the accessibility check fails. This
+            --  is done only on targets or profiles that support deallocation.
 
-            --  Generate:
+            --    Free (Obj_Ref);
+
+            if RTE_Available (RE_Free) then
+               Free_Stmt := Make_Free_Statement (Loc, New_Copy_Tree (Obj_Ref));
+               Set_Storage_Pool (Free_Stmt, Pool_Id);
+
+               Append_To (Stmts, Free_Stmt);
+
+            --  The target or profile cannot deallocate objects
+
+            else
+               Free_Stmt := Empty;
+            end if;
+
+            --  Finalize the object if applicable. Generate:
+
             --    [Deep_]Finalize (Obj_Ref.all);
 
             if Needs_Finalization (DesigT) then
-               Append_To (Stmts,
+               Fin_Call :=
                  Make_Final_Call (
                    Obj_Ref =>
                      Make_Explicit_Dereference (Loc, New_Copy (Obj_Ref)),
-                   Typ     => DesigT));
+                   Typ     => DesigT);
+
+               --  When the target or profile supports deallocation, wrap the
+               --  finalization call in a block to ensure proper deallocation
+               --  even if finalization fails. Generate:
+
+               --    begin
+               --       <Fin_Call>
+               --    exception
+               --       when others =>
+               --          <Free_Stmt>
+               --          raise;
+               --    end;
+
+               if Present (Free_Stmt) then
+                  Fin_Call :=
+                    Make_Block_Statement (Loc,
+                      Handled_Statement_Sequence =>
+                        Make_Handled_Sequence_Of_Statements (Loc,
+                          Statements => New_List (Fin_Call),
+
+                        Exception_Handlers => New_List (
+                          Make_Exception_Handler (Loc,
+                            Exception_Choices => New_List (
+                              Make_Others_Choice (Loc)),
+
+                            Statements        => New_List (
+                              New_Copy_Tree (Free_Stmt),
+                              Make_Raise_Statement (Loc))))));
+               end if;
+
+               Prepend_To (Stmts, Fin_Call);
             end if;
 
             --  Signal the accessibility failure through a Program_Error
-
-            --  Since we may have a storage leak, I would be inclined to
-            --  define a new PE_ code that warns of this possibility where
-            --  the message would be Accessibility_Check_Failed (causing
-            --  storage leak) ???
 
             Append_To (Stmts,
               Make_Raise_Program_Error (Loc,
@@ -4847,6 +4891,7 @@ package body Exp_Ch4 is
       Loc     : constant Source_Ptr := Sloc (N);
       Typ     : constant Entity_Id  := Etype (N);
       Cstmt   : Node_Id;
+      Decl    : Node_Id;
       Tnn     : Entity_Id;
       Pnn     : Entity_Id;
       Actions : List_Id;
@@ -4914,19 +4959,24 @@ package body Exp_Ch4 is
          Append_To (Actions,
            Make_Full_Type_Declaration (Loc,
              Defining_Identifier => Pnn,
-             Type_Definition =>
+             Type_Definition     =>
                Make_Access_To_Object_Definition (Loc,
-                 All_Present => True,
-                 Subtype_Indication =>
-                   New_Reference_To (Typ, Loc))));
+                 All_Present        => True,
+                 Subtype_Indication => New_Reference_To (Typ, Loc))));
          Ttyp := Pnn;
       end if;
 
       Tnn := Make_Temporary (Loc, 'T');
-      Append_To (Actions,
+
+      --  Create declaration for target of expression, and indicate that it
+      --  does not require initialization.
+
+      Decl :=
         Make_Object_Declaration (Loc,
           Defining_Identifier => Tnn,
-          Object_Definition   => New_Occurrence_Of (Ttyp, Loc)));
+          Object_Definition   => New_Occurrence_Of (Ttyp, Loc));
+      Set_No_Initialization (Decl);
+      Append_To (Actions, Decl);
 
       --  Now process the alternatives
 
@@ -8074,11 +8124,30 @@ package body Exp_Ch4 is
             return;
 
          else
-            Rewrite (N,
-              Make_Op_Shift_Left (Loc,
-                Left_Opnd  => Lop,
-                Right_Opnd =>
-                  Convert_To (Standard_Natural, Right_Opnd (Rop))));
+            --  If the result is modular, perform the reduction of the result
+            --  appropriately.
+
+            if Is_Modular_Integer_Type (Typ)
+              and then not Non_Binary_Modulus (Typ)
+            then
+               Rewrite (N,
+                 Make_Op_And (Loc,
+                   Left_Opnd  =>
+                     Make_Op_Shift_Left (Loc,
+                       Left_Opnd  => Lop,
+                       Right_Opnd =>
+                         Convert_To (Standard_Natural, Right_Opnd (Rop))),
+                   Right_Opnd =>
+                     Make_Integer_Literal (Loc, Modulus (Typ) - 1)));
+
+            else
+               Rewrite (N,
+                 Make_Op_Shift_Left (Loc,
+                   Left_Opnd  => Lop,
+                   Right_Opnd =>
+                     Convert_To (Standard_Natural, Right_Opnd (Rop))));
+            end if;
+
             Analyze_And_Resolve (N, Typ);
             return;
          end if;
@@ -8086,11 +8155,27 @@ package body Exp_Ch4 is
       --  Same processing for the operands the other way round
 
       elsif Lp2 then
-         Rewrite (N,
-           Make_Op_Shift_Left (Loc,
-             Left_Opnd  => Rop,
-             Right_Opnd =>
-               Convert_To (Standard_Natural, Right_Opnd (Lop))));
+         if Is_Modular_Integer_Type (Typ)
+           and then not Non_Binary_Modulus (Typ)
+         then
+            Rewrite (N,
+              Make_Op_And (Loc,
+                Left_Opnd  =>
+                  Make_Op_Shift_Left (Loc,
+                    Left_Opnd  => Rop,
+                    Right_Opnd =>
+                      Convert_To (Standard_Natural, Right_Opnd (Lop))),
+                Right_Opnd =>
+                   Make_Integer_Literal (Loc, Modulus (Typ) - 1)));
+
+         else
+            Rewrite (N,
+              Make_Op_Shift_Left (Loc,
+                Left_Opnd  => Rop,
+                Right_Opnd =>
+                  Convert_To (Standard_Natural, Right_Opnd (Lop))));
+         end if;
+
          Analyze_And_Resolve (N, Typ);
          return;
       end if;
@@ -12317,15 +12402,7 @@ package body Exp_Ch4 is
                  Name       => New_Reference_To (Temp_Id, Loc),
                  Expression => Make_Null (Loc))));
 
-         --  Use the Actions list of logical operators when inserting the
-         --  finalization call. This ensures that all transient controlled
-         --  objects are finalized after the operators are evaluated.
-
-         if Nkind_In (Context, N_And_Then, N_Or_Else) then
-            Insert_Action (Context, Fin_Call);
-         else
-            Insert_Action_After (Context, Fin_Call);
-         end if;
+         Insert_Action_After (Context, Fin_Call);
       end if;
    end Process_Transient_Object;
 

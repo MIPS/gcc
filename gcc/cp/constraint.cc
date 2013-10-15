@@ -789,7 +789,7 @@ declare_local_parms (tree tparms, tree sparms)
   for (tree p = tparms; p && !VOID_TYPE_P (TREE_VALUE (p)); p = TREE_CHAIN (p))
     {
       tree t = TREE_VALUE (p);
-      if (FUNCTION_PARAMETER_PACK_P (t))
+      if (DECL_PACK_P (t))
         {
           tree pack = extract_fnparm_pack (t, &s);
           register_local_specialization (pack, t);

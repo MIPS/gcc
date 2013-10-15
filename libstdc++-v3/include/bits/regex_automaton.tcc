@@ -80,6 +80,31 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		 << __id << " -> " << _M_alt
 		 << " [label=\"epsilon\", tailport=\"n\"];\n";
 	  break;
+	case _S_opcode_backref:
+	  __ostr << __id << " [label=\"" << __id << "\\nBACKREF "
+		 << _M_subexpr << "\"];\n"
+		 << __id << " -> " << _M_next << " [label=\"<match>\"];\n";
+	  break;
+	case _S_opcode_line_begin_assertion:
+	  __ostr << __id << " [label=\"" << __id << "\\nLINE_BEGIN \"];\n"
+		 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
+	  break;
+	case _S_opcode_line_end_assertion:
+	  __ostr << __id << " [label=\"" << __id << "\\nLINE_END \"];\n"
+		 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
+	  break;
+	case _S_opcode_word_boundry:
+	  __ostr << __id << " [label=\"" << __id << "\\nWORD_BOUNDRY "
+		 << _M_neg << "\"];\n"
+		 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
+	  break;
+	case _S_opcode_subexpr_lookahead:
+	  __ostr << __id << " [label=\"" << __id << "\\nLOOK_AHEAD\"];\n"
+		 << __id << " -> " << _M_next
+		 << " [label=\"epsilon\", tailport=\"s\"];\n"
+		 << __id << " -> " << _M_alt
+		 << " [label=\"<assert>\", tailport=\"n\"];\n";
+	  break;
 	case _S_opcode_subexpr_begin:
 	  __ostr << __id << " [label=\"" << __id << "\\nSBEGIN "
 		 << _M_subexpr << "\"];\n"
@@ -90,10 +115,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 		 << _M_subexpr << "\"];\n"
 		 << __id << " -> " << _M_next << " [label=\"epsilon\"];\n";
 	  break;
-	case _S_opcode_backref:
-	  __ostr << __id << " [label=\"" << __id << "\\nBACKREF "
-		 << _M_subexpr << "\"];\n"
-		 << __id << " -> " << _M_next << " [label=\"<match>\"];\n";
+	case _S_opcode_dummy:
 	  break;
 	case _S_opcode_match:
 	  __ostr << __id << " [label=\"" << __id << "\\nMATCH\"];\n"
@@ -101,8 +123,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	  break;
 	case _S_opcode_accept:
 	  __ostr << __id << " [label=\"" << __id << "\\nACC\"];\n" ;
-	  break;
-	case _S_opcode_dummy:
 	  break;
 	default:
 	  _GLIBCXX_DEBUG_ASSERT(false);
@@ -117,7 +137,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     {
       __ostr << "digraph _Nfa {\n"
        << "  rankdir=LR;\n";
-      for (unsigned int __i = 0; __i < this->size(); ++__i)
+      for (size_t __i = 0; __i < this->size(); ++__i)
       { this->at(__i)._M_dot(__ostr, __i); }
       __ostr << "}\n";
       return __ostr;
@@ -126,7 +146,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   template<typename _CharT, typename _TraitsT>
     _StateIdT _NFA<_CharT, _TraitsT>::
-    _M_insert_backref(unsigned int __index)
+    _M_insert_backref(size_t __index)
     {
       // To figure out whether a backref is valid, a stack is used to store
       // unfinished sub-expressions. For example, when parsing
@@ -141,8 +161,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	if (__index == __it)
 	  __throw_regex_error(regex_constants::error_backref);
       _M_has_backref = true;
-      this->push_back(_StateT(_S_opcode_backref, __index));
-      return this->size()-1;
+      _StateT __tmp(_S_opcode_backref);
+      __tmp._M_backref_index = __index;
+      return _M_insert_state(__tmp);
     }
 
   template<typename _CharT, typename _TraitsT>
@@ -152,9 +173,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       for (auto& __it : *this)
 	{
 	  while (__it._M_next >= 0 && (*this)[__it._M_next]._M_opcode
-	         == _S_opcode_dummy)
+		 == _S_opcode_dummy)
 	    __it._M_next = (*this)[__it._M_next]._M_next;
-	  if (__it._M_opcode == _S_opcode_alternative)
+	  if (__it._M_opcode == _S_opcode_alternative
+	      || __it._M_opcode == _S_opcode_subexpr_lookahead)
 	    while (__it._M_alt >= 0 && (*this)[__it._M_alt]._M_opcode
 		   == _S_opcode_dummy)
 	      __it._M_alt = (*this)[__it._M_alt]._M_next;
@@ -180,7 +202,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	    continue;
 	  if (__m.count(__dup._M_next) == 0)
 	    __stack.push(__dup._M_next);
-	  if (__dup._M_opcode == _S_opcode_alternative)
+	  if (__dup._M_opcode == _S_opcode_alternative
+	      || __dup._M_opcode == _S_opcode_subexpr_lookahead)
 	    if (__m.count(__dup._M_alt) == 0)
 	      __stack.push(__dup._M_alt);
 	}
@@ -192,7 +215,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	      _GLIBCXX_DEBUG_ASSERT(__m.count(__ref._M_next));
 	      __ref._M_next = __m[__ref._M_next];
 	    }
-	  if (__ref._M_opcode == _S_opcode_alternative)
+	  if (__ref._M_opcode == _S_opcode_alternative
+	      || __ref._M_opcode == _S_opcode_subexpr_lookahead)
 	    if (__ref._M_alt != -1)
 	      {
 		_GLIBCXX_DEBUG_ASSERT(__m.count(__ref._M_alt));

@@ -1773,6 +1773,7 @@ package body Sem_Ch8 is
       Old_S       : Entity_Id                 := Empty;
       Rename_Spec : Entity_Id;
       Save_AV     : constant Ada_Version_Type := Ada_Version;
+      Save_AVP    : constant Node_Id          := Ada_Version_Pragma;
       Save_AV_Exp : constant Ada_Version_Type := Ada_Version_Explicit;
       Spec        : constant Node_Id          := Specification (N);
 
@@ -2582,6 +2583,7 @@ package body Sem_Ch8 is
       --  ???
 
       Ada_Version := Ada_Version_Type'Max (Ada_Version, Ada_95);
+      Ada_Version_Pragma := Empty;
       Ada_Version_Explicit := Ada_Version;
 
       if No (Old_S) then
@@ -3039,6 +3041,7 @@ package body Sem_Ch8 is
       end if;
 
       Ada_Version := Save_AV;
+      Ada_Version_Pragma := Save_AVP;
       Ada_Version_Explicit := Save_AV_Exp;
    end Analyze_Subprogram_Renaming;
 
@@ -5154,12 +5157,10 @@ package body Sem_Ch8 is
       Selector  : constant Node_Id := Selector_Name (N);
       Candidate : Entity_Id        := Empty;
       P_Name    : Entity_Id;
-      O_Name    : Entity_Id;
       Id        : Entity_Id;
 
    begin
       P_Name := Entity (Prefix (N));
-      O_Name := P_Name;
 
       --  If the prefix is a renamed package, look for the entity in the
       --  original package.
@@ -5337,15 +5338,22 @@ package body Sem_Ch8 is
             else
                --  Within the instantiation of a child unit, the prefix may
                --  denote the parent instance, but the selector has the name
-               --  of the original child. Find whether we are within the
-               --  corresponding instance, and get the proper entity, which
-               --  can only be an enclosing scope.
+               --  of the original child. That is to say, when A.B appears
+               --  within an instantiation of generic child unit B, the scope
+               --  stack includes an instance of A (P_Name) and an instance
+               --  of B under some other name. We scan the scope to find this
+               --  child instance, which is the desired entity.
+               --  Note that the parent may itself be a child instance, if
+               --  the reference is of the form A.B.C, in which case A.B has
+               --  already been rewritten with the proper entity.
 
-               if O_Name /= P_Name
-                 and then In_Open_Scopes (P_Name)
+               if In_Open_Scopes (P_Name)
                  and then Is_Generic_Instance (P_Name)
                then
                   declare
+                     Gen_Par : constant Entity_Id :=
+                                 Generic_Parent (Specification
+                                   (Unit_Declaration_Node (P_Name)));
                      S : Entity_Id := Current_Scope;
                      P : Entity_Id;
 
@@ -5362,9 +5370,12 @@ package body Sem_Ch8 is
                            P := Generic_Parent (Specification
                                   (Unit_Declaration_Node (S)));
 
+                           --  Check that P is a generic child of the generic
+                           --  parent of the prefix.
+
                            if Present (P)
-                             and then Chars (Scope (P)) = Chars (O_Name)
                              and then Chars (P) = Chars (Selector)
+                             and then Scope (P) = Gen_Par
                            then
                               Id := S;
                               goto Found;

@@ -307,6 +307,7 @@ begin
       when Pragma_Ada_83 =>
          Ada_Version := Ada_83;
          Ada_Version_Explicit := Ada_83;
+         Ada_Version_Pragma := Pragma_Node;
 
       ------------
       -- Ada_95 --
@@ -319,6 +320,7 @@ begin
       when Pragma_Ada_95 =>
          Ada_Version := Ada_95;
          Ada_Version_Explicit := Ada_95;
+         Ada_Version_Pragma := Pragma_Node;
 
       ---------------------
       -- Ada_05/Ada_2005 --
@@ -333,6 +335,7 @@ begin
          if Arg_Count = 0 then
             Ada_Version := Ada_2005;
             Ada_Version_Explicit := Ada_2005;
+            Ada_Version_Pragma := Pragma_Node;
          end if;
 
       ---------------------
@@ -348,6 +351,7 @@ begin
          if Arg_Count = 0 then
             Ada_Version := Ada_2012;
             Ada_Version_Explicit := Ada_2012;
+            Ada_Version_Pragma := Pragma_Node;
          end if;
 
       -----------
@@ -1182,6 +1186,7 @@ begin
            Pragma_Independent                    |
            Pragma_Independent_Components         |
            Pragma_Initialize_Scalars             |
+           Pragma_Initializes                    |
            Pragma_Inline                         |
            Pragma_Inline_Always                  |
            Pragma_Inline_Generic                 |
@@ -1230,11 +1235,15 @@ begin
            Pragma_Preelaborable_Initialization   |
            Pragma_Polling                        |
            Pragma_Persistent_BSS                 |
+           Pragma_Post                           |
            Pragma_Postcondition                  |
+           Pragma_Post_Class                     |
+           Pragma_Pre                            |
            Pragma_Precondition                   |
            Pragma_Predicate                      |
            Pragma_Preelaborate                   |
            Pragma_Preelaborate_05                |
+           Pragma_Pre_Class                      |
            Pragma_Priority                       |
            Pragma_Priority_Specific_Dispatching  |
            Pragma_Profile                        |
@@ -1246,6 +1255,11 @@ begin
            Pragma_Pure_12                        |
            Pragma_Pure_Function                  |
            Pragma_Queuing_Policy                 |
+           Pragma_Refined_Depends                |
+           Pragma_Refined_Global                 |
+           Pragma_Refined_Post                   |
+           Pragma_Refined_Pre                    |
+           Pragma_Refined_State                  |
            Pragma_Relative_Deadline              |
            Pragma_Remote_Access_Type             |
            Pragma_Remote_Call_Interface          |

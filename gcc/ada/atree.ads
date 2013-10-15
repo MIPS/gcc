@@ -736,6 +736,16 @@ package Atree is
       V6 : Entity_Kind) return Boolean;
 
    function Ekind_In
+     (E  : Entity_Id;
+      V1 : Entity_Kind;
+      V2 : Entity_Kind;
+      V3 : Entity_Kind;
+      V4 : Entity_Kind;
+      V5 : Entity_Kind;
+      V6 : Entity_Kind;
+      V7 : Entity_Kind) return Boolean;
+
+   function Ekind_In
      (T  : Entity_Kind;
       V1 : Entity_Kind;
       V2 : Entity_Kind) return Boolean;
@@ -769,6 +779,16 @@ package Atree is
       V4 : Entity_Kind;
       V5 : Entity_Kind;
       V6 : Entity_Kind) return Boolean;
+
+   function Ekind_In
+     (T  : Entity_Kind;
+      V1 : Entity_Kind;
+      V2 : Entity_Kind;
+      V3 : Entity_Kind;
+      V4 : Entity_Kind;
+      V5 : Entity_Kind;
+      V6 : Entity_Kind;
+      V7 : Entity_Kind) return Boolean;
 
    pragma Inline (Ekind_In);
    --  Inline all above functions
@@ -939,12 +959,15 @@ package Atree is
    function Original_Node (Node : Node_Id) return Node_Id;
    pragma Inline (Original_Node);
    --  If Node has not been rewritten, then returns its input argument
-   --  unchanged, else returns the Node for the original subtree.
+   --  unchanged, else returns the Node for the original subtree. Note that
+   --  this is used extensively by ASIS on the trees constructed in ASIS mode
+   --  to reconstruct the original semantic tree. See section in sinfo.ads
+   --  for requirements on original nodes returned by this function.
    --
    --  Note: Parents are not preserved in original tree nodes that are
    --  retrieved in this way (i.e. their children may have children whose
-   --  pointers which reference some other node).
-
+   --  pointers which reference some other node). This needs more details???
+   --
    --  Note: there is no direct mechanism for deleting an original node (in
    --  a manner that can be reversed later). One possible approach is to use
    --  Rewrite to substitute a null statement for the node to be deleted.

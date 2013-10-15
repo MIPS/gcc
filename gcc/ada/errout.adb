@@ -233,6 +233,15 @@ package body Errout is
    begin
       if not Finalize_Called then
          raise Program_Error;
+
+      --  In formal verification mode, errors issued when generating Why code
+      --  are not compilation errors, and should not result in exiting with
+      --  an error status. These errors are handled in the driver of the
+      --  verification process instead.
+
+      elsif SPARK_Mode and not Frame_Condition_Mode then
+         return False;
+
       else
          return Erroutc.Compilation_Errors;
       end if;
@@ -475,6 +484,24 @@ package body Errout is
            (Msg, Actual_Error_Loc, Flag_Location, Msg_Cont_Status);
       end;
    end Error_Msg;
+
+   --------------------------------
+   -- Error_Msg_Ada_2012_Feature --
+   --------------------------------
+
+   procedure Error_Msg_Ada_2012_Feature (Feature : String; Loc : Source_Ptr) is
+   begin
+      if Ada_Version < Ada_2012 then
+         Error_Msg (Feature & " is an Ada 2012 feature", Loc);
+
+         if No (Ada_Version_Pragma) then
+            Error_Msg ("\unit must be compiled with -gnat2012 switch", Loc);
+         else
+            Error_Msg_Sloc := Sloc (Ada_Version_Pragma);
+            Error_Msg ("\incompatible with Ada version set#", Loc);
+         end if;
+      end if;
+   end Error_Msg_Ada_2012_Feature;
 
    ------------------
    -- Error_Msg_AP --
@@ -1302,7 +1329,7 @@ package body Errout is
             CE : Error_Msg_Object renames Errors.Table (Cur);
 
          begin
-            if not CE.Deleted
+            if (CE.Warn and not CE.Deleted)
               and then
                 (Warning_Specifically_Suppressed (CE.Sptr, CE.Text)
                    or else
@@ -2784,7 +2811,9 @@ package body Errout is
                --  If tagging of messages is enabled, and this is a warning,
                --  then it is treated as being [enabled by default].
 
-               if Error_Msg_Warn and Warning_Doc_Switch then
+               if Error_Msg_Warn
+                 and Warning_Doc_Switch
+               then
                   Warning_Msg_Char := '?';
                end if;
 
