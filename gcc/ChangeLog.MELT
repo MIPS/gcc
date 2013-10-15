@@ -1,5 +1,10 @@
 
 
+2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-normal.melt (normexp_export_defmacro): New method
+	for normal_exp on class_source_export_defmacro.
+
 2013-10-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate all}}

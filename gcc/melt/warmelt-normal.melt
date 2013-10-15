@@ -8229,7 +8229,8 @@ source location.}#
 
 ;; return the normalized application to do the macro expport
 (defun normal_exported_macro (sym nexp env ncx psloc bindslist)
-  (debug "normal_exported_macro start sym=" sym " nexp=" nexp)
+  (debug "normal_exported_macro start sym=" sym "; psloc=" psloc
+	 "\n.. nexp=" nexp "\n.. env=" env)
   (assert_msg "check sym" (is_a sym class_symbol) sym)
   (assert_msg "check nexp" (is_a nexp class_nrep) nexp)
   (assert_msg "check env" (is_a env class_environment) env)
@@ -8310,34 +8311,34 @@ source location.}#
 
 ;;;; normalize an export_macro for a defmacro
 (defun normexp_export_defmacro (recv env ncx psloc)
-  (debug "normexp export_defmacro recv=" recv " env=" debug_less env)
+  (debug "normexp_export_defmacro recv=" recv " env=" debug_more env)
   (assert_msg "check export_defmacro recv" (is_a recv class_source_export_defmacro) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (let ( 
 	(modctx (get_field :nctx_modulcontext ncx))
+	(macroenv (get_field :mocx_macroenv modctx))
 	(sloc (unsafe_get_field :loca_location recv))
 	(mname (unsafe_get_field :sexpmac_mname recv))
 	(bindslist (make_list discr_list))
 	(nrepnil (instance class_nrep_nil :nrep_loc sloc))
 	)
     (assert_msg "check mname" (is_a mname class_symbol) mname)
-    (assert_msg "@$@unimplemented normexp_export_defmacro" () recv env modctx)
-#|
+    (debug "normexp_export_defmacro sloc=" debug_less sloc "; macroenv=" debug_more macroenv)
     (multicall 
      (nexp nbinds)
-     (normal_exp mvalexp env ncx sloc)
+     (normal_exp mname macroenv ncx sloc)
      (list_append2list bindslist nbinds)
+     (debug "normexp_export_defmacro sloc=" debug_less sloc "; nexp=" nexp " nbinds=" nbinds)
      (let ( 
-	   (nexpm (normal_exported_macro mname nexp env ncx sloc bindslist))
+	   (nexpm (normal_exported_macro mname nexp macroenv ncx sloc bindslist))
 	   )
-       (debug "normexp_export_macro nexpm" nexpm)
+       (debug "normexp_export_defmacro  sloc=" debug_less sloc "; nexpm=" nexpm)
        )
      (debug "normexp_export_macro final nrepnil=" nrepnil
 	    " bindslist=" bindslist)
      (return nrepnil bindslist)
-|#
-     ))
+     )))
 (install_method class_source_export_defmacro normal_exp normexp_export_defmacro)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
