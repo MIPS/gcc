@@ -2,6 +2,12 @@
 
 2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-genobj.melt (compilobj_nrep_constocc): More debug.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr): More debug.
+
+2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

@@ -2597,8 +2597,8 @@
      (debug "compilobj_nrep_constocc lastcproc=" lastcproc "\n..cprocs=" cprocs "\n..nbind=" nbind 
 	    "\n.. gcx=" debug_less gcx)
      (shortbacktrace_dbg "compilobj_nrep_constocc" 8)
-     (assert_msg "check lastcproc" (is_a lastcproc class_nrep_anyproc) lastcproc)
-     (assert_msg "check cnstyp" (== cnstyp ctype_value) cnstyp)
+     (assert_msg "check lastcproc" (is_a lastcproc class_nrep_anyproc) lastcproc ncnst)
+     (assert_msg "check cnstyp" (== cnstyp ctype_value) cnstyp ncnst)
      (cond 
       ;; handle routine procedures
       ( (is_a lastcproc class_nrep_routproc)

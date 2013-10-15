@@ -6939,6 +6939,7 @@ if (1) return;
   (let (
 	(modnakedname (make_string_nakedbasename discr_string modnamstr))
 	(macroenv (fresh_env inienv (tuple 'macro-compile modnamstr)))
+	(basenv (fresh_env inienv modnamstr))
 	(modctx (instance class_module_context
 			  :mocx_modulename  modnakedname
 			  :mocx_expfieldict (make_mapstring discr_map_strings 390)
@@ -6963,13 +6964,14 @@ if (1) return;
 	)
     (debug "compile_list_sexpr modctx=" modctx 
 	   "\n of class " (discrim modctx))
-    (debug "compile_list_sexpr macroenv=" debug_more macroenv)
-    (debug "compile_list_sexpr initial ncx=" debug_more ncx)
+    (debug "compile_list_sexpr macroenv=" debug_more macroenv "\n.. basenv=" debug_more basenv)
+    (debug "compile_list_sexpr initial ncx=" debug_more ncx "\n.. inienv=" inienv)
     (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+    ;; probably use basenv instead of inienv below
     (let ( (xlist (macroexpand_toplevel_list lsexp inienv macroexpand_1 modctx)) 
 	   (:long lenxlist (list_length xlist))
 	   )
-      (debug "compile_list_sexpr after macroexpansion and before translation modctx=" debug_less modctx)
+      (debug "compile_list_sexpr after macroexpansion and before translation modctx=" debug_less modctx "\n.. xlist=" xlist)
       ;;
       (translate_macroexpanded_list xlist modnamstr modctx ncx inienv () compile2obj_initproc)
       (debug "compile_list_sexpr after translation modctx=" debug_less modctx)
