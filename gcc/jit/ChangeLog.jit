@@ -1,5 +1,9 @@
 2013-10-14  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.map: Alphabetize the exported symbols.
+
+2013-10-14  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::context::new_field): Implement
 	location support, by calling set_tree_location.
 	(gcc::jit::context::new_struct_type): Likewise.
