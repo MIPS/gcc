@@ -2802,9 +2802,8 @@ chkp_build_make_bounds_call (tree lower_bound, tree size)
 			  call, 2, lower_bound, size);
 }
 
-/* Create static bounds var of specfified NAME initilized
-   with bounds of OBJ which is either VAR_DECL or string
-   constant.  */
+/* Create static bounds var of specfified OBJ which is
+   is either VAR_DECL or string constant.  */
 static tree
 chkp_make_static_bounds (tree obj)
 {
@@ -3120,7 +3119,8 @@ chkp_get_bounds_for_decl_addr (tree decl)
       && TREE_CODE (decl) == VAR_DECL
       && (TREE_STATIC (decl)
 	      || DECL_EXTERNAL (decl)
-	      || TREE_PUBLIC (decl)))
+	      || TREE_PUBLIC (decl))
+      && !DECL_THREAD_LOCAL_P (decl))
     {
       tree bnd_var = chkp_make_static_bounds (decl);
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
