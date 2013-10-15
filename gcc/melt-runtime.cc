@@ -4132,6 +4132,7 @@ meltgc_new_mapstrings (meltobject_ptr_t discr_p, unsigned len)
             meltgc_allocate (sizeof (struct meltmapstrings_st), 0);
   mapstring_newmapv->discr = object_discrv;
   mapstring_newmapv->meltmap_aux = NULL;
+  mapstring_newmapv->count = 0;
   if (len > 0)
     {
       /* the newmapv is always young */
@@ -4152,8 +4153,8 @@ end:
 
 
 void
-meltgc_put_mapstrings (struct meltmapstrings_st
-                       *mapstring_p, const char *attr,
+meltgc_put_mapstrings (struct meltmapstrings_st *mapstring_p, 
+		       const char *attr,
                        melt_ptr_t valu_p)
 {
   long ix = 0, len = 0, cnt = 0, atlen = 0;
@@ -4187,7 +4188,7 @@ meltgc_put_mapstrings (struct meltmapstrings_st
       lensiz = len * sizeof (struct entrystringsmelt_st);
       if (melt_is_young (mapstringv))
         {
-          meltgc_reserve (lensiz + 16 * sizeof (void *));
+          meltgc_reserve (lensiz + 16 * sizeof (void *) + atlen);
           if (!melt_is_young (mapstringv))
             goto alloc_old_small_mapstring;
           map_mapstringv->entab =
@@ -4213,7 +4214,7 @@ alloc_old_small_mapstring:
       size_t newlensiz = newlen * sizeof (struct entrystringsmelt_st);
       if (melt_is_young (mapstringv))
         {
-          meltgc_reserve (newlensiz + 10 * sizeof (void *));
+          meltgc_reserve (newlensiz + 10 * sizeof (void *) + atlen);
           if (!melt_is_young (mapstringv))
             goto alloc_old_mapstring;
           newtab =
@@ -4272,8 +4273,8 @@ end:
 }
 
 melt_ptr_t
-melt_get_mapstrings (struct meltmapstrings_st
-                     *mapstring_p, const char *attr)
+melt_get_mapstrings (struct meltmapstrings_st*mapstring_p, 
+		     const char *attr)
 {
   long ix = 0, len = 0;
   const char *oldat = NULL;
@@ -4294,8 +4295,8 @@ melt_get_mapstrings (struct meltmapstrings_st
 }
 
 melt_ptr_t
-meltgc_remove_mapstrings (struct meltmapstrings_st *
-                          mapstring_p, const char *attr)
+meltgc_remove_mapstrings (struct meltmapstrings_st *mapstring_p, 
+			  const char *attr)
 {
   long ix = 0, len = 0, cnt = 0, atlen = 0;
   const char *oldat = NULL;

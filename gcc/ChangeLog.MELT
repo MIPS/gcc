@@ -2,6 +2,12 @@
 
 2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_new_mapstrings): Explicitly initialize
+	the count field. Reserve a slightly better memory estimate.
+	(melt_get_mapstrings, meltgc_remove_mapstrings): Improve code layout.
+
+2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate all}}
 	* melt/generated/warmelt-base+01.cc: Regenerate.
 	* melt/generated/warmelt-base+02.cc: Regenerate.
