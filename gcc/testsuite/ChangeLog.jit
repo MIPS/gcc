@@ -1,3 +1,13 @@
+2013-10-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-factorial.c (code_making_callback): Update
+	for change to gcc_jit_function_place_forward_label.
+	* jit.dg/test-fibonacci.c (code_making_callback): Add line
+	numbering to comment, and set up source locations throughout)
+	allowing stepping throught the comment in the debugger.
+	* jit.dg/test-sum-of-squares.c (code_making_callback): Update
+	for change to gcc_jit_function_place_forward_label.
+
 2013-10-10  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/harness.h: Set GCC_JIT_BOOL_OPTION_DUMP_SUMMARY when

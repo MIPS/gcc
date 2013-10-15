@@ -90,6 +90,16 @@ gcc_jit_context_set_code_factory (gcc_jit_context *ctxt,
     gcc_assert (!(CTXT)->within_code_factory ()); \
   } while (0)
 
+gcc_jit_location *
+gcc_jit_context_new_location (gcc_jit_context *ctxt,
+			      const char *filename,
+			      int line,
+			      int column)
+{
+  ASSERT_WITHIN_CALLBACK (ctxt);
+  return (gcc_jit_location *)ctxt->new_location (filename, line, column);
+}
+
 gcc_jit_type *
 gcc_jit_context_get_void_type (gcc_jit_context *ctxt)
 {
@@ -343,9 +353,10 @@ gcc_jit_function_add_label (gcc_jit_function *func,
 
 void
 gcc_jit_function_place_forward_label (gcc_jit_function *func,
+				      gcc_jit_location *loc,
 				      gcc_jit_label *lab)
 {
-  func->place_forward_label (lab);
+  func->place_forward_label (loc, lab);
 }
 
 void

@@ -108,13 +108,15 @@ new_field (gcc::jit::location *loc,
 	   gcc::jit::type *type,
 	   const char *name)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (type);
   gcc_assert (name);
 
   /* compare with c/c-decl.c:grokfield and grokdeclarator.  */
   tree decl = build_decl (UNKNOWN_LOCATION, FIELD_DECL,
 			  get_identifier (name), type->as_tree ());
+
+  if (loc)
+    set_tree_location (decl, loc);
 
   return new field (decl);
 }
@@ -126,7 +128,6 @@ new_struct_type (gcc::jit::location *loc,
 		 int num_fields,
 		 gcc::jit::field **fields)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (name);
   gcc_assert ((num_fields == 0) || fields);
 
@@ -148,6 +149,9 @@ new_struct_type (gcc::jit::location *loc,
 
   layout_type (t);
 
+  if (loc)
+    set_tree_location (t, loc);
+
   return new type (t);
 }
 
@@ -158,11 +162,13 @@ new_param (location *loc,
 	   type *type,
 	   const char *name)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (type);
   gcc_assert (name);
   tree inner = build_decl (UNKNOWN_LOCATION, PARM_DECL,
 			   get_identifier (name), type->as_tree ());
+  if (loc)
+    set_tree_location (inner, loc);
+
   return new param (inner);
 }
 
@@ -176,7 +182,6 @@ new_function (location *loc,
 	      param **params,
 	      int is_variadic)
  {
-  gcc_assert (NULL == loc);
   //can return_type be NULL?
   gcc_assert (name);
   gcc_assert ((num_params == 0) || params);
@@ -197,6 +202,9 @@ new_function (location *loc,
 
   /* FIXME: this uses input_location: */
   tree fndecl = build_fn_decl (name, fn_type);
+
+  if (loc)
+    set_tree_location (fndecl, loc);
 
   tree resdecl = build_decl (UNKNOWN_LOCATION, RESULT_DECL,
 			     NULL_TREE, return_type->as_tree ());
@@ -237,7 +245,6 @@ new_global (location *loc,
             type *type,
             const char *name)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (type);
   gcc_assert (name);
   tree inner = build_decl (UNKNOWN_LOCATION, VAR_DECL,
@@ -246,6 +253,9 @@ new_global (location *loc,
   TREE_PUBLIC (inner) = 1;
   DECL_COMMON (inner) = 1;
   DECL_EXTERNAL (inner) = 1;
+
+  if (loc)
+    set_tree_location (inner, loc);
 
   return new lvalue (inner);
 }
@@ -256,12 +266,13 @@ new_local (location *loc,
 	   type *type,
 	   const char *name)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (type);
   gcc_assert (name);
   tree inner = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			   get_identifier (name),
 			   type->as_tree ());
+  if (loc)
+    set_tree_location (inner, loc);
   return new local (inner);
 }
 
@@ -313,7 +324,6 @@ new_binary_op (location *loc,
   // FIXME: type-checking, or coercion?
   enum tree_code inner_op;
 
-  gcc_assert (NULL == loc);
   gcc_assert (result_type);
   gcc_assert (a);
   gcc_assert (b);
@@ -338,6 +348,9 @@ new_binary_op (location *loc,
 			    result_type->as_tree (),
 			    a->as_tree (),
 			    b->as_tree ());
+  if (loc)
+    set_tree_location (inner_expr, loc);
+
   return new rvalue (inner_expr);
 }
 
@@ -350,7 +363,6 @@ new_comparison (location *loc,
   // FIXME: type-checking, or coercion?
   enum tree_code inner_op;
 
-  gcc_assert (NULL == loc);
   gcc_assert (a);
   gcc_assert (b);
 
@@ -369,6 +381,8 @@ new_comparison (location *loc,
 			    boolean_type_node,
 			    a->as_tree (),
 			    b->as_tree ());
+  if (loc)
+    set_tree_location (inner_expr, loc);
   return new rvalue (inner_expr);
 }
 
@@ -381,7 +395,6 @@ new_call (location *loc,
   tree fndecl;
   vec<tree, va_gc> *tree_args;
 
-  gcc_assert (NULL == loc);
   gcc_assert (func);
   gcc_assert (numargs >= 0);
   gcc_assert ((args == 0) || (args != NULL));
@@ -397,6 +410,9 @@ new_call (location *loc,
 
   tree fntype = TREE_TYPE (fndecl);
   tree fn = build1 (ADDR_EXPR, build_pointer_type (fntype), fndecl);
+
+  if (loc)
+    set_tree_location (fn, loc);
 
   return new rvalue (build_call_vec (func->get_return_type_as_tree (),
 				     fn, tree_args));
@@ -418,7 +434,6 @@ new_array_lookup (location *loc,
 		  rvalue *ptr,
 		  rvalue *index)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (ptr);
   gcc_assert (index);
 
@@ -435,6 +450,8 @@ new_array_lookup (location *loc,
     {
       tree t_result = build4 (ARRAY_REF, t_type_star_ptr, t_ptr, t_index,
 			      NULL_TREE, NULL_TREE);
+      if (loc)
+        set_tree_location (t_result, loc);
       return new rvalue (t_result);
     }
   else
@@ -448,6 +465,14 @@ new_array_lookup (location *loc,
       tree t_address = build2 (POINTER_PLUS_EXPR, t_type_ptr, t_ptr, t_offset);
 
       tree t_indirection = build1 (INDIRECT_REF, t_type_star_ptr, t_address);
+      if (loc)
+        {
+          set_tree_location (t_sizeof, loc);
+          set_tree_location (t_offset, loc);
+          set_tree_location (t_address, loc);
+          set_tree_location (t_indirection, loc);
+        }
+
       return new rvalue (t_indirection);
     }
 }
@@ -467,7 +492,6 @@ new_field_access (location *loc,
 		  rvalue *ptr_or_struct,
 		  const char *fieldname)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (ptr_or_struct);
   gcc_assert (fieldname);
 
@@ -479,6 +503,8 @@ new_field_access (location *loc,
   if (TREE_CODE (type) == POINTER_TYPE)
     {
       datum = build1 (INDIRECT_REF, type, datum);
+      if (loc)
+        set_tree_location (datum, loc);
       type = TREE_TYPE (type);
     }
 
@@ -491,6 +517,8 @@ new_field_access (location *loc,
     }
   tree ref = build3 (COMPONENT_REF, TREE_TYPE (field), datum,
 		     field, NULL_TREE);
+  if (loc)
+    set_tree_location (ref, loc);
   return new lvalue (ref);
 }
 
@@ -603,7 +631,6 @@ add_assignment (location *loc,
 		lvalue *lvalue,
 		rvalue *rvalue)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (lvalue);
   gcc_assert (rvalue);
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
@@ -611,13 +638,19 @@ add_assignment (location *loc,
   tree t_lvalue = lvalue->as_tree ();
   tree t_rvalue = rvalue->as_tree ();
   if (TREE_TYPE (t_rvalue) != TREE_TYPE (t_lvalue))
-    t_rvalue = build1 (CONVERT_EXPR,
-		       TREE_TYPE (t_lvalue),
-		       t_rvalue);
+    {
+      t_rvalue = build1 (CONVERT_EXPR,
+		         TREE_TYPE (t_lvalue),
+		         t_rvalue);
+      if (loc)
+	set_tree_location (t_rvalue, loc);
+    }
 
   tree stmt =
     build2 (MODIFY_EXPR, TREE_TYPE (t_lvalue),
 	    t_lvalue, t_rvalue);
+  if (loc)
+    set_tree_location (stmt, loc);
   tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
 }
 
@@ -628,7 +661,6 @@ add_conditional (location *loc,
 		 label *on_true,
 		 label *on_false)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (boolval);
   gcc_assert (on_true);
   /* on_false can be NULL */
@@ -639,16 +671,24 @@ add_conditional (location *loc,
      Shim it by creating jumps to the labels */
   tree true_jump = build1 (GOTO_EXPR, void_type_node,
 			   on_true->as_label_decl ());
+  if (loc)
+    set_tree_location (true_jump, loc);
   tree false_jump;
   if (on_false)
-    false_jump = build1 (GOTO_EXPR, void_type_node,
-			 on_false->as_label_decl ());
+    {
+      false_jump = build1 (GOTO_EXPR, void_type_node,
+			   on_false->as_label_decl ());
+      if (loc)
+        set_tree_location (false_jump, loc);
+    }
   else
     false_jump = NULL;
 
   tree stmt =
     build3 (COND_EXPR, void_type_node, boolval->as_tree (),
 	    true_jump, false_jump);
+  if (loc)
+    set_tree_location (stmt, loc);
   tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
 }
 
@@ -657,17 +697,16 @@ gcc::jit::function::
 add_label (location *loc,
 	   const char *name)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
   label *lab = new label (this, name);
-  place_forward_label (lab);
+  place_forward_label (loc, lab);
   return lab;
 }
 
 void
 gcc::jit::function::
-place_forward_label (label *lab)
+place_forward_label (location *loc, label *lab)
 {
   gcc_assert (lab);
   gcc_assert (NULL == lab->m_label_expr); // must not have already been placed
@@ -676,6 +715,8 @@ place_forward_label (label *lab)
   lab->m_label_expr = build1 (LABEL_EXPR,
 			     void_type_node,
 			     lab->as_label_decl ());
+  if (loc)
+    set_tree_location (lab->m_label_expr, loc);
   tsi_link_after (&m_stmt_iter, lab->m_label_expr, TSI_CONTINUE_LINKING);
 }
 
@@ -684,7 +725,6 @@ gcc::jit::function::
 add_jump (location *loc,
 	  label *target)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (target);
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
@@ -695,6 +735,8 @@ add_jump (location *loc,
   //tree stmt = build_and_jump (&LABEL_EXPR_LABEL (target->label_));
   TREE_USED (target->as_label_decl ()) = 1;
   tree stmt = build1 (GOTO_EXPR, void_type_node, target->as_label_decl ());
+  if (loc)
+    set_tree_location (stmt, loc);
   tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
 
   /*
@@ -721,7 +763,6 @@ gcc::jit::function::
 add_return (location *loc,
 	    rvalue *rvalue)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
   tree return_type = TREE_TYPE (TREE_TYPE (m_inner_fndecl));
@@ -735,6 +776,11 @@ add_return (location *loc,
 			       t_lvalue, t_rvalue);
   tree return_stmt = build1 (RETURN_EXPR, return_type,
 			     modify_retval);
+  if (loc)
+    {
+      set_tree_location (modify_retval, loc);
+      set_tree_location (return_stmt, loc);
+    }
   tsi_link_after (&m_stmt_iter, return_stmt, TSI_CONTINUE_LINKING);
 }
 
@@ -773,7 +819,7 @@ loop (function *func, location *loc, rvalue *boolval) :
   m_label_body = func->new_forward_label ("loop_body");
   m_label_end = func->new_forward_label ("loop_end");
   func->add_conditional (loc, boolval, m_label_body, m_label_end);
-  func->place_forward_label (m_label_body);
+  func->place_forward_label (loc, m_label_body);
 }
 
 void
@@ -781,7 +827,7 @@ gcc::jit::loop::
 end (location *loc)
 {
   m_func->add_jump (loc, m_label_cond);
-  m_func->place_forward_label (m_label_end);
+  m_func->place_forward_label (loc, m_label_end);
 }
 
 void
@@ -1030,6 +1076,11 @@ invoke_code_factory ()
     {
       int i;
       function *func;
+
+      /* No GC can happen yet; process the cached source locations.  */
+      handle_locations ();
+
+      /* Postprocess the functions.  This could trigger GC.  */
       FOR_EACH_VEC_ELT (m_functions, i, func)
 	{
 	  gcc_assert (func);
@@ -1037,6 +1088,102 @@ invoke_code_factory ()
 	}
     }
 }
+
+static int
+line_comparator (const void *lhs, const void *rhs)
+{
+  const gcc::jit::source_line *line_lhs = \
+    *static_cast<const gcc::jit::source_line * const*> (lhs);
+  const gcc::jit::source_line *line_rhs = \
+    *static_cast<const gcc::jit::source_line * const*> (rhs);
+  return line_lhs->get_line_num () - line_rhs->get_line_num ();
+}
+
+static int
+location_comparator (const void *lhs, const void *rhs)
+{
+  const gcc::jit::location *loc_lhs = \
+    *static_cast<const gcc::jit::location * const *> (lhs);
+  const gcc::jit::location *loc_rhs = \
+    *static_cast<const gcc::jit::location * const *> (rhs);
+  return loc_lhs->get_column_num () - loc_rhs->get_column_num ();
+}
+
+void
+gcc::jit::context::
+handle_locations ()
+{
+  /* Create the source code locations, following the ordering rules
+     imposed by the linemap API.
+
+     line_table is a global.  */
+  int i;
+  source_file *file;
+
+  FOR_EACH_VEC_ELT (m_source_files, i, file)
+    {
+      linemap_add (line_table, LC_ENTER, false, file->get_filename (), 0);
+
+      /* Sort lines by ascending line numbers.  */
+      file->m_source_lines.qsort (&line_comparator);
+
+      int j;
+      source_line *line;
+      FOR_EACH_VEC_ELT (file->m_source_lines, j, line)
+	{
+	  int k;
+	  location *loc;
+
+	  /* Sort locations in line by ascending column numbers.  */
+	  line->m_locations.qsort (&location_comparator);
+
+	  /* Determine maximum column within this line.  */
+	  gcc_assert (line->m_locations.length () > 0);
+	  location *final_column =
+	    line->m_locations[line->m_locations.length () - 1];
+	  int max_col = final_column->get_column_num ();
+
+	  linemap_line_start (line_table, line->get_line_num (), max_col);
+	  FOR_EACH_VEC_ELT (line->m_locations, k, loc)
+	    {
+	      loc->m_srcloc =					   \
+		linemap_position_for_column (line_table, loc->get_column_num ());
+	    }
+	}
+
+      linemap_add (line_table, LC_LEAVE, false, NULL, 0);
+    }
+
+  /* Now assign them to tree nodes as appropriate.  */
+  std::pair<tree, location *> *cached_location;
+
+  FOR_EACH_VEC_ELT (m_cached_locations, i, cached_location)
+    {
+      tree t = cached_location->first;
+      source_location srcloc = cached_location->second->m_srcloc;
+#if 0
+      inform (srcloc, "location of ");
+      debug_tree (t);
+#endif
+
+      /* This covers expressions: */
+      if (CAN_HAVE_LOCATION_P (t))
+	SET_EXPR_LOCATION (t, srcloc);
+      else if (DECL_MINIMAL_CHECK (t))
+	DECL_SOURCE_LOCATION (t) = srcloc;
+      else
+	{
+	  /* Don't know how to set location on this node.  */
+	  if (0)
+	    {
+	      fprintf (stderr, "can't set location on:");
+	      debug_tree (t);
+	      fprintf (stderr, "\n");
+	    }
+	}
+    }
+}
+
 
 void
 gcc::jit::context::
@@ -1074,4 +1221,107 @@ get_code (const char *funcname)
   }
 
   return code;
+}
+
+/* Dealing with the linemap API.  */
+
+gcc::jit::location *
+gcc::jit::context::
+new_location (const char *filename,
+	      int line,
+	      int column)
+{
+  /* Get the source_file for filename, creating if necessary.  */
+  source_file *src_file = get_source_file (filename);
+  /* Likewise for the line within the file.  */
+  source_line *src_line = src_file->get_source_line (line);
+  /* Likewise for the column within the line.  */
+  location *loc = src_line->get_location (column);
+  return loc;
+}
+
+void
+gcc::jit::context::
+set_tree_location (tree t, location *loc)
+{
+  m_cached_locations.safe_push (std::make_pair (t, loc));
+}
+
+
+gcc::jit::source_file *
+gcc::jit::context::
+get_source_file (const char *filename)
+{
+  /* Locate the file.
+     For simplicitly, this is currently a linear search.
+     Replace with a hash if this shows up in the profile.  */
+  int i;
+  source_file *file;
+  tree ident_filename = get_identifier (filename);
+
+  FOR_EACH_VEC_ELT (m_source_files, i, file)
+    if (file->filename_as_tree () == ident_filename)
+      return file;
+
+  /* Not found.  */
+  file = new source_file (ident_filename);
+  m_source_files.safe_push (file);
+  return file;
+}
+
+gcc::jit::source_file::source_file (tree filename) :
+  m_source_lines (),
+  m_filename (filename)
+{
+}
+
+gcc::jit::source_line *
+gcc::jit::source_file::
+get_source_line (int line_num)
+{
+  /* Locate the line.
+     For simplicitly, this is currently a linear search.
+     Replace with a hash if this shows up in the profile.  */
+  int i;
+  source_line *line;
+
+  FOR_EACH_VEC_ELT (m_source_lines, i, line)
+    if (line->get_line_num () == line_num)
+      return line;
+
+  /* Not found.  */
+  line = new source_line (this, line_num);
+  m_source_lines.safe_push (line);
+  return line;
+}
+
+gcc::jit::source_line::source_line (source_file *file, int line_num) :
+  m_locations (),
+  m_source_file (file),
+  m_line_num (line_num)
+{
+}
+
+gcc::jit::location *
+gcc::jit::source_line::
+get_location (int column_num)
+{
+  int i;
+  location *loc;
+
+  /* Another linear search that probably should be a hash table.  */
+  FOR_EACH_VEC_ELT (m_locations, i, loc)
+    if (loc->get_column_num () == column_num)
+      return loc;
+
+  /* Not found.  */
+  loc = new location (this, column_num);
+  m_locations.safe_push (loc);
+  return loc;
+}
+
+gcc::jit::location::location (source_line *line, int column_num) :
+  m_line (line),
+  m_column_num(column_num)
+{
 }

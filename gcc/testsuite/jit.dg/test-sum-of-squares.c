@@ -106,7 +106,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     label_cond);
 
   /* label "after_loop:" */
-  gcc_jit_function_place_forward_label (func, label_after_loop);
+  gcc_jit_function_place_forward_label (func, NULL, label_after_loop);
 
   /* return sum */
   gcc_jit_function_add_return (

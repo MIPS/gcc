@@ -1,3 +1,61 @@
+2013-10-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::context::new_field): Implement
+	location support, by calling set_tree_location.
+	(gcc::jit::context::new_struct_type): Likewise.
+	(gcc::jit::context::new_param): Likewise.
+	(gcc::jit::context::new_function): Likewise.
+	(gcc::jit::context::new_global): Likewise.
+	(gcc::jit::context::new_local): Likewise.
+	(gcc::jit::context::new_binary_op): Likewise.
+	(gcc::jit::context::new_comparison): Likewise.
+	(gcc::jit::context::new_call): Likewise.
+	(gcc::jit::context::new_array_lookup): Likewise.
+	(gcc::jit::context::new_field_access): Likewise.
+	(gcc::jit::context::add_assignment): Likewise.
+	(gcc::jit::context::add_conditional): Likewise.
+	(gcc::jit::function::add_label): Likewise.
+	(gcc::jit::function::add_jump): Likewise.
+	(gcc::jit::function::add_return): Likewise.
+	(gcc::jit::function::place_forward_label): Likewise, adding
+	location parameter.
+	(gcc::jit::loop::loop): Add loc arg to place_forward_label.
+	(gcc::jit::loop::end): Likewise.
+	(gcc::jit::context::invoke_code_factory): Call handle_locations
+	after the client callback is done, before any GC can run.
+	(line_comparator): New.
+	(location_comparator): New.
+	(gcc::jit::context::handle_locations): New.
+	(gcc::jit::context::new_location): New.
+	(gcc::jit::context::set_tree_location): New.
+	(gcc::jit::context::get_source_file): New.
+	(gcc::jit::source_file::source_file): New.
+	(gcc::jit::source_file::get_source_line): New.
+	(gcc::jit::source_line::source_line): New.
+	(gcc::jit::source_line::get_location): New.
+	(gcc::jit::location::location): New.
+	* internal-api.h (gcc::jit::context::new_location): New.
+	(gcc::jit::context::set_tree_location): New.
+	(gcc::jit::context::handle_locations): New.
+	(gcc::jit::context::get_source_file): New.
+	(gcc::jit::context::m_source_files): New field.
+	(gcc::jit::context::m_cached_locations: New field.
+	(gcc::jit::function::place_forward_label): Add location
+	parameter.
+	(gcc::jit::function::set_tree_location): New.
+	(gcc::jit::source_file): New class.
+	(gcc::jit::source_line): New class.
+	(gcc::jit::location): New class.
+	* libgccjit.c (gcc_jit_context_new_location): New.
+	(gcc_jit_function_place_forward_label): Add location parameter,
+	changing public API.
+	* libgccjit.h (gcc_jit_context_new_location): New.
+	(gcc_jit_function_place_forward_label): Add location parameter,
+	changing public API.
+	* libgccjit.map (gcc_jit_context_new_location): New.
+	(main): Remove obsolete export.
+	(called_function): Likewise.
+
 2013-10-11  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c: Update includes to reflect move of decl of

@@ -236,6 +236,13 @@ gcc_jit_result_release (gcc_jit_result *result);
 /**********************************************************************
  Functions for use within the code factory.
  **********************************************************************/
+/* Creating source code locations for use by the debugger.
+   Line and column numbers are 1-based.  */
+extern gcc_jit_location *
+gcc_jit_context_new_location (gcc_jit_context *ctxt,
+			      const char *filename,
+			      int line,
+			      int column);
 
 /* Access to specific types.  */
 extern gcc_jit_type *
@@ -442,6 +449,7 @@ gcc_jit_function_add_label (gcc_jit_function *func,
 
 extern void
 gcc_jit_function_place_forward_label (gcc_jit_function *func,
+				      gcc_jit_location *loc,
 				      gcc_jit_label *lab);
 
 extern void

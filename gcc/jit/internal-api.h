@@ -3,11 +3,15 @@
 #include "tree.h"
 #include "tree-iterator.h"
 
+#include <utility> // for std::pair
+
 namespace gcc {
 
 namespace jit {
 
 class result;
+class source_file;
+class source_line;
 class location;
 class type;
 class field;
@@ -30,6 +34,11 @@ public:
   void
   set_code_factory (gcc_jit_code_callback cb,
 		    void *user_data);
+
+  location *
+  new_location (const char *filename,
+		int line,
+		int column);
 
   type *
   get_void_type ();
@@ -145,6 +154,15 @@ public:
   void
   add_error (const char *msg);
 
+  void
+  set_tree_location (tree t, location *loc);
+
+private:
+  source_file *
+  get_source_file (const char *filename);
+
+  void handle_locations ();
+
 private:
   gcc_jit_code_callback m_code_factory;
   bool m_within_code_factory;
@@ -168,6 +186,11 @@ private:
   bool m_bool_options[GCC_JIT_NUM_BOOL_OPTIONS];
   tree m_char_array_type_node;
   tree m_const_char_ptr;
+
+  /* Source location handling.  */
+  vec<source_file *> m_source_files;
+
+  vec<std::pair<tree, location *> > m_cached_locations;
 };
 
 /* The result of JIT-compilation.  */
@@ -200,10 +223,6 @@ public:
   /* Allocate in the GC heap.  */
   void *operator new (size_t sz);
 
-};
-
-class location : public wrapper
-{
 };
 
 class type : public wrapper
@@ -273,7 +292,7 @@ public:
 	     const char *name);
 
   void
-  place_forward_label (label *lab);
+  place_forward_label (location *loc, label *lab);
 
   void
   add_jump (location *loc,
@@ -292,6 +311,13 @@ public:
 
 public:
   context *m_ctxt;
+
+private:
+  void
+  set_tree_location (tree t, location *loc)
+  {
+    m_ctxt->set_tree_location (t, loc);
+  }
 
 private:
   tree m_inner_fndecl;
@@ -375,6 +401,70 @@ private:
   label *m_label_end;
 };
 
+/* Dealing with the linemap API.
+
+   It appears that libcpp requires locations to be created as if by
+   a tokenizer, creating them by filename, in ascending order of
+   line/column, whereas our API doesn't impose any such constraints:
+   we allow client code to create locations in arbitrary orders.
+
+   To square this circle, we need to cache all location creation,
+   grouping things up by filename/line, and then creating the linemap
+   entries in a post-processing phase.  */
+
+/* A set of locations, all sharing a filename */
+class source_file : public wrapper
+{
+public:
+  source_file (tree filename);
+
+  source_line *
+  get_source_line (int line_num);
+
+  tree filename_as_tree () const { return m_filename; }
+
+  const char*
+  get_filename () const { return IDENTIFIER_POINTER (m_filename); }
+
+  vec<source_line *> m_source_lines;
+
+private:
+  tree m_filename;
+};
+
+/* A source line, with one or more locations of interest.  */
+class source_line : public wrapper
+{
+public:
+  source_line (source_file *file, int line_num);
+
+  location *
+  get_location (int column_num);
+
+  int get_line_num () const { return m_line_num; }
+
+  vec<location *> m_locations;
+
+private:
+  source_file *m_source_file;
+  int m_line_num;
+};
+
+/* A specific location on a source line.  This is what we expose
+   to the client API.  */
+class location : public wrapper
+{
+public:
+  location (source_line *line, int column_num);
+
+  int get_column_num () const { return m_column_num; }
+
+  source_location m_srcloc;
+
+private:
+  source_line *m_line;
+  int m_column_num;
+};
 
 } // namespace gcc::jit
 

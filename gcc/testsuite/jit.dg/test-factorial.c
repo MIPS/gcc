@@ -57,7 +57,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     label_false);
 
   /* true branch: */
-  gcc_jit_function_place_forward_label (func, label_true);
+  gcc_jit_function_place_forward_label (func, NULL, label_true);
   /* return x */
   gcc_jit_function_add_return (
     func,
@@ -65,7 +65,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_param_as_rvalue (x));
 
   /* false branch: */
-  gcc_jit_function_place_forward_label (func, label_false);
+  gcc_jit_function_place_forward_label (func, NULL, label_false);
   gcc_jit_rvalue *x_minus_1 =
     gcc_jit_context_new_binary_op (
       ctxt, NULL,
