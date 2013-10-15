@@ -2,6 +2,13 @@
 
 2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list) more debug.
+	(compile_list_sexpr): Add temporarily for MELT-SFT-3 the MELT
+	argument use-base-env to choose between inienv and basenv. This is
+	a dirty kludge.
+
+2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (meltgc_new_mapstrings): Explicitly initialize
 	the count field. Reserve a slightly better memory estimate.
 	(melt_get_mapstrings, meltgc_remove_mapstrings): Improve code layout.

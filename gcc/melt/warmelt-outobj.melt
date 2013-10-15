@@ -5127,8 +5127,6 @@ meltlabend_rout:
      (list_append entlist ent))
     (let ( (rawtup (list_to_multiple entlist))
 	   )
-      (assert_msg "sorted_named_dict_tuple check tuple length is dict count"
-		  (==i dicnt (multiple_length rawtup)) rawtup)
       (multiple_sort rawtup compare_named_alpha discr_multiple)
       )
     ))
@@ -6634,7 +6632,7 @@ if (1) return;
 	     (if nbmodhooks
 		 (let ( (sortuphook (sorted_named_dict_tuple modhookdict))
 		       )
-		   (debug "translate_macroexpanded_list sortuphook=" sortuphook)
+		   (debug "translate_macroexpanded_list sortuphook=" sortuphook "\n modhookdict=" modhookdict)
 		   (add2out declbuf "\n/*** " nbmodhooks " MELT called hook declarations ***/\n")
 		   (foreach_in_multiple
 		    (sortuphook)
@@ -6968,12 +6966,22 @@ if (1) return;
     (debug "compile_list_sexpr initial ncx=" debug_more ncx "\n.. inienv=" inienv)
     (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
     ;; probably use basenv instead of inienv below
-    (let ( (xlist (macroexpand_toplevel_list lsexp inienv macroexpand_1 modctx)) 
-	   (:long lenxlist (list_length xlist))
-	   )
-      (debug "compile_list_sexpr after macroexpansion and before translation modctx=" debug_less modctx "\n.. xlist=" xlist)
+    (let ( 
+	  ;; temporary trick for debugging MELT-SFT-3 @@@@@ DIRTY KLUDGE @@@@@
+	  (myenv (cond
+		  ( (melt_argument "use-base-env")
+		    (warning_at () "compile_list_sexpr use basenv for $1" modnamstr)
+		    basenv)
+		  (:else
+		   inienv)))
+	  (xlist (macroexpand_toplevel_list lsexp myenv macroexpand_1 modctx)) 
+	  (:long lenxlist (list_length xlist))
+	  )
+      (debug "compile_list_sexpr after macroexpansion and before translation modctx=" debug_less modctx
+	     "\n.. xlist=" xlist
+	     "\n.. myenv=" myenv)
       ;;
-      (translate_macroexpanded_list xlist modnamstr modctx ncx inienv () compile2obj_initproc)
+      (translate_macroexpanded_list xlist modnamstr modctx ncx myenv () compile2obj_initproc)
       (debug "compile_list_sexpr after translation modctx=" debug_less modctx)
       )))
 
