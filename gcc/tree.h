@@ -5016,6 +5016,7 @@ builtin_decl_implicit_p (enum built_in_function fncode)
 
 extern rtx chkp_get_rtl_bounds (tree node);
 extern void chkp_set_rtl_bounds (tree node, rtx val);
+extern void chkp_reset_rtl_bounds ();
 extern tree chkp_get_bounds (tree node);
 extern void chkp_set_bounds (tree node, tree val);
 extern bool chkp_register_var_initializer (tree var);

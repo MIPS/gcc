@@ -1080,6 +1080,17 @@ chkp_set_rtl_bounds (tree node, rtx val)
   *slot = val;
 }
 
+/* Reset all bounds stored via chkp_set_rtl_bounds.  */
+void
+chkp_reset_rtl_bounds ()
+{
+  if (!chkp_rtx_bounds_map)
+    return;
+
+  pointer_map_destroy (chkp_rtx_bounds_map);
+  chkp_rtx_bounds_map = pointer_map_create ();
+}
+
 /* Get bounds associated with NODE via
    chkp_set_bounds call.  */
 tree

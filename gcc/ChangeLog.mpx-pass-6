@@ -28,6 +28,7 @@
 	(SET_DECL_BOUNDS): New.
 	(chkp_get_rtl_bounds): New.
 	(chkp_set_rtl_bounds): New.
+	(chkp_reset_rtl_bounds): New.
 	(chkp_get_bounds): New.
 	(chkp_set_bounds): New.
 	(chkp_register_var_initializer): New.
