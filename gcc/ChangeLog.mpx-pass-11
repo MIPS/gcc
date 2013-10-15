@@ -11,6 +11,7 @@
 	* stmt.c (expand_return): Handle returned bounds.
 	* tree.h (expand_return): Adjust to new expand_return signature.
 	* cfgexpand.c (expand_gimple_stmt_1): Likewise.
+	(gimple_expand_cfg): Reset rtx bounds map.
 	* explow.c (hard_function_value): Handle returned bounds.
 	* expr.h (store_expr): Add param for bounds target.
 	* expr.c (expand_assignment): Handle returned bounds.
