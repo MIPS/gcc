@@ -39,32 +39,32 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.0-rc1+/warmelt-normal";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="6ce00247efb4183bdcac824e29a7f93e";
+const char melt_prepromd5meltrun[]="c280fc3954bb36da45290b1544609a8d";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="f0c6042dd05527b99c6b61e5ace4f5ab";
+const char melt_primaryhexmd5[]="148a427db30541c2f988e10cab221baf";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+01.cc #1 */ "4da87cc2b6011bce24e5463d4e9c9e23",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.cc #2 */ "4529628f405db3b670596ceb13caa5cc",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+03.cc #3 */ "8c6e9a75a99e5ca02f394081760001f8",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.cc #4 */ "40b8887203885e991e729be8b706f8e4",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+05.cc #5 */ "dbce0fec0532616b8c0d3fc5753ccedc",
- /*sechexmd5checksum meltbuild-sources/warmelt-normal+06.cc #6 */ "82380cac106aec423f777baa67a9b128",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+01.cc #1 */ "e58bb5e846081de20a94df57839f36e8",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+02.cc #2 */ "77557ee8bde0b42dec89aecc04a58843",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+03.cc #3 */ "3f2a0742273718bcdf6a3d15dfeb74fb",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+04.cc #4 */ "b4f1bd8e3c8556a6d119a1e03a7066d7",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+05.cc #5 */ "c4c87120dd25ca099d2409b08106676a",
+ /*sechexmd5checksum meltbuild-sources/warmelt-normal+06.cc #6 */ "cfc8587c23454ea83b1f93e382fef393",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=6;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="e0458257161c7985ae7d4dcfc1cfa712" ;
+const char melt_cumulated_hexmd5[]="7809435099004109341949c6aca7eebc" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiNORMAL_mds__E0458257161C7985AE7D4DCFC1CFA712 1
+#define meltmod_WARMELTmiNORMAL_mds__7809435099004109341949C6ACA7EEBC 1
 #include "warmelt-normal+melttime.h"
 	 
 
