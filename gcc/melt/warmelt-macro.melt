@@ -2897,6 +2897,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
   melt_translate_run_macroexpansions_list defined in
   @file{warmelt-outobj.melt}.}#
   (debug "melt_register_translator_runner_macroexpansions clos=" clos)
+  (shortbacktrace_dbg "melt_register_translator_runner_macroexpansions" 15)
   (assert_msg "check clos" (or (is_closure clos) (null clos)) clos)
   (setq melt_transrunmacro_clos clos)
 )
@@ -3610,7 +3611,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 (defun melt_delayed_macro_expander (mbind maclist env mexpander modctx)
   (debug "melt_delayed_macro_expander mbind=" mbind "\n.. maclist=" maclist 
 	 "\n.. modctx=" debug_less modctx
-	 "\n.. env=" debug_less env)
+	 "\n.. env=" env)
   (shortbacktrace_dbg "melt_delayed_macro_expander" 12)
   (assert_msg "check maclist" (is_list maclist) maclist)
   (block_signals 
@@ -3619,11 +3620,11 @@ $EXPORT_VALUES to be visible outside its module.}#)
   ;;
   (let ( (macroenv (get_field :mocx_macroenv modctx))
 	 )
-    (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
   (debug "melt_delayed_macro_expander maclist=" maclist "\n.. env=" env
 	 "\n.. macroenv=" debug_more macroenv 
 	 "\n modctx=" debug_less modctx
 	 "\n.. mbind=" debug_less mbind "\n")
+  (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
   (let ( (res (melt_invoke_translator_runner_macroexpansions maclist macroenv modctx))
 	 )
     (debug "melt_delayed_macro_expander final res=" res
@@ -3671,7 +3672,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
       (return))
     (warn_if_redefined symb env loc)
     (put_env env mbind)
-    (debug "mexpand_defmacro loc=" loc " updated env=" env "\n.. newenv=" newenv)
+    (debug "mexpand_defmacro loc=" loc " updated env=" debug_more env "\n.. newenv=" newenv)
     (setq curpair (pair_tail curpair))
     ;; parse the formal arguments
     (let ( (curpairhead (pair_head curpair)) 
@@ -3694,7 +3695,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
        (btup) 
        (fb :long bix) 
        (put_env newenv fb))
-      (debug "mexpand_defmacro loc=" loc "; updated newenv=" newenv)
+      (debug "mexpand_defmacro loc=" loc "; updated newenv=" debug_more newenv)
       (setq curpair (pair_tail curpair))
       ;; handle the optional :doc documentationvalue
       (when (== (pair_head curpair) ':doc)
@@ -3740,7 +3741,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		    :mbind_expanser 
 		    (lambda (sexprm envm mexpanderm modctxm)
 		      (debug "mexpand_defmacro/lambdambind loc=" loc "; sexprm=" sexprm
-			     "\n modctxm=" modctxm)
+			     "\n.. envm=" envm
+			     "\n.. modctxm=" modctxm "\n")
 		      (shortbacktrace_dbg "mexpand_defmacro/lambdambind" 15)
 		      (assert_msg "check modctxm" (== modctxm modctx) modctxm modctx)
 		      (debug "mexpand_defmacro/lambdambind loc=" loc "; env=" debug_less env 
@@ -3753,8 +3755,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		      (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
 		      (let ( (mclos (get_field :mbind_expanser mbind))
 			     )
-			(assert_msg "check mclos" (is_closure mclos) mclos)
 			(debug "mexpand_defmacro/lambdambind mclos=" mclos "\n.. sexprm=" sexprm)
+			(assert_msg "check mclos" (is_closure mclos) mclos)
 			(multicall 
 			 (expmac othermac)
 			 (mclos sexprm envm mexpanderm modctxm)
