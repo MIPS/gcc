@@ -13,13 +13,6 @@ TODOs:
     * unions
     * function ptrs
 
-* demo of JIT-compilation of a bytecode interpreter:
-    https://github.com/davidmalcolm/jittest
-  (move this into tree, as an example)
-
-* wiring up testing into a DejaGNU testsuite, rather than testing it
-  by hand.
-
 * docs
 
 * fixing all the state issues
@@ -28,8 +21,8 @@ TODOs:
 
 * try porting llvmpipe to gcc
 
-* source locations: line-numbering etc
-
 * pkgconfig .pc file
+
+* add a SONAME to the library (and potentially version the symbols?)
 
 etc etc
