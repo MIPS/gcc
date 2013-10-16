@@ -2012,14 +2012,15 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	   (let ( (opbind (find_env env soper)) 
 		  (opname (get_field :named_name soper))
 		  )
-	     (debug "macroexpand_1 opbind=" opbind)
+	     (debug "macroexpand_1 opbind=" opbind "; for sloc=" debug_less sloc)
 	     (cond ( (is_a opbind class_macro_binding)
 		     (let ( (mexp (unsafe_get_field :mbind_expanser opbind)) 
 			    )
+		       (shortbacktrace_dbg "macroexpand_1 macrobinding" 10)
 		       (when (null mexp)
 			 (error_at sloc "macro $1 cannot be expanded since not yet defined"_ opname)
 			 (return () ()))
-		       (debug "macroexpand_1 mexp=" mexp)
+		       (debug "macroexpand_1 mexp=" mexp "\n.. sexpr=" sexpr "\n.. env=" env)
 		       (assert_msg "check mexp" (is_closure mexp) mexp)
 		       (multicall 
 			(resm otherm)
@@ -2593,17 +2594,18 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	   (if sexploc (setq prevloc sexploc)))
        (warning_plain prevloc
 		      "Top-level s-expression followed by an unexpected atom"))
+     (debug "macroexpand_toplevel_list prevloc=" debug_less prevloc "; sexp=" sexp 
+	    "\n... env=" env "\n")
      ;;
      (let ( (mex (mexpander sexp env mexpander modctx)) 
+	    (sexploc (get_field :loca_location sexp))
 	    )
-       (debug "macroexpand_toplevel_list mex=" mex)
+       (debug "macroexpand_toplevel_list sexploc=" debug_less sexploc "; mex=" mex)
        (cond
 	( (null mex)
-	  (let ( (sexploc (get_field :loca_location sexp))
-		 )
 	    (if sexploc 
 		(warning_plain sexploc
-			       "null expansion for toplevel MELT s-expression")))
+			       "null expansion for toplevel MELT s-expression"))
 	  )
 	( (is_multiple mex)
 	  (foreach_in_multiple
@@ -3655,6 +3657,11 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		    :binder symb
 		    :mbind_expanser ()	;to be filled later
 		    ))
+	 (fbind 
+	  (instance class_function_binding
+		    :binder symb
+		    :fubind_defun ()	;to be filled later
+		    ))
 	 )
     (debug "mexpand_defmacro loc=" debug_less loc "; modmacroenv=" modmacroenv "\n.. newenv=" newenv)
     (when (is_not_a symb class_symbol)
@@ -3672,7 +3679,10 @@ $EXPORT_VALUES to be visible outside its module.}#)
       (return))
     (warn_if_redefined symb env loc)
     (put_env env mbind)
-    (debug "mexpand_defmacro loc=" loc " updated env=" debug_more env "\n.. newenv=" newenv)
+    (warn_if_redefined symb newenv loc)
+    (put_env newenv fbind)
+    (debug "mexpand_defmacro loc=" debug_less loc "; updated env=" debug_more env)
+    (debug "mexpand_defmacro loc=" debug_less loc "; updated newenv=" debug_more newenv)
     (setq curpair (pair_tail curpair))
     ;; parse the formal arguments
     (let ( (curpairhead (pair_head curpair)) 
@@ -3736,6 +3746,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
 	(assert_msg "check maclist" (is_list maclist) maclist)
 	(list_append maclist sinstmacro)
 	(debug "mexpand_defmacro loc=" loc "; updated maclist=" maclist)
+	(put_fields fbind :fubind_defun sdefmacro)
+	(debug "mexpand_defmacro loc=" loc "; updated fbind=" fbind)
 	;; we should put a :mbind_expanser closure into mbind
 	(put_fields mbind 
 		    :mbind_expanser 
@@ -3764,7 +3776,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 			 (return expmac othermac)
 			 )
 			)))
-	(debug "mexpand_defmacro loc=" loc "; final mbind=" mbind "\n.. of discrim=" (discrim mbind)
+	(debug "mexpand_defmacro loc=" loc "; final mbind=" mbind "\n.. final fbind=" fbind
 	       "\n.. sdefmacro=" sdefmacro)
 	(return sdefmacro)
 	))))

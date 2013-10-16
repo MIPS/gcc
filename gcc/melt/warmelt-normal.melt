@@ -4911,9 +4911,12 @@ source location.}#
 	   "\n.. newenv=" newenv)
     (add_nctx_data ncx ndatarout)
     (add_nctx_data ncx ndataclos)
-    (debug "normexp_defun_defmacro updated ncx=" debug_less ncx "; sloc=" debug_less sloc
+    (debug "normexp_defun_defmacro updated ncx=" debug_less ncx "\n.. sloc=" debug_less sloc
 	   "\n.. sfubind=" sfubind)
     (when (null sfubind)
+      (debug "normexp_defun_defmacro null sfubind ismacro=" ismacro 
+	     " from basenv=" debug_more basenv 
+	     "\n... snam=" snam "\n.. recv=" recv "\n")
       (if ismacro
 	  (error_at sloc
 		    "bad defmacro-ed function $1 without binding" (get_field :named_name snam))

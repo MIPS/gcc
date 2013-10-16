@@ -2,6 +2,14 @@
 
 2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{tmacro-1.melt test still don't work with  -fmelt-use-base-env}}
+	* melt/warmelt-macro.melt (macroexpand_1, macroexpand_toplevel_list): More debug.
+	(mexpand_defmacro): Create fbind and fill it...
+
+	* melt/warmelt-normal.melt (normexp_defun_defmacro): More debug.
+
+2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{tmacro-1.melt test don't work with  -fmelt-use-base-env}}
 	* melt/warmelt-macro.melt
 	(melt_register_translator_runner_macroexpansions): Add backtrace.
