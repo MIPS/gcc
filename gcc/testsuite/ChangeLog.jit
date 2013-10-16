@@ -1,3 +1,9 @@
+2013-10-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-dot-product.c (code_making_callback): Update for
+	API changes to locals.
+	* jit.dg/test-sum-of-squares.c (code_making_callback): Likewise.
+
 2013-10-14  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/jit.exp (jit-dg-test): Detect compilation errors and

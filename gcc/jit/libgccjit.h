@@ -71,11 +71,6 @@ typedef struct gcc_jit_lvalue gcc_jit_lvalue;
    rvalue); use gcc_jit_param_as_lvalue to convert.  */
 typedef struct gcc_jit_param gcc_jit_param;
 
-/* A gcc_jit_local is a local variable within a function.  It is also
-   a gcc_jit_lvalue (and thus also an rvalue); use gcc_jit_local_as_lvalue
-   to convert.  */
-typedef struct gcc_jit_local gcc_jit_local;
-
 /* A gcc_jit_loop is a pre-canned way of creating loops without needing
    to manually manage gcc_jit_label instances.  */
 typedef struct gcc_jit_loop gcc_jit_loop;
@@ -340,18 +335,6 @@ gcc_jit_context_new_global (gcc_jit_context *ctxt,
 			    gcc_jit_type *type,
 			    const char *name);
 
-extern gcc_jit_local *
-gcc_jit_context_new_local (gcc_jit_context *ctxt,
-			   gcc_jit_location *loc,
-			   gcc_jit_type *type,
-			   const char *name);
-
-extern gcc_jit_lvalue *
-gcc_jit_local_as_lvalue (gcc_jit_local *local);
-
-extern gcc_jit_rvalue *
-gcc_jit_local_as_rvalue (gcc_jit_local *local);
-
 extern gcc_jit_rvalue *
 gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue *lvalue);
 
@@ -419,6 +402,12 @@ gcc_jit_context_new_field_access (gcc_jit_context *ctxt,
 				  gcc_jit_location *loc,
 				  gcc_jit_rvalue *ptr_or_struct,
 				  const char *fieldname);
+
+extern gcc_jit_lvalue *
+gcc_jit_function_new_local (gcc_jit_function *func,
+			    gcc_jit_location *loc,
+			    gcc_jit_type *type,
+			    const char *name);
 
 /* Add evaluation of an rvalue, discarding the result
    (e.g. a function call that "returns" void).  */

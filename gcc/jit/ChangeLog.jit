@@ -1,3 +1,30 @@
+2013-10-16  David Malcolm  <dmalcolm@redhat.com>
+
+	* TODO.rst (gcc_jit_context_new_local): Remove completed item.
+	* internal-api.c (gcc::jit::context::new_local): Replace with...
+	(gcc::jit::function::new_local): ...this, and change return type
+	from (local*) to (lvalue*).
+	* internal-api.h (gcc::jit::local): Eliminate.
+	(gcc::jit::context::new_local): Replace with...
+	(gcc::jit::function::new_local): ...this, and change return type
+	from (local*) to (lvalue*).
+	* libgccjit.c (gcc_jit_local): Eliminate.
+	(gcc_jit_context_new_local): Replace with...
+	(gcc_jit_function_new_local): ...this, and change return type
+	from (gcc_jit_local*) to (gcc_jit_lvalue*).
+	(gcc_jit_local_as_lvalue): Remove.
+	(gcc_jit_local_as_rvalue): Remove.
+	* libgccjit.h (gcc_jit_local): Remove.
+	(gcc_jit_context_new_local): Replace with...
+	(gcc_jit_function_new_local): ...this, and change return type
+	from (gcc_jit_local*) to (gcc_jit_lvalue*).
+	(gcc_jit_local_as_lvalue): Remove.
+	(gcc_jit_local_as_rvalue): Remove.
+	* libgccjit.map (gcc_jit_context_new_local): Replace with...
+	(gcc_jit_function_new_local): ...this.
+	(gcc_jit_local_as_lvalue): Remove.
+	(gcc_jit_local_as_rvalue): Remove.
+
 2013-10-15  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_location): Rewrite comment to reflect

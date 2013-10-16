@@ -48,10 +48,6 @@ struct gcc_jit_param : public gcc::jit::param
 {
 };
 
-struct gcc_jit_local : public gcc::jit::local
-{
-};
-
 struct gcc_jit_loop : public gcc::jit::loop
 {
 };
@@ -226,28 +222,6 @@ gcc_jit_context_new_global (gcc_jit_context *ctxt,
   return (gcc_jit_lvalue *)ctxt->new_global (loc, type, name);
 }
 
-gcc_jit_local *
-gcc_jit_context_new_local (gcc_jit_context *ctxt,
-			   gcc_jit_location *loc,
-			   gcc_jit_type *type,
-			   const char *name)
-{
-  ASSERT_WITHIN_CALLBACK (ctxt);
-  return (gcc_jit_local *)ctxt->new_local (loc, type, name);
-}
-
-gcc_jit_lvalue *
-gcc_jit_local_as_lvalue (gcc_jit_local *local)
-{
-  return (gcc_jit_lvalue *)local->as_lvalue ();
-}
-
-gcc_jit_rvalue *
-gcc_jit_local_as_rvalue (gcc_jit_local *local)
-{
-  return (gcc_jit_rvalue *)local->as_rvalue ();
-}
-
 gcc_jit_rvalue *
 gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue *lvalue)
 {
@@ -341,6 +315,16 @@ gcc_jit_context_new_field_access (gcc_jit_context *ctxt,
 {
   ASSERT_WITHIN_CALLBACK (ctxt);
   return (gcc_jit_lvalue *)ctxt->new_field_access (loc, ptr_or_struct, fieldname);
+}
+
+gcc_jit_lvalue *
+gcc_jit_function_new_local (gcc_jit_function *func,
+			    gcc_jit_location *loc,
+			    gcc_jit_type *type,
+			    const char *name)
+{
+  ASSERT_WITHIN_CALLBACK (func->m_ctxt);
+  return (gcc_jit_lvalue *)func->new_local (loc, type, name);
 }
 
 gcc_jit_label *

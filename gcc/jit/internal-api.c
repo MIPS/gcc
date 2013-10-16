@@ -260,23 +260,6 @@ new_global (location *loc,
   return new lvalue (inner);
 }
 
-gcc::jit::local *
-gcc::jit::context::
-new_local (location *loc,
-	   type *type,
-	   const char *name)
-{
-  gcc_assert (type);
-  gcc_assert (name);
-  tree inner = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			   get_identifier (name),
-			   type->as_tree ());
-  if (loc)
-    set_tree_location (inner, loc);
-  return new local (inner);
-}
-
-
 gcc::jit::rvalue *
 gcc::jit::context::
 new_rvalue_from_int (type *type,
@@ -559,6 +542,22 @@ gcc::jit::function::
 get_return_type_as_tree () const
 {
   return TREE_TYPE (TREE_TYPE(m_inner_fndecl));
+}
+
+gcc::jit::lvalue *
+gcc::jit::function::
+new_local (location *loc,
+	   type *type,
+	   const char *name)
+{
+  gcc_assert (type);
+  gcc_assert (name);
+  tree inner = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+			   get_identifier (name),
+			   type->as_tree ());
+  if (loc)
+    set_tree_location (inner, loc);
+  return new lvalue (inner);
 }
 
 gcc::jit::label *

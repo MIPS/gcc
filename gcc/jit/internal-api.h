@@ -20,7 +20,6 @@ class label;
 class rvalue;
 class lvalue;
 class param;
-class local;
 class loop;
 
 /* A JIT-compilation context.  */
@@ -85,11 +84,6 @@ public:
   new_global (location *loc,
 	      type *type,
 	      const char *name);
-
-  local *
-  new_local (location *loc,
-	     type *type,
-	     const char *name);
 
   rvalue *
   new_rvalue_from_int (type *type,
@@ -269,6 +263,11 @@ public:
 
   tree as_fndecl () const { return m_inner_fndecl; }
 
+  lvalue *
+  new_local (location *loc,
+	     type *type,
+	     const char *name);
+
   label*
   new_forward_label (const char *name);
 
@@ -375,14 +374,6 @@ class param : public lvalue
 {
 public:
   param (tree inner)
-    : lvalue(inner)
-  {}
-};
-
-class local : public lvalue
-{
-public:
-  local (tree inner)
     : lvalue(inner)
   {}
 };

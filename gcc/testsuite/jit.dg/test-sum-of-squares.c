@@ -36,10 +36,10 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 				  1, params, 0);
 
   /* Build locals:  */
-  gcc_jit_local *i =
-    gcc_jit_context_new_local (ctxt, NULL, the_type, "i");
-  gcc_jit_local *sum =
-    gcc_jit_context_new_local (ctxt, NULL, the_type, "sum");
+  gcc_jit_lvalue *i =
+    gcc_jit_function_new_local (func, NULL, the_type, "i");
+  gcc_jit_lvalue *sum =
+    gcc_jit_function_new_local (func, NULL, the_type, "sum");
 
   /* Create forward label: */
   gcc_jit_label *label_after_loop =
@@ -48,13 +48,13 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   /* sum = 0; */
   gcc_jit_function_add_assignment (
     func, NULL,
-    gcc_jit_local_as_lvalue (sum),
+    sum,
     gcc_jit_context_new_rvalue_from_int (ctxt, the_type, 0));
 
   /* i = 0; */
   gcc_jit_function_add_assignment (
     func, NULL,
-    gcc_jit_local_as_lvalue (i),
+    i,
     gcc_jit_context_new_rvalue_from_int (ctxt, the_type, 0));
 
 
@@ -68,7 +68,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_context_new_comparison (
        ctxt, NULL,
        GCC_JIT_COMPARISON_GE,
-       gcc_jit_local_as_rvalue (i),
+       gcc_jit_lvalue_as_rvalue (i),
        gcc_jit_param_as_rvalue (n)),
     label_after_loop,
     NULL);
@@ -76,25 +76,25 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   /* sum += i * i */
   gcc_jit_function_add_assignment (
     func, NULL,
-    gcc_jit_local_as_lvalue (sum),
+    sum,
     gcc_jit_context_new_binary_op (
       ctxt, NULL,
       GCC_JIT_BINARY_OP_PLUS, the_type,
-      gcc_jit_local_as_rvalue (sum),
+      gcc_jit_lvalue_as_rvalue (sum),
       gcc_jit_context_new_binary_op (
 	 ctxt, NULL,
 	 GCC_JIT_BINARY_OP_MULT, the_type,
-	 gcc_jit_local_as_rvalue (i),
-	 gcc_jit_local_as_rvalue (i))));
+	 gcc_jit_lvalue_as_rvalue (i),
+	 gcc_jit_lvalue_as_rvalue (i))));
 
   /* i++ */
   gcc_jit_function_add_assignment (
     func, NULL,
-    gcc_jit_local_as_lvalue (i),
+    i,
     gcc_jit_context_new_binary_op (
       ctxt, NULL,
       GCC_JIT_BINARY_OP_PLUS, the_type,
-      gcc_jit_local_as_rvalue (i),
+      gcc_jit_lvalue_as_rvalue (i),
       gcc_jit_context_new_rvalue_from_int (
 	ctxt,
 	the_type,
@@ -112,7 +112,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_function_add_return (
     func,
     NULL,
-    gcc_jit_local_as_rvalue (sum));
+    gcc_jit_lvalue_as_rvalue (sum));
 
   return 0;
 }

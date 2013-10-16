@@ -41,30 +41,30 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 				  3, params, 0);
 
   /* Build: "double result = 0.;" */
-  gcc_jit_local *result =
-    gcc_jit_context_new_local (ctxt, NULL, val_type, "result");
+  gcc_jit_lvalue *result =
+    gcc_jit_function_new_local (func, NULL, val_type, "result");
 
   gcc_jit_function_add_assignment (func, NULL,
-    gcc_jit_local_as_lvalue (result),
+    result,
     gcc_jit_context_zero (ctxt, val_type));
 
   /* Build: "for (int i = 0; i < n; i++)" */
-  gcc_jit_local *i =
-    gcc_jit_context_new_local (ctxt, NULL, int_type, "i");
+  gcc_jit_lvalue *i =
+    gcc_jit_function_new_local (func, NULL, int_type, "i");
   gcc_jit_function_add_assignment (func, NULL,
-    gcc_jit_local_as_lvalue (i), gcc_jit_context_zero (ctxt, int_type));
+    i, gcc_jit_context_zero (ctxt, int_type));
   gcc_jit_loop *loop = gcc_jit_function_new_loop (func, NULL,
     /* (i < n) */
     gcc_jit_context_new_comparison (
       ctxt, NULL,
       GCC_JIT_COMPARISON_LT,
-      gcc_jit_local_as_rvalue (i),
+      gcc_jit_lvalue_as_rvalue (i),
       gcc_jit_param_as_rvalue (param_n)));
 
   /* Build: "result += a[i] * b[i];" */
   gcc_jit_function_add_assignment_op (
     func, NULL,
-    gcc_jit_local_as_lvalue (result),
+    result,
     GCC_JIT_BINARY_OP_PLUS,
     gcc_jit_context_new_binary_op (ctxt, NULL,
       GCC_JIT_BINARY_OP_MULT,
@@ -72,16 +72,16 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
       gcc_jit_context_new_array_lookup(
         ctxt, NULL,
         gcc_jit_param_as_rvalue (param_a),
-        gcc_jit_local_as_rvalue (i)),
+        gcc_jit_lvalue_as_rvalue (i)),
       gcc_jit_context_new_array_lookup(
         ctxt, NULL,
         gcc_jit_param_as_rvalue (param_b),
-        gcc_jit_local_as_rvalue (i))));
+        gcc_jit_lvalue_as_rvalue (i))));
 
   /* Build: "i++" */
   gcc_jit_function_add_assignment_op (
     func, NULL,
-    gcc_jit_local_as_lvalue (i),
+    i,
     GCC_JIT_BINARY_OP_PLUS,
     gcc_jit_context_one (ctxt, int_type));
 
@@ -91,7 +91,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_function_add_return (
     func,
     NULL,
-    gcc_jit_local_as_rvalue (result));
+    gcc_jit_lvalue_as_rvalue (result));
 
   return 0;
 }

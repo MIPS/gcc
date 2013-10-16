@@ -1,8 +1,5 @@
 TODOs:
 
-* gcc_jit_context_new_local should take a function, not the context (is
-  it building a global?)
-
 * error-handling:
     * have a client-provided error-handling callback for the context, and
       call it, rather than asserting/crashing etc, to make the API resilient and helpful
