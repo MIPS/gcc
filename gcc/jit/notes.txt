@@ -38,6 +38,11 @@ Client Code   . Generated .            libgccjit.so
        │etc   .           .          .               .
        │      .           .          .               .
        ──────────────────────────────────>           .
+Return from client callback          .    │          .
+              .           .          .    │          .
+              .           .          .    │(handle_locations: add locations to
+              .           .          .    │ linemap and associate them with trees)
+              .           .          .    │          .
               .           .          .    │          .       No GC in here
 ..........................................│..................AAAAAAAAAAAAA...
               .           .          .    │ for each function

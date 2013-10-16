@@ -1,5 +1,13 @@
 2013-10-15  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (gcc_jit_location): Rewrite comment to reflect
+	that this part of the API is now implemented.
+	("Functions for use within the code factory."): Add notes on
+	memory-management and lifetimes.
+	* notes.txt: Update diagram to show handle_locations.
+
+2013-10-15  David Malcolm  <dmalcolm@redhat.com>
+
 	* TODO.rst: Update.
 
 2013-10-14  David Malcolm  <dmalcolm@redhat.com>

@@ -30,17 +30,17 @@ typedef struct gcc_jit_context gcc_jit_context;
 /* A gcc_jit_result encapsulates the result of a compilation.  */
 typedef struct gcc_jit_result gcc_jit_result;
 
-/* A gcc_jit_location will encapsulate a source code location, so that
-   you can associated locations in your language with statements in the
-   JIT-compiled code, allowing the debugger to single-step through
-   your language.
+/* A gcc_jit_location encapsulates a source code location, so that
+   you can (optionally) associate locations in your language with
+   statements in the JIT-compiled code, allowing the debugger to
+   single-step through your language.
 
-   This part of the API is a placeholder to allow future expansion
-   without breaking ABI: there currently is no way of creating a
-   gcc_jit_location.
+   Note that to do so, you also need to enable
+     GCC_JIT_BOOL_OPTION_DEBUGINFO
+   on the gcc_jit_context.
 
-   For now you must pass NULL into parameters expecting a
-   (gcc_jit_location *).  */
+   gcc_jit_location instances are optional; you can always pass
+   NULL.  */
 typedef struct gcc_jit_location gcc_jit_location;
 
 /* A gcc_jit_type encapsulates a type e.g. "int" or a "struct foo*".  */
@@ -235,6 +235,14 @@ gcc_jit_result_release (gcc_jit_result *result);
 
 /**********************************************************************
  Functions for use within the code factory.
+
+ All objects created by these functions are cleaned up for you, after
+ your code-creation hook returns.  Note that this means you can't hold
+ references to them for use after you return from your callback.
+
+ All (const char *) string arguments passed to these functions are
+ copied, so you don't need to keep them around.  Note that this *isn't*
+ the case for other parts of the API.
  **********************************************************************/
 /* Creating source code locations for use by the debugger.
    Line and column numbers are 1-based.  */
