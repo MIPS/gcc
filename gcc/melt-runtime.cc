@@ -146,6 +146,9 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 #endif
 
 
+////// the actually done modes
+static std::vector<std::string> melt_done_modes_vector;
+
 ////// builtin MELT parameter settings
 
 
@@ -10623,6 +10626,10 @@ meltgc_do_initial_mode (melt_ptr_t modata_p, const char* modstr)
             debugeprintf ("meltgc_do_initial_mode set exit_after_options for failed modstr %s",
                           modstr);
           }
+	else {
+	  std::string curmodstr (modstr);
+	  melt_done_modes_vector.push_back(curmodstr);
+	}
       }
       if (comma)
         curmodstr = comma+1;
@@ -11552,16 +11559,37 @@ melt_do_finalize (void)
   if (!quiet_flag)
     {
       /* when not quiet, the GGC collector displays data, so we show
-      our various GC reasons count */
-      fprintf(stderr, "\n MELT did %ld garbage collections; %ld full + %ld minor.\n",
+	 our various GC reasons count */
+      fprintf (stderr, "\n MELT did %ld garbage collections; %ld full + %ld minor.\n",
               melt_nb_garbcoll, melt_nb_full_garbcoll, melt_nb_garbcoll - melt_nb_full_garbcoll);
       if (melt_nb_full_garbcoll > 0)
-        fprintf(stderr,
+        fprintf (stderr,
                 "MELT full GCs because %ld asked, %ld periodic, %ld threshold, %ld copied.\n",
                 melt_nb_fullgc_because_asked, melt_nb_fullgc_because_periodic,
                 melt_nb_fullgc_because_threshold, melt_nb_fullgc_because_copied);
+      /* we also show the successfully run modes. */
+      if (melt_done_modes_vector.empty())
+	fprintf (stderr,
+		"MELT did not run any modes successfully.\n");
+      else if (melt_done_modes_vector.size() == 1)
+	fprintf (stderr, "MELT did run one mode %s successfully.\n", melt_done_modes_vector[0].c_str());
+      else 
+	{
+	  unsigned nbmodes = melt_done_modes_vector.size();
+	  fprintf (stderr, "MELT did run %d modes successfully:");
+	  for (unsigned ix=0; ix<nbmodes; ix++) {
+	    if (ix>0) 
+	      fputs (", ", stderr);
+	    else 
+	      fputc (' ', stderr);
+	    fputs (melt_done_modes_vector[ix].c_str(), stderr);
+	  };
+	  fputs (".\n", stderr);
+	  fflush (stderr);
+	}
     }
-end:
+ end:
+  melt_done_modes_vector.clear();
   fflush(NULL);
 }
 
@@ -12231,6 +12259,9 @@ void melt_warn_for_no_expected_secondary_results_at (const char*fil, int lin)
 {
   static long cnt;
   if (cnt++ > 8)
+    return;
+  const char* ws = melt_argument ("warn-unexpected-secondary");
+  if (!ws || ws[0] == 'N' || ws[0] == 'n' || ws[0] == '0')
     return;
   /* This warning is emitted when a MELT function caller expects
      secondary results, but none are returned.  */

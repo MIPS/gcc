@@ -1,5 +1,16 @@
 
 
+2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (melt_done_modes_vector): New static variable.
+	(meltgc_do_initial_mode): Update it.
+	(melt_do_finalize): Use it to display successfully run modes when
+	non-quiet.
+	(melt_warn_for_no_expected_secondary_results_at): Use MELT program
+	argument "warn-unexpected-secondary"
+	i.e. -fplugin-arg-melt-warn-unexpected-secondary to give the
+	warning.
+
 2013-10-15  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-outobj.melt (translate_macroexpanded_list) more debug.
