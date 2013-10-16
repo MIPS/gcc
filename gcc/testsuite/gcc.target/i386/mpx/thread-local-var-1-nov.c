@@ -22,7 +22,7 @@ void *thred_func (void *ptr)
   rd (buf, 99);
 }
 
-int mpx_test (int argc, char **argv)
+int mpx_test (int argc, const char **argv)
 {
   pthread_t thread;
   pthread_create (&thread, NULL, thred_func, 0);

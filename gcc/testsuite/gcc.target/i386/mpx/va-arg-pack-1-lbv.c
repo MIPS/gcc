@@ -33,7 +33,7 @@ int prebuf[100];
 int buf[100];
 int postbuf[100];
 
-int mpx_test (int argc, char **argv)
+int mpx_test (int argc, const char **argv)
 {
   foo1 (buf, -11);
   return 0;
