@@ -17,6 +17,16 @@ AM_LDFLAGS = $(XLDFLAGS) $(SECTION_LDFLAGS) $(OPT_LDFLAGS)
 
 toolexeclib_LTLIBRARIES = liboacc.la
 nodist_toolexeclib_HEADERS = liboacc.spec
+nodist_libsubinclude_HEADERS = openacc.h
+
+
+if USE_FORTRAN
+nodist_finclude_HEADERS = openacc_lib.h openacc_lib.f90 openacc_lib.mod openacc_lib_kind.mod
+endif
+liboacc_ladir = $(libdir)
+liboacc_la_HEADERS = liboacc.h openacc_lib.h
+
+liboacc_la_FLIBRARIES = openacc_lib.mod openacc_lib_kind.mod
 
 liboacc_la_SOURCES = liboacc.h \
 					liboacc-internal.h \
@@ -28,8 +38,11 @@ liboacc_la_SOURCES = liboacc.h \
 					program.c \
 					memory.c \
 					synchro.c \
-					openacc_lib.h \
-					openacc_lib.f90 \
 					fortran.c
+					
+openacc_lib_kind.mod: openacc_lib.mod
+	:
+openacc_lib.mod: $(srcdir)/openacc_lib.f90
+	$(FC) $(FCFLAGS) -fsyntax-only $(srcdir)/openacc_lib.f90
 					
 liboacc_la_CPPFLAGS = -I$(openclinc)

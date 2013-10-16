@@ -153,6 +153,7 @@ test -f libgfortran.spec || touch libgfortran.spec
 FCFLAGS="$FCFLAGS -L."
 
 # We need gfortran to compile parts of the library
+AM_CONDITIONAL([USE_FORTRAN], [test "$ac_cv_fc_compiler_gnu" = yes])
 # We can't use AC_PROG_FC because it expects a fully working gfortran.
 #AC_PROG_FC(gfortran)
 case `echo $GFORTRAN` in

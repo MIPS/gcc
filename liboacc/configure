@@ -608,6 +608,8 @@ LIBOBJS
 ac_ct_FC
 FCFLAGS
 FC
+USE_FORTRAN_FALSE
+USE_FORTRAN_TRUE
 libtool_VERSION
 CPP
 OTOOL64
@@ -10705,7 +10707,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10708 "configure"
+#line 10710 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -10811,7 +10813,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 10814 "configure"
+#line 10816 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11057,6 +11059,14 @@ test -f libgfortran.spec || touch libgfortran.spec
 FCFLAGS="$FCFLAGS -L."
 
 # We need gfortran to compile parts of the library
+ if test "$ac_cv_fc_compiler_gnu" = yes; then
+  USE_FORTRAN_TRUE=
+  USE_FORTRAN_FALSE='#'
+else
+  USE_FORTRAN_TRUE='#'
+  USE_FORTRAN_FALSE=
+fi
+
 # We can't use AC_PROG_FC because it expects a fully working gfortran.
 #AC_PROG_FC(gfortran)
 case `echo $GFORTRAN` in
@@ -14249,6 +14259,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   as_fn_error "conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${USE_FORTRAN_TRUE}" && test -z "${USE_FORTRAN_FALSE}"; then
+  as_fn_error "conditional \"USE_FORTRAN\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 
