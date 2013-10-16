@@ -216,7 +216,6 @@ static void append_type_to_template_for_access_check_1 (tree, tree, tree,
 							location_t);
 static tree listify (tree);
 static tree listify_autos (tree, tree);
-static tree template_parm_to_arg (tree t);
 static tree tsubst_template_parm (tree, tree, tsubst_flags_t);
 static tree instantiate_alias_template (tree, tree, tsubst_flags_t);
 
@@ -3745,12 +3744,13 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
 		       bool is_non_type, bool is_parameter_pack)
 {
   tree decl = 0;
-  tree defval;
   tree err_parm_list;
   int idx = 0;
 
   gcc_assert (TREE_CODE (parm) == TREE_LIST);
-  defval = TREE_PURPOSE (parm);
+  tree defval = TREE_PURPOSE (parm);
+  tree constr = TREE_TYPE (parm);
+  tree reqs = NULL_TREE;
 
   if (list)
     {
@@ -3821,6 +3821,9 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
 
       TEMPLATE_PARM_PARAMETER_PACK (DECL_INITIAL (parm)) 
 	= is_parameter_pack;
+
+      // Build requirements for the parameter.
+      reqs = finish_shorthand_requirement (parm, constr);        
     }
   else
     {
@@ -3853,11 +3856,19 @@ process_template_parm (tree list, location_t parm_loc, tree parm,
 				     decl, TREE_TYPE (parm));
       TEMPLATE_TYPE_PARAMETER_PACK (t) = is_parameter_pack;
       TYPE_CANONICAL (t) = canonical_type_parameter (t);
+
+      // Build requirements for the type/template parameter.
+      reqs = finish_shorthand_requirement (parm, constr);      
     }
   DECL_ARTIFICIAL (decl) = 1;
   SET_DECL_TEMPLATE_PARM_P (decl);
   pushdecl (decl);
+  
+  // Build the parameter node linking the parameter declaration, its
+  // default argument (if any), and its constraints (if any).
   parm = build_tree_list (defval, parm);
+  TEMPLATE_PARM_CONSTRAINTS (parm) = reqs;
+  
   return chainon (list, parm);
 }
 
@@ -3889,6 +3900,16 @@ end_template_parm_list (tree parms)
   return saved_parmlist;
 }
 
+// Explicitly indicate the end of the template parameter list. We assume
+// that the current template parameters have been constructed and/or
+// managed explicitly, as when creating new template template parameters
+// from a shorthand constraint.
+void
+end_template_parm_list ()
+{
+  --processing_template_parmlist;
+}
+
 /* end_template_decl is called after a template declaration is seen.  */
 
 void
@@ -3911,7 +3932,7 @@ end_template_decl (void)
    functions.  Note that If the TREE_LIST contains an error_mark
    node, the returned argument is error_mark_node.  */
 
-static tree
+tree
 template_parm_to_arg (tree t)
 {
 
@@ -6437,6 +6458,16 @@ is_compatible_template_arg (tree parm, tree arg)
   return more_constraints (argcons, parmcons);
 }
 
+// Convert a placeholder argument into a binding to the original
+// parameter. The original parameter is saved as the TREE_TYPE of
+// ARG.
+static inline tree
+convert_placeholder_argument (tree parm, tree arg)
+{
+  TREE_TYPE (arg) = parm;
+  return arg;
+}
+
 /* Convert the indicated template ARG as necessary to match the
    indicated template PARM.  Returns the converted ARG, or
    error_mark_node if the conversion was unsuccessful.  Error and
@@ -6455,6 +6486,10 @@ convert_template_argument (tree parm,
   tree orig_arg;
   tree val;
   int is_type, requires_type, is_tmpl_type, requires_tmpl_type;
+
+  // Trivially convert placeholders.
+  if (TREE_CODE (arg) == PLACEHOLDER_EXPR)
+    return convert_placeholder_argument (parm, arg);
 
   if (TREE_CODE (arg) == TREE_LIST
       && TREE_CODE (TREE_VALUE (arg)) == OFFSET_REF)
@@ -9736,6 +9771,21 @@ gen_elem_of_pack_expansion_instantiation (tree pattern,
 
   return t;
 }
+
+// Substitute args into the pack expansion T, and rewrite the resulting
+// list as a conjuntion of the specified terms. If the result is an empty
+// expression, return boolean_true_node.
+tree
+tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain, 
+                         tree in_decl)
+{
+  tree terms = tsubst_pack_expansion (t, args, complain, in_decl);
+  if (tree reqs = conjoin_requirements (terms))
+    return reqs;
+  else
+    return boolean_true_node;
+}
+
 
 /* Substitute ARGS into T, which is an pack expansion
    (i.e. TYPE_PACK_EXPANSION or EXPR_PACK_EXPANSION). Returns a
@@ -14019,6 +14069,11 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
 					RECUR (MUST_NOT_THROW_COND (t))));
 
     case EXPR_PACK_EXPANSION:
+      // Expansions of variadic constraints are viable, expanding
+      // to a conunction of the expanded terms.
+      if (TREE_TYPE (t) == boolean_type_node)
+        return tsubst_pack_conjunction (t, args, complain, in_decl);
+  
       error ("invalid use of pack expansion expression");
       RETURN (error_mark_node);
 
@@ -20825,7 +20880,9 @@ type_dependent_expression_p (tree expression)
     return false;
 
   /* An unresolved name is always dependent.  */
-  if (identifier_p (expression) || TREE_CODE (expression) == USING_DECL)
+  if (identifier_p (expression) 
+      || TREE_CODE (expression) == USING_DECL
+      || TREE_CODE (expression) == PLACEHOLDER_EXPR)
     return true;
 
   /* Some expression forms are never type-dependent.  */

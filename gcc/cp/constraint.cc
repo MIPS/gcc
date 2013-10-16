@@ -77,6 +77,18 @@ conjoin_requirements (tree a, tree b)
     return NULL_TREE;
 }
 
+// Transform the list of expressions in the T into a conjunction
+// of requirements. T must be a TREE_VEC.
+tree 
+conjoin_requirements (tree t)
+{
+  gcc_assert (TREE_CODE (t) == TREE_VEC);
+  tree r = NULL_TREE;
+  for (int i = 0; i < TREE_VEC_LENGTH (t); ++i)
+    r = conjoin_requirements (r, TREE_VEC_ELT (t, i));
+  return r;
+}
+
 
 // -------------------------------------------------------------------------- //
 // Constraint Resolution
@@ -111,13 +123,31 @@ resolve_constraint_check (tree ovl, tree args)
   tree cands = NULL_TREE;
   for (tree p = ovl; p != NULL_TREE; p = OVL_NEXT (p))
     {
-      tree tmpl = OVL_FUNCTION (p);
-      tree parms = TREE_VALUE (DECL_TEMPLATE_PARMS (tmpl));
+      // Get the next template overload.
+      tree tmpl = OVL_CURRENT (p);
+      if (TREE_CODE (tmpl) != TEMPLATE_DECL)
+        continue;
+
+      // Don't try to deduce checks for non-concept-like. We often
+      // end up trying to resolve constraints in functional casts
+      // as part of a post-fix expression. We can save time and
+      // headaches by not instantiating those declarations.
+      //
+      // NOTE: This masks a potential error, caused by instantiating
+      // non-deduced contexts using placeholder arguments.
+      tree fn = DECL_TEMPLATE_RESULT (tmpl);
+      if (DECL_ARGUMENTS (fn))
+        continue;
+      if (!DECL_DECLARED_CONCEPT_P (fn))
+        continue;
 
       // Remember the candidate if we can deduce a substitution.
+      ++processing_template_decl;
+      tree parms = TREE_VALUE (DECL_TEMPLATE_PARMS (tmpl));
       if (tree subst = coerce_template_parms (parms, args, tmpl))
         if (subst != error_mark_node)
-          cands = tree_cons (subst, DECL_TEMPLATE_RESULT (tmpl), cands);
+          cands = tree_cons (subst, fn, cands);
+      --processing_template_decl;
     }
 
   // If we didn't find a unique candidate, then this is
@@ -518,6 +548,22 @@ get_constraints (tree t)
   return DECL_CONSTRAINTS (t);
 }
 
+// Returns a conjunction of shorthand requirements for the template
+// parameter list PARMS. Note that the requirements are stored in
+// the TYPE of each tree node.
+tree
+get_shorthand_requirements (tree parms)
+{
+  tree reqs = NULL_TREE;
+  parms = INNERMOST_TEMPLATE_PARMS (parms);
+  for (int i = 0; i < TREE_VEC_LENGTH (parms); ++i)
+    {
+      tree parm = TREE_VEC_ELT (parms, i);
+      reqs = conjoin_requirements(reqs, TREE_TYPE (parm));
+    }
+  return reqs;
+}
+
 // Finish the template requirement, EXPR, by translating it into
 // a constraint information record.
 tree
@@ -754,6 +800,146 @@ check_constrained_friend (tree fn, tree reqs)
     }
 }
 
+namespace {
+// Given an overload set, OVL, and a template argument or placeholder, ARG,
+// synthesize a call expression that resolves to a concept check of
+// the expression the form OVL<ARG>().
+tree
+build_concept_check (tree ovl, tree arg)
+ {
+  // Build a template-id that acts as the call target using OVL as
+  // the template and ARG as the only explicit argument.
+  tree targs = make_tree_vec (1);
+  TREE_VEC_ELT (targs, 0) = arg;
+  SET_NON_DEFAULT_TEMPLATE_ARGS_COUNT (targs, 1);
+  tree id = lookup_template_function (ovl, targs);
+
+  // Build a new call expression, but don't actually generate a new 
+  // function call. We just want the tree, not the semantics.
+  ++processing_template_decl;
+  vec<tree, va_gc> *fargs = make_tree_vector();
+  tree call = finish_call_expr (id, &fargs, false, false, tf_none);
+  --processing_template_decl;
+  
+  return call;
+}
+
+// Returns a TYPE_DECL that contains sufficient information to build
+// a template parameter of the same kind as PROTO and constrained
+// by the concept declaration FN. PROTO is saved as the initializer of
+// the new type decl, and the constraining function is saved in
+// DECL_SIZE_UNIT.
+tree
+describe_template_parm (tree proto, tree fn) 
+{
+  tree name = DECL_NAME (fn);
+  tree type = TREE_TYPE (proto);
+  tree decl = build_decl (input_location, TYPE_DECL, name, type);
+  DECL_INITIAL (decl) = proto;  // Describing parameter
+  DECL_SIZE_UNIT (decl) = fn;   // Constraining function declaration
+  return decl;
+}
+} // namespace
+
+// If the result is a TYPE_DECL, its DECL_NAME is the name of the
+// concept (without arguments), its TREE_TYPE refers to the type of the
+// first template parameter of concept definition (the prototype parameter),
+// its DECL_INITIAL is the declaration of the prototype parameter, and
+// its DECL_SIZE_UNIT is the constraining concept declaration.
+//
+// TODO: A variable template may refer to a concept. The concept-name
+// could introduce a constrained placeholder type in the terse template
+// syntax.
+tree
+finish_concept_name (tree decl)
+{
+  gcc_assert (TREE_CODE (decl) == OVERLOAD);
+
+  // Try to build a call expression that evaluates the concept. This
+  // can fail if the overload set refers only to non-templates.
+  tree call = build_concept_check (decl, build_nt(PLACEHOLDER_EXPR));
+  if (call == error_mark_node)
+    return NULL_TREE;
+  
+  // Resolve the constraint check to deduce the declared parameter.
+  tree check = resolve_constraint_check (call);
+  if (!check)
+    return NULL_TREE;
+
+  // Get function and argument from the resolved check expression. If 
+  // the argument was a pack expansion, then get the first element 
+  // of that pack.
+  tree fn = TREE_VALUE (check);
+  tree arg = TREE_VEC_ELT (TREE_PURPOSE (check), 0);
+  if (ARGUMENT_PACK_P (arg))
+    arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
+
+  // Get the protyping parameter bound to the placeholder.
+  tree proto = TREE_TYPE (arg);
+
+  // How we process the constrained declaration depends on the scope.
+  // In template scope, we return a "description" that will later be
+  // transformed into a real template parameter by process_template_parm.
+  if (template_parm_scope_p ())
+    return describe_template_parm (proto, fn);
+
+  // For the time being don't allow shorthand constraints in
+  // non-template parameter scopes.
+  sorry ("constrained declaration");
+  return NULL_TREE;
+}
+
+// Create a requirement expression for the given DECL that evaluates the
+// requirements specified by CONSTR, a TYPE_DECL that contains all the 
+// information necessary to build the requirements (see finish_concept_name 
+// for the layout of that TYPE_DECL).
+//
+// Note that the constraints are neither reduced nor decomposed. That is
+// done only after the requires clause has been parsed (or not).
+tree
+finish_shorthand_requirement (tree decl, tree constr)
+{
+  // No requirements means no constraints.
+  if (!constr)
+    return NULL_TREE;
+
+  tree proto = DECL_INITIAL (constr); // The prototype declaration
+  tree con = DECL_SIZE_UNIT (constr); // The concept declaration
+
+  // If the parameter declaration is variadic, but the concept is not 
+  // then we need to apply the concept to every element in the pack.
+  bool is_proto_pack = template_parameter_pack_p (proto);
+  bool is_decl_pack = template_parameter_pack_p (decl);
+  bool apply_to_all_p = is_decl_pack && !is_proto_pack;
+
+  // Get the argument and overload used for the requirement. Adjust
+  // if we're going to expand later.
+  tree arg = template_parm_to_arg (build_tree_list (NULL_TREE, decl));
+  if (apply_to_all_p)
+      arg = PACK_EXPANSION_PATTERN (TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0));
+
+  // Build the concept check. If it the constraint needs to be applied
+  // to all elements of the parameter pack, then expand make the constraint
+  // an expansion.
+  tree ovl = build_overload (DECL_TI_TEMPLATE (con), NULL_TREE);
+  tree check = build_concept_check (ovl, arg);
+  if (apply_to_all_p)
+    {
+      check = make_pack_expansion (check);
+
+      // Set the type to indicate that this expansion will get special
+      // treatment during instantiation. 
+      //
+      // TODO: Maybe this should be a different kind of node... one that
+      // has all the same properties as a pack expansion, but has a definite
+      // expansion when instantiated as part of an expression.
+      //
+      // As of now, this is a hack.
+      TREE_TYPE (check) = boolean_type_node;
+    }
+
+  return check;
+ }
 
 // -------------------------------------------------------------------------- //
 // Substitution Rules

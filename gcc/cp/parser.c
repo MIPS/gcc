@@ -12847,6 +12847,106 @@ cp_parser_template_parameter_list (cp_parser* parser)
   return end_template_parm_list (parameter_list);
 }
 
+// Returns a constrained parameter if PARM denotes a constrained
+// template parameter.
+static inline bool
+cp_is_constrained_parameter (cp_parameter_declarator *parm)
+{
+  gcc_assert (parm);
+  tree decl = parm->decl_specifiers.type;
+  return (decl 
+          && TREE_CODE (decl) == TYPE_DECL 
+          && DECL_INITIAL (decl)
+          && DECL_SIZE_UNIT (decl)
+          && TREE_CODE (DECL_SIZE_UNIT (decl)) == FUNCTION_DECL);
+}
+
+// Finish parsing/processing a template type parameter.
+static inline tree
+cp_finish_template_type_parm (tree id)
+{
+  return finish_template_type_parm (class_type_node, id); 
+}
+
+// Finish parsing/processing a template template parameter by borrowing
+// the template parameter list from the prototype parameter.
+static tree
+cp_finish_template_template_parm (tree proto, tree id)
+{
+  tree saved_parms = current_template_parms;
+  
+  // FIXME: This should probably be copied, and we may need to adjust
+  // the template parameter depths.
+  begin_template_parm_list ();
+  current_template_parms = DECL_TEMPLATE_PARMS (proto);
+  end_template_parm_list ();
+  
+  tree parm = finish_template_template_parm (class_type_node, id);
+  current_template_parms = saved_parms;  
+  return parm;
+}
+
+// Create a new non-type template parameter from the given PARM declarator.
+static tree
+cp_finish_non_type_template_parm (cp_parameter_declarator *parm)
+{
+  cp_declarator *decl = parm->declarator;
+  cp_decl_specifier_seq *specs = &parm->decl_specifiers;
+  specs->type = TREE_TYPE (DECL_INITIAL (specs->type));
+  return grokdeclarator (decl, specs, TPARM, 0, NULL);
+}
+
+// Build a constrained template parameter based on the PARMDECL
+// declarator. The type of PARMDECL is the constrained type, which
+// refers to the prototype template parameter that ultimately
+// specifies the type of the declared parameter.
+static tree
+cp_finish_constrained_parameter (cp_parameter_declarator *parmdecl, 
+                                 bool *is_non_type, 
+                                 bool *is_parameter_pack)
+{
+  tree decl = parmdecl->decl_specifiers.type;
+  tree id = parmdecl->declarator->u.id.unqualified_name;
+  tree def = parmdecl->default_argument;
+  tree proto = DECL_INITIAL (decl);
+
+  // Remember if the user declared this as a parameter pack and
+  // erase that flag on the annotation. Template packs are dealt
+  // with separately.
+  bool is_pack = parmdecl->declarator->parameter_pack_p;
+  if (is_pack)
+    parmdecl->declarator->parameter_pack_p = false;
+
+  // Is the prototype a parameter pack? If so, but the declaration
+  // does not include "...", then emit an error.
+  bool is_variadic = template_parameter_pack_p (proto);
+  if (is_variadic && !is_pack)
+    error ("variadic constraint introduced without %<...%>");
+
+  // The prototype is a template parameter pack, then the resulting
+  // parameter also needs to be a pack.
+  if (is_pack || is_variadic)
+    *is_parameter_pack = true;
+
+  tree parm;
+  if (TREE_CODE (proto) == TYPE_DECL)
+    parm = cp_finish_template_type_parm (id);
+  else if (TREE_CODE (proto) == TEMPLATE_DECL)
+    parm = cp_finish_template_template_parm (proto, id);
+  else
+    {
+      *is_non_type = true;
+      parm = cp_finish_non_type_template_parm (parmdecl);
+    }
+
+  // Finish the parameter decl and create a node attaching the
+  // default argument and constraint.
+  parm = build_tree_list (def, parm);
+  TEMPLATE_PARM_CONSTRAINTS (parm) = decl;
+  return parm;
+}
+
+
 /* Parse a template-parameter.
 
    template-parameter:
@@ -12917,10 +13017,19 @@ cp_parser_template_parameter (cp_parser* parser, bool *is_non_type,
      template-parameter, the first non-nested `>' is taken as the end
      of the template parameter-list rather than a greater-than
      operator.  */
-  *is_non_type = true;
   parameter_declarator
      = cp_parser_parameter_declaration (parser, /*template_parm_p=*/true,
 					/*parenthesized_p=*/NULL);
+
+  // The parameter may have been constrained.
+  if (cp_is_constrained_parameter (parameter_declarator))
+    return cp_finish_constrained_parameter (parameter_declarator,
+                                            is_non_type,
+                                            is_parameter_pack);
+
+  // Now we're sure that the parameter is a non-type parameter.
+  *is_non_type = true;
+
 
   /* If the parameter declaration is marked as a parameter pack, set
      *IS_PARAMETER_PACK to notify the caller. Also, unmark the
@@ -13116,11 +13225,10 @@ cp_parser_type_parameter (cp_parser* parser, bool *is_parameter_pack)
 	/* Look for the `>'.  */
 	cp_parser_require (parser, CPP_GREATER, RT_GREATER);
 
-
         // If template requirements are present, parse them.
           if (flag_concepts)
           {
-            tree reqs = release (current_template_reqs);
+            tree reqs = get_shorthand_requirements (current_template_parms);
             if (tree r = cp_parser_requires_clause_opt (parser))
               reqs = conjoin_requirements (reqs, r);
             current_template_reqs = finish_template_requirements (reqs);
@@ -14669,6 +14777,14 @@ cp_parser_simple_type_specifier (cp_parser* parser,
    typedef-name:
      identifier
 
+  Concepts:
+   
+   type-name:
+     concept-name
+
+   concept-name:
+     identifier
+
    Returns a TYPE_DECL for the type.  */
 
 static tree
@@ -14726,12 +14842,16 @@ cp_parser_type_name (cp_parser* parser)
   return type_decl;
 }
 
-/* Parse a non-class type-name, that is, either an enum-name or a typedef-name.
+/* Parse a non-class type-name, that is, either an enum-name, a typedef-name,
+   or a concept-name.
 
    enum-name:
      identifier
 
    typedef-name:
+     identifier
+
+   concept-name:
      identifier
 
    Returns a TYPE_DECL for the type.  */
@@ -14749,6 +14869,16 @@ cp_parser_nonclass_name (cp_parser* parser)
 
   /* Look up the type-name.  */
   type_decl = cp_parser_lookup_name_simple (parser, identifier, token->location);
+
+  // If we found an overload set, then it may refer to a concept-name.
+  //
+  // TODO: The name could also refer to a variable template or an
+  // introduction (if followed by '{').
+  if (TREE_CODE (type_decl) == OVERLOAD)
+  {
+    if (tree decl = finish_concept_name (type_decl))
+      return decl;
+  }
 
   if (TREE_CODE (type_decl) == USING_DECL)
     {
@@ -23040,7 +23170,7 @@ cp_parser_template_declaration_after_export (cp_parser* parser, bool member_p)
   // Manage template requirements
   if (flag_concepts)
     {
-      tree reqs = release (current_template_reqs);
+      tree reqs = get_shorthand_requirements (current_template_parms);
       if (tree r = cp_parser_requires_clause_opt (parser))
         reqs = conjoin_requirements (reqs, r);
       current_template_reqs = finish_template_requirements (reqs);

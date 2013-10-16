@@ -1,3 +1,32 @@
+2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/constraint.cc (conjoin_requiremens): New.
+	(resolve_constraint_check): Filter non-concept candidates before
+	coercing arguments. Perform deduction in a template-decl processing
+	context to prevent errors during diagnosis.
+	(finish_concept_name), (finish_shorthand_requirement),
+	(get_shorthand_requirements): New.
+	* gcc/cp/pt.c (template_parm_to_arg): Make non-static.
+	(process_templat_parm): Build shorthand requirements from the
+	parameter description.
+	(end_templat_parm_list): New.
+	(convert_placeholder_argument): New.
+	(convert_template_argument): Match placeholder arguments against
+	any template parameter.
+	(tsubst_pack_conjuction):  New.
+	(tsubst_expr): Expand a pack as a conjunction.
+	(type_dependent_expression_p): Placeholders are always type
+	dependent.
+	* gcc/cp/parser.c (cp_is_constrained_parameter), 
+	(cp_finish_template_type_parm), (cp_finish_template_template_parm)
+	(cp_finish_non_type_template_parm), (cp_finish_constrined_parameter):
+	New.
+	(cp_parser_template_parameter): Handle constrained parameters.
+	(cp_parser_nonclass_name): An identifier naming an overload set
+	may declare a constrained parameter.
+	(cp_parser_type_parameter), (cp_parser_template_declaration_after_exp): 
+	Get shorthand requirements from the tmeplate parameter list.
+	* gcc/cp/cp-tree.h (TEMPLATE_PARM_CONSTRAINTS): New.
+
 2013-10-07  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/cp-tree.h (check_constrained_friend): Take requirements as
 	an argument.

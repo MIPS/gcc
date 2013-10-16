@@ -835,6 +835,11 @@ check_constraint_info (tree t)
 #define TEMPLATE_PARMS_CONSTRAINTS(NODE) \
   TREE_TYPE(TREE_LIST_CHECK(NODE))
 
+// Access the logical constraints on the template parameter declaration
+// indicatd by NODE.
+#define TEMPLATE_PARM_CONSTRAINTS(NODE) \
+  TREE_TYPE(TREE_LIST_CHECK(NODE))
+
 enum cp_tree_node_structure_enum {
   TS_CP_GENERIC,
   TS_CP_IDENTIFIER,
@@ -5570,7 +5575,8 @@ extern bool is_auto				(const_tree);
 extern bool is_auto_or_concept			(const_tree);
 extern tree process_template_parm		(tree, location_t, tree, 
 						 bool, bool);
-extern tree end_template_parm_list		(tree);
+extern tree end_template_parm_list    (tree);
+extern void end_template_parm_list		();
 extern void end_template_decl			(void);
 extern tree maybe_update_decl_type		(tree, tree);
 extern bool check_default_tmpl_args             (tree, tree, bool, bool, int);
@@ -5672,7 +5678,7 @@ extern tree coerce_template_parms               (tree, tree, tree);
 extern void register_local_specialization       (tree, tree);
 extern tree retrieve_local_specialization       (tree);
 extern tree extract_fnparm_pack                 (tree, tree *);
-
+extern tree template_parm_to_arg                (tree);
 
 /* in repo.c */
 extern void init_repo				(void);
@@ -6277,10 +6283,14 @@ extern tree strip_using_decl                    (tree);
 
 /* in constraint.cc */
 extern tree conjoin_requirements                (tree, tree);
+extern tree conjoin_requirements                (tree);
 extern tree reduce_requirements                 (tree);
 extern tree make_constraints                    (tree);
 extern tree get_constraints                     (tree);
+extern tree get_shorthand_requirements          (tree);
 
+extern tree finish_concept_name                 (tree);
+extern tree finish_shorthand_requirement        (tree, tree);
 extern tree finish_requires_expr                (tree, tree);
 extern tree finish_expr_requirement             (tree, tree, tree);
 extern tree finish_expr_requirement             (tree);
@@ -6291,6 +6301,8 @@ extern tree finish_noexcept_requirement         (tree);
 extern tree finish_validexpr_expr               (tree);
 extern tree finish_validtype_expr               (tree);
 extern tree finish_constexpr_expr               (tree);
+extern tree finish_concept_name                 (tree);
+extern tree finish_shorthand_requirement        (tree, tree);
 
 extern void check_constrained_friend            (tree, tree);
 
