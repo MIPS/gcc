@@ -2,6 +2,13 @@
 
 2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (dbgout_environment_method): Show more
+	often the description of environments.
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): More debug.
+
+2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-debug.melt (dbgout_environment_method): May show
 	the description of environments.
 

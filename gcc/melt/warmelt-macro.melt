@@ -3633,8 +3633,8 @@ $EXPORT_VALUES to be visible outside its module.}#)
 ;;;;;;;;;;;;;;;;;; the defmacro expander
 ;;;(DEFMACRO macroname formals [:doc documentation] body...)
 (defun mexpand_defmacro (sexpr env mexpander modctx)
-  (debug "mexpand_defmacro sexpr=" sexpr "\n.. modctx=" debug_less modctx
-	 "\n.. env=" debug_less env "\n")
+  (debug "mexpand_defmacro sexpr=" sexpr "\n.. modctx=" modctx
+	 "\n.. env=" env "\n")
   (shortbacktrace_dbg "mexpand_defmacro" 15)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
@@ -3655,6 +3655,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		    :mbind_expanser ()	;to be filled later
 		    ))
 	 )
+    (debug "mexpand_defmacro loc=" debug_less loc "; modmacroenv=" modmacroenv "\n.. newenv=" newenv)
     (when (is_not_a symb class_symbol)
       (debug "mexpand_defmacro bad symb=" symb " in sexpr=" sexpr)
       (error_at loc "missing symbol for DEFMACRO"_)
