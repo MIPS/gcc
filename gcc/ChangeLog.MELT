@@ -2,6 +2,17 @@
 
 2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-debug.melt (dbgout_environment_method): May show
+	the description of environments.
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): More debug.
+
+	* melt/warmelt-normal.melt (normexp_macro_installation): More debug.
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr): More debug.
+
+2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_done_modes_vector): New static variable.
 	(meltgc_do_initial_mode): Update it.
 	(melt_do_finalize): Use it to display successfully run modes when

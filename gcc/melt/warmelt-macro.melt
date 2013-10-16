@@ -3620,9 +3620,10 @@ $EXPORT_VALUES to be visible outside its module.}#)
   (let ( (macroenv (get_field :mocx_macroenv modctx))
 	 )
     (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
-  (debug "melt_delayed_macro_expander maclist=" maclist " env=" env "\n macroenv=" macroenv 
+  (debug "melt_delayed_macro_expander maclist=" maclist "\n.. env=" env
+	 "\n.. macroenv=" debug_more macroenv 
 	 "\n modctx=" debug_less modctx
-	 "\n.. mbind=" debug_less mbind)
+	 "\n.. mbind=" debug_less mbind "\n")
   (let ( (res (melt_invoke_translator_runner_macroexpansions maclist macroenv modctx))
 	 )
     (debug "melt_delayed_macro_expander final res=" res
@@ -3669,6 +3670,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
       (return))
     (warn_if_redefined symb env loc)
     (put_env env mbind)
+    (debug "mexpand_defmacro loc=" loc " updated env=" env "\n.. newenv=" newenv)
     (setq curpair (pair_tail curpair))
     ;; parse the formal arguments
     (let ( (curpairhead (pair_head curpair)) 
@@ -3683,7 +3685,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 		   ()
 		   )))
 	   )
-      (debug "mexpand_defmacro btup=" btup)
+      (debug "mexpand_defmacro loc=" loc "; btup=" btup)
       (when (not (is_multiple btup))
 	(error_at loc "missing formal arguments for DEFMACRO $1"_ symbname)
 	(return))
@@ -3691,6 +3693,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
        (btup) 
        (fb :long bix) 
        (put_env newenv fb))
+      (debug "mexpand_defmacro loc=" loc "; updated newenv=" newenv)
       (setq curpair (pair_tail curpair))
       ;; handle the optional :doc documentationvalue
       (when (== (pair_head curpair) ':doc)
@@ -3718,27 +3721,30 @@ $EXPORT_VALUES to be visible outside its module.}#)
 			:smacinst_defmacro sdefmacro
 			))
 	     )
+	(debug "mexpand_defmacro loc=" loc "; bodytup=" bodytup "\n.. newenv=" newenv)
+	(debug "mexpand_defmacro loc=" loc "; sdefmacro=" sdefmacro "\n.. sinstmacro=" sinstmacro)
 	(when (not (is_list maclist))
 	  (error_at loc "macros, i.e. DEFMACRO, are forbidden in this module $1" 
 		    (get_field :mocx_modulename modctx))
 	  (return))
-	(debug "mexpand_defmacro bodytup=" bodytup)
 	(put_fields mbind :mbind_defmacro sdefmacro)
-	(debug "mexpand_defmacro sdefmacro=" sdefmacro "\n old maclist=" maclist 
+	(debug "mexpand_defmacro loc=" loc "; sdefmacro=" sdefmacro "\n old maclist=" maclist 
 	       "\n.. modulname=" (get_field :mocx_modulename modctx))
-	(debug "mexpand_defmacro sinstmacro=" sinstmacro)
+	(debug "mexpand_defmacro loc=" loc "; sinstmacro=" sinstmacro)
 	(assert_msg "check maclist" (is_list maclist) maclist)
 	(list_append maclist sinstmacro)
-	(debug "mexpand_defmacro updated maclist=" maclist)
+	(debug "mexpand_defmacro loc=" loc "; updated maclist=" maclist)
 	;; we should put a :mbind_expanser closure into mbind
 	(put_fields mbind 
 		    :mbind_expanser 
 		    (lambda (sexprm envm mexpanderm modctxm)
-		      (debug "mexpand_defmacro/lambdambind sexprm=" sexprm
+		      (debug "mexpand_defmacro/lambdambind loc=" loc "; sexprm=" sexprm
 			     "\n modctxm=" modctxm)
+		      (shortbacktrace_dbg "mexpand_defmacro/lambdambind" 15)
 		      (assert_msg "check modctxm" (== modctxm modctx) modctxm modctx)
-		      (debug "mexpand_defmacro/lambdambind env=" debug_less env 
+		      (debug "mexpand_defmacro/lambdambind loc=" loc "; env=" debug_less env 
 			     "\n.. envm=" debug_less envm
+			     "\n.. newenv=" debug_less newenv
 			     "\n.. modinienv=" debug_less modinienv)
 		      (debug "mexpand_defmacro/lambdambind before melt_delayed_macro_expander mbind=" mbind)
 		      (melt_delayed_macro_expander mbind maclist envm mexpanderm modctx)
@@ -3755,7 +3761,7 @@ $EXPORT_VALUES to be visible outside its module.}#)
 			 (return expmac othermac)
 			 )
 			)))
-	(debug "mexpand_defmacro final mbind=" mbind "\n.. of discrim=" (discrim mbind)
+	(debug "mexpand_defmacro loc=" loc "; final mbind=" mbind "\n.. of discrim=" (discrim mbind)
 	       "\n.. sdefmacro=" sdefmacro)
 	(return sdefmacro)
 	))))

@@ -4851,7 +4851,7 @@ source location.}#
   (assert_msg "check defun recv" (is_a recv class_source_defun) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
-  (let ( (sloc (unsafe_get_field :loca_location recv))
+  (let ( (sloc (or (unsafe_get_field :loca_location recv) psloc))
 	 (snam (unsafe_get_field :sdef_name recv))
 	 (sformals (unsafe_get_field :sformal_args recv))
 	 (sbody (unsafe_get_field :sfun_body recv))
@@ -4859,7 +4859,11 @@ source location.}#
 	 (modctx (get_field :nctx_modulcontext ncx))
 	 (modinienv (get_field :mocx_initialenv modctx))
 	 (macroenv (get_field :mocx_macroenv modctx))
-	 (basenv (if ismacro macroenv env))
+	 (basenv (let ( (be (if ismacro macroenv env))
+			)
+		   (debug "normexp_defun_defmacro sloc=" debug_less sloc 
+			  "; ismacro=" ismacro "; basenv=" be)
+		   be))
 	 (sfubind (find_env basenv snam))
 	 (newenv (fresh_env basenv))
 	 (oldproc (unsafe_get_field :nctx_curproc ncx))
@@ -4895,7 +4899,7 @@ source location.}#
 			      :ndclo_closv () ;filled below
 			      ))
 	 )
-    (debug "normexp_defun_defmacro ismacro=" ismacro "; sloc=" sloc 
+    (debug "normexp_defun_defmacro ismacro=" ismacro "; sloc=" debug_less sloc 
 	   "\n.. basenv=" (if ismacro debug_more debug_less) basenv 
 	   "\n.. newenv=" newenv)
     (unsafe_put_fields ncx 
@@ -4907,15 +4911,27 @@ source location.}#
 	   "\n.. newenv=" newenv)
     (add_nctx_data ncx ndatarout)
     (add_nctx_data ncx ndataclos)
-    (debug "normexp_defun_defmacro updated ncx=" debug_less ncx
+    (debug "normexp_defun_defmacro updated ncx=" debug_less ncx "; sloc=" debug_less sloc
 	   "\n.. sfubind=" sfubind)
+    (when (null sfubind)
+      (if ismacro
+	  (error_at sloc
+		    "bad defmacro-ed function $1 without binding" (get_field :named_name snam))
+	(error_at sloc "bad defun-ed function $1 without binding" (get_field :named_name snam)))
+      (shortbacktrace_dbg "normexp_defun_defmacro bad DEFUNed unbound function" 14)
+      (return))
     (when (and 
 	   (is_not_a sfubind class_function_binding)
 	   (is_not_a sfubind class_macro_binding)
 	   (is_not_a sfubind class_defined_macro_binding))
-      (error_at sloc
-		"bad defun-ed function $1 with binding of $2 [nested definitions are prohibited; consider using LETREC]"
-		(get_field :named_name snam) (get_field :named_name (discrim sfubind)))
+      (if ismacro
+	  (error_at sloc
+		    "bad defmacro-ed function $1 with binding of $2 [nested definitions are prohibited]"
+		    (get_field :named_name snam) (get_field :named_name (discrim sfubind)))
+	  
+	(error_at sloc
+		  "bad defun-ed function $1 with binding of $2 [nested definitions are prohibited]"
+		  (get_field :named_name snam) (get_field :named_name (discrim sfubind))))
       (shortbacktrace_dbg "normexp_defun_defmacro bad DEFUNed function" 14)
       (return))
     (unsafe_put_fields nproc :nrpro_datarout ndatarout :nrpro_dataclos ndataclos)
@@ -4993,20 +5009,22 @@ source location.}#
 
 ;;; normalize the installation of a macro
 (defun normexp_macro_installation (recv env ncx psloc)
-  (debug "normexp_macro_installation recv=" recv)
+  (debug "normexp_macro_installation recv=" recv "\n... env=" env)
   (assert_msg "check recv" (is_a recv class_source_macro_installation) recv)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (let ( (loc (or (unsafe_get_field :loca_location recv) psloc))
 	 (sdefmacro (unsafe_get_field :smacinst_defmacro recv))
 	 )
+    (debug "normexp_macro_installation loc=" debug_less loc "; sdefmacro=" sdefmacro)
+    (shortbacktrace_dbg "normexp_macro_installation" 10)
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
     (let ( (nclos (normexp_defun_defmacro sdefmacro env ncx loc))
 	   (mbind (get_field :smacro_binding sdefmacro))
 	   (modctx (get_field :nctx_modulcontext ncx))
 	   (msymb (get_field :binder mbind))
 	   )
-      (debug "normexp_macro_installation nclos=" nclos "\n.. mbind=" mbind)
+      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos "\n.. mbind=" mbind)
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
       (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos)
       (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
