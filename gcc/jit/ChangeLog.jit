@@ -1,3 +1,7 @@
+2013-10-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* TODO.rst: Update.
+
 2013-10-16  David Malcolm  <dmalcolm@redhat.com>
 
 	* TODO.rst (gcc_jit_context_new_local): Remove completed item.
