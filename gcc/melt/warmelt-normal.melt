@@ -5035,25 +5035,11 @@ source location.}#
     (shortbacktrace_dbg "normexp_macro_installation" 10)
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
     (let (
-	  ;; temporary trick for debugging MELT-SFT-3 @@@@@ DIRTY KLUDGE @@@@@
-	  (myenv (let ( (me (cond
-			     ( (melt_argument "use-base-env")
-			       (warning_at loc 
-					   "normexp_macro_installation use macroenv for $1 since -fmelt-use-base-env" 
-					   modname)
-			       macroenv)
-			     (:else
-			      env)))
-			)
-		   (debug "normexp_macro_installation modctx=" debug_less modctx 
-			  "\n.. myenv=" debug_more me 
-			  "\n.. sdefmacro=" debug_less sdefmacro)
-		   me))
-	  (nclos (normexp_defun_defmacro sdefmacro myenv ncx loc))
+	  (nclos (normexp_defun_defmacro sdefmacro macroenv ncx loc))
 	  (mbind (get_field :smacro_binding sdefmacro))
 	  (msymb (get_field :binder mbind))
 	  )
-      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos "\n.. mbind=" mbind "\n.. myenv=" myenv)
+      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos "\n.. mbind=" mbind "\n.. macroenv=" macroenv)
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
       (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos env)
       (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind env)

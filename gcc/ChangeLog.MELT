@@ -1,6 +1,17 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{remove temporary -fmelt-plugin-arg-use-base-env option}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.0-rc2-
+
+	* melt/warmelt-normal.melt (normexp_macro_installation): No more
+	use-base-env...
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list):
+	Likewise...
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-build-script.tpl: Emit meltbuild_do_stage with an extra
 	GCCMELT_EMIT_OPTION_STAGEx.
 

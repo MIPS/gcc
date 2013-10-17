@@ -6967,24 +6967,14 @@ if (1) return;
     (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
     ;; probably use basenv instead of inienv below
     (let ( 
-	  ;; temporary trick for debugging MELT-SFT-3 @@@@@ DIRTY KLUDGE @@@@@
-	  (myenv (let ( (me (cond
-			     ( (melt_argument "use-base-env")
-			       (warning_at () "compile_list_sexpr use basenv for $1" modnamstr)
-			       basenv)
-			     (:else
-			      inienv)))
-			)
-		   (debug "compile_list_sexpr modctx=" debug_less modctx " myenv=" debug_more me "\n")
-		   me))
-	  (xlist (macroexpand_toplevel_list lsexp myenv macroexpand_1 modctx)) 
+	  (xlist (macroexpand_toplevel_list lsexp basenv macroexpand_1 modctx)) 
 	  (:long lenxlist (list_length xlist))
 	  )
       (debug "compile_list_sexpr after macroexpansion and before translation modctx=" debug_less modctx
 	     "\n.. xlist=" xlist
-	     "\n.. myenv=" myenv)
+	     "\n.. basenv=" basenv)
       ;;
-      (translate_macroexpanded_list xlist modnamstr modctx ncx myenv () compile2obj_initproc)
+      (translate_macroexpanded_list xlist modnamstr modctx ncx basenv () compile2obj_initproc)
       (debug "compile_list_sexpr after translation modctx=" debug_less modctx)
       )))
 
