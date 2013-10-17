@@ -1,3 +1,23 @@
+17-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Add C FE tests
+    
+    * gcc/testsuite/gcc.dg/gacc/branch.c: New test
+    * gcc/testsuite/gcc.dg/gacc/data-clauses.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/data-tree.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/declare.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/directive-names.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/host_data-tree.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/if.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/kernels-tree.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/list.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/loop: Likewise 
+    * gcc/testsuite/gcc.dg/gacc/parallel-kernels-regions.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/parallel-tree.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/reduction.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/several-directives.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/sie.c: Likewise
+    * gcc/testsuite/gcc.dg/gacc/subarrays.c: Likewise
+
 16-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Add generation of Fortran .mod files and copying of include files 
     
