@@ -247,8 +247,8 @@
    (:tree cfundecl)
    (debug "meltframe_gate cfundecl=" cfundecl)
    (match cfundecl
-	  ;; melt-runtime.c has some garbage collecting MELT functions starting with meltgc_
-	  ( ?(tree_function_decl_named ?(cstring_prefixed "meltgc_") ?_)
+	  ;; melt-runtime.c has some garbage collecting MELT functions  containing meltgc_
+	  ( ?(tree_function_decl_named ?(cstring_containing "meltgc_") ?_)
 	     (void)
 	     )
 	  ;; MELT generated routines start with meltrout_

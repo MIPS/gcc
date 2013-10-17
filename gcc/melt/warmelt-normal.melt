@@ -5039,13 +5039,15 @@ source location.}#
 			     (:else
 			      env)))
 			)
-		   (debug "normexp_macro_installation modctx=" debug_less modctx " myenv=" debug_more me "\n")
+		   (debug "normexp_macro_installation modctx=" debug_less modctx 
+			  "\n.. myenv=" debug_more me 
+			  "\n.. sdefmacro=" debug_less sdefmacro)
 		   me))
 	  (nclos (normexp_defun_defmacro sdefmacro myenv ncx loc))
 	  (mbind (get_field :smacro_binding sdefmacro))
 	  (msymb (get_field :binder mbind))
 	  )
-      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos "\n.. mbind=" mbind)
+      (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos "\n.. mbind=" mbind "\n.. myenv=" myenv)
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
       (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos env)
       (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind env)

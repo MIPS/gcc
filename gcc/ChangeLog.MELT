@@ -1,6 +1,18 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (cstring_containing): New cmatcher.
+
+	* melt/warmelt-macro.melt (mexpand_defmacro): Update the
+	modmacroenv.
+
+	* melt/warmelt-normal.melt (normexp_macro_installation): More debug.
+
+	* melt/xtramelt-ana-simple.melt (meltframe_gate): Use
+	cstring_containing for "meltgc_".
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{tmacro-1.melt test still don't work with  -fmelt-use-base-env}}
 	* melt/warmelt-macro.melt
 	(melt_invoke_translator_runner_macroexpansions): More debug.

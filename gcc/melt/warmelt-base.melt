@@ -1559,7 +1559,20 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
   it starts with the constant string $CSTR. The match fails if $STR is a
   null string or not prefixed by $CSTR.}# 
 
-#{/*$STRPREFIXED test*/ ($STR && $CSTR && !strncmp($STR, $CSTR, strlen ($CSTR))) }#
+#{/* cstring_prefixed $STRPREFIXED test*/ ($STR && $CSTR && !strncmp($STR, $CSTR, strlen ($CSTR))) }#
+  ;; no fill or operator
+)
+
+;; cmatcher for a cstring starting with a given prefix
+(defcmatcher cstring_containing 
+  (:cstring str cstr)
+  ()
+  strcontain
+  :doc #{The $CSTRING_CONTAINING c-matcher matches a string $STR and test if
+  it contains the constant string $CSTR. The match fails if $STR is a
+  null string or not prefixed by $CSTR.}# 
+
+#{/* cstring_containing $STRCONTAIN test*/ ($STR && $CSTR && strstr($STR, $CSTR) }#
   ;; no fill or operator
 )
 
@@ -3173,6 +3186,7 @@ typedef struct melthook_st *melthook_ptr_t;
  compare_named_alpha
  complete_sequence_as_list
  complete_sequence_as_tuple
+ cstring_containing
  cstring_length
  cstring_prefixed
  cstring_same
