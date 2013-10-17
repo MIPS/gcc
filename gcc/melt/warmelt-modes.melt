@@ -1720,7 +1720,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		  (add2out sbuf "meltmakedoc_")
 		  (add2out_cident sbuf (make_string_nakedbasename discr_string outarg))
 		  (strbuf2string discr_string sbuf)))
-	(macroenv (fresh_env curenv (tuple 'macro modnam)))
+	(macroenv (fresh_env curenv (tuple 'macro-doc modnam)))
 	(mdinfo 
 	 (instance class_makedoc_module_context
 		   :mocx_modulename modnam
@@ -1774,7 +1774,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        curargfile
        (informsg_strv "reading from file" curargfile)
        (let ( (curead (read_file curargfile))
-	      (newenv (fresh_env curenv))
+	      (newenv (fresh_env curenv (tuple 'env-doc modnam curargfile)))
 	      )
 	 (debug "makedoc_docmd curead=" curead)
 	 (assert_msg "check curead" (is_list_or_null curead) curead)
@@ -1786,6 +1786,8 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   ))
        ;; macro expand it
        (debug "makedoc_docmd have read rlist=" rlist "\n.. expanded into xalllist=" xalllist "\n")
+       (setq curenv newenv)
+       (debug "makedoc_docmd for curargfile=" curargfile " updated curenv=" curenv)
        )
       ;; scan the expanded input, and fill mdinfo appropriately.
       (makedoc_scaninput mdinfo arglist xalllist)
