@@ -1913,6 +1913,84 @@ default_function_array_read_conversion (location_t loc, struct c_expr exp)
   return default_function_array_conversion (loc, exp);
 }
 
+/* Return whether EXPR should be treated as an atomic lvalue for the
+   purposes of load and store handling.  */
+
+static bool
+really_atomic_lvalue (tree expr)
+{
+  if (expr == error_mark_node || TREE_TYPE (expr) == error_mark_node)
+    return false;
+  if (!TYPE_ATOMIC (TREE_TYPE (expr)))
+    return false;
+  if (!lvalue_p (expr))
+    return false;
+
+  /* Ignore _Atomic on register variables, since their addresses can't
+     be taken so (a) atomicity is irrelevant and (b) the normal atomic
+     sequences wouldn't work.  Ignore _Atomic on structures containing
+     bit-fields, since accessing elements of atomic structures or
+     unions is undefined behavior (C11 6.5.2.3#5), but it's unclear if
+     it's undefined at translation time or execution time, and the
+     normal atomic sequences again wouldn't work.  */
+  while (handled_component_p (expr))
+    {
+      if (TREE_CODE (expr) == COMPONENT_REF
+	  && DECL_C_BIT_FIELD (TREE_OPERAND (expr, 1)))
+	return false;
+      expr = TREE_OPERAND (expr, 0);
+    }
+  if (DECL_P (expr) && C_DECL_REGISTER (expr))
+    return false;
+  return true;
+}
+
+/* Convert expression EXP (location LOC) from lvalue to rvalue,
+   including converting functions and arrays to pointers if CONVERT_P.
+   If READ_P, also mark the expression as having been read.  */
+
+struct c_expr
+convert_lvalue_to_rvalue (location_t loc, struct c_expr exp,
+			  bool convert_p, bool read_p)
+{
+  if (read_p)
+    mark_exp_read (exp.value);
+  if (convert_p)
+    exp = default_function_array_conversion (loc, exp);
+  if (really_atomic_lvalue (exp.value))
+    {
+      vec<tree, va_gc> *params;
+      tree nonatomic_type, tmp, tmp_addr, fndecl, func_call;
+      tree expr_type = TREE_TYPE (exp.value);
+      tree expr_addr = build_unary_op (loc, ADDR_EXPR, exp.value, 0);
+      tree seq_cst = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
+
+      gcc_assert (TYPE_ATOMIC (expr_type));
+
+      /* Expansion of a generic atomic load may require an addition
+	 element, so allocate enough to prevent a resize.  */
+      vec_alloc (params, 4);
+
+      /* Remove the qualifiers for the rest of the expressions and
+	 create the VAL temp variable to hold the RHS.  */
+      nonatomic_type = build_qualified_type (expr_type, TYPE_UNQUALIFIED);
+      tmp = create_tmp_var (nonatomic_type, NULL);
+      tmp_addr = build_unary_op (loc, ADDR_EXPR, tmp, 0);
+      TREE_ADDRESSABLE (tmp) = 1;
+
+      /* Issue __atomic_load (&expr, &tmp, SEQ_CST);  */
+      fndecl = builtin_decl_explicit (BUILT_IN_ATOMIC_LOAD);
+      params->quick_push (expr_addr);
+      params->quick_push (tmp_addr);
+      params->quick_push (seq_cst);
+      func_call = build_function_call_vec (loc, fndecl, params, NULL);
+
+      /* Return tmp which contains the value loaded.  */
+      exp.value = build2 (COMPOUND_EXPR, nonatomic_type, func_call, tmp);
+    }
+  return exp;
+}
+
 /* EXP is an expression of integer type.  Apply the integer promotions
    to it and return the promoted value.  */
 
@@ -4855,7 +4933,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   if (!objc_is_property_ref (lhs) && !lvalue_or_else (location, lhs, lv_assign))
     return error_mark_node;
 
-  is_atomic_op = TYPE_ATOMIC (TREE_TYPE (lhs));
+  is_atomic_op = really_atomic_lvalue (lhs);
 
   if (TREE_CODE (rhs) == EXCESS_PRECISION_EXPR)
     {
@@ -4968,9 +5046,11 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
   if (is_atomic_op)
     {
       lhstype = build_qualified_type (lhstype, 
-				      TYPE_QUALS(lhstype) & ~TYPE_QUAL_ATOMIC);
+				      (TYPE_QUALS (lhstype)
+				       & ~TYPE_QUAL_ATOMIC));
       olhstype = build_qualified_type (olhstype, 
-				       TYPE_QUALS(lhstype) & ~TYPE_QUAL_ATOMIC);
+				       (TYPE_QUALS (lhstype)
+					& ~TYPE_QUAL_ATOMIC));
     }
 
   /* Convert new value to destination type.  Fold it first, then
@@ -8625,7 +8705,7 @@ build_asm_expr (location_t loc, tree string, tree outputs, tree inputs,
 	      struct c_expr expr;
 	      memset (&expr, 0, sizeof (expr));
 	      expr.value = input;
-	      expr = default_function_array_conversion (loc, expr);
+	      expr = convert_lvalue_to_rvalue (loc, expr, true, false);
 	      input = c_fully_fold (expr.value, false, NULL);
 
 	      if (input != error_mark_node && VOID_TYPE_P (TREE_TYPE (input)))
@@ -11050,15 +11130,18 @@ c_build_va_arg (location_t loc, tree expr, tree type)
        T2 E2
        E1 op= E2
 
- This sequence is used for integer, floating point and complex types. 
+  This sequence is used for integer, floating-point and complex types. 
 
- In addition the 'fe' prefixed routines may need to be invoked for 
- floating point and complex when annex F is in effect (regarding floating
- point or exceptional conditions)  See 6.5.16.2 footnote 113:
+  In addition, built-in versions of the 'fe' prefixed routines may
+  need to be invoked for floating point and complex when annex F is in
+  effect (regarding floating point or exceptional conditions) See
+  6.5.16.2 footnote 113.
 
- TODO these are not implemented as yes, but the comments are placed at the
- correct locations in the code for the appropriate calls to be made.  They
- should only be issued if the expression type is !INTEGRAL_TYPE_P().
+  TODO these are not implemented as yet, but the comments are placed
+  at the correct locations in the code for the appropriate calls to be
+  made.  They should only be issued if the expression type (of either
+  LHS or RHS) is !INTEGRAL_TYPE_P ().  The type of the temporary for
+  the RHS must allow for any excess precision.
 
   T1 newval;
   T1 old;
@@ -11081,16 +11164,18 @@ done:
   feupdateenv (&fenv);				<<-- float & complex only
 
 
- Also note that the compiler is simply issuing the generic form of the atomic
- operations. This requires temp(s) and has their address taken.  The atomic
- processing is smart enough to figure out when the size of an object can
- utilize a lock free versionm, and convert the built-in call to the appropriate
- lockfree routine.  The optimizers will then dispose of any temps that are no
- longer required, and lock free implementations are utilized for integer, float
- and complex as long as there is target supoprt for the required size. 
+  Also note that the compiler is simply issuing the generic form of
+  the atomic operations.  This requires temp(s) and has their address
+  taken.  The atomic processing is smart enough to figure out when the
+  size of an object can utilize a lock free versionm, and convert the
+  built-in call to the appropriate lock-free routine.  The optimizers
+  will then dispose of any temps that are no longer required, and
+  lock-free implementations are utilized for integer, float and
+  complex as long as there is target supoprt for the required size.
 
- If the operator is NOP_EXPR, then this is a simple assignment, and an
- __atomic_store is issued to perform the assignment rather than the above loop.
+  If the operator is NOP_EXPR, then this is a simple assignment, and
+  an __atomic_store is issued to perform the assignment rather than
+  the above loop.
 
 */
 
@@ -11105,6 +11190,7 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   vec<tree, va_gc> *params;
   tree val, nonatomic_type, newval, newval_addr;
   tree old, old_addr;
+  tree compound_stmt;
   tree stmt, goto_stmt;
   tree loop_label, loop_decl, done_label, done_decl;
 
@@ -11114,8 +11200,12 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
 
   gcc_assert (TYPE_ATOMIC (lhs_type));
 
-  /* allocate enough vector items for a compare_exchange.  */
+  /* Allocate enough vector items for a compare_exchange.  */
   vec_alloc (params, 6);
+
+  /* Create a compound statement to hold the sequence of statements
+     with a loop.  */
+  compound_stmt = c_begin_compound_stmt (false);
 
   /* Remove the qualifiers for the rest of the expressions and create
      the VAL temp variable to hold the RHS.  */
@@ -11126,8 +11216,8 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   SET_EXPR_LOCATION (rhs, loc);
   add_stmt (rhs);
 
-  /* NOP_EXPR indicates its a straight store of the RHS. Simply issue
-     and atomic_store.  */
+  /* NOP_EXPR indicates it's a straight store of the RHS. Simply issue
+     an atomic_store.  */
   if (modifycode == NOP_EXPR)
     {
       /* Build __atomic_store (&lhs, &val, SEQ_CST)  */
@@ -11139,9 +11229,12 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
       func_call = build_function_call_vec (loc, fndecl, params, NULL);
       add_stmt (func_call);
 
-      /* Val is the value which was stored, return it for any further value
-	 propagation.  */
-      return val;
+      /* Finish the compound statement.  */
+      compound_stmt = c_end_compound_stmt (loc, compound_stmt, false);
+
+      /* VAL is the value which was stored, return a COMPOUND_STMT of
+	 the statement and that value.  */
+      return build2 (COMPOUND_EXPR, nonatomic_type, compound_stmt, val);
     }
 
   /* Create the variables and labels required for the op= form.  */
@@ -11209,44 +11302,10 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
 
   /* TODO If (!integral) issue feupdateenv (&fenv)  */
 
-  /* Newval is the value that was successfully stored, return that.  */
-  return newval;
-}
+  /* Finish the compound statement.  */
+  compound_stmt = c_end_compound_stmt (loc, compound_stmt, false);
 
-
-/* This simply performs an atomic load from EXPR and returns the temp it was
-   loaded into.  */
-
-tree
-build_atomic_load (location_t loc, tree expr)
-{
-  vec<tree, va_gc> *params;
-  tree nonatomic_type, tmp, tmp_addr, fndecl, func_call;
-  tree expr_type = TREE_TYPE (expr);
-  tree expr_addr = build_unary_op (loc, ADDR_EXPR, expr, 0);
-  tree seq_cst = build_int_cst (integer_type_node, MEMMODEL_SEQ_CST);
-
-  gcc_assert (TYPE_ATOMIC (expr_type));
-
-  /* Expansion of a generic atomoic load may require an addition element, so
-     allocate enough to prevent a resize.  */
-  vec_alloc (params, 4);
-
-  /* Remove the qualifiers for the rest of the expressions and create
-     the VAL temp variable to hold the RHS.  */
-  nonatomic_type = build_qualified_type (expr_type, TYPE_UNQUALIFIED);
-  tmp = create_tmp_var (nonatomic_type, NULL);
-  tmp_addr = build_unary_op (loc, ADDR_EXPR, tmp, 0);
-  TREE_ADDRESSABLE (tmp) = 1;
-
-  /* Issue __atomic_load (&expr, &tmp, SEQ_CST);  */
-  fndecl = builtin_decl_explicit (BUILT_IN_ATOMIC_LOAD);
-  params->quick_push (expr_addr);
-  params->quick_push (tmp_addr);
-  params->quick_push (seq_cst);
-  func_call = build_function_call_vec (loc, fndecl, params, NULL);
-  add_stmt (func_call);
-
-  /* return tmp which contains the value loaded,  */
-  return tmp;
+  /* Newval is the value that was successfully stored, return a
+     COMPOUND_EXPR of the statement and that value.  */
+  return build2 (COMPOUND_EXPR, nonatomic_type, compound_stmt, newval);
 }

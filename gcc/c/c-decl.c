@@ -4772,6 +4772,15 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
       error ("bit-field %qs has invalid type", name);
       *type = unsigned_type_node;
     }
+  /* C11 makes it implementation-defined (6.7.2.1#5) whether atomic
+     types are permitted for bit-fields; we have no code to make
+     bit-field accesses atomic, so disallow them.  */
+  if (TYPE_QUALS (*type) & TYPE_QUAL_ATOMIC)
+    {
+      error ("bit-field %qs has atomic type", name);
+      *type = c_build_qualified_type (*type,
+				      TYPE_QUALS (*type) & ~TYPE_QUAL_ATOMIC);
+    }
 
   type_mv = TYPE_MAIN_VARIANT (*type);
   if (!in_system_header
@@ -5661,18 +5670,24 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 	case cdk_pointer:
 	  {
-	    if (atomicp)
-	      {
-		error_at (loc,
-			  "ISO C forbids _Atomic qualifier function types");
-		type = error_mark_node;
-		break;
-	      }
-
 	    /* Merge any constancy or volatility into the target type
 	       for the pointer.  */
-	    if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-		&& type_quals)
+	    if ((type_quals & TYPE_QUAL_ATOMIC)
+		&& TREE_CODE (type) == FUNCTION_TYPE)
+	      {
+		error_at (loc,
+			  "%<_Atomic%>-qualified function type");
+		type_quals &= ~TYPE_QUAL_ATOMIC;
+	      }
+	    else if ((type_quals & TYPE_QUAL_ATOMIC)
+		&& TREE_CODE (type) == ARRAY_TYPE)
+	      {
+		error_at (loc,
+			  "%<_Atomic%>-qualified array type");
+		type_quals &= ~TYPE_QUAL_ATOMIC;
+	      }
+	    else if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
+		     && type_quals)
 	      pedwarn (loc, OPT_Wpedantic,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
@@ -5849,8 +5864,22 @@ grokdeclarator (const struct c_declarator *declarator,
   if (storage_class == csc_typedef)
     {
       tree decl;
-      if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-	  && type_quals)
+      if ((type_quals & TYPE_QUAL_ATOMIC)
+	  && TREE_CODE (type) == FUNCTION_TYPE)
+	{
+	  error_at (loc,
+		    "%<_Atomic%>-qualified function type");
+	  type_quals &= ~TYPE_QUAL_ATOMIC;
+	}
+      else if ((type_quals & TYPE_QUAL_ATOMIC)
+	       && TREE_CODE (type) == ARRAY_TYPE)
+	{
+	  error_at (loc,
+		    "%<_Atomic%>-qualified array type");
+	  type_quals &= ~TYPE_QUAL_ATOMIC;
+	}
+      else if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
+	       && type_quals)
 	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C forbids qualified function types");
       if (type_quals)
@@ -5895,8 +5924,22 @@ grokdeclarator (const struct c_declarator *declarator,
 	 and fields.  */
       gcc_assert (storage_class == csc_none && !threadp
 		  && !declspecs->inline_p && !declspecs->noreturn_p);
-      if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
-	  && type_quals)
+      if ((type_quals & TYPE_QUAL_ATOMIC)
+	  && TREE_CODE (type) == FUNCTION_TYPE)
+	{
+	  error_at (loc,
+		    "%<_Atomic%>-qualified function type");
+	  type_quals &= ~TYPE_QUAL_ATOMIC;
+	}
+      else if ((type_quals & TYPE_QUAL_ATOMIC)
+	       && TREE_CODE (type) == ARRAY_TYPE)
+	{
+	  error_at (loc,
+		    "%<_Atomic%>-qualified array type");
+	  type_quals &= ~TYPE_QUAL_ATOMIC;
+	}
+      else if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
+	       && type_quals)
 	pedwarn (loc, OPT_Wpedantic,
 		 "ISO C forbids const or volatile function types");
       if (type_quals)
@@ -5944,6 +5987,12 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	if (TREE_CODE (type) == ARRAY_TYPE)
 	  {
+	    if (type_quals & TYPE_QUAL_ATOMIC)
+	      {
+		error_at (loc,
+			  "%<_Atomic%>-qualified array type");
+		type_quals &= ~TYPE_QUAL_ATOMIC;
+	      }
 	    /* Transfer const-ness of array into that of type pointed to.  */
 	    type = TREE_TYPE (type);
 	    if (type_quals)
@@ -5962,7 +6011,13 @@ grokdeclarator (const struct c_declarator *declarator,
 	  }
 	else if (TREE_CODE (type) == FUNCTION_TYPE)
 	  {
-	    if (type_quals)
+	    if (type_quals & TYPE_QUAL_ATOMIC)
+	      {
+		error_at (loc,
+			  "%<_Atomic%>-qualified function type");
+		type_quals &= ~TYPE_QUAL_ATOMIC;
+	      }
+	    else if (type_quals)
 	      pedwarn (loc, OPT_Wpedantic,
 		       "ISO C forbids qualified function types");
 	    if (type_quals)
@@ -6017,6 +6072,12 @@ grokdeclarator (const struct c_declarator *declarator,
 	      error_at (loc, "unnamed field has incomplete type");
 	    type = error_mark_node;
 	  }
+	if (TREE_CODE (type) == ARRAY_TYPE && (type_quals & TYPE_QUAL_ATOMIC))
+	  {
+	    error_at (loc,
+		      "%<_Atomic%>-qualified function type");
+	    type_quals &= ~TYPE_QUAL_ATOMIC;
+	  }
 	type = c_build_qualified_type (type, type_quals);
 	decl = build_decl (declarator->id_loc,
 			   FIELD_DECL, declarator->u.id, type);
@@ -6057,7 +6118,13 @@ grokdeclarator (const struct c_declarator *declarator,
 			   FUNCTION_DECL, declarator->u.id, type);
 	decl = build_decl_attribute_variant (decl, decl_attr);
 
-	if (pedantic && type_quals && !DECL_IN_SYSTEM_HEADER (decl))
+	if (type_quals & TYPE_QUAL_ATOMIC)
+	  {
+	    error_at (loc,
+		      "%<_Atomic%>-qualified function type");
+	    type_quals &= ~TYPE_QUAL_ATOMIC;
+	  }
+	else if (pedantic && type_quals && !DECL_IN_SYSTEM_HEADER (decl))
 	  pedwarn (loc, OPT_Wpedantic,
 		   "ISO C forbids qualified function types");
 
@@ -6126,6 +6193,12 @@ grokdeclarator (const struct c_declarator *declarator,
 	/* An uninitialized decl with `extern' is a reference.  */
 	int extern_ref = !initialized && storage_class == csc_extern;
 
+	if (TREE_CODE (type) == ARRAY_TYPE && type_quals & TYPE_QUAL_ATOMIC)
+	  {
+	    error_at (loc,
+		      "%<_Atomic%>-qualified array type");
+	    type_quals &= ~TYPE_QUAL_ATOMIC;
+	  }
 	type = c_build_qualified_type (type, type_quals);
 
 	/* C99 6.2.2p7: It is invalid (compile-time undefined

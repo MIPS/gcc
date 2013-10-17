@@ -9690,8 +9690,8 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   unsigned_intDI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (DImode), 1);
   unsigned_intTI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (TImode), 1);
 
-  /* Dont call build_qualified type for atomics.  That routine does special
-     processing for atomics, and until they are initialized its better not
+  /* Don't call build_qualified type for atomics.  That routine does special
+     processing for atomics, and until they are initialized it's better not
      to make that call.  
      
      Check to see if there is a target override for atomic types.  */

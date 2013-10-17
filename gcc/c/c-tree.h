@@ -163,7 +163,7 @@ enum c_typespec_kind {
   ctsk_typedef,
   /* An ObjC-specific kind of type specifier.  */
   ctsk_objc,
-  /* A typeof specifier.  */
+  /* A typeof specifier, or _Atomic ( type-name ).  */
   ctsk_typeof
 };
 
@@ -585,6 +585,8 @@ extern struct c_expr default_function_array_conversion (location_t,
 							struct c_expr);
 extern struct c_expr default_function_array_read_conversion (location_t,
 							     struct c_expr);
+extern struct c_expr convert_lvalue_to_rvalue (location_t, struct c_expr,
+					       bool, bool);
 extern void mark_exp_read (tree);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (location_t, tree, tree);

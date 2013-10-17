@@ -1,3 +1,41 @@
+2013-10-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (check_bitfield_type_and_width): Disallow atomic types.
+	(grokdeclarator): Correct checks for atomic function or array
+	types.
+	* c-parser.c (c_parser_declspecs): Say "_Atomic" in comment.
+	Handle _Atomic (type-name) syntax.  Adjust diagnostics for use of
+	_Atomic outside C11 mode.  Call sorry for _Atomic with Objective-C
+	or OpenMP.
+	(c_parser_typeof_specifier): Remove const and _Atomic qualifiers
+	from types of expressions with atomic type.
+	(c_parser_direct_declarator_inner, c_parser_initializer)
+	(c_parser_initelt, c_parser_statement_after_labels)
+	(c_parser_switch_statement, c_parser_for_statement): Use
+	convert_lvalue_to_rvalue.
+	(c_parser_expr_no_commas): Don't handle atomic loads here.  Use
+	convert_lvalue_to_rvalue.
+	(c_parser_conditional_expression, c_parser_binary_expression)
+	(c_parser_cast_expression, c_parser_unary_expression)
+	(c_parser_postfix_expression)
+	(c_parser_postfix_expression_after_primary, c_parser_expression):
+	Use convert_lvalue_to_rvalue.
+	(c_parser_expression_conv, c_parser_expr_list): Document
+	conversion of lvalues to rvalues.  Use convert_lvalue_to_rvalue.
+	(c_parser_objc_receiver, c_parser_array_notation): Use
+	convert_lvalue_to_rvalue.
+	* c-tree.h (ctsk_typeof): Adjust comment to mention use for
+	_Atomic (type-name).
+	(convert_lvalue_to_rvalue): Declare.
+	* c-typeck.c (really_atomic_lvalue, convert_lvalue_to_rvalue): New
+	functions.
+	(build_modify_expr): Use really_atomic_lvalue.  Fix formatting.
+	(build_asm_expr): Use convert_lvalue_to_rvalue.
+	(build_atomic_assign): Fix formatting and typos.  Put sequence of
+	statements inside a compound statement.
+	(build_atomic_load): Remove function.  Merged into
+	convert_lvalue_to_rvalue.
+
 2013-09-26  Andrew MacLeod  <amacleod@redhat.com>
 	* c/c-parser.c (c_parser_expr_no_commas): Call build_atomic_load on RHS.
 	* c/c-typeck.c (build_modify_expr): Call build_atomic_assign for atomic

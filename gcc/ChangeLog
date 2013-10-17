@@ -1,3 +1,13 @@
+2013-10-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* Makefile.in (USER_H): Add stdatomic.h.
+	* ginclude/stdatomic.h: Fix formatting and typos.  Use correct
+	types or predefined macros for atomic_* typedefs.  Use
+	__extension__ in macro definitions.
+	(enum memory_order): Specify values of enumeration constants using
+	__ATOMIC_* predefined macros.
+	* tree.c (build_common_tree_nodes): Fix typos.
+
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* doc/generic.texi (CP_TYPE_ATOMIC_P): Add documentation.

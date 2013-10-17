@@ -1439,6 +1439,11 @@ at_least_as_qualified_p (const_tree type1, const_tree type2)
   int q1 = cp_type_quals (type1);
   int q2 = cp_type_quals (type2);
 
+  /* TODO: as a hack for building libstdc++, ignore atomic type
+     qualifiers.  (This is probably not the right place for this.)  */
+  q1 &= ~TYPE_QUAL_ATOMIC;
+  q2 &= ~TYPE_QUAL_ATOMIC;
+
   /* All qualifiers for TYPE2 must also appear in TYPE1.  */
   return (q1 & q2) == q2;
 }

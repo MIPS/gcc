@@ -1,3 +1,8 @@
+2013-10-17  Joseph Myers  <joseph@codesourcery.com>
+
+	* typeck.c (at_least_as_qualified_p): Ignore differences in atomic
+	qualifiers.
+
 2013-09-26  Andrew MacLeod  <amacleod@redhat.com>
 
 	* cp/parser.c (cp_parser_simple_type_specifier): Change TYPEOF for
