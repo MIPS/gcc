@@ -392,7 +392,17 @@ function meltbuild_do_stage () {
 	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/[+base+]" \
 	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/[+base+]" \
-	|| meltbuild_error  [+(.(fromline))+]-$meltfrom in "$meltcurstagedir/" failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module [+base+] compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS"
+	|| ( meltbuild_info [+(.(fromline))+]-$meltfrom recompiling bad module [+base+] in "$meltcurstagedir" ; \
+	$GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
+	    GCCMELT_FROM="[+(.(fromline))+]-$meltfrom" \
+	    GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
+	    GCCMELT_MODULE_FLAVOR="$meltcurflavor" \
+	    GCCMELT_COMPILER="$GCCMELT_COMPILER" \
+	    GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
+	    GCCMELT_MODULE_SOURCEBASE="$meltcurstagedir/[+base+]" \
+	    GCCMELT_MODULE_BINARYBASE="$meltcurstagedir/[+base+]" ; \
+	    meltbuild_error  [+(.(fromline))+]-$meltfrom in "$meltcurstagedir/" \
+                failed to make "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" module [+base+] compiler "$GCCMELT_COMPILER" cflags "$GCCMELT_COMPILER_FLAGS" )
     else
 	meltbuild_info [+(.(fromline))+]-$meltfrom NOT compiling module [+base+] "in" \
 	    "$meltcurstagedir/" but symlinking previous "$meltprevstagedir/" module [+base+] \

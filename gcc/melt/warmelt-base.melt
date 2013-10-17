@@ -1572,7 +1572,7 @@ output $OUT. It is called by the $ADD2OUT variadic function.}#
   it contains the constant string $CSTR. The match fails if $STR is a
   null string or not prefixed by $CSTR.}# 
 
-#{/* cstring_containing $STRCONTAIN test*/ ($STR && $CSTR && strstr($STR, $CSTR) }#
+#{/* cstring_containing $STRCONTAIN test*/ ($STR && $CSTR && strstr($STR, $CSTR)) }#
   ;; no fill or operator
 )
 

@@ -1,6 +1,16 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-build-script.tpl (meltbuild_do_stage): Run another make
+	with -DMELTGCC_NOLINENUMBERING on error, to help catching errors
+	in generated C++...
+
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-base.melt (cstring_containing): Correct typo.
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (cstring_containing): New cmatcher.
 
 	* melt/warmelt-macro.melt (mexpand_defmacro): Update the
