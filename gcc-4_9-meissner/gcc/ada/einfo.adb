@@ -132,6 +132,7 @@ package body Einfo is
    --    String_Literal_Low_Bound        Node15
 
    --    Access_Disp_Table               Elist16
+   --    Body_References                 Elist16
    --    Cloned_Subtype                  Node16
    --    DTC_Entity                      Node16
    --    Entry_Formal                    Node16
@@ -436,7 +437,7 @@ package body Einfo is
    --    Referenced                      Flag156
    --    Has_Pragma_Inline               Flag157
    --    Finalize_Storage_Only           Flag158
-   --    From_With_Type                  Flag159
+   --    From_Limited_With               Flag159
    --    Is_Package_Body_Entity          Flag160
 
    --    Has_Qualified_Name              Flag161
@@ -552,8 +553,8 @@ package body Einfo is
    --    Has_Delayed_Rep_Aspects         Flag261
    --    May_Inherit_Delayed_Rep_Aspects Flag262
    --    Has_Visible_Refinement          Flag263
+   --    Has_Body_References             Flag264
 
-   --    (unused)                        Flag264
    --    (unused)                        Flag265
    --    (unused)                        Flag266
    --    (unused)                        Flag267
@@ -732,6 +733,12 @@ package body Einfo is
            or else Is_Generic_Unit (Id));
       return Flag40 (Id);
    end Body_Needed_For_SAL;
+
+   function Body_References (Id : E) return L is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+      return Elist16 (Id);
+   end Body_References;
 
    function C_Pass_By_Copy (Id : E) return B is
    begin
@@ -1235,10 +1242,10 @@ package body Einfo is
       return Node7 (Id);
    end Freeze_Node;
 
-   function From_With_Type (Id : E) return B is
+   function From_Limited_With (Id : E) return B is
    begin
       return Flag159 (Id);
-   end From_With_Type;
+   end From_Limited_With;
 
    function Full_View (Id : E) return E is
    begin
@@ -1293,6 +1300,12 @@ package body Einfo is
    begin
       return Flag139 (Id);
    end Has_Biased_Representation;
+
+   function Has_Body_References (Id : E) return B is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+      return Flag264 (Id);
+   end Has_Body_References;
 
    function Has_Completion (Id : E) return B is
    begin
@@ -3336,6 +3349,12 @@ package body Einfo is
       Set_Flag40 (Id, V);
    end Set_Body_Needed_For_SAL;
 
+   procedure Set_Body_References (Id : E; V : L) is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+      Set_Elist16 (Id, V);
+   end Set_Body_References;
+
    procedure Set_C_Pass_By_Copy (Id : E; V : B := True) is
    begin
       pragma Assert (Is_Record_Type (Id) and then Is_Base_Type (Id));
@@ -3844,13 +3863,11 @@ package body Einfo is
       Set_Node7 (Id, V);
    end Set_Freeze_Node;
 
-   procedure Set_From_With_Type (Id : E; V : B := True) is
+   procedure Set_From_Limited_With (Id : E; V : B := True) is
    begin
-      pragma Assert
-        (Is_Type (Id)
-           or else Ekind (Id) = E_Package);
+      pragma Assert (Is_Type (Id) or else Ekind (Id) = E_Package);
       Set_Flag159 (Id, V);
-   end Set_From_With_Type;
+   end Set_From_Limited_With;
 
    procedure Set_Full_View (Id : E; V : E) is
    begin
@@ -3908,6 +3925,12 @@ package body Einfo is
         ((V = False) or else (Is_Discrete_Type (Id) or else Is_Object (Id)));
       Set_Flag139 (Id, V);
    end Set_Has_Biased_Representation;
+
+   procedure Set_Has_Body_References (Id : E; V : B := True) is
+   begin
+      pragma Assert (Ekind (Id) = E_Abstract_State);
+      Set_Flag264 (Id, V);
+   end Set_Has_Body_References;
 
    procedure Set_Has_Completion (Id : E; V : B := True) is
    begin
@@ -7874,7 +7897,7 @@ package body Einfo is
          --  view then we return the Underlying_Type of its non-limited
          --  view.
 
-         elsif From_With_Type (Id)
+         elsif From_Limited_With (Id)
            and then Present (Non_Limited_View (Id))
          then
             return Underlying_Type (Non_Limited_View (Id));
@@ -7977,13 +8000,14 @@ package body Einfo is
       W ("Entry_Accepted",                  Flag152 (Id));
       W ("Can_Use_Internal_Rep",            Flag229 (Id));
       W ("Finalize_Storage_Only",           Flag158 (Id));
-      W ("From_With_Type",                  Flag159 (Id));
+      W ("From_Limited_With",               Flag159 (Id));
       W ("Has_Aliased_Components",          Flag135 (Id));
       W ("Has_Alignment_Clause",            Flag46  (Id));
       W ("Has_All_Calls_Remote",            Flag79  (Id));
       W ("Has_Anonymous_Master",            Flag253 (Id));
       W ("Has_Atomic_Components",           Flag86  (Id));
       W ("Has_Biased_Representation",       Flag139 (Id));
+      W ("Has_Body_References",             Flag264 (Id));
       W ("Has_Completion",                  Flag26  (Id));
       W ("Has_Completion_In_Body",          Flag71  (Id));
       W ("Has_Complex_Representation",      Flag140 (Id));
@@ -8676,6 +8700,9 @@ package body Einfo is
               E_Record_Type_With_Private                   =>
             Write_Str ("Access_Disp_Table");
 
+         when E_Abstract_State                             =>
+            Write_Str ("Body_References");
+
          when E_Record_Subtype                             |
               E_Class_Wide_Subtype                         =>
             Write_Str ("Cloned_Subtype");
@@ -8764,7 +8791,7 @@ package body Einfo is
             Write_Str ("Non_Limited_View");
 
          when E_Incomplete_Subtype                         =>
-            if From_With_Type (Id) then
+            if From_Limited_With (Id) then
                Write_Str ("Non_Limited_View");
             end if;
 

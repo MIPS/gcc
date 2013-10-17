@@ -1636,7 +1636,7 @@ package body Sem_Attr is
 
             Typ := Etype (E);
 
-            if From_With_Type (Typ) then
+            if From_Limited_With (Typ) then
                Error_Attr_P
                  ("prefix of % attribute cannot be an incomplete type");
 
@@ -1655,7 +1655,7 @@ package body Sem_Attr is
                --  entities may occur in subprogram formals.
 
                if Is_Incomplete_Type (Typ)
-                 and then From_With_Type (Typ)
+                 and then From_Limited_With (Typ)
                  and then Present (Non_Limited_View (Typ))
                  and then Is_Legal_Shadow_Entity_In_Body (Typ)
                then
@@ -3893,7 +3893,7 @@ package body Sem_Attr is
          --  Loop_Entry must create a constant initialized by the evaluated
          --  prefix.
 
-         if Is_Immutably_Limited_Type (Etype (P)) then
+         if Is_Limited_View (Etype (P)) then
             Error_Attr_P ("prefix of attribute % cannot be limited");
          end if;
 
@@ -5627,9 +5627,16 @@ package body Sem_Attr is
                Error_Attr ("address value out of range for % attribute", E1);
             end if;
 
+            --  In most cases the expression is a numeric literal or some other
+            --  address expression, but if it is a declared constant it may be
+            --  of a compatible type that must be left on the node.
+
+            if Is_Entity_Name (E1) then
+               null;
+
             --  Set type to universal integer if negative
 
-            if Val < 0 then
+            elsif Val < 0 then
                Set_Etype (E1, Universal_Integer);
 
             --  Otherwise set type to Unsigned_64 to accomodate max values
@@ -5987,7 +5994,7 @@ package body Sem_Attr is
          then
             Error_Attr_P ("prefix of attribute % must be a record or array");
 
-         elsif Is_Immutably_Limited_Type (P_Type) then
+         elsif Is_Limited_View (P_Type) then
             Error_Attr ("prefix of attribute % cannot be limited", N);
 
          elsif Nkind (E1) /= N_Aggregate then
@@ -9698,7 +9705,7 @@ package body Sem_Attr is
                --  use of it. If it is an incomplete subtype, use the base type
                --  in any case.
 
-               if From_With_Type (Des_Btyp)
+               if From_Limited_With (Des_Btyp)
                  and then Present (Non_Limited_View (Des_Btyp))
                then
                   Des_Btyp := Non_Limited_View (Des_Btyp);

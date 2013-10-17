@@ -423,7 +423,7 @@ package body Sem_Util is
 
          Decl := First
                    (Visible_Declarations
-                     (Specification (Unit_Declaration_Node (Current_Scope))));
+                     (Package_Specification (Current_Scope)));
          while Present (Decl) loop
             if Nkind (Decl) = N_Private_Extension_Declaration
               and then Defining_Entity (Decl) = Typ
@@ -1169,6 +1169,13 @@ package body Sem_Util is
          return;
       end if;
 
+      --  Ignore in ASIS mode, elaboration entity is not in source and plays
+      --  no role in analysis.
+
+      if ASIS_Mode then
+         return;
+      end if;
+
       --  Construct name of elaboration entity as xxx_E, where xxx is the unit
       --  name with dots replaced by double underscore. We have to manually
       --  construct this name, since it will be elaborated in the outer scope,
@@ -1438,7 +1445,7 @@ package body Sem_Util is
          --  Ada 2005 (AI-50217): If the type is available through a limited
          --  with_clause, verify that its full view has been analyzed.
 
-         if From_With_Type (T)
+         if From_Limited_With (T)
            and then Present (Non_Limited_View (T))
            and then Ekind (Non_Limited_View (T)) /= E_Incomplete_Type
          then
@@ -4975,6 +4982,35 @@ package body Sem_Util is
       end if;
    end Enter_Name;
 
+   ---------------
+   -- Entity_Of --
+   ---------------
+
+   function Entity_Of (N : Node_Id) return Entity_Id is
+      Id : Entity_Id;
+
+   begin
+      Id := Empty;
+
+      if Is_Entity_Name (N) then
+         Id := Entity (N);
+
+         --  Follow a possible chain of renamings to reach the root renamed
+         --  object.
+
+         while Present (Id) and then Present (Renamed_Object (Id)) loop
+            if Is_Entity_Name (Renamed_Object (Id)) then
+               Id := Entity (Renamed_Object (Id));
+            else
+               Id := Empty;
+               exit;
+            end if;
+         end loop;
+      end if;
+
+      return Id;
+   end Entity_Of;
+
    --------------------------
    -- Explain_Limited_Type --
    --------------------------
@@ -6770,6 +6806,12 @@ package body Sem_Util is
                    and then
                 Has_No_Obvious_Side_Effects (Right_Opnd (N));
 
+      elsif Nkind (N) = N_Expression_With_Actions
+              and then
+            Is_Empty_List (Actions (N))
+      then
+         return Has_No_Obvious_Side_Effects (Expression (N));
+
       elsif Nkind (N) in N_Has_Entity then
          return Present (Entity (N))
            and then Ekind_In (Entity (N), E_Variable,
@@ -8138,7 +8180,7 @@ package body Sem_Util is
            --  statement is aliased if its type is immutably limited.
 
            or else (Is_Return_Object (E)
-                     and then Is_Immutably_Limited_Type (Etype (E)));
+                     and then Is_Limited_View (Etype (E)));
 
       elsif Nkind (Obj) = N_Selected_Component then
          return Is_Aliased (Entity (Selector_Name (Obj)));
@@ -8316,6 +8358,181 @@ package body Sem_Util is
                   Is_RTE (Root_Type (Under), RO_WI_Super_String) or else
                   Is_RTE (Root_Type (Under), RO_WW_Super_String));
    end Is_Bounded_String;
+
+   -------------------------
+   -- Is_Child_Or_Sibling --
+   -------------------------
+
+   function Is_Child_Or_Sibling
+     (Pack_1        : Entity_Id;
+      Pack_2        : Entity_Id;
+      Private_Child : Boolean) return Boolean
+   is
+      function Distance_From_Standard (Pack : Entity_Id) return Nat;
+      --  Given an arbitrary package, return the number of "climbs" necessary
+      --  to reach scope Standard_Standard.
+
+      procedure Equalize_Depths
+        (Pack           : in out Entity_Id;
+         Depth          : in out Nat;
+         Depth_To_Reach : Nat);
+      --  Given an arbitrary package, its depth and a target depth to reach,
+      --  climb the scope chain until the said depth is reached. The pointer
+      --  to the package and its depth a modified during the climb.
+
+      function Is_Child (Pack : Entity_Id) return Boolean;
+      --  Given a package Pack, determine whether it is a child package that
+      --  satisfies the privacy requirement (if set).
+
+      ----------------------------
+      -- Distance_From_Standard --
+      ----------------------------
+
+      function Distance_From_Standard (Pack : Entity_Id) return Nat is
+         Dist : Nat;
+         Scop : Entity_Id;
+
+      begin
+         Dist := 0;
+         Scop := Pack;
+         while Present (Scop) and then Scop /= Standard_Standard loop
+            Dist := Dist + 1;
+            Scop := Scope (Scop);
+         end loop;
+
+         return Dist;
+      end Distance_From_Standard;
+
+      ---------------------
+      -- Equalize_Depths --
+      ---------------------
+
+      procedure Equalize_Depths
+        (Pack           : in out Entity_Id;
+         Depth          : in out Nat;
+         Depth_To_Reach : Nat)
+      is
+      begin
+         --  The package must be at a greater or equal depth
+
+         if Depth < Depth_To_Reach then
+            raise Program_Error;
+         end if;
+
+         --  Climb the scope chain until the desired depth is reached
+
+         while Present (Pack) and then Depth /= Depth_To_Reach loop
+            Pack  := Scope (Pack);
+            Depth := Depth - 1;
+         end loop;
+      end Equalize_Depths;
+
+      --------------
+      -- Is_Child --
+      --------------
+
+      function Is_Child (Pack : Entity_Id) return Boolean is
+      begin
+         if Is_Child_Unit (Pack) then
+            if Private_Child then
+               return Is_Private_Descendant (Pack);
+            else
+               return True;
+            end if;
+
+         --  The package is nested, it cannot act a child or a sibling
+
+         else
+            return False;
+         end if;
+      end Is_Child;
+
+      --  Local variables
+
+      P_1       : Entity_Id := Pack_1;
+      P_1_Child : Boolean   := False;
+      P_1_Depth : Nat       := Distance_From_Standard (P_1);
+      P_2       : Entity_Id := Pack_2;
+      P_2_Child : Boolean   := False;
+      P_2_Depth : Nat       := Distance_From_Standard (P_2);
+
+   --  Start of processing for Is_Child_Or_Sibling
+
+   begin
+      pragma Assert
+        (Ekind (Pack_1) = E_Package and then Ekind (Pack_2) = E_Package);
+
+      --  Both packages denote the same entity, therefore they cannot be
+      --  children or siblings.
+
+      if P_1 = P_2 then
+         return False;
+
+      --  One of the packages is at a deeper level than the other. Note that
+      --  both may still come from differen hierarchies.
+
+      --        (root)           P_2
+      --        /    \            :
+      --       X     P_2    or    X
+      --       :                  :
+      --      P_1                P_1
+
+      elsif P_1_Depth > P_2_Depth then
+         Equalize_Depths (P_1, P_1_Depth, P_2_Depth);
+         P_1_Child := True;
+
+      --        (root)           P_1
+      --        /    \            :
+      --      P_1     X     or    X
+      --              :           :
+      --             P_2         P_2
+
+      elsif P_2_Depth > P_1_Depth then
+         Equalize_Depths (P_2, P_2_Depth, P_1_Depth);
+         P_2_Child := True;
+      end if;
+
+      --  At this stage the package pointers have been elevated to the same
+      --  depth. If the related entities are the same, then one package is a
+      --  potential child of the other:
+
+      --      P_1
+      --       :
+      --       X    became   P_1 P_2   or vica versa
+      --       :
+      --      P_2
+
+      if P_1 = P_2 then
+         if P_1_Child then
+            return Is_Child (Pack_1);
+         else pragma Assert (P_2_Child);
+            return Is_Child (Pack_2);
+         end if;
+
+      --  The packages may come from the same package chain or from entirely
+      --  different hierarcies. To determine this, climb the scope stack until
+      --  a common root is found.
+
+      --        (root)      (root 1)  (root 2)
+      --        /    \         |         |
+      --      P_1    P_2      P_1       P_2
+
+      else
+         while Present (P_1) and then Present (P_2) loop
+
+            --  The two packages may be siblings
+
+            if P_1 = P_2 then
+               return Is_Child (Pack_1) and then Is_Child (Pack_2);
+            end if;
+
+            P_1 := Scope (P_1);
+            P_2 := Scope (P_2);
+         end loop;
+      end if;
+
+      return False;
+   end Is_Child_Or_Sibling;
 
    -----------------------------
    -- Is_Concurrent_Interface --
@@ -9143,7 +9360,7 @@ package body Sem_Util is
    begin
       return
         Is_Class_Wide_Type (Typ)
-          and then (Is_Limited_Type (Typ) or else From_With_Type (Typ));
+          and then (Is_Limited_Type (Typ) or else From_Limited_With (Typ));
    end Is_Limited_Class_Wide_Type;
 
    ---------------------------------
@@ -15412,7 +15629,7 @@ package body Sem_Util is
               ("\\found an access type with designated}!",
                 Expr, Designated_Type (Found_Type));
          else
-            if From_With_Type (Found_Type) then
+            if From_Limited_With (Found_Type) then
                Error_Msg_NE ("\\found incomplete}!", Expr, Found_Type);
                Error_Msg_Qual_Level := 99;
                Error_Msg_NE -- CODEFIX

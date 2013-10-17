@@ -268,14 +268,9 @@ package body Prep is
 
          --  Check the syntax of the value
 
-         if Definition (Index + 1) = '"'
-           and then Definition (Definition'Last) = '"'
+         if Definition (Index + 1) /= '"'
+           or else Definition (Definition'Last) /= '"'
          then
-            Result.Is_A_String := True;
-
-         else
-            Result.Is_A_String := False;
-
             for J in Index + 1 .. Definition'Last loop
                case Definition (J) is
                   when '_' | '.' | '0' .. '9' | 'a' .. 'z' | 'A' .. 'Z' =>
@@ -289,7 +284,13 @@ package body Prep is
             end loop;
          end if;
 
-         --  And put the value in the result
+         --  Even if the value is a string, we still set Is_A_String to False,
+         --  to avoid adding additional quotes in the preprocessed sources when
+         --  replacing $<symbol>.
+
+         Result.Is_A_String := False;
+
+         --  Put the value in the result
 
          Start_String;
          Store_String_Chars (Definition (Index + 1 .. Definition'Last));

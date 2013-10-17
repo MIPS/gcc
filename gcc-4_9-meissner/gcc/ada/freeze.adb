@@ -92,11 +92,15 @@ package body Freeze is
 
    procedure Check_Component_Storage_Order
      (Encl_Type : Entity_Id;
-      Comp      : Entity_Id);
+      Comp      : Entity_Id;
+      ADC       : Node_Id);
    --  For an Encl_Type that has a Scalar_Storage_Order attribute definition
-   --  clause, verify that the component type is compatible. For arrays,
-   --  Comp is Empty; for records, it is the entity of the component under
-   --  consideration.
+   --  clause, verify that the component type has an explicit and compatible
+   --  attribute/aspect. For arrays, Comp is Empty; for records, it is the
+   --  entity of the component under consideration. For an Encl_Type that
+   --  does not have a Scalar_Storage_Order attribute definition clause,
+   --  verify that the component also does not have such a clause.
+   --  ADC is the attribute definition clause if present (or Empty).
 
    procedure Check_Strict_Alignment (E : Entity_Id);
    --  E is a base type. If E is tagged or has a component that is aliased
@@ -1068,11 +1072,12 @@ package body Freeze is
 
    procedure Check_Component_Storage_Order
      (Encl_Type : Entity_Id;
-      Comp      : Entity_Id)
+      Comp      : Entity_Id;
+      ADC       : Node_Id)
    is
       Comp_Type : Entity_Id;
+      Comp_ADC  : Node_Id;
       Err_Node  : Node_Id;
-      ADC       : Node_Id;
 
       Comp_Byte_Aligned : Boolean;
       --  Set True for the record case, when Comp starts on a byte boundary
@@ -1113,11 +1118,24 @@ package body Freeze is
       --  the attribute definition clause is attached to the first subtype.
 
       Comp_Type := Base_Type (Comp_Type);
-      ADC := Get_Attribute_Definition_Clause
-               (First_Subtype (Comp_Type),
-                Attribute_Scalar_Storage_Order);
+      Comp_ADC := Get_Attribute_Definition_Clause
+                    (First_Subtype (Comp_Type),
+                     Attribute_Scalar_Storage_Order);
 
-      if Is_Record_Type (Comp_Type) or else Is_Array_Type (Comp_Type) then
+      --  Case of enclosing type not having explicit SSO: component cannot
+      --  have it either.
+
+      if No (ADC) then
+         if Present (Comp_ADC) then
+            Error_Msg_N
+              ("composite type must have explicit scalar storage order",
+               Err_Node);
+         end if;
+
+      --  Case of enclosing type having explicit SSO: check compatible
+      --  attribute on Comp_Type if composite.
+
+      elsif Is_Record_Type (Comp_Type) or else Is_Array_Type (Comp_Type) then
          if Present (Comp) and then Chars (Comp) = Name_uParent then
             if Reverse_Storage_Order (Encl_Type)
                  /=
@@ -1141,6 +1159,9 @@ package body Freeze is
               ("type of non-byte-aligned component must have same scalar "
                & "storage order as enclosing composite", Err_Node);
          end if;
+
+      --  Enclosing type has explicit SSO, non-composite component must not
+      --  be aliased.
 
       elsif Component_Aliased then
          Error_Msg_N
@@ -1851,8 +1872,16 @@ package body Freeze is
                     and then Is_Type (Entity (Prefix (N)))
                     and then Entity (Prefix (N)) = E
                   then
-                     Error_Msg_N
-                       ("current instance must be a limited type", Prefix (N));
+                     if Ada_Version < Ada_2012 then
+                        Error_Msg_N
+                          ("current instance must be a limited type",
+                             Prefix (N));
+                     else
+                        Error_Msg_N
+                          ("current instance must be an immutably limited " &
+                            "type (RM-2012, 7.5 (8.1/3))",
+                             Prefix (N));
+                     end if;
                      return Abandon;
                   else
                      return OK;
@@ -2312,11 +2341,12 @@ package body Freeze is
 
             --  Check for scalar storage order
 
-            if Present (Get_Attribute_Definition_Clause
-                        (Arr, Attribute_Scalar_Storage_Order))
-            then
-               Check_Component_Storage_Order (Arr, Empty);
-            end if;
+            Check_Component_Storage_Order
+              (Encl_Type => Arr,
+               Comp      => Empty,
+               ADC       => Get_Attribute_Definition_Clause
+                              (First_Subtype (Arr),
+                               Attribute_Scalar_Storage_Order));
 
             --  Processing that is done only for subtypes
 
@@ -2999,15 +3029,16 @@ package body Freeze is
                  ("??scalar storage order specified but no component clause",
                   ADC);
             end if;
-
-            --  Check attribute on component types
-
-            Comp := First_Component (Rec);
-            while Present (Comp) loop
-               Check_Component_Storage_Order (Rec, Comp);
-               Next_Component (Comp);
-            end loop;
          end if;
+
+         --  Check consistent attribute setting on component types
+
+         Comp := First_Component (Rec);
+         while Present (Comp) loop
+            Check_Component_Storage_Order
+              (Encl_Type => Rec, Comp => Comp, ADC => ADC);
+            Next_Component (Comp);
+         end loop;
 
          --  Deal with Bit_Order aspect specifying a non-default bit order
 
@@ -3526,7 +3557,7 @@ package body Freeze is
 
                      if Is_Incomplete_Type (F_Type)
                        and then Present (Full_View (F_Type))
-                       and then not From_With_Type (F_Type)
+                       and then not From_Limited_With (F_Type)
                      then
                         F_Type := Full_View (F_Type);
                         Set_Etype (Formal, F_Type);
@@ -3676,7 +3707,7 @@ package body Freeze is
                         Error_Msg_Qual_Level := 0;
                      end if;
 
-                     if not From_With_Type (F_Type) then
+                     if not From_Limited_With (F_Type) then
                         if Is_Access_Type (F_Type) then
                            F_Type := Designated_Type (F_Type);
                         end if;
@@ -3713,7 +3744,7 @@ package body Freeze is
 
                      if Ekind (R_Type) = E_Incomplete_Type
                        and then Present (Full_View (R_Type))
-                       and then not From_With_Type (R_Type)
+                       and then not From_Limited_With (R_Type)
                      then
                         R_Type := Full_View (R_Type);
                         Set_Etype (E, R_Type);
@@ -4763,7 +4794,7 @@ package body Freeze is
 
                if Has_Private_Declaration (E) then
                   if (not Is_Record_Type (E)
-                       or else not Is_Immutably_Limited_Type (E))
+                       or else not Is_Limited_View (E))
                     and then not Is_Private_Type (E)
                   then
                      Error_Msg_Name_1 := Name_Simple_Storage_Pool_Type;

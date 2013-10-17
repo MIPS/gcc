@@ -313,7 +313,6 @@ static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 
 #define IS_FP_VECT_REG_TYPE(RTYPE) IN_RANGE(RTYPE, VSX_REG_TYPE, FPR_REG_TYPE)
 
-
 /* Register classes we care about in secondary reload or go if legitimate
    address.  We only need to worry about GPR, FPR, and Altivec registers here,
    along an ANY field that is the OR of the 3 register classes.  */
@@ -321,7 +320,7 @@ static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 enum rs6000_reload_reg_type {
   RELOAD_REG_GPR,			/* General purpose registers.  */
   RELOAD_REG_FPR,			/* Traditional floating point regs.  */
-  RELOAD_REG_AV,			/* Altivec registers.  */
+  RELOAD_REG_VMX,			/* Altivec (VMX) registers.  */
   RELOAD_REG_ANY,			/* OR of GPR, FPR, Altivec masks.  */
   N_RELOAD_REG
 };
@@ -330,7 +329,7 @@ enum rs6000_reload_reg_type {
    into real registers, and skip the ANY class, which is just an OR of the
    bits.  */
 #define FIRST_RELOAD_REG_CLASS	RELOAD_REG_GPR
-#define LAST_RELOAD_REG_CLASS	RELOAD_REG_AV
+#define LAST_RELOAD_REG_CLASS	RELOAD_REG_VMX
 
 /* Map reload register type to a register in the register class.  */
 struct reload_reg_map_type {
@@ -341,7 +340,7 @@ struct reload_reg_map_type {
 static const struct reload_reg_map_type reload_reg_map[N_RELOAD_REG] = {
   { "Gpr",	FIRST_GPR_REGNO },	/* RELOAD_REG_GPR.  */
   { "Fpr",	FIRST_FPR_REGNO },	/* RELOAD_REG_FPR.  */
-  { "Av.",	FIRST_ALTIVEC_REGNO },	/* RELOAD_REG_AV.  */
+  { "VMX",	FIRST_ALTIVEC_REGNO },	/* RELOAD_REG_VMX.  */
   { "Any",	-1 },			/* RELOAD_REG_ANY.  */
 };
 
@@ -2981,6 +2980,10 @@ rs6000_option_override_internal (bool global_init_p)
     = ((global_init_p || target_option_default_node == NULL)
        ? NULL : TREE_TARGET_OPTION (target_option_default_node));
 
+  /* Remember the explicit arguments.  */
+  if (global_init_p)
+    rs6000_isa_flags_explicit = global_options_set.x_rs6000_isa_flags;
+
   /* On 64-bit Darwin, power alignment is ABI-incompatible with some C
      library functions, so warn about it. The flag may be useful for
      performance studies from time to time though, so don't disable it
@@ -3915,7 +3918,7 @@ rs6000_option_override_internal (bool global_init_p)
   /* Save the initial options in case the user does function specific options */
   if (global_init_p)
     target_option_default_node = target_option_current_node
-      = build_target_option_node ();
+      = build_target_option_node (&global_options);
 
   /* If not explicitly specified via option, decide whether to generate the
      extra blr's required to preserve the link stack on some cpus (eg, 476).  */
@@ -8512,7 +8515,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 	{
 	  tree ret_type = TREE_TYPE (fntype);
 	  fprintf (stderr, " ret code = %s,",
-		   tree_code_name[ (int)TREE_CODE (ret_type) ]);
+		   get_tree_code_name (TREE_CODE (ret_type)));
 	}
 
       if (cum->call_cookie & CALL_LONG)
@@ -16176,21 +16179,21 @@ rs6000_output_move_128bit (rtx operands[])
   enum machine_mode mode = GET_MODE (dest);
   int dest_regno;
   int src_regno;
-  bool dest_gpr_p, dest_fp_p, dest_av_p, dest_vsx_p;
-  bool src_gpr_p, src_fp_p, src_av_p, src_vsx_p;
+  bool dest_gpr_p, dest_fp_p, dest_vmx_p, dest_vsx_p;
+  bool src_gpr_p, src_fp_p, src_vmx_p, src_vsx_p;
 
   if (REG_P (dest))
     {
       dest_regno = REGNO (dest);
       dest_gpr_p = INT_REGNO_P (dest_regno);
       dest_fp_p = FP_REGNO_P (dest_regno);
-      dest_av_p = ALTIVEC_REGNO_P (dest_regno);
-      dest_vsx_p = dest_fp_p | dest_av_p;
+      dest_vmx_p = ALTIVEC_REGNO_P (dest_regno);
+      dest_vsx_p = dest_fp_p | dest_vmx_p;
     }
   else
     {
       dest_regno = -1;
-      dest_gpr_p = dest_fp_p = dest_av_p = dest_vsx_p = false;
+      dest_gpr_p = dest_fp_p = dest_vmx_p = dest_vsx_p = false;
     }
 
   if (REG_P (src))
@@ -16198,13 +16201,13 @@ rs6000_output_move_128bit (rtx operands[])
       src_regno = REGNO (src);
       src_gpr_p = INT_REGNO_P (src_regno);
       src_fp_p = FP_REGNO_P (src_regno);
-      src_av_p = ALTIVEC_REGNO_P (src_regno);
-      src_vsx_p = src_fp_p | src_av_p;
+      src_vmx_p = ALTIVEC_REGNO_P (src_regno);
+      src_vsx_p = src_fp_p | src_vmx_p;
     }
   else
     {
       src_regno = -1;
-      src_gpr_p = src_fp_p = src_av_p = src_vsx_p = false;
+      src_gpr_p = src_fp_p = src_vmx_p = src_vsx_p = false;
     }
 
   /* Register moves.  */
@@ -16228,7 +16231,7 @@ rs6000_output_move_128bit (rtx operands[])
 	    return "#";
 	}
 
-      else if (TARGET_ALTIVEC && dest_av_p && src_av_p)
+      else if (TARGET_ALTIVEC && dest_vmx_p && src_vmx_p)
 	return "vor %0,%1,%1";
 
       else if (dest_fp_p && src_fp_p)
@@ -16246,7 +16249,7 @@ rs6000_output_move_128bit (rtx operands[])
 	    return "#";
 	}
 
-      else if (TARGET_ALTIVEC && dest_av_p
+      else if (TARGET_ALTIVEC && dest_vmx_p
 	       && altivec_indexed_or_indirect_operand (src, mode))
 	return "lvx %0,%y1";
 
@@ -16258,7 +16261,7 @@ rs6000_output_move_128bit (rtx operands[])
 	    return "lxvd2x %x0,%y1";
 	}
 
-      else if (TARGET_ALTIVEC && dest_av_p)
+      else if (TARGET_ALTIVEC && dest_vmx_p)
 	return "lvx %0,%y1";
 
       else if (dest_fp_p)
@@ -16276,7 +16279,7 @@ rs6000_output_move_128bit (rtx operands[])
 	    return "#";
 	}
 
-      else if (TARGET_ALTIVEC && src_av_p
+      else if (TARGET_ALTIVEC && src_vmx_p
 	       && altivec_indexed_or_indirect_operand (src, mode))
 	return "stvx %1,%y0";
 
@@ -16288,7 +16291,7 @@ rs6000_output_move_128bit (rtx operands[])
 	    return "stxvd2x %x1,%y0";
 	}
 
-      else if (TARGET_ALTIVEC && src_av_p)
+      else if (TARGET_ALTIVEC && src_vmx_p)
 	return "stvx %1,%y0";
 
       else if (src_fp_p)
@@ -16307,7 +16310,7 @@ rs6000_output_move_128bit (rtx operands[])
       else if (TARGET_VSX && dest_vsx_p && zero_constant (src, mode))
 	return "xxlxor %x0,%x0,%x0";
 
-      else if (TARGET_ALTIVEC && dest_av_p)
+      else if (TARGET_ALTIVEC && dest_vmx_p)
 	return output_vec_const_move (operands);
     }
 
@@ -29922,7 +29925,7 @@ rs6000_valid_attribute_p (tree fndecl,
 {
   struct cl_target_option cur_target;
   bool ret;
-  tree old_optimize = build_optimization_node ();
+  tree old_optimize = build_optimization_node (&global_options);
   tree new_target, new_optimize;
   tree func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
 
@@ -29949,7 +29952,7 @@ rs6000_valid_attribute_p (tree fndecl,
       fprintf (stderr, "--------------------\n");
     }
 
-  old_optimize = build_optimization_node ();
+  old_optimize = build_optimization_node (&global_options);
   func_optimize = DECL_FUNCTION_SPECIFIC_OPTIMIZATION (fndecl);
 
   /* If the function changed the optimization levels as well as setting target
@@ -29968,12 +29971,12 @@ rs6000_valid_attribute_p (tree fndecl,
   if (ret)
     {
       ret = rs6000_option_override_internal (false);
-      new_target = build_target_option_node ();
+      new_target = build_target_option_node (&global_options);
     }
   else
     new_target = NULL;
 
-  new_optimize = build_optimization_node ();
+  new_optimize = build_optimization_node (&global_options);
 
   if (!new_target)
     ret = false;
@@ -30003,7 +30006,7 @@ rs6000_valid_attribute_p (tree fndecl,
 bool
 rs6000_pragma_target_parse (tree args, tree pop_target)
 {
-  tree prev_tree = build_target_option_node ();
+  tree prev_tree = build_target_option_node (&global_options);
   tree cur_tree;
   struct cl_target_option *prev_opt, *cur_opt;
   HOST_WIDE_INT prev_flags, cur_flags, diff_flags;
@@ -30040,7 +30043,8 @@ rs6000_pragma_target_parse (tree args, tree pop_target)
       rs6000_cpu_index = rs6000_tune_index = -1;
       if (!rs6000_inner_target_options (args, false)
 	  || !rs6000_option_override_internal (false)
-	  || (cur_tree = build_target_option_node ()) == NULL_TREE)
+	  || (cur_tree = build_target_option_node (&global_options))
+	     == NULL_TREE)
 	{
 	  if (TARGET_DEBUG_BUILTIN || TARGET_DEBUG_TARGET)
 	    fprintf (stderr, "invalid pragma\n");
@@ -30165,19 +30169,22 @@ rs6000_set_current_function (tree fndecl)
 /* Save the current options */
 
 static void
-rs6000_function_specific_save (struct cl_target_option *ptr)
+rs6000_function_specific_save (struct cl_target_option *ptr,
+			       struct gcc_options *opts)
 {
-  ptr->x_rs6000_isa_flags = rs6000_isa_flags;
-  ptr->x_rs6000_isa_flags_explicit = rs6000_isa_flags_explicit;
+  ptr->x_rs6000_isa_flags = opts->x_rs6000_isa_flags;
+  ptr->x_rs6000_isa_flags_explicit = opts->x_rs6000_isa_flags_explicit;
 }
 
 /* Restore the current options */
 
 static void
-rs6000_function_specific_restore (struct cl_target_option *ptr)
+rs6000_function_specific_restore (struct gcc_options *opts,
+				  struct cl_target_option *ptr)
+				  
 {
-  rs6000_isa_flags = ptr->x_rs6000_isa_flags;
-  rs6000_isa_flags_explicit = ptr->x_rs6000_isa_flags_explicit;
+  opts->x_rs6000_isa_flags = ptr->x_rs6000_isa_flags;
+  opts->x_rs6000_isa_flags_explicit = ptr->x_rs6000_isa_flags_explicit;
   (void) rs6000_option_override_internal (false);
 }
 

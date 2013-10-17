@@ -2184,15 +2184,6 @@ package body Sem_Ch13 is
                          Expression => Relocate_Node (Expr))),
                      Pragma_Name                  => Name_Refined_Post);
 
-               --  Refined_Pre
-
-               when Aspect_Refined_Pre =>
-                  Make_Aitem_Pragma
-                    (Pragma_Argument_Associations => New_List (
-                       Make_Pragma_Argument_Association (Loc,
-                         Expression => Relocate_Node (Expr))),
-                     Pragma_Name                  => Name_Refined_Pre);
-
                --  Refined_State
 
                when Aspect_Refined_State => Refined_State : declare
@@ -7279,6 +7270,16 @@ package body Sem_Ch13 is
             when N_Qualified_Expression =>
                return Get_RList (Expression (Exp));
 
+            --  Expression with actions: if no actions, dig out expression
+
+            when N_Expression_With_Actions =>
+               if Is_Empty_List (Actions (Exp)) then
+                  return Get_RList (Expression (Exp));
+
+               else
+                  raise Non_Static;
+               end if;
+
             --  Xor operator
 
             when N_Op_Xor =>
@@ -7897,7 +7898,6 @@ package body Sem_Ch13 is
               Aspect_Refined_Depends      |
               Aspect_Refined_Global       |
               Aspect_Refined_Post         |
-              Aspect_Refined_Pre          |
               Aspect_Refined_State        |
               Aspect_SPARK_Mode           |
               Aspect_Test_Case            =>
@@ -10208,7 +10208,7 @@ package body Sem_Ch13 is
         --  Exclude imported types, which may be frozen if they appear in a
         --  representation clause for a local type.
 
-        and then not From_With_Type (T)
+        and then not From_Limited_With (T)
 
         --  Exclude generated entities (not coming from source). The common
         --  case is when we generate a renaming which prematurely freezes the

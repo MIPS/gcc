@@ -1204,7 +1204,7 @@ Type::finish_backend(Gogo* gogo, Btype *placeholder)
 
 // Return a pointer to the type descriptor for this type.
 
-tree
+Bexpression*
 Type::type_descriptor_pointer(Gogo* gogo, Location location)
 {
   Type* t = this->forwarded();
@@ -1215,10 +1215,9 @@ Type::type_descriptor_pointer(Gogo* gogo, Location location)
       t->make_type_descriptor_var(gogo);
       go_assert(t->type_descriptor_var_ != NULL);
     }
-  tree var_tree = var_to_tree(t->type_descriptor_var_);
-  if (var_tree == error_mark_node)
-    return error_mark_node;
-  return build_fold_addr_expr_loc(location.gcc_location(), var_tree);
+  Bexpression* var_expr =
+      gogo->backend()->var_expression(t->type_descriptor_var_, location);
+  return gogo->backend()->address_expression(var_expr, location);
 }
 
 // A mapping from unnamed types to type descriptor variables.
@@ -5264,11 +5263,25 @@ Struct_type::do_import(Import* imp)
 	  // that an embedded builtin type is accessible from another
 	  // package (we know that all the builtin types are not
 	  // exported).
-	  if (name.empty() && ftype->deref()->named_type() != NULL)
+	  // This is called during parsing, before anything is
+	  // lowered, so we have to be careful to avoid dereferencing
+	  // an unknown type name.
+	  if (name.empty())
 	    {
-	      const std::string fn(ftype->deref()->named_type()->name());
-	      if (fn[0] >= 'a' && fn[0] <= 'z')
-		name = '.' + imp->package()->pkgpath() + '.' + fn;
+	      Type *t = ftype;
+	      if (t->classification() == Type::TYPE_POINTER)
+		{
+		  // Very ugly.
+		  Pointer_type* ptype = static_cast<Pointer_type*>(t);
+		  t = ptype->points_to();
+		}
+	      std::string tname;
+	      if (t->forward_declaration_type() != NULL)
+		tname = t->forward_declaration_type()->name();
+	      else if (t->named_type() != NULL)
+		tname = t->named_type()->name();
+	      if (!tname.empty() && tname[0] >= 'a' && tname[0] <= 'z')
+		name = '.' + imp->package()->pkgpath() + '.' + tname;
 	    }
 
 	  Struct_field sf(Typed_identifier(name, ftype, imp->location()));
@@ -6250,14 +6263,12 @@ Map_type::Map_descriptors Map_type::map_descriptors;
 
 // Build a map descriptor for this type.  Return a pointer to it.
 
-tree
+Bexpression*
 Map_type::map_descriptor_pointer(Gogo* gogo, Location location)
 {
   Bvariable* bvar = this->map_descriptor(gogo);
-  tree var_tree = var_to_tree(bvar);
-  if (var_tree == error_mark_node)
-    return error_mark_node;
-  return build_fold_addr_expr_loc(location.gcc_location(), var_tree);
+  Bexpression* var_expr = gogo->backend()->var_expression(bvar, location);
+  return gogo->backend()->address_expression(var_expr, location);
 }
 
 // Build a map descriptor for this type.

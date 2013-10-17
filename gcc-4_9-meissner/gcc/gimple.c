@@ -1200,10 +1200,10 @@ gimple_check_failed (const_gimple gs, const char *file, int line,
 {
   internal_error ("gimple check: expected %s(%s), have %s(%s) in %s, at %s:%d",
       		  gimple_code_name[code],
-		  tree_code_name[subcode],
+		  get_tree_code_name (subcode),
 		  gimple_code_name[gimple_code (gs)],
 		  gs->gsbase.subcode > 0
-		    ? tree_code_name[gs->gsbase.subcode]
+		    ? get_tree_code_name ((enum tree_code) gs->gsbase.subcode)
 		    : "",
 		  function, trim_filename (file), line);
 }
@@ -4062,4 +4062,25 @@ nonfreeing_call_p (gimple call)
       }
 
   return false;
+}
+
+/* Create a new VAR_DECL and copy information from VAR to it.  */
+
+tree
+copy_var_decl (tree var, tree name, tree type)
+{
+  tree copy = build_decl (DECL_SOURCE_LOCATION (var), VAR_DECL, name, type);
+
+  TREE_ADDRESSABLE (copy) = TREE_ADDRESSABLE (var);
+  TREE_THIS_VOLATILE (copy) = TREE_THIS_VOLATILE (var);
+  DECL_GIMPLE_REG_P (copy) = DECL_GIMPLE_REG_P (var);
+  DECL_ARTIFICIAL (copy) = DECL_ARTIFICIAL (var);
+  DECL_IGNORED_P (copy) = DECL_IGNORED_P (var);
+  DECL_CONTEXT (copy) = DECL_CONTEXT (var);
+  TREE_NO_WARNING (copy) = TREE_NO_WARNING (var);
+  TREE_USED (copy) = 1;
+  DECL_SEEN_IN_BIND_EXPR_P (copy) = 1;
+  DECL_ATTRIBUTES (copy) = DECL_ATTRIBUTES (var);
+
+  return copy;
 }

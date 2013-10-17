@@ -896,7 +896,7 @@ package body Sem_Ch3 is
       --  (which is declared elsewhere in some other scope).
 
       if Ekind (Desig_Type) = E_Incomplete_Type
-        and then not From_With_Type (Desig_Type)
+        and then not From_Limited_With (Desig_Type)
         and then Is_Overloadable (Current_Scope)
       then
          Append_Elmt (Current_Scope, Private_Dependents (Desig_Type));
@@ -950,7 +950,7 @@ package body Sem_Ch3 is
       --  generic formal, because no use of it will reach the backend.
 
       elsif Nkind (Related_Nod) = N_Function_Specification
-        and then not From_With_Type (Desig_Type)
+        and then not From_Limited_With (Desig_Type)
         and then not Is_Generic_Type (Desig_Type)
       then
          if Present (Enclosing_Prot_Type) then
@@ -1131,7 +1131,7 @@ package body Sem_Ch3 is
                        Scope_Id    => Current_Scope));
 
                else
-                  if From_With_Type (Typ) then
+                  if From_Limited_With (Typ) then
 
                      --  AI05-151: Incomplete types are allowed in all basic
                      --  declarations, including access to subprograms.
@@ -1360,7 +1360,7 @@ package body Sem_Ch3 is
       --  If the type has appeared already in a with_type clause, it is frozen
       --  and the pointer size is already set. Else, initialize.
 
-      if not From_With_Type (T) then
+      if not From_Limited_With (T) then
          Init_Size_Align (T);
       end if;
 
@@ -2071,6 +2071,12 @@ package body Sem_Ch3 is
       --  If the states have visible refinement, remove the visibility of each
       --  constituent at the end of the package body declarations.
 
+      function Requires_State_Refinement
+        (Spec_Id : Entity_Id;
+         Body_Id : Entity_Id) return Boolean;
+      --  Determine whether a package denoted by its spec and body entities
+      --  requires refinement of abstract states.
+
       -----------------
       -- Adjust_Decl --
       -----------------
@@ -2099,6 +2105,82 @@ package body Sem_Ch3 is
             end loop;
          end if;
       end Remove_Visible_Refinements;
+
+      -------------------------------
+      -- Requires_State_Refinement --
+      -------------------------------
+
+      function Requires_State_Refinement
+        (Spec_Id : Entity_Id;
+         Body_Id : Entity_Id) return Boolean
+      is
+         function Mode_Is_Off (Prag : Node_Id) return Boolean;
+         --  Given pragma SPARK_Mode, determine whether the mode is Off
+
+         -----------------
+         -- Mode_Is_Off --
+         -----------------
+
+         function Mode_Is_Off (Prag : Node_Id) return Boolean is
+            Mode : Node_Id;
+
+         begin
+            --  The default SPARK mode is On
+
+            if No (Prag) then
+               return False;
+            end if;
+
+            Mode :=
+              Get_Pragma_Arg (First (Pragma_Argument_Associations (Prag)));
+
+            --  Then the pragma lacks an argument, the default mode is On
+
+            if No (Mode) then
+               return False;
+            else
+               return Chars (Mode) = Name_Off;
+            end if;
+         end Mode_Is_Off;
+
+      --  Start of processing for Requires_State_Refinement
+
+      begin
+         --  A package that does not define at least one abstract state cannot
+         --  possibly require refinement.
+
+         if No (Abstract_States (Spec_Id)) then
+            return False;
+
+         --  The package instroduces a single null state which does not merit
+         --  refinement.
+
+         elsif Has_Null_Abstract_State (Spec_Id) then
+            return False;
+
+         --  Check whether the package body is subject to pragma SPARK_Mode. If
+         --  it is and the mode is Off, the package body is considered to be in
+         --  regular Ada and does not require refinement.
+
+         elsif Mode_Is_Off (SPARK_Mode_Pragmas (Body_Id)) then
+            return False;
+
+         --  The body's SPARK_Mode may be inherited from a similar pragma that
+         --  appears in the private declarations of the spec. The pragma we are
+         --  interested appears as the second entry in SPARK_Mode_Pragmas.
+
+         elsif Present (SPARK_Mode_Pragmas (Spec_Id))
+           and then Mode_Is_Off (Next_Pragma (SPARK_Mode_Pragmas (Spec_Id)))
+         then
+            return False;
+
+         --  The spec defines at least one abstract state and the body has no
+         --  way of circumventing the refinement.
+
+         else
+            return True;
+         end if;
+      end Requires_State_Refinement;
 
       --  Local variables
 
@@ -2264,9 +2346,7 @@ package body Sem_Ch3 is
             --  State refinement is required when the package declaration has
             --  abstract states. Null states are not considered.
 
-            elsif Present (Abstract_States (Spec_Id))
-              and then not Has_Null_Abstract_State (Spec_Id)
-            then
+            elsif Requires_State_Refinement (Spec_Id, Body_Id) then
                Error_Msg_NE
                  ("package & requires state refinement", Context, Spec_Id);
             end if;
@@ -2546,7 +2626,7 @@ package body Sem_Ch3 is
          --  finalization list at the point the access type is frozen, to
          --  prevent unsatisfied references at link time.
 
-         if not From_With_Type (T) or else Is_Access_Type (T) then
+         if not From_Limited_With (T) or else Is_Access_Type (T) then
             Set_Has_Delayed_Freeze (T);
          end if;
       end;
@@ -4466,11 +4546,11 @@ package body Sem_Ch3 is
                   --  Ada 2005 (AI-412): Decorate an incomplete subtype of an
                   --  incomplete type visible through a limited with clause.
 
-                  if From_With_Type (T)
+                  if From_Limited_With (T)
                     and then Present (Non_Limited_View (T))
                   then
-                     Set_From_With_Type   (Id);
-                     Set_Non_Limited_View (Id, Non_Limited_View (T));
+                     Set_From_Limited_With (Id);
+                     Set_Non_Limited_View  (Id, Non_Limited_View (T));
 
                   --  Ada 2005 (AI-412): Add the regular incomplete subtype
                   --  to the private dependents of the original incomplete
@@ -9556,7 +9636,7 @@ package body Sem_Ch3 is
       --  or else be a partial view.
 
       if Nkind (Discriminant_Type (D)) = N_Access_Definition then
-         if Is_Immutably_Limited_Type (Current_Scope)
+         if Is_Limited_View (Current_Scope)
            or else
              (Nkind (Parent (Current_Scope)) = N_Private_Type_Declaration
                and then Limited_Present (Parent (Current_Scope)))
@@ -11933,13 +12013,12 @@ package body Sem_Ch3 is
          --  incomplete type or imported via a limited with clause.
 
          if Has_Discriminants (T)
-           or else
-             (From_With_Type (T)
-                and then Present (Non_Limited_View (T))
-                and then Nkind (Parent (Non_Limited_View (T))) =
-                           N_Full_Type_Declaration
-                and then Present (Discriminant_Specifications
-                          (Parent (Non_Limited_View (T)))))
+           or else (From_Limited_With (T)
+                     and then Present (Non_Limited_View (T))
+                     and then Nkind (Parent (Non_Limited_View (T))) =
+                                               N_Full_Type_Declaration
+                     and then Present (Discriminant_Specifications
+                                         (Parent (Non_Limited_View (T)))))
          then
             Error_Msg_N
               ("(Ada 2005) incomplete subtype may not be constrained", C);

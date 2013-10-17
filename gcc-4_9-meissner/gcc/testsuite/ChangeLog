@@ -1,3 +1,109 @@
+2013-10-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/58673
+	* gcc.target/powerpc/pr58673-1.c: New file to test whether
+	-mquad-word + -mno-vsx-timode causes errors.
+	* gcc.target/powerpc/pr58673-2.c: Likewise.
+
+2013-10-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58596
+	* g++.dg/cpp0x/lambda/lambda-nsdmi5.C: New
+
+2013-10-17  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.target/aarch64/c-output-template.c: New testcase.
+	* gcc.target/aarch64/c-output-template-2.c: Likewise.
+	* gcc.target/aarch64/c-output-template-3.c: Likewise.
+
+2013-10-17  Michael Hudson-Doyle  <michael.hudson@linaro.org>
+
+	* gcc/testsuite/lib/target-supports.exp
+	(check_effective_target_sync_long_long): AArch64 supports
+	atomic operations on "long long".
+	(check_effective_target_sync_long_long_runtime): AArch64 can
+	execute atomic operations on "long long".
+
+2013-10-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/58143
+	* gcc.dg/torture/pr58143-1.c: New testcase.
+	* gcc.dg/torture/pr58143-2.c: Likewise.
+	* gcc.dg/torture/pr58143-3.c: Likewise.
+
+2013-10-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c/58267
+	* gcc.dg/c1x-align-5.c: New test.
+
+2013-10-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58652
+	* gfortran.dg/unlimited_polymorphic_12.f90: New.
+
+2013-10-16  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/cpp/openmp-define-1.c: Move
+	dg-require-effective-target fopenmp after dg-do directive.
+	* c-c++-common/cpp/openmp-define-2.c: Likewise.
+	* gfortran.dg/openmp-define-1.f90: Likewise.
+	* gfortran.dg/openmp-define-2.f90: Likewise.
+	* gfortran.dg/openmp-define-3.f90: Likewise.
+
+2013-10-16  Paulo Matos  <pmatos@broadcom.com>
+
+	* gcc.dg/tree-prof/tree-prof.exp: Fix comment.
+
+2013-10-15 Sriraman Tallam  <tmsriram@google.com>
+
+	PR target/57756
+	* gcc.target/i386/pr57756.c: New test.
+	* gcc.target/i386/pr57756_2.c: New test.
+
+2013-10-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/torture/builtin-self.c: New file.
+
+2013-10-15  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* gcc.dg/tree-ssa/reassoc-32.c: New test case.
+	* gcc.dg/tree-ssa/reassoc-33.c: New test case.
+	* gcc.dg/tree-ssa/reassoc-34.c: New test case.
+	* gcc.dg/tree-ssa/reassoc-35.c: New test case.
+	* gcc.dg/tree-ssa/reassoc-36.c: New test case.
+
+2013-10-15  Cong Hou  <congh@google.com>
+
+	* gcc.dg/vect/vect-reduc-pattern-3.c: New test.
+
+2013-10-15  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58707
+	* g++.dg/cpp0x/pr58707.C: New.
+
+2013-10-15  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* c-c++-common/cpp/openmp-define-3.c: Move effective target check
+	after other directives.
+
+2013-10-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58652
+	* gfortran.dg/unlimited_polymorphic_11.f90: New.
+
+2013-10-14  Ian Lance Taylor  <iant@google.com>
+
+	* go.test/go-test.exp (go-find-packages): New proc.
+	(go-gc-tests): Skip stress and safe tests.  Skip *.dir
+	subdirectories.  Do simple +build line matching.  Handle run with
+	arguments.  Handle errorcheckdir and rundircmpout.  Use packages
+	for rundir.  Remove special handling for bug191 and dwarf.
+
+2013-10-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58658
+	* gfortran.dg/unlimited_polymorphic_10.f90: New.
+
 2013-10-14  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	* gcc.dg/torture/pr58670.c (ASM_STR) [__i386__ || __x86_64__]: Use
@@ -434,6 +540,11 @@
 
 	* gcc.target/powerpc/p8vector-ldst.c: New test for -mupper-regs-sf
 	and -mupper-regs-df.
+
+2013-09-27  Paulo Matos  <pmatos@broadcom.com>
+
+	PR middle-end/58463
+	* gcc.dg/pr58463.c: New test.
 
 2013-09-27  Jakub Jelinek  <jakub@redhat.com>
 

@@ -3477,7 +3477,7 @@ package body Sem_Ch12 is
 
          --  Ada 2005 (AI-50217): Cannot use instance in limited with_clause
 
-         if From_With_Type (Gen_Unit) then
+         if From_Limited_With (Gen_Unit) then
             Error_Msg_N
               ("cannot instantiate a limited withed package", Gen_Id);
          else
@@ -10529,23 +10529,13 @@ package body Sem_Ch12 is
          --  only mode conformance was required.
 
          --  This is a binding interpretation that applies to previous versions
-         --  of the language, but for now we retain the milder check in order
-         --  to preserve ACATS tests. These will be protested eventually ???
+         --  of the language, no need to maintain previous weaker checks.
 
-         if Ada_Version < Ada_2012 then
-            Check_Mode_Conformant
-              (Designated_Type (Act_T),
-               Designated_Type (A_Gen_T),
-               Actual,
-               Get_Inst => True);
-
-         else
-            Check_Subtype_Conformant
-              (Designated_Type (Act_T),
-               Designated_Type (A_Gen_T),
-               Actual,
-               Get_Inst => True);
-         end if;
+         Check_Subtype_Conformant
+           (Designated_Type (Act_T),
+            Designated_Type (A_Gen_T),
+            Actual,
+            Get_Inst => True);
 
          if Ekind (Base_Type (Act_T)) = E_Access_Protected_Subprogram_Type then
             if Ekind (A_Gen_T) = E_Access_Subprogram_Type then
@@ -10610,7 +10600,7 @@ package body Sem_Ch12 is
          --  with clause, in which case retrieve the non-limited view. This
          --  applies to incomplete types as well as to class-wide types.
 
-         if From_With_Type (Desig_Act) then
+         if From_Limited_With (Desig_Act) then
             Desig_Act := Available_View (Desig_Act);
          end if;
 
