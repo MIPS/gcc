@@ -3,6 +3,255 @@
 	Backport from mainline
 	2013-10-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (enum rs6000_reload_reg_type): Add new
+	fields to the reg_addr array that describes the valid addressing
+	mode for any register, general purpose registers, floating point
+	registers, and Altivec registers.
+	(FIRST_RELOAD_REG_CLASS): Likewise.
+	(LAST_RELOAD_REG_CLASS): Likewise.
+	(struct reload_reg_map_type): Likewise.
+	(reload_reg_map_type): Likewise.
+	(RELOAD_REG_VALID): Likewise.
+	(RELOAD_REG_MULTIPLE): Likewise.
+	(RELOAD_REG_INDEXED): Likewise.
+	(RELOAD_REG_OFFSET): Likewise.
+	(RELOAD_REG_PRE_INCDEC): Likewise.
+	(RELOAD_REG_PRE_MODIFY): Likewise.
+	(reg_addr): Likewise.
+	(mode_supports_pre_incdec_p): New helper functions to say whether
+	a given mode supports PRE_INC, PRE_DEC, and PRE_MODIFY.
+	(mode_supports_pre_modify_p): Likewise.
+	(rs6000_debug_vector_unit): Rearrange the -mdebug=reg output to
+	print the valid address mode bits for each mode.
+	(rs6000_debug_print_mode): Likewise.
+	(rs6000_debug_reg_global): Likewise.
+	(rs6000_setup_reg_addr_masks): New function to set up the address
+	mask bits for each type.
+	(rs6000_init_hard_regno_mode_ok): Use memset to clear arrays.
+	Call rs6000_setup_reg_addr_masks to set up the address mask bits.
+	(rs6000_legitimate_address_p): Use mode_supports_pre_incdec_p and
+	mode_supports_pre_modify_p to determine if PRE_INC, PRE_DEC, and
+	PRE_MODIFY are supported.
+	(rs6000_output_move_128bit): Change to use {src,dest}_vmx_p for altivec
+	registers, instead of {src,dest}_av_p.
+	(rs6000_print_options_internal): Tweak the debug output slightly.
+
+	Backport from mainline
+	2013-10-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def (XSRDPIM): Use floatdf2,
+	ceildf2, btruncdf2, instead of vsx_* name.
+
+	* config/rs6000/vsx.md (vsx_add<mode>3): Change arithmetic
+	iterators to only do V2DF and V4SF here.  Move the DF code to
+	rs6000.md where it is combined with SF mode.  Replace <VSv> with
+	just 'v' since only vector operations are handled with these insns
+	after moving the DF support to rs6000.md.
+	(vsx_sub<mode>3): Likewise.
+	(vsx_mul<mode>3): Likewise.
+	(vsx_div<mode>3): Likewise.
+	(vsx_fre<mode>2): Likewise.
+	(vsx_neg<mode>2): Likewise.
+	(vsx_abs<mode>2): Likewise.
+	(vsx_nabs<mode>2): Likewise.
+	(vsx_smax<mode>3): Likewise.
+	(vsx_smin<mode>3): Likewise.
+	(vsx_sqrt<mode>2): Likewise.
+	(vsx_rsqrte<mode>2): Likewise.
+	(vsx_fms<mode>4): Likewise.
+	(vsx_nfma<mode>4): Likewise.
+	(vsx_copysign<mode>3): Likewise.
+	(vsx_btrunc<mode>2): Likewise.
+	(vsx_floor<mode>2): Likewise.
+	(vsx_ceil<mode>2): Likewise.
+	(vsx_smaxsf3): Delete scalar ops that were moved to rs6000.md.
+	(vsx_sminsf3): Likewise.
+	(vsx_fmadf4): Likewise.
+	(vsx_fmsdf4): Likewise.
+	(vsx_nfmadf4): Likewise.
+	(vsx_nfmsdf4): Likewise.
+	(vsx_cmpdf_internal1): Likewise.
+
+	* config/rs6000/rs6000.h (TARGET_SF_SPE): Define macros to make it
+	simpler to select whether a target has SPE or traditional floating
+	point support in iterators.
+	(TARGET_DF_SPE): Likewise.
+	(TARGET_SF_FPR): Likewise.
+	(TARGET_DF_FPR): Likewise.
+	(TARGET_SF_INSN): Macros to say whether floating point support
+	exists for a given operation for expanders.
+	(TARGET_DF_INSN): Likewise.
+
+	* config/rs6000/rs6000.c (Ftrad): New mode attributes to allow
+	combining of SF/DF mode operations, using both traditional and VSX
+	registers.
+	(Fvsx): Likewise.
+	(Ff): Likewise.
+	(Fv): Likewise.
+	(Fs): Likewise.
+	(Ffre): Likewise.
+	(FFRE): Likewise.
+	(abs<mode>2): Combine SF/DF modes using traditional floating point
+	instructions.  Add support for using the upper DF registers with
+	VSX support, and SF registers with power8-vector support.  Update
+	expanders for operations supported by both the SPE and traditional
+	floating point units.
+	(abs<mode>2_fpr): Likewise.
+	(nabs<mode>2): Likewise.
+	(nabs<mode>2_fpr): Likewise.
+	(neg<mode>2): Likewise.
+	(neg<mode>2_fpr): Likewise.
+	(add<mode>3): Likewise.
+	(add<mode>3_fpr): Likewise.
+	(sub<mode>3): Likewise.
+	(sub<mode>3_fpr): Likewise.
+	(mul<mode>3): Likewise.
+	(mul<mode>3_fpr): Likewise.
+	(div<mode>3): Likewise.
+	(div<mode>3_fpr): Likewise.
+	(sqrt<mode>3): Likewise.
+	(sqrt<mode>3_fpr): Likewise.
+	(fre<Fs>): Likewise.
+	(rsqrt<mode>2): Likewise.
+	(cmp<mode>_fpr): Likewise.
+	(smax<mode>3): Likewise.
+	(smin<mode>3): Likewise.
+	(smax<mode>3_vsx): Likewise.
+	(smin<mode>3_vsx): Likewise.
+	(negsf2): Delete SF operations that are merged with DF.
+	(abssf2): Likewise.
+	(addsf3): Likewise.
+	(subsf3): Likewise.
+	(mulsf3): Likewise.
+	(divsf3): Likewise.
+	(fres): Likewise.
+	(fmasf4_fpr): Likewise.
+	(fmssf4_fpr): Likewise.
+	(nfmasf4_fpr): Likewise.
+	(nfmssf4_fpr): Likewise.
+	(sqrtsf2): Likewise.
+	(rsqrtsf_internal1): Likewise.
+	(smaxsf3): Likewise.
+	(sminsf3): Likewise.
+	(cmpsf_internal1): Likewise.
+	(copysign<mode>3_fcpsgn): Add VSX/power8-vector support.
+	(negdf2): Delete DF operations that are merged with SF.
+	(absdf2): Likewise.
+	(nabsdf2): Likewise.
+	(adddf3): Likewise.
+	(subdf3): Likewise.
+	(muldf3): Likewise.
+	(divdf3): Likewise.
+	(fred): Likewise.
+	(rsqrtdf_internal1): Likewise.
+	(fmadf4_fpr): Likewise.
+	(fmsdf4_fpr): Likewise.
+	(nfmadf4_fpr): Likewise.
+	(nfmsdf4_fpr): Likewise.
+	(sqrtdf2): Likewise.
+	(smaxdf3): Likewise.
+	(smindf3): Likewise.
+	(cmpdf_internal1): Likewise.
+	(lrint<mode>di2): Use TARGET_<MODE>_FPR macro.
+	(btrunc<mode>2): Delete separate expander, and combine with the
+	insn and add VSX instruction support.  Use TARGET_<MODE>_FPR.
+	(btrunc<mode>2_fpr): Likewise.
+	(ceil<mode>2): Likewise.
+	(ceil<mode>2_fpr): Likewise.
+	(floor<mode>2): Likewise.
+	(floor<mode>2_fpr): Likewise.
+	(fma<mode>4_fpr): Combine SF and DF fused multiply/add support.
+	Add support for using the upper registers with VSX and
+	power8-vector.  Move insns to be closer to the define_expands. On
+	VSX systems, prefer the traditional form of FMA over the VSX
+	version, since the traditional form allows the target not to
+	overlap with the inputs.
+	(fms<mode>4_fpr): Likewise.
+	(nfma<mode>4_fpr): Likewise.
+	(nfms<mode>4_fpr): Likewise.
+
+	Backport from mainline
+	2013-09-27  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_mode_ok): Allow
+	DFmode, DImode, and SFmode in the upper VSX registers based on the
+	-mupper-regs-{df,sf} flags.  Fix wu constraint to be ALTIVEC_REGS
+	if -mpower8-vector.  Combine -mvsx-timode handling with the rest
+	of the VSX register handling.
+
+	* config/rs6000/rs6000.md (f32_lv): Use %x0 for VSX regsters.
+	(f32_sv): Likewise.
+	(zero_extendsidi2_lfiwzx): Add support for loading into the
+	Altivec registers with -mpower8-vector.  Use wu/wv constraints to
+	only do VSX memory options on Altivec registers.
+	(extendsidi2_lfiwax): Likewise.
+	(extendsfdf2_fpr): Likewise.
+	(mov<mode>_hardfloat, SF/SD modes): Likewise.
+	(mov<mode>_hardfloat32, DF/DD modes): Likewise.
+	(mov<mode>_hardfloat64, DF/DD modes): Likewise.
+	(movdi_internal64): Likewise.
+
+	Backport from mainline
+	2013-09-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_vector_reload): Delete, combine
+	reload helper function arrays into a single array reg_addr.
+	(reload_fpr_gpr): Likewise.
+	(reload_gpr_vsx): Likewise.
+	(reload_vsx_gpr): Likewise.
+	(struct rs6000_reg_addr): Likewise.
+	(reg_addr): Likewise.
+	(rs6000_debug_reg_global): Change rs6000_vector_reload,
+	reload_fpr_gpr, reload_gpr_vsx, reload_vsx_gpr uses to reg_addr.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_secondary_reload_direct_move): Likewise.
+	(rs6000_secondary_reload): Likewise.
+
+	* config/rs6000/rs6000.h (enum r6000_reg_class_enum): Add new
+	constraints: wu, ww, and wy.  Repurpose wv constraint added during
+	power8 changes.  Put wg constraint in alphabetical order.
+
+	* config/rs6000/rs6000.opt (-mvsx-scalar-float): New debug switch
+	for future work to add ISA 2.07 VSX single precision support.
+	(-mvsx-scalar-double): Change default from -1 to 1, update
+	documentation comment.
+	(-mvsx-scalar-memory): Rename debug switch to -mupper-regs-df.
+	(-mupper-regs-df): New debug switch to control whether DF values
+	can go in the traditional Altivec registers.
+	(-mupper-regs-sf): New debug switch to control whether SF values
+	can go in the traditional Altivec registers.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Print wu, ww,
+	and wy constraints.
+	(rs6000_init_hard_regno_mode_ok): Use ssize_t instead of int for
+	loop variables.  Rename -mvsx-scalar-memory to -mupper-regs-df.
+	Add new constraints, wu/ww/wy.  Repurpose wv constraint.
+	(rs6000_debug_legitimate_address_p): Print if we are running
+	before, during, or after reload.
+	(rs6000_secondary_reload): Add a comment.
+	(rs6000_opt_masks): Add -mupper-regs-df, -mupper-regs-sf.
+
+	* config/rs6000/constraints.md (wa constraint): Sort w<x>
+	constraints.  Update documentation string.
+	(wd constraint): Likewise.
+	(wf constraint): Likewise.
+	(wg constraint): Likewise.
+	(wn constraint): Likewise.
+	(ws constraint): Likewise.
+	(wt constraint): Likewise.
+	(wx constraint): Likewise.
+	(wz constraint): Likewise.
+	(wu constraint): New constraint for ISA 2.07 SFmode scalar
+	instructions.
+	(ww constraint): Likewise.
+	(wy constraint): Likewise.
+	(wv constraint): Repurpose ISA 2.07 constraint that did not use in
+	the previous submissions.
+	* doc/md.texi (PowerPC and IBM RS6000): Likewise.
+
+	Backport from mainline
+	2013-10-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	PR target/58673
 	* config/rs6000/rs6000.c (rs6000_legitimate_address_p): Only
 	restrict TImode addresses to single indirect registers if both
