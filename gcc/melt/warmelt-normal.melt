@@ -5018,19 +5018,37 @@ source location.}#
   (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
   (let ( (loc (or (unsafe_get_field :loca_location recv) psloc))
 	 (sdefmacro (unsafe_get_field :smacinst_defmacro recv))
+	 (modctx (get_field :nctx_modulcontext ncx))
+	 (macroenv (get_field :mocx_macroenv modctx))
+	 (modname (get_field :mocx_modulename modctx))
 	 )
-    (debug "normexp_macro_installation loc=" debug_less loc "; sdefmacro=" sdefmacro)
+    (debug "normexp_macro_installation loc=" debug_less loc "; sdefmacro=" sdefmacro
+	   "\n.. macroenv=" macroenv)
+    (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+    (assert_msg "check macroenv" (is_a macroenv class_environment) macroenv)
     (shortbacktrace_dbg "normexp_macro_installation" 10)
     (assert_msg "check sdefmacro" (is_a sdefmacro class_source_defmacro) sdefmacro)
-    (let ( (nclos (normexp_defun_defmacro sdefmacro env ncx loc))
-	   (mbind (get_field :smacro_binding sdefmacro))
-	   (modctx (get_field :nctx_modulcontext ncx))
-	   (msymb (get_field :binder mbind))
-	   )
+    (let (
+	  ;; temporary trick for debugging MELT-SFT-3 @@@@@ DIRTY KLUDGE @@@@@
+	  (myenv (let ( (me (cond
+			     ( (melt_argument "use-base-env")
+			       (warning_at loc 
+					   "normexp_macro_installation use macroenv for $1 since -fmelt-use-base-env" 
+					   modname)
+			       macroenv)
+			     (:else
+			      env)))
+			)
+		   (debug "normexp_macro_installation modctx=" debug_less modctx " myenv=" debug_more me "\n")
+		   me))
+	  (nclos (normexp_defun_defmacro sdefmacro myenv ncx loc))
+	  (mbind (get_field :smacro_binding sdefmacro))
+	  (msymb (get_field :binder mbind))
+	  )
       (debug "normexp_macro_installation loc=" debug_less loc "; nclos=" nclos "\n.. mbind=" mbind)
       (assert_msg "check modctx" (is_a modctx class_running_extension_module_context) modctx)
-      (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos)
-      (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind)
+      (assert_msg "check nclos" (is_a nclos class_nrep_dataclosure) nclos env)
+      (assert_msg "check mbind" (is_a mbind class_defined_macro_binding) mbind env)
       (let ( 
 	    (nlitsym (clone_symbol msymb))
 	    (nclosym (clone_symbol msymb))
@@ -5038,15 +5056,15 @@ source location.}#
 			(debug "normexp_macro_installation nlitbind=" nli)
 			nli))
 	    (clobind (instance class_normal_let_binding
-			     :letbind_loc loc
-			     :binder nclosym
-			     :letbind_type ctype_value
-			     :letbind_expr nclos))
+			       :letbind_loc loc
+			       :binder nclosym
+			       :letbind_type ctype_value
+			       :letbind_expr nclos))
 	    (closocc (instance class_nrep_locsymocc
-			      :nrep_loc loc
-			      :nocc_ctyp ctype_value
-			      :nocc_symb nclosym
-			      :nocc_bind clobind))
+			       :nrep_loc loc
+			       :nocc_ctyp ctype_value
+			       :nocc_symb nclosym
+			       :nocc_bind clobind))
 	    (nlitval (let ( (nlv (instance class_nrep_literalnamedvalue
 					   :nlitval_regval nlitbind
 					   :nlitval_symbol nlitsym))

@@ -1,4 +1,13 @@
 
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{tmacro-1.melt test still don't work with  -fmelt-use-base-env}}
+	* melt/warmelt-macro.melt
+	(melt_invoke_translator_runner_macroexpansions): More debug.
+
+	* melt/warmelt-normal.melt (normexp_macro_installation): Introduce
+	myenv for using macroenv with -fmelt-use-base-env
+
 2013-10-16  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate, but unstable, see previous logs}}

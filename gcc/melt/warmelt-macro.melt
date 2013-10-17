@@ -2909,10 +2909,10 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 (defun melt_invoke_translator_runner_macroexpansions (lismexp env modctx)
   (debug "melt_invoke_translator_runner_macroexpansions lismexp=" lismexp "\n.. env=" env 
 	 "\n.. modctx=" modctx)
+  (shortbacktrace_dbg "melt_invoke_translator_runner_macroexpansions" 12)
   (let ( (clos melt_transrunmacro_clos)
 	 )
-    (debug "melt_invoke_translator_runner_macroexpansions melt_transrunmacro_clos=" clos)
-    (shortbacktrace_dbg "melt_invoke_translator_runner_macroexpansions" 12)
+    (debug "melt_invoke_translator_runner_macroexpansions melt_transrunmacro_clos=" clos "\n... env=" debug_less env "\n... modctx=" debug_less modctx)
     (assert_msg "check clos" (is_closure clos) clos)
     (assert_msg "check lismexp" (is_list lismexp) lismexp)
     (let ( (res (clos lismexp env modctx))
