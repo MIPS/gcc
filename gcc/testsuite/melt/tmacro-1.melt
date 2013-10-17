@@ -27,7 +27,7 @@
       (debug "macro bitup res=" res)
       (return res))))
 
-(debug "here bitup=" bitup)
+;; insane (debug "here bitup=" bitup)
 
 (debug "using bitup" (bitup 'a))
 

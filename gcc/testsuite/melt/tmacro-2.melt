@@ -44,7 +44,7 @@
 	    (debug "bitup2 relocated mexp=" mexp)
 	    (return mexp)))))))
 	  
-(debug "here bitup2=" bitup2)
+;; insane (debug "here bitup2=" bitup2)
 
 (debug "using bitup2:" (bitup2 'a))
 

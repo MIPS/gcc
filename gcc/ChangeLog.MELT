@@ -1,5 +1,13 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-normal.melt (normbind_defmacrobind): Error about
+	insane use of macro when used in strange contexts.
+
+	* testsuite/melt/tmacro-1.melt: Commented insane use.
+	* testsuite/melt/tmacro-2.melt: Commented insane use.
+	* testsuite/melt/tmacro-3.melt: Commented insane use.
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-normal.melt (normbind_defmacrobind): More debug.
 

@@ -1705,11 +1705,15 @@ source location.}#
     (when (is_non_empty_list procs)
       (assert_msg "normbind_defmacrobind bad procs" () procs))
     (when (is_not_a mdata class_nrep_dataclosure)
-      (error_at psloc "not yet defined macro $1 referenced"_ (get_field :named_name symb))
-      (assert_msg "normbind_defmacrobind bad macro data" () mdata bind (discrim bind)))
+      (error_at psloc "insane use of undefined or ill-defined macro $1; macro uses should be operator-like." (get_field :named_name symb))
+      (assert_msg "normbind_defmacrobind bad macro data while bootstrapping" 
+		  (not (melt_is_bootstrapping)) 
+		  mdata bind (discrim bind))
+      (return)
+      )
     (mapobject_put sycmap symb mdata)
     (return mdata)
-))
+    ))
 (install_method class_defined_macro_binding normalize_binding normbind_defmacrobind)
 
 
