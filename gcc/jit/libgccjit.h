@@ -210,11 +210,11 @@ gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
 				 enum gcc_jit_bool_option opt,
 				 int value);
 
+/* This actually calls into GCC and runs the build, all
+   in a mutex for now.  The result is a wrapper around a .so file.
+   It can only be called once on a given context.  */
 extern gcc_jit_result *
 gcc_jit_context_compile (gcc_jit_context *ctxt);
-  /* This actually calls into GCC and runs the build, all
-     in a mutex for now.  The result is a wrapper around a .so file.
-     Can we only call this once on a given context?  */
 
 
 /* Locate a given function within the built machine code.
@@ -224,9 +224,12 @@ extern void *
 gcc_jit_result_get_code (gcc_jit_result *result,
 			 const char *funcname);
 
+/* Once we're done with the code, this unloads the built .so file.
+   This cleans up the result; after calling this, it's no longer
+   valid to use the result.  */
 extern void
 gcc_jit_result_release (gcc_jit_result *result);
-  /* Once we're done with the code, this unloads the built .so file: */
+
 
 /**********************************************************************
  Functions for use within the code factory.
@@ -238,7 +241,18 @@ gcc_jit_result_release (gcc_jit_result *result);
  All (const char *) string arguments passed to these functions are
  copied, so you don't need to keep them around.  Note that this *isn't*
  the case for other parts of the API.
+
+ You create code by adding a sequence of statements to a function.
+ Control flow is expressed using labels, rather than by explicitly
+ managing blocks.   If you have blocks, you can simply create labels
+ for the start of each block.  You can even create labels for every
+ instruction in your language; unused labels will be optimized away.
  **********************************************************************/
+
+/**********************************************************************
+ Debugging information.
+ **********************************************************************/
+
 /* Creating source code locations for use by the debugger.
    Line and column numbers are 1-based.  */
 extern gcc_jit_location *
@@ -246,6 +260,11 @@ gcc_jit_context_new_location (gcc_jit_context *ctxt,
 			      const char *filename,
 			      int line,
 			      int column);
+
+
+/**********************************************************************
+ Types.
+ **********************************************************************/
 
 /* Access to specific types.  */
 extern gcc_jit_type *
@@ -264,9 +283,12 @@ extern gcc_jit_type *
 gcc_jit_context_get_double_type (gcc_jit_context *ctxt);
 
 /* Constructing new types. */
+
+/* Given type "T", get type "T*".  */
 extern gcc_jit_type *
 gcc_jit_type_get_pointer (gcc_jit_type *type);
 
+/* Given type "T", get type "const T".  */
 extern gcc_jit_type *
 gcc_jit_type_get_const (gcc_jit_type *type);
 
@@ -284,7 +306,9 @@ gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 				 int num_fields,
 				 gcc_jit_field **fields);
 
-/* Constructing functions.  */
+/**********************************************************************
+ Constructing functions.
+ **********************************************************************/
 extern gcc_jit_param *
 gcc_jit_context_new_param (gcc_jit_context *ctxt,
 			   gcc_jit_location *loc,
@@ -328,6 +352,10 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 extern gcc_jit_label *
 gcc_jit_function_new_forward_label (gcc_jit_function *func,
 				    const char *name);
+
+/**********************************************************************
+ lvalues, rvalues and expressions.
+ **********************************************************************/
 
 extern gcc_jit_lvalue *
 gcc_jit_context_new_global (gcc_jit_context *ctxt,
@@ -409,22 +437,44 @@ gcc_jit_function_new_local (gcc_jit_function *func,
 			    gcc_jit_type *type,
 			    const char *name);
 
+/**********************************************************************
+ Statement-creation.
+ **********************************************************************/
+
 /* Add evaluation of an rvalue, discarding the result
-   (e.g. a function call that "returns" void).  */
+   (e.g. a function call that "returns" void).
+
+   This is equivalent to this C code:
+
+     (void)expression;
+*/
 extern void
 gcc_jit_function_add_eval (gcc_jit_function *func,
 			   gcc_jit_location *loc,
 			   gcc_jit_rvalue *rvalue);
 
+/* Add evaluation of an rvalue, assigning the result to the given
+   lvalue.
+
+   This is roughly equivalent to this C code:
+
+     lvalue = rvalue;
+*/
 extern void
 gcc_jit_function_add_assignment (gcc_jit_function *func,
 				 gcc_jit_location *loc,
 				 gcc_jit_lvalue *lvalue,
 				 gcc_jit_rvalue *rvalue);
 
-/**
-   Modify an lvalue (analogous to "+=" and friends)
- */
+/* Add evaluation of an rvalue, using the result to modify an
+   lvalue.
+
+   This is analogous to "+=" and friends:
+
+     lvalue += rvalue;
+     lvalue *= rvalue;
+     lvalue /= rvalue;
+   etc  */
 extern void
 gcc_jit_function_add_assignment_op (gcc_jit_function *func,
 				    gcc_jit_location *loc,
@@ -432,6 +482,23 @@ gcc_jit_function_add_assignment_op (gcc_jit_function *func,
 				    enum gcc_jit_binary_op op,
 				    gcc_jit_rvalue *rvalue);
 
+/* Add evaluation of an rvalue, branching on the result to the
+   appropriate label.
+
+   This is roughly equivalent to this C code:
+
+     if (boolval)
+       goto on_true;
+     else
+       goto on_false;
+
+   on_true must be non-NULL.
+
+   on_false may be NULL, in which case this is roughly equivalent to:
+
+     if (boolval)
+       goto on_true;
+*/
 extern void
 gcc_jit_function_add_conditional (gcc_jit_function *func,
 				  gcc_jit_location *loc,
@@ -439,21 +506,47 @@ gcc_jit_function_add_conditional (gcc_jit_function *func,
 				  gcc_jit_label *on_true,
 				  gcc_jit_label *on_false);
 
+/* Add a label at the current location in the function.
+
+   This is roughly equivalent to this C code:
+
+      name:
+*/
 extern gcc_jit_label *
 gcc_jit_function_add_label (gcc_jit_function *func,
 			    gcc_jit_location *loc,
 			    const char *name);
 
+/* Place a pre-existing label at the current location in the function.
+
+   This is roughly equivalent to this C code:
+
+      name:
+
+   The label must not have already been placed.  */
 extern void
 gcc_jit_function_place_forward_label (gcc_jit_function *func,
 				      gcc_jit_location *loc,
 				      gcc_jit_label *lab);
 
+/* Add a jump from the current location in the function to the given
+   label.
+
+   This is roughly equivalent to this C code:
+
+      goto target;
+*/
 extern void
 gcc_jit_function_add_jump (gcc_jit_function *func,
 			   gcc_jit_location *loc,
 			   gcc_jit_label *target);
 
+/* Add evaluation of an rvalue, returning the value.
+
+   This is roughly equivalent to this C code:
+
+      return expression;
+*/
 extern void
 gcc_jit_function_add_return (gcc_jit_function *func,
 			     gcc_jit_location *loc,
@@ -466,8 +559,7 @@ gcc_jit_function_add_return (gcc_jit_function *func,
 	}
 
   Statements will be added to the body of the loop until
-  gcc_jit_loop_end is called.
-*/
+  gcc_jit_loop_end is called.  */
 extern gcc_jit_loop *
 gcc_jit_function_new_loop (gcc_jit_function *func,
 			   gcc_jit_location *loc,

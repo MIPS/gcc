@@ -1,5 +1,9 @@
 2013-10-17  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h: Add and reword comments throughout.
+
+2013-10-17  David Malcolm  <dmalcolm@redhat.com>
+
 	* TODO.rst: Update.
 
 2013-10-16  David Malcolm  <dmalcolm@redhat.com>
