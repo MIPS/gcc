@@ -1,6 +1,13 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-build-script.tpl: Emit meltbuild_do_stage with an extra
+	GCCMELT_EMIT_OPTION_STAGEx.
+
+	* melt-build-script.sh: Regenerate.
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{MELT-SFT-3 solved: tbad-5.melt -fmelt-use-base-env fails with
 	nice error message and tmacro-1.melt passes....}}
 	* melt/warmelt-macro.melt (mexpand_defmacro): The lambdabind

@@ -265,6 +265,7 @@ function meltbuild_emit () {
     local meltprevstage=$5
     local meltinit=$6
     local meltinclude=$7
+    local meltbuildoption=$8
     local meltargs=$meltstage/$meltbase.args
     local meltsrc=$(realpath $GCCMELT_MELTSOURCEDIR/$meltbase.melt)
     meltbuild_info meltfrom=$meltfrom meltmode=$meltmode meltbase=$meltbase meltstage=$meltstage meltprevstage=$meltprevstage meltinit=$meltinit meltinclude=$meltinclude meltsrc=$meltsrc
@@ -298,6 +299,9 @@ function meltbuild_emit () {
     meltbuild_arg bootstrapping  >> $meltargs-$$-tmp
     meltbuild_arg generate-work-link  >> $meltargs-$$-tmp
     meltbuild_arg generated-c-file-list=$meltstage/$meltbase.cfilist  >> $meltargs-$$-tmp
+    if [ -n "$meltbuildoption" ]; then
+	echo "$meltbuildoption" >> $meltargs-$$-tmp
+    fi
     ## final empty file
     echo meltbuild-empty-file.c >>  $meltargs-$$-tmp
     mv $meltargs-$$-tmp $meltargs
@@ -345,14 +349,15 @@ function meltbuild_do_stage () {
     local meltcurflavor=$3
     local meltprevstagedir=$4
     local meltprevflavor=$5
+    local meltbuildoption=$6
 [+FOR melt_translator_file+]
     local meltchecksum_[+varsuf+]
 [+ENDFOR melt_translator_file+]
     local meltstamp
     local meltstamptmp
-#### meltbuild_do_stage [+(.(fromline))+]
+####in meltbuild_do_stage [+(.(fromline))+]
     meltbuild_notice "$meltcurstagedir+" starting  stage $meltcurstagedir flavor $meltcurflavor from $meltfrom
-####  meltbuild_do_stage [+(.(fromline))+]
+####in meltbuild_do_stage [+(.(fromline))+]
     meltbuild_info $meltfrom starting stage $meltcurstagedir flavor $meltcurflavor previous $meltprevstagedir previous flavor $meltprevflavor
     [ -d $meltcurstagedir ] || mkdir $meltcurstagedir
     if [ ! -d "$meltprevstagedir" -o ! -f "$meltprevstagedir/$meltprevstagedir.stamp" ]; then
@@ -376,7 +381,8 @@ function meltbuild_do_stage () {
 	(define depstage (if (< inindex outindex) "$meltcurstagedir" "$meltprevstagedir"))
 	(define depflavor (if (< inindex outindex) "$meltcurflavor" "$meltprevflavor"))
 +][+(. depstage)+]/[+base+].[+ (. depflavor)+][+ENDFOR melt_translator_file+] \
-    "[+FOR includeload " "+][+includeload+][+ENDFOR includeload+]"
+    "[+FOR includeload " "+][+includeload+][+ENDFOR includeload+]" \
+    "$meltbuildoption"
 
     #in meltbuild_do_stage [+(.(fromline))+] checksum C code for [+base+]
     meltchecksum_cumul_[+varsuf+]=$(cat "$meltcurstagedir"/[+base+].cc "$meltcurstagedir"/[+base+]+[0-9][0-9].cc | $MD5SUM | cut -b 1-32)
@@ -441,7 +447,7 @@ if [ ! -f [+stagdir+]/[+stagdir+].stamp -o [+stagdir+]/[+stagdir+].stamp -ot $GC
     echo ; echo ; echo ; echo 
     meltbuild_info  [+(.(fromline))+] '++++++++++++++++' building stage [+stagdir+] '++++++++++++++++'
     ## building stage [+stagdir+] previous [+stagprevdir+]  [+(.(fromline))+]
-    meltbuild_do_stage  [+(.(fromline))+] [+stagdir+] quicklybuilt [+stagprevdir+] [+stagprevflavor+]
+    meltbuild_do_stage  [+(.(fromline))+] [+stagdir+] quicklybuilt [+stagprevdir+] [+stagprevflavor+] "$GCCMELT_EMIT_OPTION_[+stagsuf+]"
 else
     meltbuild_info  [+(.(fromline))+] skipping stage [+stagdir+]
 fi
