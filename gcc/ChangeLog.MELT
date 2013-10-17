@@ -1,5 +1,14 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{MELT-SFT-3 solved: tbad-5.melt -fmelt-use-base-env fails with
+	nice error message and tmacro-1.melt passes....}}
+	* melt/warmelt-macro.melt (mexpand_defmacro): The lambdabind
+	signal an error for failed macro-expansion.
+
+	* testsuite/melt/tbad-5.melt: Remove insane debug of badmacro.
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

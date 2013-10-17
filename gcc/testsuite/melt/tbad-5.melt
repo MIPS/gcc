@@ -25,7 +25,7 @@
       (badmacroexpanser sexp env mexpander modctx)
     :true))
 
-(debug "badmacroexpanser=" badmacroexpanser " badmacro=" badmacro)
+(debug "badmacroexpanser=" badmacroexpanser)
 
 (debug "badmacro test:" (badmacro '1))
 
