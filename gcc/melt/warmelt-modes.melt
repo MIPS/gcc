@@ -1690,12 +1690,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   (let ( (:long countdoc (get_int (get_field :mkdoc_boxcounter mdinfo)))
 		  )
 	     (if countdoc 
-		 (code_chunk informdocountchk #{/*makedoc_genoutput $INFORMDOCOUNTCHK*/ 
-			     inform (UNKNOWN_LOCATION,
-				     "MELT makedoc [#%ld]: generated %ld documentation items",
-				     melt_dbgcounter, $COUNTDOC) ;
-			     }#)
-	       (errormsg_strv "MELT makedoc generate no documentation items" outarg))
+		 (inform_at () "MELT makedoc generated $1 documentation items"
+			    countdoc)
+	       (error_at () "MELT makedoc generate no documentation items" outarg))
 	     (assert_msg "makedoc check counter" (>i countdoc 0) countdoc)
 	     )
 	   )
@@ -1780,7 +1777,9 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	 (assert_msg "check curead" (is_list_or_null curead) curead)
 	 (list_append2list rlist curead)
 	 (let ( (curxlist (macroexpand_toplevel_list curead newenv macroexpand_1 mdinfo))
+		(:long curxlistlen (list_length curxlist))
 		)
+	   (inform_at () "mode makedoc macro-expanded $1 expressions from $2" curxlistlen curargfile)
 	   (debug "makedoc_docmd curxlist=" curxlist)
 	   (list_append2list xalllist curxlist)
 	   ))
@@ -1791,6 +1790,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        )
       ;; scan the expanded input, and fill mdinfo appropriately.
       (makedoc_scaninput mdinfo arglist xalllist)
+      (inform_at () "mode makedoc scanned $1 macro-expanded source trees" (list_length xalllist))
       (debug "makedoc_docmd after scan mdinfo=" mdinfo)
       ;; generate the output
       (makedoc_genoutput mdinfo outarg)

@@ -3,6 +3,12 @@
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{unstable, documentation not generated}}
+	* melt/warmelt-modes.melt (makedoc_docmd): More information
+	messages.
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{unstable, documentation not generated}}
 	* melt/warmelt-modes.melt (makedoc_docmd): More debug. The created
 	environments are described.
 
