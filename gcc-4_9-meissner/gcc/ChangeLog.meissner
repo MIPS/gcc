@@ -1,3 +1,48 @@
+2013-10-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_R): Delete, move reload patterns to
+	rs6000.md.
+	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<VEC_R:mode>_<P:mptrsize>_load): Likewise.
+
+	* config/rs6000/rs6000-protos.h (merge_peephole2_move_p): New
+	declaration.
+
+	* config/rs6000/rs6000.c (struct rs6000_reg_addr): Add temporary
+	field for testing new reload support.
+	(rs6000_init_hard_regno_mode_ok): #if out code setting DFmode to
+	use VSX addressing if -mupper-regs-df.
+	(rs6000_init_hard_regno_mode_ok): Drop testing -mvsx and
+	-mpower8-vector for -mupper-regs-{df,sf}.  Set tempoary
+	new_reload_p flag for SF/DF mode.  Drop setting SDmode for reload
+	support in 32 bit.
+	(merge_peephole2_move_p): New function to determine if two moves
+	can be merged together in the peephole2 pass.  Don't allow
+	load/stores to the floating point registers to be combined with
+	moves to the Altivec registers for addresses with offsets.
+	(rs6000_secondary_reload_memory): New function to determine if we
+	need a secondary reload for modes that have reload helper
+	functions.
+	(rs6000_secondary_reload): Call rs6000_secondary_reload_memory.
+	(rs6000_preferred_reload_class): For scalar addresses with offsets
+	being loaded into VSX registers, prefer FPR registers instead.
+	(rs6000_secondary_reload_class): Remove code that tried to
+	restrict scalar loads to FPR registers here, use the preferred
+	reload class for this.
+
+	* config/rs6000/vsx.md (vsx_xscvdpspn): Add support for
+	-mupper-regs-sf.
+	(vsx_xscvspdpn): Likewise.
+	(vsx_xscvdpspn_scalar): Likewise.
+
+	* config/rs6000/rs6000.md (RELOAD): Move setting reload helper
+	insn functions here from vector.md.
+	(reload_<RELOAD:mode>_<P:mptrsize>_store): Likewise.
+	(reload_<RELOAD:mode>_<P:mptrsize>_load): Likewise.
+	(SF/DF move/move peephole2): Combine peephole2s that combine moves
+	for SF/DF to use an iterator.  Call merge_peephole2_move_p to
+	validate the move.
+
 2013-10-17  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 203792.
