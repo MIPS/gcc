@@ -1,0 +1,24 @@
+
+#| run in buildir/gcc
+ ln -sv $GCCMELT_SOURCE/gcc/testsuite/melt/teachcomplist.melt
+ ./cc1 -fmelt-mode=rundebug @meltbuild-common.args \
+    -fmelt-keep-temporary-files \
+    -fmelt-init=@warmelt.quicklybuilt \
+    -fmelt-arg=teachcomplist.melt \
+    -fmelt-debug meltbuild-empty-file.c
+|#
+
+(let ( (lis (list '1 :true 'c))
+       (:long cnt 0)
+       )
+  (debug "teachcomplist lis=" lis)
+  (each_component_in_list 
+   lis
+   comp
+   (debug "teachcomplist comp=" comp)
+   (setq cnt (+i cnt 1))
+   )
+  (debug "teachcomplist ended lis=" lis "\n.. cnt=" cnt)
+  )
+
+;; eof teachcomplist.melt

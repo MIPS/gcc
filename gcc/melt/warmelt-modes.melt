@@ -541,8 +541,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	     )
 	   ))
 	)
-    (inform_at () "makedoc read did $1 expressions from $2 files"
-	       xlistlen nbfil)
+    (debug "makedoc_scaninput before loop xlist=" xlist)
     (each_component_in_list
      xlist
      curexp
@@ -1756,7 +1755,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		   :mkdoc_boxcounter (make_integerbox discr_integer 0)
 		   ))
 	)
-    (debug "makedoc_docmd arglist=" arglist " outarg=" outarg) ;; read into rlist all the stuff
+    (debug "makedoc_docmd arglist=" arglist " outarg=" outarg "\n.. empty mdinfo=" debug_less mdinfo) ;; read into rlist all the stuff
     (if (not (is_list rlist))
 	(errormsg_plain 
 	 "makedoc MELT mode needs an -f[plugin-arg-]melt-arglist of comma-separated *.melt file[s]"))
@@ -1767,13 +1766,15 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
     (assert_msg "check rlist" (is_list rlist) rlist)
     (let ( (xalllist (make_list discr_list))
 	   )
+      (debug "makedoc_docmd before looping inside arglist=" arglist)
       (each_component_in_list 
        arglist 
        curargfile
+       (debug "make_list curargfile=" curargfile)
        (let ( (curead (read_file curargfile))
 	      (newenv (fresh_env curenv (tuple 'env-doc modnam curargfile)))
 	      )
-	 (debug "makedoc_docmd curead=" curead)
+	 (debug "makedoc_docmd curead=" curead "\n..curargfile=" curargfile)
 	 (assert_msg "check curead" (is_list_or_null curead) curead)
 	 (inform_at () "mode makedoc read $1 s-expressions from file $2" (list_length curead) curargfile)
 	 (list_append2list rlist curead)
@@ -1786,9 +1787,10 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	   ))
        ;; macro expand it
        (debug "makedoc_docmd have read rlist=" rlist "\n.. expanded into xalllist=" xalllist "\n")
-      ;; (setq curenv newenv)
-      ;; (debug "makedoc_docmd for curargfile=" curargfile " updated curenv=" curenv)
+       ;; (setq curenv newenv)
+       ;; (debug "makedoc_docmd for curargfile=" curargfile " updated curenv=" curenv)
        )
+      (debug "makedoc_docmd arglist=" arglist "\n.. xalllist=" xalllist)
       ;; scan the expanded input, and fill mdinfo appropriately.
       (makedoc_scaninput mdinfo arglist xalllist)
       (inform_at () "mode makedoc scanned $1 macro-expanded source trees" (list_length xalllist))

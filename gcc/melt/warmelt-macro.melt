@@ -99,7 +99,6 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 	(sloc (get_field :loca_location sexp))
 	(sexcont (get_field :sexp_contents sexp))
 	)
-    (debug "diagnostic_args_macro sloc=" sloc " sexcont=" sexcont)
     (assert_msg "check sexcont" (is_list sexcont) sexcont)
     (let ( 
 	  (tcont (list_to_multiple sexcont discr_multiple))
@@ -261,11 +260,10 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		   )
 		)			; end resexp binding
 	       )
-	  (debug "diagnostic_args_macro resexp=" resexp)
 	  (let ( (mexp (mexpander resexp env mexpander modctx))
 		 )
-	    (debug "diagnostic_args_macro final mexp=" mexp)
 	    (put_fields mexp :loca_location sloc)
+	    (debug "diagnostic_args_macro final mexp=" mexp)
 	    (return mexp)
 	    )
 	  )
@@ -295,7 +293,6 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
     (assert_msg "check diagvec" (is_multiple diagvec) diagvec)
     (forever 
      diagloop
-     (debug "diagnostic_expand_message diagloop spos=" spos)
      (if (>=i spos fmtlen) 
 	 (exit diagloop))
      (setq ixdoll -1)
@@ -316,7 +313,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		    }
 		    /* end diagnostic_expand_message $DOLPOS_CHK */
 		 }#)
-     (debug "diagnostic_expand_message dollarpos=" dollarpos " ixdoll=" ixdoll " dpos=" dpos)
+     ;(debug "diagnostic_expand_message dollarpos=" dollarpos " ixdoll=" ixdoll " dpos=" dpos)
      (when (<i dollarpos 0)
 	 (exit diagloop))
      (if (<i ixdoll 0) 
@@ -324,10 +321,10 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
      (if (<=i ixdoll dpos)
        (let ( (diagcomp (multiple_nth diagvec ixdoll))
 	      )
-	 (debug "ixdoll=" ixdoll " diagcomp=" diagcomp)
+	 ;(debug "ixdoll=" ixdoll " diagcomp=" diagcomp)
 	 (add2out sbuf diagcomp)))
      (setq spos (+i dollarpos 2))
-     )
+     )					;end forever diagloop
     (let ( (diagmsg (strbuf2string discr_string sbuf))
 	   )
       (debug "diagnostic_expand_message gives diagmsg=" diagmsg)

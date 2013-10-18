@@ -2,6 +2,16 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{each_component_in_list don't work as it should.}}
+	* testsuite/melt/teachcomplist.melt: New file.
+
+	* melt/warmelt-macro.melt (diagnostic_args_macro)
+	(diagnostic_expand_message): Less debug.
+
+	* melt/warmelt-modes.melt (makedoc_docmd): More debug.
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{MELT-SFT-4: makedoc fails on tmakedoc.melt}}
 
 	* testsuite/melt/tmakedoc.melt: Improve comment, but is failing
