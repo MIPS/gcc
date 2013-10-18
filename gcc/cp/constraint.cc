@@ -461,7 +461,8 @@ reduce_nested_req (tree t)
 }
 
 // Reduce a requires expr by reducing each requirement in turn,
-// rewriting the list of requirements.
+// rewriting the list of requirements so that we end up with a
+// list of expressions, some of which may be conjunctions.
 tree
 reduce_requires (tree t)
 {
@@ -516,19 +517,21 @@ make_constraints (tree reqs)
   if (!reqs)
     return NULL_TREE;
 
-  // Reduce the requirements into atoms and break them into
-  // sets of atomic propositions.
-  tree atomic = reduce_requirements (reqs);
-  if (atomic == error_mark_node)
+  // Reduce the requirements into a single expression of constraints.
+  tree expr = reduce_requirements (reqs);
+  if (expr == error_mark_node)
     return error_mark_node;
-  tree assume = decompose_assumptions (atomic);
 
+  // Decompose those expressions into lists of lists of atomic
+  // propositions.
+  tree assume = decompose_assumptions (expr);
+
+  // Build the constraint info.
   tree_constraint_info *cinfo = 
     (tree_constraint_info *)make_node (CONSTRAINT_INFO);
   cinfo->spelling = reqs;
-  cinfo->requirements = atomic;
+  cinfo->requirements = expr;
   cinfo->assumptions = assume;
-    
   return (tree)cinfo;
 }
 
@@ -1278,6 +1281,9 @@ diagnose_trait (location_t loc, tree t, tree args)
         break;
       case CPTK_IS_CLASS:
         inform (loc, "  %qT is not a class", t1);
+        break;
+      case CPTK_IS_CONVERTIBLE_TO:
+        inform (loc, "  %qT is not convertible to %qT", t1, t2);
         break;
       case CPTK_IS_EMPTY:
         inform (loc, "  %qT is not an empty class", t1);

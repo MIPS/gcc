@@ -241,6 +241,24 @@ left_or (proof_state &s, goal_iterator i, tree t)
   l2.insert (TREE_OPERAND (t, 1));
 }
 
+// Left-requires logical rule
+// A requirement is effectively a conjunction of syntactic requirements.
+// The arguments are discarded.
+//
+//  Gamma, P1, P2, ..., Pn |- Delta
+//  --------------------------------------------------
+//  Gamma, requires(args) { P1, P2, ..., Pn } |- Delta
+inline void
+left_requires (proof_state &, goal_iterator i, tree t)
+{
+  gcc_assert (TREE_CODE (t) == REQUIRES_EXPR);
+
+  // Insert the sub-expressions into the curent term list.
+  term_list &l = i->assumptions;
+  for (tree p = TREE_OPERAND (t, 1); p; p = TREE_CHAIN (p))
+    l.insert (TREE_VALUE (p));
+}
+
 // Right-and logical rule.
 //
 //  Gamma |- P, Delta    Gamma |- Q, Delta
@@ -306,6 +324,9 @@ decompose_left_term (proof_state &s, goal_iterator i)
       break;
     case TRUTH_ORIF_EXPR:
       left_or (s, i, l.erase ());
+      break;
+    case REQUIRES_EXPR:
+      left_requires (s, i, l.erase ());
       break;
     default:
       l.next ();
@@ -405,8 +426,6 @@ bool subsumes_or(tree, tree);
 bool
 match_terms (tree a, tree c)
 {
-  // TODO: Add special cases for __is_same, __is_convertible, 
-  // and __is_base_of.
   return cp_tree_equal (a, c);
 }
 
@@ -440,6 +459,17 @@ subsumes_or (tree as, tree c)
   return subsumes_prop (as, l) || subsumes_prop (as, r);
 }
 
+// Returns true when the sub-requirements of C are subsumed by the
+// assumptions in AS.
+bool
+subsumes_requires (tree as, tree c)
+{
+  tree t = TREE_OPERAND (c, 1);
+  while (t && subsumes_prop (as, TREE_VALUE (t)))
+    t = TREE_CHAIN (t);
+  return !t;
+}
+
 // Returns true when the list of assumptions AS subsumes the 
 // concluded proposition C.
 //
@@ -454,6 +484,8 @@ subsumes_prop (tree as, tree c)
       return subsumes_and (as, c);
     case TRUTH_ORIF_EXPR:
       return subsumes_or (as, c);
+    case REQUIRES_EXPR:
+      return subsumes_requires (as, c);
     default:
       return subsumes_atom (as, c);
     }

@@ -1,7 +1,15 @@
 2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
-        * gcc/cp/constraint.cc (finish_concept_name): Allow functions with
-        the same name as concepts to resolve as call expressions in the
-        usual way.
+	* gcc/cp/logic.cc (left_requires), (decompose_left): Add
+	decomposition rules for requires expressions.
+	(subsumes_requires), (subsumes_prop): Add subsumption rules for
+	requires expressions.
+	* gcc/cp/constraint.cc (diagnose_trait): Diagnose failed conversion
+	requirements.
+
+2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/constraint.cc (finish_concept_name): Allow functions with
+	the same name as concepts to resolve as call expressions in the
+	usual way.
 
 2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/constraint.cc (conjoin_requiremens): New.
