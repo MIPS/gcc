@@ -5,6 +5,14 @@
 
 #include <utility> // for std::pair
 
+#ifdef GCC_VERSION
+#if GCC_VERSION >= 4001
+#define GNU_PRINTF(M, N) __attribute__ ((format (gnu_printf, (M), (N))))
+#else
+#define GNU_PRINTF(M, N)
+#endif
+#endif
+
 namespace gcc {
 
 namespace jit {
@@ -142,7 +150,12 @@ public:
   within_code_factory () const { return m_within_code_factory; }
 
   void
-  add_error (const char *msg);
+  add_error (const char *fmt, ...)
+      GNU_PRINTF(2, 3);
+
+  void
+  add_error_va (const char *fmt, va_list ap)
+      GNU_PRINTF(2, 0);
 
   void
   set_tree_location (tree t, location *loc);
@@ -153,10 +166,21 @@ private:
 
   void handle_locations ();
 
+
+  /* Did errors occur in the client callback (either recorded
+     by our internal checking, or reported by the client).  */
+  bool errors_occurred () const
+  {
+    return m_error_count || m_cb_result;
+  }
+
+
 private:
   gcc_jit_code_callback m_code_factory;
   bool m_within_code_factory;
   void *m_user_data;
+
+  int m_error_count;
 
   /* Allocated using xmalloc (by xstrdup).  */
   char *m_path_template;
@@ -258,6 +282,8 @@ public:
   tree get_return_type_as_tree () const;
 
   tree as_fndecl () const { return m_inner_fndecl; }
+
+  enum gcc_jit_function_kind get_kind () const { return m_kind; }
 
   lvalue *
   new_local (location *loc,

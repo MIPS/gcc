@@ -386,6 +386,10 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			      gcc_jit_param **params,
 			      int is_variadic);
 
+/* Create a label, to be placed later.
+
+   The name can be NULL, or you can give it a meaningful name, which
+   may show up in dumps of the internal representation.  */
 extern gcc_jit_label *
 gcc_jit_function_new_forward_label (gcc_jit_function *func,
 				    const char *name);
@@ -560,7 +564,9 @@ gcc_jit_function_add_conditional (gcc_jit_function *func,
    This is roughly equivalent to this C code:
 
       name:
-*/
+
+   The name can be NULL, or you can give it a meaningful name, which
+   may show up in dumps of the internal representation.  */
 extern gcc_jit_label *
 gcc_jit_function_add_label (gcc_jit_function *func,
 			    gcc_jit_location *loc,

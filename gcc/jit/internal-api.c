@@ -136,7 +136,7 @@ get_type (enum gcc_jit_types type_)
   tree type_node = get_tree_node_for_type (type_);
   if (NULL == type_node)
     {
-      add_error ("unrecognized (enum gcc_jit_types) value");
+      add_error ("unrecognized (enum gcc_jit_types) value: %i", type_);
       return NULL;
     }
 
@@ -393,7 +393,10 @@ new_binary_op (location *loc,
 
   switch (op)
     {
-    default: gcc_unreachable ();
+    default:
+      add_error ("unrecognized (enum gcc_jit_binary_op) value: %i", op);
+      return NULL;
+
     case GCC_JIT_BINARY_OP_PLUS:
       inner_op = PLUS_EXPR;
       break;
@@ -431,7 +434,10 @@ new_comparison (location *loc,
 
   switch (op)
     {
-    default: gcc_unreachable ();
+    default:
+      add_error ("unrecognized (enum gcc_jit_comparison) value: %i", op);
+      return NULL;
+
     case GCC_JIT_COMPARISON_LT:
       inner_op = LT_EXPR;
       break;
@@ -916,7 +922,7 @@ set_str_option (enum gcc_jit_str_option opt,
 {
   if (opt < 0 || opt >= GCC_JIT_NUM_STR_OPTIONS)
     {
-      add_error ("unrecognized str option");
+      add_error ("unrecognized (enum gcc_jit_str_option) value: %i", opt);
       return;
     }
   m_str_options[opt] = value;
@@ -929,7 +935,7 @@ set_int_option (enum gcc_jit_int_option opt,
 {
   if (opt < 0 || opt >= GCC_JIT_NUM_INT_OPTIONS)
     {
-      add_error ("unrecognized int option");
+      add_error ("unrecognized (enum gcc_jit_int_option) value: %i", opt);
       return;
     }
   m_int_options[opt] = value;
@@ -942,7 +948,7 @@ set_bool_option (enum gcc_jit_bool_option opt,
 {
   if (opt < 0 || opt >= GCC_JIT_NUM_BOOL_OPTIONS)
     {
-      add_error ("unrecognized bool option");
+      add_error ("unrecognized (enum gcc_jit_bool_option) value: %i", opt);
       return;
     }
   m_bool_options[opt] = value ? true : false;
@@ -1013,7 +1019,8 @@ compile ()
   switch (m_int_options[GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL])
     {
     default:
-      add_error ("unrecognized optimization level");
+      add_error ("unrecognized optimization level: %i",
+		 m_int_options[GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL]);
       goto error;
 
     case 0:
@@ -1074,7 +1081,7 @@ compile ()
 
   active_jit_ctxt = NULL;
 
-  if (m_cb_result)
+  if (errors_occurred ())
     goto error;
 
   timevar_push (TV_ASSEMBLE);
@@ -1151,7 +1158,7 @@ invoke_code_factory ()
   m_within_code_factory = false;
   timevar_pop (TV_CLIENT_CALLBACK);
 
-  if (!m_cb_result)
+  if (!errors_occurred ())
     {
       int i;
       function *func;
@@ -1266,9 +1273,24 @@ handle_locations ()
 
 void
 gcc::jit::context::
-add_error (const char */*msg*/)
+add_error (const char *fmt, ...)
 {
-  // TODO
+  va_list ap;
+  va_start (ap, fmt);
+  add_error_va (fmt, ap);
+  va_end (ap);
+}
+
+void
+gcc::jit::context::
+add_error_va (const char *fmt, va_list ap)
+{
+  char buf[1024];
+  vsnprintf (buf, sizeof (buf) - 1, fmt, ap);
+
+  error ("%s\n", buf);
+
+  m_error_count++;
 }
 
 gcc::jit::result::

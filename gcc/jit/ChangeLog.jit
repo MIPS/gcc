@@ -1,3 +1,85 @@
+2013-10-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::context::get_type): Improve error
+	message, and report the bogus value.
+	(gcc::jit::context::new_binary_op): Likewise.
+	(gcc::jit::context::new_comparison): Likewise.
+	(gcc::jit::context::set_str_option): Likewise.
+	(gcc::jit::context::set_int_option): Likewise.
+	(gcc::jit::context::set_bool_option): Likewise.
+	(gcc::jit::context::compile): Likewise, and make the errors
+	block the creation of result, rather than just the return
+	value of the client callback.
+	(gcc::jit::context::add_error): Add varargs and provide
+	implementation, calling into...
+	(gcc::jit::context::add_error_va): New.
+	* internal-api.h (GNU_PRINTF): New.
+	(gcc::jit::context::add_error): Add varargs and GNU_PRINTF
+	attribute macro.
+	(gcc::jit::context::add_error_va): New.
+	(gcc::jit::context::errors_occurred): New.
+	(gcc::jit::context::m_error_count): New.
+	(gcc::jit::function::get_kind): New.
+	* libgccjit.c (JIT_BEGIN_STMT): New.
+	(JIT_END_STMT): New.
+	(RETURN_VAL_IF_FAIL): New.
+	(RETURN_NULL_IF_FAIL): New.
+	(RETURN_IF_FAIL): New.
+	(RETURN_IF_NOT_INITIAL_CTXT): New.
+	(RETURN_NULL_IF_NOT_INITIAL_CTXT): New.
+	(RETURN_NULL_IF_NOT_CALLBACK_CTXT): New.
+	(RETURN_IF_NOT_FUNC_DEFINITION): New.
+	(RETURN_NULL_IF_NOT_FUNC_DEFINITION): New.
+	(jit_error): New.
+	(gcc_jit_context_set_code_factory): Use new error-checking
+	macros.
+	(ASSERT_WITHIN_CALLBACK): Remove.
+	(ASSERT_NOT_WITHIN_CALLBACK): Remove.
+	(gcc_jit_context_new_location): Use new error-checking macros.
+	(gcc_jit_context_get_type): Likewise.
+	(gcc_jit_type_get_pointer): Likewise.
+	(gcc_jit_type_get_const): Likewise.
+	(gcc_jit_context_new_field): Likewise.
+	(gcc_jit_context_new_struct_type): Likewise.
+	(gcc_jit_context_new_param): Likewise.
+	(gcc_jit_param_as_lvalue): Likewise.
+	(gcc_jit_param_as_rvalue): Likewise.
+	(gcc_jit_context_new_function): Likewise.
+	(gcc_jit_function_new_forward_label): Likewise.
+	(gcc_jit_context_new_global): Likewise.
+	(gcc_jit_lvalue_as_rvalue): Likewise.
+	(gcc_jit_context_new_rvalue_from_int): Likewise.
+	(gcc_jit_context_zero): Likewise.
+	(gcc_jit_context_one): Likewise.
+	(gcc_jit_context_new_rvalue_from_double): Likewise.
+	(gcc_jit_context_new_rvalue_from_ptr): Likewise.
+	(gcc_jit_context_new_string_literal): Likewise.
+	(gcc_jit_context_new_binary_op): Likewise.
+	(gcc_jit_context_new_comparison): Likewise.
+	(gcc_jit_context_new_call): Likewise.
+	(gcc_jit_context_new_array_lookup): Likewise.
+	(gcc_jit_context_new_field_access): Likewise.
+	(gcc_jit_function_new_local): Likewise.
+	(gcc_jit_function_add_label): Likewise.
+	(gcc_jit_function_place_forward_label): Likewise.
+	(gcc_jit_function_add_eval): Likewise.
+	(gcc_jit_function_add_assignment): Likewise.
+	(gcc_jit_function_add_assignment_op): Likewise.
+	(gcc_jit_function_add_conditional): Likewise.
+	(gcc_jit_function_add_jump): Likewise.
+	(gcc_jit_function_add_return): Likewise.
+	(gcc_jit_function_new_loop): Likewise.
+	(gcc_jit_loop_end): Likewise.
+	(gcc_jit_context_set_str_option): Likewise.
+	(gcc_jit_context_set_int_option): Likewise.
+	(gcc_jit_context_set_bool_option): Likewise.
+	(gcc_jit_context_compile): Likewise.
+	(gcc_jit_result_get_code): Likewise.
+	(gcc_jit_result_release): Likewise.
+	* libgccjit.h (gcc_jit_function_new_forward_label): Clarify
+	behavior.
+	(gcc_jit_function_add_label): Likewise.
+
 2013-10-17  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::context::get_void_type): Remove.
