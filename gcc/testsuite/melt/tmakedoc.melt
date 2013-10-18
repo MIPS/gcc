@@ -4,18 +4,14 @@
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tmakedoc.melt 
 
  ## check once that this file is correct:
- ./cc1 -fmelt-mode=translatequickly  -fmelt-module-path=melt-stage2:melt-modules \
-    -fmelt-source-path=melt-stage2:melt-sources \
-    -fmelt-tempdir=/tmp -fmelt-init=@warmelt -fmelt-workdir=melt-workdir \
-    -fmelt-arg=tmakedoc.melt \
-     empty-file-for-melt.c
+ ./cc1plus -fmelt-mode=translatequickly @meltbuild-common.args \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tmakedoc.melt \
+     meltbuild-empty-file.c
 
  ## generate documentation with it
- ./cc1 -fmelt-mode=makedoc  -fmelt-module-path=melt-stage2:melt-modules \
-    -fmelt-source-path=melt-stage2:melt-sources \
-    -fmelt-tempdir=/tmp -fmelt-init=@warmelt -fmelt-workdir=melt-workdir \
-    -fmelt-arglist=tmakedoc.melt -fmelt-output=tmakedoc.texi \
-    -fmelt-debug empty-file-for-melt.c
+ ./cc1plus -fmelt-mode=makedoc y @meltbuild-common.args \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arglist=tmakedoc.melt -fmelt-output=tmakedoc.texi \
+    -fmelt-debug meltbuild-empty-file.c
 |#
 
 

@@ -873,7 +873,7 @@ meltbuild_arg "module-makefile=\"$GCCMELT_MODULE_MK\""  >>  $meltgen_args
    meltbuild_info [+(.(fromline))+]  meltbuild-gendoc.args is
    cat meltbuild-gendoc.args < /dev/null >&2
    $GCCMELT_CC1PLUS_PREFIX $GCCMELT_CC1PLUS @meltbuild-gendoc.args \
-     || meltbuild_error [+(.(fromline))+] failed with arguments @meltbuild-gendoc.args
+     || meltbuild_error [+(.(fromline))+]  "$GCCMELT_CC1PLUS" failed with arguments @meltbuild-gendoc.args
 else
    meltbuild_info [+(.(fromline))+] keeping meltgendoc.texi
 fi
