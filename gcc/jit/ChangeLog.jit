@@ -1,5 +1,53 @@
 2013-10-17  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::context::get_void_type): Remove.
+	(gcc::jit::context::get_char_type): Remove.
+	(gcc::jit::context::get_int_type): Remove.
+	(gcc::jit::context::get_float_type): Remove.
+	(gcc::jit::context::get_double_type): Remove.
+	(get_tree_node_for_type): New.
+	(gcc::jit::context::get_type): New.
+	(gcc::jit::context::new_rvalue_from_double): New.
+	(gcc::jit::context::new_rvalue_from_ptr): New.
+	* internal-api.h (gcc::jit::context::get_void_type): Remove.
+	(gcc::jit::context::get_char_type): Remove.
+	(gcc::jit::context::get_int_type): Remove.
+	(gcc::jit::context::get_float_type): Remove.
+	(gcc::jit::context::get_double_type): Remove.
+	(gcc::jit::context::get_type): New.
+	(gcc::jit::context::new_rvalue_from_double): New.
+	(gcc::jit::context::new_rvalue_from_ptr): New.
+	* libgccjit.c (gcc_jit_context_get_void_type): Remove.
+	(gcc_jit_context_get_char_type): Remove.
+	(gcc_jit_context_get_int_type): Remove.
+	(gcc_jit_context_get_float_type): Remove.
+	(gcc_jit_context_get_double_type): Remove.
+	(gcc_jit_context_get_type): New.
+	(gcc_jit_context_new_rvalue_from_double): New.
+	(gcc_jit_context_new_rvalue_from_ptr): New.
+	* libgccjit.h (gcc_jit_context_get_void_type): Remove.
+	(gcc_jit_context_get_char_type): Remove.
+	(gcc_jit_context_get_int_type): Remove.
+	(gcc_jit_context_get_float_type): Remove.
+	(gcc_jit_context_get_double_type): Remove.
+	(enum gcc_jit_types): New.
+	(gcc_jit_context_get_type): New.
+	(gcc_jit_context_new_rvalue_from_double): New.
+	(gcc_jit_context_new_rvalue_from_ptr): New.
+	* libgccjit.map (gcc_jit_context_get_void_type): Remove.
+	(gcc_jit_context_get_char_type): Remove.
+	(gcc_jit_context_get_int_type): Remove.
+	(gcc_jit_context_get_float_type): Remove.
+	(gcc_jit_context_get_double_type): Remove.
+	(enum gcc_jit_types): New.
+	(gcc_jit_context_get_type): New.
+	(gcc_jit_context_new_rvalue_from_double): New.
+	(gcc_jit_context_new_rvalue_from_ptr): New.
+	* TODO.rst ("access to more primitive types"): Remove
+	completed item.
+
+2013-10-17  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h: Add and reword comments throughout.
 
 2013-10-17  David Malcolm  <dmalcolm@redhat.com>

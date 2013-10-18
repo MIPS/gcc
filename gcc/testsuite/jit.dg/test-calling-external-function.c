@@ -29,8 +29,10 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
      }
   */
   int i;
-  gcc_jit_type *void_type = gcc_jit_context_get_void_type (ctxt);
-  gcc_jit_type *int_type = gcc_jit_context_get_int_type (ctxt);
+  gcc_jit_type *void_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID);
+  gcc_jit_type *int_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
 
   /* Declare the imported function.  */
   gcc_jit_param *params[3];

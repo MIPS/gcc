@@ -40,19 +40,7 @@ public:
 		int column);
 
   type *
-  get_void_type ();
-
-  type *
-  get_char_type ();
-
-  type *
-  get_int_type ();
-
-  type *
-  get_float_type ();
-
-  type *
-  get_double_type ();
+  get_type (enum gcc_jit_types type);
 
   field *
   new_field (location *loc,
@@ -88,6 +76,14 @@ public:
   rvalue *
   new_rvalue_from_int (type *type,
 		       int value);
+
+  rvalue *
+  new_rvalue_from_double (type *type,
+			  double value);
+
+  rvalue *
+  new_rvalue_from_ptr (type *type,
+		       void *value);
 
   rvalue *
   new_string_literal (const char *value);

@@ -27,8 +27,10 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 	the_global += 1;
      }
   */
-  gcc_jit_type *void_type = gcc_jit_context_get_void_type (ctxt);
-  gcc_jit_type *int_type = gcc_jit_context_get_int_type (ctxt);
+  gcc_jit_type *void_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID);
+  gcc_jit_type *int_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
 
   /* Build the test_fn.  */
   gcc_jit_function *test_fn =

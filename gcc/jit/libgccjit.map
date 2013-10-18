@@ -4,11 +4,7 @@
     # Keep this list sorted alphabetically:
     gcc_jit_context_acquire;
     gcc_jit_context_compile;
-    gcc_jit_context_get_char_type;
-    gcc_jit_context_get_double_type;
-    gcc_jit_context_get_float_type;
-    gcc_jit_context_get_int_type;
-    gcc_jit_context_get_void_type;
+    gcc_jit_context_get_type;
     gcc_jit_context_new_array_lookup;
     gcc_jit_context_new_binary_op;
     gcc_jit_context_new_call;
@@ -19,7 +15,9 @@
     gcc_jit_context_new_global;
     gcc_jit_context_new_location;
     gcc_jit_context_new_param;
+    gcc_jit_context_new_rvalue_from_double;
     gcc_jit_context_new_rvalue_from_int;
+    gcc_jit_context_new_rvalue_from_ptr;
     gcc_jit_context_new_string_literal;
     gcc_jit_context_new_struct_type;
     gcc_jit_context_one;

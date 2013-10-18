@@ -66,6 +66,13 @@
 #undef code_making_callback
 #undef verify_code
 
+/* test-types.c */
+#define code_making_callback code_making_callback_types
+#define verify_code verify_code_types
+#include "test-types.c"
+#undef code_making_callback
+#undef verify_code
+
 /* test-using-global.c */
 #define code_making_callback code_making_callback_using_global
 #define verify_code verify_code_using_global
@@ -93,6 +100,7 @@ code_making_callback (gcc_jit_context *ctxt, void * user_data)
   errors += code_making_callback_hello_world (ctxt, user_data);
   errors += code_making_callback_string_literal (ctxt, user_data);
   errors += code_making_callback_sum_of_squares (ctxt, user_data);
+  errors += code_making_callback_types (ctxt, user_data);
   errors += code_making_callback_using_global (ctxt, user_data);
 
   return errors;
@@ -109,5 +117,6 @@ verify_code (gcc_jit_result *result)
   verify_code_hello_world (result);
   verify_code_string_literal (result);
   verify_code_sum_of_squares (result);
+  verify_code_types (result);
   verify_code_using_global (result);
 }

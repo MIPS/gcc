@@ -21,9 +21,11 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 	}
 
      and see what the optimizer can do.  */
-  gcc_jit_type *val_type = gcc_jit_context_get_double_type (ctxt);
+  gcc_jit_type *val_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_DOUBLE);
   gcc_jit_type *ptr_type = gcc_jit_type_get_pointer (val_type);
-  gcc_jit_type *int_type = gcc_jit_context_get_int_type (ctxt);
+  gcc_jit_type *int_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
 
   gcc_jit_type *return_type = val_type;
   gcc_jit_param *param_n =

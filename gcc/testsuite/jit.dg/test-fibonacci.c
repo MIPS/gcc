@@ -30,7 +30,8 @@ FIRST_LINE + 7: }
      in the debugger, stepping through the above commented-out code
      fragement.
    */
-  gcc_jit_type *the_type = gcc_jit_context_get_int_type (ctxt);
+  gcc_jit_type *the_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
   gcc_jit_type *return_type = the_type;
 
   gcc_jit_param *x =

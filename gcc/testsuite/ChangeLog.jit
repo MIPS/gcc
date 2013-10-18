@@ -1,3 +1,21 @@
+2013-10-17  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-accessing-struct.c (code_making_callback): Update
+	for changes to type API.
+	* jit.dg/test-calling-external-function.c (code_making_callback):
+	Likewise.
+	* jit.dg/test-dot-product.c (code_making_callback): Likewise.
+	* jit.dg/test-factorial.c (code_making_callback): Likewise.
+	* jit.dg/test-fibonacci.c (code_making_callback): Likewise.
+	* jit.dg/test-hello-world.c (code_making_callback): Likewise.
+	* jit.dg/test-string-literal.c (code_making_callback): Likewise.
+	* jit.dg/test-sum-of-squares.c (code_making_callback): Likewise.
+	* jit.dg/test-using-globals.c (code_making_callback): Likewise.
+	* jit.dg/test-types.c: New.
+	* jit.dg/test-combination.c (code_making_callback): Use code
+	from test-types.c.
+	(verify_code): ...and verify it.
+
 2013-10-16  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-dot-product.c (code_making_callback): Update for

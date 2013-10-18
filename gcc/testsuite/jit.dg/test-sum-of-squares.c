@@ -22,7 +22,8 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
       }
       return sum;
    */
-  gcc_jit_type *the_type = gcc_jit_context_get_int_type (ctxt);
+  gcc_jit_type *the_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
   gcc_jit_type *return_type = the_type;
 
   gcc_jit_param *n =

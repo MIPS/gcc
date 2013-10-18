@@ -22,8 +22,10 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
         f->z = f->x * f->y;
      }
   */
-  gcc_jit_type *void_type = gcc_jit_context_get_void_type (ctxt);
-  gcc_jit_type *int_type = gcc_jit_context_get_int_type (ctxt);
+  gcc_jit_type *void_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID);
+  gcc_jit_type *int_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
   gcc_jit_field *x =
     gcc_jit_context_new_field (ctxt,
                                NULL,

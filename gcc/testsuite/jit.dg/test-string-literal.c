@@ -18,8 +18,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
      }
   */
   gcc_jit_type *const_char_ptr_type =
-    gcc_jit_type_get_pointer (
-      gcc_jit_type_get_const (gcc_jit_context_get_char_type (ctxt)));
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_CONST_CHAR_PTR);
 
   /* Build the test_fn.  */
   gcc_jit_function *test_fn =

@@ -15,10 +15,10 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
         printf ("hello %s\n", name);
      }
   */
-  gcc_jit_type *void_type = gcc_jit_context_get_void_type (ctxt);
+  gcc_jit_type *void_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID);
   gcc_jit_type *const_char_ptr_type =
-    gcc_jit_type_get_pointer (
-      gcc_jit_type_get_const (gcc_jit_context_get_char_type (ctxt)));
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_CONST_CHAR_PTR);
   gcc_jit_param *param_name =
     gcc_jit_context_new_param (ctxt, NULL, const_char_ptr_type, "name");
   gcc_jit_function *func =
@@ -33,11 +33,12 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_context_new_param (ctxt, NULL, const_char_ptr_type, "format");
   gcc_jit_function *printf_func =
     gcc_jit_context_new_function (ctxt, NULL,
-                                  GCC_JIT_FUNCTION_IMPORTED,
-                                  gcc_jit_context_get_int_type (ctxt),
-                                  "printf",
-                                  1, &param_format,
-                                  1);
+				  GCC_JIT_FUNCTION_IMPORTED,
+				  gcc_jit_context_get_type (
+				     ctxt, GCC_JIT_TYPE_INT),
+				  "printf",
+				  1, &param_format,
+				  1);
   gcc_jit_rvalue *args[2];
   args[0] = gcc_jit_context_new_string_literal (ctxt, "hello %s\n");
   args[1] = gcc_jit_param_as_rvalue (param_name);

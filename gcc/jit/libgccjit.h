@@ -267,20 +267,57 @@ gcc_jit_context_new_location (gcc_jit_context *ctxt,
  **********************************************************************/
 
 /* Access to specific types.  */
-extern gcc_jit_type *
-gcc_jit_context_get_void_type (gcc_jit_context *ctxt);
+enum gcc_jit_types
+{
+  /* C's "void" type.  */
+  GCC_JIT_TYPE_VOID,
+
+  /* "void *".  */
+  GCC_JIT_TYPE_VOID_PTR,
+
+  /* Various integer types.  */
+
+  /* C's "char" (of some signedness) and the variants where the
+     signedness is specified.  */
+  GCC_JIT_TYPE_CHAR,
+  GCC_JIT_TYPE_SIGNED_CHAR,
+  GCC_JIT_TYPE_UNSIGNED_CHAR,
+
+  /* C's "short" and "unsigned short".  */
+  GCC_JIT_TYPE_SHORT, /* signed */
+  GCC_JIT_TYPE_UNSIGNED_SHORT,
+
+  /* C's "int" and "unsigned int".  */
+  GCC_JIT_TYPE_INT, /* signed */
+  GCC_JIT_TYPE_UNSIGNED_INT,
+
+  /* C's "long" and "unsigned long".  */
+  GCC_JIT_TYPE_LONG, /* signed */
+  GCC_JIT_TYPE_UNSIGNED_LONG,
+
+  /* C99's "long long" and "unsigned long long".  */
+  GCC_JIT_TYPE_LONG_LONG, /* signed */
+  GCC_JIT_TYPE_UNSIGNED_LONG_LONG,
+
+  /* Floating-point types  */
+
+  GCC_JIT_TYPE_FLOAT,
+  GCC_JIT_TYPE_DOUBLE,
+  GCC_JIT_TYPE_LONG_DOUBLE,
+
+  /* C type: (const char *).  */
+  GCC_JIT_TYPE_CONST_CHAR_PTR,
+
+ /* The C "size_t" type.  */
+  GCC_JIT_TYPE_SIZE_T,
+
+ /* C type: (FILE *)  */
+  GCC_JIT_TYPE_FILE_PTR
+};
 
 extern gcc_jit_type *
-gcc_jit_context_get_char_type (gcc_jit_context *ctxt);
-
-extern gcc_jit_type *
-gcc_jit_context_get_int_type (gcc_jit_context *ctxt);
-
-extern gcc_jit_type *
-gcc_jit_context_get_float_type (gcc_jit_context *ctxt);
-
-extern gcc_jit_type *
-gcc_jit_context_get_double_type (gcc_jit_context *ctxt);
+gcc_jit_context_get_type (gcc_jit_context *ctxt,
+			  enum gcc_jit_types type_);
 
 /* Constructing new types. */
 
@@ -379,6 +416,18 @@ gcc_jit_context_zero (gcc_jit_context *ctxt,
 extern gcc_jit_rvalue *
 gcc_jit_context_one (gcc_jit_context *ctxt,
 		     gcc_jit_type *type);
+
+/* Floating-point constants.  */
+extern gcc_jit_rvalue *
+gcc_jit_context_new_rvalue_from_double (gcc_jit_context *ctxt,
+					gcc_jit_type *type,
+					double value);
+
+/* Pointers.  */
+extern gcc_jit_rvalue *
+gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
+				     gcc_jit_type *type,
+				     void *value);
 
 /* String literals. */
 extern gcc_jit_rvalue *

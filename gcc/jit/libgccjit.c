@@ -97,38 +97,11 @@ gcc_jit_context_new_location (gcc_jit_context *ctxt,
 }
 
 gcc_jit_type *
-gcc_jit_context_get_void_type (gcc_jit_context *ctxt)
+gcc_jit_context_get_type (gcc_jit_context *ctxt,
+			  enum gcc_jit_types type)
 {
   ASSERT_WITHIN_CALLBACK (ctxt);
-  return (gcc_jit_type *)ctxt->get_void_type ();
-}
-
-gcc_jit_type *
-gcc_jit_context_get_char_type (gcc_jit_context *ctxt)
-{
-  ASSERT_WITHIN_CALLBACK (ctxt);
-  return (gcc_jit_type *)ctxt->get_char_type ();
-}
-
-gcc_jit_type *
-gcc_jit_context_get_int_type (gcc_jit_context *ctxt)
-{
-  ASSERT_WITHIN_CALLBACK (ctxt);
-  return (gcc_jit_type *)ctxt->get_int_type ();
-}
-
-gcc_jit_type *
-gcc_jit_context_get_float_type (gcc_jit_context *ctxt)
-{
-  ASSERT_WITHIN_CALLBACK (ctxt);
-  return (gcc_jit_type *)ctxt->get_float_type ();
-}
-
-gcc_jit_type *
-gcc_jit_context_get_double_type (gcc_jit_context *ctxt)
-{
-  ASSERT_WITHIN_CALLBACK (ctxt);
-  return (gcc_jit_type *)ctxt->get_double_type ();
+  return (gcc_jit_type *)ctxt->get_type (type);
 }
 
 gcc_jit_type *
@@ -251,6 +224,22 @@ gcc_jit_context_one (gcc_jit_context *ctxt,
 {
   ASSERT_WITHIN_CALLBACK (ctxt);
   return gcc_jit_context_new_rvalue_from_int (ctxt, type, 1);
+}
+
+gcc_jit_rvalue *
+gcc_jit_context_new_rvalue_from_double (gcc_jit_context *ctxt,
+					gcc_jit_type *type,
+					double value)
+{
+  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_double (type, value);
+}
+
+gcc_jit_rvalue *
+gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
+				     gcc_jit_type *type,
+				     void *value)
+{
+  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_ptr (type, value);
 }
 
 gcc_jit_rvalue *

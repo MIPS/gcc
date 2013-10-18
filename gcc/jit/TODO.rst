@@ -44,17 +44,6 @@ Initial Release
 
   e.g. (void*) to (struct foo*)
 
-* access to more primitive types::
-
-    enum gcc_jit_types {
-       GCC_JIT_TYPE_SIGNED_INT,
-       // etc
-    };
-
-    extern gcc_jit_type *
-    gcc_jit_context_get_type (gcc_jit_context *,
-                              enum gcc_jit_types type);
-
 * support more arithmetic ops and comparison modes
 
 * access to a function by address::

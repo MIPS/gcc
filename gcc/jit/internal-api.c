@@ -67,39 +67,80 @@ set_code_factory (gcc_jit_code_callback cb,
   m_user_data = user_data;
 }
 
-gcc::jit::type *
-gcc::jit::context::
-get_void_type ()
+static tree
+get_tree_node_for_type (enum gcc_jit_types type_)
 {
-  return new type (void_type_node);
+  switch (type_)
+    {
+    case GCC_JIT_TYPE_VOID:
+      return void_type_node;
+
+    case GCC_JIT_TYPE_VOID_PTR:
+      return ptr_type_node;
+
+    case GCC_JIT_TYPE_CHAR:
+      return char_type_node;
+    case GCC_JIT_TYPE_SIGNED_CHAR:
+      return signed_char_type_node;
+    case GCC_JIT_TYPE_UNSIGNED_CHAR:
+      return unsigned_char_type_node;
+
+    case GCC_JIT_TYPE_SHORT:
+      return short_integer_type_node;
+    case GCC_JIT_TYPE_UNSIGNED_SHORT:
+      return short_unsigned_type_node;
+
+    case GCC_JIT_TYPE_CONST_CHAR_PTR:
+      {
+	tree const_char = build_qualified_type (char_type_node,
+						TYPE_QUAL_CONST);
+	return build_pointer_type (const_char);
+      }
+
+    case GCC_JIT_TYPE_INT:
+      return integer_type_node;
+    case GCC_JIT_TYPE_UNSIGNED_INT:
+      return unsigned_type_node;
+
+    case GCC_JIT_TYPE_LONG:
+      return long_integer_type_node;
+    case GCC_JIT_TYPE_UNSIGNED_LONG:
+      return long_unsigned_type_node;
+
+    case GCC_JIT_TYPE_LONG_LONG:
+      return long_long_integer_type_node;
+    case GCC_JIT_TYPE_UNSIGNED_LONG_LONG:
+      return long_long_unsigned_type_node;
+
+    case GCC_JIT_TYPE_FLOAT:
+      return float_type_node;
+    case GCC_JIT_TYPE_DOUBLE:
+      return double_type_node;
+    case GCC_JIT_TYPE_LONG_DOUBLE:
+      return long_double_type_node;
+
+    case GCC_JIT_TYPE_SIZE_T:
+      return size_type_node;
+
+    case GCC_JIT_TYPE_FILE_PTR:
+      return fileptr_type_node;
+    }
+
+  return NULL;
 }
 
 gcc::jit::type *
 gcc::jit::context::
-get_char_type ()
+get_type (enum gcc_jit_types type_)
 {
-  return new type (char_type_node);
-}
+  tree type_node = get_tree_node_for_type (type_);
+  if (NULL == type_node)
+    {
+      add_error ("unrecognized (enum gcc_jit_types) value");
+      return NULL;
+    }
 
-gcc::jit::type *
-gcc::jit::context::
-get_int_type ()
-{
-  return new type (intSI_type_node);
-}
-
-gcc::jit::type *
-gcc::jit::context::
-get_float_type ()
-{
-  return new type (float_type_node);
-}
-
-gcc::jit::type *
-gcc::jit::context::
-get_double_type ()
-{
-  return new type (double_type_node);
+  return new type (type_node);
 }
 
 gcc::jit::field *
@@ -279,6 +320,45 @@ new_rvalue_from_int (type *type,
       tree inner = build_real (inner_type, real_value);
       return new rvalue (inner);
     }
+}
+
+gcc::jit::rvalue *
+gcc::jit::context::
+new_rvalue_from_double (type *type,
+			double value)
+{
+  // FIXME: type-checking, or coercion?
+  tree inner_type = type->as_tree ();
+
+  /* We have a "double", we want a REAL_VALUE_TYPE.
+
+     real.c:real_from_target appears to require the representation to be
+     split into 32-bit values, and then sent as an pair of host long
+     ints.  */
+  REAL_VALUE_TYPE real_value;
+  union
+  {
+    double as_double;
+    uint32_t as_uint32s[2];
+  } u;
+  u.as_double = value;
+  long int as_long_ints[2];
+  as_long_ints[0] = u.as_uint32s[0];
+  as_long_ints[1] = u.as_uint32s[1];
+  real_from_target (&real_value, as_long_ints, DFmode);
+  tree inner = build_real (inner_type, real_value);
+  return new rvalue (inner);
+}
+
+gcc::jit::rvalue *
+gcc::jit::context::
+new_rvalue_from_ptr (type *type,
+		     void *value)
+{
+  tree inner_type = type->as_tree ();
+  /* FIXME: how to ensure we have a wide enough type?  */
+  tree inner = build_int_cstu (inner_type, (unsigned HOST_WIDE_INT)value);
+  return new rvalue (inner);
 }
 
 gcc::jit::rvalue *
