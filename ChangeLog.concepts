@@ -1,4 +1,9 @@
 2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+        * gcc/cp/constraint.cc (finish_concept_name): Allow functions with
+        the same name as concepts to resolve as call expressions in the
+        usual way.
+
+2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/constraint.cc (conjoin_requiremens): New.
 	(resolve_constraint_check): Filter non-concept candidates before
 	coercing arguments. Perform deduction in a template-decl processing

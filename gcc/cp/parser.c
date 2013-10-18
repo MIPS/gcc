@@ -14876,6 +14876,7 @@ cp_parser_nonclass_name (cp_parser* parser)
   // introduction (if followed by '{').
   if (TREE_CODE (type_decl) == OVERLOAD)
   {
+    // Determine whether the overload refers to a concept.
     if (tree decl = finish_concept_name (type_decl))
       return decl;
   }

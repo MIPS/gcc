@@ -883,9 +883,11 @@ finish_concept_name (tree decl)
   if (template_parm_scope_p ())
     return describe_template_parm (proto, fn);
 
-  // For the time being don't allow shorthand constraints in
-  // non-template parameter scopes.
-  sorry ("constrained declaration");
+  // NOTE: We may need to be smarter about this since there are lots of
+  // places outside of a template parameter scope we'll want to use
+  // concept names (function arguments, function return types, result
+  // constraints, variable declarations, etc.). 
+
   return NULL_TREE;
 }
 
