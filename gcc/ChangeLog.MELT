@@ -2,6 +2,15 @@
 
 2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{should split warmelt-macro.melt into two files and put
+	each_component_in_list in the second part...}}
+
+	* melt/warmelt-macro.melt (expand_tuple_slice_as_tuple): More debug.
+	(each_component_in_list): More debug, but does not work because
+	expand_tuple_slice_as_tuple is not really seen...
+
+2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{each_component_in_list don't work as it should.}}
 	* testsuite/melt/teachcomplist.melt: New file.
 

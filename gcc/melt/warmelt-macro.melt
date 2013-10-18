@@ -1635,6 +1635,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 (defun expand_tuple_slice_as_tuple (tuple :long startix endix :value env mexpander modctx)
   :doc #{$EXPAND_TUPLE_SLICE_AS_TUPLE macro-expands in given $TUPLE the slice from $STARTIX to $ENDIX}#
+  (debug "expand_tuple_slice_as_tuple tuple=" tuple "\n ... startix#" startix " endix#" endix)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check mexpander" (is_closure mexpander) mexpander)
   (assert_msg "check modctx" (is_object modctx) modctx)
@@ -1644,45 +1645,46 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	     )
 	(if (<i startix 0) (setq startix (+i startix tuplen)))
 	(if (<i endix 0) (setq endix (+i endix tuplen)))
+	(debug "expand_tuple_slice_as_tuple updated startix=" startix " endix=" endix " tuplen=" tuplen)
 	(if (>=i startix 0)
 	    (if (<i endix tuplen)
 		(when (<=i startix endix)
-		    (foreach_long_upto
-		     (startix endix)
-		     (:long ix)
-		     (let ( (curcomp (multiple_nth tuple ix))
-			    )
-		       (multicall 
-			(curexp xtraexp)
-			(mexpander curcomp env mexpander modctx)
-			(list_append expreslist curexp)
-			(cond 
-			 ((is_multiple xtraexp)
-			  (foreach_in_multiple
-			   (xtraexp)
-			   (curxtra :long xix)
-			   (list_append expreslist curxtra)
-			   ))
-			 ((is_list xtraexp)
-			  (foreach_pair_component_in_list
-			   (xtraexp)
-			   (xtrapair curxtra)
-			   (list_append expreslist curxtra)
-			   ))
-			 (xtraexp
-			  (list_append expreslist xtraexp))
-			 )
-			)
+		  (foreach_long_upto
+		   (startix endix)
+		   (:long ix)
+		   (let ( (curcomp (multiple_nth tuple ix))
+			  )
+		     (debug "expand_tuple_slice_as_tuple ix#" ix " curcomp=" curcomp)
+		     (multicall 
+		      (curexp xtraexp)
+		      (mexpander curcomp env mexpander modctx)
+		      (debug "expand_tuple_slice_as_tuple  ix#" ix " curexp=" curexp " xtraexp=" xtraexp)
+		      (list_append expreslist curexp)
+		      (cond 
+		       ((is_multiple xtraexp)
+			(foreach_in_multiple
+			 (xtraexp)
+			 (curxtra :long xix)
+			 (list_append expreslist curxtra)
+			 ))
+		       ((is_list xtraexp)
+			(foreach_pair_component_in_list
+			 (xtraexp)
+			 (xtrapair curxtra)
+			 (list_append expreslist curxtra)
+			 ))
+		       (xtraexp
+			(list_append expreslist xtraexp))
 		       )
+		      )
 		     )
-		    (return (list_to_multiple expreslist discr_multiple))
-		  )
-	      )
-	  )
-	)
-    )
-  )	       
-  
+		   )
+		  (let ( (restup (list_to_multiple expreslist discr_multiple))
+			 )
+		    (debug "expand_tuple_slice_as_tuple result=" restup)
+		    (return restup)
+		    )))))))
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (defun register_generator_device (defin repr modctx)
   :doc #{Function to register some C generating device in the module
@@ -5782,28 +5784,47 @@ Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
   @code{(foreach_pair_component_in_list (@var{expr}) 
 					(@var{curpairvar} @var{compvar}) @var{body...})} 
   where @var{curpairvar} is fresh.}#
-  (debug "each_component_in_list macro sexp=" sexp)
+  (debug "each_component_in_list macro sexp=" sexp "\n env=" debug_less env)
   (let (
 	(sloc (get_field :loca_location sexp))
 	(sexcont (get_field :sexp_contents sexp))
 	)
-    (debug "each_component_in_list sloc=" sloc " sexcont=" sexcont)
+    (debug "each_component_in_list sloc=" debug_less sloc " sexcont=" sexcont)
     (assert_msg "check sexcont" (is_list sexcont) sexcont)
     (let ( 
 	  (tcont (list_to_multiple sexcont discr_multiple))
 	  (:long tcontlen (multiple_length tcont))
 	  )
+      (debug "each_component_in_list tcont=" tcont "; tcontlen=" tcontlen)
       (assert_msg "check tcont" (is_multiple tcont) tcont sexcont)
       (assert_msg "check tcontlen" (>i tcontlen 0) tcontlen tcont)
       (when (<i tcontlen 4)
 	(error_plain sloc "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> too short")
 	(return () ()))
       (let ( 
-	    (sexplist (multiple_nth tcont 1))
-	    (svarcomp (multiple_nth tcont 2))
-	    (mlistexp (mexpander sexplist env mexpander modctx))
-	    (mvarcomp (mexpander svarcomp env mexpander modctx))
-	    (bodyexp (expand_tuple_slice_as_tuple tcont 3 -1 env mexpander modctx))
+	    (sexplist (let ( (se (multiple_nth tcont 1)) 
+			     )
+			(debug "each_component_in_list sexplist=" se)
+			se))
+	    (svarcomp  (let ( (sv (multiple_nth tcont 2))
+			      )
+			 (debug "each_component_in_list svarcomp=" sv)
+			 sv))
+	    (mlistexp (let ( (me (mexpander sexplist env mexpander modctx))
+			     )
+			(debug "each_component_in_list mlistexp=" me)
+			me))
+	    (mvarcomp  (let ( (mv (mexpander svarcomp env mexpander modctx))
+			      )
+			 (debug "each_component_in_list mvarcomp=" mv)
+			 mv))
+	    (bodyexp (progn 
+		       (debug "each_component_in_list tcont=" tcont
+			      "\n.. before expand_tuple_slice_as_tuple=" expand_tuple_slice_as_tuple)
+		       (let ( (be (expand_tuple_slice_as_tuple tcont 3 -1 env mexpander modctx))
+			      )
+		       (debug "each_component_in_list bodyexp=" be)
+		       be)))
 	    )
 	(when (is_not_a mvarcomp class_symbol)
 	  (error_plain sloc "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> bad second argument for component variable")
@@ -5819,8 +5840,8 @@ Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
 	   (debug "each_component_in_list resexp=" resexp)
 	   (let ( (mexp (mexpander resexp env mexpander modctx))
 		  )
-	     (debug "each_component_in_list final mexp=" mexp)
 	     (put_fields mexp :loca_location sloc)
+	     (debug "each_component_in_list final mexp=" mexp)
 	     (return mexp)
 	     )
 	   ))))))
@@ -9101,4 +9122,4 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  )			  ;end of values for source representations
 
 
-;; eof
+;; eof warmelt-macro.melt
