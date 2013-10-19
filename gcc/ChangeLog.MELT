@@ -1,6 +1,22 @@
 
 
-2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Unstable}}
+	* melt-build-script.def: New entry for warmelt-moremacro.melt.
+	* melt-build-script.sh: Regenerate.
+
+	* melt/warmelt-macro.melt (each_component_in_list): Remove
+	function, since moved into warmelt-moremacro.melt file...
+
+	* melt/warmelt-moremacro.melt: New file.
+	(each_component_in_list): Move function here.
+	* melt/generated/warmelt-moremacro+meltbuild.mk: New file.
+	* melt/generated/warmelt-moremacro+meltdesc.c: New file.
+	* melt/generated/warmelt-moremacro+melttime.h: New file.
+	* melt/generated/warmelt-moremacro.cc: New file.
+
+2013-10-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{should split warmelt-macro.melt into two files and put
 	each_component_in_list in the second part...}}
@@ -9,7 +25,7 @@
 	(each_component_in_list): More debug, but does not work because
 	expand_tuple_slice_as_tuple is not really seen...
 
-2013-10-17  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-10-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{each_component_in_list don't work as it should.}}
 	* testsuite/melt/teachcomplist.melt: New file.

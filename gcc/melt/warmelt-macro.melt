@@ -5777,76 +5777,6 @@ Syntax is @code{(WITH_CLONED_SYMB (@var{<symb>...}) @var{<body>...})} same as
 @code{(LET ( (@var{<symb>} (CLONE_SYMBOL (QUOTE @var{<symb>}))) @var{...})  @var{<body>...})} etc...}#)
 
 
-
-(defmacro each_component_in_list (sexp env mexpander modctx)
-  :doc #{Macro $EACH_COMPONENT_IN_LIST to be invoked with a
-  list-giving @var{expr} and a local variable @var{compvar} expands into
-  @code{(foreach_pair_component_in_list (@var{expr}) 
-					(@var{curpairvar} @var{compvar}) @var{body...})} 
-  where @var{curpairvar} is fresh.}#
-  (debug "each_component_in_list macro sexp=" sexp "\n env=" debug_less env)
-  (let (
-	(sloc (get_field :loca_location sexp))
-	(sexcont (get_field :sexp_contents sexp))
-	)
-    (debug "each_component_in_list sloc=" debug_less sloc " sexcont=" sexcont)
-    (assert_msg "check sexcont" (is_list sexcont) sexcont)
-    (let ( 
-	  (tcont (list_to_multiple sexcont discr_multiple))
-	  (:long tcontlen (multiple_length tcont))
-	  )
-      (debug "each_component_in_list tcont=" tcont "; tcontlen=" tcontlen)
-      (assert_msg "check tcont" (is_multiple tcont) tcont sexcont)
-      (assert_msg "check tcontlen" (>i tcontlen 0) tcontlen tcont)
-      (when (<i tcontlen 4)
-	(error_plain sloc "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> too short")
-	(return () ()))
-      (let ( 
-	    (sexplist (let ( (se (multiple_nth tcont 1)) 
-			     )
-			(debug "each_component_in_list sexplist=" se)
-			se))
-	    (svarcomp  (let ( (sv (multiple_nth tcont 2))
-			      )
-			 (debug "each_component_in_list svarcomp=" sv)
-			 sv))
-	    (mlistexp (let ( (me (mexpander sexplist env mexpander modctx))
-			     )
-			(debug "each_component_in_list mlistexp=" me)
-			me))
-	    (mvarcomp  (let ( (mv (mexpander svarcomp env mexpander modctx))
-			      )
-			 (debug "each_component_in_list mvarcomp=" mv)
-			 mv))
-	    (bodyexp (progn 
-		       (debug "each_component_in_list tcont=" tcont
-			      "\n.. before expand_tuple_slice_as_tuple=" expand_tuple_slice_as_tuple)
-		       (let ( (be (expand_tuple_slice_as_tuple tcont 3 -1 env mexpander modctx))
-			      )
-		       (debug "each_component_in_list bodyexp=" be)
-		       be)))
-	    )
-	(when (is_not_a mvarcomp class_symbol)
-	  (error_plain sloc "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> bad second argument for component variable")
-	  (return () ()))
-	(with_cloned_symb 
-	 (curpairinlistsymb)
-	 (let ( (resexp
-		 `(foreach_pair_component_in_list 
-		   (,mlistexp)
-		   (,curpairinlistsymb ,mvarcomp)
-		   ,bodyexp))
-		)
-	   (debug "each_component_in_list resexp=" resexp)
-	   (let ( (mexp (mexpander resexp env mexpander modctx))
-		  )
-	     (put_fields mexp :loca_location sloc)
-	     (debug "each_component_in_list final mexp=" mexp)
-	     (return mexp)
-	     )
-	   ))))))
-
-(export_macro each_component_in_list)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;;;;;;;;;;;;;;
@@ -5973,7 +5903,7 @@ MELT module.  Syntax is (CPPIF <symbol> <then> [<else>]).}#)
 
 	)
      (:else 
-      (error_plain sloc "GCC-IF bad condition, should be a string or a list of strings")
+      (error_plain sloc "GCCIF bad condition, should be a string or a list of strings")
       (return)
      ))))
 
@@ -5982,7 +5912,7 @@ MELT module.  Syntax is (CPPIF <symbol> <then> [<else>]).}#)
  :doc #{The $GCCIF macro expands the rest of the expression if the
 version string of the GCC translating this MELT expression matches
 the condition. Syntax is ($GCCIF condition expr...), where the
-condition is a string such as "4.5." or a list of strings.}#)
+condition is a string such as "4.7." or a list of strings.}#)
 
 
 ;;;;; the cond expanser

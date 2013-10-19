@@ -52,6 +52,11 @@ melt_translator_file = {
 };
 
 melt_translator_file = {
+  base = "warmelt-moremacro";
+  varsuf = MOREMACRO;
+};
+
+melt_translator_file = {
   base = "warmelt-normal";
   // warmelt-normal.melt contains (load "warmelt-predef.melt")
   includeload = "warmelt-predef.melt";
