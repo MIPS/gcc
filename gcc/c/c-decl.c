@@ -5107,6 +5107,13 @@ grokdeclarator (const struct c_declarator *declarator,
 		| (atomicp ? TYPE_QUAL_ATOMIC : 0)
 		| ENCODE_QUAL_ADDR_SPACE (address_space));
 
+  /* Applying the _Atomic qualifier to an array type (through the use
+     of typedefs or typeof) must be detected here.  If the qualifier
+     is introduced later, any appearance of applying it to an array is
+     actually applying it to an element of that array.  */
+  if (atomicp && TREE_CODE (type) == ARRAY_TYPE)
+    error_at (loc, "%<_Atomic%>-qualified array type");
+
   /* Warn about storage classes that are invalid for certain
      kinds of declarations (parameters, typenames, etc.).  */
 
@@ -5679,13 +5686,6 @@ grokdeclarator (const struct c_declarator *declarator,
 			  "%<_Atomic%>-qualified function type");
 		type_quals &= ~TYPE_QUAL_ATOMIC;
 	      }
-	    else if ((type_quals & TYPE_QUAL_ATOMIC)
-		&& TREE_CODE (type) == ARRAY_TYPE)
-	      {
-		error_at (loc,
-			  "%<_Atomic%>-qualified array type");
-		type_quals &= ~TYPE_QUAL_ATOMIC;
-	      }
 	    else if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
 		     && type_quals)
 	      pedwarn (loc, OPT_Wpedantic,
@@ -5871,13 +5871,6 @@ grokdeclarator (const struct c_declarator *declarator,
 		    "%<_Atomic%>-qualified function type");
 	  type_quals &= ~TYPE_QUAL_ATOMIC;
 	}
-      else if ((type_quals & TYPE_QUAL_ATOMIC)
-	       && TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  error_at (loc,
-		    "%<_Atomic%>-qualified array type");
-	  type_quals &= ~TYPE_QUAL_ATOMIC;
-	}
       else if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
 	       && type_quals)
 	pedwarn (loc, OPT_Wpedantic,
@@ -5931,13 +5924,6 @@ grokdeclarator (const struct c_declarator *declarator,
 		    "%<_Atomic%>-qualified function type");
 	  type_quals &= ~TYPE_QUAL_ATOMIC;
 	}
-      else if ((type_quals & TYPE_QUAL_ATOMIC)
-	       && TREE_CODE (type) == ARRAY_TYPE)
-	{
-	  error_at (loc,
-		    "%<_Atomic%>-qualified array type");
-	  type_quals &= ~TYPE_QUAL_ATOMIC;
-	}
       else if (pedantic && TREE_CODE (type) == FUNCTION_TYPE
 	       && type_quals)
 	pedwarn (loc, OPT_Wpedantic,
@@ -5987,12 +5973,6 @@ grokdeclarator (const struct c_declarator *declarator,
 
 	if (TREE_CODE (type) == ARRAY_TYPE)
 	  {
-	    if (type_quals & TYPE_QUAL_ATOMIC)
-	      {
-		error_at (loc,
-			  "%<_Atomic%>-qualified array type");
-		type_quals &= ~TYPE_QUAL_ATOMIC;
-	      }
 	    /* Transfer const-ness of array into that of type pointed to.  */
 	    type = TREE_TYPE (type);
 	    if (type_quals)
@@ -6071,12 +6051,6 @@ grokdeclarator (const struct c_declarator *declarator,
 	    else
 	      error_at (loc, "unnamed field has incomplete type");
 	    type = error_mark_node;
-	  }
-	if (TREE_CODE (type) == ARRAY_TYPE && (type_quals & TYPE_QUAL_ATOMIC))
-	  {
-	    error_at (loc,
-		      "%<_Atomic%>-qualified function type");
-	    type_quals &= ~TYPE_QUAL_ATOMIC;
 	  }
 	type = c_build_qualified_type (type, type_quals);
 	decl = build_decl (declarator->id_loc,
@@ -6193,12 +6167,6 @@ grokdeclarator (const struct c_declarator *declarator,
 	/* An uninitialized decl with `extern' is a reference.  */
 	int extern_ref = !initialized && storage_class == csc_extern;
 
-	if (TREE_CODE (type) == ARRAY_TYPE && type_quals & TYPE_QUAL_ATOMIC)
-	  {
-	    error_at (loc,
-		      "%<_Atomic%>-qualified array type");
-	    type_quals &= ~TYPE_QUAL_ATOMIC;
-	  }
 	type = c_build_qualified_type (type, type_quals);
 
 	/* C99 6.2.2p7: It is invalid (compile-time undefined

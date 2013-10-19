@@ -2185,7 +2185,9 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  /* C parser handling of Objective-C constructs needs
 	     checking for correct lvalue-to-rvalue conversions, and
 	     the code in build_modify_expr handling various
-	     Objective-C cases also needs updating.  */
+	     Objective-C cases, and that in build_unary_op handling
+	     Objective-C cases for increment / decrement, also needs
+	     updating.  */
 	  if (c_dialect_objc ())
 	    sorry ("%<_Atomic%> in Objective-C");
 	  /* C parser handling of OpenMP constructs needs checking for

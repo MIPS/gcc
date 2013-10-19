@@ -1,3 +1,9 @@
+2013-10-19  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c90-atomic-1.c, gcc.dg/c99-atomic-1.c,
+	gcc.dg/c11-atomic-1.c, gcc.dg/c11-atomic-2.c,
+	gcc.dg/c11-atomic-3.c: New tests.
+
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
 	* gcc.dg/atomic-exchange-{1-5}.c: Change atomic var to use
