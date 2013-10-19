@@ -107,6 +107,9 @@ for df in $meltbuild_sourcedir/warmelt*+meltdesc.c ; do
     fi
     ## copy the generated sources first
     for f in $meltbuild_sourcedir/$bs.cc $meltbuild_sourcedir/$bs+[0-9][0-9].cc ; do
+	if [ ! -f "$f" ]; then
+	    continue
+	fi
 	bf=$(basename $f)
 	$melt_unifdef -DMELTGCC_NOLINENUMBERING < $f > "$bf-unif-$melt_tempsuffix"
 	if [ ! -s  "$bf-unif-$melt_tempsuffix" ]; then

@@ -2,6 +2,11 @@
 
 2013-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-upgrade.sh: Skip *+[0-9][0-9].c files if they dont exist,
+	e.g warmelt-moremacro+[0-9][0-9].c file...
+
+2013-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{MELT-SFT-4 fixed}}
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.0-rc2quasi.
 
