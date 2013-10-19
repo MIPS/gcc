@@ -128,9 +128,9 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 #define ASSIGN(FIELDNAME, EXPR) \
   gcc_jit_function_add_assignment (		\
     test_fn, NULL,				\
-    gcc_jit_context_new_field_access (		\
-      ctxt, NULL,				\
+    gcc_jit_rvalue_dereference_field (		\
       gcc_jit_param_as_rvalue (param_z),	\
+      NULL,					\
       (FIELDNAME)),				\
     (EXPR));
 

@@ -97,6 +97,12 @@ public:
   new_string_literal (const char *value);
 
   rvalue *
+  new_unary_op (location *loc,
+		enum gcc_jit_unary_op op,
+		type *result_type,
+		rvalue *a);
+
+  rvalue *
   new_binary_op (location *loc,
 		 enum gcc_jit_binary_op op,
 		 type *result_type,
@@ -116,11 +122,6 @@ public:
   new_array_lookup (location *loc,
 		    rvalue *ptr,
 		    rvalue *index);
-
-  lvalue *
-  new_field_access (location *loc,
-		    rvalue *ptr_or_struct,
-		    const char *fieldname);
 
   void
   set_str_option (enum gcc_jit_str_option opt,
@@ -159,6 +160,17 @@ public:
 
   void
   set_tree_location (tree t, location *loc);
+
+  tree
+  new_field_access (location *loc,
+		    tree datum,
+		    const char *fieldname);
+
+  tree
+  new_dereference (tree ptr, location *loc);
+
+  tree
+  as_truth_value (tree expr, location *loc);
 
 private:
   source_file *
@@ -365,8 +377,9 @@ public: // for now
 class rvalue : public wrapper
 {
 public:
-  rvalue (tree inner)
-    : m_inner(inner)
+  rvalue (context *ctxt, tree inner)
+    : m_ctxt (ctxt),
+      m_inner (inner)
   {}
 
   rvalue *
@@ -374,29 +387,48 @@ public:
 
   tree as_tree () const { return m_inner; }
 
+  context *get_context () const { return m_ctxt; }
+
   type *
   get_type () { return new type (TREE_TYPE (m_inner)); }
 
+  rvalue *
+  access_field (location *loc,
+		const char *fieldname);
+
+  lvalue *
+  dereference_field (location *loc,
+		     const char *fieldname);
+
+  lvalue *
+  dereference (location *loc);
+
 private:
+  context *m_ctxt;
   tree m_inner;
 };
 
 class lvalue : public rvalue
 {
 public:
-  lvalue (tree inner)
-    : rvalue(inner)
+  lvalue (context *ctxt, tree inner)
+    : rvalue(ctxt, inner)
   {}
 
   lvalue *
   as_lvalue () { return this; }
+
+  lvalue *
+  access_field (location *loc,
+		const char *fieldname);
+
 };
 
 class param : public lvalue
 {
 public:
-  param (tree inner)
-    : lvalue(inner)
+  param (context *ctxt, tree inner)
+    : lvalue(ctxt, inner)
   {}
 };
 

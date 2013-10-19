@@ -210,7 +210,7 @@ new_param (location *loc,
   if (loc)
     set_tree_location (inner, loc);
 
-  return new param (inner);
+  return new param (this, inner);
 }
 
 gcc::jit::function *
@@ -298,7 +298,7 @@ new_global (location *loc,
   if (loc)
     set_tree_location (inner, loc);
 
-  return new lvalue (inner);
+  return new lvalue (this, inner);
 }
 
 gcc::jit::rvalue *
@@ -311,14 +311,14 @@ new_rvalue_from_int (type *type,
   if (INTEGRAL_TYPE_P (inner_type))
     {
       tree inner = build_int_cst (inner_type, value);
-      return new rvalue (inner);
+      return new rvalue (this, inner);
     }
   else
     {
       REAL_VALUE_TYPE real_value;
       real_from_integer (&real_value, VOIDmode, value, 0, 0);
       tree inner = build_real (inner_type, real_value);
-      return new rvalue (inner);
+      return new rvalue (this, inner);
     }
 }
 
@@ -347,7 +347,7 @@ new_rvalue_from_double (type *type,
   as_long_ints[1] = u.as_uint32s[1];
   real_from_target (&real_value, as_long_ints, DFmode);
   tree inner = build_real (inner_type, real_value);
-  return new rvalue (inner);
+  return new rvalue (this, inner);
 }
 
 gcc::jit::rvalue *
@@ -358,7 +358,7 @@ new_rvalue_from_ptr (type *type,
   tree inner_type = type->as_tree ();
   /* FIXME: how to ensure we have a wide enough type?  */
   tree inner = build_int_cstu (inner_type, (unsigned HOST_WIDE_INT)value);
-  return new rvalue (inner);
+  return new rvalue (this, inner);
 }
 
 gcc::jit::rvalue *
@@ -374,7 +374,72 @@ new_string_literal (const char *value)
      by taking address of start of string.  */
   tree t_addr = build1 (ADDR_EXPR, m_const_char_ptr, t_str);
 
-  return new rvalue (t_addr);
+  return new rvalue (this, t_addr);
+}
+
+tree
+gcc::jit::context::
+as_truth_value (tree expr, location *loc)
+{
+  /* Compare to c-typeck.c:c_objc_common_truthvalue_conversion */
+  tree typed_zero = fold_build1 (CONVERT_EXPR,
+				 TREE_TYPE (expr),
+				 integer_zero_node);
+  if (loc)
+    set_tree_location (typed_zero, loc);
+
+  expr = build2 (NE_EXPR, integer_type_node, expr, typed_zero);
+  if (loc)
+    set_tree_location (expr, loc);
+
+  return expr;
+}
+
+gcc::jit::rvalue *
+gcc::jit::context::
+new_unary_op (location *loc,
+	      enum gcc_jit_unary_op op,
+	      type *result_type,
+	      rvalue *a)
+{
+  // FIXME: type-checking, or coercion?
+  enum tree_code inner_op;
+
+  gcc_assert (result_type);
+  gcc_assert (a);
+
+  tree node = a->as_tree ();
+  tree inner_result = NULL;
+
+  switch (op)
+    {
+    default:
+      add_error ("unrecognized (enum gcc_jit_unary_op) value: %i", op);
+      return NULL;
+
+    case GCC_JIT_UNARY_OP_MINUS:
+      inner_op = NEGATE_EXPR;
+      break;
+
+    case GCC_JIT_UNARY_OP_BITWISE_NEGATE:
+      inner_op = BIT_NOT_EXPR;
+      break;
+
+    case GCC_JIT_UNARY_OP_LOGICAL_NEGATE:
+      node = as_truth_value (node, loc);
+      inner_result = invert_truthvalue (node);
+      if (loc)
+	set_tree_location (inner_result, loc);
+      return new rvalue (this, inner_result);
+    }
+
+  inner_result = build1 (inner_op,
+			 result_type->as_tree (),
+			 node);
+  if (loc)
+    set_tree_location (inner_result, loc);
+
+  return new rvalue (this, inner_result);
 }
 
 gcc::jit::rvalue *
@@ -390,6 +455,9 @@ new_binary_op (location *loc,
   gcc_assert (result_type);
   gcc_assert (a);
   gcc_assert (b);
+
+  tree node_a = a->as_tree ();
+  tree node_b = b->as_tree ();
 
   switch (op)
     {
@@ -408,16 +476,49 @@ new_binary_op (location *loc,
     case GCC_JIT_BINARY_OP_MULT:
       inner_op = MULT_EXPR;
       break;
+
+    case GCC_JIT_BINARY_OP_DIVIDE:
+      inner_op = TRUNC_DIV_EXPR;
+      break;
+      /* do we want separate floor divide vs frac divide? */
+
+    case GCC_JIT_BINARY_OP_MODULO:
+      inner_op = TRUNC_MOD_EXPR;
+      break;
+
+    case GCC_JIT_BINARY_OP_BITWISE_AND:
+      inner_op = BIT_AND_EXPR;
+      break;
+
+    case GCC_JIT_BINARY_OP_BITWISE_XOR:
+      inner_op = BIT_XOR_EXPR;
+      break;
+
+    case GCC_JIT_BINARY_OP_BITWISE_OR:
+      inner_op = BIT_IOR_EXPR;
+      break;
+
+    case GCC_JIT_BINARY_OP_LOGICAL_AND:
+      node_a = as_truth_value (node_a, loc);
+      node_b = as_truth_value (node_b, loc);
+      inner_op = TRUTH_ANDIF_EXPR;
+      break;
+
+    case GCC_JIT_BINARY_OP_LOGICAL_OR:
+      node_a = as_truth_value (node_a, loc);
+      node_b = as_truth_value (node_b, loc);
+      inner_op = TRUTH_ORIF_EXPR;
+      break;
     }
 
   tree inner_expr = build2 (inner_op,
 			    result_type->as_tree (),
-			    a->as_tree (),
-			    b->as_tree ());
+			    node_a,
+			    node_b);
   if (loc)
     set_tree_location (inner_expr, loc);
 
-  return new rvalue (inner_expr);
+  return new rvalue (this, inner_expr);
 }
 
 gcc::jit::rvalue *
@@ -438,8 +539,20 @@ new_comparison (location *loc,
       add_error ("unrecognized (enum gcc_jit_comparison) value: %i", op);
       return NULL;
 
+    case GCC_JIT_COMPARISON_EQ:
+      inner_op = EQ_EXPR;
+      break;
+    case GCC_JIT_COMPARISON_NE:
+      inner_op = NE_EXPR;
+      break;
     case GCC_JIT_COMPARISON_LT:
       inner_op = LT_EXPR;
+      break;
+    case GCC_JIT_COMPARISON_LE:
+      inner_op = LE_EXPR;
+      break;
+    case GCC_JIT_COMPARISON_GT:
+      inner_op = GT_EXPR;
       break;
     case GCC_JIT_COMPARISON_GE:
       inner_op = GE_EXPR;
@@ -452,7 +565,7 @@ new_comparison (location *loc,
 			    b->as_tree ());
   if (loc)
     set_tree_location (inner_expr, loc);
-  return new rvalue (inner_expr);
+  return new rvalue (this, inner_expr);
 }
 
 gcc::jit::rvalue *
@@ -483,7 +596,8 @@ new_call (location *loc,
   if (loc)
     set_tree_location (fn, loc);
 
-  return new rvalue (build_call_vec (func->get_return_type_as_tree (),
+  return new rvalue (this,
+		     build_call_vec (func->get_return_type_as_tree (),
 				     fn, tree_args));
 
   /* see c-typeck.c: build_function_call
@@ -521,7 +635,7 @@ new_array_lookup (location *loc,
 			      NULL_TREE, NULL_TREE);
       if (loc)
         set_tree_location (t_result, loc);
-      return new rvalue (t_result);
+      return new rvalue (this, t_result);
     }
   else
     {
@@ -542,7 +656,7 @@ new_array_lookup (location *loc,
           set_tree_location (t_indirection, loc);
         }
 
-      return new rvalue (t_indirection);
+      return new rvalue (this, t_indirection);
     }
 }
 
@@ -555,40 +669,92 @@ get_field (tree type, tree component)
   return NULL;
 }
 
-gcc::jit::lvalue *
+tree
 gcc::jit::context::
 new_field_access (location *loc,
-		  rvalue *ptr_or_struct,
+		  tree datum,
 		  const char *fieldname)
 {
-  gcc_assert (ptr_or_struct);
+  gcc_assert (datum);
   gcc_assert (fieldname);
 
   /* Compare with c/ctypeck.c:lookup_field, build_indirect_ref, and
      build_component_ref. */
-  tree datum = ptr_or_struct->as_tree ();
   tree type = TREE_TYPE (datum);
-
-  if (TREE_CODE (type) == POINTER_TYPE)
-    {
-      datum = build1 (INDIRECT_REF, type, datum);
-      if (loc)
-        set_tree_location (datum, loc);
-      type = TREE_TYPE (type);
-    }
+  gcc_assert (TREE_CODE (type) != POINTER_TYPE);
 
   tree component = get_identifier (fieldname);
   tree field = get_field (type, component);
   if (!field)
     {
-      // FIXME: field not found
+      add_error ("field not found: \"%s\"", fieldname);
       return NULL;
     }
   tree ref = build3 (COMPONENT_REF, TREE_TYPE (field), datum,
 		     field, NULL_TREE);
   if (loc)
     set_tree_location (ref, loc);
-  return new lvalue (ref);
+  return ref;
+}
+
+tree
+gcc::jit::context::
+new_dereference (tree ptr,
+		 location *loc)
+{
+  gcc_assert (ptr);
+
+  tree type = TREE_TYPE (TREE_TYPE(ptr));
+  tree datum = build1 (INDIRECT_REF, type, ptr);
+  if (loc)
+    set_tree_location (datum, loc);
+  return datum;
+}
+
+gcc::jit::lvalue *
+gcc::jit::lvalue::
+access_field (location *loc,
+	      const char *fieldname)
+{
+  tree datum = as_tree ();
+  tree ref = get_context ()->new_field_access (loc, datum, fieldname);
+  if (!ref)
+    return NULL;
+  return new lvalue (get_context (), ref);
+}
+
+gcc::jit::rvalue *
+gcc::jit::rvalue::
+access_field (gcc::jit::location *loc,
+	      const char *fieldname)
+{
+  tree datum = as_tree ();
+  tree ref = get_context ()->new_field_access (loc, datum, fieldname);
+  if (!ref)
+    return NULL;
+  return new rvalue (get_context (), ref);
+}
+
+gcc::jit::lvalue *
+gcc::jit::rvalue::
+dereference_field (gcc::jit::location *loc,
+		   const char *fieldname)
+{
+  tree ptr = as_tree ();
+  tree datum = get_context ()->new_dereference (ptr, loc);
+  tree ref = get_context ()->new_field_access (loc, datum, fieldname);
+  if (!ref)
+    return NULL;
+  return new lvalue (get_context (), ref);
+}
+
+gcc::jit::lvalue *
+gcc::jit::rvalue::
+dereference (gcc::jit::location *loc)
+{
+  tree ptr = as_tree ();
+  tree datum = get_context ()->new_dereference (ptr, loc);
+  return new lvalue (get_context (), datum);
 }
 
 void *
@@ -643,7 +809,7 @@ new_local (location *loc,
 			   type->as_tree ());
   if (loc)
     set_tree_location (inner, loc);
-  return new lvalue (inner);
+  return new lvalue (m_ctxt, inner);
 }
 
 gcc::jit::label *

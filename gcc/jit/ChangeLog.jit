@@ -1,5 +1,75 @@
 2013-10-18  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::context::new_param): Add context
+	argument to ctor for rvalue and its subclasses.
+	(gcc::jit::context::new_global): Likewise.
+	(gcc::jit::context::new_rvalue_from_int): Likewise.
+	(gcc::jit::context::new_rvalue_from_double): Likewise.
+	(gcc::jit::context::new_rvalue_from_ptr): Likewise.
+	(gcc::jit::context::new_string_literal): Likewise.
+	(gcc::jit::context::new_call): Likewise.
+	(gcc::jit::context::new_array_lookup): Likewise.
+	(gcc::jit::function::new_local): Likewise.
+	(gcc::jit::context::new_binary_op): Likewise; add new
+	operations.
+	(gcc::jit::context::new_comparison): Likewise; add new
+	comparisons.
+	(gcc::jit::context::as_truth_value): New.
+	(gcc::jit::context::new_unary_op): New.
+	(gcc::jit::context::new_field_access): Convert to a helper
+	method for use by the access_fields methods.
+	(gcc::jit::context::new_dereference): New.
+	(gcc::jit::lvalue::access_field): New.
+	(gcc::jit::rvalue::access_field): New.
+	(gcc::jit::rvalue::dereference_field): New.
+	(gcc::jit::rvalue::dereference): New.
+	* internal-api.h (gcc::jit::context::new_unary_op): New.
+	(gcc::jit::context::new_field_access): Work
+	(gcc::jit::context::new_dereference): New.
+	(gcc::jit::context::as_truth_value): New.
+	(gcc::jit::rvalue): Add a context field.
+	(gcc::jit::rvalue::access_field): New.
+	(gcc::jit::rvalue::dereference_field): New.
+	(gcc::jit::rvalue::dereference): New.
+	(gcc::jit::lvalue::lvalue): Add context to ctor.
+	(gcc::jit::lvalue::access_field): New.
+	(gcc::jit::param::param): Add context to ctor.
+	* libgccjit.c (gcc_jit_context_new_unary_op): New.
+	(gcc_jit_context_new_field_access): Remove.
+	(gcc_jit_lvalue_access_field): New.
+	(gcc_jit_rvalue_access_field): New.
+	(gcc_jit_rvalue_dereference_field): New.
+	(gcc_jit_rvalue_dereference): New.
+	*libgccjit.h (enum gcc_jit_unary_op): New.
+	(gcc_jit_context_new_unary_op): New.
+	(enum gcc_jit_binary_op): Document values, and add...
+	(GCC_JIT_BINARY_OP_DIVIDE): New.
+	(GCC_JIT_BINARY_OP_MODULO): New.
+	(GCC_JIT_BINARY_OP_BITWISE_AND): New.
+	(GCC_JIT_BINARY_OP_BITWISE_XOR): New.
+	(GCC_JIT_BINARY_OP_BITWISE_OR): New.
+	(GCC_JIT_BINARY_OP_LOGICAL_AND): New.
+	(GCC_JIT_BINARY_OP_LOGICAL_OR): New.
+	(enum gcc_jit_comparison): Document values, and add...
+	(GCC_JIT_COMPARISON_EQ): New.
+	(GCC_JIT_COMPARISON_NE): New.
+	(GCC_JIT_COMPARISON_LE): New.
+	(GCC_JIT_COMPARISON_GT): New.
+	(GCC_JIT_COMPARISON_GE): New.
+	(gcc_jit_context_new_field_access): Remove.
+	(gcc_jit_lvalue_access_field): New.
+	(gcc_jit_rvalue_access_field): New.
+	(gcc_jit_rvalue_dereference_field): New.
+	(gcc_jit_rvalue_dereference): New.
+	* libgccjit.map (gcc_jit_context_new_field_access): Remove.
+	(gcc_jit_lvalue_access_field): New.
+	(gcc_jit_rvalue_access_field): New.
+	(gcc_jit_rvalue_dereference_field): New.
+	(gcc_jit_rvalue_dereference): New.
+	* TODO.rst: Update
+
+2013-10-18  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::context::get_type): Improve error
 	message, and report the bogus value.
 	(gcc::jit::context::new_binary_op): Likewise.

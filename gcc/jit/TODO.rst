@@ -24,19 +24,6 @@ Initial Release
 * how do you encode "x[5]=y;"?  should gcc_jit_context_new_array_lookup()
   return an lvalue rather than an rvalue?
 
-* separate out "x->field" from "x.field":
-    (x.field) = ...;   : (lvalue, str) -> lvalue
-    ... = (x.field);   : (rvalue, str) -> rvalue
-    (x->field) = ...;  : (lvalue, str) -> lvalue
-    ... = (x->field);  : (rvalue, str) -> rvalue
-
-* explicit dereferencing::
-
-    extern gcc_jit_lvalue *
-    gcc_jit_rvalue_dereference (gcc_jit_rvalue *);
-
-  for e.g. *ptr = 42;
-
 * explicit casts::
 
     extern gcc_jit_rvalue *
@@ -110,6 +97,10 @@ Initial Release
 
 * valgrind; fix memory leaks
 
+* do we need alternative forms of division (floor vs rounding)?
+
+* are we missing any ops?
+
 
 Future milestones
 =================
@@ -120,5 +111,12 @@ Future milestones
 * inline assembler?
 
 * measure code coverage in testing of libgccjit.so
+
+* "switch" and "case" ?
+
+* do we need unary plus?
+* shift operators?
+* sizeof (should this be an API hook?)  do we even need it? presumably
+  client code can just do the sizeof() in its own code.
 
 etc etc

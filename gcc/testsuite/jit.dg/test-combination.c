@@ -28,6 +28,13 @@
 #undef code_making_callback
 #undef verify_code
 
+/* test-expressions.c */
+#define code_making_callback code_making_callback_expressions
+#define verify_code verify_code_expressions
+#include "test-expressions.c"
+#undef code_making_callback
+#undef verify_code
+
 /* test-factorial.c */
 #define code_making_callback code_making_callback_factorial
 #define verify_code verify_code_factorial
@@ -95,6 +102,7 @@ code_making_callback (gcc_jit_context *ctxt, void * user_data)
   errors += code_making_callback_accessing_struct (ctxt, user_data);
   errors += code_making_callback_calling_external_function (ctxt, user_data);
   errors += code_making_callback_dot_product (ctxt, user_data);
+  errors += code_making_callback_expressions (ctxt, user_data);
   errors += code_making_callback_factorial (ctxt, user_data);
   errors += code_making_callback_fibonacci (ctxt, user_data);
   errors += code_making_callback_hello_world (ctxt, user_data);
@@ -112,6 +120,7 @@ verify_code (gcc_jit_result *result)
   verify_code_accessing_struct (result);
   verify_code_calling_external_function (result);
   verify_code_dot_product (result);
+  verify_code_expressions (result);
   verify_code_factorial (result);
   verify_code_fibonacci (result);
   verify_code_hello_world (result);

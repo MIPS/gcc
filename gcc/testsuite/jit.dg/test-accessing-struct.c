@@ -64,23 +64,23 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
       GCC_JIT_BINARY_OP_MULT,
       int_type,
       gcc_jit_lvalue_as_rvalue (
-        gcc_jit_context_new_field_access (
-          ctxt, NULL,
-          gcc_jit_param_as_rvalue (param_f),
-          "x")),
+	gcc_jit_rvalue_dereference_field (
+	  gcc_jit_param_as_rvalue (param_f),
+	  NULL,
+	  "x")),
       gcc_jit_lvalue_as_rvalue (
-        gcc_jit_context_new_field_access (
-          ctxt, NULL,
-          gcc_jit_param_as_rvalue (param_f),
-          "y")));
+	gcc_jit_rvalue_dereference_field (
+	gcc_jit_param_as_rvalue (param_f),
+	NULL,
+	"y")));
 
   /* f->z = ... */
   gcc_jit_function_add_assignment (
     test_fn,
     NULL,
-    gcc_jit_context_new_field_access (
-      ctxt, NULL,
+    gcc_jit_rvalue_dereference_field (
       gcc_jit_param_as_rvalue (param_f),
+      NULL,
       "z"),
     sum);
 

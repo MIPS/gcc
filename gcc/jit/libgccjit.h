@@ -438,12 +438,85 @@ extern gcc_jit_rvalue *
 gcc_jit_context_new_string_literal (gcc_jit_context *ctxt,
 				    const char *value);
 
+enum gcc_jit_unary_op
+{
+  /* Negate an arithmetic value; analogous to:
+       -(EXPR)
+     in C.  */
+  GCC_JIT_UNARY_OP_MINUS,
+
+  /* Bitwise negation of an integer value (one's complement); analogous
+     to:
+       ~(EXPR)
+     in C.  */
+  GCC_JIT_UNARY_OP_BITWISE_NEGATE,
+
+  /* Logical negation of an arithmetic or pointer value; analogous to:
+       !(EXPR)
+     in C.  */
+  GCC_JIT_UNARY_OP_LOGICAL_NEGATE
+};
+
+extern gcc_jit_rvalue *
+gcc_jit_context_new_unary_op (gcc_jit_context *ctxt,
+			      gcc_jit_location *loc,
+			      enum gcc_jit_unary_op op,
+			      gcc_jit_type *result_type,
+			      gcc_jit_rvalue *rvalue);
 
 enum gcc_jit_binary_op
 {
+  /* Addition of arithmetic values; analogous to:
+       (EXPR_A) + (EXPR_B)
+     in C.
+     For pointer addition, use gcc_jit_context_new_array_lookup.  */
   GCC_JIT_BINARY_OP_PLUS,
+
+  /* Subtraction of arithmetic values; analogous to:
+       (EXPR_A) - (EXPR_B)
+     in C.  */
   GCC_JIT_BINARY_OP_MINUS,
-  GCC_JIT_BINARY_OP_MULT
+
+  /* Multiplication of a pair of arithmetic values; analogous to:
+       (EXPR_A) * (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_MULT,
+
+  /* Quotient of division of arithmetic values; analogous to:
+       (EXPR_A) / (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_DIVIDE,
+  /* do we want separate floor divide vs frac divide? */
+
+  /* Remainder of division of arithmetic values; analogous to:
+       (EXPR_A) / (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_MODULO,
+
+  /* Bitwise AND; analogous to:
+       (EXPR_A) & (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_BITWISE_AND,
+
+  /* Bitwise exclusive OR; analogous to:
+       (EXPR_A) ^ (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_BITWISE_XOR,
+
+  /* Bitwise inclusive OR; analogous to:
+       (EXPR_A) | (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_BITWISE_OR,
+
+  /* Logical AND; analogous to:
+       (EXPR_A) && (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_LOGICAL_AND,
+
+  /* Logical OR; analogous to:
+       (EXPR_A) || (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_LOGICAL_OR
 };
 
 extern gcc_jit_rvalue *
@@ -453,9 +526,27 @@ gcc_jit_context_new_binary_op (gcc_jit_context *ctxt,
 			       gcc_jit_type *result_type,
 			       gcc_jit_rvalue *a, gcc_jit_rvalue *b);
 
+/* (Comparisons are treated as separate from "binary_op" to save
+   you having to specify the result_type).  */
+
 enum gcc_jit_comparison
 {
+  /* (EXPR_A) == (EXPR_B).  */
+  GCC_JIT_COMPARISON_EQ,
+
+  /* (EXPR_A) != (EXPR_B).  */
+  GCC_JIT_COMPARISON_NE,
+
+  /* (EXPR_A) < (EXPR_B).  */
   GCC_JIT_COMPARISON_LT,
+
+  /* (EXPR_A) <=(EXPR_B).  */
+  GCC_JIT_COMPARISON_LE,
+
+  /* (EXPR_A) > (EXPR_B).  */
+  GCC_JIT_COMPARISON_GT,
+
+  /* (EXPR_A) >= (EXPR_B).  */
   GCC_JIT_COMPARISON_GE
 };
 
@@ -477,12 +568,38 @@ gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
 				  gcc_jit_rvalue *ptr,
 				  gcc_jit_rvalue *index);
 
-/* Field access, either s.field or s->field.  */
+/* Field access is provided separately for both lvalues and rvalues.  */
+
+/* Accessing a field of an lvalue of struct type, analogous to:
+      (EXPR).field = ...;
+   in C.  */
 extern gcc_jit_lvalue *
-gcc_jit_context_new_field_access (gcc_jit_context *ctxt,
+gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
+			     gcc_jit_location *loc,
+			     const char *fieldname);
+
+/* Accessing a field of an rvalue of struct type, analogous to:
+      (EXPR).field
+   in C.  */
+extern gcc_jit_rvalue *
+gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_,
+			     gcc_jit_location *loc,
+			     const char *fieldname);
+
+/* Accessing a field of an rvalue of pointer type, analogous to:
+      (EXPR)->field
+   in C, itself equivalent to (*EXPR).FIELD  */
+extern gcc_jit_lvalue *
+gcc_jit_rvalue_dereference_field (gcc_jit_rvalue *ptr,
 				  gcc_jit_location *loc,
-				  gcc_jit_rvalue *ptr_or_struct,
 				  const char *fieldname);
+
+/* Dereferencing a pointer; analogous to:
+     *(EXPR)
+*/
+extern gcc_jit_lvalue *
+gcc_jit_rvalue_dereference (gcc_jit_rvalue *rvalue,
+			    gcc_jit_location *loc);
 
 extern gcc_jit_lvalue *
 gcc_jit_function_new_local (gcc_jit_function *func,

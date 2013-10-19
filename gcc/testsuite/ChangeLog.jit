@@ -1,5 +1,13 @@
 2013-10-18  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-expressions.c: New.
+	* jit.dg/test-combination.c: Add usage of test-expressions.c
+	* jit.dg/test-accessing-struct.c (code_making_callback): Update
+	for changes to field-access API.
+	* jit.dg/test-types.c (code_making_callback): Likewise.
+
+2013-10-18  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-null-passed-to-api.c: New.
 
 2013-10-17  David Malcolm  <dmalcolm@redhat.com>

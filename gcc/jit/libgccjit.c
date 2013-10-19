@@ -413,6 +413,21 @@ gcc_jit_context_new_string_literal (gcc_jit_context *ctxt,
 }
 
 gcc_jit_rvalue *
+gcc_jit_context_new_unary_op (gcc_jit_context *ctxt,
+			      gcc_jit_location *loc,
+			      enum gcc_jit_unary_op op,
+			      gcc_jit_type *result_type,
+			      gcc_jit_rvalue *rvalue)
+{
+  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  /* op is checked by the inner function.  */
+  RETURN_NULL_IF_FAIL (result_type, ctxt, "NULL result_type");
+  RETURN_NULL_IF_FAIL (rvalue, ctxt, "NULL rvalue");
+
+  return (gcc_jit_rvalue *)ctxt->new_unary_op (loc, op, result_type, rvalue);
+}
+
+gcc_jit_rvalue *
 gcc_jit_context_new_binary_op (gcc_jit_context *ctxt,
 			       gcc_jit_location *loc,
 			       enum gcc_jit_binary_op op,
@@ -472,17 +487,46 @@ gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
   return (gcc_jit_rvalue *)ctxt->new_array_lookup (loc, ptr, index);
 }
 
-extern gcc_jit_lvalue *
-gcc_jit_context_new_field_access (gcc_jit_context *ctxt,
+gcc_jit_lvalue *
+gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
+			     gcc_jit_location *loc,
+			     const char *fieldname)
+{
+  RETURN_NULL_IF_FAIL (struct_, NULL, "NULL struct");
+  RETURN_NULL_IF_FAIL (fieldname, NULL, "NULL fieldname");
+
+  return (gcc_jit_lvalue *)struct_->access_field (loc, fieldname);
+}
+
+gcc_jit_rvalue *
+gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_,
+			     gcc_jit_location *loc,
+			     const char *fieldname)
+{
+  RETURN_NULL_IF_FAIL (struct_, NULL, "NULL struct");
+  RETURN_NULL_IF_FAIL (fieldname, NULL, "NULL fieldname");
+
+  return (gcc_jit_rvalue *)struct_->access_field (loc, fieldname);
+}
+
+gcc_jit_lvalue *
+gcc_jit_rvalue_dereference_field (gcc_jit_rvalue *ptr,
 				  gcc_jit_location *loc,
-				  gcc_jit_rvalue *ptr_or_struct,
 				  const char *fieldname)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
-  RETURN_NULL_IF_FAIL (ptr_or_struct, ctxt, "NULL ptr_or_struct");
-  RETURN_NULL_IF_FAIL (fieldname, ctxt, "NULL fieldname");
+  RETURN_NULL_IF_FAIL (ptr, NULL, "NULL ptr");
+  RETURN_NULL_IF_FAIL (fieldname, NULL, "NULL fieldname");
 
-  return (gcc_jit_lvalue *)ctxt->new_field_access (loc, ptr_or_struct, fieldname);
+  return (gcc_jit_lvalue *)ptr->dereference_field (loc, fieldname);
+}
+
+gcc_jit_lvalue *
+gcc_jit_rvalue_dereference (gcc_jit_rvalue *rvalue,
+			    gcc_jit_location *loc)
+{
+  RETURN_NULL_IF_FAIL (rvalue, NULL, "NULL rvalue");
+
+  return (gcc_jit_lvalue *)rvalue->dereference (loc);
 }
 
 gcc_jit_lvalue *
