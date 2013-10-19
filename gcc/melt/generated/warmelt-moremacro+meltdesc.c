@@ -1,4 +1,4 @@
-/** GENERATED MELT DESCRIPTOR FILE warmelt-moremacro+meltdesc.c 
+/** GENERATED MELT DESCRIPTOR FILE meltbuild-sources/warmelt-moremacro+meltdesc.c 
 ** NEVER EDIT OR MOVE THIS, IT IS GENERATED & PARSED! **/
 /* These identifiers are generated in warmelt-outobj.melt 
  & handled in melt-runtime.c carefully. */
@@ -33,14 +33,15 @@ const char melt_genversionstr[]="4.9.0 20130920 (experimental) [melt-branch revi
 const char melt_versionmeltstr[]="1.0-rc2- [melt-branch_revision_203842]";
 
 /* source name & real path of the module */
-/*MELTMODULENAME warmelt-moremacro */
+/*MELTMODULENAME meltbuild-sources/warmelt-moremacro */
 const char melt_modulename[]="warmelt-moremacro";
-const char melt_modulerealpath[]="/usr/src/Lang/_ObjGccMelt/gcc/warmelt-moremacro";
+const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
+/1.0-rc2-/warmelt-moremacro";
 
 /* hash of preprocessed melt-run.h generating this */
 const char melt_prepromd5meltrun[]="144179fb882e7f09d71e4c6021dc2fa3";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="a10dfbac984206fa3f6a635418c5633a";
+const char melt_primaryhexmd5[]="bf1934aaf172487caabfcda7df08eb46";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -52,13 +53,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=0;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="a10dfbac984206fa3f6a635418c5633a" ;
+const char melt_cumulated_hexmd5[]="bf1934aaf172487caabfcda7df08eb46" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMOREMACRO_mds__A10DFBAC984206FA3F6A635418C5633A 1
+#define meltmod_WARMELTmiMOREMACRO_mds__BF1934AAF172487CAABFCDA7DF08EB46 1
 #include "warmelt-moremacro+melttime.h"
 	 
 

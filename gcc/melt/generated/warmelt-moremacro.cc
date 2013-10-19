@@ -35,13 +35,13 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 ----------------------------------------------------------------****/
 
 
-/** ordinary MELT module warmelt-moremacro**/
+/** ordinary MELT module meltbuild-sources/warmelt-moremacro**/
 #define MELT_HAS_INITIAL_ENVIRONMENT 1 /*usualmodule*/
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286; // forward declaration fromline 6541
-typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110; // forward declaration fromline 6541
+typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 4 MELT called hook declarations ***/
@@ -66,7 +66,7 @@ MELT_EXTERN melt_ptr_t melthook_HOOK_SYMBOL_IMPORTER (melt_ptr_t melthookdatap, 
 
 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::procdecl::**/
+#line 39   "warmelt-moremacro.melt" /**::procdecl::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
 MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_1_WARMELTmiMOREMACRO_EACH_COMPONENT_IN_LIST(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfirstargp_, const melt_argdescr_cell_t meltxargdescr_[], union meltparam_un *meltxargtab_, const melt_argdescr_cell_t meltxresdescr_[], union meltparam_un *meltxrestab_);
 
@@ -76,7 +76,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -98,7 +98,7 @@ void MELT_MODULE_VISIBILITY meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (mel
 /*** no extra MELT implementations ***/
 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::proc::**/
+#line 39   "warmelt-moremacro.melt" /**::proc::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
 
 
@@ -180,16 +180,16 @@ melt_trace_start("EACH_COMPONENT_IN_LIST", meltcallcount);
 /*getargs*/
 
  /*getarg#0*/
- MELT_LOCATION("warmelt-moremacro.melt:37:/ getarg");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ getarg");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::getarg::**/
+#line 39   "warmelt-moremacro.melt" /**::getarg::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*_.SEXP__V2*/ meltfptr[1] = (melt_ptr_t) meltfirstargp_;
  
  /*getarg#1*/
  /*^getarg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  if (meltxargdescr_[0] != MELTBPAR_PTR) goto meltlab_endgetargs;
  /*_.ENV__V3*/ meltfptr[2] = (meltxargtab_[0].meltbp_aptr) ? (*(meltxargtab_[0].meltbp_aptr)) : NULL;
@@ -199,7 +199,7 @@ melt_trace_start("EACH_COMPONENT_IN_LIST", meltcallcount);
  /*getarg#2*/
  /*^getarg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  if (meltxargdescr_[1] != MELTBPAR_PTR) goto meltlab_endgetargs;
  /*_.MEXPANDER__V4*/ meltfptr[3] = (meltxargtab_[1].meltbp_aptr) ? (*(meltxargtab_[1].meltbp_aptr)) : NULL;
@@ -209,7 +209,7 @@ melt_trace_start("EACH_COMPONENT_IN_LIST", meltcallcount);
  /*getarg#3*/
  /*^getarg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  if (meltxargdescr_[2] != MELTBPAR_PTR) goto meltlab_endgetargs;
  /*_.MODCTX__V5*/ meltfptr[4] = (meltxargtab_[2].meltbp_aptr) ? (*(meltxargtab_[2].meltbp_aptr)) : NULL;
@@ -221,22 +221,22 @@ meltlab_endgetargs:;
 /*body*/
 /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
 /*anyblock*/{
  
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::cppif::**/
+#line 45   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:43:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:45:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 45   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
   /*anyblock*/{
    
@@ -244,7 +244,7 @@ meltlab_endgetargs:;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -254,13 +254,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 45   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L1*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::expr::**/
+#line 45   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -269,24 +269,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:43:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:45:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::cond::**/
+#line 45   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L1*/ meltfnum[0]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::expr::**/
+#line 45   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -297,55 +297,55 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 45   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:43:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:45:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::apply::**/
+#line 45   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[8];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L2*/ meltfnum[1];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
-      argtab[2].meltbp_long = 43;
+      argtab[2].meltbp_long = 45;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list macro sexp=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.SEXP__V2*/ meltfptr[1];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
       argtab[5].meltbp_cstring =  "\n env=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
       argtab[6].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_LESS*/ meltfrout->tabval[1]);
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
       argtab[7].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
       /*_.MELT_DEBUG_FUN__V7*/ meltfptr[6] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -354,20 +354,20 @@ melt_dbgcounter++;
      /*_._IF___V6*/ meltfptr[5] = /*_.MELT_DEBUG_FUN__V7*/ meltfptr[6];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:43:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:45:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::clear::**/
+#line 45   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L2*/ meltfnum[1] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V7*/ meltfptr[6] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
    
     /*_._IF___V6*/ meltfptr[5] =  /*reallynil*/ NULL ;;
@@ -375,15 +375,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:43:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:45:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::locexp::**/
+#line 45   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
    
    
@@ -391,23 +391,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L1*/ meltfnum[0] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
    /*clear*/ /*_._IF___V6*/ meltfptr[5] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
   /*anyblock*/{
    
@@ -415,7 +415,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 43
+#line 45
 #endif
    /*void*/(void)0;}
    ;
@@ -424,30 +424,30 @@ melt_dbgcounter++;
   
   #endif /*MELT_HAVE_DEBUG*/
   ;
- MELT_LOCATION("warmelt-moremacro.melt:44:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:46:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 44   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 46   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
- MELT_LOCATION("warmelt-moremacro.melt:45:/ cond");
+ MELT_LOCATION("warmelt-moremacro.melt:47:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 45   "warmelt-moremacro.melt" /**::cond::**/
+#line 47   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*cond*/ if (
 #ifndef MELTGCC_NOLINENUMBERING
-#line 45   "warmelt-moremacro.melt" /**::expr::**/
+#line 47   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SEXP__V2*/ meltfptr[1]), 
                                                                        (melt_ptr_t)((/*!CLASS_LOCATED*/ meltfrout->tabval[2])))
 				      ) /*then*/ {
  /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 45
+#line 47
 #endif
  /*^getslot*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 45
+#line 47
 #endif
   { melt_ptr_t slot=NULL, obj=NULL;
    obj = (melt_ptr_t)(/*_.SEXP__V2*/ meltfptr[1]) /*=obj*/;
@@ -456,30 +456,30 @@ melt_dbgcounter++;
   ;
  } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 45
+#line 47
 #endif
  
   /*_.SLOC__V9*/ meltfptr[5] =  /*reallynil*/ NULL ;;
   }
  ;
- MELT_LOCATION("warmelt-moremacro.melt:46:/ cond");
+ MELT_LOCATION("warmelt-moremacro.melt:48:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 46   "warmelt-moremacro.melt" /**::cond::**/
+#line 48   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*cond*/ if (
 #ifndef MELTGCC_NOLINENUMBERING
-#line 46   "warmelt-moremacro.melt" /**::expr::**/
+#line 48   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.SEXP__V2*/ meltfptr[1]), 
                                                                        (melt_ptr_t)((/*!CLASS_SEXPR*/ meltfrout->tabval[3])))
 				      ) /*then*/ {
  /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 46
+#line 48
 #endif
  /*^getslot*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 46
+#line 48
 #endif
   { melt_ptr_t slot=NULL, obj=NULL;
    obj = (melt_ptr_t)(/*_.SEXP__V2*/ meltfptr[1]) /*=obj*/;
@@ -488,7 +488,7 @@ melt_dbgcounter++;
   ;
  } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 46
+#line 48
 #endif
  
   /*_.SEXCONT__V10*/ meltfptr[9] =  /*reallynil*/ NULL ;;
@@ -496,16 +496,16 @@ melt_dbgcounter++;
  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::cppif::**/
+#line 50   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:48:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:50:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 50   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
   /*anyblock*/{
    
@@ -513,7 +513,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -523,13 +523,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 50   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L3*/ meltfnum[1] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::expr::**/
+#line 50   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -538,24 +538,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:48:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:50:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::cond::**/
+#line 50   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L3*/ meltfnum[1]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L4*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::expr::**/
+#line 50   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -566,55 +566,55 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 50   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:48:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:50:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::apply::**/
+#line 50   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[8];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L4*/ meltfnum[0];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
-      argtab[2].meltbp_long = 48;
+      argtab[2].meltbp_long = 50;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list sloc=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &(/*!DEBUG_LESS*/ meltfrout->tabval[1]);
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
       argtab[5].meltbp_aptr = (melt_ptr_t*) &/*_.SLOC__V9*/ meltfptr[5];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
       argtab[6].meltbp_cstring =  " sexcont=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
       argtab[7].meltbp_aptr = (melt_ptr_t*) &/*_.SEXCONT__V10*/ meltfptr[9];
       /*_.MELT_DEBUG_FUN__V12*/ meltfptr[11] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -623,20 +623,20 @@ melt_dbgcounter++;
      /*_._IF___V11*/ meltfptr[10] = /*_.MELT_DEBUG_FUN__V12*/ meltfptr[11];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:48:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:50:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::clear::**/
+#line 50   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L4*/ meltfnum[0] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V12*/ meltfptr[11] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
    
     /*_._IF___V11*/ meltfptr[10] =  /*reallynil*/ NULL ;;
@@ -644,15 +644,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:48:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:50:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48   "warmelt-moremacro.melt" /**::locexp::**/
+#line 50   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
    
    
@@ -660,23 +660,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L3*/ meltfnum[1] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
    /*clear*/ /*_._IF___V11*/ meltfptr[10] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
   /*anyblock*/{
    
@@ -684,7 +684,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 48
+#line 50
 #endif
    /*void*/(void)0;}
    ;
@@ -695,82 +695,82 @@ melt_dbgcounter++;
   ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::cppif::**/
+#line 51   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:49:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:51:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 51   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
   /*anyblock*/{
    
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 51   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#IS_LIST__L5*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::expr::**/
+#line 51   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     (melt_magic_discr((melt_ptr_t)(/*_.SEXCONT__V10*/ meltfptr[9])) == MELTOBMAG_LIST);;
-   MELT_LOCATION("warmelt-moremacro.melt:49:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:51:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::cond::**/
+#line 51   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#IS_LIST__L5*/ meltfnum[0]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
    /*_._IFELSE___V14*/ meltfptr[10] = (/*nil*/NULL);;
-   } else {MELT_LOCATION("warmelt-moremacro.melt:49:/ cond.else");
+   } else {MELT_LOCATION("warmelt-moremacro.melt:51:/ cond.else");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::cond.else::**/
+#line 51   "warmelt-moremacro.melt" /**::cond.else::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    
     /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
     /*anyblock*/{
      
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 51   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
      /*^apply*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
      /*apply*/{
       union meltparam_un argtab[4];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
       argtab[0].meltbp_cstring =  "check sexcont";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
-      argtab[2].meltbp_long = 49;
+      argtab[2].meltbp_long = 51;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
       argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.SEXCONT__V10*/ meltfptr[9];
       /*_.MELT_ASSERT_FAILURE_FUN__V15*/ meltfptr[14] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[4])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -779,9 +779,9 @@ melt_dbgcounter++;
      /*_._IFELSE___V14*/ meltfptr[10] = /*_.MELT_ASSERT_FAILURE_FUN__V15*/ meltfptr[14];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:49:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:51:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::clear::**/
+#line 51   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V15*/ meltfptr[14] = 0 ;}
     ;
@@ -790,47 +790,47 @@ melt_dbgcounter++;
    /*_.IFCPP___V13*/ meltfptr[11] = /*_._IFELSE___V14*/ meltfptr[10];;
    /*epilog*/
    
-   MELT_LOCATION("warmelt-moremacro.melt:49:/ clear");
+   MELT_LOCATION("warmelt-moremacro.melt:51:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::clear::**/
+#line 51   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*clear*/ /*_#IS_LIST__L5*/ meltfnum[0] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
    /*clear*/ /*_._IFELSE___V14*/ meltfptr[10] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 49
+#line 51
 #endif
  /*_.IFCPP___V13*/ meltfptr[11] = (/*nil*/NULL);
   #endif /*MELT_HAVE_DEBUG*/
   ;
- MELT_LOCATION("warmelt-moremacro.melt:50:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:52:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 52   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 51   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 53   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
- MELT_LOCATION("warmelt-moremacro.melt:51:/ apply");
+ MELT_LOCATION("warmelt-moremacro.melt:53:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 51   "warmelt-moremacro.melt" /**::apply::**/
+#line 53   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*apply*/{
   union meltparam_un argtab[1];
   memset(&argtab, 0, sizeof(argtab));
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 51
+#line 53
 #endif
   argtab[0].meltbp_aptr = (melt_ptr_t*) &(/*!DISCR_MULTIPLE*/ meltfrout->tabval[6]);
   /*_.TCONT__V17*/ meltfptr[10] =  melt_apply ((meltclosure_ptr_t)((/*!LIST_TO_MULTIPLE*/ meltfrout->tabval[5])), (melt_ptr_t)(/*_.SEXCONT__V10*/ meltfptr[9]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -838,324 +838,9 @@ melt_dbgcounter++;
  ;
  /*_#TCONTLEN__L6*/ meltfnum[1] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 52   "warmelt-moremacro.melt" /**::expr::**/
+#line 54   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   (melt_multiple_length((melt_ptr_t)(/*_.TCONT__V17*/ meltfptr[10])));;
- 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::cppif::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:54:/ cppif.then");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::cppif.then::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*^block*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-  /*anyblock*/{
-   
-   
-   {
-   /*^locexp*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-   /*melt_increment_dbgcounter*/ 
-#if MELT_HAVE_DEBUG
-melt_dbgcounter++;
-#endif
-;}
-   ;
-   
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::checksignal::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-    MELT_CHECK_SIGNAL();
-   ;
-   /*_#MELT_NEED_DBG__L7*/ meltfnum[0] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-    /*MELT_NEED_DBG*/
-#if MELT_HAVE_DEBUG
- (/*melt_need_dbg*/ melt_need_debug ((int) 0))
-#else
- 0 /* no melt_need_dbg */
-#endif /*MELT_HAVE_DEBUG*/
-;;
-   MELT_LOCATION("warmelt-moremacro.melt:54:/ cond");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::cond::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*cond*/ if (/*_#MELT_NEED_DBG__L7*/ meltfnum[0]) /*then*/ {
-   /*^cond.then*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-   /*^block*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-    /*anyblock*/{
-     
-     /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-      /* for melt_callcount */
-#if MELT_HAVE_DEBUG && defined (meltcallcount)
-  meltcallcount  /* melt_callcount debugging */
-#else
-  0L  /* melt_callcount without debug */
-#endif /* MELT_HAVE_DEBUG melt_callcount */
-;;
-     
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::checksignal::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-      MELT_CHECK_SIGNAL();
-     ;
-     MELT_LOCATION("warmelt-moremacro.melt:54:/ apply");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::apply::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-     /*apply*/{
-      union meltparam_un argtab[7];
-      memset(&argtab, 0, sizeof(argtab));
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-      argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L8*/ meltfnum[7];
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-      argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-      argtab[2].meltbp_long = 54;
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-      argtab[3].meltbp_cstring =  "each_component_in_list tcont=";
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-      argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.TCONT__V17*/ meltfptr[10];
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-      argtab[5].meltbp_cstring =  "; tcontlen=";
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-      argtab[6].meltbp_long = /*_#TCONTLEN__L6*/ meltfnum[1];
-      /*_.MELT_DEBUG_FUN__V19*/ meltfptr[18] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
-      }
-     ;
-     /*_._IF___V18*/ meltfptr[17] = /*_.MELT_DEBUG_FUN__V19*/ meltfptr[18];;
-     /*epilog*/
-     
-     MELT_LOCATION("warmelt-moremacro.melt:54:/ clear");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::clear::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-     /*clear*/ /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] = 0 ;
-     /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-     /*clear*/ /*_.MELT_DEBUG_FUN__V19*/ meltfptr[18] = 0 ;}
-    ;
-   } else {/*^cond.else*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-   
-    /*_._IF___V18*/ meltfptr[17] =  /*reallynil*/ NULL ;;
-    }
-   ;
-   
-   {
-   MELT_LOCATION("warmelt-moremacro.melt:54:/ locexp");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54   "warmelt-moremacro.melt" /**::locexp::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*void*/(void)0;}
-   ;
-   /*^quasiblock*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-   
-   
-   /*epilog*/
-   
-   /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-   /*clear*/ /*_#MELT_NEED_DBG__L7*/ meltfnum[0] = 0 ;
-   /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-   /*clear*/ /*_._IF___V18*/ meltfptr[17] = 0 ;}
-  
-  #else /*MELT_HAVE_DEBUG*/
-  /*^cppif.else*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
- /*^block*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-  /*anyblock*/{
-   
-   
-   {
-   /*^locexp*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 54
-#endif
-   /*void*/(void)0;}
-   ;
-   /*epilog*/
-   }
-  
-  #endif /*MELT_HAVE_DEBUG*/
-  ;
- 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::cppif::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:55:/ cppif.then");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::cppif.then::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*^block*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-  /*anyblock*/{
-   
-   
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::checksignal::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-    MELT_CHECK_SIGNAL();
-   ;
-   /*_#IS_MULTIPLE__L9*/ meltfnum[7] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-    (melt_magic_discr((melt_ptr_t)(/*_.TCONT__V17*/ meltfptr[10])) == MELTOBMAG_MULTIPLE);;
-   MELT_LOCATION("warmelt-moremacro.melt:55:/ cond");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::cond::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*cond*/ if (/*_#IS_MULTIPLE__L9*/ meltfnum[7]) /*then*/ {
-   /*^cond.then*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-   /*_._IFELSE___V21*/ meltfptr[17] = (/*nil*/NULL);;
-   } else {MELT_LOCATION("warmelt-moremacro.melt:55:/ cond.else");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::cond.else::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   
-    /*^block*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-    /*anyblock*/{
-     
-     
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::checksignal::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-      MELT_CHECK_SIGNAL();
-     ;
-     /*^apply*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-     /*apply*/{
-      union meltparam_un argtab[5];
-      memset(&argtab, 0, sizeof(argtab));
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-      argtab[0].meltbp_cstring =  "check tcont";
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-      argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-      argtab[2].meltbp_long = 55;
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-      argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.TCONT__V17*/ meltfptr[10];
-      /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-      argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.SEXCONT__V10*/ meltfptr[9];
-      /*_.MELT_ASSERT_FAILURE_FUN__V22*/ meltfptr[21] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[4])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
-      }
-     ;
-     /*_._IFELSE___V21*/ meltfptr[17] = /*_.MELT_ASSERT_FAILURE_FUN__V22*/ meltfptr[21];;
-     /*epilog*/
-     
-     MELT_LOCATION("warmelt-moremacro.melt:55:/ clear");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::clear::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-     /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V22*/ meltfptr[21] = 0 ;}
-    ;
-    }
-   ;
-   /*_.IFCPP___V20*/ meltfptr[18] = /*_._IFELSE___V21*/ meltfptr[17];;
-   /*epilog*/
-   
-   MELT_LOCATION("warmelt-moremacro.melt:55:/ clear");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55   "warmelt-moremacro.melt" /**::clear::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*clear*/ /*_#IS_MULTIPLE__L9*/ meltfnum[7] = 0 ;
-   /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
-   /*clear*/ /*_._IFELSE___V21*/ meltfptr[17] = 0 ;}
-  
-  #else /*MELT_HAVE_DEBUG*/
-  /*^cppif.else*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 55
-#endif
- /*_.IFCPP___V20*/ meltfptr[18] = (/*nil*/NULL);
-  #endif /*MELT_HAVE_DEBUG*/
-  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56   "warmelt-moremacro.melt" /**::cppif::**/
@@ -1172,55 +857,78 @@ melt_dbgcounter++;
   /*anyblock*/{
    
    
+   {
+   /*^locexp*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+   /*melt_increment_dbgcounter*/ 
+#if MELT_HAVE_DEBUG
+melt_dbgcounter++;
+#endif
+;}
+   ;
+   
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
-   /*_#gtI__L10*/ meltfnum[0] = 
+   /*_#MELT_NEED_DBG__L7*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
-    ((/*_#TCONTLEN__L6*/ meltfnum[1]) > (0));;
+    /*MELT_NEED_DBG*/
+#if MELT_HAVE_DEBUG
+ (/*melt_need_dbg*/ melt_need_debug ((int) 0))
+#else
+ 0 /* no melt_need_dbg */
+#endif /*MELT_HAVE_DEBUG*/
+;;
    MELT_LOCATION("warmelt-moremacro.melt:56:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
-   /*cond*/ if (/*_#gtI__L10*/ meltfnum[0]) /*then*/ {
+   /*cond*/ if (/*_#MELT_NEED_DBG__L7*/ meltfnum[0]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56
 #endif
-   /*_._IFELSE___V24*/ meltfptr[17] = (/*nil*/NULL);;
-   } else {MELT_LOCATION("warmelt-moremacro.melt:56:/ cond.else");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 56   "warmelt-moremacro.melt" /**::cond.else::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   
-    /*^block*/
+   /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56
 #endif
     /*anyblock*/{
      
+     /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+      /* for melt_callcount */
+#if MELT_HAVE_DEBUG && defined (meltcallcount)
+  meltcallcount  /* melt_callcount debugging */
+#else
+  0L  /* melt_callcount without debug */
+#endif /* MELT_HAVE_DEBUG melt_callcount */
+;;
      
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     /*^apply*/
+     MELT_LOCATION("warmelt-moremacro.melt:56:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 56
-#endif
+#line 56   "warmelt-moremacro.melt" /**::apply::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
-      union meltparam_un argtab[5];
+      union meltparam_un argtab[7];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56
 #endif
-      argtab[0].meltbp_cstring =  "check tcontlen";
+      argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L8*/ meltfnum[7];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56
@@ -1235,10 +943,302 @@ melt_dbgcounter++;
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56
 #endif
-      argtab[3].meltbp_long = /*_#TCONTLEN__L6*/ meltfnum[1];
+      argtab[3].meltbp_cstring =  "each_component_in_list tcont=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
 #line 56
+#endif
+      argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.TCONT__V17*/ meltfptr[10];
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+      argtab[5].meltbp_cstring =  "; tcontlen=";
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+      argtab[6].meltbp_long = /*_#TCONTLEN__L6*/ meltfnum[1];
+      /*_.MELT_DEBUG_FUN__V19*/ meltfptr[18] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_LONG ""), argtab, "", (union meltparam_un*)0);
+      }
+     ;
+     /*_._IF___V18*/ meltfptr[17] = /*_.MELT_DEBUG_FUN__V19*/ meltfptr[18];;
+     /*epilog*/
+     
+     MELT_LOCATION("warmelt-moremacro.melt:56:/ clear");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56   "warmelt-moremacro.melt" /**::clear::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+     /*clear*/ /*_#MELT_CALLCOUNT__L8*/ meltfnum[7] = 0 ;
+     /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+     /*clear*/ /*_.MELT_DEBUG_FUN__V19*/ meltfptr[18] = 0 ;}
+    ;
+   } else {/*^cond.else*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+   
+    /*_._IF___V18*/ meltfptr[17] =  /*reallynil*/ NULL ;;
+    }
+   ;
+   
+   {
+   MELT_LOCATION("warmelt-moremacro.melt:56:/ locexp");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56   "warmelt-moremacro.melt" /**::locexp::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*void*/(void)0;}
+   ;
+   /*^quasiblock*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+   
+   
+   /*epilog*/
+   
+   /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+   /*clear*/ /*_#MELT_NEED_DBG__L7*/ meltfnum[0] = 0 ;
+   /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+   /*clear*/ /*_._IF___V18*/ meltfptr[17] = 0 ;}
+  
+  #else /*MELT_HAVE_DEBUG*/
+  /*^cppif.else*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+ /*^block*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+  /*anyblock*/{
+   
+   
+   {
+   /*^locexp*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 56
+#endif
+   /*void*/(void)0;}
+   ;
+   /*epilog*/
+   }
+  
+  #endif /*MELT_HAVE_DEBUG*/
+  ;
+ 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::cppif::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ #if MELT_HAVE_DEBUG
+  MELT_LOCATION("warmelt-moremacro.melt:57:/ cppif.then");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::cppif.then::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*^block*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+  /*anyblock*/{
+   
+   
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::checksignal::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+    MELT_CHECK_SIGNAL();
+   ;
+   /*_#IS_MULTIPLE__L9*/ meltfnum[7] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+    (melt_magic_discr((melt_ptr_t)(/*_.TCONT__V17*/ meltfptr[10])) == MELTOBMAG_MULTIPLE);;
+   MELT_LOCATION("warmelt-moremacro.melt:57:/ cond");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::cond::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*cond*/ if (/*_#IS_MULTIPLE__L9*/ meltfnum[7]) /*then*/ {
+   /*^cond.then*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+   /*_._IFELSE___V21*/ meltfptr[17] = (/*nil*/NULL);;
+   } else {MELT_LOCATION("warmelt-moremacro.melt:57:/ cond.else");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::cond.else::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   
+    /*^block*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+    /*anyblock*/{
+     
+     
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::checksignal::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+      MELT_CHECK_SIGNAL();
+     ;
+     /*^apply*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+     /*apply*/{
+      union meltparam_un argtab[5];
+      memset(&argtab, 0, sizeof(argtab));
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+      argtab[0].meltbp_cstring =  "check tcont";
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+      argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+      argtab[2].meltbp_long = 57;
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+      argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.TCONT__V17*/ meltfptr[10];
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+      argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.SEXCONT__V10*/ meltfptr[9];
+      /*_.MELT_ASSERT_FAILURE_FUN__V22*/ meltfptr[21] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[4])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+      }
+     ;
+     /*_._IFELSE___V21*/ meltfptr[17] = /*_.MELT_ASSERT_FAILURE_FUN__V22*/ meltfptr[21];;
+     /*epilog*/
+     
+     MELT_LOCATION("warmelt-moremacro.melt:57:/ clear");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::clear::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+     /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V22*/ meltfptr[21] = 0 ;}
+    ;
+    }
+   ;
+   /*_.IFCPP___V20*/ meltfptr[18] = /*_._IFELSE___V21*/ meltfptr[17];;
+   /*epilog*/
+   
+   MELT_LOCATION("warmelt-moremacro.melt:57:/ clear");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57   "warmelt-moremacro.melt" /**::clear::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*clear*/ /*_#IS_MULTIPLE__L9*/ meltfnum[7] = 0 ;
+   /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+   /*clear*/ /*_._IFELSE___V21*/ meltfptr[17] = 0 ;}
+  
+  #else /*MELT_HAVE_DEBUG*/
+  /*^cppif.else*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 57
+#endif
+ /*_.IFCPP___V20*/ meltfptr[18] = (/*nil*/NULL);
+  #endif /*MELT_HAVE_DEBUG*/
+  ;
+ 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58   "warmelt-moremacro.melt" /**::cppif::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ #if MELT_HAVE_DEBUG
+  MELT_LOCATION("warmelt-moremacro.melt:58:/ cppif.then");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58   "warmelt-moremacro.melt" /**::cppif.then::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*^block*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+  /*anyblock*/{
+   
+   
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58   "warmelt-moremacro.melt" /**::checksignal::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+    MELT_CHECK_SIGNAL();
+   ;
+   /*_#gtI__L10*/ meltfnum[0] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+    ((/*_#TCONTLEN__L6*/ meltfnum[1]) > (0));;
+   MELT_LOCATION("warmelt-moremacro.melt:58:/ cond");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58   "warmelt-moremacro.melt" /**::cond::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*cond*/ if (/*_#gtI__L10*/ meltfnum[0]) /*then*/ {
+   /*^cond.then*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+   /*_._IFELSE___V24*/ meltfptr[17] = (/*nil*/NULL);;
+   } else {MELT_LOCATION("warmelt-moremacro.melt:58:/ cond.else");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58   "warmelt-moremacro.melt" /**::cond.else::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   
+    /*^block*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+    /*anyblock*/{
+     
+     
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58   "warmelt-moremacro.melt" /**::checksignal::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+      MELT_CHECK_SIGNAL();
+     ;
+     /*^apply*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+     /*apply*/{
+      union meltparam_un argtab[5];
+      memset(&argtab, 0, sizeof(argtab));
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+      argtab[0].meltbp_cstring =  "check tcontlen";
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+      argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+      argtab[2].meltbp_long = 58;
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
+#endif
+      argtab[3].meltbp_long = /*_#TCONTLEN__L6*/ meltfnum[1];
+      /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 58
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.TCONT__V17*/ meltfptr[10];
       /*_.MELT_ASSERT_FAILURE_FUN__V25*/ meltfptr[24] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_ASSERT_FAILURE_FUN*/ meltfrout->tabval[4])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_CSTRING MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_LONG MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -1247,9 +1247,9 @@ melt_dbgcounter++;
      /*_._IFELSE___V24*/ meltfptr[17] = /*_.MELT_ASSERT_FAILURE_FUN__V25*/ meltfptr[24];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:56:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:58:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 56   "warmelt-moremacro.melt" /**::clear::**/
+#line 58   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_.MELT_ASSERT_FAILURE_FUN__V25*/ meltfptr[24] = 0 ;}
     ;
@@ -1258,28 +1258,28 @@ melt_dbgcounter++;
    /*_.IFCPP___V23*/ meltfptr[21] = /*_._IFELSE___V24*/ meltfptr[17];;
    /*epilog*/
    
-   MELT_LOCATION("warmelt-moremacro.melt:56:/ clear");
+   MELT_LOCATION("warmelt-moremacro.melt:58:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 56   "warmelt-moremacro.melt" /**::clear::**/
+#line 58   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*clear*/ /*_#gtI__L10*/ meltfnum[0] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 56
+#line 58
 #endif
    /*clear*/ /*_._IFELSE___V24*/ meltfptr[17] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 56
+#line 58
 #endif
  /*_.IFCPP___V23*/ meltfptr[21] = (/*nil*/NULL);
   #endif /*MELT_HAVE_DEBUG*/
   ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 59   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
@@ -1289,48 +1289,48 @@ melt_dbgcounter++;
 #endif
  /*_#ltI__L11*/ meltfnum[7] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57   "warmelt-moremacro.melt" /**::expr::**/
+#line 59   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   ((/*_#TCONTLEN__L6*/ meltfnum[1]) < (4));;
- MELT_LOCATION("warmelt-moremacro.melt:57:/ cond");
+ MELT_LOCATION("warmelt-moremacro.melt:59:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57   "warmelt-moremacro.melt" /**::cond::**/
+#line 59   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*cond*/ if (/*_#ltI__L11*/ meltfnum[7]) /*then*/ {
  /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57
+#line 59
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57
+#line 59
 #endif
   /*anyblock*/{
    
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:58:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:60:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 58   "warmelt-moremacro.melt" /**::locexp::**/
+#line 60   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /* error_plain */ melt_error_str((melt_ptr_t)(/*_.SLOC__V9*/ meltfptr[5]), ( "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> too short"), (melt_ptr_t)0);}
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 59   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 61   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
-   MELT_LOCATION("warmelt-moremacro.melt:59:/ quasiblock");
+   MELT_LOCATION("warmelt-moremacro.melt:61:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 59   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 61   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    
    
    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
-   MELT_LOCATION("warmelt-moremacro.melt:59:/ putxtraresult");
+   MELT_LOCATION("warmelt-moremacro.melt:61:/ putxtraresult");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 59   "warmelt-moremacro.melt" /**::putxtraresult::**/
+#line 61   "warmelt-moremacro.melt" /**::putxtraresult::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
    if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
@@ -1338,13 +1338,13 @@ melt_dbgcounter++;
    ;
    /*^finalreturn*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 59
+#line 61
 #endif
    ;
    /*finalret*/ goto meltlabend_rout ;
-   MELT_LOCATION("warmelt-moremacro.melt:57:/ quasiblock");
+   MELT_LOCATION("warmelt-moremacro.melt:59:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 59   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    
    
@@ -1356,54 +1356,54 @@ melt_dbgcounter++;
    /*_._IF___V26*/ meltfptr[24] = /*_.PROGN___V28*/ meltfptr[27];;
    /*epilog*/
    
-   MELT_LOCATION("warmelt-moremacro.melt:57:/ clear");
+   MELT_LOCATION("warmelt-moremacro.melt:59:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57   "warmelt-moremacro.melt" /**::clear::**/
+#line 59   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*clear*/ /*_.RETURN___V27*/ meltfptr[17] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57
+#line 59
 #endif
    /*clear*/ /*_.PROGN___V28*/ meltfptr[27] = 0 ;}
   ;
  } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 57
+#line 59
 #endif
  
   /*_._IF___V26*/ meltfptr[24] =  /*reallynil*/ NULL ;;
   }
  ;
- MELT_LOCATION("warmelt-moremacro.melt:60:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:62:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 62   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
- MELT_LOCATION("warmelt-moremacro.melt:61:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:63:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 61   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 63   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  /*_.SE__V31*/ meltfptr[30] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 61   "warmelt-moremacro.melt" /**::expr::**/
+#line 63   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   (melt_multiple_nth((melt_ptr_t)(/*_.TCONT__V17*/ meltfptr[10]), (1)));;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::cppif::**/
+#line 65   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:63:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:65:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 65   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
   /*anyblock*/{
    
@@ -1411,7 +1411,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -1421,13 +1421,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 65   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L12*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::expr::**/
+#line 65   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -1436,24 +1436,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:63:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:65:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::cond::**/
+#line 65   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L12*/ meltfnum[0]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L13*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::expr::**/
+#line 65   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -1464,40 +1464,40 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 65   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:63:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:65:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::apply::**/
+#line 65   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[5];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L13*/ meltfnum[12];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
-      argtab[2].meltbp_long = 63;
+      argtab[2].meltbp_long = 65;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list sexplist=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.SE__V31*/ meltfptr[30];
       /*_.MELT_DEBUG_FUN__V33*/ meltfptr[32] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -1506,20 +1506,20 @@ melt_dbgcounter++;
      /*_._IF___V32*/ meltfptr[31] = /*_.MELT_DEBUG_FUN__V33*/ meltfptr[32];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:63:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:65:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::clear::**/
+#line 65   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L13*/ meltfnum[12] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V33*/ meltfptr[32] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
    
     /*_._IF___V32*/ meltfptr[31] =  /*reallynil*/ NULL ;;
@@ -1527,15 +1527,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:63:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:65:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63   "warmelt-moremacro.melt" /**::locexp::**/
+#line 65   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
    
    
@@ -1543,23 +1543,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L12*/ meltfnum[0] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
    /*clear*/ /*_._IF___V32*/ meltfptr[31] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
   /*anyblock*/{
    
@@ -1567,7 +1567,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 63
+#line 65
 #endif
    /*void*/(void)0;}
    ;
@@ -1578,35 +1578,35 @@ melt_dbgcounter++;
   ;
  /*_.LET___V30*/ meltfptr[27] = /*_.SE__V31*/ meltfptr[30];;
  
- MELT_LOCATION("warmelt-moremacro.melt:61:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:63:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 61   "warmelt-moremacro.melt" /**::clear::**/
+#line 63   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.SE__V31*/ meltfptr[30] = 0 ;
  /*_.SEXPLIST__V34*/ meltfptr[32] = /*_.LET___V30*/ meltfptr[27];;
- MELT_LOCATION("warmelt-moremacro.melt:65:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:67:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 65   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 67   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  /*_.SV__V36*/ meltfptr[30] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 65   "warmelt-moremacro.melt" /**::expr::**/
+#line 67   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   (melt_multiple_nth((melt_ptr_t)(/*_.TCONT__V17*/ meltfptr[10]), (2)));;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::cppif::**/
+#line 69   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:67:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:69:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 69   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
   /*anyblock*/{
    
@@ -1614,7 +1614,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -1624,13 +1624,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 69   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L14*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::expr::**/
+#line 69   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -1639,24 +1639,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:67:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:69:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::cond::**/
+#line 69   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L14*/ meltfnum[12]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L15*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::expr::**/
+#line 69   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -1667,40 +1667,40 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 69   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:67:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:69:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::apply::**/
+#line 69   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[5];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L15*/ meltfnum[0];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
-      argtab[2].meltbp_long = 67;
+      argtab[2].meltbp_long = 69;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list svarcomp=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.SV__V36*/ meltfptr[30];
       /*_.MELT_DEBUG_FUN__V38*/ meltfptr[37] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -1709,20 +1709,20 @@ melt_dbgcounter++;
      /*_._IF___V37*/ meltfptr[36] = /*_.MELT_DEBUG_FUN__V38*/ meltfptr[37];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:67:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:69:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::clear::**/
+#line 69   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L15*/ meltfnum[0] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V38*/ meltfptr[37] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
    
     /*_._IF___V37*/ meltfptr[36] =  /*reallynil*/ NULL ;;
@@ -1730,15 +1730,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:67:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:69:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67   "warmelt-moremacro.melt" /**::locexp::**/
+#line 69   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
    
    
@@ -1746,23 +1746,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L14*/ meltfnum[12] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
    /*clear*/ /*_._IF___V37*/ meltfptr[36] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
   /*anyblock*/{
    
@@ -1770,7 +1770,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 67
+#line 69
 #endif
    /*void*/(void)0;}
    ;
@@ -1781,44 +1781,44 @@ melt_dbgcounter++;
   ;
  /*_.LET___V35*/ meltfptr[31] = /*_.SV__V36*/ meltfptr[30];;
  
- MELT_LOCATION("warmelt-moremacro.melt:65:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:67:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 65   "warmelt-moremacro.melt" /**::clear::**/
+#line 67   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.SV__V36*/ meltfptr[30] = 0 ;
  /*_.SVARCOMP__V39*/ meltfptr[37] = /*_.LET___V35*/ meltfptr[31];;
- MELT_LOCATION("warmelt-moremacro.melt:69:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:71:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 69   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 71   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 69   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 71   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
  /*^apply*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 69
+#line 71
 #endif
  /*apply*/{
   union meltparam_un argtab[3];
   memset(&argtab, 0, sizeof(argtab));
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 69
+#line 71
 #endif
   argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 69
+#line 71
 #endif
   argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V4*/ meltfptr[3];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 69
+#line 71
 #endif
   argtab[2].meltbp_aptr = (melt_ptr_t*) &/*_.MODCTX__V5*/ meltfptr[4];
   /*_.ME__V41*/ meltfptr[30] =  melt_apply ((meltclosure_ptr_t)(/*_.MEXPANDER__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.SEXPLIST__V34*/ meltfptr[32]), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -1826,16 +1826,16 @@ melt_dbgcounter++;
  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::cppif::**/
+#line 73   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:71:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:73:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 73   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
   /*anyblock*/{
    
@@ -1843,7 +1843,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -1853,13 +1853,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 73   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L16*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::expr::**/
+#line 73   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -1868,24 +1868,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:71:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:73:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::cond::**/
+#line 73   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L16*/ meltfnum[0]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L17*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::expr::**/
+#line 73   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -1896,40 +1896,40 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 73   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:71:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:73:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::apply::**/
+#line 73   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[5];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L17*/ meltfnum[12];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
-      argtab[2].meltbp_long = 71;
+      argtab[2].meltbp_long = 73;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list mlistexp=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.ME__V41*/ meltfptr[30];
       /*_.MELT_DEBUG_FUN__V43*/ meltfptr[42] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -1938,20 +1938,20 @@ melt_dbgcounter++;
      /*_._IF___V42*/ meltfptr[41] = /*_.MELT_DEBUG_FUN__V43*/ meltfptr[42];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:71:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:73:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::clear::**/
+#line 73   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L17*/ meltfnum[12] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V43*/ meltfptr[42] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
    
     /*_._IF___V42*/ meltfptr[41] =  /*reallynil*/ NULL ;;
@@ -1959,15 +1959,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:71:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:73:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71   "warmelt-moremacro.melt" /**::locexp::**/
+#line 73   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
    
    
@@ -1975,23 +1975,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L16*/ meltfnum[0] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
    /*clear*/ /*_._IF___V42*/ meltfptr[41] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
   /*anyblock*/{
    
@@ -1999,7 +1999,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 71
+#line 73
 #endif
    /*void*/(void)0;}
    ;
@@ -2010,44 +2010,44 @@ melt_dbgcounter++;
   ;
  /*_.LET___V40*/ meltfptr[36] = /*_.ME__V41*/ meltfptr[30];;
  
- MELT_LOCATION("warmelt-moremacro.melt:69:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:71:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 69   "warmelt-moremacro.melt" /**::clear::**/
+#line 71   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.ME__V41*/ meltfptr[30] = 0 ;
  /*_.MLISTEXP__V44*/ meltfptr[42] = /*_.LET___V40*/ meltfptr[36];;
- MELT_LOCATION("warmelt-moremacro.melt:73:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:75:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 73   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 75   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 73   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 75   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
  /*^apply*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 73
+#line 75
 #endif
  /*apply*/{
   union meltparam_un argtab[3];
   memset(&argtab, 0, sizeof(argtab));
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 73
+#line 75
 #endif
   argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 73
+#line 75
 #endif
   argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V4*/ meltfptr[3];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 73
+#line 75
 #endif
   argtab[2].meltbp_aptr = (melt_ptr_t*) &/*_.MODCTX__V5*/ meltfptr[4];
   /*_.MV__V46*/ meltfptr[30] =  melt_apply ((meltclosure_ptr_t)(/*_.MEXPANDER__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.SVARCOMP__V39*/ meltfptr[37]), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -2055,16 +2055,16 @@ melt_dbgcounter++;
  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::cppif::**/
+#line 77   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:75:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:77:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 77   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
   /*anyblock*/{
    
@@ -2072,7 +2072,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -2082,13 +2082,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 77   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L18*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::expr::**/
+#line 77   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -2097,24 +2097,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:75:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:77:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::cond::**/
+#line 77   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L18*/ meltfnum[12]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L19*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::expr::**/
+#line 77   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -2125,40 +2125,40 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 77   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:75:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:77:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::apply::**/
+#line 77   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[5];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L19*/ meltfnum[0];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
-      argtab[2].meltbp_long = 75;
+      argtab[2].meltbp_long = 77;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list mvarcomp=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.MV__V46*/ meltfptr[30];
       /*_.MELT_DEBUG_FUN__V48*/ meltfptr[47] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -2167,20 +2167,20 @@ melt_dbgcounter++;
      /*_._IF___V47*/ meltfptr[46] = /*_.MELT_DEBUG_FUN__V48*/ meltfptr[47];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:75:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:77:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::clear::**/
+#line 77   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L19*/ meltfnum[0] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V48*/ meltfptr[47] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
    
     /*_._IF___V47*/ meltfptr[46] =  /*reallynil*/ NULL ;;
@@ -2188,15 +2188,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:75:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:77:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75   "warmelt-moremacro.melt" /**::locexp::**/
+#line 77   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
    
    
@@ -2204,23 +2204,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L18*/ meltfnum[12] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
    /*clear*/ /*_._IF___V47*/ meltfptr[46] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
   /*anyblock*/{
    
@@ -2228,7 +2228,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 75
+#line 77
 #endif
    /*void*/(void)0;}
    ;
@@ -2239,24 +2239,24 @@ melt_dbgcounter++;
   ;
  /*_.LET___V45*/ meltfptr[41] = /*_.MV__V46*/ meltfptr[30];;
  
- MELT_LOCATION("warmelt-moremacro.melt:73:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:75:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 73   "warmelt-moremacro.melt" /**::clear::**/
+#line 75   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.MV__V46*/ meltfptr[30] = 0 ;
  /*_.MVARCOMP__V49*/ meltfptr[47] = /*_.LET___V45*/ meltfptr[41];;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::cppif::**/
+#line 80   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:78:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:80:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 80   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
   /*anyblock*/{
    
@@ -2264,7 +2264,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -2274,13 +2274,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 80   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L20*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::expr::**/
+#line 80   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -2289,24 +2289,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:78:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:80:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::cond::**/
+#line 80   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L20*/ meltfnum[0]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L21*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::expr::**/
+#line 80   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -2317,50 +2317,50 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 80   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:78:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:80:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::apply::**/
+#line 80   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[7];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L21*/ meltfnum[12];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
-      argtab[2].meltbp_long = 78;
+      argtab[2].meltbp_long = 80;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list tcont=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.TCONT__V17*/ meltfptr[10];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
       argtab[5].meltbp_cstring =  "\n.. before expand_tuple_slice_as_tuple=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
       argtab[6].meltbp_aptr = (melt_ptr_t*) &(/*!EXPAND_TUPLE_SLICE_AS_TUPLE*/ meltfrout->tabval[7]);
       /*_.MELT_DEBUG_FUN__V51*/ meltfptr[30] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -2369,20 +2369,20 @@ melt_dbgcounter++;
      /*_._IF___V50*/ meltfptr[46] = /*_.MELT_DEBUG_FUN__V51*/ meltfptr[30];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:78:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:80:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::clear::**/
+#line 80   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L21*/ meltfnum[12] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V51*/ meltfptr[30] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
    
     /*_._IF___V50*/ meltfptr[46] =  /*reallynil*/ NULL ;;
@@ -2390,15 +2390,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:78:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:80:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::locexp::**/
+#line 80   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
    
    
@@ -2406,23 +2406,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L20*/ meltfnum[0] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
    /*clear*/ /*_._IF___V50*/ meltfptr[46] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
   /*anyblock*/{
    
@@ -2430,7 +2430,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78
+#line 80
 #endif
    /*void*/(void)0;}
    ;
@@ -2439,48 +2439,48 @@ melt_dbgcounter++;
   
   #endif /*MELT_HAVE_DEBUG*/
   ;
- MELT_LOCATION("warmelt-moremacro.melt:80:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:82:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 82   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 82   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
  /*^apply*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80
+#line 82
 #endif
  /*apply*/{
   union meltparam_un argtab[5];
   memset(&argtab, 0, sizeof(argtab));
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80
+#line 82
 #endif
   argtab[0].meltbp_long = 3;
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80
+#line 82
 #endif
   argtab[1].meltbp_long = -1;
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80
+#line 82
 #endif
   argtab[2].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80
+#line 82
 #endif
   argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V4*/ meltfptr[3];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80
+#line 82
 #endif
   argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.MODCTX__V5*/ meltfptr[4];
   /*_.BE__V53*/ meltfptr[46] =  melt_apply ((meltclosure_ptr_t)((/*!EXPAND_TUPLE_SLICE_AS_TUPLE*/ meltfrout->tabval[7])), (melt_ptr_t)(/*_.TCONT__V17*/ meltfptr[10]), (MELTBPARSTR_LONG MELTBPARSTR_LONG MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -2488,16 +2488,16 @@ melt_dbgcounter++;
  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::cppif::**/
+#line 84   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:82:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:84:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 84   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
   /*anyblock*/{
    
@@ -2505,7 +2505,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -2515,13 +2515,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 84   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L22*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::expr::**/
+#line 84   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -2530,24 +2530,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:82:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:84:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::cond::**/
+#line 84   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L22*/ meltfnum[12]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L23*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::expr::**/
+#line 84   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -2558,40 +2558,40 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 84   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:82:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:84:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::apply::**/
+#line 84   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[5];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L23*/ meltfnum[0];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
-      argtab[2].meltbp_long = 82;
+      argtab[2].meltbp_long = 84;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list bodyexp=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.BE__V53*/ meltfptr[46];
       /*_.MELT_DEBUG_FUN__V55*/ meltfptr[54] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -2600,20 +2600,20 @@ melt_dbgcounter++;
      /*_._IF___V54*/ meltfptr[53] = /*_.MELT_DEBUG_FUN__V55*/ meltfptr[54];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:82:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:84:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::clear::**/
+#line 84   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L23*/ meltfnum[0] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V55*/ meltfptr[54] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
    
     /*_._IF___V54*/ meltfptr[53] =  /*reallynil*/ NULL ;;
@@ -2621,15 +2621,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:82:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:84:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82   "warmelt-moremacro.melt" /**::locexp::**/
+#line 84   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
    
    
@@ -2637,23 +2637,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L22*/ meltfnum[12] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
    /*clear*/ /*_._IF___V54*/ meltfptr[53] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
   /*anyblock*/{
    
@@ -2661,7 +2661,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 82
+#line 84
 #endif
    /*void*/(void)0;}
    ;
@@ -2672,21 +2672,21 @@ melt_dbgcounter++;
   ;
  /*_.LET___V52*/ meltfptr[30] = /*_.BE__V53*/ meltfptr[46];;
  
- MELT_LOCATION("warmelt-moremacro.melt:80:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:82:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 80   "warmelt-moremacro.melt" /**::clear::**/
+#line 82   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.BE__V53*/ meltfptr[46] = 0 ;
- MELT_LOCATION("warmelt-moremacro.melt:77:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:79:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 77   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 79   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  /*_.BODYEXP__V56*/ meltfptr[54] = /*_.LET___V52*/ meltfptr[30];;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 87   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
@@ -2696,49 +2696,49 @@ melt_dbgcounter++;
 #endif
  /*_#IS_NOT_A__L24*/ meltfnum[0] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85   "warmelt-moremacro.melt" /**::expr::**/
+#line 87   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   !melt_is_instance_of((melt_ptr_t)(/*_.MVARCOMP__V49*/ meltfptr[47]), (melt_ptr_t)((/*!CLASS_SYMBOL*/ meltfrout->tabval[8])));;
- MELT_LOCATION("warmelt-moremacro.melt:85:/ cond");
+ MELT_LOCATION("warmelt-moremacro.melt:87:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85   "warmelt-moremacro.melt" /**::cond::**/
+#line 87   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*cond*/ if (/*_#IS_NOT_A__L24*/ meltfnum[0]) /*then*/ {
  /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85
+#line 87
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85
+#line 87
 #endif
   /*anyblock*/{
    
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:86:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:88:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 86   "warmelt-moremacro.melt" /**::locexp::**/
+#line 88   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /* error_plain */ melt_error_str((melt_ptr_t)(/*_.SLOC__V9*/ meltfptr[5]), ( "EACH_COMPONENT_IN_LIST <expr-list> <var-comp> bad second argument for\
  component variable"), (melt_ptr_t)0);}
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 87   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 89   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
-   MELT_LOCATION("warmelt-moremacro.melt:87:/ quasiblock");
+   MELT_LOCATION("warmelt-moremacro.melt:89:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 87   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 89   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    
    
    /*_._RETVAL___V1*/ meltfptr[0] = (/*nil*/NULL);;
-   MELT_LOCATION("warmelt-moremacro.melt:87:/ putxtraresult");
+   MELT_LOCATION("warmelt-moremacro.melt:89:/ putxtraresult");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 87   "warmelt-moremacro.melt" /**::putxtraresult::**/
+#line 89   "warmelt-moremacro.melt" /**::putxtraresult::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    if (!meltxrestab_ || !meltxresdescr_) goto meltlabend_rout;
    if (meltxresdescr_[0] != MELTBPAR_PTR) goto meltlabend_rout;
@@ -2746,13 +2746,13 @@ melt_dbgcounter++;
    ;
    /*^finalreturn*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 87
+#line 89
 #endif
    ;
    /*finalret*/ goto meltlabend_rout ;
-   MELT_LOCATION("warmelt-moremacro.melt:85:/ quasiblock");
+   MELT_LOCATION("warmelt-moremacro.melt:87:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 87   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    
    
@@ -2764,43 +2764,23 @@ melt_dbgcounter++;
    /*_._IF___V57*/ meltfptr[53] = /*_.PROGN___V59*/ meltfptr[58];;
    /*epilog*/
    
-   MELT_LOCATION("warmelt-moremacro.melt:85:/ clear");
+   MELT_LOCATION("warmelt-moremacro.melt:87:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85   "warmelt-moremacro.melt" /**::clear::**/
+#line 87   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*clear*/ /*_.RETURN___V58*/ meltfptr[46] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85
+#line 87
 #endif
    /*clear*/ /*_.PROGN___V59*/ meltfptr[58] = 0 ;}
   ;
  } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85
+#line 87
 #endif
  
   /*_._IF___V57*/ meltfptr[53] =  /*reallynil*/ NULL ;;
-  }
- ;
- MELT_LOCATION("warmelt-moremacro.melt:88:/ quasiblock");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 88   "warmelt-moremacro.melt" /**::quasiblock::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- 
- 
- 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 89   "warmelt-moremacro.melt" /**::checksignal::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-  MELT_CHECK_SIGNAL();
- ;
- MELT_LOCATION("warmelt-moremacro.melt:89:/ apply");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 89   "warmelt-moremacro.melt" /**::apply::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*apply*/{
-  /*_.CURPAIRINLISTSYMB__V61*/ meltfptr[58] =  melt_apply ((meltclosure_ptr_t)((/*!CLONE_SYMBOL*/ meltfrout->tabval[9])), (melt_ptr_t)((/*!konst_10_CURPAIRINLISTSYMB*/ meltfrout->tabval[10])), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
   }
  ;
  MELT_LOCATION("warmelt-moremacro.melt:90:/ quasiblock");
@@ -2809,72 +2789,6 @@ melt_dbgcounter++;
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
- /*_.HOOK_MELT_MAKE_LOCATION__V63*/ meltfptr[62] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 91   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[12]),  "warmelt-moremacro.melt", 91) ;;
- /*^compute*/
-#ifndef MELTGCC_NOLINENUMBERING
-
-#endif
- /*_.HOOK_MELT_MAKE_LOCATION__V64*/ meltfptr[63] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 92   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[12]),  "warmelt-moremacro.melt", 92) ;;
- 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 92   "warmelt-moremacro.melt" /**::checksignal::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-  MELT_CHECK_SIGNAL();
- ;
- MELT_LOCATION("warmelt-moremacro.melt:92:/ apply");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 92   "warmelt-moremacro.melt" /**::apply::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*apply*/{
-  union meltparam_un argtab[1];
-  memset(&argtab, 0, sizeof(argtab));
-  /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 92
-#endif
-  argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.MLISTEXP__V44*/ meltfptr[42];
-  /*_.MELT_MAKE_SEXPR__V65*/ meltfptr[64] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_MAKE_SEXPR*/ meltfrout->tabval[11])), (melt_ptr_t)(/*_.HOOK_MELT_MAKE_LOCATION__V64*/ meltfptr[63]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
-  }
- ;
- /*_.HOOK_MELT_MAKE_LOCATION__V66*/ meltfptr[65] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 93   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[12]),  "warmelt-moremacro.melt", 93) ;;
- 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 93   "warmelt-moremacro.melt" /**::checksignal::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-  MELT_CHECK_SIGNAL();
- ;
- MELT_LOCATION("warmelt-moremacro.melt:93:/ apply");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 93   "warmelt-moremacro.melt" /**::apply::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*apply*/{
-  union meltparam_un argtab[2];
-  memset(&argtab, 0, sizeof(argtab));
-  /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 93
-#endif
-  argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.CURPAIRINLISTSYMB__V61*/ meltfptr[58];
-  /*^apply.arg*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 93
-#endif
-  argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.MVARCOMP__V49*/ meltfptr[47];
-  /*_.MELT_MAKE_SEXPR__V67*/ meltfptr[66] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_MAKE_SEXPR*/ meltfrout->tabval[11])), (melt_ptr_t)(/*_.HOOK_MELT_MAKE_LOCATION__V66*/ meltfptr[65]), (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
-  }
- ;
  
 #ifndef MELTGCC_NOLINENUMBERING
 #line 91   "warmelt-moremacro.melt" /**::checksignal::**/
@@ -2886,26 +2800,112 @@ melt_dbgcounter++;
 #line 91   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*apply*/{
+  /*_.CURPAIRINLISTSYMB__V61*/ meltfptr[58] =  melt_apply ((meltclosure_ptr_t)((/*!CLONE_SYMBOL*/ meltfrout->tabval[9])), (melt_ptr_t)((/*!konst_10_CURPAIRINLISTSYMB*/ meltfrout->tabval[10])), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+  }
+ ;
+ MELT_LOCATION("warmelt-moremacro.melt:92:/ quasiblock");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92   "warmelt-moremacro.melt" /**::quasiblock::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ 
+ 
+ /*_.HOOK_MELT_MAKE_LOCATION__V63*/ meltfptr[62] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 93   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[12]),  "warmelt-moremacro.melt", 93) ;;
+ /*^compute*/
+#ifndef MELTGCC_NOLINENUMBERING
+
+#endif
+ /*_.HOOK_MELT_MAKE_LOCATION__V64*/ meltfptr[63] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 94   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[12]),  "warmelt-moremacro.melt", 94) ;;
+ 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 94   "warmelt-moremacro.melt" /**::checksignal::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+  MELT_CHECK_SIGNAL();
+ ;
+ MELT_LOCATION("warmelt-moremacro.melt:94:/ apply");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 94   "warmelt-moremacro.melt" /**::apply::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*apply*/{
+  union meltparam_un argtab[1];
+  memset(&argtab, 0, sizeof(argtab));
+  /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 94
+#endif
+  argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.MLISTEXP__V44*/ meltfptr[42];
+  /*_.MELT_MAKE_SEXPR__V65*/ meltfptr[64] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_MAKE_SEXPR*/ meltfrout->tabval[11])), (melt_ptr_t)(/*_.HOOK_MELT_MAKE_LOCATION__V64*/ meltfptr[63]), (MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+  }
+ ;
+ /*_.HOOK_MELT_MAKE_LOCATION__V66*/ meltfptr[65] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 95   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*hookcall*/ melthook_HOOK_MELT_MAKE_LOCATION ((melt_ptr_t) (/*!HOOK_MELT_MAKE_LOCATION*/ meltfrout->tabval[12]),  "warmelt-moremacro.melt", 95) ;;
+ 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 95   "warmelt-moremacro.melt" /**::checksignal::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+  MELT_CHECK_SIGNAL();
+ ;
+ MELT_LOCATION("warmelt-moremacro.melt:95:/ apply");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 95   "warmelt-moremacro.melt" /**::apply::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*apply*/{
+  union meltparam_un argtab[2];
+  memset(&argtab, 0, sizeof(argtab));
+  /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 95
+#endif
+  argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.CURPAIRINLISTSYMB__V61*/ meltfptr[58];
+  /*^apply.arg*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 95
+#endif
+  argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.MVARCOMP__V49*/ meltfptr[47];
+  /*_.MELT_MAKE_SEXPR__V67*/ meltfptr[66] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_MAKE_SEXPR*/ meltfrout->tabval[11])), (melt_ptr_t)(/*_.HOOK_MELT_MAKE_LOCATION__V66*/ meltfptr[65]), (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+  }
+ ;
+ 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 93   "warmelt-moremacro.melt" /**::checksignal::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+  MELT_CHECK_SIGNAL();
+ ;
+ MELT_LOCATION("warmelt-moremacro.melt:93:/ apply");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 93   "warmelt-moremacro.melt" /**::apply::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*apply*/{
   union meltparam_un argtab[4];
   memset(&argtab, 0, sizeof(argtab));
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 91
+#line 93
 #endif
   argtab[0].meltbp_aptr = (melt_ptr_t*) &(/*!konst_13_FOREACH_PAIR_COMPONENT_IN_LIST*/ meltfrout->tabval[13]);
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 91
+#line 93
 #endif
   argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.MELT_MAKE_SEXPR__V65*/ meltfptr[64];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 91
+#line 93
 #endif
   argtab[2].meltbp_aptr = (melt_ptr_t*) &/*_.MELT_MAKE_SEXPR__V67*/ meltfptr[66];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 91
+#line 93
 #endif
   argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.BODYEXP__V56*/ meltfptr[54];
   /*_.RESEXP__V68*/ meltfptr[67] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_MAKE_SEXPR*/ meltfrout->tabval[11])), (melt_ptr_t)(/*_.HOOK_MELT_MAKE_LOCATION__V63*/ meltfptr[62]), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -2913,16 +2913,16 @@ melt_dbgcounter++;
  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::cppif::**/
+#line 98   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:96:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:98:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 98   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
   /*anyblock*/{
    
@@ -2930,7 +2930,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -2940,13 +2940,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 98   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L25*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::expr::**/
+#line 98   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -2955,24 +2955,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:96:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:98:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::cond::**/
+#line 98   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L25*/ meltfnum[12]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L26*/ meltfnum[25] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::expr::**/
+#line 98   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -2983,40 +2983,40 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 98   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:96:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:98:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::apply::**/
+#line 98   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[5];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L26*/ meltfnum[25];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
-      argtab[2].meltbp_long = 96;
+      argtab[2].meltbp_long = 98;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list resexp=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.RESEXP__V68*/ meltfptr[67];
       /*_.MELT_DEBUG_FUN__V70*/ meltfptr[69] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -3025,20 +3025,20 @@ melt_dbgcounter++;
      /*_._IF___V69*/ meltfptr[68] = /*_.MELT_DEBUG_FUN__V70*/ meltfptr[69];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:96:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:98:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::clear::**/
+#line 98   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L26*/ meltfnum[25] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V70*/ meltfptr[69] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
    
     /*_._IF___V69*/ meltfptr[68] =  /*reallynil*/ NULL ;;
@@ -3046,15 +3046,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:96:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:98:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96   "warmelt-moremacro.melt" /**::locexp::**/
+#line 98   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
    
    
@@ -3062,23 +3062,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L25*/ meltfnum[12] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
    /*clear*/ /*_._IF___V69*/ meltfptr[68] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
   /*anyblock*/{
    
@@ -3086,7 +3086,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 96
+#line 98
 #endif
    /*void*/(void)0;}
    ;
@@ -3095,38 +3095,38 @@ melt_dbgcounter++;
   
   #endif /*MELT_HAVE_DEBUG*/
   ;
- MELT_LOCATION("warmelt-moremacro.melt:97:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:99:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 99   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 99   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
  /*^apply*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97
+#line 99
 #endif
  /*apply*/{
   union meltparam_un argtab[3];
   memset(&argtab, 0, sizeof(argtab));
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97
+#line 99
 #endif
   argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.ENV__V3*/ meltfptr[2];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97
+#line 99
 #endif
   argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.MEXPANDER__V4*/ meltfptr[3];
   /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97
+#line 99
 #endif
   argtab[2].meltbp_aptr = (melt_ptr_t*) &/*_.MODCTX__V5*/ meltfptr[4];
   /*_.MEXP__V72*/ meltfptr[68] =  melt_apply ((meltclosure_ptr_t)(/*_.MEXPANDER__V4*/ meltfptr[3]), (melt_ptr_t)(/*_.RESEXP__V68*/ meltfptr[67]), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -3134,34 +3134,34 @@ melt_dbgcounter++;
  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 101   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
- MELT_LOCATION("warmelt-moremacro.melt:99:/ cond");
+ MELT_LOCATION("warmelt-moremacro.melt:101:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99   "warmelt-moremacro.melt" /**::cond::**/
+#line 101   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*cond*/ if (
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99   "warmelt-moremacro.melt" /**::expr::**/
+#line 101   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.MEXP__V72*/ meltfptr[68]), 
                                                                        (melt_ptr_t)((/*!CLASS_LOCATED*/ meltfrout->tabval[2])))
 				      ) /*then*/ {
  /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99
+#line 101
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99
+#line 101
 #endif
   /*anyblock*/{
    
    /*^putslot*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99
+#line 101
 #endif
    /*putslot*/
    melt_assertmsg("checkobj putslot  _ @LOCA_LOCATION", melt_magic_discr((melt_ptr_t)(/*_.MEXP__V72*/ meltfptr[68])) == MELTOBMAG_OBJECT);
@@ -3169,13 +3169,13 @@ melt_dbgcounter++;
    ;
    /*^touch*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99
+#line 101
 #endif
    meltgc_touch(/*_.MEXP__V72*/ meltfptr[68]);
    ;
    /*^touchobj*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 99
+#line 101
 #endif
    
    melt_dbgtrace_written_object (/*_.MEXP__V72*/ meltfptr[68], "put-fields");
@@ -3187,16 +3187,16 @@ melt_dbgcounter++;
  ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::cppif::**/
+#line 102   "warmelt-moremacro.melt" /**::cppif::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  #if MELT_HAVE_DEBUG
-  MELT_LOCATION("warmelt-moremacro.melt:100:/ cppif.then");
+  MELT_LOCATION("warmelt-moremacro.melt:102:/ cppif.then");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::cppif.then::**/
+#line 102   "warmelt-moremacro.melt" /**::cppif.then::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
   /*anyblock*/{
    
@@ -3204,7 +3204,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
    /*melt_increment_dbgcounter*/ 
 #if MELT_HAVE_DEBUG
@@ -3214,13 +3214,13 @@ melt_dbgcounter++;
    ;
    
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 102   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     MELT_CHECK_SIGNAL();
    ;
    /*_#MELT_NEED_DBG__L27*/ meltfnum[25] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::expr::**/
+#line 102   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*MELT_NEED_DBG*/
 #if MELT_HAVE_DEBUG
@@ -3229,24 +3229,24 @@ melt_dbgcounter++;
  0 /* no melt_need_dbg */
 #endif /*MELT_HAVE_DEBUG*/
 ;;
-   MELT_LOCATION("warmelt-moremacro.melt:100:/ cond");
+   MELT_LOCATION("warmelt-moremacro.melt:102:/ cond");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::cond::**/
+#line 102   "warmelt-moremacro.melt" /**::cond::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*cond*/ if (/*_#MELT_NEED_DBG__L27*/ meltfnum[25]) /*then*/ {
    /*^cond.then*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
    /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
     /*anyblock*/{
      
      /*_#MELT_CALLCOUNT__L28*/ meltfnum[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::expr::**/
+#line 102   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       /* for melt_callcount */
 #if MELT_HAVE_DEBUG && defined (meltcallcount)
@@ -3257,40 +3257,40 @@ melt_dbgcounter++;
 ;;
      
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 102   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
       MELT_CHECK_SIGNAL();
      ;
-     MELT_LOCATION("warmelt-moremacro.melt:100:/ apply");
+     MELT_LOCATION("warmelt-moremacro.melt:102:/ apply");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::apply::**/
+#line 102   "warmelt-moremacro.melt" /**::apply::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*apply*/{
       union meltparam_un argtab[5];
       memset(&argtab, 0, sizeof(argtab));
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
       argtab[0].meltbp_long = /*_#MELT_CALLCOUNT__L28*/ meltfnum[12];
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
       argtab[1].meltbp_cstring =  "warmelt-moremacro.melt";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
-      argtab[2].meltbp_long = 100;
+      argtab[2].meltbp_long = 102;
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
       argtab[3].meltbp_cstring =  "each_component_in_list final mexp=";
       /*^apply.arg*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
       argtab[4].meltbp_aptr = (melt_ptr_t*) &/*_.MEXP__V72*/ meltfptr[68];
       /*_.MELT_DEBUG_FUN__V74*/ meltfptr[73] =  melt_apply ((meltclosure_ptr_t)((/*!MELT_DEBUG_FUN*/ meltfrout->tabval[0])), (melt_ptr_t)((/*nil*/NULL)), (MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_LONG MELTBPARSTR_CSTRING MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
@@ -3299,20 +3299,20 @@ melt_dbgcounter++;
      /*_._IF___V73*/ meltfptr[72] = /*_.MELT_DEBUG_FUN__V74*/ meltfptr[73];;
      /*epilog*/
      
-     MELT_LOCATION("warmelt-moremacro.melt:100:/ clear");
+     MELT_LOCATION("warmelt-moremacro.melt:102:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::clear::**/
+#line 102   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
      /*clear*/ /*_#MELT_CALLCOUNT__L28*/ meltfnum[12] = 0 ;
      /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
      /*clear*/ /*_.MELT_DEBUG_FUN__V74*/ meltfptr[73] = 0 ;}
     ;
    } else {/*^cond.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
    
     /*_._IF___V73*/ meltfptr[72] =  /*reallynil*/ NULL ;;
@@ -3320,15 +3320,15 @@ melt_dbgcounter++;
    ;
    
    {
-   MELT_LOCATION("warmelt-moremacro.melt:100:/ locexp");
+   MELT_LOCATION("warmelt-moremacro.melt:102:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100   "warmelt-moremacro.melt" /**::locexp::**/
+#line 102   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*void*/(void)0;}
    ;
    /*^quasiblock*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
    
    
@@ -3336,23 +3336,23 @@ melt_dbgcounter++;
    
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
    /*clear*/ /*_#MELT_NEED_DBG__L27*/ meltfnum[25] = 0 ;
    /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
    /*clear*/ /*_._IF___V73*/ meltfptr[72] = 0 ;}
   
   #else /*MELT_HAVE_DEBUG*/
   /*^cppif.else*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
   /*anyblock*/{
    
@@ -3360,7 +3360,7 @@ melt_dbgcounter++;
    {
    /*^locexp*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 100
+#line 102
 #endif
    /*void*/(void)0;}
    ;
@@ -3371,22 +3371,22 @@ melt_dbgcounter++;
   ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 101   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 103   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
- MELT_LOCATION("warmelt-moremacro.melt:101:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:103:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 101   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 103   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  /*_._RETVAL___V1*/ meltfptr[0] = /*_.MEXP__V72*/ meltfptr[68];;
  
  {
- MELT_LOCATION("warmelt-moremacro.melt:101:/ locexp");
+ MELT_LOCATION("warmelt-moremacro.melt:103:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 101   "warmelt-moremacro.melt" /**::locexp::**/
+#line 103   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
@@ -3398,215 +3398,215 @@ melt_dbgcounter++;
  ;
  /*^finalreturn*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 101
+#line 103
 #endif
  ;
  /*finalret*/ goto meltlabend_rout ;
  /*_.LET___V71*/ meltfptr[69] = /*_.RETURN___V75*/ meltfptr[73];;
  
- MELT_LOCATION("warmelt-moremacro.melt:97:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:99:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97   "warmelt-moremacro.melt" /**::clear::**/
+#line 99   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.MEXP__V72*/ meltfptr[68] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 97
+#line 99
 #endif
  /*clear*/ /*_.RETURN___V75*/ meltfptr[73] = 0 ;
  /*_.LET___V62*/ meltfptr[61] = /*_.LET___V71*/ meltfptr[69];;
+ 
+ MELT_LOCATION("warmelt-moremacro.melt:92:/ clear");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92   "warmelt-moremacro.melt" /**::clear::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*clear*/ /*_.HOOK_MELT_MAKE_LOCATION__V63*/ meltfptr[62] = 0 ;
+ /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92
+#endif
+ /*clear*/ /*_.HOOK_MELT_MAKE_LOCATION__V64*/ meltfptr[63] = 0 ;
+ /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92
+#endif
+ /*clear*/ /*_.MELT_MAKE_SEXPR__V65*/ meltfptr[64] = 0 ;
+ /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92
+#endif
+ /*clear*/ /*_.HOOK_MELT_MAKE_LOCATION__V66*/ meltfptr[65] = 0 ;
+ /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92
+#endif
+ /*clear*/ /*_.MELT_MAKE_SEXPR__V67*/ meltfptr[66] = 0 ;
+ /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92
+#endif
+ /*clear*/ /*_.RESEXP__V68*/ meltfptr[67] = 0 ;
+ /*^clear*/
+#ifndef MELTGCC_NOLINENUMBERING
+#line 92
+#endif
+ /*clear*/ /*_.LET___V71*/ meltfptr[69] = 0 ;
+ /*_.LET___V60*/ meltfptr[46] = /*_.LET___V62*/ meltfptr[61];;
  
  MELT_LOCATION("warmelt-moremacro.melt:90:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
 #line 90   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
- /*clear*/ /*_.HOOK_MELT_MAKE_LOCATION__V63*/ meltfptr[62] = 0 ;
- /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 90
-#endif
- /*clear*/ /*_.HOOK_MELT_MAKE_LOCATION__V64*/ meltfptr[63] = 0 ;
- /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 90
-#endif
- /*clear*/ /*_.MELT_MAKE_SEXPR__V65*/ meltfptr[64] = 0 ;
- /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 90
-#endif
- /*clear*/ /*_.HOOK_MELT_MAKE_LOCATION__V66*/ meltfptr[65] = 0 ;
- /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 90
-#endif
- /*clear*/ /*_.MELT_MAKE_SEXPR__V67*/ meltfptr[66] = 0 ;
- /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 90
-#endif
- /*clear*/ /*_.RESEXP__V68*/ meltfptr[67] = 0 ;
- /*^clear*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 90
-#endif
- /*clear*/ /*_.LET___V71*/ meltfptr[69] = 0 ;
- /*_.LET___V60*/ meltfptr[46] = /*_.LET___V62*/ meltfptr[61];;
- 
- MELT_LOCATION("warmelt-moremacro.melt:88:/ clear");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 88   "warmelt-moremacro.melt" /**::clear::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.CURPAIRINLISTSYMB__V61*/ meltfptr[58] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 88
+#line 90
 #endif
  /*clear*/ /*_.LET___V62*/ meltfptr[61] = 0 ;
  /*_.LET___V29*/ meltfptr[17] = /*_.LET___V60*/ meltfptr[46];;
  
- MELT_LOCATION("warmelt-moremacro.melt:60:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:62:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60   "warmelt-moremacro.melt" /**::clear::**/
+#line 62   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.LET___V30*/ meltfptr[27] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.SEXPLIST__V34*/ meltfptr[32] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.LET___V35*/ meltfptr[31] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.SVARCOMP__V39*/ meltfptr[37] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.LET___V40*/ meltfptr[36] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.MLISTEXP__V44*/ meltfptr[42] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.LET___V45*/ meltfptr[41] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.MVARCOMP__V49*/ meltfptr[47] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.LET___V52*/ meltfptr[30] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.BODYEXP__V56*/ meltfptr[54] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_#IS_NOT_A__L24*/ meltfnum[0] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_._IF___V57*/ meltfptr[53] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 60
+#line 62
 #endif
  /*clear*/ /*_.LET___V60*/ meltfptr[46] = 0 ;
  /*_.LET___V16*/ meltfptr[14] = /*_.LET___V29*/ meltfptr[17];;
  
- MELT_LOCATION("warmelt-moremacro.melt:50:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:52:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50   "warmelt-moremacro.melt" /**::clear::**/
+#line 52   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.TCONT__V17*/ meltfptr[10] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50
+#line 52
 #endif
  /*clear*/ /*_#TCONTLEN__L6*/ meltfnum[1] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50
+#line 52
 #endif
  /*clear*/ /*_.IFCPP___V20*/ meltfptr[18] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50
+#line 52
 #endif
  /*clear*/ /*_.IFCPP___V23*/ meltfptr[21] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50
+#line 52
 #endif
  /*clear*/ /*_#ltI__L11*/ meltfnum[7] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50
+#line 52
 #endif
  /*clear*/ /*_._IF___V26*/ meltfptr[24] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 50
+#line 52
 #endif
  /*clear*/ /*_.LET___V29*/ meltfptr[17] = 0 ;
  /*_.LET___V8*/ meltfptr[6] = /*_.LET___V16*/ meltfptr[14];;
  
- MELT_LOCATION("warmelt-moremacro.melt:44:/ clear");
+ MELT_LOCATION("warmelt-moremacro.melt:46:/ clear");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 44   "warmelt-moremacro.melt" /**::clear::**/
+#line 46   "warmelt-moremacro.melt" /**::clear::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*clear*/ /*_.SLOC__V9*/ meltfptr[5] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 44
+#line 46
 #endif
  /*clear*/ /*_.SEXCONT__V10*/ meltfptr[9] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 44
+#line 46
 #endif
  /*clear*/ /*_.IFCPP___V13*/ meltfptr[11] = 0 ;
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 44
+#line 46
 #endif
  /*clear*/ /*_.LET___V16*/ meltfptr[14] = 0 ;
  
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::checksignal::**/
+#line 39   "warmelt-moremacro.melt" /**::checksignal::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
   MELT_CHECK_SIGNAL();
  ;
- MELT_LOCATION("warmelt-moremacro.melt:37:/ quasiblock");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ quasiblock");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::quasiblock::**/
+#line 39   "warmelt-moremacro.melt" /**::quasiblock::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  
  
  /*_._RETVAL___V1*/ meltfptr[0] = /*_.LET___V8*/ meltfptr[6];;
  
  {
- MELT_LOCATION("warmelt-moremacro.melt:37:/ locexp");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ locexp");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::locexp::**/
+#line 39   "warmelt-moremacro.melt" /**::locexp::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*ochecknores compilobj_nrep_return*/
 #if MELT_HAVE_DEBUG
@@ -3618,7 +3618,7 @@ melt_dbgcounter++;
  ;
  /*^finalreturn*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  ;
  /*finalret*/ goto meltlabend_rout ;
@@ -3626,7 +3626,7 @@ melt_dbgcounter++;
  
  /*^clear*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*clear*/ /*_.LET___V8*/ meltfptr[6] = 0 ;}
 
@@ -3649,7 +3649,7 @@ melt_trace_end("EACH_COMPONENT_IN_LIST", meltcallcount);
 /* the frame for initial routine */
 /** start of frame for melt_start_this_module of CLASS_INITIAL_MODULE_ROUTINEOBJ from 1522**/
 
- /*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286// fromline 1535
+ /*curframdeclclassy*/ class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110// fromline 1535
   : public Melt_CallFrameWithValues<53> {
  public: /* fromline 1539*/
  // no classy longs
@@ -3661,24 +3661,24 @@ melt_trace_end("EACH_COMPONENT_IN_LIST", meltcallcount);
   melt_mark_values ();
   melt_mark_stuff ();
  }; /*end melt_mark_ggc_data*/
- Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286(meltclosure_ptr_t clos) //the closure constructor fromline 1597
+ Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110(meltclosure_ptr_t clos) //the closure constructor fromline 1597
    : Melt_CallFrameWithValues<53> (
 #if ENABLE_CHECKING /*fromline 1601*/
     __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1605*/
-   sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286), clos) {};
- Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286() //the constructor fromline 1609
+   sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110), clos) {};
+ Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110() //the constructor fromline 1609
    : Melt_CallFrameWithValues<53> (
 #if ENABLE_CHECKING /*fromline 1613*/
     __FILE__, __LINE__,
 #endif /* ENABLE_CHECKING fromline 1617*/
-   sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286)) {};
+   sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110)) {};
 #if ENABLE_CHECKING /*fromline 1621*/
-  Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286(const char*fil, int lin) //the constructor fromline 1623
-   : Melt_CallFrameWithValues<53> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286)) {};
+  Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110(const char*fil, int lin) //the constructor fromline 1623
+   : Melt_CallFrameWithValues<53> (fil,lin, sizeof(Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110)) {};
 #endif /* ENABLE_CHECKING fromline 1633*/
   
-}; // end  class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h125650286
+}; // end  class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h209339110
 
 
 /** end of frame for melt_start_this_module fromline 1664**/
@@ -3757,7 +3757,7 @@ static void melt_initialize_module_meltdata_WARMELTmiMOREMACRO (meltinitial_fram
  /*inirout drout_3__EACH_COMPONENT_IN_LIST*/
  /*iniroutlocvar*/ /*_._VALROUT___V20*/ meltfptr[19] = (melt_ptr_t) &meltcdat->drout_3__EACH_COMPONENT_IN_LIST;
   meltcdat->drout_3__EACH_COMPONENT_IN_LIST.discr = (meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_ROUTINE))));
-  strncpy (meltcdat->drout_3__EACH_COMPONENT_IN_LIST.routdescr, "EACH_COMPONENT_IN_LIST @warmelt-moremacro.melt:37",  MELT_ROUTDESCR_LEN - 1);
+  strncpy (meltcdat->drout_3__EACH_COMPONENT_IN_LIST.routdescr, "EACH_COMPONENT_IN_LIST @warmelt-moremacro.melt:39",  MELT_ROUTDESCR_LEN - 1);
   meltcdat->drout_3__EACH_COMPONENT_IN_LIST.nbval = 14;
  MELT_ROUTINE_SET_ROUTCODE(&meltcdat->drout_3__EACH_COMPONENT_IN_LIST, meltrout_1_WARMELTmiMOREMACRO_EACH_COMPONENT_IN_LIST);
  
@@ -4388,112 +4388,112 @@ void* melt_start_this_module (void* modargp_) {
 #line 3   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
- MELT_LOCATION("warmelt-moremacro.melt:43:/ compute");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::compute::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*_.MELT_DEBUG_FUN__V6*/ meltfptr[5] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "MELT_DEBUG_FUN",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
- /*^compute*/
-#ifndef MELTGCC_NOLINENUMBERING
-#line 43
-#endif
- /*_.DEBUG_LESS__V7*/ meltfptr[6] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 43   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "DEBUG_LESS",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
  MELT_LOCATION("warmelt-moremacro.melt:45:/ compute");
 #ifndef MELTGCC_NOLINENUMBERING
 #line 45   "warmelt-moremacro.melt" /**::compute::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
- /*_.CLASS_LOCATED__V8*/ meltfptr[7] = 
+ /*_.MELT_DEBUG_FUN__V6*/ meltfptr[5] = 
 #ifndef MELTGCC_NOLINENUMBERING
 #line 45   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "CLASS_LOCATED",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
- MELT_LOCATION("warmelt-moremacro.melt:46:/ compute");
+   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "MELT_DEBUG_FUN",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
+ /*^compute*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 46   "warmelt-moremacro.melt" /**::compute::**/
+#line 45
+#endif
+ /*_.DEBUG_LESS__V7*/ meltfptr[6] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 45   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "DEBUG_LESS",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
+ MELT_LOCATION("warmelt-moremacro.melt:47:/ compute");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 47   "warmelt-moremacro.melt" /**::compute::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*_.CLASS_LOCATED__V8*/ meltfptr[7] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 47   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "CLASS_LOCATED",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
+ MELT_LOCATION("warmelt-moremacro.melt:48:/ compute");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 48   "warmelt-moremacro.melt" /**::compute::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*_.CLASS_SEXPR__V9*/ meltfptr[8] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 46   "warmelt-moremacro.melt" /**::expr::**/
+#line 48   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "CLASS_SEXPR",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
- MELT_LOCATION("warmelt-moremacro.melt:49:/ compute");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::compute::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*_.MELT_ASSERT_FAILURE_FUN__V10*/ meltfptr[9] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 49   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "MELT_ASSERT_FAILURE_FUN",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
  MELT_LOCATION("warmelt-moremacro.melt:51:/ compute");
 #ifndef MELTGCC_NOLINENUMBERING
 #line 51   "warmelt-moremacro.melt" /**::compute::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
- /*_.LIST_TO_MULTIPLE__V11*/ meltfptr[10] = 
+ /*_.MELT_ASSERT_FAILURE_FUN__V10*/ meltfptr[9] = 
 #ifndef MELTGCC_NOLINENUMBERING
 #line 51   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "MELT_ASSERT_FAILURE_FUN",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
+ MELT_LOCATION("warmelt-moremacro.melt:53:/ compute");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 53   "warmelt-moremacro.melt" /**::compute::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*_.LIST_TO_MULTIPLE__V11*/ meltfptr[10] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 53   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "LIST_TO_MULTIPLE",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
  /*^compute*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 51
+#line 53
 #endif
  /*_.DISCR_MULTIPLE__V12*/ meltfptr[11] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 51   "warmelt-moremacro.melt" /**::expr::**/
+#line 53   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "DISCR_MULTIPLE",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
- MELT_LOCATION("warmelt-moremacro.melt:78:/ compute");
+ MELT_LOCATION("warmelt-moremacro.melt:80:/ compute");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::compute::**/
+#line 80   "warmelt-moremacro.melt" /**::compute::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*_.EXPAND_TUPLE_SLICE_AS_TUPLE__V13*/ meltfptr[12] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 78   "warmelt-moremacro.melt" /**::expr::**/
+#line 80   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "EXPAND_TUPLE_SLICE_AS_TUPLE",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
- MELT_LOCATION("warmelt-moremacro.melt:85:/ compute");
+ MELT_LOCATION("warmelt-moremacro.melt:87:/ compute");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85   "warmelt-moremacro.melt" /**::compute::**/
+#line 87   "warmelt-moremacro.melt" /**::compute::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*_.CLASS_SYMBOL__V14*/ meltfptr[13] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 85   "warmelt-moremacro.melt" /**::expr::**/
+#line 87   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "CLASS_SYMBOL",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
- MELT_LOCATION("warmelt-moremacro.melt:89:/ compute");
-#ifndef MELTGCC_NOLINENUMBERING
-#line 89   "warmelt-moremacro.melt" /**::compute::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
- /*_.CLONE_SYMBOL__V15*/ meltfptr[14] = 
-#ifndef MELTGCC_NOLINENUMBERING
-#line 89   "warmelt-moremacro.melt" /**::expr::**/
-#endif /*MELTGCC_NOLINENUMBERING*/
-   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "CLONE_SYMBOL",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
  MELT_LOCATION("warmelt-moremacro.melt:91:/ compute");
 #ifndef MELTGCC_NOLINENUMBERING
 #line 91   "warmelt-moremacro.melt" /**::compute::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
- /*_.MELT_MAKE_SEXPR__V16*/ meltfptr[15] = 
+ /*_.CLONE_SYMBOL__V15*/ meltfptr[14] = 
 #ifndef MELTGCC_NOLINENUMBERING
 #line 91   "warmelt-moremacro.melt" /**::expr::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+   /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "CLONE_SYMBOL",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
+ MELT_LOCATION("warmelt-moremacro.melt:93:/ compute");
+#ifndef MELTGCC_NOLINENUMBERING
+#line 93   "warmelt-moremacro.melt" /**::compute::**/
+#endif /*MELTGCC_NOLINENUMBERING*/
+ /*_.MELT_MAKE_SEXPR__V16*/ meltfptr[15] = 
+#ifndef MELTGCC_NOLINENUMBERING
+#line 93   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "MELT_MAKE_SEXPR",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
  /*^compute*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 91
+#line 93
 #endif
  /*_.HOOK_MELT_MAKE_LOCATION__V17*/ meltfptr[16] = 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 91   "warmelt-moremacro.melt" /**::expr::**/
+#line 93   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*hookcall*/ melthook_HOOK_SYMBOL_IMPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_SYMBOL_IMPORTER))),  "HOOK_MELT_MAKE_LOCATION",  "warmelt-moremacro", /*_._PREVENV___V4*/ meltfptr[3]) ;
  /**COMMENT: after getting imported values **/;
@@ -4542,130 +4542,130 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltf
  
  melt_dbgtrace_written_object (/*_._VALDATA___V18*/ meltfptr[17], "new static instance");
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#0", NULL != (/*_.MELT_DEBUG_FUN__V6*/ meltfptr[5]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[0] = (melt_ptr_t)(/*_.MELT_DEBUG_FUN__V6*/ meltfptr[5]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#1", NULL != (/*_.DEBUG_LESS__V7*/ meltfptr[6]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[1] = (melt_ptr_t)(/*_.DEBUG_LESS__V7*/ meltfptr[6]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#2", NULL != (/*_.CLASS_LOCATED__V8*/ meltfptr[7]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[2] = (melt_ptr_t)(/*_.CLASS_LOCATED__V8*/ meltfptr[7]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#3", NULL != (/*_.CLASS_SEXPR__V9*/ meltfptr[8]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[3] = (melt_ptr_t)(/*_.CLASS_SEXPR__V9*/ meltfptr[8]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#4", NULL != (/*_.MELT_ASSERT_FAILURE_FUN__V10*/ meltfptr[9]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[4] = (melt_ptr_t)(/*_.MELT_ASSERT_FAILURE_FUN__V10*/ meltfptr[9]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#5", NULL != (/*_.LIST_TO_MULTIPLE__V11*/ meltfptr[10]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[5] = (melt_ptr_t)(/*_.LIST_TO_MULTIPLE__V11*/ meltfptr[10]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#6", NULL != (/*_.DISCR_MULTIPLE__V12*/ meltfptr[11]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[6] = (melt_ptr_t)(/*_.DISCR_MULTIPLE__V12*/ meltfptr[11]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#7", NULL != (/*_.EXPAND_TUPLE_SLICE_AS_TUPLE__V13*/ meltfptr[12]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[7] = (melt_ptr_t)(/*_.EXPAND_TUPLE_SLICE_AS_TUPLE__V13*/ meltfptr[12]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#8", NULL != (/*_.CLASS_SYMBOL__V14*/ meltfptr[13]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[8] = (melt_ptr_t)(/*_.CLASS_SYMBOL__V14*/ meltfptr[13]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
@@ -4685,39 +4685,39 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltf
  
  melt_dbgtrace_written_object (/*_._VALDATA___V21*/ meltfptr[20], "new static instance");
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#10", NULL != (/*_._VALDATA___V21*/ meltfptr[20]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[10] = (melt_ptr_t)(/*_._VALDATA___V21*/ meltfptr[20]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#11", NULL != (/*_.MELT_MAKE_SEXPR__V16*/ meltfptr[15]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[11] = (melt_ptr_t)(/*_.MELT_MAKE_SEXPR__V16*/ meltfptr[15]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
@@ -4737,26 +4737,26 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltf
  
  melt_dbgtrace_written_object (/*_._VALDATA___V23*/ meltfptr[22], "new static instance");
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^putroutconst*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*putroutconst*/
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_assertmsg("putroutconst checkrout", melt_magic_discr((melt_ptr_t)(/*_._VALROUT___V20*/ meltfptr[19])) == MELTOBMAG_ROUTINE);
  if (MELT_HAS_INITIAL_ENVIRONMENT) melt_checkmsg("putroutconst constnull.drout_3__EACH_COMPONENT_IN_LIST#13", NULL != (/*_._VALDATA___V23*/ meltfptr[22]));
  ((meltroutine_ptr_t)/*_._VALROUT___V20*/ meltfptr[19])->tabval[13] = (melt_ptr_t)(/*_._VALDATA___V23*/ meltfptr[22]);
  
- MELT_LOCATION("warmelt-moremacro.melt:37:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:39:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 39   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^touch*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 37
+#line 39
 #endif
  /*touch:_IROUTVAL_*/
  meltgc_touch(/*_._VALROUT___V20*/ meltfptr[19]);
@@ -4959,7 +4959,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltf
 #line 3   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
- /* check quasi.cur.mod.env.ref 955869772 */ 
+ /* check quasi.cur.mod.env.ref 767622405 */ 
                   (/*_._CONTENV___V2*/ meltfptr[1])
 		  ) /*then*/ {
   /*^cond.then*/
@@ -4971,7 +4971,7 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltf
 #line 3   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
     /*quasi.cur.mod.env.ref cur.mod.env.cont : at very start*/
- /* check quasi.cur.mod.env.ref 955869772 */ 
+ /* check quasi.cur.mod.env.ref 767622405 */ 
                   (/*_._CONTENV___V2*/ meltfptr[1])
 		  ;;
   } else {MELT_LOCATION("warmelt-moremacro.melt:3:/ cond.else");
@@ -5020,13 +5020,13 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltf
 #endif
   /*clear*/ /*_.OR___V52*/ meltfptr[51] = 0 ;}
  
- MELT_LOCATION("warmelt-moremacro.melt:105:/ initchunk");
+ MELT_LOCATION("warmelt-moremacro.melt:107:/ initchunk");
 #ifndef MELTGCC_NOLINENUMBERING
-#line 105   "warmelt-moremacro.melt" /**::initchunk::**/
+#line 107   "warmelt-moremacro.melt" /**::initchunk::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
  /*^block*/
 #ifndef MELTGCC_NOLINENUMBERING
-#line 105
+#line 107
 #endif
  /*anyblock*/{
   
@@ -5034,10 +5034,10 @@ void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltf
   {
    /*hookcall*/ melthook_HOOK_MACRO_EXPORTER ((melt_ptr_t) ((melt_ptr_t)(MELT_PREDEF(HOOK_MACRO_EXPORTER))), /*_._VALDATA___V50*/ meltfptr[49], /*_._VALCLO___V25*/ meltfptr[24], 
 #ifndef MELTGCC_NOLINENUMBERING
-#line 105   "warmelt-moremacro.melt" /**::expr::**/
+#line 107   "warmelt-moremacro.melt" /**::expr::**/
 #endif /*MELTGCC_NOLINENUMBERING*/
    /*quasi.cur.mod.env.ref norm.exp.val : EACH_COMPONENT_IN_LIST*/
- /* check quasi.cur.mod.env.ref 259364115 */ 
+ /* check quasi.cur.mod.env.ref 930230801 */ 
                   (/*_._CONTENV___V2*/ meltfptr[1])
 		  ) ;}
   ;

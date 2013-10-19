@@ -2,6 +2,20 @@
 
 2013-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{MELT-SFT-4 fixed}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to 1.0-rc2quasi.
+
+	* melt/warmelt-macro.melt (mexpand_gccif, gccif)
+	(mexpandobsolete_container, container): Remove since moved to
+	warmelt-moremacro.melt file...
+	(install_initial_patmacro, mexpand_reference)
+	(patexpand_reference): Export functions.
+
+	* melt/warmelt-moremacro.melt (mexpand_gccif, gccif)
+	(mexpandobsolete_container, container): Moved here.
+
+2013-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Unstable}}
 	* melt-build-script.def: New entry for warmelt-moremacro.melt.
 	* melt-build-script.sh: Regenerate.

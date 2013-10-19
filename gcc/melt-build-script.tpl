@@ -533,7 +533,7 @@ meltbuild_symlink $GCCMELT_MELTSOURCEDIR/[+base+].melt meltbuild-sources/[+base+
 } 				# end of meltbuild_symlink_melt_translator_sources
 
 
-################@ [+(.(fromline))+] 
+################@ final translator [+(.(fromline))+] 
 melt_final_translator_stamp=meltbuild-final-translator.stamp
 
 if [ ! -f $melt_final_translator_stamp -o $melt_final_translator_stamp -ot $GCCMELT_RUNTIME_DEPENDENCY \
