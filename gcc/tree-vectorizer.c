@@ -62,12 +62,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree.h"
 #include "tree-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
 #include "hash-table.h"
 #include "tree-ssa-propagate.h"
+#include "dbgcnt.h"
 
 /* Loop or bb location.  */
 LOC vect_location;
@@ -110,7 +111,8 @@ simduid_to_vf::equal (const value_type *p1, const value_type *p2)
         D.1737[_7] = stuff;
 
 
-   This hash maps from the simduid.0 to OMP simd array (D.1737[]).  */
+   This hash maps from the OMP simd array (D.1737[]) to DECL_UID of
+   simduid.0.  */
 
 struct simd_array_to_simduid : typed_free_remove<simd_array_to_simduid>
 {
@@ -279,6 +281,31 @@ note_simd_array_uses (hash_table <simd_array_to_simduid> *htab)
       }
 }
 
+/* A helper function to free data refs.  */
+
+void
+vect_destroy_datarefs (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
+{
+  vec<data_reference_p> datarefs;
+  struct data_reference *dr;
+  unsigned int i;
+
+ if (loop_vinfo)
+    datarefs = LOOP_VINFO_DATAREFS (loop_vinfo);
+  else
+    datarefs = BB_VINFO_DATAREFS (bb_vinfo);
+
+  FOR_EACH_VEC_ELT (datarefs, i, dr)
+    if (dr->aux)
+      {
+        free (dr->aux);
+        dr->aux = NULL;
+      }
+
+  free_data_refs (datarefs);
+}
+
+
 /* Function vectorize_loops.
 
    Entry point to loop vectorization phase.  */
@@ -315,7 +342,7 @@ vectorize_loops (void)
      than all previously defined loops.  This fact allows us to run
      only over initial loops skipping newly generated ones.  */
   FOR_EACH_LOOP (li, loop, 0)
-    if ((flag_tree_vectorize && optimize_loop_nest_for_speed_p (loop))
+    if ((flag_tree_loop_vectorize && optimize_loop_nest_for_speed_p (loop))
 	|| loop->force_vect)
       {
 	loop_vec_info loop_vinfo;
@@ -330,6 +357,9 @@ vectorize_loops (void)
 
 	if (!loop_vinfo || !LOOP_VINFO_VECTORIZABLE_P (loop_vinfo))
 	  continue;
+
+        if (!dbg_cnt (vect_loop))
+	  break;
 
         if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOC
 	    && dump_enabled_p ())
@@ -440,6 +470,9 @@ execute_vect_slp (void)
 
       if (vect_slp_analyze_bb (bb))
         {
+          if (!dbg_cnt (vect_slp))
+            break;
+
           vect_slp_transform_bb (bb);
           if (dump_enabled_p ())
             dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
@@ -454,10 +487,7 @@ execute_vect_slp (void)
 static bool
 gate_vect_slp (void)
 {
-  /* Apply SLP either if the vectorizer is on and the user didn't specify
-     whether to run SLP or not, or if the SLP flag was set by the user.  */
-  return ((flag_tree_vectorize != 0 && flag_tree_slp_vectorize != 0)
-          || flag_tree_slp_vectorize == 1);
+  return flag_tree_slp_vectorize != 0;
 }
 
 namespace {
@@ -481,8 +511,8 @@ const pass_data pass_data_slp_vectorize =
 class pass_slp_vectorize : public gimple_opt_pass
 {
 public:
-  pass_slp_vectorize(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_slp_vectorize, ctxt)
+  pass_slp_vectorize (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_slp_vectorize, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -521,7 +551,7 @@ increase_alignment (void)
       tree t;
       unsigned int alignment;
 
-      t = TREE_TYPE(decl);
+      t = TREE_TYPE (decl);
       if (TREE_CODE (t) != ARRAY_TYPE)
         continue;
       vectype = get_vectype_for_scalar_type (strip_array_types (t));
@@ -547,7 +577,7 @@ increase_alignment (void)
 static bool
 gate_increase_alignment (void)
 {
-  return flag_section_anchors && flag_tree_vectorize;
+  return flag_section_anchors && flag_tree_loop_vectorize;
 }
 
 
@@ -571,8 +601,8 @@ const pass_data pass_data_ipa_increase_alignment =
 class pass_ipa_increase_alignment : public simple_ipa_opt_pass
 {
 public:
-  pass_ipa_increase_alignment(gcc::context *ctxt)
-    : simple_ipa_opt_pass(pass_data_ipa_increase_alignment, ctxt)
+  pass_ipa_increase_alignment (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_increase_alignment, ctxt)
   {}
 
   /* opt_pass methods: */

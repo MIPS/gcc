@@ -347,9 +347,9 @@ get_coverage_counts (unsigned counter, unsigned expected,
       if (!warned++ && dump_enabled_p ())
 	dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
                          (flag_guess_branch_prob
-                          ? "file %s not found, execution counts estimated"
+                          ? "file %s not found, execution counts estimated\n"
                           : "file %s not found, execution counts assumed to "
-                            "be zero"),
+                            "be zero\n"),
                          da_file_name);
       return NULL;
     }
@@ -379,20 +379,20 @@ get_coverage_counts (unsigned counter, unsigned expected,
           dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
                            "use -Wno-error=coverage-mismatch to tolerate "
                            "the mismatch but performance may drop if the "
-                           "function is hot");
+                           "function is hot\n");
 	  
 	  if (!seen_error ()
 	      && !warned++)
 	    {
 	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
-                               "coverage mismatch ignored");
-	      dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
-                               flag_guess_branch_prob
-                               ? G_("execution counts estimated")
-                               : G_("execution counts assumed to be zero"));
+                               "coverage mismatch ignored\n");
+	      dump_printf (MSG_OPTIMIZED_LOCATIONS,
+                           flag_guess_branch_prob
+                           ? G_("execution counts estimated\n")
+                           : G_("execution counts assumed to be zero\n"));
 	      if (!flag_guess_branch_prob)
-		dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, input_location,
-                                 "this can result in poorly optimized code");
+		dump_printf (MSG_OPTIMIZED_LOCATIONS,
+                             "this can result in poorly optimized code\n");
 	    }
 	}
 
@@ -1137,7 +1137,9 @@ coverage_init (const char *filename)
   /* Since coverage_init is invoked very early, before the pass
      manager, we need to set up the dumping explicitly. This is
      similar to the handling in finish_optimization_passes.  */
-  dump_start (g->get_passes ()->get_pass_profile ()->static_pass_number, NULL);
+  int profile_pass_num =
+    g->get_passes ()->get_pass_profile ()->static_pass_number;
+  g->get_dumps ()->dump_start (profile_pass_num, NULL);
 
   if (!profile_data_prefix && !IS_ABSOLUTE_PATH (filename))
     profile_data_prefix = getpwd ();
@@ -1182,7 +1184,7 @@ coverage_init (const char *filename)
 	}
     }
 
-  dump_finish (g->get_passes ()->get_pass_profile ()->static_pass_number);
+  g->get_dumps ()->dump_finish (profile_pass_num);
 }
 
 /* Performs file-level cleanup.  Close notes file, generate coverage
@@ -1209,6 +1211,9 @@ coverage_finish (void)
 	fn_ctor = coverage_obj_fn (fn_ctor, fn->fn_decl, fn);
       coverage_obj_finish (fn_ctor);
     }
+
+  XDELETEVEC (da_file_name);
+  da_file_name = NULL;
 }
 
 #include "gt-coverage.h"

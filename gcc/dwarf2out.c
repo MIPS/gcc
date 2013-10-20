@@ -92,6 +92,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "lra.h"
 #include "dumpfile.h"
 #include "opts.h"
+#include "tree-dfa.h"
 
 static void dwarf2out_source_line (unsigned int, const char *, int, bool);
 static rtx last_var_location_insn;
@@ -365,11 +366,15 @@ should_emit_struct_debug (tree type, enum debug_info_usage usage)
 
   type_decl = TYPE_STUB_DECL (TYPE_MAIN_VARIANT (type));
 
-  if (criterion == DINFO_STRUCT_FILE_SYS && DECL_IN_SYSTEM_HEADER (type_decl))
-    return DUMP_GSTRUCT (type, usage, criterion, generic, false, true);
+  if (type_decl != NULL)
+    {
+     if (criterion == DINFO_STRUCT_FILE_SYS && DECL_IN_SYSTEM_HEADER (type_decl))
+        return DUMP_GSTRUCT (type, usage, criterion, generic, false, true);
 
-  if (matches_main_base (DECL_SOURCE_FILE (type_decl)))
-    return DUMP_GSTRUCT (type, usage, criterion, generic, true, true);
+      if (matches_main_base (DECL_SOURCE_FILE (type_decl)))
+        return DUMP_GSTRUCT (type, usage, criterion, generic, true, true);
+    }
+
   return DUMP_GSTRUCT (type, usage, criterion, generic, false, false);
 }
 
@@ -4241,7 +4246,7 @@ index_addr_table_entry (void **h, void *v)
   if (node->refcount == 0)
     return 1;
 
-  gcc_assert(node->index == NO_INDEX_ASSIGNED);
+  gcc_assert (node->index == NO_INDEX_ASSIGNED);
   node->index = *index;
   *index += 1;
 
@@ -6160,7 +6165,7 @@ generate_type_signature (dw_die_ref die, comdat_type_node *type_node)
      context, if any.  This is stored in the type unit DIE for link-time
      ODR (one-definition rule) checking.  */
 
-  if (is_cxx() && name != NULL)
+  if (is_cxx () && name != NULL)
     {
       md5_init_ctx (&ctx);
 
@@ -6246,7 +6251,7 @@ same_dw_val_p (const dw_val_node *v1, const dw_val_node *v2, int *mark)
     case dw_val_class_flag:
       return v1->v.val_flag == v2->v.val_flag;
     case dw_val_class_str:
-      return !strcmp(v1->v.val_str->str, v2->v.val_str->str);
+      return !strcmp (v1->v.val_str->str, v2->v.val_str->str);
 
     case dw_val_class_addr:
       r1 = v1->v.val_addr;
@@ -6785,7 +6790,7 @@ contains_subprogram_definition (dw_die_ref die)
 
   if (die->die_tag == DW_TAG_subprogram && ! is_declaration_die (die))
     return 1;
-  FOR_EACH_CHILD (die, c, if (contains_subprogram_definition(c)) return 1);
+  FOR_EACH_CHILD (die, c, if (contains_subprogram_definition (c)) return 1);
   return 0;
 }
 
@@ -6857,7 +6862,7 @@ clone_tree (dw_die_ref die)
   dw_die_ref c;
   dw_die_ref clone = clone_die (die);
 
-  FOR_EACH_CHILD (die, c, add_child_die (clone, clone_tree(c)));
+  FOR_EACH_CHILD (die, c, add_child_die (clone, clone_tree (c)));
 
   return clone;
 }
@@ -7049,7 +7054,7 @@ copy_declaration_context (dw_die_ref unit, dw_die_ref die)
             add_dwarf_attr (die, a);
         }
 
-      FOR_EACH_CHILD (decl, c, add_child_die (die, clone_tree(c)));
+      FOR_EACH_CHILD (decl, c, add_child_die (die, clone_tree (c)));
     }
 
   if (decl->die_parent != NULL
@@ -12387,9 +12392,10 @@ mem_loc_descriptor (rtx rtl, enum machine_mode mode,
       /* Turn these into a PLUS expression and fall into the PLUS code
 	 below.  */
       rtl = gen_rtx_PLUS (mode, XEXP (rtl, 0),
-			  GEN_INT (GET_CODE (rtl) == PRE_INC
-				   ? GET_MODE_UNIT_SIZE (mem_mode)
-				   : -GET_MODE_UNIT_SIZE (mem_mode)));
+			  gen_int_mode (GET_CODE (rtl) == PRE_INC
+					? GET_MODE_UNIT_SIZE (mem_mode)
+					: -GET_MODE_UNIT_SIZE (mem_mode),
+					mode));
 
       /* ... fall through ...  */
 
@@ -13487,6 +13493,9 @@ dw_sra_loc_expr (tree decl, rtx loc)
       if (last != NULL && opsize != bitsize)
 	{
 	  padsize += bitsize;
+	  /* Discard the current piece of the descriptor and release any
+	     addr_table entries it uses.  */
+	  remove_loc_list_addr_table_entries (cur_descr);
 	  continue;
 	}
 
@@ -13495,18 +13504,24 @@ dw_sra_loc_expr (tree decl, rtx loc)
       if (padsize)
 	{
 	  if (padsize > decl_size)
-	    return NULL;
+	    {
+	      remove_loc_list_addr_table_entries (cur_descr);
+	      goto discard_descr;
+	    }
 	  decl_size -= padsize;
 	  *descr_tail = new_loc_descr_op_bit_piece (padsize, 0);
 	  if (*descr_tail == NULL)
-	    return NULL;
+	    {
+	      remove_loc_list_addr_table_entries (cur_descr);
+	      goto discard_descr;
+	    }
 	  descr_tail = &(*descr_tail)->dw_loc_next;
 	  padsize = 0;
 	}
       *descr_tail = cur_descr;
       descr_tail = tail;
       if (bitsize > decl_size)
-	return NULL;
+	goto discard_descr;
       decl_size -= bitsize;
       if (last == NULL)
 	{
@@ -13542,9 +13557,9 @@ dw_sra_loc_expr (tree decl, rtx loc)
 		{
 		  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN
 		      && (memsize > BITS_PER_WORD || bitsize > BITS_PER_WORD))
-		    return NULL;
+		    goto discard_descr;
 		  if (memsize < bitsize)
-		    return NULL;
+		    goto discard_descr;
 		  if (BITS_BIG_ENDIAN)
 		    offset = memsize - bitsize;
 		}
@@ -13552,7 +13567,7 @@ dw_sra_loc_expr (tree decl, rtx loc)
 
 	  *descr_tail = new_loc_descr_op_bit_piece (bitsize, offset);
 	  if (*descr_tail == NULL)
-	    return NULL;
+	    goto discard_descr;
 	  descr_tail = &(*descr_tail)->dw_loc_next;
 	}
     }
@@ -13563,9 +13578,14 @@ dw_sra_loc_expr (tree decl, rtx loc)
     {
       *descr_tail = new_loc_descr_op_bit_piece (decl_size, 0);
       if (*descr_tail == NULL)
-	return NULL;
+	goto discard_descr;
     }
   return descr;
+
+discard_descr:
+  /* Discard the descriptor and release any addr_table entries it uses.  */
+  remove_loc_list_addr_table_entries (descr);
+  return NULL;
 }
 
 /* Return the dwarf representation of the location list LOC_LIST of
@@ -19105,7 +19125,7 @@ gen_compile_unit_die (const char *filename)
 	  else if (strcmp (common_lang, TRANSLATION_UNIT_LANGUAGE (t)) == 0)
 	    ;
 	  else if (strncmp (common_lang, "GNU C", 5) == 0
-		    && strncmp(TRANSLATION_UNIT_LANGUAGE (t), "GNU C", 5) == 0)
+		    && strncmp (TRANSLATION_UNIT_LANGUAGE (t), "GNU C", 5) == 0)
 	    /* Mixing C and C++ is ok, use C++ in that case.  */
 	    common_lang = "GNU C++";
 	  else
@@ -21992,7 +22012,7 @@ index_string (void **h, void *v)
   find_string_form (node);
   if (node->form == DW_FORM_GNU_str_index && node->refcount > 0)
     {
-      gcc_assert(node->index == NO_INDEX_ASSIGNED);
+      gcc_assert (node->index == NO_INDEX_ASSIGNED);
       node->index = *index;
       *index += 1;
     }

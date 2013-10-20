@@ -980,9 +980,12 @@ sort_mem_initializers (tree t, tree mem_inits)
 	      else if (TREE_VALUE (*last_p) && !TREE_VALUE (init))
 		goto splice;
 	      else
-		error_at (DECL_SOURCE_LOCATION (current_function_decl),
-			  "initializations for multiple members of %qT",
-			  ctx);
+		{
+		  error_at (DECL_SOURCE_LOCATION (current_function_decl),
+			    "initializations for multiple members of %qT",
+			    ctx);
+		  goto splice;
+		}
 	    }
 
 	  last_p = p;
@@ -2117,11 +2120,24 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 	  ++ error_count;
 	  if (complain)
 	    {
-	      if (using_new)
-		error ("uninitialized reference member in %q#T "
-		       "using %<new%> without new-initializer", origin);
+	      if (DECL_CONTEXT (field) == origin)
+		{
+		  if (using_new)
+		    error ("uninitialized reference member in %q#T "
+			   "using %<new%> without new-initializer", origin);
+		  else
+		    error ("uninitialized reference member in %q#T", origin);
+		}
 	      else
-		error ("uninitialized reference member in %q#T", origin);
+		{
+		  if (using_new)
+		    error ("uninitialized reference member in base %q#T "
+			   "of %q#T using %<new%> without new-initializer",
+			   DECL_CONTEXT (field), origin);
+		  else
+		    error ("uninitialized reference member in base %q#T "
+			   "of %q#T", DECL_CONTEXT (field), origin);
+		}
 	      inform (DECL_SOURCE_LOCATION (field),
 		      "%qD should be initialized", field);
 	    }
@@ -2132,11 +2148,24 @@ diagnose_uninitialized_cst_or_ref_member_1 (tree type, tree origin,
 	  ++ error_count;
 	  if (complain)
 	    {
-	      if (using_new)
-		error ("uninitialized const member in %q#T "
-		       "using %<new%> without new-initializer", origin);
+	      if (DECL_CONTEXT (field) == origin)
+		{
+		  if (using_new)
+		    error ("uninitialized const member in %q#T "
+			   "using %<new%> without new-initializer", origin);
+		  else
+		    error ("uninitialized const member in %q#T", origin);
+		}
 	      else
-		error ("uninitialized const member in %q#T", origin);
+		{
+		  if (using_new)
+		    error ("uninitialized const member in base %q#T "
+			   "of %q#T using %<new%> without new-initializer",
+			   DECL_CONTEXT (field), origin);
+		  else
+		    error ("uninitialized const member in base %q#T "
+			   "of %q#T", DECL_CONTEXT (field), origin);
+		}
 	      inform (DECL_SOURCE_LOCATION (field),
 		      "%qD should be initialized", field);
 	    }
@@ -3078,7 +3107,7 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 {
   tree virtual_size;
   tree ptype = build_pointer_type (type = complete_type (type));
-  tree size_exp = size_in_bytes (type);
+  tree size_exp;
 
   /* Temporary variables used by the loop.  */
   tree tbase, tbase_init;
@@ -3105,6 +3134,23 @@ build_vec_delete_1 (tree base, tree maxindex, tree type,
 
   if (base == error_mark_node || maxindex == error_mark_node)
     return error_mark_node;
+
+  if (!COMPLETE_TYPE_P (type))
+    {
+      if ((complain & tf_warning)
+	  && warning (OPT_Wdelete_incomplete,
+		      "possible problem detected in invocation of "
+		      "delete [] operator:"))
+       {
+         cxx_incomplete_type_diagnostic (base, type, DK_WARNING);
+         inform (input_location, "neither the destructor nor the "
+                 "class-specific operator delete [] will be called, "
+                 "even if they are declared when the class is defined");
+       }
+      return build_builtin_delete_call (base);
+    } 
+
+  size_exp = size_in_bytes (type);
 
   if (! MAYBE_CLASS_TYPE_P (type) || TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
     goto no_destructor;
@@ -3820,11 +3866,13 @@ build_delete (tree type, tree addr, special_function_kind auto_delete,
 	  if (!COMPLETE_TYPE_P (type))
 	    {
 	      if ((complain & tf_warning)
-		  && warning (0, "possible problem detected in invocation of "
+		  && warning (OPT_Wdelete_incomplete,
+			      "possible problem detected in invocation of "
 			      "delete operator:"))
 		{
 		  cxx_incomplete_type_diagnostic (addr, type, DK_WARNING);
-		  inform (input_location, "neither the destructor nor the class-specific "
+		  inform (input_location,
+			  "neither the destructor nor the class-specific "
 			  "operator delete will be called, even if they are "
 			  "declared when the class is defined");
 		}
@@ -4109,6 +4157,7 @@ build_vec_delete (tree base, tree maxindex,
       tree cookie_addr;
       tree size_ptr_type = build_pointer_type (sizetype);
 
+      base = mark_rvalue_use (base);
       if (TREE_SIDE_EFFECTS (base))
 	{
 	  base_init = get_target_expr (base);

@@ -31,13 +31,14 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "system.h"
 #include "coretypes.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
 #include "sese.h"
+#include "tree-ssa-propagate.h"
 
 #ifdef HAVE_cloog
 #include "graphite-poly.h"

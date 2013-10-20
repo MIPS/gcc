@@ -79,7 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "coverage.h"
 #include "ggc.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "ipa-prop.h"
 #include "lto-streamer.h"
 #include "data-streamer.h"
@@ -2257,6 +2257,77 @@ array_index_predicate (struct inline_summary *info,
   return p;
 }
 
+/* For a typical usage of __builtin_expect (a<b, 1), we
+   may introduce an extra relation stmt:
+   With the builtin, we have
+     t1 = a <= b;
+     t2 = (long int) t1;
+     t3 = __builtin_expect (t2, 1);
+     if (t3 != 0)
+       goto ...
+   Without the builtin, we have
+     if (a<=b)
+       goto...
+   This affects the size/time estimation and may have
+   an impact on the earlier inlining.
+   Here find this pattern and fix it up later.  */
+
+static gimple
+find_foldable_builtin_expect (basic_block bb)
+{
+  gimple_stmt_iterator bsi;
+
+  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
+    {
+      gimple stmt = gsi_stmt (bsi);
+      if (gimple_call_builtin_p (stmt, BUILT_IN_EXPECT))
+        {
+          tree var = gimple_call_lhs (stmt);
+          tree arg = gimple_call_arg (stmt, 0);
+          use_operand_p use_p;
+          gimple use_stmt;
+          bool match = false;
+          bool done = false;
+
+          if (!var || !arg)
+            continue;
+          gcc_assert (TREE_CODE (var) == SSA_NAME);
+
+          while (TREE_CODE (arg) == SSA_NAME)
+            {
+              gimple stmt_tmp = SSA_NAME_DEF_STMT (arg);
+              if (!is_gimple_assign (stmt_tmp))
+                break;
+              switch (gimple_assign_rhs_code (stmt_tmp))
+                {
+                  case LT_EXPR:
+                  case LE_EXPR:
+                  case GT_EXPR:
+                  case GE_EXPR:
+                  case EQ_EXPR:
+                  case NE_EXPR:
+                    match = true;
+                    done = true;
+                    break;
+                  case NOP_EXPR:
+                    break;
+                  default:
+                    done = true;
+                    break;
+                }
+              if (done)
+                break;
+              arg = gimple_assign_rhs1 (stmt_tmp);
+            }
+
+          if (match && single_imm_use (var, &use_p, &use_stmt)
+              && gimple_code (use_stmt) == GIMPLE_COND)
+            return use_stmt;
+        }
+    }
+  return NULL;
+}
+
 /* Compute function body size parameters for NODE.
    When EARLY is true, we compute only simple summaries without
    non-trivial predicates to drive the early inliner.  */
@@ -2280,6 +2351,7 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
   int nblocks, n;
   int *order;
   predicate array_index = true_predicate ();
+  gimple fix_builtin_expect_stmt;
 
   info->conds = NULL;
   info->entry = NULL;
@@ -2360,6 +2432,8 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	    }
 	}
 
+      fix_builtin_expect_stmt = find_foldable_builtin_expect (bb);
+
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
 	  gimple stmt = gsi_stmt (bsi);
@@ -2367,6 +2441,14 @@ estimate_function_body_sizes (struct cgraph_node *node, bool early)
 	  int this_time = estimate_num_insns (stmt, &eni_time_weights);
 	  int prob;
 	  struct predicate will_be_nonconstant;
+
+          /* This relation stmt should be folded after we remove
+             buildin_expect call. Adjust the cost here.  */
+	  if (stmt == fix_builtin_expect_stmt)
+            {
+              this_size--;
+              this_time--;
+            }
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -2664,7 +2746,11 @@ compute_inline_parameters (struct cgraph_node *node, bool early)
   info->stack_frame_offset = 0;
 
   /* Can this function be inlined at all?  */
-  info->inlinable = tree_inlinable_function_p (node->symbol.decl);
+  if (!optimize && !lookup_attribute ("always_inline",
+				      DECL_ATTRIBUTES (node->symbol.decl)))
+    info->inlinable = false;
+  else
+    info->inlinable = tree_inlinable_function_p (node->symbol.decl);
 
   /* Type attributes can use parameter indices to describe them.  */
   if (TYPE_ATTRIBUTES (TREE_TYPE (node->symbol.decl)))
@@ -2735,12 +2821,12 @@ const pass_data pass_data_inline_parameters =
 class pass_inline_parameters : public gimple_opt_pass
 {
 public:
-  pass_inline_parameters(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_inline_parameters, ctxt)
+  pass_inline_parameters (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_inline_parameters, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_inline_parameters (ctxt_); }
+  opt_pass * clone () { return new pass_inline_parameters (m_ctxt); }
   unsigned int execute () {
     return compute_inline_parameters_for_current ();
   }
@@ -3580,6 +3666,7 @@ estimate_size_after_inlining (struct cgraph_node *node,
 
 struct growth_data
 {
+  struct cgraph_node *node;
   bool self_recursive;
   int growth;
 };
@@ -3597,9 +3684,9 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
     {
       gcc_checking_assert (e->inline_failed);
 
-      if (e->caller == node
+      if (e->caller == d->node
 	  || (e->caller->global.inlined_to
-	      && e->caller->global.inlined_to == node))
+	      && e->caller->global.inlined_to == d->node))
 	d->self_recursive = true;
       d->growth += estimate_edge_growth (e);
     }
@@ -3612,7 +3699,7 @@ do_estimate_growth_1 (struct cgraph_node *node, void *data)
 int
 do_estimate_growth (struct cgraph_node *node)
 {
-  struct growth_data d = { 0, false };
+  struct growth_data d = { node, 0, false };
   struct inline_summary *info = inline_summary (node);
 
   cgraph_for_node_and_aliases (node, do_estimate_growth_1, &d, true);
@@ -3677,6 +3764,22 @@ inline_analyze_function (struct cgraph_node *node)
   if (optimize && !node->thunk.thunk_p)
     inline_indirect_intraprocedural_analysis (node);
   compute_inline_parameters (node, false);
+  if (!optimize)
+    {
+      struct cgraph_edge *e;
+      for (e = node->callees; e; e = e->next_callee)
+	{
+	  if (e->inline_failed == CIF_FUNCTION_NOT_CONSIDERED)
+	    e->inline_failed = CIF_FUNCTION_NOT_OPTIMIZED;
+	  e->call_stmt_cannot_inline_p = true;
+	}
+      for (e = node->indirect_calls; e; e = e->next_callee)
+	{
+	  if (e->inline_failed == CIF_FUNCTION_NOT_CONSIDERED)
+	    e->inline_failed = CIF_FUNCTION_NOT_OPTIMIZED;
+	  e->call_stmt_cannot_inline_p = true;
+	}
+    }
 
   pop_cfun ();
 }

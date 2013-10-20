@@ -107,7 +107,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "ggc.h"
 #include "rtl.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "ipa-prop.h"
 #include "except.h"
 #include "target.h"
@@ -275,7 +275,8 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
     }
   else if (e->call_stmt_cannot_inline_p)
     {
-      e->inline_failed = CIF_MISMATCHED_ARGUMENTS;
+      if (e->inline_failed != CIF_FUNCTION_NOT_OPTIMIZED)
+        e->inline_failed = CIF_MISMATCHED_ARGUMENTS;
       inlinable = false;
     }
   /* Don't inline if the functions have different EH personalities.  */
@@ -740,16 +741,33 @@ want_inline_self_recursive_call_p (struct cgraph_edge *edge,
   return want_inline;
 }
 
-/* Return true when NODE has caller other than EDGE. 
+/* Return true when NODE has uninlinable caller;
+   set HAS_HOT_CALL if it has hot call. 
    Worker for cgraph_for_node_and_aliases.  */
 
 static bool
-check_caller_edge (struct cgraph_node *node, void *edge)
+check_callers (struct cgraph_node *node, void *has_hot_call)
 {
-  return (node->callers
-          && node->callers != edge);
+  struct cgraph_edge *e;
+   for (e = node->callers; e; e = e->next_caller)
+     {
+       if (!can_inline_edge_p (e, true))
+         return true;
+       if (!has_hot_call && cgraph_maybe_hot_edge_p (e))
+	 *(bool *)has_hot_call = true;
+     }
+  return false;
 }
 
+/* If NODE has a caller, return true.  */
+
+static bool
+has_caller_p (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
+{
+  if (node->callers)
+    return true;
+  return false;
+}
 
 /* Decide if inlining NODE would reduce unit size by eliminating
    the offline copy of function.  
@@ -759,11 +777,10 @@ static bool
 want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
 {
    struct cgraph_node *function = cgraph_function_or_thunk_node (node, NULL);
-   struct cgraph_edge *e;
    bool has_hot_call = false;
 
    /* Does it have callers?  */
-   if (!node->callers)
+   if (!cgraph_for_node_and_aliases (node, has_caller_p, NULL, true))
      return false;
    /* Already inlined?  */
    if (function->global.inlined_to)
@@ -773,18 +790,9 @@ want_inline_function_to_all_callers_p (struct cgraph_node *node, bool cold)
    /* Inlining into all callers would increase size?  */
    if (estimate_growth (node) > 0)
      return false;
-   /* Maybe other aliases has more direct calls.  */
-   if (cgraph_for_node_and_aliases (node, check_caller_edge, node->callers, true))
-     return false;
    /* All inlines must be possible.  */
-   for (e = node->callers; e; e = e->next_caller)
-     {
-       if (!can_inline_edge_p (e, true))
-         return false;
-       if (!has_hot_call && cgraph_maybe_hot_edge_p (e))
-	 has_hot_call = 1;
-     }
-
+   if (cgraph_for_node_and_aliases (node, check_callers, &has_hot_call, true))
+     return false;
    if (!cold && !has_hot_call)
      return false;
    return true;
@@ -896,8 +904,8 @@ edge_badness (struct cgraph_edge *edge, bool dump)
       sreal tmp, relbenefit_real, growth_real;
       int relbenefit = relative_time_benefit (callee_info, edge, edge_time);
 
-      sreal_init(&relbenefit_real, relbenefit, 0);
-      sreal_init(&growth_real, growth, 0);
+      sreal_init (&relbenefit_real, relbenefit, 0);
+      sreal_init (&growth_real, growth, 0);
 
       /* relative_edge_count.  */
       sreal_init (&tmp, edge->count, 0);
@@ -1892,6 +1900,60 @@ flatten_function (struct cgraph_node *node, bool early)
     inline_update_overall_summary (node);
 }
 
+/* Count number of callers of NODE and store it into DATA (that
+   points to int.  Worker for cgraph_for_node_and_aliases.  */
+
+static bool
+sum_callers (struct cgraph_node *node, void *data)
+{
+  struct cgraph_edge *e;
+  int *num_calls = (int *)data;
+
+  for (e = node->callers; e; e = e->next_caller)
+    (*num_calls)++;
+  return false;
+}
+
+/* Inline NODE to all callers.  Worker for cgraph_for_node_and_aliases.
+   DATA points to number of calls originally found so we avoid infinite
+   recursion.  */
+
+static bool
+inline_to_all_callers (struct cgraph_node *node, void *data)
+{
+  int *num_calls = (int *)data;
+  while (node->callers && !node->global.inlined_to)
+    {
+      struct cgraph_node *caller = node->callers->caller;
+
+      if (dump_file)
+	{
+	  fprintf (dump_file,
+		   "\nInlining %s size %i.\n",
+		   cgraph_node_name (node),
+		   inline_summary (node)->size);
+	  fprintf (dump_file,
+		   " Called once from %s %i insns.\n",
+		   cgraph_node_name (node->callers->caller),
+		   inline_summary (node->callers->caller)->size);
+	}
+
+      inline_call (node->callers, true, NULL, NULL, true);
+      if (dump_file)
+	fprintf (dump_file,
+		 " Inlined into %s which now has %i size\n",
+		 cgraph_node_name (caller),
+		 inline_summary (caller)->size);
+      if (!(*num_calls)--)
+	{
+	  if (dump_file)
+	    fprintf (dump_file, "New calls found; giving up.\n");
+	  return true;
+	}
+    }
+  return false;
+}
+
 /* Decide on the inlining.  We do so in the topological order to avoid
    expenses on updating data structures.  */
 
@@ -1900,14 +1962,15 @@ ipa_inline (void)
 {
   struct cgraph_node *node;
   int nnodes;
-  struct cgraph_node **order =
-    XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
+  struct cgraph_node **order;
   int i;
   int cold;
   bool remove_functions = false;
 
   if (!optimize)
     return 0;
+
+  order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
 
   if (in_lto_p && optimize)
     ipa_update_after_lto_read ();
@@ -2003,39 +2066,11 @@ ipa_inline (void)
 	      && want_inline_function_to_all_callers_p (node, cold))
 	    {
 	      int num_calls = 0;
-	      struct cgraph_edge *e;
-	      for (e = node->callers; e; e = e->next_caller)
-		num_calls++;
-	      while (node->callers && !node->global.inlined_to)
-		{
-		  struct cgraph_node *caller = node->callers->caller;
-
-		  if (dump_file)
-		    {
-		      fprintf (dump_file,
-			       "\nInlining %s size %i.\n",
-			       cgraph_node_name (node),
-			       inline_summary (node)->size);
-		      fprintf (dump_file,
-			       " Called once from %s %i insns.\n",
-			       cgraph_node_name (node->callers->caller),
-			       inline_summary (node->callers->caller)->size);
-		    }
-
-		  inline_call (node->callers, true, NULL, NULL, true);
-		  remove_functions = true;
-		  if (dump_file)
-		    fprintf (dump_file,
-			     " Inlined into %s which now has %i size\n",
-			     cgraph_node_name (caller),
-			     inline_summary (caller)->size);
-		  if (!num_calls--)
-		    {
-		      if (dump_file)
-			fprintf (dump_file, "New calls found; giving up.\n");
-		      break;
-		    }
-		}
+	      cgraph_for_node_and_aliases (node, sum_callers,
+					   &num_calls, true);
+	      cgraph_for_node_and_aliases (node, inline_to_all_callers,
+					   &num_calls, true);
+	      remove_functions = true;
 	    }
 	}
     }
@@ -2277,8 +2312,8 @@ const pass_data pass_data_early_inline =
 class pass_early_inline : public gimple_opt_pass
 {
 public:
-  pass_early_inline(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_early_inline, ctxt)
+  pass_early_inline (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_inline, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -2327,17 +2362,17 @@ const pass_data pass_data_ipa_inline =
 class pass_ipa_inline : public ipa_opt_pass_d
 {
 public:
-  pass_ipa_inline(gcc::context *ctxt)
-    : ipa_opt_pass_d(pass_data_ipa_inline, ctxt,
-		     inline_generate_summary, /* generate_summary */
-		     inline_write_summary, /* write_summary */
-		     inline_read_summary, /* read_summary */
-		     NULL, /* write_optimization_summary */
-		     NULL, /* read_optimization_summary */
-		     NULL, /* stmt_fixup */
-		     0, /* function_transform_todo_flags_start */
-		     inline_transform, /* function_transform */
-		     NULL) /* variable_transform */
+  pass_ipa_inline (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_inline, ctxt,
+		      inline_generate_summary, /* generate_summary */
+		      inline_write_summary, /* write_summary */
+		      inline_read_summary, /* read_summary */
+		      NULL, /* write_optimization_summary */
+		      NULL, /* read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      inline_transform, /* function_transform */
+		      NULL) /* variable_transform */
   {}
 
   /* opt_pass methods: */

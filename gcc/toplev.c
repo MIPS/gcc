@@ -706,17 +706,19 @@ print_version (FILE *file, const char *indent)
      two string formats, "i.j.k" and "i.j" when k is zero.  As of
      gmp-4.3.0, GMP always uses the 3 number format.  */
 #define GCC_GMP_STRINGIFY_VERSION3(X) #X
-#define GCC_GMP_STRINGIFY_VERSION2(X) GCC_GMP_STRINGIFY_VERSION3(X)
+#define GCC_GMP_STRINGIFY_VERSION2(X) GCC_GMP_STRINGIFY_VERSION3 (X)
 #define GCC_GMP_VERSION_NUM(X,Y,Z) (((X) << 16L) | ((Y) << 8) | (Z))
 #define GCC_GMP_VERSION \
   GCC_GMP_VERSION_NUM(__GNU_MP_VERSION, __GNU_MP_VERSION_MINOR, __GNU_MP_VERSION_PATCHLEVEL)
 #if GCC_GMP_VERSION < GCC_GMP_VERSION_NUM(4,3,0) && __GNU_MP_VERSION_PATCHLEVEL == 0
-#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
-  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR)
+#define GCC_GMP_STRINGIFY_VERSION \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION_MINOR)
 #else
-#define GCC_GMP_STRINGIFY_VERSION GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION) "." \
-  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_MINOR) "." \
-  GCC_GMP_STRINGIFY_VERSION2(__GNU_MP_VERSION_PATCHLEVEL)
+#define GCC_GMP_STRINGIFY_VERSION \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION) "." \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION_MINOR) "." \
+  GCC_GMP_STRINGIFY_VERSION2 (__GNU_MP_VERSION_PATCHLEVEL)
 #endif
   fprintf (file,
 	   file == stderr ? _(fmt2) : fmt2,
@@ -1017,22 +1019,35 @@ output_stack_usage (void)
     {
       expanded_location loc
 	= expand_location (DECL_SOURCE_LOCATION (current_function_decl));
-      const char *raw_id, *id;
-
-      /* Strip the scope prefix if any.  */
-      raw_id = lang_hooks.decl_printable_name (current_function_decl, 2);
-      id = strrchr (raw_id, '.');
-      if (id)
-	id++;
+      /* We don't want to print the full qualified name because it can be long,
+	 so we strip the scope prefix, but we may need to deal with the suffix
+	 created by the compiler.  */
+      const char *suffix
+	= strchr (IDENTIFIER_POINTER (DECL_NAME (current_function_decl)), '.');
+      const char *name
+	= lang_hooks.decl_printable_name (current_function_decl, 2);
+      if (suffix)
+	{
+	  const char *dot = strchr (name, '.');
+	  while (dot && strcasecmp (dot, suffix) != 0)
+	    {
+	      name = dot + 1;
+	      dot = strchr (name, '.');
+	    }
+	}
       else
-	id = raw_id;
+	{
+	  const char *dot = strrchr (name, '.');
+	  if (dot)
+	    name = dot + 1;
+	}
 
       fprintf (stack_usage_file,
 	       "%s:%d:%d:%s\t"HOST_WIDE_INT_PRINT_DEC"\t%s\n",
 	       lbasename (loc.file),
 	       loc.line,
 	       loc.column,
-	       id,
+	       name,
 	       stack_usage,
 	       stack_usage_kind_str[stack_usage_kind]);
     }
@@ -1157,11 +1172,11 @@ general_init (const char *argv0)
 
   /* This must be done after global_init_params but before argument
      processing.  */
-  init_ggc_heuristics();
+  init_ggc_heuristics ();
 
   /* Create the singleton holder for global state.
      Doing so also creates the pass manager and with it the passes.  */
-  g = new gcc::context();
+  g = new gcc::context ();
 
   statistics_early_init ();
   finish_params ();
@@ -1560,7 +1575,7 @@ process_options (void)
                                     DK_ERROR, UNKNOWN_LOCATION);
 
   /* Save the current optimization options.  */
-  optimization_default_node = build_optimization_node ();
+  optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
 }
 

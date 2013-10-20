@@ -32,6 +32,11 @@
   (and (match_code "reg")
        (not (match_test "ANY_FP_REGNO_P (REGNO (op))"))))
 
+;; True if the operand is a GENERAL class register.
+(define_predicate "general_reg_operand"
+  (and (match_code "reg")
+       (match_test "GENERAL_REG_P (op)")))
+
 ;; Return true if OP is a register operand other than an i387 fp register.
 (define_predicate "register_and_not_fp_reg_operand"
   (and (match_code "reg")
@@ -52,6 +57,10 @@
   (and (match_code "reg")
        (match_test "EXT_REX_SSE_REGNO_P (REGNO (op))")))
 
+;; True if the operand is an AVX-512 mask register.
+(define_predicate "mask_reg_operand"
+  (and (match_code "reg")
+       (match_test "MASK_REGNO_P (REGNO (op))")))
 
 ;; True if the operand is a Q_REGS class register.
 (define_predicate "q_regs_operand"
@@ -748,10 +757,20 @@
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 8, 11)")))
 
+;; Match 8 to 15.
+(define_predicate "const_8_to_15_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 8, 15)")))
+
 ;; Match 12 to 15.
 (define_predicate "const_12_to_15_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 12, 15)")))
+
+;; Match 16 to 31.
+(define_predicate "const_16_to_31_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 16, 31)")))
 
 ;; True if this is a constant appropriate for an increment or decrement.
 (define_predicate "incdec_operand"
@@ -1323,3 +1342,9 @@
 (define_predicate "general_vector_operand"
   (ior (match_operand 0 "nonimmediate_operand")
        (match_code "const_vector")))
+
+;; Return true if OP is either -1 constant or stored in register.
+(define_predicate "register_or_constm1_operand"
+  (ior (match_operand 0 "register_operand")
+       (and (match_code "const_int")
+	    (match_test "op == constm1_rtx"))))

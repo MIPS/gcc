@@ -1212,7 +1212,7 @@ dump_decl (cxx_pretty_printer *pp, tree t, int flags)
       if (flags & TFF_DECL_SPECIFIERS)
 	pp->declaration (t);
       else
-	pp_type_id (pp, t);
+	pp->type_id (t);
       break;
 
     case UNBOUND_CLASS_TEMPLATE:
@@ -1595,13 +1595,16 @@ dump_exception_spec (cxx_pretty_printer *pp, tree t, int flags)
   if (t && TREE_PURPOSE (t))
     {
       pp_cxx_ws_string (pp, "noexcept");
-      pp_cxx_whitespace (pp);
-      pp_cxx_left_paren (pp);
-      if (DEFERRED_NOEXCEPT_SPEC_P (t))
-	pp_cxx_ws_string (pp, "<uninstantiated>");
-      else
-	dump_expr (pp, TREE_PURPOSE (t), flags);
-      pp_cxx_right_paren (pp);
+      if (!integer_onep (TREE_PURPOSE (t)))
+	{
+	  pp_cxx_whitespace (pp);
+	  pp_cxx_left_paren (pp);
+	  if (DEFERRED_NOEXCEPT_SPEC_P (t))
+	    pp_cxx_ws_string (pp, "<uninstantiated>");
+	  else
+	    dump_expr (pp, TREE_PURPOSE (t), flags);
+	  pp_cxx_right_paren (pp);
+	}
     }
   else if (t)
     {
@@ -1908,7 +1911,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case REAL_CST:
     case STRING_CST:
     case COMPLEX_CST:
-      pp_constant (pp, t);
+      pp->constant (t);
       break;
 
     case USERDEF_LITERAL:
@@ -2472,12 +2475,15 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
       break;
 
     case PSEUDO_DTOR_EXPR:
-      dump_expr (pp, TREE_OPERAND (t, 2), flags);
+      dump_expr (pp, TREE_OPERAND (t, 0), flags);
       pp_cxx_dot (pp);
-      dump_type (pp, TREE_OPERAND (t, 0), flags);
-      pp_cxx_colon_colon (pp);
+      if (TREE_OPERAND (t, 1))
+	{
+	  dump_type (pp, TREE_OPERAND (t, 1), flags);
+	  pp_cxx_colon_colon (pp);
+	}
       pp_cxx_complement (pp);
-      dump_type (pp, TREE_OPERAND (t, 1), flags);
+      dump_type (pp, TREE_OPERAND (t, 2), flags);
       break;
 
     case TEMPLATE_ID_EXPR:
@@ -2538,7 +2544,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case TYPENAME_TYPE:
       /* We get here when we want to print a dependent type as an
          id-expression, without any disambiguator decoration.  */
-      pp_id_expression (pp, t);
+      pp->id_expression (t);
       break;
 
     case TEMPLATE_TYPE_PARM:
@@ -2588,7 +2594,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case BIT_FIELD_REF:
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
-      pp_expression (pp, t);
+      pp->expression (t);
       break;
 
     case TRUTH_AND_EXPR:
@@ -2596,7 +2602,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
     case TRUTH_XOR_EXPR:
       if (flags & TFF_EXPR_IN_PARENS)
 	pp_cxx_left_paren (pp);
-      pp_expression (pp, t);
+      pp->expression (t);
       if (flags & TFF_EXPR_IN_PARENS)
 	pp_cxx_right_paren (pp);
       break;
@@ -2786,9 +2792,7 @@ lang_decl_name (tree decl, int v, bool translate)
 location_t
 location_of (tree t)
 {
-  if (TREE_CODE (t) == PARM_DECL && DECL_CONTEXT (t))
-    t = DECL_CONTEXT (t);
-  else if (TYPE_P (t))
+  if (TYPE_P (t))
     {
       t = TYPE_MAIN_DECL (t);
       if (t == NULL_TREE)
@@ -2851,7 +2855,7 @@ fndecl_to_string (tree fndecl, int verbose)
 static const char *
 code_to_string (enum tree_code c)
 {
-  return tree_code_name [c];
+  return get_tree_code_name (c);
 }
 
 const char *
@@ -3199,8 +3203,10 @@ print_instantiation_partial_context_line (diagnostic_context *context,
 					  const struct tinst_level *t,
 					  location_t loc, bool recursive_p)
 {
-  expanded_location xloc;
-  xloc = expand_location (loc);
+  if (loc == UNKNOWN_LOCATION)
+    return;
+
+  expanded_location xloc = expand_location (loc);
 
   if (context->show_column)
     pp_verbatim (context->printer, _("%r%s:%d:%d:%R   "),

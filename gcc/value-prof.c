@@ -32,8 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "regs.h"
 #include "ggc.h"
-#include "tree-flow.h"
-#include "tree-flow-inline.h"
+#include "tree-ssa.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "coverage.h"
@@ -249,7 +248,7 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
       if (hist->hvalue.counters)
 	{
 	   unsigned int i;
-	   fprintf(dump_file, " [");
+	   fprintf (dump_file, " [");
            for (i = 0; i < hist->hdata.intvl.steps; i++)
 	     fprintf (dump_file, " %d:"HOST_WIDEST_INT_PRINT_DEC,
 		      hist->hdata.intvl.int_start + i,
@@ -589,7 +588,7 @@ check_counter (gimple stmt, const char * name,
             dump_printf_loc (MSG_MISSED_OPTIMIZATION, locus,
                              "correcting inconsistent value profile: %s "
                              "profiler overall count (%d) does not match BB "
-                             "count (%d)", name, (int)*all, (int)bb_count);
+                             "count (%d)\n", name, (int)*all, (int)bb_count);
 	  *all = bb_count;
 	  if (*count > *all)
             *count = *all;
@@ -1275,7 +1274,7 @@ check_ic_target (gimple call_stmt, struct cgraph_node *target)
    locus =  gimple_location (call_stmt);
    if (dump_enabled_p ())
      dump_printf_loc (MSG_MISSED_OPTIMIZATION, locus,
-                      "Skipping target %s with mismatching types for icall ",
+                      "Skipping target %s with mismatching types for icall\n",
                       cgraph_node_name (target));
    return false;
 }
@@ -1299,6 +1298,9 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   edge e_cd, e_ci, e_di, e_dj = NULL, e_ij;
   gimple_stmt_iterator gsi;
   int lp_nr, dflags;
+  edge e_eh, e;
+  edge_iterator ei;
+  gimple_stmt_iterator psi;
 
   cond_bb = gimple_bb (icall_stmt);
   gsi = gsi_for_stmt (icall_stmt);
@@ -1401,24 +1403,21 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   lp_nr = lookup_stmt_eh_lp (icall_stmt);
   if (lp_nr > 0 && stmt_could_throw_p (dcall_stmt))
     {
-      edge e_eh, e;
-      edge_iterator ei;
-      gimple_stmt_iterator psi;
-
       add_stmt_to_eh_lp (dcall_stmt, lp_nr);
-      FOR_EACH_EDGE (e_eh, ei, icall_bb->succs)
-	if (e_eh->flags & EDGE_EH)
-	  break;
-      e = make_edge (dcall_bb, e_eh->dest, EDGE_EH);
-      for (psi = gsi_start_phis (e_eh->dest);
-	   !gsi_end_p (psi); gsi_next (&psi))
-	{
-	  gimple phi = gsi_stmt (psi);
-	  SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e),
-		   PHI_ARG_DEF_FROM_EDGE (phi, e_eh));
-	}
     }
 
+  FOR_EACH_EDGE (e_eh, ei, icall_bb->succs)
+    if (e_eh->flags & (EDGE_EH | EDGE_ABNORMAL))
+      {
+	e = make_edge (dcall_bb, e_eh->dest, e_eh->flags);
+	for (psi = gsi_start_phis (e_eh->dest);
+	     !gsi_end_p (psi); gsi_next (&psi))
+	  {
+	    gimple phi = gsi_stmt (psi);
+	    SET_USE (PHI_ARG_DEF_PTR_FROM_EDGE (phi, e),
+		     PHI_ARG_DEF_FROM_EDGE (phi, e_eh));
+	  }
+       }
   return dcall_stmt;
 }
 
@@ -1568,7 +1567,7 @@ gimple_stringop_fixed_value (gimple vcall_stmt, tree icall_size, int prob,
 
   fndecl = gimple_call_fndecl (vcall_stmt);
   if (!interesting_stringop_to_profile_p (fndecl, vcall_stmt, &size_arg))
-    gcc_unreachable();
+    gcc_unreachable ();
 
   cond_bb = gimple_bb (vcall_stmt);
   gsi = gsi_for_stmt (vcall_stmt);

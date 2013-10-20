@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-common.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-pragma.h"
+#include "c-family/c-target.h"
 #include "diagnostic.h"
 #include "intl.h"
 #include "debug.h"
@@ -1339,6 +1340,15 @@ duplicate_decls (tree newdecl, tree olddecl, bool newdecl_is_friend)
 		     olddecl);
 	    }
 	  return NULL_TREE;
+	}
+      else if (DECL_OMP_DECLARE_REDUCTION_P (olddecl))
+	{
+	  gcc_assert (DECL_OMP_DECLARE_REDUCTION_P (newdecl));
+	  error_at (DECL_SOURCE_LOCATION (newdecl),
+		    "redeclaration of %<pragma omp declare reduction%>");
+	  error_at (DECL_SOURCE_LOCATION (olddecl),
+		    "previous %<pragma omp declare reduction%> declaration");
+	  return error_mark_node;
 	}
       else if (!types_match)
 	{
@@ -3799,8 +3809,8 @@ cxx_init_decl_processing (void)
     newtype = build_exception_variant (newtype, new_eh_spec);
     deltype = cp_build_type_attribute_variant (void_ftype_ptr, extvisattr);
     deltype = build_exception_variant (deltype, empty_except_spec);
-    push_cp_library_fn (NEW_EXPR, newtype, 0);
-    push_cp_library_fn (VEC_NEW_EXPR, newtype, 0);
+    DECL_IS_OPERATOR_NEW (push_cp_library_fn (NEW_EXPR, newtype, 0)) = 1;
+    DECL_IS_OPERATOR_NEW (push_cp_library_fn (VEC_NEW_EXPR, newtype, 0)) = 1;
     global_delete_fndecl = push_cp_library_fn (DELETE_EXPR, deltype, ECF_NOTHROW);
     push_cp_library_fn (VEC_DELETE_EXPR, deltype, ECF_NOTHROW);
 
@@ -7301,6 +7311,22 @@ check_static_quals (tree decl, cp_cv_quals quals)
 	   decl);
 }
 
+/* Helper function.  Replace the temporary this parameter injected
+   during cp_finish_omp_declare_simd with the real this parameter.  */
+
+static tree
+declare_simd_adjust_this (tree *tp, int *walk_subtrees, void *data)
+{
+  tree this_parm = (tree) data;
+  if (TREE_CODE (*tp) == PARM_DECL
+      && DECL_NAME (*tp) == this_identifier
+      && *tp != this_parm)
+    *tp = this_parm;
+  else if (TYPE_P (*tp))
+    *walk_subtrees = 0;
+  return NULL_TREE;
+}
+
 /* CTYPE is class type, or null if non-class.
    TYPE is type this FUNCTION_DECL should have, either FUNCTION_TYPE
    or METHOD_TYPE.
@@ -7457,7 +7483,9 @@ grokfndecl (tree ctype,
        || (IDENTIFIER_LENGTH (declarator) > 10
 	   && IDENTIFIER_POINTER (declarator)[0] == '_'
 	   && IDENTIFIER_POINTER (declarator)[1] == '_'
-	   && strncmp (IDENTIFIER_POINTER (declarator)+2, "builtin_", 8) == 0))
+	   && strncmp (IDENTIFIER_POINTER (declarator)+2, "builtin_", 8) == 0)
+       || (targetcm.cxx_implicit_extern_c
+	   && targetcm.cxx_implicit_extern_c(IDENTIFIER_POINTER (declarator))))
       && current_lang_name == lang_name_cplusplus
       && ctype == NULL_TREE
       && DECL_FILE_SCOPE_P (decl))
@@ -7616,6 +7644,33 @@ grokfndecl (tree ctype,
 
   if (TYPE_NOTHROW_P (type) || nothrow_libfn_p (decl))
     TREE_NOTHROW (decl) = 1;
+
+  if (flag_openmp)
+    {
+      /* Adjust "omp declare simd" attributes.  */
+      tree ods = lookup_attribute ("omp declare simd", *attrlist);
+      if (ods)
+	{
+	  tree attr;
+	  for (attr = ods; attr;
+	       attr = lookup_attribute ("omp declare simd", TREE_CHAIN (attr)))
+	    {
+	      if (TREE_CODE (type) == METHOD_TYPE)
+		walk_tree (&TREE_VALUE (attr), declare_simd_adjust_this,
+			   DECL_ARGUMENTS (decl), NULL);
+	      if (TREE_VALUE (attr) != NULL_TREE)
+		{
+		  tree cl = TREE_VALUE (TREE_VALUE (attr));
+		  cl = c_omp_declare_simd_clauses_to_numbers
+						(DECL_ARGUMENTS (decl), cl);
+		  if (cl)
+		    TREE_VALUE (TREE_VALUE (attr)) = cl;
+		  else
+		    TREE_VALUE (attr) = NULL_TREE;
+		}
+	    }
+	}
+    }
 
   /* Caller will do the rest of this.  */
   if (check < 0)
@@ -8771,8 +8826,8 @@ grokdeclarator (const cp_declarator *declarator,
 			     && !uniquely_derived_from_p (ctype,
 							  current_class_type))
 		      {
-			error ("type %qT is not derived from type %qT",
-			       ctype, current_class_type);
+			error ("invalid use of qualified-name %<%T::%D%>",
+			       qualifying_scope, decl);
 			return error_mark_node;
 		      }
 		  }
@@ -10320,8 +10375,33 @@ grokdeclarator (const cp_declarator *declarator,
 
       if (type_uses_auto (type))
 	{
-	  error ("parameter declared %<auto%>");
-	  type = error_mark_node;
+	  if (template_parm_flag)
+	    {
+	      error ("template parameter declared %<auto%>");
+	      type = error_mark_node;
+	    }
+	  else if (decl_context == CATCHPARM)
+	    {
+	      error ("catch parameter declared %<auto%>");
+	      type = error_mark_node;
+	    }
+	  else if (current_class_type && LAMBDA_TYPE_P (current_class_type))
+	    {
+	      if (cxx_dialect < cxx1y)
+		pedwarn (location_of (type), 0,
+			 "use of %<auto%> in lambda parameter declaration "
+			 "only available with "
+			 "-std=c++1y or -std=gnu++1y");
+	    }
+	  else if (cxx_dialect < cxx1y)
+	    pedwarn (location_of (type), 0,
+		     "use of %<auto%> in parameter declaration "
+		     "only available with "
+		     "-std=c++1y or -std=gnu++1y");
+	  else
+	    pedwarn (location_of (type), OPT_Wpedantic,
+		     "ISO C++ forbids use of %<auto%> in parameter "
+		     "declaration");
 	}
 
       /* A parameter declared as an array of T is really a pointer to T.

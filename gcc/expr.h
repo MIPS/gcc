@@ -708,7 +708,7 @@ extern void store_bit_field (rtx, unsigned HOST_WIDE_INT,
 			     unsigned HOST_WIDE_INT,
 			     enum machine_mode, rtx, bool);
 extern rtx extract_bit_field (rtx, unsigned HOST_WIDE_INT,
-			      unsigned HOST_WIDE_INT, int, bool, rtx,
+			      unsigned HOST_WIDE_INT, int, rtx,
 			      enum machine_mode, enum machine_mode, bool);
 extern rtx extract_low_bits (enum machine_mode, enum machine_mode, rtx);
 extern rtx expand_mult (enum machine_mode, rtx, rtx, rtx, int);

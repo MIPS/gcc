@@ -69,7 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-flow.h"
+#include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "ggc.h"
@@ -86,6 +86,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-ssa-propagate.h"
 #include "expmed.h"
+#include "tree-ssa-address.h"
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD
@@ -452,7 +453,6 @@ single_dom_exit (struct loop *loop)
 
 /* Dumps information about the induction variable IV to FILE.  */
 
-extern void dump_iv (FILE *, struct iv *);
 void
 dump_iv (FILE *file, struct iv *iv)
 {
@@ -497,7 +497,6 @@ dump_iv (FILE *file, struct iv *iv)
 
 /* Dumps information about the USE to FILE.  */
 
-extern void dump_use (FILE *, struct iv_use *);
 void
 dump_use (FILE *file, struct iv_use *use)
 {
@@ -541,7 +540,6 @@ dump_use (FILE *file, struct iv_use *use)
 
 /* Dumps information about the uses to FILE.  */
 
-extern void dump_uses (FILE *, struct ivopts_data *);
 void
 dump_uses (FILE *file, struct ivopts_data *data)
 {
@@ -559,7 +557,6 @@ dump_uses (FILE *file, struct ivopts_data *data)
 
 /* Dumps information about induction variable candidate CAND to FILE.  */
 
-extern void dump_cand (FILE *, struct iv_cand *);
 void
 dump_cand (FILE *file, struct iv_cand *cand)
 {
@@ -1450,29 +1447,6 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
     if (TREE_OPERAND (expr, i)
 	&& !expr_invariant_in_loop_p (loop, TREE_OPERAND (expr, i)))
       return false;
-
-  return true;
-}
-
-/* Returns true if statement STMT is obviously invariant in LOOP,
-   i.e. if all its operands on the RHS are defined outside of the LOOP.
-   LOOP should not be the function body.  */
-
-bool
-stmt_invariant_in_loop_p (struct loop *loop, gimple stmt)
-{
-  unsigned i;
-  tree lhs;
-
-  gcc_assert (loop_depth (loop) > 0);
-
-  lhs = gimple_get_lhs (stmt);
-  for (i = 0; i < gimple_num_ops (stmt); i++)
-    {
-      tree op = gimple_op (stmt, i);
-      if (op != lhs && !expr_invariant_in_loop_p (loop, op))
-	return false;
-    }
 
   return true;
 }
@@ -3933,7 +3907,7 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
 
   if (ratio == 1)
     {
-      if(operand_equal_p (ubase, cbase, 0))
+      if (operand_equal_p (ubase, cbase, 0))
         return -1;
 
       if (TREE_CODE (ubase) == ADDR_EXPR
@@ -4889,22 +4863,36 @@ set_autoinc_for_original_candidates (struct ivopts_data *data)
   for (i = 0; i < n_iv_cands (data); i++)
     {
       struct iv_cand *cand = iv_cand (data, i);
-      struct iv_use *closest = NULL;
+      struct iv_use *closest_before = NULL;
+      struct iv_use *closest_after = NULL;
       if (cand->pos != IP_ORIGINAL)
 	continue;
+
       for (j = 0; j < n_iv_uses (data); j++)
 	{
 	  struct iv_use *use = iv_use (data, j);
 	  unsigned uid = gimple_uid (use->stmt);
-	  if (gimple_bb (use->stmt) != gimple_bb (cand->incremented_at)
-	      || uid > gimple_uid (cand->incremented_at))
+
+	  if (gimple_bb (use->stmt) != gimple_bb (cand->incremented_at))
 	    continue;
-	  if (closest == NULL || uid > gimple_uid (closest->stmt))
-	    closest = use;
+
+	  if (uid < gimple_uid (cand->incremented_at)
+	      && (closest_before == NULL
+		  || uid > gimple_uid (closest_before->stmt)))
+	    closest_before = use;
+
+	  if (uid > gimple_uid (cand->incremented_at)
+	      && (closest_after == NULL
+		  || uid < gimple_uid (closest_after->stmt)))
+	    closest_after = use;
 	}
-      if (closest == NULL || !autoinc_possible_for_pair (data, closest, cand))
-	continue;
-      cand->ainc_use = closest;
+
+      if (closest_before != NULL
+	  && autoinc_possible_for_pair (data, closest_before, cand))
+	cand->ainc_use = closest_before;
+      else if (closest_after != NULL
+	       && autoinc_possible_for_pair (data, closest_after, cand))
+	cand->ainc_use = closest_after;
     }
 }
 

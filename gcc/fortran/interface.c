@@ -1416,7 +1416,8 @@ gfc_compare_interfaces (gfc_symbol *s1, gfc_symbol *s2, const char *name2,
       if (s1->attr.function && s2->attr.function)
 	{
 	  /* If both are functions, check result characteristics.  */
-	  if (!check_result_characteristics (s1, s2, errmsg, err_len))
+	  if (!check_result_characteristics (s1, s2, errmsg, err_len)
+	      || !check_result_characteristics (s2, s1, errmsg, err_len))
 	    return 0;
 	}
 
@@ -1989,8 +1990,9 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       if (!gfc_expr_attr (actual).class_ok)
 	return 0;
 
-      if (!gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
-				      CLASS_DATA (formal)->ts.u.derived))
+      if ((!UNLIMITED_POLY (formal) || !UNLIMITED_POLY(actual))
+	  && !gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
+					 CLASS_DATA (formal)->ts.u.derived))
 	{
 	  if (where)
 	    gfc_error ("Actual argument to '%s' at %L must have the same "
