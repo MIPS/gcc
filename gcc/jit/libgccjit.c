@@ -544,7 +544,10 @@ gcc_jit_function_new_local (gcc_jit_function *func,
 			    gcc_jit_type *type,
 			    const char *name)
 {
-  RETURN_NULL_IF_NOT_FUNC_DEFINITION (func);
+  RETURN_NULL_IF_FAIL (func, NULL, "NULL function");
+  RETURN_NULL_IF_FAIL (func->get_kind () != GCC_JIT_FUNCTION_IMPORTED,
+		       NULL,
+		       "Cannot add locals to an imported function");
   RETURN_NULL_IF_FAIL (type, NULL, "NULL type");
   RETURN_NULL_IF_FAIL (name, NULL, "NULL name");
 

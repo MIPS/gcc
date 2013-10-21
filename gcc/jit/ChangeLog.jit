@@ -1,5 +1,11 @@
 2013-10-21  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.c (gcc_jit_function_new_local): Use a more clear
+	error message for the case where someone tries to add a local
+	to a function imported from elsewhere.
+
+2013-10-21  David Malcolm  <dmalcolm@redhat.com>
+
 	* TODO.rst ("the C unary prefix "&" operator"): Remove completed item.
 	* internal-api.c (gcc::jit::lvalue::get_address): New.
 	* internal-api.h (gcc::jit::lvalue::get_address): New.
