@@ -55,11 +55,6 @@ Initial Release
 
   and, indeed, clarify all of the other operations.
 
-* the C unary prefix "&" operator::
-
-    extern gcc_jit_rvalue *
-    gcc_jit_lvalue_get_address (gcc_jit_lvalue *lvalue);
-
 * array types, in case they're needed for structs::
 
     extern gcc_jit_type *

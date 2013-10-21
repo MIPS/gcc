@@ -492,6 +492,58 @@ verify_dereferences (gcc_jit_result *result)
 }
 
 /**********************************************************************
+ gcc_jit_lvalue_get_address
+ **********************************************************************/
+
+int test_global;
+static void
+make_test_of_get_address (gcc_jit_context *ctxt)
+{
+  /*
+     void *test_get_address (void)
+     {
+	return &test_global;
+     }
+  */
+  gcc_jit_type *int_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
+  gcc_jit_lvalue *test_global =
+    gcc_jit_context_new_global (
+      ctxt,
+      NULL,
+      int_type,
+      "test_global");
+
+ gcc_jit_type *void_ptr_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID_PTR);
+
+  gcc_jit_function *test_get_address =
+    gcc_jit_context_new_function (ctxt, NULL,
+				  GCC_JIT_FUNCTION_EXPORTED,
+				  void_ptr_type,
+				  "test_get_address",
+				  0, NULL,
+				  0);
+  gcc_jit_function_add_return (
+    test_get_address,
+    NULL,
+    gcc_jit_lvalue_get_address (
+      test_global,
+      NULL));
+}
+
+static void
+verify_get_address (gcc_jit_result *result)
+{
+  typedef void *(*test_fn) (void);
+    test_fn test_get_address =
+      (test_fn)gcc_jit_result_get_code (result,
+					"test_get_address");
+  CHECK_NON_NULL (test_get_address);
+  CHECK_VALUE (test_get_address (), &test_global);
+}
+
+/**********************************************************************
  Code for harness
  **********************************************************************/
 
@@ -502,6 +554,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   make_tests_of_binary_ops (ctxt);
   make_tests_of_comparisons (ctxt);
   make_tests_of_dereferences (ctxt);
+  make_test_of_get_address (ctxt);
 
   return 0;
 }
@@ -515,4 +568,5 @@ verify_code (gcc_jit_result *result)
   verify_binary_ops (result);
   verify_comparisons (result);
   verify_dereferences (result);
+  verify_get_address (result);
 }

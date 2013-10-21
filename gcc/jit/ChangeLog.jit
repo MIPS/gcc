@@ -1,3 +1,12 @@
+2013-10-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* TODO.rst ("the C unary prefix "&" operator"): Remove completed item.
+	* internal-api.c (gcc::jit::lvalue::get_address): New.
+	* internal-api.h (gcc::jit::lvalue::get_address): New.
+	* libgccjit.c (gcc_jit_lvalue_get_address): New.
+	* libgccjit.h (gcc_jit_lvalue_get_address): New.
+	* libgccjit.map (gcc_jit_lvalue_get_address): New.
+
 2013-10-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::context::new_param): Add context

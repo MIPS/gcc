@@ -757,6 +757,19 @@ dereference (gcc::jit::location *loc)
   return new lvalue (get_context (), datum);
 }
 
+gcc::jit::rvalue *
+gcc::jit::lvalue::
+get_address (location *loc)
+{
+  tree t_lvalue = as_tree ();
+  tree t_thistype = TREE_TYPE (t_lvalue);
+  tree t_ptrtype = build_pointer_type (t_thistype);
+  tree ptr = build1 (ADDR_EXPR, t_ptrtype, t_lvalue);
+  if (loc)
+    get_context ()->set_tree_location (ptr, loc);
+  return new rvalue (get_context (), ptr);
+}
+
 void *
 gcc::jit::wrapper::
 operator new (size_t sz)

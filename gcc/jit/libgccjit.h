@@ -601,6 +601,13 @@ extern gcc_jit_lvalue *
 gcc_jit_rvalue_dereference (gcc_jit_rvalue *rvalue,
 			    gcc_jit_location *loc);
 
+/* Taking the address of an lvalue; analogous to:
+     &(EXPR)
+   in C.  */
+extern gcc_jit_rvalue *
+gcc_jit_lvalue_get_address (gcc_jit_lvalue *lvalue,
+			    gcc_jit_location *loc);
+
 extern gcc_jit_lvalue *
 gcc_jit_function_new_local (gcc_jit_function *func,
 			    gcc_jit_location *loc,

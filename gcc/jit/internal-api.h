@@ -422,6 +422,9 @@ public:
   access_field (location *loc,
 		const char *fieldname);
 
+  rvalue *
+  get_address (location *loc);
+
 };
 
 class param : public lvalue

@@ -1,3 +1,11 @@
+2013-10-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-expressions.c (test_global): New.
+	(make_test_of_get_address): New.
+	(verify_get_address): New.
+	(code_making_callback): Add call to make_test_of_get_address.
+	(verify_code): Add call to verify_get_address.
+
 2013-10-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-expressions.c: New.

@@ -529,6 +529,15 @@ gcc_jit_rvalue_dereference (gcc_jit_rvalue *rvalue,
   return (gcc_jit_lvalue *)rvalue->dereference (loc);
 }
 
+gcc_jit_rvalue *
+gcc_jit_lvalue_get_address (gcc_jit_lvalue *lvalue,
+			    gcc_jit_location *loc)
+{
+  RETURN_NULL_IF_FAIL (lvalue, NULL, "NULL lvalue");
+
+  return (gcc_jit_rvalue *)lvalue->get_address (loc);
+}
+
 gcc_jit_lvalue *
 gcc_jit_function_new_local (gcc_jit_function *func,
 			    gcc_jit_location *loc,
