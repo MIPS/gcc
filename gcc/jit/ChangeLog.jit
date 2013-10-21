@@ -1,5 +1,13 @@
 2013-10-21  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::context::compile): Correctly cleanup
+	timevars in error-handling, preventing an issue where an error
+	on a context left timevar.c in an unstopped state, leading to an
+	assertion failure when restarting timevars in the next compile.
+	Found via fuzz-testing.
+
+2013-10-21  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::context::postprocess): Show source
 	line numbers (if any) in gimple dump.
 

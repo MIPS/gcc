@@ -1261,7 +1261,11 @@ compile ()
   active_jit_ctxt = NULL;
 
   if (errors_occurred ())
-    goto error;
+    {
+      timevar_stop (TV_TOTAL);
+      timevar_print (stderr);
+      goto error;
+    }
 
   timevar_push (TV_ASSEMBLE);
 
@@ -1279,7 +1283,12 @@ compile ()
       printf ("cmd: %s\n", cmd);
     int ret = system (cmd);
     if (ret)
-      goto error;
+      {
+	timevar_pop (TV_ASSEMBLE);
+	timevar_stop (TV_TOTAL);
+	timevar_print (stderr);
+	goto error;
+      }
   }
   timevar_pop (TV_ASSEMBLE);
 
