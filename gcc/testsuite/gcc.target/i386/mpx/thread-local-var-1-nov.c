@@ -1,6 +1,8 @@
 /* { dg-do run } */
 /* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-additional-options "-lpthread" } */
+
 
 #include "mpx-check.h"
 #include "pthread.h"
