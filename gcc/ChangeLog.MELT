@@ -1,4 +1,8 @@
 
+2013-10-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.cc (melt_do_finalize): Improve printing for verbose
+	display of modes which have been successfully run.
+
 2013-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

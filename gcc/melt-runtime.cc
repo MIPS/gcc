@@ -11576,7 +11576,7 @@ melt_do_finalize (void)
       else 
 	{
 	  unsigned nbmodes = melt_done_modes_vector.size();
-	  fprintf (stderr, "MELT did run %d modes successfully:");
+	  fprintf (stderr, "MELT did run %ud modes successfully:", nbmodes);
 	  for (unsigned ix=0; ix<nbmodes; ix++) {
 	    if (ix>0) 
 	      fputs (", ", stderr);
