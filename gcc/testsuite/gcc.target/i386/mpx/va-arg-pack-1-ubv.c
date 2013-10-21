@@ -1,6 +1,7 @@
 /* { dg-do run { xfail *-*-* } } */
 /* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-additional-options "-Wno-attributes" } */
 
 #define XFAIL
 
