@@ -402,3 +402,21 @@ Lift restrictions on GOT size
 
 noasmopt
 Driver
+
+mirafix=
+Target RejectNegative Joined Enum(mips_irafixes) Var(mips_ira_fix) Init(0)
+-mirafix=[none|cost|alt]
+
+Enum
+Name(mips_irafixes) Type(int)
+Known fixes for ira
+
+EnumValue
+Enum(mips_irafixes) String(none) Value(0)
+
+EnumValue
+Enum(mips_irafixes) String(cost) Value(1)
+
+EnumValue
+Enum(mips_irafixes) String(alt) Value(2)
+
