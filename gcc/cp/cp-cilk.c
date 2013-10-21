@@ -1432,7 +1432,7 @@ cilk_validate_for (tree c_for_stmt)
 	  return false;
 	}
       else if (!TYPE_UNSIGNED (grain_type)
-	       && (TREE_CODE (grain_type) == INTEGER_TYPE)
+	       && (TREE_CODE (grain) == INTEGER_CST)
 	       && (TREE_INT_CST_HIGH (grain) < 0))
 	{
 	  warning (OPT_Wcilk_for, 
