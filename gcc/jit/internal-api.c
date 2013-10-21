@@ -864,7 +864,7 @@ postprocess ()
 
       current_function_decl = m_inner_fndecl;
       if (m_ctxt->get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE))
-	dump_function_to_file (m_inner_fndecl, stderr, TDF_VOPS|TDF_MEMSYMS);
+	dump_function_to_file (m_inner_fndecl, stderr, TDF_VOPS|TDF_MEMSYMS|TDF_LINENO);
       //debug_tree (m_inner_fndecl);
 
       //printf("about to add to cgraph\n");

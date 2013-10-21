@@ -1,5 +1,10 @@
 2013-10-21  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::context::postprocess): Show source
+	line numbers (if any) in gimple dump.
+
+2013-10-21  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.c (gcc_jit_function_new_local): Use a more clear
 	error message for the case where someone tries to add a local
 	to a function imported from elsewhere.
