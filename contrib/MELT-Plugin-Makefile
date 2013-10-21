@@ -237,6 +237,7 @@ all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 	  then copy your '$$DESTDIR' appropriately to the installation tree \
           to fill $(MELTGCC_PLUGIN_DIR)
 	@echo
+	@echo Please subscribe to http://groups.google.com/group/gcc-melt forum.
 
 
 ## notice that gengtype wants file named *.c not *.cc, hence the use

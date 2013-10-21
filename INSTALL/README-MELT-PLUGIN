@@ -187,7 +187,7 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 ################################################################
 NEWS for 1.0 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
-[[mid-october, 2013]]
+[[end of october, 2013]]
 
 This is a major release (with perhaps some small incompatibilities
 with previous MELT plugin releases). A lot of new features are
@@ -197,9 +197,9 @@ MELT plugin, even for newbies. Some modes are now available and could
 be useful even without understanding much of the MELT domain specific
 language.
 
-MELT 1.0 is usable with GCC 4.7 and 4.8 but not usable for GCC 4.6,
-because it requires a GCC compiler written in C++ and because it is
-generating C++ code.
+MELT 1.0 is usable with GCC 4.7 and 4.8 but not usable with GCC 4.6 or
+earlier, because it requires a GCC compiler written in C++ and because
+it is generating C++ code.
 
    End-user improvements
    =====================
@@ -211,6 +211,21 @@ generating C++ code.
    functions whose declaration matches a given tree pattern) and
    -fplugin-arg-melt-mode=justcountipa (to count gimples and basic
    blocks at the Inter-Procedural Analysis stage).
+
+ ***
+ * When verbose, all the successful modes are displayed.
+
+   Language improvements
+   =====================
+
+ ***
+ * It is possible to define macros with defmacro. 
+
+ ***
+ * quotes, anti-quotes (with backquote), and comma operators are possible.
+ But quotations and antiquotations of s-exprs have their location slightly less precise
+ (only filename and linenumber, but not column number, are preserved)
+
 
 
 @@@@ Incomplete

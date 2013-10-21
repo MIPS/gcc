@@ -1,4 +1,8 @@
 
+2013-10-21  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile: Mention
+	http://groups.google.com/group/gcc-melt forum.
+
 2013-10-03  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile (melt-gendoc): Correct the test about
 	texi2html...
