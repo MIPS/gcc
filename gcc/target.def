@@ -2025,9 +2025,18 @@ built-in function.",
 
 DEFHOOK
 (builtin_chkp_function,
- "Pointers checker instrumentation pass uses this hook to obtain\n\
-target-specific functions which implement specified generic checker\n\
-builtins.",
+ "This hook allows target to redefine built-in functions used by\n\
+Pointers Checker for code instrumentation.  Hook should return\n\
+fndecl of function implementing generic builtin whose code is\n\
+passed in @var{fcode}.  Currently following built-in functions are\n\
+obtained using this hook:\n\
+@code{BUILT_IN_CHKP_BNDMK}, @code{BUILT_IN_CHKP_BNDSTX},\n\
+@code{BUILT_IN_CHKP_BNDLDX}, @code{BUILT_IN_CHKP_BNDCL},\n\
+@code{BUILT_IN_CHKP_BNDCU}, @code{BUILT_IN_CHKP_BNDRET},\n\
+@code{BUILT_IN_CHKP_INTERSECT}, @code{BUILT_IN_CHKP_SET_PTR_BOUNDS},\n\
+@code{BUILT_IN_CHKP_NARROW}, @code{BUILT_IN_CHKP_ARG_BND},\n\
+@code{BUILT_IN_CHKP_SIZEOF}, @code{BUILT_IN_CHKP_EXTRACT_LOWER},\n\
+@code{BUILT_IN_CHKP_EXTRACT_UPPER}.",
  tree, (unsigned fcode),
  default_builtin_chkp_function)
 
@@ -3295,8 +3304,10 @@ The default version of this hook returns @code{va_list_type_node}.",
 
 DEFHOOK
 (fn_abi_va_list_bounds_size,
- "This hook returns size for va_list object or integer_zero_node if\n\
-it does not have any (e.g. is scalar pointer to the stack).",
+ "This hook returns size for @code{va_list} object in function specified\n\
+by @var{fndecl}.  This hook is used by Pointers Checker to build bounds for\n\
+@code{va_list} object.  Return @code{integer_zero_node} if no bounds should\n\
+be used (e.g. @code{va_list} is a scalar pointer to the stack).",
  tree, (tree fndecl),
  default_fn_abi_va_list_bounds_size)
 
@@ -3732,16 +3743,19 @@ not generate any instructions in this case.",
 
 DEFHOOK
 (load_bounds_for_arg,
- "This hook is used to emit insn to load arg's bounds\n\
-in case bounds are not passed on register.  Return loaded bounds",
- rtx, (rtx, rtx, rtx),
+ "This hook is used to emit insn to load bounds of @var{arg} passed\n\
+in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX\n\
+constant holding number of the special slot we should get bounds from.\n\
+Return loaded bounds.",
+ rtx, (rtx slot, rtx arg, rtx slot_no),
  default_load_bounds_for_arg)
 
 DEFHOOK
 (store_bounds_for_arg,
- "This hook is used to emit insn to store arg's bounds\n\
-in case bounds are not passed on register.",
- void, (rtx, rtx, rtx, rtx),
+ "This hook is used to emit insn to store bounds of @var{arg} passed\n\
+in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX\n\
+constant holding number of the special slot we should store bounds to.",
+ void, (rtx arg, rtx slot, rtx bounds, rtx slot_no),
  default_store_bounds_for_arg)
 
 DEFHOOK

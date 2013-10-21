@@ -4335,8 +4335,10 @@ The default version of this hook returns @code{va_list_type_node}.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE (tree @var{fndecl})
-This hook returns size for va_list object or integer_zero_node if
-it does not have any (e.g. is scalar pointer to the stack).
+This hook returns size for @code{va_list} object in function specified
+by @var{fndecl}.  This hook is used by Pointers Checker to build bounds for
+@code{va_list} object.  Return @code{integer_zero_node} if no bounds should
+be used (e.g. @code{va_list} is a scalar pointer to the stack).
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_CANONICAL_VA_LIST_TYPE (tree @var{type})
@@ -5156,14 +5158,17 @@ defined, then define this hook to return @code{true} if
 Otherwise, you should not define this hook.
 @end deftypefn
 
-@deftypefn {Target Hook} rtx TARGET_LOAD_BOUNDS_FOR_ARG (rtx, @var{rtx}, @var{rtx})
-This hook is used to emit insn to load arg's bounds
-in case bounds are not passed on register.  Return loaded bounds
+@deftypefn {Target Hook} rtx TARGET_LOAD_BOUNDS_FOR_ARG (rtx @var{slot}, rtx @var{arg}, rtx @var{slot_no})
+This hook is used to emit insn to load bounds of @var{arg} passed
+in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX
+constant holding number of the special slot we should get bounds from.
+Return loaded bounds.
 @end deftypefn
 
-@deftypefn {Target Hook} void TARGET_STORE_BOUNDS_FOR_ARG (rtx, @var{rtx}, @var{rtx}, @var{rtx})
-This hook is used to emit insn to store arg's bounds
-in case bounds are not passed on register.
+@deftypefn {Target Hook} void TARGET_STORE_BOUNDS_FOR_ARG (rtx @var{arg}, rtx @var{slot}, rtx @var{bounds}, rtx @var{slot_no})
+This hook is used to emit insn to store bounds of @var{arg} passed
+in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX
+constant holding number of the special slot we should store bounds to.
 @end deftypefn
 
 @node Trampolines
@@ -10923,9 +10928,18 @@ built-in function.
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_BUILTIN_CHKP_FUNCTION (unsigned @var{fcode})
-Pointers checker instrumentation pass uses this hook to obtain
-target-specific functions which implement specified generic checker
-builtins.
+This hook allows target to redefine built-in functions used by
+Pointers Checker for code instrumentation.  Hook should return
+fndecl of function implementing generic builtin whose code is
+passed in @var{fcode}.  Currently following built-in functions are
+obtained using this hook:
+@code{BUILT_IN_CHKP_BNDMK}, @code{BUILT_IN_CHKP_BNDSTX},
+@code{BUILT_IN_CHKP_BNDLDX}, @code{BUILT_IN_CHKP_BNDCL},
+@code{BUILT_IN_CHKP_BNDCU}, @code{BUILT_IN_CHKP_BNDRET},
+@code{BUILT_IN_CHKP_INTERSECT}, @code{BUILT_IN_CHKP_SET_PTR_BOUNDS},
+@code{BUILT_IN_CHKP_NARROW}, @code{BUILT_IN_CHKP_ARG_BND},
+@code{BUILT_IN_CHKP_SIZEOF}, @code{BUILT_IN_CHKP_EXTRACT_LOWER},
+@code{BUILT_IN_CHKP_EXTRACT_UPPER}.
 @end deftypefn
 @deftypefn {Target Hook} tree TARGET_CHKP_BOUND_TYPE (void)
 Return type to be used for bounds
