@@ -32438,12 +32438,14 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	 some built-in function is expanded.  */
       if (!target)
 	{
-	  rtx t = gen_reg_rtx (Pmode);
+	  rtx t1 = gen_reg_rtx (Pmode);
+	  rtx t2 = gen_reg_rtx (Pmode);
 	  target = gen_reg_rtx (BNDmode);
-	  emit_move_insn (t, const0_rtx);
+	  emit_move_insn (t1, const0_rtx);
+	  emit_move_insn (t2, constm1_rtx);
 	  emit_insn (TARGET_64BIT
-		     ? gen_bnd64_mk (target, t, t)
-		     : gen_bnd32_mk (target, t, t));
+		     ? gen_bnd64_mk (target, t1, t2)
+		     : gen_bnd32_mk (target, t1, t2));
 	}
       gcc_assert (target && REG_P (target));
       return target;
