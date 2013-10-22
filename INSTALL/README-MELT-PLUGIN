@@ -232,7 +232,7 @@ it is generating C++ code.
 
       gcc -fplugin=melt -fplugin-arg-melt-mode=findgimple \
       -fplugin-arg-melt-arg=’
-      ?(gimple_call_1
+      ?(gimple_call_1 ?_
         ?(tree_function_decl_of_name "malloc" ?_ ?_)
         ?(tree_integer_cst ?(some_integer_greater_than 100))
       )’ -fplugin-arg-melt-output=findmallocgt100 -c empty-file.c
@@ -243,6 +243,7 @@ it is generating C++ code.
           -fplugin-arg-melt-mode=gofindgimple -O2 yourfile.cc
 
   and this should run much faster, because no C++ code needs to be generated and compiled.
+
  ***
  * When verbose, all the successful modes are displayed.
 
