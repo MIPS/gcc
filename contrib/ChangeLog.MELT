@@ -1,5 +1,8 @@
 
 2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile: Add an echo for blank line.
+
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile (install-melt-sources): List one by one the
 	file suffixes to install.
 

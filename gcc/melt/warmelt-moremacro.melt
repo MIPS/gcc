@@ -207,4 +207,199 @@ condition is a string such as "4.7." or a list of strings.}#)
  :doc #{The $CONTAINER syntax for expressions or patterns is obsolete. Use $REFERENCE instead}#)
 
 
+;;;;;;;; for QUOTE 
+;; utility to expand an s-expression into a suitable invocation of melt_make_sexpr
+(defun expand_quoted_sexpr (sexpr env antiquotefun mexpander modctx)
+  (debug "expand_quoted_sexpr sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check modctx" (is_object modctx) modctx)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (:long dline (get_int loc))
+	 (dfilnam (cond
+		   ((is_mixint loc) (mixint_val loc))
+		   ((is_mixloc loc) (mixloc_val loc))))
+	 (locexp (instance class_source_hook_call
+			   :loca_location loc
+			   :shook_called hook_melt_make_location
+			   :sargop_args (tuple dfilnam (constant_box dline))))
+	 (arglist (make_list discr_list))
+	 )
+    (debug "expand_quoted_sexpr dline=" dline " dfilnam=" dfilnam)
+    (foreach_pair_component_in_list
+     (cont)
+     (curpair curcomp)
+     (debug "expand_quoted_sexpr curcomp=" curcomp "\n.. arglist=" arglist)
+     (cond ( (null curcomp)
+	     (list_append arglist ())
+	     )
+	   ( (is_integerbox curcomp)
+	     (list_append arglist curcomp))
+	   ( (is_string curcomp)
+	     (list_append arglist curcomp))
+	   ( (is_a curcomp class_keyword)
+	     (list_append arglist curcomp))
+	   ( (is_a curcomp class_symbol)
+	     (let ( (qsymb (instance class_source_quote
+				     :loca_location loc
+				     :squoted curcomp))
+		    )
+	       (list_append arglist qsymb)))
+	   ( (is_a curcomp class_sexpr)
+	     (if (is_closure antiquotefun)
+		 (let ( (curloc (unsafe_get_field :loca_location curcomp))
+			(curcont (unsafe_get_field :sexp_contents curcomp))
+			)
+		   (if (and 
+			(==i (list_length curcont) 2)
+			(== (list_first_element curcont) 'comma))
+		       (let ( (commaexp (list_nth_element curcont 1))
+			      )
+			 (debug "expand_quoted_sexpr commaexp=" commaexp " curloc=" curloc)
+			 (antiquotefun commaexp arglist curloc env mexpander modctx)
+			 (debug "expand_quoted_sexpr after antiquotefun arglist=" arglist)
+			 )
+		     (list_append arglist (expand_quoted_sexpr curcomp env antiquotefun mexpander modctx))))
+	       (list_append arglist (expand_quoted_sexpr curcomp env antiquotefun mexpander modctx))
+	       ))
+	   ;; the below cases don't happen for expressions which have
+	   ;; been read, only for computed s-exprs...
+	   ( (is_list curcomp)
+	     (list_append2list arglist curcomp))
+	   ( (is_multiple curcomp)
+	     (foreach_in_multiple
+	      (curcomp)
+	      (subcomp :long ix)
+	      (list_append arglist subcomp)))
+	   (:else
+	    (list_append arglist curcomp))
+	   )
+     )					; end foreach_pair_component_in_list
+    (debug "expand_quoted_sexpr arglist=" arglist)
+    (list_prepend arglist locexp)
+    (debug "expand_quoted_sexpr final arglist=" arglist)
+    (let ( (xexp (instance class_source_apply
+			   :loca_location loc
+			   :sapp_fun 'melt_make_sexpr
+			   :sargop_args (list_to_multiple arglist discr_multiple)))
+	   )
+      (debug "expand_quoted_sexpr result xexp=" xexp)
+      (return xexp)
+      )
+    )
+  )
+
+(defun mexpand_quote (sexpr env mexpander modctx)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check modctx" (is_object modctx) modctx)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 (quoted (pair_head curpair))
+	 )
+    (if (pair_tail curpair)
+	(error_plain loc "QUOTE should have only one argument"_))
+    (cond ( (is_a quoted class_symbol) 
+	    ()
+	    )
+	  ( (is_string quoted)
+	    ()
+	    )
+	  ( (is_integerbox quoted)
+	    ()
+	    )
+	  ( (is_a quoted class_source)
+	    (debug "mexpand_quote sexpr return source=" quoted)
+	    (return quoted))
+	  ( (is_a quoted class_sexpr)
+	      (debug "mexpand_quote sexpr quoted=" quoted)
+	    (let ( (expquo (expand_quoted_sexpr quoted env () mexpander modctx))
+		   )
+	      (debug "mexpander expquo=" expquo)
+	      (return expquo)))
+	  (:else
+	   (error_plain loc "QUOTE should have a symbol, string, or integer or s-expr argument"_))
+	  )
+    (if (is_a quoted class_keyword)
+	(return quoted))
+    (let ( (squ (instance class_source_quote
+			  :loca_location loc
+			  :squoted quoted)) )
+      (return squ)
+      )))
+(install_initial_macro 'quote mexpand_quote)
+(export_macro
+ quote mexpand_quote
+ :doc #{The $QUOTE syntax (usually noted with a prefix quote-character
+ @code{'}) is for quotations. A quoted literal reifies a value, so
+ @code{'2} is a value of $DISCR_CONSTANT_INTEGER. A quoted
+ s-expression invokes $MELT_MAKE_SEXPR using
+ $HOOK_MELT_MAKE_LOCATION.}#)
+
+
+;; could be passed to expand_quoted_sexpr for future
+;; mexpand_backquote; the result of antiquoter is ignored, but it
+;; usually updates the arglist.
+(defun antiquoter (aexp arglist loc env mexpander modctx)
+  (debug "antiquoter aexp=" aexp " arglist=" arglist)
+  (shortbacktrace_dbg "antiquoter" 15)
+  (let ( (mexp (mexpander aexp env mexpander modctx))
+	 )
+    (debug "antiquoter mexp=" mexp)
+    (list_append arglist mexp)
+    )
+  (debug "antiquoter ends with arglist=" arglist))
+
+
+
+
+;;;;;;; for BACKQUOTE
+(defun mexpand_backquote (sexpr env mexpander modctx)
+  (debug "mexpand_backquote sexpr=" sexpr)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 (backquoted (pair_head curpair))
+	 )
+    (if (pair_tail curpair)
+	(error_plain loc "BACKQUOTE should have only one argument"_))
+    (cond ( (is_a backquoted class_sexpr)
+	    (debug "mexpand_backquote backquoted sexpr " backquoted)
+	    (let ( (expbk (expand_quoted_sexpr backquoted env antiquoter mexpander modctx))
+		   )
+	      (debug "mexpand_backquote result expbk=" expbk)
+	      (return expbk)
+	      ))
+	  (:else
+	   (debug "mexpand_backquote backquoted return verbatim " backquoted)
+	   (return backquoted)))
+    ))
+(install_initial_macro 'backquote mexpand_backquote)
+(export_macro
+ backquote mexpand_backquote
+ :doc #{The $BACKQUOTE macro is expanding into an s-expr, except for
+$COMMA It is often noted with a prefix backquote-character
+@code{`}....}# )
+
+
+
+;;;;;;; for COMMA
+(defun mexpand_comma (sexpr env mexpander modctx)
+  (debug "mexpand_comma sexpr=" sexpr)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 )
+    (error_plain loc "COMMA outside of BACKQUOTE-d expression")
+))
+(install_initial_macro 'comma mexpand_comma)
+(export_macro
+ comma mexpand_comma
+ :doc #{The $COMMA macro is related to $BACKQUTE.
+$COMMA It is often noted with a prefix comma-character
+@code{,}....}# )
+
+
 ;; eof warmelt-moremacro.melt

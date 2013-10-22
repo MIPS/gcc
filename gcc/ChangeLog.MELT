@@ -1,5 +1,11 @@
 
 2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-moremacro.melt (expand_quoted_sexpr, mexpand_quote)
+	(antiquoter, mexpand_backquote, mexpand_comma): Copied from
+	warmelt-macro.melt, to be moved from it...
+
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.cc (melt_load_module_index): srcpath has ".cc" not
 	".c" file suffix.
 
