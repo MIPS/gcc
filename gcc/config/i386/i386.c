@@ -28444,7 +28444,6 @@ static const struct builtin_description bdesc_mpx[] =
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
-  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndret", IX86_BUILTIN_BNDRET, UNKNOWN, (int) BND_FTYPE_PCVOID },
 };
 
 /* Const builtins for MPX.  */
@@ -28459,6 +28458,7 @@ static const struct builtin_description bdesc_mpx_const[] =
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_sizeof", IX86_BUILTIN_SIZEOF, UNKNOWN, (int) ULONG_FTYPE_VOID },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndlower", IX86_BUILTIN_BNDLOWER, UNKNOWN, (int) PVOID_FTYPE_BND },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndupper", IX86_BUILTIN_BNDUPPER, UNKNOWN, (int) PVOID_FTYPE_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndret", IX86_BUILTIN_BNDRET, UNKNOWN, (int) BND_FTYPE_PCVOID },
 };
 
 /* FMA4 and XOP.  */
