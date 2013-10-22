@@ -1,5 +1,11 @@
 
-2013-10-19  Basile Starynkevitch  <basile@starynkevitch.net>
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (expand_quoted_sexpr, mexpand_quote)
+	(antiquoter, mexpand_backquote, mexpand_comma): Remove, since they
+	have been moved to warmelt-moremacro.melt file...
+
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/warmelt-moremacro+01.cc: New generated file...
