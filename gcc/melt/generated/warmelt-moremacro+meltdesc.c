@@ -39,27 +39,27 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.0-rc2quasi/warmelt-moremacro";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="d822c27a36e45a7e813b33643d13076b";
+const char melt_prepromd5meltrun[]="5e0ebfff09c929d46960f47042681ff9";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="6fd5d42c5172a3cbe6c5fcbc2c65f4e5";
+const char melt_primaryhexmd5[]="14c2097a2582a7617bbc66451eaf432b";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "aac4593c2c0d85d10fae3a0bf871a56f",
+ /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "4e31252e4d449b5fd7e258a877c27366",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=1;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="3405b720660613d7611a992d949a9a37" ;
+const char melt_cumulated_hexmd5[]="a3577069b194b76b3ed83e50fedd71e0" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMOREMACRO_mds__3405B720660613D7611A992D949A9A37 1
+#define meltmod_WARMELTmiMOREMACRO_mds__A3577069B194B76B3ED83E50FEDD71E0 1
 #include "warmelt-moremacro+melttime.h"
 	 
 
