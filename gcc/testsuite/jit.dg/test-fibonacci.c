@@ -132,7 +132,7 @@ FIRST_LINE + 7: }
 }
 
 void
-verify_code (gcc_jit_result *result)
+verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   typedef int (*my_fibonacci_fn_type) (int);
   CHECK_NON_NULL (result);

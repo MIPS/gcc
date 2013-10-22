@@ -8,7 +8,7 @@
     code_making_callback (gcc_jit_context *ctxt, void * user_data);
 
     extern void
-    verify_code (gcc_jit_result *result);
+    verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
 
  */
 #include <stdlib.h>
@@ -47,12 +47,15 @@ static char test[1024];
     }                                        \
   } while (0)
 
+#define CHECK_STRING_VALUE(ACTUAL, EXPECTED) \
+  check_string_value ((ACTUAL), (EXPECTED));
+
 /* Hooks that testcases should provide.  */
 extern int
 code_making_callback (gcc_jit_context *ctxt, void * user_data);
 
 extern void
-verify_code (gcc_jit_result *result);
+verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
 
 /* Implement framework needed for turning the testcase hooks into an
    executable.  test-combination.c combines multiple testcases into one
@@ -60,9 +63,37 @@ verify_code (gcc_jit_result *result);
    off this part of harness.h.  */
 #ifndef TEST_COMBINATION
 
+void check_string_value (const char *actual, const char *expected)
+{
+  if (actual && !expected)
+    {
+      fail ("%s: actual: \"%s\" != expected: NULL", test, actual);
+	fprintf (stderr, "incorrect value\n");
+	abort ();
+    }
+    if (expected && !actual)
+      {
+	fail ("%s: actual: NULL != expected: \"%s\"", test, expected);
+	fprintf (stderr, "incorrect value\n");
+	abort ();
+      }
+    if (actual && expected)
+      {
+	if (strcmp (actual, expected))
+	  {
+	    fail ("%s: actual: \"%s\" != expected: \"%s\"", test, actual, expected);
+	    fprintf (stderr, "incorrect valuen");
+	    abort ();
+	  }
+	pass ("%s: actual: \"%s\" == expected: \"%s\"", test, actual, expected);
+      }
+    else
+      pass ("%s: actual: NULL == expected: NULL");
+}
+
 /* Run one iteration of the test.  */
 static void
-test_jit (const char *argv0)
+test_jit (const char *argv0, void *user_data)
 {
   gcc_jit_context *ctxt;
   gcc_jit_result *result;
@@ -70,7 +101,7 @@ test_jit (const char *argv0)
   ctxt = gcc_jit_context_acquire ();
      /* FIXME: error-handling */
 
-  gcc_jit_context_set_code_factory (ctxt, code_making_callback, NULL);
+  gcc_jit_context_set_code_factory (ctxt, code_making_callback, user_data);
 
   /* Set up options.  */
   gcc_jit_context_set_str_option (
@@ -106,9 +137,9 @@ test_jit (const char *argv0)
      in a mutex for now.  */
   result = gcc_jit_context_compile (ctxt);
 
-  gcc_jit_context_release (ctxt);
+  verify_code (ctxt, result);
 
-  verify_code (result);
+  gcc_jit_context_release (ctxt);
 
   /* Once we're done with the code, this unloads the built .so file: */
   gcc_jit_result_release (result);
@@ -144,7 +175,7 @@ main (int argc, char **argv)
                 i, 5);
 
       //printf ("ITERATION %d\n", i);
-      test_jit (argv[0]);
+      test_jit (argv[0], NULL);
       //printf ("\n");
     }
 

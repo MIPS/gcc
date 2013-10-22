@@ -99,7 +99,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 }
 
 void
-verify_code (gcc_jit_result *result)
+verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   typedef double (*my_dot_product_fn_type) (int n, double *a, double *b);
   CHECK_NON_NULL (result);

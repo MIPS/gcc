@@ -115,17 +115,17 @@ code_making_callback (gcc_jit_context *ctxt, void * user_data)
 }
 
 void
-verify_code (gcc_jit_result *result)
+verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
-  verify_code_accessing_struct (result);
-  verify_code_calling_external_function (result);
-  verify_code_dot_product (result);
-  verify_code_expressions (result);
-  verify_code_factorial (result);
-  verify_code_fibonacci (result);
-  verify_code_hello_world (result);
-  verify_code_string_literal (result);
-  verify_code_sum_of_squares (result);
-  verify_code_types (result);
-  verify_code_using_global (result);
+  verify_code_accessing_struct (ctxt, result);
+  verify_code_calling_external_function (ctxt, result);
+  verify_code_dot_product (ctxt, result);
+  verify_code_expressions (ctxt, result);
+  verify_code_factorial (ctxt, result);
+  verify_code_fibonacci (ctxt, result);
+  verify_code_hello_world (ctxt, result);
+  verify_code_string_literal (ctxt, result);
+  verify_code_sum_of_squares (ctxt, result);
+  verify_code_types (ctxt, result);
+  verify_code_using_global (ctxt, result);
 }

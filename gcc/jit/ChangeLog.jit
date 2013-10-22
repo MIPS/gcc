@@ -1,3 +1,14 @@
+2013-10-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::context::add_error_va): Record the
+	first error that occurs on a context.
+	(gcc::jit::context::get_first_error): New.
+	* internal-api.h (gcc::jit::context::get_first_error): New.
+	(gcc::jit::context::m_first_error_str): New.
+	* libgccjit.c (gcc_jit_context_get_first_error): New.
+	* libgccjit.h (gcc_jit_context_get_first_error): New.
+	* libgccjit.map (gcc_jit_context_get_first_error): New.
+
 2013-10-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::context::compile): Correctly cleanup

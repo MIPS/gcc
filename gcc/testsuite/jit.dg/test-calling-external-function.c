@@ -95,7 +95,7 @@ called_function (int i, int j, int k)
 }
 
 void
-verify_code (gcc_jit_result *result)
+verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   typedef void (*fn_type) (int);
   CHECK_NON_NULL (result);

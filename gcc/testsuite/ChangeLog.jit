@@ -1,3 +1,32 @@
+2013-10-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h (verify_code): Add context param so that
+	test cases of failure can query errors on it.
+	(CHECK_STRING_VALUE): New.
+	(check_string_value): New.
+	(test_jit): Add user_data param and pass it to the code factory.
+	Pass context to verify_code, calling it before releasing said
+	context.
+	(main): Add NULL user_data to test_jit call.
+	* jit.dg/test-accessing-struct.c (verify_code): Add context
+	param.
+	* jit.dg/test-calling-external-function.c (verify_code):
+	Likewise.
+	* jit.dg/test-combination.c (verify_code): Likewise.
+	* jit.dg/test-dot-product.c (verify_code): Likewise.
+	* jit.dg/test-expressions.c (verify_code): Likewise.
+	* jit.dg/test-factorial.c (verify_code): Likewise.
+	* jit.dg/test-failure.c (verify_code): Likewise.
+	* jit.dg/test-fibonacci.c (verify_code): Likewise.
+	* jit.dg/test-hello-world.c (verify_code): Likewise.
+	* jit.dg/test-string-literal.c (verify_code): Likewise.
+	* jit.dg/test-sum-of-squares.c (verify_code): Likewise.
+	* jit.dg/test-types.c (verify_code): Likewise.
+	* jit.dg/test-using-global.c (verify_code): Likewise.
+	* jit.dg/test-null-passed-to-api.c (verify_code): Likewise;
+	use context to verify that the library provides a sane error
+	message to the client code.
+
 2013-10-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-expressions.c (test_global): New.

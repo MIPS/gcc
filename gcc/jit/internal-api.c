@@ -1478,7 +1478,23 @@ add_error_va (const char *fmt, va_list ap)
 
   error ("%s\n", buf);
 
+  if (!m_error_count)
+    {
+      strncpy (m_first_error_str, buf, sizeof(m_first_error_str));
+      m_first_error_str[sizeof(m_first_error_str) - 1] = '\0';
+    }
+
   m_error_count++;
+}
+
+const char *
+gcc::jit::context::
+get_first_error () const
+{
+  if (m_error_count)
+    return m_first_error_str;
+  else
+    return NULL;
 }
 
 gcc::jit::result::

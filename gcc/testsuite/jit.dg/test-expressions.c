@@ -560,7 +560,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 }
 
 void
-verify_code (gcc_jit_result *result)
+verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   CHECK_NON_NULL (result);
 

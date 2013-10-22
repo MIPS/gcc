@@ -726,6 +726,14 @@ gcc_jit_context_compile (gcc_jit_context *ctxt)
   return (gcc_jit_result *)ctxt->compile ();
 }
 
+const char *
+gcc_jit_context_get_first_error (gcc_jit_context *ctxt)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
+
+  return ctxt->get_first_error ();
+}
+
 void *
 gcc_jit_result_get_code (gcc_jit_result *result,
 			 const char *fnname)

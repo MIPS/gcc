@@ -21,10 +21,14 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
 }
 
 void
-verify_code (gcc_jit_result *result)
+verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   /* Ensure that the bad API usage prevents the API giving a bogus
      result back.  */
   CHECK_VALUE (result, NULL);
+
+  /* Verify that the correct error message was emitted.  */
+  CHECK_STRING_VALUE (gcc_jit_context_get_first_error (ctxt),
+		      "gcc_jit_context_new_function: NULL return_type");
 }
 

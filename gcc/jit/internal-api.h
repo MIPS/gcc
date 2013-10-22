@@ -158,6 +158,9 @@ public:
   add_error_va (const char *fmt, va_list ap)
       GNU_PRINTF(2, 0);
 
+  const char *
+  get_first_error () const;
+
   void
   set_tree_location (tree t, location *loc);
 
@@ -193,6 +196,8 @@ private:
   void *m_user_data;
 
   int m_error_count;
+  char m_first_error_str[1024];
+  int m_cb_result; /* Result from client-provided code factory.  */
 
   /* Allocated using xmalloc (by xstrdup).  */
   char *m_path_template;
@@ -205,7 +210,6 @@ private:
   char *m_path_s_file;
   char *m_path_so_file;
 
-  int m_cb_result; /* Result from client-provided code factory.  */
   vec<function *> m_functions;
   const char *m_str_options[GCC_JIT_NUM_STR_OPTIONS];
   int m_int_options[GCC_JIT_NUM_INT_OPTIONS];
