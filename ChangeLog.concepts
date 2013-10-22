@@ -1,4 +1,10 @@
 2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/c-family/c-common.c (cxx_dialect): Make the default
+	language C++11.
+	* gcc/cp/constraint.cc (check_constrained_friend): Don't assert
+	on error_mark_node.
+
+2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/logic.cc (left_requires), (decompose_left): Add
 	decomposition rules for requires expressions.
 	(subsumes_requires), (subsumes_prop): Add subsumption rules for

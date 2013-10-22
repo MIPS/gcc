@@ -786,6 +786,8 @@ finish_constexpr_expr (tree expr)
 void
 check_constrained_friend (tree fn, tree reqs)
 {
+  if (fn == error_mark_node)
+    return;
   gcc_assert (TREE_CODE (fn) == FUNCTION_DECL);
 
   // If there are not constraints, this cannot be an error.
