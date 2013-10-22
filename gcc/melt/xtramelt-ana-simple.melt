@@ -639,8 +639,8 @@
 			     )
 			(assert_msg "findgimple/notreegate check passdata" 
 				    (is_a passdata class_findgimple_data) passdata)
-			(debug "findgimple/notreegate passdata=" passdata " treefundecl=" ,treefundecl
-			       "\n.. maptreefun=" maptreefun "\n.. nbfun=" nbfun "\n.. goodfuncount=" goodfuncount
+			(debug "findgimple/notreegate passdata=" passdata " treefundecl=" ,treefundecl)
+			(debug "findgimple/notreegate maptreefun=" maptreefun "\n.. nbfun=" nbfun "\n.. goodfuncount=" goodfuncount
 			       "\n.. thistreefun=" thistreefun)
 			(assert_msg "findgimple/notreegate check maptreefun" (is_maptree maptreefun) maptreefun)
 			(assert_msg "findgimple/notreegate check nbfun" (is_integerbox nbfun) nbfun)

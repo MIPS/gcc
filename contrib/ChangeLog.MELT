@@ -1,4 +1,8 @@
 
+2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile (install-melt-sources): List one by one the
+	file suffixes to install.
+
 2013-10-21  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile: Mention
 	http://groups.google.com/group/gcc-melt forum.

@@ -11,7 +11,8 @@ styles, to ease development of GCC extensions.  MELT is translated to
 C code (and the MELT translator is implemented in MELT).
 
 If installing MELT as plugin to some existing gcc-4.7 installation
-tree, with the support of plugins enabled.
+tree, with the support of plugins enabled (or replace 4.7 by 4.8 if
+relevant):
 
 
 ################ quick steps for Debian/Unstable or Ubuntu or derived distributions ####
@@ -212,6 +213,36 @@ it is generating C++ code.
    -fplugin-arg-melt-mode=justcountipa (to count gimples and basic
    blocks at the Inter-Procedural Analysis stage).
 
+  Some examples of findgimple modes:
+
+
+   Find all calls to malloc with a constant size greater than 100:
+
+      gcc -fplugin=melt -fplugin-arg-melt-mode=findgimple \
+        -fplugin-arg-melt-arg='                           \
+        ?(gimple_call_1                                   \
+          ?(tree_function_decl_of_name "malloc" ?_ ?_)    \
+          ?(tree_integer_cst ?(some_integer_greater_than 100)) \
+        )’ -O2 -c yourcode.c
+  
+  The above command is slowly generating some C++ code and compiling
+  it then dlopen-ing it, every time you run that command. To make it
+  faster, you may want to generate a MELT module findmallocgt100 once,
+  and use that module to search mallocs on many files:
+
+      gcc -fplugin=melt -fplugin-arg-melt-mode=findgimple \
+      -fplugin-arg-melt-arg=’
+      ?(gimple_call_1
+        ?(tree_function_decl_of_name "malloc" ?_ ?_)
+        ?(tree_integer_cst ?(some_integer_greater_than 100))
+      )’ -fplugin-arg-melt-output=findmallocgt100 -c empty-file.c
+
+  Then you can quickly search that pattern using
+
+      gcc -fplugin=melt -fplugin-arg-melt-extra=findmallocgt100 
+          -fplugin-arg-melt-mode=gofindgimple -O2 yourfile.cc
+
+  and this should run much faster, because no C++ code needs to be generated and compiled.
  ***
  * When verbose, all the successful modes are displayed.
 

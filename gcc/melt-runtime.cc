@@ -9674,7 +9674,8 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
                  melt_run_preprocessed_md5);
       nbsecfile = *(MELTDESCR_REQUIRED(melt_lastsecfileindex));
       debugeprintf ("melt_load_module_index descmodulename %s nbsecfile %d", descmodulename, nbsecfile);
-      srcpath = concat (descmodulename, ".c", NULL);
+      srcpath = concat (descmodulename, ".cc", NULL);
+      debugeprintf ("melt_load_module_index srcpath=%s", srcpath);
       curpath =
         MELT_FIND_FILE (srcpath,
                         MELT_FILE_LOG, melt_trace_source_fil,

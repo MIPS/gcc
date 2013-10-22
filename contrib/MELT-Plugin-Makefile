@@ -497,7 +497,14 @@ install-melt-sources:
 	   || (echo incomplete meltbuild-sources missing warmelt-normal.cc ; exit 1)
 	$(mkinstalldirs) $(DESTDIR)$(melt_source_dir)
 	$(RM) meltbuild-sources/*~
-	for f in meltbuild-sources/*.{cc,c,h}  meltbuild-sources/*.mk meltbuild-sources/*.melt meltbuild-sources/*.modlis ; do \
+	for f in \
+	   meltbuild-sources/*.cc \
+           meltbuild-sources/*.c \
+           meltbuild-sources/*.h  \
+           meltbuild-sources/*.mk \
+           meltbuild-sources/*.melt \
+           meltbuild-sources/*.modlis \
+       ; do \
 	   $(INSTALL_DATA) $$f $(DESTDIR)$(melt_source_dir)/ ; \
 	done
 
