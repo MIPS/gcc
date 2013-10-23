@@ -266,6 +266,15 @@ class Backend
   virtual Bexpression*
   convert_expression(Btype* type, Bexpression* expr, Location) = 0;
 
+  // Create an expression for the address of a function.  This is used to
+  // get the address of the code for a function.
+  virtual Bexpression*
+  function_code_expression(Bfunction*, Location) = 0;
+
+  // Create an expression that takes the address of an expression.
+  virtual Bexpression*
+  address_expression(Bexpression*, Location) = 0;
+
   // Statements.
 
   // Create an error statement.  This is used for cases which should

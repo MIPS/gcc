@@ -69,6 +69,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
@@ -86,6 +95,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-ssa-propagate.h"
 #include "expmed.h"
+#include "tree-ssa-address.h"
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD

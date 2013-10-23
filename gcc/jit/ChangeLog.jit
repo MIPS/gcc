@@ -1,5 +1,12 @@
 2013-10-23  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c: Update for rename of tree-flow.h to tree-cfg.h
+	in r203320, for declaration of dump_function_to_file.
+	* TODO.rst ("segfault seen in libbacktrace"): Remove - this was
+	fixed by Ian in r203810.
+
+2013-10-23  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c: Add missing include of diagnostic-core.h
 
 2013-10-22  David Malcolm  <dmalcolm@redhat.com>

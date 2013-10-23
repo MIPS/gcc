@@ -26,11 +26,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "function.h"
 #include "dumpfile.h"
+#include "bitmap.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
 #include "target.h"
 #include "ipa-utils.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-address.h"
 
 /* Return true when DECL can be referenced from current unit.
    FROM_DECL (if non-null) specify constructor of variable DECL was taken from.

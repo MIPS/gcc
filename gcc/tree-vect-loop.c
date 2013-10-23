@@ -28,7 +28,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "expr.h"
@@ -2091,6 +2096,13 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple phi, gimple first_stmt)
      a3 = ...
      a2 = operation (a3, a1)
 
+   or
+
+   a3 = ...
+   loop_header:
+     a1 = phi < a0, a2 >
+     a2 = operation (a3, a1)
+
    such that:
    1. operation is commutative and associative and it is safe to
       change the order of the computation (if CHECK_REDUCTION is true)
@@ -2451,6 +2463,7 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
   if (def2 && def2 == phi
       && (code == COND_EXPR
 	  || !def1 || gimple_nop_p (def1)
+	  || !flow_bb_inside_loop_p (loop, gimple_bb (def1))
           || (def1 && flow_bb_inside_loop_p (loop, gimple_bb (def1))
               && (is_gimple_assign (def1)
 		  || is_gimple_call (def1)
@@ -2469,6 +2482,7 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
   if (def1 && def1 == phi
       && (code == COND_EXPR
 	  || !def2 || gimple_nop_p (def2)
+	  || !flow_bb_inside_loop_p (loop, gimple_bb (def2))
           || (def2 && flow_bb_inside_loop_p (loop, gimple_bb (def2))
  	      && (is_gimple_assign (def2)
 		  || is_gimple_call (def2)

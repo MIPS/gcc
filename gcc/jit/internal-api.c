@@ -15,7 +15,7 @@
 #include "timevar.h"
 #include "diagnostic-core.h"
 #include "dumpfile.h"
-#include "tree-flow.h"
+#include "tree-cfg.h"
 
 #include <pthread.h>
 

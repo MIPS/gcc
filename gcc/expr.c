@@ -43,7 +43,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm_p.h"
 #include "tree-iterator.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-ssanames.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "timevar.h"
@@ -52,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-outof-ssa.h"
 #include "target-globals.h"
 #include "params.h"
+#include "tree-ssa-address.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -6551,16 +6555,18 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
     {
       tree field = TREE_OPERAND (exp, 1);
       size_tree = DECL_SIZE (field);
-      if (!DECL_BIT_FIELD (field))
-	mode = DECL_MODE (field);
-      else if (DECL_MODE (field) == BLKmode)
-	blkmode_bitfield = true;
-      else if (TREE_THIS_VOLATILE (exp)
-	       && flag_strict_volatile_bitfields > 0)
+      if (flag_strict_volatile_bitfields > 0
+	  && TREE_THIS_VOLATILE (exp)
+	  && DECL_BIT_FIELD_TYPE (field)
+	  && DECL_MODE (field) != BLKmode)
 	/* Volatile bitfields should be accessed in the mode of the
 	     field's type, not the mode computed based on the bit
 	     size.  */
 	mode = TYPE_MODE (DECL_BIT_FIELD_TYPE (field));
+      else if (!DECL_BIT_FIELD (field))
+	mode = DECL_MODE (field);
+      else if (DECL_MODE (field) == BLKmode)
+	blkmode_bitfield = true;
 
       *punsignedp = DECL_UNSIGNED (field);
     }
