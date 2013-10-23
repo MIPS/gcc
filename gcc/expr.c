@@ -1378,8 +1378,8 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size, bool tailcall)
       tree tmp, bnd;
 
       tmp = chkp_build_make_bounds_call (integer_zero_node, integer_zero_node);
-      bnd = make_tree (bound_type_node,
-			assign_temp (bound_type_node, 0, 1));
+      bnd = make_tree (pointer_bounds_type_node,
+		       assign_temp (pointer_bounds_type_node, 0, 1));
       expand_assignment (bnd, tmp, false);
 
       call_expr = build_call_expr (fn, 5, dst_tree, bnd, src_tree, bnd, size_tree);

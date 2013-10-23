@@ -2607,14 +2607,14 @@ expand_builtin_cexpi (tree exp, rtx target)
 
 	  tmp = chkp_build_make_bounds_call (top1,
 					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
-	  bnd1 = make_tree (bound_type_node,
-			    assign_temp (bound_type_node, 0, 1));
+	  bnd1 = make_tree (pointer_bounds_type_node,
+			    assign_temp (pointer_bounds_type_node, 0, 1));
 	  expand_assignment (bnd1, tmp, false);
 
 	  tmp = chkp_build_make_bounds_call (top2,
 					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
-	  bnd2 = make_tree (bound_type_node,
-			    assign_temp (bound_type_node, 0, 1));
+	  bnd2 = make_tree (pointer_bounds_type_node,
+			    assign_temp (pointer_bounds_type_node, 0, 1));
 	  expand_assignment (bnd2, tmp, false);
 
 	  expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
@@ -5966,7 +5966,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       tree *new_args = XALLOCAVEC (tree, call_expr_nargs (exp));
 
       FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
-	if (!BOUND_P (arg))
+	if (!POINTER_BOUNDS_P (arg))
 	  new_args[new_arg_no++] = arg;
 
       if (new_arg_no > 0)
@@ -12392,7 +12392,7 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
       arg_no = 1;
       arg = CALL_EXPR_ARG (exp, arg_no);
       /* Skip bounds arg if any.  */
-      if (flag_check_pointers && BOUND_P (arg))
+      if (flag_check_pointers && POINTER_BOUNDS_P (arg))
 	{
 	  arg_no++;
 	  arg = CALL_EXPR_ARG (exp, arg_no);

@@ -1,4 +1,4 @@
-2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* builtins.c (expand_builtin_mempcpy_args): Add orig exp as argument.
 	Support BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK.
