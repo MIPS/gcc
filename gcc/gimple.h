@@ -2388,7 +2388,7 @@ gimple_call_num_nobnd_args (const_gimple gs)
   unsigned num_args = gimple_call_num_args (gs);
   unsigned res = num_args;
   for (unsigned n = 0; n < num_args; n++)
-    if (BOUND_P (gimple_call_arg (gs, n)))
+    if (POINTER_BOUNDS_P (gimple_call_arg (gs, n)))
       res--;
   return res;
 }

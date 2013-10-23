@@ -1,11 +1,12 @@
-2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* tree-core.h (tree_index): Add TI_BOUND_TYPE.
-	* tree.h (BOUND_P): New.
+	* tree-core.h (tree_index): Add TI_POINTER_BOUNDS_TYPE.
+	* tree.h (POINTER_BOUNDS_P): New.
 	(BOUNDED_TYPE_P): New.
 	(BOUNDED_P): New.
-	(bound_type_node): New.
-	* tree.c (build_common_tree_nodes): Initialize bound_type_node.
+	(pointer_bounds_type_node): New.
+	* tree.c (build_common_tree_nodes): Initialize
+	pointer_bounds_type_node.
 	* gimple.h (gimple_call_get_nobnd_arg_index): New.
 	(gimple_call_num_nobnd_args): New.
 	(gimple_call_nobnd_arg): New.

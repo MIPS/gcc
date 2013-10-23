@@ -546,16 +546,16 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define POINTER_BOUNDS_TYPE_P(NODE) \
   (TREE_CODE (NODE) == POINTER_BOUNDS_TYPE)
 
-/* Nonzero if this node has a bound type.  */
-#define BOUND_P(NODE) \
-  (BOUND_TYPE_P (TREE_TYPE (NODE)))
+/* Nonzero if this node has a pointer bounds type.  */
+#define POINTER_BOUNDS_P(NODE) \
+  (POINTER_BOUNDS_TYPE_P (TREE_TYPE (NODE)))
 
 /* Nonzero if this type supposes bounds existence.  */
 #define BOUNDED_TYPE_P(type) \
   (TREE_CODE (type) == POINTER_TYPE \
     || TREE_CODE (type) == REFERENCE_TYPE)
 
-/* Nonzero for objects with bounded types.  */
+/* Nonzero for objects with bounded type.  */
 #define BOUNDED_P(node) \
   BOUNDED_TYPE_P (TREE_TYPE (node))
 
@@ -3145,7 +3145,7 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
 
-#define bound_type_node                 global_trees[TI_BOUND_TYPE]
+#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
 
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */
