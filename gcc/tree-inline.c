@@ -3021,7 +3021,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
 	      i++;
 	      gcc_assert (i < gimple_call_num_args (stmt));
 	      bounds = gimple_call_arg (stmt, i);
-	      gcc_assert (BOUND_P (bounds));
+	      gcc_assert (POINTER_BOUNDS_P (bounds));
 	      SET_DECL_BOUNDS (vars, bounds);
 	    }
 	  else if (chkp_type_has_pointer (TREE_TYPE (p)))
@@ -3039,7 +3039,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
 		    i++;
 		    gcc_assert (i < gimple_call_num_args (stmt));
 		    bounds = gimple_call_arg (stmt, i);
-		    gcc_assert (BOUND_P (bounds));
+		    gcc_assert (POINTER_BOUNDS_P (bounds));
 		    chkp_build_bndstx (addr, ptr, bounds, &si);
 		  }
 	      have_bound.release ();
@@ -3287,7 +3287,7 @@ declare_return_variable (copy_body_data *id, tree return_slot, tree modify_dest,
   /* If returned bounds are used, then make var for them.  */
   if (return_bounds)
   {
-    tree bndtemp = create_tmp_var (bound_type_node, "retbnd");
+    tree bndtemp = create_tmp_var (pointer_bounds_type_node, "retbnd");
     DECL_SEEN_IN_BIND_EXPR_P (bndtemp) = 1;
     TREE_NO_WARNING (bndtemp) = 1;
     declare_inline_vars (id->block, bndtemp);
