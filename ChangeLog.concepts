@@ -1,4 +1,14 @@
-2013-10-16  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2013-10-23  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/class.c (get_member_fntemplate): New.
+	(are_constrained_member_overloads): Only get a template declaration
+	if the member function is, in fact, a template or temploid.
+	* gcc/cp/pt.c (check_explicit_specialization): Do not allow
+	explicit specializations to be declared 'concept', and do not allow
+	an explicit specialization of a concept.
+	* gcc/cp/decl.c (grokfndecl): Propagate the concept flag to
+	check_explicit_specialization.
+
+2013-10-22  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/c-family/c-common.c (cxx_dialect): Make the default
 	language C++11.
 	* gcc/cp/constraint.cc (check_constrained_friend): Don't assert

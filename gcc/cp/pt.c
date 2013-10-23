@@ -2459,6 +2459,7 @@ check_explicit_specialization (tree declarator,
 {
   int have_def = flags & 2;
   int is_friend = flags & 4;
+  bool is_concept = flags & 8;
   int specialization = 0;
   int explicit_instantiation = 0;
   int member_specialization = 0;
@@ -2534,6 +2535,11 @@ check_explicit_specialization (tree declarator,
 
       /* Fall through.  */
     case tsk_expl_spec:
+      if (is_concept)
+        error ("explicit specialization declared %<concept%>");
+      // if (DECL_DECLARED_CONCEPT_P (decl))
+      //   error ("explicit specialization of concept %qD", decl);
+
       SET_DECL_TEMPLATE_SPECIALIZATION (decl);
       if (ctype)
 	member_specialization = 1;
@@ -2843,6 +2849,13 @@ check_explicit_specialization (tree declarator,
             {
               tree tmpl_func = DECL_TEMPLATE_RESULT (gen_tmpl);
               gcc_assert (TREE_CODE (tmpl_func) == FUNCTION_DECL);
+
+              // A concept cannot be specialized.
+              if (DECL_DECLARED_CONCEPT_P (tmpl_func))
+                {
+                  error ("explicit specialization of concept %qD", gen_tmpl);
+                  return error_mark_node;
+                }
 
               /* This specialization has the same linkage and visibility as
                  the function template it specializes.  */

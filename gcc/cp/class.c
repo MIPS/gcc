@@ -956,6 +956,18 @@ modify_vtable_entry (tree t,
     }
 }
 
+// Returns the template associated with the member FN or
+// NULL if the declaration is neither a template nor temploid.
+static inline tree
+get_member_fn_template (tree fn)
+{
+  if (TREE_CODE (fn) == TEMPLATE_DECL)
+    return fn;
+  if (TREE_CODE (fn) == FUNCTION_DECL && DECL_TEMPLATE_INFO (fn))
+    return DECL_TI_TEMPLATE (fn);
+  return NULL_TREE;
+}
+
 // Returns true if NEWDECL and OLDDECL are member functions with with 
 // different constraints. If NEWDECL and OLDDECL are non-template members
 // or specializations of non-template members, the overloads are 
@@ -965,10 +977,8 @@ modify_vtable_entry (tree t,
 static inline bool
 are_constrained_member_overloads (tree newdecl, tree olddecl) 
 {
-  if (TREE_CODE (newdecl) == FUNCTION_DECL)
-    newdecl = DECL_TI_TEMPLATE (newdecl);
-  if (TREE_CODE (olddecl) == FUNCTION_DECL)
-    olddecl = DECL_TI_TEMPLATE (olddecl);
+  newdecl = get_member_fn_template (newdecl);
+  olddecl = get_member_fn_template (olddecl);
 
   // If neither is a template or temploid, then they cannot
   // be constrained declarations.
