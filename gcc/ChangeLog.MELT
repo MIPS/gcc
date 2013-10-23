@@ -2,7 +2,16 @@
 
 2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* melt//warmelt-macro.melt (melt_make_sexpr, make_sexpr): Move
+	* melt/warmelt-base.melt (melt_make_sexpr, make_sexpr): Add since
+	moved from warmelt-macro.melt file and replace error_at with lower
+	level error processing...
+
+	* melt/warmelt-macro.melt (melt_make_sexpr, make_sexpr): Remove
+	since moved to warmelt-base.melt file...
+.
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-macro.melt (melt_make_sexpr, make_sexpr): Move
 	near begin of file.
 
 2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
