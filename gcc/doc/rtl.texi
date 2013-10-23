@@ -1382,9 +1382,11 @@ any @code{CC_MODE} modes listed in the @file{@var{machine}-modes.def}.
 @xref{Jump Patterns},
 also see @ref{Condition Code}.
 
-@findex MODE_BOUND
-@item MODE_BOUND
-Bound modes class.  Used to represent values of pointer bounds.
+@findex MODE_POINTER_BOUNDS
+@item MODE_POINTER_BOUNDS
+Pointer bounds modes.  Used to represent values of pointer bounds type.
+Instructions working in these modes may be executed as NOPs depending
+on hardware features and environment setup.
 
 @findex MODE_RANDOM
 @item MODE_RANDOM
