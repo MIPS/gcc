@@ -258,7 +258,7 @@ ctor_for_folding (tree decl)
   /* Static constant bounds are created to be
      used instead of constants and therefore
      do not let folding it.  */
-  if (BOUND_P (decl))
+  if (POINTER_BOUNDS_P (decl))
     return error_mark_node;
 
   if (TREE_CODE (decl) == CONST_DECL

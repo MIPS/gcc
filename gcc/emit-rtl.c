@@ -538,7 +538,7 @@ immed_double_const (HOST_WIDE_INT i0, HOST_WIDE_INT i1, enum machine_mode mode)
 		  /* We can get a 0 for an error mark.  */
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_INT
 		  || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT
-		  || GET_MODE_CLASS (mode) == MODE_BOUND);
+		  || GET_MODE_CLASS (mode) == MODE_POINTER_BOUNDS);
 
       if (GET_MODE_BITSIZE (mode) <= HOST_BITS_PER_WIDE_INT)
 	return gen_int_mode (i0, mode);
