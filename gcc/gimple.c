@@ -2964,7 +2964,7 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
   gimple new_stmt;
 
   for (i = 0, bit = 0; i < nargs; i++, bit++)
-      if (BOUND_P (gimple_call_arg (stmt, i)))
+      if (POINTER_BOUNDS_P (gimple_call_arg (stmt, i)))
 	{
 	  if (!bitmap_bit_p (args_to_skip, --bit))
 	    vargs.quick_push (gimple_call_arg (stmt, i));
@@ -4066,7 +4066,7 @@ validate_call (gimple stmt, tree fndecl)
 	return true;
       tree arg = gimple_call_arg (stmt, i);
       /* Skip bounds.  */
-      if (flag_check_pointers && BOUND_P (arg))
+      if (flag_check_pointers && POINTER_BOUNDS_P (arg))
 	continue;
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg))
 	  && INTEGRAL_TYPE_P (TREE_VALUE (targs)))

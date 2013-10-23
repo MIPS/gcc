@@ -251,7 +251,7 @@ gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
 	  tree arg = gimple_call_arg (stmt, i);
 
 	  /* Skip bound args inserted by pointers checker.  */
-	  if (BOUND_P (arg))
+	  if (POINTER_BOUNDS_P (arg))
 	    continue;
 
 	  /* We cannot distinguish a varargs function from the case
@@ -278,7 +278,7 @@ gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
 	  tree arg = gimple_call_arg (stmt, i);
 
 	  /* Skip bound args inserted by pointers checker.  */
-	  if (BOUND_P (arg))
+	  if (POINTER_BOUNDS_P (arg))
 	    continue;
 
 	  /* If this is a varargs function defer inlining decision
