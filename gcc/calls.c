@@ -1213,7 +1213,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* If we see bounds as argument then we need to
 	   assign it to the previous arg.  */
-	if (BOUND_TYPE_P (argtype))
+	if (POINTER_BOUNDS_TYPE_P (argtype))
 	  {
 	    tree bounds_val = arg;
 
@@ -2662,7 +2662,7 @@ expand_call (tree exp, rtx target, int ignore)
       FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	{
 	  tree type = TREE_TYPE (arg);
-	  if (type && BOUND_TYPE_P (type))
+	  if (type && POINTER_BOUNDS_TYPE_P (type))
 	    num_bound_actuals++;
 	}
     }

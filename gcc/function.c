@@ -3467,9 +3467,10 @@ assign_parms (tree fndecl)
 	    }
 	  else if (!AGGREGATE_TYPE_P (data.passed_type))
 	    {
-	      int align = STACK_SLOT_ALIGNMENT (bound_type_node,
-						targetm.chkp_bound_mode (),
-						TYPE_ALIGN (bound_type_node));
+	      int align =
+		STACK_SLOT_ALIGNMENT (pointer_bounds_type_node,
+				      targetm.chkp_bound_mode (),
+				      TYPE_ALIGN (pointer_bounds_type_node));
 	      rtx stack
 		= assign_stack_local (targetm.chkp_bound_mode (),
 				      GET_MODE_SIZE (targetm.chkp_bound_mode ()),
