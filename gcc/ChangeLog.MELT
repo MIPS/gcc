@@ -1,6 +1,13 @@
 
 2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_error_str, melt_warning_at_strbuf)
+	(melt_warning_str, melt_inform_str): Don't display the
+	melt_dbgcounter when it is 0.
+	(melt_do_finalize): Prettier printing of MELT GC stats.
+
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
@@ -31,6 +38,7 @@
 	* melt/generated/warmelt-normatch+melttime.h: Regenerate.
 	* melt/generated/warmelt-outobj+meltdesc.c: Regenerate.
 	* melt/generated/warmelt-outobj+melttime.h: Regenerate.
+
 
 2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
 

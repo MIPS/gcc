@@ -8241,10 +8241,21 @@ melt_error_str (melt_ptr_t mixloc_p, const char *msg,
     {
       const char *cstr = melt_string_str ((melt_ptr_t) strv);
       if (cstr)
-        error_at (loc, "Melt Error[#%ld]: %s - %s", melt_dbgcounter,
-                  msg, cstr);
+	{
+	  if (melt_dbgcounter > 0)
+	    error_at (loc, "MELT error [#%ld]: %s - %s", melt_dbgcounter,
+		      msg, cstr);
+	  else
+	    error_at (loc, "MELT error: %s - %s",
+		      msg, cstr);
+	}
       else
-        error_at (loc, "Melt Error[#%ld]: %s", melt_dbgcounter, msg);
+	{
+	  if (melt_dbgcounter > 0)
+	    error_at (loc, "MELT error [#%ld]: %s", melt_dbgcounter, msg);
+	  else
+	    error_at (loc, "MELT error: %s",msg);
+	}
     }
   else
     {
@@ -8253,20 +8264,42 @@ melt_error_str (melt_ptr_t mixloc_p, const char *msg,
       if (cfilnam)
         {
           if (cstr)
-            error ("Melt Error[#%ld] @ %s:%d: %s - %s", melt_dbgcounter,
-                   cfilnam, lineno, msg, cstr);
+	    {
+	      if (melt_dbgcounter > 0)
+		error ("MELT error [#%ld] @ %s:%d: %s - %s", melt_dbgcounter,
+		       cfilnam, lineno, msg, cstr);
+	      else
+		error ("MELT error @ %s:%d: %s - %s",
+		       cfilnam, lineno, msg, cstr);
+	    }
           else
-            error ("Melt Error[#%ld] @ %s:%d: %s", melt_dbgcounter,
-                   cfilnam, lineno, msg);
+	    { 
+	      if (melt_dbgcounter > 0)
+		error ("MELT error [#%ld] @ %s:%d: %s", melt_dbgcounter,
+		       cfilnam, lineno, msg);
+	      else
+		error ("MELT error @ %s:%d: %s",
+		       cfilnam, lineno, msg);
+	    }
         }
       else
         {
           if (cstr)
-            error ("Melt Error[#%ld]: %s - %s", melt_dbgcounter, msg,
-                   cstr);
+	    {
+	      if (melt_dbgcounter > 0)
+		error ("MELT error [#%ld]: %s - %s", melt_dbgcounter, msg,
+		       cstr);
+	      else
+		error ("MELT error: %s - %s", msg, cstr);
+	    }
           else
-            error ("Melt Error[#%ld]: %s", melt_dbgcounter, msg);
-        }
+	    {
+	      if (melt_dbgcounter > 0)
+		error ("MELT error [#%ld]: %s", melt_dbgcounter, msg);
+	      else
+		error ("MELT error: %s", msg);
+	    }
+	}
     }
   MELT_EXITFRAME ();
 }
@@ -8285,8 +8318,11 @@ void melt_warning_at_strbuf (location_t loc, melt_ptr_t msgbuf)
                   (size_t) melt_strbuf_usedlength(msgbuf));
   if(str == NULL)
     return;
-  warning_at (loc, /*no OPT_*/0, "Melt Warning[#%ld]: %s",
-              melt_dbgcounter, str);
+  if (melt_dbgcounter > 0)
+    warning_at (loc, /*no OPT_*/0, "MELT warning[#%ld]: %s",
+		melt_dbgcounter, str);
+  else
+    warning_at (loc, /*no OPT_*/0, "MELT warning: %s", str);
   free (str);
 }
 
@@ -8310,11 +8346,23 @@ melt_warning_str (int opt, melt_ptr_t mixloc_p, const char *msg,
     {
       const char *cstr = melt_string_str ((melt_ptr_t) strv);
       if (cstr)
-        warning_at (loc, opt, "Melt Warning[#%ld]: %s - %s",
-                    melt_dbgcounter, msg, cstr);
+	{
+	  if (melt_dbgcounter > 0)
+	    warning_at (loc, opt, "MELT warning [#%ld]: %s - %s",
+			melt_dbgcounter, msg, cstr);
+	  else
+	    warning_at (loc, opt, "MELT warning: %s - %s",
+			msg, cstr);
+	}
       else
-        warning_at (loc, opt, "Melt Warning[#%ld]: %s",
-                    melt_dbgcounter, msg);
+	{
+	  if (melt_dbgcounter > 0)
+	    warning_at (loc, opt, "MELT warning [#%ld]: %s",
+			melt_dbgcounter, msg);
+	  else
+	    warning_at (loc, opt, "MELT warning: %s",
+			melt_dbgcounter, msg);
+	}
     }
   else
     {
@@ -8323,28 +8371,52 @@ melt_warning_str (int opt, melt_ptr_t mixloc_p, const char *msg,
       if (cfilnam)
         {
           if (cstr)
-            warning (opt, "Melt Warning[#%ld] @ %s:%d: %s - %s",
-                     melt_dbgcounter, cfilnam, lineno, msg, cstr);
+	    {
+	      if (melt_dbgcounter > 0)
+		warning (opt, "MELT warning [#%ld] @ %s:%d: %s - %s",
+			 melt_dbgcounter, cfilnam, lineno, msg, cstr);
+	      else
+		warning (opt, "MELT warning @ %s:%d: %s - %s",
+			 cfilnam, lineno, msg, cstr);
+	    }
           else
-            warning (opt, "Melt Warning[#%ld] @ %s:%d: %s",
-                     melt_dbgcounter, cfilnam, lineno, msg);
+	    {
+	      if (melt_dbgcounter > 0)
+		warning (opt, "MELT warning [#%ld] @ %s:%d: %s",
+			 melt_dbgcounter, cfilnam, lineno, msg);
+	      else
+		warning (opt, "MELT warning @ %s:%d: %s",
+			 cfilnam, lineno, msg);
+	    }
         }
       else
         {
           if (cstr)
-            warning (opt, "Melt Warning[#%ld]: %s - %s",
-                     melt_dbgcounter, msg, cstr);
+	    {
+	      if (melt_dbgcounter > 0)
+		warning (opt, "MELT warning [#%ld]: %s - %s",
+			 melt_dbgcounter, msg, cstr);
+	      else
+		warning (opt, "MELT warning: %s - %s",
+			 msg, cstr);
+		}
           else
-            warning (opt, "Melt Warning[#%ld]: %s", melt_dbgcounter,
+	    {
+	      if (melt_dbgcounter > 0)
+            warning (opt, "MELT warning [#%ld]: %s", melt_dbgcounter,
                      msg);
+	      else
+		warning (opt, "MELT warning: %s", msg);
+	    }
+		
         }
     }
   MELT_EXITFRAME ();
-}
-
 #undef mixlocv
 #undef strv
 #undef finamv
+}
+
 
 
 
@@ -8367,10 +8439,21 @@ melt_inform_str (melt_ptr_t mixloc_p, const char *msg,
     {
       const char *cstr = melt_string_str ((melt_ptr_t) strv);
       if (cstr)
-        inform (loc, "Melt Inform[#%ld]: %s - %s", melt_dbgcounter,
-                msg, cstr);
+	{ 
+	  if (melt_dbgcounter > 0)
+	    inform (loc, "MELT inform [#%ld]: %s - %s", melt_dbgcounter,
+		    msg, cstr);
+	  else
+	    inform (loc, "MELT inform: %s - %s",
+		    msg, cstr);
+	}
       else
-        inform (loc, "Melt Inform[#%ld]: %s", melt_dbgcounter, msg);
+	{
+	  if (melt_dbgcounter > 0)
+	    inform (loc, "MELT inform [#%ld]: %s", melt_dbgcounter, msg);
+	  else
+	    inform (loc, "MELT inform: %s", msg);
+	}
     }
   else
     {
@@ -8379,28 +8462,51 @@ melt_inform_str (melt_ptr_t mixloc_p, const char *msg,
       if (cfilnam)
         {
           if (cstr)
-            inform (UNKNOWN_LOCATION, "Melt Inform[#%ld] @ %s:%d: %s - %s",
-                    melt_dbgcounter, cfilnam, lineno, msg, cstr);
+	    { 
+	      if (melt_dbgcounter > 0)
+		inform (UNKNOWN_LOCATION, "MELT inform [#%ld] @ %s:%d: %s - %s",
+			melt_dbgcounter, cfilnam, lineno, msg, cstr);
+	      else
+		inform (UNKNOWN_LOCATION, "MELT inform @ %s:%d: %s - %s",
+			cfilnam, lineno, msg, cstr);
+	    }
           else
-            inform (UNKNOWN_LOCATION, "Melt Inform[#%ld] @ %s:%d: %s",
-                    melt_dbgcounter, cfilnam, lineno, msg);
+	    {
+	      if (melt_dbgcounter > 0)
+		inform (UNKNOWN_LOCATION, "MELT inform [#%ld] @ %s:%d: %s",
+			melt_dbgcounter, cfilnam, lineno, msg);
+	      else
+		inform (UNKNOWN_LOCATION, "MELT inform @ %s:%d: %s",
+			cfilnam, lineno, msg);
+	    }
         }
       else
         {
           if (cstr)
-            inform (UNKNOWN_LOCATION, "Melt Inform[#%ld]: %s - %s",
-                    melt_dbgcounter, msg, cstr);
+	    { 
+	      if (melt_dbgcounter > 0)
+		inform (UNKNOWN_LOCATION, "MELT inform [#%ld]: %s - %s",
+			melt_dbgcounter, msg, cstr);
+	      else
+		inform (UNKNOWN_LOCATION, "MELT inform: %s - %s",
+			msg, cstr);
+	    }	
           else
-            inform (UNKNOWN_LOCATION, "Melt Inform[#%ld]: %s",
-                    melt_dbgcounter, msg);
+	    {
+	      if (melt_dbgcounter > 0)
+		inform (UNKNOWN_LOCATION, "MELT inform [#%ld]: %s",
+			melt_dbgcounter, msg);
+	      else
+		inform (UNKNOWN_LOCATION, "MELT inform: %s", msg);
+	    }
         }
     }
   MELT_EXITFRAME ();
-}
-
 #undef mixlocv
 #undef strv
 #undef finamv
+}
+
 
 
 
@@ -11561,7 +11667,8 @@ melt_do_finalize (void)
     {
       /* when not quiet, the GGC collector displays data, so we show
 	 our various GC reasons count */
-      fprintf (stderr, "\n MELT did %ld garbage collections; %ld full + %ld minor.\n",
+      putc ('\n', stderr);
+      fprintf (stderr, "MELT did %ld garbage collections; %ld full + %ld minor.\n",
               melt_nb_garbcoll, melt_nb_full_garbcoll, melt_nb_garbcoll - melt_nb_full_garbcoll);
       if (melt_nb_full_garbcoll > 0)
         fprintf (stderr,
@@ -11586,8 +11693,8 @@ melt_do_finalize (void)
 	    fputs (melt_done_modes_vector[ix].c_str(), stderr);
 	  };
 	  fputs (".\n", stderr);
-	  fflush (stderr);
 	}
+      fflush (stderr);
     }
  end:
   melt_done_modes_vector.clear();
