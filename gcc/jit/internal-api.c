@@ -13,6 +13,7 @@
 #include "gimple.h"
 #include "gimple-pretty-print.h"
 #include "timevar.h"
+#include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "tree-flow.h"
 
