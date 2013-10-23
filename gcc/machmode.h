@@ -174,8 +174,8 @@ extern const unsigned char mode_class[NUM_MACHINE_MODES];
    || CLASS == MODE_ACCUM                      \
    || CLASS == MODE_UACCUM)
 
-#define BOUND_MODE_P(MODE)      \
-  (GET_MODE_CLASS (MODE) == MODE_BOUND)
+#define POINTER_BOUNDS_MODE_P(MODE)      \
+  (GET_MODE_CLASS (MODE) == MODE_POINTER_BOUNDS)
 
 /* Get the size in bytes and bits of an object of mode MODE.  */
 
