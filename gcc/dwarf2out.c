@@ -18168,7 +18168,7 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    gen_formal_parameter_pack_die (generic_decl_parm,
 					   parm, subr_die,
 					   &parm);
-	  else if (parm && !BOUND_P (parm))
+	  else if (parm && !POINTER_BOUNDS_P (parm))
 	    {
 	      dw_die_ref parm_die = gen_decl_die (parm, NULL, subr_die);
 
