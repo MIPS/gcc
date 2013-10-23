@@ -475,7 +475,7 @@ static tree
 chkp_get_tmp_var (void)
 {
   if (!tmp_var)
-    tmp_var = create_tmp_reg (bound_type_node, CHKP_BOUND_TMP_NAME);
+    tmp_var = create_tmp_reg (pointer_bounds_type_node, CHKP_BOUND_TMP_NAME);
 
   return tmp_var;
 }
@@ -624,7 +624,7 @@ chkp_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd)
       if (!reg)
 	continue;
 
-      if (BOUND_MODE_P (GET_MODE (reg)) || CONST_INT_P (reg))
+      if (POINTER_BOUNDS_MODE_P (GET_MODE (reg)) || CONST_INT_P (reg))
 	bnd_tmps[bnd_num++] = elem;
       else
 	val_tmps[val_num++] = elem;
@@ -705,7 +705,7 @@ chkp_make_bounds_for_struct_addr (tree ptr)
 
   gcc_assert (size);
 
-  return build_call_nary (bound_type_node,
+  return build_call_nary (pointer_bounds_type_node,
 			  build_fold_addr_expr (chkp_bndmk_fndecl),
 			  2, ptr, size);
 }
@@ -2018,7 +2018,7 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
 			      const char *name)
 {
   tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			 get_identifier (name), bound_type_node);
+			 get_identifier (name), pointer_bounds_type_node);
 
   TREE_PUBLIC (var) = 1;
   TREE_USED (var) = 1;
@@ -2030,7 +2030,7 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
   DECL_COMDAT (var) = 1;
   DECL_COMDAT_GROUP (var) = DECL_ASSEMBLER_NAME (var);
   DECL_READ_P (var) = 1;
-  DECL_INITIAL (var) = build_int_cst_wide (bound_type_node, lb, ~ub);
+  DECL_INITIAL (var) = build_int_cst_wide (pointer_bounds_type_node, lb, ~ub);
 
   vec_safe_push (chkp_static_const_bounds, var);
 
@@ -2449,8 +2449,8 @@ chkp_expand_bounds_reset_for_mem (tree mem, tree ptr)
   else
     zero_bnd = chkp_build_make_bounds_call (integer_zero_node,
 					    integer_zero_node);
-  bnd = make_tree (bound_type_node,
-		   assign_temp (bound_type_node, 0, 1));
+  bnd = make_tree (pointer_bounds_type_node,
+		   assign_temp (pointer_bounds_type_node, 0, 1));
   addr = build1 (ADDR_EXPR,
 		 build_pointer_type (TREE_TYPE (mem)), mem);
   bndstx = chkp_build_bndstx_call (addr, ptr, bnd);
@@ -2861,7 +2861,8 @@ chkp_make_static_bounds (tree obj)
 	}
 
       bnd_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			    get_identifier (bnd_var_name), bound_type_node);
+			    get_identifier (bnd_var_name),
+			    pointer_bounds_type_node);
 
       /* Address of the var will be used as lower bound.  */
       TREE_ADDRESSABLE (obj) = 1;
@@ -2877,7 +2878,8 @@ chkp_make_static_bounds (tree obj)
       sprintf (bnd_var_name, "%s%d", CHKP_STRING_BOUNDS_PREFIX, string_id++);
 
       bnd_var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			    get_identifier (bnd_var_name), bound_type_node);
+			    get_identifier (bnd_var_name),
+			    pointer_bounds_type_node);
     }
 
   TREE_PUBLIC (bnd_var) = 0;
@@ -5636,7 +5638,7 @@ chkp_reduce_bounds_lifetime (void)
 	want_move = true;
 
       if (gimple_code (stmt) == GIMPLE_ASSIGN
-	  && BOUND_TYPE_P (TREE_TYPE (gimple_assign_lhs (stmt)))
+	  && POINTER_BOUNDS_P (gimple_assign_lhs (stmt))
 	  && gimple_assign_rhs_code (stmt) == VAR_DECL)
 	want_move = true;
 
