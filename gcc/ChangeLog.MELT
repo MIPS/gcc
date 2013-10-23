@@ -1,5 +1,9 @@
 
 2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{1.0-rc2 = MELT plugin 1.0 release candidate 2}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.0-rc2".
+
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (melt_error_str, melt_warning_at_strbuf)
 	(melt_warning_str, melt_inform_str): Don't display the
