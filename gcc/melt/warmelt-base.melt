@@ -3106,7 +3106,8 @@ typedef struct melthook_st *melthook_ptr_t;
 ;; dynamically make a MELT s-expression, notably useful for macros and
 ;; quotes this function is used for quotes and backquotes macro, so
 ;; should appear early, so before warmelt-macro.melt; we cannot use
-;; error_at here so we use code chunks instead.
+;; error_at here so we use code chunks instead. And we cannot use
+;; debug here...
 (defun melt_make_sexpr (loc :rest)
   :doc #{Dynamically build an s-expression of $CLASS_SEXPR with
   location $LOC and other arguments. Also used by $BACKQUOTE and
@@ -3124,26 +3125,20 @@ typedef struct melthook_st *melthook_ptr_t;
 			  :loca_location vloc
 			  :sexp_contents cont))
 	 )
-    (debug "melt_make_sexpr start loc=" loc " vloc=" vloc)
-    (shortbacktrace_dbg "melt_make_sexpr" 12)
     (forever 
      argloop
-     (debug "melt_make_sexpr variadic_index:" (variadic_index))
      (variadic 
       ( ()
 	(exit argloop))
       ( (:cstring str)
-	(debug "melt_make_sexpr str=" str)
 	(let ( (bs (constant_box str))
 	       )
 	  (list_append cont bs)))
       ( (:long num)
-	(debug "melt_make_sexpr num=" num)
 	(let ( (bs (constant_box num))
 	       )
 	  (list_append cont bs)))
       ( (:value v)
-	(debug "melt_make_sexpr v=" v)
 	(cond ( (null v)
 		(list_append cont v))
 	      ( (is_object v)
@@ -3204,7 +3199,6 @@ typedef struct melthook_st *melthook_ptr_t;
 		 (return ())
 		 ))))
       (:else
-       (debug "melt_make_sexpr variadic_ctype:" (variadic_ctype 0) " at variadic_index:" (variadic_index))
        (let ( (ctyname (get_field :named_name (variadic_ctype 0)))
 	      (:long vix (variadic_index))
 	      )
@@ -3217,7 +3211,6 @@ typedef struct melthook_st *melthook_ptr_t;
 	 (return ())
 	 )))
      )
-    (debug "melt_make_sexpr returns sexpr=" sexpr)
     (return sexpr)
     ))
 

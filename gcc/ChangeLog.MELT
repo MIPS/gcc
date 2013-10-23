@@ -2,6 +2,16 @@
 
 2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.0-rc2almost".
+
+	* melt/warmelt-first.melt (hook_symbol_importer): Don't show
+	warnings for warmelt-* modules unless bootsrapping. This is a
+	shameful kludge.
+
+	* melt/warmelt-base.melt (melt_make_sexpr): Remove all debug.
+
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{Regenerate}}
 	* melt/generated/meltrunsup.h: Regenerate.
 	* melt/generated/meltrunsup-inc.cc: Regenerate.

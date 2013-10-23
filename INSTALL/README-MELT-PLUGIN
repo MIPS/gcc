@@ -237,6 +237,8 @@ it is generating C++ code.
         ?(tree_integer_cst ?(some_integer_greater_than 100))
       )' -fplugin-arg-melt-output=findmallocgt100 -c empty-file.c
 
+  You'll get a bunch of files with name starting with findmallocgt100.
+
   Then you can quickly search that pattern using
 
       gcc -fplugin=melt -fplugin-arg-melt-extra=findmallocgt100 \
@@ -253,16 +255,70 @@ it is generating C++ code.
    =====================
 
  ***
- * It is possible to define macros with defmacro. 
+ * It is possible to define macros with defmacro (taking four
+  arguments: the s-expression to be macro-expanded, the environment,
+  the macro-expander function, the module context). Such macros can be
+  used in the same MELT module defining them, but should expand to a 
+  source AST which you would be able to read...
 
  ***
- * quotes, anti-quotes (with backquote), and comma operators are possible.
- But quotations and antiquotations of s-exprs have their location slightly less precise
- (only filename and linenumber, but not column number, are preserved)
+ * It is possible to define locally bound macros with the :macro annotation
+ in let bindings.
 
+ *** 
+ * at_macro_expansion macro can be used to define functions (and
+  instances, etc...) used only at macro-expansion time of further
+  defmacro-defined macros.
 
+ ***
+ * Macros defined by defmacro and definition given inside at_macro_expansion 
+ are evaluated in a separate environment so don't see the ordinary bindings 
+ currently defined in the MELT source.
 
-@@@@ Incomplete
+ ***
+ * The comma operator, only usefine inside anti-quotations (thru
+  backquote) is expanded to a sequence of sub-expressions if the
+  anti-quotation gives a sequence, i.e. a tuple or a list. So no
+  comma-at operator is needed.
+
+ ***
+ * quotes, anti-quotes (with backquote), and comma operators are
+ possible even on arbitrary s-expressions. But quotations and
+ antiquotations of s-exprs have their location slightly less precise
+ (only file name and line number, but not column number, are
+ preserved)
+
+   Runtime improvements
+   ====================
+
+  *** 
+  * The debug macro accepts debug manipulator which alters the way
+   the next argument is debug-printed, e.g. 
+       (DEBUG "here smaller debug of x=" DEBUG_LESS x)
+
+  ***
+  * The variadic ERROR_AT WARNING_AT and INFORM_AT functions are available
+  for diagnostics. They take a format string with occurrences of $1 ... $9 
+  expanded into variadic arguments. For example
+       (ERRROR_AT somelocation "this is an error with number $1 and tree $2"
+                  somenumber sometree)
+  The location can be null, or be given by some boxed gimple or boxed tree.
+
+  *** 
+  * The ASSERT_MSG macro can have more arguments, which are shown
+  when the assertion fails.
+
+  ***
+  * MELT registered passes have a unique number (for GCC 4.9).
+
+  ***
+  * The runtime is named melt-runtime.cc since it is C++ code. 
+
+  ***
+  * MELT generated frames are classy because they are C++ classes.
+
+ As usual, many bug fixes... A ticket system is now available on
+ https://sourceforge.net/p/gcc-melt/tickets/ for bug reports.
 
 ################################################################
 NEWS for 0.9.9 MELT plugin for GCC 4.6 & 4.7 & 4.8
