@@ -235,7 +235,7 @@ DEFTREECODE (VOID_TYPE, "void_type", tcc_type, 0)
 /* Type to hold bounds for a pointer.
    Has TYPE_PRECISION component to specify number of bits used
    by this type.  */
-DEFTREECODE (BOUND_TYPE, "bound_type", tcc_type, 0)
+DEFTREECODE (POINTER_BOUNDS_TYPE, "pointer_bounds_type", tcc_type, 0)
 
 /* Type of functions.  Special fields:
    TREE_TYPE		    type of value returned.
