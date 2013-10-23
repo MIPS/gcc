@@ -1552,7 +1552,7 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
   /* Do not create jump functions for bound args.  */
   if (flag_check_pointers)
     for (n = 0; n < arg_num; n++)
-      if (BOUND_P (gimple_call_arg (call, n)))
+      if (POINTER_BOUNDS_P (gimple_call_arg (call, n)))
 	param_num--;
 
   if (arg_num == 0 || args->jump_functions)
@@ -1566,7 +1566,7 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
 
   for (n = 0, param_no = 0; n < arg_num; n++)
     {
-      if (BOUND_P (gimple_call_arg (call, n)))
+      if (POINTER_BOUNDS_P (gimple_call_arg (call, n)))
 	continue;
 
       struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args, param_no);
@@ -3571,7 +3571,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 	      unsigned bnd = chkp_type_bounds_count (TREE_TYPE (arg));
 	      if (bnd
 		  && (arg_no + bnd) < gimple_call_num_args (stmt)
-		  && BOUND_P (gimple_call_arg (stmt, arg_no + 1)))
+		  && POINTER_BOUNDS_P (gimple_call_arg (stmt, arg_no + 1)))
 		for (; bnd; bnd--)
 		  {
 		    arg = gimple_call_arg (stmt, ++arg_no);
