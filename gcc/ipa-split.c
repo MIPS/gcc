@@ -484,7 +484,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
       bitmap_iterator bi;
       EXECUTE_IF_SET_IN_BITMAP (current->ssa_names_to_pass, 0, i, bi)
 	{
-	  if (BOUND_P (ssa_name (i)))
+	  if (POINTER_BOUNDS_P (ssa_name (i)))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file,
