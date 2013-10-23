@@ -1,3 +1,14 @@
+23-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add splitting kernels region into separate kernels.
+    
+    * gcc/gimple-low.c: Add handling of region end gimple codes.
+    * gcc/gimple-opencl.c: Fix handling of empty basic block.
+    * gcc/gimple-pretty-print.c: Add handling of region end gimple codes.
+    * gcc/gimple.h: New macro.
+    * gcc/oacc-low.c: New functions and data structures.
+    * gcc/tree-cfg.c: Add handling of region end gimple codes.
+    * gcc/tree-inline.c: Likewise.
+
 17-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Add C FE tests
     

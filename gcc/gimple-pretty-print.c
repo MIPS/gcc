@@ -2148,7 +2148,12 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
     case GIMPLE_ACC_UPDATE:
       pp_string (buffer, "acc_update");
       break;
-
+    case GIMPLE_ACC_COMPUTE_REGION_END:
+      pp_string (buffer, "acc_compute_region_end");
+      break;
+    case GIMPLE_ACC_DATA_REGION_END:
+      pp_string (buffer, "acc_data_region_end");
+      break;
 
     case GIMPLE_CATCH:
       dump_gimple_catch (buffer, gs, spc, flags);

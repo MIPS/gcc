@@ -797,9 +797,17 @@ generate_stmts(FILE* fp, tree kernel_fn)
   FOR_EACH_BB(bb) {
       fprintf(fp, "L%d:\n", bb->index);
       gimple_stmt_iterator gsi;
-      for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi)) {
-          gimple stmt = gsi_stmt(gsi);
-          generate_stmt(fp, stmt);
+      gsi = gsi_start_bb(bb);
+      if(gsi_end_p(gsi))
+      {
+        fprintf(fp, "\t;\n");
+      }
+      else
+      {
+        for(; !gsi_end_p(gsi); gsi_next(&gsi)) {
+            gimple stmt = gsi_stmt(gsi);
+            generate_stmt(fp, stmt);
+        }
       }
       generate_implicit_gotos(fp, bb);
   }

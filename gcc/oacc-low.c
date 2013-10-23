@@ -180,9 +180,16 @@ typedef struct GTY(()) acc_region_t
     vec <acc_region, va_gc>* children;
 } acc_region_t;
 
-static GTY((param1_is (unsigned int), param2_is (acc_region) ))
-splay_tree all_regions;
+typedef struct acc_kernel_t *acc_kernel;
 
+typedef struct acc_kernel_t
+{
+  tree func;
+  struct tree_niter_desc niter_desc;
+  basic_block bb_entry, bb_exit;
+  splay_tree params_map;
+  tree kernel_handle;
+} acc_kernel_t;
 
 typedef struct oacc_context
 {
@@ -205,12 +212,12 @@ typedef struct oacc_context
 
     /* True if this parallel directive is nested within another.  */
     bool is_nested;
-    acc_region region;
 } oacc_context;
 
 static splay_tree all_contexts;
 static int nesting_level;
 static acc_region root_region;
+static int save_opt_level = -1;
 
 static void analyze_gimple(gimple_seq* pseq, oacc_context* ctx);
 static void lower_oacc(gimple_seq* pseq, oacc_context* ctx);
@@ -220,26 +227,76 @@ new_acc_region(gimple stmt, acc_region parent)
 {
     acc_region region;
 
-    region = (acc_region)ggc_internal_alloc (sizeof (struct acc_region_t));
+    region = (acc_region)ggc_internal_alloc(sizeof(acc_region_t));
     region->stmt = stmt;
     region->parent = parent;
     vec_alloc(region->children, 3);
+    if(parent != NULL)
+    {
+      vec_safe_push(parent->children, region);
+    }
 
     return region;
 }
 
 static void
-dump_acc_region (FILE* file, acc_region region, int indent)
+delete_acc_region(acc_region region)
+{
+  unsigned i;
+
+  for(i = 0; i < vec_safe_length(region->children); ++i)
+    {
+      delete_acc_region(vec_safe_address(region->children)[i]);
+    }
+  vec_free(region->children);
+  ggc_free(region);
+}
+
+static void
+dump_acc_region (FILE* file, acc_region region, size_t spc)
 {
     size_t i;
 
-    print_gimple_stmt(file, region->stmt, indent, TDF_SLIM);
-    for(i = 0; i < region->children->length(); ++i)
-        {
-            dump_acc_region(file, (*region->children)[i], indent+1);
-        }
+    for(i = 0; i < spc; ++i)
+      {
+        fprintf(file, " ");
+      }
+
+    if(region->stmt != NULL)
+      {
+        print_gimple_stmt(file, region->stmt, 0, TDF_SLIM);
+      }
+    else
+      {
+        fprintf(file, "(NULL)\n");
+      }
+    for(i = 0; i < vec_safe_length(region->children); ++i)
+      {
+        dump_acc_region(file, vec_safe_address(region->children)[i], spc+4);
+      }
 
 }
+
+static acc_kernel
+new_acc_kernel(tree func)
+{
+  acc_kernel kernel;
+
+  kernel = XCNEW(acc_kernel_t);
+  kernel->func = func;
+  kernel->niter_desc.niter = NULL_TREE;
+  kernel->params_map = splay_tree_new(splay_tree_compare_pointers, 0, 0);
+  kernel->kernel_handle = NULL_TREE;
+  return kernel;
+}
+
+static void
+delete_acc_kernel(acc_kernel kernel)
+{
+  splay_tree_delete(kernel->params_map);
+  XDELETE(kernel);
+}
+
 
 static oacc_context*
 new_oacc_context(gimple stmt, oacc_context* outer)
@@ -335,6 +392,16 @@ create_call_params(splay_tree_node node, void* data)
 }
 
 static void
+add_host_version(gimple_stmt_iterator *gsi, gimple_seq orig)
+{
+    if(gimple_code(gimple_seq_first(orig)) == GIMPLE_BIND)
+      {
+        orig = gimple_bind_body(orig);
+      }
+    gsi_insert_seq_after(gsi, orig, GSI_CONTINUE_LINKING);
+}
+
+static void
 lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
 {
     struct function *child_cfun;
@@ -388,8 +455,9 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
         }
 
     gsi_replace(gsi, new_stmt, true);
-    // when compiling with -g, causes ICE on final.c:1565
-    //gsi_insert_seq_after(gsi, orig, /*GSI_SAME_STMT*/ GSI_CONTINUE_LINKING);
+    //add_host_version(gsi, orig);
+    gsi_insert_after(gsi, gimple_alloc(GIMPLE_ACC_COMPUTE_REGION_END, 0),
+      GSI_CONTINUE_LINKING);
     gimple_acc_set_body(new_stmt, NULL);
 }
 
@@ -442,13 +510,15 @@ lower_op_cb(tree *tp, int *walk_subtrees, void *data)
     if(ctx != 0 && is_gimple_variable(t))
         {
             tree t1 = NULL_TREE;
-            splay_tree_node v = splay_tree_lookup(ctx->param_map, (splay_tree_key)t);
+            splay_tree_node v = splay_tree_lookup(ctx->param_map,
+                                                (splay_tree_key)t);
             if(v)
                 {
                     t1 = (tree)v->value;
                     if(t1 == NULL_TREE)
                         {
-                            v = splay_tree_lookup(ctx->local_map, (splay_tree_key)t);
+                            v = splay_tree_lookup(ctx->local_map,
+                                                (splay_tree_key)t);
                             t1 = (tree)v->value;
                         }
                     *tp = t1;
@@ -532,7 +602,8 @@ gather_oacc_fn_locals(splay_tree_node node, void* data)
                     id = IDENTIFIER_POINTER(DECL_NAME(arg));
                 }
             tree t1 = create_tmp_reg(TREE_TYPE(arg), id);
-            splay_tree_insert(*local_map, (splay_tree_key)arg, (splay_tree_value)t1);
+            splay_tree_insert(*local_map, (splay_tree_key)arg,
+                                          (splay_tree_value)t1);
             if(dump_file)
                 {
                     fprintf(dump_file, "Create local reg for: ");
@@ -656,7 +727,7 @@ scan_oacc_kernels (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
     struct function *child_cfun;
     tree child_fn;
     oacc_context* ctx;
-    acc_region region, outer_region;;
+    //acc_region region, outer_region;;
     gimple stmt = gsi_stmt (*gsi);
     location_t loc = gimple_location (stmt);
 
@@ -674,21 +745,11 @@ scan_oacc_kernels (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
     ctx->param_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
     ctx->local_map = splay_tree_new (splay_tree_compare_pointers, 0, 0);
 
-    outer_region = (outer_ctx != 0) ? outer_ctx->region : root_region;
-    gcc_assert(outer_region);
-    region = new_acc_region(stmt, outer_region);
-    ctx->region = region;
-    outer_region->children->quick_push(region);
-
     analyze_gimple(gimple_acc_body_ptr(stmt), ctx);
     create_oacc_child_function(ctx);
 
     child_fn = ctx->cb.dst_fn;
-    if(gimple_code(stmt) == GIMPLE_ACC_KERNELS)
-        gimple_acc_kernels_set_child_fn(stmt, child_fn);
-    else if(gimple_code(stmt) == GIMPLE_ACC_PARALLEL)
-        gimple_acc_parallel_set_child_fn(stmt, child_fn);
-
+    GIMPLE_ACC_SET_CHILD_FN(stmt, child_fn);
 }
 
 static bool
@@ -697,34 +758,36 @@ check_oacc_nesting_restrictions (gimple stmt, oacc_context *ctx)
     gimple outer_ctx = ctx->stmt;
 
     switch(gimple_code(stmt))
-        {
-        case GIMPLE_ACC_KERNELS:
-        case GIMPLE_ACC_PARALLEL:
-            if(gimple_code(outer_ctx) == GIMPLE_ACC_KERNELS ||
-                    gimple_code(outer_ctx) == GIMPLE_ACC_PARALLEL)
-                {
-                    error("invalid nesting of OpenACC parallel/kernels regions");
-                    return false;
-                }
-            break;
-        case GIMPLE_ACC_LOOP:
-            if(gimple_code(outer_ctx) != GIMPLE_ACC_KERNELS &&
-                    gimple_code(outer_ctx) != GIMPLE_ACC_PARALLEL &&
-                    gimple_code(outer_ctx) != GIMPLE_ACC_LOOP)
-                {
-                    error("OpenACC 'loop' directive is not nested inside compute region");
-                    return false;
-                }
-            break;
-        case GIMPLE_ACC_CACHE:
-            if(gimple_code(outer_ctx) != GIMPLE_ACC_LOOP)
-                {
-                    error("OpenACC 'cache'  directive is not nested inside 'loop' directive");
-                    return false;
-                }
-        default:
-            break;
-        }
+      {
+      case GIMPLE_ACC_KERNELS:
+      case GIMPLE_ACC_PARALLEL:
+        if(gimple_code(outer_ctx) == GIMPLE_ACC_KERNELS ||
+                gimple_code(outer_ctx) == GIMPLE_ACC_PARALLEL)
+            {
+              error("invalid nesting of OpenACC parallel/kernels regions");
+              return false;
+            }
+        break;
+      case GIMPLE_ACC_LOOP:
+        if(gimple_code(outer_ctx) != GIMPLE_ACC_KERNELS &&
+                gimple_code(outer_ctx) != GIMPLE_ACC_PARALLEL &&
+                gimple_code(outer_ctx) != GIMPLE_ACC_LOOP)
+            {
+              error("OpenACC 'loop' directive is not nested "
+                      "inside compute region");
+              return false;
+            }
+        break;
+      case GIMPLE_ACC_CACHE:
+        if(gimple_code(outer_ctx) != GIMPLE_ACC_LOOP)
+            {
+              error("OpenACC 'cache'  directive is not nested "
+                      "inside 'loop' directive");
+              return false;
+            }
+      default:
+          break;
+      }
     return true;
 }
 
@@ -782,8 +845,8 @@ analyze_stmt_cb(gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
             *handled_ops_p = false;
             if (ctx)
-                for (var = gimple_bind_vars (stmt); var ; var = DECL_CHAIN (var))
-                    insert_decl_map (&ctx->cb, var, var);
+              for (var = gimple_bind_vars (stmt); var ; var = DECL_CHAIN (var))
+                  insert_decl_map (&ctx->cb, var, var);
         }
         break;
         default:
@@ -889,18 +952,13 @@ execute_lower_oacc (void)
         {
             if(dump_file)
                 {
-                    fprintf (dump_file, "main module: '%s', opencl module: '%s'\n",
-                             main_input_filename, ocl_module);
+                  fprintf (dump_file,
+                           "main module: '%s', opencl module: '%s'\n",
+                           main_input_filename, ocl_module);
                 }
         }
     XDELETEVEC(cur_module);
 
-
-    if(all_regions == NULL)
-        {
-            all_regions = splay_tree_new (splay_tree_compare_ints, 0, 0);
-        }
-    root_region = new_acc_region (NULL, NULL);
 
     all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
                                    delete_oacc_context);
@@ -915,18 +973,6 @@ execute_lower_oacc (void)
             push_gimplify_context(&gctx);
             lower_oacc(&func_body, NULL);
             pop_gimplify_context(NULL);
-        }
-
-    if(vec_safe_length(root_region->children) > 0)
-        {
-            if(dump_file)
-                {
-                    fprintf(dump_file, "ACC REGIONS:\n===========\n");
-                    dump_acc_region(dump_file, root_region, 0);
-                }
-            splay_tree_insert (all_regions,
-                               (splay_tree_key)DECL_UID(current_function_decl),
-                               (splay_tree_value)root_region);
         }
 
     if(all_contexts)
@@ -1005,7 +1051,8 @@ build_call(location_t locus, tree funcdecl, int n, ...)
         }
     va_end(ap);
 
-    return gimple_build_call_from_tree(build_call_expr_loc_array(locus, funcdecl,
+    return gimple_build_call_from_tree(
+              build_call_expr_loc_array(locus, funcdecl,
                                        n, args));
 }
 
@@ -1019,6 +1066,16 @@ inline static void
 gen_add(gimple_stmt_iterator* gsi, gimple stmt)
 {
     gsi_insert_after(gsi, stmt, GSI_NEW_STMT);
+}
+
+static void
+mark_kernels_parallel(tree kernel_fn)
+{
+    if(!oacc_kernels)
+        {
+            oacc_kernels = BITMAP_GGC_ALLOC();
+        }
+    bitmap_set_bit(oacc_kernels, DECL_UID(kernel_fn));
 }
 
 static bool
@@ -1083,20 +1140,21 @@ loop_parallelizable(struct loop* l, struct obstack* pobstack)
 
     if (! compute_data_dependences_for_loop (l, true, &loop_nest, &datarefs,
             &dependence_relations))
-        {
-            if (dump_file /*&& (dump_flags & TDF_DETAILS)*/)
-                fprintf (dump_file, "  FAILED: cannot analyze data dependencies\n");
-            ret = false;
-            goto end;
-        }
+      {
+        if (dump_file /**/&& (dump_flags & TDF_DETAILS)/**/)
+            fprintf (dump_file, "  FAILED: cannot analyze data dependencies\n");
+        ret = false;
+        goto end;
+      }
 
 
-    if (dump_file /*&& (dump_flags & TDF_DETAILS)*/)
-        {
-            fprintf(dump_file, "loop_nest %d, ddr %d, datarefs %d\n",
-                    loop_nest.length(), dependence_relations.length(), datarefs.length());
-            dump_data_dependence_relations (dump_file, dependence_relations);
-        }
+    if (dump_file /**/&& (dump_flags & TDF_DETAILS)/**/)
+      {
+        fprintf(dump_file, "loop_nest %d, ddr %d, datarefs %d\n",
+                loop_nest.length(), dependence_relations.length(),
+                datarefs.length());
+        dump_data_dependence_relations (dump_file, dependence_relations);
+      }
 
     trans = lambda_trans_matrix_new (1, 1, pobstack);
     LTM_MATRIX (trans)[0][0] = -1;
@@ -1147,9 +1205,6 @@ loops_parallelizable_p(struct loop* root,	struct tree_niter_desc* pniter_desc)
                     break;
                 }
 
-            /*
-               Works under cygwin, DOESN'T work under Linux (???)
-             */
             if(!loop_parallelizable(ploop, &oacc_obstack))
                 {
                     ret = false;
@@ -1165,24 +1220,28 @@ loops_parallelizable_p(struct loop* root,	struct tree_niter_desc* pniter_desc)
                     if (estimated == -1)
                         estimated = max_stmt_executions_int (ploop);
                     if (dump_file)
-                        fprintf (dump_file, "Estimated # of iterations %lld\n", estimated);
+                        fprintf (dump_file, "Estimated # of iterations %lld\n",
+                                      estimated);
 
                     edge exit = single_dom_exit (ploop);
 
                     gcc_assert (exit);
 
-                    if (!number_of_iterations_exit (ploop, exit, pniter_desc, false))
+                    if (!number_of_iterations_exit (ploop, exit, pniter_desc,
+                          false))
                         {
                             if(estimated != -1)
                                 {
-                                    pniter_desc->niter = build_int_cst(uint32_type_node,
-                                                                       estimated);
+                                    pniter_desc->niter = 
+                                      build_int_cst(uint32_type_node,
+                                                        estimated);
                                 }
                             else
                                 {
                                     if (dump_file)
                                         fprintf (dump_file,
-                                                 "  FAILED: number of iterations not known\n");
+                                                 "  FAILED: number of "
+                                                 "iterations not known\n");
                                     ret = false;
                                 }
                         }
@@ -1191,9 +1250,11 @@ loops_parallelizable_p(struct loop* root,	struct tree_niter_desc* pniter_desc)
                             if(dump_file)
                                 {
                                     fprintf(dump_file, "niter: ");
-                                    print_generic_expr(dump_file, pniter_desc->niter, 0);
+                                    print_generic_expr(dump_file,
+                                                  pniter_desc->niter, 0);
                                     fprintf(dump_file, "\n");
-                                    fprintf(dump_file, "max: %lld\n", pniter_desc->max.to_shwi());
+                                    fprintf(dump_file, "max: %lld\n",
+                                                pniter_desc->max.to_shwi());
                                 }
                         }
                 }
@@ -1204,12 +1265,423 @@ loops_parallelizable_p(struct loop* root,	struct tree_niter_desc* pniter_desc)
     return ret;
 }
 
+static bool
+get_loop_iteration_count(struct loop *loop, struct tree_niter_desc *pniter_desc)
+{
+  HOST_WIDE_INT estimated;
+
+  estimate_numbers_of_iterations_loop(loop);
+  estimated = estimated_stmt_executions_int (loop);
+  if (estimated == -1)
+      estimated = max_stmt_executions_int (loop);
+  if (dump_file)
+      fprintf (dump_file, "Estimated # of iterations %lld\n",
+                    estimated);
+
+  edge exit = single_dom_exit (loop);
+
+  gcc_assert (exit);
+
+  if (!number_of_iterations_exit (loop, exit, pniter_desc,
+        false))
+      {
+          if(estimated != -1)
+              {
+                  pniter_desc->niter = 
+                    build_int_cst(uint32_type_node,
+                                      estimated);
+              }
+          else
+              {
+                  if (dump_file)
+                      fprintf (dump_file,
+                               "  FAILED: number of "
+                               "iterations not known\n");
+                  return false;
+              }
+      }
+  else
+      {
+          if(dump_file)
+              {
+                  fprintf(dump_file, "niter: ");
+                  print_generic_expr(dump_file,
+                                pniter_desc->niter, 0);
+                  fprintf(dump_file, "\n");
+                  fprintf(dump_file, "max: %lld\n",
+                              pniter_desc->max.to_shwi());
+              }
+      }
+  return true;
+}
+
+static bool
+loop_parallelizable_p(struct loop *loop, struct tree_niter_desc *pniter_desc)
+{
+  struct obstack oacc_obstack;
+
+  gcc_obstack_init (&oacc_obstack);
+  if(!loop_precheck(loop))
+    {
+      return false;
+    }
+
+  if(!loop_parallelizable(loop, &oacc_obstack))
+    {
+      return false;
+    }
+  obstack_free (&oacc_obstack, NULL);
+  if(!get_loop_iteration_count(loop, pniter_desc))
+  {
+    return false;
+  }
+  return true;
+}
+
+static tree
+clone_function(tree fn, gimple kernel_stmt)
+{
+  tree name, new_fn = NULL, t;
+  struct function *child_cfun;
+
+  //if(dump_file)
+  //{
+  //  unsigned i;
+  //  child_cfun = DECL_STRUCT_FUNCTION(fn);
+  //  
+  //  fprintf(dump_file, "locals\n");
+  //  for(i = 0; i < vec_safe_length(child_cfun->local_decls); ++i)
+  //  {
+  //    t = (*child_cfun->local_decls)[i];
+  //    print_generic_expr(dump_file, t, 0);
+  //    fprintf(dump_file, "\n");
+  //  }
+  //}
+
+  name = clone_function_name(fn, "_oacc_fn");
+  name = normalize_name(name);
+  if(dump_file)
+      {
+          fprintf(dump_file, "new fn name='%s'\n", IDENTIFIER_POINTER(name));
+      }
+  new_fn = build_decl(gimple_location(kernel_stmt), FUNCTION_DECL, name,
+                    TREE_TYPE(fn));
+  TREE_STATIC (new_fn) = 1;
+  TREE_USED (new_fn) = 1;
+  DECL_ARTIFICIAL (new_fn) = 1;
+  DECL_NAMELESS (new_fn) = 1;
+  DECL_IGNORED_P (new_fn) = 0;
+  TREE_PUBLIC (new_fn) = 0;
+  DECL_UNINLINABLE (new_fn) = 1;
+  DECL_EXTERNAL (new_fn) = 0;
+  DECL_CONTEXT (new_fn) = NULL_TREE;
+  DECL_INITIAL (new_fn) = make_node (BLOCK);
+
+  t = build_decl (DECL_SOURCE_LOCATION (new_fn),
+                  RESULT_DECL, NULL_TREE, void_type_node);
+  DECL_ARTIFICIAL (t) = 1;
+  DECL_IGNORED_P (t) = 1;
+  DECL_CONTEXT (t) = new_fn;
+  DECL_RESULT (new_fn) = t;
+
+  return new_fn;
+}
+
+static void
+map_parameters(tree orig_fn, acc_kernel kernel, gimple kernel_stmt)
+{
+  unsigned i;
+  tree t, param;
+  vec<tree> params;
+
+  params.create(3);
+  for(param = DECL_ARGUMENTS(orig_fn); param;
+    param = DECL_CHAIN(param))
+  {
+    params.safe_push(param);
+  }
+
+  for(i = params.length(); i > 0; --i)
+    {
+      param = params[i-1];
+      const char *id = "_oacc_param";
+
+      if(DECL_NAME(param))
+        {
+          id = IDENTIFIER_POINTER(DECL_NAME(param));
+        }
+      t = build_decl(DECL_SOURCE_LOCATION(kernel->func), PARM_DECL,
+                      create_tmp_var_name(id), TREE_TYPE(param));
+      if(dump_file)
+          {
+              fprintf(dump_file, "Create formal param: ");
+              print_generic_expr(dump_file, t, 0);
+              fprintf(dump_file, " type=");
+              print_generic_expr(dump_file, TREE_TYPE(param), 0);
+              fprintf(dump_file, "\n");
+          }
+      DECL_ARTIFICIAL (t) = 1;
+      DECL_NAMELESS (t) = 1;
+      DECL_ARG_TYPE (t) = TREE_TYPE(param);
+      DECL_CONTEXT(t) = kernel->func;
+      TREE_USED (t) = 1;
+      TREE_ADDRESSABLE (t) = 1;
+      if(i > 0)
+          DECL_CHAIN (t) = DECL_ARGUMENTS (kernel->func);
+      DECL_ARGUMENTS (kernel->func) = t;
+      splay_tree_insert(kernel->params_map, (splay_tree_key)param,
+                                (splay_tree_value)t);
+      if(dump_file)
+          {
+              fprintf(dump_file, "Map ");
+              print_generic_expr(dump_file, param, 0);
+              fprintf(dump_file, " to ");
+              print_generic_expr(dump_file, t, 0);
+              fprintf(dump_file, "\n");
+          }
+    }
+  push_struct_function (kernel->func);
+  cfun->function_end_locus = gimple_location(kernel_stmt);
+  pop_cfun ();
+}
+
+static tree
+map_params_cb(tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  splay_tree param_map = (splay_tree)wi->info;
+  tree t = *tp;
+
+  if(is_gimple_variable(t))
+  {
+    splay_tree_node v;
+    v = splay_tree_lookup(param_map, (splay_tree_key)t);
+    if(v)
+    {
+      *tp = (tree)(v->value);
+      if(dump_file)
+      {
+        fprintf(dump_file, "Map param ");
+        print_generic_expr(dump_file, t, 0);
+        fprintf(dump_file, " to param ");
+        print_generic_expr(dump_file, *tp, 0);
+        fprintf(dump_file, "\n");
+      }
+    }
+  }
+  return NULL_TREE;
+}
+
+static void
+extract_kernels(struct loops* loops, tree child_fn,
+                vec<acc_kernel>* kernels, gimple kernel_stmt)
+{
+  struct loop *ploop;
+  acc_kernel kernel;
+  unsigned nloops, i;
+  struct loop **vloops;
+  basic_block *body, bb_entry;
+
+  if(gimple_code(kernel_stmt) == GIMPLE_ACC_PARALLEL 
+    || loops->tree_root->inner == NULL 
+    || loops->tree_root->inner->next == NULL)
+    {
+      kernel = new_acc_kernel(child_fn);
+
+      if(loops->tree_root->inner != NULL)
+        {
+          loop_parallelizable_p(loops->tree_root->inner,
+            &(kernel->niter_desc));
+        }
+
+      kernels->safe_push(kernel);
+      mark_kernels_parallel (child_fn);
+      return;
+    }
+
+  if(dump_file)
+  {
+    basic_block *body;
+
+    body = get_loop_body(loops->tree_root);
+    fprintf(dump_file, "FAKE 0 LOOP: ");
+    for(i = 0; i < loops->tree_root->num_nodes; ++i)
+    {
+      fprintf(dump_file, "%d%c", body[i]->index,
+        (i < loops->tree_root->num_nodes-1) ? ' ' : '\n');
+    }
+    XDELETEVEC(body);
+    for(ploop = loops->tree_root->inner; ploop != NULL; ploop = ploop->next)
+    {
+      fprintf(dump_file, "LOOP %d: ", ploop->num);
+      body = get_loop_body(ploop);
+      for(i = 0; i < ploop->num_nodes; ++i)
+        fprintf(dump_file, "%d%c", body[i]->index,
+        (i < ploop->num_nodes-1) ? ' ' : '\n');
+      XDELETEVEC(body);
+    }
+
+    fflush(dump_file);
+  }
+
+  /* Loops connected to siblings in reverse order of 
+    appearance so we reorder them
+  */
+  for(nloops = 0, ploop = loops->tree_root->inner;
+      ploop != NULL;
+      ++nloops, ploop = ploop->next)
+      ;
+  
+  vloops = XALLOCAVEC(struct loop*, nloops);
+
+  for(i = nloops, ploop = loops->tree_root->inner;
+      i > 0;
+      --i, ploop = ploop->next)
+      vloops[i-1] = ploop;
+
+  for(i = 0; i < nloops; ++i)
+  {
+    tree fn = child_fn;
+
+    if(i > 0)
+    {
+      fn = clone_function(child_fn, kernel_stmt);
+    }
+    kernel = new_acc_kernel(fn);
+    if(i > 0)
+    {
+      map_parameters(child_fn, kernel, kernel_stmt);
+    }
+    loop_parallelizable_p(vloops[i], &(kernel->niter_desc));
+    kernels->safe_push(kernel);
+  }
+
+  bb_entry = single_succ_edge(ENTRY_BLOCK_PTR)->dest;
+  for(i = 0; i < nloops; ++i)
+  {
+    basic_block bb_exit;
+    if(i == nloops - 1)
+    {
+      bb_exit = single_pred_edge(EXIT_BLOCK_PTR)->src;
+    }
+    else
+    {
+      bb_exit = single_exit(vloops[i])->src;
+    }
+    if(dump_file)
+    {
+      fprintf(dump_file, "LOOP #%d, ENTRY %d, EXIT %d\n",
+        vloops[i]->num, bb_entry->index, bb_exit->index);
+    }
+    
+    (*kernels)[i]->bb_entry = bb_entry;
+    (*kernels)[i]->bb_exit = bb_exit;
+
+
+    if(i < nloops - 1)
+    {
+      bb_entry = single_exit(vloops[i])->dest;
+    }
+
+  }
+
+  for(i = 0; i < nloops; ++i)
+  {
+    tree fn = (*kernels)[i]->func;
+    struct function* child_cfun;
+    basic_block bb;
+
+    if(i > 0)
+    {
+      int opt_level;
+      tree block, t;
+      gimple_stmt_iterator gsi;
+
+      block = DECL_INITIAL(fn);
+      child_cfun = DECL_STRUCT_FUNCTION (fn);
+      init_tree_ssa (child_cfun);
+	    init_ssa_operands (child_cfun);
+	    child_cfun->gimple_df->in_ssa_p = true;
+      bb = move_sese_region_to_fn (child_cfun, (*kernels)[i]->bb_entry,
+        (*kernels)[i]->bb_exit, NULL_TREE);
+      gsi = gsi_last_bb(bb);
+      gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
+
+      child_cfun->curr_properties = cfun->curr_properties;
+      cgraph_add_new_function (fn, true);
+      push_cfun(child_cfun);
+
+      if(dump_file)
+      {
+        dump_flow_info(dump_file, 0);
+        fflush(dump_file);
+      }
+
+      if(i < nloops - 1)
+      {
+        bb = create_empty_bb((*kernels)[i]->bb_exit);
+        gsi = gsi_last_bb(bb);
+        gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
+        make_edge((*kernels)[i]->bb_exit, bb, EDGE_FALLTHRU);
+        make_edge(bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+        //set_immediate_dominator (CDI_DOMINATORS, bb, (*kernels)[i]->bb_exit);
+        //set_immediate_dominator (CDI_DOMINATORS, EXIT_BLOCK_PTR, bb);
+      }
+
+      if(dump_file)
+      {
+        dump_flow_info(dump_file, 0);
+        fflush(dump_file);
+      }
+
+      FOR_EACH_BB(bb)
+      {
+
+        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+            {
+              struct walk_stmt_info wi;
+              gimple stmt = gsi_stmt(gsi);
+
+              memset(&wi, 0, sizeof(struct walk_stmt_info));
+              wi.info = (void*)(*kernels)[i]->params_map;
+              walk_gimple_op(stmt, map_params_cb, &wi);
+            }
+      }
+
+      if(save_opt_level >= 0)
+      {
+        opt_level = optimize;
+        optimize = save_opt_level;
+      }
+      calculate_dominance_info (CDI_DOMINATORS);
+      FOR_EACH_BB(bb)
+      {
+        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+            {
+                gimple stmt = gsi_stmt(gsi);
+                gimple_set_modified (stmt, true);
+                update_stmt_operands(stmt);
+            }
+      }
+      update_ssa(TODO_update_ssa);
+      loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
+      rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
+      pop_cfun();
+      if(save_opt_level >= 0)
+        optimize = opt_level;
+    }
+    mark_kernels_parallel (fn);
+  }
+
+}
+
 static tree
 get_gimple_def_var(gimple stmt)
 {
     tree var = NULL_TREE;
     gcc_assert(gimple_code(stmt) == GIMPLE_ASSIGN
-               || gimple_code(stmt) == GIMPLE_CALL || gimple_code(stmt) == GIMPLE_PHI);
+               || gimple_code(stmt) == GIMPLE_CALL 
+               || gimple_code(stmt) == GIMPLE_PHI);
 
     if(gimple_code(stmt) == GIMPLE_PHI)
         {
@@ -1457,7 +1929,8 @@ dump_fn_body(FILE* dump_file, const char* title)
         if (stmt && gimple_code (stmt) == GIMPLE_COND)
             {
 
-                extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
+                extract_true_false_edges_from_block (bb, &true_edge,
+                                            &false_edge);
 
                 fprintf(dump_file, "\tgoto L%d", true_edge->dest->index);
                 fprintf(dump_file, "\n");
@@ -1486,23 +1959,30 @@ parallelize_loop(struct loop* l)
             fprintf(dump_file, "parallelize loop %d\n", l->num);
         }
     unsigned i;
-    basic_block *bbs = get_loop_body (l);
-    vec<basic_block> loop_blocks;
-    loop_blocks.create(l->num_nodes);
 
-    for (i = 0; i < l->num_nodes; i++)
-        {
-            if(dump_file)
-                {
-                    fprintf(dump_file, " %d", bbs[i]->index);
-                }
-            loop_blocks.quick_push(bbs[i]);
-        }
+    basic_block* bb = get_loop_body(l);
+    vec<basic_block> loop_blocks;
+
+    loop_blocks.create(l->num_nodes);
+    for(i = 0; i < l->num_nodes; ++i)
+    {
+      loop_blocks.safe_push(bb[i]);
+    }
+    XDELETEVEC(bb);
+
     if(dump_file)
         {
-            fprintf(dump_file, "\n");
+            fprintf(dump_file, "header: %d\n", l->header->index);
+            fprintf(dump_file, "latch: %d\n", l->latch->index);
+            fprintf(dump_file, "exit edge %p\n", (void*)single_exit(l));
+            fflush(dump_file);
         }
-    free (bbs);
+
+    gcc_assert(single_dom_exit(l));
+    if(dump_file)
+        {
+            dump_fn_body(dump_file, "BEFORE");
+        }
 
     edge latch, exit;
     basic_block hdr_blk;
@@ -1527,13 +2007,9 @@ parallelize_loop(struct loop* l)
             unsigned i;
             for(i = 0; i < ctrl_var_defs.length(); ++i)
                 {
-                    print_gimple_stmt(dump_file, gsi_stmt(ctrl_var_defs[i]), 0, 0);
+                    print_gimple_stmt(dump_file, gsi_stmt(ctrl_var_defs[i]),
+                                        0, 0);
                 }
-        }
-
-    if(dump_file)
-        {
-            dump_fn_body(dump_file, "BEFORE");
         }
 
 
@@ -1581,24 +2057,24 @@ parallelize_loop(struct loop* l)
             unsigned i, j;
 
             for(i = 0; i < gimple_phi_num_args(phi_stmt); ++i)
-                {
-                    edge e = gimple_phi_arg_edge(phi_stmt, i);
-                    if(e->src->index == latch->src->index
-                            && gimple_phi_arg_def(phi_stmt, i) == NULL_TREE)
-                        {
-                            tree def_var = gimple_phi_result(phi_stmt);
-                            for(j = 0; j < phi_args.length(); ++j)
-                                {
-                                    struct phi_arg_d* pd = phi_args[j];
-                                    tree arg_var = get_use_from_ptr (&pd->imm_use);
-                                    if(SSA_NAME_VAR(def_var) != NULL_TREE
-                                            && SSA_NAME_VAR(def_var) == SSA_NAME_VAR(arg_var))
-                                        {
-                                            gimple_phi_set_arg(phi_stmt, i, pd);
-                                        }
-                                }
-                        }
-                }
+              {
+                edge e = gimple_phi_arg_edge(phi_stmt, i);
+                if(e->src->index == latch->src->index
+                        && gimple_phi_arg_def(phi_stmt, i) == NULL_TREE)
+                  {
+                    tree def_var = gimple_phi_result(phi_stmt);
+                    for(j = 0; j < phi_args.length(); ++j)
+                      {
+                        struct phi_arg_d* pd = phi_args[j];
+                        tree arg_var = get_use_from_ptr (&pd->imm_use);
+                        if(SSA_NAME_VAR(def_var) != NULL_TREE
+                             && SSA_NAME_VAR(def_var) == SSA_NAME_VAR(arg_var))
+                          {
+                              gimple_phi_set_arg(phi_stmt, i, pd);
+                          }
+                      }
+                  }
+              }
         }
 
 
@@ -1609,26 +2085,13 @@ parallelize_loop(struct loop* l)
         }
 
 
-    if(can_remove_branch_p(exit))
-        {
-            if(dump_file)
-                {
-                    fprintf(dump_file, "can remove exit branch\n");
-                }
-            basic_block exit_bb = exit->dest;
-            remove_branch(exit);
-            vec<basic_block> v;
-            v.create(1);
-            v.quick_push(exit_bb);
-            iterate_fix_dominators(CDI_DOMINATORS, v, true);
-        }
-    else
-        {
-            if(dump_file)
-                {
-                    fprintf(dump_file, "can not remove exit branch\n");
-                }
-        }
+    gcc_assert(can_remove_branch_p(exit));
+    basic_block exit_bb = exit->dest;
+    remove_branch(exit);
+    vec<basic_block> v;
+    v.create(1);
+    v.quick_push(exit_bb);
+    iterate_fix_dominators(CDI_DOMINATORS, v, true);
 
     if(dump_file)
         {
@@ -1691,7 +2154,8 @@ parallelize_loop(struct loop* l)
                 {
                     if(dump_file)
                         {
-                            fprintf(dump_file, "use in block %d dominates header %d\n",
+                            fprintf(dump_file,
+                                    "use in block %d dominates header %d\n",
                                     gsi.bb->index, hdr_blk->index);
                         }
                     gimple stmt = gsi_stmt(gsi);
@@ -1700,47 +2164,60 @@ parallelize_loop(struct loop* l)
                             location_t location = gimple_location(stmt);
                             tree lhs = get_gimple_def_var(stmt);
                             tree builtin_decl
-                                = builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID);
+                           = builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID);
                             tree builtin_return_type
                                 = TREE_TYPE (TREE_TYPE (builtin_decl));
                             //FIXME: add more conversion magic???
                             gcc_assert(TREE_CODE(builtin_return_type)
                                        == TREE_CODE(TREE_TYPE(lhs)));
 
-                            int builtin_unsigned = TYPE_UNSIGNED(builtin_return_type);
+                            int builtin_unsigned 
+                              = TYPE_UNSIGNED(builtin_return_type);
                             int lhs_unsigned = TYPE_UNSIGNED(TREE_TYPE(lhs));
 
                             /* _oacc_tmp = __builtin_get_global_id (0); */
-                            gimple call_stmt = build_call(location, builtin_decl, 1,
-                                                          build_int_cst(builtin_return_type, 0));
-                            tree tmp_var = create_tmp_reg(builtin_return_type, "_oacc_tmp");
+                            gimple call_stmt = build_call(location,
+                                        builtin_decl, 1,
+                                        build_int_cst(builtin_return_type, 0));
+                            tree tmp_var = create_tmp_reg(builtin_return_type,
+                              "_oacc_tmp");
                             tmp_var = make_ssa_name_fn(cfun, tmp_var, call_stmt);
                             set_gimple_def_var(call_stmt, tmp_var);
                             gen_add(&gsi, call_stmt);
 
                             if (builtin_unsigned != lhs_unsigned)
-                                {
-                                    /* _ = (int) _oacc_tmp; */
-                                    gimple convert_stmt = build_type_cast (TREE_TYPE(lhs), tmp_var);
-                                    tree convert_var = create_tmp_reg(TREE_TYPE(lhs), "_oacc_tmp");
-                                    convert_var = make_ssa_name_fn(cfun, convert_var, convert_stmt);
-                                    set_gimple_def_var(convert_stmt, convert_var);
-                                    gen_add (&gsi, convert_stmt);
+                              {
+                                /* _ = (int) _oacc_tmp; */
+                                gimple convert_stmt 
+                                  = build_type_cast (TREE_TYPE(lhs), tmp_var);
+                                tree convert_var 
+                                  = create_tmp_reg(TREE_TYPE(lhs), "_oacc_tmp");
+                                convert_var 
+                                  = make_ssa_name_fn(cfun, convert_var,
+                                                  convert_stmt);
+                                set_gimple_def_var(convert_stmt, convert_var);
+                                gen_add (&gsi, convert_stmt);
 
-                                    /* i = _ + i; */
-                                    gimple add_stmt = build_assign(PLUS_EXPR, convert_var, lhs);
-                                    tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
-                                    set_gimple_def_var(add_stmt, new_var);
-                                    gen_add(&gsi, add_stmt);
-                                }
-                            else
-                                {
-                                    /* i = _oacc_tmp + i; */
-                                    gimple add_stmt = build_assign(PLUS_EXPR, tmp_var, lhs);
-                                    tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
-                                    set_gimple_def_var(add_stmt, new_var);
-                                    gen_add(&gsi, add_stmt);
-                                }
+                                /* i = _ + i; */
+                                gimple add_stmt 
+                                  = build_assign(PLUS_EXPR, convert_var, lhs);
+                                tree new_var 
+                                  = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs),
+                                      add_stmt);
+                                set_gimple_def_var(add_stmt, new_var);
+                                gen_add(&gsi, add_stmt);
+                              }
+                          else
+                              {
+                                /* i = _oacc_tmp + i; */
+                                gimple add_stmt 
+                                  = build_assign(PLUS_EXPR, tmp_var, lhs);
+                                tree new_var 
+                                  = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs),
+                                                      add_stmt);
+                                set_gimple_def_var(add_stmt, new_var);
+                                gen_add(&gsi, add_stmt);
+                              }
                         }
                 }
         }
@@ -1753,22 +2230,15 @@ parallelize_loop(struct loop* l)
 }
 
 static void
-mark_kernels_parallel(tree kernel_fn)
-{
-    if(!oacc_kernels)
-        {
-            oacc_kernels = BITMAP_GGC_ALLOC();
-        }
-    bitmap_set_bit(oacc_kernels, DECL_UID(kernel_fn));
-}
-
-static void
 parallelize_loops(struct loop* root)
 {
     if(root->inner == NULL)
         {
             return;
         }
+
+    calculate_dominance_info (CDI_DOMINATORS);
+    fix_loop_structure(NULL);
     struct loop* ploop;
     for(ploop = root->inner; ploop != NULL; ploop = ploop->next)
         {
@@ -1777,230 +2247,254 @@ parallelize_loops(struct loop* root)
 }
 
 static void
+switch_to_child_func(struct function *child_cfun)
+{
+  basic_block bb;
+
+  push_cfun(child_cfun);
+
+  FOR_EACH_BB(bb)
+  {
+    gimple_stmt_iterator gsi;
+    for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+      {
+        gimple stmt = gsi_stmt(gsi);
+
+        gimple_set_modified (stmt, true);
+        update_stmt_operands(stmt);
+      }
+  }
+  update_ssa(TODO_update_ssa);
+  loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
+  rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
+  scev_initialize ();
+}
+
+static void
+switch_func_back(int save_opt_level)
+{
+  basic_block bb;
+
+  scev_finalize();
+  if(save_opt_level >= 0)
+    {
+      optimize = save_opt_level;
+    }
+  FOR_EACH_BB(bb)
+  {
+      gimple_stmt_iterator gsi;
+      for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+          {
+              gimple stmt = gsi_stmt(gsi);
+              gimple_set_modified (stmt, true);
+              update_stmt_operands(stmt);
+          }
+  }
+  update_ssa(TODO_update_ssa);
+  pop_cfun();
+}
+
+static void
 expand_oacc_kernels(gimple_stmt_iterator* gsi)
 {
-    unsigned i;
+    unsigned i, j;
     gimple stmt = gsi_stmt(*gsi);
 
     tree child_fn = GIMPLE_ACC_CHILD_FN(stmt);
 
     struct function* child_cfun = DECL_STRUCT_FUNCTION(child_fn);
     bool is_paral = false;
-    int save_opt_level = -1;
 
-    push_cfun(child_cfun);
     if(optimize < 1)
-        {
-            save_opt_level = optimize;
-            ++optimize;
-        }
+      {
+          save_opt_level = optimize;
+          ++optimize;
+      }
+    switch_to_child_func(child_cfun);
 
-    {
-        basic_block bb;
-        FOR_EACH_BB(bb)
-        {
-            gimple_stmt_iterator gsi;
-            for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-                {
-                    gimple stmt = gsi_stmt(gsi);
-
-                    gimple_set_modified (stmt, true);
-                    update_stmt_operands(stmt);
-                }
-        }
-    }
-    update_ssa(TODO_update_ssa);
-    loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
-    rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
-    scev_initialize ();
     struct loops* loops = current_loops;
-    struct tree_niter_desc niter_desc;
+    
+    gcc_assert(loops != NULL && loops->tree_root != NULL);
 
-    niter_desc.niter = NULL_TREE;
-    if(loops != NULL && loops->tree_root != NULL)
-        {
-            if(loops_parallelizable_p(loops->tree_root, &niter_desc))
-                {
-                    mark_kernels_parallel(child_fn);
-                    is_paral = true;
-                }
-        }
+    vec<acc_kernel> kernels;
+    kernels.create(3);
+    
+    extract_kernels(loops, child_fn, &kernels, stmt);
 
-    scev_finalize();
-    if(save_opt_level >= 0)
-        {
-            optimize = save_opt_level;
-        }
+    switch_func_back(save_opt_level);
+
+    tree type, buffer_handle, queue_handle;
+
+    type = build_pointer_type(void_type_node);
+    for(i = 0; i < kernels.length(); ++i)
     {
-        basic_block bb;
-        FOR_EACH_BB(bb)
-        {
-            gimple_stmt_iterator gsi;
-            for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-                {
-                    gimple stmt = gsi_stmt(gsi);
-                    gimple_set_modified (stmt, true);
-                    update_stmt_operands(stmt);
-                }
-        }
+      kernels[i]->kernel_handle = create_tmp_reg(type, "_oacc_tmp");
     }
-    pop_cfun();
+    buffer_handle = create_tmp_reg(type, "_oacc_tmp");
+    queue_handle = create_tmp_reg(type, "_oacc_tmp");
 
-    if(is_paral)
+    const char* src_file = NULL;
+    int src_line = 0;
+    location_t locus = gimple_location(stmt);
+
+    src_file = LOCATION_FILE(locus);
+    src_line = LOCATION_LINE(locus);
+    if(dump_file)
         {
-            tree type, kernel_handle, buffer_handle, queue_handle;
-
-            type = build_pointer_type(void_type_node);
-            kernel_handle = create_tmp_reg(type, "_oacc_tmp");
-            buffer_handle = create_tmp_reg(type, "_oacc_tmp");
-            queue_handle = create_tmp_reg(type, "_oacc_tmp");
-
-            const char* src_file = NULL;
-            int src_line = 0;
-            location_t locus = gimple_location(stmt);
-
-            src_file = LOCATION_FILE(locus);
-            src_line = LOCATION_LINE(locus);
-            if(dump_file)
-                {
-                    fprintf(dump_file, "file: '%s', line %d\n", src_file, src_line);
-                }
-
-            gimple call_stmt;
-
-            if(flag_enable_openacc_profiling)
-                {
-                    gen_replace(gsi, build_call(locus,
-                                                builtin_decl_explicit(BUILT_IN_OACC_START_PROFILING), 0));
-
-                    /* OACC_check_cur_dev */
-                    gen_add(gsi, build_call(locus,
-                                            builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
-                }
-            else
-                {
-                    gen_replace(gsi, build_call(locus,
-                                                builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
-                }
-
-            /* OACC_get_kernel */
-            call_stmt = build_call(locus,
-                                   builtin_decl_explicit(BUILT_IN_OACC_GET_KERNEL), 2,
-                                   build_string_literal(strlen(ocl_module)+1, ocl_module),
-                                   build_string_literal(
-                                       strlen(IDENTIFIER_POINTER(DECL_NAME(child_fn)))+1,
-                                       IDENTIFIER_POINTER(DECL_NAME(child_fn))));
-            gimple_call_set_lhs(call_stmt, kernel_handle);
-            gen_add(gsi, call_stmt);
-
-            call_stmt = build_call(locus,
-                                   builtin_decl_explicit(BUILT_IN_OACC_CREATE_EVENTS), 2,
-                                   build_string_literal(strlen(src_file)+1, src_file),
-                                   build_int_cst(uint32_type_node, src_line));
-            gimple_call_set_lhs(call_stmt, queue_handle);
-            gen_add(gsi, call_stmt);
-
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
-                                    queue_handle,
-                                    build_int_cst(uint32_type_node,
-                                                  gimple_acc_nparams(stmt)),
-                                    build_int_cst(uint32_type_node, OACC_PF_DATAIN)));
-
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
-                                    queue_handle,
-                                    build_int_cst(uint32_type_node, 1),
-                                    build_int_cst(uint32_type_node, OACC_PF_EXEC)));
-
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
-                                    queue_handle,
-                                    build_int_cst(uint32_type_node,
-                                                  gimple_acc_nparams(stmt)),
-                                    build_int_cst(uint32_type_node, OACC_PF_DATAOUT)));
-
-            /* OACC_set_arg */
-            tree bits_per_byte = build_int_cst(uint32_type_node, 8);
-            tree chk_presence = integer_one_node;
-
-            for(i = 0; i < gimple_acc_nparams(stmt); ++i)
-                {
-                    tree arg = GIMPLE_ACC_PARAMS_PTR(stmt)[i];
-                    if(is_gimple_reg(arg)) continue;
-                    tree type = TREE_TYPE(arg);
-                    tree size = TYPE_SIZE(type);
-                    tree idx = build_int_cst(uint32_type_node, i);
-
-                    call_stmt = build_call(locus,
-                                           builtin_decl_explicit(BUILT_IN_OACC_COPYIN), 5,
-                                           build_fold_addr_expr(arg),
-                                           fold_binary(TRUNC_DIV_EXPR,
-                                                       uint32_type_node, size, bits_per_byte),
-                                           chk_presence, queue_handle, idx);
-                    gimple_call_set_lhs(call_stmt, buffer_handle);
-                    gen_add(gsi, call_stmt);
-
-                    gen_add(gsi, build_call(locus,
-                                            builtin_decl_explicit(BUILT_IN_OACC_SET_KERNEL_ARG), 3,
-                                            kernel_handle, idx, buffer_handle));
-                }
-
-
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1, queue_handle));
-
-            /* OACC_start_kernel */
-            tree worksize;
-            if(niter_desc.niter != NULL_TREE
-                    && TREE_CODE(niter_desc.niter) == INTEGER_CST)
-                {
-                    worksize = niter_desc.niter;
-                }
-            else
-                {
-                    worksize = build_int_cst(uint32_type_node, niter_desc.max.to_shwi());
-                }
-
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 4,
-                                    kernel_handle, worksize, queue_handle,
-                                    build_int_cst(uint32_type_node, 0)));
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
-                                    queue_handle));
-
-            /* OACC_copyout */
-            for(i = 0; i < gimple_acc_nparams(stmt); ++i)
-                {
-                    tree arg = GIMPLE_ACC_PARAMS_PTR(stmt)[i];
-                    if(is_gimple_reg(arg)) continue;
-                    tree type = TREE_TYPE(arg);
-                    tree size = TYPE_SIZE(type);
-                    tree idx = build_int_cst(uint32_type_node, i);
-
-                    gen_add(gsi, build_call(locus,
-                                            builtin_decl_explicit(BUILT_IN_OACC_COPYOUT), 5,
-                                            build_fold_addr_expr(arg),
-                                            fold_binary(TRUNC_DIV_EXPR, uint32_type_node, size, bits_per_byte),
-                                            chk_presence, queue_handle, idx));
-                }
-
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1, queue_handle));
-            gen_add(gsi, build_call(locus,
-                                    builtin_decl_explicit(BUILT_IN_OACC_WAIT_EVENTS), 1, queue_handle));
-
+            fprintf(dump_file, "file: '%s', line %d\n", src_file, src_line);
         }
+
+    gimple call_stmt;
+
+    if(flag_enable_openacc_profiling)
+        {
+            gen_replace(gsi, build_call(locus,
+              builtin_decl_explicit(BUILT_IN_OACC_START_PROFILING), 0));
+
+            /* OACC_check_cur_dev */
+            gen_add(gsi, build_call(locus,
+              builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
+        }
+    else
+        {
+            gen_replace(gsi, build_call(locus,
+              builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
+        }
+
+    /* OACC_get_kernel */
+    for(i = 0; i < kernels.length(); ++i) 
+    {
+      call_stmt = build_call(locus,
+               builtin_decl_explicit(BUILT_IN_OACC_GET_KERNEL), 2,
+               build_string_literal(strlen(ocl_module)+1, ocl_module),
+               build_string_literal(
+                   strlen(IDENTIFIER_POINTER(DECL_NAME(kernels[i]->func)))+1,
+                   IDENTIFIER_POINTER(DECL_NAME(kernels[i]->func))));
+      gimple_call_set_lhs(call_stmt, kernels[i]->kernel_handle);
+      gen_add(gsi, call_stmt);
+    }
+
+    call_stmt = build_call(locus,
+             builtin_decl_explicit(BUILT_IN_OACC_CREATE_EVENTS), 2,
+             build_string_literal(strlen(src_file)+1, src_file),
+             build_int_cst(uint32_type_node, src_line));
+    gimple_call_set_lhs(call_stmt, queue_handle);
+    gen_add(gsi, call_stmt);
+
+    gen_add(gsi, build_call(locus,
+              builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
+              queue_handle,
+              build_int_cst(uint32_type_node,
+                            gimple_acc_nparams(stmt)),
+              build_int_cst(uint32_type_node, OACC_PF_DATAIN)));
+
+    for(i = 0; i < kernels.length(); ++i)
+    {
+      gen_add(gsi, build_call(locus,
+                builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
+                queue_handle,
+                build_int_cst(uint32_type_node, 1),
+                build_int_cst(uint32_type_node, OACC_PF_EXEC)));
+    }
+
+    gen_add(gsi, build_call(locus,
+              builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
+              queue_handle,
+              build_int_cst(uint32_type_node,
+                            gimple_acc_nparams(stmt)),
+              build_int_cst(uint32_type_node, OACC_PF_DATAOUT)));
+
+    /* OACC_set_arg */
+    tree bits_per_byte = build_int_cst(uint32_type_node, 8);
+    tree chk_presence = integer_one_node;
+
+    for(i = 0; i < gimple_acc_nparams(stmt); ++i)
+        {
+            tree arg = GIMPLE_ACC_PARAMS_PTR(stmt)[i];
+            if(is_gimple_reg(arg)) continue;
+            tree type = TREE_TYPE(arg);
+            tree size = TYPE_SIZE(type);
+            tree idx = build_int_cst(uint32_type_node, i);
+
+            call_stmt = build_call(locus,
+               builtin_decl_explicit(BUILT_IN_OACC_COPYIN), 5,
+               build_fold_addr_expr(arg),
+               fold_binary(TRUNC_DIV_EXPR,
+                           uint32_type_node, size, bits_per_byte),
+               chk_presence, queue_handle, idx);
+            gimple_call_set_lhs(call_stmt, buffer_handle);
+            gen_add(gsi, call_stmt);
+
+            for(j = 0; j < kernels.length(); ++j)
+            {
+              gen_add(gsi, build_call(locus,
+                  builtin_decl_explicit(BUILT_IN_OACC_SET_KERNEL_ARG), 3,
+                  kernels[j]->kernel_handle, idx, buffer_handle));
+            }
+        }
+
+
+    gen_add(gsi, build_call(locus,
+                builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
+                queue_handle));
+
+    /* OACC_start_kernel */
+    for(i = 0; i < kernels.length(); ++i)
+    {
+      tree worksize;
+      if(kernels[i]->niter_desc.niter != NULL_TREE
+              && TREE_CODE(kernels[i]->niter_desc.niter) == INTEGER_CST)
+          {
+              worksize = kernels[i]->niter_desc.niter;
+          }
+      else
+          {
+              worksize = build_int_cst(uint32_type_node,
+                kernels[i]->niter_desc.max.to_shwi());
+          }
+
+      gen_add(gsi, build_call(locus,
+                    builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 4,
+                    kernels[i]->kernel_handle, worksize, queue_handle,
+                    build_int_cst(uint32_type_node, 0)));
+      gen_add(gsi, build_call(locus,
+                  builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
+                  queue_handle));
+    }
+
+    /* OACC_copyout */
+    for(i = 0; i < gimple_acc_nparams(stmt); ++i)
+        {
+            tree arg = GIMPLE_ACC_PARAMS_PTR(stmt)[i];
+            if(is_gimple_reg(arg)) continue;
+            tree type = TREE_TYPE(arg);
+            tree size = TYPE_SIZE(type);
+            tree idx = build_int_cst(uint32_type_node, i);
+
+            gen_add(gsi, build_call(locus,
+                builtin_decl_explicit(BUILT_IN_OACC_COPYOUT), 5,
+                build_fold_addr_expr(arg),
+                fold_binary(TRUNC_DIV_EXPR, uint32_type_node, size,
+                  bits_per_byte),
+                chk_presence, queue_handle, idx));
+        }
+
+    gen_add(gsi, build_call(locus,
+                builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
+                queue_handle));
+    gen_add(gsi, build_call(locus,
+                builtin_decl_explicit(BUILT_IN_OACC_WAIT_EVENTS), 1,
+                queue_handle));
+
 }
 
 static void
 generate_opencl(void)
 {
-    rewrite_out_of_ssa(&SA);
-    cleanup_tree_cfg();
+    //rewrite_out_of_ssa(&SA);
+    //cleanup_tree_cfg();
     generate_opencl_kernel(ocl_module, current_function_decl, &SA);
-    finish_out_of_ssa(&SA);
+    //finish_out_of_ssa(&SA);
 }
 
 
@@ -2014,6 +2508,15 @@ finish_current_fn(void)
             fprintf(dump_file, "gimple_df=%p\n", (void*)cfun->gimple_df);
             fprintf(dump_file, "cfg=%p\n", (void*)cfun->cfg);
         }
+    basic_block bb;
+    unsigned i;
+
+    for(i = 0; i < basic_block_info->length(); ++i)
+    {
+      bb = (*basic_block_info)[i];
+      unlink_block(bb);
+    }
+
     /*
        struct cgraph_node* node = cgraph_get_node(current_function_decl);
        free_dominance_info(CDI_DOMINATORS);
@@ -2022,12 +2525,79 @@ finish_current_fn(void)
      */
 }
 
+static void
+expand_region (acc_region region)
+{
+  gimple stmt;
+  gimple_stmt_iterator gsi;
+
+  stmt = region->stmt;
+  switch(gimple_code(stmt))
+    {
+    case GIMPLE_ACC_PARALLEL:
+    case GIMPLE_ACC_KERNELS:
+      gsi = gsi_for_stmt(stmt);
+      expand_oacc_kernels(&gsi);
+      break;
+    default:
+      gcc_unreachable();
+    }
+}
+
+static void
+traverse_regions (acc_region region)
+{
+  unsigned i;
+
+  for(i = 0; i < vec_safe_length(region->children); ++i)
+  {
+    traverse_regions (vec_safe_address(region->children)[i]);
+  }
+  if(region->stmt != NULL)
+    expand_region(region);
+}
+
+static void
+build_acc_region(basic_block bb, acc_region outer)
+{
+  gimple_stmt_iterator gsi;
+  basic_block child;
+
+  gsi = gsi_last_bb(bb);
+  if(!gsi_end_p(gsi) && is_gimple_acc(gsi_stmt(gsi)))
+    {
+      gimple stmt;
+      acc_region region = NULL;
+
+      stmt = gsi_stmt(gsi);
+      switch(gimple_code(stmt))
+        {
+        case GIMPLE_ACC_KERNELS:
+        case GIMPLE_ACC_PARALLEL:
+          region = new_acc_region(stmt, outer);
+          outer = region;
+          break;
+        case GIMPLE_ACC_COMPUTE_REGION_END:
+          gcc_assert(outer);
+          region = outer;
+          outer = outer->parent;
+          break;
+        default:
+          break;
+        }
+    }
+  for(child = first_dom_son(CDI_DOMINATORS, bb); child != NULL;
+      child = next_dom_son(CDI_DOMINATORS, child))
+    build_acc_region(child, outer);
+}
+
 /* Main entry point for expanding OpenACC.  */
 
 static unsigned int
 execute_expand_oacc (void)
 {
     basic_block bb;
+    splay_tree_node v;
 
     if(oacc_kernels
             && bitmap_bit_p(oacc_kernels, DECL_UID(current_function_decl)))
@@ -2037,6 +2607,21 @@ execute_expand_oacc (void)
             //finish_current_fn();
             return 0;
         }
+
+    root_region = new_acc_region(NULL, NULL);
+    calculate_dominance_info (CDI_DOMINATORS);
+    build_acc_region (ENTRY_BLOCK_PTR, root_region);
+
+    if(vec_safe_length(root_region->children) > 0)
+      {
+        if(dump_file)
+          {
+            fprintf(dump_file, "ACC REGION TREE\n===============\n");
+            dump_acc_region(dump_file, root_region, 0);
+          }
+        //traverse_regions(root_region);
+      }
+    //delete_acc_region(root_region);
 
     FOR_EACH_BB(bb)
     {
@@ -2050,11 +2635,16 @@ execute_expand_oacc (void)
                     case GIMPLE_ACC_KERNELS:
                         expand_oacc_kernels(&gsi);
                         break;
+                    case GIMPLE_ACC_COMPUTE_REGION_END:
+                    case GIMPLE_ACC_DATA_REGION_END:
+                        gsi_replace( &gsi, gimple_build_nop (), false);
+                        break;
                     default:
                         break;
                     }
             }
     }
+
     return 0;
 }
 
@@ -2123,7 +2713,7 @@ diagnose_cb(gimple_stmt_iterator *gsi_p, gimple branch_ctx, gimple label_ctx)
 {
     if (label_ctx == branch_ctx)
         return false;
-    /* If it's obvious we have an invalid entry, be specific about the error.  */
+    /* If it's obvious we have an invalid entry, be specific about the error.*/
     if (branch_ctx == NULL)
         error ("invalid entry to OpenACC structured block");
     else

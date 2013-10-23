@@ -708,6 +708,9 @@ make_edges (void)
         case GIMPLE_ACC_DECLARE:
         case GIMPLE_ACC_UPDATE:
         case GIMPLE_ACC_LOOP:
+        case GIMPLE_ACC_COMPUTE_REGION_END:
+        case GIMPLE_ACC_DATA_REGION_END:
+          fallthru = true;
           break;
 
 	    default:
@@ -2292,8 +2295,8 @@ is_ctrl_altering_stmt (gimple t)
 
     CASE_GIMPLE_ACC:
       /* OpenACC directives alter control flow.  */
-      //return true;
-			return false;
+      return true;
+			//return false;
 
     case GIMPLE_TRANSACTION:
       /* A transaction start alters control flow.  */

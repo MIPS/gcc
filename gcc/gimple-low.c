@@ -483,6 +483,8 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
     case GIMPLE_ACC_HOST_DATA:
     case GIMPLE_ACC_DECLARE:
     case GIMPLE_ACC_UPDATE:
+    case GIMPLE_ACC_COMPUTE_REGION_END:
+    case GIMPLE_ACC_DATA_REGION_END:
       break;
 
     default:
