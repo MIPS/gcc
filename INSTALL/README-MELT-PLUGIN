@@ -206,7 +206,7 @@ it is generating C++ code.
    =====================
 
  **** 
- * Several MELT modes are usable without real knowledge of MELT
+ * Several MELT modes are usable without real knowledge of the MELT
    domain specific language, notably -fplugin-arg-melt-mode=findgimple
    (to find all gimples matching some given gimple pattern in all
    functions whose declaration matches a given tree pattern) and
@@ -216,34 +216,36 @@ it is generating C++ code.
   Some examples of findgimple modes:
 
 
-   Find all calls to malloc with a constant size greater than 100:
+  + Find all calls to malloc with a constant size greater than 100:
 
       gcc -fplugin=melt -fplugin-arg-melt-mode=findgimple \
-        -fplugin-arg-melt-arg='                           \
-        ?(gimple_call_1                                   \
-          ?(tree_function_decl_of_name "malloc" ?_ ?_)    \
-          ?(tree_integer_cst ?(some_integer_greater_than 100)) \
-        )’ -O2 -c yourcode.c
+        -fplugin-arg-melt-arg='                          
+        ?(gimple_call_1 ?_                                
+          ?(tree_function_decl_of_name "malloc" ?_ ?_)  
+          ?(tree_integer_cst ?(some_integer_greater_than 100))
+        )' -O2 -c yourcode.c
   
-  The above command is slowly generating some C++ code and compiling
+  The above command is generating some C++ code and slowly compiling
   it then dlopen-ing it, every time you run that command. To make it
   faster, you may want to generate a MELT module findmallocgt100 once,
   and use that module to search mallocs on many files:
 
       gcc -fplugin=melt -fplugin-arg-melt-mode=findgimple \
-      -fplugin-arg-melt-arg=’
+      -fplugin-arg-melt-arg='
       ?(gimple_call_1 ?_
         ?(tree_function_decl_of_name "malloc" ?_ ?_)
         ?(tree_integer_cst ?(some_integer_greater_than 100))
-      )’ -fplugin-arg-melt-output=findmallocgt100 -c empty-file.c
+      )' -fplugin-arg-melt-output=findmallocgt100 -c empty-file.c
 
   Then you can quickly search that pattern using
 
-      gcc -fplugin=melt -fplugin-arg-melt-extra=findmallocgt100 
+      gcc -fplugin=melt -fplugin-arg-melt-extra=findmallocgt100 \
           -fplugin-arg-melt-mode=gofindgimple -O2 yourfile.cc
 
-  and this should run much faster, because no C++ code needs to be generated and compiled.
+  and this should run much faster, because no C++ code needs to be
+  generated and compiled.
 
+ 
  ***
  * When verbose, all the successful modes are displayed.
 

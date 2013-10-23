@@ -31,6 +31,110 @@
 ;;    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; dynamically make a MELT s-expression, notably useful for macros and
+;; quotes this function is used for quotes and backquotes macro, so
+;; should appear early.
+(defun melt_make_sexpr (loc :rest)
+  :doc #{Dynamically build an s-expression of $CLASS_SEXPR with location $LOC and other arguments.}#
+  (let ( (cont (make_list discr_list))
+	 (vloc (cond ( (is_mixint loc)
+		       loc
+		       )
+		     ( (is_mixloc loc)
+		       loc)
+		     ( (is_a loc class_located)
+		       (unsafe_get_field :loca_location loc))
+		     (:else ())))
+	 (sexpr (instance class_sexpr
+			  :loca_location vloc
+			  :sexp_contents cont))
+	 )
+    (debug "melt_make_sexpr start loc=" loc " vloc=" vloc)
+    (shortbacktrace_dbg "melt_make_sexpr" 12)
+    (forever 
+     argloop
+     (debug "melt_make_sexpr variadic_index:" (variadic_index))
+     (variadic 
+      ( ()
+	(exit argloop))
+      ( (:cstring str)
+	(debug "melt_make_sexpr str=" str)
+	(let ( (bs (constant_box str))
+	       )
+	  (list_append cont bs)))
+      ( (:long num)
+	(debug "melt_make_sexpr num=" num)
+	(let ( (bs (constant_box num))
+	       )
+	  (list_append cont bs)))
+      ( (:value v)
+	(debug "melt_make_sexpr v=" v)
+	(cond ( (null v)
+		(list_append cont v))
+	      ( (is_object v)
+		(list_append cont v))
+	      ( (is_integerbox v)
+		(list_append cont v))
+	      ( (is_string v)
+		(list_append cont v))
+	      ( (is_multiple v)
+		(foreach_in_multiple
+		 (v)
+		 (comp :long ix)
+		 (list_append cont comp)))
+	      ( (is_list v)
+		(foreach_pair_component_in_list
+		 (v)
+		 (curpair curcomp)
+		 (list_append cont curcomp)))
+	      ;; try to reify locations
+	      ( (is_mixloc v)
+		(let ( (:long locline (mixloc_locline v))
+		       (:cstring locfile (mixloc_locfile v))
+		       )
+		  (if (and (>i locline 0)
+			   (cstring_non_empty locfile))
+		      (list_append cont (instance class_sexpr
+						  :loca_location loc
+						  :sexp_contents (list 'hook_melt_make_location 
+								       (constant_box locfile) 
+								       (constant_box locline))))
+		    (list_append cont ())))
+		)
+	      ( (and (is_mixint v)
+		     (is_string (mixint_val v))
+		     )
+		(let ( (:long locline (get_int v))
+		       )
+		  (list_append cont (instance class_sexpr
+					      :loca_location loc
+					      :sexp_contents (list 'hook_melt_make_location 
+								   (mixint_val v) 
+								   (constant_box locline))))
+		  (list_append cont ()))
+		)
+	      ( (is_closure v)
+		(v cont))
+	      (:else
+	       (error_at vloc "unexpected value for MELT_MAKE_SEXPR of discriminant $1 at index $2"_ 
+			 (get_field :named_name (discrim v)) (variadic_index))
+	       (return ())
+	       )))
+      (:else
+       (debug "melt_make_sexpr variadic_ctype:" (variadic_ctype 0) " at variadic_index:" (variadic_index))
+       (error_at vloc "unexpected thing of ctype $1 at index $2 for MELT_MAKE_SEXPR"_ 
+		 (get_field :named_name (variadic_ctype 0)) (variadic_index))
+       (return ())
+       )))
+    (debug "melt_make_sexpr returns sexpr=" sexpr)
+    (return sexpr)
+    ))
+
+;; it is also called make_sexpr for simplicity
+(export_values melt_make_sexpr)
+(export_synonym make_sexpr melt_make_sexpr)
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
 ;;****************************************************************
@@ -1386,108 +1490,6 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;; dynamically make a MELT s-expression, notably useful for macros and quotes
-(defun melt_make_sexpr (loc :rest)
-  :doc #{Dynamically build an s-expression of $CLASS_SEXPR with location $LOC and other arguments.}#
-  (let ( (cont (make_list discr_list))
-	 (vloc (cond ( (is_mixint loc)
-		       loc
-		       )
-		     ( (is_mixloc loc)
-		       loc)
-		     ( (is_a loc class_located)
-		       (unsafe_get_field :loca_location loc))
-		     (:else ())))
-	 (sexpr (instance class_sexpr
-			  :loca_location vloc
-			  :sexp_contents cont))
-	 )
-    (debug "melt_make_sexpr start loc=" loc " vloc=" vloc)
-    (shortbacktrace_dbg "melt_make_sexpr" 12)
-    (forever 
-     argloop
-     (debug "melt_make_sexpr variadic_index:" (variadic_index))
-     (variadic 
-      ( ()
-	(exit argloop))
-      ( (:cstring str)
-	(debug "melt_make_sexpr str=" str)
-	(let ( (bs (constant_box str))
-	       )
-	  (list_append cont bs)))
-      ( (:long num)
-	(debug "melt_make_sexpr num=" num)
-	(let ( (bs (constant_box num))
-	       )
-	  (list_append cont bs)))
-      ( (:value v)
-	(debug "melt_make_sexpr v=" v)
-	(cond ( (null v)
-		(list_append cont v))
-	      ( (is_object v)
-		(list_append cont v))
-	      ( (is_integerbox v)
-		(list_append cont v))
-	      ( (is_string v)
-		(list_append cont v))
-	      ( (is_multiple v)
-		(foreach_in_multiple
-		 (v)
-		 (comp :long ix)
-		 (list_append cont comp)))
-	      ( (is_list v)
-		(foreach_pair_component_in_list
-		 (v)
-		 (curpair curcomp)
-		 (list_append cont curcomp)))
-	      ;; try to reify locations
-	      ( (is_mixloc v)
-		(let ( (:long locline (mixloc_locline v))
-		       (:cstring locfile (mixloc_locfile v))
-		       )
-		  (if (and (>i locline 0)
-			   (cstring_non_empty locfile))
-		      (list_append cont (instance class_sexpr
-						  :loca_location loc
-						  :sexp_contents (list 'hook_melt_make_location 
-								       (constant_box locfile) 
-								       (constant_box locline))))
-		    (list_append cont ())))
-		)
-	      ( (and (is_mixint v)
-		     (is_string (mixint_val v))
-		     )
-		(let ( (:long locline (get_int v))
-		       )
-		  (list_append cont (instance class_sexpr
-					      :loca_location loc
-					      :sexp_contents (list 'hook_melt_make_location 
-								   (mixint_val v) 
-								   (constant_box locline))))
-		  (list_append cont ()))
-		)
-	      ( (is_closure v)
-		(v cont))
-	      (:else
-	       (error_at vloc "unexpected value for MELT_MAKE_SEXPR of discriminant $1 at index $2"_ 
-			 (get_field :named_name (discrim v)) (variadic_index))
-	       (return ())
-	       )))
-      (:else
-       (debug "melt_make_sexpr variadic_ctype:" (variadic_ctype 0) " at variadic_index:" (variadic_index))
-       (error_at vloc "unexpected thing of ctype $1 at index $2 for MELT_MAKE_SEXPR"_ 
-		 (get_field :named_name (variadic_ctype 0)) (variadic_index))
-       (return ())
-       )))
-    (debug "melt_make_sexpr returns sexpr=" sexpr)
-    (return sexpr)
-    ))
-
-;; it is also called make_sexpr for simplicity
-(export_values melt_make_sexpr)
-(export_synonym make_sexpr melt_make_sexpr)
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; compute the recursive weight of an s-expr (or give :true if too big)
 (defun s_expr_weight (topsexpr)

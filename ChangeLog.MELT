@@ -1,4 +1,9 @@
 
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* INSTALL/README-MELT-PLUGIN: Improved, beware of quote
+	characters...
+
 2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* INSTALL/README-MELT-PLUGIN: Improved, but still incomplete for
