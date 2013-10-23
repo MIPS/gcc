@@ -1,3 +1,23 @@
+2013-10-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58793
+	* interface.c (compare_parameter): Reject passing TYPE(*)
+	to CLASS(*).
+
+2013-10-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran 57893
+	* class.c : Include target-memory.h.
+	(gfc_find_intrinsic_vtab) Build a minimal expression so that
+	gfc_element_size can be used to obtain the storage size, rather
+	that the kind value.
+
+2013-10-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58803
+	* decl.c (match_ppc_decl): Prevent later
+	double free.
+
 2013-10-17  Andrew MacLeod  <amacleod@redhat.com>
 
 	* trans-openmp.c: Include omp-low.h.

@@ -8610,7 +8610,7 @@ apply_late_template_attributes (tree *decl_p, tree attributes, int attr_flags,
 		 pass it through tsubst.  Attributes like mode, format,
 		 cleanup and several target specific attributes expect it
 		 unmodified.  */
-	      else if (attribute_takes_identifier_p (TREE_PURPOSE (t)))
+	      else if (attribute_takes_identifier_p (get_attribute_name (t)))
 		{
 		  tree chain
 		    = tsubst_expr (TREE_CHAIN (TREE_VALUE (t)), args, complain,
@@ -18615,10 +18615,15 @@ most_specialized_class (tree type, tree tmpl, tsubst_flags_t complain)
       if (spec_tmpl == error_mark_node)
 	return error_mark_node;
 
+      ++processing_template_decl;
+
       tree parms = DECL_INNERMOST_TEMPLATE_PARMS (spec_tmpl);
       spec_args = get_class_bindings (tmpl, parms,
 				      partial_spec_args,
 				      args);
+
+      --processing_template_decl;
+
       if (spec_args)
 	{
 	  if (outer_args)

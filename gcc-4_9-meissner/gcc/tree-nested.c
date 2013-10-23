@@ -28,11 +28,13 @@
 #include "tree-inline.h"
 #include "gimple.h"
 #include "tree-iterator.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
 #include "cgraph.h"
+#include "tree-cfg.h"
 #include "expr.h"	/* FIXME: For STACK_SAVEAREA_MODE and SAVE_NONLOCAL.  */
 #include "langhooks.h"
 #include "pointer-set.h"
+#include "gimple-low.h"
 
 
 /* The object of this pass is to lower the representation of a set of nested

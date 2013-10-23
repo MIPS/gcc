@@ -30,6 +30,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "ggc.h"
 #include "gimple-pretty-print.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
@@ -43,6 +53,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "tree-ssa-live.h"
 #include "omp-low.h"
+#include "tree-cfgcleanup.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */

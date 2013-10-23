@@ -32,6 +32,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "flags.h"
 #include "function.h"
@@ -44,6 +52,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "target.h"
 #include "omp-low.h"
+#include "gimple-low.h"
+#include "tree-cfgcleanup.h"
 
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two

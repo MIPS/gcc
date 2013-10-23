@@ -34,14 +34,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "dumpfile.h"
 #include "gimple.h"
-#include "tree-ssa.h"
+#include "gimple-ssa.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "tree-inline.h"
 #include "params.h"
 #include "vec.h"
-#include "bitmap.h"
 #include "pointer-set.h"
 #include "alloc-pool.h"
 #include "tree-ssa-alias.h"
+#include "ipa-reference.h"
 
 /* Broad overview of how alias analysis on gimple works:
 

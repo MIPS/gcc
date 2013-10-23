@@ -28,7 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "flags.h"
 #include "tree.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
 #include "pointer-set.h"
 #include "ggc.h"
 #include "dumpfile.h"
@@ -1912,4 +1913,10 @@ get_max_loop_iterations_int (struct loop *loop)
   return hwi_nit < 0 ? -1 : hwi_nit;
 }
 
+/* Returns the loop depth of the loop BB belongs to.  */
 
+int
+bb_loop_depth (const_basic_block bb)
+{
+  return bb->loop_father ? loop_depth (bb->loop_father) : 0;
+}

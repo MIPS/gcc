@@ -25,15 +25,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"
-#include "gimple.h"
 #include "expr.h"
 #include "cfgloop.h"
 #include "optabs.h"
 #include "tree-ssa-propagate.h"
+#include "tree-ssa-dom.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized

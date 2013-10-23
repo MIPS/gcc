@@ -1,5 +1,8 @@
 2013-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 203983.
+	* REVISION: Update subversion number.
+
 	* config/rs6000/rs6000.md (mov<mode>_hardfloat64): Make
 	constraints easier to debug.
 	(movdi_internal64): Likewise.

@@ -30,8 +30,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-pretty-print.h"
 #include "langhooks.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple-ssa.h"
 #include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-ssanames.h"
+#include "tree-ssa.h"
 #include "timevar.h"
 #include "hashtab.h"
 #include "flags.h"
@@ -43,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "vec.h"
 #include "omp-low.h"
+#include "gimple-low.h"
 
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
