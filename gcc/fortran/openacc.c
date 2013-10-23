@@ -39,6 +39,7 @@
 #define ACC_CLAUSE_DEVICE_RESIDENT      (1l << 25)
 #define ACC_CLAUSE_HOST                 (1l << 26)
 #define ACC_CLAUSE_DEVICE               (1l << 27)
+#define ACC_CLAUSE_DEFAULT              (1l << 28)
 
 /* Match an end of OpenACC directive.  End of OpenACC directive is optional
    whitespace, followed by '\n' or comment '!'.  */
@@ -466,15 +467,33 @@ gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
       if ((mask & ACC_CLAUSE_SEQ) && !c->seq
           && gfc_match ("seq") == MATCH_YES)
         {
-          c->seq = needs_space = true;
+          c->seq = true;
+          needs_space = true;
           continue;
         }
       if ((mask & ACC_CLAUSE_INDEPENDENT) && !c->independent
           && gfc_match ("independent") == MATCH_YES)
         {
-          c->independent = needs_space = true;
+          c->independent = true;
+          needs_space = true;
           continue;
         }
+      if ((mask & ACC_CLAUSE_DEFAULT) && !c->default_none
+                && gfc_match ("default ( none )") == MATCH_YES)
+        {
+//          if (gfc_match_char ('(') != MATCH_YES ||
+//              gfc_match ("none") != MATCH_YES ||
+//              gfc_match_char (')') != MATCH_YES)
+//            {
+//              gfc_error_now ("Default clause must be 'default(none)' in %C");
+//              break;
+//            }
+          c->default_none = true;
+          needs_space = true;
+          continue;
+        }
+
+
 
       /* Reduction */
       old_loc = gfc_current_locus;
@@ -581,13 +600,14 @@ gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
    | ACC_CLAUSE_COPY | ACC_CLAUSE_COPYIN | ACC_CLAUSE_COPYOUT                                    \
    | ACC_CLAUSE_CREATE | ACC_CLAUSE_PRESENT | ACC_CLAUSE_PRESENT_OR_COPY                         \
    | ACC_CLAUSE_PRESENT_OR_COPYIN | ACC_CLAUSE_PRESENT_OR_COPYOUT | ACC_CLAUSE_PRESENT_OR_CREATE \
-   | ACC_CLAUSE_DEVICEPTR | ACC_CLAUSE_PRIVATE | ACC_CLAUSE_FIRSTPRIVATE)
+   | ACC_CLAUSE_DEVICEPTR | ACC_CLAUSE_PRIVATE | ACC_CLAUSE_FIRSTPRIVATE | ACC_CLAUSE_DEFAULT)
 
 #define ACC_KERNELS_CLAUSES \
   (ACC_CLAUSE_IF | ACC_CLAUSE_ASYNC | ACC_CLAUSE_DEVICEPTR                                       \
    | ACC_CLAUSE_COPY | ACC_CLAUSE_COPYIN | ACC_CLAUSE_COPYOUT                                    \
    | ACC_CLAUSE_CREATE | ACC_CLAUSE_PRESENT | ACC_CLAUSE_PRESENT_OR_COPY                         \
-   | ACC_CLAUSE_PRESENT_OR_COPYIN | ACC_CLAUSE_PRESENT_OR_COPYOUT | ACC_CLAUSE_PRESENT_OR_CREATE)
+   | ACC_CLAUSE_PRESENT_OR_COPYIN | ACC_CLAUSE_PRESENT_OR_COPYOUT | ACC_CLAUSE_PRESENT_OR_CREATE \
+   | ACC_CLAUSE_DEFAULT)
 
 #define ACC_DATA_CLAUSES \
   (ACC_CLAUSE_IF | ACC_CLAUSE_DEVICEPTR                                                          \

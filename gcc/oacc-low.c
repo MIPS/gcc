@@ -401,6 +401,56 @@ add_host_version(gimple_stmt_iterator *gsi, gimple_seq orig)
     gsi_insert_seq_after(gsi, orig, GSI_CONTINUE_LINKING);
 }
 
+static bool
+is_pointer(tree arg)
+{
+  return TREE_CODE(TREE_TYPE(arg)) == POINTER_TYPE;
+}
+
+/* When there is assignment like D.1988 = a.1 + D.1987 where a.1 id pointer
+ * we have to add one assign before the statement:
+ * D.1988 = a.1;
+ */
+static void
+add_assingments_to_ptrs (gimple_seq *seq)
+{
+  gimple_stmt_iterator gsi;
+
+  for (gsi = gsi_start (*seq); !gsi_end_p (gsi); gsi_next (&gsi))
+    {
+      gimple stmt = gsi_stmt(gsi);
+      gimple_seq inner_seq;
+      gimple_stmt_iterator inner_gsi;
+
+      gcc_assert (gimple_code(stmt) == GIMPLE_BIND);
+      inner_seq = gimple_bind_body (stmt);
+      for (inner_gsi = gsi_start (inner_seq); !gsi_end_p (inner_gsi); gsi_next (&inner_gsi))
+        {
+          gimple inner_stmt = gsi_stmt(inner_gsi);
+          if (is_gimple_assign (inner_stmt))
+            {
+              tree rhs = gimple_assign_rhs1 (inner_stmt);
+              if (is_pointer(rhs))
+                {
+                  tree lhs = gimple_assign_lhs (inner_stmt);
+                  tree op = gimple_assign_rhs2 (inner_stmt);
+
+                  /* _oacc_ptr_tmp = a */
+                  tree convert_var = create_tmp_var (TREE_TYPE(lhs), "_oacc_ptr_tmp");
+                  gimple convert_stmt = gimple_build_assign (convert_var, rhs);
+                  gsi_insert_before (&inner_gsi, convert_stmt, GSI_SAME_STMT);
+
+                  /* D.1988 = _oacc_ptr_tmp + offset */
+                  gimple assign_stmt = build_assign ((enum tree_code)inner_stmt->gsbase.subcode, convert_var, op, M_NORMAL);
+                  gimple_assign_set_lhs (assign_stmt, lhs);
+                  gsi_replace (&inner_gsi, assign_stmt, true);
+                }
+            }
+        }
+    }
+}
+
+
 static void
 lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
 {
@@ -417,6 +467,7 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
             print_gimple_seq(dump_file, orig, 0, 0);
         }
     body = gimple_seq_copy(orig);
+    add_assingments_to_ptrs(&body);
     lower_oacc(&body, ctx);
     child_fn = GIMPLE_ACC_CHILD_FN(stmt);
 
@@ -555,14 +606,10 @@ gather_oacc_fn_args(splay_tree_node node, void* data)
 {
     vec<tree>* pargs = (vec<tree>*)data;
     tree arg = (tree)node->key;
-    if(!is_gimple_reg(arg))
-        {
-            pargs->quick_push(arg);
-        }
+    if(!is_gimple_reg(arg) || is_pointer(arg))
+      pargs->quick_push(arg);
     else
-        {
-            node->value = (splay_tree_value)NULL_TREE;
-        }
+      node->value = (splay_tree_value)NULL_TREE;
     return 0;
 }
 
@@ -594,13 +641,11 @@ gather_oacc_fn_locals(splay_tree_node node, void* data)
 {
     splay_tree* local_map = (splay_tree*)data;
     tree arg = (tree)node->key;
-    if(is_gimple_reg(arg))
+    if(is_gimple_reg(arg) && !is_pointer(arg))
         {
             const char *id = "_oacc_param";
             if(DECL_NAME(arg))
-                {
-                    id = IDENTIFIER_POINTER(DECL_NAME(arg));
-                }
+              id = IDENTIFIER_POINTER(DECL_NAME(arg));
             tree t1 = create_tmp_reg(TREE_TYPE(arg), id);
             splay_tree_insert(*local_map, (splay_tree_key)arg,
                                           (splay_tree_value)t1);

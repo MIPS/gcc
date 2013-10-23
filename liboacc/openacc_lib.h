@@ -27,6 +27,11 @@
 !
       integer openacc_version
       parameter ( openacc_version = 201111 )
+      integer acc_async_noval
+      parameter ( acc_async_noval = -1 )
+      integer acc_async_sync
+      parameter ( acc_async_sync = -2 )
+
       integer acc_device_none
       parameter ( acc_device_none = 0 )
       integer acc_device_default

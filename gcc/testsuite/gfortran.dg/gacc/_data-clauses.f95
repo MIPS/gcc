@@ -1,7 +1,6 @@
 ! { dg-do compile } 
 ! { dg-options "-fopenacc -fmax-errors=100" } 
 
-! without suarrays, since they are not implemented yet
 ! todo: some of warnings are not necessary
 
 module test 

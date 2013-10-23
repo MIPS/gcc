@@ -31,6 +31,8 @@
         use openacc_lib_kind
         implicit none
         integer, parameter :: openacc_version = 201111
+        integer, parameter :: acc_async_noval = -1 
+        integer, parameter :: acc_async_sync = -2
         integer (acc_device_kind), parameter :: acc_device_none = 0
         integer (acc_device_kind), parameter :: acc_device_default = 1
         integer (acc_device_kind), parameter :: acc_device_host = 2
