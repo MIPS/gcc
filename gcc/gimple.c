@@ -379,7 +379,7 @@ gimple_call_get_nobnd_arg_index (const_gimple gs, unsigned index)
   unsigned num_args = gimple_call_num_args (gs);
   for (unsigned n = 0; n < num_args; n++)
     {
-      if (BOUND_P (gimple_call_arg (gs, n)))
+      if (POINTER_BOUNDS_P (gimple_call_arg (gs, n)))
 	continue;
       else if (index)
 	index--;

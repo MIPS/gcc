@@ -1180,7 +1180,8 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 
     case POINTER_TYPE:
     case REFERENCE_TYPE:
-      /* Cache NULL pointer.  */
+    case POINTER_BOUNDS_TYPE:
+      /* Cache NULL pointer and zero bounds.  */
       if (!hi && !low)
 	{
 	  limit = 1;
@@ -1197,7 +1198,6 @@ build_int_cst_wide (tree type, unsigned HOST_WIDE_INT low, HOST_WIDE_INT hi)
 
     case INTEGER_TYPE:
     case OFFSET_TYPE:
-    case BOUND_TYPE:
       if (TYPE_UNSIGNED (type))
 	{
 	  /* Cache 0..N */
@@ -3233,7 +3233,7 @@ type_contains_placeholder_1 (const_tree type)
   switch (TREE_CODE (type))
     {
     case VOID_TYPE:
-    case BOUND_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case COMPLEX_TYPE:
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
@@ -9635,7 +9635,7 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   void_type_node = make_node (VOID_TYPE);
   layout_type (void_type_node);
 
-  bound_type_node = targetm.chkp_bound_type ();
+  pointer_bounds_type_node = targetm.chkp_bound_type ();
 
   /* We are not going to have real types in C with less than byte alignment,
      so we might as well not have any types that claim to have it.  */
