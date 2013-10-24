@@ -179,3 +179,79 @@ func7 (void)
      expressions with other pointer types.  */
   (void) (r ? xaip1 : (r ? xaip1 : xvp1));
 }
+
+/* Pointer += and -= integer is valid.  */
+void
+func8 (void)
+{
+  b += 1;
+  b -= 2ULL;
+  ap += 3;
+}
+
+/* Various other cases of simple assignment are valid (some already
+   tested above).  */
+void
+func9 (void)
+{
+  ap = 0;
+  ap = (void *) 0;
+  xvp1 = atp1;
+  atp1 = xvp1;
+}
+
+/* Test compatibility of function types in cases where _Atomic matches
+   (see c11-atomic-3.c for corresponding cases where it doesn't
+   match).  */
+void fc0a (int const);
+void fc0a (int);
+void fc0b (int _Atomic);
+void fc0b (int _Atomic);
+void fc1a (int);
+void
+fc1a (x)
+     volatile int x;
+{
+}
+void fc1b (_Atomic int);
+void
+fc1b (x)
+     volatile _Atomic int x;
+{
+}
+void
+fc2a (x)
+     const int x;
+{
+}
+void fc2a (int); /* { dg-warning "follows non-prototype" } */
+void
+fc2b (x)
+     _Atomic int x;
+{
+}
+void fc2b (_Atomic int); /* { dg-warning "follows non-prototype" } */
+void fc3a (int);
+void
+fc3a (x)
+     volatile short x;
+{
+}
+void fc3b (_Atomic int);
+void
+fc3b (x)
+     _Atomic short x;
+{
+}
+void
+fc4a (x)
+     const short x;
+{
+}
+void fc4a (int); /* { dg-warning "follows non-prototype" } */
+void
+fc4b (x)
+     _Atomic short x;
+{
+}
+void fc4b (_Atomic int); /* { dg-warning "follows non-prototype" } */

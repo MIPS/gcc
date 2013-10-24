@@ -1,3 +1,25 @@
+2013-10-24  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (validate_proto_after_old_defn): Do not remove atomic
+	qualifiers when compating types.
+	(start_decl): Use c_type_promotes_to when promoting argument
+	types.
+	(check_bitfield_type_and_width): Don't check for atomic qualifiers
+	here.
+	(grokdeclarator): Check for atomic qualifiers on bit-fields here.
+	*store_parm_decls_oldstyle): Do not remove atomic qualifiers when
+	comparing types.  Use c_type_promotes_to when promoting argument
+	types.
+	(finish_function) Use c_type_promotes_to when promoting argument
+	types.
+	* c-parser.c (c_parser_typeof_specifier): Use TYPE_ATOMIC instead
+	of testing TYPE_QUAL_ATOMIC in TYPE_QUALS.
+	* c-typeck.c (c_type_promotes_to): Promote atomic types to
+	corresponding atomic types.
+	(type_lists_compatible_p, find_anonymous_field_with_type)
+	(convert_to_anonymous_field, convert_for_assignment): Do not
+	remove atomic qualifiers when comparing types.
+
 2013-10-19  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-decl.c (grokdeclarator): Check earlier for _Atomic applied to

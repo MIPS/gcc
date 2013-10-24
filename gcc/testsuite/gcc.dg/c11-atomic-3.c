@@ -64,3 +64,94 @@ func2 (void)
   (void) (r ? pai : pav); /* { dg-error "pointer type mismatch" } */
   (void) (r ? pav : pai); /* { dg-error "pointer type mismatch" } */
 }
+
+/* Likewise for pointer assignment.  */
+void
+func3 (void)
+{
+  pai = pi; /* { dg-error "incompatible pointer type" } */
+  pi = pai; /* { dg-error "incompatible pointer type" } */
+  pav = pai; /* { dg-error "incompatible pointer type" } */
+  pai = pav; /* { dg-error "incompatible pointer type" } */
+}
+
+/* Cases that are invalid for normal assignments are just as invalid
+   (and should not ICE) when the LHS is atomic.  */
+void
+func4 (void)
+{
+  as = acf; /* { dg-error "incompatible types" } */
+  apv = as; /* { dg-error "incompatible types" } */
+  as += 1; /* { dg-error "invalid operands" } */
+  apv -= 1; /* { dg-error "pointer of type" } */
+  apv *= 1; /* { dg-error "invalid operands" } */
+  apv /= 1; /* { dg-error "invalid operands" } */
+  apv %= 1; /* { dg-error "invalid operands" } */
+  apv <<= 1; /* { dg-error "invalid operands" } */
+  apv >>= 1; /* { dg-error "invalid operands" } */
+  apv &= 1; /* { dg-error "invalid operands" } */
+  apv ^= 1; /* { dg-error "invalid operands" } */
+  apv |= 1; /* { dg-error "invalid operands" } */
+}
+
+/* We don't allow atomic bit-fields in GCC (implementation-defined
+   whether they are permitted).  */
+struct abf
+{
+  _Atomic int i : 1; /* { dg-error "atomic type" } */
+  _Atomic int : 0; /* { dg-error "atomic type" } */
+};
+
+/* _Atomic (type-name) may not use a name for an array, function,
+   qualified or atomic type.  */
+_Atomic (int [2]) v0; /* { dg-error "array type" } */
+_Atomic (void (void)) v1; /* { dg-error "function type" } */
+_Atomic (_Atomic int) v2; /* { dg-error "applied to a qualified type" } */
+_Atomic (const int) v3; /* { dg-error "applied to a qualified type" } */
+_Atomic (volatile int) v4; /* { dg-error "applied to a qualified type" } */
+_Atomic (int *restrict) v5; /* { dg-error "applied to a qualified type" } */
+
+/* _Atomic, used as a qualifier, may not be applied to a function or
+   array type.  */
+typedef int arraytype[2];
+typedef void functiontype (void);
+_Atomic arraytype v6; /* { dg-error "array type" } */
+_Atomic arraytype *v7; /* { dg-error "array type" } */
+typedef _Atomic arraytype v8; /* { dg-error "array type" } */
+int v9 = sizeof (_Atomic arraytype); /* { dg-error "array type" } */
+void v10 (_Atomic arraytype parm); /* { dg-error "array type" } */
+struct v11 { _Atomic arraytype f; }; /* { dg-error "array type" } */
+_Atomic functiontype v12; /* { dg-error "function type" } */
+_Atomic functiontype *v13; /* { dg-error "function type" } */
+typedef _Atomic functiontype *v14; /* { dg-error "function type" } */
+void v15 (_Atomic functiontype parm); /* { dg-error "function type" } */
+
+/* Function parameters, when function types are required to be
+   compatible, may not differ in the presence of _Atomic.  See
+   c11-atomic-1.c for corresponding tests where _Atomic matches.  */
+void fc0 (int _Atomic); /* { dg-message "previous declaration" } */
+void fc0 (int); /* { dg-error "conflicting types" } */
+void fc1 (int); /* { dg-message "prototype declaration" } */
+void
+fc1 (x)
+     _Atomic int x; /* { dg-error "match prototype" } */
+{
+}
+void
+fc2 (x) /* { dg-message "previous definition" } */
+     _Atomic int x;
+{
+}
+void fc2 (int); /* { dg-error "incompatible type" } */
+void fc3 (int); /* { dg-message "prototype declaration" } */
+void
+fc3 (x)
+     _Atomic short x; /* { dg-error "match prototype" } */
+{
+}
+void
+fc4 (x) /* { dg-message "previous definition" } */
+     _Atomic short x;
+{
+}
+void fc4 (int); /* { dg-error "incompatible type" } */

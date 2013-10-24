@@ -1579,8 +1579,14 @@ validate_proto_after_old_defn (tree newdecl, tree newtype, tree oldtype)
       if (oldargtype == error_mark_node || newargtype == error_mark_node)
 	return false;
 
-      oldargtype = TYPE_MAIN_VARIANT (oldargtype);
-      newargtype = TYPE_MAIN_VARIANT (newargtype);
+      oldargtype = (TYPE_ATOMIC (oldargtype)
+		    ? c_build_qualified_type (TYPE_MAIN_VARIANT (oldargtype),
+					      TYPE_QUAL_ATOMIC)
+		    : TYPE_MAIN_VARIANT (oldargtype));
+      newargtype = (TYPE_ATOMIC (newargtype)
+		    ? c_build_qualified_type (TYPE_MAIN_VARIANT (newargtype),
+					      TYPE_QUAL_ATOMIC)
+		    : TYPE_MAIN_VARIANT (newargtype));
 
       if (END_OF_ARGLIST (oldargtype) && END_OF_ARGLIST (newargtype))
 	break;
@@ -4138,7 +4144,7 @@ start_decl (struct c_declarator *declarator, struct c_declspecs *declspecs,
 	      tree type = TREE_TYPE (args);
 	      if (type && INTEGRAL_TYPE_P (type)
 		  && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
-		DECL_ARG_TYPE (args) = integer_type_node;
+		DECL_ARG_TYPE (args) = c_type_promotes_to (type);
 	    }
 	}
     }
@@ -4771,15 +4777,6 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
     {
       error ("bit-field %qs has invalid type", name);
       *type = unsigned_type_node;
-    }
-  /* C11 makes it implementation-defined (6.7.2.1#5) whether atomic
-     types are permitted for bit-fields; we have no code to make
-     bit-field accesses atomic, so disallow them.  */
-  if (TYPE_QUALS (*type) & TYPE_QUAL_ATOMIC)
-    {
-      error ("bit-field %qs has atomic type", name);
-      *type = c_build_qualified_type (*type,
-				      TYPE_QUALS (*type) & ~TYPE_QUAL_ATOMIC);
     }
 
   type_mv = TYPE_MAIN_VARIANT (*type);
@@ -5801,7 +5798,20 @@ grokdeclarator (const struct c_declarator *declarator,
 
   /* Check the type and width of a bit-field.  */
   if (bitfield)
-    check_bitfield_type_and_width (&type, width, name);
+    {
+      check_bitfield_type_and_width (&type, width, name);
+      /* C11 makes it implementation-defined (6.7.2.1#5) whether
+	 atomic types are permitted for bit-fields; we have no code to
+	 make bit-field accesses atomic, so disallow them.  */
+      if (type_quals & TYPE_QUAL_ATOMIC)
+	{
+	  if (name)
+	    error ("bit-field %qE has atomic type", name);
+	  else
+	    error ("bit-field has atomic type");
+	  type_quals &= ~TYPE_QUAL_ATOMIC;
+	}
+    }
 
   /* Reject invalid uses of _Alignas.  */
   if (declspecs->alignas_p)
@@ -8225,11 +8235,15 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 	     type for parameters declared with qualified type.  */
 	  if (TREE_TYPE (parm) != error_mark_node
 	      && TREE_TYPE (type) != error_mark_node
-	      && !comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
-			     TYPE_MAIN_VARIANT (TREE_VALUE (type))))
+	      && ((TYPE_ATOMIC (DECL_ARG_TYPE (parm))
+		   != TYPE_ATOMIC (TREE_VALUE (type)))
+		  || !comptypes (TYPE_MAIN_VARIANT (DECL_ARG_TYPE (parm)),
+				 TYPE_MAIN_VARIANT (TREE_VALUE (type)))))
 	    {
-	      if (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
-		  == TYPE_MAIN_VARIANT (TREE_VALUE (type)))
+	      if ((TYPE_ATOMIC (DECL_ARG_TYPE (parm))
+		   == TYPE_ATOMIC (TREE_VALUE (type)))
+		  && (TYPE_MAIN_VARIANT (TREE_TYPE (parm))
+		      == TYPE_MAIN_VARIANT (TREE_VALUE (type))))
 		{
 		  /* Adjust argument to match prototype.  E.g. a previous
 		     `int foo(float);' prototype causes
@@ -8242,7 +8256,8 @@ store_parm_decls_oldstyle (tree fndecl, const struct c_arg_info *arg_info)
 		      && INTEGRAL_TYPE_P (TREE_TYPE (parm))
 		      && TYPE_PRECISION (TREE_TYPE (parm))
 		      < TYPE_PRECISION (integer_type_node))
-		    DECL_ARG_TYPE (parm) = integer_type_node;
+		    DECL_ARG_TYPE (parm)
+		      = c_type_promotes_to (TREE_TYPE (parm));
 
 		  /* ??? Is it possible to get here with a
 		     built-in prototype or will it always have
@@ -8406,7 +8421,7 @@ finish_function (void)
 	  tree type = TREE_TYPE (args);
 	  if (INTEGRAL_TYPE_P (type)
 	      && TYPE_PRECISION (type) < TYPE_PRECISION (integer_type_node))
-	    DECL_ARG_TYPE (args) = integer_type_node;
+	    DECL_ARG_TYPE (args) = c_type_promotes_to (type);
 	}
     }
 

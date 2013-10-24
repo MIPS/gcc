@@ -2837,8 +2837,7 @@ c_parser_typeof_specifier (c_parser *parser)
 	 all qualifiers should be removed; const can be an issue for
 	 more macros using typeof than just the <stdatomic.h>
 	 ones.)  */
-      if (ret.spec != error_mark_node
-	  && (TYPE_QUALS (ret.spec) & TYPE_QUAL_ATOMIC))
+      if (ret.spec != error_mark_node && TYPE_ATOMIC (ret.spec))
 	ret.spec = c_build_qualified_type (ret.spec,
 					   (TYPE_QUALS (ret.spec)
 					    & ~(TYPE_QUAL_ATOMIC

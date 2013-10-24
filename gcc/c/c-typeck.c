@@ -265,17 +265,24 @@ c_incomplete_type_error (const_tree value, const_tree type)
 tree
 c_type_promotes_to (tree type)
 {
-  if (TYPE_MAIN_VARIANT (type) == float_type_node)
-    return double_type_node;
+  tree ret = NULL_TREE;
 
-  if (c_promoting_integer_type_p (type))
+  if (TYPE_MAIN_VARIANT (type) == float_type_node)
+    ret = double_type_node;
+  else if (c_promoting_integer_type_p (type))
     {
       /* Preserve unsignedness if not really getting any wider.  */
       if (TYPE_UNSIGNED (type)
 	  && (TYPE_PRECISION (type) == TYPE_PRECISION (integer_type_node)))
-	return unsigned_type_node;
-      return integer_type_node;
+	ret = unsigned_type_node;
+      else
+	ret = integer_type_node;
     }
+
+  if (ret != NULL_TREE)
+    return (TYPE_ATOMIC (type)
+	    ? c_build_qualified_type (ret, TYPE_QUAL_ATOMIC)
+	    : ret);
 
   return type;
 }
@@ -1637,9 +1644,15 @@ type_lists_compatible_p (const_tree args1, const_tree args2,
       mv1 = a1 = TREE_VALUE (args1);
       mv2 = a2 = TREE_VALUE (args2);
       if (mv1 && mv1 != error_mark_node && TREE_CODE (mv1) != ARRAY_TYPE)
-	mv1 = TYPE_MAIN_VARIANT (mv1);
+	mv1 = (TYPE_ATOMIC (mv1)
+	       ? c_build_qualified_type (TYPE_MAIN_VARIANT (mv1),
+					 TYPE_QUAL_ATOMIC)
+	       : TYPE_MAIN_VARIANT (mv1));
       if (mv2 && mv2 != error_mark_node && TREE_CODE (mv2) != ARRAY_TYPE)
-	mv2 = TYPE_MAIN_VARIANT (mv2);
+	mv2 = (TYPE_ATOMIC (mv2)
+	       ? c_build_qualified_type (TYPE_MAIN_VARIANT (mv2),
+					 TYPE_QUAL_ATOMIC)
+	       : TYPE_MAIN_VARIANT (mv2));
       /* A null pointer instead of a type
 	 means there is supposed to be an argument
 	 but nothing is specified about what type it has.
@@ -1682,7 +1695,10 @@ type_lists_compatible_p (const_tree args1, const_tree args2,
 		  tree mv3 = TREE_TYPE (memb);
 		  if (mv3 && mv3 != error_mark_node
 		      && TREE_CODE (mv3) != ARRAY_TYPE)
-		    mv3 = TYPE_MAIN_VARIANT (mv3);
+		    mv3 = (TYPE_ATOMIC (mv3)
+			   ? c_build_qualified_type (TYPE_MAIN_VARIANT (mv3),
+						     TYPE_QUAL_ATOMIC)
+			   : TYPE_MAIN_VARIANT (mv3));
 		  if (comptypes_internal (mv3, mv2, enum_and_int_p,
 					  different_types_p))
 		    break;
@@ -1704,7 +1720,10 @@ type_lists_compatible_p (const_tree args1, const_tree args2,
 		  tree mv3 = TREE_TYPE (memb);
 		  if (mv3 && mv3 != error_mark_node
 		      && TREE_CODE (mv3) != ARRAY_TYPE)
-		    mv3 = TYPE_MAIN_VARIANT (mv3);
+		    mv3 = (TYPE_ATOMIC (mv3)
+			   ? c_build_qualified_type (TYPE_MAIN_VARIANT (mv3),
+						     TYPE_QUAL_ATOMIC)
+			   : TYPE_MAIN_VARIANT (mv3));
 		  if (comptypes_internal (mv3, mv1, enum_and_int_p,
 					  different_types_p))
 		    break;
@@ -5154,8 +5173,12 @@ find_anonymous_field_with_type (tree struct_type, tree type)
        field != NULL_TREE;
        field = TREE_CHAIN (field))
     {
+      tree fieldtype = (TYPE_ATOMIC (TREE_TYPE (field))
+			? c_build_qualified_type (TREE_TYPE (field),
+						  TYPE_QUAL_ATOMIC)
+			: TYPE_MAIN_VARIANT (TREE_TYPE (field)));
       if (DECL_NAME (field) == NULL
-	  && comptypes (type, TYPE_MAIN_VARIANT (TREE_TYPE (field))))
+	  && comptypes (type, fieldtype))
 	{
 	  if (found)
 	    return false;
@@ -5193,7 +5216,10 @@ convert_to_anonymous_field (location_t location, tree type, tree rhs)
 	      || TREE_CODE (rhs_struct_type) == UNION_TYPE);
 
   gcc_assert (POINTER_TYPE_P (type));
-  lhs_main_type = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+  lhs_main_type = (TYPE_ATOMIC (TREE_TYPE (type))
+		   ? c_build_qualified_type (TREE_TYPE (type),
+					     TYPE_QUAL_ATOMIC)
+		   : TYPE_MAIN_VARIANT (TREE_TYPE (type)));
 
   found_field = NULL_TREE;
   found_sub_field = false;
@@ -5205,7 +5231,11 @@ convert_to_anonymous_field (location_t location, tree type, tree rhs)
 	  || (TREE_CODE (TREE_TYPE (field)) != RECORD_TYPE
 	      && TREE_CODE (TREE_TYPE (field)) != UNION_TYPE))
 	continue;
-      if (comptypes (lhs_main_type, TYPE_MAIN_VARIANT (TREE_TYPE (field))))
+      tree fieldtype = (TYPE_ATOMIC (TREE_TYPE (field))
+			? c_build_qualified_type (TREE_TYPE (field),
+						  TYPE_QUAL_ATOMIC)
+			: TYPE_MAIN_VARIANT (TREE_TYPE (field)));
+      if (comptypes (lhs_main_type, fieldtype))
 	{
 	  if (found_field != NULL_TREE)
 	    return NULL_TREE;
@@ -5495,17 +5525,18 @@ convert_for_assignment (location_t location, tree type, tree rhs,
 		 and vice versa; otherwise, targets must be the same.
 		 Meanwhile, the lhs target must have all the qualifiers of
 		 the rhs.  */
-	      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
+	      if ((VOID_TYPE_P (ttl) && !TYPE_ATOMIC (ttl))
+		  || (VOID_TYPE_P (ttr) && !TYPE_ATOMIC (ttr))
 		  || comp_target_types (location, memb_type, rhstype))
 		{
+		  int lquals = TYPE_QUALS (ttl) & ~TYPE_QUAL_ATOMIC;
+		  int rquals = TYPE_QUALS (ttr) & ~TYPE_QUAL_ATOMIC;
 		  /* If this type won't generate any warnings, use it.  */
-		  if (TYPE_QUALS (ttl) == TYPE_QUALS (ttr)
+		  if (lquals == rquals
 		      || ((TREE_CODE (ttr) == FUNCTION_TYPE
 			   && TREE_CODE (ttl) == FUNCTION_TYPE)
-			  ? ((TYPE_QUALS (ttl) | TYPE_QUALS (ttr))
-			     == TYPE_QUALS (ttr))
-			  : ((TYPE_QUALS (ttl) | TYPE_QUALS (ttr))
-			     == TYPE_QUALS (ttl))))
+			  ? ((lquals | rquals) == rquals)
+			  : ((lquals | rquals) == lquals)))
 		    break;
 
 		  /* Keep looking for a better type, but remember this one.  */
@@ -5596,9 +5627,15 @@ convert_for_assignment (location_t location, tree type, tree rhs,
       addr_space_t asr;
 
       if (TREE_CODE (mvl) != ARRAY_TYPE)
-	mvl = TYPE_MAIN_VARIANT (mvl);
+	mvl = (TYPE_ATOMIC (mvl)
+	       ? c_build_qualified_type (TYPE_MAIN_VARIANT (mvl),
+					 TYPE_QUAL_ATOMIC)
+	       : TYPE_MAIN_VARIANT (mvl));
       if (TREE_CODE (mvr) != ARRAY_TYPE)
-	mvr = TYPE_MAIN_VARIANT (mvr);
+	mvr = (TYPE_ATOMIC (mvr)
+	       ? c_build_qualified_type (TYPE_MAIN_VARIANT (mvr),
+					 TYPE_QUAL_ATOMIC)
+	       : TYPE_MAIN_VARIANT (mvr));
       /* Opaque pointers are treated like void pointers.  */
       is_opaque_pointer = vector_targets_convertible_p (ttl, ttr);
 
@@ -5699,13 +5736,15 @@ convert_for_assignment (location_t location, tree type, tree rhs,
       /* Any non-function converts to a [const][volatile] void *
 	 and vice versa; otherwise, targets must be the same.
 	 Meanwhile, the lhs target must have all the qualifiers of the rhs.  */
-      if (VOID_TYPE_P (ttl) || VOID_TYPE_P (ttr)
+      if ((VOID_TYPE_P (ttl) && !TYPE_ATOMIC (ttl))
+	  || (VOID_TYPE_P (ttr) && !TYPE_ATOMIC (ttr))
 	  || (target_cmp = comp_target_types (location, type, rhstype))
 	  || is_opaque_pointer
 	  || ((c_common_unsigned_type (mvl)
 	       == c_common_unsigned_type (mvr))
-	      && c_common_signed_type (mvl)
-		 == c_common_signed_type (mvr)))
+	      && (c_common_signed_type (mvl)
+		  == c_common_signed_type (mvr))
+	      && TYPE_ATOMIC (mvl) == TYPE_ATOMIC (mvr)))
 	{
 	  if (pedantic
 	      && ((VOID_TYPE_P (ttl) && TREE_CODE (ttr) == FUNCTION_TYPE)
