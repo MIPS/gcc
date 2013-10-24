@@ -13,7 +13,7 @@
 	(rs6000_preferred_reload_class): Group all constant processing
 	under a if (CONSTANT_P (...)) test.
 
-	* config/rs6000/rs6000.h (VSX_REG_CLASS_P): Move to rs6000.c
+	* config/rs6000/rs6000.h (VSX_REG_CLASS_P): Move to rs6000.c.
 
 2013-10-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
