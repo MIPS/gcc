@@ -162,6 +162,7 @@ extract_progname (const char *argv0)
   return p;
 }
 
+#ifndef TEST_PROVIDES_MAIN
 int
 main (int argc, char **argv)
 {
@@ -183,4 +184,6 @@ main (int argc, char **argv)
 
   return 0;
 }
+#endif /* #ifndef TEST_PROVIDES_MAIN */
+
 #endif /* #ifndef TEST_COMBINATION */
