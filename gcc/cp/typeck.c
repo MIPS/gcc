@@ -3445,7 +3445,7 @@ cp_build_function_call_vec (tree function, vec<tree, va_gc> **params,
             {
               location_t loc = DECL_SOURCE_LOCATION (function);
               error ("%qD is not a viable candidate", function);
-              diagnose_constraints (input_location, tmpl, args);
+              diagnose_constraints (loc, tmpl, args);
               return error_mark_node;
             }
         }

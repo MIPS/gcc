@@ -1,3 +1,7 @@
+2013-10-24  Edward Smith-Rowland  <3dw4rd@verizon.net>
+        * gcc/cp/typeck.c (cp_build_function_call_vec): Use unused variable 
+        loc.
+
 2013-10-23  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/class.c (get_member_fntemplate): New.
 	(are_constrained_member_overloads): Only get a template declaration
