@@ -7395,8 +7395,8 @@ if (1) return;
 		   (:else
 		    (debug "translate_run_melt_expressions/normalextend nonvalue lastnorm=" lastnorm 
 			   " of discrim " (discrim lastnorm) "\n lastctyp=" lastctyp)
-		    (warningmsg_strv 
-		     "runtime expressions ending with a non-value expression, auto-boxing it."
+		    (warning_at () 
+		     "runtime expressions ending with a non-value expression of $1, auto-boxing it."
 		     (get_field :named_name lastctyp))
 		    (multicall
 		     (newexp newbinds)
