@@ -1287,6 +1287,12 @@ fully_constant_vn_reference_p (vn_reference_t ref)
 	      || (arg1->opcode == ADDR_EXPR
 		  && is_gimple_min_invariant (arg1->op0))))
 	anyconst = true;
+
+      /* Don't simplify __builtin_constant_p.  */
+      if (DECL_BUILT_IN_CLASS (TREE_OPERAND (op->op0, 0)) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (TREE_OPERAND (op->op0, 0)) == BUILT_IN_CONSTANT_P)
+	anyconst = false;
+
       if (anyconst)
 	{
 	  tree folded = build_call_expr (TREE_OPERAND (op->op0, 0),

@@ -216,6 +216,12 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2013-10-24  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #8531
+	* tree-ssa-sccvn.c (fully_constant_vn_reference_p): Don't
+	simplify __builtin_constant_p.
+
 2013-10-06  Andrew Pinski  <apinski@cavium.com>
 
 	* config/rs6000/linux64.h (PROFILE_USE_ATOMIC): Define.
