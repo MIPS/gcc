@@ -307,6 +307,22 @@ enum rs6000_reg_type {
 /* Map register class to register type.  */
 static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 
+/* Return whether a given register class is one of register classes (VSX_REGS,
+   ALTIVEC_REGS, and FLOAT_REGS) that could go in VSX registers.  If no -mvsx,
+   the floating point and altivec registers don't get mapped to vsx
+   registers.  */
+
+/* Return whether a given register class is one of the register classes that
+   VSX instructions can use (VSX_REGS, ALTIVEC_REGS, and FLOAT_REGS).  */
+#define VSX_REG_CLASS_P(CLASS)			\
+  (reg_class_to_reg_type[(ssize_t)(CLASS)] == VSX_REG_TYPE)
+
+/* Return whether a given register class is one of the GPR register classes
+   (GENERAL_REGS, BASE_REGS).  */
+
+#define GPR_REG_CLASS_P(CLASS)			\
+  (reg_class_to_reg_type[(ssize_t)(CLASS)] == GPR_REG_TYPE)
+
 /* First/last register type for the 'normal' register types (i.e. general
    purpose, floating point, altivec, and VSX registers).  */
 #define IS_STD_REG_TYPE(RTYPE) IN_RANGE(RTYPE, GPR_REG_TYPE, FPR_REG_TYPE)
@@ -15067,7 +15083,7 @@ rs6000_secondary_reload_memory (rtx addr,
       return false;
     }
 
-  if (rclass == GENERAL_REGS || rclass == BASE_REGS)
+  if (GPR_REG_CLASS_P (rclass))
     addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_GPR];
 
   else if (rclass == FLOAT_REGS)
@@ -15529,7 +15545,7 @@ rs6000_secondary_reload (bool in_p,
 	     an extra register in that case, but it would need an extra
 	     register if the addressing is reg+reg or (reg+reg)&(-16).  Special
 	     case load/store quad.  */
-	  if (rclass == GENERAL_REGS || rclass == BASE_REGS)
+	  if (GPR_REG_CLASS_P (rclass))
 	    {
 	      if (TARGET_POWERPC64 && TARGET_QUAD_MEMORY
 		  && GET_MODE_SIZE (mode) == 16
@@ -16278,7 +16294,7 @@ rs6000_secondary_reload_gpr (rtx reg, rtx mem, rtx scratch, bool store_p)
   gcc_assert (regno >= 0 && regno < FIRST_PSEUDO_REGISTER);
   gcc_assert (GET_CODE (mem) == MEM);
   rclass = REGNO_REG_CLASS (regno);
-  gcc_assert (rclass == GENERAL_REGS || rclass == BASE_REGS);
+  gcc_assert (GPR_REG_CLASS_P (rclass));
   addr = XEXP (mem, 0);
 
   if (GET_CODE (addr) == PRE_MODIFY)
@@ -16379,16 +16395,19 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 {
   enum machine_mode mode = GET_MODE (x);
 
-  if (TARGET_VSX && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
-    return rclass;
+  if (CONSTANT_P (x))
+    {
+      if (TARGET_VSX && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
+	return rclass;
 
-  if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode)
-      && (rclass == ALTIVEC_REGS || rclass == VSX_REGS)
-      && easy_vector_constant (x, mode))
-    return ALTIVEC_REGS;
+      if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode)
+	  && (rclass == ALTIVEC_REGS || rclass == VSX_REGS)
+	  && easy_vector_constant (x, mode))
+	return ALTIVEC_REGS;
 
-  if (CONSTANT_P (x) && reg_classes_intersect_p (rclass, FLOAT_REGS))
-    return NO_REGS;
+      if (reg_classes_intersect_p (rclass, FLOAT_REGS))
+	return NO_REGS;
+    }
 
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
     return GENERAL_REGS;
@@ -16534,8 +16553,7 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
 
   /* We can place anything into GENERAL_REGS and can put GENERAL_REGS
      into anything.  */
-  if (rclass == GENERAL_REGS || rclass == BASE_REGS
-      || (regno >= 0 && INT_REGNO_P (regno)))
+  if (GPR_REG_CLASS_P (rclass) || (regno >= 0 && INT_REGNO_P (regno)))
     return NO_REGS;
 
   /* Constants, memory, and FP registers can go into FP registers.  */
