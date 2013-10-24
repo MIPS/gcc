@@ -545,17 +545,17 @@ gen_data_member (const_tree t)
 	  int_bit_position (t)));
       result = m;
     }
-    else if (TREE_CODE (t) == VAR_DECL)
-      {
-	shared_ptr<abigail::class_decl::data_member> m
-	  (new abigail::class_decl::data_member
-	   (get_tree_name (t), type, get_access (t), get_location (t),
-	    get_mangled_name (t), get_decl_visibility (t),
-	    get_decl_binding (t), !!DECL_SIZE (t),
-	    /*is_static=*/true,
-	    /*offset_in_bits*/0));
-	result = m;
-      }
+  else if (TREE_CODE (t) == VAR_DECL)
+    {
+      shared_ptr<abigail::class_decl::data_member> m
+	(new abigail::class_decl::data_member
+	 (get_tree_name (t), type, get_access (t), get_location (t),
+	  get_mangled_name (t), get_decl_visibility (t),
+	  get_decl_binding (t), !!DECL_SIZE (t),
+	  /*is_static=*/true,
+	  /*offset_in_bits*/0));
+      result = m;
+    }
 
   return result;
 }
@@ -992,6 +992,7 @@ gen_type_in_scope (const_tree t,
       {
       case BOOLEAN_TYPE:
       case INTEGER_TYPE:
+      case REAL_TYPE:
       case NULLPTR_TYPE:
       case VOID_TYPE:
 	{
