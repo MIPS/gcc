@@ -1191,8 +1191,6 @@ chkp_output_static_bounds (tree var, tree bnd_var,
 		       chkp_build_addr_expr (bnd_var));
   tree lb, ub, lhs, modify, size;
 
-  assemble_variable (bnd_var, 1, 0, 0);
-
   if (TREE_CODE (var) == STRING_CST)
     {
       lb = build1 (CONVERT_EXPR, size_type_node, chkp_build_addr_expr (var));
@@ -1251,18 +1249,6 @@ chkp_output_static_bounds (tree var, tree bnd_var,
       stmts->avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
       stmts->stmts = NULL;
     }
-}
-
-/* Helper function for chkp_finish_file.
-   Output one size variable.  */
-static int
-chkp_output_size_variable (void **slot, void *res ATTRIBUTE_UNUSED)
-{
-  struct tree_map *map = (struct tree_map *)*slot;
-  tree size_decl = map->to;
-  assemble_variable (size_decl, 1, 0, 0);
-
-  return 1;
 }
 
 /* Helper function for chkp_finish_file to sort vars.  */
@@ -2031,6 +2017,12 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
   DECL_COMDAT_GROUP (var) = DECL_ASSEMBLER_NAME (var);
   DECL_READ_P (var) = 1;
   DECL_INITIAL (var) = build_int_cst_wide (pointer_bounds_type_node, lb, ~ub);
+  /* We may use this symbol during ctors generation in chkp_finish_file
+     when all symbols are emitted.  Force output to avoid undefined
+     symbols in ctors.
+     TODO: replace force with more accurate analysis.  */
+  varpool_node_for_decl (var)->symbol.force_output = 1;
+  varpool_finalize_decl (var);
 
   vec_safe_push (chkp_static_const_bounds, var);
 
@@ -2891,6 +2883,10 @@ chkp_make_static_bounds (tree obj)
   DECL_COMMON (bnd_var) = 1;
   DECL_COMDAT (bnd_var) = 1;
   DECL_READ_P (bnd_var) = 1;
+  /* Force output similar to constant bounds.
+     See chkp_make_static_const_bounds. */
+  varpool_node_for_decl (bnd_var)->symbol.force_output = 1;
+  varpool_finalize_decl (bnd_var);
 
   /* Add created var to the global hash map.  */
   if (!chkp_static_var_bounds)
@@ -2988,6 +2984,10 @@ chkp_get_var_size_decl (tree var)
   DECL_COMDAT (size_decl) = 1;
   DECL_READ_P (size_decl) = 1;
   DECL_INITIAL (size_decl) = chkp_build_addr_expr (size_reloc);
+  /* Force output similar to constant bounds.
+     See chkp_make_static_const_bounds. */
+  varpool_node_for_decl (size_decl)->symbol.force_output = 1;
+  varpool_finalize_decl (size_decl);
 
   free (size_name);
   free (decl_name);
@@ -3921,7 +3921,6 @@ void
 chkp_finish_file (void)
 {
   struct chkp_ctor_stmt_list stmts;
-  bool tmp;
   int i;
   tree var;
 
@@ -3957,10 +3956,6 @@ chkp_finish_file (void)
 				   MAX_RESERVED_INIT_PRIORITY + 2);
     }
 
-  if (chkp_static_const_bounds)
-    FOR_EACH_VEC_ELT (*chkp_static_const_bounds, i, var)
-      assemble_variable (var, 1, 0, 0);
-
   if (chkp_static_var_bounds)
     {
       unsigned int i;
@@ -3987,7 +3982,8 @@ chkp_finish_file (void)
 	  res = (struct tree_map *) htab_find_with_hash (chkp_static_var_bounds_r,
 							 &in, in.hash);
 
-	  chkp_output_static_bounds (res->to, vars[i], &stmts);
+	  if (TREE_ASM_WRITTEN (vars[i]))
+	    chkp_output_static_bounds (res->to, vars[i], &stmts);
 	}
 
       if (stmts.stmts)
@@ -4001,13 +3997,7 @@ chkp_finish_file (void)
     }
 
   if (chkp_size_decls)
-    {
-      htab_traverse (chkp_size_decls, chkp_output_size_variable, &tmp);
-
-      htab_delete (chkp_size_decls);
-      chkp_size_decls = NULL;
-    }
-
+    htab_delete (chkp_size_decls);
   if (chkp_rtx_bounds_map)
     pointer_map_destroy (chkp_rtx_bounds_map);
   if (chkp_bounds_map)
