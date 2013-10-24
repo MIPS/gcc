@@ -150,8 +150,7 @@ enum rid
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
 
   /* C++ concepts */
-  RID_ASSUME,    RID_AXIOM,        RID_CONCEPT,
-  RID_FORALL,    RID_REQUIRES,
+  RID_CONCEPT, RID_REQUIRES,
 
   /* Objective-C ("AT" reserved words - they are only keywords when
      they follow '@')  */

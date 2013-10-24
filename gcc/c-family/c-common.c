@@ -564,10 +564,7 @@ const struct c_common_resword c_common_reswords[] =
   { "while",		RID_WHILE,	0 },
 
   /* Concepts-related keywords */
-  { "assume",		RID_ASSUME,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
-  { "axiom",		RID_AXIOM,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
   { "concept",		RID_CONCEPT,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
-  { "forall", 		RID_FORALL,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
   { "requires", 	RID_REQUIRES,	D_CXX_CONCEPTS_FLAGS | D_CXXWARN },
 
   /* These Objective-C keywords are recognized only immediately after
