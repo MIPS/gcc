@@ -883,9 +883,11 @@ gcc::jit::function::
 add_eval (location *loc,
 	  rvalue *rvalue)
 {
-  gcc_assert (NULL == loc);
   gcc_assert (rvalue);
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
+
+  if (loc)
+    set_tree_location (rvalue->as_tree (), loc);
 
   tsi_link_after (&m_stmt_iter, rvalue->as_tree (), TSI_CONTINUE_LINKING);
 }
@@ -1444,7 +1446,7 @@ handle_locations ()
       /* This covers expressions: */
       if (CAN_HAVE_LOCATION_P (t))
 	SET_EXPR_LOCATION (t, srcloc);
-      else if (DECL_MINIMAL_CHECK (t))
+      else if (CODE_CONTAINS_STRUCT(TREE_CODE(t), TS_DECL_MINIMAL))
 	DECL_SOURCE_LOCATION (t) = srcloc;
       else
 	{

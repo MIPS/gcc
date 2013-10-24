@@ -144,8 +144,8 @@ enum gcc_jit_bool_option
      be able to inspect variables and step through your code.
 
      Note that you can't step through code unless you set up source
-     location information for the code, and that isn't yet supported
-     in the API.  */
+     location information for the code (by creating and passing in
+     gcc_jit_location instances).  */
   GCC_JIT_BOOL_OPTION_DEBUGINFO,
 
   /* If true, gcc_jit_context_compile will dump its initial "tree"

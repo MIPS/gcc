@@ -1,3 +1,13 @@
+2013-10-24  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::function::add_eval): Handle non-NULL
+	locations.
+	(gcc::jit::context::handle_locations): Fix test for the various
+	kinds of declarations, replacing use of DECL_MINIMAL_CHECK,
+	which aborts on failure (such as if we saw a type).
+	* libgccjit.h (GCC_JIT_BOOL_OPTION_DEBUGINFO): Fix out-of-date
+	comment.
+
 2013-10-23  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c: Update for rename of tree-flow.h to tree-cfg.h
