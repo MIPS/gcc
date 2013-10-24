@@ -9,26 +9,26 @@
     <data-member access='public' layout-offset-in-bits='0'>
       <var-decl name='m' type-id='type-id-1' visibility='default' filepath='simple-class-0.C' line='7' column='7'/>
     </data-member>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__base_ctor ' mangled-name='_ZN1SC2Ev' filepath='simple-class-0.C' line='13' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-3'/>
         <return type-id='type-id-4'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__comp_ctor ' mangled-name='_ZN1SC1Ev' filepath='simple-class-0.C' line='13' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-3'/>
         <return type-id='type-id-4'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__base_ctor ' mangled-name='_ZN1SC2ERKS_' filepath='simple-class-0.C' line='18' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-3'/>
         <parameter type-id='type-id-6'/>
         <return type-id='type-id-4'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__comp_ctor ' mangled-name='_ZN1SC1ERKS_' filepath='simple-class-0.C' line='18' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-3'/>
         <parameter type-id='type-id-6'/>

@@ -12,19 +12,19 @@
     <data-member access='private' layout-offset-in-bits='0'>
       <var-decl name='m0' type-id='type-id-2' visibility='default' filepath='bases-0.C' line='7' column='7'/>
     </data-member>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__base_ctor ' mangled-name='_ZN2B0C2Ev' filepath='bases-0.C' line='20' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-4'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__comp_ctor ' mangled-name='_ZN2B0C1Ev' filepath='bases-0.C' line='20' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-4'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' const='yes'>
       <function-decl name='get_m0' mangled-name='_ZNK2B06get_m0Ev' filepath='bases-0.C' line='26' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-6'/>
         <return type-id='type-id-2'/>
@@ -46,19 +46,19 @@
     <data-member access='private' layout-offset-in-bits='0'>
       <var-decl name='m0' type-id='type-id-2' visibility='default' filepath='bases-0.C' line='39' column='7'/>
     </data-member>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__base_ctor ' mangled-name='_ZN2B1C2Ev' filepath='bases-0.C' line='52' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-9'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__comp_ctor ' mangled-name='_ZN2B1C1Ev' filepath='bases-0.C' line='52' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-9'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' const='yes'>
       <function-decl name='get_m0' mangled-name='_ZNK2B16get_m0Ev' filepath='bases-0.C' line='58' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-11'/>
         <return type-id='type-id-2'/>
@@ -80,19 +80,19 @@
     <data-member access='private' layout-offset-in-bits='0'>
       <var-decl name='m0' type-id='type-id-2' visibility='default' filepath='bases-0.C' line='71' column='7'/>
     </data-member>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__base_ctor ' mangled-name='_ZN2B2C2Ev' filepath='bases-0.C' line='84' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-14'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__comp_ctor ' mangled-name='_ZN2B2C1Ev' filepath='bases-0.C' line='84' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-14'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' const='yes'>
       <function-decl name='get_m0' mangled-name='_ZNK2B26get_m0Ev' filepath='bases-0.C' line='90' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-16'/>
         <return type-id='type-id-2'/>
@@ -120,20 +120,20 @@
     <data-member access='private' layout-offset-in-bits='128'>
       <var-decl name='m0' type-id='type-id-2' visibility='default' filepath='bases-0.C' line='103' column='7'/>
     </data-member>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__base_ctor ' mangled-name='_ZN1SC2Ev' filepath='bases-0.C' line='116' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-19'/>
         <parameter type-id='type-id-22'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' constructor='yes'>
       <function-decl name='__comp_ctor ' mangled-name='_ZN1SC1Ev' filepath='bases-0.C' line='116' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-19'/>
         <return type-id='type-id-1'/>
       </function-decl>
     </member-function>
-    <member-function access='public'>
+    <member-function access='public' const='yes'>
       <function-decl name='get_m0' mangled-name='_ZNK1S6get_m0Ev' filepath='bases-0.C' line='122' column='1' visibility='default' binding='global' size-in-bits='8' alignment-in-bits='8'>
         <parameter type-id='type-id-24'/>
         <return type-id='type-id-2'/>
