@@ -577,6 +577,8 @@ decode_acc_directive (void)
       match ("end kernels", gfc_match_acc_eos, ST_ACC_END_KERNELS);
       match ("end parallel loop", gfc_match_acc_eos, ST_ACC_END_PARALLEL_LOOP);
       match ("end parallel", gfc_match_acc_eos, ST_ACC_END_PARALLEL);
+      match ("enter data", gfc_match_acc_enter_data, ST_ACC_ENTER_DATA);
+      match ("exit data", gfc_match_acc_exit_data, ST_ACC_EXIT_DATA);
       break;
     case 'h':
       match ("host_data", gfc_match_acc_host_data, ST_ACC_HOST_DATA);
@@ -1203,7 +1205,8 @@ next_statement (void)
   case ST_OMP_BARRIER: case ST_OMP_TASKWAIT: case ST_OMP_TASKYIELD: \
   case ST_ERROR_STOP: case ST_SYNC_ALL: case ST_SYNC_IMAGES: \
   case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK: case ST_ACC_UPDATE: \
-  case ST_ACC_WAIT: case ST_ACC_CACHE
+  case ST_ACC_WAIT: case ST_ACC_CACHE: case ST_ACC_ENTER_DATA: \
+  case ST_ACC_EXIT_DATA
 
 /* Statements that mark other executable statements.  */
 
@@ -1857,6 +1860,12 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_ACC_CACHE:
       p = "!$ACC CACHE";
+      break;
+    case ST_ACC_ENTER_DATA:
+      p = "!$ACC ENTER DATA";
+      break;
+    case ST_ACC_EXIT_DATA:
+      p = "!$ACC EXIT DATA";
       break;
     default:
       gfc_internal_error ("gfc_ascii_statement(): Bad statement code");

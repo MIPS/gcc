@@ -1,3 +1,21 @@
+24-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Add enter/exit data directives support.
+    
+    * gcc/fortran/dump-parse-tree.c: New executable statements and clauses
+    * gcc/fortran/gfortran.h: Likewise and add list of expressions with allocator and releaser
+    * gcc/fortran/openacc.c: Likewise
+    * gcc/fortran/match.h: New match functions
+    * gcc/fortran/st.c: New statements and clause
+    * gcc/fortran/parse.c: Likewise
+    * gcc/fortran/resolve.c: Likewise
+    * gcc/fortran/trans-openacc.c: Likewise
+    * gcc/fortran/trans.c: Likewise
+    * gcc/gimplify.c: Likewise
+    * gcc/tree-core.h: Likewise
+    * gcc/tree.def: Likewise
+    * gcc/testsuite/gfortran.dg/gacc/__enter-exit-data.f95: New test
+    * gcc/testsuite/gfortran.dg/gacc/__parallel-kernels-clauses.f95: Add wait clause
+
 23-10-2013 Ilmir Usmanov <i.usmanov@samsing.com>
     Add generation of parameters of generated kernel 
     when they are pointers

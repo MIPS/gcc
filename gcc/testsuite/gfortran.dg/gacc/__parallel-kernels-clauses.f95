@@ -6,9 +6,10 @@
 program test
     use openacc_lib
 	implicit none
-	integer :: i
+	integer :: i, a(10), b(5:7)
+    logical :: l
 
-	! async-values ::= integer-expression | "acc_async_noval" | "acc_async_sync" | empty
+	! async
     !$acc kernels async(i)
     !$acc end kernels
     !$acc parallel async(i)
@@ -68,4 +69,27 @@ program test
 
     !$acc kernels default(1) { dg-error "Unclassifiable" }
     !$acc parallel default(1) { dg-error "Unclassifiable" }
+
+    ! Wait
+    !$acc kernels wait (l) ! { dg-error "INTEGER" }
+    !$acc end kernels
+    !$acc kernels wait (.true.) ! { dg-error "INTEGER" }
+    !$acc end kernels
+    !$acc kernels wait (i, 1) 
+    !$acc end kernels
+    !$acc kernels wait (a) ! { dg-error "INTEGER" }
+    !$acc end kernels
+    !$acc kernels wait (b(5:6)) ! { dg-error "INTEGER" }
+    !$acc end kernels
+
+    !$acc parallel wait (l) ! { dg-error "INTEGER" }
+    !$acc end parallel
+    !$acc parallel wait (.true.) ! { dg-error "INTEGER" }
+    !$acc end parallel
+    !$acc parallel wait (i, 1) 
+    !$acc end parallel
+    !$acc parallel wait (a) ! { dg-error "INTEGER" }
+    !$acc end parallel
+    !$acc parallel wait (b(5:6)) ! { dg-error "INTEGER" }
+    !$acc end parallel
 end

@@ -1859,6 +1859,8 @@ trans_code (gfc_code * code, tree cond)
 	case EXEC_ACC_KERNELS_LOOP:
 	case EXEC_ACC_PARALLEL:
 	case EXEC_ACC_PARALLEL_LOOP:
+        case EXEC_ACC_ENTER_DATA:
+        case EXEC_ACC_EXIT_DATA:
 	  res = gfc_trans_acc_directive (code);
 	  break;
 

@@ -15,7 +15,7 @@
 #include "arith.h"
 
 static tree
-gfc_trans_acc_variable (gfc_symbol *sym)
+trans_acc_variable (gfc_symbol *sym)
 {
   tree t = gfc_get_symbol_decl (sym);
   tree parent_decl;
@@ -69,14 +69,14 @@ gfc_trans_acc_variable (gfc_symbol *sym)
 }
 
 static inline tree
-gfc_trans_add_clause (tree node, tree tail)
+trans_add_clause (tree node, tree tail)
 {
   ACC_CLAUSE_CHAIN (node) = tail;
   return node;
 }
 
 static void
-gfc_trans_acc_array_reduction (tree c, gfc_symbol *sym, locus where)
+trans_acc_array_reduction (tree c, gfc_symbol *sym, locus where)
 {
   gfc_symtree *root1 = NULL, *root2 = NULL, *root3 = NULL, *root4 = NULL;
   gfc_symtree *symtree1, *symtree2, *symtree3, *symtree4 = NULL;
@@ -336,7 +336,7 @@ convert_expr_to_tree(stmtblock_t *block, gfc_expr *expr)
 }
 
 static tree
-gfc_trans_acc_variable_list (stmtblock_t *block, enum acc_clause_code code, gfc_namelist *namelist,
+trans_acc_variable_list (stmtblock_t *block, enum acc_clause_code code, gfc_namelist *namelist,
                              tree list)
 {
   for (; namelist != NULL; namelist = namelist->next)
@@ -344,18 +344,18 @@ gfc_trans_acc_variable_list (stmtblock_t *block, enum acc_clause_code code, gfc_
       {
         if (!namelist->acc_subarray)
           {
-            tree t = gfc_trans_acc_variable (namelist->sym);
+            tree t = trans_acc_variable (namelist->sym);
             if (t != error_mark_node)
               {
                 tree node = build_acc_clause (input_location, code);
                 ACC_CLAUSE_DECL (node) = t;
                 ACC_IS_SUBARRAY (node) = false;
-                list = gfc_trans_add_clause (node, list);
+                list = trans_add_clause (node, list);
               }
           }
         else
           {
-            tree arr_tree = gfc_trans_acc_variable (namelist->sym);
+            tree arr_tree = trans_acc_variable (namelist->sym);
             if (arr_tree != error_mark_node)
               {
                 int i;
@@ -382,7 +382,7 @@ gfc_trans_acc_variable_list (stmtblock_t *block, enum acc_clause_code code, gfc_
                     gfc_free_expr (right_expr);
                   }
 
-                list = gfc_trans_add_clause (node, list);
+                list = trans_add_clause (node, list);
               }
           }
       }
@@ -390,13 +390,13 @@ gfc_trans_acc_variable_list (stmtblock_t *block, enum acc_clause_code code, gfc_
 }
 
 static tree
-gfc_trans_acc_reduction_list (gfc_namelist *namelist, tree list,
+trans_acc_reduction_list (gfc_namelist *namelist, tree list,
                               enum tree_code reduction_code, locus where)
 {
   for (; namelist != NULL; namelist = namelist->next)
     if (namelist->sym->attr.referenced)
       {
-        tree t = gfc_trans_acc_variable (namelist->sym);
+        tree t = trans_acc_variable (namelist->sym);
         if (t != error_mark_node)
           {
             tree node = build_acc_clause (where.lb->location,
@@ -404,15 +404,15 @@ gfc_trans_acc_reduction_list (gfc_namelist *namelist, tree list,
             ACC_CLAUSE_DECL (node) = t;
             ACC_CLAUSE_REDUCTION_CODE (node) = reduction_code;
             if (namelist->sym->attr.dimension)
-              gfc_trans_acc_array_reduction (node, namelist->sym, where);
-            list = gfc_trans_add_clause (node, list);
+              trans_acc_array_reduction (node, namelist->sym, where);
+            list = trans_add_clause (node, list);
           }
       }
   return list;
 }
 
 static tree
-gfc_trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
+trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
                        locus where)
 {
   tree acc_clauses = NULL_TREE, c;
@@ -475,7 +475,7 @@ gfc_trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
               gcc_unreachable ();
             }
           acc_clauses
-            = gfc_trans_acc_reduction_list (n, acc_clauses, reduction_code,
+            = trans_acc_reduction_list (n, acc_clauses, reduction_code,
                                             where);
           continue;
         }
@@ -534,7 +534,7 @@ gfc_trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
           /* FALLTHROUGH */
         add_clause:
           acc_clauses
-              = gfc_trans_acc_variable_list (block, clause_code, n, acc_clauses);
+              = trans_acc_variable_list (block, clause_code, n, acc_clauses);
           break;
         default:
           break;
@@ -546,43 +546,43 @@ gfc_trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
       tree if_var = convert_expr_to_tree(block, clauses->if_expr);
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_IF);
       ACC_CLAUSE_IF_EXPR (c) = if_var;
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->async)
     {
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_ASYNC);
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->seq)
     {
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_SEQ);
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->independent)
     {
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_INDEPENDENT);
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->num_gangs_expr)
     {
       tree num_gangs_var = convert_expr_to_tree(block, clauses->num_gangs_expr);
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_NUM_GANGS);
       ACC_CLAUSE_NUM_GANGS_EXPR (c) = num_gangs_var;
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->num_workers_expr)
     {
       tree num_workers_var = convert_expr_to_tree(block, clauses->num_workers_expr);
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_NUM_WORKERS);
       ACC_CLAUSE_NUM_WORKERS_EXPR (c)= num_workers_var;
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->vector_length_expr)
     {
       tree vector_length_var = convert_expr_to_tree(block, clauses->vector_length_expr);
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_VECTOR_LENGTH);
       ACC_CLAUSE_VECTOR_LENGTH_EXPR (c)= vector_length_var;
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->vector)
     {
@@ -591,12 +591,12 @@ gfc_trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
           tree vector_var = convert_expr_to_tree(block, clauses->vector_expr);
           c = build_acc_clause (where.lb->location, ACC_CLAUSE_VECTOR);
           ACC_CLAUSE_VECTOR_EXPR (c)= vector_var;
-          acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+          acc_clauses = trans_add_clause (c, acc_clauses);
         }
       else
         {
           c = build_acc_clause (where.lb->location, ACC_CLAUSE_VECTOR);
-          acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+          acc_clauses = trans_add_clause (c, acc_clauses);
         }
     }
   if (clauses->worker)
@@ -606,12 +606,12 @@ gfc_trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
           tree worker_var = convert_expr_to_tree(block, clauses->worker_expr);
           c = build_acc_clause (where.lb->location, ACC_CLAUSE_WORKER);
           ACC_CLAUSE_WORKER_EXPR (c)= worker_var;
-          acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+          acc_clauses = trans_add_clause (c, acc_clauses);
         }
       else
         {
           c = build_acc_clause (where.lb->location, ACC_CLAUSE_WORKER);
-          acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+          acc_clauses = trans_add_clause (c, acc_clauses);
         }
     }
   if (clauses->gang)
@@ -621,34 +621,34 @@ gfc_trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
           tree gang_var = convert_expr_to_tree(block, clauses->gang_expr);
           c = build_acc_clause (where.lb->location, ACC_CLAUSE_GANG);
           ACC_CLAUSE_GANG_EXPR (c)= gang_var;
-          acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+          acc_clauses = trans_add_clause (c, acc_clauses);
         }
       else
         {
           c = build_acc_clause (where.lb->location, ACC_CLAUSE_GANG);
-          acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+          acc_clauses = trans_add_clause (c, acc_clauses);
         }
     }
-  if (clauses->wait_expr)
+  if (clauses->non_clause_wait_expr)
     {
-      tree wait_var = convert_expr_to_tree(block, clauses->wait_expr);
+      tree wait_var = convert_expr_to_tree(block, clauses->non_clause_wait_expr);
       c = build_acc_clause (where.lb->location, ACC_NO_CLAUSE_WAIT);
       ACC_WAIT_EXPR (c)= wait_var;
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->collapse)
     {
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_COLLAPSE);
       ACC_CLAUSE_COLLAPSE_EXPR (c)
         = build_int_cst (integer_type_node, clauses->collapse);
-      acc_clauses = gfc_trans_add_clause (c, acc_clauses);
+      acc_clauses = trans_add_clause (c, acc_clauses);
     }
 
   return acc_clauses;
 }
 
 static tree
-gfc_trans_acc_code (gfc_code *code, bool force_empty)
+trans_acc_code (gfc_code *code, bool force_empty)
 {
   tree stmt;
 
@@ -671,15 +671,15 @@ gfc_trans_acc_code (gfc_code *code, bool force_empty)
 
 //TODO: split into single function
 static tree
-gfc_trans_acc_parallel (gfc_code *code)
+trans_acc_parallel (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = gfc_trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
                                        code->loc);
-  stmt = gfc_trans_acc_code (code->block->next, true);
+  stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_PARALLEL, void_type_node, stmt,
                      acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -687,15 +687,15 @@ gfc_trans_acc_parallel (gfc_code *code)
 }
 
 static tree
-gfc_trans_acc_kernels (gfc_code *code)
+trans_acc_kernels (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = gfc_trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
                                        code->loc);
-  stmt = gfc_trans_acc_code (code->block->next, true);
+  stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_KERNELS, void_type_node, stmt,
                      acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -703,15 +703,15 @@ gfc_trans_acc_kernels (gfc_code *code)
 }
 
 static tree
-gfc_trans_acc_data (gfc_code *code)
+trans_acc_data (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = gfc_trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
                                        code->loc);
-  stmt = gfc_trans_acc_code (code->block->next, true);
+  stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_DATA, void_type_node, stmt,
                      acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -719,15 +719,15 @@ gfc_trans_acc_data (gfc_code *code)
 }
 
 static tree
-gfc_trans_acc_host_data (gfc_code *code)
+trans_acc_host_data (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = gfc_trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
                                        code->loc);
-  stmt = gfc_trans_acc_code (code->block->next, true);
+  stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_HOST_DATA, void_type_node, stmt,
                      acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -740,7 +740,7 @@ typedef struct dovar_init_d {
 } dovar_init;
 
 static tree
-gfc_trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
+trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
                     gfc_acc_clauses *do_clauses)
 {
   gfc_se se;
@@ -770,7 +770,7 @@ gfc_trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
       pblock = &block;
     }
 
-  acc_clauses = gfc_trans_acc_clauses (pblock, do_clauses, code->loc);
+  acc_clauses = trans_acc_clauses (pblock, do_clauses, code->loc);
 
   for (i = 0; i < collapse; i++)
     {
@@ -812,7 +812,7 @@ gfc_trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
         }
       else
         dovar_decl
-          = gfc_trans_acc_variable (code->ext.iterator->var->symtree->n.sym);
+          = trans_acc_variable (code->ext.iterator->var->symtree->n.sym);
 
       /* Loop body.  */
       if (simple)
@@ -891,7 +891,7 @@ gfc_trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
   code->exit_label = NULL_TREE;
 
   /* Main loop body.  */
-  tmp = gfc_trans_acc_code (code->block->next, true);
+  tmp = trans_acc_code (code->block->next, true);
   gfc_add_expr_to_block (&body, tmp);
 
   /* Label for cycle statements (if needed).  */
@@ -916,13 +916,13 @@ gfc_trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
 }
 
 static tree
-gfc_trans_acc_update (gfc_code *code)
+trans_acc_update (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = gfc_trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_UPDATE, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -930,13 +930,41 @@ gfc_trans_acc_update (gfc_code *code)
 }
 
 static tree
-gfc_trans_acc_wait (gfc_code *code)
+trans_acc_enter_data (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = gfc_trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+                                       code->loc);
+  stmt = build1_loc (input_location, ACC_ENTER_DATA, void_type_node, acc_clauses);
+  gfc_add_expr_to_block (&block, stmt);
+  return gfc_finish_block (&block);
+}
+
+static tree
+trans_acc_exit_data (gfc_code *code)
+{
+  stmtblock_t block;
+  tree stmt, acc_clauses;
+
+  gfc_start_block (&block);
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+                                       code->loc);
+  stmt = build1_loc (input_location, ACC_EXIT_DATA, void_type_node, acc_clauses);
+  gfc_add_expr_to_block (&block, stmt);
+  return gfc_finish_block (&block);
+}
+
+static tree
+trans_acc_wait (gfc_code *code)
+{
+  stmtblock_t block;
+  tree stmt, acc_clauses;
+
+  gfc_start_block (&block);
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_WAIT, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -944,13 +972,13 @@ gfc_trans_acc_wait (gfc_code *code)
 }
 
 static tree
-gfc_trans_acc_cache (gfc_code *code)
+trans_acc_cache (gfc_code *code)
 {
   stmtblock_t block;
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = gfc_trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_CACHE, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -958,7 +986,7 @@ gfc_trans_acc_cache (gfc_code *code)
 }
 
 static tree
-gfc_trans_acc_parallel_loop (gfc_code *code)
+trans_acc_parallel_loop (gfc_code *code)
 {
   stmtblock_t block, *pblock = NULL;
   gfc_acc_clauses parallel_clauses, loop_clauses;
@@ -983,14 +1011,14 @@ gfc_trans_acc_parallel_loop (gfc_code *code)
       parallel_clauses.worker = false;
       parallel_clauses.seq = false;
       parallel_clauses.independent = false;
-      acc_clauses = gfc_trans_acc_clauses (&block, &parallel_clauses,
+      acc_clauses = trans_acc_clauses (&block, &parallel_clauses,
                                            code->loc);
     }
   if (!loop_clauses.seq)
     pblock = &block;
   else
     pushlevel ();
-  stmt = gfc_trans_acc_loop (code, pblock, &loop_clauses);
+  stmt = trans_acc_loop (code, pblock, &loop_clauses);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
   else
@@ -1002,7 +1030,7 @@ gfc_trans_acc_parallel_loop (gfc_code *code)
 }
 
 static tree
-gfc_trans_acc_kernels_loop (gfc_code *code)
+trans_acc_kernels_loop (gfc_code *code)
 {
   stmtblock_t block, *pblock = NULL;
   gfc_acc_clauses kernels_clauses, loop_clauses;
@@ -1027,14 +1055,14 @@ gfc_trans_acc_kernels_loop (gfc_code *code)
       kernels_clauses.worker = false;
       kernels_clauses.seq = false;
       kernels_clauses.independent = false;
-      acc_clauses = gfc_trans_acc_clauses (&block, &kernels_clauses,
+      acc_clauses = trans_acc_clauses (&block, &kernels_clauses,
                                            code->loc);
     }
   if (!loop_clauses.seq)
     pblock = &block;
   else
     pushlevel ();
-  stmt = gfc_trans_acc_loop (code, pblock, &loop_clauses);
+  stmt = trans_acc_loop (code, pblock, &loop_clauses);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
   else
@@ -1049,7 +1077,7 @@ tree
 gfc_trans_acc_declare (stmtblock_t *block, gfc_namespace *ns)
 {
   tree acc_clauses;
-  acc_clauses = gfc_trans_acc_clauses (block, ns->declare_clauses,
+  acc_clauses = trans_acc_clauses (block, ns->declare_clauses,
                                        ns->code->loc);
   return build1_loc (input_location, ACC_DECLARE, void_type_node,
                                        acc_clauses);
@@ -1061,25 +1089,29 @@ gfc_trans_acc_directive (gfc_code *code)
   switch (code->op)
     {
     case EXEC_ACC_PARALLEL_LOOP:
-      return gfc_trans_acc_parallel_loop (code);
+      return trans_acc_parallel_loop (code);
     case EXEC_ACC_PARALLEL:
-      return gfc_trans_acc_parallel (code);
+      return trans_acc_parallel (code);
     case EXEC_ACC_KERNELS_LOOP:
-      return gfc_trans_acc_kernels_loop (code);
+      return trans_acc_kernels_loop (code);
     case EXEC_ACC_KERNELS:
-      return gfc_trans_acc_kernels (code);
+      return trans_acc_kernels (code);
     case EXEC_ACC_DATA:
-      return gfc_trans_acc_data (code);
+      return trans_acc_data (code);
     case EXEC_ACC_HOST_DATA:
-      return gfc_trans_acc_host_data (code);
+      return trans_acc_host_data (code);
     case EXEC_ACC_LOOP:
-      return gfc_trans_acc_loop (code, NULL, code->ext.acc_clauses);
+      return trans_acc_loop (code, NULL, code->ext.acc_clauses);
     case EXEC_ACC_UPDATE:
-      return gfc_trans_acc_update (code);
+      return trans_acc_update (code);
     case EXEC_ACC_WAIT:
-      return gfc_trans_acc_wait (code);
+      return trans_acc_wait (code);
     case EXEC_ACC_CACHE:
-      return gfc_trans_acc_cache (code);
+      return trans_acc_cache (code);
+    case EXEC_ACC_ENTER_DATA:
+      return trans_acc_enter_data (code);
+    case EXEC_ACC_EXIT_DATA:
+      return trans_acc_exit_data (code);
     default:
       gcc_unreachable ();
     }

@@ -225,6 +225,8 @@ gfc_free_statement (gfc_code *p)
     case EXEC_ACC_KERNELS_LOOP:
     case EXEC_ACC_PARALLEL:
     case EXEC_ACC_PARALLEL_LOOP:
+    case EXEC_ACC_ENTER_DATA:
+    case EXEC_ACC_EXIT_DATA:
       gfc_free_acc_clauses (p->ext.acc_clauses);
       break;
 

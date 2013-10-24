@@ -631,7 +631,9 @@ enum acc_clause_code
   ACC_CLAUSE_PRIVATE,
   ACC_CLAUSE_FIRSTPRIVATE,
   ACC_NO_CLAUSE_WAIT,
-  ACC_NO_CLAUSE_CACHE
+  ACC_NO_CLAUSE_CACHE,
+  ACC_CLAUSE_WAIT,
+  ACC_CLAUSE_DELETE
 };
 
 /*---------------------------------------------------------------------------

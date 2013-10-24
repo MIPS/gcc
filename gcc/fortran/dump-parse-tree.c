@@ -1292,6 +1292,8 @@ show_acc_node (int level, gfc_code *c)
     case EXEC_ACC_KERNELS_LOOP:
     case EXEC_ACC_PARALLEL:
     case EXEC_ACC_PARALLEL_LOOP:
+    case EXEC_ACC_ENTER_DATA:
+    case EXEC_ACC_EXIT_DATA:
       acc_clauses = c->ext.acc_clauses;
       break;
     default:
@@ -1371,10 +1373,10 @@ show_acc_node (int level, gfc_code *c)
               fputc (')', dumpfile);
             }
         }
-      if (acc_clauses->wait_expr)
+      if (acc_clauses->non_clause_wait_expr)
         {
           fputc ('(', dumpfile);
-          show_expr (acc_clauses->wait_expr);
+          show_expr (acc_clauses->non_clause_wait_expr);
           fputc (')', dumpfile);
         }
       if (acc_clauses->seq)
@@ -1393,6 +1395,7 @@ show_acc_node (int level, gfc_code *c)
                   case ACC_LIST_COPYIN: name = "COPYIN"; break;
                   case ACC_LIST_COPYOUT: name = "COPYOUT"; break;
                   case ACC_LIST_CREATE: name = "CREATE"; break;
+                  case ACC_LIST_DELETE: name = "DELETE"; break;
                   case ACC_LIST_PRESENT: name = "PRESENT"; break;
                   case ACC_LIST_PRESENT_OR_COPY: name = "PRESENT_OR_COPY"; break;
                   case ACC_LIST_PRESENT_OR_COPYIN: name = "PRESENT_OR_COPYIN"; break;
@@ -1409,7 +1412,8 @@ show_acc_node (int level, gfc_code *c)
                   default:
                     gcc_unreachable ();
                   }
-                fprintf (dumpfile, " %s(", name);
+                if (acc_clauses->lists[list] != NULL)
+                  fprintf (dumpfile, " %s(", name);
               }
             else
               {
@@ -1432,12 +1436,16 @@ show_acc_node (int level, gfc_code *c)
                   }
                 fprintf (dumpfile, " REDUCTION(%s:", name);
               }
-            show_namelist (acc_clauses->lists[list]);
-            fputc (')', dumpfile);
+            if (acc_clauses->lists[list] != NULL)
+              {
+                show_namelist (acc_clauses->lists[list]);
+                fputc (')', dumpfile);
+              }
           }
     }
   if (c->op == EXEC_ACC_UPDATE || c->op == EXEC_ACC_WAIT
-      || c->op == EXEC_ACC_CACHE)
+      || c->op == EXEC_ACC_CACHE || c->op == EXEC_ACC_ENTER_DATA
+      || c->op == EXEC_ACC_EXIT_DATA)
     return;
   show_code (level + 1, c->block->next);
   fputc ('\n', dumpfile);

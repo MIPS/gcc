@@ -10088,6 +10088,8 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	case EXEC_ACC_UPDATE:
 	case EXEC_ACC_WAIT:
 	case EXEC_ACC_CACHE:
+	case EXEC_ACC_ENTER_DATA:
+        case EXEC_ACC_EXIT_DATA:
 	  gfc_resolve_acc_directive (code, ns);
 	  break;
 

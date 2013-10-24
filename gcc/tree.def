@@ -1042,6 +1042,18 @@ DEFTREECODE (ACC_DECLARE, "acc_declare", tcc_statement, 1)
 */
 DEFTREECODE (ACC_UPDATE, "acc_update", tcc_statement, 1)
 
+/* #pragma acc enter data */
+/* Operand 0: CLAUSES   
+*/
+
+DEFTREECODE (ACC_ENTER_DATA, "acc_enter_data", tcc_statement, 1)
+
+/* #pragma acc exit data */
+/* Operand 0: CLAUSES   
+*/
+
+DEFTREECODE (ACC_EXIT_DATA, "acc_exit_data", tcc_statement, 1)
+
 /* #pragma acc wait */
 /* Operand 0: INT_EXPR
 */

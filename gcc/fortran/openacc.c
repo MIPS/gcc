@@ -40,6 +40,8 @@
 #define ACC_CLAUSE_HOST                 (1l << 26)
 #define ACC_CLAUSE_DEVICE               (1l << 27)
 #define ACC_CLAUSE_DEFAULT              (1l << 28)
+#define ACC_CLAUSE_WAIT                 (1l << 29)
+#define ACC_CLAUSE_DELETE               (1l << 30)
 
 /* Match an end of OpenACC directive.  End of OpenACC directive is optional
    whitespace, followed by '\n' or comment '!'.  */
@@ -70,8 +72,20 @@ gfc_match_acc_eos (void)
   return MATCH_NO;
 }
 
-/* Free an acc_clauses structure.  */
+/* Free expression list. */
+void
+gfc_free_exprlist (gfc_exprlist *list)
+{
+  gfc_exprlist *n;
 
+  for (; list; list = n)
+    {
+      n = list->next;
+      free (list);
+    }
+}
+
+/* Free an acc_clauses structure.  */
 void
 gfc_free_acc_clauses (gfc_acc_clauses *c)
 {
@@ -87,10 +101,12 @@ gfc_free_acc_clauses (gfc_acc_clauses *c)
   gfc_free_expr (c->num_gangs_expr);
   gfc_free_expr (c->num_workers_expr);
   gfc_free_expr (c->vector_length_expr);
-  gfc_free_expr (c->wait_expr);
+  gfc_free_expr (c->non_clause_wait_expr);
 
   for (i = 0; i < ACC_LIST_NUM; i++)
     gfc_free_namelist (c->lists[i]);
+
+  gfc_free_exprlist (c->waitlist);
 
   free (c);
 }
@@ -151,7 +167,7 @@ match_subarray (struct gfc_acc_subarray **sa)
 /* Match a variable/common block list and construct a namelist from it.  */
 
 static match
-gfc_match_acc_variable_list (const char *str, gfc_namelist **list,
+match_acc_variable_list (const char *str, gfc_namelist **list,
                              bool allow_common, bool allow_subarrays)
 {
   gfc_namelist *head, *tail, *p;
@@ -193,7 +209,10 @@ gfc_match_acc_variable_list (const char *str, gfc_namelist **list,
             }
           tail->sym = sym;
           if (sa != NULL)
-            tail->acc_subarray = sa;
+            {
+              tail->acc_subarray = sa;
+              sa = NULL;
+            }
           goto next_item;
         case MATCH_NO:
           break;
@@ -252,10 +271,72 @@ cleanup:
   return MATCH_ERROR;
 }
 
+static match
+match_acc_exprlist (const char *str, gfc_exprlist **list)
+{
+  gfc_exprlist *head, *tail, *p;
+  locus old_loc;
+  char n[GFC_MAX_SYMBOL_LEN+1];
+  gfc_expr *expr;
+  match m;
+
+  head = tail = NULL;
+
+  old_loc = gfc_current_locus;
+
+  m = gfc_match (str);
+  if (m != MATCH_YES)
+    return m;
+
+  for (;;)
+    {
+      m = gfc_match_expr (&expr);
+      switch (m)
+        {
+        case MATCH_YES:
+          p = gfc_get_exprlist ();
+          if (head == NULL)
+            head = tail = p;
+          else
+            {
+              tail->next = p;
+              tail = tail->next;
+            }
+          tail->expr = expr;
+          goto next_item;
+        case MATCH_NO:
+          break;
+        case MATCH_ERROR:
+          goto cleanup;
+        }
+      goto syntax;
+
+    next_item:
+      if (gfc_match_char (')') == MATCH_YES)
+        break;
+      if (gfc_match_char (',') != MATCH_YES)
+        goto syntax;
+    }
+
+  while (*list)
+    list = &(*list)->next;
+
+  *list = head;
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in OpenACC expression list at %C");
+
+cleanup:
+  gfc_free_exprlist (head);
+  gfc_current_locus = old_loc;
+  return MATCH_ERROR;
+}
+
 /* Match OpenACC directive clauses. MASK is a bitmask of
    clauses that are allowed for a particular directive.  */
 static match
-gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
+match_acc_clauses (gfc_acc_clauses **cp, long mask)
 {
   gfc_acc_clauses *c = gfc_get_acc_clauses ();
   locus old_loc;
@@ -327,111 +408,108 @@ gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
           && gfc_match ("num_workers ( %e )", &c->num_workers_expr) == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_COPY)
-          && gfc_match_acc_variable_list ("copy (",
-                                          &c->lists[ACC_LIST_COPY], true, true)
+          && match_acc_variable_list ("copy (",
+                                      &c->lists[ACC_LIST_COPY], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_COPYIN)
-          && gfc_match_acc_variable_list ("copyin (",
-                                          &c->lists[ACC_LIST_COPYIN], true, true)
+          && match_acc_variable_list ("copyin (",
+                                      &c->lists[ACC_LIST_COPYIN], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_COPYOUT)
-          && gfc_match_acc_variable_list ("copyout (",
-                                          &c->lists[ACC_LIST_COPYOUT], true, true)
+          && match_acc_variable_list ("copyout (",
+                                      &c->lists[ACC_LIST_COPYOUT], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_CREATE)
-          && gfc_match_acc_variable_list ("create (",
-                                          &c->lists[ACC_LIST_CREATE], true, true)
+          && match_acc_variable_list ("create (",
+                                      &c->lists[ACC_LIST_CREATE], true, true)
+             == MATCH_YES)
+        continue;
+      if ((mask & ACC_CLAUSE_DELETE)
+          && match_acc_variable_list ("delete (",
+                                      &c->lists[ACC_LIST_DELETE], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT)
-          && gfc_match_acc_variable_list ("present (",
-                                          &c->lists[ACC_LIST_PRESENT], true, true)
+          && match_acc_variable_list ("present (",
+                                      &c->lists[ACC_LIST_PRESENT], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_COPY)
-          && gfc_match_acc_variable_list ("present_or_copy (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_COPY],
-                                          true, true)
+          && match_acc_variable_list ("present_or_copy (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_COPY], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_COPY)
-          && gfc_match_acc_variable_list ("pcopy (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_COPY],
-                                          true, true)
+          && match_acc_variable_list ("pcopy (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_COPY], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_COPYIN)
-          && gfc_match_acc_variable_list ("present_or_copyin (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_COPYIN],
-                                          true, true)
+          && match_acc_variable_list ("present_or_copyin (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_COPYIN],true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_COPYIN)
-          && gfc_match_acc_variable_list ("pcopyin (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_COPYIN],
-                                          true, true)
+          && match_acc_variable_list ("pcopyin (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_COPYIN], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_COPYOUT)
-          && gfc_match_acc_variable_list ("present_or_copyout (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_COPYOUT],
-                                          true, true)
+          && match_acc_variable_list ("present_or_copyout (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_COPYOUT], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_COPYOUT)
-          && gfc_match_acc_variable_list ("pcopyout (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_COPYOUT],
-                                          true, true)
+          && match_acc_variable_list ("pcopyout (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_COPYOUT], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_CREATE)
-          && gfc_match_acc_variable_list ("present_or_create (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_CREATE],
-                                          true, true)
+          && match_acc_variable_list ("present_or_create (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_CREATE], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRESENT_OR_CREATE)
-          && gfc_match_acc_variable_list ("pcreate (",
-                                          &c->lists[ACC_LIST_PRESENT_OR_CREATE],
-                                          true, true)
+          && match_acc_variable_list ("pcreate (",
+                                      &c->lists[ACC_LIST_PRESENT_OR_CREATE], true, true)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_DEVICEPTR)
-          && gfc_match_acc_variable_list ("deviceptr (",
-                                          &c->lists[ACC_LIST_DEVICEPTR], true, false)
+          && match_acc_variable_list ("deviceptr (",
+                                      &c->lists[ACC_LIST_DEVICEPTR], true, false)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_PRIVATE)
-          && gfc_match_acc_variable_list ("private (",
-                                          &c->lists[ACC_LIST_PRIVATE], true, false)
+          && match_acc_variable_list ("private (",
+                                      &c->lists[ACC_LIST_PRIVATE], true, false)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_FIRSTPRIVATE)
-          && gfc_match_acc_variable_list ("firstprivate (",
-                                          &c->lists[ACC_LIST_FIRSTPRIVATE], true, false)
+          && match_acc_variable_list ("firstprivate (",
+                                      &c->lists[ACC_LIST_FIRSTPRIVATE], true, false)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_USE_DEVICE)
-          && gfc_match_acc_variable_list ("use_device (",
-                                          &c->lists[ACC_LIST_USE_DEVICE], true, false)
+          && match_acc_variable_list ("use_device (",
+                                      &c->lists[ACC_LIST_USE_DEVICE], true, false)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_DEVICE_RESIDENT)
-          && gfc_match_acc_variable_list ("device_resident (",
-                                          &c->lists[ACC_LIST_DEVICE_RESIDENT], true, false)
+          && match_acc_variable_list ("device_resident (",
+                                      &c->lists[ACC_LIST_DEVICE_RESIDENT], true, false)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_HOST)
-          && gfc_match_acc_variable_list ("host (",
-                                          &c->lists[ACC_LIST_HOST], true, false)
+          && match_acc_variable_list ("host (",
+                                      &c->lists[ACC_LIST_HOST], true, false)
              == MATCH_YES)
         continue;
       if ((mask & ACC_CLAUSE_DEVICE)
-          && gfc_match_acc_variable_list ("device (",
-                                          &c->lists[ACC_LIST_DEVICE], true, false)
+          && match_acc_variable_list ("device (",
+                                      &c->lists[ACC_LIST_DEVICE], true, false)
              == MATCH_YES)
         continue;
 
@@ -481,19 +559,19 @@ gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
       if ((mask & ACC_CLAUSE_DEFAULT) && !c->default_none
                 && gfc_match ("default ( none )") == MATCH_YES)
         {
-//          if (gfc_match_char ('(') != MATCH_YES ||
-//              gfc_match ("none") != MATCH_YES ||
-//              gfc_match_char (')') != MATCH_YES)
-//            {
-//              gfc_error_now ("Default clause must be 'default(none)' in %C");
-//              break;
-//            }
           c->default_none = true;
           needs_space = true;
           continue;
         }
 
-
+      /* optional list */
+      if ((mask & ACC_CLAUSE_WAIT) && !c->wait
+                && gfc_match ("wait") == MATCH_YES)
+        {
+          c->wait = true;
+          match_acc_exprlist (" (", &c->waitlist);
+          continue;
+        }
 
       /* Reduction */
       old_loc = gfc_current_locus;
@@ -573,7 +651,7 @@ gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
                 }
             }
           if (reduction != ACC_LIST_NUM
-              && gfc_match_acc_variable_list (" :", &c->lists[reduction],
+              && match_acc_variable_list (" :", &c->lists[reduction],
                                               false, false)
                  == MATCH_YES)
             continue;
@@ -600,14 +678,15 @@ gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
    | ACC_CLAUSE_COPY | ACC_CLAUSE_COPYIN | ACC_CLAUSE_COPYOUT                                    \
    | ACC_CLAUSE_CREATE | ACC_CLAUSE_PRESENT | ACC_CLAUSE_PRESENT_OR_COPY                         \
    | ACC_CLAUSE_PRESENT_OR_COPYIN | ACC_CLAUSE_PRESENT_OR_COPYOUT | ACC_CLAUSE_PRESENT_OR_CREATE \
-   | ACC_CLAUSE_DEVICEPTR | ACC_CLAUSE_PRIVATE | ACC_CLAUSE_FIRSTPRIVATE | ACC_CLAUSE_DEFAULT)
+   | ACC_CLAUSE_DEVICEPTR | ACC_CLAUSE_PRIVATE | ACC_CLAUSE_FIRSTPRIVATE | ACC_CLAUSE_DEFAULT    \
+   | ACC_CLAUSE_WAIT)
 
 #define ACC_KERNELS_CLAUSES \
   (ACC_CLAUSE_IF | ACC_CLAUSE_ASYNC | ACC_CLAUSE_DEVICEPTR                                       \
    | ACC_CLAUSE_COPY | ACC_CLAUSE_COPYIN | ACC_CLAUSE_COPYOUT                                    \
    | ACC_CLAUSE_CREATE | ACC_CLAUSE_PRESENT | ACC_CLAUSE_PRESENT_OR_COPY                         \
    | ACC_CLAUSE_PRESENT_OR_COPYIN | ACC_CLAUSE_PRESENT_OR_COPYOUT | ACC_CLAUSE_PRESENT_OR_CREATE \
-   | ACC_CLAUSE_DEFAULT)
+   | ACC_CLAUSE_DEFAULT | ACC_CLAUSE_WAIT)
 
 #define ACC_DATA_CLAUSES \
   (ACC_CLAUSE_IF | ACC_CLAUSE_DEVICEPTR                                                          \
@@ -635,11 +714,18 @@ gfc_match_acc_clauses(gfc_acc_clauses **cp, long mask)
 #define ACC_UPDATE_CLAUSES \
   (ACC_CLAUSE_IF | ACC_CLAUSE_ASYNC | ACC_CLAUSE_HOST | ACC_CLAUSE_DEVICE)
 
+#define ACC_ENTER_DATA_CLAUSES \
+  (ACC_CLAUSE_IF | ACC_CLAUSE_ASYNC | ACC_CLAUSE_WAIT | ACC_CLAUSE_COPYIN | ACC_CLAUSE_CREATE \
+   | ACC_CLAUSE_PRESENT_OR_COPYIN | ACC_CLAUSE_PRESENT_OR_CREATE)
+
+#define ACC_EXIT_DATA_CLAUSES \
+  (ACC_CLAUSE_IF | ACC_CLAUSE_ASYNC | ACC_CLAUSE_WAIT | ACC_CLAUSE_COPYOUT | ACC_CLAUSE_DELETE)
+
 match
 gfc_match_acc_parallel_loop (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_PARALLEL_LOOP_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_PARALLEL_LOOP_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_PARALLEL_LOOP;
@@ -651,7 +737,7 @@ match
 gfc_match_acc_parallel (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_PARALLEL_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_PARALLEL_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_PARALLEL;
@@ -663,7 +749,7 @@ match
 gfc_match_acc_kernels_loop (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_KERNELS_LOOP_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_KERNELS_LOOP_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_KERNELS_LOOP;
@@ -675,7 +761,7 @@ match
 gfc_match_acc_kernels (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_KERNELS_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_KERNELS_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_KERNELS;
@@ -687,7 +773,7 @@ match
 gfc_match_acc_data (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_DATA_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_DATA_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_DATA;
@@ -699,7 +785,7 @@ match
 gfc_match_acc_host_data (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_HOST_DATA_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_HOST_DATA_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_HOST_DATA;
@@ -711,7 +797,7 @@ match
 gfc_match_acc_loop (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_LOOP_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_LOOP_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_LOOP;
@@ -723,7 +809,7 @@ match
 gfc_match_acc_declare (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_DECLARE_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_DECLARE_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.ext.acc_clauses = c;
@@ -734,7 +820,7 @@ match
 gfc_match_acc_update (void)
 {
   gfc_acc_clauses *c;
-  if (gfc_match_acc_clauses (&c, ACC_UPDATE_CLAUSES) != MATCH_YES)
+  if (match_acc_clauses (&c, ACC_UPDATE_CLAUSES) != MATCH_YES)
     return MATCH_ERROR;
 
   new_st.op = EXEC_ACC_UPDATE;
@@ -743,10 +829,34 @@ gfc_match_acc_update (void)
 }
 
 match
+gfc_match_acc_enter_data (void)
+{
+  gfc_acc_clauses *c;
+  if (match_acc_clauses (&c, ACC_ENTER_DATA_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_ACC_ENTER_DATA;
+  new_st.ext.acc_clauses = c;
+  return MATCH_YES;
+}
+
+match
+gfc_match_acc_exit_data (void)
+{
+  gfc_acc_clauses *c;
+  if (match_acc_clauses (&c, ACC_EXIT_DATA_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_ACC_EXIT_DATA;
+  new_st.ext.acc_clauses = c;
+  return MATCH_YES;
+}
+
+match
 gfc_match_acc_wait (void)
 {
   gfc_acc_clauses *c = gfc_get_acc_clauses ();
-  gfc_match (" ( %e )", &c->wait_expr);
+  gfc_match (" ( %e )", &c->non_clause_wait_expr);
 
   new_st.op = EXEC_ACC_WAIT;
   new_st.ext.acc_clauses = c;
@@ -757,7 +867,7 @@ match
 gfc_match_acc_cache (void)
 {
   gfc_acc_clauses *c = gfc_get_acc_clauses ();
-  match m = gfc_match_acc_variable_list (" (",&c->lists[ACC_LIST_CACHE], true, true);
+  match m = match_acc_variable_list (" (",&c->lists[ACC_LIST_CACHE], true, true);
   if (m != MATCH_YES)
     {
       gfc_free_acc_clauses(c);
@@ -822,6 +932,12 @@ resolve_acc_scalar_int_expr (gfc_expr *expr, const char *clause)
       || expr->ts.type != BT_INTEGER || expr->rank != 0)
     gfc_error ("%s clause at %L requires a scalar INTEGER expression",
                      clause, &expr->where);
+}
+
+static void
+resolve_acc_positive_int_expr (gfc_expr *expr, const char *clause)
+{
+  resolve_acc_scalar_int_expr (expr, clause);
   if (expr->expr_type == EXPR_CONSTANT && expr->ts.type == BT_INTEGER
       && expr->value.integer->_mp_size <= 0)
     gfc_warning ("INTEGER expression of %s clause at %L must be positive",
@@ -863,12 +979,13 @@ resolve_acc_clauses (gfc_code *code)
 {
   gfc_acc_clauses *acc_clauses = code->ext.acc_clauses;
   gfc_namelist *n;
+  gfc_exprlist *el;
   int list;
   static const char *clause_names[]
-    = { "COPY", "COPYIN", "COPYOUT", "CREATE", "PRESENT",
-        "PRESENT_OR_COPY", "PRESENT_OR_COPYIN", "PRESENT_OR_COPYOUT", "PRESENT_OR_CREATE", "DEVICEPTR",
-        "PRIVATE", "FIRSTPRIVATE", "USE_DEVICE", "DEVICE_RESIDENT", "HOST",
-        "DEVICE", "CACHE", "REDUCTION"};
+    = { "COPY", "COPYIN", "COPYOUT", "CREATE", "DELETE",
+        "PRESENT", "PRESENT_OR_COPY", "PRESENT_OR_COPYIN", "PRESENT_OR_COPYOUT", "PRESENT_OR_CREATE",
+        "DEVICEPTR", "PRIVATE", "FIRSTPRIVATE", "USE_DEVICE", "DEVICE_RESIDENT",
+        "HOST", "DEVICE", "CACHE", "REDUCTION"};
 
   if (acc_clauses == NULL)
     return;
@@ -886,17 +1003,21 @@ resolve_acc_clauses (gfc_code *code)
     if (acc_clauses->async_expr)
       resolve_acc_scalar_int_expr (acc_clauses->async_expr, "ASYNC");
   if (acc_clauses->num_gangs_expr)
-    resolve_acc_scalar_int_expr (acc_clauses->num_gangs_expr, "NUM_GANGS");
+    resolve_acc_positive_int_expr (acc_clauses->num_gangs_expr, "NUM_GANGS");
   if (acc_clauses->num_workers_expr)
-    resolve_acc_scalar_int_expr (acc_clauses->num_workers_expr, "NUM_WORKERS");
+    resolve_acc_positive_int_expr (acc_clauses->num_workers_expr, "NUM_WORKERS");
   if (acc_clauses->vector_length_expr)
-    resolve_acc_scalar_int_expr (acc_clauses->vector_length_expr, "VECTOR_LENGTH");
+    resolve_acc_positive_int_expr (acc_clauses->vector_length_expr, "VECTOR_LENGTH");
   if (acc_clauses->gang_expr)
-    resolve_acc_scalar_int_expr (acc_clauses->gang_expr, "GANG");
+    resolve_acc_positive_int_expr (acc_clauses->gang_expr, "GANG");
   if (acc_clauses->worker_expr)
-    resolve_acc_scalar_int_expr (acc_clauses->worker_expr, "WORKER");
+    resolve_acc_positive_int_expr (acc_clauses->worker_expr, "WORKER");
   if (acc_clauses->vector_expr)
-    resolve_acc_scalar_int_expr (acc_clauses->vector_expr, "VECTOR");
+    resolve_acc_positive_int_expr (acc_clauses->vector_expr, "VECTOR");
+  if (acc_clauses->wait)
+    if (acc_clauses->waitlist)
+      for (el = acc_clauses->waitlist; el; el = el->next)
+        resolve_acc_positive_int_expr (el->expr, "WAIT");
 
   if (acc_clauses->seq && acc_clauses->independent)
     gfc_error ("Both SEQ and INDEPENDENT clauses are not allowed at %L",
@@ -1187,6 +1308,8 @@ gfc_resolve_acc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
     case EXEC_ACC_DATA:
     case EXEC_ACC_KERNELS:
     case EXEC_ACC_PARALLEL:
+    case EXEC_ACC_ENTER_DATA:
+    case EXEC_ACC_EXIT_DATA:
       resolve_acc_clauses (code);
       break;
     case EXEC_ACC_LOOP:

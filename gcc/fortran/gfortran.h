@@ -215,7 +215,8 @@ typedef enum
   ST_ACC_PARALLEL, ST_ACC_END_PARALLEL, ST_ACC_KERNELS, ST_ACC_END_KERNELS,
   ST_ACC_DATA, ST_ACC_END_DATA, ST_ACC_HOST_DATA, ST_ACC_END_HOST_DATA, ST_ACC_LOOP,
   ST_ACC_DECLARE, ST_ACC_UPDATE, ST_ACC_WAIT, ST_ACC_CACHE, ST_ACC_KERNELS_LOOP,
-  ST_ACC_END_KERNELS_LOOP, ST_PROCEDURE, ST_GENERIC, ST_CRITICAL,
+  ST_ACC_END_KERNELS_LOOP, ST_ACC_ENTER_DATA, ST_ACC_EXIT_DATA,
+  ST_PROCEDURE, ST_GENERIC, ST_CRITICAL,
   ST_END_CRITICAL, ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_NONE
 }
 gfc_statement;
@@ -1040,6 +1041,16 @@ gfc_namelist;
 
 #define gfc_get_namelist() XCNEW (gfc_namelist)
 
+/* Likewise to gfc_namelist, but contains expressions.  */
+typedef struct gfc_exprlist
+{
+  struct gfc_expr *expr;
+  struct gfc_exprlist *next;
+}
+gfc_exprlist;
+
+#define gfc_get_exprlist() XCNEW (gfc_exprlist)
+
 enum
 {
   OMP_LIST_PRIVATE,
@@ -1072,39 +1083,41 @@ enum
   ACC_LIST_COPYIN,
   ACC_LIST_COPYOUT,
   ACC_LIST_CREATE,
-  ACC_LIST_PRESENT,
+  ACC_LIST_DELETE,
 
+  ACC_LIST_PRESENT,
   ACC_LIST_PRESENT_OR_COPY,
   ACC_LIST_PRESENT_OR_COPYIN,
   ACC_LIST_PRESENT_OR_COPYOUT,
   ACC_LIST_PRESENT_OR_CREATE,
+
   ACC_LIST_DEVICEPTR,
   ACC_LIST_DATA_CLAUSE_LAST = ACC_LIST_DEVICEPTR,
-
   ACC_LIST_PRIVATE,
   ACC_LIST_FIRSTPRIVATE,
   ACC_LIST_USE_DEVICE,
   ACC_LIST_DEVICE_RESIDENT,
-  ACC_LIST_HOST,
 
+  ACC_LIST_HOST,
   ACC_LIST_DEVICE,
   ACC_LIST_CACHE,
   ACC_LIST_PLUS,
   ACC_LIST_REDUCTION_FIRST = ACC_LIST_PLUS,
   ACC_LIST_MULT,
-  ACC_LIST_SUB,
 
+  ACC_LIST_SUB,
   ACC_LIST_AND,
   ACC_LIST_OR,
   ACC_LIST_EQV,
   ACC_LIST_NEQV,
-  ACC_LIST_MAX,
 
+  ACC_LIST_MAX,
   ACC_LIST_MIN,
   ACC_LIST_IAND,
   ACC_LIST_IOR,
   ACC_LIST_IEOR,
   ACC_LIST_REDUCTION_LAST = ACC_LIST_IEOR,
+
   ACC_LIST_NUM
 };
 
@@ -1157,10 +1170,11 @@ typedef struct gfc_acc_clauses
   struct gfc_expr *num_gangs_expr;
   struct gfc_expr *num_workers_expr;
   struct gfc_expr *vector_length_expr;
-  struct gfc_expr *wait_expr;
+  struct gfc_expr *non_clause_wait_expr;
   gfc_namelist *lists[ACC_LIST_NUM];
+  gfc_exprlist *waitlist;
   int collapse;
-  bool async, gang, worker, vector, seq, independent, default_none;
+  bool async, gang, worker, vector, seq, independent, default_none, wait;
 }
 gfc_acc_clauses;
 
@@ -2190,7 +2204,8 @@ typedef enum
   EXEC_OMP_END_SINGLE, EXEC_OMP_TASK, EXEC_OMP_TASKWAIT,
   EXEC_OMP_TASKYIELD, EXEC_ACC_KERNELS_LOOP,
   EXEC_ACC_PARALLEL_LOOP, EXEC_ACC_PARALLEL, EXEC_ACC_KERNELS, EXEC_ACC_DATA,
-  EXEC_ACC_HOST_DATA, EXEC_ACC_LOOP, EXEC_ACC_UPDATE, EXEC_ACC_WAIT, EXEC_ACC_CACHE
+  EXEC_ACC_HOST_DATA, EXEC_ACC_LOOP, EXEC_ACC_UPDATE, EXEC_ACC_WAIT, EXEC_ACC_CACHE,
+  EXEC_ACC_ENTER_DATA, EXEC_ACC_EXIT_DATA
 }
 gfc_exec_op;
 
@@ -2828,6 +2843,7 @@ void gfc_omp_save_and_clear_state (struct gfc_omp_saved_state *);
 void gfc_omp_restore_state (struct gfc_omp_saved_state *);
 
 /* openacc.c */
+void gfc_free_exprlist (gfc_exprlist *);
 void gfc_free_acc_clauses (gfc_acc_clauses *);
 void gfc_resolve_acc_directive (gfc_code *, gfc_namespace *);
 void gfc_resolve_acc_parallel_loop_blocks (gfc_code *, gfc_namespace *);

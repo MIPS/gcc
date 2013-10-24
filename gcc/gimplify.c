@@ -4747,6 +4747,8 @@ is_gimple_stmt (tree t)
     case ACC_LOOP:
     case ACC_DECLARE:
     case ACC_UPDATE:
+    case ACC_ENTER_DATA:
+    case ACC_EXIT_DATA:
       /* These are always void.  */
       return true;
 
@@ -7374,6 +7376,10 @@ gimplify_adjust_acc_clauses (tree *list_p)
       break;
     case ACC_CLAUSE_WORKER:
       break;
+    case ACC_CLAUSE_WAIT:
+      break;
+    case ACC_CLAUSE_DELETE:
+      break;
 /*
     default:
       gcc_unreachable ();*/
@@ -8365,6 +8371,16 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  //gimplify_acc_update (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
+
+        case ACC_ENTER_DATA:
+          //gimplify_acc_enter_data (expr_p, pre_p);
+          ret = GS_ALL_DONE;
+          break;
+
+        case ACC_EXIT_DATA:
+          //gimplify_acc_exit_data (expr_p, pre_p);
+          ret = GS_ALL_DONE;
+          break;
 
 	case ACC_WAIT:
 	  //gimplify_acc_wait (expr_p, pre_p);

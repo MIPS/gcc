@@ -159,6 +159,8 @@ match gfc_match_acc_kernels (void);
 match gfc_match_acc_kernels_loop (void);
 match gfc_match_acc_parallel (void);
 match gfc_match_acc_parallel_loop (void);
+match gfc_match_acc_enter_data (void);
+match gfc_match_acc_exit_data (void);
 
 /* decl.c.  */
 
