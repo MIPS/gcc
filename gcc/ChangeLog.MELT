@@ -1,6 +1,10 @@
 
 2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-outobj.melt (autobox_normal_return): Add backtrace.
+
+2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{MELT-SFT-5:: Failing command:
 	  ./cc1 -fmelt-debug -fmelt-init=@warmelt.quicklybuilt \
 	    -fplugin-arg-melt-mode=eval \

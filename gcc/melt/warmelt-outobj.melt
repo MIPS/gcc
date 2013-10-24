@@ -7064,6 +7064,7 @@ if (1) return;
 ;; autoboxed value
 (defun autobox_normal_return (nexp ctyp ncx)
   (debug "autobox_normal_return nexp=" nexp " ctyp=" ctyp " ncx=" ncx)
+  (shortbacktrace_dbg "autobox_normal_return" 12)
   (assert_msg "check ctyp" (is_a ctyp class_ctype) ctyp)
   (let ( (csym (clone_symbol 'retautoboxval))
 	 (cbind (instance class_normal_let_binding
