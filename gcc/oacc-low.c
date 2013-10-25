@@ -1389,20 +1389,6 @@ clone_function(tree fn, gimple kernel_stmt)
   tree name, new_fn = NULL, t;
   struct function *child_cfun;
 
-  //if(dump_file)
-  //{
-  //  unsigned i;
-  //  child_cfun = DECL_STRUCT_FUNCTION(fn);
-  //  
-  //  fprintf(dump_file, "locals\n");
-  //  for(i = 0; i < vec_safe_length(child_cfun->local_decls); ++i)
-  //  {
-  //    t = (*child_cfun->local_decls)[i];
-  //    print_generic_expr(dump_file, t, 0);
-  //    fprintf(dump_file, "\n");
-  //  }
-  //}
-
   name = clone_function_name(fn, "_oacc_fn");
   name = normalize_name(name);
   if(dump_file)
@@ -1518,6 +1504,124 @@ map_params_cb(tree *tp, int *walk_subtrees, void *data)
 }
 
 static void
+dump_dominators(FILE* fp, basic_block node, int indent)
+{
+  int i;
+  basic_block son;
+
+  for(i = 0; i < indent; ++i)
+    fprintf(fp, " ");
+  fprintf(fp, "%d\n", node->index);
+  for(son = first_dom_son (CDI_DOMINATORS, node);
+      son;
+      son = next_dom_son(CDI_DOMINATORS, son))
+    dump_dominators(fp, son, indent+2);
+}
+
+static void
+dump_ssa(FILE *fp)
+{
+  int i;
+
+  fprintf(fp, "#SSA names: %d\n", num_ssa_names);
+  for(i = 0; i < num_ssa_names; ++i)
+  {
+    tree var = ssa_name(i);
+    fprintf(fp, "%d ", i);
+    if(var == NULL_TREE)
+    {
+      fprintf(fp, "(NULL)");
+    }
+    else
+    {
+      print_generic_expr(fp, var, 0);
+      if(SSA_NAME_IN_FREE_LIST (var))
+      {
+        fprintf(fp, " IN_FREE_LIST");
+      }
+    }
+    fprintf(fp, "\n");
+  }
+}
+
+static void
+dump_fn_body(FILE* dump_file, const char* title)
+{
+    tree var;
+    unsigned i;
+    basic_block bb;
+
+    fprintf(dump_file, "==============================\n%s"
+            "\n========================\n", title);
+
+    fprintf(dump_file, "#SSA names: %d\n", num_ssa_names);
+    print_generic_decl(dump_file, current_function_decl, 0);
+    fprintf(dump_file, "\n{\n");
+
+    FOR_EACH_LOCAL_DECL(DECL_STRUCT_FUNCTION(current_function_decl), i, var)
+    {
+        print_generic_decl(dump_file, var, 0);
+        fprintf(dump_file, "\n");
+    }
+    for(i = 1; i < num_ssa_names; ++i)
+        {
+            var = ssa_name(i);
+            if(var && !SSA_NAME_VAR(var))
+                {
+                    fprintf(dump_file, "\t");
+                    print_generic_expr(dump_file, var, 0);
+                    fprintf(dump_file, "\n");
+                }
+        }
+
+    FOR_EACH_BB(bb)
+    {
+        fprintf(dump_file, "L%d: %s\n", bb->index,
+            (single_succ_p(bb)) ? "single_succ" : "");
+        gimple_stmt_iterator gsi;
+        for(gsi = gsi_start_phis(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+            {
+                gimple stmt = gsi_stmt(gsi);
+                fprintf(dump_file, "\t#");
+                print_gimple_stmt(dump_file, stmt, 0, 0);
+            }
+        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+            {
+                gimple stmt = gsi_stmt(gsi);
+                fprintf(dump_file, "\t");
+                print_gimple_stmt(dump_file, stmt, 0, 0);
+            }
+        edge e;
+        gimple stmt;
+        edge true_edge, false_edge;
+        stmt = last_stmt (bb);
+
+        if (stmt && gimple_code (stmt) == GIMPLE_COND)
+            {
+
+                extract_true_false_edges_from_block (bb, &true_edge,
+                                            &false_edge);
+
+                fprintf(dump_file, "\tgoto L%d", true_edge->dest->index);
+                fprintf(dump_file, "\n");
+                fprintf(dump_file, "else\n");
+                fprintf(dump_file, "\tgoto L%d", false_edge->dest->index);
+                fprintf(dump_file, "\n");
+                continue;
+            }
+        e = find_fallthru_edge (bb->succs);
+        if (e && e->dest != bb->next_bb)
+            {
+                fprintf(dump_file, "\tgoto L%d", e->dest->index);
+                fprintf(dump_file, "\n");
+            }
+    }
+
+    fprintf(dump_file, "}\n");
+    fflush(dump_file);
+}
+
+static void
 extract_kernels(struct loops* loops, tree child_fn,
                 vec<acc_kernel>* kernels, gimple kernel_stmt)
 {
@@ -1526,6 +1630,7 @@ extract_kernels(struct loops* loops, tree child_fn,
   unsigned nloops, i;
   struct loop **vloops;
   basic_block *body, bb_entry;
+  struct function* child_cfun;
 
   if(gimple_code(kernel_stmt) == GIMPLE_ACC_PARALLEL 
     || loops->tree_root->inner == NULL 
@@ -1601,6 +1706,36 @@ extract_kernels(struct loops* loops, tree child_fn,
     kernels->safe_push(kernel);
   }
 
+  for(i = 0; i < nloops - 1; ++i)
+  {
+    edge exit_loop = single_exit(vloops[i]);
+    basic_block new_bb, before, after;
+    gimple_stmt_iterator gsi;
+
+    before = exit_loop->src;
+    after = exit_loop->dest;
+    new_bb = create_empty_bb(before);
+    add_bb_to_loop(new_bb, loops->tree_root);
+    redirect_edge_and_branch(exit_loop, new_bb);
+    make_single_succ_edge(new_bb, after, EDGE_FALLTHRU);
+    set_immediate_dominator (CDI_DOMINATORS, new_bb, before);
+    set_immediate_dominator (CDI_DOMINATORS, after, new_bb);
+    if(i > 0)
+    {
+        gsi = gsi_last_bb(new_bb);
+        gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
+    }
+  }
+  if(dump_file)
+  {
+    child_cfun = DECL_STRUCT_FUNCTION(child_fn);
+    push_cfun(child_cfun);
+    dump_fn_body(dump_file, "ORIGINAL");
+    fflush(dump_file);
+    pop_cfun();
+  }
+
+
   bb_entry = single_succ_edge(ENTRY_BLOCK_PTR)->dest;
   for(i = 0; i < nloops; ++i)
   {
@@ -1611,7 +1746,7 @@ extract_kernels(struct loops* loops, tree child_fn,
     }
     else
     {
-      bb_exit = single_exit(vloops[i])->src;
+      bb_exit = single_exit(vloops[i])->dest;
     }
     if(dump_file)
     {
@@ -1625,22 +1760,44 @@ extract_kernels(struct loops* loops, tree child_fn,
 
     if(i < nloops - 1)
     {
-      bb_entry = single_exit(vloops[i])->dest;
+      bb_entry = single_succ(bb_exit);
     }
 
+  }
+
+  if(dump_file)
+  {
+    for(i = 0; i < nloops; ++i)
+    {
+      unsigned j;
+      vec<basic_block> bbs;
+      
+      bbs.create(0);
+      bbs.safe_push((*kernels)[i]->bb_entry);
+      gather_blocks_in_sese_region((*kernels)[i]->bb_entry, (*kernels)[i]->bb_exit, &bbs);
+      fprintf(dump_file, "LOOP #%d ", i);
+      for(j = 0; j < bbs.length(); ++j)
+        fprintf(dump_file, "%d ", bbs[j]->index);
+      fprintf(dump_file, "\n");
+    }
+    dump_dominators(dump_file, ENTRY_BLOCK_PTR, 0);
   }
 
   for(i = 0; i < nloops; ++i)
   {
     tree fn = (*kernels)[i]->func;
-    struct function* child_cfun;
     basic_block bb;
 
     if(i > 0)
     {
-      int opt_level;
+      int opt_level, k;
       tree block, t;
       gimple_stmt_iterator gsi;
+      vec<basic_block> bbs;
+      
+      bbs.create(0);
+      bbs.safe_push((*kernels)[i]->bb_entry);
+      gather_blocks_in_sese_region((*kernels)[i]->bb_entry, (*kernels)[i]->bb_exit, &bbs);
 
       block = DECL_INITIAL(fn);
       child_cfun = DECL_STRUCT_FUNCTION (fn);
@@ -1649,8 +1806,45 @@ extract_kernels(struct loops* loops, tree child_fn,
 	    child_cfun->gimple_df->in_ssa_p = true;
       bb = move_sese_region_to_fn (child_cfun, (*kernels)[i]->bb_entry,
         (*kernels)[i]->bb_exit, NULL_TREE);
-      gsi = gsi_last_bb(bb);
-      gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
+      if(i == nloops - 1)
+      {
+        gsi = gsi_last_bb(bb);
+        gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
+      }
+
+      for(k = 1; k < num_ssa_names; ++k)
+      {
+        tree var = ssa_name(k);
+        if(var /*&& !SSA_NAME_VAR(var)*/)
+        {
+          unsigned j;
+          basic_block def_block = gimple_bb(SSA_NAME_DEF_STMT(var));
+
+          for(j = 0; j < bbs.length(); ++j)
+          {
+            if(bbs[j] == def_block)
+            {
+              if(dump_file)
+              {
+                fprintf(dump_file, "Release ssa name %d ", k);
+                print_generic_expr(dump_file, var, 0);
+                fprintf(dump_file, " defined in block %d", def_block->index);
+                fprintf(dump_file, "\n");
+              }
+              release_ssa_name(var);
+              break;
+            }
+          }
+        }
+      }
+
+      if(dump_file)
+      {
+        dump_fn_body(dump_file, "AFTER MOVE SESE");
+        dump_ssa(dump_file);
+        fflush(dump_file);
+      }
+      //verify_ssa(true);
 
       child_cfun->curr_properties = cfun->curr_properties;
       cgraph_add_new_function (fn, true);
@@ -1658,30 +1852,12 @@ extract_kernels(struct loops* loops, tree child_fn,
 
       if(dump_file)
       {
-        dump_flow_info(dump_file, 0);
-        fflush(dump_file);
-      }
-
-      if(i < nloops - 1)
-      {
-        bb = create_empty_bb((*kernels)[i]->bb_exit);
-        gsi = gsi_last_bb(bb);
-        gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
-        make_edge((*kernels)[i]->bb_exit, bb, EDGE_FALLTHRU);
-        make_edge(bb, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
-        //set_immediate_dominator (CDI_DOMINATORS, bb, (*kernels)[i]->bb_exit);
-        //set_immediate_dominator (CDI_DOMINATORS, EXIT_BLOCK_PTR, bb);
-      }
-
-      if(dump_file)
-      {
-        dump_flow_info(dump_file, 0);
+        dump_fn_body(dump_file, "NEW FUNCTION");
         fflush(dump_file);
       }
 
       FOR_EACH_BB(bb)
       {
-
         for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
             {
               struct walk_stmt_info wi;
@@ -1922,81 +2098,6 @@ gather_control_var_defs(tree var, vec<gimple_stmt_iterator>* piter)
 }
 
 static void
-dump_fn_body(FILE* dump_file, const char* title)
-{
-    tree var;
-    unsigned i;
-    basic_block bb;
-
-    fprintf(dump_file, "==============================\n%s"
-            "\n========================\n", title);
-
-    print_generic_decl(dump_file, current_function_decl, 0);
-    fprintf(dump_file, "\n{\n");
-
-    FOR_EACH_LOCAL_DECL(DECL_STRUCT_FUNCTION(current_function_decl), i, var)
-    {
-        print_generic_decl(dump_file, var, 0);
-        fprintf(dump_file, "\n");
-    }
-    for(i = 1; i < num_ssa_names; ++i)
-        {
-            var = ssa_name(i);
-            if(var && !SSA_NAME_VAR(var))
-                {
-                    fprintf(dump_file, "\t");
-                    print_generic_expr(dump_file, var, 0);
-                    fprintf(dump_file, "\n");
-                }
-        }
-
-    FOR_EACH_BB(bb)
-    {
-        fprintf(dump_file, "L%d:\n", bb->index);
-        gimple_stmt_iterator gsi;
-        for(gsi = gsi_start_phis(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-            {
-                gimple stmt = gsi_stmt(gsi);
-                fprintf(dump_file, "\t#");
-                print_gimple_stmt(dump_file, stmt, 0, 0);
-            }
-        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-            {
-                gimple stmt = gsi_stmt(gsi);
-                fprintf(dump_file, "\t");
-                print_gimple_stmt(dump_file, stmt, 0, 0);
-            }
-        edge e;
-        gimple stmt;
-        edge true_edge, false_edge;
-        stmt = last_stmt (bb);
-
-        if (stmt && gimple_code (stmt) == GIMPLE_COND)
-            {
-
-                extract_true_false_edges_from_block (bb, &true_edge,
-                                            &false_edge);
-
-                fprintf(dump_file, "\tgoto L%d", true_edge->dest->index);
-                fprintf(dump_file, "\n");
-                fprintf(dump_file, "else\n");
-                fprintf(dump_file, "\tgoto L%d", false_edge->dest->index);
-                fprintf(dump_file, "\n");
-                continue;
-            }
-        e = find_fallthru_edge (bb->succs);
-        if (e && e->dest != bb->next_bb)
-            {
-                fprintf(dump_file, "\tgoto L%d", e->dest->index);
-                fprintf(dump_file, "\n");
-            }
-    }
-
-    fprintf(dump_file, "}\n");
-    fflush(dump_file);
-}
-
-static void
 parallelize_loop(struct loop* l)
 {
     if(dump_file)
@@ -2094,6 +2195,7 @@ parallelize_loop(struct loop* l)
         {
             redirect_edge_and_branch_force(latch, exit->dest);
         }
+
 
     for(phi_iter = gsi_start_phis(exit->dest); !gsi_end_p(phi_iter);
             gsi_next(&phi_iter))
@@ -2536,10 +2638,10 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
 static void
 generate_opencl(void)
 {
-    //rewrite_out_of_ssa(&SA);
-    //cleanup_tree_cfg();
+    rewrite_out_of_ssa(&SA);
+    cleanup_tree_cfg();
     generate_opencl_kernel(ocl_module, current_function_decl, &SA);
-    //finish_out_of_ssa(&SA);
+    finish_out_of_ssa(&SA);
 }
 
 
@@ -2556,18 +2658,12 @@ finish_current_fn(void)
     basic_block bb;
     unsigned i;
 
-    for(i = 0; i < basic_block_info->length(); ++i)
+    for(i = 2; i < basic_block_info->length() - 2; ++i)
     {
       bb = (*basic_block_info)[i];
       unlink_block(bb);
     }
 
-    /*
-       struct cgraph_node* node = cgraph_get_node(current_function_decl);
-       free_dominance_info(CDI_DOMINATORS);
-       free_dominance_info(CDI_POST_DOMINATORS);
-       cgraph_remove_node(node);
-     */
 }
 
 static void

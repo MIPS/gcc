@@ -1,3 +1,8 @@
+25-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Fix splitting into kernels.
+
+    * gcc/oacc-low.c(extract_kernels): Various improvements.
+
 24-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Add enter/exit data directives support.
     
