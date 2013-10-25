@@ -7063,7 +7063,7 @@ if (1) return;
 ;; utility function to box a non-value normal as a return of an
 ;; autoboxed value
 (defun autobox_normal_return (nexp ctyp ncx)
-  (debug "autobox_normal_return nexp=" nexp " ctyp=" ctyp " ncx=" ncx)
+  (debug "autobox_normal_return nexp=" nexp " ctyp=" ctyp " ncx=" debug_less ncx)
   (shortbacktrace_dbg "autobox_normal_return" 12)
   (assert_msg "check ctyp" (is_a ctyp class_ctype) ctyp)
   (let ( (csym (clone_symbol 'retautoboxval))
@@ -7078,17 +7078,19 @@ if (1) return;
 			  :nocc_ctyp ctype_value
 			  :nocc_symb csym
 			  :nocc_bind cbind))
-	 (nbinds (list))
+	 (nbinds (list cbind))
 	 )
-    (debug "autobox_normal_return clocc=" clocc " incomplete cbind=" cbind)
+    (debug "autobox_normal_return clocc=" clocc " incomplete cbind=" cbind
+	   "\n.. nbinds=" nbinds)
     (cond
      ( (== ctyp ctype_value)
        (if (is_not_a nexp class_nrep_return)
 	   (let ( (nret (instance class_nrep_return
-				  :nret_main nexp
+				  :nret_main clocc
 				  ))
 		  )
-	     (debug "autobox_normal_return gives nret=" nret " nbinds=" nbinds)
+	     (put_fields cbind :letbind_expr nexp)
+	     (debug "autobox_normal_return gives nret=" nret " nbinds=" nbinds "\n cbind=" cbind)
 	     (return nret nbinds))
 	 (return nexp nbinds)))
      ;; autoboxing longs
@@ -7112,7 +7114,6 @@ if (1) return;
 			      ))
 	      )
 	 (put_fields cbind :letbind_expr nchk)
-	 (list_append nbinds cbind)
 	 (debug "autobox_normal_return long return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)
 	 ))
@@ -7124,7 +7125,6 @@ if (1) return;
 			      :nret_main clocc))
 	      )
 	 (put_fields cbind :letbind_expr nilr)
-	 (list_append nbinds cbind)
 	 (debug "autobox_normal_return void return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)		    
        ))
@@ -7149,7 +7149,6 @@ if (1) return;
 			      ))
 	      )
 	 (put_fields cbind :letbind_expr nchk)
-	 (list_append nbinds cbind)
 	 (debug "autobox_normal_return cstring return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)
 	 ))
@@ -7189,7 +7188,6 @@ if (1) return;
 			      ))
 	      )
 	 (put_fields cbind :letbind_expr nchk)
-	 (list_append nbinds cbind)
 	 (debug "autobox_normal_return gtyctype return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)
 	 ))
@@ -7291,7 +7289,7 @@ if (1) return;
 	     (debug "translate_run_melt_expressions macroenv=" debug_more menv)
 	     menv))
 	  (modctx
-	   (instance class_running_extension_module_context
+	   (let ( (m (instance class_running_extension_module_context
 		     :mocx_modulename  nakedbasnam
 		     :mocx_expfieldict (make_mapstring discr_map_strings 71)
 		     :mocx_expclassdict (make_mapstring discr_map_strings 19)
@@ -7314,6 +7312,9 @@ if (1) return;
 		     :morcx_countlitval (make_integerbox discr_integer 1)
 		     :morcx_literobjmap (make_mapobject discr_map_objects 53)
 		     ))
+		  )
+	     (debug "translate_run_melt_expressions modctx=" m)
+	     m))
 	  (ncx 
 	   (create_normal_extending_context modctx env))
 	  (lsexp
@@ -7379,7 +7380,10 @@ if (1) return;
 	(runerrorhdlr '"runtime invalid expressions")
 	(return () ()))
       (let ( (xlist
-	      (macroexpand_toplevel_list lsexp env macroexpand_1 modctx)) 
+	      (let ( (xl (macroexpand_toplevel_list lsexp env macroexpand_1 modctx))
+		     )
+		(debug "translate_run_melt_expressions xlist=" xl)
+		xl))
 	     (:long lenxlist (list_length xlist))
 	     ;; normalextend should ensure that the last normal gives a value
 	     (normalextend 
@@ -7390,7 +7394,10 @@ if (1) return;
 		(shortbacktrace_dbg "translate_run_melt_expressions/normalextend" 13)
 		(assert_msg "check null !refnormlist" (null !refnormlist) refnormlist)
 		(let ( (lastnormpair (list_last normlist))
-		       (lastnorm (list_last_element normlist))
+		       (lastnorm (let ( (ln (list_last_element normlist))
+					)
+				   (debug "translate_run_melt_expressions/normalextend lastnorm=" ln)
+				   ln))
 		       (lastctyp (get_ctype lastnorm inienv))
 		       )
 		  (debug "translate_run_melt_expressions/normalextend lastnorm=" lastnorm 

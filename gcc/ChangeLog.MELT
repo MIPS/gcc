@@ -1,5 +1,17 @@
 
 2013-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-genobj.melt (compile2obj_initextendproc)
+	(compilobj_nrep_locsymocc): More debug.
+
+	* melt/warmelt-outobj.melt (autobox_normal_return): More
+	debug. Perhaps should create another binding for the
+	class_nrep_return instance....
+	(translate_run_melt_expressions): More debug.
+
+	* melt/warmelt-modes.melt (eval_docmd, evalfile_docmd): More
+	debug, and describe the created environments.
+
+2013-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-outobj.melt (translate_run_melt_expressions): If
 	the run-infix program argument is given as
 	-fplugin-arg-melt-run-infix=FOO use it instead of the process id

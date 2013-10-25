@@ -2059,7 +2059,8 @@
 			      ))
        (debug "compile2obj_initextendproc before body oiniprolog=" oiniprolog
 	      "\n idata=" idata)
-       (debug "compile2obj_initextendproc again toplis=" toplis)
+       (debug "compile2obj_initextendproc again toplis=" toplis
+	      "\n.. gcx=" debug_less gcx)
        (assert_msg "check toplis" (is_list_or_null toplis) toplis)
        ;; compile the toplevels
        (let ( (objtoplis 
@@ -2504,7 +2505,7 @@
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  (defun compilobj_nrep_locsymocc (lsyo gcx)
-   (debug "compilobj locsymocc begin lsyo=" lsyo)
+   (debug "compilobj_nrep_locsymocc begin lsyo=" lsyo)
    (assert_msg "check nchk" (is_a lsyo class_nrep_locsymocc) lsyo)
    (assert_msg "check gcx" (is_a gcx class_c_generation_context) gcx)
    (let ( (loc (unsafe_get_field :nrep_loc lsyo))
@@ -2514,18 +2515,21 @@
 	  (sbnd (unsafe_get_field :nocc_bind lsyo))
 	  (ovar (mapobject_get locmap sbnd))
 	  )
-     (debug "compilobj locsymocc sbnd=" sbnd " ovar=" ovar)
+     (debug "compilobj_nrep_locsymocc sbnd=" sbnd " ovar=" ovar)
      (when (null sbnd)
        (debug "compilobj_nrep_locsymocc null sbnd lsyo=" lsyo " sym=" sym)
        (assert_msg "locsymocc without binding" () lsyo)
 	   )
      (if (null ovar) 
 	 (progn
-	   (debug "compilobj locsymocc null ovar sbnd=" sbnd " locmap=" locmap " lsyo=" lsyo)
-	   (assert_msg "compilobj locsymocc null ovar without ctype_void" (== oty ctype_void) oty lsyo)
+	   (debug "compilobj locsymocc null ovar sbnd=" sbnd 
+		  "\n.. locmap=" locmap 
+		  "\n.. lsyo=" lsyo 
+		  "\n.. gcx=" debug_less gcx)
+	   (assert_msg "compilobj_nrep_locsymocc null ovar without ctype_void" (== oty ctype_void) oty lsyo locmap)
 	   )
-       (assert_msg "compilobj locsymocc check ovar"  (is_a ovar class_objlocv) ovar))
-     (debug "compilobj locsymocc end lsyo=" lsyo " gives ovar=" ovar)
+       (assert_msg "compilobj_nrep_locsymocc check ovar"  (is_a ovar class_objlocv) ovar))
+     (debug "compilobj_nrep_locsymocc end lsyo=" lsyo " gives ovar=" ovar)
      (return ovar)
      ))
  (install_method class_nrep_locsymocc compile_obj compilobj_nrep_locsymocc)
