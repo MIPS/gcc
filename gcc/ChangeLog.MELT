@@ -1,5 +1,8 @@
 
 2013-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt-runtime.h (MELT_VERSION_STR): Bump to "1.0-rc2+".
+
+2013-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-genobj.melt (compile2obj_initextendproc)
 	(compilobj_nrep_locsymocc): More debug.
 
