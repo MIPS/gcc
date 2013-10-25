@@ -1,3 +1,11 @@
+25-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Add LOOP AUTO and TILE clauses
+    
+    * gcc/fortran/gfortran.h: New clauses
+    * gcc/fortran/openacc.c: Likewise and resolves
+    * gcc/fortran/resolve.c: Add LOOP as block to resolve
+    * gcc/testsuite/gfortran.dg/gacc/__loop.f95: New test
+
 25-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Fix splitting into kernels.
 

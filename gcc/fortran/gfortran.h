@@ -1173,8 +1173,10 @@ typedef struct gfc_acc_clauses
   struct gfc_expr *non_clause_wait_expr;
   gfc_namelist *lists[ACC_LIST_NUM];
   gfc_exprlist *waitlist;
+  gfc_exprlist *tilelist;
   int collapse;
-  bool async, gang, worker, vector, seq, independent, default_none, wait;
+  bool async, gang, worker, vector, seq, independent;
+  bool default_none, wait, par_auto, gang_static;
 }
 gfc_acc_clauses;
 

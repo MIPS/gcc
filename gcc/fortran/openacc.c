@@ -42,6 +42,8 @@
 #define ACC_CLAUSE_DEFAULT              (1l << 28)
 #define ACC_CLAUSE_WAIT                 (1l << 29)
 #define ACC_CLAUSE_DELETE               (1l << 30)
+#define ACC_CLAUSE_AUTO                 (1l << 31)
+#define ACC_CLAUSE_TILE                 (1l << 32)
 
 /* Match an end of OpenACC directive.  End of OpenACC directive is optional
    whitespace, followed by '\n' or comment '!'.  */
@@ -272,7 +274,7 @@ cleanup:
 }
 
 static match
-match_acc_exprlist (const char *str, gfc_exprlist **list)
+match_acc_exprlist (const char *str, gfc_exprlist **list, bool allow_asterisk)
 {
   gfc_exprlist *head, *tail, *p;
   locus old_loc;
@@ -291,9 +293,8 @@ match_acc_exprlist (const char *str, gfc_exprlist **list)
   for (;;)
     {
       m = gfc_match_expr (&expr);
-      switch (m)
+      if (m == MATCH_YES || allow_asterisk)
         {
-        case MATCH_YES:
           p = gfc_get_exprlist ();
           if (head == NULL)
             head = tail = p;
@@ -302,13 +303,14 @@ match_acc_exprlist (const char *str, gfc_exprlist **list)
               tail->next = p;
               tail = tail->next;
             }
-          tail->expr = expr;
+          if (m == MATCH_YES)
+            tail->expr = expr;
+          else if (gfc_match (" *") != MATCH_YES)
+            goto syntax;
           goto next_item;
-        case MATCH_NO:
-          break;
-        case MATCH_ERROR:
-          goto cleanup;
         }
+      if (m == MATCH_ERROR)
+        goto cleanup;
       goto syntax;
 
     next_item:
@@ -331,6 +333,26 @@ cleanup:
   gfc_free_exprlist (head);
   gfc_current_locus = old_loc;
   return MATCH_ERROR;
+}
+
+static match
+match_acc_clause_gang (gfc_acc_clauses *cp)
+{
+  if (gfc_match_char ('(') != MATCH_YES)
+    return MATCH_NO;
+  if (gfc_match (" num :") == MATCH_YES)
+    {
+      cp->gang_static = false;
+      return gfc_match (" %e )", &cp->gang_expr);
+    }
+  if (gfc_match (" static :") == MATCH_YES)
+    {
+      cp->gang_static = true;
+      if (gfc_match (" * )") != MATCH_YES)
+        return gfc_match (" %e )", &cp->gang_expr);
+      return MATCH_YES;
+    }
+  return gfc_match (" %e )", &cp->gang_expr);
 }
 
 /* Match OpenACC directive clauses. MASK is a bitmask of
@@ -367,7 +389,7 @@ match_acc_clauses (gfc_acc_clauses **cp, long mask)
         if (gfc_match ("gang") == MATCH_YES)
           {
             c->gang = true;
-            if (gfc_match (" ( %e )", &c->gang_expr) == MATCH_YES)
+            if (match_acc_clause_gang(c) == MATCH_YES)
               needs_space = false;
             else
               needs_space = true;
@@ -377,7 +399,8 @@ match_acc_clauses (gfc_acc_clauses **cp, long mask)
         if (gfc_match ("worker") == MATCH_YES)
           {
             c->worker = true;
-            if (gfc_match (" ( %e )", &c->worker_expr) == MATCH_YES)
+            if (gfc_match (" ( num : %e )", &c->worker_expr) == MATCH_YES
+                || gfc_match (" ( %e )", &c->worker_expr) == MATCH_YES)
               needs_space = false;
             else
               needs_space = true;
@@ -390,7 +413,8 @@ match_acc_clauses (gfc_acc_clauses **cp, long mask)
         if (gfc_match ("vector") == MATCH_YES)
           {
             c->vector = true;
-            if (gfc_match (" ( %e )", &c->vector_expr) == MATCH_YES)
+            if (gfc_match (" ( length : %e )", &c->vector_expr) == MATCH_YES
+                || gfc_match (" ( %e )", &c->vector_expr) == MATCH_YES)
               needs_space = false;
             else
               needs_space = true;
@@ -512,7 +536,9 @@ match_acc_clauses (gfc_acc_clauses **cp, long mask)
                                       &c->lists[ACC_LIST_DEVICE], true, false)
              == MATCH_YES)
         continue;
-
+      if ((mask & ACC_CLAUSE_TILE)
+          && match_acc_exprlist ("tile (", &c->tilelist, true) == MATCH_YES)
+        continue;
 
       /* Integer */
       if ((mask & ACC_CLAUSE_COLLAPSE) && !c->collapse)
@@ -563,13 +589,20 @@ match_acc_clauses (gfc_acc_clauses **cp, long mask)
           needs_space = true;
           continue;
         }
+      if ((mask & ACC_CLAUSE_AUTO) && !c->par_auto
+                && gfc_match ("auto") == MATCH_YES)
+        {
+          c->par_auto = true;
+          needs_space = true;
+          continue;
+        }
 
       /* optional list */
       if ((mask & ACC_CLAUSE_WAIT) && !c->wait
                 && gfc_match ("wait") == MATCH_YES)
         {
           c->wait = true;
-          match_acc_exprlist (" (", &c->waitlist);
+          match_acc_exprlist (" (", &c->waitlist, false);
           continue;
         }
 
@@ -695,8 +728,9 @@ match_acc_clauses (gfc_acc_clauses **cp, long mask)
    | ACC_CLAUSE_PRESENT_OR_COPYIN | ACC_CLAUSE_PRESENT_OR_COPYOUT | ACC_CLAUSE_PRESENT_OR_CREATE)
 
 #define ACC_LOOP_CLAUSES \
-  (ACC_CLAUSE_COLLAPSE | ACC_CLAUSE_GANG | ACC_CLAUSE_WORKER | ACC_CLAUSE_VECTOR \
-   | ACC_CLAUSE_SEQ | ACC_CLAUSE_INDEPENDENT | ACC_CLAUSE_PRIVATE | ACC_CLAUSE_REDUCTION)
+  (ACC_CLAUSE_COLLAPSE | ACC_CLAUSE_GANG | ACC_CLAUSE_WORKER | ACC_CLAUSE_VECTOR                 \
+   | ACC_CLAUSE_SEQ | ACC_CLAUSE_INDEPENDENT | ACC_CLAUSE_PRIVATE | ACC_CLAUSE_REDUCTION         \
+   | ACC_CLAUSE_AUTO | ACC_CLAUSE_TILE)
 
 #define ACC_PARALLEL_LOOP_CLAUSES \
   (ACC_LOOP_CLAUSES | ACC_PARALLEL_CLAUSES)
@@ -892,37 +926,21 @@ struct acc_context
   struct acc_context *previous;
 } *acc_current_ctx;
 
-void
-gfc_resolve_acc_blocks (gfc_code *code, gfc_namespace *ns)
+static bool is_parallel (gfc_code *code)
 {
-  struct acc_context ctx;
+  return code->op == EXEC_ACC_PARALLEL || code->op == EXEC_ACC_PARALLEL_LOOP;
+}
 
-  /* kernels or parallel regions may not contain other parallel or kernels regions */
-  if (code->op == EXEC_ACC_PARALLEL || code->op == EXEC_ACC_PARALLEL_LOOP ||
-      code->op == EXEC_ACC_KERNELS || code->op == EXEC_ACC_KERNELS_LOOP)
-    {
-      struct acc_context* c;
-      for (c = acc_current_ctx; c; c = c->previous)
-        if (c->code->op == EXEC_ACC_PARALLEL || c->code->op == EXEC_ACC_PARALLEL_LOOP
-            || c->code->op == EXEC_ACC_KERNELS || c->code->op == EXEC_ACC_KERNELS_LOOP)
-          {
-            const char *name;
-            if (c->code->op == EXEC_ACC_PARALLEL || c->code->op == EXEC_ACC_PARALLEL_LOOP)
-              name = "PARALLEL";
-            else
-              name = "KERNELS";
-            gfc_error ("%s construct may not contain parallel or kernels regions %L",
-                     name, &code->loc);
-          }
-    }
+static bool is_kernels (gfc_code *code)
+{
+  return code->op == EXEC_ACC_KERNELS || code->op == EXEC_ACC_KERNELS_LOOP;
+}
 
-  ctx.code = code;
-  ctx.previous = acc_current_ctx;
-  acc_current_ctx = &ctx;
-
-  gfc_resolve_blocks (code->block, ns);
-
-  acc_current_ctx = ctx.previous;
+static bool is_loop (gfc_code *code)
+{
+  return code->op == EXEC_ACC_PARALLEL_LOOP
+         || code->op == EXEC_ACC_KERNELS_LOOP
+         || code->op == EXEC_ACC_LOOP;
 }
 
 static void
@@ -942,6 +960,219 @@ resolve_acc_positive_int_expr (gfc_expr *expr, const char *clause)
       && expr->value.integer->_mp_size <= 0)
     gfc_warning ("INTEGER expression of %s clause at %L must be positive",
                      clause, &expr->where);
+}
+
+static void
+resolve_acc_nested_loops (gfc_code *code, gfc_code* do_code, int collapse, const char *clause)
+{
+  gfc_symbol *dovar;
+  gfc_code *c;
+  int i;
+
+  for (i = 1; i <= collapse; i++)
+    {
+      if (do_code->op == EXEC_DO_WHILE)
+        {
+          gfc_error ("!$ACC LOOP cannot be a DO WHILE or DO without loop control "
+                     "at %L", &do_code->loc);
+          break;
+        }
+      gcc_assert (do_code->op == EXEC_DO);
+      if (do_code->ext.iterator->var->ts.type != BT_INTEGER)
+        gfc_error ("!$ACC LOOP iteration variable must be of type integer at %L",
+                   &do_code->loc);
+      dovar = do_code->ext.iterator->var->symtree->n.sym;
+      if (i > 1)
+        {
+          gfc_code *do_code2 = code->block->next;
+          int j;
+
+          for (j = 1; j < i; j++)
+            {
+              gfc_symbol *ivar = do_code2->ext.iterator->var->symtree->n.sym;
+              if (dovar == ivar
+                  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->start)
+                  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->end)
+                  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->step))
+                {
+                  gfc_error ("!$ACC LOOP %s loops don't form rectangular iteration space at %L",
+                             clause, &do_code->loc);
+                  break;
+                }
+              if (j < i)
+                break;
+              do_code2 = do_code2->block->next;
+            }
+        }
+      if (i == collapse)
+        break;
+      for (c = do_code->next; c; c = c->next)
+        if (c->op != EXEC_NOP && c->op != EXEC_CONTINUE)
+          {
+            gfc_error ("%s !$ACC LOOP loops not perfectly nested at %L",
+                       clause, &c->loc);
+            break;
+          }
+      if (c)
+        break;
+      do_code = do_code->block;
+      if (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE)
+        {
+          gfc_error ("not enough DO loops for %s !$ACC LOOP at %L",
+                     clause, &code->loc);
+          break;
+        }
+      do_code = do_code->next;
+      if (do_code == NULL
+          || (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE))
+        {
+          gfc_error ("not enough DO loops for %s !$ACC LOOP at %L",
+                     clause, &code->loc);
+          break;
+        }
+    }
+}
+
+static void
+resolve_acc_params_in_parallel (gfc_code *code, const char *clause)
+{
+  struct acc_context *c;
+
+  if (is_parallel (code))
+    gfc_error ("LOOP %s in PARALLEL section allows no argument or static at %L",
+               clause, &code->loc);
+  for (c = acc_current_ctx; c; c = c->previous)
+    {
+      if (is_loop (c->code))
+        break;
+      if (is_parallel (c->code))
+        gfc_error ("LOOP %s in PARALLEL section allows no argument or static at %L",
+                   clause, &code->loc);
+    }
+}
+
+static void
+resolve_acc_loop_blocks (gfc_code *code)
+{
+  struct acc_context *c;
+
+  if (!is_loop (code))
+    return;
+
+  if (code->op == EXEC_ACC_LOOP)
+    for (c = acc_current_ctx; c; c = c->previous)
+      {
+        if (is_loop (c->code))
+          {
+            if (code->ext.acc_clauses->gang)
+              {
+                if (c->code->ext.acc_clauses->gang)
+                  gfc_error ("Loop parallelized across gangs is not allowed "
+                             "inside another loop parallelized across gangs at %L", &code->loc);
+                if (c->code->ext.acc_clauses->worker)
+                  gfc_error ("Loop parallelized across gangs is not allowed "
+                             "inside loop parallelized across workers at %L", &code->loc);
+                if (c->code->ext.acc_clauses->vector)
+                  gfc_error ("Loop parallelized across gangs is not allowed "
+                             "inside loop parallelized across workers at %L", &code->loc);
+              }
+            if (code->ext.acc_clauses->worker)
+              {
+                if (c->code->ext.acc_clauses->worker)
+                  gfc_error ("Loop parallelized across workers is not allowed "
+                             "inside another loop parallelized across workers at %L", &code->loc);
+                if (c->code->ext.acc_clauses->vector)
+                  gfc_error ("Loop parallelized across workers is not allowed "
+                             "inside another loop parallelized across vectors at %L", &code->loc);
+              }
+            if (code->ext.acc_clauses->vector)
+              if (c->code->ext.acc_clauses->vector)
+                gfc_error ("Loop parallelized across vectors is not allowed "
+                           "inside another loop parallelized across vectors at %L", &code->loc);
+          }
+
+        if (is_parallel (c->code) || is_kernels (c->code))
+          break;
+      }
+
+  if (code->ext.acc_clauses->seq)
+    {
+      if (code->ext.acc_clauses->gang)
+        gfc_error ("Both SEQ and GANG are not allowed in %L", &code->loc);
+      if (code->ext.acc_clauses->worker)
+        gfc_error ("Both SEQ and WORKER are not allowed in %L", &code->loc);
+      if (code->ext.acc_clauses->vector)
+        gfc_error ("Both SEQ and VECTOR are not allowed in %L", &code->loc);
+      if (code->ext.acc_clauses->par_auto)
+        gfc_error ("Both SEQ and AUTO are not allowed in %L", &code->loc);
+    }
+  if (code->ext.acc_clauses->par_auto)
+    {
+      if (code->ext.acc_clauses->gang)
+        gfc_error ("Both AUTO and GANG are not allowed in %L", &code->loc);
+      if (code->ext.acc_clauses->worker)
+        gfc_error ("Both AUTO and WORKER are not allowed in %L", &code->loc);
+      if (code->ext.acc_clauses->vector)
+        gfc_error ("Both AUTO and VECTOR are not allowed in %L", &code->loc);
+    }
+  if (!code->ext.acc_clauses->tilelist)
+    {
+      if (code->ext.acc_clauses->gang)
+        {
+          if (code->ext.acc_clauses->worker)
+            gfc_error ("Both GANG and WORKER are not allowed in %L", &code->loc);
+          if (code->ext.acc_clauses->vector)
+            gfc_error ("Both GANG and VECTOR are not allowed in %L", &code->loc);
+        }
+      if (code->ext.acc_clauses->worker)
+        if (code->ext.acc_clauses->vector)
+          gfc_error ("Both WORKER and VECTOR are not allowed in %L", &code->loc);
+    }
+  else if (code->ext.acc_clauses->gang
+           && code->ext.acc_clauses->worker
+           && code->ext.acc_clauses->vector)
+    gfc_error ("All GANG, WORKER and VECTOR are not allowed in %L", &code->loc);
+
+  if (code->ext.acc_clauses->gang
+      && code->ext.acc_clauses->gang_expr
+      && !code->ext.acc_clauses->gang_static)
+    resolve_acc_params_in_parallel (code, "GANG");
+
+  if (code->ext.acc_clauses->worker
+      && code->ext.acc_clauses->worker_expr)
+    resolve_acc_params_in_parallel (code, "WORKER");
+
+  if (code->ext.acc_clauses->tilelist)
+    {
+      gfc_exprlist *el;
+      int num = 0;
+      for (el = code->ext.acc_clauses->tilelist; el; el = el->next)
+        {
+          num++;
+          if (el->expr == NULL)
+            continue;
+          resolve_acc_positive_int_expr (el->expr, "TILE");
+          if (el->expr->expr_type != EXPR_CONSTANT)
+            gfc_error ("TILE requires constant expression at %L", &code->loc);
+        }
+      resolve_acc_nested_loops (code, code->block->next, num, "tiled");
+    }
+}
+
+void
+gfc_resolve_acc_blocks (gfc_code *code, gfc_namespace *ns)
+{
+  struct acc_context ctx;
+
+  resolve_acc_loop_blocks (code);
+
+  ctx.code = code;
+  ctx.previous = acc_current_ctx;
+  acc_current_ctx = &ctx;
+
+  gfc_resolve_blocks (code->block, ns);
+
+  acc_current_ctx = ctx.previous;
 }
 
 static void
@@ -1181,9 +1412,8 @@ resolve_acc_clauses (gfc_code *code)
 static void
 resolve_acc_loop(gfc_code *code)
 {
-  gfc_code *do_code, *c;
-  int i, collapse;
-  gfc_symbol *dovar;
+  gfc_code *do_code;
+  int collapse;
   int list;
 
   if (code->ext.acc_clauses)
@@ -1215,68 +1445,7 @@ resolve_acc_loop(gfc_code *code)
 
   if (collapse <= 0)
     collapse = 1;
-  for (i = 1; i <= collapse; i++)
-    {
-      if (do_code->op == EXEC_DO_WHILE)
-        {
-          gfc_error ("!$ACC LOOP cannot be a DO WHILE or DO without loop control "
-                     "at %L", &do_code->loc);
-          break;
-        }
-      gcc_assert (do_code->op == EXEC_DO);
-      if (do_code->ext.iterator->var->ts.type != BT_INTEGER)
-        gfc_error ("!$ACC LOOP iteration variable must be of type integer at %L",
-                   &do_code->loc);
-      dovar = do_code->ext.iterator->var->symtree->n.sym;
-      if (i > 1)
-        {
-          gfc_code *do_code2 = code->block->next;
-          int j;
-
-          for (j = 1; j < i; j++)
-            {
-              gfc_symbol *ivar = do_code2->ext.iterator->var->symtree->n.sym;
-              if (dovar == ivar
-                  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->start)
-                  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->end)
-                  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->step))
-                {
-                  gfc_error ("!$ACC LOOP collapsed loops don't form rectangular iteration space at %L",
-                             &do_code->loc);
-                  break;
-                }
-              if (j < i)
-                break;
-              do_code2 = do_code2->block->next;
-            }
-        }
-      if (i == collapse)
-        break;
-      for (c = do_code->next; c; c = c->next)
-        if (c->op != EXEC_NOP && c->op != EXEC_CONTINUE)
-          {
-            gfc_error ("collapsed !$ACC LOOP loops not perfectly nested at %L",
-                       &c->loc);
-            break;
-          }
-      if (c)
-        break;
-      do_code = do_code->block;
-      if (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE)
-        {
-          gfc_error ("not enough DO loops for collapsed !$ACC LOOP at %L",
-                     &code->loc);
-          break;
-        }
-      do_code = do_code->next;
-      if (do_code == NULL
-          || (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE))
-        {
-          gfc_error ("not enough DO loops for collapsed !$ACC LOOP at %L",
-                     &code->loc);
-          break;
-        }
-    }
+  resolve_acc_nested_loops (code, do_code, collapse, "collapsed");
 }
 
 static void

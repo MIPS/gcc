@@ -9749,6 +9749,7 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
             case EXEC_ACC_HOST_DATA:
             case EXEC_ACC_PARALLEL_LOOP:
             case EXEC_ACC_KERNELS_LOOP:
+            case EXEC_ACC_LOOP:
               gfc_resolve_acc_blocks (code, ns);
               break;
 	    case EXEC_OMP_WORKSHARE:
