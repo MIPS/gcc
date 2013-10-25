@@ -2093,6 +2093,17 @@ chkp_get_zero_bounds_var (void)
   return chkp_zero_bounds_var;
 }
 
+/* Return var holding none bounds.  */
+static tree
+chkp_get_none_bounds_var (void)
+{
+  if (!chkp_none_bounds_var)
+    chkp_none_bounds_var
+      = chkp_make_static_const_bounds (-1, 0,
+				       CHKP_NONE_BOUNDS_VAR_NAME);
+  return chkp_none_bounds_var;
+}
+
 /* Return SSA_NAME used to represent zero bounds.  */
 static tree
 chkp_get_zero_bounds (void)
@@ -2109,20 +2120,15 @@ chkp_get_zero_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      if (!chkp_zero_bounds_var)
-	chkp_zero_bounds_var
-	  = chkp_make_static_const_bounds (0, -1,
-					  CHKP_ZERO_BOUNDS_VAR_NAME);
-
       zero_bounds = make_ssa_name (chkp_get_tmp_var (), gimple_build_nop ());
-      stmt = gimple_build_assign (zero_bounds, chkp_zero_bounds_var);
+      stmt = gimple_build_assign (zero_bounds, chkp_get_zero_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
   else
     zero_bounds = chkp_make_bounds (integer_zero_node,
-				   integer_zero_node,
-				   NULL,
-				   false);
+				    integer_zero_node,
+				    NULL,
+				    false);
 
   return zero_bounds;
 }
@@ -2144,20 +2150,15 @@ chkp_get_none_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      if (!chkp_none_bounds_var)
-	chkp_none_bounds_var
-	  = chkp_make_static_const_bounds (-1, 0,
-					  CHKP_NONE_BOUNDS_VAR_NAME);
-
       none_bounds = make_ssa_name (chkp_get_tmp_var (), gimple_build_nop ());
-      stmt = gimple_build_assign (none_bounds, chkp_none_bounds_var);
+      stmt = gimple_build_assign (none_bounds, chkp_get_none_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
   else
     none_bounds = chkp_make_bounds (integer_minus_one_node,
-				   build_int_cst (size_type_node, 2),
-				   NULL,
-				   false);
+				    build_int_cst (size_type_node, 2),
+				    NULL,
+				    false);
 
   return none_bounds;
 }
@@ -4364,6 +4365,12 @@ chkp_init (void)
   size_tmp_var = NULL_TREE;
 
   chkp_uintptr_type = lang_hooks.types.type_for_mode (ptr_mode, true);
+
+  /* We create these constant bounds once for each object file.
+     These symbols go to comdat section and result in single copy
+     of each one in the final binary.  */
+  chkp_get_zero_bounds_var ();
+  chkp_get_none_bounds_var ();
 }
 
 /* Finalize instrumentation pass.  */
