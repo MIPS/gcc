@@ -7236,8 +7236,29 @@ if (1) return;
 				  num_$NUMCHK) ;
                 /* In translate_run_melt_expressions $NUMCHK using getpid to ensure unicity 
 		   of generated naked base name */
-		snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
-			  "melt_p%d_run%04lx", (int)getpid(), num_$NUMCHK) ;
+		const char* runinfix = melt_argument("run-infix");
+		if (runinfix && runinfix[0])
+		  {
+		    static long informruncounter;
+		    /* inform only once. */
+		    if (informruncounter++ == 0)
+		       inform (UNKNOWN_LOCATION,
+				"MELT using the run infix %s for temporary modules", 
+				runinfix);
+		    if (strlen(runinfix) > 32)
+		       melt_fatal_error ("too long run infix %s, should be less than thirty-two bytes", runinfix);
+		    for (const char*pr = runinfix; *pr; pr++)
+                      if (!ISALNUM(*pr) && *pr != '_')
+		       melt_fatal_error ("invalid run infix %s, should have only alphanumerical or _", *
+					 runinfix);
+		      
+		    snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK),
+			      "meltruni_%.32s_run%04lx", 
+			      runinfix, num_$NUMCHK);
+		  }
+		else 
+		  snprintf (basbuf_$NUMCHK, sizeof(basbuf_$NUMCHK), 
+			    "melt_p%d_run%04lx", (int)getpid(), num_$NUMCHK) ;
 		$NAKEDBASNAM = meltgc_new_string_raw_len ((meltobject_ptr_t)MELT_PREDEF (DISCR_STRING),
 							  basbuf_$NUMCHK, -1) ;
 		}#)

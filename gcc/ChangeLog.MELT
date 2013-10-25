@@ -1,4 +1,10 @@
 
+2013-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (translate_run_melt_expressions): If
+	the run-infix program argument is given as
+	-fplugin-arg-melt-run-infix=FOO use it instead of the process id
+	in the name of the generated temporary module.
+
 2013-10-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-outobj.melt (autobox_normal_return): Add backtrace.
