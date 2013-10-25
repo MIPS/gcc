@@ -1,3 +1,7 @@
+2013-10-25  Andrew Sutton  <andrew.n.sutton@gmail.com>
+        * gcc/cp/parsre.c (cp_parser_requires_expression): Gracefully
+        fail when parsing a requires expr outside a template.
+
 2013-10-24  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/c-common.c (c_common_r): Remove unused keywords "assume",
 	"axiom", and "forall".
