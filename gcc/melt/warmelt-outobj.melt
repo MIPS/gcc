@@ -6027,9 +6027,9 @@ if (1) return;
 (defun give_normalized_macroexpanded_list (xlist modnamstr modctx ncx inienv)
   (debug "give_normalized_macroexpanded_list start xlist= " xlist
 	 "\n* modnamstr=" modnamstr 
-	 "\n* modctx=" modctx
-	 "\n* ncx=" ncx
-	 "\n* inienv=" inienv)
+	 "\n* modctx=" debug_less modctx
+	 "\n* ncx=" debug_less ncx
+	 "\n* inienv=" debug_less inienv)
   (shortbacktrace_dbg "give_normalized_macroexpanded_list" 12)
   (assert_msg "check xlist" (is_list xlist) xlist)
   (assert_msg "check modnamstr" (is_string modnamstr) modnamstr)
@@ -6053,18 +6053,19 @@ if (1) return;
     (debug "give_normalized_macroexpanded_list ucmeb1=" ucmeb1 "\n.. iniproc=" iniproc)
     (code_chunk startmodnam
 		#{ /* give_normalized_macroexpanded_list $STARTMODNAM */
-		#if HAVE_CLOCK
+	#if HAVE_CLOCK
 		$STARTCLOCK = (long) clock () ;
-		#endif /*HAVE_CLOCK */
-		#if MELT_HAVE_DEBUG
+	#endif /*HAVE_CLOCK */
+	#if MELT_HAVE_DEBUG
+	     if (melt_dbgcounter > 0)
 		inform  (UNKNOWN_LOCATION, 
 			 "MELT [#%ld] generating C++ code of module %s", 
 			 melt_dbgcounter, melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
-		#else
+	     else
+	#endif/* MELT_HAVE_DEBUG */
 		inform  (UNKNOWN_LOCATION, 
 			 "MELT generating C++ code of module %s", 
 			 melt_string_str ((melt_ptr_t) $MODNAMSTR)) ;
-		#endif /* MELT_HAVE_DEBUG */
 		}#)
     ;; special hack to copy the first comment before anything else,
     ;; practically useful to make the copyright comment appear really
@@ -6095,7 +6096,7 @@ if (1) return;
        (multicall 
 	(nexp nbind)
 	(normal_exp sexp inienv ncx psloc) ;;; inienv is probably wrong here	    
-	(debug "give_normalized_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind)
+	(debug "give_normalized_macroexpanded_list nexp=" nexp "\n.. nbind=" nbind "\n.. for sexp=" debug_less sexp "\n.. psloc=" psloc "\n")
 	;; check the nbind and its elements
 	(assert_msg "check nbind" (is_list_or_null nbind) nbind)
 	(cppif MELT_HAVE_DEBUG
@@ -6133,6 +6134,7 @@ if (1) return;
 		   (list_append normlist curcomp)))
 		(:else
 		 (list_append normlist newnexp)))
+	  (debug "give_normalized_macroexpanded_list updated normlist=" debug_less normlist)
 	  ;;
 	  (assert_msg "check empty newnbind" (==i (list_length newnbind) 0) newnbind)
 	  )

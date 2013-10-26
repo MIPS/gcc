@@ -1,5 +1,17 @@
 
 
+2013-10-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-debug.melt (dbgout_closure_method): Remove spurious
+	indent.
+
+	* melt/warmelt-normal.melt
+	(normexp_update_current_module_environment_reference): Slightly
+	less debugging.
+
+	* melt/warmelt-outobj.melt (give_normalized_macroexpanded_list):
+	More debugging...
+
 2013-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

@@ -8539,7 +8539,7 @@ source location.}#
 (defun normexp_update_current_module_environment_reference (recv env ncx psloc)
   (debug "normexp_update_current_module_environment_reference recv=" recv
 	 "\n env=" env
-	 "\n ncx=" ncx)
+	 "\n ncx=" debug_less ncx)
   (assert_msg "check update_current_module_environment_reference recv"
 	      (is_a recv class_source_update_current_module_environment_reference) recv)
   (assert_msg "check env" (is_a env class_environment) env)
@@ -8556,7 +8556,8 @@ source location.}#
     (when (!= curproc iniproc)
 	  (error_at sloc "(UPDATE_CURRENT_MODULE_ENVIRONMENT_REFERENCE) not at toplevel"_)
 	  (return))
-    (debug "normexp_update_current_module_environment_reference modctx=" modctx)
+    (debug "normexp_update_current_module_environment_reference modctx=" 
+	   debug_less modctx)
     (cond ((is_a modctx class_running_extension_module_context)
 	   (let ( (nchk (instance class_nrep_check_running_module_environment_container
 				  :nrep_loc sloc
