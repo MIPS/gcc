@@ -6481,8 +6481,7 @@ get_parm_info (bool ellipsis, tree expr)
       && !DECL_NAME (b->decl)               /* anonymous */
       && VOID_TYPE_P (TREE_TYPE (b->decl))) /* of void type */
     {
-      if (TREE_THIS_VOLATILE (b->decl)
-	  || TREE_READONLY (b->decl)
+      if (TYPE_QUALS (TREE_TYPE (b->decl)) != TYPE_UNQUALIFIED
 	  || C_DECL_REGISTER (b->decl))
 	error ("%<void%> as only parameter may not be qualified");
 

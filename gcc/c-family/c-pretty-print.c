@@ -252,6 +252,7 @@ pp_c_space_for_pointer_operator (c_pretty_printer *pp, tree t)
        __restrict__                          -- GNU C
        address-space-qualifier		     -- GNU C
        volatile
+       _Atomic                               -- C11
 
    address-space-qualifier:
        identifier			     -- GNU C  */

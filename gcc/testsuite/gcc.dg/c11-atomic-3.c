@@ -155,3 +155,20 @@ fc4 (x) /* { dg-message "previous definition" } */
 {
 }
 void fc4 (int); /* { dg-error "incompatible type" } */
+
+/* Arrays of atomic elements cannot be initialized with string
+   literals.  */
+_Atomic char si0[] = ""; /* { dg-error "inappropriate type" } */
+_Atomic char si1[] = u8""; /* { dg-error "inappropriate type" } */
+_Atomic signed char si2[] = ""; /* { dg-error "inappropriate type" } */
+_Atomic signed char si3[] = u8""; /* { dg-error "inappropriate type" } */
+_Atomic unsigned char si4[] = ""; /* { dg-error "inappropriate type" } */
+_Atomic unsigned char si5[] = u8""; /* { dg-error "inappropriate type" } */
+_Atomic __WCHAR_TYPE__ si6[] = L""; /* { dg-error "inappropriate type" } */
+_Atomic __CHAR16_TYPE__ si7[] = u""; /* { dg-error "inappropriate type" } */
+_Atomic __CHAR32_TYPE__ si8[] = U""; /* { dg-error "inappropriate type" } */
+
+/* Anything that is syntactically a qualifier applied to the (void)
+   parameter list results in undefined behavior, which we
+   diagnose.  */
+void fv (_Atomic void); /* { dg-error "may not be qualified" } */

@@ -1,3 +1,11 @@
+2013-10-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/c11-atomic-3.c: Add more tests.
+	* lib/atomic-dg.exp, gcc.dg/atomic/atomic.exp: New files.
+	* gcc.dg/atomic/c11-atomic-exec-1.c,
+	gcc.dg/atomic/c11-atomic-exec-2.c,
+	gcc.dg/atomic/c11-atomic-exec-3.c: New tests.
+
 2013-10-24  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/c11-atomic-1.c, gcc.dg/c11-atomic-3.c: Add more tests.

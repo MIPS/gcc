@@ -1,3 +1,13 @@
+2013-10-26  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-decl.c (get_parm_info): Diagnose any qualifier on "void" as
+	only parameter.
+	* c-parser.c (c_parser_declspecs): Expand list of ObjC cases
+	needing updating for atomics.
+	(c_parser_objc_selector): Handle _Atomic.
+	* c-typeck.c (digest_init): Do not accept initialization of arrays
+	of atomic elements by string constants.
+
 2013-10-24  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-decl.c (validate_proto_after_old_defn): Do not remove atomic

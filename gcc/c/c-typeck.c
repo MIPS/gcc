@@ -6242,7 +6242,11 @@ digest_init (location_t init_loc, tree type, tree init, tree origtype,
   if (code == ARRAY_TYPE && inside_init
       && TREE_CODE (inside_init) == STRING_CST)
     {
-      tree typ1 = TYPE_MAIN_VARIANT (TREE_TYPE (type));
+      tree typ1
+	= (TYPE_ATOMIC (TREE_TYPE (type))
+	   ? c_build_qualified_type (TYPE_MAIN_VARIANT (TREE_TYPE (type)),
+				     TYPE_QUAL_ATOMIC)
+	   : TYPE_MAIN_VARIANT (TREE_TYPE (type)));
       /* Note that an array could be both an array of character type
 	 and an array of wchar_t if wchar_t is signed char or unsigned
 	 char.  */

@@ -2187,7 +2187,8 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	     the code in build_modify_expr handling various
 	     Objective-C cases, and that in build_unary_op handling
 	     Objective-C cases for increment / decrement, also needs
-	     updating.  */
+	     updating; uses of TYPE_MAIN_VARIANT in objc_compare_types
+	     and objc_types_are_equivalent may also need updates.  */
 	  if (c_dialect_objc ())
 	    sorry ("%<_Atomic%> in Objective-C");
 	  /* C parser handling of OpenMP constructs needs checking for
@@ -8478,6 +8479,7 @@ c_parser_objc_synchronized_statement (c_parser *parser)
        break continue return goto asm sizeof typeof __alignof
        unsigned long const short volatile signed restrict _Complex
        in out inout bycopy byref oneway int char float double void _Bool
+       _Atomic
 
    ??? Why this selection of keywords but not, for example, storage
    class specifiers?  */
@@ -8536,6 +8538,7 @@ c_parser_objc_selector (c_parser *parser)
     case RID_DOUBLE:
     case RID_VOID:
     case RID_BOOL:
+    case RID_ATOMIC:
       c_parser_consume_token (parser);
       return value;
     default:
