@@ -11292,6 +11292,10 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
      with a loop.  */
   compound_stmt = c_begin_compound_stmt (false);
 
+  /* Fold the RHS if it hasn't already been folded.  */
+  if (modifycode != NOP_EXPR)
+    rhs = c_fully_fold (rhs, false, NULL);
+
   /* Remove the qualifiers for the rest of the expressions and create
      the VAL temp variable to hold the RHS.  */
   nonatomic_lhs_type = build_qualified_type (lhs_type, TYPE_UNQUALIFIED);

@@ -255,3 +255,13 @@ fc4b (x)
 {
 }
 void fc4b (_Atomic int); /* { dg-warning "follows non-prototype" } */
+
+/* Test cases involving C_MAYBE_CONST_EXPR work.  */
+void
+func10 (_Atomic int *p)
+{
+  p[0 / 0] = 1; /* { dg-warning "division by zero" } */
+  p[0 / 0] += 1; /* { dg-warning "division by zero" } */
+  *p = 0 / 0; /* { dg-warning "division by zero" } */
+  *p += 0 / 0; /* { dg-warning "division by zero" } */
+}
