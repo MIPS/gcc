@@ -7061,7 +7061,7 @@ if (1) return;
        (melt_ptr_t) $LITVAL) }#
 )
 
-
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; utility function to box a non-value normal as a return of an
 ;; autoboxed value
 (defun autobox_normal_return (nexp ctyp ncx)
@@ -7092,31 +7092,45 @@ if (1) return;
 				  ))
 		  )
 	     (put_fields cbind :letbind_expr nexp)
-	     (debug "autobox_normal_return gives nret=" nret " nbinds=" nbinds "\n cbind=" cbind)
+	     (debug "autobox_normal_return value gives nret=" nret "\n.. nbinds=" nbinds "\n cbind=" cbind)
 	     (return nret nbinds))
 	 (return nexp nbinds)))
      ;; autoboxing longs
      ( (== ctyp ctype_long)
-       (let ( (nchk (instance 
-		     class_nrep_chunk
-		     :nrep_loc ()
-		     :nchunk_expansion
-		     (tuple 
-		      (make_stringconst 
-		       discr_verbatim_string 
-		       "/*autobox long*/ meltgc_new_int((meltobject_ptr_t)MELT_PREDEF(DISCR_CONSTANT_INTEGER), ")
-		      nexp
-		      (make_stringconst 
-		       discr_verbatim_string 
-		       ")"))
-		     :nchunk_oper 'autoboxlong
-		     :nexpr_ctyp ctype_value))
-	      (nret (instance class_nrep_return
-			      :nret_main clocc
-			      ))
-	      )
+       (let ( 
+	     (lgsym (clone_symbol 'longautobox))
+	     (lgbind (instance class_normal_let_binding
+			       :letbind_loc ()
+			       :binder lgsym
+			       :letbind_type ctype_long
+			       :letbind_expr nexp
+			       ))
+	     (lglocc (instance class_nrep_locsymocc
+			       :nrep_loc ()
+			       :nocc_ctyp ctype_long
+			       :nocc_symb lgsym
+			       :nocc_bind lgbind))
+	     (nchk (instance 
+		    class_nrep_chunk
+		    :nrep_loc ()
+		    :nchunk_expansion
+		    (tuple 
+		     (make_stringconst 
+		      discr_verbatim_string 
+		      "/*autobox long*/ meltgc_new_int((meltobject_ptr_t)MELT_PREDEF(DISCR_CONSTANT_INTEGER), ")
+		     lglocc
+		     (make_stringconst 
+		      discr_verbatim_string 
+		      ")"))
+		    :nchunk_oper 'autoboxlong
+		    :nexpr_ctyp ctype_value))
+	     (nret (instance class_nrep_return
+			     :nret_main clocc
+			     ))
+	     )
 	 (put_fields cbind :letbind_expr nchk)
-	 (debug "autobox_normal_return long return nret=" nret " nbinds=" nbinds)
+	 (list_prepend nbinds lgbind)
+	 (debug "autobox_normal_return long return nret=" nret "\n.. nbinds=" nbinds)
 	 (return nret nbinds)
 	 ))
      ;; autoboxing void
@@ -7129,28 +7143,42 @@ if (1) return;
 	 (put_fields cbind :letbind_expr nilr)
 	 (debug "autobox_normal_return void return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)		    
-       ))
+	 ))
      ;; autoboxing cstrings
      ( (== ctyp ctype_cstring)
-       (let ( (nchk (instance 
-		     class_nrep_chunk
-		     :nrep_loc ()
-		     :nchunk_expansion
-		     (tuple 
-		      (make_stringconst 
-		       discr_verbatim_string 
-		       "/*autobox cstring*/ meltgc_new_stringdup((meltobject_ptr_t)MELT_PREDEF(DISCR_STRING), ")
-		      nexp
-		      (make_stringconst 
-		       discr_verbatim_string 
-		       ")"))
-		     :nchunk_oper 'autoboxstring
-		     :nexpr_ctyp ctype_value))
-	      (nret (instance class_nrep_return
-			      :nret_main clocc
-			      ))
-	      )
+       (let (
+	     (stsym (clone_symbol 'stringautobox))
+	     (stbind (instance class_normal_let_binding
+			       :letbind_loc ()
+			       :binder stsym
+			       :letbind_type ctype_cstring
+			       :letbind_expr nexp
+			       ))
+	     (stlocc (instance class_nrep_locsymocc
+			       :nrep_loc ()
+			       :nocc_ctyp ctype_cstring
+			       :nocc_symb stsym
+			       :nocc_bind stbind))
+	     (nchk (instance 
+		    class_nrep_chunk
+		    :nrep_loc ()
+		    :nchunk_expansion
+		    (tuple 
+		     (make_stringconst 
+		      discr_verbatim_string 
+		      "/*autobox cstring*/ meltgc_new_stringdup((meltobject_ptr_t)MELT_PREDEF(DISCR_STRING), ")
+		     stlocc
+		     (make_stringconst 
+		      discr_verbatim_string 
+		      ")"))
+		    :nchunk_oper 'autoboxstring
+		    :nexpr_ctyp ctype_value))
+	     (nret (instance class_nrep_return
+			     :nret_main clocc
+			     ))
+	     )
 	 (put_fields cbind :letbind_expr nchk)
+	 (list_prepend nbinds stbind)
 	 (debug "autobox_normal_return cstring return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)
 	 ))
@@ -7159,6 +7187,18 @@ if (1) return;
        (let ( (dis (get_field :ctype_autoboxdiscr ctyp))
 	      (boxf (get_field :ctypg_boxfun ctyp)) 
 	      (ctynam (get_field :named_name ctyp))
+	      (gtsym (clone_symbol (string4out discr_string "AUTOBOXING_" ctynam)))
+	      (gtbind (instance class_normal_let_binding
+				:letbind_loc ()
+				:binder gtsym
+				:letbind_type ctype_cstring
+				:letbind_expr nexp
+				))
+	      (gtlocc (instance class_nrep_locsymocc
+				:nrep_loc ()
+				:nocc_ctyp ctyp
+				:nocc_symb gtsym
+				:nocc_bind gtbind))
 	      (nchk (instance 
 		     class_nrep_chunk
 		     :nrep_loc ()
@@ -7179,7 +7219,7 @@ if (1) return;
 		      (make_stringconst 
 		       discr_verbatim_string 
 		       "), ")
-		      nexp
+		      gtlocc
 		      (make_stringconst 
 		       discr_verbatim_string 
 		       ")"))
@@ -7190,6 +7230,7 @@ if (1) return;
 			      ))
 	      )
 	 (put_fields cbind :letbind_expr nchk)
+	 (list_prepend nbinds gtbind)
 	 (debug "autobox_normal_return gtyctype return nret=" nret " nbinds=" nbinds)
 	 (return nret nbinds)
 	 ))
@@ -7429,14 +7470,19 @@ if (1) return;
 		    (warning_at () 
 		     "runtime expressions ending with a non-value expression of $1, auto-boxing it."
 		     (get_field :named_name lastctyp))
+		    (debug "translate_run_melt_expressions/normalextend before autoboxing lastnorm=" lastnorm)
 		    (multicall
 		     (newexp newbinds)
 		     (autobox_normal_return lastnorm lastctyp ncx)
 		     (debug "translate_run_melt_expressions/normalextend autoboxed newexp=" newexp
-			    " newbinds=" newbinds)
-		     (pair_set_head lastnormpair newexp)
-		     (setq lastnorm newexp)
-		     )))
+			    "\n.. newbinds=" newbinds)
+		     (let ( (newraplast (wrap_normal_let1 newexp newbinds ()))
+			    )
+		       (debug "translate_run_melt_expressions/normalextend newraplast=" newraplast)
+					
+		     (pair_set_head lastnormpair newraplast)
+		     (setq lastnorm newraplast)
+		     ))))
 		  ;;
 		  (debug "translate_run_melt_expressions/normalextend lastnorm=" lastnorm 
 			 "\n lastnormpair=" lastnormpair

@@ -2,6 +2,13 @@
 
 2013-10-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{MELT-SFT-5 solved}}
+	* melt/warmelt-outobj.melt (autobox_normal_return): Is making a
+	new binding for the unboxed thing... so that autoboxing happens on
+	a local occurence.
+
+2013-10-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-debug.melt (dbgout_closure_method): Remove spurious
 	indent.
 
