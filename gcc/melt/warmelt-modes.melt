@@ -649,6 +649,24 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 	 (add_formal_occ curformb curexp) ) 
 	)
 ;;;;;;;
+;;; handle defmacro before defun
+      (?(instance
+	 class_source_defmacro
+	 :sdef_name ?dnam
+	 :sdef_doc 
+	 ?(instance class_sexpr 
+		    :loca_location ?docloc
+		    :sexp_contents ?docont)
+	 :sformal_args ?formargs
+	 )
+	(add_docsym dnam curexp)
+	(list_append (get_field :mkdoc_macros mdinfo) curexp)
+	(foreach_in_multiple 
+	 (formargs)
+	 (curformb :long formix)
+	 (add_formal_occ curformb curexp) ) 
+	)
+;;;;;;;
 ;;; handle defun
       (?(instance
 	 class_source_defun
@@ -989,13 +1007,27 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
   (add2sbuf_indentnl outb 0)
   (add2sbuf_indentnl outb 0)
   (let ( (maclist (get_field :mkdoc_macros mdinfo))
-	 (unsortedmactuple (list_to_multiple maclist discr_multiple))
+	 (unsortedmactuple
+	  (let ( (tm (list_to_multiple maclist discr_multiple))
+		 )
+	    (foreach_in_multiple
+	     (tm)
+	     (curmac :long macix)
+	     (assert_msg "check curmac" 
+			 (or (is_a curmac class_source_export_macro)
+			     (is_a curmac class_source_defmacro))
+			 curmac)
+	     )
+	    tm))
 	 (sortedmactuple
 	  (multiple_sort unsortedmactuple
 			 (lambda (ms1 ms2)
 			   (compare_named_alpha
-			    (get_field :sexpmac_mname ms1)
-			    (get_field :sexpmac_mname ms2))
+			    (or (get_field :sexpmac_mname ms1)
+				(get_field :sdef_name ms1))
+			    (or (get_field :sexpmac_mname ms2)
+				(get_field :sdef_name ms2))
+			    )
 			   )
 			 discr_multiple))
 	 )
@@ -1011,11 +1043,19 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
      (sortedmactuple)
      (curmac :long macix)
      (debug "makedoc_genmacro curmac=" curmac " macix=" macix)
-     (assert_msg "check curmac" (is_a curmac class_source_export_macro) curmac)
-     (let ( (mnam (get_field :named_name (get_field :sexpmac_mname curmac)))
-	    (mloc (get_field :loca_location curmac))
-	    (mdoc (get_field :sexpmac_doc curmac))
-	    )
+     (assert_msg "check curmac" (or 
+				 (is_a curmac class_source_export_macro)
+				 (is_a curmac class_source_defmacro))
+		 curmac)
+     (let (
+	   (:long isdefmacro (is_a curmac class_source_defmacro))
+	   (mnam (get_field :named_name (if isdefmacro 
+					    (get_field :sdef_name curmac)
+					  (get_field :sexpmac_mname curmac))))
+	   (mloc (get_field :loca_location curmac))
+	   (mdoc (if isdefmacro (get_field :sdef_doc curmac)
+				 (get_field :sexpmac_doc curmac)))
+	   )
        (assert_msg "check mnam" (is_string mnam) mnam)
        (add2sbuf_indentnl outb 0)
        (add2sbuf_strconst outb "@subsection @var{")
@@ -1026,13 +1066,12 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
        (add2sbuf_string outb mnam)
        (add2sbuf_indentnl outb 0)
        ;; don't use makedoc_outdefloc since this is not a definition!
-       (if mloc
-	   (progn
-	     (add2sbuf_strconst outb "Macro defined at ")
-	     (add2sbuf_texi_mixloc outb mloc)
-	     (add2sbuf_strconst outb ".")
-	     (add2sbuf_indentnl outb 0)
-	     ))
+       (when mloc
+	 (add2sbuf_strconst outb "Macro defined at ")
+	 (add2sbuf_texi_mixloc outb mloc)
+	 (add2sbuf_strconst outb ".")
+	 (add2sbuf_indentnl outb 0)
+	 )
        (makedoc_outdoc outb mdoc "@strong{macro description:} ")
        (add2sbuf_indentnl outb 0) 
        )
