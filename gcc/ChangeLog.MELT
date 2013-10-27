@@ -1,6 +1,11 @@
 
 
 2013-10-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{1.0-rc3 release candidate}}
+	* melt-runtime.h (MELT_VERSION_STR): Bump to "1.0-rc3" ...
+
+
+2013-10-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}
 	* melt/generated/meltrunsup-inc.cc: Regenerate.
