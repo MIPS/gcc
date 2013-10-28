@@ -2289,10 +2289,6 @@ chkp_retbnd_call_by_val (tree val)
 tree
 chkp_parm_for_arg_bnd_arg (tree arg)
 {
-  gcc_assert (TREE_CODE (arg) == ADDR_EXPR);
-  arg = TREE_OPERAND (arg, 0);
-  gcc_assert (TREE_CODE (arg) == VAR_DECL);
-  arg = DECL_INITIAL (arg);
   gcc_assert (TREE_CODE (arg) == SSA_NAME);
   arg = SSA_NAME_VAR (arg);
   gcc_assert (TREE_CODE (arg) == PARM_DECL);
@@ -2332,11 +2328,8 @@ chkp_get_bound_for_parm (tree parm)
 	     obtain bounds of input arg.  */
 	  gimple_stmt_iterator gsi;
 	  gimple stmt;
-	  tree tmp = create_tmp_reg (TREE_TYPE (decl), NULL);
-	  DECL_INITIAL (tmp) = parm;
 
-	  tmp = chkp_build_addr_expr (tmp);
-	  stmt = gimple_build_call (chkp_arg_bnd_fndecl, 1, tmp);
+	  stmt = gimple_build_call (chkp_arg_bnd_fndecl, 1, parm);
 
 	  chkp_mark_stmt (stmt);
 
