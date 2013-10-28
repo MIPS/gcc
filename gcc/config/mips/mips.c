@@ -1176,6 +1176,32 @@ static const struct mips_rtx_cost_data
     COSTS_N_INSNS (68),           /* int_div_di */
 		     1,           /* branch_cost */
 		     4            /* memory_latency */
+  },
+  { /* W32 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
+  },
+  { /* W64 */
+    COSTS_N_INSNS (4),            /* fp_add */
+    COSTS_N_INSNS (4),            /* fp_mult_sf */
+    COSTS_N_INSNS (5),            /* fp_mult_df */
+    COSTS_N_INSNS (17),           /* fp_div_sf */
+    COSTS_N_INSNS (32),           /* fp_div_df */
+    COSTS_N_INSNS (5),            /* int_mult_si */
+    COSTS_N_INSNS (5),            /* int_mult_di */
+    COSTS_N_INSNS (41),           /* int_div_si */
+    COSTS_N_INSNS (41),           /* int_div_di */
+		     1,           /* branch_cost */
+		     4            /* memory_latency */
   }
 };
 
@@ -4078,13 +4104,14 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       if (float_mode_p)
 	*total = mips_fp_mult_cost (mode);
       else if (mode == DImode && !TARGET_64BIT)
+        /* R6 impact ??? */
 	/* Synthesized from 2 mulsi3s, 1 mulsidi3 and two additions,
 	   where the mulsidi3 always includes an MFHI and an MFLO.  */
 	*total = (speed
 		  ? mips_cost->int_mult_si * 3 + 6
 		  : COSTS_N_INSNS (ISA_HAS_MUL3 ? 7 : 9));
       else if (!speed)
-	*total = COSTS_N_INSNS (ISA_HAS_MUL3 ? 1 : 2) + 1;
+	*total = COSTS_N_INSNS ((ISA_HAS_MUL3 || ISA_HAS_R6MUL) ? 1 : 2) + 1;
       else if (mode == DImode)
 	*total = mips_cost->int_mult_di;
       else
@@ -4141,6 +4168,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
         *total = mips_cost->int_div_di;
       else
 	*total = mips_cost->int_div_si;
+
       return false;
 
     case SIGN_EXTEND:
@@ -4159,6 +4187,46 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  return true;
 	}
       *total = mips_zero_extend_cost (mode, XEXP (x, 0));
+      return false;
+    case TRUNCATE:
+      /* Costings for highpart multiplies */
+      if (ISA_HAS_R6MUL
+          && (GET_CODE (XEXP (x, 0)) == ASHIFTRT
+              || GET_CODE (XEXP (x, 0)) == LSHIFTRT)
+          && CONST_INT_P (XEXP (XEXP (x, 0), 1))
+          && ((INTVAL (XEXP (XEXP (x, 0), 1)) == 32
+               && GET_MODE (XEXP (x, 0)) == DImode)
+              || (ISA_HAS_R6DMUL
+                  && INTVAL (XEXP (XEXP (x, 0), 1)) == 64
+                  && GET_MODE (XEXP (x, 0)) == TImode))
+          && GET_CODE (XEXP (XEXP (x, 0), 0)) == MULT
+          && ((GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == SIGN_EXTEND
+               && GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1)) == SIGN_EXTEND)
+              || (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == ZERO_EXTEND
+                  && (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1))
+                      == ZERO_EXTEND))))
+        {
+          if (!speed)
+            *total = COSTS_N_INSNS (1) + 1;
+          else if (mode == DImode)
+            *total = mips_cost->int_mult_di;
+          else
+            *total = mips_cost->int_mult_si;
+
+          /* Sign extension is free, zero extension costs for DImode when
+             on a 64bit core / when DMUL is present */ 
+          if (ISA_HAS_R6DMUL && GET_MODE (XEXP (x, 0)) == DImode)
+            {
+              if (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 0)) == ZERO_EXTEND)
+                *total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 0),
+                                    ZERO_EXTEND, 0, speed);
+
+              if (GET_CODE (XEXP (XEXP (XEXP (x, 0), 0), 1)) == ZERO_EXTEND)
+                *total += rtx_cost (XEXP (XEXP (XEXP (x, 0), 0), 1),
+                                    ZERO_EXTEND, 0, speed);
+            }
+          return true;
+        }
       return false;
 
     case FLOAT:
@@ -15743,7 +15811,7 @@ mips_mult_zero_zero_cost (struct mips_sim *state, bool setting)
 static void
 mips_set_fast_mult_zero_zero_p (struct mips_sim *state)
 {
-  if (TARGET_MIPS16)
+  if (TARGET_MIPS16 || !ISA_HAS_MULT)
     /* No MTLO or MTHI available.  */
     mips_tuning_info.fast_mult_zero_zero_p = true;
   else
@@ -17407,6 +17475,10 @@ mips_conditional_register_usage (void)
     AND_COMPL_HARD_REG_SET (accessible_reg_set,
 			    reg_class_contents[(int) DSP_ACC_REGS]);
 
+  if (!ISA_HAS_MULT && !ISA_HAS_DMULT)
+    AND_COMPL_HARD_REG_SET (accessible_reg_set,
+			    reg_class_contents[(int) MD_REGS]);
+
   if (!TARGET_HARD_FLOAT)
     {
       AND_COMPL_HARD_REG_SET (accessible_reg_set,
@@ -17622,6 +17694,8 @@ mips_mulsidi3_gen_fn (enum rtx_code ext_code)
 	 the extension is not needed for signed multiplication.  In order to
 	 ensure that we always remove the redundant sign-extension in this
 	 case we still expand mulsidi3 for DMUL.  */
+      if (ISA_HAS_R6DMUL)
+        return signed_p ? gen_mulsidi3_64bit_r6dmul : NULL;
       if (ISA_HAS_DMUL3)
 	return signed_p ? gen_mulsidi3_64bit_dmul : NULL;
       if (TARGET_MIPS16)
@@ -17634,6 +17708,10 @@ mips_mulsidi3_gen_fn (enum rtx_code ext_code)
     }
   else
     {
+      if (ISA_HAS_R6MUL)
+        return (signed_p
+                ? gen_mulsidi3_32bit_r6
+                : gen_umulsidi3_32bit_r6);
       if (TARGET_MIPS16)
 	return (signed_p
 		? gen_mulsidi3_32bit_mips16
