@@ -2719,9 +2719,11 @@ build_acc_region(basic_block bb, acc_region outer)
           outer = region;
           break;
         case GIMPLE_ACC_COMPUTE_REGION_END:
+        case GIMPLE_ACC_DATA_REGION_END:
           gcc_assert(outer);
           region = outer;
           outer = outer->parent;
+          gsi_replace( &gsi, gimple_build_nop (), false);
           break;
         default:
           break;
@@ -2753,39 +2755,17 @@ execute_expand_oacc (void)
     calculate_dominance_info (CDI_DOMINATORS);
     build_acc_region (ENTRY_BLOCK_PTR, root_region);
 
-    if(/*vec_safe_length(root_region->children)*/root_region->children->length() > 0)
+    if(root_region->children->length() > 0)
       {
         if(dump_file)
           {
             fprintf(dump_file, "ACC REGION TREE\n===============\n");
             dump_acc_region(dump_file, root_region, 0);
           }
-        //traverse_regions(root_region);
+        traverse_regions(root_region);
       }
     delete_acc_region(root_region);
     root_region = NULL;
-
-    FOR_EACH_BB(bb)
-    {
-        gimple_stmt_iterator gsi;
-        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-            {
-                gimple stmt = gsi_stmt(gsi);
-                switch(gimple_code(stmt))
-                    {
-                    case GIMPLE_ACC_PARALLEL:
-                    case GIMPLE_ACC_KERNELS:
-                        expand_oacc_kernels(&gsi);
-                        break;
-                    case GIMPLE_ACC_COMPUTE_REGION_END:
-                    case GIMPLE_ACC_DATA_REGION_END:
-                        gsi_replace( &gsi, gimple_build_nop (), false);
-                        break;
-                    default:
-                        break;
-                    }
-            }
-    }
 
     return 0;
 }

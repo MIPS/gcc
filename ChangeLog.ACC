@@ -1,4 +1,9 @@
 28-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add acc_region traversal.
+
+    * gcc/oacc-low.c(execute_expand_oacc): Add acc_region traversal.
+
+28-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Switch to libiberity for acc_region_t tree.
 
     * gcc/oacc-low.c(acc_region_t): Switch to libiberity allocator.
