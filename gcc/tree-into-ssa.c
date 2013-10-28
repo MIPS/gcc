@@ -1941,9 +1941,10 @@ rewrite_update_stmt (gimple stmt, gimple_stmt_iterator gsi)
      Skip calls to BUILT_IN_CHKP_ARG_BND whose arg should never be
      renamed.  */
   if (rewrite_uses_p (stmt)
-      && ((gimple_code (stmt) != GIMPLE_CALL)
-	  || gimple_call_fndecl (stmt)
-	  != targetm.builtin_chkp_function (BUILT_IN_CHKP_ARG_BND)))
+      && !(flag_check_pointers
+	   && (gimple_code (stmt) == GIMPLE_CALL)
+	   && gimple_call_fndecl (stmt)
+	   == targetm.builtin_chkp_function (BUILT_IN_CHKP_ARG_BND)))
     {
       if (is_gimple_debug (stmt))
 	{
