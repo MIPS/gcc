@@ -1842,41 +1842,47 @@ static void
 dump_gimple_acc_kernels (pretty_printer *buffer, gimple gs, int spc,
                           int flags)
 {
-	if(flags & TDF_RAW)
-  {
-		dump_gimple_fmt(buffer, spc, flags, "%G <%+BODY <%S> >", gs, gimple_acc_body(gs));
-	}
-	else
-  {
-		gimple_seq body;
-		pp_string(buffer, "#pragma acc kernels");
-    if (gimple_acc_kernels_child_fn (gs))
+  if(flags & TDF_RAW)
     {
-			pp_string (buffer, " [child fn: ");
-			dump_generic_node (buffer, gimple_acc_kernels_child_fn (gs),
-						 spc, flags, false);
-			pp_string (buffer, " (");
-			pp_string (buffer, ")]");
-		}
-    if(!(flags & TDF_SLIM))
-    {
-		  body = gimple_acc_body(gs);
-		  if (body && gimple_code (gimple_seq_first_stmt (body)) != GIMPLE_BIND)
-		  {
-		    newline_and_indent (buffer, spc + 2);
-		    pp_character (buffer, '{');
-		    pp_newline (buffer);
-		    dump_gimple_seq (buffer, body, spc + 4, flags);
-		    newline_and_indent (buffer, spc + 2);
-		    pp_character (buffer, '}');
-		  }
-		  else if (body)
-		  {
-		    pp_newline (buffer);
-		    dump_gimple_seq (buffer, body, spc + 2, flags);
-		  }
+      dump_gimple_fmt(buffer, spc, flags, "%G <%+BODY <%S> >", gs, gimple_acc_body(gs));
     }
-	}
+  else
+    {
+      gimple_seq body;
+      pp_string(buffer, "#pragma acc kernels");
+      if (gimple_acc_kernels_clauses (gs))
+        {
+          pp_character (buffer, ' ');
+          dump_generic_node (buffer, gimple_acc_kernels_clauses (gs),
+                                   spc, flags, false);
+        }
+      if (gimple_acc_kernels_child_fn (gs))
+        {
+          pp_string (buffer, " [child fn: ");
+          dump_generic_node (buffer, gimple_acc_kernels_child_fn (gs),
+                                   spc, flags, false);
+          pp_string (buffer, " (");
+          pp_string (buffer, ")]");
+        }
+      if(!(flags & TDF_SLIM))
+        {
+          body = gimple_acc_body(gs);
+          if (body && gimple_code (gimple_seq_first_stmt (body)) != GIMPLE_BIND)
+            {
+              newline_and_indent (buffer, spc + 2);
+              pp_character (buffer, '{');
+              pp_newline (buffer);
+              dump_gimple_seq (buffer, body, spc + 4, flags);
+              newline_and_indent (buffer, spc + 2);
+              pp_character (buffer, '}');
+            }
+          else if (body)
+            {
+              pp_newline (buffer);
+              dump_gimple_seq (buffer, body, spc + 2, flags);
+            }
+        }
+    }
 }
 
 /* Dump a GIMPLE_ACC_PARALLEL tuple on the pretty_printer BUFFER, SPC spaces

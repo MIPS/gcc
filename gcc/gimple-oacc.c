@@ -74,12 +74,20 @@ gimple_acc_kernels_clauses_ptr (gimple gs)
   return &gs->gimple_acc_kernels.clauses;
 }
 
-/* Return the child function of ACC_KERNELS GS.  */
+/* Return the pointer to child function of ACC_KERNELS GS.  */
 tree
 gimple_acc_kernels_child_fn (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
   return gs->gimple_acc_kernels.child_fn;
+}
+
+/* Return the child function of ACC_KERNELS GS.  */
+tree *
+gimple_acc_kernels_child_fn_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_KERNELS);
+  return &gs->gimple_acc_kernels.child_fn;
 }
 
 /* Set CHILD_FN for ACC_KERNELS GS.  */

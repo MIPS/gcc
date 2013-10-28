@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "value-prof.h"
 #include "pointer-set.h"
 #include "tree-inline.h"
+#include "gimple-oacc.h"
 #include "target.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)

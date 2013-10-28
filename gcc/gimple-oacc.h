@@ -64,6 +64,7 @@ extern tree gimple_acc_kernels_clauses (const_gimple);
 extern tree *gimple_acc_kernels_clauses_ptr (gimple);
 extern void gimple_acc_kernels_set_clauses (gimple, tree);
 extern tree gimple_acc_kernels_child_fn (const_gimple);
+extern tree *gimple_acc_kernels_child_fn_ptr (gimple);
 extern void gimple_acc_kernels_set_child_fn (gimple, tree);
 extern tree gimple_acc_kernels_param(gimple, unsigned);
 extern tree* gimple_acc_kernels_params_ptr(gimple);

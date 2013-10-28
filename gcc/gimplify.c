@@ -7140,7 +7140,7 @@ gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
     const char *check_non_private = NULL;
     unsigned int flags;
     tree decl;
-/*
+
     switch (ACC_CLAUSE_CODE (c))
     {
     case ACC_CLAUSE_ASYNC:
@@ -7168,6 +7168,11 @@ gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
     case ACC_CLAUSE_HOST:
       break;
     case ACC_CLAUSE_IF:
+      ACC_CLAUSE_OPERAND (c, 0)
+        = gimple_boolify (ACC_CLAUSE_OPERAND (c, 0));
+      if (gimplify_expr (&ACC_CLAUSE_OPERAND (c, 0), pre_p, NULL,
+                         is_gimple_val, fb_rvalue) == GS_ERROR)
+          remove = true;
       break;
     case ACC_CLAUSE_INDEPENDENT:
       break;
@@ -7200,7 +7205,7 @@ gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
     default:
       gcc_unreachable ();
     }
-*/
+
     if (remove)
     {
       *list_p = ACC_CLAUSE_CHAIN (c);

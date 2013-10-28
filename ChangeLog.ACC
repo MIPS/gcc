@@ -1,3 +1,13 @@
+28-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Add lowering of 'if' clause form GENERIC to GIMPLE
+    
+    * gcc/gimple-oacc.c(gimple_acc_kernels_child_fn_ptr): New getter
+    * gcc/gimple-oacc.c(gimple_acc_kernels_child_fn_ptr): Likewise
+    * gcc/gimple-pretty-print.c(dump_gimple_acc_kernels): Add dump of clauses
+    * gcc/gimplify.c(gimplify_scan_acc_clauses): Add lowering of IF clause
+    * gcc/testsuite/gcc.dg/gacc/if-clause-gimple.c: New file
+    * gcc/tree-cfg.c: Quickfix
+
 28-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add acc_region traversal.
 
