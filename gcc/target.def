@@ -3812,18 +3812,25 @@ not generate any instructions in this case.",
 
 DEFHOOK
 (load_bounds_for_arg,
- "This hook is used to emit insn to load bounds of @var{arg} passed\n\
-in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX\n\
-constant holding number of the special slot we should get bounds from.\n\
-Return loaded bounds.",
+ "This hook is used by expand pass to emit insn to load bounds of\n\
+@var{arg} passed in @var{slot}.  Expand pass uses this hook in case\n\
+bounds of @var{arg} are not passed in register.  If @var{slot} is a\n\
+memory, then bounds are loaded as for regular pointer loaded from\n\
+memory.  If @var{slot} is not a memory then @var{slot_no} is an integer\n\
+constant holding number of the target dependent special slot which\n\
+should be used to obtain bounds.  Hook returns RTX holding loaded bounds.",
  rtx, (rtx slot, rtx arg, rtx slot_no),
  default_load_bounds_for_arg)
 
 DEFHOOK
 (store_bounds_for_arg,
- "This hook is used to emit insn to store bounds of @var{arg} passed\n\
-in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX\n\
-constant holding number of the special slot we should store bounds to.",
+ "This hook is used by expand pass to emit insns to store @var{bounds} of\n\
+@var{arg} passed in @var{slot}.  Expand pass uses this hook in case\n\
+@var{bounds} of @var{arg} are not passed in register.  If @var{slot} is a\n\
+memory, then @var{bounds} are stored as for regular pointer stored in\n\
+memory.  If @var{slot} is not a memory then @var{slot_no} is an integer\n\
+constant holding number of the target dependent special slot which\n\
+should be used to store @var{bounds}.",
  void, (rtx arg, rtx slot, rtx bounds, rtx slot_no),
  default_store_bounds_for_arg)
 

@@ -5159,16 +5159,23 @@ Otherwise, you should not define this hook.
 @end deftypefn
 
 @deftypefn {Target Hook} rtx TARGET_LOAD_BOUNDS_FOR_ARG (rtx @var{slot}, rtx @var{arg}, rtx @var{slot_no})
-This hook is used to emit insn to load bounds of @var{arg} passed
-in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX
-constant holding number of the special slot we should get bounds from.
-Return loaded bounds.
+This hook is used by expand pass to emit insn to load bounds of
+@var{arg} passed in @var{slot}.  Expand pass uses this hook in case
+bounds of @var{arg} are not passed in register.  If @var{slot} is a
+memory, then bounds are loaded as for regular pointer loaded from
+memory.  If @var{slot} is not a memory then @var{slot_no} is an integer
+constant holding number of the target dependent special slot which
+should be used to obtain bounds.  Hook returns RTX holding loaded bounds.
 @end deftypefn
 
 @deftypefn {Target Hook} void TARGET_STORE_BOUNDS_FOR_ARG (rtx @var{arg}, rtx @var{slot}, rtx @var{bounds}, rtx @var{slot_no})
-This hook is used to emit insn to store bounds of @var{arg} passed
-in @var{slot}.  In case @var{slot} is not a memory, @var{slot_no} is RTX
-constant holding number of the special slot we should store bounds to.
+This hook is used by expand pass to emit insns to store @var{bounds} of
+@var{arg} passed in @var{slot}.  Expand pass uses this hook in case
+@var{bounds} of @var{arg} are not passed in register.  If @var{slot} is a
+memory, then @var{bounds} are stored as for regular pointer stored in
+memory.  If @var{slot} is not a memory then @var{slot_no} is an integer
+constant holding number of the target dependent special slot which
+should be used to store @var{bounds}.
 @end deftypefn
 
 @node Trampolines
