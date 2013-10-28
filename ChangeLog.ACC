@@ -9,7 +9,7 @@
     * gcc/tree-cfg.c: Quickfix
 
 28-10-2013 Evgeny Gavrin <e.gavrin@samsung.com>
-    Moved some GIMPLE infrustucture out of gimple.h and fixed some C tests.
+    Moved some GIMPLE infrastructure out of gimple.h and fixed some C tests.
     
     * gcc/c-family/c-pragma.h : Clean up.
     * gcc/c/c-parser.c : Likewise.
