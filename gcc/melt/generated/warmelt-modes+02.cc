@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMODES_h61459455; // forward declaration fromline 6543
-typedef Melt_InitialClassyFrame_WARMELTmiMODES_h61459455 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiMODES_h577059104; // forward declaration fromline 6543
+typedef Melt_InitialClassyFrame_WARMELTmiMODES_h577059104 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 4 MELT called hook declarations ***/
@@ -437,7 +437,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiMODES_h61459455 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiMODES_h577059104 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -17281,7 +17281,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_40;
                         meltlab_count_40++;
-                        debugeprintf("objlabel_40 mtch1_*CLASS_NORMTESTER_INSTANCE/3b3ecc9c. *CLASS_OBJLABELINSTR/3dd8ff79. %ld", meltlab_count_40);
+                        debugeprintf("objlabel_40 mtch1_*CLASS_NORMTESTER_INSTANCE/15b19069. *CLASS_OBJLABELINSTR/15cd6fd8. %ld", meltlab_count_40);
 #endif
 
                         ;
@@ -17414,7 +17414,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_41;
                         meltlab_count_41++;
-                        debugeprintf("objlabel_41 mtch1_*CLASS_NORMTESTER_MATCHER/2789580c. *CLASS_OBJLABELINSTR/2fd6e62e. %ld", meltlab_count_41);
+                        debugeprintf("objlabel_41 mtch1_*CLASS_NORMTESTER_MATCHER/208e20. *CLASS_OBJLABELINSTR/385be403. %ld", meltlab_count_41);
 #endif
 
                         ;
@@ -17422,7 +17422,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V32*/ meltfptr[31] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.NAMED_NAME__V23*/ meltfptr[21]) && melt_magic_discr((melt_ptr_t)(/*_.NAMED_NAME__V23*/ meltfptr[21])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.NAMED_NAME__V23*/ meltfptr[21]) && melt_magic_discr((melt_ptr_t)(/*_.NAMED_NAME__V23*/ meltfptr[21])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -17434,7 +17434,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V32*/ meltfptr[31] = /*_.NAMED_NAME__V23*/ meltfptr[21]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V32*/ meltfptr[31] = /*_.NAMED_NAME__V23*/ meltfptr[21]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3338:/ objgoto");
@@ -17466,7 +17466,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_42;
                         meltlab_count_42++;
-                        debugeprintf("objlabel_42 mtch1_*CLASS_NORMTESTER_MATCHER/10d2dffc. *CLASS_OBJLABELINSTR/32467e9e. %ld", meltlab_count_42);
+                        debugeprintf("objlabel_42 mtch1_*CLASS_NORMTESTER_MATCHER/d729156. *CLASS_OBJLABELINSTR/8b9495f. %ld", meltlab_count_42);
 #endif
 
                         ;
@@ -17474,7 +17474,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V33*/ meltfptr[21] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPE_CNAME__V24*/ meltfptr[5]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPE_CNAME__V24*/ meltfptr[5])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPE_CNAME__V24*/ meltfptr[5]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPE_CNAME__V24*/ meltfptr[5])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -17486,7 +17486,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V33*/ meltfptr[21] = /*_.CTYPE_CNAME__V24*/ meltfptr[5]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V33*/ meltfptr[21] = /*_.CTYPE_CNAME__V24*/ meltfptr[5]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3339:/ objgoto");
@@ -17518,7 +17518,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_43;
                         meltlab_count_43++;
-                        debugeprintf("objlabel_43 mtch1_*CLASS_NORMTESTER_MATCHER/2017bef1. *CLASS_OBJLABELINSTR/222463df. %ld", meltlab_count_43);
+                        debugeprintf("objlabel_43 mtch1_*CLASS_NORMTESTER_MATCHER/d310d38. *CLASS_OBJLABELINSTR/333050a6. %ld", meltlab_count_43);
 #endif
 
                         ;
@@ -17526,7 +17526,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V34*/ meltfptr[5] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_BOXEDMAGIC__V25*/ meltfptr[24]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_BOXEDMAGIC__V25*/ meltfptr[24])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_BOXEDMAGIC__V25*/ meltfptr[24]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_BOXEDMAGIC__V25*/ meltfptr[24])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -17538,7 +17538,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V34*/ meltfptr[5] = /*_.CTYPG_BOXEDMAGIC__V25*/ meltfptr[24]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V34*/ meltfptr[5] = /*_.CTYPG_BOXEDMAGIC__V25*/ meltfptr[24]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3340:/ objgoto");
@@ -17570,7 +17570,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_44;
                         meltlab_count_44++;
-                        debugeprintf("objlabel_44 mtch1_*CLASS_NORMTESTER_MATCHER/19cde0d5. *CLASS_OBJLABELINSTR/2a42abea. %ld", meltlab_count_44);
+                        debugeprintf("objlabel_44 mtch1_*CLASS_NORMTESTER_MATCHER/1c00d9c0. *CLASS_OBJLABELINSTR/19657039. %ld", meltlab_count_44);
 #endif
 
                         ;
@@ -17578,7 +17578,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V35*/ meltfptr[24] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_BOXEDSTRUCT__V26*/ meltfptr[25]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_BOXEDSTRUCT__V26*/ meltfptr[25])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_BOXEDSTRUCT__V26*/ meltfptr[25]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_BOXEDSTRUCT__V26*/ meltfptr[25])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -17590,7 +17590,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V35*/ meltfptr[24] = /*_.CTYPG_BOXEDSTRUCT__V26*/ meltfptr[25]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V35*/ meltfptr[24] = /*_.CTYPG_BOXEDSTRUCT__V26*/ meltfptr[25]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3343:/ objgoto");
@@ -17622,7 +17622,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_45;
                         meltlab_count_45++;
-                        debugeprintf("objlabel_45 mtch1_*CLASS_NORMTESTER_INSTANCE/2e8b0e2b. *CLASS_OBJLABELINSTR/6a26afb. %ld", meltlab_count_45);
+                        debugeprintf("objlabel_45 mtch1_*CLASS_NORMTESTER_INSTANCE/13096f33. *CLASS_OBJLABELINSTR/3ed7e315. %ld", meltlab_count_45);
 #endif
 
                         ;
@@ -17675,7 +17675,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_46;
                         meltlab_count_46++;
-                        debugeprintf("objlabel_46 mtch1_*CLASS_NORMTESTER_MATCHER/19c70ec. *CLASS_OBJLABELINSTR/2eb1b545. %ld", meltlab_count_46);
+                        debugeprintf("objlabel_46 mtch1_*CLASS_NORMTESTER_MATCHER/261e5731. *CLASS_OBJLABELINSTR/22335abc. %ld", meltlab_count_46);
 #endif
 
                         ;
@@ -17683,7 +17683,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V37*/ meltfptr[26] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_BOXFUN__V29*/ meltfptr[28]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_BOXFUN__V29*/ meltfptr[28])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_BOXFUN__V29*/ meltfptr[28]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_BOXFUN__V29*/ meltfptr[28])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -17695,7 +17695,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V37*/ meltfptr[26] = /*_.CTYPG_BOXFUN__V29*/ meltfptr[28]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V37*/ meltfptr[26] = /*_.CTYPG_BOXFUN__V29*/ meltfptr[28]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3347:/ objgoto");
@@ -17727,7 +17727,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_47;
                         meltlab_count_47++;
-                        debugeprintf("objlabel_47 mtch1_*CLASS_NORMTESTER_MATCHER/3d6d3c6. *CLASS_OBJLABELINSTR/2c537799. %ld", meltlab_count_47);
+                        debugeprintf("objlabel_47 mtch1_*CLASS_NORMTESTER_MATCHER/20cb03c6. *CLASS_OBJLABELINSTR/20a1b88a. %ld", meltlab_count_47);
 #endif
 
                         ;
@@ -17735,7 +17735,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V38*/ meltfptr[28] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_UNBOXFUN__V30*/ meltfptr[29]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_UNBOXFUN__V30*/ meltfptr[29])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_UNBOXFUN__V30*/ meltfptr[29]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_UNBOXFUN__V30*/ meltfptr[29])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -17747,7 +17747,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V38*/ meltfptr[28] = /*_.CTYPG_UNBOXFUN__V30*/ meltfptr[29]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V38*/ meltfptr[28] = /*_.CTYPG_UNBOXFUN__V30*/ meltfptr[29]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3348:/ objgoto");
@@ -17779,7 +17779,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_48;
                         meltlab_count_48++;
-                        debugeprintf("objlabel_48 mtch1_*CLASS_NORMTESTER_MATCHER/2bb178b9. *CLASS_OBJLABELINSTR/ce4412. %ld", meltlab_count_48);
+                        debugeprintf("objlabel_48 mtch1_*CLASS_NORMTESTER_MATCHER/388b4b91. *CLASS_OBJLABELINSTR/32a6b0d8. %ld", meltlab_count_48);
 #endif
 
                         ;
@@ -17787,7 +17787,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V39*/ meltfptr[29] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_UPDATEBOXFUN__V31*/ meltfptr[30]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_UPDATEBOXFUN__V31*/ meltfptr[30])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_UPDATEBOXFUN__V31*/ meltfptr[30]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_UPDATEBOXFUN__V31*/ meltfptr[30])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -17799,7 +17799,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V39*/ meltfptr[29] = /*_.CTYPG_UPDATEBOXFUN__V31*/ meltfptr[30]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V39*/ meltfptr[29] = /*_.CTYPG_UPDATEBOXFUN__V31*/ meltfptr[30]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3336:/ objgoto");
@@ -17831,7 +17831,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_49;
                         meltlab_count_49++;
-                        debugeprintf("objlabel_49 mtch1_*CLASS_NORMTESTER_SUCCESS/24e4e38. *CLASS_OBJLABELINSTR/10525d74. %ld", meltlab_count_49);
+                        debugeprintf("objlabel_49 mtch1_*CLASS_NORMTESTER_SUCCESS/3784decd. *CLASS_OBJLABELINSTR/1effcdb8. %ld", meltlab_count_49);
 #endif
 
                         ;
@@ -18834,7 +18834,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_50;
                         meltlab_count_50++;
-                        debugeprintf("objlabel_50 mtch1_*CLASS_NORMTESTER_SUCCESS/2534d3fc. *CLASS_OBJLABELINSTR/3be6cb47. %ld", meltlab_count_50);
+                        debugeprintf("objlabel_50 mtch1_*CLASS_NORMTESTER_SUCCESS/1db69b3e. *CLASS_OBJLABELINSTR/2c391be3. %ld", meltlab_count_50);
 #endif
 
                         ;
@@ -18953,7 +18953,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_51;
                         meltlab_count_51++;
-                        debugeprintf("objlabel_51 mtch1__end_h520462987 *CLASS_OBJLABELINSTR/1f05a28b. %ld", meltlab_count_51);
+                        debugeprintf("objlabel_51 mtch1__end_h755944859 *CLASS_OBJLABELINSTR/2d0ecd9b. %ld", meltlab_count_51);
 #endif
 
                         ;
@@ -19834,7 +19834,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_52;
                         meltlab_count_52++;
-                        debugeprintf("objlabel_52 mtch1_*CLASS_NORMTESTER_INSTANCE/25a0fce7. *CLASS_OBJLABELINSTR/1b4a024f. %ld", meltlab_count_52);
+                        debugeprintf("objlabel_52 mtch1_*CLASS_NORMTESTER_INSTANCE/1df3c25b. *CLASS_OBJLABELINSTR/104ae8d. %ld", meltlab_count_52);
 #endif
 
                         ;
@@ -20037,7 +20037,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_53;
                         meltlab_count_53++;
-                        debugeprintf("objlabel_53 mtch1_*CLASS_NORMTESTER_MATCHER/19ab37bc. *CLASS_OBJLABELINSTR/10f938b6. %ld", meltlab_count_53);
+                        debugeprintf("objlabel_53 mtch1_*CLASS_NORMTESTER_MATCHER/25027241. *CLASS_OBJLABELINSTR/23f7615a. %ld", meltlab_count_53);
 #endif
 
                         ;
@@ -20045,7 +20045,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V36*/ meltfptr[35] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.NAMED_NAME__V20*/ meltfptr[4]) && melt_magic_discr((melt_ptr_t)(/*_.NAMED_NAME__V20*/ meltfptr[4])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.NAMED_NAME__V20*/ meltfptr[4]) && melt_magic_discr((melt_ptr_t)(/*_.NAMED_NAME__V20*/ meltfptr[4])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20057,7 +20057,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V36*/ meltfptr[35] = /*_.NAMED_NAME__V20*/ meltfptr[4]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V36*/ meltfptr[35] = /*_.NAMED_NAME__V20*/ meltfptr[4]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3555:/ objgoto");
@@ -20089,7 +20089,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_54;
                         meltlab_count_54++;
-                        debugeprintf("objlabel_54 mtch1_*CLASS_NORMTESTER_MATCHER/143fff9b. *CLASS_OBJLABELINSTR/1de4dbc9. %ld", meltlab_count_54);
+                        debugeprintf("objlabel_54 mtch1_*CLASS_NORMTESTER_MATCHER/f8af684. *CLASS_OBJLABELINSTR/84fb651. %ld", meltlab_count_54);
 #endif
 
                         ;
@@ -20097,7 +20097,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V37*/ meltfptr[4] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPE_CNAME__V21*/ meltfptr[20]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPE_CNAME__V21*/ meltfptr[20])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPE_CNAME__V21*/ meltfptr[20]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPE_CNAME__V21*/ meltfptr[20])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20109,7 +20109,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V37*/ meltfptr[4] = /*_.CTYPE_CNAME__V21*/ meltfptr[20]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V37*/ meltfptr[4] = /*_.CTYPE_CNAME__V21*/ meltfptr[20]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3556:/ objgoto");
@@ -20141,7 +20141,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_55;
                         meltlab_count_55++;
-                        debugeprintf("objlabel_55 mtch1_*CLASS_NORMTESTER_MATCHER/6422bc2. *CLASS_OBJLABELINSTR/39b4c1e0. %ld", meltlab_count_55);
+                        debugeprintf("objlabel_55 mtch1_*CLASS_NORMTESTER_MATCHER/2844c1ad. *CLASS_OBJLABELINSTR/7f07ccf. %ld", meltlab_count_55);
 #endif
 
                         ;
@@ -20149,7 +20149,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V38*/ meltfptr[20] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPSTRUCT__V22*/ meltfptr[21]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPSTRUCT__V22*/ meltfptr[21])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPSTRUCT__V22*/ meltfptr[21]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPSTRUCT__V22*/ meltfptr[21])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20161,7 +20161,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V38*/ meltfptr[20] = /*_.CTYPG_MAPSTRUCT__V22*/ meltfptr[21]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V38*/ meltfptr[20] = /*_.CTYPG_MAPSTRUCT__V22*/ meltfptr[21]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3557:/ objgoto");
@@ -20193,7 +20193,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_56;
                         meltlab_count_56++;
-                        debugeprintf("objlabel_56 mtch1_*CLASS_NORMTESTER_MATCHER/3af80b27. *CLASS_OBJLABELINSTR/3e2c2aed. %ld", meltlab_count_56);
+                        debugeprintf("objlabel_56 mtch1_*CLASS_NORMTESTER_MATCHER/16a3887d. *CLASS_OBJLABELINSTR/38c0e845. %ld", meltlab_count_56);
 #endif
 
                         ;
@@ -20201,7 +20201,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V39*/ meltfptr[21] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPMAGIC__V23*/ meltfptr[22]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPMAGIC__V23*/ meltfptr[22])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPMAGIC__V23*/ meltfptr[22]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPMAGIC__V23*/ meltfptr[22])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20213,7 +20213,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V39*/ meltfptr[21] = /*_.CTYPG_MAPMAGIC__V23*/ meltfptr[22]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V39*/ meltfptr[21] = /*_.CTYPG_MAPMAGIC__V23*/ meltfptr[22]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3558:/ objgoto");
@@ -20245,7 +20245,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_57;
                         meltlab_count_57++;
-                        debugeprintf("objlabel_57 mtch1_*CLASS_NORMTESTER_INSTANCE/3ef8a71a. *CLASS_OBJLABELINSTR/13e04925. %ld", meltlab_count_57);
+                        debugeprintf("objlabel_57 mtch1_*CLASS_NORMTESTER_INSTANCE/2ae66885. *CLASS_OBJLABELINSTR/d7c549e. %ld", meltlab_count_57);
 #endif
 
                         ;
@@ -20298,7 +20298,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_58;
                         meltlab_count_58++;
-                        debugeprintf("objlabel_58 mtch1_*CLASS_NORMTESTER_MATCHER/26cb1430. *CLASS_OBJLABELINSTR/20c1b6ca. %ld", meltlab_count_58);
+                        debugeprintf("objlabel_58 mtch1_*CLASS_NORMTESTER_MATCHER/18531776. *CLASS_OBJLABELINSTR/ba99730. %ld", meltlab_count_58);
 #endif
 
                         ;
@@ -20306,7 +20306,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V41*/ meltfptr[23] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPUNIMEMB__V25*/ meltfptr[24]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPUNIMEMB__V25*/ meltfptr[24])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPUNIMEMB__V25*/ meltfptr[24]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPUNIMEMB__V25*/ meltfptr[24])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20318,7 +20318,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V41*/ meltfptr[23] = /*_.CTYPG_MAPUNIMEMB__V25*/ meltfptr[24]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V41*/ meltfptr[23] = /*_.CTYPG_MAPUNIMEMB__V25*/ meltfptr[24]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3561:/ objgoto");
@@ -20350,7 +20350,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_59;
                         meltlab_count_59++;
-                        debugeprintf("objlabel_59 mtch1_*CLASS_NORMTESTER_MATCHER/1ee019cd. *CLASS_OBJLABELINSTR/20b15e8. %ld", meltlab_count_59);
+                        debugeprintf("objlabel_59 mtch1_*CLASS_NORMTESTER_MATCHER/2d97ce1b. *CLASS_OBJLABELINSTR/3f313887. %ld", meltlab_count_59);
 #endif
 
                         ;
@@ -20358,7 +20358,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V42*/ meltfptr[24] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_NEWMAPFUN__V26*/ meltfptr[25]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_NEWMAPFUN__V26*/ meltfptr[25])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_NEWMAPFUN__V26*/ meltfptr[25]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_NEWMAPFUN__V26*/ meltfptr[25])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20370,7 +20370,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V42*/ meltfptr[24] = /*_.CTYPG_NEWMAPFUN__V26*/ meltfptr[25]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V42*/ meltfptr[24] = /*_.CTYPG_NEWMAPFUN__V26*/ meltfptr[25]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3562:/ objgoto");
@@ -20402,7 +20402,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_60;
                         meltlab_count_60++;
-                        debugeprintf("objlabel_60 mtch1_*CLASS_NORMTESTER_MATCHER/27e0435b. *CLASS_OBJLABELINSTR/201e9a34. %ld", meltlab_count_60);
+                        debugeprintf("objlabel_60 mtch1_*CLASS_NORMTESTER_MATCHER/3263d489. *CLASS_OBJLABELINSTR/d1649e3. %ld", meltlab_count_60);
 #endif
 
                         ;
@@ -20410,7 +20410,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V43*/ meltfptr[25] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPGETFUN__V27*/ meltfptr[26]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPGETFUN__V27*/ meltfptr[26])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPGETFUN__V27*/ meltfptr[26]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPGETFUN__V27*/ meltfptr[26])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20422,7 +20422,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V43*/ meltfptr[25] = /*_.CTYPG_MAPGETFUN__V27*/ meltfptr[26]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V43*/ meltfptr[25] = /*_.CTYPG_MAPGETFUN__V27*/ meltfptr[26]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3563:/ objgoto");
@@ -20454,7 +20454,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_61;
                         meltlab_count_61++;
-                        debugeprintf("objlabel_61 mtch1_*CLASS_NORMTESTER_MATCHER/86942c0. *CLASS_OBJLABELINSTR/1303613f. %ld", meltlab_count_61);
+                        debugeprintf("objlabel_61 mtch1_*CLASS_NORMTESTER_MATCHER/97debd0. *CLASS_OBJLABELINSTR/174227d9. %ld", meltlab_count_61);
 #endif
 
                         ;
@@ -20462,7 +20462,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V44*/ meltfptr[26] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPPUTFUN__V28*/ meltfptr[27]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPPUTFUN__V28*/ meltfptr[27])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPPUTFUN__V28*/ meltfptr[27]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPPUTFUN__V28*/ meltfptr[27])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20474,7 +20474,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V44*/ meltfptr[26] = /*_.CTYPG_MAPPUTFUN__V28*/ meltfptr[27]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V44*/ meltfptr[26] = /*_.CTYPG_MAPPUTFUN__V28*/ meltfptr[27]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3564:/ objgoto");
@@ -20506,7 +20506,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_62;
                         meltlab_count_62++;
-                        debugeprintf("objlabel_62 mtch1_*CLASS_NORMTESTER_MATCHER/221cd347. *CLASS_OBJLABELINSTR/7b8aa73. %ld", meltlab_count_62);
+                        debugeprintf("objlabel_62 mtch1_*CLASS_NORMTESTER_MATCHER/701a750. *CLASS_OBJLABELINSTR/2b33d18b. %ld", meltlab_count_62);
 #endif
 
                         ;
@@ -20514,7 +20514,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V45*/ meltfptr[27] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPREMOVEFUN__V29*/ meltfptr[28]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPREMOVEFUN__V29*/ meltfptr[28])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPREMOVEFUN__V29*/ meltfptr[28]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPREMOVEFUN__V29*/ meltfptr[28])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20526,7 +20526,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V45*/ meltfptr[27] = /*_.CTYPG_MAPREMOVEFUN__V29*/ meltfptr[28]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V45*/ meltfptr[27] = /*_.CTYPG_MAPREMOVEFUN__V29*/ meltfptr[28]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3565:/ objgoto");
@@ -20558,7 +20558,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_63;
                         meltlab_count_63++;
-                        debugeprintf("objlabel_63 mtch1_*CLASS_NORMTESTER_MATCHER/21076082. *CLASS_OBJLABELINSTR/1c666181. %ld", meltlab_count_63);
+                        debugeprintf("objlabel_63 mtch1_*CLASS_NORMTESTER_MATCHER/15d60476. *CLASS_OBJLABELINSTR/2071ad82. %ld", meltlab_count_63);
 #endif
 
                         ;
@@ -20566,7 +20566,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V46*/ meltfptr[28] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPCOUNTFUN__V30*/ meltfptr[29]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPCOUNTFUN__V30*/ meltfptr[29])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPCOUNTFUN__V30*/ meltfptr[29]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPCOUNTFUN__V30*/ meltfptr[29])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20578,7 +20578,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V46*/ meltfptr[28] = /*_.CTYPG_MAPCOUNTFUN__V30*/ meltfptr[29]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V46*/ meltfptr[28] = /*_.CTYPG_MAPCOUNTFUN__V30*/ meltfptr[29]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3566:/ objgoto");
@@ -20610,7 +20610,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_64;
                         meltlab_count_64++;
-                        debugeprintf("objlabel_64 mtch1_*CLASS_NORMTESTER_MATCHER/2fb82567. *CLASS_OBJLABELINSTR/e30fd6c. %ld", meltlab_count_64);
+                        debugeprintf("objlabel_64 mtch1_*CLASS_NORMTESTER_MATCHER/2a65816a. *CLASS_OBJLABELINSTR/3b0e16a0. %ld", meltlab_count_64);
 #endif
 
                         ;
@@ -20618,7 +20618,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V47*/ meltfptr[29] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPSIZEFUN__V31*/ meltfptr[30]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPSIZEFUN__V31*/ meltfptr[30])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPSIZEFUN__V31*/ meltfptr[30]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPSIZEFUN__V31*/ meltfptr[30])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20630,7 +20630,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V47*/ meltfptr[29] = /*_.CTYPG_MAPSIZEFUN__V31*/ meltfptr[30]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V47*/ meltfptr[29] = /*_.CTYPG_MAPSIZEFUN__V31*/ meltfptr[30]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3567:/ objgoto");
@@ -20662,7 +20662,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_65;
                         meltlab_count_65++;
-                        debugeprintf("objlabel_65 mtch1_*CLASS_NORMTESTER_MATCHER/3eff0ee0. *CLASS_OBJLABELINSTR/3f129238. %ld", meltlab_count_65);
+                        debugeprintf("objlabel_65 mtch1_*CLASS_NORMTESTER_MATCHER/2195d790. *CLASS_OBJLABELINSTR/1f5e3739. %ld", meltlab_count_65);
 #endif
 
                         ;
@@ -20670,7 +20670,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V48*/ meltfptr[30] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPNATTFUN__V32*/ meltfptr[31]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPNATTFUN__V32*/ meltfptr[31])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPNATTFUN__V32*/ meltfptr[31]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPNATTFUN__V32*/ meltfptr[31])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20682,7 +20682,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V48*/ meltfptr[30] = /*_.CTYPG_MAPNATTFUN__V32*/ meltfptr[31]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V48*/ meltfptr[30] = /*_.CTYPG_MAPNATTFUN__V32*/ meltfptr[31]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3568:/ objgoto");
@@ -20714,7 +20714,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_66;
                         meltlab_count_66++;
-                        debugeprintf("objlabel_66 mtch1_*CLASS_NORMTESTER_MATCHER/5a4d6e4. *CLASS_OBJLABELINSTR/20d4933b. %ld", meltlab_count_66);
+                        debugeprintf("objlabel_66 mtch1_*CLASS_NORMTESTER_MATCHER/3f6e092f. *CLASS_OBJLABELINSTR/6cbd848. %ld", meltlab_count_66);
 #endif
 
                         ;
@@ -20722,7 +20722,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V49*/ meltfptr[31] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPNVALFUN__V33*/ meltfptr[32]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPNVALFUN__V33*/ meltfptr[32])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPNVALFUN__V33*/ meltfptr[32]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPNVALFUN__V33*/ meltfptr[32])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20734,7 +20734,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V49*/ meltfptr[31] = /*_.CTYPG_MAPNVALFUN__V33*/ meltfptr[32]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V49*/ meltfptr[31] = /*_.CTYPG_MAPNVALFUN__V33*/ meltfptr[32]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3569:/ objgoto");
@@ -20766,7 +20766,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_67;
                         meltlab_count_67++;
-                        debugeprintf("objlabel_67 mtch1_*CLASS_NORMTESTER_MATCHER/337b97f6. *CLASS_OBJLABELINSTR/2dcd6406. %ld", meltlab_count_67);
+                        debugeprintf("objlabel_67 mtch1_*CLASS_NORMTESTER_MATCHER/334f94ca. *CLASS_OBJLABELINSTR/3829eac7. %ld", meltlab_count_67);
 #endif
 
                         ;
@@ -20774,7 +20774,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V50*/ meltfptr[32] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPAUXDATAFUN__V34*/ meltfptr[33]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPAUXDATAFUN__V34*/ meltfptr[33])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPAUXDATAFUN__V34*/ meltfptr[33]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPAUXDATAFUN__V34*/ meltfptr[33])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20786,7 +20786,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V50*/ meltfptr[32] = /*_.CTYPG_MAPAUXDATAFUN__V34*/ meltfptr[33]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V50*/ meltfptr[32] = /*_.CTYPG_MAPAUXDATAFUN__V34*/ meltfptr[33]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3570:/ objgoto");
@@ -20818,7 +20818,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_68;
                         meltlab_count_68++;
-                        debugeprintf("objlabel_68 mtch1_*CLASS_NORMTESTER_MATCHER/3fe8d7a0. *CLASS_OBJLABELINSTR/efa75f8. %ld", meltlab_count_68);
+                        debugeprintf("objlabel_68 mtch1_*CLASS_NORMTESTER_MATCHER/a84b652. *CLASS_OBJLABELINSTR/1a48b120. %ld", meltlab_count_68);
 #endif
 
                         ;
@@ -20826,7 +20826,7 @@ meltlab_endgetargs:
                         /*clear*/ /*_.SV__V51*/ meltfptr[33] = 0 ;
                         /*^cond*/
                         /*cond*/ if (
-                            /*SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPAUXPUTFUN__V35*/ meltfptr[34]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPAUXPUTFUN__V35*/ meltfptr[34])) == MELTOBMAG_STRING) ) /*then*/
+                            /*some_string_value SOMESTRVAL_mtch1__1? */ ((/*_.CTYPG_MAPAUXPUTFUN__V35*/ meltfptr[34]) && melt_magic_discr((melt_ptr_t)(/*_.CTYPG_MAPAUXPUTFUN__V35*/ meltfptr[34])) == MELTOBMAG_STRING) ) /*then*/
                             {
                                 /*^cond.then*/
                                 /*^block*/
@@ -20838,7 +20838,7 @@ meltlab_endgetargs:
 
                                     {
                                         /*^locexp*/
-                                        /*SOMESTRVAL_mtch1__1! */ /*_.SV__V51*/ meltfptr[33] = /*_.CTYPG_MAPAUXPUTFUN__V35*/ meltfptr[34]; ;
+                                        /*some_string_value SOMESTRVAL_mtch1__1! */ /*_.SV__V51*/ meltfptr[33] = /*_.CTYPG_MAPAUXPUTFUN__V35*/ meltfptr[34]; ;
                                     }
                                     ;
                                     MELT_LOCATION("warmelt-modes.melt:3553:/ objgoto");
@@ -20870,7 +20870,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_69;
                         meltlab_count_69++;
-                        debugeprintf("objlabel_69 mtch1_*CLASS_NORMTESTER_SUCCESS/2b753690. *CLASS_OBJLABELINSTR/26135067. %ld", meltlab_count_69);
+                        debugeprintf("objlabel_69 mtch1_*CLASS_NORMTESTER_SUCCESS/12d5dc37. *CLASS_OBJLABELINSTR/5d18ec9. %ld", meltlab_count_69);
 #endif
 
                         ;
@@ -22719,7 +22719,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_70;
                         meltlab_count_70++;
-                        debugeprintf("objlabel_70 mtch1_*CLASS_NORMTESTER_SUCCESS/142a1b86. *CLASS_OBJLABELINSTR/368c3df4. %ld", meltlab_count_70);
+                        debugeprintf("objlabel_70 mtch1_*CLASS_NORMTESTER_SUCCESS/28a5c87c. *CLASS_OBJLABELINSTR/3740f9ee. %ld", meltlab_count_70);
 #endif
 
                         ;
@@ -22744,7 +22744,7 @@ meltlab_endgetargs:
 #if MELTDEBUG_MATCHING
                         static long meltlab_count_71;
                         meltlab_count_71++;
-                        debugeprintf("objlabel_71 mtch1__end_h24686954 *CLASS_OBJLABELINSTR/178b16a. %ld", meltlab_count_71);
+                        debugeprintf("objlabel_71 mtch1__end_h273520396 *CLASS_OBJLABELINSTR/104d970c. %ld", meltlab_count_71);
 #endif
 
                         ;
@@ -26065,7 +26065,8 @@ meltlab_endgetargs:
                                                 argtab[3].meltbp_aptr = (melt_ptr_t*) &/*_.HKNAME__V8*/ meltfptr[7];
                                                 /*^apply.arg*/
                                                 argtab[4].meltbp_cstring =  "\",\n\t\t\t\t !strncmp (melthkp->hookname,\
-\n\t\t\t\t\t   \"";
+\n\t\t\t\
+\t\t   \"";
                                                 /*^apply.arg*/
                                                 argtab[5].meltbp_aptr = (melt_ptr_t*) &/*_.HKNAME__V8*/ meltfptr[7];
                                                 /*^apply.arg*/

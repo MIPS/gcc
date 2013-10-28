@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f6[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h631898602; // forward declaration fromline 6543
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h631898602 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h36509875; // forward declaration fromline 6543
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h36509875 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -794,7 +794,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h631898602 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiOUTOBJ_h36509875 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -35383,17 +35383,17 @@ meltlab_endgetargs:
             /*_#ENDCLOCK__L16*/ meltfnum[0] = (long) clock () ;
             if (melt_flag_bootstrapping)
                 inform (UNKNOWN_LOCATION,
-                        "MELT generated C code of module %s with %ld secondary files in %ld CPU millisec [#%ld].",
+                        "MELT generated C++ code of module %s with %ld secondary files in %ld CPU millisec [#%ld].",
                         melt_string_str ((melt_ptr_t) /*_.MODNAMSTR__V3*/ meltfptr[2]), /*_#NBSECFILES__L156*/ meltfnum[155],
                         (/*_#ENDCLOCK__L16*/ meltfnum[0] - /*_#STARTCLOCK__L19*/ meltfnum[17]) / (CLOCKS_PER_SEC/1000), melt_dbgcounter) ;
             else
                 inform (UNKNOWN_LOCATION,
-                        "MELT generated C code of module %s with %ld secondary files in %ld CPU millisec.",
+                        "MELT generated C++ code of module %s with %ld secondary files in %ld CPU millisec.",
                         melt_string_str ((melt_ptr_t) /*_.MODNAMSTR__V3*/ meltfptr[2]), /*_#NBSECFILES__L156*/ meltfnum[155],
                         (/*_#ENDCLOCK__L16*/ meltfnum[0] - /*_#STARTCLOCK__L19*/ meltfnum[17]) / (CLOCKS_PER_SEC/1000)) ;
 #else /* no clock */
             inform (UNKNOWN_LOCATION,
-                    "MELT generated C code of module %s with %ld secondary files",
+                    "MELT generated C++ code of module %s with %ld secondary files",
                     melt_string_str ((melt_ptr_t) /*_.MODNAMSTR__V3*/ meltfptr[2]), /*_#NBSECFILES__L156*/ meltfnum[155]) ;
 #endif /* HAVE_CLOCK && CLOCKS_PER_SEC */
             /* end translate_macroexpanded_list ENDMODNAM__1 */ ;
