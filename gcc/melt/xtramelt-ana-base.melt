@@ -1991,6 +1991,17 @@ current function and gives its declaration in $CFUNDECL}#
 (install_method discr_map_edges dbg_output dbgout_mapedge_method)
 
 
+(defun read_arg_list (locs :cstring argname)
+  :doc #{If plugin argument $ARGNAME is provided, read it into a list located thru $LOCS, or else nil.}#
+  (debug "read_arg_list argname=" argname)
+  (let ( (:cstring sarg (melt_argument argname))
+	 (argstr (if sarg (constant_box sarg)))
+	 (arglist (if argstr (read_strv_loc argstr locs)))
+	 )
+    (debug "read_arg_list result arglist=" arglist)
+    (return arglist)
+))
+
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
@@ -2111,6 +2122,7 @@ current function and gives its declaration in $CFUNDECL}#
  ppstrbuf_gimple
  ppstrbuf_gimple_seq
  ppstrbuf_tree
+ read_arg_list
  superloop_at_depth
  superloop_tuple
  with_cfun_decl

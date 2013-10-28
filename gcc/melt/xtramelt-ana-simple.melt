@@ -544,28 +544,46 @@
     (assert_msg "register_findgimple_processor check clo" (is_closure clo) clo))))
 (export_values register_findgimple_processor)
 
+
+
 (defun findgimple_docmd (cmd moduldata)
-  (let ( (argstr (constant_box (melt_argument "arg")))
+  (debug "findgimple_docmd start cmd=" debug_less cmd)
+  (let ( 
 	 (outputstr (constant_box (melt_argument "output")))
-	 (rlist (read_strv_loc argstr '"*findgimple-argument*"))
-	 (rtuple (list_to_multiple rlist discr_multiple))
+	 (gimplepatlist (read_arg_list '"**findgimple*gimple-pattern**" "gimple-pattern"))
+	 (funpatlist  (read_arg_list '"**findgimple*function-pattern**" "function-pattern"))
+	 (actionpatlist (read_arg_list '"**findgimple*action**" "action"))
 	 )
-    (debug "findgimple_docmd argstr=" argstr " outputstr=" outputstr
-	   "\n.. rlist=" rlist "\n.. rtuple=" rtuple)
-    (if (>i (multiple_length rtuple) 2)
-	(warning_at () "findgimple mode needs only two arguments <gimple-pattern> [<tree-decl-pattern>]"))
-    (let ( (gimplepatsrc (multiple_nth rtuple 0))
-	   (treepatsrc (multiple_nth rtuple 1))
+    (debug "findgimple_docmd outputstr=" outputstr "\n.. gimplepatlist=" gimplepatlist
+	   "\n.. funpatlist=" funpatlist
+	   "\n.. actionpatlist=" actionpatlist)
+    ;; MELT 1.0rc3 used to want "arg", but not the real MELT 1.0
+    (when (melt_argument "arg")
+      (error_at () 
+		"findgimple mode don't like -fplugin-arg-melt-arg $1, give explicitly -fplugin-arg-melt-gimple-pattern= etc..."
+		(melt_argument "arg"))
+      (return ()))
+    (when (>i (list_length gimplepatlist) 1)
+      (error_at () 
+		"findgimple mode requires one single -fplugin-arg-melt-gimple-pattern, got $1" (melt_argument "gimple-pattern"))
+      (return ()))
+    (when (>i (list_length funpatlist) 1)
+      (error_at () 
+		"findgimple mode requires one single -fplugin-arg-melt-function-pattern, got $1" (melt_argument "function-pattern"))
+      (return ()))
+      
+    (let ( (gimplepatsrc (if gimplepatlist (list_first_element gimplepatlist) '(question _)))
+	   (funpatsrc (if funpatlist (list_first_element funpatlist) '(question _)))
 	   )
-      (debug "findgimple_docmd gimplepatsrc=" gimplepatsrc " treepatsrc=" treepatsrc)
+      (debug "findgimple_docmd gimplepatsrc=" gimplepatsrc " funpatsrc=" funpatsrc)
       (when (or (is_not_a gimplepatsrc class_sexpr)
 		(!= (list_first_element (get_field :sexp_contents gimplepatsrc)) 'question))
 	(error_at () "missing GIMPLE pattern argument for findgimple mode, not a pattern $1" gimplepatsrc)
 	(return ()))
-      (if treepatsrc
-	  (when  (or (is_not_a treepatsrc class_sexpr)
-		     (!= (list_first_element (get_field :sexp_contents treepatsrc)) 'question))
-	    (error_at () "bad TREE pattern argument for findgimple mode, not a pattern $1" treepatsrc)
+      (if funpatsrc
+	  (when  (or (is_not_a funpatsrc class_sexpr)
+		     (!= (list_first_element (get_field :sexp_contents funpatsrc)) 'question))
+	    (error_at () "bad TREE pattern argument for findgimple mode, not a pattern $1" funpatsrc)
 	    (return ())))
       (with_cloned_symb 
        (gimp treefundecl bb pass newpass)
@@ -576,24 +594,24 @@
 	     (:long jokergimplepat 
 		    (== (list_nth_element (get_field :sexp_contents gimplepatsrc) 1) '_))
 	     (:long jokertreepat 
-		    (== (list_nth_element (get_field :sexp_contents treepatsrc) 1) '_))
+		    (== (list_nth_element (get_field :sexp_contents funpatsrc) 1) '_))
 	     ;;
 	     (matchdeclexp
-	      (if treepatsrc
+	      (if funpatsrc
 		  `(match ,treefundecl
-			  (,treepatsrc 
+			  (,funpatsrc 
 			   (debug "findgimple/gate good treefundecl=" ,treefundecl)
 			   (put_int goodfuncount (+i 1 (get_int goodfuncount)))
 			   (inform_at (constant_box ,treefundecl) 
 				      "FINDGIMPLE good function declaration $1 #$2"
-				      ,treefundecl (get_int goodfuncount))
+				      ,treefundecl (get_int goodfuncount))			   
 			   (debug "findgimple/gate updated goodfuncount=" goodfuncount)
 			   (return :true))
 			  ,(if jokertreepat (list)
 			     '(?_ 
 			       (return ()))))))
 	     (gatefunexp 
-	      (if treepatsrc 
+	      (if funpatsrc 
 		  ;; explicit tree pattern
 		  `(lambda (,pass)
 		     (debug "findgimple/gate start pass=" ,pass)
@@ -662,8 +680,9 @@
 		       (put_int goodgimpcount (+i 1 (get_int goodgimpcount)))
 		       (inform_at (constant_box ,gimp)
 				  "FINDGIMPLE good gimple $1 #$2" ,gimp goodgimpcount)
+		       ,actionpatlist
 		       (void))
-		      ,(if jokergimplepat (list)
+		      ,(if jokergimplepat actionpatlist
 			 '(?_ 
 			   (void)))))
 	     (execfunexp
@@ -755,7 +774,7 @@
 	 )
 
        ;;
-       (debug "findgimple_docmd ended argstr=" argstr)
+       (debug "findgimple_docmd ended gimplepatsrc=" gimplepatsrc)
        (return :true)
        )))))
 
@@ -764,9 +783,11 @@
   :named_name '"findgimple"
   :meltmode_help '"find and count all the gimples matching the given
  gimple pattern in all functions whose declaration matches a given
- tree pattern; -fplugin-arg-melt-arg should be: <gimple-pattern>
- [<tree-decl-pattern>].  If -fplugin-arg-melt-output is given, it is
- the name of the generated module, to be able to repeat that search
+ function pattern; The gimple pattern is given with -fplugin-arg-melt-gimple-pattern= ...
+ The optional function tree pattern is given with -fplugin-arg-melt-function-pattern= ...
+ The optional action sequence is given with -fplugin-arg-melt-action= ....
+  If -fplugin-arg-melt-output is given, it is
+ the name of the generated module, to be able to repeat that same search
  using gofindgimple mode."
   :meltmode_fun findgimple_docmd)
 (install_melt_mode findgimple_mode)

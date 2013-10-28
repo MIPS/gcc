@@ -2,6 +2,16 @@
 
 2013-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-base.melt (read_arg_list): New function.
+
+	* melt/xtramelt-ana-simple.melt (findgimple_docmd): Use the
+	-fplugin-arg-melt-gimple-pattern=
+	-fplugin-arg-melt-function-pattern= -fplugin-arg-melt-action=
+	arguments and deprecates -fplugin-arg-melt-arg.
+	(findgimple_mode): Document above change.
+
+2013-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (some_string_value_containing): New
 	cmatcher.
 
