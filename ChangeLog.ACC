@@ -1,3 +1,8 @@
+28-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Switch to libiberity for acc_region_t tree.
+
+    * gcc/oacc-low.c(acc_region_t): Switch to libiberity allocator.
+
 25-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Add LOOP AUTO and TILE clauses
     

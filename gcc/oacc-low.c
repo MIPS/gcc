@@ -173,11 +173,11 @@ static GTY(()) bitmap oacc_kernels;
 
 typedef struct acc_region_t* acc_region;
 
-typedef struct GTY(()) acc_region_t
+typedef struct acc_region_t
 {
     gimple stmt;
     acc_region parent;
-    vec <acc_region, va_gc>* children;
+    vec <acc_region>* children;
 } acc_region_t;
 
 typedef struct acc_kernel_t *acc_kernel;
@@ -227,13 +227,13 @@ new_acc_region(gimple stmt, acc_region parent)
 {
     acc_region region;
 
-    region = (acc_region)ggc_internal_alloc(sizeof(acc_region_t));
+    region = XCNEW(acc_region_t);
     region->stmt = stmt;
     region->parent = parent;
     vec_alloc(region->children, 3);
     if(parent != NULL)
     {
-      vec_safe_push(parent->children, region);
+      parent->children->safe_push(region);
     }
 
     return region;
@@ -244,12 +244,12 @@ delete_acc_region(acc_region region)
 {
   unsigned i;
 
-  for(i = 0; i < vec_safe_length(region->children); ++i)
+  for(i = 0; i < region->children->length(); ++i)
     {
-      delete_acc_region(vec_safe_address(region->children)[i]);
+      delete_acc_region((*region->children)[i]);
     }
   vec_free(region->children);
-  ggc_free(region);
+  XDELETE(region);
 }
 
 static void
@@ -270,9 +270,9 @@ dump_acc_region (FILE* file, acc_region region, size_t spc)
       {
         fprintf(file, "(NULL)\n");
       }
-    for(i = 0; i < vec_safe_length(region->children); ++i)
+    for(i = 0; i < region->children->length(); ++i)
       {
-        dump_acc_region(file, vec_safe_address(region->children)[i], spc+4);
+        dump_acc_region(file, (*region->children)[i], spc+4);
       }
 
 }
@@ -2690,9 +2690,9 @@ traverse_regions (acc_region region)
 {
   unsigned i;
 
-  for(i = 0; i < vec_safe_length(region->children); ++i)
+  for(i = 0; i < region->children->length(); ++i)
   {
-    traverse_regions (vec_safe_address(region->children)[i]);
+    traverse_regions ((*region->children)[i]);
   }
   if(region->stmt != NULL)
     expand_region(region);
@@ -2753,7 +2753,7 @@ execute_expand_oacc (void)
     calculate_dominance_info (CDI_DOMINATORS);
     build_acc_region (ENTRY_BLOCK_PTR, root_region);
 
-    if(vec_safe_length(root_region->children) > 0)
+    if(/*vec_safe_length(root_region->children)*/root_region->children->length() > 0)
       {
         if(dump_file)
           {
@@ -2762,7 +2762,8 @@ execute_expand_oacc (void)
           }
         //traverse_regions(root_region);
       }
-    //delete_acc_region(root_region);
+    delete_acc_region(root_region);
+    root_region = NULL;
 
     FOR_EACH_BB(bb)
     {
