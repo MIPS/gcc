@@ -356,24 +356,6 @@ remap_decl (tree decl, copy_body_data *id)
       walk_tree (&DECL_SIZE (t), copy_tree_body_r, id, NULL);
       walk_tree (&DECL_SIZE_UNIT (t), copy_tree_body_r, id, NULL);
 
-      /* Remap initial value.  */
-      if (TREE_CODE (t) == VAR_DECL
-	  && DECL_INITIAL (t)
-	  && DECL_INITIAL (t) != error_mark_node)
-	{
-	  if (id->transform_return_to_modify)
-	    {
-	      gimple assign;
-
-	      walk_tree (&DECL_INITIAL (t), copy_tree_body_r, id, NULL);
-	      assign = gimple_build_assign (t, DECL_INITIAL (t));
-	      DECL_INITIAL (t) = NULL;
-	      insert_init_stmt (id, id->entry_bb, assign);
-	    }
-	  else
-	    walk_tree (&DECL_INITIAL (t), copy_tree_body_r, id, NULL);
-	}
-
       /* If fields, do likewise for offset and qualifier.  */
       if (TREE_CODE (t) == FIELD_DECL)
 	{

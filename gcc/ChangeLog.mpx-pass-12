@@ -1,4 +1,4 @@
-2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-28  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* ipa-inline.c (early_inliner): Check edge has summary allocated.
 	* tree-inline.c (declare_return_variable): Add arg holding
@@ -7,7 +7,6 @@
 	BUILT_IN_CHKP_ARG_BND built-in call with actual arg bounds.
 	Return sequence of statements instead of a single statement.
 	(insert_init_stmt): Add declaration.
-	(remap_decl): Remap DECL_INITIAL of the decl if required.
 	(remap_gimple_seq): Adjust to new remap_gimple_stmt signature.
 	(copy_bb): Handle bound args and adjust to changed return type
 	of remap_gimple_stmt.
