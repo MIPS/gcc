@@ -52,48 +52,70 @@ static pretty_printer buffer;
 static int initialized = 0;
 
 unsigned char
-dump_acc_body(int flags, tree node, int spc,
-              unsigned char is_expr, pretty_printer* buffer)
+dump_acc_body (int flags, tree node, int spc,
+               unsigned char is_expr, pretty_printer* buffer)
 {
-	if (!(flags & TDF_SLIM)&& ACC_BODY (node))
-	{
-		newline_and_indent(buffer, spc + 2);
-		pp_character(buffer, '{');
-		newline_and_indent(buffer, spc + 4);
-		dump_generic_node(buffer, ACC_BODY (node), spc + 4, flags, false);
-		newline_and_indent(buffer, spc + 2);
-		pp_character(buffer, '}');
-	}
-	is_expr = false;
-	return is_expr;
+  if (!(flags & TDF_SLIM) && ACC_BODY (node))
+  {
+    newline_and_indent (buffer, spc + 2);
+    pp_character (buffer, '{');
+    newline_and_indent (buffer, spc + 4);
+    dump_generic_node (buffer, ACC_BODY (node), spc + 4, flags, false);
+    newline_and_indent (buffer, spc + 2);
+    pp_character (buffer, '}');
+  }
+  is_expr = false;
+  return is_expr;
 }
 
 void
-dump_acc_clause_remap(const char* name, tree clause,
-                      int spc, int flags, pretty_printer* buffer)
+dump_acc_clause_remap (const char* name,
+                       tree clause,
+                       int spc,
+                       int flags,
+                       pretty_printer* buffer)
 {
-  pp_string(buffer, name);
-  pp_character(buffer, '(');
-  dump_generic_node(buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
-  if (ACC_IS_SUBARRAY(clause))
+  pp_string (buffer, name);
+  pp_character (buffer, '(');
+  dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+  if (ACC_IS_SUBARRAY (clause))
+  {
+    int i;
+
+    pp_character (buffer, '(');
+    for (i = 0; i < ACC_SUBARRAY_DIMENSIONS (clause) - 1; i++)
     {
-      int i;
+      dump_generic_node (buffer,
+                         ACC_SUBARRAY_LEFT_BOUND (clause, i),
+                         spc,
+                         flags,
+                         false);
+      pp_character (buffer, ':');
 
-      pp_character(buffer, '(');
-      for (i = 0; i < ACC_SUBARRAY_DIMENSIONS(clause) - 1; i++)
-        {
-          dump_generic_node(buffer, ACC_SUBARRAY_LEFT_BOUND(clause, i), spc, flags, false);
-          pp_character(buffer, ':');
-          dump_generic_node(buffer, ACC_SUBARRAY_RIGHT_BOUND(clause, i), spc, flags, false);
-          pp_character(buffer, ',');
-        }
-
-      dump_generic_node(buffer, ACC_SUBARRAY_LEFT_BOUND(clause, i), spc, flags, false);
-      pp_character(buffer, ':');
-      dump_generic_node(buffer, ACC_SUBARRAY_RIGHT_BOUND(clause, i), spc, flags, false);
-      pp_character(buffer, ')');
+      dump_generic_node (buffer,
+                         ACC_SUBARRAY_RIGHT_BOUND (clause, i),
+                         spc,
+                         flags,
+                         false);
+      pp_character (buffer, ',');
     }
-  pp_character(buffer, ')');
+
+    dump_generic_node (buffer,
+                       ACC_SUBARRAY_LEFT_BOUND (clause, i),
+                       spc,
+                       flags,
+                       false);
+    pp_character (buffer, ':');
+
+    dump_generic_node (buffer,
+                       ACC_SUBARRAY_RIGHT_BOUND (clause, i),
+                       spc,
+                       flags,
+                       false);
+    pp_character (buffer, ')');
+  }
+
+  pp_character (buffer, ')');
 }
 
 void
@@ -105,166 +127,185 @@ dump_acc_clause (pretty_printer *buffer, tree clause, int spc, int flags)
   if (clause == NULL)
     return;
 
-  clause_code = ACC_CLAUSE_CODE(clause);
+  clause_code = ACC_CLAUSE_CODE (clause);
 
   switch (clause_code)
-    {
-    case ACC_CLAUSE_ASYNC:
-      name = "async";
-      pp_string(buffer, name);
-      dump_generic_node(buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
-      break;
-    case ACC_CLAUSE_VECTOR:
-      name = "vector";
-      pp_string(buffer, name);
-      dump_generic_node(buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
-      break;
-    case ACC_CLAUSE_GANG:
-      name = "gang";
-      pp_string(buffer, name);
-      dump_generic_node(buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
-      break;
-    case ACC_CLAUSE_WORKER:
-      name = "worker";
-      pp_string(buffer, name);
-      dump_generic_node(buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
-      break;
-    case ACC_CLAUSE_INDEPENDENT:
-      name = "independent";
-      pp_string(buffer, name);
-      break;
-    case ACC_CLAUSE_SEQ:
-      name = "seq";
-      pp_string(buffer, name);
-      break;
-    case ACC_CLAUSE_COPY:
-      name = "copy";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_COPYIN:
-      name = "copyin";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_COPYOUT:
-      name = "copyout";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_CREATE:
-      name = "create";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_PRESENT:
-      name = "present";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_PRESENT_OR_COPY:
-      name = "present_or_copy";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_PRESENT_OR_COPYIN:
-      name = "present_or_copyin";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
-      name = "present_or_copyout";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_PRESENT_OR_CREATE:
-      name = "present_or_create";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_FIRSTPRIVATE:
-      name = "firstprivate";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_PRIVATE:
-      name = "private";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_DEVICEPTR:
-      name = "deviceptr";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_USE_DEVICE:
-      name = "use_device";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_DEVICE_RESIDENT:
-      name = "device_resident";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_HOST:
-      name = "host";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_CLAUSE_DEVICE:
-      name = "device";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    case ACC_NO_CLAUSE_CACHE:
-      name = "";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
+  {
+  case ACC_CLAUSE_ASYNC:
+    name = "async";
+    pp_string (buffer, name);
+    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    break;
 
-    case ACC_CLAUSE_REDUCTION:
-      pp_string (buffer, "reduction(");
-      pp_string (buffer, op_symbol_code (ACC_CLAUSE_REDUCTION_CODE (clause)));
-      pp_character (buffer, ':');
-      dump_generic_node (buffer, ACC_CLAUSE_DECL (clause),
-	  spc, flags, false);
-      pp_character (buffer, ')');
-      break;
+  case ACC_CLAUSE_VECTOR:
+    name = "vector";
+    pp_string (buffer, name);
+    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    break;
 
-    case ACC_CLAUSE_IF:
-      pp_string (buffer, "if(");
-      dump_generic_node (buffer, ACC_CLAUSE_IF_EXPR (clause),
-                         spc, flags, false);
-      pp_character (buffer, ')');
-      break;
+  case ACC_CLAUSE_GANG:
+    name = "gang";
+    pp_string (buffer, name);
+    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    break;
 
-    case ACC_CLAUSE_NUM_GANGS:
-      pp_string (buffer, "num_gangs(");
-      dump_generic_node (buffer, ACC_CLAUSE_NUM_GANGS_EXPR (clause),
-                         spc, flags, false);
-      pp_character (buffer, ')');
-      break;
-    case ACC_CLAUSE_NUM_WORKERS:
-      pp_string (buffer, "num_workers(");
-      dump_generic_node (buffer, ACC_CLAUSE_NUM_WORKERS_EXPR (clause),
-                         spc, flags, false);
-      pp_character (buffer, ')');
-      break;
-    case ACC_CLAUSE_VECTOR_LENGTH:
-      pp_string (buffer, "vector_length(");
-      dump_generic_node (buffer, ACC_CLAUSE_VECTOR_LENGTH_EXPR (clause),
-                         spc, flags, false);
-      pp_character (buffer, ')');
-      break;
+  case ACC_CLAUSE_WORKER:
+    name = "worker";
+    pp_string (buffer, name);
+    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    break;
 
-    case ACC_CLAUSE_COLLAPSE:
-      pp_string (buffer, "collapse(");
-      dump_generic_node (buffer, ACC_CLAUSE_COLLAPSE_EXPR (clause),
-                         spc, flags, false);
-      pp_character (buffer, ')');
-      break;
-    case ACC_NO_CLAUSE_WAIT:
-      pp_string (buffer, "(");
-      dump_generic_node (buffer, ACC_WAIT_EXPR (clause),
-                         spc, flags, false);
-      pp_character (buffer, ')');
-      break;
+  case ACC_CLAUSE_INDEPENDENT:
+    name = "independent";
+    pp_string (buffer, name);
+    break;
 
+  case ACC_CLAUSE_SEQ:
+    name = "seq";
+    pp_string (buffer, name);
+    break;
 
-/*
-    case ACC_CLAUSE_:
-      pp_string (buffer, "");
-      break;
-*/
-    default:
-      name = "unreconised_acc_clause";
-      dump_acc_clause_remap(name, clause, spc, flags, buffer);
-      break;
-    }
+  case ACC_CLAUSE_COPY:
+    name = "copy";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_COPYIN:
+    name = "copyin";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_COPYOUT:
+    name = "copyout";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_CREATE:
+    name = "create";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_PRESENT:
+    name = "present";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_PRESENT_OR_COPY:
+    name = "present_or_copy";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_PRESENT_OR_COPYIN:
+    name = "present_or_copyin";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+    name = "present_or_copyout";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_PRESENT_OR_CREATE:
+    name = "present_or_create";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_FIRSTPRIVATE:
+    name = "firstprivate";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_PRIVATE:
+    name = "private";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_DEVICEPTR:
+    name = "deviceptr";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_USE_DEVICE:
+    name = "use_device";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_DEVICE_RESIDENT:
+    name = "device_resident";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_HOST:
+    name = "host";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_DEVICE:
+    name = "device";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_NO_CLAUSE_CACHE:
+    name = "";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+
+  case ACC_CLAUSE_REDUCTION:
+    pp_string (buffer, "reduction(");
+    pp_string (buffer, op_symbol_code (ACC_CLAUSE_REDUCTION_CODE (clause)));
+    pp_character (buffer, ':');
+    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause),
+                       spc, flags, false);
+    pp_character (buffer, ')');
+    break;
+
+  case ACC_CLAUSE_IF:
+    pp_string (buffer, "if(");
+    dump_generic_node (buffer, ACC_CLAUSE_IF_EXPR (clause),
+                       spc, flags, false);
+    pp_character (buffer, ')');
+    break;
+
+  case ACC_CLAUSE_NUM_GANGS:
+    pp_string (buffer, "num_gangs(");
+    dump_generic_node (buffer, ACC_CLAUSE_NUM_GANGS_EXPR (clause),
+                       spc, flags, false);
+    pp_character (buffer, ')');
+    break;
+
+  case ACC_CLAUSE_NUM_WORKERS:
+    pp_string (buffer, "num_workers(");
+    dump_generic_node (buffer, ACC_CLAUSE_NUM_WORKERS_EXPR (clause),
+                       spc, flags, false);
+    pp_character (buffer, ')');
+    break;
+
+  case ACC_CLAUSE_VECTOR_LENGTH:
+    pp_string (buffer, "vector_length(");
+    dump_generic_node (buffer, ACC_CLAUSE_VECTOR_LENGTH_EXPR (clause),
+                       spc, flags, false);
+    pp_character (buffer, ')');
+    break;
+
+  case ACC_CLAUSE_COLLAPSE:
+    pp_string (buffer, "collapse(");
+    dump_generic_node (buffer, ACC_CLAUSE_COLLAPSE_EXPR (clause),
+                       spc, flags, false);
+    pp_character (buffer, ')');
+    break;
+
+  case ACC_NO_CLAUSE_WAIT:
+    pp_string (buffer, "(");
+    dump_generic_node (buffer, ACC_WAIT_EXPR (clause),
+                       spc, flags, false);
+    pp_character (buffer, ')');
+    break;
+
+  default:
+    name = "unrecognized_acc_clause";
+    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    break;
+  }
 }
 
 void

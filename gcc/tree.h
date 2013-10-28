@@ -1151,7 +1151,8 @@ extern void protected_set_expr_location (tree, location_t);
   (TRANSACTION_EXPR_CHECK (NODE)->base.public_flag)
 
 /* OpenACC directives and clause accessors. */
-#define ACC_BODY(NODE)                           TREE_OPERAND (NODE, 0)
+#define ACC_BODY(NODE) \
+            TREE_OPERAND (NODE, 0)
 
 #define ACC_CLAUSE_CHAIN(NODE) \
             ((NODE)->acc_clause.common.chain)
@@ -1208,21 +1209,31 @@ extern void protected_set_expr_location (tree, location_t);
 #define ACC_CLAUSE_GANG_EXPR(NODE)               ACC_CLAUSE_DECL (NODE)
 #define ACC_CLAUSE_COLLAPSE_EXPR(NODE)           ACC_CLAUSE_DECL (NODE)
 #define ACC_CLAUSE_IF_EXPR(NODE)                 ACC_CLAUSE_DECL (NODE)
+
 #define ACC_WAIT_EXPR(NODE)                      ACC_CLAUSE_DECL (NODE)
 
-#define ACC_DATA_BODY(NODE)          TREE_OPERAND (ACC_DATA_CHECK (NODE), 0)
-#define ACC_DATA_CLAUSES(NODE)       TREE_OPERAND (ACC_DATA_CHECK (NODE), 1)
+#define ACC_DATA_BODY(NODE) \
+            TREE_OPERAND (ACC_DATA_CHECK (NODE), 0)
 
-#define ACC_DECLARE_CLAUSES(NODE)       TREE_OPERAND (ACC_DECLARE_CHECK (NODE), 0)
+#define ACC_DATA_CLAUSES(NODE) \
+            TREE_OPERAND (ACC_DATA_CHECK (NODE), 1)
 
-#define ACC_UPDATE_CLAUSES(NODE)       TREE_OPERAND (ACC_UPDATE_CHECK (NODE), 0)
+#define ACC_DECLARE_CLAUSES(NODE) \
+            TREE_OPERAND (ACC_DECLARE_CHECK (NODE), 0)
 
-#define ACC_WAIT_CLAUSES(NODE)       TREE_OPERAND (ACC_WAIT_CHECK (NODE), 0)
+#define ACC_UPDATE_CLAUSES(NODE) \
+            TREE_OPERAND (ACC_UPDATE_CHECK (NODE), 0)
 
-#define ACC_CACHE_CLAUSES(NODE)       TREE_OPERAND (ACC_CACHE_CHECK (NODE), 0)
+#define ACC_WAIT_CLAUSES(NODE) \
+            TREE_OPERAND (ACC_WAIT_CHECK (NODE), 0)
 
-#define ACC_HOST_DATA_BODY(NODE)          TREE_OPERAND (ACC_HOST_DATA_CHECK (NODE), 0)
-#define ACC_HOST_DATA_CLAUSES(NODE)       TREE_OPERAND (ACC_HOST_DATA_CHECK (NODE), 1)
+#define ACC_CACHE_CLAUSES(NODE) \
+            TREE_OPERAND (ACC_CACHE_CHECK (NODE), 0)
+
+#define ACC_HOST_DATA_BODY(NODE) \
+            TREE_OPERAND (ACC_HOST_DATA_CHECK (NODE), 0)
+#define ACC_HOST_DATA_CLAUSES(NODE) \
+            TREE_OPERAND (ACC_HOST_DATA_CHECK (NODE), 1)
 
 #define ACC_CLAUSE_REDUCTION_CODE(NODE) \
             ((NODE)->acc_clause.subcode.reduction_code)

@@ -4,7 +4,7 @@
 struct t
 {
   int i;
-}
+};
 
 void foo (int *ia1)
 {
@@ -17,11 +17,11 @@ void foo (int *ia1)
   double c1;
   double ca1[7];
   int l1;
-  int la1[3]
+  int la1[3];
   char a1[5];
   struct t t1;
   struct t ta1[2];
-  float* p1 = NULL;
+  float* p1 = 0;
   int** aa1;
 
 #pragma acc parallel reduction (+:i3, ia2, r1, ra1, d1, da1, c1, ca1)

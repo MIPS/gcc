@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "dumpfile.h"	/* for dump_flags */
 #include "gimple.h"
+#include "gimple-oacc.h"
 #include "value-prof.h"
 #include "trans-mem.h"
 

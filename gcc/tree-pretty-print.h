@@ -39,6 +39,8 @@ extern unsigned char dump_acc_body
 extern void dump_acc_clause_remap
                         (const char*, tree, int, int, pretty_printer*);
 extern void dump_acc_clause (pretty_printer *, tree, int, int);
+extern void dump_acc_clauses (pretty_printer *, tree, int, int);
+
 extern void print_declaration (pretty_printer *, tree, int, int);
 extern int dump_generic_node (pretty_printer *, tree, int, int, bool);
 extern void print_generic_stmt (FILE *, tree, int);

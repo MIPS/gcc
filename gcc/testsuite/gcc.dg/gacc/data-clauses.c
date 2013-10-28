@@ -6,7 +6,7 @@
 
 struct t {
   int i;
-}
+};
 
 void foo (int vi) {
 	int i;
@@ -14,11 +14,11 @@ void foo (int vi) {
 	float r;
 	float ra[10];
 	float *rp = &r;
-	float *aa = malloc(sizeof(float)*2)
+	float *aa = malloc(sizeof(float)*2);
 	struct t ti;
 	struct t* tia;
 	struct t tit;
-	struct *tip = &tit;
+	struct t *tip = &tit;
 
 	#pragma acc parallel deviceptr (rp) /* { dg-error "POINTER" } */
 		{}

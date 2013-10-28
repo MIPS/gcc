@@ -21,6 +21,7 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "gimple.h"
+#include "gimple-oacc.h"
 #include "tree-inline.h"
 #include "diagnostic-core.h"
 #include "tree-flow.h"
@@ -2847,18 +2848,18 @@ diagnose_cb(gimple_stmt_iterator *gsi_p, gimple branch_ctx, gimple label_ctx)
 }
 
 static void
-get_recursive_seq(enum gimple_code code, gimple stmt, vec<gimple_seq*>* seq)
+get_recursive_seq (enum gimple_code code, gimple stmt, vec<gimple_seq*>* seq)
 {
-    switch(code)
-        {
-        case GIMPLE_ACC_KERNELS:
-            case GIMPLE_ACC_PARALLEL:
-                case GIMPLE_ACC_LOOP:
-                        seq->safe_push(gimple_acc_body_ptr(stmt));
-            break;
-        default:
-            break;
-        }
+  switch (code)
+  {
+  case GIMPLE_ACC_KERNELS:
+  case GIMPLE_ACC_PARALLEL:
+  case GIMPLE_ACC_LOOP:
+    seq->safe_push (gimple_acc_body_ptr (stmt));
+    break;
+  default:
+    break;
+  }
 }
 
 static unsigned int

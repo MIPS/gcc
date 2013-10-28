@@ -125,7 +125,7 @@ typedef enum pragma_acc_clause {
 
 /* OpenACC 1.0:
  * Mask for parallel clauses
-*/
+ */
 #define ACC_PARALLEL_CLAUSE_MASK \
 		( (1u << PRAGMA_ACC_CLAUSE_IF)\
 		| (1u << PRAGMA_ACC_CLAUSE_ASYNC)\
@@ -148,7 +148,7 @@ typedef enum pragma_acc_clause {
 
 /* OpenACC 1.0:
  * Mask for kernels clauses
-*/
+ */
 #define ACC_KERNELS_CLAUSE_MASK \
 		( (1u << PRAGMA_ACC_CLAUSE_IF)\
 		| (1u << PRAGMA_ACC_CLAUSE_ASYNC)\
@@ -166,7 +166,7 @@ typedef enum pragma_acc_clause {
 
 /* OpenACC 1.0:
  * Mask for data clauses
-*/
+ */
 #define ACC_DATA_CLAUSE_MASK \
 		( (1u << PRAGMA_ACC_CLAUSE_IF)\
 		| (1u << PRAGMA_ACC_CLAUSE_COPY)\
@@ -182,16 +182,16 @@ typedef enum pragma_acc_clause {
 
 /* OpenACC 1.0:
  * Mask for host_data clauses
-*/
+ */
 #define ACC_HOST_DATA_CLAUSE_MASK \
 		( (1u << PRAGMA_ACC_CLAUSE_USE_DEVICE))
 
 
 /* OpenACC 1.0:
  * Mask for loop clauses
-*/
+ */
 #define ACC_LOOP_CLAUSE_MASK \
-		(  (1u << PRAGMA_ACC_CLAUSE_COLLAPSE)\
+		( (1u << PRAGMA_ACC_CLAUSE_COLLAPSE)\
 		| (1u << PRAGMA_ACC_CLAUSE_GANG)\
 		| (1u << PRAGMA_ACC_CLAUSE_WORKER)\
 		| (1u << PRAGMA_ACC_CLAUSE_VECTOR)\
@@ -202,7 +202,7 @@ typedef enum pragma_acc_clause {
 
 /* OpenACC 1.0:
  * Mask for declare clauses
-*/
+ */
 #define ACC_DECLARE_CLAUSE_MASK \
 		( (1u << PRAGMA_ACC_CLAUSE_COPY)\
 		| (1u << PRAGMA_ACC_CLAUSE_COPYIN)\
@@ -218,7 +218,7 @@ typedef enum pragma_acc_clause {
 
 /* OpenACC 1.0:
  * Mask for update clauses
-*/
+ */
 #define ACC_UPDATE_CLAUSE_MASK \
 		( (1u << PRAGMA_ACC_CLAUSE_HOST)\
 		| (1u << PRAGMA_ACC_CLAUSE_DEVICE)\

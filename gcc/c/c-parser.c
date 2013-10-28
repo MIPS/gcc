@@ -11044,18 +11044,15 @@ c_parser_acc_clause_name (c_parser *parser)
 
 /* Validate that a clause of the given type does not already exist.  */
 static void
-c_parser_acc_clause_check_no_duplicate (tree clauses,
-                                        enum acc_clause_code code,
-                                        const char *name)
-{
+c_parser_acc_clause_check_no_duplicate(tree clauses,
+                                           enum acc_clause_code code,
+                                           const char *name) {
   tree c;
 
-  for (c = clauses; c ; c = ACC_CLAUSE_CHAIN (c))
-  {
-    if (ACC_CLAUSE_CODE (c) == code)
-    {
-      location_t loc = ACC_CLAUSE_LOCATION (c);
-      error_at (loc, "too many %qs clauses", name);
+  for (c = clauses; c; c = ACC_CLAUSE_CHAIN(c)) {
+    if (ACC_CLAUSE_CODE(c) == code) {
+      location_t loc = ACC_CLAUSE_LOCATION(c);
+      error_at(loc, "too many %qs clauses", name);
       break;
     }
   }
@@ -11343,13 +11340,12 @@ c_parser_acc_clause_vector_length (c_parser *parser, tree list)
 
   return list;
 }
-
 /* OpenACC 1.0:
    num_workers ( expression ) */
 static tree
 c_parser_acc_clause_num_workers (c_parser *parser, tree list)
 {
-  location_t loc = c_parser_peek_token (parser)->location;\
+  location_t loc = c_parser_peek_token (parser)->location;
 
   if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
   {
@@ -11401,79 +11397,72 @@ c_parser_acc_clause_num_workers (c_parser *parser, tree list)
      One of: + * - & ^ | && || max min  */
 
 static tree
-c_parser_acc_clause_reduction (c_parser *parser, tree list)
-{
-  location_t clause_loc = c_parser_peek_token (parser)->location;
+c_parser_acc_clause_reduction(c_parser *parser, tree list) {
+  location_t clause_loc = c_parser_peek_token(parser)->location;
 
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-  {
+  if (c_parser_require(parser, CPP_OPEN_PAREN, "expected %<(%>")) {
     enum tree_code code;
 
-    switch (c_parser_peek_token (parser)->type)
-    {
-    case CPP_PLUS:
-      code = PLUS_EXPR;
-      break;
-    case CPP_MULT:
-      code = MULT_EXPR;
-      break;
-    case CPP_MINUS:
-      code = MINUS_EXPR;
-      break;
-    case CPP_AND:
-      code = BIT_AND_EXPR;
-      break;
-    case CPP_XOR:
-      code = BIT_XOR_EXPR;
-      break;
-    case CPP_OR:
-      code = BIT_IOR_EXPR;
-      break;
-    case CPP_AND_AND:
-      code = TRUTH_ANDIF_EXPR;
-      break;
-    case CPP_OR_OR:
-      code = TRUTH_ORIF_EXPR;
-      break;
-    case CPP_NAME:
-    {
-      const char *p
-        = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-      if (strcmp (p, "min") == 0)
-      {
-        code = MIN_EXPR;
+    switch (c_parser_peek_token(parser)->type) {
+      case CPP_PLUS:
+        code = PLUS_EXPR;
         break;
-      }
-      if (strcmp (p, "max") == 0)
-      {
-        code = MAX_EXPR;
+      case CPP_MULT:
+        code = MULT_EXPR;
         break;
+      case CPP_MINUS:
+        code = MINUS_EXPR;
+        break;
+      case CPP_AND:
+        code = BIT_AND_EXPR;
+        break;
+      case CPP_XOR:
+        code = BIT_XOR_EXPR;
+        break;
+      case CPP_OR:
+        code = BIT_IOR_EXPR;
+        break;
+      case CPP_AND_AND:
+        code = TRUTH_ANDIF_EXPR;
+        break;
+      case CPP_OR_OR:
+        code = TRUTH_ORIF_EXPR;
+        break;
+      case CPP_NAME:
+      {
+        const char *p
+                = IDENTIFIER_POINTER(c_parser_peek_token(parser)->value);
+        if (strcmp(p, "min") == 0) {
+          code = MIN_EXPR;
+          break;
+        }
+        if (strcmp(p, "max") == 0) {
+          code = MAX_EXPR;
+          break;
+        }
       }
-    }
-    /* FALLTHRU */
-    default:
-      c_parser_error (parser,
-                      "expected %<+%>, %<*%>, %<-%>, %<&%>, "
-                      "%<^%>, %<|%>, %<&&%>, %<||%>, %<min%> or %<max%>");
-      c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, 0);
-      return list;
+        /* FALLTHRU */
+      default:
+        c_parser_error(parser,
+                "expected %<+%>, %<*%>, %<-%>, %<&%>, "
+                "%<^%>, %<|%>, %<&&%>, %<||%>, %<min%> or %<max%>");
+        c_parser_skip_until_found(parser, CPP_CLOSE_PAREN, 0);
+        return list;
     }
 
-    c_parser_consume_token (parser);
-    if (c_parser_require (parser, CPP_COLON, "expected %<:%>"))
-    {
+    c_parser_consume_token(parser);
+    if (c_parser_require(parser, CPP_COLON, "expected %<:%>")) {
       tree nl, c;
 
-      nl = c_parser_acc_variable_list (parser, clause_loc,
-                                       ACC_CLAUSE_REDUCTION, list);
-      for (c = nl; c != list; c = ACC_CLAUSE_CHAIN (c))
-      {
-        ACC_CLAUSE_REDUCTION_CODE (c) = code;
+      nl = c_parser_acc_variable_list(parser, clause_loc,
+              ACC_CLAUSE_REDUCTION, list);
+      for (c = nl; c != list; c = ACC_CLAUSE_CHAIN(c)) {
+        ACC_CLAUSE_REDUCTION_CODE(c) = code;
       }
 
       list = nl;
     }
-    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+    c_parser_skip_until_found(parser, CPP_CLOSE_PAREN, "expected %<)%>");
   }
   return list;
 }
@@ -12078,7 +12067,7 @@ c_parser_acc_loop (location_t loc, c_parser *parser)
                                       "#pragma acc loop");
 
   block = c_begin_compound_stmt (true);
-  //ret = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
+  ret = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
   block = c_end_compound_stmt (loc, block, true);
   add_stmt (block);
 
@@ -12175,7 +12164,8 @@ c_parser_acc_data (location_t loc, c_parser *parser)
 {
   enum pragma_kind p_kind = PRAGMA_ACC_DATA;
   const char *p_name = "#pragma acc data";
-  tree clauses, stmt = make_node (ACC_DATA);
+  tree clauses;
+  tree stmt = make_node (ACC_DATA);
   unsigned int mask = ACC_DATA_CLAUSE_MASK;
 
   clauses = c_parser_acc_all_clauses (parser, mask, p_name);
@@ -12194,7 +12184,8 @@ c_parser_acc_host_data (location_t loc, c_parser *parser)
 {
   enum pragma_kind p_kind = PRAGMA_ACC_HOST_DATA;
   const char *p_name = "#pragma acc host_data";
-  tree clauses, stmt = make_node (ACC_HOST_DATA);
+  tree clauses;
+  tree stmt = make_node (ACC_HOST_DATA);
   unsigned int mask = ACC_HOST_DATA_CLAUSE_MASK;
 
   clauses = c_parser_acc_all_clauses (parser, mask, p_name);

@@ -21,5 +21,4 @@
 struct ssaexpand;
 extern void generate_opencl_kernel(char* cl_file, tree kernel_fn, struct ssaexpand* ssa);
 
-
 #endif
