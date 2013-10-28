@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-threadupdate.h"
 #include "langhooks.h"
 #include "params.h"
+#include "target.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -2258,6 +2259,16 @@ cprop_into_stmt (gimple stmt)
 {
   use_operand_p op_p;
   ssa_op_iter iter;
+
+  /* Call used to obtain bounds of input arg by Pointer Bounds Checker
+     should not be optimized.  Argument of the call is a default
+     SSA_NAME of PARM_DECL.  It should never be replaced by value.  */
+  if (flag_check_pointers && gimple_code (stmt) == GIMPLE_CALL)
+    {
+      tree fndecl = gimple_call_fndecl (stmt);
+      if (fndecl == targetm.builtin_chkp_function (BUILT_IN_CHKP_ARG_BND))
+	return;
+    }
 
   FOR_EACH_SSA_USE_OPERAND (op_p, stmt, iter, SSA_OP_USE)
     cprop_operand (stmt, op_p);

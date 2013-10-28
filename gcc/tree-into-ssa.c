@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "domwalk.h"
 #include "params.h"
 #include "diagnostic-core.h"
+#include "target.h"
 
 
 /* This file builds the SSA form for a function as described in:
@@ -1936,8 +1937,13 @@ rewrite_update_stmt (gimple stmt, gimple_stmt_iterator gsi)
     }
 
   /* Rewrite USES included in OLD_SSA_NAMES and USES whose underlying
-     symbol is marked for renaming.  */
-  if (rewrite_uses_p (stmt))
+     symbol is marked for renaming.
+     Skip calls to BUILT_IN_CHKP_ARG_BND whose arg should never be
+     renamed.  */
+  if (rewrite_uses_p (stmt)
+      && ((gimple_code (stmt) != GIMPLE_CALL)
+	  || gimple_call_fndecl (stmt)
+	  != targetm.builtin_chkp_function (BUILT_IN_CHKP_ARG_BND)))
     {
       if (is_gimple_debug (stmt))
 	{
