@@ -65,6 +65,8 @@
   sr71000
   xlr
   xlp
+  w32
+  w64
 ])
 
 (define_c_enum "unspec" [
@@ -320,6 +322,7 @@
 ;; imadd	integer multiply-add
 ;; idiv		integer divide 2 operands
 ;; idiv3	integer divide 3 operands
+;; idiv3nc	integer divide 3 operands without clobbering HI/LO
 ;; move		integer register move ({,D}ADD{,U} with rt = 0)
 ;; fmove	floating point register move
 ;; fadd		floating point add/subtract
@@ -352,9 +355,9 @@
 (define_attr "type"
   "unknown,branch,jump,call,load,fpload,fpidxload,store,fpstore,fpidxstore,
    prefetch,prefetchx,condmove,mtc,mfc,mthi,mtlo,mfhi,mflo,const,arith,logical,
-   shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,move,
-   fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,fsqrt,
-   frsqrt,frsqrt1,frsqrt2,dspmac,dspmacsat,accext,accmod,dspalu,dspalusat,
+   shift,slt,signext,clz,pop,trap,imul,imul3,imul3nc,imadd,idiv,idiv3,idiv3nc,
+   move,fmove,fadd,fmul,fmadd,fdiv,frdiv,frdiv1,frdiv2,fabs,fneg,fcmp,fcvt,
+   fsqrt,frsqrt,frsqrt1,frsqrt2,dspmac,dspmacsat,accext,accmod,dspalu,dspalusat,
    multi,atomic,syncloop,nop,ghost,multimem"
   (cond [(eq_attr "jal" "!unset") (const_string "call")
 	 (eq_attr "got" "load") (const_string "load")
@@ -1482,13 +1485,13 @@
   [(set (match_operand:GPR 0 "register_operand")
 	(mult:GPR (match_operand:GPR 1 "register_operand")
 		  (match_operand:GPR 2 "register_operand")))]
-  "ISA_HAS_<D>MULT"
+  "ISA_HAS_<D>MULT || ISA_HAS_R6<D>MUL"
 {
   rtx lo;
 
-  if (TARGET_LOONGSON_2EF || TARGET_LOONGSON_3A)
-    emit_insn (gen_mul<mode>3_mul3_loongson (operands[0], operands[1],
-                                             operands[2]));
+  if (TARGET_LOONGSON_2EF || TARGET_LOONGSON_3A || ISA_HAS_R6<D>MUL)
+    emit_insn (gen_mul<mode>3_mul3_r6 (operands[0], operands[1],
+                                       operands[2]));
   else if (ISA_HAS_<D>MUL3)
     emit_insn (gen_mul<mode>3_mul3 (operands[0], operands[1], operands[2]));
   else if (TARGET_MIPS16)
@@ -1505,16 +1508,18 @@
   DONE;
 })
 
-(define_insn "mul<mode>3_mul3_loongson"
+(define_insn "mul<mode>3_mul3_r6"
   [(set (match_operand:GPR 0 "register_operand" "=d")
         (mult:GPR (match_operand:GPR 1 "register_operand" "d")
                   (match_operand:GPR 2 "register_operand" "d")))]
-  "TARGET_LOONGSON_2EF || TARGET_LOONGSON_3A"
+  "TARGET_LOONGSON_2EF || TARGET_LOONGSON_3A || ISA_HAS_R6<D>MUL"
 {
   if (TARGET_LOONGSON_2EF)
     return "<d>multu.g\t%0,%1,%2";
-  else
+  else if (TARGET_LOONGSON_3A)
     return "gs<d>multu\t%0,%1,%2";
+  else
+    return "<d>mul\t%0,%1,%2";
 }
   [(set_attr "type" "imul3nc")
    (set_attr "mode" "<MODE>")])
@@ -1913,6 +1918,24 @@
   DONE;
 })
 
+(define_expand "<u>mulsidi3_32bit_r6"
+  [(set (match_operand:DI 0 "register_operand")
+	(mult:DI (any_extend:DI (match_operand:SI 1 "register_operand"))
+		 (any_extend:DI (match_operand:SI 2 "register_operand"))))]
+  "!TARGET_64BIT && ISA_HAS_R6MUL"
+{
+  rtx dest = gen_reg_rtx (DImode);
+  rtx low = mips_subword (dest, 0);
+  rtx high = mips_subword (dest, 1);
+
+  emit_insn (gen_mulsi3_mul3_r6 (low, operands[1], operands[2]));
+  emit_insn (gen_<su>mulsi3_highpart_r6 (high, operands[1], operands[2]));
+
+  emit_move_insn (mips_subword (operands[0], 0), low);
+  emit_move_insn (mips_subword (operands[0], 1), high);
+  DONE;
+})
+
 (define_expand "<u>mulsidi3_32bit_mips16"
   [(set (match_operand:DI 0 "register_operand")
 	(mult:DI (any_extend:DI (match_operand:SI 1 "register_operand"))
@@ -1934,7 +1957,7 @@
   [(set (match_operand:DI 0 "muldiv_target_operand" "=ka")
 	(mult:DI (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		 (any_extend:DI (match_operand:SI 2 "register_operand" "d"))))]
-  "!TARGET_64BIT && (!TARGET_FIX_R4000 || ISA_HAS_DSP)"
+  "!TARGET_64BIT && (!TARGET_FIX_R4000 || ISA_HAS_DSP) && ISA_HAS_MULT"
 {
   if (ISA_HAS_DSP_MULT)
     return "mult<u>\t%q0,%1,%2";
@@ -1949,7 +1972,7 @@
 	(mult:DI (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
 		 (any_extend:DI (match_operand:SI 2 "register_operand" "d"))))
    (clobber (match_scratch:DI 3 "=x"))]
-  "!TARGET_64BIT && TARGET_FIX_R4000 && !ISA_HAS_DSP"
+  "!TARGET_64BIT && TARGET_FIX_R4000 && !ISA_HAS_DSP && ISA_HAS_MULT"
   "mult<u>\t%1,%2\;mflo\t%L0\;mfhi\t%M0"
   [(set_attr "type" "imul")
    (set_attr "mode" "SI")
@@ -1961,7 +1984,8 @@
 		 (any_extend:DI (match_operand:SI 2 "register_operand" "d"))))
    (clobber (match_scratch:TI 3 "=x"))
    (clobber (match_scratch:DI 4 "=d"))]
-  "TARGET_64BIT && !TARGET_FIX_R4000 && !ISA_HAS_DMUL3 && !TARGET_MIPS16"
+  "TARGET_64BIT && !TARGET_FIX_R4000 && !ISA_HAS_DMUL3
+   && !TARGET_MIPS16 && ISA_HAS_MULT"
   "#"
   "&& reload_completed"
   [(const_int 0)]
@@ -2044,6 +2068,15 @@
   [(set_attr "type" "imul3")
    (set_attr "mode" "DI")])
 
+(define_insn "mulsidi3_64bit_r6dmul"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(mult:DI (sign_extend:DI (match_operand:SI 1 "register_operand" "d"))
+		 (sign_extend:DI (match_operand:SI 2 "register_operand" "d"))))]
+  "ISA_HAS_R6DMUL"
+  "dmul\t%0,%1,%2"
+  [(set_attr "type" "imul3nc")
+   (set_attr "mode" "DI")])
+
 ;; Widening multiply with negation.
 (define_insn "*muls<u>_di"
   [(set (match_operand:DI 0 "muldiv_target_operand" "=x")
@@ -2101,11 +2134,26 @@
   else if (TARGET_MIPS16)
     emit_insn (gen_<su>mulsi3_highpart_split (operands[0], operands[1],
 					      operands[2]));
+  else if (ISA_HAS_R6MUL)
+    emit_insn (gen_<su>mulsi3_highpart_r6 (operands[0], operands[1],
+                                           operands[2]));
   else
     emit_insn (gen_<su>mulsi3_highpart_internal (operands[0], operands[1],
 					         operands[2]));
   DONE;
 })
+
+(define_insn "<su>mulsi3_highpart_r6"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(truncate:SI
+	 (lshiftrt:DI
+	  (mult:DI (any_extend:DI (match_operand:SI 1 "register_operand" "d"))
+		   (any_extend:DI (match_operand:SI 2 "register_operand" "d")))
+	  (const_int 32))))]
+  "ISA_HAS_R6MUL"
+  "muh<u>\t%0,%1,%2"
+  [(set_attr "type" "imul3nc")
+   (set_attr "mode" "SI")])
 
 (define_insn_and_split "<su>mulsi3_highpart_internal"
   [(set (match_operand:SI 0 "register_operand" "=d")
@@ -2115,7 +2163,7 @@
 		   (any_extend:DI (match_operand:SI 2 "register_operand" "d")))
 	  (const_int 32))))
    (clobber (match_scratch:SI 3 "=l"))]
-  "!ISA_HAS_MULHI && !TARGET_MIPS16"
+  "!ISA_HAS_R6MUL && !ISA_HAS_MULHI && !TARGET_MIPS16"
   { return TARGET_FIX_R4000 ? "mult<u>\t%1,%2\n\tmfhi\t%0" : "#"; }
   "&& reload_completed && !TARGET_FIX_R4000"
   [(const_int 0)]
@@ -2193,16 +2241,32 @@
 	  (mult:TI (any_extend:TI (match_operand:DI 1 "register_operand"))
 		   (any_extend:TI (match_operand:DI 2 "register_operand")))
 	  (const_int 64))))]
-  "ISA_HAS_DMULT && !(<CODE> == ZERO_EXTEND && TARGET_FIX_VR4120)"
+  "ISA_HAS_R6DMUL
+  || (ISA_HAS_DMULT && !(<CODE> == ZERO_EXTEND && TARGET_FIX_VR4120))"
 {
   if (TARGET_MIPS16)
     emit_insn (gen_<su>muldi3_highpart_split (operands[0], operands[1],
 					      operands[2]));
+  else if (ISA_HAS_R6DMUL)
+    emit_insn (gen_<su>muldi3_highpart_r6 (operands[0], operands[1],
+					   operands[2]));
   else
     emit_insn (gen_<su>muldi3_highpart_internal (operands[0], operands[1],
 						 operands[2]));
   DONE;
 })
+
+(define_insn "<su>muldi3_highpart_r6"
+  [(set (match_operand:DI 0 "register_operand" "=d")
+	(truncate:DI
+	 (lshiftrt:TI
+	  (mult:TI (any_extend:TI (match_operand:DI 1 "register_operand" "d"))
+		   (any_extend:TI (match_operand:DI 2 "register_operand" "d")))
+	  (const_int 64))))]
+  "ISA_HAS_R6DMUL"
+  "dmuh<u>\t%0,%1,%2"
+  [(set_attr "type" "imul3nc")
+   (set_attr "mode" "DI")])
 
 (define_insn_and_split "<su>muldi3_highpart_internal"
   [(set (match_operand:DI 0 "register_operand" "=d")
@@ -2571,7 +2635,28 @@
 ;; the fixed LO register until after CSE has finished.  However, it's still
 ;; better to split before register allocation, so that we don't allocate
 ;; one of the scarce MIPS16 registers to an unused result.
-(define_insn_and_split "divmod<mode>4"
+(define_expand "divmod<mode>4"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(div:GPR (match_operand:GPR 1 "register_operand" "d")
+		 (match_operand:GPR 2 "register_operand" "d")))
+   (set (match_operand:GPR 3 "register_operand" "=d")
+	(mod:GPR (match_dup 1)
+		 (match_dup 2)))]
+  "ISA_HAS_<D>DIV || ISA_HAS_R6<D>DIV"
+{
+  if (TARGET_FIX_VR4120)
+    FAIL;
+
+  if (ISA_HAS_<D>DIV)
+    {
+      gen_divmod<mode>4_classic (operands[0], operands[1],
+                                 operands[2], operands[3]);
+      DONE;
+    }
+  /* Allow R6 <D>DIV to be expanded using the template */
+})
+
+(define_insn_and_split "divmod<mode>4_classic"
   [(set (match_operand:GPR 0 "register_operand" "=kl")
 	(div:GPR (match_operand:GPR 1 "register_operand" "d")
 		 (match_operand:GPR 2 "register_operand" "d")))
@@ -2593,8 +2678,27 @@
   ;; Worst case for MIPS16.
   (set_attr "insn_count" "3")])
 
+(define_expand "udivmod<mode>4"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(udiv:GPR (match_operand:GPR 1 "register_operand" "d")
+		  (match_operand:GPR 2 "register_operand" "d")))
+   (set (match_operand:GPR 3 "register_operand" "=d")
+	(umod:GPR (match_dup 1)
+		  (match_dup 2)))]
+  "ISA_HAS_<D>DIV || ISA_HAS_R6<D>DIV"
+{
+  if (ISA_HAS_<D>DIV)
+    {
+      gen_udivmod<mode>4_classic (operands[0], operands[1],
+                                  operands[2], operands[3]);
+      DONE;
+    }
+
+  /* Allow R6 <D>DIVU to be expanded using the template */
+})
+
 ;; See the comment above "divmod<mode>4" for the MIPS16 handling.
-(define_insn_and_split "udivmod<mode>4"
+(define_insn_and_split "udivmod<mode>4_classic"
   [(set (match_operand:GPR 0 "register_operand" "=kl")
 	(udiv:GPR (match_operand:GPR 1 "register_operand" "d")
 		  (match_operand:GPR 2 "register_operand" "d")))
@@ -2650,6 +2754,24 @@
   "ISA_HAS_<GPR:D>DIV"
   { return mips_output_division ("<GPR:d>div<u>\t%.,%1,%2", operands); }
   [(set_attr "type" "idiv")
+   (set_attr "mode" "<GPR:MODE>")])
+
+(define_insn "*<u>div<mode>3"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+        (any_div:GPR (match_operand:GPR 1 "register_operand" "d")
+                     (match_operand:GPR 2 "register_operand" "d")))]
+  "ISA_HAS_R6<D>DIV"
+  "<GPR:d>div<u>\t%0,%1,%2"
+  [(set_attr "type" "idiv3nc")
+   (set_attr "mode" "<GPR:MODE>")])
+
+(define_insn "*<u>mod<mode>3"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+        (any_mod:GPR (match_operand:GPR 1 "register_operand" "d")
+                     (match_operand:GPR 2 "register_operand" "d")))]
+  "ISA_HAS_R6<D>DIV"
+  "<GPR:d>mod<u>\t%0,%1,%2"
+  [(set_attr "type" "idiv3nc")
    (set_attr "mode" "<GPR:MODE>")])
 
 ;;
