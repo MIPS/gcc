@@ -8,6 +8,25 @@
     * gcc/testsuite/gcc.dg/gacc/if-clause-gimple.c: New file
     * gcc/tree-cfg.c: Quickfix
 
+28-10-2013 Evgeny Gavrin <e.gavrin@samsung.com>
+    Moved some GIMPLE infrustucture out of gimple.h and fixed some C tests.
+    
+    * gcc/c-family/c-pragma.h : Clean up.
+    * gcc/c/c-parser.c : Likewise.
+    * gcc/gimple-pretty-print.c : Likewise.
+    * gcc/tree-pretty-print.c : Likewise.
+    * gcc/tree-pretty-print.h : Likewise.
+    * gcc/gimple-opencl.h : Likewise.
+    * gcc/testsuite/gcc.dg/gacc/data-clauses.c : Fixes.
+    * gcc/testsuite/gcc.dg/gacc/reduction.c : Fixes.
+    * gcc/tree.h : Clean up.
+    * gcc/Makefile.in : Regeneration.
+    * gcc/gimple-oacc.c : ACC function declaration.
+    * gcc/gimple-oacc.h : New headers.
+    * gcc/gimple.c : Clean up.
+    * gcc/gimple.h : Clean up.
+    * gcc/oacc-low.c : Clean up.
+
 28-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add acc_region traversal.
 
