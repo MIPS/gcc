@@ -2,6 +2,11 @@
 
 2013-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.0-rc3+". Should
+	be the 1.0 release....
+
+2013-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/xtramelt-ana-base.melt (read_arg_list): New function.
 
 	* melt/xtramelt-ana-simple.melt (findgimple_docmd): Use the
