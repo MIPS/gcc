@@ -4336,9 +4336,9 @@ The default version of this hook returns @code{va_list_type_node}.
 
 @deftypefn {Target Hook} tree TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE (tree @var{fndecl})
 This hook returns size for @code{va_list} object in function specified
-by @var{fndecl}.  This hook is used by Pointers Checker to build bounds for
-@code{va_list} object.  Return @code{integer_zero_node} if no bounds should
-be used (e.g. @code{va_list} is a scalar pointer to the stack).
+by @var{fndecl}.  This hook is used by Pointer Bounds Checker to build bounds
+for @code{va_list} object.  Return @code{integer_zero_node} if no bounds
+should be used (e.g. @code{va_list} is a scalar pointer to the stack).
 @end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_CANONICAL_VA_LIST_TYPE (tree @var{type})

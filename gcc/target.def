@@ -3374,9 +3374,9 @@ The default version of this hook returns @code{va_list_type_node}.",
 DEFHOOK
 (fn_abi_va_list_bounds_size,
  "This hook returns size for @code{va_list} object in function specified\n\
-by @var{fndecl}.  This hook is used by Pointers Checker to build bounds for\n\
-@code{va_list} object.  Return @code{integer_zero_node} if no bounds should\n\
-be used (e.g. @code{va_list} is a scalar pointer to the stack).",
+by @var{fndecl}.  This hook is used by Pointer Bounds Checker to build bounds\n\
+for @code{va_list} object.  Return @code{integer_zero_node} if no bounds\n\
+should be used (e.g. @code{va_list} is a scalar pointer to the stack).",
  tree, (tree fndecl),
  default_fn_abi_va_list_bounds_size)
 
