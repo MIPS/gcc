@@ -724,11 +724,26 @@ an integer $I if $I is lower than $N.}#
   somestrval
   :doc #{The $SOME_STRING_VALUE matches a string value $V and passes it to the output $SV.}#
   ;; test
-  #{ /*$SOMESTRVAL? */ (($V) && melt_magic_discr((melt_ptr_t)($V)) == MELTOBMAG_STRING) }#
+  #{ /*some_string_value $SOMESTRVAL? */ (($V) && melt_magic_discr((melt_ptr_t)($V)) == MELTOBMAG_STRING) }#
   ;; fill
-  #{ /*$SOMESTRVAL! */ $SV = $V; }#
+  #{ /*some_string_value $SOMESTRVAL! */ $SV = $V; }#
 )
 ;;;;;;;;;;;;;;;;
+
+;;; match a boxed string containing some given cstring
+(defcmatcher some_string_value_containing
+  (:value v :cstring s)
+  ()
+  somestrcont
+  :doc #{The $SOME_STRING_VALUE_CONTAINING matched a string value $V
+  containing the constant substring $S}#
+  ;; test
+  #{ /* some_string_value_containing $SOMESTRCONT ? */
+(($V) && ($S != NULL) && melt_magic_discr((melt_ptr_t)($V)) == MELTOBMAG_STRING
+ && strstr(melt_string_str ((melt_ptr_t)($V)), ($S)))
+  }#
+  ;; no fill
+)
 
 (defprimitive outnewline_err () :void
   :doc #{Output on stderr a newline and flush.}#
@@ -3430,6 +3445,7 @@ typedef struct melthook_st *melthook_ptr_t;
  some_integer_lower_than
  some_integer_multiple
  some_string_value
+ some_string_value_containing
  split_string_colon
  split_string_comma
  split_string_equal

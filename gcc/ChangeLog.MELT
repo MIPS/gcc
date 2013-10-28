@@ -1,5 +1,16 @@
 
 
+2013-10-28  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (some_string_value_containing): New
+	cmatcher.
+
+	* melt/warmelt-macro.melt (macroexpand_toplevel_list): Don't warn
+	for a short list of s-expression.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Mention
+	generation of C++, not C, code.
+
 2013-10-27  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{1.0-rc3 release candidate}}
 	* melt-runtime.h (MELT_VERSION_STR): Bump to "1.0-rc3" ...
@@ -114,6 +125,7 @@
 	* melt/warmelt-outobj.melt (give_normalized_macroexpanded_list):
 	More debugging...
 
+>>>>>>> .r204127
 2013-10-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Regenerate}}

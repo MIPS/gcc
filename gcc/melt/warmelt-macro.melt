@@ -2474,10 +2474,6 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 	 (prevloc ())
 	 )
     ;;
-    (if (<i slistlen 2)
-	(code_chunk warnshortslistchk
-		    #{/*$WARNSHORTSLISTCHK*/
-		    warning(0, "MELT expanding a short (%ld) list of s-expressions", $SLISTLEN)}#))
     ;;
     (foreach_pair_component_in_list
      (slist)
