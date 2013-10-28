@@ -845,16 +845,13 @@ struct mips_cpu_info {
 				  || TARGET_MAD				\
 				  || ISA_MIPS32				\
 				  || ISA_MIPS32R2			\
-				  || ISA_MIPS32R6			\
 				  || ISA_MIPS64				\
-				  || ISA_MIPS64R2			\
-				  || ISA_MIPS64R6)			\
+				  || ISA_MIPS64R2)			\
 				 && !TARGET_MIPS16)
 
 /* ISA has a three-operand multiplication instruction.  */
 #define ISA_HAS_DMUL3		(TARGET_64BIT				\
-				 && (TARGET_OCTEON			\
-                                     || ISA_MIPS64R6)			\
+				 && TARGET_OCTEON			\
 				 && !TARGET_MIPS16)
 
 /* ISA supports instructions DMULT and DMULTU. */
@@ -868,17 +865,26 @@ struct mips_cpu_info {
 #define ISA_HAS_MULT		(!ISA_MIPS32R6				\
                                  && !ISA_MIPS64R6)
 
+#define ISA_HAS_R6MUL           (ISA_MIPS32R6 || ISA_MIPS64R6)
+#define ISA_HAS_R6DMUL          (ISA_MIPS64R6)
+
 /* ISA supports instructions DDIV and DDIVU. */
-#define ISA_HAS_DDIV		(TARGET_64BIT && !TARGET_MIPS5900)
+#define ISA_HAS_DDIV		(TARGET_64BIT                           \
+                                 && !TARGET_MIPS5900                    \
+                                 && !ISA_MIPS64R6)
 
 /* ISA supports instructions DIV and DIVU.
    This is always true, but the macro is needed for ISA_HAS_<D>DIV
    in mips.md.  */
-#define ISA_HAS_DIV		(1)
+#define ISA_HAS_DIV		(!ISA_MIPS32R6                          \
+                                 && !ISA_MIPS64R6)
 
 #define ISA_HAS_DIV3		((TARGET_LOONGSON_2EF			\
 				  || TARGET_LOONGSON_3A)		\
 				 && !TARGET_MIPS16)
+
+#define ISA_HAS_R6DIV           (ISA_MIPS32R6 || ISA_MIPS64R6)
+#define ISA_HAS_R6DDIV          (ISA_MIPS64R6)
 
 /* ISA has the floating-point conditional move instructions introduced
    in mips4.  */
