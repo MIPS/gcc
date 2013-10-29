@@ -1282,13 +1282,13 @@ process_options (void)
 	   "and -ftree-loop-linear)");
 #endif
 
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     {
       /* Currently instrumented code causes ICE in LTO streamer during
 	 function body read for unknown reason.  It is also possible that
 	 other problems exist (previously functions missing instrumentation
-	 were observer during LTO tests).  Restrict Pointers Checker usage
-	 with LTO until it is fixed and tested enough.  */
+	 were observer during LTO tests).  Restrict Pointer Bounds Checker
+	 usage with LTO until it is fixed and tested enough.  */
       if (flag_lto)
 	sorry ("-fcheck-pointers is not yet fully supported for link-time optimization");
 
@@ -1296,7 +1296,7 @@ process_options (void)
 	error ("-fcheck-pointers is not supported for this target");
 
       if (!lang_hooks.chkp_supported)
-	flag_check_pointers = 0;
+	flag_check_pointer_bounds = 0;
     }
 
   /* One region RA really helps to decrease the code size.  */

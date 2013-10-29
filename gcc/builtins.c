@@ -6709,8 +6709,9 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_CHKP_STORE_PTR_BOUNDS:
     case BUILT_IN_CHKP_GET_PTR_LBOUND:
     case BUILT_IN_CHKP_GET_PTR_UBOUND:
-      /* We allow user CHKP builtins if checker is off.  */
-      if (!flag_check_pointers)
+      /* We allow user CHKP builtins if Pointer Bounds
+	 Checker is off.  */
+      if (!flag_check_pointer_bounds)
 	{
 	  if (fcode == BUILT_IN_CHKP_SET_PTR_BOUNDS
 	      || fcode == BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
