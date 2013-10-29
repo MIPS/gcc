@@ -38,6 +38,7 @@
 #include "diagnose-gotos.h"
 #include "input.h"
 #include "gtype-desc.h"
+#include "options.h"
 
 #define OACC_PF_DATAIN  1
 #define OACC_PF_EXEC    2
@@ -169,8 +170,6 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
 
 static GTY(()) char *ocl_module;
 
-static GTY(()) bitmap oacc_kernels;
-
 
 typedef struct acc_region_t* acc_region;
 
@@ -187,7 +186,8 @@ typedef struct acc_kernel_t
 {
   tree func;
   struct tree_niter_desc niter_desc;
-  basic_block bb_entry, bb_exit;
+  basic_block bb_entry;
+  basic_block bb_exit;
   splay_tree params_map;
   tree kernel_handle;
 } acc_kernel_t;
@@ -219,6 +219,7 @@ static splay_tree all_contexts;
 static int nesting_level;
 static acc_region root_region;
 static int save_opt_level = -1;
+static GTY((param1_is(unsigned), param2_is(tree))) splay_tree kernels;
 
 static void analyze_gimple(gimple_seq* pseq, oacc_context* ctx);
 static void lower_oacc(gimple_seq* pseq, oacc_context* ctx);
@@ -286,6 +287,7 @@ new_acc_kernel(tree func)
   kernel = XCNEW(acc_kernel_t);
   kernel->func = func;
   kernel->niter_desc.niter = NULL_TREE;
+  kernel->bb_entry = kernel->bb_exit = NULL;
   kernel->params_map = splay_tree_new(splay_tree_compare_pointers, 0, 0);
   kernel->kernel_handle = NULL_TREE;
   return kernel;
@@ -1115,13 +1117,16 @@ gen_add(gimple_stmt_iterator* gsi, gimple stmt)
 }
 
 static void
-mark_kernels_parallel(tree kernel_fn)
+mark_kernels_parallel(tree kernel_fn, tree niter)
 {
-    if(!oacc_kernels)
-        {
-            oacc_kernels = BITMAP_GGC_ALLOC();
-        }
-    bitmap_set_bit(oacc_kernels, DECL_UID(kernel_fn));
+    if(!kernels)
+    {
+      kernels = splay_tree_new_ggc (splay_tree_compare_pointers,
+        ggc_alloc_splay_tree_scalar_tree_node_splay_tree_s,
+        ggc_alloc_splay_tree_scalar_tree_node_splay_tree_node_s);
+    }
+    splay_tree_insert(kernels, (splay_tree_key)DECL_UID(kernel_fn),
+                      (splay_tree_value)niter);
 }
 
 static bool
@@ -1622,6 +1627,20 @@ dump_fn_body(FILE* dump_file, const char* title)
     fflush(dump_file);
 }
 
+static location_t
+guess_loop_location(struct loop* l)
+{
+  location_t locus = UNKNOWN_LOCATION;
+  basic_block header = l->header;
+  gimple_stmt_iterator gsi = gsi_start_bb(header);
+  if(!gsi_end_p(gsi))
+  {
+    gimple stmt = gsi_stmt(gsi);
+    locus = gimple_location(stmt);
+  }
+  return locus;
+}
+
 static void
 extract_kernels(struct loops* loops, tree child_fn,
                 vec<acc_kernel>* kernels, gimple kernel_stmt)
@@ -1641,12 +1660,17 @@ extract_kernels(struct loops* loops, tree child_fn,
 
       if(loops->tree_root->inner != NULL)
         {
-          loop_parallelizable_p(loops->tree_root->inner,
+          bool par = loop_parallelizable_p(loops->tree_root->inner,
             &(kernel->niter_desc));
+          if(!par)
+          {
+            warning_at(guess_loop_location(loops->tree_root->inner), 
+              OPT_fopenacc, "loop cannot be parallelized");
+          }
         }
 
       kernels->safe_push(kernel);
-      mark_kernels_parallel (child_fn);
+      mark_kernels_parallel (child_fn, kernel->niter_desc.niter);
       return;
     }
 
@@ -1693,6 +1717,7 @@ extract_kernels(struct loops* loops, tree child_fn,
   for(i = 0; i < nloops; ++i)
   {
     tree fn = child_fn;
+    bool par;
 
     if(i > 0)
     {
@@ -1703,7 +1728,12 @@ extract_kernels(struct loops* loops, tree child_fn,
     {
       map_parameters(child_fn, kernel, kernel_stmt);
     }
-    loop_parallelizable_p(vloops[i], &(kernel->niter_desc));
+    par = loop_parallelizable_p(vloops[i], &(kernel->niter_desc));
+    if(!par)
+    {
+      warning_at(guess_loop_location(vloops[i]),
+        OPT_fopenacc, "loop cannot be parallelized");
+    }
     kernels->safe_push(kernel);
   }
 
@@ -1816,7 +1846,7 @@ extract_kernels(struct loops* loops, tree child_fn,
       for(k = 1; k < num_ssa_names; ++k)
       {
         tree var = ssa_name(k);
-        if(var /*&& !SSA_NAME_VAR(var)*/)
+        if(var)
         {
           unsigned j;
           basic_block def_block = gimple_bb(SSA_NAME_DEF_STMT(var));
@@ -1845,7 +1875,6 @@ extract_kernels(struct loops* loops, tree child_fn,
         dump_ssa(dump_file);
         fflush(dump_file);
       }
-      //verify_ssa(true);
 
       child_cfun->curr_properties = cfun->curr_properties;
       cgraph_add_new_function (fn, true);
@@ -1892,7 +1921,7 @@ extract_kernels(struct loops* loops, tree child_fn,
       if(save_opt_level >= 0)
         optimize = opt_level;
     }
-    mark_kernels_parallel (fn);
+    mark_kernels_parallel (fn, (*kernels)[i]->niter_desc.niter);
   }
 
 }
@@ -2590,15 +2619,13 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
     for(i = 0; i < kernels.length(); ++i)
     {
       tree worksize;
-      if(kernels[i]->niter_desc.niter != NULL_TREE
-              && TREE_CODE(kernels[i]->niter_desc.niter) == INTEGER_CST)
+      if(kernels[i]->niter_desc.niter != NULL_TREE)
           {
               worksize = kernels[i]->niter_desc.niter;
           }
       else
           {
-              worksize = build_int_cst(uint32_type_node,
-                kernels[i]->niter_desc.max.to_shwi());
+              worksize = build_int_cst(uint32_type_node, 1);
           }
 
       gen_add(gsi, build_call(locus,
@@ -2743,14 +2770,19 @@ execute_expand_oacc (void)
     basic_block bb;
     splay_tree_node v;
 
-    if(oacc_kernels
-            && bitmap_bit_p(oacc_kernels, DECL_UID(current_function_decl)))
-        {
-            parallelize_loops(current_loops->tree_root);
-            generate_opencl();
-            //finish_current_fn();
-            return 0;
-        }
+    if(kernels &&
+        (v = splay_tree_lookup(kernels, DECL_UID(current_function_decl)))
+        != NULL)
+    {
+      tree niter = (tree)v->value;
+      
+      if(niter != NULL_TREE)
+      {
+        parallelize_loops(current_loops->tree_root);
+      }
+      generate_opencl();
+      return 0;
+    }
 
     root_region = new_acc_region(NULL, NULL);
     calculate_dominance_info (CDI_DOMINATORS);

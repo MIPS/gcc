@@ -1,3 +1,8 @@
+29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add handling of non-paralelizable loops.
+
+    * gcc/oacc-low.c: Add handling of non-paralelizable loops.
+
 28-10-2013 Evgeny Gavrin <e.gavrin@samsung.com>
     Add dump_gimple_acc_body() function and use it in dump_gimple_acc_*().
     
