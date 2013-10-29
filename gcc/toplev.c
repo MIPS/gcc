@@ -1284,14 +1284,6 @@ process_options (void)
 
   if (flag_check_pointer_bounds)
     {
-      /* Currently instrumented code causes ICE in LTO streamer during
-	 function body read for unknown reason.  It is also possible that
-	 other problems exist (previously functions missing instrumentation
-	 were observer during LTO tests).  Restrict Pointer Bounds Checker
-	 usage with LTO until it is fixed and tested enough.  */
-      if (flag_lto)
-	sorry ("-fcheck-pointers is not yet fully supported for link-time optimization");
-
       if (targetm.chkp_bound_mode () == VOIDmode)
 	error ("-fcheck-pointers is not supported for this target");
 
