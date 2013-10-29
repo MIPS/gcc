@@ -115,7 +115,7 @@ public:
   int static_pass_number;
 
 protected:
-  gcc::context *ctxt_;
+  gcc::context *m_ctxt;
 };
 
 /* Description of GIMPLE pass.  */
@@ -340,8 +340,6 @@ extern void register_pass (opt_pass* pass, pass_positioning_ops pos,
 
 extern gimple_opt_pass *make_pass_chkp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_chkp_opt (gcc::context *ctxt);
-extern gimple_opt_pass *make_pass_mudflap_1 (gcc::context *ctxt);
-extern gimple_opt_pass *make_pass_mudflap_2 (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_asan (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_asan_O0 (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tsan (gcc::context *ctxt);

@@ -1,4 +1,4 @@
-2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* c-family/c-common.c (handle_bnd_variable_size_attribute): New.
 	(handle_bnd_legacy): New.
