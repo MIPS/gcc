@@ -25,7 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "tree-pass.h"
 
 /* This pass combines COND_EXPRs to simplify control flow.  It
@@ -624,7 +628,7 @@ tree_ssa_ifcombine (void)
   bool cfg_changed = false;
   int i;
 
-  bbs = blocks_in_phiopt_order ();
+  bbs = single_pred_before_succ_order ();
   calculate_dominance_info (CDI_DOMINATORS);
 
   for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; ++i)
