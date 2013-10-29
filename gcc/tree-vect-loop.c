@@ -28,7 +28,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "expr.h"
@@ -967,9 +974,9 @@ destroy_loop_vec_info (loop_vec_info loop_vinfo, bool clean_stmts)
 		   || code == POINTER_PLUS_EXPR
 		   || code == MULT_EXPR)
 		  && CONSTANT_CLASS_P (gimple_assign_rhs1 (stmt)))
-		swap_tree_operands (stmt,
-				    gimple_assign_rhs1_ptr (stmt),
-				    gimple_assign_rhs2_ptr (stmt));
+		swap_ssa_operands (stmt,
+				   gimple_assign_rhs1_ptr (stmt),
+				   gimple_assign_rhs2_ptr (stmt));
 	    }
 
 	  /* Free stmt_vec_info.  */
@@ -2056,9 +2063,9 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple phi, gimple first_stmt)
                   dump_printf (MSG_NOTE, "\n");
 		}
 
-	      swap_tree_operands (next_stmt,
-	 		          gimple_assign_rhs1_ptr (next_stmt),
-                                  gimple_assign_rhs2_ptr (next_stmt));
+	      swap_ssa_operands (next_stmt,
+	 		         gimple_assign_rhs1_ptr (next_stmt),
+                                 gimple_assign_rhs2_ptr (next_stmt));
 	      update_stmt (next_stmt);
 
 	      if (CONSTANT_CLASS_P (gimple_assign_rhs1 (next_stmt)))
@@ -2089,6 +2096,13 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple phi, gimple first_stmt)
    loop_header:
      a1 = phi < a0, a2 >
      a3 = ...
+     a2 = operation (a3, a1)
+
+   or
+
+   a3 = ...
+   loop_header:
+     a1 = phi < a0, a2 >
      a2 = operation (a3, a1)
 
    such that:
@@ -2451,6 +2465,7 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
   if (def2 && def2 == phi
       && (code == COND_EXPR
 	  || !def1 || gimple_nop_p (def1)
+	  || !flow_bb_inside_loop_p (loop, gimple_bb (def1))
           || (def1 && flow_bb_inside_loop_p (loop, gimple_bb (def1))
               && (is_gimple_assign (def1)
 		  || is_gimple_call (def1)
@@ -2469,6 +2484,7 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
   if (def1 && def1 == phi
       && (code == COND_EXPR
 	  || !def2 || gimple_nop_p (def2)
+	  || !flow_bb_inside_loop_p (loop, gimple_bb (def2))
           || (def2 && flow_bb_inside_loop_p (loop, gimple_bb (def2))
  	      && (is_gimple_assign (def2)
 		  || is_gimple_call (def2)
@@ -2488,8 +2504,8 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
 	    report_vect_op (MSG_NOTE, def_stmt,
 	  	            "detected reduction: need to swap operands: ");
 
-          swap_tree_operands (def_stmt, gimple_assign_rhs1_ptr (def_stmt),
- 			      gimple_assign_rhs2_ptr (def_stmt));
+          swap_ssa_operands (def_stmt, gimple_assign_rhs1_ptr (def_stmt),
+ 			     gimple_assign_rhs2_ptr (def_stmt));
 
 	  if (CONSTANT_CLASS_P (gimple_assign_rhs1 (def_stmt)))
 	    LOOP_VINFO_OPERANDS_SWAPPED (loop_info) = true;
