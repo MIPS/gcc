@@ -24,13 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "ggc.h"
 #include "target.h"
-#include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "tree-inline.h"
 #include "ipa-inline.h"
-#include "gimple.h"
 #include "flags.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
@@ -248,8 +252,7 @@ ipa_print_node_jump_functions_for_edge (FILE *f, struct cgraph_edge *cs)
 	  fprintf (f, "PASS THROUGH: ");
 	  fprintf (f, "%d, op %s",
 		   jump_func->value.pass_through.formal_id,
-		   tree_code_name[(int)
-				  jump_func->value.pass_through.operation]);
+		   get_tree_code_name(jump_func->value.pass_through.operation));
 	  if (jump_func->value.pass_through.operation != NOP_EXPR)
 	    {
 	      fprintf (f, " ");
@@ -1550,7 +1553,7 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
 
   param_num = arg_num;
   /* Do not create jump functions for bound args.  */
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     for (n = 0; n < arg_num; n++)
       if (POINTER_BOUNDS_P (gimple_call_arg (call, n)))
 	param_num--;
@@ -1576,7 +1579,7 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
       param_no++;
 
       /* No optimization for bounded types yet implemented.  */
-      if (flag_check_pointers
+      if (flag_check_pointer_bounds
 	  && ((param_type && chkp_type_has_pointer (param_type))
 	      || (!param_type && chkp_type_has_pointer (TREE_TYPE (arg)))))
 	continue;
@@ -3556,7 +3559,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 
       adj = &adjustments[i];
 
-      arg_no = flag_check_pointers
+      arg_no = flag_check_pointer_bounds
 	? gimple_call_get_nobnd_arg_index (stmt, adj->base_index)
 	: adj->base_index;
 
@@ -3566,7 +3569,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 
 	  vargs.quick_push (arg);
 
-	  if (flag_check_pointers)
+	  if (flag_check_pointer_bounds)
 	    {
 	      unsigned bnd = chkp_type_bounds_count (TREE_TYPE (arg));
 	      if (bnd

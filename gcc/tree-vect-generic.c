@@ -23,8 +23,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm.h"
 #include "langhooks.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-ssanames.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "flags.h"
@@ -1523,7 +1525,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_lower_vector_ssa (ctxt_); }
+  opt_pass * clone () { return new pass_lower_vector_ssa (m_ctxt); }
   unsigned int execute () { return expand_vector_operations (); }
 
 }; // class pass_lower_vector_ssa
