@@ -1,3 +1,9 @@
+29-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Add generation of declarations of local params in GIMPLE's ACC kernel function
+    
+    * gcc/oacc-low.c(gather_oacc_fn_locals): Likewise
+    * gcc/oacc-low.c(add_assingments_to_ptrs): Change names of temps
+
 29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add support for pointer types.
 

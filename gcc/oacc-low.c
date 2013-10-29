@@ -434,7 +434,7 @@ is_pointer(tree arg)
 }
 
 /* When there is assignment like D.1988 = a.1 + D.1987 where a.1 id pointer
- * we have to add one assign before the statement:
+ * we have to add one assignment before the statement:
  * D.1988 = a.1;
  */
 static void
@@ -461,10 +461,13 @@ add_assingments_to_ptrs (gimple_seq *seq)
                 {
                   tree lhs = gimple_assign_lhs (inner_stmt);
                   tree op = gimple_assign_rhs2 (inner_stmt);
+                  const char* id = "_oacc_ptr_tmp";
+
+                  if (DECL_NAME (rhs))
+                    id = IDENTIFIER_POINTER (DECL_NAME (rhs));
 
                   /* _oacc_ptr_tmp = a */
-                  tree convert_var = create_tmp_var (TREE_TYPE(lhs),
-                                                     "_oacc_ptr_tmp");
+                  tree convert_var = create_tmp_reg (TREE_TYPE(lhs), id);
                   gimple convert_stmt = gimple_build_assign (convert_var, rhs);
                   gsi_insert_before (&inner_gsi, convert_stmt, GSI_SAME_STMT);
 
@@ -497,8 +500,8 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
             print_gimple_seq(dump_file, orig, 0, 0);
         }
     body = gimple_seq_copy(orig);
-    add_assingments_to_ptrs(&body);
     lower_oacc(&body, ctx);
+    add_assingments_to_ptrs(&body);
     child_fn = GIMPLE_ACC_CHILD_FN(stmt);
 
     add_locals(&body, ctx);
@@ -702,7 +705,7 @@ gather_oacc_fn_locals(splay_tree_node node, void* data)
 {
     splay_tree* local_map = (splay_tree*)data;
     tree arg = (tree)node->key;
-    if(is_gimple_reg(arg) && !is_pointer(arg))
+    if(is_gimple_reg(arg))
         {
             const char *id = "_oacc_param";
             if(DECL_NAME(arg))
