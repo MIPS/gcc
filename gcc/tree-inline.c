@@ -33,12 +33,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "basic-block.h"
 #include "tree-iterator.h"
-#include "cgraph.h"
 #include "intl.h"
-#include "tree-mudflap.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "function.h"
-#include "tree-ssa.h"
 #include "tree-pretty-print.h"
 #include "except.h"
 #include "debug.h"
@@ -53,7 +58,6 @@ along with GCC; see the file COPYING3.  If not see
 
 /* I'm not real happy about this, but we need to handle gimple and
    non-gimple trees.  */
-#include "gimple.h"
 
 /* Inlining, Cloning, Versioning, Parallelization
 
@@ -1345,6 +1349,11 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  copy = gimple_build_omp_master (s1);
 	  break;
 
+	case GIMPLE_OMP_TASKGROUP:
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
+	  copy = gimple_build_omp_taskgroup (s1);
+	  break;
+
 	case GIMPLE_OMP_ORDERED:
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_ordered (s1);
@@ -1365,6 +1374,19 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
 	  copy = gimple_build_omp_single
 	           (s1, gimple_omp_single_clauses (stmt));
+	  break;
+
+	case GIMPLE_OMP_TARGET:
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
+	  copy = gimple_build_omp_target
+		   (s1, gimple_omp_target_kind (stmt),
+		    gimple_omp_target_clauses (stmt));
+	  break;
+
+	case GIMPLE_OMP_TEAMS:
+	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
+	  copy = gimple_build_omp_teams
+		   (s1, gimple_omp_teams_clauses (stmt));
 	  break;
 
 	case GIMPLE_OMP_CRITICAL:
@@ -2090,7 +2112,10 @@ copy_phis_for_bb (basic_block bb, copy_body_data *id)
 		  n = (tree *) pointer_map_contains (id->decl_map,
 			LOCATION_BLOCK (locus));
 		  gcc_assert (n);
-		  locus = COMBINE_LOCATION_DATA (line_table, locus, *n);
+		  if (*n)
+		    locus = COMBINE_LOCATION_DATA (line_table, locus, *n);
+		  else
+		    locus = LOCATION_LOCUS (locus);
 		}
 	      else
 		locus = LOCATION_LOCUS (locus);
@@ -3828,10 +3853,13 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_MASTER:
+    case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_SECTION:
     case GIMPLE_OMP_SECTIONS:
     case GIMPLE_OMP_SINGLE:
+    case GIMPLE_OMP_TARGET:
+    case GIMPLE_OMP_TEAMS:
       return (weights->omp_cost
               + estimate_num_insns_seq (gimple_omp_body (stmt), weights));
 
@@ -4563,10 +4591,6 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       /* Copy the node.  */
       new_tree = copy_node (*tp);
 
-      /* Propagate mudflap marked-ness.  */
-      if (flag_mudflap && mf_marked_p (*tp))
-        mf_mark (new_tree);
-
       *tp = new_tree;
 
       /* Now, restore the chain, if appropriate.  That will cause
@@ -4588,11 +4612,6 @@ copy_tree_r (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
       tree new_tree;
 
       new_tree = copy_node (*tp);
-
-      /* Propagate mudflap marked-ness.  */
-      if (flag_mudflap && mf_marked_p (*tp))
-        mf_mark (new_tree);
-
       CONSTRUCTOR_ELTS (new_tree) = vec_safe_copy (CONSTRUCTOR_ELTS (*tp));
       *tp = new_tree;
     }

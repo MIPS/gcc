@@ -358,6 +358,8 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__SSE_MATH__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE2))
     def_or_undef (parse_in, "__SSE2_MATH__");
+  if (isa_flag & OPTION_MASK_ISA_MPX)
+    def_or_undef (parse_in, "__MPX__");
 }
 
 
@@ -368,7 +370,7 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
 static bool
 ix86_pragma_target_parse (tree args, tree pop_target)
 {
-  tree prev_tree = build_target_option_node ();
+  tree prev_tree = build_target_option_node (&global_options);
   tree cur_tree;
   struct cl_target_option *prev_opt;
   struct cl_target_option *cur_opt;
@@ -388,7 +390,8 @@ ix86_pragma_target_parse (tree args, tree pop_target)
     }
   else
     {
-      cur_tree = ix86_valid_target_attribute_tree (args);
+      cur_tree = ix86_valid_target_attribute_tree (args, &global_options,
+						   &global_options_set);
       if (!cur_tree || cur_tree == error_mark_node)
        {
          cl_target_option_restore (&global_options,
