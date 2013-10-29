@@ -1,4 +1,9 @@
 29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add support for pointer types.
+
+    * gcc/gimple-opencl.c(generate_type): Add support for pointer types.
+
+29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Fix padding blocks generation in kernels splitting.
 
     * gcc/oacc-low.c(extract_kernels): Fix padding blocks generation.

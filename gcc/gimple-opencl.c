@@ -129,6 +129,10 @@ generate_type(FILE* fp, tree type, tree decl)
       fprintf(fp, "[] ");
       retval = true;
       break;
+    case POINTER_TYPE:
+      generate_type(fp, TREE_TYPE(type), decl);
+      fprintf(fp, "* ");
+      break;
     default:
       gcc_unreachable();
   }
