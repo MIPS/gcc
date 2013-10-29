@@ -2415,7 +2415,8 @@ gimple_call_arg (const_gimple gs, unsigned index)
 }
 
 
-/* Return the number of arguments used by call statement GS.  */
+/* Return the number of arguments used by call statement GS
+   ignoring bound ones.  */
 
 static inline unsigned
 gimple_call_num_nobnd_args (const_gimple gs)
