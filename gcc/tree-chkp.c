@@ -1112,7 +1112,7 @@ chkp_set_bounds (tree node, tree val)
   tree *slot;
 
   if (!chkp_bounds_map)
-    return;
+    chkp_bounds_map = pointer_map_create ();
 
   slot = (tree *)pointer_map_insert (chkp_bounds_map, node);
   *slot = val;
