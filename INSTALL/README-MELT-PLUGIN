@@ -143,6 +143,12 @@ As root, copy it appropriately:
 
    cp -v -R -p /tmp/meltinstall/. /.
 
+Actually, only /usr is affected on many Linux distributions,
+so that could have been 
+
+   cp -v -R -p /tmp/meltinstall/usr/. /usr/.
+
+
 #### uninstallation
 
 Since all MELT related files are installed under 
@@ -188,7 +194,7 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 ################################################################
 NEWS for 1.0 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
-[[end of october, 2013]]
+[[october 29th, 2013]]
 
 This is a major release (with perhaps some small incompatibilities
 with previous MELT plugin releases). A lot of new features are
@@ -213,41 +219,26 @@ it is generating C++ code.
    -fplugin-arg-melt-mode=justcountipa (to count gimples and basic
    blocks at the Inter-Procedural Analysis stage).
 
-  Some examples of findgimple modes:
+   Several examples of MELT modes are given in 
+   http://gcc-melt.org/tutousemelt.html
 
+   It is notably possible to 
 
-  + Find all calls to malloc with a constant size greater than 100:
+     + find all calls to malloc with a constant size greater than 100
+       that size could have been given thru sizeof and/or some
+       constant expressions...
 
-      gcc -fplugin=melt -fplugin-arg-melt-mode=findgimple \
-        -fplugin-arg-melt-arg='                          
-        ?(gimple_call_1 ?_                                
-          ?(tree_function_decl_of_name "malloc" ?_ ?_)  
-          ?(tree_integer_cst ?(some_integer_greater_than 100))
-        )' -O2 -c yourcode.c
-  
-  The above command is generating some C++ code and slowly compiling
-  it then dlopen-ing it, every time you run that command. To make it
-  faster, you may want to generate a MELT module findmallocgt100 once,
-  and use that module to search mallocs on many files:
+     + find all calls to printf with a format string containing the
+       word current and more than 6 arguments inside functions whose
+       name start with foo
 
-      gcc -fplugin=melt -fplugin-arg-melt-mode=findgimple \
-      -fplugin-arg-melt-arg='
-      ?(gimple_call_1 ?_
-        ?(tree_function_decl_of_name "malloc" ?_ ?_)
-        ?(tree_integer_cst ?(some_integer_greater_than 100))
-      )' -fplugin-arg-melt-output=findmallocgt100 -c empty-file.c
-
-  You'll get a bunch of files with name starting with findmallocgt100.
-
-  Then you can quickly search that pattern using
-
-      gcc -fplugin=melt -fplugin-arg-melt-extra=findmallocgt100 \
-          -fplugin-arg-melt-mode=gofindgimple -O2 yourfile.cc
-
-  and this should run much faster, because no C++ code needs to be
-  generated and compiled.
-
+     + etc....
  
+
+   These exploring modes have to work inside the compiler. A textual
+   approach won't work. So these exploring modes should interest a
+   large number of GCC users.
+
  ***
  * When verbose, all the successful modes are displayed.
 
