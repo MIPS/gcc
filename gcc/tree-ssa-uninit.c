@@ -30,8 +30,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "pointer-set.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "hashtab.h"
 #include "tree-pass.h"
@@ -2198,7 +2201,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_late_warn_uninitialized (ctxt_); }
+  opt_pass * clone () { return new pass_late_warn_uninitialized (m_ctxt); }
   bool gate () { return gate_warn_uninitialized (); }
   unsigned int execute () { return execute_late_warn_uninitialized (); }
 
