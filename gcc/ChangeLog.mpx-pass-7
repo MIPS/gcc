@@ -1,9 +1,10 @@
-2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* c/c-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* cp/cp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* objc/objc-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* objcp/objcp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
+	* lto/lto-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* c/c-parser.c (c_parser_declaration_or_fndef): Register statically
 	initialized decls in Pointers Checker.
 	* cp/decl.c (cp_finish_decl): Likewise.
