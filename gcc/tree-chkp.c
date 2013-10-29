@@ -1074,7 +1074,7 @@ chkp_set_rtl_bounds (tree node, rtx val)
   rtx *slot;
 
   if (!chkp_rtx_bounds_map)
-    return;
+    chkp_rtx_bounds_map = pointer_map_create ();
 
   slot = (rtx *)pointer_map_insert (chkp_rtx_bounds_map, node);
   *slot = val;
