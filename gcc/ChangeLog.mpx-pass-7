@@ -6,6 +6,6 @@
 	* objcp/objcp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* lto/lto-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* c/c-parser.c (c_parser_declaration_or_fndef): Register statically
-	initialized decls in Pointers Checker.
+	initialized decls in Pointer Bounds Checker.
 	* cp/decl.c (cp_finish_decl): Likewise.
 	* gimplify.c (gimplify_init_constructor): Likewise.

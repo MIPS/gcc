@@ -6372,7 +6372,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	    var_definition_p = true;
 
 	  /* If var has initilizer then we need to register it in
-	     pointers checker to generate static bounds initilizer
+	     Pointer Bounds Checker to generate static bounds initilizer
 	     if required.  */
 	  if (DECL_INITIAL (decl) && DECL_INITIAL (decl) != error_mark_node)
 	    chkp_register_var_initializer (decl);
