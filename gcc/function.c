@@ -2094,7 +2094,7 @@ use_register_for_decl (const_tree decl)
 
   /* Decl is implicitly addressible by bound stores and loads
      if it is an aggregate holding bounds.  */
-  if (flag_check_pointers && TREE_TYPE (decl)
+  if (flag_check_pointer_bounds && TREE_TYPE (decl)
       && !BOUNDED_P (decl)
       && chkp_type_has_pointer (TREE_TYPE (decl)))
     return false;
@@ -3433,7 +3433,7 @@ assign_parms (tree fndecl)
 
       /* Find out where bounds for parameter are.
 	 Load them if required and associate them with parm.  */
-      if (flag_check_pointers
+      if (flag_check_pointer_bounds
 	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
 	{
 	  if (!data.bound_parm || CONST_INT_P (data.bound_parm))
@@ -3510,7 +3510,7 @@ assign_parms (tree fndecl)
 
       /* If parm decl is addressable then we have to store its
 	 bounds.  */
-      if (flag_check_pointers
+      if (flag_check_pointer_bounds
 	  && TREE_ADDRESSABLE (parm)
 	  && data.bound_parm)
 	{
@@ -5309,7 +5309,7 @@ expand_function_end (void)
 					       current_function_decl, true);
       chkp_split_slot (outgoing, &outgoing, &crtl->return_bnd);
 
-      if (flag_check_pointers && GET_CODE (outgoing) == PARALLEL)
+      if (flag_check_pointer_bounds && GET_CODE (outgoing) == PARALLEL)
 	outgoing = XEXP (XVECEXP (outgoing, 0, 0), 0);
 
       /* Mark this as a function return value so integrate will delete the
