@@ -1795,26 +1795,6 @@ extract_kernels(struct loops* loops, tree child_fn,
     kernels->safe_push(kernel);
   }
 
-  for(i = 0; i < nloops - 1; ++i)
-  {
-    edge exit_loop = single_exit(vloops[i]);
-    basic_block new_bb, before, after;
-    gimple_stmt_iterator gsi;
-
-    before = exit_loop->src;
-    after = exit_loop->dest;
-    new_bb = create_empty_bb(before);
-    add_bb_to_loop(new_bb, loops->tree_root);
-    redirect_edge_and_branch(exit_loop, new_bb);
-    make_single_succ_edge(new_bb, after, EDGE_FALLTHRU);
-    set_immediate_dominator (CDI_DOMINATORS, new_bb, before);
-    set_immediate_dominator (CDI_DOMINATORS, after, new_bb);
-    if(i > 0)
-    {
-        gsi = gsi_last_bb(new_bb);
-        gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
-    }
-  }
   if(dump_file)
   {
     child_cfun = DECL_STRUCT_FUNCTION(child_fn);
@@ -1824,6 +1804,64 @@ extract_kernels(struct loops* loops, tree child_fn,
     pop_cfun();
   }
 
+  for(i = 0; i < nloops - 1; ++i)
+  {
+    edge exit_loop = single_exit(vloops[i]);
+    basic_block new_bb, before, after, imm_dom;
+    gimple_stmt_iterator gsi;
+
+    before = exit_loop->src;
+    if(dump_file)
+    {
+      fprintf(dump_file, "before %d has %d successors\n",
+        before->index, EDGE_COUNT(before->succs));
+    }
+    if(!single_succ_p(before))
+    {
+      edge p;
+      edge_iterator ei;
+
+      after = exit_loop->dest;
+      if(dump_file)
+      {
+        fprintf(dump_file, "after %d has %d predecessors\n",
+          after->index, EDGE_COUNT(after->preds));
+      }
+      imm_dom = get_immediate_dominator(CDI_DOMINATORS, after);
+
+      new_bb = create_empty_bb(before);
+      add_bb_to_loop(new_bb, loops->tree_root);
+      redirect_edge_and_branch(exit_loop, new_bb);
+      make_single_succ_edge(new_bb, after, EDGE_FALLTHRU);
+
+      FOR_EACH_EDGE(p, ei, after->preds)
+      {
+        if(dump_file)
+        {
+          fprintf(dump_file, "edge %d -> %d\n", p->src->index, p->dest->index);
+        }
+        if(p->src->index != new_bb->index)
+          redirect_edge_and_branch(p, new_bb);
+      }
+
+      set_immediate_dominator (CDI_DOMINATORS, new_bb, imm_dom);
+      set_immediate_dominator (CDI_DOMINATORS, after, new_bb);
+      if(i > 0)
+      {
+          gsi = gsi_last_bb(new_bb);
+          gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
+      }
+    }
+  }
+
+  if(dump_file)
+  {
+    child_cfun = DECL_STRUCT_FUNCTION(child_fn);
+    push_cfun(child_cfun);
+    dump_fn_body(dump_file, "PADDING");
+    fflush(dump_file);
+    pop_cfun();
+  }
 
   bb_entry = single_succ_edge(ENTRY_BLOCK_PTR)->dest;
   for(i = 0; i < nloops; ++i)
@@ -1931,6 +1969,7 @@ extract_kernels(struct loops* loops, tree child_fn,
       {
         dump_fn_body(dump_file, "AFTER MOVE SESE");
         dump_ssa(dump_file);
+        dump_dominators(dump_file, ENTRY_BLOCK_PTR, 0);
         fflush(dump_file);
       }
 
@@ -2515,6 +2554,7 @@ switch_func_back(int save_opt_level)
     {
       optimize = save_opt_level;
     }
+  cleanup_tree_cfg();
   FOR_EACH_BB(bb)
   {
       gimple_stmt_iterator gsi;
