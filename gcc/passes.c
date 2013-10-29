@@ -56,11 +56,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "hosthooks.h"
-#include "cgraph.h"
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree-inline.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
@@ -72,6 +78,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h" /* for dump_function_header */
 #include "context.h"
 #include "pass_manager.h"
+#include "tree-ssa-live.h"  /* For remove_unused_locals.  */
+#include "tree-cfgcleanup.h"
 
 using namespace gcc;
 
@@ -112,7 +120,7 @@ opt_pass::opt_pass (const pass_data &data, context *ctxt)
     sub (NULL),
     next (NULL),
     static_pass_number (0),
-    ctxt_ (ctxt)
+    m_ctxt (ctxt)
 {
 }
 
@@ -278,27 +286,28 @@ finish_optimization_passes (void)
   int i;
   struct dump_file_info *dfi;
   char *name;
+  gcc::dump_manager *dumps = m_ctxt->get_dumps ();
 
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      dump_start (pass_profile_1->static_pass_number, NULL);
+      dumps->dump_start (pass_profile_1->static_pass_number, NULL);
       end_branch_prob ();
-      dump_finish (pass_profile_1->static_pass_number);
+      dumps->dump_finish (pass_profile_1->static_pass_number);
     }
 
   if (optimize > 0)
     {
-      dump_start (pass_profile_1->static_pass_number, NULL);
+      dumps->dump_start (pass_profile_1->static_pass_number, NULL);
       print_combine_total_stats ();
-      dump_finish (pass_profile_1->static_pass_number);
+      dumps->dump_finish (pass_profile_1->static_pass_number);
     }
 
   /* Do whatever is necessary to finish printing the graphs.  */
-  for (i = TDI_end; (dfi = get_dump_file_info (i)) != NULL; ++i)
-    if (dump_initialized_p (i)
+  for (i = TDI_end; (dfi = dumps->get_dump_file_info (i)) != NULL; ++i)
+    if (dumps->dump_initialized_p (i)
 	&& (dfi->pflags & TDF_GRAPH) != 0
-	&& (name = get_dump_file_name (i)) != NULL)
+	&& (name = dumps->get_dump_file_name (i)) != NULL)
       {
 	finish_graph_dump_file (name);
 	free (name);
@@ -641,6 +650,7 @@ pass_manager::register_one_dump_file (struct opt_pass *pass)
   char num[10];
   int flags, id;
   int optgroup_flags = OPTGROUP_NONE;
+  gcc::dump_manager *dumps = m_ctxt->get_dumps ();
 
   /* See below in next_pass_1.  */
   num[0] = '\0';
@@ -681,7 +691,8 @@ pass_manager::register_one_dump_file (struct opt_pass *pass)
      any dump messages are emitted properly under -fopt-info(-optall).  */
   if (optgroup_flags == OPTGROUP_NONE)
     optgroup_flags = OPTGROUP_OTHER;
-  id = dump_register (dot_name, flag_name, glob_name, flags, optgroup_flags);
+  id = dumps->dump_register (dot_name, flag_name, glob_name, flags,
+			     optgroup_flags);
   set_pass_for_id (id, pass);
   full_name = concat (prefix, pass->name, num, NULL);
   register_pass_name (pass, full_name);
@@ -1389,6 +1400,7 @@ void
 pass_manager::register_pass (struct register_pass_info *pass_info)
 {
   bool all_instances, success;
+  gcc::dump_manager *dumps = m_ctxt->get_dumps ();
 
   /* The checks below could fail in buggy plugins.  Existing GCC
      passes should never fail these checks, so we mention plugin in
@@ -1446,9 +1458,9 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
       else
         tdi = TDI_rtl_all;
       /* Check if dump-all flag is specified.  */
-      if (get_dump_file_info (tdi)->pstate)
-        get_dump_file_info (added_pass_nodes->pass->static_pass_number)
-            ->pstate = get_dump_file_info (tdi)->pstate;
+      if (dumps->get_dump_file_info (tdi)->pstate)
+        dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
+            ->pstate = dumps->get_dump_file_info (tdi)->pstate;
       XDELETE (added_pass_nodes);
       added_pass_nodes = next_node;
     }
@@ -1488,7 +1500,7 @@ pass_manager::pass_manager (context *ctxt)
 : all_passes (NULL), all_small_ipa_passes (NULL), all_lowering_passes (NULL),
   all_regular_ipa_passes (NULL), all_lto_gen_passes (NULL),
   all_late_ipa_passes (NULL), passes_by_id (NULL), passes_by_id_size (0),
-  ctxt_ (ctxt)
+  m_ctxt (ctxt)
 {
   struct opt_pass **p;
 
@@ -1513,7 +1525,7 @@ pass_manager::pass_manager (context *ctxt)
   do { \
     gcc_assert (NULL == PASS ## _ ## NUM); \
     if ((NUM) == 1)                              \
-      PASS ## _1 = make_##PASS (ctxt_);          \
+      PASS ## _1 = make_##PASS (m_ctxt);          \
     else                                         \
       {                                          \
         gcc_assert (PASS ## _1);                 \
@@ -1931,9 +1943,11 @@ pass_init_dump_file (struct opt_pass *pass)
   if (pass->static_pass_number != -1)
     {
       timevar_push (TV_DUMP);
-      bool initializing_dump = !dump_initialized_p (pass->static_pass_number);
-      dump_file_name = get_dump_file_name (pass->static_pass_number);
-      dump_start (pass->static_pass_number, &dump_flags);
+      gcc::dump_manager *dumps = g->get_dumps ();
+      bool initializing_dump =
+	!dumps->dump_initialized_p (pass->static_pass_number);
+      dump_file_name = dumps->get_dump_file_name (pass->static_pass_number);
+      dumps->dump_start (pass->static_pass_number, &dump_flags);
       if (dump_file && current_function_decl)
         dump_function_header (dump_file, current_function_decl, dump_flags);
       if (initializing_dump
@@ -1962,7 +1976,7 @@ pass_fini_dump_file (struct opt_pass *pass)
       dump_file_name = NULL;
     }
 
-  dump_finish (pass->static_pass_number);
+  g->get_dumps ()->dump_finish (pass->static_pass_number);
   timevar_pop (TV_DUMP);
 }
 
