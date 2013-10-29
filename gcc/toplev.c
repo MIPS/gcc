@@ -574,7 +574,7 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
-      if (flag_check_pointers)
+      if (flag_check_pointer_bounds)
 	chkp_finish_file ();
 
       output_shared_constant_pool ();

@@ -1,4 +1,4 @@
-/* Pointers checker insrumentation pass.
+/* Pointer Bounds Checker insrumentation pass.
    Copyright (C) 2013 Free Software Foundation, Inc.
    Contributed by Ilya Enkovich (ilya.enkovich@intel.com)
 
@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "target.h"
 #include "tree-iterator.h"
-#include "tree-flow.h"
+#include "tree-cfg.h"
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "hashtab.h"
@@ -34,12 +34,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "expr.h"
 #include "output.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
 #include "tree-ssanames.h"
+#include "tree-ssa-operands.h"
+#include "tree-ssa-address.h"
+#include "tree-phinodes.h"
+#include "tree-ssa.h"
+#include "ssa-iterators.h"
 #include "ipa-inline.h"
+#include "tree-ssa-loop-niter.h"
 
-/*  Pointers checker pass instruments code with memory checks to find
+/*  Pointer Bounds Checker pass instruments code with memory checks to find
     out-of-bounds memory accesses.  Checks are performed by computing
     bounds for each pointer and then comparing address of accessed
     memory before pointer dereferencing.
@@ -162,7 +170,7 @@ along with GCC; see the file COPYING3.  If not see
       is translated into:
 
       buf_1 = malloc (size_2);
-      __bound_tmp.1_3 = __builtin___chkp_bndret ();
+      __bound_tmp.1_3 = __builtin___chkp_bndret (buf_1);
       foo (buf_1, __bound_tmp.1_3);
 
     b) Pointer is an input argument.
@@ -1125,7 +1133,7 @@ chkp_set_bounds (tree node, tree val)
 extern bool
 chkp_register_var_initializer (tree var)
 {
-  if (!flag_check_pointers)
+  if (!flag_check_pointer_bounds)
     return false;
 
   gcc_assert (TREE_CODE (var) == VAR_DECL);
@@ -1587,6 +1595,23 @@ chkp_build_array_ref (tree arr, tree etype, tree esize,
   return res;
 }
 
+/* Return true when T can be shared.  */
+
+static bool
+chkp_can_be_shared (tree t)
+{
+  if (IS_TYPE_OR_DECL_P (t)
+      || is_gimple_min_invariant (t)
+      || TREE_CODE (t) == SSA_NAME
+      || t == error_mark_node
+      || TREE_CODE (t) == IDENTIFIER_NODE
+      || TREE_CODE (t) == CASE_LABEL_EXPR
+      || DECL_P (t))
+    return true;
+
+  return false;
+}
+
 /* Helper function for chkp_find_bounds_for_struct.
    Fill ALL_BOUNDS output array with created bounds.
 
@@ -1626,7 +1651,7 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
       for (field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
 	if (TREE_CODE (field) == FIELD_DECL)
 	  {
-	    tree base = tree_node_can_be_shared (elem)
+	    tree base = chkp_can_be_shared (elem)
 	      ? elem
 	      : unshare_expr (elem);
 	    tree field_ref = chkp_build_component_ref (base, field);
@@ -1648,7 +1673,7 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
 
       for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	{
-	  tree base = tree_node_can_be_shared (elem)
+	  tree base = chkp_can_be_shared (elem)
 	    ? elem
 	    : unshare_expr (elem);
 	  tree arr_elem = chkp_build_array_ref (base, etype,
@@ -2628,7 +2653,7 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
 	  bounds = bnd1;
 	else
 	  {
-	    if (!tree_node_can_be_shared (rhs1))
+	    if (!chkp_can_be_shared (rhs1))
 	      rhs1 = unshare_expr (rhs1);
 
 	    bounds = make_ssa_name (chkp_get_tmp_var (), assign);
@@ -2673,7 +2698,7 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
     default:
       internal_error ("chkp_compute_bounds_for_assignment: "
 		      "Unexpected RHS code %s",
-		      tree_code_name[rhs_code]);
+		      get_tree_code_name (rhs_code));
     }
 
   gcc_assert (bounds);
@@ -2748,7 +2773,7 @@ chkp_get_bounds_by_definition (tree node, gimple def_stmt,
 	      print_generic_expr (dump_file, var, 0);
 	    }
 	  internal_error ("chkp_get_bounds_by_definition: Unexpected var of type %s",
-			  tree_code_name[(int) TREE_CODE (var)]);
+			  get_tree_code_name (TREE_CODE (var)));
 	}
       break;
 
@@ -3506,12 +3531,12 @@ chkp_make_addressed_object_bounds (tree obj, gimple_stmt_iterator *iter,
 	{
 	  fprintf (dump_file, "chkp_make_addressed_object_bounds: "
 		   "unexpected object of type %s\n",
-		   tree_code_name[TREE_CODE (obj)]);
+		   get_tree_code_name (TREE_CODE (obj)));
 	  print_node (dump_file, "", obj, 0);
 	}
       internal_error ("chkp_make_addressed_object_bounds: "
 		      "Unexpected tree code %s",
-		      tree_code_name[TREE_CODE (obj)]);
+		      get_tree_code_name (TREE_CODE (obj)));
     }
 
   chkp_register_addr_bounds (obj, bounds);
@@ -3664,11 +3689,11 @@ chkp_find_bounds_1 (tree ptr, tree ptr_src, gimple_stmt_iterator *iter,
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "chkp_find_bounds: unexpected ptr of type %s\n",
-		   tree_code_name[TREE_CODE (ptr_src)]);
+		   get_tree_code_name (TREE_CODE (ptr_src)));
 	  print_node (dump_file, "", ptr_src, 0);
 	}
       internal_error ("chkp_find_bounds: Unexpected tree code %s",
-		      tree_code_name[TREE_CODE (ptr_src)]);
+		      get_tree_code_name (TREE_CODE (ptr_src)));
     }
 
   if (!bounds)
@@ -3896,7 +3921,7 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
     }
   else
     internal_error("chkp_walk_pointer_assignments: unexpected RHS type: %s",
-		   tree_code_name[TREE_CODE (type)]);
+		   get_tree_code_name (TREE_CODE (type)));
 }
 
 /* Add code to copy bounds for assignment of RHS to LHS.  */
@@ -4395,7 +4420,7 @@ chkp_execute (void)
 static bool
 chkp_gate (void)
 {
-  return flag_check_pointers != 0
+  return flag_check_pointer_bounds != 0
     && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (cfun->decl));
 }
 
@@ -5801,7 +5826,7 @@ chkp_opt_execute (void)
 bool
 chkp_opt_gate (void)
 {
-  return flag_check_pointers != 0
+  return flag_check_pointer_bounds != 0
     && (flag_chkp_optimize > 0
 	|| (flag_chkp_optimize == -1 && optimize > 0));
 }
@@ -5848,7 +5873,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_chkp (ctxt_); }
+  opt_pass * clone () { return new pass_chkp (m_ctxt); }
   bool gate () { return chkp_gate (); }
   unsigned int execute () { return chkp_execute (); }
 
@@ -5862,7 +5887,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_chkp_opt (ctxt_); }
+  opt_pass * clone () { return new pass_chkp_opt (m_ctxt); }
   bool gate () { return chkp_opt_gate (); }
   unsigned int execute () { return chkp_opt_execute (); }
 
