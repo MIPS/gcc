@@ -2434,7 +2434,7 @@ static inline tree
 gimple_call_nobnd_arg (const_gimple gs, unsigned index)
 {
   /* No bound args may exist if pointers checker is off.  */
-  if (!flag_check_pointers)
+  if (!flag_check_pointer_bounds)
     return gimple_call_arg (gs, index);
   return gimple_call_arg (gs, gimple_call_get_nobnd_arg_index (gs, index));
 }
