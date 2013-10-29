@@ -62,7 +62,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa-loop-manip.h"
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
@@ -111,7 +116,8 @@ simduid_to_vf::equal (const value_type *p1, const value_type *p2)
         D.1737[_7] = stuff;
 
 
-   This hash maps from the simduid.0 to OMP simd array (D.1737[]).  */
+   This hash maps from the OMP simd array (D.1737[]) to DECL_UID of
+   simduid.0.  */
 
 struct simd_array_to_simduid : typed_free_remove<simd_array_to_simduid>
 {

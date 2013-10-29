@@ -42,6 +42,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "timevar.h"
 #include "dumpfile.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
 #include "tree-ssa.h"
 #include "value-prof.h"
 #include "except.h"
@@ -135,7 +138,7 @@ bool cpp_implicit_aliases_done;
    The cgraph_function_version_info has a THIS_NODE field that is the
    corresponding cgraph_node..  */
 
-static htab_t GTY((param_is (struct cgraph_function_version_info *)))
+static GTY((param_is (struct cgraph_function_version_info))) htab_t
   cgraph_fnver_htab = NULL;
 
 /* Hash function for cgraph_fnver_htab.  */
@@ -814,7 +817,8 @@ cgraph_set_call_stmt (struct cgraph_edge *e, gimple new_stmt,
 
 static struct cgraph_edge *
 cgraph_create_edge_1 (struct cgraph_node *caller, struct cgraph_node *callee,
-		       gimple call_stmt, gcov_type count, int freq)
+		       gimple call_stmt, gcov_type count, int freq,
+		       bool indir_unknown_callee)
 {
   struct cgraph_edge *edge;
 
@@ -874,6 +878,7 @@ cgraph_create_edge_1 (struct cgraph_node *caller, struct cgraph_node *callee,
   edge->indirect_info = NULL;
   edge->indirect_inlining_edge = 0;
   edge->speculative = false;
+  edge->indirect_unknown_callee = indir_unknown_callee;
   if (call_stmt && caller->call_site_hash)
     cgraph_add_edge_to_call_site_hash (edge);
 
@@ -887,9 +892,8 @@ cgraph_create_edge (struct cgraph_node *caller, struct cgraph_node *callee,
 		    gimple call_stmt, gcov_type count, int freq)
 {
   struct cgraph_edge *edge = cgraph_create_edge_1 (caller, callee, call_stmt,
-						   count, freq);
+						   count, freq, false);
 
-  edge->indirect_unknown_callee = 0;
   initialize_inline_failed (edge);
 
   edge->next_caller = callee->callers;
@@ -926,10 +930,9 @@ cgraph_create_indirect_edge (struct cgraph_node *caller, gimple call_stmt,
 			     gcov_type count, int freq)
 {
   struct cgraph_edge *edge = cgraph_create_edge_1 (caller, NULL, call_stmt,
-						   count, freq);
+						   count, freq, true);
   tree target;
 
-  edge->indirect_unknown_callee = 1;
   initialize_inline_failed (edge);
 
   edge->indirect_info = cgraph_allocate_init_indirect_info ();
@@ -2995,6 +2998,115 @@ cgraph_get_body (struct cgraph_node *node)
   lto_free_section_data (file_data, LTO_section_function_body, name,
 			 data, len);
   lto_free_function_in_decl_state_for_node ((symtab_node) node);
+  return true;
+}
+
+/* Verify if the type of the argument matches that of the function
+   declaration.  If we cannot verify this or there is a mismatch,
+   return false.  */
+
+static bool
+gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
+{
+  tree parms, p;
+  unsigned int i, nargs;
+
+  /* Calls to internal functions always match their signature.  */
+  if (gimple_call_internal_p (stmt))
+    return true;
+
+  nargs = gimple_call_num_args (stmt);
+
+  /* Get argument types for verification.  */
+  if (fndecl)
+    parms = TYPE_ARG_TYPES (TREE_TYPE (fndecl));
+  else
+    parms = TYPE_ARG_TYPES (gimple_call_fntype (stmt));
+
+  /* Verify if the type of the argument matches that of the function
+     declaration.  If we cannot verify this or there is a mismatch,
+     return false.  */
+  if (fndecl && DECL_ARGUMENTS (fndecl))
+    {
+      for (i = 0, p = DECL_ARGUMENTS (fndecl);
+	   i < nargs;
+	   i++)
+	{
+	  tree arg = gimple_call_arg (stmt, i);
+
+	  /* Skip bound args inserted by Pointer Bounds Checker.  */
+	  if (POINTER_BOUNDS_P (arg))
+	    continue;
+
+	  /* We cannot distinguish a varargs function from the case
+	     of excess parameters, still deferring the inlining decision
+	     to the callee is possible.  */
+	  if (!p)
+	    break;
+
+	  if (p == error_mark_node
+	      || arg == error_mark_node
+	      || (!types_compatible_p (DECL_ARG_TYPE (p), TREE_TYPE (arg))
+		  && !fold_convertible_p (DECL_ARG_TYPE (p), arg)))
+            return false;
+
+	  p = DECL_CHAIN (p);
+	}
+      if (args_count_match && p)
+	return false;
+    }
+  else if (parms)
+    {
+      for (i = 0, p = parms; i < nargs; i++)
+	{
+	  tree arg = gimple_call_arg (stmt, i);
+
+	  /* Skip bound args inserted by Pointer Bounds Checker.  */
+	  if (POINTER_BOUNDS_P (arg))
+	    continue;
+
+	  /* If this is a varargs function defer inlining decision
+	     to callee.  */
+	  if (!p)
+	    break;
+
+	  if (TREE_VALUE (p) == error_mark_node
+	      || arg == error_mark_node
+	      || TREE_CODE (TREE_VALUE (p)) == VOID_TYPE
+	      || (!types_compatible_p (TREE_VALUE (p), TREE_TYPE (arg))
+		  && !fold_convertible_p (TREE_VALUE (p), arg)))
+            return false;
+
+	  p = TREE_CHAIN (p);
+	}
+    }
+  else
+    {
+      if (nargs != 0)
+        return false;
+    }
+  return true;
+}
+
+/* Verify if the type of the argument and lhs of CALL_STMT matches
+   that of the function declaration CALLEE. If ARGS_COUNT_MATCH is
+   true, the arg count needs to be the same.
+   If we cannot verify this or there is a mismatch, return false.  */
+
+bool
+gimple_check_call_matching_types (gimple call_stmt, tree callee,
+				  bool args_count_match)
+{
+  tree lhs;
+
+  if ((DECL_RESULT (callee)
+       && !DECL_BY_REFERENCE (DECL_RESULT (callee))
+       && (lhs = gimple_call_lhs (call_stmt)) != NULL_TREE
+       && !useless_type_conversion_p (TREE_TYPE (DECL_RESULT (callee)),
+                                      TREE_TYPE (lhs))
+       && !fold_convertible_p (TREE_TYPE (DECL_RESULT (callee)), lhs))
+      || !gimple_check_call_args (call_stmt, callee, args_count_match))
+    return false;
   return true;
 }
 
