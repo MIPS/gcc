@@ -1,4 +1,4 @@
-2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* config/i386/i386.c (x86_64_reg_class): Add
 	X86_64_BOUNDED_INTEGER_CLASS and
@@ -10,7 +10,7 @@
 	(merge_classes): Support X86_64_BOUNDED_INTEGER_CLASS
 	and X86_64_BOUNDED_INTEGERSI_CLASS.
 	(classify_argument): Use bounded classes for bounded
-	types when Pointers Checker is on.
+	types when Pointer Bounds Checker is on.
 	(examine_argument): Support X86_64_BOUNDED_INTEGER_CLASS
 	and X86_64_BOUNDED_INTEGERSI_CLASS.
 	(construct_container): Likewise.
@@ -25,7 +25,7 @@
 	examine_argument calls.
 	(ix86_expand_call): Generate returned bounds.
 	(ix86_bnd_prefixed_insn_p): Use bnd prefix
-	whe compiling with Pointers Checker instrumentation.
+	whe compiling with Pointer Bounds Checker instrumentation.
 	* config/i386/i386.h (ix86_args): Add bnd_nregs, bnd_regno
 	and stdarg fields.
 	* config/i386/i386.md (UNSPEC_BNDRET): New.
