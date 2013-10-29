@@ -23,7 +23,11 @@
 #include "hash-table.h"
 #include "tree.h"
 #include "gimple.h"
-#include "tree-ssa.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "tree-pass.h"
 #include "tree-inline.h"
 #include "diagnostic-core.h"
@@ -35,6 +39,7 @@
 #include "langhooks.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
+#include "tree-ssa-address.h"
 
 
 #define PROB_VERY_UNLIKELY	(REG_BR_PROB_BASE / 2000 - 1)
