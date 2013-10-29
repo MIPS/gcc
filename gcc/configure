@@ -600,6 +600,8 @@ ac_includes_default="\
 
 ac_subst_vars='LTLIBOBJS
 LIBOBJS
+PICFLAG
+enable_host_shared
 enable_plugin
 pluginlibs
 CLOOGINC
@@ -735,7 +737,7 @@ LDEXP_LIB
 EXTRA_GCC_LIBS
 GNAT_LIBEXC
 COLLECT2_LIBS
-CCDEPMODE
+CXXDEPMODE
 DEPDIR
 am__leading_dot
 CXXCPP
@@ -921,6 +923,7 @@ enable_maintainer_mode
 enable_link_mutex
 enable_version_specific_runtime_libs
 enable_plugin
+enable_host_shared
 enable_libquadmath_support
 with_linker_hash_style
 '
@@ -1636,6 +1639,7 @@ Optional Features:
                           specify that runtime libraries should be installed
                           in a compiler-specific directory
   --enable-plugin         enable plugin support
+  --enable-host-shared    build host code as shared libraries
   --disable-libquadmath-support
                           disable libquadmath support for Fortran
 
@@ -8762,12 +8766,12 @@ ac_config_commands="$ac_config_commands depdir"
 ac_config_commands="$ac_config_commands gccdepdir"
 
 
-depcc="$CC"   am_compiler_list=
+depcc="$CXX"  am_compiler_list=
 
 am_depcomp=$ac_aux_dir/depcomp
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking dependency style of $depcc" >&5
 $as_echo_n "checking dependency style of $depcc... " >&6; }
-if test "${am_cv_CC_dependencies_compiler_type+set}" = set; then :
+if test "${am_cv_CXX_dependencies_compiler_type+set}" = set; then :
   $as_echo_n "(cached) " >&6
 else
   if test -f "$am_depcomp"; then
@@ -8789,7 +8793,7 @@ else
   # directory.
   mkdir sub
 
-  am_cv_CC_dependencies_compiler_type=none
+  am_cv_CXX_dependencies_compiler_type=none
   if test "$am_compiler_list" = ""; then
      am_compiler_list=`sed -n 's/^\([a-zA-Z0-9]*\))$/\1/p' < ./depcomp`
   fi
@@ -8834,7 +8838,7 @@ else
       #   icc: Command line remark: option '-MP' not supported
       if (grep 'ignoring option' conftest.err ||
           grep 'not supported' conftest.err) >/dev/null 2>&1; then :; else
-        am_cv_CC_dependencies_compiler_type=$depmode
+        am_cv_CXX_dependencies_compiler_type=$depmode
 	$as_echo "$as_me:$LINENO: success" >&5
         break
       fi
@@ -8846,15 +8850,15 @@ else
   cd ..
   rm -rf conftest.dir
 else
-  am_cv_CC_dependencies_compiler_type=none
+  am_cv_CXX_dependencies_compiler_type=none
 fi
 
 fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $am_cv_CC_dependencies_compiler_type" >&5
-$as_echo "$am_cv_CC_dependencies_compiler_type" >&6; }
-if test x${am_cv_CC_dependencies_compiler_type-none} = xnone
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $am_cv_CXX_dependencies_compiler_type" >&5
+$as_echo "$am_cv_CXX_dependencies_compiler_type" >&6; }
+if test x${am_cv_CXX_dependencies_compiler_type-none} = xnone
 then as_fn_error "no usable dependency style found" "$LINENO" 5
-else CCDEPMODE=depmode=$am_cv_CC_dependencies_compiler_type
+else CXXDEPMODE=depmode=$am_cv_CXX_dependencies_compiler_type
 
 fi
 
@@ -17893,7 +17897,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 17896 "configure"
+#line 17900 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -17999,7 +18003,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18002 "configure"
+#line 18006 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -21760,7 +21764,13 @@ if test "${gcc_cv_as_flags+set}" = set; then :
 else
    case "$target" in
   i[34567]86-*-linux*)
-        gcc_cv_as_flags="--32"
+        gcc_cv_as_flags=--32
+    ;;
+  x86_64-*-linux-gnux32)
+        gcc_cv_as_flags=--x32
+    ;;
+  x86_64-*-linux*)
+        gcc_cv_as_flags=--64
     ;;
   powerpc*-*-darwin*)
         gcc_cv_as_flags="-arch ppc"
@@ -27692,6 +27702,18 @@ if test x"$enable_plugin" = x"yes"; then
 $as_echo "#define ENABLE_PLUGIN 1" >>confdefs.h
 
 fi
+
+
+# Enable --enable-host-shared
+# Check whether --enable-host-shared was given.
+if test "${enable_host_shared+set}" = set; then :
+  enableval=$enable_host_shared; PICFLAG=-fPIC
+else
+  PICFLAG=
+fi
+
+
+
 
 
 # Check whether --enable-libquadmath-support was given.
