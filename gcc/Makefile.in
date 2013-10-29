@@ -135,6 +135,9 @@ CFLAGS = @CFLAGS@
 CXXFLAGS = @CXXFLAGS@
 LDFLAGS = @LDFLAGS@
 
+# Should we build position-independent host code?
+PICFLAG = @PICFLAG@
+
 # Flags to determine code coverage. When coverage is disabled, this will
 # contain the optimization flags, as you normally want code coverage
 # without optimization.
@@ -193,7 +196,6 @@ GCC_WARN_CXXFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 # flex output may yield harmless "no previous prototype" warnings
 build/gengtype-lex.o-warn = -Wno-error
 gengtype-lex.o-warn = -Wno-error
-expmed.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -309,7 +311,7 @@ write_entries_to_file = $(shell rm -f $(2) || :) $(shell touch $(2)) \
 # --------
 
 # Dependency tracking stuff.
-CCDEPMODE = @CCDEPMODE@
+CXXDEPMODE = @CXXDEPMODE@
 DEPDIR = @DEPDIR@
 depcomp = $(SHELL) $(srcdir)/../depcomp
 
@@ -346,6 +348,8 @@ PLUGINCFLAGS = @CXXFLAGS@
 PLUGINLIBS = @pluginlibs@
 
 enable_plugin = @enable_plugin@
+
+enable_host_shared = @enable_host_shared@
 
 CPPLIB = ../libcpp/libcpp.a
 CPPINC = -I$(srcdir)/../libcpp/include
@@ -956,7 +960,7 @@ CONTEXT_H = context.h
 # programs built during a bootstrap.
 # autoconf inserts -DCROSS_DIRECTORY_STRUCTURE if we are building a
 # cross compiler which does not use the native headers and libraries.
-INTERNAL_CFLAGS = -DIN_GCC @CROSS@
+INTERNAL_CFLAGS = -DIN_GCC $(PICFLAG) @CROSS@
 
 # This is the variable actually used when we compile. If you change this,
 # you probably want to update BUILD_CFLAGS in configure.ac
@@ -979,8 +983,15 @@ ALL_COMPILERFLAGS = $(ALL_CXXFLAGS)
 ALL_LINKERFLAGS = $(ALL_CXXFLAGS)
 
 # Build and host support libraries.
+
+# Use the "pic" build of libiberty if --enable-host-shared.
+ifeq ($(enable_host_shared),yes)
+LIBIBERTY = ../libiberty/pic/libiberty.a
+BUILD_LIBIBERTY = $(build_libobjdir)/libiberty/pic/libiberty.a
+else
 LIBIBERTY = ../libiberty/libiberty.a
 BUILD_LIBIBERTY = $(build_libobjdir)/libiberty/libiberty.a
+endif
 
 # Dependencies on the intl and portability libraries.
 LIBDEPS= libcommon.a $(CPPLIB) $(LIBIBERTY) $(LIBINTL_DEP) $(LIBICONV_DEP) \
@@ -1029,7 +1040,7 @@ INCLUDES = -I. -I$(@D) -I$(srcdir) -I$(srcdir)/$(@D) \
 	   $(CLOOGINC) $(ISLINC)
 
 COMPILE.base = $(COMPILER) -c $(ALL_COMPILERFLAGS) $(ALL_CPPFLAGS) -o $@
-ifeq ($(CCDEPMODE),depmode=gcc3)
+ifeq ($(CXXDEPMODE),depmode=gcc3)
 # Note a subtlety here: we use $(@D) for the directory part, to make
 # things like the go/%.o rule work properly; but we use $(*F) for the
 # file part, as we just want the file part of the stem, not the entire
@@ -1038,7 +1049,7 @@ COMPILE = $(COMPILE.base) -MT $@ -MMD -MP -MF $(@D)/$(DEPDIR)/$(*F).TPo
 POSTCOMPILE = @mv $(@D)/$(DEPDIR)/$(*F).TPo $(@D)/$(DEPDIR)/$(*F).Po
 else
 COMPILE = source='$<' object='$@' libtool=no \
-    DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) $(COMPILE.base)
+    DEPDIR=$(DEPDIR) $(CXXDEPMODE) $(depcomp) $(COMPILE.base)
 POSTCOMPILE =
 endif
 
@@ -1121,14 +1132,11 @@ GCC_OBJS = gcc.o ggc-none.o
 c-family-warn = $(STRICT_WARN)
 
 # Language-specific object files shared by all C-family front ends.
-# FIXME: tree-mudflap is C-family only, but it is also part of the middle-end.
-# The mudflap machinery should be properly separated from the front ends, and
-# perhaps turned into a plugin.
 C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/c-format.o c-family/c-gimplify.o c-family/c-lex.o \
   c-family/c-omp.o c-family/c-opts.o c-family/c-pch.o \
   c-family/c-ppoutput.o c-family/c-pragma.o c-family/c-pretty-print.o \
-  c-family/c-semantics.o c-family/c-ada-spec.o tree-mudflap.o \
+  c-family/c-semantics.o c-family/c-ada-spec.o \
   c-family/array-notation-common.o c-family/c-ubsan.o
 
 # Language-independent object files.
@@ -1377,10 +1385,8 @@ OBJS = \
 	tree-iterator.o \
 	tree-loop-distribution.o \
 	tree-nested.o \
-	tree-nomudflap.o \
 	tree-nrv.o \
 	tree-object-size.o \
-	tree-optimize.o \
 	tree-outof-ssa.o \
 	tree-parloops.o \
 	tree-phinodes.o \
@@ -1926,7 +1932,7 @@ DRIVER_DEFINES = \
   -DTOOLDIR_BASE_PREFIX=\"$(libsubdir_to_prefix)$(prefix_to_exec_prefix)\" \
   @TARGET_SYSTEM_ROOT_DEFINE@ \
   $(VALGRIND_DRIVER_DEFINES) \
-  $(and $(SHLIB),$(filter yes,@enable_shared@),-DENABLE_SHARED_LIBGCC) \
+  $(if $(SHLIB),$(if $(filter yes,@enable_shared@),-DENABLE_SHARED_LIBGCC)) \
   -DCONFIGURE_SPECS="\"@CONFIGURE_SPECS@\""
 
 CFLAGS-gcc.o += $(DRIVER_DEFINES)
@@ -2242,8 +2248,8 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/reg-stack.c $(srcdir)/cfgrtl.c \
   $(srcdir)/sdbout.c $(srcdir)/stor-layout.c \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
-  $(srcdir)/gimple.h $(srcdir)/gimple.c \
-  $(srcdir)/tree-mudflap.c $(srcdir)/tree-flow.h \
+  $(srcdir)/gimple.h \
+  $(srcdir)/gimple-ssa.h \
   $(srcdir)/tree-chkp.c \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
   $(srcdir)/tree-cfg.c \

@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "except.h"
 #include "dbgcnt.h"
-#include "tree-ssa.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -643,11 +642,10 @@ gimple_alloca_call_p (const_gimple stmt)
 bool
 alloca_call_p (const_tree exp)
 {
+  tree fndecl;
   if (TREE_CODE (exp) == CALL_EXPR
-      && TREE_CODE (CALL_EXPR_FN (exp)) == ADDR_EXPR
-      && (TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (exp), 0)) == FUNCTION_DECL)
-      && (special_function_p (TREE_OPERAND (CALL_EXPR_FN (exp), 0), 0)
-	  & ECF_MAY_BE_ALLOCA))
+      && (fndecl = get_callee_fndecl (exp))
+      && (special_function_p (fndecl, 0) & ECF_MAY_BE_ALLOCA))
     return true;
   return false;
 }
@@ -1201,7 +1199,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* If we pass structure address then we need to
 	   create bounds for it.  */
-	if (flag_check_pointers)
+	if (flag_check_pointer_bounds)
 	  args[j].bounds_value
 	    = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
 
@@ -1253,10 +1251,10 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	else
 	  args[j].tree_value = arg;
 
-	/* If pointers checker is on and we pass structure with
+	/* If Pointer Bounds Checker is on and we pass structure with
 	   pointers then we determine here how many bounds should
 	   follow.  */
-	if (flag_check_pointers
+	if (flag_check_pointer_bounds
 	    && !BOUNDED_P (arg)
 	    && chkp_type_has_pointer (argtype))
 	  struct_bounds = chkp_find_bound_slots (argtype);
@@ -2655,7 +2653,7 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
   /* Compute number of bound arguments.  */
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     {
       call_expr_arg_iterator iter;
       tree arg;
