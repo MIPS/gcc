@@ -394,6 +394,29 @@ create_call_params(splay_tree_node node, void* data)
     return 0;
 }
 
+static tree
+get_if_clause_expr (gimple_stmt_iterator *gsi)
+{
+  gimple gs = gsi_stmt (*gsi);
+  tree clause;
+
+  if (gimple_code (gs) == GIMPLE_ACC_KERNELS)
+    clause = gimple_acc_kernels_clauses (gs);
+  else if (gimple_code (gs) == GIMPLE_ACC_PARALLEL)
+    clause = gimple_acc_parallel_clauses (gs);
+  else
+    gcc_unreachable ();
+
+  while (1)
+    {
+      if (clause == NULL)
+        return NULL_TREE;
+      if (ACC_CLAUSE_CODE (clause) == ACC_CLAUSE_IF)
+        return ACC_CLAUSE_IF_EXPR (clause);
+      clause = ACC_CLAUSE_CHAIN (clause);
+    }
+}
+
 static void
 add_host_version(gimple_stmt_iterator *gsi, gimple_seq orig)
 {
@@ -427,7 +450,8 @@ add_assingments_to_ptrs (gimple_seq *seq)
 
       gcc_assert (gimple_code(stmt) == GIMPLE_BIND);
       inner_seq = gimple_bind_body (stmt);
-      for (inner_gsi = gsi_start (inner_seq); !gsi_end_p (inner_gsi); gsi_next (&inner_gsi))
+      for (inner_gsi = gsi_start (inner_seq); !gsi_end_p (inner_gsi);
+           gsi_next (&inner_gsi))
         {
           gimple inner_stmt = gsi_stmt(inner_gsi);
           if (is_gimple_assign (inner_stmt))
@@ -439,12 +463,15 @@ add_assingments_to_ptrs (gimple_seq *seq)
                   tree op = gimple_assign_rhs2 (inner_stmt);
 
                   /* _oacc_ptr_tmp = a */
-                  tree convert_var = create_tmp_var (TREE_TYPE(lhs), "_oacc_ptr_tmp");
+                  tree convert_var = create_tmp_var (TREE_TYPE(lhs),
+                                                     "_oacc_ptr_tmp");
                   gimple convert_stmt = gimple_build_assign (convert_var, rhs);
                   gsi_insert_before (&inner_gsi, convert_stmt, GSI_SAME_STMT);
 
                   /* D.1988 = _oacc_ptr_tmp + offset */
-                  gimple assign_stmt = build_assign ((enum tree_code)inner_stmt->gsbase.subcode, convert_var, op, M_NORMAL);
+                  gimple assign_stmt = build_assign (
+                      (enum tree_code)inner_stmt->gsbase.subcode,
+                      convert_var, op, M_NORMAL);
                   gimple_assign_set_lhs (assign_stmt, lhs);
                   gsi_replace (&inner_gsi, assign_stmt, true);
                 }
@@ -458,7 +485,7 @@ static void
 lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
 {
     struct function *child_cfun;
-    tree child_fn;
+    tree child_fn, if_clause_expr;
     gimple stmt = gsi_stmt (*gsi);
     gimple_seq body, orig;
     unsigned i;
@@ -508,10 +535,41 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
             gimple_set_op(new_stmt, i, arg);
         }
 
-    gsi_replace(gsi, new_stmt, true);
-    //add_host_version(gsi, orig);
-    gsi_insert_after(gsi, gimple_alloc(GIMPLE_ACC_COMPUTE_REGION_END, 0),
-      GSI_CONTINUE_LINKING);
+    gsi_replace (gsi, new_stmt, true);
+    if_clause_expr = get_if_clause_expr (gsi);
+    if (if_clause_expr)
+      {
+        location_t locus = gimple_location (stmt);
+        tree true_label = create_artificial_label (locus);
+        tree false_label = create_artificial_label (locus);
+        tree exit_label = create_artificial_label (locus);
+
+        /* if (D.1859) goto <D.1900>; else goto <D.1901>; */
+        gimple cond = gimple_build_cond_from_tree (if_clause_expr,
+                                                   true_label, false_label);
+        gsi_insert_before (gsi, cond, GSI_SAME_STMT);
+        /* <D.1900>: */
+        gsi_insert_before (gsi, gimple_build_label (true_label), GSI_SAME_STMT);
+        /* acc_compute_region_end */
+        gsi_insert_after (gsi, gimple_alloc(GIMPLE_ACC_COMPUTE_REGION_END, 0),
+                          GSI_CONTINUE_LINKING);
+        /* goto <D.1902>; */
+        gsi_insert_after (gsi, gimple_build_goto (exit_label),
+                          GSI_CONTINUE_LINKING);
+        /* <D.1901>; */
+        gsi_insert_after (gsi, gimple_build_label (false_label),
+                          GSI_CONTINUE_LINKING);
+
+        add_host_version (gsi, orig);
+
+        /* <D.1902>; */
+        gsi_insert_after (gsi, gimple_build_label (exit_label),
+                          GSI_CONTINUE_LINKING);
+      }
+    else
+      gsi_insert_after(gsi, gimple_alloc(GIMPLE_ACC_COMPUTE_REGION_END, 0),
+                       GSI_CONTINUE_LINKING);
+
     gimple_acc_set_body(new_stmt, NULL);
 }
 

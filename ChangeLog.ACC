@@ -1,3 +1,10 @@
+29-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Add generation of code for IF clause
+    
+    * gcc/oacc-low.c(get_if_clause_expr): New function
+    * gcc/oacc-low.c(add_host_version): Reformatings
+    * gcc/oacc-low.c(lower_oacc_kernels): Add generation of host code
+
 29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add handling of non-paralelizable loops.
 
@@ -78,7 +85,7 @@
     * gcc/testsuite/gfortran.dg/gacc/__enter-exit-data.f95: New test
     * gcc/testsuite/gfortran.dg/gacc/__parallel-kernels-clauses.f95: Add wait clause
 
-23-10-2013 Ilmir Usmanov <i.usmanov@samsing.com>
+23-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Add generation of parameters of generated kernel 
     when they are pointers
     Adding OpenACC 2.0 support to gfortran: parallel/kernels async/default(none)
