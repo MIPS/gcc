@@ -21,8 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
 #include "hash-table.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "domwalk.h"
 #include "alloc-pool.h"
@@ -429,7 +436,7 @@ get_string_length (strinfo si)
 	  fn = builtin_decl_implicit (BUILT_IN_STRLEN);
 	  gcc_assert (lhs == NULL_TREE);
 	  tem = unshare_expr (gimple_call_nobnd_arg (stmt, 0));
-	  if (flag_check_pointers
+	  if (flag_check_pointer_bounds
 	      && POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
 	    lenstmt = gimple_build_call (fn, 2, tem,
 					 gimple_call_arg (stmt, 1));
@@ -1011,7 +1018,7 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
 	    }
 
 	  /* Remember bounds passed for src.  */
-	  if (flag_check_pointers
+	  if (flag_check_pointer_bounds
 	      && POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
 	    {
 	      retbnd = gimple_call_arg (stmt, 1);
@@ -1281,13 +1288,13 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
     }
   if (gimple_call_num_nobnd_args (stmt) == 2)
-    if (flag_check_pointers && gimple_call_num_args (stmt) == 4)
+    if (flag_check_pointer_bounds && gimple_call_num_args (stmt) == 4)
       success = update_gimple_call (gsi, fn, 5, dst, gimple_call_arg (stmt, 1),
 				    src, gimple_call_arg (stmt, 3), len);
     else
       success = update_gimple_call (gsi, fn, 3, dst, src, len);
   else
-    if (flag_check_pointers && gimple_call_num_args (stmt) == 5)
+    if (flag_check_pointer_bounds && gimple_call_num_args (stmt) == 5)
       success = update_gimple_call (gsi, fn, 5, dst, gimple_call_arg (stmt, 1),
 				    src, gimple_call_arg (stmt, 3), len,
 				    gimple_call_arg (stmt, 4));
@@ -1607,7 +1614,8 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
     }
   if (srclen != NULL_TREE)
-    if (flag_check_pointers && POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
+    if (flag_check_pointer_bounds
+	&& POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
       success = update_gimple_call (gsi, fn, 5 + (objsz != NULL_TREE),
 				    dst, gimple_call_arg (stmt, 1),
 				    src, gimple_call_arg (stmt, 3),
@@ -1616,7 +1624,8 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       success = update_gimple_call (gsi, fn, 3 + (objsz != NULL_TREE),
 				    dst, src, len, objsz);
   else
-    if (flag_check_pointers && POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
+    if (flag_check_pointer_bounds
+	&& POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
       success = update_gimple_call (gsi, fn, 4 + (objsz != NULL_TREE),
 				    dst, gimple_call_arg (stmt, 1),
 				    src, gimple_call_arg (stmt, 3),
