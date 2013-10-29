@@ -29,8 +29,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "tree-pretty-print.h"
 #include "bitmap.h"
-#include "tree-ssa.h"
-#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "tree-inline.h"
 #include "hashtab.h"
 #include "tree-ssa-live.h"
@@ -460,7 +461,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_rename_ssa_copies (ctxt_); }
+  opt_pass * clone () { return new pass_rename_ssa_copies (m_ctxt); }
   bool gate () { return gate_copyrename (); }
   unsigned int execute () { return rename_ssa_copies (); }
 
