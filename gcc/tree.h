@@ -551,9 +551,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (POINTER_BOUNDS_TYPE_P (TREE_TYPE (NODE)))
 
 /* Nonzero if this type supposes bounds existence.  */
-#define BOUNDED_TYPE_P(type) \
-  (TREE_CODE (type) == POINTER_TYPE \
-    || TREE_CODE (type) == REFERENCE_TYPE)
+#define BOUNDED_TYPE_P(type) (POINTER_TYPE_P (type))
 
 /* Nonzero for objects with bounded type.  */
 #define BOUNDED_P(node) \
