@@ -27,28 +27,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "except.h"
 #include "pointer-set.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "ggc.h"
 #include "diagnostic-core.h"
-#include "gimple.h"
 #include "target.h"
 #include "cfgloop.h"
+#include "gimple-low.h"
 
 /* In some instances a tree and a gimple need to be stored in a same table,
    i.e. in hash tables. This is a structure to do this. */
 typedef union {tree *tp; tree t; gimple g;} treemple;
-
-/* Nonzero if we are using EH to handle cleanups.  */
-static int using_eh_for_cleanups_p = 0;
-
-void
-using_eh_for_cleanups (void)
-{
-  using_eh_for_cleanups_p = 1;
-}
 
 /* Misc functions used in this file.  */
 
@@ -66,7 +65,7 @@ using_eh_for_cleanups (void)
 
 /* Add statement T in function IFUN to landing pad NUM.  */
 
-void
+static void
 add_stmt_to_eh_lp_fn (struct function *ifun, gimple t, int num)
 {
   struct throw_stmt_node *n;
@@ -1655,7 +1654,7 @@ lower_try_finally (struct leh_state *state, gimple tp)
   this_tf.try_finally_expr = tp;
   this_tf.top_p = tp;
   this_tf.outer = state;
-  if (using_eh_for_cleanups_p && !cleanup_is_dead_in (state->cur_region))
+  if (using_eh_for_cleanups_p () && !cleanup_is_dead_in (state->cur_region))
     {
       this_tf.region = gen_eh_region_cleanup (state->cur_region);
       this_state.cur_region = this_tf.region;
@@ -4541,7 +4540,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_cleanup_eh (ctxt_); }
+  opt_pass * clone () { return new pass_cleanup_eh (m_ctxt); }
   bool gate () { return gate_cleanup_eh (); }
   unsigned int execute () { return execute_cleanup_eh (); }
 

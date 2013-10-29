@@ -21,6 +21,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tree.h"
 #include "rtl.h"
 #include "expr.h"
 #include "hard-reg-set.h"
@@ -32,14 +33,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "regs.h"
 #include "ggc.h"
-#include "tree-ssa.h"
-#include "tree-flow-inline.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "coverage.h"
 #include "tree.h"
 #include "gcov-io.h"
-#include "cgraph.h"
 #include "timevar.h"
 #include "dumpfile.h"
 #include "pointer-set.h"
@@ -1306,7 +1310,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   cond_bb = gimple_bb (icall_stmt);
   gsi = gsi_for_stmt (icall_stmt);
 
-  if (flag_check_pointers && gimple_call_lhs (icall_stmt))
+  if (flag_check_pointer_bounds && gimple_call_lhs (icall_stmt))
     iretbnd_stmt = chkp_retbnd_call_by_val (gimple_call_lhs (icall_stmt));
 
   tmp0 = make_temp_ssa_name (optype, NULL, "PROF");

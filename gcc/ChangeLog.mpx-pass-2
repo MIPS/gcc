@@ -1,4 +1,4 @@
-2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* builtin-types.def (BT_FN_VOID_CONST_PTR): New.
 	(BT_FN_PTR_CONST_PTR): New.
@@ -21,6 +21,6 @@
 	BUILT_IN_CHKP_BNDCU, BUILT_IN_CHKP_BNDLDX, BUILT_IN_CHKP_BNDRET,
 	BUILT_IN_CHKP_INTERSECT, BUILT_IN_CHKP_ARG_BND, BUILT_IN_CHKP_NARROW,
 	BUILT_IN_CHKP_EXTRACT_LOWER, BUILT_IN_CHKP_EXTRACT_UPPER.
-	* common.opt (fcheck-pointers): New.
-	* toplev.c (process_options): Check Pointers Checker is supported.
-	* doc/extend.texi: Document Pointers Checker built-in functions.
+	* common.opt (fcheck-pointer-bounds): New.
+	* toplev.c (process_options): Check Pointer Bounds Checker is supported.
+	* doc/extend.texi: Document Pointer Bounds Checker built-in functions.
