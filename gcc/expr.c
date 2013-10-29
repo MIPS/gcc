@@ -43,7 +43,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm_p.h"
 #include "tree-iterator.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-ssanames.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "timevar.h"
@@ -52,6 +55,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-outof-ssa.h"
 #include "target-globals.h"
 #include "params.h"
+#include "tree-ssa-address.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -1368,12 +1372,12 @@ emit_block_move_via_libcall (rtx dst, rtx src, rtx size, bool tailcall)
   size_tree = make_tree (sizetype, size);
 
   fn = emit_block_move_libcall_fn (true);
-  /* In case pointers checker is on we actually should have
+  /* In case Pointer Bounds Checker is on we actually should have
      all checks made and bounds copied.  It means we may call
      a fast memcpy version to copy data.
      TODO: use chkp_memcpy_nobnd instead of regular memcpy
      when possible.  */
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     {
       tree tmp, bnd;
 
@@ -4939,7 +4943,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	}
 
       /* Store bounds if required.  */
-      if (flag_check_pointers && bounds
+      if (flag_check_pointer_bounds && bounds
 	  && (BOUNDED_P (to) || chkp_type_has_pointer (TREE_TYPE (to))))
 	{
 	  gcc_assert (MEM_P (to_rtx));
@@ -6618,16 +6622,18 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
     {
       tree field = TREE_OPERAND (exp, 1);
       size_tree = DECL_SIZE (field);
-      if (!DECL_BIT_FIELD (field))
-	mode = DECL_MODE (field);
-      else if (DECL_MODE (field) == BLKmode)
-	blkmode_bitfield = true;
-      else if (TREE_THIS_VOLATILE (exp)
-	       && flag_strict_volatile_bitfields > 0)
+      if (flag_strict_volatile_bitfields > 0
+	  && TREE_THIS_VOLATILE (exp)
+	  && DECL_BIT_FIELD_TYPE (field)
+	  && DECL_MODE (field) != BLKmode)
 	/* Volatile bitfields should be accessed in the mode of the
 	     field's type, not the mode computed based on the bit
 	     size.  */
 	mode = TYPE_MODE (DECL_BIT_FIELD_TYPE (field));
+      else if (!DECL_BIT_FIELD (field))
+	mode = DECL_MODE (field);
+      else if (DECL_MODE (field) == BLKmode)
+	blkmode_bitfield = true;
 
       *punsignedp = DECL_UNSIGNED (field);
     }
@@ -9627,12 +9633,10 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
       {
 	addr_space_t as
 	  = TYPE_ADDR_SPACE (TREE_TYPE (TREE_TYPE (TREE_OPERAND (exp, 0))));
-	struct mem_address addr;
 	enum insn_code icode;
 	unsigned int align;
 
-	get_address_description (exp, &addr);
-	op0 = addr_for_mem_ref (&addr, as, true);
+	op0 = addr_for_mem_ref (exp, as, true);
 	op0 = memory_address_addr_space (mode, op0, as);
 	temp = gen_rtx_MEM (mode, op0);
 	set_mem_attributes (temp, exp, 0);
@@ -9705,7 +9709,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  }
 	align = get_object_alignment (exp);
 	op0 = expand_expr (base, NULL_RTX, VOIDmode, EXPAND_SUM);
-	op0 = memory_address_addr_space (address_mode, op0, as);
+	op0 = memory_address_addr_space (mode, op0, as);
 	if (!integer_zerop (TREE_OPERAND (exp, 1)))
 	  {
 	    rtx off
