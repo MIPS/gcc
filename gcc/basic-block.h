@@ -24,13 +24,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "function.h"
 
-/* Type we use to hold basic block counters.  Should be at least
+/* Use gcov_type to hold basic block counters.  Should be at least
    64bit.  Although a counter cannot be negative, we use a signed
    type, because erroneous negative counts can be generated when the
    flow graph is manipulated by various optimizations.  A signed type
    makes those easy to detect.  */
-typedef HOST_WIDEST_INT gcov_type;
-typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 
 /* Control flow edge information.  */
 struct GTY((user)) edge_def {
@@ -479,7 +477,7 @@ private:
   void clear_control_dependence_bitmap (basic_block);
   void find_control_dependence (int);
   vec<bitmap> control_dependence_map;
-  edge_list *el;
+  edge_list *m_el;
 };
 
 /* The base value for branch probability notes and edge probabilities.  */
@@ -803,6 +801,7 @@ extern int dfs_enumerate_from (basic_block, int,
 			       basic_block *, int, const void *);
 extern void compute_dominance_frontiers (struct bitmap_head_def *);
 extern bitmap compute_idf (bitmap, struct bitmap_head_def *);
+extern basic_block * single_pred_before_succ_order (void);
 
 /* In cfgrtl.c  */
 extern rtx block_label (basic_block);

@@ -23,12 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-ssa.h"
 #include "langhooks.h"
 #include "pointer-set.h"
-#include "cgraph.h"
 #include "intl.h"
-#include "gimple.h"
 #include "tree-pass.h"
 #include "ipa-utils.h"
 #include "except.h"
@@ -530,7 +527,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_rebuild_cgraph_edges (ctxt_); }
+  opt_pass * clone () { return new pass_rebuild_cgraph_edges (m_ctxt); }
   unsigned int execute () { return rebuild_cgraph_edges (); }
 
 }; // class pass_rebuild_cgraph_edges
@@ -579,7 +576,7 @@ public:
 
   /* opt_pass methods: */
   opt_pass * clone () {
-    return new pass_remove_cgraph_callee_edges (ctxt_);
+    return new pass_remove_cgraph_callee_edges (m_ctxt);
   }
   unsigned int execute () { return remove_cgraph_callee_edges (); }
 
