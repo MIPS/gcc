@@ -90,25 +90,25 @@ along with GCC; see the file COPYING3.  If not see
 
 #define TREE_CODE_CLASS(CODE)	tree_code_type[(int) (CODE)]
 
-/* Nonzero if CODE represents an exceptional code.  */
+/* Nonzero if NODE represents an exceptional code.  */
 
-#define EXCEPTIONAL_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_exceptional)
+#define EXCEPTIONAL_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_exceptional)
 
-/* Nonzero if CODE represents a constant.  */
+/* Nonzero if NODE represents a constant.  */
 
-#define CONSTANT_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_constant)
+#define CONSTANT_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_constant)
 
-/* Nonzero if CODE represents a type.  */
+/* Nonzero if NODE represents a type.  */
 
-#define TYPE_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_type)
+#define TYPE_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_type)
 
-/* Nonzero if CODE represents a declaration.  */
+/* Nonzero if NODE represents a declaration.  */
 
-#define DECL_P(CODE)\
-        (TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_declaration)
+#define DECL_P(NODE)\
+        (TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_declaration)
 
 /* True if NODE designates a variable declaration.  */
 #define VAR_P(NODE) \
@@ -119,52 +119,52 @@ along with GCC; see the file COPYING3.  If not see
 #define VAR_OR_FUNCTION_DECL_P(DECL)\
   (TREE_CODE (DECL) == VAR_DECL || TREE_CODE (DECL) == FUNCTION_DECL)
 
-/* Nonzero if CODE represents a INDIRECT_REF.  Keep these checks in
+/* Nonzero if NODE represents a INDIRECT_REF.  Keep these checks in
    ascending code order.  */
 
-#define INDIRECT_REF_P(CODE)\
-  (TREE_CODE (CODE) == INDIRECT_REF)
+#define INDIRECT_REF_P(NODE)\
+  (TREE_CODE (NODE) == INDIRECT_REF)
 
-/* Nonzero if CODE represents a reference.  */
+/* Nonzero if NODE represents a reference.  */
 
-#define REFERENCE_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_reference)
+#define REFERENCE_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_reference)
 
-/* Nonzero if CODE represents a comparison.  */
+/* Nonzero if NODE represents a comparison.  */
 
-#define COMPARISON_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_comparison)
+#define COMPARISON_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_comparison)
 
-/* Nonzero if CODE represents a unary arithmetic expression.  */
+/* Nonzero if NODE represents a unary arithmetic expression.  */
 
-#define UNARY_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_unary)
+#define UNARY_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_unary)
 
-/* Nonzero if CODE represents a binary arithmetic expression.  */
+/* Nonzero if NODE represents a binary arithmetic expression.  */
 
-#define BINARY_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_binary)
+#define BINARY_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_binary)
 
-/* Nonzero if CODE represents a statement expression.  */
+/* Nonzero if NODE represents a statement expression.  */
 
-#define STATEMENT_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_statement)
+#define STATEMENT_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_statement)
 
-/* Nonzero if CODE represents a function call-like expression with a
+/* Nonzero if NODE represents a function call-like expression with a
    variable-length operand vector.  */
 
-#define VL_EXP_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_vl_exp)
+#define VL_EXP_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_vl_exp)
 
-/* Nonzero if CODE represents any other expression.  */
+/* Nonzero if NODE represents any other expression.  */
 
-#define EXPRESSION_CLASS_P(CODE)\
-	(TREE_CODE_CLASS (TREE_CODE (CODE)) == tcc_expression)
+#define EXPRESSION_CLASS_P(NODE)\
+	(TREE_CODE_CLASS (TREE_CODE (NODE)) == tcc_expression)
 
-/* Returns nonzero iff CODE represents a type or declaration.  */
+/* Returns nonzero iff NODE represents a type or declaration.  */
 
-#define IS_TYPE_OR_DECL_P(CODE)\
-	(TYPE_P (CODE) || DECL_P (CODE))
+#define IS_TYPE_OR_DECL_P(NODE)\
+	(TYPE_P (NODE) || DECL_P (NODE))
 
 /* Returns nonzero iff CLASS is the tree-code class of an
    expression.  */
@@ -1184,12 +1184,13 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_TASKREG_BODY(NODE)    TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 0)
 #define OMP_TASKREG_CLAUSES(NODE) TREE_OPERAND (OMP_TASKREG_CHECK (NODE), 1)
 
-#define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 0)
-#define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 1)
-#define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 2)
-#define OMP_FOR_COND(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 3)
-#define OMP_FOR_INCR(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 4)
-#define OMP_FOR_PRE_BODY(NODE)	   TREE_OPERAND (OMP_FOR_CHECK (NODE), 5)
+#define OMP_LOOP_CHECK(NODE) TREE_RANGE_CHECK (NODE, OMP_FOR, OMP_DISTRIBUTE)
+#define OMP_FOR_BODY(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 0)
+#define OMP_FOR_CLAUSES(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 1)
+#define OMP_FOR_INIT(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 2)
+#define OMP_FOR_COND(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 3)
+#define OMP_FOR_INCR(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 4)
+#define OMP_FOR_PRE_BODY(NODE)	   TREE_OPERAND (OMP_LOOP_CHECK (NODE), 5)
 
 #define OMP_SECTIONS_BODY(NODE)    TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 0)
 #define OMP_SECTIONS_CLAUSES(NODE) TREE_OPERAND (OMP_SECTIONS_CHECK (NODE), 1)
@@ -1201,16 +1202,37 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_MASTER_BODY(NODE)	   TREE_OPERAND (OMP_MASTER_CHECK (NODE), 0)
 
+#define OMP_TASKGROUP_BODY(NODE)   TREE_OPERAND (OMP_TASKGROUP_CHECK (NODE), 0)
+
 #define OMP_ORDERED_BODY(NODE)	   TREE_OPERAND (OMP_ORDERED_CHECK (NODE), 0)
 
 #define OMP_CRITICAL_BODY(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 0)
 #define OMP_CRITICAL_NAME(NODE)    TREE_OPERAND (OMP_CRITICAL_CHECK (NODE), 1)
 
+#define OMP_TEAMS_BODY(NODE)	   TREE_OPERAND (OMP_TEAMS_CHECK (NODE), 0)
+#define OMP_TEAMS_CLAUSES(NODE)	   TREE_OPERAND (OMP_TEAMS_CHECK (NODE), 1)
+
+#define OMP_TARGET_DATA_BODY(NODE) \
+  TREE_OPERAND (OMP_TARGET_DATA_CHECK (NODE), 0)
+#define OMP_TARGET_DATA_CLAUSES(NODE)\
+  TREE_OPERAND (OMP_TARGET_DATA_CHECK (NODE), 1)
+
+#define OMP_TARGET_BODY(NODE)	   TREE_OPERAND (OMP_TARGET_CHECK (NODE), 0)
+#define OMP_TARGET_CLAUSES(NODE)   TREE_OPERAND (OMP_TARGET_CHECK (NODE), 1)
+
+#define OMP_TARGET_UPDATE_CLAUSES(NODE)\
+  TREE_OPERAND (OMP_TARGET_UPDATE_CHECK (NODE), 0)
+
+#define OMP_CLAUSE_SIZE(NODE)						\
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
+					      OMP_CLAUSE_FROM,		\
+					      OMP_CLAUSE_MAP), 1)
+
 #define OMP_CLAUSE_CHAIN(NODE)     TREE_CHAIN (OMP_CLAUSE_CHECK (NODE))
 #define OMP_CLAUSE_DECL(NODE)      					\
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_RANGE_CHECK (OMP_CLAUSE_CHECK (NODE),	\
 					      OMP_CLAUSE_PRIVATE,	\
-	                                      OMP_CLAUSE_UNIFORM), 0)
+					      OMP_CLAUSE__LOOPTEMP_), 0)
 #define OMP_CLAUSE_HAS_LOCATION(NODE) \
   (LOCATION_LOCUS ((OMP_CLAUSE_CHECK (NODE))->omp_clause.locus)		\
   != UNKNOWN_LOCATION)
@@ -1225,6 +1247,12 @@ extern void protected_set_expr_location (tree, location_t);
    combined parallel work-sharing constructs.  */
 #define OMP_PARALLEL_COMBINED(NODE) \
   (OMP_PARALLEL_CHECK (NODE)->base.private_flag)
+
+/* True if OMP_ATOMIC* is supposed to be sequentially consistent
+   as opposed to relaxed.  */
+#define OMP_ATOMIC_SEQ_CST(NODE) \
+  (TREE_RANGE_CHECK (NODE, OMP_ATOMIC, \
+		     OMP_ATOMIC_CAPTURE_NEW)->base.private_flag)
 
 /* True on a PRIVATE clause if its decl is kept around for debugging
    information only and its DECL_VALUE_EXPR is supposed to point
@@ -1257,6 +1285,21 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_SCHEDULE_CHUNK_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SCHEDULE), 0)
 
+#define OMP_CLAUSE_DEPEND_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEPEND)->omp_clause.subcode.depend_kind)
+
+#define OMP_CLAUSE_MAP_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->omp_clause.subcode.map_kind)
+
+/* Nonzero if this map clause is for array (rather than pointer) based array
+   section with zero bias.  Both the non-decl OMP_CLAUSE_MAP and
+   correspoidng OMP_CLAUSE_MAP_POINTER clause are marked with this flag.  */
+#define OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_MAP)->base.public_flag)
+
+#define OMP_CLAUSE_PROC_BIND_KIND(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_PROC_BIND)->omp_clause.subcode.proc_bind_kind)
+
 #define OMP_CLAUSE_COLLAPSE_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_COLLAPSE), 0)
 #define OMP_CLAUSE_COLLAPSE_ITERVAR(NODE) \
@@ -1277,6 +1320,11 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION), 3)
 
+/* True if a REDUCTION clause may reference the original list item (omp_orig)
+   in its OMP_CLAUSE_REDUCTION_{,GIMPLE_}INIT.  */
+#define OMP_CLAUSE_REDUCTION_OMP_ORIG_REF(NODE) \
+  (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_REDUCTION)->base.public_flag)
+
 /* True if a LINEAR clause doesn't need copy in.  True for iterator vars which
    are always initialized inside of the loop construct, false otherwise.  */
 #define OMP_CLAUSE_LINEAR_NO_COPYIN(NODE) \
@@ -1290,8 +1338,28 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
 
+#define OMP_CLAUSE_ALIGNED_ALIGNMENT(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_ALIGNED), 1)
+
+#define OMP_CLAUSE_NUM_TEAMS_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_NUM_TEAMS), 0)
+
+#define OMP_CLAUSE_THREAD_LIMIT_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, \
+						OMP_CLAUSE_THREAD_LIMIT), 0)
+
+#define OMP_CLAUSE_DEVICE_ID(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_DEVICE), 0)
+
+#define OMP_CLAUSE_DIST_SCHEDULE_CHUNK_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, \
+						OMP_CLAUSE_DIST_SCHEDULE), 0)
+
 #define OMP_CLAUSE_SAFELEN_EXPR(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SAFELEN), 0)
+
+#define OMP_CLAUSE_SIMDLEN_EXPR(NODE) \
+  OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_SIMDLEN), 0)
 
 #define OMP_CLAUSE__SIMDUID__DECL(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE__SIMDUID_), 0)
@@ -1367,9 +1435,6 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define OMP_CLAUSE_SET_CODE(NODE, CODE)				\
 	((OMP_CLAUSE_CHECK (NODE))->omp_clause.code = (CODE))
-
-#define OMP_CLAUSE_CODE(NODE)					\
-	(OMP_CLAUSE_CHECK (NODE))->omp_clause.code
 
 #define OMP_CLAUSE_OPERAND(NODE, I)				\
 	OMP_CLAUSE_ELT_CHECK (NODE, I)
@@ -2616,16 +2681,16 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 #define TREE_OPTIMIZATION_BASE_OPTABS(NODE) \
   (OPTIMIZATION_NODE_CHECK (NODE)->optimization.base_optabs)
 
-/* Return a tree node that encapsulates the current optimization options.  */
-extern tree build_optimization_node (void);
+/* Return a tree node that encapsulates the optimization options in OPTS.  */
+extern tree build_optimization_node (struct gcc_options *opts);
 
 extern void init_tree_optimization_optabs (tree);
 
 #define TREE_TARGET_OPTION(NODE) \
   (&TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
 
-/* Return a tree node that encapsulates the current target options.  */
-extern tree build_target_option_node (void);
+/* Return a tree node that encapsulates the target options in OPTS.  */
+extern tree build_target_option_node (struct gcc_options *opts);
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
@@ -3517,7 +3582,6 @@ extern tree build_translation_unit_decl (tree);
 extern tree build_block (tree, tree, tree, tree);
 extern tree build_empty_stmt (location_t);
 extern tree build_omp_clause (location_t, enum omp_clause_code);
-extern tree find_omp_clause (tree, enum omp_clause_code);
 
 extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
 #define build_vl_exp(c, n) build_vl_exp_stat (c, n MEM_STAT_INFO)
@@ -3652,6 +3716,9 @@ extern tree make_tree (tree, rtx);
 extern tree build_type_attribute_variant (tree, tree);
 extern tree build_decl_attribute_variant (tree, tree);
 extern tree build_type_attribute_qual_variant (tree, tree, int);
+
+/* Remove redundant "omp declare simd" attributes from fndecl.  */
+extern void omp_remove_redundant_declare_simd_attrs (tree);
 
 /* Return 0 if the attributes for two types are incompatible, 1 if they
    are compatible, and 2 if they are nearly compatible (which causes a
@@ -4245,15 +4312,6 @@ extern rtx expand_stack_save (void);
 extern void expand_stack_restore (tree);
 extern void expand_return (tree);
 
-/* In tree-eh.c */
-extern void using_eh_for_cleanups (void);
-
-extern bool tree_could_trap_p (tree);
-extern bool operation_could_trap_helper_p (enum tree_code, bool, bool, bool,
-					   bool, tree, bool *);
-extern bool operation_could_trap_p (enum tree_code, bool, bool, tree);
-extern bool tree_could_throw_p (tree);
-
 /* Compare and hash for any structure which begins with a canonical
    pointer.  Assumes all pointers are interchangeable, which is sort
    of already assumed by gcc elsewhere IIRC.  */
@@ -4479,8 +4537,6 @@ extern tree build_call_expr_loc (location_t, tree, int, ...);
 extern tree build_call_expr (tree, int, ...);
 extern tree mathfn_built_in (tree, enum built_in_function fn);
 extern tree c_strlen (tree, int);
-extern tree std_gimplify_va_arg_expr (tree, tree, gimple_seq *, gimple_seq *);
-extern tree build_va_arg_indirect_ref (tree);
 extern tree build_string_literal (int, const char *);
 extern bool validate_arglist (const_tree, ...);
 extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
@@ -4557,10 +4613,13 @@ extern tree get_binfo_at_offset (tree, HOST_WIDE_INT, tree);
 extern bool virtual_method_call_p (tree);
 extern tree obj_type_ref_class (tree ref);
 extern bool types_same_for_odr (tree type1, tree type2);
-extern tree get_ref_base_and_extent (tree, HOST_WIDE_INT *,
-				     HOST_WIDE_INT *, HOST_WIDE_INT *);
 extern bool contains_bitfld_component_ref_p (const_tree);
 extern bool type_in_anonymous_namespace_p (tree);
+extern bool block_may_fallthru (const_tree);
+extern void using_eh_for_cleanups (void);
+extern bool using_eh_for_cleanups_p (void);
+
+extern const char *get_tree_code_name (enum tree_code);
 
 /* In tree-nested.c */
 extern tree build_addr (tree, tree);
@@ -4774,10 +4833,6 @@ extern unsigned int tree_decl_map_hash (const void *);
 #define tree_vec_map_hash tree_decl_map_hash
 #define tree_vec_map_marked_p tree_map_base_marked_p
 
-/* In tree-ssa-address.c.  */
-extern tree tree_mem_ref_addr (tree, tree);
-extern void copy_ref_info (tree, tree);
-
 /* In tree-vrp.c */
 extern bool ssa_name_nonnegative_p (const_tree);
 
@@ -4909,9 +4964,6 @@ is_lang_specific (tree t)
   return TREE_CODE (t) == LANG_TYPE || TREE_CODE (t) >= NUM_TREE_CODES;
 }
 
-/* In gimple-low.c.  */
-extern bool block_may_fallthru (const_tree);
-
 /* In vtable-verify.c.  */
 extern void save_vtable_map_decl (tree);
 
@@ -4989,6 +5041,31 @@ builtin_decl_implicit_p (enum built_in_function fncode)
   gcc_checking_assert (BUILTIN_VALID_P (fncode));
   return (builtin_info.decl[uns_fncode] != NULL_TREE
 	  && builtin_info.implicit_p[uns_fncode]);
+}
+
+/* Return true if T (assumed to be a DECL) is a global variable.
+   A variable is considered global if its storage is not automatic.  */
+
+static inline bool
+is_global_var (const_tree t)
+{
+  return (TREE_STATIC (t) || DECL_EXTERNAL (t));
+}
+
+/* Return true if VAR may be aliased.  A variable is considered as
+   maybe aliased if it has its address taken by the local TU
+   or possibly by another TU and might be modified through a pointer.  */
+
+static inline bool
+may_be_aliased (const_tree var)
+{
+  return (TREE_CODE (var) != CONST_DECL
+	  && !((TREE_STATIC (var) || TREE_PUBLIC (var) || DECL_EXTERNAL (var))
+	       && TREE_READONLY (var)
+	       && !TYPE_NEEDS_CONSTRUCTING (TREE_TYPE (var)))
+	  && (TREE_PUBLIC (var)
+	      || DECL_EXTERNAL (var)
+	      || TREE_ADDRESSABLE (var)));
 }
 
 /* For anonymous aggregate types, we need some sort of name to
