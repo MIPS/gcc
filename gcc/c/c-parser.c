@@ -1656,8 +1656,8 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  finish_decl (d, init_loc, init.value,
 		      	       init.original_type, asm_name);
 
-		  /* Register all decls with initializers in pointers
-		     checker to generate required static bounds
+		  /* Register all decls with initializers in Pointer
+		     Bounds Checker to generate required static bounds
 		     initializers.  */
 		  if (DECL_INITIAL (d) != error_mark_node)
 		    chkp_register_var_initializer (d);
