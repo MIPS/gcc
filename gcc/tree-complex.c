@@ -23,8 +23,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "flags.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
+#include "tree-ssa.h"
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -1662,7 +1668,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_lower_complex (ctxt_); }
+  opt_pass * clone () { return new pass_lower_complex (m_ctxt); }
   unsigned int execute () { return tree_lower_complex (); }
 
 }; // class pass_lower_complex

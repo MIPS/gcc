@@ -68,7 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
-#include "tree-mudflap.h"
 #include "asan.h"
 #include "tsan.h"
 #include "gimple.h"
@@ -568,10 +567,6 @@ compile_file (void)
      basically finished.  */
   if (in_lto_p || !flag_lto || flag_fat_lto_objects)
     {
-      /* Likewise for mudflap static object registrations.  */
-      if (flag_mudflap)
-	mudflap_finish_file ();
-
       /* File-scope initialization for AddressSanitizer.  */
       if (flag_sanitize & SANITIZE_ADDRESS)
         asan_finish_file ();
@@ -1287,24 +1282,13 @@ process_options (void)
 	   "and -ftree-loop-linear)");
 #endif
 
-  if (flag_mudflap && flag_lto)
-    sorry ("mudflap cannot be used together with link-time optimization");
-
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     {
-      /* Currently instrumented code causes ICE in LTO streamer during
-	 function body read for unknown reason.  It is also possible that
-	 other problems exist (previously functions missing instrumentation
-	 were observer during LTO tests).  Restrict Pointers Checker usage
-	 with LTO until it is fixed and tested enough.  */
-      if (flag_lto)
-	sorry ("-fcheck-pointers is not yet fully supported for link-time optimization");
-
       if (targetm.chkp_bound_mode () == VOIDmode)
 	error ("-fcheck-pointers is not supported for this target");
 
       if (!lang_hooks.chkp_supported)
-	flag_check_pointers = 0;
+	flag_check_pointer_bounds = 0;
     }
 
   /* One region RA really helps to decrease the code size.  */
@@ -1592,7 +1576,7 @@ process_options (void)
                                     DK_ERROR, UNKNOWN_LOCATION);
 
   /* Save the current optimization options.  */
-  optimization_default_node = build_optimization_node ();
+  optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
 }
 
