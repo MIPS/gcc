@@ -974,7 +974,7 @@ AC_CONFIG_COMMANDS([gccdepdir],[
       ${CONFIG_SHELL-/bin/sh} $ac_aux_dir/mkinstalldirs $lang/$DEPDIR
   done], [subdirs="$subdirs" ac_aux_dir=$ac_aux_dir DEPDIR=$DEPDIR])
 
-ZW_PROG_COMPILER_DEPENDENCIES([CC])
+ZW_PROG_COMPILER_DEPENDENCIES([CXX])
 AC_LANG_POP(C++)
 
 # --------
@@ -5397,6 +5397,15 @@ AC_SUBST(enable_plugin)
 if test x"$enable_plugin" = x"yes"; then
   AC_DEFINE(ENABLE_PLUGIN, 1, [Define to enable plugin support.])
 fi
+
+
+# Enable --enable-host-shared
+AC_ARG_ENABLE(host-shared,
+[AS_HELP_STRING([--enable-host-shared],
+		[build host code as shared libraries])],
+[PICFLAG=-fPIC], [PICFLAG=])
+AC_SUBST(enable_host_shared)
+AC_SUBST(PICFLAG)
 
 
 AC_ARG_ENABLE(libquadmath-support,

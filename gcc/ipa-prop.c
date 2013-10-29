@@ -24,13 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "ggc.h"
 #include "target.h"
-#include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "tree-inline.h"
 #include "ipa-inline.h"
-#include "gimple.h"
 #include "flags.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
@@ -248,8 +252,7 @@ ipa_print_node_jump_functions_for_edge (FILE *f, struct cgraph_edge *cs)
 	  fprintf (f, "PASS THROUGH: ");
 	  fprintf (f, "%d, op %s",
 		   jump_func->value.pass_through.formal_id,
-		   tree_code_name[(int)
-				  jump_func->value.pass_through.operation]);
+		   get_tree_code_name(jump_func->value.pass_through.operation));
 	  if (jump_func->value.pass_through.operation != NOP_EXPR)
 	    {
 	      fprintf (f, " ");

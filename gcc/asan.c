@@ -22,9 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
 #include "gimple.h"
 #include "tree-iterator.h"
-#include "tree-ssa.h"
+#include "cgraph.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "asan.h"
 #include "gimple-pretty-print.h"
@@ -2273,7 +2275,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_asan (ctxt_); }
+  opt_pass * clone () { return new pass_asan (m_ctxt); }
   bool gate () { return gate_asan (); }
   unsigned int execute () { return asan_instrument (); }
 
