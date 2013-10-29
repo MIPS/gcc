@@ -5625,10 +5625,10 @@ Otherwise the two shared objects are unable to use the same
 typeinfo node and exception handling will break.
 
 @item bnd_variable_size
-When applied to a structure field, this attribute tells Pointers
-Checker that the size of this field should not be computed using
-static type information.  It may be used to mark variable sized
-static array fields placed at the end of a structure.
+When applied to a structure field, this attribute tells Pointer
+Bounds Checker that the size of this field should not be computed
+using static type information.  It may be used to mark variable
+sized static array fields placed at the end of a structure.
 
 @smallexample
 struct S
