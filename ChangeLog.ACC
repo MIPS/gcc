@@ -1,3 +1,17 @@
+30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Fix formatting.
+    
+    * liboacc/liboacc-internal.h: Fix formatting.
+    * liboacc/liboacc.c: Likewise.
+    * liboacc/liboacc.h: Likewise.
+    * liboacc/memory.c: Likewise.
+    * liboacc/openacc.c: Likewise.
+    * liboacc/openacc.h: Likewise.
+    * liboacc/platform.c: Likewise.
+    * liboacc/program.c: Likewise.
+    * liboacc/runtime.c: Likewise.
+    * liboacc/synchro.c: Likewise.
+
 30-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Generate __global qualifier for local pointers
     

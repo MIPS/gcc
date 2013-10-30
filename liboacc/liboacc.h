@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
@@ -43,18 +43,22 @@ void OACC_check_cur_dev(void);
 /* create or get kernel from cache */
 oacc_kernel OACC_get_kernel(const char* prog_name, const char* kern_name);
 /* start a kernel with specified worksize */
-void OACC_start_kernel(oacc_kernel kernel, unsigned worksize, oacc_event ev, unsigned ev_idx);
+void OACC_start_kernel(oacc_kernel kernel, unsigned worksize, oacc_event ev,
+                       unsigned ev_idx);
 /* associate memory object with kernel argument */
 void OACC_set_kernel_arg(oacc_kernel kern, unsigned idx, oacc_buffer buf);
 
 /* copy memory object to device */
-oacc_buffer OACC_copyin(void *mem, unsigned size, int check_present, oacc_event ev, unsigned ev_idx);
+oacc_buffer OACC_copyin(void *mem, unsigned size, int check_present,
+                        oacc_event ev, unsigned ev_idx);
 /* check object presence on device */
 oacc_buffer OACC_check_present(void *mem);
 /* create memory object on device */
-oacc_buffer OACC_create_on_device(void* mem, unsigned size, int check_present, oacc_event ev, unsigned ev_idx);
+oacc_buffer OACC_create_on_device(void* mem, unsigned size, int check_present,
+                                  oacc_event ev, unsigned ev_idx);
 /* copy memory object to host */
-void OACC_copyout(void *mem, unsigned size, int check_present, oacc_event ev, unsigned ev_idx);
+void OACC_copyout(void *mem, unsigned size, int check_present, oacc_event ev,
+                  unsigned ev_idx);
 
 /* create synchro queue */
 oacc_event OACC_create_events(const char* src, int lineno);

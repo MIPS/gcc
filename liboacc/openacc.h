@@ -1,4 +1,4 @@
-/* 
+/*
 This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify it under
@@ -26,22 +26,23 @@ extern "C" {
 
 /*
 OpenACC device type
-see OpenACC_1.0 3.1 
+see OpenACC_1.0 3.1
 */
 typedef enum {
-	acc_device_none,
-	acc_device_default,
-	acc_device_host,
-	acc_device_not_host
-} acc_device_t;
+  acc_device_none,
+  acc_device_default,
+  acc_device_host,
+  acc_device_not_host
+}
+acc_device_t;
 
 /*
-get number of devices of specified type 
+get number of devices of specified type
 see OpenACC_1.0 3.2.1
 */
 int acc_get_num_devices(acc_device_t);
 /*
-set device type for next kernels 
+set device type for next kernels
 see OpenACC_1.0 3.2.2
 */
 void acc_set_device_type(acc_device_t);
