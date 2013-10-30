@@ -129,16 +129,21 @@ OACC_dev_fini(OACC_device_ptr pdev)
 /* enqueue kernel object */
 void
 OACC_enqueue_kernel(struct OACC_kernel_data* kern, unsigned worksize,
+                    unsigned offset, int groupsize,
                     struct OACC_queue_data* queue, unsigned idx)
 {
   cl_int err;
   cl_uint nev;
   cl_event *ev_wait = NULL, *ev_set = NULL;
+  unsigned *ploc_size = NULL;
+
+  if(groupsize > 0)
+    ploc_size = (unsigned *)&groupsize;
 
   OACC_EQ_EVENTS(queue, nev, ev_wait, ev_set, idx)
 
   err = clEnqueueNDRangeKernel(OACC_curr_dev[OACC_curr_num]->queue, kern->kern,
-                  1 ,NULL, &worksize, NULL, nev, ev_wait, ev_set);
+                  1, &offset, &worksize, ploc_size, nev, ev_wait, ev_set);
   if(err < 0)
     {
       OACC_fatal("Can't enqueue kernel: %d\n", err);

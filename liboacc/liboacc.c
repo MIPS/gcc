@@ -55,14 +55,15 @@ OACC_get_kernel(const char* prog_name, const char* kern_name)
 
 /* enqueue kernel KERN for WORKSIZE threads */
 void
-OACC_start_kernel(oacc_kernel kern, unsigned worksize, oacc_event ev,
+OACC_start_kernel(oacc_kernel kern, unsigned worksize,
+                  unsigned offset, int groupsize, oacc_event ev,
                   unsigned idx)
 {
   OACC_CHECK_KERN_PTR(kern)
   OACC_CHECK_INIT
   OACC_CHECK_DEV_INIT(OACC_curr_dev[OACC_curr_num])
   OACC_enqueue_kernel((struct OACC_kernel_data*)kern, worksize,
-  (struct OACC_queue_data*)ev, idx);
+         offset, groupsize, (struct OACC_queue_data*)ev, idx);
 }
 
 oacc_buffer

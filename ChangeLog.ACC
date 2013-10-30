@@ -1,4 +1,16 @@
 30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add passing of kernel schedule parameters.
+    
+    * gcc/builtin-types.def: Change signature of builtin.
+    * gcc/fortran/types.def: Likewise.
+    * gcc/oacc-builtins.def: Likewise.
+    * gcc/oacc-low.c (expand_oacc_kernels): Change builtin call generation.
+    * liboacc/liboacc-internal.h: Change signature.
+    * liboacc/liboacc.c: Likewise.
+    * liboacc/liboacc.h: Likewise.
+    * liboacc/runtime.c: Pass schedule parameters to OpenCL runtime.
+
+30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Fix formatting.
     
     * liboacc/liboacc-internal.h: Fix formatting.

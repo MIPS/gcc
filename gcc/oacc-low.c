@@ -2732,13 +2732,17 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
           }
       else
           {
-              worksize = build_int_cst(uint32_type_node, 1);
+              worksize = integer_one_node;
           }
 
       gen_add(gsi, build_call(locus,
-                    builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 4,
-                    kernels[i]->kernel_handle, worksize, queue_handle,
-                    build_int_cst(uint32_type_node, 0)));
+                    builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 6,
+                    kernels[i]->kernel_handle,
+                    worksize,               /* WORKITEMS */
+                    integer_zero_node,      /* OFFSET */
+                    integer_minus_one_node, /* GROUPSIZE */
+                    queue_handle,
+                    integer_zero_node));
       gen_add(gsi, build_call(locus,
                   builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
                   queue_handle));

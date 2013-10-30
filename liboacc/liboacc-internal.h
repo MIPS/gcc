@@ -250,6 +250,8 @@ extern struct OACC_kernel_data* OACC_find_kernel(const char* prog_name,
                                                  const char* kern_name);
 extern void OACC_enqueue_kernel(struct OACC_kernel_data* kern,
                                 unsigned worksize,
+                                unsigned offset,
+                                int groupsize, 
                                 struct OACC_queue_data* queue,
                                 unsigned idx);
 extern void OACC_set_arg_buf(struct OACC_kernel_data* kern,
