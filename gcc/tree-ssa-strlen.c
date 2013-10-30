@@ -21,8 +21,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
 #include "hash-table.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "domwalk.h"
 #include "alloc-pool.h"
@@ -428,13 +435,18 @@ get_string_length (strinfo si)
 	  gsi = gsi_for_stmt (stmt);
 	  fn = builtin_decl_implicit (BUILT_IN_STRLEN);
 	  gcc_assert (lhs == NULL_TREE);
-	  tem = unshare_expr (gimple_call_arg (stmt, 0));
-	  lenstmt = gimple_build_call (fn, 1, tem);
+	  tem = unshare_expr (gimple_call_nobnd_arg (stmt, 0));
+	  if (flag_check_pointer_bounds
+	      && POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
+	    lenstmt = gimple_build_call (fn, 2, tem,
+					 gimple_call_arg (stmt, 1));
+	  else
+	    lenstmt = gimple_build_call (fn, 1, tem);
 	  lhs = make_ssa_name (TREE_TYPE (TREE_TYPE (fn)), lenstmt);
 	  gimple_call_set_lhs (lenstmt, lhs);
 	  gimple_set_vuse (lenstmt, gimple_vuse (stmt));
 	  gsi_insert_before (&gsi, lenstmt, GSI_SAME_STMT);
-	  tem = gimple_call_arg (stmt, 0);
+	  tem = gimple_call_nobnd_arg (stmt, 0);
           if (!ptrofftype_p (TREE_TYPE (lhs)))
             {
               lhs = convert_to_ptrofftype (lhs);
@@ -444,7 +456,8 @@ get_string_length (strinfo si)
 	  lenstmt
 	    = gimple_build_assign_with_ops
 	        (POINTER_PLUS_EXPR,
-		 make_ssa_name (TREE_TYPE (gimple_call_arg (stmt, 0)), NULL),
+		 make_ssa_name (TREE_TYPE (gimple_call_nobnd_arg (stmt, 0)),
+				NULL),
 		 tem, lhs);
 	  gsi_insert_before (&gsi, lenstmt, GSI_SAME_STMT);
 	  gimple_call_set_arg (stmt, 0, gimple_assign_lhs (lenstmt));
@@ -452,7 +465,7 @@ get_string_length (strinfo si)
 	  /* FALLTHRU */
 	case BUILT_IN_STRCPY:
 	case BUILT_IN_STRCPY_CHK:
-	  if (gimple_call_num_args (stmt) == 2)
+	  if (gimple_call_num_nobnd_args (stmt) == 2)
 	    fn = builtin_decl_implicit (BUILT_IN_STPCPY);
 	  else
 	    fn = builtin_decl_explicit (BUILT_IN_STPCPY_CHK);
@@ -835,7 +848,7 @@ adjust_last_stmt (strinfo si, gimple stmt, bool is_strcat)
       return;
     }
 
-  len = gimple_call_arg (last.stmt, 2);
+  len = gimple_call_nobnd_arg (last.stmt, 2);
   if (host_integerp (len, 1))
     {
       if (!host_integerp (last.len, 1)
@@ -860,7 +873,9 @@ adjust_last_stmt (strinfo si, gimple stmt, bool is_strcat)
   else
     return;
 
-  gimple_call_set_arg (last.stmt, 2, last.len);
+  gimple_call_set_arg (last.stmt,
+		       gimple_call_get_nobnd_arg_index (last.stmt, 2),
+		       last.len);
   update_stmt (last.stmt);
 }
 
@@ -879,7 +894,7 @@ handle_builtin_strlen (gimple_stmt_iterator *gsi)
   if (lhs == NULL_TREE)
     return;
 
-  src = gimple_call_arg (stmt, 0);
+  src = gimple_call_nobnd_arg (stmt, 0);
   idx = get_stridx (src);
   if (idx)
     {
@@ -950,15 +965,17 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
   int idx;
   tree src;
   gimple stmt = gsi_stmt (*gsi);
+  gimple retbnd_stmt = NULL;
   tree lhs = gimple_call_lhs (stmt);
+  tree retbnd = NULL;
 
   if (lhs == NULL_TREE)
     return;
 
-  if (!integer_zerop (gimple_call_arg (stmt, 1)))
+  if (!integer_zerop (gimple_call_nobnd_arg (stmt, 1)))
     return;
 
-  src = gimple_call_arg (stmt, 0);
+  src = gimple_call_nobnd_arg (stmt, 0);
   idx = get_stridx (src);
   if (idx)
     {
@@ -999,6 +1016,15 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
 					      TREE_TYPE (rhs)))
 		rhs = fold_convert_loc (loc, TREE_TYPE (lhs), rhs);
 	    }
+
+	  /* Remember bounds passed for src.  */
+	  if (flag_check_pointer_bounds
+	      && POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
+	    {
+	      retbnd = gimple_call_arg (stmt, 1);
+	      retbnd_stmt = chkp_retbnd_call_by_val (lhs);
+	    }
+
 	  if (!update_call_from_tree (gsi, rhs))
 	    gimplify_and_update_call_from_tree (gsi, rhs);
 	  stmt = gsi_stmt (*gsi);
@@ -1008,6 +1034,18 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
 	      fprintf (dump_file, "into: ");
 	      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	    }
+
+	  /* Replace retbnd call with assignment if required.  */
+	  if (retbnd_stmt)
+	    {
+	      gimple_stmt_iterator ret_gsi = gsi_for_stmt (retbnd_stmt);
+
+	      if (!update_call_from_tree (&ret_gsi, retbnd))
+		gimplify_and_update_call_from_tree (&ret_gsi, retbnd);
+	      retbnd_stmt = gsi_stmt (ret_gsi);
+	      update_stmt (retbnd_stmt);
+	    }
+
 	  if (si != NULL
 	      && si->endptr == NULL_TREE
 	      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
@@ -1063,8 +1101,8 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   strinfo si, dsi, olddsi, zsi;
   location_t loc;
 
-  src = gimple_call_arg (stmt, 1);
-  dst = gimple_call_arg (stmt, 0);
+  src = gimple_call_nobnd_arg (stmt, 1);
+  dst = gimple_call_nobnd_arg (stmt, 0);
   lhs = gimple_call_lhs (stmt);
   idx = get_stridx (src);
   si = NULL;
@@ -1249,11 +1287,20 @@ handle_builtin_strcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       fprintf (dump_file, "Optimizing: ");
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
     }
-  if (gimple_call_num_args (stmt) == 2)
-    success = update_gimple_call (gsi, fn, 3, dst, src, len);
+  if (gimple_call_num_nobnd_args (stmt) == 2)
+    if (flag_check_pointer_bounds && gimple_call_num_args (stmt) == 4)
+      success = update_gimple_call (gsi, fn, 5, dst, gimple_call_arg (stmt, 1),
+				    src, gimple_call_arg (stmt, 3), len);
+    else
+      success = update_gimple_call (gsi, fn, 3, dst, src, len);
   else
-    success = update_gimple_call (gsi, fn, 4, dst, src, len,
-				  gimple_call_arg (stmt, 2));
+    if (flag_check_pointer_bounds && gimple_call_num_args (stmt) == 5)
+      success = update_gimple_call (gsi, fn, 5, dst, gimple_call_arg (stmt, 1),
+				    src, gimple_call_arg (stmt, 3), len,
+				    gimple_call_arg (stmt, 4));
+    else
+      success = update_gimple_call (gsi, fn, 4, dst, src, len,
+				    gimple_call_nobnd_arg (stmt, 2));
   if (success)
     {
       stmt = gsi_stmt (*gsi);
@@ -1285,9 +1332,9 @@ handle_builtin_memcpy (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   gimple stmt = gsi_stmt (*gsi);
   strinfo si, dsi, olddsi;
 
-  len = gimple_call_arg (stmt, 2);
-  src = gimple_call_arg (stmt, 1);
-  dst = gimple_call_arg (stmt, 0);
+  len = gimple_call_nobnd_arg (stmt, 2);
+  src = gimple_call_nobnd_arg (stmt, 1);
+  dst = gimple_call_nobnd_arg (stmt, 0);
   idx = get_stridx (src);
   if (idx == 0)
     return;
@@ -1425,8 +1472,8 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
   strinfo si, dsi;
   location_t loc;
 
-  src = gimple_call_arg (stmt, 1);
-  dst = gimple_call_arg (stmt, 0);
+  src = gimple_call_nobnd_arg (stmt, 1);
+  dst = gimple_call_nobnd_arg (stmt, 0);
   lhs = gimple_call_lhs (stmt);
 
   didx = get_stridx (dst);
@@ -1531,7 +1578,7 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
 	fn = builtin_decl_explicit (BUILT_IN_MEMCPY_CHK);
       else
 	fn = builtin_decl_explicit (BUILT_IN_STRCPY_CHK);
-      objsz = gimple_call_arg (stmt, 2);
+      objsz = gimple_call_nobnd_arg (stmt, 2);
       break;
     default:
       gcc_unreachable ();
@@ -1567,11 +1614,25 @@ handle_builtin_strcat (enum built_in_function bcode, gimple_stmt_iterator *gsi)
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
     }
   if (srclen != NULL_TREE)
-    success = update_gimple_call (gsi, fn, 3 + (objsz != NULL_TREE),
-				  dst, src, len, objsz);
+    if (flag_check_pointer_bounds
+	&& POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
+      success = update_gimple_call (gsi, fn, 5 + (objsz != NULL_TREE),
+				    dst, gimple_call_arg (stmt, 1),
+				    src, gimple_call_arg (stmt, 3),
+				    len, objsz);
+    else
+      success = update_gimple_call (gsi, fn, 3 + (objsz != NULL_TREE),
+				    dst, src, len, objsz);
   else
-    success = update_gimple_call (gsi, fn, 2 + (objsz != NULL_TREE),
-				  dst, src, objsz);
+    if (flag_check_pointer_bounds
+	&& POINTER_BOUNDS_P (gimple_call_arg (stmt, 1)))
+      success = update_gimple_call (gsi, fn, 4 + (objsz != NULL_TREE),
+				    dst, gimple_call_arg (stmt, 1),
+				    src, gimple_call_arg (stmt, 3),
+				    objsz);
+    else
+      success = update_gimple_call (gsi, fn, 2 + (objsz != NULL_TREE),
+				    dst, src, objsz);
   if (success)
     {
       stmt = gsi_stmt (*gsi);

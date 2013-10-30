@@ -50,8 +50,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "gimple-pretty-print.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "cfgloop.h"
@@ -749,7 +756,8 @@ propagate_necessity (bool aggressive)
 	  /* If this is a call to free which is directly fed by an
 	     allocation function do not mark that necessary through
 	     processing the argument.  */
-	  if (gimple_call_builtin_p (stmt, BUILT_IN_FREE))
+	  if (gimple_call_builtin_p (stmt, BUILT_IN_FREE)
+	      && !flag_check_pointer_bounds)
 	    {
 	      tree ptr = gimple_call_arg (stmt, 0);
 	      gimple def_stmt;
@@ -906,48 +914,6 @@ propagate_necessity (bool aggressive)
 	}
     }
 }
-
-/* Replace all uses of NAME by underlying variable and mark it
-   for renaming.  This assumes the defining statement of NAME is
-   going to be removed.  */
-
-void
-mark_virtual_operand_for_renaming (tree name)
-{
-  tree name_var = SSA_NAME_VAR (name);
-  bool used = false;
-  imm_use_iterator iter;
-  use_operand_p use_p;
-  gimple stmt;
-
-  gcc_assert (VAR_DECL_IS_VIRTUAL_OPERAND (name_var));
-  FOR_EACH_IMM_USE_STMT (stmt, iter, name)
-    {
-      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-        SET_USE (use_p, name_var);
-      used = true;
-    }
-  if (used)
-    mark_virtual_operands_for_renaming (cfun);
-}
-
-/* Replace all uses of the virtual PHI result by its underlying variable
-   and mark it for renaming.  This assumes the PHI node is going to be
-   removed.  */
-
-void
-mark_virtual_phi_result_for_renaming (gimple phi)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Marking result for renaming : ");
-      print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-
-  mark_virtual_operand_for_renaming (gimple_phi_result (phi));
-}
-
 
 /* Remove dead PHI nodes from block BB.  */
 
@@ -1540,15 +1506,6 @@ gate_dce (void)
   return flag_tree_dce != 0;
 }
 
-static bool
-gate_dce_chkp (void)
-{
-  return flag_tree_dce != 0
-    && flag_check_pointers != 0
-    && (flag_chkp_optimize > 0
-	|| (flag_chkp_optimize == -1 && optimize > 0));
-}
-
 namespace {
 
 const pass_data pass_data_dce =
@@ -1574,25 +1531,11 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce (ctxt_); }
+  opt_pass * clone () { return new pass_dce (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_dce (); }
 
 }; // class pass_dce
-
-class pass_dce_chkp : public gimple_opt_pass
-{
-public:
-  pass_dce_chkp (gcc::context *ctxt)
-    : gimple_opt_pass (pass_data_dce, ctxt)
-  {}
-
-  /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce_chkp (ctxt_); }
-  bool gate () { return gate_dce_chkp (); }
-  unsigned int execute () { return tree_ssa_dce (); }
-
-}; // class pass_dce_chkp
 
 } // anon namespace
 
@@ -1600,12 +1543,6 @@ gimple_opt_pass *
 make_pass_dce (gcc::context *ctxt)
 {
   return new pass_dce (ctxt);
-}
-
-gimple_opt_pass *
-make_pass_dce_chkp (gcc::context *ctxt)
-{
-  return new pass_dce_chkp (ctxt);
 }
 
 namespace {
@@ -1633,7 +1570,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce_loop (ctxt_); }
+  opt_pass * clone () { return new pass_dce_loop (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_dce_loop (); }
 
@@ -1672,7 +1609,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_cd_dce (ctxt_); }
+  opt_pass * clone () { return new pass_cd_dce (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_cd_dce (); }
 

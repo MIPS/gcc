@@ -1,0 +1,4 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-ssa-dce.c (propagate_necessity): Avoid alloc/free removal
+	because currently it does not handle bounds properly.

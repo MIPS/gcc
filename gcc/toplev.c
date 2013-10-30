@@ -68,7 +68,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "alloc-pool.h"
-#include "tree-mudflap.h"
 #include "asan.h"
 #include "tsan.h"
 #include "gimple.h"
@@ -568,10 +567,6 @@ compile_file (void)
      basically finished.  */
   if (in_lto_p || !flag_lto || flag_fat_lto_objects)
     {
-      /* Likewise for mudflap static object registrations.  */
-      if (flag_mudflap)
-	mudflap_finish_file ();
-
       /* File-scope initialization for AddressSanitizer.  */
       if (flag_sanitize & SANITIZE_ADDRESS)
         asan_finish_file ();
@@ -579,7 +574,7 @@ compile_file (void)
       if (flag_sanitize & SANITIZE_THREAD)
 	tsan_finish_file ();
 
-      if (flag_check_pointers)
+      if (flag_check_pointer_bounds)
 	chkp_finish_file ();
 
       output_shared_constant_pool ();
@@ -1290,19 +1285,13 @@ process_options (void)
 	   "and -ftree-loop-linear)");
 #endif
 
-  if (flag_mudflap && flag_lto)
-    sorry ("mudflap cannot be used together with link-time optimization");
-
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     {
-      if (flag_lto)
-	sorry ("Pointers checker is not yet fully supported for link-time optimization");
-
       if (targetm.chkp_bound_mode () == VOIDmode)
-	error ("-fcheck-pointers is not supported for this target.");
+	error ("-fcheck-pointers is not supported for this target");
 
       if (!lang_hooks.chkp_supported)
-	flag_check_pointers = 0;
+	flag_check_pointer_bounds = 0;
     }
 
   /* One region RA really helps to decrease the code size.  */
@@ -1590,7 +1579,7 @@ process_options (void)
                                     DK_ERROR, UNKNOWN_LOCATION);
 
   /* Save the current optimization options.  */
-  optimization_default_node = build_optimization_node ();
+  optimization_default_node = build_optimization_node (&global_options);
   optimization_current_node = optimization_default_node;
 }
 

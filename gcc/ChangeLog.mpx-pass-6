@@ -1,0 +1,53 @@
+2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-chkp.c: New.
+	* Makefile.in (OBJS): Add tree-chkp.o.
+	(GTFILES): Add tree-chkp.c.
+	* common.opt (fchkp-check-incomplete-type): New.
+	(fchkp-zero-input-bounds-for-main): New.
+	(fchkp-first-field-has-own-bounds): New.
+	(fchkp-narrow-to-innermost-array): New.
+	(fchkp-optimize): New.
+	(fchkp-use-fast-string-functions): New.
+	(fchkp-use-nochk-string-functions): New.
+	(fchkp-use-static-bounds): New.
+	(fchkp-use-static-const-bounds): New.
+	(fchkp-treat-zero-dynamic-size-as-infinite): New.
+	(fchkp-check-read): New.
+	(fchkp-check-write): New.
+	* cppbuiltin.c (define_builtin_macros_for_compilation_flags): Add
+	__CHKP__ macro when Pointers Checker is on.
+	* passes.def (pass_chkp): New.
+	(pass_chkp_opt): New.
+	* toplev.c (compile_file): Add chkp_finish_file call.
+	* tree-pass.h (make_pass_chkp): New.
+	(make_pass_chkp_opt): New.
+	* tree.h (DECL_BOUNDS_RTL): New.
+	(SET_DECL_BOUNDS_RTL): New.
+	(DECL_BOUNDS): New.
+	(SET_DECL_BOUNDS): New.
+	(chkp_get_rtl_bounds): New.
+	(chkp_set_rtl_bounds): New.
+	(chkp_reset_rtl_bounds): New.
+	(chkp_get_bounds): New.
+	(chkp_set_bounds): New.
+	(chkp_register_var_initializer): New.
+	(chkp_finish_file): New.
+	(chkp_split_slot): New.
+	(chkp_join_splitted_slot): New.
+	(chkp_get_value_with_offs): New.
+	(chkp_copy_bounds_for_stack_parm): New.
+	(chkp_type_has_pointer): New.
+	(chkp_type_bounds_count): New.
+	(chkp_emit_bounds_store): New.
+	(chkp_make_bounds_for_struct_addr): New.
+	(chkp_get_zero_bounds_var): New.
+	(chkp_variable_size_type): New.
+	(chkp_build_make_bounds_call): New.
+	(chkp_build_bndstx_call): New.
+	(chkp_expand_bounds_reset_for_mem): New.
+	(chkp_put_regs_to_expr_list): New.
+	(chkp_find_bound_slots): New.
+	(chkp_build_bndstx): New.
+	(chkp_parm_for_arg_bnd_arg): New.
+	(chkp_retbnd_call_by_val): New.

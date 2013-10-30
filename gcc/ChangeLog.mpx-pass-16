@@ -1,0 +1,4 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-sra.c (find_param_candidates): Bounded param is not
+	a candidate.

@@ -4070,8 +4070,6 @@ These machine description macros help implement varargs:
 
 @hook TARGET_STORE_BOUNDS_FOR_ARG
 
-@hook TARGET_INIT_RETURNED_BOUNDS
-
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions

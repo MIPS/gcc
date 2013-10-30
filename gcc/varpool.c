@@ -33,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "output.h"
 #include "gimple.h"
-#include "tree-ssa.h"
 #include "flags.h"
 
 /* List of hooks triggered on varpool_node events.  */
@@ -253,6 +252,12 @@ ctor_for_folding (tree decl)
 
   if (TREE_CODE (decl) != VAR_DECL
       && TREE_CODE (decl) != CONST_DECL)
+    return error_mark_node;
+
+  /* Static constant bounds are created to be
+     used instead of constants and therefore
+     do not let folding it.  */
+  if (POINTER_BOUNDS_P (decl))
     return error_mark_node;
 
   if (TREE_CODE (decl) == CONST_DECL

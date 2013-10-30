@@ -1,4 +1,4 @@
-/* { dg-do run } */
+/* { dg-do run { xfail *-*-* } } */
 /* { dg-options "-fcheck-pointers -mmpx" } */
 /* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
 

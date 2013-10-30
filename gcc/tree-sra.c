@@ -79,7 +79,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "gimple.h"
-#include "cgraph.h"
+#include "bitmap.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "ipa-prop.h"
@@ -1007,6 +1013,21 @@ completely_scalarize_var (tree var)
   access->grp_total_scalarization = 1;
 
   completely_scalarize_record (var, var, 0, var);
+}
+
+/* Return true if REF has an VIEW_CONVERT_EXPR somewhere in it.  */
+
+static inline bool
+contains_view_convert_expr_p (const_tree ref)
+{
+  while (handled_component_p (ref))
+    {
+      if (TREE_CODE (ref) == VIEW_CONVERT_EXPR)
+	return true;
+      ref = TREE_OPERAND (ref, 0);
+    }
+
+  return false;
 }
 
 /* Search the given tree for a declaration by skipping handled components and
@@ -3642,7 +3663,8 @@ find_param_candidates (void)
 
       if (TREE_THIS_VOLATILE (parm)
 	  || TREE_ADDRESSABLE (parm)
-	  || (!is_gimple_reg_type (type) && is_va_list_type (type)))
+	  || (!is_gimple_reg_type (type) && is_va_list_type (type))
+	  || (flag_check_pointer_bounds && chkp_type_has_pointer (type)))
 	continue;
 
       if (is_unused_scalar_param (parm))

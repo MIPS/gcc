@@ -1,0 +1,10 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-ssa-strlen.c (get_string_length): Take bound args into account.
+	(adjust_last_stmt): Likewise.
+	(handle_builtin_strlen): Likewise.
+	(handle_builtin_strcpy): Likewise.
+	(handle_builtin_memcpy): Likewise.
+	(handle_builtin_strcat): Likewise.
+	(handle_builtin_strchr): Likewise. Remove retbnd call
+	when strchr call is removed.

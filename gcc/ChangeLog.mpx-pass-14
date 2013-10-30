@@ -1,0 +1,5 @@
+2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Handle bound args.
+	Do not propagate bounded args.
+	(ipa_modify_call_arguments): Handle bound args correctly.

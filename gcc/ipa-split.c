@@ -79,9 +79,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "target.h"
-#include "cgraph.h"
 #include "ipa-prop.h"
-#include "tree-ssa.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -475,6 +480,31 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
     }
   if (!VOID_TYPE_P (TREE_TYPE (current_function_decl)))
     call_overhead += estimate_move_cost (TREE_TYPE (current_function_decl));
+
+  /* Currently bounds passing and return is not supported for
+     splitted functions.  */
+  if (flag_check_pointer_bounds)
+    {
+      unsigned i;
+      bitmap_iterator bi;
+      EXECUTE_IF_SET_IN_BITMAP (current->ssa_names_to_pass, 0, i, bi)
+	{
+	  if (POINTER_BOUNDS_P (ssa_name (i)))
+	    {
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		fprintf (dump_file,
+			 "  Refused: need to pass bounds\n");
+	      return;
+	    }
+	}
+      if (chkp_type_has_pointer (TREE_TYPE (current_function_decl)))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "  Refused: need to return bounds\n");
+	  return;
+	}
+    }
 
   if (current->split_size <= call_overhead)
     {
@@ -1111,6 +1141,12 @@ split_function (struct split_point *split_point)
 	if (!useless_type_conversion_p (DECL_ARG_TYPE (parm), TREE_TYPE (arg)))
 	  arg = fold_convert (DECL_ARG_TYPE (parm), arg);
 	args_to_pass.safe_push (arg);
+
+	/* We know no bounds need to be passed but still
+	   pass zero bounds to avoid heterogeneity in calls.  */
+	if (flag_check_pointer_bounds)
+	  for (i = 0; i < chkp_type_bounds_count (TREE_TYPE (arg)); i++)
+	    args_to_pass.safe_push (chkp_get_zero_bounds_var ());
       }
 
   /* See if the split function will return.  */

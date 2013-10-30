@@ -282,7 +282,7 @@ toolexeclibdir = $(glibcxx_toolexeclibdir)
 # or configure.ac to see how they are set.  See GLIBCXX_EXPORT_FLAGS.
 CONFIG_CXXFLAGS = \
 	$(SECTION_FLAGS) $(HWCAP_FLAGS) -frandom-seed=$@ \
-	$(subst yes,-fcheck-pointers -mmpx,$(enable_mpx:no=))
+	$(subst yes,-fcheck-pointer-bounds -fno-chkp-use-static-bounds -fno-chkp-check-incomplete-type -mmpx,$(enable_mpx:no=))
 
 WARN_CXXFLAGS = \
 	$(WARN_FLAGS) $(WERROR_FLAG) -fdiagnostics-show-location=once 
@@ -890,6 +890,7 @@ tr2_headers = \
 	${tr2_srcdir}/bool_set \
 	${tr2_srcdir}/bool_set.tcc \
 	${tr2_srcdir}/dynamic_bitset \
+	${tr2_srcdir}/dynamic_bitset.tcc \
 	${tr2_srcdir}/ratio \
 	${tr2_srcdir}/type_traits
 

@@ -22,4 +22,3 @@ proc check_effective_target_mpx {} {
 	int *foo (int *arg) { return arg; }
     } "-fcheck-pointers -mmpx"]
 }
-

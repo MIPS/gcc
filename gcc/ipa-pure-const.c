@@ -36,15 +36,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "tree-cfg.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "pointer-set.h"
 #include "ggc.h"
 #include "ipa-utils.h"
-#include "gimple.h"
-#include "cgraph.h"
 #include "flags.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
@@ -179,7 +179,7 @@ warn_function_const (tree decl, bool known_finite)
 			 known_finite, warned_about, "const");
 }
 
-void
+static void
 warn_function_noreturn (tree decl)
 {
   static struct pointer_set_t *warned_about;
@@ -189,15 +189,6 @@ warn_function_noreturn (tree decl)
       = suggest_attribute (OPT_Wsuggest_attribute_noreturn, decl,
 			   true, warned_about, "noreturn");
 }
-
-/* Init the function state.  */
-
-static void
-finish_state (void)
-{
-  funct_state_vec.release ();
-}
-
 
 /* Return true if we have a function state for NODE.  */
 
@@ -1488,7 +1479,6 @@ propagate (void)
     if (has_function_state (node))
       free (get_function_state (node));
   funct_state_vec.release ();
-  finish_state ();
   return 0;
 }
 
@@ -1709,7 +1699,7 @@ public:
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_local_pure_const (ctxt_); }
+  opt_pass * clone () { return new pass_local_pure_const (m_ctxt); }
   bool gate () { return gate_pure_const (); }
   unsigned int execute () { return local_pure_const (); }
 
@@ -1722,3 +1712,60 @@ make_pass_local_pure_const (gcc::context *ctxt)
 {
   return new pass_local_pure_const (ctxt);
 }
+
+/* Emit noreturn warnings.  */
+
+static unsigned int
+execute_warn_function_noreturn (void)
+{
+  if (!TREE_THIS_VOLATILE (current_function_decl)
+      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 0)
+    warn_function_noreturn (current_function_decl);
+  return 0;
+}
+
+static bool
+gate_warn_function_noreturn (void)
+{
+  return warn_suggest_attribute_noreturn;
+}
+
+namespace {
+
+const pass_data pass_data_warn_function_noreturn =
+{
+  GIMPLE_PASS, /* type */
+  "*warn_function_noreturn", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_NONE, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_warn_function_noreturn : public gimple_opt_pass
+{
+public:
+  pass_warn_function_noreturn (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_warn_function_noreturn, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_warn_function_noreturn (); }
+  unsigned int execute () { return execute_warn_function_noreturn (); }
+
+}; // class pass_warn_function_noreturn
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_warn_function_noreturn (gcc::context *ctxt)
+{
+  return new pass_warn_function_noreturn (ctxt);
+}
+
+

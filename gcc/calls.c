@@ -40,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "except.h"
 #include "dbgcnt.h"
-#include "tree-ssa.h"
 
 /* Like PREFERRED_STACK_BOUNDARY but in units of bytes, not bits.  */
 #define STACK_BYTES (PREFERRED_STACK_BOUNDARY / BITS_PER_UNIT)
@@ -643,11 +642,10 @@ gimple_alloca_call_p (const_gimple stmt)
 bool
 alloca_call_p (const_tree exp)
 {
+  tree fndecl;
   if (TREE_CODE (exp) == CALL_EXPR
-      && TREE_CODE (CALL_EXPR_FN (exp)) == ADDR_EXPR
-      && (TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (exp), 0)) == FUNCTION_DECL)
-      && (special_function_p (TREE_OPERAND (CALL_EXPR_FN (exp), 0), 0)
-	  & ECF_MAY_BE_ALLOCA))
+      && (fndecl = get_callee_fndecl (exp))
+      && (special_function_p (fndecl, 0) & ECF_MAY_BE_ALLOCA))
     return true;
   return false;
 }
@@ -1201,7 +1199,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* If we pass structure address then we need to
 	   create bounds for it.  */
-	if (flag_check_pointers)
+	if (flag_check_pointer_bounds)
 	  args[j].bounds_value
 	    = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
 
@@ -1213,7 +1211,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* If we see bounds as argument then we need to
 	   assign it to the previous arg.  */
-	if (BOUND_TYPE_P (argtype))
+	if (POINTER_BOUNDS_TYPE_P (argtype))
 	  {
 	    tree bounds_val = arg;
 
@@ -1253,10 +1251,10 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	else
 	  args[j].tree_value = arg;
 
-	/* If pointers checker is on and we pass structure with
+	/* If Pointer Bounds Checker is on and we pass structure with
 	   pointers then we determine here how many bounds should
 	   follow.  */
-	if (flag_check_pointers
+	if (flag_check_pointer_bounds
 	    && !BOUNDED_P (arg)
 	    && chkp_type_has_pointer (argtype))
 	  struct_bounds = chkp_find_bound_slots (argtype);
@@ -1372,7 +1370,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	      else
 		copy = assign_temp (type, 1, 0);
 
-	      store_expr (args[i].tree_value, copy, 0, false);
+	      store_expr (args[i].tree_value, copy, 0, false, NULL);
 
 	      /* Just change the const function to pure and then let
 		 the next test clear the pure based on
@@ -1438,10 +1436,9 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	*must_preallocate = 1;
 
       /* Compute the stack-size of this argument.  */
-      if ((args[i].reg == 0 || args[i].partial != 0
-	   || reg_parm_stack_space > 0
-	   || args[i].pass_on_stack)
-	  && !BOUND_TYPE_P (type))
+      if (args[i].reg == 0 || args[i].partial != 0
+	  || reg_parm_stack_space > 0
+	  || args[i].pass_on_stack)
 	locate_and_pad_parm (mode, type,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
 			     1,
@@ -2656,14 +2653,14 @@ expand_call (tree exp, rtx target, int ignore)
     }
 
   /* Compute number of bound arguments.  */
-  if (flag_check_pointers)
+  if (flag_check_pointer_bounds)
     {
       call_expr_arg_iterator iter;
       tree arg;
       FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	{
 	  tree type = TREE_TYPE (arg);
-	  if (type && BOUND_TYPE_P (type))
+	  if (type && POINTER_BOUNDS_TYPE_P (type))
 	    num_bound_actuals++;
 	}
     }
@@ -4444,8 +4441,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 
   pop_temp_slots ();
 
-  /* Returned bound registers are handled later.  Slit them right now and
-     join back before rerurn.  */
+  /* Returned bound registers are handled later.  */
   chkp_split_slot (valreg, &valreg, &valbnd);
 
   /* Copy the value to the right place.  */
@@ -4933,6 +4929,9 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	    tree bnd_val = TREE_VALUE (bounds);
 	    HOST_WIDE_INT bnd_offs
 	      = TREE_INT_CST_LOW (TREE_PURPOSE (bounds));
+	    rtx slot = arg->stack_slot
+	      ? arg->stack_slot
+	      : gen_rtx_MEM (Pmode, stack_pointer_rtx);
 	    rtx bnd, ptr, ptr_slot;
 
 	    /* We have to make a temporary for bounds if
@@ -4948,8 +4947,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	    ptr = arg->pushed_value ? arg->pushed_value : arg->value;
 	    ptr = adjust_address (ptr, Pmode, bnd_offs);
 
-	    ptr_slot = arg->stack_slot;
-	    ptr_slot = adjust_address (arg->stack_slot, Pmode, bnd_offs);
+	    ptr_slot = adjust_address (slot, Pmode, bnd_offs);
 
 	    targetm.calls.store_bounds_for_arg (ptr, ptr_slot, bnd, NULL_RTX);
 
@@ -4958,6 +4956,9 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       else
 	{
 	  rtx ptr = arg->pushed_value ? arg->pushed_value : arg->value;
+	  rtx slot = arg->stack_slot
+	    ? arg->stack_slot
+	    : gen_rtx_MEM (Pmode, stack_pointer_rtx);
 	  rtx bnd;
 
 	  if (TREE_CODE (bounds) == CALL_EXPR)
@@ -4968,7 +4969,7 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
 	  else
 	    bnd = expand_normal (bounds);
 
-	  targetm.calls.store_bounds_for_arg (ptr, arg->stack_slot,
+	  targetm.calls.store_bounds_for_arg (ptr, slot,
 					      bnd, NULL_RTX);
 	}
     }

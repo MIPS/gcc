@@ -2365,8 +2365,8 @@ dbxout_type (tree type, int full)
       dbxout_type (TREE_TYPE (type), 0);
       break;
 
-    case BOUND_TYPE:
-      /* No debug info for bound types supported yet.  */
+    case POINTER_BOUNDS_TYPE:
+      /* No debug info for pointer bounds type supported yet.  */
       break;
 
     default:

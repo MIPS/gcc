@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 /* For host_integerp, tree_low_cst, fold_convert, size_binop, ssize_int,
    TREE_CODE, TYPE_SIZE, int_size_in_bytes,    */
-#include "tree.h"
+#include "tree-core.h"
 /* For GET_MODE_BITSIZE, word_mode */
 #include "machmode.h"
 
@@ -419,7 +419,7 @@ extern void expand_assignment (tree, tree, bool);
    and storing the value into TARGET.
    If SUGGEST_REG is nonzero, copy the value through a register
    and return that register, if that is possible.  */
-extern rtx store_expr (tree, rtx, int, bool);
+extern rtx store_expr (tree, rtx, int, bool, tree);
 
 /* Given an rtx that may include add and multiply operations,
    generate them as insns and return a pseudo-reg containing the value.

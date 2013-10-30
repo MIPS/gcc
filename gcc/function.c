@@ -1618,10 +1618,6 @@ instantiate_virtual_regs_in_insn (rtx insn)
       x = recog_data.operand[i];
       switch (GET_CODE (x))
 	{
-	case PLUS:
-	  for_each_rtx (&x, instantiate_virtual_regs_in_rtx, NULL);
-	  break;
-
 	case MEM:
 	  {
 	    rtx addr = XEXP (x, 0);
@@ -2098,8 +2094,8 @@ use_register_for_decl (const_tree decl)
 
   /* Decl is implicitly addressible by bound stores and loads
      if it is an aggregate holding bounds.  */
-  if (flag_check_pointers && TREE_TYPE (decl)
-      && !BOUNDED_TYPE_P (TREE_TYPE (decl))
+  if (flag_check_pointer_bounds && TREE_TYPE (decl)
+      && !BOUNDED_P (decl)
       && chkp_type_has_pointer (TREE_TYPE (decl)))
     return false;
 
@@ -2360,9 +2356,7 @@ assign_parm_find_data_types (struct assign_parm_data_all *all, tree parm,
   /* NAMED_ARG is a misnomer.  We really mean 'non-variadic'. */
   if (!cfun->stdarg)
     data->named_arg = 1;  /* No variadic parms.  */
-  else if (DECL_CHAIN (parm)
-	   && (!BOUND_TYPE_P (TREE_TYPE (DECL_CHAIN (parm)))
-	       || DECL_CHAIN (DECL_CHAIN (parm))))
+  else if (DECL_CHAIN (parm))
     data->named_arg = 1;  /* Not the last non-variadic parm. */
   else if (targetm.calls.strict_argument_naming (all->args_so_far))
     data->named_arg = 1;  /* Only variadic ones are unnamed.  */
@@ -2566,11 +2560,8 @@ static bool
 assign_parm_is_stack_parm (struct assign_parm_data_all *all,
 			   struct assign_parm_data_one *data)
 {
-  /* Bounds are never passed on stack.  */
-  if (BOUND_TYPE_P (data->passed_type))
-    return false;
   /* Trivially true if we've no incoming register.  */
-  else if (data->entry_parm == NULL)
+  if (data->entry_parm == NULL)
     ;
   /* Also true if we're partially in registers and partially not,
      since we've arranged to drop the entire argument on the stack.  */
@@ -3232,6 +3223,8 @@ static void
 assign_parm_setup_stack (struct assign_parm_data_all *all, tree parm,
 		         struct assign_parm_data_one *data)
 {
+  /* Value must be stored in the stack slot STACK_PARM during function
+     execution.  */
   bool to_conversion = false;
 
   assign_parm_remove_parallels (data);
@@ -3440,7 +3433,7 @@ assign_parms (tree fndecl)
 
       /* Find out where bounds for parameter are.
 	 Load them if required and associate them with parm.  */
-      if (flag_check_pointers
+      if (flag_check_pointer_bounds
 	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
 	{
 	  if (!data.bound_parm || CONST_INT_P (data.bound_parm))
@@ -3474,9 +3467,10 @@ assign_parms (tree fndecl)
 	    }
 	  else if (!AGGREGATE_TYPE_P (data.passed_type))
 	    {
-	      int align = STACK_SLOT_ALIGNMENT (bound_type_node,
-						targetm.chkp_bound_mode (),
-						TYPE_ALIGN (bound_type_node));
+	      int align =
+		STACK_SLOT_ALIGNMENT (pointer_bounds_type_node,
+				      targetm.chkp_bound_mode (),
+				      TYPE_ALIGN (pointer_bounds_type_node));
 	      rtx stack
 		= assign_stack_local (targetm.chkp_bound_mode (),
 				      GET_MODE_SIZE (targetm.chkp_bound_mode ()),
@@ -3516,7 +3510,7 @@ assign_parms (tree fndecl)
 
       /* If parm decl is addressable then we have to store its
 	 bounds.  */
-      if (flag_check_pointers
+      if (flag_check_pointer_bounds
 	  && TREE_ADDRESSABLE (parm)
 	  && data.bound_parm)
 	{
@@ -5315,7 +5309,7 @@ expand_function_end (void)
 					       current_function_decl, true);
       chkp_split_slot (outgoing, &outgoing, &crtl->return_bnd);
 
-      if (flag_check_pointers && GET_CODE (outgoing) == PARALLEL)
+      if (flag_check_pointer_bounds && GET_CODE (outgoing) == PARALLEL)
 	outgoing = XEXP (XVECEXP (outgoing, 0, 0), 0);
 
       /* Mark this as a function return value so integrate will delete the

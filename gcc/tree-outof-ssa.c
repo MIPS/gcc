@@ -27,7 +27,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
-#include "tree-ssa.h"
+#include "sbitmap.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
 #include "dumpfile.h"
 #include "diagnostic-core.h"
 #include "tree-outof-ssa.h"
@@ -297,7 +303,7 @@ insert_value_copy_on_edge (edge e, int dest, tree src, source_location locus)
   else if (src_mode == BLKmode)
     {
       x = SA.partition_to_pseudo[dest];
-      store_expr (src, x, 0, false);
+      store_expr (src, x, 0, false, NULL);
     }
   else
     x = expand_expr (src, SA.partition_to_pseudo[dest],

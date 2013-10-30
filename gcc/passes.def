@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_warn_unused_result);
   NEXT_PASS (pass_diagnose_omp_blocks);
   NEXT_PASS (pass_diagnose_tm_blocks);
-  NEXT_PASS (pass_mudflap_1);
   NEXT_PASS (pass_lower_omp);
   NEXT_PASS (pass_lower_cf);
   NEXT_PASS (pass_lower_tm);
@@ -57,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 
       NEXT_PASS (pass_build_ssa);
       NEXT_PASS (pass_early_warn_uninitialized);
+      NEXT_PASS (pass_chkp);
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
       NEXT_PASS (pass_early_inline);
@@ -150,6 +150,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
+      NEXT_PASS (pass_chkp_opt);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_call_cdce);
       NEXT_PASS (pass_cselim);
@@ -305,11 +306,6 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_cleanup_eh);
   NEXT_PASS (pass_lower_resx);
   NEXT_PASS (pass_nrv);
-  NEXT_PASS (pass_chkp);
-  NEXT_PASS (pass_copy_prop_chkp);
-  NEXT_PASS (pass_chkp_opt);
-  NEXT_PASS (pass_dce_chkp);
-  NEXT_PASS (pass_mudflap_2);
   NEXT_PASS (pass_cleanup_cfg_post_optimizing);
   NEXT_PASS (pass_warn_function_noreturn);
 
