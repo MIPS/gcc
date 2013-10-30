@@ -2847,8 +2847,35 @@ finish_template_decl (tree parms)
 
 // Returns the template type of the class scope being entered. If we're
 // entering a constrained class scope. TYPE is the class template
-// scope being entered. If TYPE is not a class-type (e.g. a typename type),
-// then no fixup is needed.
+// scope being entered and we may need to match the intended type with
+// a constrained specialization. For example:
+//
+//    template<Object T>
+//      struct S { void f(); }; #1
+//
+//    template<Object T>
+//      void S<T>::f() { }      #2
+//
+// We check, in #2, that S<T> refers precisely to the type declared by
+// #1 (i.e., that the constraints match). Note that the following should
+// be an error since there is no specialization of S<T> that is 
+// unconstrained, but this is not diagnosed here.
+//
+//    template<typename T>
+//      void S<T>::f() { }
+//
+// We cannot diagnose this problem here since this function also matches
+// qualified template names that are not part of a definition. For example:
+//
+//    template<Integral T, Floating_point U>
+//      typename pair<T, U>::first_type void f(T, U);
+//
+// Here, it is unlikely that there is a partial specialization of
+// pair constrained for for Integral and Floating_point arguments.
+//
+// The general rule is: if a constrained specialization with matching
+// constraints is found return that type. Alos note that if TYPE is not a 
+// class-type (e.g. a typename type), then no fixup is needed.
 static tree
 fixup_template_type (tree type)
 {
@@ -2866,14 +2893,8 @@ fixup_template_type (tree type)
     return type;
   tree cur_constr = TEMPLATE_PARMS_CONSTRAINTS (parms);
 
-  // Do the constraints match those of the most general template? 
-  // If the constraints are NULL_TREE, this will match the most general
-  // template iff it is unconstrained.
+  // Search for a specialization whose constraints match.
   tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
-  if (equivalent_constraints (cur_constr, DECL_CONSTRAINTS (tmpl)))
-    return type;
-
-  // Can we find a specialization that matches?
   tree specs = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
   while (specs)
     {
@@ -2883,10 +2904,8 @@ fixup_template_type (tree type)
       specs = TREE_CHAIN (specs);
     }
 
-  // Emit an error, but return the type to allow processing to continue.
-  // TODO: We should emit candidates since we've just scanned the 
-  // list of template constraints.
-  error ("type %qT does not match any declarations", type);
+  // If no specialization matches, then must return the type
+  // previously found.
   return type;
 }
 
@@ -2904,7 +2923,7 @@ finish_template_type (tree name, tree args, int entering_scope)
   type = lookup_template_class (name, args,
 				NULL_TREE, NULL_TREE, entering_scope,
 				tf_warning_or_error | tf_user);
-  
+
   // If entering a scope, correct the lookup to account for constraints.
   if (entering_scope)
     type = fixup_template_type (type);
