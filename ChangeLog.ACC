@@ -1,3 +1,11 @@
+30-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Fix generation of declarations of local params in GIMPLE's ACC kernel function
+    
+    * gcc/oacc-low.c(add_assingments_to_ptrs): Use locals generated before
+    * gcc/oacc-low.c(lower_oacc_kernels): Change call params of add_assingments_to_ptrs
+    * gcc/oacc-low.c(generate_local_reg): New function
+    * gcc/oacc-low.c(gather_oacc_fn_locals): Generate locals for assingments
+
 29-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Add generation of declarations of local params in GIMPLE's ACC kernel function
     

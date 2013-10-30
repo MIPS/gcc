@@ -438,7 +438,7 @@ is_pointer(tree arg)
  * D.1988 = a.1;
  */
 static void
-add_assingments_to_ptrs (gimple_seq *seq)
+add_assingments_to_ptrs (gimple_seq *seq, oacc_context* ctx)
 {
   gimple_stmt_iterator gsi;
 
@@ -461,13 +461,12 @@ add_assingments_to_ptrs (gimple_seq *seq)
                 {
                   tree lhs = gimple_assign_lhs (inner_stmt);
                   tree op = gimple_assign_rhs2 (inner_stmt);
-                  const char* id = "_oacc_ptr_tmp";
-
-                  if (DECL_NAME (rhs))
-                    id = IDENTIFIER_POINTER (DECL_NAME (rhs));
 
                   /* _oacc_ptr_tmp = a */
-                  tree convert_var = create_tmp_reg (TREE_TYPE(lhs), id);
+                  tree convert_var =
+                      (tree) splay_tree_lookup(ctx->local_map,
+                                               (splay_tree_key) rhs)->value;
+                  gcc_assert (convert_var);
                   gimple convert_stmt = gimple_build_assign (convert_var, rhs);
                   gsi_insert_before (&inner_gsi, convert_stmt, GSI_SAME_STMT);
 
@@ -501,7 +500,7 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
         }
     body = gimple_seq_copy(orig);
     lower_oacc(&body, ctx);
-    add_assingments_to_ptrs(&body);
+    add_assingments_to_ptrs(&body, ctx);
     child_fn = GIMPLE_ACC_CHILD_FN(stmt);
 
     add_locals(&body, ctx);
@@ -700,28 +699,35 @@ normalize_name(tree name)
     return get_identifier(normal);
 }
 
+static void
+generate_local_reg (splay_tree *local_map, tree arg)
+{
+    const char *id = "_oacc_param";
+    if(DECL_NAME(arg))
+      id = IDENTIFIER_POINTER(DECL_NAME(arg));
+    tree t1 = create_tmp_reg(TREE_TYPE(arg), id);
+    splay_tree_insert(*local_map, (splay_tree_key)arg,
+                                  (splay_tree_value)t1);
+    if(dump_file)
+        {
+            fprintf(dump_file, "Create local reg for: ");
+            print_generic_expr(dump_file, arg, 0);
+            fprintf(dump_file, " reg:");
+            print_generic_expr(dump_file, t1, 0);
+            fprintf(dump_file, "\n");
+        }
+}
+
 static int
 gather_oacc_fn_locals(splay_tree_node node, void* data)
 {
     splay_tree* local_map = (splay_tree*)data;
     tree arg = (tree)node->key;
-    if(is_gimple_reg(arg))
-        {
-            const char *id = "_oacc_param";
-            if(DECL_NAME(arg))
-              id = IDENTIFIER_POINTER(DECL_NAME(arg));
-            tree t1 = create_tmp_reg(TREE_TYPE(arg), id);
-            splay_tree_insert(*local_map, (splay_tree_key)arg,
-                                          (splay_tree_value)t1);
-            if(dump_file)
-                {
-                    fprintf(dump_file, "Create local reg for: ");
-                    print_generic_expr(dump_file, arg, 0);
-                    fprintf(dump_file, " reg:");
-                    print_generic_expr(dump_file, t1, 0);
-                    fprintf(dump_file, "\n");
-                }
-        }
+    if(is_gimple_reg(arg) && !is_pointer (arg))
+        generate_local_reg (local_map, arg);
+    /* We need to add value to the map, since then we use it in assignment. */
+    if(is_pointer (arg))
+        generate_local_reg (local_map, (tree)node->value);
     return 0;
 }
 
