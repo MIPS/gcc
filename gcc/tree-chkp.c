@@ -457,6 +457,14 @@ struct chkp_ctor_stmt_list
   int avail;
 };
 
+/* Return 1 if function FNDECL is instrumented by Pointer
+   Bounds Checker.  */
+bool
+chkp_function_instrumented_p (tree fndecl)
+{
+  return lookup_attribute ("chkp instrumented", DECL_ATTRIBUTES (fndecl));
+}
+
 /* Mark statement S to not be instrumented.  */
 static void
 chkp_mark_stmt (gimple s)
@@ -1792,7 +1800,7 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       return;
     }
 
-  /* Check user builtins are replaced with checks.  */
+  /* Check user builtins are replaced with bound extract.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_GET_PTR_LBOUND
 	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_GET_PTR_UBOUND))
@@ -4408,6 +4416,10 @@ chkp_execute (void)
   chkp_init ();
 
   chkp_instrument_function ();
+
+  DECL_ATTRIBUTES (cfun->decl)
+    = tree_cons (get_identifier ("chkp instrumented"), NULL,
+		 DECL_ATTRIBUTES (cfun->decl));
 
   chkp_fix_cfg ();
 
