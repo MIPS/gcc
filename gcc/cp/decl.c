@@ -9074,6 +9074,12 @@ grokdeclarator (const cp_declarator *declarator,
   if (name == NULL)
     name = decl_context == PARM ? "parameter" : "type name";
 
+  if (concept_p && typedef_p)
+    {
+      error ("%<concept%> cannot appear in a typedef declaration");
+      return error_mark_node;
+    }
+
   if (constexpr_p && typedef_p)
     {
       error ("%<constexpr%> cannot appear in a typedef declaration");
@@ -9387,9 +9393,12 @@ grokdeclarator (const cp_declarator *declarator,
 	       || thread_p)
 	error ("storage class specifiers invalid in parameter declarations");
 
+      /* Function parameters cannot be concept. */
+      if (concept_p)
+          error ("a parameter cannot be declared %<concept%>");
       /* Function parameters cannot be constexpr.  If we saw one, moan
          and pretend it wasn't there.  */
-      if (constexpr_p)
+      else if (constexpr_p)
         {
           error ("a parameter cannot be declared %<constexpr%>");
           constexpr_p = 0;
@@ -10619,6 +10628,11 @@ grokdeclarator (const cp_declarator *declarator,
 			   uqname, ctype);
 		    return error_mark_node;
 		  }
+                if (concept_p)
+                  {
+                    error ("a destructor cannot be %<concept%>");
+                    return error_mark_node;
+                  }
                 if (constexpr_p)
                   {
                     error ("a destructor cannot be %<constexpr%>");
@@ -10632,6 +10646,12 @@ grokdeclarator (const cp_declarator *declarator,
 		       id_declarator->u.id.unqualified_name);
 		return error_mark_node;
 	      }
+	    if (sfk == sfk_constructor)
+                if (concept_p)
+                  {
+                    error ("a constructor cannot be %<concept%>");
+                    return error_mark_node;
+                  }
 
 	    /* Tell grokfndecl if it needs to set TREE_PUBLIC on the node.  */
 	    function_context = (ctype != NULL_TREE) ?
@@ -10645,7 +10665,7 @@ grokdeclarator (const cp_declarator *declarator,
 			       unqualified_id,
 			       virtualp, flags, memfn_quals, rqual, raises,
 			       friendp ? -1 : 0, friendp, publicp,
-                               inlinep | (2 * constexpr_p),
+                               inlinep | (2 * constexpr_p) | (4 * concept_p),
 			       sfk,
 			       funcdef_flag, template_count, in_namespace,
 			       attrlist, declarator->id_loc);
@@ -10739,8 +10759,12 @@ grokdeclarator (const cp_declarator *declarator,
 		    if (declspecs->gnu_thread_keyword_p)
 		      DECL_GNU_TLS_P (decl) = true;
 		  }
-
-		if (constexpr_p && !initialized)
+		if (concept_p)
+		  // TODO: This needs to be revisited once variable
+		  // templates are supported
+		    error ("static data member %qE declared %<concept%>",
+			   unqualified_id);
+		else if (constexpr_p && !initialized)
 		  {
 		    error ("constexpr static data member %qD must have an "
 			   "initializer", decl);
@@ -10749,7 +10773,10 @@ grokdeclarator (const cp_declarator *declarator,
 	      }
 	    else
 	      {
-                if (constexpr_p)
+		if (concept_p)
+		  error ("non-static data member %qE declared %<concept%>",
+			 unqualified_id);
+                else if (constexpr_p)
 		  {
 		    error ("non-static data member %qE declared %<constexpr%>",
 			   unqualified_id);
@@ -10897,6 +10924,15 @@ grokdeclarator (const cp_declarator *declarator,
       {
 	/* It's a variable.  */
 
+	// TODO: This needs to be revisited once variable
+	// templates are supported
+	if (concept_p)
+	  {
+	    error ("variable %qE declared %<concept%>",
+		   unqualified_id);
+	    return error_mark_node;
+	  }
+	
 	/* An uninitialized decl with `extern' is a reference.  */
 	decl = grokvardecl (type, unqualified_id,
 			    declspecs,

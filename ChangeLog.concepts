@@ -1,3 +1,9 @@
+2013-10-26  Ville Voutilainen  <ville.voutilainen@gmail.com>
+        * gcc/cp/decl.c (grokdeclarator): Reject concept keyword
+	in typedefs, function parameters, data members, non-static
+	member functions and variables. Allow static member functions
+	to be concepts.
+
 2013-10-30  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/semantics.c (fixup_template_type): Don't emit errors when
 	no templates can be found with matching constraints.
