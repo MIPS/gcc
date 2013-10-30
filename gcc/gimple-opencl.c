@@ -130,6 +130,7 @@ generate_type(FILE* fp, tree type, tree decl)
       retval = true;
       break;
     case POINTER_TYPE:
+      fprintf(fp, "__global ");
       generate_type(fp, TREE_TYPE(type), decl);
       fprintf(fp, "* ");
       break;
@@ -159,7 +160,8 @@ generate_kernel_header(FILE* fp, tree kernel_fn)
   fprintf(fp, IDENTIFIER_POINTER(DECL_NAME(kernel_fn)));
   fputc('(', fp);
   for(param = DECL_ARGUMENTS(kernel_fn); param; param = DECL_CHAIN(param)) {
-      fprintf(fp, "__global ");
+      if (TREE_CODE(TREE_TYPE(param)) != POINTER_TYPE)
+        fprintf(fp, "__global ");
       generate_var_decl(fp, param);
       if(DECL_CHAIN(param) != NULL_TREE)
         fputc(',', fp);

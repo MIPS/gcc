@@ -1,3 +1,9 @@
+30-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+    Generate __global qualifier for local pointers
+    
+    * gcc/gimple-opencl.c(generate_type): Generate __global for all pointers
+    * gcc/gimple-opencl.c(generate_kernel_header): Remove generating of __global for function pointer parameter
+
 30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Fix required automake version.
 
