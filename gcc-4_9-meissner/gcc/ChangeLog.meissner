@@ -1,3 +1,40 @@
+2013-10-30  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (reg_addr): Add reload_const field for
+	recording helper function to reload constants.  Also add
+	scalar_in_vmx_p field to simplify tests when SF/DFmode can go into
+	Altivec registers.
+	(rs6000_debug_print_mode): Likewise.
+	(rs6000_hard_regno_mode_ok): Likewise.
+	(rs6000_setup_reg_addr_masks): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_preferred_reload_class): Likewise.
+	(rs6000_secondary_reload_toc_costs): New function for secondary
+	reload to figure out how much TOC addressing costs.
+	(rs6000_secondary_reload_memory): Change calling sequence to
+	return extra costs as an argument instead of through a pointer.
+	Return negative if the insn is not in the form that is handled.
+	(rs6000_secondary_reload_constant): New secondary reload helper
+	for moving a floating point constant to a register.
+	(rs6000_secondary_reload): Change rs6000_secondary_reload_memory
+	calling sequence, and call rs6000_secondary_reload_constant.
+	(rs6000_secondary_reload_new): Add preliminary support for
+	SYMBOL_REF, LABEL_REF, and CONST.
+	(print_operand): Use fatal_insn temporarily.
+
+	* config/rs6000/rs6000.md (cmp<mode>_fpr): Don't use %x<n> for
+	condition code register.
+	(extendsfdf2_fpr): Use wu constraint, not wv.
+	(copysign<mode>3_fcpsgn): Use <Fvsx>, not <VSs>.
+	(movdi_internal64): Put spaces in the constraints to make it
+	easier to debug.  Use wg constraint, not wa.  Don't use ws
+	constraint on DImode.
+	(toc_nosplit<mode>): Initial support for TOC operations to support
+	DF/SFmode in Altivec registers.
+	(reload_<SFDF:mode>_<P:mptrsize>_const): New reload helper
+	functions for loading floating point constants to Altivec
+	registers.
+
 2013-10-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000.c (VSX_REG_CLASS_P): Move VSX_REG_CLASS_P
