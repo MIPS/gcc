@@ -43,7 +43,7 @@ AM_CONDITIONAL(GENINSRC, test "$enable_generated_files_in_srcdir" = yes)
 AC_CANONICAL_SYSTEM
 target_alias=${target_alias-$host_alias}
 
-AM_INIT_AUTOMAKE([1.9.0 foreign])
+AM_INIT_AUTOMAKE([1.11.0 foreign])
 AM_ENABLE_MULTILIB(, ..)
 
 # Calculate toolexeclibdir

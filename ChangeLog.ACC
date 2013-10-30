@@ -1,3 +1,8 @@
+30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Fix required automake version.
+
+    * liboacc/configure.ac: Fix automake version.
+    
 30-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Fix generation of declarations of local params in GIMPLE's ACC kernel function
     
