@@ -202,3 +202,4 @@ extern void default_asm_output_ident_directive (const char*);
 
 extern enum machine_mode default_cstore_mode (enum insn_code);
 extern bool default_member_type_forces_blk (const_tree, enum machine_mode);
+extern void default_atomic_assign_expand_fenv (tree *, tree *, tree *);

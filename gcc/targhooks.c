@@ -1567,4 +1567,11 @@ default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
 }
 
+/* Default implementation of TARGET_ATOMIC_ASSIGN_EXPAND_FENV.  */
+
+void
+default_atomic_assign_expand_fenv (tree *, tree *, tree *)
+{
+}
+
 #include "gt-targhooks.h"

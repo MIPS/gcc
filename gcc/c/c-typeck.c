@@ -11351,7 +11351,15 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   add_stmt (func_call);
   params->truncate (0);
 
-  /* TODO if (!integral)  issue feholdexcept (&fenv); */
+  /* Create the expressions for floating-point environment
+     manipulation, if required.  */
+  bool need_fenv = FLOAT_TYPE_P (lhs_type) || FLOAT_TYPE_P (rhs_type);
+  tree hold_call = NULL_TREE, clear_call = NULL_TREE, update_call = NULL_TREE;
+  if (need_fenv)
+    targetm.atomic_assign_expand_fenv (&hold_call, &clear_call, &update_call);
+
+  if (hold_call)
+    add_stmt (hold_call);
 
   /* loop:  */
   add_stmt (loop_label);
@@ -11386,7 +11394,8 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   SET_EXPR_LOCATION (stmt, loc);
   add_stmt (stmt);
   
-  /* TODO if (!integral) issue feclearexcept (FE_ALL_EXCEPT);  */
+  if (clear_call)
+    add_stmt (clear_call);
 
   /* goto loop;  */
   goto_stmt  = build1 (GOTO_EXPR, void_type_node, loop_decl);
@@ -11396,7 +11405,8 @@ build_atomic_assign (location_t loc, tree lhs, enum tree_code modifycode,
   /* done:  */
   add_stmt (done_label);
 
-  /* TODO If (!integral) issue feupdateenv (&fenv)  */
+  if (update_call)
+    add_stmt (update_call);
 
   /* Finish the compound statement.  */
   compound_stmt = c_end_compound_stmt (loc, compound_stmt, false);

@@ -1,3 +1,8 @@
+2013-10-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/atomic/c11-atomic-exec-4.c,
+	gcc.dg/atomic/c11-atomic-exec-5.c: New tests.
+
 2013-10-26  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/c11-atomic-1.c: Add more tests.

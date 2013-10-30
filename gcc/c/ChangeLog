@@ -1,3 +1,8 @@
+2013-10-30  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-typeck.c (build_atomic_assign): Use
+	targetm.atomic_assign_expand_fenv hook.
+
 2013-10-26  Joseph Myers  <joseph@codesourcery.com>
 
 	* c-typeck.c (build_atomic_assign): Fold RHS if not already
