@@ -326,8 +326,14 @@ GCC_STDINT_TYPES
 # * C++11 narrowing conversions in { }
 # So, we only use -pedantic if we can disable those warnings.
 
+# In stage 1, disable -Wformat warnings from old GCCs about new % codes
+AC_ARG_ENABLE(build-format-warnings,
+  AS_HELP_STRING([--disable-build-format-warnings],[don't use -Wformat while building GCC]),
+  [],[enable_build_format_warnings=yes])
+AS_IF([test $enable_build_format_warnings = no],
+      [wf_opt=-Wno-format],[wf_opt=])
 ACX_PROG_CC_WARNING_OPTS(
-	m4_quote(m4_do([-W -Wall -Wno-narrowing -Wwrite-strings -Wcast-qual])), [loose_warn])
+	m4_quote(m4_do([-W -Wall -Wno-narrowing -Wwrite-strings -Wcast-qual $wf_opt])), [loose_warn])
 ACX_PROG_CC_WARNING_OPTS(
 	m4_quote(m4_do([-Wstrict-prototypes -Wmissing-prototypes])),
 	[c_loose_warn])
@@ -974,7 +980,7 @@ AC_CONFIG_COMMANDS([gccdepdir],[
       ${CONFIG_SHELL-/bin/sh} $ac_aux_dir/mkinstalldirs $lang/$DEPDIR
   done], [subdirs="$subdirs" ac_aux_dir=$ac_aux_dir DEPDIR=$DEPDIR])
 
-ZW_PROG_COMPILER_DEPENDENCIES([CC])
+ZW_PROG_COMPILER_DEPENDENCIES([CXX])
 AC_LANG_POP(C++)
 
 # --------

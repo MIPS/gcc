@@ -6404,11 +6404,7 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
       /* If the VLA bound is larger than half the address space, or less
 	 than zero, throw std::bad_array_length.  */
       tree max = convert (ssizetype, TYPE_MAX_VALUE (TYPE_DOMAIN (type)));
-      /* C++1y says we should throw for length <= 0, but we have
-	 historically supported zero-length arrays.  Let's treat that as an
-	 extension to be disabled by -std=c++NN.  */
-      int lower = flag_iso ? 0 : -1;
-      tree comp = build2 (LT_EXPR, boolean_type_node, max, ssize_int (lower));
+      tree comp = build2 (LT_EXPR, boolean_type_node, max, ssize_int (-1));
       comp = build3 (COND_EXPR, void_type_node, comp,
 		     throw_bad_array_length (), void_zero_node);
       finish_expr_stmt (comp);
@@ -6897,7 +6893,11 @@ expand_static_init (tree decl, tree init)
   /* Some variables require no dynamic initialization.  */
   if (!init
       && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
-    return;
+    {
+      /* Make sure the destructor is callable.  */
+      cxx_maybe_build_cleanup (decl, tf_warning_or_error);
+      return;
+    }
 
   if (DECL_THREAD_LOCAL_P (decl) && DECL_GNU_TLS_P (decl)
       && !DECL_FUNCTION_SCOPE_P (decl))
@@ -14296,11 +14296,9 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
     }
   /* Handle ordinary C++ destructors.  */
   type = TREE_TYPE (decl);
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+  if (type_build_dtor_call (type))
     {
-      int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
-      bool has_vbases = (TREE_CODE (type) == RECORD_TYPE
-			 && CLASSTYPE_VBASECLASSES (type));
+      int flags = LOOKUP_NORMAL|LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR;
       tree addr;
       tree call;
 
@@ -14309,14 +14307,12 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
       else
 	addr = build_address (decl);
 
-      /* Optimize for space over speed here.  */
-      if (!has_vbases || flag_expensive_optimizations)
-	flags |= LOOKUP_NONVIRTUAL;
-
       call = build_delete (TREE_TYPE (addr), addr,
 			   sfk_complete_destructor, flags, 0, complain);
       if (call == error_mark_node)
 	cleanup = error_mark_node;
+      else if (TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
+	/* Discard the call.  */;
       else if (cleanup)
 	cleanup = cp_build_compound_expr (cleanup, call, complain);
       else

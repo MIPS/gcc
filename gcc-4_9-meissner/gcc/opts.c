@@ -473,7 +473,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_fschedule_insns, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fschedule_insns2, NULL, 1 },
 #endif
-    { OPT_LEVELS_2_PLUS, OPT_fregmove, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_aliasing, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_freorder_blocks, NULL, 1 },
@@ -1787,12 +1786,6 @@ common_handle_option (struct gcc_options *opts,
     case OPT_fstack_usage:
       opts->x_flag_stack_usage = value;
       opts->x_flag_stack_usage_info = value != 0;
-      break;
-
-    case OPT_ftree_vectorizer_verbose_:
-      /* -ftree-vectorizer-verbose is deprecated. It is defined in
-         -terms of fopt-info=N. */
-      /* Deferred.  */
       break;
 
     case OPT_g:

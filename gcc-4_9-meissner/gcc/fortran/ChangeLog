@@ -1,3 +1,26 @@
+2013-10-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44350
+	* parse.c (parse_spec): Add C1116 constraint
+	check for BLOCK DATA.
+
+2013-10-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/58793
+	* trans-types.c (gfc_typenode_for_spec): Add typenode for
+	BT_HOLLERITH. Note that the length is incorrect but unusable.
+
+	PR fortran/58858
+	* target-memory.c (gfc_element_size): Add element sizes for
+	BT_VOID and BT_ASSUMED, using gfc_typenode_for_spec.
+
+2013-10-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44646
+	* trans-stmt.c (struct forall_info): Add do_concurrent field.
+	(gfc_trans_forall_1): Set it for do concurrent.
+	(gfc_trans_forall_loop): Mark those as annot_expr_ivdep_kind.
+
 2013-10-23  Tobias Burnus  <burnus@net-b.de>
 
 	PR fortran/58793
@@ -1444,7 +1467,7 @@
 	(TS 29113 Status): Add TYPE(*) and DIMENSION(..).
 	(C Interop): Update the section about TS29113.
 
-2013-02-06 Paul Thomas  <pault@gcc.gnu.org>
+2013-02-06  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/55789
 	* trans-array.c (trans_array_constructor): Remove condition
@@ -1541,7 +1564,7 @@
 	(variable_decl): Remove undeclared type error.
 	(gfc_match_import): Use renamed instead of original name.
 
-2013-01-27 Paul Thomas  <pault@gcc.gnu.org>
+2013-01-27  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/55984
 	PR fortran/56047

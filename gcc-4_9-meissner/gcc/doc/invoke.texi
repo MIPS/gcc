@@ -256,7 +256,6 @@ Objective-C and Objective-C++ Dialects}.
 -Wlogical-op -Wlong-long @gol
 -Wmain -Wmaybe-uninitialized -Wmissing-braces  -Wmissing-field-initializers @gol
 -Wmissing-include-dirs @gol
--Wno-mudflap @gol
 -Wno-multichar  -Wnonnull  -Wno-overflow @gol
 -Woverlength-strings  -Wpacked  -Wpacked-bitfield-compat  -Wpadded @gol
 -Wparentheses  -Wpedantic-ms-format -Wno-pedantic-ms-format @gol
@@ -308,7 +307,7 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-ch @gol
 -fdump-tree-ssa@r{[}-@var{n}@r{]} -fdump-tree-pre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-ccp@r{[}-@var{n}@r{]} -fdump-tree-dce@r{[}-@var{n}@r{]} @gol
--fdump-tree-gimple@r{[}-raw@r{]} -fdump-tree-mudflap@r{[}-@var{n}@r{]} @gol
+-fdump-tree-gimple@r{[}-raw@r{]} @gol
 -fdump-tree-dom@r{[}-@var{n}@r{]} @gol
 -fdump-tree-dse@r{[}-@var{n}@r{]} @gol
 -fdump-tree-phiprop@r{[}-@var{n}@r{]} @gol
@@ -322,7 +321,6 @@ Objective-C and Objective-C++ Dialects}.
 -fdump-tree-fre@r{[}-@var{n}@r{]} @gol
 -fdump-tree-vtable-verify @gol
 -fdump-tree-vrp@r{[}-@var{n}@r{]} @gol
--ftree-vectorizer-verbose=@var{n} @gol
 -fdump-tree-storeccp@r{[}-@var{n}@r{]} @gol
 -fdump-final-insns=@var{file} @gol
 -fcompare-debug@r{[}=@var{opts}@r{]}  -fcompare-debug-second @gol
@@ -384,18 +382,18 @@ Objective-C and Objective-C++ Dialects}.
 -floop-parallelize-all -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
 -fmerge-constants -fmodulo-sched -fmodulo-sched-allow-regmoves @gol
--fmove-loop-invariants fmudflap -fmudflapir -fmudflapth -fno-branch-count-reg @gol
+-fmove-loop-invariants -fno-branch-count-reg @gol
 -fno-defer-pop -fno-function-cse -fno-guess-branch-probability @gol
 -fno-inline -fno-math-errno -fno-peephole -fno-peephole2 @gol
 -fno-sched-interblock -fno-sched-spec -fno-signed-zeros @gol
 -fno-toplevel-reorder -fno-trapping-math -fno-zero-initialized-in-bss @gol
--fomit-frame-pointer -foptimize-register-move -foptimize-sibling-calls @gol
+-fomit-frame-pointer -foptimize-sibling-calls @gol
 -fpartial-inlining -fpeel-loops -fpredictive-commoning @gol
 -fprefetch-loop-arrays -fprofile-report @gol
 -fprofile-correction -fprofile-dir=@var{path} -fprofile-generate @gol
 -fprofile-generate=@var{path} @gol
 -fprofile-use -fprofile-use=@var{path} -fprofile-values @gol
--freciprocal-math -free -fregmove -frename-registers -freorder-blocks @gol
+-freciprocal-math -free -frename-registers -freorder-blocks @gol
 -freorder-blocks-and-partition -freorder-functions @gol
 -frerun-cse-after-loop -freschedule-modulo-scheduled-loops @gol
 -frounding-math -fsched2-use-superblocks -fsched-pressure @gol
@@ -668,7 +666,7 @@ Objective-C and Objective-C++ Dialects}.
 -mavx2 -mavx512f -mavx512pf -mavx512er -mavx512cd @gol
 -maes -mpclmul -mfsgsbase -mrdrnd -mf16c -mfma @gol
 -msse4a -m3dnow -mpopcnt -mabm -mbmi -mtbm -mfma4 -mxop -mlzcnt @gol
--mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mthreads @gol
+-mbmi2 -mfxsr -mxsave -mxsaveopt -mrtm -mlwp -mmpx -mthreads @gol
 -mno-align-stringops  -minline-all-stringops @gol
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy}
@@ -1825,7 +1823,7 @@ freestanding and hosted environments.
 Enable handling of OpenMP directives @code{#pragma omp} in C/C++ and
 @code{!$omp} in Fortran.  When @option{-fopenmp} is specified, the
 compiler generates parallel code according to the OpenMP Application
-Program Interface v3.0 @w{@uref{http://www.openmp.org/}}.  This option
+Program Interface v4.0 @w{@uref{http://www.openmp.org/}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
 have support for @option{-pthread}.
 
@@ -4991,11 +4989,6 @@ This option is only supported for C and Objective-C@.  It is implied by
 This option is only active when @option{-fstack-protector} is active.  It
 warns about functions that are not protected against stack smashing.
 
-@item -Wno-mudflap
-@opindex Wno-mudflap
-Suppress warnings about constructs that cannot be instrumented by
-@option{-fmudflap}.
-
 @item -Woverlength-strings
 @opindex Woverlength-strings
 @opindex Wno-overlength-strings
@@ -5828,10 +5821,6 @@ Dump after post-reload optimizations.
 @opindex fdump-rtl-pro_and_epilogue
 Dump after generating the function prologues and epilogues.
 
-@item -fdump-rtl-regmove
-@opindex fdump-rtl-regmove
-Dump after the register move pass.
-
 @item -fdump-rtl-sched1
 @itemx -fdump-rtl-sched2
 @opindex fdump-rtl-sched1
@@ -6200,11 +6189,6 @@ by appending @file{.store_copyprop} to the source file name.
 Dump each function after dead code elimination.  The file name is made by
 appending @file{.dce} to the source file name.
 
-@item mudflap
-@opindex fdump-tree-mudflap
-Dump each function after adding mudflap instrumentation.  The file name is
-made by appending @file{.mudflap} to the source file name.
-
 @item sra
 @opindex fdump-tree-sra
 Dump each function after performing scalar replacement of aggregates.  The
@@ -6375,24 +6359,6 @@ in conflict since only one output file is allowed. In this case, only
 the first option takes effect and the subsequent options are
 ignored. Thus only the @file{vec.miss} is produced which cotaints
 dumps from the vectorizer about missed opportunities.
-
-@item -ftree-vectorizer-verbose=@var{n}
-@opindex ftree-vectorizer-verbose
-This option is deprecated and is implemented in terms of
-@option{-fopt-info}. Please use @option{-fopt-info-@var{kind}} form
-instead, where @var{kind} is one of the valid opt-info options. It
-prints additional optimization information.  For @var{n}=0 no
-diagnostic information is reported.  If @var{n}=1 the vectorizer
-reports each loop that got vectorized, and the total number of loops
-that got vectorized.  If @var{n}=2 the vectorizer reports locations
-which could not be vectorized and the reasons for those. For any
-higher verbosity levels all the analysis and transformation
-information from the vectorizer is reported.
-
-Note that the information output by @option{-ftree-vectorizer-verbose}
-option is sent to @file{stderr}. If the equivalent form
-@option{-fopt-info-@var{options}=@var{filename}} is used then the
-output is sent into @var{filename} instead.
 
 @item -frandom-seed=@var{string}
 @opindex frandom-seed
@@ -6749,7 +6715,6 @@ also turns on the following optimization flags:
 -foptimize-sibling-calls @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
--fregmove @gol
 -freorder-blocks  -freorder-functions @gol
 -frerun-cse-after-loop  @gol
 -fsched-interblock  -fsched-spec @gol
@@ -7071,32 +7036,6 @@ assumptions based on that.
 
 The default is @option{-fzero-initialized-in-bss}.
 
-@item -fmudflap -fmudflapth -fmudflapir
-@opindex fmudflap
-@opindex fmudflapth
-@opindex fmudflapir
-@cindex bounds checking
-@cindex mudflap
-For front-ends that support it (C and C++), instrument all risky
-pointer/array dereferencing operations, some standard library
-string/heap functions, and some other associated constructs with
-range/validity tests.  Modules so instrumented should be immune to
-buffer overflows, invalid heap use, and some other classes of C/C++
-programming errors.  The instrumentation relies on a separate runtime
-library (@file{libmudflap}), which is linked into a program if
-@option{-fmudflap} is given at link time.  Run-time behavior of the
-instrumented program is controlled by the @env{MUDFLAP_OPTIONS}
-environment variable.  See @code{env MUDFLAP_OPTIONS=-help a.out}
-for its options.
-
-Use @option{-fmudflapth} instead of @option{-fmudflap} to compile and to
-link if your program is multi-threaded.  Use @option{-fmudflapir}, in
-addition to @option{-fmudflap} or @option{-fmudflapth}, if
-instrumentation should ignore pointer reads.  This produces less
-instrumentation (and therefore faster execution) and still provides
-some protection against outright memory corrupting writes, but allows
-erroneously read data to propagate within a program.
-
 @item -fthread-jumps
 @opindex fthread-jumps
 Perform optimizations that check to see if a jump branches to a
@@ -7298,20 +7237,6 @@ helpful for the x86-64 architecture, which implicitly zero-extends in 64-bit
 registers after writing to their lower 32-bit half.
 
 Enabled for x86 at levels @option{-O2}, @option{-O3}.
-
-@item -foptimize-register-move
-@itemx -fregmove
-@opindex foptimize-register-move
-@opindex fregmove
-Attempt to reassign register numbers in move instructions and as
-operands of other simple instructions in order to maximize the amount of
-register tying.  This is especially helpful on machines with two-operand
-instructions.
-
-Note @option{-fregmove} and @option{-foptimize-register-move} are the same
-optimization.
-
-Enabled at levels @option{-O2}, @option{-O3}, @option{-Os}.
 
 @item -fira-algorithm=@var{algorithm}
 Use the specified coloring algorithm for the integrated register
@@ -14992,6 +14917,8 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 @itemx -mrtm
 @itemx -mtbm
 @itemx -mno-tbm
+@itemx -mmpx
+@itemx -mno-mpx
 @opindex mmmx
 @opindex mno-mmx
 @opindex msse
@@ -15001,7 +14928,7 @@ preferred alignment to @option{-mpreferred-stack-boundary=2}.
 These switches enable or disable the use of instructions in the MMX, SSE,
 SSE2, SSE3, SSSE3, SSE4.1, AVX, AVX2, AVX512F, AVX512PF, AVX512ER, AVX512CD,
 AES, PCLMUL, FSGSBASE, RDRND, F16C, FMA, SSE4A, FMA4, XOP, LWP, ABM, BMI, BMI2,
-FXSR, XSAVE, XSAVEOPT, LZCNT, RTM or 3DNow!@:
+FXSR, XSAVE, XSAVEOPT, LZCNT, RTM, MPX or 3DNow!@:
 extended instruction sets.
 These extensions are also available as built-in functions: see
 @ref{X86 Built-in Functions}, for details of the functions enabled and

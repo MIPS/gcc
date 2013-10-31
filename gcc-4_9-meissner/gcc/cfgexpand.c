@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "value-prof.h"
 #include "target.h"
+#include "tree-ssa-live.h"
 #include "tree-outof-ssa.h"
 #include "sbitmap.h"
 #include "cfgloop.h"
@@ -1508,7 +1509,7 @@ estimated_stack_frame_size (struct cgraph_node *node)
   HOST_WIDE_INT size = 0;
   size_t i;
   tree var;
-  struct function *fn = DECL_STRUCT_FUNCTION (node->symbol.decl);
+  struct function *fn = DECL_STRUCT_FUNCTION (node->decl);
 
   push_cfun (fn);
 
@@ -4789,14 +4790,18 @@ gimple_expand_cfg (void)
 	  if (e->insns.r)
 	    {
 	      rebuild_jump_labels_chain (e->insns.r);
-	      /* Avoid putting insns before parm_birth_insn.  */
+	      /* Put insns after parm birth, but before
+		 NOTE_INSNS_FUNCTION_BEG.  */
 	      if (e->src == ENTRY_BLOCK_PTR
-		  && single_succ_p (ENTRY_BLOCK_PTR)
-		  && parm_birth_insn)
+		  && single_succ_p (ENTRY_BLOCK_PTR))
 		{
 		  rtx insns = e->insns.r;
 		  e->insns.r = NULL_RTX;
-		  emit_insn_after_noloc (insns, parm_birth_insn, e->dest);
+		  if (NOTE_P (parm_birth_insn)
+		      && NOTE_KIND (parm_birth_insn) == NOTE_INSN_FUNCTION_BEG)
+		    emit_insn_before_noloc (insns, parm_birth_insn, e->dest);
+		  else
+		    emit_insn_after_noloc (insns, parm_birth_insn, e->dest);
 		}
 	      else
 		commit_one_edge_insertion (e);

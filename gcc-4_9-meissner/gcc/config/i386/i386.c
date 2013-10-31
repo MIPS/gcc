@@ -1943,6 +1943,8 @@ enum reg_class const regclass_map[FIRST_PSEUDO_REGISTER] =
   /* Mask registers.  */
   MASK_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS,
   MASK_EVEX_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS, MASK_EVEX_REGS,
+  /* MPX bound registers */
+  BND_REGS, BND_REGS, BND_REGS, BND_REGS,
 };
 
 /* The "default" register map used in 32bit mode.  */
@@ -1959,6 +1961,7 @@ int const dbx_register_map[FIRST_PSEUDO_REGISTER] =
   -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 16-23*/
   -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 24-31*/
   93, 94, 95, 96, 97, 98, 99, 100,      /* Mask registers */
+  101, 102, 103, 104,			/* bound registers */
 };
 
 /* The "default" register map used in 64bit mode.  */
@@ -1975,6 +1978,7 @@ int const dbx64_register_map[FIRST_PSEUDO_REGISTER] =
   67, 68, 69, 70, 71, 72, 73, 74,       /* AVX-512 registers 16-23 */
   75, 76, 77, 78, 79, 80, 81, 82,       /* AVX-512 registers 24-31 */
   118, 119, 120, 121, 122, 123, 124, 125, /* Mask registers */
+  126, 127, 128, 129,			/* bound registers */
 };
 
 /* Define the register numbers to be used in Dwarf debugging information.
@@ -2043,6 +2047,7 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
   -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 16-23*/
   -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 24-31*/
   93, 94, 95, 96, 97, 98, 99, 100,      /* Mask registers */
+  -1, -1, -1, -1,                       /* bound registers */
 };
 
 /* Define parameter passing and return registers.  */
@@ -2469,6 +2474,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
     { "-mrtm",		OPTION_MASK_ISA_RTM },
     { "-mxsave",	OPTION_MASK_ISA_XSAVE },
     { "-mxsaveopt",	OPTION_MASK_ISA_XSAVEOPT },
+    { "-mmpx",          OPTION_MASK_ISA_MPX },
   };
 
   /* Flag options.  */
@@ -2963,6 +2969,7 @@ ix86_option_override_internal (bool main_args_p,
 #define PTA_AVX512ER		(HOST_WIDE_INT_1 << 41)
 #define PTA_AVX512PF		(HOST_WIDE_INT_1 << 42)
 #define PTA_AVX512CD		(HOST_WIDE_INT_1 << 43)
+#define PTA_MPX			(HOST_WIDE_INT_1 << 44)
 
 /* if this reaches 64, need to widen struct pta flags below */
 
@@ -3798,7 +3805,7 @@ ix86_option_override_internal (bool main_args_p,
      codegen.  We may switch to 387 with -ffast-math for size optimized
      functions. */
   else if (fast_math_flags_set_p (&global_options)
-	   && TARGET_SSE2)
+	   && TARGET_SSE2_P (opts->x_ix86_isa_flags))
     ix86_fpmath = FPMATH_SSE;
   else
     opts->x_ix86_fpmath = TARGET_FPMATH_DEFAULT_P (opts->x_ix86_isa_flags);
@@ -4148,6 +4155,11 @@ ix86_conditional_register_usage (void)
       for (i = FIRST_MASK_REG; i <= LAST_MASK_REG; i++)
 	fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
     }
+
+  /* If MPX is disabled, squash the registers.  */
+  if (! TARGET_MPX)
+    for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
+      fixed_regs[i] = call_used_regs[i] = 1, reg_names[i] = "";
 }
 
 
@@ -4553,7 +4565,8 @@ ix86_valid_target_attribute_tree (tree args,
       /* If fpmath= is not set, and we now have sse2 on 32-bit, use it.  */
       if (enum_opts_set.x_ix86_fpmath)
 	opts_set->x_ix86_fpmath = (enum fpmath_unit) 1;
-      else if (!TARGET_64BIT && TARGET_SSE)
+      else if (!TARGET_64BIT_P (opts->x_ix86_isa_flags)
+	       && TARGET_SSE_P (opts->x_ix86_isa_flags))
 	{
 	  opts->x_ix86_fpmath = (enum fpmath_unit) (FPMATH_SSE | FPMATH_387);
 	  opts_set->x_ix86_fpmath = (enum fpmath_unit) 1;
@@ -8869,7 +8882,7 @@ ix86_code_end (void)
       xops[0] = gen_rtx_REG (Pmode, regno);
       xops[1] = gen_rtx_MEM (Pmode, stack_pointer_rtx);
       output_asm_insn ("mov%z0\t{%1, %0|%0, %1}", xops);
-      fputs ("\tret\n", asm_out_file);
+      output_asm_insn ("%!ret", NULL);
       final_end_function ();
       init_insn_lengths ();
       free_after_compilation (cfun);
@@ -8927,7 +8940,7 @@ output_set_got (rtx dest, rtx label)
 
       xops[2] = gen_rtx_SYMBOL_REF (Pmode, ggc_strdup (name));
       xops[2] = gen_rtx_MEM (QImode, xops[2]);
-      output_asm_insn ("call\t%X2", xops);
+      output_asm_insn ("%!call\t%X2", xops);
 
 #if TARGET_MACHO
       /* Output the Mach-O "canonical" pic base label name ("Lxx$pb") here.
@@ -14280,7 +14293,7 @@ print_reg (rtx x, int code, FILE *file)
     case 8:
     case 4:
     case 12:
-      if (! ANY_FP_REG_P (x))
+      if (! ANY_FP_REG_P (x) &&  ! ANY_BND_REG_P (x))
 	putc (code == 8 && TARGET_64BIT ? 'r' : 'e', file);
       /* FALLTHRU */
     case 16:
@@ -14403,6 +14416,7 @@ get_some_local_dynamic_name (void)
    ~ -- print "i" if TARGET_AVX2, "f" otherwise.
    @ -- print a segment register of thread base pointer load
    ^ -- print addr32 prefix if TARGET_64BIT and Pmode != word_mode
+   ! -- print MPX prefix for jxx/call/ret instructions if required.
  */
 
 void
@@ -14897,6 +14911,11 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    fputs ("addr32 ", file);
 	  return;
 
+	case '!':
+	  if (ix86_bnd_prefixed_insn_p (NULL_RTX))
+	    fputs ("bnd ", file);
+	  return;
+
 	default:
 	    output_operand_lossage ("invalid operand code '%c'", code);
 	}
@@ -15039,7 +15058,7 @@ static bool
 ix86_print_operand_punct_valid_p (unsigned char code)
 {
   return (code == '@' || code == '*' || code == '+' || code == '&'
-	  || code == ';' || code == '~' || code == '^');
+	  || code == ';' || code == '~' || code == '^' || code == '!');
 }
 
 /* Print a memory operand whose address is ADDR.  */
@@ -15068,6 +15087,25 @@ ix86_print_operand_address (FILE *file, rtx addr)
       gcc_assert (TARGET_64BIT);
       ok = ix86_decompose_address (XVECEXP (addr, 0, 0), &parts);
       code = 'q';
+    }
+  else if (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_BNDMK_ADDR)
+    {
+      ok = ix86_decompose_address (XVECEXP (addr, 0, 1), &parts);
+      gcc_assert (parts.base == NULL_RTX || parts.index == NULL_RTX);
+      if (parts.base != NULL_RTX)
+	{
+	  parts.index = parts.base;
+	  parts.scale = 1;
+	}
+      parts.base = XVECEXP (addr, 0, 0);
+      addr = XVECEXP (addr, 0, 0);
+    }
+  else if (GET_CODE (addr) == UNSPEC && XINT (addr, 1) == UNSPEC_BNDLDX_ADDR)
+    {
+      ok = ix86_decompose_address (XVECEXP (addr, 0, 0), &parts);
+      gcc_assert (parts.index == NULL_RTX);
+      parts.index = XVECEXP (addr, 0, 1);
+      addr = XVECEXP (addr, 0, 0);
     }
   else
     ok = ix86_decompose_address (addr, &parts);
@@ -16522,6 +16560,12 @@ ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
 	  r = gen_rtx_VEC_CONCAT (GET_MODE (op0), r, m);
 	  emit_move_insn (op0, r);
 	}
+      /* Normal *mov<mode>_internal pattern will handle
+	 unaligned loads just fine if misaligned_operand
+	 is true, and without the UNSPEC it can be combined
+	 with arithmetic instructions.  */
+      else if (misaligned_operand (op1, GET_MODE (op1)))
+	emit_insn (gen_rtx_SET (VOIDmode, op0, op1));
       else
 	emit_insn (load_unaligned (op0, op1));
     }
@@ -16596,7 +16640,7 @@ ix86_avx256_split_vector_move_misalign (rtx op0, rtx op1)
 void
 ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 {
-  rtx op0, op1, m;
+  rtx op0, op1, orig_op0 = NULL_RTX, m;
   rtx (*load_unaligned) (rtx, rtx);
   rtx (*store_unaligned) (rtx, rtx);
 
@@ -16609,7 +16653,16 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	{
 	case MODE_VECTOR_INT:
 	case MODE_INT:
-	  op0 = gen_lowpart (V16SImode, op0);
+	  if (GET_MODE (op0) != V16SImode)
+	    {
+	      if (!MEM_P (op0))
+		{
+		  orig_op0 = op0;
+		  op0 = gen_reg_rtx (V16SImode);
+		}
+	      else
+		op0 = gen_lowpart (V16SImode, op0);
+	    }
 	  op1 = gen_lowpart (V16SImode, op1);
 	  /* FALLTHRU */
 
@@ -16638,6 +16691,8 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	    emit_insn (store_unaligned (op0, op1));
 	  else
 	    gcc_unreachable ();
+	  if (orig_op0)
+	    emit_move_insn (orig_op0, gen_lowpart (GET_MODE (orig_op0), op0));
 	  break;
 
 	default:
@@ -16654,12 +16709,23 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	{
 	case MODE_VECTOR_INT:
 	case MODE_INT:
-	  op0 = gen_lowpart (V32QImode, op0);
+	  if (GET_MODE (op0) != V32QImode)
+	    {
+	      if (!MEM_P (op0))
+		{
+		  orig_op0 = op0;
+		  op0 = gen_reg_rtx (V32QImode);
+		}
+	      else
+		op0 = gen_lowpart (V32QImode, op0);
+	    }
 	  op1 = gen_lowpart (V32QImode, op1);
 	  /* FALLTHRU */
 
 	case MODE_VECTOR_FLOAT:
 	  ix86_avx256_split_vector_move_misalign (op0, op1);
+	  if (orig_op0)
+	    emit_move_insn (orig_op0, gen_lowpart (GET_MODE (orig_op0), op0));
 	  break;
 
 	default:
@@ -16671,15 +16737,30 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 
   if (MEM_P (op1))
     {
+      /* Normal *mov<mode>_internal pattern will handle
+	 unaligned loads just fine if misaligned_operand
+	 is true, and without the UNSPEC it can be combined
+	 with arithmetic instructions.  */
+      if (TARGET_AVX
+	  && (GET_MODE_CLASS (mode) == MODE_VECTOR_INT
+	      || GET_MODE_CLASS (mode) == MODE_VECTOR_FLOAT)
+	  && misaligned_operand (op1, GET_MODE (op1)))
+	emit_insn (gen_rtx_SET (VOIDmode, op0, op1));
       /* ??? If we have typed data, then it would appear that using
 	 movdqu is the only way to get unaligned data loaded with
 	 integer type.  */
-      if (TARGET_SSE2 && GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
+      else if (TARGET_SSE2 && GET_MODE_CLASS (mode) == MODE_VECTOR_INT)
 	{
-	  op0 = gen_lowpart (V16QImode, op0);
+	  if (GET_MODE (op0) != V16QImode)
+	    {
+	      orig_op0 = op0;
+	      op0 = gen_reg_rtx (V16QImode);
+	    }
 	  op1 = gen_lowpart (V16QImode, op1);
 	  /* We will eventually emit movups based on insn attributes.  */
 	  emit_insn (gen_sse2_loaddquv16qi (op0, op1));
+	  if (orig_op0)
+	    emit_move_insn (orig_op0, gen_lowpart (GET_MODE (orig_op0), op0));
 	}
       else if (TARGET_SSE2 && mode == V2DFmode)
         {
@@ -16727,9 +16808,16 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
 	      || TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL
 	      || optimize_insn_for_size_p ())
 	    {
-	      op0 = gen_lowpart (V4SFmode, op0);
+	      if (GET_MODE (op0) != V4SFmode)
+		{
+		  orig_op0 = op0;
+		  op0 = gen_reg_rtx (V4SFmode);
+		}
 	      op1 = gen_lowpart (V4SFmode, op1);
 	      emit_insn (gen_sse_loadups (op0, op1));
+	      if (orig_op0)
+		emit_move_insn (orig_op0,
+				gen_lowpart (GET_MODE (orig_op0), op0));
 	      return;
             }
 
@@ -24283,13 +24371,13 @@ ix86_output_call_insn (rtx insn, rtx call_op)
   if (SIBLING_CALL_P (insn))
     {
       if (direct_p)
-	xasm = "jmp\t%P0";
+	xasm = "%!jmp\t%P0";
       /* SEH epilogue detection requires the indirect branch case
 	 to include REX.W.  */
       else if (TARGET_SEH)
-	xasm = "rex.W jmp %A0";
+	xasm = "%!rex.W jmp %A0";
       else
-	xasm = "jmp\t%A0";
+	xasm = "%!jmp\t%A0";
 
       output_asm_insn (xasm, &call_op);
       return "";
@@ -24326,9 +24414,9 @@ ix86_output_call_insn (rtx insn, rtx call_op)
     }
 
   if (direct_p)
-    xasm = "call\t%P0";
+    xasm = "%!call\t%P0";
   else
-    xasm = "call\t%A0";
+    xasm = "%!call\t%A0";
 
   output_asm_insn (xasm, &call_op);
 
@@ -30116,7 +30204,7 @@ ix86_get_function_versions_dispatcher (void *decl)
   while (default_version_info != NULL)
     {
       if (is_function_default_version
-	    (default_version_info->this_node->symbol.decl))
+	    (default_version_info->this_node->decl))
         break;
       default_version_info = default_version_info->next;
     }
@@ -30146,7 +30234,7 @@ ix86_get_function_versions_dispatcher (void *decl)
       struct cgraph_function_version_info *dispatcher_version_info = NULL;
 
       /* Right now, the dispatching is done via ifunc.  */
-      dispatch_decl = make_dispatcher_decl (default_node->symbol.decl);
+      dispatch_decl = make_dispatcher_decl (default_node->decl);
 
       dispatcher_node = cgraph_get_create_node (dispatch_decl);
       gcc_assert (dispatcher_node != NULL);
@@ -30154,7 +30242,7 @@ ix86_get_function_versions_dispatcher (void *decl)
       dispatcher_version_info
 	= insert_new_cgraph_node_version (dispatcher_node);
       dispatcher_version_info->next = default_version_info;
-      dispatcher_node->symbol.definition = 1;
+      dispatcher_node->definition = 1;
 
       /* Set the dispatcher for all the versions.  */
       it_v = default_version_info;
@@ -30167,7 +30255,7 @@ ix86_get_function_versions_dispatcher (void *decl)
   else
 #endif
     {
-      error_at (DECL_SOURCE_LOCATION (default_node->symbol.decl),
+      error_at (DECL_SOURCE_LOCATION (default_node->decl),
 		"multiversioning needs ifunc which is not supported "
 		"on this target");
     }
@@ -30306,13 +30394,13 @@ ix86_generate_version_dispatcher_body (void *node_p)
     return node_version_info->dispatcher_resolver;
 
   /* The first version in the chain corresponds to the default version.  */
-  default_ver_decl = node_version_info->next->this_node->symbol.decl;
+  default_ver_decl = node_version_info->next->this_node->decl;
 
   /* node is going to be an alias, so remove the finalized bit.  */
-  node->symbol.definition = false;
+  node->definition = false;
 
   resolver_decl = make_resolver_func (default_ver_decl,
-				      node->symbol.decl, &empty_bb);
+				      node->decl, &empty_bb);
 
   node_version_info->dispatcher_resolver = resolver_decl;
 
@@ -30329,10 +30417,10 @@ ix86_generate_version_dispatcher_body (void *node_p)
 	 not.  This happens for methods in derived classes that override
 	 virtual methods in base classes but are not explicitly marked as
 	 virtual.  */
-      if (DECL_VINDEX (versn->symbol.decl))
+      if (DECL_VINDEX (versn->decl))
 	sorry ("Virtual function multiversioning not supported");
 
-      fn_ver_vec.safe_push (versn->symbol.decl);
+      fn_ver_vec.safe_push (versn->decl);
     }
 
   dispatch_function_versions (resolver_decl, &fn_ver_vec, &empty_bb);
@@ -34319,6 +34407,7 @@ ix86_class_likely_spilled_p (reg_class_t rclass)
       case SSE_FIRST_REG:
       case FP_TOP_REG:
       case FP_SECOND_REG:
+      case BND_REGS:
 	return true;
 
       default:
@@ -34667,6 +34756,8 @@ ix86_hard_regno_mode_ok (int regno, enum machine_mode mode)
     return VALID_FP_MODE_P (mode);
   if (MASK_REGNO_P (regno))
     return VALID_MASK_REG_MODE (mode);
+  if (BND_REGNO_P (regno))
+    return VALID_BND_REG_MODE (mode);
   if (SSE_REGNO_P (regno))
     {
       /* We implement the move patterns for all vector modes into and
@@ -35478,6 +35569,10 @@ x86_order_regs_for_local_alloc (void)
 
    /* Mask register.  */
    for (i = FIRST_MASK_REG; i <= LAST_MASK_REG; i++)
+     reg_alloc_order [pos++] = i;
+
+   /* MPX bound registers.  */
+   for (i = FIRST_BND_REG; i <= LAST_BND_REG; i++)
      reg_alloc_order [pos++] = i;
 
    /* x87 registers.  */
@@ -41911,6 +42006,65 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
 
   set_unique_reg_note (get_last_insn (), REG_EQUAL,
 		       gen_rtx_MULT (mode, op1, op2));
+}
+
+/* Return 1 if control tansfer instruction INSN
+   should be encoded with bnd prefix.
+   If insn is NULL then return 1 when control
+   transfer instructions should be prefixed with
+   bnd by default for current function.  */
+
+bool
+ix86_bnd_prefixed_insn_p (rtx insn ATTRIBUTE_UNUSED)
+{
+  return false;
+}
+
+void
+ix86_expand_sse2_abs (rtx op0, rtx op1)
+{
+  enum machine_mode mode = GET_MODE (op0);
+  rtx tmp0, tmp1;
+
+  switch (mode)
+    {
+      /* For 32-bit signed integer X, the best way to calculate the absolute
+	 value of X is (((signed) X >> (W-1)) ^ X) - ((signed) X >> (W-1)).  */
+      case V4SImode:
+	tmp0 = expand_simple_binop (mode, ASHIFTRT, op1,
+				    GEN_INT (GET_MODE_BITSIZE
+						 (GET_MODE_INNER (mode)) - 1),
+				    NULL, 0, OPTAB_DIRECT);
+	if (tmp0)
+	  tmp1 = expand_simple_binop (mode, XOR, op1, tmp0,
+				      NULL, 0, OPTAB_DIRECT);
+	if (tmp0 && tmp1)
+	  expand_simple_binop (mode, MINUS, tmp1, tmp0,
+			       op0, 0, OPTAB_DIRECT);
+	break;
+
+      /* For 16-bit signed integer X, the best way to calculate the absolute
+	 value of X is max (X, -X), as SSE2 provides the PMAXSW insn.  */
+      case V8HImode:
+	tmp0 = expand_unop (mode, neg_optab, op1, NULL_RTX, 0);
+	if (tmp0)
+	  expand_simple_binop (mode, SMAX, op1, tmp0, op0, 0,
+			       OPTAB_DIRECT);
+	break;
+
+      /* For 8-bit signed integer X, the best way to calculate the absolute
+	 value of X is min ((unsigned char) X, (unsigned char) (-X)),
+	 as SSE2 provides the PMINUB insn.  */
+      case V16QImode:
+	tmp0 = expand_unop (mode, neg_optab, op1, NULL_RTX, 0);
+	if (tmp0)
+	  expand_simple_binop (V16QImode, UMIN, op1, tmp0, op0, 0,
+			       OPTAB_DIRECT);
+	break;
+
+      default:
+	break;
+    }
 }
 
 /* Expand an insert into a vector register through pinsr insn.

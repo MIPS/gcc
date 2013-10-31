@@ -67,7 +67,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "tree-ssa-loop.h"
+#include "tree-ssa-loop-manip.h"
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
@@ -552,7 +552,7 @@ increase_alignment (void)
   /* Increase the alignment of all global arrays for vectorization.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
     {
-      tree vectype, decl = vnode->symbol.decl;
+      tree vectype, decl = vnode->decl;
       tree t;
       unsigned int alignment;
 

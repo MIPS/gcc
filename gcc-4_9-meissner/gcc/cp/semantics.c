@@ -726,9 +726,15 @@ begin_while_stmt (void)
    WHILE_STMT.  */
 
 void
-finish_while_stmt_cond (tree cond, tree while_stmt)
+finish_while_stmt_cond (tree cond, tree while_stmt, bool ivdep)
 {
   finish_cond (&WHILE_COND (while_stmt), maybe_convert_cond (cond));
+  if (ivdep && cond != error_mark_node)
+    WHILE_COND (while_stmt) = build2 (ANNOTATE_EXPR,
+				      TREE_TYPE (WHILE_COND (while_stmt)),
+				      WHILE_COND (while_stmt),
+				      build_int_cst (integer_type_node,
+						     annot_expr_ivdep_kind));
   simplify_loop_decl_cond (&WHILE_COND (while_stmt), WHILE_BODY (while_stmt));
 }
 
@@ -771,9 +777,12 @@ finish_do_body (tree do_stmt)
    COND is as indicated.  */
 
 void
-finish_do_stmt (tree cond, tree do_stmt)
+finish_do_stmt (tree cond, tree do_stmt, bool ivdep)
 {
   cond = maybe_convert_cond (cond);
+  if (ivdep && cond != error_mark_node)
+    cond = build2 (ANNOTATE_EXPR, TREE_TYPE (cond), cond,
+		   build_int_cst (integer_type_node, annot_expr_ivdep_kind));
   DO_COND (do_stmt) = cond;
 }
 
@@ -876,9 +885,15 @@ finish_for_init_stmt (tree for_stmt)
    FOR_STMT.  */
 
 void
-finish_for_cond (tree cond, tree for_stmt)
+finish_for_cond (tree cond, tree for_stmt, bool ivdep)
 {
   finish_cond (&FOR_COND (for_stmt), maybe_convert_cond (cond));
+  if (ivdep && cond != error_mark_node)
+    FOR_COND (for_stmt) = build2 (ANNOTATE_EXPR,
+				  TREE_TYPE (FOR_COND (for_stmt)),
+				  FOR_COND (for_stmt),
+				  build_int_cst (integer_type_node,
+						 annot_expr_ivdep_kind));
   simplify_loop_decl_cond (&FOR_COND (for_stmt), FOR_BODY (for_stmt));
 }
 
@@ -2501,6 +2516,7 @@ finish_compound_literal (tree type, tree compound_literal,
   if ((!at_function_scope_p () || CP_TYPE_CONST_P (type))
       && TREE_CODE (type) == ARRAY_TYPE
       && !TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type)
+      && !cp_unevaluated_operand
       && initializer_constant_valid_p (compound_literal, type))
     {
       tree decl = create_temporary_var (type);
@@ -2521,6 +2537,10 @@ finish_compound_literal (tree type, tree compound_literal,
       decl = pushdecl_top_level (decl);
       DECL_NAME (decl) = make_anon_name ();
       SET_DECL_ASSEMBLER_NAME (decl, DECL_NAME (decl));
+      /* Make sure the destructor is callable.  */
+      tree clean = cxx_maybe_build_cleanup (decl, complain);
+      if (clean == error_mark_node)
+	return error_mark_node;
       return decl;
     }
   else
@@ -8269,12 +8289,18 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
       return t;
     }
 
-  /* Shortcut trivial copy constructor/op=.  */
-  if (call_expr_nargs (t) == 2 && trivial_fn_p (fun))
+  /* Shortcut trivial constructor/op=.  */
+  if (trivial_fn_p (fun))
     {
-      tree arg = convert_from_reference (get_nth_callarg (t, 1));
-      return cxx_eval_constant_expression (old_call, arg, allow_non_constant,
-					   addr, non_constant_p, overflow_p);
+      if (call_expr_nargs (t) == 2)
+	{
+	  tree arg = convert_from_reference (get_nth_callarg (t, 1));
+	  return cxx_eval_constant_expression (old_call, arg, allow_non_constant,
+					       addr, non_constant_p, overflow_p);
+	}
+      else if (TREE_CODE (t) == AGGR_INIT_EXPR
+	       && AGGR_INIT_ZERO_FIRST (t))
+	return build_zero_init (DECL_CONTEXT (fun), NULL_TREE, false);
     }
 
   /* If in direct recursive call, optimize definition search.  */

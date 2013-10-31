@@ -866,6 +866,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case VOID_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
@@ -2095,6 +2096,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " predictor.");
       break;
 
+    case ANNOTATE_EXPR:
+      pp_string (buffer, "ANNOTATE_EXPR <");
+      switch ((enum annot_expr_kind) TREE_INT_CST_LOW (TREE_OPERAND (node, 1)))
+	{
+	case annot_expr_ivdep_kind:
+	  pp_string (buffer, "ivdep, ");
+	  break;
+	}
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_greater (buffer);
+      break;
+
     case RETURN_EXPR:
       pp_string (buffer, "return");
       op0 = TREE_OPERAND (node, 0);
@@ -2629,6 +2642,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case BLOCK:
       dump_block_node (buffer, node, spc, flags);
+      break;
+
+    case CILK_SPAWN_STMT:
+      pp_string (buffer, "_Cilk_spawn ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      break;
+
+    case CILK_SYNC_STMT:
+      pp_string (buffer, "_Cilk_sync");
       break;
 
     default:
@@ -3377,7 +3399,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)
     {
-      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->symbol.order,
+      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->order,
                node->frequency == NODE_FREQUENCY_HOT
                ? " (hot)"
                : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED

@@ -1,3 +1,98 @@
+2013-10-31  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+        Implement C++14 digit separators.
+	* include/include/bits/parse_numbers.h: Change struct _Digit<_Base, '`'>
+	to struct _Digit<_Base, '\''>.
+
+2013-10-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/default_delete/48631_neg.cc: Tweak dg-prune.
+
+2013-10-30  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* testsuite/29_atomics/atomic/operators/pointer_partial_void.cc: Fix
+	and enable VERIFY tests.
+
+2013-10-30  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/shared_ptr (__shared_ptr): Assert non-void pointer.
+	* include/bits/shared_ptr (default_delete): Likewise.
+	* testsuite/20_util/shared_ptr/cons/58839.cc: Do not use
+	default_delete<void>.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: New.
+	* testsuite/20_util/default_delete/void_neg.cc: New.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust line numbers.
+	* testsuite/20_util/unique_ptr/assign/48635_neg.cc: Likewise.
+
+2013-10-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/58839
+	* include/bits/shared_ptr_base.h
+	(__shared_ptr<T>::__shared_ptr(unique_ptr<U,D>&&)): Only use addressof
+	when unique_ptr<U,D>::pointer is not a built-in pointer type.
+	* testsuite/20_util/shared_ptr/cons/58839.cc: New.
+	* testsuite/20_util/enable_shared_from_this/members/assign.cc: New.
+	* testsuite/20_util/enable_shared_from_this/members/unique_ptr.cc: New.
+
+2013-10-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/hashtable.cc (__access_protected_ctor): Define and use
+	new type instead of _Hashtable_ebo_helper.
+	* testsuite/23_containers/unordered_set/
+	not_default_constructible_hash_neg.cc: Adjust line number.
+
+2013-10-28  Tim Shen  <timshen91@gmail.com>
+
+	* regex_executor.tcc: Add comments.
+
+2013-10-26  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.h: Remove unnecessary friends.
+	* include/bits/regex.tcc (__regex_algo_impl<>): Move __get_executor
+	to here.
+	* include/bits/regex_executor.h: Remove _DFSExecutor and _BFSExecutor;
+	they are merged into _Executor. Eliminate quantifier tracking part, so
+	it's faster.
+	* include/bits/regex_executor.tcc: Implement _Executor.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/ungreedy.cc: New.
+	* testsuite/28_regex/algorithms/regex_search/ecma/greedy.cc: Adjust
+	duplicate testcases.
+	* testsuite/performance/28_regex/split.h: New.
+	* testsuite/performance/28_regex/split_bfs.cc: New.
+	* testsuite/util/testsuite_regex.h: Adjust behavior of two-executors
+	agreement judger: do not compare match_results when executor return
+	false.
+
+2013-10-25  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/formatter.h (__check_singular): Add const on
+	iterator reference.
+	* include/debug/functions.h (__check_singular): Likewise.
+	(__check_singular(const _Safe_iterator<_Ite, _Seq>&)): Delete.
+	(__check_dereferenceable(const _Ite&)): Add const on iterator
+	reference.
+	(__check_dereferenceable(const _Safe_local_iterator<>&)): New.
+	* include/debug/safe_iterator.h (__check_singular_aux): Review
+	comment.
+	* testsuite/23_containers/vector/debug/debug_functions.cc: New.
+	* testsuite/23_containers/unordered_set/debug/debug_functions.cc:
+	New.
+
+2013-10-23  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/util/testsuite_containergen.h: New.
+	* testsuite/util/testsuite_iterators.h (test_container<>::val): Add.
+	* testsuite/25_algorithms/nth_element/random_test.cc: New, use the
+	above.
+	* testsuite/25_algorithms/partial_sort/random_test.cc: Likewise.
+	* testsuite/25_algorithms/partial_sort_copy/random_test.cc: Likewise.
+	* testsuite/25_algorithms/sort/random_test.cc: Likewise.
+
+2013-10-23  Jason Merrill  <jason@redhat.com>
+
+	* include/bits/hashtable.h (_Hashtable): Force EBO for _Hash_code_base.
+
 2013-10-23  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR libstdc++/58850
@@ -2611,7 +2706,7 @@
 	* config/abi/pre/gnu.ver: Add new symbols.
 	* config/abi/pre/gnu-versioned-namespace.ver: Add new symbols.
 
-2013-05-08  Andoni Morales Alastruey <ylatuya@gmail.com>
+2013-05-08  Andoni Morales Alastruey  <ylatuya@gmail.com>
 
 	PR libstdc++/57212
 	* include/Makefile.am (_GLIBCXX___MINGW32_GLIBCXX___): Modify
