@@ -1,4 +1,4 @@
-2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-10-31  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* tree-chkp.c: New.
 	* Makefile.in (OBJS): Add tree-chkp.o.
@@ -16,7 +16,7 @@
 	(fchkp-check-read): New.
 	(fchkp-check-write): New.
 	* cppbuiltin.c (define_builtin_macros_for_compilation_flags): Add
-	__CHKP__ macro when Pointers Checker is on.
+	__CHKP__ macro when Pointer Bounds Checker is on.
 	* passes.def (pass_chkp): New.
 	(pass_chkp_opt): New.
 	* toplev.c (compile_file): Add chkp_finish_file call.
@@ -51,3 +51,4 @@
 	(chkp_build_bndstx): New.
 	(chkp_parm_for_arg_bnd_arg): New.
 	(chkp_retbnd_call_by_val): New.
+	(chkp_function_instrumented_p): New.
