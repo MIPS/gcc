@@ -881,7 +881,7 @@ control instrumentation.  Currently available for C, C++ and ObjC.
 
 fchkp-check-incomplete-type
 Common Report Var(flag_chkp_incomplete_type) Init(1)
-Generate checks variables with incomplete type
+Generate pointer bounds checks for variables with incomplete type
 
 fchkp-zero-input-bounds-for-main
 Common Report Var(flag_chkp_zero_input_bounds_for_main) Init(0)
@@ -890,27 +890,27 @@ instrumented binaries are used with legacy libs.
 
 fchkp-first-field-has-own-bounds
 Common RejectNegative Report Var(flag_chkp_first_field_has_own_bounds)
-Forces pointers checker to use narrowed bounds for address of the first field
-in the structure.  By default pointer to the first field has the same bounds
-as pointer to the whole structure.
+Forces Pointer Bounds Checker to use narrowed bounds for address of the first
+field in the structure.  By default pointer to the first field has the same
+bounds as pointer to the whole structure.
 
 fchkp-narrow-to-innermost-array
 Common RejectNegative Report Var(flag_chkp_narrow_to_innermost_arrray)
-Forces pointers checker to use bounds of the innermost arrays in case of
+Forces Pointer Bounds Checker to use bounds of the innermost arrays in case of
 nested static arryas access.  By default outermost array is used.
 
 fchkp-optimize
 Common Report Var(flag_chkp_optimize) Init(-1)
-Allow pointers checker optimizations.  By default allowed
+Allow Pointer Bounds Checker optimizations.  By default allowed
 on optimization levels >0.
 
 fchkp-use-fast-string-functions
 Common Report Var(flag_chkp_use_fast_string_functions) Init(0)
-Allow to use *_nobnd versions of string functions by pointers checker.
+Allow to use *_nobnd versions of string functions by Pointer Bounds Checker.
 
 fchkp-use-nochk-string-functions
 Common Report Var(flag_chkp_use_nochk_string_functions) Init(0)
-Allow to use *_nochk versions of string functions by pointers checker.
+Allow to use *_nochk versions of string functions by Pointer Bounds Checker.
 
 fchkp-use-static-bounds
 Common Report Var(flag_chkp_use_static_bounds) Init(1)
