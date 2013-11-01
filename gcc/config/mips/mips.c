@@ -13027,10 +13027,6 @@ mips_vector_mode_supported_p (enum machine_mode mode)
 static bool
 mips_scalar_mode_supported_p (enum machine_mode mode)
 {
-  /* FIXME CFU.  Temporarily enable TImode.  */
-  if (TARGET_MSA && mode == TImode)
-    return true;
-
   if (ALL_FIXED_POINT_MODE_P (mode)
       && GET_MODE_PRECISION (mode) <= 2 * BITS_PER_WORD)
     return true;
