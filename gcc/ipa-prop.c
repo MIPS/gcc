@@ -1549,34 +1549,22 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
   struct ipa_node_params *info = IPA_NODE_REF (cs->caller);
   struct ipa_edge_args *args = IPA_EDGE_REF (cs);
   gimple call = cs->call_stmt;
-  int n, param_no, param_num, arg_num = gimple_call_num_args (call);
-
-  param_num = arg_num;
-  /* Do not create jump functions for bound args.  */
-  if (flag_check_pointer_bounds)
-    for (n = 0; n < arg_num; n++)
-      if (POINTER_BOUNDS_P (gimple_call_arg (call, n)))
-	param_num--;
+  int n, arg_num = gimple_call_num_nobnd_args (call);
 
   if (arg_num == 0 || args->jump_functions)
     return;
-  vec_safe_grow_cleared (args->jump_functions, param_num);
+  vec_safe_grow_cleared (args->jump_functions, arg_num);
 
   if (gimple_call_internal_p (call))
     return;
   if (ipa_func_spec_opts_forbid_analysis_p (cs->caller))
     return;
 
-  for (n = 0, param_no = 0; n < arg_num; n++)
+  for (n = 0; n < arg_num; n++)
     {
-      if (POINTER_BOUNDS_P (gimple_call_arg (call, n)))
-	continue;
-
-      struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args, param_no);
-      tree arg = gimple_call_arg (call, n);
-      tree param_type = ipa_get_callee_param_type (cs, param_no);
-
-      param_no++;
+      struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args, n);
+      tree arg = gimple_call_nobnd_arg (call, n);
+      tree param_type = ipa_get_callee_param_type (cs, n);
 
       /* No optimization for bounded types yet implemented.  */
       if (flag_check_pointer_bounds
@@ -3545,7 +3533,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
   int i, len;
 
   len = adjustments.length ();
-  vargs.create (MAX (gimple_call_num_args (stmt), (unsigned)len));
+  vargs.create (gimple_call_num_args (stmt));
   callee_decl = !cs ? gimple_call_fndecl (stmt) : cs->callee->symbol.decl;
   ipa_remove_stmt_references ((symtab_node) current_node, stmt);
 
