@@ -2023,15 +2023,44 @@ chkp_get_entry_block (void)
   return entry_block;
 }
 
-/* Creates a static bounds var of specfified NAME initilized
-   with specified LB and UB values.  */
+/* Return constant static bounds var with specified LB and UB
+   if such var exists in varpool.  Return NULL otherwise.  */
+static tree
+chkp_find_const_bounds_var (HOST_WIDE_INT lb,
+			    HOST_WIDE_INT ub)
+{
+  double_int val = double_int::from_pair (lb, ~ub);
+  struct varpool_node *node;
+
+  FOR_EACH_VARIABLE (node)
+    if (POINTER_BOUNDS_P (node->symbol.decl)
+	&& TREE_READONLY (node->symbol.decl)
+	&& DECL_INITIAL (node->symbol.decl)
+	&& TREE_CODE (DECL_INITIAL (node->symbol.decl)) == INTEGER_CST
+	&& TREE_INT_CST (DECL_INITIAL (node->symbol.decl)) == val)
+      return node->symbol.decl;
+
+  return NULL;
+}
+
+/* Return constant static bounds var with specified bounds LB and UB.
+   If such var does not exists then new var is created with specified NAME.  */
 static tree
 chkp_make_static_const_bounds (HOST_WIDE_INT lb,
-			      HOST_WIDE_INT ub,
-			      const char *name)
+			       HOST_WIDE_INT ub,
+			       const char *name)
 {
-  tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			 get_identifier (name), pointer_bounds_type_node);
+  tree var;
+
+  /* With LTO we may have constant bounds already in varpool.
+     Try to find it.  */
+  var = chkp_find_const_bounds_var (lb, ub);
+
+  if (var)
+    return var;
+
+  var  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+		     get_identifier (name), pointer_bounds_type_node);
 
   TREE_PUBLIC (var) = 1;
   TREE_USED (var) = 1;
