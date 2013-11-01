@@ -2575,12 +2575,10 @@ mips_const_insns (rtx x)
       return mips_build_integer (codes, INTVAL (x));
 
     case CONST_VECTOR:
-      /* CFU TODO!!! We can use ldi.* to load -512 to 511 to MSA registers.  */
-#if 0
       if (TARGET_MSA
 	  && mips_const_vector_same_int_p (x, GET_MODE (x), -512, 511))
 	return 1;
-#endif
+      /* Fallthrough */
 
     case CONST_DOUBLE:
       /* Allow zeros for normal mode, where we can use $0.  */
