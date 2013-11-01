@@ -43375,6 +43375,42 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
   return val;
 }
 
+/* Return the default mangling character when no vector size can be
+   determined from the `processor' clause.  */
+
+static char
+ix86_cilkplus_default_vecsize_mangle (struct cgraph_node *clone
+				      ATTRIBUTE_UNUSED)
+{
+  return 'x';
+}
+
+/* Return the hardware vector size (in bits) for a mangling
+   character.  */
+
+static unsigned int
+ix86_cilkplus_vecsize_for_mangle (char mangle)
+{
+  /* ?? Intel currently has no ISA encoding character for AVX-512.  */
+  switch (mangle)
+    {
+    case 'x':
+      /* xmm (SSE2).  */
+      return 128;
+    case 'y':
+      /* ymm1 (AVX1).  */
+    case 'Y':
+      /* ymm2 (AVX2).  */
+      return 256;
+    case 'z':
+      /* zmm (MIC).  */
+      return 512;
+    default:
+      gcc_unreachable ();
+      return 0;
+    }
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -43746,6 +43782,14 @@ ix86_memmodel_check (unsigned HOST_WIDE_INT val)
 
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS ix86_spill_class
+
+#undef TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE
+#define TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE \
+  ix86_cilkplus_default_vecsize_mangle
+
+#undef TARGET_CILKPLUS_VECSIZE_FOR_MANGLE
+#define TARGET_CILKPLUS_VECSIZE_FOR_MANGLE \
+  ix86_cilkplus_vecsize_for_mangle
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

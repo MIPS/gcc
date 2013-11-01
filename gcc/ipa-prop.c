@@ -3365,24 +3365,18 @@ void
 ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 			      const char *synth_parm_prefix)
 {
-  vec<tree> oparms, otypes;
-  tree orig_type, new_type = NULL;
-  tree old_arg_types, t, new_arg_types = NULL;
-  tree parm, *link = &DECL_ARGUMENTS (fndecl);
-  int i, len = adjustments.length ();
-  tree new_reversed = NULL;
-  bool care_for_types, last_parm_void;
-
   if (!synth_parm_prefix)
     synth_parm_prefix = "SYNTH";
 
-  oparms = ipa_get_vector_of_formal_parms (fndecl);
-  orig_type = TREE_TYPE (fndecl);
-  old_arg_types = TYPE_ARG_TYPES (orig_type);
+  vec<tree> oparms = ipa_get_vector_of_formal_parms (fndecl);
+  tree orig_type = TREE_TYPE (fndecl);
+  tree old_arg_types = TYPE_ARG_TYPES (orig_type);
 
   /* The following test is an ugly hack, some functions simply don't have any
      arguments in their type.  This is probably a bug but well... */
-  care_for_types = (old_arg_types != NULL_TREE);
+  bool care_for_types = (old_arg_types != NULL_TREE);
+  bool last_parm_void;
+  vec<tree> otypes;
   if (care_for_types)
     {
       last_parm_void = (TREE_VALUE (tree_last (old_arg_types))
@@ -3399,13 +3393,20 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
       otypes.create (0);
     }
 
-  for (i = 0; i < len; i++)
+  int len = adjustments.length ();
+  tree *link = &DECL_ARGUMENTS (fndecl);
+  tree new_arg_types = NULL;
+  for (int i = 0; i < len; i++)
     {
       struct ipa_parm_adjustment *adj;
       gcc_assert (link);
 
       adj = &adjustments[i];
-      parm = oparms[adj->base_index];
+      tree parm;
+      if (adj->new_param)
+	parm = NULL;
+      else
+	parm = oparms[adj->base_index];
       adj->base = parm;
 
       if (adj->copy_param)
@@ -3421,8 +3422,18 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 	  tree new_parm;
 	  tree ptype;
 
-	  if (adj->by_ref)
-	    ptype = build_pointer_type (adj->type);
+	  if (adj->simdlen)
+	    {
+	      /* If we have a non-null simdlen but by_ref is true, we
+		 want a vector of pointers.  Build the vector of
+		 pointers here, not a pointer to a vector in the
+		 adj->by_ref case below.  */
+	      ptype = build_vector_type (adj->type, adj->simdlen);
+	    }
+	  else if (adj->by_ref)
+	    {
+	      ptype = build_pointer_type (adj->type);
+	    }
 	  else
 	    ptype = adj->type;
 
@@ -3431,8 +3442,9 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 
 	  new_parm = build_decl (UNKNOWN_LOCATION, PARM_DECL, NULL_TREE,
 				 ptype);
-	  DECL_NAME (new_parm) = create_tmp_var_name (synth_parm_prefix);
-
+	  const char *prefix
+	    = adj->new_param ? adj->new_arg_prefix : synth_parm_prefix;
+	  DECL_NAME (new_parm) = create_tmp_var_name (prefix);
 	  DECL_ARTIFICIAL (new_parm) = 1;
 	  DECL_ARG_TYPE (new_parm) = ptype;
 	  DECL_CONTEXT (new_parm) = fndecl;
@@ -3440,17 +3452,20 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 	  DECL_IGNORED_P (new_parm) = 1;
 	  layout_decl (new_parm, 0);
 
-	  adj->base = parm;
+	  if (adj->new_param)
+	    adj->base = new_parm;
+	  else
+	    adj->base = parm;
 	  adj->reduction = new_parm;
 
 	  *link = new_parm;
-
 	  link = &DECL_CHAIN (new_parm);
 	}
     }
 
   *link = NULL_TREE;
 
+  tree new_reversed = NULL;
   if (care_for_types)
     {
       new_reversed = nreverse (new_arg_types);
@@ -3468,6 +3483,7 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
      Exception is METHOD_TYPEs must have THIS argument.
      When we are asked to remove it, we need to build new FUNCTION_TYPE
      instead.  */
+  tree new_type = NULL;
   if (TREE_CODE (orig_type) != METHOD_TYPE
        || (adjustments[0].copy_param
 	  && adjustments[0].base_index == 0))
@@ -3493,7 +3509,7 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 
   /* This is a new type, not a copy of an old type.  Need to reassociate
      variants.  We can handle everything except the main variant lazily.  */
-  t = TYPE_MAIN_VARIANT (orig_type);
+  tree t = TYPE_MAIN_VARIANT (orig_type);
   if (orig_type != t)
     {
       TYPE_MAIN_VARIANT (new_type) = t;

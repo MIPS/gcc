@@ -54,6 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "gimple-low.h"
 #include "tree-cfgcleanup.h"
+#include "pretty-print.h"
+#include "ipa-prop.h"
 
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two
@@ -10523,6 +10525,886 @@ gimple_opt_pass *
 make_pass_diagnose_omp_blocks (gcc::context *ctxt)
 {
   return new pass_diagnose_omp_blocks (ctxt);
+}
+
+/* SIMD clone supporting code.  */
+
+/* A map for function arguments.  This will map a zero-based integer
+   to the corresponding index into DECL_ARGUMENTS.  */
+class argno_map
+{
+  vec<tree> tree_args;
+ public:
+  /* Default constructor declared but not implemented by design.  The
+     only valid constructor is the TREE version below.  */
+  argno_map ();
+  argno_map (tree fndecl);
+
+  ~argno_map () { tree_args.release (); }
+  unsigned int length () { return tree_args.length (); }
+  tree operator[] (unsigned n) { return tree_args[n]; }
+};
+
+/* FNDECL is the function containing the arguments.  */
+
+argno_map::argno_map (tree fndecl)
+{
+  tree_args.create (5);
+  for (tree t = DECL_ARGUMENTS (fndecl); t; t = DECL_CHAIN (t))
+    tree_args.safe_push (t);
+}
+
+/* Allocate a fresh `simd_clone' and return it.  NARGS is the number
+   of arguments to reserve space for.  */
+
+static struct simd_clone *
+simd_clone_struct_alloc (int nargs)
+{
+  struct simd_clone *clone_info;
+  int len = sizeof (struct simd_clone)
+    + nargs * sizeof (struct simd_clone_arg);
+  clone_info = ggc_alloc_cleared_simd_clone_stat (len PASS_MEM_STAT);
+  return clone_info;
+}
+
+/* Make a copy of the `struct simd_clone' in FROM to TO.  */
+
+static inline void
+simd_clone_struct_copy (struct simd_clone *to, struct simd_clone *from)
+{
+  memcpy (to, from, sizeof (struct simd_clone)
+	  + from->nargs * sizeof (struct simd_clone_arg));
+}
+
+/* Given a simd clone in NEW_NODE, extract the simd specific
+   information from the OMP clauses passed in CLAUSES, and set the
+   relevant bits in the cgraph node.  *INBRANCH_SPECIFIED is set to
+   TRUE if the `inbranch' or `notinbranch' clause specified, otherwise
+   set to FALSE.  */
+
+static void
+simd_clone_clauses_extract (struct cgraph_node *new_node, tree clauses,
+			    bool *inbranch_specified)
+{
+  tree t;
+  int n = 0;
+  *inbranch_specified = false;
+  for (t = DECL_ARGUMENTS (new_node->decl); t; t = DECL_CHAIN (t))
+    ++n;
+
+  /* To distinguish from an OpenMP simd clone, Cilk Plus functions to
+     be cloned have a distinctive artificial label in addition to "omp
+     declare simd".  */
+  bool cilk_clone
+    = (flag_enable_cilkplus
+       && lookup_attribute ("cilk plus elemental",
+			    DECL_ATTRIBUTES (new_node->decl)));
+
+  /* Allocate one more than needed just in case this is an in-branch
+     clone which will require a mask argument.  */
+  struct simd_clone *clone_info = simd_clone_struct_alloc (n + 1);
+  clone_info->nargs = n;
+  clone_info->cilk_elemental = cilk_clone;
+  gcc_assert (!new_node->simdclone);
+  new_node->simdclone = clone_info;
+
+  if (!clauses)
+    return;
+  clauses = TREE_VALUE (clauses);
+  if (!clauses || TREE_CODE (clauses) != OMP_CLAUSE)
+    return;
+
+  for (t = clauses; t; t = OMP_CLAUSE_CHAIN (t))
+    {
+      switch (OMP_CLAUSE_CODE (t))
+	{
+	case OMP_CLAUSE_INBRANCH:
+	  clone_info->inbranch = 1;
+	  *inbranch_specified = true;
+	  break;
+	case OMP_CLAUSE_NOTINBRANCH:
+	  clone_info->inbranch = 0;
+	  *inbranch_specified = true;
+	  break;
+	case OMP_CLAUSE_SIMDLEN:
+	  clone_info->simdlen
+	    = TREE_INT_CST_LOW (OMP_CLAUSE_SIMDLEN_EXPR (t));
+	  break;
+	case OMP_CLAUSE_LINEAR:
+	  {
+	    tree decl = OMP_CLAUSE_DECL (t);
+	    tree step = OMP_CLAUSE_LINEAR_STEP (t);
+	    int argno = TREE_INT_CST_LOW (decl);
+	    if (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (t))
+	      {
+		clone_info->args[argno].linear_stride
+		  = LINEAR_STRIDE_YES_VARIABLE;
+		clone_info->args[argno].linear_stride_num
+		  = TREE_INT_CST_LOW (step);
+		gcc_assert (!TREE_INT_CST_HIGH (step));
+	      }
+	    else
+	      {
+		if (TREE_INT_CST_HIGH (step))
+		  {
+		    /* It looks like this can't really happen, since the
+		       front-ends generally issue:
+
+		       warning: integer constant is too large for its type.
+
+		       But let's assume somehow we got past all that.  */
+		    warning_at (DECL_SOURCE_LOCATION (decl), 0,
+				"ignoring large linear step");
+		  }
+		else
+		  {
+		    clone_info->args[argno].linear_stride
+		      = LINEAR_STRIDE_YES_CONSTANT;
+		    clone_info->args[argno].linear_stride_num
+		      = TREE_INT_CST_LOW (step);
+		  }
+	      }
+	    break;
+	  }
+	case OMP_CLAUSE_UNIFORM:
+	  {
+	    tree decl = OMP_CLAUSE_DECL (t);
+	    int argno = tree_low_cst (decl, 1);
+	    clone_info->args[argno].uniform = 1;
+	    break;
+	  }
+	case OMP_CLAUSE_ALIGNED:
+	  {
+	    tree decl = OMP_CLAUSE_DECL (t);
+	    int argno = tree_low_cst (decl, 1);
+	    clone_info->args[argno].alignment
+	      = TREE_INT_CST_LOW (OMP_CLAUSE_ALIGNED_ALIGNMENT (t));
+	    break;
+	  }
+	default:
+	  break;
+	}
+    }
+}
+
+/* Helper function for mangling vectors.  Given a vector size in bits,
+   return the corresponding mangling character.  */
+
+static char
+vecsize_mangle (unsigned int vecsize)
+{
+  switch (vecsize)
+    {
+      /* The Intel Vector ABI does not provide a mangling character
+	 for a 64-bit ISA, but this feels like it's keeping with the
+	 design.  */
+    case 64: return 'w';
+
+    case 128: return 'x';
+    case 256: return 'y';
+    case 512: return 'z';
+    default:
+      /* FIXME: We must come up with a default mangling bit.  */
+      return 'x';
+    }
+}
+
+/* Given a SIMD clone in NEW_NODE, calculate the characteristic data
+   type and return the coresponding type.  The characteristic data
+   type is computed as described in the Intel Vector ABI.  */
+
+static tree
+simd_clone_compute_base_data_type (struct cgraph_node *new_node)
+{
+  tree type = integer_type_node;
+  tree fndecl = new_node->decl;
+
+  /* a) For non-void function, the characteristic data type is the
+        return type.  */
+  if (TREE_CODE (TREE_TYPE (TREE_TYPE (fndecl))) != VOID_TYPE)
+    type = TREE_TYPE (TREE_TYPE (fndecl));
+
+  /* b) If the function has any non-uniform, non-linear parameters,
+        then the characteristic data type is the type of the first
+        such parameter.  */
+  else
+    {
+      argno_map map (fndecl);
+      for (unsigned int i = 0; i < new_node->simdclone->nargs; ++i)
+	{
+	  struct simd_clone_arg arg = new_node->simdclone->args[i];
+	  if (!arg.uniform && arg.linear_stride == LINEAR_STRIDE_NO)
+	    {
+	      type = TREE_TYPE (map[i]);
+	      break;
+	    }
+	}
+    }
+
+  /* c) If the characteristic data type determined by a) or b) above
+        is struct, union, or class type which is pass-by-value (except
+        for the type that maps to the built-in complex data type), the
+        characteristic data type is int.  */
+  if (RECORD_OR_UNION_TYPE_P (type)
+      && !aggregate_value_p (type, NULL)
+      && TREE_CODE (type) != COMPLEX_TYPE)
+    return integer_type_node;
+
+  /* d) If none of the above three classes is applicable, the
+        characteristic data type is int.  */
+
+  return type;
+
+  /* e) For Intel Xeon Phi native and offload compilation, if the
+        resulting characteristic data type is 8-bit or 16-bit integer
+        data type, the characteristic data type is int.  */
+  /* Well, we don't handle Xeon Phi yet.  */
+}
+
+/* Given a SIMD clone in NEW_NODE, compute simdlen and vector size,
+   and store them in NEW_NODE->simdclone.  */
+
+static void
+simd_clone_compute_vecsize_and_simdlen (struct cgraph_node *new_node)
+{
+  char vmangle = new_node->simdclone->vecsize_mangle;
+  /* Vector size for this clone.  */
+  unsigned int vecsize = 0;
+  /* Base vector type, based on function arguments.  */
+  tree base_type = simd_clone_compute_base_data_type (new_node);
+  unsigned int base_type_size = GET_MODE_BITSIZE (TYPE_MODE (base_type));
+
+  /* Calculate everything for Cilk Plus clones with appropriate target
+     support.  This is as specified in the Intel Vector ABI.
+
+     Note: Any target which supports the Cilk Plus processor clause
+     must also provide appropriate target hooks for calculating
+     default ISA/processor (default_vecsize_mangle), and for
+     calculating hardware vector size based on ISA/processor
+     (vecsize_for_mangle).  */
+  if (new_node->simdclone->cilk_elemental
+      && targetm.cilkplus.default_vecsize_mangle)
+    {
+      if (!vmangle)
+	vmangle = targetm.cilkplus.default_vecsize_mangle (new_node);
+      vecsize = targetm.cilkplus.vecsize_for_mangle (vmangle);
+      if (!new_node->simdclone->simdlen)
+	new_node->simdclone->simdlen = vecsize / base_type_size;
+    }
+  /* Calculate everything else generically.  */
+  else
+    {
+      vecsize = GET_MODE_BITSIZE (targetm.vectorize.preferred_simd_mode
+				  (TYPE_MODE (base_type)));
+      vmangle = vecsize_mangle (vecsize);
+      if (!new_node->simdclone->simdlen)
+	new_node->simdclone->simdlen = vecsize / base_type_size;
+    }
+  new_node->simdclone->vecsize_mangle = vmangle;
+  new_node->simdclone->hw_vector_size = vecsize;
+}
+
+static void
+simd_clone_mangle (struct cgraph_node *old_node, struct cgraph_node *new_node)
+{
+  char vecsize_mangle = new_node->simdclone->vecsize_mangle;
+  char mask = new_node->simdclone->inbranch ? 'M' : 'N';
+  unsigned int simdlen = new_node->simdclone->simdlen;
+  unsigned int n;
+  pretty_printer pp;
+
+  gcc_assert (vecsize_mangle && simdlen);
+
+  pp_string (&pp, "_ZGV");
+  pp_character (&pp, vecsize_mangle);
+  pp_character (&pp, mask);
+  pp_decimal_int (&pp, simdlen);
+
+  for (n = 0; n < new_node->simdclone->nargs; ++n)
+    {
+      struct simd_clone_arg arg = new_node->simdclone->args[n];
+
+      if (arg.uniform)
+	pp_character (&pp, 'u');
+      else if (arg.linear_stride == LINEAR_STRIDE_YES_CONSTANT)
+	{
+	  gcc_assert (arg.linear_stride_num != 0);
+	  pp_character (&pp, 'l');
+	  if (arg.linear_stride_num > 1)
+	    pp_unsigned_wide_integer (&pp,
+				      arg.linear_stride_num);
+	}
+      else if (arg.linear_stride == LINEAR_STRIDE_YES_VARIABLE)
+	{
+	  pp_character (&pp, 's');
+	  pp_unsigned_wide_integer (&pp, arg.linear_stride_num);
+	}
+      else
+	pp_character (&pp, 'v');
+      if (arg.alignment)
+	{
+	  pp_character (&pp, 'a');
+	  pp_decimal_int (&pp, arg.alignment);
+	}
+    }
+
+  pp_underscore (&pp);
+  pp_string (&pp,
+	     IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (old_node->decl)));
+  const char *str = pp_formatted_text (&pp);
+  change_decl_assembler_name (new_node->decl,
+			      get_identifier (str));
+}
+
+/* Create a simd clone of OLD_NODE and return it.  */
+
+static struct cgraph_node *
+simd_clone_create (struct cgraph_node *old_node)
+{
+  struct cgraph_node *new_node;
+  new_node = cgraph_function_versioning (old_node, vNULL, NULL, NULL, false,
+					 NULL, NULL, "simdclone");
+
+  new_node->simdclone_of = old_node;
+
+  /* Keep cgraph friends from removing the clone.  */
+  new_node->externally_visible
+    = old_node->externally_visible;
+  TREE_PUBLIC (new_node->decl) = TREE_PUBLIC (old_node->decl);
+  old_node->has_simd_clones = true;
+
+  /* The function cgraph_function_versioning() will force the new
+     symbol local.  Undo this, and inherit external visability from
+     the old node.  */
+  new_node->local.local = old_node->local.local;
+  new_node->externally_visible = old_node->externally_visible;
+
+  return new_node;
+}
+
+/* Adjust the return type of the given function to its appropriate
+   vector counterpart.  Returns a simd array to be used throughout the
+   function as a return value.  */
+
+static tree
+simd_clone_adjust_return_type (struct cgraph_node *node)
+{
+  tree fndecl = node->decl;
+  tree orig_rettype = TREE_TYPE (TREE_TYPE (fndecl));
+
+  tree t = DECL_RESULT (fndecl);
+  /* Adjust the DECL_RESULT.  */
+  if (TREE_TYPE (t) != void_type_node)
+    {
+      TREE_TYPE (t)
+	= build_vector_type (TREE_TYPE (t), node->simdclone->simdlen);
+      DECL_MODE (t) = TYPE_MODE (TREE_TYPE (t));
+    }
+  /* Adjust the function return type.  */
+  if (TREE_TYPE (TREE_TYPE (fndecl)) != void_type_node)
+    {
+      TREE_TYPE (fndecl)
+	= copy_node (TREE_TYPE (fndecl));
+      TREE_TYPE (TREE_TYPE (fndecl))
+	= copy_node (TREE_TYPE (TREE_TYPE (fndecl)));
+      TREE_TYPE (TREE_TYPE (fndecl))
+	= build_vector_type (TREE_TYPE (TREE_TYPE (fndecl)),
+			     node->simdclone->simdlen);
+    }
+
+  /* Set up a SIMD array to use as the return value.  */
+  tree retval;
+  if (orig_rettype != void_type_node)
+    {
+      retval
+	= create_tmp_var_raw (build_array_type_nelts (orig_rettype,
+						      node->simdclone->simdlen),
+			      "retval");
+      gimple_add_tmp_var (retval);
+    }
+  else
+    retval = NULL;
+  return retval;
+}
+
+/* Each vector argument has a corresponding array to be used locally
+   as part of the eventual loop.  Create such temporary array and
+   return it.
+
+   PREFIX is the prefix to be used for the temporary.
+
+   TYPE is the inner element type.
+
+   SIMDLEN is the number of elements.  */
+
+static tree
+create_tmp_simd_array (const char *prefix, tree type, int simdlen)
+{
+  tree atype = build_array_type_nelts (type, simdlen);
+  tree avar = create_tmp_var_raw (atype, prefix);
+  gimple_add_tmp_var (avar);
+  return avar;
+}
+
+/* Modify the function argument types to their corresponding vector
+   counterparts if appropriate.  Also, create one array for each simd
+   argument to be used locally when using the function arguments as
+   part of the loop.
+
+   NODE is the function whose arguments are to be adjusted.
+
+   Returns an adjustment vector that will be filled describing how the
+   argument types will be adjusted.  */
+
+static ipa_parm_adjustment_vec
+simd_clone_adjust_argument_types (struct cgraph_node *node)
+{
+  argno_map args (node->decl);
+  ipa_parm_adjustment_vec adjustments;
+
+  adjustments.create (args.length ());
+  unsigned i;
+  for (i = 0; i < node->simdclone->nargs; ++i)
+    {
+      struct ipa_parm_adjustment adj;
+
+      memset (&adj, 0, sizeof (adj));
+      tree parm = args[i];
+      adj.base_index = i;
+      adj.base = parm;
+
+      node->simdclone->args[i].orig_arg = parm;
+
+      if (node->simdclone->args[i].uniform
+	  || node->simdclone->args[i].linear_stride != LINEAR_STRIDE_NO)
+	{
+	  /* No adjustment necessary for scalar arguments.  */
+	  adj.copy_param = 1;
+	}
+      else
+	{
+	  adj.simdlen = node->simdclone->simdlen;
+	  if (POINTER_TYPE_P (TREE_TYPE (parm)))
+	    adj.by_ref = 1;
+	  adj.type = TREE_TYPE (parm);
+
+	  node->simdclone->args[i].simd_array
+	    = create_tmp_simd_array (IDENTIFIER_POINTER (DECL_NAME (parm)),
+				     TREE_TYPE (parm),
+				     node->simdclone->simdlen);
+	}
+      adjustments.quick_push (adj);
+    }
+
+  if (node->simdclone->inbranch)
+    {
+      struct ipa_parm_adjustment adj;
+
+      memset (&adj, 0, sizeof (adj));
+      adj.new_param = 1;
+      adj.new_arg_prefix = "mask";
+      adj.base_index = i;
+      adj.type
+	= build_vector_type (integer_type_node, node->simdclone->simdlen);
+      adjustments.safe_push (adj);
+
+      /* We have previously allocated one extra entry for the mask.  Use
+	 it and fill it.  */
+      struct simd_clone *sc = node->simdclone;
+      sc->nargs++;
+      sc->args[i].orig_arg = build_decl (UNKNOWN_LOCATION, PARM_DECL, NULL,
+					 integer_type_node);
+      sc->args[i].simd_array
+	= create_tmp_simd_array ("mask", integer_type_node, sc->simdlen);
+    }
+
+  ipa_modify_formal_parameters (node->decl, adjustments, "simd");
+  return adjustments;
+}
+
+/* Initialize and copy the function arguments in NODE to their
+   corresponding local simd arrays.  Returns a fresh gimple_seq with
+   the instruction sequence generated.  */
+
+static gimple_seq
+simd_clone_init_simd_arrays (struct cgraph_node *node,
+			     ipa_parm_adjustment_vec adjustments)
+{
+  gimple_seq seq = NULL;
+  unsigned i = 0;
+
+  for (tree arg = DECL_ARGUMENTS (node->decl);
+       arg;
+       arg = DECL_CHAIN (arg), i++)
+    {
+      if (adjustments[i].copy_param)
+	continue;
+
+      node->simdclone->args[i].vector_arg = arg;
+
+      tree array = node->simdclone->args[i].simd_array;
+      tree t = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (array), arg);
+      t = build2 (MODIFY_EXPR, TREE_TYPE (array), array, t);
+      gimplify_and_add (t, &seq);
+    }
+  return seq;
+}
+
+/* Traverse the function body and perform all modifications as
+   described in ADJUSTMENTS.  At function return, ADJUSTMENTS will be
+   modified such that the replacement/reduction value will now be an
+   offset into the corresponding simd_array.
+
+   This function will replace all function argument uses with their
+   corresponding simd array elements, and ajust the return values
+   accordingly.  */
+
+static void
+ipa_simd_modify_function_body (struct cgraph_node *node,
+			       ipa_parm_adjustment_vec adjustments,
+			       tree retval_array, tree iter)
+{
+  basic_block bb;
+
+  /* Re-use the adjustments array, but this time use it to replace
+     every function argument use to an offset into the corresponding
+     simd_array.  */
+  for (unsigned i = 0; i < node->simdclone->nargs; ++i)
+    {
+      if (!node->simdclone->args[i].vector_arg)
+	continue;
+
+      tree basetype = TREE_TYPE (node->simdclone->args[i].orig_arg);
+      adjustments[i].reduction
+	= build4 (ARRAY_REF,
+		  basetype,
+		  node->simdclone->args[i].simd_array,
+		  iter,
+		  NULL_TREE, NULL_TREE);
+    }
+
+  FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
+    {
+      gimple_stmt_iterator gsi;
+
+      gsi = gsi_start_bb (bb);
+      while (!gsi_end_p (gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+	  bool modified = false;
+	  tree *t;
+	  unsigned i;
+
+	  switch (gimple_code (stmt))
+	    {
+	    case GIMPLE_RETURN:
+	      {
+		/* Replace `return foo' by `retval_array[iter] = foo'.  */
+		tree old_retval = gimple_return_retval (stmt);
+		if (!old_retval)
+		  break;
+		stmt = gimple_build_assign (build4 (ARRAY_REF,
+						    TREE_TYPE (old_retval),
+						    retval_array, iter,
+						    NULL, NULL),
+					    old_retval);
+		gsi_replace (&gsi, stmt, true);
+		modified = true;
+		break;
+	      }
+
+	    case GIMPLE_ASSIGN:
+	      t = gimple_assign_lhs_ptr (stmt);
+	      modified |= sra_ipa_modify_expr (t, false, adjustments);
+	      for (i = 0; i < gimple_num_ops (stmt); ++i)
+		{
+		  t = gimple_op_ptr (stmt, i);
+		  modified |= sra_ipa_modify_expr (t, false, adjustments);
+		}
+	      break;
+
+	    case GIMPLE_CALL:
+	      /* Operands must be processed before the lhs.  */
+	      for (i = 0; i < gimple_call_num_args (stmt); i++)
+		{
+		  t = gimple_call_arg_ptr (stmt, i);
+		  modified |= sra_ipa_modify_expr (t, true, adjustments);
+		}
+
+	      if (gimple_call_lhs (stmt))
+		{
+		  t = gimple_call_lhs_ptr (stmt);
+		  modified |= sra_ipa_modify_expr (t, false, adjustments);
+		}
+	      break;
+
+	    case GIMPLE_ASM:
+	      for (i = 0; i < gimple_asm_ninputs (stmt); i++)
+		{
+		  t = &TREE_VALUE (gimple_asm_input_op (stmt, i));
+		  modified |= sra_ipa_modify_expr (t, true, adjustments);
+		}
+	      for (i = 0; i < gimple_asm_noutputs (stmt); i++)
+		{
+		  t = &TREE_VALUE (gimple_asm_output_op (stmt, i));
+		  modified |= sra_ipa_modify_expr (t, false, adjustments);
+		}
+	      break;
+
+	    default:
+	      for (i = 0; i < gimple_num_ops (stmt); ++i)
+		{
+		  t = gimple_op_ptr (stmt, i);
+		  if (*t)
+		    modified |= sra_ipa_modify_expr (t, true, adjustments);
+		}
+	      break;
+	    }
+
+	  if (modified)
+	    {
+	      gimple_regimplify_operands (stmt, &gsi);
+	      update_stmt (stmt);
+	      if (maybe_clean_eh_stmt (stmt))
+		gimple_purge_dead_eh_edges (gimple_bb (stmt));
+	    }
+	  gsi_next (&gsi);
+	}
+    }
+}
+
+/* Adjust the argument types in NODE to their appropriate vector
+   counterparts.  */
+
+static void
+simd_clone_adjust (struct cgraph_node *node)
+{
+  // FIXME: -------ABI STUFF--------
+  //   0. Create clones for externs.
+  //   1. Arguments split across multiple args.
+  //   2. Which registers to pass in.
+  //   3. Get mangling correct for x86*
+  //   4. Agree on what default clones to generate when simdlen() missing.
+
+  // FIXME: ------- VECTORIZER CHANGES -------
+  //   1. At least the easy, notinbranch cases.
+  //   2. Handle linear/uniform arguments in get_simd_clone/etc.
+  //   3. Bail on non-SLP vectorizer mode.
+
+  // FIXME:  __attribute__((target (something))) if needed
+
+  // FIXME: get_simd_clone() needs optimization.
+
+  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
+
+  tree retval = simd_clone_adjust_return_type (node);
+  ipa_parm_adjustment_vec adjustments = simd_clone_adjust_argument_types (node);
+
+  struct gimplify_ctx gctx;
+  push_gimplify_context (&gctx);
+
+  gimple_seq seq = simd_clone_init_simd_arrays (node, adjustments);
+
+  /* Adjust all uses of vector arguments accordingly.  Adjust all
+     return values accordingly.  */
+  tree iter = create_tmp_var (unsigned_type_node, "iter");
+  ipa_simd_modify_function_body (node, adjustments, retval, iter);
+
+  /* Initialize the iteration variable.  */
+  gimple g
+    = gimple_build_assign_with_ops (INTEGER_CST,
+				    iter,
+				    build_int_cst (unsigned_type_node, 0),
+				    NULL_TREE);
+  gimple_seq_add_stmt (&seq, g);
+
+  basic_block entry_bb = single_succ (ENTRY_BLOCK_PTR);
+  basic_block body_bb = split_block_after_labels (entry_bb)->dest;
+  gimple_stmt_iterator gsi = gsi_after_labels (entry_bb);
+  /* Insert the SIMD array and iv initialization at function
+     entry.  */
+  gsi_insert_seq_before (&gsi, seq, GSI_NEW_STMT);
+
+  pop_gimplify_context (NULL);
+
+  /* Create a new BB right before the original exit BB, to hold the
+     iteration increment and the condition/branch.  */
+  basic_block orig_exit = EDGE_PRED (EXIT_BLOCK_PTR, 0)->src;
+  basic_block incr_bb = create_empty_bb (orig_exit);
+  /* The succ of orig_exit was EXIT_BLOCK_PTR, with an empty flag.
+     Set it now to be a FALLTHRU_EDGE.  */
+  gcc_assert (EDGE_COUNT (orig_exit->succs) == 1);
+  EDGE_SUCC (orig_exit, 0)->flags |= EDGE_FALLTHRU;
+  for (unsigned i = 0; i < EDGE_COUNT (EXIT_BLOCK_PTR->preds); ++i)
+    {
+      edge e = EDGE_PRED (EXIT_BLOCK_PTR, i);
+      redirect_edge_succ (e, incr_bb);
+    }
+  edge e = make_edge (incr_bb, EXIT_BLOCK_PTR, 0);
+  e->probability = REG_BR_PROB_BASE;
+  gsi = gsi_last_bb (incr_bb);
+  g = gimple_build_assign_with_ops (PLUS_EXPR, iter, iter,
+				    build_int_cst (unsigned_type_node, 1));
+  gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
+
+  /* Mostly annotate the loop for the vectorizer (the rest is done below).  */
+  struct loop *loop = alloc_loop ();
+  cfun->has_force_vect_loops = true;
+  loop->safelen = node->simdclone->simdlen;
+  loop->force_vect = true;
+  loop->header = body_bb;
+  add_bb_to_loop (incr_bb, loop);
+
+  /* Branch around the body if the mask applies.  */
+  if (node->simdclone->inbranch)
+    {
+      gimple_stmt_iterator gsi = gsi_last_bb (loop->header);
+      tree mask_array
+	= node->simdclone->args[node->simdclone->nargs - 1].simd_array;
+      tree mask = create_tmp_var (integer_type_node, NULL);
+      tree aref = build4 (ARRAY_REF,
+			  integer_type_node,
+			  mask_array, iter,
+			  NULL, NULL);
+      g = gimple_build_assign (mask, aref);
+      gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
+
+      g = gimple_build_cond (EQ_EXPR, mask, integer_zero_node,
+			     NULL, NULL);
+      gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
+      make_edge (loop->header, incr_bb, EDGE_TRUE_VALUE);
+      FALLTHRU_EDGE (loop->header)->flags = EDGE_FALSE_VALUE;
+    }
+
+  /* Generate the condition.  */
+  g = gimple_build_cond (LT_EXPR,
+			 iter,
+			 build_int_cst (unsigned_type_node,
+					node->simdclone->simdlen),
+			 NULL, NULL);
+  gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
+  e = split_block (incr_bb, gsi_stmt (gsi));
+  basic_block latch_bb = e->dest;
+  basic_block new_exit_bb = e->dest;
+  new_exit_bb = split_block (latch_bb, NULL)->dest;
+  loop->latch = latch_bb;
+
+  redirect_edge_succ (FALLTHRU_EDGE (latch_bb), body_bb);
+
+  make_edge (incr_bb, new_exit_bb, EDGE_FALSE_VALUE);
+  /* The successor of incr_bb is already pointing to latch_bb; just
+     change the flags.
+     make_edge (incr_bb, latch_bb, EDGE_TRUE_VALUE);  */
+  FALLTHRU_EDGE (incr_bb)->flags = EDGE_TRUE_VALUE;
+
+  /* Generate the new return.  */
+  gsi = gsi_last_bb (new_exit_bb);
+  if (retval)
+    {
+      retval = build1 (VIEW_CONVERT_EXPR,
+		       TREE_TYPE (TREE_TYPE (node->decl)),
+		       retval);
+      retval = force_gimple_operand_gsi (&gsi, retval, true, NULL,
+					 false, GSI_CONTINUE_LINKING);
+    }
+  g = gimple_build_return (retval);
+  gsi_insert_after (&gsi, g, GSI_CONTINUE_LINKING);
+
+  calculate_dominance_info (CDI_DOMINATORS);
+  add_loop (loop, loop->header->loop_father);
+
+  pop_cfun ();
+}
+
+/* If the function in NODE is tagged as an elemental SIMD function,
+   create the appropriate SIMD clones.  */
+
+static void
+expand_simd_clones (struct cgraph_node *node)
+{
+  if (cgraph_function_body_availability (node) < AVAIL_OVERWRITABLE)
+    return;
+
+  tree attr = lookup_attribute ("omp declare simd",
+				DECL_ATTRIBUTES (node->decl));
+  if (!attr)
+    return;
+  do
+    {
+      struct cgraph_node *new_node = simd_clone_create (node);
+
+      bool inbranch_clause_specified;
+      simd_clone_clauses_extract (new_node, TREE_VALUE (attr),
+				  &inbranch_clause_specified);
+      simd_clone_compute_vecsize_and_simdlen (new_node);
+      simd_clone_mangle (node, new_node);
+      simd_clone_adjust (new_node);
+
+      /* If no inbranch clause was specified, we need both variants.
+	 We have already created the not-in-branch version above, by
+	 virtue of .inbranch being clear.  Create the masked in-branch
+	 version.  */
+      if (!inbranch_clause_specified)
+	{
+	  struct cgraph_node *n = simd_clone_create (node);
+	  struct simd_clone *clone
+	    = simd_clone_struct_alloc (new_node->simdclone->nargs);
+	  simd_clone_struct_copy (clone, new_node->simdclone);
+	  clone->inbranch = 1;
+	  n->simdclone = clone;
+	  simd_clone_mangle (node, n);
+	  simd_clone_adjust (n);
+	}
+    }
+  while ((attr = lookup_attribute ("omp declare simd", TREE_CHAIN (attr))));
+}
+
+/* Entry point for IPA simd clone creation pass.  */
+
+static unsigned int
+ipa_omp_simd_clone (void)
+{
+  struct cgraph_node *node;
+  FOR_EACH_DEFINED_FUNCTION (node)
+    expand_simd_clones (node);
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_omp_simd_clone =
+{
+  SIMPLE_IPA_PASS,		/* type */
+  "simdclone",			/* name */
+  OPTGROUP_NONE,		/* optinfo_flags */
+  true,				/* has_gate */
+  true,				/* has_execute */
+  TV_NONE,			/* tv_id */
+  ( PROP_ssa | PROP_cfg ),	/* properties_required */
+  0,				/* properties_provided */
+  0,				/* properties_destroyed */
+  0,				/* todo_flags_start */
+  (TODO_update_ssa | TODO_verify_all | TODO_cleanup_cfg), /* todo_flags_finish */
+};
+
+class pass_omp_simd_clone : public simple_ipa_opt_pass
+{
+public:
+  pass_omp_simd_clone(gcc::context *ctxt)
+    : simple_ipa_opt_pass(pass_data_omp_simd_clone, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return flag_openmp || flag_enable_cilkplus; }
+  unsigned int execute () { return ipa_omp_simd_clone (); }
+};
+
+} // anon namespace
+
+simple_ipa_opt_pass *
+make_pass_omp_simd_clone (gcc::context *ctxt)
+{
+  return new pass_omp_simd_clone (ctxt);
 }
 
 #include "gt-omp-low.h"

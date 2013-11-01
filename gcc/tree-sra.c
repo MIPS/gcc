@@ -4492,7 +4492,7 @@ replace_removed_params_ssa_names (gimple stmt,
    incompatibility issues to the caller.  Return true iff the expression
    was modified. */
 
-static bool
+bool
 sra_ipa_modify_expr (tree *expr, bool convert,
 		     ipa_parm_adjustment_vec adjustments)
 {
@@ -4630,7 +4630,7 @@ sra_ipa_modify_assign (gimple *stmt_ptr, gimple_stmt_iterator *gsi,
 /* Traverse the function body and all modifications as described in
    ADJUSTMENTS.  Return true iff the CFG has been changed.  */
 
-static bool
+bool
 ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
 {
   bool cfg_changed = false;

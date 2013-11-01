@@ -43,6 +43,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tree-vectorizer.h"
 #include "dumpfile.h"
+#include "cgraph.h"
 
 /* For lang_hooks.types.type_for_mode.  */
 #include "langhooks.h"
@@ -1694,6 +1695,16 @@ tree
 vectorizable_function (gimple call, tree vectype_out, tree vectype_in)
 {
   tree fndecl = gimple_call_fndecl (call);
+  struct cgraph_node *node = cgraph_get_node (fndecl);
+
+  if (node->has_simd_clones)
+    {
+      struct cgraph_node *clone = get_simd_clone (node, vectype_out);
+      if (clone)
+	return clone->decl;
+      /* Fall through in case we ever add support for
+	 non-built-ins.  */
+    }
 
   /* We only handle functions that do not read or clobber memory -- i.e.
      const or novops ones.  */
@@ -1764,10 +1775,12 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   vectype_in = NULL_TREE;
   nargs = gimple_call_num_args (stmt);
 
-  /* Bail out if the function has more than three arguments, we do not have
-     interesting builtin functions to vectorize with more than two arguments
-     except for fma.  No arguments is also not good.  */
-  if (nargs == 0 || nargs > 3)
+  /* Bail out if the function has more than three arguments.  We do
+     not have interesting builtin functions to vectorize with more
+     than two arguments except for fma (unless we have SIMD clones).
+     No arguments is also not good.  */
+  struct cgraph_node *node = cgraph_get_node (gimple_call_fndecl (stmt));
+  if (nargs == 0 || (!node->has_simd_clones && nargs > 3))
     return false;
 
   /* Ignore the argument of IFN_GOMP_SIMD_LANE, it is magic.  */

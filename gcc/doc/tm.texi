@@ -5814,6 +5814,26 @@ The default is @code{NULL_TREE} which means to not vectorize gather
 loads.
 @end deftypefn
 
+@deftypefn {Target Hook} char TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE (struct cgraph_node *@var{})
+This hook should return the default mangling character when no vector
+size can be determined by examining the  Cilk Plus @code{processor} clause.
+This is as specified in the Intel Vector ABI document.
+
+This hook, as well as @code{max_vector_size_for_isa} below must be set
+to support the Cilk Plus @code{processor} clause.
+
+The only argument is a @var{cgraph_node} containing the clone.
+@end deftypefn
+
+@deftypefn {Target Hook} {unsigned int} TARGET_CILKPLUS_VECSIZE_FOR_MANGLE (char)
+This hook returns the maximum hardware vector size in bits for a given
+mangling character.  The character is as described in Intel's
+Vector ABI (see @var{ISA} character in the section on mangling).
+
+This hook must be defined in order to support the Cilk Plus @code{processor}
+clause.
+@end deftypefn
+
 @node Anchored Addresses
 @section Anchored Addresses
 @cindex anchored addresses

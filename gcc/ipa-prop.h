@@ -632,9 +632,10 @@ struct ipa_parm_adjustment
      arguments.  */
   tree alias_ptr_type;
 
-  /* The new declaration when creating/replacing a parameter.  Created by
-     ipa_modify_formal_parameters, useful for functions modifying the body
-     accordingly. */
+  /* The new declaration when creating/replacing a parameter.  Created
+     by ipa_modify_formal_parameters, useful for functions modifying
+     the body accordingly.  For brand new arguments, this is the newly
+     created argument.  */
   tree reduction;
 
   /* New declaration of a substitute variable that we may use to replace all
@@ -645,14 +646,35 @@ struct ipa_parm_adjustment
      is NULL), this is going to be its nonlocalized vars value.  */
   tree nonlocal_value;
 
+  /* If this is a brand new argument, this holds the prefix to be used
+     for the DECL_NAME.  */
+  const char *new_arg_prefix;
+
   /* Offset into the original parameter (for the cases when the new parameter
      is a component of an original one).  */
   HOST_WIDE_INT offset;
 
-  /* Zero based index of the original parameter this one is based on.  (ATM
-     there is no way to insert a new parameter out of the blue because there is
-     no need but if it arises the code can be easily exteded to do so.)  */
+  /* Zero based index of the original parameter this one is based on.  */
   int base_index;
+
+  /* If non-null, the parameter is a vector of `type' with this many
+     elements.  */
+  int simdlen;
+
+  /* This is a brand new parameter.
+
+     For new parameters, base_index must be >= the number of
+     DECL_ARGUMENTS in the function.  That is, new arguments will be
+     the last arguments in the adjusted function.
+
+     ?? Perhaps we could redesign ipa_modify_formal_parameters() to
+     reorganize argument position, thus allowing inserting of brand
+     new arguments anywhere, but there is no use for this now.
+
+     Also, `type' should be set to the new type, `new_arg_prefix'
+     should be set to the string prefix for the new DECL_NAME, and
+     `reduction' will ultimately hold the newly created argument.  */
+  unsigned new_param : 1;
 
   /* This new parameter is an unmodified parameter at index base_index. */
   unsigned copy_param : 1;
@@ -695,5 +717,7 @@ void ipa_dump_param (FILE *, struct ipa_node_params *info, int i);
 /* From tree-sra.c:  */
 tree build_ref_for_offset (location_t, tree, HOST_WIDE_INT, tree,
 			   gimple_stmt_iterator *, bool);
+bool ipa_sra_modify_function_body (ipa_parm_adjustment_vec);
+bool sra_ipa_modify_expr (tree *, bool, ipa_parm_adjustment_vec);
 
 #endif /* IPA_PROP_H */

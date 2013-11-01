@@ -250,6 +250,91 @@ struct GTY(()) cgraph_clone_info
   bitmap combined_args_to_skip;
 };
 
+enum linear_stride_type {
+  LINEAR_STRIDE_NO,
+  LINEAR_STRIDE_YES_CONSTANT,
+  LINEAR_STRIDE_YES_VARIABLE
+};
+
+/* Function arguments in the original function of a SIMD clone.
+   Supplementary data for `struct simd_clone'.  */
+
+struct GTY(()) simd_clone_arg {
+  /* Original function argument as it orignally existed in
+     DECL_ARGUMENTS.  */
+  tree orig_arg;
+
+  /* If argument is a vector, this holds the vector version of
+     orig_arg that after adjusting the argument types will live in
+     DECL_ARGUMENTS.  Otherwise, this is NULL.
+
+     This basically holds:
+       vector(simdlen) __typeof__(orig_arg) new_arg.  */
+  tree vector_arg;
+
+  /* If argument is a vector, this holds the array where the simd
+     argument is held while executing the simd clone function.  This
+     is a local variable in the cloned function.  Its content is
+     copied from vector_arg upon entry to the clone.
+
+     This basically holds:
+       __typeof__(orig_arg) simd_array[simdlen].  */
+  tree simd_array;
+
+  /* A SIMD clone's argument can be either linear (constant or
+     variable), uniform, or vector.  If the argument is neither linear
+     or uniform, the default is vector.  */
+
+  /* If the linear stride is a constant, `linear_stride' is
+     LINEAR_STRIDE_YES_CONSTANT, and `linear_stride_num' holds
+     the numeric stride.
+
+     If the linear stride is variable, `linear_stride' is
+     LINEAR_STRIDE_YES_VARIABLE, and `linear_stride_num' contains
+     the function argument containing the stride (as an index into the
+     function arguments starting at 0).
+
+     Otherwise, `linear_stride' is LINEAR_STRIDE_NO and
+     `linear_stride_num' is unused.  */
+  enum linear_stride_type linear_stride;
+  unsigned HOST_WIDE_INT linear_stride_num;
+
+  /* Variable alignment if available, otherwise 0.  */
+  unsigned int alignment;
+
+  /* True if variable is uniform.  */
+  unsigned int uniform : 1;
+};
+
+/* Specific data for a SIMD function clone.  */
+
+struct GTY(()) simd_clone {
+  /* Number of words in the SIMD lane associated with this clone.  */
+  unsigned int simdlen;
+
+  /* Number of annotated function arguments in `args'.  This is
+     usually the number of named arguments in FNDECL.  */
+  unsigned int nargs;
+
+  /* Max hardware vector size in bits.  */
+  unsigned int hw_vector_size;
+
+  /* The mangling character for a given vector size.  This is is used
+     to determine the ISA mangling bit as specified in the Intel
+     Vector ABI.  */
+  unsigned char vecsize_mangle;
+
+  /* True if this is the masked, in-branch version of the clone,
+     otherwise false.  */
+  unsigned int inbranch : 1;
+
+  /* True if this is a Cilk Plus variant.  */
+  unsigned int cilk_elemental : 1;
+
+  /* Annotated function arguments for the original function.  */
+  struct simd_clone_arg GTY((length ("%h.nargs"))) args[1];
+};
+
 
 /* The cgraph data structure.
    Each function decl has assigned cgraph_node listing callees and callers.  */
@@ -277,6 +362,14 @@ public:
   htab_t GTY((param_is (struct cgraph_edge))) call_site_hash;
   /* Declaration node used to be clone of. */
   tree former_clone_of;
+
+  /* If this is a SIMD clone, this points to the SIMD specific
+     information for it.  */
+  struct simd_clone *simdclone;
+
+  /* If this is a SIMD clone, this points to the original scalar
+     function.  */
+  struct cgraph_node *simdclone_of;
 
   /* Interprocedural passes scheduled to have their transform functions
      applied next time we execute local pass on them.  We maintain it
@@ -319,6 +412,8 @@ public:
   /* ?? We should be able to remove this.  We have enough bits in
      cgraph to calculate it.  */
   unsigned tm_clone : 1;
+  /* True if this function has SIMD clones.  */
+  unsigned has_simd_clones : 1;
   /* True if this decl is a dispatcher for function versions.  */
   unsigned dispatcher_function : 1;
 };
@@ -728,6 +823,7 @@ void cgraph_speculative_call_info (struct cgraph_edge *,
 				   struct cgraph_edge *&,
 				   struct ipa_ref *&);
 extern bool gimple_check_call_matching_types (gimple, tree, bool);
+struct cgraph_node *get_simd_clone (struct cgraph_node *, tree);
 
 /* In cgraphunit.c  */
 struct asm_node *add_asm_node (tree);
