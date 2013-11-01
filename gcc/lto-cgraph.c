@@ -576,6 +576,7 @@ lto_output_varpool_node (struct lto_simple_output_block *ob, struct varpool_node
 		     && boundary_p && !DECL_EXTERNAL (node->symbol.decl), 1);
 	  /* in_other_partition.  */
     }
+  bp_pack_value (&bp, node->need_bounds_init, 1);
   streamer_write_bitpack (&bp);
   if (node->symbol.same_comdat_group && !boundary_p)
     {
@@ -1143,6 +1144,7 @@ input_varpool_node (struct lto_file_decl_data *file_data,
   node->symbol.analyzed = bp_unpack_value (&bp, 1);
   node->symbol.used_from_other_partition = bp_unpack_value (&bp, 1);
   node->symbol.in_other_partition = bp_unpack_value (&bp, 1);
+  node->need_bounds_init = bp_unpack_value (&bp, 1);
   if (node->symbol.in_other_partition)
     {
       DECL_EXTERNAL (node->symbol.decl) = 1;

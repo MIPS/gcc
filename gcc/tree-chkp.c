@@ -399,11 +399,6 @@ static GTY (()) tree chkp_uintptr_type;
 
 static GTY (()) tree chkp_zero_bounds_var;
 static GTY (()) tree chkp_none_bounds_var;
-static GTY (()) vec<tree, va_gc> *chkp_static_const_bounds;
-static GTY ((param_is (struct tree_map)))
-     htab_t chkp_static_var_bounds;
-static GTY ((param_is (struct tree_map)))
-     htab_t chkp_static_var_bounds_r;
 
 static GTY (()) basic_block entry_block;
 static GTY (()) tree zero_bounds;
@@ -419,11 +414,11 @@ struct pointer_map_t *chkp_reg_addr_bounds;
 struct pointer_map_t *chkp_incomplete_bounds_map;
 struct pointer_map_t *chkp_bounds_map;
 struct pointer_map_t *chkp_rtx_bounds_map;
+struct pointer_map_t *chkp_static_var_bounds;
 
 static GTY ((if_marked ("tree_vec_map_marked_p"),
 	     param_is (struct tree_vec_map)))
      htab_t chkp_abnormal_phi_copies;
-static GTY (()) vec<tree, va_gc> *var_inits;
 static GTY ((if_marked ("tree_map_marked_p"),
 	     param_is (struct tree_map))) htab_t chkp_size_decls;
 
@@ -1151,7 +1146,7 @@ chkp_register_var_initializer (tree var)
   if (TREE_STATIC (var)
       && chkp_type_has_pointer (TREE_TYPE (var)))
     {
-      vec_safe_push (var_inits, var);
+      varpool_node_for_decl (var)->need_bounds_init = 1;
       return true;
     }
 
@@ -1191,13 +1186,12 @@ chkp_build_addr_expr (tree obj)
 }
 
 /* Helper function for chkp_finish_file.
-   Output bound variable VAR and also add its initialization code
-   with bounds of variable BND_VAR to statements list STMTS.
-   If statements list becomes too big, emit checker contructor
-   and start the new one.  */
+   Initialize bound variable BND_VAR with bounds of variable
+   VAR to statements list STMTS.  If statements list becomes
+   too big, emit checker contructor and start the new one.  */
 static void
-chkp_output_static_bounds (tree var, tree bnd_var,
-			  struct chkp_ctor_stmt_list *stmts)
+chkp_output_static_bounds (tree bnd_var, tree var,
+			   struct chkp_ctor_stmt_list *stmts)
 {
   /* FIXME: Move bounds initialization code generation
      into target hook.  */
@@ -2057,8 +2051,6 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
   varpool_node_for_decl (var)->symbol.force_output = 1;
   varpool_finalize_decl (var);
 
-  vec_safe_push (chkp_static_const_bounds, var);
-
   return var;
 }
 
@@ -2839,7 +2831,7 @@ chkp_make_static_bounds (tree obj)
 {
   static int string_id = 1;
   static int var_id = 1;
-  struct tree_map **slot, *map;
+  tree *slot;
   const char *var_name;
   char *bnd_var_name;
   tree bnd_var;
@@ -2847,17 +2839,12 @@ chkp_make_static_bounds (tree obj)
   /* First check if we already have required var.  */
   if (chkp_static_var_bounds)
     {
-      struct tree_map *res, in;
-      in.base.from = obj;
-      in.hash = htab_hash_pointer (obj);
-
-      res = (struct tree_map *) htab_find_with_hash (chkp_static_var_bounds,
-						     &in, in.hash);
-
-      if (res)
-	return res->to;
+      slot = (tree *)pointer_map_contains (chkp_static_var_bounds, obj);
+      if (slot)
+	return *slot;
     }
 
+  /* Build decl for bounds var.  */
   if (TREE_CODE (obj) == VAR_DECL)
     {
       if (DECL_IGNORED_P (obj))
@@ -2883,13 +2870,8 @@ chkp_make_static_bounds (tree obj)
 			    get_identifier (bnd_var_name),
 			    pointer_bounds_type_node);
 
-      /* Address of the var will be used as lower bound.  */
+      /* Address of the obj will be used as lower bound.  */
       TREE_ADDRESSABLE (obj) = 1;
-
-      /* There are cases when symbol is removed ignoring that
-	 we have bounds for it.  Avoid it by forcing symbol
-	 output.  */
-      symtab_get_node (obj)->symbol.force_output = 1;
     }
   else
     {
@@ -2910,40 +2892,21 @@ chkp_make_static_bounds (tree obj)
   DECL_COMMON (bnd_var) = 1;
   DECL_COMDAT (bnd_var) = 1;
   DECL_READ_P (bnd_var) = 1;
+  DECL_INITIAL (bnd_var) = chkp_build_addr_expr (obj);
   /* Force output similar to constant bounds.
      See chkp_make_static_const_bounds. */
   varpool_node_for_decl (bnd_var)->symbol.force_output = 1;
+  /* Mark symbol as requiring bounds initialization.  */
+  varpool_node_for_decl (bnd_var)->need_bounds_init = 1;
   varpool_finalize_decl (bnd_var);
 
-  /* Add created var to the global hash map.  */
+  /* Add created var to the map to use it for other references
+     to obj.  */
   if (!chkp_static_var_bounds)
-    {
-      chkp_static_var_bounds = htab_create_ggc (31, tree_map_hash,
-					       tree_map_eq, NULL);
-      chkp_static_var_bounds_r = htab_create_ggc (31, tree_map_hash,
-						 tree_map_eq, NULL);
-    }
+    chkp_static_var_bounds = pointer_map_create ();
 
-  map = ggc_alloc_tree_map ();
-  map->hash = htab_hash_pointer (obj);
-  map->base.from = obj;
-  map->to = bnd_var;
-
-  slot = (struct tree_map **)
-    htab_find_slot_with_hash (chkp_static_var_bounds, map, map->hash, INSERT);
-  *slot = map;
-
-  /* We use reversed hash map to provide determined
-     order of var emitting.  With undetermined order
-     we cannot pass bootstrap.  */
-  map = ggc_alloc_tree_map ();
-  map->hash = htab_hash_pointer (bnd_var);
-  map->base.from = bnd_var;
-  map->to = obj;
-
-  slot = (struct tree_map **)
-    htab_find_slot_with_hash (chkp_static_var_bounds_r, map, map->hash, INSERT);
-  *slot = map;
+  slot = (tree *)pointer_map_insert (chkp_static_var_bounds, obj);
+  *slot = bnd_var;
 
   return bnd_var;
 }
@@ -3947,6 +3910,7 @@ chkp_copy_bounds_for_assign (tree lhs, tree rhs, void *arg)
 void
 chkp_finish_file (void)
 {
+  struct varpool_node *node;
   struct chkp_ctor_stmt_list stmts;
   int i;
   tree var;
@@ -3954,77 +3918,63 @@ chkp_finish_file (void)
   if (seen_error ())
     return;
 
-  if (var_inits)
-    {
-      stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
-      stmts.stmts = NULL;
+  /* Iterate through varpool and generate bounds initialization
+     constructors for all statically initialized pointers.  */
+  stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
+  stmts.stmts = NULL;
+  FOR_EACH_VARIABLE (node)
+    /* Check that var is actually emitted and we need and may initialize
+       its bounds.  */
+    if (node->need_bounds_init
+	&& !POINTER_BOUNDS_P (node->symbol.decl)
+	&& DECL_RTL (node->symbol.decl)
+	&& MEM_P (DECL_RTL (node->symbol.decl))
+	&& TREE_ASM_WRITTEN (node->symbol.decl))
+      {
+	chkp_walk_pointer_assignments (node->symbol.decl,
+				       DECL_INITIAL (node->symbol.decl),
+				       &stmts,
+				       chkp_add_modification_to_stmt_list);
 
-      FOR_EACH_VEC_ELT (*var_inits, i, var)
-	/* !!! We must check that var is actually emitted and we need
-	   and may initialize its bounds.  Currently asm_written flag and
-	   rtl are checked.  Probably some other fields should be checked.  */
-	if (DECL_RTL (var) && MEM_P (DECL_RTL (var)) && TREE_ASM_WRITTEN (var))
+	if (stmts.avail <= 0)
 	  {
-	    chkp_walk_pointer_assignments (var, DECL_INITIAL (var), &stmts,
-					   chkp_add_modification_to_stmt_list);
-
-	    if (stmts.avail <= 0)
-	      {
-		cgraph_build_static_cdtor ('P', stmts.stmts,
-					   MAX_RESERVED_INIT_PRIORITY + 2);
-		stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
-		stmts.stmts = NULL;
-	      }
+	    cgraph_build_static_cdtor ('P', stmts.stmts,
+				       MAX_RESERVED_INIT_PRIORITY + 2);
+	    stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
+	    stmts.stmts = NULL;
 	  }
+      }
 
+  if (stmts.stmts)
+    cgraph_build_static_cdtor ('P', stmts.stmts,
+			       MAX_RESERVED_INIT_PRIORITY + 2);
 
-      if (stmts.stmts)
-	cgraph_build_static_cdtor ('P', stmts.stmts,
-				   MAX_RESERVED_INIT_PRIORITY + 2);
-    }
+  /* Iterate through varpool and generate bounds initialization
+     constructors for all static bounds vars.  */
+  stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
+  stmts.stmts = NULL;
+  FOR_EACH_VARIABLE (node)
+    if (node->need_bounds_init && POINTER_BOUNDS_P (node->symbol.decl))
+      {
+	tree bnd = node->symbol.decl;
+	tree var;
 
-  if (chkp_static_var_bounds)
-    {
-      unsigned int i;
-      vec<tree> vars;
+	gcc_assert (DECL_INITIAL (bnd)
+		    && TREE_CODE (DECL_INITIAL (bnd)) == ADDR_EXPR);
 
-      stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
-      stmts.stmts = NULL;
+	var = TREE_OPERAND (DECL_INITIAL (bnd), 0);
+	if (TREE_ASM_WRITTEN (bnd))
+	  chkp_output_static_bounds (bnd, var, &stmts);
+      }
 
-      vars.create (htab_size (chkp_static_var_bounds));
-
-      /* It seems that htab_traverse gives random vars order and thus
-	 causes bootstrap to fail due to differences.  To fix it we
-	 sort all vars by name first.  */
-      htab_traverse (chkp_static_var_bounds_r,
-		     chkp_add_tree_to_vec, &vars);
-      vars.qsort (&chkp_compare_var_names);
-
-      for (i = 0; i < vars.length (); i++)
-	{
-	  struct tree_map *res, in;
-	  in.base.from = vars[i];
-	  in.hash = htab_hash_pointer (vars[i]);
-
-	  res = (struct tree_map *) htab_find_with_hash (chkp_static_var_bounds_r,
-							 &in, in.hash);
-
-	  if (TREE_ASM_WRITTEN (vars[i]))
-	    chkp_output_static_bounds (res->to, vars[i], &stmts);
-	}
-
-      if (stmts.stmts)
-	cgraph_build_static_cdtor ('B', stmts.stmts,
-				   MAX_RESERVED_INIT_PRIORITY + 1);
-
-      htab_delete (chkp_static_var_bounds);
-      htab_delete (chkp_static_var_bounds_r);
-      chkp_static_var_bounds = NULL;
-      chkp_static_var_bounds_r = NULL;
-    }
+  if (stmts.stmts)
+    cgraph_build_static_cdtor ('B', stmts.stmts,
+			       MAX_RESERVED_INIT_PRIORITY + 1);
 
   if (chkp_size_decls)
     htab_delete (chkp_size_decls);
+  if (chkp_static_var_bounds)
+    pointer_map_destroy (chkp_static_var_bounds);
   if (chkp_rtx_bounds_map)
     pointer_map_destroy (chkp_rtx_bounds_map);
   if (chkp_bounds_map)
@@ -4956,25 +4906,23 @@ chkp_get_check_result (struct check_info *ci, tree bounds)
   else if (gimple_code (bnd_def) == GIMPLE_ASSIGN
 	   && TREE_CODE (gimple_assign_rhs1 (bnd_def)) == VAR_DECL)
     {
-      struct tree_map *res, in;
-      tree var = gimple_assign_rhs1 (bnd_def);
+      tree bnd_var = gimple_assign_rhs1 (bnd_def);
+      tree var;
       tree size;
-      in.base.from = var;
-      in.hash = htab_hash_pointer (var);
 
-      res = (struct tree_map *) htab_find_with_hash (chkp_static_var_bounds_r,
-						     &in, in.hash);
-      gcc_assert (res);
+      gcc_assert (DECL_INITIAL (bnd_var)
+		  && (TREE_CODE (DECL_INITIAL (bnd_var)) == ADDR_EXPR));
+      var = TREE_OPERAND (DECL_INITIAL (bnd_var), 0);
 
       bound_val.pol.create (0);
-      chkp_collect_value (chkp_build_addr_expr (res->to), bound_val);
+      chkp_collect_value (DECL_INITIAL (bnd_var), bound_val);
       if (ci->type == CHECK_UPPER_BOUND)
 	{
-	  if (TREE_CODE (res->to) == VAR_DECL)
+	  if (TREE_CODE (var) == VAR_DECL)
 	    {
-	      if (DECL_SIZE (res->to)
-		  && !chkp_variable_size_type (TREE_TYPE (res->to)))
-		size = DECL_SIZE_UNIT (res->to);
+	      if (DECL_SIZE (var)
+		  && !chkp_variable_size_type (TREE_TYPE (var)))
+		size = DECL_SIZE_UNIT (var);
 	      else
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4984,9 +4932,9 @@ chkp_get_check_result (struct check_info *ci, tree bounds)
 	    }
 	  else
 	    {
-	      gcc_assert (TREE_CODE (res->to) == STRING_CST);
+	      gcc_assert (TREE_CODE (var) == STRING_CST);
 	      size = build_int_cst (size_type_node,
-				    TREE_STRING_LENGTH (res->to));
+				    TREE_STRING_LENGTH (var));
 	    }
 
 	  address_t size_val;
