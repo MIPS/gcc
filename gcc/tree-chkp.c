@@ -1261,48 +1261,6 @@ chkp_output_static_bounds (tree bnd_var, tree var,
     }
 }
 
-/* Helper function for chkp_finish_file to sort vars.  */
-static int
-chkp_compare_var_names (const void *i1, const void *i2)
-{
-  const tree t1 = *(const tree *)i1;
-  const tree t2 = *(const tree *)i2;
-  const char *name1;
-  const char *name2;
-
-  if (TREE_CODE (t1) == STRING_CST)
-    {
-      if (TREE_CODE (t2) != STRING_CST)
-	return 1;
-
-      name1 = TREE_STRING_POINTER (t1);
-      name2 = TREE_STRING_POINTER (t2);
-    }
-  else
-    {
-      if (TREE_CODE (t2) == STRING_CST)
-	return -1;
-
-      name1 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t1));
-      name2 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t2));
-    }
-
-  return strcmp (name1, name2);
-}
-
-/* Helper function for chkp_finish_file to put all
-   vars into vectors.  */
-static int
-chkp_add_tree_to_vec (void **slot, void *res)
-{
-  struct tree_map *map = (struct tree_map *)*slot;
-  vec<tree> *vars = (vec<tree> *)res;
-  tree var = map->base.from;
-  vars->safe_push (var);
-
-  return 1;
-}
-
 /* Register bounds BND for object PTR in global bounds table.  */
 static void
 chkp_register_bounds (tree ptr, tree bnd)
@@ -2023,15 +1981,44 @@ chkp_get_entry_block (void)
   return entry_block;
 }
 
-/* Creates a static bounds var of specfified NAME initilized
-   with specified LB and UB values.  */
+/* Return constant static bounds var with specified LB and UB
+   if such var exists in varpool.  Return NULL otherwise.  */
+static tree
+chkp_find_const_bounds_var (HOST_WIDE_INT lb,
+			    HOST_WIDE_INT ub)
+{
+  double_int val = double_int::from_pair (lb, ~ub);
+  struct varpool_node *node;
+
+  FOR_EACH_VARIABLE (node)
+    if (POINTER_BOUNDS_P (node->symbol.decl)
+	&& TREE_READONLY (node->symbol.decl)
+	&& DECL_INITIAL (node->symbol.decl)
+	&& TREE_CODE (DECL_INITIAL (node->symbol.decl)) == INTEGER_CST
+	&& TREE_INT_CST (DECL_INITIAL (node->symbol.decl)) == val)
+      return node->symbol.decl;
+
+  return NULL;
+}
+
+/* Return constant static bounds var with specified bounds LB and UB.
+   If such var does not exists then new var is created with specified NAME.  */
 static tree
 chkp_make_static_const_bounds (HOST_WIDE_INT lb,
-			      HOST_WIDE_INT ub,
-			      const char *name)
+			       HOST_WIDE_INT ub,
+			       const char *name)
 {
-  tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			 get_identifier (name), pointer_bounds_type_node);
+  tree var;
+
+  /* With LTO we may have constant bounds already in varpool.
+     Try to find it.  */
+  var = chkp_find_const_bounds_var (lb, ub);
+
+  if (var)
+    return var;
+
+  var  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+		     get_identifier (name), pointer_bounds_type_node);
 
   TREE_PUBLIC (var) = 1;
   TREE_USED (var) = 1;
@@ -3912,8 +3899,6 @@ chkp_finish_file (void)
 {
   struct varpool_node *node;
   struct chkp_ctor_stmt_list stmts;
-  int i;
-  tree var;
 
   if (seen_error ())
     return;
