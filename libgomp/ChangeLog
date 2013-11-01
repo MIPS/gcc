@@ -1,3 +1,73 @@
+2013-10-16  Tobias Burnus  <burnus@net-b.de>
+
+	* libgomp.texi: (Runtime Library Routines): Update references for
+	OpenMP 4.0. Add omp_get_cancellation, omp_get_default_device,
+	omp_get_num_devices, omp_get_num_teams, omp_get_proc_bind,
+	omp_get_team_num, omp_is_initial_device, omp_set_default_device.
+	(Environment Variables): Update references for OpenMP 4.0. Add
+	OMP_CANCELLATION, OMP_DEFAULT_DEVICE, OMP_PLACES.
+	Move OMP_DISPLAY_ENV and OMP_PROC_BIND up to be in alphabetical
+	order.
+
+2013-10-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* env.c (parse_bind_var): Initialize value to avoid
+	(false positive) warning.
+
+2013-10-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/58691
+	* config/linux/proc.c (gomp_cpuset_popcount): Add unused attribute
+	to check variable.
+	(gomp_init_num_threads): Move i variable declaration into
+	#ifdef CPU_ALLOC_SIZE block.
+	* config/linux/affinity.c (gomp_affinity_init_level): Test
+	gomp_places_list_len == 0 rather than gomp_places_list == 0
+	when checking for topology reading error.
+	* team.c (gomp_team_start): Don't handle bind == omp_proc_bind_false.
+	* env.c (parse_affinity): Add ignore argument, if true, don't populate
+	gomp_places_list, only parse env var and always return false.
+	(parse_places_var): Likewise.  Don't check gomp_global_icv.bind_var.
+	(initialize_env): Always parse OMP_PLACES and GOMP_CPU_AFFINITY env
+	vars, default to OMP_PROC_BIND=true if OMP_PROC_BIND wasn't specified
+	and either of these variables were parsed correctly into a places
+	list.
+
+2013-10-11  Thomas Schwinge  <thomas@codesourcery.com>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	* testsuite/libgomp.graphite/force-parallel-1.c: Expect 4 instead
+	of 5 loopfn matches.
+	* testsuite/libgomp.graphite/force-parallel-2.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-3.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-4.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-5.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-6.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-7.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-8.c: Likewise.
+	* testsuite/libgomp.graphite/force-parallel-9.c: Likewise.
+
+2013-10-11  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* Makefile.am (omp_lib.mod): Streamline rule.
+	* Makefile.in: Regenerate.
+
+	* libgomp.texi (Runtime Library Routines): C linkage, don't throw
+	exceptions.
+
+	* testsuite/libgomp.c/lib-1.c (main): Add missing error check.
+	* testsuite/libgomp.fortran/lib1.f90: Likewise.
+	* testsuite/libgomp.fortran/lib2.f: Likewise.
+	* testsuite/libgomp.fortran/lib3.f: Likewise.
+
+	* configure.ac: Typo fix.
+	* configure: Regenerate.
+
+	* testsuite/libgomp.fortran/openmp_version-1.f: New file.
+	* testsuite/libgomp.fortran/openmp_version-2.f90: Likewise.
+
+	* omp.h.in: Don't touch the user's namespace.
+
 2013-10-11  Jakub Jelinek  <jakub@redhat.com>
 	    Tobias Burnus  <burnus@net-b.de>
 	    Richard Henderson  <rth@redhat.com>

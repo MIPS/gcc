@@ -43,15 +43,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm_p.h"
 #include "tree-iterator.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-ssanames.h"
 #include "target.h"
 #include "common/common-target.h"
 #include "timevar.h"
 #include "df.h"
 #include "diagnostic.h"
+#include "tree-ssa-live.h"
 #include "tree-outof-ssa.h"
 #include "target-globals.h"
 #include "params.h"
+#include "tree-ssa-address.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.
@@ -6551,16 +6556,18 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
     {
       tree field = TREE_OPERAND (exp, 1);
       size_tree = DECL_SIZE (field);
-      if (!DECL_BIT_FIELD (field))
-	mode = DECL_MODE (field);
-      else if (DECL_MODE (field) == BLKmode)
-	blkmode_bitfield = true;
-      else if (TREE_THIS_VOLATILE (exp)
-	       && flag_strict_volatile_bitfields > 0)
+      if (flag_strict_volatile_bitfields > 0
+	  && TREE_THIS_VOLATILE (exp)
+	  && DECL_BIT_FIELD_TYPE (field)
+	  && DECL_MODE (field) != BLKmode)
 	/* Volatile bitfields should be accessed in the mode of the
 	     field's type, not the mode computed based on the bit
 	     size.  */
 	mode = TYPE_MODE (DECL_BIT_FIELD_TYPE (field));
+      else if (!DECL_BIT_FIELD (field))
+	mode = DECL_MODE (field);
+      else if (DECL_MODE (field) == BLKmode)
+	blkmode_bitfield = true;
 
       *punsignedp = DECL_UNSIGNED (field);
     }
@@ -7276,74 +7283,14 @@ safe_from_p (const_rtx x, tree exp, int top_p)
 unsigned HOST_WIDE_INT
 highest_pow2_factor (const_tree exp)
 {
-  unsigned HOST_WIDE_INT c0, c1;
-
-  switch (TREE_CODE (exp))
-    {
-    case INTEGER_CST:
-      /* We can find the lowest bit that's a one.  If the low
-	 HOST_BITS_PER_WIDE_INT bits are zero, return BIGGEST_ALIGNMENT.
-	 We need to handle this case since we can find it in a COND_EXPR,
-	 a MIN_EXPR, or a MAX_EXPR.  If the constant overflows, we have an
-	 erroneous program, so return BIGGEST_ALIGNMENT to avoid any
-	 later ICE.  */
-      if (TREE_OVERFLOW (exp))
-	return BIGGEST_ALIGNMENT;
-      else
-	{
-	  /* Note: tree_low_cst is intentionally not used here,
-	     we don't care about the upper bits.  */
-	  c0 = TREE_INT_CST_LOW (exp);
-	  c0 &= -c0;
-	  return c0 ? c0 : BIGGEST_ALIGNMENT;
-	}
-      break;
-
-    case PLUS_EXPR:  case MINUS_EXPR:  case MIN_EXPR:  case MAX_EXPR:
-      c0 = highest_pow2_factor (TREE_OPERAND (exp, 0));
-      c1 = highest_pow2_factor (TREE_OPERAND (exp, 1));
-      return MIN (c0, c1);
-
-    case MULT_EXPR:
-      c0 = highest_pow2_factor (TREE_OPERAND (exp, 0));
-      c1 = highest_pow2_factor (TREE_OPERAND (exp, 1));
-      return c0 * c1;
-
-    case ROUND_DIV_EXPR:  case TRUNC_DIV_EXPR:  case FLOOR_DIV_EXPR:
-    case CEIL_DIV_EXPR:
-      if (integer_pow2p (TREE_OPERAND (exp, 1))
-	  && host_integerp (TREE_OPERAND (exp, 1), 1))
-	{
-	  c0 = highest_pow2_factor (TREE_OPERAND (exp, 0));
-	  c1 = tree_low_cst (TREE_OPERAND (exp, 1), 1);
-	  return MAX (1, c0 / c1);
-	}
-      break;
-
-    case BIT_AND_EXPR:
-      /* The highest power of two of a bit-and expression is the maximum of
-	 that of its operands.  We typically get here for a complex LHS and
-	 a constant negative power of two on the RHS to force an explicit
-	 alignment, so don't bother looking at the LHS.  */
-      return highest_pow2_factor (TREE_OPERAND (exp, 1));
-
-    CASE_CONVERT:
-    case SAVE_EXPR:
-      return highest_pow2_factor (TREE_OPERAND (exp, 0));
-
-    case COMPOUND_EXPR:
-      return highest_pow2_factor (TREE_OPERAND (exp, 1));
-
-    case COND_EXPR:
-      c0 = highest_pow2_factor (TREE_OPERAND (exp, 1));
-      c1 = highest_pow2_factor (TREE_OPERAND (exp, 2));
-      return MIN (c0, c1);
-
-    default:
-      break;
-    }
-
-  return 1;
+  unsigned HOST_WIDE_INT ret;
+  int trailing_zeros = tree_ctz (exp);
+  if (trailing_zeros >= HOST_BITS_PER_WIDE_INT)
+    return BIGGEST_ALIGNMENT;
+  ret = (unsigned HOST_WIDE_INT) 1 << trailing_zeros;
+  if (ret > BIGGEST_ALIGNMENT)
+    return BIGGEST_ALIGNMENT;
+  return ret;
 }
 
 /* Similar, except that the alignment requirements of TARGET are
@@ -9636,14 +9583,14 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	  }
 	align = get_object_alignment (exp);
 	op0 = expand_expr (base, NULL_RTX, VOIDmode, EXPAND_SUM);
-	op0 = memory_address_addr_space (address_mode, op0, as);
+	op0 = memory_address_addr_space (mode, op0, as);
 	if (!integer_zerop (TREE_OPERAND (exp, 1)))
 	  {
 	    rtx off
 	      = immed_double_int_const (mem_ref_offset (exp), address_mode);
 	    op0 = simplify_gen_binary (PLUS, address_mode, op0, off);
+	    op0 = memory_address_addr_space (mode, op0, as);
 	  }
-	op0 = memory_address_addr_space (mode, op0, as);
 	temp = gen_rtx_MEM (mode, op0);
 	set_mem_attributes (temp, exp, 0);
 	set_mem_addr_space (temp, as);

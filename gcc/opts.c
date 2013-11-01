@@ -279,10 +279,15 @@ init_options_struct (struct gcc_options *opts, struct gcc_options *opts_set)
   gcc_obstack_init (&opts_obstack);
 
   *opts = global_options_init;
-  memset (opts_set, 0, sizeof (*opts_set));
+
+  if (opts_set)
+    memset (opts_set, 0, sizeof (*opts_set));
 
   opts->x_param_values = XNEWVEC (int, num_params);
-  opts_set->x_param_values = XCNEWVEC (int, num_params);
+
+  if (opts_set)
+    opts_set->x_param_values = XCNEWVEC (int, num_params);
+
   init_param_values (opts->x_param_values);
 
   /* Initialize whether `char' is signed.  */
@@ -468,7 +473,6 @@ static const struct default_options default_options_table[] =
     { OPT_LEVELS_2_PLUS_SPEED_ONLY, OPT_fschedule_insns, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fschedule_insns2, NULL, 1 },
 #endif
-    { OPT_LEVELS_2_PLUS, OPT_fregmove, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_aliasing, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_fstrict_overflow, NULL, 1 },
     { OPT_LEVELS_2_PLUS, OPT_freorder_blocks, NULL, 1 },
@@ -1782,12 +1786,6 @@ common_handle_option (struct gcc_options *opts,
     case OPT_fstack_usage:
       opts->x_flag_stack_usage = value;
       opts->x_flag_stack_usage_info = value != 0;
-      break;
-
-    case OPT_ftree_vectorizer_verbose_:
-      /* -ftree-vectorizer-verbose is deprecated. It is defined in
-         -terms of fopt-info=N. */
-      /* Deferred.  */
       break;
 
     case OPT_g:

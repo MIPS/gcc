@@ -28,6 +28,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
@@ -107,7 +115,7 @@ typedef struct
    with a PHI DEF that would soon become non-dominant, and when we got
    to the suitable one, it wouldn't have anything to substitute any
    more.  */
-static vec<adjust_info, va_stack> adjust_vec;
+static vec<adjust_info, va_heap> adjust_vec;
 
 /* Adjust any debug stmts that referenced AI->from values to use the
    loop-closed AI->to, if the references are dominated by AI->bb and
@@ -1125,7 +1133,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop,
   if (MAY_HAVE_DEBUG_STMTS)
     {
       gcc_assert (!adjust_vec.exists ());
-      vec_stack_alloc (adjust_info, adjust_vec, 32);
+      adjust_vec.create (32);
     }
 
   if (e == exit_e)
@@ -1429,7 +1437,7 @@ vect_build_loop_niters (loop_vec_info loop_vinfo, gimple_seq seq)
  and places them at the loop preheader edge or in COND_EXPR_STMT_LIST
  if that is non-NULL.  */
 
-static void
+void
 vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
 				 tree *ni_name_ptr,
 				 tree *ratio_mult_vf_name_ptr,
@@ -2475,6 +2483,73 @@ vect_loop_versioning (loop_vec_info loop_vinfo,
       add_phi_arg (new_phi, arg, new_exit_e,
 		   gimple_phi_arg_location_from_edge (orig_phi, e));
       adjust_phi_and_debug_stmts (orig_phi, e, PHI_RESULT (new_phi));
+    }
+
+
+  /* Extract load statements on memrefs with zero-stride accesses.  */
+
+  if (LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo))
+    {
+      /* In the loop body, we iterate each statement to check if it is a load.
+	 Then we check the DR_STEP of the data reference.  If DR_STEP is zero,
+	 then we will hoist the load statement to the loop preheader.  */
+
+      basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
+      int nbbs = loop->num_nodes;
+
+      for (int i = 0; i < nbbs; ++i)
+	{
+	  for (gimple_stmt_iterator si = gsi_start_bb (bbs[i]);
+	       !gsi_end_p (si);)
+	    {
+	      gimple stmt = gsi_stmt (si);
+	      stmt_vec_info stmt_info = vinfo_for_stmt (stmt);
+	      struct data_reference *dr = STMT_VINFO_DATA_REF (stmt_info);
+
+	      if (is_gimple_assign (stmt)
+		  && (!dr
+		      || (DR_IS_READ (dr) && integer_zerop (DR_STEP (dr)))))
+		{
+		  bool hoist = true;
+		  ssa_op_iter iter;
+		  tree var;
+
+		  /* We hoist a statement if all SSA uses in it are defined
+		     outside of the loop.  */
+		  FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
+		    {
+		      gimple def = SSA_NAME_DEF_STMT (var);
+		      if (!gimple_nop_p (def)
+			  && flow_bb_inside_loop_p (loop, gimple_bb (def)))
+			{
+			  hoist = false;
+			  break;
+			}
+		    }
+
+		  if (hoist)
+		    {
+		      if (dr)
+			gimple_set_vuse (stmt, NULL);
+
+		      gsi_remove (&si, false);
+		      gsi_insert_on_edge_immediate (loop_preheader_edge (loop),
+						    stmt);
+
+		      if (dump_enabled_p ())
+			{
+			  dump_printf_loc
+			      (MSG_NOTE, vect_location,
+			       "hoisting out of the vectorized loop: ");
+			  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
+			  dump_printf (MSG_NOTE, "\n");
+			}
+		      continue;
+		    }
+		}
+	      gsi_next (&si);
+	    }
+	}
     }
 
   /* End loop-exit-fixes after versioning.  */

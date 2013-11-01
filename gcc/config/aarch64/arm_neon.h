@@ -5442,7 +5442,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        int64_t a_ = (a);                                                \
-       int64_t result;                                                  \
+       float64_t result;                                                \
        __asm__ ("scvtf %d0,%d1,%2"                                      \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -5454,7 +5454,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        uint64_t a_ = (a);                                               \
-       uint64_t result;                                                 \
+       float64_t result;                                                \
        __asm__ ("ucvtf %d0,%d1,%2"                                      \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -5466,7 +5466,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        float64_t a_ = (a);                                              \
-       float64_t result;                                                \
+       int64_t result;                                                  \
        __asm__ ("fcvtzs %d0,%d1,%2"                                     \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -5478,7 +5478,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        float64_t a_ = (a);                                              \
-       float64_t result;                                                \
+       uint64_t result;                                                 \
        __asm__ ("fcvtzu %d0,%d1,%2"                                     \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -5586,7 +5586,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        int32_t a_ = (a);                                                \
-       int32_t result;                                                  \
+       float32_t result;                                                \
        __asm__ ("scvtf %s0,%s1,%2"                                      \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -5598,7 +5598,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        uint32_t a_ = (a);                                               \
-       uint32_t result;                                                 \
+       float32_t result;                                                \
        __asm__ ("ucvtf %s0,%s1,%2"                                      \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -5610,7 +5610,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        float32_t a_ = (a);                                              \
-       float32_t result;                                                \
+       int32_t result;                                                  \
        __asm__ ("fcvtzs %s0,%s1,%2"                                     \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -5622,7 +5622,7 @@ static float32x2_t vdup_n_f32 (float32_t);
   __extension__                                                         \
     ({                                                                  \
        float32_t a_ = (a);                                              \
-       float32_t result;                                                \
+       uint32_t result;                                                 \
        __asm__ ("fcvtzu %s0,%s1,%2"                                     \
                 : "=w"(result)                                          \
                 : "w"(a_), "i"(b)                                       \
@@ -15636,7 +15636,7 @@ vtbx1_s8 (int8x8_t r, int8x8_t tab, int8x8_t idx)
 	   "cmhs %0.8b, %3.8b, %0.8b\n\t"
 	   "tbl %1.8b, {%2.16b}, %3.8b\n\t"
 	   "bsl %0.8b, %4.8b, %1.8b\n\t"
-           : "+w"(result), "=w"(tmp1)
+           : "+w"(result), "=&w"(tmp1)
            : "w"(temp), "w"(idx), "w"(r)
            : /* No clobbers */);
   return result;
@@ -15652,7 +15652,7 @@ vtbx1_u8 (uint8x8_t r, uint8x8_t tab, uint8x8_t idx)
 	   "cmhs %0.8b, %3.8b, %0.8b\n\t"
 	   "tbl %1.8b, {%2.16b}, %3.8b\n\t"
 	   "bsl %0.8b, %4.8b, %1.8b\n\t"
-           : "+w"(result), "=w"(tmp1)
+           : "+w"(result), "=&w"(tmp1)
            : "w"(temp), "w"(idx), "w"(r)
            : /* No clobbers */);
   return result;
@@ -15668,7 +15668,7 @@ vtbx1_p8 (poly8x8_t r, poly8x8_t tab, uint8x8_t idx)
 	   "cmhs %0.8b, %3.8b, %0.8b\n\t"
 	   "tbl %1.8b, {%2.16b}, %3.8b\n\t"
 	   "bsl %0.8b, %4.8b, %1.8b\n\t"
-           : "+w"(result), "=w"(tmp1)
+           : "+w"(result), "=&w"(tmp1)
            : "w"(temp), "w"(idx), "w"(r)
            : /* No clobbers */);
   return result;
@@ -15723,7 +15723,7 @@ vtbx3_s8 (int8x8_t r, int8x8x3_t tab, int8x8_t idx)
 	   "cmhs %0.8b, %3.8b, %0.8b\n\t"
 	   "tbl %1.8b, {v16.16b - v17.16b}, %3.8b\n\t"
 	   "bsl %0.8b, %4.8b, %1.8b\n\t"
-           : "+w"(result), "=w"(tmp1)
+           : "+w"(result), "=&w"(tmp1)
            : "Q"(temp), "w"(idx), "w"(r)
            : "v16", "v17", "memory");
   return result;
@@ -15742,7 +15742,7 @@ vtbx3_u8 (uint8x8_t r, uint8x8x3_t tab, uint8x8_t idx)
 	   "cmhs %0.8b, %3.8b, %0.8b\n\t"
 	   "tbl %1.8b, {v16.16b - v17.16b}, %3.8b\n\t"
 	   "bsl %0.8b, %4.8b, %1.8b\n\t"
-           : "+w"(result), "=w"(tmp1)
+           : "+w"(result), "=&w"(tmp1)
            : "Q"(temp), "w"(idx), "w"(r)
            : "v16", "v17", "memory");
   return result;
@@ -15761,7 +15761,7 @@ vtbx3_p8 (poly8x8_t r, poly8x8x3_t tab, uint8x8_t idx)
 	   "cmhs %0.8b, %3.8b, %0.8b\n\t"
 	   "tbl %1.8b, {v16.16b - v17.16b}, %3.8b\n\t"
 	   "bsl %0.8b, %4.8b, %1.8b\n\t"
-           : "+w"(result), "=w"(tmp1)
+           : "+w"(result), "=&w"(tmp1)
            : "Q"(temp), "w"(idx), "w"(r)
            : "v16", "v17", "memory");
   return result;

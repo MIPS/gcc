@@ -36,6 +36,9 @@ namespace __detail
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
+  enum class _RegexExecutorPolicy : int
+    { _S_auto, _S_alternate };
+
   template<typename _BiIter, typename _Alloc,
 	   typename _CharT, typename _TraitsT,
 	   _RegexExecutorPolicy __policy,
@@ -727,19 +730,8 @@ _GLIBCXX_END_NAMESPACE_VERSION
 #endif
 
     protected:
-      typedef std::shared_ptr<__detail::_Automaton<_Ch_type, _Rx_traits>>
+      typedef std::shared_ptr<__detail::_NFA<_Ch_type, _Rx_traits>>
 	_AutomatonPtr;
-
-      template<typename _BiIter, typename _Alloc,
-	typename _CharT, typename _TraitsT,
-	__detail::_RegexExecutorPolicy __policy>
-	friend std::unique_ptr<
-	  __detail::_Executor<_BiIter, _Alloc, _CharT, _TraitsT>>
-	__detail::__get_executor(_BiIter,
-				 _BiIter,
-				 std::vector<sub_match<_BiIter>, _Alloc>&,
-				 const basic_regex<_CharT, _TraitsT>&,
-				 regex_constants::match_flag_type);
 
       template<typename _Bp, typename _Ap, typename _Cp, typename _Rp,
 	__detail::_RegexExecutorPolicy, bool>
@@ -748,14 +740,8 @@ _GLIBCXX_END_NAMESPACE_VERSION
 				    const basic_regex<_Cp, _Rp>&,
 				    regex_constants::match_flag_type);
 
-      template<typename, typename, typename, typename>
+      template<typename, typename, typename, bool>
 	friend class __detail::_Executor;
-
-      template<typename, typename, typename, typename>
-	friend class __detail::_DFSExecutor;
-
-      template<typename, typename, typename, typename>
-	friend class __detail::_BFSExecutor;
 
       flag_type     _M_flags;
       _Rx_traits    _M_traits;
@@ -1851,14 +1837,8 @@ _GLIBCXX_END_NAMESPACE_VERSION
       //@}
 
     private:
-      template<typename, typename, typename, typename>
+      template<typename, typename, typename, bool>
 	friend class __detail::_Executor;
-
-      template<typename, typename, typename, typename>
-	friend class __detail::_DFSExecutor;
-
-      template<typename, typename, typename, typename>
-	friend class __detail::_BFSExecutor;
 
       template<typename, typename, typename>
 	friend class regex_iterator;
@@ -2514,7 +2494,8 @@ _GLIBCXX_END_NAMESPACE_VERSION
        * iterator of the same type.
        */
       regex_token_iterator()
-      : _M_position(), _M_result(nullptr), _M_suffix(), _M_n(0), _M_subs()
+      : _M_position(), _M_subs(), _M_suffix(), _M_n(0), _M_result(nullptr),
+      _M_has_m1(false)
       { }
 
       /**
@@ -2600,7 +2581,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
        */
       regex_token_iterator(const regex_token_iterator& __rhs)
       : _M_position(__rhs._M_position), _M_subs(__rhs._M_subs),
-      _M_n(__rhs._M_n), _M_result(__rhs._M_result), _M_suffix(__rhs._M_suffix),
+      _M_suffix(__rhs._M_suffix), _M_n(__rhs._M_n), _M_result(__rhs._M_result),
       _M_has_m1(__rhs._M_has_m1)
       {
 	if (__rhs._M_result == &__rhs._M_suffix)
@@ -2678,10 +2659,10 @@ _GLIBCXX_END_NAMESPACE_VERSION
       { return _M_result == nullptr; }
 
       _Position         _M_position;
-      const value_type* _M_result;
+      std::vector<int>  _M_subs;
       value_type        _M_suffix;
       std::size_t       _M_n;
-      std::vector<int>  _M_subs;
+      const value_type* _M_result;
 
       // Show whether _M_subs contains -1
       bool              _M_has_m1;

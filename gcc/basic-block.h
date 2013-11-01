@@ -24,13 +24,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "function.h"
 
-/* Type we use to hold basic block counters.  Should be at least
+/* Use gcov_type to hold basic block counters.  Should be at least
    64bit.  Although a counter cannot be negative, we use a signed
    type, because erroneous negative counts can be generated when the
    flow graph is manipulated by various optimizations.  A signed type
    makes those easy to detect.  */
-typedef HOST_WIDEST_INT gcov_type;
-typedef unsigned HOST_WIDEST_INT gcov_type_unsigned;
 
 /* Control flow edge information.  */
 struct GTY((user)) edge_def {
@@ -797,6 +795,8 @@ extern void connect_infinite_loops_to_exit (void);
 extern int post_order_compute (int *, bool, bool);
 extern basic_block dfs_find_deadend (basic_block);
 extern int inverted_post_order_compute (int *);
+extern int pre_and_rev_post_order_compute_fn (struct function *,
+					      int *, int *, bool);
 extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(const_basic_block, const void *),

@@ -25,7 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-pretty-print.h"
 #include "hashtab.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "cgraph.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "tree-chrec.h"
@@ -59,7 +60,7 @@ do_niy (pretty_printer *buffer, const_tree node)
   int i, len;
 
   pp_string (buffer, "<<< Unknown tree: ");
-  pp_string (buffer, tree_code_name[(int) TREE_CODE (node)]);
+  pp_string (buffer, get_tree_code_name (TREE_CODE (node)));
 
   if (EXPR_P (node))
     {
@@ -865,6 +866,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       break;
 
     case VOID_TYPE:
+    case POINTER_BOUNDS_TYPE:
     case INTEGER_TYPE:
     case REAL_TYPE:
     case FIXED_POINT_TYPE:
@@ -1233,6 +1235,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       else
 	pp_double_int (buffer, tree_to_double_int (node),
 		       TYPE_UNSIGNED (TREE_TYPE (node)));
+      if (TREE_OVERFLOW (node))
+	pp_string (buffer, "(OVF)");
       break;
 
     case REAL_CST:
@@ -2092,6 +2096,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " predictor.");
       break;
 
+    case ANNOTATE_EXPR:
+      pp_string (buffer, "ANNOTATE_EXPR <");
+      switch ((enum annot_expr_kind) TREE_INT_CST_LOW (TREE_OPERAND (node, 1)))
+	{
+	case annot_expr_ivdep_kind:
+	  pp_string (buffer, "ivdep, ");
+	  break;
+	}
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_greater (buffer);
+      break;
+
     case RETURN_EXPR:
       pp_string (buffer, "return");
       op0 = TREE_OPERAND (node, 0);
@@ -2220,10 +2236,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 			   spc, flags, false);
       pp_underscore (buffer);
       pp_decimal_int (buffer, SSA_NAME_VERSION (node));
+      if (SSA_NAME_IS_DEFAULT_DEF (node))
+	pp_string (buffer, "(D)");
       if (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (node))
 	pp_string (buffer, "(ab)");
-      else if (SSA_NAME_IS_DEFAULT_DEF (node))
-	pp_string (buffer, "(D)");
       break;
 
     case WITH_SIZE_EXPR:
@@ -2567,7 +2583,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case VEC_WIDEN_LSHIFT_HI_EXPR:
     case VEC_WIDEN_LSHIFT_LO_EXPR:
       pp_space (buffer);
-      for (str = tree_code_name [code]; *str; str++)
+      for (str = get_tree_code_name (code); *str; str++)
 	pp_character (buffer, TOUPPER (*str));
       pp_string (buffer, " < ");
       dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
@@ -2626,6 +2642,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case BLOCK:
       dump_block_node (buffer, node, spc, flags);
+      break;
+
+    case CILK_SPAWN_STMT:
+      pp_string (buffer, "_Cilk_spawn ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      break;
+
+    case CILK_SYNC_STMT:
+      pp_string (buffer, "_Cilk_sync");
       break;
 
     default:
@@ -3374,7 +3399,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)
     {
-      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->symbol.order,
+      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->order,
                node->frequency == NODE_FREQUENCY_HOT
                ? " (hot)"
                : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED

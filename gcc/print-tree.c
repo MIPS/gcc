@@ -28,7 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h" /* FIXME */
-#include "tree-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
 #include "tree-dump.h"
 #include "dumpfile.h"
 
@@ -71,7 +72,7 @@ print_node_brief (FILE *file, const char *prefix, const_tree node, int indent)
      name if any.  */
   if (indent > 0)
     fprintf (file, " ");
-  fprintf (file, "%s <%s", prefix, tree_code_name[(int) TREE_CODE (node)]);
+  fprintf (file, "%s <%s", prefix, get_tree_code_name (TREE_CODE (node)));
   dump_addr (file, " ", node);
 
   if (tclass == tcc_declaration)
@@ -247,7 +248,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
   indent_to (file, indent);
 
   /* Print the slot this node is in, and its code, and address.  */
-  fprintf (file, "%s <%s", prefix, tree_code_name[(int) code]);
+  fprintf (file, "%s <%s", prefix, get_tree_code_name (code));
   dump_addr (file, " ", node);
 
   /* Print the name, if any.  */

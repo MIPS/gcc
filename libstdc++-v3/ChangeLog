@@ -1,3 +1,267 @@
+2013-11-01  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/stl_function.h (logical_not<void>): Add noexcept.
+
+2013-11-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58952
+	* include/c_global/cstdio: Undef getchar.
+
+2013-11-01  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	N3421 C++1y Transparent functors
+	* include/bits/stl_function.h (plus<void>, minus<void>,
+	multiplies<void>, divides<void>, modulus<void>, negate<void>,
+	equal_to<void>, not_equal_to<void>, greater<void>, less<void>,
+	greater_equal<void>, less_equal<void>, logical_and<void>,
+	logical_or<void>, logical_not<void>, bit_and<void>, bit_or<void>,
+	bit_xor<void>, bit_not<void>): Define.
+	* doc/xml/manual/status_cxx2014.xml: Update.
+	* testsuite/20_util/function_objects/comparisons_void.cc: New.
+
+2013-10-31  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/std/tuple (_Index_tuple, _Build_index_tuple): Move to
+	<utility>.
+	* include/std/utility (integer_sequence, make_integer_sequence,
+	index_sequence, make_index_sequence, index_sequence_for): Define.
+	* doc/xml/manual/status_cxx2014.xml: Update.
+	* testsuite/20_util/integer_sequence/intseq.cc: New.
+	* testsuite/20_util/integer_sequence/requirements/typedefs.cc: New.
+
+2013-10-31  Steve Ellcey  <sellcey@mips.com>
+
+	* configure.ac: Add header checks for fenv.h and complex.h.
+	* configure: Regenerate.
+
+2013-10-31  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+        Implement C++14 digit separators.
+	* include/include/bits/parse_numbers.h: Change struct _Digit<_Base, '`'>
+	to struct _Digit<_Base, '\''>.
+
+2013-10-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/20_util/default_delete/48631_neg.cc: Tweak dg-prune.
+
+2013-10-30  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* testsuite/29_atomics/atomic/operators/pointer_partial_void.cc: Fix
+	and enable VERIFY tests.
+
+2013-10-30  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/shared_ptr (__shared_ptr): Assert non-void pointer.
+	* include/bits/shared_ptr (default_delete): Likewise.
+	* testsuite/20_util/shared_ptr/cons/58839.cc: Do not use
+	default_delete<void>.
+	* testsuite/20_util/shared_ptr/cons/void_neg.cc: New.
+	* testsuite/20_util/default_delete/void_neg.cc: New.
+	* testsuite/20_util/shared_ptr/cons/43820_neg.cc: Adjust line numbers.
+	* testsuite/20_util/unique_ptr/assign/48635_neg.cc: Likewise.
+
+2013-10-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/58839
+	* include/bits/shared_ptr_base.h
+	(__shared_ptr<T>::__shared_ptr(unique_ptr<U,D>&&)): Only use addressof
+	when unique_ptr<U,D>::pointer is not a built-in pointer type.
+	* testsuite/20_util/shared_ptr/cons/58839.cc: New.
+	* testsuite/20_util/enable_shared_from_this/members/assign.cc: New.
+	* testsuite/20_util/enable_shared_from_this/members/unique_ptr.cc: New.
+
+2013-10-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* include/bits/hashtable.cc (__access_protected_ctor): Define and use
+	new type instead of _Hashtable_ebo_helper.
+	* testsuite/23_containers/unordered_set/
+	not_default_constructible_hash_neg.cc: Adjust line number.
+
+2013-10-28  Tim Shen  <timshen91@gmail.com>
+
+	* regex_executor.tcc: Add comments.
+
+2013-10-26  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.h: Remove unnecessary friends.
+	* include/bits/regex.tcc (__regex_algo_impl<>): Move __get_executor
+	to here.
+	* include/bits/regex_executor.h: Remove _DFSExecutor and _BFSExecutor;
+	they are merged into _Executor. Eliminate quantifier tracking part, so
+	it's faster.
+	* include/bits/regex_executor.tcc: Implement _Executor.
+	* testsuite/28_regex/algorithms/regex_match/ecma/char/ungreedy.cc: New.
+	* testsuite/28_regex/algorithms/regex_search/ecma/greedy.cc: Adjust
+	duplicate testcases.
+	* testsuite/performance/28_regex/split.h: New.
+	* testsuite/performance/28_regex/split_bfs.cc: New.
+	* testsuite/util/testsuite_regex.h: Adjust behavior of two-executors
+	agreement judger: do not compare match_results when executor return
+	false.
+
+2013-10-25  François Dumont  <fdumont@gcc.gnu.org>
+
+	* include/debug/formatter.h (__check_singular): Add const on
+	iterator reference.
+	* include/debug/functions.h (__check_singular): Likewise.
+	(__check_singular(const _Safe_iterator<_Ite, _Seq>&)): Delete.
+	(__check_dereferenceable(const _Ite&)): Add const on iterator
+	reference.
+	(__check_dereferenceable(const _Safe_local_iterator<>&)): New.
+	* include/debug/safe_iterator.h (__check_singular_aux): Review
+	comment.
+	* testsuite/23_containers/vector/debug/debug_functions.cc: New.
+	* testsuite/23_containers/unordered_set/debug/debug_functions.cc:
+	New.
+
+2013-10-23  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/util/testsuite_containergen.h: New.
+	* testsuite/util/testsuite_iterators.h (test_container<>::val): Add.
+	* testsuite/25_algorithms/nth_element/random_test.cc: New, use the
+	above.
+	* testsuite/25_algorithms/partial_sort/random_test.cc: Likewise.
+	* testsuite/25_algorithms/partial_sort_copy/random_test.cc: Likewise.
+	* testsuite/25_algorithms/sort/random_test.cc: Likewise.
+
+2013-10-23  Jason Merrill  <jason@redhat.com>
+
+	* include/bits/hashtable.h (_Hashtable): Force EBO for _Hash_code_base.
+
+2013-10-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58850
+	* include/std/chrono (minutes, hours): Change typedefs to uniformly
+	use int64_t.
+	* testsuite/20_util/duration/arithmetic/58850.cc: New.
+
+2013-10-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* testsuite/decimal/pr58815.cc: Fix thinko.
+
+2013-10-23  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58815
+	* include/decimal/decimal (decimal32::operator long long(),
+	decimal64::operator long long(), decimal128::operator long long()):
+	Add in c++11 mode per n3407.
+	* testsuite/decimal/pr58815.cc: New.
+
+2013-10-22  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	* include/bits/basic_string.h (operator""s): Remove space between quotes
+	and literal identifier.
+	* include/std/chrono (operator""h, operator""min, operator""s,
+	operator""ms, operator""us, operator""ns): Ditto.
+
+2013-10-22  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	Implement N3779 - User-defined Literals for std::complex,
+	part 2 of UDL for Standard Library Types
+	* include/std/complex: Add complex literal operators.
+	* testsuite/26_numerics/complex/literals/types.cc: New.
+	* testsuite/26_numerics/complex/literals/values.cc: New.
+
+2013-10-21  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/58804
+	PR libstdc++/58729
+	* include/tr2/dynamic_bitset
+	(__dynamic_bitset_base<_WordT, _Alloc>::_M_are_all_aux,
+	__dynamic_bitset_base<_WordT, _Alloc>::_M_do_count):
+	Use __builtin_popcountll() instead of __builtin_popcountl().
+	* include/tr2/dynamic_bitset.tcc
+	(__dynamic_bitset_base<_WordT, _Alloc>::_M_do_find_first,
+	__dynamic_bitset_base<_WordT, _Alloc>::_M_do_find_next):
+	Use __builtin_ctzll() instead of __builtin_ctzl().
+
+2013-10-20  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.h: Remove virtual class _Automaton.
+	* include/bits/regex_automaton.h: Likewise.
+	* include/bits/regex.tcc: Adjust comment for policy changing.
+	* include/bits/regex_executor.h: Update comments of complexity.
+	* include/bits/regex_executor.tcc: Adjust executor choosing
+	policy. Now DFS executor is the default one.
+	* testsuite/util/testsuite_regex.h (regex_match_debug,
+	regex_search_debug): Adjust for policy changing.
+
+2013-10-20  Chris Jefferson  <chris@bubblescope.net>
+	    Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58800
+	* include/bits/stl_algo.h (__unguarded_partition_pivot): Change
+	__last - 2 to __last - 1.
+	* testsuite/25_algorithms/nth_element/58800.cc: New
+
+2013-10-18  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/58729
+	* include/tr2/dynamic_bitset (_M_resize, resize): Use input value
+	to set bits; (_M_do_left_shift, _M_do_right_shift, _M_do_to_ulong,
+	_M_do_to_ullong, _M_do_find_first, _M_do_find_next, _M_copy_from_ptr,
+	operator>>): Move long methods outline to...
+	* include/tr2/dynamic_bitset.tcc: New.
+	* include/Makefile.am: Add dynamic_bitset.tcc.
+	* include/Makefile.in: Add dynamic_bitset.tcc.
+	* testsuite/tr2/dynamic_bitset/pr58729.cc: New.
+
+2013-10-18  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex_scanner.tcc: (_Scanner<>::_M_scan_normal,
+	_Scanner<>::_M_eat_escape_ecma, _Scanner<>::_M_eat_escape_posix,
+	_Scanner<>::_M_eat_escape_awk): Narrow character before finding in maps.
+	* testsuite/28_regex/algorithms/regex_match/ecma/wchar_t/cjk_match.cc:
+	New.
+
+2013-10-17  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.h (regex_token_iterator<>::regex_token_iterator):
+	Fix initialization orders in initialization list and add explicit braces
+	for potentially ambiguous(actually not) `else` branch to eliminate
+	warnings.
+	* include/bits/regex_automaton.h (_NFA<>::_NFA): Likewise.
+	* include/bits/regex_compiler.h (_CharMatcher<>::_CharMatcher,
+	_BracketMatcher<>::_BracketMatcher): Likewise.
+	* include/bits/regex_compiler.tcc (_Compiler<>::_Compiler,
+	_Compiler<>::_M_atom): Likewise.
+	* include/bits/regex_executor.h (_Executor<>::_Executor): Likewise.
+	* include/bits/regex_executor.tcc (_DFSExecutor<>::_M_dfs,
+	_Executor<>::_M_word_boundry): Likewise.
+	* include/bits/regex_scanner.tcc (_Scanner<>::_Scanner,
+	_Scanner<>::_M_eat_class): Likewise.
+	* include/bits/regex.tcc (__regex_algo_impl<>,
+	regex_iterator<>::operator++): Likewise, and remove unused typedef.
+
+2013-10-16  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.h (regex_token_iterator<>::regex_token_iterator):
+	Add initialization for _M_has_m1.
+	* include/bits/regex.tcc (regex_token_iterator<>::operator=): Add return
+	statment.
+
+2013-10-15  Diego Novillo  <dnovillo@google.com>
+
+	* testsuite/20_util/exchange/1.cc: Add missing function
+	bodies.
+
+2013-10-15  Tim Shen  <timshen91@gmail.com>
+
+	PR libstdc++/58737
+	* include/bits/regex_automaton.h (_Automaton<>::~_Automaton): Fix memory
+	leak by adding it.
+	* include/bits/regex_executor.h (_Executor<>::~_Executor): Likewise.
+
+2013-10-11  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/abi/post/x86_64-linux-gnu/x32/baseline_symbols.txt: Update.
+
+2013-10-10  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* testsuite/29_atomics/atomic/cons/49445.cc
+	(dg-require-atomic-builtins): Add.
+
 2013-10-09  Jonathan Wakely  <jwakely.gcc@gmail.com>
 
 	* testsuite/20_util/shared_ptr/cons/58659.cc: Use VERIFY instead of
@@ -2478,7 +2742,7 @@
 	* config/abi/pre/gnu.ver: Add new symbols.
 	* config/abi/pre/gnu-versioned-namespace.ver: Add new symbols.
 
-2013-05-08  Andoni Morales Alastruey <ylatuya@gmail.com>
+2013-05-08  Andoni Morales Alastruey  <ylatuya@gmail.com>
 
 	PR libstdc++/57212
 	* include/Makefile.am (_GLIBCXX___MINGW32_GLIBCXX___): Modify

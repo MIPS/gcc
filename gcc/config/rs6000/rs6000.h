@@ -593,9 +593,6 @@ extern int rs6000_vector_align[];
 #define MASK_PROTOTYPE			OPTION_MASK_PROTOTYPE
 #endif
 
-/* Explicit ISA options that were set.  */
-#define rs6000_isa_flags_explicit	global_options_set.x_rs6000_isa_flags
-
 /* For power systems, we want to enable Altivec and VSX builtins even if the
    user did not use -maltivec or -mvsx to allow the builtins to be used inside
    of #pragma GCC target or the target attribute to change the code level for a
@@ -1490,6 +1487,13 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
   rs6000_secondary_memory_needed_rtx (MODE)
+
+/* Specify the mode to be used for memory when a secondary memory
+   location is needed.  For cpus that cannot load/store SDmode values
+   from the 64-bit FP registers without using a full 64-bit
+   load/store, we need a wider mode.  */
+#define SECONDARY_MEMORY_NEEDED_MODE(MODE)		\
+  rs6000_secondary_memory_needed_mode (MODE)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.

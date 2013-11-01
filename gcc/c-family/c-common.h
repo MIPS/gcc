@@ -148,6 +148,9 @@ enum rid
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
 
+  /* Cilk Plus keywords.  */
+  RID_CILK_SPAWN, RID_CILK_SYNC,
+  
   /* Objective-C ("AT" reserved words - they are only keywords when
      they follow '@')  */
   RID_AT_ENCODE,   RID_AT_END,
@@ -1052,6 +1055,7 @@ struct omp_clause_mask
   inline omp_clause_mask operator >> (int);
   inline omp_clause_mask operator << (int);
   inline bool operator == (omp_clause_mask) const;
+  inline bool operator != (omp_clause_mask) const;
   unsigned HOST_WIDE_INT low, high;
 };
 
@@ -1154,6 +1158,12 @@ inline bool
 omp_clause_mask::operator == (omp_clause_mask b) const
 {
   return low == b.low && high == b.high;
+}
+
+inline bool
+omp_clause_mask::operator != (omp_clause_mask b) const
+{
+  return low != b.low || high != b.high;
 }
 
 # define OMP_CLAUSE_MASK_1 omp_clause_mask (1)
@@ -1349,4 +1359,18 @@ extern void cilkplus_extract_an_triplets (vec<tree, va_gc> *, size_t, size_t,
 					  vec<vec<an_parts> > *);
 extern vec <tree, va_gc> *fix_sec_implicit_args
   (location_t, vec <tree, va_gc> *, vec<an_loop_parts>, size_t, tree);
+
+/* In cilk.c.  */
+extern tree insert_cilk_frame (tree);
+extern void cilk_init_builtins (void);
+extern int gimplify_cilk_spawn (tree *, gimple_seq *, gimple_seq *);
+extern void c_cilk_install_body_w_frame_cleanup (tree, tree);
+extern bool cilk_detect_spawn_and_unwrap (tree *);
+extern bool cilk_set_spawn_marker (location_t, tree);
+extern tree build_cilk_sync (void);
+extern tree build_cilk_spawn (location_t, tree);
+extern tree make_cilk_frame (tree);
+extern tree create_cilk_function_exit (tree, bool, bool);
+extern tree cilk_install_body_pedigree_operations (tree);
+
 #endif /* ! GCC_C_COMMON_H */

@@ -25,7 +25,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "gimple-pretty-print.h"
 #include "except.h"
 #include "tree-pass.h"
@@ -446,7 +452,9 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   /* We found the call, check whether it is suitable.  */
   tail_recursion = false;
   func = gimple_call_fndecl (call);
-  if (func && recursive_call_p (current_function_decl, func))
+  if (func
+      && !DECL_BUILT_IN (func)
+      && recursive_call_p (current_function_decl, func))
     {
       tree arg;
 

@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "bitmap.h"
 #include "gimple.h"
 #include "tree-inline.h"
+#include "omp-low.h"
 #include "c-family/c-objc.h"
 #include "c-family/c-common.h"
 #include "c-family/c-ubsan.h"
@@ -4386,6 +4387,14 @@ build_compound_expr (location_t loc, tree expr1, tree expr2)
   tree eptype = NULL_TREE;
   tree ret;
 
+  if (flag_enable_cilkplus
+      && (TREE_CODE (expr1) == CILK_SPAWN_STMT
+	  || TREE_CODE (expr2) == CILK_SPAWN_STMT))
+    {
+      error_at (loc,
+		"spawned function call cannot be part of a comma expression");
+      return error_mark_node;
+    }
   expr1_int_operands = EXPR_INT_CONST_OPERANDS (expr1);
   if (expr1_int_operands)
     expr1 = remove_c_maybe_const_expr (expr1);
@@ -8693,6 +8702,12 @@ c_finish_return (location_t loc, tree retval, tree origtype)
 	  return error_mark_node;
 	}
     }
+  if (flag_enable_cilkplus && retval && TREE_CODE (retval) == CILK_SPAWN_STMT)
+    {
+      error_at (loc, "use of %<_Cilk_spawn%> in a return statement is not "
+		"allowed");
+      return error_mark_node;
+    }
   if (retval)
     {
       tree semantic_type = NULL_TREE;
@@ -11301,6 +11316,7 @@ c_finish_omp_clauses (tree clauses)
 			    "%qE has invalid type for %<reduction(%s)%>",
 			    t, r_name);
 		  remove = true;
+		  break;
 		}
 	    }
 	  else if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c) == error_mark_node)
@@ -11308,6 +11324,7 @@ c_finish_omp_clauses (tree clauses)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"user defined reduction not found for %qD", t);
 	      remove = true;
+	      break;
 	    }
 	  else if (OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
 	    {
@@ -11391,6 +11408,7 @@ c_finish_omp_clauses (tree clauses)
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qE must be %<threadprivate%> for %<copyin%>", t);
 	      remove = true;
+	      break;
 	    }
 	  goto check_dup_generic;
 
@@ -11487,6 +11505,14 @@ c_finish_omp_clauses (tree clauses)
 	    {
 	      error_at (OMP_CLAUSE_LOCATION (c),
 			"%qE is not a variable in %<aligned%> clause", t);
+	      remove = true;
+	    }
+	  else if (!POINTER_TYPE_P (TREE_TYPE (t))
+		   && TREE_CODE (TREE_TYPE (t)) != ARRAY_TYPE)
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE in %<aligned%> clause is neither a pointer nor "
+			"an array", t);
 	      remove = true;
 	    }
 	  else if (bitmap_bit_p (&aligned_head, DECL_UID (t)))
@@ -11592,8 +11618,9 @@ c_finish_omp_clauses (tree clauses)
 		error_at (OMP_CLAUSE_LOCATION (c),
 			  "%qE is not an argument in %<uniform%> clause", t);
 	      remove = true;
+	      break;
 	    }
-	  break;
+	  goto check_dup_generic;
 
 	case OMP_CLAUSE_NOWAIT:
 	  if (copyprivate_seen)

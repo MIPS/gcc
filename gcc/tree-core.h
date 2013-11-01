@@ -448,6 +448,8 @@ enum tree_index {
   TI_FILEPTR_TYPE,
   TI_POINTER_SIZED_TYPE,
 
+  TI_POINTER_BOUNDS_TYPE,
+
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
   TI_DFLOAT128_TYPE,
@@ -645,6 +647,10 @@ enum tree_node_kind {
   lang_type,
   omp_clause_kind,
   all_kinds
+};
+
+enum annot_expr_kind {
+  annot_expr_ivdep_kind
 };
 
 
@@ -1752,9 +1758,6 @@ extern const char *const tree_code_class_strings[];
 
 /* Number of argument-words in each kind of tree-node.  */
 extern const unsigned char tree_code_length[];
-
-/* Names of tree components.  */
-extern const char *const tree_code_name[];
 
 /* Vector of all alias pairs for global symbols.  */
 extern GTY(()) vec<alias_pair, va_gc> *alias_pairs;

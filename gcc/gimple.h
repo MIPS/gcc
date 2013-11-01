@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "vec.h"
 #include "ggc.h"
 #include "basic-block.h"
-#include "tree.h"
 #include "tree-ssa-alias.h"
 #include "internal-fn.h"
 #include "gimple-fold.h"
@@ -82,7 +81,7 @@ enum gimple_rhs_class
 
 /* Specific flags for individual GIMPLE statements.  These flags are
    always stored in gimple_statement_base.subcode and they may only be
-   defined for statement codes that do not use sub-codes.
+   defined for statement codes that do not use subcodes.
 
    Values for the masks can overlap as long as the overlapping values
    are never used in the same statement class.
@@ -847,6 +846,8 @@ unsigned get_gimple_rhs_num_ops (enum tree_code);
 gimple gimple_alloc_stat (enum gimple_code, unsigned MEM_STAT_DECL);
 const char *gimple_decl_printable_name (tree, int);
 
+/* Returns true iff T is a virtual ssa name decl.  */
+extern bool virtual_operand_p (tree);
 /* Returns true iff T is a scalar register variable.  */
 extern bool is_gimple_reg (tree);
 /* Returns true iff T is any sort of variable.  */
@@ -891,9 +892,6 @@ extern bool is_gimple_builtin_call (gimple stmt);
 
 extern void recalculate_side_effects (tree);
 extern bool gimple_compare_field_offset (tree, tree);
-extern tree gimple_register_canonical_type (tree);
-extern void print_gimple_types_stats (const char *);
-extern void free_gimple_type_tables (void);
 extern tree gimple_unsigned_type (tree);
 extern tree gimple_signed_type (tree);
 extern alias_set_type gimple_get_alias_set (tree);
@@ -920,6 +918,7 @@ extern tree get_initialized_tmp_var (tree, gimple_seq *, gimple_seq *);
 extern tree get_formal_tmp_var (tree, gimple_seq *);
 extern void declare_vars (tree, gimple, bool);
 extern void annotate_all_with_location (gimple_seq, location_t);
+extern unsigned gimple_call_get_nobnd_arg_index (const_gimple, unsigned);
 
 /* Validation of GIMPLE expressions.  Note that these predicates only check
    the basic form of the expression, they don't recurse to make sure that
@@ -1089,9 +1088,7 @@ extern tree canonicalize_cond_expr_cond (tree);
 extern void dump_decl_set (FILE *, bitmap);
 extern bool gimple_can_coalesce_p (tree, tree);
 extern bool nonfreeing_call_p (gimple);
-
-/* In omp-low.c.  */
-extern tree omp_reduction_init (tree, tree);
+extern tree copy_var_decl (tree, tree, tree);
 
 /* In trans-mem.c.  */
 extern void diagnose_tm_safe_errors (tree);
@@ -2414,6 +2411,32 @@ gimple_call_arg (const_gimple gs, unsigned index)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   return gimple_op (gs, index + 3);
+}
+
+
+/* Return the number of arguments used by call statement GS
+   ignoring bound ones.  */
+
+static inline unsigned
+gimple_call_num_nobnd_args (const_gimple gs)
+{
+  unsigned num_args = gimple_call_num_args (gs);
+  unsigned res = num_args;
+  for (unsigned n = 0; n < num_args; n++)
+    if (POINTER_BOUNDS_P (gimple_call_arg (gs, n)))
+      res--;
+  return res;
+}
+
+
+/* Return INDEX's call argument ignoring bound ones.  */
+static inline tree
+gimple_call_nobnd_arg (const_gimple gs, unsigned index)
+{
+  /* No bound args may exist if pointers checker is off.  */
+  if (!flag_check_pointer_bounds)
+    return gimple_call_arg (gs, index);
+  return gimple_call_arg (gs, gimple_call_get_nobnd_arg_index (gs, index));
 }
 
 
@@ -5223,6 +5246,26 @@ gimple_return_set_retval (gimple gs, tree retval)
 }
 
 
+/* Return the return bounds for GIMPLE_RETURN GS.  */
+
+static inline tree
+gimple_return_retbnd (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  return gimple_op (gs, 1);
+}
+
+
+/* Set RETVAL to be the return bounds for GIMPLE_RETURN GS.  */
+
+static inline void
+gimple_return_set_retbnd (gimple gs, tree retval)
+{
+  GIMPLE_CHECK (gs, GIMPLE_RETURN);
+  gimple_set_op (gs, 1, retval);
+}
+
+
 /* Returns true when the gimple statement STMT is any of the OpenMP types.  */
 
 #define CASE_GIMPLE_OMP				\
@@ -5530,6 +5573,20 @@ static inline gimple_stmt_iterator
 gsi_start_nondebug_bb (basic_block bb)
 {
   gimple_stmt_iterator i = gsi_start_bb (bb);
+
+  if (!gsi_end_p (i) && is_gimple_debug (gsi_stmt (i)))
+    gsi_next_nondebug (&i);
+
+  return i;
+}
+
+/* Return a new iterator pointing to the first non-debug non-label statement in
+   basic block BB.  */
+
+static inline gimple_stmt_iterator
+gsi_start_nondebug_after_labels_bb (basic_block bb)
+{
+  gimple_stmt_iterator i = gsi_after_labels (bb);
 
   if (!gsi_end_p (i) && is_gimple_debug (gsi_stmt (i)))
     gsi_next_nondebug (&i);

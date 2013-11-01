@@ -39,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "parser.h"
 #include "type-utils.h"
+#include "omp-low.h"
 
 
 /* The lexer.  */
@@ -1969,15 +1970,15 @@ static tree cp_parser_selection_statement
 static tree cp_parser_condition
   (cp_parser *);
 static tree cp_parser_iteration_statement
-  (cp_parser *);
+  (cp_parser *, bool);
 static bool cp_parser_for_init_statement
   (cp_parser *, tree *decl);
 static tree cp_parser_for
-  (cp_parser *);
+  (cp_parser *, bool);
 static tree cp_parser_c_for
-  (cp_parser *, tree, tree);
+  (cp_parser *, tree, tree, bool);
 static tree cp_parser_range_for
-  (cp_parser *, tree, tree, tree);
+  (cp_parser *, tree, tree, tree, bool);
 static void do_range_for_auto_deduction
   (tree, tree);
 static tree cp_parser_perform_range_for_lookup
@@ -2394,6 +2395,8 @@ static tree cp_parser_cache_defarg
 static void cp_parser_parse_tentatively
   (cp_parser *);
 static void cp_parser_commit_to_tentative_parse
+  (cp_parser *);
+static void cp_parser_commit_to_topmost_tentative_parse
   (cp_parser *);
 static void cp_parser_abort_tentative_parse
   (cp_parser *);
@@ -6229,9 +6232,13 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
 {
   tree index = NULL_TREE;
   location_t loc = cp_lexer_peek_token (parser->lexer)->location;
+  bool saved_greater_than_is_operator_p;
 
   /* Consume the `[' token.  */
   cp_lexer_consume_token (parser->lexer);
+
+  saved_greater_than_is_operator_p = parser->greater_than_is_operator_p;
+  parser->greater_than_is_operator_p = true;
 
   /* Parse the index expression.  */
   /* ??? For offsetof, there is a question of what to allow here.  If
@@ -6275,6 +6282,8 @@ cp_parser_postfix_open_square_expression (cp_parser *parser,
       else
 	index = cp_parser_expression (parser, /*cast_p=*/false, NULL);
     }
+
+  parser->greater_than_is_operator_p = saved_greater_than_is_operator_p;
 
   /* Look for the closing `]'.  */
   cp_parser_require (parser, CPP_CLOSE_SQUARE, RT_CLOSE_SQUARE);
@@ -6741,7 +6750,7 @@ cp_parser_pseudo_destructor_name (cp_parser* parser,
 
   /* Once we see the ~, this has to be a pseudo-destructor.  */
   if (!processing_template_decl && !cp_parser_error_occurred (parser))
-    cp_parser_commit_to_tentative_parse (parser);
+    cp_parser_commit_to_topmost_tentative_parse (parser);
 
   /* Look for the type-name again.  We are not responsible for
      checking that it matches the first type-name.  */
@@ -9222,7 +9231,7 @@ cp_parser_statement (cp_parser* parser, tree in_statement_expr,
 	case RID_WHILE:
 	case RID_DO:
 	case RID_FOR:
-	  statement = cp_parser_iteration_statement (parser);
+	  statement = cp_parser_iteration_statement (parser, false);
 	  break;
 
 	case RID_BREAK:
@@ -9883,7 +9892,7 @@ cp_parser_condition (cp_parser* parser)
    not included. */
 
 static tree
-cp_parser_for (cp_parser *parser)
+cp_parser_for (cp_parser *parser, bool ivdep)
 {
   tree init, scope, decl;
   bool is_range_for;
@@ -9895,13 +9904,13 @@ cp_parser_for (cp_parser *parser)
   is_range_for = cp_parser_for_init_statement (parser, &decl);
 
   if (is_range_for)
-    return cp_parser_range_for (parser, scope, init, decl);
+    return cp_parser_range_for (parser, scope, init, decl, ivdep);
   else
-    return cp_parser_c_for (parser, scope, init);
+    return cp_parser_c_for (parser, scope, init, ivdep);
 }
 
 static tree
-cp_parser_c_for (cp_parser *parser, tree scope, tree init)
+cp_parser_c_for (cp_parser *parser, tree scope, tree init, bool ivdep)
 {
   /* Normal for loop */
   tree condition = NULL_TREE;
@@ -9916,7 +9925,13 @@ cp_parser_c_for (cp_parser *parser, tree scope, tree init)
   /* If there's a condition, process it.  */
   if (cp_lexer_next_token_is_not (parser->lexer, CPP_SEMICOLON))
     condition = cp_parser_condition (parser);
-  finish_for_cond (condition, stmt);
+  else if (ivdep)
+    {
+      cp_parser_error (parser, "missing loop condition in loop with "
+		       "%<GCC ivdep%> pragma");
+      condition = error_mark_node;
+    }
+  finish_for_cond (condition, stmt, ivdep);
   /* Look for the `;'.  */
   cp_parser_require (parser, CPP_SEMICOLON, RT_SEMICOLON);
 
@@ -9939,7 +9954,8 @@ cp_parser_c_for (cp_parser *parser, tree scope, tree init)
   regular FOR_STMT.  */
 
 static tree
-cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl)
+cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl,
+		     bool ivdep)
 {
   tree stmt, range_expr;
 
@@ -9958,6 +9974,8 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl)
       if (check_for_bare_parameter_packs (range_expr))
 	range_expr = error_mark_node;
       stmt = begin_range_for_stmt (scope, init);
+      if (ivdep)
+	RANGE_FOR_IVDEP (stmt) = 1;
       finish_range_for_decl (stmt, range_decl, range_expr);
       if (!type_dependent_expression_p (range_expr)
 	  /* do_auto_deduction doesn't mess with template init-lists.  */
@@ -9967,7 +9985,7 @@ cp_parser_range_for (cp_parser *parser, tree scope, tree init, tree range_decl)
   else
     {
       stmt = begin_for_stmt (scope, init);
-      stmt = cp_convert_range_for (stmt, range_decl, range_expr);
+      stmt = cp_convert_range_for (stmt, range_decl, range_expr, ivdep);
     }
   return stmt;
 }
@@ -10058,7 +10076,8 @@ do_range_for_auto_deduction (tree decl, tree range_expr)
    namespace.  */
 
 tree
-cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
+cp_convert_range_for (tree statement, tree range_decl, tree range_expr,
+		      bool ivdep)
 {
   tree begin, end;
   tree iter_type, begin_expr, end_expr;
@@ -10115,7 +10134,7 @@ cp_convert_range_for (tree statement, tree range_decl, tree range_expr)
 				 begin, ERROR_MARK,
 				 end, ERROR_MARK,
 				 NULL, tf_warning_or_error);
-  finish_for_cond (condition, statement);
+  finish_for_cond (condition, statement, ivdep);
 
   /* The new increment expression.  */
   expression = finish_unary_op_expr (input_location,
@@ -10278,7 +10297,7 @@ cp_parser_range_for_member_function (tree range, tree identifier)
    Returns the new WHILE_STMT, DO_STMT, FOR_STMT or RANGE_FOR_STMT.  */
 
 static tree
-cp_parser_iteration_statement (cp_parser* parser)
+cp_parser_iteration_statement (cp_parser* parser, bool ivdep)
 {
   cp_token *token;
   enum rid keyword;
@@ -10308,7 +10327,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
 	/* Parse the condition.  */
 	condition = cp_parser_condition (parser);
-	finish_while_stmt_cond (condition, statement);
+	finish_while_stmt_cond (condition, statement, ivdep);
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
 	/* Parse the dependent statement.  */
@@ -10338,7 +10357,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Parse the expression.  */
 	expression = cp_parser_expression (parser, /*cast_p=*/false, NULL);
 	/* We're done with the do-statement.  */
-	finish_do_stmt (expression, statement);
+	finish_do_stmt (expression, statement, ivdep);
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
 	/* Look for the `;'.  */
@@ -10351,7 +10370,7 @@ cp_parser_iteration_statement (cp_parser* parser)
 	/* Look for the `('.  */
 	cp_parser_require (parser, CPP_OPEN_PAREN, RT_OPEN_PAREN);
 
-	statement = cp_parser_for (parser);
+	statement = cp_parser_for (parser, ivdep);
 
 	/* Look for the `)'.  */
 	cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
@@ -21417,6 +21436,9 @@ cp_parser_std_attribute (cp_parser *parser)
       /* C++11 noreturn attribute is equivalent to GNU's.  */
       if (is_attribute_p ("noreturn", attr_id))
 	TREE_PURPOSE (TREE_PURPOSE (attribute)) = get_identifier ("gnu");
+      /* C++14 deprecated attribute is equivalent to GNU's.  */
+      else if (cxx_dialect >= cxx1y && is_attribute_p ("deprecated", attr_id))
+	TREE_PURPOSE (TREE_PURPOSE (attribute)) = get_identifier ("gnu");
     }
 
   /* Now parse the optional argument clause of the attribute.  */
@@ -21873,7 +21895,6 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
     }
   else if (object_type)
     {
-      tree object_decl = NULL_TREE;
       /* Look up the name in the scope of the OBJECT_TYPE, unless the
 	 OBJECT_TYPE is not a class.  */
       if (CLASS_TYPE_P (object_type))
@@ -21881,19 +21902,21 @@ cp_parser_lookup_name (cp_parser *parser, tree name,
 	   be instantiated during name lookup.  In that case, errors
 	   may be issued.  Even if we rollback the current tentative
 	   parse, those errors are valid.  */
-	object_decl = lookup_member (object_type,
-				     name,
-				     /*protect=*/0,
-				     tag_type != none_type,
-				     tf_warning_or_error);
-      /* Look it up in the enclosing context, too.  */
-      decl = lookup_name_real (name, tag_type != none_type,
-			       /*nonclass=*/0,
-			       /*block_p=*/true, is_namespace, 0);
+	decl = lookup_member (object_type,
+			      name,
+			      /*protect=*/0,
+			      tag_type != none_type,
+			      tf_warning_or_error);
+      else
+	decl = NULL_TREE;
+
+      if (!decl)
+	/* Look it up in the enclosing context.  */
+	decl = lookup_name_real (name, tag_type != none_type,
+				 /*nonclass=*/0,
+				 /*block_p=*/true, is_namespace, 0);
       parser->object_scope = object_type;
       parser->qualifying_scope = NULL_TREE;
-      if (object_decl)
-	decl = object_decl;
     }
   else
     {
@@ -23189,6 +23212,9 @@ cp_parser_late_parse_one_default_arg (cp_parser *parser, tree decl,
 	      && CONSTRUCTOR_IS_DIRECT_INIT (parsed_arg))
 	    flags = LOOKUP_NORMAL;
 	  parsed_arg = digest_init_flags (TREE_TYPE (decl), parsed_arg, flags);
+	  if (TREE_CODE (parsed_arg) == TARGET_EXPR)
+	    /* This represents the whole initialization.  */
+	    TARGET_EXPR_DIRECT_INIT_P (parsed_arg) = true;
 	}
     }
 
@@ -24443,6 +24469,32 @@ cp_parser_commit_to_tentative_parse (cp_parser* parser)
       if (context->status == CP_PARSER_STATUS_KIND_COMMITTED)
 	break;
       context->status = CP_PARSER_STATUS_KIND_COMMITTED;
+      while (!cp_lexer_saving_tokens (lexer))
+	lexer = lexer->next;
+      cp_lexer_commit_tokens (lexer);
+    }
+}
+
+/* Commit to the topmost currently active tentative parse.
+
+   Note that this function shouldn't be called when there are
+   irreversible side-effects while in a tentative state.  For
+   example, we shouldn't create a permanent entry in the symbol
+   table, or issue an error message that might not apply if the
+   tentative parse is aborted.  */
+
+static void
+cp_parser_commit_to_topmost_tentative_parse (cp_parser* parser)
+{
+  cp_parser_context *context = parser->context;
+  cp_lexer *lexer = parser->lexer;
+
+  if (context)
+    {
+      if (context->status == CP_PARSER_STATUS_KIND_COMMITTED)
+	return;
+      context->status = CP_PARSER_STATUS_KIND_COMMITTED;
+
       while (!cp_lexer_saving_tokens (lexer))
 	lexer = lexer->next;
       cp_lexer_commit_tokens (lexer);
@@ -30869,6 +30921,22 @@ cp_parser_pragma (cp_parser *parser, enum pragma_context context)
 		"%<#pragma omp section%> may only be used in "
 		"%<#pragma omp sections%> construct");
       break;
+
+    case PRAGMA_IVDEP:
+      {
+	cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+	cp_token *tok;
+	tok = cp_lexer_peek_token (the_parser->lexer);
+	if (tok->type != CPP_KEYWORD
+	    || (tok->keyword != RID_FOR && tok->keyword != RID_WHILE
+		&& tok->keyword != RID_DO))
+	  {
+	    cp_parser_error (parser, "for, while or do statement expected");
+	    return false;
+	  }
+	cp_parser_iteration_statement (parser, true);
+	return true;
+      }
 
     default:
       gcc_assert (id >= PRAGMA_FIRST_EXTERNAL);

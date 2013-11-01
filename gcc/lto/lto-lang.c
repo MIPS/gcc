@@ -35,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "lto-streamer.h"
+#include "cilk.h"
 
 static tree lto_type_for_size (unsigned, int);
 
@@ -1134,31 +1135,11 @@ lto_build_c_type_nodes (void)
   pid_type_node = integer_type_node;
 }
 
-/* Re-compute TYPE_CANONICAL for NODE and related types.  */
-
-static void
-lto_register_canonical_types (tree node)
-{
-  if (!node
-      || !TYPE_P (node))
-    return;
-
-  TYPE_CANONICAL (node) = NULL_TREE;
-  TYPE_CANONICAL (node) = gimple_register_canonical_type (node);
-
-  if (POINTER_TYPE_P (node)
-      || TREE_CODE (node) == COMPLEX_TYPE
-      || TREE_CODE (node) == ARRAY_TYPE)
-    lto_register_canonical_types (TREE_TYPE (node));
-}
-
 /* Perform LTO-specific initialization.  */
 
 static bool
 lto_init (void)
 {
-  unsigned i;
-
   /* We need to generate LTO if running in WPA mode.  */
   flag_generate_lto = flag_wpa;
 
@@ -1194,6 +1175,9 @@ lto_init (void)
       lto_define_builtins (va_list_type_node,
 			   build_reference_type (va_list_type_node));
     }
+  
+  if (flag_enable_cilkplus)
+    cilk_init_builtins ();
 
   targetm.init_builtins ();
   build_common_builtin_nodes ();
@@ -1225,17 +1209,6 @@ lto_init (void)
   NAME_TYPE (void_type_node, "void");
   NAME_TYPE (boolean_type_node, "bool");
 #undef NAME_TYPE
-
-  /* Register the common node types with the canonical type machinery so
-     we properly share alias-sets across languages and TUs.  Do not
-     expose the common nodes as type merge target - those that should be
-     are already exposed so by pre-loading the LTO streamer caches.  */
-  for (i = 0; i < itk_none; ++i)
-    lto_register_canonical_types (integer_types[i]);
-  /* The sizetypes are not used to access data so we do not need to
-     do anything about them.  */
-  for (i = 0; i < TI_MAX; ++i)
-    lto_register_canonical_types (global_trees[i]);
 
   /* Initialize LTO-specific data structures.  */
   vec_alloc (lto_global_var_decls, 256);

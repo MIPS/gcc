@@ -1,3 +1,38 @@
+2013-10-31  Chung-Ju Wu  <jasonwucj@gmail.com>
+	    Shiva Chen  <shiva0217@gmail.com>
+
+	* config.host (nds32*-elf*): Add nds32 target.
+	* config/nds32 : New directory and files.
+
+2013-10-16  Hans-Peter Nilsson  <hp@axis.com>
+
+	For CRIS ports, switch to soft-fp.  Improve arit.c and longlong.h.
+	* config.host (cpu_type) <Setting default>: Add entry for
+	crisv32-*-*.
+	(tmake_file) <crisv32-*-elf, cris-*-elf, cris-*-linux*>
+	<crisv32-*-linux*>: Adjust.
+	* longlong.h: Wrap the whole CRIS section in a single
+	defined(__CRIS__) conditional.  Add comment about add_ssaaaa
+	and sub_ddmmss.
+	(COUNT_LEADING_ZEROS_0): Define when count_leading_zeros is
+	defined.
+	[__CRIS__] (__umulsidi3): Define.
+	[__CRIS__] (umul_ppmm): Define in terms of __umulsidi3.
+	* config/cris/sfp-machine.h: New file.
+	* config/cris/umulsidi3.S: New file.
+	* config/cris/t-elfmulti (LIB2ADD_ST): Add umulsidi3.S.
+	* config/cris/arit.c (SIGNMULT): New macro.
+	(__Div, __Mod): Use SIGNMULT instead of naked multiplication.
+	* config/cris/mulsi3.S: Tweak to avoid redundant register-copying;
+	saving 3 out of originally 33 cycles from the fastest
+	path, 3 out of 54 from the medium path and one from the longest
+	path.  Improve comments.
+
+2013-10-15  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* sync.c: Remove static aliases and define each function directly
+	under its real name.
+
 2013-10-02  John David Anglin  <danglin@gcc.gnu.org>
 
 	* config.host (hppa*64*-*-linux*): Define extra_parts.
@@ -450,7 +485,7 @@
 	* config/sh/lib1funcs.S (udivsi3_i4i, sdivsi3_i4i): Add __SH2A__ to
 	inclusion list.
 
-2013-03-04  Edgar E. Iglesias <edgar.iglesias@gmail.com>
+2013-03-04  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
 
 	* config/microblaze/crti.S: Setup stack protection at entry
 
@@ -561,7 +596,7 @@
 	_divQQ,  _divHQ,  _divHA,  _divSA,
 	_divUQQ, _divUHQ, _divUHA, _divUSA.
 
-2013-01-26  David Holsgrove <david.holsgrove@xilinx.com>
+2013-01-26  David Holsgrove  <david.holsgrove@xilinx.com>
 
 	* config.host(microblaze*-linux*): tmake_file: Remove
 	t-slibgcc-nolc-override, add t-slibgcc-libgcc.
@@ -569,7 +604,7 @@
 	to exclude functions from being built with libgcc.c and use
 	the microblaze assembly.
 
-2013-01-26  Edgar E. Iglesias <edgar.iglesias@gmail.com>
+2013-01-26  Edgar E. Iglesias  <edgar.iglesias@gmail.com>
 
 	* config.host (microblaze*-*-*): Rename microblaze*-*-elf, update
 	extra_parts.

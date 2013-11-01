@@ -1204,7 +1204,7 @@ Type::finish_backend(Gogo* gogo, Btype *placeholder)
 
 // Return a pointer to the type descriptor for this type.
 
-tree
+Bexpression*
 Type::type_descriptor_pointer(Gogo* gogo, Location location)
 {
   Type* t = this->forwarded();
@@ -1215,10 +1215,9 @@ Type::type_descriptor_pointer(Gogo* gogo, Location location)
       t->make_type_descriptor_var(gogo);
       go_assert(t->type_descriptor_var_ != NULL);
     }
-  tree var_tree = var_to_tree(t->type_descriptor_var_);
-  if (var_tree == error_mark_node)
-    return error_mark_node;
-  return build_fold_addr_expr_loc(location.gcc_location(), var_tree);
+  Bexpression* var_expr =
+      gogo->backend()->var_expression(t->type_descriptor_var_, location);
+  return gogo->backend()->address_expression(var_expr, location);
 }
 
 // A mapping from unnamed types to type descriptor variables.
@@ -4209,13 +4208,44 @@ Struct_field::is_field_name(const std::string& name) const
 
       // This is a horrible hack caused by the fact that we don't pack
       // the names of builtin types.  FIXME.
-      if (nt != NULL
+      if (!this->is_imported_
+	  && nt != NULL
 	  && nt->is_builtin()
 	  && nt->name() == Gogo::unpack_hidden_name(name))
 	return true;
 
       return false;
     }
+}
+
+// Return whether this field is an unexported field named NAME.
+
+bool
+Struct_field::is_unexported_field_name(Gogo* gogo,
+				       const std::string& name) const
+{
+  const std::string& field_name(this->field_name());
+  if (Gogo::is_hidden_name(field_name)
+      && name == Gogo::unpack_hidden_name(field_name)
+      && gogo->pack_hidden_name(name, false) != field_name)
+    return true;
+
+  // Check for the name of a builtin type.  This is like the test in
+  // is_field_name, only there we return false if this->is_imported_,
+  // and here we return true.
+  if (this->is_imported_ && this->is_anonymous())
+    {
+      Type* t = this->typed_identifier_.type();
+      if (t->points_to() != NULL)
+	t = t->points_to();
+      Named_type* nt = t->named_type();
+      if (nt != NULL
+	  && nt->is_builtin()
+	  && nt->name() == Gogo::unpack_hidden_name(name))
+	return true;
+    }
+
+  return false;
 }
 
 // Return whether this field is an embedded built-in type.
@@ -4650,13 +4680,8 @@ Struct_type::is_unexported_local_field(Gogo* gogo,
       for (Struct_field_list::const_iterator pf = fields->begin();
 	   pf != fields->end();
 	   ++pf)
-	{
-	  const std::string& field_name(pf->field_name());
-	  if (Gogo::is_hidden_name(field_name)
-	      && name == Gogo::unpack_hidden_name(field_name)
-	      && gogo->pack_hidden_name(name, false) != field_name)
-	    return true;
-	}
+	if (pf->is_unexported_field_name(gogo, name))
+	  return true;
     }
   return false;
 }
@@ -5259,6 +5284,7 @@ Struct_type::do_import(Import* imp)
 	  Type* ftype = imp->read_type();
 
 	  Struct_field sf(Typed_identifier(name, ftype, imp->location()));
+	  sf.set_is_imported();
 
 	  if (imp->peek_char() == ' ')
 	    {
@@ -5619,12 +5645,12 @@ Array_type::write_equal_function(Gogo* gogo, Named_type* name)
   Expression* e1 = Expression::make_temporary_reference(p1, bloc);
   e1 = Expression::make_unary(OPERATOR_MULT, e1, bloc);
   ref = Expression::make_temporary_reference(index, bloc);
-  e1 = Expression::make_array_index(e1, ref, NULL, bloc);
+  e1 = Expression::make_array_index(e1, ref, NULL, NULL, bloc);
 
   Expression* e2 = Expression::make_temporary_reference(p2, bloc);
   e2 = Expression::make_unary(OPERATOR_MULT, e2, bloc);
   ref = Expression::make_temporary_reference(index, bloc);
-  e2 = Expression::make_array_index(e2, ref, NULL, bloc);
+  e2 = Expression::make_array_index(e2, ref, NULL, NULL, bloc);
 
   Expression* cond = Expression::make_binary(OPERATOR_NOTEQ, e1, e2, bloc);
 
@@ -6237,14 +6263,12 @@ Map_type::Map_descriptors Map_type::map_descriptors;
 
 // Build a map descriptor for this type.  Return a pointer to it.
 
-tree
+Bexpression*
 Map_type::map_descriptor_pointer(Gogo* gogo, Location location)
 {
   Bvariable* bvar = this->map_descriptor(gogo);
-  tree var_tree = var_to_tree(bvar);
-  if (var_tree == error_mark_node)
-    return error_mark_node;
-  return build_fold_addr_expr_loc(location.gcc_location(), var_tree);
+  Bexpression* var_expr = gogo->backend()->var_expression(bvar, location);
+  return gogo->backend()->address_expression(var_expr, location);
 }
 
 // Build a map descriptor for this type.
@@ -9031,6 +9055,8 @@ Type::build_stub_methods(Gogo* gogo, const Type* type, const Methods* methods,
 				      fntype->is_varargs(), location);
 	  gogo->finish_function(fntype->location());
 
+	  if (type->named_type() == NULL && stub->is_function())
+	    stub->func_value()->set_is_unnamed_type_stub_method();
 	  if (m->nointerface() && stub->is_function())
 	    stub->func_value()->set_nointerface();
 	}
@@ -9298,7 +9324,9 @@ Type::bind_field_or_method(Gogo* gogo, const Type* type, Expression* expr,
       else
 	{
 	  bool is_unexported;
-	  if (!Gogo::is_hidden_name(name))
+	  // The test for 'a' and 'z' is to handle builtin names,
+	  // which are not hidden.
+	  if (!Gogo::is_hidden_name(name) && (name[0] < 'a' || name[0] > 'z'))
 	    is_unexported = false;
 	  else
 	    {

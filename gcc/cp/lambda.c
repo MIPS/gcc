@@ -628,7 +628,14 @@ lambda_expr_this_capture (tree lambda)
   /* In unevaluated context this isn't an odr-use, so just return the
      nearest 'this'.  */
   if (cp_unevaluated_operand)
-    return lookup_name (this_identifier);
+    {
+      /* In an NSDMI the fake 'this' pointer that we're using for
+	 parsing is in scope_chain.  */
+      if (LAMBDA_EXPR_EXTRA_SCOPE (lambda)
+	  && TREE_CODE (LAMBDA_EXPR_EXTRA_SCOPE (lambda)) == FIELD_DECL)
+	return scope_chain->x_current_class_ptr;
+      return lookup_name (this_identifier);
+    }
 
   /* Try to default capture 'this' if we can.  */
   if (!this_capture
@@ -1013,8 +1020,8 @@ maybe_add_lambda_conv_op (tree type)
     {
       /* Put the thunk in the same comdat group as the call op.  */
       symtab_add_to_same_comdat_group
-	 ((symtab_node) cgraph_get_create_node (statfn),
-          (symtab_node) cgraph_get_create_node (callop));
+	 (cgraph_get_create_node (statfn),
+          cgraph_get_create_node (callop));
     }
   tree body = begin_function_body ();
   tree compound_stmt = begin_compound_stmt (0);

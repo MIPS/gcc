@@ -1,3 +1,73 @@
+2013-10-29  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44350
+	* parse.c (parse_spec): Add C1116 constraint
+	check for BLOCK DATA.
+
+2013-10-29  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/58793
+	* trans-types.c (gfc_typenode_for_spec): Add typenode for
+	BT_HOLLERITH. Note that the length is incorrect but unusable.
+
+	PR fortran/58858
+	* target-memory.c (gfc_element_size): Add element sizes for
+	BT_VOID and BT_ASSUMED, using gfc_typenode_for_spec.
+
+2013-10-24  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/44646
+	* trans-stmt.c (struct forall_info): Add do_concurrent field.
+	(gfc_trans_forall_1): Set it for do concurrent.
+	(gfc_trans_forall_loop): Mark those as annot_expr_ivdep_kind.
+
+2013-10-23  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58793
+	* interface.c (compare_parameter): Reject passing TYPE(*)
+	to CLASS(*).
+
+2013-10-22  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran 57893
+	* class.c : Include target-memory.h.
+	(gfc_find_intrinsic_vtab) Build a minimal expression so that
+	gfc_element_size can be used to obtain the storage size, rather
+	that the kind value.
+
+2013-10-21  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58803
+	* decl.c (match_ppc_decl): Prevent later
+	double free.
+
+2013-10-17  Andrew MacLeod  <amacleod@redhat.com>
+
+	* trans-openmp.c: Include omp-low.h.
+
+2013-10-16  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58652
+	* interface.c (compare_parameter): Accept passing CLASS(*)
+	to CLASS(*).
+
+2013-10-16  Tobias Burnus  <burnus@net-b.de>
+
+	* intrinsic.texi (OpenMP Modules): Update to OpenMPv4.
+	Document omp_proc_bind_kind.
+
+2013-10-15  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58652
+	* trans-intrinsic.c (conv_intrinsic_move_alloc): Fix handling
+	of CLASS(*) variables.
+
+2013-10-14  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58658
+	* expr.c (gfc_check_vardef_context): Fix pointer diagnostic
+	for CLASS(*).
+
 2013-10-11  Jakub Jelinek  <jakub@redhat.com>
 
 	* trans-openmp.c (gfc_omp_clause_default_ctor,
@@ -1397,7 +1467,7 @@
 	(TS 29113 Status): Add TYPE(*) and DIMENSION(..).
 	(C Interop): Update the section about TS29113.
 
-2013-02-06 Paul Thomas  <pault@gcc.gnu.org>
+2013-02-06  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/55789
 	* trans-array.c (trans_array_constructor): Remove condition
@@ -1494,7 +1564,7 @@
 	(variable_decl): Remove undeclared type error.
 	(gfc_match_import): Use renamed instead of original name.
 
-2013-01-27 Paul Thomas  <pault@gcc.gnu.org>
+2013-01-27  Paul Thomas  <pault@gcc.gnu.org>
 
 	PR fortran/55984
 	PR fortran/56047

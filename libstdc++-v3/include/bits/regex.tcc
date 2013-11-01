@@ -28,6 +28,13 @@
  *  Do not attempt to use it directly. @headername{regex}
  */
 
+// See below __regex_algo_impl to get what this is talking about. The default
+// value 1 indicated a conservative optimization without giving up worst case
+// performance.
+#ifndef _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT
+#define _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT 1
+#endif
+
 namespace std _GLIBCXX_VISIBILITY(default)
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
@@ -38,8 +45,8 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
   // Result of merging regex_match and regex_search.
   //
-  // __policy now can be _S_auto(auto dispatch by checking back-references)
-  // and _S_force_dfs(just use _DFSExecutor).
+  // __policy now can be _S_auto (auto dispatch) and _S_alternate (use
+  // the other one if possible, for test purpose).
   //
   // That __match_mode is true means regex_match, else regex_search.
   template<typename _BiIter, typename _Alloc,
@@ -61,20 +68,41 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       for (auto& __it : __res)
 	__it.matched = false;
 
-      typedef std::unique_ptr<_Executor<_BiIter, _Alloc, _CharT, _TraitsT>>
-	_ExecutorPtr;
-      typedef _DFSExecutor<_BiIter, _Alloc, _CharT, _TraitsT> _DFSExecutorT;
-      typedef _BFSExecutor<_BiIter, _Alloc, _CharT, _TraitsT> _BFSExecutorT;
-
-      _ExecutorPtr __executor =
-	__get_executor<_BiIter, _Alloc, _CharT, _TraitsT,
-	  __policy>(__s, __e, __res, __re, __flags);
-
+      // This function decide which executor to use under given circumstances.
+      // The _S_auto policy now is the following: if a NFA has no
+      // back-references and has more than _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT
+      // quantifiers (*, +, ?), the BFS executor will be used, other wise
+      // DFS executor. This is because DFS executor has a exponential upper
+      // bound, but better best-case performace. Meanwhile, BFS executor can
+      // effectively prevent from exponential-long time matching (which must
+      // contains many quantifiers), but it's slower in average.
+      //
+      // For simple regex, BFS executor could be 2 or more times slower than
+      // DFS executor.
+      //
+      // Of course, BFS executor cannot handle back-references.
       bool __ret;
-      if (__match_mode)
-	__ret = __executor->_M_match();
+      if (!__re._M_automaton->_M_has_backref
+	  && (__policy == _RegexExecutorPolicy::_S_alternate
+	      || __re._M_automaton->_M_quant_count
+		> _GLIBCXX_REGEX_DFS_QUANTIFIERS_LIMIT))
+	{
+	  _Executor<_BiIter, _Alloc, _TraitsT, false>
+	    __executor(__s, __e, __m, __re, __flags);
+	  if (__match_mode)
+	    __ret = __executor._M_match();
+	  else
+	    __ret = __executor._M_search();
+	}
       else
-	__ret = __executor->_M_search();
+	{
+	  _Executor<_BiIter, _Alloc, _TraitsT, true>
+	    __executor(__s, __e, __m, __re, __flags);
+	  if (__match_mode)
+	    __ret = __executor._M_match();
+	  else
+	    __ret = __executor._M_search();
+	}
       if (__ret)
 	{
 	  for (auto __it : __res)
@@ -540,26 +568,29 @@ _GLIBCXX_END_NAMESPACE_VERSION
 	  auto __start = _M_match[0].second;
 	  auto __prefix_first = _M_match[0].second;
 	  if (_M_match[0].first == _M_match[0].second)
-	    if (__start == _M_end)
-	      {
-		_M_match = value_type();
-		return *this;
-	      }
-	    else
-	      {
-		if (regex_search(__start, _M_end, _M_match, *_M_pregex, _M_flags
-				 | regex_constants::match_not_null
-				 | regex_constants::match_continuous))
-		  {
-		    _GLIBCXX_DEBUG_ASSERT(_M_match[0].matched);
-		    _M_match.at(_M_match.size()).first = __prefix_first;
-		    _M_match._M_in_iterator = true;
-		    _M_match._M_begin = _M_begin;
-		    return *this;
-		  }
-		else
-		  ++__start;
-	      }
+	    {
+	      if (__start == _M_end)
+		{
+		  _M_match = value_type();
+		  return *this;
+		}
+	      else
+		{
+		  if (regex_search(__start, _M_end, _M_match, *_M_pregex,
+				   _M_flags
+				   | regex_constants::match_not_null
+				   | regex_constants::match_continuous))
+		    {
+		      _GLIBCXX_DEBUG_ASSERT(_M_match[0].matched);
+		      _M_match.at(_M_match.size()).first = __prefix_first;
+		      _M_match._M_in_iterator = true;
+		      _M_match._M_begin = _M_begin;
+		      return *this;
+		    }
+		  else
+		    ++__start;
+		}
+	    }
 	  _M_flags |= regex_constants::match_prev_avail;
 	  if (regex_search(__start, _M_end, _M_match, *_M_pregex, _M_flags))
 	    {
@@ -589,6 +620,7 @@ _GLIBCXX_END_NAMESPACE_VERSION
       _M_has_m1 = __rhs._M_has_m1;
       if (__rhs._M_result == &__rhs._M_suffix)
 	_M_result = &_M_suffix;
+      return *this;
     }
 
   template<typename _Bi_iter,
