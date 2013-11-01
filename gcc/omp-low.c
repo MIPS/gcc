@@ -10561,8 +10561,8 @@ static struct simd_clone *
 simd_clone_struct_alloc (int nargs)
 {
   struct simd_clone *clone_info;
-  int len = sizeof (struct simd_clone)
-    + nargs * sizeof (struct simd_clone_arg);
+  size_t len = (sizeof (struct simd_clone)
+		+ nargs * sizeof (struct simd_clone_arg));
   clone_info = ggc_alloc_cleared_simd_clone_stat (len PASS_MEM_STAT);
   return clone_info;
 }
@@ -10572,8 +10572,8 @@ simd_clone_struct_alloc (int nargs)
 static inline void
 simd_clone_struct_copy (struct simd_clone *to, struct simd_clone *from)
 {
-  memcpy (to, from, sizeof (struct simd_clone)
-	  + from->nargs * sizeof (struct simd_clone_arg));
+  memcpy (to, from, (sizeof (struct simd_clone)
+		     + from->nargs * sizeof (struct simd_clone_arg)));
 }
 
 /* Given a simd clone in NEW_NODE, extract the simd specific
@@ -10637,31 +10637,27 @@ simd_clone_clauses_extract (struct cgraph_node *new_node, tree clauses,
 	    int argno = TREE_INT_CST_LOW (decl);
 	    if (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE (t))
 	      {
-		clone_info->args[argno].linear_stride
-		  = LINEAR_STRIDE_YES_VARIABLE;
-		clone_info->args[argno].linear_stride_num
-		  = TREE_INT_CST_LOW (step);
-		gcc_assert (!TREE_INT_CST_HIGH (step));
+		clone_info->args[argno].arg_type
+		  = SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP;
+		clone_info->args[argno].linear_step
+		  = tree_low_cst (step, 0);
+		gcc_assert (clone_info->args[argno].linear_step >= 0
+			    && clone_info->args[argno].linear_step < n);
 	      }
 	    else
 	      {
-		if (TREE_INT_CST_HIGH (step))
-		  {
-		    /* It looks like this can't really happen, since the
-		       front-ends generally issue:
-
-		       warning: integer constant is too large for its type.
-
-		       But let's assume somehow we got past all that.  */
-		    warning_at (DECL_SOURCE_LOCATION (decl), 0,
-				"ignoring large linear step");
-		  }
+		if (!host_integerp (step, 0))
+		  warning_at (OMP_CLAUSE_LOCATION (t), 0,
+			      "ignoring large linear step");
+		else if (integer_zerop (step))
+		  warning_at (OMP_CLAUSE_LOCATION (t), 0,
+			      "ignoring zero linear step");
 		else
 		  {
-		    clone_info->args[argno].linear_stride
-		      = LINEAR_STRIDE_YES_CONSTANT;
-		    clone_info->args[argno].linear_stride_num
-		      = TREE_INT_CST_LOW (step);
+		    clone_info->args[argno].arg_type
+		      = SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP;
+		    clone_info->args[argno].linear_step
+		      = tree_low_cst (step, 0);
 		  }
 	      }
 	    break;
@@ -10670,7 +10666,8 @@ simd_clone_clauses_extract (struct cgraph_node *new_node, tree clauses,
 	  {
 	    tree decl = OMP_CLAUSE_DECL (t);
 	    int argno = tree_low_cst (decl, 1);
-	    clone_info->args[argno].uniform = 1;
+	    clone_info->args[argno].arg_type
+	      = SIMD_CLONE_ARG_TYPE_UNIFORM;
 	    break;
 	  }
 	case OMP_CLAUSE_ALIGNED:
@@ -10731,14 +10728,12 @@ simd_clone_compute_base_data_type (struct cgraph_node *new_node)
     {
       argno_map map (fndecl);
       for (unsigned int i = 0; i < new_node->simdclone->nargs; ++i)
-	{
-	  struct simd_clone_arg arg = new_node->simdclone->args[i];
-	  if (!arg.uniform && arg.linear_stride == LINEAR_STRIDE_NO)
-	    {
-	      type = TREE_TYPE (map[i]);
-	      break;
-	    }
-	}
+	if (new_node->simdclone->args[i].arg_type
+	    == SIMD_CLONE_ARG_TYPE_VECTOR)
+	  {
+	    type = TREE_TYPE (map[i]);
+	    break;
+	  }
     }
 
   /* c) If the characteristic data type determined by a) or b) above
@@ -10824,20 +10819,25 @@ simd_clone_mangle (struct cgraph_node *old_node, struct cgraph_node *new_node)
     {
       struct simd_clone_arg arg = new_node->simdclone->args[n];
 
-      if (arg.uniform)
+      if (arg.arg_type == SIMD_CLONE_ARG_TYPE_UNIFORM)
 	pp_character (&pp, 'u');
-      else if (arg.linear_stride == LINEAR_STRIDE_YES_CONSTANT)
+      else if (arg.arg_type == SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP)
 	{
-	  gcc_assert (arg.linear_stride_num != 0);
+	  gcc_assert (arg.linear_step != 0);
 	  pp_character (&pp, 'l');
-	  if (arg.linear_stride_num > 1)
-	    pp_unsigned_wide_integer (&pp,
-				      arg.linear_stride_num);
+	  if (arg.linear_step > 0)
+	    pp_unsigned_wide_integer (&pp, arg.linear_step);
+	  else
+	    {
+	      pp_character (&pp, 'n');
+	      pp_unsigned_wide_integer (&pp, (-(unsigned HOST_WIDE_INT)
+					      arg.linear_step));
+	    }
 	}
-      else if (arg.linear_stride == LINEAR_STRIDE_YES_VARIABLE)
+      else if (arg.arg_type == SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP)
 	{
 	  pp_character (&pp, 's');
-	  pp_unsigned_wide_integer (&pp, arg.linear_stride_num);
+	  pp_unsigned_wide_integer (&pp, arg.linear_step);
 	}
       else
 	pp_character (&pp, 'v');
@@ -10975,8 +10975,7 @@ simd_clone_adjust_argument_types (struct cgraph_node *node)
 
       node->simdclone->args[i].orig_arg = parm;
 
-      if (node->simdclone->args[i].uniform
-	  || node->simdclone->args[i].linear_stride != LINEAR_STRIDE_NO)
+      if (node->simdclone->args[i].arg_type != SIMD_CLONE_ARG_TYPE_VECTOR)
 	{
 	  /* No adjustment necessary for scalar arguments.  */
 	  adj.copy_param = 1;

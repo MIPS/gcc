@@ -250,10 +250,12 @@ struct GTY(()) cgraph_clone_info
   bitmap combined_args_to_skip;
 };
 
-enum linear_stride_type {
-  LINEAR_STRIDE_NO,
-  LINEAR_STRIDE_YES_CONSTANT,
-  LINEAR_STRIDE_YES_VARIABLE
+enum simd_clone_arg_type
+{
+  SIMD_CLONE_ARG_TYPE_VECTOR,
+  SIMD_CLONE_ARG_TYPE_UNIFORM,
+  SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP,
+  SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP
 };
 
 /* Function arguments in the original function of a SIMD clone.
@@ -282,28 +284,17 @@ struct GTY(()) simd_clone_arg {
   tree simd_array;
 
   /* A SIMD clone's argument can be either linear (constant or
-     variable), uniform, or vector.  If the argument is neither linear
-     or uniform, the default is vector.  */
+     variable), uniform, or vector.  */
+  enum simd_clone_arg_type arg_type;
 
-  /* If the linear stride is a constant, `linear_stride' is
-     LINEAR_STRIDE_YES_CONSTANT, and `linear_stride_num' holds
-     the numeric stride.
-
-     If the linear stride is variable, `linear_stride' is
-     LINEAR_STRIDE_YES_VARIABLE, and `linear_stride_num' contains
-     the function argument containing the stride (as an index into the
-     function arguments starting at 0).
-
-     Otherwise, `linear_stride' is LINEAR_STRIDE_NO and
-     `linear_stride_num' is unused.  */
-  enum linear_stride_type linear_stride;
-  unsigned HOST_WIDE_INT linear_stride_num;
+  /* For arg_type SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP this is
+     the constant linear step, if arg_type is
+     SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP, this is index of
+     the uniform argument holding the step, otherwise 0.  */
+  HOST_WIDE_INT linear_step;
 
   /* Variable alignment if available, otherwise 0.  */
   unsigned int alignment;
-
-  /* True if variable is uniform.  */
-  unsigned int uniform : 1;
 };
 
 /* Specific data for a SIMD function clone.  */
