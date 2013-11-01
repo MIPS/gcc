@@ -1261,48 +1261,6 @@ chkp_output_static_bounds (tree bnd_var, tree var,
     }
 }
 
-/* Helper function for chkp_finish_file to sort vars.  */
-static int
-chkp_compare_var_names (const void *i1, const void *i2)
-{
-  const tree t1 = *(const tree *)i1;
-  const tree t2 = *(const tree *)i2;
-  const char *name1;
-  const char *name2;
-
-  if (TREE_CODE (t1) == STRING_CST)
-    {
-      if (TREE_CODE (t2) != STRING_CST)
-	return 1;
-
-      name1 = TREE_STRING_POINTER (t1);
-      name2 = TREE_STRING_POINTER (t2);
-    }
-  else
-    {
-      if (TREE_CODE (t2) == STRING_CST)
-	return -1;
-
-      name1 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t1));
-      name2 = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (t2));
-    }
-
-  return strcmp (name1, name2);
-}
-
-/* Helper function for chkp_finish_file to put all
-   vars into vectors.  */
-static int
-chkp_add_tree_to_vec (void **slot, void *res)
-{
-  struct tree_map *map = (struct tree_map *)*slot;
-  vec<tree> *vars = (vec<tree> *)res;
-  tree var = map->base.from;
-  vars->safe_push (var);
-
-  return 1;
-}
-
 /* Register bounds BND for object PTR in global bounds table.  */
 static void
 chkp_register_bounds (tree ptr, tree bnd)
@@ -3941,8 +3899,6 @@ chkp_finish_file (void)
 {
   struct varpool_node *node;
   struct chkp_ctor_stmt_list stmts;
-  int i;
-  tree var;
 
   if (seen_error ())
     return;
