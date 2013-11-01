@@ -19794,6 +19794,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
     case FIXED_POINT_TYPE:
     case COMPLEX_TYPE:
     case BOOLEAN_TYPE:
+    case POINTER_BOUNDS_TYPE:
       /* No DIEs needed for fundamental types.  */
       break;
 

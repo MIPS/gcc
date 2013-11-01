@@ -5728,6 +5728,12 @@ chkp_opt_init (void)
 
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
+
+  /* With LTO constant bounds vars may be not initialized by now.
+     Get constant bounds vars to handle their assignments during
+     optimizations.  */
+  chkp_get_zero_bounds_var ();
+  chkp_get_none_bounds_var ();
 }
 
 /* Finalise checker optimization  pass.  */
