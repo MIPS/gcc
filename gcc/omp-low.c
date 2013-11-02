@@ -11098,17 +11098,23 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 	    {
 	    case GIMPLE_RETURN:
 	      {
-		/* Replace `return foo' by `retval_array[iter] = foo'.  */
 		tree old_retval = gimple_return_retval (stmt);
-		if (!old_retval)
-		  break;
-		stmt = gimple_build_assign (build4 (ARRAY_REF,
-						    TREE_TYPE (old_retval),
-						    retval_array, iter,
-						    NULL, NULL),
-					    old_retval);
-		gsi_replace (&gsi, stmt, true);
-		modified = true;
+		if (old_retval)
+		  {
+		    /* Replace `return foo' by `retval_array[iter] = foo'.  */
+		    stmt = gimple_build_assign (build4 (ARRAY_REF,
+							TREE_TYPE (old_retval),
+							retval_array, iter,
+							NULL, NULL),
+						old_retval);
+		    gsi_replace (&gsi, stmt, true);
+		    modified = true;
+		  }
+		else
+		  {
+		    gsi_remove (&gsi, true);
+		    continue;
+		  }
 		break;
 	      }
 
