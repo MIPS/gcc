@@ -27,15 +27,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
+#include "tree-ssa.h"
 #include "hash-table.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
 #include "obstack.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "tree-ssa-sccvn.h"
@@ -44,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "domwalk.h"
 #include "ipa-prop.h"
+#include "tree-ssa-propagate.h"
 
 /* TODO:
 
@@ -360,10 +368,10 @@ typedef struct bitmap_set
 } *bitmap_set_t;
 
 #define FOR_EACH_EXPR_ID_IN_SET(set, id, bi)		\
-  EXECUTE_IF_SET_IN_BITMAP(&(set)->expressions, 0, (id), (bi))
+  EXECUTE_IF_SET_IN_BITMAP (&(set)->expressions, 0, (id), (bi))
 
 #define FOR_EACH_VALUE_ID_IN_SET(set, id, bi)		\
-  EXECUTE_IF_SET_IN_BITMAP(&(set)->values, 0, (id), (bi))
+  EXECUTE_IF_SET_IN_BITMAP (&(set)->values, 0, (id), (bi))
 
 /* Mapping from value id to expressions with that value_id.  */
 static vec<bitmap> value_expressions;
@@ -910,7 +918,7 @@ print_pre_expr (FILE *outfile, const pre_expr expr)
       {
 	unsigned int i;
 	vn_nary_op_t nary = PRE_EXPR_NARY (expr);
-	fprintf (outfile, "{%s,", tree_code_name [nary->opcode]);
+	fprintf (outfile, "{%s,", get_tree_code_name (nary->opcode));
 	for (i = 0; i < nary->length; i++)
 	  {
 	    print_generic_expr (outfile, nary->op[i], 0);
@@ -935,7 +943,7 @@ print_pre_expr (FILE *outfile, const pre_expr expr)
 	    if (vro->opcode != SSA_NAME
 		&& TREE_CODE_CLASS (vro->opcode) != tcc_declaration)
 	      {
-		fprintf (outfile, "%s", tree_code_name [vro->opcode]);
+		fprintf (outfile, "%s", get_tree_code_name (vro->opcode));
 		if (vro->op0)
 		  {
 		    fprintf (outfile, "<");
@@ -1344,7 +1352,7 @@ get_expr_type (const pre_expr e)
     case NARY:
       return PRE_EXPR_NARY (e)->type;
     }
-  gcc_unreachable();
+  gcc_unreachable ();
 }
 
 /* Get a representative SSA_NAME for a given expression.
@@ -1488,7 +1496,7 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	    else
 	      {
 		new_val_id = get_next_value_id ();
-		value_expressions.safe_grow_cleared (get_max_value_id() + 1);
+		value_expressions.safe_grow_cleared (get_max_value_id () + 1);
 		nary = vn_nary_op_insert_pieces (newnary->length,
 						 newnary->opcode,
 						 newnary->type,
@@ -1673,7 +1681,8 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 		if (changed || !same_valid)
 		  {
 		    new_val_id = get_next_value_id ();
-		    value_expressions.safe_grow_cleared(get_max_value_id() + 1);
+		    value_expressions.safe_grow_cleared
+		      (get_max_value_id () + 1);
 		  }
 		else
 		  new_val_id = ref->value_id;
@@ -1756,7 +1765,14 @@ phi_translate (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
   phitrans = phi_translate_1 (expr, set1, set2, pred, phiblock);
 
   if (slot)
-    slot->v = phitrans;
+    {
+      if (phitrans)
+	slot->v = phitrans;
+      else
+	/* Remove failed translations again, they cause insert
+	   iteration to not pick up new opportunities reliably.  */
+	phi_translate_table.remove_elt_with_hash (slot, slot->hashcode);
+    }
 
   return phitrans;
 }
@@ -4629,7 +4645,7 @@ init_pre (void)
   expressions.create (0);
   expressions.safe_push (NULL);
   value_expressions.create (get_max_value_id () + 1);
-  value_expressions.safe_grow_cleared (get_max_value_id() + 1);
+  value_expressions.safe_grow_cleared (get_max_value_id () + 1);
   name_to_id.create (0);
 
   inserted_exprs = BITMAP_ALLOC (NULL);
@@ -4789,8 +4805,8 @@ const pass_data pass_data_pre =
 class pass_pre : public gimple_opt_pass
 {
 public:
-  pass_pre(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_pre, ctxt)
+  pass_pre (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_pre, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4859,12 +4875,12 @@ const pass_data pass_data_fre =
 class pass_fre : public gimple_opt_pass
 {
 public:
-  pass_fre(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_fre, ctxt)
+  pass_fre (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_fre, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_fre (ctxt_); }
+  opt_pass * clone () { return new pass_fre (m_ctxt); }
   bool gate () { return gate_fre (); }
   unsigned int execute () { return execute_fre (); }
 

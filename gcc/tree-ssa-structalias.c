@@ -25,21 +25,24 @@
 #include "ggc.h"
 #include "obstack.h"
 #include "bitmap.h"
+#include "sbitmap.h"
 #include "flags.h"
 #include "basic-block.h"
 #include "tree.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-inline.h"
 #include "diagnostic-core.h"
-#include "gimple.h"
 #include "hash-table.h"
 #include "function.h"
-#include "cgraph.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
 #include "splay-tree.h"
 #include "params.h"
-#include "cgraph.h"
 #include "alias.h"
 #include "pointer-set.h"
 
@@ -1747,7 +1750,7 @@ do_complex_constraint (constraint_graph_t graph, constraint_t c, bitmap delta)
     {
       if (c->rhs.type == ADDRESSOF)
 	{
-	  gcc_unreachable();
+	  gcc_unreachable ();
 	}
       else
 	{
@@ -2096,7 +2099,7 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 		}
 	    }
 	  else
-	    bitmap_ior_into(graph->points_to[n], graph->points_to[w]);
+	    bitmap_ior_into (graph->points_to[n], graph->points_to[w]);
 	}
     }
 
@@ -2874,10 +2877,10 @@ get_constraint_for_ssa_var (tree t, vec<ce_s> *results, bool address_p)
       && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
       struct varpool_node *node = varpool_get_node (t);
-      if (node && node->symbol.alias && node->symbol.analyzed)
+      if (node && node->alias && node->analyzed)
 	{
 	  node = varpool_variable_node (node, NULL);
-	  t = node->symbol.decl;
+	  t = node->decl;
 	}
     }
 
@@ -4301,8 +4304,8 @@ find_func_aliases_for_builtin_call (gimple t)
 	    rhsc.safe_push (nul);
 	    get_constraint_for (gimple_call_lhs (t), &lhsc);
 	    process_all_all_constraints (lhsc, rhsc);
-	    lhsc.release();
-	    rhsc.release();
+	    lhsc.release ();
+	    rhsc.release ();
 	  }
 	return true;
       /* Trampolines are special - they set up passing the static
@@ -5751,7 +5754,7 @@ create_variable_info_for (tree decl, const char *name)
 	  /* If this is a global variable with an initializer and we are in
 	     IPA mode generate constraints for it.  */
 	  if (DECL_INITIAL (decl)
-	      && vnode->symbol.definition)
+	      && vnode->definition)
 	    {
 	      vec<ce_s> rhsc = vNULL;
 	      struct constraint_expr lhs, *rhsp;
@@ -6980,8 +6983,8 @@ const pass_data pass_data_build_alias =
 class pass_build_alias : public gimple_opt_pass
 {
 public:
-  pass_build_alias(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_build_alias, ctxt)
+  pass_build_alias (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_build_alias, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -7020,8 +7023,8 @@ const pass_data pass_data_build_ealias =
 class pass_build_ealias : public gimple_opt_pass
 {
 public:
-  pass_build_ealias(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_build_ealias, ctxt)
+  pass_build_ealias (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_build_ealias, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -7057,9 +7060,9 @@ struct pt_solution ipa_escaped_pt
 static bool
 associate_varinfo_to_alias (struct cgraph_node *node, void *data)
 {
-  if ((node->symbol.alias || node->thunk.thunk_p)
-      && node->symbol.analyzed)
-    insert_vi_for_tree (node->symbol.decl, (varinfo_t)data);
+  if ((node->alias || node->thunk.thunk_p)
+      && node->analyzed)
+    insert_vi_for_tree (node->decl, (varinfo_t)data);
   return false;
 }
 
@@ -7094,18 +7097,18 @@ ipa_pta_execute (void)
 
       gcc_assert (!node->clone_of);
 
-      vi = create_function_info_for (node->symbol.decl,
-			             alias_get_name (node->symbol.decl));
+      vi = create_function_info_for (node->decl,
+			             alias_get_name (node->decl));
       cgraph_for_node_and_aliases (node, associate_varinfo_to_alias, vi, true);
     }
 
   /* Create constraints for global variables and their initializers.  */
   FOR_EACH_VARIABLE (var)
     {
-      if (var->symbol.alias && var->symbol.analyzed)
+      if (var->alias && var->analyzed)
 	continue;
 
-      get_vi_for_tree (var->symbol.decl);
+      get_vi_for_tree (var->decl);
     }
 
   if (dump_file)
@@ -7130,32 +7133,32 @@ ipa_pta_execute (void)
 	{
 	  fprintf (dump_file,
 		   "Generating constraints for %s", cgraph_node_name (node));
-	  if (DECL_ASSEMBLER_NAME_SET_P (node->symbol.decl))
+	  if (DECL_ASSEMBLER_NAME_SET_P (node->decl))
 	    fprintf (dump_file, " (%s)",
 		     IDENTIFIER_POINTER
-		       (DECL_ASSEMBLER_NAME (node->symbol.decl)));
+		       (DECL_ASSEMBLER_NAME (node->decl)));
 	  fprintf (dump_file, "\n");
 	}
 
-      func = DECL_STRUCT_FUNCTION (node->symbol.decl);
+      func = DECL_STRUCT_FUNCTION (node->decl);
       push_cfun (func);
 
       /* For externally visible or attribute used annotated functions use
 	 local constraints for their arguments.
 	 For local functions we see all callers and thus do not need initial
 	 constraints for parameters.  */
-      if (node->symbol.used_from_other_partition
-	  || node->symbol.externally_visible
-	  || node->symbol.force_output)
+      if (node->used_from_other_partition
+	  || node->externally_visible
+	  || node->force_output)
 	{
 	  intra_create_variable_infos ();
 
 	  /* We also need to make function return values escape.  Nothing
 	     escapes by returning from main though.  */
-	  if (!MAIN_NAME_P (DECL_NAME (node->symbol.decl)))
+	  if (!MAIN_NAME_P (DECL_NAME (node->decl)))
 	    {
 	      varinfo_t fi, rvi;
-	      fi = lookup_vi_for_tree (node->symbol.decl);
+	      fi = lookup_vi_for_tree (node->decl);
 	      rvi = first_vi_for_offset (fi, fi_result);
 	      if (rvi && rvi->offset == fi_result)
 		{
@@ -7235,7 +7238,7 @@ ipa_pta_execute (void)
       if (!cgraph_function_with_gimple_body_p (node) || node->clone_of)
 	continue;
 
-      fn = DECL_STRUCT_FUNCTION (node->symbol.decl);
+      fn = DECL_STRUCT_FUNCTION (node->decl);
 
       /* Compute the points-to sets for pointer SSA_NAMEs.  */
       FOR_EACH_VEC_ELT (*fn->gimple_df->ssa_names, i, ptr)
@@ -7246,7 +7249,7 @@ ipa_pta_execute (void)
 	}
 
       /* Compute the call-use and call-clobber sets for all direct calls.  */
-      fi = lookup_vi_for_tree (node->symbol.decl);
+      fi = lookup_vi_for_tree (node->decl);
       gcc_assert (fi->is_fn_info);
       clobbers
 	= find_what_var_points_to (first_vi_for_offset (fi, fi_clobbers));
@@ -7414,8 +7417,8 @@ const pass_data pass_data_ipa_pta =
 class pass_ipa_pta : public simple_ipa_opt_pass
 {
 public:
-  pass_ipa_pta(gcc::context *ctxt)
-    : simple_ipa_opt_pass(pass_data_ipa_pta, ctxt)
+  pass_ipa_pta (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_pta, ctxt)
   {}
 
   /* opt_pass methods: */

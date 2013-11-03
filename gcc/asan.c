@@ -22,9 +22,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
 #include "gimple.h"
 #include "tree-iterator.h"
-#include "tree-ssa.h"
+#include "cgraph.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "asan.h"
 #include "gimple-pretty-print.h"
@@ -37,6 +39,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "alloc-pool.h"
 #include "cfgloop.h"
+#include "gimple-builder.h"
 
 /* AddressSanitizer finds out-of-bounds and use-after-free bugs
    with <2x slowdown on average.
@@ -895,7 +898,7 @@ asan_clear_shadow (rtx shadow_mem, HOST_WIDE_INT len)
 
   gcc_assert ((len & 3) == 0);
   top_label = gen_label_rtx ();
-  addr = force_reg (Pmode, XEXP (shadow_mem, 0));
+  addr = copy_to_mode_reg (Pmode, XEXP (shadow_mem, 0));
   shadow_mem = adjust_automodify_address (shadow_mem, SImode, addr, 0);
   end = force_reg (Pmode, plus_constant (Pmode, addr, len));
   emit_label (top_label);
@@ -2172,8 +2175,8 @@ asan_finish_file (void)
   tree fn = builtin_decl_implicit (BUILT_IN_ASAN_INIT);
   append_to_statement_list (build_call_expr (fn, 0), &asan_ctor_statements);
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    if (TREE_ASM_WRITTEN (vnode->symbol.decl)
-	&& asan_protect_global (vnode->symbol.decl))
+    if (TREE_ASM_WRITTEN (vnode->decl)
+	&& asan_protect_global (vnode->decl))
       ++gcount;
   htab_t const_desc_htab = constant_pool_htab ();
   htab_traverse (const_desc_htab, count_string_csts, &gcount);
@@ -2194,9 +2197,9 @@ asan_finish_file (void)
       DECL_IGNORED_P (var) = 1;
       vec_alloc (v, gcount);
       FOR_EACH_DEFINED_VARIABLE (vnode)
-	if (TREE_ASM_WRITTEN (vnode->symbol.decl)
-	    && asan_protect_global (vnode->symbol.decl))
-	  asan_add_global (vnode->symbol.decl, TREE_TYPE (type), v);
+	if (TREE_ASM_WRITTEN (vnode->decl)
+	    && asan_protect_global (vnode->decl))
+	  asan_add_global (vnode->decl, TREE_TYPE (type), v);
       struct asan_add_string_csts_data aascd;
       aascd.type = TREE_TYPE (type);
       aascd.v = v;
@@ -2267,12 +2270,12 @@ const pass_data pass_data_asan =
 class pass_asan : public gimple_opt_pass
 {
 public:
-  pass_asan(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_asan, ctxt)
+  pass_asan (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_asan, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_asan (ctxt_); }
+  opt_pass * clone () { return new pass_asan (m_ctxt); }
   bool gate () { return gate_asan (); }
   unsigned int execute () { return asan_instrument (); }
 
@@ -2313,8 +2316,8 @@ const pass_data pass_data_asan_O0 =
 class pass_asan_O0 : public gimple_opt_pass
 {
 public:
-  pass_asan_O0(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_asan_O0, ctxt)
+  pass_asan_O0 (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_asan_O0, ctxt)
   {}
 
   /* opt_pass methods: */

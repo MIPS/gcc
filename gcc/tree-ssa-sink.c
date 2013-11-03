@@ -26,14 +26,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "hashtab.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "bitmap.h"
 #include "cfgloop.h"
 #include "params.h"
 
@@ -607,8 +609,8 @@ const pass_data pass_data_sink_code =
 class pass_sink_code : public gimple_opt_pass
 {
 public:
-  pass_sink_code(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_sink_code, ctxt)
+  pass_sink_code (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_sink_code, ctxt)
   {}
 
   /* opt_pass methods: */

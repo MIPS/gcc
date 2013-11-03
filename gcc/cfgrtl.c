@@ -479,8 +479,8 @@ const pass_data pass_data_free_cfg =
 class pass_free_cfg : public rtl_opt_pass
 {
 public:
-  pass_free_cfg(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_free_cfg, ctxt)
+  pass_free_cfg (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_free_cfg, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1441,7 +1441,7 @@ void
 emit_barrier_after_bb (basic_block bb)
 {
   rtx barrier = emit_barrier_after (BB_END (bb));
-  gcc_assert (current_ir_type() == IR_RTL_CFGRTL
+  gcc_assert (current_ir_type () == IR_RTL_CFGRTL
               || current_ir_type () == IR_RTL_CFGLAYOUT);
   if (current_ir_type () == IR_RTL_CFGLAYOUT)
     BB_FOOTER (bb) = unlink_insn_chain (barrier, barrier);
@@ -1959,10 +1959,18 @@ commit_one_edge_insertion (edge e)
     }
 
   /* If the source has one successor and the edge is not abnormal,
-     insert there.  Except for the entry block.  */
+     insert there.  Except for the entry block.
+     Don't do this if the predecessor ends in a jump other than
+     unconditional simple jump.  E.g. for asm goto that points all
+     its labels at the fallthru basic block, we can't insert instructions
+     before the asm goto, as the asm goto can have various of side effects,
+     and can't emit instructions after the asm goto, as it must end
+     the basic block.  */
   else if ((e->flags & EDGE_ABNORMAL) == 0
 	   && single_succ_p (e->src)
-	   && e->src != ENTRY_BLOCK_PTR)
+	   && e->src != ENTRY_BLOCK_PTR
+	   && (!JUMP_P (BB_END (e->src))
+	       || simplejump_p (BB_END (e->src))))
     {
       bb = e->src;
 
@@ -2346,7 +2354,7 @@ verify_hot_cold_block_grouping (void)
      again (in compgoto). Ensure we don't call this before going back
      into linearized RTL when any layout fixes would have been committed.  */
   if (!crtl->bb_reorder_complete
-      || current_ir_type() != IR_RTL_CFGRTL)
+      || current_ir_type () != IR_RTL_CFGRTL)
     return err;
 
   FOR_EACH_BB (bb)
@@ -3484,8 +3492,8 @@ const pass_data pass_data_into_cfg_layout_mode =
 class pass_into_cfg_layout_mode : public rtl_opt_pass
 {
 public:
-  pass_into_cfg_layout_mode(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_into_cfg_layout_mode, ctxt)
+  pass_into_cfg_layout_mode (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_into_cfg_layout_mode, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -3521,8 +3529,8 @@ const pass_data pass_data_outof_cfg_layout_mode =
 class pass_outof_cfg_layout_mode : public rtl_opt_pass
 {
 public:
-  pass_outof_cfg_layout_mode(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_outof_cfg_layout_mode, ctxt)
+  pass_outof_cfg_layout_mode (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_outof_cfg_layout_mode, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4887,7 +4895,7 @@ rtl_lv_add_condition_to_bb (basic_block first_head ,
   end_sequence ();
 
   /* Add the new cond , in the new head.  */
-  emit_insn_after(seq, BB_END(cond_bb));
+  emit_insn_after (seq, BB_END (cond_bb));
 }
 
 

@@ -1970,8 +1970,8 @@ const pass_data pass_data_instantiate_virtual_regs =
 class pass_instantiate_virtual_regs : public rtl_opt_pass
 {
 public:
-  pass_instantiate_virtual_regs(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_instantiate_virtual_regs, ctxt)
+  pass_instantiate_virtual_regs (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_instantiate_virtual_regs, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -2078,7 +2078,7 @@ aggregate_value_p (const_tree exp, const_tree fntype)
 bool
 use_register_for_decl (const_tree decl)
 {
-  if (!targetm.calls.allocate_stack_slots_for_args())
+  if (!targetm.calls.allocate_stack_slots_for_args ())
     return true;
 
   /* Honor volatile.  */
@@ -4128,12 +4128,11 @@ void
 reorder_blocks (void)
 {
   tree block = DECL_INITIAL (current_function_decl);
-  vec<tree> block_stack;
 
   if (block == NULL_TREE)
     return;
 
-  block_stack.create (10);
+  stack_vec<tree, 10> block_stack;
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
   clear_block_marks (block);
@@ -4145,8 +4144,6 @@ reorder_blocks (void)
   /* Recreate the block tree from the note nesting.  */
   reorder_blocks_1 (get_insns (), block, &block_stack);
   BLOCK_SUBBLOCKS (block) = blocks_nreverse_all (BLOCK_SUBBLOCKS (block));
-
-  block_stack.release ();
 }
 
 /* Helper function for reorder_blocks.  Reset TREE_ASM_WRITTEN.  */
@@ -7022,8 +7019,8 @@ const pass_data pass_data_leaf_regs =
 class pass_leaf_regs : public rtl_opt_pass
 {
 public:
-  pass_leaf_regs(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_leaf_regs, ctxt)
+  pass_leaf_regs (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_leaf_regs, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -7079,8 +7076,8 @@ const pass_data pass_data_thread_prologue_and_epilogue =
 class pass_thread_prologue_and_epilogue : public rtl_opt_pass
 {
 public:
-  pass_thread_prologue_and_epilogue(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_thread_prologue_and_epilogue, ctxt)
+  pass_thread_prologue_and_epilogue (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_thread_prologue_and_epilogue, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -7298,8 +7295,8 @@ const pass_data pass_data_match_asm_constraints =
 class pass_match_asm_constraints : public rtl_opt_pass
 {
 public:
-  pass_match_asm_constraints(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_match_asm_constraints, ctxt)
+  pass_match_asm_constraints (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_match_asm_constraints, ctxt)
   {}
 
   /* opt_pass methods: */

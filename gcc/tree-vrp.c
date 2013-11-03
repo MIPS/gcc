@@ -26,6 +26,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree.h"
 #include "basic-block.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
@@ -36,9 +46,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-ssa-propagate.h"
 #include "tree-chrec.h"
-#include "gimple-fold.h"
+#include "tree-ssa-threadupdate.h"
 #include "expr.h"
 #include "optabs.h"
+#include "tree-ssa-threadedge.h"
 
 
 
@@ -1038,7 +1049,7 @@ gimple_assign_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
     }
 }
 
-/* Return true if STMT is know to to compute a non-zero value.
+/* Return true if STMT is known to compute a non-zero value.
    If the return value is based on the assumption that signed overflow is
    undefined, set *STRICT_OVERFLOW_P to true; otherwise, don't change
    *STRICT_OVERFLOW_P.*/
@@ -1051,7 +1062,19 @@ gimple_stmt_nonzero_warnv_p (gimple stmt, bool *strict_overflow_p)
     case GIMPLE_ASSIGN:
       return gimple_assign_nonzero_warnv_p (stmt, strict_overflow_p);
     case GIMPLE_CALL:
-      return gimple_alloca_call_p (stmt);
+      {
+	tree fndecl = gimple_call_fndecl (stmt);
+	if (!fndecl) return false;
+	if (flag_delete_null_pointer_checks && !flag_check_new
+	    && DECL_IS_OPERATOR_NEW (fndecl)
+	    && !TREE_NOTHROW (fndecl))
+	  return true;
+	if (flag_delete_null_pointer_checks && 
+	    lookup_attribute ("returns_nonnull",
+			      TYPE_ATTRIBUTES (gimple_call_fntype (stmt))))
+	  return true;
+	return gimple_alloca_call_p (stmt);
+      }
     default:
       gcc_unreachable ();
     }
@@ -4454,6 +4477,56 @@ fp_predicate (gimple stmt)
 }
 
 
+/* If OP can be inferred to be non-zero after STMT executes, return true.  */
+
+static bool
+infer_nonnull_range (gimple stmt, tree op)
+{
+  /* We can only assume that a pointer dereference will yield
+     non-NULL if -fdelete-null-pointer-checks is enabled.  */
+  if (!flag_delete_null_pointer_checks
+      || !POINTER_TYPE_P (TREE_TYPE (op))
+      || gimple_code (stmt) == GIMPLE_ASM)
+    return false;
+
+  unsigned num_uses, num_loads, num_stores;
+
+  count_uses_and_derefs (op, stmt, &num_uses, &num_loads, &num_stores);
+  if (num_loads + num_stores > 0)
+    return true;
+
+  if (is_gimple_call (stmt) && !gimple_call_internal_p (stmt))
+    {
+      tree fntype = gimple_call_fntype (stmt);
+      tree attrs = TYPE_ATTRIBUTES (fntype);
+      for (; attrs; attrs = TREE_CHAIN (attrs))
+	{
+	  attrs = lookup_attribute ("nonnull", attrs);
+
+	  /* If "nonnull" wasn't specified, we know nothing about
+	     the argument.  */
+	  if (attrs == NULL_TREE)
+	    return false;
+
+	  /* If "nonnull" applies to all the arguments, then ARG
+	     is non-null.  */
+	  if (TREE_VALUE (attrs) == NULL_TREE)
+	    return true;
+
+	  /* Now see if op appears in the nonnull list.  */
+	  for (tree t = TREE_VALUE (attrs); t; t = TREE_CHAIN (t))
+	    {
+	      int idx = TREE_INT_CST_LOW (TREE_VALUE (t)) - 1;
+	      tree arg = gimple_call_arg (stmt, idx);
+	      if (op == arg)
+		return true;
+	    }
+	}
+    }
+
+  return false;
+}
+
 /* If the range of values taken by OP can be inferred after STMT executes,
    return the comparison code (COMP_CODE_P) and value (VAL_P) that
    describes the inferred range.  Return true if a range could be
@@ -4471,7 +4544,7 @@ infer_value_range (gimple stmt, tree op, enum tree_code *comp_code_p, tree *val_
     return false;
 
   /* Similarly, don't infer anything from statements that may throw
-     exceptions.  */
+     exceptions. ??? Relax this requirement?  */
   if (stmt_could_throw_p (stmt))
     return false;
 
@@ -4482,21 +4555,11 @@ infer_value_range (gimple stmt, tree op, enum tree_code *comp_code_p, tree *val_
   if (stmt_ends_bb_p (stmt) && EDGE_COUNT (gimple_bb (stmt)->succs) == 0)
     return false;
 
-  /* We can only assume that a pointer dereference will yield
-     non-NULL if -fdelete-null-pointer-checks is enabled.  */
-  if (flag_delete_null_pointer_checks
-      && POINTER_TYPE_P (TREE_TYPE (op))
-      && gimple_code (stmt) != GIMPLE_ASM)
+  if (infer_nonnull_range (stmt, op))
     {
-      unsigned num_uses, num_loads, num_stores;
-
-      count_uses_and_derefs (op, stmt, &num_uses, &num_loads, &num_stores);
-      if (num_loads + num_stores > 0)
-	{
-	  *val_p = build_int_cst (TREE_TYPE (op), 0);
-	  *comp_code_p = NE_EXPR;
-	  return true;
-	}
+      *val_p = build_int_cst (TREE_TYPE (op), 0);
+      *comp_code_p = NE_EXPR;
+      return true;
     }
 
   return false;
@@ -4533,7 +4596,7 @@ dump_asserts_for (FILE *file, tree name)
 	}
       fprintf (file, "\n\tPREDICATE: ");
       print_generic_expr (file, name, 0);
-      fprintf (file, " %s ", tree_code_name[(int)loc->comp_code]);
+      fprintf (file, " %s ", get_tree_code_name (loc->comp_code));
       print_generic_expr (file, loc->val, 0);
       fprintf (file, "\n\n");
       loc = loc->next;
@@ -5853,7 +5916,7 @@ find_assert_locations_1 (basic_block bb, sbitmap live)
     }
 
   /* Traverse all PHI nodes in BB, updating live.  */
-  for (si = gsi_start_phis (bb); !gsi_end_p(si); gsi_next (&si))
+  for (si = gsi_start_phis (bb); !gsi_end_p (si); gsi_next (&si))
     {
       use_operand_p arg_p;
       ssa_op_iter i;
@@ -6396,6 +6459,87 @@ check_all_array_refs (void)
     }
 }
 
+/* Return true if all imm uses of VAR are either in STMT, or
+   feed (optionally through a chain of single imm uses) GIMPLE_COND
+   in basic block COND_BB.  */
+
+static bool
+all_imm_uses_in_stmt_or_feed_cond (tree var, gimple stmt, basic_block cond_bb)
+{
+  use_operand_p use_p, use2_p;
+  imm_use_iterator iter;
+
+  FOR_EACH_IMM_USE_FAST (use_p, iter, var)
+    if (USE_STMT (use_p) != stmt)
+      {
+	gimple use_stmt = USE_STMT (use_p);
+	if (is_gimple_debug (use_stmt))
+	  continue;
+	while (is_gimple_assign (use_stmt)
+	       && single_imm_use (gimple_assign_lhs (use_stmt),
+				  &use2_p, &use_stmt))
+	  ;
+	if (gimple_code (use_stmt) != GIMPLE_COND
+	    || gimple_bb (use_stmt) != cond_bb)
+	  return false;
+      }
+  return true;
+}
+
+/* Handle
+   _4 = x_3 & 31;
+   if (_4 != 0)
+     goto <bb 6>;
+   else
+     goto <bb 7>;
+   <bb 6>:
+   __builtin_unreachable ();
+   <bb 7>:
+   x_5 = ASSERT_EXPR <x_3, ...>;
+   If x_3 has no other immediate uses (checked by caller),
+   var is the x_3 var from ASSERT_EXPR, we can clear low 5 bits
+   from the non-zero bitmask.  */
+
+static void
+maybe_set_nonzero_bits (basic_block bb, tree var)
+{
+  edge e = single_pred_edge (bb);
+  basic_block cond_bb = e->src;
+  gimple stmt = last_stmt (cond_bb);
+  tree cst;
+
+  if (stmt == NULL
+      || gimple_code (stmt) != GIMPLE_COND
+      || gimple_cond_code (stmt) != ((e->flags & EDGE_TRUE_VALUE)
+				     ? EQ_EXPR : NE_EXPR)
+      || TREE_CODE (gimple_cond_lhs (stmt)) != SSA_NAME
+      || !integer_zerop (gimple_cond_rhs (stmt)))
+    return;
+
+  stmt = SSA_NAME_DEF_STMT (gimple_cond_lhs (stmt));
+  if (!is_gimple_assign (stmt)
+      || gimple_assign_rhs_code (stmt) != BIT_AND_EXPR
+      || TREE_CODE (gimple_assign_rhs2 (stmt)) != INTEGER_CST)
+    return;
+  if (gimple_assign_rhs1 (stmt) != var)
+    {
+      gimple stmt2;
+
+      if (TREE_CODE (gimple_assign_rhs1 (stmt)) != SSA_NAME)
+	return;
+      stmt2 = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (stmt));
+      if (!gimple_assign_cast_p (stmt2)
+	  || gimple_assign_rhs1 (stmt2) != var
+	  || !CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt2))
+	  || (TYPE_PRECISION (TREE_TYPE (gimple_assign_rhs1 (stmt)))
+			      != TYPE_PRECISION (TREE_TYPE (var))))
+	return;
+    }
+  cst = gimple_assign_rhs2 (stmt);
+  set_nonzero_bits (var, (get_nonzero_bits (var)
+			  & ~tree_to_double_int (cst)));
+}
+
 /* Convert range assertion expressions into the implied copies and
    copy propagate away the copies.  Doing the trivial copy propagation
    here avoids the need to run the full copy propagation pass after
@@ -6425,12 +6569,16 @@ remove_range_assertions (void)
 {
   basic_block bb;
   gimple_stmt_iterator si;
+  /* 1 if looking at ASSERT_EXPRs immediately at the beginning of
+     a basic block preceeded by GIMPLE_COND branching to it and
+     __builtin_trap, -1 if not yet checked, 0 otherwise.  */
+  int is_unreachable;
 
   /* Note that the BSI iterator bump happens at the bottom of the
      loop and no bump is necessary if we're removing the statement
      referenced by the current BSI.  */
   FOR_EACH_BB (bb)
-    for (si = gsi_start_bb (bb); !gsi_end_p (si);)
+    for (si = gsi_after_labels (bb), is_unreachable = -1; !gsi_end_p (si);)
       {
 	gimple stmt = gsi_stmt (si);
 	gimple use_stmt;
@@ -6438,6 +6586,7 @@ remove_range_assertions (void)
 	if (is_gimple_assign (stmt)
 	    && gimple_assign_rhs_code (stmt) == ASSERT_EXPR)
 	  {
+	    tree lhs = gimple_assign_lhs (stmt);
 	    tree rhs = gimple_assign_rhs1 (stmt);
 	    tree var;
 	    tree cond = fold (ASSERT_EXPR_COND (rhs));
@@ -6446,22 +6595,52 @@ remove_range_assertions (void)
 
 	    gcc_assert (cond != boolean_false_node);
 
-	    /* Propagate the RHS into every use of the LHS.  */
 	    var = ASSERT_EXPR_VAR (rhs);
-	    FOR_EACH_IMM_USE_STMT (use_stmt, iter,
-				   gimple_assign_lhs (stmt))
+	    gcc_assert (TREE_CODE (var) == SSA_NAME);
+
+	    if (!POINTER_TYPE_P (TREE_TYPE (lhs))
+		&& SSA_NAME_RANGE_INFO (lhs))
+	      {
+		if (is_unreachable == -1)
+		  {
+		    is_unreachable = 0;
+		    if (single_pred_p (bb)
+			&& assert_unreachable_fallthru_edge_p
+						    (single_pred_edge (bb)))
+		      is_unreachable = 1;
+		  }
+		/* Handle
+		   if (x_7 >= 10 && x_7 < 20)
+		     __builtin_unreachable ();
+		   x_8 = ASSERT_EXPR <x_7, ...>;
+		   if the only uses of x_7 are in the ASSERT_EXPR and
+		   in the condition.  In that case, we can copy the
+		   range info from x_8 computed in this pass also
+		   for x_7.  */
+		if (is_unreachable
+		    && all_imm_uses_in_stmt_or_feed_cond (var, stmt,
+							  single_pred (bb)))
+		  {
+		    set_range_info (var, SSA_NAME_RANGE_INFO (lhs)->min,
+				    SSA_NAME_RANGE_INFO (lhs)->max);
+		    maybe_set_nonzero_bits (bb, var);
+		  }
+	      }
+
+	    /* Propagate the RHS into every use of the LHS.  */
+	    FOR_EACH_IMM_USE_STMT (use_stmt, iter, lhs)
 	      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-		{
-		  SET_USE (use_p, var);
-		  gcc_assert (TREE_CODE (var) == SSA_NAME);
-		}
+		SET_USE (use_p, var);
 
 	    /* And finally, remove the copy, it is not needed.  */
 	    gsi_remove (&si, true);
 	    release_defs (stmt);
 	  }
 	else
-	  gsi_next (&si);
+	  {
+	    gsi_next (&si);
+	    is_unreachable = 0;
+	  }
       }
 }
 
@@ -6488,9 +6667,7 @@ stmt_interesting_for_vrp (gimple stmt)
       if (lhs && TREE_CODE (lhs) == SSA_NAME
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	      || POINTER_TYPE_P (TREE_TYPE (lhs)))
-	  && ((is_gimple_call (stmt)
-	       && gimple_call_fndecl (stmt) != NULL_TREE
-	       && DECL_BUILT_IN (gimple_call_fndecl (stmt)))
+	  && (is_gimple_call (stmt)
 	      || !gimple_vuse (stmt)))
 	return true;
     }
@@ -7411,16 +7588,7 @@ vrp_visit_stmt (gimple stmt, edge *taken_edge_p, tree *output_p)
   if (!stmt_interesting_for_vrp (stmt))
     gcc_assert (stmt_ends_bb_p (stmt));
   else if (is_gimple_assign (stmt) || is_gimple_call (stmt))
-    {
-      /* In general, assignments with virtual operands are not useful
-	 for deriving ranges, with the obvious exception of calls to
-	 builtin functions.  */
-      if ((is_gimple_call (stmt)
-	   && gimple_call_fndecl (stmt) != NULL_TREE
-	   && DECL_BUILT_IN (gimple_call_fndecl (stmt)))
-	  || !gimple_vuse (stmt))
-	return vrp_visit_assignment_or_call (stmt, output_p);
-    }
+    return vrp_visit_assignment_or_call (stmt, output_p);
   else if (gimple_code (stmt) == GIMPLE_COND)
     return vrp_visit_cond_stmt (stmt, taken_edge_p);
   else if (gimple_code (stmt) == GIMPLE_SWITCH)
@@ -9664,12 +9832,12 @@ const pass_data pass_data_vrp =
 class pass_vrp : public gimple_opt_pass
 {
 public:
-  pass_vrp(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_vrp, ctxt)
+  pass_vrp (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_vrp, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_vrp (ctxt_); }
+  opt_pass * clone () { return new pass_vrp (m_ctxt); }
   bool gate () { return gate_vrp (); }
   unsigned int execute () { return execute_vrp (); }
 

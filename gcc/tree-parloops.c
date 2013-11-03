@@ -22,7 +22,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
-#include "tree-ssa.h"
+#include "tree.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
@@ -31,6 +42,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-vectorizer.h"
 #include "tree-hasher.h"
+#include "tree-parloops.h"
+#include "omp-low.h"
 
 /* This pass tries to distribute iterations of loops into several threads.
    The implementation is straightforward -- for each loop we test whether its
@@ -382,7 +395,6 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
 static bool
 loop_parallel_p (struct loop *loop, struct obstack * parloop_obstack)
 {
-  vec<loop_p> loop_nest;
   vec<ddr_p> dependence_relations;
   vec<data_reference_p> datarefs;
   lambda_trans_matrix trans;
@@ -399,9 +411,9 @@ loop_parallel_p (struct loop *loop, struct obstack * parloop_obstack)
 
   /* Check for problems with dependences.  If the loop can be reversed,
      the iterations are independent.  */
+  stack_vec<loop_p, 3> loop_nest;
   datarefs.create (10);
-  dependence_relations.create (10 * 10);
-  loop_nest.create (3);
+  dependence_relations.create (100);
   if (! compute_data_dependences_for_loop (loop, true, &loop_nest, &datarefs,
 					   &dependence_relations))
     {
@@ -427,7 +439,6 @@ loop_parallel_p (struct loop *loop, struct obstack * parloop_obstack)
 	     "  FAILED: data dependencies exist across iterations\n");
 
  end:
-  loop_nest.release ();
   free_dependence_relations (dependence_relations);
   free_data_refs (datarefs);
 
@@ -728,8 +739,7 @@ static void
 eliminate_local_variables (edge entry, edge exit)
 {
   basic_block bb;
-  vec<basic_block> body;
-  body.create (3);
+  stack_vec<basic_block, 3> body;
   unsigned i;
   gimple_stmt_iterator gsi;
   bool has_debug_stmt = false;
@@ -759,7 +769,6 @@ eliminate_local_variables (edge entry, edge exit)
 	    eliminate_local_variables_stmt (entry, &gsi, decl_address);
 
   decl_address.dispose ();
-  body.release ();
 }
 
 /* Returns true if expression EXPR is not defined between ENTRY and
@@ -1284,8 +1293,7 @@ separate_decls_in_region (edge entry, edge exit,
   tree type, type_name, nvar;
   gimple_stmt_iterator gsi;
   struct clsn_data clsn_data;
-  vec<basic_block> body;
-  body.create (3);
+  stack_vec<basic_block, 3> body;
   basic_block bb;
   basic_block entry_bb = bb1;
   basic_block exit_bb = exit->dest;
@@ -1342,8 +1350,6 @@ separate_decls_in_region (edge entry, edge exit,
 	      gsi_next (&gsi);
 	    }
 	}
-
-  body.release ();
 
   if (name_copies.elements () == 0 && reduction_list.elements () == 0)
     {
@@ -2239,5 +2245,63 @@ parallelize_loops (void)
 
   return changed;
 }
+
+/* Parallelization.  */
+
+static bool
+gate_tree_parallelize_loops (void)
+{
+  return flag_tree_parallelize_loops > 1;
+}
+
+static unsigned
+tree_parallelize_loops (void)
+{
+  if (number_of_loops (cfun) <= 1)
+    return 0;
+
+  if (parallelize_loops ())
+    return TODO_cleanup_cfg | TODO_rebuild_alias;
+  return 0;
+}
+
+namespace {
+
+const pass_data pass_data_parallelize_loops =
+{
+  GIMPLE_PASS, /* type */
+  "parloops", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_TREE_PARALLELIZE_LOOPS, /* tv_id */
+  ( PROP_cfg | PROP_ssa ), /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_verify_flow, /* todo_flags_finish */
+};
+
+class pass_parallelize_loops : public gimple_opt_pass
+{
+public:
+  pass_parallelize_loops (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_parallelize_loops, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_tree_parallelize_loops (); }
+  unsigned int execute () { return tree_parallelize_loops (); }
+
+}; // class pass_parallelize_loops
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_parallelize_loops (gcc::context *ctxt)
+{
+  return new pass_parallelize_loops (ctxt);
+}
+
 
 #include "gt-tree-parloops.h"

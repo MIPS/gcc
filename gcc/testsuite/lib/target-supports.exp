@@ -494,13 +494,6 @@ proc check_profiling_available { test_what } {
 	return 0
     }
 
-    # We don't yet support profiling for AArch64.
-    if { [istarget aarch64*-*-*]
-	 && ([lindex $test_what 1] == "-p"
-	     || [lindex $test_what 1] == "-pg") } {
-	return 0
-    }
-
     # cygwin does not support -p.
     if { [istarget *-*-cygwin*] && $test_what == "-p" } {
 	return 0
@@ -706,6 +699,14 @@ proc check_effective_target_scheduling {} {
     return [check_no_compiler_messages scheduling object {
 	void foo (void) { }
     } "-fschedule-insns"]
+}
+
+# Return 1 if trapping arithmetic is available, 0 otherwise.
+
+proc check_effective_target_trapping {} {
+    return [check_no_compiler_messages scheduling object {
+        add (int a, int b) { return a + b; }
+    } "-ftrapv"]
 }
 
 # Return 1 if compilation with -fgraphite is error-free for trivial 
@@ -1758,6 +1759,13 @@ proc check_effective_target_int32plus { } {
 # options, 0 otherwise.
 
 proc check_effective_target_ptr32plus { } {
+    # The msp430 has 16-bit or 20-bit pointers.  The 20-bit pointer is stored
+    # in a 32-bit slot when in memory, so sizeof(void *) returns 4, but it
+    # cannot really hold a 32-bit address, so we always return false here.
+    if { [istarget msp430-*-*] } {
+        return 0
+    }
+ 
     return [check_no_compiler_messages ptr32plus object {
 	int dummy[sizeof (void *) >= 4 ? 1 : -1];
     }]
@@ -2466,6 +2474,11 @@ proc check_effective_target_arm_fp16_ok_nocache { } {
     if [check-flags [list "" { *-*-* } { "-mfloat-abi=soft" } { "" } ]] {
 	# Must generate floating-point instructions.
 	return 0
+    }
+    if [check_effective_target_arm_hf_eabi] {
+	# Use existing float-abi and force an fpu which supports fp16
+	set et_arm_fp16_flags "-mfpu=vfpv4"
+	return 1;
     }
     if [check-flags [list "" { *-*-* } { "-mfpu=*" } { "" } ]] {
         # The existing -mfpu value is OK; use it, but add softfp.
@@ -4508,6 +4521,7 @@ proc check_effective_target_sync_int_128_runtime { } {
 proc check_effective_target_sync_long_long { } {
     if { [istarget x86_64-*-*]
 	 || [istarget i?86-*-*])
+	 || [istarget aarch64*-*-*]
 	 || [istarget arm*-*-*]
 	 || [istarget alpha*-*-*]
 	 || ([istarget sparc*-*-*] && [check_effective_target_lp64]) } {
@@ -4537,6 +4551,8 @@ proc check_effective_target_sync_long_long_runtime { } {
 		}
 	    } ""
 	}]
+    } elseif { [istarget aarch64*-*-*] } {
+	return 1
     } elseif { [istarget arm*-*-linux-*] } {
 	return [check_runtime sync_longlong_runtime {
 	    #include <stdlib.h>

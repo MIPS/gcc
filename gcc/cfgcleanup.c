@@ -34,6 +34,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "tree.h"
 #include "hard-reg-set.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -3089,8 +3090,8 @@ const pass_data pass_data_jump =
 class pass_jump : public rtl_opt_pass
 {
 public:
-  pass_jump(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_jump, ctxt)
+  pass_jump (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_jump, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -3133,8 +3134,8 @@ const pass_data pass_data_jump2 =
 class pass_jump2 : public rtl_opt_pass
 {
 public:
-  pass_jump2(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_jump2, ctxt)
+  pass_jump2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_jump2, ctxt)
   {}
 
   /* opt_pass methods: */

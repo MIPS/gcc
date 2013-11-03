@@ -523,28 +523,12 @@ proper position among the other output files.  */
 #define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
 #endif
 
-/* mudflap specs */
-#ifndef MFWRAP_SPEC
-/* XXX: valid only for GNU ld */
-/* XXX: should exactly match hooks provided by libmudflap.a */
-#define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
- --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
- --wrap=mmap --wrap=mmap64 --wrap=munmap --wrap=alloca\
-} %{fmudflapth: --wrap=pthread_create\
-}} %{fmudflap|fmudflapth: --wrap=main}"
-#endif
-#ifndef MFLIB_SPEC
-#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}"
-#endif
-
 /* When using -fsplit-stack we need to wrap pthread_create, in order
    to initialize the stack guard.  We always use wrapping, rather than
    shared library ordering, and we keep the wrapper function in
    libgcc.  This is not yet a real spec, though it could become one;
    it is currently just stuffed into LINK_SPEC.  FIXME: This wrapping
-   only works with GNU ld and gold.  FIXME: This is incompatible with
-   -fmudflap when linking statically, which wants to do its own
-   wrapping.  */
+   only works with GNU ld and gold.  */
 #define STACK_SPLIT_SPEC " %{fsplit-stack: --wrap=pthread_create}"
 
 #ifndef LIBASAN_SPEC
@@ -820,8 +804,6 @@ static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
 static const char *lib_spec = LIB_SPEC;
-static const char *mfwrap_spec = MFWRAP_SPEC;
-static const char *mflib_spec = MFLIB_SPEC;
 static const char *link_gomp_spec = "";
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
@@ -862,8 +844,6 @@ static const char *cpp_unique_options =
  %{remap} %{g3|ggdb3|gstabs3|gcoff3|gxcoff3|gvms3:-dD}\
  %{!iplugindir*:%{fplugin*:%:find-plugindir()}}\
  %{H} %C %{D*&U*&A*} %{i*} %Z %i\
- %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
- %{fmudflapth:-D_MUDFLAP -D_MUDFLAPTH -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -895,7 +875,6 @@ static const char *cc1_options =
  %{-help=*:--help=%*}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage}";
 
 static const char *asm_options =
@@ -1309,8 +1288,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
-  INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
-  INIT_STATIC_SPEC ("mflib",			&mflib_spec),
   INIT_STATIC_SPEC ("link_gomp",		&link_gomp_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
@@ -1556,7 +1533,7 @@ init_spec (void)
   /* Prepend "--traditional-format" to whatever asm_spec we had before.  */
   {
     static const char tf[] = "--traditional-format ";
-    obstack_grow (&obstack, tf, sizeof(tf) - 1);
+    obstack_grow (&obstack, tf, sizeof (tf) - 1);
     obstack_grow0 (&obstack, asm_spec, strlen (asm_spec));
     asm_spec = XOBFINISH (&obstack, const char *);
   }
@@ -1566,19 +1543,19 @@ init_spec (void)
     defined LINKER_HASH_STYLE
 # ifdef LINK_BUILDID_SPEC
   /* Prepend LINK_BUILDID_SPEC to whatever link_spec we had before.  */
-  obstack_grow (&obstack, LINK_BUILDID_SPEC, sizeof(LINK_BUILDID_SPEC) - 1);
+  obstack_grow (&obstack, LINK_BUILDID_SPEC, sizeof (LINK_BUILDID_SPEC) - 1);
 # endif
 # ifdef LINK_EH_SPEC
   /* Prepend LINK_EH_SPEC to whatever link_spec we had before.  */
-  obstack_grow (&obstack, LINK_EH_SPEC, sizeof(LINK_EH_SPEC) - 1);
+  obstack_grow (&obstack, LINK_EH_SPEC, sizeof (LINK_EH_SPEC) - 1);
 # endif
 # ifdef LINKER_HASH_STYLE
   /* Prepend --hash-style=LINKER_HASH_STYLE to whatever link_spec we had
      before.  */
   {
     static const char hash_style[] = "--hash-style=";
-    obstack_grow (&obstack, hash_style, sizeof(hash_style) - 1);
-    obstack_grow (&obstack, LINKER_HASH_STYLE, sizeof(LINKER_HASH_STYLE) - 1);
+    obstack_grow (&obstack, hash_style, sizeof (hash_style) - 1);
+    obstack_grow (&obstack, LINKER_HASH_STYLE, sizeof (LINKER_HASH_STYLE) - 1);
     obstack_1grow (&obstack, ' ');
   }
 # endif
@@ -1644,7 +1621,7 @@ set_spec (const char *name, const char *spec, bool user_p)
 
   /* Free the old spec.  */
   if (old_spec && sl->alloc_p)
-    free (CONST_CAST(char *, old_spec));
+    free (CONST_CAST (char *, old_spec));
 
   sl->user_p = user_p;
   sl->alloc_p = true;
@@ -2490,7 +2467,7 @@ find_a_file (const struct path_prefix *pprefix, const char *name, int mode,
 #endif
 
 #ifdef DEFAULT_LINKER
-  if (! strcmp(name, "ld") && access (DEFAULT_LINKER, mode) == 0)
+  if (! strcmp (name, "ld") && access (DEFAULT_LINKER, mode) == 0)
     return xstrdup (DEFAULT_LINKER);
 #endif
 
@@ -5741,11 +5718,11 @@ handle_braces (const char *p)
       a_is_negated = false;
       a_is_spectype = false;
 
-      SKIP_WHITE();
+      SKIP_WHITE ();
       if (*p == '!')
 	p++, a_is_negated = true;
 
-      SKIP_WHITE();
+      SKIP_WHITE ();
       if (*p == '%' && p[1] == ':')
 	{
 	  atom = NULL;
@@ -5760,7 +5737,7 @@ handle_braces (const char *p)
 	    p++, a_is_spectype = true;
 
 	  atom = p;
-	  while (ISIDNUM(*p) || *p == '-' || *p == '+' || *p == '='
+	  while (ISIDNUM (*p) || *p == '-' || *p == '+' || *p == '='
 		 || *p == ',' || *p == '.' || *p == '@')
 	    p++;
 	  end_atom = p;
@@ -5769,7 +5746,7 @@ handle_braces (const char *p)
 	    p++, a_is_starred = 1;
 	}
 
-      SKIP_WHITE();
+      SKIP_WHITE ();
       switch (*p)
 	{
 	case '&': case '}':
@@ -6074,13 +6051,13 @@ give_switch (int switchnum, int omit_first_word)
 	      while (length-- && !IS_DIR_SEPARATOR (arg[length]))
 		if (arg[length] == '.')
 		  {
-		    (CONST_CAST(char *, arg))[length] = 0;
+		    (CONST_CAST (char *, arg))[length] = 0;
 		    dot = 1;
 		    break;
 		  }
 	      do_spec_1 (arg, 1, NULL);
 	      if (dot)
-		(CONST_CAST(char *, arg))[length] = '.';
+		(CONST_CAST (char *, arg))[length] = '.';
 	      do_spec_1 (suffix_subst, 1, NULL);
 	    }
 	  else
@@ -8395,7 +8372,7 @@ get_random_number (void)
   }
 #endif
 
-  return ret ^ getpid();
+  return ret ^ getpid ();
 }
 
 /* %:compare-debug-dump-opt spec function.  Save the last argument,
@@ -8607,7 +8584,7 @@ replace_extension_spec_func (int argc, const char **argv)
 
   name = xstrdup (argv[0]);
 
-  for (i = strlen(name) - 1; i >= 0; i--)
+  for (i = strlen (name) - 1; i >= 0; i--)
     if (IS_DIR_SEPARATOR (name[i]))
       break;
 

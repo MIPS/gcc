@@ -191,6 +191,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "cfgloop.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "ggc.h"
 #include "tree-data-ref.h"
@@ -2410,7 +2421,6 @@ prepare_initializers (struct loop *loop, vec<chain_p> chains)
 static bool
 tree_predictive_commoning_loop (struct loop *loop)
 {
-  vec<loop_p> loop_nest;
   vec<data_reference_p> datarefs;
   vec<ddr_p> dependences;
   struct component *components;
@@ -2426,15 +2436,14 @@ tree_predictive_commoning_loop (struct loop *loop)
 
   /* Find the data references and split them into components according to their
      dependence relations.  */
-  datarefs.create (10);
+  stack_vec<loop_p, 3> loop_nest;
   dependences.create (10);
-  loop_nest.create (3);
+  datarefs.create (10);
   if (! compute_data_dependences_for_loop (loop, true, &loop_nest, &datarefs,
 					   &dependences))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Cannot analyze data dependencies\n");
-      loop_nest.release ();
       free_data_refs (datarefs);
       free_dependence_relations (dependences);
       return false;
@@ -2563,3 +2572,60 @@ tree_predictive_commoning (void)
 
   return ret;
 }
+
+/* Predictive commoning Pass.  */
+
+static unsigned
+run_tree_predictive_commoning (void)
+{
+  if (!current_loops)
+    return 0;
+
+  return tree_predictive_commoning ();
+}
+
+static bool
+gate_tree_predictive_commoning (void)
+{
+  return flag_predictive_commoning != 0;
+}
+
+namespace {
+
+const pass_data pass_data_predcom =
+{
+  GIMPLE_PASS, /* type */
+  "pcom", /* name */
+  OPTGROUP_LOOP, /* optinfo_flags */
+  true, /* has_gate */
+  true, /* has_execute */
+  TV_PREDCOM, /* tv_id */
+  PROP_cfg, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_update_ssa_only_virtuals, /* todo_flags_finish */
+};
+
+class pass_predcom : public gimple_opt_pass
+{
+public:
+  pass_predcom (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_predcom, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_tree_predictive_commoning (); }
+  unsigned int execute () { return run_tree_predictive_commoning (); }
+
+}; // class pass_predcom
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_predcom (gcc::context *ctxt)
+{
+  return new pass_predcom (ctxt);
+}
+
+

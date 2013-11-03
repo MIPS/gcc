@@ -69,6 +69,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
@@ -86,6 +98,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-ssa-propagate.h"
 #include "expmed.h"
+#include "tree-ssa-address.h"
 
 /* FIXME: Expressions are expanded to RTL in this pass to determine the
    cost of different addressing modes.  This should be moved to a TBD
@@ -452,7 +465,6 @@ single_dom_exit (struct loop *loop)
 
 /* Dumps information about the induction variable IV to FILE.  */
 
-extern void dump_iv (FILE *, struct iv *);
 void
 dump_iv (FILE *file, struct iv *iv)
 {
@@ -497,7 +509,6 @@ dump_iv (FILE *file, struct iv *iv)
 
 /* Dumps information about the USE to FILE.  */
 
-extern void dump_use (FILE *, struct iv_use *);
 void
 dump_use (FILE *file, struct iv_use *use)
 {
@@ -541,7 +552,6 @@ dump_use (FILE *file, struct iv_use *use)
 
 /* Dumps information about the uses to FILE.  */
 
-extern void dump_uses (FILE *, struct ivopts_data *);
 void
 dump_uses (FILE *file, struct ivopts_data *data)
 {
@@ -559,7 +569,6 @@ dump_uses (FILE *file, struct ivopts_data *data)
 
 /* Dumps information about induction variable candidate CAND to FILE.  */
 
-extern void dump_cand (FILE *, struct iv_cand *);
 void
 dump_cand (FILE *file, struct iv_cand *cand)
 {
@@ -1454,29 +1463,6 @@ expr_invariant_in_loop_p (struct loop *loop, tree expr)
   return true;
 }
 
-/* Returns true if statement STMT is obviously invariant in LOOP,
-   i.e. if all its operands on the RHS are defined outside of the LOOP.
-   LOOP should not be the function body.  */
-
-bool
-stmt_invariant_in_loop_p (struct loop *loop, gimple stmt)
-{
-  unsigned i;
-  tree lhs;
-
-  gcc_assert (loop_depth (loop) > 0);
-
-  lhs = gimple_get_lhs (stmt);
-  for (i = 0; i < gimple_num_ops (stmt); i++)
-    {
-      tree op = gimple_op (stmt, i);
-      if (op != lhs && !expr_invariant_in_loop_p (loop, op))
-	return false;
-    }
-
-  return true;
-}
-
 /* Cumulates the steps of indices into DATA and replaces their values with the
    initial ones.  Returns false when the value of the index cannot be determined.
    Callback for for_each_index.  */
@@ -2037,12 +2023,12 @@ find_interesting_uses (struct ivopts_data *data)
 
 static tree
 strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
-		unsigned HOST_WIDE_INT *offset)
+		HOST_WIDE_INT *offset)
 {
   tree op0 = NULL_TREE, op1 = NULL_TREE, tmp, step;
   enum tree_code code;
   tree type, orig_type = TREE_TYPE (expr);
-  unsigned HOST_WIDE_INT off0, off1, st;
+  HOST_WIDE_INT off0, off1, st;
   tree orig_expr = expr;
 
   STRIP_NOPS (expr);
@@ -2133,19 +2119,32 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
       break;
 
     case COMPONENT_REF:
-      if (!inside_addr)
-	return orig_expr;
+      {
+	tree field;
 
-      tmp = component_ref_field_offset (expr);
-      if (top_compref
-	  && cst_and_fits_in_hwi (tmp))
-	{
-	  /* Strip the component reference completely.  */
-	  op0 = TREE_OPERAND (expr, 0);
-	  op0 = strip_offset_1 (op0, inside_addr, top_compref, &off0);
-	  *offset = off0 + int_cst_value (tmp);
-	  return op0;
-	}
+	if (!inside_addr)
+	  return orig_expr;
+
+	tmp = component_ref_field_offset (expr);
+	field = TREE_OPERAND (expr, 1);
+	if (top_compref
+	    && cst_and_fits_in_hwi (tmp)
+	    && cst_and_fits_in_hwi (DECL_FIELD_BIT_OFFSET (field)))
+	  {
+	    HOST_WIDE_INT boffset, abs_off;
+
+	    /* Strip the component reference completely.  */
+	    op0 = TREE_OPERAND (expr, 0);
+	    op0 = strip_offset_1 (op0, inside_addr, top_compref, &off0);
+	    boffset = int_cst_value (DECL_FIELD_BIT_OFFSET (field));
+	    abs_off = abs_hwi (boffset) / BITS_PER_UNIT;
+	    if (boffset < 0)
+	      abs_off = -abs_off;
+
+	    *offset = off0 + int_cst_value (tmp) + abs_off;
+	    return op0;
+	  }
+      }
       break;
 
     case ADDR_EXPR:
@@ -2196,7 +2195,10 @@ strip_offset_1 (tree expr, bool inside_addr, bool top_compref,
 static tree
 strip_offset (tree expr, unsigned HOST_WIDE_INT *offset)
 {
-  return strip_offset_1 (expr, false, false, offset);
+  HOST_WIDE_INT off;
+  tree core = strip_offset_1 (expr, false, false, &off);
+  *offset = off;
+  return core;
 }
 
 /* Returns variant of TYPE that can be used as base for different uses.
@@ -3134,16 +3136,19 @@ multiplier_allowed_in_address_p (HOST_WIDE_INT ratio, enum machine_mode mode,
     {
       enum machine_mode address_mode = targetm.addr_space.address_mode (as);
       rtx reg1 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 1);
-      rtx addr;
+      rtx reg2 = gen_raw_REG (address_mode, LAST_VIRTUAL_REGISTER + 2);
+      rtx addr, scaled;
       HOST_WIDE_INT i;
 
       valid_mult = sbitmap_alloc (2 * MAX_RATIO + 1);
       bitmap_clear (valid_mult);
-      addr = gen_rtx_fmt_ee (MULT, address_mode, reg1, NULL_RTX);
+      scaled = gen_rtx_fmt_ee (MULT, address_mode, reg1, NULL_RTX);
+      addr = gen_rtx_fmt_ee (PLUS, address_mode, scaled, reg2);
       for (i = -MAX_RATIO; i <= MAX_RATIO; i++)
 	{
-	  XEXP (addr, 1) = gen_int_mode (i, address_mode);
-	  if (memory_address_addr_space_p (mode, addr, as))
+	  XEXP (scaled, 1) = gen_int_mode (i, address_mode);
+	  if (memory_address_addr_space_p (mode, addr, as)
+	      || memory_address_addr_space_p (mode, scaled, as))
 	    bitmap_set_bit (valid_mult, i + MAX_RATIO);
 	}
 
@@ -3920,7 +3925,7 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
 
   if (ratio == 1)
     {
-      if(operand_equal_p (ubase, cbase, 0))
+      if (operand_equal_p (ubase, cbase, 0))
         return -1;
 
       if (TREE_CODE (ubase) == ADDR_EXPR

@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "debug.h"
 #include "obstack.h"
+#include "gimple.h"
 #include "lto-streamer.h"
 
 /* Darwin supports a feature called fix-and-continue, which is used
@@ -403,6 +404,19 @@ machopic_output_function_base_name (FILE *file)
 
   update_pic_label_number_if_needed ();
   fprintf (file, "L%d$pb", current_pic_label_num);
+}
+
+char curr_picbasename[32];
+
+const char *
+machopic_get_function_picbase (void)
+{
+  /* If dynamic-no-pic is on, we should not get here.  */
+  gcc_assert (!MACHO_DYNAMIC_NO_PIC_P);
+
+  update_pic_label_number_if_needed ();
+  snprintf (curr_picbasename, 32, "L%d$pb", current_pic_label_num);
+  return (const char *) curr_picbasename;
 }
 
 bool
