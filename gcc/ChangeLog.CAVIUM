@@ -127,6 +127,11 @@
 
 	* config/mips/mips-tables.opt: Regenerate.
 
+2013-11-04  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.c (mips_block_move_straight): Fix O32 for misaligned
+	cases.
+
 2012-08-31  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/octeon.md (octeon_fpu): Add to the automaton.

@@ -7416,12 +7416,17 @@ mips_block_move_straight (rtx dest, rtx src, HOST_WIDE_INT length)
      For instance, lh/lh/sh/sh is usually better than lwl/lwr/swl/swr
      and lw/lw/sw/sw is usually better than ldl/ldr/sdl/sdr.
      Otherwise move word-sized chunks.  */
-  if (length  == BITS_PER_WORD / BITS_PER_UNIT / 2
+  if (BITS_PER_WORD == 64
+      && length == BITS_PER_WORD / BITS_PER_UNIT / 2
       && (MEM_ALIGN (src) >= BITS_PER_WORD / 2
           || MEM_ALIGN (dest) >= BITS_PER_WORD / 2))
     bits = BITS_PER_WORD / 2;
+  else if (BITS_PER_WORD == 64
+      	   && (MEM_ALIGN (src) == BITS_PER_WORD / 2
+               || MEM_ALIGN (dest) == BITS_PER_WORD / 2))
+    bits = BITS_PER_WORD / 2;
   else if (MEM_ALIGN (src) == BITS_PER_WORD / 2
-           || MEM_ALIGN (dest) == BITS_PER_WORD / 2)
+	   && MEM_ALIGN (dest) == BITS_PER_WORD / 2)
     bits = BITS_PER_WORD / 2;
   else
     bits = BITS_PER_WORD;
