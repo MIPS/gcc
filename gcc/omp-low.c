@@ -11049,6 +11049,35 @@ simd_clone_init_simd_arrays (struct cgraph_node *node,
   return seq;
 }
 
+static tree
+ipa_simd_modify_function_body_ops_1 (tree *tp, int *walk_subtrees, void *data)
+{
+  struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
+  ipa_parm_adjustment_vec *adjustments = (ipa_parm_adjustment_vec *) wi->info;
+  tree t = *tp;
+
+  if (DECL_P (t) || TREE_CODE (t) == SSA_NAME)
+    return (tree) sra_ipa_modify_expr (tp, true, *adjustments);
+  else
+    *walk_subtrees = 1;
+  return NULL_TREE;
+}
+
+/* Helper function for ipa_simd_modify_function_body.  Make any
+   necessary adjustments for tree operators.  */
+
+static bool
+ipa_simd_modify_function_body_ops (tree *tp,
+				   ipa_parm_adjustment_vec *adjustments)
+{
+  struct walk_stmt_info wi;
+  memset (&wi, 0, sizeof (wi));
+  wi.info = adjustments;
+  bool res = (bool) walk_tree (tp, ipa_simd_modify_function_body_ops_1,
+			       &wi, NULL);
+  return res;
+}
+
 /* Traverse the function body and perform all modifications as
    described in ADJUSTMENTS.  At function return, ADJUSTMENTS will be
    modified such that the replacement/reduction value will now be an
@@ -11121,6 +11150,11 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 	    case GIMPLE_ASSIGN:
 	      t = gimple_assign_lhs_ptr (stmt);
 	      modified |= sra_ipa_modify_expr (t, false, adjustments);
+
+	      /* The LHS may have operands that also need adjusting
+		 (e.g. `foo' in array[foo]).  */
+	      modified |= ipa_simd_modify_function_body_ops (t, &adjustments);
+
 	      for (i = 0; i < gimple_num_ops (stmt); ++i)
 		{
 		  t = gimple_op_ptr (stmt, i);

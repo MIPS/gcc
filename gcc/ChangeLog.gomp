@@ -1,3 +1,10 @@
+2013-11-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (ipa_simd_modify_function_body): Adjust tree operands
+	on the LHS of an assign.
+	(ipa_simd_modify_function_body_ops_1): New.
+	(ipa_simd_modify_function_body_ops): New.
+
 2013-11-02  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (ipa_simd_modify_function_body): Handle empty returns.
