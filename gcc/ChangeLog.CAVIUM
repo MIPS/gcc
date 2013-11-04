@@ -216,6 +216,11 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2013-11-04  Andrew Pinski  <apinski@cavium.com>
+
+	* configure.ac: Fix up accidental addition use of emul_name.
+	* configure: Likewise.
+
 2013-10-24  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #8531
