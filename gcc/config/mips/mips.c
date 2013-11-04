@@ -13835,16 +13835,16 @@ mips_msa_output_division (const char *division, rtx *operands)
       switch (GET_MODE (operands[0]))
 	{
 	case V16QImode:
-	  output_asm_insn ("%(bnz.b\t%w2,1f", operands);
+	  output_asm_insn ("%(bn.b\t%w2,1f", operands);
 	  break;
 	case V8HImode:
-	  output_asm_insn ("%(bnz.h\t%w2,1f", operands);
+	  output_asm_insn ("%(bn.h\t%w2,1f", operands);
 	  break;
 	case V4SImode:
-	  output_asm_insn ("%(bnz.w\t%w2,1f", operands);
+	  output_asm_insn ("%(bn.w\t%w2,1f", operands);
 	  break;
 	case V2DImode:
-	  output_asm_insn ("%(bnz.d\t%w2,1f", operands);
+	  output_asm_insn ("%(bn.d\t%w2,1f", operands);
 	  break;
 	default:
 	  gcc_unreachable ();
@@ -14749,7 +14749,7 @@ AVAIL_NON_MIPS16 (msa, TARGET_MSA)
 #define CODE_FOR_msa_and_v CODE_FOR_andv16qi3
 #define CODE_FOR_msa_bmnz_v CODE_FOR_msa_bmnz_v_b
 #define CODE_FOR_msa_bmz_v CODE_FOR_msa_bmz_v_b
-#define CODE_FOR_msa_bnz_v CODE_FOR_msa_bnz_v_b
+#define CODE_FOR_msa_bn_v CODE_FOR_msa_bn_v_b
 #define CODE_FOR_msa_bz_v CODE_FOR_msa_bz_v_b
 #define CODE_FOR_msa_bsel_v CODE_FOR_msa_bsel_v_b
 #define CODE_FOR_msa_div_s_b CODE_FOR_divv16qi3
@@ -15480,7 +15480,7 @@ static const struct mips_builtin_description mips_builtins[] = {
   MSA_BUILTIN (shf_b, MIPS_V16QI_FTYPE_V16QI_UQI),
   MSA_BUILTIN (shf_h, MIPS_V8HI_FTYPE_V8HI_UQI),
   MSA_BUILTIN (shf_w, MIPS_V4SI_FTYPE_V4SI_UQI),
-  MSA_BUILTIN (bnz_v, MIPS_SI_FTYPE_UV16QI),
+  MSA_BUILTIN (bn_v, MIPS_SI_FTYPE_UV16QI),
   MSA_BUILTIN (bz_v, MIPS_SI_FTYPE_UV16QI),
   MSA_BUILTIN (fill_b, MIPS_V16QI_FTYPE_SI),
   MSA_BUILTIN (fill_h, MIPS_V8HI_FTYPE_SI),
@@ -15514,10 +15514,10 @@ static const struct mips_builtin_description mips_builtins[] = {
   MSA_BUILTIN (insve_h, MIPS_V8HI_FTYPE_V8HI_UQI_V8HI),
   MSA_BUILTIN (insve_w, MIPS_V4SI_FTYPE_V4SI_UQI_V4SI),
   MSA_BUILTIN (insve_d, MIPS_V2DI_FTYPE_V2DI_UQI_V2DI),
-  MSA_BUILTIN (bnz_b, MIPS_SI_FTYPE_UV16QI),
-  MSA_BUILTIN (bnz_h, MIPS_SI_FTYPE_UV8HI),
-  MSA_BUILTIN (bnz_w, MIPS_SI_FTYPE_UV4SI),
-  MSA_BUILTIN (bnz_d, MIPS_SI_FTYPE_UV2DI),
+  MSA_BUILTIN (bn_b, MIPS_SI_FTYPE_UV16QI),
+  MSA_BUILTIN (bn_h, MIPS_SI_FTYPE_UV8HI),
+  MSA_BUILTIN (bn_w, MIPS_SI_FTYPE_UV4SI),
+  MSA_BUILTIN (bn_d, MIPS_SI_FTYPE_UV2DI),
   MSA_BUILTIN (bz_b, MIPS_SI_FTYPE_UV16QI),
   MSA_BUILTIN (bz_h, MIPS_SI_FTYPE_UV8HI),
   MSA_BUILTIN (bz_w, MIPS_SI_FTYPE_UV4SI),

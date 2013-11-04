@@ -50,9 +50,9 @@
   UNSPEC_MSA_BSELI_B
   UNSPEC_MSA_BSET
   UNSPEC_MSA_BSETI
-  UNSPEC_MSA_BNZ_V
+  UNSPEC_MSA_BN_V
   UNSPEC_MSA_BZ_V
-  UNSPEC_MSA_BNZ
+  UNSPEC_MSA_BN
   UNSPEC_MSA_BZ
   UNSPEC_MSA_CEQ
   UNSPEC_MSA_CFCMSA
@@ -775,6 +775,16 @@
   "ldi.<msafmt>\t%w0,%1"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
+
+(define_insn "msa_lsa"
+ [(set (match_operand:SI 0 "register_operand" "=f")
+       (plus:SI (match_operand:SI 1 "register_operand" "f")
+ 		(ashiftrt:SI (match_operand:SI 2 "register_operand" "f")
+			     (match_operand    3 "const_immlsa_operand" ""))))]
+ "ISA_HAS_MSA"
+ "lsa\t%0,%1,%2,(%3)-1"
+ [(set_attr "type"      "arith")
+  (set_attr "mode"      "SI")])
 
 (define_insn "msa_vshf<mode>"
   [(set (match_operand:MODE128 0 "register_operand" "=f")
@@ -1556,7 +1566,7 @@
 (define_insn "msa_bnegi_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
 	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "f")
-		       (match_operand 2 "const_uimm3_operand" "")]
+		       (match_operand 2 "const_msa_branch_operand" "")]
 		      UNSPEC_MSA_BNEGI))]
   "ISA_HAS_MSA"
   "bnegi.b\t%w0,%w1,%2"
@@ -1566,7 +1576,7 @@
 (define_insn "msa_bnegi_h"
   [(set (match_operand:V8HI 0 "register_operand" "=f")
 	(unspec:V8HI [(match_operand:V8HI 1 "register_operand" "f")
-		      (match_operand 2 "const_uimm4_operand" "")]
+		      (match_operand 2 "const_msa_branch_operand" "")]
 		     UNSPEC_MSA_BNEGI))]
   "ISA_HAS_MSA"
   "bnegi.h\t%w0,%w1,%2"
@@ -1576,7 +1586,7 @@
 (define_insn "msa_bnegi_w"
   [(set (match_operand:V4SI 0 "register_operand" "=f")
 	(unspec:V4SI [(match_operand:V4SI 1 "register_operand" "f")
-		      (match_operand 2 "const_uimm5_operand" "")]
+		      (match_operand 2 "const_msa_branch_operand" "")]
 		     UNSPEC_MSA_BNEGI))]
   "ISA_HAS_MSA"
   "bnegi.w\t%w0,%w1,%2"
@@ -1586,7 +1596,7 @@
 (define_insn "msa_bnegi_d"
   [(set (match_operand:V2DI 0 "register_operand" "=f")
 	(unspec:V2DI [(match_operand:V2DI 1 "register_operand" "f")
-		      (match_operand 2 "const_uimm6_operand" "")]
+		      (match_operand 2 "const_msa_branch_operand" "")]
 		     UNSPEC_MSA_BNEGI))]
   "ISA_HAS_MSA"
   "bnegi.d\t%w0,%w1,%2"
@@ -3596,22 +3606,22 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bnz_v_<msafmt>"
+(define_insn "msa_bn_v_<msafmt>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:IMODE128 1 "register_operand" "f")]
-		   UNSPEC_MSA_BNZ_V))]
+		   UNSPEC_MSA_BN_V))]
   "ISA_HAS_MSA"
-  "%(bnz.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bn.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bnz_v_<msafmt>_f"
+(define_insn "msa_bn_v_<msafmt>_f"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:FMODE128 1 "register_operand" "f")]
-		   UNSPEC_MSA_BNZ_V))]
+		   UNSPEC_MSA_BN_V))]
   "ISA_HAS_MSA"
-  "%(bnz.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bn.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])
@@ -3636,22 +3646,22 @@
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bnz_<msafmt>"
+(define_insn "msa_bn_<msafmt>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:IMODE128 1 "register_operand" "f")]
-		   UNSPEC_MSA_BNZ))]
+		   UNSPEC_MSA_BN))]
   "ISA_HAS_MSA"
-  "%(bnz.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bn.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bnz_<msafmt>_f"
+(define_insn "msa_bn_<msafmt>_f"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:FMODE128 1 "register_operand" "f")]
-		   UNSPEC_MSA_BNZ))]
+		   UNSPEC_MSA_BN))]
   "ISA_HAS_MSA"
-  "%(bnz.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bn.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])

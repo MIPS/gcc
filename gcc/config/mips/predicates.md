@@ -33,6 +33,14 @@
   (ior (match_operand 0 "const_arith_operand")
        (match_operand 0 "register_operand")))
 
+(define_predicate "const_immlsa_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 4)")))
+
+(define_predicate "const_msa_branch_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -1024, 1023)")))
+
 (define_predicate "const_uimm3_operand"
   (and (match_code "const_int")
        (match_test "IN_RANGE (INTVAL (op), 0, 7)")))
@@ -67,7 +75,7 @@
 
 (define_predicate "const_msa_addr_offset_operand"
   (and (match_code "const_int")
-       (match_test "(INTVAL (op) & 15)== 0")
+       (match_test "(INTVAL (op) & 15) == 0")
        (match_test "IN_RANGE (INTVAL (op), -256, 255)")))
 
 (define_predicate "sle_operand"
