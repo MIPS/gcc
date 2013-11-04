@@ -378,7 +378,6 @@ typedef unsigned char addr_mask_type;
 struct rs6000_reg_addr {
   enum insn_code reload_load;		/* INSN to reload for loading. */
   enum insn_code reload_store;		/* INSN to reload for storing.  */
-  enum insn_code reload_const;		/* INSN to reload constant.  */
   enum insn_code reload_fpr_gpr;	/* INSN to move from FPR to GPR.  */
   enum insn_code reload_gpr_vsx;	/* INSN to move from GPR to VSX.  */
   enum insn_code reload_vsx_gpr;	/* INSN to move from VSX to GPR.  */
@@ -1903,18 +1902,16 @@ rs6000_debug_print_mode (ssize_t m)
       || rs6000_vector_mem[m] != VECTOR_NONE
       || reg_addr[m].reload_store != CODE_FOR_nothing
       || reg_addr[m].reload_load != CODE_FOR_nothing
-      || reg_addr[m].reload_const != CODE_FOR_nothing
       || reg_addr[m].new_reload_p
       || reg_addr[m].scalar_in_vmx_p)
     {
       fprintf (stderr,
-	       "  Vector-arith=%-10s Vector-mem=%-10s Reload=%c%c%c,"
+	       "  Vector-arith=%-10s Vector-mem=%-10s Reload=%c%c,"
 	       " Upper=%c, New=%c",
 	       rs6000_debug_vector_unit (rs6000_vector_unit[m]),
 	       rs6000_debug_vector_unit (rs6000_vector_mem[m]),
 	       (reg_addr[m].reload_store != CODE_FOR_nothing) ? 's' : '*',
 	       (reg_addr[m].reload_load != CODE_FOR_nothing) ? 'l' : '*',
-	       (reg_addr[m].reload_const != CODE_FOR_nothing) ? 'c' : '*',
 	       (reg_addr[m].scalar_in_vmx_p) ? 'y' : 'n',
 	       (reg_addr[m].new_reload_p) ? 'y' : 'n');
     }
@@ -2679,7 +2676,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_di_load;
 	  if (TARGET_UPPER_REGS_DF)
 	    {
-	      reg_addr[DFmode].reload_const = CODE_FOR_reload_df_di_const;
 	      reg_addr[DFmode].reload_store = CODE_FOR_reload_df_di_store;
 	      reg_addr[DFmode].reload_load  = CODE_FOR_reload_df_di_load;
 	      reg_addr[DFmode].new_reload_p = true;
@@ -2687,7 +2683,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	    }
 	  if (TARGET_UPPER_REGS_SF)
 	    {
-	      reg_addr[SFmode].reload_const = CODE_FOR_reload_sf_di_const;
 	      reg_addr[SFmode].reload_store = CODE_FOR_reload_sf_di_store;
 	      reg_addr[SFmode].reload_load  = CODE_FOR_reload_sf_di_load;
 	      reg_addr[SFmode].new_reload_p = true;
@@ -2744,7 +2739,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_si_load;
 	  if (TARGET_UPPER_REGS_DF)
 	    {
-	      reg_addr[DFmode].reload_const = CODE_FOR_reload_df_si_const;
 	      reg_addr[DFmode].reload_store = CODE_FOR_reload_df_si_store;
 	      reg_addr[DFmode].reload_load  = CODE_FOR_reload_df_si_load;
 	      reg_addr[DFmode].new_reload_p = true;
@@ -2752,7 +2746,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	    }
 	  if (TARGET_UPPER_REGS_SF)
 	    {
-	      reg_addr[DFmode].reload_const = CODE_FOR_reload_df_si_const;
 	      reg_addr[SFmode].reload_store = CODE_FOR_reload_sf_si_store;
 	      reg_addr[SFmode].reload_load  = CODE_FOR_reload_sf_si_load;
 	      reg_addr[SFmode].new_reload_p = true;
@@ -15407,89 +15400,6 @@ rs6000_secondary_reload_memory (rtx addr,
 
   return extra_cost;
 }
-
-/* Helper function for rs6000_secondary_reload to determine whether a constant
-   needs secondary reloads to be loaded in a given register class (RCLASS) and
-   machine mode (MODE).  Return negative if the constant is not handled by the
-   secondary reloads, 0 if no addition instructions are need, and positive to
-   give the extra cost for the memory.  */
-
-static int
-rs6000_secondary_reload_constant (rtx x,
-				  enum reg_class rclass,
-				  enum machine_mode mode)
-{
-  int extra_cost = 0;
-  addr_mask_type addr_mask;
-  enum rtx_code code = GET_CODE (x);
-
-  if (code != CONST_INT && code != CONST_DOUBLE && code != CONST_VECTOR)
-    {
-      if (TARGET_DEBUG_ADDR)
-	fputs ("rs6000_secondary_reload_constant, bad constant.\n", stderr);
-
-      return -1;
-    }
-
-  if (GPR_REG_CLASS_P (rclass))
-    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_GPR];
-
-  else if (rclass == FLOAT_REGS)
-    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_FPR];
-
-  else if (rclass == VSX_REGS || rclass == ALTIVEC_REGS)
-    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
-
-  else if (rclass == NO_REGS)
-    {
-      if (code == CONST_INT)
-	addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_GPR];
-
-      else if (code == CONST_DOUBLE)
-	addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_FPR];
-
-      else if (code == CONST_VECTOR)
-	addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
-
-      else
-	gcc_unreachable ();
-    }
-
-  else
-    {
-      if (TARGET_DEBUG_ADDR)
-	fprintf (stderr, "rs6000_secondary_reload_constant: bad rclass %s\n",
-		 reg_class_names[rclass]);
-
-      return -1;
-    }
-
-  /* Constants that aren't simple and are to be loaded in the floating point or
-     vector registers need to get saved in the literal pool, and the
-     appropriate TOC address generated.  */
-  if (x == CONST0_RTX (mode))
-    return -1;
-
-  /* GPRs can load constants without going to memory.  */
-  if (GPR_REG_CLASS_P (rclass))
-    return -1;
-
-  if (code == CONST_VECTOR && rclass == ALTIVEC_REGS
-      && easy_altivec_constant (x, mode))
-    return -1;
-
-  extra_cost = rs6000_secondary_reload_toc_costs (addr_mask);
-
-  if (TARGET_DEBUG_ADDR)
-    fprintf (stderr,
-	     "rs6000_secondary_reload_constant: mode = %s, class = %s,"
-	     " extra cost = %d\n",
-	     GET_MODE_NAME (mode),
-	     reg_class_names[rclass],
-	     extra_cost);
-
-  return extra_cost;
-}
 /* Helper function for rs6000_secondary_reload to return true if a move to a
    different register classe is really a simple move.  */
 
@@ -15729,27 +15639,11 @@ rs6000_secondary_reload (bool in_p,
     }
 
   /* Handle reload of load/stores if we have reload helper functions.  */
-  if (!done_p && reg_addr[mode].new_reload_p)
+  if (!done_p && reg_addr[mode].new_reload_p && icode != CODE_FOR_nothing
+      && MEM_P (x))
     {
-      enum insn_code icode2;
-      int extra_cost;
-
-      if (icode != CODE_FOR_nothing && MEM_P (x))
-	{
-	  icode2 = icode;
-	  extra_cost = rs6000_secondary_reload_memory (XEXP (x, 0), rclass,
+      int extra_cost = rs6000_secondary_reload_memory (XEXP (x, 0), rclass,
 						       mode);
-	}
-
-      else if (CONSTANT_P (x)
-	       && reg_addr[mode].reload_const != CODE_FOR_nothing)
-	{
-	  icode2 = reg_addr[mode].reload_const; 
-	  extra_cost = rs6000_secondary_reload_constant (x, rclass, mode);
-	}
-
-      else
-	extra_cost = -1;
 
       if (extra_cost >= 0)
 	{
@@ -15758,7 +15652,7 @@ rs6000_secondary_reload (bool in_p,
 	  if (extra_cost > 0)
 	    {
 	      sri->extra_cost = extra_cost;
-	      sri->icode = icode2;
+	      sri->icode = icode;
 	    }
 	}
     }

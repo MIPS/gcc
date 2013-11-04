@@ -1,3 +1,19 @@
+2013-11-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (reg_addr): Delete 10/30 reload_const
+	changes.
+	(rs6000_debug_print_mode): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_secondary_reload_constant): Likewise.
+	(rs6000_secondary_reload): Likewise.
+
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat32): Drop support of
+	non-zero floating point constants if we have floating point
+	registers.
+	(mov<mode>_hardfloat64): Likewise.
+	(reload_<SFDF:mode>_<P:mptrsize>_const): Delete 10/30 reload_const
+	changes.
+
 2013-10-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 204267.
