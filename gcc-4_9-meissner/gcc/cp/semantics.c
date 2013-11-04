@@ -5188,12 +5188,16 @@ finish_omp_clauses (tree clauses)
 	  if (t == NULL_TREE)
 	    t = integer_one_node;
 	  if (t == error_mark_node)
-	    remove = true;
+	    {
+	      remove = true;
+	      break;
+	    }
 	  else if (!type_dependent_expression_p (t)
 		   && !INTEGRAL_TYPE_P (TREE_TYPE (t)))
 	    {
 	      error ("linear step expression must be integral");
 	      remove = true;
+	      break;
 	    }
 	  else
 	    {
@@ -5210,7 +5214,10 @@ finish_omp_clauses (tree clauses)
 					   MINUS_EXPR, sizetype, t,
 					   OMP_CLAUSE_DECL (c));
 		      if (t == error_mark_node)
-			remove = true;
+			{
+			  remove = true;
+			  break;
+			}
 		    }
 		}
 	      OMP_CLAUSE_LINEAR_STEP (c) = t;
@@ -5467,6 +5474,19 @@ finish_omp_clauses (tree clauses)
 		error ("%qE is not a variable in %<aligned%> clause", t);
 	      remove = true;
 	    }
+	  else if (!type_dependent_expression_p (t)
+		   && TREE_CODE (TREE_TYPE (t)) != POINTER_TYPE
+		   && TREE_CODE (TREE_TYPE (t)) != ARRAY_TYPE
+		   && (TREE_CODE (TREE_TYPE (t)) != REFERENCE_TYPE
+		       || (!POINTER_TYPE_P (TREE_TYPE (TREE_TYPE (t)))
+			   && (TREE_CODE (TREE_TYPE (TREE_TYPE (t)))
+			       != ARRAY_TYPE))))
+	    {
+	      error_at (OMP_CLAUSE_LOCATION (c),
+			"%qE in %<aligned%> clause is neither a pointer nor "
+			"an array nor a reference to pointer or array", t);
+	      remove = true;
+	    }
 	  else if (bitmap_bit_p (&aligned_head, DECL_UID (t)))
 	    {
 	      error ("%qD appears more than once in %<aligned%> clauses", t);
@@ -5613,8 +5633,9 @@ finish_omp_clauses (tree clauses)
 	      else
 		error ("%qE is not an argument in %<uniform%> clause", t);
 	      remove = true;
+	      break;
 	    }
-	  break;
+	  goto check_dup_generic;
 
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
@@ -7418,8 +7439,7 @@ build_anon_member_initialization (tree member, tree init,
      to build up the initializer from the outside in so that we can reuse
      previously built CONSTRUCTORs if this is, say, the second field in an
      anonymous struct.  So we use a vec as a stack.  */
-  vec<tree> fields;
-  fields.create (2);
+  stack_vec<tree, 2> fields;
   do
     {
       fields.safe_push (TREE_OPERAND (member, 1));
@@ -7451,7 +7471,6 @@ build_anon_member_initialization (tree member, tree init,
   /* Now we're at the innermost field, the one that isn't an anonymous
      aggregate.  Add its initializer to the CONSTRUCTOR and we're done.  */
   gcc_assert (fields.is_empty());
-  fields.release ();
   CONSTRUCTOR_APPEND_ELT (*vec, field, init);
 
   return true;

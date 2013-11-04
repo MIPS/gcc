@@ -3793,22 +3793,39 @@ make_string_pack (tree value)
   tree charvec;
   tree argpack = make_node (NONTYPE_ARGUMENT_PACK);
   const char *str = TREE_STRING_POINTER (value);
-  int i, len = TREE_STRING_LENGTH (value) - 1;
+  int sz = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (TREE_TYPE (value))));
+  int len = TREE_STRING_LENGTH (value) / sz - 1;
   tree argvec = make_tree_vec (2);
 
-  tree string_char_type_node = TREE_TYPE (TREE_TYPE (value));
+  tree str_char_type_node = TREE_TYPE (TREE_TYPE (value));
+  str_char_type_node = TYPE_MAIN_VARIANT (str_char_type_node);
 
   /* First template parm is character type.  */
-  TREE_VEC_ELT (argvec, 0) = string_char_type_node;
+  TREE_VEC_ELT (argvec, 0) = str_char_type_node;
 
   /* Fill in CHARVEC with all of the parameters.  */
   charvec = make_tree_vec (len);
-  for (i = 0; i < len; ++i)
-    TREE_VEC_ELT (charvec, i) = build_int_cst (string_char_type_node, str[i]);
+  if (sz == 1)
+    {
+      for (int i = 0; i < len; ++i)
+	TREE_VEC_ELT (charvec, i) = build_int_cst (str_char_type_node, str[i]);
+    }
+  else if (sz == 2)
+    {
+      const uint16_t *num = (const uint16_t *)str;
+      for (int i = 0; i < len; ++i)
+	TREE_VEC_ELT (charvec, i) = build_int_cst (str_char_type_node, num[i]);
+    }
+  else if (sz == 4)
+    {
+      const uint32_t *num = (const uint32_t *)str;
+      for (int i = 0; i < len; ++i)
+	TREE_VEC_ELT (charvec, i) = build_int_cst (str_char_type_node, num[i]);
+    }
 
   /* Build the argument packs.  */
   SET_ARGUMENT_PACK_ARGS (argpack, charvec);
-  TREE_TYPE (argpack) = string_char_type_node;
+  TREE_TYPE (argpack) = str_char_type_node;
 
   TREE_VEC_ELT (argvec, 1) = argpack;
 
@@ -5800,31 +5817,45 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	    && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_PAREN))
 	  {
 	    tree initializer = NULL_TREE;
-	    bool saved_in_type_id_in_expr_p;
+	    bool compound_literal_p;
 
 	    cp_parser_parse_tentatively (parser);
 	    /* Consume the `('.  */
 	    cp_lexer_consume_token (parser->lexer);
-	    /* Parse the type.  */
-	    saved_in_type_id_in_expr_p = parser->in_type_id_in_expr_p;
-	    parser->in_type_id_in_expr_p = true;
-	    type = cp_parser_type_id (parser);
-	    parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
-	    /* Look for the `)'.  */
-	    cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+
+	    /* Avoid calling cp_parser_type_id pointlessly, see comment
+	       in cp_parser_cast_expression about c++/29234.  */
+	    cp_lexer_save_tokens (parser->lexer);
+
+	    compound_literal_p
+	      = (cp_parser_skip_to_closing_parenthesis (parser, false, false,
+							/*consume_paren=*/true)
+		 && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE));
+
+	    /* Roll back the tokens we skipped.  */
+	    cp_lexer_rollback_tokens (parser->lexer);
+
+	    if (!compound_literal_p)
+	      cp_parser_simulate_error (parser);
+	    else
+	      {
+		/* Parse the type.  */
+		bool saved_in_type_id_in_expr_p = parser->in_type_id_in_expr_p;
+		parser->in_type_id_in_expr_p = true;
+		type = cp_parser_type_id (parser);
+		parser->in_type_id_in_expr_p = saved_in_type_id_in_expr_p;
+		/* Look for the `)'.  */
+		cp_parser_require (parser, CPP_CLOSE_PAREN, RT_CLOSE_PAREN);
+	      }
+
 	    /* If things aren't going well, there's no need to
 	       keep going.  */
 	    if (!cp_parser_error_occurred (parser))
 	      {
-		if (cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE))
-		  {
-		    bool non_constant_p;
-		    /* Parse the brace-enclosed initializer list.  */
-		    initializer = cp_parser_braced_list (parser,
-							 &non_constant_p);
-		  }
-		else
-		  cp_parser_simulate_error (parser);
+		bool non_constant_p;
+		/* Parse the brace-enclosed initializer list.  */
+		initializer = cp_parser_braced_list (parser,
+						     &non_constant_p);
 	      }
 	    /* If that worked, we're definitely looking at a
 	       compound-literal expression.  */
@@ -7492,6 +7523,7 @@ cp_parser_tokens_start_cast_expression (cp_parser *parser)
     case CPP_CLOSE_SQUARE:
     case CPP_CLOSE_PAREN:
     case CPP_CLOSE_BRACE:
+    case CPP_OPEN_BRACE:
     case CPP_DOT:
     case CPP_DOT_STAR:
     case CPP_DEREF:
@@ -7559,7 +7591,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
     {
       tree type = NULL_TREE;
       tree expr = NULL_TREE;
-      bool compound_literal_p;
+      bool cast_expression_p;
       const char *saved_message;
 
       /* There's no way to know yet whether or not this is a cast.
@@ -7582,26 +7614,38 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
 	 will commit to the parse at that point, because we cannot
 	 undo the action that is done when creating a new class.  So,
 	 then we cannot back up and do a postfix-expression.
+	 Another tricky case is the following (c++/29234):
+
+         struct S { void operator () (); };
+
+         void foo ()
+         {
+           ( S()() );
+         }
+
+	 As a type-id we parse the parenthesized S()() as a function
+	 returning a function, groktypename complains and we cannot
+	 back up in this case either.
 
 	 Therefore, we scan ahead to the closing `)', and check to see
-	 if the token after the `)' is a `{'.  If so, we are not
-	 looking at a cast-expression.
+	 if the tokens after the `)' can start a cast-expression.  Otherwise
+	 we are dealing with an unary-expression, a postfix-expression
+	 or something else.
 
 	 Save tokens so that we can put them back.  */
       cp_lexer_save_tokens (parser->lexer);
-      /* Skip tokens until the next token is a closing parenthesis.
-	 If we find the closing `)', and the next token is a `{', then
-	 we are looking at a compound-literal.  */
-      compound_literal_p
+
+      /* We may be looking at a cast-expression.  */
+      cast_expression_p
 	= (cp_parser_skip_to_closing_parenthesis (parser, false, false,
 						  /*consume_paren=*/true)
-	   && cp_lexer_next_token_is (parser->lexer, CPP_OPEN_BRACE));
+	   && cp_parser_tokens_start_cast_expression (parser));
+
       /* Roll back the tokens we skipped.  */
       cp_lexer_rollback_tokens (parser->lexer);
-      /* If we were looking at a compound-literal, simulate an error
-	 so that the call to cp_parser_parse_definitely below will
-	 fail.  */
-      if (compound_literal_p)
+      /* If we aren't looking at a cast-expression, simulate an error so
+	 that the call to cp_parser_parse_definitely below will fail.  */
+      if (!cast_expression_p)
 	cp_parser_simulate_error (parser);
       else
 	{
@@ -7620,8 +7664,7 @@ cp_parser_cast_expression (cp_parser *parser, bool address_p, bool cast_p,
       /* At this point this can only be either a cast or a
 	 parenthesized ctor such as `(T ())' that looks like a cast to
 	 function returning T.  */
-      if (!cp_parser_error_occurred (parser)
-	  && cp_parser_tokens_start_cast_expression (parser))
+      if (!cp_parser_error_occurred (parser))
 	{
 	  cp_parser_parse_definitely (parser);
 	  expr = cp_parser_cast_expression (parser,
@@ -22168,6 +22211,7 @@ static bool
 cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 {
   bool constructor_p;
+  bool outside_class_specifier_p;
   tree nested_name_specifier;
   cp_token *next_token;
 
@@ -22200,11 +22244,14 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 					    /*check_dependency_p=*/false,
 					    /*type_p=*/false,
 					    /*is_declaration=*/false));
+
+  outside_class_specifier_p = (!at_class_scope_p ()
+			       || !TYPE_BEING_DEFINED (current_class_type)
+			       || friend_p);
+
   /* Outside of a class-specifier, there must be a
      nested-name-specifier.  */
-  if (!nested_name_specifier &&
-      (!at_class_scope_p () || !TYPE_BEING_DEFINED (current_class_type)
-       || friend_p))
+  if (!nested_name_specifier && outside_class_specifier_p)
     constructor_p = false;
   else if (nested_name_specifier == error_mark_node)
     constructor_p = false;
@@ -22243,8 +22290,16 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 					/*check_dependency_p=*/false,
 					/*class_head_p=*/false,
 					/*is_declaration=*/false);
-      /* If there was no class-name, then this is not a constructor.  */
-      constructor_p = !cp_parser_error_occurred (parser);
+      /* If there was no class-name, then this is not a constructor.
+	 Otherwise, if we are in a class-specifier and we aren't
+	 handling a friend declaration, check that its type matches
+	 current_class_type (c++/38313).  Note: error_mark_node
+	 is left alone for error recovery purposes.  */
+      constructor_p = (!cp_parser_error_occurred (parser)
+		       && (outside_class_specifier_p
+			   || type_decl == error_mark_node
+			   || same_type_p (current_class_type,
+					   TREE_TYPE (type_decl))));
 
       /* If we're still considering a constructor, we have to see a `(',
 	 to begin the parameter-declaration-clause, followed by either a

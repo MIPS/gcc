@@ -1,3 +1,434 @@
+2013-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (vec_widen_umult_hi_v16qi): Swap
+	arguments to merge instruction for little endian.
+	(vec_widen_umult_lo_v16qi): Likewise.
+	(vec_widen_smult_hi_v16qi): Likewise.
+	(vec_widen_smult_lo_v16qi): Likewise.
+	(vec_widen_umult_hi_v8hi): Likewise.
+	(vec_widen_umult_lo_v8hi): Likewise.
+	(vec_widen_smult_hi_v8hi): Likewise.
+	(vec_widen_smult_lo_v8hi): Likewise.
+
+2013-11-04  Ian Lance Taylor  <iant@google.com>
+
+	* builtins.def (ATTR_NOTHROWCALL_LEAF_LIST): Define.
+	* sync-builtins.def: Use ATTR_NOTHROWCALL_LEAF_LIST for all sync
+	builtins that take pointers.
+	* lto-opts.c (lto_write_options): Write -fnon-call-exceptions
+	if set.
+	* lto-wrapper.c (merge_and_complain): Collect
+	OPT_fnon_call_exceptions.
+	(run_gcc): Pass -fnon-call-exceptions.
+
+2013-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* optabs.c (expand_vec_perm): Revert one incorrect line from
+	2013-10-31 change.
+
+	PR tree-optimization/58978
+	* tree-vrp.c (all_imm_uses_in_stmt_or_feed_cond): Don't modify
+	use_stmt by single_imm_use directly.  Only call single_imm_use
+	on SSA_NAMEs.
+
+2013-11-04  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/58968
+	* lra-spills.c (return_regno_p): New function.
+	(lra_final_code_change): Use it.
+
+2013-11-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* doc/cpp.texi (__GCC_IEC_559, __GCC_IEC_559_COMPLEX): Document
+	macros.
+	* target.def (float_exceptions_rounding_supported_p): New hook.
+	* targhooks.c (default_float_exceptions_rounding_supported_p): New
+	function.
+	* targhooks.h (default_float_exceptions_rounding_supported_p):
+	Declare.
+	* doc/tm.texi.in (TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P):
+	New @hook.
+	* doc/tm.texi: Regenerate.
+	* config.gcc (powerpc*-*-linux*): Set extra_objs.
+	* config/rs6000/rs6000-linux.c: New file.
+	* config/rs6000/rs6000-protos.h
+	(rs6000_linux_float_exceptions_rounding_supported_p): Declare.
+	* config/rs6000/linux.h
+	(TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P): New macro.
+	* config/rs6000/linux64.h
+	(TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P): Likewise.
+	* config/rs6000/t-linux (rs6000-linux.o): New rule.
+	* config/rs6000/t-linux64 (rs6000-linux.o): Likewise.
+
+2013-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (*vsx_le_perm_store_<mode> for VSX_D):
+	Replace the define_insn_and_split with a define_insn and two
+	define_splits, with the split after reload re-permuting the source
+	register to its original value.
+	(*vsx_le_perm_store_<mode> for VSX_W): Likewise.
+	(*vsx_le_perm_store_v8hi): Likewise.
+	(*vsx_le_perm_store_v16qi): Likewise.
+
+2013-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_pack_trunc_v2df):  Adjust for
+	little endian.
+
+2013-11-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58946
+	* tree-ssa-reassoc.c (maybe_optimize_range_tests): Update all
+	bbs with bbinfo[idx].op != NULL before all blocks with
+	bbinfo[idx].op == NULL.
+
+2013-11-04  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/avr/avr-log.c (avr_double_int_pop_digit): Delete.
+	(avr_dump_double_int_hex): Likewise.
+	(avr_log_vadump): Remove %D and %X handling.
+	* config/avr/avr.c (avr_double_int_push_digit): Delete.
+	(avr_map_op_t): Change map from double_int to unsigned int.
+	(avr_map_op): Update accordingly.
+	(avr_map, avr_map_metric, avr_has_nibble_0xf, avr_map_decompose)
+	(avr_move_bits, avr_out_insert_bits, avr_fold_builtin): Operate on
+	unsigned ints rather than double_ints.
+
+2013-11-03  Marek Polacek  <polacek@redhat.com>
+
+	Implement -fsanitize=vla-bound.
+	* opts.c (common_handle_option): Handle vla-bound.
+	* sanitizer.def (BUILT_IN_UBSAN_HANDLE_VLA_BOUND_NOT_POSITIVE):
+	Define.
+	* flag-types.h (enum sanitize_code): Add SANITIZE_VLA.
+	* asan.c (initialize_sanitizer_builtins): Build BT_FN_VOID_PTR_PTR.
+
+2013-11-02  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Adjust for
+	little endian.
+
+2013-11-02  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/constraints.md (Ts, Tv): New address constrains.
+	* config/i386/i386.md (*lea<mode>, *<mode>_<bndcheck>): Use Ts
+	constraint for address_no_seg_operand.
+	* config/i386/sse.md (*avx512pf_gatherpf<mode>_mask)
+	(*avx512pf_gatherpf<mode>, *avx512pf_scatterpf<mode>_mask)
+	(*avx512pf_scatterpf<mode>, *avx2_gathersi<mode>)
+	(*avx2_gathersi<mode>_2, *avx2_gatherdi<mode>, *avx2_gatherdi<mode>_2)
+	(*avx2_gatherdi<mode>_3, *avx2_gatherdi<mode>_4)
+	(*avx512f_gathersi<mode>, *avx512f_gathersi<mode>_2)
+	(*avx512f_gatherdi<mode>, *avx512f_gatherdi<mode>_2)
+	(*avx512f_scattersi<mode> *avx512f_scatterdi<mode>): Use Tv
+	constraint for vsib_address_operand.
+
+2013-11-02  Steven Bosscher  <steven@gcc.gnu.org>
+
+	* gcse.c (pre_delete): Remove references to regmove from comments.
+	* recog.c: (validate_replace_rtx_1): Likewise.
+	* config/rl78/rl78.c: Likewise.
+	* config/v850/v850.h: Likewise, and remove unused ENABLE_REGMOVE_PASS.
+	* common/config/m32r/m32r-common.c: Don't manipulate OPT_fregmove.
+	* common/config/mmix/mmix-common.c: Likewise.
+
+2013-11-01  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* function.c (reorder_blocks): Convert block_stack to a stack_vec.
+	* gimplify.c (gimplify_compound_lval): Likewise.
+	* graphite-clast-to-gimple.c (gloog): Likewise.
+	* graphite-dependences.c (loop_is_parallel_p): Likewise.
+	* graphite-scop-detection.c (scopdet_basic_block_info): Likewise.
+	(limit_scop); Likewise.
+	(build_scops): Likewise.
+	(dot_scop): Likewise.
+	* graphite-sese-to-poly.c (sese_dom_walker): Likewise.
+	(build_scop_drs): Likewise.
+	(insert_stmts): Likewise.
+	(insert_out_of_ssa_copy): Likewise.
+	(remove_phi): Likewise.
+	(rewrite_commutative_reductions_out_of_ssa_close_phi): Likewise.
+	* hw-doloop.c (discover_loop): Likewise.
+	* tree-call-cdce.c (shrink_wrap_one_built_in_call): Likewise.
+	* tree-dfa.c (dump_enumerated_decls): Likewise.
+	* tree-if-conv.c (if_convertable_loop_p): Likewise.
+	* tree-inline.c (tree_function_versioning): Likewise.
+	* tree-loop-distribution.c (build_rdg): Likewise.
+	(rdg_flag_vertex_and_dependent): Likewise.
+	(distribute_loop): Likewise.
+	* tree-parloops.c (loop_parallel_p): Likewise.
+	(eliminate_local_variables): Likewise.
+	(separate_decls_in_region): Likewise.
+	* tree-predcom.c (tree_predictive_commoning_loop): Likewise.
+	* tree-ssa-phiopt.c (cond_if_else_store_replacement): Likewise.
+	* tree-ssa-uncprop.c (uncprop_dom_walker): Likewise.
+	* tree-vect-loop.c (vect_analyze_scaler_cycles_1): Likewise.
+	* tree-vect-patterns.c (vect_pattern_recog): Likewise.
+	* tree-vect-stmts.c (vect_mark_stmts_to_be_vectorized): Likewise.
+	(vectorizable_condition): Likewise.
+
+2013-11-01  Uros Bizjak  <ubizjak@gmail.com>
+
+	* configure.ac (HAVE_AS_IX86_INTERUNIT_MOVQ): Always define as 0/1.
+	* configure: Regenerate.
+	* config/i386/i386.md (*movdi_internal): Change
+	HAVE_AS_IX86_INTERUNIT_MOVQ to runtime check.
+	(*movdf_internal): Ditto.
+	* config/i386/mmx.md (*mov<mode>_internal): Ditto.
+	* config/i386/sse.md (vec_concatv2di): Output interunit movq
+	for HAVE_AS_IX86_INTERUNIT_MOVQ targets.
+
+2013-10-31  Robert Suchanek  <Robert.Suchanek@imgtec.com>
+
+	* lra-spills.c (assign_spill_hard_regs): Remove statement terminator
+	after comment.
+
+2013-10-31  David Malcolm  <dmalcolm@redhat.com>
+
+	Automated part of renaming of symtab_node_base to symtab_node.
+
+	Patch autogenerated by rename_symtab.py from
+	https://github.com/davidmalcolm/gcc-refactoring-scripts
+	revision 58bb219cc090b2f4516a9297d868c245495ee622
+	with ChangeLog entry fixed up by hand.
+
+	* cgraph.c (x_cgraph_nodes_queue): Rename symtab_node_base to
+	symtab_node.
+	(cgraph_node_for_asm): Likewise.
+	* cgraph.h (symtab_node_base): Likewise.
+	(cgraph_node): Likewise.
+	(varpool_node): Likewise.
+	(is_a_helper <cgraph_node>::test): Likewise.
+	(is_a_helper <varpool_node>::test): Likewise.
+	(symtab_nodes): Likewise.
+	(symtab_register_node): Likewise.
+	(symtab_unregister_node): Likewise.
+	(symtab_remove_node): Likewise.
+	(symtab_get_node): Likewise.
+	(symtab_node_for_asm): Likewise.
+	(symtab_node_asm_name): Likewise.
+	(symtab_node_name): Likewise.
+	(symtab_insert_node_to_hashtable): Likewise.
+	(symtab_add_to_same_comdat_group): Likewise.
+	(symtab_dissolve_same_comdat_group_list): Likewise.
+	(dump_symtab_node): Likewise.
+	(debug_symtab_node): Likewise.
+	(dump_symtab_base): Likewise.
+	(verify_symtab_node): Likewise.
+	(verify_symtab_base): Likewise.
+	(symtab_used_from_object_file_p): Likewise.
+	(symtab_alias_ultimate_target): Likewise.
+	(symtab_resolve_alias): Likewise.
+	(fixup_same_cpp_alias_visibility): Likewise.
+	(symtab_for_node_and_aliases): Likewise.
+	(symtab_nonoverwritable_alias): Likewise.
+	(availability symtab_node_availability): Likewise.
+	(symtab_semantically_equivalent_p): Likewise.
+	(fixup_same_cpp_alias_visibility): Likewise.
+	(symtab_prevail_in_asm_name_hash): Likewise.
+	(cgraph): Likewise.
+	(varpool): Likewise.
+	(varpool_first_variable): Likewise.
+	(varpool_next_variable): Likewise.
+	(varpool_first_static_initializer): Likewise.
+	(varpool_next_static_initializer): Likewise.
+	(varpool_first_defined_variable): Likewise.
+	(varpool_next_defined_variable): Likewise.
+	(cgraph_first_defined_function): Likewise.
+	(cgraph_next_defined_function): Likewise.
+	(cgraph_first_function): Likewise.
+	(cgraph_next_function): Likewise.
+	(cgraph_first_function_with_gimple_body): Likewise.
+	(cgraph_next_function_with_gimple_body): Likewise.
+	(symtab_alias_target): Likewise.
+	(symtab_real_symbol_p): Likewise.
+	(symtab_can_be_discarded): Likewise.
+	* cgraphbuild.c (mark_address): Likewise.
+	(mark_load): Likewise.
+	(mark_store): Likewise.
+	* cgraphunit.c (decide_is_symbol_needed): Likewise.
+	(first): Likewise.
+	(enqueue_node): Likewise.
+	(referred_to_p): Likewise.
+	(cgraph_process_same_body_aliases): Likewise.
+	(analyze_functions): Likewise.
+	(handle_alias_pairs): Likewise.
+	(output_weakrefs): Likewise.
+	(compile): Likewise.
+	* gimple-fold.c (can_refer_decl_in_current_unit_p): Likewise.
+	* ipa-inline-analysis.c (inline_write_summary): Likewise.
+	* ipa-prop.c (remove_described_reference): Likewise.
+	(try_decrement_rdesc_refcount): Likewise.
+	(ipa_edge_duplication_hook): Likewise.
+	* ipa-ref.c (ipa_record_reference): Likewise.
+	(ipa_maybe_record_reference): Likewise.
+	(ipa_clone_ref): Likewise.
+	(ipa_clone_references): Likewise.
+	(ipa_clone_referring): Likewise.
+	(ipa_find_reference): Likewise.
+	(ipa_remove_stmt_references): Likewise.
+	(ipa_clear_stmts_in_references): Likewise.
+	* ipa-ref.h (symtab_node_base): Likewise.
+	(ipa_ref): Likewise.
+	(ipa_record_reference): Likewise.
+	(ipa_maybe_record_reference): Likewise.
+	(ipa_clone_references): Likewise.
+	(ipa_clone_referring): Likewise.
+	(ipa_clone_ref): Likewise.
+	(ipa_find_reference): Likewise.
+	(ipa_remove_stmt_references): Likewise.
+	(ipa_clear_stmts_in_references): Likewise.
+	* ipa-reference.c (ipa_reference_write_optimization_summary):
+	Likewise.
+	* ipa.c (enqueue_node): Likewise.
+	(process_references): Likewise.
+	(walk_polymorphic_call_targets): Likewise.
+	(symtab_remove_unreachable_nodes): Likewise.
+	(address_taken_from_non_vtable_p): Likewise.
+	(comdat_can_be_unshared_p_1): Likewise.
+	(comdat_can_be_unshared_p): Likewise.
+	(can_replace_by_local_alias): Likewise.
+	(function_and_variable_visibility): Likewise.
+	* is-a.h: Likewise (within example in comment).
+	* lto-cgraph.c (input_cgraph_opt_summary): Likewise.
+	(lto_symtab_encoder_encode): Likewise.
+	(lto_symtab_encoder_delete_node): Likewise.
+	(lto_symtab_encoder_in_partition_p): Likewise.
+	(lto_set_symtab_encoder_in_partition): Likewise.
+	(output_refs): Likewise.
+	(compute_ltrans_boundary): Likewise.
+	(output_symtab): Likewise.
+	(input_node): Likewise.
+	(input_ref): Likewise.
+	(input_edge): Likewise.
+	(input_cgraph_1): Likewise.
+	(input_refs): Likewise.
+	(output_cgraph_opt_summary): Likewise.
+	(input_node_opt_summary): Likewise.
+	(input_cgraph_opt_section): Likewise.
+	* lto-section-in.c (lto_free_function_in_decl_state_for_node):
+	Likewise.
+	* lto-streamer-out.c (lto_output): Likewise.
+	(output_symbol_p): Likewise.
+	(produce_symtab): Likewise.
+	* lto-streamer.h (lto_encoder_entry): Likewise.
+	(lto_free_function_in_decl_state_for_node): Likewise.
+	(lto_symtab_encoder_encode): Likewise.
+	(lto_symtab_encoder_delete_node): Likewise.
+	(lto_symtab_encoder_in_partition_p): Likewise.
+	(lto_set_symtab_encoder_in_partition): Likewise.
+	(lto_symtab_encoder_lookup): Likewise.
+	(lsei_node): Likewise.
+	(lto_symtab_encoder_deref): Likewise.
+	* symtab.c (symtab_hash): Likewise.
+	(assembler_name_hash): Likewise.
+	(symtab_nodes): Likewise.
+	(hash_node): Likewise.
+	(eq_node): Likewise.
+	(hash_node_by_assembler_name): Likewise.
+	(eq_assembler_name): Likewise.
+	(insert_to_assembler_name_hash): Likewise.
+	(unlink_from_assembler_name_hash): Likewise.
+	(symtab_prevail_in_asm_name_hash): Likewise.
+	(symtab_register_node): Likewise.
+	(symtab_insert_node_to_hashtable): Likewise.
+	(symtab_unregister_node): Likewise.
+	(symtab_get_node): Likewise.
+	(symtab_remove_node): Likewise.
+	(symtab_initialize_asm_name_hash): Likewise.
+	(symtab_node_for_asm): Likewise.
+	(symtab_add_to_same_comdat_group): Likewise.
+	(symtab_dissolve_same_comdat_group_list): Likewise.
+	(symtab_node_asm_name): Likewise.
+	(symtab_node_name): Likewise.
+	(dump_symtab_base): Likewise.
+	(dump_symtab_node): Likewise.
+	(dump_symtab): Likewise.
+	(debug_symtab_node): Likewise.
+	(verify_symtab_base): Likewise.
+	(verify_symtab_node): Likewise.
+	(verify_symtab): Likewise.
+	(symtab_used_from_object_file_p): Likewise.
+	(symtab_node_availability): Likewise.
+	(symtab_alias_ultimate_target): Likewise.
+	(fixup_same_cpp_alias_visibility): Likewise.
+	(symtab_resolve_alias): Likewise.
+	(symtab_for_node_and_aliases): Likewise.
+	(symtab_for_node_and_aliases): Likewise.
+	(symtab_nonoverwritable_alias_1): Likewise.
+	(symtab_nonoverwritable_alias): Likewise.
+	(symtab_semantically_equivalent_p): Likewise.
+	* value-prof.c (init_node_map): Likewise.
+	* varasm.c (find_decl): Likewise.
+	* varpool.c (varpool_node_for_asm): Likewise.
+	(varpool_remove_unreferenced_decls): Likewise.
+
+2013-10-31  David Malcolm  <dmalcolm@redhat.com>
+
+	Manual part of renaming of symtab_node_base to symtab_node.
+
+	* ipa-ref.h (symtab_node): Remove typedef to pointer type, as it
+	clashes with the preferred name for the base class.
+	(const_symtab_node): Remove redundant typedef.
+
+2013-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* optabs.c (expand_vec_perm): Avoid vector mode punning
+	SUBREGs in SET_DEST.
+	* expmed.c (store_bit_field_1): Likewise.
+	* config/i386/sse.md (movdi_to_sse, vec_pack_sfix_trunc_v2df,
+	vec_pack_sfix_v2df, vec_shl_<mode>, vec_shr_<mode>,
+	vec_interleave_high<mode>, vec_interleave_low<mode>): Likewise.
+	* config/i386/i386.c (ix86_expand_vector_move_misalign,
+	ix86_expand_sse_movcc, ix86_expand_int_vcond, ix86_expand_vec_perm,
+	ix86_expand_sse_unpack, ix86_expand_args_builtin,
+	ix86_expand_vector_init_duplicate, ix86_expand_vector_set,
+	emit_reduc_half, expand_vec_perm_blend, expand_vec_perm_pshufb,
+	expand_vec_perm_interleave2, expand_vec_perm_pshufb2,
+	expand_vec_perm_vpshufb2_vpermq,
+	expand_vec_perm_vpshufb2_vpermq_even_odd, expand_vec_perm_even_odd_1,
+	expand_vec_perm_broadcast_1, expand_vec_perm_vpshufb4_vpermq2,
+	ix86_expand_sse2_mulv4si3, ix86_expand_pinsr): Likewise.
+	(expand_vec_perm_palignr): Likewise.  Modify a copy of *d rather
+	than *d itself.
+
+2013-10-31  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_expand_sse2_abs): Rename function arguments.
+	Use gcc_unreachable for unhandled modes.  Do not check results of
+	expand_simple_binop.  If not expanded to target, move the result.
+
+2013-10-31  Chung-Ju Wu  <jasonwucj@gmail.com>
+	    Shiva Chen  <shiva0217@gmail.com>
+
+	* config.gcc (nds32*-*-*): Add nds32 target.
+	* config/nds32/nds32.c: New file.
+	* config/nds32/nds32.h: New file.
+	* config/nds32/nds32.md: New file.
+	* config/nds32/constants.md: New file.
+	* config/nds32/constraints.md: New file.
+	* config/nds32/iterators.md: New file.
+	* config/nds32/nds32-doubleword.md: New file.
+	* config/nds32/nds32-intrinsic.md: New file.
+	* config/nds32/nds32_intrinsic.h: New file.
+	* config/nds32/nds32-modes.def: New file.
+	* config/nds32/nds32-multiple.md: New file.
+	* config/nds32/nds32.opt: New file.
+	* config/nds32/nds32-opts.h: New file.
+	* config/nds32/nds32-protos.h: New file.
+	* config/nds32/nds32-peephole2.md: New file.
+	* config/nds32/pipelines.md: New file.
+	* config/nds32/predicates.md: New file.
+	* config/nds32/t-mlibs: New file.
+	* common/config/nds32: New directory and files.
+
+	* doc/invoke.texi (NDS32 options): Document nds32 specific options.
+	* doc/md.texi (NDS32 family): Document nds32 specific constraints.
+	* doc/install.texi (Cross-Compiler-Specific Options): Document
+	--with-nds32-lib for nds32 target.
+	* doc/extend.texi (Function Attributes, Target Builtins): Document
+	nds32 specific attributes.
+
 2013-10-31  Vladimir Makarov  <vmakarov@redhat.com>
 
 	* lra-constraints (process_alt_operands): Use the result
@@ -100,9 +531,8 @@
 	PR other/58545
 	* reload1.c (update_eliminables_and_spill): New function, broken
 	out of reload.
-	(reload): Use it.  Check for frame size change after frame
-	size alignment, and call update_eliminables_and_spill first
-	if continue-ing.
+	(reload): Use it.  Check for frame size change after frame size
+	alignment, and call update_eliminables_and_spill first if continue-ing.
 
 2013-10-30  Cong Hou  <congh@google.com>
 
@@ -131,9 +561,8 @@
 
 2013-10-30  David Malcolm  <dmalcolm@redhat.com>
 
-	* cgraphunit.c (analyze_functions): Split symtab_node
-	declarations onto multiple lines to make things easier
-	for rename_symtab.py.
+	* cgraphunit.c (analyze_functions): Split symtab_node declarations
+	onto multiple lines to make things easier for rename_symtab.py.
 
 	* symtab.c (symtab_dissolve_same_comdat_group_list): Likewise.
 	(symtab_semantically_equivalent_p): Likewise.
@@ -167,10 +596,8 @@
 	(struct ira_allocno) New member allocno_prefs.
 	(ALLOCNO_PREFS): New macro.
 	(ira_prefs, ira_prefs_num): New external vars.
-	(ira_setup_alts, ira_get_dup_out_num, ira_debug_pref): New
-	prototypes.
-	(ira_debug_prefs, ira_debug_allocno_prefs, ira_create_pref):
-	Ditto.
+	(ira_setup_alts, ira_get_dup_out_num, ira_debug_pref): New prototypes.
+	(ira_debug_prefs, ira_debug_allocno_prefs, ira_create_pref): Ditto.
 	(ira_add_allocno_pref, ira_remove_pref, ira_remove_allocno_prefs):
 	Ditto.
 	(ira_add_allocno_copy_to_list): Remove prototype.
@@ -323,7 +750,8 @@
 	BUILT_IN_CHKP_INTERSECT, BUILT_IN_CHKP_ARG_BND, BUILT_IN_CHKP_NARROW,
 	BUILT_IN_CHKP_EXTRACT_LOWER, BUILT_IN_CHKP_EXTRACT_UPPER.
 	* common.opt (fcheck-pointer-bounds): New.
-	* toplev.c (process_options): Check Pointer Bounds Checker is supported.
+	* toplev.c (process_options): Check Pointer Bounds Checker is
+	supported.
 	* doc/extend.texi: Document Pointer Bounds Checker built-in functions.
 
 2013-10-30  Ilya Enkovich  <ilya.enkovich@intel.com>
@@ -360,11 +788,10 @@
 2013-10-29  Andrew Pinski <apinski@cavium.com>
 
 	* tree-ssa-ifcombine.c: Include rtl.h and tm_p.h.
-	(ifcombine_ifandif): Handle cases where
-	maybe_fold_and_comparisons fails, combining the branches
-	anyways.
-	(tree_ssa_ifcombine): Inverse the order of
-	the basic block walk, increases the number of combinings.
+	(ifcombine_ifandif): Handle cases where maybe_fold_and_comparisons
+	fails, combining the branches anyways.
+	(tree_ssa_ifcombine): Inverse the order of the basic block walk,
+	increases the number of combinings.
 	* gimple.h (gsi_start_nondebug_after_labels_bb): New function.
 
 2013-10-29  Mike Stump  <mikestump@comcast.net>
@@ -458,7 +885,7 @@
 	(CILK_SYNC_STMT): Added documentation for _Cilk_sync.
 	* passes.texi (Cilk Keywords): New section that describes the compiler
 	code changes for handling Cilk Keywords.
-	
+
 2013-10-29  David Malcolm  <dmalcolm@redhat.com>
 
 	Patch autogenerated by refactor_symtab.py from
@@ -867,8 +1294,7 @@
 	(varpool_remove_node): Likewise.
 	(varpool_node_for_decl): Likewise.
 	(varpool_create_empty_node): Likewise.
-	* config/i386/i386.c (ix86_generate_version_dispatcher_body):
-	Likewise.
+	* config/i386/i386.c (ix86_generate_version_dispatcher_body): Likewise.
 	(ix86_get_function_versions_dispatcher): Likewise.
 
 2013-10-29  David Malcolm  <dmalcolm@redhat.com>
@@ -896,13 +1322,13 @@
 	* symtab.c (symtab_hash): Change symtab_node_def to symtab_node_base.
 	(assembler_name_hash): Likewise.
 
-2013-10-29  Martin Liska <marxin.liska@gmail.com>
+2013-10-29  Martin Liska  <marxin.liska@gmail.com>
 
-       * doc/tree-ssa.texi (gimple_phi_result): Document.
-       (gimple_phi_num_args, gimple_phi_arg): Likewise.
-       (gimple_phi_arg_edge, gimple_phi_arg_def): Likewise.
-       (PHI_RESULT, PHI_NUM_ARGS): Remove.
-       (PHI_ARG_ELT, PHI_ARG_EDGE, PHI_ARG_DEF): Likewise.
+	* doc/tree-ssa.texi (gimple_phi_result): Document.
+	(gimple_phi_num_args, gimple_phi_arg): Likewise.
+	(gimple_phi_arg_edge, gimple_phi_arg_def): Likewise.
+	(PHI_RESULT, PHI_NUM_ARGS): Remove.
+	(PHI_ARG_ELT, PHI_ARG_EDGE, PHI_ARG_DEF): Likewise.
 
 2013-10-29  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -1019,8 +1445,7 @@
 	fields of the type (including inherited ones).
 	(write_func_for_structure): Don't write fns for subclasses, only
 	for the ultimate base class within an inheritance hierarchy.
-	Subclasses-marking will be handled by the base class marking
-	functions.
+	Subclasses-marking will be handled by the base class marking functions.
 	(write_types): Likewise.
 	(write_local_func_for_structure): Likewise.
 	(USED_BY_TYPED_GC_P): Emit allocators for subclasses that have
@@ -1182,7 +1607,6 @@
 	(VEC_PERM_AVX2): Ditto.
 	(VEC_PERM_CONST): Ditto.
 
-
 2013-10-28  Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* config/arc/arc.c (arc_ccfsm_post_advance):
@@ -1279,8 +1703,7 @@
 	(rs6000_legitimate_offset_address_p): Call
 	legitimate_constant_pool_address_p in strict mode for LRA.
 	(rs6000_legitimate_address_p): Ditto.
-	(legitimate_lo_sum_address_p): Add code for LRA.
-	Use lra_in_progress.
+	(legitimate_lo_sum_address_p): Add code for LRA.  Use lra_in_progress.
 	(rs6000_emit_move): Add LRA version of code to generate load/store
 	of SDmode values.
 	(rs6000_secondary_memory_needed_mode): New.
@@ -1288,8 +1711,7 @@
 	(rs6000_secondary_reload_class): Return NO_REGS for LRA for
 	constants, memory, and FP registers.
 	(rs6000_lra_p): New.
-	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED_MODE): New
-	macro.
+	* config/rs6000/rs6000.h (SECONDARY_MEMORY_NEEDED_MODE): New macro.
 	* config/rs6000/rs6000.opt (mlra): New option.
 	* lra-spills.c (lra_final_code_change): Remove useless move insns.
 
@@ -1348,8 +1770,8 @@
 2013-10-25  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR rtl-optimization/58831
-	* alias.c (init_alias_analysis): At the beginning of each iteration, set
-	the reg_seen[N] bit if static_reg_base_value[N] is non-null.
+	* alias.c (init_alias_analysis): At the beginning of each iteration,
+	set the reg_seen[N] bit if static_reg_base_value[N] is non-null.
 
 2013-10-25  Eric Botcazou  <ebotcazou@adacore.com>
 

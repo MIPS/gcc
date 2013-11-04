@@ -1,5 +1,8 @@
 2013-11-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 204363.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000.c (reg_addr): Delete 10/30 reload_const
 	changes.
 	(rs6000_debug_print_mode): Likewise.

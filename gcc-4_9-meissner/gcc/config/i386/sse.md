@@ -800,10 +800,13 @@
 				  gen_rtx_SUBREG (SImode, operands[1], 4)));
       emit_insn (gen_vec_interleave_lowv4si (operands[0], operands[0],
 					     operands[2]));
-    }
+   }
  else if (memory_operand (operands[1], DImode))
-   emit_insn (gen_vec_concatv2di (gen_lowpart (V2DImode, operands[0]),
-				  operands[1], const0_rtx));
+   {
+     rtx tmp = gen_reg_rtx (V2DImode);
+     emit_insn (gen_vec_concatv2di (tmp, operands[1], const0_rtx));
+     emit_move_insn (operands[0], gen_lowpart (V4SImode, tmp));
+   }
  else
    gcc_unreachable ();
 })
@@ -4208,7 +4211,7 @@
    (match_operand:V2DF 2 "nonimmediate_operand")]
   "TARGET_SSE2"
 {
-  rtx tmp0, tmp1;
+  rtx tmp0, tmp1, tmp2;
 
   if (TARGET_AVX && !TARGET_PREFER_AVX128)
     {
@@ -4222,13 +4225,14 @@
     {
       tmp0 = gen_reg_rtx (V4SImode);
       tmp1 = gen_reg_rtx (V4SImode);
+      tmp2 = gen_reg_rtx (V2DImode);
 
       emit_insn (gen_sse2_cvttpd2dq (tmp0, operands[1]));
       emit_insn (gen_sse2_cvttpd2dq (tmp1, operands[2]));
-      emit_insn
-       (gen_vec_interleave_lowv2di (gen_lowpart (V2DImode, operands[0]),
-				    gen_lowpart (V2DImode, tmp0),
-				    gen_lowpart (V2DImode, tmp1)));
+      emit_insn (gen_vec_interleave_lowv2di (tmp2,
+					     gen_lowpart (V2DImode, tmp0),
+					     gen_lowpart (V2DImode, tmp1)));
+      emit_move_insn (operands[0], gen_lowpart (V4SImode, tmp2));
     }
   DONE;
 })
@@ -4289,7 +4293,7 @@
    (match_operand:V2DF 2 "nonimmediate_operand")]
   "TARGET_SSE2"
 {
-  rtx tmp0, tmp1;
+  rtx tmp0, tmp1, tmp2;
 
   if (TARGET_AVX && !TARGET_PREFER_AVX128)
     {
@@ -4303,13 +4307,14 @@
     {
       tmp0 = gen_reg_rtx (V4SImode);
       tmp1 = gen_reg_rtx (V4SImode);
+      tmp2 = gen_reg_rtx (V2DImode);
 
       emit_insn (gen_sse2_cvtpd2dq (tmp0, operands[1]));
       emit_insn (gen_sse2_cvtpd2dq (tmp1, operands[2]));
-      emit_insn
-       (gen_vec_interleave_lowv2di (gen_lowpart (V2DImode, operands[0]),
-				    gen_lowpart (V2DImode, tmp0),
-				    gen_lowpart (V2DImode, tmp1)));
+      emit_insn (gen_vec_interleave_lowv2di (tmp2,
+					     gen_lowpart (V2DImode, tmp0),
+					     gen_lowpart (V2DImode, tmp1)));
+      emit_move_insn (operands[0], gen_lowpart (V4SImode, tmp2));
     }
   DONE;
 })
@@ -7328,14 +7333,16 @@
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_expand "vec_shl_<mode>"
-  [(set (match_operand:VI_128 0 "register_operand")
+  [(set (match_dup 3)
 	(ashift:V1TI
 	 (match_operand:VI_128 1 "register_operand")
-	 (match_operand:SI 2 "const_0_to_255_mul_8_operand")))]
+	 (match_operand:SI 2 "const_0_to_255_mul_8_operand")))
+   (set (match_operand:VI_128 0 "register_operand") (match_dup 4))]
   "TARGET_SSE2"
 {
-  operands[0] = gen_lowpart (V1TImode, operands[0]);
   operands[1] = gen_lowpart (V1TImode, operands[1]);
+  operands[3] = gen_reg_rtx (V1TImode);
+  operands[4] = gen_lowpart (<MODE>mode, operands[3]);
 })
 
 (define_insn "<sse2_avx2>_ashl<mode>3"
@@ -7365,14 +7372,16 @@
    (set_attr "mode" "<sseinsnmode>")])
 
 (define_expand "vec_shr_<mode>"
-  [(set (match_operand:VI_128 0 "register_operand")
+  [(set (match_dup 3)
 	(lshiftrt:V1TI
 	 (match_operand:VI_128 1 "register_operand")
-	 (match_operand:SI 2 "const_0_to_255_mul_8_operand")))]
+	 (match_operand:SI 2 "const_0_to_255_mul_8_operand")))
+   (set (match_operand:VI_128 0 "register_operand") (match_dup 4))]
   "TARGET_SSE2"
 {
-  operands[0] = gen_lowpart (V1TImode, operands[0]);
   operands[1] = gen_lowpart (V1TImode, operands[1]);
+  operands[3] = gen_reg_rtx (V1TImode);
+  operands[4] = gen_lowpart (<MODE>mode, operands[3]);
 })
 
 (define_insn "<sse2_avx2>_lshr<mode>3"
@@ -8542,12 +8551,13 @@
 {
   rtx t1 = gen_reg_rtx (<MODE>mode);
   rtx t2 = gen_reg_rtx (<MODE>mode);
+  rtx t3 = gen_reg_rtx (V4DImode);
   emit_insn (gen_avx2_interleave_low<mode> (t1, operands[1], operands[2]));
   emit_insn (gen_avx2_interleave_high<mode> (t2,  operands[1], operands[2]));
-  emit_insn (gen_avx2_permv2ti
-	     (gen_lowpart (V4DImode, operands[0]),
-	      gen_lowpart (V4DImode, t1),
-	      gen_lowpart (V4DImode, t2), GEN_INT (1 + (3 << 4))));
+  emit_insn (gen_avx2_permv2ti (t3, gen_lowpart (V4DImode, t1),
+				gen_lowpart (V4DImode, t2),
+				GEN_INT (1 + (3 << 4))));
+  emit_move_insn (operands[0], gen_lowpart (<MODE>mode, t3));
   DONE;
 })
 
@@ -8559,12 +8569,13 @@
 {
   rtx t1 = gen_reg_rtx (<MODE>mode);
   rtx t2 = gen_reg_rtx (<MODE>mode);
+  rtx t3 = gen_reg_rtx (V4DImode);
   emit_insn (gen_avx2_interleave_low<mode> (t1, operands[1], operands[2]));
   emit_insn (gen_avx2_interleave_high<mode> (t2, operands[1], operands[2]));
-  emit_insn (gen_avx2_permv2ti
-	     (gen_lowpart (V4DImode, operands[0]),
-	      gen_lowpart (V4DImode, t1),
-	      gen_lowpart (V4DImode, t2), GEN_INT (0 + (2 << 4))));
+  emit_insn (gen_avx2_permv2ti (t3, gen_lowpart (V4DImode, t1),
+				gen_lowpart (V4DImode, t2),
+				GEN_INT (0 + (2 << 4))));
+  emit_move_insn (operands[0], gen_lowpart (<MODE>mode, t3));
   DONE;
 })
 
@@ -9478,7 +9489,7 @@
   "@
    pinsrq\t{$1, %2, %0|%0, %2, 1}
    vpinsrq\t{$1, %2, %1, %0|%0, %1, %2, 1}
-   %vmovd\t{%1, %0|%0, %1}
+   * return HAVE_AS_IX86_INTERUNIT_MOVQ ? \"%vmovq\t{%1, %0|%0, %1}\" : \"%vmovd\t{%1, %0|%0, %1}\";
    %vmovq\t{%1, %0|%0, %1}
    movq2dq\t{%1, %0|%0, %1}
    punpcklqdq\t{%2, %0|%0, %2}
@@ -11451,7 +11462,7 @@
      [(match_operand:<avx512fmaskmode> 0 "register_operand" "k")
       (match_operator:<ssescalarmode> 5 "vsib_mem_operator"
 	[(unspec:P
-	   [(match_operand:P 2 "vsib_address_operand" "p")
+	   [(match_operand:P 2 "vsib_address_operand" "Tv")
 	    (match_operand:VI48_512 1 "register_operand" "v")
 	    (match_operand:SI 3 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
@@ -11478,7 +11489,7 @@
      [(const_int -1)
       (match_operator:<ssescalarmode> 4 "vsib_mem_operator"
 	[(unspec:P
-	   [(match_operand:P 1 "vsib_address_operand" "p")
+	   [(match_operand:P 1 "vsib_address_operand" "Tv")
 	    (match_operand:VI48_512 0 "register_operand" "v")
 	    (match_operand:SI 2 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
@@ -11522,7 +11533,7 @@
      [(match_operand:<avx512fmaskmode> 0 "register_operand" "k")
       (match_operator:<ssescalarmode> 5 "vsib_mem_operator"
 	[(unspec:P
-	   [(match_operand:P 2 "vsib_address_operand" "p")
+	   [(match_operand:P 2 "vsib_address_operand" "Tv")
 	    (match_operand:VI48_512 1 "register_operand" "v")
 	    (match_operand:SI 3 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
@@ -11549,7 +11560,7 @@
      [(const_int -1)
       (match_operator:<ssescalarmode> 4 "vsib_mem_operator"
 	[(unspec:P
-	   [(match_operand:P 1 "vsib_address_operand" "p")
+	   [(match_operand:P 1 "vsib_address_operand" "Tv")
 	    (match_operand:VI48_512 0 "register_operand" "v")
 	    (match_operand:SI 2 "const1248_operand" "n")]
 	   UNSPEC_VSIBADDR)])
@@ -13639,7 +13650,7 @@
 	  [(match_operand:VEC_GATHER_MODE 2 "register_operand" "0")
 	   (match_operator:<ssescalarmode> 7 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 3 "vsib_address_operand" "p")
+		[(match_operand:P 3 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXSI> 4 "register_operand" "x")
 		 (match_operand:SI 6 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])
@@ -13659,7 +13670,7 @@
 	  [(pc)
 	   (match_operator:<ssescalarmode> 6 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 2 "vsib_address_operand" "p")
+		[(match_operand:P 2 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXSI> 3 "register_operand" "x")
 		 (match_operand:SI 5 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])
@@ -13701,7 +13712,7 @@
 	  [(match_operand:<VEC_GATHER_SRCDI> 2 "register_operand" "0")
 	   (match_operator:<ssescalarmode> 7 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 3 "vsib_address_operand" "p")
+		[(match_operand:P 3 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXDI> 4 "register_operand" "x")
 		 (match_operand:SI 6 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])
@@ -13721,7 +13732,7 @@
 	  [(pc)
 	   (match_operator:<ssescalarmode> 6 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 2 "vsib_address_operand" "p")
+		[(match_operand:P 2 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXDI> 3 "register_operand" "x")
 		 (match_operand:SI 5 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])
@@ -13746,7 +13757,7 @@
 	    [(match_operand:<VEC_GATHER_SRCDI> 2 "register_operand" "0")
 	     (match_operator:<ssescalarmode> 7 "vsib_mem_operator"
 	       [(unspec:P
-		  [(match_operand:P 3 "vsib_address_operand" "p")
+		  [(match_operand:P 3 "vsib_address_operand" "Tv")
 		   (match_operand:<VEC_GATHER_IDXDI> 4 "register_operand" "x")
 		   (match_operand:SI 6 "const1248_operand" "n")]
 		  UNSPEC_VSIBADDR)])
@@ -13769,7 +13780,7 @@
 	    [(pc)
 	     (match_operator:<ssescalarmode> 6 "vsib_mem_operator"
 	       [(unspec:P
-		  [(match_operand:P 2 "vsib_address_operand" "p")
+		  [(match_operand:P 2 "vsib_address_operand" "Tv")
 		   (match_operand:<VEC_GATHER_IDXDI> 3 "register_operand" "x")
 		   (match_operand:SI 5 "const1248_operand" "n")]
 		  UNSPEC_VSIBADDR)])
@@ -13811,7 +13822,7 @@
 	   (match_operand:<avx512fmaskmode> 7 "register_operand" "2")
 	   (match_operator:<ssescalarmode> 6 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 4 "vsib_address_operand" "p")
+		[(match_operand:P 4 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXSI> 3 "register_operand" "v")
 		 (match_operand:SI 5 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])]
@@ -13830,7 +13841,7 @@
 	   (match_operand:<avx512fmaskmode> 6 "register_operand" "1")
 	   (match_operator:<ssescalarmode> 5 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 3 "vsib_address_operand" "p")
+		[(match_operand:P 3 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXSI> 2 "register_operand" "v")
 		 (match_operand:SI 4 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])]
@@ -13869,7 +13880,7 @@
 	   (match_operand:QI 7 "register_operand" "2")
 	   (match_operator:<ssescalarmode> 6 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 4 "vsib_address_operand" "p")
+		[(match_operand:P 4 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXDI> 3 "register_operand" "v")
 		 (match_operand:SI 5 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])]
@@ -13888,7 +13899,7 @@
 	   (match_operand:QI 6 "register_operand" "1")
 	   (match_operator:<ssescalarmode> 5 "vsib_mem_operator"
 	     [(unspec:P
-		[(match_operand:P 3 "vsib_address_operand" "p")
+		[(match_operand:P 3 "vsib_address_operand" "Tv")
 		 (match_operand:<VEC_GATHER_IDXDI> 2 "register_operand" "v")
 		 (match_operand:SI 4 "const1248_operand" "n")]
 		UNSPEC_VSIBADDR)])]
@@ -13925,7 +13936,7 @@
 (define_insn "*avx512f_scattersi<mode>"
   [(set (match_operator:VI48F_512 5 "vsib_mem_operator"
 	  [(unspec:P
-	     [(match_operand:P 0 "vsib_address_operand" "p")
+	     [(match_operand:P 0 "vsib_address_operand" "Tv")
 	      (match_operand:<VEC_GATHER_IDXSI> 2 "register_operand" "v")
 	      (match_operand:SI 4 "const1248_operand" "n")]
 	     UNSPEC_VSIBADDR)])
@@ -13961,7 +13972,7 @@
 (define_insn "*avx512f_scatterdi<mode>"
   [(set (match_operator:VI48F_512 5 "vsib_mem_operator"
 	  [(unspec:P
-	     [(match_operand:P 0 "vsib_address_operand" "p")
+	     [(match_operand:P 0 "vsib_address_operand" "Tv")
 	      (match_operand:V8DI 2 "register_operand" "v")
 	      (match_operand:SI 4 "const1248_operand" "n")]
 	     UNSPEC_VSIBADDR)])

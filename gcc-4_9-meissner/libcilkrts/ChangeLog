@@ -1,3 +1,19 @@
+2013-11-04  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* runtime/os-unix.c [__sun__ && __svr4__]: Include <sched.h>.
+	(__cilkrts_hardware_cpu_count) [__sun__ && __svr4__]: Use sysconf.
+	(__cilkrts_yield) [__sun__ && __svr4__]: Use sched_yield.
+
+2013-10-31  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR other/58925
+	* configure.ac: Added target_alias and GCC_LIBSTDCXX_RAW_CXX_FLAGS
+	fields.
+	* configure: Regenerated.
+	* aclocal.m4: Likewise.
+	* Makefile.in: Likewise.
+	* Makefile.am: Added gcc_version field.
+
 2013-10-30  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* configure.ac: Changed a case statement to include i386.
@@ -5,6 +21,7 @@
 
 2013-10-30  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
+	PR bootstrap/58918
 	* configure: Reconfigured.
 	* configure.ac: Add AC_FUNC_ALLOCA.
 	* runtime/sysdep-unix.c: Added check for alloca.h before 

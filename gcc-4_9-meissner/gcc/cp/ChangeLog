@@ -1,3 +1,58 @@
+2013-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl2.c (cpp_check): Change type of first parameter and deal with
+	IS_TRIVIAL.
+
+2013-11-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/38313
+	* parser.c (cp_parser_constructor_declarator_p): Check that the
+	class-name matches current_class_type.
+
+2013-11-03  Marek Polacek  <polacek@redhat.com>
+
+	* decl.c (cp_finish_decl): Move C++1y bounds checking...
+	(compute_array_index_type): ...here.  Add VLA instrumentation.
+	Call stabilize_vla_size.
+	(grokdeclarator): Don't call stabilize_vla_size here.
+
+2013-11-02  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/29234
+	PR c++/56037
+	* parser.c (cp_parser_cast_expression): If we aren't looking at
+	a cast-expression don't call cp_parser_type_id.
+	(cp_parser_postfix_expression): Likewise for compound-literal.
+	(cp_parser_tokens_start_cast_expression): Adjust.
+
+2013-11-01  Edward Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR c++/58708
+	* parser.c (make_string_pack): Discover non-const type and size
+	of character and build parm pack with correct type and chars.
+
+2013-11-01  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* semantics.c (build_anon_member_initialization): Convert fields to be
+        a stack_vec.
+
+2013-11-01  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/58834
+	* pt.c (type_dependent_expression_p): Handle null argument.
+
+2013-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses) <case OMP_CLAUSE_UNIFORM>: Go to
+	check_dup_generic at the end, unless remove is true.
+	(finish_omp_clauses) <case OMP_CLAUSE_LINEAR>: Add break; after
+	remove = true;.
+
+2013-10-31  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses): Diagnose aligned clause
+	with decl that is not pointer nor array nor reference to those.
+
 2013-10-31  Jason Merrill  <jason@redhat.com>
 
 	* semantics.c (cxx_eval_call_expression): Handle trivial
