@@ -1,6 +1,17 @@
 
 
 2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Avoid
+	operator with #ifdef MELT_BOGUS_GENGTYPE_4dot7 not #ifdef
+	MELT_NO_CONVERSION_OPERATOR....
+
+	* melt-runtime.cc: Add long comment explaining how
+	MELT_BOGUS_GENGTYPE_4dot7 is used to circumvent a GCC 4.7 bug.
+	(melt_branch_process_arguments, meltgc_walkstmt_cb)
+	(meltgc_walktree_cb): Use MELT_BOGUS_GENGTYPE_4dot7 to avoid a bug
+	in gengtype from GCC 4.7...
+
+2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{after MELT 1.0 the regeneration of MELT is not detailed file by
 	fiile, unless new files are emitted or removed....}}
 	* melt/generated/: Regenerated all files.

@@ -39,7 +39,6 @@ const int melt_is_plugin = 1;
 const int melt_is_plugin = 0;
 #endif /* MELT_IS_PLUGIN */
 
-
 #include <string.h>
 #include <string>
 #include <vector>
@@ -130,6 +129,19 @@ const int melt_is_plugin = 0;
 /* GCC 4.7 has it: */
 #include "gimple-pretty-print.h"
 
+
+
+/*** [November 2013] MELT-SFT-6 bug on
+   https://sourceforge.net/p/gcc-melt/tickets/6/ explained more on
+   https://groups.google.com/d/msg/gcc-melt/-0bcTTlKSCg/MfXGHafVFcMJ
+   The gengtype from GCC 4.7 is buggy because it dislikes conversion
+   operators in struct-s and templated typedef-s; as a workaround it
+   is feed with the bug-triggering lines removed with unifdef
+   -DMELT_BOGUS_GENGTYPE_4dot7; I'm not happy of this work-around....
+***/
+#ifdef MELT_BOGUS_GENGTYPE_4dot7
+#warning you should not compile with MELT_BOGUS_GENGTYPE_4dot7 it is only for gengtype of GCC 4.7 
+#endif /* MELT_BOGUS_GENGTYPE_4dot7 */
 
 
 
@@ -968,7 +980,10 @@ extern "C" int melt_branch_process_arguments (int *, char***);
 int
 melt_branch_process_arguments (int *argcp, char***argvp)
 {
+#ifndef MELT_BOGUS_GENGTYPE_4dot7
+  // GCC 4.7 gengtype dislikes templated typedef-s
   typedef std::map<std::string,std::string> meltargdict_t;
+#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
   int ret=0;
   std::vector<char*> argvec;
   int oldargc = *argcp;
@@ -13695,7 +13710,10 @@ meltgc_walkstmt_cb (gimple_stmt_iterator *gsip, bool *okp, struct walk_stmt_info
 #define closv      meltfram__.mcfr_varptr[1]
 #define resv       meltfram__.mcfr_varptr[2]
   const unsigned tree_walk_frame_size = (unsigned)meltwgs__LAST;
+#ifndef MELT_BOGUS_GENGTYPE_4dot7
+  // GCC 4.7 gengtype dislikes templated typedef 
   typedef Melt_CallFrameWithValues<tree_walk_frame_size> Melt_Tree_Walk_Call_Frame;
+#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
   datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
   closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
   gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
@@ -13729,7 +13747,10 @@ tree meltgc_walktree_cb (tree*ptree, int*walksubtrees, void*data)
 #define closv      meltfram__.mcfr_varptr[1]
 #define resv       meltfram__.mcfr_varptr[2]
   const unsigned tree_walk_frame_size = (unsigned)meltwgs__LAST;
+#ifndef MELT_BOGUS_GENGTYPE_4dot7
+  // GCC 4.7 gengtype dislikes templated typedef-s
   typedef Melt_CallFrameWithValues<tree_walk_frame_size> Melt_Tree_Walk_Call_Frame;
+#endif /*MELT_BOGUS_GENGTYPE_4dot7*/
   datav = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_data];
   closv = ((Melt_Tree_Walk_Call_Frame*)(wi->info))->mcfr_varptr[meltwgs_stmtclos];
   gcc_assert (melt_magic_discr((melt_ptr_t)closv) == MELTOBMAG_CLOSURE);
