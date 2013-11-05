@@ -2899,7 +2899,8 @@ fixup_template_type (tree type)
   while (specs)
     {
       tree spec_constr = DECL_CONSTRAINTS (TREE_VALUE (specs));
-      if (equivalent_constraints (cur_constr, spec_constr))
+      if (same_type_p (type, TREE_TYPE (specs)) 
+            && equivalent_constraints (cur_constr, spec_constr))
         return TREE_TYPE (specs);
       specs = TREE_CHAIN (specs);
     }
