@@ -1,4 +1,9 @@
 
+2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile: Add comment on unifdef needed to
+	circumvent a GCC 4.7 bug in gengtype with unifdef
+	-DMELT_BOGUS_GENGTYPE_4dot7.
+
 2013-10-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile: Add an echo for blank line.
 

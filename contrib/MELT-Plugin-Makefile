@@ -120,6 +120,16 @@ TEXI2PDF?= texi2pdf
 ## the GNU texi2html utility from makeinfo 
 TEXI2HTML?= texi2html
 
+
+## the unifdef utility is need to circumvent a GCC 4.7 gengtype bug;
+## download it from http://freecode.com/projects/unifdef or
+## http://dotat.at/prog/unifdef/ etc...  See
+## https://sourceforge.net/p/gcc-melt/tickets/6/ for details. We need
+## to pre-process with unifdef -DMELT_BOGUS_GENGTYPE_4dot7 the
+## melt/generated/meltrunsup.h melt/generated/meltrunsup-inc.c and
+## melt-runtime.cc files before giving then to gengtype for GCC 4.7
+UNIFDEF?= unifdef
+
 ## an install driver, which could be sudo or echo, or stay empty
 INSTALL_DRIVER?=
 
@@ -245,9 +255,11 @@ all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 ## of _melt-runtime.c and _meltrunsup-inc.c which are symlinks!
 gt-melt-runtime.h:  $(MELTGCC_RUNTIME_INCLUDES) $(MELTGCC_GTYPESTATE) \
    $(MELT_RUNTIME_CC) $(MELT_RUNTIME_H) _melt-runtime.c _meltrunsup-inc.c
+	@echo running gengtype for $@
 	$(MELTGCC_GENGTYPE) $(MELTGCC_GENGTYPEFLAGS) \
 	   -r  $(MELTGCC_GTYPESTATE) -P $@  $(MELTGCC_RUNTIME_INCLUDES) \
-	   _melt-runtime.c _meltrunsup-inc.c
+	   _melt-runtime.c _meltrunsup-inc.c || echo gengtype failed
+	@echo gengtype did run well for $@
 
 melt-predef.h:  make-melt-predefh.awk melt-predef.list
 	$(AWK) -f $^ > $@-tmp
