@@ -1,4 +1,6 @@
 
+2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/: Regenerated all files.
 
 2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Avoid
