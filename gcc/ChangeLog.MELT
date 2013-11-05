@@ -1,6 +1,11 @@
 
 
 2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{after MELT 1.0 the regeneration of MELT is not detailed file by
+	fiile, unless new files are emitted or removed....}}
+	* melt/generated/: Regenerated all files.
+
+2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{tentative fix for bug MELT-STF-6 
 	  https://sourceforge.net/p/gcc-melt/tickets/6/}}
 	* melt-runtime.h (MELT_VERSION_STR): Bump to "1.0.1-pre"
