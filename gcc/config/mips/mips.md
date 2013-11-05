@@ -4130,7 +4130,7 @@
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(match_operand:DI 1 "absolute_symbolic_operand" ""))
    (clobber (match_scratch:DI 2 "=&d"))]
-  "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS && cse_not_expected"
+  "!TARGET_MIPS16 && TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS && cse_not_expected"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (high:DI (match_dup 3)))
