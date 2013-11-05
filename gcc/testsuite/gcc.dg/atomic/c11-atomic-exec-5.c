@@ -4,6 +4,7 @@
    get properly cleared).  */
 /* { dg-do run } */
 /* { dg-options "-std=c11 -pedantic-errors -pthread -D_POSIX_C_SOURCE=200809L" } */
+/* { dg-require-effective-target fenv_exceptions } */
 /* { dg-require-effective-target pthread } */
 
 #include <fenv.h>
