@@ -1,3 +1,19 @@
+2013-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* config/i386/i386-builtin-types.def (VOID_FTYPE_PUSHORT): New
+	function type.
+	* config/i386/i386.c (enum ix86_builtins): Add
+	IX86_BUILTIN_FNSTENV, IX86_BUILTIN_FLDENV, IX86_BUILTIN_FNSTSW and
+	IX86_BUILTIN_FNCLEX.
+	(bdesc_special_args): Add __builtin_ia32_fnstenv,
+	__builtin_ia32_fldenv, __builtin_ia32_fnstsw and
+	__builtin_ia32_fnclex.
+	(ix86_expand_builtin): Handle the new built-in functions.
+	(ix86_atomic_assign_expand_fenv): Handle x87 floating-point state.
+	* config/i386/i386.md (UNSPECV_FNSTENV, UNSPECV_FLDENV)
+	(UNSPECV_FNSTSW, UNSPECV_FNCLEX): New unspecs.
+	(fnstenv, fldenv, fnstsw, fnclex): New insns.
+
 2013-10-30  Joseph Myers  <joseph@codesourcery.com>
 
 	* target.def (atomic_assign_expand_fenv): New hook.
