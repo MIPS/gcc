@@ -2158,16 +2158,6 @@ extern void decl_value_expr_insert (tree, tree);
 /* In VAR_DECL and PARM_DECL nodes, nonzero means declared `register'.  */
 #define DECL_REGISTER(NODE) (DECL_WRTL_CHECK (NODE)->decl_common.decl_flag_0)
 
-#define DECL_BOUNDS_RTL(NODE) (chkp_get_rtl_bounds (DECL_WRTL_CHECK (NODE)))
-
-#define SET_DECL_BOUNDS_RTL(NODE, VAL) \
-  (chkp_set_rtl_bounds (DECL_WRTL_CHECK (NODE), VAL))
-
-#define DECL_BOUNDS(NODE) (chkp_get_bounds (DECL_WRTL_CHECK (NODE)))
-
-#define SET_DECL_BOUNDS(NODE, VAL) \
-  (chkp_set_bounds (DECL_WRTL_CHECK (NODE), VAL))
-
 /* In a FIELD_DECL, this is the field position, counting in bytes, of the
    DECL_OFFSET_ALIGN-bit-sized word containing the bit closest to the beginning
    of the structure.  */
@@ -5087,34 +5077,5 @@ may_be_aliased (const_tree var)
 #endif	/* NO_DOLLAR_IN_LABEL */
 #endif	/* NO_DOT_IN_LABEL */
 
-/* In tree-chkp.c.  */
-
-extern rtx chkp_get_rtl_bounds (tree node);
-extern void chkp_set_rtl_bounds (tree node, rtx val);
-extern void chkp_reset_rtl_bounds ();
-extern tree chkp_get_bounds (tree node);
-extern void chkp_set_bounds (tree node, tree val);
-extern bool chkp_register_var_initializer (tree var);
-extern void chkp_finish_file (void);
-extern void chkp_split_slot (rtx slot, rtx *slot_val, rtx *slot_bnd);
-extern rtx chkp_join_splitted_slot (rtx val, rtx bnd);
-extern rtx chkp_get_value_with_offs (rtx par, rtx offs);
-extern void chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
-extern bool chkp_type_has_pointer (tree type);
-extern unsigned chkp_type_bounds_count (tree type);
-extern void chkp_emit_bounds_store (rtx bounds, rtx value, rtx mem);
-extern tree chkp_make_bounds_for_struct_addr (tree ptr);
-extern tree chkp_get_zero_bounds_var (void);
-extern bool chkp_variable_size_type (tree type);
-extern tree chkp_build_make_bounds_call (tree lb, tree size);
-extern tree chkp_build_bndstx_call (tree addr, tree ptr, tree bounds);
-extern void chkp_expand_bounds_reset_for_mem (tree mem, tree ptr);
-extern void chkp_put_regs_to_expr_list (rtx par);
-extern vec<bool> chkp_find_bound_slots (tree type);
-extern void chkp_build_bndstx (tree addr, tree ptr, tree bounds,
-			       gimple_stmt_iterator *gsi);
-extern tree chkp_parm_for_arg_bnd_arg (tree arg);
-extern gimple chkp_retbnd_call_by_val (tree val);
-extern bool chkp_function_instrumented_p (tree fndecl);
 
 #endif  /* GCC_TREE_H  */

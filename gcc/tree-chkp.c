@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "ipa-inline.h"
 #include "tree-ssa-loop-niter.h"
+#include "tree-chkp.h"
 
 /*  Pointer Bounds Checker pass instruments code with memory checks to find
     out-of-bounds memory accesses.  Checks are performed by computing
