@@ -255,11 +255,30 @@ all: melt-run.h melt.so melt-translator melt-applications melt-gendoc doc
 ## of _melt-runtime.c and _meltrunsup-inc.c which are symlinks!
 gt-melt-runtime.h:  $(MELTGCC_RUNTIME_INCLUDES) $(MELTGCC_GTYPESTATE) \
    $(MELT_RUNTIME_CC) $(MELT_RUNTIME_H) _melt-runtime.c _meltrunsup-inc.c
+ifneq ($(filter 4.7.%, $(MELTGCC_VERSION)),)
+	## unifdef exits 0 if file unchanged, 1 if file changed, 2 on error
+	@echo running unifdef for $@ because of gengtype bug in GCC 4.7
+	@which $(UNIFDEF) > /dev/null || (echo bad unifdef at $(UNIFDEF); exit 1)
+	rm -vf $melt*4d7*
+	ls -lL  melt-runtime.cc  melt/generated/meltrunsup.h  melt/generated/meltrunsup-inc.cc
+	-$(UNIFDEF) -DMELT_BOGUS_GENGTYPE_4dot7 melt-runtime.cc -o _melt-runtime_4d7.c 
+	ls -lL _melt-runtime_4d7.c
+	-$(UNIFDEF) -DMELT_BOGUS_GENGTYPE_4dot7 melt/generated/meltrunsup.h -o _meltrunsup_4d7.h
+	ls -lL _meltrunsup_4d7.h 
+	-$(UNIFDEF) -DMELT_BOGUS_GENGTYPE_4dot7 melt/generated/meltrunsup-inc.cc -o _meltrunsup-inc_4d7.c
+	ls -lL  _meltrunsup-inc_4d7.c
+	@echo running gengtype on melt-runtime.h and hacked files _melt-runtime_4d7.c _meltrunsup-inc_4d7.c _meltrunsup_4d7.h because of gengtype bug in GCC 4.7
+	$(MELTGCC_GENGTYPE) $(MELTGCC_GENGTYPEFLAGS) \
+	   -r  $(MELTGCC_GTYPESTATE) -P $@  \
+           melt-runtime.h _meltrunsup_4d7.h  _melt-runtime_4d7.c _meltrunsup-inc_4d7.c  || echo gengtype failed on 4d7 hacks
+	@echo gengtype did run on hacked 4d7 files for $@
+else
 	@echo running gengtype for $@
 	$(MELTGCC_GENGTYPE) $(MELTGCC_GENGTYPEFLAGS) \
 	   -r  $(MELTGCC_GTYPESTATE) -P $@  $(MELTGCC_RUNTIME_INCLUDES) \
 	   _melt-runtime.c _meltrunsup-inc.c || echo gengtype failed
 	@echo gengtype did run well for $@
+endif
 
 melt-predef.h:  make-melt-predefh.awk melt-predef.list
 	$(AWK) -f $^ > $@-tmp
@@ -447,6 +466,9 @@ distclean: clean
 ## melt-clean comes from melt-build.mk
 clean: melt-clean
 	$(RM) *.o melt.so *~ melt-predef.h gt-melt-runtime.h gfmelt* *tmp stamp-* *.args
+ifneq ($(filter 4.7.%, $(MELTGCC_VERSION)),)
+	$(RM) *4d7*
+endif
 
 bootstrap-melt: melt.so warmelt-predef.melt warmelt0 warmelt1 warmelt2 warmelt all-melt
 

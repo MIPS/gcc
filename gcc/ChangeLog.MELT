@@ -1,5 +1,11 @@
 
 2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Bug MELT-SFT-6 probably fixed by a shameful hack to circumvent a
+	bug in GCC 4.7 gengtype...}}
+
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.0.1-rc1".
+
+2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/: Regenerated all files.
 
 2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
