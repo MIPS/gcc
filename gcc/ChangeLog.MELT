@@ -1,5 +1,14 @@
 
 
+2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tentative fix for bug MELT-STF-6 
+	  https://sourceforge.net/p/gcc-melt/tickets/6/}}
+	* melt-runtime.h (MELT_VERSION_STR): Bump to "1.0.1-pre"
+
+	* melt/warmelt-modes.melt (generate_runtypesupport_gty): Nest
+	correctly the emission of MELT_NO_CONVERSION_OPERATOR preprocessor
+	#ifndef/#endif ... BTW, this flag might be useless now...
+
 2013-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{MELT plugin 1.0 release}}
 	* melt-module.mk: Remove info about GCCMELTGEN_BUILD.
