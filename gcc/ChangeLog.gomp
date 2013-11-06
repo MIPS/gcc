@@ -1,3 +1,8 @@
+2013-11-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (simd_clone_mangle): Linear step of 1 is mangled as
+	'l'.
+
 2013-11-04  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (ipa_simd_modify_function_body): Adjust tree operands

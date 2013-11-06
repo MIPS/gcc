@@ -10825,9 +10825,9 @@ simd_clone_mangle (struct cgraph_node *old_node, struct cgraph_node *new_node)
 	{
 	  gcc_assert (arg.linear_step != 0);
 	  pp_character (&pp, 'l');
-	  if (arg.linear_step > 0)
+	  if (arg.linear_step > 1)
 	    pp_unsigned_wide_integer (&pp, arg.linear_step);
-	  else
+	  else if (arg.linear_step < 0)
 	    {
 	      pp_character (&pp, 'n');
 	      pp_unsigned_wide_integer (&pp, (-(unsigned HOST_WIDE_INT)
