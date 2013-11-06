@@ -96,6 +96,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
+#include "tree-chkp.h"
 
 /* Per basic block info.  */
 
