@@ -12,7 +12,8 @@
 	(PVOID_FTYPE_PCVOID_BND_ULONG): New.
 	(ULONG_FTYPE_VOID): New.
 	(PVOID_FTYPE_BND): New.
-	* config/i386/i386.c (ix86_builtins): Add
+	* config/i386/i386.c: Include tree-chkp.h, rtl-chkp.h.
+	(ix86_builtins): Add
 	IX86_BUILTIN_BNDMK, IX86_BUILTIN_BNDSTX,
 	IX86_BUILTIN_BNDLDX, IX86_BUILTIN_BNDCL,
 	IX86_BUILTIN_BNDCU, IX86_BUILTIN_BNDRET,
