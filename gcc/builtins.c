@@ -49,6 +49,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "builtins.h"
 #include "ubsan.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));

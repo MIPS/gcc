@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
 #include "asan.h"
 #include "tree-ssa-address.h"
+#include "rtl-chkp.h"
 
 /* This variable holds information helping the rewriting of SSA trees
    into RTL.  */
