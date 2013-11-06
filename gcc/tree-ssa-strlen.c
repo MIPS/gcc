@@ -37,6 +37,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "params.h"
 #include "expr.h"
+#include "tree-chkp.h"
 
 /* A vector indexed by SSA_NAME_VERSION.  0 means unknown, positive value
    is an index into strinfo vector, negative value stands for

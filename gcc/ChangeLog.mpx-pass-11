@@ -1,6 +1,7 @@
-2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* calls.c (arg_data): Add fields for bounds information
+	* calls.c: Include tree-chkp.h, rtl-chkp.h.
+	(arg_data): Add fields for bounds information
 	and to store value pushed to the stack.
 	(precompute_register_parameters): Expand bounds of the arg.
 	(initialize_argument_information): Fill bounds information.
@@ -8,20 +9,25 @@
 	(expand_call): Handle passed and returned bounds.
 	(emit_library_call_value_1): Filter out returned bounds.
 	(store_one_arg): Store bounds of arg.
-	* stmt.c (expand_return): Handle returned bounds.
+	* stmt.c: Include tree-chkp.h, rtl-chkp.h.
+	(expand_return): Handle returned bounds.
 	* tree.h (expand_return): Adjust to new expand_return signature.
-	* cfgexpand.c (expand_gimple_stmt_1): Likewise.
+	* cfgexpand.c: Include rtl-chkp.h.
+	(expand_gimple_stmt_1): Likewise.
 	(gimple_expand_cfg): Reset rtx bounds map.
-	* explow.c (hard_function_value): Handle returned bounds.
+	* explow.c: Include rtl-chkp.h.
+	(hard_function_value): Handle returned bounds.
 	* expr.h (store_expr): Add param for bounds target.
-	* expr.c (expand_assignment): Handle returned bounds.
+	* expr.c: Include rtl-chkp.h.
+	(expand_assignment): Handle returned bounds.
 	(store_expr): Likewise.
 	(store_constructor): Adjust to new store_expr signature.
 	(store_field): Likewise.
 	(expand_expr_real_2): Likewise.
 	(expand_expr_real_1): Likewise.
 	* tree-outof-ssa.c (insert_value_copy_on_edge): Likewise.
-	* function.c (aggregate_value_p): Handle returned bounds.
+	* function.c: Include tree-chkp.h, rtl-chkp.h.
+	(aggregate_value_p): Handle returned bounds.
 	(use_register_for_decl): Do not registerize decls used for bounds
 	stores and loads.
 	(assign_parm_data_one): Add field for bounds.
