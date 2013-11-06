@@ -1,8 +1,10 @@
-2013-11-05  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* tree-chkp.c: New.
 	* tree-chkp.h: New.
-	* Makefile.in (OBJS): Add tree-chkp.o.
+	* rtl-chkp.c: New.
+	* rtl-chkp.h: New.
+	* Makefile.in (OBJS): Add tree-chkp.o, rtl-chkp.o.
 	(GTFILES): Add tree-chkp.c.
 	* common.opt (fchkp-check-incomplete-type): New.
 	(fchkp-zero-input-bounds-for-main): New.
