@@ -1,5 +1,6 @@
-2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* ipa-prop.c (ipa_compute_jump_functions_for_edge): Handle bound args.
+	* ipa-prop.c: Include tree-chkp.h.
+	(ipa_compute_jump_functions_for_edge): Handle bound args.
 	Do not propagate bounded args.
 	(ipa_modify_call_arguments): Handle bound args correctly.
