@@ -1,5 +1,8 @@
 2013-11-06  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* fortran/f95-lang.c: Merge in changes from 204372 to fix the
+	build.
+
 	* config/rs6000/vector.md (VEC_R): Delete, move vector reload
 	insns to rs6000.md.
 	(reload_<VEC_R:mode>_<P:mptrsize>_store): Likewise.
