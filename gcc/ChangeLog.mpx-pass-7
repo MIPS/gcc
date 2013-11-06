@@ -1,11 +1,16 @@
-2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* c/c-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* cp/cp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* objc/objc-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* objcp/objcp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* lto/lto-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
-	* c/c-parser.c (c_parser_declaration_or_fndef): Register statically
+	* c/c-parser.c: Include tree-chkp.h.
+	(c_parser_declaration_or_fndef): Register statically
 	initialized decls in Pointer Bounds Checker.
-	* cp/decl.c (cp_finish_decl): Likewise.
-	* gimplify.c (gimplify_init_constructor): Likewise.
+	* cp/decl.c: Include tree-chkp.h.
+	(cp_finish_decl): Register statically
+	initialized decls in Pointer Bounds Checker.
+	* gimplify.c: Include tree-chkp.h.
+	(gimplify_init_constructor): Register statically
+	initialized decls in Pointer Bounds Checker.
