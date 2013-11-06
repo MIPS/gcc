@@ -49,6 +49,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "profile.h"
 #include "data-streamer.h"
+#include "tree-chkp.h"
 
 /* In this file value profile based optimizations are placed.  Currently the
    following optimizations are implemented (for more detailed descriptions

@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "output.h"
+#include "rtl-chkp.h"
 
 static rtx break_out_memory_refs (rtx);
 

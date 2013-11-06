@@ -1,6 +1,7 @@
-2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* ipa-inline.c (early_inliner): Check edge has summary allocated.
+	* ipa-inline.c: Include tree-chkp.h.
+	(early_inliner): Check edge has summary allocated.
 	* tree-inline.c (declare_return_variable): Add arg holding
 	returned bounds slot.  Create and initialize returned bounds var.
 	(remap_gimple_stmt): Handle returned bounds.  Replace
@@ -14,6 +15,8 @@
 	(expand_call_inline): Handle returned bounds.
 	* tree-inline.h (copy_body_data): Add field for returned bounds
 	var.
-	* cgraph.c (cgraph_redirect_edge_call_stmt_to_callee): Support
+	* cgraph.c: Include tree-chkp.h.
+	(cgraph_redirect_edge_call_stmt_to_callee): Support
 	returned bounds.
-	* value-prof.c (gimple_ic): Likewise.
+	* value-prof.c: Include tree-chkp.h.
+	(gimple_ic): Likewise.
