@@ -2097,6 +2097,10 @@ chkp_get_bound_for_parm (tree parm)
 	  gimple stmt;
 
 	  stmt = gimple_build_call (chkp_arg_bnd_fndecl, 1, parm);
+	  /* We do not want arg of arg_bnd call to be replaces by
+	     some optimization.  Use SSA_NAME_OCCURS_IN_ABNORMAL_PHI
+	     to avoid that.  */
+	  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (parm) = 1;
 
 	  chkp_mark_stmt (stmt);
 
