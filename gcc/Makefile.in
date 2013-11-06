@@ -1334,6 +1334,7 @@ OBJS = \
 	reload1.o \
 	reorg.o \
 	resource.o \
+	rtl-chkp.o \
 	rtl-error.o \
 	rtl.o \
 	rtlanal.o \
