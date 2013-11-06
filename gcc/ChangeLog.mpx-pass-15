@@ -1,4 +1,5 @@
-2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* tree-ssa-dce.c (propagate_necessity): Avoid alloc/free removal
-	because currently it does not handle bounds properly.
+	* tree-ssa-dce.c: Include tree-chkp.h.
+	(propagate_necessity): Propagate necessity for args of instrumented
+	free call to avoid wrong removal of ret_bnd call for passed bounds.
