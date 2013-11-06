@@ -1441,10 +1441,6 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS BASE_REGS
 
-/* Return whether a given register class can hold VSX objects.  */
-#define VSX_REG_CLASS_P(CLASS)			\
-  ((CLASS) == VSX_REGS || (CLASS) == FLOAT_REGS || (CLASS) == ALTIVEC_REGS)
-
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
    In general this is just CLASS; but on some machines
