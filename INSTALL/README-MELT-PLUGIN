@@ -18,7 +18,8 @@ relevant):
 ################ quick steps for Debian/Unstable or Ubuntu or derived distributions ####
 
 ## Run as root (e.g. with sudo):
-  apt-get install gcc-4.7 g++-4.7 make texinfo texi2html autogen gawk
+  apt-get install gcc-4.7 g++-4.7 build-essential make \
+           texinfo texi2html autogen gawk unifdef astyle
   apt-get build-dep gcc-4.7
   apt-get install libppl-dev libppl-c-dev gcc-4.7-plugin-dev 
 
@@ -66,7 +67,7 @@ particular, you'll need the headers of CLOOG, PPL, MPC, MPFR, GMP
 libraries.
 
 Ensure that your system have recent autogen, GNU make, gawk (GNU awk), texinfo,
-texi2html utilities
+texi2html, unifdef, astyle utilities
 
 ################ step 2
 
@@ -193,9 +194,17 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 ################################################################
+NEWS for 1.0.1 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
+[[november, 2013]]
+
+This is just a bug-fix release for
+https://sourceforge.net/p/gcc-melt/tickets/6/ ; it adds a workaround
+for GCC 4.7 gengtype inability to process operator conversion.
+unifdef is now required to build MELT plugin.
+
+################################################################
 NEWS for 1.0 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
 [[october 29th, 2013]]
-
 This is a major release (with perhaps some small incompatibilities
 with previous MELT plugin releases). A lot of new features are
 appearing. Much more ability to mix arbitrary C/C++ & MELT code in any
