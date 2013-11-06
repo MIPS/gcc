@@ -3043,7 +3043,9 @@ canonicalize_cond_expr_cond (tree t)
 }
 
 /* Build a GIMPLE_CALL identical to STMT but skipping the arguments in
-   the positions marked by the set ARGS_TO_SKIP.  */
+   the positions marked by the set ARGS_TO_SKIP.  ARGS_TO_SKIP does not
+   take into account bounds arguments.  Bounds passed for skipped args
+   are also skipped.  */
 
 gimple
 gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
@@ -3708,7 +3710,7 @@ validate_call (gimple stmt, tree fndecl)
 	return true;
       tree arg = gimple_call_arg (stmt, i);
       /* Skip bounds.  */
-      if (flag_check_pointer_bounds && POINTER_BOUNDS_P (arg))
+      if (POINTER_BOUNDS_P (arg))
 	continue;
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg))
 	  && INTEGRAL_TYPE_P (TREE_VALUE (targs)))
