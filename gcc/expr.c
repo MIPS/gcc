@@ -56,6 +56,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-globals.h"
 #include "params.h"
 #include "tree-ssa-address.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 /* Decide whether a function's arguments should be processed
    from first to last or from last to first.

@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "plugin.h"
 #include "omp-low.h"
+#include "tree-chkp.h"
 
 
 /* Initialization routine for this file.  */
