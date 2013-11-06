@@ -19794,6 +19794,7 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
     case FIXED_POINT_TYPE:
     case COMPLEX_TYPE:
     case BOOLEAN_TYPE:
+    case POINTER_BOUNDS_TYPE:
       /* No DIEs needed for fundamental types.  */
       break;
 
@@ -20441,7 +20442,8 @@ dwarf2out_global_decl (tree decl)
      declarations, file-scope (extern) function declarations (which
      had no corresponding body) and file-scope tagged type declarations
      and definitions which have not yet been forced out.  */
-  if (TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
+  if ((TREE_CODE (decl) != FUNCTION_DECL || !DECL_INITIAL (decl))
+      && !POINTER_BOUNDS_P (decl))
     dwarf2out_decl (decl);
 }
 
