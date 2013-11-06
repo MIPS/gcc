@@ -1,4 +1,7 @@
 
+2013-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile: Improve message for missing unifdef.
+
 2013-11-05  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile: Shameful hack around gengtype bug in GCC 4.7.
 

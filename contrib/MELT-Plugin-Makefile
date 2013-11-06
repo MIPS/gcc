@@ -258,7 +258,7 @@ gt-melt-runtime.h:  $(MELTGCC_RUNTIME_INCLUDES) $(MELTGCC_GTYPESTATE) \
 ifneq ($(filter 4.7.%, $(MELTGCC_VERSION)),)
 	## unifdef exits 0 if file unchanged, 1 if file changed, 2 on error
 	@echo running unifdef for $@ because of gengtype bug in GCC 4.7
-	@which $(UNIFDEF) > /dev/null || (echo bad unifdef at $(UNIFDEF); exit 1)
+	@which $(UNIFDEF) > /dev/null || (echo bad or missing unifdef; echo see  http://dotat.at/prog/unifdef/ ; exit 1)
 	rm -vf $melt*4d7*
 	ls -lL  melt-runtime.cc  melt/generated/meltrunsup.h  melt/generated/meltrunsup-inc.cc
 	-$(UNIFDEF) -DMELT_BOGUS_GENGTYPE_4dot7 melt-runtime.cc -o _melt-runtime_4d7.c 
