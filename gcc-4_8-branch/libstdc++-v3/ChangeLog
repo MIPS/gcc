@@ -1,3 +1,35 @@
+2013-11-05  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* doc/xml/manual/status_cxx2011.xml: Document aligned_union as
+	missing.
+
+	* doc/xml/manual/spine.xml: Update copyright years.
+	* doc/html/*: Regenerate.
+
+2013-11-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR libstdc++/58952
+	* include/c_global/cstdio: Undef getchar.
+
+2013-10-31  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	* testsuite/20_util/shared_ptr/cons/58839.cc: Do not use
+	default_delete<void>.
+
+2013-10-30  Chris Studholme  <cvs@cs.utoronto.ca>
+
+	PR libstdc++/58912
+	* include/bits/shared_ptr_base.h (_Sp_counted_ptr_inplace): Remove
+	unnecessary initialization of storage buffer.
+
+2013-10-29  Jonathan Wakely  <jwakely.gcc@gmail.com>
+
+	PR libstdc++/58839
+	* include/bits/shared_ptr_base.h
+	(__shared_ptr<T>::__shared_ptr(unique_ptr<U,D>&&)): Do not dereference
+	pointer.
+	* testsuite/20_util/shared_ptr/cons/58839.cc: New.
+
 2013-10-20  Chris Jefferson  <chris@bubblescope.net>
 	    Paolo Carlini  <paolo.carlini@oracle.com>
 
