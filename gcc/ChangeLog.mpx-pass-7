@@ -1,10 +1,5 @@
 2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* c/c-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
-	* cp/cp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
-	* objc/objc-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
-	* objcp/objcp-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
-	* lto/lto-lang.c (LANG_HOOKS_CHKP_SUPPORTED): New.
 	* c/c-parser.c: Include tree-chkp.h.
 	(c_parser_declaration_or_fndef): Register statically
 	initialized decls in Pointer Bounds Checker.
