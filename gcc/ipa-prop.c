@@ -3534,7 +3534,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
   int i, len;
 
   len = adjustments.length ();
-  vargs.create (MAX (len, gimple_call_num_args (stmt)));
+  vargs.create (MAX ((unsigned) len, gimple_call_num_args (stmt)));
   callee_decl = !cs ? gimple_call_fndecl (stmt) : cs->callee->symbol.decl;
   ipa_remove_stmt_references ((symtab_node) current_node, stmt);
 
