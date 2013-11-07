@@ -785,15 +785,17 @@ type_internals_preclude_sra_p (tree type, const char **msg)
     }
 }
 
-/* If T is an SSA_NAME, return NULL if it is not a default def or return its
-   base variable if it is.  Return T if it is not an SSA_NAME.  */
+/* If T is an SSA_NAME, return NULL if it is not a default def or
+   return its base variable if it is.  If IGNORE_DEFAULT_DEF is true,
+   the base variable is always returned, regardless if it is a default
+   def.  Return T if it is not an SSA_NAME.  */
 
 static tree
-get_ssa_base_param (tree t)
+get_ssa_base_param (tree t, bool ignore_default_def)
 {
   if (TREE_CODE (t) == SSA_NAME)
     {
-      if (SSA_NAME_IS_DEFAULT_DEF (t))
+      if (ignore_default_def || SSA_NAME_IS_DEFAULT_DEF (t))
 	return SSA_NAME_VAR (t);
       else
 	return NULL_TREE;
@@ -874,7 +876,7 @@ create_access (tree expr, gimple stmt, bool write)
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (base) == MEM_REF)
     {
-      base = get_ssa_base_param (TREE_OPERAND (base, 0));
+      base = get_ssa_base_param (TREE_OPERAND (base, 0), false);
       if (!base)
 	return NULL;
       ptr = true;
@@ -1039,7 +1041,7 @@ disqualify_base_of_expr (tree t, const char *reason)
   t = get_base_address (t);
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (t) == MEM_REF)
-    t = get_ssa_base_param (TREE_OPERAND (t, 0));
+    t = get_ssa_base_param (TREE_OPERAND (t, 0), false);
 
   if (t && DECL_P (t))
     disqualify_candidate (t, reason);
@@ -4485,6 +4487,65 @@ replace_removed_params_ssa_names (gimple stmt,
   return true;
 }
 
+/* Given an expression, return an adjustment entry specifying the
+   transformation to be done on EXPR.  If no suitable adjustment entry
+   was found, returns NULL.
+
+   If IGNORE_DEFAULT_DEF is set, consider SSA_NAMEs which are not a
+   default def, otherwise bail on them.
+
+   If CONVERT is non-NULL, this function will set *CONVERT if the
+   expression provided is a component reference that must be converted
+   upon return.  ADJUSTMENTS is the adjustments vector.  */
+
+ipa_parm_adjustment *
+sra_ipa_get_adjustment_candidate (tree *&expr, bool *convert,
+				  ipa_parm_adjustment_vec adjustments,
+				  bool ignore_default_def)
+{
+  if (TREE_CODE (*expr) == BIT_FIELD_REF
+      || TREE_CODE (*expr) == IMAGPART_EXPR
+      || TREE_CODE (*expr) == REALPART_EXPR)
+    {
+      expr = &TREE_OPERAND (*expr, 0);
+      if (convert)
+	*convert = true;
+    }
+
+  HOST_WIDE_INT offset, size, max_size;
+  tree base = get_ref_base_and_extent (*expr, &offset, &size, &max_size);
+  if (!base || size == -1 || max_size == -1)
+    return NULL;
+
+  if (TREE_CODE (base) == MEM_REF)
+    {
+      offset += mem_ref_offset (base).low * BITS_PER_UNIT;
+      base = TREE_OPERAND (base, 0);
+    }
+
+  base = get_ssa_base_param (base, ignore_default_def);
+  if (!base || TREE_CODE (base) != PARM_DECL)
+    return NULL;
+
+  struct ipa_parm_adjustment *cand = NULL;
+  unsigned int len = adjustments.length ();
+  for (unsigned i = 0; i < len; i++)
+    {
+      struct ipa_parm_adjustment *adj = &adjustments[i];
+
+      if (adj->base == base
+	  && (adj->offset == offset || adj->remove_param))
+	{
+	  cand = adj;
+	  break;
+	}
+    }
+
+  if (!cand || cand->copy_param || cand->remove_param)
+    return NULL;
+  return cand;
+}
+
 /* If the expression *EXPR should be replaced by a reduction of a parameter, do
    so.  ADJUSTMENTS is a pointer to a vector of adjustments.  CONVERT
    specifies whether the function should care about type incompatibility the
@@ -4496,49 +4557,12 @@ bool
 sra_ipa_modify_expr (tree *expr, bool convert,
 		     ipa_parm_adjustment_vec adjustments)
 {
-  int i, len;
-  struct ipa_parm_adjustment *adj, *cand = NULL;
-  HOST_WIDE_INT offset, size, max_size;
-  tree base, src;
-
-  len = adjustments.length ();
-
-  if (TREE_CODE (*expr) == BIT_FIELD_REF
-      || TREE_CODE (*expr) == IMAGPART_EXPR
-      || TREE_CODE (*expr) == REALPART_EXPR)
-    {
-      expr = &TREE_OPERAND (*expr, 0);
-      convert = true;
-    }
-
-  base = get_ref_base_and_extent (*expr, &offset, &size, &max_size);
-  if (!base || size == -1 || max_size == -1)
+  struct ipa_parm_adjustment *cand
+    = sra_ipa_get_adjustment_candidate (expr, &convert, adjustments, false);
+  if (!cand)
     return false;
 
-  if (TREE_CODE (base) == MEM_REF)
-    {
-      offset += mem_ref_offset (base).low * BITS_PER_UNIT;
-      base = TREE_OPERAND (base, 0);
-    }
-
-  base = get_ssa_base_param (base);
-  if (!base || TREE_CODE (base) != PARM_DECL)
-    return false;
-
-  for (i = 0; i < len; i++)
-    {
-      adj = &adjustments[i];
-
-      if (adj->base == base
-	  && (adj->offset == offset || adj->remove_param))
-	{
-	  cand = adj;
-	  break;
-	}
-    }
-  if (!cand || cand->copy_param || cand->remove_param)
-    return false;
-
+  tree src;
   if (cand->by_ref)
     src = build_simple_mem_ref (cand->reduction);
   else

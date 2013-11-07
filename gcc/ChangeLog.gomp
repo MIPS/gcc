@@ -1,5 +1,20 @@
 2013-11-06  Aldy Hernandez  <aldyh@redhat.com>
 
+	* ipa-prop.h (sra_ipa_get_adjustment_candidate): Protoize.
+	* omp-low.c (struct modify_stmt_info): New.
+	(ipa_simd_modify_function_body_ops_1): Remove.
+	(ipa_simd_modify_stmt_ops): New.
+	(ipa_simd_modify_function_body_ops): Remove.
+	(ipa_simd_modify_function_body): Set new callback info.
+	Remove special casing.  Handle all operators with walk_gimple_op.
+	* tree-sra.c (get_ssa_base_param): Add new argument.  Use it.
+	(disqualify_base_of_expr): Pass new argument to
+	get_ssa_base_param.
+	(sra_ipa_modify_expr): Abstract candidate search into...
+	(sra_ipa_get_adjustment_candidate): ...here.
+
+2013-11-06  Aldy Hernandez  <aldyh@redhat.com>
+
 	* omp-low.c (simd_clone_mangle): Linear step of 1 is mangled as
 	'l'.
 

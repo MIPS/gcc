@@ -719,5 +719,8 @@ tree build_ref_for_offset (location_t, tree, HOST_WIDE_INT, tree,
 			   gimple_stmt_iterator *, bool);
 bool ipa_sra_modify_function_body (ipa_parm_adjustment_vec);
 bool sra_ipa_modify_expr (tree *, bool, ipa_parm_adjustment_vec);
+ipa_parm_adjustment *sra_ipa_get_adjustment_candidate (tree *&, bool *,
+						       ipa_parm_adjustment_vec,
+						       bool);
 
 #endif /* IPA_PROP_H */

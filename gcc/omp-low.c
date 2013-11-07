@@ -11049,33 +11049,75 @@ simd_clone_init_simd_arrays (struct cgraph_node *node,
   return seq;
 }
 
+/* Callback info for ipa_simd_modify_stmt_ops below.  */
+
+struct modify_stmt_info {
+  ipa_parm_adjustment_vec adjustments;
+  gimple stmt;
+  /* True if the parent statement was modified by
+     ipa_simd_modify_stmt_ops.  */
+  bool modified;
+};
+
+/* Callback for walk_gimple_op.
+
+   Adjust operands from a given statement as specified in the
+   adjustments vector in the callback data.  */
+
 static tree
-ipa_simd_modify_function_body_ops_1 (tree *tp, int *walk_subtrees, void *data)
+ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
 {
   struct walk_stmt_info *wi = (struct walk_stmt_info *) data;
-  ipa_parm_adjustment_vec *adjustments = (ipa_parm_adjustment_vec *) wi->info;
+  if (!SSA_VAR_P (*tp))
+    {
+      /* Make sure we treat subtrees as a RHS.  This makes sure that
+	 when examining the `*foo' in *foo=x, the `foo' get treated as
+	 a use properly.  */
+      wi->is_lhs = false;
+      wi->val_only = true;
+      if (TYPE_P (*tp))
+	*walk_subtrees = 0;
+      return NULL_TREE;
+    }
+  struct modify_stmt_info *info = (struct modify_stmt_info *) wi->info;
+  struct ipa_parm_adjustment *cand
+    = sra_ipa_get_adjustment_candidate (tp, NULL, info->adjustments, true);
+  if (!cand)
+    return NULL_TREE;
+
   tree t = *tp;
+  tree repl = make_ssa_name (TREE_TYPE (t), NULL);
 
-  if (DECL_P (t) || TREE_CODE (t) == SSA_NAME)
-    return (tree) sra_ipa_modify_expr (tp, true, *adjustments);
+  gimple stmt;
+  gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
+  if (wi->is_lhs)
+    {
+      stmt = gimple_build_assign (unshare_expr (cand->reduction), repl);
+      gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
+      SSA_NAME_DEF_STMT (repl) = info->stmt;
+    }
   else
-    *walk_subtrees = 1;
+    {
+      /* You'd think we could skip the extra SSA variable when
+	 wi->val_only=true, but we may have `*var' which will get
+	 replaced into `*var_array[iter]' and will likely be something
+	 not gimple.  */
+      stmt = gimple_build_assign (repl, unshare_expr (cand->reduction));
+      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+    }
+
+  if (!useless_type_conversion_p (TREE_TYPE (*tp), TREE_TYPE (repl)))
+    {
+      tree vce = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (*tp), repl);
+      *tp = vce;
+    }
+  else
+    *tp = repl;
+
+  info->modified = true;
+  wi->is_lhs = false;
+  wi->val_only = true;
   return NULL_TREE;
-}
-
-/* Helper function for ipa_simd_modify_function_body.  Make any
-   necessary adjustments for tree operators.  */
-
-static bool
-ipa_simd_modify_function_body_ops (tree *tp,
-				   ipa_parm_adjustment_vec *adjustments)
-{
-  struct walk_stmt_info wi;
-  memset (&wi, 0, sizeof (wi));
-  wi.info = adjustments;
-  bool res = (bool) walk_tree (tp, ipa_simd_modify_function_body_ops_1,
-			       &wi, NULL);
-  return res;
 }
 
 /* Traverse the function body and perform all modifications as
@@ -11111,6 +11153,9 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 		  NULL_TREE, NULL_TREE);
     }
 
+  struct modify_stmt_info info;
+  info.adjustments = adjustments;
+
   FOR_EACH_BB_FN (bb, DECL_STRUCT_FUNCTION (node->decl))
     {
       gimple_stmt_iterator gsi;
@@ -11119,9 +11164,12 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
       while (!gsi_end_p (gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
-	  bool modified = false;
-	  tree *t;
-	  unsigned i;
+	  info.stmt = stmt;
+	  struct walk_stmt_info wi;
+
+	  memset (&wi, 0, sizeof (wi));
+	  info.modified = false;
+	  wi.info = &info;
 
 	  switch (gimple_code (stmt))
 	    {
@@ -11137,7 +11185,8 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 							NULL, NULL),
 						old_retval);
 		    gsi_replace (&gsi, stmt, true);
-		    modified = true;
+		    gimple_regimplify_operands (stmt, &gsi);
+		    info.modified = true;
 		  }
 		else
 		  {
@@ -11147,62 +11196,13 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 		break;
 	      }
 
-	    case GIMPLE_ASSIGN:
-	      t = gimple_assign_lhs_ptr (stmt);
-	      modified |= sra_ipa_modify_expr (t, false, adjustments);
-
-	      /* The LHS may have operands that also need adjusting
-		 (e.g. `foo' in array[foo]).  */
-	      modified |= ipa_simd_modify_function_body_ops (t, &adjustments);
-
-	      for (i = 0; i < gimple_num_ops (stmt); ++i)
-		{
-		  t = gimple_op_ptr (stmt, i);
-		  modified |= sra_ipa_modify_expr (t, false, adjustments);
-		}
-	      break;
-
-	    case GIMPLE_CALL:
-	      /* Operands must be processed before the lhs.  */
-	      for (i = 0; i < gimple_call_num_args (stmt); i++)
-		{
-		  t = gimple_call_arg_ptr (stmt, i);
-		  modified |= sra_ipa_modify_expr (t, true, adjustments);
-		}
-
-	      if (gimple_call_lhs (stmt))
-		{
-		  t = gimple_call_lhs_ptr (stmt);
-		  modified |= sra_ipa_modify_expr (t, false, adjustments);
-		}
-	      break;
-
-	    case GIMPLE_ASM:
-	      for (i = 0; i < gimple_asm_ninputs (stmt); i++)
-		{
-		  t = &TREE_VALUE (gimple_asm_input_op (stmt, i));
-		  modified |= sra_ipa_modify_expr (t, true, adjustments);
-		}
-	      for (i = 0; i < gimple_asm_noutputs (stmt); i++)
-		{
-		  t = &TREE_VALUE (gimple_asm_output_op (stmt, i));
-		  modified |= sra_ipa_modify_expr (t, false, adjustments);
-		}
-	      break;
-
 	    default:
-	      for (i = 0; i < gimple_num_ops (stmt); ++i)
-		{
-		  t = gimple_op_ptr (stmt, i);
-		  if (*t)
-		    modified |= sra_ipa_modify_expr (t, true, adjustments);
-		}
+	      walk_gimple_op (stmt, ipa_simd_modify_stmt_ops, &wi);
 	      break;
 	    }
 
-	  if (modified)
+	  if (info.modified)
 	    {
-	      gimple_regimplify_operands (stmt, &gsi);
 	      update_stmt (stmt);
 	      if (maybe_clean_eh_stmt (stmt))
 		gimple_purge_dead_eh_edges (gimple_bb (stmt));
