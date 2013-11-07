@@ -1,5 +1,10 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimplify.c (gimplify_body): Consider flag_openacc additionally
+	to flag_openmp.
+	* omp-low.c (execute_expand_omp, execute_lower_omp)
+	(gate_diagnose_omp_blocks): Likewise.
+
 	* oacc-builtins.def: New file.
 	* Makefile.in (BUILTINS_DEF): Add oacc-builtins.def.
 	* builtins.def (DEF_GOACC_BUILTIN): New macro.

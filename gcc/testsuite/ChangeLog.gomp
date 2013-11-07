@@ -1,5 +1,8 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gcc.dg/goacc-gomp/goacc-gomp.exp: New file.
+	* gcc.dg/goacc/goacc.exp: Likewise.
+
 	* c-c++-common/cpp/openacc-define-1.c: Test _OPENACC.
 	* c-c++-common/cpp/openacc-define-2.c: Likewise.
 	* c-c++-common/cpp/openacc-define-3.c: Likewise.

@@ -8234,7 +8234,8 @@ execute_expand_omp (void)
 static bool
 gate_expand_omp (void)
 {
-  return (flag_openmp != 0 && !seen_error ());
+  return ((flag_openacc || flag_openmp)
+	  && !seen_error ());
 }
 
 namespace {
@@ -10054,8 +10055,9 @@ execute_lower_omp (void)
   gimple_seq body;
 
   /* This pass always runs, to provide PROP_gimple_lomp.
-     But there is nothing to do unless -fopenmp is given.  */
-  if (flag_openmp == 0)
+     But there is nothing to do unless at least one of -fopenacc or -fopenmp is
+     given.  */
+  if (!(flag_openacc || flag_openmp))
     return 0;
 
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
@@ -10484,7 +10486,7 @@ diagnose_omp_structured_block_errors (void)
 static bool
 gate_diagnose_omp_blocks (void)
 {
-  return flag_openmp != 0;
+  return flag_openacc || flag_openmp;
 }
 
 namespace {
