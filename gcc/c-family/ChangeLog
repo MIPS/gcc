@@ -1,23 +1,99 @@
-2013-10-26  Joseph Myers  <joseph@codesourcery.com>
-
-	* c-pretty-print.c (pp_c_type_qualifier_list): Mention _Atomic in
-	comment.
-
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
 
-	* c-family/c-common.h (build_atomic_load): Prototype.
-
-2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
-
-	* c-common.h (enum rid): Add RID_ATOMIC.
-	* c-common.c (struct c_common_resword c_common_r): Add "_Atomic".
+	* c-common.c
 	(struct attribute_spec c_common_att): Add "atomic" attribute.
 	(handle_atomic_attribute): New.  Add atomic qualifier to type.
-	(sync_resolve_params): Use MAIN_VARIANT as cast for the non-atomic
-	parameters.
-	(keyword_is_type_qualifier): Add RID_ATOMIC;
-	* c-format.c (check_format_types): Add atomic as a qualifer check.
+
+2013-11-07  Andrew MacLeod  <amacleod@redhat.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* c-common.h (enum rid): Add RID_ATOMIC.
+	* c-common.c (c_common_reswords): Add _Atomic.
+	(sync_resolve_params): Use TYPE_MAIN_VARIANT on pointer argument.
+	(keyword_is_type_qualifier): Accept RID_ATOMIC.
+	* c-format.c (check_format_types): Check for extra _Atomic
+	qualifiers in format argument.
 	* c-pretty-print.c (pp_c_cv_qualifiers): Handle atomic qualifier.
+	(pp_c_type_qualifier_list): Mention _Atomic in comment.
+
+2013-11-06  Tobias Burnus  <burnus@net-b.de>
+
+	* c-common.c (reason_option_codes_t): Add CPP_W_DATE_TIME.
+
+2013-11-06  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-opts.c (c_common_post_options): Set -ffp-contract=off in C
+	standards modes.
+	* c-cppbuiltin.c (cpp_iec_559_value): Consider -ffp-contract=fast
+	to mean lack of IEEE 754 support.
+
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* c.opt (-Wdate-time): New option
+	* c-opts.c (sanitize_cpp_opts): Pass on to libcpp.
+
+2013-11-05  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (cpp_iec_559_value): Test
+	flag_excess_precision_cmdline not flag_excess_precision.
+
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* c.opt (fopenmp-simd): New option.
+	* c-pragma.c (omp_pragmas): Move pragmas which can contain simd to ...
+	(omp_pragmas): ... this new struct.
+	(c_pp_lookup_pragma): Also walk omp_pragmas.
+	(init_pragma): Init pragmas for -fopenmp-simd.
+
+2013-11-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/58979
+	* c-common.c (invalid_indirection_error): Handle RO_ARROW_STAR case.
+
+2013-11-04  Joseph Myers  <joseph@codesourcery.com>
+
+	* c-cppbuiltin.c (cpp_iec_559_value, cpp_iec_559_complex_value):
+	New functions.
+	(c_cpp_builtins): Define __GCC_IEC_559 and __GCC_IEC_559_COMPLEX.
+
+2013-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.h (cpp_operation): Add IS_TRIVIAL.
+	(dump_ada_specs): Adjust prototype of second callback.
+	* c-ada-spec.c (cpp_check): New global variable.
+	(dump_ada_nodes): Remove cpp_check parameter and do not pass it down.
+	(print_generic_ada_decl): Likewise.
+	(has_static_fields): Change return type to bool and add guard.
+	(has_nontrivial_methods): New predicate.
+	(is_tagged_type): Change return type to bool.
+	(separate_class_package): Call has_nontrivial_methods.
+	(pp_ada_tree_identifier): Minor tweaks.
+	(dump_ada_function_declaration): Adjust calls to dump_generic_ada_node.
+	(dump_ada_array_domains): Likewise.
+	(dump_ada_array_type): Likewise.
+	(dump_template_types): Remove cpp_check parameter and do not pass it to
+	dump_generic_ada_node.
+	(dump_ada_template): Likewise.
+	(dump_generic_ada_node): Remove cpp_check parameter and do not pass it
+	recursively.
+	(print_ada_methods): Change return type to integer.  Remove cpp_check
+	parameter and do not pass it down.
+	(dump_nested_types): Remove cpp_check parameter and do not pass it to
+	dump_generic_ada_node.
+	(print_ada_declaration): Likewise.  Test RECORD_OR_UNION_TYPE_P before
+	accessing methods.
+	(print_ada_struct_decl): Remove cpp_check parameter and do not pass it
+	down.  Use has_nontrivial_methods to recognize C++ classes.  Use return
+	value of print_ada_methods.
+	(dump_ads): Rename cpp_check parameter to check and adjust prototype.
+	Set cpp_check to it before invoking dump_ada_nodes.
+	(dump_ada_specs): Likewise.
+
+2013-11-03  Marek Polacek  <polacek@redhat.com>
+
+	* c-ubsan.c: Don't include hash-table.h.
+	(ubsan_instrument_vla): New function.
+	* c-ubsan.h: Declare it.
 
 2013-10-31  David Malcolm  <dmalcolm@redhat.com>
 

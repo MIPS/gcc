@@ -4814,7 +4814,7 @@ attribute_value_equal (const_tree attr1, const_tree attr2)
     return (simple_cst_list_equal (TREE_VALUE (attr1),
 				   TREE_VALUE (attr2)) == 1);
 
-  if (flag_openmp
+  if ((flag_openmp || flag_openmp_simd)
       && TREE_VALUE (attr1) && TREE_VALUE (attr2)
       && TREE_CODE (TREE_VALUE (attr1)) == OMP_CLAUSE
       && TREE_CODE (TREE_VALUE (attr2)) == OMP_CLAUSE)
@@ -6239,7 +6239,7 @@ check_aligned_type (const_tree cand, const_tree base, unsigned int align)
 /* This function checks to see if TYPE matches the size one of the built-in 
    atomic types, and returns that core atomic type.  */
 
-tree
+static tree
 find_atomic_core_type (tree type)
 {
   tree base_atomic_type;
@@ -9831,11 +9831,12 @@ make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
 }
 
 
-/* Create an atomic variant node for TYPE.  This routine is called during
-   initialization of data types to create the 5 basic atomic types. The generic
-   build_variant_type function requires these to already be set up in order to
-   function properly, so cannot be called from there.  
-   if ALIGN is non-zero, then ensure alignment is overridden to this value.  */
+/* Create an atomic variant node for TYPE.  This routine is called
+   during initialization of data types to create the 5 basic atomic
+   types. The generic build_variant_type function requires these to
+   already be set up in order to function properly, so cannot be
+   called from there.  If ALIGN is non-zero, then ensure alignment is
+   overridden to this value.  */
 
 static tree
 build_atomic_base (tree type, unsigned int align)
@@ -9937,9 +9938,9 @@ build_common_tree_nodes (bool signed_char, bool short_double)
   unsigned_intDI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (DImode), 1);
   unsigned_intTI_type_node = make_or_reuse_type (GET_MODE_BITSIZE (TImode), 1);
 
-  /* Don't call build_qualified type for atomics.  That routine does special
-     processing for atomics, and until they are initialized it's better not
-     to make that call.  
+  /* Don't call build_qualified type for atomics.  That routine does
+     special processing for atomics, and until they are initialized
+     it's better not to make that call.
      
      Check to see if there is a target override for atomic types.  */
 
@@ -12636,6 +12637,25 @@ get_tree_code_name (enum tree_code code)
     return invalid;
 
   return tree_code_name[code];
+}
+
+/* Drops the TREE_OVERFLOW flag from T.  */
+
+tree
+drop_tree_overflow (tree t)
+{
+  gcc_checking_assert (TREE_OVERFLOW (t));
+
+  /* For tree codes with a sharing machinery re-build the result.  */
+  if (TREE_CODE (t) == INTEGER_CST)
+    return build_int_cst_wide (TREE_TYPE (t),
+			       TREE_INT_CST_LOW (t), TREE_INT_CST_HIGH (t));
+
+  /* Otherwise, as all tcc_constants are possibly shared, copy the node
+     and drop the flag.  */
+  t = copy_node (t);
+  TREE_OVERFLOW (t) = 0;
+  return t;
 }
 
 #include "gt-tree.h"

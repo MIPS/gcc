@@ -22225,6 +22225,7 @@ static bool
 cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 {
   bool constructor_p;
+  bool outside_class_specifier_p;
   tree nested_name_specifier;
   cp_token *next_token;
 
@@ -22257,11 +22258,14 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 					    /*check_dependency_p=*/false,
 					    /*type_p=*/false,
 					    /*is_declaration=*/false));
+
+  outside_class_specifier_p = (!at_class_scope_p ()
+			       || !TYPE_BEING_DEFINED (current_class_type)
+			       || friend_p);
+
   /* Outside of a class-specifier, there must be a
      nested-name-specifier.  */
-  if (!nested_name_specifier &&
-      (!at_class_scope_p () || !TYPE_BEING_DEFINED (current_class_type)
-       || friend_p))
+  if (!nested_name_specifier && outside_class_specifier_p)
     constructor_p = false;
   else if (nested_name_specifier == error_mark_node)
     constructor_p = false;
@@ -22300,8 +22304,16 @@ cp_parser_constructor_declarator_p (cp_parser *parser, bool friend_p)
 					/*check_dependency_p=*/false,
 					/*class_head_p=*/false,
 					/*is_declaration=*/false);
-      /* If there was no class-name, then this is not a constructor.  */
-      constructor_p = !cp_parser_error_occurred (parser);
+      /* If there was no class-name, then this is not a constructor.
+	 Otherwise, if we are in a class-specifier and we aren't
+	 handling a friend declaration, check that its type matches
+	 current_class_type (c++/38313).  Note: error_mark_node
+	 is left alone for error recovery purposes.  */
+      constructor_p = (!cp_parser_error_occurred (parser)
+		       && (outside_class_specifier_p
+			   || type_decl == error_mark_node
+			   || same_type_p (current_class_type,
+					   TREE_TYPE (type_decl))));
 
       /* If we're still considering a constructor, we have to see a `(',
 	 to begin the parameter-declaration-clause, followed by either a
@@ -29136,6 +29148,9 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok,
 	    cclauses = cclauses_buf;
 
 	  cp_lexer_consume_token (parser->lexer);
+	  if (!flag_openmp)  /* flag_openmp_simd  */
+	    return cp_parser_omp_simd (parser, pragma_tok, p_name, mask,
+				       cclauses);
 	  sb = begin_omp_structured_block ();
 	  save = cp_parser_begin_omp_structured_block (parser);
 	  ret = cp_parser_omp_simd (parser, pragma_tok, p_name, mask,
@@ -29152,6 +29167,11 @@ cp_parser_omp_for (cp_parser *parser, cp_token *pragma_tok,
 	  add_stmt (ret);
 	  return ret;
 	}
+    }
+  if (!flag_openmp)  /* flag_openmp_simd  */
+    {
+      cp_parser_require_pragma_eol (parser, pragma_tok);
+      return NULL_TREE;
     }
 
   clauses = cp_parser_omp_all_clauses (parser, mask, p_name, pragma_tok,
@@ -29336,6 +29356,8 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
 	cclauses = cclauses_buf;
 
       cp_lexer_consume_token (parser->lexer);
+      if (!flag_openmp)  /* flag_openmp_simd  */
+	return cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
       block = begin_omp_parallel ();
       save = cp_parser_begin_omp_structured_block (parser);
       cp_parser_omp_for (parser, pragma_tok, p_name, mask, cclauses);
@@ -29349,6 +29371,11 @@ cp_parser_omp_parallel (cp_parser *parser, cp_token *pragma_tok,
     {
       error_at (loc, "expected %<for%> after %qs", p_name);
       cp_parser_skip_to_pragma_eol (parser, pragma_tok);
+      return NULL_TREE;
+    }
+  else if (!flag_openmp)  /* flag_openmp_simd  */
+    {
+      cp_parser_require_pragma_eol (parser, pragma_tok);
       return NULL_TREE;
     }
   else if (cp_lexer_next_token_is (parser->lexer, CPP_NAME))
@@ -29579,6 +29606,15 @@ cp_parser_omp_distribute (cp_parser *parser, cp_token *pragma_tok,
 	  if (cclauses == NULL)
 	    cclauses = cclauses_buf;
 	  cp_lexer_consume_token (parser->lexer);
+	  if (!flag_openmp)  /* flag_openmp_simd  */
+	    {
+	      if (simd)
+		return cp_parser_omp_simd (parser, pragma_tok, p_name, mask,
+					   cclauses);
+	      else
+		return cp_parser_omp_parallel (parser, pragma_tok, p_name, mask,
+					       cclauses);
+	    }
 	  sb = begin_omp_structured_block ();
 	  save = cp_parser_begin_omp_structured_block (parser);
 	  if (simd)
@@ -29599,6 +29635,11 @@ cp_parser_omp_distribute (cp_parser *parser, cp_token *pragma_tok,
 	  add_stmt (ret);
 	  return ret;
 	}
+    }
+  if (!flag_openmp)  /* flag_openmp_simd  */
+    {
+      cp_parser_require_pragma_eol (parser, pragma_tok);
+      return NULL_TREE;
     }
 
   clauses = cp_parser_omp_all_clauses (parser, mask, p_name, pragma_tok,
@@ -29655,6 +29696,9 @@ cp_parser_omp_teams (cp_parser *parser, cp_token *pragma_tok,
 	    cclauses = cclauses_buf;
 
 	  cp_lexer_consume_token (parser->lexer);
+	  if (!flag_openmp)  /* flag_openmp_simd  */
+	    return cp_parser_omp_distribute (parser, pragma_tok, p_name, mask,
+					     cclauses);
 	  sb = begin_omp_structured_block ();
 	  save = cp_parser_begin_omp_structured_block (parser);
 	  ret = cp_parser_omp_distribute (parser, pragma_tok, p_name, mask,
@@ -29670,6 +29714,11 @@ cp_parser_omp_teams (cp_parser *parser, cp_token *pragma_tok,
 	  OMP_TEAMS_BODY (ret) = body;
 	  return add_stmt (ret);
 	}
+    }
+  if (!flag_openmp)  /* flag_openmp_simd  */
+    {
+      cp_parser_require_pragma_eol (parser, pragma_tok);
+      return NULL_TREE;
     }
 
   clauses = cp_parser_omp_all_clauses (parser, mask, p_name, pragma_tok,
@@ -29780,18 +29829,7 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
       tree id = cp_lexer_peek_token (parser->lexer)->u.value;
       const char *p = IDENTIFIER_POINTER (id);
 
-      if (strcmp (p, "data") == 0)
-	{
-	  cp_lexer_consume_token (parser->lexer);
-	  cp_parser_omp_target_data (parser, pragma_tok);
-	  return true;
-	}
-      else if (strcmp (p, "update") == 0)
-	{
-	  cp_lexer_consume_token (parser->lexer);
-	  return cp_parser_omp_target_update (parser, pragma_tok, context);
-	}
-      else if (strcmp (p, "teams") == 0)
+      if (strcmp (p, "teams") == 0)
 	{
 	  tree cclauses[C_OMP_CLAUSE_SPLIT_COUNT];
 	  char p_name[sizeof ("#pragma omp target teams distribute "
@@ -29800,6 +29838,9 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 	  cp_lexer_consume_token (parser->lexer);
 	  strcpy (p_name, "#pragma omp target");
 	  keep_next_level (true);
+	  if (!flag_openmp)  /* flag_openmp_simd  */
+	    return cp_parser_omp_teams (parser, pragma_tok, p_name,
+					OMP_TARGET_CLAUSE_MASK, cclauses);
 	  tree sb = begin_omp_structured_block ();
 	  unsigned save = cp_parser_begin_omp_structured_block (parser);
 	  tree ret = cp_parser_omp_teams (parser, pragma_tok, p_name,
@@ -29814,6 +29855,22 @@ cp_parser_omp_target (cp_parser *parser, cp_token *pragma_tok,
 	  OMP_TARGET_BODY (stmt) = body;
 	  add_stmt (stmt);
 	  return true;
+	}
+      else if (!flag_openmp)  /* flag_openmp_simd  */
+	{
+	  cp_parser_require_pragma_eol (parser, pragma_tok);
+	  return NULL_TREE;
+	}
+      else if (strcmp (p, "data") == 0)
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  cp_parser_omp_target_data (parser, pragma_tok);
+	  return true;
+	}
+      else if (strcmp (p, "update") == 0)
+	{
+	  cp_lexer_consume_token (parser->lexer);
+	  return cp_parser_omp_target_update (parser, pragma_tok, context);
 	}
     }
 
@@ -30412,6 +30469,11 @@ cp_parser_omp_declare (cp_parser *parser, cp_token *pragma_tok,
 	  cp_lexer_consume_token (parser->lexer);
 	  cp_parser_omp_declare_reduction (parser, pragma_tok,
 					   context);
+	  return;
+	}
+      if (!flag_openmp)  /* flag_openmp_simd  */
+	{
+	  cp_parser_require_pragma_eol (parser, pragma_tok);
 	  return;
 	}
       if (strcmp (p, "target") == 0)

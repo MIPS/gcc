@@ -550,8 +550,6 @@ extern int field_decl_cmp (const void *, const void *);
 extern void resort_sorted_fields (void *, void *, gt_pointer_operator,
 				  void *);
 extern bool has_c_linkage (const_tree decl);
-extern tree build_atomic_load (location_t, tree);
-
 
 /* Switches common to the C front ends.  */
 

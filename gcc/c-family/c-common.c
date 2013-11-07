@@ -9598,6 +9598,7 @@ static const struct reason_option_codes_t option_codes[] = {
   {CPP_W_INVALID_PCH,			OPT_Winvalid_pch},
   {CPP_W_WARNING_DIRECTIVE,		OPT_Wcpp},
   {CPP_W_LITERAL_SUFFIX,		OPT_Wliteral_suffix},
+  {CPP_W_DATE_TIME,			OPT_Wdate_time},
   {CPP_W_NONE,				0}
 };
 
@@ -9965,6 +9966,11 @@ invalid_indirection_error (location_t loc, tree type, ref_operator errstring)
     case RO_ARROW:
       error_at (loc,
 		"invalid type argument of %<->%> (have %qT)",
+		type);
+      break;
+    case RO_ARROW_STAR:
+      error_at (loc,
+		"invalid type argument of %<->*%> (have %qT)",
 		type);
       break;
     case RO_IMPLICIT_CONVERSION:

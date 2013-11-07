@@ -28,6 +28,47 @@
 	* typeck.c (cp_type_quals, cv_qualified_p): Add TYPE_QUAL_ATOMIC to
 	mask.
 
+2013-11-06  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/11006
+	* init.c (build_new_1): Don't call build_java_class_ref on non-class
+	types.
+
+2013-11-05  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58868
+	* decl.c (check_initializer): Don't use build_vec_init for arrays
+	of trivial type.
+
+2013-11-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58724
+	* name-lookup.c (handle_namespace_attrs): Use get_attribute_name.
+
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* parser.c (cp_parser_omp_for, cp_parser_omp_parallel,
+	cp_parser_omp_distribute, cp_parser_omp_teams, cp_parser_omp_target,
+	cp_parser_omp_declare): Handle -fopenmp-simd.
+
+2013-11-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl2.c (cpp_check): Change type of first parameter and deal with
+	IS_TRIVIAL.
+
+2013-11-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/38313
+	* parser.c (cp_parser_constructor_declarator_p): Check that the
+	class-name matches current_class_type.
+
+2013-11-03  Marek Polacek  <polacek@redhat.com>
+
+	* decl.c (cp_finish_decl): Move C++1y bounds checking...
+	(compute_array_index_type): ...here.  Add VLA instrumentation.
+	Call stabilize_vla_size.
+	(grokdeclarator): Don't call stabilize_vla_size here.
+
 2013-11-02  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/29234

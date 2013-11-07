@@ -1,84 +1,34 @@
-2013-10-30  Joseph Myers  <joseph@codesourcery.com>
+2013-11-07  Joseph Myers  <joseph@codesourcery.com>
+	    Andrew MacLeod  <amacleod@redhat.com>
 
-	* c-typeck.c (build_atomic_assign): Use
-	targetm.atomic_assign_expand_fenv hook.
-
-2013-10-26  Joseph Myers  <joseph@codesourcery.com>
-
-	* c-typeck.c (build_atomic_assign): Fold RHS if not already
-	folded.
-
-2013-10-26  Joseph Myers  <joseph@codesourcery.com>
-
-	* c-decl.c (get_parm_info): Diagnose any qualifier on "void" as
-	only parameter.
-	* c-parser.c (c_parser_declspecs): Expand list of ObjC cases
-	needing updating for atomics.
-	(c_parser_objc_selector): Handle _Atomic.
-	* c-typeck.c (digest_init): Do not accept initialization of arrays
-	of atomic elements by string constants.
-
-2013-10-24  Joseph Myers  <joseph@codesourcery.com>
-
+	* c-aux-info.c (gen_type): Handle atomic qualifier.
 	* c-decl.c (validate_proto_after_old_defn): Do not remove atomic
 	qualifiers when compating types.
+	(shadow_tag_warned): Handle atomic_p in declspecs.
+	(quals_from_declspecs): Likewise.
 	(start_decl): Use c_type_promotes_to when promoting argument
 	types.
-	(check_bitfield_type_and_width): Don't check for atomic qualifiers
-	here.
-	(grokdeclarator): Check for atomic qualifiers on bit-fields here.
-	*store_parm_decls_oldstyle): Do not remove atomic qualifiers when
+	(grokdeclarator): Handle _Atomic.
+	(get_parm_info): Diagnose any qualifier on "void" as only
+	parameter.
+	(store_parm_decls_oldstyle): Do not remove atomic qualifiers when
 	comparing types.  Use c_type_promotes_to when promoting argument
 	types.
-	(finish_function) Use c_type_promotes_to when promoting argument
+	(finish_function): Use c_type_promotes_to when promoting argument
 	types.
-	* c-parser.c (c_parser_typeof_specifier): Use TYPE_ATOMIC instead
-	of testing TYPE_QUAL_ATOMIC in TYPE_QUALS.
-	* c-typeck.c (c_type_promotes_to): Promote atomic types to
-	corresponding atomic types.
-	(type_lists_compatible_p, find_anonymous_field_with_type)
-	(convert_to_anonymous_field, convert_for_assignment): Do not
-	remove atomic qualifiers when comparing types.
-
-2013-10-19  Joseph Myers  <joseph@codesourcery.com>
-
-	* c-decl.c (grokdeclarator): Check earlier for _Atomic applied to
-	an array type.
-	* c-parser.c (c_parser_declspecs): Adjust comment about
-	Objective-C atomics cases.
-	* c-typeck.c (qualify_type): Don't add _Atomic qualifiers from
-	second argument.
-	(comp_target_types): Do not allow _Atomic mismatches.
-	(build_unary_op): Use build_atomic_assign for atomic increment and
-	decrement.
-	(build_conditional_expr): Do not treat _Atomic void as a qualified
-	version of void.
-	(build_modify_expr): Adjust warnings and conversions for case of
-	atomic compound assignment not having had rhs updated for compound
-	operation.
-	(build_binary_op): Do not treat _Atomic void as a qualified
-	version of void.
-	(build_atomic_assign): Add argument RETURN_OLD_P.  All callers
-	changed.  Correct type used to store original rhs.  Use
-	convert_for_assignment on computed rhs value.
-
-2013-10-17  Joseph Myers  <joseph@codesourcery.com>
-
-	* c-decl.c (check_bitfield_type_and_width): Disallow atomic types.
-	(grokdeclarator): Correct checks for atomic function or array
-	types.
-	* c-parser.c (c_parser_declspecs): Say "_Atomic" in comment.
-	Handle _Atomic (type-name) syntax.  Adjust diagnostics for use of
-	_Atomic outside C11 mode.  Call sorry for _Atomic with Objective-C
-	or OpenMP.
+	(build_null_declspecs): Handle atomic_p in declspecs.
+	(declspecs_add_qual): Handle RID_ATOMIC.
+	* c-parser.c (c_token_starts_typename, c_token_is_qualifier)
+	(c_token_starts_declspecs): Handle RID_ATOMIC.
+	(c_parser_declspecs): Handle atomic type specifiers and
+	qualifiers.
 	(c_parser_typeof_specifier): Remove const and _Atomic qualifiers
 	from types of expressions with atomic type.
-	(c_parser_direct_declarator_inner, c_parser_initializer)
-	(c_parser_initelt, c_parser_statement_after_labels)
-	(c_parser_switch_statement, c_parser_for_statement): Use
-	convert_lvalue_to_rvalue.
-	(c_parser_expr_no_commas): Don't handle atomic loads here.  Use
-	convert_lvalue_to_rvalue.
+	(c_parser_direct_declarator_inner): Use convert_lvalue_to_rvalue.
+	(c_parser_attribute_any_word): Handle RID_ATOMIC.
+	(c_parser_initializer, c_parser_initelt, c_parser_initval)
+	(c_parser_statement_after_labels, c_parser_switch_statement)
+	(c_parser_for_statement, c_parser_expr_no_commas)
 	(c_parser_conditional_expression, c_parser_binary_expression)
 	(c_parser_cast_expression, c_parser_unary_expression)
 	(c_parser_postfix_expression)
@@ -86,43 +36,52 @@
 	Use convert_lvalue_to_rvalue.
 	(c_parser_expression_conv, c_parser_expr_list): Document
 	conversion of lvalues to rvalues.  Use convert_lvalue_to_rvalue.
+	(c_parser_objc_synchronized_statement): Use
+	convert_lvalue_to_rvalue.
+	(c_parser_objc_selector): Handle RID_ATOMIC.
 	(c_parser_objc_receiver, c_parser_array_notation): Use
 	convert_lvalue_to_rvalue.
 	* c-tree.h (ctsk_typeof): Adjust comment to mention use for
 	_Atomic (type-name).
+	(struct c_declspecs): Add atomic_p field.
 	(convert_lvalue_to_rvalue): Declare.
-	* c-typeck.c (really_atomic_lvalue, convert_lvalue_to_rvalue): New
-	functions.
-	(build_modify_expr): Use really_atomic_lvalue.  Fix formatting.
+	* c-typeck.c (c_type_promotes_to): Promote atomic types to
+	corresponding atomic types.
+	(qualify_type): Don't add _Atomic qualifiers from second argument.
+	(comp_target_types): Do not allow _Atomic mismatches.
+	(type_lists_compatible_p): Do not remove atomic qualifiers when
+	comparing types.
+	(really_atomic_lvalue, convert_lvalue_to_rvalue)
+	(build_atomic_assign): New functions.
+	(build_unary_op): Use build_atomic_assign for atomic increment and
+	decrement.
+	(build_conditional_expr): Do not treat _Atomic void as a qualified
+	version of void.
+	(build_modify_expr): Use build_atomic_assign for atomic LHS.
+	(find_anonymous_field_with_type, convert_to_anonymous_field)
+	(convert_for_assignment): Do not remove atomic qualifiers when
+	comparing types.
+	(digest_init): Do not accept initialization of arrays of atomic
+	elements by string constants.
 	(build_asm_expr): Use convert_lvalue_to_rvalue.
-	(build_atomic_assign): Fix formatting and typos.  Put sequence of
-	statements inside a compound statement.
-	(build_atomic_load): Remove function.  Merged into
-	convert_lvalue_to_rvalue.
+	(build_binary_op): Do not treat _Atomic void as a qualified
+	version of void.
 
-2013-09-26  Andrew MacLeod  <amacleod@redhat.com>
-	* c/c-parser.c (c_parser_expr_no_commas): Call build_atomic_load on RHS.
-	* c/c-typeck.c (build_modify_expr): Call build_atomic_assign for atomic
-	expressions.
-	(build_atomic_assign): New.  Construct appropriate sequences for atomic
-	assignment operations.
-	(build_atomic_load):  New.  Construct an atomic load.
+2013-11-06  DJ Delorie  <dj@redhat.com>
 
-2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+	* c-decl.c (locate_old_decl): If a previous conflicting decl is
+	both explicit and builtin, print the location of the explicit one.
 
-	* c-aux-info.c (gen_type): Handle atomic qualifier.
-	* c-typeck.c (convert_for_assignment): Allow atomic and no-atomic
-	assignemnts.
-	* c-tree.h (struct c_declspecs): Add atomic_p field.
-	* c-decl.c (shadow_tag_warned): Add atomic_p to declspecs check.
-	(quals_from_declspecs): Add atomic_p to declspecs check.
-	(grokdeclarator): Check atomic and warn of duplicate or errors.
-	(build_null_declspecs): Handle atomic_p.
-	(declspecs_add_qual): Handle RID_ATOMIC.
-	* c-parser.c (c_token_starts_typename): Add RID_ATOMIC.
-	(c_token_is_qualifier, c_token_starts_declspecs): Add RID_ATOMIC.
-	(c_parser_declspecs): Add RID_ATOMIC and warn for C99 and C90.
-	(c_parser_attribute_any_word): Add RID_ATOMIC.
+2013-11-05  Tobias Burnus  <burnus@net-b.de>
+
+	* c-parser.c (c_parser_omp_for, c_parser_omp_parallel,
+	c_parser_omp_distribute, c_parser_omp_teams,
+	c_parser_omp_target, c_parser_omp_declare): Handle
+	-fopenmp-simd.
+
+2013-11-03  Marek Polacek  <polacek@redhat.com>
+
+	* c-decl.c (grokdeclarator): Add VLA instrumentation.
 
 2013-11-01  Jakub Jelinek  <jakub@redhat.com>
 

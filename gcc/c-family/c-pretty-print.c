@@ -181,7 +181,7 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
 
   if (qualifiers & TYPE_QUAL_ATOMIC)
     {
-      pp_c_ws_string (pp, func_type ? "__attribute__((atomic))" : "_Atomic");
+      pp_c_ws_string (pp, "_Atomic");
       previous = true;
     }
 

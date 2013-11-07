@@ -1,6 +1,6 @@
-2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+2013-11-07  Andrew MacLeod  <amacleod@redhat.com>
 
-	* objc-act.c (objc_push_parm): Adda tomic qualifier.
+	* objc-act.c (objc_push_parm): Handle atomic qualifier.
 
 2013-09-25  Tom Tromey  <tromey@redhat.com>
 

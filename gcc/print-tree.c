@@ -305,7 +305,7 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
   if (TYPE_P (node) ? TYPE_READONLY (node) : TREE_READONLY (node))
     fputs (" readonly", file);
-  if (TYPE_P (node) ? TYPE_ATOMIC (node) : TYPE_ATOMIC (node))
+  if (TYPE_P (node) && TYPE_ATOMIC (node))
     fputs (" atomic", file);
   if (!TYPE_P (node) && TREE_CONSTANT (node))
     fputs (" constant", file);
