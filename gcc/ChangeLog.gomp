@@ -1,3 +1,8 @@
+2013-11-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (ipa_simd_modify_function_body): Avoid
+	regimplification of GIMPLE_RETURNs.
+
 2013-11-06  Aldy Hernandez  <aldyh@redhat.com>
 
 	* ipa-prop.h (sra_ipa_get_adjustment_candidate): Protoize.

@@ -11175,26 +11175,23 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 	    {
 	    case GIMPLE_RETURN:
 	      {
-		tree old_retval = gimple_return_retval (stmt);
-		if (old_retval)
-		  {
-		    /* Replace `return foo' by `retval_array[iter] = foo'.  */
-		    stmt = gimple_build_assign (build4 (ARRAY_REF,
-							TREE_TYPE (old_retval),
-							retval_array, iter,
-							NULL, NULL),
-						old_retval);
-		    gsi_replace (&gsi, stmt, true);
-		    gimple_regimplify_operands (stmt, &gsi);
-		    info.modified = true;
-		  }
-		else
+		tree retval = gimple_return_retval (stmt);
+		if (!retval)
 		  {
 		    gsi_remove (&gsi, true);
 		    continue;
 		  }
-		break;
+
+		/* Replace `return foo' with `retval_array[iter] = foo'.  */
+		tree ref = build4 (ARRAY_REF,
+				   TREE_TYPE (retval),
+				   retval_array, iter,
+				   NULL, NULL);
+		stmt = gimple_build_assign (ref, retval);
+		gsi_replace (&gsi, stmt, true);
+		info.modified = true;
 	      }
+	      break;
 
 	    default:
 	      walk_gimple_op (stmt, ipa_simd_modify_stmt_ops, &wi);
