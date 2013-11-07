@@ -1,5 +1,9 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	Backport from trunk, r204518:
+
+	* libgomp_g.h: Include <stddef.h> for size_t.
+
 	Backport from trunk, r204517:
 
 	* libgomp.spec.in: Update comment about libgomp's dependencies.
