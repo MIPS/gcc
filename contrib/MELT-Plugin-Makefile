@@ -161,7 +161,7 @@ MELT_RUNTIME_H= melt-runtime.h
 melt_version_string:=$(shell $(AWK) -F\" '/^.define +MELT_VERSION_STRING/{print $$2}' $(MELT_RUNTIME_H))
 
 ifeq ($(wildcard $(MELTGCC_PLUGIN_DIR)/include/gimple*),)
-$(error building MELT: incorrect MELT GCC plugin directory $(MELTGCC_PLUGIN_DIR))
+$(error building MELT: incorrect MELT GCC plugin directory "($(MELTGCC_PLUGIN_DIR))" since GCC $(MELTGCC_VERSION) plugin development package needed.)
 endif
 
 ifeq ($(wildcard $(MELTGCC_GTYPESTATE)),)
