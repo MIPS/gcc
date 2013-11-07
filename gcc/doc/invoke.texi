@@ -168,7 +168,8 @@ in the following sections.
 @gccoptlist{-ansi  -std=@var{standard}  -fgnu89-inline @gol
 -aux-info @var{filename} -fallow-parameterless-variadic-functions @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
--fhosted  -ffreestanding -fopenmp -fms-extensions -fplan9-extensions @gol
+-fhosted  -ffreestanding -fopenacc -fopenmp -fms-extensions @gol
+-fplan9-extensions @gol
 -trigraphs  -traditional  -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch -flax-vector-conversions @gol
 -fsigned-bitfields  -fsigned-char @gol
@@ -1830,6 +1831,14 @@ This is equivalent to @option{-fno-hosted}.
 
 @xref{Standards,,Language Standards Supported by GCC}, for details of
 freestanding and hosted environments.
+
+@item -fopenacc
+@opindex fopenacc
+@cindex OpenACC accelerator programming
+Enable handling of OpenACC.
+When @option{-fopenacc} is specified, the
+compiler generates accelerated code according to the OpenACC Application
+Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.
 
 @item -fopenmp
 @opindex fopenmp

@@ -146,6 +146,7 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.blas_matmul_limit = 30;
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
+  gfc_option.gfc_flag_openacc = 0;
   gfc_option.gfc_flag_openmp = 0;
   gfc_option.flag_sign_zero = 1;
   gfc_option.flag_recursive = 0;
@@ -830,6 +831,10 @@ gfc_handle_option (size_t scode, const char *arg, int value,
 
     case OPT_ffree_form:
       gfc_option.source_form = FORM_FREE;
+      break;
+
+    case OPT_fopenacc:
+      gfc_option.gfc_flag_openacc = value;
       break;
 
     case OPT_fopenmp:

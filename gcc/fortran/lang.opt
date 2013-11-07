@@ -513,6 +513,10 @@ fmodule-private
 Fortran
 Set default accessibility of module entities to PRIVATE.
 
+fopenacc
+Fortran
+; Documented in C
+
 fopenmp
 Fortran
 ; Documented in C

@@ -2285,6 +2285,7 @@ typedef struct
   int blas_matmul_limit;
   int flag_cray_pointer;
   int flag_d_lines;
+  int gfc_flag_openacc;
   int gfc_flag_openmp;
   int flag_sign_zero;
   int flag_stack_arrays;

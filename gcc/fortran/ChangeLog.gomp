@@ -1,3 +1,10 @@
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* lang.opt (fopenacc): New option.
+	* invoke.texi (-fopenacc): Document it.
+	* gfortran.h (gfc_option_t): New member.
+	* options.c (gfc_init_options, gfc_handle_option): Handle it.
+
 2013-09-26  Jakub Jelinek  <jakub@redhat.com>
 
 	* types.def
