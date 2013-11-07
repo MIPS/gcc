@@ -1,5 +1,12 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/cpp/openacc-define-1.c: Test _OPENACC.
+	* c-c++-common/cpp/openacc-define-2.c: Likewise.
+	* c-c++-common/cpp/openacc-define-3.c: Likewise.
+	* gfortran.dg/openacc-define-1.f90: Likewise.
+	* gfortran.dg/openacc-define-2.f90: Likewise.
+	* gfortran.dg/openacc-define-3.f90: Likewise.
+
 	* c-c++-common/cpp/openacc-define-1.c: New file.
 	* c-c++-common/cpp/openacc-define-2.c: Likewise.
 	* c-c++-common/cpp/openacc-define-3.c: Likewise.

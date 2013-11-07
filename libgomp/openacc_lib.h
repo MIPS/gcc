@@ -24,3 +24,6 @@
 !  a copy of the GCC Runtime Library Exception along with this program;
 !  see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 !  <http://www.gnu.org/licenses/>.
+
+      integer openacc_version
+      parameter (openacc_version = 201306)

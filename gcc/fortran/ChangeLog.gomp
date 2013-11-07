@@ -1,5 +1,7 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* cpp.c (cpp_define_builtins): Conditionally define _OPENACC.
+
 	* lang.opt (fopenacc): New option.
 	* invoke.texi (-fopenacc): Document it.
 	* gfortran.h (gfc_option_t): New member.

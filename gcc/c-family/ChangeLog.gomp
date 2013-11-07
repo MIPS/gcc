@@ -1,5 +1,7 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-cppbuiltin.c (c_cpp_builtins): Conditionally define _OPENACC.
+
 	* c.opt (fopenacc): New option.
 
 2013-10-04  Jakub Jelinek  <jakub@redhat.com>

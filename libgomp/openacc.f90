@@ -34,4 +34,6 @@ module openacc
   use openacc_kinds
   implicit none
 
+  integer, parameter :: openacc_version = 201306
+
 end module openacc

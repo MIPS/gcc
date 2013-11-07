@@ -1,5 +1,10 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* openacc.f90 (openacc_version): New integer parameter.
+	* openacc_lib.h (openacc_version): Likewise.
+	* testsuite/libgomp.oacc-fortran/openacc_version-1.f: New file.
+	* testsuite/libgomp.oacc-fortran/openacc_version-2.f90: Likewise.
+
 	* libgomp.map (OACC_2.0): New symbol version.
 	* Makefile.am (nodist_libsubinclude_HEADERS): Add openacc.h.
 	(nodist_finclude_HEADERS): Add openacc_lib.h, openacc.f90,
