@@ -1,5 +1,15 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	Backport from trunk, r204519:
+
+	* testsuite/lib/libgomp.exp (libgomp_init): Don't add -fopenmp to
+	ALWAYS_CFLAGS.
+	* testsuite/libgomp.c++/c++.exp (ALWAYS_CFLAGS): Add -fopenmp.
+	* testsuite/libgomp.c/c.exp (ALWAYS_CFLAGS): Likewise.
+	* testsuite/libgomp.fortran/fortran.exp (ALWAYS_CFLAGS): Likewise.
+	* testsuite/libgomp.graphite/graphite.exp (ALWAYS_CFLAGS):
+	Likewise.
+
 	Backport from trunk, r204518:
 
 	* libgomp_g.h: Include <stddef.h> for size_t.
