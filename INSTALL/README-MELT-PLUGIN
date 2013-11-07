@@ -80,7 +80,9 @@ So you should have something like
 
 Be sure that this plugin subdirectory is populated correctly since it
 contains an include directory and probably a gengtype executable (and
-perhaps more, e.g. your previous installation of MELT).
+perhaps more, e.g. your previous installation of MELT). The output of
+the above command should give an absolute path (if not, install the
+appropriate GCC plugin development package or kit).
 
 % ls -l $(gcc-4.8 -print-file-name=plugin)
 -rwxr-xr-x 1 root     root      172160 Sep  5 00:01 gengtype
@@ -195,12 +197,13 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 ################################################################
 NEWS for 1.0.1 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
-[[november, 2013]]
+[[november 7th, 2013]]
 
-This is just a bug-fix release for
-https://sourceforge.net/p/gcc-melt/tickets/6/ ; it adds a workaround
-for GCC 4.7 gengtype inability to process operator conversion.
-unifdef is now required to build MELT plugin.
+This is just a bug-fix release for MELT-SFT-6 (see
+https://sourceforge.net/p/gcc-melt/tickets/6/ for more); it adds a
+workaround for GCC 4.7 gengtype inability to process operator
+conversion.  The unifdef utility is now required to build the MELT
+plugin.
 
 ################################################################
 NEWS for 1.0 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]

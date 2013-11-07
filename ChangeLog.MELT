@@ -1,7 +1,8 @@
 
 2013-11-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	* INSTALL/README-MELT-PLUGIN: Mention future 1.0.1 release &
+	{{1.0.1 release}}
+	* INSTALL/README-MELT-PLUGIN: Mention 1.0.1 release &
 	unifdef.
 
 2013-10-29  Basile Starynkevitch  <basile@starynkevitch.net>
