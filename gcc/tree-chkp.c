@@ -30,7 +30,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "diagnostic.h"
 #include "ggc.h"
-#include "expr.h"
 #include "output.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
@@ -45,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-chkp.h"
+#include "rtl.h" /* For MEM_P.  */
 
 /*  Pointer Bounds Checker pass instruments code with memory checks to find
     out-of-bounds memory accesses.  Checks are performed by computing
