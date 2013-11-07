@@ -1,5 +1,15 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gcc.c (LINK_COMMAND_SPEC, GOMP_SELF_SPECS): For -fopenacc, link
+	to libgomp and its dependencies.
+	* config/arc/arc.h (LINK_COMMAND_SPEC): Likewise.
+	* config/darwin.h (LINK_COMMAND_SPEC_A): Likewise.
+	* config/i386/mingw32.h (GOMP_SELF_SPECS): Likewise.
+	* config/ia64/hpux.h (LIB_SPEC): Likewise.
+	* config/pa/pa-hpux11.h (LIB_SPEC): Likewise.
+	* config/pa/pa64-hpux.h (LIB_SPEC): Likewise.
+	* doc/invoke.texi (-fopenacc): Update.
+
 	* doc/invoke.texi (-fopenacc): Document it.
 	* doc/sourcebuild.texi (fopenacc): Document it.
 

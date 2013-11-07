@@ -1,5 +1,23 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.map (OACC_2.0): New symbol version.
+	* Makefile.am (nodist_libsubinclude_HEADERS): Add openacc.h.
+	(nodist_finclude_HEADERS): Add openacc_lib.h, openacc.f90,
+	openacc.mod, and openacc_kinds.mod.
+	(openacc_kinds.mod): New target.
+	(%.mod): New target, generalized from omp_lib.mod.
+	* Makefile.in: Regenerate.
+	* openacc.f90: New file.
+	* openacc.h: Likewise.
+	* openacc_lib.h: Likewise.
+	* testsuite/libgomp.oacc-c++/c++.exp: Likewise.
+	* testsuite/libgomp.oacc-c/c.exp: Likewise.
+	* testsuite/libgomp.oacc-c/lib-1.c: Likewise.
+	* testsuite/libgomp.oacc-fortran/fortran.exp: Likewise.
+	* testsuite/libgomp.oacc-fortran/lib-1.f90: Likewise.
+	* testsuite/libgomp.oacc-fortran/lib-2.f: Likewise.
+	* testsuite/libgomp.oacc-fortran/lib-3.f: Likewise.
+
 	Backport from trunk, r204519:
 
 	* testsuite/lib/libgomp.exp (libgomp_init): Don't add -fopenmp to

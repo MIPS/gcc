@@ -63,9 +63,10 @@ libgomp_la_SOURCES = alloc.c barrier.c critical.c env.c error.c iter.c \
 	time.c fortran.c affinity.c target.c
 
 nodist_noinst_HEADERS = libgomp_f.h
-nodist_libsubinclude_HEADERS = omp.h
+nodist_libsubinclude_HEADERS = omp.h openacc.h
 if USE_FORTRAN
-nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod
+nodist_finclude_HEADERS = omp_lib.h omp_lib.f90 omp_lib.mod omp_lib_kinds.mod \
+	openacc_lib.h openacc.f90 openacc.mod openacc_kinds.mod
 endif
 
 LTLDFLAGS = $(shell $(SHELL) $(top_srcdir)/../libtool-ldflags $(LDFLAGS))
@@ -75,7 +76,9 @@ LINK = $(LIBTOOL) --tag CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=link \
 
 omp_lib_kinds.mod: omp_lib.mod
 	:
-omp_lib.mod: omp_lib.f90
+openacc_kinds.mod: openacc.mod
+	:
+%.mod: %.f90
 	$(FC) $(FCFLAGS) -fsyntax-only $<
 fortran.lo: libgomp_f.h
 fortran.o: libgomp_f.h

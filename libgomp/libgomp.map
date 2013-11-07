@@ -227,3 +227,6 @@ GOMP_4.0 {
 	GOMP_target_update;
 	GOMP_teams;
 } GOMP_3.0;
+
+OACC_2.0 {
+};

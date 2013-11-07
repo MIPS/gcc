@@ -1838,7 +1838,9 @@ freestanding and hosted environments.
 Enable handling of OpenACC.
 When @option{-fopenacc} is specified, the
 compiler generates accelerated code according to the OpenACC Application
-Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.
+Programming Interface v2.0 @w{@uref{http://www.openacc.org/}}.  This option
+implies @option{-pthread}, and thus is only supported on targets that
+have support for @option{-pthread}.
 
 @item -fopenmp
 @opindex fopenmp
