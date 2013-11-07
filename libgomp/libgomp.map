@@ -232,4 +232,6 @@ OACC_2.0 {
 };
 
 GOACC_2.0 {
+  global:
+	GOACC_parallel;
 };

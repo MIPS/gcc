@@ -4641,6 +4641,7 @@ is_gimple_stmt (tree t)
     case CATCH_EXPR:
     case ASM_EXPR:
     case STATEMENT_LIST:
+    case OACC_PARALLEL:
     case OMP_PARALLEL:
     case OMP_FOR:
     case OMP_SIMD:
@@ -6745,6 +6746,37 @@ gimplify_adjust_omp_clauses (tree *list_p)
   delete_omp_context (ctx);
 }
 
+/* Gimplify the contents of an OACC_PARALLEL statement.  This involves
+   gimplification of the body, as well as scanning the body for used
+   variables.  We need to do this scan now, because variable-sized
+   decls will be decomposed during gimplification.  */
+
+static void
+gimplify_oacc_parallel (tree *expr_p, gimple_seq *pre_p)
+{
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
+
+  gimplify_scan_omp_clauses (&OACC_PARALLEL_CLAUSES (expr), pre_p,
+			     ORT_TARGET);
+
+  push_gimplify_context (&gctx);
+
+  g = gimplify_and_return_first (OACC_PARALLEL_BODY (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
+
+  gimplify_adjust_omp_clauses (&OACC_PARALLEL_CLAUSES (expr));
+
+  g = gimple_build_oacc_parallel (body, OACC_PARALLEL_CLAUSES (expr));
+  gimplify_seq_add_stmt (pre_p, g);
+  *expr_p = NULL_TREE;
+}
+
 /* Gimplify the contents of an OMP_PARALLEL statement.  This involves
    gimplification of the body, as well as scanning the body for used
    variables.  We need to do this scan now, because variable-sized
@@ -8169,6 +8201,11 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
+	case OACC_PARALLEL:
+	  gimplify_oacc_parallel (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
 	case OMP_PARALLEL:
 	  gimplify_omp_parallel (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
@@ -8575,6 +8612,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != LOOP_EXPR
 		  && code != SWITCH_EXPR
 		  && code != TRY_FINALLY_EXPR
+		  && code != OACC_PARALLEL
 		  && code != OMP_CRITICAL
 		  && code != OMP_FOR
 		  && code != OMP_MASTER

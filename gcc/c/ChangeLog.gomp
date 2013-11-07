@@ -1,5 +1,12 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-tree.h (c_finish_oacc_parallel): New declaration.
+	* c-typeck.c (c_finish_oacc_parallel): New function.
+
+	* c-parser.c (c_parser_omp_structured_block): Update comment.
+	(c_parser_oacc_parallel): New function.
+	(c_parser_omp_construct): Handle PRAGMA_OACC_PARALLEL.
+
 	* c-parser.c (c_parser_omp_all_clauses): Make a parser error
 	message suitable for OpenACC, too.
 

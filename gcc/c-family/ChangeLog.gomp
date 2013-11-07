@@ -1,5 +1,10 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-omp.c (c_omp_split_clauses): Catch OACC_PARALLEL.
+
+	* c-pragma.h (pragma_kind): Add PRAGMA_OACC_PARALLEL.
+	* c-pragma.c (oacc_pragmas): Add "parallel".
+
 	* c-pragma.c (oacc_pragmas): New array.
 	(c_pp_lookup_pragma, init_pragma): Handle it.
 

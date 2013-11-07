@@ -898,6 +898,23 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
 }
 
 
+/* Build a GIMPLE_OACC_PARALLEL statement.
+
+   BODY is sequence of statements which are executed in parallel.
+   CLAUSES are the OpenACC parallel construct's clauses.  */
+
+gimple
+gimple_build_oacc_parallel (gimple_seq body, tree clauses)
+{
+  gimple p = gimple_alloc (GIMPLE_OACC_PARALLEL, 0);
+  if (body)
+    gimple_omp_set_body (p, body);
+  gimple_oacc_parallel_set_clauses (p, clauses);
+
+  return p;
+}
+
+
 /* Build a GIMPLE_OMP_CRITICAL statement.
 
    BODY is the sequence of statements for which only one thread can execute.
@@ -1571,6 +1588,21 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	return ret;
       break;
 
+    case GIMPLE_OACC_PARALLEL:
+      ret = walk_tree (gimple_oacc_parallel_clauses_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_oacc_parallel_child_fn_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_oacc_parallel_data_arg_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      break;
+
     case GIMPLE_OMP_CONTINUE:
       ret = walk_tree (gimple_omp_continue_control_def_ptr (stmt),
 	  	       callback_op, wi, pset);
@@ -1866,6 +1898,7 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 	return wi->callback_result;
 
       /* FALL THROUGH.  */
+    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
@@ -2305,6 +2338,9 @@ gimple_copy (gimple stmt)
 	  new_seq = gimple_seq_copy (gimple_try_cleanup (stmt));
 	  gimple_try_set_cleanup (copy, new_seq);
 	  break;
+
+	case GIMPLE_OACC_PARALLEL:
+          abort ();
 
 	case GIMPLE_OMP_FOR:
 	  new_seq = gimple_seq_copy (gimple_omp_for_pre_body (stmt));

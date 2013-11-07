@@ -2049,6 +2049,7 @@ edge.  Rethrowing the exception is represented using @code{RESX_EXPR}.
 
 @node OpenMP
 @subsection OpenMP
+@tindex OACC_PARALLEL
 @tindex OMP_PARALLEL
 @tindex OMP_FOR
 @tindex OMP_SECTIONS
@@ -2066,6 +2067,10 @@ All the statements starting with @code{OMP_} represent directives and
 clauses used by the OpenMP API @w{@uref{http://www.openmp.org/}}.
 
 @table @code
+@item OACC_PARALLEL
+
+Represents @code{#pragma acc parallel [clause1 @dots{} clauseN]}.
+
 @item OMP_PARALLEL
 
 Represents @code{#pragma omp parallel [clause1 @dots{} clauseN]}. It

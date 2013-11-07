@@ -205,9 +205,15 @@ DEFGSCODE(GIMPLE_NOP, "gimple_nop", GSS_BASE)
 
 /* IMPORTANT.
 
-   Do not rearrange any of the GIMPLE_OMP_* codes.  This ordering is
-   exposed by the range check in gimple_omp_subcode().  */
+   Do not rearrange any of the GIMPLE_OACC_* and GIMPLE_OMP_* codes.  This
+   ordering is exposed by the range check in gimple_omp_subcode.  */
 
+
+/* GIMPLE_OACC_PARALLEL <BODY, CLAUSES, CHILD_FN, DATA_ARG> represents
+
+   #pragma acc parallel [CLAUSES]
+   BODY */
+DEFGSCODE(GIMPLE_OACC_PARALLEL, "gimple_oacc_parallel", GSS_OMP_PARALLEL)
 
 /* Tuples used for lowering of OMP_ATOMIC.  Although the form of the OMP_ATOMIC
    expression is very simple (just in form mem op= expr), various implicit

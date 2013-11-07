@@ -786,6 +786,7 @@ gimple gimple_build_resx (int);
 gimple gimple_build_eh_dispatch (int);
 gimple gimple_build_switch_nlabels (unsigned, tree, tree);
 gimple gimple_build_switch (tree, tree, vec<tree> );
+gimple gimple_build_oacc_parallel (gimple_seq, tree);
 gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
 gimple gimple_build_omp_task (gimple_seq, tree, tree, tree, tree, tree, tree);
 gimple gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
@@ -1256,6 +1257,7 @@ gimple_has_substatements (gimple g)
     case GIMPLE_EH_FILTER:
     case GIMPLE_EH_ELSE:
     case GIMPLE_TRY:
+    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_FOR:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:
@@ -4061,6 +4063,92 @@ gimple_omp_set_body (gimple gs, gimple_seq body)
 }
 
 
+/* Return the clauses associated with OACC_PARALLEL statement GS.  */
+
+static inline tree
+gimple_oacc_parallel_clauses (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  return gs->gimple_omp_parallel.clauses;
+}
+
+/* Return a pointer to the clauses associated with OACC_PARALLEL statement
+   GS.  */
+
+static inline tree *
+gimple_oacc_parallel_clauses_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  return &gs->gimple_omp_parallel.clauses;
+}
+
+/* Set CLAUSES to be the list of clauses associated with OACC_PARALLEL
+   statement GS.  */
+
+static inline void
+gimple_oacc_parallel_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  gs->gimple_omp_parallel.clauses = clauses;
+}
+
+/* Return the child function used to hold the body of OACC_PARALLEL statement
+   GS.  */
+
+static inline tree
+gimple_oacc_parallel_child_fn (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  return gs->gimple_omp_parallel.child_fn;
+}
+
+/* Return a pointer to the child function used to hold the body of
+   OACC_PARALLEL statement GS.  */
+
+static inline tree *
+gimple_oacc_parallel_child_fn_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  return &gs->gimple_omp_parallel.child_fn;
+}
+
+/* Set CHILD_FN to be the child function for OACC_PARALLEL statement GS.  */
+
+static inline void
+gimple_oacc_parallel_set_child_fn (gimple gs, tree child_fn)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  gs->gimple_omp_parallel.child_fn = child_fn;
+}
+
+/* Return the data argument for OACC_PARALLEL statement GS.  */
+
+static inline tree
+gimple_oacc_parallel_data_arg (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  return gs->gimple_omp_parallel.data_arg;
+}
+
+/* Return a pointer to the data argument for OACC_PARALLEL statement GS.  */
+
+static inline tree *
+gimple_oacc_parallel_data_arg_ptr (gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  return &gs->gimple_omp_parallel.data_arg;
+}
+
+/* Set DATA_ARG to be the data argument for OACC_PARALLEL statement GS.  */
+
+static inline void
+gimple_oacc_parallel_set_data_arg (gimple gs, tree data_arg)
+{
+  GIMPLE_CHECK (gs, GIMPLE_OACC_PARALLEL);
+  gs->gimple_omp_parallel.data_arg = data_arg;
+}
+
+
 /* Return the name associated with OMP_CRITICAL statement GS.  */
 
 static inline tree
@@ -5269,6 +5357,7 @@ gimple_return_set_retbnd (gimple gs, tree retval)
 /* Returns true when the gimple statement STMT is any of the OpenMP types.  */
 
 #define CASE_GIMPLE_OMP				\
+    case GIMPLE_OACC_PARALLEL:			\
     case GIMPLE_OMP_PARALLEL:			\
     case GIMPLE_OMP_TASK:			\
     case GIMPLE_OMP_FOR:			\

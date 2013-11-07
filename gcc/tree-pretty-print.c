@@ -2346,6 +2346,11 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
+    case OACC_PARALLEL:
+      pp_string (buffer, "#pragma acc parallel");
+      dump_omp_clauses (buffer, OACC_PARALLEL_CLAUSES (node), spc, flags);
+      goto dump_omp_body;
+
     case OMP_PARALLEL:
       pp_string (buffer, "#pragma omp parallel");
       dump_omp_clauses (buffer, OMP_PARALLEL_CLAUSES (node), spc, flags);

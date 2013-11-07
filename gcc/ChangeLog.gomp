@@ -1,5 +1,48 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimple.def (GIMPLE_OACC_PARALLEL): New code.
+	* doc/gimple.texi: Document it.
+	* gimple.h (gimple_build_oacc_parallel): New declaration.
+	(gimple_oacc_parallel_clauses, gimple_oacc_parallel_clauses_ptr)
+	(gimple_oacc_parallel_set_clauses, gimple_oacc_parallel_child_fn)
+	(gimple_oacc_parallel_child_fn_ptr)
+	(gimple_oacc_parallel_set_child_fn, gimple_oacc_parallel_data_arg)
+	(gimple_oacc_parallel_data_arg_ptr)
+	(gimple_oacc_parallel_set_data_arg): New inline functions.
+	(CASE_GIMPLE_OMP): Add GIMPLE_OACC_PARALLEL.
+	* gimple.c (gimple_build_oacc_parallel): New function.
+	(walk_gimple_op, walk_gimple_stmt, gimple_copy): Handle
+	GIMPLE_OACC_PARALLEL.
+	* gimplify.c (is_gimple_stmt): Handle GIMPLE_OACC_PARALLEL.
+	(gimplify_oacc_parallel): New function.
+	(gimplify_expr): Handle OACC_PARALLEL.
+	* cgraphbuild.c (build_cgraph_edges): Handle GIMPLE_OACC_PARALLEL.
+	* gimple-low.c (lower_stmt): Likewise.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+	(dump_gimple_oacc_parallel): New function.
+	* oacc-builtins.def (BUILT_IN_GOACC_PARALLEL): New macro.
+	* omp-low.c (scan_oacc_parallel, expand_oacc_parallel)
+	(lower_oacc_parallel): New functions.
+	(use_pointer_for_field, build_outer_var_ref, scan_sharing_clauses)
+	(create_omp_child_function, check_omp_nesting_restrictions)
+	(scan_omp_1_stmt, lower_rec_simd_input_clauses)
+	(lower_lastprivate_clauses, lower_reduction_clauses)
+	(lower_copyprivate_clauses, lower_send_clauses)
+	(lower_send_shared_vars, expand_omp)
+	(maybe_add_implicit_barrier_cancel, create_task_copyfn)
+	(lower_omp_1, make_gimple_omp_edges): Handle GIMPLE_OACC_PARALLEL,
+	or catch it.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt)
+	(convert_local_reference_stmt, convert_tramp_reference_stmt)
+	(convert_gimple_call): Likewise.
+
+	* tree.def (OACC_PARALLEL): New code.
+	* doc/generic.texi (OpenMP): Document it.
+	* tree.h (OMP_BODY, OMP_CLAUSES): Include it.
+	(OACC_PARALLEL_BODY, OACC_PARALLEL_CLAUSES): New macros.
+	* tree-pretty-print.c (dump_generic_node): Handle OACC_PARALLEL.
+
 	* doc/invoke.texi (-fopenacc): Update.
 
 	* gimplify.c (gimplify_body): Consider flag_openacc additionally

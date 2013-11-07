@@ -333,7 +333,15 @@ build_cgraph_edges (void)
 					     bb->count, freq);
 	    }
 	  ipa_record_stmt_references (node, stmt);
-	  if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
+	  if (gimple_code (stmt) == GIMPLE_OACC_PARALLEL
+	      && gimple_oacc_parallel_child_fn (stmt))
+	    {
+	      tree fn = gimple_oacc_parallel_child_fn (stmt);
+	      ipa_record_reference (node,
+				    cgraph_get_create_real_symbol_node (fn),
+				    IPA_REF_ADDR, stmt);
+	    }
+	  else if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
 	      && gimple_omp_parallel_child_fn (stmt))
 	    {
 	      tree fn = gimple_omp_parallel_child_fn (stmt);
@@ -341,7 +349,7 @@ build_cgraph_edges (void)
 				    cgraph_get_create_real_symbol_node (fn),
 				    IPA_REF_ADDR, stmt);
 	    }
-	  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
+	  else if (gimple_code (stmt) == GIMPLE_OMP_TASK)
 	    {
 	      tree fn = gimple_omp_task_child_fn (stmt);
 	      if (fn)

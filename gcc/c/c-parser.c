@@ -4478,6 +4478,17 @@ c_parser_label (c_parser *parser)
      @throw expression ;
      @throw ;
 
+   OpenACC:
+
+   statement:
+     openacc-construct
+
+   openacc-construct:
+     parallel-construct
+
+   parallel-construct:
+     parallel-directive structured-block
+
    OpenMP:
 
    statement:
@@ -10754,7 +10765,7 @@ c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
   return clauses;
 }
 
-/* OpenMP 2.5:
+/* OpenACC 2.0, OpenMP 2.5:
    structured-block:
      statement
 
@@ -10768,6 +10779,32 @@ c_parser_omp_structured_block (c_parser *parser)
   tree stmt = push_stmt_list ();
   c_parser_statement (parser);
   return pop_stmt_list (stmt);
+}
+
+/* OpenACC 2.0:
+   # pragma acc parallel oacc-parallel-clause[optseq] new-line
+
+   LOC is the location of the #pragma token.
+*/
+
+#define OACC_PARALLEL_CLAUSE_MASK			\
+	(OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_NONE)
+
+static tree
+c_parser_oacc_parallel (location_t loc, c_parser *parser)
+{
+  tree stmt, clauses, block;
+
+  clauses =  c_parser_omp_all_clauses (parser, OACC_PARALLEL_CLAUSE_MASK,
+				       "#pragma acc parallel");
+  gcc_assert (clauses == NULL);
+
+  block = c_begin_omp_parallel ();
+  add_stmt (c_parser_omp_structured_block (parser));
+
+  stmt = c_finish_oacc_parallel (loc, clauses, block);
+
+  return stmt;
 }
 
 /* OpenMP 2.5:
@@ -12948,6 +12985,9 @@ c_parser_omp_construct (c_parser *parser)
 
   switch (p_kind)
     {
+    case PRAGMA_OACC_PARALLEL:
+      stmt = c_parser_oacc_parallel (loc, parser);
+      break;
     case PRAGMA_OMP_ATOMIC:
       c_parser_omp_atomic (loc, parser);
       return;

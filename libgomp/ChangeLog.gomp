@@ -1,5 +1,13 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* oacc-parallel.c: New file.
+	* Makefile.am (libgomp_la_SOURCES): Add it.
+	* Makefile.in: Regenerate.
+	* libgomp.map (GOACC_2.0): Add GOACC_parallel.
+	* libgomp_g.h (GOACC_parallel): New declaration.
+	* testsuite/libgomp.oacc-c/goacc_parallel.c: New file.
+	* testsuite/libgomp.oacc-c/parallel-1.c: New file.
+
 	* libgomp.map (GOACC_2.0): New symbol version.
 
 	* openacc.f90 (openacc_version): New integer parameter.
