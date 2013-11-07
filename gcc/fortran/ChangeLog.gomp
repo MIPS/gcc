@@ -1,5 +1,8 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* f95-lang.c (DEF_GOACC_BUILTIN): New macro.
+	Include "../oacc-builtins.def".
+
 	* cpp.c (cpp_define_builtins): Conditionally define _OPENACC.
 
 	* lang.opt (fopenacc): New option.

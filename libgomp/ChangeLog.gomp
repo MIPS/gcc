@@ -1,5 +1,7 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* libgomp.map (GOACC_2.0): New symbol version.
+
 	* openacc.f90 (openacc_version): New integer parameter.
 	* openacc_lib.h (openacc_version): Likewise.
 	* testsuite/libgomp.oacc-fortran/openacc_version-1.f: New file.

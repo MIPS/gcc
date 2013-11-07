@@ -1,5 +1,10 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* oacc-builtins.def: New file.
+	* Makefile.in (BUILTINS_DEF): Add oacc-builtins.def.
+	* builtins.def (DEF_GOACC_BUILTIN): New macro.
+	Include "oacc-builtins.def".
+
 	* gcc.c (LINK_COMMAND_SPEC, GOMP_SELF_SPECS): For -fopenacc, link
 	to libgomp and its dependencies.
 	* config/arc/arc.h (LINK_COMMAND_SPEC): Likewise.

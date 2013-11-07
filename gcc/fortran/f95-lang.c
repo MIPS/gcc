@@ -1035,6 +1035,16 @@ gfc_init_builtin_functions (void)
 #include "../sync-builtins.def"
 #undef DEF_SYNC_BUILTIN
 
+  if (gfc_option.gfc_flag_openacc)
+    {
+#undef DEF_GOACC_BUILTIN
+#define DEF_GOACC_BUILTIN(code, name, type, attr) \
+      gfc_define_builtin ("__builtin_" name, builtin_types[type], \
+			  code, name, attr);
+#include "../oacc-builtins.def"
+#undef DEF_GOACC_BUILTIN
+    }
+
   if (gfc_option.gfc_flag_openmp || flag_tree_parallelize_loops)
     {
 #undef DEF_GOMP_BUILTIN
