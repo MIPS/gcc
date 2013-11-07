@@ -1,3 +1,11 @@
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport from trunk, r204517:
+
+	* libgomp.spec.in: Update comment about libgomp's dependencies.
+	* configure.ac: Likewise.
+	* configure: Regenerate.
+
 2013-10-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* testsuite/libgomp.c++/udr-6.C: Remove UDR + on type F.

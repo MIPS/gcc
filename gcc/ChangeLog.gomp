@@ -1,3 +1,15 @@
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	Backport from trunk, r204517:
+
+	* config/arc/arc.h (LINK_COMMAND_SPEC): For
+	-ftree-parallelize-loops=*, link to libgomp and its dependencies.
+	* config/ia64/hpux.h (LIB_SPEC): Likewise.
+	* config/pa/pa-hpux11.h (LIB_SPEC): Likewise.
+	* config/pa/pa64-hpux.h (LIB_SPEC): Likewise.
+	* gcc.c (GOMP_SELF_SPECS): Update comment about libgomp's
+	dependencies.
+
 2013-11-07  Aldy Hernandez  <aldyh@redhat.com>
 
 	* omp-low.c (ipa_simd_modify_function_body): Avoid
