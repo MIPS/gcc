@@ -1278,8 +1278,6 @@ static void lto_init_ts (void)
 
 #undef LANG_HOOKS_INIT_TS
 #define LANG_HOOKS_INIT_TS lto_init_ts
-#undef LANG_HOOKS_CHKP_SUPPORTED
-#define LANG_HOOKS_CHKP_SUPPORTED true
 
 struct lang_hooks lang_hooks = LANG_HOOKS_INITIALIZER;
 
