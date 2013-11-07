@@ -1164,6 +1164,8 @@ typedef struct
 static vec<pragma_ns_name> registered_pp_pragmas;
 
 struct omp_pragma_def { const char *name; unsigned int id; };
+static const struct omp_pragma_def oacc_pragmas[] = {
+};
 static const struct omp_pragma_def omp_pragmas[] = {
   { "atomic", PRAGMA_OMP_ATOMIC },
   { "barrier", PRAGMA_OMP_BARRIER },
@@ -1194,8 +1196,17 @@ static const struct omp_pragma_def omp_pragmas[] = {
 void
 c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
 {
+  const int n_oacc_pragmas = sizeof (oacc_pragmas) / sizeof (*oacc_pragmas);
   const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
   int i;
+
+  for (i = 0; i < n_oacc_pragmas; ++i)
+    if (oacc_pragmas[i].id == id)
+      {
+	*space = "acc";
+	*name = oacc_pragmas[i].name;
+	return;
+      }
 
   for (i = 0; i < n_omp_pragmas; ++i)
     if (omp_pragmas[i].id == id)
@@ -1348,6 +1359,17 @@ c_invoke_pragma_handler (unsigned int id)
 void
 init_pragma (void)
 {
+  if (flag_openacc)
+    {
+      const int n_oacc_pragmas
+	= sizeof (oacc_pragmas) / sizeof (*oacc_pragmas);
+      int i;
+
+      for (i = 0; i < n_oacc_pragmas; ++i)
+	cpp_register_deferred_pragma (parse_in, "acc", oacc_pragmas[i].name,
+				      oacc_pragmas[i].id, true, true);
+    }
+
   if (flag_openmp)
     {
       const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);

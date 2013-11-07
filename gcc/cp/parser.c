@@ -27911,7 +27911,7 @@ cp_parser_omp_all_clauses (cp_parser *parser, omp_clause_mask mask,
 	  c_name = "simdlen";
 	  break;
 	default:
-	  cp_parser_error (parser, "expected %<#pragma omp%> clause");
+	  cp_parser_error (parser, "expected clause");
 	  goto saw_error;
 	}
 

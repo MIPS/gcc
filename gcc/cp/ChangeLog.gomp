@@ -1,3 +1,8 @@
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* parser.c (cp_parser_omp_all_clauses): Make a parser error
+	message suitable for OpenACC, too.
+
 2013-10-10  Jakub Jelinek  <jakub@redhat.com>
 
 	* decl.c (grokfndecl): If omp declare simd has any clauses,

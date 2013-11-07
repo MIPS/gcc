@@ -1,5 +1,8 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-pragma.c (oacc_pragmas): New array.
+	(c_pp_lookup_pragma, init_pragma): Handle it.
+
 	* c-cppbuiltin.c (c_cpp_builtins): Conditionally define _OPENACC.
 
 	* c.opt (fopenacc): New option.

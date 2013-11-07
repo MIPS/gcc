@@ -1,5 +1,7 @@
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* doc/invoke.texi (-fopenacc): Update.
+
 	* gimplify.c (gimplify_body): Consider flag_openacc additionally
 	to flag_openmp.
 	* omp-low.c (execute_expand_omp, execute_lower_omp)
