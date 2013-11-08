@@ -368,6 +368,36 @@ vect_determine_vectorization_factor (loop_vec_info loop_vinfo)
 
 	  if (gimple_get_lhs (stmt) == NULL_TREE)
 	    {
+	      if (is_gimple_call (stmt))
+		{
+		  /* Ignore calls with no lhs.  These must be calls to
+		     #pragma omp simd functions, and what vectorization factor
+		     it really needs can't be determined until
+		     vectorizable_simd_clone_call.  */
+		  if (STMT_VINFO_VECTYPE (stmt_info) == NULL_TREE)
+		    {
+		      unsigned int j, n = gimple_call_num_args (stmt);
+		      for (j = 0; j < n; j++)
+			{
+			  scalar_type = TREE_TYPE (gimple_call_arg (stmt, j));
+			  vectype = get_vectype_for_scalar_type (scalar_type);
+			  if (vectype)
+			    {
+			      STMT_VINFO_VECTYPE (stmt_info) = vectype;
+			      break;
+			    }
+			}
+		    }
+		  if (STMT_VINFO_VECTYPE (stmt_info) != NULL_TREE)
+		    {
+		      if (!analyze_pattern_stmt && gsi_end_p (pattern_def_si))
+			{
+			  pattern_def_seq = NULL;
+			  gsi_next (&si);
+			}
+		      continue;
+		    }
+		}
 	      if (dump_enabled_p ())
 		{
 	          dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,

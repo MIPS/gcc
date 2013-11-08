@@ -416,6 +416,7 @@ enum stmt_vec_info_type {
   shift_vec_info_type,
   op_vec_info_type,
   call_vec_info_type,
+  call_simd_clone_vec_info_type,
   assignment_vec_info_type,
   condition_vec_info_type,
   reduc_vec_info_type,
