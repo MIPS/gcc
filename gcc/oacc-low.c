@@ -1,4 +1,4 @@
-/* Lowering pass of OpenACC
+/* Lowering and expanding passes of OpenACC.
 
    This file is part of GCC.
 

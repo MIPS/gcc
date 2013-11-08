@@ -1,4 +1,6 @@
 /*
+   Generation of OpenCL kernels from GIMPLE.
+
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it under
@@ -19,6 +21,7 @@
 #define GIMPLE_OPENCL_H
 
 struct ssaexpand;
-extern void generate_opencl_kernel(char* cl_file, tree kernel_fn, struct ssaexpand* ssa);
+extern void generate_opencl_kernel(char* cl_file, tree kernel_fn,
+                                    struct ssaexpand* ssa);
 
 #endif

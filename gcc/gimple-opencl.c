@@ -1,4 +1,6 @@
 /*
+   Generation of OpenCL kernels from GIMPLE.
+
    This file is part of GCC.
 
    GCC is free software; you can redistribute it and/or modify it under
@@ -29,17 +31,20 @@
 static void
 escape_name(FILE* fp, const char* name)
 {
-  /* may be convert to locale? 
+  /* may be convert to locale?
      name = identifier_to_locale(name);
    */
-  for(; *name; ++name) {
-      if(*name == '.' || *name == '$') {
+  for(; *name; ++name)
+    {
+      if(*name == '.' || *name == '$')
+        {
           fputc('_', fp);
-      }
-      else {
+        }
+      else
+        {
           fputc(*name, fp);
-      }
-  }
+        }
+    }
 }
 
 static void
@@ -50,30 +55,36 @@ generate_name(FILE *fp, tree decl, bool get_asm = false)
   bool is_ssa_name = TREE_CODE(decl) == SSA_NAME;
   int num = 0;
 
-  if(is_ssa_name) {
+  if(is_ssa_name)
+    {
       num = SSA_NAME_VERSION(decl);
       decl = SSA_NAME_VAR(decl);
-  }
+    }
 
-  if(decl) {
-      if(get_asm) {
+  if(decl)
+    {
+      if(get_asm)
+        {
           name = DECL_ASSEMBLER_NAME(decl);
-      }
-      if(!name) {
+        }
+      if(!name)
+        {
           name = DECL_NAME(decl);
-      }
-  }
+        }
+    }
 
-  if(name) {
+  if(name)
+    {
       id = IDENTIFIER_POINTER(name);
-  }
-  else {
-      int uid = 0; 
+    }
+  else
+    {
+      int uid = 0;
       if(decl)
         uid = DECL_UID(decl);
       id = (const char*)XALLOCAVEC(char, 64);
       sprintf((char*)id, "_openacc_tmp_%d_%d", uid, num);
-  }
+    }
 
   escape_name(fp, id);
 }
@@ -83,12 +94,14 @@ generate_integer_type(FILE *fp, tree type)
 {
   unsigned prec = TYPE_PRECISION(type);
 
-  if(prec <= 32) {
+  if(prec <= 32)
+    {
       fprintf(fp, "int ");
-  }
-  else {
+    }
+  else
+    {
       fprintf(fp, "long int ");
-  }
+    }
 }
 
 static void
@@ -96,12 +109,14 @@ generate_real_type(FILE *fp, tree type)
 {
   unsigned prec = TYPE_PRECISION(type);
 
-  if(prec <= 32) {
+  if(prec <= 32)
+    {
       fprintf(fp, "float ");
-  }
-  else {
+    }
+  else
+    {
       fprintf(fp, "double ");
-  }
+    }
 }
 
 static bool
@@ -109,7 +124,8 @@ generate_type(FILE* fp, tree type, tree decl)
 {
   bool retval = false;
 
-  switch(TREE_CODE(type)) {
+  switch(TREE_CODE(type))
+    {
     case VOID_TYPE:
       fprintf(fp, "void ");
       break;
@@ -136,7 +152,7 @@ generate_type(FILE* fp, tree type, tree decl)
       break;
     default:
       gcc_unreachable();
-  }
+    }
   return retval;
 }
 
@@ -144,10 +160,11 @@ static void
 generate_var_decl(FILE* fp, tree decl)
 {
   bool all_done = generate_type(fp, TREE_TYPE(decl), decl);
-  if(!all_done) {
+  if(!all_done)
+    {
       fputc(' ', fp);
       generate_name(fp, decl);
-  }
+    }
 }
 
 static void
@@ -159,13 +176,14 @@ generate_kernel_header(FILE* fp, tree kernel_fn)
   generate_type(fp, TREE_TYPE(DECL_RESULT(kernel_fn)), NULL_TREE);
   fprintf(fp, IDENTIFIER_POINTER(DECL_NAME(kernel_fn)));
   fputc('(', fp);
-  for(param = DECL_ARGUMENTS(kernel_fn); param; param = DECL_CHAIN(param)) {
+  for(param = DECL_ARGUMENTS(kernel_fn); param; param = DECL_CHAIN(param))
+    {
       if (TREE_CODE(TREE_TYPE(param)) != POINTER_TYPE)
         fprintf(fp, "__global ");
       generate_var_decl(fp, param);
       if(DECL_CHAIN(param) != NULL_TREE)
         fputc(',', fp);
-  }
+    }
   fprintf(fp, ")\n");
 }
 
@@ -175,64 +193,77 @@ generate_locals(FILE* fp, tree kernel_fn)
   size_t i;
   tree var;
 
-  FOR_EACH_LOCAL_DECL(DECL_STRUCT_FUNCTION(kernel_fn), i, var) {
-      generate_var_decl(fp, var);
-      fprintf(fp, ";\n");
+  FOR_EACH_LOCAL_DECL(DECL_STRUCT_FUNCTION(kernel_fn), i, var)
+  {
+    generate_var_decl(fp, var);
+    fprintf(fp, ";\n");
   }
 
-  if(gimple_in_ssa_p(cfun)) {
-      for(i = 1; i < num_ssa_names; ++i) {
+  if(gimple_in_ssa_p(cfun))
+    {
+      for(i = 1; i < num_ssa_names; ++i)
+        {
           var = ssa_name(i);
-          if(var && !SSA_NAME_VAR(var)) {
+          if(var && !SSA_NAME_VAR(var))
+            {
               generate_var_decl(fp, var);
               fprintf(fp, ";\n");
-          }
-      }
-  }
+            }
+        }
+    }
 
 }
 
 static void
 generate_constant(FILE* fp, tree cnst)
 {
-  switch(TREE_CODE(cnst)) {
+  switch(TREE_CODE(cnst))
+    {
     case INTEGER_CST:
-      if(host_integerp(cnst, 0)) {
-          fprintf(fp, HOST_WIDE_INT_PRINT_DEC, (HOST_WIDE_INT)TREE_INT_CST_LOW(cnst));
-      }
-      else if(host_integerp(cnst, 1)) {
-          fprintf(fp, HOST_WIDE_INT_PRINT_UNSIGNED, (unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(cnst));
-      }
-      break;
-    case REAL_CST:
+      if(host_integerp(cnst, 0))
         {
-          REAL_VALUE_TYPE x;
-          char buf[128];
-
-          x = TREE_REAL_CST(cnst);
-          real_to_decimal(buf, &x, sizeof(buf), 0, 1);
-          fprintf(fp, buf);
+          fprintf(fp, HOST_WIDE_INT_PRINT_DEC,
+            (HOST_WIDE_INT)TREE_INT_CST_LOW(cnst));
+        }
+      else if(host_integerp(cnst, 1))
+        {
+          fprintf(fp, HOST_WIDE_INT_PRINT_UNSIGNED,
+            (unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(cnst));
         }
       break;
+    case REAL_CST:
+    {
+      REAL_VALUE_TYPE x;
+      char buf[128];
+
+      x = TREE_REAL_CST(cnst);
+      real_to_decimal(buf, &x, sizeof(buf), 0, 1);
+      fprintf(fp, buf);
+    }
+    break;
     case STRING_CST:
       fprintf(fp, "\"%s\"", TREE_STRING_POINTER(cnst));
       break;
     default:
       gcc_unreachable();
-  }
+    }
 }
 
 static void
 generate_expr(FILE* fp, tree expr)
 {
-  if(is_gimple_variable(expr) || DECL_P(expr)) {
+  if(is_gimple_variable(expr) || DECL_P(expr))
+    {
       generate_name(fp, expr);
-  }
-  else if(CONSTANT_CLASS_P(expr)) {
+    }
+  else if(CONSTANT_CLASS_P(expr))
+    {
       generate_constant(fp, expr);
-  }
-  else {
-      switch(TREE_CODE(expr)) {
+    }
+  else
+    {
+      switch(TREE_CODE(expr))
+        {
         case ARRAY_REF:
         case MEM_REF:
           generate_expr(fp, TREE_OPERAND(expr, 0));
@@ -255,8 +286,8 @@ generate_expr(FILE* fp, tree expr)
           break;
         default:
           gcc_unreachable();
-      }
-  }
+        }
+    }
 }
 
 static void
@@ -264,7 +295,8 @@ generate_abs_expr(FILE *fp, tree expr)
 {
   tree type = TREE_TYPE(expr);
 
-  switch(TREE_CODE(type)) {
+  switch(TREE_CODE(type))
+    {
     case INTEGER_TYPE:
       fprintf(fp, "abs(");
       break;
@@ -273,7 +305,7 @@ generate_abs_expr(FILE *fp, tree expr)
       break;
     default:
       gcc_unreachable();
-  }
+    }
   generate_expr(fp, expr);
   fprintf(fp, ")");
 }
@@ -301,7 +333,8 @@ generate_unary_rhs(FILE* fp, enum tree_code code, gimple stmt)
 {
   tree rhs = gimple_assign_rhs1(stmt);
 
-  switch(code) {
+  switch(code)
+    {
     case NEGATE_EXPR:
       fprintf(fp, "-");
       break;
@@ -341,7 +374,7 @@ generate_unary_rhs(FILE* fp, enum tree_code code, gimple stmt)
       return;
     default:
       gcc_unreachable();
-  }
+    }
 
   generate_expr(fp, rhs);
 }
@@ -439,7 +472,8 @@ generate_binary_rhs(FILE* fp, enum tree_code code, gimple stmt)
   tree rhs1 = gimple_assign_rhs1(stmt);
   tree rhs2 = gimple_assign_rhs2(stmt);
 
-  switch(code) {
+  switch(code)
+    {
     case TRUTH_XOR_EXPR:
       generate_truth_xor(fp, rhs1, rhs2);
       return;
@@ -463,10 +497,11 @@ generate_binary_rhs(FILE* fp, enum tree_code code, gimple stmt)
       return;
     default:
       break;
-  }
+    }
 
   generate_expr(fp, rhs1);
-  switch(code) {
+  switch(code)
+    {
     case LSHIFT_EXPR:
       fprintf(fp, " << ");
       break;
@@ -555,7 +590,7 @@ generate_binary_rhs(FILE* fp, enum tree_code code, gimple stmt)
 
     default:
       gcc_unreachable();
-  }
+    }
   generate_expr(fp, rhs2);
 }
 
@@ -566,7 +601,8 @@ generate_ternary_rhs(FILE* fp, enum tree_code code, gimple stmt)
   tree rhs2 = gimple_assign_rhs2(stmt);
   tree rhs3 = gimple_assign_rhs3(stmt);
 
-  switch(code) {
+  switch(code)
+    {
     case COND_EXPR:
       fprintf(fp, "(");
       generate_expr(fp, rhs1);
@@ -578,7 +614,7 @@ generate_ternary_rhs(FILE* fp, enum tree_code code, gimple stmt)
       break;
     default:
       gcc_unreachable();
-  }
+    }
 
 }
 
@@ -591,7 +627,8 @@ generate_gimple_assign(FILE* fp, gimple stmt)
   generate_expr(fp, gimple_assign_lhs(stmt));
   fprintf(fp, " = ");
 
-  switch(rhs_class) {
+  switch(rhs_class)
+    {
     case GIMPLE_SINGLE_RHS:
       generate_expr(fp, gimple_assign_rhs1(stmt));
       break;
@@ -604,7 +641,7 @@ generate_gimple_assign(FILE* fp, gimple stmt)
     case GIMPLE_TERNARY_RHS:
       generate_ternary_rhs(fp, code, stmt);
       break;
-  }
+    }
   fprintf(fp, ";\n");
 }
 
@@ -616,7 +653,8 @@ generate_gimple_cond(FILE* fp, gimple stmt)
   tree rhs = gimple_cond_rhs(stmt);
 
   generate_expr(fp, lhs);
-  switch(code) {
+  switch(code)
+    {
     case LT_EXPR:
       fprintf(fp, " < ");
       break;
@@ -657,7 +695,7 @@ generate_gimple_cond(FILE* fp, gimple stmt)
 
     default:
       gcc_unreachable();
-  }
+    }
   generate_expr(fp, rhs);
 }
 
@@ -667,18 +705,21 @@ generate_gimple_call(FILE* fp, gimple stmt)
   tree lhs = gimple_call_lhs(stmt);
   unsigned i;
 
-  if(TREE_CODE(gimple_call_return_type(stmt)) != VOID_TYPE) {
+  if(TREE_CODE(gimple_call_return_type(stmt)) != VOID_TYPE)
+    {
       generate_expr(fp, lhs);
       fprintf(fp, " = ");
-  }
+    }
   generate_name(fp, gimple_call_fndecl(stmt), true);
   fprintf(fp, "(");
-  for(i = 0; i < gimple_call_num_args(stmt); ++i) {
+  for(i = 0; i < gimple_call_num_args(stmt); ++i)
+    {
       generate_expr(fp, gimple_call_arg(stmt, i));
-      if(i < gimple_call_num_args(stmt) - 1) {
+      if(i < gimple_call_num_args(stmt) - 1)
+        {
           fprintf(fp, ", ");
-      }
-  }
+        }
+    }
   fprintf(fp, ");\n");
 }
 
@@ -688,9 +729,10 @@ generate_gimple_return(FILE *fp, gimple stmt)
   tree ret_val = gimple_return_retval(stmt);
 
   fprintf(fp, "return ");
-  if(ret_val != NULL_TREE) {
+  if(ret_val != NULL_TREE)
+    {
       generate_expr(fp, ret_val);
-  }
+    }
   fprintf(fp, ";\n");
 }
 
@@ -698,11 +740,12 @@ static void
 generate_gimple_goto(FILE *fp, gimple stmt)
 {
   tree label = gimple_goto_dest(stmt);
-  if(label != NULL_TREE) {
+  if(label != NULL_TREE)
+    {
       fprintf(fp, "goto ");
       generate_expr(fp, label);
       fprintf(fp, ";\n");
-  }
+    }
 }
 
 static void
@@ -727,7 +770,8 @@ generate_stmt(FILE* fp, gimple stmt)
   fprintf(fp, "// ");
   print_gimple_stmt(fp, stmt, 0, TDF_RAW);
 
-  switch(gimple_code(stmt)) {
+  switch(gimple_code(stmt))
+    {
     case GIMPLE_ASSIGN:
       generate_gimple_assign(fp, stmt);
       break;
@@ -760,7 +804,7 @@ generate_stmt(FILE* fp, gimple stmt)
     default:
       gcc_unreachable();
       break;
-  }
+    }
 }
 
 static void
@@ -777,7 +821,8 @@ generate_implicit_gotos(FILE* fp, basic_block bb)
 
   stmt = last_stmt (bb);
 
-  if (stmt && gimple_code (stmt) == GIMPLE_COND) {
+  if (stmt && gimple_code (stmt) == GIMPLE_COND)
+    {
       edge true_edge, false_edge;
       extract_true_false_edges_from_block (bb, &true_edge, &false_edge);
 
@@ -787,12 +832,13 @@ generate_implicit_gotos(FILE* fp, basic_block bb)
       generate_jump (fp, false_edge->dest);
       fprintf(fp, "\n");
       return;
-  }
+    }
   e = find_fallthru_edge (bb->succs);
-  if (e && e->dest != bb->next_bb) {
+  if (e && e->dest != bb->next_bb)
+    {
       generate_jump (fp, e->dest);
       fprintf(fp, "\n");
-  }
+    }
 }
 
 static void
@@ -800,22 +846,24 @@ generate_stmts(FILE* fp, tree kernel_fn)
 {
   basic_block bb;
 
-  FOR_EACH_BB(bb) {
-      fprintf(fp, "L%d:\n", bb->index);
-      gimple_stmt_iterator gsi;
-      gsi = gsi_start_bb(bb);
-      if(gsi_end_p(gsi))
+  FOR_EACH_BB(bb)
+  {
+    fprintf(fp, "L%d:\n", bb->index);
+    gimple_stmt_iterator gsi;
+    gsi = gsi_start_bb(bb);
+    if(gsi_end_p(gsi))
       {
         fprintf(fp, "\t;\n");
       }
-      else
+    else
       {
-        for(; !gsi_end_p(gsi); gsi_next(&gsi)) {
+        for(; !gsi_end_p(gsi); gsi_next(&gsi))
+          {
             gimple stmt = gsi_stmt(gsi);
             generate_stmt(fp, stmt);
-        }
+          }
       }
-      generate_implicit_gotos(fp, bb);
+    generate_implicit_gotos(fp, bb);
   }
 }
 

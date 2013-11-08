@@ -1,4 +1,13 @@
 08-11-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Fix formatting.
+    
+    * gcc/diagnose-gotos.c: Fix formatting.
+    * gcc/diagnose-gotos.h: Likewise.
+    * gcc/gimple-opencl.c: Likewise.
+    * gcc/gimple-opencl.h: Likewise.
+    * gcc/oacc-low.c: Fix comment.
+
+08-11-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add support for parallel scheduling clauses.
 
     * gcc/gimple-pretty-print.c: Add clauses and operands printing.
