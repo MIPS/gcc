@@ -1,47 +1,5 @@
-2013-11-08  Joseph Myers  <joseph@codesourcery.com>
-
-	* ginclude/stdatomic.h: Reformat contents of file.  Include macro
-	names in names of local temporaries.
-	(memory_order): Do not use enum tag.
-	(atomic_init): Use do { } while (0).
-	(atomic_thread_fence, atomic_signal_fence): Make function-like
-	macros.
-	(atomic_is_lock_free): Pass object pointer to
-	__atomic_is_lock_free.
-	(__atomic_type_lock_free): New macro.
-	(ATOMIC_BOOL_LOCK_FREE, ATOMIC_CHAR_LOCK_FREE)
-	(ATOMIC_CHAR16_T_LOCK_FREE, ATOMIC_CHAR32_T_LOCK_FREE)
-	(ATOMIC_WCHAR_T_LOCK_FREE, ATOMIC_SHORT_LOCK_FREE)
-	(ATOMIC_INT_LOCK_FREE, ATOMIC_LONG_LOCK_FREE)
-	(ATOMIC_LLONG_LOCK_FREE, ATOMIC_POINTER_LOCK_FREE): Define using
-	__atomic_type_lock_free.
-	(atomic_load_explicit): Use given memory order, not
-	__ATOMIC_SEQ_CST.
-	(atomic_exchange_explicit): Use __atomic_exchange with pointer to
-	temporary for value.
-	(atomic_compare_exchange_strong_explicit)
-	(atomic_compare_exchange_weak_explicit): Use
-	__atomic_compare_exchange.
-	(atomic_flag): Make into a structure type.
-	(ATOMIC_FLAG_INIT): Use braced initializer.
-	(atomic_flag_test_and_set, atomic_flag_test_and_set_explicit): Use
-	__atomic_test_and_set.
-	(atomic_flag_clear, atomic_flag_clear_explicit): Use
-	__atomic_clear.
-
-2013-10-19  Joseph Myers  <joseph@codesourcery.com>
-
-	* ginclude/stdatomic.h: Add missing semicolons to typedefs.
-	(kill_dependency): Use temporary variable.
-
 2013-10-17  Joseph Myers  <joseph@codesourcery.com>
 
-	* Makefile.in (USER_H): Add stdatomic.h.
-	* ginclude/stdatomic.h: Fix formatting and typos.  Use correct
-	types or predefined macros for atomic_* typedefs.  Use
-	__extension__ in macro definitions.
-	(enum memory_order): Specify values of enumeration constants using
-	__ATOMIC_* predefined macros.
 	* tree.c (build_common_tree_nodes): Fix typos.
 
 2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
@@ -62,6 +20,72 @@
 	* target.def (atomic_align_for_mode): define hook.
 	* doc/tm.texi (TARGET_ATOMIC_ALIGN_FOR_MODE): Define.
 	* doc/tm.texi.in (TARGET_ATOMIC_ALIGN_FOR_MODE): Add.
+
+2013-11-08  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR other/59055
+	* doc/extend.texi: Move Cilk Plus Builtins node before Other
+	Builtins node.
+
+2013-11-08  Andrew MacLeod  <amacleod@redhat.com>
+	    Joseph Myers  <joseph@codesourcery.com>
+
+	* ginclude/stdatomic.h: New file.
+	* Makefile.in (USER_H): Add stdatomic.h.
+
+2013-11-08  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/arm.c (arm_new_rtx_costs): Break after handling
+	comparisons.
+
+2013-11-08  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadupdate.h (delete_thread_path): Declare.
+	* tree-ssa-threadupdate.c (delete_thread_path): New function.
+	(ssa_redirect_edges, thread_block_1): Use it.
+	(thread_through_loop_header, mark_threaded_blocks): Likewise.
+	(thread_through_all_blocks, register_jump_thread): Likewise.
+	* tree-ssa-threadedge.c (thread_across_edge): Likewise.
+
+2013-11-08  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/arm/aarch-common.c
+	(search_term): New typedef.
+	(shift_rtx_costs): New array.
+	(arm_rtx_shift_left_p): New.
+	(arm_find_sub_rtx_with_search_term): Likewise.
+	(arm_find_sub_rtx_with_code): Likewise.
+	(arm_early_load_addr_dep): Add sanity checking.
+	(arm_no_early_alu_shift_dep): Likewise.
+	(arm_no_early_alu_shift_value_dep): Likewise.
+	(arm_no_early_mul_dep): Likewise.
+	(arm_no_early_store_addr_dep): Likewise.
+
+2013-11-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59047
+	* tree-predcom.c (ref_at_iteration): Handle bitfield accesses
+	properly.
+
+2013-11-08  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* common.opt (fcheck-pointer-bounds): Move to ...
+	* c-family/c.opt: ... here.
+	* langhooks-def.h (LANG_HOOKS_CHKP_SUPPORTED): Remove.
+	(LANG_HOOKS_INITIALIZER): Remove LANG_HOOKS_CHKP_SUPPORTED.
+	* langhooks.h (lang_hooks): Remove chkp_supported field.
+	* toplev.c (process_options): Remove chkp_supported check.
+
+2013-11-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59038
+	PR tree-optimization/58955
+	* tree-loop-distribution.c (pg_add_dependence_edges): Revert
+	previous change.  Handle known dependences correctly.
+
+2013-11-08  Tom de Vries  <tom@codesourcery.com>
+
+	* config/rs6000/t-xilinx: Remove duplicate contents.
 
 2013-11-07  Andrew MacLeod  <amacleod@redhat.com>
 	    Joseph Myers  <joseph@codesourcery.com>

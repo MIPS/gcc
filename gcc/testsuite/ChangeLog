@@ -1,3 +1,10 @@
+2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gcc.dg/atomic-exchange-{1-5}.c: Change atomic var to use
+	__attribute__((atomic)).
+	* gcc.dg/atomic-op-{1-5}.c: Add --std=c11 and change atomic var to
+	use _Atomic keyword.
+
 2013-11-08  Joseph Myers  <joseph@codesourcery.com>
 
 	* gcc.dg/atomic/stdatomic-compare-exchange-1.c,
@@ -24,12 +31,26 @@
 	gcc.dg/atomic/stdatomic-store-4.c, gcc.dg/c11-stdatomic-1.c: New
 	tests.
 
-2013-09-25  Andrew MacLeod  <amacleod@redhat.com>
+2013-11-08  Cong Hou  <congh@google.com>
 
-	* gcc.dg/atomic-exchange-{1-5}.c: Change atomic var to use
-	__attribute__((atomic)).
-	* gcc.dg/atomic-op-{1-5}.c: Add --std=c11 and change atomic var to
-	use _Atomic keyword.
+	PR tree-optimization/58508
+	* gcc.dg/vect/pr58508.c: Update.
+
+2013-11-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59047
+	* gcc.dg/torture/pr59047.c: New testcase.
+
+2013-11-08  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59038
+	PR tree-optimization/58955
+	* gcc.dg/torture/pr59038.c: New testcase.
+
+2013-11-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58471
+	* gfortran.dg/constructor_9.f90: New.
 
 2013-11-07  Joseph Myers  <joseph@codesourcery.com>
 
