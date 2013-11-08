@@ -1,5 +1,16 @@
 2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r203458
+	2013-10-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (*vsx_le_perm_load_v2di): Generalize to
+	handle vector float as well.
+	(*vsx_le_perm_load_v4si): Likewise.
+	(*vsx_le_perm_store_v2di): Likewise.
+	(*vsx_le_perm_store_v4si): Likewise.
+
+2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r203457
 	2013-10-11  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
