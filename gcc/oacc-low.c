@@ -436,12 +436,6 @@ add_host_version(gimple_stmt_iterator *gsi, gimple_seq orig)
     gsi_insert_seq_after(gsi, orig, GSI_CONTINUE_LINKING);
 }
 
-static bool
-is_pointer(tree arg)
-{
-  return TREE_CODE(TREE_TYPE(arg)) == POINTER_TYPE;
-}
-
 /* When there is assignment like D.1988 = a.1 + D.1987 where a.1 id pointer
  * we have to add one assignment before the statement:
  * D.1988 = a.1;
@@ -466,7 +460,7 @@ add_assingments_to_ptrs (gimple_seq *seq, oacc_context* ctx)
           if (is_gimple_assign (inner_stmt))
             {
               tree rhs = gimple_assign_rhs1 (inner_stmt);
-              if (is_pointer(rhs))
+              if (POINTER_TYPE_P(TREE_TYPE(rhs)))
                 {
                   tree lhs = gimple_assign_lhs (inner_stmt);
                   tree op = gimple_assign_rhs2 (inner_stmt);
@@ -678,7 +672,7 @@ gather_oacc_fn_args(splay_tree_node node, void* data)
 {
     vec<tree>* pargs = (vec<tree>*)data;
     tree arg = (tree)node->key;
-    if(!is_gimple_reg(arg) || is_pointer(arg))
+    if(!is_gimple_reg(arg) || POINTER_TYPE_P(TREE_TYPE(arg)))
       pargs->quick_push(arg);
     else
       node->value = (splay_tree_value)NULL_TREE;
@@ -732,10 +726,10 @@ gather_oacc_fn_locals(splay_tree_node node, void* data)
 {
     splay_tree* local_map = (splay_tree*)data;
     tree arg = (tree)node->key;
-    if(is_gimple_reg(arg) && !is_pointer (arg))
+    if(is_gimple_reg(arg) && !POINTER_TYPE_P(TREE_TYPE(arg)))
         generate_local_reg (local_map, arg);
     /* We need to add value to the map, since then we use it in assignment. */
-    if(is_pointer (arg))
+    if(POINTER_TYPE_P(TREE_TYPE(arg)))
         generate_local_reg (local_map, (tree)node->value);
     return 0;
 }
