@@ -1,3 +1,9 @@
+2013-11-08  Thomas Schwinge  <thomas@codesourcery.com>
+
+	libgomp/
+	* target.c (gomp_find_available_plugins): Don't skip device 257
+	setup.
+
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* oacc-parallel.c: New file.
