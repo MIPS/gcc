@@ -1881,14 +1881,25 @@ dump_gimple_acc_kernels (pretty_printer *buffer, gimple gs,
   {
     gimple_seq body;
     pp_string (buffer, "#pragma acc kernels");
-    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+    dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
 
     if (gimple_acc_kernels_child_fn (gs))
     {
+      unsigned i;
+
       pp_string (buffer, " [child fn: ");
       dump_generic_node (buffer, gimple_acc_kernels_child_fn (gs),
                          spc, flags, false);
       pp_string (buffer, " (");
+      for(i = 0; i < gimple_acc_nparams(gs); ++i)
+      {
+        dump_generic_node(buffer, gimple_acc_kernels_param(gs, i),
+          spc, flags, false);
+        if(i + 1 < gimple_acc_nparams(gs))
+        {
+          pp_string (buffer, ", ");
+        }
+      }
       pp_string (buffer, ")]");
     }
 
@@ -1920,14 +1931,25 @@ dump_gimple_acc_parallel (pretty_printer *buffer, gimple gs,
   {
     gimple_seq body;
     pp_string (buffer, "#pragma acc parallel");
-    //dump_acc_clauses (buffer, gimple_acc_parallel_clauses (gs), spc, flags);
+    dump_acc_clauses (buffer, gimple_acc_parallel_clauses (gs), spc, flags);
 
     if (gimple_acc_parallel_child_fn (gs))
     {
+      unsigned i;
+
       pp_string (buffer, " [child fn: ");
       dump_generic_node (buffer, gimple_acc_parallel_child_fn (gs),
                          spc, flags, false);
       pp_string (buffer, " (");
+      for(i = 0; i < gimple_acc_nparams(gs); ++i)
+      {
+        dump_generic_node(buffer, gimple_acc_parallel_param(gs, i),
+          spc, flags, false);
+        if(i + 1 < gimple_acc_nparams(gs))
+        {
+          pp_string (buffer, ", ");
+        }
+      }
       pp_string (buffer, ")]");
     }
 

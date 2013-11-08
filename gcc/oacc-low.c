@@ -180,6 +180,15 @@ typedef struct acc_region_t
     vec <acc_region>* children;
 } acc_region_t;
 
+typedef struct acc_schedule_t* acc_schedule;
+
+typedef struct acc_schedule_t
+{
+  tree items;
+  tree tiling;
+  tree group_size;
+} acc_schedule_t;
+
 typedef struct acc_kernel_t *acc_kernel;
 
 typedef struct acc_kernel_t
@@ -219,7 +228,7 @@ static splay_tree all_contexts;
 static int nesting_level;
 static acc_region root_region;
 static int save_opt_level = -1;
-static GTY((param1_is(unsigned), param2_is(tree))) splay_tree kernels;
+static GTY((param1_is(unsigned), param2_is(unsigned))) splay_tree kernels;
 
 static void analyze_gimple(gimple_seq* pseq, oacc_context* ctx);
 static void lower_oacc(gimple_seq* pseq, oacc_context* ctx);
@@ -1184,16 +1193,16 @@ gen_add(gimple_stmt_iterator* gsi, gimple stmt)
 }
 
 static void
-mark_kernels_parallel(tree kernel_fn, tree niter)
+mark_kernels_parallel(tree kernel_fn, unsigned collapse)
 {
     if(!kernels)
     {
       kernels = splay_tree_new_ggc (splay_tree_compare_pointers,
-        ggc_alloc_splay_tree_scalar_tree_node_splay_tree_s,
-        ggc_alloc_splay_tree_scalar_tree_node_splay_tree_node_s);
+        ggc_alloc_splay_tree_scalar_scalar_splay_tree_s,
+        ggc_alloc_splay_tree_scalar_scalar_splay_tree_node_s);
     }
     splay_tree_insert(kernels, (splay_tree_key)DECL_UID(kernel_fn),
-                      (splay_tree_value)niter);
+                      (splay_tree_value)collapse);
 }
 
 static bool
@@ -1737,7 +1746,8 @@ extract_kernels(struct loops* loops, tree child_fn,
         }
 
       kernels->safe_push(kernel);
-      mark_kernels_parallel (child_fn, kernel->niter_desc.niter);
+      mark_kernels_parallel (child_fn, (kernel->niter_desc.niter != NULL_TREE)
+                                        ? 1 : 0);
       return;
     }
 
@@ -2027,7 +2037,8 @@ extract_kernels(struct loops* loops, tree child_fn,
       if(save_opt_level >= 0)
         optimize = opt_level;
     }
-    mark_kernels_parallel (fn, (*kernels)[i]->niter_desc.niter);
+    mark_kernels_parallel (fn, 
+      ((*kernels)[i]->niter_desc.niter != NULL_TREE) ? 1 : 0);
   }
 
 }
@@ -2136,7 +2147,7 @@ check_for_ctrl_var(tree var)
 // TODO
 // check for those have cycle in SSA graph (?)
 static tree
-find_ctrl_var(basic_block header)
+find_ctrl_var(basic_block header, struct loop* loop)
 {
     gimple cond_stmt;
     tree var = NULL_TREE;
@@ -2234,7 +2245,7 @@ gather_control_var_defs(tree var, vec<gimple_stmt_iterator>* piter)
 }
 
 static void
-parallelize_loop(struct loop* l)
+parallelize_loop(struct loop* l, unsigned collapse)
 {
     if(dump_file)
         {
@@ -2273,7 +2284,7 @@ parallelize_loop(struct loop* l)
     exit = single_dom_exit(l);
     hdr_blk = exit->src;
 
-    tree ctrl_var = find_ctrl_var(hdr_blk);
+    tree ctrl_var = find_ctrl_var(hdr_blk, l);
 
     if(dump_file)
         {
@@ -2463,10 +2474,11 @@ parallelize_loop(struct loop* l)
                                         builtin_decl, 1,
                                         build_int_cst(builtin_return_type, 0));
                             tree tmp_var = create_tmp_reg(builtin_return_type,
-                              "_oacc_tmp");
+                              "_acc_tmp");
                             tmp_var = make_ssa_name_fn(cfun, tmp_var, call_stmt);
                             set_gimple_def_var(call_stmt, tmp_var);
                             gen_add(&gsi, call_stmt);
+
 
                             if (builtin_unsigned != lhs_unsigned)
                               {
@@ -2474,7 +2486,7 @@ parallelize_loop(struct loop* l)
                                 gimple convert_stmt 
                                   = build_type_cast (TREE_TYPE(lhs), tmp_var);
                                 tree convert_var 
-                                  = create_tmp_reg(TREE_TYPE(lhs), "_oacc_tmp");
+                                  = create_tmp_reg(TREE_TYPE(lhs), "_acc_tmp");
                                 convert_var 
                                   = make_ssa_name_fn(cfun, convert_var,
                                                   convert_stmt);
@@ -2513,7 +2525,7 @@ parallelize_loop(struct loop* l)
 }
 
 static void
-parallelize_loops(struct loop* root)
+parallelize_loops(struct loop* root, unsigned collapse)
 {
     if(root->inner == NULL)
         {
@@ -2525,7 +2537,7 @@ parallelize_loops(struct loop* root)
     struct loop* ploop;
     for(ploop = root->inner; ploop != NULL; ploop = ploop->next)
         {
-            parallelize_loop(ploop);
+            parallelize_loop(ploop, collapse);
         }
 }
 
@@ -2579,10 +2591,74 @@ switch_func_back(int save_opt_level)
 }
 
 static void
+schedule_kernel(gimple_stmt_iterator* gsi, acc_schedule sched,
+                tree niter, tree clause)
+{
+  tree num_gangs = NULL_TREE,
+    num_workers = NULL_TREE,
+    vector_length = NULL_TREE;
+
+  while(clause != NULL_TREE)
+  {
+    switch(ACC_CLAUSE_CODE(clause))
+    {
+    case ACC_CLAUSE_NUM_GANGS:
+      num_gangs = ACC_CLAUSE_NUM_GANGS_EXPR(clause);
+      break;
+    case ACC_CLAUSE_NUM_WORKERS:
+      num_workers = ACC_CLAUSE_NUM_WORKERS_EXPR(clause);
+      break;
+    case ACC_CLAUSE_VECTOR_LENGTH:
+      vector_length = ACC_CLAUSE_VECTOR_LENGTH_EXPR(clause);
+      break;
+    default:
+      break;
+    }
+    clause = ACC_CLAUSE_CHAIN(clause);
+  }
+
+  sched->items = integer_one_node;
+  sched->tiling = NULL;
+  sched->group_size = integer_minus_one_node;
+
+  /*
+    We currently do not use 'num_workers' clause hint.
+    This clause has its origin from NVIDIA warps,
+    OpenCL on the other hand doesn't support this concept.
+  */
+
+  if(num_gangs != NULL_TREE)
+  {
+    tree workitems = num_gangs;
+
+    if(niter == NULL_TREE)
+    {
+      sched->items = workitems;
+    }
+    else
+    {
+      sched->items = niter;
+      sched->tiling = workitems;
+    }
+  }
+  else if(niter != NULL_TREE)
+  {
+    sched->items = niter;
+  }
+
+  if(vector_length != NULL_TREE)
+  {
+    sched->group_size = vector_length;
+  }
+}
+
+static void
 expand_oacc_kernels(gimple_stmt_iterator* gsi)
 {
     unsigned i, j;
     gimple stmt = gsi_stmt(*gsi);
+    tree sched_clauses = ((gimple_code(stmt) == GIMPLE_ACC_PARALLEL)
+      ? gimple_acc_parallel_clauses(stmt) : NULL_TREE);
 
     tree child_fn = GIMPLE_ACC_CHILD_FN(stmt);
 
@@ -2676,8 +2752,7 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
     {
       gen_add(gsi, build_call(locus,
                 builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
-                queue_handle,
-                build_int_cst(uint32_type_node, 1),
+                queue_handle, integer_one_node,
                 build_int_cst(uint32_type_node, OACC_PF_EXEC)));
     }
 
@@ -2725,24 +2800,102 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
     /* OACC_start_kernel */
     for(i = 0; i < kernels.length(); ++i)
     {
-      tree worksize;
-      if(kernels[i]->niter_desc.niter != NULL_TREE)
-          {
-              worksize = kernels[i]->niter_desc.niter;
-          }
-      else
-          {
-              worksize = integer_one_node;
-          }
+      acc_schedule_t sched;
+      tree offset = integer_zero_node;
 
-      gen_add(gsi, build_call(locus,
-                    builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 6,
-                    kernels[i]->kernel_handle,
-                    worksize,               /* WORKITEMS */
-                    integer_zero_node,      /* OFFSET */
-                    integer_minus_one_node, /* GROUPSIZE */
-                    queue_handle,
-                    integer_zero_node));
+      memset(&sched, sizeof(acc_schedule_t), 0);
+      schedule_kernel(gsi, &sched, kernels[i]->niter_desc.niter,
+                    sched_clauses);
+
+      if(sched.tiling != NULL_TREE)
+      {
+        gimple stmt = gsi_stmt(*gsi), init_stmt;
+        basic_block bb = gimple_bb(stmt);
+        edge new_edge = split_block(bb, stmt), e;
+        basic_block new_bb, header_bb, body_bb;
+        struct loop* l;
+        tree counter, counter_1, counter_2, counter_3;
+        tree conv_var;
+
+        new_bb = new_edge->dest;
+        body_bb = create_empty_bb(bb);
+        header_bb = create_empty_bb(body_bb);
+
+        new_edge = redirect_edge_and_branch(new_edge, header_bb);
+        e = make_edge(header_bb, body_bb, EDGE_DFS_BACK | EDGE_TRUE_VALUE);
+        e = make_edge(header_bb, new_bb, EDGE_FALSE_VALUE);
+        e = make_single_succ_edge(body_bb, header_bb, EDGE_FALLTHRU);
+
+        set_immediate_dominator(CDI_DOMINATORS, header_bb, bb);
+        set_immediate_dominator(CDI_DOMINATORS, new_bb, header_bb);
+        set_immediate_dominator(CDI_DOMINATORS, body_bb, header_bb);
+
+        l = alloc_loop();
+        l->header = header_bb;
+        header_bb->loop_father = l;
+        l->latch = body_bb;
+        body_bb->loop_father = l;
+
+
+        place_new_loop(cfun, l);
+        flow_loop_tree_node_add(bb->loop_father, l);
+        
+        counter = create_tmp_reg(intSI_type_node, "_oacc_counter");
+        counter_1 = make_ssa_name_fn(cfun, counter, init_stmt);
+        init_stmt = gimple_build_assign(counter_1, offset);
+        gen_add(gsi, init_stmt);
+
+        if(TYPE_UNSIGNED(TREE_TYPE(sched.items))
+            != TYPE_UNSIGNED(TREE_TYPE(counter)))
+        {
+          gimple convert_stmt =
+            build_type_cast(TREE_TYPE(counter), sched.items);
+          conv_var = create_tmp_reg(TREE_TYPE(counter), "_acc_tmp");
+          conv_var = make_ssa_name_fn(cfun, conv_var, convert_stmt);
+          set_gimple_def_var(convert_stmt, conv_var);
+          gen_add(gsi, convert_stmt);
+        }
+        else
+        {
+          conv_var = sched.items;
+        }
+
+        counter_2 = make_ssa_name_fn(cfun, counter, init_stmt);
+        counter_3 = make_ssa_name_fn(cfun, counter, init_stmt);
+
+        *gsi = gsi_start_bb(body_bb);
+        gen_add(gsi, build_call(locus,
+                      builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 6,
+                      kernels[i]->kernel_handle,
+                      sched.tiling,       /* WORKITEMS */
+                      counter_2,      /* OFFSET */
+                      sched.group_size,  /* GROUPSIZE */
+                      queue_handle,
+                      integer_zero_node));
+        stmt = build_assign(PLUS_EXPR, counter_2, sched.tiling);
+        set_gimple_def_var(stmt, counter_3);
+        gen_add(gsi, stmt);
+
+        *gsi = gsi_start_bb(header_bb);
+        stmt = create_phi_node(counter_2, header_bb);
+        add_phi_arg(stmt, counter_1, new_edge, locus);
+        add_phi_arg(stmt, counter_3, e, locus);
+
+        gen_add(gsi, gimple_build_cond(LT_EXPR, counter_2, conv_var,
+                          NULL, NULL));
+        *gsi = gsi_start_bb(new_bb);
+      }
+      else 
+      {
+        gen_add(gsi, build_call(locus,
+                      builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 6,
+                      kernels[i]->kernel_handle,
+                      sched.items,       /* WORKITEMS */
+                      offset,      /* OFFSET */
+                      sched.group_size,  /* GROUPSIZE */
+                      queue_handle,
+                      integer_zero_node));
+      }
       gen_add(gsi, build_call(locus,
                   builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
                   queue_handle));
@@ -2885,11 +3038,9 @@ execute_expand_oacc (void)
         (v = splay_tree_lookup(kernels, DECL_UID(current_function_decl)))
         != NULL)
     {
-      tree niter = (tree)v->value;
-      
-      if(niter != NULL_TREE)
+      if((unsigned)v->value > 0)
       {
-        parallelize_loops(current_loops->tree_root);
+        parallelize_loops(current_loops->tree_root, (unsigned)v->value);
       }
       generate_opencl();
       return 0;

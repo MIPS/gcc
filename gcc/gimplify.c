@@ -7177,8 +7177,14 @@ gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
     case ACC_CLAUSE_INDEPENDENT:
       break;
     case ACC_CLAUSE_NUM_GANGS:
+      if (gimplify_expr (&ACC_CLAUSE_OPERAND (c, 0), pre_p, NULL,
+                         is_gimple_val, fb_rvalue) == GS_ERROR)
+          remove = true;
       break;
     case ACC_CLAUSE_NUM_WORKERS:
+      if (gimplify_expr (&ACC_CLAUSE_OPERAND (c, 0), pre_p, NULL,
+                         is_gimple_val, fb_rvalue) == GS_ERROR)
+          remove = true;
       break;
     case ACC_CLAUSE_PRESENT:
       break;
@@ -7199,6 +7205,9 @@ gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
     case ACC_CLAUSE_VECTOR:
       break;
     case ACC_CLAUSE_VECTOR_LENGTH:
+      if (gimplify_expr (&ACC_CLAUSE_OPERAND (c, 0), pre_p, NULL,
+                         is_gimple_val, fb_rvalue) == GS_ERROR)
+          remove = true;
       break;
     case ACC_CLAUSE_WORKER:
       break;

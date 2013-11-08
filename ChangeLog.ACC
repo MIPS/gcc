@@ -1,3 +1,11 @@
+08-11-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
+    Add support for parallel scheduling clauses.
+
+    * gcc/gimple-pretty-print.c: Add clauses and operands printing.
+    * gcc/gimplify.c: Add scheduling clauses support.
+    * gcc/oacc-low.c: Add parallel kernels scheduling.
+
+
 30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
     Add passing of kernel schedule parameters.
     
