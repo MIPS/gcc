@@ -1,5 +1,15 @@
 2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r203930
+	2013-10-22  Bill Schmidt  <wschmidt@vnet.ibm.com>
+
+	* gcc.target/powerpc/altivec-perm-1.c: Move the two vector pack
+	tests into...
+	* gcc.target/powerpc/altivec-perm-3.c: ...this new test, which is
+	restricted to big-endian targets.
+
+2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r203246
 	2013-10-07  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
