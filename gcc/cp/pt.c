@@ -5138,7 +5138,9 @@ add_inherited_template_parms (tree fn, tree inherited)
   tree cons = DECL_CONSTRAINTS (inherited);
   if (cons)
     {
+      ++processing_template_decl;
       tree reqs = instantiate_requirements (CI_REQUIREMENTS (cons), args);
+      --processing_template_decl;
       DECL_CONSTRAINTS (tmpl) = make_constraints (reqs);
     }
 
@@ -10457,7 +10459,7 @@ tsubst_decl (tree t, tree args, tsubst_flags_t complain)
 	/* We can get here when processing a member function template,
 	   member class template, or template template parameter.  */
 	tree decl = DECL_TEMPLATE_RESULT (t);
-  tree type = TREE_TYPE (t);
+        tree type = TREE_TYPE (t);
 	tree spec;
 	tree tmpl_args;
 	tree full_args;

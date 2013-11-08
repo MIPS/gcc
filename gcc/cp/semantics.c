@@ -2893,7 +2893,7 @@ fixup_template_type (tree type)
     return type;
   tree cur_constr = TEMPLATE_PARMS_CONSTRAINTS (parms);
 
-  // Search for a specialization whose constraints match.
+  // Search for a specialization whose type and constraints match.
   tree tmpl = CLASSTYPE_TI_TEMPLATE (type);
   tree specs = DECL_TEMPLATE_SPECIALIZATIONS (tmpl);
   while (specs)

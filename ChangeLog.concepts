@@ -1,3 +1,7 @@
+2013-11-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/pt.c (add_inherited_template_parms): Instantiate requirements
+	in a processing template decl context.
+
 2013-11-05  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/semantics.c (fixup_template_type): Add a same-type check
 	for specialiations so we don't accidentally match non-dependent
