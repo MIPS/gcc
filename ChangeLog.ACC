@@ -1,3 +1,15 @@
+08-10-2013 Thomas Schwinge <thomas@codesourcery.com>
+    New tests and documentation
+    
+    * gcc/doc/generic.texi: Document ACC clauses
+    * gcc/doc/gimple.texi: Likewise
+    * gcc/testsuite/c-c++-common/openacc-define-1.c: New test
+    * gcc/testsuite/c-c++-common/openacc-define-2.c: Likewise
+    * gcc/testsuite/c-c++-common/openacc-define-3.c: Likewise
+    * gcc/testsuite/gfortran.dg/openacc-define-1.f90: Likewise
+    * gcc/testsuite/gfortran.dg/openacc-define-2.f90: Likewise
+    * gcc/testsuite/gfortran.dg/openacc-define-3.f90: Likewise
+
 08-11-2013 Ilmir Usmanov <i.usmanov@samsung.com>
     Replace is_pointer with POINTER_TYPE_P
     

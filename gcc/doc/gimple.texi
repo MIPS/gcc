@@ -338,6 +338,17 @@ The following table briefly describes the GIMPLE instruction set.
 @item @code{GIMPLE_GOTO}		@tab x			@tab x
 @item @code{GIMPLE_LABEL}		@tab x			@tab x
 @item @code{GIMPLE_NOP}			@tab x			@tab x
+@item @code{GIMPLE_ACC_PARALLEL} @tab x      @tab x
+@item @code{GIMPLE_ACC_KERNELS} @tab x      @tab x
+@item @code{GIMPLE_ACC_DATA} @tab x      @tab x
+@item @code{GIMPLE_ACC_CACHE} @tab x      @tab x
+@item @code{GIMPLE_ACC_WAIT} @tab x      @tab x
+@item @code{GIMPLE_ACC_HOST_DATA} @tab x      @tab x
+@item @code{GIMPLE_ACC_LOOP} @tab x      @tab x
+@item @code{GIMPLE_ACC_DECLARE} @tab x      @tab x
+@item @code{GIMPLE_ACC_UPDATE} @tab x      @tab x
+@item @code{GIMPLE_ACC_COMPUTE_REGION_END} @tab x      @tab x
+@item @code{GIMPLE_ACC_DATA_REGION_END} @tab x      @tab x
 @item @code{GIMPLE_OMP_ATOMIC_LOAD}	@tab x			@tab x
 @item @code{GIMPLE_OMP_ATOMIC_STORE}	@tab x			@tab x
 @item @code{GIMPLE_OMP_CONTINUE}	@tab x			@tab x
