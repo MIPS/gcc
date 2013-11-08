@@ -1,3 +1,12 @@
+2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r201149
+	2013-07-22  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+	            Anton Blanchard <anton@au1.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vector_init): Fix
+	endianness when selecting field to splat.
+
 2013-10-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline
