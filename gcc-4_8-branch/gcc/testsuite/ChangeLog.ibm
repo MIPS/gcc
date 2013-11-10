@@ -1,5 +1,12 @@
 2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r204321
+	2013-11-02  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
+
+	* gcc.dg/vmx/vec-set.c: New.
+
+2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r204138
 	2013-10-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
