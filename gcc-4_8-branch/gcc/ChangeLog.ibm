@@ -1,5 +1,15 @@
 2013-11-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r204440
+	2013-11-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (mulv4si3): Ensure we generate vmulouh
+	for both big and little endian.
+	(mulv8hi3): Swap input operands for merge high and merge low
+	instructions for little endian.
+
+2013-11-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r204439
 	2013-11-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
