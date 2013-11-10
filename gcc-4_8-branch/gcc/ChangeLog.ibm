@@ -1,4 +1,12 @@
-2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+2013-11-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r204321
+	2013-11-04  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (vec_pack_trunc_v2df):  Adjust for
+	little endian.
+
+2013-11-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline r204321
 	2013-11-02  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
@@ -6,7 +14,7 @@
 	* config/rs6000/rs6000.c (rs6000_expand_vector_set): Adjust for
 	little endian.
 
-2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+2013-11-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline r203980
 	2013-10-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
