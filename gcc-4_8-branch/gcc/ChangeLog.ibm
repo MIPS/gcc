@@ -1,5 +1,12 @@
 2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r203980
+	2013-10-23  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (mulv8hi3): Adjust for little endian.
+
+2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r203930
 	2013-10-22  Bill Schmidt  <wschmidt@vnet.ibm.com>
 
