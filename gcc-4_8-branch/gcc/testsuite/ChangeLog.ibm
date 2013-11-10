@@ -1,5 +1,13 @@
 2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r204138
+	2013-10-28  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/vmx/gcc-bug-i.c: Add little endian variant.
+	* gcc.dg/vmx/eg-5.c: Likewise.
+
+2013-11-08  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r203930
 	2013-10-22  Bill Schmidt  <wschmidt@vnet.ibm.com>
 
