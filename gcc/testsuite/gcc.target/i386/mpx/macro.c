@@ -1,6 +1,6 @@
 /* { dg-do compile } */
-/* { dg-options "-fcheck-pointers -mmpx" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-options "-fcheck-pointer-bounds -mmpx" } */
+
 
 #include "mpx-check.h"
 
@@ -9,7 +9,7 @@
 #endif
 
 #ifndef __CHKP__
-#error -fcheck-pointers is required
+#error -fcheck-pointer-bounds is required
 #endif
 
 int mpx_test (int argc, const char **argv)
