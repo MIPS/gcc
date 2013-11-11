@@ -1,3 +1,35 @@
+2013-11-11  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-11-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58970
+	* gcc.c-torture/compile/pr58970-1.c: New test.
+	* gcc.c-torture/compile/pr58970-2.c: New test.
+
+	2013-11-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58997
+	* gcc.c-torture/compile/pr58997.c: New test.
+
+2013-11-10  Wei Mi  <wmi@google.com>
+
+	* testsuite/gcc.dg/pr57518.c: Backport regex fix from r200720.
+
+2013-11-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2013-11-07  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59034
+	* gcc.target/i386/pr59034-1.c: New test.
+	* gcc.target/i386/pr59034-2.c: Likewise.
+
+2013-11-06  Wei Mi  <wmi@google.com>
+
+	PR regression/58985
+	* testsuite/gcc.dg/pr57518.c: Add subreg in regexp pattern.
+
 2013-11-05  Steven G. Kargl <kargl@gcc.gnu.org>
 
 	PR fortran/58989
