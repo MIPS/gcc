@@ -2334,7 +2334,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
   /* If the function isn't const, only allow it in simd loops where user
      has asserted that at least nunits consecutive iterations can be
      performed using SIMD instructions.  */
-  if ((loop == NULL || loop->simdlen < nunits) && gimple_vuse (stmt))
+  if ((loop == NULL || loop->safelen < nunits) && gimple_vuse (stmt))
     {
       arginfo.release ();
       return false;

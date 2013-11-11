@@ -2982,7 +2982,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
 	      gimple stmt = gsi_stmt (gsi);
 	      if (!find_data_references_in_stmt (loop, stmt, &datarefs))
 		{
-		  if (is_gimple_call (stmt) && loop->simdlen)
+		  if (is_gimple_call (stmt) && loop->safelen)
 		    {
 		      tree fndecl = gimple_call_fndecl (stmt), op;
 		      if (fndecl != NULL_TREE)
