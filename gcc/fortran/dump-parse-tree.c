@@ -1294,7 +1294,7 @@ show_acc_node (int level, gfc_code *c)
     case EXEC_ACC_PARALLEL_LOOP:
     case EXEC_ACC_ENTER_DATA:
     case EXEC_ACC_EXIT_DATA:
-      acc_clauses = c->ext.acc_clauses;
+      acc_clauses = c->ext.omp_clauses;
       break;
     default:
       break;
@@ -1402,8 +1402,8 @@ show_acc_node (int level, gfc_code *c)
                   case ACC_LIST_PRESENT_OR_COPYOUT: name = "PRESENT_OR_COPYOUT"; break;
                   case ACC_LIST_PRESENT_OR_CREATE: name = "PRESENT_OR_CREATE"; break;
                   case ACC_LIST_DEVICEPTR: name = "DEVICEPTR"; break;
-                  case ACC_LIST_PRIVATE: name = "PRIVATE"; break;
-                  case ACC_LIST_FIRSTPRIVATE: name = "FIRSTPRIVATE"; break;
+                  case OMP_LIST_PRIVATE: name = "PRIVATE"; break;
+                  case OMP_LIST_FIRSTPRIVATE: name = "FIRSTPRIVATE"; break;
                   case ACC_LIST_USE_DEVICE: name = "USE_DEVICE"; break;
                   case ACC_LIST_DEVICE_RESIDENT: name = "USE_DEVICE"; break;
                   case ACC_LIST_HOST: name = "HOST"; break;
@@ -1419,18 +1419,18 @@ show_acc_node (int level, gfc_code *c)
               {
                 switch (list)
                   {
-                  case ACC_LIST_PLUS: name = "+"; break;
-                  case ACC_LIST_MULT: name = "*"; break;
-                  case ACC_LIST_SUB: name = "-"; break;
-                  case ACC_LIST_AND: name = ".AND."; break;
-                  case ACC_LIST_OR: name = ".OR."; break;
-                  case ACC_LIST_EQV: name = ".EQV."; break;
-                  case ACC_LIST_NEQV: name = ".NEQV."; break;
-                  case ACC_LIST_MAX: name = "MAX"; break;
-                  case ACC_LIST_MIN: name = "MIN"; break;
-                  case ACC_LIST_IAND: name = "IAND"; break;
-                  case ACC_LIST_IOR: name = "IOR"; break;
-                  case ACC_LIST_IEOR: name = "IEOR"; break;
+                  case OMP_LIST_PLUS: name = "+"; break;
+                  case OMP_LIST_MULT: name = "*"; break;
+                  case OMP_LIST_SUB: name = "-"; break;
+                  case OMP_LIST_AND: name = ".AND."; break;
+                  case OMP_LIST_OR: name = ".OR."; break;
+                  case OMP_LIST_EQV: name = ".EQV."; break;
+                  case OMP_LIST_NEQV: name = ".NEQV."; break;
+                  case OMP_LIST_MAX: name = "MAX"; break;
+                  case OMP_LIST_MIN: name = "MIN"; break;
+                  case OMP_LIST_IAND: name = "IAND"; break;
+                  case OMP_LIST_IOR: name = "IOR"; break;
+                  case OMP_LIST_IEOR: name = "IEOR"; break;
                   default:
                     gcc_unreachable ();
                   }

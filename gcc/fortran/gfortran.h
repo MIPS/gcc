@@ -1054,13 +1054,16 @@ gfc_exprlist;
 enum
 {
   OMP_LIST_PRIVATE,
+  ACC_LIST_PRIVATE = OMP_LIST_PRIVATE,
   OMP_LIST_FIRSTPRIVATE,
+  ACC_LIST_FIRSTPRIVATE = OMP_LIST_FIRSTPRIVATE,
   OMP_LIST_LASTPRIVATE,
   OMP_LIST_COPYPRIVATE,
   OMP_LIST_SHARED,
   OMP_LIST_COPYIN,
   OMP_LIST_PLUS,
   OMP_LIST_REDUCTION_FIRST = OMP_LIST_PLUS,
+  ACC_LIST_REDUCTION_FIRST = OMP_LIST_REDUCTION_FIRST,
   OMP_LIST_MULT,
   OMP_LIST_SUB,
   OMP_LIST_AND,
@@ -1073,51 +1076,28 @@ enum
   OMP_LIST_IOR,
   OMP_LIST_IEOR,
   OMP_LIST_REDUCTION_LAST = OMP_LIST_IEOR,
-  OMP_LIST_NUM
-};
+  ACC_LIST_REDUCTION_LAST = OMP_LIST_REDUCTION_LAST,
+  OMP_LIST_NUM,
 
-enum
-{
-  ACC_LIST_COPY,
+  ACC_LIST_COPY = OMP_LIST_NUM,
+  ACC_LIST_FIRST = ACC_LIST_COPY,
   ACC_LIST_DATA_CLAUSE_FIRST = ACC_LIST_COPY,
   ACC_LIST_COPYIN,
   ACC_LIST_COPYOUT,
   ACC_LIST_CREATE,
   ACC_LIST_DELETE,
-
   ACC_LIST_PRESENT,
   ACC_LIST_PRESENT_OR_COPY,
   ACC_LIST_PRESENT_OR_COPYIN,
   ACC_LIST_PRESENT_OR_COPYOUT,
   ACC_LIST_PRESENT_OR_CREATE,
-
   ACC_LIST_DEVICEPTR,
   ACC_LIST_DATA_CLAUSE_LAST = ACC_LIST_DEVICEPTR,
-  ACC_LIST_PRIVATE,
-  ACC_LIST_FIRSTPRIVATE,
   ACC_LIST_USE_DEVICE,
   ACC_LIST_DEVICE_RESIDENT,
-
   ACC_LIST_HOST,
   ACC_LIST_DEVICE,
   ACC_LIST_CACHE,
-  ACC_LIST_PLUS,
-  ACC_LIST_REDUCTION_FIRST = ACC_LIST_PLUS,
-  ACC_LIST_MULT,
-
-  ACC_LIST_SUB,
-  ACC_LIST_AND,
-  ACC_LIST_OR,
-  ACC_LIST_EQV,
-  ACC_LIST_NEQV,
-
-  ACC_LIST_MAX,
-  ACC_LIST_MIN,
-  ACC_LIST_IAND,
-  ACC_LIST_IOR,
-  ACC_LIST_IEOR,
-  ACC_LIST_REDUCTION_LAST = ACC_LIST_IEOR,
-
   ACC_LIST_NUM
 };
 
@@ -1148,21 +1128,15 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *if_expr;
   struct gfc_expr *final_expr;
   struct gfc_expr *num_threads;
-  gfc_namelist *lists[OMP_LIST_NUM];
+  gfc_namelist *lists[ACC_LIST_NUM];
   enum gfc_omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
   enum gfc_omp_default_sharing default_sharing;
   int collapse;
   bool nowait, ordered, untied, mergeable;
-}
-gfc_omp_clauses;
 
-#define gfc_get_omp_clauses() XCNEW (gfc_omp_clauses)
-
-/* OpenACC */
-typedef struct gfc_acc_clauses
-{
-  struct gfc_expr *if_expr;
+  /* OpenACC. */
+  bool is_acc;
   struct gfc_expr *async_expr;
   struct gfc_expr *gang_expr;
   struct gfc_expr *worker_expr;
@@ -1171,16 +1145,24 @@ typedef struct gfc_acc_clauses
   struct gfc_expr *num_workers_expr;
   struct gfc_expr *vector_length_expr;
   struct gfc_expr *non_clause_wait_expr;
-  gfc_namelist *lists[ACC_LIST_NUM];
   gfc_exprlist *waitlist;
   gfc_exprlist *tilelist;
-  int collapse;
   bool async, gang, worker, vector, seq, independent;
   bool default_none, wait, par_auto, gang_static;
 }
-gfc_acc_clauses;
+gfc_omp_clauses;
 
-#define gfc_get_acc_clauses() XCNEW (gfc_acc_clauses)
+#define gfc_get_omp_clauses() XCNEW (gfc_omp_clauses)
+
+typedef gfc_omp_clauses gfc_acc_clauses;
+
+static inline gfc_acc_clauses*
+gfc_get_acc_clauses()
+{
+  gfc_acc_clauses *result = XCNEW (gfc_acc_clauses);
+  result->is_acc = true;
+  return result;
+}
 
 /* The gfc_st_label structure is a BBT attached to a namespace that
    records the usage of statement labels within that space.  */
@@ -2267,7 +2249,6 @@ typedef struct gfc_code
     int stop_code;
     gfc_entry_list *entry;
     gfc_omp_clauses *omp_clauses;
-    gfc_acc_clauses *acc_clauses;
     const char *omp_name;
     gfc_namelist *omp_namelist;
     bool omp_bool;
@@ -2843,10 +2824,7 @@ void gfc_resolve_omp_parallel_blocks (gfc_code *, gfc_namespace *);
 void gfc_resolve_omp_do_blocks (gfc_code *, gfc_namespace *);
 void gfc_omp_save_and_clear_state (struct gfc_omp_saved_state *);
 void gfc_omp_restore_state (struct gfc_omp_saved_state *);
-
-/* openacc.c */
 void gfc_free_exprlist (gfc_exprlist *);
-void gfc_free_acc_clauses (gfc_acc_clauses *);
 void gfc_resolve_acc_directive (gfc_code *, gfc_namespace *);
 void gfc_resolve_acc_parallel_loop_blocks (gfc_code *, gfc_namespace *);
 void gfc_resolve_acc_blocks (gfc_code *, gfc_namespace *);

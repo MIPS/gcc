@@ -12,7 +12,7 @@ program test
 	!$acc end parallel
 	!$acc parallel copy(a(3:))
 	!$acc end parallel
-	!$acc parallel copy(a(:)) ! { dg-error "Syntax error in OpenACC variable list" }
+	!$acc parallel copy(a(:)) ! { dg-error "Syntax error in variable list" }
 	!$acc parallel copy(a(2:3,2:3)) ! { dg-error "Number of dimensions" }
 	!$acc end parallel
 	! TODO: there must be warning

@@ -1,8 +1,72 @@
+11-11-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Merge FORTRAN OpenACC scan and resolve passes
+	into OpenMP
+
+	* gcc/fortran/openacc.c: Remove file
+	* gcc/fortran/Make-lang.in: Remove openacc.c from build
+	* gcc/fortran/dump-parse-tree(show-acc-node): Replace some 
+	ACC_* clauses with OMP_*
+	* gcc/fortran/gfortran.h: Merge ACC_LIST_* and OMP_LIST_* enums
+	(gfc_omp_clauses): Add ACC clauses
+	(gfc_get_acc_clauses): New function
+	(gfc_code): Remove acc_clauses
+	(gfc_free_acc_clauses): Remove
+	* gcc/fortran/match.h(gfc_match_acc_eos): Remove
+	* gcc/fortran/openmp.c/
+	(gfc_free_omp_clauses, gfc_match_omp_variable_list,
+	gfc_match_omp_clauses, gfc_match_omp_parallel, gfc_match_omp_task,
+	gfc_match_omp_do, gfc_match_omp_flush, gfc_match_omp_parallel_do, 
+	gfc_match_omp_parallel_sections, gfc_match_omp_parallel_workshare, 
+	gfc_match_omp_sections, gfc_match_omp_single, resolve_omp_clauses):
+	Add scanning and resolving of ACC clauses
+	(ACC_CLAUSE_IF, ACC_CLAUSE_ASYNC, ACC_CLAUSE_NUM_GANGS, 
+	ACC_CLAUSE_NUM_WORKERS, ACC_CLAUSE_VECTOR_LENGTH, ACC_CLAUSE_REDUCTION,
+	ACC_CLAUSE_COPY, ACC_CLAUSE_COPYIN, ACC_CLAUSE_COPYOUT, 
+	ACC_CLAUSE_CREATE, ACC_CLAUSE_PRESENT, ACC_CLAUSE_PRESENT_OR_COPY,
+	ACC_CLAUSE_PRESENT_OR_COPYIN, ACC_CLAUSE_PRESENT_OR_COPYOUT, 
+	ACC_CLAUSE_PRESENT_OR_CREATE, ACC_CLAUSE_DEVICEPTR, ACC_CLAUSE_PRIVATE,
+	ACC_CLAUSE_FIRSTPRIVATE, ACC_CLAUSE_COLLAPSE, ACC_CLAUSE_WORKER, 
+	ACC_CLAUSE_VECTOR, ACC_CLAUSE_SEQ, ACC_CLAUSE_INDEPENDENT,
+	ACC_CLAUSE_USE_DEVICE, ACC_CLAUSE_DEVICE_RESIDENT, ACC_CLAUSE_HOST,
+	ACC_CLAUSE_DEVICE, ACC_CLAUSE_DEFAULT, ACC_CLAUSE_WAIT, 
+	ACC_CLAUSE_DELETE, ACC_CLAUSE_AUTO, ACC_CLAUSE_TILE): New clauses
+	(ACC_PARALLEL_CLAUSES, ACC_KERNELS_CLAUSES, ACC_DATA_CLAUSES,
+	ACC_LOOP_CLAUSES, ACC_PARALLEL_LOOP_CLAUSES, ACC_KERNELS_LOOP_CLAUSES,
+	ACC_HOST_DATA_CLAUSES, ACC_DECLARE_CLAUSES, ACC_UPDATE_CLAUSES,
+	ACC_ENTER_DATA_CLAUSES, ACC_EXIT_DATA_CLAUSES): New directives
+	(gfc_free_exprlist, set_subarray, match_subarray, match_acc_exprlist,
+	gfc_match_acc_parallel_loop, gfc_match_acc_parallel,
+	gfc_match_acc_kernels_loop, gfc_match_acc_kernels, gfc_match_acc_data,
+	gfc_match_acc_host_data, gfc_match_acc_loop, gfc_match_acc_declare,
+	gfc_match_acc_update, gfc_match_acc_enter_data, gfc_match_acc_exit_data,
+	gfc_match_acc_wait, gfc_match_acc_cache, resolve_acc_scalar_int_expr,
+	resolve_acc_positive_int_expr, resolve_subarray, acc_is_parallel,
+	acc_is_kernels, acc_is_loop, resolve_acc_nested_loops, 
+	resolve_acc_params_in_parallel, resolve_acc_loop_blocks,
+	gfc_resolve_acc_blocks, resolve_acc_loop, resolve_acc_cache,
+	resolve_acc_wait, gfc_resolve_acc_directive): New functions
+	* gcc/fortran/parse.c(decode_acc_directive): Replace gfc_match_acc_eos by 
+	gfc_match_omp_eos
+	* gcc/fortran/st.c(gfc_free_statement): Replace gfc_free_acc_clauses by
+	gfc_free_omp_clauses
+	* gcc/fortran/trans-openacc.c(trans_acc_clauses): Replace some 
+	ACC_* clauses by OMP_*
+	(trans_acc_parallel, trans_acc_kernels, trans_acc_data, 
+	trans_acc_host_data, trans_acc_host_data, trans_acc_loop,
+	trans_acc_update, trans_acc_enter_data, trans_acc_exit_data,
+	trans_acc_wait, trans_acc_cache, trans_acc_parallel_loop, 
+	trans_acc_kernels_loop, gfc_trans_acc_directive): Replace acc_clauses by
+	omp_clauses
+	* gcc/testsuite/gfortran.dg/gacc/_list.f95: Change test
+	* gcc/testsuite/gfortran.dg/gacc/_parallel-kernels-regions.f95: Likewise
+	* gcc/testsuite/gfortran.dg/gacc/_sie.f95: Likewise
+	* gcc/testsuite/gfortran.dg/gacc/_subarrays.f95: Likewise
+
 11-11-2013  Evgeny Gavrin  <e.gavrin@samsung.com>
 
 	* ChangeLog.ACC: Fix formatting
 
-08-10-2013  Thomas Schwinge  <thomas@codesourcery.com>
+08-11-2013  Thomas Schwinge  <thomas@codesourcery.com>
 	New tests and documentation
 
 	* gcc/doc/generic.texi: Document ACC clauses

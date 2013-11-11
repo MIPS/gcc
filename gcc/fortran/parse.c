@@ -571,12 +571,12 @@ decode_acc_directive (void)
       match ("declare", gfc_match_acc_declare, ST_ACC_DECLARE);
       break;
     case 'e':
-      match ("end data", gfc_match_acc_eos, ST_ACC_END_DATA);
-      match ("end host_data", gfc_match_acc_eos, ST_ACC_END_HOST_DATA);
-      match ("end kernels loop", gfc_match_acc_eos, ST_ACC_END_KERNELS_LOOP);
-      match ("end kernels", gfc_match_acc_eos, ST_ACC_END_KERNELS);
-      match ("end parallel loop", gfc_match_acc_eos, ST_ACC_END_PARALLEL_LOOP);
-      match ("end parallel", gfc_match_acc_eos, ST_ACC_END_PARALLEL);
+      match ("end data", gfc_match_omp_eos, ST_ACC_END_DATA);
+      match ("end host_data", gfc_match_omp_eos, ST_ACC_END_HOST_DATA);
+      match ("end kernels loop", gfc_match_omp_eos, ST_ACC_END_KERNELS_LOOP);
+      match ("end kernels", gfc_match_omp_eos, ST_ACC_END_KERNELS);
+      match ("end parallel loop", gfc_match_omp_eos, ST_ACC_END_PARALLEL_LOOP);
+      match ("end parallel", gfc_match_omp_eos, ST_ACC_END_PARALLEL);
       match ("enter data", gfc_match_acc_enter_data, ST_ACC_ENTER_DATA);
       match ("exit data", gfc_match_acc_exit_data, ST_ACC_EXIT_DATA);
       break;
@@ -3020,7 +3020,7 @@ declSt:
         }
       if (gfc_state_stack->ext.declare_clauses == NULL)
         {
-          gfc_state_stack->ext.declare_clauses = new_st.ext.acc_clauses;
+          gfc_state_stack->ext.declare_clauses = new_st.ext.omp_clauses;
         }
       accept_statement (st);
       st = next_statement ();

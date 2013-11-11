@@ -20,10 +20,10 @@ program test
 	!$acc parallel async(i+1)
 	!$acc end parallel
 
-	!$acc parallel async(-1) ! { dg-warning "must be positive" }
+	!$acc parallel async(-1) 
 	!$acc end parallel
 
-	!$acc parallel async(0) ! { dg-warning "must be positive" }
+	!$acc parallel async(0) 
 	!$acc end parallel
 
 	!$acc parallel async() ! { dg-error "Invalid character in name" }
@@ -49,10 +49,10 @@ program test
 	!$acc kernels async(i+1)
 	!$acc end kernels
 
-	!$acc kernels async(-1) ! { dg-warning "must be positive" }
+	!$acc kernels async(-1) 
 	!$acc end kernels
 
-	!$acc kernels async(0) ! { dg-warning "must be positive" }
+	!$acc kernels async(0) 
 	!$acc end kernels
 
 	!$acc kernels async() ! { dg-error "Invalid character in name" }

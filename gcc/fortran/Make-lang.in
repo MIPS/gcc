@@ -58,7 +58,7 @@ F95_PARSER_OBJS = fortran/arith.o fortran/array.o fortran/bbt.o \
     fortran/iresolve.o fortran/match.o fortran/matchexp.o fortran/misc.o \
     fortran/module.o fortran/openmp.o fortran/options.o fortran/parse.o \
     fortran/primary.o fortran/resolve.o fortran/scanner.o fortran/simplify.o \
-    fortran/st.o fortran/symbol.o fortran/target-memory.o fortran/openacc.o
+    fortran/st.o fortran/symbol.o fortran/target-memory.o
 
 F95_OBJS = $(F95_PARSER_OBJS) $(FORTRAN_TARGET_OBJS) \
     fortran/convert.o fortran/dependency.o fortran/f95-lang.o \
@@ -328,7 +328,6 @@ $(F95_PARSER_OBJS): fortran/gfortran.h fortran/libgfortran.h \
 		$(FLAGS_H) $(DIAGNOSTIC_H) errors.h $(FUNCTION_H) \
 		fortran/iso-c-binding.def fortran/iso-fortran-env.def
 fortran/openmp.o: pointer-set.h $(TARGET_H) toplev.h
-fortran/openacc.o: pointer-set.h $(TARGET_H) toplev.h
 
 GFORTRAN_TRANS_DEPS = fortran/gfortran.h fortran/libgfortran.h \
     fortran/intrinsic.h fortran/trans-array.h \

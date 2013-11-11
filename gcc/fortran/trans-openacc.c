@@ -435,40 +435,40 @@ trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
           enum tree_code reduction_code;
           switch (list)
             {
-            case ACC_LIST_PLUS:
+            case OMP_LIST_PLUS:
               reduction_code = PLUS_EXPR;
               break;
-            case ACC_LIST_MULT:
+            case OMP_LIST_MULT:
               reduction_code = MULT_EXPR;
               break;
-            case ACC_LIST_SUB:
+            case OMP_LIST_SUB:
               reduction_code = MINUS_EXPR;
               break;
-            case ACC_LIST_AND:
+            case OMP_LIST_AND:
               reduction_code = TRUTH_ANDIF_EXPR;
               break;
-            case ACC_LIST_OR:
+            case OMP_LIST_OR:
               reduction_code = TRUTH_ORIF_EXPR;
               break;
-            case ACC_LIST_EQV:
+            case OMP_LIST_EQV:
               reduction_code = EQ_EXPR;
               break;
-            case ACC_LIST_NEQV:
+            case OMP_LIST_NEQV:
               reduction_code = NE_EXPR;
               break;
-            case ACC_LIST_MAX:
+            case OMP_LIST_MAX:
               reduction_code = MAX_EXPR;
               break;
-            case ACC_LIST_MIN:
+            case OMP_LIST_MIN:
               reduction_code = MIN_EXPR;
               break;
-            case ACC_LIST_IAND:
+            case OMP_LIST_IAND:
               reduction_code = BIT_AND_EXPR;
               break;
-            case ACC_LIST_IOR:
+            case OMP_LIST_IOR:
               reduction_code = BIT_IOR_EXPR;
               break;
-            case ACC_LIST_IEOR:
+            case OMP_LIST_IEOR:
               reduction_code = BIT_XOR_EXPR;
               break;
             default:
@@ -677,7 +677,7 @@ trans_acc_parallel (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_PARALLEL, void_type_node, stmt,
@@ -693,7 +693,7 @@ trans_acc_kernels (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_KERNELS, void_type_node, stmt,
@@ -709,7 +709,7 @@ trans_acc_data (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_DATA, void_type_node, stmt,
@@ -725,7 +725,7 @@ trans_acc_host_data (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = trans_acc_code (code->block->next, true);
   stmt = build2_loc (input_location, ACC_HOST_DATA, void_type_node, stmt,
@@ -748,7 +748,7 @@ trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
   tree count = NULL_TREE, cycle_label, tmp, acc_clauses;
   stmtblock_t block;
   stmtblock_t body;
-  gfc_acc_clauses *clauses = code->ext.acc_clauses;
+  gfc_acc_clauses *clauses = code->ext.omp_clauses;
   int i, collapse = clauses->collapse;
   vec<dovar_init> inits = vNULL;
   dovar_init *di;
@@ -922,7 +922,7 @@ trans_acc_update (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_UPDATE, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -936,7 +936,7 @@ trans_acc_enter_data (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_ENTER_DATA, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -950,7 +950,7 @@ trans_acc_exit_data (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_EXIT_DATA, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -964,7 +964,7 @@ trans_acc_wait (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_WAIT, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -978,7 +978,7 @@ trans_acc_cache (gfc_code *code)
   tree stmt, acc_clauses;
 
   gfc_start_block (&block);
-  acc_clauses = trans_acc_clauses (&block, code->ext.acc_clauses,
+  acc_clauses = trans_acc_clauses (&block, code->ext.omp_clauses,
                                        code->loc);
   stmt = build1_loc (input_location, ACC_CACHE, void_type_node, acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
@@ -995,9 +995,9 @@ trans_acc_parallel_loop (gfc_code *code)
   gfc_start_block (&block);
 
   memset (&loop_clauses, 0, sizeof (loop_clauses));
-  if (code->ext.acc_clauses != NULL)
+  if (code->ext.omp_clauses != NULL)
     {
-      memcpy (&parallel_clauses, code->ext.acc_clauses,
+      memcpy (&parallel_clauses, code->ext.omp_clauses,
               sizeof (parallel_clauses));
       loop_clauses.collapse = parallel_clauses.collapse;
       loop_clauses.gang = parallel_clauses.gang;
@@ -1039,9 +1039,9 @@ trans_acc_kernels_loop (gfc_code *code)
   gfc_start_block (&block);
 
   memset (&loop_clauses, 0, sizeof (loop_clauses));
-  if (code->ext.acc_clauses != NULL)
+  if (code->ext.omp_clauses != NULL)
     {
-      memcpy (&kernels_clauses, code->ext.acc_clauses,
+      memcpy (&kernels_clauses, code->ext.omp_clauses,
               sizeof (kernels_clauses));
       loop_clauses.collapse = kernels_clauses.collapse;
       loop_clauses.gang = kernels_clauses.gang;
@@ -1101,7 +1101,7 @@ gfc_trans_acc_directive (gfc_code *code)
     case EXEC_ACC_HOST_DATA:
       return trans_acc_host_data (code);
     case EXEC_ACC_LOOP:
-      return trans_acc_loop (code, NULL, code->ext.acc_clauses);
+      return trans_acc_loop (code, NULL, code->ext.omp_clauses);
     case EXEC_ACC_UPDATE:
       return trans_acc_update (code);
     case EXEC_ACC_WAIT:
