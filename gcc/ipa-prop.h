@@ -609,6 +609,31 @@ extern alloc_pool ipcp_values_pool;
 extern alloc_pool ipcp_sources_pool;
 extern alloc_pool ipcp_agg_lattice_pool;
 
+/* Operation to be performed for the parameter in ipa_parm_adjustment
+   below.  */
+enum ipa_parm_op {
+  IPA_PARM_OP_NONE,
+
+  /* This describes a brand new parameter.
+
+     For new parameters, base_index must be >= the number of
+     DECL_ARGUMENTS in the function.  That is, new arguments will be
+     the last arguments in the adjusted function.
+
+     Also, `type' should be set to the new type, `arg_prefix'
+     should be set to the string prefix for the new DECL_NAME, and
+     `new_decl' will ultimately hold the newly created argument.  */
+  IPA_PARM_OP_NEW,
+
+  /* This new parameter is an unmodified parameter at index base_index. */
+  IPA_PARM_OP_COPY,
+
+  /* This adjustment describes a parameter that is about to be removed
+     completely.  Most users will probably need to book keep those so that they
+     don't leave behinfd any non default def ssa names belonging to them.  */
+  IPA_PARM_OP_REMOVE
+};
+
 /* Structure to describe transformations of formal parameters and actual
    arguments.  Each instance describes one new parameter and they are meant to
    be stored in a vector.  Additionally, most users will probably want to store
@@ -636,7 +661,7 @@ struct ipa_parm_adjustment
      by ipa_modify_formal_parameters, useful for functions modifying
      the body accordingly.  For brand new arguments, this is the newly
      created argument.  */
-  tree reduction;
+  tree new_decl;
 
   /* New declaration of a substitute variable that we may use to replace all
      non-default-def ssa names when a parm decl is going away.  */
@@ -646,9 +671,8 @@ struct ipa_parm_adjustment
      is NULL), this is going to be its nonlocalized vars value.  */
   tree nonlocal_value;
 
-  /* If this is a brand new argument, this holds the prefix to be used
-     for the DECL_NAME.  */
-  const char *new_arg_prefix;
+  /* This holds the prefix to be used for the new DECL_NAME.  */
+  const char *arg_prefix;
 
   /* Offset into the original parameter (for the cases when the new parameter
      is a component of an original one).  */
@@ -661,28 +685,9 @@ struct ipa_parm_adjustment
      elements.  */
   int simdlen;
 
-  /* This is a brand new parameter.
-
-     For new parameters, base_index must be >= the number of
-     DECL_ARGUMENTS in the function.  That is, new arguments will be
-     the last arguments in the adjusted function.
-
-     ?? Perhaps we could redesign ipa_modify_formal_parameters() to
-     reorganize argument position, thus allowing inserting of brand
-     new arguments anywhere, but there is no use for this now.
-
-     Also, `type' should be set to the new type, `new_arg_prefix'
-     should be set to the string prefix for the new DECL_NAME, and
-     `reduction' will ultimately hold the newly created argument.  */
-  unsigned new_param : 1;
-
-  /* This new parameter is an unmodified parameter at index base_index. */
-  unsigned copy_param : 1;
-
-  /* This adjustment describes a parameter that is about to be removed
-     completely.  Most users will probably need to book keep those so that they
-     don't leave behinfd any non default def ssa names belonging to them.  */
-  unsigned remove_param : 1;
+  /* Whether this parameter is a new parameter, a copy of an old one,
+     or one about to be removed.  */
+  enum ipa_parm_op op;
 
   /* The parameter is to be passed by reference.  */
   unsigned by_ref : 1;
@@ -693,8 +698,7 @@ typedef struct ipa_parm_adjustment ipa_parm_adjustment_t;
 typedef vec<ipa_parm_adjustment_t> ipa_parm_adjustment_vec;
 
 vec<tree> ipa_get_vector_of_formal_parms (tree fndecl);
-void ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec,
-				   const char *);
+void ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec);
 void ipa_modify_call_arguments (struct cgraph_edge *, gimple,
 				ipa_parm_adjustment_vec);
 ipa_parm_adjustment_vec ipa_combine_adjustments (ipa_parm_adjustment_vec,

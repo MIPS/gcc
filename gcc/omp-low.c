@@ -11635,7 +11635,7 @@ simd_clone_adjust_argument_types (struct cgraph_node *node)
       if (node->simdclone->args[i].arg_type != SIMD_CLONE_ARG_TYPE_VECTOR)
 	{
 	  /* No adjustment necessary for scalar arguments.  */
-	  adj.copy_param = 1;
+	  adj.op = IPA_PARM_OP_COPY;
 	}
       else
 	{
@@ -11649,6 +11649,7 @@ simd_clone_adjust_argument_types (struct cgraph_node *node)
 				     TREE_TYPE (parm),
 				     node->simdclone->simdlen);
 	}
+      adj.arg_prefix = "simd";
       adjustments.quick_push (adj);
     }
 
@@ -11657,8 +11658,8 @@ simd_clone_adjust_argument_types (struct cgraph_node *node)
       struct ipa_parm_adjustment adj;
 
       memset (&adj, 0, sizeof (adj));
-      adj.new_param = 1;
-      adj.new_arg_prefix = "mask";
+      adj.op = IPA_PARM_OP_NEW;
+      adj.arg_prefix = "mask";
       adj.base_index = i;
       adj.type
 	= build_vector_type (integer_type_node, node->simdclone->simdlen);
@@ -11674,7 +11675,7 @@ simd_clone_adjust_argument_types (struct cgraph_node *node)
 	= create_tmp_simd_array ("mask", integer_type_node, sc->simdlen);
     }
 
-  ipa_modify_formal_parameters (node->decl, adjustments, "simd");
+  ipa_modify_formal_parameters (node->decl, adjustments);
   return adjustments;
 }
 
@@ -11693,7 +11694,7 @@ simd_clone_init_simd_arrays (struct cgraph_node *node,
        arg;
        arg = DECL_CHAIN (arg), i++)
     {
-      if (adjustments[i].copy_param)
+      if (adjustments[i].op == IPA_PARM_OP_COPY)
 	continue;
 
       node->simdclone->args[i].vector_arg = arg;
@@ -11749,7 +11750,7 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
   gimple_stmt_iterator gsi = gsi_for_stmt (info->stmt);
   if (wi->is_lhs)
     {
-      stmt = gimple_build_assign (unshare_expr (cand->reduction), repl);
+      stmt = gimple_build_assign (unshare_expr (cand->new_decl), repl);
       gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
       SSA_NAME_DEF_STMT (repl) = info->stmt;
     }
@@ -11759,7 +11760,7 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
 	 wi->val_only=true, but we may have `*var' which will get
 	 replaced into `*var_array[iter]' and will likely be something
 	 not gimple.  */
-      stmt = gimple_build_assign (repl, unshare_expr (cand->reduction));
+      stmt = gimple_build_assign (repl, unshare_expr (cand->new_decl));
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
 
@@ -11802,7 +11803,7 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 	continue;
 
       tree basetype = TREE_TYPE (node->simdclone->args[i].orig_arg);
-      adjustments[i].reduction
+      adjustments[i].new_decl
 	= build4 (ARRAY_REF,
 		  basetype,
 		  node->simdclone->args[i].simd_array,

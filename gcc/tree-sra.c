@@ -4271,9 +4271,10 @@ turn_representatives_into_adjustments (vec<access_p> representatives,
 	  adj.base_index = get_param_index (parm, parms);
 	  adj.base = parm;
 	  if (!repr)
-	    adj.copy_param = 1;
+	    adj.op = IPA_PARM_OP_COPY;
 	  else
-	    adj.remove_param = 1;
+	    adj.op = IPA_PARM_OP_REMOVE;
+	  adj.arg_prefix = "ISRA";
 	  adjustments.quick_push (adj);
 	}
       else
@@ -4293,6 +4294,7 @@ turn_representatives_into_adjustments (vec<access_p> representatives,
 	      adj.by_ref = (POINTER_TYPE_P (TREE_TYPE (repr->base))
 			    && (repr->grp_maybe_modified
 				|| repr->grp_not_necessarilly_dereferenced));
+	      adj.arg_prefix = "ISRA";
 	      adjustments.quick_push (adj);
 	    }
 	}
@@ -4423,7 +4425,7 @@ get_adjustment_for_base (ipa_parm_adjustment_vec adjustments, tree base)
       struct ipa_parm_adjustment *adj;
 
       adj = &adjustments[i];
-      if (!adj->copy_param && adj->base == base)
+      if (adj->op != IPA_PARM_OP_COPY && adj->base == base)
 	return adj;
     }
 
@@ -4534,14 +4536,14 @@ sra_ipa_get_adjustment_candidate (tree *&expr, bool *convert,
       struct ipa_parm_adjustment *adj = &adjustments[i];
 
       if (adj->base == base
-	  && (adj->offset == offset || adj->remove_param))
+	  && (adj->offset == offset || adj->op == IPA_PARM_OP_REMOVE))
 	{
 	  cand = adj;
 	  break;
 	}
     }
 
-  if (!cand || cand->copy_param || cand->remove_param)
+  if (!cand || cand->op == IPA_PARM_OP_COPY || cand->op == IPA_PARM_OP_REMOVE)
     return NULL;
   return cand;
 }
@@ -4564,9 +4566,9 @@ sra_ipa_modify_expr (tree *expr, bool convert,
 
   tree src;
   if (cand->by_ref)
-    src = build_simple_mem_ref (cand->reduction);
+    src = build_simple_mem_ref (cand->new_decl);
   else
-    src = cand->reduction;
+    src = cand->new_decl;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -4760,7 +4762,7 @@ sra_ipa_reset_debug_stmts (ipa_parm_adjustment_vec adjustments)
       use_operand_p use_p;
 
       adj = &adjustments[i];
-      if (adj->copy_param || !is_gimple_reg (adj->base))
+      if (adj->op == IPA_PARM_OP_COPY || !is_gimple_reg (adj->base))
 	continue;
       name = ssa_default_def (cfun, adj->base);
       vexpr = NULL;
@@ -4943,7 +4945,7 @@ modify_function (struct cgraph_node *node, ipa_parm_adjustment_vec adjustments)
   redirect_callers.release ();
 
   push_cfun (DECL_STRUCT_FUNCTION (new_node->decl));
-  ipa_modify_formal_parameters (current_function_decl, adjustments, "ISRA");
+  ipa_modify_formal_parameters (current_function_decl, adjustments);
   cfg_changed = ipa_sra_modify_function_body (adjustments);
   sra_ipa_reset_debug_stmts (adjustments);
   convert_callers (new_node, node->decl, adjustments);

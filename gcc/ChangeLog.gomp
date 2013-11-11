@@ -1,3 +1,37 @@
+2013-11-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* ipa-prop.c (ipa_modify_formal_parameters): Remove
+	synth_parm_prefix argument.
+	Use operator enum instead of bit fields.
+	Add assert for properly handling vector of references.
+	(ipa_modify_call_arguments): Use operator enum instead of bit
+	fields.
+	(ipa_combine_adjustments): Same.
+	Assert that IPA_PARM_OP_NEW is not used.
+	(ipa_dump_param_adjustments): Rename reduction to new_decl.
+	Use operator enum instead of bit fields.
+	* ipa-prop.h (enum ipa_parm_op): New.
+	(struct ipa_parm_adjustment): New field op.
+	Rename reduction to new_decl.
+	Rename new_arg_prefix to arg_prefix.
+	Remove new_param, remove_param, copy_param.
+	(ipa_modify_formal_parameters): Remove argument.
+	* omp-low.c (simd_clone_adjust_argument_types):	Set arg_prefix.
+	Use operator enum instead of bit fields.
+	(simd_clone_adjust_argument_types): Use operator enum instead of
+	bit fields.
+	Remove last argument to ipa_modify_formal_parameters call.
+	(simd_clone_init_simd_arrays): Use operator enum.
+	(ipa_simd_modify_stmt_ops): Rename reduction to new_decl.
+	(ipa_simd_modify_function_body): Same.
+	* tree-sra.c (turn_representatives_into_adjustments): Use operator
+	enum.  Set arg_prefix.
+	(get_adjustment_for_base): Use operator enum.
+	(sra_ipa_get_adjustment_candidate): Same.
+	(sra_ipa_modify_expr): Rename reduction to new_decl.
+	(sra_ipa_reset_debug_stmts): Use operator enum.
+	(modify_function): Do not pass prefix argument.
+
 2013-11-07  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-vectorizer.h (enum stmt_vec_info_type): Add

@@ -3362,12 +3362,8 @@ get_vector_of_formal_parm_types (tree fntype)
    base_index field.  */
 
 void
-ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
-			      const char *synth_parm_prefix)
+ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments)
 {
-  if (!synth_parm_prefix)
-    synth_parm_prefix = "SYNTH";
-
   vec<tree> oparms = ipa_get_vector_of_formal_parms (fndecl);
   tree orig_type = TREE_TYPE (fndecl);
   tree old_arg_types = TYPE_ARG_TYPES (orig_type);
@@ -3403,13 +3399,13 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 
       adj = &adjustments[i];
       tree parm;
-      if (adj->new_param)
+      if (adj->op == IPA_PARM_OP_NEW)
 	parm = NULL;
       else
 	parm = oparms[adj->base_index];
       adj->base = parm;
 
-      if (adj->copy_param)
+      if (adj->op == IPA_PARM_OP_COPY)
 	{
 	  if (care_for_types)
 	    new_arg_types = tree_cons (NULL_TREE, otypes[adj->base_index],
@@ -3417,7 +3413,7 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 	  *link = parm;
 	  link = &DECL_CHAIN (parm);
 	}
-      else if (!adj->remove_param)
+      else if (adj->op != IPA_PARM_OP_REMOVE)
 	{
 	  tree new_parm;
 	  tree ptype;
@@ -3435,15 +3431,17 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 	      ptype = build_pointer_type (adj->type);
 	    }
 	  else
-	    ptype = adj->type;
+	    {
+	      gcc_checking_assert (!adj->by_ref || adj->simdlen);
+	      ptype = adj->type;
+	    }
 
 	  if (care_for_types)
 	    new_arg_types = tree_cons (NULL_TREE, ptype, new_arg_types);
 
 	  new_parm = build_decl (UNKNOWN_LOCATION, PARM_DECL, NULL_TREE,
 				 ptype);
-	  const char *prefix
-	    = adj->new_param ? adj->new_arg_prefix : synth_parm_prefix;
+	  const char *prefix = adj->arg_prefix ? adj->arg_prefix : "SYNTH";
 	  DECL_NAME (new_parm) = create_tmp_var_name (prefix);
 	  DECL_ARTIFICIAL (new_parm) = 1;
 	  DECL_ARG_TYPE (new_parm) = ptype;
@@ -3452,11 +3450,11 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
 	  DECL_IGNORED_P (new_parm) = 1;
 	  layout_decl (new_parm, 0);
 
-	  if (adj->new_param)
-	    adj->base = new_parm;
+	  if (adj->op == IPA_PARM_OP_NEW)
+	    adj->base = NULL;
 	  else
 	    adj->base = parm;
-	  adj->reduction = new_parm;
+	  adj->new_decl = new_parm;
 
 	  *link = new_parm;
 	  link = &DECL_CHAIN (new_parm);
@@ -3485,7 +3483,7 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments,
      instead.  */
   tree new_type = NULL;
   if (TREE_CODE (orig_type) != METHOD_TYPE
-       || (adjustments[0].copy_param
+       || (adjustments[0].op == IPA_PARM_OP_COPY
 	  && adjustments[0].base_index == 0))
     {
       new_type = build_distinct_type_copy (orig_type);
@@ -3558,13 +3556,13 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 
       adj = &adjustments[i];
 
-      if (adj->copy_param)
+      if (adj->op == IPA_PARM_OP_COPY)
 	{
 	  tree arg = gimple_call_arg (stmt, adj->base_index);
 
 	  vargs.quick_push (arg);
 	}
-      else if (!adj->remove_param)
+      else if (adj->op != IPA_PARM_OP_REMOVE)
 	{
 	  tree expr, base, off;
 	  location_t loc;
@@ -3683,7 +3681,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 					   NULL, true, GSI_SAME_STMT);
 	  vargs.quick_push (expr);
 	}
-      if (!adj->copy_param && MAY_HAVE_DEBUG_STMTS)
+      if (adj->op != IPA_PARM_OP_COPY && MAY_HAVE_DEBUG_STMTS)
 	{
 	  unsigned int ix;
 	  tree ddecl = NULL_TREE, origin = DECL_ORIGIN (adj->base), arg;
@@ -3803,10 +3801,14 @@ ipa_combine_adjustments (ipa_parm_adjustment_vec inner,
       struct ipa_parm_adjustment *n;
       n = &inner[i];
 
-      if (n->remove_param)
+      if (n->op == IPA_PARM_OP_REMOVE)
 	removals++;
       else
-	tmp.quick_push (*n);
+	{
+	  /* FIXME: Handling of new arguments are not implemented yet.  */
+	  gcc_assert (n->op != IPA_PARM_OP_NEW);
+	  tmp.quick_push (*n);
+	}
     }
 
   adjustments.create (outlen + removals);
@@ -3817,15 +3819,20 @@ ipa_combine_adjustments (ipa_parm_adjustment_vec inner,
       struct ipa_parm_adjustment *in = &tmp[out->base_index];
 
       memset (&r, 0, sizeof (r));
-      gcc_assert (!in->remove_param);
-      if (out->remove_param)
+      gcc_assert (in->op != IPA_PARM_OP_REMOVE);
+      if (out->op == IPA_PARM_OP_REMOVE)
 	{
 	  if (!index_in_adjustments_multiple_times_p (in->base_index, tmp))
 	    {
-	      r.remove_param = true;
+	      r.op = IPA_PARM_OP_REMOVE;
 	      adjustments.quick_push (r);
 	    }
 	  continue;
+	}
+      else
+	{
+	  /* FIXME: Handling of new arguments are not implemented yet.  */
+	  gcc_assert (out->op != IPA_PARM_OP_NEW);
 	}
 
       r.base_index = in->base_index;
@@ -3833,11 +3840,11 @@ ipa_combine_adjustments (ipa_parm_adjustment_vec inner,
 
       /* FIXME:  Create nonlocal value too.  */
 
-      if (in->copy_param && out->copy_param)
-	r.copy_param = true;
-      else if (in->copy_param)
+      if (in->op == IPA_PARM_OP_COPY && out->op == IPA_PARM_OP_COPY)
+	r.op = IPA_PARM_OP_COPY;
+      else if (in->op == IPA_PARM_OP_COPY)
 	r.offset = out->offset;
-      else if (out->copy_param)
+      else if (out->op == IPA_PARM_OP_COPY)
 	r.offset = in->offset;
       else
 	r.offset = in->offset + out->offset;
@@ -3848,7 +3855,7 @@ ipa_combine_adjustments (ipa_parm_adjustment_vec inner,
     {
       struct ipa_parm_adjustment *n = &inner[i];
 
-      if (n->remove_param)
+      if (n->op == IPA_PARM_OP_REMOVE)
 	adjustments.quick_push (*n);
     }
 
@@ -3885,10 +3892,10 @@ ipa_dump_param_adjustments (FILE *file, ipa_parm_adjustment_vec adjustments,
 	  fprintf (file, ", base: ");
 	  print_generic_expr (file, adj->base, 0);
 	}
-      if (adj->reduction)
+      if (adj->new_decl)
 	{
-	  fprintf (file, ", reduction: ");
-	  print_generic_expr (file, adj->reduction, 0);
+	  fprintf (file, ", new_decl: ");
+	  print_generic_expr (file, adj->new_decl, 0);
 	}
       if (adj->new_ssa_base)
 	{
@@ -3896,9 +3903,9 @@ ipa_dump_param_adjustments (FILE *file, ipa_parm_adjustment_vec adjustments,
 	  print_generic_expr (file, adj->new_ssa_base, 0);
 	}
 
-      if (adj->copy_param)
+      if (adj->op == IPA_PARM_OP_COPY)
 	fprintf (file, ", copy_param");
-      else if (adj->remove_param)
+      else if (adj->op == IPA_PARM_OP_REMOVE)
 	fprintf (file, ", remove_param");
       else
 	fprintf (file, ", offset %li", (long) adj->offset);
