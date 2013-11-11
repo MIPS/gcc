@@ -1,406 +1,410 @@
-08-10-2013 Thomas Schwinge <thomas@codesourcery.com>
-    New tests and documentation
-    
-    * gcc/doc/generic.texi: Document ACC clauses
-    * gcc/doc/gimple.texi: Likewise
-    * gcc/testsuite/c-c++-common/openacc-define-1.c: New test
-    * gcc/testsuite/c-c++-common/openacc-define-2.c: Likewise
-    * gcc/testsuite/c-c++-common/openacc-define-3.c: Likewise
-    * gcc/testsuite/gfortran.dg/openacc-define-1.f90: Likewise
-    * gcc/testsuite/gfortran.dg/openacc-define-2.f90: Likewise
-    * gcc/testsuite/gfortran.dg/openacc-define-3.f90: Likewise
+11-11-2013  Evgeny Gavrin  <e.gavrin@samsung.com>
 
-08-11-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Replace is_pointer with POINTER_TYPE_P
-    
-    * gcc/oacc-low.c: Likewise
+	* ChangeLog.ACC: Fix formatting
 
-08-11-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Fix formatting.
-    
-    * gcc/diagnose-gotos.c: Fix formatting.
-    * gcc/diagnose-gotos.h: Likewise.
-    * gcc/gimple-opencl.c: Likewise.
-    * gcc/gimple-opencl.h: Likewise.
-    * gcc/oacc-low.c: Fix comment.
+08-10-2013  Thomas Schwinge  <thomas@codesourcery.com>
+	New tests and documentation
 
-08-11-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add support for parallel scheduling clauses.
+	* gcc/doc/generic.texi: Document ACC clauses
+	* gcc/doc/gimple.texi: Likewise
+	* gcc/testsuite/c-c++-common/openacc-define-1.c: New test
+	* gcc/testsuite/c-c++-common/openacc-define-2.c: Likewise
+	* gcc/testsuite/c-c++-common/openacc-define-3.c: Likewise
+	* gcc/testsuite/gfortran.dg/openacc-define-1.f90: Likewise
+	* gcc/testsuite/gfortran.dg/openacc-define-2.f90: Likewise
+	* gcc/testsuite/gfortran.dg/openacc-define-3.f90: Likewise
 
-    * gcc/gimple-pretty-print.c: Add clauses and operands printing.
-    * gcc/gimplify.c: Add scheduling clauses support.
-    * gcc/oacc-low.c: Add parallel kernels scheduling.
+08-11-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Replace is_pointer with POINTER_TYPE_P
+
+	* gcc/oacc-low.c: Likewise
+
+08-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix formatting.
+
+	* gcc/diagnose-gotos.c: Fix formatting.
+	* gcc/diagnose-gotos.h: Likewise.
+	* gcc/gimple-opencl.c: Likewise.
+	* gcc/gimple-opencl.h: Likewise.
+	* gcc/oacc-low.c: Fix comment.
+
+08-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add support for parallel scheduling clauses.
+
+	* gcc/gimple-pretty-print.c: Add clauses and operands printing.
+	* gcc/gimplify.c: Add scheduling clauses support.
+	* gcc/oacc-low.c: Add parallel kernels scheduling.
 
 
-30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add passing of kernel schedule parameters.
-    
-    * gcc/builtin-types.def: Change signature of builtin.
-    * gcc/fortran/types.def: Likewise.
-    * gcc/oacc-builtins.def: Likewise.
-    * gcc/oacc-low.c (expand_oacc_kernels): Change builtin call generation.
-    * liboacc/liboacc-internal.h: Change signature.
-    * liboacc/liboacc.c: Likewise.
-    * liboacc/liboacc.h: Likewise.
-    * liboacc/runtime.c: Pass schedule parameters to OpenCL runtime.
+30-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add passing of kernel schedule parameters.
 
-30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Fix formatting.
-    
-    * liboacc/liboacc-internal.h: Fix formatting.
-    * liboacc/liboacc.c: Likewise.
-    * liboacc/liboacc.h: Likewise.
-    * liboacc/memory.c: Likewise.
-    * liboacc/openacc.c: Likewise.
-    * liboacc/openacc.h: Likewise.
-    * liboacc/platform.c: Likewise.
-    * liboacc/program.c: Likewise.
-    * liboacc/runtime.c: Likewise.
-    * liboacc/synchro.c: Likewise.
+	* gcc/builtin-types.def: Change signature of builtin.
+	* gcc/fortran/types.def: Likewise.
+	* gcc/oacc-builtins.def: Likewise.
+	* gcc/oacc-low.c (expand_oacc_kernels): Change builtin call generation.
+	* liboacc/liboacc-internal.h: Change signature.
+	* liboacc/liboacc.c: Likewise.
+	* liboacc/liboacc.h: Likewise.
+	* liboacc/runtime.c: Pass schedule parameters to OpenCL runtime.
 
-30-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Generate __global qualifier for local pointers
-    
-    * gcc/gimple-opencl.c(generate_type): Generate __global for all pointers
-    * gcc/gimple-opencl.c(generate_kernel_header): Remove generating of __global for function pointer parameter
+30-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix formatting.
 
-30-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Fix required automake version.
+	* liboacc/liboacc-internal.h: Fix formatting.
+	* liboacc/liboacc.c: Likewise.
+	* liboacc/liboacc.h: Likewise.
+	* liboacc/memory.c: Likewise.
+	* liboacc/openacc.c: Likewise.
+	* liboacc/openacc.h: Likewise.
+	* liboacc/platform.c: Likewise.
+	* liboacc/program.c: Likewise.
+	* liboacc/runtime.c: Likewise.
+	* liboacc/synchro.c: Likewise.
 
-    * liboacc/configure.ac: Fix automake version.
-    
-30-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Fix generation of declarations of local params in GIMPLE's ACC kernel function
-    
-    * gcc/oacc-low.c(add_assingments_to_ptrs): Use locals generated before
-    * gcc/oacc-low.c(lower_oacc_kernels): Change call params of add_assingments_to_ptrs
-    * gcc/oacc-low.c(generate_local_reg): New function
-    * gcc/oacc-low.c(gather_oacc_fn_locals): Generate locals for assingments
+30-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Generate __global qualifier for local pointers
 
-29-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add generation of declarations of local params in GIMPLE's ACC kernel function
-    
-    * gcc/oacc-low.c(gather_oacc_fn_locals): Likewise
-    * gcc/oacc-low.c(add_assingments_to_ptrs): Change names of temps
+	* gcc/gimple-opencl.c(generate_type): Generate __global for all pointers
+	* gcc/gimple-opencl.c(generate_kernel_header): Remove generating of __global for function pointer parameter
 
-29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add support for pointer types.
+30-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix required automake version.
 
-    * gcc/gimple-opencl.c(generate_type): Add support for pointer types.
+	* liboacc/configure.ac: Fix automake version.
 
-29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Fix padding blocks generation in kernels splitting.
+30-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Fix generation of declarations of local params in GIMPLE's ACC kernel function
 
-    * gcc/oacc-low.c(extract_kernels): Fix padding blocks generation.
+	* gcc/oacc-low.c(add_assingments_to_ptrs): Use locals generated before
+	* gcc/oacc-low.c(lower_oacc_kernels): Change call params of add_assingments_to_ptrs
+	* gcc/oacc-low.c(generate_local_reg): New function
+	* gcc/oacc-low.c(gather_oacc_fn_locals): Generate locals for assingments
 
-29-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add generation of code for IF clause
-    
-    * gcc/oacc-low.c(get_if_clause_expr): New function
-    * gcc/oacc-low.c(add_host_version): Reformatings
-    * gcc/oacc-low.c(lower_oacc_kernels): Add generation of host code
+29-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add generation of declarations of local params in GIMPLE's ACC kernel function
 
-29-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add handling of non-paralelizable loops.
+	* gcc/oacc-low.c(gather_oacc_fn_locals): Likewise
+	* gcc/oacc-low.c(add_assingments_to_ptrs): Change names of temps
 
-    * gcc/oacc-low.c: Add handling of non-paralelizable loops.
+29-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add support for pointer types.
 
-28-10-2013 Evgeny Gavrin <e.gavrin@samsung.com>
-    Add dump_gimple_acc_body() function and use it in dump_gimple_acc_*().
-    
-    * gcc/gimple-pretty-print.c : Add dump_gimple_acc_body().
+	* gcc/gimple-opencl.c(generate_type): Add support for pointer types.
 
-28-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add lowering of 'if' clause form GENERIC to GIMPLE
-    
-    * gcc/gimple-oacc.c(gimple_acc_kernels_child_fn_ptr): New getter
-    * gcc/gimple-oacc.c(gimple_acc_kernels_child_fn_ptr): Likewise
-    * gcc/gimple-pretty-print.c(dump_gimple_acc_kernels): Add dump of clauses
-    * gcc/gimplify.c(gimplify_scan_acc_clauses): Add lowering of IF clause
-    * gcc/testsuite/gcc.dg/gacc/if-clause-gimple.c: New file
-    * gcc/tree-cfg.c: Quickfix
+29-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix padding blocks generation in kernels splitting.
 
-28-10-2013 Evgeny Gavrin <e.gavrin@samsung.com>
-    Moved some GIMPLE infrastructure out of gimple.h and fixed some C tests.
-    
-    * gcc/c-family/c-pragma.h : Clean up.
-    * gcc/c/c-parser.c : Likewise.
-    * gcc/gimple-pretty-print.c : Likewise.
-    * gcc/tree-pretty-print.c : Likewise.
-    * gcc/tree-pretty-print.h : Likewise.
-    * gcc/gimple-opencl.h : Likewise.
-    * gcc/testsuite/gcc.dg/gacc/data-clauses.c : Fixes.
-    * gcc/testsuite/gcc.dg/gacc/reduction.c : Fixes.
-    * gcc/tree.h : Clean up.
-    * gcc/Makefile.in : Regeneration.
-    * gcc/gimple-oacc.c : ACC function declaration.
-    * gcc/gimple-oacc.h : New headers.
-    * gcc/gimple.c : Clean up.
-    * gcc/gimple.h : Clean up.
-    * gcc/oacc-low.c : Clean up.
+	* gcc/oacc-low.c(extract_kernels): Fix padding blocks generation.
 
-28-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add acc_region traversal.
+29-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add generation of code for IF clause
 
-    * gcc/oacc-low.c(execute_expand_oacc): Add acc_region traversal.
+	* gcc/oacc-low.c(get_if_clause_expr): New function
+	* gcc/oacc-low.c(add_host_version): Reformatings
+	* gcc/oacc-low.c(lower_oacc_kernels): Add generation of host code
 
-28-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Switch to libiberity for acc_region_t tree.
+29-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add handling of non-paralelizable loops.
 
-    * gcc/oacc-low.c(acc_region_t): Switch to libiberity allocator.
+	* gcc/oacc-low.c: Add handling of non-paralelizable loops.
 
-25-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add LOOP AUTO and TILE clauses
-    
-    * gcc/fortran/gfortran.h: New clauses
-    * gcc/fortran/openacc.c: Likewise and resolves
-    * gcc/fortran/resolve.c: Add LOOP as block to resolve
-    * gcc/testsuite/gfortran.dg/gacc/__loop.f95: New test
+28-10-2013  Evgeny Gavrin  <e.gavrin@samsung.com>
+	Add dump_gimple_acc_body() function and use it in dump_gimple_acc_*().
 
-25-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Fix splitting into kernels.
+	* gcc/gimple-pretty-print.c : Add dump_gimple_acc_body().
 
-    * gcc/oacc-low.c(extract_kernels): Various improvements.
+28-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add lowering of 'if' clause form GENERIC to GIMPLE
 
-24-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add enter/exit data directives support.
-    
-    * gcc/fortran/dump-parse-tree.c: New executable statements and clauses
-    * gcc/fortran/gfortran.h: Likewise and add list of expressions with allocator and releaser
-    * gcc/fortran/openacc.c: Likewise
-    * gcc/fortran/match.h: New match functions
-    * gcc/fortran/st.c: New statements and clause
-    * gcc/fortran/parse.c: Likewise
-    * gcc/fortran/resolve.c: Likewise
-    * gcc/fortran/trans-openacc.c: Likewise
-    * gcc/fortran/trans.c: Likewise
-    * gcc/gimplify.c: Likewise
-    * gcc/tree-core.h: Likewise
-    * gcc/tree.def: Likewise
-    * gcc/testsuite/gfortran.dg/gacc/__enter-exit-data.f95: New test
-    * gcc/testsuite/gfortran.dg/gacc/__parallel-kernels-clauses.f95: Add wait clause
+	* gcc/gimple-oacc.c(gimple_acc_kernels_child_fn_ptr): New getter
+	* gcc/gimple-oacc.c(gimple_acc_kernels_child_fn_ptr): Likewise
+	* gcc/gimple-pretty-print.c(dump_gimple_acc_kernels): Add dump of clauses
+	* gcc/gimplify.c(gimplify_scan_acc_clauses): Add lowering of IF clause
+	* gcc/testsuite/gcc.dg/gacc/if-clause-gimple.c: New file
+	* gcc/tree-cfg.c: Quickfix
 
-23-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add generation of parameters of generated kernel 
-    when they are pointers
-    Adding OpenACC 2.0 support to gfortran: parallel/kernels async/default(none)
-    
-    * gcc/fortran/gfortran.h: Add new clause - default(none)
-    * gcc/fortran/openacc.c: Likewise
-    * gcc/oacc-low.c: Add generation of pointer parameters
-    * gcc/testsuite/gfortran.dg/gacc/__parallel-kernels-clauses.f95: New test
-    * gcc/testsuite/gfortran.dg/gacc/_data-clauses.f95: Little fix
-    * liboacc/openacc_lib.f90: Add acc_async_noval and acc_async_sync contants
-    * liboacc/openacc_lib.h: Likewise
+28-10-2013  Evgeny Gavrin  <e.gavrin@samsung.com>
+	Moved some GIMPLE infrastructure out of gimple.h and fixed some C tests.
 
-23-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add splitting kernels region into separate kernels.
-    
-    * gcc/gimple-low.c: Add handling of region end gimple codes.
-    * gcc/gimple-opencl.c: Fix handling of empty basic block.
-    * gcc/gimple-pretty-print.c: Add handling of region end gimple codes.
-    * gcc/gimple.h: New macro.
-    * gcc/oacc-low.c: New functions and data structures.
-    * gcc/tree-cfg.c: Add handling of region end gimple codes.
-    * gcc/tree-inline.c: Likewise.
+	* gcc/c-family/c-pragma.h : Clean up.
+	* gcc/c/c-parser.c : Likewise.
+	* gcc/gimple-pretty-print.c : Likewise.
+	* gcc/tree-pretty-print.c : Likewise.
+	* gcc/tree-pretty-print.h : Likewise.
+	* gcc/gimple-opencl.h : Likewise.
+	* gcc/testsuite/gcc.dg/gacc/data-clauses.c : Fixes.
+	* gcc/testsuite/gcc.dg/gacc/reduction.c : Fixes.
+	* gcc/tree.h : Clean up.
+	* gcc/Makefile.in : Regeneration.
+	* gcc/gimple-oacc.c : ACC function declaration.
+	* gcc/gimple-oacc.h : New headers.
+	* gcc/gimple.c : Clean up.
+	* gcc/gimple.h : Clean up.
+	* gcc/oacc-low.c : Clean up.
 
-17-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add C FE tests
-    
-    * gcc/testsuite/gcc.dg/gacc/branch.c: New test
-    * gcc/testsuite/gcc.dg/gacc/data-clauses.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/data-tree.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/declare.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/directive-names.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/host_data-tree.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/if.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/kernels-tree.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/list.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/loop: Likewise 
-    * gcc/testsuite/gcc.dg/gacc/parallel-kernels-regions.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/parallel-tree.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/reduction.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/several-directives.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/sie.c: Likewise
-    * gcc/testsuite/gcc.dg/gacc/subarrays.c: Likewise
+28-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add acc_region traversal.
 
-16-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add generation of Fortran .mod files and copying of include files 
-    
-    * liboacc/configure.ac: Add USE_FORTRAN variable
-    * liboacc/Makefile.am: Add generation of Fortran .mod files and copying of include files
-    * liboacc/Makefile.in: Autogenerated
-    * liboacc/configure: Likewise
+	* gcc/oacc-low.c(execute_expand_oacc): Add acc_region traversal.
 
-15-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add FORTRAN runtime library
-    
-    * liboacc/fortran.c: Fortran-c bindings
-    * liboacc/openacc_lib.f90: Interfaces
-    * liboacc/openacc_lib.h: Include header
-    * liboacc/configure.ac: Add check of libgfortran and gfortran
-    * liboacc/Makefile.am: Add new files to compile list
-    * liboacc/Makefile.in: Autogenerated
-    * liboacc/aclocal.m4: Likewise
-    * liboacc/configure: Likewise
+28-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Switch to libiberity for acc_region_t tree.
 
-14-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Formatting.
+	* gcc/oacc-low.c(acc_region_t): Switch to libiberity allocator.
 
-    * gcc/oacc-low.c: GNU style formatting.
+25-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add LOOP AUTO and TILE clauses
 
-10-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add initial support for regions and acc parallel. Formatting.
-    
-    * gcc/gimple-pretty-print.c (dump_gimple_acc_parallel): New function.
-    * gcc/gimple.h (GIMPLE_ACC_CHILD_FN, GIMPLE_ACC_PARAMS_PTR): New macros.
-    * gcc/gimplify.c (gimplify_acc_parallel): Rewrite.
-    * gcc/gsstruct.def: Change ops for GIMPLE_ACC_PARALLEL.
-    * gcc/oacc-low.c (struct acc_region_t): New structure.
+	* gcc/fortran/gfortran.h: New clauses
+	* gcc/fortran/openacc.c: Likewise and resolves
+	* gcc/fortran/resolve.c: Add LOOP as block to resolve
+	* gcc/testsuite/gfortran.dg/gacc/__loop.f95: New test
 
-10-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Quickfix: change name of temporary variable
-    
-    * gcc/oacc-low.c: Change name of temp var
+25-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix splitting into kernels.
 
-09-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Fix return and param types of get_global_id() builtin 
-    
-    * gcc/builtin-types.def: Add new function type size_t(unsigned int)
-    * gcc/fortran/types.def: Likewise
-    * gcc/oacc-builtins.def: Change type of get_global_id() function
-    * gcc/oacc-low.c: Add convert expression to ssa form
+	* gcc/oacc-low.c(extract_kernels): Various improvements.
 
-08-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add check for irreducible loops
-    
-    * gcc/oacc-low.c: loop_irreducible_p added.
+24-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add enter/exit data directives support.
 
-08-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Add check for nesting restrictions
-    
-    * gcc/oacc-low.c: check_oacc_nesting_restrictions implemenation.
+	* gcc/fortran/dump-parse-tree.c: New executable statements and clauses
+	* gcc/fortran/gfortran.h: Likewise and add list of expressions with allocator and releaser
+	* gcc/fortran/openacc.c: Likewise
+	* gcc/fortran/match.h: New match functions
+	* gcc/fortran/st.c: New statements and clause
+	* gcc/fortran/parse.c: Likewise
+	* gcc/fortran/resolve.c: Likewise
+	* gcc/fortran/trans-openacc.c: Likewise
+	* gcc/fortran/trans.c: Likewise
+	* gcc/gimplify.c: Likewise
+	* gcc/tree-core.h: Likewise
+	* gcc/tree.def: Likewise
+	* gcc/testsuite/gfortran.dg/gacc/__enter-exit-data.f95: New test
+	* gcc/testsuite/gfortran.dg/gacc/__parallel-kernels-clauses.f95: Add wait clause
 
-08-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Add new test case.
-    
-    * gcc/testsuite/gcc.dg/gacc/simple-kernel.c: New test case
-    * gcc/testsuite/gcc.dg/gacc/gacc.exp: Remove testing omp tests
+23-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add generation of parameters of generated kernel 
+	when they are pointers
+	Adding OpenACC 2.0 support to gfortran: parallel/kernels async/default(none)
 
-07-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Fix some warnings
-    
-    * gcc/oacc-low.c: Fix some warnings.
+	* gcc/fortran/gfortran.h: Add new clause - default(none)
+	* gcc/fortran/openacc.c: Likewise
+	* gcc/oacc-low.c: Add generation of pointer parameters
+	* gcc/testsuite/gfortran.dg/gacc/__parallel-kernels-clauses.f95: New test
+	* gcc/testsuite/gfortran.dg/gacc/_data-clauses.f95: Little fix
+	* liboacc/openacc_lib.f90: Add acc_async_noval and acc_async_sync contants
+	* liboacc/openacc_lib.h: Likewise
 
-03-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Rewrite GIMPLE_ACC_* structures
-    
-    * gcc/gimple.c: Rewrite gimple_acc_* structures
-    * gcc/gimple.def: Move GIMPLE_ACC_* before GIMPLE_RETURN
-    * gcc/gimple.h: Rewrite gimple_acc_* structures
-    * gcc/gimplify.c: Likewise.
-    * gcc/oacc-low.c: Change accessors.
+23-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add splitting kernels region into separate kernels.
 
-03-10-2013 Ilmir Usmanov <i.usmanov@samsung.com>
-    Fix ICE on empty kernel
-    
-    * gcc/oacc-low-c: Add check for empty kernel
-    * gcc/testsuite/gcc.dg/gacc/gacc.exp: New test directory
-    * gcc/testsuite/gcc.dg/gacc/empty-kernel.c: New test case
+	* gcc/gimple-low.c: Add handling of region end gimple codes.
+	* gcc/gimple-opencl.c: Fix handling of empty basic block.
+	* gcc/gimple-pretty-print.c: Add handling of region end gimple codes.
+	* gcc/gimple.h: New macro.
+	* gcc/oacc-low.c: New functions and data structures.
+	* gcc/tree-cfg.c: Add handling of region end gimple codes.
+	* gcc/tree-inline.c: Likewise.
 
-01-10-2013 Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Fix several ICEs
-    
-    * gcc/gimple.def: Change position of GIMPLE_ACC_KERNELS
-    * gcc/passes.def: Change position of pass_expand_oacc
-    
-30-09-2013 Ilmir Usmanov <i.usmanov@sansung.com>
-    Remove tree transformations from fortran front-end
-    
-    * gcc/fortran/openacc.c: Remove inserting !$ACC DATA
-    * gcc/fortran/resolve.c: Likewise
-    * gcc/fortran/trans-decl.c: Add lowering of !$ACC DECLARE
-    * gcc/fortran/trans-openacc.c: Remove inserting PRIVATE(dovar)
-    * gcc/fortran/trans-stmt.h: Add gfc_trans_acc_declare declaration
-    * gcc/testsuite/gfortran.dg/gacc/_declare-1.f95: Fix testcase
-    * gcc/testsuite/gfortran.dg/gacc/_present_or_copy.f95: Remove testcase
+17-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add C FE tests
 
-26-09-2013 Evgeny Gavrin <e.gavrin@samsung.com>
-    Initial source drop for OpenACC implementation
+	* gcc/testsuite/gcc.dg/gacc/branch.c: New test
+	* gcc/testsuite/gcc.dg/gacc/data-clauses.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/data-tree.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/declare.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/directive-names.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/host_data-tree.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/if.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/kernels-tree.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/list.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/loop: Likewise 
+	* gcc/testsuite/gcc.dg/gacc/parallel-kernels-regions.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/parallel-tree.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/reduction.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/several-directives.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/sie.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/subarrays.c: Likewise
 
-    Dmitry Bocharnikov <dmitry.b@samsung.com>
-    Evgeny Gavrin <e.gavrin@samsung.com>
-    Ilmir Usmanov <i.usmanov@samsung.com>
+16-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add generation of Fortran .mod files and copying of include files 
 
-    * liboacc/*: Add runtime library for OpenACC.
-    * gcc/Makefile.in: Likewise.
-    * gcc/oacc-builtins.def: Add builtins for ACC.
-    * gcc/gimple-opencl.c: Add OpenCL generation.
-    * gcc/gimple-opencl.h: Likewise.
-    * gcc/oacc-low.c: Add OpenACC lowering pass.
-    * gcc/gimple-low.c: Likewise.
-    * gcc/builtin-types.def: Add support of OpenACC.
-    * gcc/gsstruct.def: Likewise.
-    * gcc/tree.def: Likewise.
-    * gcc/treestruct.def: Likewise.
-    * gcc/tree-cfg.c: Likewise.
-    * gcc/tree-core.h: Likewise.
-    * gcc/cp/cp-tree.h: Likewise.
-    * gcc/cp/decl.c: Likewise.
-    * gcc/cp/semantics.c: Likewise.
-    * gcc/cp/parser.c: Likewise.
-    * gcc/cp/parser.h: Likewise.
-    * gcc/cp/name-lookup.c: Likewise.
-    * gcc/cp/name-lookup.h: Likewise.
-    * gcc/tree-pass.h: Likewise.
-    * gcc/gimple.def: Likewise.
-    * gcc/testsuite/gfortran.dg/gacc: Add Fortran tests
-    * gcc/passes.def: Add OpenACC passes.
-    * gcc/tree-pretty-print.c: Add some pp funcs.
-    * gcc/tree-pretty-print.h: Likewise.
-    * gcc/builtins.def: Add builtins for OpenACC.
-    * gcc/fortran/*: Add ACC support for Fortran.
-    * gcc/fortran/gfortran.h: Likewise.
-    * gcc/fortran/lang.opt: Likewise..
-    * gcc/fortran/trans-stmt.h: Likewise.
-    * gcc/fortran/scanner.c: Likewise.
-    * gcc/fortran/trans-openacc.c: Likewise.
-    * gcc/fortran/resolve.c: Likewise.
-    * gcc/fortran/f95-lang.c: Likewise.
-    * gcc/fortran/match.c: Likewise.
-    * gcc/fortran/match.h: Likewise.
-    * gcc/fortran/types.def: Likewise.
-    * gcc/fortran/decl.c: Likewise.
-    * gcc/fortran/openacc.c: Likewise.
-    * gcc/fortran/dump-parse-tree.c: Likewise.
-    * gcc/fortran/Make-lang.in: Likewise.
-    * gcc/fortran/trans.c: Likewise.
-    * gcc/fortran/st.c: Likewise.
-    * gcc/fortran/parse.c: Likewise.
-    * gcc/fortran/parse.h: Likewise.
-    * gcc/fortran/options.c: Likewise.
-    * gcc/gimplify.c: Add gimplification functions.
-    * gcc/diagnose-gotos.c: Add ACC support for BE.
-    * gcc/diagnose-gotos.h: Likewise.
-    * gcc/common.opt: Add profiling flags for ACC.
-    * gcc/c/c-parser.c: Add parsing routing for ACC.
-    * gcc/gimple.c: Add ACC representation.
-    * gcc/gimple.h: Likewise.
-    * gcc/gimple-pretty-print.c: Likewise.
-    * gcc/tree-inline.c: Add dependency checks, loop unfolding.
-    * gcc/tree-inline.h: Likewise.
-    * gcc/c-family/c-pragma.c: Add ACC pragma's and clauses.
-    * gcc/c-family/c-pragma.h: Likewise.
-    * gcc/c-family/c.opt: Add flag to enable OpenACC
-    * gcc/c-family/c-cppbuiltin.c: Add ACC builtins.
-    * gcc/tree.c: Add support of OpenACC.
-    * gcc/tree.h: Likewise.
-    * gcc/gcc.c: Likewise.
-    * gcc/tree-dump.c: Likewise.
-    * gcc/omp-low.c: Likewise.
-    * README.ACC: Add README for OpenACC.
-    * Makefile.in: Integrate with GCC build.
-    * Makefile.def: Likewise.
-    * ChangeLog.ACC : Add ChangeLog for ACC.
-    * configure.ac : Add configure flag for OpenCL.
-    * configure: Regenerate.
+	* liboacc/configure.ac: Add USE_FORTRAN variable
+	* liboacc/Makefile.am: Add generation of Fortran .mod files and copying of include files
+	* liboacc/Makefile.in: Autogenerated
+	* liboacc/configure: Likewise
+
+15-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add FORTRAN runtime library
+
+	* liboacc/fortran.c: Fortran-c bindings
+	* liboacc/openacc_lib.f90: Interfaces
+	* liboacc/openacc_lib.h: Include header
+	* liboacc/configure.ac: Add check of libgfortran and gfortran
+	* liboacc/Makefile.am: Add new files to compile list
+	* liboacc/Makefile.in: Autogenerated
+	* liboacc/aclocal.m4: Likewise
+	* liboacc/configure: Likewise
+
+14-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Formatting.
+
+	* gcc/oacc-low.c: GNU style formatting.
+
+10-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add initial support for regions and acc parallel. Formatting.
+
+	* gcc/gimple-pretty-print.c (dump_gimple_acc_parallel): New function.
+	* gcc/gimple.h (GIMPLE_ACC_CHILD_FN, GIMPLE_ACC_PARAMS_PTR): New macros.
+	* gcc/gimplify.c (gimplify_acc_parallel): Rewrite.
+	* gcc/gsstruct.def: Change ops for GIMPLE_ACC_PARALLEL.
+	* gcc/oacc-low.c (struct acc_region_t): New structure.
+
+10-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Quickfix: change name of temporary variable
+
+	* gcc/oacc-low.c: Change name of temp var
+
+09-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Fix return and param types of get_global_id() builtin 
+
+	* gcc/builtin-types.def: Add new function type size_t(unsigned int)
+	* gcc/fortran/types.def: Likewise
+	* gcc/oacc-builtins.def: Change type of get_global_id() function
+	* gcc/oacc-low.c: Add convert expression to ssa form
+
+08-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add check for irreducible loops
+
+	* gcc/oacc-low.c: loop_irreducible_p added.
+
+08-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add check for nesting restrictions
+
+	* gcc/oacc-low.c: check_oacc_nesting_restrictions implemenation.
+
+08-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Add new test case.
+
+	* gcc/testsuite/gcc.dg/gacc/simple-kernel.c: New test case
+	* gcc/testsuite/gcc.dg/gacc/gacc.exp: Remove testing omp tests
+
+07-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix some warnings
+
+	* gcc/oacc-low.c: Fix some warnings.
+
+03-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Rewrite GIMPLE_ACC_* structures
+
+	* gcc/gimple.c: Rewrite gimple_acc_* structures
+	* gcc/gimple.def: Move GIMPLE_ACC_* before GIMPLE_RETURN
+	* gcc/gimple.h: Rewrite gimple_acc_* structures
+	* gcc/gimplify.c: Likewise.
+	* gcc/oacc-low.c: Change accessors.
+
+03-10-2013  Ilmir Usmanov  <i.usmanov@samsung.com>
+	Fix ICE on empty kernel
+
+	* gcc/oacc-low-c: Add check for empty kernel
+	* gcc/testsuite/gcc.dg/gacc/gacc.exp: New test directory
+	* gcc/testsuite/gcc.dg/gacc/empty-kernel.c: New test case
+
+01-10-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix several ICEs
+
+	* gcc/gimple.def: Change position of GIMPLE_ACC_KERNELS
+	* gcc/passes.def: Change position of pass_expand_oacc
+
+30-09-2013  Ilmir Usmanov  <i.usmanov@sansung.com>
+	Remove tree transformations from fortran front-end
+
+	* gcc/fortran/openacc.c: Remove inserting !$ACC DATA
+	* gcc/fortran/resolve.c: Likewise
+	* gcc/fortran/trans-decl.c: Add lowering of !$ACC DECLARE
+	* gcc/fortran/trans-openacc.c: Remove inserting PRIVATE(dovar)
+	* gcc/fortran/trans-stmt.h: Add gfc_trans_acc_declare declaration
+	* gcc/testsuite/gfortran.dg/gacc/_declare-1.f95: Fix testcase
+	* gcc/testsuite/gfortran.dg/gacc/_present_or_copy.f95: Remove testcase
+
+26-09-2013  Evgeny Gavrin  <e.gavrin@samsung.com>
+	Initial source drop for OpenACC implementation
+
+	Dmitry Bocharnikov <dmitry.b@samsung.com>
+	Evgeny Gavrin <e.gavrin@samsung.com>
+	Ilmir Usmanov <i.usmanov@samsung.com>
+
+	* liboacc/*: Add runtime library for OpenACC.
+	* gcc/Makefile.in: Likewise.
+	* gcc/oacc-builtins.def: Add builtins for ACC.
+	* gcc/gimple-opencl.c: Add OpenCL generation.
+	* gcc/gimple-opencl.h: Likewise.
+	* gcc/oacc-low.c: Add OpenACC lowering pass.
+	* gcc/gimple-low.c: Likewise.
+	* gcc/builtin-types.def: Add support of OpenACC.
+	* gcc/gsstruct.def: Likewise.
+	* gcc/tree.def: Likewise.
+	* gcc/treestruct.def: Likewise.
+	* gcc/tree-cfg.c: Likewise.
+	* gcc/tree-core.h: Likewise.
+	* gcc/cp/cp-tree.h: Likewise.
+	* gcc/cp/decl.c: Likewise.
+	* gcc/cp/semantics.c: Likewise.
+	* gcc/cp/parser.c: Likewise.
+	* gcc/cp/parser.h: Likewise.
+	* gcc/cp/name-lookup.c: Likewise.
+	* gcc/cp/name-lookup.h: Likewise.
+	* gcc/tree-pass.h: Likewise.
+	* gcc/gimple.def: Likewise.
+	* gcc/testsuite/gfortran.dg/gacc: Add Fortran tests
+	* gcc/passes.def: Add OpenACC passes.
+	* gcc/tree-pretty-print.c: Add some pp funcs.
+	* gcc/tree-pretty-print.h: Likewise.
+	* gcc/builtins.def: Add builtins for OpenACC.
+	* gcc/fortran/*: Add ACC support for Fortran.
+	* gcc/fortran/gfortran.h: Likewise.
+	* gcc/fortran/lang.opt: Likewise..
+	* gcc/fortran/trans-stmt.h: Likewise.
+	* gcc/fortran/scanner.c: Likewise.
+	* gcc/fortran/trans-openacc.c: Likewise.
+	* gcc/fortran/resolve.c: Likewise.
+	* gcc/fortran/f95-lang.c: Likewise.
+	* gcc/fortran/match.c: Likewise.
+	* gcc/fortran/match.h: Likewise.
+	* gcc/fortran/types.def: Likewise.
+	* gcc/fortran/decl.c: Likewise.
+	* gcc/fortran/openacc.c: Likewise.
+	* gcc/fortran/dump-parse-tree.c: Likewise.
+	* gcc/fortran/Make-lang.in: Likewise.
+	* gcc/fortran/trans.c: Likewise.
+	* gcc/fortran/st.c: Likewise.
+	* gcc/fortran/parse.c: Likewise.
+	* gcc/fortran/parse.h: Likewise.
+	* gcc/fortran/options.c: Likewise.
+	* gcc/gimplify.c: Add gimplification functions.
+	* gcc/diagnose-gotos.c: Add ACC support for BE.
+	* gcc/diagnose-gotos.h: Likewise.
+	* gcc/common.opt: Add profiling flags for ACC.
+	* gcc/c/c-parser.c: Add parsing routing for ACC.
+	* gcc/gimple.c: Add ACC representation.
+	* gcc/gimple.h: Likewise.
+	* gcc/gimple-pretty-print.c: Likewise.
+	* gcc/tree-inline.c: Add dependency checks, loop unfolding.
+	* gcc/tree-inline.h: Likewise.
+	* gcc/c-family/c-pragma.c: Add ACC pragma's and clauses.
+	* gcc/c-family/c-pragma.h: Likewise.
+	* gcc/c-family/c.opt: Add flag to enable OpenACC
+	* gcc/c-family/c-cppbuiltin.c: Add ACC builtins.
+	* gcc/tree.c: Add support of OpenACC.
+	* gcc/tree.h: Likewise.
+	* gcc/gcc.c: Likewise.
+	* gcc/tree-dump.c: Likewise.
+	* gcc/omp-low.c: Likewise.
+	* README.ACC: Add README for OpenACC.
+	* Makefile.in: Integrate with GCC build.
+	* Makefile.def: Likewise.
+	* ChangeLog.ACC : Add ChangeLog for ACC.
+	* configure.ac : Add configure flag for OpenCL.
+	* configure: Regenerate.
