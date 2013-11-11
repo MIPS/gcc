@@ -1,7 +1,7 @@
 /* { dg-do run { xfail *-*-* } } */
 /* { dg-require-effective-target ia32 } */
-/* { dg-options "-fcheck-pointers -mmpx" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+/* { dg-options "-fcheck-pointer-bounds -mmpx" } */
+
 
 #define XFAIL
 

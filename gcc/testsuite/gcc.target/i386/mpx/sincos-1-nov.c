@@ -1,7 +1,7 @@
 /* { dg-do run } */
-/* { dg-options "-fcheck-pointers -mmpx" } */
+/* { dg-options "-fcheck-pointer-bounds -mmpx" } */
 /* { dg-additional-options "-lm" } */
-/* { dg-skip-if "" { *-*-* } { "-flto" } { "" } } */
+
 
 #include "mpx-check.h"
 #include "math.h"
