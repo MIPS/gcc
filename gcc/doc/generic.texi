@@ -1807,7 +1807,7 @@ There are also several varieties of complex statements.
 * Empty Statements::
 * Jumps::
 * Cleanups::
-* OpenACC
+* OpenACC::
 * OpenMP::
 @end menu
 
@@ -2060,62 +2060,53 @@ clauses used by the OpenACC API @w{@uref{http://www.openacc-standard.org/}}.
 
 Represents @code{#pragma acc parallel [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_KERNELS
 
 Represents @code{#pragma acc kernels [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_DATA
 
 Represents @code{#pragma acc data [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_LOOP
 
 Represents @code{#pragma acc loop [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_HOST_DATA
 
 Represents @code{#pragma acc host_data [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_DECLARE
 
 Represents @code{#pragma acc declare [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_UPDATE
 
 Represents @code{#pragma acc update [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_ENTER_DATA
 
 Represents @code{#pragma acc enter_data [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_EXIT_DATA
 
 Represents @code{#pragma acc exit_data [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_WAIT
 
 Represents @code{#pragma acc wait [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_CACHE
 
 Represents @code{#pragma acc cache [clause1 @dots{} clauseN]}.
 
-@table @code
 @item ACC_CLAUSE
 
 Represents clauses associated with one of the @code{ACC_} directives.
 Clauses are represented by separate sub-codes defined in
 @file{tree.h}.
+
+@end table
 
 @node OpenMP
 @subsection OpenMP
