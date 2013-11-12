@@ -523,6 +523,15 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 {
 }
 
+/* Return true if TYPE is an OpenMP mappable type.  By default return true
+   if type is complete.  */
+
+bool
+lhd_omp_mappable_type (tree type)
+{
+  return COMPLETE_TYPE_P (type);
+}
+
 /* Common function for add_builtin_function and
    add_builtin_function_ext_scope.  */
 static tree
@@ -665,4 +674,19 @@ lhd_end_section (void)
       switch_to_section (saved_section);
       saved_section = NULL;
     }
+}
+
+/* Empty function that is replaced with appropriate language dependent
+   frame cleanup function for _Cilk_spawn.  */
+
+void
+lhd_install_body_with_frame_cleanup (tree, tree)
+{
+}
+
+/* Empty function to handle cilk_valid_spawn.  */
+bool
+lhd_cilk_detect_spawn (tree *)
+{
+  return false;
 }

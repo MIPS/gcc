@@ -62,7 +62,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "tree.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa-loop-manip.h"
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
@@ -111,7 +116,8 @@ simduid_to_vf::equal (const value_type *p1, const value_type *p2)
         D.1737[_7] = stuff;
 
 
-   This hash maps from the simduid.0 to OMP simd array (D.1737[]).  */
+   This hash maps from the OMP simd array (D.1737[]) to DECL_UID of
+   simduid.0.  */
 
 struct simd_array_to_simduid : typed_free_remove<simd_array_to_simduid>
 {
@@ -510,8 +516,8 @@ const pass_data pass_data_slp_vectorize =
 class pass_slp_vectorize : public gimple_opt_pass
 {
 public:
-  pass_slp_vectorize(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_slp_vectorize, ctxt)
+  pass_slp_vectorize (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_slp_vectorize, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -546,11 +552,11 @@ increase_alignment (void)
   /* Increase the alignment of all global arrays for vectorization.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
     {
-      tree vectype, decl = vnode->symbol.decl;
+      tree vectype, decl = vnode->decl;
       tree t;
       unsigned int alignment;
 
-      t = TREE_TYPE(decl);
+      t = TREE_TYPE (decl);
       if (TREE_CODE (t) != ARRAY_TYPE)
         continue;
       vectype = get_vectype_for_scalar_type (strip_array_types (t));
@@ -600,8 +606,8 @@ const pass_data pass_data_ipa_increase_alignment =
 class pass_ipa_increase_alignment : public simple_ipa_opt_pass
 {
 public:
-  pass_ipa_increase_alignment(gcc::context *ctxt)
-    : simple_ipa_opt_pass(pass_data_ipa_increase_alignment, ctxt)
+  pass_ipa_increase_alignment (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_increase_alignment, ctxt)
   {}
 
   /* opt_pass methods: */

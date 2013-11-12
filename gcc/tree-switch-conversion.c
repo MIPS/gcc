@@ -31,9 +31,12 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "flags.h"
 #include "tree.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
-#include "tree-flow-inline.h"
-#include "tree-ssa-operands.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
@@ -365,7 +368,7 @@ emit_case_bit_tests (gimple swtch, tree index_expr,
 	  test[k].lo |= (HOST_WIDE_INT) 1 << j;
     }
 
-  qsort (test, count, sizeof(*test), case_bit_test_cmp);
+  qsort (test, count, sizeof (*test), case_bit_test_cmp);
 
   /* We generate two jumps to the default case label.
      Split the default edge, so that we don't have to do any PHI node
@@ -1485,8 +1488,8 @@ const pass_data pass_data_convert_switch =
 class pass_convert_switch : public gimple_opt_pass
 {
 public:
-  pass_convert_switch(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_convert_switch, ctxt)
+  pass_convert_switch (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_convert_switch, ctxt)
   {}
 
   /* opt_pass methods: */

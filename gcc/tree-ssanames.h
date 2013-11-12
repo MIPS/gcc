@@ -45,6 +45,17 @@ struct GTY(()) ptr_info_def
   unsigned int misalign;
 };
 
+/* Value range information for SSA_NAMEs representing non-pointer variables.  */
+
+struct GTY (()) range_info_def {
+  /* Minimum for value range.  */
+  double_int min;
+  /* Maximum for value range.  */
+  double_int max;
+  /* Non-zero bits - bits not set are guaranteed to be always zero.  */
+  double_int nonzero_bits;
+};
+
 
 #define SSANAMES(fun) (fun)->gimple_df->ssa_names
 #define MODIFIED_NORETURN_CALLS(fun) (fun)->gimple_df->modified_noreturn_calls
@@ -54,6 +65,17 @@ struct GTY(()) ptr_info_def
 #define ssa_name(i) ((*cfun->gimple_df->ssa_names)[(i)])
 
 
+/* Type of value ranges.  See value_range_d In tree-vrp.c for a
+   description of these types.  */
+enum value_range_type { VR_UNDEFINED, VR_RANGE, VR_ANTI_RANGE, VR_VARYING };
+
+/* Sets the value range to SSA.  */
+extern void set_range_info (tree, double_int, double_int);
+/* Gets the value range from SSA.  */
+extern enum value_range_type get_range_info (const_tree, double_int *,
+					     double_int *);
+extern void set_nonzero_bits (tree, double_int);
+extern double_int get_nonzero_bits (const_tree);
 extern void init_ssanames (struct function *, int);
 extern void fini_ssanames (void);
 extern void ssanames_print_statistics (void);
@@ -71,6 +93,7 @@ extern struct ptr_info_def *get_ptr_info (tree);
 extern tree copy_ssa_name_fn (struct function *, tree, gimple);
 extern void duplicate_ssa_name_ptr_info (tree, struct ptr_info_def *);
 extern tree duplicate_ssa_name_fn (struct function *, tree, gimple);
+extern void duplicate_ssa_name_range_info (tree, struct range_info_def *);
 extern void release_defs (gimple);
 extern void replace_ssa_name_symbol (tree, tree);
 

@@ -1,4 +1,23 @@
 
+2013-11-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merge with trunk GCC 4.9 svn rev 204695; very unstable}}
+	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.0.1+".
+
+	* melt-run.proto.h: Update copyright years.
+	include tree-cfg.h instead of tree-flow.h for GCC 4.9.
+
+	* melt-runtime.cc: Include tree-cfg.h not tree-flow.h for GCC 4.9.
+	(meltgc_walk_gimple_seq): Fatal error with GCC 4.9 since the
+	walk_use_def_chains function disappeared from GCC...
+
+	* melt/xtramelt-ana-gimple.melt (walk_gimple_seq)
+	(walk_gimple_seq_unique_tree): issue some #warning-s for GCC 4.9
+	because walk_use_def_chains function disappeared from GCC...
+
+	* melt/xtramelt-probe.melt (probe_docmd): Issue an error since
+	currently the MELT probe is not usable with GCC 4.9....
+
 2013-11-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt-runtime.h (MELT_VERSION_STRING): Bump to "1.0.1".
 

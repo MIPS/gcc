@@ -92,6 +92,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "lra.h"
 #include "dumpfile.h"
 #include "opts.h"
+#include "tree-dfa.h"
+#include "gdb/gdb-index.h"
 
 static void dwarf2out_source_line (unsigned int, const char *, int, bool);
 static rtx last_var_location_insn;
@@ -3322,10 +3324,14 @@ new_addr_loc_descr (rtx addr, enum dtprel_bool dtprel)
 #define DEBUG_DWO_LOC_SECTION  ".debug_loc.dwo"
 #endif
 #ifndef DEBUG_PUBNAMES_SECTION
-#define DEBUG_PUBNAMES_SECTION	".debug_pubnames"
+#define DEBUG_PUBNAMES_SECTION	\
+  ((debug_generate_pub_sections == 2) \
+   ? ".debug_gnu_pubnames" : ".debug_pubnames")
 #endif
 #ifndef DEBUG_PUBTYPES_SECTION
-#define DEBUG_PUBTYPES_SECTION	".debug_pubtypes"
+#define DEBUG_PUBTYPES_SECTION	\
+  ((debug_generate_pub_sections == 2) \
+   ? ".debug_gnu_pubtypes" : ".debug_pubtypes")
 #endif
 #define DEBUG_NORM_STR_OFFSETS_SECTION ".debug_str_offsets"
 #define DEBUG_DWO_STR_OFFSETS_SECTION ".debug_str_offsets.dwo"
@@ -4245,7 +4251,7 @@ index_addr_table_entry (void **h, void *v)
   if (node->refcount == 0)
     return 1;
 
-  gcc_assert(node->index == NO_INDEX_ASSIGNED);
+  gcc_assert (node->index == NO_INDEX_ASSIGNED);
   node->index = *index;
   *index += 1;
 
@@ -4566,6 +4572,16 @@ is_cxx (void)
   unsigned int lang = get_AT_unsigned (comp_unit_die (), DW_AT_language);
 
   return lang == DW_LANG_C_plus_plus || lang == DW_LANG_ObjC_plus_plus;
+}
+
+/* Return TRUE if the language is Java.  */
+
+static inline bool
+is_java (void)
+{
+  unsigned int lang = get_AT_unsigned (comp_unit_die (), DW_AT_language);
+
+  return lang == DW_LANG_Java;
 }
 
 /* Return TRUE if the language is Fortran.  */
@@ -6163,7 +6179,7 @@ generate_type_signature (dw_die_ref die, comdat_type_node *type_node)
      context, if any.  This is stored in the type unit DIE for link-time
      ODR (one-definition rule) checking.  */
 
-  if (is_cxx() && name != NULL)
+  if (is_cxx () && name != NULL)
     {
       md5_init_ctx (&ctx);
 
@@ -6249,7 +6265,7 @@ same_dw_val_p (const dw_val_node *v1, const dw_val_node *v2, int *mark)
     case dw_val_class_flag:
       return v1->v.val_flag == v2->v.val_flag;
     case dw_val_class_str:
-      return !strcmp(v1->v.val_str->str, v2->v.val_str->str);
+      return !strcmp (v1->v.val_str->str, v2->v.val_str->str);
 
     case dw_val_class_addr:
       r1 = v1->v.val_addr;
@@ -6788,7 +6804,7 @@ contains_subprogram_definition (dw_die_ref die)
 
   if (die->die_tag == DW_TAG_subprogram && ! is_declaration_die (die))
     return 1;
-  FOR_EACH_CHILD (die, c, if (contains_subprogram_definition(c)) return 1);
+  FOR_EACH_CHILD (die, c, if (contains_subprogram_definition (c)) return 1);
   return 0;
 }
 
@@ -6860,7 +6876,7 @@ clone_tree (dw_die_ref die)
   dw_die_ref c;
   dw_die_ref clone = clone_die (die);
 
-  FOR_EACH_CHILD (die, c, add_child_die (clone, clone_tree(c)));
+  FOR_EACH_CHILD (die, c, add_child_die (clone, clone_tree (c)));
 
   return clone;
 }
@@ -7052,7 +7068,7 @@ copy_declaration_context (dw_die_ref unit, dw_die_ref die)
             add_dwarf_attr (die, a);
         }
 
-      FOR_EACH_CHILD (decl, c, add_child_die (die, clone_tree(c)));
+      FOR_EACH_CHILD (decl, c, add_child_die (die, clone_tree (c)));
     }
 
   if (decl->die_parent != NULL
@@ -7959,6 +7975,12 @@ unmark_all_dies (dw_die_ref die)
 static bool
 include_pubname_in_output (vec<pubname_entry, va_gc> *table, pubname_entry *p)
 {
+  /* By limiting gnu pubnames to definitions only, gold can generate a
+     gdb index without entries for declarations, which don't include
+     enough information to be useful.  */
+  if (debug_generate_pub_sections == 2 && is_declaration_die (p->die))
+    return false;
+
   if (table == pubname_table)
     {
       /* Enumerator names are part of the pubname table, but the
@@ -7988,11 +8010,12 @@ size_of_pubnames (vec<pubname_entry, va_gc> *names)
   unsigned long size;
   unsigned i;
   pubname_ref p;
+  int space_for_flags = (debug_generate_pub_sections == 2) ? 1 : 0;
 
   size = DWARF_PUBNAMES_HEADER_SIZE;
   FOR_EACH_VEC_ELT (*names, i, p)
     if (include_pubname_in_output (names, p))
-      size += strlen (p->name) + DWARF_OFFSET_SIZE + 1;
+      size += strlen (p->name) + DWARF_OFFSET_SIZE + 1 + space_for_flags;
 
   size += DWARF_OFFSET_SIZE;
   return size;
@@ -9145,6 +9168,76 @@ add_pubtype (tree decl, dw_die_ref die)
     }
 }
 
+/* Output a single entry in the pubnames table.  */
+
+static void
+output_pubname (dw_offset die_offset, pubname_entry *entry)
+{
+  dw_die_ref die = entry->die;
+  int is_static = get_AT_flag (die, DW_AT_external) ? 0 : 1;
+
+  dw2_asm_output_data (DWARF_OFFSET_SIZE, die_offset, "DIE offset");
+
+  if (debug_generate_pub_sections == 2)
+    {
+      /* This logic follows gdb's method for determining the value of the flag
+         byte.  */
+      uint32_t flags = GDB_INDEX_SYMBOL_KIND_NONE;
+      switch (die->die_tag)
+      {
+        case DW_TAG_typedef:
+        case DW_TAG_base_type:
+        case DW_TAG_subrange_type:
+          GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags, GDB_INDEX_SYMBOL_KIND_TYPE);
+          GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
+          break;
+        case DW_TAG_enumerator:
+          GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags,
+                                          GDB_INDEX_SYMBOL_KIND_VARIABLE);
+          if (!is_cxx () && !is_java ())
+            GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
+          break;
+        case DW_TAG_subprogram:
+          GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags,
+                                          GDB_INDEX_SYMBOL_KIND_FUNCTION);
+          if (!is_ada ())
+            GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, is_static);
+          break;
+        case DW_TAG_constant:
+          GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags,
+                                          GDB_INDEX_SYMBOL_KIND_VARIABLE);
+          GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, is_static);
+          break;
+        case DW_TAG_variable:
+          GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags,
+                                          GDB_INDEX_SYMBOL_KIND_VARIABLE);
+          GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, is_static);
+          break;
+        case DW_TAG_namespace:
+        case DW_TAG_imported_declaration:
+          GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags, GDB_INDEX_SYMBOL_KIND_TYPE);
+          break;
+        case DW_TAG_class_type:
+        case DW_TAG_interface_type:
+        case DW_TAG_structure_type:
+        case DW_TAG_union_type:
+        case DW_TAG_enumeration_type:
+          GDB_INDEX_SYMBOL_KIND_SET_VALUE(flags, GDB_INDEX_SYMBOL_KIND_TYPE);
+          if (!is_cxx () && !is_java ())
+	    GDB_INDEX_SYMBOL_STATIC_SET_VALUE(flags, 1);
+          break;
+        default:
+          /* An unusual tag.  Leave the flag-byte empty.  */
+          break;
+      }
+      dw2_asm_output_data (1, flags >> GDB_INDEX_CU_BITSIZE,
+                           "GDB-index flags");
+    }
+
+  dw2_asm_output_nstring (entry->name, -1, "external name");
+}
+
+
 /* Output the public names table used to speed up access to externally
    visible names; or the public types table used to find type definitions.  */
 
@@ -9155,23 +9248,14 @@ output_pubnames (vec<pubname_entry, va_gc> *names)
   unsigned long pubnames_length = size_of_pubnames (names);
   pubname_ref pub;
 
-  if (!want_pubnames () || !info_section_emitted)
-    return;
-  if (names == pubname_table)
-    switch_to_section (debug_pubnames_section);
-  else
-    switch_to_section (debug_pubtypes_section);
   if (DWARF_INITIAL_LENGTH_SIZE - DWARF_OFFSET_SIZE == 4)
     dw2_asm_output_data (4, 0xffffffff,
       "Initial length escape value indicating 64-bit DWARF extension");
-  if (names == pubname_table)
-    dw2_asm_output_data (DWARF_OFFSET_SIZE, pubnames_length,
-			 "Length of Public Names Info");
-  else
-    dw2_asm_output_data (DWARF_OFFSET_SIZE, pubnames_length,
-			 "Length of Public Type Names Info");
-  /* Version number for pubnames/pubtypes is still 2, even in DWARF3.  */
+  dw2_asm_output_data (DWARF_OFFSET_SIZE, pubnames_length, "Pub Info Length");
+
+  /* Version number for pubnames/pubtypes is independent of dwarf version.  */
   dw2_asm_output_data (2, 2, "DWARF Version");
+
   if (dwarf_split_debug_info)
     dw2_asm_output_offset (DWARF_OFFSET_SIZE, debug_skeleton_info_section_label,
                            debug_skeleton_info_section,
@@ -9207,14 +9291,30 @@ output_pubnames (vec<pubname_entry, va_gc> *names)
 			      : 0);
 	    }
 
-	  dw2_asm_output_data (DWARF_OFFSET_SIZE, die_offset, "DIE offset");
-
-	  dw2_asm_output_nstring (pub->name, -1, "external name");
+          output_pubname (die_offset, pub);
 	}
     }
 
   dw2_asm_output_data (DWARF_OFFSET_SIZE, 0, NULL);
 }
+
+/* Output public names and types tables if necessary.  */
+
+static void
+output_pubtables (void)
+{
+  if (!want_pubnames () || !info_section_emitted)
+    return;
+
+  switch_to_section (debug_pubnames_section);
+  output_pubnames (pubname_table);
+  /* ??? Only defined by DWARF3, but emitted by Darwin for DWARF2.
+     It shouldn't hurt to emit it always, since pure DWARF2 consumers
+     simply won't look for the section.  */
+  switch_to_section (debug_pubtypes_section);
+  output_pubnames (pubtype_table);
+}
+
 
 /* Output the information that goes into the .debug_aranges table.
    Namely, define the beginning and ending address range of the
@@ -13491,6 +13591,9 @@ dw_sra_loc_expr (tree decl, rtx loc)
       if (last != NULL && opsize != bitsize)
 	{
 	  padsize += bitsize;
+	  /* Discard the current piece of the descriptor and release any
+	     addr_table entries it uses.  */
+	  remove_loc_list_addr_table_entries (cur_descr);
 	  continue;
 	}
 
@@ -13499,18 +13602,24 @@ dw_sra_loc_expr (tree decl, rtx loc)
       if (padsize)
 	{
 	  if (padsize > decl_size)
-	    return NULL;
+	    {
+	      remove_loc_list_addr_table_entries (cur_descr);
+	      goto discard_descr;
+	    }
 	  decl_size -= padsize;
 	  *descr_tail = new_loc_descr_op_bit_piece (padsize, 0);
 	  if (*descr_tail == NULL)
-	    return NULL;
+	    {
+	      remove_loc_list_addr_table_entries (cur_descr);
+	      goto discard_descr;
+	    }
 	  descr_tail = &(*descr_tail)->dw_loc_next;
 	  padsize = 0;
 	}
       *descr_tail = cur_descr;
       descr_tail = tail;
       if (bitsize > decl_size)
-	return NULL;
+	goto discard_descr;
       decl_size -= bitsize;
       if (last == NULL)
 	{
@@ -13546,9 +13655,9 @@ dw_sra_loc_expr (tree decl, rtx loc)
 		{
 		  if (BYTES_BIG_ENDIAN != WORDS_BIG_ENDIAN
 		      && (memsize > BITS_PER_WORD || bitsize > BITS_PER_WORD))
-		    return NULL;
+		    goto discard_descr;
 		  if (memsize < bitsize)
-		    return NULL;
+		    goto discard_descr;
 		  if (BITS_BIG_ENDIAN)
 		    offset = memsize - bitsize;
 		}
@@ -13556,7 +13665,7 @@ dw_sra_loc_expr (tree decl, rtx loc)
 
 	  *descr_tail = new_loc_descr_op_bit_piece (bitsize, offset);
 	  if (*descr_tail == NULL)
-	    return NULL;
+	    goto discard_descr;
 	  descr_tail = &(*descr_tail)->dw_loc_next;
 	}
     }
@@ -13567,9 +13676,14 @@ dw_sra_loc_expr (tree decl, rtx loc)
     {
       *descr_tail = new_loc_descr_op_bit_piece (decl_size, 0);
       if (*descr_tail == NULL)
-	return NULL;
+	goto discard_descr;
     }
   return descr;
+
+discard_descr:
+  /* Discard the descriptor and release any addr_table entries it uses.  */
+  remove_loc_list_addr_table_entries (descr);
+  return NULL;
 }
 
 /* Return the dwarf representation of the location list LOC_LIST of
@@ -15029,7 +15143,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   else if (TREE_CODE (*tp) == VAR_DECL)
     {
       struct varpool_node *node = varpool_get_node (*tp);
-      if (!node || !node->symbol.definition)
+      if (!node || !node->definition)
 	return *tp;
     }
   else if (TREE_CODE (*tp) == FUNCTION_DECL
@@ -17707,7 +17821,7 @@ premark_types_used_by_global_vars_helper (void **slot,
       /* Ask cgraph if the global variable really is to be emitted.
          If yes, then we'll keep the DIE of ENTRY->TYPE.  */
       struct varpool_node *node = varpool_get_node (entry->var_decl);
-      if (node && node->symbol.definition)
+      if (node && node->definition)
 	{
 	  die->die_perennial_p = 1;
 	  /* Keep the parent DIEs as well.  */
@@ -19109,7 +19223,7 @@ gen_compile_unit_die (const char *filename)
 	  else if (strcmp (common_lang, TRANSLATION_UNIT_LANGUAGE (t)) == 0)
 	    ;
 	  else if (strncmp (common_lang, "GNU C", 5) == 0
-		    && strncmp(TRANSLATION_UNIT_LANGUAGE (t), "GNU C", 5) == 0)
+		    && strncmp (TRANSLATION_UNIT_LANGUAGE (t), "GNU C", 5) == 0)
 	    /* Mixing C and C++ is ok, use C++ in that case.  */
 	    common_lang = "GNU C++";
 	  else
@@ -21996,7 +22110,7 @@ index_string (void **h, void *v)
   find_string_form (node);
   if (node->form == DW_FORM_GNU_str_index && node->refcount > 0)
     {
-      gcc_assert(node->index == NO_INDEX_ASSIGNED);
+      gcc_assert (node->index == NO_INDEX_ASSIGNED);
       node->index = *index;
       *index += 1;
     }
@@ -24077,12 +24191,7 @@ dwarf2out_finish (const char *filename)
       output_location_lists (comp_unit_die ());
     }
 
-  /* Output public names and types tables if necessary.  */
-  output_pubnames (pubname_table);
-  /* ??? Only defined by DWARF3, but emitted by Darwin for DWARF2.
-     It shouldn't hurt to emit it always, since pure DWARF2 consumers
-     simply won't look for the section.  */
-  output_pubnames (pubtype_table);
+  output_pubtables ();
 
   /* Output the address range information if a CU (.debug_info section)
      was emitted.  We output an empty table even if we had no functions

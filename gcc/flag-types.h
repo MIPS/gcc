@@ -191,6 +191,15 @@ enum fp_contract_mode {
   FP_CONTRACT_FAST = 2
 };
 
+/* Vectorizer cost-model.  */
+enum vect_cost_model {
+  VECT_COST_MODEL_UNLIMITED = 0,
+  VECT_COST_MODEL_CHEAP = 1,
+  VECT_COST_MODEL_DYNAMIC = 2,
+  VECT_COST_MODEL_DEFAULT = 3
+};
+
+
 /* Different instrumentation modes.  */
 enum sanitize_code {
   /* AddressSanitizer.  */
@@ -201,7 +210,9 @@ enum sanitize_code {
   SANITIZE_SHIFT = 1 << 2,
   SANITIZE_DIVIDE = 1 << 3,
   SANITIZE_UNREACHABLE = 1 << 4,
+  SANITIZE_VLA = 1 << 5,
   SANITIZE_UNDEFINED = SANITIZE_SHIFT | SANITIZE_DIVIDE | SANITIZE_UNREACHABLE
+		       | SANITIZE_VLA
 };
 
 /* flag_vtable_verify initialization levels. */

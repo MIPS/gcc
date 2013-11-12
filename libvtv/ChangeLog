@@ -1,3 +1,24 @@
+2013-09-25 Caroline Tice  <cmtice@google.com>
+
+	* Makefile.am: Reinstate ENABLE_VTABLE_VERIFY checks, to make
+	sure testsuite is not run if libstdc++ and libgcc were not built
+	with vtable verification.
+	* Makefile.in: Regenerated.
+	* configure.ac: Reinstate checks for --enable-vtable-verify flag,
+	to make sure testsuite is not run if libstdc++ and libgcc were not
+	built with vtable verification.
+	* configure: Regenerated.
+
+2013-09-24  Caroline Tice  <cmtice@google.com>
+
+	* Makefile.am:  Change libvtv_includedir to the directory used by
+	the other libraries rather than the top include directory.
+	* Makefile.in: Regenerated.
+
+2013-09-20  Alan Modra  <amodra@gmail.com>
+
+	* configure: Regenerate.
+
 2013-09-12  Alexander Ivchenko  <alexander.ivchenko@intel.com>
 
 	* configure.tgt: Remove *-*-*android* from supported targets.
@@ -119,12 +140,12 @@
 	for 'open'.  Update function comment.
 	* vtv_rts.cc (log_memory_protection_data):  Remove %d from file name.
 
-2013-08-08  Benjamin Kosnik  <bkoz@rehat.com>
+2013-08-08  Benjamin Kosnik  <bkoz@redhat.com>
 	    Michael Meissner <meissner@linux.vnet.ibm.com>
 
 	* configure.tgt : Simplify, just use VTV_SUPPORTED.
 
-2013-08-07  Benjamin Kosnik  <bkoz@rehat.com>
+2013-08-07  Benjamin Kosnik  <bkoz@redhat.com>
 
 	* Makefile.am (SUBDIRS): Protect with ENABLE_VTABLE_VERIFY.
 	* Makefile.in: Regenerate.

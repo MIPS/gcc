@@ -593,9 +593,6 @@ extern int rs6000_vector_align[];
 #define MASK_PROTOTYPE			OPTION_MASK_PROTOTYPE
 #endif
 
-/* Explicit ISA options that were set.  */
-#define rs6000_isa_flags_explicit	global_options_set.x_rs6000_isa_flags
-
 /* For power systems, we want to enable Altivec and VSX builtins even if the
    user did not use -maltivec or -mvsx to allow the builtins to be used inside
    of #pragma GCC target or the target attribute to change the code level for a
@@ -616,6 +613,25 @@ extern int rs6000_vector_align[];
 #define TARGET_NO_LWSYNC (rs6000_cpu == PROCESSOR_PPC8540 \
 			  || rs6000_cpu == PROCESSOR_PPC8548)
 
+
+/* Whether SF/DF operations are supported on the E500.  */
+#define TARGET_SF_SPE	(TARGET_HARD_FLOAT && TARGET_SINGLE_FLOAT	\
+			 && !TARGET_FPRS)
+
+#define TARGET_DF_SPE	(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT	\
+			 && !TARGET_FPRS && TARGET_E500_DOUBLE)
+
+/* Whether SF/DF operations are supported by by the normal floating point unit
+   (or the vector/scalar unit).  */
+#define TARGET_SF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_SINGLE_FLOAT)
+
+#define TARGET_DF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
+			 && TARGET_DOUBLE_FLOAT)
+
+/* Whether SF/DF operations are supported by any hardware.  */
+#define TARGET_SF_INSN	(TARGET_SF_FPR || TARGET_SF_SPE)
+#define TARGET_DF_INSN	(TARGET_DF_FPR || TARGET_DF_SPE)
 
 /* Which machine supports the various reciprocal estimate instructions.  */
 #define TARGET_FRES	(TARGET_HARD_FLOAT && TARGET_PPC_GFXOPT \
@@ -1403,15 +1419,18 @@ enum r6000_reg_class_enum {
   RS6000_CONSTRAINT_v,		/* Altivec registers */
   RS6000_CONSTRAINT_wa,		/* Any VSX register */
   RS6000_CONSTRAINT_wd,		/* VSX register for V2DF */
-  RS6000_CONSTRAINT_wg,		/* FPR register for -mmfpgpr */
   RS6000_CONSTRAINT_wf,		/* VSX register for V4SF */
+  RS6000_CONSTRAINT_wg,		/* FPR register for -mmfpgpr */
   RS6000_CONSTRAINT_wl,		/* FPR register for LFIWAX */
   RS6000_CONSTRAINT_wm,		/* VSX register for direct move */
   RS6000_CONSTRAINT_wr,		/* GPR register if 64-bit  */
   RS6000_CONSTRAINT_ws,		/* VSX register for DF */
   RS6000_CONSTRAINT_wt,		/* VSX register for TImode */
-  RS6000_CONSTRAINT_wv,		/* Altivec register for power8 vector */
+  RS6000_CONSTRAINT_wu,		/* Altivec register for float load/stores.  */
+  RS6000_CONSTRAINT_wv,		/* Altivec register for double load/stores.  */
+  RS6000_CONSTRAINT_ww,		/* FP or VSX register for vsx float ops.  */
   RS6000_CONSTRAINT_wx,		/* FPR register for STFIWX */
+  RS6000_CONSTRAINT_wy,		/* VSX register for SF */
   RS6000_CONSTRAINT_wz,		/* FPR register for LFIWZX */
   RS6000_CONSTRAINT_MAX
 };
@@ -1468,6 +1487,13 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
 #define SECONDARY_MEMORY_NEEDED_RTX(MODE) \
   rs6000_secondary_memory_needed_rtx (MODE)
+
+/* Specify the mode to be used for memory when a secondary memory
+   location is needed.  For cpus that cannot load/store SDmode values
+   from the 64-bit FP registers without using a full 64-bit
+   load/store, we need a wider mode.  */
+#define SECONDARY_MEMORY_NEEDED_MODE(MODE)		\
+  rs6000_secondary_memory_needed_mode (MODE)
 
 /* Return the maximum number of consecutive registers
    needed to represent mode MODE in a register of class CLASS.

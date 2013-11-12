@@ -5362,8 +5362,17 @@ sparc_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					  size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   if (size == 0)
     ; /* do nothing.  */
@@ -5464,8 +5473,17 @@ sparc_flat_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					  size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   if (sparc_save_local_in_regs_p)
     emit_save_or_restore_local_in_regs (stack_pointer_rtx, SPARC_STACK_BIAS,
@@ -7724,7 +7742,7 @@ output_cbranch (rtx op, rtx dest, int label, int reversed, int annul,
       if (*labelno && insn && (note = find_reg_note (insn, REG_BR_PROB, NULL_RTX)))
 	{
 	  strcpy (p,
-		  ((INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2) ^ far)
+		  ((XINT (note, 0) >= REG_BR_PROB_BASE / 2) ^ far)
 		  ? ",pt" : ",pn");
 	  p += 3;
 	  spaces -= 3;
@@ -8195,7 +8213,7 @@ output_v9branch (rtx op, rtx dest, int reg, int label, int reversed,
   if (insn && (note = find_reg_note (insn, REG_BR_PROB, NULL_RTX)))
     {
       strcpy (p,
-	      ((INTVAL (XEXP (note, 0)) >= REG_BR_PROB_BASE / 2) ^ far)
+	      ((XINT (note, 0) >= REG_BR_PROB_BASE / 2) ^ far)
 	      ? ",pt" : ",pn");
       p += 3;
     }
@@ -8541,6 +8559,16 @@ mems_ok_for_ldd_peep (rtx mem1, rtx mem2, rtx dependent_reg_rtx)
   /* All the tests passed.  addr1 and addr2 are valid for ldd and std
      instructions.  */
   return 1;
+}
+
+/* Return the widened memory access made of MEM1 and MEM2 in MODE.  */
+
+rtx
+widen_mem_for_ldd_peep (rtx mem1, rtx mem2, enum machine_mode mode)
+{
+  rtx x = widen_memory_access (mem1, mode, 0);
+  MEM_NOTRAP_P (x) = MEM_NOTRAP_P (mem1) && MEM_NOTRAP_P (mem2);
+  return x;
 }
 
 /* Return 1 if reg is a pseudo, or is the first register in

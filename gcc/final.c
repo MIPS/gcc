@@ -70,14 +70,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "tree-ssa.h"
 #include "cgraph.h"
+#include "tree-ssa.h"
 #include "coverage.h"
 #include "df.h"
 #include "ggc.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-pretty-print.h" /* for dump_function_header */
+#include "asan.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -704,7 +705,7 @@ compute_alignments (void)
   freq_threshold = freq_max / PARAM_VALUE (PARAM_ALIGN_THRESHOLD);
 
   if (dump_file)
-    fprintf(dump_file, "freq_max: %i\n",freq_max);
+    fprintf (dump_file, "freq_max: %i\n",freq_max);
   FOR_EACH_BB (bb)
     {
       rtx label = BB_HEAD (bb);
@@ -716,9 +717,10 @@ compute_alignments (void)
 	  || optimize_bb_for_size_p (bb))
 	{
 	  if (dump_file)
-	    fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
-		    bb->index, bb->frequency, bb->loop_father->num,
-		    bb_loop_depth (bb));
+	    fprintf (dump_file,
+		     "BB %4i freq %4i loop %2i loop_depth %2i skipped.\n",
+		     bb->index, bb->frequency, bb->loop_father->num,
+		     bb_loop_depth (bb));
 	  continue;
 	}
       max_log = LABEL_ALIGN (label);
@@ -733,10 +735,11 @@ compute_alignments (void)
 	}
       if (dump_file)
 	{
-	  fprintf(dump_file, "BB %4i freq %4i loop %2i loop_depth %2i fall %4i branch %4i",
-		  bb->index, bb->frequency, bb->loop_father->num,
-		  bb_loop_depth (bb),
-		  fallthru_frequency, branch_frequency);
+	  fprintf (dump_file, "BB %4i freq %4i loop %2i loop_depth"
+		   " %2i fall %4i branch %4i",
+		   bb->index, bb->frequency, bb->loop_father->num,
+		   bb_loop_depth (bb),
+		   fallthru_frequency, branch_frequency);
 	  if (!bb->loop_father->inner && bb->loop_father->num)
 	    fprintf (dump_file, " inner_loop");
 	  if (bb->loop_father->header == bb)
@@ -762,7 +765,7 @@ compute_alignments (void)
 	{
 	  log = JUMP_ALIGN (label);
 	  if (dump_file)
-	    fprintf(dump_file, "  jump alignment added.\n");
+	    fprintf (dump_file, "  jump alignment added.\n");
 	  if (max_log < log)
 	    {
 	      max_log = log;
@@ -779,7 +782,7 @@ compute_alignments (void)
 	{
 	  log = LOOP_ALIGN (label);
 	  if (dump_file)
-	    fprintf(dump_file, "  internal loop alignment added.\n");
+	    fprintf (dump_file, "  internal loop alignment added.\n");
 	  if (max_log < log)
 	    {
 	      max_log = log;
@@ -862,8 +865,8 @@ const pass_data pass_data_compute_alignments =
 class pass_compute_alignments : public rtl_opt_pass
 {
 public:
-  pass_compute_alignments(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_compute_alignments, ctxt)
+  pass_compute_alignments (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_compute_alignments, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1123,7 +1126,7 @@ shorten_branches (rtx first)
       INSN_ADDRESSES (uid) = insn_current_address + insn_lengths[uid];
 
       if (NOTE_P (insn) || BARRIER_P (insn)
-	  || LABEL_P (insn) || DEBUG_INSN_P(insn))
+	  || LABEL_P (insn) || DEBUG_INSN_P (insn))
 	continue;
       if (INSN_DELETED_P (insn))
 	continue;
@@ -1735,6 +1738,9 @@ final_start_function (rtx first, FILE *file,
   last_discriminator = discriminator = 0;
 
   high_block_linenum = high_function_linenum = last_linenum;
+
+  if (flag_sanitize & SANITIZE_ADDRESS)
+    asan_function_start ();
 
   if (!DECL_IGNORED_P (current_function_decl))
     debug_hooks->begin_prologue (last_linenum, last_filename);
@@ -4489,8 +4495,8 @@ const pass_data pass_data_final =
 class pass_final : public rtl_opt_pass
 {
 public:
-  pass_final(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_final, ctxt)
+  pass_final (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_final, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4535,8 +4541,8 @@ const pass_data pass_data_shorten_branches =
 class pass_shorten_branches : public rtl_opt_pass
 {
 public:
-  pass_shorten_branches(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_shorten_branches, ctxt)
+  pass_shorten_branches (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_shorten_branches, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4699,8 +4705,8 @@ const pass_data pass_data_clean_state =
 class pass_clean_state : public rtl_opt_pass
 {
 public:
-  pass_clean_state(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_clean_state, ctxt)
+  pass_clean_state (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_clean_state, ctxt)
   {}
 
   /* opt_pass methods: */

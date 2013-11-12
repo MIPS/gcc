@@ -66,7 +66,7 @@ enum rid
   RID_UNSIGNED, RID_LONG,    RID_CONST, RID_EXTERN,
   RID_REGISTER, RID_TYPEDEF, RID_SHORT, RID_INLINE,
   RID_VOLATILE, RID_SIGNED,  RID_AUTO,  RID_RESTRICT,
-  RID_NORETURN,
+  RID_NORETURN, RID_ATOMIC,
 
   /* C extensions */
   RID_COMPLEX, RID_THREAD, RID_SAT,
@@ -148,6 +148,9 @@ enum rid
   /* C++11 */
   RID_CONSTEXPR, RID_DECLTYPE, RID_NOEXCEPT, RID_NULLPTR, RID_STATIC_ASSERT,
 
+  /* Cilk Plus keywords.  */
+  RID_CILK_SPAWN, RID_CILK_SYNC,
+  
   /* Objective-C ("AT" reserved words - they are only keywords when
      they follow '@')  */
   RID_AT_ENCODE,   RID_AT_END,
@@ -1034,17 +1037,166 @@ extern void pp_dir_change (cpp_reader *, const char *);
 extern bool check_missing_format_attribute (tree, tree);
 
 /* In c-omp.c  */
+#if HOST_BITS_PER_WIDE_INT >= 64
+typedef unsigned HOST_WIDE_INT omp_clause_mask;
+# define OMP_CLAUSE_MASK_1 ((omp_clause_mask) 1)
+#else
+struct omp_clause_mask
+{
+  inline omp_clause_mask ();
+  inline omp_clause_mask (unsigned HOST_WIDE_INT l);
+  inline omp_clause_mask (unsigned HOST_WIDE_INT l,
+			  unsigned HOST_WIDE_INT h);
+  inline omp_clause_mask &operator &= (omp_clause_mask);
+  inline omp_clause_mask &operator |= (omp_clause_mask);
+  inline omp_clause_mask operator ~ () const;
+  inline omp_clause_mask operator & (omp_clause_mask) const;
+  inline omp_clause_mask operator | (omp_clause_mask) const;
+  inline omp_clause_mask operator >> (int);
+  inline omp_clause_mask operator << (int);
+  inline bool operator == (omp_clause_mask) const;
+  inline bool operator != (omp_clause_mask) const;
+  unsigned HOST_WIDE_INT low, high;
+};
+
+inline
+omp_clause_mask::omp_clause_mask ()
+{
+}
+
+inline
+omp_clause_mask::omp_clause_mask (unsigned HOST_WIDE_INT l)
+: low (l), high (0)
+{
+}
+
+inline
+omp_clause_mask::omp_clause_mask (unsigned HOST_WIDE_INT l,
+				  unsigned HOST_WIDE_INT h)
+: low (l), high (h)
+{
+}
+
+inline omp_clause_mask &
+omp_clause_mask::operator &= (omp_clause_mask b)
+{
+  low &= b.low;
+  high &= b.high;
+  return *this;
+}
+
+inline omp_clause_mask &
+omp_clause_mask::operator |= (omp_clause_mask b)
+{
+  low |= b.low;
+  high |= b.high;
+  return *this;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator ~ () const
+{
+  omp_clause_mask ret (~low, ~high);
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator | (omp_clause_mask b) const
+{
+  omp_clause_mask ret (low | b.low, high | b.high);
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator & (omp_clause_mask b) const
+{
+  omp_clause_mask ret (low & b.low, high & b.high);
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator << (int amount)
+{
+  omp_clause_mask ret;
+  if (amount >= HOST_BITS_PER_WIDE_INT)
+    {
+      ret.low = 0;
+      ret.high = low << (amount - HOST_BITS_PER_WIDE_INT);
+    }
+  else if (amount == 0)
+    ret = *this;
+  else
+    {
+      ret.low = low << amount;
+      ret.high = (low >> (HOST_BITS_PER_WIDE_INT - amount))
+		 | (high << amount);
+    }
+  return ret;
+}
+
+inline omp_clause_mask
+omp_clause_mask::operator >> (int amount)
+{
+  omp_clause_mask ret;
+  if (amount >= HOST_BITS_PER_WIDE_INT)
+    {
+      ret.low = high >> (amount - HOST_BITS_PER_WIDE_INT);
+      ret.high = 0;
+    }
+  else if (amount == 0)
+    ret = *this;
+  else
+    {
+      ret.low = (high << (HOST_BITS_PER_WIDE_INT - amount))
+		 | (low >> amount);
+      ret.high = high >> amount;
+    }
+  return ret;
+}
+
+inline bool
+omp_clause_mask::operator == (omp_clause_mask b) const
+{
+  return low == b.low && high == b.high;
+}
+
+inline bool
+omp_clause_mask::operator != (omp_clause_mask b) const
+{
+  return low != b.low || high != b.high;
+}
+
+# define OMP_CLAUSE_MASK_1 omp_clause_mask (1)
+#endif
+
+enum c_omp_clause_split
+{
+  C_OMP_CLAUSE_SPLIT_TARGET = 0,
+  C_OMP_CLAUSE_SPLIT_TEAMS,
+  C_OMP_CLAUSE_SPLIT_DISTRIBUTE,
+  C_OMP_CLAUSE_SPLIT_PARALLEL,
+  C_OMP_CLAUSE_SPLIT_FOR,
+  C_OMP_CLAUSE_SPLIT_SIMD,
+  C_OMP_CLAUSE_SPLIT_COUNT,
+  C_OMP_CLAUSE_SPLIT_SECTIONS = C_OMP_CLAUSE_SPLIT_FOR
+};
+
 extern tree c_finish_omp_master (location_t, tree);
+extern tree c_finish_omp_taskgroup (location_t, tree);
 extern tree c_finish_omp_critical (location_t, tree, tree);
 extern tree c_finish_omp_ordered (location_t, tree);
 extern void c_finish_omp_barrier (location_t);
 extern tree c_finish_omp_atomic (location_t, enum tree_code, enum tree_code,
-				 tree, tree, tree, tree, tree);
+				 tree, tree, tree, tree, tree, bool, bool);
 extern void c_finish_omp_flush (location_t);
 extern void c_finish_omp_taskwait (location_t);
 extern void c_finish_omp_taskyield (location_t);
-extern tree c_finish_omp_for (location_t, tree, tree, tree, tree, tree, tree);
-extern void c_split_parallel_clauses (location_t, tree, tree *, tree *);
+extern tree c_finish_omp_for (location_t, enum tree_code, tree, tree, tree,
+			      tree, tree, tree);
+extern void c_omp_split_clauses (location_t, enum tree_code, omp_clause_mask,
+				 tree, tree *);
+extern tree c_omp_declare_simd_clauses_to_numbers (tree, tree);
+extern void c_omp_declare_simd_clauses_to_decls (tree, tree);
 extern enum omp_clause_default_kind c_omp_predetermined_sharing (tree);
 
 /* Not in c-omp.c; provided by the front end.  */
@@ -1207,4 +1359,18 @@ extern void cilkplus_extract_an_triplets (vec<tree, va_gc> *, size_t, size_t,
 					  vec<vec<an_parts> > *);
 extern vec <tree, va_gc> *fix_sec_implicit_args
   (location_t, vec <tree, va_gc> *, vec<an_loop_parts>, size_t, tree);
+
+/* In cilk.c.  */
+extern tree insert_cilk_frame (tree);
+extern void cilk_init_builtins (void);
+extern int gimplify_cilk_spawn (tree *, gimple_seq *, gimple_seq *);
+extern void c_cilk_install_body_w_frame_cleanup (tree, tree);
+extern bool cilk_detect_spawn_and_unwrap (tree *);
+extern bool cilk_set_spawn_marker (location_t, tree);
+extern tree build_cilk_sync (void);
+extern tree build_cilk_spawn (location_t, tree);
+extern tree make_cilk_frame (tree);
+extern tree create_cilk_function_exit (tree, bool, bool);
+extern tree cilk_install_body_pedigree_operations (tree);
+
 #endif /* ! GCC_C_COMMON_H */

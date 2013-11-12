@@ -109,6 +109,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tree.h"
 #include "cgraph.h"
 #include "tree-pass.h"
 #include "ggc.h"
@@ -373,7 +374,7 @@ add_type_duplicate (odr_type val, tree type)
 	      unsigned int i;
 
 	      TYPE_BINFO (val->type) = TYPE_BINFO (type);
-	      for (i = 0; i < val->types->length(); i++)
+	      for (i = 0; i < val->types->length (); i++)
 		{
 		  if (TYPE_BINFO ((*val->types)[i])
 		      == master_binfo)
@@ -438,7 +439,7 @@ get_odr_type (tree type, bool insert)
 	  }
       /* First record bases, then add into array so ids are increasing.  */
       if (odr_types_ptr)
-        val->id = odr_types.length();
+        val->id = odr_types.length ();
       vec_safe_push (odr_types_ptr, val);
     }
   return val;
@@ -460,17 +461,17 @@ dump_odr_type (FILE *f, odr_type t, int indent=0)
 	       DECL_SOURCE_FILE (TYPE_NAME (t->type)),
 	       DECL_SOURCE_LINE (TYPE_NAME (t->type)));
     }
-  if (t->bases.length())
+  if (t->bases.length ())
     {
       fprintf (f, "%*s base odr type ids: ", indent * 2, "");
-      for (i = 0; i < t->bases.length(); i++)
+      for (i = 0; i < t->bases.length (); i++)
 	fprintf (f, " %i", t->bases[i]->id);
       fprintf (f, "\n");
     }
-  if (t->derived_types.length())
+  if (t->derived_types.length ())
     {
       fprintf (f, "%*s derived types:\n", indent * 2, "");
-      for (i = 0; i < t->derived_types.length(); i++)
+      for (i = 0; i < t->derived_types.length (); i++)
         dump_odr_type (f, t->derived_types[i], indent + 1);
     }
   fprintf (f, "\n");
@@ -485,19 +486,19 @@ dump_type_inheritance_graph (FILE *f)
   if (!odr_types_ptr)
     return;
   fprintf (f, "\n\nType inheritance graph:\n");
-  for (i = 0; i < odr_types.length(); i++)
+  for (i = 0; i < odr_types.length (); i++)
     {
-      if (odr_types[i]->bases.length() == 0)
+      if (odr_types[i]->bases.length () == 0)
 	dump_odr_type (f, odr_types[i]);
     }
-  for (i = 0; i < odr_types.length(); i++)
+  for (i = 0; i < odr_types.length (); i++)
     {
-      if (odr_types[i]->types && odr_types[i]->types->length())
+      if (odr_types[i]->types && odr_types[i]->types->length ())
 	{
 	  unsigned int j;
 	  fprintf (f, "Duplicate tree types for odr type %i\n", i);
 	  print_node (f, "", odr_types[i]->type, 0);
-	  for (j = 0; j < odr_types[i]->types->length(); j++)
+	  for (j = 0; j < odr_types[i]->types->length (); j++)
 	    {
 	      tree t;
 	      fprintf (f, "duplicate #%i\n", j);
@@ -543,9 +544,9 @@ build_type_inheritance_graph (void)
   /* We reconstruct the graph starting of types of all methods seen in the
      the unit.  */
   FOR_EACH_FUNCTION (n)
-    if (DECL_VIRTUAL_P (n->symbol.decl)
-	&& symtab_real_symbol_p ((symtab_node)n))
-      get_odr_type (method_class_type (TREE_TYPE (n->symbol.decl)), true);
+    if (DECL_VIRTUAL_P (n->decl)
+	&& symtab_real_symbol_p (n))
+      get_odr_type (method_class_type (TREE_TYPE (n->decl)), true);
   if (inheritance_dump_file)
     {
       dump_type_inheritance_graph (inheritance_dump_file);
@@ -571,8 +572,8 @@ maybe_record_node (vec <cgraph_node *> &nodes,
       && !pointer_set_insert (inserted, target)
       && (target_node = cgraph_get_node (target)) != NULL
       && (TREE_PUBLIC (target)
-	  || target_node->symbol.definition)
-      && symtab_real_symbol_p ((symtab_node)target_node))
+	  || target_node->definition)
+      && symtab_real_symbol_p (target_node))
     {
       pointer_set_insert (cached_polymorphic_call_targets,
 			  target_node);
@@ -626,7 +627,7 @@ record_binfo (vec <cgraph_node *> &nodes,
 	  if (TREE_CODE (vtable) == POINTER_PLUS_EXPR)
 	    vtable = TREE_OPERAND (TREE_OPERAND (vtable, 0), 0);
 	  vnode = varpool_get_node (vtable);
-	  if (!vnode || !vnode->symbol.definition)
+	  if (!vnode || !vnode->definition)
 	    return;
 	}
       tree target = gimple_get_virt_method_for_binfo (otr_token, type_binfo);
@@ -665,7 +666,7 @@ possible_polymorphic_call_targets_1 (vec <cgraph_node *> &nodes,
 
   record_binfo (nodes, binfo, otr_type, binfo, otr_token, inserted,
 	        matched_vtables, type->anonymous_namespace);
-  for (i = 0; i < type->derived_types.length(); i++)
+  for (i = 0; i < type->derived_types.length (); i++)
     possible_polymorphic_call_targets_1 (nodes, inserted, 
 					 matched_vtables,
 					 otr_type,
@@ -760,8 +761,8 @@ devirt_variable_node_removal_hook (struct varpool_node *n,
 				   void *d ATTRIBUTE_UNUSED)
 {
   if (cached_polymorphic_call_targets
-      && DECL_VIRTUAL_P (n->symbol.decl)
-      && type_in_anonymous_namespace_p (DECL_CONTEXT (n->symbol.decl)))
+      && DECL_VIRTUAL_P (n->decl)
+      && type_in_anonymous_namespace_p (DECL_CONTEXT (n->decl)))
     free_polymorphic_call_targets_hash ();
 }
 
@@ -854,7 +855,7 @@ possible_polymorphic_call_targets (tree otr_type,
 
   /* Walk recursively all derived types.  Here we need to lookup proper basetype
      via their BINFO walk that is done by record_binfo  */
-  for (i = 0; i < type->derived_types.length(); i++)
+  for (i = 0; i < type->derived_types.length (); i++)
     possible_polymorphic_call_targets_1 (nodes, inserted,
 					 matched_vtables,
 					 otr_type, type->derived_types[i],
@@ -890,7 +891,7 @@ dump_possible_polymorphic_call_targets (FILE *f,
 	   final ? " (full list)" : " (partial list, may call to other unit)");
   for (i = 0; i < targets.length (); i++)
     fprintf (f, " %s/%i", cgraph_node_name (targets[i]),
-	     targets[i]->symbol.order);
+	     targets[i]->order);
   fprintf (f, "\n");
 }
 
@@ -905,13 +906,19 @@ possible_polymorphic_call_target_p (tree otr_type,
 {
   vec <cgraph_node *> targets;
   unsigned int i;
+  bool final;
 
   if (!odr_hash.is_created ())
     return true;
-  targets = possible_polymorphic_call_targets (otr_type, otr_token);
+  targets = possible_polymorphic_call_targets (otr_type, otr_token, &final);
   for (i = 0; i < targets.length (); i++)
     if (n == targets[i])
       return true;
+
+  /* At a moment we allow middle end to dig out new external declarations
+     as a targets of polymorphic calls.  */
+  if (!final && !n->definition)
+    return true;
   return false;
 }
 
@@ -931,10 +938,10 @@ update_type_inheritance_graph (void)
   /* We reconstruct the graph starting of types of all methods seen in the
      the unit.  */
   FOR_EACH_FUNCTION (n)
-    if (DECL_VIRTUAL_P (n->symbol.decl)
-	&& !n->symbol.definition
-	&& symtab_real_symbol_p ((symtab_node)n))
-      get_odr_type (method_class_type (TREE_TYPE (n->symbol.decl)), true);
+    if (DECL_VIRTUAL_P (n->decl)
+	&& !n->definition
+	&& symtab_real_symbol_p (n))
+      get_odr_type (method_class_type (TREE_TYPE (n->decl)), true);
   timevar_pop (TV_IPA_INHERITANCE);
 }
 
@@ -948,13 +955,13 @@ likely_target_p (struct cgraph_node *n)
 {
   int flags;
   /* cxa_pure_virtual and similar things are not likely.  */
-  if (TREE_CODE (TREE_TYPE (n->symbol.decl)) != METHOD_TYPE)
+  if (TREE_CODE (TREE_TYPE (n->decl)) != METHOD_TYPE)
     return false;
-  flags = flags_from_decl_or_type (n->symbol.decl);
+  flags = flags_from_decl_or_type (n->decl);
   if (flags & ECF_NORETURN)
     return false;
   if (lookup_attribute ("cold",
-			DECL_ATTRIBUTES (n->symbol.decl)))
+			DECL_ATTRIBUTES (n->decl)))
     return false;
   if (n->frequency < NODE_FREQUENCY_NORMAL)
     return false;
@@ -981,7 +988,7 @@ ipa_devirt (void)
       bool update = false;
       if (dump_file && n->indirect_calls)
 	fprintf (dump_file, "\n\nProcesing function %s/%i\n",
-		 cgraph_node_name (n), n->symbol.order);
+		 cgraph_node_name (n), n->order);
       for (e = n->indirect_calls; e; e = e->next_callee)
 	if (e->indirect_info->polymorphic)
 	  {
@@ -1024,7 +1031,7 @@ ipa_devirt (void)
 		nmultiple++;
 		continue;
 	      }
-	    for (i = 0; i < targets.length(); i++)
+	    for (i = 0; i < targets.length (); i++)
 	      if (likely_target_p (targets[i]))
 		{
 		  if (likely_target)
@@ -1062,7 +1069,7 @@ ipa_devirt (void)
 		  }
 		continue;
 	      }
-	    if (!likely_target->symbol.definition)
+	    if (!likely_target->definition)
 	      {
 		if (dump_file)
 		  fprintf (dump_file, "Target is not an definition\n");
@@ -1073,7 +1080,7 @@ ipa_devirt (void)
 	       can handle these just well, it is common for programs to
 	       incorrectly with headers defining methods they are linked
 	       with.  */
-	    if (DECL_EXTERNAL (likely_target->symbol.decl))
+	    if (DECL_EXTERNAL (likely_target->decl))
 	      {
 		if (dump_file)
 		  fprintf (dump_file, "Target is external\n");
@@ -1082,7 +1089,7 @@ ipa_devirt (void)
 	      }
 	    if (cgraph_function_body_availability (likely_target)
 		<= AVAIL_OVERWRITABLE
-		&& symtab_can_be_discarded ((symtab_node) likely_target))
+		&& symtab_can_be_discarded (likely_target))
 	      {
 		if (dump_file)
 		  fprintf (dump_file, "Target is overwritable\n");
@@ -1094,14 +1101,14 @@ ipa_devirt (void)
 		if (dump_file)
 		  fprintf (dump_file,
 			   "Speculatively devirtualizing call in %s/%i to %s/%i\n",
-			   cgraph_node_name (n), n->symbol.order,
+			   cgraph_node_name (n), n->order,
 			   cgraph_node_name (likely_target),
-			   likely_target->symbol.order);
-		if (!symtab_can_be_discarded ((symtab_node) likely_target))
+			   likely_target->order);
+		if (!symtab_can_be_discarded (likely_target))
 		  {
 		    cgraph_node *alias;
 		    alias = cgraph (symtab_nonoverwritable_alias
-				     ((symtab_node)likely_target));
+				     (likely_target));
 		    if (alias)
 		      likely_target = alias;
 		  }
@@ -1157,17 +1164,17 @@ const pass_data pass_data_ipa_devirt =
 class pass_ipa_devirt : public ipa_opt_pass_d
 {
 public:
-  pass_ipa_devirt(gcc::context *ctxt)
-    : ipa_opt_pass_d(pass_data_ipa_devirt, ctxt,
-		     NULL, /* generate_summary */
-		     NULL, /* write_summary */
-		     NULL, /* read_summary */
-		     NULL, /* write_optimization_summary */
-		     NULL, /* read_optimization_summary */
-		     NULL, /* stmt_fixup */
-		     0, /* function_transform_todo_flags_start */
-		     NULL, /* function_transform */
-		     NULL) /* variable_transform */
+  pass_ipa_devirt (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_devirt, ctxt,
+		      NULL, /* generate_summary */
+		      NULL, /* write_summary */
+		      NULL, /* read_summary */
+		      NULL, /* write_optimization_summary */
+		      NULL, /* read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      NULL, /* function_transform */
+		      NULL) /* variable_transform */
   {}
 
   /* opt_pass methods: */

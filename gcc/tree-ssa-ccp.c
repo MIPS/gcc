@@ -119,7 +119,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "value-prof.h"
@@ -127,7 +132,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "diagnostic-core.h"
 #include "dbgcnt.h"
-#include "gimple-fold.h"
 #include "params.h"
 #include "hash-table.h"
 
@@ -164,7 +168,7 @@ typedef struct prop_value_d prop_value_t;
 static prop_value_t *const_val;
 static unsigned n_const_val;
 
-static void canonicalize_float_value (prop_value_t *);
+static void canonicalize_value (prop_value_t *);
 static bool ccp_fold_stmt (gimple_stmt_iterator *);
 
 /* Dump constant propagation value VAL to file OUTF prefixed by PREFIX.  */
@@ -256,6 +260,19 @@ get_default_value (tree var)
 	{
 	  val.lattice_val = VARYING;
 	  val.mask = double_int_minus_one;
+	  if (flag_tree_bit_ccp)
+	    {
+	      double_int nonzero_bits = get_nonzero_bits (var);
+	      double_int mask
+		= double_int::mask (TYPE_PRECISION (TREE_TYPE (var)));
+	      if (nonzero_bits != double_int_minus_one && nonzero_bits != mask)
+		{
+		  val.lattice_val = CONSTANT;
+		  val.value = build_zero_cst (TREE_TYPE (var));
+		  /* CCP wants the bits above precision set.  */
+		  val.mask = nonzero_bits | ~mask;
+		}
+	    }
 	}
     }
   else if (is_gimple_assign (stmt))
@@ -309,7 +326,7 @@ get_value (tree var)
   if (val->lattice_val == UNINITIALIZED)
     *val = get_default_value (var);
 
-  canonicalize_float_value (val);
+  canonicalize_value (val);
 
   return val;
 }
@@ -361,17 +378,24 @@ set_value_varying (tree var)
      that HONOR_NANS is false, and we try to change the value of x to 0,
      causing an ICE.  With HONOR_NANS being false, the real appearance of
      NaN would cause undefined behavior, though, so claiming that y (and x)
-     are UNDEFINED initially is correct.  */
+     are UNDEFINED initially is correct.
+
+  For other constants, make sure to drop TREE_OVERFLOW.  */
 
 static void
-canonicalize_float_value (prop_value_t *val)
+canonicalize_value (prop_value_t *val)
 {
   enum machine_mode mode;
   tree type;
   REAL_VALUE_TYPE d;
 
-  if (val->lattice_val != CONSTANT
-      || TREE_CODE (val->value) != REAL_CST)
+  if (val->lattice_val != CONSTANT)
+    return;
+
+  if (TREE_OVERFLOW_P (val->value))
+    val->value = drop_tree_overflow (val->value);
+
+  if (TREE_CODE (val->value) != REAL_CST)
     return;
 
   d = TREE_REAL_CST (val->value);
@@ -437,7 +461,7 @@ set_lattice_value (tree var, prop_value_t new_val)
   /* We can deal with old UNINITIALIZED values just fine here.  */
   prop_value_t *old_val = &const_val[SSA_NAME_VERSION (var)];
 
-  canonicalize_float_value (&new_val);
+  canonicalize_value (&new_val);
 
   /* We have to be careful to not go up the bitwise lattice
      represented by the mask.
@@ -552,7 +576,7 @@ get_value_for_expr (tree expr, bool for_bits_p)
       val.lattice_val = CONSTANT;
       val.value = expr;
       val.mask = double_int_zero;
-      canonicalize_float_value (&val);
+      canonicalize_value (&val);
     }
   else if (TREE_CODE (expr) == ADDR_EXPR)
     val = get_value_from_alignment (expr);
@@ -824,7 +848,8 @@ ccp_finalize (void)
   do_dbg_cnt ();
 
   /* Derive alignment and misalignment information from partially
-     constant pointers in the lattice.  */
+     constant pointers in the lattice or nonzero bits from partially
+     constant integers.  */
   for (i = 1; i < num_ssa_names; ++i)
     {
       tree name = ssa_name (i);
@@ -832,7 +857,11 @@ ccp_finalize (void)
       unsigned int tem, align;
 
       if (!name
-	  || !POINTER_TYPE_P (TREE_TYPE (name)))
+	  || (!POINTER_TYPE_P (TREE_TYPE (name))
+	      && (!INTEGRAL_TYPE_P (TREE_TYPE (name))
+		  /* Don't record nonzero bits before IPA to avoid
+		     using too much memory.  */
+		  || first_pass_instance)))
 	continue;
 
       val = get_value (name);
@@ -840,13 +869,24 @@ ccp_finalize (void)
 	  || TREE_CODE (val->value) != INTEGER_CST)
 	continue;
 
-      /* Trailing constant bits specify the alignment, trailing value
-	 bits the misalignment.  */
-      tem = val->mask.low;
-      align = (tem & -tem);
-      if (align > 1)
-	set_ptr_info_alignment (get_ptr_info (name), align,
-				TREE_INT_CST_LOW (val->value) & (align - 1));
+      if (POINTER_TYPE_P (TREE_TYPE (name)))
+	{
+	  /* Trailing mask bits specify the alignment, trailing value
+	     bits the misalignment.  */
+	  tem = val->mask.low;
+	  align = (tem & -tem);
+	  if (align > 1)
+	    set_ptr_info_alignment (get_ptr_info (name), align,
+				    (TREE_INT_CST_LOW (val->value)
+				     & (align - 1)));
+	}
+      else
+	{
+	  double_int nonzero_bits = val->mask;
+	  nonzero_bits = nonzero_bits | tree_to_double_int (val->value);
+	  nonzero_bits &= get_nonzero_bits (name);
+	  set_nonzero_bits (name, nonzero_bits);
+	}
     }
 
   /* Perform substitutions based on the known constant values.  */
@@ -1667,6 +1707,39 @@ evaluate_stmt (gimple stmt)
       is_constant = (val.lattice_val == CONSTANT);
     }
 
+  if (flag_tree_bit_ccp
+      && ((is_constant && TREE_CODE (val.value) == INTEGER_CST)
+	  || (!is_constant && likelyvalue != UNDEFINED))
+      && gimple_get_lhs (stmt)
+      && TREE_CODE (gimple_get_lhs (stmt)) == SSA_NAME)
+    {
+      tree lhs = gimple_get_lhs (stmt);
+      double_int nonzero_bits = get_nonzero_bits (lhs);
+      double_int mask = double_int::mask (TYPE_PRECISION (TREE_TYPE (lhs)));
+      if (nonzero_bits != double_int_minus_one && nonzero_bits != mask)
+	{
+	  if (!is_constant)
+	    {
+	      val.lattice_val = CONSTANT;
+	      val.value = build_zero_cst (TREE_TYPE (lhs));
+	      /* CCP wants the bits above precision set.  */
+	      val.mask = nonzero_bits | ~mask;
+	      is_constant = true;
+	    }
+	  else
+	    {
+	      double_int valv = tree_to_double_int (val.value);
+	      if (!(valv & ~nonzero_bits & mask).is_zero ())
+		val.value = double_int_to_tree (TREE_TYPE (lhs),
+						valv & nonzero_bits);
+	      if (nonzero_bits.is_zero ())
+		val.mask = double_int_zero;
+	      else
+		val.mask = val.mask & (nonzero_bits | ~mask);
+	    }
+	}
+    }
+
   if (!is_constant)
     {
       /* The statement produced a nonconstant value.  If the statement
@@ -1728,6 +1801,9 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
 	insert_clobber_before_stack_restore (gimple_phi_result (stmt), var,
 					     visited);
       }
+    else if (gimple_assign_ssa_name_copy_p (stmt))
+      insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
+					   visited);
     else
       gcc_assert (is_gimple_debug (stmt));
 }
@@ -2163,12 +2239,12 @@ const pass_data pass_data_ccp =
 class pass_ccp : public gimple_opt_pass
 {
 public:
-  pass_ccp(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_ccp, ctxt)
+  pass_ccp (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_ccp, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_ccp (ctxt_); }
+  opt_pass * clone () { return new pass_ccp (m_ctxt); }
   bool gate () { return gate_ccp (); }
   unsigned int execute () { return do_ssa_ccp (); }
 
@@ -2580,12 +2656,12 @@ const pass_data pass_data_fold_builtins =
 class pass_fold_builtins : public gimple_opt_pass
 {
 public:
-  pass_fold_builtins(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_fold_builtins, ctxt)
+  pass_fold_builtins (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_fold_builtins, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_fold_builtins (ctxt_); }
+  opt_pass * clone () { return new pass_fold_builtins (m_ctxt); }
   unsigned int execute () { return execute_fold_all_builtins (); }
 
 }; // class pass_fold_builtins

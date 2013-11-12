@@ -90,6 +90,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
@@ -608,7 +615,7 @@ execute_cse_reciprocals (void)
 		  if (fail)
 		    continue;
 
-		  gimple_replace_lhs (stmt1, arg1);
+		  gimple_replace_ssa_lhs (stmt1, arg1);
 		  gimple_call_set_fndecl (stmt1, fndecl);
 		  update_stmt (stmt1);
 		  reciprocal_stats.rfuncs_inserted++;
@@ -657,8 +664,8 @@ const pass_data pass_data_cse_reciprocals =
 class pass_cse_reciprocals : public gimple_opt_pass
 {
 public:
-  pass_cse_reciprocals(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_cse_reciprocals, ctxt)
+  pass_cse_reciprocals (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cse_reciprocals, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1575,8 +1582,8 @@ const pass_data pass_data_cse_sincos =
 class pass_cse_sincos : public gimple_opt_pass
 {
 public:
-  pass_cse_sincos(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_cse_sincos, ctxt)
+  pass_cse_sincos (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cse_sincos, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -2065,8 +2072,8 @@ const pass_data pass_data_optimize_bswap =
 class pass_optimize_bswap : public gimple_opt_pass
 {
 public:
-  pass_optimize_bswap(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_optimize_bswap, ctxt)
+  pass_optimize_bswap (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_optimize_bswap, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -2425,20 +2432,25 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
 
      It might also appear that it would be sufficient to use the existing
      operands of the widening multiply, but that would limit the choice of
-     multiply-and-accumulate instructions.  */
+     multiply-and-accumulate instructions.
+
+     If the widened-multiplication result has more than one uses, it is
+     probably wiser not to do the conversion.  */
   if (code == PLUS_EXPR
       && (rhs1_code == MULT_EXPR || rhs1_code == WIDEN_MULT_EXPR))
     {
-      if (!is_widening_mult_p (rhs1_stmt, &type1, &mult_rhs1,
-			       &type2, &mult_rhs2))
+      if (!has_single_use (rhs1)
+	  || !is_widening_mult_p (rhs1_stmt, &type1, &mult_rhs1,
+				  &type2, &mult_rhs2))
 	return false;
       add_rhs = rhs2;
       conv_stmt = conv1_stmt;
     }
   else if (rhs2_code == MULT_EXPR || rhs2_code == WIDEN_MULT_EXPR)
     {
-      if (!is_widening_mult_p (rhs2_stmt, &type1, &mult_rhs1,
-			       &type2, &mult_rhs2))
+      if (!has_single_use (rhs2)
+	  || !is_widening_mult_p (rhs2_stmt, &type1, &mult_rhs1,
+				  &type2, &mult_rhs2))
 	return false;
       add_rhs = rhs1;
       conv_stmt = conv2_stmt;
@@ -2871,8 +2883,8 @@ const pass_data pass_data_optimize_widening_mul =
 class pass_optimize_widening_mul : public gimple_opt_pass
 {
 public:
-  pass_optimize_widening_mul(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_optimize_widening_mul, ctxt)
+  pass_optimize_widening_mul (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_optimize_widening_mul, ctxt)
   {}
 
   /* opt_pass methods: */

@@ -104,11 +104,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "target.h"
 #include "gimple.h"
-#include "cgraph.h"
+#include "target.h"
 #include "ipa-prop.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -287,22 +286,6 @@ ipa_lat_is_single_const (struct ipcp_lattice *lat)
     return true;
 }
 
-/* Return true iff the CS is an edge within a strongly connected component as
-   computed by ipa_reduced_postorder.  */
-
-static inline bool
-edge_within_scc (struct cgraph_edge *cs)
-{
-  struct ipa_dfs_info *caller_dfs = (struct ipa_dfs_info *) cs->caller->symbol.aux;
-  struct ipa_dfs_info *callee_dfs;
-  struct cgraph_node *callee = cgraph_function_node (cs->callee, NULL);
-
-  callee_dfs = (struct ipa_dfs_info *) callee->symbol.aux;
-  return (caller_dfs
-	  && callee_dfs
-	  && caller_dfs->scc_no == callee_dfs->scc_no);
-}
-
 /* Print V which is extracted from a value in a lattice to F.  */
 
 static void
@@ -369,7 +352,7 @@ print_lattice (FILE * f, struct ipcp_lattice *lat,
 
 	  fprintf (f, " [from:");
 	  for (s = val->sources; s; s = s->next)
-	    fprintf (f, " %i(%i)", s->cs->caller->symbol.order,
+	    fprintf (f, " %i(%i)", s->cs->caller->order,
 		     s->cs->frequency);
 	  fprintf (f, "]");
 	}
@@ -399,7 +382,7 @@ print_all_lattices (FILE * f, bool dump_sources, bool dump_benefits)
 
       info = IPA_NODE_REF (node);
       fprintf (f, "  Node: %s/%i:\n", cgraph_node_name (node),
-	       node->symbol.order);
+	       node->order);
       count = ipa_get_param_count (info);
       for (i = 0; i < count; i++)
 	{
@@ -440,16 +423,16 @@ determine_versionability (struct cgraph_node *node)
   /* There are a number of generic reasons functions cannot be versioned.  We
      also cannot remove parameters if there are type attributes such as fnspec
      present.  */
-  if (node->symbol.alias || node->thunk.thunk_p)
+  if (node->alias || node->thunk.thunk_p)
     reason = "alias or thunk";
   else if (!node->local.versionable)
     reason = "not a tree_versionable_function";
   else if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
     reason = "insufficient body availability";
 
-  if (reason && dump_file && !node->symbol.alias && !node->thunk.thunk_p)
+  if (reason && dump_file && !node->alias && !node->thunk.thunk_p)
     fprintf (dump_file, "Function %s/%i is not versionable, reason: %s.\n",
-	     cgraph_node_name (node), node->symbol.order, reason);
+	     cgraph_node_name (node), node->order, reason);
 
   node->local.versionable = (reason == NULL);
 }
@@ -525,7 +508,7 @@ ipcp_cloning_candidate_p (struct cgraph_node *node)
       return false;
     }
 
-  if (!optimize_function_for_speed_p (DECL_STRUCT_FUNCTION (node->symbol.decl)))
+  if (!optimize_function_for_speed_p (DECL_STRUCT_FUNCTION (node->decl)))
     {
       if (dump_file)
         fprintf (dump_file, "Not considering %s for cloning; "
@@ -727,9 +710,9 @@ initialize_node_lattices (struct cgraph_node *node)
 	    set_all_contains_variable (plats);
 	}
       if (dump_file && (dump_flags & TDF_DETAILS)
-	  && !node->symbol.alias && !node->thunk.thunk_p)
+	  && !node->alias && !node->thunk.thunk_p)
 	fprintf (dump_file, "Marking all lattices of %s/%i as %s\n",
-		 cgraph_node_name (node), node->symbol.order,
+		 cgraph_node_name (node), node->order,
 		 disable ? "BOTTOM" : "VARIABLE");
     }
 
@@ -957,7 +940,7 @@ add_value_to_lattice (struct ipcp_lattice *lat, tree newval,
   for (val = lat->values; val; val = val->next)
     if (values_equal_for_ipcp_p (val->value, newval))
       {
-	if (edge_within_scc (cs))
+	if (ipa_edge_within_scc (cs))
 	  {
 	    struct ipcp_value_source *s;
 	    for (s = val->sources; s ; s = s->next)
@@ -1030,7 +1013,7 @@ propagate_vals_accross_pass_through (struct cgraph_edge *cs,
      are arithmetic functions with circular dependencies, there is infinite
      number of them and we would just make lattices bottom.  */
   if ((ipa_get_jf_pass_through_operation (jfunc) != NOP_EXPR)
-      and edge_within_scc (cs))
+      && ipa_edge_within_scc (cs))
     ret = set_lattice_contains_variable (dest_lat);
   else
     for (src_val = src_lat->values; src_val; src_val = src_val->next)
@@ -1061,7 +1044,7 @@ propagate_vals_accross_ancestor (struct cgraph_edge *cs,
   struct ipcp_value *src_val;
   bool ret = false;
 
-  if (edge_within_scc (cs))
+  if (ipa_edge_within_scc (cs))
     return set_lattice_contains_variable (dest_lat);
 
   for (src_val = src_lat->values; src_val; src_val = src_val->next)
@@ -1422,7 +1405,7 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
   int i, args_count, parms_count;
 
   callee = cgraph_function_node (cs->callee, &availability);
-  if (!callee->symbol.definition)
+  if (!callee->definition)
     return false;
   gcc_checking_assert (cgraph_function_with_gimple_body_p (callee));
   callee_info = IPA_NODE_REF (callee);
@@ -1435,7 +1418,7 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
      parameter.  However, we might need to uncover a thunk from below a series
      of aliases first.  */
   alias_or_thunk = cs->callee;
-  while (alias_or_thunk->symbol.alias)
+  while (alias_or_thunk->alias)
     alias_or_thunk = cgraph_alias_target (alias_or_thunk);
   if (alias_or_thunk->thunk.thunk_p)
     {
@@ -1484,6 +1467,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
   HOST_WIDE_INT token, anc_offset;
   tree otr_type;
   tree t;
+  tree target;
 
   if (param_index == -1
       || known_vals.length () <= (unsigned int) param_index)
@@ -1552,7 +1536,7 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
       binfo = get_binfo_at_offset (binfo, anc_offset, otr_type);
       if (!binfo)
 	return NULL_TREE;
-      return gimple_get_virt_method_for_binfo (token, binfo);
+      target = gimple_get_virt_method_for_binfo (token, binfo);
     }
   else
     {
@@ -1561,8 +1545,15 @@ ipa_get_indirect_edge_target_1 (struct cgraph_edge *ie,
       binfo = get_binfo_at_offset (t, anc_offset, otr_type);
       if (!binfo)
 	return NULL_TREE;
-      return gimple_get_virt_method_for_binfo (token, binfo);
+      target = gimple_get_virt_method_for_binfo (token, binfo);
     }
+#ifdef ENABLE_CHECKING
+  if (target)
+    gcc_assert (possible_polymorphic_call_target_p
+		 (ie, cgraph_get_node (target)));
+#endif
+
+  return target;
 }
 
 
@@ -1606,7 +1597,7 @@ devirtualization_time_bonus (struct cgraph_node *node,
       /* Only bare minimum benefit for clearly un-inlineable targets.  */
       res += 1;
       callee = cgraph_get_node (target);
-      if (!callee || !callee->symbol.definition)
+      if (!callee || !callee->definition)
 	continue;
       isummary = inline_summary (callee);
       if (!isummary->inlinable)
@@ -1619,7 +1610,7 @@ devirtualization_time_bonus (struct cgraph_node *node,
       else if (isummary->size <= MAX_INLINE_INSNS_AUTO / 2)
 	res += 15;
       else if (isummary->size <= MAX_INLINE_INSNS_AUTO
-	       || DECL_DECLARED_INLINE_P (callee->symbol.decl))
+	       || DECL_DECLARED_INLINE_P (callee->decl))
 	res += 7;
     }
 
@@ -1649,7 +1640,7 @@ good_cloning_opportunity_p (struct cgraph_node *node, int time_benefit,
 {
   if (time_benefit == 0
       || !flag_ipa_cp_clone
-      || !optimize_function_for_speed_p (DECL_STRUCT_FUNCTION (node->symbol.decl)))
+      || !optimize_function_for_speed_p (DECL_STRUCT_FUNCTION (node->decl)))
     return false;
 
   gcc_assert (size_cost > 0);
@@ -1826,7 +1817,7 @@ estimate_local_effects (struct cgraph_node *node)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEstimating effects for %s/%i, base_time: %i.\n",
-	     cgraph_node_name (node), node->symbol.order, base_time);
+	     cgraph_node_name (node), node->order, base_time);
 
   always_const = gather_context_independent_values (info, &known_csts,
 						    &known_binfos, &known_aggs,
@@ -2129,7 +2120,7 @@ propagate_constants_topo (struct topo_info *topo)
 	  struct cgraph_edge *cs;
 
 	  for (cs = v->callees; cs; cs = cs->next_callee)
-	    if (edge_within_scc (cs)
+	    if (ipa_edge_within_scc (cs)
 		&& propagate_constants_accross_call (cs))
 	      push_node_to_stack (topo, cs->callee);
 	  v = pop_node_from_stack (topo);
@@ -2146,7 +2137,7 @@ propagate_constants_topo (struct topo_info *topo)
 	    estimate_local_effects (v);
 	    add_all_node_vals_to_toposort (v);
 	    for (cs = v->callees; cs; cs = cs->next_callee)
-	      if (!edge_within_scc (cs))
+	      if (!ipa_edge_within_scc (cs))
 		propagate_constants_accross_call (cs);
 	  }
       cycle_nodes.release ();
@@ -2228,7 +2219,7 @@ ipcp_propagate_stage (struct topo_info *topo)
 				   ipa_get_param_count (info));
 	initialize_node_lattices (node);
       }
-    if (node->symbol.definition && !node->symbol.alias)
+    if (node->definition && !node->alias)
       overall_size += inline_summary (node)->self_size;
     if (node->count > max_count)
       max_count = node->count;
@@ -2296,8 +2287,8 @@ ipcp_discover_new_direct_edges (struct cgraph_node *node,
 		    fprintf (dump_file, "     controlled uses count of param "
 			     "%i bumped down to %i\n", param_index, c);
 		  if (c == 0
-		      && (to_del = ipa_find_reference ((symtab_node) node,
-						       (symtab_node) cs->callee,
+		      && (to_del = ipa_find_reference (node,
+						       cs->callee,
 						       NULL, 0)))
 		    {
 		      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2553,7 +2544,7 @@ update_profiling_info (struct cgraph_node *orig_node,
 	fprintf (dump_file, "    Problem: node %s/%i has too low count "
 		 HOST_WIDE_INT_PRINT_DEC " while the sum of incoming "
 		 "counts is " HOST_WIDE_INT_PRINT_DEC "\n",
-		 cgraph_node_name (orig_node), orig_node->symbol.order,
+		 cgraph_node_name (orig_node), orig_node->order,
 		 (HOST_WIDE_INT) orig_node_count,
 		 (HOST_WIDE_INT) (orig_sum + new_sum));
 
@@ -2686,13 +2677,13 @@ create_specialized_node (struct cgraph_node *node,
 					  args_to_skip, "constprop");
   ipa_set_node_agg_value_chain (new_node, aggvals);
   for (av = aggvals; av; av = av->next)
-    ipa_maybe_record_reference ((symtab_node) new_node, av->value,
+    ipa_maybe_record_reference (new_node, av->value,
 				IPA_REF_ADDR, NULL);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       fprintf (dump_file, "     the new node is %s/%i.\n",
-	       cgraph_node_name (new_node), new_node->symbol.order);
+	       cgraph_node_name (new_node), new_node->order);
       if (aggvals)
 	ipa_dump_agg_replacement_values (dump_file, aggvals);
     }
@@ -3015,7 +3006,7 @@ intersect_aggregates_with_edge (struct cgraph_edge *cs, int index,
     }
   else
     {
-      inter.release();
+      inter.release ();
       return vec<ipa_agg_jf_item_t>();
     }
   return inter;
@@ -3186,7 +3177,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 	return false;
 
       values = intersect_aggregates_with_edge (cs, i, values);
-      if (!values.exists())
+      if (!values.exists ())
 	return false;
 
       for (struct ipa_agg_replacement_value *av = aggval; av; av = av->next)
@@ -3205,7 +3196,7 @@ cgraph_edge_brings_all_agg_vals_for_node (struct cgraph_edge *cs,
 		}
 	    if (!found)
 	      {
-		values.release();
+		values.release ();
 		return false;
 	      }
 	  }
@@ -3245,9 +3236,9 @@ perhaps_add_new_callers (struct cgraph_node *node, struct ipcp_value *val)
 		    fprintf (dump_file, " - adding an extra caller %s/%i"
 			     " of %s/%i\n",
 			     xstrdup (cgraph_node_name (cs->caller)),
-			     cs->caller->symbol.order,
+			     cs->caller->order,
 			     xstrdup (cgraph_node_name (val->spec_node)),
-			     val->spec_node->symbol.order);
+			     val->spec_node->order);
 
 		  cgraph_redirect_edge_callee (cs, val->spec_node);
 		  redirected_sum += cs->count;
@@ -3351,7 +3342,7 @@ decide_about_value (struct cgraph_node *node, int index, HOST_WIDE_INT offset,
 
   if (dump_file)
     fprintf (dump_file, "  Creating a specialized node of %s/%i.\n",
-	     cgraph_node_name (node), node->symbol.order);
+	     cgraph_node_name (node), node->order);
 
   callers = gather_edges_for_value (val, caller_count);
   kv = known_csts.copy ();
@@ -3388,7 +3379,7 @@ decide_whether_version_node (struct cgraph_node *node)
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nEvaluating opportunities for %s/%i.\n",
-	     cgraph_node_name (node), node->symbol.order);
+	     cgraph_node_name (node), node->order);
 
   gather_context_independent_values (info, &known_csts, &known_binfos,
 				  info->do_clone_for_all_contexts ? &known_aggs
@@ -3432,7 +3423,7 @@ decide_whether_version_node (struct cgraph_node *node)
       if (dump_file)
 	fprintf (dump_file, " - Creating a specialized node of %s/%i "
 		 "for all known contexts.\n", cgraph_node_name (node),
-		 node->symbol.order);
+		 node->order);
 
       callers = collect_callers_of_node (node);
       move_binfos_to_values (known_csts, known_binfos);
@@ -3462,7 +3453,7 @@ spread_undeadness (struct cgraph_node *node)
   struct cgraph_edge *cs;
 
   for (cs = node->callees; cs; cs = cs->next_callee)
-    if (edge_within_scc (cs))
+    if (ipa_edge_within_scc (cs))
       {
 	struct cgraph_node *callee;
 	struct ipa_node_params *info;
@@ -3493,7 +3484,7 @@ has_undead_caller_from_outside_scc_p (struct cgraph_node *node,
 					has_undead_caller_from_outside_scc_p,
 					NULL, true))
       return true;
-    else if (!edge_within_scc (cs)
+    else if (!ipa_edge_within_scc (cs)
 	     && !IPA_NODE_REF (cs->caller)->node_dead)
       return true;
   return false;
@@ -3507,23 +3498,23 @@ static void
 identify_dead_nodes (struct cgraph_node *node)
 {
   struct cgraph_node *v;
-  for (v = node; v ; v = ((struct ipa_dfs_info *) v->symbol.aux)->next_cycle)
+  for (v = node; v ; v = ((struct ipa_dfs_info *) v->aux)->next_cycle)
     if (cgraph_will_be_removed_from_program_if_no_direct_calls (v)
 	&& !cgraph_for_node_and_aliases (v,
 					 has_undead_caller_from_outside_scc_p,
 					 NULL, true))
       IPA_NODE_REF (v)->node_dead = 1;
 
-  for (v = node; v ; v = ((struct ipa_dfs_info *) v->symbol.aux)->next_cycle)
+  for (v = node; v ; v = ((struct ipa_dfs_info *) v->aux)->next_cycle)
     if (!IPA_NODE_REF (v)->node_dead)
       spread_undeadness (v);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      for (v = node; v ; v = ((struct ipa_dfs_info *) v->symbol.aux)->next_cycle)
+      for (v = node; v ; v = ((struct ipa_dfs_info *) v->aux)->next_cycle)
 	if (IPA_NODE_REF (v)->node_dead)
 	  fprintf (dump_file, "  Marking node as dead: %s/%i.\n",
-		   cgraph_node_name (v), v->symbol.order);
+		   cgraph_node_name (v), v->order);
     }
 }
 
@@ -3547,7 +3538,7 @@ ipcp_decision_stage (struct topo_info *topo)
 	{
 	  struct cgraph_node *v;
 	  iterate = false;
-	  for (v = node; v ; v = ((struct ipa_dfs_info *) v->symbol.aux)->next_cycle)
+	  for (v = node; v ; v = ((struct ipa_dfs_info *) v->aux)->next_cycle)
 	    if (cgraph_function_with_gimple_body_p (v)
 		&& ipcp_versionable_function_p (v))
 	      iterate |= decide_whether_version_node (v);
@@ -3620,7 +3611,7 @@ ipcp_generate_summary (void)
   FOR_EACH_FUNCTION_WITH_GIMPLE_BODY (node)
       {
 	node->local.versionable
-	  = tree_versionable_function_p (node->symbol.decl);
+	  = tree_versionable_function_p (node->decl);
 	ipa_analyze_node (node);
       }
 }
@@ -3671,19 +3662,19 @@ const pass_data pass_data_ipa_cp =
 class pass_ipa_cp : public ipa_opt_pass_d
 {
 public:
-  pass_ipa_cp(gcc::context *ctxt)
-    : ipa_opt_pass_d(pass_data_ipa_cp, ctxt,
-		     ipcp_generate_summary, /* generate_summary */
-		     ipcp_write_summary, /* write_summary */
-		     ipcp_read_summary, /* read_summary */
-		     ipa_prop_write_all_agg_replacement, /*
-		     write_optimization_summary */
-		     ipa_prop_read_all_agg_replacement, /*
-		     read_optimization_summary */
-		     NULL, /* stmt_fixup */
-		     0, /* function_transform_todo_flags_start */
-		     ipcp_transform_function, /* function_transform */
-		     NULL) /* variable_transform */
+  pass_ipa_cp (gcc::context *ctxt)
+    : ipa_opt_pass_d (pass_data_ipa_cp, ctxt,
+		      ipcp_generate_summary, /* generate_summary */
+		      ipcp_write_summary, /* write_summary */
+		      ipcp_read_summary, /* read_summary */
+		      ipa_prop_write_all_agg_replacement, /*
+		      write_optimization_summary */
+		      ipa_prop_read_all_agg_replacement, /*
+		      read_optimization_summary */
+		      NULL, /* stmt_fixup */
+		      0, /* function_transform_todo_flags_start */
+		      ipcp_transform_function, /* function_transform */
+		      NULL) /* variable_transform */
   {}
 
   /* opt_pass methods: */

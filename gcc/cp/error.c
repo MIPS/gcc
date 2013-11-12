@@ -1595,13 +1595,16 @@ dump_exception_spec (cxx_pretty_printer *pp, tree t, int flags)
   if (t && TREE_PURPOSE (t))
     {
       pp_cxx_ws_string (pp, "noexcept");
-      pp_cxx_whitespace (pp);
-      pp_cxx_left_paren (pp);
-      if (DEFERRED_NOEXCEPT_SPEC_P (t))
-	pp_cxx_ws_string (pp, "<uninstantiated>");
-      else
-	dump_expr (pp, TREE_PURPOSE (t), flags);
-      pp_cxx_right_paren (pp);
+      if (!integer_onep (TREE_PURPOSE (t)))
+	{
+	  pp_cxx_whitespace (pp);
+	  pp_cxx_left_paren (pp);
+	  if (DEFERRED_NOEXCEPT_SPEC_P (t))
+	    pp_cxx_ws_string (pp, "<uninstantiated>");
+	  else
+	    dump_expr (pp, TREE_PURPOSE (t), flags);
+	  pp_cxx_right_paren (pp);
+	}
     }
   else if (t)
     {
@@ -2852,7 +2855,7 @@ fndecl_to_string (tree fndecl, int verbose)
 static const char *
 code_to_string (enum tree_code c)
 {
-  return tree_code_name [c];
+  return get_tree_code_name (c);
 }
 
 const char *
@@ -2992,6 +2995,15 @@ cv_to_string (tree p, int v)
   reinit_cxx_pp ();
   cxx_pp->padding = v ? pp_before : pp_none;
   pp_cxx_cv_qualifier_seq (cxx_pp, p);
+  return pp_ggc_formatted_text (cxx_pp);
+}
+
+static const char *
+eh_spec_to_string (tree p, int /*v*/)
+{
+  int flags = 0;
+  reinit_cxx_pp ();
+  dump_exception_spec (cxx_pp, p, flags);
   return pp_ggc_formatted_text (cxx_pp);
 }
 
@@ -3376,8 +3388,10 @@ maybe_print_constexpr_context (diagnostic_context *context)
    %O	binary operator.
    %P   function parameter whose position is indicated by an integer.
    %Q	assignment operator.
+   %S   substitution (template + args)
    %T   type.
-   %V   cv-qualifier.  */
+   %V   cv-qualifier.
+   %X   exception-specification.  */
 static bool
 cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 	    int precision, bool wide, bool set_locus, bool verbose)
@@ -3424,6 +3438,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
     case 'S': result = subst_to_string (next_tree);		break;
     case 'T': result = type_to_string (next_tree, verbose);	break;
     case 'V': result = cv_to_string (next_tree, verbose);	break;
+    case 'X': result = eh_spec_to_string (next_tree, verbose);  break;
 
     case 'K':
       percent_K_format (text);

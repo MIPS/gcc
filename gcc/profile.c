@@ -61,9 +61,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "tree-cfg.h"
 #include "cfgloop.h"
 #include "dumpfile.h"
+#include "cgraph.h"
 
 #include "profile.h"
 
@@ -187,6 +189,15 @@ instrument_values (histogram_values values)
 	  gimple_gen_ior_profiler (hist, t, 0);
 	  break;
 
+  case HIST_TYPE_TIME_PROFILE:
+    {
+      basic_block bb = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
+      gimple_stmt_iterator gsi = gsi_start_bb (bb);
+
+      gimple_gen_time_profiler (t, 0, gsi);
+      break;
+    }
+
 	default:
 	  gcc_unreachable ();
 	}
@@ -275,11 +286,11 @@ get_exec_counts (unsigned cfg_checksum, unsigned lineno_checksum)
   if (!counts)
     return NULL;
 
-  get_working_sets();
+  get_working_sets ();
 
   if (dump_file && profile_info)
-    fprintf(dump_file, "Merged %u profiles with maximal count %u.\n",
-	    profile_info->runs, (unsigned) profile_info->sum_max);
+    fprintf (dump_file, "Merged %u profiles with maximal count %u.\n",
+	     profile_info->runs, (unsigned) profile_info->sum_max);
 
   return counts;
 }
@@ -849,6 +860,7 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
   gcov_type *histogram_counts[GCOV_N_VALUE_COUNTERS];
   gcov_type *act_count[GCOV_N_VALUE_COUNTERS];
   gcov_type *aact_count;
+  struct cgraph_node *node;
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
     n_histogram_counters[t] = 0;
@@ -887,6 +899,7 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
       t = (int) hist->type;
 
       aact_count = act_count[t];
+
       if (act_count[t])
         act_count[t] += hist->n_counters;
 
@@ -894,9 +907,22 @@ compute_value_histograms (histogram_values values, unsigned cfg_checksum,
       hist->hvalue.counters =  XNEWVEC (gcov_type, hist->n_counters);
       for (j = 0; j < hist->n_counters; j++)
         if (aact_count)
-	  hist->hvalue.counters[j] = aact_count[j];
-	else
-	  hist->hvalue.counters[j] = 0;
+          hist->hvalue.counters[j] = aact_count[j];
+        else
+          hist->hvalue.counters[j] = 0;
+
+      /* Time profiler counter is not related to any statement,
+         so that we have to read the counter and set the value to
+         the corresponding call graph node.  */
+      if (hist->type == HIST_TYPE_TIME_PROFILE)
+        {
+          node = cgraph_get_node (hist->fun->decl);
+
+          node->tp_first_run = hist->hvalue.counters[0];
+
+          if (dump_file)
+            fprintf (dump_file, "Read tp_first_run: %d\n", node->tp_first_run);
+        }
     }
 
   for (t = 0; t < GCOV_N_VALUE_COUNTERS; t++)
@@ -976,7 +1002,7 @@ branch_prob (void)
   unsigned num_edges, ignored_edges;
   unsigned num_instrumented;
   struct edge_list *el;
-  histogram_values values = histogram_values();
+  histogram_values values = histogram_values ();
   unsigned cfg_checksum, lineno_checksum;
 
   total_num_times_called++;

@@ -71,7 +71,6 @@ const int melt_is_plugin = 0;
 #include "filenames.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
-#include "tree-flow.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
 #include "basic-block.h"
@@ -80,6 +79,9 @@ const int melt_is_plugin = 0;
 
 #if MELT_GCC_VERSION >= 4009
 #include "tree-ssa.h"
+#include "tree-cfg.h"
+#else
+#include "tree-flow.h"
 #endif
 
 
@@ -13636,6 +13638,12 @@ void meltgc_walk_use_def_chain (melt_ptr_t clos_p, melt_ptr_t val_p, tree trvar,
   closv = clos_p;
   valv = val_p;
   MELT_LOCATION_HERE ("meltgc_walk_use_def_chain");
+#if MELT_GCC_VERSION >= 4009
+  /* walk_use_def_chains disappeared in GCC 4.9 */
+  melt_fatal_error ("meltgc_walk_use_def_chain disappears in GCC 4.9, depthfirstflag=%d", 
+		    (int) depthfirstflag);
+  goto end;
+#else
   MELT_CHECK_SIGNAL ();
   if (!trvar || TREE_CODE (trvar) != SSA_NAME)
     goto end;
@@ -13643,6 +13651,7 @@ void meltgc_walk_use_def_chain (melt_ptr_t clos_p, melt_ptr_t val_p, tree trvar,
     goto end;
   walk_use_def_chains (trvar, meltgc_usedef_internalfun, &closv, depthfirstflag);
   valv = valv; /* So that valv is used here! */
+#endif /*MELT_GCC_VERSION >= 4009 */
 end:
   MELT_EXITFRAME ();
 #undef closv

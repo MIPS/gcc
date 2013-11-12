@@ -2535,7 +2535,7 @@ gcse_emit_move_after (rtx dest, rtx src, rtx insn)
 /* Delete redundant computations.
    Deletion is done by changing the insn to copy the `reaching_reg' of
    the expression into the result of the SET.  It is left to later passes
-   (cprop, cse2, flow, combine, regmove) to propagate the copy or eliminate it.
+   to propagate the copy or eliminate it.
 
    Return nonzero if a change is made.  */
 
@@ -4169,8 +4169,8 @@ const pass_data pass_data_rtl_pre =
 class pass_rtl_pre : public rtl_opt_pass
 {
 public:
-  pass_rtl_pre(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_pre, ctxt)
+  pass_rtl_pre (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_pre, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4208,8 +4208,8 @@ const pass_data pass_data_rtl_hoist =
 class pass_rtl_hoist : public rtl_opt_pass
 {
 public:
-  pass_rtl_hoist(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_hoist, ctxt)
+  pass_rtl_hoist (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_hoist, ctxt)
   {}
 
   /* opt_pass methods: */

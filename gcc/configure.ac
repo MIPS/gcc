@@ -278,18 +278,8 @@ rm -f a.out a.exe b.out
 
 # Find the native compiler
 AC_PROG_CC
-AM_PROG_CC_C_O
 AC_PROG_CXX
 ACX_PROG_GNAT([-I"$srcdir"/ada])
-
-# autoconf is lame and doesn't give us any substitution variable for this.
-if eval "test \"`echo '$ac_cv_prog_cc_'${ac_cc}_c_o`\" = no"; then
-  NO_MINUS_C_MINUS_O=yes
-else
-  OUTPUT_OPTION='-o $@'
-fi
-AC_SUBST(NO_MINUS_C_MINUS_O)
-AC_SUBST(OUTPUT_OPTION)
 
 # Remove the -O2: for historical reasons, unless bootstrapping we prefer
 # optimizations to be activated explicitly by the toplevel.
@@ -336,8 +326,14 @@ GCC_STDINT_TYPES
 # * C++11 narrowing conversions in { }
 # So, we only use -pedantic if we can disable those warnings.
 
+# In stage 1, disable -Wformat warnings from old GCCs about new % codes
+AC_ARG_ENABLE(build-format-warnings,
+  AS_HELP_STRING([--disable-build-format-warnings],[don't use -Wformat while building GCC]),
+  [],[enable_build_format_warnings=yes])
+AS_IF([test $enable_build_format_warnings = no],
+      [wf_opt=-Wno-format],[wf_opt=])
 ACX_PROG_CC_WARNING_OPTS(
-	m4_quote(m4_do([-W -Wall -Wno-narrowing -Wwrite-strings -Wcast-qual])), [loose_warn])
+	m4_quote(m4_do([-W -Wall -Wno-narrowing -Wwrite-strings -Wcast-qual $wf_opt])), [loose_warn])
 ACX_PROG_CC_WARNING_OPTS(
 	m4_quote(m4_do([-Wstrict-prototypes -Wmissing-prototypes])),
 	[c_loose_warn])
@@ -969,6 +965,22 @@ AC_CHECK_HEADERS(unordered_map)
 AC_CHECK_HEADERS(tr1/unordered_map)
 AC_CHECK_HEADERS(ext/hash_map)
 
+AC_LANG_POP(C++)
+
+# --------
+# Dependency checking.
+# --------
+
+AC_LANG_PUSH(C++)
+ZW_CREATE_DEPDIR
+AC_CONFIG_COMMANDS([gccdepdir],[
+  ${CONFIG_SHELL-/bin/sh} $ac_aux_dir/mkinstalldirs build/$DEPDIR
+  for lang in $subdirs c-family common
+  do
+      ${CONFIG_SHELL-/bin/sh} $ac_aux_dir/mkinstalldirs $lang/$DEPDIR
+  done], [subdirs="$subdirs" ac_aux_dir=$ac_aux_dir DEPDIR=$DEPDIR])
+
+ZW_PROG_COMPILER_DEPENDENCIES([CXX])
 AC_LANG_POP(C++)
 
 # --------
@@ -3742,9 +3754,10 @@ foo:	nop
       gcc_cv_as_ix86_interunit_movq,,,
       [.code64
        movq %mm0, %rax
-       movq %rax, %xmm0],,
-      [AC_DEFINE(HAVE_AS_IX86_INTERUNIT_MOVQ, 1,
-        [Define if your assembler supports interunit movq mnemonic.])])
+       movq %rax, %xmm0])
+    AC_DEFINE_UNQUOTED(HAVE_AS_IX86_INTERUNIT_MOVQ,
+      [`if test $gcc_cv_as_ix86_interunit_movq = yes; then echo 1; else echo 0; fi`],
+      [Define if your assembler supports interunit movq mnemonic.])
 
     gcc_GAS_CHECK_FEATURE([hle prefixes],
       gcc_cv_as_ix86_hle,,,
@@ -5321,15 +5334,15 @@ if test x"$enable_plugin" = x"yes"; then
   AC_MSG_CHECKING([for exported symbols])
   if test "x$export_sym_check" != x; then
     echo "int main() {return 0;} int foobar() {return 0;}" > conftest.c
-    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest > /dev/null 2>&1
-    if $export_sym_check conftest | grep foobar > /dev/null; then
+    ${CC} ${CFLAGS} ${LDFLAGS} conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+    if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
       : # No need to use a flag
       AC_MSG_RESULT([yes])
     else
       AC_MSG_RESULT([yes])
       AC_MSG_CHECKING([for -rdynamic])
-      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest > /dev/null 2>&1
-      if $export_sym_check conftest | grep foobar > /dev/null; then
+      ${CC} ${CFLAGS} ${LDFLAGS} -rdynamic conftest.c -o conftest$ac_exeext > /dev/null 2>&1
+      if $export_sym_check conftest$ac_exeext | grep -q foobar > /dev/null; then
         plugin_rdynamic=yes
         pluginlibs="-rdynamic"
       else
@@ -5391,6 +5404,15 @@ AC_SUBST(enable_plugin)
 if test x"$enable_plugin" = x"yes"; then
   AC_DEFINE(ENABLE_PLUGIN, 1, [Define to enable plugin support.])
 fi
+
+
+# Enable --enable-host-shared
+AC_ARG_ENABLE(host-shared,
+[AS_HELP_STRING([--enable-host-shared],
+		[build host code as shared libraries])],
+[PICFLAG=-fPIC], [PICFLAG=])
+AC_SUBST(enable_host_shared)
+AC_SUBST(PICFLAG)
 
 
 AC_ARG_ENABLE(libquadmath-support,

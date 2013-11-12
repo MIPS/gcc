@@ -2436,8 +2436,12 @@ secondary result.  The $TREECLOS function, if given, gets the $DATA and
 the ran :tree as arguments, and return a boolean value, with a subtree
 walking :long flag and the replacing :tree, if any, as secondary results }#
   ;;
- #{ /* walk_gimple_seq */ meltgc_walk_gimple_seq ((melt_ptr_t)$DATA, ($GSEQ),
-                                                  $STMTCLOS, $TREECLOS, FALSE) 
+ #{ /* walk_gimple_seq */
+#if MELT_GCC_VERSION >= 4009
+#warning MELT walk_gimple_seq is obsolete with GCC 4.9
+#endif /* GCC >= 4.9 */
+ meltgc_walk_gimple_seq ((melt_ptr_t)$DATA, ($GSEQ),
+			 $STMTCLOS, $TREECLOS, FALSE) 
 }#)
 
 (defprimitive walk_gimple_seq_unique_tree  (:value data :gimple_seq gseq :value stmtclos treeclos) :gimple
@@ -2446,6 +2450,9 @@ the given $GSEQ like $WALK_GIMPLE_SEQ, applying $STMTCLOS to gimples
 and $TREECLOS to trees, but avoid walking more than once inside
 trees.}# 
 #{ /* walk_gimple_seq_unique_tree */
+#if MELT_GCC_VERSION >= 4009
+#warning MELT walk_gimple_seq_unique_tree is obsolete with GCC 4.9
+#endif /* GCC >= 4.9 */
 meltgc_walk_gimple_seq ((melt_ptr_t)$DATA, ($GSEQ), $STMTCLOS,
 $TREECLOS, TRUE) }#)
 

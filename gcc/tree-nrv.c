@@ -25,7 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"	/* For "optimize" in gate_pass_return_slot.
@@ -289,8 +291,8 @@ const pass_data pass_data_nrv =
 class pass_nrv : public gimple_opt_pass
 {
 public:
-  pass_nrv(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_nrv, ctxt)
+  pass_nrv (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_nrv, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -393,8 +395,8 @@ const pass_data pass_data_return_slot =
 class pass_return_slot : public gimple_opt_pass
 {
 public:
-  pass_return_slot(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_return_slot, ctxt)
+  pass_return_slot (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_return_slot, ctxt)
   {}
 
   /* opt_pass methods: */

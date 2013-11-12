@@ -737,7 +737,6 @@ gfc_conv_class_to_class (gfc_se *parmse, gfc_expr *e, gfc_typespec class_ts,
     gfc_add_modify (&parmse->post, vptr,
 		    fold_convert (TREE_TYPE (vptr), ctree));
 
-  gcc_assert (!optional || (optional && !copyback));
   if (optional)
     {
       tree tmp2;
@@ -2355,11 +2354,15 @@ gfc_conv_string_tmp (gfc_se * se, tree type, tree len)
     {
       /* Allocate a temporary to hold the result.  */
       var = gfc_create_var (type, "pstr");
-      tmp = gfc_call_malloc (&se->pre, type,
-			     fold_build2_loc (input_location, MULT_EXPR,
-					      TREE_TYPE (len), len,
-					      fold_convert (TREE_TYPE (len),
-							    TYPE_SIZE (type))));
+      gcc_assert (POINTER_TYPE_P (type));
+      tmp = TREE_TYPE (type);
+      if (TREE_CODE (tmp) == ARRAY_TYPE)
+        tmp = TREE_TYPE (tmp);
+      tmp = TYPE_SIZE_UNIT (tmp);
+      tmp = fold_build2_loc (input_location, MULT_EXPR, size_type_node,
+			    fold_convert (size_type_node, len),
+			    fold_convert (size_type_node, tmp));
+      tmp = gfc_call_malloc (&se->pre, type, tmp);
       gfc_add_modify (&se->pre, var, tmp);
 
       /* Free the temporary afterwards.  */
@@ -7765,7 +7768,7 @@ is_runtime_conformable (gfc_expr *expr1, gfc_expr *expr2)
 	      e1 = a->expr;
 	      if (e1->rank > 0 && !is_runtime_conformable (expr1, e1))
 		return false;
-	    }	 
+	    }
 	  return true;
 	}
       else if (expr2->value.function.isym

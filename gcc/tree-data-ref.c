@@ -76,7 +76,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
 #include "gimple-pretty-print.h"
+#include "gimple.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
@@ -1136,13 +1140,13 @@ common_affine_function (conflict_function *cf)
   affine_fn comm;
 
   if (!CF_NONTRIVIAL_P (cf))
-    return affine_fn();
+    return affine_fn ();
 
   comm = cf->fns[0];
 
   for (i = 1; i < cf->n; i++)
     if (!affine_function_equal_p (comm, cf->fns[i]))
-      return affine_fn();
+      return affine_fn ();
 
   return comm;
 }
@@ -1637,12 +1641,12 @@ conflict_fn (unsigned n, ...)
   va_list ap;
 
   gcc_assert (0 < n && n <= MAX_DIM);
-  va_start(ap, n);
+  va_start (ap, n);
 
   ret->n = n;
   for (i = 0; i < n; i++)
     ret->fns[i] = va_arg (ap, affine_fn);
-  va_end(ap);
+  va_end (ap);
 
   return ret;
 }
@@ -4321,7 +4325,7 @@ typedef struct data_ref_loc_d
    true if STMT clobbers memory, false otherwise.  */
 
 static bool
-get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_stack> *references)
+get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
 {
   bool clobbers_memory = false;
   data_ref_loc ref;
@@ -4413,17 +4417,13 @@ find_data_references_in_stmt (struct loop *nest, gimple stmt,
 			      vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  vec<data_ref_loc, va_stack> references;
+  stack_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
 
-  vec_stack_alloc (data_ref_loc, references, 2);
   if (get_references_in_stmt (stmt, &references))
-    {
-      references.release ();
-      return false;
-    }
+    return false;
 
   FOR_EACH_VEC_ELT (references, i, ref)
     {
@@ -4447,17 +4447,13 @@ graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple stmt,
 				       vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  vec<data_ref_loc, va_stack> references;
+  stack_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
 
-  vec_stack_alloc (data_ref_loc, references, 2);
   if (get_references_in_stmt (stmt, &references))
-    {
-      references.release ();
-      return false;
-    }
+    return false;
 
   FOR_EACH_VEC_ELT (references, i, ref)
     {
