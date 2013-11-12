@@ -1,0 +1,8 @@
+2013-11-12  Bill Schmidt  <wschmidt@linux.ibm.com>
+
+	Backport from mainline
+	2013-09-20  Alan Modra  <amodra@gmail.com>
+
+	* libtool.m4 (_LT_ENABLE_LOCK <ld -m flags>): Remove non-canonical
+	ppc host match.  Support little-endian powerpc linux hosts.
+
