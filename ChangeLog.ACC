@@ -1,4 +1,9 @@
 12-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Refactoring.
+
+	* gcc/oacc-low.c(expand_oacc_kernels): Refactoring.
+
+12-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Call to scev in finding loop control var.
 
 	* gcc/oacc-low.c: Call to scev in finding loop control var.

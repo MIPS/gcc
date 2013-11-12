@@ -2598,8 +2598,7 @@ switch_func_back(int save_opt_level)
 }
 
 static void
-schedule_kernel(gimple_stmt_iterator* gsi, acc_schedule sched,
-                tree niter, tree clause)
+schedule_kernel(acc_schedule sched, tree niter, tree clause)
 {
   tree num_gangs = NULL_TREE,
     num_workers = NULL_TREE,
@@ -2660,6 +2659,219 @@ schedule_kernel(gimple_stmt_iterator* gsi, acc_schedule sched,
 }
 
 static void
+generate_region_start(gimple_stmt_iterator* gsi, location_t locus)
+{
+  if(flag_enable_openacc_profiling)
+    {
+      /* OACC_start_profiling */
+      gen_replace(gsi, build_call(locus,
+        builtin_decl_explicit(BUILT_IN_OACC_START_PROFILING), 0));
+
+      /* OACC_check_cur_dev */
+      gen_add(gsi, build_call(locus,
+        builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
+    }
+  else
+    {
+      /* OACC_check_cur_dev */
+      gen_replace(gsi, build_call(locus,
+        builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
+    }
+}
+
+static void
+generate_get_kernel_handles(gimple_stmt_iterator* gsi, location_t locus,
+                            vec<acc_kernel>* kernels)
+{
+  unsigned i;
+  gimple call_stmt;
+
+  /* OACC_get_kernel */
+  for(i = 0; i < kernels->length(); ++i) 
+    {
+      call_stmt = build_call(locus,
+               builtin_decl_explicit(BUILT_IN_OACC_GET_KERNEL), 2,
+               build_string_literal(strlen(ocl_module)+1, ocl_module),
+               build_string_literal(
+                   strlen(IDENTIFIER_POINTER(DECL_NAME((*kernels)[i]->func)))+1,
+                   IDENTIFIER_POINTER(DECL_NAME((*kernels)[i]->func))));
+      gimple_call_set_lhs(call_stmt, (*kernels)[i]->kernel_handle);
+      gen_add(gsi, call_stmt);
+    }
+}
+
+static void
+generate_create_event_queue(gimple_stmt_iterator* gsi, location_t locus,
+                            tree queue_handle, const char* src_file,
+                            int src_line)
+{
+  gimple call_stmt;
+
+  call_stmt = build_call(locus,
+           builtin_decl_explicit(BUILT_IN_OACC_CREATE_EVENTS), 2,
+           build_string_literal(strlen(src_file)+1, src_file),
+           build_int_cst(uint32_type_node, src_line));
+  gimple_call_set_lhs(call_stmt, queue_handle);
+  gen_add(gsi, call_stmt);
+}
+
+static void
+generate_enqueue_events(gimple_stmt_iterator* gsi, location_t locus,
+                        tree queue_handle, unsigned nevents, int event_type)
+{
+  if(nevents == 0)
+    return;
+  gen_add(gsi, build_call(locus,
+        builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
+        queue_handle, ((nevents == 1) ? integer_one_node :
+                        build_int_cst(uint32_type_node, nevents)),
+        build_int_cst(uint32_type_node, event_type)));
+}
+
+static void
+generate_advance_events(gimple_stmt_iterator* gsi, location_t locus,
+                        tree queue_handle)
+{
+  gen_add(gsi, build_call(locus,
+              builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
+              queue_handle));
+}
+
+static void
+generate_copyin(gimple_stmt_iterator* gsi, location_t locus, tree arg,
+                tree size, tree check_presence, tree index,
+                tree queue_handle, tree buffer_handle)
+{
+  gimple call_stmt;
+
+  call_stmt = build_call(locus,
+     builtin_decl_explicit(BUILT_IN_OACC_COPYIN), 5,
+     arg, size, check_presence, queue_handle, index);
+  gimple_call_set_lhs(call_stmt, buffer_handle);
+  gen_add(gsi, call_stmt);
+}
+
+static void
+generate_set_arg(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
+                 tree index, tree buffer_handle)
+{
+  /* OACC_set_kernel_arg */
+  gen_add(gsi, build_call(locus,
+      builtin_decl_explicit(BUILT_IN_OACC_SET_KERNEL_ARG), 3,
+      kernel_handle, index, buffer_handle));
+}
+
+static void
+generate_copyout(gimple_stmt_iterator* gsi, location_t locus, tree arg,
+                tree size, tree check_presence, tree index,
+                tree queue_handle)
+{
+  /* OACC_copyout */
+  gen_add(gsi, build_call(locus,
+      builtin_decl_explicit(BUILT_IN_OACC_COPYOUT), 5,
+      arg, size, check_presence, queue_handle, index));
+}
+
+static void
+generate_wait_events(gimple_stmt_iterator* gsi, location_t locus,
+                     tree queue_handle)
+{
+  gen_add(gsi, build_call(locus,
+              builtin_decl_explicit(BUILT_IN_OACC_WAIT_EVENTS), 1,
+              queue_handle));
+}
+
+static void
+generate_start_kernel(gimple_stmt_iterator* gsi, location_t locus,
+                      tree kernel_handle, tree workitems,
+                      tree offset, tree groupsize, tree queue_handle)
+{
+  /* OACC_start_kernel */
+  gen_add(gsi, build_call(locus,
+                builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 6,
+                kernel_handle, workitems, offset, groupsize,
+                queue_handle, integer_zero_node));
+}
+
+static void
+tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
+              acc_schedule_t* sched, tree queue_handle)
+{
+  gimple stmt = gsi_stmt(*gsi), init_stmt;
+  basic_block bb = gimple_bb(stmt);
+  edge new_edge = split_block(bb, stmt), e;
+  basic_block new_bb, header_bb, body_bb;
+  struct loop* l;
+  tree counter, counter_1, counter_2, counter_3;
+  tree conv_var;
+
+  new_bb = new_edge->dest;
+  body_bb = create_empty_bb(bb);
+  header_bb = create_empty_bb(body_bb);
+
+  new_edge = redirect_edge_and_branch(new_edge, header_bb);
+  e = make_edge(header_bb, body_bb, EDGE_DFS_BACK | EDGE_TRUE_VALUE);
+  e = make_edge(header_bb, new_bb, EDGE_FALSE_VALUE);
+  e = make_single_succ_edge(body_bb, header_bb, EDGE_FALLTHRU);
+
+  set_immediate_dominator(CDI_DOMINATORS, header_bb, bb);
+  set_immediate_dominator(CDI_DOMINATORS, new_bb, header_bb);
+  set_immediate_dominator(CDI_DOMINATORS, body_bb, header_bb);
+
+  l = alloc_loop();
+  l->header = header_bb;
+  header_bb->loop_father = l;
+  l->latch = body_bb;
+  body_bb->loop_father = l;
+
+
+  place_new_loop(cfun, l);
+  flow_loop_tree_node_add(bb->loop_father, l);
+  
+  counter = create_tmp_reg(intSI_type_node, "_oacc_counter");
+  counter_1 = make_ssa_name_fn(cfun, counter, init_stmt);
+  init_stmt = gimple_build_assign(counter_1, integer_zero_node);
+  gen_add(gsi, init_stmt);
+
+  if(TYPE_UNSIGNED(TREE_TYPE(sched->items))
+      != TYPE_UNSIGNED(TREE_TYPE(counter)))
+    {
+      gimple convert_stmt =
+        build_type_cast(TREE_TYPE(counter), sched->items);
+      conv_var = create_tmp_reg(TREE_TYPE(counter), "_acc_tmp");
+      conv_var = make_ssa_name_fn(cfun, conv_var, convert_stmt);
+      set_gimple_def_var(convert_stmt, conv_var);
+      gen_add(gsi, convert_stmt);
+    }
+  else
+    {
+      conv_var = sched->items;
+    }
+
+  counter_2 = make_ssa_name_fn(cfun, counter, init_stmt);
+  counter_3 = make_ssa_name_fn(cfun, counter, init_stmt);
+
+  *gsi = gsi_start_bb(body_bb);
+  generate_start_kernel(gsi, locus, kernel_handle,
+                sched->tiling,      /* WORKITEMS */
+                counter_2,          /* OFFSET */
+                sched->group_size,  /* GROUPSIZE */
+                queue_handle);
+  stmt = build_assign(PLUS_EXPR, counter_2, sched->tiling);
+  set_gimple_def_var(stmt, counter_3);
+  gen_add(gsi, stmt);
+
+  *gsi = gsi_start_bb(header_bb);
+  stmt = create_phi_node(counter_2, header_bb);
+  add_phi_arg(stmt, counter_1, new_edge, locus);
+  add_phi_arg(stmt, counter_3, e, locus);
+
+  gen_add(gsi, gimple_build_cond(LT_EXPR, counter_2, conv_var,
+                    NULL, NULL));
+  *gsi = gsi_start_bb(new_bb);
+}
+
+static void
 expand_oacc_kernels(gimple_stmt_iterator* gsi)
 {
     unsigned i, j;
@@ -2668,9 +2880,14 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
       ? gimple_acc_parallel_clauses(stmt) : NULL_TREE);
 
     tree child_fn = GIMPLE_ACC_CHILD_FN(stmt);
-
     struct function* child_cfun = DECL_STRUCT_FUNCTION(child_fn);
-    bool is_paral = false;
+    struct loops* loops = NULL;
+    vec<acc_kernel> kernels;
+    tree type, buffer_handle, queue_handle, bits_per_byte;
+    location_t locus;
+    const char* src_file = NULL;
+    int src_line = 0;
+
 
     if(optimize < 1)
       {
@@ -2679,18 +2896,13 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
       }
     switch_to_child_func(child_cfun);
 
-    struct loops* loops = current_loops;
-    
+    loops = current_loops;
     gcc_assert(loops != NULL && loops->tree_root != NULL);
 
-    vec<acc_kernel> kernels;
     kernels.create(3);
-    
     extract_kernels(loops, child_fn, &kernels, stmt);
-
     switch_func_back(save_opt_level);
 
-    tree type, buffer_handle, queue_handle;
 
     type = build_pointer_type(void_type_node);
     for(i = 0; i < kernels.length(); ++i)
@@ -2700,238 +2912,100 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
     buffer_handle = create_tmp_reg(type, "_oacc_tmp");
     queue_handle = create_tmp_reg(type, "_oacc_tmp");
 
-    const char* src_file = NULL;
-    int src_line = 0;
-    location_t locus = gimple_location(stmt);
-
+    locus = gimple_location(stmt);
     src_file = LOCATION_FILE(locus);
     src_line = LOCATION_LINE(locus);
     if(dump_file)
-        {
-            fprintf(dump_file, "file: '%s', line %d\n", src_file, src_line);
-        }
+      {
+          fprintf(dump_file, "Exec region at file: '%s', line %d\n",
+                        src_file, src_line);
+      }
 
-    gimple call_stmt;
+    generate_region_start(gsi, locus);
+    generate_get_kernel_handles(gsi, locus, &kernels);
+    generate_create_event_queue(gsi, locus, queue_handle, src_file, src_line);
 
-    if(flag_enable_openacc_profiling)
-        {
-            gen_replace(gsi, build_call(locus,
-              builtin_decl_explicit(BUILT_IN_OACC_START_PROFILING), 0));
-
-            /* OACC_check_cur_dev */
-            gen_add(gsi, build_call(locus,
-              builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
-        }
-    else
-        {
-            gen_replace(gsi, build_call(locus,
-              builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
-        }
-
-    /* OACC_get_kernel */
-    for(i = 0; i < kernels.length(); ++i) 
-    {
-      call_stmt = build_call(locus,
-               builtin_decl_explicit(BUILT_IN_OACC_GET_KERNEL), 2,
-               build_string_literal(strlen(ocl_module)+1, ocl_module),
-               build_string_literal(
-                   strlen(IDENTIFIER_POINTER(DECL_NAME(kernels[i]->func)))+1,
-                   IDENTIFIER_POINTER(DECL_NAME(kernels[i]->func))));
-      gimple_call_set_lhs(call_stmt, kernels[i]->kernel_handle);
-      gen_add(gsi, call_stmt);
-    }
-
-    call_stmt = build_call(locus,
-             builtin_decl_explicit(BUILT_IN_OACC_CREATE_EVENTS), 2,
-             build_string_literal(strlen(src_file)+1, src_file),
-             build_int_cst(uint32_type_node, src_line));
-    gimple_call_set_lhs(call_stmt, queue_handle);
-    gen_add(gsi, call_stmt);
-
-    gen_add(gsi, build_call(locus,
-              builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
-              queue_handle,
-              build_int_cst(uint32_type_node,
-                            gimple_acc_nparams(stmt)),
-              build_int_cst(uint32_type_node, OACC_PF_DATAIN)));
-
+    generate_enqueue_events(gsi, locus, queue_handle,
+        gimple_acc_nparams(stmt), OACC_PF_DATAIN);
     for(i = 0; i < kernels.length(); ++i)
-    {
-      gen_add(gsi, build_call(locus,
-                builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
-                queue_handle, integer_one_node,
-                build_int_cst(uint32_type_node, OACC_PF_EXEC)));
-    }
+      {
+        generate_enqueue_events(gsi, locus, queue_handle, 1, OACC_PF_EXEC);
+      }
 
-    gen_add(gsi, build_call(locus,
-              builtin_decl_explicit(BUILT_IN_OACC_ENQUEUE_EVENTS), 3,
-              queue_handle,
-              build_int_cst(uint32_type_node,
-                            gimple_acc_nparams(stmt)),
-              build_int_cst(uint32_type_node, OACC_PF_DATAOUT)));
+    generate_enqueue_events(gsi, locus, queue_handle,
+        gimple_acc_nparams(stmt), OACC_PF_DATAOUT);
 
-    /* OACC_set_arg */
-    tree bits_per_byte = build_int_cst(uint32_type_node, 8);
-    tree chk_presence = integer_one_node;
+    bits_per_byte = build_int_cst(uint32_type_node, 8);
 
     for(i = 0; i < gimple_acc_nparams(stmt); ++i)
-        {
-            tree arg = GIMPLE_ACC_PARAMS_PTR(stmt)[i];
-            if(is_gimple_reg(arg)) continue;
-            tree type = TREE_TYPE(arg);
-            tree size = TYPE_SIZE(type);
-            tree idx = build_int_cst(uint32_type_node, i);
+      {
+          tree arg = GIMPLE_ACC_PARAMS_PTR(stmt)[i];
+          tree type, size;
 
-            call_stmt = build_call(locus,
-               builtin_decl_explicit(BUILT_IN_OACC_COPYIN), 5,
-               build_fold_addr_expr(arg),
-               fold_binary(TRUNC_DIV_EXPR,
-                           uint32_type_node, size, bits_per_byte),
-               chk_presence, queue_handle, idx);
-            gimple_call_set_lhs(call_stmt, buffer_handle);
-            gen_add(gsi, call_stmt);
+          if(is_gimple_reg(arg))
+            continue;
+          type = TREE_TYPE(arg);
+          size = TYPE_SIZE(type);
 
-            for(j = 0; j < kernels.length(); ++j)
+          generate_copyin(gsi, locus, build_fold_addr_expr(arg),
+            fold_binary(TRUNC_DIV_EXPR, uint32_type_node,
+                          size, bits_per_byte),
+            integer_one_node, build_int_cst(uint32_type_node, i),
+            queue_handle, buffer_handle);
+          for(j = 0; j < kernels.length(); ++j)
             {
-              gen_add(gsi, build_call(locus,
-                  builtin_decl_explicit(BUILT_IN_OACC_SET_KERNEL_ARG), 3,
-                  kernels[j]->kernel_handle, idx, buffer_handle));
+              generate_set_arg(gsi, locus, kernels[j]->kernel_handle,
+                build_int_cst(uint32_type_node, i), buffer_handle);
             }
-        }
+      }
 
+    generate_advance_events(gsi, locus, queue_handle);
 
-    gen_add(gsi, build_call(locus,
-                builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
-                queue_handle));
-
-    /* OACC_start_kernel */
     for(i = 0; i < kernels.length(); ++i)
     {
       acc_schedule_t sched;
-      tree offset = integer_zero_node;
 
       memset(&sched, sizeof(acc_schedule_t), 0);
-      schedule_kernel(gsi, &sched, kernels[i]->niter_desc.niter,
-                    sched_clauses);
+      schedule_kernel(&sched, kernels[i]->niter_desc.niter, sched_clauses);
 
       if(sched.tiling != NULL_TREE)
       {
-        gimple stmt = gsi_stmt(*gsi), init_stmt;
-        basic_block bb = gimple_bb(stmt);
-        edge new_edge = split_block(bb, stmt), e;
-        basic_block new_bb, header_bb, body_bb;
-        struct loop* l;
-        tree counter, counter_1, counter_2, counter_3;
-        tree conv_var;
-
-        new_bb = new_edge->dest;
-        body_bb = create_empty_bb(bb);
-        header_bb = create_empty_bb(body_bb);
-
-        new_edge = redirect_edge_and_branch(new_edge, header_bb);
-        e = make_edge(header_bb, body_bb, EDGE_DFS_BACK | EDGE_TRUE_VALUE);
-        e = make_edge(header_bb, new_bb, EDGE_FALSE_VALUE);
-        e = make_single_succ_edge(body_bb, header_bb, EDGE_FALLTHRU);
-
-        set_immediate_dominator(CDI_DOMINATORS, header_bb, bb);
-        set_immediate_dominator(CDI_DOMINATORS, new_bb, header_bb);
-        set_immediate_dominator(CDI_DOMINATORS, body_bb, header_bb);
-
-        l = alloc_loop();
-        l->header = header_bb;
-        header_bb->loop_father = l;
-        l->latch = body_bb;
-        body_bb->loop_father = l;
-
-
-        place_new_loop(cfun, l);
-        flow_loop_tree_node_add(bb->loop_father, l);
-        
-        counter = create_tmp_reg(intSI_type_node, "_oacc_counter");
-        counter_1 = make_ssa_name_fn(cfun, counter, init_stmt);
-        init_stmt = gimple_build_assign(counter_1, offset);
-        gen_add(gsi, init_stmt);
-
-        if(TYPE_UNSIGNED(TREE_TYPE(sched.items))
-            != TYPE_UNSIGNED(TREE_TYPE(counter)))
-        {
-          gimple convert_stmt =
-            build_type_cast(TREE_TYPE(counter), sched.items);
-          conv_var = create_tmp_reg(TREE_TYPE(counter), "_acc_tmp");
-          conv_var = make_ssa_name_fn(cfun, conv_var, convert_stmt);
-          set_gimple_def_var(convert_stmt, conv_var);
-          gen_add(gsi, convert_stmt);
-        }
-        else
-        {
-          conv_var = sched.items;
-        }
-
-        counter_2 = make_ssa_name_fn(cfun, counter, init_stmt);
-        counter_3 = make_ssa_name_fn(cfun, counter, init_stmt);
-
-        *gsi = gsi_start_bb(body_bb);
-        gen_add(gsi, build_call(locus,
-                      builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 6,
-                      kernels[i]->kernel_handle,
-                      sched.tiling,       /* WORKITEMS */
-                      counter_2,      /* OFFSET */
-                      sched.group_size,  /* GROUPSIZE */
-                      queue_handle,
-                      integer_zero_node));
-        stmt = build_assign(PLUS_EXPR, counter_2, sched.tiling);
-        set_gimple_def_var(stmt, counter_3);
-        gen_add(gsi, stmt);
-
-        *gsi = gsi_start_bb(header_bb);
-        stmt = create_phi_node(counter_2, header_bb);
-        add_phi_arg(stmt, counter_1, new_edge, locus);
-        add_phi_arg(stmt, counter_3, e, locus);
-
-        gen_add(gsi, gimple_build_cond(LT_EXPR, counter_2, conv_var,
-                          NULL, NULL));
-        *gsi = gsi_start_bb(new_bb);
+        tile_the_loop(gsi, locus, kernels[i]->kernel_handle,
+          &sched, queue_handle);
       }
       else 
       {
-        gen_add(gsi, build_call(locus,
-                      builtin_decl_explicit(BUILT_IN_OACC_START_KERNEL), 6,
-                      kernels[i]->kernel_handle,
+        generate_start_kernel(gsi, locus, kernels[i]->kernel_handle,
                       sched.items,       /* WORKITEMS */
-                      offset,      /* OFFSET */
+                      integer_zero_node, /* OFFSET */
                       sched.group_size,  /* GROUPSIZE */
-                      queue_handle,
-                      integer_zero_node));
+                      queue_handle);
       }
-      gen_add(gsi, build_call(locus,
-                  builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
-                  queue_handle));
+      generate_advance_events(gsi, locus, queue_handle);
     }
 
-    /* OACC_copyout */
     for(i = 0; i < gimple_acc_nparams(stmt); ++i)
         {
             tree arg = GIMPLE_ACC_PARAMS_PTR(stmt)[i];
-            if(is_gimple_reg(arg)) continue;
-            tree type = TREE_TYPE(arg);
-            tree size = TYPE_SIZE(type);
-            tree idx = build_int_cst(uint32_type_node, i);
+            tree type, size;
 
-            gen_add(gsi, build_call(locus,
-                builtin_decl_explicit(BUILT_IN_OACC_COPYOUT), 5,
-                build_fold_addr_expr(arg),
-                fold_binary(TRUNC_DIV_EXPR, uint32_type_node, size,
+            if(is_gimple_reg(arg))
+              continue;
+            type = TREE_TYPE(arg);
+            size = TYPE_SIZE(type);
+
+            generate_copyout(gsi, locus, build_fold_addr_expr(arg),
+              fold_binary(TRUNC_DIV_EXPR, uint32_type_node, size,
                   bits_per_byte),
-                chk_presence, queue_handle, idx));
+              integer_one_node, build_int_cst(uint32_type_node, i),
+              queue_handle);
         }
 
-    gen_add(gsi, build_call(locus,
-                builtin_decl_explicit(BUILT_IN_OACC_ADVANCE_EVENTS), 1,
-                queue_handle));
-    gen_add(gsi, build_call(locus,
-                builtin_decl_explicit(BUILT_IN_OACC_WAIT_EVENTS), 1,
-                queue_handle));
+    generate_advance_events(gsi, locus, queue_handle);
+    generate_wait_events(gsi, locus, queue_handle);
 
+    for(i = 0; i < kernels.length(); ++i)
+      delete_acc_kernel(kernels[i]);
 }
 
 static void
