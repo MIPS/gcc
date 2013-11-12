@@ -2076,89 +2076,100 @@ set_gimple_def_var(gimple stmt, tree var)
         }
 }
 
-static tree check_for_ctrl_var(tree);
+struct loop_ctrl_var
+{
+  tree var;
+  struct loop* loop;
+};
+static bool check_for_ctrl_var(tree, struct loop_ctrl_var* ctrl_var);
 
 static bool
 check_for_ctrl_var_cb(tree var, gimple stmt, void* data)
 {
-    tree* pvar = (tree*)data;
+    struct loop_ctrl_var *ctrl_var = (struct loop_ctrl_var*)data;
     unsigned i;
 
     for(i = 0; i < gimple_num_ops(stmt); ++i)
-        {
-            tree op_var = gimple_op(stmt, i);
-            if(op_var == var)
-                {
-                    continue;
-                }
-            op_var = check_for_ctrl_var(op_var);
-            if(op_var != NULL_TREE)
-                {
-                    *pvar = op_var;
-                    return true;
-                }
-        }
+      {
+          tree op_var = gimple_op(stmt, i);
+          if(op_var == var)
+            {
+              continue;
+            }
+          if(check_for_ctrl_var(op_var, ctrl_var))
+            {
+              return true;
+            }
+      }
     return false;
 }
 
-static tree
-check_for_ctrl_var(tree var)
+static bool
+check_for_ctrl_var(tree var, struct loop_ctrl_var* ctrl_var)
 {
-    if(dump_file)
-        {
-            fprintf(dump_file, "check var ");
-            print_generic_expr(dump_file, var, 0);
-            fprintf(dump_file, "\n");
-        }
-    if(is_gimple_constant(var))
-        {
-            return NULL_TREE;
-        }
+  tree chrec = analyze_scalar_evolution(ctrl_var->loop, var);
+  if(dump_file)
+    {
+      fprintf(dump_file, "check var ");
+      print_generic_expr(dump_file, var, 0);
+      fprintf(dump_file, " %s", ((tree_is_chrec(chrec)) ? "CHREC" : ""));
+      fprintf(dump_file, "\n");
+    }
+  if(tree_is_chrec(chrec))
+    {
+      ctrl_var->var = var;
+      return true;
+    }
 
-    if(is_gimple_variable(var))
+  if(is_gimple_constant(var))
+    {
+      return false;;
+    }
+
+  if(is_gimple_variable(var))
+    {
+      if(SSA_NAME_VAR(var))
         {
-            if(SSA_NAME_VAR(var))
-                {
-                    return var;
-                }
-            else
-                {
-                    tree new_var = NULL_TREE;
-                    walk_use_def_chains(var, check_for_ctrl_var_cb,
-                                        (void*)&new_var, false);
-
-                    if(new_var != NULL_TREE)
-                        {
-                            return new_var;
-                        }
-                }
+          ctrl_var->var = var;
+          return true;
         }
+      else
+        {
+          walk_use_def_chains(var, check_for_ctrl_var_cb,
+                              (void*)ctrl_var, false);
 
-    return NULL_TREE;
+          if(ctrl_var->var != NULL_TREE)
+            {
+              return true;
+            }
+        }
+    }
+
+  return false;;
 }
 
 
-// TODO
-// check for those have cycle in SSA graph (?)
 static tree
 find_ctrl_var(basic_block header, struct loop* loop)
 {
     gimple cond_stmt;
-    tree var = NULL_TREE;
+    loop_ctrl_var ctrl_var;
 
     cond_stmt = gsi_stmt(gsi_last_bb(header));
 
     gcc_assert(gimple_code(cond_stmt) == GIMPLE_COND);
 
-    var = check_for_ctrl_var(gimple_cond_lhs(cond_stmt));
-    if(var != NULL_TREE)
-        {
-            return var;
-        }
+    ctrl_var.var = NULL_TREE;
+    ctrl_var.loop = loop;
 
-    var = check_for_ctrl_var(gimple_cond_rhs(cond_stmt));
-    gcc_assert(var != NULL_TREE);
-    return var;
+    if(check_for_ctrl_var(gimple_cond_lhs(cond_stmt), &ctrl_var))
+      {
+        return ctrl_var.var;
+      }
+
+    check_for_ctrl_var(gimple_cond_rhs(cond_stmt), &ctrl_var);
+    gcc_assert(ctrl_var.var != NULL_TREE);
+    return ctrl_var.var;
 }
 
 static bool
@@ -2528,11 +2539,13 @@ parallelize_loops(struct loop* root, unsigned collapse)
 
     calculate_dominance_info (CDI_DOMINATORS);
     fix_loop_structure(NULL);
+    scev_initialize();
     struct loop* ploop;
     for(ploop = root->inner; ploop != NULL; ploop = ploop->next)
         {
             parallelize_loop(ploop, collapse);
         }
+    scev_finalize();
 }
 
 static void
