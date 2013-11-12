@@ -717,7 +717,7 @@ tree ipa_value_from_jfunc (struct ipa_node_params *info,
 unsigned int ipcp_transform_function (struct cgraph_node *node);
 void ipa_dump_param (FILE *, struct ipa_node_params *info, int i);
 bool ipa_modify_expr (tree *, bool, ipa_parm_adjustment_vec);
-ipa_parm_adjustment *ipa_get_adjustment_candidate (tree *&, bool *,
+ipa_parm_adjustment *ipa_get_adjustment_candidate (tree **, bool *,
 						   ipa_parm_adjustment_vec,
 						   bool);
 

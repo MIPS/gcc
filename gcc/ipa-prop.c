@@ -3768,7 +3768,7 @@ ipa_modify_expr (tree *expr, bool convert,
 		 ipa_parm_adjustment_vec adjustments)
 {
   struct ipa_parm_adjustment *cand
-    = ipa_get_adjustment_candidate (expr, &convert, adjustments, false);
+    = ipa_get_adjustment_candidate (&expr, &convert, adjustments, false);
   if (!cand)
     return false;
 
@@ -3823,25 +3823,25 @@ get_ssa_base_param (tree t, bool ignore_default_def)
    default def, otherwise bail on them.
 
    If CONVERT is non-NULL, this function will set *CONVERT if the
-   expression provided is a component reference that must be converted
-   upon return.  ADJUSTMENTS is the adjustments vector.  */
+   expression provided is a component reference.  ADJUSTMENTS is the
+   adjustments vector.  */
 
 ipa_parm_adjustment *
-ipa_get_adjustment_candidate (tree *&expr, bool *convert,
+ipa_get_adjustment_candidate (tree **expr, bool *convert,
 			      ipa_parm_adjustment_vec adjustments,
 			      bool ignore_default_def)
 {
-  if (TREE_CODE (*expr) == BIT_FIELD_REF
-      || TREE_CODE (*expr) == IMAGPART_EXPR
-      || TREE_CODE (*expr) == REALPART_EXPR)
+  if (TREE_CODE (**expr) == BIT_FIELD_REF
+      || TREE_CODE (**expr) == IMAGPART_EXPR
+      || TREE_CODE (**expr) == REALPART_EXPR)
     {
-      expr = &TREE_OPERAND (*expr, 0);
+      *expr = &TREE_OPERAND (**expr, 0);
       if (convert)
 	*convert = true;
     }
 
   HOST_WIDE_INT offset, size, max_size;
-  tree base = get_ref_base_and_extent (*expr, &offset, &size, &max_size);
+  tree base = get_ref_base_and_extent (**expr, &offset, &size, &max_size);
   if (!base || size == -1 || max_size == -1)
     return NULL;
 
