@@ -1,5 +1,10 @@
 2013-11-12  Aldy Hernandez  <aldyh@redhat.com>
 
+	* ipa-prop.h (enum ipa_parm_op): Adjust comment to IPA_PARM_OP_NEW
+	entry.
+
+2013-11-12  Aldy Hernandez  <aldyh@redhat.com>
+
 	* ipa-prop.c (ipa_modify_expr): Pass expr by address.
 	(ipa_get_adjustment_candidate): Add another level of indirection
 	to expr.  Adjust comment.

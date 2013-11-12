@@ -616,11 +616,7 @@ enum ipa_parm_op {
 
   /* This describes a brand new parameter.
 
-     For new parameters, base_index must be >= the number of
-     DECL_ARGUMENTS in the function.  That is, new arguments will be
-     the last arguments in the adjusted function.
-
-     Also, `type' should be set to the new type, `arg_prefix'
+     The field `type' should be set to the new type, `arg_prefix'
      should be set to the string prefix for the new DECL_NAME, and
      `new_decl' will ultimately hold the newly created argument.  */
   IPA_PARM_OP_NEW,
