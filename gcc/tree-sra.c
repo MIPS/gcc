@@ -785,17 +785,15 @@ type_internals_preclude_sra_p (tree type, const char **msg)
     }
 }
 
-/* If T is an SSA_NAME, return NULL if it is not a default def or
-   return its base variable if it is.  If IGNORE_DEFAULT_DEF is true,
-   the base variable is always returned, regardless if it is a default
-   def.  Return T if it is not an SSA_NAME.  */
+/* If T is an SSA_NAME, return NULL if it is not a default def or return its
+   base variable if it is.  Return T if it is not an SSA_NAME.  */
 
 static tree
-get_ssa_base_param (tree t, bool ignore_default_def)
+get_ssa_base_param (tree t)
 {
   if (TREE_CODE (t) == SSA_NAME)
     {
-      if (ignore_default_def || SSA_NAME_IS_DEFAULT_DEF (t))
+      if (SSA_NAME_IS_DEFAULT_DEF (t))
 	return SSA_NAME_VAR (t);
       else
 	return NULL_TREE;
@@ -876,7 +874,7 @@ create_access (tree expr, gimple stmt, bool write)
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (base) == MEM_REF)
     {
-      base = get_ssa_base_param (TREE_OPERAND (base, 0), false);
+      base = get_ssa_base_param (TREE_OPERAND (base, 0));
       if (!base)
 	return NULL;
       ptr = true;
@@ -1041,7 +1039,7 @@ disqualify_base_of_expr (tree t, const char *reason)
   t = get_base_address (t);
   if (sra_mode == SRA_MODE_EARLY_IPA
       && TREE_CODE (t) == MEM_REF)
-    t = get_ssa_base_param (TREE_OPERAND (t, 0), false);
+    t = get_ssa_base_param (TREE_OPERAND (t, 0));
 
   if (t && DECL_P (t))
     disqualify_candidate (t, reason);
@@ -4489,106 +4487,6 @@ replace_removed_params_ssa_names (gimple stmt,
   return true;
 }
 
-/* Given an expression, return an adjustment entry specifying the
-   transformation to be done on EXPR.  If no suitable adjustment entry
-   was found, returns NULL.
-
-   If IGNORE_DEFAULT_DEF is set, consider SSA_NAMEs which are not a
-   default def, otherwise bail on them.
-
-   If CONVERT is non-NULL, this function will set *CONVERT if the
-   expression provided is a component reference that must be converted
-   upon return.  ADJUSTMENTS is the adjustments vector.  */
-
-ipa_parm_adjustment *
-sra_ipa_get_adjustment_candidate (tree *&expr, bool *convert,
-				  ipa_parm_adjustment_vec adjustments,
-				  bool ignore_default_def)
-{
-  if (TREE_CODE (*expr) == BIT_FIELD_REF
-      || TREE_CODE (*expr) == IMAGPART_EXPR
-      || TREE_CODE (*expr) == REALPART_EXPR)
-    {
-      expr = &TREE_OPERAND (*expr, 0);
-      if (convert)
-	*convert = true;
-    }
-
-  HOST_WIDE_INT offset, size, max_size;
-  tree base = get_ref_base_and_extent (*expr, &offset, &size, &max_size);
-  if (!base || size == -1 || max_size == -1)
-    return NULL;
-
-  if (TREE_CODE (base) == MEM_REF)
-    {
-      offset += mem_ref_offset (base).low * BITS_PER_UNIT;
-      base = TREE_OPERAND (base, 0);
-    }
-
-  base = get_ssa_base_param (base, ignore_default_def);
-  if (!base || TREE_CODE (base) != PARM_DECL)
-    return NULL;
-
-  struct ipa_parm_adjustment *cand = NULL;
-  unsigned int len = adjustments.length ();
-  for (unsigned i = 0; i < len; i++)
-    {
-      struct ipa_parm_adjustment *adj = &adjustments[i];
-
-      if (adj->base == base
-	  && (adj->offset == offset || adj->op == IPA_PARM_OP_REMOVE))
-	{
-	  cand = adj;
-	  break;
-	}
-    }
-
-  if (!cand || cand->op == IPA_PARM_OP_COPY || cand->op == IPA_PARM_OP_REMOVE)
-    return NULL;
-  return cand;
-}
-
-/* If the expression *EXPR should be replaced by a reduction of a parameter, do
-   so.  ADJUSTMENTS is a pointer to a vector of adjustments.  CONVERT
-   specifies whether the function should care about type incompatibility the
-   current and new expressions.  If it is false, the function will leave
-   incompatibility issues to the caller.  Return true iff the expression
-   was modified. */
-
-bool
-sra_ipa_modify_expr (tree *expr, bool convert,
-		     ipa_parm_adjustment_vec adjustments)
-{
-  struct ipa_parm_adjustment *cand
-    = sra_ipa_get_adjustment_candidate (expr, &convert, adjustments, false);
-  if (!cand)
-    return false;
-
-  tree src;
-  if (cand->by_ref)
-    src = build_simple_mem_ref (cand->new_decl);
-  else
-    src = cand->new_decl;
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "About to replace expr ");
-      print_generic_expr (dump_file, *expr, 0);
-      fprintf (dump_file, " with ");
-      print_generic_expr (dump_file, src, 0);
-      fprintf (dump_file, "\n");
-    }
-
-  if (convert && !useless_type_conversion_p (TREE_TYPE (*expr), cand->type))
-    {
-      tree vce = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (*expr), src);
-      *expr = vce;
-    }
-  else
-    *expr = src;
-  return true;
-}
-
 /* If the statement pointed to by STMT_PTR contains any expressions that need
    to replaced with a different one as noted by ADJUSTMENTS, do so.  Handle any
    potential type incompatibilities (GSI is used to accommodate conversion
@@ -4609,8 +4507,8 @@ sra_ipa_modify_assign (gimple *stmt_ptr, gimple_stmt_iterator *gsi,
   rhs_p = gimple_assign_rhs1_ptr (stmt);
   lhs_p = gimple_assign_lhs_ptr (stmt);
 
-  any = sra_ipa_modify_expr (rhs_p, false, adjustments);
-  any |= sra_ipa_modify_expr (lhs_p, false, adjustments);
+  any = ipa_modify_expr (rhs_p, false, adjustments);
+  any |= ipa_modify_expr (lhs_p, false, adjustments);
   if (any)
     {
       tree new_rhs = NULL_TREE;
@@ -4682,7 +4580,7 @@ ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
 	    case GIMPLE_RETURN:
 	      t = gimple_return_retval_ptr (stmt);
 	      if (*t != NULL_TREE)
-		modified |= sra_ipa_modify_expr (t, true, adjustments);
+		modified |= ipa_modify_expr (t, true, adjustments);
 	      break;
 
 	    case GIMPLE_ASSIGN:
@@ -4695,13 +4593,13 @@ ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
 	      for (i = 0; i < gimple_call_num_args (stmt); i++)
 		{
 		  t = gimple_call_arg_ptr (stmt, i);
-		  modified |= sra_ipa_modify_expr (t, true, adjustments);
+		  modified |= ipa_modify_expr (t, true, adjustments);
 		}
 
 	      if (gimple_call_lhs (stmt))
 		{
 		  t = gimple_call_lhs_ptr (stmt);
-		  modified |= sra_ipa_modify_expr (t, false, adjustments);
+		  modified |= ipa_modify_expr (t, false, adjustments);
 		  modified |= replace_removed_params_ssa_names (stmt,
 								adjustments);
 		}
@@ -4711,12 +4609,12 @@ ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
 	      for (i = 0; i < gimple_asm_ninputs (stmt); i++)
 		{
 		  t = &TREE_VALUE (gimple_asm_input_op (stmt, i));
-		  modified |= sra_ipa_modify_expr (t, true, adjustments);
+		  modified |= ipa_modify_expr (t, true, adjustments);
 		}
 	      for (i = 0; i < gimple_asm_noutputs (stmt); i++)
 		{
 		  t = &TREE_VALUE (gimple_asm_output_op (stmt, i));
-		  modified |= sra_ipa_modify_expr (t, false, adjustments);
+		  modified |= ipa_modify_expr (t, false, adjustments);
 		}
 	      break;
 

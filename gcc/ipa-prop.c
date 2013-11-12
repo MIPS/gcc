@@ -3756,6 +3756,124 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
   free_dominance_info (CDI_DOMINATORS);
 }
 
+/* If the expression *EXPR should be replaced by a reduction of a parameter, do
+   so.  ADJUSTMENTS is a pointer to a vector of adjustments.  CONVERT
+   specifies whether the function should care about type incompatibility the
+   current and new expressions.  If it is false, the function will leave
+   incompatibility issues to the caller.  Return true iff the expression
+   was modified. */
+
+bool
+ipa_modify_expr (tree *expr, bool convert,
+		 ipa_parm_adjustment_vec adjustments)
+{
+  struct ipa_parm_adjustment *cand
+    = ipa_get_adjustment_candidate (expr, &convert, adjustments, false);
+  if (!cand)
+    return false;
+
+  tree src;
+  if (cand->by_ref)
+    src = build_simple_mem_ref (cand->new_decl);
+  else
+    src = cand->new_decl;
+
+  if (dump_file && (dump_flags & TDF_DETAILS))
+    {
+      fprintf (dump_file, "About to replace expr ");
+      print_generic_expr (dump_file, *expr, 0);
+      fprintf (dump_file, " with ");
+      print_generic_expr (dump_file, src, 0);
+      fprintf (dump_file, "\n");
+    }
+
+  if (convert && !useless_type_conversion_p (TREE_TYPE (*expr), cand->type))
+    {
+      tree vce = build1 (VIEW_CONVERT_EXPR, TREE_TYPE (*expr), src);
+      *expr = vce;
+    }
+  else
+    *expr = src;
+  return true;
+}
+
+/* If T is an SSA_NAME, return NULL if it is not a default def or
+   return its base variable if it is.  If IGNORE_DEFAULT_DEF is true,
+   the base variable is always returned, regardless if it is a default
+   def.  Return T if it is not an SSA_NAME.  */
+
+static tree
+get_ssa_base_param (tree t, bool ignore_default_def)
+{
+  if (TREE_CODE (t) == SSA_NAME)
+    {
+      if (ignore_default_def || SSA_NAME_IS_DEFAULT_DEF (t))
+	return SSA_NAME_VAR (t);
+      else
+	return NULL_TREE;
+    }
+  return t;
+}
+
+/* Given an expression, return an adjustment entry specifying the
+   transformation to be done on EXPR.  If no suitable adjustment entry
+   was found, returns NULL.
+
+   If IGNORE_DEFAULT_DEF is set, consider SSA_NAMEs which are not a
+   default def, otherwise bail on them.
+
+   If CONVERT is non-NULL, this function will set *CONVERT if the
+   expression provided is a component reference that must be converted
+   upon return.  ADJUSTMENTS is the adjustments vector.  */
+
+ipa_parm_adjustment *
+ipa_get_adjustment_candidate (tree *&expr, bool *convert,
+			      ipa_parm_adjustment_vec adjustments,
+			      bool ignore_default_def)
+{
+  if (TREE_CODE (*expr) == BIT_FIELD_REF
+      || TREE_CODE (*expr) == IMAGPART_EXPR
+      || TREE_CODE (*expr) == REALPART_EXPR)
+    {
+      expr = &TREE_OPERAND (*expr, 0);
+      if (convert)
+	*convert = true;
+    }
+
+  HOST_WIDE_INT offset, size, max_size;
+  tree base = get_ref_base_and_extent (*expr, &offset, &size, &max_size);
+  if (!base || size == -1 || max_size == -1)
+    return NULL;
+
+  if (TREE_CODE (base) == MEM_REF)
+    {
+      offset += mem_ref_offset (base).low * BITS_PER_UNIT;
+      base = TREE_OPERAND (base, 0);
+    }
+
+  base = get_ssa_base_param (base, ignore_default_def);
+  if (!base || TREE_CODE (base) != PARM_DECL)
+    return NULL;
+
+  struct ipa_parm_adjustment *cand = NULL;
+  unsigned int len = adjustments.length ();
+  for (unsigned i = 0; i < len; i++)
+    {
+      struct ipa_parm_adjustment *adj = &adjustments[i];
+
+      if (adj->base == base
+	  && (adj->offset == offset || adj->op == IPA_PARM_OP_REMOVE))
+	{
+	  cand = adj;
+	  break;
+	}
+    }
+
+  if (!cand || cand->op == IPA_PARM_OP_COPY || cand->op == IPA_PARM_OP_REMOVE)
+    return NULL;
+  return cand;
+}
+
 /* Return true iff BASE_INDEX is in ADJUSTMENTS more than once.  */
 
 static bool

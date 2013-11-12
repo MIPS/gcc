@@ -11739,7 +11739,7 @@ ipa_simd_modify_stmt_ops (tree *tp, int *walk_subtrees, void *data)
     }
   struct modify_stmt_info *info = (struct modify_stmt_info *) wi->info;
   struct ipa_parm_adjustment *cand
-    = sra_ipa_get_adjustment_candidate (tp, NULL, info->adjustments, true);
+    = ipa_get_adjustment_candidate (tp, NULL, info->adjustments, true);
   if (!cand)
     return NULL_TREE;
 

@@ -716,15 +716,14 @@ tree ipa_value_from_jfunc (struct ipa_node_params *info,
 			   struct ipa_jump_func *jfunc);
 unsigned int ipcp_transform_function (struct cgraph_node *node);
 void ipa_dump_param (FILE *, struct ipa_node_params *info, int i);
+bool ipa_modify_expr (tree *, bool, ipa_parm_adjustment_vec);
+ipa_parm_adjustment *ipa_get_adjustment_candidate (tree *&, bool *,
+						   ipa_parm_adjustment_vec,
+						   bool);
 
 
 /* From tree-sra.c:  */
 tree build_ref_for_offset (location_t, tree, HOST_WIDE_INT, tree,
 			   gimple_stmt_iterator *, bool);
-bool ipa_sra_modify_function_body (ipa_parm_adjustment_vec);
-bool sra_ipa_modify_expr (tree *, bool, ipa_parm_adjustment_vec);
-ipa_parm_adjustment *sra_ipa_get_adjustment_candidate (tree *&, bool *,
-						       ipa_parm_adjustment_vec,
-						       bool);
 
 #endif /* IPA_PROP_H */
