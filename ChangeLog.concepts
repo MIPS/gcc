@@ -1,3 +1,8 @@
+2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/semantics.c (fixup_template_type): Compare primary template
+	types to specializations using structural types so we don't run into
+	canonical type errors with constrained specializations.
+
 2013-11-08  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/pt.c (add_inherited_template_parms): Instantiate requirements
 	in a processing template decl context.
