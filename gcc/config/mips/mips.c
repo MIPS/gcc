@@ -5011,17 +5011,32 @@ mips_emit_compare (enum rtx_code *code, rtx *op0, rtx *op1, bool need_eq_ne_p)
     {
       enum rtx_code cmp_code;
 
-      /* Floating-point tests use a separate C.cond.fmt comparison to
-	 set a condition code register.  The branch or conditional move
-	 will then compare that register against zero.
+      /* Floating-point tests use a separate C.cond.fmt or CMP.cond.fmt
+         comparison to set a condition code register.  The branch or
+         conditional move will then compare that register against zero.
 
 	 Set CMP_CODE to the code of the comparison instruction and
 	 *CODE to the code that the branch or move should use.  */
       cmp_code = *code;
-      *code = mips_reversed_fp_cond (&cmp_code) ? EQ : NE;
-      *op0 = (ISA_HAS_8CC
-	      ? mips_allocate_fcc (CCmode)
-	      : gen_rtx_REG (CCmode, FPSW_REGNUM));
+      if (ISA_HAS_CCF)
+        {
+          /* All FP conditions can be implemented directly with CMP.cond.fmt
+             or by reversing the operands */
+          *code = NE;
+          *op0 = gen_reg_rtx (CCFmode);
+        }
+      else
+        {
+          /* Three FP conditions cannot be implemented by reversing the
+             operands for C.cond.fmt, instead a reversed condition code is
+             required and a test for false */
+          *code = mips_reversed_fp_cond (&cmp_code) ? EQ : NE;
+          if (ISA_HAS_8CC)
+            *op0 = mips_allocate_fcc (CCmode);
+          else
+            *op0 = gen_rtx_REG (CCmode, FPSW_REGNUM);
+        }
+
       *op1 = const0_rtx;
       mips_emit_binary (cmp_code, *op0, cmp_op0, cmp_op1);
     }
@@ -8231,11 +8246,17 @@ mips_print_float_branch_condition (FILE *file, enum rtx_code code, int letter)
   switch (code)
     {
     case EQ:
-      fputs ("c1f", file);
+      if (ISA_HAS_CCF)
+        fputs ("c1eqz", file);
+      else
+        fputs ("c1f", file);
       break;
 
     case NE:
-      fputs ("c1t", file);
+      if (ISA_HAS_CCF)
+        fputs ("c1nez", file);
+      else
+        fputs ("c1t", file);
       break;
 
     default:
@@ -8365,7 +8386,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
       break;
 
     case 'Z':
-      if (ISA_HAS_8CC)
+      if (ISA_HAS_8CC || ISA_HAS_CCF)
 	{
 	  mips_print_operand (file, op, 0);
 	  fputc (',', file);
@@ -11805,6 +11826,10 @@ mips_hard_regno_mode_ok_p (unsigned int regno, enum machine_mode mode)
 	    && ST_REG_P (regno)
 	    && (regno - ST_REG_FIRST) % 4 == 0);
 
+  if (mode == CCFmode)
+    return (ISA_HAS_CCF
+            && FP_REG_P (regno));
+
   if (mode == CCmode)
     return ISA_HAS_8CC ? ST_REG_P (regno) : regno == FPSW_REGNUM;
 
@@ -11977,6 +12002,9 @@ mips_mode_ok_for_mov_fmt_p (enum machine_mode mode)
 {
   switch (mode)
     {
+    case CCFmode:
+      return TARGET_HARD_FLOAT;
+
     case SFmode:
       return TARGET_HARD_FLOAT;
 

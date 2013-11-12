@@ -760,6 +760,10 @@
                               (CC "TARGET_HARD_FLOAT
 				   && !TARGET_LOONGSON_2EF
 				   && !TARGET_MIPS5900")])
+;; This mode iterator allows :FPCC to be used anywhere that an FP condition
+;; is needed
+(define_mode_iterator FPCC [(CC "!ISA_HAS_CCF")
+			    (CCF "ISA_HAS_CCF")])
 
 ;; 32-bit integer moves for which we provide move patterns.
 (define_mode_iterator IMOVE32
@@ -850,7 +854,7 @@
 
 ;; This attribute gives the best constraint to use for registers of
 ;; a given mode.
-(define_mode_attr reg [(SI "d") (DI "d") (CC "z")])
+(define_mode_attr reg [(SI "d") (DI "d") (CC "z") (CCF "f")])
 
 ;; This attribute gives the format suffix for floating-point operations.
 (define_mode_attr fmt [(SF "s") (DF "d") (V2SF "ps")])
@@ -890,6 +894,10 @@
 (define_mode_attr sqrt_condition
   [(SF "!ISA_MIPS1") (DF "!ISA_MIPS1") (V2SF "TARGET_SB1")])
 
+;; This attribute provides the correct nmemonic for each FP condition mode
+(define_mode_attr fpcmp
+  [(CC "c") (CCF "cmp")])
+
 ;; This code iterator allows signed and unsigned widening multiplications
 ;; to use the same template.
 (define_code_iterator any_extend [sign_extend zero_extend])
@@ -912,7 +920,10 @@
 
 ;; This code iterator allows all native floating-point comparisons to be
 ;; generated from the same template.
-(define_code_iterator fcond [unordered uneq unlt unle eq lt le])
+(define_code_iterator fcond [unordered uneq unlt unle eq lt le
+			     (ordered "ISA_HAS_CCF")
+			     (ltgt "ISA_HAS_CCF")
+			     (ne "ISA_HAS_CCF")])
 
 ;; This code iterator is used for comparisons that can be implemented
 ;; by swapping the operands.
@@ -985,7 +996,10 @@
 			 (unle "ule")
 			 (eq "eq")
 			 (lt "lt")
-			 (le "le")])
+			 (le "le")
+			 (ordered "or")
+			 (ltgt "ne")
+			 (ne "une")])
 
 ;; Similar, but for swapped conditions.
 (define_code_attr swapped_fcond [(ge "le")
@@ -4818,6 +4832,13 @@
     DONE;
 })
 
+(define_insn "movccf"
+  [(set (match_operand:CCF 0 "nonimmediate_operand" "=f,f,m")
+	(match_operand:CCF 1 "nonimmediate_operand" "f,m,f"))]
+  "ISA_HAS_CCF"
+  { return mips_output_move (operands[0], operands[1]); }
+  [(set_attr "move_type" "fmove,fpload,fpstore")])
+
 (define_insn "*movsf_hardfloat"
   [(set (match_operand:SF 0 "nonimmediate_operand" "=f,f,f,m,m,*f,*d,*d,*d,*m")
 	(match_operand:SF 1 "move_operand" "f,G,m,f,G,*d,*f,*G*d,*m,*d"))]
@@ -5613,11 +5634,11 @@
 
 ;; Conditional branches on floating-point equality tests.
 
-(define_insn "*branch_fp"
+(define_insn "*branch_fp_<mode>"
   [(set (pc)
         (if_then_else
          (match_operator 1 "equality_operator"
-                         [(match_operand:CC 2 "register_operand" "z")
+                         [(match_operand:FPCC 2 "register_operand" "<reg>")
 			  (const_int 0)])
          (label_ref (match_operand 0 "" ""))
          (pc)))]
@@ -5629,11 +5650,11 @@
 }
   [(set_attr "type" "branch")])
 
-(define_insn "*branch_fp_inverted"
+(define_insn "*branch_fp_inverted_<mode>"
   [(set (pc)
         (if_then_else
          (match_operator 1 "equality_operator"
-                         [(match_operand:CC 2 "register_operand" "z")
+                         [(match_operand:FPCC 2 "register_operand" "<reg>")
 			  (const_int 0)])
          (pc)
          (label_ref (match_operand 0 "" ""))))]
@@ -5977,21 +5998,21 @@
 ;;
 ;;  ....................
 
-(define_insn "s<code>_<mode>"
-  [(set (match_operand:CC 0 "register_operand" "=z")
-	(fcond:CC (match_operand:SCALARF 1 "register_operand" "f")
-		  (match_operand:SCALARF 2 "register_operand" "f")))]
+(define_insn "s<code>_<SCALARF:mode>_using_<FPCC:mode>"
+  [(set (match_operand:FPCC 0 "register_operand" "=<reg>")
+	(fcond:FPCC (match_operand:SCALARF 1 "register_operand" "f")
+		    (match_operand:SCALARF 2 "register_operand" "f")))]
   ""
-  "c.<fcond>.<fmt>\t%Z0%1,%2"
+  "<fpcmp>.<fcond>.<fmt>\t%Z0%1,%2"
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
-(define_insn "s<code>_<mode>"
-  [(set (match_operand:CC 0 "register_operand" "=z")
-	(swapped_fcond:CC (match_operand:SCALARF 1 "register_operand" "f")
-		          (match_operand:SCALARF 2 "register_operand" "f")))]
+(define_insn "s<code>_<SCALARF:mode>_using_<FPCC:mode>"
+  [(set (match_operand:FPCC 0 "register_operand" "=<reg>")
+	(swapped_fcond:FPCC (match_operand:SCALARF 1 "register_operand" "f")
+		            (match_operand:SCALARF 2 "register_operand" "f")))]
   ""
-  "c.<swapped_fcond>.<fmt>\t%Z0%2,%1"
+  "<fpcmp>.<swapped_fcond>.<fmt>\t%Z0%2,%1"
   [(set_attr "type" "fcmp")
    (set_attr "mode" "FPSW")])
 
