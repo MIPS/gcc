@@ -915,6 +915,11 @@ struct mips_cpu_info {
 				 || ISA_MIPS64				\
 				 || ISA_MIPS64R2)
 
+/* ISA has the FP condition code instructions that store the flag in an
+   FP register */
+#define ISA_HAS_CCF		(ISA_MIPS32R6				\
+				 || ISA_MIPS64R6)
+
 /* This is a catch all for other mips4 instructions: indexed load, the
    FP madd and msub instructions, and the FP recip and recip sqrt
    instructions.  Note that this macro should only be used by other
