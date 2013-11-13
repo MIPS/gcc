@@ -2188,10 +2188,10 @@ ifeq ($(strip $(filter-out %x32 linux%,$(target_cpu) $(target_os))),)
   s-intman.adb<s-intman-posix.adb \
   s-linux.ads<s-linux.ads \
   s-mudido.adb<s-mudido-affinity.adb \
-  s-osinte.ads<s-osinte-linux.ads \
-  s-osinte.adb<s-osinte-posix.adb \
-  s-osprim.adb<s-osprim-posix.adb \
-  s-taprop.adb<s-taprop-linux.adb \
+  s-osinte.ads<s-osinte-linux-x32.ads \
+  s-osinte.adb<s-osinte-linux-x32.adb \
+  s-osprim.adb<s-osprim-linux-x32.adb \
+  s-taprop.adb<s-taprop-linux-x32.adb \
   s-tasinf.ads<s-tasinf-linux.ads \
   s-tasinf.adb<s-tasinf-linux.adb \
   s-tpopsp.adb<s-tpopsp-tls.adb \

@@ -1,0 +1,12 @@
+2013-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR ada/54040
+	* s-osinte-linux-x32.adb: New file.
+	* s-osinte-linux-x32.ads: Likewise.
+	* s-osprim-linux-x32.adb: Likewise.
+	* s-taprop-linux-x32.adb: Likewise.
+	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS): Replace
+	s-osinte-linux.ads, s-osinte-posix.adb, s-osprim-posix.adb
+	and s-taprop-linux.adb with s-osinte-linux-x32.ads,
+	s-osinte-linux-x32.adb, s-osprim-linux-x32.adb and
+	s-taprop-linux-x32.adb for x32.
