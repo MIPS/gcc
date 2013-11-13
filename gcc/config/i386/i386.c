@@ -8032,8 +8032,9 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 		      gen_rtx_REG (word_mode,
 				   x86_64_int_parameter_registers[i]));
 
-      /* In MPX mode we need to store bounds for each stored register.  */
-      if (flag_check_pointer_bounds)
+      /* In instrumented code we need to store bounds for each
+	 stored register.  */
+      if (chkp_function_instrumented_p (current_function_decl))
 	{
 	  rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
 	  rtx ptr = gen_rtx_REG (DImode,
@@ -8237,10 +8238,10 @@ ix86_va_start (tree valist, rtx nextarg)
 	  convert_move (va_r, next, 0);
 
 	  /* Store zero bounds for va_list.  */
-	  if (flag_check_pointer_bounds)
+	  if (chkp_function_instrumented_p (current_function_decl))
 	    chkp_expand_bounds_reset_for_mem (valist,
-					     make_tree (TREE_TYPE (valist),
-							next));
+					      make_tree (TREE_TYPE (valist),
+							 next));
 
 	}
       return;
@@ -8301,7 +8302,7 @@ ix86_va_start (tree valist, rtx nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   /* Store zero bounds for overflow area pointer.  */
-  if (flag_check_pointer_bounds)
+  if (chkp_function_instrumented_p (current_function_decl))
     chkp_expand_bounds_reset_for_mem (ovf, t1);
 
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
@@ -8318,7 +8319,7 @@ ix86_va_start (tree valist, rtx nextarg)
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       /* Store zero bounds for save area pointer.  */
-      if (flag_check_pointer_bounds)
+      if (chkp_function_instrumented_p (current_function_decl))
 	chkp_expand_bounds_reset_for_mem (sav, t1);
     }
 }
