@@ -366,26 +366,6 @@ gimple_build_call_from_tree (tree t)
 }
 
 
-/* Return index of INDEX's non bound argument of the call.  */
-
-unsigned
-gimple_call_get_nobnd_arg_index (const_gimple gs, unsigned index)
-{
-  unsigned num_args = gimple_call_num_args (gs);
-  for (unsigned n = 0; n < num_args; n++)
-    {
-      if (POINTER_BOUNDS_P (gimple_call_arg (gs, n)))
-	continue;
-      else if (index)
-	index--;
-      else
-	return n;
-    }
-
-  gcc_unreachable ();
-}
-
-
 /* Extract the operands and code for expression EXPR into *SUBCODE_P,
    *OP1_P, *OP2_P and *OP3_P respectively.  */
 
