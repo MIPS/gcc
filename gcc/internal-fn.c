@@ -139,6 +139,15 @@ expand_GOMP_SIMD_LAST_LANE (gimple stmt ATTRIBUTE_UNUSED)
   gcc_unreachable ();
 }
 
+/* Expand CHKP_BIND_BOUNDS call STMT.  */
+
+static void
+expand_CHKP_BIND_BOUNDS (gimple stmt)
+{
+  /* Bounds binding just returns the first arg.  */
+  expand_assignment (gimple_call_lhs (stmt), gimple_call_arg (stmt, 0), false);
+}
+
 /* Routines to expand each internal function, indexed by function number.
    Each routine has the prototype:
 

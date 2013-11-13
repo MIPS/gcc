@@ -374,6 +374,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   int incoming_freq = 0;
   tree retval;
   bool back_edge = false;
+  bitmap_iterator bi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_split_point (dump_file, current);
@@ -484,27 +485,24 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 
   /* Currently bounds passing and return is not supported for
      splitted functions.  */
-  if (flag_check_pointer_bounds)
+  EXECUTE_IF_SET_IN_BITMAP (current->ssa_names_to_pass, 0, i, bi)
     {
-      unsigned i;
-      bitmap_iterator bi;
-      EXECUTE_IF_SET_IN_BITMAP (current->ssa_names_to_pass, 0, i, bi)
-	{
-	  if (POINTER_BOUNDS_P (ssa_name (i)))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		fprintf (dump_file,
-			 "  Refused: need to pass bounds\n");
-	      return;
-	    }
-	}
-      if (chkp_type_has_pointer (TREE_TYPE (current_function_decl)))
+      if (POINTER_BOUNDS_P (ssa_name (i)))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
-		     "  Refused: need to return bounds\n");
+		     "  Refused: need to pass bounds\n");
 	  return;
 	}
+    }
+
+  if (chkp_function_instrumented_p (current_function_decl)
+      && chkp_type_has_pointer (TREE_TYPE (current_function_decl)))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "  Refused: need to return bounds\n");
+      return;
     }
 
   if (current->split_size <= call_overhead)
@@ -1142,12 +1140,6 @@ split_function (struct split_point *split_point)
 	if (!useless_type_conversion_p (DECL_ARG_TYPE (parm), TREE_TYPE (arg)))
 	  arg = fold_convert (DECL_ARG_TYPE (parm), arg);
 	args_to_pass.safe_push (arg);
-
-	/* We know no bounds need to be passed but still
-	   pass zero bounds to avoid heterogeneity in calls.  */
-	if (flag_check_pointer_bounds)
-	  for (i = 0; i < chkp_type_bounds_count (TREE_TYPE (arg)); i++)
-	    args_to_pass.safe_push (chkp_get_zero_bounds_var ());
       }
 
   /* See if the split function will return.  */
