@@ -6393,7 +6393,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	if (size <= 32)
 	  {
 	    /* Pass bounds for pointers and unnamed integers.  */
-	    classes[0] = flag_check_pointer_bounds
+	    classes[0] = chkp_function_instrumented_p (current_function_decl)
 	      && ((type && BOUNDED_TYPE_P (type)) || stdarg)
 	      ? X86_64_BOUNDED_INTEGERSI_CLASS
 	      : X86_64_INTEGERSI_CLASS;
@@ -6402,7 +6402,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 	else if (size <= 64)
 	  {
 	    /* Pass bounds for pointers and unnamed integers.  */
-	    classes[0] = flag_check_pointer_bounds
+	    classes[0] = chkp_function_instrumented_p (current_function_decl)
 	      && ((type && BOUNDED_TYPE_P (type)) || stdarg)
 	      ? X86_64_BOUNDED_INTEGER_CLASS
 	      : X86_64_INTEGER_CLASS;
@@ -6833,7 +6833,9 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
-      if (flag_check_pointer_bounds && type && BOUNDED_TYPE_P (type))
+      if (chkp_function_instrumented_p (current_function_decl)
+	  && type
+	  && BOUNDED_TYPE_P (type))
 	{
 	  cum->bnd_nregs--;
 	  cum->bnd_regno++;
@@ -7034,7 +7036,9 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		regno = CX_REG;
 	    }
 
-	  if (flag_check_pointer_bounds && type && BOUNDED_TYPE_P (type))
+	  if (chkp_function_instrumented_p (current_function_decl)
+	      && type
+	      && BOUNDED_TYPE_P (type))
 	    {
 	      rtx bnd = gen_rtx_REG (BNDmode, cum->bnd_regno);
 	      rtx val = gen_rtx_REG (mode, regno);
@@ -7495,7 +7499,7 @@ ix86_function_value_regno_p (const unsigned int regno)
       return TARGET_64BIT && ix86_abi != MS_ABI;
 
     case FIRST_BND_REG:
-      return flag_check_pointer_bounds;
+      return chkp_function_instrumented_p (current_function_decl);
 
       /* Complex values are returned in %st(0)/%st(1) pair.  */
     case ST0_REG:
@@ -7574,7 +7578,7 @@ function_value_32 (enum machine_mode orig_mode, enum machine_mode mode,
 
   /* Add bound register if bounds are returned in addition to
      function value.  */
-  if (flag_check_pointer_bounds
+  if (chkp_function_instrumented_p (current_function_decl)
       && (!fntype || BOUNDED_P (fntype)) && regno == AX_REG)
     {
       rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
@@ -7675,7 +7679,8 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
 
   /* Add bound register if bounds are returned in addition to
      function value.  */
-  if (flag_check_pointer_bounds && BOUNDED_TYPE_P (valtype))
+  if (chkp_function_instrumented_p (current_function_decl)
+      && BOUNDED_TYPE_P (valtype))
     {
       rtx b0 = gen_rtx_REG (BNDmode, FIRST_BND_REG);
       res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec (2, res, b0));
@@ -8027,8 +8032,9 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 		      gen_rtx_REG (word_mode,
 				   x86_64_int_parameter_registers[i]));
 
-      /* In MPX mode we need to store bounds for each stored register.  */
-      if (flag_check_pointer_bounds)
+      /* In instrumented code we need to store bounds for each
+	 stored register.  */
+      if (chkp_function_instrumented_p (current_function_decl))
 	{
 	  rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
 	  rtx ptr = gen_rtx_REG (DImode,
@@ -8232,10 +8238,10 @@ ix86_va_start (tree valist, rtx nextarg)
 	  convert_move (va_r, next, 0);
 
 	  /* Store zero bounds for va_list.  */
-	  if (flag_check_pointer_bounds)
+	  if (chkp_function_instrumented_p (current_function_decl))
 	    chkp_expand_bounds_reset_for_mem (valist,
-					     make_tree (TREE_TYPE (valist),
-							next));
+					      make_tree (TREE_TYPE (valist),
+							 next));
 
 	}
       return;
@@ -8296,7 +8302,7 @@ ix86_va_start (tree valist, rtx nextarg)
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
   /* Store zero bounds for overflow area pointer.  */
-  if (flag_check_pointer_bounds)
+  if (chkp_function_instrumented_p (current_function_decl))
     chkp_expand_bounds_reset_for_mem (ovf, t1);
 
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
@@ -8313,7 +8319,7 @@ ix86_va_start (tree valist, rtx nextarg)
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
 
       /* Store zero bounds for save area pointer.  */
-      if (flag_check_pointer_bounds)
+      if (chkp_function_instrumented_p (current_function_decl))
 	chkp_expand_bounds_reset_for_mem (sav, t1);
     }
 }
@@ -15078,7 +15084,7 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	  return;
 
 	case '!':
-	  if (ix86_bnd_prefixed_insn_p (NULL_RTX))
+	  if (ix86_bnd_prefixed_insn_p (current_output_insn))
 	    fputs ("bnd ", file);
 	  return;
 
@@ -24444,10 +24450,10 @@ ix86_expand_call (rtx retval, rtx fnaddr, rtx callarg1,
 
   if (retval)
     {
-      /* For MPX we may have GPR + BR in parallel but but
+      /* For instrumented code we may have GPR + BR in parallel but
 	 it will confuse DF and we need to put each reg
 	 under EXPR_LIST.  */
-      if (flag_check_pointer_bounds)
+      if (chkp_function_instrumented_p (current_function_decl))
 	chkp_put_regs_to_expr_list (retval);
 
       call = gen_rtx_SET (VOIDmode, retval, call);
@@ -34071,6 +34077,7 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
       ptr = temp;
     }
 
+  gcc_assert (POINTER_BOUNDS_MODE_P (GET_MODE (bounds)));
   bounds = force_reg (GET_MODE (bounds), bounds);
 
   emit_insn (TARGET_64BIT
@@ -42810,10 +42817,18 @@ ix86_expand_sse2_mulvxdi3 (rtx op0, rtx op1, rtx op2)
    bnd by default for current function.  */
 
 bool
-ix86_bnd_prefixed_insn_p (rtx insn ATTRIBUTE_UNUSED)
+ix86_bnd_prefixed_insn_p (rtx insn)
 {
-  return flag_check_pointer_bounds
-    && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (cfun->decl));
+  /* For call insns check special flag.  */
+  if (insn && CALL_P (insn))
+    {
+      rtx call = get_call_rtx_from (insn);
+      if (call)
+	return CALL_EXPR_INSTRUMENTED_P (call);
+    }
+
+  /* All other insns are prefixed only if function is instrumented.  */
+  return chkp_function_instrumented_p (current_function_decl);
 }
 
 /* Expand an insert into a vector register through pinsr insn.
