@@ -397,6 +397,10 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
       && MEM_EXPR (funmem) != NULL_TREE)
     set_mem_expr (XEXP (call, 0), MEM_EXPR (funmem));
 
+  /* Mark instrumented calls.  */
+  if (call && fntree)
+    CALL_EXPR_INSTRUMENTED_P (call) = CALL_INSTRUMENTED_P (fntree);
+
   /* Put the register usage information there.  */
   add_function_usage_to (call_insn, call_fusage);
 
@@ -881,33 +885,27 @@ precompute_register_parameters (int num_actuals, struct arg_data *args,
 	  {
 	    /* If bounds_value is a list then we pass bounds
 	       for a structure.  TREE_VALUE of each node holds
-	       bounds value and TREE_PURPOSE holds corresponding
-	       offset of the pointer field in structure.  */
+	       base structure address and TREE_PURPOSE holds
+	       corresponding offset of the pointer field in
+	       structure.  */
 	    if (TREE_CODE (args[i].bounds_value) == TREE_LIST)
 	      {
 		tree node = args[i].bounds_value;
 		unsigned bnd_num = list_length (args[i].bounds_value);
 		rtx *bounds = XALLOCAVEC (rtx, bnd_num);
 		unsigned bnd_no = 0;
+		tree base_addr = TREE_VALUE (node);
+		rtx base = expand_normal (base_addr);
 
 		/* Expand all nodes in the list.  */
 		while (node)
 		  {
-		    tree bnd_val = TREE_VALUE (node);
 		    tree bnd_offs = TREE_PURPOSE (node);
 		    HOST_WIDE_INT offs = TREE_INT_CST_LOW (bnd_offs);
-		    rtx bnd_expr;
-
-		    /* We have to make a temporary for bounds if there
-		       is a bndmk.  */
-		    if (TREE_CODE (args[i].bounds_value) == CALL_EXPR)
-		      {
-			bnd_expr = gen_reg_rtx (targetm.chkp_bound_mode ());
-			expand_expr_real (bnd_val, bnd_expr,
-					  VOIDmode, EXPAND_NORMAL, 0);
-		      }
-		    else
-		      bnd_expr = expand_normal (bnd_val);
+		    rtx field_addr = plus_constant (Pmode, base, offs);
+		    rtx ptr = gen_rtx_MEM (Pmode, field_addr);
+		    rtx bnd_expr
+		      = targetm.calls.load_bounds_for_arg (ptr, ptr, NULL);
 
 		    bounds[bnd_no] = gen_rtx_EXPR_LIST (VOIDmode,
 							bnd_expr,
@@ -1193,7 +1191,6 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
     int j = i;
     call_expr_arg_iterator iter;
     tree arg;
-    vec<bool> struct_bounds = vNULL;
 
     if (struct_value_addr_value)
       {
@@ -1201,7 +1198,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* If we pass structure address then we need to
 	   create bounds for it.  */
-	if (flag_check_pointer_bounds)
+	if (CALL_INSTRUMENTED_P (exp))
 	  args[j].bounds_value
 	    = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
 
@@ -1211,34 +1208,33 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
       {
 	tree argtype = TREE_TYPE (arg);
 
-	/* If we see bounds as argument then we need to
-	   assign it to the previous arg.  */
-	if (POINTER_BOUNDS_TYPE_P (argtype))
+	/* For instrumented calls get all bounds passed for arg.  */
+	if (CALL_INSTRUMENTED_P (exp))
 	  {
-	    tree bounds_val = arg;
-
-	    if (struct_bounds.exists ())
+	    /* For bounded types bounds are passed via
+	       bounds binding calls.  */
+	    if (BOUNDED_TYPE_P (argtype))
+	      args[j].bounds_value = chkp_get_call_arg_bounds (arg);
+	    /* For structures we create a list holding structure address
+	       and offset of pointer in that structure.  */
+	    else if (chkp_type_has_pointer (argtype))
 	      {
-		HOST_WIDE_INT offs;
-
-		for (offs = 0; offs < struct_bounds.length (); offs++)
-		  if (struct_bounds[offs])
+		tree base_addr = build_fold_addr_expr (arg);
+		vec<bool> struct_bounds = chkp_find_bound_slots (argtype);
+		tree bounds_val = NULL;
+		HOST_WIDE_INT bnd_no, offs;
+		for (bnd_no = 0; bnd_no < struct_bounds.length (); bnd_no++)
+		  if (struct_bounds[bnd_no])
 		    {
-		      struct_bounds[offs] = false;
-		      break;
+		      offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
+		      bounds_val = tree_cons (build_int_cst (NULL, offs),
+					      base_addr,
+					      bounds_val);
 		    }
-		offs *= POINTER_SIZE / BITS_PER_UNIT;
-
-		bounds_val = tree_cons (build_int_cst (NULL, offs),
-					arg,
-					args[j - inc].bounds_value);
+		struct_bounds.release ();
+		args[j].bounds_value = bounds_val;
 	      }
-
-	    args[j - inc].bounds_value = bounds_val;
-	    continue;
 	  }
-	else
-	  args[j].bounds_value = NULL_TREE;
 
 	if (targetm.calls.split_complex_arg
 	    && argtype
@@ -1252,22 +1248,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	  }
 	else
 	  args[j].tree_value = arg;
-
-	/* If Pointer Bounds Checker is on and we pass structure with
-	   pointers then we determine here how many bounds should
-	   follow.  */
-	if (flag_check_pointer_bounds
-	    && !BOUNDED_P (arg)
-	    && chkp_type_has_pointer (argtype))
-	  struct_bounds = chkp_find_bound_slots (argtype);
-	else if (struct_bounds.exists ())
-	  struct_bounds.release ();
-
 	j += inc;
       }
-
-    if (struct_bounds.exists ())
-      struct_bounds.release ();
   }
 
   /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
@@ -2423,8 +2405,6 @@ expand_call (tree exp, rtx target, int ignore)
   int n_named_args;
   /* Number of complex actual arguments that need to be split.  */
   int num_complex_actuals = 0;
-  /* Number of bound actual arguments.  */
-  int num_bound_actuals = 0;
 
   /* Vector of information about each argument.
      Arguments are numbered in the order they will be pushed,
@@ -2654,23 +2634,9 @@ expand_call (tree exp, rtx target, int ignore)
       structure_value_addr_parm = 1;
     }
 
-  /* Compute number of bound arguments.  */
-  if (flag_check_pointer_bounds)
-    {
-      call_expr_arg_iterator iter;
-      tree arg;
-      FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
-	{
-	  tree type = TREE_TYPE (arg);
-	  if (type && POINTER_BOUNDS_TYPE_P (type))
-	    num_bound_actuals++;
-	}
-    }
-
   /* Count the arguments and set NUM_ACTUALS.  */
   num_actuals =
-    call_expr_nargs (exp) + num_complex_actuals + structure_value_addr_parm
-    - num_bound_actuals;
+    call_expr_nargs (exp) + num_complex_actuals + structure_value_addr_parm;
 
   /* Compute number of named args.
      First, do a raw count of the args for INIT_CUMULATIVE_ARGS.  */
@@ -4926,35 +4892,32 @@ store_one_arg (struct arg_data *arg, rtx argblock, int flags,
       tree bounds = arg->bounds_value;
 
       if (TREE_CODE (bounds) == TREE_LIST)
-	while (bounds)
-	  {
-	    tree bnd_val = TREE_VALUE (bounds);
-	    HOST_WIDE_INT bnd_offs
-	      = TREE_INT_CST_LOW (TREE_PURPOSE (bounds));
-	    rtx slot = arg->stack_slot
-	      ? arg->stack_slot
-	      : gen_rtx_MEM (Pmode, stack_pointer_rtx);
-	    rtx bnd, ptr, ptr_slot;
+	{
+	  tree base_addr = TREE_VALUE (bounds);
+	  rtx base = expand_normal (base_addr);
 
-	    /* We have to make a temporary for bounds if
-	       there is a bndmk.  */
-	    if (TREE_CODE (bnd_val) == CALL_EXPR)
-	      {
-		bnd = gen_reg_rtx (targetm.chkp_bound_mode ());
-		expand_expr_real (bnd_val, bnd, VOIDmode, EXPAND_NORMAL, 0);
-	      }
-	    else
-	      bnd = expand_normal (bnd_val);
+	  while (bounds)
+	    {
+	      HOST_WIDE_INT bnd_offs
+		= TREE_INT_CST_LOW (TREE_PURPOSE (bounds));
+	      rtx slot = arg->stack_slot
+		? arg->stack_slot
+		: gen_rtx_MEM (Pmode, stack_pointer_rtx);
+	      rtx field_addr = plus_constant (Pmode, base, bnd_offs);
+	      rtx ptr = gen_rtx_MEM (Pmode, field_addr);
+	      rtx bnd = targetm.calls.load_bounds_for_arg (ptr, ptr, NULL);
+	      rtx ptr_slot;
 
-	    ptr = arg->pushed_value ? arg->pushed_value : arg->value;
-	    ptr = adjust_address (ptr, Pmode, bnd_offs);
+	      ptr = arg->pushed_value ? arg->pushed_value : arg->value;
+	      ptr = adjust_address (ptr, Pmode, bnd_offs);
 
-	    ptr_slot = adjust_address (slot, Pmode, bnd_offs);
+	      ptr_slot = adjust_address (slot, Pmode, bnd_offs);
 
-	    targetm.calls.store_bounds_for_arg (ptr, ptr_slot, bnd, NULL_RTX);
+	      targetm.calls.store_bounds_for_arg (ptr, ptr_slot, bnd, NULL_RTX);
 
-	    bounds = TREE_CHAIN (bounds);
-	  }
+	      bounds = TREE_CHAIN (bounds);
+	    }
+	}
       else
 	{
 	  rtx ptr = arg->pushed_value ? arg->pushed_value : arg->value;
