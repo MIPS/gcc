@@ -1,6 +1,11 @@
 13-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Refactoring.
 
+	* gcc/oacc-low.c(parallelize_loop): Refactoring.
+
+13-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Refactoring.
+
 	* gcc/oacc-low.c(extract_kernels): Refactoring.
 
 12-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>

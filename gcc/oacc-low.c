@@ -2300,16 +2300,205 @@ gather_control_var_defs(tree var, vec<gimple_stmt_iterator>* piter)
 }
 
 static void
-parallelize_loop(struct loop* l, unsigned collapse)
+gather_latch_phi_args(vec<struct phi_arg_d*>* phi_args, basic_block bb,
+                      basic_block src)
 {
+  gimple_stmt_iterator phi_iter;
+  for(phi_iter = gsi_start_phis(bb); !gsi_end_p(phi_iter);
+          gsi_next(&phi_iter))
+      {
+          gimple phi_stmt = gsi_stmt(phi_iter);
+          unsigned i;
+
+          for(i = 0; i < gimple_phi_num_args(phi_stmt); ++i)
+              {
+                  edge e = gimple_phi_arg_edge(phi_stmt, i);
+                  if(e->src->index == src->index)
+                      {
+                          phi_args->safe_push(gimple_phi_arg(phi_stmt, i));
+                          break;
+                      }
+              }
+      }
+}
+
+static void
+fix_phi_args(vec<struct phi_arg_d*>* phi_args, basic_block bb,
+             basic_block src)
+{
+  gimple_stmt_iterator phi_iter;
+  for(phi_iter = gsi_start_phis(bb); !gsi_end_p(phi_iter);
+          gsi_next(&phi_iter))
+      {
+          gimple phi_stmt = gsi_stmt(phi_iter);
+          unsigned i, j;
+
+          for(i = 0; i < gimple_phi_num_args(phi_stmt); ++i)
+            {
+              edge e = gimple_phi_arg_edge(phi_stmt, i);
+              if(e->src->index == src->index
+                      && gimple_phi_arg_def(phi_stmt, i) == NULL_TREE)
+                {
+                  tree def_var = gimple_phi_result(phi_stmt);
+                  for(j = 0; j < phi_args->length(); ++j)
+                    {
+                      struct phi_arg_d* pd = (*phi_args)[j];
+                      tree arg_var = get_use_from_ptr (&pd->imm_use);
+                      if(SSA_NAME_VAR(def_var) != NULL_TREE
+                           && SSA_NAME_VAR(def_var) == SSA_NAME_VAR(arg_var))
+                        {
+                            gimple_phi_set_arg(phi_stmt, i, pd);
+                        }
+                    }
+                }
+            }
+      }
+}
+
+static void
+fix_dominators(basic_block bb)
+{
+  vec<basic_block> blocks;
+
+  blocks.create(1);
+  blocks.safe_push(bb);
+  iterate_fix_dominators(CDI_DOMINATORS, blocks, true);
+}
+
+static tree
+find_last_dom_def(vec<gimple_stmt_iterator>* defs, basic_block dom_bb)
+{
+  unsigned i, def_idx = defs->length();
+  tree def_var = NULL_TREE;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+
+  for(i = 0; i < defs->length(); ++i)
+    {
+      if((*defs)[i].bb == dom_bb)
+        {
+          def_idx = i;
+          break;
+        }
+    }
+  gcc_assert(def_idx < defs->length());
+
+  if(dump_file)
+    {
+      fprintf(dump_file, "last ctrl var def in block %d\n",
+              dom_bb->index);
+    }
+  gsi = (*defs)[def_idx];
+  stmt = gsi_stmt(gsi);
+  def_var = get_gimple_def_var(stmt);
+  return def_var;
+}
+
+static void
+generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt)
+{
+  location_t location = gimple_location(stmt);
+  tree lhs = get_gimple_def_var(stmt);
+  tree builtin_decl = builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID);
+  tree builtin_return_type = TREE_TYPE (TREE_TYPE (builtin_decl));
+
+  //FIXME: add more conversion magic???
+  gcc_assert(TREE_CODE(builtin_return_type) == TREE_CODE(TREE_TYPE(lhs)));
+
+  int builtin_unsigned = TYPE_UNSIGNED(builtin_return_type);
+  int lhs_unsigned = TYPE_UNSIGNED(TREE_TYPE(lhs));
+
+  /* _acc_tmp = __builtin_get_global_id (0); */
+  gimple call_stmt = build_call(location,
+              builtin_decl, 1,
+              build_int_cst(builtin_return_type, 0));
+  tree tmp_var = create_tmp_reg(builtin_return_type, "_acc_tmp");
+  tmp_var = make_ssa_name_fn(cfun, tmp_var, call_stmt);
+  set_gimple_def_var(call_stmt, tmp_var);
+  gen_add(gsi, call_stmt);
+
+  if (builtin_unsigned != lhs_unsigned)
+    {
+      /* _ = (int) _oacc_tmp; */
+      gimple convert_stmt = build_type_cast (TREE_TYPE(lhs), tmp_var);
+      tree convert_var = create_tmp_reg(TREE_TYPE(lhs), "_acc_tmp");
+      convert_var = make_ssa_name_fn(cfun, convert_var, convert_stmt);
+      set_gimple_def_var(convert_stmt, convert_var);
+      gen_add (gsi, convert_stmt);
+
+      /* i = _ + i; */
+      gimple add_stmt = build_assign(PLUS_EXPR, convert_var, lhs);
+      tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs),  add_stmt);
+      set_gimple_def_var(add_stmt, new_var);
+      gen_add(gsi, add_stmt);
+    }
+  else
+    {
+      /* i = _oacc_tmp + i; */
+      gimple add_stmt = build_assign(PLUS_EXPR, tmp_var, lhs);
+      tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
+      set_gimple_def_var(add_stmt, new_var);
+      gen_add(gsi, add_stmt);
+    }
+}
+
+static void
+fix_ctrl_var_defs(vec<gimple_stmt_iterator>* defs,
+                  vec<basic_block>* loop_blocks,
+                  tree def_var, basic_block header_bb)
+{
+  unsigned i, j;
+
+  for(i = 0; i < defs->length(); ++i)
+    {
+      gimple_stmt_iterator gsi = (*defs)[i];
+      for(j = 0; j < loop_blocks->length(); ++j)
+        {
+          if(gsi.bb == (*loop_blocks)[j])
+            {
+              break;
+            }
+        }
+      if(j < loop_blocks->length())
+        {
+          gimple stmt = gsi_stmt(gsi);
+          tree lhs = get_gimple_def_var(stmt);
+          replace_uses_by(lhs, def_var);
+          gsi_remove(&gsi, true);
+        }
+      else if(dominated_by_p(CDI_DOMINATORS, header_bb, gsi.bb))
+        {
+          if(dump_file)
+            {
+              fprintf(dump_file,
+                    "use in block %d dominates header %d\n",
+                    gsi.bb->index, header_bb->index);
+            }
+          gimple stmt = gsi_stmt(gsi);
+          if(gimple_code(stmt) != GIMPLE_PHI)
+            generate_ctrl_var_init(&gsi, stmt);
+        }
+    }
+}
+
+static void
+collapse_loop(struct loop* l)
+{
+    unsigned i;
+    basic_block* bb = get_loop_body(l);
+    vec<basic_block> loop_blocks;
+    edge latch, exit;
+    basic_block hdr_blk, imm_bb;
+    tree ctrl_var, def_var;
+    vec<gimple_stmt_iterator> ctrl_var_defs;
+    vec<struct phi_arg_d*> phi_args;
+    basic_block exit_bb;
+
     if(dump_file)
         {
             fprintf(dump_file, "parallelize loop %d\n", l->num);
         }
-    unsigned i;
 
-    basic_block* bb = get_loop_body(l);
-    vec<basic_block> loop_blocks;
 
     loop_blocks.create(l->num_nodes);
     for(i = 0; i < l->num_nodes; ++i)
@@ -2332,251 +2521,96 @@ parallelize_loop(struct loop* l, unsigned collapse)
             dump_fn_body(dump_file, "BEFORE");
         }
 
-    edge latch, exit;
-    basic_block hdr_blk;
 
     latch = loop_latch_edge(l);
     exit = single_dom_exit(l);
     hdr_blk = exit->src;
 
-    tree ctrl_var = find_ctrl_var(hdr_blk, l);
+    ctrl_var = find_ctrl_var(hdr_blk, l);
 
     if(dump_file)
-        {
-            fprintf(dump_file, "loop control var ");
-            print_generic_expr(dump_file, ctrl_var, 0);
-            fprintf(dump_file, "\n");
-        }
+      {
+          fprintf(dump_file, "loop control var ");
+          print_generic_expr(dump_file, ctrl_var, 0);
+          fprintf(dump_file, "\n");
+      }
 
-    vec<gimple_stmt_iterator> ctrl_var_defs;
     gather_control_var_defs(ctrl_var, &ctrl_var_defs);
     if(dump_file)
-        {
-            unsigned i;
-            for(i = 0; i < ctrl_var_defs.length(); ++i)
-                {
-                    print_gimple_stmt(dump_file, gsi_stmt(ctrl_var_defs[i]),
-                                        0, 0);
-                }
-        }
+      {
+        unsigned i;
+        for(i = 0; i < ctrl_var_defs.length(); ++i)
+          {
+            print_gimple_stmt(dump_file, gsi_stmt(ctrl_var_defs[i]),
+                                0, 0);
+          }
+      }
 
 
     if(dump_file)
-        {
-            fprintf(dump_file, "latch edge %d -> %d\n",
-                    latch->src->index, latch->dest->index);
-            fprintf(dump_file, "exit edge %d -> %d\n",
-                    exit->src->index, exit->dest->index);
-            fprintf(dump_file, "redirecting %d -> %d\n",
-                    latch->src->index, exit->dest->index);
-        }
+      {
+          fprintf(dump_file, "latch edge %d -> %d\n",
+                  latch->src->index, latch->dest->index);
+          fprintf(dump_file, "exit edge %d -> %d\n",
+                  exit->src->index, exit->dest->index);
+          fprintf(dump_file, "redirecting %d -> %d\n",
+                  latch->src->index, exit->dest->index);
+      }
 
-    vec<struct phi_arg_d*> phi_args;
-    gimple_stmt_iterator phi_iter;
 
     phi_args.create(4);
-    for(phi_iter = gsi_start_phis(latch->dest); !gsi_end_p(phi_iter);
-            gsi_next(&phi_iter))
-        {
-            gimple phi_stmt = gsi_stmt(phi_iter);
-            unsigned i;
-
-            for(i = 0; i < gimple_phi_num_args(phi_stmt); ++i)
-                {
-                    edge e = gimple_phi_arg_edge(phi_stmt, i);
-                    if(e->src->index == latch->src->index)
-                        {
-                            phi_args.safe_push(gimple_phi_arg(phi_stmt, i));
-                            break;
-                        }
-                }
-        }
-
+    gather_latch_phi_args(&phi_args, latch->dest, latch->src);
 
     if(!redirect_edge_and_branch(latch, exit->dest))
-        {
-            redirect_edge_and_branch_force(latch, exit->dest);
-        }
+      {
+          redirect_edge_and_branch_force(latch, exit->dest);
+      }
 
+    fix_phi_args(&phi_args, exit->dest, latch->src);
 
-    for(phi_iter = gsi_start_phis(exit->dest); !gsi_end_p(phi_iter);
-            gsi_next(&phi_iter))
-        {
-            gimple phi_stmt = gsi_stmt(phi_iter);
-            unsigned i, j;
-
-            for(i = 0; i < gimple_phi_num_args(phi_stmt); ++i)
-              {
-                edge e = gimple_phi_arg_edge(phi_stmt, i);
-                if(e->src->index == latch->src->index
-                        && gimple_phi_arg_def(phi_stmt, i) == NULL_TREE)
-                  {
-                    tree def_var = gimple_phi_result(phi_stmt);
-                    for(j = 0; j < phi_args.length(); ++j)
-                      {
-                        struct phi_arg_d* pd = phi_args[j];
-                        tree arg_var = get_use_from_ptr (&pd->imm_use);
-                        if(SSA_NAME_VAR(def_var) != NULL_TREE
-                             && SSA_NAME_VAR(def_var) == SSA_NAME_VAR(arg_var))
-                          {
-                              gimple_phi_set_arg(phi_stmt, i, pd);
-                          }
-                      }
-                  }
-              }
-        }
 
 
 
     if(dump_file)
-        {
-            dump_fn_body(dump_file, "AFTER REDIRECT");
-        }
+      {
+          dump_fn_body(dump_file, "AFTER REDIRECT");
+      }
 
 
     gcc_assert(can_remove_branch_p(exit));
-    basic_block exit_bb = exit->dest;
+    exit_bb = exit->dest;
     remove_branch(exit);
-    vec<basic_block> v;
-    v.create(1);
-    v.quick_push(exit_bb);
-    iterate_fix_dominators(CDI_DOMINATORS, v, true);
+    fix_dominators(exit_bb);
 
     if(dump_file)
-        {
-            dump_fn_body(dump_file, "AFTER REMOVE EXIT");
-        }
+      {
+          dump_fn_body(dump_file, "AFTER REMOVE EXIT");
+      }
 
 
-    basic_block last_def = get_immediate_dominator(CDI_DOMINATORS, hdr_blk);
-    int def_idx = -1;
-    tree def_var = NULL_TREE;
-    if(last_def != NULL)
-        {
-            for(i = 0; i < ctrl_var_defs.length(); ++i)
-                {
-                    if(ctrl_var_defs[i].bb == last_def)
-                        {
-                            break;
-                        }
-                }
-            if(i < ctrl_var_defs.length())
-                {
-                    def_idx = i;
-                }
-        }
+    imm_bb = get_immediate_dominator(CDI_DOMINATORS, hdr_blk);
+    gcc_assert(imm_bb);
+    def_var = find_last_dom_def(&ctrl_var_defs, imm_bb);
+    gcc_assert(def_var);
 
-    if(def_idx >= 0)
-        {
-            if(dump_file)
-                {
-                    fprintf(dump_file, "last ctrl var def in block %d\n",
-                            last_def->index);
-                }
-            gimple_stmt_iterator gsi = ctrl_var_defs[def_idx];
-            gimple stmt = gsi_stmt(gsi);
-            def_var = get_gimple_def_var(stmt);
-        }
+    fix_ctrl_var_defs(&ctrl_var_defs, &loop_blocks, def_var, hdr_blk);
 
-    for(i = 0; i < ctrl_var_defs.length(); ++i)
-        {
-            unsigned j;
-            gimple_stmt_iterator gsi = ctrl_var_defs[i];
-            for(j = 0; j < loop_blocks.length(); ++j)
-                {
-                    if(gsi.bb == loop_blocks[j])
-                        {
-                            break;
-                        }
-                }
-            if(j < loop_blocks.length())
-                {
-                    gimple stmt = gsi_stmt(gsi);
-                    tree lhs = get_gimple_def_var(stmt);
-                    if(def_var != NULL_TREE)
-                        {
-                            replace_uses_by(lhs, def_var);
-                            gsi_remove(&gsi, true);
-                        }
-                }
-            else if(dominated_by_p(CDI_DOMINATORS, hdr_blk, gsi.bb))
-                {
-                    if(dump_file)
-                        {
-                            fprintf(dump_file,
-                                    "use in block %d dominates header %d\n",
-                                    gsi.bb->index, hdr_blk->index);
-                        }
-                    gimple stmt = gsi_stmt(gsi);
-                    if(gimple_code(stmt) != GIMPLE_PHI)
-                        {
-                            location_t location = gimple_location(stmt);
-                            tree lhs = get_gimple_def_var(stmt);
-                            tree builtin_decl
-                           = builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID);
-                            tree builtin_return_type
-                                = TREE_TYPE (TREE_TYPE (builtin_decl));
-                            //FIXME: add more conversion magic???
-                            gcc_assert(TREE_CODE(builtin_return_type)
-                                       == TREE_CODE(TREE_TYPE(lhs)));
-
-                            int builtin_unsigned 
-                              = TYPE_UNSIGNED(builtin_return_type);
-                            int lhs_unsigned = TYPE_UNSIGNED(TREE_TYPE(lhs));
-
-                            /* _oacc_tmp = __builtin_get_global_id (0); */
-                            gimple call_stmt = build_call(location,
-                                        builtin_decl, 1,
-                                        build_int_cst(builtin_return_type, 0));
-                            tree tmp_var = create_tmp_reg(builtin_return_type,
-                              "_acc_tmp");
-                            tmp_var = make_ssa_name_fn(cfun, tmp_var, call_stmt);
-                            set_gimple_def_var(call_stmt, tmp_var);
-                            gen_add(&gsi, call_stmt);
-
-
-                            if (builtin_unsigned != lhs_unsigned)
-                              {
-                                /* _ = (int) _oacc_tmp; */
-                                gimple convert_stmt 
-                                  = build_type_cast (TREE_TYPE(lhs), tmp_var);
-                                tree convert_var 
-                                  = create_tmp_reg(TREE_TYPE(lhs), "_acc_tmp");
-                                convert_var 
-                                  = make_ssa_name_fn(cfun, convert_var,
-                                                  convert_stmt);
-                                set_gimple_def_var(convert_stmt, convert_var);
-                                gen_add (&gsi, convert_stmt);
-
-                                /* i = _ + i; */
-                                gimple add_stmt 
-                                  = build_assign(PLUS_EXPR, convert_var, lhs);
-                                tree new_var 
-                                  = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs),
-                                      add_stmt);
-                                set_gimple_def_var(add_stmt, new_var);
-                                gen_add(&gsi, add_stmt);
-                              }
-                          else
-                              {
-                                /* i = _oacc_tmp + i; */
-                                gimple add_stmt 
-                                  = build_assign(PLUS_EXPR, tmp_var, lhs);
-                                tree new_var 
-                                  = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs),
-                                                      add_stmt);
-                                set_gimple_def_var(add_stmt, new_var);
-                                gen_add(&gsi, add_stmt);
-                              }
-                        }
-                }
-        }
 
     if(dump_file)
-        {
-            dump_fn_body(dump_file, "AFTER CTRL VAR");
-        }
+      {
+          dump_fn_body(dump_file, "AFTER CTRL VAR");
+      }
 
+}
+
+static void
+parallelize_loop(struct loop* l, unsigned collapse)
+{
+  for( ; l != NULL && collapse > 0; --collapse)
+  {
+    collapse_loop(l);
+    l = l->inner;
+  }
 }
 
 static void
