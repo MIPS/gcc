@@ -1,5 +1,0 @@
-2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
-
-	* tree-ssa-dce.c: Include tree-chkp.h.
-	(propagate_necessity): Propagate necessity for args of instrumented
-	free call to avoid wrong removal of ret_bnd call for passed bounds.
