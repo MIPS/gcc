@@ -9795,6 +9795,20 @@ tsubst_pack_conjunction (tree t, tree args, tsubst_flags_t complain,
                          tree in_decl)
 {
   tree terms = tsubst_pack_expansion (t, args, complain, in_decl);
+  
+  // If the resulting expression is type- or value-dependent, then
+  // return it after setting the result type to bool (so it can be
+  // expanded as a conjunction).
+  //
+  // This happens when instantiating constrained variadic
+  // member function templates.
+  if (instantiation_dependent_expression_p (terms))
+    {
+      TREE_TYPE (terms) = boolean_type_node;
+      return terms;
+    }
+
+  // Conjoin requirements. An empty conjunction is equivalent to ture.
   if (tree reqs = conjoin_requirements (terms))
     return reqs;
   else
