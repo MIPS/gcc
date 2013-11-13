@@ -1311,7 +1311,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   cond_bb = gimple_bb (icall_stmt);
   gsi = gsi_for_stmt (icall_stmt);
 
-  if (flag_check_pointer_bounds && gimple_call_lhs (icall_stmt))
+  if (gimple_call_instrumented_p (icall_stmt) && gimple_call_lhs (icall_stmt))
     iretbnd_stmt = chkp_retbnd_call_by_val (gimple_call_lhs (icall_stmt));
 
   tmp0 = make_temp_ssa_name (optype, NULL, "PROF");
