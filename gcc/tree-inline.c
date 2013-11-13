@@ -1250,20 +1250,16 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   if (gimple_code (stmt) == GIMPLE_RETURN && id->transform_return_to_modify)
     {
       tree retval = gimple_return_retval (stmt);
+      tree retbnd = gimple_return_retbnd (stmt);
+      tree bndslot = id->retbnd;
 
-      if (flag_check_pointer_bounds)
+      if (retbnd && bndslot)
 	{
-	  tree retbnd = gimple_return_retbnd (stmt);
-	  tree bndslot = id->retbnd;
-
-	  if (retbnd && bndslot)
-	    {
-	      gimple bndcopy = gimple_build_assign (bndslot, retbnd);
-	      memset (&wi, 0, sizeof (wi));
-	      wi.info = id;
-	      walk_gimple_op (bndcopy, remap_gimple_op_r, &wi);
-	      gimple_seq_add_stmt (&stmts, bndcopy);
-	    }
+	  gimple bndcopy = gimple_build_assign (bndslot, retbnd);
+	  memset (&wi, 0, sizeof (wi));
+	  wi.info = id;
+	  walk_gimple_op (bndcopy, remap_gimple_op_r, &wi);
+	  gimple_seq_add_stmt (&stmts, bndcopy);
 	}
 
       /* If we're returning something, just turn that into an
@@ -1573,19 +1569,16 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   /* When inlining happens we need to raplace all calls
      to __chkp_arg_bnd or target equivalent with assign
      statement using DECL_BOUNDS of inlined argument.
-     If DECL_BOUNDS is NULL, it means we just make an
-     inline function copy and should not replace builtins
-     yet.  */
+     If DECL_BOUNDS is NULL, it means call is not
+     instrumented.  */
   if (gimple_code (copy) == GIMPLE_CALL
-      && gimple_call_fndecl (copy))
+      && gimple_call_fndecl (copy)
+      && id->transform_parameter)
     {
       tree r = targetm.builtin_chkp_function (BUILT_IN_CHKP_ARG_BND);
       tree fndecl = gimple_call_fndecl (copy);
 
-      if (fndecl == r
-	  || (fndecl
-	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-	      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_ARG_BND))
+      if (fndecl && fndecl == r)
 	{
 	  tree orig_arg = gimple_call_arg (stmt, 0);
 	  tree bnd = NULL, *n;
@@ -1598,6 +1591,9 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	  if (bnd)
 	    copy = gimple_build_assign (gimple_call_lhs (copy), bnd);
+	  else
+	    copy = gimple_build_assign (gimple_call_lhs (copy),
+					chkp_get_zero_bounds_var ());
 	}
     }
 
@@ -1733,11 +1729,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	      size_t n;
 
 	      for (p = DECL_ARGUMENTS (id->src_fn); p; p = DECL_CHAIN (p))
-		{
-		  nargs--;
-		  if (flag_check_pointer_bounds)
-		    nargs -= chkp_type_bounds_count (TREE_TYPE (p));
-		}
+		nargs--;
 
 	      /* Create the new array of arguments.  */
 	      n = nargs + gimple_call_num_args (stmt);
@@ -1779,7 +1771,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 	    {
 	      /* __builtin_va_arg_pack_len () should be replaced by
 		 the number of anonymous arguments.  */
-	      size_t nargs = gimple_call_num_nobnd_args (id->gimple_call);
+	      size_t nargs = gimple_call_num_args (id->gimple_call);
 	      tree count, p;
 	      gimple new_stmt;
 
@@ -3014,44 +3006,23 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
   for (p = parms, i = 0; p; p = DECL_CHAIN (p), i++)
     {
       tree val, bounds = NULL;
+      gimple init_stmt;
 
       val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL;
 
-      setup_one_parameter (id, p, val, fn, bb, &vars);
+      init_stmt = setup_one_parameter (id, p, val, fn, bb, &vars);
 
-      /* If there is a bounds passed for arg,
-	 associate it with newly created var
-	 or copy to vars BT.  */
-      if (flag_check_pointer_bounds)
+      /* For instrumented calls we associate bounds passed
+	 for argument with created var or store them in BT.  */
+      if (gimple_call_instrumented_p (stmt))
 	{
 	  if (BOUNDED_P (p))
 	    {
-	      i++;
-	      gcc_assert (i < gimple_call_num_args (stmt));
-	      bounds = gimple_call_arg (stmt, i);
-	      gcc_assert (POINTER_BOUNDS_P (bounds));
+	      bounds = chkp_get_call_arg_bounds (gimple_call_arg (stmt, i));
 	      SET_DECL_BOUNDS (vars, bounds);
 	    }
-	  else if (chkp_type_has_pointer (TREE_TYPE (p)))
-	    {
-	      vec<bool> have_bound = chkp_find_bound_slots (TREE_TYPE (p));
-	      gimple_stmt_iterator si = gsi_last_bb (bb);
-	      tree var_addr = build_fold_addr_expr (vars);
-	      for (unsigned n = 0; n < have_bound.length (); n++)
-		if (have_bound[n])
-		  {
-		    unsigned offs = n * POINTER_SIZE / 8;
-		    tree addr = fold_build_pointer_plus_hwi (var_addr, offs);
-		    tree ptr = build2 (MEM_REF, ptr_type_node, var_addr,
-				       build_int_cst (ptr_type_node, offs));
-		    i++;
-		    gcc_assert (i < gimple_call_num_args (stmt));
-		    bounds = gimple_call_arg (stmt, i);
-		    gcc_assert (POINTER_BOUNDS_P (bounds));
-		    chkp_build_bndstx (addr, ptr, bounds, &si);
-		  }
-	      have_bound.release ();
-	    }
+	  else if (chkp_type_has_pointer (TREE_TYPE (p)) && init_stmt)
+	    chkp_copy_bounds_for_assign (init_stmt);
 	}
     }
   /* After remapping parameters remap their types.  This has to be done
@@ -4345,7 +4316,8 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       modify_dest = gimple_call_lhs (stmt);
 
       /* Remember where to copy returned bounds.  */
-      if (flag_check_pointer_bounds && TREE_CODE (modify_dest) == SSA_NAME)
+      if (gimple_call_instrumented_p (stmt)
+	  && TREE_CODE (modify_dest) == SSA_NAME)
 	{
 	  gimple retbnd = chkp_retbnd_call_by_val (modify_dest);
 	  if (retbnd)

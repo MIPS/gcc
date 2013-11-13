@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-inline.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-chkp.h"
+#include "internal-fn.h"
 #include "rtl.h" /* For MEM_P.  */
 
 /*  Pointer Bounds Checker pass instruments code with memory checks to find
@@ -1474,6 +1475,54 @@ chkp_find_bound_slots (tree type)
   return res;
 }
 
+/* Return bounds bounded to call argument ARG.  */
+tree
+chkp_get_call_arg_bounds (tree arg)
+{
+  gimple bind;
+
+  gcc_assert (TREE_CODE (arg) == SSA_NAME);
+
+  bind = SSA_NAME_DEF_STMT (arg);
+  gcc_assert (gimple_code (bind) == GIMPLE_CALL
+	      && gimple_call_internal_p (bind)
+	      && gimple_call_internal_fn (bind) == IFN_CHKP_BIND_BOUNDS);
+
+  return gimple_call_arg (bind, 1);
+}
+
+/* Return CHKP_BIND_BOUNDS call to bind argument ARG for call pointed
+   by by GSI with BOUNDS.  */
+static gimple
+chkp_build_bind_bounds (tree arg, tree bounds)
+{
+  tree new_arg;
+  gimple bind;
+
+  bind = gimple_build_call_internal (IFN_CHKP_BIND_BOUNDS, 2, arg, bounds);
+
+  new_arg = make_temp_ssa_name (TREE_TYPE (arg), bind, "");
+  gimple_call_set_lhs (bind, new_arg);
+
+  return bind;
+}
+
+/* Generate CHKP_BIND_BOUNDS call to bind argument ARG for call pointed
+   by by GSI with BOUNDS.
+   Binded argument to be used in call statement is returned.  */
+static tree
+chkp_bind_bounds (gimple_stmt_iterator *gsi, tree arg, tree bounds)
+{
+  gimple bind = chkp_build_bind_bounds (arg, bounds);
+
+  /* No instrumentation for bind calls.  */
+  chkp_mark_stmt (bind);
+
+  gsi_insert_before (gsi, bind, GSI_SAME_STMT);
+
+  return gimple_call_lhs (bind);
+}
+
 /* Add bound arguments to call statement pointed by GSI.
    Also performs a replacement of user checker builtins calls
    with internal ones.  */
@@ -1483,16 +1532,10 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 {
   gimple call = gsi_stmt (*gsi);
   unsigned arg_no = 0;
-  unsigned new_arg_no = 0;
-  unsigned bnd_arg_cnt = 0;
-  unsigned arg_cnt = 0;
   tree fndecl = gimple_call_fndecl (call);
   tree fntype = TREE_TYPE (TREE_TYPE (gimple_call_fn (call)));
   tree first_formal_arg;
   tree arg;
-  gimple new_call;
-  ssa_op_iter iter;
-  tree op;
   bool use_fntype = false;
 
   /* Do nothing if back-end builtin is called.  */
@@ -1576,68 +1619,7 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       use_fntype = true;
     }
 
-  /* Get number of original arguments and bound arguments.  */
-  arg = first_formal_arg;
-  for (arg_no = 0; arg_no < gimple_call_num_args (call); arg_no++)
-    {
-      tree type;
-
-      /* Get arg type using formal argument description
-	 or actual argument type.  */
-      if (arg)
-	if (use_fntype)
-	  if (TREE_VALUE (arg) != void_type_node)
-	    {
-	      type = TREE_VALUE (arg);
-	      arg = TREE_CHAIN (arg);
-	    }
-	  else
-	    type = TREE_TYPE (gimple_call_arg (call, arg_no));
-	else
-	  {
-	    type = TREE_TYPE (arg);
-	    arg = TREE_CHAIN (arg);
-	  }
-      else
-	type = TREE_TYPE (gimple_call_arg (call, arg_no));
-
-      if (BOUNDED_TYPE_P (type)
-	  || pass_by_reference (NULL, TYPE_MODE (type), type, false))
-	{
-	  bnd_arg_cnt++;
-	  arg_cnt++;
-	}
-      else if (chkp_type_has_pointer (type))
-	{
-	  vec<bool> have_bound = chkp_find_bound_slots (type);
-
-	  for (unsigned bnd_no = 0; bnd_no < have_bound.length (); bnd_no++)
-	    if (have_bound[bnd_no])
-	      {
-		arg_cnt++;
-		bnd_arg_cnt++;
-	      }
-	  have_bound.release ();
-	}
-
-      arg_cnt++;
-    }
-
-  /* Create new call statement with additional arguments.  */
-  new_call = gimple_alloc (GIMPLE_CALL, arg_cnt + 3);
-  memcpy (new_call, call, sizeof (struct gimple_statement_call));
-  gimple_set_num_ops (new_call, arg_cnt + 3);
-  gimple_set_op (new_call, 0, gimple_op (call, 0));
-  if (fndecl)
-    {
-      gimple_set_op (new_call, 1, chkp_build_addr_expr (fndecl));
-      gimple_call_set_fntype (new_call, TREE_TYPE (fndecl));
-    }
-  else
-    gimple_set_op (new_call, 1, gimple_op (call, 1));
-  gimple_set_op (new_call, 2, gimple_op (call, 2));
-
-  /* Add bounds for all arguments listed in formal arguments list.  */
+  /* Bind bounds to all arguments.  */
   arg = first_formal_arg;
   for (arg_no = 0; arg_no < gimple_call_num_args (call); arg_no++)
     {
@@ -1663,45 +1645,19 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       else
 	type = TREE_TYPE (call_arg);
 
-      gimple_call_set_arg (new_call, new_arg_no++, call_arg);
-
-      if (((BOUNDED_TYPE_P (type)
-	    || pass_by_reference (NULL, TYPE_MODE (type), type, true)))
-	  && bnd_arg_cnt)
+      if (BOUNDED_TYPE_P (type)
+	  || pass_by_reference (NULL, TYPE_MODE (type), type, true))
 	{
 	  tree bounds = chkp_find_bounds (call_arg, gsi);
-	  gimple_call_set_arg (new_call, new_arg_no++, bounds);
-	  bnd_arg_cnt--;
+	  tree new_arg = chkp_bind_bounds (gsi, call_arg, bounds);
+	  gimple_call_set_arg (call, arg_no, new_arg);
 	}
-      else if (chkp_type_has_pointer (type) && bnd_arg_cnt)
-	{
-	  HOST_WIDE_INT max_bounds
-	    = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
-	  tree *all_bounds = (tree *)xmalloc (sizeof (tree) * max_bounds);
-	  HOST_WIDE_INT bnd_no;
-
-	  memset (all_bounds, 0, sizeof (tree) * max_bounds);
-
-	  chkp_find_bounds_for_elem (call_arg, all_bounds, 0, gsi);
-
-	  for (bnd_no = 0; (bnd_no < max_bounds) && bnd_arg_cnt; bnd_no++)
-	    if (all_bounds[bnd_no])
-	      {
-		gimple_call_set_arg (new_call, new_arg_no++,
-				     all_bounds[bnd_no]);
-		bnd_arg_cnt--;
-	      }
-
-	  free (all_bounds);
-	}
+      else if (chkp_type_has_pointer (type))
+	TREE_ADDRESSABLE (call_arg) = 1;
     }
 
-  /* replace old call statement with the new one.  */
-  FOR_EACH_SSA_TREE_OPERAND (op, call, iter, SSA_OP_ALL_DEFS)
-    {
-      SSA_NAME_DEF_STMT (op) = new_call;
-    }
-  gsi_replace (gsi, new_call, true);
+  update_stmt (call);
+  gimple_call_set_instrumented (call, true);
 }
 
 /* Return entry block to be used for checker initilization code.
@@ -2127,7 +2083,7 @@ chkp_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
   return bounds;
 }
 
-/* Build and return CALL_EXPR for bndstx builtin wich specified
+/* Build and return CALL_EXPR for bndstx builtin with specified
    arguments.  */
 tree
 chkp_build_bndstx_call (tree addr, tree ptr, tree bounds)
@@ -3564,9 +3520,10 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 		   get_tree_code_name (TREE_CODE (type)));
 }
 
-/* Add code to copy bounds for assignment of RHS to LHS.  */
+/* Add code to copy bounds for assignment of RHS to LHS.
+   ARG is an iterator pointing ne code position.  */
 static void
-chkp_copy_bounds_for_assign (tree lhs, tree rhs, void *arg)
+chkp_copy_bounds_for_elem (tree lhs, tree rhs, void *arg)
 {
   gimple_stmt_iterator *iter = (gimple_stmt_iterator *)arg;
   tree bounds = chkp_find_bounds (rhs, iter);
@@ -3821,7 +3778,7 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
 
       if (get_gimple_rhs_class (rhs_code) == GIMPLE_SINGLE_RHS)
 	chkp_walk_pointer_assignments (node, rhs1, iter,
-				       chkp_copy_bounds_for_assign);
+				       chkp_copy_bounds_for_elem);
       else
 	{
 	  bounds = chkp_compute_bounds_for_assignment (NULL_TREE, stmt);
@@ -3830,10 +3787,21 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
     }
 }
 
+/* Add code to copy bounds for all pointers copied
+   in ASSIGN.  */
+void
+chkp_copy_bounds_for_assign (gimple assign)
+{
+  tree lhs = gimple_assign_lhs (assign);
+  tree rhs = gimple_assign_rhs1 (assign);
+  gimple_stmt_iterator iter = gsi_for_stmt (assign);
+  chkp_walk_pointer_assignments (lhs, rhs, &iter, chkp_copy_bounds_for_elem);
+}
+
 /* Some code transformation made during instrumentation pass
    may put code into inconsistent state.  Here we find and fix
    such flaws.  */
-void
+static void
 chkp_fix_cfg ()
 {
   basic_block bb;
@@ -5109,7 +5077,8 @@ chkp_optimize_string_function_calls (void)
 	  gimple stmt = gsi_stmt (i);
 	  tree fndecl;
 
-	  if (gimple_code (stmt) != GIMPLE_CALL)
+	  if (gimple_code (stmt) != GIMPLE_CALL
+	      || !gimple_call_instrumented_p (stmt))
 	    continue;
 
 	  fndecl = gimple_call_fndecl (stmt);
@@ -5123,9 +5092,9 @@ chkp_optimize_string_function_calls (void)
 	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMSET)
 	    {
 	      tree dst = gimple_call_arg (stmt, 0);
-	      tree dst_bnd = gimple_call_arg (stmt, 1);
+	      tree dst_bnd = chkp_get_call_arg_bounds (dst);
 	      bool is_memset = DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMSET;
-	      tree size = gimple_call_arg (stmt, is_memset ? 3 : 4);
+	      tree size = gimple_call_arg (stmt, 2);
 	      tree fndecl_nochk;
 	      gimple_stmt_iterator j;
 	      basic_block check_bb;
@@ -5230,8 +5199,8 @@ chkp_optimize_string_function_calls (void)
 	      size = size_binop (MINUS_EXPR, size, size_one_node);
 	      if (!is_memset)
 		{
-		  tree src = gimple_call_arg (stmt, 2);
-		  tree src_bnd = gimple_call_arg (stmt, 3);
+		  tree src = gimple_call_arg (stmt, 1);
+		  tree src_bnd = chkp_get_call_arg_bounds (src);
 
 		  chkp_check_mem_access (src, fold_build_pointer_plus (src, size),
 					src_bnd, j, gimple_location (stmt),

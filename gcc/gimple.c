@@ -366,26 +366,6 @@ gimple_build_call_from_tree (tree t)
 }
 
 
-/* Return index of INDEX's non bound argument of the call.  */
-
-unsigned
-gimple_call_get_nobnd_arg_index (const_gimple gs, unsigned index)
-{
-  unsigned num_args = gimple_call_num_args (gs);
-  for (unsigned n = 0; n < num_args; n++)
-    {
-      if (POINTER_BOUNDS_P (gimple_call_arg (gs, n)))
-	continue;
-      else if (index)
-	index--;
-      else
-	return n;
-    }
-
-  gcc_unreachable ();
-}
-
-
 /* Extract the operands and code for expression EXPR into *SUBCODE_P,
    *OP1_P, *OP2_P and *OP3_P respectively.  */
 
@@ -3043,27 +3023,20 @@ canonicalize_cond_expr_cond (tree t)
 }
 
 /* Build a GIMPLE_CALL identical to STMT but skipping the arguments in
-   the positions marked by the set ARGS_TO_SKIP.  ARGS_TO_SKIP does not
-   take into account bounds arguments.  Bounds passed for skipped args
-   are also skipped.  */
+   the positions marked by the set ARGS_TO_SKIP.  */
 
 gimple
 gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
 {
-  int i, bit;
+  int i;
   int nargs = gimple_call_num_args (stmt);
   vec<tree> vargs;
   vargs.create (nargs);
   gimple new_stmt;
 
-  for (i = 0, bit = 0; i < nargs; i++, bit++)
-      if (POINTER_BOUNDS_P (gimple_call_arg (stmt, i)))
-	{
-	  if (!bitmap_bit_p (args_to_skip, --bit))
-	    vargs.quick_push (gimple_call_arg (stmt, i));
-	}
-      else if (!bitmap_bit_p (args_to_skip, bit))
-	  vargs.quick_push (gimple_call_arg (stmt, i));
+  for (i = 0; i < nargs; i++)
+    if (!bitmap_bit_p (args_to_skip, i))
+      vargs.quick_push (gimple_call_arg (stmt, i));
 
   if (gimple_call_internal_p (stmt))
     new_stmt = gimple_build_call_internal_vec (gimple_call_internal_fn (stmt),
@@ -3709,9 +3682,6 @@ validate_call (gimple stmt, tree fndecl)
       if (!targs)
 	return true;
       tree arg = gimple_call_arg (stmt, i);
-      /* Skip bounds.  */
-      if (POINTER_BOUNDS_P (arg))
-	continue;
       if (INTEGRAL_TYPE_P (TREE_TYPE (arg))
 	  && INTEGRAL_TYPE_P (TREE_VALUE (targs)))
 	;
