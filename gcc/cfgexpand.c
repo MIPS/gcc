@@ -56,6 +56,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h" /* For INSN_SCHEDULING.  */
 #include "asan.h"
 #include "tree-ssa-address.h"
+#include "tree-chkp.h"
 #include "rtl-chkp.h"
 
 /* This variable holds information helping the rewriting of SSA trees
@@ -2169,6 +2170,7 @@ expand_call_stmt (gimple stmt)
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
   CALL_EXPR_VA_ARG_PACK (exp) = gimple_call_va_arg_pack_p (stmt);
   SET_EXPR_LOCATION (exp, gimple_location (stmt));
+  CALL_INSTRUMENTED_P (exp) = gimple_call_instrumented_p (stmt);
 
   /* Ensure RTL is created for debug args.  */
   if (decl && DECL_HAS_DEBUG_ARGS_P (decl))
@@ -4570,7 +4572,7 @@ gimple_expand_cfg (void)
 
   rtl_profile_for_bb (ENTRY_BLOCK_PTR);
 
-  if (flag_check_pointer_bounds)
+  if (chkp_function_instrumented_p (current_function_decl))
     chkp_reset_rtl_bounds ();
 
   insn_locations_init ();
