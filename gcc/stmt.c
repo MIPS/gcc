@@ -1577,7 +1577,7 @@ expand_return (tree retval, tree bounds)
 	    }
 	}
     }
-  else if (flag_check_pointer_bounds
+  else if (chkp_function_instrumented_p (current_function_decl)
 	   && !BOUNDED_P (retval_rhs)
 	   && chkp_type_has_pointer (TREE_TYPE (retval_rhs))
 	   && TREE_CODE (retval_rhs) != RESULT_DECL)
