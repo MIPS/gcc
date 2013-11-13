@@ -1248,7 +1248,6 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	  }
 	else
 	  args[j].tree_value = arg;
-
 	j += inc;
       }
   }
