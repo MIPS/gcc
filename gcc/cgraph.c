@@ -1365,7 +1365,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	  e->speculative = false;
 	  cgraph_set_call_stmt_including_clones (e->caller, e->call_stmt,
 						 new_stmt, false);
-	  if (flag_check_pointer_bounds
+	  if (gimple_call_instrumented_p (new_stmt)
 	      && gimple_call_lhs (new_stmt)
 	      && chkp_retbnd_call_by_val (gimple_call_lhs (e2->call_stmt)))
 	    {
@@ -1375,13 +1375,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	      gimple ibndret = chkp_retbnd_call_by_val (iresult);
 	      struct cgraph_edge *iedge = cgraph_edge (e2->caller, ibndret);
 	      struct cgraph_edge *dedge;
-	      /*	      if (!iedge)
-		{
-		  struct cgraph_node *retbnd_node = cgraph_get_node
-		    (targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET));
-		  iedge = cgraph_create_edge (e->caller, retbnd_node, ibndret,
-					      e2->count, e2->frequency);
-					      }*/
+
 	      if (dbndret)
 		{
 		  dedge = cgraph_create_edge (iedge->caller, iedge->callee,
@@ -3059,54 +3053,40 @@ gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
     {
       for (i = 0, p = DECL_ARGUMENTS (fndecl);
 	   i < nargs;
-	   i++)
+	   i++, p = DECL_CHAIN (p))
 	{
-	  tree arg = gimple_call_arg (stmt, i);
-
-	  /* Skip bound args inserted by Pointer Bounds Checker.  */
-	  if (POINTER_BOUNDS_P (arg))
-	    continue;
-
+	  tree arg;
 	  /* We cannot distinguish a varargs function from the case
 	     of excess parameters, still deferring the inlining decision
 	     to the callee is possible.  */
 	  if (!p)
 	    break;
-
+	  arg = gimple_call_arg (stmt, i);
 	  if (p == error_mark_node
 	      || arg == error_mark_node
 	      || (!types_compatible_p (DECL_ARG_TYPE (p), TREE_TYPE (arg))
 		  && !fold_convertible_p (DECL_ARG_TYPE (p), arg)))
             return false;
-
-	  p = DECL_CHAIN (p);
 	}
       if (args_count_match && p)
 	return false;
     }
   else if (parms)
     {
-      for (i = 0, p = parms; i < nargs; i++)
+      for (i = 0, p = parms; i < nargs; i++, p = TREE_CHAIN (p))
 	{
-	  tree arg = gimple_call_arg (stmt, i);
-
-	  /* Skip bound args inserted by Pointer Bounds Checker.  */
-	  if (POINTER_BOUNDS_P (arg))
-	    continue;
-
+	  tree arg;
 	  /* If this is a varargs function defer inlining decision
 	     to callee.  */
 	  if (!p)
 	    break;
-
+	  arg = gimple_call_arg (stmt, i);
 	  if (TREE_VALUE (p) == error_mark_node
 	      || arg == error_mark_node
 	      || TREE_CODE (TREE_VALUE (p)) == VOID_TYPE
 	      || (!types_compatible_p (TREE_VALUE (p), TREE_TYPE (arg))
 		  && !fold_convertible_p (TREE_VALUE (p), arg)))
             return false;
-
-	  p = TREE_CHAIN (p);
 	}
     }
   else
