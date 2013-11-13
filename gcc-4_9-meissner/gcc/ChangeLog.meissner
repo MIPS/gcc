@@ -1,5 +1,53 @@
 2013-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/vsx.md (VSr mode attribute): Add additional
+	modes.
+	(VSr2): Likewise.
+	(VSr3): Likewise.
+	(VSj2): Likewise.
+	(VSj3): Likewise.
+	(VSr4): Likewise.
+	(VSr5): Likewise.
+	(VSa mode attribute): New mode attribute to give the register
+	class to hold types in VSX regs, including non-preferred
+	registers.
+	(VSx mode attribute): New mode attribute to define the register
+	class for the scalar type corresponding to a vector type.
+	(vsx_mov<mode>): Use <VSa> instead of wa for non-preferred
+	register class.
+	(vsx_add<mode>3): Likewise.
+	(vsx_sub<mode>3): Likewise.
+	(vsx_mul<mode>3): Likewise.
+	(vsx_div<mode>3): Likewise.
+	(vsx_tdiv<mode>3_internal): Likewise.
+	(vsx_fre<mode>2): Likewise.
+	(vsx_neg<mode>2): Likewise.
+	(vsx_abs<mode>2): Likewise.
+	(vsx_nabs<mode>2): Likewise.
+	(vsx_smax<mode>3): Likewise.
+	(vsx_smin<mode>3): Likewise.
+	(vsx_sqrt<mode>2): Likewise.
+	(vsx_rsqrte<mode>2): Likewise.
+	(vsx_tsqrt<mode>2_internal): Likewise.
+	(vsx_fms<mode>4): Likewise.
+	(vsx_nfma<mode>4): Likewise.
+	(vsx_eq<mode>): Likewise.
+	(vsx_gt<mode>): Likewise.
+	(vsx_ge<mode>): Likewise.
+	(vsx_eq_<mode>_p): Likewise.
+	(vsx_gt_<mode>_p): Likewise.
+	(vsx_ge_<mode>_p): Likewise.
+	(vsx_xxsel<mode>): Likewise.
+	(vsx_xxsel<mode>_uns): Likewise.
+	(vsx_copysign<mode>3): Likewise.
+	(vsx_btrunc<mode>2): Likewise.
+	(vsx_ceil<mode>2): Likewise.
+	(vsx_concat_<mode>): Likewise.
+	(vsx_concat_v2sf): Likewise.
+	(vsx_set_<mode>): Likewise.
+	(vsx_extract_<mode>): Likewise.
+	(vsx_extract_<mode>_zero): Likewise.
+
 	* config/rs6000/constraints.md (wi constraint): New constraint for
 	holding DImode in FP/VSX registers.
 	(wy constraint): Clarify documentation.
