@@ -63,7 +63,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "cfgloop.h"
 #include "tree-scalar-evolution.h"
-#include "tree-chkp.h"
 
 static struct stmt_stats
 {
@@ -757,8 +756,7 @@ propagate_necessity (bool aggressive)
 	  /* If this is a call to free which is directly fed by an
 	     allocation function do not mark that necessary through
 	     processing the argument.  */
-	  if (gimple_call_builtin_p (stmt, BUILT_IN_FREE)
-	      && !chkp_function_instrumented_p (cfun->decl))
+	  if (gimple_call_builtin_p (stmt, BUILT_IN_FREE))
 	    {
 	      tree ptr = gimple_call_arg (stmt, 0);
 	      gimple def_stmt;

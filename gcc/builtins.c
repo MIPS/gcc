@@ -2597,31 +2597,8 @@ expand_builtin_cexpi (tree exp, rtx target)
 
       /* Make sure not to fold the sincos call again.  */
       call = build1 (ADDR_EXPR, build_pointer_type (TREE_TYPE (fn)), fn);
-
-      /* If Pointer Bounds Checker is on then we have to add bound arguments to
-	 the call.  */
-      if (flag_check_pointer_bounds)
-	{
-	  tree tmp, bnd1, bnd2;
-
-	  tmp = chkp_build_make_bounds_call (top1,
-					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
-	  bnd1 = make_tree (pointer_bounds_type_node,
-			    assign_temp (pointer_bounds_type_node, 0, 1));
-	  expand_assignment (bnd1, tmp, false);
-
-	  tmp = chkp_build_make_bounds_call (top2,
-					    TYPE_SIZE_UNIT (TREE_TYPE (arg)));
-	  bnd2 = make_tree (pointer_bounds_type_node,
-			    assign_temp (pointer_bounds_type_node, 0, 1));
-	  expand_assignment (bnd2, tmp, false);
-
-	  expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
-					  call, 5, arg, top1, bnd1, top2, bnd2));
-	}
-      else
-	expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
-					call, 3, arg, top1, top2));
+      expand_normal (build_call_nary (TREE_TYPE (TREE_TYPE (fn)),
+				      call, 3, arg, top1, top2));
     }
   else
     {
@@ -4247,7 +4224,7 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
 
   /* We do not have any valid bounds for the pointer, so
      just store zero bounds for it.  */
-  if (flag_check_pointer_bounds)
+  if (chkp_function_instrumented_p (current_function_decl))
     chkp_expand_bounds_reset_for_mem (valist,
 				      make_tree (TREE_TYPE (valist),
 						 nextarg));
@@ -5672,7 +5649,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
   enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
   enum machine_mode target_mode = TYPE_MODE (TREE_TYPE (exp));
   int flags;
-  tree orig_exp = exp;
 
   if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
     return targetm.expand_builtin (exp, target, subtarget, mode, ignore);
@@ -5732,41 +5708,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	  FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
 	    expand_expr (arg, const0_rtx, VOIDmode, EXPAND_NORMAL);
 	  return const0_rtx;
-	}
-    }
-
-  /* Currently none of builtin expand functions works with bounds.
-     To avoid modification of all expanders we just make a new call
-     expression without bound args.  The original expression is used
-     in case we expand builtin as a call.  */
-  if (flag_check_pointer_bounds)
-    {
-      int new_arg_no = 0;
-      tree new_call;
-      tree arg;
-      call_expr_arg_iterator iter;
-      tree *new_args = XALLOCAVEC (tree, call_expr_nargs (exp));
-
-      FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
-	if (!POINTER_BOUNDS_P (arg))
-	  new_args[new_arg_no++] = arg;
-
-      if (new_arg_no > 0)
-	{
-	  new_call = build_call_array (TREE_TYPE (exp), fndecl, new_arg_no, new_args);
-	  CALL_EXPR_STATIC_CHAIN (new_call) = CALL_EXPR_STATIC_CHAIN (exp);
-	  CALL_EXPR_FN (new_call) = CALL_EXPR_FN (exp);
-	  TREE_SIDE_EFFECTS (new_call) = TREE_SIDE_EFFECTS (exp);
-	  TREE_NOTHROW (new_call) = TREE_NOTHROW (exp);
-	  CALL_EXPR_TAILCALL (new_call) = CALL_EXPR_TAILCALL (exp);
-	  CALL_EXPR_RETURN_SLOT_OPT (new_call) = CALL_EXPR_RETURN_SLOT_OPT (exp);
-	  CALL_ALLOCA_FOR_VAR_P (new_call) = CALL_ALLOCA_FOR_VAR_P (exp);
-	  CALL_FROM_THUNK_P (new_call) = CALL_FROM_THUNK_P (exp);
-	  CALL_EXPR_VA_ARG_PACK (new_call) = CALL_EXPR_VA_ARG_PACK (exp);
-	  SET_EXPR_LOCATION (new_call, EXPR_LOCATION (exp));
-	  TREE_SET_BLOCK (new_call, TREE_BLOCK (exp));
-
-	  exp = new_call;
 	}
     }
 
@@ -6060,7 +6001,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRLEN:
-      if (flag_check_pointer_bounds && flag_chkp_check_read)
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_strlen (exp, target, target_mode);
       if (target)
@@ -6068,8 +6009,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRCPY:
-      if (flag_check_pointer_bounds
-	  && (flag_chkp_check_read || flag_chkp_check_write))
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_strcpy (exp, target);
       if (target)
@@ -6077,8 +6017,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRNCPY:
-      if (flag_check_pointer_bounds
-	  && (flag_chkp_check_read || flag_chkp_check_write))
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_strncpy (exp, target);
       if (target)
@@ -6086,8 +6025,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STPCPY:
-      if (flag_check_pointer_bounds
-	  && (flag_chkp_check_read || flag_chkp_check_write))
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_stpcpy (exp, target, mode);
       if (target)
@@ -6096,16 +6034,17 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_MEMCPY:
     case BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK:
-      if (flag_check_pointer_bounds && fcode == BUILT_IN_MEMCPY)
+      if (CALL_INSTRUMENTED_P (exp)
+	  && fcode == BUILT_IN_MEMCPY)
 	break;
       target = expand_builtin_memcpy (exp, target);
       if (target)
 	{
-	  /* We need to set returned bounds if checker is on.  */
-	  if (flag_check_pointer_bounds)
+	  /* We need to set returned bounds for instrumented
+	     calls.  */
+	  if (CALL_INSTRUMENTED_P (exp))
 	    {
-	      rtx bnd = force_reg (BNDmode,
-				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
+	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
 	      target = chkp_join_splitted_slot (target, bnd);
 	    }
 	  return target;
@@ -6114,15 +6053,17 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_MEMPCPY:
       case BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK:
-      if (flag_check_pointer_bounds && fcode == BUILT_IN_MEMPCPY)
+	if (CALL_INSTRUMENTED_P (exp)
+	    && fcode == BUILT_IN_MEMPCPY)
 	break;
       target = expand_builtin_mempcpy (exp, target, mode);
       if (target)
 	{
-	  if (flag_check_pointer_bounds)
+	  /* We need to set returned bounds for instrumented
+	     calls.  */
+	  if (CALL_INSTRUMENTED_P (exp))
 	    {
-	      rtx bnd = force_reg (BNDmode,
-				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
+	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
 	      target = chkp_join_splitted_slot (target, bnd);
 	    }
 	  return target;
@@ -6131,16 +6072,17 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_MEMSET:
     case BUILT_IN_CHKP_MEMSET_NOBND_NOCHK:
-      if (flag_check_pointer_bounds && fcode == BUILT_IN_MEMSET)
+      if (CALL_INSTRUMENTED_P (exp)
+	  && fcode == BUILT_IN_MEMSET)
 	break;
       target = expand_builtin_memset (exp, target, mode);
       if (target)
 	{
-	  /* We need to set returned bounds if cheker is on.  */
-	  if (flag_check_pointer_bounds)
+	  /* We need to set returned bounds for instrumented
+	     calls.  */
+	  if (CALL_INSTRUMENTED_P (exp))
 	    {
-	      rtx bnd = force_reg (BNDmode,
-				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
+	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
 	      target = chkp_join_splitted_slot (target, bnd);
 	    }
 	  return target;
@@ -6148,7 +6090,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_BZERO:
-      if (flag_check_pointer_bounds)
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_bzero (exp);
       if (target)
@@ -6156,7 +6098,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRCMP:
-      if (flag_check_pointer_bounds && flag_chkp_check_read)
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_strcmp (exp, target);
       if (target)
@@ -6164,7 +6106,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRNCMP:
-      if (flag_check_pointer_bounds && flag_chkp_check_read)
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_strncmp (exp, target, mode);
       if (target)
@@ -6173,7 +6115,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
-      if (flag_check_pointer_bounds && flag_chkp_check_read)
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_memcmp (exp, target, mode);
       if (target)
@@ -6572,16 +6514,12 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	   must be dropped to match the expected parameter list.  */
 	nargs = call_expr_nargs (exp);
 	vec_alloc (vec, nargs - 1);
-	for (z = 0; z < nargs; z++)
-	  {
-	    /* Skip the boolean weak parameter.  */
-	    if ((!flag_check_pointer_bounds && z == 3)
-		|| (flag_check_pointer_bounds && z == 5))
-	      continue;
-
-	    vec->quick_push (CALL_EXPR_ARG (exp, z));
-	  }
-	orig_exp = build_call_vec (TREE_TYPE (exp), CALL_EXPR_FN (exp), vec);
+	for (z = 0; z < 3; z++)
+	  vec->quick_push (CALL_EXPR_ARG (exp, z));
+	/* Skip the boolean weak parameter.  */
+	for (z = 4; z < 6; z++)
+	  vec->quick_push (CALL_EXPR_ARG (exp, z));
+	exp = build_call_vec (TREE_TYPE (exp), CALL_EXPR_FN (exp), vec);
 	break;
       }
 
@@ -6805,7 +6743,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MEMPCPY_CHK:
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
-      if (flag_check_pointer_bounds)
+      if (CALL_INSTRUMENTED_P (exp))
 	break;
       target = expand_builtin_memory_chk (exp, target, mode, fcode);
       if (target)
@@ -6855,7 +6793,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_CHKP_GET_PTR_UBOUND:
       /* We allow user CHKP builtins if Pointer Bounds
 	 Checker is off.  */
-      if (!flag_check_pointer_bounds)
+      if (!chkp_function_instrumented_p (current_function_decl))
 	{
 	  if (fcode == BUILT_IN_CHKP_SET_PTR_BOUNDS
 	      || fcode == BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
@@ -6891,7 +6829,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
   /* The switch statement above can drop through to cause the function
      to be called normally.  */
-  return expand_call (orig_exp, target, ignore);
+  return expand_call (exp, target, ignore);
 }
 
 /* Determine whether a tree node represents a call to a built-in
@@ -12149,7 +12087,6 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
   tree fntype = TREE_TYPE (current_function_decl);
   int nargs = call_expr_nargs (exp);
   tree arg;
-  int arg_no;
   /* There is good chance the current input_location points inside the
      definition of the va_start macro (perhaps on the token for
      builtin) in a system header, so warnings will not be emitted.
@@ -12166,20 +12103,12 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 
   if (va_start_p)
     {
-      if (va_start_p && (nargs != 2)
-	  && (nargs < 3 || nargs > 4 || !flag_check_pointer_bounds))
+      if (va_start_p && (nargs != 2))
 	{
 	  error ("wrong number of arguments to function %<va_start%>");
 	  return true;
 	}
-      arg_no = 1;
-      arg = CALL_EXPR_ARG (exp, arg_no);
-      /* Skip bounds arg if any.  */
-      if (flag_check_pointer_bounds && POINTER_BOUNDS_P (arg))
-	{
-	  arg_no++;
-	  arg = CALL_EXPR_ARG (exp, arg_no);
-	}
+      arg = CALL_EXPR_ARG (exp, 1);
     }
   /* We use __builtin_va_start (ap, 0, 0) or __builtin_next_arg (0, 0)
      when we checked the arguments and if needed issued a warning.  */
@@ -12194,14 +12123,12 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 		   "%<__builtin_next_arg%> called without an argument");
 	  return true;
 	}
-      else if ((nargs > 1 && !flag_check_pointer_bounds)
-	       || (nargs > 2 && flag_check_pointer_bounds))
+      else if (nargs > 1)
 	{
 	  error ("wrong number of arguments to function %<__builtin_next_arg%>");
 	  return true;
 	}
-      arg_no = 0;
-      arg = CALL_EXPR_ARG (exp, arg_no);
+      arg = CALL_EXPR_ARG (exp, 0);
     }
 
   if (TREE_CODE (arg) == SSA_NAME)
@@ -12252,7 +12179,10 @@ fold_builtin_next_arg (tree exp, bool va_start_p)
 	 as otherwise we could warn even for correct code like:
 	 void foo (int i, ...)
 	 { va_list ap; i++; va_start (ap, i); va_end (ap); }  */
-      CALL_EXPR_ARG (exp, arg_no) = integer_zero_node;
+      if (va_start_p)
+	CALL_EXPR_ARG (exp, 1) = integer_zero_node;
+      else
+	CALL_EXPR_ARG (exp, 0) = integer_zero_node;
     }
   return false;
 }

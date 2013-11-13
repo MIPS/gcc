@@ -1,5 +1,0 @@
-2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
-
-	* cgraph.c (gimple_check_call_args): Handle bound args.
-	* gimple.c (gimple_call_copy_skip_args): Likewise.
-	(validate_call): Likewise.
