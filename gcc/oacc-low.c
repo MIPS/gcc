@@ -263,7 +263,7 @@ delete_acc_region(acc_region region)
   XDELETE(region);
 }
 
-static void
+DEBUG_FUNCTION static void
 dump_acc_region (FILE* file, acc_region region, size_t spc)
 {
     size_t i;
@@ -1155,6 +1155,24 @@ make_pass_lower_oacc (gcc::context *ctxt)
     return new pass_lower_oacc (ctxt);
 }
 
+static void
+do_update_ssa()
+{
+  basic_block bb;
+  gimple_stmt_iterator gsi;
+
+  FOR_EACH_BB(bb)
+  {
+    for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+        {
+            gimple stmt = gsi_stmt(gsi);
+            gimple_set_modified (stmt, true);
+            update_stmt_operands(stmt);
+        }
+  }
+  update_ssa(TODO_update_ssa);
+}
+
 static gimple
 build_call(location_t locus, tree funcdecl, int n, ...)
 {
@@ -1463,7 +1481,6 @@ static tree
 clone_function(tree fn, gimple kernel_stmt)
 {
   tree name, new_fn = NULL, t;
-  struct function *child_cfun;
 
   name = clone_function_name(fn, "_oacc_fn");
   name = normalize_name(name);
@@ -1579,7 +1596,7 @@ map_params_cb(tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
-static void
+DEBUG_FUNCTION static void
 dump_dominators(FILE* fp, basic_block node, int indent)
 {
   int i;
@@ -1594,10 +1611,10 @@ dump_dominators(FILE* fp, basic_block node, int indent)
     dump_dominators(fp, son, indent+2);
 }
 
-static void
+DEBUG_FUNCTION static void
 dump_ssa(FILE *fp)
 {
-  int i;
+  unsigned i;
 
   fprintf(fp, "#SSA names: %d\n", num_ssa_names);
   for(i = 0; i < num_ssa_names; ++i)
@@ -1620,7 +1637,7 @@ dump_ssa(FILE *fp)
   }
 }
 
-static void
+DEBUG_FUNCTION static void
 dump_fn_body(FILE* dump_file, const char* title)
 {
     tree var;
@@ -1652,8 +1669,7 @@ dump_fn_body(FILE* dump_file, const char* title)
 
     FOR_EACH_BB(bb)
     {
-        fprintf(dump_file, "L%d: %s\n", bb->index,
-            (single_succ_p(bb)) ? "single_succ" : "");
+        fprintf(dump_file, "L%d:\n", bb->index);
         gimple_stmt_iterator gsi;
         for(gsi = gsi_start_phis(bb); !gsi_end_p(gsi); gsi_next(&gsi))
             {
@@ -1712,110 +1728,46 @@ guess_loop_location(struct loop* l)
 }
 
 static void
-extract_kernels(struct loops* loops, tree child_fn,
-                vec<acc_kernel>* kernels, gimple kernel_stmt)
+check_loop_parallelizable(struct loop* loop, acc_kernel kernel)
 {
-  struct loop *ploop;
-  acc_kernel kernel;
-  unsigned nloops, i;
-  struct loop **vloops;
-  basic_block *body, bb_entry;
-  struct function* child_cfun;
-
-  if(gimple_code(kernel_stmt) == GIMPLE_ACC_PARALLEL 
-    || loops->tree_root->inner == NULL 
-    || loops->tree_root->inner->next == NULL)
-    {
-      kernel = new_acc_kernel(child_fn);
-
-      if(loops->tree_root->inner != NULL)
-        {
-          bool par = loop_parallelizable_p(loops->tree_root->inner,
-            &(kernel->niter_desc));
-          if(!par)
-          {
-            warning_at(guess_loop_location(loops->tree_root->inner), 
-              OPT_fopenacc, "loop cannot be parallelized");
-          }
-        }
-
-      kernels->safe_push(kernel);
-      mark_kernels_parallel (child_fn, (kernel->niter_desc.niter != NULL_TREE)
-                                        ? 1 : 0);
-      return;
-    }
-
-  if(dump_file)
+  bool is_parallelizable = loop_parallelizable_p(loop, &(kernel->niter_desc));
+  if(!is_parallelizable)
   {
-    basic_block *body;
-
-    body = get_loop_body(loops->tree_root);
-    fprintf(dump_file, "FAKE 0 LOOP: ");
-    for(i = 0; i < loops->tree_root->num_nodes; ++i)
-    {
-      fprintf(dump_file, "%d%c", body[i]->index,
-        (i < loops->tree_root->num_nodes-1) ? ' ' : '\n');
-    }
-    XDELETEVEC(body);
-    for(ploop = loops->tree_root->inner; ploop != NULL; ploop = ploop->next)
-    {
-      fprintf(dump_file, "LOOP %d: ", ploop->num);
-      body = get_loop_body(ploop);
-      for(i = 0; i < ploop->num_nodes; ++i)
-        fprintf(dump_file, "%d%c", body[i]->index,
-        (i < ploop->num_nodes-1) ? ' ' : '\n');
-      XDELETEVEC(body);
-    }
-
-    fflush(dump_file);
+    warning_at(guess_loop_location(loop), 
+      OPT_fopenacc, "loop cannot be parallelized");
   }
+}
 
-  /* Loops connected to siblings in reverse order of 
-    appearance so we reorder them
-  */
-  for(nloops = 0, ploop = loops->tree_root->inner;
-      ploop != NULL;
-      ++nloops, ploop = ploop->next)
-      ;
-  
-  vloops = XALLOCAVEC(struct loop*, nloops);
-
-  for(i = nloops, ploop = loops->tree_root->inner;
-      i > 0;
-      --i, ploop = ploop->next)
-      vloops[i-1] = ploop;
+static void
+create_fns_for_kernels(tree child_fn, vec<acc_kernel>* kernels,
+                       gimple kernel_stmt, unsigned nloops,
+                       struct loop **vloops)
+{
+  unsigned i;
+  acc_kernel kernel;
 
   for(i = 0; i < nloops; ++i)
-  {
-    tree fn = child_fn;
-    bool par;
+    {
+      tree fn = child_fn;
 
-    if(i > 0)
-    {
-      fn = clone_function(child_fn, kernel_stmt);
+      if(i > 0)
+      {
+        fn = clone_function(child_fn, kernel_stmt);
+      }
+      kernel = new_acc_kernel(fn);
+      if(i > 0)
+      {
+        map_parameters(child_fn, kernel, kernel_stmt);
+      }
+      check_loop_parallelizable(vloops[i], kernel);
+      kernels->safe_push(kernel);
     }
-    kernel = new_acc_kernel(fn);
-    if(i > 0)
-    {
-      map_parameters(child_fn, kernel, kernel_stmt);
-    }
-    par = loop_parallelizable_p(vloops[i], &(kernel->niter_desc));
-    if(!par)
-    {
-      warning_at(guess_loop_location(vloops[i]),
-        OPT_fopenacc, "loop cannot be parallelized");
-    }
-    kernels->safe_push(kernel);
-  }
+}
 
-  if(dump_file)
-  {
-    child_cfun = DECL_STRUCT_FUNCTION(child_fn);
-    push_cfun(child_cfun);
-    dump_fn_body(dump_file, "ORIGINAL");
-    fflush(dump_file);
-    pop_cfun();
-  }
+static void
+create_padding_blocks(struct loop **vloops, unsigned nloops, struct loops* loops)
+{
+  unsigned i;
 
   for(i = 0; i < nloops - 1; ++i)
   {
@@ -1866,20 +1818,18 @@ extract_kernels(struct loops* loops, tree child_fn,
       }
     }
   }
+}
 
-  if(dump_file)
-  {
-    child_cfun = DECL_STRUCT_FUNCTION(child_fn);
-    push_cfun(child_cfun);
-    dump_fn_body(dump_file, "PADDING");
-    fflush(dump_file);
-    pop_cfun();
-  }
+static void
+collect_sese_regions(struct loop **vloops, unsigned nloops,
+                     vec<acc_kernel>* kernels)
+{
+  unsigned i;
+  basic_block bb_entry, bb_exit;
 
   bb_entry = single_succ_edge(ENTRY_BLOCK_PTR)->dest;
   for(i = 0; i < nloops; ++i)
   {
-    basic_block bb_exit;
     if(i == nloops - 1)
     {
       bb_exit = single_pred_edge(EXIT_BLOCK_PTR)->src;
@@ -1904,42 +1854,180 @@ extract_kernels(struct loops* loops, tree child_fn,
     }
 
   }
+}
+
+static void
+release_moved_vars(vec<basic_block>* bbs)
+{
+  unsigned i, j;
+
+  for(i = 1; i < num_ssa_names; ++i)
+  {
+    tree var = ssa_name(i);
+    if(var)
+    {
+      basic_block def_block = gimple_bb(SSA_NAME_DEF_STMT(var));
+
+      for(j = 0; j < bbs->length(); ++j)
+      {
+        if((*bbs)[j] == def_block)
+        {
+          if(dump_file)
+          {
+            fprintf(dump_file, "Release ssa name %d ", i);
+            print_generic_expr(dump_file, var, 0);
+            fprintf(dump_file, " defined in block %d", def_block->index);
+            fprintf(dump_file, "\n");
+          }
+          release_ssa_name(var);
+          break;
+        }
+      }
+    }
+  }
+}
+
+static void
+map_params_in_new_fn(acc_kernel kernel)
+{
+  basic_block bb;
+  gimple_stmt_iterator gsi;
+
+  FOR_EACH_BB(bb)
+  {
+    for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+      {
+        struct walk_stmt_info wi;
+        gimple stmt = gsi_stmt(gsi);
+
+        memset(&wi, 0, sizeof(struct walk_stmt_info));
+        wi.info = (void*)kernel->params_map;
+        walk_gimple_op(stmt, map_params_cb, &wi);
+      }
+  }
+}
+
+static void
+extract_kernels(struct loops* loops, tree child_fn,
+                vec<acc_kernel>* kernels, gimple kernel_stmt)
+{
+  struct loop *ploop;
+  acc_kernel kernel;
+  unsigned nloops, i;
+  struct loop **vloops;
+  struct function* child_cfun;
+
+  if(gimple_code(kernel_stmt) == GIMPLE_ACC_PARALLEL 
+    || loops->tree_root->inner == NULL 
+    || loops->tree_root->inner->next == NULL)
+    {
+      kernel = new_acc_kernel(child_fn);
+
+      if(loops->tree_root->inner != NULL)
+        {
+          check_loop_parallelizable(loops->tree_root->inner, kernel);
+        }
+
+      kernels->safe_push(kernel);
+      mark_kernels_parallel (child_fn,
+        (kernel->niter_desc.niter != NULL_TREE) ? 1 : 0);
+      return;
+    }
 
   if(dump_file)
   {
-    for(i = 0; i < nloops; ++i)
+    basic_block *body;
+
+    body = get_loop_body(loops->tree_root);
+    fprintf(dump_file, "FAKE 0 LOOP: ");
+    for(i = 0; i < loops->tree_root->num_nodes; ++i)
     {
-      unsigned j;
-      vec<basic_block> bbs;
-      
-      bbs.create(0);
-      bbs.safe_push((*kernels)[i]->bb_entry);
-      gather_blocks_in_sese_region((*kernels)[i]->bb_entry, (*kernels)[i]->bb_exit, &bbs);
-      fprintf(dump_file, "LOOP #%d ", i);
-      for(j = 0; j < bbs.length(); ++j)
-        fprintf(dump_file, "%d ", bbs[j]->index);
-      fprintf(dump_file, "\n");
+      fprintf(dump_file, "%d%c", body[i]->index,
+        (i < loops->tree_root->num_nodes-1) ? ' ' : '\n');
     }
+    XDELETEVEC(body);
+    for(ploop = loops->tree_root->inner; ploop != NULL; ploop = ploop->next)
+    {
+      fprintf(dump_file, "LOOP %d: ", ploop->num);
+      body = get_loop_body(ploop);
+      for(i = 0; i < ploop->num_nodes; ++i)
+        fprintf(dump_file, "%d%c", body[i]->index,
+        (i < ploop->num_nodes-1) ? ' ' : '\n');
+      XDELETEVEC(body);
+    }
+
+    fflush(dump_file);
+  }
+
+  /* Loops connected to siblings in reverse order of 
+    appearance so we reorder them
+  */
+  for(nloops = 0, ploop = loops->tree_root->inner;
+      ploop != NULL;
+      ++nloops, ploop = ploop->next)
+      ;
+  
+  vloops = XALLOCAVEC(struct loop*, nloops);
+
+  for(i = nloops, ploop = loops->tree_root->inner;
+      i > 0;
+      --i, ploop = ploop->next)
+      vloops[i-1] = ploop;
+
+  create_fns_for_kernels(child_fn, kernels, kernel_stmt, nloops, vloops);
+
+  if(dump_file)
+  {
+    child_cfun = DECL_STRUCT_FUNCTION(child_fn);
+    push_cfun(child_cfun);
+    dump_fn_body(dump_file, "ORIGINAL CHILD FUNCTION");
+    fflush(dump_file);
+    pop_cfun();
+  }
+
+  create_padding_blocks(vloops, nloops, loops);
+
+  if(dump_file)
+  {
+    child_cfun = DECL_STRUCT_FUNCTION(child_fn);
+    push_cfun(child_cfun);
+    dump_fn_body(dump_file, "AFTER PADDING");
+    fflush(dump_file);
+    pop_cfun();
+  }
+
+  collect_sese_regions(vloops, nloops, kernels);
+
+  if(dump_file)
+  {
     dump_dominators(dump_file, ENTRY_BLOCK_PTR, 0);
   }
 
   for(i = 0; i < nloops; ++i)
   {
     tree fn = (*kernels)[i]->func;
-    basic_block bb;
 
     if(i > 0)
     {
-      int opt_level, k;
-      tree block, t;
+      int opt_level;
       gimple_stmt_iterator gsi;
+      basic_block bb;
       vec<basic_block> bbs;
       
-      bbs.create(0);
+      bbs.create(5);
       bbs.safe_push((*kernels)[i]->bb_entry);
-      gather_blocks_in_sese_region((*kernels)[i]->bb_entry, (*kernels)[i]->bb_exit, &bbs);
+      gather_blocks_in_sese_region((*kernels)[i]->bb_entry,
+                    (*kernels)[i]->bb_exit, &bbs);
 
-      block = DECL_INITIAL(fn);
+      if(dump_file)
+      {
+        unsigned j;
+        fprintf(dump_file, "LOOP #%d ", i);
+        for(j = 0; j < bbs.length(); ++j)
+          fprintf(dump_file, "%d ", bbs[j]->index);
+        fprintf(dump_file, "\n");
+      }
+
       child_cfun = DECL_STRUCT_FUNCTION (fn);
       init_tree_ssa (child_cfun);
 	    init_ssa_operands (child_cfun);
@@ -1952,31 +2040,7 @@ extract_kernels(struct loops* loops, tree child_fn,
         gsi_insert_before(&gsi, gimple_build_return(NULL_TREE), GSI_SAME_STMT);
       }
 
-      for(k = 1; k < num_ssa_names; ++k)
-      {
-        tree var = ssa_name(k);
-        if(var)
-        {
-          unsigned j;
-          basic_block def_block = gimple_bb(SSA_NAME_DEF_STMT(var));
-
-          for(j = 0; j < bbs.length(); ++j)
-          {
-            if(bbs[j] == def_block)
-            {
-              if(dump_file)
-              {
-                fprintf(dump_file, "Release ssa name %d ", k);
-                print_generic_expr(dump_file, var, 0);
-                fprintf(dump_file, " defined in block %d", def_block->index);
-                fprintf(dump_file, "\n");
-              }
-              release_ssa_name(var);
-              break;
-            }
-          }
-        }
-      }
+      release_moved_vars(&bbs);
 
       if(dump_file)
       {
@@ -1996,17 +2060,12 @@ extract_kernels(struct loops* loops, tree child_fn,
         fflush(dump_file);
       }
 
-      FOR_EACH_BB(bb)
-      {
-        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-            {
-              struct walk_stmt_info wi;
-              gimple stmt = gsi_stmt(gsi);
+      map_params_in_new_fn((*kernels)[i]);
 
-              memset(&wi, 0, sizeof(struct walk_stmt_info));
-              wi.info = (void*)(*kernels)[i]->params_map;
-              walk_gimple_op(stmt, map_params_cb, &wi);
-            }
+      if(dump_file)
+      {
+        fprintf(dump_file, "optimize %d, save_opt_level %d\n",
+          optimize, save_opt_level);
       }
 
       if(save_opt_level >= 0)
@@ -2015,16 +2074,7 @@ extract_kernels(struct loops* loops, tree child_fn,
         optimize = save_opt_level;
       }
       calculate_dominance_info (CDI_DOMINATORS);
-      FOR_EACH_BB(bb)
-      {
-        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-            {
-                gimple stmt = gsi_stmt(gsi);
-                gimple_set_modified (stmt, true);
-                update_stmt_operands(stmt);
-            }
-      }
-      update_ssa(TODO_update_ssa);
+      do_update_ssa();
       loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
       rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
       pop_cfun();
@@ -2551,22 +2601,8 @@ parallelize_loops(struct loop* root, unsigned collapse)
 static void
 switch_to_child_func(struct function *child_cfun)
 {
-  basic_block bb;
-
   push_cfun(child_cfun);
-
-  FOR_EACH_BB(bb)
-  {
-    gimple_stmt_iterator gsi;
-    for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-      {
-        gimple stmt = gsi_stmt(gsi);
-
-        gimple_set_modified (stmt, true);
-        update_stmt_operands(stmt);
-      }
-  }
-  update_ssa(TODO_update_ssa);
+  do_update_ssa();
   loop_optimizer_init (LOOPS_NORMAL | LOOPS_HAVE_RECORDED_EXITS);
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
   scev_initialize ();
@@ -2575,25 +2611,13 @@ switch_to_child_func(struct function *child_cfun)
 static void
 switch_func_back(int save_opt_level)
 {
-  basic_block bb;
-
   scev_finalize();
   if(save_opt_level >= 0)
     {
       optimize = save_opt_level;
     }
   cleanup_tree_cfg();
-  FOR_EACH_BB(bb)
-  {
-      gimple_stmt_iterator gsi;
-      for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
-          {
-              gimple stmt = gsi_stmt(gsi);
-              gimple_set_modified (stmt, true);
-              update_stmt_operands(stmt);
-          }
-  }
-  update_ssa(TODO_update_ssa);
+  do_update_ssa();
   pop_cfun();
 }
 
