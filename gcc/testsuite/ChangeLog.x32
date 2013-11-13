@@ -1,0 +1,4 @@
+2013-11-13  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gnat.dg/specs/addr1.ads: XFAIL on x32.
+	* gnat.dg/specs/atomic1.ads: Likewise.
