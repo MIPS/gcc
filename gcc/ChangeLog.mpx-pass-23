@@ -1,4 +1,4 @@
-2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* config/i386/i386.c (x86_64_reg_class): Add
 	X86_64_BOUNDED_INTEGER_CLASS and
@@ -24,8 +24,8 @@
 	(ix86_gimplify_va_arg): Adjust construct_container and
 	examine_argument calls.
 	(ix86_expand_call): Generate returned bounds.
-	(ix86_bnd_prefixed_insn_p): Use bnd prefix
-	whe compiling with Pointer Bounds Checker instrumentation.
+	(ix86_bnd_prefixed_insn_p): Check if we have instrumented call
+	or function.
 	* config/i386/i386.h (ix86_args): Add bnd_nregs, bnd_regno
 	and stdarg fields.
 	* config/i386/i386.md (UNSPEC_BNDRET): New.
