@@ -3665,7 +3665,8 @@ find_param_candidates (void)
       if (TREE_THIS_VOLATILE (parm)
 	  || TREE_ADDRESSABLE (parm)
 	  || (!is_gimple_reg_type (type) && is_va_list_type (type))
-	  || (flag_check_pointer_bounds && chkp_type_has_pointer (type)))
+	  || (chkp_function_instrumented_p (current_function_decl)
+	      && chkp_type_has_pointer (type)))
 	continue;
 
       if (is_unused_scalar_param (parm))

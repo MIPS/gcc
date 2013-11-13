@@ -34023,6 +34023,7 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
       ptr = temp;
     }
 
+  gcc_assert (POINTER_BOUNDS_MODE_P (GET_MODE (bounds)));
   bounds = force_reg (GET_MODE (bounds), bounds);
 
   emit_insn (TARGET_64BIT

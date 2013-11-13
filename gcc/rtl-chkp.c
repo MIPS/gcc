@@ -25,6 +25,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "pointer-set.h"
 #include "target.h"
+#include "gimple.h"
+#include "internal-fn.h"
 
 struct pointer_map_t *chkp_rtx_bounds_map;
 
@@ -311,4 +313,12 @@ chkp_expand_bounds_reset_for_mem (tree mem, tree ptr)
 
   expand_assignment (bnd, zero_bnd, false);
   expand_normal (bndstx);
+}
+
+/* Expand bounds bounded to call argument ARG and return the result.
+   Returned bounds are always forced to register.  */
+rtx
+chkp_expand_arg_bounds (tree arg)
+{
+  return force_reg (BNDmode, expand_normal (chkp_get_call_arg_bounds (arg)));
 }
