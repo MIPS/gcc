@@ -1550,7 +1550,8 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
   struct ipa_node_params *info = IPA_NODE_REF (cs->caller);
   struct ipa_edge_args *args = IPA_EDGE_REF (cs);
   gimple call = cs->call_stmt;
-  int n, arg_num = gimple_call_num_nobnd_args (call);
+  tree fndecl = gimple_call_fndecl (call);
+  int n, arg_num = gimple_call_num_args (call);
 
   if (arg_num == 0 || args->jump_functions)
     return;
@@ -1564,11 +1565,12 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
   for (n = 0; n < arg_num; n++)
     {
       struct ipa_jump_func *jfunc = ipa_get_ith_jump_func (args, n);
-      tree arg = gimple_call_nobnd_arg (call, n);
+      tree arg = gimple_call_arg (call, n);
       tree param_type = ipa_get_callee_param_type (cs, n);
 
       /* No optimization for bounded types yet implemented.  */
-      if (flag_check_pointer_bounds
+      if ((gimple_call_instrumented_p (call)
+	   || (fndecl && chkp_function_instrumented_p (fndecl)))
 	  && ((param_type && chkp_type_has_pointer (param_type))
 	      || (!param_type && chkp_type_has_pointer (TREE_TYPE (arg)))))
 	continue;
@@ -3534,7 +3536,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
   int i, len;
 
   len = adjustments.length ();
-  vargs.create (MAX ((unsigned) len, gimple_call_num_args (stmt)));
+  vargs.create (len);
   callee_decl = !cs ? gimple_call_fndecl (stmt) : cs->callee->symbol.decl;
   ipa_remove_stmt_references ((symtab_node) current_node, stmt);
 
@@ -3544,32 +3546,14 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
   for (i = 0; i < len; i++)
     {
       struct ipa_parm_adjustment *adj;
-      unsigned arg_no;
 
       adj = &adjustments[i];
 
-      arg_no = flag_check_pointer_bounds
-	? gimple_call_get_nobnd_arg_index (stmt, adj->base_index)
-	: adj->base_index;
-
       if (adj->copy_param)
 	{
-	  tree arg = gimple_call_arg (stmt, arg_no);
+	  tree arg = gimple_call_arg (stmt, adj->base_index);
 
 	  vargs.quick_push (arg);
-
-	  if (flag_check_pointer_bounds)
-	    {
-	      unsigned bnd = chkp_type_bounds_count (TREE_TYPE (arg));
-	      if (bnd
-		  && (arg_no + bnd) < gimple_call_num_args (stmt)
-		  && POINTER_BOUNDS_P (gimple_call_arg (stmt, arg_no + 1)))
-		for (; bnd; bnd--)
-		  {
-		    arg = gimple_call_arg (stmt, ++arg_no);
-		    vargs.quick_push (arg);
-		  }
-	    }
 	}
       else if (!adj->remove_param)
 	{
@@ -3598,7 +3582,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 	     aggregate.  */
 
 	  gcc_checking_assert (adj->offset % BITS_PER_UNIT == 0);
-	  base = gimple_call_arg (stmt, arg_no);
+	  base = gimple_call_arg (stmt, adj->base_index);
 	  loc = DECL_P (base) ? DECL_SOURCE_LOCATION (base)
 			      : EXPR_LOCATION (base);
 
@@ -3696,7 +3680,7 @@ ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
 	  tree ddecl = NULL_TREE, origin = DECL_ORIGIN (adj->base), arg;
 	  gimple def_temp;
 
-	  arg = gimple_call_arg (stmt, arg_no);
+	  arg = gimple_call_arg (stmt, adj->base_index);
 	  if (!useless_type_conversion_p (TREE_TYPE (origin), TREE_TYPE (arg)))
 	    {
 	      if (!fold_convertible_p (TREE_TYPE (origin), arg))
