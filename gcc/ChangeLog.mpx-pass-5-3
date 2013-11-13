@@ -1,0 +1,12 @@
+2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* gimple.c (gimple_call_get_nobnd_arg_index): Remove.
+	* gimple.h (gf_mask): Add GF_CALL_INSTRUMENTED.
+	(gimple_call_instrumented_p): New.
+	(gimple_call_set_instrumented): New.
+	(gimple_call_num_nobnd_args): Removed.
+	(gimple_call_nobnd_arg): Removed.
+	* internal-fn.def (CHKP_BIND_BOUNDS): New.
+	* internal-fn.c (expand_CHKP_BIND_BOUNDS): New.
+	* tree.h (CALL_INSTRUMENTED_P): New.
+	* rtl.h (CALL_EXPR_INSTRUMENTED_P): New.
