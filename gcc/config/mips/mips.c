@@ -9002,7 +9002,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
       break;
 
     case 'w':
-      if (code == REG)
+      if (code == REG && MSA_REG_P (REGNO (op)))
 	fprintf (file, "$w%s", &reg_names[REGNO (op)][2]);
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);

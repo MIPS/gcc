@@ -1678,6 +1678,10 @@ struct mips_cpu_info {
 #define MD_REG_NUM   (MD_REG_LAST - MD_REG_FIRST + 1)
 #define MD_DBX_FIRST (FP_DBX_FIRST + FP_REG_NUM)
 
+#define MSA_REG_FIRST 32
+#define MSA_REG_LAST  63
+#define MSA_REG_NUM   (MSA_REG_LAST - MSA_REG_FIRST + 1)
+
 /* The DWARF 2 CFA column which tracks the return address from a
    signal handler context.  This means that to maintain backwards
    compatibility, no hard register can be assigned this column if it
@@ -1714,10 +1718,6 @@ struct mips_cpu_info {
 #define DSP_ACC_REG_FIRST 176
 #define DSP_ACC_REG_LAST 181
 #define DSP_ACC_REG_NUM (DSP_ACC_REG_LAST - DSP_ACC_REG_FIRST + 1)
-
-#define MSA_REG_FIRST FP_REG_FIRST
-#define MSA_REG_LAST FP_REG_LAST
-#define MSA_REG_NUM (MSA_REG_LAST - MSA_REG_FIRST + 1)
 
 #define AT_REGNUM	(GP_REG_FIRST + 1)
 #define HI_REGNUM	(TARGET_BIG_ENDIAN ? MD_REG_FIRST : MD_REG_FIRST + 1)
@@ -1765,8 +1765,11 @@ struct mips_cpu_info {
 /* Test if REGNO is hi, lo, or one of the 6 new DSP accumulators.  */
 #define ACC_REG_P(REGNO) \
   (MD_REG_P (REGNO) || DSP_ACC_REG_P (REGNO))
+#define MSA_REG_P(REGNO)  \
+    ((unsigned int) ((int) (REGNO) - MSA_REG_FIRST) < MSA_REG_NUM)
 
 #define FP_REG_RTX_P(X) (REG_P (X) && FP_REG_P (REGNO (X)))
+#define MSA_REG_RTX_P(X) (REG_P (X) && MSA_REG_P (REGNO (X)))
 
 /* True if X is (const (unspec [(const_int 0)] UNSPEC_GP)).  This is used
    to initialize the mips16 gp pseudo register.  */
