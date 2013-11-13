@@ -1,3 +1,74 @@
+2013-11-13  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/constraints.md (wi constraint): New constraint for
+	holding DImode in FP/VSX registers.
+	(wy constraint): Clarify documentation.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add new wi
+	constraint for holding DImode in FP/VSX registers.  Clarify
+	documentation for ww, wy constraints.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+
+	* config/rs6000/vsx.md (VSr mode attribute): Use ww constraint
+	everywhere a SFmode can be used with a VSX instruction.  Use wi
+	constraint everywhere a DImode can be used in a FPR or VSX
+	register.  Do not use wa constraint for DFmode, SFmode, DImode,
+	only use ws/ww/wi as appropriate since lra can abort if a register
+	class is used that the mode cannot occupy.  Update comments.  Add
+	VSj2 mode attribute for the desired register class appropriate to
+	the integer side of float/int conversions.  Add VSj3 mode
+	attribute for any register class appropriate to the integer side
+	of float/int conversions.
+	(VSj2): Likewise.
+	(VSj3): Likewise.
+	(VSr4): Likewise.
+	(VSr5): Likewise.
+	(vsx_tdiv<mode>3_internal): Likewise.
+	(vsx_tsqrt<mode>2_internal): Likewise.
+	(vsx_float<VSi><mode>2): Likewise.
+	(vsx_floatuns<VSi><mode>2): Likewise.
+	(vsx_fix_trunc<mode><VSi>2): Likewise.
+	(vsx_fixuns_trunc<mode><VSi>2): Likewise.
+	(vsx_x<VSv>r<VSs>i): Likewise.
+	(vsx_b2trunc<mode>2): Likewise.
+	(vsx_floor<mode>2): Likewise.
+	(vsx_<VS_spdp_insn>): Likewise.
+	(vsx_xscvspdp): Likewise.
+	(vsx_xscvdpsp_scalar): Likewise.
+	(vsx_xscvspdp_scalar2): Likewise.
+	(vsx_xscvdpspn_scalar): Likewise.
+	(vsx_xscvspdpn_directmove): Likewise.
+	(vsx_xvcvspuxds): Likewise.
+	(vsx_concat_<mode>): Likewise.
+	(vsx_extract_<mode>): Likewise.
+	(vsx_extract_<mode>_zero): Likewise.
+	(vsx_extract_v4sf): Likewise.
+	(vsx_splat_<mode>): Likewise.
+	(vsx_reduc_<VEC_reduc_name>_v2df_scalar): Likewise.
+	(vsx_reduc_<VEC_reduc_name>_v4sf_scalar): Likewise.
+
+	* config/rs6000/rs6000.h (enum rs6000_reg_class_enum): Add
+	RS6000_CONSTRAINT_wi.
+
+	* config/rs6000/rs0600.md (rreg): Update comments.  Use ww
+	constraint for SFmode that uses VSX instructions, wu constraint
+	for SFmode load/stores to Altivec registers, wv for DFmode
+	load/stores to Altivec registers, wi constraint for DImode in
+	FP/VSX registers.  New mode attribute rreg3 to select on wu/wv
+	constraints.
+	(rreg2 mode attribute): Likewise.
+	(rreg3 mode attribute): Likewise.
+	(lfiwax): Likewise.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fctiwuz_<mode>): Restrict to FPR registers.
+
+	* lra-constraints.c (lra_constraints): Improve debugging by using
+	fatal_insn to dump the insn instead of calling internal_error.
+
+	* doc/md.texi (PowerPC and IBM RS6000): Document new wi
+	constraint.  Update wy constraint documentation.
+
 2013-11-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	PR target/59054

@@ -2028,6 +2028,7 @@ rs6000_debug_reg_global (void)
 	   "wd reg_class = %s\n"
 	   "wf reg_class = %s\n"
 	   "wg reg_class = %s\n"
+	   "wi reg_class = %s\n"
 	   "wl reg_class = %s\n"
 	   "wm reg_class = %s\n"
 	   "wr reg_class = %s\n"
@@ -2047,6 +2048,7 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wd]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wf]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wi]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wm]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
@@ -2584,6 +2586,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wd - Preferred register class for V2DFmode.
 	wf - Preferred register class for V4SFmode.
 	wg - Float register for power6x move insns.
+	wi - Float register for DImode (eventually VSX register).
 	wl - Float register if we can do 32-bit signed int loads.
 	wm - VSX register for ISA 2.07 direct move operations.
 	wr - GPR if 64-bit mode is permitted.
@@ -2591,16 +2594,19 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wu - Altivec register for ISA 2.07 VSX SF/SI load/stores.
 	wv - Altivec register for ISA 2.06 VSX DF/DI load/stores.
 	wt - VSX register for TImode in VSX registers.
-	ww - Register class to do SF conversions in with VSX operations.
+	ww - VSX register that can hold any SF value
 	wx - Float register if we can do 32-bit int stores.
-	wy - Register class to do ISA 2.07 SF operations.
+	wy - VSX vector register to hold scalar float values for ISA 2.07
 	wz - Float register if we can do 32-bit unsigned int loads.  */
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
-    rs6000_constraints[RS6000_CONSTRAINT_d] = FLOAT_REGS;
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_d]  = FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;
+    }
 
   if (TARGET_VSX)
     {
