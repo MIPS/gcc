@@ -314,12 +314,27 @@ enum rs6000_reg_type {
 /* Map register class to register type.  */
 static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 
+/* Return whether a given register class is one of register classes (VSX_REGS,
+   ALTIVEC_REGS, and FLOAT_REGS) that could go in VSX registers.  If no -mvsx,
+   the floating point and altivec registers don't get mapped to vsx
+   registers.  */
+
+/* Return whether a given register class is one of the register classes that
+   VSX instructions can use (VSX_REGS, ALTIVEC_REGS, and FLOAT_REGS).  */
+#define VSX_REG_CLASS_P(CLASS)			\
+  (reg_class_to_reg_type[(ssize_t)(CLASS)] == VSX_REG_TYPE)
+
+/* Return whether a given register class is one of the GPR register classes
+   (GENERAL_REGS, BASE_REGS).  */
+
+#define GPR_REG_CLASS_P(CLASS)			\
+  (reg_class_to_reg_type[(ssize_t)(CLASS)] == GPR_REG_TYPE)
+
 /* First/last register type for the 'normal' register types (i.e. general
    purpose, floating point, altivec, and VSX registers).  */
 #define IS_STD_REG_TYPE(RTYPE) IN_RANGE(RTYPE, GPR_REG_TYPE, FPR_REG_TYPE)
 
 #define IS_FP_VECT_REG_TYPE(RTYPE) IN_RANGE(RTYPE, VSX_REG_TYPE, FPR_REG_TYPE)
-
 
 /* Register classes we care about in secondary reload or go if legitimate
    address.  We only need to worry about GPR, FPR, and Altivec registers here,
@@ -363,6 +378,7 @@ typedef unsigned char addr_mask_type;
 #define RELOAD_REG_OFFSET	0x08	/* Reg+offset addressing. */
 #define RELOAD_REG_PRE_INCDEC	0x10	/* PRE_INC/PRE_DEC valid.  */
 #define RELOAD_REG_PRE_MODIFY	0x20	/* PRE_MODIFY valid.  */
+#define RELOAD_REG_AND_M16	0x40	/* AND -16 addressing.  */
 
 /* Register type masks based on the type, of valid addressing modes.  */
 struct rs6000_reg_addr {
@@ -372,6 +388,8 @@ struct rs6000_reg_addr {
   enum insn_code reload_gpr_vsx;	/* INSN to move from GPR to VSX.  */
   enum insn_code reload_vsx_gpr;	/* INSN to move from VSX to GPR.  */
   addr_mask_type addr_mask[(int)N_RELOAD_REG]; /* Valid address masks.  */
+  bool scalar_in_vmx_p;			/* Scalar value can go in VMX.  */
+  bool new_reload_p;			/* tempoary hack.  */
 };
 
 static struct rs6000_reg_addr reg_addr[NUM_MACHINE_MODES];
@@ -1707,8 +1725,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
      asked for it.  */
   if (TARGET_VSX && VSX_REGNO_P (regno)
       && (VECTOR_MEM_VSX_P (mode)
-	  || (TARGET_VSX_SCALAR_FLOAT && mode == SFmode)
-	  || (TARGET_VSX_SCALAR_DOUBLE && (mode == DFmode || mode == DImode))
+	  || reg_addr[mode].scalar_in_vmx_p
 	  || (TARGET_VSX_TIMODE && mode == TImode)))
     {
       if (FP_REGNO_P (regno))
@@ -1716,10 +1733,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
 
       if (ALTIVEC_REGNO_P (regno))
 	{
-	  if (mode == SFmode && !TARGET_UPPER_REGS_SF)
-	    return 0;
-
-	  if ((mode == DFmode || mode == DImode) && !TARGET_UPPER_REGS_DF)
+	  if (GET_MODE_SIZE (mode) != 16 && !reg_addr[mode].scalar_in_vmx_p)
 	    return 0;
 
 	  return ALTIVEC_REGNO_P (last_regno);
@@ -1885,27 +1899,33 @@ rs6000_debug_print_mode (ssize_t m)
     {
       addr_mask_type mask = reg_addr[m].addr_mask[rc];
       fprintf (stderr,
-	       "  %s: %c%c%c%c%c%c",
+	       "  %s: %c%c%c%c%c%c%c",
 	       reload_reg_map[rc].name,
 	       (mask & RELOAD_REG_VALID)      != 0 ? 'v' : ' ',
 	       (mask & RELOAD_REG_MULTIPLE)   != 0 ? 'm' : ' ',
 	       (mask & RELOAD_REG_INDEXED)    != 0 ? 'i' : ' ',
 	       (mask & RELOAD_REG_OFFSET)     != 0 ? 'o' : ' ',
 	       (mask & RELOAD_REG_PRE_INCDEC) != 0 ? '+' : ' ',
-	       (mask & RELOAD_REG_PRE_MODIFY) != 0 ? '+' : ' ');
+	       (mask & RELOAD_REG_PRE_MODIFY) != 0 ? '+' : ' ',
+	       (mask & RELOAD_REG_AND_M16)    != 0 ? '&' : ' ');
     }
 
   if (rs6000_vector_unit[m] != VECTOR_NONE
       || rs6000_vector_mem[m] != VECTOR_NONE
-      || (reg_addr[m].reload_store != CODE_FOR_nothing)
-      || (reg_addr[m].reload_load != CODE_FOR_nothing))
+      || reg_addr[m].reload_store != CODE_FOR_nothing
+      || reg_addr[m].reload_load != CODE_FOR_nothing
+      || reg_addr[m].new_reload_p
+      || reg_addr[m].scalar_in_vmx_p)
     {
       fprintf (stderr,
-	       "  Vector-arith=%-10s Vector-mem=%-10s Reload=%c%c",
+	       "  Vector-arith=%-10s Vector-mem=%-10s Reload=%c%c,"
+	       " Upper=%c, New=%c",
 	       rs6000_debug_vector_unit (rs6000_vector_unit[m]),
 	       rs6000_debug_vector_unit (rs6000_vector_mem[m]),
 	       (reg_addr[m].reload_store != CODE_FOR_nothing) ? 's' : '*',
-	       (reg_addr[m].reload_load != CODE_FOR_nothing) ? 'l' : '*');
+	       (reg_addr[m].reload_load != CODE_FOR_nothing) ? 'l' : '*',
+	       (reg_addr[m].scalar_in_vmx_p) ? 'y' : 'n',
+	       (reg_addr[m].new_reload_p) ? 'y' : 'n');
     }
 
   fputs ("\n", stderr);
@@ -2020,6 +2040,7 @@ rs6000_debug_reg_global (void)
 	   "wd reg_class = %s\n"
 	   "wf reg_class = %s\n"
 	   "wg reg_class = %s\n"
+	   "wi reg_class = %s\n"
 	   "wl reg_class = %s\n"
 	   "wm reg_class = %s\n"
 	   "wr reg_class = %s\n"
@@ -2039,6 +2060,7 @@ rs6000_debug_reg_global (void)
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wd]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wf]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wg]],
+	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wi]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wl]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wm]],
 	   reg_class_names[rs6000_constraints[RS6000_CONSTRAINT_wr]],
@@ -2333,9 +2355,7 @@ rs6000_setup_reg_addr_masks (void)
 	      /* Figure out if we can do PRE_INC, PRE_DEC, or PRE_MODIFY
 		 addressing.  Restrict addressing on SPE for 64-bit types
 		 because of the SUBREG hackery used to address 64-bit floats in
-		 '32-bit' GPRs.  To simplify secondary reload, don't allow
-		 update forms on scalar floating point types that can go in the
-		 upper registers.  */
+		 '32-bit' GPRs.  */
 
 	      if (TARGET_UPDATE
 		  && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR)
@@ -2343,9 +2363,7 @@ rs6000_setup_reg_addr_masks (void)
 		  && !VECTOR_MODE_P (m)
 		  && !COMPLEX_MODE_P (m)
 		  && !indexed_only_p
-		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m) == 8)
-		  && !(m == DFmode && TARGET_UPPER_REGS_DF)
-		  && !(m == SFmode && TARGET_UPPER_REGS_SF))
+		  && !(TARGET_E500_DOUBLE && GET_MODE_SIZE (m) == 8))
 		{
 		  addr_mask |= RELOAD_REG_PRE_INCDEC;
 
@@ -2370,13 +2388,18 @@ rs6000_setup_reg_addr_masks (void)
 		      break;
 		    }
 		}
-	    }
 
-	  /* GPR and FPR registers can do REG+OFFSET addressing, except
-	     possibly for SDmode.  */
-	  if ((addr_mask != 0) && !indexed_only_p
-	      && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR))
-	    addr_mask |= RELOAD_REG_OFFSET;
+	      /* GPR and FPR registers can do REG+OFFSET addressing, except
+		 possibly for SDmode.  */
+	      if (!indexed_only_p
+		  && (rc == RELOAD_REG_GPR || rc == RELOAD_REG_FPR))
+		addr_mask |= RELOAD_REG_OFFSET;
+
+	      /* VMX registers can do (REG & -16) and ((REG+REG) & -16)
+		 addressing on 128-bit types.  */
+	      if (rc == RELOAD_REG_VMX && GET_MODE_SIZE (m) == 16)
+		addr_mask |= RELOAD_REG_AND_M16;
+	    }
 
 	  reg_addr[m].addr_mask[rc] = addr_mask;
 	  any_addr_mask |= addr_mask;
@@ -2543,8 +2566,10 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   if (TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
     {
       rs6000_vector_unit[DFmode] = VECTOR_VSX;
+#if 0
       rs6000_vector_mem[DFmode]
 	= (TARGET_UPPER_REGS_DF ? VECTOR_VSX : VECTOR_NONE);
+#endif
       rs6000_vector_align[DFmode] = align64;
     }
 
@@ -2574,6 +2599,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wd - Preferred register class for V2DFmode.
 	wf - Preferred register class for V4SFmode.
 	wg - Float register for power6x move insns.
+	wi - Float register for DImode (eventually VSX register).
 	wl - Float register if we can do 32-bit signed int loads.
 	wm - VSX register for ISA 2.07 direct move operations.
 	wr - GPR if 64-bit mode is permitted.
@@ -2581,16 +2607,19 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	wu - Altivec register for ISA 2.07 VSX SF/SI load/stores.
 	wv - Altivec register for ISA 2.06 VSX DF/DI load/stores.
 	wt - VSX register for TImode in VSX registers.
-	ww - Register class to do SF conversions in with VSX operations.
+	ww - VSX register that can hold any SF value
 	wx - Float register if we can do 32-bit int stores.
-	wy - Register class to do ISA 2.07 SF operations.
+	wy - VSX vector register to hold scalar float values for ISA 2.07
 	wz - Float register if we can do 32-bit unsigned int loads.  */
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS)
     rs6000_constraints[RS6000_CONSTRAINT_f] = FLOAT_REGS;
 
   if (TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
-    rs6000_constraints[RS6000_CONSTRAINT_d] = FLOAT_REGS;
+    {
+      rs6000_constraints[RS6000_CONSTRAINT_d]  = FLOAT_REGS;
+      rs6000_constraints[RS6000_CONSTRAINT_wi] = FLOAT_REGS;
+    }
 
   if (TARGET_VSX)
     {
@@ -2664,19 +2693,19 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_di_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_di_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_di_load;
-	  if (TARGET_VSX && TARGET_UPPER_REGS_DF)
+	  if (TARGET_UPPER_REGS_DF)
 	    {
-	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_di_store;
-	      reg_addr[DFmode].reload_load   = CODE_FOR_reload_df_di_load;
-	      reg_addr[DDmode].reload_store  = CODE_FOR_reload_dd_di_store;
-	      reg_addr[DDmode].reload_load   = CODE_FOR_reload_dd_di_load;
+	      reg_addr[DFmode].reload_store = CODE_FOR_reload_df_di_store;
+	      reg_addr[DFmode].reload_load  = CODE_FOR_reload_df_di_load;
+	      reg_addr[DFmode].new_reload_p = true;
+	      reg_addr[DFmode].scalar_in_vmx_p = true;
 	    }
-	  if (TARGET_P8_VECTOR)
+	  if (TARGET_UPPER_REGS_SF)
 	    {
-	      reg_addr[SFmode].reload_store  = CODE_FOR_reload_sf_di_store;
-	      reg_addr[SFmode].reload_load   = CODE_FOR_reload_sf_di_load;
-	      reg_addr[SDmode].reload_store  = CODE_FOR_reload_sd_di_store;
-	      reg_addr[SDmode].reload_load   = CODE_FOR_reload_sd_di_load;
+	      reg_addr[SFmode].reload_store = CODE_FOR_reload_sf_di_store;
+	      reg_addr[SFmode].reload_load  = CODE_FOR_reload_sf_di_load;
+	      reg_addr[SFmode].new_reload_p = true;
+	      reg_addr[SFmode].scalar_in_vmx_p = true;
 	    }
 	  if (TARGET_VSX_TIMODE)
 	    {
@@ -2727,24 +2756,24 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_si_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_si_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_si_load;
-	  if (TARGET_VSX && TARGET_UPPER_REGS_DF)
+	  if (TARGET_UPPER_REGS_DF)
 	    {
-	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_si_store;
-	      reg_addr[DFmode].reload_load   = CODE_FOR_reload_df_si_load;
-	      reg_addr[DDmode].reload_store  = CODE_FOR_reload_dd_si_store;
-	      reg_addr[DDmode].reload_load   = CODE_FOR_reload_dd_si_load;
+	      reg_addr[DFmode].reload_store = CODE_FOR_reload_df_si_store;
+	      reg_addr[DFmode].reload_load  = CODE_FOR_reload_df_si_load;
+	      reg_addr[DFmode].new_reload_p = true;
+	      reg_addr[DFmode].scalar_in_vmx_p = true;
 	    }
-	  if (TARGET_P8_VECTOR)
+	  if (TARGET_UPPER_REGS_SF)
 	    {
-	      reg_addr[SFmode].reload_store  = CODE_FOR_reload_sf_si_store;
-	      reg_addr[SFmode].reload_load   = CODE_FOR_reload_sf_si_load;
-	      reg_addr[SDmode].reload_store  = CODE_FOR_reload_sd_si_store;
-	      reg_addr[SDmode].reload_load   = CODE_FOR_reload_sd_si_load;
+	      reg_addr[SFmode].reload_store = CODE_FOR_reload_sf_si_store;
+	      reg_addr[SFmode].reload_load  = CODE_FOR_reload_sf_si_load;
+	      reg_addr[SFmode].new_reload_p = true;
+	      reg_addr[SFmode].scalar_in_vmx_p = true;
 	    }
 	  if (TARGET_VSX_TIMODE)
 	    {
-	      reg_addr[TImode].reload_store  = CODE_FOR_reload_ti_si_store;
-	      reg_addr[TImode].reload_load   = CODE_FOR_reload_ti_si_load;
+	      reg_addr[TImode].reload_store = CODE_FOR_reload_ti_si_store;
+	      reg_addr[TImode].reload_load  = CODE_FOR_reload_ti_si_load;
 	    }
 	}
     }
@@ -3318,6 +3347,20 @@ rs6000_option_override_internal (bool global_init_p)
       if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
 	error ("-mvsx-timode requires -mvsx");
       rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+    }
+
+  if (TARGET_UPPER_REGS_DF && !TARGET_VSX)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_DF)
+	error ("-mupper-regs-df requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_DF;
+    }
+
+  if (TARGET_UPPER_REGS_SF && !TARGET_P8_VECTOR)
+    {
+      if (rs6000_isa_flags_explicit & OPTION_MASK_UPPER_REGS_SF)
+	error ("-mupper-regs-sf requires -mpower8-vector");
+      rs6000_isa_flags &= ~OPTION_MASK_UPPER_REGS_SF;
     }
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
@@ -5935,6 +5978,50 @@ quad_load_store_p (rtx op0, rtx op1)
     }
 
   return ret;
+}
+
+/* Return true if we can convert the following in a peephole2 pass:
+	(set (reg1) (input))
+	(set (reg2) (reg1))
+   to:
+	(set (reg2) (input)
+
+   After inserting conditional returns we can sometimes have unnecessary
+   register moves.  Unfortunately we cannot have a modeless peephole here,
+   because some single SImode sets have early clobber outputs.  Although those
+   sets expand to multi-ppc-insn sequences, using get_attr_length here will
+   smash the operands array.  Neither is there an early_cobbler_p
+   predicate.  */
+
+bool
+merge_peephole2_move_p (rtx reg1, rtx inp, rtx reg2)
+{
+  enum machine_mode mode = GET_MODE (reg1);
+
+  /* Disallow subregs for E500 so we don't munge frob_di_df_2.  */
+  if (mode == DFmode && TARGET_E500_DOUBLE && GET_CODE (reg2) == SUBREG)
+    return false;
+
+  if (!peep2_reg_dead_p (2, reg1))
+    return false;
+
+  /* On VSX systems if operand 0 is a traditional floating point register and
+     operand 2 is an Altivec register, we must not do the peephole if operand1 is
+     a memory reference that has an address such as pre-modify or offsetable
+     address which the VSX/Altivec register set does not provide.  */
+  if (TARGET_VSX && MEM_P (inp))
+    {
+      rtx addr = XEXP (inp, 0);
+      int rnum = REGNO ((GET_CODE (reg2) == SUBREG) ? SUBREG_REG (reg2) : reg2);
+
+      if (IN_RANGE (rnum, FIRST_ALTIVEC_REGNO, LAST_ALTIVEC_REGNO)
+	  && !legitimate_indirect_address_p (addr, true)
+	  && !legitimate_indexed_address_p (addr, true)
+	  && GET_RTX_CLASS (GET_CODE (addr)) != RTX_AUTOINC)
+	return false;
+    }
+
+  return true;
 }
 
 /* Given an address, return a constant offset term if one exists.  */
@@ -15535,6 +15622,262 @@ register_to_reg_type (rtx reg, bool *is_altivec)
   return reg_class_to_reg_type[(int)rclass];
 }
 
+/* Helper function to return the cost of adding a TOC entry address.  */
+
+static inline int
+rs6000_secondary_reload_toc_costs (addr_mask_type addr_mask)
+{
+  int ret;
+
+  if (TARGET_CMODEL != CMODEL_SMALL)
+    ret = ((addr_mask & RELOAD_REG_OFFSET) == 0) ? 1 : 2;
+
+  else
+    ret = (TARGET_MINIMAL_TOC) ? 6 : 3;
+
+  return ret;
+}
+
+/* Helper function for rs6000_secondary_reload to determine whether the memory
+   address (ADDR) with a given register class (RCLASS) and machine mode (MODE)
+   needs reloading.  Return negative if the memory is not handled by the
+   secondary reloads, 0 if no addition instructions are need, and positive to
+   give the extra cost for the memory.  */
+
+static int
+rs6000_secondary_reload_memory (rtx addr,
+				enum reg_class rclass,
+				enum machine_mode mode)
+{
+  int extra_cost = 0;
+  rtx reg, and_arg, plus_arg;
+  addr_mask_type addr_mask;
+  const char *type = NULL;
+
+  if (GPR_REG_CLASS_P (rclass))
+    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_GPR];
+
+  else if (rclass == FLOAT_REGS)
+    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_FPR];
+
+  else if (rclass == VSX_REGS || rclass == ALTIVEC_REGS)
+    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
+
+  else
+    {
+      if (TARGET_DEBUG_ADDR)
+	{
+	  fprintf (stderr, "rs6000_secondary_reload_memory: bad rclass %s\n",
+		   reg_class_names[rclass]);
+	  debug_rtx (addr);
+	}
+
+      return -1;
+    }
+
+  switch (GET_CODE (addr))
+    {
+      /* Does the register class supports auto update forms for this mode?  We
+	 don't need a scratch register, since the powerpc only supports
+	 PRE_INC, PRE_DEC, and PRE_MODIFY.  */
+    case PRE_INC:
+    case PRE_DEC:
+      reg = XEXP (addr, 0);
+      if (!base_reg_operand (addr, GET_MODE (reg)))
+	{
+	  if (TARGET_DEBUG_ADDR)
+	    {
+	      fputs ("rs6000_secondary_reload_memory: not base reg\n", stderr);
+	      debug_rtx (addr);
+	    }
+
+	  return -1;
+	}
+
+      else if ((addr_mask & RELOAD_REG_PRE_INCDEC) == 0)
+	{
+	  extra_cost = 1;
+	  type = "update";
+	}
+      break;
+
+    case PRE_MODIFY:
+      reg = XEXP (addr, 0);
+      plus_arg = XEXP (addr, 1);
+      if (!base_reg_operand (reg, GET_MODE (reg))
+	  || GET_CODE (plus_arg) != PLUS
+	  || !rtx_equal_p (reg, XEXP (plus_arg, 0)))
+	{
+	  if (TARGET_DEBUG_ADDR)
+	    {
+	      fputs ("rs6000_secondary_reload_memory: bad pre_modify\n",
+		     stderr);
+	      debug_rtx (addr);
+	    }
+
+	  return -1;
+	}
+
+      else if ((addr_mask & RELOAD_REG_PRE_MODIFY) == 0)
+	{
+	  extra_cost = 1;
+	  type = "update";
+	}
+      break;
+
+      /* Do we need to simulate AND -16 to clear the bottom address bits used
+	 in VMX load/stores?  Only allow the AND for vector sizes.  */
+    case AND:
+      and_arg = XEXP (addr, 0);
+      if (GET_MODE_SIZE (mode) != 16
+	  || GET_CODE (XEXP (addr, 1)) != CONST_INT
+	  || INTVAL (XEXP (addr, 1)) != -16)
+	{
+	  if (TARGET_DEBUG_ADDR)
+	    {
+	      fputs ("rs6000_secondary_reload_memory: bad and\n", stderr);
+	      debug_rtx (addr);
+	    }
+
+	  return -1;
+	}
+
+      else if (rclass != ALTIVEC_REGS)
+	{
+	  if (legitimate_indirect_address_p (and_arg, false))
+	    extra_cost = 1;
+
+	  else if (legitimate_indexed_address_p (and_arg, false))
+	    extra_cost = 2;
+
+	  else
+	    {
+	      if (TARGET_DEBUG_ADDR)
+		{
+		  fputs ("rs6000_secondary_reload_memory: bad and\n", stderr);
+		  debug_rtx (addr);
+		}
+
+	      return -1;
+	    }
+
+	  type = "and";
+	}
+      break;
+
+      /* If this is an indirect address, make sure it is a base register.  */
+    case REG:
+    case SUBREG:
+      if (!legitimate_indirect_address_p (addr, false))
+	{
+	  extra_cost = 1;
+	  type = "move";
+	}
+      break;
+
+      /* If this is an indexed address, make sure the register class can handle
+	 indexed addresses for this mode.  */
+    case PLUS:
+      reg = XEXP (addr, 0);
+      plus_arg = XEXP (addr, 1);
+      if (!base_reg_operand (reg, GET_MODE (reg)))
+	{
+	  if (TARGET_DEBUG_ADDR)
+	    {
+	      fputs ("rs6000_secondary_reload_memory: not base reg\n", stderr);
+	      debug_rtx (addr);
+	    }
+
+	  return -1;
+	}
+
+      else if (int_reg_operand (plus_arg, GET_MODE (plus_arg)))
+	{
+	  if ((addr_mask & RELOAD_REG_INDEXED) == 0
+	      || !legitimate_indexed_address_p (addr, false))
+	    {
+	      extra_cost = 1;
+	      type = "indexed";
+	    }
+	}
+
+      /* Make sure the register class can handle offset addresses.  */
+      else if (rs6000_legitimate_offset_address_p (mode, addr, false, true))
+	{
+	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
+	    {
+	      extra_cost = 1;
+	      type = "offset";
+	    }
+	}
+
+      else
+	{
+	  if (TARGET_DEBUG_ADDR)
+	    {
+	      fputs ("rs6000_secondary_reload_memory: bad plus\n", stderr);
+	      debug_rtx (addr);
+	    }
+
+	  return -1;
+	}
+
+      break;
+
+    case LO_SUM:
+      if (!legitimate_lo_sum_address_p (mode, addr, false))
+	{
+	  if (TARGET_DEBUG_ADDR)
+	    {
+	      fputs ("rs6000_secondary_reload_memory: bad lo_sum\n", stderr);
+	      debug_rtx (addr);
+	    }
+
+	  return -1;
+	}
+
+      else if ((addr_mask & RELOAD_REG_OFFSET) == 0)
+	{
+	  extra_cost = 1;
+	  type = "lo_sum";
+	}
+      break;
+
+      /* Static addresses need to create a TOC entry.  */
+    case CONST:
+    case SYMBOL_REF:
+    case LABEL_REF:
+      type = "address";
+      extra_cost = rs6000_secondary_reload_toc_costs (addr_mask);
+      break;
+
+    default:
+      {
+	if (TARGET_DEBUG_ADDR)
+	  {
+	    fputs ("rs6000_secondary_reload_memory: bad op.\n", stderr);
+	    debug_rtx (addr);
+	  }
+
+	return -1;
+      }
+    }
+
+  if (TARGET_DEBUG_ADDR)
+    {
+      fprintf (stderr,
+	       "rs6000_secondary_reload_memory: mode = %s, class = %s,"
+	       " extra cost = %d, %s\n",
+	       GET_MODE_NAME (mode),
+	       reg_class_names[rclass],
+	       extra_cost,
+	       (type) ? type : "<none>");
+
+      debug_rtx (addr);
+    }
+
+  return extra_cost;
+}
 /* Helper function for rs6000_secondary_reload to return true if a move to a
    different register classe is really a simple move.  */
 
@@ -15741,8 +16084,10 @@ rs6000_secondary_reload (bool in_p,
   reg_class_t ret = ALL_REGS;
   enum insn_code icode;
   bool default_p = false;
+  bool done_p = false;
 
   sri->icode = CODE_FOR_nothing;
+  sri->extra_cost = 0;
   icode = ((in_p)
 	   ? reg_addr[mode].reload_load
 	   : reg_addr[mode].reload_store);
@@ -15766,12 +16111,32 @@ rs6000_secondary_reload (bool in_p,
 	{
 	  icode = (enum insn_code)sri->icode;
 	  default_p = false;
+	  done_p = true;
 	  ret = NO_REGS;
 	}
     }
 
+  /* Handle reload of load/stores if we have reload helper functions.  */
+  if (!done_p && reg_addr[mode].new_reload_p && icode != CODE_FOR_nothing
+      && MEM_P (x))
+    {
+      int extra_cost = rs6000_secondary_reload_memory (XEXP (x, 0), rclass,
+						       mode);
+
+      if (extra_cost >= 0)
+	{
+	  done_p = true;
+	  ret = NO_REGS;
+	  if (extra_cost > 0)
+	    {
+	      sri->extra_cost = extra_cost;
+	      sri->icode = icode;
+	    }
+	}
+    }
+
   /* Handle vector moves with reload helper functions.  */
-  if (ret == ALL_REGS && icode != CODE_FOR_nothing)
+  if (!done_p && icode != CODE_FOR_nothing)
     {
       ret = NO_REGS;
       sri->icode = CODE_FOR_nothing;
@@ -15785,7 +16150,7 @@ rs6000_secondary_reload (bool in_p,
 	     an extra register in that case, but it would need an extra
 	     register if the addressing is reg+reg or (reg+reg)&(-16).  Special
 	     case load/store quad.  */
-	  if (rclass == GENERAL_REGS || rclass == BASE_REGS)
+	  if (GPR_REG_CLASS_P (rclass))
 	    {
 	      if (TARGET_POWERPC64 && TARGET_QUAD_MEMORY
 		  && GET_MODE_SIZE (mode) == 16
@@ -16025,6 +16390,220 @@ rs6000_secondary_reload_fail (int line, rtx reg, rtx mem, rtx scratch,
   gcc_unreachable ();
 }
 
+/* Fixup reload addresses for values in GPR, FPR, and VMX registers that have
+   reload helper functions.  These were identified in
+   rs6000_secondary_reload_memory, and if reload decided to use the secondary
+   reload, it calls the insns:
+	reload_<RELOAD:mode>_<P:mptrsize>_store
+	reload_<RELOAD:mode>_<P:mptrsize>_load
+
+   which in turn calls this function, to do whatever is necessary to create
+   valid addresses.
+
+   At present, this is only enabled for certain modes as we debug things, but
+   eventually it should replace rs6000_secondary_reload_inner.  */
+
+void
+rs6000_secondary_reload_new (rtx reg, rtx mem, rtx scratch, bool store_p)
+{
+  int regno = true_regnum (reg);
+  enum machine_mode mode = GET_MODE (reg);
+  addr_mask_type addr_mask;
+  rtx addr;
+  rtx new_addr;
+  rtx op_reg, op0, op1;
+  rtx and_op;
+  rtx cc_clobber;
+  rtx insn;
+  rtvec rv;
+
+  if (regno < 0 || regno >= FIRST_PSEUDO_REGISTER || !MEM_P (mem)
+      || !base_reg_operand (scratch, GET_MODE (scratch)))
+    gcc_unreachable ();
+
+  if (IN_RANGE (regno, FIRST_GPR_REGNO, LAST_GPR_REGNO))
+    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_GPR];
+
+  else if (IN_RANGE (regno, FIRST_FPR_REGNO, LAST_FPR_REGNO))
+    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_FPR];
+
+  else if (IN_RANGE (regno, FIRST_ALTIVEC_REGNO, LAST_ALTIVEC_REGNO))
+    addr_mask = reg_addr[mode].addr_mask[RELOAD_REG_VMX];
+
+  else
+    gcc_unreachable ();
+
+  // Make sure the mode is valid in this registers.
+  if ((addr_mask & RELOAD_REG_VALID) == 0)
+    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+  if (TARGET_DEBUG_ADDR)
+    rs6000_secondary_reload_trace (__LINE__, reg, mem, scratch, store_p);
+
+  new_addr = addr = XEXP (mem, 0);
+  switch (GET_CODE (addr))
+    {
+      /* Does the register class support auto update forms for this mode?  If
+	 not, do the update now.  We don't need a scratch register, since the
+	 powerpc only supports PRE_INC, PRE_DEC, and PRE_MODIFY.  */
+    case PRE_INC:
+    case PRE_DEC:
+      op_reg = XEXP (addr, 0);
+      if (!base_reg_operand (op_reg, Pmode))
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+      if ((addr_mask & RELOAD_REG_PRE_INCDEC) == 0)
+	{
+	  emit_insn (gen_add2_insn (op_reg, GEN_INT (GET_MODE_SIZE (mode))));
+	  new_addr = op_reg;
+	}
+      break;
+
+    case PRE_MODIFY:
+      op0 = XEXP (addr, 0);
+      op1 = XEXP (addr, 1);
+      if (!base_reg_operand (op0, Pmode)
+	  || GET_CODE (op1) != PLUS
+	  || !rtx_equal_p (op0, XEXP (op1, 0)))
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+      if ((addr_mask & RELOAD_REG_PRE_MODIFY) == 0)
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, op0, op1));
+	  new_addr = reg;
+	}
+      break;
+
+      /* Do we need to simulate AND -16 to clear the bottom address bits used
+	 in VMX load/stores?  */
+    case AND:
+      op0 = XEXP (addr, 0);
+      op1 = XEXP (addr, 1);
+      if ((addr_mask & RELOAD_REG_AND_M16) == 0)
+	{
+	  if (REG_P (op0) || GET_CODE (op0) == SUBREG)
+	    op_reg = op0;
+
+	  else if (GET_CODE (op1) == PLUS)
+	    {
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch, op1));
+	      op_reg = scratch;
+	    }
+
+	  else
+	    rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+	  and_op = gen_rtx_AND (GET_MODE (scratch), op_reg, op1);
+	  cc_clobber = gen_rtx_CLOBBER (VOIDmode, gen_rtx_SCRATCH (CCmode));
+	  rv = gen_rtvec (2, gen_rtx_SET (VOIDmode, scratch, and_op), cc_clobber);
+	  emit_insn (gen_rtx_PARALLEL (VOIDmode, rv));
+	  new_addr = scratch;
+	}
+      break;
+
+      /* If this is an indirect address, make sure it is a base register.  */
+    case REG:
+    case SUBREG:
+      if (!base_reg_operand (addr, GET_MODE (addr)))
+	{
+	  emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	  new_addr = scratch;
+	}
+      break;
+
+      /* If this is an indexed address, make sure the register class can handle
+	 indexed addresses for this mode.  */
+    case PLUS:
+      op0 = XEXP (addr, 0);
+      op1 = XEXP (addr, 1);
+      if (!base_reg_operand (op0, Pmode))
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+      else if (int_reg_operand (op1, Pmode))
+	{
+	  if ((addr_mask & RELOAD_REG_INDEXED) == 0)
+	    {
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      new_addr = scratch;
+	    }
+	}
+
+      /* Make sure the register class can handle offset addresses.  */
+      else if (rs6000_legitimate_offset_address_p (mode, addr, false, true))
+	{
+	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
+	    {
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      new_addr = scratch;
+	    }
+	}
+
+      else
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+      break;
+
+    case LO_SUM:
+      op0 = XEXP (addr, 0);
+      op1 = XEXP (addr, 1);
+      if (!base_reg_operand (op0, Pmode))
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+      else if (int_reg_operand (op1, Pmode))
+	{
+	  if ((addr_mask & RELOAD_REG_INDEXED) == 0)
+	    {
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      new_addr = scratch;
+	    }
+	}
+
+      /* Make sure the register class can handle offset addresses.  */
+      else if (legitimate_lo_sum_address_p (mode, addr, false))
+	{
+	  if ((addr_mask & RELOAD_REG_OFFSET) == 0)
+	    {
+	      emit_insn (gen_rtx_SET (VOIDmode, scratch, addr));
+	      new_addr = scratch;
+	    }
+	}
+
+      else
+	rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+
+      break;
+
+    case SYMBOL_REF:
+    case CONST:
+    case LABEL_REF:
+      insn = ((TARGET_POWERPC64)
+	      ? gen_toc_nosplitdi (scratch, addr)
+	      : gen_toc_nosplitsi (scratch, addr));
+      emit_insn (insn);
+      new_addr = scratch;
+      break;
+
+    default:
+      rs6000_secondary_reload_fail (__LINE__, reg, mem, scratch, store_p);
+    }
+
+  /* Adjust the address if it changed.  */
+  if (addr != new_addr)
+    {
+      mem = replace_equiv_address_nv (mem, new_addr);
+      if (TARGET_DEBUG_ADDR)
+	fprintf (stderr, "\nrs6000_secondary_reload_inner, mem adjusted.\n");
+    }
+
+  /* Now create the move.  */
+  if (store_p)
+    emit_insn (gen_rtx_SET (VOIDmode, mem, reg));
+  else
+    emit_insn (gen_rtx_SET (VOIDmode, reg, mem));
+
+  return;
+}
+
 /* Fixup reload addresses for Altivec or VSX loads/stores to change SP+offset
    to SP+reg addressing.  */
 
@@ -16041,6 +16620,13 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
   rtx scratch_or_premodify = scratch;
   rtx and_rtx;
   rtx cc_clobber;
+
+  /* Use new interface while debugging.  */
+  if (reg_addr[mode].new_reload_p)
+    {
+      rs6000_secondary_reload_new (reg, mem, scratch, store_p);
+      return;
+    }
 
   if (TARGET_DEBUG_ADDR)
     rs6000_secondary_reload_trace (__LINE__, reg, mem, scratch, store_p);
@@ -16324,7 +16910,7 @@ rs6000_secondary_reload_gpr (rtx reg, rtx mem, rtx scratch, bool store_p)
   gcc_assert (regno >= 0 && regno < FIRST_PSEUDO_REGISTER);
   gcc_assert (GET_CODE (mem) == MEM);
   rclass = REGNO_REG_CLASS (regno);
-  gcc_assert (rclass == GENERAL_REGS || rclass == BASE_REGS);
+  gcc_assert (GPR_REG_CLASS_P (rclass));
   addr = XEXP (mem, 0);
 
   if (GET_CODE (addr) == PRE_MODIFY)
@@ -16429,16 +17015,19 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
 {
   enum machine_mode mode = GET_MODE (x);
 
-  if (TARGET_VSX && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
-    return rclass;
+  if (CONSTANT_P (x))
+    {
+      if (TARGET_VSX && x == CONST0_RTX (mode) && VSX_REG_CLASS_P (rclass))
+	return rclass;
 
-  if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode)
-      && (rclass == ALTIVEC_REGS || rclass == VSX_REGS)
-      && easy_vector_constant (x, mode))
-    return ALTIVEC_REGS;
+      if (VECTOR_UNIT_ALTIVEC_OR_VSX_P (mode)
+	  && (rclass == ALTIVEC_REGS || rclass == VSX_REGS)
+	  && easy_vector_constant (x, mode))
+	return ALTIVEC_REGS;
 
-  if (CONSTANT_P (x) && reg_classes_intersect_p (rclass, FLOAT_REGS))
-    return NO_REGS;
+      if (reg_classes_intersect_p (rclass, FLOAT_REGS))
+	return NO_REGS;
+    }
 
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
     return GENERAL_REGS;
@@ -16449,8 +17038,13 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
      prefer Altivec loads..  */
   if (rclass == VSX_REGS)
     {
-      if (GET_MODE_SIZE (mode) <= 8)
-	return FLOAT_REGS;
+      if (MEM_P (x) && reg_addr[mode].scalar_in_vmx_p)
+	{
+	  rtx addr = XEXP (x, 0);
+	  if (rs6000_legitimate_offset_address_p (mode, addr, false, true)
+	      || legitimate_lo_sum_address_p (mode, addr, false))
+	    return FLOAT_REGS;
+	}
 
       if (VECTOR_UNIT_ALTIVEC_P (mode) || VECTOR_MEM_ALTIVEC_P (mode))
 	return ALTIVEC_REGS;
@@ -16579,8 +17173,7 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
 
   /* We can place anything into GENERAL_REGS and can put GENERAL_REGS
      into anything.  */
-  if (rclass == GENERAL_REGS || rclass == BASE_REGS
-      || (regno >= 0 && INT_REGNO_P (regno)))
+  if (GPR_REG_CLASS_P (rclass) || (regno >= 0 && INT_REGNO_P (regno)))
     return NO_REGS;
 
   /* Constants, memory, and FP registers can go into FP registers.  */
@@ -16591,15 +17184,9 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
   /* Memory, and FP/altivec registers can go into fp/altivec registers under
      VSX.  However, for scalar variables, use the traditional floating point
      registers so that we can use offset+register addressing.  */
-  if (TARGET_VSX
-      && (regno == -1 || VSX_REGNO_P (regno))
+  if (TARGET_VSX && (regno == -1 || VSX_REGNO_P (regno))
       && VSX_REG_CLASS_P (rclass))
-    {
-      if (GET_MODE_SIZE (mode) < 16)
-	return FLOAT_REGS;
-
-      return NO_REGS;
-    }
+    return NO_REGS;
 
   /* Memory, and AltiVec registers can go into AltiVec registers.  */
   if ((regno == -1 || ALTIVEC_REGNO_P (regno))
@@ -17548,7 +18135,8 @@ print_operand (FILE *file, rtx x, int code)
     case 'x':
       /* X is a FPR or Altivec register used in a VSX context.  */
       if (GET_CODE (x) != REG || !VSX_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%x value");
+	/* output_operand_lossage ("invalid %%x value"); */
+	fatal_insn ("invalid %%x value", x);
       else
 	{
 	  int reg = REGNO (x);

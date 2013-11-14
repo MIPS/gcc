@@ -1,5 +1,9 @@
 2013-11-14  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.md (mov<mode>_hardfloat32): Undo the change
+	preventing constants from being loaded into GPR registers.
+	(mov<mode>_hardfloat64): Likewise.
+
 	Recreate branch, based on subversion id 204814.
 	* REVISION: Update subversion id.
 
