@@ -1532,11 +1532,27 @@ chkp_get_call_arg_bounds (tree arg)
   gcc_assert (TREE_CODE (arg) == SSA_NAME);
 
   bind = SSA_NAME_DEF_STMT (arg);
-  gcc_assert (gimple_code (bind) == GIMPLE_CALL
-	      && gimple_call_internal_p (bind)
-	      && gimple_call_internal_fn (bind) == IFN_CHKP_BIND_BOUNDS);
 
-  return gimple_call_arg (bind, 1);
+  while (bind && gimple_code (bind) != GIMPLE_CALL)
+    {
+      if (gimple_code (bind) == GIMPLE_ASSIGN
+	  && gimple_assign_rhs_code (bind) == SSA_NAME)
+	bind = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (bind));
+      else if (gimple_code (bind) == GIMPLE_PHI
+	       && gimple_phi_num_args (bind) == 1
+	       && TREE_CODE (gimple_phi_arg_def (bind, 0)) == SSA_NAME)
+	bind = SSA_NAME_DEF_STMT (gimple_phi_arg_def (bind, 0));
+      else
+	return NULL_TREE;
+    }
+
+  if (bind
+      && gimple_code (bind) == GIMPLE_CALL
+      && gimple_call_internal_p (bind)
+      && gimple_call_internal_fn (bind) == IFN_CHKP_BIND_BOUNDS)
+    return gimple_call_arg (bind, 1);
+
+  return NULL_TREE;
 }
 
 /* Return CHKP_BIND_BOUNDS call to bind argument ARG for call pointed
