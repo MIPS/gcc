@@ -876,7 +876,6 @@ gimple_fold_builtin (gimple stmt)
   tree result, val[3];
   tree callee, a;
   int arg_idx, type;
-  bitmap visited;
   bool ignore;
   int nargs;
   location_t loc = gimple_location (stmt);
@@ -953,15 +952,12 @@ gimple_fold_builtin (gimple stmt)
     return NULL_TREE;
 
   /* Try to use the dataflow information gathered by the CCP process.  */
-  visited = BITMAP_ALLOC (NULL);
-  bitmap_clear (visited);
+  bitmap_head visited;
 
   memset (val, 0, sizeof (val));
   a = gimple_call_arg (stmt, arg_idx);
-  if (!get_maxval_strlen (a, &val[arg_idx], visited, type))
+  if (!get_maxval_strlen (a, &val[arg_idx], &visited, type))
     val[arg_idx] = NULL_TREE;
-
-  BITMAP_FREE (visited);
 
   result = NULL_TREE;
   switch (DECL_FUNCTION_CODE (callee))

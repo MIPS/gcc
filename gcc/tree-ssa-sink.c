@@ -140,7 +140,7 @@ all_immediate_uses_same_place (gimple stmt)
 static basic_block
 nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 {
-  bitmap blocks = BITMAP_ALLOC (NULL);
+  bitmap_head blocks;
   basic_block commondom;
   unsigned int j;
   bitmap_iterator bi;
@@ -149,7 +149,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
   use_operand_p use_p;
   tree var;
 
-  bitmap_clear (blocks);
+  bitmap_clear (&blocks);
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, op_iter, SSA_OP_ALL_DEFS)
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
@@ -175,18 +175,14 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 
 	  /* Short circuit. Nothing dominates the entry block.  */
 	  if (useblock == ENTRY_BLOCK_PTR_FOR_FN (cfun))
-	    {
-	      BITMAP_FREE (blocks);
-	      return NULL;
-	    }
-	  bitmap_set_bit (blocks, useblock->index);
+	    return NULL;
+	  bitmap_set_bit (&blocks, useblock->index);
 	}
     }
-  commondom = BASIC_BLOCK_FOR_FN (cfun, bitmap_first_set_bit (blocks));
-  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, j, bi)
+  commondom = BASIC_BLOCK_FOR_FN (cfun, bitmap_first_set_bit (&blocks));
+  EXECUTE_IF_SET_IN_BITMAP (&blocks, 0, j, bi)
     commondom = nearest_common_dominator (CDI_DOMINATORS, commondom,
 					  BASIC_BLOCK_FOR_FN (cfun, j));
-  BITMAP_FREE (blocks);
   return commondom;
 }
 

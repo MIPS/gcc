@@ -3297,7 +3297,6 @@ maybe_lower_iteration_bound (struct loop *loop)
   struct nb_iter_bound *elt;
   bool found_exit = false;
   vec<basic_block> queue = vNULL;
-  bitmap visited;
 
   /* Collect all statements with interesting (i.e. lower than
      nb_iterations_upper_bound) bound on them. 
@@ -3325,8 +3324,8 @@ maybe_lower_iteration_bound (struct loop *loop)
      any of the statements known to have undefined effect on the last
      iteration.  */
   queue.safe_push (loop->header);
-  visited = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (visited, loop->header->index);
+  bitmap_head visited;
+  bitmap_set_bit (&visited, loop->header->index);
   found_exit = false;
 
   do
@@ -3367,7 +3366,7 @@ maybe_lower_iteration_bound (struct loop *loop)
 		  found_exit = true;
 		  break;
 		}
-	      if (bitmap_set_bit (visited, e->dest->index))
+	      if (bitmap_set_bit (&visited, e->dest->index))
 		queue.safe_push (e->dest);
 	    }
 	}
@@ -3386,7 +3385,6 @@ maybe_lower_iteration_bound (struct loop *loop)
       record_niter_bound (loop, loop->nb_iterations_upper_bound - double_int_one,
 			  false, true);
     }
-  BITMAP_FREE (visited);
   queue.release ();
   pointer_set_destroy (not_executed_last_iteration);
 }

@@ -992,7 +992,7 @@ canonicalize_induction_variables (void)
   struct loop *loop;
   bool changed = false;
   bool irred_invalidated = false;
-  bitmap loop_closed_ssa_invalidated = BITMAP_ALLOC (NULL);
+  bitmap_head loop_closed_ssa_invalidated;
 
   free_numbers_of_iterations_estimates ();
   estimate_numbers_of_iterations ();
@@ -1005,7 +1005,7 @@ canonicalize_induction_variables (void)
     }
   gcc_assert (!need_ssa_update_p (cfun));
 
-  unloop_loops (loop_closed_ssa_invalidated, &irred_invalidated);
+  unloop_loops (&loop_closed_ssa_invalidated, &irred_invalidated);
   if (irred_invalidated
       && loops_state_satisfies_p (LOOPS_HAVE_MARKED_IRREDUCIBLE_REGIONS))
     mark_irreducible_loops ();
@@ -1014,12 +1014,11 @@ canonicalize_induction_variables (void)
      evaluation could reveal new information.  */
   scev_reset ();
 
-  if (!bitmap_empty_p (loop_closed_ssa_invalidated))
+  if (!bitmap_empty_p (&loop_closed_ssa_invalidated))
     {
       gcc_checking_assert (loops_state_satisfies_p (LOOP_CLOSED_SSA));
       rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
     }
-  BITMAP_FREE (loop_closed_ssa_invalidated);
 
   if (changed)
     return TODO_cleanup_cfg;

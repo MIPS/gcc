@@ -506,8 +506,7 @@ df_set_blocks (bitmap blocks)
 	  /* This block is called to change the focus from one subset
 	     to another.  */
 	  int p;
-	  bitmap_head diff;
-	  bitmap_initialize (&diff, &df_bitmap_obstack);
+	  bitmap_head diff (&df_bitmap_obstack);
 	  bitmap_and_compl (&diff, df->blocks_to_analyze, blocks);
 	  for (p = 0; p < df->num_problems_defined; p++)
 	    {
@@ -531,14 +530,12 @@ df_set_blocks (bitmap blocks)
 		    }
 		}
 	    }
-
-	   bitmap_clear (&diff);
 	}
       else
 	{
 	  /* This block of code is executed to change the focus from
 	     the entire function to a subset.  */
-	  bitmap_head blocks_to_reset;
+	  bitmap_head blocks_to_reset (&df_bitmap_obstack);
 	  bool initialized = false;
 	  int p;
 	  for (p = 0; p < df->num_problems_defined; p++)
@@ -549,7 +546,6 @@ df_set_blocks (bitmap blocks)
 		  if (!initialized)
 		    {
 		      basic_block bb;
-		      bitmap_initialize (&blocks_to_reset, &df_bitmap_obstack);
 		      FOR_ALL_BB_FN (bb, cfun)
 			{
 			  bitmap_set_bit (&blocks_to_reset, bb->index);
@@ -558,8 +554,6 @@ df_set_blocks (bitmap blocks)
 		  dflow->problem->reset_fun (&blocks_to_reset);
 		}
 	    }
-	  if (initialized)
-	    bitmap_clear (&blocks_to_reset);
 
 	  df->blocks_to_analyze = BITMAP_ALLOC (&df_bitmap_obstack);
 	}
@@ -1687,9 +1681,8 @@ df_compact_blocks (void)
   int i, p;
   basic_block bb;
   void *problem_temps;
-  bitmap_head tmp;
+  bitmap_head tmp (&df_bitmap_obstack);
 
-  bitmap_initialize (&tmp, &df_bitmap_obstack);
   for (p = 0; p < df->num_problems_defined; p++)
     {
       struct dataflow *dflow = df->problems_in_order[p];
@@ -1760,8 +1753,6 @@ df_compact_blocks (void)
 	  i++;
 	}
     }
-
-  bitmap_clear (&tmp);
 
   i = NUM_FIXED_BLOCKS;
   FOR_EACH_BB_FN (bb, cfun)

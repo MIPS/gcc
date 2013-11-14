@@ -2418,7 +2418,6 @@ tree_predictive_commoning_loop (struct loop *loop)
   struct tree_niter_desc desc;
   bool unroll = false;
   edge exit;
-  bitmap tmp_vars;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Processing loop %d\n",  loop->num);
@@ -2460,7 +2459,7 @@ tree_predictive_commoning_loop (struct loop *loop)
   /* Find the suitable components and split them into chains.  */
   components = filter_suitable_components (loop, components);
 
-  tmp_vars = BITMAP_ALLOC (NULL);
+  bitmap_head tmp_vars;
   looparound_phis = BITMAP_ALLOC (NULL);
   determine_roots (loop, components, &chains);
   release_components (components);
@@ -2501,7 +2500,7 @@ tree_predictive_commoning_loop (struct loop *loop)
 	fprintf (dump_file, "Unrolling %u times.\n", unroll_factor);
 
       dta.chains = chains;
-      dta.tmp_vars = tmp_vars;
+      dta.tmp_vars = &tmp_vars;
 
       update_ssa (TODO_update_ssa_only_virtuals);
 
@@ -2515,20 +2514,19 @@ tree_predictive_commoning_loop (struct loop *loop)
 
       tree_transform_and_unroll_loop (loop, unroll_factor, exit, &desc,
 				      execute_pred_commoning_cbck, &dta);
-      eliminate_temp_copies (loop, tmp_vars);
+      eliminate_temp_copies (loop, &tmp_vars);
     }
   else
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file,
 		 "Executing predictive commoning without unrolling.\n");
-      execute_pred_commoning (loop, chains, tmp_vars);
+      execute_pred_commoning (loop, chains, &tmp_vars);
     }
 
 end: ;
   release_chains (chains);
   free_data_refs (datarefs);
-  BITMAP_FREE (tmp_vars);
   BITMAP_FREE (looparound_phis);
 
   free_affine_expand_cache (&name_expansions);

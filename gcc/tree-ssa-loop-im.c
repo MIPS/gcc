@@ -2278,20 +2278,19 @@ store_motion_loop (struct loop *loop, bitmap sm_executed)
 {
   vec<edge> exits = get_loop_exit_edges (loop);
   struct loop *subloop;
-  bitmap sm_in_loop = BITMAP_ALLOC (&lim_bitmap_obstack);
+  bitmap_head sm_in_loop (&lim_bitmap_obstack);
 
   if (loop_suitable_for_sm (loop, exits))
     {
-      find_refs_for_sm (loop, sm_executed, sm_in_loop);
-      hoist_memory_references (loop, sm_in_loop, exits);
+      find_refs_for_sm (loop, sm_executed, &sm_in_loop);
+      hoist_memory_references (loop, &sm_in_loop, exits);
     }
   exits.release ();
 
-  bitmap_ior_into (sm_executed, sm_in_loop);
+  bitmap_ior_into (sm_executed, &sm_in_loop);
   for (subloop = loop->inner; subloop != NULL; subloop = subloop->next)
     store_motion_loop (subloop, sm_executed);
-  bitmap_and_compl_into (sm_executed, sm_in_loop);
-  BITMAP_FREE (sm_in_loop);
+  bitmap_and_compl_into (sm_executed, &sm_in_loop);
 }
 
 /* Try to perform store motion for all memory references modified inside
@@ -2301,12 +2300,11 @@ static void
 store_motion (void)
 {
   struct loop *loop;
-  bitmap sm_executed = BITMAP_ALLOC (&lim_bitmap_obstack);
+  bitmap_head sm_executed (&lim_bitmap_obstack);
 
   for (loop = current_loops->tree_root->inner; loop != NULL; loop = loop->next)
-    store_motion_loop (loop, sm_executed);
+    store_motion_loop (loop, &sm_executed);
 
-  BITMAP_FREE (sm_executed);
   gsi_commit_edge_inserts ();
 }
 

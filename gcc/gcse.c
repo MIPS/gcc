@@ -3509,22 +3509,21 @@ calculate_bb_reg_pressure (void)
   unsigned int j;
   rtx insn;
   basic_block bb;
-  bitmap curr_regs_live;
   bitmap_iterator bi;
 
 
   ira_setup_eliminable_regset ();
-  curr_regs_live = BITMAP_ALLOC (&reg_obstack);
+  bitmap_head curr_regs_live (&reg_obstack);
   FOR_EACH_BB_FN (bb, cfun)
     {
       curr_bb = bb;
       BB_DATA (bb)->live_in = BITMAP_ALLOC (NULL);
       BB_DATA (bb)->backup = BITMAP_ALLOC (NULL);
       bitmap_copy (BB_DATA (bb)->live_in, df_get_live_in (bb));
-      bitmap_copy (curr_regs_live, df_get_live_out (bb));
+      bitmap_copy (&curr_regs_live, df_get_live_out (bb));
       for (i = 0; i < ira_pressure_classes_num; i++)
 	curr_reg_pressure[ira_pressure_classes[i]] = 0;
-      EXECUTE_IF_SET_IN_BITMAP (curr_regs_live, 0, j, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&curr_regs_live, 0, j, bi)
 	change_pressure (j, true);
 
       FOR_BB_INSNS_REVERSE (bb, insn)
@@ -3544,7 +3543,7 @@ calculate_bb_reg_pressure (void)
 	      if (!(DF_REF_FLAGS (*def_rec) 
 		    & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		{
-		  if (bitmap_clear_bit (curr_regs_live, regno))
+		  if (bitmap_clear_bit (&curr_regs_live, regno))
 		    change_pressure (regno, false);
 		}
 	    }
@@ -3554,12 +3553,11 @@ calculate_bb_reg_pressure (void)
 	      dreg = DF_REF_REAL_REG (*use_rec);
 	      gcc_assert (REG_P (dreg));
 	      regno = REGNO (dreg);
-	      if (bitmap_set_bit (curr_regs_live, regno))
+	      if (bitmap_set_bit (&curr_regs_live, regno))
 		change_pressure (regno, true);
 	    }
 	}
     }
-  BITMAP_FREE (curr_regs_live);
 
   if (dump_file == NULL)
     return;

@@ -317,18 +317,16 @@ add_exit_phis_var (tree var, bitmap use_blocks, bitmap *loop_exits)
   unsigned index;
   bitmap_iterator bi;
   basic_block def_bb = gimple_bb (SSA_NAME_DEF_STMT (var));
-  bitmap live_exits = BITMAP_ALLOC (&loop_renamer_obstack);
+  bitmap_head live_exits (&loop_renamer_obstack);
 
   gcc_checking_assert (! bitmap_bit_p (use_blocks, def_bb->index));
 
-  compute_live_loop_exits (live_exits, use_blocks, loop_exits, def_bb);
+  compute_live_loop_exits (&live_exits, use_blocks, loop_exits, def_bb);
 
-  EXECUTE_IF_SET_IN_BITMAP (live_exits, 0, index, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&live_exits, 0, index, bi)
     {
       add_exit_phi (BASIC_BLOCK_FOR_FN (cfun, index), var);
     }
-
-  BITMAP_FREE (live_exits);
 }
 
 /* Add exit phis for the names marked in NAMES_TO_RENAME.

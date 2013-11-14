@@ -1164,7 +1164,6 @@ static void
 determine_dominators_for_sons (struct graph *g, vec<basic_block> bbs,
 			       int y, int *son, int *brother)
 {
-  bitmap gprime;
   int i, a, nc;
   vec<int> *sccs;
   basic_block bb, dom, ybb;
@@ -1189,12 +1188,11 @@ determine_dominators_for_sons (struct graph *g, vec<basic_block> bbs,
       return;
     }
 
-  gprime = BITMAP_ALLOC (NULL);
+  bitmap_head gprime;
   for (a = son[y]; a != -1; a = brother[a])
-    bitmap_set_bit (gprime, a);
+    bitmap_set_bit (&gprime, a);
 
-  nc = graphds_scc (g, gprime);
-  BITMAP_FREE (gprime);
+  nc = graphds_scc (g, &gprime);
 
   /* ???  Needed to work around the pre-processor confusion with
      using a multi-argument template type as macro argument.  */

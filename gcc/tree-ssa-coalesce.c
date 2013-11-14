@@ -1256,12 +1256,12 @@ coalesce_ssa_name (void)
   tree_live_info_p liveinfo;
   ssa_conflicts_p graph;
   coalesce_list_p cl;
-  bitmap used_in_copies = BITMAP_ALLOC (NULL);
+  bitmap_head used_in_copies;
   var_map map;
   unsigned int i;
 
   cl = create_coalesce_list ();
-  map = create_outofssa_var_map (cl, used_in_copies);
+  map = create_outofssa_var_map (cl, &used_in_copies);
 
   /* If optimization is disabled, we need to coalesce all the names originating
      from the same SSA_NAME_VAR so debug info remains undisturbed.  */
@@ -1295,8 +1295,8 @@ coalesce_ssa_name (void)
 		      ? MUST_COALESCE_COST - 1 : MUST_COALESCE_COST;
 		  add_coalesce (cl, SSA_NAME_VERSION (a),
 				SSA_NAME_VERSION (*slot), cost);
-		  bitmap_set_bit (used_in_copies, SSA_NAME_VERSION (a));
-		  bitmap_set_bit (used_in_copies, SSA_NAME_VERSION (*slot));
+		  bitmap_set_bit (&used_in_copies, SSA_NAME_VERSION (a));
+		  bitmap_set_bit (&used_in_copies, SSA_NAME_VERSION (*slot));
 		}
 	    }
 	}
@@ -1306,8 +1306,7 @@ coalesce_ssa_name (void)
     dump_var_map (dump_file, map);
 
   /* Don't calculate live ranges for variables not in the coalesce list.  */
-  partition_view_bitmap (map, used_in_copies, true);
-  BITMAP_FREE (used_in_copies);
+  partition_view_bitmap (map, &used_in_copies, true);
 
   if (num_var_partitions (map) < 1)
     {

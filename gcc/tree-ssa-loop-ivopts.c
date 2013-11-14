@@ -5015,7 +5015,7 @@ determine_use_iv_costs (struct ivopts_data *data)
   unsigned i, j;
   struct iv_use *use;
   struct iv_cand *cand;
-  bitmap to_clear = BITMAP_ALLOC (NULL);
+  bitmap_head to_clear;
 
   alloc_use_cost_map (data);
 
@@ -5039,17 +5039,15 @@ determine_use_iv_costs (struct ivopts_data *data)
 	    {
 	      cand = iv_cand (data, j);
 	      if (!determine_use_iv_cost (data, use, cand))
-		bitmap_set_bit (to_clear, j);
+		bitmap_set_bit (&to_clear, j);
 	    }
 
 	  /* Remove the candidates for that the cost is infinite from
 	     the list of related candidates.  */
-	  bitmap_and_compl_into (use->related_cands, to_clear);
-	  bitmap_clear (to_clear);
+	  bitmap_and_compl_into (use->related_cands, &to_clear);
+	  bitmap_clear (&to_clear);
 	}
     }
-
-  BITMAP_FREE (to_clear);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
@@ -6546,7 +6544,7 @@ remove_unused_ivs (struct ivopts_data *data)
 {
   unsigned j;
   bitmap_iterator bi;
-  bitmap toremove = BITMAP_ALLOC (NULL);
+  bitmap_head toremove;
 
   /* Figure out an order in which to release SSA DEFs so that we don't
      release something that we'd have to propagate into a debug stmt
@@ -6562,7 +6560,7 @@ remove_unused_ivs (struct ivopts_data *data)
 	  && !info->iv->have_use_for
 	  && !info->preserve_biv)
 	{
-	  bitmap_set_bit (toremove, SSA_NAME_VERSION (info->iv->ssa_name));
+	  bitmap_set_bit (&toremove, SSA_NAME_VERSION (info->iv->ssa_name));
 	  
 	  tree def = info->iv->ssa_name;
 
@@ -6668,9 +6666,7 @@ remove_unused_ivs (struct ivopts_data *data)
 	}
     }
 
-  release_defs_bitset (toremove);
-
-  BITMAP_FREE (toremove);
+  release_defs_bitset (&toremove);
 }
 
 /* Frees memory occupied by struct tree_niter_desc in *VALUE. Callback

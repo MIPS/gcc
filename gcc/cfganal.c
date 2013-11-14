@@ -725,16 +725,13 @@ post_order_compute (int *post_order, bool include_entry_exit,
 basic_block
 dfs_find_deadend (basic_block bb)
 {
-  bitmap visited = BITMAP_ALLOC (NULL);
+  bitmap_head visited;
 
   for (;;)
     {
       if (EDGE_COUNT (bb->succs) == 0
-	  || ! bitmap_set_bit (visited, bb->index))
-        {
-          BITMAP_FREE (visited);
-          return bb;
-        }
+	  || ! bitmap_set_bit (&visited, bb->index))
+        return bb;
 
       bb = EDGE_SUCC (bb, 0)->dest;
     }

@@ -770,11 +770,9 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 {
   bitmap_iterator bi;
   unsigned i, b, p, u, top;
-  bitmap live_phis;
   basic_block def_bb, use_bb;
   edge e;
   edge_iterator ei;
-  bitmap to_remove;
   struct dom_dfsnum *defs;
   unsigned n_defs, adef;
 
@@ -786,14 +784,11 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 
   /* The phi must dominate a use, or an argument of a live phi.  Also, we
      do not create any phi nodes in def blocks, unless they are also livein.  */
-  to_remove = BITMAP_ALLOC (NULL);
-  bitmap_and_compl (to_remove, kills, uses);
-  bitmap_and_compl_into (phis, to_remove);
+  bitmap_head to_remove;
+  bitmap_and_compl (&to_remove, kills, uses);
+  bitmap_and_compl_into (phis, &to_remove);
   if (bitmap_empty_p (phis))
-    {
-      BITMAP_FREE (to_remove);
-      return;
-    }
+    return;
 
   /* We want to remove the unnecessary phi nodes, but we do not want to compute
      liveness information, as that may be linear in the size of CFG, and if
@@ -813,13 +808,13 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
      that contains entry and exit dfs numbers for the basic block with the use.
      If we store the bounds for all the uses to an array and sort it, we can
      locate the nearest dominating def in logarithmic time by binary search.*/
-  bitmap_ior (to_remove, kills, phis);
-  n_defs = bitmap_count_bits (to_remove);
+  bitmap_ior (&to_remove, kills, phis);
+  n_defs = bitmap_count_bits (&to_remove);
   defs = XNEWVEC (struct dom_dfsnum, 2 * n_defs + 1);
   defs[0].bb_index = 1;
   defs[0].dfs_num = 0;
   adef = 1;
-  EXECUTE_IF_SET_IN_BITMAP (to_remove, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&to_remove, 0, i, bi)
     {
       def_bb = BASIC_BLOCK_FOR_FN (cfun, i);
       defs[adef].bb_index = i;
@@ -828,7 +823,6 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
       defs[adef + 1].dfs_num = bb_dom_dfs_out (CDI_DOMINATORS, def_bb);
       adef += 2;
     }
-  BITMAP_FREE (to_remove);
   gcc_assert (adef == 2 * n_defs + 1);
   qsort (defs, adef, sizeof (struct dom_dfsnum), cmp_dfsnum);
   gcc_assert (defs[0].bb_index == 1);
@@ -876,7 +870,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
   gcc_assert (worklist.is_empty ());
 
   /* Now process the uses.  */
-  live_phis = BITMAP_ALLOC (NULL);
+  bitmap_head live_phis;
   EXECUTE_IF_SET_IN_BITMAP (uses, 0, i, bi)
     {
       worklist.safe_push (i);
@@ -904,7 +898,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	}
 
       /* If the phi node is already live, there is nothing to do.  */
-      if (!bitmap_set_bit (live_phis, p))
+      if (!bitmap_set_bit (&live_phis, p))
 	continue;
 
       /* Add the new uses to the worklist.  */
@@ -927,8 +921,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	}
     }
 
-  bitmap_copy (phis, live_phis);
-  BITMAP_FREE (live_phis);
+  bitmap_copy (phis, &live_phis);
   free (defs);
 }
 
@@ -2227,17 +2220,16 @@ private:
   /* Notice that this bitmap is indexed using variable UIDs, so it must be
      large enough to accommodate all the variables referenced in the
      function, not just the ones we are renaming.  */
-  bitmap m_kills;
+  bitmap_head m_kills;
 };
 
 mark_def_dom_walker::mark_def_dom_walker (cdi_direction direction)
-  : dom_walker (direction), m_kills (BITMAP_ALLOC (NULL))
+  : dom_walker (direction)
 {
 }
 
 mark_def_dom_walker::~mark_def_dom_walker ()
 {
-  BITMAP_FREE (m_kills);
 }
 
 /* Block processing routine for mark_def_sites.  Clear the KILLS bitmap
@@ -2248,9 +2240,9 @@ mark_def_dom_walker::before_dom_children (basic_block bb)
 {
   gimple_stmt_iterator gsi;
 
-  bitmap_clear (m_kills);
+  bitmap_clear (&m_kills);
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    mark_def_sites (bb, gsi_stmt (gsi), m_kills);
+    mark_def_sites (bb, gsi_stmt (gsi), &m_kills);
 }
 
 /* Initialize internal data needed during renaming.  */
@@ -2991,7 +2983,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 {
   basic_block entry;
   struct def_blocks_d *db;
-  bitmap idf, pruned_idf;
+  bitmap idf;
   bitmap_iterator bi;
   unsigned i;
 
@@ -3009,7 +3001,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 
   /* Compute the initial iterated dominance frontier.  */
   idf = compute_idf (db->def_blocks, dfs);
-  pruned_idf = BITMAP_ALLOC (NULL);
+  bitmap_head pruned_idf;
 
   if (TREE_CODE (var) == SSA_NAME)
     {
@@ -3025,13 +3017,13 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 	      if (BASIC_BLOCK_FOR_FN (cfun, i) != entry
 		  && dominated_by_p (CDI_DOMINATORS,
 				     BASIC_BLOCK_FOR_FN (cfun, i), entry))
-		bitmap_set_bit (pruned_idf, i);
+		bitmap_set_bit (&pruned_idf, i);
 	}
       else
 	{
 	  /* Otherwise, do not prune the IDF for VAR.  */
 	  gcc_checking_assert (update_flags == TODO_update_ssa_full_phi);
-	  bitmap_copy (pruned_idf, idf);
+	  bitmap_copy (&pruned_idf, idf);
 	}
     }
   else
@@ -3039,10 +3031,10 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
       /* Otherwise, VAR is a symbol that needs to be put into SSA form
 	 for the first time, so we need to compute the full IDF for
 	 it.  */
-      bitmap_copy (pruned_idf, idf);
+      bitmap_copy (&pruned_idf, idf);
     }
 
-  if (!bitmap_empty_p (pruned_idf))
+  if (!bitmap_empty_p (&pruned_idf))
     {
       /* Make sure that PRUNED_IDF blocks and all their feeding blocks
 	 are included in the region to be updated.  The feeding blocks
@@ -3051,8 +3043,8 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 
       /* FIXME, this is not needed if we are updating symbols.  We are
 	 already starting at the ENTRY block anyway.  */
-      bitmap_ior_into (blocks, pruned_idf);
-      EXECUTE_IF_SET_IN_BITMAP (pruned_idf, 0, i, bi)
+      bitmap_ior_into (blocks, &pruned_idf);
+      EXECUTE_IF_SET_IN_BITMAP (&pruned_idf, 0, i, bi)
 	{
 	  edge e;
 	  edge_iterator ei;
@@ -3063,10 +3055,9 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 	      bitmap_set_bit (blocks, e->src->index);
 	}
 
-      insert_phi_nodes_for (var, pruned_idf, true);
+      insert_phi_nodes_for (var, &pruned_idf, true);
     }
 
-  BITMAP_FREE (pruned_idf);
   BITMAP_FREE (idf);
 }
 

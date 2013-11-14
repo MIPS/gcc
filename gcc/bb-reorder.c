@@ -2391,7 +2391,6 @@ static unsigned int
 duplicate_computed_gotos (void)
 {
   basic_block bb, new_bb;
-  bitmap candidates;
   int max_size;
   bool changed = false;
 
@@ -2409,7 +2408,7 @@ duplicate_computed_gotos (void)
 
   max_size
     = uncond_jump_length * PARAM_VALUE (PARAM_MAX_GOTO_DUPLICATION_INSNS);
-  candidates = BITMAP_ALLOC (NULL);
+  bitmap_head candidates;
 
   /* Look for blocks that end in a computed jump, and see if such blocks
      are suitable for unfactoring.  If a block is a candidate for unfactoring,
@@ -2453,11 +2452,11 @@ duplicate_computed_gotos (void)
       if (all_flags & EDGE_COMPLEX)
 	continue;
 
-      bitmap_set_bit (candidates, bb->index);
+      bitmap_set_bit (&candidates, bb->index);
     }
 
   /* Nothing to do if there is no computed jump here.  */
-  if (bitmap_empty_p (candidates))
+  if (bitmap_empty_p (&candidates))
     goto done;
 
   /* Duplicate computed gotos.  */
@@ -2478,7 +2477,7 @@ duplicate_computed_gotos (void)
 	continue;
 
       /* The successor block has to be a duplication candidate.  */
-      if (!bitmap_bit_p (candidates, single_succ (bb)->index))
+      if (!bitmap_bit_p (&candidates, single_succ (bb)->index))
 	continue;
 
       /* Don't duplicate a partition crossing edge, which requires difficult
@@ -2501,7 +2500,6 @@ done:
     fixup_partitions ();
   cfg_layout_finalize ();
 
-  BITMAP_FREE (candidates);
   return 0;
 }
 

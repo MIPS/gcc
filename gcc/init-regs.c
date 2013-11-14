@@ -49,7 +49,7 @@ static void
 initialize_uninitialized_regs (void)
 {
   basic_block bb;
-  bitmap already_genned = BITMAP_ALLOC (NULL);
+  bitmap_head already_genned;
 
   if (optimize == 1)
     {
@@ -64,7 +64,7 @@ initialize_uninitialized_regs (void)
       rtx insn;
       bitmap lr = DF_LR_IN (bb);
       bitmap ur = DF_LIVE_IN (bb);
-      bitmap_clear (already_genned);
+      bitmap_clear (&already_genned);
 
       FOR_BB_INSNS (bb, insn)
 	{
@@ -86,7 +86,7 @@ initialize_uninitialized_regs (void)
 		 This is common for sequences of subreg operations.
 		 They would be deleted during combine but there is no
 		 reason to churn the system.  */
-	      if (bitmap_bit_p (already_genned, regno))
+	      if (bitmap_bit_p (&already_genned, regno))
 		continue;
 
 	      /* A use is MUST uninitialized if it reaches the top of
@@ -99,7 +99,7 @@ initialize_uninitialized_regs (void)
 		  rtx move_insn;
 		  rtx reg = DF_REF_REAL_REG (use);
 
-		  bitmap_set_bit (already_genned, regno);
+		  bitmap_set_bit (&already_genned, regno);
 
 		  start_sequence ();
 		  emit_move_insn (reg, CONST0_RTX (GET_MODE (reg)));
@@ -121,8 +121,6 @@ initialize_uninitialized_regs (void)
 	df_dump (dump_file);
       df_remove_problem (df_live);
     }
-
-  BITMAP_FREE (already_genned);
 }
 
 static bool

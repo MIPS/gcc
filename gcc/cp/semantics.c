@@ -5220,10 +5220,6 @@ finish_omp_clauses (tree clauses)
   bool copyprivate_seen = false;
 
   bitmap_obstack_initialize (NULL);
-  bitmap_initialize (&generic_head, &bitmap_default_obstack);
-  bitmap_initialize (&firstprivate_head, &bitmap_default_obstack);
-  bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
-  bitmap_initialize (&aligned_head, &bitmap_default_obstack);
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {

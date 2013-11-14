@@ -310,6 +310,8 @@ bitmap_clear (bitmap head)
 {
   if (head->first)
     bitmap_elt_clear_from (head, head->first);
+
+  head->first = NULL;
 }
 
 /* Initialize a bitmap obstack.  If BIT_OBSTACK is NULL, initialize

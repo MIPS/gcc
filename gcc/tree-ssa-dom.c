@@ -3029,9 +3029,6 @@ eliminate_degenerate_phis_1 (basic_block bb, bitmap interesting_names)
 static unsigned int
 eliminate_degenerate_phis (void)
 {
-  bitmap interesting_names;
-  bitmap interesting_names1;
-
   /* Bitmap of blocks which need EH information updated.  We can not
      update it on-the-fly as doing so invalidates the dominator tree.  */
   need_eh_cleanup = BITMAP_ALLOC (NULL);
@@ -3046,8 +3043,7 @@ eliminate_degenerate_phis (void)
 
      Experiments have show we generally get better compilation
      time behavior with bitmaps rather than sbitmaps.  */
-  interesting_names = BITMAP_ALLOC (NULL);
-  interesting_names1 = BITMAP_ALLOC (NULL);
+  bitmap_head interesting_names, interesting_names1;
 
   calculate_dominance_info (CDI_DOMINATORS);
   cfg_altered = false;
@@ -3061,13 +3057,13 @@ eliminate_degenerate_phis (void)
      in dominator order leaves fewer PHIs for later examination
      by the worklist phase.  */
   eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR_FOR_FN (cfun),
-			       interesting_names);
+			       &interesting_names);
 
   /* Second phase.  Eliminate second order degenerate PHIs as well
      as trivial copies or constant initializations identified by
      the first phase or this phase.  Basically we keep iterating
      until our set of INTERESTING_NAMEs is empty.   */
-  while (!bitmap_empty_p (interesting_names))
+  while (!bitmap_empty_p (&interesting_names))
     {
       unsigned int i;
       bitmap_iterator bi;
@@ -3075,9 +3071,9 @@ eliminate_degenerate_phis (void)
       /* EXECUTE_IF_SET_IN_BITMAP does not like its bitmap
 	 changed during the loop.  Copy it to another bitmap and
 	 use that.  */
-      bitmap_copy (interesting_names1, interesting_names);
+      bitmap_copy (&interesting_names1, &interesting_names);
 
-      EXECUTE_IF_SET_IN_BITMAP (interesting_names1, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&interesting_names1, 0, i, bi)
 	{
 	  tree name = ssa_name (i);
 
@@ -3085,7 +3081,7 @@ eliminate_degenerate_phis (void)
 	     their defining statement was deleted (unreachable).  */
 	  if (name)
 	    eliminate_const_or_copy (SSA_NAME_DEF_STMT (ssa_name (i)),
-				     interesting_names);
+				     &interesting_names);
 	}
     }
 
@@ -3105,8 +3101,6 @@ eliminate_degenerate_phis (void)
       BITMAP_FREE (need_eh_cleanup);
     }
 
-  BITMAP_FREE (interesting_names);
-  BITMAP_FREE (interesting_names1);
   return 0;
 }
 

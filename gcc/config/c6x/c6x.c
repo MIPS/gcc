@@ -3524,15 +3524,13 @@ reshuffle_units (basic_block loop)
   unit_req_table reqs;
   edge e;
   edge_iterator ei;
-  bitmap_head bbs;
 
   count_unit_reqs (reqs, head, PREV_INSN (tail));
   merge_unit_reqs (reqs);
 
   regrename_init (true);
 
-  bitmap_initialize (&bbs, &bitmap_default_obstack);
-
+  bitmap_head bbs;
   FOR_EACH_EDGE (e, ei, loop->preds)
     bitmap_set_bit (&bbs, e->src->index);
 

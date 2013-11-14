@@ -1363,15 +1363,14 @@ deps_ok_for_redirect_from_bb_to_bb (basic_block from, basic_block to)
   basic_block cd, dep_bb = BB_DEP_BB (to);
   edge_iterator ei;
   edge e;
-  bitmap from_preds = BITMAP_ALLOC (NULL);
+  bitmap_head from_preds;
 
   if (dep_bb == NULL)
     return true;
 
   FOR_EACH_EDGE (e, ei, from->preds)
-    bitmap_set_bit (from_preds, e->src->index);
-  cd = nearest_common_dominator_for_set (CDI_DOMINATORS, from_preds);
-  BITMAP_FREE (from_preds);
+    bitmap_set_bit (&from_preds, e->src->index);
+  cd = nearest_common_dominator_for_set (CDI_DOMINATORS, &from_preds);
 
   return dominated_by_p (CDI_DOMINATORS, dep_bb, cd);
 }

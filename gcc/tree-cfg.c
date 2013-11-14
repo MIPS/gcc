@@ -7637,7 +7637,6 @@ remove_edge_and_dominated_blocks (edge e)
 {
   vec<basic_block> bbs_to_remove = vNULL;
   vec<basic_block> bbs_to_fix_dom = vNULL;
-  bitmap df, df_idom;
   edge f;
   edge_iterator ei;
   bool none_removed = false;
@@ -7679,11 +7678,10 @@ remove_edge_and_dominated_blocks (edge e)
 	}
     }
 
-  df = BITMAP_ALLOC (NULL);
-  df_idom = BITMAP_ALLOC (NULL);
+  bitmap_head df, df_idom;
 
   if (none_removed)
-    bitmap_set_bit (df_idom,
+    bitmap_set_bit (&df_idom,
 		    get_immediate_dominator (CDI_DOMINATORS, e->dest)->index);
   else
     {
@@ -7693,16 +7691,16 @@ remove_edge_and_dominated_blocks (edge e)
 	  FOR_EACH_EDGE (f, ei, bb->succs)
 	    {
 	      if (f->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
-		bitmap_set_bit (df, f->dest->index);
+		bitmap_set_bit (&df, f->dest->index);
 	    }
 	}
       FOR_EACH_VEC_ELT (bbs_to_remove, i, bb)
-	bitmap_clear_bit (df, bb->index);
+	bitmap_clear_bit (&df, bb->index);
 
-      EXECUTE_IF_SET_IN_BITMAP (df, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&df, 0, i, bi)
 	{
 	  bb = BASIC_BLOCK_FOR_FN (cfun, i);
-	  bitmap_set_bit (df_idom,
+	  bitmap_set_bit (&df_idom,
 			  get_immediate_dominator (CDI_DOMINATORS, bb)->index);
 	}
     }
@@ -7711,7 +7709,7 @@ remove_edge_and_dominated_blocks (edge e)
     {
       /* Record the set of the altered basic blocks.  */
       bitmap_set_bit (cfgcleanup_altered_bbs, e->src->index);
-      bitmap_ior_into (cfgcleanup_altered_bbs, df);
+      bitmap_ior_into (cfgcleanup_altered_bbs, &df);
     }
 
   /* Remove E and the cancelled blocks.  */
@@ -7737,7 +7735,7 @@ remove_edge_and_dominated_blocks (edge e)
      removed, and let W = F->dest.  Before removal, idom(W) = Y (since Y
      dominates W, and because of P, Z does not dominate W), and W belongs to
      the dominance frontier of E.  Therefore, Y belongs to DF_IDOM.  */
-  EXECUTE_IF_SET_IN_BITMAP (df_idom, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&df_idom, 0, i, bi)
     {
       bb = BASIC_BLOCK_FOR_FN (cfun, i);
       for (dbb = first_dom_son (CDI_DOMINATORS, bb);
@@ -7748,8 +7746,6 @@ remove_edge_and_dominated_blocks (edge e)
 
   iterate_fix_dominators (CDI_DOMINATORS, bbs_to_fix_dom, true);
 
-  BITMAP_FREE (df);
-  BITMAP_FREE (df_idom);
   bbs_to_remove.release ();
   bbs_to_fix_dom.release ();
 }

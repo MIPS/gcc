@@ -994,12 +994,12 @@ if_convertible_bb_p (struct loop *loop, basic_block bb, basic_block exit_bb)
    VISITED bitmap keeps track of the visited blocks.  */
 
 static bool
-pred_blocks_visited_p (basic_block bb, bitmap *visited)
+pred_blocks_visited_p (basic_block bb, bitmap visited)
 {
   edge e;
   edge_iterator ei;
   FOR_EACH_EDGE (e, ei, bb->preds)
-    if (!bitmap_bit_p (*visited, e->src->index))
+    if (!bitmap_bit_p (visited, e->src->index))
       return false;
 
   return true;
@@ -1016,7 +1016,6 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
 {
   basic_block *blocks, *blocks_in_bfs_order;
   basic_block bb;
-  bitmap visited;
   unsigned int index = 0;
   unsigned int visited_count = 0;
 
@@ -1024,7 +1023,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
   gcc_assert (loop->latch != EXIT_BLOCK_PTR_FOR_FN (cfun));
 
   blocks = XCNEWVEC (basic_block, loop->num_nodes);
-  visited = BITMAP_ALLOC (NULL);
+  bitmap_head visited;
 
   blocks_in_bfs_order = get_loop_body_in_bfs_order (loop);
 
@@ -1036,18 +1035,17 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
       if (bb->flags & BB_IRREDUCIBLE_LOOP)
 	{
 	  free (blocks_in_bfs_order);
-	  BITMAP_FREE (visited);
 	  free (blocks);
 	  return NULL;
 	}
 
-      if (!bitmap_bit_p (visited, bb->index))
+      if (!bitmap_bit_p (&visited, bb->index))
 	{
 	  if (pred_blocks_visited_p (bb, &visited)
 	      || bb == loop->header)
 	    {
 	      /* This block is now visited.  */
-	      bitmap_set_bit (visited, bb->index);
+	      bitmap_set_bit (&visited, bb->index);
 	      blocks[visited_count++] = bb;
 	    }
 	}
@@ -1060,7 +1058,6 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
 	index = 0;
     }
   free (blocks_in_bfs_order);
-  BITMAP_FREE (visited);
   return blocks;
 }
 

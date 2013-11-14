@@ -122,7 +122,7 @@ static struct du_head *open_chains;
 
 /* Bitmap of open chains.  The bits set always match the list found in
    open_chains.  */
-static bitmap_head open_chains_set;
+static bitmap_head *open_chains_set;
 
 /* Record the registers being tracked in open_chains.  */
 static HARD_REG_SET live_in_chains;
@@ -235,7 +235,7 @@ create_new_chain (unsigned this_regno, unsigned this_nregs, rtx *loc,
   head->id = current_id++;
 
   bitmap_initialize (&head->conflicts, &bitmap_default_obstack);
-  bitmap_copy (&head->conflicts, &open_chains_set);
+  bitmap_copy (&head->conflicts, open_chains_set);
   mark_conflict (open_chains, head->id);
 
   /* Since we're tracking this as a chain now, remove it from the
@@ -249,7 +249,7 @@ create_new_chain (unsigned this_regno, unsigned this_nregs, rtx *loc,
     }
 
   COPY_HARD_REG_SET (head->hard_conflicts, live_hard_regs);
-  bitmap_set_bit (&open_chains_set, head->id);
+  bitmap_set_bit (open_chains_set, head->id);
 
   open_chains = head;
 
@@ -541,7 +541,7 @@ init_rename_info (struct bb_rename_info *p, basic_block bb)
   bitmap_initialize (&p->incoming_open_chains_set, &bitmap_default_obstack);
 
   open_chains = NULL;
-  bitmap_clear (&open_chains_set);
+  bitmap_clear (open_chains_set);
 
   CLEAR_HARD_REG_SET (live_in_chains);
   REG_SET_TO_HARD_REG_SET (live_hard_regs, df_get_live_in (bb));
@@ -687,7 +687,7 @@ regrename_analyze (bitmap bb_mask)
 
   current_id = 0;
   id_to_chain.create (0);
-  bitmap_initialize (&open_chains_set, &bitmap_default_obstack);
+  open_chains_set = new bitmap_head;
 
   /* The order in which we visit blocks ensures that whenever
      possible, we only process a block after at least one of its
@@ -736,7 +736,7 @@ regrename_analyze (bitmap bb_mask)
 
       if (dump_file)
 	dump_def_use_chain (old_length);
-      bitmap_copy (&this_info->open_chains_set, &open_chains_set);
+      bitmap_copy (&this_info->open_chains_set, open_chains_set);
 
       /* Add successor blocks to the worklist if necessary, and record
 	 data about our own open chains at the end of this block, which
@@ -1053,7 +1053,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl, enum scan_actions action,
       int subset = (this_regno >= head->regno
 		      && this_regno + this_nregs <= head->regno + head->nregs);
 
-      if (!bitmap_bit_p (&open_chains_set, head->id)
+      if (!bitmap_bit_p (open_chains_set, head->id)
 	  || head->regno + head->nregs <= this_regno
 	  || this_regno + this_nregs <= head->regno)
 	{
@@ -1131,7 +1131,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl, enum scan_actions action,
 
 	  if (subset && !superset)
 	    head->cannot_rename = 1;
-	  bitmap_clear_bit (&open_chains_set, head->id);
+	  bitmap_clear_bit (open_chains_set, head->id);
 
 	  nregs = head->nregs;
 	  while (nregs-- > 0)

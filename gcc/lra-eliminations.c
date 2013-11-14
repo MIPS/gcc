@@ -1075,7 +1075,6 @@ static void
 spill_pseudos (HARD_REG_SET set)
 {
   int i;
-  bitmap_head to_process;
   rtx insn;
 
   if (hard_reg_set_empty_p (set))
@@ -1088,7 +1087,7 @@ spill_pseudos (HARD_REG_SET set)
 	  fprintf (lra_dump_file, " %d", i);
       fprintf (lra_dump_file, "\n");
     }
-  bitmap_initialize (&to_process, &reg_obstack);
+  bitmap_head to_process (&reg_obstack);
   for (i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
     if (lra_reg_info[i].nrefs != 0 && reg_renumber[i] >= 0
 	&& overlaps_hard_reg_set_p (set,
@@ -1107,7 +1106,6 @@ spill_pseudos (HARD_REG_SET set)
 	lra_push_insn (insn);
 	lra_set_used_insn_alternative (insn, -1);
       }
-  bitmap_clear (&to_process);
 }
 
 /* Update all offsets and possibility for elimination on eliminable
@@ -1357,7 +1355,6 @@ void
 lra_eliminate (bool final_p, bool first_p)
 {
   unsigned int uid;
-  bitmap_head insns_with_changed_offsets;
   bitmap_iterator bi;
   struct elim_table *ep;
 
@@ -1368,7 +1365,7 @@ lra_eliminate (bool final_p, bool first_p)
   if (first_p)
     init_elimination ();
 
-  bitmap_initialize (&insns_with_changed_offsets, &reg_obstack);
+  bitmap_head insns_with_changed_offsets (&reg_obstack);
   if (final_p)
     {
 #ifdef ENABLE_CHECKING
@@ -1396,7 +1393,6 @@ lra_eliminate (bool final_p, bool first_p)
     if (lra_insn_recog_data[uid] != NULL)
       process_insn_for_elimination (lra_insn_recog_data[uid]->insn,
 				    final_p, first_p);
-  bitmap_clear (&insns_with_changed_offsets);
 
 lra_eliminate_done:
   timevar_pop (TV_LRA_ELIMINATE);

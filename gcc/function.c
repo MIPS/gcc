@@ -5884,7 +5884,6 @@ thread_prologue_and_epilogue_insns (void)
 #ifdef HAVE_simple_return
   vec<edge> unconverted_simple_returns = vNULL;
   bool nonempty_prologue;
-  bitmap_head bb_flags;
   unsigned max_grow_size;
 #endif
   rtx returnjump;
@@ -5959,7 +5958,7 @@ thread_prologue_and_epilogue_insns (void)
 #endif
 
 #ifdef HAVE_simple_return
-  bitmap_initialize (&bb_flags, &bitmap_default_obstack);
+  bitmap_head bb_flags;
 
   /* Try to perform a kind of shrink-wrapping, making sure the
      prologue/epilogue is emitted only around those parts of the
@@ -5982,9 +5981,6 @@ thread_prologue_and_epilogue_insns (void)
       rtx p_insn;
       vec<basic_block> vec;
       basic_block bb;
-      bitmap_head bb_antic_flags;
-      bitmap_head bb_on_list;
-      bitmap_head bb_tail;
 
       if (dump_file)
 	fprintf (dump_file, "Attempting shrink-wrapping optimization.\n");
@@ -6009,9 +6005,9 @@ thread_prologue_and_epilogue_insns (void)
 
       prepare_shrink_wrap (entry_edge->dest);
 
-      bitmap_initialize (&bb_antic_flags, &bitmap_default_obstack);
-      bitmap_initialize (&bb_on_list, &bitmap_default_obstack);
-      bitmap_initialize (&bb_tail, &bitmap_default_obstack);
+      bitmap_head bb_antic_flags;
+      bitmap_head bb_on_list;
+      bitmap_head bb_tail;
 
       /* Find the set of basic blocks that require a stack frame,
 	 and blocks that are too big to be duplicated.  */
@@ -6304,9 +6300,6 @@ thread_prologue_and_epilogue_insns (void)
 	}
 
     fail_shrinkwrap:
-      bitmap_clear (&bb_tail);
-      bitmap_clear (&bb_antic_flags);
-      bitmap_clear (&bb_on_list);
       vec.release ();
     }
 #endif
@@ -6676,10 +6669,6 @@ epilogue_done:
 	    reorder_insns (insn, insn, PREV_INSN (epilogue_end));
 	}
     }
-#endif
-
-#ifdef HAVE_simple_return
-  bitmap_clear (&bb_flags);
 #endif
 
   /* Threading the prologue and epilogue changes the artificial refs

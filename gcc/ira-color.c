@@ -4330,20 +4330,20 @@ ira_reassign_pseudos (int *spilled_pseudo_regs, int num,
   bool changed_p;
   ira_allocno_t a;
   HARD_REG_SET forbidden_regs;
-  bitmap temp = BITMAP_ALLOC (NULL);
+  bitmap_head temp;
 
   /* Add pseudos which conflict with pseudos already in
      SPILLED_PSEUDO_REGS to SPILLED_PSEUDO_REGS.  This is preferable
      to allocating in two steps as some of the conflicts might have
      a higher priority than the pseudos passed in SPILLED_PSEUDO_REGS.  */
   for (i = 0; i < num; i++)
-    bitmap_set_bit (temp, spilled_pseudo_regs[i]);
+    bitmap_set_bit (&temp, spilled_pseudo_regs[i]);
 
   for (i = 0, n = num; i < n; i++)
     {
       int nr, j;
       int regno = spilled_pseudo_regs[i];
-      bitmap_set_bit (temp, regno);
+      bitmap_set_bit (&temp, regno);
 
       a = ira_regno_allocno_map[regno];
       nr = ALLOCNO_NUM_OBJECTS (a);
@@ -4358,7 +4358,7 @@ ira_reassign_pseudos (int *spilled_pseudo_regs, int num,
 	      ira_allocno_t conflict_a = OBJECT_ALLOCNO (conflict_obj);
 	      if (ALLOCNO_HARD_REGNO (conflict_a) < 0
 		  && ! ALLOCNO_DONT_REASSIGN_P (conflict_a)
-		  && bitmap_set_bit (temp, ALLOCNO_REGNO (conflict_a)))
+		  && bitmap_set_bit (&temp, ALLOCNO_REGNO (conflict_a)))
 		{
 		  spilled_pseudo_regs[num++] = ALLOCNO_REGNO (conflict_a);
 		  /* ?!? This seems wrong.  */
@@ -4396,7 +4396,6 @@ ira_reassign_pseudos (int *spilled_pseudo_regs, int num,
 	  changed_p = true;
 	}
     }
-  BITMAP_FREE (temp);
   return changed_p;
 }
 

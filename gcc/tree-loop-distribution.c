@@ -1212,7 +1212,7 @@ rdg_build_partitions (struct graph *rdg,
 		      vec<gimple> starting_stmts,
 		      vec<partition_t> *partitions)
 {
-  bitmap processed = BITMAP_ALLOC (NULL);
+  bitmap_head processed;
   int i;
   gimple stmt;
 
@@ -1226,11 +1226,11 @@ rdg_build_partitions (struct graph *rdg,
 
       /* If the vertex is already contained in another partition so
          is the partition rooted at it.  */
-      if (bitmap_bit_p (processed, v))
+      if (bitmap_bit_p (&processed, v))
 	continue;
 
       partition_t partition = build_rdg_partition_for_vertex (rdg, v);
-      bitmap_ior_into (processed, partition->stmts);
+      bitmap_ior_into (&processed, partition->stmts);
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
@@ -1243,8 +1243,6 @@ rdg_build_partitions (struct graph *rdg,
 
   /* All vertices should have been assigned to at least one partition now,
      other than vertices belonging to dead code.  */
-
-  BITMAP_FREE (processed);
 }
 
 /* Dump to FILE the PARTITIONS.  */

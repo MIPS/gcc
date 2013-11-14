@@ -356,10 +356,10 @@ void
 regstat_compute_ri (void)
 {
   basic_block bb;
-  bitmap live = BITMAP_ALLOC (&df_bitmap_obstack);
-  bitmap artificial_uses = BITMAP_ALLOC (&df_bitmap_obstack);
-  bitmap local_live = BITMAP_ALLOC (&df_bitmap_obstack);
-  bitmap local_processed = BITMAP_ALLOC (&df_bitmap_obstack);
+  bitmap_head live (&df_bitmap_obstack);
+  bitmap_head artificial_uses (&df_bitmap_obstack);
+  bitmap_head local_live (&df_bitmap_obstack);
+  bitmap_head local_processed (&df_bitmap_obstack);
   unsigned int regno;
   bitmap_iterator bi;
   int *local_live_last_luid;
@@ -377,15 +377,11 @@ regstat_compute_ri (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      regstat_bb_compute_ri (bb->index, live, artificial_uses,
-			     local_live, local_processed,
+      regstat_bb_compute_ri (bb->index, &live, &artificial_uses,
+			     &local_live, &local_processed,
 			     local_live_last_luid);
     }
 
-  BITMAP_FREE (live);
-  BITMAP_FREE (artificial_uses);
-  BITMAP_FREE (local_live);
-  BITMAP_FREE (local_processed);
   free (local_live_last_luid);
 
   /* See the setjmp comment in regstat_bb_compute_ri.  */
@@ -512,7 +508,7 @@ void
 regstat_compute_calls_crossed (void)
 {
   basic_block bb;
-  bitmap live = BITMAP_ALLOC (&df_bitmap_obstack);
+  bitmap_head live (&df_bitmap_obstack);
 
   /* Initialize everything.  */
   gcc_assert (!reg_info_p);
@@ -524,10 +520,9 @@ regstat_compute_calls_crossed (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      regstat_bb_compute_calls_crossed (bb->index, live);
+      regstat_bb_compute_calls_crossed (bb->index, &live);
     }
 
-  BITMAP_FREE (live);
   timevar_pop (TV_REG_STATS);
 }
 

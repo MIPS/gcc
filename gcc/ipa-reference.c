@@ -964,7 +964,7 @@ ipa_reference_write_optimization_summary (void)
   unsigned int count = 0;
   int ltrans_statics_bitcount = 0;
   lto_symtab_encoder_t encoder = ob->decl_state->symtab_node_encoder;
-  bitmap ltrans_statics = BITMAP_ALLOC (NULL);
+  bitmap_head ltrans_statics;
   int i;
 
   reference_vars_to_consider = splay_tree_new (splay_tree_compare_ints, 0, 0);
@@ -979,7 +979,7 @@ ipa_reference_write_optimization_summary (void)
 	  && referenced_from_this_partition_p (&vnode->ref_list, encoder))
 	{
 	  tree decl = vnode->decl;
-	  bitmap_set_bit (ltrans_statics, DECL_UID (decl));
+	  bitmap_set_bit (&ltrans_statics, DECL_UID (decl));
 	  splay_tree_insert (reference_vars_to_consider,
 			     DECL_UID (decl), (splay_tree_value)decl);
 	  ltrans_statics_bitcount ++;
@@ -992,13 +992,13 @@ ipa_reference_write_optimization_summary (void)
       {
 	symtab_node *snode = lto_symtab_encoder_deref (encoder, i);
 	cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-	if (cnode && write_node_summary_p (cnode, encoder, ltrans_statics))
+	if (cnode && write_node_summary_p (cnode, encoder, &ltrans_statics))
 	  count++;
       }
 
   streamer_write_uhwi_stream (ob->main_stream, count);
   if (count)
-    stream_out_bitmap (ob, ltrans_statics, ltrans_statics,
+    stream_out_bitmap (ob, &ltrans_statics, &ltrans_statics,
 		       -1);
 
   /* Process all of the functions.  */
@@ -1007,7 +1007,7 @@ ipa_reference_write_optimization_summary (void)
       {
 	symtab_node *snode = lto_symtab_encoder_deref (encoder, i);
 	cgraph_node *cnode = dyn_cast <cgraph_node> (snode);
-	if (cnode && write_node_summary_p (cnode, encoder, ltrans_statics))
+	if (cnode && write_node_summary_p (cnode, encoder, &ltrans_statics))
 	  {
 	    ipa_reference_optimization_summary_t info;
 	    int node_ref;
@@ -1016,13 +1016,12 @@ ipa_reference_write_optimization_summary (void)
 	    node_ref = lto_symtab_encoder_encode (encoder, snode);
 	    streamer_write_uhwi_stream (ob->main_stream, node_ref);
 
-	    stream_out_bitmap (ob, info->statics_not_read, ltrans_statics,
+	    stream_out_bitmap (ob, info->statics_not_read, &ltrans_statics,
 			       ltrans_statics_bitcount);
-	    stream_out_bitmap (ob, info->statics_not_written, ltrans_statics,
+	    stream_out_bitmap (ob, info->statics_not_written, &ltrans_statics,
 			       ltrans_statics_bitcount);
 	  }
       }
-  BITMAP_FREE (ltrans_statics);
   lto_destroy_simple_output_block (ob);
   splay_tree_delete (reference_vars_to_consider);
 }

@@ -1259,19 +1259,18 @@ init_subregs_of_mode (void)
   basic_block bb;
   rtx insn;
   bitmap_obstack srom_obstack;
-  bitmap subregs_of_mode;
 
   gcc_assert (invalid_mode_changes == NULL);
   invalid_mode_changes = BITMAP_ALLOC (NULL);
   bitmap_obstack_initialize (&srom_obstack);
-  subregs_of_mode = BITMAP_ALLOC (&srom_obstack);
+  bitmap_head subregs_of_mode (&srom_obstack);
 
   FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       if (NONDEBUG_INSN_P (insn))
-        find_subregs_of_mode (PATTERN (insn), subregs_of_mode);
+        find_subregs_of_mode (PATTERN (insn), &subregs_of_mode);
 
-  BITMAP_FREE (subregs_of_mode);
+  bitmap_clear (&subregs_of_mode);
   bitmap_obstack_release (&srom_obstack);
 }
 

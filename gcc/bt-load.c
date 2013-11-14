@@ -1075,7 +1075,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	     target registers live over the merged range.  */
 	  int btr;
 	  HARD_REG_SET combined_btrs_live;
-	  bitmap combined_live_range = BITMAP_ALLOC (NULL);
+	  bitmap_head combined_live_range;
 	  btr_user user;
 
 	  if (other_def->live_range == NULL)
@@ -1084,10 +1084,10 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	      btr_def_live_range (other_def, &dummy_btrs_live_in_range);
 	    }
 	  COPY_HARD_REG_SET (combined_btrs_live, *btrs_live_in_range);
-	  bitmap_copy (combined_live_range, def->live_range);
+	  bitmap_copy (&combined_live_range, def->live_range);
 
 	  for (user = other_def->uses; user != NULL; user = user->next)
-	    augment_live_range (combined_live_range, &combined_btrs_live,
+	    augment_live_range (&combined_live_range, &combined_btrs_live,
 				def->bb, user->bb,
 				(flag_btr_bb_exclusive
 				 || user->insn != BB_END (def->bb)
@@ -1124,7 +1124,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 					      REGNO (user->use)));
 	      clear_btr_from_live_range (other_def);
 	      other_def->uses = NULL;
-	      bitmap_copy (def->live_range, combined_live_range);
+	      bitmap_copy (def->live_range, &combined_live_range);
 	      if (other_def->btr == btr && other_def->other_btr_uses_after_use)
 		def->other_btr_uses_after_use = 1;
 	      COPY_HARD_REG_SET (*btrs_live_in_range, combined_btrs_live);
@@ -1133,7 +1133,6 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	      delete_insn (other_def->insn);
 
 	    }
-	  BITMAP_FREE (combined_live_range);
 	}
     }
 }

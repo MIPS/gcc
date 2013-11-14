@@ -4125,7 +4125,6 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
   gimple_stmt_iterator ngsi, ogsi;
   edge_iterator ei;
   edge e;
-  bitmap ophi_handled;
 
   /* The destination block must not be a regular successor for any
      of the preds of the landing pad.  Thus, avoid turning
@@ -4146,7 +4145,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
   FOR_EACH_EDGE (e, ei, old_bb->preds)
     redirect_edge_var_map_clear (e);
 
-  ophi_handled = BITMAP_ALLOC (NULL);
+  bitmap_head ophi_handled;
 
   /* First, iterate through the PHIs on NEW_BB and set up the edge_var_map
      for the edges we're going to move.  */
@@ -4186,7 +4185,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
 		    goto fail;
 		}
 	    }
-	  bitmap_set_bit (ophi_handled, SSA_NAME_VERSION (nop));
+	  bitmap_set_bit (&ophi_handled, SSA_NAME_VERSION (nop));
 	  FOR_EACH_EDGE (e, ei, old_bb->preds)
 	    {
 	      location_t oloc;
@@ -4218,7 +4217,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
     {
       gimple ophi = gsi_stmt (ogsi);
       tree oresult = gimple_phi_result (ophi);
-      if (!bitmap_bit_p (ophi_handled, SSA_NAME_VERSION (oresult)))
+      if (!bitmap_bit_p (&ophi_handled, SSA_NAME_VERSION (oresult)))
 	goto fail;
     }
 
@@ -4248,13 +4247,11 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
     else
       ei_next (&ei);
 
-  BITMAP_FREE (ophi_handled);
   return true;
 
  fail:
   FOR_EACH_EDGE (e, ei, old_bb->preds)
     redirect_edge_var_map_clear (e);
-  BITMAP_FREE (ophi_handled);
   return false;
 }
 

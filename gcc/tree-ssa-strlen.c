@@ -1973,10 +1973,9 @@ strlen_dom_walker::before_dom_children (basic_block bb)
 	      gimple phi = gsi_stmt (gsi);
 	      if (virtual_operand_p (gimple_phi_result (phi)))
 		{
-		  bitmap visited = BITMAP_ALLOC (NULL);
+		  bitmap_head visited;
 		  int count_vdef = 100;
-		  do_invalidate (dombb, phi, visited, &count_vdef);
-		  BITMAP_FREE (visited);
+		  do_invalidate (dombb, phi, &visited, &count_vdef);
 		  if (count_vdef == 0)
 		    {
 		      /* If there were too many vdefs in between immediate

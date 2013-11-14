@@ -3961,7 +3961,6 @@ lra_constraints (bool first_p)
   unsigned int min_len, new_min_len, uid;
   rtx set, x, reg, dest_reg;
   basic_block last_bb;
-  bitmap_head equiv_insn_bitmap;
   bitmap_iterator bi;
 
   lra_constraint_iter++;
@@ -3991,7 +3990,7 @@ lra_constraints (bool first_p)
   /* Do elimination before the equivalence processing as we can spill
      some pseudos during elimination.  */
   lra_eliminate (false, first_p);
-  bitmap_initialize (&equiv_insn_bitmap, &reg_obstack);
+  bitmap_head equiv_insn_bitmap (&reg_obstack);
   for (i = FIRST_PSEUDO_REGISTER; i < new_regno_start; i++)
     if (lra_reg_info[i].nrefs != 0)
       {
@@ -5721,9 +5720,8 @@ undo_optional_reloads (void)
   unsigned int regno, uid;
   bitmap_iterator bi, bi2;
   rtx insn, set, src, dest;
-  bitmap_head removed_optional_reload_pseudos, insn_bitmap;
+  bitmap_head removed_optional_reload_pseudos (&reg_obstack);
 
-  bitmap_initialize (&removed_optional_reload_pseudos, &reg_obstack);
   bitmap_copy (&removed_optional_reload_pseudos, &lra_optional_reload_pseudos);
   EXECUTE_IF_SET_IN_BITMAP (&lra_optional_reload_pseudos, 0, regno, bi)
     {
@@ -5765,7 +5763,7 @@ undo_optional_reloads (void)
 	}
     }
   change_p = ! bitmap_empty_p (&removed_optional_reload_pseudos);
-  bitmap_initialize (&insn_bitmap, &reg_obstack);
+  bitmap_head insn_bitmap (&reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&removed_optional_reload_pseudos, 0, regno, bi)
     {
       if (lra_dump_file != NULL)
@@ -5815,8 +5813,6 @@ undo_optional_reloads (void)
   /* Clear restore_regnos.  */
   EXECUTE_IF_SET_IN_BITMAP (&lra_optional_reload_pseudos, 0, regno, bi)
     lra_reg_info[regno].restore_regno = -1;
-  bitmap_clear (&insn_bitmap);
-  bitmap_clear (&removed_optional_reload_pseudos);
   return change_p;
 }
 
@@ -5828,7 +5824,6 @@ lra_undo_inheritance (void)
   unsigned int regno;
   int restore_regno, hard_regno;
   int n_all_inherit, n_inherit, n_all_split, n_split;
-  bitmap_head remove_pseudos;
   bitmap_iterator bi;
   bool change_p;
 
@@ -5839,7 +5834,7 @@ lra_undo_inheritance (void)
     fprintf (lra_dump_file,
 	     "\n********** Undoing inheritance #%d: **********\n\n",
 	     lra_undo_inheritance_iter);
-  bitmap_initialize (&remove_pseudos, &reg_obstack);
+  bitmap_head remove_pseudos (&reg_obstack);
   n_inherit = n_all_inherit = 0;
   EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, regno, bi)
     if (lra_reg_info[regno].restore_regno >= 0)
@@ -5880,7 +5875,6 @@ lra_undo_inheritance (void)
 	     n_split, n_all_split,
 	     (double) n_split / n_all_split * 100);
   change_p = remove_inheritance_pseudos (&remove_pseudos);
-  bitmap_clear (&remove_pseudos);
   /* Clear restore_regnos.  */
   EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, regno, bi)
     lra_reg_info[regno].restore_regno = -1;

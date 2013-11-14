@@ -3344,7 +3344,7 @@ scev_const_prop (void)
   tree name, type, ev;
   gimple phi, ass;
   struct loop *loop, *ex_loop;
-  bitmap ssa_names_to_remove = NULL;
+  bitmap_head ssa_names_to_remove;
   unsigned i;
   gimple_stmt_iterator psi;
 
@@ -3378,20 +3378,16 @@ scev_const_prop (void)
 	  if (name != ev)
 	    replace_uses_by (name, ev);
 
-	  if (!ssa_names_to_remove)
-	    ssa_names_to_remove = BITMAP_ALLOC (NULL);
-	  bitmap_set_bit (ssa_names_to_remove, SSA_NAME_VERSION (name));
+	  bitmap_set_bit (&ssa_names_to_remove, SSA_NAME_VERSION (name));
 	}
     }
 
   /* Remove the ssa names that were replaced by constants.  We do not
      remove them directly in the previous cycle, since this
      invalidates scev cache.  */
-  if (ssa_names_to_remove)
-    {
-      bitmap_iterator bi;
+  bitmap_iterator bi;
 
-      EXECUTE_IF_SET_IN_BITMAP (ssa_names_to_remove, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&ssa_names_to_remove, 0, i, bi)
 	{
 	  gimple_stmt_iterator psi;
 	  name = ssa_name (i);
@@ -3402,9 +3398,7 @@ scev_const_prop (void)
 	  remove_phi_node (&psi, true);
 	}
 
-      BITMAP_FREE (ssa_names_to_remove);
       scev_reset ();
-    }
 
   /* Now the regular final value replacement.  */
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)

@@ -753,8 +753,7 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
 
   if (dest != orig)
     {
-      bitmap_head temp;
-      bitmap_initialize (&temp, &grand_bitmap_obstack);
+      bitmap_head temp (&grand_bitmap_obstack);
 
       bitmap_and_into (&dest->values, &orig->values);
       bitmap_copy (&temp, &dest->expressions);
@@ -765,7 +764,6 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
 	  if (!bitmap_bit_p (&dest->values, value_id))
 	    bitmap_clear_bit (&dest->expressions, i);
 	}
-      bitmap_clear (&temp);
     }
 }
 
@@ -798,9 +796,7 @@ bitmap_set_subtract_values (bitmap_set_t a, bitmap_set_t b)
 {
   unsigned int i;
   bitmap_iterator bi;
-  bitmap_head temp;
-
-  bitmap_initialize (&temp, &grand_bitmap_obstack);
+  bitmap_head temp (&grand_bitmap_obstack);
 
   bitmap_copy (&temp, &a->expressions);
   EXECUTE_IF_SET_IN_BITMAP (&temp, 0, i, bi)

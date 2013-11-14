@@ -2481,7 +2481,7 @@ static bool
 analyze_all_variable_accesses (void)
 {
   int res = 0;
-  bitmap tmp = BITMAP_ALLOC (NULL);
+  bitmap_head tmp;
   bitmap_iterator bi;
   unsigned i, max_total_scalarization_size;
 
@@ -2517,8 +2517,8 @@ analyze_all_variable_accesses (void)
 	  }
       }
 
-  bitmap_copy (tmp, candidate_bitmap);
-  EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
+  bitmap_copy (&tmp, candidate_bitmap);
+  EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, i, bi)
     {
       tree var = candidate (i);
       struct access *access;
@@ -2531,8 +2531,8 @@ analyze_all_variable_accesses (void)
 
   propagate_all_subaccesses ();
 
-  bitmap_copy (tmp, candidate_bitmap);
-  EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
+  bitmap_copy (&tmp, candidate_bitmap);
+  EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, i, bi)
     {
       tree var = candidate (i);
       struct access *access = get_first_repr_for_decl (var);
@@ -2552,8 +2552,6 @@ analyze_all_variable_accesses (void)
       else
 	disqualify_candidate (var, "No scalar replacements to be created.");
     }
-
-  BITMAP_FREE (tmp);
 
   if (res)
     {
@@ -4772,7 +4770,7 @@ convert_callers_for_node (struct cgraph_node *node,
 		          void *data)
 {
   ipa_parm_adjustment_vec *adjustments = (ipa_parm_adjustment_vec *) data;
-  bitmap recomputed_callers = BITMAP_ALLOC (NULL);
+  bitmap_head recomputed_callers;
   struct cgraph_edge *cs;
 
   for (cs = node->callers; cs; cs = cs->next_caller)
@@ -4792,10 +4790,9 @@ convert_callers_for_node (struct cgraph_node *node,
     }
 
   for (cs = node->callers; cs; cs = cs->next_caller)
-    if (bitmap_set_bit (recomputed_callers, cs->caller->uid)
+    if (bitmap_set_bit (&recomputed_callers, cs->caller->uid)
 	&& gimple_in_ssa_p (DECL_STRUCT_FUNCTION (cs->caller->decl)))
       compute_inline_parameters (cs->caller, true);
-  BITMAP_FREE (recomputed_callers);
 
   return true;
 }

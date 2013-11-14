@@ -369,14 +369,13 @@ sese_insert_phis_for_liveouts (sese region, basic_block bb,
 {
   unsigned i;
   bitmap_iterator bi;
-  bitmap liveouts = BITMAP_ALLOC (NULL);
+  bitmap_head liveouts;
 
   update_ssa (TODO_update_ssa);
 
-  sese_build_liveouts (region, liveouts);
-  EXECUTE_IF_SET_IN_BITMAP (liveouts, 0, i, bi)
+  sese_build_liveouts (region, &liveouts);
+  EXECUTE_IF_SET_IN_BITMAP (&liveouts, 0, i, bi)
     sese_add_exit_phis_edge (bb, ssa_name (i), false_e, true_e);
-  BITMAP_FREE (liveouts);
 
   update_ssa (TODO_update_ssa);
 }

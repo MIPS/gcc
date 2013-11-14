@@ -7286,11 +7286,11 @@ static void
 sel_region_target_finish (bool reset_sched_cycles_p)
 {
   int i;
-  bitmap scheduled_blocks = BITMAP_ALLOC (NULL);
+  bitmap_head scheduled_blocks;
 
   for (i = 0; i < current_nr_blocks; i++)
     {
-      if (bitmap_bit_p (scheduled_blocks, i))
+      if (bitmap_bit_p (&scheduled_blocks, i))
 	continue;
 
       /* While pipelining outer loops, skip bundling for loop
@@ -7298,7 +7298,7 @@ sel_region_target_finish (bool reset_sched_cycles_p)
       if (sel_is_loop_preheader_p (EBB_FIRST_BB (i)))
 	continue;
 
-      find_ebb_boundaries (EBB_FIRST_BB (i), scheduled_blocks);
+      find_ebb_boundaries (EBB_FIRST_BB (i), &scheduled_blocks);
 
       if (no_real_insns_p (current_sched_info->head, current_sched_info->tail))
 	continue;
@@ -7320,8 +7320,6 @@ sel_region_target_finish (bool reset_sched_cycles_p)
 	  sched_extend_luids ();
 	}
     }
-
-  BITMAP_FREE (scheduled_blocks);
 }
 
 /* Free the scheduling data for the current region.  When RESET_SCHED_CYCLES_P

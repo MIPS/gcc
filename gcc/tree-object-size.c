@@ -46,7 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 struct object_size_info
 {
   int object_size_type;
-  bitmap visited, reexamine;
+  bitmap_head visited, reexamine;
   int pass;
   bool changed;
   unsigned int *depths;
@@ -525,8 +525,6 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 	      fprintf (dump_file, ":\n");
 	    }
 
-	  osi.visited = BITMAP_ALLOC (NULL);
-	  osi.reexamine = BITMAP_ALLOC (NULL);
 	  osi.object_size_type = object_size_type;
 	  osi.depths = NULL;
 	  osi.stack = NULL;
@@ -543,9 +541,9 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 	  /* Second pass: keep recomputing object sizes of variables
 	     that need reexamination, until no object sizes are
 	     increased or all object sizes are computed.  */
-	  if (! bitmap_empty_p (osi.reexamine))
+	  if (! bitmap_empty_p (&osi.reexamine))
 	    {
-	      bitmap reexamine = BITMAP_ALLOC (NULL);
+	      bitmap_head reexamine;
 
 	      /* If looking for minimum instead of maximum object size,
 		 detect cases where a pointer is increased in a loop.
@@ -561,9 +559,9 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		  osi.pass = 1;
 		  /* collect_object_sizes_for is changing
 		     osi.reexamine bitmap, so iterate over a copy.  */
-		  bitmap_copy (reexamine, osi.reexamine);
-		  EXECUTE_IF_SET_IN_BITMAP (reexamine, 0, i, bi)
-		    if (bitmap_bit_p (osi.reexamine, i))
+		  bitmap_copy (&reexamine, &osi.reexamine);
+		  EXECUTE_IF_SET_IN_BITMAP (&reexamine, 0, i, bi)
+		    if (bitmap_bit_p (&osi.reexamine, i))
 		      check_for_plus_in_loops (&osi, ssa_name (i));
 
 		  free (osi.depths);
@@ -579,9 +577,9 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		  osi.changed = false;
 		  /* collect_object_sizes_for is changing
 		     osi.reexamine bitmap, so iterate over a copy.  */
-		  bitmap_copy (reexamine, osi.reexamine);
-		  EXECUTE_IF_SET_IN_BITMAP (reexamine, 0, i, bi)
-		    if (bitmap_bit_p (osi.reexamine, i))
+		  bitmap_copy (&reexamine, &osi.reexamine);
+		  EXECUTE_IF_SET_IN_BITMAP (&reexamine, 0, i, bi)
+		    if (bitmap_bit_p (&osi.reexamine, i))
 		      {
 			collect_object_sizes_for (&osi, ssa_name (i));
 			if (dump_file && (dump_flags & TDF_DETAILS))
@@ -594,16 +592,14 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		      }
 		}
 	      while (osi.changed);
-
-	      BITMAP_FREE (reexamine);
 	    }
-	  EXECUTE_IF_SET_IN_BITMAP (osi.reexamine, 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (&osi.reexamine, 0, i, bi)
 	    bitmap_set_bit (computed[object_size_type], i);
 
 	  /* Debugging dumps.  */
 	  if (dump_file)
 	    {
-	      EXECUTE_IF_SET_IN_BITMAP (osi.visited, 0, i, bi)
+	      EXECUTE_IF_SET_IN_BITMAP (&osi.visited, 0, i, bi)
 		if (object_sizes[object_size_type][i]
 		    != unknown[object_size_type])
 		  {
@@ -617,9 +613,6 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 			     object_sizes[object_size_type][i]);
 		  }
 	    }
-
-	  BITMAP_FREE (osi.reexamine);
-	  BITMAP_FREE (osi.visited);
 	}
 
       return object_sizes[object_size_type][SSA_NAME_VERSION (ptr)];
@@ -767,7 +760,7 @@ merge_object_sizes (struct object_size_info *osi, tree dest, tree orig,
 	  osi->changed = true;
 	}
     }
-  return bitmap_bit_p (osi->reexamine, SSA_NAME_VERSION (orig));
+  return bitmap_bit_p (&osi->reexamine, SSA_NAME_VERSION (orig));
 }
 
 
@@ -909,7 +902,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
 
   if (osi->pass == 0)
     {
-      if (bitmap_set_bit (osi->visited, varno))
+      if (bitmap_set_bit (&osi->visited, varno))
 	{
 	  object_sizes[object_size_type][varno]
 	    = (object_size_type & 2) ? -1 : 0;
@@ -918,7 +911,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
 	{
 	  /* Found a dependency loop.  Mark the variable for later
 	     re-examination.  */
-	  bitmap_set_bit (osi->reexamine, varno);
+	  bitmap_set_bit (&osi->reexamine, varno);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Found a dependency loop at ");
@@ -1022,11 +1015,11 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
       || object_sizes[object_size_type][varno] == unknown[object_size_type])
     {
       bitmap_set_bit (computed[object_size_type], varno);
-      bitmap_clear_bit (osi->reexamine, varno);
+      bitmap_clear_bit (&osi->reexamine, varno);
     }
   else
     {
-      bitmap_set_bit (osi->reexamine, varno);
+      bitmap_set_bit (&osi->reexamine, varno);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Need to reexamine ");
@@ -1057,7 +1050,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	  for (sp = osi->tos; sp > osi->stack; )
 	    {
 	      --sp;
-	      bitmap_clear_bit (osi->reexamine, *sp);
+	      bitmap_clear_bit (&osi->reexamine, *sp);
 	      bitmap_set_bit (computed[osi->object_size_type], *sp);
 	      object_sizes[osi->object_size_type][*sp] = 0;
 	      if (*sp == varno)
@@ -1066,7 +1059,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	}
       return;
     }
-  else if (! bitmap_bit_p (osi->reexamine, varno))
+  else if (! bitmap_bit_p (&osi->reexamine, varno))
     return;
 
   osi->depths[varno] = depth;

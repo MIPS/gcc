@@ -540,19 +540,18 @@ fixup_noreturn_call (gimple stmt)
 	  bitmap_iterator bi;
 	  unsigned int bb_index;
 
-	  bitmap blocks = BITMAP_ALLOC (NULL);
+	  bitmap_head blocks;
 
           FOR_EACH_IMM_USE_STMT (use_stmt, iter, op)
 	    {
 	      if (gimple_code (use_stmt) != GIMPLE_PHI)
-	        bitmap_set_bit (blocks, gimple_bb (use_stmt)->index);
+	        bitmap_set_bit (&blocks, gimple_bb (use_stmt)->index);
 	      else
 		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 		  SET_USE (use_p, error_mark_node);
 	    }
-	  EXECUTE_IF_SET_IN_BITMAP (blocks, 0, bb_index, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (&blocks, 0, bb_index, bi)
 	    delete_basic_block (BASIC_BLOCK_FOR_FN (cfun, bb_index));
-	  BITMAP_FREE (blocks);
 	  release_ssa_name (op);
 	}
       update_stmt (stmt);
@@ -725,14 +724,13 @@ cleanup_tree_cfg_noloop (void)
 static void
 repair_loop_structures (void)
 {
-  bitmap changed_bbs;
   unsigned n_new_loops;
 
   calculate_dominance_info (CDI_DOMINATORS);
 
   timevar_push (TV_REPAIR_LOOPS);
-  changed_bbs = BITMAP_ALLOC (NULL);
-  n_new_loops = fix_loop_structure (changed_bbs);
+  bitmap_head changed_bbs;
+  n_new_loops = fix_loop_structure (&changed_bbs);
 
   /* This usually does nothing.  But sometimes parts of cfg that originally
      were inside a loop get out of it due to edge removal (since they
@@ -740,10 +738,8 @@ repair_loop_structures (void)
      irreducible loop can become reducible - in this case force a full
      rewrite into loop-closed SSA form.  */
   if (loops_state_satisfies_p (LOOP_CLOSED_SSA))
-    rewrite_into_loop_closed_ssa (n_new_loops ? NULL : changed_bbs,
+    rewrite_into_loop_closed_ssa (n_new_loops ? NULL : &changed_bbs,
 				  TODO_update_ssa);
-
-  BITMAP_FREE (changed_bbs);
 
 #ifdef ENABLE_CHECKING
   verify_loop_structure ();

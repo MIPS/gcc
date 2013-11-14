@@ -1304,7 +1304,6 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
   len = labels.length ();
   if (len < branch_num - 1)
     {
-      bitmap target_blocks;
       edge_iterator ei;
       edge e;
 
@@ -1328,16 +1327,16 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
       gimple_switch_set_num_labels (stmt, len + 1);
 
       /* Cleanup any edges that are now dead.  */
-      target_blocks = BITMAP_ALLOC (NULL);
+      bitmap_head target_blocks;
       for (i = 0; i < gimple_switch_num_labels (stmt); i++)
 	{
 	  tree elt = gimple_switch_label (stmt, i);
 	  basic_block target = label_to_block (CASE_LABEL (elt));
-	  bitmap_set_bit (target_blocks, target->index);
+	  bitmap_set_bit (&target_blocks, target->index);
 	}
       for (ei = ei_start (gimple_bb (stmt)->succs); (e = ei_safe_edge (ei)); )
 	{
-	  if (! bitmap_bit_p (target_blocks, e->dest->index))
+	  if (! bitmap_bit_p (&target_blocks, e->dest->index))
 	    {
 	      remove_edge (e);
 	      cfg_changed = true;
@@ -1346,7 +1345,6 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 	  else
 	    ei_next (&ei);
 	} 
-      BITMAP_FREE (target_blocks);
     }
 }
 

@@ -743,7 +743,7 @@ static int curr_pseudo_check;
 /* Array used for validity of elements in TRY_HARD_REG_PSEUDOS.	 */
 static int try_hard_reg_pseudos_check[FIRST_PSEUDO_REGISTER];
 /* Pseudos who hold given hard register at the considered points.  */
-static bitmap_head try_hard_reg_pseudos[FIRST_PSEUDO_REGISTER];
+static bitmap try_hard_reg_pseudos[FIRST_PSEUDO_REGISTER];
 
 /* Set up try_hard_reg_pseudos for given program point P and class
    RCLASS.  Those are pseudos living at P and assigned to a hard
@@ -773,9 +773,9 @@ setup_try_hard_regno_pseudos (int p, enum reg_class rclass)
 		{
 		  try_hard_reg_pseudos_check[hard_regno + i]
 		    = curr_pseudo_check;
-		  bitmap_clear (&try_hard_reg_pseudos[hard_regno + i]);
+		  bitmap_clear (try_hard_reg_pseudos[hard_regno + i]);
 		}
-	      bitmap_set_bit (&try_hard_reg_pseudos[hard_regno + i],
+	      bitmap_set_bit (try_hard_reg_pseudos[hard_regno + i],
 			      spill_regno);
 	    }
 	}
@@ -858,9 +858,9 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	{
 	  if (try_hard_reg_pseudos_check[hard_regno + j] != curr_pseudo_check)
 	    continue;
-	  lra_assert (!bitmap_empty_p (&try_hard_reg_pseudos[hard_regno + j]));
+	  lra_assert (!bitmap_empty_p (try_hard_reg_pseudos[hard_regno + j]));
 	  bitmap_ior_into (&spill_pseudos_bitmap,
-			   &try_hard_reg_pseudos[hard_regno + j]);
+			   try_hard_reg_pseudos[hard_regno + j]);
 	}
       /* Spill pseudos.	 */
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
@@ -1187,7 +1187,7 @@ assign_by_spills (void)
   curr_update_hard_regno_preference_check = 0;
   memset (try_hard_reg_pseudos_check, 0, sizeof (try_hard_reg_pseudos_check));
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
-    bitmap_initialize (&try_hard_reg_pseudos[i], &reg_obstack);
+    try_hard_reg_pseudos[i] = BITMAP_ALLOC (&reg_obstack);
   curr_pseudo_check = 0;
   bitmap_initialize (&changed_insns, &reg_obstack);
   bitmap_initialize (&non_reload_pseudos, &reg_obstack);

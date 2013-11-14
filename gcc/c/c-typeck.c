@@ -11704,18 +11704,14 @@ c_find_omp_placeholder_r (tree *tp, int *, void *data)
 tree
 c_finish_omp_clauses (tree clauses)
 {
-  bitmap_head generic_head, firstprivate_head, lastprivate_head;
-  bitmap_head aligned_head;
   tree c, t, *pc = &clauses;
   bool branch_seen = false;
   bool copyprivate_seen = false;
   tree *nowait_clause = NULL;
 
   bitmap_obstack_initialize (NULL);
-  bitmap_initialize (&generic_head, &bitmap_default_obstack);
-  bitmap_initialize (&firstprivate_head, &bitmap_default_obstack);
-  bitmap_initialize (&lastprivate_head, &bitmap_default_obstack);
-  bitmap_initialize (&aligned_head, &bitmap_default_obstack);
+  bitmap_head generic_head, firstprivate_head, lastprivate_head;
+  bitmap_head aligned_head;
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
     {

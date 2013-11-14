@@ -174,10 +174,23 @@ struct GTY((chain_next ("%h.next"), chain_prev ("%h.prev"))) bitmap_element {
   BITMAP_WORD bits[BITMAP_ELEMENT_WORDS]; /* Bits that are set.  */
 };
 
+
+/* Global data */
+extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
+extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
+
+/* Clear a bitmap by freeing up the linked list.  */
+extern void bitmap_clear (bitmap);
+
+static void bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL);
+
 /* Head of bitmap linked list.  The 'current' member points to something
    already pointed to by the chain started by first, so GTY((skip)) it.  */
-
 struct GTY(()) bitmap_head {
+  bitmap_head (bitmap_obstack *o = &bitmap_default_obstack MEM_STAT_DECL)
+  { bitmap_initialize_stat (this, o PASS_MEM_STAT); }
+  ~bitmap_head () { bitmap_clear (this); }
+
   unsigned int indx;			/* Index of last element looked at.  */
   unsigned int descriptor_id;		/* Unique identifier for the allocation
 					   site of this bitmap, for detailed
@@ -188,12 +201,6 @@ struct GTY(()) bitmap_head {
 					   If NULL, then use GGC allocation.  */
 };
 
-/* Global data */
-extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
-extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
-
-/* Clear a bitmap by freeing up the linked list.  */
-extern void bitmap_clear (bitmap);
 
 /* Copy a bitmap to another bitmap.  */
 extern void bitmap_copy (bitmap, const_bitmap);
