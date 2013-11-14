@@ -3445,9 +3445,9 @@ static int
 update_equiv_regs (void)
 {
   rtx insn;
+  bitmap_head cleared_regs;
   basic_block bb;
   int loop_depth;
-  bitmap cleared_regs;
   bool *pdx_subregs;
 
   /* We need to keep track of whether or not we recorded a LABEL_REF so
@@ -3757,7 +3757,6 @@ update_equiv_regs (void)
 	}
     }
 
-  cleared_regs = BITMAP_ALLOC (NULL);
   /* Now scan all regs killed in an insn to see if any of them are
      registers only used that once.  If so, see if we can replace the
      reference with the equivalent form.  If we can, delete the
@@ -3856,7 +3855,7 @@ update_equiv_regs (void)
 			= XEXP (reg_equiv[regno].init_insns, 1);
 
 		      ira_reg_equiv[regno].init_insns = NULL_RTX;
-		      bitmap_set_bit (cleared_regs, regno);
+		      bitmap_set_bit (&cleared_regs, regno);
 		    }
 		  /* Move the initialization of the register to just before
 		     INSN.  Update the flow information.  */
@@ -3890,23 +3889,23 @@ update_equiv_regs (void)
 
 		      ira_reg_equiv[regno].init_insns
 			= gen_rtx_INSN_LIST (VOIDmode, new_insn, NULL_RTX);
-		      bitmap_set_bit (cleared_regs, regno);
+		      bitmap_set_bit (&cleared_regs, regno);
 		    }
 		}
 	    }
 	}
     }
 
-  if (!bitmap_empty_p (cleared_regs))
+  if (!bitmap_empty_p (&cleared_regs))
     {
       FOR_EACH_BB (bb)
 	{
-	  bitmap_and_compl_into (DF_LR_IN (bb), cleared_regs);
-	  bitmap_and_compl_into (DF_LR_OUT (bb), cleared_regs);
+	  bitmap_and_compl_into (DF_LR_IN (bb), &cleared_regs);
+	  bitmap_and_compl_into (DF_LR_OUT (bb), &cleared_regs);
 	  if (! df_live)
 	    continue;
-	  bitmap_and_compl_into (DF_LIVE_IN (bb), cleared_regs);
-	  bitmap_and_compl_into (DF_LIVE_OUT (bb), cleared_regs);
+	  bitmap_and_compl_into (DF_LIVE_IN (bb), &cleared_regs);
+	  bitmap_and_compl_into (DF_LIVE_OUT (bb), &cleared_regs);
 	}
 
       /* Last pass - adjust debug insns referencing cleared regs.  */
@@ -3918,13 +3917,11 @@ update_equiv_regs (void)
 	      INSN_VAR_LOCATION_LOC (insn)
 		= simplify_replace_fn_rtx (old_loc, NULL_RTX,
 					   adjust_cleared_regs,
-					   (void *) cleared_regs);
+					   (void *) &cleared_regs);
 	      if (old_loc != INSN_VAR_LOCATION_LOC (insn))
 		df_insn_rescan (insn);
 	    }
     }
-
-  BITMAP_FREE (cleared_regs);
 
   out:
   /* Clean up.  */
@@ -4106,8 +4103,8 @@ build_insn_chain (void)
   basic_block bb;
   struct insn_chain *c = NULL;
   struct insn_chain *next = NULL;
-  bitmap live_relevant_regs = BITMAP_ALLOC (NULL);
-  bitmap elim_regset = BITMAP_ALLOC (NULL);
+  bitmap_head live_relevant_regs;
+  bitmap_head elim_regset;
   /* live_subregs is a vector used to keep accurate information about
      which hardregs are live in multiword pseudos.  live_subregs and
      live_subregs_used are indexed by pseudo number.  The live_subreg
@@ -4116,31 +4113,31 @@ build_insn_chain (void)
      live_subreg[allocno] is number of bytes that the pseudo can
      occupy.  */
   sbitmap *live_subregs = XCNEWVEC (sbitmap, max_regno);
-  bitmap live_subregs_used = BITMAP_ALLOC (NULL);
+  bitmap_head live_subregs_used;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (eliminable_regset, i))
-      bitmap_set_bit (elim_regset, i);
+      bitmap_set_bit (&elim_regset, i);
   FOR_EACH_BB_REVERSE (bb)
     {
       bitmap_iterator bi;
       rtx insn;
 
-      CLEAR_REG_SET (live_relevant_regs);
-      bitmap_clear (live_subregs_used);
+      CLEAR_REG_SET (&live_relevant_regs);
+      bitmap_clear (&live_subregs_used);
 
       EXECUTE_IF_SET_IN_BITMAP (df_get_live_out (bb), 0, i, bi)
 	{
 	  if (i >= FIRST_PSEUDO_REGISTER)
 	    break;
-	  bitmap_set_bit (live_relevant_regs, i);
+	  bitmap_set_bit (&live_relevant_regs, i);
 	}
 
       EXECUTE_IF_SET_IN_BITMAP (df_get_live_out (bb),
 				FIRST_PSEUDO_REGISTER, i, bi)
 	{
 	  if (pseudo_for_reload_consideration_p (i))
-	    bitmap_set_bit (live_relevant_regs, i);
+	    bitmap_set_bit (&live_relevant_regs, i);
 	}
 
       FOR_BB_INSNS_REVERSE (bb, insn)
@@ -4197,8 +4194,8 @@ build_insn_chain (void)
 			      + GET_MODE_SIZE (GET_MODE (reg));
 
 			    init_live_subregs
-			      (bitmap_bit_p (live_relevant_regs, regno),
-			       live_subregs, live_subregs_used, regno, reg);
+			      (bitmap_bit_p (&live_relevant_regs, regno),
+			       live_subregs, &live_subregs_used, regno, reg);
 
 			    if (!DF_REF_FLAGS_IS_SET
 				(def, DF_REF_STRICT_LOW_PART))
@@ -4223,14 +4220,14 @@ build_insn_chain (void)
 
 			    if (bitmap_empty_p (live_subregs[regno]))
 			      {
-				bitmap_clear_bit (live_subregs_used, regno);
-				bitmap_clear_bit (live_relevant_regs, regno);
+				bitmap_clear_bit (&live_subregs_used, regno);
+				bitmap_clear_bit (&live_relevant_regs, regno);
 			      }
 			    else
 			      /* Set live_relevant_regs here because
 				 that bit has to be true to get us to
 				 look at the live_subregs fields.  */
-			      bitmap_set_bit (live_relevant_regs, regno);
+			      bitmap_set_bit (&live_relevant_regs, regno);
 			  }
 			else
 			  {
@@ -4241,15 +4238,15 @@ build_insn_chain (void)
 			       modeling the def as a killing def.  */
 			    if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL))
 			      {
-				bitmap_clear_bit (live_subregs_used, regno);
-				bitmap_clear_bit (live_relevant_regs, regno);
+				bitmap_clear_bit (&live_subregs_used, regno);
+				bitmap_clear_bit (&live_relevant_regs, regno);
 			      }
 			  }
 		      }
 		  }
 
-	      bitmap_and_compl_into (live_relevant_regs, elim_regset);
-	      bitmap_copy (&c->live_throughout, live_relevant_regs);
+	      bitmap_and_compl_into (&live_relevant_regs, &elim_regset);
+	      bitmap_copy (&c->live_throughout, &live_relevant_regs);
 
 	      if (NONDEBUG_INSN_P (insn))
 		for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
@@ -4270,7 +4267,7 @@ build_insn_chain (void)
 		      continue;
 
 		    /* Add the last use of each var to dead_or_set.  */
-		    if (!bitmap_bit_p (live_relevant_regs, regno))
+		    if (!bitmap_bit_p (&live_relevant_regs, regno))
 		      {
 			if (regno < FIRST_PSEUDO_REGISTER)
 			  {
@@ -4294,8 +4291,8 @@ build_insn_chain (void)
 			      + GET_MODE_SIZE (GET_MODE (reg));
 
 			    init_live_subregs
-			      (bitmap_bit_p (live_relevant_regs, regno),
-			       live_subregs, live_subregs_used, regno, reg);
+			      (bitmap_bit_p (&live_relevant_regs, regno),
+			       live_subregs, &live_subregs_used, regno, reg);
 
 			    /* Ignore the paradoxical bits.  */
 			    if (last > SBITMAP_SIZE (live_subregs[regno]))
@@ -4312,8 +4309,8 @@ build_insn_chain (void)
 			     effectively saying do not use the subregs
 			     because we are reading the whole
 			     pseudo.  */
-			  bitmap_clear_bit (live_subregs_used, regno);
-			bitmap_set_bit (live_relevant_regs, regno);
+			  bitmap_clear_bit (&live_subregs_used, regno);
+			bitmap_set_bit (&live_relevant_regs, regno);
 		      }
 		  }
 	    }
@@ -4349,7 +4346,7 @@ build_insn_chain (void)
 		 code did.  */
 	      c->block = bb->index;
 	      c->insn = insn;
-	      bitmap_copy (&c->live_throughout, live_relevant_regs);
+	      bitmap_copy (&c->live_throughout, &live_relevant_regs);
 	    }
 	  insn = PREV_INSN (insn);
 	}
@@ -4362,9 +4359,6 @@ build_insn_chain (void)
     if (live_subregs[i] != NULL)
       sbitmap_free (live_subregs[i]);
   free (live_subregs);
-  BITMAP_FREE (live_subregs_used);
-  BITMAP_FREE (live_relevant_regs);
-  BITMAP_FREE (elim_regset);
 
   if (dump_file)
     print_insn_chains (dump_file);

@@ -263,7 +263,6 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
   rtx p, insn, prev_insn;
   bool ret;
   HOST_WIDE_INT min_sp_off, max_sp_off;
-  bitmap sp_bytes;
 
   gcc_assert (CALL_P (call_insn));
   if (!ACCUMULATE_OUTGOING_ARGS)
@@ -343,7 +342,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
 
   if (min_sp_off >= max_sp_off)
     return true;
-  sp_bytes = BITMAP_ALLOC (NULL);
+  bitmap_head sp_bytes;
 
   /* Set bits in SP_BYTES bitmap for bytes relative to sp + min_sp_off
      which contain arguments.  Checking has been done in the previous
@@ -381,7 +380,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
 	  }
 	for (byte = off; byte < off + MEM_SIZE (mem); byte++)
 	  {
-	    if (!bitmap_set_bit (sp_bytes, byte - min_sp_off))
+	    if (!bitmap_set_bit (&sp_bytes, byte - min_sp_off))
 	      gcc_unreachable ();
 	  }
       }
@@ -464,7 +463,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
 
       if (GET_MODE_SIZE (GET_MODE (mem)) == 0
 	  || !check_argument_store (mem, off, min_sp_off,
-				    max_sp_off, sp_bytes))
+				    max_sp_off, &sp_bytes))
 	break;
 
       if (!deletable_insn_p (insn, fast, NULL))
@@ -475,14 +474,13 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
       else
 	bitmap_set_bit (arg_stores, INSN_UID (insn));
 
-      if (bitmap_empty_p (sp_bytes))
+      if (bitmap_empty_p (&sp_bytes))
 	{
 	  ret = true;
 	  break;
 	}
     }
 
-  BITMAP_FREE (sp_bytes);
   if (!ret && arg_stores)
     bitmap_clear (arg_stores);
 
@@ -839,7 +837,7 @@ static bool
 word_dce_process_block (basic_block bb, bool redo_out,
 			struct dead_debug_global *global_debug)
 {
-  bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
+  bitmap_head local_live (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
   struct dead_debug_local debug;
@@ -863,7 +861,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
       df_print_word_regset (dump_file, DF_WORD_LR_OUT (bb));
     }
 
-  bitmap_copy (local_live, DF_WORD_LR_OUT (bb));
+  bitmap_copy (&local_live, DF_WORD_LR_OUT (bb));
   dead_debug_local_init (&debug, NULL, global_debug);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -874,8 +872,8 @@ word_dce_process_block (basic_block bb, bool redo_out,
 	  if (DF_REF_REGNO (*use_rec) >= FIRST_PSEUDO_REGISTER
 	      && (GET_MODE_SIZE (GET_MODE (DF_REF_REAL_REG (*use_rec)))
 		  == 2 * UNITS_PER_WORD)
-	      && !bitmap_bit_p (local_live, 2 * DF_REF_REGNO (*use_rec))
-	      && !bitmap_bit_p (local_live, 2 * DF_REF_REGNO (*use_rec) + 1))
+	      && !bitmap_bit_p (&local_live, 2 * DF_REF_REGNO (*use_rec))
+	      && !bitmap_bit_p (&local_live, 2 * DF_REF_REGNO (*use_rec) + 1))
 	    dead_debug_add (&debug, *use_rec, DF_REF_REGNO (*use_rec));
       }
     else if (INSN_P (insn))
@@ -884,14 +882,14 @@ word_dce_process_block (basic_block bb, bool redo_out,
 
 	/* No matter if the instruction is needed or not, we remove
 	   any regno in the defs from the live set.  */
-	any_changed = df_word_lr_simulate_defs (insn, local_live);
+	any_changed = df_word_lr_simulate_defs (insn, &local_live);
 	if (any_changed)
 	  mark_insn (insn, true);
 
 	/* On the other hand, we do not allow the dead uses to set
 	   anything in local_live.  */
 	if (marked_insn_p (insn))
-	  df_word_lr_simulate_uses (insn, local_live);
+	  df_word_lr_simulate_uses (insn, &local_live);
 
 	/* Insert debug temps for dead REGs used in subsequent debug
 	   insns.  We may have to emit a debug temp even if the insn
@@ -913,16 +911,15 @@ word_dce_process_block (basic_block bb, bool redo_out,
 	  {
 	    fprintf (dump_file, "finished processing insn %d live out = ",
 		     INSN_UID (insn));
-	    df_print_word_regset (dump_file, local_live);
+	    df_print_word_regset (dump_file, &local_live);
 	  }
       }
 
-  block_changed = !bitmap_equal_p (local_live, DF_WORD_LR_IN (bb));
+  block_changed = !bitmap_equal_p (&local_live, DF_WORD_LR_IN (bb));
   if (block_changed)
-    bitmap_copy (DF_WORD_LR_IN (bb), local_live);
+    bitmap_copy (DF_WORD_LR_IN (bb), &local_live);
 
   dead_debug_local_finish (&debug, NULL);
-  BITMAP_FREE (local_live);
   return block_changed;
 }
 
@@ -937,7 +934,7 @@ static bool
 dce_process_block (basic_block bb, bool redo_out, bitmap au,
 		   struct dead_debug_global *global_debug)
 {
-  bitmap local_live = BITMAP_ALLOC (&dce_tmp_bitmap_obstack);
+  bitmap_head local_live (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
   df_ref *def_rec;
@@ -962,9 +959,9 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
       df_print_regset (dump_file, DF_LR_OUT (bb));
     }
 
-  bitmap_copy (local_live, DF_LR_OUT (bb));
+  bitmap_copy (&local_live, DF_LR_OUT (bb));
 
-  df_simulate_initialize_backwards (bb, local_live);
+  df_simulate_initialize_backwards (bb, &local_live);
   dead_debug_local_init (&debug, NULL, global_debug);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -972,7 +969,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
       {
 	df_ref *use_rec;
 	for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
-	  if (!bitmap_bit_p (local_live, DF_REF_REGNO (*use_rec))
+	  if (!bitmap_bit_p (&local_live, DF_REF_REGNO (*use_rec))
 	      && !bitmap_bit_p (au, DF_REF_REGNO (*use_rec)))
 	    dead_debug_add (&debug, *use_rec, DF_REF_REGNO (*use_rec));
       }
@@ -983,7 +980,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
 	/* The insn is needed if there is someone who uses the output.  */
 	if (!needed)
 	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	    if (bitmap_bit_p (local_live, DF_REF_REGNO (*def_rec))
+	    if (bitmap_bit_p (&local_live, DF_REF_REGNO (*def_rec))
 		|| bitmap_bit_p (au, DF_REF_REGNO (*def_rec)))
 	      {
 		needed = true;
@@ -993,12 +990,12 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
 
 	/* No matter if the instruction is needed or not, we remove
 	   any regno in the defs from the live set.  */
-	df_simulate_defs (insn, local_live);
+	df_simulate_defs (insn, &local_live);
 
 	/* On the other hand, we do not allow the dead uses to set
 	   anything in local_live.  */
 	if (needed)
-	  df_simulate_uses (insn, local_live);
+	  df_simulate_uses (insn, &local_live);
 
 	/* Insert debug temps for dead REGs used in subsequent debug
 	   insns.  We may have to emit a debug temp even if the insn
@@ -1013,13 +1010,12 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
       }
 
   dead_debug_local_finish (&debug, NULL);
-  df_simulate_finalize_backwards (bb, local_live);
+  df_simulate_finalize_backwards (bb, &local_live);
 
-  block_changed = !bitmap_equal_p (local_live, DF_LR_IN (bb));
+  block_changed = !bitmap_equal_p (&local_live, DF_LR_IN (bb));
   if (block_changed)
-    bitmap_copy (DF_LR_IN (bb), local_live);
+    bitmap_copy (DF_LR_IN (bb), &local_live);
 
-  BITMAP_FREE (local_live);
   return block_changed;
 }
 
@@ -1034,11 +1030,11 @@ fast_dce (bool word_level)
   int *postorder = df_get_postorder (DF_BACKWARD);
   int n_blocks = df_get_n_blocks (DF_BACKWARD);
   /* The set of blocks that have been seen on this iteration.  */
-  bitmap processed = BITMAP_ALLOC (&dce_blocks_bitmap_obstack);
+  bitmap_head processed (&dce_blocks_bitmap_obstack);
   /* The set of blocks that need to have the out vectors reset because
      the in of one of their successors has changed.  */
-  bitmap redo_out = BITMAP_ALLOC (&dce_blocks_bitmap_obstack);
-  bitmap all_blocks = BITMAP_ALLOC (&dce_blocks_bitmap_obstack);
+  bitmap_head redo_out (&dce_blocks_bitmap_obstack);
+  bitmap_head all_blocks (&dce_blocks_bitmap_obstack);
   bool global_changed = true;
 
   /* These regs are considered always live so if they end up dying
@@ -1054,7 +1050,7 @@ fast_dce (bool word_level)
   prescan_insns_for_dce (true);
 
   for (i = 0; i < n_blocks; i++)
-    bitmap_set_bit (all_blocks, postorder[i]);
+    bitmap_set_bit (&all_blocks, postorder[i]);
 
   dead_debug_global_init (&global_debug, NULL);
 
@@ -1070,34 +1066,34 @@ fast_dce (bool word_level)
 
 	  if (index < NUM_FIXED_BLOCKS)
 	    {
-	      bitmap_set_bit (processed, index);
+	      bitmap_set_bit (&processed, index);
 	      continue;
 	    }
 
 	  if (word_level)
 	    local_changed
-	      = word_dce_process_block (bb, bitmap_bit_p (redo_out, index),
+	      = word_dce_process_block (bb, bitmap_bit_p (&redo_out, index),
 					&global_debug);
 	  else
 	    local_changed
-	      = dce_process_block (bb, bitmap_bit_p (redo_out, index),
+	      = dce_process_block (bb, bitmap_bit_p (&redo_out, index),
 				   bb_has_eh_pred (bb) ? au_eh : au,
 				   &global_debug);
-	  bitmap_set_bit (processed, index);
+	  bitmap_set_bit (&processed, index);
 
 	  if (local_changed)
 	    {
 	      edge e;
 	      edge_iterator ei;
 	      FOR_EACH_EDGE (e, ei, bb->preds)
-		if (bitmap_bit_p (processed, e->src->index))
+		if (bitmap_bit_p (&processed, e->src->index))
 		  /* Be tricky about when we need to iterate the
 		     analysis.  We only have redo the analysis if the
 		     bitmaps change at the top of a block that is the
 		     entry to a loop.  */
 		  global_changed = true;
 		else
-		  bitmap_set_bit (redo_out, e->src->index);
+		  bitmap_set_bit (&redo_out, e->src->index);
 	    }
 	}
 
@@ -1111,17 +1107,17 @@ fast_dce (bool word_level)
 	     the cheap.  */
 	  delete_unmarked_insns ();
 	  bitmap_clear (marked);
-	  bitmap_clear (processed);
-	  bitmap_clear (redo_out);
+	  bitmap_clear (&processed);
+	  bitmap_clear (&redo_out);
 
 	  /* We do not need to rescan any instructions.  We only need
 	     to redo the dataflow equations for the blocks that had a
 	     change at the top of the block.  Then we need to redo the
 	     iteration.  */
 	  if (word_level)
-	    df_analyze_problem (df_word_lr, all_blocks, postorder, n_blocks);
+	    df_analyze_problem (df_word_lr, &all_blocks, postorder, n_blocks);
 	  else
-	    df_analyze_problem (df_lr, all_blocks, postorder, n_blocks);
+	    df_analyze_problem (df_lr, &all_blocks, postorder, n_blocks);
 
 	  if (old_flag & DF_LR_RUN_DCE)
 	    df_set_flags (DF_LR_RUN_DCE);
@@ -1133,10 +1129,6 @@ fast_dce (bool word_level)
   dead_debug_global_finish (&global_debug, NULL);
 
   delete_unmarked_insns ();
-
-  BITMAP_FREE (processed);
-  BITMAP_FREE (redo_out);
-  BITMAP_FREE (all_blocks);
 }
 
 

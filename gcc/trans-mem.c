@@ -1920,7 +1920,7 @@ tm_region_init (struct tm_region *region)
   edge e;
   basic_block bb;
   vec<basic_block> queue = vNULL;
-  bitmap visited_blocks = BITMAP_ALLOC (NULL);
+  bitmap_head visited_blocks;
   struct tm_region *old_region;
   vec<tm_region_p> bb_regions = vNULL;
 
@@ -1951,9 +1951,9 @@ tm_region_init (struct tm_region *region)
 
       /* Process subsequent blocks.  */
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (!bitmap_bit_p (visited_blocks, e->dest->index))
+	if (!bitmap_bit_p (&visited_blocks, e->dest->index))
 	  {
-	    bitmap_set_bit (visited_blocks, e->dest->index);
+	    bitmap_set_bit (&visited_blocks, e->dest->index);
 	    queue.safe_push (e->dest);
 
 	    /* If the current block started a new region, make sure that only
@@ -1967,7 +1967,6 @@ tm_region_init (struct tm_region *region)
     }
   while (!queue.is_empty ());
   queue.release ();
-  BITMAP_FREE (visited_blocks);
   bb_regions.release ();
 }
 
@@ -2507,11 +2506,11 @@ get_tm_region_blocks (basic_block entry_block,
   unsigned i;
   edge e;
   edge_iterator ei;
-  bitmap visited_blocks = BITMAP_ALLOC (NULL);
+  bitmap_head visited_blocks;
 
   i = 0;
   bbs.safe_push (entry_block);
-  bitmap_set_bit (visited_blocks, entry_block->index);
+  bitmap_set_bit (&visited_blocks, entry_block->index);
 
   do
     {
@@ -2529,18 +2528,17 @@ get_tm_region_blocks (basic_block entry_block,
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if ((include_uninstrumented_p
 	     || !(e->flags & EDGE_TM_UNINSTRUMENTED))
-	    && !bitmap_bit_p (visited_blocks, e->dest->index))
+	    && !bitmap_bit_p (&visited_blocks, e->dest->index))
 	  {
-	    bitmap_set_bit (visited_blocks, e->dest->index);
+	    bitmap_set_bit (&visited_blocks, e->dest->index);
 	    bbs.safe_push (e->dest);
 	  }
     }
   while (i < bbs.length ());
 
   if (all_region_blocks)
-    bitmap_ior_into (all_region_blocks, visited_blocks);
+    bitmap_ior_into (all_region_blocks, &visited_blocks);
 
-  BITMAP_FREE (visited_blocks);
   return bbs;
 }
 
@@ -4342,7 +4340,7 @@ ipa_tm_scan_irr_blocks (vec<basic_block> *pqueue, bitmap new_irr,
   bool any_new_irr = false;
   edge e;
   edge_iterator ei;
-  bitmap visited_blocks = BITMAP_ALLOC (NULL);
+  bitmap_head visited_blocks;
 
   do
     {
@@ -4360,16 +4358,14 @@ ipa_tm_scan_irr_blocks (vec<basic_block> *pqueue, bitmap new_irr,
       else if (exit_blocks == NULL || !bitmap_bit_p (exit_blocks, bb->index))
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (!bitmap_bit_p (visited_blocks, e->dest->index))
+	    if (!bitmap_bit_p (&visited_blocks, e->dest->index))
 	      {
-		bitmap_set_bit (visited_blocks, e->dest->index);
+		bitmap_set_bit (&visited_blocks, e->dest->index);
 		pqueue->safe_push (e->dest);
 	      }
 	}
     }
   while (!pqueue->is_empty ());
-
-  BITMAP_FREE (visited_blocks);
 
   return any_new_irr;
 }
@@ -4385,15 +4381,14 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
 		      bitmap old_irr, bitmap exit_blocks)
 {
   vec<basic_block> bbs;
-  bitmap all_region_blocks;
 
   /* If this block is in the old set, no need to rescan.  */
   if (old_irr && bitmap_bit_p (old_irr, entry_block->index))
     return;
 
-  all_region_blocks = BITMAP_ALLOC (&tm_obstack);
+  bitmap_head all_region_blocks (&tm_obstack);
   bbs = get_tm_region_blocks (entry_block, exit_blocks, NULL,
-			      all_region_blocks, false);
+			      &all_region_blocks, false);
   do
     {
       basic_block bb = bbs.pop ();
@@ -4438,14 +4433,13 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
 	      /* Make sure block is actually in a TM region, and it
 		 isn't already in old_irr.  */
 	      if ((!old_irr || !bitmap_bit_p (old_irr, son->index))
-		  && bitmap_bit_p (all_region_blocks, son->index))
+		  && bitmap_bit_p (&all_region_blocks, son->index))
 		bitmap_set_bit (new_irr, son->index);
 	    }
 	}
     }
   while (!bbs.is_empty ());
 
-  BITMAP_FREE (all_region_blocks);
   bbs.release ();
 }
 
@@ -4494,7 +4488,7 @@ static bool
 ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
 {
   struct tm_ipa_cg_data *d;
-  bitmap new_irr, old_irr;
+  bitmap old_irr;
   vec<basic_block> queue;
   bool ret = false;
 
@@ -4508,18 +4502,18 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
 
   d = get_cg_data (&node, true);
   queue.create (10);
-  new_irr = BITMAP_ALLOC (&tm_obstack);
+  bitmap_head new_irr (&tm_obstack);
 
   /* Scan each tm region, propagating irrevocable status through the tree.  */
   if (for_clone)
     {
       old_irr = d->irrevocable_blocks_clone;
       queue.quick_push (single_succ (ENTRY_BLOCK_PTR));
-      if (ipa_tm_scan_irr_blocks (&queue, new_irr, old_irr, NULL))
+      if (ipa_tm_scan_irr_blocks (&queue, &new_irr, old_irr, NULL))
 	{
-	  ipa_tm_propagate_irr (single_succ (ENTRY_BLOCK_PTR), new_irr,
+	  ipa_tm_propagate_irr (single_succ (ENTRY_BLOCK_PTR), &new_irr,
 				old_irr, NULL);
-	  ret = bitmap_bit_p (new_irr, single_succ (ENTRY_BLOCK_PTR)->index);
+	  ret = bitmap_bit_p (&new_irr, single_succ (ENTRY_BLOCK_PTR)->index);
 	}
     }
   else
@@ -4530,9 +4524,9 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
       for (region = d->all_tm_regions; region; region = region->next)
 	{
 	  queue.quick_push (region->entry_block);
-	  if (ipa_tm_scan_irr_blocks (&queue, new_irr, old_irr,
+	  if (ipa_tm_scan_irr_blocks (&queue, &new_irr, old_irr,
 				      region->exit_blocks))
-	    ipa_tm_propagate_irr (region->entry_block, new_irr, old_irr,
+	    ipa_tm_propagate_irr (region->entry_block, &new_irr, old_irr,
 				  region->exit_blocks);
 	}
     }
@@ -4540,37 +4534,34 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
   /* If we found any new irrevocable blocks, reduce the call count for
      transactional clones within the irrevocable blocks.  Save the new
      set of irrevocable blocks for next time.  */
-  if (!bitmap_empty_p (new_irr))
+  if (!bitmap_empty_p (&new_irr))
     {
       bitmap_iterator bmi;
       unsigned i;
 
-      EXECUTE_IF_SET_IN_BITMAP (new_irr, 0, i, bmi)
+      EXECUTE_IF_SET_IN_BITMAP (&new_irr, 0, i, bmi)
 	ipa_tm_decrement_clone_counts (BASIC_BLOCK (i), for_clone);
 
       if (old_irr)
 	{
-	  bitmap_ior_into (old_irr, new_irr);
-	  BITMAP_FREE (new_irr);
+	  bitmap_ior_into (old_irr, &new_irr);
 	}
       else if (for_clone)
-	d->irrevocable_blocks_clone = new_irr;
+	d->irrevocable_blocks_clone = &new_irr;
       else
-	d->irrevocable_blocks_normal = new_irr;
+	d->irrevocable_blocks_normal = &new_irr;
 
-      if (dump_file && new_irr)
+      if (dump_file)
 	{
 	  const char *dname;
 	  bitmap_iterator bmi;
 	  unsigned i;
 
 	  dname = lang_hooks.decl_printable_name (current_function_decl, 2);
-	  EXECUTE_IF_SET_IN_BITMAP (new_irr, 0, i, bmi)
+	  EXECUTE_IF_SET_IN_BITMAP (&new_irr, 0, i, bmi)
 	    fprintf (dump_file, "%s: bb %d goes irrevocable\n", dname, i);
 	}
     }
-  else
-    BITMAP_FREE (new_irr);
 
   queue.release ();
   pop_cfun ();
@@ -5180,7 +5171,7 @@ ipa_tm_transform_calls (struct cgraph_node *node, struct tm_region *region,
   edge e;
   edge_iterator ei;
   vec<basic_block> queue = vNULL;
-  bitmap visited_blocks = BITMAP_ALLOC (NULL);
+  bitmap_head visited_blocks;
 
   queue.safe_push (bb);
   do
@@ -5197,16 +5188,15 @@ ipa_tm_transform_calls (struct cgraph_node *node, struct tm_region *region,
 	continue;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (!bitmap_bit_p (visited_blocks, e->dest->index))
+	if (!bitmap_bit_p (&visited_blocks, e->dest->index))
 	  {
-	    bitmap_set_bit (visited_blocks, e->dest->index);
+	    bitmap_set_bit (&visited_blocks, e->dest->index);
 	    queue.safe_push (e->dest);
 	  }
     }
   while (!queue.is_empty ());
 
   queue.release ();
-  BITMAP_FREE (visited_blocks);
 
   return need_ssa_rename;
 }

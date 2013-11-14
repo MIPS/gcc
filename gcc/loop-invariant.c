@@ -655,10 +655,10 @@ static void
 find_defs (struct loop *loop, basic_block *body)
 {
   unsigned i;
-  bitmap blocks = BITMAP_ALLOC (NULL);
+  bitmap_head blocks;
 
   for (i = 0; i < loop->num_nodes; i++)
-    bitmap_set_bit (blocks, body[i]->index);
+    bitmap_set_bit (&blocks, body[i]->index);
 
   if (dump_file)
     {
@@ -670,7 +670,7 @@ find_defs (struct loop *loop, basic_block *body)
   df_remove_problem (df_chain);
   df_process_deferred_rescans ();
   df_chain_add_problem (DF_UD_CHAIN);
-  df_set_blocks (blocks);
+  df_set_blocks (&blocks);
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);
   df_analyze ();
   check_invariant_table_size ();
@@ -682,8 +682,6 @@ find_defs (struct loop *loop, basic_block *body)
 	       "*****ending processing of loop %d ******\n",
 	       loop->num);
     }
-
-  BITMAP_FREE (blocks);
 }
 
 /* Creates a new invariant for definition DEF in INSN, depending on invariants
@@ -995,24 +993,20 @@ find_invariants_body (struct loop *loop, basic_block *body,
 static void
 find_invariants (struct loop *loop)
 {
-  bitmap may_exit = BITMAP_ALLOC (NULL);
-  bitmap always_reached = BITMAP_ALLOC (NULL);
-  bitmap has_exit = BITMAP_ALLOC (NULL);
-  bitmap always_executed = BITMAP_ALLOC (NULL);
+  bitmap_head may_exit;
+  bitmap_head always_reached;
+  bitmap_head has_exit;
+  bitmap_head always_executed;
   basic_block *body = get_loop_body_in_dom_order (loop);
 
-  find_exits (loop, body, may_exit, has_exit);
-  compute_always_reached (loop, body, may_exit, always_reached);
-  compute_always_reached (loop, body, has_exit, always_executed);
+  find_exits (loop, body, &may_exit, &has_exit);
+  compute_always_reached (loop, body, &may_exit, &always_reached);
+  compute_always_reached (loop, body, &has_exit, &always_executed);
 
   find_defs (loop, body);
-  find_invariants_body (loop, body, always_reached, always_executed);
+  find_invariants_body (loop, body, &always_reached, &always_executed);
   merge_identical_invariants ();
 
-  BITMAP_FREE (always_reached);
-  BITMAP_FREE (always_executed);
-  BITMAP_FREE (may_exit);
-  BITMAP_FREE (has_exit);
   free (body);
 }
 

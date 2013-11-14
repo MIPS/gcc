@@ -151,7 +151,7 @@ typedef unsigned long BITMAP_WORD;
 /* Obstack for allocating bitmaps and elements from.  */
 typedef struct GTY (()) bitmap_obstack {
   struct bitmap_element_def *elements;
-  struct bitmap_head_def *heads;
+  struct bitmap_head *heads;
   struct obstack GTY ((skip)) obstack;
 } bitmap_obstack;
 
@@ -174,10 +174,19 @@ typedef struct GTY((chain_next ("%h.next"), chain_prev ("%h.prev"))) bitmap_elem
   BITMAP_WORD bits[BITMAP_ELEMENT_WORDS]; /* Bits that are set.  */
 } bitmap_element;
 
+
+extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
+
+/* Clear a bitmap by freeing up the linked list.  */
+extern void bitmap_clear (bitmap);
+static void bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL);
+
 /* Head of bitmap linked list.  The 'current' member points to something
    already pointed to by the chain started by first, so GTY((skip)) it.  */
+struct GTY(()) bitmap_head {
+  bitmap_head (bitmap_obstack *o = &bitmap_default_obstack) { bitmap_initialize_stat (this, o); }
+  ~bitmap_head () { bitmap_clear (this); }
 
-typedef struct GTY(()) bitmap_head_def {
   unsigned int indx;			/* Index of last element looked at.  */
   unsigned int descriptor_id;		/* Unique identifier for the allocation
 					   site of this bitmap, for detailed
@@ -186,14 +195,10 @@ typedef struct GTY(()) bitmap_head_def {
   bitmap_element * GTY((skip(""))) current; /* Last element looked at.  */
   bitmap_obstack *obstack;		/* Obstack to allocate elements from.
 					   If NULL, then use GGC allocation.  */
-} bitmap_head;
+};
 
 /* Global data */
 extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
-extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
-
-/* Clear a bitmap by freeing up the linked list.  */
-extern void bitmap_clear (bitmap);
 
 /* Copy a bitmap to another bitmap.  */
 extern void bitmap_copy (bitmap, const_bitmap);
@@ -293,8 +298,8 @@ inline void dump_bitmap (FILE *file, const_bitmap map)
 {
   bitmap_print (file, map, "", "\n");
 }
-extern void debug (const bitmap_head_def &ref);
-extern void debug (const bitmap_head_def *ptr);
+extern void debug (const bitmap_head &ref);
+extern void debug (const bitmap_head *ptr);
 
 extern unsigned bitmap_first_set_bit (const_bitmap);
 extern unsigned bitmap_last_set_bit (const_bitmap);

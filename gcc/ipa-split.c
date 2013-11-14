@@ -195,7 +195,7 @@ static bool
 verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 		     basic_block return_bb)
 {
-  bitmap seen = BITMAP_ALLOC (NULL);
+  bitmap_head seen;
   vec<basic_block> worklist = vNULL;
   edge e;
   edge_iterator ei;
@@ -206,7 +206,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	&& !bitmap_bit_p (current->split_bbs, e->src->index))
       {
         worklist.safe_push (e->src);
-	bitmap_set_bit (seen, e->src->index);
+	bitmap_set_bit (&seen, e->src->index);
       }
 
   while (!worklist.is_empty ())
@@ -216,7 +216,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->src != ENTRY_BLOCK_PTR
-	    && bitmap_set_bit (seen, e->src->index))
+	    && bitmap_set_bit (&seen, e->src->index))
 	  {
 	    gcc_checking_assert (!bitmap_bit_p (current->split_bbs,
 					        e->src->index));
@@ -274,7 +274,6 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	}
     }
 done:
-  BITMAP_FREE (seen);
   worklist.release ();
   return ok;
 }

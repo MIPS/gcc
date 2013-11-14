@@ -958,11 +958,10 @@ set_union_with_increment  (bitmap to, bitmap from, HOST_WIDE_INT inc)
      all subfields.  */
   if (inc == UNKNOWN_OFFSET)
     {
-      bitmap tmp = BITMAP_ALLOC (&iteration_obstack);
-      bitmap_copy (tmp, from);
-      solution_set_expand (tmp);
-      changed |= bitmap_ior_into (to, tmp);
-      BITMAP_FREE (tmp);
+      bitmap_head tmp (&iteration_obstack);
+      bitmap_copy (&tmp, from);
+      solution_set_expand (&tmp);
+      changed |= bitmap_ior_into (to, &tmp);
       return changed;
     }
 

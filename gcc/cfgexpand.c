@@ -471,7 +471,7 @@ add_scope_conflicts (void)
 {
   basic_block bb;
   bool changed;
-  bitmap work = BITMAP_ALLOC (NULL);
+  bitmap_head work;
   int *rpo;
   int n_bbs;
 
@@ -501,17 +501,16 @@ add_scope_conflicts (void)
 	  bitmap active;
 	  bb = BASIC_BLOCK (rpo[i]);
 	  active = (bitmap)bb->aux;
-	  add_scope_conflicts_1 (bb, work, false);
-	  if (bitmap_ior_into (active, work))
+	  add_scope_conflicts_1 (bb, &work, false);
+	  if (bitmap_ior_into (active, &work))
 	    changed = true;
 	}
     }
 
   FOR_EACH_BB (bb)
-    add_scope_conflicts_1 (bb, work, true);
+    add_scope_conflicts_1 (bb, &work, true);
 
   free (rpo);
-  BITMAP_FREE (work);
   FOR_ALL_BB (bb)
     BITMAP_FREE (bb->aux);
 }
@@ -671,7 +670,7 @@ update_alias_info_with_stack_vars (void)
     {
       unsigned i;
       struct pointer_set_t *visited = pointer_set_create ();
-      bitmap temp = BITMAP_ALLOC (&stack_var_bitmap_obstack);
+      bitmap_head temp;
 
       for (i = 1; i < num_ssa_names; i++)
 	{
@@ -682,15 +681,14 @@ update_alias_info_with_stack_vars (void)
 	      && POINTER_TYPE_P (TREE_TYPE (name))
 	      && ((pi = SSA_NAME_PTR_INFO (name)) != NULL))
 	    add_partitioned_vars_to_ptset (&pi->pt, decls_to_partitions,
-					   visited, temp);
+					   visited, &temp);
 	}
 
       add_partitioned_vars_to_ptset (&cfun->gimple_df->escaped,
-				     decls_to_partitions, visited, temp);
+				     decls_to_partitions, visited, &temp);
 
       pointer_set_destroy (visited);
       pointer_map_destroy (decls_to_partitions);
-      BITMAP_FREE (temp);
     }
 }
 

@@ -801,8 +801,8 @@ extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(const_basic_block, const void *),
 			       basic_block *, int, const void *);
-extern void compute_dominance_frontiers (struct bitmap_head_def *);
-extern bitmap compute_idf (bitmap, struct bitmap_head_def *);
+extern void compute_dominance_frontiers (struct bitmap_head *);
+extern bitmap compute_idf (bitmap, struct bitmap_head *);
 extern basic_block * single_pred_before_succ_order (void);
 
 /* In cfgrtl.c  */

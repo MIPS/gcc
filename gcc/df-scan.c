@@ -3900,10 +3900,9 @@ df_record_entry_block_defs (bitmap entry_block_defs)
 void
 df_update_entry_block_defs (void)
 {
-  bitmap_head refs;
+  bitmap_head refs (&df_bitmap_obstack);
   bool changed = false;
 
-  bitmap_initialize (&refs, &df_bitmap_obstack);
   df_get_entry_block_def_set (&refs);
   if (df->entry_block_defs)
     {
@@ -3931,7 +3930,6 @@ df_update_entry_block_defs (void)
       bitmap_copy (df->entry_block_defs, &refs);
       df_set_bb_dirty (BASIC_BLOCK (ENTRY_BLOCK));
     }
-  bitmap_clear (&refs);
 }
 
 

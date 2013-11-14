@@ -1254,7 +1254,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 {
   unsigned int i;
   bitmap_iterator bi;
-  bitmap tmp = BITMAP_ALLOC (NULL);
+  bitmap_head tmp;
   basic_block bb;
   edge e;
   edge_iterator ei;
@@ -1266,7 +1266,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
       vec<jump_thread_edge *> *path = paths[i];
       edge e = (*path)[0]->e;
       e->aux = (void *)path;
-      bitmap_set_bit (tmp, e->dest->index);
+      bitmap_set_bit (&tmp, e->dest->index);
     }
 
 
@@ -1275,7 +1275,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
      to duplicate it or it's an otherwise empty redirection block.  */
   if (optimize_function_for_size_p (cfun))
     {
-      EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, i, bi)
 	{
 	  bb = BASIC_BLOCK (i);
 	  if (EDGE_COUNT (bb->preds) > 1
@@ -1296,7 +1296,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	}
     }
   else
-    bitmap_copy (threaded_blocks, tmp);
+    bitmap_copy (threaded_blocks, &tmp);
 
   /* Look for jump threading paths which cross multiple loop headers.
 
@@ -1305,7 +1305,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 
      We don't want to blindly cancel the requests.  We can instead do better
      by trimming off the end of the jump thread path.  */
-  EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, i, bi)
     {
       basic_block bb = BASIC_BLOCK (i);
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -1375,7 +1375,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 
      Note since we've moved the thread request data to the edges,
      we have to iterate on those rather than the threaded_edges vector.  */
-  EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, i, bi)
     {
       bb = BASIC_BLOCK (i);
       FOR_EACH_EDGE (e, ei, bb->preds)
@@ -1401,8 +1401,6 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	    }
 	}
     }
-
-  BITMAP_FREE (tmp);
 }
 
 
@@ -1423,7 +1421,6 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   bool retval = false;
   unsigned int i;
   bitmap_iterator bi;
-  bitmap threaded_blocks;
   struct loop *loop;
   loop_iterator li;
 
@@ -1433,16 +1430,16 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   if (!paths.exists ())
     return false;
 
-  threaded_blocks = BITMAP_ALLOC (NULL);
+  bitmap_head threaded_blocks;
   memset (&thread_stats, 0, sizeof (thread_stats));
 
-  mark_threaded_blocks (threaded_blocks);
+  mark_threaded_blocks (&threaded_blocks);
 
   initialize_original_copy_tables ();
 
   /* First perform the threading requests that do not affect
      loop structure.  */
-  EXECUTE_IF_SET_IN_BITMAP (threaded_blocks, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&threaded_blocks, 0, i, bi)
     {
       basic_block bb = BASIC_BLOCK (i);
 
@@ -1456,7 +1453,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       if (!loop->header
-	  || !bitmap_bit_p (threaded_blocks, loop->header->index))
+	  || !bitmap_bit_p (&threaded_blocks, loop->header->index))
 	continue;
 
       retval |= thread_through_loop_header (loop, may_peel_loop_headers);
@@ -1498,8 +1495,6 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 
   free_original_copy_tables ();
 
-  BITMAP_FREE (threaded_blocks);
-  threaded_blocks = NULL;
   paths.release ();
 
   if (retval)

@@ -742,8 +742,7 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
 
   if (dest != orig)
     {
-      bitmap_head temp;
-      bitmap_initialize (&temp, &grand_bitmap_obstack);
+      bitmap_head temp (&grand_bitmap_obstack);
 
       bitmap_and_into (&dest->values, &orig->values);
       bitmap_copy (&temp, &dest->expressions);
@@ -754,7 +753,6 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
 	  if (!bitmap_bit_p (&dest->values, value_id))
 	    bitmap_clear_bit (&dest->expressions, i);
 	}
-      bitmap_clear (&temp);
     }
 }
 

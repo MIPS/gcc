@@ -1495,16 +1495,15 @@ resolve_noninline_speculation (fibheap_t edge_heap, struct cgraph_edge *edge)
       struct cgraph_node *node = edge->caller;
       struct cgraph_node *where = node->global.inlined_to
 				  ? node->global.inlined_to : node;
-      bitmap updated_nodes = BITMAP_ALLOC (NULL);
+      bitmap_head updated_nodes;
 
       cgraph_resolve_speculation (edge, NULL);
       reset_edge_caches (where);
       inline_update_overall_summary (where);
       update_caller_keys (edge_heap, where,
-			  updated_nodes, NULL);
+			  &updated_nodes, NULL);
       update_callee_keys (edge_heap, where,
-			  updated_nodes);
-      BITMAP_FREE (updated_nodes);
+			  &updated_nodes);
     }
 }
 
@@ -1520,7 +1519,7 @@ inline_small_functions (void)
   struct cgraph_node *node;
   struct cgraph_edge *edge;
   fibheap_t edge_heap = fibheap_new ();
-  bitmap updated_nodes = BITMAP_ALLOC (NULL);
+  bitmap_head updated_nodes;
   int min_size, max_size;
   vec<cgraph_edge_p> new_indirect_edges = vNULL;
   int initial_size = 0;
@@ -1623,8 +1622,8 @@ inline_small_functions (void)
           reset_node_growth_cache (where);
 	  reset_edge_caches (where);
           update_caller_keys (edge_heap, where,
-			      updated_nodes, NULL);
-          bitmap_clear (updated_nodes);
+			      &updated_nodes, NULL);
+          bitmap_clear (&updated_nodes);
 	}
     }
 
@@ -1736,8 +1735,8 @@ inline_small_functions (void)
 	     at once. Consequently we need to update all callee keys.  */
 	  if (flag_indirect_inlining)
 	    add_new_edges_to_heap (edge_heap, new_indirect_edges);
-          update_callee_keys (edge_heap, where, updated_nodes);
-	  bitmap_clear (updated_nodes);
+          update_callee_keys (edge_heap, where, &updated_nodes);
+	  bitmap_clear (&updated_nodes);
 	}
       else
 	{
@@ -1777,7 +1776,7 @@ inline_small_functions (void)
 	  reset_edge_caches (edge->callee);
           reset_node_growth_cache (callee);
 
-	  update_callee_keys (edge_heap, where, updated_nodes);
+	  update_callee_keys (edge_heap, where, &updated_nodes);
 	}
       where = edge->caller;
       if (where->global.inlined_to)
@@ -1789,8 +1788,8 @@ inline_small_functions (void)
 	 inlined into (since it's body size changed) and for the functions
 	 called by function we inlined (since number of it inlinable callers
 	 might change).  */
-      update_caller_keys (edge_heap, where, updated_nodes, NULL);
-      bitmap_clear (updated_nodes);
+      update_caller_keys (edge_heap, where, &updated_nodes, NULL);
+      bitmap_clear (&updated_nodes);
 
       if (dump_file)
 	{
@@ -1820,7 +1819,6 @@ inline_small_functions (void)
 	     "Unit growth for small function inlining: %i->%i (%i%%)\n",
 	     initial_size, overall_size,
 	     initial_size ? overall_size * 100 / (initial_size) - 100: 0);
-  BITMAP_FREE (updated_nodes);
   cgraph_remove_edge_removal_hook (edge_removal_hook_holder);
 }
 

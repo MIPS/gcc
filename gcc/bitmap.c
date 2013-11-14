@@ -310,6 +310,8 @@ bitmap_clear (bitmap head)
 {
   if (head->first)
     bitmap_elt_clear_from (head, head->first);
+
+  head->first = NULL;
 }
 
 /* Initialize a bitmap obstack.  If BIT_OBSTACK is NULL, initialize
@@ -370,7 +372,7 @@ bitmap_obstack_alloc_stat (bitmap_obstack *bit_obstack MEM_STAT_DECL)
     bit_obstack = &bitmap_default_obstack;
   map = bit_obstack->heads;
   if (map)
-    bit_obstack->heads = (struct bitmap_head_def *) map->first;
+    bit_obstack->heads = (struct bitmap_head *) map->first;
   else
     map = XOBNEW (&bit_obstack->obstack, bitmap_head);
   bitmap_initialize_stat (map, bit_obstack PASS_MEM_STAT);
@@ -388,7 +390,7 @@ bitmap_gc_alloc_stat (ALONE_MEM_STAT_DECL)
 {
   bitmap map;
 
-  map = ggc_alloc_bitmap_head_def ();
+  map = ggc_alloc_bitmap_head ();
   bitmap_initialize_stat (map, NULL PASS_MEM_STAT);
 
   if (GATHER_STATISTICS)
@@ -2207,13 +2209,13 @@ dump_bitmap_statistics (void)
 }
 
 DEBUG_FUNCTION void
-debug (const bitmap_head_def &ref)
+debug (const bitmap_head &ref)
 {
   dump_bitmap (stderr, &ref);
 }
 
 DEBUG_FUNCTION void
-debug (const bitmap_head_def *ptr)
+debug (const bitmap_head *ptr)
 {
   if (ptr)
     debug (*ptr);
