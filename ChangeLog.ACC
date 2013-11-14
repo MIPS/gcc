@@ -1,3 +1,9 @@
+14-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix workitems calculation in loop tiling.
+
+	* gcc/oacc-low.c(tile_the_loop): Fix case when strip size do not divide
+	  loop count evently.
+
 13-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Refactoring.
 

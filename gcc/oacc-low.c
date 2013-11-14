@@ -2855,63 +2855,102 @@ static void
 tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
               acc_schedule_t* sched, tree queue_handle)
 {
-  gimple stmt = gsi_stmt(*gsi), init_stmt;
-  basic_block bb = gimple_bb(stmt);
-  edge new_edge = split_block(bb, stmt), e;
-  basic_block new_bb, header_bb, body_bb;
+  gimple stmt, init_stmt, init_t_stmt;
+  basic_block bb;
+  edge new_edge, e, e_counter, e_wi_1, e_wi_0;
+  basic_block new_bb, header_bb, body_0_bb, body_1_bb, body_2_bb;
   struct loop* l;
   tree counter, counter_1, counter_2, counter_3;
   tree conv_var;
+  tree wi, wi_1, wi_2, wi_3;
+  tree tmp_var;
+
+  stmt = gsi_stmt(*gsi);
+  bb = gimple_bb(stmt);
+  new_edge = split_block(bb, stmt);
 
   new_bb = new_edge->dest;
-  body_bb = create_empty_bb(bb);
-  header_bb = create_empty_bb(body_bb);
+  body_0_bb = create_empty_bb(bb);
+  body_1_bb = create_empty_bb(body_0_bb);
+  body_2_bb = create_empty_bb(body_1_bb);
+  header_bb = create_empty_bb(body_2_bb);
 
   new_edge = redirect_edge_and_branch(new_edge, header_bb);
-  e = make_edge(header_bb, body_bb, EDGE_DFS_BACK | EDGE_TRUE_VALUE);
+  e = make_edge(header_bb, body_0_bb, EDGE_DFS_BACK | EDGE_TRUE_VALUE);
   e = make_edge(header_bb, new_bb, EDGE_FALSE_VALUE);
-  e = make_single_succ_edge(body_bb, header_bb, EDGE_FALLTHRU);
+  e = make_edge(body_0_bb, body_1_bb, EDGE_TRUE_VALUE);
+  e_wi_0 = make_edge(body_0_bb, body_2_bb, EDGE_FALSE_VALUE);
+  e_wi_1 = make_edge(body_1_bb, body_2_bb, EDGE_FALLTHRU);
+  e_counter = make_single_succ_edge(body_2_bb, header_bb, EDGE_FALLTHRU);
 
   set_immediate_dominator(CDI_DOMINATORS, header_bb, bb);
   set_immediate_dominator(CDI_DOMINATORS, new_bb, header_bb);
-  set_immediate_dominator(CDI_DOMINATORS, body_bb, header_bb);
+  set_immediate_dominator(CDI_DOMINATORS, body_0_bb, header_bb);
+  set_immediate_dominator(CDI_DOMINATORS, body_1_bb, body_0_bb);
+  set_immediate_dominator(CDI_DOMINATORS, body_2_bb, body_0_bb);
 
   l = alloc_loop();
   l->header = header_bb;
   header_bb->loop_father = l;
-  l->latch = body_bb;
-  body_bb->loop_father = l;
+  l->latch = body_2_bb;
+  body_2_bb->loop_father = l;
+  body_0_bb->loop_father = l;
+  body_1_bb->loop_father = l;
 
 
   place_new_loop(cfun, l);
   flow_loop_tree_node_add(bb->loop_father, l);
   
-  counter = create_tmp_reg(intSI_type_node, "_oacc_counter");
-  counter_1 = make_ssa_name_fn(cfun, counter, init_stmt);
+  counter = create_tmp_reg(intSI_type_node, "_acc_counter");
+  counter_1 = make_ssa_name_fn(cfun, counter, NULL);
   init_stmt = gimple_build_assign(counter_1, integer_zero_node);
   gen_add(gsi, init_stmt);
 
   if(TYPE_UNSIGNED(TREE_TYPE(sched->items))
       != TYPE_UNSIGNED(TREE_TYPE(counter)))
-    {
-      gimple convert_stmt =
-        build_type_cast(TREE_TYPE(counter), sched->items);
-      conv_var = create_tmp_reg(TREE_TYPE(counter), "_acc_tmp");
-      conv_var = make_ssa_name_fn(cfun, conv_var, convert_stmt);
-      set_gimple_def_var(convert_stmt, conv_var);
-      gen_add(gsi, convert_stmt);
-    }
+  {
+    conv_var = create_tmp_reg(TREE_TYPE(counter), "_acc_tmp");
+    //conv_var = make_ssa_name_fn(cfun, conv_var, NULL);
+    stmt = build_type_cast(TREE_TYPE(counter), sched->items);
+    set_gimple_def_var(stmt, conv_var);
+    gen_add(gsi, stmt);
+  }
   else
-    {
-      conv_var = sched->items;
-    }
+  {
+    conv_var = sched->items;
+  }
 
   counter_2 = make_ssa_name_fn(cfun, counter, init_stmt);
   counter_3 = make_ssa_name_fn(cfun, counter, init_stmt);
 
-  *gsi = gsi_start_bb(body_bb);
+  *gsi = gsi_start_bb(body_0_bb);
+  wi = create_tmp_reg(TREE_TYPE(sched->tiling), "_acc_tiling");
+  wi_1 = make_ssa_name_fn(cfun, wi, NULL);
+  init_t_stmt = gimple_build_assign(wi_1, sched->tiling);
+  wi_2 = make_ssa_name_fn(cfun, wi, init_t_stmt);
+  wi_3 = make_ssa_name_fn(cfun, wi, init_t_stmt);
+  gen_add(gsi, init_t_stmt);
+
+  tmp_var = create_tmp_reg(intSI_type_node, "_acc_tmp");
+  //tmp_var = make_ssa_name_fn(cfun, tmp_var, NULL);
+  stmt = build_assign(MINUS_EXPR, conv_var, counter_2);
+  set_gimple_def_var(stmt, tmp_var);
+  gen_add(gsi, stmt);
+
+  gen_add(gsi, gimple_build_cond(LT_EXPR, tmp_var, sched->tiling,
+                  NULL, NULL));
+
+  *gsi = gsi_start_bb(body_1_bb);
+  stmt = gimple_build_assign(wi_2, tmp_var);
+  gen_add(gsi, stmt);
+  
+
+  *gsi = gsi_start_bb(body_2_bb);
+  stmt = create_phi_node(wi_3, body_2_bb);
+  add_phi_arg(stmt, wi_1, e_wi_0, locus);
+  add_phi_arg(stmt, wi_2, e_wi_1, locus);
   generate_start_kernel(gsi, locus, kernel_handle,
-                sched->tiling,      /* WORKITEMS */
+                wi_3,               /* WORKITEMS */
                 counter_2,          /* OFFSET */
                 sched->group_size,  /* GROUPSIZE */
                 queue_handle);
@@ -2922,7 +2961,7 @@ tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
   *gsi = gsi_start_bb(header_bb);
   stmt = create_phi_node(counter_2, header_bb);
   add_phi_arg(stmt, counter_1, new_edge, locus);
-  add_phi_arg(stmt, counter_3, e, locus);
+  add_phi_arg(stmt, counter_3, e_counter, locus);
 
   gen_add(gsi, gimple_build_cond(LT_EXPR, counter_2, conv_var,
                     NULL, NULL));
