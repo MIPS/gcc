@@ -1240,23 +1240,9 @@ Set @code{CHAIN} to be the static chain for call statement @code{G}.
 Return the number of arguments used by call statement @code{G}.
 @end deftypefn
 
-@deftypefn {GIMPLE function} unsigned gimple_call_num_nobnd_args (gimple g)
-Return the number of arguments used by call statement @code{G}
-ignoring bound ones.
-@end deftypefn
-
 @deftypefn {GIMPLE function} tree gimple_call_arg (gimple g, unsigned index)
 Return the argument at position @code{INDEX} for call statement @code{G}.  The
 first argument is 0.
-@end deftypefn
-
-@deftypefn {GIMPLE function} tree gimple_call_nobnd_arg (gimple g, unsigned index)
-Return the argument at position @code{INDEX} for call statement @code{G}
-ignoring bound ones.  The first argument is 0.
-@end deftypefn
-
-@deftypefn {GIMPLE function} unsigned gimple_call_get_nobnd_arg_index (gimple g, unsigned index)
-Return index of @code{INDEX}'s non bound argument of the call statement @code{G}
 @end deftypefn
 
 @deftypefn {GIMPLE function} {tree *} gimple_call_arg_ptr (gimple g, unsigned index)
@@ -2041,15 +2027,6 @@ Return the return value for @code{GIMPLE_RETURN} @code{G}.
 
 @deftypefn {GIMPLE function} void gimple_return_set_retval (gimple g, tree retval)
 Set @code{RETVAL} to be the return value for @code{GIMPLE_RETURN} @code{G}.
-@end deftypefn
-
-@deftypefn {GIMPLE function} tree gimple_return_retbnd (gimple g)
-Return the bounds of return value for @code{GIMPLE_RETURN} @code{G}.
-@end deftypefn
-
-@deftypefn {GIMPLE function} void gimple_return_set_retbnd (gimple g, tree retbnd)
-Set @code{RETBND} to be the bounds of return value for @code{GIMPLE_RETURN}
-@code{G}.
 @end deftypefn
 
 @node @code{GIMPLE_SWITCH}
