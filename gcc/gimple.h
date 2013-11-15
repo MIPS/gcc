@@ -837,7 +837,6 @@ extern bool gimple_ior_addresses_taken (bitmap, gimple);
 extern bool gimple_call_builtin_p (gimple, enum built_in_class);
 extern bool gimple_call_builtin_p (gimple, enum built_in_function);
 extern bool gimple_asm_clobbers_memory_p (const_gimple);
-extern unsigned gimple_call_get_nobnd_arg_index (const_gimple, unsigned);
 
 /* Formal (expression) temporary table handling: multiple occurrences of
    the same scalar expression are evaluated into the same temporary.  */
@@ -2174,32 +2173,6 @@ gimple_call_arg (const_gimple gs, unsigned index)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);
   return gimple_op (gs, index + 3);
-}
-
-
-/* Return the number of arguments used by call statement GS
-   ignoring bound ones.  */
-
-static inline unsigned
-gimple_call_num_nobnd_args (const_gimple gs)
-{
-  unsigned num_args = gimple_call_num_args (gs);
-  unsigned res = num_args;
-  for (unsigned n = 0; n < num_args; n++)
-    if (POINTER_BOUNDS_P (gimple_call_arg (gs, n)))
-      res--;
-  return res;
-}
-
-
-/* Return INDEX's call argument ignoring bound ones.  */
-static inline tree
-gimple_call_nobnd_arg (const_gimple gs, unsigned index)
-{
-  /* No bound args may exist if pointers checker is off.  */
-  if (!flag_check_pointer_bounds)
-    return gimple_call_arg (gs, index);
-  return gimple_call_arg (gs, gimple_call_get_nobnd_arg_index (gs, index));
 }
 
 
