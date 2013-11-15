@@ -2103,14 +2103,12 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 		  HOST_WIDE_INT n;
 
 		  gcc_assert (GET_CODE (args[i].bounds) == PARALLEL);
-		  gcc_assert (GET_CODE (args[i].reg) == PARALLEL);
 
 		  for (n = 0; n < XVECLEN (args[i].bounds_slot, 0); n++)
 		    {
 		      rtx reg = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 0);
 		      rtx offs = XEXP (XVECEXP (args[i].bounds_slot, 0, n), 1);
 		      rtx bnd = chkp_get_value_with_offs (args[i].bounds, offs);
-		      rtx ptr = chkp_get_value_with_offs (args[i].reg, offs);
 
 		      /* For vararg functions it is possible we have
 			 slot for bounds but do not have bounds.  */
@@ -2122,8 +2120,12 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 			      use_reg (call_fusage, reg);
 			    }
 			  else
-			    targetm.calls.store_bounds_for_arg (ptr, ptr,
-								bnd, reg);
+			    {
+			      rtx ptr = chkp_get_value_with_offs (args[i].reg,
+								  offs);
+			      targetm.calls.store_bounds_for_arg (ptr, ptr,
+								  bnd, reg);
+			    }
 			}
 		    }
 		}
