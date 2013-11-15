@@ -1,3 +1,13 @@
+2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline r203071:
+
+	2013-10-01  Joern Rennecke  <joern.rennecke@embecosm.com>
+
+	Import from savannah.gnu.org:
+	* config.guess: Update to 2013-06-10 version.
+	* config.sub: Update to 2013-10-01 version.
+
 2013-11-12  Bill Schmidt  <wschmidt@linux.ibm.com>
 
 	Backport from mainline
