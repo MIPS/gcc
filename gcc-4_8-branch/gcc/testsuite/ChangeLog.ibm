@@ -1,5 +1,16 @@
 2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
+	Backport from mainline r201750.
+	Note: Default setting of -mcompat-align-parm inverted!
+
+	2013-08-14  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	PR target/57949
+	* gcc.target/powerpc/pr57949-1.c: New.
+	* gcc.target/powerpc/pr57949-2.c: New.
+
+2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
 	Backport from mainline r201040 and r201929:
 
 	2013-08-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
