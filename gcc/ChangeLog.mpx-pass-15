@@ -1,0 +1,5 @@
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* tree-tailcall.c: Include tree-chkp.h.
+	(suitable_for_tail_opt_p): Disable tail
+	recursion for instrumented functions with bounded args.
