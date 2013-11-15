@@ -3666,7 +3666,7 @@ rs6000_option_override_internal (bool global_init_p)
 
       /* We should always be splitting complex arguments, but we can't break
 	 Linux and Darwin ABIs at the moment.  For now, only AIX is fixed.  */
-      if (DEFAULT_ABI != ABI_AIX)
+      if (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN)
 	targetm.calls.split_complex_arg = NULL;
     }
 
@@ -6344,7 +6344,7 @@ legitimate_lo_sum_address_p (enum machine_mode mode, rtx x, int strict)
 
   if (TARGET_ELF || TARGET_MACHO)
     {
-      if (DEFAULT_ABI != ABI_AIX && DEFAULT_ABI != ABI_DARWIN && flag_pic)
+      if (DEFAULT_ABI == ABI_V4 && flag_pic)
 	return false;
       if (TARGET_TOC)
 	return false;
@@ -19613,7 +19613,8 @@ rs6000_savres_strategy (rs6000_stack_t *info,
      by the static chain.  It would require too much fiddling and the
      static chain is rarely used anyway.  FPRs are saved w.r.t the stack
      pointer on Darwin, and AIX uses r1 or r12.  */
-  if (using_static_chain_p && DEFAULT_ABI != ABI_AIX)
+  if (using_static_chain_p
+      && (DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN))
     strategy |= ((DEFAULT_ABI == ABI_DARWIN ? 0 : SAVE_INLINE_FPRS)
 		 | SAVE_INLINE_GPRS
 		 | SAVE_INLINE_VRS | REST_INLINE_VRS);
@@ -20309,7 +20310,8 @@ rs6000_return_addr (int count, rtx frame)
   /* Currently we don't optimize very well between prolog and body
      code and for PIC code the code can be actually quite bad, so
      don't try to be too clever here.  */
-  if (count != 0 || (DEFAULT_ABI != ABI_AIX && flag_pic))
+  if (count != 0
+      || ((DEFAULT_ABI == ABI_V4 || DEFAULT_ABI == ABI_DARWIN) && flag_pic))
     {
       cfun->machine->ra_needs_full_frame = 1;
 
@@ -20475,7 +20477,7 @@ rs6000_emit_load_toc_table (int fromprolog)
   rtx dest;
   dest = gen_rtx_REG (Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
 
-  if (TARGET_ELF && TARGET_SECURE_PLT && DEFAULT_ABI != ABI_AIX && flag_pic)
+  if (TARGET_ELF && TARGET_SECURE_PLT && DEFAULT_ABI == ABI_V4 && flag_pic)
     {
       char buf[30];
       rtx lab, tmp1, tmp2, got;
@@ -20503,7 +20505,7 @@ rs6000_emit_load_toc_table (int fromprolog)
       emit_insn (gen_load_toc_v4_pic_si ());
       emit_move_insn (dest, gen_rtx_REG (Pmode, LR_REGNO));
     }
-  else if (TARGET_ELF && DEFAULT_ABI != ABI_AIX && flag_pic == 2)
+  else if (TARGET_ELF && DEFAULT_ABI == ABI_V4 && flag_pic == 2)
     {
       char buf[30];
       rtx temp0 = (fromprolog
@@ -22323,7 +22325,7 @@ rs6000_emit_prologue (void)
 	 can use register 0.  This allows us to use a plain 'blr' to return
 	 from the procedure more often.  */
       int save_LR_around_toc_setup = (TARGET_ELF
-				      && DEFAULT_ABI != ABI_AIX
+				      && DEFAULT_ABI == ABI_V4
 				      && flag_pic
 				      && ! info->lr_save_p
 				      && EDGE_COUNT (EXIT_BLOCK_PTR->preds) > 0);
@@ -27653,8 +27655,7 @@ rs6000_elf_declare_function_name (FILE *file, const char *name, tree decl)
       fprintf (file, "%s:\n", desc_name);
       fprintf (file, "\t.long %s\n", orig_name);
       fputs ("\t.long _GLOBAL_OFFSET_TABLE_\n", file);
-      if (DEFAULT_ABI == ABI_AIX)
-	fputs ("\t.long 0\n", file);
+      fputs ("\t.long 0\n", file);
       fprintf (file, "\t.previous\n");
     }
   ASM_OUTPUT_LABEL (file, name);
