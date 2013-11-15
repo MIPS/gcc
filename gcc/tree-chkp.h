@@ -31,20 +31,21 @@ extern tree chkp_get_bounds (tree node);
 extern void chkp_set_bounds (tree node, tree val);
 extern bool chkp_register_var_initializer (tree var);
 extern void chkp_finish_file (void);
-extern bool chkp_type_has_pointer (tree type);
-extern unsigned chkp_type_bounds_count (tree type);
+extern bool chkp_type_has_pointer (const_tree type);
+extern unsigned chkp_type_bounds_count (const_tree type);
 extern tree chkp_make_bounds_for_struct_addr (tree ptr);
 extern tree chkp_get_zero_bounds_var (void);
 extern bool chkp_variable_size_type (tree type);
 extern tree chkp_build_make_bounds_call (tree lb, tree size);
 extern tree chkp_build_bndstx_call (tree addr, tree ptr, tree bounds);
-extern vec<bool> chkp_find_bound_slots (tree type);
+extern vec<bool> chkp_find_bound_slots (const_tree type);
 extern void chkp_build_bndstx (tree addr, tree ptr, tree bounds,
 			       gimple_stmt_iterator *gsi);
 extern tree chkp_parm_for_arg_bnd_arg (tree arg);
 extern gimple chkp_retbnd_call_by_val (tree val);
 extern bool chkp_function_instrumented_p (tree fndecl);
 extern tree chkp_get_call_arg_bounds (tree arg);
-extern void chkp_copy_bounds_for_assign (gimple assign);
+extern void chkp_copy_bounds_for_assign (gimple assign,
+					 struct cgraph_edge *edge);
 
 #endif /* GCC_TREE_CHKP_H */
