@@ -1,5 +1,13 @@
 2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
+	Backport from mainline r204809:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/sysv4le.h (LINUX64_DEFAULT_ABI_ELFv2): Define.
+
+2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
 	Backport from mainline r204808:
 
 	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
