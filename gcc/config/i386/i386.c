@@ -6835,10 +6835,11 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->regno += words;
       if (chkp_function_instrumented_p (current_function_decl)
 	  && type
-	  && BOUNDED_TYPE_P (type))
+	  && chkp_type_has_pointer (type))
 	{
-	  cum->bnd_nregs--;
-	  cum->bnd_regno++;
+	  unsigned count = chkp_type_bounds_count (type);
+	  cum->bnd_nregs -= count;
+	  cum->bnd_regno += count;
 	}
 
       if (cum->nregs <= 0)
@@ -7036,6 +7037,7 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 		regno = CX_REG;
 	    }
 
+	  /* Add bounds slot for each passed pointer.  */
 	  if (chkp_function_instrumented_p (current_function_decl)
 	      && type
 	      && BOUNDED_TYPE_P (type))
@@ -7045,6 +7047,42 @@ function_arg_32 (const CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	      rtx ret = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (2));
 	      XVECEXP (ret, 0, 0) = bnd;
 	      XVECEXP (ret, 0, 1) = val;
+	      return ret;
+	    }
+	  else if (chkp_function_instrumented_p (current_function_decl)
+	      && type
+	      && chkp_type_has_pointer (type))
+	    {
+	      unsigned int i;
+	      vec<bool> has_bounds = chkp_find_bound_slots (type);
+	      unsigned int bnd_num = 0;
+	      unsigned int bnd_no = 1;
+	      unsigned int bnd_regno = cum->bnd_regno;
+	      rtx ret;
+
+	      /* Compute number of passed bounds.  */
+	      for (i = 0; i < has_bounds.length (); i++)
+		if (has_bounds[i])
+		  bnd_num++;
+
+	      /* We return PARALLEL holding value reg and all bounds
+		 slots.  */
+	      ret = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (bnd_num + 1));
+	      /* Add value to the resulting PARALLEL.  */
+	      XVECEXP (ret, 0, 0) = gen_rtx_REG (mode, regno);
+
+	      /* Add bounds to the resulting PARALLEL.  */
+	      for (i = 0; i < has_bounds.length (); i++)
+		if (has_bounds[i])
+		  {
+		    rtx bnd = bnd_regno <= LAST_BND_REG
+		      ? gen_rtx_REG (BNDmode, bnd_regno)
+		      : GEN_INT (bnd_regno - LAST_BND_REG);
+		    bnd = gen_rtx_EXPR_LIST (VOIDmode, bnd, GEN_INT (i*8));
+		    XVECEXP (ret, 0, bnd_no++) = bnd;
+		    bnd_regno++;
+		  }
+	      has_bounds.release ();
 	      return ret;
 	    }
 	  else
