@@ -101,7 +101,7 @@ enum gf_mask {
     GF_CALL_NOTHROW		= 1 << 4,
     GF_CALL_ALLOCA_FOR_VAR	= 1 << 5,
     GF_CALL_INTERNAL		= 1 << 6,
-    GF_CALL_INSTRUMENTED	= 1 << 7,
+    GF_CALL_WITH_BOUNDS 	= 1 << 7,
     GF_OMP_PARALLEL_COMBINED	= 1 << 0,
     GF_OMP_FOR_KIND_MASK	= 3 << 0,
     GF_OMP_FOR_KIND_FOR		= 0 << 0,
@@ -2235,10 +2235,10 @@ gimple_call_internal_p (const_gimple gs)
    Pointer Bounds Checker.  */
 
 static inline bool
-gimple_call_instrumented_p (const_gimple gs)
+gimple_call_with_bounds_p (const_gimple gs)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);
-  return (gs->gsbase.subcode & GF_CALL_INSTRUMENTED) != 0;
+  return (gs->gsbase.subcode & GF_CALL_WITH_BOUNDS) != 0;
 }
 
 
@@ -2246,13 +2246,13 @@ gimple_call_instrumented_p (const_gimple gs)
    Pointer Bounds Checker.  */
 
 static inline void
-gimple_call_set_instrumented (gimple gs, bool instrumented_p)
+gimple_call_set_with_bounds (gimple gs, bool with_bounds)
 {
   GIMPLE_CHECK (gs, GIMPLE_CALL);
-  if (instrumented_p)
-    gs->gsbase.subcode |= GF_CALL_INSTRUMENTED;
+  if (with_bounds)
+    gs->gsbase.subcode |= GF_CALL_WITH_BOUNDS;
   else
-    gs->gsbase.subcode &= ~GF_CALL_INSTRUMENTED;
+    gs->gsbase.subcode &= ~GF_CALL_WITH_BOUNDS;
 }
 
 

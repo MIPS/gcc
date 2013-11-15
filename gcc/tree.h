@@ -829,7 +829,7 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   (CALL_EXPR_CHECK (NODE)->base.protected_flag)
 
 /* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
-#define CALL_INSTRUMENTED_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
+#define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
