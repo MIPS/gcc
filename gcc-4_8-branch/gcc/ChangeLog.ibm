@@ -1,5 +1,15 @@
 2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
+	Backport from mainline r197003:
+
+	2013-03-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* calls.c (expand_call): Add missing guard to code handling return
+	of non-BLKmode structures in MSB.
+	* function.c (expand_function_end): Likewise.
+
+2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
 	Backport from mainline r201750.
 	Note: Default setting of -mcompat-align-parm inverted!
 
