@@ -1,6 +1,0 @@
-2013-10-28  Ilya Enkovich  <ilya.enkovich@intel.com>
-
-	* tree-into-ssa.c: Include "target.h"
-	(rewrite_update_stmt): Skip BUILT_IN_CHKP_ARG_BND calls.
-	* tree-ssa-dom.c: Include "target.h"
-	(cprop_into_stmt): Skip BUILT_IN_CHKP_ARG_BND calls.
