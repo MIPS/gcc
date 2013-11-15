@@ -1276,6 +1276,15 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  copy = gimple_build_assign (id->retvar, retval);
 	  /* id->retvar is already substituted.  Skip it on later remapping.  */
 	  skip_first = true;
+
+	  /* We need to copy bounds if return structure with pointers into
+	     instrumented function.  */
+	  if (chkp_function_instrumented_p (id->dst_fn)
+	      && !bndslot
+	      && !BOUNDED_P (id->retvar)
+	      && chkp_type_has_pointer (TREE_TYPE (id->retvar)))
+	    id->assign_stmts.safe_push (copy);
+
 	}
       else
 	return stmts;
@@ -3022,7 +3031,7 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
 	      SET_DECL_BOUNDS (vars, bounds);
 	    }
 	  else if (chkp_type_has_pointer (TREE_TYPE (p)) && init_stmt)
-	    chkp_copy_bounds_for_assign (init_stmt);
+	    id->assign_stmts.safe_push (init_stmt);
 	}
     }
   /* After remapping parameters remap their types.  This has to be done
@@ -4107,6 +4116,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
   gimple_stmt_iterator gsi, stmt_gsi;
   bool successfully_inlined = FALSE;
   bool purge_dead_abnormal_edges;
+  unsigned int i;
 
   /* Set input_location here so we get the right instantiation context
      if we call instantiate_decl from inlinable_function_p.  */
@@ -4194,6 +4204,7 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 
   /* We will be inlining this callee.  */
   id->eh_lp_nr = lookup_stmt_eh_lp (stmt);
+  id->assign_stmts.create (0);
 
   /* Update the callers EH personality.  */
   if (DECL_FUNCTION_PERSONALITY (cg_edge->callee->symbol.decl))
@@ -4413,6 +4424,12 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
       stmt = gimple_build_assign (gimple_call_lhs (stmt), use_retvar);
       gsi_replace (&stmt_gsi, stmt, false);
       maybe_clean_or_replace_eh_stmt (old_stmt, stmt);
+
+      /* Copy bounds if we copy structure with bounds.  */
+      if (chkp_function_instrumented_p (id->dst_fn)
+	  && !BOUNDED_P (use_retvar)
+	  && chkp_type_has_pointer (TREE_TYPE (use_retvar)))
+	id->assign_stmts.safe_push (stmt);
     }
   else
     {
@@ -4473,6 +4490,11 @@ expand_call_inline (basic_block bb, gimple stmt, copy_body_data *id)
 		  || CONVERT_EXPR_CODE_P (gimple_assign_rhs_code (stmt)));
       TREE_USED (gimple_assign_rhs1 (stmt)) = 1;
     }
+
+  /* Copy bounds for all generated assigns that need it.  */
+  for (i = 0; i < id->assign_stmts.length (); i++)
+    chkp_copy_bounds_for_assign (id->assign_stmts[i], cg_edge);
+  id->assign_stmts.release ();
 
   /* Output the inlining info for this abstract function, since it has been
      inlined.  If we don't do this now, we can lose the information about the
@@ -4668,9 +4690,6 @@ optimize_inline_calls (tree fn)
 #ifdef ENABLE_CHECKING
     {
       struct cgraph_edge *e;
-
-      if (inlined_p && flag_check_pointer_bounds)
-	rebuild_cgraph_edges ();
 
       verify_cgraph_node (id.dst_node);
 
