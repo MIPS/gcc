@@ -34,6 +34,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "gimple-pretty-print.h"
+#include "gimple-iterator.h"
+#include "gimplify.h"
+#include "gimplify-me.h"
 #include "cfgloop.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-operands.h"
@@ -1752,7 +1755,7 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     }
 
   update_stmt (call);
-  gimple_call_set_instrumented (call, true);
+  gimple_call_set_with_bounds (call, true);
 }
 
 /* Return entry block to be used for checker initilization code.
@@ -1791,7 +1794,7 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
      when all symbols are emitted.  Force output to avoid undefined
      symbols in ctors.
      TODO: replace force with more accurate analysis.  */
-  varpool_node_for_decl (var)->symbol.force_output = 1;
+  varpool_node_for_decl (var)->force_output = 1;
   varpool_finalize_decl (var);
 
   vec_safe_push (chkp_static_const_bounds, var);
@@ -2603,7 +2606,7 @@ chkp_make_static_bounds (tree obj)
       /* There are cases when symbol is removed ignoring that
 	 we have bounds for it.  Avoid it by forcing symbol
 	 output.  */
-      symtab_get_node (obj)->symbol.force_output = 1;
+      symtab_get_node (obj)->force_output = 1;
     }
   else
     {
@@ -2626,7 +2629,7 @@ chkp_make_static_bounds (tree obj)
   DECL_READ_P (bnd_var) = 1;
   /* Force output similar to constant bounds.
      See chkp_make_static_const_bounds. */
-  varpool_node_for_decl (bnd_var)->symbol.force_output = 1;
+  varpool_node_for_decl (bnd_var)->force_output = 1;
   varpool_finalize_decl (bnd_var);
 
   /* Add created var to the global hash map.  */
@@ -2727,7 +2730,7 @@ chkp_get_var_size_decl (tree var)
   DECL_INITIAL (size_decl) = chkp_build_addr_expr (size_reloc);
   /* Force output similar to constant bounds.
      See chkp_make_static_const_bounds. */
-  varpool_node_for_decl (size_decl)->symbol.force_output = 1;
+  varpool_node_for_decl (size_decl)->force_output = 1;
   varpool_finalize_decl (size_decl);
 
   free (size_name);
@@ -3954,7 +3957,7 @@ chkp_copy_bounds_for_assign (gimple assign, struct cgraph_edge *edge)
 	  new_edge = cgraph_create_edge (edge->caller, callee, stmt,
 					 edge->count, edge->frequency);
 	  new_edge->frequency = compute_call_stmt_bb_frequency
-	    (edge->caller->symbol.decl, gimple_bb (stmt));
+	    (edge->caller->decl, gimple_bb (stmt));
 	}
       gsi_prev (&iter);
     }
@@ -5246,7 +5249,7 @@ chkp_optimize_string_function_calls (void)
 	  tree fndecl;
 
 	  if (gimple_code (stmt) != GIMPLE_CALL
-	      || !gimple_call_instrumented_p (stmt))
+	      || !gimple_call_with_bounds_p (stmt))
 	    continue;
 
 	  fndecl = gimple_call_fndecl (stmt);

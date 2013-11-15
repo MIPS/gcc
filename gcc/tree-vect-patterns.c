@@ -28,6 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
@@ -3207,8 +3209,7 @@ vect_pattern_recog (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
   gimple_stmt_iterator si;
   unsigned int i, j;
   vect_recog_func_ptr vect_recog_func;
-  vec<gimple> stmts_to_replace;
-  stmts_to_replace.create (1);
+  stack_vec<gimple, 1> stmts_to_replace;
   gimple stmt;
 
   if (dump_enabled_p ())
@@ -3248,6 +3249,4 @@ vect_pattern_recog (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
             }
         }
     }
-
-  stmts_to_replace.release ();
 }
