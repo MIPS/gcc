@@ -1,5 +1,17 @@
 2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
+	Backport from mainline r204806:
+
+	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_psave_function_arg): New function.
+	(rs6000_finish_function_arg): Likewise.
+	(rs6000_function_arg): Use rs6000_psave_function_arg and
+	rs6000_finish_function_arg to handle both vector and floating
+	point arguments that are also passed in GPRs / the stack.
+
+2013-11-15  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
 	Backport from mainline r204805:
 
 	2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
