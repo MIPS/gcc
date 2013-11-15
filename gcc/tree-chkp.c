@@ -415,6 +415,8 @@ struct pointer_map_t *chkp_incomplete_bounds_map;
 struct pointer_map_t *chkp_bounds_map;
 struct pointer_map_t *chkp_static_var_bounds;
 
+static bool in_chkp_pass;
+
 static GTY ((if_marked ("tree_vec_map_marked_p"),
 	     param_is (struct tree_vec_map)))
      htab_t chkp_abnormal_phi_copies;
@@ -488,6 +490,17 @@ chkp_get_tmp_var (void)
     tmp_var = create_tmp_reg (pointer_bounds_type_node, CHKP_BOUND_TMP_NAME);
 
   return tmp_var;
+}
+
+/* Get SSA_NAME to be used as temp.  */
+static tree
+chkp_get_tmp_reg (gimple stmt)
+{
+  if (in_chkp_pass)
+    return make_ssa_name (chkp_get_tmp_var (), stmt);
+
+  return make_temp_ssa_name (pointer_bounds_type_node, stmt,
+			     CHKP_BOUND_TMP_NAME);
 }
 
 /* Get var to be used for size temps.  */
@@ -830,7 +843,7 @@ chkp_finish_incomplete_bounds (void)
    structure having a pointer type as one of its fields.
    Otherwise return 0.  */
 bool
-chkp_type_has_pointer (tree type)
+chkp_type_has_pointer (const_tree type)
 {
   bool res = false;
 
@@ -851,7 +864,7 @@ chkp_type_has_pointer (tree type)
 }
 
 unsigned
-chkp_type_bounds_count (tree type)
+chkp_type_bounds_count (const_tree type)
 {
   unsigned res = 0;
 
@@ -1033,6 +1046,9 @@ chkp_register_bounds (tree ptr, tree bnd)
 {
   tree *slot;
 
+  if (!chkp_reg_bounds)
+    return;
+
   /* Do nothing if bounds are incomplete_bounds
      because it means bounds will be recomputed.  */
   if (bnd == incomplete_bounds)
@@ -1055,7 +1071,12 @@ chkp_register_bounds (tree ptr, tree bnd)
 static tree
 chkp_get_registered_bounds (tree ptr)
 {
-  tree *slot = (tree *)pointer_map_contains (chkp_reg_bounds, ptr);
+  tree *slot;
+
+  if (!chkp_reg_bounds)
+    return NULL_TREE;
+
+  slot = (tree *)pointer_map_contains (chkp_reg_bounds, ptr);
   return slot ? *slot : NULL_TREE;
 }
 
@@ -1421,7 +1442,7 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
    in TYPE which has pointer type and offset
    equal to i * POINTER_SIZE - OFFS in bits.  */
 void
-chkp_find_bound_slots_1 (tree type, vec<bool> &have_bound,
+chkp_find_bound_slots_1 (const_tree type, vec<bool> &have_bound,
 			 HOST_WIDE_INT offs)
 {
   if (BOUNDED_TYPE_P (type))
@@ -1460,7 +1481,7 @@ chkp_find_bound_slots_1 (tree type, vec<bool> &have_bound,
    Caller is responsible for deallocation of returned
    buffer.  */
 vec<bool>
-chkp_find_bound_slots (tree type)
+chkp_find_bound_slots (const_tree type)
 {
   HOST_WIDE_INT max_bounds
     = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
@@ -1487,8 +1508,7 @@ chkp_get_call_arg_bounds (tree arg)
 
   while (bind && gimple_code (bind) != GIMPLE_CALL)
     {
-      if (gimple_code (bind) == GIMPLE_ASSIGN
-	  && gimple_assign_rhs_code (bind) == SSA_NAME)
+      if (gimple_assign_ssa_name_copy_p (bind))
 	bind = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (bind));
       else if (gimple_code (bind) == GIMPLE_PHI
 	       && gimple_phi_num_args (bind) == 1
@@ -1498,29 +1518,16 @@ chkp_get_call_arg_bounds (tree arg)
 	return NULL_TREE;
     }
 
-  if (bind
-      && gimple_code (bind) == GIMPLE_CALL
-      && gimple_call_internal_p (bind)
-      && gimple_call_internal_fn (bind) == IFN_CHKP_BIND_BOUNDS)
-    return gimple_call_arg (bind, 1);
+  if (bind)
+    {
+      tree decl = gimple_call_fndecl (bind);
+      if (decl
+	  && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_CHKP_BIND_BOUNDS)
+	return gimple_call_arg (bind, 1);
+    }
 
   return NULL_TREE;
-}
-
-/* Return CHKP_BIND_BOUNDS call to bind argument ARG for call pointed
-   by by GSI with BOUNDS.  */
-static gimple
-chkp_build_bind_bounds (tree arg, tree bounds)
-{
-  tree new_arg;
-  gimple bind;
-
-  bind = gimple_build_call_internal (IFN_CHKP_BIND_BOUNDS, 2, arg, bounds);
-
-  new_arg = make_temp_ssa_name (TREE_TYPE (arg), bind, "");
-  gimple_call_set_lhs (bind, new_arg);
-
-  return bind;
 }
 
 /* Generate CHKP_BIND_BOUNDS call to bind argument ARG for call pointed
@@ -1529,12 +1536,36 @@ chkp_build_bind_bounds (tree arg, tree bounds)
 static tree
 chkp_bind_bounds (gimple_stmt_iterator *gsi, tree arg, tree bounds)
 {
-  gimple bind = chkp_build_bind_bounds (arg, bounds);
+  tree fndecl = builtin_decl_implicit (BUILT_IN_CHKP_BIND_BOUNDS);
+  tree new_arg;
+  gimple bind;
+
+  bind = gimple_build_call (fndecl, 2, arg, bounds);
+
+  if (!useless_type_conversion_p (TREE_TYPE (arg), ptr_type_node) && 0)
+    {
+      gimple assign;
+      tree tmp;
+
+      tmp = make_temp_ssa_name (ptr_type_node, bind, "");
+      gimple_call_set_lhs (bind, tmp);
+      gsi_insert_before (gsi, bind, GSI_SAME_STMT);
+
+      new_arg = make_temp_ssa_name (TREE_TYPE (arg), gimple_build_nop (), "");
+      assign = gimple_build_assign (new_arg,
+				    build1 (NOP_EXPR, TREE_TYPE (arg), tmp));
+      gsi_insert_before (gsi, assign, GSI_SAME_STMT);
+    }
+  else
+    {
+      //new_arg = make_temp_ssa_name (TREE_TYPE (arg), bind, "");
+      new_arg = make_temp_ssa_name (ptr_type_node, bind, "");
+      gimple_call_set_lhs (bind, new_arg);
+      gsi_insert_before (gsi, bind, GSI_SAME_STMT);
+    }
 
   /* No instrumentation for bind calls.  */
   chkp_mark_stmt (bind);
-
-  gsi_insert_before (gsi, bind, GSI_SAME_STMT);
 
   return gimple_call_lhs (bind);
 }
@@ -1743,7 +1774,7 @@ chkp_make_bounds (tree lb, tree size, gimple_stmt_iterator *iter, bool after)
   stmt = gimple_build_call (chkp_bndmk_fndecl, 2, lb, size);
   chkp_mark_stmt (stmt);
 
-  bounds = make_ssa_name (chkp_get_tmp_var (), stmt);
+  bounds = chkp_get_tmp_reg (stmt);
   gimple_call_set_lhs (stmt, bounds);
 
   gimple_seq_add_stmt (&seq, stmt);
@@ -1809,7 +1840,7 @@ chkp_get_zero_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      zero_bounds = make_ssa_name (chkp_get_tmp_var (), gimple_build_nop ());
+      zero_bounds = chkp_get_tmp_reg (gimple_build_nop ());
       stmt = gimple_build_assign (zero_bounds, chkp_get_zero_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -1839,7 +1870,7 @@ chkp_get_none_bounds (void)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      none_bounds = make_ssa_name (chkp_get_tmp_var (), gimple_build_nop ());
+      none_bounds = chkp_get_tmp_reg (gimple_build_nop ());
       stmt = gimple_build_assign (none_bounds, chkp_get_none_bounds_var ());
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -1934,7 +1965,7 @@ chkp_build_returned_bound (gimple call)
       gsi = gsi_for_stmt (call);
       gsi_insert_after (&gsi, stmt, GSI_SAME_STMT);
 
-      bounds = make_ssa_name (chkp_get_tmp_var (), stmt);
+      bounds = chkp_get_tmp_reg (stmt);
       gimple_call_set_lhs (stmt, bounds);
 
       update_stmt (stmt);
@@ -2029,7 +2060,7 @@ chkp_get_bound_for_parm (tree parm)
 	  gsi = gsi_start_bb (chkp_get_entry_block ());
 	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
 
-	  bounds = make_ssa_name (chkp_get_tmp_var (), stmt);
+	  bounds = chkp_get_tmp_reg (stmt);
 	  gimple_call_set_lhs (stmt, bounds);
 
 	  update_stmt (stmt);
@@ -2081,7 +2112,7 @@ chkp_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
 
   stmt = gimple_build_call (chkp_bndldx_fndecl, 2, addr, ptr);
   chkp_mark_stmt (stmt);
-  bounds = make_ssa_name (chkp_get_tmp_var (), stmt);
+  bounds = chkp_get_tmp_reg (stmt);
   gimple_call_set_lhs (stmt, bounds);
 
   gimple_seq_add_stmt (&seq, stmt);
@@ -2297,7 +2328,7 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
 	    if (!chkp_can_be_shared (rhs1))
 	      rhs1 = unshare_expr (rhs1);
 
-	    bounds = make_ssa_name (chkp_get_tmp_var (), assign);
+	    bounds = chkp_get_tmp_reg (assign);
 	    stmt = gimple_build_assign_with_ops (COND_EXPR, bounds,
 						  rhs1, bnd1, bnd2);
 	    gsi_insert_after (&iter, stmt, GSI_SAME_STMT);
@@ -2324,7 +2355,7 @@ chkp_compute_bounds_for_assignment (tree node, gimple assign)
 	    gimple stmt;
 	    tree cond = build2 (rhs_code == MAX_EXPR ? GT_EXPR : LT_EXPR,
 				boolean_type_node, rhs1, rhs2);
-	    bounds = make_ssa_name (chkp_get_tmp_var (), assign);
+	    bounds = chkp_get_tmp_reg (assign);
 	    stmt = gimple_build_assign_with_ops (COND_EXPR, bounds,
 						  cond, bnd1, bnd2);
 
@@ -2770,7 +2801,7 @@ chkp_get_bounds_for_decl_addr (tree decl)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      bounds = make_ssa_name (chkp_get_tmp_var (),  gimple_build_nop ());
+      bounds = chkp_get_tmp_reg (gimple_build_nop ());
       stmt = gimple_build_assign (bounds, bnd_var);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -2814,7 +2845,7 @@ chkp_get_bounds_for_string_cst (tree cst)
       gimple_stmt_iterator gsi = gsi_start_bb (chkp_get_entry_block ());
       gimple stmt;
 
-      bounds = make_ssa_name (chkp_get_tmp_var (),  gimple_build_nop ());
+      bounds = chkp_get_tmp_reg (gimple_build_nop ());
       stmt = gimple_build_assign (bounds, bnd_var);
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
     }
@@ -2852,7 +2883,7 @@ chkp_intersect_bounds (tree bounds1, tree bounds2, gimple_stmt_iterator *iter)
       stmt = gimple_build_call (chkp_intersect_fndecl, 2, bounds1, bounds2);
       chkp_mark_stmt (stmt);
 
-      bounds = make_ssa_name (chkp_get_tmp_var (), stmt);
+      bounds = chkp_get_tmp_reg (stmt);
       gimple_call_set_lhs (stmt, bounds);
 
       gimple_seq_add_stmt (&seq, stmt);
@@ -3381,7 +3412,7 @@ chkp_find_bounds_abnormal (tree ptr, tree phi, edge e)
      vector of copies for PHI.  */
   if (!copy)
     {
-      copy = make_ssa_name (chkp_get_tmp_var (), gimple_build_nop ());
+      copy = chkp_get_tmp_reg (gimple_build_nop ());
       assign = gimple_build_assign (copy, bounds);
 
       gsi = gsi_start_bb (e->src);
@@ -3804,14 +3835,35 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
 }
 
 /* Add code to copy bounds for all pointers copied
-   in ASSIGN.  */
+   in ASSIGN created during inline of EDGE.  */
 void
-chkp_copy_bounds_for_assign (gimple assign)
+chkp_copy_bounds_for_assign (gimple assign, struct cgraph_edge *edge)
 {
   tree lhs = gimple_assign_lhs (assign);
   tree rhs = gimple_assign_rhs1 (assign);
   gimple_stmt_iterator iter = gsi_for_stmt (assign);
   chkp_walk_pointer_assignments (lhs, rhs, &iter, chkp_copy_bounds_for_elem);
+
+  /* We should create edges for all created calls to bndldx and bndstx.  */
+  while (gsi_stmt (iter) != assign)
+    {
+      gimple stmt = gsi_stmt (iter);
+      if (gimple_code (stmt) == GIMPLE_CALL)
+	{
+	  tree fndecl = gimple_call_fndecl (stmt);
+	  struct cgraph_node *callee = cgraph_get_create_node (fndecl);
+	  struct cgraph_edge *new_edge;
+
+	  gcc_assert (fndecl == chkp_bndstx_fndecl
+		      || fndecl == chkp_bndldx_fndecl);
+
+	  new_edge = cgraph_create_edge (edge->caller, callee, stmt,
+					 edge->count, edge->frequency);
+	  new_edge->frequency = compute_call_stmt_bb_frequency
+	    (edge->caller->symbol.decl, gimple_bb (stmt));
+	}
+      gsi_prev (&iter);
+    }
 }
 
 /* Some code transformation made during instrumentation pass
@@ -3962,6 +4014,8 @@ chkp_init (void)
   basic_block bb;
   gimple_stmt_iterator i;
 
+  in_chkp_pass = true;
+
   for (bb = ENTRY_BLOCK_PTR ->next_bb; bb; bb = bb->next_bb)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
       chkp_unmark_stmt (gsi_stmt (i));
@@ -3999,6 +4053,8 @@ chkp_init (void)
 static void
 chkp_fini (void)
 {
+  in_chkp_pass = false;
+
   pointer_set_destroy (chkp_invalid_bounds);
   pointer_set_destroy (chkp_completed_bounds_set);
   pointer_map_destroy (chkp_reg_addr_bounds);
