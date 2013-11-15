@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-inline.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "flags.h"
@@ -674,4 +675,19 @@ lhd_end_section (void)
       switch_to_section (saved_section);
       saved_section = NULL;
     }
+}
+
+/* Empty function that is replaced with appropriate language dependent
+   frame cleanup function for _Cilk_spawn.  */
+
+void
+lhd_install_body_with_frame_cleanup (tree, tree)
+{
+}
+
+/* Empty function to handle cilk_valid_spawn.  */
+bool
+lhd_cilk_detect_spawn (tree *)
+{
+  return false;
 }
