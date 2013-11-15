@@ -1,3 +1,8 @@
+15-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Loop collapsing.
+
+	* gcc/oacc-low.c(collapse_loop): Fix header position after collapsing.
+
 14-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Fix workitems calculation in loop tiling.
 

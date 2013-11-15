@@ -2601,6 +2601,27 @@ collapse_loop(struct loop* l)
           dump_fn_body(dump_file, "AFTER CTRL VAR");
       }
 
+    if(single_pred_p(hdr_blk) && single_succ_p(hdr_blk))
+    {
+      edge e_pred, e_succ;
+
+      e_pred = single_pred_edge(hdr_blk);
+      e_succ = single_succ_edge(hdr_blk);
+
+      if(e_pred->src != hdr_blk->prev_bb && e_succ->dest != hdr_blk->next_bb)
+      {
+        if(dump_file)
+        {
+          fprintf(dump_file, "header block %d\n", hdr_blk->index);
+          fprintf(dump_file, "\tpred %d, prev %d\n", e_pred->src->index,
+            hdr_blk->prev_bb->index);
+          fprintf(dump_file, "\tsucc %d, next %d\n", e_succ->dest->index,
+            hdr_blk->next_bb->index);
+        }
+        move_block_after(hdr_blk, e_pred->src);
+
+      }
+    }
 }
 
 static void
