@@ -1,6 +1,11 @@
 15-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Loop collapsing.
 
+	* gcc/oacc-low.c(parallelize_loop): Add new structure for collapsing.
+
+15-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Loop collapsing.
+
 	* gcc/oacc-low.c(collapse_loop): Fix header position after collapsing.
 
 14-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
