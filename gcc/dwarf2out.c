@@ -87,7 +87,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "cgraph.h"
 #include "input.h"
-#include "gimple.h"
 #include "ira.h"
 #include "lra.h"
 #include "dumpfile.h"
@@ -15143,7 +15142,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
   else if (TREE_CODE (*tp) == VAR_DECL)
     {
       struct varpool_node *node = varpool_get_node (*tp);
-      if (!node || !node->symbol.definition)
+      if (!node || !node->definition)
 	return *tp;
     }
   else if (TREE_CODE (*tp) == FUNCTION_DECL
@@ -16319,11 +16318,13 @@ add_subscript_info (dw_die_ref type_die, tree type, bool collapse_p)
     }
 }
 
+/* Add a DW_AT_byte_size attribute to DIE with TREE_NODE's size.  */
+
 static void
 add_byte_size_attribute (dw_die_ref die, tree tree_node)
 {
   dw_die_ref decl_die;
-  unsigned size;
+  HOST_WIDE_INT size;
 
   switch (TREE_CODE (tree_node))
     {
@@ -16347,7 +16348,7 @@ add_byte_size_attribute (dw_die_ref die, tree tree_node)
 	 generally given as the number of bytes normally allocated for an
 	 object of the *declared* type of the member itself.  This is true
 	 even for bit-fields.  */
-      size = simple_type_size_in_bits (field_type (tree_node)) / BITS_PER_UNIT;
+      size = int_size_in_bytes (field_type (tree_node));
       break;
     default:
       gcc_unreachable ();
@@ -16356,8 +16357,9 @@ add_byte_size_attribute (dw_die_ref die, tree tree_node)
   /* Note that `size' might be -1 when we get to this point.  If it is, that
      indicates that the byte size of the entity in question is variable.  We
      have no good way of expressing this fact in Dwarf at the present time,
-     so just let the -1 pass on through.  */
-  add_AT_unsigned (die, DW_AT_byte_size, size);
+     when location description was not used by the caller code instead.  */
+  if (size >= 0)
+    add_AT_unsigned (die, DW_AT_byte_size, size);
 }
 
 /* For a FIELD_DECL node which represents a bit-field, output an attribute
@@ -17821,7 +17823,7 @@ premark_types_used_by_global_vars_helper (void **slot,
       /* Ask cgraph if the global variable really is to be emitted.
          If yes, then we'll keep the DIE of ENTRY->TYPE.  */
       struct varpool_node *node = varpool_get_node (entry->var_decl);
-      if (node && node->symbol.definition)
+      if (node && node->definition)
 	{
 	  die->die_perennial_p = 1;
 	  /* Keep the parent DIEs as well.  */
