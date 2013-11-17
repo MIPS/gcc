@@ -70,6 +70,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
@@ -924,11 +927,30 @@ determine_base_object (tree expr)
 static struct iv *
 alloc_iv (tree base, tree step)
 {
+  tree base_object = base;
   struct iv *iv = XCNEW (struct iv);
   gcc_assert (step != NULL_TREE);
 
+  /* Lower all address expressions except ones with DECL_P as operand.
+     By doing this:
+       1) More accurate cost can be computed for address expressions;
+       2) Duplicate candidates won't be created for bases in different
+          forms, like &a[0] and &a.  */
+  STRIP_NOPS (base_object);
+  if (TREE_CODE (base_object) == ADDR_EXPR
+      && !DECL_P (TREE_OPERAND (base_object, 0)))
+    {
+      aff_tree comb;
+      double_int size;
+      base_object = get_inner_reference_aff (TREE_OPERAND (base_object, 0),
+					     &comb, &size);
+      gcc_assert (base_object != NULL_TREE);
+      base_object = build_fold_addr_expr (base_object);
+      base = fold_convert (TREE_TYPE (base), aff_combination_to_tree (&comb));
+    }
+
   iv->base = base;
-  iv->base_object = determine_base_object (base);
+  iv->base_object = determine_base_object (base_object);
   iv->step = step;
   iv->biv_p = false;
   iv->have_use_for = false;
@@ -3481,17 +3503,21 @@ get_shiftadd_cost (tree expr, enum machine_mode mode, comp_cost cost0,
   int m = exact_log2 (int_cst_value (cst));
   int maxm = MIN (BITS_PER_WORD, GET_MODE_BITSIZE (mode));
   int sa_cost;
+  bool equal_p = false;
 
   if (!(m >= 0 && m < maxm))
     return false;
 
+  if (operand_equal_p (op1, mult, 0))
+    equal_p = true;
+
   sa_cost = (TREE_CODE (expr) != MINUS_EXPR
              ? shiftadd_cost (speed, mode, m)
-             : (mult == op1
+             : (equal_p
                 ? shiftsub1_cost (speed, mode, m)
                 : shiftsub0_cost (speed, mode, m)));
   res = new_cost (sa_cost, 0);
-  res = add_costs (res, mult == op1 ? cost0 : cost1);
+  res = add_costs (res, equal_p ? cost0 : cost1);
 
   STRIP_NOPS (multop);
   if (!is_gimple_val (multop))
@@ -3585,36 +3611,31 @@ force_expr_to_var_cost (tree expr, bool speed)
       op1 = TREE_OPERAND (expr, 1);
       STRIP_NOPS (op0);
       STRIP_NOPS (op1);
-
-      if (is_gimple_val (op0))
-	cost0 = no_cost;
-      else
-	cost0 = force_expr_to_var_cost (op0, speed);
-
-      if (is_gimple_val (op1))
-	cost1 = no_cost;
-      else
-	cost1 = force_expr_to_var_cost (op1, speed);
-
       break;
 
+    CASE_CONVERT:
     case NEGATE_EXPR:
       op0 = TREE_OPERAND (expr, 0);
       STRIP_NOPS (op0);
       op1 = NULL_TREE;
-
-      if (is_gimple_val (op0))
-	cost0 = no_cost;
-      else
-	cost0 = force_expr_to_var_cost (op0, speed);
-
-      cost1 = no_cost;
       break;
 
     default:
       /* Just an arbitrary value, FIXME.  */
       return new_cost (target_spill_cost[speed], 0);
     }
+
+  if (op0 == NULL_TREE
+      || TREE_CODE (op0) == SSA_NAME || CONSTANT_CLASS_P (op0))
+    cost0 = no_cost;
+  else
+    cost0 = force_expr_to_var_cost (op0, speed);
+
+  if (op1 == NULL_TREE
+      || TREE_CODE (op1) == SSA_NAME || CONSTANT_CLASS_P (op1))
+    cost1 = no_cost;
+  else
+    cost1 = force_expr_to_var_cost (op1, speed);
 
   mode = TYPE_MODE (TREE_TYPE (expr));
   switch (TREE_CODE (expr))
@@ -3639,6 +3660,16 @@ force_expr_to_var_cost (tree expr, bool speed)
                                     speed, &sa_cost))
             return sa_cost;
         }
+      break;
+
+    CASE_CONVERT:
+      {
+	tree inner_mode, outer_mode;
+	outer_mode = TREE_TYPE (expr);
+	inner_mode = TREE_TYPE (op0);
+	cost = new_cost (convert_cost (TYPE_MODE (outer_mode),
+				       TYPE_MODE (inner_mode), speed), 0);
+      }
       break;
 
     case MULT_EXPR:
