@@ -195,6 +195,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "function.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -1075,6 +1076,24 @@ set_cluster (basic_block bb1, basic_block bb2)
     gcc_unreachable ();
 }
 
+/* Return true if gimple operands T1 and T2 have the same value.  */
+
+static bool
+gimple_operand_equal_value_p (tree t1, tree t2)
+{
+  if (t1 == t2)
+    return true;
+
+  if (t1 == NULL_TREE
+      || t2 == NULL_TREE)
+    return false;
+
+  if (operand_equal_p (t1, t2, 0))
+    return true;
+
+  return gvn_uses_equal (t1, t2);
+}
+
 /* Return true if gimple statements S1 and S2 are equal.  Gimple_bb (s1) and
    gimple_bb (s2) are members of SAME_SUCC.  */
 
@@ -1085,7 +1104,7 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
   tree lhs1, lhs2;
   basic_block bb1 = gimple_bb (s1), bb2 = gimple_bb (s2);
   tree t1, t2;
-  bool equal, inv_cond;
+  bool inv_cond;
   enum tree_code code1, code2;
 
   if (gimple_code (s1) != gimple_code (s2))
@@ -1099,28 +1118,14 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
       if (!gimple_call_same_target_p (s1, s2))
         return false;
 
-      /* Eventually, we'll significantly complicate the CFG by adding
-	 back edges to properly model the effects of transaction restart.
-	 For the bulk of optimization this does not matter, but what we
-	 cannot recover from is tail merging blocks between two separate
-	 transactions.  Avoid that by making commit not match.  */
-      if (gimple_call_builtin_p (s1, BUILT_IN_TM_COMMIT))
-	return false;
-
-      equal = true;
       for (i = 0; i < gimple_call_num_args (s1); ++i)
 	{
 	  t1 = gimple_call_arg (s1, i);
 	  t2 = gimple_call_arg (s2, i);
-	  if (operand_equal_p (t1, t2, 0))
+	  if (gimple_operand_equal_value_p (t1, t2))
 	    continue;
-	  if (gvn_uses_equal (t1, t2))
-	    continue;
-	  equal = false;
-	  break;
+	  return false;
 	}
-      if (!equal)
-	return false;
 
       lhs1 = gimple_get_lhs (s1);
       lhs2 = gimple_get_lhs (s2);
@@ -1137,8 +1142,17 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
       lhs2 = gimple_get_lhs (s2);
       if (TREE_CODE (lhs1) != SSA_NAME
 	  && TREE_CODE (lhs2) != SSA_NAME)
-	return (vn_valueize (gimple_vdef (s1))
-		== vn_valueize (gimple_vdef (s2)));
+	{
+	  /* If the vdef is the same, it's the same statement.  */
+	  if (vn_valueize (gimple_vdef (s1))
+	      == vn_valueize (gimple_vdef (s2)))
+	    return true;
+
+	  /* Test for structural equality.  */
+	  return (operand_equal_p (lhs1, lhs2, 0)
+		  && gimple_operand_equal_value_p (gimple_assign_rhs1 (s1),
+						   gimple_assign_rhs1 (s2)));
+	}
       else if (TREE_CODE (lhs1) == SSA_NAME
 	       && TREE_CODE (lhs2) == SSA_NAME)
 	return vn_valueize (lhs1) == vn_valueize (lhs2);
@@ -1147,14 +1161,12 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
     case GIMPLE_COND:
       t1 = gimple_cond_lhs (s1);
       t2 = gimple_cond_lhs (s2);
-      if (!operand_equal_p (t1, t2, 0)
-	  && !gvn_uses_equal (t1, t2))
+      if (!gimple_operand_equal_value_p (t1, t2))
 	return false;
 
       t1 = gimple_cond_rhs (s1);
       t2 = gimple_cond_rhs (s2);
-      if (!operand_equal_p (t1, t2, 0)
-	  && !gvn_uses_equal (t1, t2))
+      if (!gimple_operand_equal_value_p (t1, t2))
 	return false;
 
       code1 = gimple_expr_code (s1);
@@ -1224,15 +1236,14 @@ find_duplicate (same_succ same_succ, basic_block bb1, basic_block bb2)
       gimple stmt1 = gsi_stmt (gsi1);
       gimple stmt2 = gsi_stmt (gsi2);
 
-      if (!gimple_equal_p (same_succ, stmt1, stmt2))
+      /* What could be better than to this this here is to blacklist the bb
+	 containing the stmt, when encountering the stmt f.i. in
+	 same_succ_hash.  */
+      if (is_tm_ending (stmt1)
+	  || is_tm_ending (stmt2))
 	return;
 
-      // We cannot tail-merge the builtins that end transactions.
-      // ??? The alternative being unsharing of BBs in the tm_init pass.
-      if (flag_tm
-	  && is_gimple_call (stmt1)
-	  && (gimple_call_flags (stmt1) & ECF_TM_BUILTIN)
-	  && is_tm_ending_fndecl (gimple_call_fndecl (stmt1)))
+      if (!gimple_equal_p (same_succ, stmt1, stmt2))
 	return;
 
       gsi_prev_nondebug (&gsi1);
@@ -1467,7 +1478,7 @@ static void
 replace_block_by (basic_block bb1, basic_block bb2)
 {
   edge pred_edge;
-  edge e1;
+  edge e1, e2;
   edge_iterator ei;
   unsigned int i;
   gimple bb2_phi;
@@ -1502,15 +1513,21 @@ replace_block_by (basic_block bb1, basic_block bb2)
   bb2->count += bb1->count;
 
   /* Merge the outgoing edge counts from bb1 onto bb2.  */
+  gcov_type out_sum = 0;
   FOR_EACH_EDGE (e1, ei, bb1->succs)
     {
-      edge e2;
       e2 = find_edge (bb2, e1->dest);
       gcc_assert (e2);
       e2->count += e1->count;
-      /* Recompute the probability from the new merged edge count (bb2->count
-         was updated above).  */
-      e2->probability = GCOV_COMPUTE_SCALE (e2->count, bb2->count);
+      out_sum += e2->count;
+    }
+  /* Recompute the edge probabilities from the new merged edge count.
+     Use the sum of the new merged edge counts computed above instead
+     of bb2's merged count, in case there are profile count insanities
+     making the bb count inconsistent with the edge weights.  */
+  FOR_EACH_EDGE (e2, ei, bb2->succs)
+    {
+      e2->probability = GCOV_COMPUTE_SCALE (e2->count, out_sum);
     }
 
   /* Do updates that use bb1, before deleting bb1.  */
