@@ -1014,7 +1014,7 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
 	    }
 
 	  /* Remember passed and returned bounds if any.  */
-	  if (gimple_call_instrumented_p (stmt))
+	  if (gimple_call_with_bounds_p (stmt))
 	    {
 	      retbnd = chkp_get_call_arg_bounds (gimple_call_arg (stmt, 0));
 	      retbnd_stmt = chkp_retbnd_call_by_val (lhs);
