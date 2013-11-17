@@ -43180,7 +43180,7 @@ ix86_bnd_prefixed_insn_p (rtx insn)
     {
       rtx call = get_call_rtx_from (insn);
       if (call)
-	return CALL_EXPR_INSTRUMENTED_P (call);
+	return CALL_EXPR_WITH_BOUNDS_P (call);
     }
 
   /* All other insns are prefixed only if function is instrumented.  */
