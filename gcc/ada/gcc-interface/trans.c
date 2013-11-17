@@ -34,6 +34,8 @@
 #include "libfuncs.h"	/* For set_stack_check_libfunc.  */
 #include "tree-iterator.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "pointer-set.h"
 #include "bitmap.h"
 #include "cgraph.h"
 #include "diagnostic.h"
@@ -3246,7 +3248,7 @@ finalize_nrv (tree fndecl, bitmap nrv, vec<tree, va_gc> *other, Node_Id gnat_ret
   /* Prune also the candidates that are referenced by nested functions.  */
   node = cgraph_get_create_node (fndecl);
   for (node = node->nested; node; node = node->next_nested)
-    walk_tree_without_duplicates (&DECL_SAVED_TREE (node->symbol.decl), prune_nrv_r,
+    walk_tree_without_duplicates (&DECL_SAVED_TREE (node->decl), prune_nrv_r,
 				  &data);
   if (bitmap_empty_p (nrv))
     return;

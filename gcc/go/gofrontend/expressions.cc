@@ -12,6 +12,7 @@
 #include "intl.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "tree-iterator.h"
 #include "convert.h"
 #include "real.h"
@@ -3351,9 +3352,10 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
 	  return se->get_tree(context);
 	}
 
-      Call_expression* i2s_expr =
+      Expression* i2s_expr =
           Runtime::make_call(Runtime::INT_TO_STRING, this->location(), 1,
                              this->expr_);
+      i2s_expr = Expression::make_cast(type, i2s_expr, this->location());
       ret = i2s_expr->get_tree(context);
     }
   else if (type->is_string_type() && expr_type->is_slice_type())
@@ -3405,7 +3407,7 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
       Type* e = type->array_type()->element_type()->forwarded();
       go_assert(e->integer_type() != NULL);
 
-      Call_expression* s2a_expr;
+      Expression* s2a_expr;
       if (e->integer_type()->is_byte())
         s2a_expr = Runtime::make_call(Runtime::STRING_TO_BYTE_ARRAY,
                                       this->location(), 1, this->expr_);
@@ -3415,6 +3417,8 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
           s2a_expr = Runtime::make_call(Runtime::STRING_TO_INT_ARRAY,
                                         this->location(), 1, this->expr_);
 	}
+      s2a_expr = Expression::make_unsafe_cast(type, s2a_expr,
+					      this->location());
       ret = s2a_expr->get_tree(context);
     }
   else if ((type->is_unsafe_pointer_type()
@@ -3630,7 +3634,8 @@ class Unary_expression : public Expression
  public:
   Unary_expression(Operator op, Expression* expr, Location location)
     : Expression(EXPRESSION_UNARY, location),
-      op_(op), escapes_(true), create_temp_(false), expr_(expr)
+      op_(op), escapes_(true), create_temp_(false), expr_(expr),
+      issue_nil_check_(false)
   { }
 
   // Return the operator.
@@ -3716,6 +3721,10 @@ class Unary_expression : public Expression
   void
   do_dump_expression(Ast_dump_context*) const;
 
+  void
+  do_issue_nil_check()
+  { this->issue_nil_check_ = (this->op_ == OPERATOR_MULT); }
+
  private:
   // The unary operator to apply.
   Operator op_;
@@ -3727,6 +3736,9 @@ class Unary_expression : public Expression
   bool create_temp_;
   // The operand.
   Expression* expr_;
+  // Whether or not to issue a nil check for this expression if its address
+  // is being taken.
+  bool issue_nil_check_;
 };
 
 // If we are taking the address of a composite literal, and the
@@ -4104,7 +4116,10 @@ Unary_expression::do_check_types(Gogo*)
 	    this->report_error(_("invalid operand for unary %<&%>"));
 	}
       else
-	this->expr_->address_taken(this->escapes_);
+        {
+          this->expr_->address_taken(this->escapes_);
+          this->expr_->issue_nil_check();
+        }
       break;
 
     case OPERATOR_MULT:
@@ -4274,12 +4289,13 @@ Unary_expression::do_get_tree(Translate_context* context)
 	// If we are dereferencing the pointer to a large struct, we
 	// need to check for nil.  We don't bother to check for small
 	// structs because we expect the system to crash on a nil
-	// pointer dereference.
+	// pointer dereference.	 However, if we know the address of this
+	// expression is being taken, we must always check for nil.
 	tree target_type_tree = TREE_TYPE(TREE_TYPE(expr));
 	if (!VOID_TYPE_P(target_type_tree))
 	  {
 	    HOST_WIDE_INT s = int_size_in_bytes(target_type_tree);
-	    if (s == -1 || s >= 4096)
+	    if (s == -1 || s >= 4096 || this->issue_nil_check_)
 	      {
 		if (!DECL_P(expr))
 		  expr = save_expr(expr);
@@ -5305,7 +5321,7 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
 	}
     }
 
-  // Lower struct and array comparisons.
+  // Lower struct, array, and some interface comparisons.
   if (op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ)
     {
       if (left->type()->struct_type() != NULL)
@@ -5313,6 +5329,11 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
       else if (left->type()->array_type() != NULL
 	       && !left->type()->is_slice_type())
 	return this->lower_array_comparison(gogo, inserter);
+      else if ((left->type()->interface_type() != NULL
+                && right->type()->interface_type() == NULL)
+               || (left->type()->interface_type() == NULL
+                   && right->type()->interface_type() != NULL))
+	return this->lower_interface_value_comparison(gogo, inserter);
     }
 
   return this;
@@ -5439,6 +5460,57 @@ Binary_expression::lower_array_comparison(Gogo* gogo,
     ret = Expression::make_unary(OPERATOR_NOT, ret, loc);
 
   return ret;
+}
+
+// Lower an interface to value comparison.
+
+Expression*
+Binary_expression::lower_interface_value_comparison(Gogo*,
+                                                    Statement_inserter* inserter)
+{
+  Type* left_type = this->left_->type();
+  Type* right_type = this->right_->type();
+  Interface_type* ift;
+  if (left_type->interface_type() != NULL)
+    {
+      ift = left_type->interface_type();
+      if (!ift->implements_interface(right_type, NULL))
+        return this;
+    }
+  else
+    {
+      ift = right_type->interface_type();
+      if (!ift->implements_interface(left_type, NULL))
+        return this;
+    }
+  if (!Type::are_compatible_for_comparison(true, left_type, right_type, NULL))
+    return this;
+
+  Location loc = this->location();
+
+  if (left_type->interface_type() == NULL
+      && left_type->points_to() == NULL
+      && !this->left_->is_addressable())
+    {
+      Temporary_statement* temp =
+          Statement::make_temporary(left_type, NULL, loc);
+      inserter->insert(temp);
+      this->left_ =
+          Expression::make_set_and_use_temporary(temp, this->left_, loc);
+    }
+
+  if (right_type->interface_type() == NULL
+      && right_type->points_to() == NULL
+      && !this->right_->is_addressable())
+    {
+      Temporary_statement* temp =
+          Statement::make_temporary(right_type, NULL, loc);
+      inserter->insert(temp);
+      this->right_ =
+          Expression::make_set_and_use_temporary(temp, this->right_, loc);
+    }
+
+  return this;
 }
 
 // Lower a struct or array comparison to a call to memcmp.
@@ -5903,8 +5975,7 @@ Binary_expression::do_get_tree(Translate_context* context)
     case OPERATOR_GT:
     case OPERATOR_GE:
       return Expression::comparison_tree(context, this->type_, this->op_,
-					 this->left_->type(), left,
-					 this->right_->type(), right,
+					 this->left_, this->right_,
 					 this->location());
 
     case OPERATOR_OROR:
@@ -6401,12 +6472,16 @@ Expression::make_binary(Operator op, Expression* left, Expression* right,
 
 tree
 Expression::comparison_tree(Translate_context* context, Type* result_type,
-			    Operator op, Type* left_type, tree left_tree,
-			    Type* right_type, tree right_tree,
-			    Location location)
+			    Operator op, Expression* left_expr,
+			    Expression* right_expr, Location location)
 {
-  Type* int_type = Type::lookup_integer_type("int");
-  tree int_type_tree = type_to_tree(int_type->get_backend(context->gogo()));
+  Type* left_type = left_expr->type();
+  Type* right_type = right_expr->type();
+
+  mpz_t zval;
+  mpz_init_set_ui(zval, 0UL);
+  Expression* zexpr = Expression::make_integer(&zval, NULL, location);
+  mpz_clear(zval);
 
   enum tree_code code;
   switch (op)
@@ -6433,21 +6508,17 @@ Expression::comparison_tree(Translate_context* context, Type* result_type,
       go_unreachable();
     }
 
+  // FIXME: Computing the tree here means it will be computed multiple times,
+  // which is wasteful.  This is a temporary modification until all tree code
+  // here can be replaced with frontend expressions.
+  tree left_tree = left_expr->get_tree(context);
+  tree right_tree = right_expr->get_tree(context);
   if (left_type->is_string_type() && right_type->is_string_type())
     {
-      Type* st = Type::make_string_type();
-      tree string_type = type_to_tree(st->get_backend(context->gogo()));
-      static tree string_compare_decl;
-      left_tree = Gogo::call_builtin(&string_compare_decl,
-				     location,
-				     "__go_strcmp",
-				     2,
-				     int_type_tree,
-				     string_type,
-				     left_tree,
-				     string_type,
-				     right_tree);
-      right_tree = build_int_cst_type(int_type_tree, 0);
+      Expression* strcmp_call = Runtime::make_call(Runtime::STRCMP, location, 2,
+                                                   left_expr, right_expr);
+      left_tree = strcmp_call->get_tree(context);
+      right_tree = zexpr->get_tree(context);
     }
   else if ((left_type->interface_type() != NULL
 	    && right_type->interface_type() == NULL
@@ -6460,154 +6531,61 @@ Expression::comparison_tree(Translate_context* context, Type* result_type,
       if (left_type->interface_type() == NULL)
 	{
 	  std::swap(left_type, right_type);
-	  std::swap(left_tree, right_tree);
+	  std::swap(left_expr, right_expr);
 	}
 
       // The right operand is not an interface.  We need to take its
       // address if it is not a pointer.
-      tree make_tmp;
-      tree arg;
+      Expression* pointer_arg = NULL;
       if (right_type->points_to() != NULL)
-	{
-	  make_tmp = NULL_TREE;
-	  arg = right_tree;
-	}
-      else if (TREE_ADDRESSABLE(TREE_TYPE(right_tree))
-	       || (TREE_CODE(right_tree) != CONST_DECL
-		   && DECL_P(right_tree)))
-	{
-	  make_tmp = NULL_TREE;
-	  arg = build_fold_addr_expr_loc(location.gcc_location(), right_tree);
-	  if (DECL_P(right_tree))
-	    TREE_ADDRESSABLE(right_tree) = 1;
-	}
+        pointer_arg = right_expr;
       else
 	{
-	  tree tmp = create_tmp_var(TREE_TYPE(right_tree),
-				    get_name(right_tree));
-	  DECL_IGNORED_P(tmp) = 0;
-	  DECL_INITIAL(tmp) = right_tree;
-	  TREE_ADDRESSABLE(tmp) = 1;
-	  make_tmp = build1(DECL_EXPR, void_type_node, tmp);
-	  SET_EXPR_LOCATION(make_tmp, location.gcc_location());
-	  arg = build_fold_addr_expr_loc(location.gcc_location(), tmp);
+          go_assert(right_expr->is_addressable());
+          pointer_arg = Expression::make_unary(OPERATOR_AND, right_expr,
+                                               location);
 	}
-      arg = fold_convert_loc(location.gcc_location(), ptr_type_node, arg);
 
-      Bexpression* descriptor_bexpr =
-          right_type->type_descriptor_pointer(context->gogo(), location);
-      tree descriptor = expr_to_tree(descriptor_bexpr);
-
-      if (left_type->interface_type()->is_empty())
-	{
-	  static tree empty_interface_value_compare_decl;
-	  left_tree = Gogo::call_builtin(&empty_interface_value_compare_decl,
-					 location,
-					 "__go_empty_interface_value_compare",
-					 3,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(descriptor),
-					 descriptor,
-					 ptr_type_node,
-					 arg);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is not comparable.
-	  TREE_NOTHROW(empty_interface_value_compare_decl) = 0;
-	}
-      else
-	{
-	  static tree interface_value_compare_decl;
-	  left_tree = Gogo::call_builtin(&interface_value_compare_decl,
-					 location,
-					 "__go_interface_value_compare",
-					 3,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(descriptor),
-					 descriptor,
-					 ptr_type_node,
-					 arg);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is not comparable.
-	  TREE_NOTHROW(interface_value_compare_decl) = 0;
-	}
-      right_tree = build_int_cst_type(int_type_tree, 0);
-
-      if (make_tmp != NULL_TREE)
-	left_tree = build2(COMPOUND_EXPR, TREE_TYPE(left_tree), make_tmp,
-			   left_tree);
+      Expression* descriptor_expr = Expression::make_type_descriptor(right_type,
+                                                                     location);
+      Call_expression* iface_valcmp =
+          Runtime::make_call((left_type->interface_type()->is_empty()
+                              ? Runtime::EMPTY_INTERFACE_VALUE_COMPARE
+                              : Runtime::INTERFACE_VALUE_COMPARE),
+                             location, 3, left_expr, descriptor_expr,
+                             pointer_arg);
+      left_tree = iface_valcmp->get_tree(context);
+      right_tree = zexpr->get_tree(context);
     }
   else if (left_type->interface_type() != NULL
 	   && right_type->interface_type() != NULL)
     {
+      Runtime::Function compare_function;
       if (left_type->interface_type()->is_empty()
 	  && right_type->interface_type()->is_empty())
-	{
-	  static tree empty_interface_compare_decl;
-	  left_tree = Gogo::call_builtin(&empty_interface_compare_decl,
-					 location,
-					 "__go_empty_interface_compare",
-					 2,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(right_tree),
-					 right_tree);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is uncomparable.
-	  TREE_NOTHROW(empty_interface_compare_decl) = 0;
-	}
+	compare_function = Runtime::EMPTY_INTERFACE_COMPARE;
       else if (!left_type->interface_type()->is_empty()
 	       && !right_type->interface_type()->is_empty())
-	{
-	  static tree interface_compare_decl;
-	  left_tree = Gogo::call_builtin(&interface_compare_decl,
-					 location,
-					 "__go_interface_compare",
-					 2,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(right_tree),
-					 right_tree);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is uncomparable.
-	  TREE_NOTHROW(interface_compare_decl) = 0;
-	}
+	compare_function = Runtime::INTERFACE_COMPARE;
       else
 	{
 	  if (left_type->interface_type()->is_empty())
 	    {
 	      go_assert(op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ);
 	      std::swap(left_type, right_type);
-	      std::swap(left_tree, right_tree);
+	      std::swap(left_expr, right_expr);
 	    }
 	  go_assert(!left_type->interface_type()->is_empty());
 	  go_assert(right_type->interface_type()->is_empty());
-	  static tree interface_empty_compare_decl;
-	  left_tree = Gogo::call_builtin(&interface_empty_compare_decl,
-					 location,
-					 "__go_interface_empty_compare",
-					 2,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(right_tree),
-					 right_tree);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is uncomparable.
-	  TREE_NOTHROW(interface_empty_compare_decl) = 0;
+	  compare_function = Runtime::INTERFACE_EMPTY_COMPARE;
 	}
 
-      right_tree = build_int_cst_type(int_type_tree, 0);
+      Call_expression* ifacecmp_call =
+          Runtime::make_call(compare_function, location, 2,
+                             left_expr, right_expr);
+
+      left_tree = ifacecmp_call->get_tree(context);
+      right_tree = zexpr->get_tree(context);
     }
 
   if (left_type->is_nil_type()
@@ -10399,6 +10377,10 @@ class Array_index_expression : public Expression
   do_address_taken(bool escapes)
   { this->array_->address_taken(escapes); }
 
+  void
+  do_issue_nil_check()
+  { this->array_->issue_nil_check(); }
+
   tree
   do_get_tree(Translate_context*);
 
@@ -11888,14 +11870,11 @@ Interface_field_reference_expression::do_get_tree(Translate_context* context)
   // Note that we are evaluating this->expr_ twice, but that is OK
   // because in the lowering pass we forced it into a temporary
   // variable.
-  tree expr_tree = this->expr_->get_tree(context);
   tree nil_check_tree = Expression::comparison_tree(context,
 						    Type::lookup_bool_type(),
 						    OPERATOR_EQEQ,
-						    this->expr_->type(),
-						    expr_tree,
-						    Type::make_nil_type(),
-						    null_pointer_node,
+						    this->expr_,
+						    Expression::make_nil(loc),
 						    loc);
   tree crash = context->gogo()->runtime_error(RUNTIME_ERROR_NIL_DEREFERENCE,
 					      loc);
@@ -13485,10 +13464,52 @@ class Composite_literal_expression : public Parser_expression
 int
 Composite_literal_expression::do_traverse(Traverse* traverse)
 {
-  if (this->vals_ != NULL
-      && this->vals_->traverse(traverse) == TRAVERSE_EXIT)
+  if (Type::traverse(this->type_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
-  return Type::traverse(this->type_, traverse);
+
+  // If this is a struct composite literal with keys, then the keys
+  // are field names, not expressions.  We don't want to traverse them
+  // in that case.  If we do, we can give an erroneous error "variable
+  // initializer refers to itself."  See bug482.go in the testsuite.
+  if (this->has_keys_ && this->vals_ != NULL)
+    {
+      // The type may not be resolvable at this point.
+      Type* type = this->type_;
+      while (true)
+	{
+	  if (type->classification() == Type::TYPE_NAMED)
+	    type = type->named_type()->real_type();
+	  else if (type->classification() == Type::TYPE_FORWARD)
+	    {
+	      Type* t = type->forwarded();
+	      if (t == type)
+		break;
+	      type = t;
+	    }
+	  else
+	    break;
+	}
+
+      if (type->classification() == Type::TYPE_STRUCT)
+	{
+	  Expression_list::iterator p = this->vals_->begin();
+	  while (p != this->vals_->end())
+	    {
+	      // Skip key.
+	      ++p;
+	      go_assert(p != this->vals_->end());
+	      if (Expression::traverse(&*p, traverse) == TRAVERSE_EXIT)
+		return TRAVERSE_EXIT;
+	      ++p;
+	    }
+	  return TRAVERSE_CONTINUE;
+	}
+    }
+
+  if (this->vals_ != NULL)
+    return this->vals_->traverse(traverse);
+
+  return TRAVERSE_CONTINUE;
 }
 
 // Lower a generic composite literal into a specific version based on
