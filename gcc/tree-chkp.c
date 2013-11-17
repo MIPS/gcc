@@ -1731,12 +1731,12 @@ chkp_find_const_bounds_var (HOST_WIDE_INT lb,
   struct varpool_node *node;
 
   FOR_EACH_VARIABLE (node)
-    if (POINTER_BOUNDS_P (node->symbol.decl)
-	&& TREE_READONLY (node->symbol.decl)
-	&& DECL_INITIAL (node->symbol.decl)
-	&& TREE_CODE (DECL_INITIAL (node->symbol.decl)) == INTEGER_CST
-	&& TREE_INT_CST (DECL_INITIAL (node->symbol.decl)) == val)
-      return node->symbol.decl;
+    if (POINTER_BOUNDS_P (node->decl)
+	&& TREE_READONLY (node->decl)
+	&& DECL_INITIAL (node->decl)
+	&& TREE_CODE (DECL_INITIAL (node->decl)) == INTEGER_CST
+	&& TREE_INT_CST (DECL_INITIAL (node->decl)) == val)
+      return node->decl;
 
   return NULL;
 }
