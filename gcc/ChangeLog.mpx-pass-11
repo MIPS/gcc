@@ -1,4 +1,4 @@
-2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* calls.c: Include tree-chkp.h, rtl-chkp.h.
 	(arg_data): Add fields for bounds information
@@ -12,6 +12,7 @@
 	(store_one_arg): Store bounds of arg.
 	* cfgexpand.c: Include tree-chkp.h, rtl-chkp.h.
 	(expand_call_stmt): Propagate instrumentation flag for CALL_EXPR.
+	(expand_return): Handle returned bounds.
 	(expand_gimple_stmt_1): Adjust to new expand_return signature.
 	(gimple_expand_cfg): Reset rtx bounds map.
 	* explow.c: Include rtl-chkp.h.
@@ -24,9 +25,6 @@
 	(store_field): Likewise.
 	(expand_expr_real_2): Likewise.
 	(expand_expr_real_1): Likewise.
-	* stmt.c: Include tree-chkp.h, rtl-chkp.h.
-	(expand_return): Handle returned bounds.
-	* tree.h (expand_return): Adjust to new expand_return signature.
 	* tree-outof-ssa.c (insert_value_copy_on_edge): Adjust to new
 	store_expr signature.
 	* function.c: Include tree-chkp.h, rtl-chkp.h.

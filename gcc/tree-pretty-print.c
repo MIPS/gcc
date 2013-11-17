@@ -878,6 +878,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	unsigned int quals = TYPE_QUALS (node);
 	enum tree_code_class tclass;
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	else if (quals & TYPE_QUAL_VOLATILE)
@@ -1179,6 +1181,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       {
 	unsigned int quals = TYPE_QUALS (node);
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	if (quals & TYPE_QUAL_VOLATILE)
@@ -2644,6 +2648,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       dump_block_node (buffer, node, spc, flags);
       break;
 
+    case CILK_SPAWN_STMT:
+      pp_string (buffer, "_Cilk_spawn ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      break;
+
+    case CILK_SYNC_STMT:
+      pp_string (buffer, "_Cilk_sync");
+      break;
+
     default:
       NIY;
     }
@@ -3390,7 +3403,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)
     {
-      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->symbol.order,
+      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->order,
                node->frequency == NODE_FREQUENCY_HOT
                ? " (hot)"
                : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED
