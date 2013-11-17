@@ -399,7 +399,7 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 
   /* Mark instrumented calls.  */
   if (call && fntree)
-    CALL_EXPR_INSTRUMENTED_P (call) = CALL_INSTRUMENTED_P (fntree);
+    CALL_EXPR_WITH_BOUNDS_P (call) = CALL_WITH_BOUNDS_P (fntree);
 
   /* Put the register usage information there.  */
   add_function_usage_to (call_insn, call_fusage);
@@ -1048,6 +1048,7 @@ store_unaligned_arguments_into_pseudos (struct arg_data *args, int num_actuals)
 
   for (i = 0; i < num_actuals; i++)
     if (args[i].reg != 0 && ! args[i].pass_on_stack
+	&& GET_CODE (args[i].reg) != PARALLEL
 	&& args[i].mode == BLKmode
 	&& MEM_P (args[i].value)
 	&& (MEM_ALIGN (args[i].value)
@@ -1198,7 +1199,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* If we pass structure address then we need to
 	   create bounds for it.  */
-	if (CALL_INSTRUMENTED_P (exp))
+	if (CALL_WITH_BOUNDS_P (exp))
 	  args[j].bounds_value
 	    = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
 
@@ -1209,7 +1210,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	tree argtype = TREE_TYPE (arg);
 
 	/* For instrumented calls get all bounds passed for arg.  */
-	if (CALL_INSTRUMENTED_P (exp))
+	if (CALL_WITH_BOUNDS_P (exp))
 	  {
 	    /* For bounded types bounds are passed via
 	       bounds binding calls.  */
@@ -1429,6 +1430,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 #else
 			     args[i].reg != 0,
 #endif
+			     reg_parm_stack_space,
 			     args[i].pass_on_stack ? 0 : args[i].partial,
 			     fndecl, args_size, &args[i].locate);
 #ifdef BLOCK_REG_PADDING
@@ -3913,7 +3915,8 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #else
 			   argvec[count].reg != 0,
 #endif
-			   0, NULL_TREE, &args_size, &argvec[count].locate);
+			   reg_parm_stack_space, 0,
+			   NULL_TREE, &args_size, &argvec[count].locate);
 
       if (argvec[count].reg == 0 || argvec[count].partial != 0
 	  || reg_parm_stack_space > 0)
@@ -4000,7 +4003,7 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
 #else
 			       argvec[count].reg != 0,
 #endif
-			       argvec[count].partial,
+			       reg_parm_stack_space, argvec[count].partial,
 			       NULL_TREE, &args_size, &argvec[count].locate);
 	  args_size.constant += argvec[count].locate.size.constant;
 	  gcc_assert (!argvec[count].locate.size.var);
