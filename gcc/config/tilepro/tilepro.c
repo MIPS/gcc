@@ -42,6 +42,7 @@
 #include "timevar.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "cfgloop.h"
 #include "tilepro-builtins.h"
 #include "tilepro-multiply.h"
@@ -5067,6 +5068,8 @@ tilepro_file_end (void)
 #undef  TARGET_ASM_FILE_END
 #define TARGET_ASM_FILE_END tilepro_file_end
 
+#undef  TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
