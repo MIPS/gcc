@@ -46,6 +46,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -436,17 +438,15 @@ static struct graph *
 build_rdg (vec<loop_p> loop_nest, control_dependences *cd)
 {
   struct graph *rdg;
-  vec<gimple> stmts;
   vec<data_reference_p> datarefs;
 
   /* Create the RDG vertices from the stmts of the loop nest.  */
-  stmts.create (10);
+  stack_vec<gimple, 10> stmts;
   stmts_from_loop (loop_nest[0], &stmts);
   rdg = new_graph (stmts.length ());
   datarefs.create (10);
   if (!create_rdg_vertices (rdg, stmts, loop_nest[0], &datarefs))
     {
-      stmts.release ();
       datarefs.release ();
       free_rdg (rdg);
       return NULL;
@@ -951,11 +951,10 @@ static partition_t
 build_rdg_partition_for_vertex (struct graph *rdg, int v)
 {
   partition_t partition = partition_alloc (NULL, NULL);
-  vec<int> nodes;
+  stack_vec<int, 3> nodes;
   unsigned i;
   int x;
 
-  nodes.create (3);
   graphds_dfs (rdg, &v, 1, &nodes, false, NULL);
 
   FOR_EACH_VEC_ELT (nodes, i, x)
@@ -965,7 +964,6 @@ build_rdg_partition_for_vertex (struct graph *rdg, int v)
 		      loop_containing_stmt (RDG_STMT (rdg, x))->num);
     }
 
-  nodes.release ();
   return partition;
 }
 
@@ -1354,8 +1352,17 @@ pg_add_dependence_edges (struct graph *rdg, vec<loop_p> loops, int dir,
 	      }
 	    /* Known dependences can still be unordered througout the
 	       iteration space, see gcc.dg/tree-ssa/ldist-16.c.  */
-	    if (DDR_NUM_DIST_VECTS (ddr) == 0)
+	    if (DDR_NUM_DIST_VECTS (ddr) != 1)
 	      this_dir = 2;
+	    /* If the overlap is exact preserve stmt order.  */
+	    else if (lambda_vector_zerop (DDR_DIST_VECT (ddr, 0), 1))
+	      ;
+	    else
+	      {
+		/* Else as the distance vector is lexicographic positive
+		   swap the dependence direction.  */
+		this_dir = -this_dir;
+	      }
 	  }
 	else
 	  this_dir = 0;
@@ -1388,7 +1395,6 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 		 control_dependences *cd, int *nb_calls)
 {
   struct graph *rdg;
-  vec<loop_p> loop_nest;
   vec<partition_t> partitions;
   partition_t partition;
   bool any_builtin;
@@ -1397,12 +1403,9 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
   int num_sccs = 1;
 
   *nb_calls = 0;
-  loop_nest.create (3);
+  stack_vec<loop_p, 3> loop_nest;
   if (!find_loop_nest (loop, &loop_nest))
-    {
-      loop_nest.release ();
-      return 0;
-    }
+    return 0;
 
   rdg = build_rdg (loop_nest, cd);
   if (!rdg)
@@ -1412,7 +1415,6 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 		 "Loop %d not distributed: failed to build the RDG.\n",
 		 loop->num);
 
-      loop_nest.release ();
       return 0;
     }
 
@@ -1648,7 +1650,6 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
   partitions.release ();
 
   free_rdg (rdg);
-  loop_nest.release ();
   return nbp - *nb_calls;
 }
 
