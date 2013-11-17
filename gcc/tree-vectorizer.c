@@ -63,6 +63,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-pretty-print.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-phinodes.h"
@@ -552,7 +554,7 @@ increase_alignment (void)
   /* Increase the alignment of all global arrays for vectorization.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)
     {
-      tree vectype, decl = vnode->symbol.decl;
+      tree vectype, decl = vnode->decl;
       tree t;
       unsigned int alignment;
 
