@@ -34,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "regs.h"
 #include "ggc.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -197,6 +199,7 @@ gimple_add_histogram_value (struct function *fun, gimple stmt,
 {
   hist->hvalue.next = gimple_histogram_value (fun, stmt);
   set_histogram_value (fun, stmt, hist);
+  hist->fun = fun;
 }
 
 
@@ -339,6 +342,15 @@ dump_histogram_value (FILE *dump_file, histogram_value hist)
 	}
       fprintf (dump_file, ".\n");
       break;
+    case HIST_TYPE_TIME_PROFILE:
+      fprintf (dump_file, "Time profile ");
+      if (hist->hvalue.counters)
+      {
+        fprintf (dump_file, "time:"HOST_WIDEST_INT_PRINT_DEC,
+                 (HOST_WIDEST_INT) hist->hvalue.counters[0]);
+      }
+      fprintf (dump_file, ".\n");
+      break;
     case HIST_TYPE_MAX:
       gcc_unreachable ();
    }
@@ -412,6 +424,7 @@ stream_in_histogram_value (struct lto_input_block *ib, gimple stmt)
 	  break;
 
 	case HIST_TYPE_IOR:
+  case HIST_TYPE_TIME_PROFILE:
 	  ncounters = 1;
 	  break;
 	case HIST_TYPE_MAX:
@@ -497,7 +510,9 @@ visit_hist (void **slot, void *data)
 {
   struct pointer_set_t *visited = (struct pointer_set_t *) data;
   histogram_value hist = *(histogram_value *) slot;
-  if (!pointer_set_contains (visited, hist))
+
+  if (!pointer_set_contains (visited, hist)
+      && hist->type != HIST_TYPE_TIME_PROFILE)
     {
       error ("dead histogram");
       dump_histogram_value (stderr, hist);
@@ -1209,9 +1224,9 @@ init_node_map (bool local)
 			   " with nodes %s/%i %s/%i\n",
 			   n->profile_id,
 			   cgraph_node_name (n),
-			   n->symbol.order,
-			   symtab_node_name (*(symtab_node*)val),
-			   (*(symtab_node *)val)->symbol.order);
+			   n->order,
+			   symtab_node_name (*(symtab_node **)val),
+			   (*(symtab_node **)val)->order);
 		n->profile_id = (n->profile_id + 1) & 0x7fffffff;
 	      }
 	  }
@@ -1222,7 +1237,7 @@ init_node_map (bool local)
 		       "Node %s/%i has no profile-id"
 		       " (profile feedback missing?)\n",
 		       cgraph_node_name (n),
-		       n->symbol.order);
+		       n->order);
 	    continue;
 	  }
 	else if ((val = pointer_map_contains (cgraph_node_map,
@@ -1233,7 +1248,7 @@ init_node_map (bool local)
 		       "Node %s/%i has IP profile-id %i conflict. "
 		       "Giving up.\n",
 		       cgraph_node_name (n),
-		       n->symbol.order,
+		       n->order,
 		       n->profile_id);
 	    *val = NULL;
 	    continue;
@@ -1274,7 +1289,7 @@ static bool
 check_ic_target (gimple call_stmt, struct cgraph_node *target)
 {
    location_t locus;
-   if (gimple_check_call_matching_types (call_stmt, target->symbol.decl, true))
+   if (gimple_check_call_matching_types (call_stmt, target->decl, true))
      return true;
 
    locus =  gimple_location (call_stmt);
@@ -1311,7 +1326,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   cond_bb = gimple_bb (icall_stmt);
   gsi = gsi_for_stmt (icall_stmt);
 
-  if (gimple_call_instrumented_p (icall_stmt) && gimple_call_lhs (icall_stmt))
+  if (gimple_call_with_bounds_p (icall_stmt) && gimple_call_lhs (icall_stmt))
     iretbnd_stmt = chkp_retbnd_call_by_val (gimple_call_lhs (icall_stmt));
 
   tmp0 = make_temp_ssa_name (optype, NULL, "PROF");
@@ -1320,7 +1335,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   load_stmt = gimple_build_assign (tmp0, tmp);
   gsi_insert_before (&gsi, load_stmt, GSI_SAME_STMT);
 
-  tmp = fold_convert (optype, build_addr (direct_call->symbol.decl,
+  tmp = fold_convert (optype, build_addr (direct_call->decl,
 					  current_function_decl));
   load_stmt = gimple_build_assign (tmp1, tmp);
   gsi_insert_before (&gsi, load_stmt, GSI_SAME_STMT);
@@ -1332,8 +1347,8 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
   gimple_set_vuse (icall_stmt, NULL_TREE);
   update_stmt (icall_stmt);
   dcall_stmt = gimple_copy (icall_stmt);
-  gimple_call_set_fndecl (dcall_stmt, direct_call->symbol.decl);
-  dflags = flags_from_decl_or_type (direct_call->symbol.decl);
+  gimple_call_set_fndecl (dcall_stmt, direct_call->decl);
+  dflags = flags_from_decl_or_type (direct_call->decl);
   if ((dflags & ECF_NORETURN) != 0)
     gimple_call_set_lhs (dcall_stmt, NULL_TREE);
   gsi_insert_before (&gsi, dcall_stmt, GSI_SAME_STMT);
@@ -1538,7 +1553,7 @@ gimple_ic_transform (gimple_stmt_iterator *gsi)
 	  fprintf (dump_file, "Indirect call -> direct call ");
 	  print_generic_expr (dump_file, gimple_call_fn (stmt), TDF_SLIM);
 	  fprintf (dump_file, "=> ");
-	  print_generic_expr (dump_file, direct_call->symbol.decl, TDF_SLIM);
+	  print_generic_expr (dump_file, direct_call->decl, TDF_SLIM);
 	  fprintf (dump_file, " transformation skipped because of type mismatch");
 	  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	}
@@ -1551,7 +1566,7 @@ gimple_ic_transform (gimple_stmt_iterator *gsi)
       fprintf (dump_file, "Indirect call -> direct call ");
       print_generic_expr (dump_file, gimple_call_fn (stmt), TDF_SLIM);
       fprintf (dump_file, "=> ");
-      print_generic_expr (dump_file, direct_call->symbol.decl, TDF_SLIM);
+      print_generic_expr (dump_file, direct_call->decl, TDF_SLIM);
       fprintf (dump_file, " transformation on insn postponned to ipa-profile");
       print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
       fprintf (dump_file, "hist->count "HOST_WIDEST_INT_PRINT_DEC
@@ -1963,11 +1978,13 @@ gimple_find_values_to_profile (histogram_values *values)
   gimple_stmt_iterator gsi;
   unsigned i;
   histogram_value hist = NULL;
-
   values->create (0);
+
   FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       gimple_values_to_profile (gsi_stmt (gsi), values);
+
+  values->safe_push (gimple_alloc_histogram_value (cfun, HIST_TYPE_TIME_PROFILE, 0, 0));
 
   FOR_EACH_VEC_ELT (*values, i, hist)
     {
@@ -1992,6 +2009,10 @@ gimple_find_values_to_profile (histogram_values *values)
  	case HIST_TYPE_INDIR_CALL:
  	  hist->n_counters = 3;
 	  break;
+
+  case HIST_TYPE_TIME_PROFILE:
+    hist->n_counters = 1;
+    break;
 
 	case HIST_TYPE_AVERAGE:
 	  hist->n_counters = 2;
