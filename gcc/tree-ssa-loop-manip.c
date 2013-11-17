@@ -25,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -1288,7 +1291,6 @@ rewrite_phi_with_iv (loop_p loop,
 				  GSI_SAME_STMT);
   stmt = gimple_build_assign (res, val);
   gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
-  SSA_NAME_DEF_STMT (res) = stmt;
 }
 
 /* Rewrite all the phi nodes of LOOP in function of the main induction
