@@ -31,6 +31,8 @@
 #include "dumpfile.h"
 #include "sbitmap.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -1079,7 +1081,6 @@ substitute_and_fold (ssa_prop_get_value_fn get_value_fn,
 	  {
 	    gimple new_stmt = gimple_build_assign (name, val);
 	    gimple_stmt_iterator gsi2;
-	    SSA_NAME_DEF_STMT (name) = new_stmt;
 	    gsi2 = gsi_after_labels (gimple_bb (def_stmt));
 	    gsi_insert_before (&gsi2, new_stmt, GSI_SAME_STMT);
 	    remove_phi_node (&gsi, false);
