@@ -1578,7 +1578,7 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
       tree param_type = ipa_get_callee_param_type (cs, n);
 
       /* No optimization for bounded types yet implemented.  */
-      if ((gimple_call_instrumented_p (call)
+      if ((gimple_call_with_bounds_p (call)
 	   || (fndecl && chkp_function_instrumented_p (fndecl)))
 	  && ((param_type && chkp_type_has_pointer (param_type))
 	      || (!param_type && chkp_type_has_pointer (TREE_TYPE (arg)))))
