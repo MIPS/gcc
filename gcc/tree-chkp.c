@@ -34,6 +34,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "gimple-pretty-print.h"
+#include "gimple-iterator.h"
+#include "gimplify.h"
+#include "gimplify-me.h"
 #include "cfgloop.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-operands.h"
@@ -1704,7 +1707,7 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
     }
 
   update_stmt (call);
-  gimple_call_set_instrumented (call, true);
+  gimple_call_set_with_bounds (call, true);
 }
 
 /* Return entry block to be used for checker initilization code.
@@ -1772,7 +1775,7 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
      when all symbols are emitted.  Force output to avoid undefined
      symbols in ctors.
      TODO: replace force with more accurate analysis.  */
-  varpool_node_for_decl (var)->symbol.force_output = 1;
+  varpool_node_for_decl (var)->force_output = 1;
   varpool_finalize_decl (var);
 
   return var;
@@ -2596,7 +2599,7 @@ chkp_make_static_bounds (tree obj)
   DECL_INITIAL (bnd_var) = chkp_build_addr_expr (obj);
   /* Force output similar to constant bounds.
      See chkp_make_static_const_bounds. */
-  varpool_node_for_decl (bnd_var)->symbol.force_output = 1;
+  varpool_node_for_decl (bnd_var)->force_output = 1;
   /* Mark symbol as requiring bounds initialization.  */
   varpool_node_for_decl (bnd_var)->need_bounds_init = 1;
   varpool_finalize_decl (bnd_var);
@@ -2677,7 +2680,7 @@ chkp_get_var_size_decl (tree var)
   DECL_INITIAL (size_decl) = chkp_build_addr_expr (size_reloc);
   /* Force output similar to constant bounds.
      See chkp_make_static_const_bounds. */
-  varpool_node_for_decl (size_decl)->symbol.force_output = 1;
+  varpool_node_for_decl (size_decl)->force_output = 1;
   varpool_finalize_decl (size_decl);
 
   free (size_name);
@@ -3626,13 +3629,13 @@ chkp_finish_file (void)
     /* Check that var is actually emitted and we need and may initialize
        its bounds.  */
     if (node->need_bounds_init
-	&& !POINTER_BOUNDS_P (node->symbol.decl)
-	&& DECL_RTL (node->symbol.decl)
-	&& MEM_P (DECL_RTL (node->symbol.decl))
-	&& TREE_ASM_WRITTEN (node->symbol.decl))
+	&& !POINTER_BOUNDS_P (node->decl)
+	&& DECL_RTL (node->decl)
+	&& MEM_P (DECL_RTL (node->decl))
+	&& TREE_ASM_WRITTEN (node->decl))
       {
-	chkp_walk_pointer_assignments (node->symbol.decl,
-				       DECL_INITIAL (node->symbol.decl),
+	chkp_walk_pointer_assignments (node->decl,
+				       DECL_INITIAL (node->decl),
 				       &stmts,
 				       chkp_add_modification_to_stmt_list);
 
@@ -3654,9 +3657,9 @@ chkp_finish_file (void)
   stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
   stmts.stmts = NULL;
   FOR_EACH_VARIABLE (node)
-    if (node->need_bounds_init && POINTER_BOUNDS_P (node->symbol.decl))
+    if (node->need_bounds_init && POINTER_BOUNDS_P (node->decl))
       {
-	tree bnd = node->symbol.decl;
+	tree bnd = node->decl;
 	tree var;
 
 	gcc_assert (DECL_INITIAL (bnd)
@@ -3889,7 +3892,7 @@ chkp_copy_bounds_for_assign (gimple assign, struct cgraph_edge *edge)
 	  new_edge = cgraph_create_edge (edge->caller, callee, stmt,
 					 edge->count, edge->frequency);
 	  new_edge->frequency = compute_call_stmt_bb_frequency
-	    (edge->caller->symbol.decl, gimple_bb (stmt));
+	    (edge->caller->decl, gimple_bb (stmt));
 	}
       gsi_prev (&iter);
     }
@@ -5179,7 +5182,7 @@ chkp_optimize_string_function_calls (void)
 	  tree fndecl;
 
 	  if (gimple_code (stmt) != GIMPLE_CALL
-	      || !gimple_call_instrumented_p (stmt))
+	      || !gimple_call_with_bounds_p (stmt))
 	    continue;
 
 	  fndecl = gimple_call_fndecl (stmt);
