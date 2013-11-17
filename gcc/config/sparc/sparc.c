@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target-def.h"
 #include "common/common-target.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "params.h"
@@ -5362,8 +5363,17 @@ sparc_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					  size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   if (size == 0)
     ; /* do nothing.  */
@@ -5464,8 +5474,17 @@ sparc_flat_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					  size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   if (sparc_save_local_in_regs_p)
     emit_save_or_restore_local_in_regs (stack_pointer_rtx, SPARC_STACK_BIAS,

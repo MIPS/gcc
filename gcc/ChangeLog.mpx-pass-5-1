@@ -1,7 +1,0 @@
-2013-10-30  Ilya Enkovich  <ilya.enkovich@intel.com>
-
-	* doc/gimple.texi (gimple_call_num_nobnd_args): New.
-	(gimple_call_nobnd_arg): New.
-	(gimple_return_retbnd): New.
-	(gimple_return_set_retbnd): New.
-	(gimple_call_get_nobnd_arg_index): New.

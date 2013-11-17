@@ -28,6 +28,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "rtl.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
 #include "langhooks.h"
@@ -8232,7 +8236,7 @@ execute_expand_omp (void)
 static bool
 gate_expand_omp (void)
 {
-  return (flag_openmp != 0 && !seen_error ());
+  return ((flag_openmp != 0 || flag_openmp_simd != 0) && !seen_error ());
 }
 
 namespace {
@@ -10053,7 +10057,7 @@ execute_lower_omp (void)
 
   /* This pass always runs, to provide PROP_gimple_lomp.
      But there is nothing to do unless -fopenmp is given.  */
-  if (flag_openmp == 0)
+  if (flag_openmp == 0 && flag_openmp_simd == 0)
     return 0;
 
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
