@@ -69,6 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "opts.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-alias.h"
 #include "insn-codes.h"
@@ -434,6 +435,19 @@ bool
 targhook_float_words_big_endian (void)
 {
   return !!FLOAT_WORDS_BIG_ENDIAN;
+}
+
+/* True if the target supports floating-point exceptions and rounding
+   modes.  */
+
+bool
+default_float_exceptions_rounding_supported_p (void)
+{
+#ifdef HAVE_adddf3
+  return HAVE_adddf3;
+#else
+  return false;
+#endif
 }
 
 /* True if the target supports decimal floating point.  */
@@ -1587,6 +1601,13 @@ default_canonicalize_comparison (int *, rtx *, rtx *, bool)
 {
 }
 
+/* Default implementation of TARGET_ATOMIC_ASSIGN_EXPAND_FENV.  */
+
+void
+default_atomic_assign_expand_fenv (tree *, tree *, tree *)
+{
+}
+
 #ifndef PAD_VARARGS_DOWN
 #define PAD_VARARGS_DOWN BYTES_BIG_ENDIAN
 #endif
@@ -1718,5 +1739,14 @@ default_builtin_chkp_function (unsigned int fcode ATTRIBUTE_UNUSED)
   return NULL_TREE;
 }
 
+/* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do
+   not support nested low-overhead loops.  */
+
+bool
+can_use_doloop_if_innermost (double_int, double_int,
+			     unsigned int loop_depth, bool)
+{
+  return loop_depth == 1;
+}
 
 #include "gt-targhooks.h"
