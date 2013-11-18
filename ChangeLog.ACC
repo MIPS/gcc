@@ -1,4 +1,9 @@
 18-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix warnings.
+
+	* gcc/oacc-low.c: Fix several warnings.
+
+18-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Fix OpenCL generation for compatibility.
 
 	* gcc/gimple-opencl.c(generate_type): Generate pointer instead of array.

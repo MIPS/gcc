@@ -390,31 +390,14 @@ add_local_to_bind(splay_tree_node n, void* data)
     return 0;
 }
 
-static int
-add_assign_to_bind(splay_tree_node n, void* data)
+static void
+add_locals_to_bind(gimple bind, oacc_context* ctx)
 {
-    gimple_seq* assigns = (gimple_seq*)data;
-    gimple stmt;
-
-    stmt = gimple_build_assign((tree)n->value, (tree)n->key);
-    gimple_seq_add_stmt(assigns, stmt);
-    return 0;
-}
-
-static void add_locals_to_bind(gimple bind, oacc_context* ctx)
-{
-    gimple_seq bind_body = gimple_bind_body(bind), assigns = NULL;
     splay_tree_foreach(ctx->local_map, add_local_to_bind, (void*)bind);
-    /*
-       splay_tree_foreach(ctx->local_map, add_assign_to_bind, (void*)&assigns);
-       if(assigns != NULL) {
-       gimple_seq_add_seq(&assigns, bind_body);
-       gimple_bind_set_body(bind, assigns);
-       }
-     */
 }
 
-static void add_locals(gimple_seq* pbody, oacc_context* ctx)
+static void
+add_locals(gimple_seq* pbody, oacc_context* ctx)
 {
     if(gimple_code(gimple_seq_first(*pbody)) == GIMPLE_BIND)
         {
@@ -540,7 +523,7 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
     gimple_set_body(child_fn, body);
 
     child_cfun = DECL_STRUCT_FUNCTION (child_fn);
-    DECL_STRUCT_FUNCTION (child_fn)->curr_properties = cfun->curr_properties;
+    child_cfun->curr_properties = cfun->curr_properties;
     cgraph_add_new_function (child_fn, false);
 
     vec<tree> args;
@@ -776,7 +759,7 @@ fix_decl_context(splay_tree_node node, void* data)
 static void
 create_oacc_child_function(oacc_context* ctx)
 {
-    tree name, type, decl, t, t1;
+    tree name, type, decl, t;
     vec<tree> args, types;
     unsigned i;
 
@@ -872,16 +855,12 @@ create_oacc_child_function(oacc_context* ctx)
 static void
 scan_oacc_kernels (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
 {
-    struct function *child_cfun;
     tree child_fn;
     oacc_context* ctx;
-    //acc_region region, outer_region;;
     gimple stmt = gsi_stmt (*gsi);
-    location_t loc = gimple_location (stmt);
 
-    /* Ignore task directives with empty bodies.  */
-    if (optimize > 0
-            && empty_body_p (gimple_acc_body (stmt)))
+    /* Ignore directives with empty bodies.  */
+    if (empty_body_p (gimple_acc_body (stmt)))
         {
             gsi_replace (gsi, gimple_build_nop (), false);
             return;
@@ -1343,94 +1322,6 @@ end:
     loop_nest.release ();
     free_dependence_relations (dependence_relations);
     free_data_refs (datarefs);
-    return ret;
-}
-
-static bool
-loops_parallelizable_p(struct loop* root,	struct tree_niter_desc* pniter_desc)
-{
-    if(root->inner == NULL)
-        {
-            return true;
-        }
-    if(dump_file)
-        {
-            fprintf(dump_file, "Testing loop dependencies\n");
-        }
-    struct loop* ploop;
-    struct obstack oacc_obstack;
-    bool ret = true;
-
-    gcc_obstack_init (&oacc_obstack);
-    for(ploop = root->inner; ploop != NULL; ploop = ploop->next)
-        {
-            if(dump_file)
-                {
-                    fprintf(dump_file, "loop %d\n", ploop->num);
-                }
-            if(!loop_precheck(ploop))
-                {
-                    ret = false;
-                    break;
-                }
-
-            if(!loop_parallelizable(ploop, &oacc_obstack))
-                {
-                    ret = false;
-                    break;
-                }
-
-            if(ret)
-                {
-
-                    estimate_numbers_of_iterations_loop(ploop);
-                    HOST_WIDE_INT estimated;
-                    estimated = estimated_stmt_executions_int (ploop);
-                    if (estimated == -1)
-                        estimated = max_stmt_executions_int (ploop);
-                    if (dump_file)
-                        fprintf (dump_file, "Estimated # of iterations %lld\n",
-                                      estimated);
-
-                    edge exit = single_dom_exit (ploop);
-
-                    gcc_assert (exit);
-
-                    if (!number_of_iterations_exit (ploop, exit, pniter_desc,
-                          false))
-                        {
-                            if(estimated != -1)
-                                {
-                                    pniter_desc->niter = 
-                                      build_int_cst(uint32_type_node,
-                                                        estimated);
-                                }
-                            else
-                                {
-                                    if (dump_file)
-                                        fprintf (dump_file,
-                                                 "  FAILED: number of "
-                                                 "iterations not known\n");
-                                    ret = false;
-                                }
-                        }
-                    else
-                        {
-                            if(dump_file)
-                                {
-                                    fprintf(dump_file, "niter: ");
-                                    print_generic_expr(dump_file,
-                                                  pniter_desc->niter, 0);
-                                    fprintf(dump_file, "\n");
-                                    fprintf(dump_file, "max: %lld\n",
-                                                pniter_desc->max.to_shwi());
-                                }
-                        }
-                }
-        }
-    obstack_free (&oacc_obstack, NULL);
-
-
     return ret;
 }
 
@@ -2250,43 +2141,6 @@ find_ctrl_var(basic_block header, struct loop* loop)
     check_for_ctrl_var(gimple_cond_rhs(cond_stmt), &ctrl_var);
     gcc_assert(ctrl_var.var != NULL_TREE);
     return ctrl_var.var;
-}
-
-static bool
-ud_chain_cb(tree var, gimple stmt, void* data)
-{
-    if(dump_file)
-        {
-            fprintf(dump_file, "walk ud chain ");
-            print_generic_expr(dump_file, var, 0);
-            fprintf(dump_file, " ");
-            print_gimple_stmt(dump_file, stmt, 0, 0);
-            fprintf(dump_file, "\n");
-        }
-    if(gimple_code(stmt) != GIMPLE_PHI)
-        {
-            gimple* pstmt = (gimple*)data;
-            *pstmt = stmt;
-            return true;
-        }
-
-    return false;
-}
-
-static void
-find_ctrl_var_init(tree var, gimple_stmt_iterator* gsi)
-{
-    gimple def_stmt;
-    walk_use_def_chains(var, ud_chain_cb, (void*)&def_stmt, false);
-    *gsi = gsi_for_stmt(def_stmt);
-    while(!gsi_end_p(*gsi))
-        {
-            if(gsi_stmt(*gsi) == def_stmt)
-                {
-                    return;
-                }
-            gsi_next(gsi);
-        }
 }
 
 static bool
@@ -3351,7 +3205,6 @@ build_acc_region(basic_block bb, acc_region outer)
 static unsigned int
 execute_expand_oacc (void)
 {
-    basic_block bb;
     splay_tree_node v;
 
     if(kernels &&
