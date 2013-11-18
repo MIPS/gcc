@@ -25,8 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "tree-affine.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "flags.h"
 #include "dumpfile.h"
+#include "cfgexpand.h"
 
 /* Extends CST as appropriate for the affine combinations COMB.  */
 

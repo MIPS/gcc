@@ -40,6 +40,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "intl.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "timevar.h"
 #include "dumpfile.h"
 #include "gimple-ssa.h"
@@ -540,19 +541,34 @@ cgraph_create_node (tree decl)
   return node;
 }
 
-/* Try to find a call graph node for declaration DECL and if it does not exist,
-   create it.  */
+/* Try to find a call graph node for declaration DECL and if it does not exist
+   or if it corresponds to an inline clone, create a new one.  */
 
 struct cgraph_node *
 cgraph_get_create_node (tree decl)
 {
-  struct cgraph_node *node;
+  struct cgraph_node *first_clone = cgraph_get_node (decl);
 
-  node = cgraph_get_node (decl);
-  if (node)
-    return node;
+  if (first_clone && !first_clone->global.inlined_to)
+    return first_clone;
 
-  return cgraph_create_node (decl);
+  struct cgraph_node *node = cgraph_create_node (decl);
+  if (first_clone)
+    {
+      first_clone->clone_of = node;
+      node->clones = first_clone;
+      symtab_prevail_in_asm_name_hash (node);
+      symtab_insert_node_to_hashtable (node);
+      if (dump_file)
+	fprintf (dump_file, "Introduced new external node "
+		 "(%s/%i) and turned into root of the clone tree.\n",
+		 xstrdup (node->name ()), node->order);
+    }
+  else if (dump_file)
+    fprintf (dump_file, "Introduced new external node "
+	     "(%s/%i).\n", xstrdup (node->name ()),
+	     node->order);
+  return node;
 }
 
 /* Mark ALIAS as an alias to DECL.  DECL_NODE is cgraph node representing
@@ -950,7 +966,7 @@ cgraph_create_indirect_edge (struct cgraph_node *caller, gimple call_stmt,
       gcc_assert (TREE_CODE (type) == RECORD_TYPE);
       edge->indirect_info->param_index = -1;
       edge->indirect_info->otr_token
-	 = tree_low_cst (OBJ_TYPE_REF_TOKEN (target), 1);
+	 = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (target));
       edge->indirect_info->otr_type = type;
       edge->indirect_info->polymorphic = 1;
     }
@@ -1081,8 +1097,8 @@ cgraph_turn_edge_to_speculative (struct cgraph_edge *e,
     {
       fprintf (dump_file, "Indirect call -> speculative call"
 	       " %s/%i => %s/%i\n",
-	       xstrdup (cgraph_node_name (n)), n->order,
-	       xstrdup (cgraph_node_name (n2)), n2->order);
+	       xstrdup (n->name ()), n->order,
+	       xstrdup (n2->name ()), n2->order);
     }
   e->speculative = true;
   e2 = cgraph_create_edge (n, n2, e->call_stmt, direct_count, direct_frequency);
@@ -1201,16 +1217,16 @@ cgraph_resolve_speculation (struct cgraph_edge *edge, tree callee_decl)
 	    {
 	      fprintf (dump_file, "Speculative indirect call %s/%i => %s/%i has "
 		       "turned out to have contradicting known target ",
-		       xstrdup (cgraph_node_name (edge->caller)), edge->caller->order,
-		       xstrdup (cgraph_node_name (e2->callee)), e2->callee->order);
+		       xstrdup (edge->caller->name ()), edge->caller->order,
+		       xstrdup (e2->callee->name ()), e2->callee->order);
 	      print_generic_expr (dump_file, callee_decl, 0);
 	      fprintf (dump_file, "\n");
 	    }
 	  else
 	    {
 	      fprintf (dump_file, "Removing speculative call %s/%i => %s/%i\n",
-		       xstrdup (cgraph_node_name (edge->caller)), edge->caller->order,
-		       xstrdup (cgraph_node_name (e2->callee)), e2->callee->order);
+		       xstrdup (edge->caller->name ()), edge->caller->order,
+		       xstrdup (e2->callee->name ()), e2->callee->order);
 	    }
 	}
     }
@@ -1326,9 +1342,9 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	  if (dump_file)
 	    fprintf (dump_file, "Not expanding speculative call of %s/%i -> %s/%i\n"
 		     "Type mismatch.\n",
-		     xstrdup (cgraph_node_name (e->caller)),
+		     xstrdup (e->caller->name ()),
 		     e->caller->order,
-		     xstrdup (cgraph_node_name (e->callee)),
+		     xstrdup (e->callee->name ()),
 		     e->callee->order);
 	  e = cgraph_resolve_speculation (e, NULL);
 	  /* We are producing the final function body and will throw away the
@@ -1345,9 +1361,9 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	    fprintf (dump_file,
 		     "Expanding speculative call of %s/%i -> %s/%i count:"
 		     HOST_WIDEST_INT_PRINT_DEC"\n",
-		     xstrdup (cgraph_node_name (e->caller)),
+		     xstrdup (e->caller->name ()),
 		     e->caller->order,
-		     xstrdup (cgraph_node_name (e->callee)),
+		     xstrdup (e->callee->name ()),
 		     e->callee->order,
 		     (HOST_WIDEST_INT)e->count);
 	  gcc_assert (e2->speculative);
@@ -1395,8 +1411,8 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "updating call of %s/%i -> %s/%i: ",
-	       xstrdup (cgraph_node_name (e->caller)), e->caller->order,
-	       xstrdup (cgraph_node_name (e->callee)), e->callee->order);
+	       xstrdup (e->caller->name ()), e->caller->order,
+	       xstrdup (e->callee->name ()), e->callee->order);
       print_gimple_stmt (cgraph_dump_file, e->call_stmt, 0, dump_flags);
       if (e->callee->clone.combined_args_to_skip)
 	{
@@ -1875,13 +1891,13 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 
   if (node->global.inlined_to)
     fprintf (f, "  Function %s/%i is inline copy in %s/%i\n",
-	     xstrdup (cgraph_node_name (node)),
+	     xstrdup (node->name ()),
 	     node->order,
-	     xstrdup (cgraph_node_name (node->global.inlined_to)),
+	     xstrdup (node->global.inlined_to->name ()),
 	     node->global.inlined_to->order);
   if (node->clone_of)
     fprintf (f, "  Clone of %s/%i\n",
-	     cgraph_node_asm_name (node->clone_of),
+	     node->clone_of->asm_name (),
 	     node->clone_of->order);
   if (cgraph_function_flags_ready)
     fprintf (f, "  Availability: %s\n",
@@ -1896,7 +1912,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
     fprintf (f, " executed "HOST_WIDEST_INT_PRINT_DEC"x",
 	     (HOST_WIDEST_INT)node->count);
   if (node->origin)
-    fprintf (f, " nested in: %s", cgraph_node_asm_name (node->origin));
+    fprintf (f, " nested in: %s", node->origin->asm_name ());
   if (gimple_has_body_p (node->decl))
     fprintf (f, " body");
   if (node->process)
@@ -1942,7 +1958,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
 
   for (edge = node->callers; edge; edge = edge->next_caller)
     {
-      fprintf (f, "%s/%i ", cgraph_node_asm_name (edge->caller),
+      fprintf (f, "%s/%i ", edge->caller->asm_name (),
 	       edge->caller->order);
       if (edge->count)
 	fprintf (f, "("HOST_WIDEST_INT_PRINT_DEC"x) ",
@@ -1963,7 +1979,7 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   fprintf (f, "\n  Calls: ");
   for (edge = node->callees; edge; edge = edge->next_callee)
     {
-      fprintf (f, "%s/%i ", cgraph_node_asm_name (edge->callee),
+      fprintf (f, "%s/%i ", edge->callee->asm_name (),
 	       edge->callee->order);
       if (edge->speculative)
 	fprintf (f, "(speculative) ");
@@ -2583,8 +2599,8 @@ verify_cgraph_node (struct cgraph_node *node)
     if (e->aux)
       {
 	error ("aux field set for edge %s->%s",
-	       identifier_to_locale (cgraph_node_name (e->caller)),
-	       identifier_to_locale (cgraph_node_name (e->callee)));
+	       identifier_to_locale (e->caller->name ()),
+	       identifier_to_locale (e->callee->name ()));
 	error_found = true;
       }
   if (node->count < 0)
@@ -2622,7 +2638,7 @@ verify_cgraph_node (struct cgraph_node *node)
       if (e->aux)
 	{
 	  error ("aux field set for indirect edge from %s",
-		 identifier_to_locale (cgraph_node_name (e->caller)));
+		 identifier_to_locale (e->caller->name ()));
 	  error_found = true;
 	}
       if (!e->indirect_unknown_callee
@@ -2630,7 +2646,7 @@ verify_cgraph_node (struct cgraph_node *node)
 	{
 	  error ("An indirect edge from %s is not marked as indirect or has "
 		 "associated indirect_info, the corresponding statement is: ",
-		 identifier_to_locale (cgraph_node_name (e->caller)));
+		 identifier_to_locale (e->caller->name ()));
 	  cgraph_debug_gimple_stmt (this_cfun, e->call_stmt);
 	  error_found = true;
 	}
@@ -2850,8 +2866,8 @@ verify_cgraph_node (struct cgraph_node *node)
 	  if (!e->aux)
 	    {
 	      error ("edge %s->%s has no corresponding call_stmt",
-		     identifier_to_locale (cgraph_node_name (e->caller)),
-		     identifier_to_locale (cgraph_node_name (e->callee)));
+		     identifier_to_locale (e->caller->name ()),
+		     identifier_to_locale (e->callee->name ()));
 	      cgraph_debug_gimple_stmt (this_cfun, e->call_stmt);
 	      error_found = true;
 	    }
@@ -2862,7 +2878,7 @@ verify_cgraph_node (struct cgraph_node *node)
 	  if (!e->aux && !e->speculative)
 	    {
 	      error ("an indirect edge from %s has no corresponding call_stmt",
-		     identifier_to_locale (cgraph_node_name (e->caller)));
+		     identifier_to_locale (e->caller->name ()));
 	      cgraph_debug_gimple_stmt (this_cfun, e->call_stmt);
 	      error_found = true;
 	    }
@@ -2889,51 +2905,6 @@ verify_cgraph (void)
   FOR_EACH_FUNCTION (node)
     verify_cgraph_node (node);
 }
-
-/* Create external decl node for DECL.
-   The difference i nbetween cgraph_get_create_node and
-   cgraph_get_create_real_symbol_node is that cgraph_get_create_node
-   may return inline clone, while cgraph_get_create_real_symbol_node
-   will create a new node in this case.
-   FIXME: This function should be removed once clones are put out of decl
-   hash.  */
-
-struct cgraph_node *
-cgraph_get_create_real_symbol_node (tree decl)
-{
-  struct cgraph_node *first_clone = cgraph_get_node (decl);
-  struct cgraph_node *node;
-  /* create symbol table node.  even if inline clone exists, we can not take
-     it as a target of non-inlined call.  */
-  node = cgraph_get_node (decl);
-  if (node && !node->global.inlined_to)
-    return node;
-
-  node = cgraph_create_node (decl);
-
-  /* ok, we previously inlined the function, then removed the offline copy and
-     now we want it back for external call.  this can happen when devirtualizing
-     while inlining function called once that happens after extern inlined and
-     virtuals are already removed.  in this case introduce the external node
-     and make it available for call.  */
-  if (first_clone)
-    {
-      first_clone->clone_of = node;
-      node->clones = first_clone;
-      symtab_prevail_in_asm_name_hash (node);
-      symtab_insert_node_to_hashtable (node);
-      if (dump_file)
-	fprintf (dump_file, "Introduced new external node "
-		 "(%s/%i) and turned into root of the clone tree.\n",
-		 xstrdup (cgraph_node_name (node)), node->order);
-    }
-  else if (dump_file)
-    fprintf (dump_file, "Introduced new external node "
-	     "(%s/%i).\n", xstrdup (cgraph_node_name (node)),
-	     node->order);
-  return node;
-}
-
 
 /* Given NODE, walk the alias chain to return the function NODE is alias of.
    Walk through thunk, too.

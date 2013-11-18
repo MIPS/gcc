@@ -48,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "reload.h"
 #include "cgraph.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "dwarf2.h"
 #include "df.h"
 #include "tm-constrs.h"
@@ -1160,6 +1161,92 @@ struct processor_costs bdver3_cost = {
   1,					/* cond_not_taken_branch_cost.  */
 };
 
+/*  BDVER4 has optimized REP instruction for medium sized blocks, but for
+    very small blocks it is better to use loop. For large blocks, libcall
+    can do nontemporary accesses and beat inline considerably.  */
+static stringop_algs bdver4_memcpy[2] = {
+  {libcall, {{6, loop, false}, {14, unrolled_loop, false},
+             {-1, rep_prefix_4_byte, false}}},
+  {libcall, {{16, loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+static stringop_algs bdver4_memset[2] = {
+  {libcall, {{8, loop, false}, {24, unrolled_loop, false},
+             {2048, rep_prefix_4_byte, false}, {-1, libcall, false}}},
+  {libcall, {{48, unrolled_loop, false}, {8192, rep_prefix_8_byte, false},
+             {-1, libcall, false}}}};
+struct processor_costs bdver4_cost = {
+  COSTS_N_INSNS (1),			/* cost of an add instruction */
+  COSTS_N_INSNS (1),			/* cost of a lea instruction */
+  COSTS_N_INSNS (1),			/* variable shift costs */
+  COSTS_N_INSNS (1),			/* constant shift costs */
+  {COSTS_N_INSNS (4),			/* cost of starting multiply for QI */
+   COSTS_N_INSNS (4),			/*				 HI */
+   COSTS_N_INSNS (4),			/*				 SI */
+   COSTS_N_INSNS (6),			/*				 DI */
+   COSTS_N_INSNS (6)},			/*			      other */
+  0,					/* cost of multiply per each bit set */
+  {COSTS_N_INSNS (19),			/* cost of a divide/mod for QI */
+   COSTS_N_INSNS (35),			/*			    HI */
+   COSTS_N_INSNS (51),			/*			    SI */
+   COSTS_N_INSNS (83),			/*			    DI */
+   COSTS_N_INSNS (83)},			/*			    other */
+  COSTS_N_INSNS (1),			/* cost of movsx */
+  COSTS_N_INSNS (1),			/* cost of movzx */
+  8,					/* "large" insn */
+  9,					/* MOVE_RATIO */
+  4,				     /* cost for loading QImode using movzbl */
+  {5, 5, 4},				/* cost of loading integer registers
+					   in QImode, HImode and SImode.
+					   Relative to reg-reg move (2).  */
+  {4, 4, 4},				/* cost of storing integer registers */
+  2,					/* cost of reg,reg fld/fst */
+  {5, 5, 12},				/* cost of loading fp registers
+		   			   in SFmode, DFmode and XFmode */
+  {4, 4, 8},				/* cost of storing fp registers
+ 		   			   in SFmode, DFmode and XFmode */
+  2,					/* cost of moving MMX register */
+  {4, 4},				/* cost of loading MMX registers
+					   in SImode and DImode */
+  {4, 4},				/* cost of storing MMX registers
+					   in SImode and DImode */
+  2,					/* cost of moving SSE register */
+  {4, 4, 4},				/* cost of loading SSE registers
+					   in SImode, DImode and TImode */
+  {4, 4, 4},				/* cost of storing SSE registers
+					   in SImode, DImode and TImode */
+  2,					/* MMX or SSE register to integer */
+  16,					/* size of l1 cache.  */
+  2048,					/* size of l2 cache.  */
+  64,					/* size of prefetch block */
+  /* New AMD processors never drop prefetches; if they cannot be performed
+     immediately, they are queued.  We set number of simultaneous prefetches
+     to a large constant to reflect this (it probably is not a good idea not
+     to limit number of prefetches at all, as their execution also takes some
+     time).  */
+  100,					/* number of parallel prefetches */
+  2,					/* Branch cost */
+  COSTS_N_INSNS (6),			/* cost of FADD and FSUB insns.  */
+  COSTS_N_INSNS (6),			/* cost of FMUL instruction.  */
+  COSTS_N_INSNS (42),			/* cost of FDIV instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FABS instruction.  */
+  COSTS_N_INSNS (2),			/* cost of FCHS instruction.  */
+  COSTS_N_INSNS (52),			/* cost of FSQRT instruction.  */
+
+  bdver4_memcpy,
+  bdver4_memset,
+  6,					/* scalar_stmt_cost.  */
+  4,					/* scalar load_cost.  */
+  4,					/* scalar_store_cost.  */
+  6,					/* vec_stmt_cost.  */
+  0,					/* vec_to_scalar_cost.  */
+  2,					/* scalar_to_vec_cost.  */
+  4,					/* vec_align_load_cost.  */
+  4,					/* vec_unalign_load_cost.  */
+  4,					/* vec_store_cost.  */
+  2,					/* cond_taken_branch_cost.  */
+  1,					/* cond_not_taken_branch_cost.  */
+};
+
   /* BTVER1 has optimized REP instruction for medium sized blocks, but for
      very small blocks it is better to use loop. For large blocks, libcall can
      do nontemporary accesses and beat inline considerably.  */
@@ -1849,9 +1936,10 @@ const struct processor_costs *ix86_cost = &pentium_cost;
 #define m_BDVER1 (1<<PROCESSOR_BDVER1)
 #define m_BDVER2 (1<<PROCESSOR_BDVER2)
 #define m_BDVER3 (1<<PROCESSOR_BDVER3)
+#define m_BDVER4 (1<<PROCESSOR_BDVER4)
 #define m_BTVER1 (1<<PROCESSOR_BTVER1)
 #define m_BTVER2 (1<<PROCESSOR_BTVER2)
-#define m_BDVER	(m_BDVER1 | m_BDVER2 | m_BDVER3)
+#define m_BDVER	(m_BDVER1 | m_BDVER2 | m_BDVER3 | m_BDVER4)
 #define m_BTVER (m_BTVER1 | m_BTVER2)
 #define m_AMD_MULTIPLE (m_ATHLON_K8 | m_AMDFAM10 | m_BDVER | m_BTVER)
 
@@ -2309,6 +2397,7 @@ static const struct ptt processor_target_table[PROCESSOR_max] =
   {&bdver1_cost, 16, 10, 16, 7, 11},
   {&bdver2_cost, 16, 10, 16, 7, 11},
   {&bdver3_cost, 16, 10, 16, 7, 11},
+  {&bdver4_cost, 16, 10, 16, 7, 11},
   {&btver1_cost, 16, 10, 16, 7, 11},
   {&btver2_cost, 16, 10, 16, 7, 11},
   {&atom_cost, 16, 15, 16, 7, 16},
@@ -2346,6 +2435,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
   "bdver1",
   "bdver2",
   "bdver3",
+  "bdver4",
   "btver1",
   "btver2"
 };
@@ -3106,6 +3196,13 @@ ix86_option_override_internal (bool main_args_p,
 	| PTA_XOP | PTA_LWP | PTA_BMI | PTA_TBM | PTA_F16C
 	| PTA_FMA | PTA_PRFCHW | PTA_FXSR | PTA_XSAVE 
 	| PTA_XSAVEOPT | PTA_FSGSBASE},
+     {"bdver4", PROCESSOR_BDVER4, CPU_BDVER4,
+        PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3
+        | PTA_SSE4A | PTA_CX16 | PTA_ABM | PTA_SSSE3 | PTA_SSE4_1
+        | PTA_SSE4_2 | PTA_AES | PTA_PCLMUL | PTA_AVX | PTA_AVX2 
+	| PTA_FMA4 | PTA_XOP | PTA_LWP | PTA_BMI | PTA_BMI2 
+	| PTA_TBM | PTA_F16C | PTA_FMA | PTA_PRFCHW | PTA_FXSR 
+	| PTA_XSAVE | PTA_XSAVEOPT | PTA_FSGSBASE},
       {"btver1", PROCESSOR_BTVER1, CPU_GENERIC,
 	PTA_64BIT | PTA_MMX |  PTA_SSE  | PTA_SSE2 | PTA_SSE3
 	| PTA_SSSE3 | PTA_SSE4A |PTA_ABM | PTA_CX16 | PTA_PRFCHW
@@ -6173,7 +6270,7 @@ classify_argument (enum machine_mode mode, const_tree type,
 		      for (i = (int_bit_position (field)
 				+ (bit_offset % 64)) / 8 / 8;
 			   i < ((int_bit_position (field) + (bit_offset % 64))
-			        + tree_low_cst (DECL_SIZE (field), 0)
+			        + tree_to_shwi (DECL_SIZE (field))
 				+ 63) / 8 / 8; i++)
 			classes[i] =
 			  merge_classes (X86_64_INTEGER_CLASS,
@@ -11772,30 +11869,6 @@ ix86_live_on_entry (bitmap regs)
     }
 }
 
-/* Determine if op is suitable SUBREG RTX for address.  */
-
-static bool
-ix86_address_subreg_operand (rtx op)
-{
-  enum machine_mode mode;
-
-  if (!REG_P (op))
-    return false;
-
-  mode = GET_MODE (op);
-
-  if (GET_MODE_CLASS (mode) != MODE_INT)
-    return false;
-
-  /* Don't allow SUBREGs that span more than a word.  It can lead to spill
-     failures when the register is one word out of a two word structure.  */
-  if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
-    return false;
-
-  /* Allow only SUBREGs of non-eliminable hard registers.  */
-  return register_no_elim_operand (op, mode);
-}
-
 /* Extract the parts of an RTL expression that is a valid memory address
    for an instruction.  Return 0 if the structure of the address is
    grossly off.  Return -1 if the address contains ASHIFT, so it is not
@@ -11852,7 +11925,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
     base = addr;
   else if (GET_CODE (addr) == SUBREG)
     {
-      if (ix86_address_subreg_operand (SUBREG_REG (addr)))
+      if (REG_P (SUBREG_REG (addr)))
 	base = addr;
       else
 	return 0;
@@ -11916,7 +11989,7 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
 	      break;
 
 	    case SUBREG:
-	      if (!ix86_address_subreg_operand (SUBREG_REG (op)))
+	      if (!REG_P (SUBREG_REG (op)))
 		return 0;
 	      /* FALLTHRU */
 
@@ -11961,19 +12034,6 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
       scale = 1 << scale;
       retval = -1;
     }
-  else if (CONST_INT_P (addr))
-    {
-      if (!x86_64_immediate_operand (addr, VOIDmode))
-	return 0;
-
-      /* Constant addresses are sign extended to 64bit, we have to
-	 prevent addresses from 0x80000000 to 0xffffffff in x32 mode.  */
-      if (TARGET_X32
-	  && val_signbit_known_set_p (SImode, INTVAL (addr)))
-	return 0;
-
-      disp = addr;
-    }
   else
     disp = addr;			/* displacement */
 
@@ -11982,17 +12042,11 @@ ix86_decompose_address (rtx addr, struct ix86_address *out)
       if (REG_P (index))
 	;
       else if (GET_CODE (index) == SUBREG
-	       && ix86_address_subreg_operand (SUBREG_REG (index)))
+	       && REG_P (SUBREG_REG (index)))
 	;
       else
 	return 0;
     }
-
-/* Address override works only on the (%reg) part of %fs:(%reg).  */
-  if (seg != SEG_DEFAULT
-      && ((base && GET_MODE (base) != word_mode)
-	  || (index && GET_MODE (index) != word_mode)))
-    return 0;
 
   /* Extract the integral value of scale.  */
   if (scale_rtx)
@@ -12510,6 +12564,45 @@ ix86_legitimize_reload_address (rtx x,
   return false;
 }
 
+/* Determine if op is suitable RTX for an address register.
+   Return naked register if a register or a register subreg is
+   found, otherwise return NULL_RTX.  */
+
+static rtx
+ix86_validate_address_register (rtx op)
+{
+  enum machine_mode mode = GET_MODE (op);
+
+  /* Only SImode or DImode registers can form the address.  */
+  if (mode != SImode && mode != DImode)
+    return NULL_RTX;
+
+  if (REG_P (op))
+    return op;
+  else if (GET_CODE (op) == SUBREG)
+    {
+      rtx reg = SUBREG_REG (op);
+
+      if (!REG_P (reg))
+	return NULL_RTX;
+
+      mode = GET_MODE (reg);
+
+      /* Don't allow SUBREGs that span more than a word.  It can
+	 lead to spill failures when the register is one word out
+	 of a two word structure.  */
+      if (GET_MODE_SIZE (mode) > UNITS_PER_WORD)
+	return NULL_RTX;
+
+      /* Allow only SUBREGs of non-eliminable hard registers.  */
+      if (register_no_elim_operand (reg, mode))
+	return reg;
+    }
+
+  /* Op is not a register.  */
+  return NULL_RTX;
+}
+
 /* Recognizes RTL expressions that are valid memory addresses for an
    instruction.  The MODE argument is the machine mode for the MEM
    expression that wants to use this address.
@@ -12525,6 +12618,7 @@ ix86_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
   struct ix86_address parts;
   rtx base, index, disp;
   HOST_WIDE_INT scale;
+  enum ix86_address_seg seg;
 
   if (ix86_decompose_address (addr, &parts) <= 0)
     /* Decomposition failed.  */
@@ -12534,21 +12628,14 @@ ix86_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
   index = parts.index;
   disp = parts.disp;
   scale = parts.scale;
+  seg = parts.seg;
 
   /* Validate base register.  */
   if (base)
     {
-      rtx reg;
+      rtx reg = ix86_validate_address_register (base);
 
-      if (REG_P (base))
-  	reg = base;
-      else if (GET_CODE (base) == SUBREG && REG_P (SUBREG_REG (base)))
-	reg = SUBREG_REG (base);
-      else
-	/* Base is not a register.  */
-	return false;
-
-      if (GET_MODE (base) != SImode && GET_MODE (base) != DImode)
+      if (reg == NULL_RTX)
 	return false;
 
       if ((strict && ! REG_OK_FOR_BASE_STRICT_P (reg))
@@ -12560,17 +12647,9 @@ ix86_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
   /* Validate index register.  */
   if (index)
     {
-      rtx reg;
+      rtx reg = ix86_validate_address_register (index);
 
-      if (REG_P (index))
-  	reg = index;
-      else if (GET_CODE (index) == SUBREG && REG_P (SUBREG_REG (index)))
-	reg = SUBREG_REG (index);
-      else
-	/* Index is not a register.  */
-	return false;
-
-      if (GET_MODE (index) != SImode && GET_MODE (index) != DImode)
+      if (reg == NULL_RTX)
 	return false;
 
       if ((strict && ! REG_OK_FOR_INDEX_STRICT_P (reg))
@@ -12582,6 +12661,12 @@ ix86_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
   /* Index and base should have the same mode.  */
   if (base && index
       && GET_MODE (base) != GET_MODE (index))
+    return false;
+
+  /* Address override works only on the (%reg) part of %fs:(%reg).  */
+  if (seg != SEG_DEFAULT
+      && ((base && GET_MODE (base) != word_mode)
+	  || (index && GET_MODE (index) != word_mode)))
     return false;
 
   /* Validate scale factor.  */
@@ -12704,6 +12789,12 @@ ix86_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
       else if (TARGET_64BIT
 	       && !x86_64_immediate_operand (disp, VOIDmode))
 	/* Displacement is out of range.  */
+	return false;
+      /* In x32 mode, constant addresses are sign extended to 64bit, so
+	 we have to prevent addresses from 0x80000000 to 0xffffffff.  */
+      else if (TARGET_X32 && !(index || base)
+	       && CONST_INT_P (disp)
+	       && val_signbit_known_set_p (SImode, INTVAL (disp)))
 	return false;
     }
 
@@ -14853,6 +14944,11 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    fputs ("\n" ASM_BYTE "0xf3\n\t", file);
 #endif
 	  /* We do not want to print value of the operand.  */
+	  return;
+
+	case 'N':
+	  if (x == const0_rtx || x == CONST0_RTX (GET_MODE (x)))
+	    fputs ("{z}", file);
 	  return;
 
 	case '*':
@@ -23615,10 +23711,11 @@ promote_duplicated_reg_to_size (rtx val, int size_needed, int desired_align,
 
      3) Main body: the copying loop itself, copying in SIZE_NEEDED chunks
 	with specified algorithm.  */
-static bool
+bool
 ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
-			      rtx align_exp, rtx expected_align_exp,
-			      rtx expected_size_exp, bool issetmem)
+			   rtx align_exp, rtx expected_align_exp,
+			   rtx expected_size_exp, rtx min_size_exp,
+			   rtx max_size_exp, bool issetmem)
 {
   rtx destreg;
   rtx srcreg = NULL;
@@ -23658,6 +23755,10 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
 
   if (CONST_INT_P (count_exp))
     min_size = max_size = count = expected_size = INTVAL (count_exp);
+  if (min_size_exp)
+    min_size = INTVAL (min_size_exp);
+  if (max_size_exp)
+    max_size = INTVAL (max_size_exp);
   if (CONST_INT_P (expected_size_exp) && count == 0)
     expected_size = INTVAL (expected_size_exp);
 
@@ -24060,24 +24161,6 @@ ix86_expand_set_or_movmem (rtx dst, rtx src, rtx count_exp, rtx val_exp,
   if (jump_around_label)
     emit_label (jump_around_label);
   return true;
-}
-
-/* Wrapper for ix86_expand_set_or_movmem for memcpy case.  */
-bool
-ix86_expand_movmem (rtx dst, rtx src, rtx count_exp, rtx align_exp,
-		    rtx expected_align_exp, rtx expected_size_exp)
-{
-  return ix86_expand_set_or_movmem (dst, src, count_exp, NULL, align_exp,
-		    expected_align_exp, expected_size_exp, false);
-}
-
-/* Wrapper for ix86_expand_set_or_movmem for memset case.  */
-bool
-ix86_expand_setmem (rtx dst, rtx count_exp, rtx val_exp, rtx align_exp,
-		    rtx expected_align_exp, rtx expected_size_exp)
-{
-  return ix86_expand_set_or_movmem (dst, NULL, count_exp, val_exp, align_exp,
-		      expected_align_exp, expected_size_exp, true);
 }
 
 
@@ -24858,6 +24941,7 @@ ix86_issue_rate (void)
     case PROCESSOR_BDVER1:
     case PROCESSOR_BDVER2:
     case PROCESSOR_BDVER3:
+    case PROCESSOR_BDVER4:
     case PROCESSOR_CORE2:
     case PROCESSOR_COREI7:
     case PROCESSOR_COREI7_AVX:
@@ -25118,6 +25202,7 @@ ix86_adjust_cost (rtx insn, rtx link, rtx dep_insn, int cost)
     case PROCESSOR_BDVER1:
     case PROCESSOR_BDVER2:
     case PROCESSOR_BDVER3:
+    case PROCESSOR_BDVER4:
     case PROCESSOR_BTVER1:
     case PROCESSOR_BTVER2:
     case PROCESSOR_GENERIC:
@@ -25237,6 +25322,7 @@ ia32_multipass_dfa_lookahead (void)
     case PROCESSOR_BDVER1:
     case PROCESSOR_BDVER2:
     case PROCESSOR_BDVER3:
+    case PROCESSOR_BDVER4:
       /* We use lookahead value 4 for BD both before and after reload
 	 schedules. Plan is to have value 8 included for O3. */
         return 4;
@@ -29235,7 +29321,7 @@ ix86_builtin_tm_load (tree type)
 {
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
-      switch (tree_low_cst (TYPE_SIZE (type), 1))
+      switch (tree_to_uhwi (TYPE_SIZE (type)))
 	{
 	case 64:
 	  return builtin_decl_explicit (BUILT_IN_TM_LOAD_M64);
@@ -29255,7 +29341,7 @@ ix86_builtin_tm_store (tree type)
 {
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
-      switch (tree_low_cst (TYPE_SIZE (type), 1))
+      switch (tree_to_uhwi (TYPE_SIZE (type)))
 	{
 	case 64:
 	  return builtin_decl_explicit (BUILT_IN_TM_STORE_M64);
@@ -30772,7 +30858,8 @@ fold_builtin_cpu (tree fndecl, tree *args)
     M_AMDFAM10H_ISTANBUL,
     M_AMDFAM15H_BDVER1,
     M_AMDFAM15H_BDVER2,
-    M_AMDFAM15H_BDVER3
+    M_AMDFAM15H_BDVER3,
+    M_AMDFAM15H_BDVER4
   };
 
   static struct _arch_names_table
@@ -30799,6 +30886,7 @@ fold_builtin_cpu (tree fndecl, tree *args)
       {"bdver1", M_AMDFAM15H_BDVER1},
       {"bdver2", M_AMDFAM15H_BDVER2},
       {"bdver3", M_AMDFAM15H_BDVER3},
+      {"bdver4", M_AMDFAM15H_BDVER4},
     };
 
   static struct _isa_names_table
@@ -32573,8 +32661,8 @@ get_element_number (tree vec_type, tree arg)
 {
   unsigned HOST_WIDE_INT elt, max = TYPE_VECTOR_SUBPARTS (vec_type) - 1;
 
-  if (!host_integerp (arg, 1)
-      || (elt = tree_low_cst (arg, 1), elt > max))
+  if (!tree_fits_uhwi_p (arg)
+      || (elt = tree_to_uhwi (arg), elt > max))
     {
       error ("selector must be an integer constant in the range 0..%wi", max);
       return 0;
@@ -43380,7 +43468,7 @@ do_dispatch (rtx insn, int mode)
 static bool
 has_dispatch (rtx insn, int action)
 {
-  if ((TARGET_BDVER1 || TARGET_BDVER2 || TARGET_BDVER3)
+  if ((TARGET_BDVER1 || TARGET_BDVER2 || TARGET_BDVER3 || TARGET_BDVER4)
       && flag_dispatch_scheduler)
     switch (action)
       {

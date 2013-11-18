@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -3633,7 +3635,7 @@ acceptable_pow_call (gimple stmt, tree *base, HOST_WIDE_INT *exponent)
       *base = gimple_call_arg (stmt, 0);
       arg1 = gimple_call_arg (stmt, 1);
 
-      if (!host_integerp (arg1, 0))
+      if (!tree_fits_shwi_p (arg1))
 	return false;
 
       *exponent = TREE_INT_CST_LOW (arg1);

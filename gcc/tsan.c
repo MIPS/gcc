@@ -27,6 +27,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "basic-block.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
 #include "function.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
@@ -445,9 +447,8 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	  case check_last:
 	  case fetch_op:
 	    last_arg = gimple_call_arg (stmt, num - 1);
-	    if (!host_integerp (last_arg, 1)
-		|| (unsigned HOST_WIDE_INT) tree_low_cst (last_arg, 1)
-		   > MEMMODEL_SEQ_CST)
+	    if (!tree_fits_uhwi_p (last_arg)
+		|| tree_to_uhwi (last_arg) > MEMMODEL_SEQ_CST)
 	      return;
 	    gimple_call_set_fndecl (stmt, decl);
 	    update_stmt (stmt);
@@ -517,13 +518,11 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	    gcc_assert (num == 6);
 	    for (j = 0; j < 6; j++)
 	      args[j] = gimple_call_arg (stmt, j);
-	    if (!host_integerp (args[4], 1)
-		|| (unsigned HOST_WIDE_INT) tree_low_cst (args[4], 1)
-		   > MEMMODEL_SEQ_CST)
+	    if (!tree_fits_uhwi_p (args[4])
+		|| tree_to_uhwi (args[4]) > MEMMODEL_SEQ_CST)
 	      return;
-	    if (!host_integerp (args[5], 1)
-		|| (unsigned HOST_WIDE_INT) tree_low_cst (args[5], 1)
-		   > MEMMODEL_SEQ_CST)
+	    if (!tree_fits_uhwi_p (args[5])
+		|| tree_to_uhwi (args[5]) > MEMMODEL_SEQ_CST)
 	      return;
 	    update_gimple_call (gsi, decl, 5, args[0], args[1], args[2],
 				args[4], args[5]);

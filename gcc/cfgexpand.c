@@ -31,6 +31,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "bitmap.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
@@ -291,7 +293,7 @@ add_stack_var (tree decl)
   * (size_t *)pointer_map_insert (decl_to_stack_part, decl) = stack_vars_num;
 
   v->decl = decl;
-  v->size = tree_low_cst (DECL_SIZE_UNIT (SSAVAR (decl)), 1);
+  v->size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (decl)));
   /* Ensure that all variables have size, so that &a != &b for any two
      variables that are simultaneously live.  */
   if (v->size == 0)
@@ -1055,7 +1057,7 @@ expand_one_stack_var (tree var)
   HOST_WIDE_INT size, offset;
   unsigned byte_align;
 
-  size = tree_low_cst (DECL_SIZE_UNIT (SSAVAR (var)), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (SSAVAR (var)));
   byte_align = align_local_variable (SSAVAR (var));
 
   /* We handle highly aligned variables in expand_stack_vars.  */
@@ -1128,6 +1130,12 @@ expand_one_error_var (tree var)
 static bool
 defer_stack_allocation (tree var, bool toplevel)
 {
+  /* Whether the variable is small enough for immediate allocation not to be
+     a problem with regard to the frame size.  */
+  bool smallish
+    = ((HOST_WIDE_INT) tree_to_uhwi (DECL_SIZE_UNIT (var))
+       < PARAM_VALUE (PARAM_MIN_SIZE_FOR_STACK_SHARING));
+
   /* If stack protection is enabled, *all* stack variables must be deferred,
      so that we can re-order the strings to the top of the frame.
      Similarly for Address Sanitizer.  */
@@ -1139,8 +1147,15 @@ defer_stack_allocation (tree var, bool toplevel)
   if (DECL_ALIGN (var) > MAX_SUPPORTED_STACK_ALIGNMENT)
     return true;
 
-  /* Variables in the outermost scope automatically conflict with
-     every other variable.  The only reason to want to defer them
+  /* When optimization is enabled, DECL_IGNORED_P variables originally scoped
+     might be detached from their block and appear at toplevel when we reach
+     here.  We want to coalesce them with variables from other blocks when
+     the immediate contribution to the frame size would be noticeable.  */
+  if (toplevel && optimize > 0 && DECL_IGNORED_P (var) && !smallish)
+    return true;
+
+  /* Variables declared in the outermost scope automatically conflict
+     with every other variable.  The only reason to want to defer them
      at all is that, after sorting, we can more efficiently pack
      small variables in the stack frame.  Continue to defer at -O2.  */
   if (toplevel && optimize < 2)
@@ -1152,9 +1167,7 @@ defer_stack_allocation (tree var, bool toplevel)
      other hand, we don't want the function's stack frame size to
      get completely out of hand.  So we avoid adding scalars and
      "small" aggregates to the list at all.  */
-  if (optimize == 0
-      && (tree_low_cst (DECL_SIZE_UNIT (var), 1)
-          < PARAM_VALUE (PARAM_MIN_SIZE_FOR_STACK_SHARING)))
+  if (optimize == 0 && smallish)
     return false;
 
   return true;
@@ -1268,7 +1281,7 @@ expand_one_var (tree var, bool toplevel, bool really_expand)
     {
       if (really_expand)
         expand_one_stack_var (origvar);
-      return tree_low_cst (DECL_SIZE_UNIT (var), 1);
+      return tree_to_uhwi (DECL_SIZE_UNIT (var));
     }
   return 0;
 }
@@ -1345,10 +1358,10 @@ stack_protect_classify_type (tree type)
 	  unsigned HOST_WIDE_INT len;
 
 	  if (!TYPE_SIZE_UNIT (type)
-	      || !host_integerp (TYPE_SIZE_UNIT (type), 1))
+	      || !tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
 	    len = max;
 	  else
-	    len = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+	    len = tree_to_uhwi (TYPE_SIZE_UNIT (type));
 
 	  if (len < max)
 	    ret = SPCT_HAS_SMALL_CHAR_ARRAY | SPCT_HAS_ARRAY;
@@ -1610,9 +1623,15 @@ expand_used_vars (void)
 	  replace_ssa_name_symbol (var, (tree) *slot);
 	}
 
+      /* Always allocate space for partitions based on VAR_DECLs.  But for
+	 those based on PARM_DECLs or RESULT_DECLs and which matter for the
+	 debug info, there is no need to do so if optimization is disabled
+	 because all the SSA_NAMEs based on these DECLs have been coalesced
+	 into a single partition, which is thus assigned the canonical RTL
+	 location of the DECLs.  */
       if (TREE_CODE (SSA_NAME_VAR (var)) == VAR_DECL)
 	expand_one_var (var, true, true);
-      else
+      else if (DECL_IGNORED_P (SSA_NAME_VAR (var)) || optimize)
 	{
 	  /* This is a PARM_DECL or RESULT_DECL.  For those partitions that
 	     contain the default def (representing the parm or result itself)
@@ -1668,9 +1687,11 @@ expand_used_vars (void)
       else if (TREE_STATIC (var) || DECL_EXTERNAL (var))
 	expand_now = true;
 
-      /* If the variable is not associated with any block, then it
-	 was created by the optimizers, and could be live anywhere
-	 in the function.  */
+      /* Expand variables not associated with any block now.  Those created by
+	 the optimizers could be live anywhere in the function.  Those that
+	 could possibly have been scoped originally and detached from their
+	 block will have their allocation deferred so we coalesce them with
+	 others when optimization is enabled.  */
       else if (TREE_USED (var))
 	expand_now = true;
 
@@ -2133,11 +2154,21 @@ expand_call_stmt (gimple stmt)
       return;
     }
 
-  exp = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
-
-  CALL_EXPR_FN (exp) = gimple_call_fn (stmt);
   decl = gimple_call_fndecl (stmt);
   builtin_p = decl && DECL_BUILT_IN (decl);
+
+  /* Bind bounds call is expanded as assignment.  */
+  if (builtin_p
+      && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
+      && DECL_FUNCTION_CODE (decl) == BUILT_IN_CHKP_BIND_BOUNDS)
+    {
+      expand_assignment (gimple_call_lhs (stmt),
+			 gimple_call_arg (stmt, 0), false);
+      return;
+    }
+
+  exp = build_vl_exp (CALL_EXPR, gimple_call_num_args (stmt) + 3);
+  CALL_EXPR_FN (exp) = gimple_call_fn (stmt);
 
   /* If this is not a builtin function, the function type through which the
      call is made may be different from the type of the function.  */

@@ -69,6 +69,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "opts.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-alias.h"
 #include "insn-codes.h"
@@ -993,7 +994,7 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 HOST_WIDE_INT
 default_vector_alignment (const_tree type)
 {
-  return tree_low_cst (TYPE_SIZE (type), 0);
+  return tree_to_shwi (TYPE_SIZE (type));
 }
 
 bool

@@ -31,6 +31,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
@@ -279,7 +282,7 @@ replace_loop_annotate ()
 	  if (!gimple_call_internal_p (stmt)
 		  || gimple_call_internal_fn (stmt) != IFN_ANNOTATE)
 	    continue;
-	  if ((annot_expr_kind) tree_low_cst (gimple_call_arg (stmt, 1), 0)
+	  if ((annot_expr_kind) tree_to_shwi (gimple_call_arg (stmt, 1))
 	      != annot_expr_ivdep_kind)
 	    continue;
 	  stmt = gimple_build_assign (gimple_call_lhs (stmt),
@@ -304,7 +307,7 @@ replace_loop_annotate ()
       if (!gimple_call_internal_p (stmt)
 	  || gimple_call_internal_fn (stmt) != IFN_ANNOTATE)
 	continue;
-      if ((annot_expr_kind) tree_low_cst (gimple_call_arg (stmt, 1), 0)
+      if ((annot_expr_kind) tree_to_shwi (gimple_call_arg (stmt, 1))
 	  != annot_expr_ivdep_kind)
 	continue;
       warning_at (gimple_location (stmt), 0, "ignoring %<GCC ivdep%> "
@@ -2698,8 +2701,8 @@ verify_expr (tree *tp, int *walk_subtrees, void *data ATTRIBUTE_UNUSED)
 
       if (TREE_CODE (t) == BIT_FIELD_REF)
 	{
-	  if (!host_integerp (TREE_OPERAND (t, 1), 1)
-	      || !host_integerp (TREE_OPERAND (t, 2), 1))
+	  if (!tree_fits_uhwi_p (TREE_OPERAND (t, 1))
+	      || !tree_fits_uhwi_p (TREE_OPERAND (t, 2)))
 	    {
 	      error ("invalid position or size operand to BIT_FIELD_REF");
 	      return t;
@@ -6270,7 +6273,7 @@ move_stmt_eh_region_tree_nr (tree old_t_nr, struct move_stmt_d *p)
 {
   int old_nr, new_nr;
 
-  old_nr = tree_low_cst (old_t_nr, 0);
+  old_nr = tree_to_shwi (old_t_nr);
   new_nr = move_stmt_eh_region_nr (old_nr, p);
 
   return build_int_cst (integer_type_node, new_nr);

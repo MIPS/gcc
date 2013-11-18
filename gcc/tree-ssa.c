@@ -32,6 +32,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "pointer-set.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
@@ -44,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "cfgloop.h"
+#include "cfgexpand.h"
 
 /* Pointer map of variable mappings, keyed by edge.  */
 static struct pointer_map_t *edge_var_maps;

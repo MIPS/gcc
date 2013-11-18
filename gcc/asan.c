@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
 #include "tree-iterator.h"
 #include "cgraph.h"
 #include "tree-ssanames.h"
@@ -1001,6 +1003,9 @@ asan_emit_stack_protection (rtx base, HOST_WIDE_INT *offsets, tree *decls,
   TREE_STATIC (decl) = 1;
   TREE_PUBLIC (decl) = 0;
   TREE_USED (decl) = 1;
+  DECL_INITIAL (decl) = decl;
+  TREE_ASM_WRITTEN (decl) = 1;
+  TREE_ASM_WRITTEN (id) = 1;
   emit_move_insn (mem, expand_normal (build_fold_addr_expr (decl)));
   shadow_base = expand_binop (Pmode, lshr_optab, base,
 			      GEN_INT (ASAN_SHADOW_SHIFT),
@@ -2024,7 +2029,7 @@ asan_add_global (tree decl, tree type, vec<constructor_elt, va_gc> *v)
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE,
 			  fold_convert (const_ptr_type_node,
 					build_fold_addr_expr (refdecl)));
-  size = tree_low_cst (DECL_SIZE_UNIT (decl), 1);
+  size = tree_to_uhwi (DECL_SIZE_UNIT (decl));
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, build_int_cst (uptr, size));
   size += asan_red_zone_size (size);
   CONSTRUCTOR_APPEND_ELT (vinner, NULL_TREE, build_int_cst (uptr, size));

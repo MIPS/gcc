@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
@@ -169,10 +170,10 @@ graphite_can_represent_init (tree e)
     case MULT_EXPR:
       if (chrec_contains_symbols (TREE_OPERAND (e, 0)))
 	return graphite_can_represent_init (TREE_OPERAND (e, 0))
-	  && host_integerp (TREE_OPERAND (e, 1), 0);
+	  && tree_fits_shwi_p (TREE_OPERAND (e, 1));
       else
 	return graphite_can_represent_init (TREE_OPERAND (e, 1))
-	  && host_integerp (TREE_OPERAND (e, 0), 0);
+	  && tree_fits_shwi_p (TREE_OPERAND (e, 0));
 
     case PLUS_EXPR:
     case POINTER_PLUS_EXPR:

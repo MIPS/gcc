@@ -50,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "langhooks.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "intl.h"
 #include "df.h"
 #include "debug.h"
@@ -1524,7 +1525,9 @@ ia64_split_tmode_move (rtx operands[])
      the value it points to.  In that case we have to do the loads in
      the appropriate order so that the pointer is not destroyed too
      early.  Also we must not generate a postmodify for that second
-     load, or rws_access_regno will die.  */
+     load, or rws_access_regno will die.  And we must not generate a
+     postmodify for the second load if the destination register 
+     overlaps with the base register.  */
   if (GET_CODE (operands[1]) == MEM
       && reg_overlap_mentioned_p (operands[0], operands[1]))
     {
@@ -1534,7 +1537,11 @@ ia64_split_tmode_move (rtx operands[])
 
       if (REGNO (base) == REGNO (operands[0]))
 	reversed = true;
-      dead = true;
+
+      if (refers_to_regno_p (REGNO (operands[0]),
+			     REGNO (operands[0])+2,
+			     base, 0))
+	dead = true;
     }
   /* Another reason to do the moves in reversed order is if the first
      element of the target register pair is also the second element of

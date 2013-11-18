@@ -4832,7 +4832,7 @@ check_bitfield_type_and_width (tree *type, tree *width, tree orig_name)
       *width = build_int_cst (integer_type_node, w);
     }
   else
-    w = tree_low_cst (*width, 1);
+    w = tree_to_uhwi (*width);
 
   if (TREE_CODE (*type) == ENUMERAL_TYPE)
     {
@@ -5912,7 +5912,7 @@ grokdeclarator (const struct c_declarator *declarator,
       else
 	error_at (loc, "size of unnamed array is too large");
       /* If we proceed with the array type as it is, we'll eventually
-	 crash in tree_low_cst().  */
+	 crash in tree_to_[su]hwi().  */
       type = error_mark_node;
     }
 
@@ -7263,7 +7263,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 
       if (DECL_INITIAL (x))
 	{
-	  unsigned HOST_WIDE_INT width = tree_low_cst (DECL_INITIAL (x), 1);
+	  unsigned HOST_WIDE_INT width = tree_to_uhwi (DECL_INITIAL (x));
 	  DECL_SIZE (x) = bitsize_int (width);
 	  DECL_BIT_FIELD (x) = 1;
 	  SET_DECL_C_BIT_FIELD (x);
@@ -7334,7 +7334,7 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
 	  && TREE_TYPE (*fieldlistp) != error_mark_node)
 	{
 	  unsigned HOST_WIDE_INT width
-	    = tree_low_cst (DECL_INITIAL (*fieldlistp), 1);
+	    = tree_to_uhwi (DECL_INITIAL (*fieldlistp));
 	  tree type = TREE_TYPE (*fieldlistp);
 	  if (width != TYPE_PRECISION (type))
 	    {
@@ -9115,6 +9115,10 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 		error_at (loc,
 			  ("both %<long%> and %<short%> in "
 			   "declaration specifiers"));
+	      else if (specs->typespec_word == cts_auto_type)
+		error_at (loc,
+			  ("both %<long%> and %<__auto_type%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
 		error_at (loc,
 			  ("both %<long%> and %<void%> in "
@@ -9158,6 +9162,10 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 	      if (specs->long_p)
 		error_at (loc,
 			  ("both %<long%> and %<short%> in "
+			   "declaration specifiers"));
+	      else if (specs->typespec_word == cts_auto_type)
+		error_at (loc,
+			  ("both %<short%> and %<__auto_type%> in "
 			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
 		error_at (loc,
@@ -9207,6 +9215,10 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 		error_at (loc,
 			  ("both %<signed%> and %<unsigned%> in "
 			   "declaration specifiers"));
+	      else if (specs->typespec_word == cts_auto_type)
+		error_at (loc,
+			  ("both %<signed%> and %<__auto_type%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
 		error_at (loc,
 			  ("both %<signed%> and %<void%> in "
@@ -9247,6 +9259,10 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 		error_at (loc,
 			  ("both %<signed%> and %<unsigned%> in "
 			   "declaration specifiers"));
+	      else if (specs->typespec_word == cts_auto_type)
+		error_at (loc,
+			  ("both %<unsigned%> and %<__auto_type%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
 		error_at (loc,
 			  ("both %<unsigned%> and %<void%> in "
@@ -9286,7 +9302,11 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 	      if (!flag_isoc99 && !in_system_header_at (loc))
 		pedwarn (loc, OPT_Wpedantic,
 			 "ISO C90 does not support complex types");
-	      if (specs->typespec_word == cts_void)
+	      if (specs->typespec_word == cts_auto_type)
+		error_at (loc,
+			  ("both %<complex%> and %<__auto_type%> in "
+			   "declaration specifiers"));
+	      else if (specs->typespec_word == cts_void)
 		error_at (loc,
 			  ("both %<complex%> and %<void%> in "
 			   "declaration specifiers"));
@@ -9334,6 +9354,10 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 			    ("both %<_Sat%> and %<__int128%> in "
 			     "declaration specifiers"));
 	        }
+	      else if (specs->typespec_word == cts_auto_type)
+		error_at (loc,
+			  ("both %<_Sat%> and %<__auto_type%> in "
+			   "declaration specifiers"));
 	      else if (specs->typespec_word == cts_void)
 		error_at (loc,
 			  ("both %<_Sat%> and %<void%> in "
@@ -9392,7 +9416,8 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
       else
 	{
 	  /* "void", "_Bool", "char", "int", "float", "double", "_Decimal32",
-	     "__int128", "_Decimal64", "_Decimal128", "_Fract" or "_Accum".  */
+	     "__int128", "_Decimal64", "_Decimal128", "_Fract", "_Accum" or
+	     "__auto_type".  */
 	  if (specs->typespec_word != cts_none)
 	    {
 	      error_at (loc,
@@ -9401,6 +9426,37 @@ declspecs_add_type (location_t loc, struct c_declspecs *specs,
 	    }
 	  switch (i)
 	    {
+	    case RID_AUTO_TYPE:
+	      if (specs->long_p)
+		error_at (loc,
+			  ("both %<long%> and %<__auto_type%> in "
+			   "declaration specifiers"));
+	      else if (specs->short_p)
+		error_at (loc,
+			  ("both %<short%> and %<__auto_type%> in "
+			   "declaration specifiers"));
+	      else if (specs->signed_p)
+		error_at (loc,
+			  ("both %<signed%> and %<__auto_type%> in "
+			   "declaration specifiers"));
+	      else if (specs->unsigned_p)
+		error_at (loc,
+			  ("both %<unsigned%> and %<__auto_type%> in "
+			   "declaration specifiers"));
+	      else if (specs->complex_p)
+		error_at (loc,
+			  ("both %<complex%> and %<__auto_type%> in "
+			   "declaration specifiers"));
+	      else if (specs->saturating_p)
+		error_at (loc,
+			  ("both %<_Sat%> and %<__auto_type%> in "
+			   "declaration specifiers"));
+	      else
+		{
+		  specs->typespec_word = cts_auto_type;
+		  specs->locations[cdw_typespec] = loc;
+		}
+	      return specs;
 	    case RID_INT128:
 	      if (int128_integer_type_node == NULL_TREE)
 		{
@@ -9956,6 +10012,12 @@ finish_declspecs (struct c_declspecs *specs)
   /* Now compute the actual type.  */
   switch (specs->typespec_word)
     {
+    case cts_auto_type:
+      gcc_assert (!specs->long_p && !specs->short_p
+		  && !specs->signed_p && !specs->unsigned_p
+		  && !specs->complex_p);
+      /* Type to be filled in later.  */
+      break;
     case cts_void:
       gcc_assert (!specs->long_p && !specs->short_p
 		  && !specs->signed_p && !specs->unsigned_p

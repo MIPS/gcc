@@ -23,6 +23,10 @@
 #include "hash-table.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
@@ -319,6 +323,22 @@ is_tm_ending_fndecl (tree fndecl)
       }
 
   return false;
+}
+
+/* Return true if STMT is a built in function call that "ends" a
+   transaction.  */
+
+bool
+is_tm_ending (gimple stmt)
+{
+  tree fndecl;
+
+  if (gimple_code (stmt) != GIMPLE_CALL)
+    return false;
+
+  fndecl = gimple_call_fndecl (stmt);
+  return (fndecl != NULL_TREE
+	  && is_tm_ending_fndecl (fndecl));
 }
 
 /* Return true if STMT is a TM load.  */
@@ -1083,8 +1103,8 @@ tm_log_add (basic_block entry_block, tree addr, gimple stmt)
       if (entry_block
 	  && transaction_invariant_address_p (lp->addr, entry_block)
 	  && TYPE_SIZE_UNIT (type) != NULL
-	  && host_integerp (TYPE_SIZE_UNIT (type), 1)
-	  && (tree_low_cst (TYPE_SIZE_UNIT (type), 1)
+	  && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type))
+	  && ((HOST_WIDE_INT) tree_to_uhwi (TYPE_SIZE_UNIT (type))
 	      < PARAM_VALUE (PARAM_TM_MAX_AGGREGATE_SIZE))
 	  /* We must be able to copy this type normally.  I.e., no
 	     special constructors and the like.  */
@@ -1167,9 +1187,9 @@ tm_log_emit_stmt (tree addr, gimple stmt)
     code = BUILT_IN_TM_LOG_DOUBLE;
   else if (type == long_double_type_node)
     code = BUILT_IN_TM_LOG_LDOUBLE;
-  else if (host_integerp (size, 1))
+  else if (tree_fits_uhwi_p (size))
     {
-      unsigned int n = tree_low_cst (size, 1);
+      unsigned int n = tree_to_uhwi (size);
       switch (n)
 	{
 	case 1:
@@ -2085,9 +2105,9 @@ build_tm_load (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
   else if (type == long_double_type_node)
     code = BUILT_IN_TM_LOAD_LDOUBLE;
   else if (TYPE_SIZE_UNIT (type) != NULL
-	   && host_integerp (TYPE_SIZE_UNIT (type), 1))
+	   && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
     {
-      switch (tree_low_cst (TYPE_SIZE_UNIT (type), 1))
+      switch (tree_to_uhwi (TYPE_SIZE_UNIT (type)))
 	{
 	case 1:
 	  code = BUILT_IN_TM_LOAD_1;
@@ -2157,9 +2177,9 @@ build_tm_store (location_t loc, tree lhs, tree rhs, gimple_stmt_iterator *gsi)
   else if (type == long_double_type_node)
     code = BUILT_IN_TM_STORE_LDOUBLE;
   else if (TYPE_SIZE_UNIT (type) != NULL
-	   && host_integerp (TYPE_SIZE_UNIT (type), 1))
+	   && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
     {
-      switch (tree_low_cst (TYPE_SIZE_UNIT (type), 1))
+      switch (tree_to_uhwi (TYPE_SIZE_UNIT (type)))
 	{
 	case 1:
 	  code = BUILT_IN_TM_STORE_1;

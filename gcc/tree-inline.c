@@ -35,6 +35,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "intl.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -1217,7 +1221,7 @@ remap_eh_region_tree_nr (tree old_t_nr, copy_body_data *id)
 {
   int old_nr, new_nr;
 
-  old_nr = tree_low_cst (old_t_nr, 0);
+  old_nr = tree_to_shwi (old_t_nr);
   new_nr = remap_eh_region_nr (old_nr, id);
 
   return build_int_cst (integer_type_node, new_nr);
@@ -1847,7 +1851,7 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		  if (dump_file)
 		    {
 		      fprintf (dump_file, "Created new direct edge to %s\n",
-			       cgraph_node_name (dest));
+			       dest->name ());
 		    }
 		}
 
@@ -4500,21 +4504,6 @@ fold_marked_statements (int first, struct pointer_set_t *statements)
 		}
 	    }
       }
-}
-
-/* Return true if BB has at least one abnormal outgoing edge.  */
-
-static inline bool
-has_abnormal_outgoing_edge_p (basic_block bb)
-{
-  edge e;
-  edge_iterator ei;
-
-  FOR_EACH_EDGE (e, ei, bb->succs)
-    if (e->flags & EDGE_ABNORMAL)
-      return true;
-
-  return false;
 }
 
 /* Expand calls to inline functions in the body of FN.  */

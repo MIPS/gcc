@@ -70,6 +70,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
@@ -3967,7 +3970,7 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
             {
               tree ind = TREE_OPERAND (usym, 1);
               if (TREE_CODE (ind) == INTEGER_CST
-                  && host_integerp (ind, 0)
+                  && tree_fits_shwi_p (ind)
                   && TREE_INT_CST_LOW (ind) == 0)
                 usym = TREE_OPERAND (usym, 0);
             }
@@ -3975,7 +3978,7 @@ get_loop_invariant_expr_id (struct ivopts_data *data, tree ubase,
             {
               tree ind = TREE_OPERAND (csym, 1);
               if (TREE_CODE (ind) == INTEGER_CST
-                  && host_integerp (ind, 0)
+                  && tree_fits_shwi_p (ind)
                   && TREE_INT_CST_LOW (ind) == 0)
                 csym = TREE_OPERAND (csym, 0);
             }
@@ -4353,7 +4356,7 @@ iv_period (struct iv *iv)
 
   period = build_low_bits_mask (type,
                                 (TYPE_PRECISION (type)
-                                 - tree_low_cst (pow2div, 1)));
+                                 - tree_to_uhwi (pow2div)));
 
   return period;
 }

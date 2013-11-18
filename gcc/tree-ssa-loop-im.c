@@ -26,6 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -43,6 +46,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-affine.h"
 #include "pointer-set.h"
 #include "tree-ssa-propagate.h"
+#include "trans-mem.h"
 
 /* TODO:  Support for predicated code motion.  I.e.
 

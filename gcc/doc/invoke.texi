@@ -5260,9 +5260,44 @@ data race bugs.
 See @uref{http://code.google.com/p/data-race-test/wiki/ThreadSanitizer} for more details.
 
 @item -fsanitize=undefined
-Enable UndefinedBehaviorSanitizer, a fast undefined behavior detector
+Enable UndefinedBehaviorSanitizer, a fast undefined behavior detector.
 Various computations will be instrumented to detect undefined behavior
-at runtime, e.g.@: division by zero or various overflows.
+at runtime.  Current suboptions are:
+
+@itemize @bullet
+
+@item @option{-fsanitize=shift}
+
+This option enables checking that the result of a shift operation is
+not undefined.  Note that what exactly is considered undefined differs
+slightly between C and C++, as well as between ISO C90 and C99, etc.
+
+@item @option{-fsanitize=integer-divide-by-zero}
+
+Detect integer division by zero as well as @code{INT_MIN / -1} division.
+
+@item @option{-fsanitize=unreachable}
+
+With this option, the compiler will turn the @code{__builtin_unreachable}
+call into a diagnostics message call instead.  When reaching the
+@code{__builtin_unreachable} call, the behavior is undefined.
+
+@item @option{-fsanitize=vla-bound}
+
+This option instructs the compiler to check that the size of a variable
+length array is positive.  This option does not have any effect in
+@option{-std=c++1y} mode, as the standard requires the exception be thrown
+instead.
+
+@item @option{-fsanitize=null}
+
+This option enables pointer checking.  Particularly, the application
+built with this option turned on will issue an error message when it
+tries to dereference a NULL pointer, or if a reference (possibly an
+rvalue reference) is bound to a NULL pointer.
+
+@end itemize
+
 While @option{-ftrapv} causes traps for signed overflows to be emitted,
 @option{-fsanitize=undefined} gives a diagnostic message.
 This currently works only for the C family of languages.
@@ -11169,9 +11204,9 @@ instead of the @option{-mcpu=} option.
 Specify the name of the target processor, optionally suffixed by one or more
 feature modifiers.  This option has the form
 @option{-mcpu=@var{cpu}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-possible values for @var{cpu} are @samp{generic}, @samp{large}.  The
-possible values for @var{feature} are documented in the sub-section
-below.
+possible values for @var{cpu} are @samp{generic}, @samp{cortex-a53},
+@samp{cortex-a57}.  The possible values for @var{feature} are documented
+in the sub-section below.
 
 Where conflicting feature modifiers are specified, the right-most feature is
 used.
@@ -11184,8 +11219,12 @@ generating assembly code.
 Specify the name of the processor to tune the performance for.  The code will
 be tuned as if the target processor were of the type specified in this option,
 but still using instructions compatible with the target processor specified
-by a @option{-mcpu=} option.  This option cannot be suffixed by feature
-modifiers.
+by a @option{-mcpu=} option.  Where no @option{-mtune=} option is
+specified, the code will be tuned to perform well on the target processor
+given by @option{-mcpu=} or @option{-march=}.  Where none of
+@option{-mtune=}, @option{-mcpu=} or @option{-march=} are specified,
+the code will be tuned to perform well across a range of target
+processors.  This option cannot be suffixed by feature modifiers.
 
 @end table
 
@@ -14525,14 +14564,19 @@ supersets FMA4, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A,
 SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set extensions.)
 @item bdver2
 AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
-supersets BMI, TBM, F16C, FMA, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE,
-SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
+supersets BMI, TBM, F16C, FMA, FMA4, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX,
+SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
 extensions.)
 @item bdver3
 AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
-supersets BMI, TBM, F16C, FMA, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE,
-SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
-extensions.
+supersets BMI, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, XOP, LWP, AES, 
+PCL_MUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 
+64-bit instruction set extensions.
+@item bdver4
+AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
+supersets BMI, BMI2, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, AVX2, XOP, LWP, 
+AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, 
+SSE4.2, ABM and 64-bit instruction set extensions.
 
 @item btver1
 CPUs based on AMD Family 14h cores with x86-64 instruction set support.  (This
@@ -18842,7 +18886,8 @@ SVR4 ABI)@.
 @opindex mabi
 Extend the current ABI with a particular extension, or remove such extension.
 Valid values are @var{altivec}, @var{no-altivec}, @var{spe},
-@var{no-spe}, @var{ibmlongdouble}, @var{ieeelongdouble}@.
+@var{no-spe}, @var{ibmlongdouble}, @var{ieeelongdouble},
+@var{elfv1}, @var{elfv2}@.
 
 @item -mabi=spe
 @opindex mabi=spe
@@ -18863,6 +18908,20 @@ This is a PowerPC 32-bit SYSV ABI option.
 @opindex mabi=ieeelongdouble
 Change the current ABI to use IEEE extended-precision long double.
 This is a PowerPC 32-bit Linux ABI option.
+
+@item -mabi=elfv1
+@opindex mabi=elfv1
+Change the current ABI to use the ELFv1 ABI.
+This is the default ABI for big-endian PowerPC 64-bit Linux.
+Overriding the default ABI requires special system support and is
+likely to fail in spectacular ways.
+
+@item -mabi=elfv2
+@opindex mabi=elfv2
+Change the current ABI to use the ELFv2 ABI.
+This is the default ABI for little-endian PowerPC 64-bit Linux.
+Overriding the default ABI requires special system support and is
+likely to fail in spectacular ways.
 
 @item -mprototype
 @itemx -mno-prototype

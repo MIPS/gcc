@@ -35,6 +35,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coverage.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
@@ -45,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "profile.h"
 #include "target.h"
 #include "tree-cfgcleanup.h"
+#include "tree-nested.h"
 
 static GTY(()) tree gcov_type_node;
 static GTY(()) tree tree_interval_profiler_fn;

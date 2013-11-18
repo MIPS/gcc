@@ -37,6 +37,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "tree-cfg.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-inline.h"
@@ -397,6 +399,7 @@ better_state (enum pure_const_state_e *state, bool *looping,
 	*looping = looping2;
       else
 	*looping = MIN (*looping, looping2);
+      *state = state2;
     }
   else if (state2 != IPA_NEITHER)
     *looping = MIN (*looping, looping2);
@@ -740,7 +743,7 @@ analyze_function (struct cgraph_node *fn, bool ipa)
   if (dump_file)
     {
       fprintf (dump_file, "\n\n local analysis of %s\n ",
-	       cgraph_node_name (fn));
+	       fn->name ());
     }
 
   push_cfun (DECL_STRUCT_FUNCTION (decl));
@@ -1035,7 +1038,7 @@ pure_const_read_summary (void)
 		{
 		  int flags = flags_from_decl_or_type (node->decl);
 		  fprintf (dump_file, "Read info for %s/%i ",
-			   cgraph_node_name (node),
+			   node->name (),
 			   node->order);
 		  if (flags & ECF_CONST)
 		    fprintf (dump_file, " const");
@@ -1135,7 +1138,7 @@ propagate_pure_const (void)
 	  funct_state w_l = get_function_state (w);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Visiting %s/%i state:%s looping %i\n",
-		     cgraph_node_name (w),
+		     w->name (),
 		     w->order,
 		     pure_const_names[w_l->pure_const_state],
 		     w_l->looping);
@@ -1182,7 +1185,7 @@ propagate_pure_const (void)
 		{
 		  fprintf (dump_file,
 			   "    Call to %s/%i",
-			   cgraph_node_name (e->callee),
+			   e->callee->name (),
 			   e->callee->order);
 		}
 	      if (avail > AVAIL_OVERWRITABLE)
@@ -1328,7 +1331,7 @@ propagate_pure_const (void)
 		  if (dump_file)
 		    fprintf (dump_file, "Function found to be %sconst: %s\n",
 			     this_looping ? "looping " : "",
-			     cgraph_node_name (w));
+			     w->name ());
 		}
 	      cgraph_set_const_flag (w, true, this_looping);
 	      break;
@@ -1340,7 +1343,7 @@ propagate_pure_const (void)
 		  if (dump_file)
 		    fprintf (dump_file, "Function found to be %spure: %s\n",
 			     this_looping ? "looping " : "",
-			     cgraph_node_name (w));
+			     w->name ());
 		}
 	      cgraph_set_pure_flag (w, true, this_looping);
 	      break;
@@ -1443,7 +1446,7 @@ propagate_nothrow (void)
 	      cgraph_set_nothrow_flag (w, true);
 	      if (dump_file)
 		fprintf (dump_file, "Function found to be nothrow: %s\n",
-			 cgraph_node_name (w));
+			 w->name ());
 	    }
 	  else if (can_throw && !TREE_NOTHROW (w->decl))
 	    w_l->can_throw = true;

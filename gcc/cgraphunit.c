@@ -165,6 +165,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "rtl.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
@@ -198,6 +201,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "regset.h"     /* FIXME: For reg_obstack.  */
 #include "context.h"
 #include "pass_manager.h"
+#include "tree-nested.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -960,7 +964,7 @@ analyze_functions (void)
 		fprintf (cgraph_dump_file, "Trivially needed symbols:");
 	      changed = true;
 	      if (cgraph_dump_file)
-		fprintf (cgraph_dump_file, " %s", symtab_node_asm_name (node));
+		fprintf (cgraph_dump_file, " %s", node->asm_name ());
 	      if (!changed && cgraph_dump_file)
 		fprintf (cgraph_dump_file, "\n");
 	    }
@@ -1073,7 +1077,7 @@ analyze_functions (void)
       if (!node->aux && !referred_to_p (node))
 	{
 	  if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, " %s", symtab_node_name (node));
+	    fprintf (cgraph_dump_file, " %s", node->name ());
 	  symtab_remove_node (node);
 	  continue;
 	}
