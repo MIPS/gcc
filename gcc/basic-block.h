@@ -897,6 +897,14 @@ struct loop *get_loop_copy (struct loop *);
 
 #include "cfghooks.h"
 
+/* Return true if BB is in a transaction.  */
+
+static inline bool
+bb_in_transaction (basic_block bb)
+{
+  return bb->flags & BB_IN_TRANSACTION;
+}
+
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
 static inline bool
 bb_has_eh_pred (basic_block bb)
@@ -999,5 +1007,20 @@ inverse_probability (int prob1)
 {
   check_probability (prob1);
   return REG_BR_PROB_BASE - prob1;
+}
+
+/* Return true if BB has at least one abnormal outgoing edge.  */
+
+static inline bool
+has_abnormal_or_eh_outgoing_edge_p (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
+      return true;
+
+  return false;
 }
 #endif /* GCC_BASIC_BLOCK_H */

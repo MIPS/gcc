@@ -44,6 +44,12 @@ class GTY((desc ("%h.type"), tag ("SYMTAB_SYMBOL"),
   symtab_node
 {
 public:
+  /* Return name.  */
+  const char *name () const;
+
+  /* Return asm name.  */
+  const char * asm_name () const;
+
   /* Type of the symbol.  */
   ENUM_BITFIELD (symtab_type) type : 8;
 
@@ -382,6 +388,8 @@ public:
   int uid;
   /* ID assigned by the profiling.  */
   unsigned int profile_id;
+  /* Time profiler: first run of function.  */
+  int tp_first_run;
 
   /* Set when decl is an abstract function pointed to by the
      ABSTRACT_DECL_ORIGIN of a reachable function.  */
@@ -673,8 +681,6 @@ void symtab_unregister_node (symtab_node *);
 void symtab_remove_node (symtab_node *);
 symtab_node *symtab_get_node (const_tree);
 symtab_node *symtab_node_for_asm (const_tree asmname);
-const char * symtab_node_asm_name (symtab_node *);
-const char * symtab_node_name (symtab_node *);
 void symtab_insert_node_to_hashtable (symtab_node *);
 void symtab_add_to_same_comdat_group (symtab_node *, symtab_node *);
 void symtab_dissolve_same_comdat_group_list (symtab_node *node);
@@ -719,7 +725,6 @@ struct cgraph_indirect_call_info *cgraph_allocate_init_indirect_info (void);
 struct cgraph_node * cgraph_create_node (tree);
 struct cgraph_node * cgraph_create_empty_node (void);
 struct cgraph_node * cgraph_get_create_node (tree);
-struct cgraph_node * cgraph_get_create_real_symbol_node (tree);
 struct cgraph_node * cgraph_same_body_alias (struct cgraph_node *, tree, tree);
 struct cgraph_node * cgraph_add_thunk (struct cgraph_node *, tree, tree, bool, HOST_WIDE_INT,
 				       HOST_WIDE_INT, tree, tree);
@@ -963,34 +968,6 @@ varpool_get_node (const_tree decl)
 {
   gcc_checking_assert (TREE_CODE (decl) == VAR_DECL);
   return varpool (symtab_get_node (decl));
-}
-
-/* Return asm name of cgraph node.  */
-static inline const char *
-cgraph_node_asm_name (struct cgraph_node *node)
-{
-  return symtab_node_asm_name (node);
-}
-
-/* Return asm name of varpool node.  */
-static inline const char *
-varpool_node_asm_name (struct varpool_node *node)
-{
-  return symtab_node_asm_name (node);
-}
-
-/* Return name of cgraph node.  */
-static inline const char *
-cgraph_node_name (struct cgraph_node *node)
-{
-  return symtab_node_name (node);
-}
-
-/* Return name of varpool node.  */
-static inline const char *
-varpool_node_name (struct varpool_node *node)
-{
-  return symtab_node_name (node);
 }
 
 /* Walk all symbols.  */

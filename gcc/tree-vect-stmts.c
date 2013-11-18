@@ -30,6 +30,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -583,7 +586,6 @@ process_use (gimple stmt, tree use, loop_vec_info loop_vinfo, bool live_p,
 bool
 vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 {
-  vec<gimple> worklist;
   struct loop *loop = LOOP_VINFO_LOOP (loop_vinfo);
   basic_block *bbs = LOOP_VINFO_BBS (loop_vinfo);
   unsigned int nbbs = loop->num_nodes;
@@ -601,7 +603,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_mark_stmts_to_be_vectorized ===\n");
 
-  worklist.create (64);
+  stack_vec<gimple, 64> worklist;
 
   /* 1. Init worklist.  */
   for (i = 0; i < nbbs; i++)
@@ -691,7 +693,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	          if (dump_enabled_p ())
 	            dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                      "unsupported use of reduction.\n");
-  	          worklist.release ();
 	          return false;
 	      }
 
@@ -707,7 +708,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
                   dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                    "unsupported use of nested cycle.\n");
 
-                worklist.release ();
                 return false;
               }
 
@@ -722,7 +722,6 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
                   dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
                                    "unsupported use of double reduction.\n");
 
-                worklist.release ();
                 return false;
               }
 
@@ -750,10 +749,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 				    live_p, relevant, &worklist, false)
 		      || !process_use (stmt, TREE_OPERAND (op, 1), loop_vinfo,
 				       live_p, relevant, &worklist, false))
-		    {
-		      worklist.release ();
-		      return false;
-		    }
+        return false;
 		  i = 2;
 		}
 	      for (; i < gimple_num_ops (stmt); i++)
@@ -761,10 +757,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 		  op = gimple_op (stmt, i);
                   if (!process_use (stmt, op, loop_vinfo, live_p, relevant,
 				    &worklist, false))
-                    {
-                      worklist.release ();
-                      return false;
-                    }
+                    return false;
                  }
             }
           else if (is_gimple_call (stmt))
@@ -774,10 +767,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
                   tree arg = gimple_call_arg (stmt, i);
                   if (!process_use (stmt, arg, loop_vinfo, live_p, relevant,
 				    &worklist, false))
-                    {
-                      worklist.release ();
-                      return false;
-                    }
+                    return false;
                 }
             }
         }
@@ -787,10 +777,7 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
             tree op = USE_FROM_PTR (use_p);
             if (!process_use (stmt, op, loop_vinfo, live_p, relevant,
 			      &worklist, false))
-              {
-                worklist.release ();
-                return false;
-              }
+              return false;
           }
 
       if (STMT_VINFO_GATHER_P (stmt_vinfo))
@@ -800,14 +787,10 @@ vect_mark_stmts_to_be_vectorized (loop_vec_info loop_vinfo)
 	  gcc_assert (decl);
 	  if (!process_use (stmt, off, loop_vinfo, live_p, relevant,
 			    &worklist, true))
-	    {
-	      worklist.release ();
-	      return false;
-	    }
+      return false;
 	}
     } /* while worklist */
 
-  worklist.release ();
   return true;
 }
 
@@ -2128,7 +2111,6 @@ vectorizable_call (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
   set_vinfo_for_stmt (stmt, NULL);
   STMT_VINFO_STMT (stmt_info) = new_stmt;
   gsi_replace (gsi, new_stmt, false);
-  SSA_NAME_DEF_STMT (gimple_assign_lhs (new_stmt)) = new_stmt;
 
   return true;
 }
@@ -2243,9 +2225,9 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 	  && loop_vinfo
 	  && TREE_CODE (op) == SSA_NAME
 	  && simple_iv (loop, loop_containing_stmt (stmt), op, &iv, false)
-	  && host_integerp (iv.step, 0))
+	  && tree_fits_shwi_p (iv.step))
 	{
-	  thisarginfo.linear_step = tree_low_cst (iv.step, 0);
+	  thisarginfo.linear_step = tree_to_shwi (iv.step);
 	  thisarginfo.op = iv.base;
 	}
       else if (thisarginfo.vectype == NULL_TREE
@@ -6061,11 +6043,9 @@ vectorizable_condition (gimple stmt, gimple_stmt_iterator *gsi,
 	{
           if (slp_node)
             {
-              vec<tree> ops;
-	      ops.create (4);
-	      vec<vec<tree> > vec_defs;
+              stack_vec<tree, 4> ops;
+	      stack_vec<vec<tree>, 4> vec_defs;
 
-	      vec_defs.create (4);
               ops.safe_push (TREE_OPERAND (cond_expr, 0));
               ops.safe_push (TREE_OPERAND (cond_expr, 1));
               ops.safe_push (then_clause);

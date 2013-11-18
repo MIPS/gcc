@@ -28,6 +28,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "rtl.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
 #include "langhooks.h"
@@ -56,6 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfgcleanup.h"
 #include "pretty-print.h"
 #include "ipa-prop.h"
+#include "tree-nested.h"
 
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two
@@ -283,7 +288,7 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
   int i;
   struct omp_for_data_loop dummy_loop;
   location_t loc = gimple_location (for_stmt);
-  bool simd = gimple_omp_for_kind (for_stmt) == GF_OMP_FOR_KIND_SIMD;
+  bool simd = gimple_omp_for_kind (for_stmt) & GF_OMP_FOR_KIND_SIMD;
   bool distribute = gimple_omp_for_kind (for_stmt)
 		    == GF_OMP_FOR_KIND_DISTRIBUTE;
 
@@ -374,6 +379,10 @@ extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
 	{
 	case LT_EXPR:
 	case GT_EXPR:
+	  break;
+	case NE_EXPR:
+	  gcc_assert (gimple_omp_for_kind (for_stmt)
+		      == GF_OMP_FOR_KIND_CILKSIMD);
 	  break;
 	case LE_EXPR:
 	  if (POINTER_TYPE_P (TREE_TYPE (loop->n2)))
@@ -1005,7 +1014,7 @@ build_outer_var_ref (tree var, omp_context *ctx)
       x = build_receiver_ref (var, by_ref, ctx);
     }
   else if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
-	   && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_SIMD)
+	   && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_KIND_SIMD)
     {
       /* #pragma omp simd isn't a worksharing construct, and can reference even
 	 private vars in its linear etc. clauses.  */
@@ -2340,7 +2349,7 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
   if (ctx != NULL)
     {
       if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
-	  && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_SIMD)
+	  && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_KIND_SIMD)
 	{
 	  error_at (gimple_location (stmt),
 		    "OpenMP constructs may not be nested inside simd region");
@@ -2363,7 +2372,7 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
   switch (gimple_code (stmt))
     {
     case GIMPLE_OMP_FOR:
-      if (gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_SIMD)
+      if (gimple_omp_for_kind (stmt) & GF_OMP_FOR_KIND_SIMD)
 	return true;
       if (gimple_omp_for_kind (stmt) == GF_OMP_FOR_KIND_DISTRIBUTE)
 	{
@@ -2395,8 +2404,8 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 			: "#pragma omp cancellation point");
 	      return false;
 	    }
-	  switch (host_integerp (gimple_call_arg (stmt, 0), 0)
-		  ? tree_low_cst (gimple_call_arg (stmt, 0), 0)
+	  switch (tree_fits_shwi_p (gimple_call_arg (stmt, 0))
+		  ? tree_to_shwi (gimple_call_arg (stmt, 0))
 		  : 0)
 	    {
 	    case 1:
@@ -2646,6 +2655,23 @@ scan_omp_1_op (tree *tp, int *walk_subtrees, void *data)
   return NULL_TREE;
 }
 
+/* Return true if FNDECL is a setjmp or a longjmp.  */
+
+static bool
+setjmp_or_longjmp_p (const_tree fndecl)
+{
+  if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_SETJMP
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_LONGJMP))
+    return true;
+
+  tree declname = DECL_NAME (fndecl);
+  if (!declname)
+    return false;
+  const char *name = IDENTIFIER_POINTER (declname);
+  return !strcmp (name, "setjmp") || !strcmp (name, "longjmp");
+}
+
 
 /* Helper function for scan_omp.
 
@@ -2669,22 +2695,33 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   else if (is_gimple_call (stmt))
     {
       tree fndecl = gimple_call_fndecl (stmt);
-      if (fndecl
-	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
-	switch (DECL_FUNCTION_CODE (fndecl))
-	  {
-	  case BUILT_IN_GOMP_BARRIER:
-	  case BUILT_IN_GOMP_CANCEL:
-	  case BUILT_IN_GOMP_CANCELLATION_POINT:
-	  case BUILT_IN_GOMP_TASKYIELD:
-	  case BUILT_IN_GOMP_TASKWAIT:
-	  case BUILT_IN_GOMP_TASKGROUP_START:
-	  case BUILT_IN_GOMP_TASKGROUP_END:
-	    remove = !check_omp_nesting_restrictions (stmt, ctx);
-	    break;
-	  default:
-	    break;
-	  }
+      if (fndecl)
+	{
+	  if (setjmp_or_longjmp_p (fndecl)
+	      && ctx
+	      && gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
+	      && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_KIND_SIMD)
+	    {
+	      remove = true;
+	      error_at (gimple_location (stmt),
+			"setjmp/longjmp inside simd construct");
+	    }
+	  else if (DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
+	    switch (DECL_FUNCTION_CODE (fndecl))
+	      {
+	      case BUILT_IN_GOMP_BARRIER:
+	      case BUILT_IN_GOMP_CANCEL:
+	      case BUILT_IN_GOMP_CANCELLATION_POINT:
+	      case BUILT_IN_GOMP_TASKYIELD:
+	      case BUILT_IN_GOMP_TASKWAIT:
+	      case BUILT_IN_GOMP_TASKGROUP_START:
+	      case BUILT_IN_GOMP_TASKGROUP_END:
+		remove = !check_omp_nesting_restrictions (stmt, ctx);
+		break;
+	      default:
+		break;
+	      }
+	}
     }
   if (remove)
     {
@@ -3037,7 +3074,7 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 				    OMP_CLAUSE_SAFELEN);
 	  if (c
 	      && compare_tree_int (OMP_CLAUSE_SAFELEN_EXPR (c), max_vf) == -1)
-	    max_vf = tree_low_cst (OMP_CLAUSE_SAFELEN_EXPR (c), 0);
+	    max_vf = tree_to_shwi (OMP_CLAUSE_SAFELEN_EXPR (c));
 	}
       if (max_vf > 1)
 	{
@@ -3085,7 +3122,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
   bool reduction_omp_orig_ref = false;
   int pass;
   bool is_simd = (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
-		  && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_SIMD);
+		  && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_KIND_SIMD);
   int max_vf = 0;
   tree lane = NULL_TREE, idx = NULL_TREE;
   tree ivar = NULL_TREE, lvar = NULL_TREE;
@@ -3705,7 +3742,7 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
       /* Don't add any barrier for #pragma omp simd or
 	 #pragma omp distribute.  */
       if (gimple_code (ctx->stmt) != GIMPLE_OMP_FOR
-	  || gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_FOR)
+	  || gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_KIND_FOR)
 	gimple_seq_add_stmt (ilist, build_omp_barrier (NULL_TREE));
     }
 
@@ -3786,7 +3823,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
     }
 
   if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
-      && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_SIMD)
+      && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_KIND_SIMD)
     {
       simduid = find_omp_clause (orig_clauses, OMP_CLAUSE__SIMDUID_);
       if (simduid)
@@ -3883,7 +3920,7 @@ lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 
   /* SIMD reductions are handled in lower_rec_input_clauses.  */
   if (gimple_code (ctx->stmt) == GIMPLE_OMP_FOR
-      && gimple_omp_for_kind (ctx->stmt) == GF_OMP_FOR_KIND_SIMD)
+      && gimple_omp_for_kind (ctx->stmt) & GF_OMP_FOR_KIND_SIMD)
     return;
 
   /* First see if there is exactly one reduction clause.  Use OMP_ATOMIC
@@ -7092,12 +7129,11 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
       else
 	{
 	  safelen = OMP_CLAUSE_SAFELEN_EXPR (safelen);
-	  if (!host_integerp (safelen, 1)
-	      || (unsigned HOST_WIDE_INT) tree_low_cst (safelen, 1)
-		 > INT_MAX)
+	  if (!tree_fits_uhwi_p (safelen)
+	      || tree_to_uhwi (safelen) > INT_MAX)
 	    loop->safelen = INT_MAX;
 	  else
-	    loop->safelen = tree_low_cst (safelen, 1);
+	    loop->safelen = tree_to_uhwi (safelen);
 	  if (loop->safelen == 1)
 	    loop->safelen = 0;
 	}
@@ -7150,7 +7186,7 @@ expand_omp_for (struct omp_region *region, gimple inner_stmt)
        original loops from being detected.  Fix that up.  */
     loops_state_set (LOOPS_NEED_FIXUP);
 
-  if (gimple_omp_for_kind (fd.for_stmt) == GF_OMP_FOR_KIND_SIMD)
+  if (gimple_omp_for_kind (fd.for_stmt) & GF_OMP_FOR_KIND_SIMD)
     expand_omp_simd (region, &fd);
   else if (fd.sched_kind == OMP_CLAUSE_SCHEDULE_STATIC
 	   && !fd.have_ordered)
@@ -8001,7 +8037,7 @@ expand_omp_atomic (struct omp_region *region)
   HOST_WIDE_INT index;
 
   /* Make sure the type is one of the supported sizes.  */
-  index = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+  index = tree_to_uhwi (TYPE_SIZE_UNIT (type));
   index = exact_log2 (index);
   if (index >= 0 && index <= 4)
     {
@@ -8596,7 +8632,8 @@ execute_expand_omp (void)
 static bool
 gate_expand_omp (void)
 {
-  return ((flag_openacc || flag_openmp)
+  return ((flag_openacc != 0 || flag_openmp != 0
+	   || flag_openmp_simd != 0 || flag_enable_cilkplus != 0)
 	  && !seen_error ());
 }
 
@@ -9443,7 +9480,7 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
 
   /* When possible, use a strict equality expression.  This can let VRP
      type optimizations deduce the value and remove a copy.  */
-  if (host_integerp (fd->loop.step, 0))
+  if (tree_fits_shwi_p (fd->loop.step))
     {
       HOST_WIDE_INT step = TREE_INT_CST_LOW (fd->loop.step);
       if (step == 1 || step == -1)
@@ -9463,7 +9500,7 @@ lower_omp_for_lastprivate (struct omp_for_data *fd, gimple_seq *body_p,
       /* Optimize: v = 0; is usually cheaper than v = some_other_constant.  */
       vinit = fd->loop.n1;
       if (cond_code == EQ_EXPR
-	  && host_integerp (fd->loop.n2, 0)
+	  && tree_fits_shwi_p (fd->loop.n2)
 	  && ! integer_zerop (fd->loop.n2))
 	vinit = build_int_cst (TREE_TYPE (fd->loop.v), 0);
       else
@@ -10711,7 +10748,8 @@ execute_lower_omp (void)
   /* This pass always runs, to provide PROP_gimple_lomp.
      But there is nothing to do unless at least one of -fopenacc or -fopenmp is
      given.  */
-  if (!(flag_openacc || flag_openmp))
+  if (flag_openacc == 0 && flag_openmp == 0
+      && flag_openmp_simd == 0 && flag_enable_cilkplus == 0)
     return 0;
 
   all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
@@ -10831,12 +10869,33 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
     error ("invalid entry to OpenMP structured block");
 #endif
 
+  bool cilkplus_block = false;
+  if (flag_enable_cilkplus)
+    {
+      if ((branch_ctx
+	   && gimple_code (branch_ctx) == GIMPLE_OMP_FOR
+	   && gimple_omp_for_kind (branch_ctx) == GF_OMP_FOR_KIND_CILKSIMD)
+	  || (gimple_code (label_ctx) == GIMPLE_OMP_FOR
+	      && gimple_omp_for_kind (label_ctx) == GF_OMP_FOR_KIND_CILKSIMD))
+	cilkplus_block = true;
+    }
+
   /* If it's obvious we have an invalid entry, be specific about the error.  */
   if (branch_ctx == NULL)
-    error ("invalid entry to OpenMP structured block");
+    {
+      if (cilkplus_block)
+	error ("invalid entry to Cilk Plus structured block");
+      else
+	error ("invalid entry to OpenMP structured block");
+    }
   else
-    /* Otherwise, be vague and lazy, but efficient.  */
-    error ("invalid branch to/from an OpenMP structured block");
+    {
+      /* Otherwise, be vague and lazy, but efficient.  */
+      if (cilkplus_block)
+	error ("invalid branch to/from a Cilk Plus structured block");
+      else
+	error ("invalid branch to/from an OpenMP structured block");
+    }
 
   gsi_replace (gsi_p, gimple_build_nop (), false);
   return true;
@@ -11141,7 +11200,7 @@ diagnose_omp_structured_block_errors (void)
 static bool
 gate_diagnose_omp_blocks (void)
 {
-  return flag_openacc || flag_openmp;
+  return flag_openacc || flag_openmp || flag_enable_cilkplus;
 }
 
 namespace {
@@ -11296,14 +11355,13 @@ simd_clone_clauses_extract (struct cgraph_node *new_node, tree clauses,
 	      {
 		clone_info->args[argno].arg_type
 		  = SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP;
-		clone_info->args[argno].linear_step
-		  = tree_low_cst (step, 0);
+		clone_info->args[argno].linear_step = tree_to_shwi (step);
 		gcc_assert (clone_info->args[argno].linear_step >= 0
 			    && clone_info->args[argno].linear_step < n);
 	      }
 	    else
 	      {
-		if (!host_integerp (step, 0))
+		if (!tree_fits_shwi_p (step))
 		  warning_at (OMP_CLAUSE_LOCATION (t), 0,
 			      "ignoring large linear step");
 		else if (integer_zerop (step))
@@ -11313,8 +11371,7 @@ simd_clone_clauses_extract (struct cgraph_node *new_node, tree clauses,
 		  {
 		    clone_info->args[argno].arg_type
 		      = SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP;
-		    clone_info->args[argno].linear_step
-		      = tree_low_cst (step, 0);
+		    clone_info->args[argno].linear_step = tree_to_shwi (step);
 		  }
 	      }
 	    break;
@@ -11322,7 +11379,7 @@ simd_clone_clauses_extract (struct cgraph_node *new_node, tree clauses,
 	case OMP_CLAUSE_UNIFORM:
 	  {
 	    tree decl = OMP_CLAUSE_DECL (t);
-	    int argno = tree_low_cst (decl, 1);
+	    int argno = tree_to_uhwi (decl);
 	    clone_info->args[argno].arg_type
 	      = SIMD_CLONE_ARG_TYPE_UNIFORM;
 	    break;
@@ -11330,7 +11387,7 @@ simd_clone_clauses_extract (struct cgraph_node *new_node, tree clauses,
 	case OMP_CLAUSE_ALIGNED:
 	  {
 	    tree decl = OMP_CLAUSE_DECL (t);
-	    int argno = tree_low_cst (decl, 1);
+	    int argno = tree_to_uhwi (decl);
 	    clone_info->args[argno].alignment
 	      = TREE_INT_CST_LOW (OMP_CLAUSE_ALIGNED_ALIGNMENT (t));
 	    break;
@@ -12006,6 +12063,7 @@ simd_clone_adjust (struct cgraph_node *node)
 
   calculate_dominance_info (CDI_DOMINATORS);
   add_loop (loop, loop->header->loop_father);
+  update_ssa (TODO_update_ssa);
 
   pop_cfun ();
 }
@@ -12078,7 +12136,7 @@ const pass_data pass_data_omp_simd_clone =
   0,				/* properties_provided */
   0,				/* properties_destroyed */
   0,				/* todo_flags_start */
-  (TODO_update_ssa | TODO_verify_all | TODO_cleanup_cfg), /* todo_flags_finish */
+  0,				/* todo_flags_finish */
 };
 
 class pass_omp_simd_clone : public simple_ipa_opt_pass

@@ -168,9 +168,8 @@ in the following sections.
 @gccoptlist{-ansi  -std=@var{standard}  -fgnu89-inline @gol
 -aux-info @var{filename} -fallow-parameterless-variadic-functions @gol
 -fno-asm  -fno-builtin  -fno-builtin-@var{function} @gol
--fhosted  -ffreestanding -fopenacc -fopenmp -fms-extensions @gol
--fplan9-extensions @gol
--trigraphs  -traditional  -traditional-cpp @gol
+-fhosted  -ffreestanding -fopenacc -fopenmp -fopenmp-simd @gol
+-fms-extensions -fplan9-extensions -trigraphs -traditional -traditional-cpp @gol
 -fallow-single-precision  -fcond-mismatch -flax-vector-conversions @gol
 -fsigned-bitfields  -fsigned-char @gol
 -funsigned-bitfields  -funsigned-char}
@@ -241,7 +240,7 @@ Objective-C and Objective-C++ Dialects}.
 -Wno-attributes -Wno-builtin-macro-redefined @gol
 -Wc++-compat -Wc++11-compat -Wcast-align  -Wcast-qual  @gol
 -Wchar-subscripts -Wclobbered  -Wcomment -Wconditionally-supported  @gol
--Wconversion -Wcoverage-mismatch  -Wdelete-incomplete -Wno-cpp  @gol
+-Wconversion -Wcoverage-mismatch -Wdate-time -Wdelete-incomplete -Wno-cpp  @gol
 -Wno-deprecated -Wno-deprecated-declarations -Wdisabled-optimization  @gol
 -Wno-div-by-zero -Wdouble-promotion -Wempty-body  -Wenum-compare @gol
 -Wno-endif-labels -Werror  -Werror=* @gol
@@ -378,7 +377,8 @@ Objective-C and Objective-C++ Dialects}.
 -fira-region=@var{region} -fira-hoist-pressure @gol
 -fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
--fivopts -fkeep-inline-functions -fkeep-static-consts @gol
+-fisolate-erroneous-paths
+-fivopts -fkeep-inline-functions -fkeep-static-consts -flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
 -floop-parallelize-all -flto -flto-compression-level @gol
 -flto-partition=@var{alg} -flto-report -flto-report-wpa -fmerge-all-constants @gol
@@ -1850,7 +1850,16 @@ Enable handling of OpenMP directives @code{#pragma omp} in C/C++ and
 compiler generates parallel code according to the OpenMP Application
 Program Interface v4.0 @w{@uref{http://www.openmp.org/}}.  This option
 implies @option{-pthread}, and thus is only supported on targets that
-have support for @option{-pthread}.
+have support for @option{-pthread}. @option{-fopenmp} implies
+@option{-fopenmp-simd}.
+
+@item -fopenmp-simd
+@opindex fopenmp-simd
+@cindex OpenMP SIMD
+@cindex SIMD
+Enable handling of OpenMP's SIMD directives with @code{#pragma omp}
+in C/C++ and @code{!$omp} in Fortran. Other OpenMP directives
+are ignored.
 
 @item -fcilkplus
 @opindex fcilkplus
@@ -4528,6 +4537,13 @@ types. @option{-Wconversion-null} is enabled by default.
 Warn when a literal '0' is used as null pointer constant.  This can
 be useful to facilitate the conversion to @code{nullptr} in C++11.
 
+@item -Wdate-time
+@opindex Wdate-time
+@opindex Wno-date-time
+Warn when macros @code{__TIME__}, @code{__DATE__} or @code{__TIMESTAMP__}
+are encountered as they might prevent bit-wise-identical reproducible
+compilations.
+
 @item -Wdelete-incomplete @r{(C++ and Objective-C++ only)}
 @opindex Wdelete-incomplete
 @opindex Wno-delete-incomplete
@@ -6737,6 +6753,7 @@ also turns on the following optimization flags:
 -finline-small-functions @gol
 -findirect-inlining @gol
 -fipa-sra @gol
+-fisolate-erroneous-paths @gol
 -foptimize-sibling-calls @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
@@ -7263,6 +7280,12 @@ registers after writing to their lower 32-bit half.
 
 Enabled for x86 at levels @option{-O2}, @option{-O3}.
 
+@item -flive-range-shrinkage
+@opindex flive-range-shrinkage
+Attempt to decrease register pressure through register live range
+shrinkage.  This is helpful for fast processors with small or moderate
+size register sets.
+
 @item -fira-algorithm=@var{algorithm}
 Use the specified coloring algorithm for the integrated register
 allocator.  The @var{algorithm} argument can be @samp{priority}, which
@@ -7623,6 +7646,11 @@ Because this optimization can create multiple copies of functions,
 it may significantly increase code size
 (see @option{--param ipcp-unit-growth=@var{value}}).
 This flag is enabled by default at @option{-O3}.
+
+@item -fisolate-erroneous-paths
+Detect paths which trigger erroneous or undefined behaviour.  Isolate those
+paths from the main control flow and turn the statement with erroneous or
+undefined behaviour into a trap.
 
 @item -ftree-sink
 @opindex ftree-sink
@@ -10869,6 +10897,22 @@ appears somewhere in @code{X}, then @code{X} is substituted once
 for each matching switch, with the @code{%*} replaced by the part of
 that switch matching the @code{*}.
 
+If @code{%*} appears as the last part of a spec sequence then a space
+will be added after the end of the last substitution.  If there is more
+text in the sequence however then a space will not be generated.  This
+allows the @code{%*} substitution to be used as part of a larger
+string.  For example, a spec string like this:
+
+@smallexample
+%@{mcu=*:--script=%*/memory.ld@}
+@end smallexample
+
+when matching an option like @code{-mcu=newchip} will produce:
+
+@smallexample
+--script=newchip/memory.ld
+@end smallexample
+
 @item %@{.@code{S}:@code{X}@}
 Substitutes @code{X}, if processing a file with suffix @code{S}.
 
@@ -11135,9 +11179,9 @@ instead of the @option{-mcpu=} option.
 Specify the name of the target processor, optionally suffixed by one or more
 feature modifiers.  This option has the form
 @option{-mcpu=@var{cpu}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-possible values for @var{cpu} are @samp{generic}, @samp{large}.  The
-possible values for @var{feature} are documented in the sub-section
-below.
+possible values for @var{cpu} are @samp{generic}, @samp{cortex-a53},
+@samp{cortex-a57}.  The possible values for @var{feature} are documented
+in the sub-section below.
 
 Where conflicting feature modifiers are specified, the right-most feature is
 used.
@@ -11150,8 +11194,12 @@ generating assembly code.
 Specify the name of the processor to tune the performance for.  The code will
 be tuned as if the target processor were of the type specified in this option,
 but still using instructions compatible with the target processor specified
-by a @option{-mcpu=} option.  This option cannot be suffixed by feature
-modifiers.
+by a @option{-mcpu=} option.  Where no @option{-mtune=} option is
+specified, the code will be tuned to perform well on the target processor
+given by @option{-mcpu=} or @option{-march=}.  Where none of
+@option{-mtune=}, @option{-mcpu=} or @option{-march=} are specified,
+the code will be tuned to perform well across a range of target
+processors.  This option cannot be suffixed by feature modifiers.
 
 @end table
 
@@ -14491,14 +14539,19 @@ supersets FMA4, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A,
 SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set extensions.)
 @item bdver2
 AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
-supersets BMI, TBM, F16C, FMA, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE,
-SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
+supersets BMI, TBM, F16C, FMA, FMA4, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX,
+SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
 extensions.)
 @item bdver3
 AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
-supersets BMI, TBM, F16C, FMA, AVX, XOP, LWP, AES, PCL_MUL, CX16, MMX, SSE,
-SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 64-bit instruction set 
-extensions.
+supersets BMI, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, XOP, LWP, AES, 
+PCL_MUL, CX16, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, SSE4.2, ABM and 
+64-bit instruction set extensions.
+@item bdver4
+AMD Family 15h core based CPUs with x86-64 instruction set support.  (This
+supersets BMI, BMI2, TBM, F16C, FMA, FMA4, FSGSBASE, AVX, AVX2, XOP, LWP, 
+AES, PCL_MUL, CX16, MOVBE, MMX, SSE, SSE2, SSE3, SSE4A, SSSE3, SSE4.1, 
+SSE4.2, ABM and 64-bit instruction set extensions.
 
 @item btver1
 CPUs based on AMD Family 14h cores with x86-64 instruction set support.  (This
@@ -17786,10 +17839,6 @@ These options are defined for the MSP430:
 
 @table @gcctabopt
 
-@item -msim
-@opindex msim
-Link the simulator runtime libraries.
-
 @item -masm-hex
 @opindex masm-hex
 Force assembly output to always use hex constants.  Normally such
@@ -17798,9 +17847,25 @@ testsuite and/or aesthetic purposes.
 
 @item -mmcu=
 @opindex mmcu=
-Select the MCU to target.  Note that there are two ``generic'' MCUs,
-@code{msp430} and @code{msp430x}, which should be used most of the
-time.  This option is also passed to the assembler.
+Select the MCU to target.  If the MCU supports the MSP430X ISA or the
+MSP430Xv2 ISA then gcc will make use of the extra instructions.  A C
+preprocessor symbol will be defined based upon the MCU name, converted
+to upper case and pre- and post- fixed with @code{__}.
+
+In addition two scripts will be added to the linker command line:
+@code{memory.ld} and @code{peripherals.ld}, with a search path based
+upon the MCU name.
+
+Note that there are three ``generic'' MCUs: @code{msp430},
+@code{msp430x} and @code{msp430xv2}, which can be used if a specific
+MCU is not being targeted.
+
+This option is also passed on to the assembler.
+
+@item -msim
+@opindex msim
+Link to the simulator runtime libraries and linker script.  Overrides
+any scripts that would be selected by the @option{-mmcu=} option.
 
 @item -mlarge
 @opindex mlarge
@@ -18796,7 +18861,8 @@ SVR4 ABI)@.
 @opindex mabi
 Extend the current ABI with a particular extension, or remove such extension.
 Valid values are @var{altivec}, @var{no-altivec}, @var{spe},
-@var{no-spe}, @var{ibmlongdouble}, @var{ieeelongdouble}@.
+@var{no-spe}, @var{ibmlongdouble}, @var{ieeelongdouble},
+@var{elfv1}, @var{elfv2}@.
 
 @item -mabi=spe
 @opindex mabi=spe
@@ -18817,6 +18883,20 @@ This is a PowerPC 32-bit SYSV ABI option.
 @opindex mabi=ieeelongdouble
 Change the current ABI to use IEEE extended-precision long double.
 This is a PowerPC 32-bit Linux ABI option.
+
+@item -mabi=elfv1
+@opindex mabi=elfv1
+Change the current ABI to use the ELFv1 ABI.
+This is the default ABI for big-endian PowerPC 64-bit Linux.
+Overriding the default ABI requires special system support and is
+likely to fail in spectacular ways.
+
+@item -mabi=elfv2
+@opindex mabi=elfv2
+Change the current ABI to use the ELFv2 ABI.
+This is the default ABI for little-endian PowerPC 64-bit Linux.
+Overriding the default ABI requires special system support and is
+likely to fail in spectacular ways.
 
 @item -mprototype
 @itemx -mno-prototype

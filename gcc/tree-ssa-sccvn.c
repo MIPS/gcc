@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
@@ -781,7 +782,7 @@ copy_reference_ops_from_ref (tree ref, vec<vn_reference_op_s> *result)
 	case MEM_REF:
 	  /* The base address gets its own vn_reference_op_s structure.  */
 	  temp.op0 = TREE_OPERAND (ref, 1);
-	  if (host_integerp (TREE_OPERAND (ref, 1), 0))
+	  if (tree_fits_shwi_p (TREE_OPERAND (ref, 1)))
 	    temp.off = TREE_INT_CST_LOW (TREE_OPERAND (ref, 1));
 	  break;
 	case BIT_FIELD_REF:
@@ -935,7 +936,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
     }
   if (size_tree != NULL_TREE)
     {
-      if (!host_integerp (size_tree, 1))
+      if (!tree_fits_uhwi_p (size_tree))
 	size = -1;
       else
 	size = TREE_INT_CST_LOW (size_tree);
@@ -994,7 +995,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 
 	/* And now the usual component-reference style ops.  */
 	case BIT_FIELD_REF:
-	  offset += tree_low_cst (op->op1, 0);
+	  offset += tree_to_shwi (op->op1);
 	  break;
 
 	case COMPONENT_REF:
@@ -1005,7 +1006,7 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	       parts manually.  */
 
 	    if (op->op1
-		|| !host_integerp (DECL_FIELD_OFFSET (field), 1))
+		|| !tree_fits_uhwi_p (DECL_FIELD_OFFSET (field)))
 	      max_size = -1;
 	    else
 	      {
@@ -1019,9 +1020,9 @@ ao_ref_init_from_vn_reference (ao_ref *ref,
 	case ARRAY_RANGE_REF:
 	case ARRAY_REF:
 	  /* We recorded the lower bound and the element size.  */
-	  if (!host_integerp (op->op0, 0)
-	      || !host_integerp (op->op1, 0)
-	      || !host_integerp (op->op2, 0))
+	  if (!tree_fits_shwi_p (op->op0)
+	      || !tree_fits_shwi_p (op->op1)
+	      || !tree_fits_shwi_p (op->op2))
 	    max_size = -1;
 	  else
 	    {
@@ -1155,7 +1156,7 @@ vn_reference_fold_indirect (vec<vn_reference_op_s> *ops,
       off += double_int::from_shwi (addr_offset);
       mem_op->op0 = double_int_to_tree (TREE_TYPE (mem_op->op0), off);
       op->op0 = build_fold_addr_expr (addr_base);
-      if (host_integerp (mem_op->op0, 0))
+      if (tree_fits_shwi_p (mem_op->op0))
 	mem_op->off = TREE_INT_CST_LOW (mem_op->op0);
       else
 	mem_op->off = -1;
@@ -1220,7 +1221,7 @@ vn_reference_maybe_forwprop_address (vec<vn_reference_op_s> *ops,
     }
 
   mem_op->op0 = double_int_to_tree (TREE_TYPE (mem_op->op0), off);
-  if (host_integerp (mem_op->op0, 0))
+  if (tree_fits_shwi_p (mem_op->op0))
     mem_op->off = TREE_INT_CST_LOW (mem_op->op0);
   else
     mem_op->off = -1;
@@ -1585,7 +1586,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
   if (is_gimple_reg_type (vr->type)
       && gimple_call_builtin_p (def_stmt, BUILT_IN_MEMSET)
       && integer_zerop (gimple_call_arg (def_stmt, 1))
-      && host_integerp (gimple_call_arg (def_stmt, 2), 1)
+      && tree_fits_uhwi_p (gimple_call_arg (def_stmt, 2))
       && TREE_CODE (gimple_call_arg (def_stmt, 0)) == ADDR_EXPR)
     {
       tree ref2 = TREE_OPERAND (gimple_call_arg (def_stmt, 0), 0);
@@ -1834,7 +1835,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	       || TREE_CODE (gimple_call_arg (def_stmt, 0)) == SSA_NAME)
 	   && (TREE_CODE (gimple_call_arg (def_stmt, 1)) == ADDR_EXPR
 	       || TREE_CODE (gimple_call_arg (def_stmt, 1)) == SSA_NAME)
-	   && host_integerp (gimple_call_arg (def_stmt, 2), 1))
+	   && tree_fits_uhwi_p (gimple_call_arg (def_stmt, 2)))
     {
       tree lhs, rhs;
       ao_ref r;
@@ -1861,7 +1862,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	  if (!tem)
 	    return (void *)-1;
 	  if (TREE_CODE (tem) == MEM_REF
-	      && host_integerp (TREE_OPERAND (tem, 1), 1))
+	      && tree_fits_uhwi_p (TREE_OPERAND (tem, 1)))
 	    {
 	      lhs = TREE_OPERAND (tem, 0);
 	      lhs_offset += TREE_INT_CST_LOW (TREE_OPERAND (tem, 1));
@@ -1887,7 +1888,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	  if (!tem)
 	    return (void *)-1;
 	  if (TREE_CODE (tem) == MEM_REF
-	      && host_integerp (TREE_OPERAND (tem, 1), 1))
+	      && tree_fits_uhwi_p (TREE_OPERAND (tem, 1)))
 	    {
 	      rhs = TREE_OPERAND (tem, 0);
 	      rhs_offset += TREE_INT_CST_LOW (TREE_OPERAND (tem, 1));
@@ -1908,7 +1909,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	   && !DECL_P (base))
 	  || (TREE_CODE (base) == MEM_REF
 	      && (TREE_OPERAND (base, 0) != lhs
-		  || !host_integerp (TREE_OPERAND (base, 1), 1)))
+		  || !tree_fits_uhwi_p (TREE_OPERAND (base, 1))))
 	  || (DECL_P (base)
 	      && (TREE_CODE (lhs) != ADDR_EXPR
 		  || TREE_OPERAND (lhs, 0) != base)))
@@ -3220,7 +3221,7 @@ simplify_binary_expression (gimple stmt)
   /* Pointer plus constant can be represented as invariant address.
      Do so to allow further propatation, see also tree forwprop.  */
   if (code == POINTER_PLUS_EXPR
-      && host_integerp (op1, 1)
+      && tree_fits_uhwi_p (op1)
       && TREE_CODE (op0) == ADDR_EXPR
       && is_gimple_min_invariant (op0))
     return build_invariant_address (TREE_TYPE (op0),

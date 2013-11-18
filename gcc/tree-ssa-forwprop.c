@@ -26,6 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -1524,8 +1527,8 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  char *src_buf;
 	  use_operand_p use_p;
 
-	  if (!host_integerp (val2, 0)
-	      || !host_integerp (len2, 1))
+	  if (!tree_fits_shwi_p (val2)
+	      || !tree_fits_uhwi_p (len2))
 	    break;
 	  if (is_gimple_call (stmt1))
 	    {
@@ -1544,15 +1547,15 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	      src1 = gimple_call_arg (stmt1, 1);
 	      len1 = gimple_call_arg (stmt1, 2);
 	      lhs1 = gimple_call_lhs (stmt1);
-	      if (!host_integerp (len1, 1))
+	      if (!tree_fits_uhwi_p (len1))
 		break;
 	      str1 = string_constant (src1, &off1);
 	      if (str1 == NULL_TREE)
 		break;
-	      if (!host_integerp (off1, 1)
+	      if (!tree_fits_uhwi_p (off1)
 		  || compare_tree_int (off1, TREE_STRING_LENGTH (str1) - 1) > 0
 		  || compare_tree_int (len1, TREE_STRING_LENGTH (str1)
-					     - tree_low_cst (off1, 1)) > 0
+					     - tree_to_uhwi (off1)) > 0
 		  || TREE_CODE (TREE_TYPE (str1)) != ARRAY_TYPE
 		  || TYPE_MODE (TREE_TYPE (TREE_TYPE (str1)))
 		     != TYPE_MODE (char_type_node))
@@ -1566,7 +1569,7 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	      src1 = gimple_assign_rhs1 (stmt1);
 	      if (TREE_CODE (ptr1) != MEM_REF
 		  || TYPE_MODE (TREE_TYPE (ptr1)) != TYPE_MODE (char_type_node)
-		  || !host_integerp (src1, 0))
+		  || !tree_fits_shwi_p (src1))
 		break;
 	      ptr1 = build_fold_addr_expr (ptr1);
 	      callee1 = NULL_TREE;
@@ -1590,16 +1593,16 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  /* If the difference between the second and first destination pointer
 	     is not constant, or is bigger than memcpy length, bail out.  */
 	  if (diff == NULL
-	      || !host_integerp (diff, 1)
+	      || !tree_fits_uhwi_p (diff)
 	      || tree_int_cst_lt (len1, diff))
 	    break;
 
 	  /* Use maximum of difference plus memset length and memcpy length
 	     as the new memcpy length, if it is too big, bail out.  */
-	  src_len = tree_low_cst (diff, 1);
-	  src_len += tree_low_cst (len2, 1);
-	  if (src_len < (unsigned HOST_WIDE_INT) tree_low_cst (len1, 1))
-	    src_len = tree_low_cst (len1, 1);
+	  src_len = tree_to_uhwi (diff);
+	  src_len += tree_to_uhwi (len2);
+	  if (src_len < tree_to_uhwi (len1))
+	    src_len = tree_to_uhwi (len1);
 	  if (src_len > 1024)
 	    break;
 
@@ -1625,12 +1628,12 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  src_buf = XALLOCAVEC (char, src_len + 1);
 	  if (callee1)
 	    memcpy (src_buf,
-		    TREE_STRING_POINTER (str1) + tree_low_cst (off1, 1),
-		    tree_low_cst (len1, 1));
+		    TREE_STRING_POINTER (str1) + tree_to_uhwi (off1),
+		    tree_to_uhwi (len1));
 	  else
-	    src_buf[0] = tree_low_cst (src1, 0);
-	  memset (src_buf + tree_low_cst (diff, 1),
-		  tree_low_cst (val2, 0), tree_low_cst (len2, 1));
+	    src_buf[0] = tree_to_shwi (src1);
+	  memset (src_buf + tree_to_uhwi (diff),
+		  tree_to_shwi (val2), tree_to_uhwi (len2));
 	  src_buf[src_len] = '\0';
 	  /* Neither builtin_strncpy_read_str nor builtin_memcpy_read_str
 	     handle embedded '\0's.  */
@@ -2314,10 +2317,10 @@ simplify_rotate (gimple_stmt_iterator *gsi)
     return false;
 
   /* CNT1 + CNT2 == B case above.  */
-  if (host_integerp (def_arg2[0], 1)
-      && host_integerp (def_arg2[1], 1)
-      && (unsigned HOST_WIDE_INT) tree_low_cst (def_arg2[0], 1)
-	 + tree_low_cst (def_arg2[1], 1) == TYPE_PRECISION (rtype))
+  if (tree_fits_uhwi_p (def_arg2[0])
+      && tree_fits_uhwi_p (def_arg2[1])
+      && tree_to_uhwi (def_arg2[0])
+	 + tree_to_uhwi (def_arg2[1]) == TYPE_PRECISION (rtype))
     rotcnt = def_arg2[0];
   else if (TREE_CODE (def_arg2[0]) != SSA_NAME
 	   || TREE_CODE (def_arg2[1]) != SSA_NAME)
@@ -2351,8 +2354,8 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 	/* Check for one shift count being Y and the other B - Y,
 	   with optional casts.  */
 	if (cdef_code[i] == MINUS_EXPR
-	    && host_integerp (cdef_arg1[i], 0)
-	    && tree_low_cst (cdef_arg1[i], 0) == TYPE_PRECISION (rtype)
+	    && tree_fits_shwi_p (cdef_arg1[i])
+	    && tree_to_shwi (cdef_arg1[i]) == TYPE_PRECISION (rtype)
 	    && TREE_CODE (cdef_arg2[i]) == SSA_NAME)
 	  {
 	    tree tem;
@@ -2383,8 +2386,8 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 	   This alternative is safe even for rotation count of 0.
 	   One shift count is Y and the other (-Y) & (B - 1).  */
 	else if (cdef_code[i] == BIT_AND_EXPR
-		 && host_integerp (cdef_arg2[i], 0)
-		 && tree_low_cst (cdef_arg2[i], 0)
+		 && tree_fits_shwi_p (cdef_arg2[i])
+		 && tree_to_shwi (cdef_arg2[i])
 		    == TYPE_PRECISION (rtype) - 1
 		 && TREE_CODE (cdef_arg1[i]) == SSA_NAME
 		 && gimple_assign_rhs_code (stmt) == BIT_IOR_EXPR)

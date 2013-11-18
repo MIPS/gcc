@@ -830,7 +830,12 @@
 
   emit_insn (gen_vsx_xvcvdpsp (r1, operands[1]));
   emit_insn (gen_vsx_xvcvdpsp (r2, operands[2]));
-  rs6000_expand_extract_even (operands[0], r1, r2);
+
+  if (BYTES_BIG_ENDIAN)
+    rs6000_expand_extract_even (operands[0], r1, r2);
+  else
+    rs6000_expand_extract_even (operands[0], r2, r1);
+
   DONE;
 })
 
@@ -845,7 +850,12 @@
 
   emit_insn (gen_vsx_xvcvdpsxws (r1, operands[1]));
   emit_insn (gen_vsx_xvcvdpsxws (r2, operands[2]));
-  rs6000_expand_extract_even (operands[0], r1, r2);
+
+  if (BYTES_BIG_ENDIAN)
+    rs6000_expand_extract_even (operands[0], r1, r2);
+  else
+    rs6000_expand_extract_even (operands[0], r2, r1);
+
   DONE;
 })
 
@@ -860,7 +870,12 @@
 
   emit_insn (gen_vsx_xvcvdpuxws (r1, operands[1]));
   emit_insn (gen_vsx_xvcvdpuxws (r2, operands[2]));
-  rs6000_expand_extract_even (operands[0], r1, r2);
+
+  if (BYTES_BIG_ENDIAN)
+    rs6000_expand_extract_even (operands[0], r1, r2);
+  else
+    rs6000_expand_extract_even (operands[0], r2, r1);
+
   DONE;
 })
 
@@ -951,8 +966,8 @@
     	      				 operands[2], operands[3]));
   else
     {
-      /* Avoid the "subtract from splat31" workaround for vperm since
-         we have changed lvsr to lvsl instead.  */
+      /* We have changed lvsr to lvsl, so to complete the transformation
+         of vperm for LE, we must swap the inputs.  */
       rtx unspec = gen_rtx_UNSPEC (<MODE>mode,
                                    gen_rtvec (3, operands[2],
                                               operands[1], operands[3]),

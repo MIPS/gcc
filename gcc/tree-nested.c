@@ -27,6 +27,9 @@
 #include "tree-dump.h"
 #include "tree-inline.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "tree-iterator.h"
 #include "bitmap.h"
 #include "cgraph.h"
@@ -1239,7 +1242,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OACC_PARALLEL:
-      abort ();
+      gcc_unreachable ();
 
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
@@ -1683,7 +1686,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
   switch (gimple_code (stmt))
     {
     case GIMPLE_OACC_PARALLEL:
-      abort ();
+      gcc_unreachable ();
 
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
@@ -2015,7 +2018,7 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       }
 
     case GIMPLE_OACC_PARALLEL:
-      abort ();
+      gcc_unreachable ();
 
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
@@ -2078,7 +2081,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OACC_PARALLEL:
-      abort ();
+      gcc_unreachable ();
 
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:

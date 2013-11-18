@@ -272,7 +272,7 @@ dump_array_domain (pretty_printer *buffer, tree domain, int spc, int flags)
 
       if (min && max
 	  && integer_zerop (min)
-	  && host_integerp (max, 0))
+	  && tree_fits_shwi_p (max))
 	pp_wide_integer (buffer, TREE_INT_CST_LOW (max) + 1);
       else
 	{
@@ -878,6 +878,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	unsigned int quals = TYPE_QUALS (node);
 	enum tree_code_class tclass;
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	else if (quals & TYPE_QUAL_VOLATILE)
@@ -1179,6 +1181,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       {
 	unsigned int quals = TYPE_QUALS (node);
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	if (quals & TYPE_QUAL_VOLATILE)
@@ -2379,6 +2383,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_SIMD:
       pp_string (buffer, "#pragma omp simd");
+      goto dump_omp_loop;
+
+    case CILK_SIMD:
+      pp_string (buffer, "#pragma simd");
       goto dump_omp_loop;
 
     case OMP_DISTRIBUTE:

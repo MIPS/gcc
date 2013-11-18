@@ -24,6 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -44,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-hasher.h"
 #include "tree-parloops.h"
 #include "omp-low.h"
+#include "tree-nested.h"
 
 /* This pass tries to distribute iterations of loops into several threads.
    The implementation is straightforward -- for each loop we test whether its
@@ -395,7 +400,6 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
 static bool
 loop_parallel_p (struct loop *loop, struct obstack * parloop_obstack)
 {
-  vec<loop_p> loop_nest;
   vec<ddr_p> dependence_relations;
   vec<data_reference_p> datarefs;
   lambda_trans_matrix trans;
@@ -412,9 +416,9 @@ loop_parallel_p (struct loop *loop, struct obstack * parloop_obstack)
 
   /* Check for problems with dependences.  If the loop can be reversed,
      the iterations are independent.  */
+  stack_vec<loop_p, 3> loop_nest;
   datarefs.create (10);
-  dependence_relations.create (10 * 10);
-  loop_nest.create (3);
+  dependence_relations.create (100);
   if (! compute_data_dependences_for_loop (loop, true, &loop_nest, &datarefs,
 					   &dependence_relations))
     {
@@ -440,7 +444,6 @@ loop_parallel_p (struct loop *loop, struct obstack * parloop_obstack)
 	     "  FAILED: data dependencies exist across iterations\n");
 
  end:
-  loop_nest.release ();
   free_dependence_relations (dependence_relations);
   free_data_refs (datarefs);
 
@@ -741,8 +744,7 @@ static void
 eliminate_local_variables (edge entry, edge exit)
 {
   basic_block bb;
-  vec<basic_block> body;
-  body.create (3);
+  stack_vec<basic_block, 3> body;
   unsigned i;
   gimple_stmt_iterator gsi;
   bool has_debug_stmt = false;
@@ -772,7 +774,6 @@ eliminate_local_variables (edge entry, edge exit)
 	    eliminate_local_variables_stmt (entry, &gsi, decl_address);
 
   decl_address.dispose ();
-  body.release ();
 }
 
 /* Returns true if expression EXPR is not defined between ENTRY and
@@ -1156,7 +1157,6 @@ create_loads_for_reductions (reduction_info **slot, struct clsn_data *clsn_data)
   x = load_struct;
   name = PHI_RESULT (red->keep_res);
   stmt = gimple_build_assign (name, x);
-  SSA_NAME_DEF_STMT (name) = stmt;
 
   gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
 
@@ -1186,7 +1186,6 @@ create_final_loads_for_reduction (reduction_info_table_type reduction_list,
   stmt = gimple_build_assign (ld_st_data->load, t);
 
   gsi_insert_before (&gsi, stmt, GSI_NEW_STMT);
-  SSA_NAME_DEF_STMT (ld_st_data->load) = stmt;
 
   reduction_list
     .traverse <struct clsn_data *, create_loads_for_reductions> (ld_st_data);
@@ -1240,7 +1239,6 @@ create_loads_and_stores_for_name (name_to_copy_elt **slot,
   load_struct = build_simple_mem_ref (clsn_data->load);
   t = build3 (COMPONENT_REF, type, load_struct, elt->field, NULL_TREE);
   stmt = gimple_build_assign (elt->new_name, t);
-  SSA_NAME_DEF_STMT (elt->new_name) = stmt;
   gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
 
   return 1;
@@ -1297,8 +1295,7 @@ separate_decls_in_region (edge entry, edge exit,
   tree type, type_name, nvar;
   gimple_stmt_iterator gsi;
   struct clsn_data clsn_data;
-  vec<basic_block> body;
-  body.create (3);
+  stack_vec<basic_block, 3> body;
   basic_block bb;
   basic_block entry_bb = bb1;
   basic_block exit_bb = exit->dest;
@@ -1355,8 +1352,6 @@ separate_decls_in_region (edge entry, edge exit,
 	      gsi_next (&gsi);
 	    }
 	}
-
-  body.release ();
 
   if (name_copies.elements () == 0 && reduction_list.elements () == 0)
     {
@@ -1601,7 +1596,6 @@ transform_to_exit_first_loop (struct loop *loop,
 				  false, NULL_TREE, false, GSI_SAME_STMT);
   stmt = gimple_build_assign (control_name, nit_1);
   gsi_insert_before (&gsi, stmt, GSI_NEW_STMT);
-  SSA_NAME_DEF_STMT (control_name) = stmt;
 }
 
 /* Create the parallel constructs for LOOP as described in gen_parallel_loop.
@@ -1642,12 +1636,10 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       param = make_ssa_name (DECL_ARGUMENTS (loop_fn), NULL);
       stmt = gimple_build_assign (param, build_fold_addr_expr (data));
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
-      SSA_NAME_DEF_STMT (param) = stmt;
 
       stmt = gimple_build_assign (new_data,
 				  fold_convert (TREE_TYPE (new_data), param));
       gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
-      SSA_NAME_DEF_STMT (new_data) = stmt;
     }
 
   /* Emit GIMPLE_OMP_RETURN for GIMPLE_OMP_PARALLEL.  */

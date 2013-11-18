@@ -279,8 +279,8 @@ rtx_addr_can_trap_p_1 (const_rtx x, HOST_WIDE_INT offset, HOST_WIDE_INT size,
 	  if (!decl)
 	    decl_size = -1;
 	  else if (DECL_P (decl) && DECL_SIZE_UNIT (decl))
-	    decl_size = (host_integerp (DECL_SIZE_UNIT (decl), 0)
-			 ? tree_low_cst (DECL_SIZE_UNIT (decl), 0)
+	    decl_size = (tree_fits_shwi_p (DECL_SIZE_UNIT (decl))
+			 ? tree_to_shwi (DECL_SIZE_UNIT (decl))
 			 : -1);
 	  else if (TREE_CODE (decl) == STRING_CST)
 	    decl_size = TREE_STRING_LENGTH (decl);
@@ -2742,10 +2742,9 @@ tablejump_p (const_rtx insn, rtx *labelp, rtx *tablep)
 
   label = JUMP_LABEL (insn);
   if (label != NULL_RTX && !ANY_RETURN_P (label)
-      && (table = next_active_insn (label)) != NULL_RTX
+      && (table = NEXT_INSN (label)) != NULL_RTX
       && JUMP_TABLE_DATA_P (table))
     {
-      gcc_assert (table == NEXT_INSN (label));
       if (labelp)
 	*labelp = label;
       if (tablep)

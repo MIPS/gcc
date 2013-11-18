@@ -60,6 +60,7 @@ along with GCC; see the file COPYING3.  If not, see
 #include "timevar.h"		/* For TV_SCHED2, in picochip_reorg. */
 #include "libfuncs.h"		/* For memcpy_libfuncs, etc. */
 #include "df.h"			/* For df_regs_ever_live_df_regs_ever_live_pp, etc. */
+#include "dbxout.h"
 
 
 /* Target AE ISA information. */
@@ -809,7 +810,7 @@ picochip_compute_arg_size (const_tree type, enum machine_mode mode)
   int type_size_in_units = 0;
 
   if (type)
-    type_size_in_units = tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+    type_size_in_units = tree_to_uhwi (TYPE_SIZE_UNIT (type));
   else
     type_size_in_units = GET_MODE_SIZE (mode);
 

@@ -45,7 +45,7 @@ GENERAL_FLAGS += -fcilkplus
 
 AM_CFLAGS = $(GENERAL_FLAGS) -std=c99
 AM_CPPFLAGS = $(GENERAL_FLAGS)
-AM_LDFLAGS = -lpthread -ldl
+AM_LDFLAGS = -lpthread 
 
 # May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
@@ -91,7 +91,7 @@ include include/internal/rev.mk
 
 #libcilkrts_la_LDFLAGS  = -rpath '$(libdir)'
 libcilkrts_la_LDFLAGS = -version-info 5:0:0
-libcilkrts_la_LDFLAGS += -lpthread -ldl
+libcilkrts_la_LDFLAGS += -lpthread @lt_cv_dlopen_libs@
 
 # If we're building on Linux, use the Linux version script
 if LINUX_LINKER_SCRIPT
