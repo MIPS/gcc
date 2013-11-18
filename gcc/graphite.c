@@ -47,7 +47,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h"
-#include "tree-ssa.h"
+#include "tree.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "tree-cfg.h"
+#include "tree-ssa-loop.h"
 #include "tree-dump.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
@@ -57,6 +61,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "tree-parloops.h"
 #include "tree-pass.h"
+#include "tree-cfgcleanup.h"
 
 #ifdef HAVE_cloog
 

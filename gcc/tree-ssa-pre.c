@@ -27,15 +27,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
+#include "tree-ssa.h"
 #include "hash-table.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
 #include "obstack.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "tree-ssa-sccvn.h"
@@ -911,7 +921,7 @@ print_pre_expr (FILE *outfile, const pre_expr expr)
       {
 	unsigned int i;
 	vn_nary_op_t nary = PRE_EXPR_NARY (expr);
-	fprintf (outfile, "{%s,", tree_code_name [nary->opcode]);
+	fprintf (outfile, "{%s,", get_tree_code_name (nary->opcode));
 	for (i = 0; i < nary->length; i++)
 	  {
 	    print_generic_expr (outfile, nary->op[i], 0);
@@ -936,7 +946,7 @@ print_pre_expr (FILE *outfile, const pre_expr expr)
 	    if (vro->opcode != SSA_NAME
 		&& TREE_CODE_CLASS (vro->opcode) != tcc_declaration)
 	      {
-		fprintf (outfile, "%s", tree_code_name [vro->opcode]);
+		fprintf (outfile, "%s", get_tree_code_name (vro->opcode));
 		if (vro->op0)
 		  {
 		    fprintf (outfile, "<");
@@ -4109,7 +4119,6 @@ eliminate_dom_walker::before_dom_children (basic_block b)
       if (!useless_type_conversion_p (TREE_TYPE (res), TREE_TYPE (sprime)))
 	sprime = fold_convert (TREE_TYPE (res), sprime);
       stmt = gimple_build_assign (res, sprime);
-      SSA_NAME_DEF_STMT (res) = stmt;
       gimple_set_plf (stmt, NECESSARY, gimple_plf (phi, NECESSARY));
 
       gsi2 = gsi_after_labels (b);

@@ -27,9 +27,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
 #include "hashtab.h"
-#include "tree-ssa.h"
-#include "dumpfile.h"	/* for dump_flags */
+#include "bitmap.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-ssanames.h"
+#include "dumpfile.h"	/* for dump_flags */
 #include "value-prof.h"
 #include "trans-mem.h"
 
@@ -312,7 +317,7 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
       else
 	{
 	  pp_left_bracket (buffer);
-	  pp_string (buffer, tree_code_name [rhs_code]);
+	  pp_string (buffer, get_tree_code_name (rhs_code));
 	  pp_string (buffer, "] ");
 	}
 
@@ -351,7 +356,7 @@ dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
     case VEC_PACK_FIX_TRUNC_EXPR:
     case VEC_WIDEN_LSHIFT_HI_EXPR:
     case VEC_WIDEN_LSHIFT_LO_EXPR:
-      for (p = tree_code_name [(int) code]; *p; p++)
+      for (p = get_tree_code_name (code); *p; p++)
 	pp_character (buffer, TOUPPER (*p));
       pp_string (buffer, " <");
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
@@ -397,7 +402,7 @@ dump_ternary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
     {
     case WIDEN_MULT_PLUS_EXPR:
     case WIDEN_MULT_MINUS_EXPR:
-      for (p = tree_code_name [(int) code]; *p; p++)
+      for (p = get_tree_code_name (code); *p; p++)
 	pp_character (buffer, TOUPPER (*p));
       pp_string (buffer, " <");
       dump_generic_node (buffer, gimple_assign_rhs1 (gs), spc, flags, false);
@@ -495,7 +500,7 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
 	}
 
       dump_gimple_fmt (buffer, spc, flags, "%G <%s, %T, %T, %T, %T>", gs,
-                       tree_code_name[gimple_assign_rhs_code (gs)],
+		       get_tree_code_name (gimple_assign_rhs_code (gs)),
                        gimple_assign_lhs (gs), arg1, arg2, arg3);
     }
   else
@@ -535,11 +540,12 @@ dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
 static void
 dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
-  tree t;
+  tree t, t2;
 
   t = gimple_return_retval (gs);
+  t2 = gimple_return_retbnd (gs);
   if (flags & TDF_RAW)
-    dump_gimple_fmt (buffer, spc, flags, "%G <%T>", gs, t);
+    dump_gimple_fmt (buffer, spc, flags, "%G <%T %T>", gs, t, t2);
   else
     {
       pp_string (buffer, "return");
@@ -547,6 +553,11 @@ dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 	{
 	  pp_space (buffer);
 	  dump_generic_node (buffer, t, spc, flags, false);
+	}
+      if (t2)
+	{
+	  pp_string (buffer, ", ");
+	  dump_generic_node (buffer, t2, spc, flags, false);
 	}
       pp_semicolon (buffer);
     }
@@ -611,8 +622,18 @@ pp_points_to_solution (pretty_printer *buffer, struct pt_solution *pt)
 	  pp_space (buffer);
 	}
       pp_right_brace (buffer);
-      if (pt->vars_contains_global)
-	pp_string (buffer, " (glob)");
+      if (pt->vars_contains_nonlocal
+	  && pt->vars_contains_escaped_heap)
+	pp_string (buffer, " (nonlocal, escaped heap)");
+      else if (pt->vars_contains_nonlocal
+	       && pt->vars_contains_escaped)
+	pp_string (buffer, " (nonlocal, escaped)");
+      else if (pt->vars_contains_nonlocal)
+	pp_string (buffer, " (nonlocal)");
+      else if (pt->vars_contains_escaped_heap)
+	pp_string (buffer, " (escaped heap)");
+      else if (pt->vars_contains_escaped)
+	pp_string (buffer, " (escaped)");
     }
 }
 
@@ -790,9 +811,9 @@ dump_gimple_cond (pretty_printer *buffer, gimple gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
     dump_gimple_fmt (buffer, spc, flags, "%G <%s, %T, %T, %T, %T>", gs,
-                   tree_code_name [gimple_cond_code (gs)],
-                   gimple_cond_lhs (gs), gimple_cond_rhs (gs),
-                   gimple_cond_true_label (gs), gimple_cond_false_label (gs));
+		     get_tree_code_name (gimple_cond_code (gs)),
+		     gimple_cond_lhs (gs), gimple_cond_rhs (gs),
+		     gimple_cond_true_label (gs), gimple_cond_false_label (gs));
   else
     {
       if (!(flags & TDF_RHS_ONLY))
@@ -1097,6 +1118,8 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	case GF_OMP_FOR_KIND_SIMD:
 	  kind = " simd";
 	  break;
+	case GF_OMP_FOR_KIND_CILKSIMD:
+	  kind = " cilksimd";
 	case GF_OMP_FOR_KIND_DISTRIBUTE:
 	  kind = " distribute";
 	  break;
@@ -1113,7 +1136,7 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 			 gimple_omp_for_index (gs, i),
 			 gimple_omp_for_initial (gs, i),
 			 gimple_omp_for_final (gs, i),
-			 tree_code_name[gimple_omp_for_cond (gs, i)],
+			 get_tree_code_name (gimple_omp_for_cond (gs, i)),
 			 gimple_omp_for_incr (gs, i));
       dump_gimple_fmt (buffer, spc, flags, "PRE_BODY <%S>%->",
 		       gimple_omp_for_pre_body (gs));
@@ -1127,6 +1150,9 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	  break;
 	case GF_OMP_FOR_KIND_SIMD:
 	  pp_string (buffer, "#pragma omp simd");
+	  break;
+	case GF_OMP_FOR_KIND_CILKSIMD:
+	  pp_string (buffer, "#pragma simd");
 	  break;
 	case GF_OMP_FOR_KIND_DISTRIBUTE:
 	  pp_string (buffer, "#pragma omp distribute");
@@ -1714,7 +1740,7 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
     {
       unsigned int align, misalign;
       struct ptr_info_def *pi = SSA_NAME_PTR_INFO (node);
-      pp_string (buffer, "PT = ");
+      pp_string (buffer, "# PT = ");
       pp_points_to_solution (buffer, &pi->pt);
       newline_and_indent (buffer, spc);
       if (get_ptr_info_alignment (pi, &align, &misalign))
@@ -1722,17 +1748,16 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
 	  pp_printf (buffer, "# ALIGN = %u, MISALIGN = %u", align, misalign);
 	  newline_and_indent (buffer, spc);
 	}
-      pp_string (buffer, "# ");
     }
 
   if (!POINTER_TYPE_P (TREE_TYPE (node))
       && SSA_NAME_RANGE_INFO (node))
     {
-      double_int min, max;
+      double_int min, max, nonzero_bits;
       value_range_type range_type = get_range_info (node, &min, &max);
 
       if (range_type == VR_VARYING)
-	pp_printf (buffer, "# RANGE  VR_VARYING");
+	pp_printf (buffer, "# RANGE VR_VARYING");
       else if (range_type == VR_RANGE || range_type == VR_ANTI_RANGE)
 	{
 	  pp_printf (buffer, "# RANGE ");
@@ -1741,24 +1766,40 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
 	  pp_printf (buffer, ", ");
 	  pp_double_int (buffer, max, TYPE_UNSIGNED (TREE_TYPE (node)));
 	  pp_printf (buffer, "]");
-	  newline_and_indent (buffer, spc);
 	}
+      nonzero_bits = get_nonzero_bits (node);
+      if (nonzero_bits != double_int_minus_one
+	  && (nonzero_bits
+	      != double_int::mask (TYPE_PRECISION (TREE_TYPE (node)))))
+	{
+	  pp_string (buffer, " NONZERO ");
+	  sprintf (pp_buffer (buffer)->digit_buffer,
+		   HOST_WIDE_INT_PRINT_DOUBLE_HEX,
+		   (unsigned HOST_WIDE_INT) nonzero_bits.high,
+		   nonzero_bits.low);
+	  pp_string (buffer, pp_buffer (buffer)->digit_buffer);
+	}
+      newline_and_indent (buffer, spc);
     }
 }
 
 
 /* Dump a PHI node PHI.  BUFFER, SPC and FLAGS are as in pp_gimple_stmt_1.
    The caller is responsible for calling pp_flush on BUFFER to finalize
-   pretty printer.  */
+   pretty printer.  If COMMENT is true, print this after #.  */
 
 static void
-dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, int flags)
+dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, bool comment,
+		 int flags)
 {
   size_t i;
   tree lhs = gimple_phi_result (phi);
 
   if (flags & TDF_ALIAS)
     dump_ssaname_info (buffer, lhs, spc);
+
+  if (comment)
+    pp_string (buffer, "# ");
 
   if (flags & TDF_RAW)
     dump_gimple_fmt (buffer, spc, flags, "%G <%T, ", phi,
@@ -2095,7 +2136,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_PHI:
-      dump_gimple_phi (buffer, gs, spc, flags);
+      dump_gimple_phi (buffer, gs, spc, false, flags);
       break;
 
     case GIMPLE_OMP_PARALLEL:
@@ -2271,8 +2312,7 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
       if (!virtual_operand_p (gimple_phi_result (phi)) || (flags & TDF_VOPS))
         {
           INDENT (indent);
-          pp_string (buffer, "# ");
-          dump_gimple_phi (buffer, phi, indent, flags);
+	  dump_gimple_phi (buffer, phi, indent, true, flags);
           pp_newline (buffer);
         }
     }

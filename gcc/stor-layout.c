@@ -38,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-dump.h"
 #include "gimple.h"
+#include "gimplify.h"
 
 /* Data type for the expressions representing sizes of data types.
    It is the first integer type laid out.  */
@@ -383,6 +384,7 @@ int_mode_for_mode (enum machine_mode mode)
     case MODE_VECTOR_ACCUM:
     case MODE_VECTOR_UFRACT:
     case MODE_VECTOR_UACCUM:
+    case MODE_POINTER_BOUNDS:
       mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
       break;
 
@@ -606,14 +608,10 @@ layout_decl (tree decl, unsigned int known_align)
 
 	  /* See if we can use an ordinary integer mode for a bit-field.
 	     Conditions are: a fixed size that is correct for another mode,
-	     occupying a complete byte or bytes on proper boundary,
-	     and not -fstrict-volatile-bitfields.  If the latter is set,
-	     we unfortunately can't check TREE_THIS_VOLATILE, as a cast
-	     may make a volatile object later.  */
+	     occupying a complete byte or bytes on proper boundary.  */
 	  if (TYPE_SIZE (type) != 0
 	      && TREE_CODE (TYPE_SIZE (type)) == INTEGER_CST
-	      && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT
-	      && flag_strict_volatile_bitfields <= 0)
+	      && GET_MODE_CLASS (TYPE_MODE (type)) == MODE_INT)
 	    {
 	      enum machine_mode xmode
 		= mode_for_size_tree (DECL_SIZE (decl), MODE_INT, 1);
@@ -2052,18 +2050,9 @@ layout_type (tree type)
 	 of the language-specific code.  */
       gcc_unreachable ();
 
-    case BOOLEAN_TYPE:  /* Used for Java, Pascal, and Chill.  */
-      if (TYPE_PRECISION (type) == 0)
-	TYPE_PRECISION (type) = 1; /* default to one byte/boolean.  */
-
-      /* ... fall through ...  */
-
+    case BOOLEAN_TYPE:
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
-      if (TREE_CODE (TYPE_MIN_VALUE (type)) == INTEGER_CST
-	  && tree_int_cst_sgn (TYPE_MIN_VALUE (type)) >= 0)
-	TYPE_UNSIGNED (type) = 1;
-
       SET_TYPE_MODE (type,
 		     smallest_mode_for_size (TYPE_PRECISION (type), MODE_INT));
       TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
@@ -2133,6 +2122,14 @@ layout_type (tree type)
       TYPE_ALIGN (type) = 1;
       TYPE_USER_ALIGN (type) = 0;
       SET_TYPE_MODE (type, VOIDmode);
+      break;
+
+    case POINTER_BOUNDS_TYPE:
+      SET_TYPE_MODE (type,
+                     mode_for_size (TYPE_PRECISION (type),
+				    MODE_POINTER_BOUNDS, 0));
+      TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
+      TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
     case OFFSET_TYPE:
@@ -2519,6 +2516,12 @@ set_min_and_max_values_for_integral_type (tree type,
 {
   tree min_value;
   tree max_value;
+
+  /* For bitfields with zero width we end up creating integer types
+     with zero precision.  Don't assign any minimum/maximum values
+     to those types, they don't have any valid value.  */
+  if (precision < 1)
+    return;
 
   if (is_unsigned)
     {

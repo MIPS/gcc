@@ -1972,6 +1972,15 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       return 0;
     }
 
+  if (actual->ts.type == BT_ASSUMED && formal->ts.type != BT_ASSUMED)
+    {
+      if (where)
+	gfc_error ("Assumed-type actual argument at %L requires that dummy "
+		   "argument '%s' is of assumed type", &actual->where,
+		   formal->name);
+      return 0;
+    }
+
   /* F2008, 12.5.2.5; IR F08/0073.  */
   if (formal->ts.type == BT_CLASS && formal->attr.class_ok
       && actual->expr_type != EXPR_NULL
@@ -1990,8 +1999,9 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       if (!gfc_expr_attr (actual).class_ok)
 	return 0;
 
-      if (!gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
-				      CLASS_DATA (formal)->ts.u.derived))
+      if ((!UNLIMITED_POLY (formal) || !UNLIMITED_POLY(actual))
+	  && !gfc_compare_derived_types (CLASS_DATA (actual)->ts.u.derived,
+					 CLASS_DATA (formal)->ts.u.derived))
 	{
 	  if (where)
 	    gfc_error ("Actual argument to '%s' at %L must have the same "

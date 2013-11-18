@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 /* For host_integerp, tree_low_cst, fold_convert, size_binop, ssize_int,
    TREE_CODE, TYPE_SIZE, int_size_in_bytes,    */
-#include "tree.h"
+#include "tree-core.h"
 /* For GET_MODE_BITSIZE, word_mode */
 #include "machmode.h"
 
@@ -300,7 +300,9 @@ extern void init_block_clear_fn (const char *);
 extern rtx emit_block_move (rtx, rtx, rtx, enum block_op_methods);
 extern rtx emit_block_move_via_libcall (rtx, rtx, rtx, bool);
 extern rtx emit_block_move_hints (rtx, rtx, rtx, enum block_op_methods,
-			          unsigned int, HOST_WIDE_INT);
+			          unsigned int, HOST_WIDE_INT,
+				  unsigned HOST_WIDE_INT,
+				  unsigned HOST_WIDE_INT);
 extern bool emit_storent_insn (rtx to, rtx from);
 
 /* Copy all or part of a value X into registers starting at REGNO.
@@ -361,13 +363,17 @@ extern void use_group_regs (rtx *, rtx);
    If OBJECT has BLKmode, SIZE is its length in bytes.  */
 extern rtx clear_storage (rtx, rtx, enum block_op_methods);
 extern rtx clear_storage_hints (rtx, rtx, enum block_op_methods,
-			        unsigned int, HOST_WIDE_INT);
+			        unsigned int, HOST_WIDE_INT,
+				unsigned HOST_WIDE_INT,
+				unsigned HOST_WIDE_INT);
 /* The same, but always output an library call.  */
 rtx set_storage_via_libcall (rtx, rtx, rtx, bool);
 
 /* Expand a setmem pattern; return true if successful.  */
 extern bool set_storage_via_setmem (rtx, rtx, rtx, unsigned int,
-				    unsigned int, HOST_WIDE_INT);
+				    unsigned int, HOST_WIDE_INT,
+				    unsigned HOST_WIDE_INT,
+				    unsigned HOST_WIDE_INT);
 
 extern unsigned HOST_WIDE_INT move_by_pieces_ninsns (unsigned HOST_WIDE_INT,
 						     unsigned int,
@@ -521,8 +527,8 @@ extern rtx expand_divmod (int, enum tree_code, enum machine_mode, rtx, rtx,
 			  rtx, int);
 #endif
 
-extern void locate_and_pad_parm (enum machine_mode, tree, int, int, tree,
-				 struct args_size *,
+extern void locate_and_pad_parm (enum machine_mode, tree, int, int, int,
+				 tree, struct args_size *,
 				 struct locate_and_pad_arg_data *);
 
 /* Return the CODE_LABEL rtx for a LABEL_DECL, creating it if necessary.  */

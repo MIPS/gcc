@@ -223,11 +223,10 @@ class CGraphNodePrinter:
     def to_string (self):
         result = '<cgraph_node* 0x%x' % long(self.gdbval)
         if long(self.gdbval):
-            # symtab_node_name calls lang_hooks.decl_printable_name
+            # symtab_node::name calls lang_hooks.decl_printable_name
             # default implementation (lhd_decl_printable_name) is:
             #    return IDENTIFIER_POINTER (DECL_NAME (decl));
-            symbol = self.gdbval['symbol']
-            tree_decl = Tree(symbol['decl'])
+            tree_decl = Tree(self.gdbval['decl'])
             result += ' "%s"' % tree_decl.DECL_NAME().IDENTIFIER_POINTER()
         result += '>'
         return result

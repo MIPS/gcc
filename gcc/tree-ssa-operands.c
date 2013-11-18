@@ -25,7 +25,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
 #include "tree-inline.h"
 #include "timevar.h"
 #include "dumpfile.h"
@@ -1286,24 +1291,6 @@ debug_immediate_uses_for (tree var)
   dump_immediate_uses_for (stderr, var);
 }
 
-
-/* Return true if OP, an SSA name or a DECL is a virtual operand.  */
-
-bool
-virtual_operand_p (tree op)
-{
-  if (TREE_CODE (op) == SSA_NAME)
-    {
-      op = SSA_NAME_VAR (op);
-      if (!op)
-	return false;
-    }
-
-  if (TREE_CODE (op) == VAR_DECL)
-    return VAR_DECL_IS_VIRTUAL_OPERAND (op);
-
-  return false;
-}
 
 /* Unlink STMTs virtual definition from the IL by propagating its use.  */
 

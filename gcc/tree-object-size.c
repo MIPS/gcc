@@ -25,7 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "diagnostic-core.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 
@@ -1178,7 +1182,7 @@ init_object_sizes (void)
 
 /* Destroy data structures after the object size computation.  */
 
-void
+static void
 fini_object_sizes (void)
 {
   int object_size_type;

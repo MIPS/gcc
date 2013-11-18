@@ -30,6 +30,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "ggc.h"
 #include "gimple-pretty-print.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-dump.h"
 #include "tree-pass.h"
@@ -42,6 +56,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "target.h"
 #include "tree-ssa-live.h"
+#include "omp-low.h"
+#include "tree-cfgcleanup.h"
 
 /* This file contains functions for building the Control Flow Graph (CFG)
    for a function tree.  */
@@ -237,6 +253,72 @@ build_gimple_cfg (gimple_seq seq)
   discriminator_per_locus.dispose ();
 }
 
+
+/* Search for ANNOTATE call with annot_expr_ivdep_kind; if found, remove
+   it and set loop->safelen to INT_MAX.  We assume that the annotation
+   comes immediately before the condition.  */
+
+static void
+replace_loop_annotate ()
+{
+  struct loop *loop;
+  loop_iterator li;
+  basic_block bb;
+  gimple_stmt_iterator gsi;
+  gimple stmt;
+
+  FOR_EACH_LOOP (li, loop, 0)
+    {
+      gsi = gsi_last_bb (loop->header);
+      stmt = gsi_stmt (gsi);
+      if (stmt && gimple_code (stmt) == GIMPLE_COND)
+	{
+	  gsi_prev_nondebug (&gsi);
+	  if (gsi_end_p (gsi))
+	    continue;
+	  stmt = gsi_stmt (gsi);
+	  if (gimple_code (stmt) != GIMPLE_CALL)
+		continue;
+	  if (!gimple_call_internal_p (stmt)
+		  || gimple_call_internal_fn (stmt) != IFN_ANNOTATE)
+	    continue;
+	  if ((annot_expr_kind) tree_low_cst (gimple_call_arg (stmt, 1), 0)
+	      != annot_expr_ivdep_kind)
+	    continue;
+	  stmt = gimple_build_assign (gimple_call_lhs (stmt),
+				      gimple_call_arg (stmt, 0));
+	  gsi_replace (&gsi, stmt, true);
+	  loop->safelen = INT_MAX;
+	}
+    }
+
+  /* Remove IFN_ANNOTATE. Safeguard for the case loop->latch == NULL.  */
+  FOR_EACH_BB (bb)
+    {
+      gsi = gsi_last_bb (bb);
+      stmt = gsi_stmt (gsi);
+      if (stmt && gimple_code (stmt) == GIMPLE_COND)
+	gsi_prev_nondebug (&gsi);
+      if (gsi_end_p (gsi))
+	continue;
+      stmt = gsi_stmt (gsi);
+      if (gimple_code (stmt) != GIMPLE_CALL)
+	continue;
+      if (!gimple_call_internal_p (stmt)
+	  || gimple_call_internal_fn (stmt) != IFN_ANNOTATE)
+	continue;
+      if ((annot_expr_kind) tree_low_cst (gimple_call_arg (stmt, 1), 0)
+	  != annot_expr_ivdep_kind)
+	continue;
+      warning_at (gimple_location (stmt), 0, "ignoring %<GCC ivdep%> "
+		  "annotation");
+      stmt = gimple_build_assign (gimple_call_lhs (stmt),
+				  gimple_call_arg (stmt, 0));
+      gsi_replace (&gsi, stmt, true);
+    }
+}
+
+
 static unsigned int
 execute_build_cfg (void)
 {
@@ -251,6 +333,7 @@ execute_build_cfg (void)
     }
   cleanup_tree_cfg ();
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
+  replace_loop_annotate ();
   return 0;
 }
 
@@ -299,6 +382,50 @@ computed_goto_p (gimple t)
 {
   return (gimple_code (t) == GIMPLE_GOTO
 	  && TREE_CODE (gimple_goto_dest (t)) != LABEL_DECL);
+}
+
+/* Returns true for edge E where e->src ends with a GIMPLE_COND and
+   the other edge points to a bb with just __builtin_unreachable ().
+   I.e. return true for C->M edge in:
+   <bb C>:
+   ...
+   if (something)
+     goto <bb N>;
+   else
+     goto <bb M>;
+   <bb N>:
+   __builtin_unreachable ();
+   <bb M>:  */
+
+bool
+assert_unreachable_fallthru_edge_p (edge e)
+{
+  basic_block pred_bb = e->src;
+  gimple last = last_stmt (pred_bb);
+  if (last && gimple_code (last) == GIMPLE_COND)
+    {
+      basic_block other_bb = EDGE_SUCC (pred_bb, 0)->dest;
+      if (other_bb == e->dest)
+	other_bb = EDGE_SUCC (pred_bb, 1)->dest;
+      if (EDGE_COUNT (other_bb->succs) == 0)
+	{
+	  gimple_stmt_iterator gsi = gsi_after_labels (other_bb);
+	  gimple stmt;
+
+	  if (gsi_end_p (gsi))
+	    return false;
+	  stmt = gsi_stmt (gsi);
+	  if (is_gimple_debug (stmt))
+	    {
+	      gsi_next_nondebug (&gsi);
+	      if (gsi_end_p (gsi))
+		return false;
+	      stmt = gsi_stmt (gsi);
+	    }
+	  return gimple_call_builtin_p (stmt, BUILT_IN_UNREACHABLE);
+	}
+    }
+  return false;
 }
 
 
@@ -607,97 +734,8 @@ make_edges (void)
 	      fallthru = true;
 	      break;
 
-	    case GIMPLE_OMP_PARALLEL:
-	    case GIMPLE_OMP_TASK:
-	    case GIMPLE_OMP_FOR:
-	    case GIMPLE_OMP_SINGLE:
-	    case GIMPLE_OMP_TEAMS:
-	    case GIMPLE_OMP_MASTER:
-	    case GIMPLE_OMP_TASKGROUP:
-	    case GIMPLE_OMP_ORDERED:
-	    case GIMPLE_OMP_CRITICAL:
-	    case GIMPLE_OMP_SECTION:
-	      cur_region = new_omp_region (bb, code, cur_region);
-	      fallthru = true;
-	      break;
-
-	    case GIMPLE_OMP_TARGET:
-	      cur_region = new_omp_region (bb, code, cur_region);
-	      fallthru = true;
-	      if (gimple_omp_target_kind (last) == GF_OMP_TARGET_KIND_UPDATE)
-		cur_region = cur_region->outer;
-	      break;
-
-	    case GIMPLE_OMP_SECTIONS:
-	      cur_region = new_omp_region (bb, code, cur_region);
-	      fallthru = true;
-	      break;
-
-	    case GIMPLE_OMP_SECTIONS_SWITCH:
-	      fallthru = false;
-	      break;
-
-            case GIMPLE_OMP_ATOMIC_LOAD:
-            case GIMPLE_OMP_ATOMIC_STORE:
-               fallthru = true;
-               break;
-
-	    case GIMPLE_OMP_RETURN:
-	      /* In the case of a GIMPLE_OMP_SECTION, the edge will go
-		 somewhere other than the next block.  This will be
-		 created later.  */
-	      cur_region->exit = bb;
-	      fallthru = cur_region->type != GIMPLE_OMP_SECTION;
-	      cur_region = cur_region->outer;
-	      break;
-
-	    case GIMPLE_OMP_CONTINUE:
-	      cur_region->cont = bb;
-	      switch (cur_region->type)
-		{
-		case GIMPLE_OMP_FOR:
-		  /* Mark all GIMPLE_OMP_FOR and GIMPLE_OMP_CONTINUE
-		     succs edges as abnormal to prevent splitting
-		     them.  */
-		  single_succ_edge (cur_region->entry)->flags |= EDGE_ABNORMAL;
-		  /* Make the loopback edge.  */
-		  make_edge (bb, single_succ (cur_region->entry),
-			     EDGE_ABNORMAL);
-
-		  /* Create an edge from GIMPLE_OMP_FOR to exit, which
-		     corresponds to the case that the body of the loop
-		     is not executed at all.  */
-		  make_edge (cur_region->entry, bb->next_bb, EDGE_ABNORMAL);
-		  make_edge (bb, bb->next_bb, EDGE_FALLTHRU | EDGE_ABNORMAL);
-		  fallthru = false;
-		  break;
-
-		case GIMPLE_OMP_SECTIONS:
-		  /* Wire up the edges into and out of the nested sections.  */
-		  {
-		    basic_block switch_bb = single_succ (cur_region->entry);
-
-		    struct omp_region *i;
-		    for (i = cur_region->inner; i ; i = i->next)
-		      {
-			gcc_assert (i->type == GIMPLE_OMP_SECTION);
-			make_edge (switch_bb, i->entry, 0);
-			make_edge (i->exit, bb, EDGE_FALLTHRU);
-		      }
-
-		    /* Make the loopback edge to the block with
-		       GIMPLE_OMP_SECTIONS_SWITCH.  */
-		    make_edge (bb, switch_bb, 0);
-
-		    /* Make the edge from the switch to exit.  */
-		    make_edge (switch_bb, bb->next_bb, 0);
-		    fallthru = false;
-		  }
-		  break;
-
-		default:
-		  gcc_unreachable ();
-		}
+	    CASE_GIMPLE_OMP:
+	      fallthru = make_gimple_omp_edges (bb, &cur_region);
 	      break;
 
 	    case GIMPLE_TRANSACTION:
@@ -721,8 +759,7 @@ make_edges (void)
 	make_edge (bb, bb->next_bb, EDGE_FALLTHRU);
     }
 
-  if (root_omp_region)
-    free_omp_regions ();
+  free_omp_regions ();
 
   /* Fold COND_EXPR_COND of each COND_EXPR.  */
   fold_cond_expr_cond ();

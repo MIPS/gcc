@@ -39,7 +39,9 @@
 #include "function.h"
 #include "dwarf2.h"
 #include "timevar.h"
+#include "tree.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "cfgloop.h"
 #include "tilegx-builtins.h"
 #include "tilegx-multiply.h"
@@ -5577,6 +5579,8 @@ tilegx_file_end (void)
 #undef  TARGET_ASM_ALIGNED_DI_OP
 #define TARGET_ASM_ALIGNED_DI_OP "\t.quad\t"
 
+#undef  TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P can_use_doloop_if_innermost
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

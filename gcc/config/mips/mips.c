@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "sched-int.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "bitmap.h"
 #include "diagnostic.h"
 #include "target-globals.h"
@@ -3795,6 +3796,18 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	      *total = COSTS_N_INSNS (1) + set_src_cost (XEXP (op, 0), speed);
 	      return true;
 	    }
+	}
+      /* (AND (NOT op0) (NOT op1) is a nor operation that can be done in
+	 a single instruction.  */
+      if (!TARGET_MIPS16
+	  && GET_CODE (XEXP (x, 0)) == NOT
+	  && GET_CODE (XEXP (x, 1)) == NOT)
+	{
+	  cost = GET_MODE_SIZE (mode) > UNITS_PER_WORD ? 2 : 1;
+          *total = (COSTS_N_INSNS (cost)
+		    + set_src_cost (XEXP (XEXP (x, 0), 0), speed)
+		    + set_src_cost (XEXP (XEXP (x, 1), 0), speed));
+	  return true;
 	}
 	    
       /* Fall through.  */
@@ -10982,8 +10995,17 @@ mips_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    mips_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    mips_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					 size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	mips_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   /* Save the registers.  Allocate up to MIPS_MAX_FIRST_STACK_STEP
      bytes beforehand; this is enough to cover the register save area

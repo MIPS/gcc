@@ -26,7 +26,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "intl.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
 #include "ggc.h"
@@ -38,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
+#include "tree-ssanames.h"
 
 
 #define SWAP(X, Y) do { affine_iv *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
@@ -112,9 +122,12 @@ split_to_var_and_offset (tree expr, tree *var, mpz_t offset)
    in TYPE to MIN and MAX.  */
 
 static void
-determine_value_range (tree type, tree var, mpz_t off,
+determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
 		       mpz_t min, mpz_t max)
 {
+  double_int minv, maxv;
+  enum value_range_type rtype = VR_VARYING;
+
   /* If the expression is a constant, we know its value exactly.  */
   if (integer_zerop (var))
     {
@@ -123,9 +136,73 @@ determine_value_range (tree type, tree var, mpz_t off,
       return;
     }
 
+  get_type_static_bounds (type, min, max);
+
+  /* See if we have some range info from VRP.  */
+  if (TREE_CODE (var) == SSA_NAME && INTEGRAL_TYPE_P (type))
+    {
+      edge e = loop_preheader_edge (loop);
+      gimple_stmt_iterator gsi;
+
+      /* Either for VAR itself...  */
+      rtype = get_range_info (var, &minv, &maxv);
+      /* Or for PHI results in loop->header where VAR is used as
+	 PHI argument from the loop preheader edge.  */
+      for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple phi = gsi_stmt (gsi);
+	  double_int minc, maxc;
+	  if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var
+	      && (get_range_info (gimple_phi_result (phi), &minc, &maxc)
+		  == VR_RANGE))
+	    {
+	      if (rtype != VR_RANGE)
+		{
+		  rtype = VR_RANGE;
+		  minv = minc;
+		  maxv = maxc;
+		}
+	      else
+		{
+		  minv = minv.max (minc, TYPE_UNSIGNED (type));
+		  maxv = maxv.min (maxc, TYPE_UNSIGNED (type));
+		  gcc_assert (minv.cmp (maxv, TYPE_UNSIGNED (type)) <= 0);
+		}
+	    }
+	}
+      if (rtype == VR_RANGE)
+	{
+	  mpz_t minm, maxm;
+	  gcc_assert (minv.cmp (maxv, TYPE_UNSIGNED (type)) <= 0);
+	  mpz_init (minm);
+	  mpz_init (maxm);
+	  mpz_set_double_int (minm, minv, TYPE_UNSIGNED (type));
+	  mpz_set_double_int (maxm, maxv, TYPE_UNSIGNED (type));
+	  mpz_add (minm, minm, off);
+	  mpz_add (maxm, maxm, off);
+	  /* If the computation may not wrap or off is zero, then this
+	     is always fine.  If off is negative and minv + off isn't
+	     smaller than type's minimum, or off is positive and
+	     maxv + off isn't bigger than type's maximum, use the more
+	     precise range too.  */
+	  if (nowrap_type_p (type)
+	      || mpz_sgn (off) == 0
+	      || (mpz_sgn (off) < 0 && mpz_cmp (minm, min) >= 0)
+	      || (mpz_sgn (off) > 0 && mpz_cmp (maxm, max) <= 0))
+	    {
+	      mpz_set (min, minm);
+	      mpz_set (max, maxm);
+	      mpz_clear (minm);
+	      mpz_clear (maxm);
+	      return;
+	    }
+	  mpz_clear (minm);
+	  mpz_clear (maxm);
+	}
+    }
+
   /* If the computation may wrap, we know nothing about the value, except for
      the range of the type.  */
-  get_type_static_bounds (type, min, max);
   if (!nowrap_type_p (type))
     return;
 
@@ -398,8 +475,8 @@ bound_difference (struct loop *loop, tree x, tree y, bounds *bnds)
       mpz_init (maxx);
       mpz_init (miny);
       mpz_init (maxy);
-      determine_value_range (type, varx, offx, minx, maxx);
-      determine_value_range (type, vary, offy, miny, maxy);
+      determine_value_range (loop, type, varx, offx, minx, maxx);
+      determine_value_range (loop, type, vary, offy, miny, maxy);
 
       mpz_sub (bnds->below, minx, maxy);
       mpz_sub (bnds->up, maxx, miny);
@@ -3387,6 +3464,27 @@ estimated_loop_iterations (struct loop *loop, double_int *nit)
 
   return (get_estimated_loop_iterations (loop, nit));
 }
+
+/* Similar to estimated_loop_iterations, but returns the estimate only
+   if it fits to HOST_WIDE_INT.  If this is not the case, or the estimate
+   on the number of iterations of LOOP could not be derived, returns -1.  */
+
+HOST_WIDE_INT
+estimated_loop_iterations_int (struct loop *loop)
+{
+  double_int nit;
+  HOST_WIDE_INT hwi_nit;
+
+  if (!estimated_loop_iterations (loop, &nit))
+    return -1;
+
+  if (!nit.fits_shwi ())
+    return -1;
+  hwi_nit = nit.to_shwi ();
+
+  return hwi_nit < 0 ? -1 : hwi_nit;
+}
+
 
 /* Sets NIT to an upper bound for the maximum number of executions of the
    latch of the LOOP.  If we have no reliable estimate, the function returns

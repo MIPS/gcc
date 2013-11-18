@@ -229,10 +229,14 @@ package body Sem_Util is
       --  Contract items related to [generic] packages. The applicable pragmas
       --  are:
       --    Abstract_States
+      --    Initial_Condition
       --    Initializes
 
       if Ekind_In (Id, E_Generic_Package, E_Package) then
-         if Nam_In (Nam, Name_Abstract_State, Name_Initializes) then
+         if Nam_In (Nam, Name_Abstract_State,
+                         Name_Initial_Condition,
+                         Name_Initializes)
+         then
             Set_Next_Pragma (Prag, Classifications (Items));
             Set_Classifications (Items, Prag);
 
@@ -419,7 +423,7 @@ package body Sem_Util is
 
          Decl := First
                    (Visible_Declarations
-                     (Specification (Unit_Declaration_Node (Current_Scope))));
+                     (Package_Specification (Current_Scope)));
          while Present (Decl) loop
             if Nkind (Decl) = N_Private_Extension_Declaration
               and then Defining_Entity (Decl) = Typ
@@ -1165,6 +1169,13 @@ package body Sem_Util is
          return;
       end if;
 
+      --  Ignore in ASIS mode, elaboration entity is not in source and plays
+      --  no role in analysis.
+
+      if ASIS_Mode then
+         return;
+      end if;
+
       --  Construct name of elaboration entity as xxx_E, where xxx is the unit
       --  name with dots replaced by double underscore. We have to manually
       --  construct this name, since it will be elaborated in the outer scope,
@@ -1434,7 +1445,7 @@ package body Sem_Util is
          --  Ada 2005 (AI-50217): If the type is available through a limited
          --  with_clause, verify that its full view has been analyzed.
 
-         if From_With_Type (T)
+         if From_Limited_With (T)
            and then Present (Non_Limited_View (T))
            and then Ekind (Non_Limited_View (T)) /= E_Incomplete_Type
          then
@@ -3242,58 +3253,85 @@ package body Sem_Util is
    ----------------------------
 
    function Contains_Refined_State (Prag : Node_Id) return Boolean is
-      function Has_Refined_State (List : Node_Id) return Boolean;
+      function Has_State_In_Dependency (List : Node_Id) return Boolean;
+      --  Determine whether a dependency list mentions a state with a visible
+      --  refinement.
+
+      function Has_State_In_Global (List : Node_Id) return Boolean;
       --  Determine whether a global list mentions a state with a visible
       --  refinement.
 
-      -----------------------
-      -- Has_Refined_State --
-      -----------------------
+      function Is_Refined_State (Item : Node_Id) return Boolean;
+      --  Determine whether Item is a reference to an abstract state with a
+      --  visible refinement.
 
-      function Has_Refined_State (List : Node_Id) return Boolean is
-         function Is_Refined_State (Item : Node_Id) return Boolean;
-         --  Determine whether Item is a reference to an abstract state with a
-         --  visible refinement.
+      -----------------------------
+      -- Has_State_In_Dependency --
+      -----------------------------
 
-         ----------------------
-         -- Is_Refined_State --
-         ----------------------
+      function Has_State_In_Dependency (List : Node_Id) return Boolean is
+         Clause : Node_Id;
+         Output : Node_Id;
 
-         function Is_Refined_State (Item : Node_Id) return Boolean is
-            Item_Id : Entity_Id;
+      begin
+         --  A null dependency list does not mention any states
 
-         begin
-            if Nkind (Item) = N_Null then
-               return False;
+         if Nkind (List) = N_Null then
+            return False;
 
-            else
-               Item_Id := Entity_Of (Item);
+         --  Dependency clauses appear as component associations of an
+         --  aggregate.
 
-               return
-                 Ekind (Item_Id) = E_Abstract_State
-                   and then Present (Refinement_Constituents (Item_Id));
-            end if;
-         end Is_Refined_State;
+         elsif Nkind (List) = N_Aggregate
+           and then Present (Component_Associations (List))
+         then
+            Clause := First (Component_Associations (List));
+            while Present (Clause) loop
 
-         --  Local variables
+               --  Inspect the outputs of a dependency clause
 
+               Output := First (Choices (Clause));
+               while Present (Output) loop
+                  if Is_Refined_State (Output) then
+                     return True;
+                  end if;
+
+                  Next (Output);
+               end loop;
+
+               --  Inspect the outputs of a dependency clause
+
+               if Is_Refined_State (Expression (Clause)) then
+                  return True;
+               end if;
+
+               Next (Clause);
+            end loop;
+
+            --  If we get here, then none of the dependency clauses mention a
+            --  state with visible refinement.
+
+            return False;
+
+         --  An illegal pragma managed to sneak in
+
+         else
+            raise Program_Error;
+         end if;
+      end Has_State_In_Dependency;
+
+      -------------------------
+      -- Has_State_In_Global --
+      -------------------------
+
+      function Has_State_In_Global (List : Node_Id) return Boolean is
          Item : Node_Id;
-
-      --  Start of processing for Has_Refined_State
 
       begin
          --  A null global list does not mention any states
 
          if Nkind (List) = N_Null then
             return False;
-
-         --  Single global item declaration
-
-         elsif Nkind_In (List, N_Expanded_Name,
-                               N_Identifier,
-                               N_Selected_Component)
-         then
-            return Is_Refined_State (List);
 
          --  Simple global list or moded global list declaration
 
@@ -3319,7 +3357,7 @@ package body Sem_Util is
             else
                Item := First (Component_Associations (List));
                while Present (Item) loop
-                  if Has_Refined_State (Expression (Item)) then
+                  if Has_State_In_Global (Expression (Item)) then
                      return True;
                   end if;
 
@@ -3332,12 +3370,68 @@ package body Sem_Util is
 
             return False;
 
-         --  Something went horribly wrong, we have a malformed tree
+         --  Single global item declaration
+
+         elsif Is_Entity_Name (List) then
+            return Is_Refined_State (List);
+
+         --  An illegal pragma managed to sneak in
 
          else
             raise Program_Error;
          end if;
-      end Has_Refined_State;
+      end Has_State_In_Global;
+
+      ----------------------
+      -- Is_Refined_State --
+      ----------------------
+
+      function Is_Refined_State (Item : Node_Id) return Boolean is
+         Elmt    : Node_Id;
+         Item_Id : Entity_Id;
+
+      begin
+         if Nkind (Item) = N_Null then
+            return False;
+
+         --  States cannot be subject to attribute 'Result. This case arises
+         --  in dependency relations.
+
+         elsif Nkind (Item) = N_Attribute_Reference
+           and then Attribute_Name (Item) = Name_Result
+         then
+            return False;
+
+         --  Multiple items appear as an aggregate. This case arises in
+         --  dependency relations.
+
+         elsif Nkind (Item) = N_Aggregate
+           and then Present (Expressions (Item))
+         then
+            Elmt := First (Expressions (Item));
+            while Present (Elmt) loop
+               if Is_Refined_State (Elmt) then
+                  return True;
+               end if;
+
+               Next (Elmt);
+            end loop;
+
+            --  If we get here, then none of the inputs or outputs reference a
+            --  state with visible refinement.
+
+            return False;
+
+         --  Single item
+
+         else
+            Item_Id := Entity_Of (Item);
+
+            return
+              Ekind (Item_Id) = E_Abstract_State
+                and then Has_Visible_Refinement (Item_Id);
+         end if;
+      end Is_Refined_State;
 
       --  Local variables
 
@@ -3348,13 +3442,11 @@ package body Sem_Util is
    --  Start of processing for Contains_Refined_State
 
    begin
-      --  ??? To be implemented
-
       if Nam = Name_Depends then
-         return False;
+         return Has_State_In_Dependency (Arg);
 
       else pragma Assert (Nam = Name_Global);
-         return Has_Refined_State (Arg);
+         return Has_State_In_Global (Arg);
       end if;
    end Contains_Refined_State;
 
@@ -4889,6 +4981,35 @@ package body Sem_Util is
          Error_Msg_N ("declaration hides &#?h?", Def_Id);
       end if;
    end Enter_Name;
+
+   ---------------
+   -- Entity_Of --
+   ---------------
+
+   function Entity_Of (N : Node_Id) return Entity_Id is
+      Id : Entity_Id;
+
+   begin
+      Id := Empty;
+
+      if Is_Entity_Name (N) then
+         Id := Entity (N);
+
+         --  Follow a possible chain of renamings to reach the root renamed
+         --  object.
+
+         while Present (Id) and then Present (Renamed_Object (Id)) loop
+            if Is_Entity_Name (Renamed_Object (Id)) then
+               Id := Entity (Renamed_Object (Id));
+            else
+               Id := Empty;
+               exit;
+            end if;
+         end loop;
+      end if;
+
+      return Id;
+   end Entity_Of;
 
    --------------------------
    -- Explain_Limited_Type --
@@ -6685,6 +6806,12 @@ package body Sem_Util is
                    and then
                 Has_No_Obvious_Side_Effects (Right_Opnd (N));
 
+      elsif Nkind (N) = N_Expression_With_Actions
+              and then
+            Is_Empty_List (Actions (N))
+      then
+         return Has_No_Obvious_Side_Effects (Expression (N));
+
       elsif Nkind (N) in N_Has_Entity then
          return Present (Entity (N))
            and then Ekind_In (Entity (N), E_Variable,
@@ -8053,7 +8180,7 @@ package body Sem_Util is
            --  statement is aliased if its type is immutably limited.
 
            or else (Is_Return_Object (E)
-                     and then Is_Immutably_Limited_Type (Etype (E)));
+                     and then Is_Limited_View (Etype (E)));
 
       elsif Nkind (Obj) = N_Selected_Component then
          return Is_Aliased (Entity (Selector_Name (Obj)));
@@ -8188,6 +8315,17 @@ package body Sem_Util is
       end if;
    end Is_Atomic_Object;
 
+   -------------------------
+   -- Is_Attribute_Result --
+   -------------------------
+
+   function Is_Attribute_Result (N : Node_Id) return Boolean is
+   begin
+      return
+         Nkind (N) = N_Attribute_Reference
+           and then Attribute_Name (N) = Name_Result;
+   end Is_Attribute_Result;
+
    ------------------------------------
    -- Is_Body_Or_Package_Declaration --
    ------------------------------------
@@ -8220,6 +8358,181 @@ package body Sem_Util is
                   Is_RTE (Root_Type (Under), RO_WI_Super_String) or else
                   Is_RTE (Root_Type (Under), RO_WW_Super_String));
    end Is_Bounded_String;
+
+   -------------------------
+   -- Is_Child_Or_Sibling --
+   -------------------------
+
+   function Is_Child_Or_Sibling
+     (Pack_1        : Entity_Id;
+      Pack_2        : Entity_Id;
+      Private_Child : Boolean) return Boolean
+   is
+      function Distance_From_Standard (Pack : Entity_Id) return Nat;
+      --  Given an arbitrary package, return the number of "climbs" necessary
+      --  to reach scope Standard_Standard.
+
+      procedure Equalize_Depths
+        (Pack           : in out Entity_Id;
+         Depth          : in out Nat;
+         Depth_To_Reach : Nat);
+      --  Given an arbitrary package, its depth and a target depth to reach,
+      --  climb the scope chain until the said depth is reached. The pointer
+      --  to the package and its depth a modified during the climb.
+
+      function Is_Child (Pack : Entity_Id) return Boolean;
+      --  Given a package Pack, determine whether it is a child package that
+      --  satisfies the privacy requirement (if set).
+
+      ----------------------------
+      -- Distance_From_Standard --
+      ----------------------------
+
+      function Distance_From_Standard (Pack : Entity_Id) return Nat is
+         Dist : Nat;
+         Scop : Entity_Id;
+
+      begin
+         Dist := 0;
+         Scop := Pack;
+         while Present (Scop) and then Scop /= Standard_Standard loop
+            Dist := Dist + 1;
+            Scop := Scope (Scop);
+         end loop;
+
+         return Dist;
+      end Distance_From_Standard;
+
+      ---------------------
+      -- Equalize_Depths --
+      ---------------------
+
+      procedure Equalize_Depths
+        (Pack           : in out Entity_Id;
+         Depth          : in out Nat;
+         Depth_To_Reach : Nat)
+      is
+      begin
+         --  The package must be at a greater or equal depth
+
+         if Depth < Depth_To_Reach then
+            raise Program_Error;
+         end if;
+
+         --  Climb the scope chain until the desired depth is reached
+
+         while Present (Pack) and then Depth /= Depth_To_Reach loop
+            Pack  := Scope (Pack);
+            Depth := Depth - 1;
+         end loop;
+      end Equalize_Depths;
+
+      --------------
+      -- Is_Child --
+      --------------
+
+      function Is_Child (Pack : Entity_Id) return Boolean is
+      begin
+         if Is_Child_Unit (Pack) then
+            if Private_Child then
+               return Is_Private_Descendant (Pack);
+            else
+               return True;
+            end if;
+
+         --  The package is nested, it cannot act a child or a sibling
+
+         else
+            return False;
+         end if;
+      end Is_Child;
+
+      --  Local variables
+
+      P_1       : Entity_Id := Pack_1;
+      P_1_Child : Boolean   := False;
+      P_1_Depth : Nat       := Distance_From_Standard (P_1);
+      P_2       : Entity_Id := Pack_2;
+      P_2_Child : Boolean   := False;
+      P_2_Depth : Nat       := Distance_From_Standard (P_2);
+
+   --  Start of processing for Is_Child_Or_Sibling
+
+   begin
+      pragma Assert
+        (Ekind (Pack_1) = E_Package and then Ekind (Pack_2) = E_Package);
+
+      --  Both packages denote the same entity, therefore they cannot be
+      --  children or siblings.
+
+      if P_1 = P_2 then
+         return False;
+
+      --  One of the packages is at a deeper level than the other. Note that
+      --  both may still come from differen hierarchies.
+
+      --        (root)           P_2
+      --        /    \            :
+      --       X     P_2    or    X
+      --       :                  :
+      --      P_1                P_1
+
+      elsif P_1_Depth > P_2_Depth then
+         Equalize_Depths (P_1, P_1_Depth, P_2_Depth);
+         P_1_Child := True;
+
+      --        (root)           P_1
+      --        /    \            :
+      --      P_1     X     or    X
+      --              :           :
+      --             P_2         P_2
+
+      elsif P_2_Depth > P_1_Depth then
+         Equalize_Depths (P_2, P_2_Depth, P_1_Depth);
+         P_2_Child := True;
+      end if;
+
+      --  At this stage the package pointers have been elevated to the same
+      --  depth. If the related entities are the same, then one package is a
+      --  potential child of the other:
+
+      --      P_1
+      --       :
+      --       X    became   P_1 P_2   or vica versa
+      --       :
+      --      P_2
+
+      if P_1 = P_2 then
+         if P_1_Child then
+            return Is_Child (Pack_1);
+         else pragma Assert (P_2_Child);
+            return Is_Child (Pack_2);
+         end if;
+
+      --  The packages may come from the same package chain or from entirely
+      --  different hierarcies. To determine this, climb the scope stack until
+      --  a common root is found.
+
+      --        (root)      (root 1)  (root 2)
+      --        /    \         |         |
+      --      P_1    P_2      P_1       P_2
+
+      else
+         while Present (P_1) and then Present (P_2) loop
+
+            --  The two packages may be siblings
+
+            if P_1 = P_2 then
+               return Is_Child (Pack_1) and then Is_Child (Pack_2);
+            end if;
+
+            P_1 := Scope (P_1);
+            P_2 := Scope (P_2);
+         end loop;
+      end if;
+
+      return False;
+   end Is_Child_Or_Sibling;
 
    -----------------------------
    -- Is_Concurrent_Interface --
@@ -9047,7 +9360,7 @@ package body Sem_Util is
    begin
       return
         Is_Class_Wide_Type (Typ)
-          and then (Is_Limited_Type (Typ) or else From_With_Type (Typ));
+          and then (Is_Limited_Type (Typ) or else From_Limited_With (Typ));
    end Is_Limited_Class_Wide_Type;
 
    ---------------------------------
@@ -10106,7 +10419,8 @@ package body Sem_Util is
       function In_Protected_Function (E : Entity_Id) return Boolean;
       --  Within a protected function, the private components of the enclosing
       --  protected type are constants. A function nested within a (protected)
-      --  procedure is not itself protected.
+      --  procedure is not itself protected. Within the body of a protected
+      --  function the current instance of the protected type is a constant.
 
       function Is_Variable_Prefix (P : Node_Id) return Boolean;
       --  Prefixes can involve implicit dereferences, in which case we must
@@ -10118,12 +10432,24 @@ package body Sem_Util is
       ---------------------------
 
       function In_Protected_Function (E : Entity_Id) return Boolean is
-         Prot : constant Entity_Id := Scope (E);
+         Prot : Entity_Id;
          S    : Entity_Id;
 
       begin
+         --  E is the current instance of a type
+
+         if Is_Type (E) then
+            Prot := E;
+
+         --  E is an object
+
+         else
+            Prot := Scope (E);
+         end if;
+
          if not Is_Protected_Type (Prot) then
             return False;
+
          else
             S := Current_Scope;
             while Present (S) and then S /= Prot loop
@@ -10244,9 +10570,13 @@ package body Sem_Util is
               or else  K = E_In_Out_Parameter
               or else  K = E_Generic_In_Out_Parameter
 
-               --  Current instance of type
+              --  Current instance of type. If this is a protected type, check
+              --  we are not within the body of one of its protected functions.
 
-              or else (Is_Type (E) and then In_Open_Scopes (E))
+              or else (Is_Type (E)
+                        and then In_Open_Scopes (E)
+                        and then not In_Protected_Function (E))
+
               or else (Is_Incomplete_Or_Private_Type (E)
                         and then In_Open_Scopes (Full_View (E)));
          end;
@@ -15299,7 +15629,7 @@ package body Sem_Util is
               ("\\found an access type with designated}!",
                 Expr, Designated_Type (Found_Type));
          else
-            if From_With_Type (Found_Type) then
+            if From_Limited_With (Found_Type) then
                Error_Msg_NE ("\\found incomplete}!", Expr, Found_Type);
                Error_Msg_Qual_Level := 99;
                Error_Msg_NE -- CODEFIX

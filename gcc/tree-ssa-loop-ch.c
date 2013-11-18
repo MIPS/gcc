@@ -24,11 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-into-ssa.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "tree-inline.h"
 #include "flags.h"
+#include "tree-ssa-threadedge.h"
 
 /* Duplicates headers of loops if they are small enough, so that the statements
    in the loop body are always executed when the loop is entered.  This

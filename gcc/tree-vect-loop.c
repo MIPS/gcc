@@ -28,7 +28,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "expr.h"
@@ -584,8 +594,7 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
 {
   basic_block bb = loop->header;
   tree init, step;
-  vec<gimple> worklist;
-  worklist.create (64);
+  stack_vec<gimple, 64> worklist;
   gimple_stmt_iterator gsi;
   bool double_reduc;
 
@@ -716,8 +725,6 @@ vect_analyze_scalar_cycles_1 (loop_vec_info loop_vinfo, struct loop *loop)
           dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			   "Unknown def-use cycle pattern.\n");
     }
-
-  worklist.release ();
 }
 
 
@@ -1579,9 +1586,9 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo, bool slp)
       return false;
     }
 
-  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-      || LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0
-      || LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
+  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo)
+      || ((int) tree_ctz (LOOP_VINFO_NITERS (loop_vinfo))
+	  < exact_log2 (vectorization_factor)))
     {
       if (dump_enabled_p ())
         dump_printf_loc (MSG_NOTE, vect_location, "epilog loop required.\n");
@@ -2091,6 +2098,13 @@ vect_is_slp_reduction (loop_vec_info loop_info, gimple phi, gimple first_stmt)
      a3 = ...
      a2 = operation (a3, a1)
 
+   or
+
+   a3 = ...
+   loop_header:
+     a1 = phi < a0, a2 >
+     a2 = operation (a3, a1)
+
    such that:
    1. operation is commutative and associative and it is safe to
       change the order of the computation (if CHECK_REDUCTION is true)
@@ -2451,6 +2465,7 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
   if (def2 && def2 == phi
       && (code == COND_EXPR
 	  || !def1 || gimple_nop_p (def1)
+	  || !flow_bb_inside_loop_p (loop, gimple_bb (def1))
           || (def1 && flow_bb_inside_loop_p (loop, gimple_bb (def1))
               && (is_gimple_assign (def1)
 		  || is_gimple_call (def1)
@@ -2469,6 +2484,7 @@ vect_is_simple_reduction_1 (loop_vec_info loop_info, gimple phi,
   if (def1 && def1 == phi
       && (code == COND_EXPR
 	  || !def2 || gimple_nop_p (def2)
+	  || !flow_bb_inside_loop_p (loop, gimple_bb (def2))
           || (def2 && flow_bb_inside_loop_p (loop, gimple_bb (def2))
  	      && (is_gimple_assign (def2)
 		  || is_gimple_call (def2)
@@ -4314,7 +4330,6 @@ vect_finalize_reduction:
       epilog_stmt = gimple_build_assign (new_dest, expr);
       new_temp = make_ssa_name (new_dest, epilog_stmt);
       gimple_assign_set_lhs (epilog_stmt, new_temp);
-      SSA_NAME_DEF_STMT (new_temp) = epilog_stmt;
       gsi_insert_before (&exit_gsi, epilog_stmt, GSI_SAME_STMT);
       if (nested_in_vect_loop)
         {
@@ -5640,15 +5655,20 @@ vect_transform_loop (loop_vec_info loop_vinfo)
      will remain scalar and will compute the remaining (n%VF) iterations.
      (VF is the vectorization factor).  */
 
-  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-       || (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
-	   && LOOP_VINFO_INT_NITERS (loop_vinfo) % vectorization_factor != 0)
-       || LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo))
+  if ((int) tree_ctz (LOOP_VINFO_NITERS (loop_vinfo))
+      < exact_log2 (vectorization_factor)
+      || LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo))
     vect_do_peeling_for_loop_bound (loop_vinfo, &ratio,
 				    th, check_profitability);
-  else
+  else if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
     ratio = build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)),
 		LOOP_VINFO_INT_NITERS (loop_vinfo) / vectorization_factor);
+  else
+    {
+      tree ni_name, ratio_mult_vf;
+      vect_generate_tmps_on_preheader (loop_vinfo, &ni_name, &ratio_mult_vf,
+				       &ratio, NULL);
+    }
 
   /* 1) Make sure the loop header has exactly two entries
      2) Make sure we have a preheader basic block.  */

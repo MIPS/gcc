@@ -1185,6 +1185,7 @@ begin
            Pragma_Import_Valued_Procedure        |
            Pragma_Independent                    |
            Pragma_Independent_Components         |
+           Pragma_Initial_Condition              |
            Pragma_Initialize_Scalars             |
            Pragma_Initializes                    |
            Pragma_Inline                         |
@@ -1258,7 +1259,6 @@ begin
            Pragma_Refined_Depends                |
            Pragma_Refined_Global                 |
            Pragma_Refined_Post                   |
-           Pragma_Refined_Pre                    |
            Pragma_Refined_State                  |
            Pragma_Relative_Deadline              |
            Pragma_Remote_Access_Type             |
@@ -1293,6 +1293,8 @@ begin
            Pragma_Thread_Local_Storage           |
            Pragma_Time_Slice                     |
            Pragma_Title                          |
+           Pragma_Type_Invariant                 |
+           Pragma_Type_Invariant_Class           |
            Pragma_Unchecked_Union                |
            Pragma_Unimplemented_Unit             |
            Pragma_Universal_Aliasing             |

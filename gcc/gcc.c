@@ -388,7 +388,8 @@ or with constant text in a single argument.
  %2	process CC1PLUS_SPEC as a spec.
  %*	substitute the variable part of a matched option.  (See below.)
 	Note that each comma in the substituted string is replaced by
-	a single space.
+	a single space.  A space is appended after the last substition
+	unless there is more text in current sequence.
  %<S    remove all occurrences of -S from the command line.
         Note - this command is position dependent.  % commands in the
         spec string before this one will see -S, % commands in the
@@ -422,7 +423,9 @@ or with constant text in a single argument.
           once, no matter how many such switches appeared.  However,
           if %* appears somewhere in X, then X will be substituted
           once for each matching switch, with the %* replaced by the
-          part of that switch that matched the '*'.
+          part of that switch that matched the '*'.  A space will be
+	  appended after the last substition unless there is more
+	  text in current sequence.
  %{.S:X}  substitutes X, if processing a file with suffix S.
  %{!.S:X} substitutes X, if NOT processing a file with suffix S.
  %{,S:X}  substitutes X, if processing a file which will use spec S.
@@ -523,28 +526,12 @@ proper position among the other output files.  */
 #define LIB_SPEC "%{!shared:%{g*:-lg} %{!p:%{!pg:-lc}}%{p:-lc_p}%{pg:-lc_p}}"
 #endif
 
-/* mudflap specs */
-#ifndef MFWRAP_SPEC
-/* XXX: valid only for GNU ld */
-/* XXX: should exactly match hooks provided by libmudflap.a */
-#define MFWRAP_SPEC " %{static: %{fmudflap|fmudflapth: \
- --wrap=malloc --wrap=free --wrap=calloc --wrap=realloc\
- --wrap=mmap --wrap=mmap64 --wrap=munmap --wrap=alloca\
-} %{fmudflapth: --wrap=pthread_create\
-}} %{fmudflap|fmudflapth: --wrap=main}"
-#endif
-#ifndef MFLIB_SPEC
-#define MFLIB_SPEC "%{fmudflap|fmudflapth: -export-dynamic}"
-#endif
-
 /* When using -fsplit-stack we need to wrap pthread_create, in order
    to initialize the stack guard.  We always use wrapping, rather than
    shared library ordering, and we keep the wrapper function in
    libgcc.  This is not yet a real spec, though it could become one;
    it is currently just stuffed into LINK_SPEC.  FIXME: This wrapping
-   only works with GNU ld and gold.  FIXME: This is incompatible with
-   -fmudflap when linking statically, which wants to do its own
-   wrapping.  */
+   only works with GNU ld and gold.  */
 #define STACK_SPLIT_SPEC " %{fsplit-stack: --wrap=pthread_create}"
 
 #ifndef LIBASAN_SPEC
@@ -820,8 +807,6 @@ static const char *asm_spec = ASM_SPEC;
 static const char *asm_final_spec = ASM_FINAL_SPEC;
 static const char *link_spec = LINK_SPEC;
 static const char *lib_spec = LIB_SPEC;
-static const char *mfwrap_spec = MFWRAP_SPEC;
-static const char *mflib_spec = MFLIB_SPEC;
 static const char *link_gomp_spec = "";
 static const char *libgcc_spec = LIBGCC_SPEC;
 static const char *endfile_spec = ENDFILE_SPEC;
@@ -862,8 +847,6 @@ static const char *cpp_unique_options =
  %{remap} %{g3|ggdb3|gstabs3|gcoff3|gxcoff3|gvms3:-dD}\
  %{!iplugindir*:%{fplugin*:%:find-plugindir()}}\
  %{H} %C %{D*&U*&A*} %{i*} %Z %i\
- %{fmudflap:-D_MUDFLAP -include mf-runtime.h}\
- %{fmudflapth:-D_MUDFLAP -D_MUDFLAPTH -include mf-runtime.h}\
  %{E|M|MM:%W{o*}}";
 
 /* This contains cpp options which are common with cc1_options and are passed
@@ -895,7 +878,6 @@ static const char *cc1_options =
  %{-help=*:--help=%*}\
  %{!fsyntax-only:%{S:%W{o*}%{!o*:-o %b.s}}}\
  %{fsyntax-only:-o %j} %{-param*}\
- %{fmudflap|fmudflapth:-fno-builtin -fno-merge-constants}\
  %{coverage:-fprofile-arcs -ftest-coverage}";
 
 static const char *asm_options =
@@ -942,7 +924,7 @@ static const char *const multilib_defaults_raw[] = MULTILIB_DEFAULTS;
 #define DRIVER_SELF_SPECS ""
 #endif
 
-/* Adding -fopenmp should imply pthreads.  This is particularly important
+/* Linking to libgomp implies pthreads.  This is particularly important
    for targets that use different start files and suchlike.  */
 #ifndef GOMP_SELF_SPECS
 #define GOMP_SELF_SPECS "%{fopenmp|ftree-parallelize-loops=*: -pthread}"
@@ -1309,8 +1291,6 @@ static struct spec_list static_specs[] =
   INIT_STATIC_SPEC ("endfile",			&endfile_spec),
   INIT_STATIC_SPEC ("link",			&link_spec),
   INIT_STATIC_SPEC ("lib",			&lib_spec),
-  INIT_STATIC_SPEC ("mfwrap",			&mfwrap_spec),
-  INIT_STATIC_SPEC ("mflib",			&mflib_spec),
   INIT_STATIC_SPEC ("link_gomp",		&link_gomp_spec),
   INIT_STATIC_SPEC ("libgcc",			&libgcc_spec),
   INIT_STATIC_SPEC ("startfile",		&startfile_spec),
@@ -5375,7 +5355,17 @@ do_spec_1 (const char *spec, int inswitch, const char *soft_matched_part)
 	      {
 		if (soft_matched_part[0])
 		  do_spec_1 (soft_matched_part, 1, NULL);
-		do_spec_1 (" ", 0, NULL);
+		/* Only insert a space after the substitution if it is at the
+		   end of the current sequence.  So if:
+
+		     "%{foo=*:bar%*}%{foo=*:one%*two}"
+
+		   matches -foo=hello then it will produce:
+		   
+		     barhello onehellotwo
+		*/
+		if (*p == 0 || *p == '}')
+		  do_spec_1 (" ", 0, NULL);
 	      }
 	    else
 	      /* Catch the case where a spec string contains something like

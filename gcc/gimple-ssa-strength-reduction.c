@@ -38,16 +38,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "basic-block.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssanames.h"
 #include "domwalk.h"
 #include "pointer-set.h"
 #include "expmed.h"
 #include "params.h"
 #include "hash-table.h"
+#include "tree-ssa-address.h"
 
 /* Information about a strength reduction candidate.  Each statement
    in the candidate table represents an expression of one of the

@@ -45,6 +45,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "c-family/c-objc.h"
 #include "c-family/c-pragma.h"
 #include "c-family/c-target.h"
+#include "c-family/c-ubsan.h"
 #include "diagnostic.h"
 #include "intl.h"
 #include "debug.h"
@@ -1221,10 +1222,12 @@ validate_constexpr_redeclaration (tree old_decl, tree new_decl)
       if (! DECL_TEMPLATE_SPECIALIZATION (old_decl)
 	  && DECL_TEMPLATE_SPECIALIZATION (new_decl))
 	return true;
+
+      error ("redeclaration %qD differs in %<constexpr%>", new_decl);
+      error ("from previous declaration %q+D", old_decl);
+      return false;
     }
-  error ("redeclaration %qD differs in %<constexpr%>", new_decl);
-  error ("from previous declaration %q+D", old_decl);
-  return false;
+  return true;
 }
 
 // If OLDDECL and NEWDECL are concept declarations with the same type
@@ -5728,6 +5731,7 @@ check_initializer (tree decl, tree init, int flags, vec<tree, va_gc> **cleanups)
 	  && !(init && BRACE_ENCLOSED_INITIALIZER_P (init)
 	       && CP_AGGREGATE_TYPE_P (type)
 	       && (CLASS_TYPE_P (type)
+		   || !TYPE_NEEDS_CONSTRUCTING (type)
 		   || type_has_extended_temps (type))))
 	{
 	  init_code = build_aggr_init_full_exprs (decl, init, flags);
@@ -6445,21 +6449,6 @@ cp_finish_decl (tree decl, tree init, bool init_const_expr_p,
 	   && TYPE_FOR_JAVA (type) && MAYBE_CLASS_TYPE_P (type))
     error ("non-static data member %qD has Java class type", decl);
 
-  if (cxx_dialect >= cxx1y && array_of_runtime_bound_p (type))
-    {
-      /* If the VLA bound is larger than half the address space, or less
-	 than zero, throw std::bad_array_length.  */
-      tree max = convert (ssizetype, TYPE_MAX_VALUE (TYPE_DOMAIN (type)));
-      /* C++1y says we should throw for length <= 0, but we have
-	 historically supported zero-length arrays.  Let's treat that as an
-	 extension to be disabled by -std=c++NN.  */
-      int lower = flag_iso ? 0 : -1;
-      tree comp = build2 (LT_EXPR, boolean_type_node, max, ssize_int (lower));
-      comp = build3 (COND_EXPR, void_type_node, comp,
-		     throw_bad_array_length (), void_zero_node);
-      finish_expr_stmt (comp);
-    }
-
   /* Add this declaration to the statement-tree.  This needs to happen
      after the call to check_initializer so that the DECL_EXPR for a
      reference temp is added before the DECL_EXPR for the reference itself.  */
@@ -6943,7 +6932,11 @@ expand_static_init (tree decl, tree init)
   /* Some variables require no dynamic initialization.  */
   if (!init
       && TYPE_HAS_TRIVIAL_DESTRUCTOR (TREE_TYPE (decl)))
-    return;
+    {
+      /* Make sure the destructor is callable.  */
+      cxx_maybe_build_cleanup (decl, tf_warning_or_error);
+      return;
+    }
 
   if (DECL_THREAD_LOCAL_P (decl) && DECL_GNU_TLS_P (decl)
       && !DECL_FUNCTION_SCOPE_P (decl))
@@ -8460,6 +8453,7 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 	{
 	  /* A variable sized array.  */
 	  itype = variable_size (itype);
+
 	  if (TREE_CODE (itype) != SAVE_EXPR)
 	    {
 	      /* Look for SIZEOF_EXPRs in itype and fold them, otherwise
@@ -8470,6 +8464,32 @@ compute_array_index_type (tree name, tree size, tsubst_flags_t complain)
 					       fold_sizeof_expr_r, &found);
 	      if (found)
 		itype = variable_size (fold (newitype));
+	    }
+
+	  stabilize_vla_size (itype);
+
+	  if (cxx_dialect >= cxx1y)
+	    {
+	      /* If the VLA bound is larger than half the address space,
+	         or less than zero, throw std::bad_array_length.  */
+	      tree comp = build2 (LT_EXPR, boolean_type_node, itype,
+				  ssize_int (-1));
+	      comp = build3 (COND_EXPR, void_type_node, comp,
+			     throw_bad_array_length (), void_zero_node);
+	      finish_expr_stmt (comp);
+	    }
+	  else if (flag_sanitize & SANITIZE_VLA)
+	    {
+	      /* From C++1y onwards, we throw an exception on a negative
+		 length size of an array; see above.  */
+
+	      /* We have to add 1 -- in the ubsan routine we generate
+		 LE_EXPR rather than LT_EXPR.  */
+	      tree t = fold_build2 (PLUS_EXPR, TREE_TYPE (itype), itype,
+				    build_one_cst (TREE_TYPE (itype)));
+	      t = fold_build2 (COMPOUND_EXPR, TREE_TYPE (t),
+			       ubsan_instrument_vla (input_location, t), t);
+	      finish_expr_stmt (t);
 	    }
 	}
       /* Make sure that there was no overflow when creating to a signed
@@ -9886,12 +9906,8 @@ grokdeclarator (const cp_declarator *declarator,
 	      && (decl_context == NORMAL || decl_context == FIELD)
 	      && at_function_scope_p ()
 	      && variably_modified_type_p (type, NULL_TREE))
-	    {
-	      /* First break out any side-effects.  */
-	      stabilize_vla_size (TYPE_SIZE (type));
-	      /* And then force evaluation of the SAVE_EXPR.  */
-	      finish_expr_stmt (TYPE_SIZE (type));
-	    }
+	    /* Force evaluation of the SAVE_EXPR.  */
+	    finish_expr_stmt (TYPE_SIZE (type));
 
 	  if (declarator->kind == cdk_reference)
 	    {
@@ -9981,14 +9997,6 @@ grokdeclarator (const cp_declarator *declarator,
 	  gcc_unreachable ();
 	}
     }
-
-  /* We need to stabilize side-effects in VLA sizes for regular array
-     declarations too, not just pointers to arrays.  */
-  if (type != error_mark_node && !TYPE_NAME (type)
-      && (decl_context == NORMAL || decl_context == FIELD)
-      && at_function_scope_p ()
-      && variably_modified_type_p (type, NULL_TREE))
-    stabilize_vla_size (TYPE_SIZE (type));
 
   /* A `constexpr' specifier used in an object declaration declares
      the object as `const'.  */
@@ -10471,33 +10479,11 @@ grokdeclarator (const cp_declarator *declarator,
 
       if (type_uses_auto (type))
 	{
-	  if (template_parm_flag)
-	    {
-	      error ("template parameter declared %<auto%>");
-	      type = error_mark_node;
-	    }
-	  else if (decl_context == CATCHPARM)
-	    {
-	      error ("catch parameter declared %<auto%>");
-	      type = error_mark_node;
-	    }
-	  else if (current_class_type && LAMBDA_TYPE_P (current_class_type))
-	    {
-	      if (cxx_dialect < cxx1y)
-		pedwarn (location_of (type), 0,
-			 "use of %<auto%> in lambda parameter declaration "
-			 "only available with "
-			 "-std=c++1y or -std=gnu++1y");
-	    }
-	  else if (cxx_dialect < cxx1y)
-	    pedwarn (location_of (type), 0,
-		     "use of %<auto%> in parameter declaration "
-		     "only available with "
-		     "-std=c++1y or -std=gnu++1y");
+	  if (cxx_dialect >= cxx1y)
+	    error ("%<auto%> parameter not permitted in this context");
 	  else
-	    pedwarn (location_of (type), OPT_Wpedantic,
-		     "ISO C++ forbids use of %<auto%> in parameter "
-		     "declaration");
+	    error ("parameter declared %<auto%>");
+	  type = error_mark_node;
 	}
 
       /* A parameter declared as an array of T is really a pointer to T.
@@ -14423,11 +14409,9 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
     }
   /* Handle ordinary C++ destructors.  */
   type = TREE_TYPE (decl);
-  if (TYPE_HAS_NONTRIVIAL_DESTRUCTOR (type))
+  if (type_build_dtor_call (type))
     {
-      int flags = LOOKUP_NORMAL|LOOKUP_DESTRUCTOR;
-      bool has_vbases = (TREE_CODE (type) == RECORD_TYPE
-			 && CLASSTYPE_VBASECLASSES (type));
+      int flags = LOOKUP_NORMAL|LOOKUP_NONVIRTUAL|LOOKUP_DESTRUCTOR;
       tree addr;
       tree call;
 
@@ -14436,14 +14420,12 @@ cxx_maybe_build_cleanup (tree decl, tsubst_flags_t complain)
       else
 	addr = build_address (decl);
 
-      /* Optimize for space over speed here.  */
-      if (!has_vbases || flag_expensive_optimizations)
-	flags |= LOOKUP_NONVIRTUAL;
-
       call = build_delete (TREE_TYPE (addr), addr,
 			   sfk_complete_destructor, flags, 0, complain);
       if (call == error_mark_node)
 	cleanup = error_mark_node;
+      else if (TYPE_HAS_TRIVIAL_DESTRUCTOR (type))
+	/* Discard the call.  */;
       else if (cleanup)
 	cleanup = cp_build_compound_expr (cleanup, call, complain);
       else

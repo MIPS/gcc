@@ -508,6 +508,48 @@ package Sinfo is
    --      simply ignore these nodes, since they are not relevant to the task
    --      of back annotating representation information.
 
+   ----------------
+   -- SPARK Mode --
+   ----------------
+
+   --  When a file is compiled in SPARK mode (-gnatd.F), a very light expansion
+   --  is performed and the analysis must generate a tree in a form that meets
+   --  additional requirements.
+
+   --  The SPARK expansion does two transformations of the tree, that cannot be
+   --  postponed after the frontend semantic analysis:
+
+   --    1. Replace renamings by renamed (object/subprogram). This requires
+   --       introducing temporaries at the point of the renaming, which must be
+   --       properly analyzed.
+
+   --    2. Fully qualify entity names. This is needed to generate suitable
+   --       local effects/call-graphs in ALI files, with the completely
+   --       qualified names (in particular the suffix to distinguish homonyms).
+
+   --  The tree after SPARK expansion should be fully analyzed semantically,
+   --  which sometimes requires the insertion of semantic pre-analysis, for
+   --  example for subprogram contracts and pragma check/assert. In particular,
+   --  all expression must have their proper type, and semantic links should be
+   --  set between tree nodes (partial to full view, etc.) Some kinds of nodes
+   --  should be either absent, or can be ignored by the formal verification
+   --  backend:
+
+   --      N_Object_Renaming_Declaration: can be ignored safely
+   --      N_Expression_Function:         absent (rewitten)
+   --      N_Expression_With_Actions:     absent (not generated)
+
+   --  SPARK cross-references are generated from the regular cross-references
+   --  (used for browsing and code understanding) and additional references
+   --  collected during semantic analysis, in particular on all dereferences.
+   --  These SPARK cross-references are output in a separate section of ALI
+   --  files, as described in spark_xrefs.adb. They are the basis for the
+   --  computation of data dependences in the formal verification backend.
+   --  This implies that all cross-references should be generated in this mode,
+   --  even those that would not make sense from a user point-of-view, and that
+   --  cross-references that do not lead to data dependences for subprograms
+   --  can be safely ignored.
+
    ------------------------
    -- Common Flag Fields --
    ------------------------
@@ -3596,7 +3638,7 @@ package Sinfo is
       --  Sloc points to first selector name
       --  Choices (List1)
       --  Loop_Actions (List2-Sem)
-      --  Expression (Node3)
+      --  Expression (Node3) (empty if Box_Present)
       --  Box_Present (Flag15)
       --  Inherited_Discriminant (Flag13)
 
@@ -7198,6 +7240,7 @@ package Sinfo is
       --    Abstract_States
       --    Depends
       --    Global
+      --    Initial_Condition
       --    Initializes
       --    Refined_Depends
       --    Refined_Global
@@ -7646,7 +7689,7 @@ package Sinfo is
       --  N_Subprogram_Info
       --  Sloc points to the entity for the procedure
       --  Identifier (Node1) identifier referencing the procedure
-      --  Etype (Node5-Sem) type (always set to Ada.Exceptions.Code_Loc
+      --  Etype (Node5-Sem) type (always set to Ada.Exceptions.Code_Loc)
 
       --  Note: in the case where a debug source file is generated, the Sloc
       --  for this node points to the quote in the Sprint file output.

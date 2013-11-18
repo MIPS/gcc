@@ -163,7 +163,7 @@ enum c_typespec_kind {
   ctsk_typedef,
   /* An ObjC-specific kind of type specifier.  */
   ctsk_objc,
-  /* A typeof specifier.  */
+  /* A typeof specifier, or _Atomic ( type-name ).  */
   ctsk_typeof
 };
 
@@ -214,7 +214,8 @@ enum c_typespec_keyword {
   cts_dfloat64,
   cts_dfloat128,
   cts_fract,
-  cts_accum
+  cts_accum,
+  cts_auto_type
 };
 
 /* This enum lists all the possible declarator specifiers, storage
@@ -320,14 +321,18 @@ struct c_declspecs {
   BOOL_BITFIELD inline_p : 1;
   /* Whether "_Noreturn" was speciied.  */
   BOOL_BITFIELD noreturn_p : 1;
-  /* Whether "__thread" was specified.  */
+  /* Whether "__thread" or "_Thread_local" was specified.  */
   BOOL_BITFIELD thread_p : 1;
+  /* Whether "__thread" rather than "_Thread_local" was specified.  */
+  BOOL_BITFIELD thread_gnu_p : 1;
   /* Whether "const" was specified.  */
   BOOL_BITFIELD const_p : 1;
   /* Whether "volatile" was specified.  */
   BOOL_BITFIELD volatile_p : 1;
   /* Whether "restrict" was specified.  */
   BOOL_BITFIELD restrict_p : 1;
+  /* Whether "_Atomic" was specified.  */
+  BOOL_BITFIELD atomic_p : 1;
   /* Whether "_Sat" was specified.  */
   BOOL_BITFIELD saturating_p : 1;
   /* Whether any alignment specifier (even with zero alignment) was
@@ -585,6 +590,8 @@ extern struct c_expr default_function_array_conversion (location_t,
 							struct c_expr);
 extern struct c_expr default_function_array_read_conversion (location_t,
 							     struct c_expr);
+extern struct c_expr convert_lvalue_to_rvalue (location_t, struct c_expr,
+					       bool, bool);
 extern void mark_exp_read (tree);
 extern tree composite_type (tree, tree);
 extern tree build_component_ref (location_t, tree, tree);

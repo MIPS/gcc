@@ -179,8 +179,16 @@ pp_c_cv_qualifiers (c_pretty_printer *pp, int qualifiers, bool func_type)
   if (p != NULL && (*p == '*' || *p == '&'))
     pp_c_whitespace (pp);
 
+  if (qualifiers & TYPE_QUAL_ATOMIC)
+    {
+      pp_c_ws_string (pp, "_Atomic");
+      previous = true;
+    }
+
   if (qualifiers & TYPE_QUAL_CONST)
     {
+      if (previous)
+        pp_c_whitespace (pp);
       pp_c_ws_string (pp, func_type ? "__attribute__((const))" : "const");
       previous = true;
     }
@@ -244,6 +252,7 @@ pp_c_space_for_pointer_operator (c_pretty_printer *pp, tree t)
        __restrict__                          -- GNU C
        address-space-qualifier		     -- GNU C
        volatile
+       _Atomic                               -- C11
 
    address-space-qualifier:
        identifier			     -- GNU C  */
@@ -941,14 +950,8 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
 static void
 pp_c_character_constant (c_pretty_printer *pp, tree c)
 {
-  tree type = TREE_TYPE (c);
-  if (type == wchar_type_node)
-    pp_character (pp, 'L');
   pp_quote (pp);
-  if (host_integerp (c, TYPE_UNSIGNED (type)))
-    pp_c_char (pp, tree_low_cst (c, TYPE_UNSIGNED (type)));
-  else
-    pp_scalar (pp, "\\x%x", (unsigned) TREE_INT_CST_LOW (c));
+  pp_c_char (pp, (unsigned) TREE_INT_CST_LOW (c));
   pp_quote (pp);
 }
 

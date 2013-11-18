@@ -98,7 +98,7 @@ struct incomplete
 static int defer_incomplete_level = 0;
 static struct incomplete *defer_incomplete_list;
 
-/* This variable is used to delay expanding From_With_Type types until the
+/* This variable is used to delay expanding From_Limited_With types until the
    end of the spec.  */
 static struct incomplete *defer_limited_with;
 
@@ -1117,8 +1117,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			   as we have a VAR_DECL for the pointer we make.  */
 		      }
 
-		    gnu_expr = build_unary_op (ADDR_EXPR, gnu_type,
-					       maybe_stable_expr);
+		    if (type_annotate_only
+ 			&& TREE_CODE (maybe_stable_expr) == ERROR_MARK)
+		      gnu_expr = NULL_TREE;
+		    else
+		      gnu_expr = build_unary_op (ADDR_EXPR, gnu_type,
+						 maybe_stable_expr);
 
 		    gnu_size = NULL_TREE;
 		    used_by_ref = true;
@@ -3738,7 +3742,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	/* Whether it comes from a limited with.  */
 	bool is_from_limited_with
 	  = (IN (Ekind (gnat_desig_equiv), Incomplete_Kind)
-	     && From_With_Type (gnat_desig_equiv));
+	     && From_Limited_With (gnat_desig_equiv));
 	/* The "full view" of the designated type.  If this is an incomplete
 	   entity from a limited with, treat its non-limited view as the full
 	   view.  Otherwise, if this is an incomplete or private type, use the
@@ -4230,7 +4234,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
 		&& IN (Ekind (gnat_return_type), Incomplete_Kind)
-	        && From_With_Type (gnat_return_type)
+	        && From_Limited_With (gnat_return_type)
 		&& In_Extended_Main_Code_Unit
 		   (Non_Limited_View (gnat_return_type))
 		&& !present_gnu_tree (Non_Limited_View (gnat_return_type)))
@@ -4343,7 +4347,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	       we are only annotating types, break circularities here.  */
 	    if (type_annotate_only
 		&& IN (Ekind (gnat_param_type), Incomplete_Kind)
-	        && From_With_Type (Etype (gnat_param_type))
+	        && From_Limited_With (Etype (gnat_param_type))
 		&& In_Extended_Main_Code_Unit
 		   (Non_Limited_View (gnat_param_type))
 		&& !present_gnu_tree (Non_Limited_View (gnat_param_type)))
@@ -4738,7 +4742,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	   full view, whichever is present.  This is used in all the tests
 	   below.  */
 	Entity_Id full_view
-	  = (IN (kind, Incomplete_Kind) && From_With_Type (gnat_entity))
+	  = (IN (kind, Incomplete_Kind) && From_Limited_With (gnat_entity))
 	    ? Non_Limited_View (gnat_entity)
 	    : Present (Full_View (gnat_entity))
 	      ? Full_View (gnat_entity)
@@ -5490,10 +5494,10 @@ is_cplusplus_method (Entity_Id gnat_entity)
   return false;
 }
 
-/* Finalize the processing of From_With_Type incomplete types.  */
+/* Finalize the processing of From_Limited_With incomplete types.  */
 
 void
-finalize_from_with_types (void)
+finalize_from_limited_with (void)
 {
   struct incomplete *p, *next;
 
@@ -7003,12 +7007,10 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
       tree gnu_union_type, gnu_union_name;
       tree this_first_free_pos, gnu_variant_list = NULL_TREE;
       bool union_field_needs_strict_alignment = false;
-      vec <vinfo_t, va_stack> variant_types;
+      stack_vec <vinfo_t, 16> variant_types;
       vinfo_t *gnu_variant;
       unsigned int variants_align = 0;
       unsigned int i;
-
-      vec_stack_alloc (vinfo_t, variant_types, 16);
 
       if (TREE_CODE (gnu_name) == TYPE_DECL)
 	gnu_name = DECL_NAME (gnu_name);
@@ -7204,9 +7206,6 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 	  DECL_CHAIN (gnu_field) = gnu_variant_list;
 	  gnu_variant_list = gnu_field;
 	}
-
-      /* We are done with the variants.  */
-      variant_types.release ();
 
       /* Only make the QUAL_UNION_TYPE if there are non-empty variants.  */
       if (gnu_variant_list)

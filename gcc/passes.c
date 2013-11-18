@@ -56,11 +56,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "hosthooks.h"
-#include "cgraph.h"
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree-inline.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
@@ -73,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "tree-ssa-live.h"  /* For remove_unused_locals.  */
+#include "tree-cfgcleanup.h"
 
 using namespace gcc;
 
@@ -279,27 +286,28 @@ finish_optimization_passes (void)
   int i;
   struct dump_file_info *dfi;
   char *name;
+  gcc::dump_manager *dumps = m_ctxt->get_dumps ();
 
   timevar_push (TV_DUMP);
   if (profile_arc_flag || flag_test_coverage || flag_branch_probabilities)
     {
-      dump_start (pass_profile_1->static_pass_number, NULL);
+      dumps->dump_start (pass_profile_1->static_pass_number, NULL);
       end_branch_prob ();
-      dump_finish (pass_profile_1->static_pass_number);
+      dumps->dump_finish (pass_profile_1->static_pass_number);
     }
 
   if (optimize > 0)
     {
-      dump_start (pass_profile_1->static_pass_number, NULL);
+      dumps->dump_start (pass_profile_1->static_pass_number, NULL);
       print_combine_total_stats ();
-      dump_finish (pass_profile_1->static_pass_number);
+      dumps->dump_finish (pass_profile_1->static_pass_number);
     }
 
   /* Do whatever is necessary to finish printing the graphs.  */
-  for (i = TDI_end; (dfi = get_dump_file_info (i)) != NULL; ++i)
-    if (dump_initialized_p (i)
+  for (i = TDI_end; (dfi = dumps->get_dump_file_info (i)) != NULL; ++i)
+    if (dumps->dump_initialized_p (i)
 	&& (dfi->pflags & TDF_GRAPH) != 0
-	&& (name = get_dump_file_name (i)) != NULL)
+	&& (name = dumps->get_dump_file_name (i)) != NULL)
       {
 	finish_graph_dump_file (name);
 	free (name);
@@ -642,6 +650,7 @@ pass_manager::register_one_dump_file (struct opt_pass *pass)
   char num[10];
   int flags, id;
   int optgroup_flags = OPTGROUP_NONE;
+  gcc::dump_manager *dumps = m_ctxt->get_dumps ();
 
   /* See below in next_pass_1.  */
   num[0] = '\0';
@@ -682,7 +691,8 @@ pass_manager::register_one_dump_file (struct opt_pass *pass)
      any dump messages are emitted properly under -fopt-info(-optall).  */
   if (optgroup_flags == OPTGROUP_NONE)
     optgroup_flags = OPTGROUP_OTHER;
-  id = dump_register (dot_name, flag_name, glob_name, flags, optgroup_flags);
+  id = dumps->dump_register (dot_name, flag_name, glob_name, flags,
+			     optgroup_flags);
   set_pass_for_id (id, pass);
   full_name = concat (prefix, pass->name, num, NULL);
   register_pass_name (pass, full_name);
@@ -883,7 +893,7 @@ pass_manager::dump_passes () const
   create_pass_tab ();
 
   FOR_EACH_FUNCTION (n)
-    if (DECL_STRUCT_FUNCTION (n->symbol.decl))
+    if (DECL_STRUCT_FUNCTION (n->decl))
       {
 	node = n;
 	break;
@@ -892,7 +902,7 @@ pass_manager::dump_passes () const
   if (!node)
     return;
 
-  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 
   dump_pass_list (all_lowering_passes, 1);
   dump_pass_list (all_small_ipa_passes, 1);
@@ -1390,6 +1400,7 @@ void
 pass_manager::register_pass (struct register_pass_info *pass_info)
 {
   bool all_instances, success;
+  gcc::dump_manager *dumps = m_ctxt->get_dumps ();
 
   /* The checks below could fail in buggy plugins.  Existing GCC
      passes should never fail these checks, so we mention plugin in
@@ -1447,9 +1458,9 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
       else
         tdi = TDI_rtl_all;
       /* Check if dump-all flag is specified.  */
-      if (get_dump_file_info (tdi)->pstate)
-        get_dump_file_info (added_pass_nodes->pass->static_pass_number)
-            ->pstate = get_dump_file_info (tdi)->pstate;
+      if (dumps->get_dump_file_info (tdi)->pstate)
+        dumps->get_dump_file_info (added_pass_nodes->pass->static_pass_number)
+            ->pstate = dumps->get_dump_file_info (tdi)->pstate;
       XDELETE (added_pass_nodes);
       added_pass_nodes = next_node;
     }
@@ -1566,10 +1577,10 @@ do_per_function (void (*callback) (void *data), void *data)
     {
       struct cgraph_node *node;
       FOR_EACH_DEFINED_FUNCTION (node)
-	if (node->symbol.analyzed && gimple_has_body_p (node->symbol.decl)
-	    && (!node->clone_of || node->symbol.decl != node->clone_of->symbol.decl))
+	if (node->analyzed && gimple_has_body_p (node->decl)
+	    && (!node->clone_of || node->decl != node->clone_of->decl))
 	  {
-	    push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	    callback (data);
 	    if (!flag_wpa)
 	      {
@@ -1616,7 +1627,7 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  if (cgraph_function_with_gimple_body_p (node))
 	    {
 	      cgraph_get_body (node);
-	      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	      callback (data);
 	      free_dominance_info (CDI_DOMINATORS);
 	      free_dominance_info (CDI_POST_DOMINATORS);
@@ -1864,7 +1875,8 @@ execute_todo (unsigned int flags)
 
   statistics_fini_pass ();
 
-  do_per_function (execute_function_todo, (void *)(size_t) flags);
+  if (flags)
+    do_per_function (execute_function_todo, (void *)(size_t) flags);
 
   /* Always remove functions just as before inlining: IPA passes might be
      interested to see bodies of extern inline functions that are not inlined
@@ -1932,9 +1944,11 @@ pass_init_dump_file (struct opt_pass *pass)
   if (pass->static_pass_number != -1)
     {
       timevar_push (TV_DUMP);
-      bool initializing_dump = !dump_initialized_p (pass->static_pass_number);
-      dump_file_name = get_dump_file_name (pass->static_pass_number);
-      dump_start (pass->static_pass_number, &dump_flags);
+      gcc::dump_manager *dumps = g->get_dumps ();
+      bool initializing_dump =
+	!dumps->dump_initialized_p (pass->static_pass_number);
+      dump_file_name = dumps->get_dump_file_name (pass->static_pass_number);
+      dumps->dump_start (pass->static_pass_number, &dump_flags);
       if (dump_file && current_function_decl)
         dump_function_header (dump_file, current_function_decl, dump_flags);
       if (initializing_dump
@@ -1963,7 +1977,7 @@ pass_fini_dump_file (struct opt_pass *pass)
       dump_file_name = NULL;
     }
 
-  dump_finish (pass->static_pass_number);
+  g->get_dumps ()->dump_finish (pass->static_pass_number);
   timevar_pop (TV_DUMP);
 }
 
@@ -2052,7 +2066,8 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   if (profile_report && cfun && (cfun->curr_properties & PROP_cfg))
     check_profile_consistency (pass->static_pass_number, 1, true);
 
-  do_per_function (execute_function_dump, NULL);
+  if (dump_file)
+    do_per_function (execute_function_dump, NULL);
   pass_fini_dump_file (pass);
 
   current_pass = NULL;
@@ -2218,7 +2233,8 @@ execute_one_pass (struct opt_pass *pass)
     check_profile_consistency (pass->static_pass_number, 1, true);
 
   verify_interpass_invariants ();
-  do_per_function (execute_function_dump, NULL);
+  if (dump_file)
+    do_per_function (execute_function_dump, NULL);
   if (pass->type == IPA_PASS)
     {
       struct cgraph_node *node;
@@ -2355,19 +2371,19 @@ ipa_write_summaries (void)
 	     ordering then matches the one IPA-passes get in their stmt_fixup
 	     hooks.  */
 
-	  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
-      if (node->symbol.definition)
-        lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
+      if (node->definition)
+        lto_set_symtab_encoder_in_partition (encoder, node);
     }
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (node->symbol.alias)
-      lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
+    if (node->alias)
+      lto_set_symtab_encoder_in_partition (encoder, node);
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
+    lto_set_symtab_encoder_in_partition (encoder, vnode);
 
   ipa_write_summaries_1 (compute_ltrans_boundary (encoder));
 
@@ -2433,10 +2449,10 @@ ipa_write_optimization_summaries (lto_symtab_encoder_t encoder)
 
 	 For functions newly born at WPA stage we need to initialize
 	 the uids here.  */
-      if (node->symbol.definition
-	  && gimple_has_body_p (node->symbol.decl))
+      if (node->definition
+	  && gimple_has_body_p (node->decl))
 	{
-	  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
@@ -2678,11 +2694,11 @@ function_called_by_processed_nodes_p (void)
        e;
        e = e->next_caller)
     {
-      if (e->caller->symbol.decl == current_function_decl)
+      if (e->caller->decl == current_function_decl)
         continue;
       if (!cgraph_function_with_gimple_body_p (e->caller))
         continue;
-      if (TREE_ASM_WRITTEN (e->caller->symbol.decl))
+      if (TREE_ASM_WRITTEN (e->caller->decl))
         continue;
       if (!e->caller->process && !e->caller->global.inlined_to)
       	break;

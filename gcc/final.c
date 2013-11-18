@@ -70,14 +70,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "expr.h"
 #include "tree-pass.h"
-#include "tree-ssa.h"
 #include "cgraph.h"
+#include "tree-ssa.h"
 #include "coverage.h"
 #include "df.h"
 #include "ggc.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-pretty-print.h" /* for dump_function_header */
+#include "asan.h"
 
 #ifdef XCOFF_DEBUGGING_INFO
 #include "xcoffout.h"		/* Needed for external data
@@ -829,7 +830,7 @@ void
 update_alignments (vec<rtx> &label_pairs)
 {
   unsigned int i = 0;
-  rtx iter, label;
+  rtx iter, label = NULL_RTX;
 
   if (max_labelno != max_label_num ())
     grow_label_align ();
@@ -1737,6 +1738,9 @@ final_start_function (rtx first, FILE *file,
   last_discriminator = discriminator = 0;
 
   high_block_linenum = high_function_linenum = last_linenum;
+
+  if (flag_sanitize & SANITIZE_ADDRESS)
+    asan_function_start ();
 
   if (!DECL_IGNORED_P (current_function_decl))
     debug_hooks->begin_prologue (last_linenum, last_filename);

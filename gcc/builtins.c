@@ -43,11 +43,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "langhooks.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
+#include "tree-ssanames.h"
+#include "tree-dfa.h"
 #include "value-prof.h"
 #include "diagnostic-core.h"
 #include "builtins.h"
 #include "ubsan.h"
+#include "cilk.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
@@ -234,6 +236,10 @@ is_builtin_name (const char *name)
     return true;
   if (strncmp (name, "__atomic_", 9) == 0)
     return true;
+  if (flag_enable_cilkplus 
+      && (!strcmp (name, "__cilkrts_detach")   
+	  || !strcmp (name, "__cilkrts_pop_frame")))
+    return true;
   return false;
 }
 
@@ -308,7 +314,7 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
   tree offset;
   enum machine_mode mode;
   int unsignedp, volatilep;
-  unsigned int inner, align = BITS_PER_UNIT;
+  unsigned int align = BITS_PER_UNIT;
   bool known_alignment = false;
 
   /* Get the innermost object and the constant (bitpos) and possibly
@@ -417,50 +423,16 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
 
   /* If there is a non-constant offset part extract the maximum
      alignment that can prevail.  */
-  inner = ~0U;
-  while (offset)
+  if (offset)
     {
-      tree next_offset;
-
-      if (TREE_CODE (offset) == PLUS_EXPR)
+      int trailing_zeros = tree_ctz (offset);
+      if (trailing_zeros < HOST_BITS_PER_INT)
 	{
-	  next_offset = TREE_OPERAND (offset, 0);
-	  offset = TREE_OPERAND (offset, 1);
+	  unsigned int inner = (1U << trailing_zeros) * BITS_PER_UNIT;
+	  if (inner)
+	    align = MIN (align, inner);
 	}
-      else
-	next_offset = NULL;
-      if (host_integerp (offset, 1))
-	{
-	  /* Any overflow in calculating offset_bits won't change
-	     the alignment.  */
-	  unsigned offset_bits
-	    = ((unsigned) tree_low_cst (offset, 1) * BITS_PER_UNIT);
-
-	  if (offset_bits)
-	    inner = MIN (inner, (offset_bits & -offset_bits));
-	}
-      else if (TREE_CODE (offset) == MULT_EXPR
-	       && host_integerp (TREE_OPERAND (offset, 1), 1))
-	{
-	  /* Any overflow in calculating offset_factor won't change
-	     the alignment.  */
-	  unsigned offset_factor
-	    = ((unsigned) tree_low_cst (TREE_OPERAND (offset, 1), 1)
-	       * BITS_PER_UNIT);
-
-	  if (offset_factor)
-	    inner = MIN (inner, (offset_factor & -offset_factor));
-	}
-      else
-	{
-	  inner = MIN (inner, BITS_PER_UNIT);
-	  break;
-	}
-      offset = next_offset;
     }
-  /* Alignment is innermost object alignment adjusted by the constant
-     and non-constant offset parts.  */
-  align = MIN (align, inner);
 
   *alignp = align;
   *bitposp = bitpos & (*alignp - 1);
@@ -1076,6 +1048,63 @@ expand_builtin_longjmp (rtx buf_addr, rtx value)
       else if (CALL_P (insn))
 	break;
     }
+}
+
+static inline bool
+more_const_call_expr_args_p (const const_call_expr_arg_iterator *iter)
+{
+  return (iter->i < iter->n);
+}
+
+/* This function validates the types of a function call argument list
+   against a specified list of tree_codes.  If the last specifier is a 0,
+   that represents an ellipses, otherwise the last specifier must be a
+   VOID_TYPE.  */
+
+static bool
+validate_arglist (const_tree callexpr, ...)
+{
+  enum tree_code code;
+  bool res = 0;
+  va_list ap;
+  const_call_expr_arg_iterator iter;
+  const_tree arg;
+
+  va_start (ap, callexpr);
+  init_const_call_expr_arg_iterator (callexpr, &iter);
+
+  do
+    {
+      code = (enum tree_code) va_arg (ap, int);
+      switch (code)
+	{
+	case 0:
+	  /* This signifies an ellipses, any further arguments are all ok.  */
+	  res = true;
+	  goto end;
+	case VOID_TYPE:
+	  /* This signifies an endlink, if no arguments remain, return
+	     true, otherwise return false.  */
+	  res = !more_const_call_expr_args_p (&iter);
+	  goto end;
+	default:
+	  /* If no parameters remain or the parameter's code does not
+	     match the specified code, return false.  Otherwise continue
+	     checking any remaining arguments.  */
+	  arg = next_const_call_expr_arg (&iter);
+	  if (!validate_arg (arg, code))
+	    goto end;
+	  break;
+	}
+    }
+  while (1);
+
+  /* We need gotos here since we can only have one VA_CLOSE in a
+     function.  */
+ end: ;
+  va_end (ap);
+
+  return res;
 }
 
 /* Expand a call to __builtin_nonlocal_goto.  We're passed the target label
@@ -3066,6 +3095,51 @@ builtin_memcpy_read_str (void *data, HOST_WIDE_INT offset,
   return c_readstr (str + offset, mode);
 }
 
+/* LEN specify length of the block of memcpy/memset operation.
+   Figure out its range and put it into MIN_SIZE/MAX_SIZE.  */
+
+static void
+determine_block_size (tree len, rtx len_rtx,
+		      unsigned HOST_WIDE_INT *min_size,
+		      unsigned HOST_WIDE_INT *max_size)
+{
+  if (CONST_INT_P (len_rtx))
+    {
+      *min_size = *max_size = UINTVAL (len_rtx);
+      return;
+    }
+  else
+    {
+      double_int min, max;
+      if (TREE_CODE (len) == SSA_NAME 
+	  && get_range_info (len, &min, &max) == VR_RANGE)
+	{
+	  if (min.fits_uhwi ())
+	    *min_size = min.to_uhwi ();
+	  else
+	    *min_size = 0;
+	  if (max.fits_uhwi ())
+	    *max_size = max.to_uhwi ();
+	  else
+	    *max_size = (HOST_WIDE_INT)-1;
+	}
+      else
+	{
+	  if (host_integerp (TYPE_MIN_VALUE (TREE_TYPE (len)), 1))
+	    *min_size = tree_low_cst (TYPE_MIN_VALUE (TREE_TYPE (len)), 1);
+	  else
+	    *min_size = 0;
+	  if (host_integerp (TYPE_MAX_VALUE (TREE_TYPE (len)), 1))
+	    *max_size = tree_low_cst (TYPE_MAX_VALUE (TREE_TYPE (len)), 1);
+	  else
+	    *max_size = GET_MODE_MASK (GET_MODE (len_rtx));
+	}
+    }
+  gcc_checking_assert (*max_size <=
+		       (unsigned HOST_WIDE_INT)
+			  GET_MODE_MASK (GET_MODE (len_rtx)));
+}
+
 /* Expand a call EXP to the memcpy builtin.
    Return NULL_RTX if we failed, the caller should emit a normal call,
    otherwise try to get the result in TARGET, if convenient (and in
@@ -3088,6 +3162,8 @@ expand_builtin_memcpy (tree exp, rtx target)
       rtx dest_mem, src_mem, dest_addr, len_rtx;
       HOST_WIDE_INT expected_size = -1;
       unsigned int expected_align = 0;
+      unsigned HOST_WIDE_INT min_size;
+      unsigned HOST_WIDE_INT max_size;
 
       /* If DEST is not a pointer type, call the normal function.  */
       if (dest_align == 0)
@@ -3107,6 +3183,7 @@ expand_builtin_memcpy (tree exp, rtx target)
       dest_mem = get_memory_rtx (dest, len);
       set_mem_align (dest_mem, dest_align);
       len_rtx = expand_normal (len);
+      determine_block_size (len, len_rtx, &min_size, &max_size);
       src_str = c_getstr (src);
 
       /* If SRC is a string constant and block move would be done
@@ -3135,7 +3212,8 @@ expand_builtin_memcpy (tree exp, rtx target)
       dest_addr = emit_block_move_hints (dest_mem, src_mem, len_rtx,
 				         CALL_EXPR_TAILCALL (exp)
 				         ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL,
-					 expected_align, expected_size);
+					 expected_align, expected_size,
+					 min_size, max_size);
 
       if (dest_addr == 0)
 	{
@@ -3549,6 +3627,8 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
   rtx dest_mem, dest_addr, len_rtx;
   HOST_WIDE_INT expected_size = -1;
   unsigned int expected_align = 0;
+  unsigned HOST_WIDE_INT min_size;
+  unsigned HOST_WIDE_INT max_size;
 
   dest_align = get_pointer_alignment (dest);
 
@@ -3577,6 +3657,7 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
   len = builtin_save_expr (len);
 
   len_rtx = expand_normal (len);
+  determine_block_size (len, len_rtx, &min_size, &max_size);
   dest_mem = get_memory_rtx (dest, len);
   val_mode = TYPE_MODE (unsigned_char_type_node);
 
@@ -3603,7 +3684,7 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
 	}
       else if (!set_storage_via_setmem (dest_mem, len_rtx, val_rtx,
 					dest_align, expected_align,
-					expected_size))
+					expected_size, min_size, max_size))
 	goto do_libcall;
 
       dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
@@ -3625,7 +3706,7 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
       else if (!set_storage_via_setmem (dest_mem, len_rtx,
 					gen_int_mode (c, val_mode),
 					dest_align, expected_align,
-					expected_size))
+					expected_size, min_size, max_size))
 	goto do_libcall;
 
       dest_mem = force_operand (XEXP (dest_mem, 0), NULL_RTX);
@@ -3637,7 +3718,8 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
   dest_addr = clear_storage_hints (dest_mem, len_rtx,
 				   CALL_EXPR_TAILCALL (orig_exp)
 				   ? BLOCK_OP_TAILCALL : BLOCK_OP_NORMAL,
-				   expected_align, expected_size);
+				   expected_align, expected_size,
+				   min_size, max_size);
 
   if (dest_addr == 0)
     {
@@ -4233,110 +4315,6 @@ expand_builtin_va_start (tree exp)
   return const0_rtx;
 }
 
-
-/* Return a dummy expression of type TYPE in order to keep going after an
-   error.  */
-
-static tree
-dummy_object (tree type)
-{
-  tree t = build_int_cst (build_pointer_type (type), 0);
-  return build2 (MEM_REF, type, t, t);
-}
-
-/* Gimplify __builtin_va_arg, aka VA_ARG_EXPR, which is not really a
-   builtin function, but a very special sort of operator.  */
-
-enum gimplify_status
-gimplify_va_arg_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p)
-{
-  tree promoted_type, have_va_type;
-  tree valist = TREE_OPERAND (*expr_p, 0);
-  tree type = TREE_TYPE (*expr_p);
-  tree t;
-  location_t loc = EXPR_LOCATION (*expr_p);
-
-  /* Verify that valist is of the proper type.  */
-  have_va_type = TREE_TYPE (valist);
-  if (have_va_type == error_mark_node)
-    return GS_ERROR;
-  have_va_type = targetm.canonical_va_list_type (have_va_type);
-
-  if (have_va_type == NULL_TREE)
-    {
-      error_at (loc, "first argument to %<va_arg%> not of type %<va_list%>");
-      return GS_ERROR;
-    }
-
-  /* Generate a diagnostic for requesting data of a type that cannot
-     be passed through `...' due to type promotion at the call site.  */
-  if ((promoted_type = lang_hooks.types.type_promotes_to (type))
-	   != type)
-    {
-      static bool gave_help;
-      bool warned;
-
-      /* Unfortunately, this is merely undefined, rather than a constraint
-	 violation, so we cannot make this an error.  If this call is never
-	 executed, the program is still strictly conforming.  */
-      warned = warning_at (loc, 0,
-	  		   "%qT is promoted to %qT when passed through %<...%>",
-			   type, promoted_type);
-      if (!gave_help && warned)
-	{
-	  gave_help = true;
-	  inform (loc, "(so you should pass %qT not %qT to %<va_arg%>)",
-		  promoted_type, type);
-	}
-
-      /* We can, however, treat "undefined" any way we please.
-	 Call abort to encourage the user to fix the program.  */
-      if (warned)
-	inform (loc, "if this code is reached, the program will abort");
-      /* Before the abort, allow the evaluation of the va_list
-	 expression to exit or longjmp.  */
-      gimplify_and_add (valist, pre_p);
-      t = build_call_expr_loc (loc,
-			       builtin_decl_implicit (BUILT_IN_TRAP), 0);
-      gimplify_and_add (t, pre_p);
-
-      /* This is dead code, but go ahead and finish so that the
-	 mode of the result comes out right.  */
-      *expr_p = dummy_object (type);
-      return GS_ALL_DONE;
-    }
-  else
-    {
-      /* Make it easier for the backends by protecting the valist argument
-	 from multiple evaluations.  */
-      if (TREE_CODE (have_va_type) == ARRAY_TYPE)
-	{
-	  /* For this case, the backends will be expecting a pointer to
-	     TREE_TYPE (abi), but it's possible we've
-	     actually been given an array (an actual TARGET_FN_ABI_VA_LIST).
-	     So fix it.  */
-	  if (TREE_CODE (TREE_TYPE (valist)) == ARRAY_TYPE)
-	    {
-	      tree p1 = build_pointer_type (TREE_TYPE (have_va_type));
-	      valist = fold_convert_loc (loc, p1,
-					 build_fold_addr_expr_loc (loc, valist));
-	    }
-
-	  gimplify_expr (&valist, pre_p, post_p, is_gimple_val, fb_rvalue);
-	}
-      else
-	gimplify_expr (&valist, pre_p, post_p, is_gimple_min_lval, fb_lvalue);
-
-      if (!targetm.gimplify_va_arg_expr)
-	/* FIXME: Once most targets are converted we should merely
-	   assert this is non-null.  */
-	return GS_ALL_DONE;
-
-      *expr_p = targetm.gimplify_va_arg_expr (valist, type, pre_p, post_p);
-      return GS_OK;
-    }
-}
-
 /* Expand EXP, a call to __builtin_va_end.  */
 
 static rtx
@@ -4464,10 +4442,6 @@ expand_builtin_alloca (tree exp, bool cannot_accumulate)
   unsigned int align;
   bool alloca_with_align = (DECL_FUNCTION_CODE (get_callee_fndecl (exp))
 			    == BUILT_IN_ALLOCA_WITH_ALIGN);
-
-  /* Emit normal call if we use mudflap.  */
-  if (flag_mudflap)
-    return NULL_RTX;
 
   valid_arglist
     = (alloca_with_align
@@ -5717,6 +5691,33 @@ expand_builtin_set_thread_pointer (tree exp)
 }
 
 
+/* Emit code to restore the current value of stack.  */
+
+static void
+expand_stack_restore (tree var)
+{
+  rtx prev, sa = expand_normal (var);
+
+  sa = convert_memory_address (Pmode, sa);
+
+  prev = get_last_insn ();
+  emit_stack_restore (SAVE_BLOCK, sa);
+  fixup_args_size_notes (prev, get_last_insn (), 0);
+}
+
+
+/* Emit code to save the current value of stack.  */
+
+static rtx
+expand_stack_save (void)
+{
+  rtx ret = NULL_RTX;
+
+  do_pending_stack_adjust ();
+  emit_stack_save (SAVE_BLOCK, &ret);
+  return ret;
+}
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -5748,7 +5749,18 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       && fcode != BUILT_IN_EXECVE
       && fcode != BUILT_IN_ALLOCA
       && fcode != BUILT_IN_ALLOCA_WITH_ALIGN
-      && fcode != BUILT_IN_FREE)
+      && fcode != BUILT_IN_FREE
+      && fcode != BUILT_IN_CHKP_SET_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_INIT_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_NULL_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_COPY_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_NARROW_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_STORE_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_LBOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_UBOUNDS
+      && fcode != BUILT_IN_CHKP_CHECK_PTR_BOUNDS
+      && fcode != BUILT_IN_CHKP_GET_PTR_LBOUND
+      && fcode != BUILT_IN_CHKP_GET_PTR_UBOUND)
     return expand_call (exp, target, ignore);
 
   /* The built-in function expanders test for target == const0_rtx
@@ -6791,6 +6803,59 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_SET_THREAD_POINTER:
       expand_builtin_set_thread_pointer (exp);
       return const0_rtx;
+
+    case BUILT_IN_CILK_DETACH:
+      expand_builtin_cilk_detach (exp);
+      return const0_rtx;
+      
+    case BUILT_IN_CILK_POP_FRAME:
+      expand_builtin_cilk_pop_frame (exp);
+      return const0_rtx;
+
+    case BUILT_IN_CHKP_INIT_PTR_BOUNDS:
+    case BUILT_IN_CHKP_NULL_PTR_BOUNDS:
+    case BUILT_IN_CHKP_COPY_PTR_BOUNDS:
+      return expand_normal (CALL_EXPR_ARG (exp, 0));
+
+    case BUILT_IN_CHKP_CHECK_PTR_LBOUNDS:
+    case BUILT_IN_CHKP_CHECK_PTR_UBOUNDS:
+    case BUILT_IN_CHKP_CHECK_PTR_BOUNDS:
+    case BUILT_IN_CHKP_SET_PTR_BOUNDS:
+    case BUILT_IN_CHKP_NARROW_PTR_BOUNDS:
+    case BUILT_IN_CHKP_STORE_PTR_BOUNDS:
+    case BUILT_IN_CHKP_GET_PTR_LBOUND:
+    case BUILT_IN_CHKP_GET_PTR_UBOUND:
+      /* We allow user CHKP builtins if Pointer Bounds
+	 Checker is off.  */
+      if (!flag_check_pointer_bounds)
+	{
+	  if (fcode == BUILT_IN_CHKP_SET_PTR_BOUNDS
+	      || fcode == BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
+	    return expand_normal (CALL_EXPR_ARG (exp, 0));
+	  else if (fcode == BUILT_IN_CHKP_GET_PTR_LBOUND)
+	    return expand_normal (size_zero_node);
+	  else if (fcode == BUILT_IN_CHKP_GET_PTR_UBOUND)
+	    return expand_normal (size_int (-1));
+	  else
+	    return const0_rtx;
+	}
+      /* FALLTHROUGH */
+
+    case BUILT_IN_CHKP_BNDMK:
+    case BUILT_IN_CHKP_BNDSTX:
+    case BUILT_IN_CHKP_BNDCL:
+    case BUILT_IN_CHKP_BNDCU:
+    case BUILT_IN_CHKP_BNDLDX:
+    case BUILT_IN_CHKP_BNDRET:
+    case BUILT_IN_CHKP_INTERSECT:
+    case BUILT_IN_CHKP_ARG_BND:
+    case BUILT_IN_CHKP_NARROW:
+    case BUILT_IN_CHKP_EXTRACT_LOWER:
+    case BUILT_IN_CHKP_EXTRACT_UPPER:
+      /* Software implementation of pointers checker is NYI.
+	 Target support is required.  */
+      error ("Your target platform does not support -fcheck-pointers");
+      break;
 
     default:	/* just do library call, if unknown builtin */
       break;
@@ -11034,47 +11099,51 @@ fold_builtin_n (location_t loc, tree fndecl, tree *args, int nargs, bool ignore)
   return NULL_TREE;
 }
 
-/* Builtins with folding operations that operate on "..." arguments
-   need special handling; we need to store the arguments in a convenient
-   data structure before attempting any folding.  Fortunately there are
-   only a few builtins that fall into this category.  FNDECL is the
-   function, EXP is the CALL_EXPR for the call, and IGNORE is true if the
-   result of the function call is ignored.  */
+/* Construct a new CALL_EXPR to FNDECL using the tail of the argument
+   list ARGS along with N new arguments in NEWARGS.  SKIP is the number
+   of arguments in ARGS to be omitted.  OLDNARGS is the number of
+   elements in ARGS.  */
 
 static tree
-fold_builtin_varargs (location_t loc, tree fndecl, tree exp,
-		      bool ignore ATTRIBUTE_UNUSED)
+rewrite_call_expr_valist (location_t loc, int oldnargs, tree *args,
+			  int skip, tree fndecl, int n, va_list newargs)
 {
-  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
-  tree ret = NULL_TREE;
+  int nargs = oldnargs - skip + n;
+  tree *buffer;
 
-  switch (fcode)
+  if (n > 0)
     {
-    case BUILT_IN_SPRINTF_CHK:
-    case BUILT_IN_VSPRINTF_CHK:
-      ret = fold_builtin_sprintf_chk (loc, exp, fcode);
-      break;
+      int i, j;
 
-    case BUILT_IN_SNPRINTF_CHK:
-    case BUILT_IN_VSNPRINTF_CHK:
-      ret = fold_builtin_snprintf_chk (loc, exp, NULL_TREE, fcode);
-      break;
-
-    case BUILT_IN_FPCLASSIFY:
-      ret = fold_builtin_fpclassify (loc, exp);
-      break;
-
-    default:
-      break;
+      buffer = XALLOCAVEC (tree, nargs);
+      for (i = 0; i < n; i++)
+	buffer[i] = va_arg (newargs, tree);
+      for (j = skip; j < oldnargs; j++, i++)
+	buffer[i] = args[j];
     }
-  if (ret)
-    {
-      ret = build1 (NOP_EXPR, TREE_TYPE (ret), ret);
-      SET_EXPR_LOCATION (ret, loc);
-      TREE_NO_WARNING (ret) = 1;
-      return ret;
-    }
-  return NULL_TREE;
+  else
+    buffer = args + skip;
+
+  return build_call_expr_loc_array (loc, fndecl, nargs, buffer);
+}
+
+/* Construct a new CALL_EXPR to FNDECL using the tail of the argument
+   list ARGS along with N new arguments specified as the "..."
+   parameters.  SKIP is the number of arguments in ARGS to be omitted.
+   OLDNARGS is the number of elements in ARGS.  */
+
+static tree
+rewrite_call_expr_array (location_t loc, int oldnargs, tree *args,
+			 int skip, tree fndecl, int n, ...)
+{
+  va_list ap;
+  tree t;
+
+  va_start (ap, n);
+  t = rewrite_call_expr_valist (loc, oldnargs, args, skip, fndecl, n, ap);
+  va_end (ap);
+
+  return t;
 }
 
 /* Return true if FNDECL shouldn't be folded right now.
@@ -11265,53 +11334,6 @@ fold_builtin_call_array (location_t loc, tree type,
   return build_call_array_loc (loc, type, fn, n, argarray);
 }
 
-/* Construct a new CALL_EXPR to FNDECL using the tail of the argument
-   list ARGS along with N new arguments in NEWARGS.  SKIP is the number
-   of arguments in ARGS to be omitted.  OLDNARGS is the number of
-   elements in ARGS.  */
-
-static tree
-rewrite_call_expr_valist (location_t loc, int oldnargs, tree *args,
-			  int skip, tree fndecl, int n, va_list newargs)
-{
-  int nargs = oldnargs - skip + n;
-  tree *buffer;
-
-  if (n > 0)
-    {
-      int i, j;
-
-      buffer = XALLOCAVEC (tree, nargs);
-      for (i = 0; i < n; i++)
-	buffer[i] = va_arg (newargs, tree);
-      for (j = skip; j < oldnargs; j++, i++)
-	buffer[i] = args[j];
-    }
-  else
-    buffer = args + skip;
-
-  return build_call_expr_loc_array (loc, fndecl, nargs, buffer);
-}
-
-/* Construct a new CALL_EXPR to FNDECL using the tail of the argument
-   list ARGS along with N new arguments specified as the "..."
-   parameters.  SKIP is the number of arguments in ARGS to be omitted.
-   OLDNARGS is the number of elements in ARGS.  */
-
-static tree
-rewrite_call_expr_array (location_t loc, int oldnargs, tree *args,
-			 int skip, tree fndecl, int n, ...)
-{
-  va_list ap;
-  tree t;
-
-  va_start (ap, n);
-  t = rewrite_call_expr_valist (loc, oldnargs, args, skip, fndecl, n, ap);
-  va_end (ap);
-
-  return t;
-}
-
 /* Construct a new CALL_EXPR using the tail of the argument list of EXP
    along with N new arguments specified as the "..." parameters.  SKIP
    is the number of arguments in EXP to be omitted.  This function is used
@@ -11386,57 +11408,6 @@ validate_gimple_arglist (const_gimple call, ...)
 	     match the specified code, return false.  Otherwise continue
 	     checking any remaining arguments.  */
 	  arg = gimple_call_arg (call, i++);
-	  if (!validate_arg (arg, code))
-	    goto end;
-	  break;
-	}
-    }
-  while (1);
-
-  /* We need gotos here since we can only have one VA_CLOSE in a
-     function.  */
- end: ;
-  va_end (ap);
-
-  return res;
-}
-
-/* This function validates the types of a function call argument list
-   against a specified list of tree_codes.  If the last specifier is a 0,
-   that represents an ellipses, otherwise the last specifier must be a
-   VOID_TYPE.  */
-
-bool
-validate_arglist (const_tree callexpr, ...)
-{
-  enum tree_code code;
-  bool res = 0;
-  va_list ap;
-  const_call_expr_arg_iterator iter;
-  const_tree arg;
-
-  va_start (ap, callexpr);
-  init_const_call_expr_arg_iterator (callexpr, &iter);
-
-  do
-    {
-      code = (enum tree_code) va_arg (ap, int);
-      switch (code)
-	{
-	case 0:
-	  /* This signifies an ellipses, any further arguments are all ok.  */
-	  res = true;
-	  goto end;
-	case VOID_TYPE:
-	  /* This signifies an endlink, if no arguments remain, return
-	     true, otherwise return false.  */
-	  res = !more_const_call_expr_args_p (&iter);
-	  goto end;
-	default:
-	  /* If no parameters remain or the parameter's code does not
-	     match the specified code, return false.  Otherwise continue
-	     checking any remaining arguments.  */
-	  arg = next_const_call_expr_arg (&iter);
 	  if (!validate_arg (arg, code))
 	    goto end;
 	  break;
@@ -13223,12 +13194,55 @@ fold_builtin_snprintf_chk_1 (location_t loc, int nargs, tree *args,
    BUILT_IN_VSNPRINTF_CHK.  If MAXLEN is not NULL, it is maximum length
    passed as second argument.  */
 
-tree
+static tree
 fold_builtin_snprintf_chk (location_t loc, tree exp, tree maxlen,
 			   enum built_in_function fcode)
 {
   return fold_builtin_snprintf_chk_1 (loc, call_expr_nargs (exp),
 				      CALL_EXPR_ARGP (exp), maxlen, fcode);
+}
+
+/* Builtins with folding operations that operate on "..." arguments
+   need special handling; we need to store the arguments in a convenient
+   data structure before attempting any folding.  Fortunately there are
+   only a few builtins that fall into this category.  FNDECL is the
+   function, EXP is the CALL_EXPR for the call, and IGNORE is true if the
+   result of the function call is ignored.  */
+
+static tree
+fold_builtin_varargs (location_t loc, tree fndecl, tree exp,
+		      bool ignore ATTRIBUTE_UNUSED)
+{
+  enum built_in_function fcode = DECL_FUNCTION_CODE (fndecl);
+  tree ret = NULL_TREE;
+
+  switch (fcode)
+    {
+    case BUILT_IN_SPRINTF_CHK:
+    case BUILT_IN_VSPRINTF_CHK:
+      ret = fold_builtin_sprintf_chk (loc, exp, fcode);
+      break;
+
+    case BUILT_IN_SNPRINTF_CHK:
+    case BUILT_IN_VSNPRINTF_CHK:
+      ret = fold_builtin_snprintf_chk (loc, exp, NULL_TREE, fcode);
+      break;
+
+    case BUILT_IN_FPCLASSIFY:
+      ret = fold_builtin_fpclassify (loc, exp);
+      break;
+
+    default:
+      break;
+    }
+  if (ret)
+    {
+      ret = build1 (NOP_EXPR, TREE_TYPE (ret), ret);
+      SET_EXPR_LOCATION (ret, loc);
+      TREE_NO_WARNING (ret) = 1;
+      return ret;
+    }
+  return NULL_TREE;
 }
 
 /* Fold a call to the {,v}printf{,_unlocked} and __{,v}printf_chk builtins.

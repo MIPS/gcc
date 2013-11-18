@@ -39,10 +39,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-iterator.h"
 #include "hashtab.h"
-#include "tree-mudflap.h"
 #include "opts.h"
 #include "cgraph.h"
 #include "target-def.h"
+#include "gimple.h"
+#include "gimplify.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
 
@@ -376,6 +377,8 @@ static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
 						 bool *);
+static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *);
+static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -408,8 +411,11 @@ const struct c_common_resword c_common_reswords[] =
 {
   { "_Alignas",		RID_ALIGNAS,   D_CONLY },
   { "_Alignof",		RID_ALIGNOF,   D_CONLY },
+  { "_Atomic",		RID_ATOMIC,    D_CONLY },
   { "_Bool",		RID_BOOL,      D_CONLY },
   { "_Complex",		RID_COMPLEX,	0 },
+  { "_Cilk_spawn",      RID_CILK_SPAWN, 0 },
+  { "_Cilk_sync",       RID_CILK_SYNC,  0 },
   { "_Imaginary",	RID_IMAGINARY, D_CONLY },
   { "_Decimal32",       RID_DFLOAT32,  D_CONLY | D_EXT },
   { "_Decimal64",       RID_DFLOAT64,  D_CONLY | D_EXT },
@@ -420,6 +426,7 @@ const struct c_common_resword c_common_reswords[] =
   { "_Static_assert",   RID_STATIC_ASSERT, D_CONLY },
   { "_Noreturn",        RID_NORETURN,  D_CONLY },
   { "_Generic",         RID_GENERIC,   D_CONLY },
+  { "_Thread_local",    RID_THREAD,    D_CONLY },
   { "__FUNCTION__",	RID_FUNCTION_NAME, 0 },
   { "__PRETTY_FUNCTION__", RID_PRETTY_FUNCTION_NAME, 0 },
   { "__alignof",	RID_ALIGNOF,	0 },
@@ -428,6 +435,7 @@ const struct c_common_resword c_common_reswords[] =
   { "__asm__",		RID_ASM,	0 },
   { "__attribute",	RID_ATTRIBUTE,	0 },
   { "__attribute__",	RID_ATTRIBUTE,	0 },
+  { "__auto_type",	RID_AUTO_TYPE,	D_CONLY },
   { "__bases",          RID_BASES, D_CXXONLY },
   { "__builtin_choose_expr", RID_CHOOSE_EXPR, D_CONLY },
   { "__builtin_complex", RID_BUILTIN_COMPLEX, D_CONLY },
@@ -764,6 +772,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_omp_declare_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
 			      handle_omp_declare_target_attribute, false },
+  { "bnd_variable_size",      0, 0, true,  false, false,
+			      handle_bnd_variable_size_attribute, false },
+  { "bnd_legacy",             0, 0, true, false, false,
+			      handle_bnd_legacy, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -5227,8 +5239,8 @@ c_define_builtins (tree va_list_ref_type_node, tree va_list_arg_type_node)
 
   build_common_builtin_nodes ();
 
-  if (flag_mudflap)
-    mudflap_init ();
+  if (flag_enable_cilkplus)
+    cilk_init_builtins ();
 }
 
 /* Like get_identifier, but avoid warnings about null arguments when
@@ -8023,6 +8035,38 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
   return NULL_TREE;
 }
 
+/* Handle a "bnd_variable_size" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_bnd_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args),
+				    int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FIELD_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "bnd_legacy" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_bnd_legacy (tree *node, tree name, tree ARG_UNUSED (args),
+		   int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
 /* Handle a "warn_unused" attribute; arguments as in
    struct attribute_spec.handler.  */
 
@@ -9055,7 +9099,7 @@ handle_optimize_attribute (tree *node, tree name, tree args,
       /* Parse options, and update the vector.  */
       parse_optimize_options (args, true);
       DECL_FUNCTION_SPECIFIC_OPTIMIZATION (*node)
-	= build_optimization_node ();
+	= build_optimization_node (&global_options);
 
       /* Restore current options.  */
       cl_optimization_restore (&global_options, &cur_opts);
@@ -9532,6 +9576,7 @@ static const struct reason_option_codes_t option_codes[] = {
   {CPP_W_INVALID_PCH,			OPT_Winvalid_pch},
   {CPP_W_WARNING_DIRECTIVE,		OPT_Wcpp},
   {CPP_W_LITERAL_SUFFIX,		OPT_Wliteral_suffix},
+  {CPP_W_DATE_TIME,			OPT_Wdate_time},
   {CPP_W_NONE,				0}
 };
 
@@ -9777,7 +9822,7 @@ warn_for_omitted_condop (location_t location, tree cond)
    how ARG was being used.  */
 
 void
-readonly_error (tree arg, enum lvalue_use use)
+readonly_error (location_t loc, tree arg, enum lvalue_use use)
 {
   gcc_assert (use == lv_assign || use == lv_increment || use == lv_decrement
 	      || use == lv_asm);
@@ -9790,59 +9835,59 @@ readonly_error (tree arg, enum lvalue_use use)
   if (TREE_CODE (arg) == COMPONENT_REF)
     {
       if (TYPE_READONLY (TREE_TYPE (TREE_OPERAND (arg, 0))))
-        error (READONLY_MSG (G_("assignment of member "
-				"%qD in read-only object"),
-			     G_("increment of member "
-				"%qD in read-only object"),
-			     G_("decrement of member "
-				"%qD in read-only object"),
-			     G_("member %qD in read-only object "
-				"used as %<asm%> output")),
-	       TREE_OPERAND (arg, 1));
+        error_at (loc, READONLY_MSG (G_("assignment of member "
+					"%qD in read-only object"),
+				     G_("increment of member "
+					"%qD in read-only object"),
+				     G_("decrement of member "
+					"%qD in read-only object"),
+				     G_("member %qD in read-only object "
+					"used as %<asm%> output")),
+		  TREE_OPERAND (arg, 1));
       else
-	error (READONLY_MSG (G_("assignment of read-only member %qD"),
-			     G_("increment of read-only member %qD"),
-			     G_("decrement of read-only member %qD"),
-			     G_("read-only member %qD used as %<asm%> output")),
-	       TREE_OPERAND (arg, 1));
+	error_at (loc, READONLY_MSG (G_("assignment of read-only member %qD"),
+				     G_("increment of read-only member %qD"),
+				     G_("decrement of read-only member %qD"),
+				     G_("read-only member %qD used as %<asm%> output")),
+		  TREE_OPERAND (arg, 1));
     }
   else if (TREE_CODE (arg) == VAR_DECL)
-    error (READONLY_MSG (G_("assignment of read-only variable %qD"),
-			 G_("increment of read-only variable %qD"),
-			 G_("decrement of read-only variable %qD"),
-			 G_("read-only variable %qD used as %<asm%> output")),
-	   arg);
+    error_at (loc, READONLY_MSG (G_("assignment of read-only variable %qD"),
+				 G_("increment of read-only variable %qD"),
+				 G_("decrement of read-only variable %qD"),
+				 G_("read-only variable %qD used as %<asm%> output")),
+	      arg);
   else if (TREE_CODE (arg) == PARM_DECL)
-    error (READONLY_MSG (G_("assignment of read-only parameter %qD"),
-			 G_("increment of read-only parameter %qD"),
-			 G_("decrement of read-only parameter %qD"),
-			 G_("read-only parameter %qD use as %<asm%> output")),
-	   arg);  
+    error_at (loc, READONLY_MSG (G_("assignment of read-only parameter %qD"),
+				 G_("increment of read-only parameter %qD"),
+				 G_("decrement of read-only parameter %qD"),
+				 G_("read-only parameter %qD use as %<asm%> output")),
+	      arg);
   else if (TREE_CODE (arg) == RESULT_DECL)
     {
       gcc_assert (c_dialect_cxx ());
-      error (READONLY_MSG (G_("assignment of "
-			      "read-only named return value %qD"),
-			   G_("increment of "
-			      "read-only named return value %qD"),
-			   G_("decrement of "
-			      "read-only named return value %qD"),
-			   G_("read-only named return value %qD "
-			      "used as %<asm%>output")),
-	     arg);
+      error_at (loc, READONLY_MSG (G_("assignment of "
+				      "read-only named return value %qD"),
+				   G_("increment of "
+				      "read-only named return value %qD"),
+				   G_("decrement of "
+				      "read-only named return value %qD"),
+				   G_("read-only named return value %qD "
+				      "used as %<asm%>output")),
+		arg);
     }
   else if (TREE_CODE (arg) == FUNCTION_DECL)
-    error (READONLY_MSG (G_("assignment of function %qD"),
-			 G_("increment of function %qD"),
-			 G_("decrement of function %qD"),
-			 G_("function %qD used as %<asm%> output")),
-	   arg);
+    error_at (loc, READONLY_MSG (G_("assignment of function %qD"),
+				 G_("increment of function %qD"),
+				 G_("decrement of function %qD"),
+				 G_("function %qD used as %<asm%> output")),
+	      arg);
   else
-    error (READONLY_MSG (G_("assignment of read-only location %qE"),
-			 G_("increment of read-only location %qE"),
-			 G_("decrement of read-only location %qE"),
-			 G_("read-only location %qE used as %<asm%> output")),
-	   arg);
+    error_at (loc, READONLY_MSG (G_("assignment of read-only location %qE"),
+				 G_("increment of read-only location %qE"),
+				 G_("decrement of read-only location %qE"),
+				 G_("read-only location %qE used as %<asm%> output")),
+	      arg);
 }
 
 /* Print an error message for an invalid lvalue.  USE says
@@ -9899,6 +9944,11 @@ invalid_indirection_error (location_t loc, tree type, ref_operator errstring)
     case RO_ARROW:
       error_at (loc,
 		"invalid type argument of %<->%> (have %qT)",
+		type);
+      break;
+    case RO_ARROW_STAR:
+      error_at (loc,
+		"invalid type argument of %<->*%> (have %qT)",
 		type);
       break;
     case RO_IMPLICIT_CONVERSION:
@@ -10133,6 +10183,7 @@ sync_resolve_params (location_t loc, tree orig_function, tree function,
      call to check_function_arguments what ever type the user used.  */
   function_args_iter_next (&iter);
   ptype = TREE_TYPE (TREE_TYPE ((*params)[0]));
+  ptype = TYPE_MAIN_VARIANT (ptype);
 
   /* For the rest of the values, we need to cast these to FTYPE, so that we
      don't get warnings for passing pointer types, etc.  */
@@ -10362,6 +10413,27 @@ add_atomic_size_parameter (unsigned n, location_t loc, tree function,
 }
 
 
+/* Return whether atomic operations for naturally aligned N-byte
+   arguments are supported, whether inline or through libatomic.  */
+static bool
+atomic_size_supported_p (int n)
+{
+  switch (n)
+    {
+    case 1:
+    case 2:
+    case 4:
+    case 8:
+      return true;
+
+    case 16:
+      return targetm.scalar_mode_supported_p (TImode);
+
+    default:
+      return false;
+    }
+}
+
 /* This will process an __atomic_exchange function call, determine whether it
    needs to be mapped to the _N variation, or turned into a library call.
    LOC is the location of the builtin call.
@@ -10387,7 +10459,7 @@ resolve_overloaded_atomic_exchange (location_t loc, tree function,
     }
 
   /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
+  if (!atomic_size_supported_p (n))
     {
       *new_return = add_atomic_size_parameter (n, loc, function, params);
       return true;
@@ -10452,7 +10524,7 @@ resolve_overloaded_atomic_compare_exchange (location_t loc, tree function,
     }
 
   /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
+  if (!atomic_size_supported_p (n))
     {
       /* The library generic format does not have the weak parameter, so 
 	 remove it from the param list.  Since a parameter has been removed,
@@ -10528,7 +10600,7 @@ resolve_overloaded_atomic_load (location_t loc, tree function,
     }
 
   /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
+  if (!atomic_size_supported_p (n))
     {
       *new_return = add_atomic_size_parameter (n, loc, function, params);
       return true;
@@ -10588,7 +10660,7 @@ resolve_overloaded_atomic_store (location_t loc, tree function,
     }
 
   /* If not a lock-free size, change to the library generic format.  */
-  if (n != 1 && n != 2 && n != 4 && n != 8 && n != 16)
+  if (!atomic_size_supported_p (n))
     {
       *new_return = add_atomic_size_parameter (n, loc, function, params);
       return true;
@@ -11487,6 +11559,7 @@ keyword_begins_type_specifier (enum rid keyword)
 {
   switch (keyword)
     {
+    case RID_AUTO_TYPE:
     case RID_INT:
     case RID_CHAR:
     case RID_FLOAT:
@@ -11529,6 +11602,7 @@ keyword_is_type_qualifier (enum rid keyword)
     case RID_CONST:
     case RID_VOLATILE:
     case RID_RESTRICT:
+    case RID_ATOMIC:
       return true;
     default:
       return false;
