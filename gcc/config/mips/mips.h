@@ -920,6 +920,9 @@ struct mips_cpu_info {
 #define ISA_HAS_CCF		(ISA_MIPS32R6				\
 				 || ISA_MIPS64R6)
 
+#define ISA_HAS_SEL		(ISA_MIPS32R6				\
+				 || ISA_MIPS64R6)
+
 /* This is a catch all for other mips4 instructions: indexed load, the
    FP madd and msub instructions, and the FP recip and recip sqrt
    instructions.  Note that this macro should only be used by other
