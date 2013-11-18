@@ -1,0 +1,4 @@
+2013-11-18  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* lex.c (search_line_fast): Correct for little endian.
+
