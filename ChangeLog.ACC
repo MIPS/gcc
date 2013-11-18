@@ -1,3 +1,8 @@
+18-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Loop collapsing.
+
+	* gcc/oacc-low.c(generate_ctrl_var_init): Indices fixup.
+
 15-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Loop collapsing.
 

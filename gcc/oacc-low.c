@@ -212,6 +212,7 @@ typedef struct collapse_data_t
 {
   vec<collapse_loop_data> loops;
   tree workitem_id;
+  gimple wi_def_stmt;
 } collapse_data_t;
 
 typedef struct oacc_context
@@ -2431,6 +2432,8 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
   tree lhs = get_gimple_def_var(stmt);
   tree workitem_id = NULL_TREE;
   tree builtin_return_type = NULL_TREE;
+  tree new_var = NULL_TREE;
+  gimple add_stmt;
 
   if(idx > 0)
   {
@@ -2454,6 +2457,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
     set_gimple_def_var(call_stmt, workitem_id);
     gen_add(gsi, call_stmt);
     data->workitem_id = workitem_id;
+    data->wi_def_stmt = call_stmt;
   }
   
   if (TYPE_UNSIGNED(builtin_return_type) != TYPE_UNSIGNED(TREE_TYPE(lhs)))
@@ -2466,10 +2470,45 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
       gen_add (gsi, convert_stmt);
 
       workitem_id = convert_var;
+      data->workitem_id = convert_var;
+      data->wi_def_stmt = convert_stmt;
     }
+
+    if(idx < data->loops.length() - 1)
+    {
+      unsigned i;
+      tree quotient = NULL_TREE;
+      gimple div_stmt = NULL;
+
+      for(i = idx + 1; i < data->loops.length(); ++i)
+      {
+        quotient = make_ssa_name_fn(cfun, SSA_NAME_VAR(workitem_id),
+                                data->wi_def_stmt);
+        div_stmt = build_assign(TRUNC_DIV_EXPR, workitem_id,
+                                data->loops[i]->niter);
+        set_gimple_def_var(div_stmt, quotient);
+        gen_add(gsi, div_stmt);
+        workitem_id = quotient;
+      }
+    }
+
+    if(idx > 0)
+    {
+      tree remain = NULL_TREE;
+      gimple mod_stmt = NULL;
+
+      remain = make_ssa_name_fn(cfun, SSA_NAME_VAR(workitem_id),
+                              data->wi_def_stmt);
+      mod_stmt = build_assign(TRUNC_MOD_EXPR, workitem_id,
+                           data->loops[idx]->niter);
+      set_gimple_def_var(mod_stmt, remain);
+      gen_add(gsi, mod_stmt);
+      workitem_id = remain;
+    }
+
     /* i = _oacc_tmp + i; */
-    gimple add_stmt = build_assign(PLUS_EXPR, workitem_id, lhs);
-    tree new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
+    add_stmt = build_assign(PLUS_EXPR, workitem_id, lhs);
+    new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
     set_gimple_def_var(add_stmt, new_var);
     gen_add(gsi, add_stmt);
 }
@@ -2509,7 +2548,6 @@ fix_ctrl_var_defs(vec<gimple_stmt_iterator>* defs,
             }
           gimple stmt = gsi_stmt(gsi);
           if(gimple_code(stmt) != GIMPLE_PHI)
-            //generate_ctrl_var_init(&gsi, stmt);
             loop_data->gsi = gsi;
         }
     }
@@ -2702,8 +2740,11 @@ parallelize_loop(struct loop* loop, unsigned collapse)
     l = l->inner;
     if(l == NULL)
     {
-      warning_at(guess_loop_location(loop), OPT_fopenacc,
-        "no more loops to collapse");
+      if(i < collapse - 1)
+      {
+        warning_at(guess_loop_location(loop), OPT_fopenacc,
+          "no more loops to collapse");
+      }
       break;
     }
   }
