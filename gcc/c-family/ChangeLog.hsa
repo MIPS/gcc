@@ -1,0 +1,4 @@
+2013-05-28  Martin Jambor  <mjambor@suse.cz>
+
+	* c-common.c (c_common_attribute_table): Add hsa attribute.
+	(handle_hsa_attribute): New function.

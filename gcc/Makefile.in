@@ -1254,6 +1254,10 @@ OBJS = \
 	graphite-sese-to-poly.o \
 	gtype-desc.o \
 	haifa-sched.o \
+	hsa-gen.o \
+	hsa-regalloc.o \
+	hsa-brig.o \
+	hsa-dump.o \
 	hw-doloop.o \
 	hwint.o \
 	ifcvt.o \

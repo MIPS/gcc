@@ -315,6 +315,7 @@ static tree handle_no_sanitize_undefined_attribute (tree *, tree, tree, int,
 						    bool *);
 static tree handle_noinline_attribute (tree *, tree, tree, int, bool *);
 static tree handle_noclone_attribute (tree *, tree, tree, int, bool *);
+static tree handle_hsa_attribute (tree *, tree, tree, int, bool *);
 static tree handle_leaf_attribute (tree *, tree, tree, int, bool *);
 static tree handle_always_inline_attribute (tree *, tree, tree, int,
 					    bool *);
@@ -625,6 +626,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_noinline_attribute, false },
   { "noclone",                0, 0, true,  false, false,
 			      handle_noclone_attribute, false },
+  { "hsa",                    0, 0, true,  false, false,
+			      handle_hsa_attribute, false },
   { "leaf",                   0, 0, true,  false, false,
 			      handle_leaf_attribute, false },
   { "always_inline",          0, 0, true,  false, false,
@@ -6637,6 +6640,23 @@ handle_noinline_attribute (tree *node, tree name,
 
 static tree
 handle_noclone_attribute (tree *node, tree name,
+			  tree ARG_UNUSED (args),
+			  int ARG_UNUSED (flags), bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != FUNCTION_DECL)
+    {
+      warning (OPT_Wattributes, "%qE attribute ignored", name);
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+/* Handle a "hsa" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_hsa_attribute (tree *node, tree name,
 			  tree ARG_UNUSED (args),
 			  int ARG_UNUSED (flags), bool *no_add_attrs)
 {

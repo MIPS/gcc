@@ -448,6 +448,7 @@ extern gimple_opt_pass *make_pass_split_functions (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_feedback_split_functions (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_strength_reduction (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_vtable_verify (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_gen_hsail (gcc::context *ctxt);
 
 /* IPA Passes */
 extern simple_ipa_opt_pass *make_pass_ipa_lower_emutls (gcc::context *ctxt);

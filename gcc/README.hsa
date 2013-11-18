@@ -1,0 +1,118 @@
+Playing with the HSA branch only makes sense if you also have
+the HSA tools and simulator available.  The important things
+are split over two git repositories, but for building they
+are integrated.  They'll also need a specific LLVM version.
+You don't need to hunt those for yourself, downloading it is
+integrated into the build process if you set the right symlinks
+(HSAIL-Tools needs to be under HSAIL-Instruction-Set-Simulator,
+see below).
+
+Make sure you have libdwarf and libelf development libraries and
+headers installed, then git clone the two repositories:
+
+% mkdir hsa; cd hsa
+% git clone https://github.com/HSAFoundation/HSAIL-Instruction-Set-Simulator.git% git clone https://github.com/HSAFoundation/HSAIL-Tools
+% cd HSAIL-Instruction-Set-Simulator/src/
+% ln -sf ../../HSAIL-Tools .
+% cd ../
+% mkdir dev; cd dev
+% cmake -DCMAKE_BUILD_TYPE=Debug ..
+
+This will also checkout LLVM in the correct version as necessary for
+the simulator.  Build the HSA simulator (which also build libHSAIL):
+
+% cd HSAIL-Instruction-Set-Simulator/dev
+% make _DBG=1
+
+If something breaks here or in the cmake call before it's probably
+missign development packages, which you'll have to figure out and 
+install somehow.
+
+Test the HSAIL simulator:
+
+% ./fcos
+fcos(-3.141593e+00) = -1.000000e+00
+fcos(-1.570796e+00) = -4.371139e-08
+fcos(0.000000e+00) = 1.000000e+00
+fcos(1.570796e+00) = -4.371139e-08
+fcos(3.141593e+00) = -1.000000e+00
+
+Now you'll want to apply two patches, hsail-iss1.diff and
+hsail-tools1.diff, the former adds the creation of libgcchsa.so,
+the latter enables libHSAIL to not check the ELF machine type
+of kernel containers (so it can load normal i386 files).  Both
+patches are included in the gcc tree parallel to this README.hsa.
+
+% cd HSAIL-Instruction-Set-Simulator; patch -p1 < hsail-iss1.diff
+% cd ../HSAIL-Tools; patch -p1 < hsail-tools1.diff
+
+Remake and check if everything still builds.  In particular you now
+should have a library in dev/build/Debug/lib/libgcchsa.so (or Release
+instead of Debug).
+
+Configure and build the GCC hsa branch without bootstrapping and for C/C++
+only (configure --disable-bootstrap --enable-languages=c,c++).
+
+Try compiling a HSA function:
+
+% cat hsakernel.c
+extern void square (int *ip, int *rp) __attribute__((hsa, noinline));
+void __attribute__((hsa, noinline)) square (int *ip, int *rp)
+{
+  int i = *ip;
+  *rp = i * i;
+}
+% ./gcc/xgcc -B./gcc/ -m32 -c hsakernel.c
+
+You should have a hsakernel.o file that contains a BRIG kernel '&square'.
+To verify, disassemble that one:
+
+% ../HSAIL-Instruction-Set-Simulator/dev/HSAIL-Tools/hsailasm -disassemble hsakernel.o
+% less hsakernel.hsail
+
+Now build a program containing a call to that kernel:
+% cat hsacall.c
+typedef __SIZE_TYPE__ size_t;
+extern void *malloc (size_t);
+extern int printf (const char *, ...);
+
+extern void square (int *ip, int *rp) __attribute__((hsa, noinline));
+
+int main ()
+{
+  int i;
+  int *bla = malloc(2*sizeof(bla[0]));
+  printf ("Square sequence: ");
+  for (i = 1; i < 20; i++)
+    {
+      int r;
+      bla[0] = i;
+      //square (&i, &r);
+      square (&bla[0], &bla[1]);
+      r = bla[1];
+      printf ("%d ", r);
+    }
+  printf ("\n");
+  return 0;
+}
+
+% ./gcc/xgcc -B./gcc/ -c hsacall.c
+
+Note how hsakernel.c was compiled -m32. That's because currently the
+BRIG loader only accepts ELF32 binaries.  If you're on a 64 bit platform
+the last command above will have produced a 64bit ELF object file which
+you can't link together with hsakernel.o.  So we have a hack that
+tries loading kernels from hsakernel.o when loading from the executable
+fails.  So link the hsacall.o file against the libgcchsa.so library:
+
+% gcc -o hsacall hsacall.o ../HSAIL-Instruction-Set-Simulator/dev/build/Debug/lib/libgcchsa.so
+
+Make sure hsakernel.o is in the current directory, and call it:
+
+% LD_LIBRARY_PATH=../HSAIL-Instruction-Set-Simulator/dev/build/Debug/lib/ \
+  ./hsacall
+Square sequence: 1 4 9 16 25 36 49 64 81 100 121 144 169 196 225 256 289 324 361
+
+You can debug with gdb (try breakpointing on __hsa_launch_kernel).
+
+Now experiment.  You'll find many missing things  :-)
