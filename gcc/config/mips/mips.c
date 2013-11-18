@@ -5126,9 +5126,37 @@ mips_expand_conditional_move (rtx *operands)
 
   mips_emit_compare (&code, &op0, &op1, true);
   cond = gen_rtx_fmt_ee (code, GET_MODE (op0), op0, op1);
-  emit_insn (gen_rtx_SET (VOIDmode, operands[0],
-			  gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
-						operands[2], operands[3])));
+
+  /* There is no direct support for general conditional GP move involving
+     two registers using SEL */
+  if (ISA_HAS_SEL
+      && INTEGRAL_MODE_P (GET_MODE (operands[2]))
+      && register_operand (operands[2], VOIDmode)
+      && register_operand (operands[3], VOIDmode))
+    {
+      enum machine_mode mode = GET_MODE (operands[0]);
+      rtx temp = gen_reg_rtx (mode);
+      rtx temp2 = gen_reg_rtx (mode);
+
+      emit_insn (gen_rtx_SET (VOIDmode, temp,
+			      gen_rtx_IF_THEN_ELSE (mode, cond,
+						    operands[2], const0_rtx)));
+
+      /* Flip the test for the second operand */
+      cond = gen_rtx_fmt_ee ((code == EQ) ? NE : EQ, GET_MODE (op0), op0, op1);
+
+      emit_insn (gen_rtx_SET (VOIDmode, temp2,
+			      gen_rtx_IF_THEN_ELSE (mode, cond,
+						    operands[3], const0_rtx)));
+
+      /* Merge the two results, at least one is guaranteed to be zero */
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			      gen_rtx_IOR (mode, temp, temp2)));
+    }
+  else
+    emit_insn (gen_rtx_SET (VOIDmode, operands[0],
+			    gen_rtx_IF_THEN_ELSE (GET_MODE (operands[0]), cond,
+						  operands[2], operands[3])));
 }
 
 /* Perform the comparison in COMPARISON, then trap if the condition holds.  */
@@ -17535,7 +17563,8 @@ mips_conditional_register_usage (void)
 	 RTL that refers directly to ST_REG_FIRST.  */
       AND_COMPL_HARD_REG_SET (accessible_reg_set,
 			      reg_class_contents[(int) ST_REGS]);
-      SET_HARD_REG_BIT (accessible_reg_set, FPSW_REGNUM);
+      if (!ISA_HAS_CCF)
+        SET_HARD_REG_BIT (accessible_reg_set, FPSW_REGNUM);
       fixed_regs[FPSW_REGNUM] = call_used_regs[FPSW_REGNUM] = 1;
     }
   if (TARGET_MIPS16)

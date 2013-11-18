@@ -1013,6 +1013,10 @@
 
 ;; This is the inverse value of bbv.
 (define_code_attr bbinv [(eq "1") (ne "0")])
+
+;; The sel nmemonic to use depending on the condition test
+(define_code_attr sel [(eq "seleqz") (ne "selnez")])
+(define_code_attr selinv [(eq "selnez") (ne "seleqz")])
 
 ;; .........................
 ;;
@@ -6989,6 +6993,24 @@
 
 ;; MIPS4 Conditional move instructions.
 
+;; A note on canonical form and reversed condition codes
+;;
+;; Although FP comparisons use a CC_MODE for their comparisons and the
+;; conditions can be reversed this is not necessary as we can directly
+;; support cases like cc?reg:0.0 and cc:0.0:reg.
+;; I.e. we do not define REVERSIBLE_CC_MODE or REVERSE_CONDITION
+;; This therefore means that we only need to support the 'ne' comparison
+;; operator for FP conditional moves as the test will always be checking
+;; for true rather than false.
+;;
+;; The sel.fmt instruction takes advantage of this as it has alternatives
+;; that include (const_double 0) as well as purely register alternatives.
+;; The mov.fmt supports both eq and ne but it is highly unlikely that
+;; the eq variant is ever matched.
+;;
+;; For the GP comparisons the reverse conditions can and will be generated
+;; in generic code meaning that both have to be handled regardless.
+
 (define_insn "*mov<GPR:mode>_on_<MOVECC:mode>"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
 	(if_then_else:GPR
@@ -7032,6 +7054,41 @@
   [(set_attr "type" "condmove")
    (set_attr "mode" "<SCALARF:MODE>")])
 
+(define_insn "*sel<code><GPR:mode>_using_<GPR2:mode>"
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+	(if_then_else:GPR
+	 (equality_op:GPR2 (match_operand:GPR2 1 "register_operand" "d,d")
+		           (const_int 0))
+	 (match_operand:GPR 2 "reg_or_0_operand" "d,J")
+	 (match_operand:GPR 3 "reg_or_0_operand" "J,d")))]
+  "ISA_HAS_SEL
+   && (register_operand (operands[2], <GPR:MODE>mode)
+       ^ register_operand (operands[3], <GPR:MODE>mode))"
+  "@
+   <sel>\t%0,%2,%1
+   <selinv>\t%0,%3,%1"
+  [(set_attr "type" "condmove")
+   (set_attr "mode" "<GPR:MODE>")])
+
+;; sel.fmt copies the 3rd argument when the 1st is non-zero and the 2nd
+;; argument if the 1st is zero. This means operand 2 and 3 are
+;; inverted in the instruction.
+
+(define_insn "*sel<mode>"
+  [(set (match_operand:SCALARF 0 "register_operand" "=f,f,f")
+	(if_then_else:SCALARF
+	 (ne:CCF (match_operand:CCF 1 "register_operand" "0,f,f")
+		 (const_int 0))
+	 (match_operand:SCALARF 2 "reg_or_0_operand" "f,G,f")
+	 (match_operand:SCALARF 3 "reg_or_0_operand" "f,f,G")))]
+  "ISA_HAS_SEL && ISA_HAS_CCF"
+  "@
+   sel.<fmt>\t%0,%3,%2
+   seleqz.<fmt>\t%0,%3,%1
+   selnez.<fmt>\t%0,%2,%1"
+  [(set_attr "type" "condmove")
+   (set_attr "mode" "<SCALARF:MODE>")])
+
 ;; These are the main define_expand's used to make conditional moves.
 
 (define_expand "mov<mode>cc"
@@ -7040,8 +7097,13 @@
 	(if_then_else:GPR (match_dup 5)
 			  (match_operand:GPR 2 "reg_or_0_operand")
 			  (match_operand:GPR 3 "reg_or_0_operand")))]
-  "ISA_HAS_CONDMOVE"
+  "ISA_HAS_CONDMOVE || ISA_HAS_SEL"
 {
+  if (ISA_HAS_SEL
+      && (GET_MODE (XEXP (operands[1], 0)) != SImode)
+      && (GET_MODE (XEXP (operands[1], 0)) != DImode))
+    FAIL;
+
   mips_expand_conditional_move (operands);
   DONE;
 })
@@ -7050,10 +7112,16 @@
   [(set (match_dup 4) (match_operand 1 "comparison_operator"))
    (set (match_operand:SCALARF 0 "register_operand")
 	(if_then_else:SCALARF (match_dup 5)
-			      (match_operand:SCALARF 2 "register_operand")
-			      (match_operand:SCALARF 3 "register_operand")))]
-  "ISA_HAS_FP_CONDMOVE"
+			      (match_operand:SCALARF 2 "reg_or_0_operand")
+			      (match_operand:SCALARF 3 "reg_or_0_operand")))]
+  "ISA_HAS_FP_CONDMOVE
+   || (ISA_HAS_SEL && ISA_HAS_CCF)"
 {
+  if (ISA_HAS_SEL
+      && GET_MODE (XEXP (operands[1], 0)) != SFmode
+      && GET_MODE (XEXP (operands[1], 0)) != DFmode)
+    FAIL;
+
   mips_expand_conditional_move (operands);
   DONE;
 })
