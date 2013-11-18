@@ -13185,6 +13185,11 @@ tsubst_copy (tree t, tree args, tsubst_flags_t complain, tree in_decl)
       return r;
 
     case EXPR_PACK_EXPANSION:
+      // Expansions of variadic constraints are viable, expanding
+      // to a conunction of the expanded terms.
+      if (TREE_TYPE (t) == boolean_type_node)
+        return tsubst_pack_conjunction (t, args, complain, in_decl);
+
       error ("invalid use of pack expansion expression");
       return error_mark_node;
 
