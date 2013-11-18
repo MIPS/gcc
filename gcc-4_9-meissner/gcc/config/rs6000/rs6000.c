@@ -2565,11 +2565,12 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
   /* DFmode, see if we want to use the VSX unit.  */
   if (TARGET_VSX && TARGET_VSX_SCALAR_DOUBLE)
     {
+      /* We used to set rs6000_vector_mem[DFmode] to VECTOR_VSX if DFmode is
+	 allowed in the VMX registers, but saying that it supports VSX memory
+	 mode, doesn't allow for using the traditional floating point
+	 instructions with register+offset addressing.  So, we handle this in
+	 secondary reload now.  */
       rs6000_vector_unit[DFmode] = VECTOR_VSX;
-#if 0
-      rs6000_vector_mem[DFmode]
-	= (TARGET_UPPER_REGS_DF ? VECTOR_VSX : VECTOR_NONE);
-#endif
       rs6000_vector_align[DFmode] = align64;
     }
 
