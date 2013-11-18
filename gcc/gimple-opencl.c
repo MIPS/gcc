@@ -140,10 +140,7 @@ generate_type(FILE* fp, tree type, tree decl)
       break;
     case ARRAY_TYPE:
       generate_type(fp, TREE_TYPE(type), decl);
-      if(decl != NULL_TREE)
-        generate_name(fp, decl);
-      fprintf(fp, "[] ");
-      retval = true;
+      fprintf(fp, "* ");
       break;
     case POINTER_TYPE:
       fprintf(fp, "__global ");
