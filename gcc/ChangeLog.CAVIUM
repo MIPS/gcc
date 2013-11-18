@@ -1,0 +1,4 @@
+2013-11-18  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (trap): New pattern.
+
