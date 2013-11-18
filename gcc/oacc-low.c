@@ -2307,7 +2307,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
                 builtin_decl, 1,
                 build_int_cst(builtin_return_type, 0));
     workitem_id = create_tmp_reg(builtin_return_type, "_acc_tmp");
-    workitem_id = make_ssa_name_fn(cfun, workitem_id, call_stmt);
+    workitem_id = make_ssa_name(workitem_id, call_stmt);
     set_gimple_def_var(call_stmt, workitem_id);
     gen_add(gsi, call_stmt);
     data->workitem_id = workitem_id;
@@ -2319,7 +2319,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
       /* _ = (int) _oacc_tmp; */
       gimple convert_stmt = build_type_cast (TREE_TYPE(lhs), workitem_id);
       tree convert_var = create_tmp_reg(TREE_TYPE(lhs), "_acc_tmp");
-      convert_var = make_ssa_name_fn(cfun, convert_var, convert_stmt);
+      convert_var = make_ssa_name(convert_var, convert_stmt);
       set_gimple_def_var(convert_stmt, convert_var);
       gen_add (gsi, convert_stmt);
 
@@ -2336,7 +2336,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
 
       for(i = idx + 1; i < data->loops.length(); ++i)
       {
-        quotient = make_ssa_name_fn(cfun, SSA_NAME_VAR(workitem_id),
+        quotient = make_ssa_name(SSA_NAME_VAR(workitem_id),
                                 data->wi_def_stmt);
         div_stmt = build_assign(TRUNC_DIV_EXPR, workitem_id,
                                 data->loops[i]->niter);
@@ -2351,7 +2351,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
       tree remain = NULL_TREE;
       gimple mod_stmt = NULL;
 
-      remain = make_ssa_name_fn(cfun, SSA_NAME_VAR(workitem_id),
+      remain = make_ssa_name(SSA_NAME_VAR(workitem_id),
                               data->wi_def_stmt);
       mod_stmt = build_assign(TRUNC_MOD_EXPR, workitem_id,
                            data->loops[idx]->niter);
@@ -2362,7 +2362,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
 
     /* i = _oacc_tmp + i; */
     add_stmt = build_assign(PLUS_EXPR, workitem_id, lhs);
-    new_var = make_ssa_name_fn(cfun, SSA_NAME_VAR(lhs), add_stmt);
+    new_var = make_ssa_name(SSA_NAME_VAR(lhs), add_stmt);
     set_gimple_def_var(add_stmt, new_var);
     gen_add(gsi, add_stmt);
 }
@@ -2900,7 +2900,7 @@ tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
   flow_loop_tree_node_add(bb->loop_father, l);
   
   counter = create_tmp_reg(intSI_type_node, "_acc_counter");
-  counter_1 = make_ssa_name_fn(cfun, counter, NULL);
+  counter_1 = make_ssa_name(counter, NULL);
   init_stmt = gimple_build_assign(counter_1, integer_zero_node);
   gen_add(gsi, init_stmt);
 
@@ -2917,15 +2917,15 @@ tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
     conv_var = sched->items;
   }
 
-  counter_2 = make_ssa_name_fn(cfun, counter, init_stmt);
-  counter_3 = make_ssa_name_fn(cfun, counter, init_stmt);
+  counter_2 = make_ssa_name(counter, init_stmt);
+  counter_3 = make_ssa_name(counter, init_stmt);
 
   *gsi = gsi_start_bb(body_0_bb);
   wi = create_tmp_reg(TREE_TYPE(sched->tiling), "_acc_tiling");
-  wi_1 = make_ssa_name_fn(cfun, wi, NULL);
+  wi_1 = make_ssa_name(wi, NULL);
   init_t_stmt = gimple_build_assign(wi_1, sched->tiling);
-  wi_2 = make_ssa_name_fn(cfun, wi, init_t_stmt);
-  wi_3 = make_ssa_name_fn(cfun, wi, init_t_stmt);
+  wi_2 = make_ssa_name(wi, init_t_stmt);
+  wi_3 = make_ssa_name(wi, init_t_stmt);
   gen_add(gsi, init_t_stmt);
 
   tmp_var = create_tmp_reg(intSI_type_node, "_acc_tmp");

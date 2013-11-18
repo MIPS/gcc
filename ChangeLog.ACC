@@ -1,4 +1,9 @@
 18-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Change SSA names creation.
+
+	* gcc/oacc-low.c: Switch from make_ssa_name_fn to make_ssa_name.
+
+18-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Fix warnings.
 
 	* gcc/oacc-low.c: Fix several warnings.
