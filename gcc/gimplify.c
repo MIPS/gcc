@@ -43,7 +43,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "omp-low.h"
 #include "gimple-low.h"
 #include "cilk.h"
-#include "tree-chkp.h"
 
 #include "langhooks-def.h"	/* FIXME: for lhd_set_decl_assembler_name */
 #include "tree-pass.h"		/* FIXME: only for PROP_gimple_any */
@@ -3673,11 +3672,6 @@ gimplify_init_constructor (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 		walk_tree (&ctor, force_labels_r, NULL, NULL);
 		ctor = tree_output_constant_def (ctor);
-
-		/* We need to register created constant object to
-		   initialize bounds for pointers in it.  */
-		chkp_register_var_initializer (ctor);
-
 		if (!useless_type_conversion_p (type, TREE_TYPE (ctor)))
 		  ctor = build1 (VIEW_CONVERT_EXPR, type, ctor);
 		TREE_OPERAND (*expr_p, 1) = ctor;
