@@ -284,9 +284,6 @@ static struct
   { "rsqrtd",	 (RECIP_DF_RSQRT | RECIP_V2DF_RSQRT) },
 };
 
-/* 2 argument gen function typedef.  */
-typedef rtx (*gen_2arg_fn_t) (rtx, rtx, rtx);
-
 /* Pointer to function (in rs6000-c.c) that can define or undefine target
    macros that have changed.  Languages that don't support the preprocessor
    don't link in rs6000-c.c, so we can't call it directly.  */
@@ -6163,7 +6160,7 @@ toc_relative_expr_p (const_rtx op, bool strict)
 
   tocrel_base = op;
   tocrel_offset = const0_rtx;
-  if (GET_CODE (op) == PLUS && CONST_INT_P (XEXP (op, 1)))
+  if (GET_CODE (op) == PLUS && add_cint_operand (XEXP (op, 1), GET_MODE (op)))
     {
       tocrel_base = XEXP (op, 0);
       tocrel_offset = XEXP (op, 1);
@@ -22414,8 +22411,7 @@ rs6000_emit_prologue (void)
 	  HOST_WIDE_INT offset;
 
 	  if (!(strategy & SAVE_INLINE_GPRS))
-	    ool_adjust = 8 * (info->first_gp_reg_save
-			      - (FIRST_SAVRES_REGISTER + 1));
+	    ool_adjust = 8 * (info->first_gp_reg_save - FIRST_SAVED_GP_REGNO);
 	  offset = info->spe_gp_save_offset + frame_off - ool_adjust;
 	  spe_save_area_ptr = gen_rtx_REG (Pmode, 11);
 	  save_off = frame_off - offset;
@@ -23876,8 +23872,7 @@ rs6000_emit_epilogue (int sibcall)
 	     anew to every function.  */
 
 	  if (!restoring_GPRs_inline)
-	    ool_adjust = 8 * (info->first_gp_reg_save
-			      - (FIRST_SAVRES_REGISTER + 1));
+	    ool_adjust = 8 * (info->first_gp_reg_save - FIRST_SAVED_GP_REGNO);
 	  frame_reg_rtx = gen_rtx_REG (Pmode, 11);
 	  emit_insn (gen_addsi3 (frame_reg_rtx, old_frame_reg_rtx,
 				 GEN_INT (info->spe_gp_save_offset
@@ -29395,7 +29390,7 @@ rs6000_emit_swdiv (rtx dst, rtx n, rtx d, bool note_p)
     passes++;
 
   enum insn_code code = optab_handler (smul_optab, mode);
-  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+  insn_gen_fn gen_mul = GEN_FCN (code);
 
   gcc_assert (code != CODE_FOR_nothing);
 
@@ -29473,7 +29468,7 @@ rs6000_emit_swrsqrt (rtx dst, rtx src)
   int i;
   rtx halfthree;
   enum insn_code code = optab_handler (smul_optab, mode);
-  gen_2arg_fn_t gen_mul = (gen_2arg_fn_t) GEN_FCN (code);
+  insn_gen_fn gen_mul = GEN_FCN (code);
 
   gcc_assert (code != CODE_FOR_nothing);
 

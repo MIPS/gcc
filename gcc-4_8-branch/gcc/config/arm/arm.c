@@ -4459,7 +4459,9 @@ aapcs_vfp_allocate (CUMULATIVE_ARGS *pcum, enum machine_mode mode,
     if (((pcum->aapcs_vfp_regs_free >> regno) & mask) == mask)
       {
 	pcum->aapcs_vfp_reg_alloc = mask << regno;
-	if (mode == BLKmode || (mode == TImode && !TARGET_NEON))
+	if (mode == BLKmode
+	    || (mode == TImode && ! TARGET_NEON)
+	    || ! arm_hard_regno_mode_ok (FIRST_VFP_REGNUM + regno, mode))
 	  {
 	    int i;
 	    int rcount = pcum->aapcs_vfp_rcount;
@@ -7839,6 +7841,15 @@ thumb1_size_rtx_costs (rtx x, enum rtx_code code, enum rtx_code outer)
 
     case PLUS:
     case MINUS:
+      /* Thumb-1 needs two instructions to fulfill shiftadd/shiftsub0/shiftsub1
+	 defined by RTL expansion, especially for the expansion of
+	 multiplication.  */
+      if ((GET_CODE (XEXP (x, 0)) == MULT
+	   && power_of_two_operand (XEXP (XEXP (x,0),1), SImode))
+	  || (GET_CODE (XEXP (x, 1)) == MULT
+	      && power_of_two_operand (XEXP (XEXP (x, 1), 1), SImode)))
+	return COSTS_N_INSNS (2);
+      /* On purpose fall through for normal RTX.  */
     case COMPARE:
     case NEG:
     case NOT:
@@ -17464,7 +17475,8 @@ arm_expand_prologue (void)
 	    }
 	}
 
-      if (current_tune->prefer_ldrd_strd
+      if (TARGET_LDRD
+	  && current_tune->prefer_ldrd_strd
           && !optimize_function_for_size_p (cfun))
         {
           if (TARGET_THUMB2)
@@ -23543,6 +23555,7 @@ arm_expand_epilogue_apcs_frame (bool really_return)
   num_regs = bit_count (saved_regs_mask);
   if ((offsets->outgoing_args != (1 + num_regs)) || cfun->calls_alloca)
     {
+      emit_insn (gen_blockage ());
       /* Unwind the stack to just below the saved registers.  */
       emit_insn (gen_addsi3 (stack_pointer_rtx,
                              hard_frame_pointer_rtx,
@@ -23778,7 +23791,8 @@ arm_expand_epilogue (bool really_return)
         }
       else
         {
-          if (current_tune->prefer_ldrd_strd
+          if (TARGET_LDRD
+	      && current_tune->prefer_ldrd_strd
               && !optimize_function_for_size_p (cfun))
             {
               if (TARGET_THUMB2)
