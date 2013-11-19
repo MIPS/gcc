@@ -270,7 +270,7 @@ gen_scope_of (const_tree t)
 
   tree context = NULL_TREE;
   if (TYPE_P (t))
-    context = TYPE_CONTEXT (t);
+    context = TYPE_NAME (t) ? DECL_CONTEXT (TYPE_NAME (t)) : TYPE_CONTEXT (t);
   else if (DECL_P (t))
     context = DECL_CONTEXT (t);
 
@@ -287,7 +287,8 @@ gen_scope_of (const_tree t)
 
   result = gen_scope_decl (context, gen_scope_of (context));
 
-  m[t] = result;
+  if (result)
+    m[t] = result;
 
   return result;
 }
@@ -607,7 +608,17 @@ gen_scope_decl (const_tree t,
       add_decl_to_scope (result, scope);
     }
   else if (TREE_CODE (t) == RECORD_TYPE)
-    result = gen_class_type_in_scope (t, scope);
+    {
+      abigail::class_decl_sptr cl = gen_class_type_in_scope (t, scope);
+      if (cl->is_declaration_only())
+	// This means that t is part of a class scope that is
+	// currently being defined.  So we cannot yet use that scope
+	// to e.g add stuff into it.  So let's just bail out for the
+	// moment.
+	;
+      else
+	result = cl;
+    }
   else
     gcc_unreachable ();
 
@@ -816,6 +827,14 @@ gen_class_type_in_scope (const_tree t,
 	gen_data_member (m);
       if (member)
 	class_type->add_data_member (member);
+      else if (TREE_CODE (m) == TYPE_DECL)
+	{
+	  abigail::type_base_sptr ty =
+	    gen_type_in_scope(TREE_TYPE (m), abigail::scope_decl_sptr ());
+	  if (ty)
+	    class_type->add_member_type (ty, get_access (TREE_TYPE (m)));
+	}
+      // else, handle the other kinds of members here.
     }
 
   for (tree m = TYPE_METHODS (t); m; m = DECL_CHAIN (m))
@@ -825,7 +844,7 @@ gen_class_type_in_scope (const_tree t,
 	  shared_ptr <abigail::class_decl::member_function> member =
 	    gen_member_function (m, class_type);
 	  if (member)
-	    class_type->add_member_function (member);
+	    add_decl_to_scope(member, class_type);
 	}
     }
 
