@@ -92,7 +92,7 @@ fix_bb_placement (basic_block bb)
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      if (e->dest == EXIT_BLOCK_PTR)
+      if (e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	continue;
 
       act = e->dest->loop_father;
@@ -352,7 +352,8 @@ remove_path (edge e)
     bitmap_set_bit (seen, rem_bbs[i]->index);
   if (!irred_invalidated)
     FOR_EACH_EDGE (ae, ei, e->src->succs)
-      if (ae != e && ae->dest != EXIT_BLOCK_PTR && !bitmap_bit_p (seen, ae->dest->index)
+      if (ae != e && ae->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
+	  && !bitmap_bit_p (seen, ae->dest->index)
 	  && ae->flags & EDGE_IRREDUCIBLE_LOOP)
 	{
 	  irred_invalidated = true;
@@ -363,7 +364,8 @@ remove_path (edge e)
     {
       bb = rem_bbs[i];
       FOR_EACH_EDGE (ae, ei, rem_bbs[i]->succs)
-	if (ae->dest != EXIT_BLOCK_PTR && !bitmap_bit_p (seen, ae->dest->index))
+	if (ae->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
+	    && !bitmap_bit_p (seen, ae->dest->index))
 	  {
 	    bitmap_set_bit (seen, ae->dest->index);
 	    bord_bbs[n_bord_bbs++] = ae->dest;
@@ -1519,7 +1521,7 @@ create_preheader (struct loop *loop, int flags)
 
       /* We do not allow entry block to be the loop preheader, since we
 	     cannot emit code there.  */
-      if (single_entry->src == ENTRY_BLOCK_PTR)
+      if (single_entry->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
         need_forwarder_block = true;
       else
         {
@@ -1585,13 +1587,12 @@ create_preheader (struct loop *loop, int flags)
 void
 create_preheaders (int flags)
 {
-  loop_iterator li;
   struct loop *loop;
 
   if (!current_loops)
     return;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     create_preheader (loop, flags);
   loops_state_set (LOOPS_HAVE_PREHEADERS);
 }
@@ -1601,11 +1602,10 @@ create_preheaders (int flags)
 void
 force_single_succ_latches (void)
 {
-  loop_iterator li;
   struct loop *loop;
   edge e;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       if (loop->latch != loop->header && single_succ_p (loop->latch))
 	continue;

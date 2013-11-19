@@ -1,3 +1,64 @@
+2013-11-19  Sriraman Tallam  <tmsriram@google.com>
+
+	* gcc.dg/tree-prof/cold_partition_label.c: New testcase.
+
+2013-11-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* gcc.target/powerpc/ppc64-abi-2.c (MAKE_SLOT): New macro to
+	construct parameter slot value in endian-independent way.
+	(fcevv, fciievv, fcvevv): Use it.
+
+2013-11-19  Jan Hubicka  <jh@suse.cz>
+
+	* ipa/devirt9.C: Fix prevoius change.
+
+2013-11-19  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* gcc.c-torture/execute/20101011-1.c (__aarch64__):
+	Remove defined(__linux__).
+
+2013-11-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59164
+	* gcc.dg/torture/pr59164.c: New testcase.
+
+2013-11-19  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/58956
+	* gcc.dg/torture/pr58956.c: New testcase.
+
+2013-11-19  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/null-1.c: New test.
+	* c-c++-common/ubsan/null-2.c: New test.
+	* c-c++-common/ubsan/null-3.c: New test.
+	* c-c++-common/ubsan/null-4.c: New test.
+	* c-c++-common/ubsan/null-5.c: New test.
+	* c-c++-common/ubsan/null-6.c: New test.
+	* c-c++-common/ubsan/null-7.c: New test.
+	* c-c++-common/ubsan/null-8.c: New test.
+	* c-c++-common/ubsan/null-9.c: New test.
+	* c-c++-common/ubsan/null-10.c: New test.
+	* c-c++-common/ubsan/null-11.c: New test.
+	* gcc.dg/ubsan/c99-shift-2.c: Adjust dg-output.
+	* c-c++-common/ubsan/shift-1.c: Likewise.
+	* c-c++-common/ubsan/div-by-zero-3.c: Likewise.
+
+2013-11-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/c11-complex-1.c: Use dg-add-options ieee.
+
+2013-11-19  Jan Hubicka  <jh@suse.cz>
+
+	* ipa/devirt9.C: Verify that the optimization happens already before.
+	whole-program.
+
+2013-11-19  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/57517
+	* gfortran.fortran-torture/compile/pr57517.f90: New testcase.
+	* gcc.dg/torture/pr57517.c: Likewise.
+
 2013-11-19  Jan Hubicka  <jh@suse.cz>
 
 	* gcc.target/i386/memcpy-3.c: New testcase.
@@ -142,6 +203,11 @@
 	PR c++/57887
 	* g++.dg/cpp0x/nsdmi-template3.C: New.
 	* g++.dg/cpp0x/nsdmi-template4.C: Likewise.
+
+2013-11-14  Diego Novillo  <dnovillo@google.com>
+
+	* gcc.dg/plugin/selfassign.c: Include stringpool.h.
+	* gcc.dg/plugin/start_unit_plugin.c: Likewise.
 
 2013-11-14  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
@@ -1118,8 +1184,8 @@
 	* gcc.dg/vmx/gcc-bug-i.c: Add little endian variant.
 	* gcc.dg/vmx/eg-5.c: Likewise.
 
-2013-10-28   Claudiu Zissulescu  <claziss@synopsys.com>
-	     Joern Rennecke  <joern.rennecke@embecosm.com>
+2013-10-28  Claudiu Zissulescu  <claziss@synopsys.com>
+	    Joern Rennecke  <joern.rennecke@embecosm.com>
 
 	* gcc.target/arc/jump-around-jump.c: New test.
 

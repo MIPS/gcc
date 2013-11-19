@@ -93,11 +93,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
+#include "stor-layout.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
@@ -285,7 +288,7 @@ register_division_in (basic_block bb)
   if (!occ)
     {
       occ = occ_new (bb, NULL);
-      insert_bb (occ, ENTRY_BLOCK_PTR, &occ_head);
+      insert_bb (occ, ENTRY_BLOCK_PTR_FOR_FN (cfun), &occ_head);
     }
 
   occ->bb_has_division = true;
