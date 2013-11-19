@@ -1,6 +1,0 @@
-2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
-
-	* tree-chkp.c (chkp_find_const_bounds_var): New.
-	(chkp_make_static_const_bounds): Search varpool for
-	required var before creating a new one.
-	(chkp_opt_init): Initialize constant bounds vars.
