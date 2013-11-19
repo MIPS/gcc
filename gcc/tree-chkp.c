@@ -3545,7 +3545,7 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
     }
   else if (TREE_CODE (type) == ARRAY_TYPE)
     {
-      unsigned HOST_WIDE_INT cur = -1;
+      unsigned HOST_WIDE_INT cur = 0;
       tree maxval = TYPE_MAX_VALUE (TYPE_DOMAIN (type));
       tree etype = TREE_TYPE (type);
       tree esize = TYPE_SIZE (etype);
@@ -3557,7 +3557,7 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 
 	  FOR_EACH_CONSTRUCTOR_ELT (CONSTRUCTOR_ELTS (rhs), cnt, purp, val)
 	    {
-	      if (TREE_CODE (purp) == RANGE_EXPR)
+	      if (purp && TREE_CODE (purp) == RANGE_EXPR)
 		{
 		  tree lo_index = TREE_OPERAND (purp, 0);
 		  tree hi_index = TREE_OPERAND (purp, 1);
@@ -3572,21 +3572,19 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 		}
 	      else
 		{
-		  if (TREE_CODE (purp) == INTEGER_CST)
-		    cur = tree_low_cst (purp, 1);
-		  else
+		  if (purp)
 		    {
-		      gcc_assert (!purp);
-		      cur++;
+		      gcc_assert (TREE_CODE (purp) == INTEGER_CST);
+		      cur = tree_low_cst (purp, 1);
 		    }
 
-		  lhs_elem = chkp_build_array_ref (lhs, etype, esize, cur);
+		  lhs_elem = chkp_build_array_ref (lhs, etype, esize, cur++);
 
 		  chkp_walk_pointer_assignments (lhs_elem, val, arg, handler);
 		}
 	    }
 	}
-      /* Copy array only whe size is known.  */
+      /* Copy array only when size is known.  */
       else if (maxval)
 	for (cur = 0; cur <= TREE_INT_CST_LOW (maxval); cur++)
 	  {
