@@ -1,4 +1,7 @@
+2013-11-19  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.md (trap): Use #1000 instead of #0.
+
 2013-11-18  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.md (trap): New pattern.
-

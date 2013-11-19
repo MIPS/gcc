@@ -454,7 +454,7 @@
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 8))]
   ""
-  "brk #0")
+  "brk #1000")
 
 (define_expand "prologue"
   [(clobber (const_int 0))]
