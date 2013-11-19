@@ -36,7 +36,7 @@ OACC_find_buffer(void *ptr, OACC_device_ptr dev_ptr, OACC_buffer_ptr* pprev)
   LOCK_AQUIRE(dev_ptr->dev_lock);
   for(prev = buf = dev_ptr->mem; buf != NULL; prev = buf, buf = buf->next)
     {
-      if(buf->data_ptr == ptr)
+      if((ptr >= buf->data_ptr) && (ptr < buf->data_ptr + buf->data_size))
         {
           if(pprev != NULL)
             {

@@ -1,4 +1,10 @@
 19-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Fix check for presence data on device.
+
+	* liboacc/memory.c(OACC_find_buffer): Fix check for presence data
+        on device.
+
+19-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Switch to gcc_checking_assert.
 
 	* gcc/oacc-low.c: Switch to gcc_checking_assert.
