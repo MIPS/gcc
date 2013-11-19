@@ -881,7 +881,7 @@ tree_ssa_dominator_optimize (void)
 
   /* Removal of statements may make some EH edges dead.  Purge
      such edges from the CFG as needed.  */
-  if (!bitmap_empty_p (need_eh_cleanup))
+  if (!need_eh_cleanup->is_empty ())
     {
       unsigned i;
       bitmap_iterator bi;
@@ -902,11 +902,11 @@ tree_ssa_dominator_optimize (void)
 	  if (bb == EXIT_BLOCK_PTR)
 	    continue;
 	  if ((unsigned) bb->index != i)
-	    bitmap_set_bit (need_eh_cleanup, bb->index);
+	    need_eh_cleanup->set_bit (bb->index);
 	}
 
       gimple_purge_all_dead_eh_edges (need_eh_cleanup);
-      bitmap_clear (need_eh_cleanup);
+      need_eh_cleanup->clear ();
     }
 
   statistics_counter_event (cfun, "Redundant expressions eliminated",
@@ -2432,7 +2432,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	      unlink_stmt_vdef (stmt);
 	      if (gsi_remove (&si, true))
 		{
-		  bitmap_set_bit (need_eh_cleanup, bb->index);
+		  need_eh_cleanup->set_bit (bb->index);
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  Flagged to clear EH edges.\n");
 		}
@@ -2491,7 +2491,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	 cannot trap, update the eh information and the cfg to match.  */
       if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 	{
-	  bitmap_set_bit (need_eh_cleanup, bb->index);
+	  need_eh_cleanup->set_bit (bb->index);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Flagged to clear EH edges.\n");
 	}
@@ -2766,7 +2766,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 		}
 
 	      result = get_lhs_or_phi_result (use_stmt);
-	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
+	      interesting_names->set_bit (SSA_NAME_VERSION (result));
 	      continue;
 	    }
 
@@ -2807,7 +2807,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 	     mark its containing block as needing EH cleanups.  */
 	  if (maybe_clean_or_replace_eh_stmt (use_stmt, use_stmt))
 	    {
-	      bitmap_set_bit (need_eh_cleanup, gimple_bb (use_stmt)->index);
+	      need_eh_cleanup->set_bit (gimple_bb (use_stmt)->index);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  Flagged to clear EH edges.\n");
 	    }
@@ -2820,7 +2820,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
                   || is_gimple_min_invariant (gimple_assign_rhs1 (use_stmt))))
             {
 	      tree result = get_lhs_or_phi_result (use_stmt);
-	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
+	      interesting_names->set_bit (SSA_NAME_VERSION (result));
 	    }
 
 	  /* Propagation into these nodes may make certain edges in
@@ -2868,7 +2868,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 			      tree result = gimple_phi_result (phi);
 			      int version = SSA_NAME_VERSION (result);
 
-			      bitmap_set_bit (interesting_names, version);
+			      interesting_names->set_bit (version);
 			    }
 
 			  te->probability += e->probability;
@@ -2928,7 +2928,7 @@ eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
      deleted.  */
   if (has_zero_uses (lhs))
     {
-      bitmap_clear_bit (interesting_names, version);
+      interesting_names->clear_bit (version);
       remove_stmt_or_phi (stmt);
       return;
     }
@@ -2938,7 +2938,7 @@ eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
   rhs = get_rhs_or_phi_arg (stmt);
   if (!rhs)
     {
-      bitmap_clear_bit (interesting_names, version);
+      interesting_names->clear_bit (version);
       return;
     }
 
@@ -2962,7 +2962,7 @@ eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
   /* Note that STMT may well have been deleted by now, so do
      not access it, instead use the saved version # to clear
      T's entry in the worklist.  */
-  bitmap_clear_bit (interesting_names, version);
+  interesting_names->clear_bit (version);
 }
 
 /* The first phase in degenerate PHI elimination.
@@ -3053,7 +3053,7 @@ eliminate_degenerate_phis (void)
      as trivial copies or constant initializations identified by
      the first phase or this phase.  Basically we keep iterating
      until our set of INTERESTING_NAMEs is empty.   */
-  while (!bitmap_empty_p (&interesting_names))
+  while (!interesting_names.is_empty ())
     {
       unsigned int i;
       bitmap_iterator bi;
@@ -3085,7 +3085,7 @@ eliminate_degenerate_phis (void)
 
   /* Propagation of const and copies may make some EH edges dead.  Purge
      such edges from the CFG as needed.  */
-  if (!bitmap_empty_p (need_eh_cleanup))
+  if (!need_eh_cleanup->is_empty ())
     {
       gimple_purge_all_dead_eh_edges (need_eh_cleanup);
       BITMAP_FREE (need_eh_cleanup);

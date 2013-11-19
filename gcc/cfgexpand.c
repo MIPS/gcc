@@ -324,8 +324,8 @@ add_stack_var_conflict (size_t x, size_t y)
     a->conflicts = BITMAP_ALLOC (&stack_var_bitmap_obstack);
   if (!b->conflicts)
     b->conflicts = BITMAP_ALLOC (&stack_var_bitmap_obstack);
-  bitmap_set_bit (a->conflicts, y);
-  bitmap_set_bit (b->conflicts, x);
+  a->conflicts->set_bit (y);
+  b->conflicts->set_bit (x);
 }
 
 /* Check whether the decls associated with luid's X and Y conflict.  */
@@ -362,7 +362,7 @@ visit_op (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
     {
       size_t *v = (size_t *) pointer_map_contains (decl_to_stack_part, op);
       if (v)
-	bitmap_set_bit (active, *v);
+	active->set_bit (*v);
     }
   return false;
 }
@@ -382,7 +382,7 @@ visit_conflict (gimple stmt ATTRIBUTE_UNUSED, tree op, void *data)
     {
       size_t *v =
 	(size_t *) pointer_map_contains (decl_to_stack_part, op);
-      if (v && bitmap_set_bit (active, *v))
+      if (v && active->set_bit (*v))
 	{
 	  size_t num = *v;
 	  bitmap_iterator bi;
@@ -408,7 +408,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
   gimple_stmt_iterator gsi;
   bool (*visit)(gimple, tree, void *);
 
-  bitmap_clear (work);
+  work->clear ();
   FOR_EACH_EDGE (e, ei, bb->preds)
     bitmap_ior_into (work, (bitmap)e->src->aux);
 
@@ -434,7 +434,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 	  if (DECL_RTL_IF_SET (lhs) == pc_rtx
 	      && (v = (size_t *)
 		  pointer_map_contains (decl_to_stack_part, lhs)))
-	    bitmap_clear_bit (work, *v);
+	    work->clear_bit (*v);
 	}
       else if (!is_gimple_debug (stmt))
 	{
@@ -592,7 +592,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
       || pointer_set_insert (visited, pt->vars))
     return;
 
-  bitmap_clear (temp);
+  temp->clear ();
 
   /* By using a temporary bitmap to store all members of the partitions
      we have to add we make sure to visit each of the partitions only
@@ -603,7 +603,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
 	&& (part = (bitmap *) pointer_map_contains (decls_to_partitions,
 						    (void *)(size_t) i)))
       bitmap_ior_into (temp, *part);
-  if (!bitmap_empty_p (temp))
+  if (!temp->is_empty ())
     bitmap_ior_into (pt->vars, temp);
 }
 
@@ -650,7 +650,7 @@ update_alias_info_with_stack_vars (void)
 	{
 	  tree decl = stack_vars[j].decl;
 	  unsigned int uid = DECL_PT_UID (decl);
-	  bitmap_set_bit (part, uid);
+	  part->set_bit (uid);
 	  *((bitmap *) pointer_map_insert (decls_to_partitions,
 					   (void *)(size_t) uid)) = part;
 	  *((tree *) pointer_map_insert (cfun->gimple_df->decls_to_pointers,

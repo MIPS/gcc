@@ -297,7 +297,7 @@ iv_analysis_loop_init (struct loop *loop)
   for (i = 0; i < loop->num_nodes; i++)
     {
       bb = body[i];
-      bitmap_set_bit (&blocks, bb->index);
+      blocks.set_bit (bb->index);
     }
   /* Get rid of the ud chains before processing the rescans.  Then add
      the problem back.  */

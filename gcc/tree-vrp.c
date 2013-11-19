@@ -401,7 +401,7 @@ set_value_range_to_undefined (value_range_t *vr)
   vr->type = VR_UNDEFINED;
   vr->min = vr->max = NULL_TREE;
   if (vr->equiv)
-    bitmap_clear (vr->equiv);
+    vr->equiv->clear ();
 }
 
 
@@ -413,7 +413,7 @@ set_value_range_to_varying (value_range_t *vr)
   vr->type = VR_VARYING;
   vr->min = vr->max = NULL_TREE;
   if (vr->equiv)
-    bitmap_clear (vr->equiv);
+    vr->equiv->clear ();
 }
 
 
@@ -446,7 +446,7 @@ set_value_range (value_range_t *vr, enum value_range_type t, tree min,
     gcc_assert (min == NULL_TREE && max == NULL_TREE);
 
   if (t == VR_UNDEFINED || t == VR_VARYING)
-    gcc_assert (equiv == NULL || bitmap_empty_p (equiv));
+    gcc_assert (equiv == NULL || equiv->is_empty ());
 #endif
 
   vr->type = t;
@@ -461,10 +461,10 @@ set_value_range (value_range_t *vr, enum value_range_type t, tree min,
 
   if (equiv != vr->equiv)
     {
-      if (equiv && !bitmap_empty_p (equiv))
+      if (equiv && !equiv->is_empty ())
 	bitmap_copy (vr->equiv, equiv);
       else
-	bitmap_clear (vr->equiv);
+	vr->equiv->clear ();
     }
 }
 
@@ -787,8 +787,8 @@ static inline bool
 vrp_bitmap_equal_p (const_bitmap b1, const_bitmap b2)
 {
   return (b1 == b2
-	  || ((!b1 || bitmap_empty_p (b1))
-	      && (!b2 || bitmap_empty_p (b2)))
+	  || ((!b1 || b1->is_empty ())
+	      && (!b2 || b2->is_empty ()))
 	  || (b1 && b2
 	      && bitmap_equal_p (b1, b2)));
 }
@@ -848,7 +848,7 @@ add_equivalence (bitmap *equiv, const_tree var)
 
   if (*equiv == NULL)
     *equiv = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (*equiv, ver);
+  (*equiv)->set_bit (ver);
   if (vr && vr->equiv)
     bitmap_ior_into (*equiv, vr->equiv);
 }
@@ -4678,7 +4678,7 @@ register_new_assert_for (tree name, tree expr,
   else
     asserts_for[SSA_NAME_VERSION (name)] = n;
 
-  bitmap_set_bit (need_assert_for, SSA_NAME_VERSION (name));
+  need_assert_for->set_bit (SSA_NAME_VERSION (name));
 }
 
 /* (COND_OP0 COND_CODE COND_OP1) is a predicate which uses NAME.
@@ -6902,15 +6902,15 @@ compare_names (enum tree_code comp, tree n1, tree n2,
   /* Add N1 and N2 to their own set of equivalences to avoid
      duplicating the body of the loop just to check N1 and N2
      ranges.  */
-  bitmap_set_bit (e1, SSA_NAME_VERSION (n1));
-  bitmap_set_bit (e2, SSA_NAME_VERSION (n2));
+  e1->set_bit (SSA_NAME_VERSION (n1));
+  e2->set_bit (SSA_NAME_VERSION (n2));
 
   /* If the equivalence sets have a common intersection, then the two
      names can be compared without checking their ranges.  */
   if (bitmap_intersect_p (e1, e2))
     {
-      bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-      bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+      e1->clear_bit (SSA_NAME_VERSION (n1));
+      e2->clear_bit (SSA_NAME_VERSION (n2));
 
       return (comp == EQ_EXPR || comp == GE_EXPR || comp == LE_EXPR)
 	     ? boolean_true_node
@@ -6945,8 +6945,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
 	      if (retval != NULL
 		  && t != retval)
 		{
-		  bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-		  bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+		  e1->clear_bit (SSA_NAME_VERSION (n1));
+		  e2->clear_bit (SSA_NAME_VERSION (n2));
 		  return NULL_TREE;
 		}
 	      retval = t;
@@ -6960,8 +6960,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
 
       if (retval)
 	{
-	  bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-	  bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+	  e1->clear_bit (SSA_NAME_VERSION (n1));
+	  e2->clear_bit (SSA_NAME_VERSION (n2));
 	  if (used_strict_overflow > 0)
 	    *strict_overflow_p = true;
 	  return retval;
@@ -6970,8 +6970,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
 
   /* None of the equivalent ranges are useful in computing this
      comparison.  */
-  bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-  bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+  e1->clear_bit (SSA_NAME_VERSION (n1));
+  e2->clear_bit (SSA_NAME_VERSION (n2));
   return NULL_TREE;
 }
 
@@ -8224,7 +8224,7 @@ vrp_meet_1 (value_range_t *vr0, value_range_t *vr1)
 	  /* Since this meet operation did not result from the meeting of
 	     two equivalent names, VR0 cannot have any equivalences.  */
 	  if (vr0->equiv)
-	    bitmap_clear (vr0->equiv);
+	    vr0->equiv->clear ();
 	  return;
 	}
 
@@ -8241,7 +8241,7 @@ vrp_meet_1 (value_range_t *vr0, value_range_t *vr1)
   if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
     bitmap_and_into (vr0->equiv, vr1->equiv);
   else if (vr0->equiv && !vr1->equiv)
-    bitmap_clear (vr0->equiv);
+    vr0->equiv->clear ();
 }
 
 static void

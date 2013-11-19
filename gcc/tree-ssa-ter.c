@@ -279,7 +279,7 @@ make_dependent_on_partition (temp_expr_table_p tab, int version, int p)
   if (!tab->partition_dependencies[version])
     tab->partition_dependencies[version] = BITMAP_ALLOC (&ter_bitmap_obstack);
 
-  bitmap_set_bit (tab->partition_dependencies[version], p);
+  tab->partition_dependencies[version]->set_bit (p);
 }
 
 
@@ -291,9 +291,9 @@ add_to_partition_kill_list (temp_expr_table_p tab, int p, int ver)
   if (!tab->kill_list[p])
     {
       tab->kill_list[p] = BITMAP_ALLOC (&ter_bitmap_obstack);
-      bitmap_set_bit (tab->partition_in_use, p);
+      tab->partition_in_use->set_bit (p);
     }
-  bitmap_set_bit (tab->kill_list[p], ver);
+  tab->kill_list[p]->set_bit (ver);
 }
 
 
@@ -304,10 +304,10 @@ static inline void
 remove_from_partition_kill_list (temp_expr_table_p tab, int p, int version)
 {
   gcc_checking_assert (tab->kill_list[p]);
-  bitmap_clear_bit (tab->kill_list[p], version);
-  if (bitmap_empty_p (tab->kill_list[p]))
+  tab->kill_list[p]->clear_bit (version);
+  if (tab->kill_list[p]->is_empty ())
     {
-      bitmap_clear_bit (tab->partition_in_use, p);
+      tab->partition_in_use->clear_bit (p);
       BITMAP_FREE (tab->kill_list[p]);
     }
 }
@@ -328,7 +328,7 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
   i = SSA_NAME_VERSION (var);
   if (version_to_be_replaced_p (tab, i))
     {
-      if (!bitmap_empty_p (tab->new_replaceable_dependencies))
+      if (!tab->new_replaceable_dependencies->is_empty ())
         {
 	  /* Version will now be killed by a write to any partition the
 	     substituted expression would have been killed by.  */
@@ -345,7 +345,7 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
 	  bitmap_ior_into (tab->partition_in_use,
 			   tab->new_replaceable_dependencies);
 	  /* It is only necessary to add these once.  */
-	  bitmap_clear (tab->new_replaceable_dependencies);
+	  tab->new_replaceable_dependencies->clear ();
 	}
     }
   else
@@ -462,7 +462,7 @@ process_replaceable (temp_expr_table_p tab, gimple stmt, int call_cnt)
 
   basevar = SSA_NAME_VAR (def);
   if (basevar)
-    bitmap_set_bit (def_vars, DECL_UID (basevar));
+    def_vars->set_bit (DECL_UID (basevar));
 
   /* Add this expression to the dependency list for each use partition.  */
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
@@ -477,7 +477,7 @@ process_replaceable (temp_expr_table_p tab, gimple stmt, int call_cnt)
 	  BITMAP_FREE (tab->expr_decl_uids[var_version]);
 	}
       else if (SSA_NAME_VAR (var))
-	bitmap_set_bit (def_vars, DECL_UID (SSA_NAME_VAR (var)));
+	def_vars->set_bit (DECL_UID (SSA_NAME_VAR (var)));
     }
   tab->expr_decl_uids[version] = def_vars;
 
@@ -543,7 +543,7 @@ mark_replaceable (temp_expr_table_p tab, tree var, bool more_replacing)
      on the default obstack.  */
   if (!tab->replaceable_expressions)
     tab->replaceable_expressions = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (tab->replaceable_expressions, version);
+  tab->replaceable_expressions->set_bit (version);
 }
 
 
@@ -586,7 +586,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	      /* See if the root variables are the same.  If they are, we
 		 do not want to do the replacement to avoid problems with
 		 code size, see PR tree-optimization/17549.  */
-	      if (!bitmap_empty_p (vars))
+	      if (!vars->is_empty ())
 		FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter2, SSA_OP_DEF)
 		  {
 		    if (SSA_NAME_VAR (def)
@@ -650,7 +650,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	process_replaceable (tab, stmt, cur_call_cnt);
 
       /* Free any unused dependency lists.  */
-      bitmap_clear (tab->new_replaceable_dependencies);
+      tab->new_replaceable_dependencies->clear ();
 
       /* A V_{MAY,MUST}_DEF kills any expression using a virtual operand,
 	 including the current stmt.  */
@@ -680,7 +680,7 @@ find_replaceable_exprs (var_map map)
   FOR_EACH_BB (bb)
     {
       find_replaceable_in_bb (table, bb);
-      gcc_checking_assert (bitmap_empty_p (table->partition_in_use));
+      gcc_checking_assert (table->partition_in_use->is_empty ());
     }
   ret = free_temp_expr_table (table);
   bitmap_obstack_release (&ter_bitmap_obstack);
@@ -732,7 +732,7 @@ debug_ter (FILE *f, temp_expr_table_p t)
         print_generic_expr (f, ssa_name (x), TDF_SLIM);
         fprintf (f, " dep-parts : ");
 	if (t->partition_dependencies[x]
-	    && !bitmap_empty_p (t->partition_dependencies[x]))
+	    && !t->partition_dependencies[x]->is_empty ())
 	  {
 	    EXECUTE_IF_SET_IN_BITMAP (t->partition_dependencies[x], 0, y, bi)
 	      fprintf (f, "P%d ",y);

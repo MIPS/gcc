@@ -49,7 +49,7 @@ typedef bitmap regset;
 #define INIT_REG_SET(HEAD) bitmap_initialize (HEAD, &reg_obstack)
 
 /* Clear a register set by freeing up the linked list.  */
-#define CLEAR_REG_SET(HEAD) bitmap_clear (HEAD)
+#define CLEAR_REG_SET(HEAD) (HEAD)->clear ()
 
 /* Copy a register set to another register set.  */
 #define COPY_REG_SET(TO, FROM) bitmap_copy (TO, FROM)
@@ -74,10 +74,10 @@ typedef bitmap regset;
   bitmap_ior_and_compl_into (TO, FROM1, FROM2)
 
 /* Clear a single register in a register set.  */
-#define CLEAR_REGNO_REG_SET(HEAD, REG) bitmap_clear_bit (HEAD, REG)
+#define CLEAR_REGNO_REG_SET(HEAD, REG) (HEAD)->clear_bit (REG)
 
 /* Set a single register in a register set.  */
-#define SET_REGNO_REG_SET(HEAD, REG) bitmap_set_bit (HEAD, REG)
+#define SET_REGNO_REG_SET(HEAD, REG) (HEAD)->set_bit (REG)
 
 /* Return true if a register is set in a register set.  */
 #define REGNO_REG_SET_P(TO, REG) bitmap_bit_p (TO, REG)

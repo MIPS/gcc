@@ -296,7 +296,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 	continue;
 
       /* Compute the set of registers modified by this instruction.  */
-      bitmap_clear (killed);
+      killed->clear ();
       df_simulate_find_defs (insn, killed);
 
       src = conforming_compare (insn);

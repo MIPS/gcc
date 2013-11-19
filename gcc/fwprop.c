@@ -173,12 +173,12 @@ process_defs (df_ref *def_rec, int top_flag)
 
       if (DF_REF_FLAGS (def) & DF_MD_GEN_FLAGS)
 	{
-	  bitmap_set_bit (local_md, dregno);
+	  local_md->set_bit (dregno);
 	  reg_defs[dregno] = NULL;
 	}
       else
 	{
-	  bitmap_clear_bit (local_md, dregno);
+	  local_md->clear_bit (dregno);
 	  reg_defs[dregno] = def;
 	}
     }

@@ -597,14 +597,14 @@ schedule_ebbs_init (void)
 
   /* Initialize DONT_CALC_DEPS and ebb-{start, end} markers.  */
   bitmap_initialize (&dont_calc_deps, 0);
-  bitmap_clear (&dont_calc_deps);
+  dont_calc_deps.clear ();
 }
 
 /* Perform cleanups after scheduling using schedules_ebbs or schedule_ebb.  */
 void
 schedule_ebbs_finish (void)
 {
-  bitmap_clear (&dont_calc_deps);
+  dont_calc_deps.clear ();
 
   /* Reposition the prologue and epilogue notes in case we moved the
      prologue/epilogue insns.  */
@@ -684,7 +684,7 @@ ebb_add_block (basic_block bb, basic_block after)
      therefore, they always form single block EBB,
      therefore, we can use rec->index to identify such EBBs.  */
   if (after == EXIT_BLOCK_PTR)
-    bitmap_set_bit (&dont_calc_deps, bb->index);
+    dont_calc_deps.set_bit (bb->index);
   else if (after == last_bb)
     last_bb = bb;
 }

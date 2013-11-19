@@ -582,7 +582,7 @@ add_to_value (unsigned int v, pre_expr e)
       value_expressions[v] = set;
     }
 
-  bitmap_set_bit (set, get_or_alloc_expression_id (e));
+  set->set_bit (get_or_alloc_expression_id (e));
 }
 
 /* Create a new bitmap set and return it.  */
@@ -652,8 +652,8 @@ bitmap_remove_from_set (bitmap_set_t set, pre_expr expr)
   unsigned int val  = get_expr_value_id (expr);
   if (!value_id_constant_p (val))
     {
-      bitmap_clear_bit (&set->values, val);
-      bitmap_clear_bit (&set->expressions, get_expression_id (expr));
+      set->values.clear_bit (val);
+      set->expressions.clear_bit (get_expression_id (expr));
     }
 }
 
@@ -665,8 +665,8 @@ bitmap_insert_into_set_1 (bitmap_set_t set, pre_expr expr,
     {
       /* We specifically expect this and only this function to be able to
 	 insert constants into a set.  */
-      bitmap_set_bit (&set->values, val);
-      bitmap_set_bit (&set->expressions, get_or_alloc_expression_id (expr));
+      set->values.set_bit (val);
+      set->expressions.set_bit (get_or_alloc_expression_id (expr));
     }
 }
 
@@ -692,8 +692,8 @@ bitmap_set_copy (bitmap_set_t dest, bitmap_set_t orig)
 static void
 bitmap_set_free (bitmap_set_t set)
 {
-  bitmap_clear (&set->expressions);
-  bitmap_clear (&set->values);
+  set->expressions.clear ();
+  set->values.clear ();
 }
 
 
@@ -751,7 +751,7 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
 	  pre_expr expr = expression_for_id (i);
 	  unsigned int value_id = get_expr_value_id (expr);
 	  if (!bitmap_bit_p (&dest->values, value_id))
-	    bitmap_clear_bit (&dest->expressions, i);
+	    dest->expressions.clear_bit (i);
 	}
     }
 }
@@ -772,7 +772,7 @@ bitmap_set_subtract (bitmap_set_t dest, bitmap_set_t orig)
     {
       pre_expr expr = expression_for_id (i);
       unsigned int value_id = get_expr_value_id (expr);
-      bitmap_set_bit (&result->values, value_id);
+      result->values.set_bit (value_id);
     }
 
   return result;
@@ -796,7 +796,7 @@ bitmap_set_subtract_values (bitmap_set_t a, bitmap_set_t b)
       if (bitmap_set_contains_value (b, get_expr_value_id (expr)))
 	bitmap_remove_from_set (a, expr);
     }
-  bitmap_clear (&temp);
+  temp.clear ();
 }
 
 
@@ -808,7 +808,7 @@ bitmap_set_contains_value (bitmap_set_t set, unsigned int value_id)
   if (value_id_constant_p (value_id))
     return true;
 
-  if (!set || bitmap_empty_p (&set->expressions))
+  if (!set || set->expressions.is_empty ())
     return false;
 
   return bitmap_bit_p (&set->values, value_id);
@@ -848,9 +848,9 @@ bitmap_set_replace_value (bitmap_set_t set, unsigned int lookfor,
   exprset = value_expressions[lookfor];
   EXECUTE_IF_SET_IN_BITMAP (exprset, 0, i, bi)
     {
-      if (bitmap_clear_bit (&set->expressions, i))
+      if (set->expressions.clear_bit (i))
 	{
-	  bitmap_set_bit (&set->expressions, get_expression_id (expr));
+	  set->expressions.set_bit (get_expression_id (expr));
 	  return;
 	}
     }
@@ -863,7 +863,7 @@ bitmap_set_replace_value (bitmap_set_t set, unsigned int lookfor,
 static bool
 bitmap_set_equal (bitmap_set_t a, bitmap_set_t b)
 {
-  return bitmap_equal_p (&a->values, &b->values);
+  return a->values == b->values;
 }
 
 /* Replace an instance of EXPR's VALUE with EXPR in SET if it exists,
@@ -895,8 +895,8 @@ bitmap_value_insert_into_set (bitmap_set_t set, pre_expr expr)
     return;
 
   /* If the value membership changed, add the expression.  */
-  if (bitmap_set_bit (&set->values, val))
-    bitmap_set_bit (&set->expressions, expr->id);
+  if (set->values.set_bit (val))
+    set->expressions.set_bit (expr->id);
 }
 
 /* Print out EXPR to outfile.  */
@@ -1929,9 +1929,9 @@ value_dies_in_block_x (pre_expr expr, basic_block block)
   /* Remember the result.  */
   if (!EXPR_DIES (block))
     EXPR_DIES (block) = BITMAP_ALLOC (&grand_bitmap_obstack);
-  bitmap_set_bit (EXPR_DIES (block), id * 2);
+  EXPR_DIES (block)->set_bit (id * 2);
   if (res)
-    bitmap_set_bit (EXPR_DIES (block), id * 2 + 1);
+    EXPR_DIES (block)->set_bit (id * 2 + 1);
 
   return res;
 }
@@ -2951,7 +2951,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 
 	  if (TREE_CODE (forcedname) == SSA_NAME)
 	    {
-	      bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (forcedname));
+	      inserted_exprs->set_bit (SSA_NAME_VERSION (forcedname));
 	      VN_INFO_GET (forcedname)->valnum = forcedname;
 	      VN_INFO (forcedname)->value_id = get_next_value_id ();
 	      nameexpr = get_or_alloc_expr_for_name (forcedname);
@@ -2968,7 +2968,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
   gimple_set_plf (newstmt, NECESSARY, false);
 
   gimple_seq_add_stmt (stmts, newstmt);
-  bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (name));
+  inserted_exprs->set_bit (SSA_NAME_VERSION (name));
 
   /* Fold the last statement.  */
   gsi = gsi_last (*stmts);
@@ -3160,8 +3160,8 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 			      gimple stmt = gsi_stmt (gsi);
 			      tree lhs = gimple_get_lhs (stmt);
 			      if (TREE_CODE (lhs) == SSA_NAME)
-				bitmap_set_bit (inserted_exprs,
-						SSA_NAME_VERSION (lhs));
+				inserted_exprs->set_bit
+						(SSA_NAME_VERSION (lhs));
 			      gimple_set_plf (stmt, NECESSARY, false);
 			    }
 			  gsi_insert_seq_on_edge (pred, stmts);
@@ -3206,7 +3206,7 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 		      gimple stmt = gsi_stmt (gsi);
 		      tree lhs = gimple_get_lhs (stmt);
 		      if (TREE_CODE (lhs) == SSA_NAME)
-			bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (lhs));
+			inserted_exprs->set_bit (SSA_NAME_VERSION (lhs));
 		      gimple_set_plf (stmt, NECESSARY, false);
 		    }
 		  gsi_insert_seq_on_edge (pred, stmts);
@@ -3233,7 +3233,7 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
   VN_INFO (temp)->valnum = sccvn_valnum_from_value_id (val);
   if (VN_INFO (temp)->valnum == NULL_TREE)
     VN_INFO (temp)->valnum = temp;
-  bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (temp));
+  inserted_exprs->set_bit (SSA_NAME_VERSION (temp));
   FOR_EACH_EDGE (pred, ei, block->preds)
     {
       pre_expr ae = avail[pred->dest_idx];
@@ -3445,7 +3445,7 @@ do_regular_insertion (basic_block block, basic_block dom)
 	      VN_INFO (temp)->valnum = sccvn_valnum_from_value_id (val);
 	      if (VN_INFO (temp)->valnum == NULL_TREE)
 		VN_INFO (temp)->valnum = temp;
-	      bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (temp));
+	      inserted_exprs->set_bit (SSA_NAME_VERSION (temp));
 	      pre_expr newe = get_or_alloc_expr_for_name (temp);
 	      add_to_value (val, newe);
 	      bitmap_value_replace_in_set (AVAIL_OUT (block), newe);
@@ -4208,8 +4208,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		 its EH information.  */
 	      if (maybe_clean_or_replace_eh_stmt (orig_stmt, stmt))
 		{
-		  bitmap_set_bit (need_eh_cleanup,
-				  gimple_bb (stmt)->index);
+		  need_eh_cleanup->set_bit (gimple_bb (stmt)->index);
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  Removed EH side-effects.\n");
 		}
@@ -4258,8 +4257,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		 its EH information.  */
 	      if (maybe_clean_or_replace_eh_stmt (orig_stmt, stmt))
 		{
-		  bitmap_set_bit (need_eh_cleanup,
-				  gimple_bb (stmt)->index);
+		  need_eh_cleanup->set_bit (gimple_bb (stmt)->index);
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  Removed EH side-effects.\n");
 		}
@@ -4268,8 +4266,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	      if (can_make_abnormal_goto
 		  && !stmt_can_make_abnormal_goto (stmt))
 		{
-		  bitmap_set_bit (need_ab_cleanup,
-				  gimple_bb (stmt)->index);
+		  need_ab_cleanup->set_bit (gimple_bb (stmt)->index);
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  Removed AB side-effects.\n");
 		}
@@ -4377,8 +4374,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		 its EH information.  */
 	      if (maybe_clean_or_replace_eh_stmt (stmt, stmt))
 		{
-		  bitmap_set_bit (need_eh_cleanup,
-				  gimple_bb (stmt)->index);
+		  need_eh_cleanup->set_bit (gimple_bb (stmt)->index);
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  Removed EH side-effects.\n");
 		}
@@ -4387,8 +4383,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 	      if (can_make_abnormal_goto
 		  && !stmt_can_make_abnormal_goto (stmt))
 		{
-		  bitmap_set_bit (need_ab_cleanup,
-				  gimple_bb (stmt)->index);
+		  need_ab_cleanup->set_bit (gimple_bb (stmt)->index);
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  Removed AB side-effects.\n");
 		}
@@ -4468,10 +4463,10 @@ eliminate (void)
 	  gsi = gsi_for_stmt (stmt);
 	  unlink_stmt_vdef (stmt);
 	  if (gsi_remove (&gsi, true))
-	    bitmap_set_bit (need_eh_cleanup, bb->index);
+	    need_eh_cleanup->set_bit (bb->index);
 	  if (inserted_exprs
 	      && TREE_CODE (lhs) == SSA_NAME)
-	    bitmap_clear_bit (inserted_exprs, SSA_NAME_VERSION (lhs));
+	    inserted_exprs->clear_bit (SSA_NAME_VERSION (lhs));
 	  release_defs (stmt);
 	}
     }
@@ -4492,8 +4487,8 @@ eliminate (void)
 static unsigned 
 fini_eliminate (void)
 {
-  bool do_eh_cleanup = !bitmap_empty_p (need_eh_cleanup);
-  bool do_ab_cleanup = !bitmap_empty_p (need_ab_cleanup);
+  bool do_eh_cleanup = !need_eh_cleanup->is_empty ();
+  bool do_ab_cleanup = !need_ab_cleanup->is_empty ();
 
   if (do_eh_cleanup)
     gimple_purge_all_dead_eh_edges (need_eh_cleanup);
@@ -4556,12 +4551,12 @@ remove_dead_inserted_code (void)
     {
       t = SSA_NAME_DEF_STMT (ssa_name (i));
       if (gimple_plf (t, NECESSARY))
-	bitmap_set_bit (worklist, i);
+	worklist->set_bit (i);
     }
-  while (!bitmap_empty_p (worklist))
+  while (!worklist->is_empty ())
     {
       i = bitmap_first_set_bit (worklist);
-      bitmap_clear_bit (worklist, i);
+      worklist->clear_bit (i);
       t = SSA_NAME_DEF_STMT (ssa_name (i));
 
       /* PHI nodes are somewhat special in that each PHI alternative has
@@ -4578,7 +4573,7 @@ remove_dead_inserted_code (void)
 		{
 		  gimple n = mark_operand_necessary (arg);
 		  if (n)
-		    bitmap_set_bit (worklist, SSA_NAME_VERSION (arg));
+		    worklist->set_bit (SSA_NAME_VERSION (arg));
 		}
 	    }
 	}
@@ -4599,7 +4594,7 @@ remove_dead_inserted_code (void)
 	    {
 	      gimple n = mark_operand_necessary (use);
 	      if (n)
-		bitmap_set_bit (worklist, SSA_NAME_VERSION (use));
+		worklist->set_bit (SSA_NAME_VERSION (use));
 	    }
 	}
     }

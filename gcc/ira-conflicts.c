@@ -280,7 +280,7 @@ process_regs_for_copy (rtx reg1, rtx reg2, bool constraint_p,
 	{
 	  cp = ira_add_allocno_copy (a1, a2, freq, constraint_p, insn,
 				     ira_curr_loop_tree_node);
-	  bitmap_set_bit (ira_curr_loop_tree_node->local_copies, cp->num);
+	  ira_curr_loop_tree_node->local_copies->set_bit (cp->num);
 	  return true;
 	}
       else

@@ -412,7 +412,7 @@ va_list_ptr_read (struct stdarg_info *si, tree ap, tree tem)
 
   /* Note the temporary, as we need to track whether it doesn't escape
      the current function.  */
-  bitmap_set_bit (si->va_list_escape_vars, SSA_NAME_VERSION (tem));
+  si->va_list_escape_vars->set_bit (SSA_NAME_VERSION (tem));
 
   return true;
 }
@@ -516,7 +516,7 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
       return;
     }
 
-  bitmap_set_bit (si->va_list_escape_vars, SSA_NAME_VERSION (lhs));
+  si->va_list_escape_vars->set_bit (SSA_NAME_VERSION (lhs));
 }
 
 
@@ -757,7 +757,7 @@ execute_optimize_stdarg (void)
 	      break;
 	    }
 
-	  bitmap_set_bit (si.va_list_vars, DECL_UID (ap) + num_ssa_names);
+	  si.va_list_vars->set_bit (DECL_UID (ap) + num_ssa_names);
 
 	  /* VA_START_BB and VA_START_AP will be only used if there is just
 	     one va_start in the function.  */
@@ -959,7 +959,7 @@ execute_optimize_stdarg (void)
 
   if (! va_list_escapes
       && va_list_simple_ptr
-      && ! bitmap_empty_p (si.va_list_escape_vars)
+      && ! si.va_list_escape_vars->is_empty ()
       && check_all_va_list_escapes (&si))
     va_list_escapes = true;
 

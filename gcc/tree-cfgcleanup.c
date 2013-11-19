@@ -147,7 +147,7 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
   else
     taken_edge = single_succ_edge (bb);
 
-  bitmap_set_bit (cfgcleanup_altered_bbs, bb->index);
+  cfgcleanup_altered_bbs->set_bit (bb->index);
   gsi_remove (&gsi, true);
   taken_edge->flags = EDGE_FALLTHRU;
 
@@ -209,8 +209,8 @@ cleanup_control_flow_bb (basic_block bb)
 	    }
 	}
 
-      bitmap_set_bit (cfgcleanup_altered_bbs, bb->index);
-      bitmap_set_bit (cfgcleanup_altered_bbs, target_block->index);
+      cfgcleanup_altered_bbs->set_bit (bb->index);
+      cfgcleanup_altered_bbs->set_bit (target_block->index);
 
       /* Remove the GOTO_EXPR as it is not needed.  The CFG has all the
 	 relevant information we need.  */
@@ -402,7 +402,7 @@ remove_forwarder_block (basic_block bb)
   /* Redirect the edges.  */
   for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
     {
-      bitmap_set_bit (cfgcleanup_altered_bbs, e->src->index);
+      cfgcleanup_altered_bbs->set_bit (e->src->index);
 
       if (e->flags & EDGE_ABNORMAL)
 	{
@@ -468,7 +468,7 @@ remove_forwarder_block (basic_block bb)
 	}
     }
 
-  bitmap_set_bit (cfgcleanup_altered_bbs, dest->index);
+  cfgcleanup_altered_bbs->set_bit (dest->index);
 
   /* Update the dominators.  */
   if (dom_info_available_p (CDI_DOMINATORS))
@@ -537,7 +537,7 @@ fixup_noreturn_call (gimple stmt)
           FOR_EACH_IMM_USE_STMT (use_stmt, iter, op)
 	    {
 	      if (gimple_code (use_stmt) != GIMPLE_PHI)
-	        bitmap_set_bit (&blocks, gimple_bb (use_stmt)->index);
+	        blocks.set_bit (gimple_bb (use_stmt)->index);
 	      else
 		FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
 		  SET_USE (use_p, error_mark_node);
@@ -642,10 +642,10 @@ cleanup_tree_cfg_1 (void)
     }
 
   /* Now process the altered blocks, as long as any are available.  */
-  while (!bitmap_empty_p (cfgcleanup_altered_bbs))
+  while (!cfgcleanup_altered_bbs->is_empty ())
     {
       i = bitmap_first_set_bit (cfgcleanup_altered_bbs);
-      bitmap_clear_bit (cfgcleanup_altered_bbs, i);
+      cfgcleanup_altered_bbs->clear_bit (i);
       if (i < NUM_FIXED_BLOCKS)
 	continue;
 

@@ -290,7 +290,7 @@ dse_optimize_stmt (gimple_stmt_iterator *gsi)
 	  /* Remove the dead store.  */
 	  bb = gimple_bb (stmt);
 	  if (gsi_remove (gsi, true))
-	    bitmap_set_bit (need_eh_cleanup, bb->index);
+	    need_eh_cleanup->set_bit (bb->index);
 
 	  /* And release any SSA_NAMEs set in this statement back to the
 	     SSA_NAME manager.  */
@@ -344,7 +344,7 @@ tree_ssa_dse (void)
 
   /* Removal of stores may make some EH edges dead.  Purge such edges from
      the CFG as needed.  */
-  if (!bitmap_empty_p (need_eh_cleanup))
+  if (!need_eh_cleanup->is_empty ())
     {
       gimple_purge_all_dead_eh_edges (need_eh_cleanup);
       cleanup_tree_cfg ();

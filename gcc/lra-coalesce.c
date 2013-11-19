@@ -107,7 +107,7 @@ merge_pseudos (int regno1, int regno2)
        regno = next_coalesced_pseudo[regno])
     {
       first_coalesced_pseudo[regno] = first;
-      bitmap_set_bit (&coalesced_pseudos_bitmap, regno);
+      coalesced_pseudos_bitmap.set_bit (regno);
       if (regno == regno2)
 	break;
       last = regno;
@@ -190,11 +190,11 @@ update_live_info (bitmap lr_bitmap)
   unsigned int j;
   bitmap_iterator bi;
 
-  bitmap_clear (&used_pseudos_bitmap);
+  used_pseudos_bitmap.clear ();
   EXECUTE_IF_AND_IN_BITMAP (&coalesced_pseudos_bitmap, lr_bitmap,
 			    FIRST_PSEUDO_REGISTER, j, bi)
-    bitmap_set_bit (&used_pseudos_bitmap, first_coalesced_pseudo[j]);
-  if (! bitmap_empty_p (&used_pseudos_bitmap))
+    used_pseudos_bitmap.set_bit (first_coalesced_pseudo[j]);
+  if (! used_pseudos_bitmap.is_empty ())
     {
       bitmap_and_compl_into (lr_bitmap, &coalesced_pseudos_bitmap);
       bitmap_ior_into (lr_bitmap, &used_pseudos_bitmap);
@@ -318,9 +318,9 @@ lra_coalesce (void)
 	      }
 	  }
     }
-  bitmap_clear (&used_pseudos_bitmap);
-  bitmap_clear (&involved_insns_bitmap);
-  bitmap_clear (&coalesced_pseudos_bitmap);
+  used_pseudos_bitmap.clear ();
+  involved_insns_bitmap.clear ();
+  coalesced_pseudos_bitmap.clear ();
   if (lra_dump_file != NULL && coalesced_moves != 0)
     fprintf (lra_dump_file, "Coalesced Moves = %d\n", coalesced_moves);
   free (sorted_moves);

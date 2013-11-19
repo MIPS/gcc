@@ -936,7 +936,7 @@ static bitmap region_ref_regs;
 void
 sched_init_region_reg_pressure_info (void)
 {
-  bitmap_clear (region_ref_regs);
+  region_ref_regs->clear ();
 }
 
 /* PRESSURE[CL] describes the pressure on register class CL.  Update it
@@ -955,14 +955,14 @@ mark_regno_birth_or_death (bitmap live, int *pressure, int regno, bool birth_p)
 	{
 	  if (birth_p)
 	    {
-	      if (!live || bitmap_set_bit (live, regno))
+	      if (!live || live->set_bit (regno))
 		pressure[pressure_class]
 		  += (ira_reg_class_max_nregs
 		      [pressure_class][PSEUDO_REGNO_MODE (regno)]);
 	    }
 	  else
 	    {
-	      if (!live || bitmap_clear_bit (live, regno))
+	      if (!live || live->clear_bit (regno))
 		pressure[pressure_class]
 		  -= (ira_reg_class_max_nregs
 		      [pressure_class][PSEUDO_REGNO_MODE (regno)]);
@@ -974,12 +974,12 @@ mark_regno_birth_or_death (bitmap live, int *pressure, int regno, bool birth_p)
     {
       if (birth_p)
 	{
-	  if (!live || bitmap_set_bit (live, regno))
+	  if (!live || live->set_bit (regno))
 	    pressure[pressure_class]++;
 	}
       else
 	{
-	  if (!live || bitmap_clear_bit (live, regno))
+	  if (!live || live->clear_bit (regno))
 	    pressure[pressure_class]--;
 	}
     }
@@ -996,7 +996,7 @@ initiate_reg_pressure_info (bitmap live)
 
   for (i = 0; i < ira_pressure_classes_num; i++)
     curr_reg_pressure[ira_pressure_classes[i]] = 0;
-  bitmap_clear (curr_reg_live);
+  curr_reg_live->clear ();
   EXECUTE_IF_SET_IN_BITMAP (live, 0, j, bi)
     if (sched_pressure == SCHED_PRESSURE_MODEL
 	|| current_nr_blocks == 1
@@ -1019,7 +1019,7 @@ setup_ref_regs (rtx x)
 	bitmap_set_range (region_ref_regs, regno,
 			  hard_regno_nregs[regno][GET_MODE (x)]);
       else
-	bitmap_set_bit (region_ref_regs, REGNO (x));
+	region_ref_regs->set_bit (REGNO (x));
       return;
     }
   fmt = GET_RTX_FORMAT (code);
@@ -4601,7 +4601,7 @@ estimate_insn_tick (bitmap processed, rtx insn, int budget)
 	    earliest = t;
 	}
     }
-  bitmap_set_bit (processed, INSN_LUID (insn));
+  processed->set_bit (INSN_LUID (insn));
   INSN_TICK_ESTIMATE (insn) = earliest;
   return true;
 }
@@ -4620,7 +4620,7 @@ estimate_shadow_tick (struct delay_pair *p)
 
   cutoff = !estimate_insn_tick (&processed, p->i2,
 				max_insn_queue_index + pair_delay (p));
-  bitmap_clear (&processed);
+  processed.clear ();
   if (cutoff)
     return max_insn_queue_index;
   t = INSN_TICK_ESTIMATE (p->i2) - (clock_var + pair_delay (p) + 1);
@@ -6893,7 +6893,7 @@ fix_inter_tick (rtx head, rtx tail)
 	  gcc_assert (tick >= MIN_TICK);
 
 	  /* Fix INSN_TICK of instruction from just scheduled block.  */
-	  if (bitmap_set_bit (&processed, INSN_LUID (head)))
+	  if (processed.set_bit (INSN_LUID (head)))
 	    {
 	      tick -= next_clock;
 
@@ -6917,7 +6917,7 @@ fix_inter_tick (rtx head, rtx tail)
 		  /* If NEXT has its INSN_TICK calculated, fix it.
 		     If not - it will be properly calculated from
 		     scratch later in fix_tick_ready.  */
-		  && bitmap_set_bit (&processed, INSN_LUID (next)))
+		  && processed.set_bit (INSN_LUID (next)))
 		{
 		  tick -= next_clock;
 
@@ -6934,7 +6934,7 @@ fix_inter_tick (rtx head, rtx tail)
 	    }
 	}
     }
-  bitmap_clear (&processed);
+  processed.clear ();
 }
 
 /* Check if NEXT is ready to be added to the ready or queue list.
@@ -8006,7 +8006,7 @@ fix_recovery_deps (basic_block rec)
 	    {
 	      sd_delete_dep (sd_it);
 
-	      if (bitmap_set_bit (&in_ready, INSN_LUID (consumer)))
+	      if (in_ready.set_bit (INSN_LUID (consumer)))
 		ready_list = alloc_INSN_LIST (consumer, ready_list);
 	    }
 	  else
@@ -8021,7 +8021,7 @@ fix_recovery_deps (basic_block rec)
     }
   while (insn != note);
 
-  bitmap_clear (&in_ready);
+  in_ready.clear ();
 
   /* Try to add instructions to the ready or queue list.  */
   for (link = ready_list; link; link = XEXP (link, 1))

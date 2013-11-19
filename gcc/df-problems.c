@@ -172,11 +172,11 @@ df_rd_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_rd_bb_info *bb_info = (struct df_rd_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->kill);
-      bitmap_clear (&bb_info->sparse_kill);
-      bitmap_clear (&bb_info->gen);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->kill.clear ();
+      bb_info->sparse_kill.clear ();
+      bb_info->gen.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -194,8 +194,8 @@ df_rd_alloc (bitmap all_blocks)
   if (df_rd->problem_data)
     {
       problem_data = (struct df_rd_problem_data *) df_rd->problem_data;
-      bitmap_clear (&problem_data->sparse_invalidated_by_call);
-      bitmap_clear (&problem_data->dense_invalidated_by_call);
+      problem_data->sparse_invalidated_by_call.clear ();
+      problem_data->dense_invalidated_by_call.clear ();
     }
   else
     {
@@ -221,9 +221,9 @@ df_rd_alloc (bitmap all_blocks)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->kill.obstack)
 	{
-	  bitmap_clear (&bb_info->kill);
-	  bitmap_clear (&bb_info->sparse_kill);
-	  bitmap_clear (&bb_info->gen);
+	  bb_info->kill.clear ();
+	  bb_info->sparse_kill.clear ();
+	  bb_info->gen.clear ();
 	}
       else
 	{
@@ -256,7 +256,7 @@ df_rd_simulate_artificial_defs_at_top (basic_block bb, bitmap local_rd)
 	    bitmap_clear_range (local_rd,
 				DF_DEFS_BEGIN (dregno),
 				DF_DEFS_COUNT (dregno));
-	  bitmap_set_bit (local_rd, DF_REF_ID (def));
+	  local_rd->set_bit (DF_REF_ID (def));
 	}
     }
 }
@@ -284,7 +284,7 @@ df_rd_simulate_one_insn (basic_block bb ATTRIBUTE_UNUSED, rtx insn,
 				DF_DEFS_COUNT (dregno));
 	  if (!(DF_REF_FLAGS (def)
 		& (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
-	    bitmap_set_bit (local_rd, DF_REF_ID (def));
+	    local_rd->set_bit (DF_REF_ID (def));
 	}
     }
 }
@@ -325,7 +325,7 @@ df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info,
 		    {
 		      if (n_defs > DF_SPARSE_THRESHOLD)
 			{
-			  bitmap_set_bit (&bb_info->sparse_kill, regno);
+			  bb_info->sparse_kill.set_bit (regno);
 			  bitmap_clear_range (&bb_info->gen, begin, n_defs);
 			}
 		      else
@@ -335,12 +335,12 @@ df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info,
 			}
 		    }
 
-		  bitmap_set_bit (&seen_in_insn, regno);
+		  seen_in_insn.set_bit (regno);
 		  /* All defs for regno in the instruction may be put into
 		     the gen set.  */
 		  if (!(DF_REF_FLAGS (def)
 			& (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
-		    bitmap_set_bit (&bb_info->gen, DF_REF_ID (def));
+		    bb_info->gen.set_bit (DF_REF_ID (def));
 		}
 	    }
 	}
@@ -357,8 +357,8 @@ df_rd_bb_local_compute (unsigned int bb_index)
   struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
   rtx insn;
 
-  bitmap_clear (&seen_in_block);
-  bitmap_clear (&seen_in_insn);
+  seen_in_block.clear ();
+  seen_in_insn.clear ();
 
   /* Artificials are only hard regs.  */
   if (!(df->changeable_flags & DF_NO_HARD_REGS))
@@ -383,7 +383,7 @@ df_rd_bb_local_compute (unsigned int bb_index)
 	 is used and the clobber goes first, the result will be
 	 lost.  */
       bitmap_ior_into (&seen_in_block, &seen_in_insn);
-      bitmap_clear (&seen_in_insn);
+      seen_in_insn.clear ();
     }
 
   /* Process the artificial defs at the top of the block last since we
@@ -426,7 +426,7 @@ df_rd_local_compute (bitmap all_blocks)
 	  || !(df->changeable_flags & DF_NO_HARD_REGS))
 	{
 	  if (DF_DEFS_COUNT (regno) > DF_SPARSE_THRESHOLD)
-	    bitmap_set_bit (sparse_invalidated, regno);
+	    sparse_invalidated->set_bit (regno);
 	  else
 	    bitmap_set_range (dense_invalidated,
 			      DF_DEFS_BEGIN (regno),
@@ -434,8 +434,8 @@ df_rd_local_compute (bitmap all_blocks)
 	}
     }
 
-  bitmap_clear (&seen_in_block);
-  bitmap_clear (&seen_in_insn);
+  seen_in_block.clear ();
+  seen_in_insn.clear ();
 }
 
 
@@ -452,7 +452,7 @@ df_rd_init_solution (bitmap all_blocks)
       struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
 
       bitmap_copy (&bb_info->out, &bb_info->gen);
-      bitmap_clear (&bb_info->in);
+      bb_info->in.clear ();
     }
 }
 
@@ -510,7 +510,7 @@ df_rd_transfer_function (int bb_index)
   bitmap sparse_kill = &bb_info->sparse_kill;
   bool changed = false;
 
-  if (bitmap_empty_p (sparse_kill))
+  if (sparse_kill->is_empty ())
     changed = bitmap_ior_and_compl (out, gen, in, kill);
   else
     {
@@ -530,16 +530,16 @@ df_rd_transfer_function (int bb_index)
 	}
       bitmap_and_compl_into (&tmp, kill);
       bitmap_ior_into (&tmp, gen);
-      changed = !bitmap_equal_p (&tmp, out);
+      changed = !tmp.equals (*out);
       if (changed)
 	{
-	  bitmap_clear (out);
+	  out->clear ();
 	  bb_info->out = tmp;
     // kind of hacky but hopefully that'll be fixed by more c++ification
     tmp.first = tmp.current = NULL;
 	}
       else
-	bitmap_clear (&tmp);
+	tmp.clear ();
     }
 
   if (df->changeable_flags & DF_RD_PRUNE_DEAD_DEFS)
@@ -633,7 +633,7 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
 	continue;
       bitmap_set_range (&tmp, DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
       bitmap_and_into (&tmp, defs_set);
-      if (! bitmap_empty_p (&tmp))
+      if (! tmp.is_empty ())
 	{
 	  bitmap_iterator bi;
 	  unsigned int ix;
@@ -651,7 +651,7 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
 	    }
 	  fprintf (file, "]");
 	}
-      bitmap_clear (&tmp);
+      tmp.clear ();
     }
 
   fprintf (file, "\n");
@@ -755,10 +755,10 @@ df_lr_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_lr_bb_info *bb_info = (struct df_lr_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->use);
-      bitmap_clear (&bb_info->def);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->use.clear ();
+      bb_info->def.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -793,8 +793,8 @@ df_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->use.obstack)
 	{
-	  bitmap_clear (&bb_info->def);
-	  bitmap_clear (&bb_info->use);
+	  bb_info->def.clear ();
+	  bb_info->use.clear ();
 	}
       else
 	{
@@ -821,8 +821,8 @@ df_lr_reset (bitmap all_blocks)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -845,8 +845,8 @@ df_lr_bb_local_compute (unsigned int bb_index)
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
-	  bitmap_set_bit (&bb_info->def, dregno);
-	  bitmap_clear_bit (&bb_info->use, dregno);
+	  bb_info->def.set_bit (dregno);
+	  bb_info->use.clear_bit (dregno);
 	}
     }
 
@@ -856,7 +856,7 @@ df_lr_bb_local_compute (unsigned int bb_index)
       df_ref use = *use_rec;
       /* Add use to set of uses in this BB.  */
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
-	bitmap_set_bit (&bb_info->use, DF_REF_REGNO (use));
+	bb_info->use.set_bit (DF_REF_REGNO (use));
     }
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -874,8 +874,8 @@ df_lr_bb_local_compute (unsigned int bb_index)
 	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 	    {
 	      unsigned int dregno = DF_REF_REGNO (def);
-	      bitmap_set_bit (&bb_info->def, dregno);
-	      bitmap_clear_bit (&bb_info->use, dregno);
+	      bb_info->def.set_bit (dregno);
+	      bb_info->use.clear_bit (dregno);
 	    }
 	}
 
@@ -883,7 +883,7 @@ df_lr_bb_local_compute (unsigned int bb_index)
 	{
 	  df_ref use = *use_rec;
 	  /* Add use to set of uses in this BB.  */
-	  bitmap_set_bit (&bb_info->use, DF_REF_REGNO (use));
+	  bb_info->use.set_bit (DF_REF_REGNO (use));
 	}
     }
 
@@ -896,8 +896,8 @@ df_lr_bb_local_compute (unsigned int bb_index)
       if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
-	  bitmap_set_bit (&bb_info->def, dregno);
-	  bitmap_clear_bit (&bb_info->use, dregno);
+	  bb_info->def.set_bit (dregno);
+	  bb_info->use.clear_bit (dregno);
 	}
     }
 
@@ -929,15 +929,15 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
   unsigned int bb_index, i;
   bitmap_iterator bi;
 
-  bitmap_clear (&df->hardware_regs_used);
+  df->hardware_regs_used.clear ();
 
   /* The all-important stack pointer must always be live.  */
-  bitmap_set_bit (&df->hardware_regs_used, STACK_POINTER_REGNUM);
+  df->hardware_regs_used.set_bit (STACK_POINTER_REGNUM);
 
   /* Global regs are always live, too.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (global_regs[i])
-      bitmap_set_bit (&df->hardware_regs_used, i);
+      df->hardware_regs_used.set_bit (i);
 
   /* Before reload, there are a few registers that must be forced
      live everywhere -- which might not already be the case for
@@ -947,20 +947,20 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
       unsigned int pic_offset_table_regnum = PIC_OFFSET_TABLE_REGNUM;
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
-      bitmap_set_bit (&df->hardware_regs_used, FRAME_POINTER_REGNUM);
+      df->hardware_regs_used.set_bit (FRAME_POINTER_REGNUM);
 
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
       if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (&df->hardware_regs_used, ARG_POINTER_REGNUM);
+	df->hardware_regs_used.set_bit (ARG_POINTER_REGNUM);
 #endif
 
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
       if (pic_offset_table_regnum != INVALID_REGNUM
 	  && fixed_regs[pic_offset_table_regnum])
-	bitmap_set_bit (&df->hardware_regs_used, pic_offset_table_regnum);
+	df->hardware_regs_used.set_bit (pic_offset_table_regnum);
     }
 
   EXECUTE_IF_SET_IN_BITMAP (df_lr->out_of_date_transfer_functions, 0, bb_index, bi)
@@ -976,7 +976,7 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 	df_lr_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (df_lr->out_of_date_transfer_functions);
+  df_lr->out_of_date_transfer_functions->clear ();
 }
 
 
@@ -992,7 +992,7 @@ df_lr_init (bitmap all_blocks)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb_index);
       bitmap_copy (&bb_info->in, &bb_info->use);
-      bitmap_clear (&bb_info->out);
+      bb_info->out.clear ();
     }
 }
 
@@ -1204,8 +1204,8 @@ df_lr_verify_solution_end (void)
   else
     FOR_ALL_BB (bb)
       {
-	if ((!bitmap_equal_p (&problem_data->in[bb->index], DF_LR_IN (bb)))
-	    || (!bitmap_equal_p (&problem_data->out[bb->index], DF_LR_OUT (bb))))
+	if ((!problem_data->in[bb->index].equals (*DF_LR_IN (bb)))
+	    || (!problem_data->out[bb->index].equals (*DF_LR_OUT (bb))))
 	  {
 	    /*df_dump (stderr);*/
 	    gcc_unreachable ();
@@ -1216,8 +1216,8 @@ df_lr_verify_solution_end (void)
      if the comparison fails.  */
   FOR_ALL_BB (bb)
     {
-      bitmap_clear (&problem_data->in[bb->index]);
-      bitmap_clear (&problem_data->out[bb->index]);
+      problem_data->in[bb->index].clear ();
+      problem_data->out[bb->index].clear ();
     }
 
   free (problem_data->in);
@@ -1290,7 +1290,7 @@ df_lr_verify_transfer_functions (void)
   FOR_ALL_BB (bb)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb->index);
-      bitmap_set_bit (&all_blocks, bb->index);
+      all_blocks.set_bit (bb->index);
 
       if (bb_info)
 	{
@@ -1302,12 +1302,12 @@ df_lr_verify_transfer_functions (void)
 	    {
 	      bitmap_copy (&saved_def, &bb_info->def);
 	      bitmap_copy (&saved_use, &bb_info->use);
-	      bitmap_clear (&bb_info->def);
-	      bitmap_clear (&bb_info->use);
+	      bb_info->def.clear ();
+	      bb_info->use.clear ();
 
 	      df_lr_bb_local_compute (bb->index);
-	      gcc_assert (bitmap_equal_p (&saved_def, &bb_info->def));
-	      gcc_assert (bitmap_equal_p (&saved_use, &bb_info->use));
+	      gcc_assert (saved_def == bb_info->def);
+	      gcc_assert (saved_use == bb_info->use);
 	    }
 	}
       else
@@ -1373,10 +1373,10 @@ df_live_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_live_bb_info *bb_info = (struct df_live_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->gen);
-      bitmap_clear (&bb_info->kill);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->gen.clear ();
+      bb_info->kill.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -1413,8 +1413,8 @@ df_live_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->kill.obstack)
 	{
-	  bitmap_clear (&bb_info->kill);
-	  bitmap_clear (&bb_info->gen);
+	  bb_info->kill.clear ();
+	  bb_info->gen.clear ();
 	}
       else
 	{
@@ -1440,8 +1440,8 @@ df_live_reset (bitmap all_blocks)
     {
       struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -1484,20 +1484,20 @@ df_live_bb_local_compute (unsigned int bb_index)
 				   DF_REF_PARTIAL | DF_REF_CONDITIONAL))
 	    /* All partial or conditional def
 	       seen are included in the gen set. */
-	    bitmap_set_bit (&bb_info->gen, regno);
+	    bb_info->gen.set_bit (regno);
 	  else if (DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER))
 	    /* Only must clobbers for the entire reg destroy the
 	       value.  */
-	    bitmap_set_bit (&bb_info->kill, regno);
+	    bb_info->kill.set_bit (regno);
 	  else if (! DF_REF_FLAGS_IS_SET (def, DF_REF_MAY_CLOBBER))
-	    bitmap_set_bit (&bb_info->gen, regno);
+	    bb_info->gen.set_bit (regno);
 	}
     }
 
   for (def_rec = df_get_artificial_defs (bb_index); *def_rec; def_rec++)
     {
       df_ref def = *def_rec;
-      bitmap_set_bit (&bb_info->gen, DF_REF_REGNO (def));
+      bb_info->gen.set_bit (DF_REF_REGNO (def));
     }
 }
 
@@ -1518,7 +1518,7 @@ df_live_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
       df_live_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (df_live->out_of_date_transfer_functions);
+  df_live->out_of_date_transfer_functions->clear ();
 }
 
 
@@ -1538,7 +1538,7 @@ df_live_init (bitmap all_blocks)
       /* No register may reach a location where it is not used.  Thus
 	 we trim the rr result to the places where it is used.  */
       bitmap_and (&bb_info->out, &bb_info->gen, &bb_lr_info->out);
-      bitmap_clear (&bb_info->in);
+      bb_info->in.clear ();
     }
 }
 
@@ -1620,7 +1620,7 @@ df_live_free (void)
       df_live->block_info_size = 0;
       free (df_live->block_info);
       df_live->block_info = NULL;
-      bitmap_clear (&df_live_scratch);
+      df_live_scratch.clear ();
       bitmap_obstack_release (&problem_data->live_bitmaps);
       free (problem_data);
       df_live->problem_data = NULL;
@@ -1727,8 +1727,8 @@ df_live_verify_solution_end (void)
 
   FOR_ALL_BB (bb)
     {
-      if ((!bitmap_equal_p (&problem_data->in[bb->index], DF_LIVE_IN (bb)))
-	  || (!bitmap_equal_p (&problem_data->out[bb->index], DF_LIVE_OUT (bb))))
+      if ((!problem_data->in[bb->index].equals (*DF_LIVE_IN (bb)))
+	  || (!problem_data->out[bb->index].equals (*DF_LIVE_OUT (bb))))
 	{
 	  /*df_dump (stderr);*/
 	  gcc_unreachable ();
@@ -1739,8 +1739,8 @@ df_live_verify_solution_end (void)
      if the comparison fails.  */
   FOR_ALL_BB (bb)
     {
-      bitmap_clear (&problem_data->in[bb->index]);
-      bitmap_clear (&problem_data->out[bb->index]);
+      problem_data->in[bb->index].clear ();
+      problem_data->out[bb->index].clear ();
     }
 
   free (problem_data->in);
@@ -1804,8 +1804,7 @@ df_live_set_all_dirty (void)
 {
   basic_block bb;
   FOR_ALL_BB (bb)
-    bitmap_set_bit (df_live->out_of_date_transfer_functions,
-		    bb->index);
+    df_live->out_of_date_transfer_functions->set_bit (bb->index);
 }
 
 
@@ -1828,7 +1827,7 @@ df_live_verify_transfer_functions (void)
   FOR_ALL_BB (bb)
     {
       struct df_live_bb_info *bb_info = df_live_get_bb_info (bb->index);
-      bitmap_set_bit (&all_blocks, bb->index);
+      all_blocks.set_bit (bb->index);
 
       if (bb_info)
 	{
@@ -1840,12 +1839,12 @@ df_live_verify_transfer_functions (void)
 	    {
 	      bitmap_copy (&saved_gen, &bb_info->gen);
 	      bitmap_copy (&saved_kill, &bb_info->kill);
-	      bitmap_clear (&bb_info->gen);
-	      bitmap_clear (&bb_info->kill);
+	      bb_info->gen.clear ();
+	      bb_info->kill.clear ();
 
 	      df_live_bb_local_compute (bb->index);
-	      gcc_assert (bitmap_equal_p (&saved_gen, &bb_info->gen));
-	      gcc_assert (bitmap_equal_p (&saved_kill, &bb_info->kill));
+	      gcc_assert (saved_gen == bb_info->gen);
+	      gcc_assert (saved_kill == bb_info->kill);
 	    }
 	}
       else
@@ -1998,7 +1997,7 @@ df_chain_remove_problem (void)
 	}
     }
 
-  bitmap_clear (df_chain->out_of_date_transfer_functions);
+  df_chain->out_of_date_transfer_functions->clear ();
   df_chain->block_pool = NULL;
 }
 
@@ -2093,7 +2092,7 @@ df_chain_create_bb (unsigned int bb_index)
   bitmap_head cpy;
 
   bitmap_copy (&cpy, &bb_info->in);
-  bitmap_set_bit (df_chain->out_of_date_transfer_functions, bb_index);
+  df_chain->out_of_date_transfer_functions->set_bit (bb_index);
 
   /* Since we are going forwards, process the artificial uses first
      then the artificial defs second.  */
@@ -2374,10 +2373,10 @@ df_word_lr_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_word_lr_bb_info *bb_info = (struct df_word_lr_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->use);
-      bitmap_clear (&bb_info->def);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->use.clear ();
+      bb_info->def.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -2407,10 +2406,10 @@ df_word_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
   bitmap_obstack_initialize (&problem_data->word_lr_bitmaps);
 
   FOR_EACH_BB (bb)
-    bitmap_set_bit (df_word_lr->out_of_date_transfer_functions, bb->index);
+    df_word_lr->out_of_date_transfer_functions->set_bit (bb->index);
 
-  bitmap_set_bit (df_word_lr->out_of_date_transfer_functions, ENTRY_BLOCK);
-  bitmap_set_bit (df_word_lr->out_of_date_transfer_functions, EXIT_BLOCK);
+  df_word_lr->out_of_date_transfer_functions->set_bit (ENTRY_BLOCK);
+  df_word_lr->out_of_date_transfer_functions->set_bit (EXIT_BLOCK);
 
   EXECUTE_IF_SET_IN_BITMAP (df_word_lr->out_of_date_transfer_functions, 0, bb_index, bi)
     {
@@ -2419,8 +2418,8 @@ df_word_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->use.obstack)
 	{
-	  bitmap_clear (&bb_info->def);
-	  bitmap_clear (&bb_info->use);
+	  bb_info->def.clear ();
+	  bb_info->use.clear ();
 	}
       else
 	{
@@ -2447,8 +2446,8 @@ df_word_lr_reset (bitmap all_blocks)
     {
       struct df_word_lr_bb_info *bb_info = df_word_lr_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -2491,16 +2490,16 @@ df_word_lr_mark_ref (df_ref ref, bool is_set, regset live)
   if (is_set)
     {
       if (which_subword != 1)
-	changed |= bitmap_set_bit (live, regno * 2);
+	changed |= live->set_bit (regno * 2);
       if (which_subword != 0)
-	changed |= bitmap_set_bit (live, regno * 2 + 1);
+	changed |= live->set_bit (regno * 2 + 1);
     }
   else
     {
       if (which_subword != 1)
-	changed |= bitmap_clear_bit (live, regno * 2);
+	changed |= live->clear_bit (regno * 2);
       if (which_subword != 0)
-	changed |= bitmap_clear_bit (live, regno * 2 + 1);
+	changed |= live->clear_bit (regno * 2 + 1);
     }
   return changed;
 }
@@ -2577,7 +2576,7 @@ df_word_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 	df_word_lr_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (df_word_lr->out_of_date_transfer_functions);
+  df_word_lr->out_of_date_transfer_functions->clear ();
 }
 
 
@@ -2593,7 +2592,7 @@ df_word_lr_init (bitmap all_blocks)
     {
       struct df_word_lr_bb_info *bb_info = df_word_lr_get_bb_info (bb_index);
       bitmap_copy (&bb_info->in, &bb_info->use);
-      bitmap_clear (&bb_info->out);
+      bb_info->out.clear ();
     }
 }
 
@@ -2986,7 +2985,7 @@ df_set_unused_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
       if (REG_DEAD_DEBUGGING)
 	df_print_note ("adding 1: ", insn, REG_NOTES (insn));
 
-      bitmap_set_bit (do_not_gen, regno);
+      do_not_gen->set_bit (regno);
       /* Only do this if the value is totally dead.  */
     }
   else
@@ -3000,7 +2999,7 @@ df_set_unused_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
 	    if (REG_DEAD_DEBUGGING)
 	      df_print_note ("adding 2: ", insn, REG_NOTES (insn));
 	  }
-	bitmap_set_bit (do_not_gen, r);
+	do_not_gen->set_bit (r);
       }
 }
 
@@ -3142,7 +3141,7 @@ df_note_bb_compute (unsigned int bb_index,
   dead_debug_local_init (&debug, NULL, NULL);
 
   bitmap_copy (live, df_get_live_out (bb));
-  bitmap_clear (artificial_uses);
+  artificial_uses->clear ();
 
   if (REG_DEAD_DEBUGGING && dump_file)
     {
@@ -3160,7 +3159,7 @@ df_note_bb_compute (unsigned int bb_index,
 	fprintf (dump_file, "artificial def %d\n", DF_REF_REGNO (def));
 
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -3169,11 +3168,11 @@ df_note_bb_compute (unsigned int bb_index,
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
 	{
 	  unsigned int regno = DF_REF_REGNO (use);
-	  bitmap_set_bit (live, regno);
+	  live->set_bit (regno);
 
 	  /* Notes are not generated for any of the artificial registers
 	     at the bottom of the block.  */
-	  bitmap_set_bit (artificial_uses, regno);
+	  artificial_uses->set_bit (regno);
 	}
     }
 
@@ -3194,7 +3193,7 @@ df_note_bb_compute (unsigned int bb_index,
 
       debug_insn = DEBUG_INSN_P (insn);
 
-      bitmap_clear (do_not_gen);
+      do_not_gen->clear ();
       df_remove_dead_and_unused_notes (insn);
 
       /* Process the defs.  */
@@ -3230,11 +3229,11 @@ df_note_bb_compute (unsigned int bb_index,
 		{
 		  df_create_unused_note (insn,
 					 def, live, artificial_uses, &debug);
-		  bitmap_set_bit (do_not_gen, dregno);
+		  do_not_gen->set_bit (dregno);
 		}
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
-		bitmap_clear_bit (live, dregno);
+		live->clear_bit (dregno);
 	    }
 	}
       else
@@ -3259,10 +3258,10 @@ df_note_bb_compute (unsigned int bb_index,
 				     def, live, artificial_uses, &debug);
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER))
-		bitmap_set_bit (do_not_gen, dregno);
+		do_not_gen->set_bit (dregno);
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
-		bitmap_clear_bit (live, dregno);
+		live->clear_bit (dregno);
 	    }
 	}
 
@@ -3332,7 +3331,7 @@ df_note_bb_compute (unsigned int bb_index,
 		    df_print_note ("adding 4: ", insn, REG_NOTES (insn));
 		}
 	      /* This register is now live.  */
-	      bitmap_set_bit (live, uregno);
+	      live->set_bit (uregno);
 	    }
 	}
 
@@ -3453,7 +3452,7 @@ df_simulate_find_defs (rtx insn, bitmap defs)
   for (def_rec = DF_INSN_UID_DEFS (uid); *def_rec; def_rec++)
     {
       df_ref def = *def_rec;
-      bitmap_set_bit (defs, DF_REF_REGNO (def));
+      defs->set_bit (DF_REF_REGNO (def));
     }
 }
 
@@ -3469,12 +3468,12 @@ df_simulate_find_uses (rtx insn, bitmap uses)
     {
       df_ref def = *rec;
       if (DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL))
-	bitmap_set_bit (uses, DF_REF_REGNO (def));
+	uses->set_bit (DF_REF_REGNO (def));
     }
   for (rec = DF_INSN_UID_USES (uid); *rec; rec++)
     {
       df_ref use = *rec;
-      bitmap_set_bit (uses, DF_REF_REGNO (use));
+      uses->set_bit (DF_REF_REGNO (use));
     }
 }
 
@@ -3490,7 +3489,7 @@ df_simulate_find_noclobber_defs (rtx insn, bitmap defs)
     {
       df_ref def = *def_rec;
       if (!(DF_REF_FLAGS (def) & (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
-	bitmap_set_bit (defs, DF_REF_REGNO (def));
+	defs->set_bit (DF_REF_REGNO (def));
     }
 }
 
@@ -3511,7 +3510,7 @@ df_simulate_defs (rtx insn, bitmap live)
       /* If the def is to only part of the reg, it does
 	 not kill the other defs that reach here.  */
       if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	bitmap_clear_bit (live, dregno);
+	live->clear_bit (dregno);
     }
 }
 
@@ -3531,7 +3530,7 @@ df_simulate_uses (rtx insn, bitmap live)
     {
       df_ref use = *use_rec;
       /* Add use to set of uses in this BB.  */
-      bitmap_set_bit (live, DF_REF_REGNO (use));
+      live->set_bit (DF_REF_REGNO (use));
     }
 }
 
@@ -3576,14 +3575,14 @@ df_simulate_initialize_backwards (basic_block bb, bitmap live)
     {
       df_ref def = *def_rec;
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
     {
       df_ref use = *use_rec;
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
-	bitmap_set_bit (live, DF_REF_REGNO (use));
+	live->set_bit (DF_REF_REGNO (use));
     }
 }
 
@@ -3618,7 +3617,7 @@ df_simulate_finalize_backwards (basic_block bb, bitmap live)
     {
       df_ref def = *def_rec;
       if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
 #ifdef EH_USES
@@ -3656,7 +3655,7 @@ df_simulate_initialize_forwards (basic_block bb, bitmap live)
     {
       df_ref def = *def_rec;
       if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	bitmap_set_bit (live, DF_REF_REGNO (def));
+	live->set_bit (DF_REF_REGNO (def));
     }
 }
 
@@ -3693,7 +3692,7 @@ df_simulate_one_insn_forwards (basic_block bb, rtx insn, bitmap live)
 	      bitmap_clear_range (live, regno,
 				  hard_regno_nregs[regno][GET_MODE (reg)]);
 	    else
-	      bitmap_clear_bit (live, regno);
+	      live->clear_bit (regno);
 	  }
 	  break;
 	default:
@@ -4094,11 +4093,11 @@ df_md_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_md_bb_info *bb_info = (struct df_md_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->kill);
-      bitmap_clear (&bb_info->gen);
-      bitmap_clear (&bb_info->init);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->kill.clear ();
+      bb_info->gen.clear ();
+      bb_info->init.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -4130,11 +4129,11 @@ df_md_alloc (bitmap all_blocks)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->init.obstack)
         {
-          bitmap_clear (&bb_info->init);
-          bitmap_clear (&bb_info->gen);
-          bitmap_clear (&bb_info->kill);
-          bitmap_clear (&bb_info->in);
-          bitmap_clear (&bb_info->out);
+          bb_info->init.clear ();
+          bb_info->gen.clear ();
+          bb_info->kill.clear ();
+          bb_info->in.clear ();
+          bb_info->out.clear ();
         }
       else
         {
@@ -4165,9 +4164,9 @@ df_md_simulate_artificial_defs_at_top (basic_block bb, bitmap local_md)
 	  unsigned int dregno = DF_REF_REGNO (def);
 	  if (DF_REF_FLAGS (def)
 	      & (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))
-	    bitmap_set_bit (local_md, dregno);
+	    local_md->set_bit (dregno);
 	  else
-	    bitmap_clear_bit (local_md, dregno);
+	    local_md->clear_bit (dregno);
 	}
     }
 }
@@ -4192,9 +4191,9 @@ df_md_simulate_one_insn (basic_block bb ATTRIBUTE_UNUSED, rtx insn,
         {
           if (DF_REF_FLAGS (def)
 	      & (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))
-           bitmap_set_bit (local_md, DF_REF_ID (def));
+           local_md->set_bit (DF_REF_ID (def));
          else
-           bitmap_clear_bit (local_md, DF_REF_ID (def));
+           local_md->clear_bit (DF_REF_ID (def));
         }
     }
 }
@@ -4205,7 +4204,7 @@ df_md_bb_local_compute_process_def (struct df_md_bb_info *bb_info,
                                     int top_flag)
 {
   df_ref def;
-  bitmap_clear (&seen_in_insn);
+  seen_in_insn.clear ();
 
   while ((def = *def_rec++) != NULL)
     {
@@ -4219,16 +4218,16 @@ df_md_bb_local_compute_process_def (struct df_md_bb_info *bb_info,
 	      if (DF_REF_FLAGS (def)
 	          & (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))
 	        {
-	          bitmap_set_bit (&bb_info->gen, dregno);
-	          bitmap_clear_bit (&bb_info->kill, dregno);
+	          bb_info->gen.set_bit (dregno);
+	          bb_info->kill.clear_bit (dregno);
 	        }
 	      else
 	        {
 		  /* When we find a clobber and a regular def,
 		     make sure the regular def wins.  */
-	          bitmap_set_bit (&seen_in_insn, dregno);
-	          bitmap_set_bit (&bb_info->kill, dregno);
-	          bitmap_clear_bit (&bb_info->gen, dregno);
+	          seen_in_insn.set_bit (dregno);
+	          bb_info->kill.set_bit (dregno);
+	          bb_info->gen.clear_bit (dregno);
 	        }
 	    }
 	}
@@ -4283,7 +4282,7 @@ df_md_local_compute (bitmap all_blocks)
       df_md_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (&seen_in_insn);
+  seen_in_insn.clear ();
 
   frontiers = XNEWVEC (bitmap_head, last_basic_block);
   FOR_ALL_BB (bb)
@@ -4305,7 +4304,7 @@ df_md_local_compute (bitmap all_blocks)
     }
 
   FOR_ALL_BB (bb)
-    bitmap_clear (&frontiers[bb->index]);
+    frontiers[bb->index].clear ();
   free (frontiers);
 }
 
@@ -4322,8 +4321,8 @@ df_md_reset (bitmap all_blocks)
     {
       struct df_md_bb_info *bb_info = df_md_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -4399,7 +4398,7 @@ df_md_free (void)
   struct df_md_problem_data *problem_data
     = (struct df_md_problem_data *) df_md->problem_data;
 
-  bitmap_clear(&df_md_scratch);
+  df_md_scratch.clear ();
   bitmap_obstack_release (&problem_data->md_bitmaps);
   free (problem_data);
   df_md->problem_data = NULL;

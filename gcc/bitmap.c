@@ -306,12 +306,12 @@ bitmap_elt_clear_from (bitmap head, bitmap_element *elt)
 /* Clear a bitmap by freeing the linked list.  */
 
 void
-bitmap_clear (bitmap head)
+bitmap_head::clear ()
 {
-  if (head->first)
-    bitmap_elt_clear_from (head, head->first);
+  if (first)
+    bitmap_elt_clear_from (this, first);
 
-  head->first = NULL;
+  first = NULL;
 }
 
 /* Initialize a bitmap obstack.  If BIT_OBSTACK is NULL, initialize
@@ -406,7 +406,7 @@ bitmap_obstack_free (bitmap map)
 {
   if (map)
     {
-      bitmap_clear (map);
+      map->clear ();
       map->first = (bitmap_element *) map->obstack->heads;
 
       if (GATHER_STATISTICS)
@@ -533,7 +533,7 @@ bitmap_copy (bitmap to, const_bitmap from)
   const bitmap_element *from_ptr;
   bitmap_element *to_ptr = 0;
 
-  bitmap_clear (to);
+  to->clear ();
 
   /* Copy elements in forward direction one at a time.  */
   for (from_ptr = from->first; from_ptr; from_ptr = from_ptr->next)
@@ -631,9 +631,9 @@ bitmap_find_bit (bitmap head, unsigned int bit)
 /* Clear a single bit in a bitmap.  Return true if the bit changed.  */
 
 bool
-bitmap_clear_bit (bitmap head, int bit)
+bitmap_head::clear_bit (int bit)
 {
-  bitmap_element *const ptr = bitmap_find_bit (head, bit);
+  bitmap_element *const ptr = bitmap_find_bit (this, bit);
 
   if (ptr != 0)
     {
@@ -647,7 +647,7 @@ bitmap_clear_bit (bitmap head, int bit)
 	  /* If we cleared the entire word, free up the element.  */
 	  if (!ptr->bits[word_num]
 	      && bitmap_element_zerop (ptr))
-	    bitmap_element_free (head, ptr);
+	    bitmap_element_free (this, ptr);
 	}
 
       return res;
@@ -659,19 +659,19 @@ bitmap_clear_bit (bitmap head, int bit)
 /* Set a single bit in a bitmap.  Return true if the bit changed.  */
 
 bool
-bitmap_set_bit (bitmap head, int bit)
+bitmap_head::set_bit (int bit)
 {
-  bitmap_element *ptr = bitmap_find_bit (head, bit);
+  bitmap_element *ptr = bitmap_find_bit (this, bit);
   unsigned word_num = bit / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;
   unsigned bit_num  = bit % BITMAP_WORD_BITS;
   BITMAP_WORD bit_val = ((BITMAP_WORD) 1) << bit_num;
 
   if (ptr == 0)
     {
-      ptr = bitmap_element_allocate (head);
+      ptr = bitmap_element_allocate (this);
       ptr->indx = bit / BITMAP_ELEMENT_ALL_BITS;
       ptr->bits[word_num] = bit_val;
-      bitmap_element_link (head, ptr);
+      bitmap_element_link (this, ptr);
       return true;
     }
   else
@@ -763,7 +763,7 @@ bitmap_single_bit_set_p (const_bitmap a)
   const bitmap_element *elt;
   unsigned ix;
 
-  if (bitmap_empty_p (a))
+  if (a->is_empty ())
     return false;
 
   elt = a->first;
@@ -1051,8 +1051,8 @@ bitmap_and_compl (bitmap dst, const_bitmap a, const_bitmap b)
 
   if (a == b)
     {
-      changed = !bitmap_empty_p (dst);
-      bitmap_clear (dst);
+      changed = !dst->is_empty ();
+      dst->clear ();
       return changed;
     }
 
@@ -1160,11 +1160,11 @@ bitmap_and_compl_into (bitmap a, const_bitmap b)
 
   if (a == b)
     {
-      if (bitmap_empty_p (a))
+      if (a->is_empty ())
 	return false;
       else
 	{
-	  bitmap_clear (a);
+	  a->clear ();
 	  return true;
 	}
     }
@@ -1440,14 +1440,14 @@ bitmap_compl_and_into (bitmap a, const_bitmap b)
 
   gcc_assert (a != b);
 
-  if (bitmap_empty_p (a))
+  if (a->is_empty ())
     {
       bitmap_copy (a, b);
       return;
     }
-  if (bitmap_empty_p (b))
+  if (b->is_empty ())
     {
-      bitmap_clear (a);
+      a->clear ();
       return;
     }
 
@@ -1656,7 +1656,7 @@ bitmap_xor (bitmap dst, const_bitmap a, const_bitmap b)
   gcc_assert (dst != a && dst != b);
   if (a == b)
     {
-      bitmap_clear (dst);
+      dst->clear ();
       return;
     }
 
@@ -1731,7 +1731,7 @@ bitmap_xor_into (bitmap a, const_bitmap b)
 
   if (a == b)
     {
-      bitmap_clear (a);
+      a->clear ();
       return;
     }
 
@@ -1874,16 +1874,16 @@ bitmap_ior_and_compl (bitmap dst, const_bitmap a, const_bitmap b, const_bitmap k
   gcc_assert (dst != a && dst != b && dst != kill);
 
   /* Special cases.  We don't bother checking for bitmap_equal_p (b, kill).  */
-  if (b == kill || bitmap_empty_p (b))
+  if (b == kill || b->is_empty ())
     {
       changed = !bitmap_equal_p (dst, a);
       if (changed)
 	bitmap_copy (dst, a);
       return changed;
     }
-  if (bitmap_empty_p (kill))
+  if (kill->is_empty ())
     return bitmap_ior (dst, a, b);
-  if (bitmap_empty_p (a))
+  if (a->is_empty ())
     return bitmap_and_compl (dst, b, kill);
 
   while (a_elt || b_elt)
@@ -1972,7 +1972,7 @@ bitmap_ior_and_compl_into (bitmap a, const_bitmap from1, const_bitmap from2)
   bitmap_initialize (&tmp, &bitmap_default_obstack);
   bitmap_and_compl (&tmp, from1, from2);
   changed = bitmap_ior_into (a, &tmp);
-  bitmap_clear (&tmp);
+  tmp.clear ();
 
   return changed;
 }
@@ -1993,7 +1993,7 @@ bitmap_ior_and_into (bitmap a, const_bitmap b, const_bitmap c)
 
   if (b == c)
     return bitmap_ior_into (a, b);
-  if (bitmap_empty_p (b) || bitmap_empty_p (c))
+  if (b->is_empty () || c->is_empty ())
     return false;
 
   and_elt.indx = -1;

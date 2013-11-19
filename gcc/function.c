@@ -4040,7 +4040,7 @@ generate_setjmp_warnings (void)
   bitmap setjmp_crosses = regstat_get_setjmp_crosses ();
 
   if (n_basic_blocks == NUM_FIXED_BLOCKS
-      || bitmap_empty_p (setjmp_crosses))
+      || setjmp_crosses->is_empty ())
     return;
 
   setjmp_vars_warning (setjmp_crosses, DECL_INITIAL (current_function_decl));
@@ -6065,7 +6065,7 @@ thread_prologue_and_epilogue_insns (void)
 		  {
 		    if (bb == entry_edge->dest)
 		      goto fail_shrinkwrap;
-		    bitmap_set_bit (&bb_flags, bb->index);
+		    bb_flags.set_bit (bb->index);
 		    vec.quick_push (bb);
 		    break;
 		  }
@@ -6073,7 +6073,7 @@ thread_prologue_and_epilogue_insns (void)
 		  {
 		    size += get_attr_min_length (insn);
 		    if (size > max_grow_size)
-		      bitmap_set_bit (&bb_on_list, bb->index);
+		      bb_on_list.set_bit (bb->index);
 		  }
 	      }
 	}
@@ -6090,7 +6090,7 @@ thread_prologue_and_epilogue_insns (void)
 
 	  FOR_EACH_EDGE (e, ei, tmp_bb->succs)
 	    if (e->dest != EXIT_BLOCK_PTR
-		&& bitmap_set_bit (&bb_flags, e->dest->index))
+		&& bb_flags.set_bit (e->dest->index))
 	      vec.quick_push (e->dest);
 	}
 
@@ -6118,7 +6118,7 @@ thread_prologue_and_epilogue_insns (void)
 		  if ((pe->flags & EDGE_COMPLEX) != 0
 		      && !bitmap_bit_p (&bb_flags, pe->src->index))
 		    break;
-		if (pe == NULL && bitmap_set_bit (&bb_tail, e->src->index))
+		if (pe == NULL && bb_tail.set_bit (e->src->index))
 		  vec.quick_push (e->src);
 	      }
 	}
@@ -6127,7 +6127,7 @@ thread_prologue_and_epilogue_insns (void)
 	 a prologue to compute the bb_antic_flags bitmap.  Exclude
 	 tail blocks; They can be duplicated to be used on paths not
 	 needing a prologue.  */
-      bitmap_clear (&bb_on_list);
+      bb_on_list.clear ();
       bitmap_and_compl (&bb_antic_flags, &bb_flags, &bb_tail);
       FOR_EACH_BB (bb)
 	{
@@ -6135,7 +6135,7 @@ thread_prologue_and_epilogue_insns (void)
 	    continue;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
-		&& bitmap_set_bit (&bb_on_list, e->src->index))
+		&& bb_on_list.set_bit (e->src->index))
 	      vec.quick_push (e->src);
 	}
       while (!vec.is_empty ())
@@ -6143,7 +6143,7 @@ thread_prologue_and_epilogue_insns (void)
 	  basic_block tmp_bb = vec.pop ();
 	  bool all_set = true;
 
-	  bitmap_clear_bit (&bb_on_list, tmp_bb->index);
+	  bb_on_list.clear_bit (tmp_bb->index);
 	  FOR_EACH_EDGE (e, ei, tmp_bb->succs)
 	    if (!bitmap_bit_p (&bb_antic_flags, e->dest->index))
 	      {
@@ -6153,10 +6153,10 @@ thread_prologue_and_epilogue_insns (void)
 
 	  if (all_set)
 	    {
-	      bitmap_set_bit (&bb_antic_flags, tmp_bb->index);
+	      bb_antic_flags.set_bit (tmp_bb->index);
 	      FOR_EACH_EDGE (e, ei, tmp_bb->preds)
 		if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
-		    && bitmap_set_bit (&bb_on_list, e->src->index))
+		    && bb_on_list.set_bit (e->src->index))
 		  vec.quick_push (e->src);
 	    }
 	}
@@ -6210,7 +6210,7 @@ thread_prologue_and_epilogue_insns (void)
 
 	  /* Find tail blocks reachable from both blocks needing a
 	     prologue and blocks not needing a prologue.  */
-	  if (!bitmap_empty_p (&bb_tail))
+	  if (!bb_tail.is_empty ())
 	    FOR_EACH_BB (bb)
 	      {
 		bool some_pro, some_no_pro;
@@ -6227,7 +6227,7 @@ thread_prologue_and_epilogue_insns (void)
 		if (some_pro && some_no_pro)
 		  vec.quick_push (bb);
 		else
-		  bitmap_clear_bit (&bb_tail, bb->index);
+		  bb_tail.clear_bit (bb->index);
 	      }
 	  /* Find the head of each tail.  */
 	  while (!vec.is_empty ())
@@ -6240,18 +6240,18 @@ thread_prologue_and_epilogue_insns (void)
 	      while (single_succ_p (tbb))
 		{
 		  tbb = single_succ (tbb);
-		  bitmap_clear_bit (&bb_tail, tbb->index);
+		  bb_tail.clear_bit (tbb->index);
 		}
 	    }
 	  /* Now duplicate the tails.  */
-	  if (!bitmap_empty_p (&bb_tail))
+	  if (!bb_tail.is_empty ())
 	    FOR_EACH_BB_REVERSE (bb)
 	      {
 		basic_block copy_bb, tbb;
 		rtx insert_point;
 		int eflags;
 
-		if (!bitmap_clear_bit (&bb_tail, bb->index))
+		if (!bb_tail.clear_bit (bb->index))
 		  continue;
 
 		/* Create a copy of BB, instructions and all, for
@@ -6307,15 +6307,15 @@ thread_prologue_and_epilogue_insns (void)
 		/* verify_flow_info doesn't like a note after a
 		   sibling call.  */
 		delete_insn (insert_point);
-		if (bitmap_empty_p (&bb_tail))
+		if (bb_tail.is_empty ())
 		  break;
 	      }
 	}
 
     fail_shrinkwrap:
-      bitmap_clear (&bb_tail);
-      bitmap_clear (&bb_antic_flags);
-      bitmap_clear (&bb_on_list);
+      bb_tail.clear ();
+      bb_antic_flags.clear ();
+      bb_on_list.clear ();
       vec.release ();
     }
 #endif
@@ -6405,7 +6405,7 @@ thread_prologue_and_epilogue_insns (void)
 	      /* Emitting the return may add a basic block.
 		 Fix bb_flags for the added block.  */
 	      if (last_bb != exit_fallthru_edge->src)
-		bitmap_set_bit (&bb_flags, last_bb->index);
+		bb_flags.set_bit (last_bb->index);
 #endif
 	      goto epilogue_done;
 	    }
@@ -6686,7 +6686,7 @@ epilogue_done:
 #endif
 
 #ifdef HAVE_simple_return
-  bitmap_clear (&bb_flags);
+  bb_flags.clear ();
 #endif
 
   /* Threading the prologue and epilogue changes the artificial refs

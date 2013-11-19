@@ -908,7 +908,7 @@ propagate_necessity (bool aggressive)
 	    {
 	      chain_ovfl = true;
 	      if (visited)
-		bitmap_clear (visited);
+		visited->clear ();
 	    }
 	}
     }

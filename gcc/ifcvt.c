@@ -4211,11 +4211,11 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	    if (FUNCTION_ARG_REGNO_P (i)
 		&& targetm.calls.function_value_regno_p (i))
-	      bitmap_set_bit (return_regs, INCOMING_REGNO (i));
+	      return_regs->set_bit (INCOMING_REGNO (i));
 
 	  bitmap_and_into (return_regs, df_get_live_out (ENTRY_BLOCK_PTR));
 	  bitmap_and_into (return_regs, df_get_live_in (EXIT_BLOCK_PTR));
-	  if (!bitmap_empty_p (return_regs))
+	  if (!return_regs->is_empty ())
 	    {
 	      FOR_BB_INSNS_REVERSE (new_dest, insn)
 		if (NONDEBUG_INSN_P (insn))

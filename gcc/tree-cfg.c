@@ -1599,7 +1599,7 @@ replace_uses_by (tree name, tree val)
 	  /* Mark the block if we changed the last stmt in it.  */
 	  if (cfgcleanup_altered_bbs
 	      && stmt_ends_bb_p (stmt))
-	    bitmap_set_bit (cfgcleanup_altered_bbs, gimple_bb (stmt)->index);
+	    cfgcleanup_altered_bbs->set_bit (gimple_bb (stmt)->index);
 
 	  /* FIXME.  It shouldn't be required to keep TREE_CONSTANT
 	     on ADDR_EXPRs up-to-date on GIMPLE.  Propagation will
@@ -1766,7 +1766,7 @@ gimple_merge_blocks (basic_block a, basic_block b)
   set_bb_seq (b, NULL);
 
   if (cfgcleanup_altered_bbs)
-    bitmap_set_bit (cfgcleanup_altered_bbs, a->index);
+    cfgcleanup_altered_bbs->set_bit (a->index);
 }
 
 
@@ -5324,7 +5324,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 		CASE_CHAIN (last) = CASE_CHAIN (cases2);
 		CASE_CHAIN (cases2) = first;
 	      }
-	    bitmap_set_bit (touched_switch_bbs, gimple_bb (stmt)->index);
+	    touched_switch_bbs->set_bit (gimple_bb (stmt)->index);
 	  }
 	else
 	  {
@@ -7532,7 +7532,7 @@ remove_edge_and_dominated_blocks (edge e)
   if (e->dest == EXIT_BLOCK_PTR)
     {
       if (cfgcleanup_altered_bbs)
-	bitmap_set_bit (cfgcleanup_altered_bbs, e->src->index);
+	cfgcleanup_altered_bbs->set_bit (e->src->index);
       remove_edge (e);
       return;
     }
@@ -7559,8 +7559,7 @@ remove_edge_and_dominated_blocks (edge e)
   bitmap_head df, df_idom;
 
   if (none_removed)
-    bitmap_set_bit (&df_idom,
-		    get_immediate_dominator (CDI_DOMINATORS, e->dest)->index);
+    df_idom.set_bit (get_immediate_dominator (CDI_DOMINATORS, e->dest)->index);
   else
     {
       bbs_to_remove = get_all_dominated_blocks (CDI_DOMINATORS, e->dest);
@@ -7569,24 +7568,24 @@ remove_edge_and_dominated_blocks (edge e)
 	  FOR_EACH_EDGE (f, ei, bb->succs)
 	    {
 	      if (f->dest != EXIT_BLOCK_PTR)
-		bitmap_set_bit (&df, f->dest->index);
+		df.set_bit (f->dest->index);
 	    }
 	}
       FOR_EACH_VEC_ELT (bbs_to_remove, i, bb)
-	bitmap_clear_bit (&df, bb->index);
+	df.clear_bit (bb->index);
 
       EXECUTE_IF_SET_IN_BITMAP (&df, 0, i, bi)
 	{
 	  bb = BASIC_BLOCK (i);
-	  bitmap_set_bit (&df_idom,
-			  get_immediate_dominator (CDI_DOMINATORS, bb)->index);
+	  df_idom.set_bit
+			  (get_immediate_dominator (CDI_DOMINATORS, bb)->index);
 	}
     }
 
   if (cfgcleanup_altered_bbs)
     {
       /* Record the set of the altered basic blocks.  */
-      bitmap_set_bit (cfgcleanup_altered_bbs, e->src->index);
+      cfgcleanup_altered_bbs->set_bit (e->src->index);
       bitmap_ior_into (cfgcleanup_altered_bbs, &df);
     }
 

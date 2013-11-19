@@ -242,7 +242,7 @@ check_argument_store (rtx mem, HOST_WIDE_INT off, HOST_WIDE_INT min_sp_off,
     {
       if (byte < min_sp_off
 	  || byte >= max_sp_off
-	  || !bitmap_clear_bit (sp_bytes, byte - min_sp_off))
+	  || !sp_bytes->set_bit (byte - min_sp_off))
 	return false;
     }
   return true;
@@ -271,7 +271,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
   if (!do_mark)
     {
       gcc_assert (arg_stores);
-      bitmap_clear (arg_stores);
+      arg_stores->clear ();
     }
 
   min_sp_off = INTTYPE_MAXIMUM (HOST_WIDE_INT);
@@ -380,7 +380,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
 	  }
 	for (byte = off; byte < off + MEM_SIZE (mem); byte++)
 	  {
-	    if (!bitmap_set_bit (&sp_bytes, byte - min_sp_off))
+	    if (!sp_bytes.set_bit (byte - min_sp_off))
 	      gcc_unreachable ();
 	  }
       }
@@ -472,9 +472,9 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
       if (do_mark)
 	mark_insn (insn, fast);
       else
-	bitmap_set_bit (arg_stores, INSN_UID (insn));
+	arg_stores->set_bit (INSN_UID (insn));
 
-      if (bitmap_empty_p (&sp_bytes))
+      if (sp_bytes.is_empty ())
 	{
 	  ret = true;
 	  break;
@@ -482,7 +482,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
     }
 
   if (!ret && arg_stores)
-    bitmap_clear (arg_stores);
+    arg_stores->clear ();
 
   return ret;
 }
@@ -638,7 +638,7 @@ prescan_insns_for_dce (bool fast)
       /* find_call_stack_args only looks at argument stores in the
 	 same bb.  */
       if (arg_stores)
-	bitmap_clear (arg_stores);
+	arg_stores->clear ();
     }
 
   if (arg_stores)
@@ -850,7 +850,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
       edge e;
       edge_iterator ei;
       df_confluence_function_n con_fun_n = df_word_lr->problem->con_fun_n;
-      bitmap_clear (DF_WORD_LR_OUT (bb));
+      DF_WORD_LR_OUT (bb)->clear ();
       FOR_EACH_EDGE (e, ei, bb->succs)
 	(*con_fun_n) (e);
     }
@@ -895,7 +895,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
 	   insns.  We may have to emit a debug temp even if the insn
 	   was marked, in case the debug use was after the point of
 	   death.  */
-	if (debug.used && !bitmap_empty_p (debug.used))
+	if (debug.used && !debug.used->is_empty ())
 	  {
 	    df_ref *def_rec;
 
@@ -915,7 +915,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
 	  }
       }
 
-  block_changed = !bitmap_equal_p (&local_live, DF_WORD_LR_IN (bb));
+  block_changed = !local_live.equals (*DF_WORD_LR_IN (bb));
   if (block_changed)
     bitmap_copy (DF_WORD_LR_IN (bb), &local_live);
 
@@ -948,7 +948,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
       edge e;
       edge_iterator ei;
       df_confluence_function_n con_fun_n = df_lr->problem->con_fun_n;
-      bitmap_clear (DF_LR_OUT (bb));
+      DF_LR_OUT (bb)->clear ();
       FOR_EACH_EDGE (e, ei, bb->succs)
 	(*con_fun_n) (e);
     }
@@ -1001,7 +1001,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
 	   insns.  We may have to emit a debug temp even if the insn
 	   was marked, in case the debug use was after the point of
 	   death.  */
-	if (debug.used && !bitmap_empty_p (debug.used))
+	if (debug.used && !debug.used->is_empty ())
 	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	    dead_debug_insert_temp (&debug, DF_REF_REGNO (*def_rec), insn,
 				    needed && !control_flow_insn_p (insn)
@@ -1012,7 +1012,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
   dead_debug_local_finish (&debug, NULL);
   df_simulate_finalize_backwards (bb, &local_live);
 
-  block_changed = !bitmap_equal_p (&local_live, DF_LR_IN (bb));
+  block_changed = !local_live.equals (*DF_LR_IN (bb));
   if (block_changed)
     bitmap_copy (DF_LR_IN (bb), &local_live);
 
@@ -1050,7 +1050,7 @@ fast_dce (bool word_level)
   prescan_insns_for_dce (true);
 
   for (i = 0; i < n_blocks; i++)
-    bitmap_set_bit (&all_blocks, postorder[i]);
+    all_blocks.set_bit (postorder[i]);
 
   dead_debug_global_init (&global_debug, NULL);
 
@@ -1066,7 +1066,7 @@ fast_dce (bool word_level)
 
 	  if (index < NUM_FIXED_BLOCKS)
 	    {
-	      bitmap_set_bit (&processed, index);
+	      processed.set_bit (index);
 	      continue;
 	    }
 
@@ -1079,7 +1079,7 @@ fast_dce (bool word_level)
 	      = dce_process_block (bb, bitmap_bit_p (&redo_out, index),
 				   bb_has_eh_pred (bb) ? au_eh : au,
 				   &global_debug);
-	  bitmap_set_bit (&processed, index);
+	  processed.set_bit (index);
 
 	  if (local_changed)
 	    {
@@ -1093,7 +1093,7 @@ fast_dce (bool word_level)
 		     entry to a loop.  */
 		  global_changed = true;
 		else
-		  bitmap_set_bit (&redo_out, e->src->index);
+		  redo_out.set_bit (e->src->index);
 	    }
 	}
 
@@ -1107,8 +1107,8 @@ fast_dce (bool word_level)
 	     the cheap.  */
 	  delete_unmarked_insns ();
 	  bitmap_clear (marked);
-	  bitmap_clear (&processed);
-	  bitmap_clear (&redo_out);
+	  processed.clear ();
+	  redo_out.clear ();
 
 	  /* We do not need to rescan any instructions.  We only need
 	     to redo the dataflow equations for the blocks that had a

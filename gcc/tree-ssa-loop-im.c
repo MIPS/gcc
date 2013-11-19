@@ -1485,7 +1485,7 @@ static void
 mark_ref_stored (mem_ref_p ref, struct loop *loop)
 {
   while (loop != current_loops->tree_root
-	 && bitmap_set_bit (&ref->stored, loop->num))
+	 && ref->stored.set_bit (loop->num))
     loop = loop_outer (loop);
 }
 
@@ -1546,10 +1546,10 @@ gather_mem_refs_stmt (struct loop *loop, gimple stmt)
 
       record_mem_ref_loc (ref, loop, stmt, mem);
     }
-  bitmap_set_bit (&memory_accesses.refs_in_loop[loop->num], ref->id);
+  memory_accesses.refs_in_loop[loop->num].set_bit (ref->id);
   if (is_stored)
     {
-      bitmap_set_bit (&memory_accesses.refs_stored_in_loop[loop->num], ref->id);
+      memory_accesses.refs_stored_in_loop[loop->num].set_bit (ref->id);
       mark_ref_stored (ref, loop);
     }
   return;
@@ -2103,7 +2103,7 @@ record_dep_loop (struct loop *loop, mem_ref_p ref, bool stored_p)
   /* We can propagate dependent-in-loop bits up the loop
      hierarchy to all outer loops.  */
   while (loop != current_loops->tree_root
-	 && bitmap_set_bit (&ref->dep_loop, LOOP_DEP_BIT (loop->num, stored_p)))
+	 && ref->dep_loop.set_bit (LOOP_DEP_BIT (loop->num, stored_p)))
     loop = loop_outer (loop);
 }
 
@@ -2166,12 +2166,12 @@ ref_indep_loop_p_2 (struct loop *loop, mem_ref_p ref, bool stored_p)
   /* Record the computed result in the cache.  */
   if (indep_p)
     {
-      if (bitmap_set_bit (&ref->indep_loop, LOOP_DEP_BIT (loop->num, stored_p))
+      if (ref->indep_loop.set_bit (LOOP_DEP_BIT (loop->num, stored_p))
 	  && stored_p)
 	{
 	  /* If it's independend against all refs then it's independent
 	     against stores, too.  */
-	  bitmap_set_bit (&ref->indep_loop, LOOP_DEP_BIT (loop->num, false));
+	  ref->indep_loop.set_bit (LOOP_DEP_BIT (loop->num, false));
 	}
     }
   else
@@ -2254,7 +2254,7 @@ find_refs_for_sm (struct loop *loop, bitmap sm_executed, bitmap refs_to_sm)
     {
       ref = memory_accesses.refs_list[i];
       if (can_sm_ref_p (loop, ref))
-	bitmap_set_bit (refs_to_sm, i);
+	refs_to_sm->set_bit (i);
     }
 }
 

@@ -177,15 +177,50 @@ typedef struct GTY((chain_next ("%h.next"), chain_prev ("%h.prev"))) bitmap_elem
 
 extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
 
-/* Clear a bitmap by freeing up the linked list.  */
-extern void bitmap_clear (bitmap);
 static void bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL);
+
+/* True if two bitmaps are identical.  */
+extern bool bitmap_equal_p (const_bitmap, const_bitmap);
+
+/* True if the bitmaps intersect (their AND is non-empty).  */
+extern bool bitmap_intersect_p (const_bitmap, const_bitmap);
+
 
 /* Head of bitmap linked list.  The 'current' member points to something
    already pointed to by the chain started by first, so GTY((skip)) it.  */
 struct GTY(()) bitmap_head {
   bitmap_head (bitmap_obstack *o = &bitmap_default_obstack) { bitmap_initialize_stat (this, o); }
-  ~bitmap_head () { bitmap_clear (this); }
+  ~bitmap_head () { clear (); }
+
+  /* Clear a bitmap by freeing up the linked list.  */
+  void clear ();
+
+  bool equals (const bitmap_head &other) const
+  {
+    return bitmap_equal_p (this, &other);
+  }
+  bool intersets (const bitmap_head &other) const
+  {
+    return bitmap_intersect_p (this, &other);
+  }
+
+/* True if MAP is an empty bitmap.  */
+  bool is_empty () const { return !first; }
+
+/* Set a single bit in a bitmap.  Return true if the bit changed.  */
+  bool set_bit (int);
+
+/* Clear a single bit in a bitmap.  Return true if the bit changed.  */
+  bool clear_bit (int);
+
+  bool operator==(const bitmap_head &other) const
+  {
+    return bitmap_equal_p (this, &other);
+  }
+  bool operator!=(const bitmap_head &other) const
+  {
+    return !bitmap_equal_p (this, &other);
+  }
 
   unsigned int indx;			/* Index of last element looked at.  */
   unsigned int descriptor_id;		/* Unique identifier for the allocation
@@ -203,21 +238,9 @@ extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
 /* Copy a bitmap to another bitmap.  */
 extern void bitmap_copy (bitmap, const_bitmap);
 
-/* True if two bitmaps are identical.  */
-extern bool bitmap_equal_p (const_bitmap, const_bitmap);
-
-/* True if the bitmaps intersect (their AND is non-empty).  */
-extern bool bitmap_intersect_p (const_bitmap, const_bitmap);
-
 /* True if the complement of the second intersects the first (their
    AND_COMPL is non-empty).  */
 extern bool bitmap_intersect_compl_p (const_bitmap, const_bitmap);
-
-/* True if MAP is an empty bitmap.  */
-inline bool bitmap_empty_p (const_bitmap map)
-{
-  return !map->first;
-}
 
 /* True if the bitmap has only a single bit set.  */
 extern bool bitmap_single_bit_set_p (const_bitmap);
@@ -250,12 +273,6 @@ extern bool bitmap_ior_and_compl (bitmap DST, const_bitmap A,
 /* A |= (B & ~C).  Return true if A changes.  */
 extern bool bitmap_ior_and_compl_into (bitmap A,
 				       const_bitmap B, const_bitmap C);
-
-/* Clear a single bit in a bitmap.  Return true if the bit changed.  */
-extern bool bitmap_clear_bit (bitmap, int);
-
-/* Set a single bit in a bitmap.  Return true if the bit changed.  */
-extern bool bitmap_set_bit (bitmap, int);
 
 /* Return true if a register is set in a register set.  */
 extern int bitmap_bit_p (bitmap, int);

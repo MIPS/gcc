@@ -398,7 +398,7 @@ find_pseudo_copy (rtx set)
       reg_copy_graph[rs] = b;
     }
 
-  bitmap_set_bit (b, rd);
+  b->set_bit (rd);
 
   return true;
 }
@@ -420,7 +420,7 @@ propagate_pseudo_copies (void)
       bitmap_iterator iter;
       unsigned int i;
 
-      bitmap_clear (&propagate);
+      propagate.clear ();
 
       EXECUTE_IF_SET_IN_BITMAP (&queue, 0, i, iter)
 	{
@@ -432,7 +432,7 @@ propagate_pseudo_copies (void)
       bitmap_and_compl (&queue, &propagate, decomposable_context);
       bitmap_ior_into (decomposable_context, &propagate);
     }
-  while (!bitmap_empty_p (&queue));
+  while (!queue.is_empty ());
 }
 
 /* A pointer to one of these values is passed to
@@ -493,7 +493,7 @@ find_decomposable_subregs (rtx *px, void *data)
 
       if (outer_words == 1 && inner_words > 1)
 	{
-	  bitmap_set_bit (decomposable_context, regno);
+	  decomposable_context->set_bit (regno);
 	  return -1;
 	}
 
@@ -505,8 +505,8 @@ find_decomposable_subregs (rtx *px, void *data)
 	  && outer_size == inner_size
 	  && !MODES_TIEABLE_P (GET_MODE (x), GET_MODE (inner)))
 	{
-	  bitmap_set_bit (non_decomposable_context, regno);
-	  bitmap_set_bit (subreg_context, regno);
+	  non_decomposable_context->set_bit (regno);
+	  subreg_context->set_bit (regno);
 	  return -1;
 	}
     }
@@ -537,11 +537,11 @@ find_decomposable_subregs (rtx *px, void *data)
 	  switch (*pcmi)
 	    {
 	    case NOT_SIMPLE_MOVE:
-	      bitmap_set_bit (non_decomposable_context, regno);
+	      non_decomposable_context->set_bit (regno);
 	      break;
 	    case DECOMPOSABLE_SIMPLE_MOVE:
 	      if (MODES_TIEABLE_P (GET_MODE (x), word_mode))
-		bitmap_set_bit (decomposable_context, regno);
+		decomposable_context->set_bit (regno);
 	      break;
 	    case SIMPLE_MOVE:
 	      break;
@@ -1217,10 +1217,10 @@ find_decomposable_shift_zext (rtx insn, bool speed_p)
 	  || !splitting[INTVAL (XEXP (op, 1)) - BITS_PER_WORD])
 	return false;
 
-      bitmap_set_bit (decomposable_context, REGNO (op_operand));
+      decomposable_context->set_bit (REGNO (op_operand));
     }
 
-  bitmap_set_bit (decomposable_context, REGNO (SET_DEST (set)));
+  decomposable_context->set_bit (REGNO (SET_DEST (set)));
 
   return true;
 }
@@ -1521,7 +1521,7 @@ decompose_multiword_subregs (bool decompose_copies)
     }
 
   bitmap_and_compl_into (decomposable_context, non_decomposable_context);
-  if (!bitmap_empty_p (decomposable_context))
+  if (!decomposable_context->is_empty ())
     {
       sbitmap sub_blocks;
       unsigned int i;

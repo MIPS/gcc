@@ -182,7 +182,7 @@ free_chain_data (void)
   int i;
   du_head_p ptr;
   for (i = 0; id_to_chain.iterate (i, &ptr); i++)
-    bitmap_clear (&ptr->conflicts);
+    ptr->conflicts.clear ();
 
   id_to_chain.release ();
 }
@@ -195,7 +195,7 @@ mark_conflict (struct du_head *chains, unsigned id)
 {
   while (chains)
     {
-      bitmap_set_bit (&chains->conflicts, id);
+      chains->conflicts.set_bit (id);
       chains = chains->next_chain;
     }
 }
@@ -249,7 +249,7 @@ create_new_chain (unsigned this_regno, unsigned this_nregs, rtx *loc,
     }
 
   COPY_HARD_REG_SET (head->hard_conflicts, live_hard_regs);
-  bitmap_set_bit (&open_chains_set, head->id);
+  open_chains_set.set_bit (head->id);
 
   open_chains = head;
 
@@ -541,7 +541,7 @@ init_rename_info (struct bb_rename_info *p, basic_block bb)
   bitmap_initialize (&p->incoming_open_chains_set, &bitmap_default_obstack);
 
   open_chains = NULL;
-  bitmap_clear (&open_chains_set);
+  open_chains_set.clear ();
 
   CLEAR_HARD_REG_SET (live_in_chains);
   REG_SET_TO_HARD_REG_SET (live_hard_regs, df_get_live_in (bb));
@@ -580,7 +580,7 @@ init_rename_info (struct bb_rename_info *p, basic_block bb)
 	  if (dump_file)
 	    fprintf (dump_file, "opening incoming chain\n");
 	  chain = create_new_chain (i, iri->nregs, NULL, NULL_RTX, NO_REGS);
-	  bitmap_set_bit (&p->incoming_open_chains_set, chain->id);
+	  p->incoming_open_chains_set.set_bit (chain->id);
 	}
     }
 }
@@ -720,7 +720,7 @@ regrename_analyze (bitmap bb_mask)
 	  bb1->aux = NULL;
 	  id_to_chain.truncate (old_length);
 	  current_id = old_length;
-	  bitmap_clear (&this_info->incoming_open_chains_set);
+	  this_info->incoming_open_chains_set.clear ();
 	  open_chains = NULL;
 	  if (insn_rr.exists ())
 	    {
@@ -1131,7 +1131,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl, enum scan_actions action,
 
 	  if (subset && !superset)
 	    head->cannot_rename = 1;
-	  bitmap_clear_bit (&open_chains_set, head->id);
+	  open_chains_set.clear_bit (head->id);
 
 	  nregs = head->nregs;
 	  while (nregs-- > 0)

@@ -1049,7 +1049,7 @@ reload (rtx first, int global)
 
   if (! frame_pointer_needed)
     FOR_EACH_BB (bb)
-      bitmap_clear_bit (df_get_live_in (bb), HARD_FRAME_POINTER_REGNUM);
+      df_get_live_in (bb)->set_bit (HARD_FRAME_POINTER_REGNUM);
 
   /* Come here (with failure set nonzero) if we can't get enough spill
      regs.  */
@@ -1307,7 +1307,7 @@ reload (rtx first, int global)
 
   substitute_stack.release ();
 
-  gcc_assert (bitmap_empty_p (&spilled_pseudos));
+  gcc_assert (spilled_pseudos.is_empty ());
 
   reload_completed = !failure;
 

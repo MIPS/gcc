@@ -351,14 +351,14 @@ control_dependences::set_control_dependence_map_bit (basic_block bb,
   if (bb == ENTRY_BLOCK_PTR)
     return;
   gcc_assert (bb != EXIT_BLOCK_PTR);
-  bitmap_set_bit (control_dependence_map[bb->index], edge_index);
+  control_dependence_map[bb->index]->set_bit (edge_index);
 }
 
 /* Clear all control dependences for block BB.  */
 void
 control_dependences::clear_control_dependence_bitmap (basic_block bb)
 {
-  bitmap_clear (control_dependence_map[bb->index]);
+  control_dependence_map[bb->index]->clear ();
 }
 
 /* Find the immediate postdominator PDOM of the specified basic block BLOCK.
@@ -718,7 +718,7 @@ dfs_find_deadend (basic_block bb)
   for (;;)
     {
       if (EDGE_COUNT (bb->succs) == 0
-	  || ! bitmap_set_bit (&visited, bb->index))
+	  || ! visited.set_bit (bb->index))
         return bb;
 
       bb = EDGE_SUCC (bb, 0)->dest;
@@ -1232,8 +1232,7 @@ compute_dominance_frontiers_1 (bitmap_head *frontiers)
 	      domsb = get_immediate_dominator (CDI_DOMINATORS, b);
 	      while (runner != domsb)
 		{
-		  if (!bitmap_set_bit (&frontiers[runner->index],
-				       b->index))
+		  if (!frontiers[runner->index].set_bit (b->index))
 		    break;
 		  runner = get_immediate_dominator (CDI_DOMINATORS,
 						    runner);
@@ -1302,7 +1301,7 @@ compute_idf (bitmap def_blocks, bitmap_head *dfs)
 	                              0, i, bi)
 	{
 	  work_stack.quick_push (i);
-	  bitmap_set_bit (phi_insertion_points, i);
+	  phi_insertion_points->set_bit (i);
 	}
     }
 

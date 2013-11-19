@@ -215,7 +215,7 @@ add_static_var (tree var)
   if (dump_file)
     splay_tree_insert (reference_vars_to_consider,
 		       uid, (splay_tree_value)var);
-  bitmap_set_bit (all_module_statics, uid);
+  all_module_statics->set_bit (uid);
 }
 
 /* Return true if the variable T is the right kind of static variable to
@@ -470,12 +470,12 @@ analyze_function (struct cgraph_node *fn)
       switch (ref->use)
 	{
 	case IPA_REF_LOAD:
-          bitmap_set_bit (local->statics_read, DECL_UID (var));
+          local->statics_read->set_bit (DECL_UID (var));
 	  break;
 	case IPA_REF_STORE:
 	  if (ipa_ref_cannot_lead_to_return (ref))
 	    break;
-          bitmap_set_bit (local->statics_written, DECL_UID (var));
+          local->statics_written->set_bit (DECL_UID (var));
 	  break;
 	case IPA_REF_ADDR:
 	  break;
@@ -483,7 +483,7 @@ analyze_function (struct cgraph_node *fn)
     }
 
   if (cgraph_node_cannot_return (fn))
-    bitmap_clear (local->statics_written);
+    local->statics_written->clear ();
 }
 
 
@@ -682,7 +682,7 @@ propagate (void)
 	|| TREE_READONLY (vnode->decl)
 	|| !is_proper_for_analysis (vnode->decl)
 	|| !vnode->definition)
-      bitmap_clear_bit (all_module_statics, DECL_UID (vnode->decl));
+      all_module_statics->clear_bit (DECL_UID (vnode->decl));
 
   /* Forget info we collected "just for fun" on variables that turned out to be
      non-local.  */
@@ -843,7 +843,7 @@ propagate (void)
 
 	  /* Create the complimentary sets.  */
 
-	  if (bitmap_empty_p (node_g->statics_read))
+	  if (node_g->statics_read->is_empty ())
 	    opt->statics_not_read = all_module_statics;
 	  else
 	    {
@@ -855,7 +855,7 @@ propagate (void)
 				  node_g->statics_read);
 	    }
 
-	  if (bitmap_empty_p (node_g->statics_written))
+	  if (node_g->statics_written->is_empty ())
 	    opt->statics_not_written = all_module_statics;
 	  else
 	    {
@@ -894,8 +894,8 @@ write_node_summary_p (struct cgraph_node *node,
   if (!node->definition || node->global.inlined_to)
     return false;
   info = get_reference_optimization_summary (node);
-  if (!info || (bitmap_empty_p (info->statics_not_read)
-		&& bitmap_empty_p (info->statics_not_written)))
+  if (!info || (info->statics_not_read->is_empty ()
+		&& info->statics_not_written->is_empty ()))
     return false;
 
   /* See if we want to encode it.
@@ -975,7 +975,7 @@ ipa_reference_write_optimization_summary (void)
 	  && referenced_from_this_partition_p (&vnode->ref_list, encoder))
 	{
 	  tree decl = vnode->decl;
-	  bitmap_set_bit (&ltrans_statics, DECL_UID (decl));
+	  ltrans_statics.set_bit (DECL_UID (decl));
 	  splay_tree_insert (reference_vars_to_consider,
 			     DECL_UID (decl), (splay_tree_value)decl);
 	  ltrans_statics_bitcount ++;
@@ -1062,7 +1062,7 @@ ipa_reference_read_optimization_summary (void)
 	      unsigned int var_index = streamer_read_uhwi (ib);
 	      tree v_decl = lto_file_decl_data_get_var_decl (file_data,
 							     var_index);
-	      bitmap_set_bit (all_module_statics, DECL_UID (v_decl));
+	      all_module_statics->set_bit (DECL_UID (v_decl));
 	      if (dump_file)
 		fprintf (dump_file, " %s", fndecl_name (v_decl));
 	    }
@@ -1101,7 +1101,7 @@ ipa_reference_read_optimization_summary (void)
 		    unsigned int var_index = streamer_read_uhwi (ib);
 		    tree v_decl = lto_file_decl_data_get_var_decl (file_data,
 								   var_index);
-		    bitmap_set_bit (info->statics_not_read, DECL_UID (v_decl));
+		    info->statics_not_read->set_bit (DECL_UID (v_decl));
 		    if (dump_file)
 		      fprintf (dump_file, " %s", fndecl_name (v_decl));
 		  }
@@ -1123,7 +1123,7 @@ ipa_reference_read_optimization_summary (void)
 		    unsigned int var_index = streamer_read_uhwi (ib);
 		    tree v_decl = lto_file_decl_data_get_var_decl (file_data,
 								   var_index);
-		    bitmap_set_bit (info->statics_not_written, DECL_UID (v_decl));
+		    info->statics_not_written->set_bit (DECL_UID (v_decl));
 		    if (dump_file)
 		      fprintf (dump_file, " %s", fndecl_name (v_decl));
 		  }

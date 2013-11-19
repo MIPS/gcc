@@ -1455,7 +1455,7 @@ finish_reg_info (void)
   int i;
 
   for (i = 0; i < reg_info_size; i++)
-    bitmap_clear (&lra_reg_info[i].insn_bitmap);
+    lra_reg_info[i].insn_bitmap.clear ();
   free (lra_reg_info);
   reg_info_size = 0;
   free_alloc_pool (copy_pool);
@@ -1574,7 +1574,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
 	  && ! TEST_HARD_REG_BIT (eliminable_regset, regno))
 	return;
       expand_reg_info ();
-      if (bitmap_set_bit (&lra_reg_info[regno].insn_bitmap, uid))
+      if (lra_reg_info[regno].insn_bitmap.set_bit (uid))
 	{
 	  data->regs = new_insn_reg (data->insn, regno, type, mode, subreg_p,
 				     early_clobber, data->regs);
@@ -1680,7 +1680,7 @@ invalidate_insn_data_regno_info (lra_insn_recog_data_t data, rtx insn,
       i = ir->regno;
       next_ir = ir->next;
       free_insn_reg (ir);
-      bitmap_clear_bit (&lra_reg_info[i].insn_bitmap, uid);
+      lra_reg_info[i].insn_bitmap.clear_bit (uid);
       if (i >= FIRST_PSEUDO_REGISTER && ! debug_p)
 	{
 	  lra_reg_info[i].nrefs--;
@@ -1953,9 +1953,9 @@ remove_scratches (void)
 	      loc->insn = insn;
 	      loc->nop = i;
 	      scratches.safe_push (loc);
-	      bitmap_set_bit (&scratch_bitmap, REGNO (*id->operand_loc[i]));
-	      bitmap_set_bit (&scratch_operand_bitmap,
-			      INSN_UID (insn) * MAX_RECOG_OPERANDS + i);
+	      scratch_bitmap.set_bit (REGNO (*id->operand_loc[i]));
+	      scratch_operand_bitmap.set_bit
+			      (INSN_UID (insn) * MAX_RECOG_OPERANDS + i);
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file,
 			 "Removing SCRATCH in insn #%u (nop %d)\n",
@@ -2004,8 +2004,8 @@ restore_scratches (void)
   for (i = 0; scratches.iterate (i, &loc); i++)
     free (loc);
   scratches.release ();
-  bitmap_clear (&scratch_bitmap);
-  bitmap_clear (&scratch_operand_bitmap);
+  scratch_bitmap.clear ();
+  scratch_operand_bitmap.clear ();
 }
 
 
@@ -2350,10 +2350,10 @@ lra (FILE *f)
 	}
       /* Don't clear optional reloads bitmap until all constraints are
 	 satisfied as we need to differ them from regular reloads.  */
-      bitmap_clear (&lra_optional_reload_pseudos);
-      bitmap_clear (&lra_subreg_reload_pseudos);
-      bitmap_clear (&lra_inheritance_pseudos);
-      bitmap_clear (&lra_split_regs);
+      lra_optional_reload_pseudos.clear ();
+      lra_subreg_reload_pseudos.clear ();
+      lra_inheritance_pseudos.clear ();
+      lra_split_regs.clear ();
       if (! lra_need_for_spills_p ())
 	break;
       if (! live_p)

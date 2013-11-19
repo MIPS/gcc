@@ -11845,7 +11845,7 @@ c_finish_omp_clauses (tree clauses)
 	      remove = true;
 	    }
 	  else
-	    bitmap_set_bit (&generic_head, DECL_UID (t));
+	    generic_head.set_bit (DECL_UID (t));
 	  break;
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
@@ -11866,7 +11866,7 @@ c_finish_omp_clauses (tree clauses)
 	      remove = true;
 	    }
 	  else
-	    bitmap_set_bit (&firstprivate_head, DECL_UID (t));
+	    firstprivate_head.set_bit (DECL_UID (t));
 	  break;
 
 	case OMP_CLAUSE_LASTPRIVATE:
@@ -11887,7 +11887,7 @@ c_finish_omp_clauses (tree clauses)
 	      remove = true;
 	    }
 	  else
-	    bitmap_set_bit (&lastprivate_head, DECL_UID (t));
+	    lastprivate_head.set_bit (DECL_UID (t));
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
@@ -11914,7 +11914,7 @@ c_finish_omp_clauses (tree clauses)
 	      remove = true;
 	    }
 	  else
-	    bitmap_set_bit (&aligned_head, DECL_UID (t));
+	    aligned_head.set_bit (DECL_UID (t));
 	  break;
 
 	case OMP_CLAUSE_DEPEND:
@@ -11995,7 +11995,7 @@ c_finish_omp_clauses (tree clauses)
 	      remove = true;
 	    }
 	  else
-	    bitmap_set_bit (&generic_head, DECL_UID (t));
+	    generic_head.set_bit (DECL_UID (t));
 	  break;
 
 	case OMP_CLAUSE_UNIFORM:

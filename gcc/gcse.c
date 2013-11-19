@@ -1506,10 +1506,10 @@ record_last_mem_set_info (rtx insn)
      everything.  */
   bb = BLOCK_FOR_INSN (insn)->index;
   modify_mem_list[bb].safe_push (insn);
-  bitmap_set_bit (modify_mem_list_set, bb);
+  modify_mem_list_set->set_bit (bb);
 
   if (CALL_P (insn))
-    bitmap_set_bit (blocks_with_calls, bb);
+    blocks_with_calls->set_bit (bb);
   else
     note_stores (PATTERN (insn), canon_list_insert, (void*) insn);
 }
@@ -1650,8 +1650,8 @@ clear_modify_mem_tables (void)
       modify_mem_list[i].release ();
       canon_modify_mem_list[i].release ();
     }
-  bitmap_clear (modify_mem_list_set);
-  bitmap_clear (blocks_with_calls);
+  modify_mem_list_set->clear ();
+  blocks_with_calls->clear ();
 }
 
 /* Release memory used by modify_mem_list_set.  */
@@ -2935,7 +2935,7 @@ update_bb_reg_pressure (basic_block bb, rtx from)
 	{
 	  decreased_pressure += nregs;
 	  BB_DATA (bb)->max_reg_pressure[pressure_class] -= nregs;
-	  bitmap_clear_bit (BB_DATA (bb)->live_in, REGNO (dreg));
+	  BB_DATA (bb)->live_in->clear_bit (REGNO (dreg));
 	}
     }
   return decreased_pressure;
@@ -3068,7 +3068,7 @@ should_hoist_expr_to_dom (basic_block expr_bb, struct expr *expr,
 	  /* Record the basic block from which EXPR is hoisted.  */
 	  bitmap_set_bit (visited, bb->index);
 	  EXECUTE_IF_SET_IN_BITMAP (visited, 0, i, sbi)
-	    bitmap_set_bit (hoisted_bbs, i);
+	    hoisted_bbs->set_bit (i);
 	}
       sbitmap_free (visited);
     }
@@ -3291,7 +3291,7 @@ hoist_code (void)
 		    {
 		      hoistable++;
 		      occrs_to_hoist.safe_push (occr);
-		      bitmap_set_bit (from_bbs, dominated->index);
+		      from_bbs->set_bit (dominated->index);
 		    }
 		}
 
@@ -3355,7 +3355,7 @@ hoist_code (void)
 		}
 
 	      if (flag_ira_hoist_pressure)
-		bitmap_clear (hoisted_bbs);
+		hoisted_bbs->clear ();
 
 	      insn_inserted_p = 0;
 
@@ -3398,7 +3398,7 @@ hoist_code (void)
 		}
 
 	      occrs_to_hoist.release ();
-	      bitmap_clear (from_bbs);
+	      from_bbs->clear ();
 	    }
 	}
       domby.release ();
@@ -3538,7 +3538,7 @@ calculate_bb_reg_pressure (void)
 	      if (!(DF_REF_FLAGS (*def_rec) 
 		    & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		{
-		  if (bitmap_clear_bit (&curr_regs_live, regno))
+		  if (curr_regs_live.clear_bit (regno))
 		    change_pressure (regno, false);
 		}
 	    }
@@ -3548,7 +3548,7 @@ calculate_bb_reg_pressure (void)
 	      dreg = DF_REF_REAL_REG (*use_rec);
 	      gcc_assert (REG_P (dreg));
 	      regno = REGNO (dreg);
-	      if (bitmap_set_bit (&curr_regs_live, regno))
+	      if (curr_regs_live.set_bit (regno))
 		change_pressure (regno, true);
 	    }
 	}

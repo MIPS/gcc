@@ -2897,7 +2897,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
       n++;
       if (! ALLOCNO_ASSIGNED_P (a))
 	continue;
-      bitmap_clear_bit (coloring_allocno_bitmap, ALLOCNO_NUM (a));
+      coloring_allocno_bitmap->clear_bit (ALLOCNO_NUM (a));
     }
   allocno_color_data
     = (allocno_color_data_t) ira_allocate (sizeof (struct allocno_color_data)
@@ -2922,7 +2922,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	if (ALLOCNO_CAP_MEMBER (a) == NULL)
 	  continue;
 	/* Remove from processing in the next loop.  */
-	bitmap_clear_bit (consideration_allocno_bitmap, j);
+	consideration_allocno_bitmap->clear_bit (j);
 	rclass = ALLOCNO_CLASS (a);
 	pclass = ira_pressure_class_translate[rclass];
 	if (flag_ira_region == IRA_REGION_MIXED
@@ -3272,7 +3272,7 @@ ira_reassign_conflict_allocnos (int start_regno)
 	      ira_assert (ALLOCNO_UPDATED_HARD_REG_COSTS (a) == NULL);
 	      ira_assert (ALLOCNO_UPDATED_CONFLICT_HARD_REG_COSTS (a) == NULL);
 	    }
-	  bitmap_set_bit (allocnos_to_color, ALLOCNO_NUM (a));
+	  allocnos_to_color->set_bit (ALLOCNO_NUM (a));
 	}
       if (ALLOCNO_REGNO (a) < start_regno
 	  || (aclass = ALLOCNO_CLASS (a)) == NO_REGS)
@@ -3289,7 +3289,7 @@ ira_reassign_conflict_allocnos (int start_regno)
 
 	      ira_assert (ira_reg_classes_intersect_p
 			  [aclass][ALLOCNO_CLASS (conflict_a)]);
-	      if (!bitmap_set_bit (allocnos_to_color, ALLOCNO_NUM (conflict_a)))
+	      if (!allocnos_to_color->set_bit (ALLOCNO_NUM (conflict_a)))
 		continue;
 	      sorted_allocnos[allocnos_to_color_num++] = conflict_a;
 	    }
@@ -3478,11 +3478,11 @@ coalesced_allocno_conflict_p (ira_allocno_t a1, ira_allocno_t a2)
 
   if (allocno_coalesced_p)
     {
-      bitmap_clear (processed_coalesced_allocno_bitmap);
+      processed_coalesced_allocno_bitmap->clear ();
       for (a = ALLOCNO_COALESCE_DATA (a1)->next;;
 	   a = ALLOCNO_COALESCE_DATA (a)->next)
 	{
-	  bitmap_set_bit (processed_coalesced_allocno_bitmap, ALLOCNO_NUM (a));
+	  processed_coalesced_allocno_bitmap->set_bit (ALLOCNO_NUM (a));
 	  if (a == a1)
 	    break;
 	}
@@ -3869,7 +3869,7 @@ ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
       regno = pseudo_regnos[i];
       allocno = ira_regno_allocno_map[regno];
       if (allocno != NULL)
-	bitmap_set_bit (coloring_allocno_bitmap, ALLOCNO_NUM (allocno));
+	coloring_allocno_bitmap->set_bit (ALLOCNO_NUM (allocno));
     }
   allocno_coalesced_p = false;
   processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
@@ -4131,13 +4131,13 @@ ira_reassign_pseudos (int *spilled_pseudo_regs, int num,
      to allocating in two steps as some of the conflicts might have
      a higher priority than the pseudos passed in SPILLED_PSEUDO_REGS.  */
   for (i = 0; i < num; i++)
-    bitmap_set_bit (&temp, spilled_pseudo_regs[i]);
+    temp.set_bit (spilled_pseudo_regs[i]);
 
   for (i = 0, n = num; i < n; i++)
     {
       int nr, j;
       int regno = spilled_pseudo_regs[i];
-      bitmap_set_bit (&temp, regno);
+      temp.set_bit (regno);
 
       a = ira_regno_allocno_map[regno];
       nr = ALLOCNO_NUM_OBJECTS (a);
@@ -4152,12 +4152,11 @@ ira_reassign_pseudos (int *spilled_pseudo_regs, int num,
 	      ira_allocno_t conflict_a = OBJECT_ALLOCNO (conflict_obj);
 	      if (ALLOCNO_HARD_REGNO (conflict_a) < 0
 		  && ! ALLOCNO_DONT_REASSIGN_P (conflict_a)
-		  && bitmap_set_bit (&temp, ALLOCNO_REGNO (conflict_a)))
+		  && temp.set_bit (ALLOCNO_REGNO (conflict_a)))
 		{
 		  spilled_pseudo_regs[num++] = ALLOCNO_REGNO (conflict_a);
 		  /* ?!? This seems wrong.  */
-		  bitmap_set_bit (consideration_allocno_bitmap,
-				  ALLOCNO_NUM (conflict_a));
+		  consideration_allocno_bitmap->set_bit (ALLOCNO_NUM (conflict_a));
 		}
 	    }
 	}

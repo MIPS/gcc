@@ -3252,7 +3252,7 @@ gimple_ior_addresses_taken_1 (gimple stmt ATTRIBUTE_UNUSED,
   if (addr
       && DECL_P (addr))
     {
-      bitmap_set_bit (addresses_taken, DECL_UID (addr));
+      addresses_taken->set_bit (DECL_UID (addr));
       return true;
     }
   return false;

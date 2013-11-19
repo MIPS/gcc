@@ -547,7 +547,7 @@ df_set_blocks (bitmap blocks)
 		      basic_block bb;
 		      FOR_ALL_BB (bb)
 			{
-			  bitmap_set_bit (&blocks_to_reset, bb->index);
+			  blocks_to_reset.set_bit (bb->index);
 			}
 		    }
 		  dflow->problem->reset_fun (&blocks_to_reset);
@@ -951,7 +951,7 @@ df_worklist_propagate_forward (struct dataflow *dataflow,
           unsigned ob_index = e->dest->index;
 
           if (bitmap_bit_p (considered, ob_index))
-            bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
+            pending->set_bit (bbindex_to_postorder[ob_index]);
         }
       return true;
     }
@@ -996,7 +996,7 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
           unsigned ob_index = e->src->index;
 
           if (bitmap_bit_p (considered, ob_index))
-            bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
+            pending->set_bit (bbindex_to_postorder[ob_index]);
         }
       return true;
     }
@@ -1044,7 +1044,7 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 
   /* Double-queueing. Worklist is for the current iteration,
      and pending is for the next. */
-  while (!bitmap_empty_p (pending))
+  while (!pending->is_empty ())
     {
       bitmap_iterator bi;
       unsigned int index;
@@ -1059,7 +1059,7 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 	  unsigned bb_index;
 	  dcount++;
 
-	  bitmap_clear_bit (pending, index);
+	  pending->set_bit (index);
 	  bb_index = blocks_in_postorder[index];
 	  bb = BASIC_BLOCK (bb_index);
 	  prev_age = last_visit_age[index];
@@ -1077,7 +1077,7 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 	  if (changed)
 	    bb->aux = (void *)(ptrdiff_t)age;
 	}
-      bitmap_clear (worklist);
+      worklist->clear ();
     }
   for (i = 0; i < n_blocks; i++)
     BASIC_BLOCK (blocks_in_postorder[i])->aux = NULL;
@@ -1137,7 +1137,7 @@ df_worklist_dataflow (struct dataflow *dataflow,
     {
       bbindex_to_postorder[blocks_in_postorder[i]] = i;
       /* Add all blocks to the worklist.  */
-      bitmap_set_bit (pending, i);
+      pending->set_bit (i);
     }
 
   /* Initialize the problem. */
@@ -1252,7 +1252,7 @@ df_analyze (void)
     df_verify ();
 
   for (i = 0; i < df->n_blocks; i++)
-    bitmap_set_bit (current_all_blocks, df->postorder[i]);
+    current_all_blocks->set_bit (df->postorder[i]);
 
 #ifdef ENABLE_CHECKING
   /* Verify that POSTORDER_INVERTED only contains blocks reachable from
@@ -1463,7 +1463,7 @@ df_set_bb_dirty (basic_block bb)
 	{
 	  struct dataflow *dflow = df->problems_in_order[p];
 	  if (dflow->out_of_date_transfer_functions)
-	    bitmap_set_bit (dflow->out_of_date_transfer_functions, bb->index);
+	    dflow->out_of_date_transfer_functions->set_bit (bb->index);
 	}
       df_mark_solutions_dirty ();
     }
@@ -1504,7 +1504,7 @@ df_clear_bb_dirty (basic_block bb)
     {
       struct dataflow *dflow = df->problems_in_order[p];
       if (dflow->out_of_date_transfer_functions)
-	bitmap_clear_bit (dflow->out_of_date_transfer_functions, bb->index);
+	dflow->out_of_date_transfer_functions->set_bit (bb->index);
     }
 }
 
@@ -1528,17 +1528,17 @@ df_compact_blocks (void)
       if (dflow->out_of_date_transfer_functions)
 	{
 	  bitmap_copy (&tmp, dflow->out_of_date_transfer_functions);
-	  bitmap_clear (dflow->out_of_date_transfer_functions);
+	  dflow->out_of_date_transfer_functions->clear ();
 	  if (bitmap_bit_p (&tmp, ENTRY_BLOCK))
-	    bitmap_set_bit (dflow->out_of_date_transfer_functions, ENTRY_BLOCK);
+	    dflow->out_of_date_transfer_functions->set_bit (ENTRY_BLOCK);
 	  if (bitmap_bit_p (&tmp, EXIT_BLOCK))
-	    bitmap_set_bit (dflow->out_of_date_transfer_functions, EXIT_BLOCK);
+	    dflow->out_of_date_transfer_functions->set_bit (EXIT_BLOCK);
 
 	  i = NUM_FIXED_BLOCKS;
 	  FOR_EACH_BB (bb)
 	    {
 	      if (bitmap_bit_p (&tmp, bb->index))
-		bitmap_set_bit (dflow->out_of_date_transfer_functions, i);
+		dflow->out_of_date_transfer_functions->set_bit (i);
 	      i++;
 	    }
 	}
@@ -1575,16 +1575,16 @@ df_compact_blocks (void)
   if (df->blocks_to_analyze)
     {
       if (bitmap_bit_p (&tmp, ENTRY_BLOCK))
-	bitmap_set_bit (df->blocks_to_analyze, ENTRY_BLOCK);
+	df->blocks_to_analyze->set_bit (ENTRY_BLOCK);
       if (bitmap_bit_p (&tmp, EXIT_BLOCK))
-	bitmap_set_bit (df->blocks_to_analyze, EXIT_BLOCK);
+	df->blocks_to_analyze->set_bit (EXIT_BLOCK);
       bitmap_copy (&tmp, df->blocks_to_analyze);
-      bitmap_clear (df->blocks_to_analyze);
+      df->blocks_to_analyze->clear ();
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB (bb)
 	{
 	  if (bitmap_bit_p (&tmp, bb->index))
-	    bitmap_set_bit (df->blocks_to_analyze, i);
+	    df->blocks_to_analyze->set_bit (i);
 	  i++;
 	}
     }

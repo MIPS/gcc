@@ -143,7 +143,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
   use_operand_p use_p;
   tree var;
 
-  bitmap_clear (&blocks);
+  blocks.clear ();
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, op_iter, SSA_OP_ALL_DEFS)
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)
@@ -170,7 +170,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 	  /* Short circuit. Nothing dominates the entry block.  */
 	  if (useblock == ENTRY_BLOCK_PTR)
 	    return NULL;
-	  bitmap_set_bit (&blocks, useblock->index);
+	  blocks.set_bit (useblock->index);
 	}
     }
   commondom = BASIC_BLOCK (bitmap_first_set_bit (&blocks));

@@ -129,7 +129,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
   unsigned int regno;
 
   bitmap_copy (live, df_get_live_out (bb));
-  bitmap_clear (artificial_uses);
+  artificial_uses->clear ();
 
   /* Process the regs live at the end of the block.  Mark them as
      not local to any one basic block.  */
@@ -142,7 +142,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
     {
       df_ref def = *def_rec;
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -151,8 +151,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
 	{
 	  regno = DF_REF_REGNO (use);
-	  bitmap_set_bit (live, regno);
-	  bitmap_set_bit (artificial_uses, regno);
+	  live->set_bit (regno);
+	  artificial_uses->set_bit (regno);
 	}
     }
 
@@ -202,7 +202,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		 Conclusion: such a pseudo must not go in a hard
 		 reg.  */
 	      if (set_jump)
-		bitmap_set_bit (setjmp_crosses, regno);
+		setjmp_crosses->set_bit (regno);
 	    }
 	}
 
@@ -262,12 +262,12 @@ regstat_bb_compute_ri (unsigned int bb_index,
 			  REG_LIVE_LENGTH (dregno) +=
 			    (luid - local_live_last_luid[dregno]);
 			  local_live_last_luid[dregno] = luid;
-			  bitmap_clear_bit (local_live, dregno);
+			  local_live->set_bit (dregno);
 			}
 		    }
 		  else
 		    {
-		      bitmap_set_bit (local_processed, dregno);
+		      local_processed->set_bit (dregno);
 		      REG_LIVE_LENGTH (dregno) += luid;
 		      local_live_last_luid[dregno] = luid;
 		    }
@@ -279,7 +279,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		     basic block.  This results in poor calculations of
 		     REG_LIVE_LENGTH in large basic blocks.  */
 		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		    bitmap_clear_bit (live, dregno);
+		    live->clear_bit (dregno);
 		}
 	      else if ((!(DF_REF_FLAGS (def) & DF_REF_MW_HARDREG))
 		       && (!bitmap_bit_p (artificial_uses, dregno)))
@@ -318,7 +318,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		REG_BASIC_BLOCK (uregno) = REG_BLOCK_GLOBAL;
 	    }
 
-	  if (bitmap_set_bit (live, uregno))
+	  if (live->set_bit (uregno))
 	    {
 	      /* This register is now live.  Begin to process it locally.
 
@@ -327,8 +327,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		 does not effect the calculations.  */
 	      REG_LIVE_LENGTH (uregno) ++;
 	      local_live_last_luid[uregno] = luid;
-	      bitmap_set_bit (local_live, uregno);
-	      bitmap_set_bit (local_processed, uregno);
+	      local_live->set_bit (uregno);
+	      local_processed->set_bit (uregno);
 	    }
 	}
     }
@@ -346,8 +346,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
   EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
     REG_LIVE_LENGTH (regno) += luid;
 
-  bitmap_clear (local_processed);
-  bitmap_clear (local_live);
+  local_processed->clear ();
+  local_live->clear ();
 }
 
 
@@ -449,14 +449,14 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
     {
       df_ref def = *def_rec;
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
     {
       df_ref use = *use_rec;
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
-	bitmap_set_bit (live, DF_REF_REGNO (use));
+	live->set_bit (DF_REF_REGNO (use));
     }
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -490,14 +490,14 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
 	    {
 	      /* Kill this register if it is not a subreg store or conditional store.  */
 	      if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		bitmap_clear_bit (live, DF_REF_REGNO (def));
+		live->clear_bit (DF_REF_REGNO (def));
 	    }
 	}
 
       for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 	{
 	  df_ref use = *use_rec;
-	  bitmap_set_bit (live, DF_REF_REGNO (use));
+	  live->set_bit (DF_REF_REGNO (use));
 	}
     }
 }

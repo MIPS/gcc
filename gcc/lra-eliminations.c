@@ -1050,7 +1050,7 @@ spill_pseudos (HARD_REG_SET set)
 	lra_push_insn (insn);
 	lra_set_used_insn_alternative (insn, -1);
       }
-  bitmap_clear (&to_process);
+  to_process.clear ();
 }
 
 /* Update all offsets and possibility for elimination on eliminable
@@ -1281,7 +1281,7 @@ lra_eliminate (bool final_p)
     {
 #ifdef ENABLE_CHECKING
       update_reg_eliminate (&insns_with_changed_offsets);
-      if (! bitmap_empty_p (&insns_with_changed_offsets))
+      if (! insns_with_changed_offsets.is_empty ())
 	gcc_unreachable ();
 #endif
       /* We change eliminable hard registers in insns so we should do
@@ -1321,7 +1321,7 @@ lra_eliminate (bool final_p)
     /* A dead insn can be deleted in process_insn_for_elimination.  */
     if (lra_insn_recog_data[uid] != NULL)
       process_insn_for_elimination (lra_insn_recog_data[uid]->insn, final_p);
-  bitmap_clear (&insns_with_changed_offsets);
+  insns_with_changed_offsets.clear ();
 
 lra_eliminate_done:
   timevar_pop (TV_LRA_ELIMINATE);

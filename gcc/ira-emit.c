@@ -637,11 +637,11 @@ change_loop (ira_loop_tree_node_t node)
       regno = ALLOCNO_REGNO (allocno);
       if (ALLOCNO_CAP_MEMBER (allocno) != NULL)
 	continue;
-      used_p = !bitmap_set_bit (used_regno_bitmap, regno);
+      used_p = !used_regno_bitmap->set_bit (regno);
       ALLOCNO_EMIT_DATA (allocno)->somewhere_renamed_p = true;
       if (! used_p)
 	continue;
-      bitmap_set_bit (renamed_regno_bitmap, regno);
+      renamed_regno_bitmap->set_bit (regno);
       set_allocno_reg (allocno, ira_create_new_reg (allocno_emit_reg (allocno)));
     }
 }
@@ -1087,8 +1087,8 @@ add_range_and_copies_from_move_list (move_t list, ira_loop_tree_node_t node,
       ira_allocno_t to = move->to;
       int nr, i;
 
-      bitmap_clear_bit (live_through, ALLOCNO_REGNO (from));
-      bitmap_clear_bit (live_through, ALLOCNO_REGNO (to));
+      live_through->clear_bit (ALLOCNO_REGNO (from));
+      live_through->clear_bit (ALLOCNO_REGNO (to));
 
       nr = ALLOCNO_NUM_OBJECTS (to);
       for (i = 0; i < nr; i++)

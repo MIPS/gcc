@@ -552,7 +552,7 @@ compute_always_reached (struct loop *loop, basic_block *body,
   for (i = 0; i < loop->num_nodes; i++)
     {
       if (dominated_by_p (CDI_DOMINATORS, loop->latch, body[i]))
-	bitmap_set_bit (always_reached, i);
+	always_reached->set_bit (i);
 
       if (bitmap_bit_p (may_exit, i))
 	return;
@@ -585,7 +585,7 @@ find_exits (struct loop *loop, basic_block *body,
 		      || !RTL_CONST_OR_PURE_CALL_P (insn)))
 		{
 		  has_call = true;
-		  bitmap_set_bit (may_exit, i);
+		  may_exit->set_bit (i);
 		  break;
 		}
 	    }
@@ -595,8 +595,8 @@ find_exits (struct loop *loop, basic_block *body,
 	      if (flow_bb_inside_loop_p (loop, e->dest))
 		continue;
 
-	      bitmap_set_bit (may_exit, i);
-	      bitmap_set_bit (has_exit, i);
+	      may_exit->set_bit (i);
+	      has_exit->set_bit (i);
 	      outermost_exit = find_common_loop (outermost_exit,
 						 e->dest->loop_father);
 	    }
@@ -612,13 +612,13 @@ find_exits (struct loop *loop, basic_block *body,
       if (LOOP_DATA (body[i]->loop_father)->has_call)
 	{
 	  has_call = true;
-	  bitmap_set_bit (may_exit, i);
+	  may_exit->set_bit (i);
 	}
       aexit = LOOP_DATA (body[i]->loop_father)->outermost_exit;
       if (aexit != loop)
 	{
-	  bitmap_set_bit (may_exit, i);
-	  bitmap_set_bit (has_exit, i);
+	  may_exit->set_bit (i);
+	  has_exit->set_bit (i);
 
 	  if (flow_loop_nested_p (aexit, outermost_exit))
 	    outermost_exit = aexit;
@@ -658,7 +658,7 @@ find_defs (struct loop *loop, basic_block *body)
   bitmap_head blocks;
 
   for (i = 0; i < loop->num_nodes; i++)
-    bitmap_set_bit (&blocks, body[i]->index);
+    blocks.set_bit (body[i]->index);
 
   if (dump_file)
     {
@@ -820,7 +820,7 @@ check_dependency (basic_block bb, df_ref use, bitmap depends_on)
   if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
     return false;
 
-  bitmap_set_bit (depends_on, def_data->invno);
+  depends_on->set_bit (def_data->invno);
   return true;
 }
 
@@ -1609,8 +1609,8 @@ free_loop_data (struct loop *loop)
   if (!data)
     return;
 
-  bitmap_clear (&LOOP_DATA (loop)->regs_ref);
-  bitmap_clear (&LOOP_DATA (loop)->regs_live);
+  LOOP_DATA (loop)->regs_ref.clear ();
+  LOOP_DATA (loop)->regs_live.clear ();
   free (data);
   loop->aux = NULL;
 }
@@ -1689,8 +1689,8 @@ mark_regno_live (int regno)
   for (loop = curr_loop;
        loop != current_loops->tree_root;
        loop = loop_outer (loop))
-    bitmap_set_bit (&LOOP_DATA (loop)->regs_live, regno);
-  if (!bitmap_set_bit (&curr_regs_live, regno))
+    LOOP_DATA (loop)->regs_live.set_bit (regno);
+  if (!curr_regs_live.set_bit (regno))
     return;
   change_pressure (regno, true);
 }
@@ -1699,7 +1699,7 @@ mark_regno_live (int regno)
 static void
 mark_regno_death (int regno)
 {
-  if (! bitmap_clear_bit (&curr_regs_live, regno))
+  if (! curr_regs_live.clear_bit (regno))
     return;
   change_pressure (regno, false);
 }
@@ -1782,7 +1782,7 @@ mark_ref_regs (rtx x)
       for (loop = curr_loop;
 	   loop != current_loops->tree_root;
 	   loop = loop_outer (loop))
-	bitmap_set_bit (&LOOP_DATA (loop)->regs_ref, REGNO (x));
+	LOOP_DATA (loop)->regs_ref.set_bit (REGNO (x));
       return;
     }
 
@@ -1875,7 +1875,7 @@ calculate_loop_reg_pressure (void)
 	    }
 	}
     }
-  bitmap_clear (&curr_regs_live);
+  curr_regs_live.clear ();
   if (flag_ira_region == IRA_REGION_MIXED
       || flag_ira_region == IRA_REGION_ALL)
     FOR_EACH_LOOP (li, loop, 0)

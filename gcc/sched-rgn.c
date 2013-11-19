@@ -1782,7 +1782,7 @@ update_live_1 (int src, rtx x)
 	    bitmap_set_range (df_get_live_in (b), regno,
 			      hard_regno_nregs[regno][GET_MODE (reg)]);
 	  else
-	    bitmap_set_bit (df_get_live_in (b), regno);
+	    df_get_live_in (b)->set_bit (regno);
 	}
     }
 }
@@ -3385,7 +3385,7 @@ schedule_insns (void)
   sched_rgn_init (reload_completed);
 
   bitmap_initialize (&not_in_df, 0);
-  bitmap_clear (&not_in_df);
+  not_in_df.clear ();
 
   /* Schedule every region in the subroutine.  */
   for (rgn = 0; rgn < nr_regions; rgn++)
@@ -3394,7 +3394,7 @@ schedule_insns (void)
 
   /* Clean up.  */
   sched_rgn_finish ();
-  bitmap_clear (&not_in_df);
+  not_in_df.clear ();
 
   haifa_sched_finish ();
 }
@@ -3452,7 +3452,7 @@ static void
 rgn_add_block (basic_block bb, basic_block after)
 {
   extend_regions ();
-  bitmap_set_bit (&not_in_df, bb->index);
+  not_in_df.set_bit (bb->index);
 
   if (after == 0 || after == EXIT_BLOCK_PTR)
     {

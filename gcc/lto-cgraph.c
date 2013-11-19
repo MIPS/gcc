@@ -1728,7 +1728,7 @@ input_node_opt_summary (struct cgraph_node *node,
   for (i = 0; i < count; i++)
     {
       bit = streamer_read_uhwi (ib_main);
-      bitmap_set_bit (node->clone.args_to_skip, bit);
+      node->clone.args_to_skip->set_bit (bit);
     }
   count = streamer_read_uhwi (ib_main);
   if (count)
@@ -1736,7 +1736,7 @@ input_node_opt_summary (struct cgraph_node *node,
   for (i = 0; i < count; i++)
     {
       bit = streamer_read_uhwi (ib_main);
-      bitmap_set_bit (node->clone.combined_args_to_skip, bit);
+      node->clone.combined_args_to_skip->set_bit (bit);
     }
   count = streamer_read_uhwi (ib_main);
   for (i = 0; i < count; i++)
