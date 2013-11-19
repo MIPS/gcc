@@ -119,14 +119,9 @@
        (match_test "TARGET_64BIT")
        (match_test "REGNO (op) > BX_REG")))
 
-;; Return true if VALUE is size relocation
-(define_predicate "size_relocation"
-  (match_code "const")
-{
-  return (GET_CODE (op) == CONST
-          && GET_CODE (XEXP (op, 0)) == UNSPEC
-	  && XINT (XEXP (op, 0), 1) == UNSPEC_SIZEOF);
-})
+;; Return true if VALUE is symbol reference
+(define_predicate "symbol_operand"
+  (match_code "symbol_ref"))
 
 ;; Return true if VALUE can be stored in a sign extended immediate field.
 (define_predicate "x86_64_immediate_operand"
@@ -332,13 +327,6 @@
 	      return false;
 	    }
 	}
-      else if (GET_CODE (XEXP (op, 0)) == UNSPEC)
-        {
-          if (XINT (XEXP (op, 0), 1) == UNSPEC_SIZEOF
-	      && XVECLEN (XEXP (op, 0), 0) == 1
-	      && GET_CODE (XVECEXP (XEXP (op, 0), 0, 0)) == SYMBOL_REF)
-	    return true;
-        }
       break;
 
     default:
