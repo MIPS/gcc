@@ -33,9 +33,37 @@
   (ior (match_operand 0 "const_arith_operand")
        (match_operand 0 "register_operand")))
 
+(define_predicate "const_immlsa_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 1, 4)")))
+
+(define_predicate "const_msa_branch_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -1024, 1023)")))
+
+(define_predicate "const_uimm3_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 7)")))
+
+(define_predicate "const_uimm4_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 15)")))
+
+(define_predicate "const_uimm5_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 31)")))
+
 (define_predicate "const_uimm6_operand"
   (and (match_code "const_int")
        (match_test "UIMM6_OPERAND (INTVAL (op))")))
+
+(define_predicate "const_uimm8_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), 0, 255)")))
+
+(define_predicate "const_imm5_operand"
+  (and (match_code "const_int")
+       (match_test "IN_RANGE (INTVAL (op), -16, 15)")))
 
 (define_predicate "const_imm10_operand"
   (and (match_code "const_int")
@@ -44,6 +72,11 @@
 (define_predicate "reg_imm10_operand"
   (ior (match_operand 0 "const_imm10_operand")
        (match_operand 0 "register_operand")))
+
+(define_predicate "const_msa_addr_offset_operand"
+  (and (match_code "const_int")
+       (match_test "(INTVAL (op) & 15) == 0")
+       (match_test "IN_RANGE (INTVAL (op), -256, 255)")))
 
 (define_predicate "sle_operand"
   (and (match_code "const_int")
@@ -56,6 +89,14 @@
 (define_predicate "const_0_operand"
   (and (match_code "const_int,const_double,const_vector")
        (match_test "op == CONST0_RTX (GET_MODE (op))")))
+
+(define_predicate "const_m1_operand"
+  (and (match_code "const_int,const_double,const_vector")
+       (match_test "op == CONSTM1_RTX (GET_MODE (op))")))
+
+(define_predicate "reg_or_m1_operand"
+  (ior (match_operand 0 "const_m1_operand")
+       (match_operand 0 "register_operand")))
 
 (define_predicate "reg_or_0_operand"
   (ior (and (match_operand 0 "const_0_operand")
@@ -492,3 +533,23 @@
 (define_predicate "non_volatile_mem_operand"
   (and (match_operand 0 "memory_operand")
        (not (match_test "MEM_VOLATILE_P (op)"))))
+
+(define_predicate "const_vector_same_uimm5_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, 0, 31);
+})
+
+(define_predicate "const_vector_same_uimm6_operand"
+  (match_code "const_vector")
+{
+  return mips_const_vector_same_int_p (op, mode, 0, 63);
+})
+
+(define_predicate "reg_or_vector_uimm5_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const_vector_same_uimm5_operand")))
+
+(define_predicate "reg_or_vector_uimm6_operand"
+  (ior (match_operand 0 "register_operand")
+       (match_operand 0 "const_vector_same_uimm6_operand")))
