@@ -528,11 +528,6 @@ compute_branch_probabilities (unsigned cfg_checksum, unsigned lineno_checksum)
   /* Very simple sanity checks so we catch bugs in our profiling code.  */
   if (!profile_info)
     return;
-  if (profile_info->run_max * profile_info->runs < profile_info->sum_max)
-    {
-      error ("corrupted profile info: run_max * runs < sum_max");
-      exec_counts = NULL;
-    }
 
   if (profile_info->sum_all < profile_info->sum_max)
     {
@@ -1182,9 +1177,9 @@ branch_prob (void)
 	num_instrumented++;
     }
 
-  total_num_blocks += n_basic_blocks;
+  total_num_blocks += n_basic_blocks_for_fn (cfun);
   if (dump_file)
-    fprintf (dump_file, "%d basic blocks\n", n_basic_blocks);
+    fprintf (dump_file, "%d basic blocks\n", n_basic_blocks_for_fn (cfun));
 
   total_num_edges += num_edges;
   if (dump_file)
@@ -1213,7 +1208,7 @@ branch_prob (void)
 
       /* Basic block flags */
       offset = gcov_write_tag (GCOV_TAG_BLOCKS);
-      for (i = 0; i != (unsigned) (n_basic_blocks); i++)
+      for (i = 0; i != (unsigned) (n_basic_blocks_for_fn (cfun)); i++)
 	gcov_write_unsigned (0);
       gcov_write_length (offset);
 
