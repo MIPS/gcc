@@ -1,11 +1,5 @@
-2013-11-06  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* c/c-parser.c: Include tree-chkp.h.
-	(c_parser_declaration_or_fndef): Register statically
-	initialized decls in Pointer Bounds Checker.
-	* cp/decl.c: Include tree-chkp.h.
-	(cp_finish_decl): Register statically
-	initialized decls in Pointer Bounds Checker.
-	* gimplify.c: Include tree-chkp.h.
-	(gimplify_init_constructor): Register statically
+	* varpool.c: Include tree-chkp.h.
+	(varpool_node_for_decl): Register statically
 	initialized decls in Pointer Bounds Checker.
