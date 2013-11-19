@@ -241,6 +241,7 @@
 ;;   s - address with no segment register
 ;;   i - address with no index and no rip
 ;;   b - address with no base and no rip
+;;   S - symbol reference
 
 (define_address_constraint "Tv"
   "VSIB address operand"
@@ -257,3 +258,7 @@
 (define_address_constraint "Tb"
   "MPX address operand without base"
   (match_operand 0 "address_mpx_no_base_operand"))
+
+(define_address_constraint "TS"
+  "Symbol reference"
+  (match_operand 0 "symbol_operand"))
