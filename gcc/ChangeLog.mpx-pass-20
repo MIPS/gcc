@@ -1,8 +1,6 @@
-2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* config/i386/i386.md (UNSPEC_SIZEOF): New.
 	(move_size_reloc_<mode>): New.
-	* config/i386/predicates.md (size_relocation): New.
-	(x86_64_zext_immediate_operand): Support UNSPEC_SIZEOF.
-	* config/i386/i386.c (output_pic_addr_const): Support UNSPEC_SIZEOF.
-	(i386_asm_output_addr_const_extra): Likewise.
+	* gcc/config/i386/constraints.md (TS): New.
+	* config/i386/predicates.md (symbol_operand): New.
