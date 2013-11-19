@@ -33200,7 +33200,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 				 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg0)));
 	t2 = gen_rtx_UNSPEC (mode, gen_rtvec (1, t2), UNSPEC_SIZEOF);
 
-	emit_insn (gen_rtx_SET (VOIDmode, t1, gen_rtx_CONST (Pmode, t2)));
+	emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
 
 	return t1;
       }
