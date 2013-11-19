@@ -1,3 +1,8 @@
+19-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Switch to gcc_checking_assert.
+
+	* gcc/oacc-low.c: Switch to gcc_checking_assert.
+
 18-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Change SSA names creation.
 

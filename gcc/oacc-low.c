@@ -118,7 +118,7 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
     lambda_vector distres;
     struct data_dependence_relation *ddr;
 
-    gcc_assert (LTM_COLSIZE (trans) == nb_loops
+    gcc_checking_assert (LTM_COLSIZE (trans) == nb_loops
                 && LTM_ROWSIZE (trans) == nb_loops);
 
     /* When there are no dependences, the transformation is correct.  */
@@ -464,7 +464,7 @@ add_assingments_to_ptrs (gimple_seq *seq, oacc_context* ctx)
       gimple_seq inner_seq;
       gimple_stmt_iterator inner_gsi;
 
-      gcc_assert (gimple_code(stmt) == GIMPLE_BIND);
+      gcc_checking_assert (gimple_code(stmt) == GIMPLE_BIND);
       inner_seq = gimple_bind_body (stmt);
       for (inner_gsi = gsi_start (inner_seq); !gsi_end_p (inner_gsi);
            gsi_next (&inner_gsi))
@@ -482,7 +482,7 @@ add_assingments_to_ptrs (gimple_seq *seq, oacc_context* ctx)
                   tree convert_var =
                       (tree) splay_tree_lookup(ctx->local_map,
                                                (splay_tree_key) rhs)->value;
-                  gcc_assert (convert_var);
+                  gcc_checking_assert (convert_var);
                   gimple convert_stmt = gimple_build_assign (convert_var, rhs);
                   gsi_insert_before (&inner_gsi, convert_stmt, GSI_SAME_STMT);
 
@@ -1092,7 +1092,7 @@ execute_lower_oacc (void)
     func_body = gimple_body (current_function_decl);
     nesting_level = 0;
     analyze_gimple (&func_body, NULL);
-    gcc_assert (nesting_level == 0);
+    gcc_checking_assert (nesting_level == 0);
 
     if(all_contexts->root)
         {
@@ -1340,7 +1340,7 @@ get_loop_iteration_count(struct loop *loop, struct tree_niter_desc *pniter_desc)
 
   edge exit = single_dom_exit (loop);
 
-  gcc_assert (exit);
+  gcc_checking_assert (exit);
 
   if (!number_of_iterations_exit (loop, exit, pniter_desc,
         false))
@@ -2012,7 +2012,7 @@ static tree
 get_gimple_def_var(gimple stmt)
 {
     tree var = NULL_TREE;
-    gcc_assert(gimple_code(stmt) == GIMPLE_ASSIGN
+    gcc_checking_assert(gimple_code(stmt) == GIMPLE_ASSIGN
                || gimple_code(stmt) == GIMPLE_CALL 
                || gimple_code(stmt) == GIMPLE_PHI);
 
@@ -2034,7 +2034,7 @@ get_gimple_def_var(gimple stmt)
 static void
 set_gimple_def_var(gimple stmt, tree var)
 {
-    gcc_assert(gimple_code(stmt) == GIMPLE_ASSIGN
+    gcc_checking_assert(gimple_code(stmt) == GIMPLE_ASSIGN
                || gimple_code(stmt) == GIMPLE_CALL);
 
     if(is_gimple_assign(stmt))
@@ -2128,7 +2128,7 @@ find_ctrl_var(basic_block header, struct loop* loop)
 
     cond_stmt = gsi_stmt(gsi_last_bb(header));
 
-    gcc_assert(gimple_code(cond_stmt) == GIMPLE_COND);
+    gcc_checking_assert(gimple_code(cond_stmt) == GIMPLE_COND);
 
     ctrl_var.var = NULL_TREE;
     ctrl_var.loop = loop;
@@ -2139,7 +2139,7 @@ find_ctrl_var(basic_block header, struct loop* loop)
       }
 
     check_for_ctrl_var(gimple_cond_rhs(cond_stmt), &ctrl_var);
-    gcc_assert(ctrl_var.var != NULL_TREE);
+    gcc_checking_assert(ctrl_var.var != NULL_TREE);
     return ctrl_var.var;
 }
 
@@ -2265,7 +2265,7 @@ find_last_dom_def(vec<gimple_stmt_iterator>* defs, basic_block dom_bb)
           break;
         }
     }
-  gcc_assert(def_idx < defs->length());
+  gcc_checking_assert(def_idx < defs->length());
 
   if(dump_file)
     {
@@ -2300,7 +2300,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
     builtin_return_type = TREE_TYPE (TREE_TYPE (builtin_decl));
 
     //FIXME: add more conversion magic???
-    gcc_assert(TREE_CODE(builtin_return_type) == TREE_CODE(TREE_TYPE(lhs)));
+    gcc_checking_assert(TREE_CODE(builtin_return_type) == TREE_CODE(TREE_TYPE(lhs)));
 
     /* _acc_tmp = __builtin_get_global_id (0); */
     gimple call_stmt = build_call(location,
@@ -2441,7 +2441,7 @@ collapse_loop(struct loop* l, collapse_loop_data data)
             fflush(dump_file);
         }
 
-    gcc_assert(single_dom_exit(l));
+    gcc_checking_assert(single_dom_exit(l));
     if(dump_file)
         {
             dump_fn_body(dump_file, "BEFORE");
@@ -2503,7 +2503,7 @@ collapse_loop(struct loop* l, collapse_loop_data data)
       }
 
 
-    gcc_assert(can_remove_branch_p(exit));
+    gcc_checking_assert(can_remove_branch_p(exit));
     exit_bb = exit->dest;
     remove_branch(exit);
     fix_dominators(exit_bb);
@@ -2515,9 +2515,9 @@ collapse_loop(struct loop* l, collapse_loop_data data)
 
 
     imm_bb = get_immediate_dominator(CDI_DOMINATORS, hdr_blk);
-    gcc_assert(imm_bb);
+    gcc_checking_assert(imm_bb);
     def_var = find_last_dom_def(&ctrl_var_defs, imm_bb);
-    gcc_assert(def_var);
+    gcc_checking_assert(def_var);
 
     fix_ctrl_var_defs(&ctrl_var_defs, &loop_blocks, def_var, hdr_blk, data);
 
@@ -2571,7 +2571,7 @@ parallelize_loop(struct loop* loop, unsigned collapse)
   struct loop* l = loop;
   struct collapse_data_t data;
 
-  gcc_assert(l);
+  gcc_checking_assert(l);
   data.loops.create(5);
   data.workitem_id = NULL_TREE;
 
@@ -2990,7 +2990,7 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
     switch_to_child_func(child_cfun);
 
     loops = current_loops;
-    gcc_assert(loops != NULL && loops->tree_root != NULL);
+    gcc_checking_assert(loops != NULL && loops->tree_root != NULL);
 
     kernels.create(3);
     extract_kernels(loops, child_fn, &kernels, stmt);
@@ -3186,7 +3186,7 @@ build_acc_region(basic_block bb, acc_region outer)
           break;
         case GIMPLE_ACC_COMPUTE_REGION_END:
         case GIMPLE_ACC_DATA_REGION_END:
-          gcc_assert(outer);
+          gcc_checking_assert(outer);
           region = outer;
           outer = outer->parent;
           gsi_replace( &gsi, gimple_build_nop (), false);
