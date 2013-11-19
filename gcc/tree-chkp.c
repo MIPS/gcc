@@ -461,7 +461,8 @@ struct chkp_ctor_stmt_list
 bool
 chkp_function_instrumented_p (tree fndecl)
 {
-  return lookup_attribute ("chkp instrumented", DECL_ATTRIBUTES (fndecl));
+  return fndecl
+    && lookup_attribute ("chkp instrumented", DECL_ATTRIBUTES (fndecl));
 }
 
 /* Mark statement S to not be instrumented.  */
