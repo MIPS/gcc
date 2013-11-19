@@ -161,6 +161,10 @@ libsanitizer/sanitizer_common/Makefile.in: libsanitizer/sanitizer_common/Makefil
 libvtv/aclocal.m4: libvtv/configure.ac libvtv/acinclude.m4
 libvtv/Makefile.in: libvtv/Makefile.am libvtv/aclocal.m4
 libvtv/configure: libvtv/configure.ac libvtv/aclocal.m4
+liboacc/aclocal.m4: liboacc/configure.ac liboacc/acinclude.m4
+liboacc/Makefile.in: liboacc/Makefile.am liboacc/aclocal.m4
+liboacc/configure: liboacc/configure.ac liboacc/aclocal.m4
+liboacc/config.h.in: liboacc/configure.ac liboacc/aclocal.m4
 # Top level
 Makefile.in: Makefile.tpl Makefile.def
 configure: configure.ac config/acx.m4
