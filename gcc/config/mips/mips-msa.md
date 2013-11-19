@@ -880,7 +880,7 @@
    (match_operand 2 "const_msa_addr_offset_operand")]
   "ISA_HAS_MSA"
 {
-  rtx addr = plus_constant (<MODE>mode, operands[1], INTVAL (operands[2]));
+  rtx addr = plus_constant (GET_MODE (operands[1]), operands[1], INTVAL (operands[2]));
   mips_emit_move (operands[0], gen_rtx_MEM (<MODE>mode, addr));
   DONE;
 })
@@ -891,7 +891,7 @@
    (match_operand 2 "const_msa_addr_offset_operand")]
   "ISA_HAS_MSA"
 {
-  rtx addr = plus_constant (<MODE>mode, operands[1], INTVAL (operands[2]));
+  rtx addr = plus_constant (GET_MODE (operands[1]), operands[1], INTVAL (operands[2]));
   mips_emit_move (operands[0], gen_rtx_MEM (<MODE>mode, addr));
   DONE;
 })
@@ -938,7 +938,7 @@
    (match_operand 2 "const_msa_addr_offset_operand")]
   "ISA_HAS_MSA"
 {
-  rtx addr = plus_constant (<MODE>mode, operands[1], INTVAL (operands[2]));
+  rtx addr = plus_constant (GET_MODE (operands[1]), operands[1], INTVAL (operands[2]));
   mips_emit_move (gen_rtx_MEM (<MODE>mode, addr), operands[0]);
   DONE;
 })
@@ -949,7 +949,7 @@
    (match_operand 2 "const_msa_addr_offset_operand")]
   "ISA_HAS_MSA"
 {
-  rtx addr = plus_constant (<MODE>mode, operands[1], INTVAL (operands[2]));
+  rtx addr = plus_constant (GET_MODE (operands[1]), operands[1], INTVAL (operands[2]));
   mips_emit_move (gen_rtx_MEM (<MODE>mode, addr), operands[0]);
   DONE;
 })

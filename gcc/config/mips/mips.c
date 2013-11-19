@@ -2576,7 +2576,7 @@ mips_const_insns (rtx x)
       return mips_build_integer (codes, INTVAL (x));
 
     case CONST_VECTOR:
-      if (TARGET_MSA
+      if (0 && TARGET_MSA
 	  && mips_const_vector_same_int_p (x, GET_MODE (x), -512, 511))
 	return 1;
       /* Fallthrough */
