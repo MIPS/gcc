@@ -56,7 +56,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "plugin.h"
 #include "omp-low.h"
-#include "tree-chkp.h"
 
 
 /* Initialization routine for this file.  */
@@ -1752,12 +1751,6 @@ c_parser_declaration_or_fndef (c_parser *parser, bool fndef_ok,
 		  maybe_warn_string_init (TREE_TYPE (d), init);
 		  finish_decl (d, init_loc, init.value,
 		      	       init.original_type, asm_name);
-
-		  /* Register all decls with initializers in Pointer
-		     Bounds Checker to generate required static bounds
-		     initializers.  */
-		  if (DECL_INITIAL (d) != error_mark_node)
-		    chkp_register_var_initializer (d);
 		}
 	    }
 	  else
