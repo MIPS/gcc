@@ -1,0 +1,4 @@
+2013-05-29  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def: Add an entry for thunder.
+	* config/aarch64/aarch64-tune.md: Re-generate.

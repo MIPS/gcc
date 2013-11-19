@@ -36,3 +36,4 @@
 
 AARCH64_CORE("cortex-a53",	  cortexa53,	     8,  AARCH64_FL_FPSIMD,    generic)
 AARCH64_CORE("cortex-a57",	  cortexa15,	     8,  AARCH64_FL_FPSIMD,    generic)
+AARCH64_CORE("thunder",		  thunder,	     8,  AARCH64_FL_FPSIMD | AARCH64_FL_CRYPTO,    generic)
