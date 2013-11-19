@@ -1,3 +1,9 @@
+2013-11-19  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	Backport from mainline r205000.
+
+	gotest: Recognize PPC ELF v2 function pointers in text section.
+
 2013-11-18  Alan Modra  <amodra@gmail.com>
 
 	* libffi/src/powerpc/ppc_closure.S: Don't bl .Luint128.
