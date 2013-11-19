@@ -461,7 +461,8 @@ struct chkp_ctor_stmt_list
 bool
 chkp_function_instrumented_p (tree fndecl)
 {
-  return lookup_attribute ("chkp instrumented", DECL_ATTRIBUTES (fndecl));
+  return fndecl
+    && lookup_attribute ("chkp instrumented", DECL_ATTRIBUTES (fndecl));
 }
 
 /* Mark statement S to not be instrumented.  */
@@ -1721,15 +1722,44 @@ chkp_get_entry_block (void)
   return entry_block;
 }
 
-/* Creates a static bounds var of specfified NAME initilized
-   with specified LB and UB values.  */
+/* Return constant static bounds var with specified LB and UB
+   if such var exists in varpool.  Return NULL otherwise.  */
+static tree
+chkp_find_const_bounds_var (HOST_WIDE_INT lb,
+			    HOST_WIDE_INT ub)
+{
+  double_int val = double_int::from_pair (lb, ~ub);
+  struct varpool_node *node;
+
+  FOR_EACH_VARIABLE (node)
+    if (POINTER_BOUNDS_P (node->decl)
+	&& TREE_READONLY (node->decl)
+	&& DECL_INITIAL (node->decl)
+	&& TREE_CODE (DECL_INITIAL (node->decl)) == INTEGER_CST
+	&& TREE_INT_CST (DECL_INITIAL (node->decl)) == val)
+      return node->decl;
+
+  return NULL;
+}
+
+/* Return constant static bounds var with specified bounds LB and UB.
+   If such var does not exists then new var is created with specified NAME.  */
 static tree
 chkp_make_static_const_bounds (HOST_WIDE_INT lb,
-			      HOST_WIDE_INT ub,
-			      const char *name)
+			       HOST_WIDE_INT ub,
+			       const char *name)
 {
-  tree var = build_decl (UNKNOWN_LOCATION, VAR_DECL,
-			 get_identifier (name), pointer_bounds_type_node);
+  tree var;
+
+  /* With LTO we may have constant bounds already in varpool.
+     Try to find it.  */
+  var = chkp_find_const_bounds_var (lb, ub);
+
+  if (var)
+    return var;
+
+  var  = build_decl (UNKNOWN_LOCATION, VAR_DECL,
+		     get_identifier (name), pointer_bounds_type_node);
 
   TREE_PUBLIC (var) = 1;
   TREE_USED (var) = 1;
@@ -5449,6 +5479,12 @@ chkp_opt_init (void)
 
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
+
+  /* With LTO constant bounds vars may be not initialized by now.
+     Get constant bounds vars to handle their assignments during
+     optimizations.  */
+  chkp_get_zero_bounds_var ();
+  chkp_get_none_bounds_var ();
 }
 
 /* Finalise checker optimization  pass.  */
