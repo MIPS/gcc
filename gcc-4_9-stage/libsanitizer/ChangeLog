@@ -1,3 +1,25 @@
+2013-11-18  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/59106
+	* asan/Makefile.am (AM_CXXFLAGS): Add -fno-rtti.
+	* interception/Makefile.am (AM_CXXFLAGS): Likewise.
+	* lsan/Makefile.am (AM_CXXFLAGS): Likewise.
+	* sanitizer_common/Makefile.am (AM_CXXFLAGS): Likewise.
+	* tsan/Makefile.am (AM_CXXFLAGS): Likewise.
+	* asan/Makefile.in: Regenerate.
+	* interception/Makefile.in: Regenerate.
+	* tsan/Makefile.in: Regenerate.
+	* lsan/Makefile.in: Regenerate.
+	* sanitizer_common/Makefile.in: Regenerate.
+
+2013-11-15  Kostya Serebryany  <kcc@google.com>
+
+	PR sanitizer/58994
+        Backport from upstream revision 194573
+        * asan/asan_interceptors.cc (COMMON_INTERCEPTOR_ENTER): Fall
+        back to the original functions in the common libsanitizer
+        interceptors and the __cxa_atexit() interceptor on Darwin.
+
 2013-11-13  Peter Bergner  <bergner@vnet.ibm.com>
 
 	PR sanitizer/59009

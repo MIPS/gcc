@@ -47,6 +47,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-ssa-loop-niter.h"
@@ -667,9 +668,9 @@ try_unroll_loop_completely (struct loop *loop,
      If the number of execution of loop is determined by standard induction
      variable test, then EXIT and EDGE_TO_CANCEL are the two edges leaving
      from the iv test.  */
-  if (host_integerp (niter, 1))
+  if (tree_fits_uhwi_p (niter))
     {
-      n_unroll = tree_low_cst (niter, 1);
+      n_unroll = tree_to_uhwi (niter);
       n_unroll_found = true;
       edge_to_cancel = EDGE_SUCC (exit->src, 0);
       if (edge_to_cancel == exit)
@@ -982,7 +983,6 @@ canonicalize_loop_induction_variables (struct loop *loop,
 unsigned int
 canonicalize_induction_variables (void)
 {
-  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   bool irred_invalidated = false;
@@ -991,7 +991,7 @@ canonicalize_induction_variables (void)
   free_numbers_of_iterations_estimates ();
   estimate_numbers_of_iterations ();
 
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       changed |= canonicalize_loop_induction_variables (loop,
 							true, UL_SINGLE_ITER,

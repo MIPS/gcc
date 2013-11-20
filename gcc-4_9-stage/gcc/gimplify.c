@@ -24,9 +24,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "expr.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
+#include "stringpool.h"
+#include "calls.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "stmt.h"
+#include "print-tree.h"
 #include "tree-iterator.h"
 #include "tree-inline.h"
 #include "tree-pretty-print.h"
@@ -538,7 +545,7 @@ gimple_add_tmp_var (tree tmp)
   /* Later processing assumes that the object size is constant, which might
      not be true at this point.  Force the use of a constant upper bound in
      this case.  */
-  if (!host_integerp (DECL_SIZE_UNIT (tmp), 1))
+  if (!tree_fits_uhwi_p (DECL_SIZE_UNIT (tmp)))
     force_constant_size (tmp);
 
   DECL_CONTEXT (tmp) = current_function_decl;
@@ -4189,6 +4196,7 @@ is_gimple_stmt (tree t)
     case OMP_PARALLEL:
     case OMP_FOR:
     case OMP_SIMD:
+    case CILK_SIMD:
     case OMP_DISTRIBUTE:
     case OMP_SECTIONS:
     case OMP_SECTION:
@@ -5001,7 +5009,7 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
 	    }
 	  else
 	    {
-	      gimple gtry;
+	      gimple_statement_try *gtry;
 	      gimple_seq seq;
 	      enum gimple_try_flags kind;
 
@@ -5015,7 +5023,7 @@ gimplify_cleanup_point_expr (tree *expr_p, gimple_seq *pre_p)
               /* Do not use gsi_replace here, as it may scan operands.
                  We want to do a simple structural modification only.  */
 	      gsi_set_stmt (&iter, gtry);
-	      iter = gsi_start (gtry->gimple_try.eval);
+	      iter = gsi_start (gtry->eval);
 	    }
 	}
       else
@@ -6406,7 +6414,8 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 
   orig_for_stmt = for_stmt = *expr_p;
 
-  simd = TREE_CODE (for_stmt) == OMP_SIMD;
+  simd = TREE_CODE (for_stmt) == OMP_SIMD
+    || TREE_CODE (for_stmt) == CILK_SIMD;
   gimplify_scan_omp_clauses (&OMP_FOR_CLAUSES (for_stmt), pre_p,
 			     simd ? ORT_SIMD : ORT_WORKSHARE);
 
@@ -6543,15 +6552,22 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	{
 	case PREINCREMENT_EXPR:
 	case POSTINCREMENT_EXPR:
-	  if (orig_for_stmt != for_stmt)
+	  {
+	    tree decl = TREE_OPERAND (t, 0);
+	    // c_omp_for_incr_canonicalize_ptr() should have been
+	    // called to massage things appropriately.
+	    gcc_assert (!POINTER_TYPE_P (TREE_TYPE (decl)));
+
+	    if (orig_for_stmt != for_stmt)
+	      break;
+	    t = build_int_cst (TREE_TYPE (decl), 1);
+	    if (c)
+	      OMP_CLAUSE_LINEAR_STEP (c) = t;
+	    t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
+	    t = build2 (MODIFY_EXPR, TREE_TYPE (var), var, t);
+	    TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i) = t;
 	    break;
-	  t = build_int_cst (TREE_TYPE (decl), 1);
-	  if (c)
-	    OMP_CLAUSE_LINEAR_STEP (c) = t;
-	  t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
-	  t = build2 (MODIFY_EXPR, TREE_TYPE (var), var, t);
-	  TREE_VEC_ELT (OMP_FOR_INCR (for_stmt), i) = t;
-	  break;
+	  }
 
 	case PREDECREMENT_EXPR:
 	case POSTDECREMENT_EXPR:
@@ -6661,6 +6677,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
     {
     case OMP_FOR: kind = GF_OMP_FOR_KIND_FOR; break;
     case OMP_SIMD: kind = GF_OMP_FOR_KIND_SIMD; break;
+    case CILK_SIMD: kind = GF_OMP_FOR_KIND_CILKSIMD; break;
     case OMP_DISTRIBUTE: kind = GF_OMP_FOR_KIND_DISTRIBUTE; break;
     default:
       gcc_unreachable ();
@@ -7730,6 +7747,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 
 	case OMP_FOR:
 	case OMP_SIMD:
+	case CILK_SIMD:
 	case OMP_DISTRIBUTE:
 	  ret = gimplify_omp_for (expr_p, pre_p);
 	  break;

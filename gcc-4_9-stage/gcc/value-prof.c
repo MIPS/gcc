@@ -22,6 +22,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "tree-nested.h"
+#include "calls.h"
 #include "rtl.h"
 #include "expr.h"
 #include "hard-reg-set.h"
@@ -40,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
@@ -51,6 +54,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "pointer-set.h"
 #include "profile.h"
 #include "data-streamer.h"
+#include "builtins.h"
+#include "tree-nested.h"
 
 /* In this file value profile based optimizations are placed.  Currently the
    following optimizations are implemented (for more detailed descriptions
@@ -1222,9 +1227,9 @@ init_node_map (bool local)
 		  fprintf (dump_file, "Local profile-id %i conflict"
 			   " with nodes %s/%i %s/%i\n",
 			   n->profile_id,
-			   cgraph_node_name (n),
+			   n->name (),
 			   n->order,
-			   symtab_node_name (*(symtab_node **)val),
+			   (*(symtab_node **)val)->name (),
 			   (*(symtab_node **)val)->order);
 		n->profile_id = (n->profile_id + 1) & 0x7fffffff;
 	      }
@@ -1235,7 +1240,7 @@ init_node_map (bool local)
 	      fprintf (dump_file,
 		       "Node %s/%i has no profile-id"
 		       " (profile feedback missing?)\n",
-		       cgraph_node_name (n),
+		       n->name (),
 		       n->order);
 	    continue;
 	  }
@@ -1246,7 +1251,7 @@ init_node_map (bool local)
 	      fprintf (dump_file,
 		       "Node %s/%i has IP profile-id %i conflict. "
 		       "Giving up.\n",
-		       cgraph_node_name (n),
+		       n->name (),
 		       n->order,
 		       n->profile_id);
 	    *val = NULL;
@@ -1295,7 +1300,7 @@ check_ic_target (gimple call_stmt, struct cgraph_node *target)
    if (dump_enabled_p ())
      dump_printf_loc (MSG_MISSED_OPTIMIZATION, locus,
                       "Skipping target %s with mismatching types for icall\n",
-                      cgraph_node_name (target));
+                      target->name ());
    return false;
 }
 

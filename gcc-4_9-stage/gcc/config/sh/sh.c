@@ -26,6 +26,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "flags.h"
 #include "expr.h"
 #include "optabs.h"
@@ -5776,6 +5780,9 @@ int
 barrier_align (rtx barrier_or_label)
 {
   rtx next, pat;
+
+  if (! barrier_or_label)
+    return 0;
 
   if (LABEL_P (barrier_or_label)
       && NEXT_INSN (barrier_or_label)

@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -851,8 +852,8 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
 	  tree max = TYPE_MAX_VALUE (dtype);
 	  if (integer_all_onesp (max))
 	    pp_character (pp, '0');
-	  else if (host_integerp (max, 0))
-	    pp_wide_integer (pp, tree_low_cst (max, 0) + 1);
+	  else if (tree_fits_shwi_p (max))
+	    pp_wide_integer (pp, tree_to_shwi (max) + 1);
 	  else
 	    {
 	      STRIP_NOPS (max);
@@ -1853,7 +1854,7 @@ static tree
 resolve_virtual_fun_from_obj_type_ref (tree ref)
 {
   tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
-  HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
+  HOST_WIDE_INT index = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (ref));
   tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
   while (index)
     {
@@ -2285,7 +2286,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      pp_cxx_right_paren (pp);
 	      break;
 	    }
-	  else if (host_integerp (idx, 0))
+	  else if (tree_fits_shwi_p (idx))
 	    {
 	      tree virtuals;
 	      unsigned HOST_WIDE_INT n;
@@ -2294,7 +2295,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = BINFO_VIRTUALS (TYPE_BINFO (TYPE_MAIN_VARIANT (t)));
 
-	      n = tree_low_cst (idx, 0);
+	      n = tree_to_shwi (idx);
 
 	      /* Map vtable index back one, to allow for the null pointer to
 		 member.  */

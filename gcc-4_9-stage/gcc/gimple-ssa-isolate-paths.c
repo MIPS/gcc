@@ -30,6 +30,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
 #include "tree-ssa.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "gimple-ssa.h"
 #include "tree-ssa-operands.h"
@@ -37,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
+#include "tree-cfg.h"
 
 
 static bool cfg_altered;
@@ -215,6 +217,17 @@ find_implicit_erroneous_behaviour (void)
     {
       gimple_stmt_iterator si;
 
+      /* Out of an abundance of caution, do not isolate paths to a
+	 block where the block has any abnormal outgoing edges.
+
+	 We might be able to relax this in the future.  We have to detect
+	 when we have to split the block with the NULL dereference and
+	 the trap we insert.  We have to preserve abnormal edges out
+	 of the isolated block which in turn means updating PHIs at
+	 the targets of those abnormal outgoing edges.  */
+      if (has_abnormal_or_eh_outgoing_edge_p (bb))
+	continue;
+
       /* First look for a PHI which sets a pointer to NULL and which
  	 is then dereferenced within BB.  This is somewhat overly
 	 conservative, but probably catches most of the interesting
@@ -256,7 +269,7 @@ find_implicit_erroneous_behaviour (void)
 	        {
 	          /* We only care about uses in BB.  Catching cases in
 		     in other blocks would require more complex path
-		     isolation code.  */
+		     isolation code.   */
 		  if (gimple_bb (use_stmt) != bb)
 		    continue;
 
@@ -288,6 +301,17 @@ find_explicit_erroneous_behaviour (void)
   FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator si;
+
+      /* Out of an abundance of caution, do not isolate paths to a
+	 block where the block has any abnormal outgoing edges.
+
+	 We might be able to relax this in the future.  We have to detect
+	 when we have to split the block with the NULL dereference and
+	 the trap we insert.  We have to preserve abnormal edges out
+	 of the isolated block which in turn means updating PHIs at
+	 the targets of those abnormal outgoing edges.  */
+      if (has_abnormal_or_eh_outgoing_edge_p (bb))
+	continue;
 
       /* Now look at the statements in the block and see if any of
 	 them explicitly dereference a NULL pointer.  This happens
