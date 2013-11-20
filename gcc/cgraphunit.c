@@ -201,6 +201,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "regset.h"     /* FIXME: For reg_obstack.  */
 #include "context.h"
 #include "pass_manager.h"
+#include "tree-chkp.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -830,6 +831,9 @@ varpool_finalize_decl (tree decl)
      finished.  */
   if (cgraph_state == CGRAPH_STATE_FINISHED)
     varpool_assemble_decl (node);
+
+  if (DECL_INITIAL (decl))
+    chkp_register_var_initializer (decl);
 }
 
 /* EDGE is an polymorphic call.  Mark all possible targets as reachable
