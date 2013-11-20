@@ -34,7 +34,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "output.h"
 #include "gimple.h"
 #include "flags.h"
-#include "tree-chkp.h"
 
 /* List of hooks triggered on varpool_node events.  */
 struct varpool_node_hook_list {
@@ -152,10 +151,6 @@ varpool_node_for_decl (tree decl)
   node = varpool_create_empty_node ();
   node->decl = decl;
   symtab_register_node (node);
-
-  if (DECL_INITIAL (decl))
-    chkp_register_var_initializer (decl);
-
   return node;
 }
 
