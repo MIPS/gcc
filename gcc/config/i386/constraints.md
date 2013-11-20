@@ -258,7 +258,3 @@
 (define_address_constraint "Tb"
   "MPX address operand without base"
   (match_operand 0 "address_mpx_no_base_operand"))
-
-(define_address_constraint "TS"
-  "Symbol reference"
-  (match_operand 0 "symbol_operand"))
