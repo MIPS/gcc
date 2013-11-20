@@ -1,3 +1,11 @@
+2013-11-19  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r205080
+	2013-11-19  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Adjust
+	V16QI vector splat case for little endian.
+
 2013-11-20  Alan Modra  <amodra@gmail.com>
 
 	Apply mainline r205060.
