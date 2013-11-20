@@ -3611,7 +3611,7 @@
 	(unspec:SI [(match_operand:IMODE128 1 "register_operand" "f")]
 		   UNSPEC_MSA_BN_V))]
   "ISA_HAS_MSA"
-  "%(bn.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bnz.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])
@@ -3621,7 +3621,7 @@
 	(unspec:SI [(match_operand:FMODE128 1 "register_operand" "f")]
 		   UNSPEC_MSA_BN_V))]
   "ISA_HAS_MSA"
-  "%(bn.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bnz.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])
@@ -3651,7 +3651,7 @@
 	(unspec:SI [(match_operand:IMODE128 1 "register_operand" "f")]
 		   UNSPEC_MSA_BN))]
   "ISA_HAS_MSA"
-  "%(bn.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bnz.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])
@@ -3661,7 +3661,7 @@
 	(unspec:SI [(match_operand:FMODE128 1 "register_operand" "f")]
 		   UNSPEC_MSA_BN))]
   "ISA_HAS_MSA"
-  "%(bn.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
+  "%(bnz.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
   [(set_attr "type"	"arith")
    (set_attr "length"	"12")
    (set_attr "mode"	"TI")])

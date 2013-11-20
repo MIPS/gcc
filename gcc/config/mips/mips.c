@@ -13845,16 +13845,16 @@ mips_msa_output_division (const char *division, rtx *operands)
       switch (GET_MODE (operands[0]))
 	{
 	case V16QImode:
-	  output_asm_insn ("%(bn.b\t%w2,1f", operands);
+	  output_asm_insn ("%(bnz.b\t%w2,1f", operands);
 	  break;
 	case V8HImode:
-	  output_asm_insn ("%(bn.h\t%w2,1f", operands);
+	  output_asm_insn ("%(bnz.h\t%w2,1f", operands);
 	  break;
 	case V4SImode:
-	  output_asm_insn ("%(bn.w\t%w2,1f", operands);
+	  output_asm_insn ("%(bnz.w\t%w2,1f", operands);
 	  break;
 	case V2DImode:
-	  output_asm_insn ("%(bn.d\t%w2,1f", operands);
+	  output_asm_insn ("%(bnz.d\t%w2,1f", operands);
 	  break;
 	default:
 	  gcc_unreachable ();
