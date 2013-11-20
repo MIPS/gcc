@@ -22,6 +22,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple.h"
+#include "expr.h"
+#include "stor-layout.h"
+#include "print-tree.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -297,7 +300,7 @@ ipa_print_node_jump_functions_for_edge (FILE *f, struct cgraph_edge *cs)
 		       item->offset);
 	      if (TYPE_P (item->value))
 		fprintf (f, "clobber of " HOST_WIDE_INT_PRINT_DEC " bits",
-			 tree_low_cst (TYPE_SIZE (item->value), 1));
+			 tree_to_uhwi (TYPE_SIZE (item->value)));
 	      else
 		{
 		  fprintf (f, "cst: ");
@@ -318,7 +321,7 @@ ipa_print_node_jump_functions (FILE *f, struct cgraph_node *node)
 {
   struct cgraph_edge *cs;
 
-  fprintf (f, "  Jump functions of caller  %s/%i:\n", cgraph_node_name (node),
+  fprintf (f, "  Jump functions of caller  %s/%i:\n", node->name (),
 	   node->order);
   for (cs = node->callees; cs; cs = cs->next_callee)
     {
@@ -326,8 +329,8 @@ ipa_print_node_jump_functions (FILE *f, struct cgraph_node *node)
 	continue;
 
       fprintf (f, "    callsite  %s/%i -> %s/%i : \n",
-	       xstrdup (cgraph_node_name (node)), node->order,
-	       xstrdup (cgraph_node_name (cs->callee)),
+	       xstrdup (node->name ()), node->order,
+	       xstrdup (cs->callee->name ()),
 	       cs->callee->order);
       ipa_print_node_jump_functions_for_edge (f, cs);
     }
@@ -386,6 +389,7 @@ ipa_set_jf_known_type (struct ipa_jump_func *jfunc, HOST_WIDE_INT offset,
   jfunc->value.known_type.offset = offset,
   jfunc->value.known_type.base_type = base_type;
   jfunc->value.known_type.component_type = component_type;
+  gcc_assert (component_type);
 }
 
 /* Set JFUNC to be a copy of another jmp (to be used by jump function
@@ -1264,7 +1268,7 @@ type_like_member_ptr_p (tree type, tree *method_ptr, tree *delta)
   fld = TYPE_FIELDS (type);
   if (!fld || !POINTER_TYPE_P (TREE_TYPE (fld))
       || TREE_CODE (TREE_TYPE (TREE_TYPE (fld))) != METHOD_TYPE
-      || !host_integerp (DECL_FIELD_OFFSET (fld), 1))
+      || !tree_fits_uhwi_p (DECL_FIELD_OFFSET (fld)))
     return false;
 
   if (method_ptr)
@@ -1272,7 +1276,7 @@ type_like_member_ptr_p (tree type, tree *method_ptr, tree *delta)
 
   fld = DECL_CHAIN (fld);
   if (!fld || INTEGRAL_TYPE_P (fld)
-      || !host_integerp (DECL_FIELD_OFFSET (fld), 1))
+      || !tree_fits_uhwi_p (DECL_FIELD_OFFSET (fld)))
     return false;
   if (delta)
     *delta = fld;
@@ -1342,13 +1346,13 @@ determine_known_aggregate_parts (gimple call, tree arg,
       if (TREE_CODE (arg) == SSA_NAME)
 	{
 	  tree type_size;
-          if (!host_integerp (TYPE_SIZE (TREE_TYPE (TREE_TYPE (arg))), 1))
+          if (!tree_fits_uhwi_p (TYPE_SIZE (TREE_TYPE (TREE_TYPE (arg)))))
             return;
 	  check_ref = true;
 	  arg_base = arg;
 	  arg_offset = 0;
 	  type_size = TYPE_SIZE (TREE_TYPE (TREE_TYPE (arg)));
-	  arg_size = tree_low_cst (type_size, 1);
+	  arg_size = tree_to_uhwi (type_size);
 	  ao_ref_init_from_ptr_and_size (&r, arg_base, NULL_TREE);
 	}
       else if (TREE_CODE (arg) == ADDR_EXPR)
@@ -1739,8 +1743,6 @@ ipa_note_param_call (struct cgraph_node *node, int param_index, gimple stmt)
 
   cs = cgraph_edge (node, stmt);
   cs->indirect_info->param_index = param_index;
-  cs->indirect_info->offset = 0;
-  cs->indirect_info->polymorphic = 0;
   cs->indirect_info->agg_contents = 0;
   cs->indirect_info->member_ptr = 0;
   return cs;
@@ -1837,6 +1839,8 @@ ipa_analyze_indirect_call_uses (struct cgraph_node *node,
 				   NULL, &by_ref))
     {
       struct cgraph_edge *cs = ipa_note_param_call (node, index, call);
+      if (cs->indirect_info->offset != offset)
+	cs->indirect_info->outer_type = NULL;
       cs->indirect_info->offset = offset;
       cs->indirect_info->agg_contents = 1;
       cs->indirect_info->by_ref = by_ref;
@@ -1934,6 +1938,8 @@ ipa_analyze_indirect_call_uses (struct cgraph_node *node,
       && parm_preserved_before_stmt_p (&parms_ainfo[index], call, rec))
     {
       struct cgraph_edge *cs = ipa_note_param_call (node, index, call);
+      if (cs->indirect_info->offset != offset)
+	cs->indirect_info->outer_type = NULL;
       cs->indirect_info->offset = offset;
       cs->indirect_info->agg_contents = 1;
       cs->indirect_info->member_ptr = 1;
@@ -1995,7 +2001,7 @@ ipa_analyze_virtual_call_uses (struct cgraph_node *node,
   cs = ipa_note_param_call (node, index, call);
   ii = cs->indirect_info;
   ii->offset = anc_offset;
-  ii->otr_token = tree_low_cst (OBJ_TYPE_REF_TOKEN (target), 1);
+  ii->otr_token = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (target));
   ii->otr_type = obj_type_ref_class (target);
   ii->polymorphic = 1;
 }
@@ -2207,7 +2213,7 @@ ipa_intraprocedural_devirtualization (gimple call)
   if (!binfo)
     return NULL_TREE;
   token = OBJ_TYPE_REF_TOKEN (otr);
-  fndecl = gimple_get_virt_method_for_binfo (tree_low_cst (token, 1),
+  fndecl = gimple_get_virt_method_for_binfo (tree_to_uhwi (token),
 					     binfo);
 #ifdef ENABLE_CHECKING
   if (fndecl)
@@ -2426,7 +2432,7 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 	  if (dump_file)
 	    fprintf (dump_file, "ipa-prop: Discovered direct call to non-function"
 				" in %s/%i, making it unreachable.\n",
-		     cgraph_node_name (ie->caller), ie->caller->order);
+		     ie->caller->name (), ie->caller->order);
 	  target = builtin_decl_implicit (BUILT_IN_UNREACHABLE);
 	  callee = cgraph_get_create_node (target);
 	  unreachable = true;
@@ -2452,9 +2458,9 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
 	  if (dump_file)
 	    fprintf (dump_file, "ipa-prop: Discovered call to a known target "
 		     "(%s/%i -> %s/%i) but can not refer to it. Giving up.\n",
-		     xstrdup (cgraph_node_name (ie->caller)),
+		     xstrdup (ie->caller->name ()),
 		     ie->caller->order,
-		     xstrdup (cgraph_node_name (ie->callee)),
+		     xstrdup (ie->callee->name ()),
 		     ie->callee->order);
 	  return NULL;
 	}
@@ -2471,9 +2477,9 @@ ipa_make_edge_direct_to_target (struct cgraph_edge *ie, tree target)
       fprintf (dump_file, "ipa-prop: Discovered %s call to a known target "
 	       "(%s/%i -> %s/%i), for stmt ",
 	       ie->indirect_info->polymorphic ? "a virtual" : "an indirect",
-	       xstrdup (cgraph_node_name (ie->caller)),
+	       xstrdup (ie->caller->name ()),
 	       ie->caller->order,
-	       xstrdup (cgraph_node_name (callee)),
+	       xstrdup (callee->name ()),
 	       callee->order);
       if (ie->call_stmt)
 	print_gimple_stmt (dump_file, ie->call_stmt, 2, TDF_SLIM);
@@ -2536,8 +2542,8 @@ remove_described_reference (symtab_node *symbol, struct ipa_cst_ref_desc *rdesc)
   ipa_remove_reference (to_del);
   if (dump_file)
     fprintf (dump_file, "ipa-prop: Removed a reference from %s/%i to %s.\n",
-	     xstrdup (cgraph_node_name (origin->caller)),
-	     origin->caller->order, xstrdup (symtab_node_name (symbol)));
+	     xstrdup (origin->caller->name ()),
+	     origin->caller->order, xstrdup (symbol->name ()));
   return true;
 }
 
@@ -2770,6 +2776,8 @@ update_indirect_edges_after_inlining (struct cgraph_edge *cs,
 	  else
 	    {
 	      ici->param_index = ipa_get_jf_ancestor_formal_id (jfunc);
+	      if (ipa_get_jf_ancestor_offset (jfunc))
+	        ici->outer_type = NULL;
 	      ici->offset += ipa_get_jf_ancestor_offset (jfunc);
 	    }
 	}
@@ -2867,9 +2875,9 @@ propagate_controlled_uses (struct cgraph_edge *cs)
 		  if (dump_file)
 		    fprintf (dump_file, "ipa-prop: Removing cloning-created "
 			     "reference from %s/%i to %s/%i.\n",
-			     xstrdup (cgraph_node_name (new_root)),
+			     xstrdup (new_root->name ()),
 			     new_root->order,
-			     xstrdup (cgraph_node_name (n)), n->order);
+			     xstrdup (n->name ()), n->order);
 		  ipa_remove_reference (ref);
 		}
 	    }
@@ -2909,9 +2917,9 @@ propagate_controlled_uses (struct cgraph_edge *cs)
 			    fprintf (dump_file, "ipa-prop: Removing "
 				     "cloning-created reference "
 				     "from %s/%i to %s/%i.\n",
-				     xstrdup (cgraph_node_name (clone)),
+				     xstrdup (clone->name ()),
 				     clone->order,
-				     xstrdup (cgraph_node_name (n)),
+				     xstrdup (n->name ()),
 				     n->order);
 			  ipa_remove_reference (ref);
 			}
@@ -3295,7 +3303,7 @@ ipa_print_node_params (FILE *f, struct cgraph_node *node)
     return;
   info = IPA_NODE_REF (node);
   fprintf (f, "  function  %s/%i parameter descriptors:\n",
-	   cgraph_node_name (node), node->order);
+	   node->name (), node->order);
   count = ipa_get_param_count (info);
   for (i = 0; i < count; i++)
     {
@@ -4084,12 +4092,15 @@ ipa_write_indirect_edge_info (struct output_block *ob,
   bp_pack_value (&bp, ii->agg_contents, 1);
   bp_pack_value (&bp, ii->member_ptr, 1);
   bp_pack_value (&bp, ii->by_ref, 1);
+  bp_pack_value (&bp, ii->maybe_in_construction, 1);
+  bp_pack_value (&bp, ii->maybe_derived_type, 1);
   streamer_write_bitpack (&bp);
 
   if (ii->polymorphic)
     {
       streamer_write_hwi (ob, ii->otr_token);
       stream_write_tree (ob, ii->otr_type, true);
+      stream_write_tree (ob, ii->outer_type, true);
     }
 }
 
@@ -4111,10 +4122,13 @@ ipa_read_indirect_edge_info (struct lto_input_block *ib,
   ii->agg_contents = bp_unpack_value (&bp, 1);
   ii->member_ptr = bp_unpack_value (&bp, 1);
   ii->by_ref = bp_unpack_value (&bp, 1);
+  ii->maybe_in_construction = bp_unpack_value (&bp, 1);
+  ii->maybe_derived_type = bp_unpack_value (&bp, 1);
   if (ii->polymorphic)
     {
       ii->otr_token = (HOST_WIDE_INT) streamer_read_hwi (ib);
       ii->otr_type = stream_read_tree (ib, data_in);
+      ii->outer_type = stream_read_tree (ib, data_in);
     }
 }
 
@@ -4553,7 +4567,7 @@ ipcp_transform_function (struct cgraph_node *node)
 
   if (dump_file)
     fprintf (dump_file, "Modification phase of node %s/%i\n",
-	     cgraph_node_name (node), node->order);
+	     node->name (), node->order);
 
   aggval = ipa_get_agg_replacements_for_node (node);
   if (!aggval)
@@ -4610,7 +4624,7 @@ ipcp_transform_function (struct cgraph_node *node)
 	    break;
 	if (!v
 	    || v->by_ref != by_ref
-	    || tree_low_cst (TYPE_SIZE (TREE_TYPE (v->value)), 0) != size)
+	    || tree_to_shwi (TYPE_SIZE (TREE_TYPE (v->value))) != size)
 	  continue;
 
 	gcc_checking_assert (is_gimple_ip_invariant (v->value));

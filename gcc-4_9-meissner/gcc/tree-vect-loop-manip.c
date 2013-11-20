@@ -36,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-manip.h"
 #include "tree-into-ssa.h"
@@ -1672,7 +1673,7 @@ vect_update_ivs_after_vectorizer (loop_vec_info loop_vinfo, tree niters,
   gimple_stmt_iterator gsi, gsi1;
   basic_block update_bb = update_e->dest;
 
-  /* gcc_assert (vect_can_advance_ivs_p (loop_vinfo)); */
+  gcc_checking_assert (vect_can_advance_ivs_p (loop_vinfo));
 
   /* Make sure there exists a single-predecessor exit bb:  */
   gcc_assert (single_pred_p (exit_bb));
@@ -2245,7 +2246,7 @@ vect_create_cond_for_align_checks (loop_vec_info loop_vinfo,
 void
 vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
 {
-  vec<dr_addr_with_seg_len_pair_t> comp_alias_ddrs =
+  vec<dr_with_seg_len_pair_t> comp_alias_ddrs =
     LOOP_VINFO_COMP_ALIAS_DDRS (loop_vinfo);
   tree part_cond_expr;
 
@@ -2263,15 +2264,15 @@ vect_create_cond_for_alias_checks (loop_vec_info loop_vinfo, tree * cond_expr)
 
   for (size_t i = 0, s = comp_alias_ddrs.length (); i < s; ++i)
     {
-      const dr_addr_with_seg_len& dr_a = comp_alias_ddrs[i].first;
-      const dr_addr_with_seg_len& dr_b = comp_alias_ddrs[i].second;
+      const dr_with_seg_len& dr_a = comp_alias_ddrs[i].first;
+      const dr_with_seg_len& dr_b = comp_alias_ddrs[i].second;
       tree segment_length_a = dr_a.seg_len;
       tree segment_length_b = dr_b.seg_len;
 
       tree addr_base_a
-	= fold_build_pointer_plus (dr_a.basic_addr, dr_a.offset);
+	= fold_build_pointer_plus (DR_BASE_ADDRESS (dr_a.dr), dr_a.offset);
       tree addr_base_b
-	= fold_build_pointer_plus (dr_b.basic_addr, dr_b.offset);
+	= fold_build_pointer_plus (DR_BASE_ADDRESS (dr_b.dr), dr_b.offset);
 
       if (dump_enabled_p ())
 	{

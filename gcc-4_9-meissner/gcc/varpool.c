@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
@@ -204,6 +205,8 @@ dump_varpool_node (FILE *f, struct varpool_node *node)
     fprintf (f, " initialized");
   if (node->output)
     fprintf (f, " output");
+  if (node->need_bounds_init)
+    fprintf (f, " need-bounds-init");
   if (TREE_READONLY (node->decl))
     fprintf (f, " read-only");
   if (ctor_for_folding (node->decl) != error_mark_node)
@@ -502,7 +505,7 @@ varpool_remove_unreferenced_decls (void)
 	{
 	  enqueue_node (node, &first);
           if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, " %s", varpool_node_asm_name (node));
+	    fprintf (cgraph_dump_file, " %s", node->asm_name ());
 	}
     }
   while (first != (struct varpool_node *)(void *)1)
@@ -540,7 +543,7 @@ varpool_remove_unreferenced_decls (void)
       if (!node->aux)
 	{
           if (cgraph_dump_file)
-	    fprintf (cgraph_dump_file, " %s", varpool_node_asm_name (node));
+	    fprintf (cgraph_dump_file, " %s", node->asm_name ());
 	  varpool_remove_node (node);
 	}
     }

@@ -1,6 +1,61 @@
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-decl.c (grokdeclarator): Update comment to refer to
+	tree_to_[su]hwi rather than tree_low_cst.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-decl.c, c-typeck.c: Replace tree_low_cst (..., 1) with
+	tree_to_uhwi throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-parser.c: Replace tree_low_cst (..., 0) with tree_to_shwi
+	throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* c-parser.c: Replace host_integerp (..., 0) with tree_fits_shwi_p
+	throughout.
+
+2013-11-15  Aldy Hernandez  <aldyh@redhat.com>
+
+	* c-parser.c (c_parser_cilk_simd): New.
+	(c_parser_cilk_verify_simd): New.
+	(c_parser_pragma): Add case for PRAGMA_CILK_SIMD.
+	(c_parser_omp_for_loop): Add case for NE_EXPR.
+	Set c_break_label for CILK_SIMD.
+	(c_parser_cilk_clause_vectorlength): New.
+	(c_parser_cilk_clause_linear): New.
+	(c_parser_cilk_clause_name): New.
+	(c_parser_cilk_all_clauses): New.
+	* c-typeck.c (build_unary_op): Pass location argument to
+	readonly_error.
+	(build_modify_expr): Same.
+	(build_asm_expr): Same.
+	(c_finish_bc_stmt): Error on break/continue in loops.
+
 2013-11-14  Andrew MacLeod  <amacleod@redhat.com>
 
 	* c-typeck.c: Include only gimplify.h and gimple.h as needed.
+
+2013-11-14  Diego Novillo  <dnovillo@google.com>
+
+	* c-decl.c: Include print-tree.h.
+	Include stor-layout.h.
+	Include varasm.h.
+	Include attribs.h.
+	Include stringpool.h.
+	* c-lang.c: Include fold-const.h.
+	* c-parser.c: Include stringpool.h.
+	Include attribs.h.
+	Include stor-layout.h.
+	Include varasm.h.
+	Include trans-mem.h.
+	* c-typeck.c: Include stor-layout.h.
+	Include trans-mem.h.
+	Include varasm.h.
+	Include stmt.h.
 
 2013-11-13  Joseph Myers  <joseph@codesourcery.com>
 

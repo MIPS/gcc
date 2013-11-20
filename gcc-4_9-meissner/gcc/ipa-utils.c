@@ -481,7 +481,7 @@ dump_cgraph_node_set (FILE *f, cgraph_node_set set)
   for (iter = csi_start (set); !csi_end_p (iter); csi_next (&iter))
     {
       struct cgraph_node *node = csi_node (iter);
-      fprintf (f, " %s/%i", cgraph_node_name (node), node->order);
+      fprintf (f, " %s/%i", node->name (), node->order);
     }
   fprintf (f, "\n");
 }
@@ -610,7 +610,7 @@ dump_varpool_node_set (FILE *f, varpool_node_set set)
   for (iter = vsi_start (set); !vsi_end_p (iter); vsi_next (&iter))
     {
       struct varpool_node *node = vsi_node (iter);
-      fprintf (f, " %s", varpool_node_name (node));
+      fprintf (f, " %s", node->name ());
     }
   fprintf (f, "\n");
 }
@@ -657,8 +657,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
   if (cgraph_dump_file)
     {
       fprintf (cgraph_dump_file, "Merging profiles of %s/%i to %s/%i\n",
-	       xstrdup (cgraph_node_name (src)), src->order,
-	       xstrdup (cgraph_node_name (dst)), dst->order);
+	       xstrdup (src->name ()), src->order,
+	       xstrdup (dst->name ()), dst->order);
     }
   dst->count += src->count;
 
@@ -700,8 +700,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
   cgraph_get_body (dst);
   srccfun = DECL_STRUCT_FUNCTION (src->decl);
   dstcfun = DECL_STRUCT_FUNCTION (dst->decl);
-  if (n_basic_blocks_for_function (srccfun)
-      != n_basic_blocks_for_function (dstcfun))
+  if (n_basic_blocks_for_fn (srccfun)
+      != n_basic_blocks_for_fn (dstcfun))
     {
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
