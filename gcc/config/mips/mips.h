@@ -213,6 +213,14 @@ struct mips_cpu_info {
 #define ISA_MIPS64R2		    (mips_isa == 65)
 #define ISA_MIPS64R6		    (mips_isa == 66)
 
+#define MAGIC_MIPS_MADDF_MASK	    0x1
+#define MAGIC_MIPS_CCF_MASK	    0x2
+#define MAGIC_MIPS_SEL_MASK	    0x4
+
+#define MAGIC_MIPS_MADDF	    (!(magic_mips & MAGIC_MIPS_MADDF_MASK))
+#define MAGIC_MIPS_CCF		    (!(magic_mips & MAGIC_MIPS_CCF_MASK))
+#define MAGIC_MIPS_SEL		    (!(magic_mips & MAGIC_MIPS_SEL_MASK))
+
 /* Architecture target defines.  */
 #define TARGET_LOONGSON_2E          (mips_arch == PROCESSOR_LOONGSON_2E)
 #define TARGET_LOONGSON_2F          (mips_arch == PROCESSOR_LOONGSON_2F)
@@ -917,11 +925,13 @@ struct mips_cpu_info {
 
 /* ISA has the FP condition code instructions that store the flag in an
    FP register */
-#define ISA_HAS_CCF		(ISA_MIPS32R6				\
-				 || ISA_MIPS64R6)
+#define ISA_HAS_CCF		((ISA_MIPS32R6				\
+				  || ISA_MIPS64R6)			\
+				 && MAGIC_MIPS_CCF)
 
-#define ISA_HAS_SEL		(ISA_MIPS32R6				\
-				 || ISA_MIPS64R6)
+#define ISA_HAS_SEL		((ISA_MIPS32R6				\
+				  || ISA_MIPS64R6)			\
+				 && MAGIC_MIPS_SEL)
 
 /* This is a catch all for other mips4 instructions: indexed load, the
    FP madd and msub instructions, and the FP recip and recip sqrt
@@ -964,8 +974,9 @@ struct mips_cpu_info {
 #define ISA_HAS_FP_MADD4_MSUB4  ISA_HAS_FP4
 
 /* ISA has floating-point maddf and msubf instructions 'd = d [+-] a * b  */
-#define ISA_HAS_FP_MADDF_MSUBF  (ISA_MIPS32R6				\
-				 || ISA_MIPS64R6)
+#define ISA_HAS_FP_MADDF_MSUBF  ((ISA_MIPS32R6				\
+				  || ISA_MIPS64R6)			\
+				 && MAGIC_MIPS_MADDF)
 
 /* ISA has floating-point madd and msub instructions 'c = a * b [+-] c'.  */
 #define ISA_HAS_FP_MADD3_MSUB3  TARGET_LOONGSON_2EF
