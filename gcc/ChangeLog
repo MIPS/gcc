@@ -1,3 +1,320 @@
+2013-11-20  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gimplify.h (gimplify_hasher : typed_free_remove, struct gimplify_ctx):
+	Move to gimplify.c.
+	(free_gimplify_stack): Add prototype.
+	* gimplify.c (gimplify_hasher:typed_free_remove): Relocate here.
+	(struct gimplify_ctx): Relocate here.
+	(gimplify_ctxp): Make static.
+	(ctx_pool, ctx_alloc, ctx_free, free_gimplify_stack): New.  Manage a 
+	list of struct gimplify_ctx.
+	(push_gimplify_context): Add default parameters and allocate a struct
+	from the pool.
+	(pop_gimplify_context): Free a struct back to the pool.
+	(gimplify_scan_omp_clauses, gimplify_omp_parallel, gimplify_omp_task,
+	gimplify_omp_workshare, gimplify_transaction, gimplify_body): Don't
+	use a local 'struct gimplify_ctx'.
+	* cgraphunit.c (expand_all_functions): call free_gimplify_stack.
+	* gimplify-me.c (force_gimple_operand_1, gimple_regimplify_operands):
+	Likewise.
+	* omp-low.c (lower_omp_sections, lower_omp_single, lower_omp_master,
+	lower_omp_ordered, lower_omp_critical, lower_omp_for,
+	create_task_copyfn, lower_omp_taskreg, lower_omp_target,
+	lower_omp_teams, execute_lower_omp): Likewise.
+	* gimple-fold.c (gimplify_and_update_call_from_tree): Likewise.
+	* tree-inline.c (optimize_inline_calls): Likewise.
+
+2013-11-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/vsx.md (vsx_set_<mode>): Adjust for little endian.
+	(vsx_extract_<mode>): Likewise.
+	(*vsx_extract_<mode>_one_le): New LE variant on
+	*vsx_extract_<mode>_zero.
+	(vsx_extract_v4sf): Adjust for little endian.
+
+2013-11-20  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59133
+	* lra.c (expand_reg_data): Add new argument.  Set up ALL_REGS for
+	new pseudos.
+	(lra_create_new_reg_with_unique_value): Pass new argument value.
+	(lra_emit_add, lra_emit_move): Ditto.
+	* lra-constraints.c (in_class_p): Add check for move for a new
+	insn.
+	(change_class): Rename to lra_change_class.  Move to lra-int.h.
+	(get_reload_reg, narrow_reload_pseudo_class): Adjust calls of
+	change_class.
+	(process_addr_reg, process_addr): Ditto.
+	(curr_insn_transform): Ditto.  Add check on old pseudo for
+	optional reload.
+	* lra-int.h (lra_get_regno_hard_regno): Move below.
+	(lra_change_class): Renamed change_class from lra.c.
+
+2013-11-20  David Malcolm  <dmalcolm@redhat.com>
+
+	* gdbhooks.py (VecPrinter.children): Don't attempt to iterate
+	the children of a NULL pointer.
+
+2013-11-20  Robert Suchanek  <Robert.Suchanek@imgtec.com>
+
+	* lra.c (lra): Set lra_in_progress before check_rtl call.
+	* recog.c (insn_invalid_p): Add !lra_in_progress to prevent
+	adding clobber regs when LRA is running.
+
+2013-11-20  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* config/mips/mips.h (ISA_HAS_FP4): Remove TARGET_FLOAT64
+	restriction for ISA_MIPS32R2.
+	(ISA_HAS_LXC1_SXC1): New macro.
+	(ISA_HAS_FP_MADD4_MSUB4): Remove ISA_MIPS32R2 special-casing.
+	(ISA_HAS_NMADD4_NMSUB4): Likewise.
+	(ISA_HAS_FP_RECIP_RSQRT): Likewise.
+	(ISA_HAS_PREFETCHX): Redefine in terms of ISA_HAS_FP4.
+	* config/mips/mips.md (*<ANYF:loadx>_<P:mode>): Use
+	ISA_HAS_LXC1_SXC1 rather than ISA_HAS_FP4.
+	(*<ANYF:storex>_<P:mode>): Likewise.
+
+2013-11-20  Maciej W. Rozycki  <macro@codesourcery.com>
+
+	* config/mips/mips.h (ISA_HAS_FP_RECIP_RSQRT): New macro.
+	* config/mips/mips.c (mips_rtx_costs) <DIV>: Check for
+	ISA_HAS_FP_RECIP_RSQRT rather than ISA_HAS_FP4.
+	* config/mips/mips.md (recip_condition): Remove mode attribute.
+	(div<mode>3): Use ISA_HAS_FP_RECIP_RSQRT rather than
+	<recip_condition>.
+	(*recip<mode>3, *rsqrt<mode>a, *rsqrt<mode>b): Likewise.
+
+2013-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR target/59207
+	* config/sparc/sparc.c (sparc_fold_builtin) <case CODE_FOR_pdist_vis>:
+	Make sure neg2_ovf is set before being used.
+
+2013-11-20  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* plugin.def: Add comment about register_callback and
+	invoke_plugin_callbacks_full.
+
+	* plugin.c (register_callback, invoke_plugin_callbacks_full):
+	Handle PLUGIN_INCLUDE_FILE event.
+
+2013-11-20  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_cannot_change_mode_class): Do not
+	allow subregs of TDmode in FPRs of smaller size in little-endian.
+	(rs6000_split_multireg_move): When splitting an access to TDmode
+	in FPRs, do not use simplify_gen_subreg.
+
+2013-11-20  Joseph Myers  <joseph@codesourcery.com>
+
+	PR middle-end/21718
+	* real.c: Remove comment about decimal string conversion and
+	rounding errors.
+	(real_from_string): Use MPFR to convert nonzero decimal constant
+	to REAL_VALUE_TYPE.
+
+2013-11-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_dwarf_register_span): Take into account the
+	endianness of the D registers for the legacy encodings.
+
+2013-11-20  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR rtl-optimization/54300
+	* regcprop.c (copyprop_hardreg_forward_1): Ensure any unused
+	outputs in a single-set are killed from the value chains.
+
+2013-11-20  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* cgraph.h (varpool_node): Add need_bounds_init field.
+	* lto-cgraph.c (lto_output_varpool_node): Output
+	need_bounds_init value.
+	(input_varpool_node): Read need_bounds_init value.
+	* varpool.c (dump_varpool_node): Dump need_bounds_init field.
+
+2013-11-20  Jan Hubicka  <jh@suse.cz>
+
+	* opts.c (finish_options): Imply -ffat-lto-objects with -fno-use-linker-plugin.
+	* common.opt (fuse-linker-plugin): Add var.
+
+2013-11-20  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* dbxout.c (dbxout_type): Ignore POINTER_BOUNDS_TYPE.
+	* dwarf2out.c (gen_subprogram_die): Ignore bound args.
+	(gen_type_die_with_usage): Skip pointer bounds.
+	(dwarf2out_global_decl): Likewise.
+
+2013-11-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64.md: Remove "mode" and "mode2" attributes
+	from all insns.
+
+2013-11-20  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	PR target/57756
+	* config/i386/i386.c (ix86_option_override_internal): Add missed
+	argument prefix for 'ix86_fpmath'.
+	* config/i386/ssemath.h: Add missed definition of
+	TARGET_FPMATH_DEFAULT_P macros.
+
+2013-11-20  Kenneth Zadeck  <zadeck@naturalbridge.com>
+	    Mike Stump  <mikestump@comcast.net>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* alias.c (ao_ref_from_mem): Use tree_to_shwi and tree_to_uhwi
+	instead of TREE_INT_CST_LOW, in cases where there is a protecting
+	tree_fits_shwi_p or tree_fits_uhwi_p.
+	* builtins.c (fold_builtin_powi): Likewise.
+	* config/epiphany/epiphany.c (epiphany_special_round_type_align):
+	Likewise.
+	* dbxout.c (dbxout_symbol): Likewise.
+	* expr.c (expand_expr_real_1): Likewise.
+	* fold-const.c (fold_single_bit_test, fold_plusminus_mult_expr)
+	(fold_binary_loc): Likewise.
+	* gimple-fold.c (fold_const_aggregate_ref_1): Likewise.
+	* gimple-ssa-strength-reduction.c (stmt_cost): Likewise.
+	* omp-low.c (lower_omp_for_lastprivate): Likewise.
+	* simplify-rtx.c (delegitimize_mem_from_attrs): Likewise.
+	* stor-layout.c (compute_record_mode): Likewise.
+	* tree-cfg.c (verify_expr): Likewise.
+	* tree-dfa.c (get_ref_base_and_extent): Likewise.
+	* tree-pretty-print.c (dump_array_domain): Likewise.
+	* tree-sra.c (build_user_friendly_ref_for_offset): Likewise.
+	* tree-ssa-ccp.c (fold_builtin_alloca_with_align): Likewise.
+	* tree-ssa-loop-ivopts.c (get_loop_invariant_expr_id): Likewise.
+	* tree-ssa-math-opts.c (execute_cse_sincos): Likewise.
+	* tree-ssa-phiopt.c (hoist_adjacent_loads): Likewise.
+	* tree-ssa-reassoc.c (acceptable_pow_call): Likewise.
+	* tree-ssa-sccvn.c (copy_reference_ops_from_ref): Likewise.
+	(ao_ref_init_from_vn_reference, vn_reference_fold_indirect): Likewise.
+	(vn_reference_lookup_3, simplify_binary_expression): Likewise.
+	* tree-ssa-structalias.c (bitpos_of_field): Likewise.
+	(get_constraint_for_1, push_fields_onto_fieldstack): Likewise.
+	(create_variable_info_for_1): Likewise.
+	* tree-vect-data-refs.c (vect_compute_data_ref_alignment): Likewise.
+	(vect_verify_datarefs_alignment): Likewise.
+	(vect_analyze_data_ref_accesses): Likewise.
+	(vect_prune_runtime_alias_test_list): Likewise.
+	* tree-vectorizer.h (NITERS_KNOWN_P): Likewise.
+
+2013-11-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* tree-ssa-alias.c (ao_ref_init_from_ptr_and_size): Avoid signed
+	overflow.  Use tree_to_shwi.
+
+2013-11-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* fold-const.c (fold_binary_loc): Use unsigned rather than signed
+	HOST_WIDE_INTs when folding (x >> c) << c.
+
+2013-11-20  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+	    Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_canonicalize_comparison): Don't fold
+	int comparisons with an out of range condition code.
+	(s390_optimize_nonescaping_tx): Skip empty BBs.
+	Generate the new tbegin RTX when removing the FPR clobbers (with
+	two SETs).
+	(s390_expand_tbegin): Fix the retry loop counter.  Copy CC to the
+	result before doing the retry calculations.
+	(s390_init_builtins): Make tbegin "returns_twice" and tabort
+	"noreturn".
+	* config/s390/s390.md (UNSPECV_TBEGIN_TDB): New constant used for
+	the TDB setting part of an tbegin.
+	("tbegin_1", "tbegin_nofloat_1"): Add a set for the TDB.
+	("tx_assist"): Set unused argument to an immediate zero instead of
+	loading zero into a GPR and pass it as argument.
+	* config/s390/htmxlintrin.h (__TM_simple_begin, __TM_begin):
+	Remove inline and related attributes.
+	(__TM_nesting_depth, __TM_is_user_abort, __TM_is_named_user_abort)
+	(__TM_is_illegal, __TM_is_footprint_exceeded)
+	(__TM_is_nested_too_deep, __TM_is_conflict): Fix format value
+	check.
+
+2013-11-20  Richard Biener  <rguenther@suse.de>
+
+	PR lto/59035
+	* lto-opts.c (lto_write_options): Write defaults only if
+	they were not explicitely specified.  Also write
+	-ffp-contract default.
+	* lto-wrapper.c (merge_and_complain): Merge -ffp-contract
+	conservatively.
+	(run_gcc): Pass through -ffp-contract.
+
+2013-11-20  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/mips/mips.c (r10k_simplify_address): Eliminate macro usage.
+
+2013-11-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* gcc/config/aarch64/aarch64-builtins.c
+	(aarch64_simd_itype): Remove.
+	(aarch64_simd_builtin_datum): Remove itype, add
+	qualifiers pointer.
+	(VAR1): Use qualifiers.
+	(aarch64_build_scalar_type): New.
+	(aarch64_build_vector_type): Likewise.
+	(aarch64_build_type): Likewise.
+	(aarch64_init_simd_builtins): Refactor, remove special cases,
+	consolidate main loop.
+	(aarch64_simd_expand_args): Likewise.
+
+2013-11-19  Joshua J Cogliati  <jrincayc@yahoo.com>
+
+	PR c/53001
+	* doc/invoke.texi: Adding documentation about -Wfloat-conversion.
+
+2013-11-19  Miro Kropacek  <miro.kropacek@gmail.com>
+
+	* config/m68k/m68k.c (m68k_option_overrides): Fix typo.
+
+2013-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* gdbhooks.py (VecPrinter): New class, for prettyprinting pointers
+	to "vec<>" instances.
+	(build_pretty_printer): Register the vec<>* prettyprinter.
+
+2013-11-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* gdbhooks.py (GdbSubprinter.__init__): Drop str_type_ field.
+	(GdbSubprinter.handles_type): New.
+	(GdbSubprinterTypeList): New subclass of GdbSubprinter.
+	(GdbSubprinterRegex): New subclass of GdbSubprinter.
+	(GdbPrettyPrinters.add_printer): Remove in favor of...
+	(GdbPrettyPrinters.add_printer_for_types): ...this new method and...
+	(GdbPrettyPrinters.add_printer_for_regex): ...this other new method.
+	(GdbPrettyPrinters.__call__): Update search for subprinter
+	to use handles_type method.
+	(build_pretty_printer): Update registration of subprinters to
+	use the new API above, supporting multiple spelling of each type,
+	and allowing for future regex-based subprinters.
+
+2013-11-19  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Adjust
+	V16QI vector splat case for little endian.
+
+2013-11-19  Jeff Law  <law@redhat.com>
+
+	* tree-ssa-threadedge.c (thread_across_edge): After threading
+	through a joiner, allow threading a normal block requiring duplication.
+
+	* tree-ssa-threadupdate.c (thread_block_1): Improve code to detect
+	jump threading requests that would muck up the loop structures.
+
+	* tree-ssa-threadupdate.c: Fix trailing whitespace.
+	* tree-ssa-threadupdate.h: Likewise.
+
+2013-11-19  Mike Stump  <mikestump@comcast.net>
+
+	* gdbinit.in: Add pmz to print out mpz values.
+
+2013-11-20  Jan Hubicka  <jh@suse.cz>
+
+	* common.opt (ffat-lto-objects): Disable by default.
+	* doc/invoke.texi (fat-lto-objects): Update documentation.
+	* opts.c: Enable fat-lto-objects on lto plugin disable setups.
+
 2013-11-19  Martin Jambor  <mjambor@suse.cz>
 
 	PR rtl-optimization/59099
@@ -20,8 +337,8 @@
 	* common/config/i386/i386-common.c: Enable
 	-freorder-blocks-and-partition at -O2 and up for x86.
 	* doc/invoke.texi: Update -freorder-blocks-and-partition default.
-	* opts.c (finish_options): Only warn if -freorder-blocks-and-
-	partition was set on command line.
+	* opts.c (finish_options): Only warn if
+	-freorder-blocks-and-partition was set on command line.
 
 2013-11-19  Sriraman Tallam  <tmsriram@google.com>
 
@@ -92,12 +409,10 @@
 	(bitmap_intersection_of_preds): Remove usage of ENTRY_BLOCK_PTR macro.
 	(inverted_post_order_compute): Remove uses of macros: ENTRY_BLOCK_PTR,
 	EXIT_BLOCK_PTR.
-	(compute_dominance_frontiers_1): Remove usage of ENTRY_BLOCK_PTR
-	macro.
+	(compute_dominance_frontiers_1): Remove usage of ENTRY_BLOCK_PTR macro.
 	(post_order_compute): Remove uses of macros: ENTRY_BLOCK_PTR,
 	EXIT_BLOCK_PTR.
-	(connect_infinite_loops_to_exit): Remove usage of EXIT_BLOCK_PTR
-	macro.
+	(connect_infinite_loops_to_exit): Remove usage of EXIT_BLOCK_PTR macro.
 	(remove_fake_edges): Remove usage of ENTRY_BLOCK_PTR macro.
 	(add_noreturn_fake_exit_edges): Remove usage of EXIT_BLOCK_PTR macro.
 	(find_pdom): Remove uses of macros: ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR.
@@ -135,8 +450,7 @@
 	(verify_flow_info): Likewise.
 	* cfgloop.c (flow_bb_inside_loop_p): Likewise.
 	(num_loop_branches): Remove usage of EXIT_BLOCK_PTR macro.
-	(disambiguate_multiple_latches): Remove usage of ENTRY_BLOCK_PTR
-	macro.
+	(disambiguate_multiple_latches): Remove usage of ENTRY_BLOCK_PTR macro.
 	(get_loop_exit_edges): Remove usage of EXIT_BLOCK_PTR macro.
 	(bb_loop_header_p): Remove usage of ENTRY_BLOCK_PTR macro.
 	(get_loop_body_in_bfs_order): Remove usage of EXIT_BLOCK_PTR macro.
@@ -220,8 +534,7 @@
 	* dominance.c (iterate_fix_dominators): Remove usage of
 	ENTRY_BLOCK_PTR macro.
 	(calc_idoms): Remove uses of macros: ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR.
-	(determine_dominators_for_sons): Remove usage of ENTRY_BLOCK_PTR
-	macro.
+	(determine_dominators_for_sons): Remove usage of ENTRY_BLOCK_PTR macro.
 	(calc_dfs_tree): Remove uses of macros: ENTRY_BLOCK_PTR,
 	EXIT_BLOCK_PTR.
 	(prune_bbs_to_update_dominators): Remove usage of ENTRY_BLOCK_PTR
@@ -287,8 +600,7 @@
 	(find_return_bb): Remove usage of EXIT_BLOCK_PTR macro.
 	(verify_non_ssa_vars): Remove usage of ENTRY_BLOCK_PTR macro.
 	* ira-build.c (ira_loop_tree_body_rev_postorder): Likewise.
-	* ira-color.c (print_loop_title): Remove usage of EXIT_BLOCK_PTR
-	macro.
+	* ira-color.c (print_loop_title): Remove usage of EXIT_BLOCK_PTR macro.
 	* ira-emit.c (entered_from_non_parent_p): Remove usage of
 	ENTRY_BLOCK_PTR macro.
 	(ira_emit): Remove usage of EXIT_BLOCK_PTR macro.
@@ -328,8 +640,7 @@
 	(create_pre_exit): Remove usage of EXIT_BLOCK_PTR macro.
 	* modulo-sched.c (rest_of_handle_sms): Likewise.
 	(canon_loop): Likewise.
-	* omp-low.c (build_omp_regions): Remove usage of ENTRY_BLOCK_PTR
-	macro.
+	* omp-low.c (build_omp_regions): Remove usage of ENTRY_BLOCK_PTR macro.
 	* postreload-gcse.c (eliminate_partially_redundant_loads): Remove uses
 	of macros: ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR.
 	* predict.c (rebuild_frequencies): Remove usage of ENTRY_BLOCK_PTR
@@ -608,8 +919,7 @@
 2013-11-19  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
 	* config/aarch64/aarch64.md
-	(aarch64_movdi_<mode>low, *add_<shift>_si_uxtw):
-	Adjust whitespace.
+	(aarch64_movdi_<mode>low, *add_<shift>_si_uxtw): Adjust whitespace.
 
 2013-11-19  Marcus Shawcroft  <marcus.shawcroft@arm.com>
 
@@ -623,8 +933,8 @@
 
 2013-11-19  Basile Starynkevitch  <basile@starynkevitch.net>
 
-        * plugin.def (PLUGIN_INCLUDE_FILE): New event, invoked in 
-        cb_file_change.
+	* plugin.def (PLUGIN_INCLUDE_FILE): New event, invoked in
+	cb_file_change.
 
 2013-11-19  Peter Bergner  <bergner@vnet.ibm.com>
 
@@ -639,8 +949,7 @@
 	(gimple): Convert from being a "union gimple_statement_d *"
 	to a "struct gimple_statement_base *".
 	(const_gimple): Likewise (with "const").
-	* ggc.h (ggc_alloc_cleared_gimple_statement_d_stat): Replace
-	with...
+	* ggc.h (ggc_alloc_cleared_gimple_statement_d_stat): Replace with...
 	(ggc_alloc_cleared_gimple_statement_stat): ...this.
 	* gimple-pretty-print.c (debug): Change parameter from a
 	"gimple_statement_d &" to a "gimple_statement_base &".
@@ -656,9 +965,8 @@
 	class by adding "desc", "tag" and "variable_size" to GTY, thus
 	using opting-in to gengtype's support for simple inheritance.
 	(gimple_statement_with_ops_base): Convert to a subclass of
-	gimple_statement_base, dropping initial "gsbase" field.  Note
-	that this type is abstract, with no GSS_ value, and thus no GTY
-	tag value.
+	gimple_statement_base, dropping initial "gsbase" field.  Note that
+	this type is abstract, with no GSS_ value, and thus no GTY tag value.
 	(gimple_statement_with_ops): Convert to a subclass of
 	gimple_statement_with_ops_base, dropping initial "opbase" field.
 	Add tag value to GTY marking.  Update marking of op field to
@@ -669,8 +977,7 @@
 	(gimple_statement_with_memory_ops): Convert to a subclass of
 	public gimple_statement_with_memory_ops_base, dropping initial
 	"membase" field.  Add tag value to GTY marking.  Update marking
-	of op field to reflect how num_ops field is accessed via
-	inheritance.
+	of op field to reflect how num_ops field is accessed via inheritance.
 	(gimple_statement_call): Analogous changes that also update the
 	marking of the "u" union.
 	(gimple_statement_omp): Convert to a subclass of
@@ -722,8 +1029,7 @@
 	* tree-ssa-ccp.c (gimple_htab): Convert underlying type from
 	gimple_statement_d to gimple_statement_base.
 
-	* gimple.h (gimple_use_ops): Port from union to usage of
-	dyn_cast.
+	* gimple.h (gimple_use_ops): Port from union to usage of dyn_cast.
 	(gimple_set_use_ops): Port from union to usage of as_a.
 	(gimple_set_vuse): Likewise.
 	(gimple_set_vdef): Likewise.
@@ -1121,9 +1427,9 @@
 	PR tree-optimization/59164
 	* tree-vect-loop-manip.c (vect_update_ivs_after_vectorizer):
 	Uncomment assert.
-	* tree-vect-loop.c (vect_analyze_loop_operations): Adjust
-	check whether we can create an epilogue loop to reflect the
-	cases where we create one.
+	* tree-vect-loop.c (vect_analyze_loop_operations): Adjust check
+	whether we can create an epilogue loop to reflect thecases where
+	we create one.
 
 2013-11-19  Andrew MacLeod  <amacleod@redhat.com>
 
@@ -1191,14 +1497,14 @@
 
 2013-11-19  Jan Hubicka  <jh@suse.cz>
 
-	* cgraph.c (cgraph_create_indirect_edge): Use get_polymorphic_call_info.
-	* cgraph.h (cgraph_indirect_call_info): Add outer_type, maybe_in_construction
-	and maybe_derived_type.
+	* cgraph.c (cgraph_create_indirect_edge): Use
+	get_polymorphic_call_info.
+	* cgraph.h (cgraph_indirect_call_info): Add outer_type,
+	maybe_in_construction and maybe_derived_type.
 	* ipa-utils.h (ipa_polymorphic_call_context): New structure.
 	(ipa_dummy_polymorphic_call_context): New global var.
 	(possible_polymorphic_call_targets): Add context paramter.
-	(dump_possible_polymorphic_call_targets): Likewise; update
-	wrappers.
+	(dump_possible_polymorphic_call_targets): Likewise; update wrappers.
 	(possible_polymorphic_call_target_p): Likewise.
 	(get_polymorphic_call_info): New function.
 	* ipa-devirt.c (ipa_dummy_polymorphic_call_context): New function.
@@ -1207,8 +1513,8 @@
 	(maybe_record_node): Add FINALP parameter.
 	(record_binfo): Add OUTER_TYPE and OFFSET; walk the inner
 	by info by get_binfo_at_offset.
-	(possible_polymorphic_call_targets_1): Add OUTER_TYPE/OFFSET parameters;
-	pass them to record-binfo.
+	(possible_polymorphic_call_targets_1): Add OUTER_TYPE/OFFSET
+	parameters; pass them to record-binfo.
 	(polymorphic_call_target_d): Add context and FINAL.
 	(polymorphic_call_target_hasher::hash): Hash context.
 	(polymorphic_call_target_hasher::equal): Compare context.
@@ -1251,8 +1557,7 @@
 	* tree-ssa-loop-ivopts.c (enum ainc_type): New.
 	(address_cost_data): New field.
 	(get_address_cost): Compute auto-increment rtx cost in ainc_costs.
-	Use ainc_costs for auto-increment rtx patterns.
-	Cleanup TWS.
+	Use ainc_costs for auto-increment rtx patterns.  Cleanup TWS.
 
 2013-11-19  James Greenhalgh  <james.greenhalgh@arm.com>
 
@@ -1271,7 +1576,7 @@
 	(any_remaining_duplicated_blocks): Likewise.
 	(ssa_fix_duplicate_block_edges): Handle multiple duplicated
 	blocks on a jump threading path.
-	
+
 	* tree-ssa-threadupdate.c (thread_through_loop_header):  Do not
 	thread through a joiner which has the latch edge.
 
@@ -1418,22 +1723,22 @@
 
 2013-11-18  Jan Hubicka  <jh@suse.cz>
 
-	* profile.c (compute_branch_probabilities): Do not sanity check run_max.
+	* profile.c (compute_branch_probabilities): Do not sanity check
+	run_max.
 
 2013-11-18 Kenneth Zadeck <zadeck@naturalbridge.com>
 
 	* tree.c (int_fits_type_p): Change GET_MODE_BITSIZE to
 	GET_MODE_PRECISION.
 	* fold-const.c (fold_single_bit_test_into_sign_test)
-	(fold_binary_loc):  Change GET_MODE_BITSIZE to
-	GET_MODE_PRECISION.
+	(fold_binary_loc): Change GET_MODE_BITSIZE to GET_MODE_PRECISION.
 
 2013-11-18  Teresa Johnson  <tejohnson@google.com>
 
-	* gcc/cfgrtl.c (cfg_layout_initialize): Assert if we
-	try to go into cfglayout after bb reordering.
-	* gcc/passes.def: Move compgotos before bb reordering
-	since it goes into cfglayout.
+	* cfgrtl.c (cfg_layout_initialize): Assert if we try to go into
+	cfglayout after bb reordering.
+	* passes.def: Move compgotos before bb reordering since it goes into
+	cfglayout.
 
 2013-11-18  Bernd Schmidt  <bernds@codesourcery.com>
 
@@ -1641,8 +1946,8 @@
 
 2013-11-18  Kirill Yukhin  <kirill.yukhin@intel.com>
 
-	* gcc/config/ia64/ia64.c (ia64_split_tmode_move): Mark load with
-	`dead' flag if it kills address, not its post-increment.
+	* config/ia64/ia64.c (ia64_split_tmode_move): Mark load with `dead'
+	flag if it kills its address, not its post-increment.
 
 2013-11-18  Ilya Enkovich  <ilya.enkovich@intel.com>
 
@@ -1703,8 +2008,8 @@
 	(enum processor_type): Add PROCESSOR_BDVER4.
 	* config/i386/i386.md (define_attr "cpu"): Add bdver4.
 	* config/i386/i386.opt (flag_dispatch_scheduler): Add bdver4.
-	* gcc/doc/extend.texi: Add details about bdver4.
-	* gcc/doc/invoke.texi: Add details about bdver4. Add
+	* doc/extend.texi: Add details about bdver4.
+	* doc/invoke.texi: Add details about bdver4. Add
 	fma4 and fsgsbase for bdver3. Add fma4 for bdver2.
 
 2013-11-17  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>

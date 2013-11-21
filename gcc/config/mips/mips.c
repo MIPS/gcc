@@ -3972,7 +3972,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case DIV:
       /* Check for a reciprocal.  */
       if (float_mode_p
-	  && ISA_HAS_FP4
+	  && ISA_HAS_FP_RECIP_RSQRT (mode)
 	  && flag_unsafe_math_optimizations
 	  && XEXP (x, 0) == CONST1_RTX (mode))
 	{
@@ -14842,7 +14842,7 @@ r10k_simplify_address (rtx x, rtx insn)
 	      /* Replace the incoming value of $sp with
 		 virtual_incoming_args_rtx.  */
 	      if (x == stack_pointer_rtx
-		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR)
+		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 		newx = virtual_incoming_args_rtx;
 	    }
 	  else if (dominated_by_p (CDI_DOMINATORS, DF_REF_BB (use),

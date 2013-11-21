@@ -119,7 +119,7 @@ struct redirection_data : typed_free_remove<redirection_data>
      and wire up its single remaining outgoing edge to the thread path.
 
      The other is a joiner block where we leave the control statement
-     in place, but wire one of the outgoing edges to a thread path. 
+     in place, but wire one of the outgoing edges to a thread path.
 
      In theory we could have multiple block duplicates in a jump
      threading path, but I haven't tried that.
@@ -328,7 +328,7 @@ lookup_redirection_data (edge e, enum insert_option insert)
 	 to the list of incoming edges associated with E.  */
       if (insert)
 	{
-          struct el *el = XNEW (struct el);
+	  struct el *el = XNEW (struct el);
 	  el->next = elt->incoming_edges;
 	  el->e = e;
 	  elt->incoming_edges = el;
@@ -470,7 +470,7 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
   vec<jump_thread_edge *> *path = THREAD_PATH (e);
 
   for (unsigned int count = 0, i = 1; i < path->length (); i++)
-    { 
+    {
       /* If we were threading through an joiner block, then we want
 	 to keep its control statement and redirect an outgoing edge.
 	 Else we want to remove the control statement & edges, then create
@@ -496,11 +496,11 @@ ssa_fix_duplicate_block_edges (struct redirection_data *rd,
 	      e2 = redirect_edge_and_branch (victim, path->last ()->e->dest);
 	      e2->count = path->last ()->e->count;
 	      /* If we redirected the edge, then we need to copy PHI arguments
-	         at the target.  If the edge already existed (e2 != victim
+		 at the target.  If the edge already existed (e2 != victim
 		 case), then the PHIs in the target already have the correct
 		 arguments.  */
 	      if (e2 == victim)
-	        copy_phi_args (e2->dest, path->last ()->e, e2);
+		copy_phi_args (e2->dest, path->last ()->e, e2);
 	    }
 	  else
 	    {
@@ -549,10 +549,10 @@ ssa_create_duplicates (struct redirection_data **slot,
   struct redirection_data *rd = *slot;
 
   /* The second duplicated block in a jump threading path is specific
-     to the path.  So it gets stored in RD rather than in LOCAL_DATA. 
-	
+     to the path.  So it gets stored in RD rather than in LOCAL_DATA.
+
      Each time we're called, we have to look through the path and see
-     if a second block needs to be duplicated. 
+     if a second block needs to be duplicated.
 
      Note the search starts with the third edge on the path.  The first
      edge is the incoming edge, the second edge always has its source
@@ -567,7 +567,7 @@ ssa_create_duplicates (struct redirection_data **slot,
 	  break;
 	}
     }
-  
+
   /* Create a template block if we have not done so already.  Otherwise
      use the template to create a new block.  */
   if (local_info->template_block == NULL)
@@ -672,7 +672,7 @@ ssa_redirect_edges (struct redirection_data **slot,
 	}
 
       /* Go ahead and clear E->aux.  It's not needed anymore and failure
-         to clear it will cause all kinds of unpleasant problems later.  */
+	 to clear it will cause all kinds of unpleasant problems later.  */
       delete_jump_thread_path (path);
       e->aux = NULL;
 
@@ -697,9 +697,9 @@ redirection_block_p (basic_block bb)
   /* Advance to the first executable statement.  */
   gsi = gsi_start_bb (bb);
   while (!gsi_end_p (gsi)
-         && (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL
+	 && (gimple_code (gsi_stmt (gsi)) == GIMPLE_LABEL
 	     || is_gimple_debug (gsi_stmt (gsi))
-             || gimple_nop_p (gsi_stmt (gsi))))
+	     || gimple_nop_p (gsi_stmt (gsi))))
     gsi_next (&gsi);
 
   /* Check if this is an empty block.  */
@@ -708,9 +708,9 @@ redirection_block_p (basic_block bb)
 
   /* Test that we've reached the terminating control statement.  */
   return gsi_stmt (gsi)
-         && (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND
-             || gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
-             || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH);
+	 && (gimple_code (gsi_stmt (gsi)) == GIMPLE_COND
+	     || gimple_code (gsi_stmt (gsi)) == GIMPLE_GOTO
+	     || gimple_code (gsi_stmt (gsi)) == GIMPLE_SWITCH);
 }
 
 /* BB is a block which ends with a COND_EXPR or SWITCH_EXPR and when BB
@@ -732,7 +732,7 @@ redirection_block_p (basic_block bb)
    the appropriate duplicate of BB.
 
    If NOLOOP_ONLY is true, we only perform the threading as long as it
-   does not affect the structure of the loops in a nontrivial way. 
+   does not affect the structure of the loops in a nontrivial way.
 
    If JOINERS is true, then thread through joiner blocks as well.  */
 
@@ -795,22 +795,12 @@ thread_block_1 (basic_block bb, bool noloop_only, bool joiners)
       if (!e2 || noloop_only)
 	{
 	  /* If NOLOOP_ONLY is true, we only allow threading through the
-	     header of a loop to exit edges.
+	     header of a loop to exit edges.  */
 
-	     There are two cases to consider.  The first when BB is the
-	     loop header.  We will attempt to thread this elsewhere, so
-	     we can just continue here.  */
-
-	  if (bb == bb->loop_father->header
-	      && (!loop_exit_edge_p (bb->loop_father, e2)
-		  || (*path)[1]->type == EDGE_COPY_SRC_JOINER_BLOCK))
-	    continue;
-
-
-	  /* The second occurs when there was loop header buried in a jump
-	     threading path.  We do not try and thread this elsewhere, so
-	     just cancel the jump threading request by clearing the AUX
-	     field now.  */
+	  /* One case occurs when there was loop header buried in a jump
+	     threading path that crosses loop boundaries.  We do not try
+	     and thread this elsewhere, so just cancel the jump threading
+	     request by clearing the AUX field now.  */
 	  if ((bb->loop_father != e2->src->loop_father
 	       && !loop_exit_edge_p (e2->src->loop_father, e2))
 	      || (e2->src->loop_father != e2->dest->loop_father
@@ -823,11 +813,40 @@ thread_block_1 (basic_block bb, bool noloop_only, bool joiners)
 	      e->aux = NULL;
 	      continue;
 	    }
+
+	  /* Another case occurs when trying to thread through our
+	     own loop header, possibly from inside the loop.
+
+	     If our loop header is buried in the path, then go ahead
+	     and cancel the jump threading request here.  This likely
+	     will need updating for the FSA/FSM coremark case.
+
+	     Other cases (BB is the loop header) are handled elsewhere.  */
+	  unsigned int i;
+	  for (i = 1; i < path->length (); i++)
+	    {
+	      if ((*path)[i]->e->src == bb->loop_father->header
+		  && (!loop_exit_edge_p (bb->loop_father, e2)
+		      || (*path)[1]->type == EDGE_COPY_SRC_JOINER_BLOCK))
+		{
+		  /* If i != 1, then it's a buried header that will not
+		     be handled elsehwere.  */
+		  if (i != 1)
+		    {
+		      delete_jump_thread_path (path);
+		      e->aux = NULL;
+		    }
+		  break;
+		}
+	    }
+
+	  if (i != path->length ())
+	    continue;
 	}
 
       if (e->dest == e2->src)
 	update_bb_profile_for_threading (e->dest, EDGE_FREQUENCY (e),
-				         e->count, (*THREAD_PATH (e))[1]->e);
+					 e->count, (*THREAD_PATH (e))[1]->e);
 
       /* Insert the outgoing edge into the hash table if it is not
 	 already in the hash table.  */
@@ -892,7 +911,7 @@ thread_block_1 (basic_block bb, bool noloop_only, bool joiners)
    By doing things this way we can be as aggressive as possible and
    not worry that copying a joiner block will create a jump threading
    opportunity.  */
-  
+
 static bool
 thread_block (basic_block bb, bool noloop_only)
 {
@@ -1242,7 +1261,7 @@ thread_through_loop_header (struct loop *loop, bool may_peel_loop_headers)
       unsigned nblocks, i;
 
       /* First handle the case latch edge is redirected.  We are copying
-         the loop header but not creating a multiple entry loop.  Make the
+	 the loop header but not creating a multiple entry loop.  Make the
 	 cfg manipulation code aware of that fact.  */
       set_loop_copy (loop, loop);
       loop->latch = thread_single_edge (latch);
@@ -1591,7 +1610,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
     }
 
   /* Assume we had a jump thread path which went from the latch to the exit
-     and a path which goes from outside to inside the same loop.  
+     and a path which goes from outside to inside the same loop.
 
      If the latch to exit was handled first, we will thread it and clear
      loop->header.
