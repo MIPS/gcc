@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "varasm.h"
+#include "expr.h"
 #include "tm_p.h"
 #include "function.h"
 #include "alias.h"
@@ -339,8 +341,8 @@ ao_ref_from_mem (ao_ref *ref, const_rtx mem)
       && (ref->offset < 0
 	  || (DECL_P (ref->base)
 	      && (!tree_fits_uhwi_p (DECL_SIZE (ref->base))
-		  || (TREE_INT_CST_LOW (DECL_SIZE ((ref->base)))
-		      < (unsigned HOST_WIDE_INT)(ref->offset + ref->size))))))
+		  || (tree_to_uhwi (DECL_SIZE (ref->base))
+		      < (unsigned HOST_WIDE_INT) (ref->offset + ref->size))))))
     return false;
 
   return true;
@@ -2952,7 +2954,7 @@ init_alias_analysis (void)
      The state of the arrays for the set chain in question does not matter
      since the program has undefined behavior.  */
 
-  rpo = XNEWVEC (int, n_basic_blocks);
+  rpo = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
   rpo_cnt = pre_and_rev_post_order_compute (NULL, rpo, false);
 
   pass = 0;

@@ -28,6 +28,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "attribs.h"
+#include "varasm.h"
 #include "flags.h"
 #include "toplev.h"
 #include "diagnostic-core.h"
@@ -811,7 +815,7 @@ make_packable_type (tree type, bool in_record)
 
       /* Round the RM size up to a unit boundary to get the minimal size
 	 for a BLKmode record.  Give up if it's already the size.  */
-      new_size = TREE_INT_CST_LOW (TYPE_ADA_SIZE (type));
+      new_size = tree_to_uhwi (TYPE_ADA_SIZE (type));
       new_size = (new_size + BITS_PER_UNIT - 1) & -BITS_PER_UNIT;
       if (new_size == size)
 	return type;

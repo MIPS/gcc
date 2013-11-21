@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "target.h"
 #include "basic-block.h"
@@ -37,6 +38,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
@@ -782,7 +784,7 @@ vect_compute_data_ref_alignment (struct data_reference *dr)
       return false;
     }
 
-  SET_DR_MISALIGNMENT (dr, TREE_INT_CST_LOW (misalign));
+  SET_DR_MISALIGNMENT (dr, tree_to_uhwi (misalign));
 
   if (dump_enabled_p ())
     {
@@ -964,7 +966,7 @@ not_size_aligned (tree exp)
   if (!tree_fits_uhwi_p (TYPE_SIZE (TREE_TYPE (exp))))
     return true;
 
-  return (TREE_INT_CST_LOW (TYPE_SIZE (TREE_TYPE (exp)))
+  return (tree_to_uhwi (TYPE_SIZE (TREE_TYPE (exp)))
 	  > get_object_alignment (exp));
 }
 
@@ -1734,9 +1736,10 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
 
           LOOP_VINFO_UNALIGNED_DR (loop_vinfo) = dr0;
           if (npeel)
-            LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) = npeel;
+            LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) = npeel;
           else
-            LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) = DR_MISALIGNMENT (dr0);
+            LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo)
+	      = DR_MISALIGNMENT (dr0);
 	  SET_DR_MISALIGNMENT (dr0, 0);
 	  if (dump_enabled_p ())
             {
@@ -2570,13 +2573,13 @@ vect_analyze_data_ref_accesses (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
 
 	  /* If init_b == init_a + the size of the type * k, we have an
 	     interleaving, and DRA is accessed before DRB.  */
-	  HOST_WIDE_INT type_size_a = TREE_INT_CST_LOW (sza);
+	  HOST_WIDE_INT type_size_a = tree_to_uhwi (sza);
 	  if ((init_b - init_a) % type_size_a != 0)
 	    break;
 
 	  /* The step (if not zero) is greater than the difference between
 	     data-refs' inits.  This splits groups into suitable sizes.  */
-	  HOST_WIDE_INT step = TREE_INT_CST_LOW (DR_STEP (dra));
+	  HOST_WIDE_INT step = tree_to_shwi (DR_STEP (dra));
 	  if (step != 0 && step <= (init_b - init_a))
 	    break;
 
@@ -2882,8 +2885,8 @@ vect_prune_runtime_alias_test_list (loop_vec_info loop_vinfo)
 	      || !tree_fits_shwi_p (dr_a2->offset))
 	    continue;
 
-	  HOST_WIDE_INT diff = TREE_INT_CST_LOW (dr_a2->offset) -
-			       TREE_INT_CST_LOW (dr_a1->offset);
+	  HOST_WIDE_INT diff = (tree_to_shwi (dr_a2->offset)
+				- tree_to_shwi (dr_a1->offset));
 
 
 	  /* Now we check if the following condition is satisfied:

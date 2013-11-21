@@ -72,6 +72,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
 #include "rtl.h"
 #include "flags.h"
 #include "regs.h"
@@ -2365,6 +2367,10 @@ dbxout_type (tree type, int full)
       dbxout_type (TREE_TYPE (type), 0);
       break;
 
+    case POINTER_BOUNDS_TYPE:
+      /* No debug info for pointer bounds type supported yet.  */
+      break;
+
     default:
       gcc_unreachable ();
     }
@@ -2924,7 +2930,7 @@ dbxout_symbol (tree decl, int local ATTRIBUTE_UNUSED)
 	  if (TREE_CODE (TREE_TYPE (decl)) == INTEGER_TYPE
 	      || TREE_CODE (TREE_TYPE (decl)) == ENUMERAL_TYPE)
 	    {
-	      HOST_WIDE_INT ival = TREE_INT_CST_LOW (DECL_INITIAL (decl));
+	      HOST_WIDE_INT ival = tree_to_shwi (DECL_INITIAL (decl));
 
 	      dbxout_begin_complex_stabs ();
 	      dbxout_symbol_name (decl, NULL, 'c');

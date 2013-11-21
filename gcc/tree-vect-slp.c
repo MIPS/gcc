@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "target.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
@@ -34,6 +35,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
@@ -46,23 +48,23 @@ along with GCC; see the file COPYING3.  If not see
 /* Extract the location of the basic block in the source code.
    Return the basic block location if succeed and NULL if not.  */
 
-LOC
+source_location
 find_bb_location (basic_block bb)
 {
   gimple stmt = NULL;
   gimple_stmt_iterator si;
 
   if (!bb)
-    return UNKNOWN_LOC;
+    return UNKNOWN_LOCATION;
 
   for (si = gsi_start_bb (bb); !gsi_end_p (si); gsi_next (&si))
     {
       stmt = gsi_stmt (si);
-      if (gimple_location (stmt) != UNKNOWN_LOC)
+      if (gimple_location (stmt) != UNKNOWN_LOCATION)
         return gimple_location (stmt);
     }
 
-  return UNKNOWN_LOC;
+  return UNKNOWN_LOCATION;
 }
 
 

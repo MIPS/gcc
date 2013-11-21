@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
@@ -36,9 +37,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-iterator.h"
@@ -1267,11 +1270,11 @@ build_and_add_sum (tree type, tree op1, tree op2, enum tree_code opcode)
   if ((!op1def || gimple_nop_p (op1def))
       && (!op2def || gimple_nop_p (op2def)))
     {
-      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
+      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
       if (gsi_end_p (gsi))
 	{
 	  gimple_stmt_iterator gsi2
-	    = gsi_last_bb (single_succ (ENTRY_BLOCK_PTR));
+	    = gsi_last_bb (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 	  gimple_set_uid (sum,
 			  gsi_end_p (gsi2) ? 1 : gimple_uid (gsi_stmt (gsi2)));
 	}
@@ -3638,7 +3641,7 @@ acceptable_pow_call (gimple stmt, tree *base, HOST_WIDE_INT *exponent)
       if (!tree_fits_shwi_p (arg1))
 	return false;
 
-      *exponent = TREE_INT_CST_LOW (arg1);
+      *exponent = tree_to_shwi (arg1);
       break;
 
     default:
@@ -4526,8 +4529,8 @@ debug_ops_vector (vec<operand_entry_t> ops)
 static void
 do_reassoc (void)
 {
-  break_up_subtract_bb (ENTRY_BLOCK_PTR);
-  reassociate_bb (EXIT_BLOCK_PTR);
+  break_up_subtract_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  reassociate_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 }
 
 /* Initialize the reassociation pass.  */
@@ -4537,7 +4540,7 @@ init_reassoc (void)
 {
   int i;
   long rank = 2;
-  int *bbs = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  int *bbs = XNEWVEC (int, n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS);
 
   /* Find the loops, so that we can prevent moving calculations in
      them.  */
@@ -4567,7 +4570,7 @@ init_reassoc (void)
     }
 
   /* Set up rank for each BB  */
-  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
+  for (i = 0; i < n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS; i++)
     bb_rank[bbs[i]] = ++rank  << 16;
 
   free (bbs);

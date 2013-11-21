@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
@@ -35,6 +36,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
@@ -799,11 +801,12 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
     vect_analyze_scalar_cycles_1 (loop_vinfo, loop->inner);
 }
 
+
 /* Function vect_get_loop_niters.
 
-   Determine how many iterations the loop is executed.
-   If an expression that represents the number of iterations
-   can be constructed, place it in NUMBER_OF_ITERATIONS.
+   Determine how many iterations the loop is executed and place it
+   in NUMBER_OF_ITERATIONS.
+
    Return the loop exit condition.  */
 
 static gimple
@@ -814,20 +817,16 @@ vect_get_loop_niters (struct loop *loop, tree *number_of_iterations)
   if (dump_enabled_p ())
     dump_printf_loc (MSG_NOTE, vect_location,
 		     "=== get_loop_niters ===\n");
-  niters = number_of_exit_cond_executions (loop);
 
-  if (niters != NULL_TREE
-      && niters != chrec_dont_know)
-    {
-      *number_of_iterations = niters;
-
-      if (dump_enabled_p ())
-        {
-          dump_printf_loc (MSG_NOTE, vect_location, "==> get_loop_niters:");
-          dump_generic_expr (MSG_NOTE, TDF_SLIM, *number_of_iterations);
-          dump_printf (MSG_NOTE, "\n");
-        }
-    }
+  niters = number_of_latch_executions (loop);
+  /* We want the number of loop header executions which is the number
+     of latch executions plus one.
+     ???  For UINT_MAX latch executions this number overflows to zero
+     for loops like do { n++; } while (n != 0);  */
+  if (niters && !chrec_contains_undetermined (niters))
+    niters = fold_build2 (PLUS_EXPR, TREE_TYPE (niters), niters,
+			  build_int_cst (TREE_TYPE (niters), 1));
+  *number_of_iterations = niters;
 
   return get_loop_exit_condition (loop);
 }
@@ -935,7 +934,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_NITERS_UNCHANGED (res) = NULL;
   LOOP_VINFO_COST_MODEL_MIN_ITERS (res) = 0;
   LOOP_VINFO_VECTORIZABLE_P (res) = 0;
-  LOOP_PEELING_FOR_ALIGNMENT (res) = 0;
+  LOOP_VINFO_PEELING_FOR_ALIGNMENT (res) = 0;
   LOOP_VINFO_VECT_FACTOR (res) = 0;
   LOOP_VINFO_LOOP_NEST (res).create (3);
   LOOP_VINFO_DATAREFS (res).create (10);
@@ -952,6 +951,7 @@ new_loop_vec_info (struct loop *loop)
   LOOP_VINFO_SLP_UNROLLING_FACTOR (res) = 1;
   LOOP_VINFO_TARGET_COST_DATA (res) = init_cost (loop);
   LOOP_VINFO_PEELING_FOR_GAPS (res) = false;
+  LOOP_VINFO_PEELING_FOR_NITER (res) = false;
   LOOP_VINFO_OPERANDS_SWAPPED (res) = false;
 
   return res;
@@ -1119,12 +1119,12 @@ vect_analyze_loop_form (struct loop *loop)
         }
 
       if (empty_block_p (loop->header))
-    {
-          if (dump_enabled_p ())
-            dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			     "not vectorized: empty loop.\n");
-      return NULL;
-    }
+	  return NULL;
+	}
     }
   else
     {
@@ -1271,7 +1271,8 @@ vect_analyze_loop_form (struct loop *loop)
       return NULL;
     }
 
-  if (!number_of_iterations)
+  if (!number_of_iterations
+      || chrec_contains_undetermined (number_of_iterations))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -1282,27 +1283,7 @@ vect_analyze_loop_form (struct loop *loop)
       return NULL;
     }
 
-  if (chrec_contains_undetermined (number_of_iterations))
-    {
-      if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "Infinite number of iterations.\n");
-      if (inner_loop_vinfo)
-	destroy_loop_vec_info (inner_loop_vinfo, true);
-      return NULL;
-    }
-
-  if (!NITERS_KNOWN_P (number_of_iterations))
-    {
-      if (dump_enabled_p ())
-        {
-          dump_printf_loc (MSG_NOTE, vect_location,
-			   "Symbolic number of iterations is ");
-	  dump_generic_expr (MSG_NOTE, TDF_DETAILS, number_of_iterations);
-          dump_printf (MSG_NOTE, "\n");
-        }
-    }
-  else if (TREE_INT_CST_LOW (number_of_iterations) == 0)
+  if (integer_zerop (number_of_iterations))
     {
       if (dump_enabled_p ())
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
@@ -1315,6 +1296,17 @@ vect_analyze_loop_form (struct loop *loop)
   loop_vinfo = new_loop_vec_info (loop);
   LOOP_VINFO_NITERS (loop_vinfo) = number_of_iterations;
   LOOP_VINFO_NITERS_UNCHANGED (loop_vinfo) = number_of_iterations;
+
+  if (!LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
+    {
+      if (dump_enabled_p ())
+        {
+          dump_printf_loc (MSG_NOTE, vect_location,
+			   "Symbolic number of iterations is ");
+	  dump_generic_expr (MSG_NOTE, TDF_DETAILS, number_of_iterations);
+          dump_printf (MSG_NOTE, "\n");
+        }
+    }
 
   STMT_VINFO_TYPE (vinfo_for_stmt (loop_cond)) = loop_exit_ctrl_vec_info_type;
 
@@ -1616,28 +1608,6 @@ vect_analyze_loop_operations (loop_vec_info loop_vinfo, bool slp)
       return false;
     }
 
-  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo)
-      || ((int) tree_ctz (LOOP_VINFO_NITERS (loop_vinfo))
-	  < exact_log2 (vectorization_factor)))
-    {
-      if (dump_enabled_p ())
-        dump_printf_loc (MSG_NOTE, vect_location, "epilog loop required.\n");
-      if (!vect_can_advance_ivs_p (loop_vinfo))
-        {
-          if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: can't create epilog loop 1.\n");
-          return false;
-        }
-      if (!slpeel_can_duplicate_loop_p (loop, single_exit (loop)))
-        {
-          if (dump_enabled_p ())
-	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-			     "not vectorized: can't create epilog loop 2.\n");
-          return false;
-        }
-    }
-
   return true;
 }
 
@@ -1791,6 +1761,40 @@ vect_analyze_loop_2 (loop_vec_info loop_vinfo)
 	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
 			 "bad operation or unsupported loop bound.\n");
       return false;
+    }
+
+  /* Decide whether we need to create an epilogue loop to handle
+     remaining scalar iterations.  */
+  if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo)
+      && LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) > 0)
+    {
+      if (ctz_hwi (LOOP_VINFO_INT_NITERS (loop_vinfo)
+		   - LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo))
+	  < exact_log2 (LOOP_VINFO_VECT_FACTOR (loop_vinfo)))
+	LOOP_VINFO_PEELING_FOR_NITER (loop_vinfo) = true;
+    }
+  else if (LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo)
+	   || (tree_ctz (LOOP_VINFO_NITERS (loop_vinfo))
+	       < (unsigned)exact_log2 (LOOP_VINFO_VECT_FACTOR (loop_vinfo))))
+    LOOP_VINFO_PEELING_FOR_NITER (loop_vinfo) = true;
+
+  /* If an epilogue loop is required make sure we can create one.  */
+  if (LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo)
+      || LOOP_VINFO_PEELING_FOR_NITER (loop_vinfo))
+    {
+      if (dump_enabled_p ())
+        dump_printf_loc (MSG_NOTE, vect_location, "epilog loop required\n");
+      if (!vect_can_advance_ivs_p (loop_vinfo)
+	  || !slpeel_can_duplicate_loop_p (LOOP_VINFO_LOOP (loop_vinfo),
+					   single_exit (LOOP_VINFO_LOOP
+							 (loop_vinfo))))
+        {
+          if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "not vectorized: can't create required "
+			     "epilog loop\n");
+          return false;
+        }
     }
 
   return true;
@@ -2722,7 +2726,7 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
   int scalar_single_iter_cost = 0;
   int scalar_outside_cost = 0;
   int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
-  int npeel = LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo);
+  int npeel = LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo);
   void *target_cost_data = LOOP_VINFO_TARGET_COST_DATA (loop_vinfo);
 
   /* Cost model disabled.  */
@@ -2913,7 +2917,7 @@ vect_estimate_min_profitable_iters (loop_vec_info loop_vinfo,
       else
 	{
 	  /* Cost model check occurs at prologue generation.  */
-	  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo) < 0)
+	  if (LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo) < 0)
 	    scalar_outside_cost += 2 * vect_get_stmt_cost (cond_branch_taken)
 	      + vect_get_stmt_cost (cond_branch_not_taken); 
 	  /* Cost model check occurs at epilogue generation.  */
@@ -5605,6 +5609,111 @@ vect_loop_kill_debug_uses (struct loop *loop, gimple stmt)
     }
 }
 
+
+/* This function builds ni_name = number of iterations.  Statements
+   are emitted on the loop preheader edge.  */
+
+static tree
+vect_build_loop_niters (loop_vec_info loop_vinfo)
+{
+  tree ni = unshare_expr (LOOP_VINFO_NITERS (loop_vinfo));
+  if (TREE_CODE (ni) == INTEGER_CST)
+    return ni;
+  else
+    {
+      tree ni_name, var;
+      gimple_seq stmts = NULL;
+      edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
+
+      var = create_tmp_var (TREE_TYPE (ni), "niters");
+      ni_name = force_gimple_operand (ni, &stmts, false, var);
+      if (stmts)
+	gsi_insert_seq_on_edge_immediate (pe, stmts);
+
+      return ni_name;
+    }
+}
+
+
+/* This function generates the following statements:
+
+   ni_name = number of iterations loop executes
+   ratio = ni_name / vf
+   ratio_mult_vf_name = ratio * vf
+
+   and places them on the loop preheader edge.  */
+
+static void
+vect_generate_tmps_on_preheader (loop_vec_info loop_vinfo,
+				 tree ni_name,
+				 tree *ratio_mult_vf_name_ptr,
+				 tree *ratio_name_ptr)
+{
+  tree ni_minus_gap_name;
+  tree var;
+  tree ratio_name;
+  tree ratio_mult_vf_name;
+  tree ni = LOOP_VINFO_NITERS (loop_vinfo);
+  int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
+  edge pe = loop_preheader_edge (LOOP_VINFO_LOOP (loop_vinfo));
+  tree log_vf;
+
+  log_vf = build_int_cst (TREE_TYPE (ni), exact_log2 (vf));
+
+  /* If epilogue loop is required because of data accesses with gaps, we
+     subtract one iteration from the total number of iterations here for
+     correct calculation of RATIO.  */
+  if (LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo))
+    {
+      ni_minus_gap_name = fold_build2 (MINUS_EXPR, TREE_TYPE (ni_name),
+				       ni_name,
+			               build_one_cst (TREE_TYPE (ni_name)));
+      if (!is_gimple_val (ni_minus_gap_name))
+	{
+	  var = create_tmp_var (TREE_TYPE (ni), "ni_gap");
+          gimple stmts = NULL;
+          ni_minus_gap_name = force_gimple_operand (ni_minus_gap_name, &stmts,
+						    true, var);
+	  gsi_insert_seq_on_edge_immediate (pe, stmts);
+        }
+    }
+  else
+    ni_minus_gap_name = ni_name;
+
+  /* Create: ratio = ni >> log2(vf) */
+
+  ratio_name = fold_build2 (RSHIFT_EXPR, TREE_TYPE (ni_minus_gap_name),
+			    ni_minus_gap_name, log_vf);
+  if (!is_gimple_val (ratio_name))
+    {
+      var = create_tmp_var (TREE_TYPE (ni), "bnd");
+      gimple stmts = NULL;
+      ratio_name = force_gimple_operand (ratio_name, &stmts, true, var);
+      gsi_insert_seq_on_edge_immediate (pe, stmts);
+    }
+  *ratio_name_ptr = ratio_name;
+
+  /* Create: ratio_mult_vf = ratio << log2 (vf).  */
+
+  if (ratio_mult_vf_name_ptr)
+    {
+      ratio_mult_vf_name = fold_build2 (LSHIFT_EXPR, TREE_TYPE (ratio_name),
+					ratio_name, log_vf);
+      if (!is_gimple_val (ratio_mult_vf_name))
+	{
+	  var = create_tmp_var (TREE_TYPE (ni), "ratio_mult_vf");
+	  gimple stmts = NULL;
+	  ratio_mult_vf_name = force_gimple_operand (ratio_mult_vf_name, &stmts,
+						     true, var);
+	  gsi_insert_seq_on_edge_immediate (pe, stmts);
+	}
+      *ratio_mult_vf_name_ptr = ratio_mult_vf_name;
+    }
+
+  return;
+}
+
+
 /* Function vect_transform_loop.
 
    The analysis phase has determined that the loop is vectorizable.
@@ -5668,13 +5777,20 @@ vect_transform_loop (loop_vec_info loop_vinfo)
       check_profitability = false;
     }
 
+  tree ni_name = vect_build_loop_niters (loop_vinfo);
+  LOOP_VINFO_NITERS_UNCHANGED (loop_vinfo) = ni_name;
+
   /* Peel the loop if there are data refs with unknown alignment.
      Only one data ref with unknown store is allowed.  */
 
-  if (LOOP_PEELING_FOR_ALIGNMENT (loop_vinfo))
+  if (LOOP_VINFO_PEELING_FOR_ALIGNMENT (loop_vinfo))
     {
-      vect_do_peeling_for_alignment (loop_vinfo, th, check_profitability);
+      vect_do_peeling_for_alignment (loop_vinfo, ni_name,
+				     th, check_profitability);
       check_profitability = false;
+      /* The above adjusts LOOP_VINFO_NITERS, so cause ni_name to
+	 be re-computed.  */
+      ni_name = NULL_TREE;
     }
 
   /* If the loop has a symbolic number of iterations 'n' (i.e. it's not a
@@ -5685,19 +5801,25 @@ vect_transform_loop (loop_vec_info loop_vinfo)
      will remain scalar and will compute the remaining (n%VF) iterations.
      (VF is the vectorization factor).  */
 
-  if ((int) tree_ctz (LOOP_VINFO_NITERS (loop_vinfo))
-      < exact_log2 (vectorization_factor)
+  if (LOOP_VINFO_PEELING_FOR_NITER (loop_vinfo)
       || LOOP_VINFO_PEELING_FOR_GAPS (loop_vinfo))
-    vect_do_peeling_for_loop_bound (loop_vinfo, &ratio,
-				    th, check_profitability);
+    {
+      tree ratio_mult_vf;
+      if (!ni_name)
+	ni_name = vect_build_loop_niters (loop_vinfo);
+      vect_generate_tmps_on_preheader (loop_vinfo, ni_name, &ratio_mult_vf,
+				       &ratio);
+      vect_do_peeling_for_loop_bound (loop_vinfo, ni_name, ratio_mult_vf,
+				      th, check_profitability);
+    }
   else if (LOOP_VINFO_NITERS_KNOWN_P (loop_vinfo))
     ratio = build_int_cst (TREE_TYPE (LOOP_VINFO_NITERS (loop_vinfo)),
 		LOOP_VINFO_INT_NITERS (loop_vinfo) / vectorization_factor);
   else
     {
-      tree ni_name, ratio_mult_vf;
-      vect_generate_tmps_on_preheader (loop_vinfo, &ni_name, &ratio_mult_vf,
-				       &ratio, NULL);
+      if (!ni_name)
+	ni_name = vect_build_loop_niters (loop_vinfo);
+      vect_generate_tmps_on_preheader (loop_vinfo, ni_name, NULL, &ratio);
     }
 
   /* 1) Make sure the loop header has exactly two entries

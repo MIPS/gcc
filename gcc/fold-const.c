@@ -46,6 +46,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "tree-iterator.h"
 #include "realmpfr.h"
 #include "rtl.h"
 #include "expr.h"
@@ -6593,7 +6596,7 @@ fold_single_bit_test_into_sign_test (location_t loc,
 	  /* This is only a win if casting to a signed type is cheap,
 	     i.e. when arg00's type is not a partial mode.  */
 	  && TYPE_PRECISION (TREE_TYPE (arg00))
-	     == GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (arg00))))
+	     == GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (arg00))))
 	{
 	  tree stype = signed_type_for (TREE_TYPE (arg00));
 	  return fold_build2_loc (loc, code == EQ_EXPR ? GE_EXPR : LT_EXPR,
@@ -6645,10 +6648,10 @@ fold_single_bit_test (location_t loc, enum tree_code code,
 	  && TREE_CODE (TREE_OPERAND (inner, 1)) == INTEGER_CST
 	  && tree_fits_uhwi_p (TREE_OPERAND (inner, 1))
 	  && bitnum < TYPE_PRECISION (type)
-	  && (TREE_INT_CST_LOW (TREE_OPERAND (inner, 1))
+	  && (tree_to_uhwi (TREE_OPERAND (inner, 1))
 	      < (unsigned) (TYPE_PRECISION (type) - bitnum)))
 	{
-	  bitnum += TREE_INT_CST_LOW (TREE_OPERAND (inner, 1));
+	  bitnum += tree_to_uhwi (TREE_OPERAND (inner, 1));
 	  inner = TREE_OPERAND (inner, 0);
 	}
 
@@ -7261,8 +7264,8 @@ fold_plusminus_mult_expr (location_t loc, enum tree_code code, tree type,
       HOST_WIDE_INT int01, int11, tmp;
       bool swap = false;
       tree maybe_same;
-      int01 = TREE_INT_CST_LOW (arg01);
-      int11 = TREE_INT_CST_LOW (arg11);
+      int01 = tree_to_shwi (arg01);
+      int11 = tree_to_shwi (arg11);
 
       /* Move min of absolute values to int11.  */
       if (absu_hwi (int01) < absu_hwi (int11))
@@ -12016,7 +12019,7 @@ fold_binary_loc (location_t loc,
       if (POINTER_TYPE_P (TREE_TYPE (arg0)) && tree_fits_uhwi_p (arg1))
 	{
 	  unsigned HOST_WIDE_INT modulus, residue;
-	  unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (arg1);
+	  unsigned HOST_WIDE_INT low = tree_to_uhwi (arg1);
 
 	  modulus = get_pointer_modulus_and_residue (arg0, &residue,
 						     integer_onep (arg1));
@@ -12049,7 +12052,7 @@ fold_binary_loc (location_t loc,
 	    zerobits = ((((unsigned HOST_WIDE_INT) 1) << shiftc) - 1);
 	  else if (TREE_CODE (arg0) == RSHIFT_EXPR
 		   && TYPE_PRECISION (TREE_TYPE (arg0))
-		      == GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (arg0))))
+		      == GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (arg0))))
 	    {
 	      prec = TYPE_PRECISION (TREE_TYPE (arg0));
 	      tree arg00 = TREE_OPERAND (arg0, 0);
@@ -12060,7 +12063,7 @@ fold_binary_loc (location_t loc,
 		{
 		  tree inner_type = TREE_TYPE (TREE_OPERAND (arg00, 0));
 		  if (TYPE_PRECISION (inner_type)
-		      == GET_MODE_BITSIZE (TYPE_MODE (inner_type))
+		      == GET_MODE_PRECISION (TYPE_MODE (inner_type))
 		      && TYPE_PRECISION (inner_type) < prec)
 		    {
 		      prec = TYPE_PRECISION (inner_type);
@@ -12647,12 +12650,12 @@ fold_binary_loc (location_t loc,
 
       /* Turn (a OP c1) OP c2 into a OP (c1+c2).  */
       if (TREE_CODE (op0) == code && tree_fits_uhwi_p (arg1)
-	  && TREE_INT_CST_LOW (arg1) < prec
+	  && tree_to_uhwi (arg1) < prec
 	  && tree_fits_uhwi_p (TREE_OPERAND (arg0, 1))
-	  && TREE_INT_CST_LOW (TREE_OPERAND (arg0, 1)) < prec)
+	  && tree_to_uhwi (TREE_OPERAND (arg0, 1)) < prec)
 	{
-	  unsigned int low = (TREE_INT_CST_LOW (TREE_OPERAND (arg0, 1))
-			      + TREE_INT_CST_LOW (arg1));
+	  unsigned int low = (tree_to_uhwi (TREE_OPERAND (arg0, 1))
+			      + tree_to_uhwi (arg1));
 
 	  /* Deal with a OP (c1 + c2) being undefined but (a OP c1) OP c2
 	     being well defined.  */
@@ -12676,13 +12679,13 @@ fold_binary_loc (location_t loc,
       if (((code == LSHIFT_EXPR && TREE_CODE (arg0) == RSHIFT_EXPR)
            || (TYPE_UNSIGNED (type)
 	       && code == RSHIFT_EXPR && TREE_CODE (arg0) == LSHIFT_EXPR))
-	  && tree_fits_shwi_p (arg1)
-	  && TREE_INT_CST_LOW (arg1) < prec
-	  && tree_fits_shwi_p (TREE_OPERAND (arg0, 1))
-	  && TREE_INT_CST_LOW (TREE_OPERAND (arg0, 1)) < prec)
+	  && tree_fits_uhwi_p (arg1)
+	  && tree_to_uhwi (arg1) < prec
+	  && tree_fits_uhwi_p (TREE_OPERAND (arg0, 1))
+	  && tree_to_uhwi (TREE_OPERAND (arg0, 1)) < prec)
 	{
-	  HOST_WIDE_INT low0 = TREE_INT_CST_LOW (TREE_OPERAND (arg0, 1));
-	  HOST_WIDE_INT low1 = TREE_INT_CST_LOW (arg1);
+	  HOST_WIDE_INT low0 = tree_to_uhwi (TREE_OPERAND (arg0, 1));
+	  HOST_WIDE_INT low1 = tree_to_uhwi (arg1);
 	  tree lshift;
 	  tree arg00;
 
@@ -13815,7 +13818,7 @@ fold_binary_loc (location_t loc,
 			associated with the mode of arg1, so the sign bit is
 			specified by this mode.  Check that arg1 is the signed
 			max associated with this sign bit.  */
-		     && width == GET_MODE_BITSIZE (TYPE_MODE (arg1_type))
+		     && width == GET_MODE_PRECISION (TYPE_MODE (arg1_type))
 		     /* signed_type does not work on pointer types.  */
 		     && INTEGRAL_TYPE_P (arg1_type))
 	      {

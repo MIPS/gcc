@@ -24,6 +24,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "ggc.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
@@ -35,7 +36,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
@@ -338,7 +341,7 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
      outer ones, and also that we do not try to visit a removed
      block.  */
   bb_order = single_pred_before_succ_order ();
-  n = n_basic_blocks - NUM_FIXED_BLOCKS;
+  n = n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS;
 
   for (i = 0; i < n; i++)
     {
@@ -1980,9 +1983,9 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
 	  || !tree_fits_uhwi_p (tree_size2))
 	continue;
 
-      offset1 = TREE_INT_CST_LOW (tree_offset1);
-      offset2 = TREE_INT_CST_LOW (tree_offset2);
-      size2 = TREE_INT_CST_LOW (tree_size2);
+      offset1 = tree_to_uhwi (tree_offset1);
+      offset2 = tree_to_uhwi (tree_offset2);
+      size2 = tree_to_uhwi (tree_size2);
       align1 = DECL_ALIGN (field1) % param_align_bits;
 
       if (offset1 % BITS_PER_UNIT != 0)

@@ -23,6 +23,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "attribs.h"
 #include "intl.h"
 #include "c-pretty-print.h"
 #include "tree-pretty-print.h"
@@ -916,9 +918,9 @@ pp_c_integer_constant (c_pretty_printer *pp, tree i)
     : TREE_TYPE (i);
 
   if (tree_fits_shwi_p (i))
-    pp_wide_integer (pp, TREE_INT_CST_LOW (i));
+    pp_wide_integer (pp, tree_to_shwi (i));
   else if (tree_fits_uhwi_p (i))
-    pp_unsigned_wide_integer (pp, TREE_INT_CST_LOW (i));
+    pp_unsigned_wide_integer (pp, tree_to_uhwi (i));
   else
     {
       unsigned HOST_WIDE_INT low = TREE_INT_CST_LOW (i);

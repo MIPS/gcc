@@ -23,6 +23,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
 #include "cgraph.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
@@ -204,6 +205,8 @@ dump_varpool_node (FILE *f, struct varpool_node *node)
     fprintf (f, " initialized");
   if (node->output)
     fprintf (f, " output");
+  if (node->need_bounds_init)
+    fprintf (f, " need-bounds-init");
   if (TREE_READONLY (node->decl))
     fprintf (f, " read-only");
   if (ctor_for_folding (node->decl) != error_mark_node)

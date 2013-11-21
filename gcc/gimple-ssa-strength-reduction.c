@@ -40,6 +40,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
+#include "stor-layout.h"
+#include "expr.h"
 #include "basic-block.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
@@ -48,6 +50,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "domwalk.h"
 #include "pointer-set.h"
@@ -610,7 +613,7 @@ stmt_cost (gimple gs, bool speed)
       rhs2 = gimple_assign_rhs2 (gs);
 
       if (tree_fits_shwi_p (rhs2))
-	return mult_by_coeff_cost (TREE_INT_CST_LOW (rhs2), lhs_mode, speed);
+	return mult_by_coeff_cost (tree_to_shwi (rhs2), lhs_mode, speed);
 
       gcc_assert (TREE_CODE (rhs1) != INTEGER_CST);
       return mul_cost (speed, lhs_mode);
@@ -732,7 +735,7 @@ slsr_process_phi (gimple phi, bool speed)
 	  derived_base_name = arg;
 
 	  if (SSA_NAME_IS_DEFAULT_DEF (arg))
-	    arg_bb = single_succ (ENTRY_BLOCK_PTR);
+	    arg_bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 	  else
 	    gimple_bb (SSA_NAME_DEF_STMT (arg));
 	}

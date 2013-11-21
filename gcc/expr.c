@@ -24,6 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "attribs.h"
+#include "varasm.h"
 #include "flags.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -129,7 +133,8 @@ static void move_by_pieces_1 (insn_gen_fn, machine_mode,
 			      struct move_by_pieces_d *);
 static bool block_move_libcall_safe_for_call_parm (void);
 static bool emit_block_move_via_movmem (rtx, rtx, rtx, unsigned, unsigned, HOST_WIDE_INT,
-					unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT);
+					unsigned HOST_WIDE_INT, unsigned HOST_WIDE_INT,
+					unsigned HOST_WIDE_INT);
 static tree emit_block_move_libcall_fn (int);
 static void emit_block_move_via_loop (rtx, rtx, rtx, unsigned);
 static rtx clear_by_pieces_1 (void *, HOST_WIDE_INT, enum machine_mode);
@@ -1131,7 +1136,8 @@ rtx
 emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
 		       unsigned int expected_align, HOST_WIDE_INT expected_size,
 		       unsigned HOST_WIDE_INT min_size,
-		       unsigned HOST_WIDE_INT max_size)
+		       unsigned HOST_WIDE_INT max_size,
+		       unsigned HOST_WIDE_INT probable_max_size)
 {
   bool may_use_call;
   rtx retval = 0;
@@ -1188,7 +1194,7 @@ emit_block_move_hints (rtx x, rtx y, rtx size, enum block_op_methods method,
     move_by_pieces (x, y, INTVAL (size), align, 0);
   else if (emit_block_move_via_movmem (x, y, size, align,
 				       expected_align, expected_size,
-				       min_size, max_size))
+				       min_size, max_size, probable_max_size))
     ;
   else if (may_use_call
 	   && ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (x))
@@ -1224,7 +1230,7 @@ emit_block_move (rtx x, rtx y, rtx size, enum block_op_methods method)
   else
     max = GET_MODE_MASK (GET_MODE (size));
   return emit_block_move_hints (x, y, size, method, 0, -1,
-				min, max);
+				min, max, max);
 }
 
 /* A subroutine of emit_block_move.  Returns true if calling the
@@ -1289,7 +1295,8 @@ static bool
 emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 			    unsigned int expected_align, HOST_WIDE_INT expected_size,
 			    unsigned HOST_WIDE_INT min_size,
-			    unsigned HOST_WIDE_INT max_size)
+			    unsigned HOST_WIDE_INT max_size,
+			    unsigned HOST_WIDE_INT probable_max_size)
 {
   int save_volatile_ok = volatile_ok;
   enum machine_mode mode;
@@ -1298,8 +1305,8 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
     expected_align = align;
   if (expected_size != -1)
     {
-      if ((unsigned HOST_WIDE_INT)expected_size > max_size)
-	expected_size = max_size;
+      if ((unsigned HOST_WIDE_INT)expected_size > probable_max_size)
+	expected_size = probable_max_size;
       if ((unsigned HOST_WIDE_INT)expected_size < min_size)
 	expected_size = min_size;
     }
@@ -1328,7 +1335,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 	      || max_size <= (GET_MODE_MASK (mode) >> 1)
 	      || GET_MODE_BITSIZE (mode) >= GET_MODE_BITSIZE (Pmode)))
 	{
-	  struct expand_operand ops[8];
+	  struct expand_operand ops[9];
 	  unsigned int nops;
 
 	  /* ??? When called via emit_block_move_for_call, it'd be
@@ -1336,7 +1343,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 	     that it doesn't fail the expansion because it thinks
 	     emitting the libcall would be more efficient.  */
 	  nops = insn_data[(int) code].n_generator_args;
-	  gcc_assert (nops == 4 || nops == 6 || nops == 8);
+	  gcc_assert (nops == 4 || nops == 6 || nops == 8 || nops == 9);
 
 	  create_fixed_operand (&ops[0], x);
 	  create_fixed_operand (&ops[1], y);
@@ -1348,7 +1355,7 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 	      create_integer_operand (&ops[4], expected_align / BITS_PER_UNIT);
 	      create_integer_operand (&ops[5], expected_size);
 	    }
-	  if (nops == 8)
+	  if (nops >= 8)
 	    {
 	      create_integer_operand (&ops[6], min_size);
 	      /* If we can not represent the maximal size,
@@ -1357,6 +1364,15 @@ emit_block_move_via_movmem (rtx x, rtx y, rtx size, unsigned int align,
 	        create_integer_operand (&ops[7], max_size);
 	      else
 		create_fixed_operand (&ops[7], NULL);
+	    }
+	  if (nops == 9)
+	    {
+	      /* If we can not represent the maximal size,
+		 make parameter NULL.  */
+	      if ((HOST_WIDE_INT) probable_max_size != -1)
+	        create_integer_operand (&ops[8], probable_max_size);
+	      else
+		create_fixed_operand (&ops[8], NULL);
 	    }
 	  if (maybe_expand_insn (code, nops, ops))
 	    {
@@ -2747,7 +2763,8 @@ rtx
 clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
 		     unsigned int expected_align, HOST_WIDE_INT expected_size,
 		     unsigned HOST_WIDE_INT min_size,
-		     unsigned HOST_WIDE_INT max_size)
+		     unsigned HOST_WIDE_INT max_size,
+		     unsigned HOST_WIDE_INT probable_max_size)
 {
   enum machine_mode mode = GET_MODE (object);
   unsigned int align;
@@ -2789,7 +2806,7 @@ clear_storage_hints (rtx object, rtx size, enum block_op_methods method,
     clear_by_pieces (object, INTVAL (size), align);
   else if (set_storage_via_setmem (object, size, const0_rtx, align,
 				   expected_align, expected_size,
-				   min_size, max_size))
+				   min_size, max_size, probable_max_size))
     ;
   else if (ADDR_SPACE_GENERIC_P (MEM_ADDR_SPACE (object)))
     return set_storage_via_libcall (object, size, const0_rtx,
@@ -2808,7 +2825,7 @@ clear_storage (rtx object, rtx size, enum block_op_methods method)
     min = max = UINTVAL (size);
   else
     max = GET_MODE_MASK (GET_MODE (size));
-  return clear_storage_hints (object, size, method, 0, -1, min, max);
+  return clear_storage_hints (object, size, method, 0, -1, min, max, max);
 }
 
 
@@ -2907,7 +2924,8 @@ bool
 set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 			unsigned int expected_align, HOST_WIDE_INT expected_size,
 			unsigned HOST_WIDE_INT min_size,
-			unsigned HOST_WIDE_INT max_size)
+			unsigned HOST_WIDE_INT max_size,
+			unsigned HOST_WIDE_INT probable_max_size)
 {
   /* Try the most limited insn first, because there's no point
      including more than one in the machine description unless
@@ -2942,11 +2960,11 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	      || max_size <= (GET_MODE_MASK (mode) >> 1)
 	      || GET_MODE_BITSIZE (mode) >= GET_MODE_BITSIZE (Pmode)))
 	{
-	  struct expand_operand ops[8];
+	  struct expand_operand ops[9];
 	  unsigned int nops;
 
 	  nops = insn_data[(int) code].n_generator_args;
-	  gcc_assert (nops == 4 || nops == 6 || nops == 8);
+	  gcc_assert (nops == 4 || nops == 6 || nops == 8 || nops == 9);
 
 	  create_fixed_operand (&ops[0], object);
 	  /* The check above guarantees that this size conversion is valid.  */
@@ -2958,7 +2976,7 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	      create_integer_operand (&ops[4], expected_align / BITS_PER_UNIT);
 	      create_integer_operand (&ops[5], expected_size);
 	    }
-	  if (nops == 8)
+	  if (nops >= 8)
 	    {
 	      create_integer_operand (&ops[6], min_size);
 	      /* If we can not represent the maximal size,
@@ -2967,6 +2985,15 @@ set_storage_via_setmem (rtx object, rtx size, rtx val, unsigned int align,
 	        create_integer_operand (&ops[7], max_size);
 	      else
 		create_fixed_operand (&ops[7], NULL);
+	    }
+	  if (nops == 9)
+	    {
+	      /* If we can not represent the maximal size,
+		 make parameter NULL.  */
+	      if ((HOST_WIDE_INT) probable_max_size != -1)
+	        create_integer_operand (&ops[8], probable_max_size);
+	      else
+		create_fixed_operand (&ops[8], NULL);
 	    }
 	  if (maybe_expand_insn (code, nops, ops))
 	    return true;
@@ -9647,7 +9674,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	    if (offset == 0
 		&& tree_fits_uhwi_p (TYPE_SIZE (type))
 		&& (GET_MODE_BITSIZE (DECL_MODE (base))
-		    == TREE_INT_CST_LOW (TYPE_SIZE (type))))
+		    == tree_to_uhwi (TYPE_SIZE (type))))
 	      return expand_expr (build1 (VIEW_CONVERT_EXPR, type, base),
 				  target, tmode, modifier);
 	    if (TYPE_MODE (type) == BLKmode)
