@@ -402,3 +402,6 @@ Lift restrictions on GOT size
 
 noasmopt
 Driver
+
+magic=
+Target RejectNegative Joined Undocumented UInteger Var(magic_mips)
