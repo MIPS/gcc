@@ -1,3 +1,10 @@
+2013-11-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline r205233.
+	2013-11-21  Peter Bergner  <bergner@vnet.ibm.com>
+
+	* doc/extend.texi: Document htm builtins.
+
 2013-11-20  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline r205146
