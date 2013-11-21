@@ -1,3 +1,8 @@
+2013-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (c_builtin_function_ext_scope): Don't bind if
+	external_scope is NULL.
+
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-tree.h (c_finish_oacc_parallel): New declaration.

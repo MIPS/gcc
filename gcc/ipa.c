@@ -245,7 +245,7 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
      hope calls to them will be devirtualized. 
 
      Again we remove them after inlining.  In late optimization some
-     devirtualization may happen, but it is not importnat since we won't inline
+     devirtualization may happen, but it is not important since we won't inline
      the call. In theory early opts and IPA should work out all important cases.
 
    - virtual clones needs bodies of their origins for later materialization;
@@ -273,7 +273,7 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
    by reachable symbols or origins of clones).  The queue is represented
    as linked list by AUX pointer terminated by 1.
 
-   A the end we keep all reachable symbols. For symbols in boundary we always
+   At the end we keep all reachable symbols. For symbols in boundary we always
    turn definition into a declaration, but we may keep function body around
    based on body_needed_for_clonning
 
@@ -425,6 +425,19 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		      enqueue_node (cnode, &first, reachable);
 		    }
 		}
+
+	    }
+	  /* If any reachable function has simd clones, mark them as
+	     reachable as well.  */
+	  if (cnode->simd_clones)
+	    {
+	      cgraph_node *next;
+	      for (next = cnode->simd_clones;
+		   next;
+		   next = next->simdclone->next_clone)
+		if (in_boundary_p
+		    || !pointer_set_insert (reachable, next))
+		  enqueue_node (next, &first, reachable);
 	    }
 	}
       /* When we see constructor of external variable, keep referred nodes in the

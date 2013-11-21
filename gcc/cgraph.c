@@ -3068,29 +3068,4 @@ gimple_check_call_matching_types (gimple call_stmt, tree callee,
   return true;
 }
 
-/* Given a NODE, return a compatible SIMD clone returning `vectype'.
-   If none found, NULL is returned.  */
-
-struct cgraph_node *
-get_simd_clone (struct cgraph_node *node, tree vectype)
-{
-  if (!node->has_simd_clones)
-    return NULL;
-
-  /* FIXME: What to do with linear/uniform arguments.  */
-
-  /* FIXME: Nasty kludge until we figure out where to put the clone
-     list-- perhaps, next_sibling_clone/prev_sibling_clone in
-     cgraph_node ??.  */
-  struct cgraph_node *t;
-  FOR_EACH_FUNCTION (t)
-    if (t->simdclone_of == node
-	/* No inbranch vectorization for now.  */
-	&& !t->simdclone->inbranch
-	&& types_compatible_p (TREE_TYPE (TREE_TYPE (t->decl)),
-			       vectype))
-      break;
-  return t;
-}
-
 #include "gt-cgraph.h"

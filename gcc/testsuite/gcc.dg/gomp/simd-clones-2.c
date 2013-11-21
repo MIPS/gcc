@@ -1,8 +1,7 @@
-/* { dg-do compile { target i?86-*-* x86_64-*-* } } */
-/* { dg-options "-fopenmp -fdump-tree-optimized -O -msse2" } */
+/* { dg-options "-fopenmp -fdump-tree-optimized -O" } */
 
-#pragma omp declare simd inbranch uniform(c) linear(b:66)   // addit.simdclone.2
-#pragma omp declare simd notinbranch aligned(c:32) // addit.simdclone.1
+#pragma omp declare simd inbranch uniform(c) linear(b:66)
+#pragma omp declare simd notinbranch aligned(c:32)
 int addit(int a, int b, int *c)
 {
   return a + b;
@@ -15,7 +14,13 @@ float setArray(float *a, float x, int k)
   return a[k];
 }
 
-/* { dg-final { scan-tree-dump "clone.0 \\(_ZGVxN4ua32vl_setArray" "optimized" } } */
-/* { dg-final { scan-tree-dump "clone.1 \\(_ZGVxN4vvva32_addit" "optimized" } } */
-/* { dg-final { scan-tree-dump "clone.2 \\(_ZGVxM4vl66u_addit" "optimized" } } */
+/* { dg-final { scan-tree-dump "_ZGVbN4ua32vl_setArray" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVbN4vvva32_addit" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVbM4vl66u_addit" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVcN8ua32vl_setArray" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVcN4vvva32_addit" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVcM4vl66u_addit" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVdN8ua32vl_setArray" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVdN8vvva32_addit" "optimized" { target i?86-*-* x86_64-*-* } } } */
+/* { dg-final { scan-tree-dump "_ZGVdM8vl66u_addit" "optimized" { target i?86-*-* x86_64-*-* } } } */
 /* { dg-final { cleanup-tree-dump "optimized" } } */

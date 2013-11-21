@@ -1521,34 +1521,35 @@ hook_int_uint_mode_1)
 
 HOOK_VECTOR_END (sched)
 
-/* Functions relating to Cilk Plus.  */
+/* Functions relating to OpenMP and Cilk Plus SIMD clones.  */
 #undef HOOK_PREFIX
-#define HOOK_PREFIX "TARGET_CILKPLUS_"
-HOOK_VECTOR (TARGET_CILKPLUS, cilkplus)
+#define HOOK_PREFIX "TARGET_SIMD_CLONE_"
+HOOK_VECTOR (TARGET_SIMD_CLONE, simd_clone)
 
 DEFHOOK
-(default_vecsize_mangle,
-"This hook should return the default mangling character when no vector\n\
-size can be determined by examining the  Cilk Plus @code{processor} clause.\n\
-This is as specified in the Intel Vector ABI document.\n\
-\n\
-This hook, as well as @code{max_vector_size_for_isa} below must be set\n\
-to support the Cilk Plus @code{processor} clause.\n\
-\n\
-The only argument is a @var{cgraph_node} containing the clone.",
-char, (struct cgraph_node *), NULL)
+(compute_vecsize_and_simdlen,
+"This hook should set @var{vecsize_mangle}, @var{vecsize_int}, @var{vecsize_float}\n\
+fields in @var{simd_clone} structure pointed by @var{clone_info} argument and also\n\
+@var{simdlen} field if it was previously 0.\n\
+The hook should return 0 if SIMD clones shouldn't be emitted,\n\
+or number of @var{vecsize_mangle} variants that should be emitted.",
+int, (struct cgraph_node *, struct cgraph_simd_clone *, tree, int), NULL)
 
 DEFHOOK
-(vecsize_for_mangle,
-"This hook returns the maximum hardware vector size in bits for a given\n\
-mangling character.  The character is as described in Intel's\n\
-Vector ABI (see @var{ISA} character in the section on mangling).\n\
-\n\
-This hook must be defined in order to support the Cilk Plus @code{processor}\n\
-clause.",
-unsigned int, (char), NULL)
+(adjust,
+"This hook should add implicit @code{attribute(target(\"...\"))} attribute\n\
+to SIMD clone @var{node} if needed.",
+void, (struct cgraph_node *), NULL)
 
-HOOK_VECTOR_END (cilkplus)
+DEFHOOK
+(usable,
+"This hook should return -1 if SIMD clone @var{node} shouldn't be used\n\
+in vectorized loops in current function, or non-negative number if it is\n\
+usable.  In that case, the smaller the number is, the more desirable it is\n\
+to use it.",
+int, (struct cgraph_node *), NULL)
+
+HOOK_VECTOR_END (simd_clone)
 
 /* Functions relating to vectorization.  */
 #undef HOOK_PREFIX

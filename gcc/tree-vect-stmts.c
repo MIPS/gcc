@@ -2154,7 +2154,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
   vec<simd_call_arg_info> arginfo = vNULL;
   vec<tree> vargs = vNULL;
   size_t i, nargs;
-  tree lhs, rtype;
+  tree lhs, rtype, ratype;
   vec<constructor_elt, va_gc> *ret_ctor_elts;
 
   /* Is STMT a vectorizable call?   */
@@ -2166,7 +2166,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
     return false;
 
   struct cgraph_node *node = cgraph_get_node (fndecl);
-  if (node == NULL || !node->has_simd_clones)
+  if (node == NULL || node->simd_clones == NULL)
     return false;
 
   if (!STMT_VINFO_RELEVANT_P (stmt_info) && !bb_vinfo)
@@ -2238,76 +2238,99 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
     }
 
   unsigned int badness = 0;
-  /* FIXME: Nasty kludge until we figure out where to put the clone
-     list-- perhaps, next_sibling_clone/prev_sibling_clone in
-     cgraph_node ??.  */
-  struct cgraph_node *bestn = NULL, *n;
-  FOR_EACH_FUNCTION (n)
-    if (n->simdclone_of == node)
-      {
-	unsigned int this_badness = 0;
-	if (n->simdclone->simdlen
-	    > (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo)
-	    || n->simdclone->nargs != nargs)
-	  continue;
-	if (n->simdclone->simdlen
-	    < (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo))
-	  this_badness += (exact_log2 (LOOP_VINFO_VECT_FACTOR (loop_vinfo))
-			   - exact_log2 (n->simdclone->simdlen)) * 1024;
-	if (n->simdclone->inbranch)
-	  this_badness += 2048;
-	/* FORNOW: Have to add code to add the mask argument.  */
-	if (n->simdclone->inbranch)
-	  continue;
-	for (i = 0; i < nargs; i++)
-	  {
-	    switch (n->simdclone->args[i].arg_type)
-	      {
-	      case SIMD_CLONE_ARG_TYPE_VECTOR:
-		if (arginfo[i].vectype == NULL_TREE
-		    || arginfo[i].linear_step)
-		  this_badness += 64;
-		break;
-	      case SIMD_CLONE_ARG_TYPE_UNIFORM:
-		if (arginfo[i].vectype != NULL_TREE)
-		  i = -1;
-		break;
-	      case SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP:
-		if (arginfo[i].vectype == NULL_TREE
-		    || (arginfo[i].linear_step
-			!= n->simdclone->args[i].linear_step))
-		  i = -1;
-		break;
-	      case SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP:
-		/* FORNOW */
+  struct cgraph_node *bestn = NULL;
+  for (struct cgraph_node *n = node->simd_clones; n != NULL;
+       n = n->simdclone->next_clone)
+    {
+      unsigned int this_badness = 0;
+      if (n->simdclone->simdlen
+	  > (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	  || n->simdclone->nargs != nargs)
+	continue;
+      if (n->simdclone->simdlen
+	  < (unsigned) LOOP_VINFO_VECT_FACTOR (loop_vinfo))
+	this_badness += (exact_log2 (LOOP_VINFO_VECT_FACTOR (loop_vinfo))
+			 - exact_log2 (n->simdclone->simdlen)) * 1024;
+      if (n->simdclone->inbranch)
+	this_badness += 2048;
+      int target_badness = targetm.simd_clone.usable (n);
+      if (target_badness < 0)
+	continue;
+      this_badness += target_badness * 512;
+      /* FORNOW: Have to add code to add the mask argument.  */
+      if (n->simdclone->inbranch)
+	continue;
+      for (i = 0; i < nargs; i++)
+	{
+	  switch (n->simdclone->args[i].arg_type)
+	    {
+	    case SIMD_CLONE_ARG_TYPE_VECTOR:
+	      if (!useless_type_conversion_p
+		     (n->simdclone->args[i].orig_type,
+		      TREE_TYPE (gimple_call_arg (stmt, i))))
 		i = -1;
-		break;
-	      }
-	    if (i == (size_t) -1)
+	      else if (arginfo[i].vectype == NULL_TREE
+		       || arginfo[i].linear_step)
+		this_badness += 64;
 	      break;
-	    if (n->simdclone->args[i].alignment > arginfo[i].align)
-	      {
+	    case SIMD_CLONE_ARG_TYPE_UNIFORM:
+	      if (arginfo[i].vectype != NULL_TREE)
 		i = -1;
-		break;
-	      }
-	    if (arginfo[i].align)
-	      this_badness += (exact_log2 (arginfo[i].align)
-			       - exact_log2 (n->simdclone->args[i].alignment));
-	  }
-	if (i == (size_t) -1)
-	  continue;
-	if (bestn == NULL || this_badness < badness)
-	  {
-	    bestn = n;
-	    badness = this_badness;
-	  }
-      }
+	      break;
+	    case SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP:
+	      if (arginfo[i].vectype == NULL_TREE
+		  || (arginfo[i].linear_step
+		      != n->simdclone->args[i].linear_step))
+		i = -1;
+	      break;
+	    case SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP:
+	      /* FORNOW */
+	      i = -1;
+	      break;
+	    case SIMD_CLONE_ARG_TYPE_MASK:
+	      gcc_unreachable ();
+	    }
+	  if (i == (size_t) -1)
+	    break;
+	  if (n->simdclone->args[i].alignment > arginfo[i].align)
+	    {
+	      i = -1;
+	      break;
+	    }
+	  if (arginfo[i].align)
+	    this_badness += (exact_log2 (arginfo[i].align)
+			     - exact_log2 (n->simdclone->args[i].alignment));
+	}
+      if (i == (size_t) -1)
+	continue;
+      if (bestn == NULL || this_badness < badness)
+	{
+	  bestn = n;
+	  badness = this_badness;
+	}
+    }
 
   if (bestn == NULL)
     {
       arginfo.release ();
       return false;
     }
+
+  for (i = 0; i < nargs; i++)
+    if (arginfo[i].vectype == NULL_TREE
+	&& bestn->simdclone->args[i].arg_type == SIMD_CLONE_ARG_TYPE_VECTOR)
+      {
+	arginfo[i].vectype
+	  = get_vectype_for_scalar_type (TREE_TYPE (gimple_call_arg (stmt,
+								     i)));
+	if (arginfo[i].vectype == NULL
+	    || (TYPE_VECTOR_SUBPARTS (arginfo[i].vectype)
+		> bestn->simdclone->simdlen))
+	  {
+	    arginfo.release ();
+	    return false;
+	  }
+      }
 
   fndecl = bestn->decl;
   nunits = bestn->simdclone->simdlen;
@@ -2347,10 +2370,16 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
   scalar_dest = gimple_call_lhs (stmt);
   vec_dest = NULL_TREE;
   rtype = NULL_TREE;
+  ratype = NULL_TREE;
   if (scalar_dest)
     {
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
       rtype = TREE_TYPE (TREE_TYPE (fndecl));
+      if (TREE_CODE (rtype) == ARRAY_TYPE)
+	{
+	  ratype = rtype;
+	  rtype = TREE_TYPE (ratype);
+	}
     }
 
   prev_stmt_info = NULL;
@@ -2364,81 +2393,90 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 
       for (i = 0; i < nargs; i++)
 	{
-	  unsigned int k, l;
+	  unsigned int k, l, m, o;
 	  tree atype;
 	  op = gimple_call_arg (stmt, i);
 	  switch (bestn->simdclone->args[i].arg_type)
 	    {
 	    case SIMD_CLONE_ARG_TYPE_VECTOR:
-	      /* FIXME */
-	      atype = TREE_TYPE (bestn->simdclone->args[i].vector_arg);
-	      gcc_assert (TYPE_VECTOR_SUBPARTS (atype) == nunits);
-	      if (nunits < TYPE_VECTOR_SUBPARTS (arginfo[i].vectype))
+	      atype = bestn->simdclone->args[i].vector_type;
+	      o = nunits / TYPE_VECTOR_SUBPARTS (atype);
+	      for (m = j * o; m < (j + 1) * o; m++)
 		{
-		  unsigned int prec = GET_MODE_BITSIZE (TYPE_MODE (atype));
-		  k = TYPE_VECTOR_SUBPARTS (arginfo[i].vectype) / nunits;
-		  gcc_assert ((k & (k - 1)) == 0);
-		  if (j == 0)
-		    vec_oprnd0
-		      = vect_get_vec_def_for_operand (op, stmt, NULL);
+		  if (TYPE_VECTOR_SUBPARTS (atype)
+		      < TYPE_VECTOR_SUBPARTS (arginfo[i].vectype))
+		    {
+		      unsigned int prec = GET_MODE_BITSIZE (TYPE_MODE (atype));
+		      k = (TYPE_VECTOR_SUBPARTS (arginfo[i].vectype)
+			   / TYPE_VECTOR_SUBPARTS (atype));
+		      gcc_assert ((k & (k - 1)) == 0);
+		      if (m == 0)
+			vec_oprnd0
+			  = vect_get_vec_def_for_operand (op, stmt, NULL);
+		      else
+			{
+			  vec_oprnd0 = arginfo[i].op;
+			  if ((m & (k - 1)) == 0)
+			    vec_oprnd0
+			      = vect_get_vec_def_for_stmt_copy (arginfo[i].dt,
+								vec_oprnd0);
+			}
+		      arginfo[i].op = vec_oprnd0;
+		      vec_oprnd0
+			= build3 (BIT_FIELD_REF, atype, vec_oprnd0,
+				  build_int_cst (integer_type_node, prec),
+				  build_int_cst (integer_type_node,
+						 (m & (k - 1)) * prec));
+		      new_stmt
+			= gimple_build_assign_with_ops (BIT_FIELD_REF,
+							make_ssa_name (atype,
+								       NULL),
+							vec_oprnd0, NULL_TREE);
+		      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+		      vargs.safe_push (gimple_assign_lhs (new_stmt));
+		    }
 		  else
 		    {
-		      vec_oprnd0 = arginfo[i].op;
-		      if ((j & (k - 1)) == 0)
-			vec_oprnd0
-			  = vect_get_vec_def_for_stmt_copy (arginfo[i].dt,
-							    vec_oprnd0);
+		      k = (TYPE_VECTOR_SUBPARTS (atype)
+			   / TYPE_VECTOR_SUBPARTS (arginfo[i].vectype));
+		      gcc_assert ((k & (k - 1)) == 0);
+		      vec<constructor_elt, va_gc> *ctor_elts;
+		      if (k != 1)
+			vec_alloc (ctor_elts, k);
+		      else
+			ctor_elts = NULL;
+		      for (l = 0; l < k; l++)
+			{
+			  if (m == 0 && l == 0)
+			    vec_oprnd0
+			      = vect_get_vec_def_for_operand (op, stmt, NULL);
+			  else
+			    vec_oprnd0
+			      = vect_get_vec_def_for_stmt_copy (arginfo[i].dt,
+								arginfo[i].op);
+			  arginfo[i].op = vec_oprnd0;
+			  if (k == 1)
+			    break;
+			  CONSTRUCTOR_APPEND_ELT (ctor_elts, NULL_TREE,
+						  vec_oprnd0);
+			}
+		      if (k == 1)
+			vargs.safe_push (vec_oprnd0);
+		      else
+			{
+			  vec_oprnd0 = build_constructor (atype, ctor_elts);
+			  new_stmt
+			    = gimple_build_assign_with_ops
+				(CONSTRUCTOR, make_ssa_name (atype, NULL),
+				 vec_oprnd0, NULL_TREE);
+			  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+			  vargs.safe_push (gimple_assign_lhs (new_stmt));
+			}
 		    }
-		  arginfo[i].op = vec_oprnd0;
-		  vec_oprnd0 = build3 (BIT_FIELD_REF, atype, vec_oprnd0,
-				       build_int_cst (integer_type_node, prec),
-				       build_int_cst (integer_type_node,
-						      (j & (k - 1)) * prec));
-		  new_stmt
-		    = gimple_build_assign_with_ops (BIT_FIELD_REF,
-						    make_ssa_name (atype,
-								   NULL),
-						    vec_oprnd0, NULL_TREE);
-		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
-		  vargs.quick_push (gimple_assign_lhs (new_stmt));
-		  break;
 		}
-	      k = nunits / TYPE_VECTOR_SUBPARTS (arginfo[i].vectype);
-	      gcc_assert ((k & (k - 1)) == 0);
-	      vec<constructor_elt, va_gc> *ctor_elts;
-	      if (k != 1)
-		vec_alloc (ctor_elts, k);
-	      else
-		ctor_elts = NULL;
-	      for (l = 0; l < k; l++)
-		{
-		  if (j == 0 && l == 0)
-		    vec_oprnd0
-		      = vect_get_vec_def_for_operand (op, stmt, NULL);
-		  else
-		    vec_oprnd0
-		      = vect_get_vec_def_for_stmt_copy (arginfo[i].dt,
-							arginfo[i].op);
-		  arginfo[i].op = vec_oprnd0;
-		  if (k == 1)
-		    break;
-		  CONSTRUCTOR_APPEND_ELT (ctor_elts, NULL_TREE, vec_oprnd0);
-		}
-	      if (k == 1)
-		{
-		  vargs.quick_push (vec_oprnd0);
-		  break;
-		}
-	      vec_oprnd0 = build_constructor (atype, ctor_elts);
-	      new_stmt
-		= gimple_build_assign_with_ops (CONSTRUCTOR,
-						make_ssa_name (atype, NULL),
-						vec_oprnd0, NULL_TREE);
-	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
-	      vargs.quick_push (gimple_assign_lhs (new_stmt));
 	      break;
 	    case SIMD_CLONE_ARG_TYPE_UNIFORM:
-	      vargs.quick_push (op);
+	      vargs.safe_push (op);
 	      break;
 	    case SIMD_CLONE_ARG_TYPE_LINEAR_CONSTANT_STEP:
 	      if (j == 0)
@@ -2481,7 +2519,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		  add_phi_arg (new_phi, phi_arg, loop_latch_edge (loop),
 			       UNKNOWN_LOCATION);
 		  arginfo[i].op = phi_res;
-		  vargs.quick_push (phi_res);
+		  vargs.safe_push (phi_res);
 		}
 	      else
 		{
@@ -2499,7 +2537,7 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 		    = gimple_build_assign_with_ops (code, new_temp,
 						    arginfo[i].op, tcst);
 		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
-		  vargs.quick_push (new_temp);
+		  vargs.safe_push (new_temp);
 		}
 	      break;
 	    case SIMD_CLONE_ARG_TYPE_LINEAR_VARIABLE_STEP:
@@ -2511,8 +2549,11 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
       new_stmt = gimple_build_call_vec (fndecl, vargs);
       if (vec_dest)
 	{
-	  gcc_assert (TYPE_VECTOR_SUBPARTS (rtype) == nunits);
-	  if (TYPE_VECTOR_SUBPARTS (vectype) == TYPE_VECTOR_SUBPARTS (rtype))
+	  gcc_assert (ratype || TYPE_VECTOR_SUBPARTS (rtype) == nunits);
+	  if (ratype)
+	    new_temp = create_tmp_var (ratype, NULL);
+	  else if (TYPE_VECTOR_SUBPARTS (vectype)
+		   == TYPE_VECTOR_SUBPARTS (rtype))
 	    new_temp = make_ssa_name (vec_dest, new_stmt);
 	  else
 	    new_temp = make_ssa_name (rtype, new_stmt);
@@ -2522,21 +2563,28 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 
       if (vec_dest)
 	{
-	  if (TYPE_VECTOR_SUBPARTS (vectype) < TYPE_VECTOR_SUBPARTS (rtype))
+	  if (TYPE_VECTOR_SUBPARTS (vectype) < nunits)
 	    {
 	      unsigned int k, l;
 	      unsigned int prec = GET_MODE_BITSIZE (TYPE_MODE (vectype));
-	      k = (TYPE_VECTOR_SUBPARTS (rtype)
-		   / TYPE_VECTOR_SUBPARTS (vectype));
+	      k = nunits / TYPE_VECTOR_SUBPARTS (vectype);
 	      gcc_assert ((k & (k - 1)) == 0);
 	      for (l = 0; l < k; l++)
 		{
-		  tree t = build3 (BIT_FIELD_REF, vectype, new_temp,
-				   build_int_cst (integer_type_node, prec),
-				   build_int_cst (integer_type_node,
-						  l * prec));
+		  tree t;
+		  if (ratype)
+		    {
+		      t = build_fold_addr_expr (new_temp);
+		      t = build2 (MEM_REF, vectype, t,
+				  build_int_cst (TREE_TYPE (t),
+						 l * prec / BITS_PER_UNIT));
+		    }
+		  else
+		    t = build3 (BIT_FIELD_REF, vectype, new_temp,
+				build_int_cst (integer_type_node, prec),
+				build_int_cst (integer_type_node, l * prec));
 		  new_stmt
-		    = gimple_build_assign_with_ops (BIT_FIELD_REF,
+		    = gimple_build_assign_with_ops (TREE_CODE (t),
 						    make_ssa_name (vectype,
 								   NULL),
 						    t, NULL_TREE);
@@ -2548,17 +2596,45 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 
 		  prev_stmt_info = vinfo_for_stmt (new_stmt);
 		}
+
+	      if (ratype)
+		{
+		  tree clobber = build_constructor (ratype, NULL);
+		  TREE_THIS_VOLATILE (clobber) = 1;
+		  new_stmt = gimple_build_assign (new_temp, clobber);
+		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+		}
 	      continue;
 	    }
-	  else if (TYPE_VECTOR_SUBPARTS (vectype)
-		   > TYPE_VECTOR_SUBPARTS (rtype))
+	  else if (TYPE_VECTOR_SUBPARTS (vectype) > nunits)
 	    {
 	      unsigned int k = (TYPE_VECTOR_SUBPARTS (vectype)
 				/ TYPE_VECTOR_SUBPARTS (rtype));
 	      gcc_assert ((k & (k - 1)) == 0);
 	      if ((j & (k - 1)) == 0)
 		vec_alloc (ret_ctor_elts, k);
-	      CONSTRUCTOR_APPEND_ELT (ret_ctor_elts, NULL_TREE, new_temp);
+	      if (ratype)
+		{
+		  unsigned int m, o = nunits / TYPE_VECTOR_SUBPARTS (rtype);
+		  for (m = 0; m < o; m++)
+		    {
+		      tree tem = build4 (ARRAY_REF, rtype, new_temp,
+					 size_int (m), NULL_TREE, NULL_TREE);
+		      new_stmt
+			= gimple_build_assign_with_ops (ARRAY_REF, rtype,
+							make_ssa_name (rtype,
+								       NULL),
+							tem);
+		      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+		      CONSTRUCTOR_APPEND_ELT (ret_ctor_elts, NULL_TREE, tem);
+		    }
+		  tree clobber = build_constructor (ratype, NULL);
+		  TREE_THIS_VOLATILE (clobber) = 1;
+		  new_stmt = gimple_build_assign (new_temp, clobber);
+		  vect_finish_stmt_generation (stmt, new_stmt, gsi);
+		}
+	      else
+		CONSTRUCTOR_APPEND_ELT (ret_ctor_elts, NULL_TREE, new_temp);
 	      if ((j & (k - 1)) != k - 1)
 		continue;
 	      vec_oprnd0 = build_constructor (vectype, ret_ctor_elts);
@@ -2575,6 +2651,22 @@ vectorizable_simd_clone_call (gimple stmt, gimple_stmt_iterator *gsi,
 
 	      prev_stmt_info = vinfo_for_stmt (new_stmt);
 	      continue;
+	    }
+	  else if (ratype)
+	    {
+	      tree t = build_fold_addr_expr (new_temp);
+	      t = build2 (MEM_REF, vectype, t,
+			  build_int_cst (TREE_TYPE (t), 0));
+	      new_stmt
+		= gimple_build_assign_with_ops (MEM_REF, vectype,
+						make_ssa_name (vec_dest,
+							       NULL), t);
+	      vect_finish_stmt_generation (stmt, new_stmt, gsi);
+	      tree clobber = build_constructor (ratype, NULL);
+	      TREE_THIS_VOLATILE (clobber) = 1;
+	      vect_finish_stmt_generation (stmt,
+					   gimple_build_assign (new_temp,
+								clobber), gsi);
 	    }
 	}
 

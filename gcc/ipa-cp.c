@@ -429,13 +429,15 @@ determine_versionability (struct cgraph_node *node)
     reason = "not a tree_versionable_function";
   else if (cgraph_function_body_availability (node) <= AVAIL_OVERWRITABLE)
     reason = "insufficient body availability";
-  else if (node->has_simd_clones)
+  else if (node->simd_clones != NULL)
     {
       /* Ideally we should clone the SIMD clones themselves and create
 	 vector copies of them, so IPA-cp and SIMD clones can happily
 	 coexist, but that may not be worth the effort.  */
       reason = "function has SIMD clones";
     }
+  else if (node->simdclone != NULL)
+    reason = "function is SIMD clone";
 
   if (reason && dump_file && !node->alias && !node->thunk.thunk_p)
     fprintf (dump_file, "Function %s/%i is not versionable, reason: %s.\n",
@@ -702,6 +704,8 @@ initialize_node_lattices (struct cgraph_node *node)
       else
 	disable = true;
     }
+  else if (node->simdclone)
+    disable = true;
 
   if (disable || variable)
     {

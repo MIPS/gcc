@@ -3189,7 +3189,7 @@ vect_analyze_data_refs (loop_vec_info loop_vinfo,
 		      if (fndecl != NULL_TREE)
 			{
 			  struct cgraph_node *node = cgraph_get_node (fndecl);
-			  if (node != NULL && node->has_simd_clones)
+			  if (node != NULL && node->simd_clones != NULL)
 			    {
 			      unsigned int j, n = gimple_call_num_args (stmt);
 			      for (j = 0; j < n; j++)

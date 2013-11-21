@@ -1,3 +1,8 @@
+2013-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* semantics.c (finish_omp_clauses): Use maybe_constant_value on
+	OMP_CLAUSE_LINEAR in #pragma omp declare simd.
+
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* parser.c (cp_parser_omp_all_clauses): Make a parser error

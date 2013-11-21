@@ -1,3 +1,97 @@
+2013-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_cilkplus_default_vecsize_mangle,
+	ix86_cilkplus_vecsize_for_mangle): Remove.
+	(ix86_simd_clone_compute_vecsize_and_simdlen,
+	ix86_simd_clone_adjust, ix86_simd_clone_usable): New functions.
+	(TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE,
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): Remove.
+	(TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN,
+	TARGET_SIMD_CLONE_ADJUST, TARGET_SIMD_CLONE_USABLE): Define.
+	* omp-low.c (class argno_map): Remove.
+	(argno_map::argno_map): Remove.
+	(simd_clone_vector_of_formal_parm_types): New function.
+	(simd_clone_struct_alloc): Use struct cgraph_simd_clone
+	instead of struct simd_clone and struct cgraph_simd_clone_arg
+	instead of struct simd_clone_arg.
+	(simd_clone_struct_copy): Likewise.
+	(simd_clone_clauses_extract): Likewise.  Return struct
+	cgraph_simd_clone *, don't change anything in node.
+	Use simd_clone_vector_of_formal_parm_types instead of argno_map.
+	Fail if ignoring linear step.
+	(vecsize_mangle): Remove.
+	(simd_clone_compute_base_data_type): Add clone_info argument.
+	Use simd_clone_vector_of_formal_parm_types instead of argno_map.
+	(simd_clone_compute_vecsize_and_simdlen): Remove.
+	(simd_clone_mangle): Remove new_node argument, add clone_info
+	argument, return the identifier rather than changing anything in
+	node.  If mangled name doesn't already exist among simd clones,
+	fail.
+	(simd_clone_create): Handle !old_node->definition case, don't
+	ICE if cgraph_function_versioning fails.
+	(simd_clone_adjust_return_type): Handle simdlens larger than
+	what can be returned or passed in hw register.  Handle
+	!node->definition.
+	(simd_clone_adjust_argument_types): Likewise.  Use
+	ipa_get_vector_of_formal_parms or
+	simd_clone_vector_of_formal_parm_types instead of argno_map.
+	(simd_clone_init_simd_arrays): Handle simdlens larger than
+	what can be passed in hw register.
+	(ipa_simd_modify_function_body): Likewise.  Call walk_gimple_op
+	also on GIMPLE_RETURN.
+	(simd_clone_adjust): Call targetm.simd_clone.adjust.  Create
+	PHI for the iter, rather than waiting for into ssa.  Handle
+	aligned clause on uniform pointer arguments.  Handle linear
+	arguments properly.
+	(expand_simd_clones): Don't do anything if noclone attribute
+	is present.  Ignore non-prototype C declarations.  Rewritten to
+	only clone if it is possible and desirable to create the simd clone.
+	Use new target simd_clone hooks to drive the process, allow
+	creating more than two clones.  Handle !node->definition cloning.
+	(ipa_omp_simd_clone): Use FOR_EACH_FUNCTION instead of
+	FOR_EACH_DEFINED_FUNCTION.
+	(pass_omp_simd_clone::gate): Return true also for flag_openmp_simd.
+	* ipa-cp.c (determine_versionability): Use simd_clones field instead
+	of has_simd_clones.  Also fail if node->simdclone is non-NULL.
+	(initialize_node_lattices): Set disable = true for simd clones.
+	* cgraph.c (get_simd_clone): Remove.
+	* ipa.c (symtab_remove_unreachable_nodes): If node with simd clones
+	is kept, keep also the simd clones.
+	* ipa-prop.h (ipa_get_vector_of_formal_parm_types): New prototype.
+	* ipa-prop.c (get_vector_of_formal_parm_types): Renamed to ...
+	(ipa_get_vector_of_formal_parm_types): ... this.  No longer static.
+	(ipa_modify_formal_parameters): Adjust caller.
+	* target.def (TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE,
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): Remove.
+	(TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN,
+	TARGET_SIMD_CLONE_ADJUST, TARGET_SIMD_CLONE_USABLE): New target
+	hooks.
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Use simd_clones
+	field instead of has_simd_clones.
+	* target.h (struct cgraph_node, struct cgraph_simd_node): Declare.
+	* doc/tm.texi.in (TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE,
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): Remove.
+	(TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN,
+	TARGET_SIMD_CLONE_ADJUST, TARGET_SIMD_CLONE_USABLE): Add.
+	* doc/tm.texi: Regenerated.
+	* cgraph.h (enum simd_clone_arg_type): Rename to ...
+	(enum cgraph_simd_clone_arg_type): ... this.  Add
+	SIMD_CLONE_ARG_TYPE_MASK.
+	(struct simd_clone_arg): Rename to ...
+	(struct cgraph_simd_clone_arg): ... this.  Add orig_type and
+	vector_type fields.  Adjust arg_type field's type.
+	(struct simd_clone): Rename to ...
+	(struct cgraph_simd_clone): ... this.  Remove hw_vector_size
+	field.  Add vecsize_int, vecsize_float, prev_clone, next_clone
+	and origin fields.  Adjust args field's type.
+	(struct cgraph_node): Adjust simdclone field's type.  Remove
+	simdclone_of and has_simd_clones fields.  Add simd_clones field.
+	(get_simd_clone): Remove prototype.
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Use simd_clones
+	field instead of has_simd_clones, improve walking of simd clones,
+	handle arguments and/or return types larger than corresponding
+	ISA hw vector size, use targetm.simd_clone.usable hook.
+
 2013-11-21  Ilya Tocar  <ilya.tocar@intel.com>
 
 	* cgraph.h (symtab_node): Add need_dump.

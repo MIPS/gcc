@@ -3347,8 +3347,8 @@ ipa_get_vector_of_formal_parms (tree fndecl)
 /* Return a heap allocated vector containing types of formal parameters of
    function type FNTYPE.  */
 
-static inline vec<tree> 
-get_vector_of_formal_parm_types (tree fntype)
+vec<tree>
+ipa_get_vector_of_formal_parm_types (tree fntype)
 {
   vec<tree> types;
   int count = 0;
@@ -3385,7 +3385,7 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments)
     {
       last_parm_void = (TREE_VALUE (tree_last (old_arg_types))
 			== void_type_node);
-      otypes = get_vector_of_formal_parm_types (orig_type);
+      otypes = ipa_get_vector_of_formal_parm_types (orig_type);
       if (last_parm_void)
 	gcc_assert (oparms.length () + 1 == otypes.length ());
       else
