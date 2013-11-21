@@ -1,5 +1,8 @@
-// { dg-options "-std=gnu++1y" }
-
+// { dg-options "-std=gnu++11" }
+// { dg-require-cstdint "" }
+//
+// 2013-11-18  Edward M. Smith-Rowland  <3dw4rd@verizon.net>
+//
 // Copyright (C) 2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
@@ -7,40 +10,41 @@
 // terms of the GNU General Public License as published by the
 // Free Software Foundation; either version 3, or (at your option)
 // any later version.
-
+//
 // This library is distributed in the hope that it will be useful,
 // but WITHOUT ANY WARRANTY; without even the implied warranty of
 // MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 // GNU General Public License for more details.
-
+//
 // You should have received a copy of the GNU General Public License along
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// string_view operations
+// 26.4.8.3.* Class template hypergeometric_distribution [rand.dist.ext.hypergeometric]
+// 26.4.2.4 Concept RandomNumberDistribution [rand.concept.dist]
 
-#include <experimental/string_view>
+#include <ext/random>
+#include <sstream>
 #include <testsuite_hooks.h>
 
-int
+void
 test01()
 {
   bool test [[gnu::unused]] = true;
 
-  std::experimental::wstring_view empty;
+  std::stringstream str;
+  __gnu_cxx::hypergeometric_distribution<unsigned int> u(15, 3, 6), v;
+  std::minstd_rand0 rng;
 
-  // data() for size == 0 is non-NULL.
-  VERIFY( empty.size() == 0 );
-  const std::experimental::wstring_view::value_type* p = empty.data();
-  VERIFY( p );
+  u(rng); // advance
+  str << u;
 
-  return 0;
+  str >> v;
 }
 
 int
 main()
-{ 
+{
   test01();
-
   return 0;
 }
