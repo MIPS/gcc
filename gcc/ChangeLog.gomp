@@ -1,3 +1,24 @@
+2013-11-21  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* cgraph.h (symtab_node): Add need_dump.
+	* cgraphunit.c (ipa_passes): Run ipa_write_summaries for omp.
+	(compile): Intialize streamer for omp.
+	* ipa-inline-analysis.c (inline_generate_summary): Add flag_openmp.
+	* lto-cgraph.c (lto_set_symtab_encoder_in_partition): Respect
+	need_dump flag.
+	(select_what_to_dump): New.
+	* lto-streamer.c (section_name_prefix): New.
+	(lto_get_section_name): Use section_name_prefix.
+	(lto_streamer_init): Add flag_openmp.
+	* lto-streamer.h (OMP_SECTION_NAME_PREFIX): New.
+	(section_name_prefix): Ditto.
+	(select_what_to_dump): Ditto.
+	* lto/lto-partition.c (add_symbol_to_partition_1): Set need_dump.
+	(lto_promote_cross_file_statics): Dump everyhtinh.
+	* passes.c (ipa_write_summaries): Add parameter,
+	call select_what_to_dump.
+	* tree-pass.h (void ipa_write_summaries): Add parameter.
+
 2013-11-15  Jakub Jelinek  <jakub@redhat.com>
 
 	* tree-vect-stmts.c (vectorizable_simd_clone_call): Avoid

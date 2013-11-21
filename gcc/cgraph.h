@@ -111,6 +111,11 @@ public:
   /* Set when symbol has address taken. */
   unsigned address_taken : 1;
 
+  /* Set when symbol needs to be dumped into LTO bytecode for LTO,
+     or in pragma omp target case, for separate compilation targeting
+     a different architecture.  */
+  unsigned need_dump : 1;
+
 
   /* Ordering of all symtab entries.  */
   int order;

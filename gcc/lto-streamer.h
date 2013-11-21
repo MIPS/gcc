@@ -139,6 +139,11 @@ along with GCC; see the file COPYING3.  If not see
    name for the functions and static_initializers.  For other types of
    sections a '.' and the section type are appended.  */
 #define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
+#define OMP_SECTION_NAME_PREFIX         ".gnu.target_lto_"
+
+/* Can be either OMP_SECTION_NAME_PREFIX when we stream pragma omp target
+   stuff, or LTO_SECTION_NAME_PREFIX for lto case.  */
+extern const char  *section_name_prefix;
 
 #define LTO_major_version 2
 #define LTO_minor_version 2
@@ -895,6 +900,7 @@ bool referenced_from_this_partition_p (struct ipa_ref_list *,
 bool reachable_from_this_partition_p (struct cgraph_node *,
 				      lto_symtab_encoder_t);
 lto_symtab_encoder_t compute_ltrans_boundary (lto_symtab_encoder_t encoder);
+void select_what_to_dump (bool);
 
 
 /* In lto-symtab.c.  */
