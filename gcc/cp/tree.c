@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "print-tree.h"
+#include "tree-iterator.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "tree-inline.h"
@@ -30,7 +33,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "cgraph.h"
 #include "splay-tree.h"
-#include "gimple.h" /* gimple_has_body_p */
+#include "gimple.h"
+#include "gimplify.h"
 #include "hash-table.h"
 
 static tree bot_manip (tree *, int *, void *);

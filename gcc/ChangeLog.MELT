@@ -1,4 +1,21 @@
 
+2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merge with trunk GCC 4.9 svn rev 205247 now in stage 3}}
+	* Makefile.in (MELT_GCC_VERSION_NUM): New make variable.
+	(melt-run-md5.h, melt-run.h): Use it.
+
+	* melt-runtime.cc: With GCC 4.9 include print-tree.h,
+	gimple-iterator.h, gimple-walk.h.
+	(meltgc_start_all_new_modules, meltgc_start_flavored_module)
+	(meltgc_do_initial_mode, meltgc_set_user_options)
+	(meltgc_load_modules_and_do_mode): Improve debugprintf...
+	(melt_gt_ggc_mx_gimple_seq_d): Handle GCC 4.9 specifically.
+
+	* melt-runtime.h (gt_ggc_mx_gimple_statement_d): Temporarily
+	define this macro.
+
+
 2013-11-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{merge with trunk GCC 4.9 svn rev 204695; very unstable}}

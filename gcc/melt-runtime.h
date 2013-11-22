@@ -117,7 +117,7 @@ MELT_EXTERN int melt_count_runtime_extensions;
 /* The version string of MELT; this is parsed by make, so spaces are
    important!  That version string is extracted by scripts or
    makefiles... */
-#define MELT_VERSION_STRING "1.0.1+"
+#define MELT_VERSION_STRING "1.0.1+post"
 
 /* return a read only version string */
 extern const char* melt_version_str(void);
@@ -3571,6 +3571,11 @@ want their old marking routine.  */
 extern void melt_gt_ggc_mx_gimple_seq_d(void*);
 #define gt_ggc_mx_gimple_seq_d melt_gt_ggc_mx_gimple_seq_d
 #endif /* GCC 4.8 */
+
+#if MELT_GCC_VERSION == 4009
+/* Orobably temporary */
+#define gt_ggc_mx_gimple_statement_d gt_ggc_m_21gimple_statement_base
+#endif /* GCC 4.9 */
 
 #endif /*MELT_INCLUDED_ */
 

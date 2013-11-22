@@ -31,6 +31,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "attribs.h"
+#include "calls.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "tree-iterator.h"
@@ -1216,10 +1221,12 @@ validate_constexpr_redeclaration (tree old_decl, tree new_decl)
       if (! DECL_TEMPLATE_SPECIALIZATION (old_decl)
 	  && DECL_TEMPLATE_SPECIALIZATION (new_decl))
 	return true;
+
+      error ("redeclaration %qD differs in %<constexpr%>", new_decl);
+      error ("from previous declaration %q+D", old_decl);
+      return false;
     }
-  error ("redeclaration %qD differs in %<constexpr%>", new_decl);
-  error ("from previous declaration %q+D", old_decl);
-  return false;
+  return true;
 }
 
 #define GNU_INLINE_P(fn) (DECL_DECLARED_INLINE_P (fn)			\
@@ -5091,12 +5098,11 @@ reshape_init_array_1 (tree elt_type, tree max_index, reshape_iter *d,
       if (integer_all_onesp (max_index))
 	return new_init;
 
-      if (host_integerp (max_index, 1))
-	max_index_cst = tree_low_cst (max_index, 1);
+      if (tree_fits_uhwi_p (max_index))
+	max_index_cst = tree_to_uhwi (max_index);
       /* sizetype is sign extended, not zero extended.  */
       else
-	max_index_cst = tree_low_cst (fold_convert (size_type_node, max_index),
-				      1);
+	max_index_cst = tree_to_uhwi (fold_convert (size_type_node, max_index));
     }
 
   /* Loop until there are no more initializers.  */
@@ -10031,7 +10037,7 @@ grokdeclarator (const cp_declarator *declarator,
     {
       error ("size of array %qs is too large", name);
       /* If we proceed with the array type as it is, we'll eventually
-	 crash in tree_low_cst().  */
+	 crash in tree_to_[su]hwi().  */
       type = error_mark_node;
     }
 
@@ -10381,33 +10387,11 @@ grokdeclarator (const cp_declarator *declarator,
 
       if (type_uses_auto (type))
 	{
-	  if (template_parm_flag)
-	    {
-	      error ("template parameter declared %<auto%>");
-	      type = error_mark_node;
-	    }
-	  else if (decl_context == CATCHPARM)
-	    {
-	      error ("catch parameter declared %<auto%>");
-	      type = error_mark_node;
-	    }
-	  else if (current_class_type && LAMBDA_TYPE_P (current_class_type))
-	    {
-	      if (cxx_dialect < cxx1y)
-		pedwarn (location_of (type), 0,
-			 "use of %<auto%> in lambda parameter declaration "
-			 "only available with "
-			 "-std=c++1y or -std=gnu++1y");
-	    }
-	  else if (cxx_dialect < cxx1y)
-	    pedwarn (location_of (type), 0,
-		     "use of %<auto%> in parameter declaration "
-		     "only available with "
-		     "-std=c++1y or -std=gnu++1y");
+	  if (cxx_dialect >= cxx1y)
+	    error ("%<auto%> parameter not permitted in this context");
 	  else
-	    pedwarn (location_of (type), OPT_Wpedantic,
-		     "ISO C++ forbids use of %<auto%> in parameter "
-		     "declaration");
+	    error ("parameter declared %<auto%>");
+	  type = error_mark_node;
 	}
 
       /* A parameter declared as an array of T is really a pointer to T.

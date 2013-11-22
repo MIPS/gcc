@@ -79,12 +79,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "gimple.h"
+#include "stor-layout.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-walk.h"
 #include "bitmap.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
@@ -738,17 +745,17 @@ type_internals_preclude_sra_p (tree type, const char **msg)
 		*msg = "zero structure field size";
 	        return true;
 	      }
-	    if (!host_integerp (DECL_FIELD_OFFSET (fld), 1))
+	    if (!tree_fits_uhwi_p (DECL_FIELD_OFFSET (fld)))
 	      {
 		*msg = "structure field offset not fixed";
 		return true;
 	      }
-	    if (!host_integerp (DECL_SIZE (fld), 1))
+	    if (!tree_fits_uhwi_p (DECL_SIZE (fld)))
 	      {
 	        *msg = "structure field size not fixed";
 		return true;
 	      }
-	    if (!host_integerp (bit_position (fld), 0))
+	    if (!tree_fits_shwi_p (bit_position (fld)))
 	      {
 	        *msg = "structure field size too big";
 		return true;
@@ -985,7 +992,7 @@ completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset,
 	    struct access *access;
 	    HOST_WIDE_INT size;
 
-	    size = tree_low_cst (DECL_SIZE (fld), 1);
+	    size = tree_to_uhwi (DECL_SIZE (fld));
 	    access = create_access_1 (base, pos, size);
 	    access->expr = nref;
 	    access->type = ft;
@@ -1004,7 +1011,7 @@ completely_scalarize_record (tree base, tree decl, HOST_WIDE_INT offset,
 static void
 completely_scalarize_var (tree var)
 {
-  HOST_WIDE_INT size = tree_low_cst (DECL_SIZE (var), 1);
+  HOST_WIDE_INT size = tree_to_uhwi (DECL_SIZE (var));
   struct access *access;
 
   access = create_access_1 (var, 0, size);
@@ -1647,14 +1654,14 @@ build_user_friendly_ref_for_offset (tree *res, tree type, HOST_WIDE_INT offset,
 		continue;
 
 	      tr_pos = bit_position (fld);
-	      if (!tr_pos || !host_integerp (tr_pos, 1))
+	      if (!tr_pos || !tree_fits_uhwi_p (tr_pos))
 		continue;
-	      pos = TREE_INT_CST_LOW (tr_pos);
+	      pos = tree_to_uhwi (tr_pos);
 	      gcc_assert (TREE_CODE (type) == RECORD_TYPE || pos == 0);
 	      tr_size = DECL_SIZE (fld);
-	      if (!tr_size || !host_integerp (tr_size, 1))
+	      if (!tr_size || !tree_fits_uhwi_p (tr_size))
 		continue;
-	      size = TREE_INT_CST_LOW (tr_size);
+	      size = tree_to_uhwi (tr_size);
 	      if (size == 0)
 		{
 		  if (pos != offset)
@@ -1677,9 +1684,9 @@ build_user_friendly_ref_for_offset (tree *res, tree type, HOST_WIDE_INT offset,
 
 	case ARRAY_TYPE:
 	  tr_size = TYPE_SIZE (TREE_TYPE (type));
-	  if (!tr_size || !host_integerp (tr_size, 1))
+	  if (!tr_size || !tree_fits_uhwi_p (tr_size))
 	    return false;
-	  el_size = tree_low_cst (tr_size, 1);
+	  el_size = tree_to_uhwi (tr_size);
 
 	  minidx = TYPE_MIN_VALUE (TYPE_DOMAIN (type));
 	  if (TREE_CODE (minidx) != INTEGER_CST || el_size == 0)
@@ -1755,12 +1762,12 @@ maybe_add_sra_candidate (tree var)
       reject (var, "has incomplete type");
       return false;
     }
-  if (!host_integerp (TYPE_SIZE (type), 1))
+  if (!tree_fits_uhwi_p (TYPE_SIZE (type)))
     {
       reject (var, "type size not fixed");
       return false;
     }
-  if (tree_low_cst (TYPE_SIZE (type), 1) == 0)
+  if (tree_to_uhwi (TYPE_SIZE (type)) == 0)
     {
       reject (var, "type size is zero");
       return false;
@@ -2115,7 +2122,7 @@ expr_with_var_bounded_array_refs_p (tree expr)
   while (handled_component_p (expr))
     {
       if (TREE_CODE (expr) == ARRAY_REF
-	  && !host_integerp (array_ref_low_bound (expr), 0))
+	  && !tree_fits_shwi_p (array_ref_low_bound (expr)))
 	return true;
       expr = TREE_OPERAND (expr, 0);
     }
@@ -2484,7 +2491,7 @@ analyze_all_variable_accesses (void)
 	if (TREE_CODE (var) == VAR_DECL
 	    && type_consists_of_records_p (TREE_TYPE (var)))
 	  {
-	    if ((unsigned) tree_low_cst (TYPE_SIZE (TREE_TYPE (var)), 1)
+	    if (tree_to_uhwi (TYPE_SIZE (TREE_TYPE (var)))
 		<= max_total_scalarization_size)
 	      {
 		completely_scalarize_var (var);
@@ -2795,12 +2802,12 @@ sra_modify_expr (tree *expr, gimple_stmt_iterator *gsi, bool write)
     {
       HOST_WIDE_INT start_offset, chunk_size;
       if (bfr
-	  && host_integerp (TREE_OPERAND (bfr, 1), 1)
-	  && host_integerp (TREE_OPERAND (bfr, 2), 1))
+	  && tree_fits_uhwi_p (TREE_OPERAND (bfr, 1))
+	  && tree_fits_uhwi_p (TREE_OPERAND (bfr, 2)))
 	{
-	  chunk_size = tree_low_cst (TREE_OPERAND (bfr, 1), 1);
+	  chunk_size = tree_to_uhwi (TREE_OPERAND (bfr, 1));
 	  start_offset = access->offset
-	    + tree_low_cst (TREE_OPERAND (bfr, 2), 1);
+	    + tree_to_uhwi (TREE_OPERAND (bfr, 2));
 	}
       else
 	start_offset = chunk_size = 0;
@@ -3402,7 +3409,7 @@ initialize_parameter_reductions (void)
 
   seq = gsi_seq (gsi);
   if (seq)
-    gsi_insert_seq_on_edge_immediate (single_succ_edge (ENTRY_BLOCK_PTR), seq);
+    gsi_insert_seq_on_edge_immediate (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)), seq);
 }
 
 /* The "main" function of intraprocedural SRA passes.  Runs the analysis and if
@@ -3689,8 +3696,8 @@ find_param_candidates (void)
 	continue;
 
       if (!COMPLETE_TYPE_P (type)
-	  || !host_integerp (TYPE_SIZE (type), 1)
-          || tree_low_cst (TYPE_SIZE (type), 1) == 0
+	  || !tree_fits_uhwi_p (TYPE_SIZE (type))
+          || tree_to_uhwi (TYPE_SIZE (type)) == 0
 	  || (AGGREGATE_TYPE_P (type)
 	      && type_internals_preclude_sra_p (type, &msg)))
 	continue;
@@ -3777,11 +3784,10 @@ analyze_modified_params (vec<access_p> representatives)
 static void
 propagate_dereference_distances (void)
 {
-  vec<basic_block> queue;
   basic_block bb;
 
-  queue.create (last_basic_block_for_function (cfun));
-  queue.quick_push (ENTRY_BLOCK_PTR);
+  auto_vec<basic_block> queue (last_basic_block_for_function (cfun));
+  queue.quick_push (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   FOR_EACH_BB (bb)
     {
       queue.quick_push (bb);
@@ -3811,7 +3817,7 @@ propagate_dereference_distances (void)
 	  {
 	    int succ_idx = e->dest->index * func_param_count + i;
 
-	    if (e->src == EXIT_BLOCK_PTR)
+	    if (e->src == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	      continue;
 
 	    if (first)
@@ -3840,8 +3846,6 @@ propagate_dereference_distances (void)
 	    queue.quick_push (e->src);
 	  }
     }
-
-  queue.release ();
 }
 
 /* Dump a dereferences TABLE with heading STR to file F.  */
@@ -3852,10 +3856,11 @@ dump_dereferences_table (FILE *f, const char *str, HOST_WIDE_INT *table)
   basic_block bb;
 
   fprintf (dump_file, str);
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR, EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
       fprintf (f, "%4i  %i   ", bb->index, bitmap_bit_p (final_bbs, bb->index));
-      if (bb != EXIT_BLOCK_PTR)
+      if (bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	{
 	  int i;
 	  for (i = 0; i < func_param_count; i++)
@@ -3907,7 +3912,7 @@ analyze_caller_dereference_legality (vec<access_p> representatives)
   for (i = 0; i < func_param_count; i++)
     {
       struct access *repr = representatives[i];
-      int idx = ENTRY_BLOCK_PTR->index * func_param_count + i;
+      int idx = ENTRY_BLOCK_PTR_FOR_FN (cfun)->index * func_param_count + i;
 
       if (!repr || no_accesses_p (repr))
 	continue;
@@ -4063,9 +4068,9 @@ splice_param_accesses (tree parm, bool *ro_grp)
     }
 
   if (POINTER_TYPE_P (TREE_TYPE (parm)))
-    agg_size = tree_low_cst (TYPE_SIZE (TREE_TYPE (TREE_TYPE (parm))), 1);
+    agg_size = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (TREE_TYPE (parm))));
   else
-    agg_size = tree_low_cst (TYPE_SIZE (TREE_TYPE (parm)), 1);
+    agg_size = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (parm)));
   if (total_size >= agg_size)
     return NULL;
 
@@ -4084,13 +4089,13 @@ decide_one_param_reduction (struct access *repr)
   tree parm;
 
   parm = repr->base;
-  cur_parm_size = tree_low_cst (TYPE_SIZE (TREE_TYPE (parm)), 1);
+  cur_parm_size = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (parm)));
   gcc_assert (cur_parm_size > 0);
 
   if (POINTER_TYPE_P (TREE_TYPE (parm)))
     {
       by_ref = true;
-      agg_size = tree_low_cst (TYPE_SIZE (TREE_TYPE (TREE_TYPE (parm))), 1);
+      agg_size = tree_to_uhwi (TYPE_SIZE (TREE_TYPE (TREE_TYPE (parm))));
     }
   else
     {
@@ -4721,9 +4726,9 @@ sra_ipa_reset_debug_stmts (ipa_parm_adjustment_vec adjustments)
   int i, len;
   gimple_stmt_iterator *gsip = NULL, gsi;
 
-  if (MAY_HAVE_DEBUG_STMTS && single_succ_p (ENTRY_BLOCK_PTR))
+  if (MAY_HAVE_DEBUG_STMTS && single_succ_p (ENTRY_BLOCK_PTR_FOR_FN (cfun)))
     {
-      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
+      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
       gsip = &gsi;
     }
   len = adjustments.length ();
@@ -4842,9 +4847,9 @@ convert_callers_for_node (struct cgraph_node *node,
 
       if (dump_file)
 	fprintf (dump_file, "Adjusting call %s/%i -> %s/%i\n",
-		 xstrdup (cgraph_node_name (cs->caller)),
+		 xstrdup (cs->caller->name ()),
 		 cs->caller->order,
-		 xstrdup (cgraph_node_name (cs->callee)),
+		 xstrdup (cs->callee->name ()),
 		 cs->callee->order);
 
       ipa_modify_call_arguments (cs, cs->call_stmt, *adjustments);

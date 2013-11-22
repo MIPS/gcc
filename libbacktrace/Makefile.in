@@ -110,8 +110,8 @@ CONFIG_CLEAN_FILES = backtrace-supported.h
 CONFIG_CLEAN_VPATH_FILES =
 LTLIBRARIES = $(noinst_LTLIBRARIES)
 am__DEPENDENCIES_1 =
-am_libbacktrace_la_OBJECTS = dwarf.lo fileline.lo posix.lo print.lo \
-	state.lo
+am_libbacktrace_la_OBJECTS = atomic.lo dwarf.lo fileline.lo posix.lo \
+	print.lo state.lo
 libbacktrace_la_OBJECTS = $(am_libbacktrace_la_OBJECTS)
 @NATIVE_TRUE@am__EXEEXT_1 = btest$(EXEEXT)
 @NATIVE_TRUE@am_btest_OBJECTS = btest-btest.$(OBJEXT)
@@ -280,6 +280,7 @@ AM_CFLAGS = $(EXTRA_FLAGS) $(WARN_FLAGS) $(PIC_FLAG)
 noinst_LTLIBRARIES = libbacktrace.la
 libbacktrace_la_SOURCES = \
 	backtrace.h \
+	atomic.c \
 	dwarf.c \
 	fileline.c \
 	internal.h \

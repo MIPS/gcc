@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-into-ssa.h"
@@ -129,7 +130,6 @@ do_while_loop_p (struct loop *loop)
 static unsigned int
 copy_loop_headers (void)
 {
-  loop_iterator li;
   struct loop *loop;
   basic_block header;
   edge exit, entry;
@@ -145,11 +145,11 @@ copy_loop_headers (void)
       return 0;
     }
 
-  bbs = XNEWVEC (basic_block, n_basic_blocks);
-  copied_bbs = XNEWVEC (basic_block, n_basic_blocks);
-  bbs_size = n_basic_blocks;
+  bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
+  copied_bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
+  bbs_size = n_basic_blocks_for_fn (cfun);
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       /* Copy at most 20 insns.  */
       int limit = 20;
@@ -243,6 +243,16 @@ copy_loop_headers (void)
 	 are not now, since there was the loop exit condition.  */
       split_edge (loop_preheader_edge (loop));
       split_edge (loop_latch_edge (loop));
+
+      /* We peeled off one iteration of the loop thus we can lower
+	 the maximum number of iterations if we have a previously
+	 recorded value for that.  */
+      double_int max;
+      if (get_max_loop_iterations (loop, &max))
+	{
+	  max -= double_int_one;
+	  loop->nb_iterations_upper_bound = max;
+	}
     }
 
   update_ssa (TODO_update_ssa);

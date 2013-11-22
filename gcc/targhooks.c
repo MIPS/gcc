@@ -53,6 +53,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "expr.h"
 #include "output.h"
 #include "diagnostic-core.h"
@@ -69,6 +71,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "opts.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-alias.h"
 #include "insn-codes.h"
@@ -137,7 +141,6 @@ default_promote_function_mode_always_promote (const_tree type,
 {
   return promote_mode (type, mode, punsignedp);
 }
-
 
 enum machine_mode
 default_cc_modes_compatible (enum machine_mode m1, enum machine_mode m2)
@@ -271,7 +274,6 @@ default_cxx_guard_type (void)
 {
   return long_long_integer_type_node;
 }
-
 
 /* Returns the size of the cookie to use when allocating an array
    whose elements have the indicated TYPE.  Assumes that it is already
@@ -993,7 +995,7 @@ tree default_mangle_decl_assembler_name (tree decl ATTRIBUTE_UNUSED,
 HOST_WIDE_INT
 default_vector_alignment (const_tree type)
 {
-  return tree_low_cst (TYPE_SIZE (type), 0);
+  return tree_to_shwi (TYPE_SIZE (type));
 }
 
 bool

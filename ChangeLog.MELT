@@ -1,4 +1,8 @@
 
+2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merge with trunk GCC 4.9 svn rev 205247 now in stage 3}}
+
 2013-11-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{merge with trunk GCC 4.9 svn rev 204695; previous trunk merge

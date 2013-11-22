@@ -26,17 +26,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tm_p.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-niter.h"
 #include "tree-ssa-loop.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-iterator.h"
@@ -1265,11 +1270,11 @@ build_and_add_sum (tree type, tree op1, tree op2, enum tree_code opcode)
   if ((!op1def || gimple_nop_p (op1def))
       && (!op2def || gimple_nop_p (op2def)))
     {
-      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
+      gsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
       if (gsi_end_p (gsi))
 	{
 	  gimple_stmt_iterator gsi2
-	    = gsi_last_bb (single_succ (ENTRY_BLOCK_PTR));
+	    = gsi_last_bb (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 	  gimple_set_uid (sum,
 			  gsi_end_p (gsi2) ? 1 : gimple_uid (gsi_stmt (gsi2)));
 	}
@@ -2655,8 +2660,8 @@ maybe_optimize_range_tests (gimple stmt)
   basic_block bb;
   edge_iterator ei;
   edge e;
-  vec<operand_entry_t> ops = vNULL;
-  vec<inter_bb_range_test_entry> bbinfo = vNULL;
+  auto_vec<operand_entry_t> ops;
+  auto_vec<inter_bb_range_test_entry> bbinfo;
   bool any_changes = false;
 
   /* Consider only basic blocks that end with GIMPLE_COND or
@@ -2970,8 +2975,6 @@ maybe_optimize_range_tests (gimple stmt)
 	    break;
 	}
     }
-  bbinfo.release ();
-  ops.release ();
 }
 
 /* Return true if OPERAND is defined by a PHI node which uses the LHS
@@ -3633,10 +3636,10 @@ acceptable_pow_call (gimple stmt, tree *base, HOST_WIDE_INT *exponent)
       *base = gimple_call_arg (stmt, 0);
       arg1 = gimple_call_arg (stmt, 1);
 
-      if (!host_integerp (arg1, 0))
+      if (!tree_fits_shwi_p (arg1))
 	return false;
 
-      *exponent = TREE_INT_CST_LOW (arg1);
+      *exponent = tree_to_shwi (arg1);
       break;
 
     default:
@@ -4396,7 +4399,7 @@ reassociate_bb (basic_block bb)
 
 	  if (associative_tree_code (rhs_code))
 	    {
-	      vec<operand_entry_t> ops = vNULL;
+	      auto_vec<operand_entry_t> ops;
 	      tree powi_result = NULL_TREE;
 
 	      /* There may be no immediate uses left by the time we
@@ -4484,8 +4487,6 @@ reassociate_bb (basic_block bb)
 		      gsi_insert_after (&gsi, mul_stmt, GSI_NEW_STMT);
 		    }
 		}
-
-	      ops.release ();
 	    }
 	}
     }
@@ -4524,8 +4525,8 @@ debug_ops_vector (vec<operand_entry_t> ops)
 static void
 do_reassoc (void)
 {
-  break_up_subtract_bb (ENTRY_BLOCK_PTR);
-  reassociate_bb (EXIT_BLOCK_PTR);
+  break_up_subtract_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  reassociate_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 }
 
 /* Initialize the reassociation pass.  */
@@ -4535,7 +4536,7 @@ init_reassoc (void)
 {
   int i;
   long rank = 2;
-  int *bbs = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  int *bbs = XNEWVEC (int, n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS);
 
   /* Find the loops, so that we can prevent moving calculations in
      them.  */
@@ -4565,7 +4566,7 @@ init_reassoc (void)
     }
 
   /* Set up rank for each BB  */
-  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
+  for (i = 0; i < n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS; i++)
     bb_rank[bbs[i]] = ++rank  << 16;
 
   free (bbs);

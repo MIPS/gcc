@@ -33,6 +33,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "attribs.h"
+#include "varasm.h"
 #include "tm_p.h"
 #include "function.h"
 #include "obstack.h"
@@ -49,10 +53,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "bitmap.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-phinodes.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "params.h"
 #include "pointer-set.h"
@@ -1864,6 +1872,28 @@ make_tree_vec_stat (int len MEM_STAT_DECL)
 
   return t;
 }
+
+/* Grow a TREE_VEC node to new length LEN.  */
+
+tree
+grow_tree_vec_stat (tree v, int len MEM_STAT_DECL)
+{
+  gcc_assert (TREE_CODE (v) == TREE_VEC);
+
+  int oldlen = TREE_VEC_LENGTH (v);
+  gcc_assert (len > oldlen);
+
+  int oldlength = (oldlen - 1) * sizeof (tree) + sizeof (struct tree_vec);
+  int length = (len - 1) * sizeof (tree) + sizeof (struct tree_vec);
+
+  record_node_allocation_statistics (TREE_VEC, length - oldlength);
+
+  v = (tree) ggc_realloc_stat (v, length PASS_MEM_STAT);
+
+  TREE_VEC_LENGTH (v) = len;
+
+  return v;
+}
 
 /* Return 1 if EXPR is the integer constant zero or a complex constant
    of zero.  */
@@ -2186,21 +2216,19 @@ tree_ctz (const_tree expr)
       return MIN (ret1 + ret2, prec);
     case LSHIFT_EXPR:
       ret1 = tree_ctz (TREE_OPERAND (expr, 0));
-      if (host_integerp (TREE_OPERAND (expr, 1), 1)
-	  && ((unsigned HOST_WIDE_INT) tree_low_cst (TREE_OPERAND (expr, 1), 1)
-	      < (unsigned HOST_WIDE_INT) prec))
+      if (tree_fits_uhwi_p (TREE_OPERAND (expr, 1))
+	  && (tree_to_uhwi (TREE_OPERAND (expr, 1)) < prec))
 	{
-	  ret2 = tree_low_cst (TREE_OPERAND (expr, 1), 1);
+	  ret2 = tree_to_uhwi (TREE_OPERAND (expr, 1));
 	  return MIN (ret1 + ret2, prec);
 	}
       return ret1;
     case RSHIFT_EXPR:
-      if (host_integerp (TREE_OPERAND (expr, 1), 1)
-	  && ((unsigned HOST_WIDE_INT) tree_low_cst (TREE_OPERAND (expr, 1), 1)
-	      < (unsigned HOST_WIDE_INT) prec))
+      if (tree_fits_uhwi_p (TREE_OPERAND (expr, 1))
+	  && (tree_to_uhwi (TREE_OPERAND (expr, 1)) < prec))
 	{
 	  ret1 = tree_ctz (TREE_OPERAND (expr, 0));
-	  ret2 = tree_low_cst (TREE_OPERAND (expr, 1), 1);
+	  ret2 = tree_to_uhwi (TREE_OPERAND (expr, 1));
 	  if (ret1 > ret2)
 	    return ret1 - ret2;
 	}
@@ -2650,8 +2678,8 @@ max_int_size_in_bytes (const_tree type)
     {
       size_tree = TYPE_ARRAY_MAX_SIZE (type);
 
-      if (size_tree && host_integerp (size_tree, 1))
-	size = tree_low_cst (size_tree, 1);
+      if (size_tree && tree_fits_uhwi_p (size_tree))
+	size = tree_to_uhwi (size_tree);
     }
 
   /* If we still haven't been able to get a size, see if the language
@@ -2661,8 +2689,8 @@ max_int_size_in_bytes (const_tree type)
     {
       size_tree = lang_hooks.types.max_size (type);
 
-      if (size_tree && host_integerp (size_tree, 1))
-	size = tree_low_cst (size_tree, 1);
+      if (size_tree && tree_fits_uhwi_p (size_tree))
+	size = tree_to_uhwi (size_tree);
     }
 
   return size;
@@ -2685,7 +2713,7 @@ bit_position (const_tree field)
 HOST_WIDE_INT
 int_bit_position (const_tree field)
 {
-  return tree_low_cst (bit_position (field), 0);
+  return tree_to_shwi (bit_position (field));
 }
 
 /* Return the byte position of FIELD, in bytes from the start of the record.
@@ -2705,7 +2733,7 @@ byte_position (const_tree field)
 HOST_WIDE_INT
 int_byte_position (const_tree field)
 {
-  return tree_low_cst (byte_position (field), 0);
+  return tree_to_shwi (byte_position (field));
 }
 
 /* Return the strictest alignment, in bits, that T is known to have.  */
@@ -5016,7 +5044,7 @@ free_lang_data_in_decl (tree decl)
          DECL_VINDEX referring to itself into a vtable slot number as it
 	 should.  Happens with functions that are copied and then forgotten
 	 about.  Just clear it, it won't matter anymore.  */
-      if (DECL_VINDEX (decl) && !host_integerp (DECL_VINDEX (decl), 0))
+      if (DECL_VINDEX (decl) && !tree_fits_shwi_p (DECL_VINDEX (decl)))
 	DECL_VINDEX (decl) = NULL_TREE;
     }
   else if (TREE_CODE (decl) == VAR_DECL)
@@ -6096,7 +6124,7 @@ find_atomic_core_type (tree type)
   if (TYPE_SIZE (type) == NULL_TREE)
     return NULL_TREE;
 
-  HOST_WIDE_INT type_size = tree_low_cst (TYPE_SIZE (type), 1);
+  HOST_WIDE_INT type_size = tree_to_uhwi (TYPE_SIZE (type));
   switch (type_size)
     {
     case 8:
@@ -6946,34 +6974,51 @@ tree_int_cst_compare (const_tree t1, const_tree t2)
     return 0;
 }
 
-/* Return 1 if T is an INTEGER_CST that can be manipulated efficiently on
-   the host.  If POS is zero, the value can be represented in a single
-   HOST_WIDE_INT.  If POS is nonzero, the value must be non-negative and can
-   be represented in a single unsigned HOST_WIDE_INT.  */
+/* Return true if T is an INTEGER_CST whose numerical value (extended
+   according to TYPE_UNSIGNED) fits in a signed HOST_WIDE_INT.  */
 
-int
-host_integerp (const_tree t, int pos)
+bool
+tree_fits_shwi_p (const_tree t)
 {
-  if (t == NULL_TREE)
-    return 0;
-
-  return (TREE_CODE (t) == INTEGER_CST
+  return (t != NULL_TREE
+	  && TREE_CODE (t) == INTEGER_CST
 	  && ((TREE_INT_CST_HIGH (t) == 0
 	       && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) >= 0)
-	      || (! pos && TREE_INT_CST_HIGH (t) == -1
+	      || (TREE_INT_CST_HIGH (t) == -1
 		  && (HOST_WIDE_INT) TREE_INT_CST_LOW (t) < 0
-		  && !TYPE_UNSIGNED (TREE_TYPE (t)))
-	      || (pos && TREE_INT_CST_HIGH (t) == 0)));
+		  && !TYPE_UNSIGNED (TREE_TYPE (t)))));
 }
 
-/* Return the HOST_WIDE_INT least significant bits of T if it is an
-   INTEGER_CST and there is no overflow.  POS is nonzero if the result must
-   be non-negative.  We must be able to satisfy the above conditions.  */
+/* Return true if T is an INTEGER_CST whose numerical value (extended
+   according to TYPE_UNSIGNED) fits in an unsigned HOST_WIDE_INT.  */
+
+bool
+tree_fits_uhwi_p (const_tree t)
+{
+  return (t != NULL_TREE
+	  && TREE_CODE (t) == INTEGER_CST
+	  && TREE_INT_CST_HIGH (t) == 0);
+}
+
+/* T is an INTEGER_CST whose numerical value (extended according to
+   TYPE_UNSIGNED) fits in a signed HOST_WIDE_INT.  Return that
+   HOST_WIDE_INT.  */
 
 HOST_WIDE_INT
-tree_low_cst (const_tree t, int pos)
+tree_to_shwi (const_tree t)
 {
-  gcc_assert (host_integerp (t, pos));
+  gcc_assert (tree_fits_shwi_p (t));
+  return TREE_INT_CST_LOW (t);
+}
+
+/* T is an INTEGER_CST whose numerical value (extended according to
+   TYPE_UNSIGNED) fits in an unsigned HOST_WIDE_INT.  Return that
+   HOST_WIDE_INT.  */
+
+unsigned HOST_WIDE_INT
+tree_to_uhwi (const_tree t)
+{
+  gcc_assert (tree_fits_uhwi_p (t));
   return TREE_INT_CST_LOW (t);
 }
 
@@ -7232,7 +7277,7 @@ compare_tree_int (const_tree t, unsigned HOST_WIDE_INT u)
 bool
 valid_constant_size_p (const_tree size)
 {
-  if (! host_integerp (size, 1)
+  if (! tree_fits_uhwi_p (size)
       || TREE_OVERFLOW (size)
       || tree_int_cst_sign_bit (size) != 0)
     return false;
@@ -7636,8 +7681,8 @@ build_nonstandard_integer_type (unsigned HOST_WIDE_INT precision,
     fixup_signed_type (itype);
 
   ret = itype;
-  if (host_integerp (TYPE_MAX_VALUE (itype), 1))
-    ret = type_hash_canon (tree_low_cst (TYPE_MAX_VALUE (itype), 1), itype);
+  if (tree_fits_uhwi_p (TYPE_MAX_VALUE (itype)))
+    ret = type_hash_canon (tree_to_uhwi (TYPE_MAX_VALUE (itype)), itype);
   if (precision <= MAX_INT_CACHED_PREC)
     nonstandard_integer_type_cache[precision + unsignedp] = ret;
 
@@ -8473,10 +8518,10 @@ get_narrower (tree op, int *unsignedp_ptr)
       && TREE_CODE (TREE_TYPE (op)) != FIXED_POINT_TYPE
       /* Ensure field is laid out already.  */
       && DECL_SIZE (TREE_OPERAND (op, 1)) != 0
-      && host_integerp (DECL_SIZE (TREE_OPERAND (op, 1)), 1))
+      && tree_fits_uhwi_p (DECL_SIZE (TREE_OPERAND (op, 1))))
     {
       unsigned HOST_WIDE_INT innerprec
-	= tree_low_cst (DECL_SIZE (TREE_OPERAND (op, 1)), 1);
+	= tree_to_uhwi (DECL_SIZE (TREE_OPERAND (op, 1)));
       int unsignedp = (DECL_UNSIGNED (TREE_OPERAND (op, 1))
 		       || TYPE_UNSIGNED (TREE_TYPE (TREE_OPERAND (op, 1))));
       tree type = lang_hooks.types.type_for_size (innerprec, unsignedp);
@@ -8590,7 +8635,7 @@ retry:
   /* Third, unsigned integers with top bit set never fit signed types.  */
   if (! TYPE_UNSIGNED (type) && unsc)
     {
-      int prec = GET_MODE_BITSIZE (TYPE_MODE (TREE_TYPE (c))) - 1;
+      int prec = GET_MODE_PRECISION (TYPE_MODE (TREE_TYPE (c))) - 1;
       if (prec < HOST_BITS_PER_WIDE_INT)
 	{
 	  if (((((unsigned HOST_WIDE_INT) 1) << prec) & dc.low) != 0)
@@ -11899,7 +11944,7 @@ get_binfo_at_offset (tree binfo, HOST_WIDE_INT offset, tree expected_type)
 	    continue;
 
 	  pos = int_bit_position (fld);
-	  size = tree_low_cst (DECL_SIZE (fld), 1);
+	  size = tree_to_uhwi (DECL_SIZE (fld));
 	  if (pos <= offset && (pos + size) > offset)
 	    break;
 	}
@@ -12240,6 +12285,34 @@ drop_tree_overflow (tree t)
      and drop the flag.  */
   t = copy_node (t);
   TREE_OVERFLOW (t) = 0;
+  return t;
+}
+
+/* Given a memory reference expression T, return its base address.
+   The base address of a memory reference expression is the main
+   object being referenced.  For instance, the base address for
+   'array[i].fld[j]' is 'array'.  You can think of this as stripping
+   away the offset part from a memory address.
+
+   This function calls handled_component_p to strip away all the inner
+   parts of the memory reference until it reaches the base object.  */
+
+tree
+get_base_address (tree t)
+{
+  while (handled_component_p (t))
+    t = TREE_OPERAND (t, 0);
+
+  if ((TREE_CODE (t) == MEM_REF
+       || TREE_CODE (t) == TARGET_MEM_REF)
+      && TREE_CODE (TREE_OPERAND (t, 0)) == ADDR_EXPR)
+    t = TREE_OPERAND (TREE_OPERAND (t, 0), 0);
+
+  /* ???  Either the alias oracle or all callers need to properly deal
+     with WITH_SIZE_EXPRs before we can look through those.  */
+  if (TREE_CODE (t) == WITH_SIZE_EXPR)
+    return NULL_TREE;
+
   return t;
 }
 

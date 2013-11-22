@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "intl.h"
 #include "cp-tree.h"
 #include "flags.h"
@@ -125,7 +127,7 @@ cxx_readonly_error (tree arg, enum lvalue_use errstring)
                              "read-only reference %qD"),
                           TREE_OPERAND (arg, 0));
   else
-    readonly_error (arg, errstring);
+    readonly_error (input_location, arg, errstring);
 }
 
 

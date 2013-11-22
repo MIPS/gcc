@@ -24,10 +24,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "basic-block.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "gimple-pretty-print.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-pass.h"
@@ -868,7 +871,7 @@ tree_call_cdce (void)
   basic_block bb;
   gimple_stmt_iterator i;
   bool something_changed = false;
-  vec<gimple> cond_dead_built_in_calls = vNULL;
+  auto_vec<gimple> cond_dead_built_in_calls;
   FOR_EACH_BB (bb)
     {
       /* Collect dead call candidates.  */
@@ -896,8 +899,6 @@ tree_call_cdce (void)
 
   something_changed
     = shrink_wrap_conditional_dead_built_in_calls (cond_dead_built_in_calls);
-
-  cond_dead_built_in_calls.release ();
 
   if (something_changed)
     {

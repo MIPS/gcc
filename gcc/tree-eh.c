@@ -23,16 +23,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "expr.h"
+#include "calls.h"
 #include "flags.h"
 #include "function.h"
 #include "except.h"
 #include "pointer-set.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
@@ -3565,7 +3569,7 @@ lower_eh_dispatch (basic_block src, gimple stmt)
     {
     case ERT_TRY:
       {
-	vec<tree> labels = vNULL;
+	auto_vec<tree> labels;
 	tree default_label = NULL;
 	eh_catch c;
 	edge_iterator ei;
@@ -3653,8 +3657,6 @@ lower_eh_dispatch (basic_block src, gimple stmt)
 
 	    x = gimple_build_switch (filter, default_label, labels);
 	    gsi_insert_before (&gsi, x, GSI_SAME_STMT);
-
-	    labels.release ();
 	  }
 	pointer_set_destroy (seen_values);
       }

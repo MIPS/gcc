@@ -888,7 +888,7 @@ BASIC_BLOCK_H = basic-block.h $(PREDICT_H) $(VEC_H) $(FUNCTION_H) \
 	cfg-flags.def cfghooks.h
 GIMPLE_H = gimple.h gimple.def gsstruct.def pointer-set.h $(VEC_H) \
 	$(GGC_H) $(BASIC_BLOCK_H) $(TREE_H) tree-ssa-operands.h \
-	tree-ssa-alias.h $(INTERNAL_FN_H) $(HASH_TABLE_H)
+	tree-ssa-alias.h $(INTERNAL_FN_H) $(HASH_TABLE_H) is-a.h
 GCOV_IO_H = gcov-io.h gcov-iov.h auto-host.h
 RECOG_H = recog.h
 EMIT_RTL_H = emit-rtl.h
@@ -1139,6 +1139,7 @@ C_COMMON_OBJS = c-family/c-common.o c-family/c-cppbuiltin.o c-family/c-dump.o \
   c-family/c-omp.o c-family/c-opts.o c-family/c-pch.o \
   c-family/c-ppoutput.o c-family/c-pragma.o c-family/c-pretty-print.o \
   c-family/c-semantics.o c-family/c-ada-spec.o \
+  c-family/c-cilkplus.o \
   c-family/array-notation-common.o c-family/cilk.o c-family/c-ubsan.o
 
 # Language-independent object files.
@@ -1242,7 +1243,9 @@ OBJS = \
 	gimple-ssa-strength-reduction.o \
 	gimple-streamer-in.o \
 	gimple-streamer-out.o \
+	gimple-walk.o \
 	gimplify.o \
+	gimplify-me.o \
 	godump.o \
 	graph.o \
 	graphds.o \
@@ -2068,14 +2071,15 @@ melt-runtime-raw.i: melt-runtime.i
 ## the one expected. It is included in melt-runtime.c and melt-run.h
 ## is generated to contain it.
 #### keep contrib/build-melt-plugin.sh in sync with this!
+MELT_GCC_VERSION_NUM=$(shell $(AWK) '{split($$0,vertab,"."); printf "%d", vertab[1]*1000+vertab[2]}' $(BASEVER))
 melt-run-md5.h melt-run.h:  $(srcdir)/melt-run.proto.h \
    $(CONFIG_H) $(SYSTEM_H) $(TIMEVAR_H) $(TM_H) \
    $(TREE_H)  $(GGC_H) $(BASIC_BLOCK_H) $(GIMPLE_H) $(CFGLOOP_H)  \
    tree-pass.h $(MELT_H) gt-melt-runtime.h $(PLUGIN_H) $(TOPLEV_H) $(VERSION_H) | Makefile
-	melt_run_md5=`$(COMPILER) -C -E $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(srcdir)/melt-run.proto.h | grep -v '^#' | md5sum | cut -c 1-32`; \
+	melt_run_md5=`$(COMPILER) -C -E -DMELT_GCC_VERSION=$(MELT_GCC_VERSION_NUM) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(srcdir)/melt-run.proto.h | grep -v '^#' | md5sum | cut -c 1-32`; \
    ( echo  "const char melt_run_preprocessed_md5[]=\"$$melt_run_md5\";" > melt-run-md5.h-tmp ; \
    sed -e "s,#define *MELT_RUN_HASHMD5 *XX,#define MELT_RUN_HASHMD5 \"$$melt_run_md5\"," \
-       -e "s,#define *MELT_GCC_VERSION *YY,#define MELT_GCC_VERSION $(shell cat $(BASEVER) | $(AWK) '{split($$0,vertab,"."); printf "%d", vertab[1]*1000+vertab[2]}')," \
+       -e "s,#define *MELT_GCC_VERSION *YY,#define MELT_GCC_VERSION $(MELT_GCC_VERSION_NUM)," \
            <  $(srcdir)/melt-run.proto.h > melt-run.h-tmp )
 	$(SHELL) $(srcdir)/../move-if-change melt-run-md5.h-tmp melt-run-md5.h
 	$(SHELL) $(srcdir)/../move-if-change melt-run.h-tmp melt-run.h
@@ -2361,7 +2365,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
   $(srcdir)/tree-cfg.c \
   $(srcdir)/tree-dfa.c \
-  $(srcdir)/tree-iterator.c $(srcdir)/gimplify.c \
+  $(srcdir)/tree-iterator.c $(srcdir)/gimple-expr.c \
   $(srcdir)/tree-chrec.h \
   $(srcdir)/tree-scalar-evolution.c \
   $(srcdir)/tree-ssa-operands.h \
@@ -3231,7 +3235,7 @@ PLUGIN_HEADERS = $(TREE_H) $(CONFIG_H) $(SYSTEM_H) coretypes.h $(TM_H) \
   cppdefault.h flags.h $(MD5_H) params.def params.h prefix.h tree-inline.h \
   $(GIMPLE_PRETTY_PRINT_H) realmpfr.h \
   $(IPA_PROP_H) $(TARGET_H) $(RTL_H) $(TM_P_H) $(CFGLOOP_H) $(EMIT_RTL_H) \
-  version.h
+  version.h stringpool.h
 
 
 ## extra MELT required plugin headers

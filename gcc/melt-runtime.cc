@@ -80,6 +80,9 @@ const int melt_is_plugin = 0;
 #if MELT_GCC_VERSION >= 4009
 #include "tree-ssa.h"
 #include "tree-cfg.h"
+#include "print-tree.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #else
 #include "tree-flow.h"
 #endif
@@ -10224,7 +10227,7 @@ meltgc_start_all_new_modules (melt_ptr_t env_p)
   MELT_ENTERFRAME(1, NULL);
 #define env       meltfram__.mcfr_varptr[0]
   env = env_p;
-  debugeprintf ("meltgc_start_all_new_modules env %p", env);
+  debugeprintf ("meltgc_start_all_new_modules env %p", (void*) env);
   for (int modix = 1;
        modix <= Melt_Module::nb_modules();
        modix++)
@@ -10240,7 +10243,8 @@ meltgc_start_all_new_modules (melt_ptr_t env_p)
       MELT_LOCATION_HERE_PRINTF
       (locbuf, "meltgc_start_all_new_modules before starting #%d module %s",
        modix, plmod->module_path());
-      debugeprintf ("meltgc_start_all_new_modules env %p before starting modix %d", env, modix);
+      debugeprintf ("meltgc_start_all_new_modules env %p before starting modix %d", 
+		    (void*) env, modix);
       env = meltgc_start_module_by_index ((melt_ptr_t) env, modix);
       if (!env)
         melt_fatal_error ("MELT failed to start module #%d %s",
@@ -10391,7 +10395,7 @@ meltgc_start_flavored_module (melt_ptr_t env_p, const char*modulbase, const char
   memset (modulbuf, 0, sizeof(modulbuf));
   memset (flavorbuf, 0, sizeof(flavorbuf));
   debugeprintf ("meltgc_start_flavored_module env %p modulbase %s flavor %s",
-                env, modulbase?modulbase:"*none*", flavor?flavor:"*none*");
+                (void*) env, modulbase?modulbase:"*none*", flavor?flavor:"*none*");
   if (!modulbase)
     {
       env = NULL;
@@ -10437,7 +10441,7 @@ meltgc_start_flavored_module (melt_ptr_t env_p, const char*modulbase, const char
     }
   debugeprintf ("meltgc_start_flavored_module moduldup %s before starting all new", moduldup);
   env = meltgc_start_all_new_modules ((melt_ptr_t) env);
-  debugeprintf ("meltgc_start_flavored_module moduldup %s after starting all new env %p", moduldup, env);
+  debugeprintf ("meltgc_start_flavored_module moduldup %s after starting all new env %p", moduldup, (void*) env);
 end:
   if (moduldup && moduldup != modulbuf)
     free (moduldup), moduldup = NULL;
@@ -10665,7 +10669,7 @@ meltgc_do_initial_mode (melt_ptr_t modata_p, const char* modstr)
     {
       inform (UNKNOWN_LOCATION, "MELT don't do anything because no mode is given");
       debugeprintf("meltgc_do_initial_mode do nothing without mode modata %p",
-                   modatav);
+                   (void*) modatav);
       goto end;
     }
   if (!MELT_PREDEF (INITIAL_SYSTEM_DATA))
@@ -10676,12 +10680,12 @@ meltgc_do_initial_mode (melt_ptr_t modata_p, const char* modstr)
     }
   dictv = melt_get_inisysdata(MELTFIELD_SYSDATA_MODE_DICT);
   debugeprintf ("meltgc_do_initial_mode dictv=%p of magic %d",
-                dictv, melt_magic_discr ((melt_ptr_t) dictv));
+                (void*) dictv, melt_magic_discr ((melt_ptr_t) dictv));
   debugeprintvalue ("meltgc_do_initial_mode dictv", dictv);
   if (!dictv || melt_magic_discr ((melt_ptr_t) dictv) != MELTOBMAG_MAPSTRINGS)
     {
-      debugeprintf("meltgc_do_initial_mode invalid dictv %p", dictv);
-      melt_fatal_error ("invalid MELT mode dictionnary %p", dictv);
+      debugeprintf("meltgc_do_initial_mode invalid dictv %p", (void*) dictv);
+      melt_fatal_error ("invalid MELT mode dictionnary %p", (void*) dictv);
       goto end;
     };
   if (strchr (modstr, ','))
@@ -10705,7 +10709,7 @@ meltgc_do_initial_mode (melt_ptr_t modata_p, const char* modstr)
         cmdv =
           melt_get_mapstrings ((struct meltmapstrings_st *) dictv,
                                curmodstr);
-      debugeprintf ("meltgc_do_initial_mode cmdv=%p", cmdv);
+      debugeprintf ("meltgc_do_initial_mode cmdv=%p", (void*) cmdv);
       if (!cmdv)
         {
           error ("unknown MELT mode %s [of %d modes]", modstr,
@@ -10716,14 +10720,15 @@ meltgc_do_initial_mode (melt_ptr_t modata_p, const char* modstr)
                                 (melt_ptr_t) MELT_PREDEF (CLASS_MELT_MODE)))
         {
           debugeprintf ("meltgc_do_initial_mode invalid cmdv %p of magic %d",
-                        cmdv, melt_magic_discr((melt_ptr_t)cmdv));
+                        (void*) cmdv, melt_magic_discr((melt_ptr_t)cmdv));
           error ("bad MELT mode %s, not instance of CLASS_MELT_MODE", modstr);
           goto end;
         };
       closv = melt_object_nth_field ((melt_ptr_t) cmdv, MELTFIELD_MELTMODE_FUN);
       if (melt_magic_discr ((melt_ptr_t) closv) != MELTOBMAG_CLOSURE)
         {
-          debugeprintf ("meltgc_do_initial_mode invalid closv %p", closv);
+          debugeprintf ("meltgc_do_initial_mode invalid closv %p", 
+			(void*) closv);
           error ("no closure for melt mode %s", modstr);
           goto end;
         };
@@ -10733,14 +10738,15 @@ meltgc_do_initial_mode (melt_ptr_t modata_p, const char* modstr)
         {
           /* apply the closure to the mode & the module data */
           pararg[0].meltbp_aptr = (melt_ptr_t *) & modatav;
-          debugeprintf ("meltgc_do_initial_mode before apply closv %p", closv);
+          debugeprintf ("meltgc_do_initial_mode before apply closv %p", 
+			(void*) closv);
           MELT_LOCATION_HERE ("meltgc_do_initial_mode before apply");
           resv = melt_apply ((meltclosure_ptr_t) closv,
                              (melt_ptr_t) cmdv,
                              MELTBPARSTR_PTR, pararg, "",
                              NULL);
           debugeprintf ("meltgc_do_initial_mode after apply closv %p resv %p",
-                        closv, resv);
+                        (void*) closv, (void*) resv);
         }
         if (!resv)
           {
@@ -10793,7 +10799,8 @@ meltgc_set_user_options (const char* optstr)
   if (optstr && optstr[0])
     {
       optsetv=melt_get_inisysdata (MELTFIELD_SYSDATA_OPTION_SET);
-      debugeprintf("meltfield_sysdata_option_set optsetv %p for optstr '%s'", optsetv, optstr);
+      debugeprintf("meltfield_sysdata_option_set optsetv %p for optstr '%s'", 
+		   (void*) optsetv, optstr);
       if (optsetv != NULL
           && melt_magic_discr ((melt_ptr_t) optsetv) == MELTOBMAG_CLOSURE)
         {
@@ -10834,7 +10841,8 @@ meltgc_set_user_options (const char* optstr)
               if (!optname || !optname[0])
                 error ("MELT option %s without valid name", optstr);
               optsymbv = melthookproc_HOOK_NAMED_SYMBOL (optname, (long) MELT_CREATE);
-              debugeprintf("optname '%s got optsymbv %p", optname, optsymbv);
+              debugeprintf("optname '%s got optsymbv %p", optname, 
+			   (void*) optsymbv);
               {
                 union meltparam_un pararg[1];
                 memset (&pararg, 0, sizeof (pararg));
@@ -10951,7 +10959,7 @@ meltgc_load_modules_and_do_mode (void)
   /**
    * Then we start all the initial modules
    **/
-  debugeprintf ("meltgc_load_modules_and_do_mode before starting all new modules modatv=%p", modatv);
+  debugeprintf ("meltgc_load_modules_and_do_mode before starting all new modules modatv=%p", (void*) modatv);
   modatv = meltgc_start_all_new_modules ((melt_ptr_t) modatv);
   debugeprintf ("meltgc_load_modules_and_do_mode started all new modules modatv=%p", modatv);
 
@@ -14277,11 +14285,19 @@ same as gimple (with file "coretypes.h" having the definition `typedef
 gimple gimple_seq;`), but our generated runtime support might still
 want their old marking routine.  */
 
-#if MELT_GCC_VERSION >= 4008
+#if MELT_GCC_VERSION == 4008
 void melt_gt_ggc_mx_gimple_seq_d(void*p)
 {
   gt_ggc_mx_gimple_statement_d (p);
 }
+#elif MELT_GCC_VERSION == 4009
+void melt_gt_ggc_mx_gimple_seq_d(void*p)
+{
+  if (p)
+    gt_ggc_mx_gimple_statement_base(p);
+}
+#else
+#error melt_gt_ggc_mx_gimple_seq_d unimplemented for this version of GCC
 #endif /* GCC 4.8 */
 
 
