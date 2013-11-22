@@ -147,6 +147,8 @@ AM_PROG_LIBTOOL
 libtool_VERSION=1:0:0
 AC_SUBST(libtool_VERSION)
 
+AM_MAINTAINER_MODE
+
 # Checks for libraries.
 # Create a spec file, so that compile/link tests don't fail
 test -f libgfortran.spec || touch libgfortran.spec

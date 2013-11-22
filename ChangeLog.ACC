@@ -1,3 +1,11 @@
+22-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add maintainer mode to liboacc config.
+
+	* liboacc/configure.ac: Add AM_MAINTAINER_MODE macros.
+	* liboacc/Makefile.in: Regenerate.
+	* liboacc/aclocal.m4: Likewise.
+	* liboacc/configure: Likewise.
+
 19-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Add liboacc to gcc_update script.
 
