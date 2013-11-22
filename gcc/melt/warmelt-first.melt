@@ -2677,7 +2677,7 @@ list.}#
   :ctype_parstring '"MELTBPARSTR_TREE"
   :ctype_argfield '"meltbp_tree"
   :ctype_resfield '"meltbp_treeptr"
-  :ctype_marker '"gt_ggc_mx_tree_node"
+  :ctype_marker '"/*:tree marker*/ gt_ggc_mx_tree_node"
   :ctype_autoboxdiscr discr_tree
   :ctype_autoconstboxdiscr discr_constant_tree
 ;; GTY ctype
@@ -2717,7 +2717,7 @@ list.}#
   :ctype_parstring '"MELTBPARSTR_GIMPLE"
   :ctype_argfield '"meltbp_gimple"
   :ctype_resfield '"meltbp_gimpleptr"
-  :ctype_marker '"gt_ggc_mx_gimple_statement_d"
+  :ctype_marker '"/*:gimple marker*/ gt_ggc_mx_gimple_statement_d"
   :ctype_autoboxdiscr discr_gimple
   :ctype_autoconstboxdiscr discr_constant_gimple
 ;; GTY ctype
@@ -2759,7 +2759,7 @@ Keyword is :gimple_seq.}#
   :ctype_parstring '"MELTBPARSTR_GIMPLESEQ"
   :ctype_argfield '"meltbp_gimpleseq"
   :ctype_resfield '"meltbp_gimpleseqptr"
-  :ctype_marker '"gt_ggc_mx_gimple_seq_d"
+  :ctype_marker '"/*:gimple_seq marker*/ gt_ggc_mx_gimple_seq_d"
   :ctype_autoboxdiscr discr_gimple_seq
   :ctype_autoconstboxdiscr discr_constant_gimple_seq
 ;; GTY ctype
@@ -2801,7 +2801,7 @@ Keyword is :basic_block.}#
   :ctype_parstring '"MELTBPARSTR_BB"
   :ctype_argfield '"meltbp_bb"
   :ctype_resfield '"meltbp_bbptr"
-  :ctype_marker '"gt_ggc_mx_basic_block_def"
+  :ctype_marker '"/*:basic_block marker*/ gt_ggc_mx_basic_block_def"
   :ctype_autoboxdiscr discr_basic_block
   :ctype_autoconstboxdiscr discr_constant_basic_block
 ;; GTY ctype
@@ -2842,7 +2842,7 @@ Keyword is :edge.}#
   :ctype_parstring '"MELTBPARSTR_EDGE"
   :ctype_argfield '"meltbp_edge"
   :ctype_resfield '"meltbp_edgeptr"
-  :ctype_marker '"gt_ggc_mx_edge_def"
+  :ctype_marker '"/*:edge marker*/ gt_ggc_mx_edge_def"
   :ctype_autoboxdiscr discr_edge
   :ctype_autoconstboxdiscr discr_constant_edge
 ;; GTY ctype
@@ -2883,7 +2883,7 @@ Keyword is :loop.}#
   :ctype_parstring '"MELTBPARSTR_LOOP"
   :ctype_argfield '"meltbp_loop"
   :ctype_resfield '"meltbp_loopptr"
-  :ctype_marker '"gt_ggc_mx_loop"
+  :ctype_marker '"/*:loop marker*/ gt_ggc_mx_loop"
   :ctype_autoboxdiscr discr_loop
   :ctype_autoconstboxdiscr discr_constant_loop
 ;; GTY ctype
@@ -2924,7 +2924,7 @@ Keyword is :rtx.}#
   :ctype_parstring '"MELTBPARSTR_RTX"
   :ctype_argfield '"meltbp_rtx"
   :ctype_resfield '"meltbp_rtxptr"
-  :ctype_marker '"gt_ggc_mx_rtx"
+  :ctype_marker '"/*:rtx_marker*/ gt_ggc_mx_rtx"
   :ctype_autoboxdiscr discr_rtx
 ;; GTY ctype
   :ctypg_boxedmagic '"MELTOBMAG_RTX"
@@ -2964,7 +2964,7 @@ Keyword is :bitmap.}#
   :ctype_parstring '"MELTBPARSTR_BITMAP"
   :ctype_argfield '"meltbp_bitmap"
   :ctype_resfield '"meltbp_bitmapptr"
-  :ctype_marker '"gt_ggc_mx_bitmap"
+  :ctype_marker '"/*:bitmap marker*/ gt_ggc_mx_bitmap"
   :ctype_autoboxdiscr discr_bitmap
 ;; GTY ctype
   :ctypg_boxedmagic '"MELTOBMAG_BITMAP"
@@ -3004,7 +3004,7 @@ Keyword is :rtvec.}#
   :ctype_parstring '"MELTBPARSTR_RTVEC"
   :ctype_argfield '"meltbp_rtvec"
   :ctype_resfield '"meltbp_rtvecptr"
-  :ctype_marker '"gt_ggc_mx_rtvec"
+  :ctype_marker '"/*:rtvec marker*/ gt_ggc_mx_rtvec"
   :ctype_autoboxdiscr discr_rtvec
 ;; GTY ctype
   :ctypg_boxedmagic '"MELTOBMAG_RTVEC"

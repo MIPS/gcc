@@ -1,6 +1,14 @@
 
 2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{unstable, xtramelt-ana-base.melt is not translatable.}}
+	* melt/warmelt-first.melt (ctype_tree, ctype_gimple)
+	(ctype_gimple_seq, ctype_basic_block, ctype_edge, ctype_loop)
+	(ctype_rtx, ctype_bitmap): The :ctype_marker field has a comment
+	to be generated.
+
+2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{merge with trunk GCC 4.9 svn rev 205247 now in stage 3}}
 	* Makefile.in (MELT_GCC_VERSION_NUM): New make variable.
 	(melt-run-md5.h, melt-run.h): Use it.

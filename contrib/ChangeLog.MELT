@@ -1,4 +1,7 @@
 
+2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile (melt-run.h): Use the MELT version number.
+
 2013-11-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile: Improve message for missing GCC plugin kit.
 
