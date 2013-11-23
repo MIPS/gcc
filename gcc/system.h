@@ -273,9 +273,6 @@ extern int errno;
 # include <limits.h>
 #endif
 
-/* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
-#include "hwint.h"
-
 /* A macro to determine whether a VALUE lies inclusively within a
    certain range without evaluating the VALUE more than once.  This
    macro won't warn if the VALUE is unsigned and the LOWER bound is
@@ -1016,7 +1013,7 @@ helper_const_non_const_cast (const char *p)
 #define CONST_CAST_TREE(X) CONST_CAST (union tree_node *, (X))
 #define CONST_CAST_RTX(X) CONST_CAST (struct rtx_def *, (X))
 #define CONST_CAST_BB(X) CONST_CAST (struct basic_block_def *, (X))
-#define CONST_CAST_GIMPLE(X) CONST_CAST (union gimple_statement_d *, (X))
+#define CONST_CAST_GIMPLE(X) CONST_CAST (struct gimple_statement_base *, (X))
 
 /* Activate certain diagnostics as warnings (not errors via the
    -Werror flag).  */
@@ -1062,5 +1059,8 @@ helper_const_non_const_cast (const char *p)
 #define DEBUG_FUNCTION
 #define DEBUG_VARIABLE
 #endif
+
+/* Get definitions of HOST_WIDE_INT and HOST_WIDEST_INT.  */
+#include "hwint.h"
 
 #endif /* ! GCC_SYSTEM_H */

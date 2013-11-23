@@ -30,6 +30,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "output.h"
 #include "regs.h"
@@ -554,12 +556,12 @@ unsigned
 coverage_compute_profile_id (struct cgraph_node *n)
 {
   expanded_location xloc
-    = expand_location (DECL_SOURCE_LOCATION (n->symbol.decl));
+    = expand_location (DECL_SOURCE_LOCATION (n->decl));
   unsigned chksum = xloc.line;
 
   chksum = coverage_checksum_string (chksum, xloc.file);
   chksum = coverage_checksum_string
-    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->symbol.decl)));
+    (chksum, IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (n->decl)));
   if (first_global_object_name)
     chksum = coverage_checksum_string
       (chksum, first_global_object_name);
@@ -584,7 +586,7 @@ unsigned
 coverage_compute_cfg_checksum (void)
 {
   basic_block bb;
-  unsigned chksum = n_basic_blocks;
+  unsigned chksum = n_basic_blocks_for_fn (cfun);
 
   FOR_EACH_BB (bb)
     {
@@ -830,7 +832,7 @@ build_fn_info (const struct coverage_data *data, tree type, tree key)
 
 	if (var)
 	  count
-	    = tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (var))), 0)
+	    = tree_to_shwi (TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (var))))
 	    + 1;
 
 	CONSTRUCTOR_APPEND_ELT (ctr, TYPE_FIELDS (ctr_type),

@@ -22,15 +22,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "hash-table.h"
 #include "tm.h"
-#include "ggc.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "domwalk.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
@@ -329,7 +344,7 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
      outer ones, and also that we do not try to visit a removed
      block.  */
   bb_order = single_pred_before_succ_order ();
-  n = n_basic_blocks - NUM_FIXED_BLOCKS;
+  n = n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS;
 
   for (i = 0; i < n; i++)
     {
@@ -1351,7 +1366,7 @@ add_or_mark_expr (basic_block bb, tree exp,
 
   if (TREE_CODE (exp) == MEM_REF
       && TREE_CODE (TREE_OPERAND (exp, 0)) == SSA_NAME
-      && host_integerp (TREE_OPERAND (exp, 1), 0)
+      && tree_fits_shwi_p (TREE_OPERAND (exp, 1))
       && (size = int_size_in_bytes (TREE_TYPE (exp))) > 0)
     {
       tree name = TREE_OPERAND (exp, 0);
@@ -1366,7 +1381,7 @@ add_or_mark_expr (basic_block bb, tree exp,
       map.phase = 0;
       map.bb = 0;
       map.store = store;
-      map.offset = tree_low_cst (TREE_OPERAND (exp, 1), 0);
+      map.offset = tree_to_shwi (TREE_OPERAND (exp, 1));
       map.size = size;
 
       slot = seen_ssa_names.find_slot (&map, INSERT);
@@ -1674,7 +1689,6 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
   data_reference_p then_dr, else_dr;
   int i, j;
   tree then_lhs, else_lhs;
-  vec<gimple> then_stores, else_stores;
   basic_block blocks[3];
 
   if (MAX_STORES_TO_SINK == 0)
@@ -1701,8 +1715,7 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
     }
 
   /* Find pairs of stores with equal LHS.  */
-  then_stores.create (1);
-  else_stores.create (1);
+  stack_vec<gimple, 1> then_stores, else_stores;
   FOR_EACH_VEC_ELT (then_datarefs, i, then_dr)
     {
       if (DR_IS_READ (then_dr))
@@ -1740,8 +1753,6 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
     {
       free_data_refs (then_datarefs);
       free_data_refs (else_datarefs);
-      then_stores.release ();
-      else_stores.release ();
       return false;
     }
 
@@ -1757,8 +1768,6 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
       free_dependence_relations (else_ddrs);
       free_data_refs (then_datarefs);
       free_data_refs (else_datarefs);
-      then_stores.release ();
-      else_stores.release ();
       return false;
     }
   blocks[0] = then_bb;
@@ -1784,8 +1793,6 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
           free_dependence_relations (else_ddrs);
 	  free_data_refs (then_datarefs);
 	  free_data_refs (else_datarefs);
-          then_stores.release ();
-          else_stores.release ();
           return false;
         }
     }
@@ -1808,8 +1815,6 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
           free_dependence_relations (else_ddrs);
 	  free_data_refs (then_datarefs);
 	  free_data_refs (else_datarefs);
-          then_stores.release ();
-          else_stores.release ();
           return false;
         }
     }
@@ -1827,8 +1832,6 @@ cond_if_else_store_replacement (basic_block then_bb, basic_block else_bb,
   free_dependence_relations (else_ddrs);
   free_data_refs (then_datarefs);
   free_data_refs (else_datarefs);
-  then_stores.release ();
-  else_stores.release ();
 
   return ok;
 }
@@ -1978,14 +1981,14 @@ hoist_adjacent_loads (basic_block bb0, basic_block bb1,
       tree_offset2 = bit_position (field2);
       tree_size2 = DECL_SIZE (field2);
 
-      if (!host_integerp (tree_offset1, 1)
-	  || !host_integerp (tree_offset2, 1)
-	  || !host_integerp (tree_size2, 1))
+      if (!tree_fits_uhwi_p (tree_offset1)
+	  || !tree_fits_uhwi_p (tree_offset2)
+	  || !tree_fits_uhwi_p (tree_size2))
 	continue;
 
-      offset1 = TREE_INT_CST_LOW (tree_offset1);
-      offset2 = TREE_INT_CST_LOW (tree_offset2);
-      size2 = TREE_INT_CST_LOW (tree_size2);
+      offset1 = tree_to_uhwi (tree_offset1);
+      offset2 = tree_to_uhwi (tree_offset2);
+      size2 = tree_to_uhwi (tree_size2);
       align1 = DECL_ALIGN (field1) % param_align_bits;
 
       if (offset1 % BITS_PER_UNIT != 0)

@@ -22,17 +22,28 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "function.h"
 #include "tree-dump.h"
 #include "tree-inline.h"
+#include "pointer-set.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "tree-iterator.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
 #include "cgraph.h"
+#include "tree-cfg.h"
 #include "expr.h"	/* FIXME: For STACK_SAVEAREA_MODE and SAVE_NONLOCAL.  */
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "gimple-low.h"
 
 
@@ -700,11 +711,11 @@ check_for_nested_with_variably_modified (tree fndecl, tree orig_fndecl)
 
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
     {
-      for (arg = DECL_ARGUMENTS (cgn->symbol.decl); arg; arg = DECL_CHAIN (arg))
+      for (arg = DECL_ARGUMENTS (cgn->decl); arg; arg = DECL_CHAIN (arg))
 	if (variably_modified_type_p (TREE_TYPE (arg), orig_fndecl))
 	  return true;
 
-      if (check_for_nested_with_variably_modified (cgn->symbol.decl,
+      if (check_for_nested_with_variably_modified (cgn->decl,
 						   orig_fndecl))
 	return true;
     }
@@ -723,7 +734,7 @@ create_nesting_tree (struct cgraph_node *cgn)
   info->var_map = pointer_map_create ();
   info->mem_refs = pointer_set_create ();
   info->suppress_expansion = BITMAP_ALLOC (&nesting_info_bitmap_obstack);
-  info->context = cgn->symbol.decl;
+  info->context = cgn->decl;
 
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
     {
@@ -2629,8 +2640,8 @@ static void
 gimplify_all_functions (struct cgraph_node *root)
 {
   struct cgraph_node *iter;
-  if (!gimple_body (root->symbol.decl))
-    gimplify_function_tree (root->symbol.decl);
+  if (!gimple_body (root->decl))
+    gimplify_function_tree (root->decl);
   for (iter = root->nested; iter; iter = iter->next_nested)
     gimplify_all_functions (iter);
 }

@@ -20,9 +20,9 @@
 ## <http://www.gnu.org/licenses/>.
 
 if ENABLE_VTABLE_VERIFY
-SUBDIRS = testsuite
+  SUBDIRS = testsuite
 else
-SUBDIRS = 
+  SUBDIRS=
 endif
 
 ACLOCAL_AMFLAGS = -I .. -I ../config
@@ -55,7 +55,7 @@ vtv_sources = \
         vtv_utils.cc \
 	vtv_end.c
 
-libvtv_includedir = $(includedir)
+libvtv_includedir = $(libdir)/gcc/$(target_alias)/$(gcc_version)/include
 
 # Link in vtv_start and vtv_end. 
 BUILT_SOURCES = vtv_start.c vtv_end.c
@@ -68,11 +68,11 @@ vtv_end.c:
 	$(LN_S) $(toplevel_srcdir)/libgcc/vtv_end.c $@
 
 if ENABLE_VTABLE_VERIFY
-libvtv_la_SOURCES = $(vtv_sources)
-libvtv_include_HEADERS = $(vtv_headers)
+  libvtv_la_SOURCES = $(vtv_sources)
+  libvtv_include_HEADERS = $(vtv_headers)
 else
-libvtv_la_SOURCES = 
-libvtv_include_HEADERS = 
+  libvtv_la_SOURCES =
+  libvtv_include_HEADERS =
 endif
 
 # Least ordering for dependencies mean linking w/o libstdc++ for as

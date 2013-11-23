@@ -701,6 +701,14 @@ proc check_effective_target_scheduling {} {
     } "-fschedule-insns"]
 }
 
+# Return 1 if trapping arithmetic is available, 0 otherwise.
+
+proc check_effective_target_trapping {} {
+    return [check_no_compiler_messages scheduling object {
+        add (int a, int b) { return a + b; }
+    } "-ftrapv"]
+}
+
 # Return 1 if compilation with -fgraphite is error-free for trivial 
 # code, 0 otherwise.
 
@@ -1987,7 +1995,8 @@ proc check_effective_target_vect_cmdline_needed { } {
 		     || [check_effective_target_powerpc_altivec]))
 	     || ([istarget sparc*-*-*] && [check_effective_target_sparc_vis])
              || [istarget spu-*-*]
-	     || ([istarget arm*-*-*] && [check_effective_target_arm_neon]) } {
+	     || ([istarget arm*-*-*] && [check_effective_target_arm_neon])
+	     || [istarget aarch64*-*-*] } {
 	   set et_vect_cmdline_needed_saved 0
 	}
     }
@@ -3006,6 +3015,22 @@ proc check_effective_target_powerpc_405_nocache { } {
 	    #error not a PPC405
 	    #endif
 	} [current_compiler_flags]]
+    } else {
+	return 0
+    }
+}
+
+# Return 1 if this is a PowerPC target using the ELFv2 ABI.
+
+proc check_effective_target_powerpc_elfv2 { } {
+    if { [istarget powerpc*-*-*] } {
+	return [check_no_compiler_messages powerpc_elfv2 object {
+	    #if _CALL_ELF != 2
+	    #error not ELF v2 ABI
+	    #else
+	    int dummy;
+	    #endif
+	}]
     } else {
 	return 0
     }
@@ -5468,4 +5493,41 @@ proc check_effective_target_aarch64_large { } {
     } else {
 	return 0
     }
+}
+
+# Return 1 if <fenv.h> is available with all the standard IEEE
+# exceptions and floating-point exceptions are raised by arithmetic
+# operations.  (If the target requires special options for "inexact"
+# exceptions, those need to be specified in the testcases.)
+
+proc check_effective_target_fenv_exceptions {} {
+    return [check_runtime fenv_exceptions {
+	#include <fenv.h>
+	#include <stdlib.h>
+	#ifndef FE_DIVBYZERO
+	# error Missing FE_DIVBYZERO
+	#endif
+	#ifndef FE_INEXACT
+	# error Missing FE_INEXACT
+	#endif
+	#ifndef FE_INVALID
+	# error Missing FE_INVALID
+	#endif
+	#ifndef FE_OVERFLOW
+	# error Missing FE_OVERFLOW
+	#endif
+	#ifndef FE_UNDERFLOW
+	# error Missing FE_UNDERFLOW
+	#endif
+	volatile float a = 0.0f, r;
+	int
+	main (void)
+	{
+	  r = a / a;
+	  if (fetestexcept (FE_INVALID))
+	    exit (0);
+	  else
+	    abort ();
+	}
+    } "-std=gnu99"]
 }

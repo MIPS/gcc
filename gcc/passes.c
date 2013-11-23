@@ -27,9 +27,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "line-map.h"
-#include "hash-table.h"
 #include "input.h"
 #include "tree.h"
+#include "varasm.h"
 #include "rtl.h"
 #include "tm_p.h"
 #include "flags.h"
@@ -45,7 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "basic-block.h"
 #include "intl.h"
-#include "ggc.h"
 #include "graph.h"
 #include "regs.h"
 #include "diagnostic-core.h"
@@ -56,11 +55,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "hosthooks.h"
-#include "cgraph.h"
 #include "opts.h"
 #include "coverage.h"
 #include "value-prof.h"
 #include "tree-inline.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-into-ssa.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "tree-dump.h"
@@ -887,7 +897,7 @@ pass_manager::dump_passes () const
   create_pass_tab ();
 
   FOR_EACH_FUNCTION (n)
-    if (DECL_STRUCT_FUNCTION (n->symbol.decl))
+    if (DECL_STRUCT_FUNCTION (n->decl))
       {
 	node = n;
 	break;
@@ -896,12 +906,11 @@ pass_manager::dump_passes () const
   if (!node)
     return;
 
-  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 
   dump_pass_list (all_lowering_passes, 1);
   dump_pass_list (all_small_ipa_passes, 1);
   dump_pass_list (all_regular_ipa_passes, 1);
-  dump_pass_list (all_lto_gen_passes, 1);
   dump_pass_list (all_late_ipa_passes, 1);
   dump_pass_list (all_passes, 1);
 
@@ -1420,8 +1429,6 @@ pass_manager::register_pass (struct register_pass_info *pass_info)
   if (!success || all_instances)
     success |= position_pass (pass_info, &all_regular_ipa_passes);
   if (!success || all_instances)
-    success |= position_pass (pass_info, &all_lto_gen_passes);
-  if (!success || all_instances)
     success |= position_pass (pass_info, &all_late_ipa_passes);
   if (!success || all_instances)
     success |= position_pass (pass_info, &all_passes);
@@ -1492,7 +1499,7 @@ pass_manager::operator new (size_t sz)
 
 pass_manager::pass_manager (context *ctxt)
 : all_passes (NULL), all_small_ipa_passes (NULL), all_lowering_passes (NULL),
-  all_regular_ipa_passes (NULL), all_lto_gen_passes (NULL),
+  all_regular_ipa_passes (NULL),
   all_late_ipa_passes (NULL), passes_by_id (NULL), passes_by_id_size (0),
   m_ctxt (ctxt)
 {
@@ -1547,9 +1554,6 @@ pass_manager::pass_manager (context *ctxt)
   register_dump_files (all_regular_ipa_passes,
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
-  register_dump_files (all_lto_gen_passes,
-		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
-		       | PROP_cfg);
   register_dump_files (all_late_ipa_passes,
 		       PROP_gimple_any | PROP_gimple_lcf | PROP_gimple_leh
 		       | PROP_cfg);
@@ -1571,10 +1575,10 @@ do_per_function (void (*callback) (void *data), void *data)
     {
       struct cgraph_node *node;
       FOR_EACH_DEFINED_FUNCTION (node)
-	if (node->symbol.analyzed && gimple_has_body_p (node->symbol.decl)
-	    && (!node->clone_of || node->symbol.decl != node->clone_of->symbol.decl))
+	if (node->analyzed && gimple_has_body_p (node->decl)
+	    && (!node->clone_of || node->decl != node->clone_of->decl))
 	  {
-	    push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	    push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	    callback (data);
 	    if (!flag_wpa)
 	      {
@@ -1621,7 +1625,7 @@ do_per_function_toporder (void (*callback) (void *data), void *data)
 	  if (cgraph_function_with_gimple_body_p (node))
 	    {
 	      cgraph_get_body (node);
-	      push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	      push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	      callback (data);
 	      free_dominance_info (CDI_DOMINATORS);
 	      free_dominance_info (CDI_POST_DOMINATORS);
@@ -1869,7 +1873,8 @@ execute_todo (unsigned int flags)
 
   statistics_fini_pass ();
 
-  do_per_function (execute_function_todo, (void *)(size_t) flags);
+  if (flags)
+    do_per_function (execute_function_todo, (void *)(size_t) flags);
 
   /* Always remove functions just as before inlining: IPA passes might be
      interested to see bodies of extern inline functions that are not inlined
@@ -2059,7 +2064,8 @@ execute_one_ipa_transform_pass (struct cgraph_node *node,
   if (profile_report && cfun && (cfun->curr_properties & PROP_cfg))
     check_profile_consistency (pass->static_pass_number, 1, true);
 
-  do_per_function (execute_function_dump, NULL);
+  if (dump_file)
+    do_per_function (execute_function_dump, NULL);
   pass_fini_dump_file (pass);
 
   current_pass = NULL;
@@ -2225,7 +2231,8 @@ execute_one_pass (struct opt_pass *pass)
     check_profile_consistency (pass->static_pass_number, 1, true);
 
   verify_interpass_invariants ();
-  do_per_function (execute_function_dump, NULL);
+  if (dump_file)
+    do_per_function (execute_function_dump, NULL);
   if (pass->type == IPA_PASS)
     {
       struct cgraph_node *node;
@@ -2263,6 +2270,18 @@ execute_pass_list (struct opt_pass *pass)
       pass = pass->next;
     }
   while (pass);
+}
+
+/* Write out all LTO data.  */
+static void
+write_lto (void)
+{
+  timevar_push (TV_IPA_LTO_GIMPLE_OUT);
+  lto_output ();
+  timevar_pop (TV_IPA_LTO_GIMPLE_OUT);
+  timevar_push (TV_IPA_LTO_DECL_OUT);
+  produce_asm_for_decls ();
+  timevar_pop (TV_IPA_LTO_DECL_OUT);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
@@ -2319,7 +2338,8 @@ ipa_write_summaries_1 (lto_symtab_encoder_t encoder)
 
   gcc_assert (!flag_wpa);
   ipa_write_summaries_2 (passes->all_regular_ipa_passes, state);
-  ipa_write_summaries_2 (passes->all_lto_gen_passes, state);
+
+  write_lto ();
 
   gcc_assert (lto_get_out_decl_state () == state);
   lto_pop_out_decl_state ();
@@ -2362,19 +2382,19 @@ ipa_write_summaries (void)
 	     ordering then matches the one IPA-passes get in their stmt_fixup
 	     hooks.  */
 
-	  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
-      if (node->symbol.definition)
-        lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
+      if (node->definition)
+        lto_set_symtab_encoder_in_partition (encoder, node);
     }
 
   FOR_EACH_DEFINED_FUNCTION (node)
-    if (node->symbol.alias)
-      lto_set_symtab_encoder_in_partition (encoder, (symtab_node)node);
+    if (node->alias)
+      lto_set_symtab_encoder_in_partition (encoder, node);
   FOR_EACH_DEFINED_VARIABLE (vnode)
-    lto_set_symtab_encoder_in_partition (encoder, (symtab_node)vnode);
+    lto_set_symtab_encoder_in_partition (encoder, vnode);
 
   ipa_write_summaries_1 (compute_ltrans_boundary (encoder));
 
@@ -2440,10 +2460,10 @@ ipa_write_optimization_summaries (lto_symtab_encoder_t encoder)
 
 	 For functions newly born at WPA stage we need to initialize
 	 the uids here.  */
-      if (node->symbol.definition
-	  && gimple_has_body_p (node->symbol.decl))
+      if (node->definition
+	  && gimple_has_body_p (node->decl))
 	{
-	  push_cfun (DECL_STRUCT_FUNCTION (node->symbol.decl));
+	  push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 	  renumber_gimple_stmt_uids ();
 	  pop_cfun ();
 	}
@@ -2452,7 +2472,8 @@ ipa_write_optimization_summaries (lto_symtab_encoder_t encoder)
   gcc_assert (flag_wpa);
   pass_manager *passes = g->get_passes ();
   ipa_write_optimization_summaries_1 (passes->all_regular_ipa_passes, state);
-  ipa_write_optimization_summaries_1 (passes->all_lto_gen_passes, state);
+
+  write_lto ();
 
   gcc_assert (lto_get_out_decl_state () == state);
   lto_pop_out_decl_state ();
@@ -2500,14 +2521,13 @@ ipa_read_summaries_1 (struct opt_pass *pass)
 }
 
 
-/* Read all the summaries for all_regular_ipa_passes and all_lto_gen_passes.  */
+/* Read all the summaries for all_regular_ipa_passes.  */
 
 void
 ipa_read_summaries (void)
 {
   pass_manager *passes = g->get_passes ();
   ipa_read_summaries_1 (passes->all_regular_ipa_passes);
-  ipa_read_summaries_1 (passes->all_lto_gen_passes);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
@@ -2550,14 +2570,13 @@ ipa_read_optimization_summaries_1 (struct opt_pass *pass)
     }
 }
 
-/* Read all the summaries for all_regular_ipa_passes and all_lto_gen_passes.  */
+/* Read all the summaries for all_regular_ipa_passes.  */
 
 void
 ipa_read_optimization_summaries (void)
 {
   pass_manager *passes = g->get_passes ();
   ipa_read_optimization_summaries_1 (passes->all_regular_ipa_passes);
-  ipa_read_optimization_summaries_1 (passes->all_lto_gen_passes);
 }
 
 /* Same as execute_pass_list but assume that subpasses of IPA passes
@@ -2685,11 +2704,11 @@ function_called_by_processed_nodes_p (void)
        e;
        e = e->next_caller)
     {
-      if (e->caller->symbol.decl == current_function_decl)
+      if (e->caller->decl == current_function_decl)
         continue;
       if (!cgraph_function_with_gimple_body_p (e->caller))
         continue;
-      if (TREE_ASM_WRITTEN (e->caller->symbol.decl))
+      if (TREE_ASM_WRITTEN (e->caller->decl))
         continue;
       if (!e->caller->process && !e->caller->global.inlined_to)
       	break;

@@ -78,8 +78,10 @@ fi
 
 # Get target configury.
 unset TSAN_SUPPORTED
+unset LSAN_SUPPORTED
 . ${srcdir}/configure.tgt
 AM_CONDITIONAL(TSAN_SUPPORTED, [test "x$TSAN_SUPPORTED" = "xyes"])
+AM_CONDITIONAL(LSAN_SUPPORTED, [test "x$LSAN_SUPPORTED" = "xyes"])
 
 case "$host" in
   *-*-darwin*) MAC_INTERPOSE=true ; enable_static=no ;;
@@ -89,7 +91,7 @@ AM_CONDITIONAL(USING_MAC_INTERPOSE, $MAC_INTERPOSE)
 
 AC_CONFIG_FILES([Makefile])
 
-AC_CONFIG_FILES(AC_FOREACH([DIR], [interception sanitizer_common asan ubsan], [DIR/Makefile ]),
+AC_CONFIG_FILES(AC_FOREACH([DIR], [interception sanitizer_common lsan asan ubsan], [DIR/Makefile ]),
   [cat > vpsed$$ << \_EOF
 s!`test -f '$<' || echo '$(srcdir)/'`!!
 _EOF

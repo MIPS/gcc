@@ -1972,6 +1972,15 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       return 0;
     }
 
+  if (actual->ts.type == BT_ASSUMED && formal->ts.type != BT_ASSUMED)
+    {
+      if (where)
+	gfc_error ("Assumed-type actual argument at %L requires that dummy "
+		   "argument '%s' is of assumed type", &actual->where,
+		   formal->name);
+      return 0;
+    }
+
   /* F2008, 12.5.2.5; IR F08/0073.  */
   if (formal->ts.type == BT_CLASS && formal->attr.class_ok
       && actual->expr_type != EXPR_NULL
@@ -2083,7 +2092,7 @@ compare_parameter (gfc_symbol *formal, gfc_expr *actual,
       && (actual->symtree->n.sym->attr.asynchronous
          || actual->symtree->n.sym->attr.volatile_)
       &&  (formal->attr.asynchronous || formal->attr.volatile_)
-      && actual->rank && !gfc_is_simply_contiguous (actual, true)
+      && actual->rank && formal->as && !gfc_is_simply_contiguous (actual, true)
       && ((formal->as->type != AS_ASSUMED_SHAPE
 	   && formal->as->type != AS_ASSUMED_RANK && !formal->attr.pointer)
 	  || formal->attr.contiguous))

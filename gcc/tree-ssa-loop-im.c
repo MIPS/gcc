@@ -25,16 +25,34 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "cfgloop.h"
 #include "domwalk.h"
 #include "params.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "hash-table.h"
 #include "tree-affine.h"
-#include "pointer-set.h"
 #include "tree-ssa-propagate.h"
+#include "trans-mem.h"
 
 /* TODO:  Support for predicated code motion.  I.e.
 
@@ -1230,7 +1248,6 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
 	  new_stmt = gimple_build_assign_with_ops (TREE_CODE (arg),
 						   gimple_phi_result (stmt),
 						   arg, NULL_TREE);
-	  SSA_NAME_DEF_STMT (gimple_phi_result (stmt)) = new_stmt;
 	}
       else
 	{
@@ -1246,7 +1263,6 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
 	  new_stmt = gimple_build_assign_with_ops (COND_EXPR,
 						   gimple_phi_result (stmt),
 						   t, arg0, arg1);
-	  SSA_NAME_DEF_STMT (gimple_phi_result (stmt)) = new_stmt;
 	  todo_ |= TODO_cleanup_cfg;
 	}
       gsi_insert_on_edge (loop_preheader_edge (level), new_stmt);
@@ -1573,19 +1589,18 @@ analyze_memory_references (void)
   gimple_stmt_iterator bsi;
   basic_block bb, *bbs;
   struct loop *loop, *outer;
-  loop_iterator li;
   unsigned i, n;
 
   /* Initialize bb_loop_postorder with a mapping from loop->num to
      its postorder index.  */
   i = 0;
   bb_loop_postorder = XNEWVEC (unsigned, number_of_loops (cfun));
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     bb_loop_postorder[loop->num] = i++;
   /* Collect all basic-blocks in loops and sort them after their
      loops postorder.  */
   i = 0;
-  bbs = XNEWVEC (basic_block, n_basic_blocks - NUM_FIXED_BLOCKS);
+  bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS);
   FOR_EACH_BB (bb)
     if (bb->loop_father != current_loops->tree_root)
       bbs[i++] = bb;
@@ -1606,7 +1621,7 @@ analyze_memory_references (void)
 
   /* Propagate the information about accessed memory references up
      the loop hierarchy.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       /* Finalize the overall touched references (including subloops).  */
       bitmap_ior_into (&memory_accesses.all_refs_stored_in_loop[loop->num],
@@ -1940,7 +1955,7 @@ execute_sm (struct loop *loop, vec<edge> exits, mem_ref_p ref)
   fmt_data.orig_loop = loop;
   for_each_index (&ref->mem.ref, force_move_till, &fmt_data);
 
-  if (block_in_transaction (loop_preheader_edge (loop)->src)
+  if (bb_in_transaction (loop_preheader_edge (loop)->src)
       || !PARAM_VALUE (PARAM_ALLOW_STORE_DATA_RACES))
     multi_threaded_model_p = true;
 

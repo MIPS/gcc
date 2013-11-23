@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "target.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -31,10 +33,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-tree.h"
 #include "lto.h"
 #include "tree-inline.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "lto-streamer.h"
+#include "cilk.h"
 
 static tree lto_type_for_size (unsigned, int);
 
@@ -1174,6 +1182,9 @@ lto_init (void)
       lto_define_builtins (va_list_type_node,
 			   build_reference_type (va_list_type_node));
     }
+  
+  if (flag_enable_cilkplus)
+    cilk_init_builtins ();
 
   targetm.init_builtins ();
   build_common_builtin_nodes ();
@@ -1297,6 +1308,5 @@ lto_tree_node_structure (union lang_tree_node *t ATTRIBUTE_UNUSED)
   return TS_LTO_GENERIC;
 }
 
-#include "ggc.h"
 #include "gtype-lto.h"
 #include "gt-lto-lto-lang.h"

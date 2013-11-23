@@ -28,7 +28,7 @@
  *  Do not attempt to use it directly. @headername{regex}
  */
 
-// TODO: convert comments to doxygen format.
+// FIXME convert comments to doxygen format.
 
 namespace std _GLIBCXX_VISIBILITY(default)
 {
@@ -52,169 +52,115 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    * @{
    */
 
-  template<typename _BiIter, typename _Alloc,
-    typename _CharT, typename _TraitsT>
+  template<typename _BiIter, typename _Alloc, typename _TraitsT,
+	   bool __dfs_mode>
     class _Executor
     {
     public:
-      typedef match_results<_BiIter, _Alloc>          _ResultsT;
-      typedef std::vector<sub_match<_BiIter>, _Alloc> _ResultsVec;
-      typedef regex_constants::match_flag_type        _FlagT;
+      typedef typename iterator_traits<_BiIter>::value_type _CharT;
+      typedef basic_regex<_CharT, _TraitsT>                 _RegexT;
+      typedef std::vector<sub_match<_BiIter>, _Alloc>       _ResultsVec;
+      typedef regex_constants::match_flag_type              _FlagT;
+      typedef typename _TraitsT::char_class_type            _ClassT;
+      typedef _NFA<_TraitsT>                                _NFAT;
 
-      virtual
-      ~_Executor()
+    public:
+      _Executor(_BiIter         __begin,
+		_BiIter         __end,
+		_ResultsVec&    __results,
+		const _RegexT&  __re,
+		_FlagT          __flags)
+      : _M_begin(__begin),
+      _M_end(__end),
+      _M_re(__re),
+      _M_nfa(*__re._M_automaton),
+      _M_results(__results),
+      _M_match_queue(__dfs_mode ? nullptr
+		     : new queue<pair<_StateIdT, _ResultsVec>>()),
+      _M_visited(__dfs_mode ? nullptr : new vector<bool>(_M_nfa.size())),
+      _M_flags((__flags & regex_constants::match_prev_avail)
+	       ? (__flags
+		  & ~regex_constants::match_not_bol
+		  & ~regex_constants::match_not_bow)
+	       : __flags),
+      _M_start_state(_M_nfa._M_start())
       { }
 
       // Set matched when string exactly match the pattern.
-      virtual void
-      _M_match() = 0;
+      bool
+      _M_match()
+      {
+	_M_current = _M_begin;
+	return _M_main<true>();
+      }
 
       // Set matched when some prefix of the string matches the pattern.
-      virtual void
-      _M_search_from_first() = 0;
-
-    protected:
-      typedef typename _NFA<_CharT, _TraitsT>::_SizeT _SizeT;
-      _Executor(_BiIter    __begin,
-		_BiIter    __end,
-		_ResultsT& __results,
-		_FlagT     __flags,
-		_SizeT     __size)
-      : _M_current(__begin), _M_end(__end), _M_results(__results),
-	_M_flags(__flags)
+      bool
+      _M_search_from_first()
       {
-	__size += 2;
-	_M_results.resize(__size);
-	for (auto __i = 0; __i < __size; __i++)
-	  _M_results[__i].matched = false;
+	_M_current = _M_begin;
+	return _M_main<false>();
       }
 
-      _BiIter       _M_current;
-      _BiIter       _M_end;
-      _ResultsVec&  _M_results;
-      _FlagT        _M_flags;
-    };
-
-  // A _DFSExecutor perform a DFS on given NFA and input string. At the very
-  // beginning the executor stands in the start state, then it try every
-  // possible state transition in current state recursively. Some state
-  // transitions consume input string, say, a single-char-matcher or a
-  // back-reference matcher; some not, like assertion or other anchor nodes.
-  // When the input is exhausted and the current state is an accepting state,
-  // the whole executor return true.
-  //
-  // TODO: This approach is exponentially slow for certain input.
-  //       Try to compile the NFA to a DFA.
-  //
-  // Time complexity: exponential
-  // Space complexity: O(__end - __begin)
-  template<typename _BiIter, typename _Alloc,
-    typename _CharT, typename _TraitsT>
-    class _DFSExecutor
-    : public _Executor<_BiIter, _Alloc, _CharT, _TraitsT>
-    {
-    public:
-      typedef _Executor<_BiIter, _Alloc, _CharT, _TraitsT> _BaseT;
-      typedef _NFA<_CharT, _TraitsT>                       _RegexT;
-      typedef typename _BaseT::_ResultsT                   _ResultsT;
-      typedef typename _BaseT::_ResultsVec                 _ResultsVec;
-      typedef regex_constants::match_flag_type             _FlagT;
-
-      _DFSExecutor(_BiIter         __begin,
-		   _BiIter         __end,
-		   _ResultsT&      __results,
-		   const _RegexT&  __nfa,
-		   const _TraitsT& __traits,
-		   _FlagT          __flags)
-      : _BaseT(__begin, __end, __results, __flags, __nfa._M_sub_count()),
-	_M_traits(__traits), _M_nfa(__nfa), _M_results_ret(this->_M_results)
-      { }
-
-      void
-      _M_match()
-      { _M_dfs<true>(_M_nfa._M_start()); }
-
-      void
-      _M_search_from_first()
-      { _M_dfs<false>(_M_nfa._M_start()); }
-
-    private:
-      template<bool __match_mode>
-	bool
-	_M_dfs(_StateIdT __i);
-
-      _ResultsVec     _M_results_ret;
-      const _TraitsT& _M_traits;
-      const _RegexT&  _M_nfa;
-    };
-
-  // Like the DFS approach, it try every possible state transition; Unlike DFS,
-  // it uses a queue instead of a stack to store matching states. It's a BFS
-  // approach.
-  //
-  // Russ Cox's article(http://swtch.com/~rsc/regexp/regexp1.html) explained
-  // this algorithm clearly.
-  //
-  // Every entry of _M_covered saves the solution(grouping status) for every
-  // matching head. When states transit, solutions will be compared and
-  // deduplicated(based on which greedy mode we have).
-  //
-  // Time complexity: O((__end - __begin) * _M_nfa.size())
-  // Space complexity: O(_M_nfa.size() * _M_nfa.mark_count())
-  template<typename _BiIter, typename _Alloc,
-    typename _CharT, typename _TraitsT>
-    class _BFSExecutor
-    : public _Executor<_BiIter, _Alloc, _CharT, _TraitsT>
-    {
-    public:
-      typedef _Executor<_BiIter, _Alloc, _CharT, _TraitsT> _BaseT;
-      typedef _NFA<_CharT, _TraitsT>                       _RegexT;
-      typedef typename _BaseT::_ResultsT                   _ResultsT;
-      typedef typename _BaseT::_ResultsVec                 _ResultsVec;
-      typedef std::unique_ptr<_ResultsVec>                 _ResultsPtr;
-      typedef regex_constants::match_flag_type             _FlagT;
-
-      _BFSExecutor(_BiIter        __begin,
-		   _BiIter        __end,
-		   _ResultsT&     __results,
-		   const _RegexT& __nfa,
-		   _FlagT         __flags)
-      : _BaseT(__begin, __end, __results, __flags, __nfa._M_sub_count()),
-	_M_nfa(__nfa)
-      {
-	if (_M_nfa._M_start() != _S_invalid_state_id)
-	  _M_covered[_M_nfa._M_start()] =
-	    _ResultsPtr(new _ResultsVec(this->_M_results));
-	_M_e_closure();
-      }
-
-      void
-      _M_match()
-      { _M_main_loop<true>(); }
-
-      void
-      _M_search_from_first()
-      { _M_main_loop<false>(); }
+      bool
+      _M_search();
 
     private:
       template<bool __match_mode>
 	void
-	_M_main_loop();
+	_M_dfs(_StateIdT __start);
 
-      void
-      _M_e_closure();
-
-      void
-      _M_move();
+      template<bool __match_mode>
+	bool
+	_M_main();
 
       bool
-      _M_match_less_than(const _ResultsVec& __u, const _ResultsVec& __v) const;
+      _M_is_word(_CharT __ch) const
+      {
+	static const _CharT __s[2] = { 'w' };
+	return _M_re._M_traits.isctype
+	  (__ch, _M_re._M_traits.lookup_classname(__s, __s+1));
+      }
 
       bool
-      _M_includes_some() const;
+      _M_at_begin() const
+      {
+	return _M_current == _M_begin
+	  && !(_M_flags & (regex_constants::match_not_bol
+			   | regex_constants::match_prev_avail));
+      }
 
-      std::map<_StateIdT, _ResultsPtr>     _M_covered;
-      const _RegexT&                       _M_nfa;
+      bool
+      _M_at_end() const
+      {
+	return _M_current == _M_end
+	  && !(_M_flags & regex_constants::match_not_eol);
+      }
+
+      bool
+      _M_word_boundary(_State<_TraitsT> __state) const;
+
+      bool
+      _M_lookahead(_State<_TraitsT> __state);
+
+    public:
+      _ResultsVec                                          _M_cur_results;
+      _BiIter                                              _M_current;
+      const _BiIter                                        _M_begin;
+      const _BiIter                                        _M_end;
+      const _RegexT&                                       _M_re;
+      const _NFAT&                                         _M_nfa;
+      _ResultsVec&                                         _M_results;
+      // Used in BFS, saving states that need to be considered for the next
+      // character.
+      std::unique_ptr<queue<pair<_StateIdT, _ResultsVec>>> _M_match_queue;
+      // Used in BFS, indicating that which state is already visited.
+      std::unique_ptr<vector<bool>>                        _M_visited;
+      _FlagT                                               _M_flags;
+      // To record current solution.
+      _StateIdT                                            _M_start_state;
+      // Do we have a solution so far?
+      bool                                                 _M_has_sol;
     };
 
  //@} regex-detail

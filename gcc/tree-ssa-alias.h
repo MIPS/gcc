@@ -48,9 +48,13 @@ struct GTY(()) pt_solution
   unsigned int null : 1;
 
 
-  /* Nonzero if the pt_vars bitmap includes a global variable.  */
-  unsigned int vars_contains_global : 1;
-
+  /* Nonzero if the vars bitmap includes a variable included in 'nonlocal'.  */
+  unsigned int vars_contains_nonlocal : 1;
+  /* Nonzero if the vars bitmap includes a variable included in 'escaped'.  */
+  unsigned int vars_contains_escaped : 1;
+  /* Nonzero if the vars bitmap includes a anonymous heap variable that
+     escaped the function and thus became global.  */
+  unsigned int vars_contains_escaped_heap : 1;
 
   /* Set of variables that this pointer may point to.  */
   bitmap vars;
@@ -146,18 +150,18 @@ extern GTY(()) struct pt_solution ipa_escaped_pt;
    range is open-ended.  Otherwise return false.  */
 
 static inline bool
-ranges_overlap_p (unsigned HOST_WIDE_INT pos1,
+ranges_overlap_p (HOST_WIDE_INT pos1,
 		  unsigned HOST_WIDE_INT size1,
-		  unsigned HOST_WIDE_INT pos2,
+		  HOST_WIDE_INT pos2,
 		  unsigned HOST_WIDE_INT size2)
 {
   if (pos1 >= pos2
       && (size2 == (unsigned HOST_WIDE_INT)-1
-	  || pos1 < (pos2 + size2)))
+	  || pos1 < (pos2 + (HOST_WIDE_INT) size2)))
     return true;
   if (pos2 >= pos1
       && (size1 == (unsigned HOST_WIDE_INT)-1
-	  || pos2 < (pos1 + size1)))
+	  || pos2 < (pos1 + (HOST_WIDE_INT) size1)))
     return true;
 
   return false;

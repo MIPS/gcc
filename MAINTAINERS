@@ -30,7 +30,6 @@ Jeff Law					law@redhat.com
 Michael Meissner				gnu@the-meissners.org
 Jason Merrill					jason@redhat.com
 David S. Miller					davem@redhat.com
-Mark Mitchell					mark@codesourcery.com
 Joseph Myers					joseph@codesourcery.com
 Diego Novillo					dnovillo@google.com
 Bernd Schmidt					bernds@codesourcery.com
@@ -87,6 +86,8 @@ mmix port		Hans-Peter Nilsson	hp@bitrange.com
 mn10300 port		Jeff Law		law@redhat.com
 mn10300 port		Alexandre Oliva		aoliva@redhat.com
 moxie port		Anthony Green		green@moxielogic.com
+msp430 port		DJ Delorie		dj@redhat.com
+msp430 port		Nick Clifton		nickc@redhat.com
 nds32 port		Chung-Ju Wu		jasonwucj@gmail.com
 nds32 port		Shiva Chen		shiva0217@gmail.com
 pdp11 port		Paul Koning		ni1d@arrl.net
@@ -149,7 +150,6 @@ Ada front end		Arnaud Charlet		charlet@act-europe.fr
 Ada front end		Eric Botcazou		ebotcazou@libertysurf.fr
 Fortran			Paul Brook		paul@codesourcery.com
 c++			Jason Merrill		jason@redhat.com
-c++			Mark Mitchell		mark@codesourcery.com
 c++			Nathan Sidwell		nathan@codesourcery.com
 go			Ian Lance Taylor	ian@airs.com
 java			Per Bothner		per@bothner.com
@@ -178,7 +178,7 @@ libobjc			Nicola Pero		nicola.pero@meta-innovation.com
 libobjc			Andrew Pinski		pinskia@gmail.com
 libquadmath		Tobias Burnus		burnus@net-b.de
 libquadmath		Jakub Jelinek		jakub@redhat.com
-libvtv	      		Caroline Tice		cmtice@google.com
+libvtv			Caroline Tice		cmtice@google.com
 loop discovery		Michael Hayes		m.hayes@elec.canterbury.ac.nz
 soft-fp			Joseph Myers		joseph@codesourcery.com
 scheduler (+ haifa)	Jim Wilson		wilson@tuliptree.org
@@ -193,7 +193,6 @@ debugging code		Jim Wilson		wilson@tuliptree.org
 dwarf debugging code	Jason Merrill		jason@redhat.com
 dwarf debugging code	Cary Coutant		ccoutant@google.com
 c++ runtime libs	Paolo Carlini		paolo.carlini@oracle.com
-c++ runtime libs	Gabriel Dos Reis	gdr@integrable-solutions.net
 c++ runtime libs	Ulrich Drepper		drepper@gmail.com
 c++ runtime libs	Benjamin De Kosnik	bkoz@gnu.org
 c++ runtime libs	Loren J. Rittle		ljrittle@acm.org
@@ -212,7 +211,7 @@ config.sub/config.guess	Ben Elliston		config-patches@gnu.org
 basic block reordering	Jason Eckhardt		jle@rice.edu
 i18n			Philipp Thomas		pth@suse.de
 i18n			Joseph Myers		joseph@codesourcery.com
-diagnostic messages	Gabriel Dos Reis	gdr@integrable-solutions.net
+diagnostic messages	Dodji Seketeli		dodji@redhat.com
 build machinery (*.in)	Paolo Bonzini		bonzini@gnu.org
 build machinery (*.in)	DJ Delorie		dj@redhat.com
 build machinery (*.in)	Nathanael Nerode	neroden@gcc.gnu.org
@@ -238,7 +237,6 @@ tree-ssa		Diego Novillo		dnovillo@google.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE			Daniel Berlin		dberlin@dberlin.org
 code sinking		Daniel Berlin		dberlin@dberlin.org
-mudflap			Frank Ch. Eigler	fche@redhat.com
 tree browser/unparser	Sebastian Pop		sebastian.pop@amd.com
 scev, data dependence	Daniel Berlin		dberlin@dberlin.org
 scev, data dependence	Sebastian Pop		sebastian.pop@amd.com
@@ -405,6 +403,7 @@ Fergus Henderson				fjh@cs.mu.oz.au
 Stuart Henderson				shenders@gcc.gnu.org
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mh@suse.com
+Cong Hou					congh@google.com
 Falk Hueffner					falk@debian.org
 Andrew John Hughes				gnu_andrew@member.fsf.org
 Andy Hutchinson					hutchinsonandy@aim.com
@@ -513,6 +512,7 @@ Matthew Sachs					msachs@apple.com
 Hariharan Sandanagobalane			hariharan.gcc@gmail.com
 Iain Sandoe					iain@codesourcery.com
 Duncan Sands					baldrick@gcc.gnu.org
+Trevor Saunders				tsaunders@mozilla.com
 William Schmidt 				wschmidt@linux.vnet.ibm.com
 Tilo Schwarz					tilo@tilo-schwarz.de
 Dodji Seketeli					dodji@gcc.gnu.org
@@ -525,7 +525,7 @@ Johannes Singler				singler@kit.edu
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Jan Sjodin					jan.sjodin@amd.com
 Edward Smith-Rowland				3dw4rd@verizon.net
-Jayant Sonar					jayant.sonar@kpitcummins.com
+Jayant Sonar					rsonar.jayant@gmail.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
 Basile Starynkevitch				basile@starynkevitch.net

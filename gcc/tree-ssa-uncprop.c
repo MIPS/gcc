@@ -22,11 +22,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
-#include "tree-ssa.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -188,7 +199,7 @@ associate_equivalences_with_edges (void)
 
 	      /* Now walk over the blocks to determine which ones were
 		 marked as being reached by a useful case label.  */
-	      for (i = 0; i < n_basic_blocks; i++)
+	      for (i = 0; i < n_basic_blocks_for_fn (cfun); i++)
 		{
 		  tree node = info[i];
 
@@ -357,15 +368,7 @@ record_equiv (tree value, tree equivalence)
 class uncprop_dom_walker : public dom_walker
 {
 public:
-  uncprop_dom_walker (cdi_direction direction)
-    : dom_walker (direction)
-  {
-    m_equiv_stack.create (2);
-  }
-  ~uncprop_dom_walker ()
-  {
-    m_equiv_stack.release ();
-  }
+  uncprop_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
@@ -376,7 +379,7 @@ private:
      leading to this block.  If no such edge equivalency exists, then we
      record NULL.  These equivalences are live until we leave the dominator
      subtree rooted at the block where we record the equivalency.  */
-  vec<tree> m_equiv_stack;
+  stack_vec<tree, 2> m_equiv_stack;
 };
 
 /* Main driver for un-cprop.  */

@@ -3152,6 +3152,87 @@ Memory reference, stack only.
 
 @end table
 
+@item NDS32---@file{config/nds32/constraints.md}
+@table @code
+@item w
+LOW register class $r0 to $r7 constraint for V3/V3M ISA.
+@item l
+LOW register class $r0 to $r7.
+@item d
+MIDDLE register class $r0 to $r11, $r16 to $r19.
+@item h
+HIGH register class $r12 to $r14, $r20 to $r31.
+@item t
+Temporary assist register $ta (i.e.@: $r15).
+@item k
+Stack register $sp.
+@item Iu03
+Unsigned immediate 3-bit value.
+@item In03
+Negative immediate 3-bit value in the range of @minus{}7--0.
+@item Iu04
+Unsigned immediate 4-bit value.
+@item Is05
+Signed immediate 5-bit value.
+@item Iu05
+Unsigned immediate 5-bit value.
+@item In05
+Negative immediate 5-bit value in the range of @minus{}31--0.
+@item Ip05
+Unsigned immediate 5-bit value for movpi45 instruction with range 16--47.
+@item Iu06
+Unsigned immediate 6-bit value constraint for addri36.sp instruction.
+@item Iu08
+Unsigned immediate 8-bit value.
+@item Iu09
+Unsigned immediate 9-bit value.
+@item Is10
+Signed immediate 10-bit value.
+@item Is11
+Signed immediate 11-bit value.
+@item Is15
+Signed immediate 15-bit value.
+@item Iu15
+Unsigned immediate 15-bit value.
+@item Ic15
+A constant which is not in the range of imm15u but ok for bclr instruction.
+@item Ie15
+A constant which is not in the range of imm15u but ok for bset instruction.
+@item It15
+A constant which is not in the range of imm15u but ok for btgl instruction.
+@item Ii15
+A constant whose compliment value is in the range of imm15u
+and ok for bitci instruction.
+@item Is16
+Signed immediate 16-bit value.
+@item Is17
+Signed immediate 17-bit value.
+@item Is19
+Signed immediate 19-bit value.
+@item Is20
+Signed immediate 20-bit value.
+@item Ihig
+The immediate value that can be simply set high 20-bit.
+@item Izeb
+The immediate value 0xff.
+@item Izeh
+The immediate value 0xffff.
+@item Ixls
+The immediate value 0x01.
+@item Ix11
+The immediate value 0x7ff.
+@item Ibms
+The immediate value with power of 2.
+@item Ifex
+The immediate value with power of 2 minus 1.
+@item U33
+Memory constraint for 333 format.
+@item U45
+Memory constraint for 45 format.
+@item U37
+Memory constraint for 37 format.
+@end table
+
 @item PDP-11---@file{config/pdp11/constraints.md}
 @table @code
 @item a
@@ -5210,12 +5291,13 @@ are the first two operands, and both are @code{mem:BLK}s with an
 address in mode @code{Pmode}.
 
 The number of bytes to move is the third operand, in mode @var{m}.
-Usually, you specify @code{word_mode} for @var{m}.  However, if you can
+Usually, you specify @code{Pmode} for @var{m}.  However, if you can
 generate better code knowing the range of valid lengths is smaller than
-those representable in a full word, you should provide a pattern with a
+those representable in a full Pmode pointer, you should provide
+a pattern with a
 mode corresponding to the range of values you can handle efficiently
 (e.g., @code{QImode} for values in the range 0--127; note we avoid numbers
-that appear negative) and also a pattern with @code{word_mode}.
+that appear negative) and also a pattern with @code{Pmode}.
 
 The fourth operand is the known shared alignment of the source and
 destination, in the form of a @code{const_int} rtx.  Thus, if the
@@ -5246,6 +5328,9 @@ destination and source strings are operands 1 and 2, and both are
 the expansion of this pattern should store in operand 0 the address in
 which the @code{NUL} terminator was stored in the destination string.
 
+This patern has also several optional operands that are same as in
+@code{setmem}.
+
 @cindex @code{setmem@var{m}} instruction pattern
 @item @samp{setmem@var{m}}
 Block set instruction.  The destination string is the first operand,
@@ -5265,6 +5350,10 @@ respectively.  The expected alignment differs from alignment in operand 4
 in a way that the blocks are not required to be aligned according to it in
 all cases. This expected alignment is also in bytes, just like operand 4.
 Expected size, when unknown, is set to @code{(const_int -1)}.
+Operand 7 is the minimal size of the block and operand 8 is the
+maximal size of the block (NULL if it can not be represented as CONST_INT).
+Operand 9 is the probable maximal size (i.e. we can not rely on it for correctness,
+but it can be used for choosing proper code sequence for a given size).
 
 The use for multiple @code{setmem@var{m}} is as for @code{movmem@var{m}}.
 
@@ -5775,34 +5864,27 @@ reduction is enabled.
 
 @cindex @code{doloop_end} instruction pattern
 @item @samp{doloop_end}
-Conditional branch instruction that decrements a register and jumps if
-the register is nonzero.  This instruction takes five operands: Operand
-0 is the register to decrement and test; operand 1 is the number of loop
-iterations as a @code{const_int} or @code{const0_rtx} if this cannot be
-determined until run-time; operand 2 is the actual or estimated maximum
-number of iterations as a @code{const_int}; operand 3 is the number of
-enclosed loops as a @code{const_int} (an innermost loop has a value of
-1); operand 4 is the label to jump to if the register is nonzero;
-operand 5 is const1_rtx if the loop in entered at its top, const0_rtx
-otherwise.
+Conditional branch instruction that decrements a register and
+jumps if the register is nonzero.  Operand 0 is the register to
+decrement and test; operand 1 is the label to jump to if the
+register is nonzero.
 @xref{Looping Patterns}.
 
 This optional instruction pattern should be defined for machines with
 low-overhead looping instructions as the loop optimizer will try to
-modify suitable loops to utilize it.  If nested low-overhead looping is
-not supported, use a @code{define_expand} (@pxref{Expander Definitions})
-and make the pattern fail if operand 3 is not @code{const1_rtx}.
-Similarly, if the actual or estimated maximum number of iterations is
-too large for this instruction, make it fail.
+modify suitable loops to utilize it.  The target hook
+@code{TARGET_CAN_USE_DOLOOP_P} controls the conditions under which
+low-overhead loops can be used.
 
 @cindex @code{doloop_begin} instruction pattern
 @item @samp{doloop_begin}
 Companion instruction to @code{doloop_end} required for machines that
-need to perform some initialization, such as loading special registers
-used by a low-overhead looping instruction.  If initialization insns do
-not always need to be emitted, use a @code{define_expand}
-(@pxref{Expander Definitions}) and make it fail.
+need to perform some initialization, such as loading a special counter
+register.  Operand 1 is the associated @code{doloop_end} pattern and
+operand 0 is the register that it decrements.
 
+If initialization insns do not always need to be emitted, use a
+@code{define_expand} (@pxref{Expander Definitions}) and make it fail.
 
 @cindex @code{canonicalize_funcptr_for_compare} instruction pattern
 @item @samp{canonicalize_funcptr_for_compare}

@@ -25,6 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -46,7 +50,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "target-def.h"
 #include "common/common-target.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
 #include "langhooks.h"
 #include "reload.h"
 #include "params.h"
@@ -5362,8 +5377,17 @@ sparc_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					  size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   if (size == 0)
     ; /* do nothing.  */
@@ -5464,8 +5488,17 @@ sparc_flat_expand_prologue (void)
   if (flag_stack_usage_info)
     current_function_static_stack_size = size;
 
-  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK && size)
-    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+  if (flag_stack_check == STATIC_BUILTIN_STACK_CHECK)
+    {
+      if (crtl->is_leaf && !cfun->calls_alloca)
+	{
+	  if (size > PROBE_INTERVAL && size > STACK_CHECK_PROTECT)
+	    sparc_emit_probe_stack_range (STACK_CHECK_PROTECT,
+					  size - STACK_CHECK_PROTECT);
+	}
+      else if (size > 0)
+	sparc_emit_probe_stack_range (STACK_CHECK_PROTECT, size);
+    }
 
   if (sparc_save_local_in_regs_p)
     emit_save_or_restore_local_in_regs (stack_pointer_rtx, SPARC_STACK_BIAS,
@@ -6313,7 +6346,7 @@ function_arg_record_value_1 (const_tree type, HOST_WIDE_INT startbitpos,
 	      if (integer_zerop (DECL_SIZE (field)))
 		continue;
 
-	      if (host_integerp (bit_position (field), 1))
+	      if (tree_fits_uhwi_p (bit_position (field)))
 		bitpos += int_bit_position (field);
 	    }
 
@@ -6461,7 +6494,7 @@ function_arg_record_value_2 (const_tree type, HOST_WIDE_INT startbitpos,
 	      if (integer_zerop (DECL_SIZE (field)))
 		continue;
 
-	      if (host_integerp (bit_position (field), 1))
+	      if (tree_fits_uhwi_p (bit_position (field)))
 		bitpos += int_bit_position (field);
 	    }
 
@@ -10635,7 +10668,8 @@ sparc_fold_builtin (tree fndecl, int n_args ATTRIBUTE_UNUSED,
 	      tmp = e0.add_with_sign (tmp, false, &add1_ovf);
 	      if (tmp.is_negative ())
 		tmp = tmp.neg_with_overflow (&neg2_ovf);
-
+	      else
+		neg2_ovf = false;
 	      result = result.add_with_sign (tmp, false, &add2_ovf);
 	      overflow |= neg1_ovf | neg2_ovf | add1_ovf | add2_ovf;
 	    }

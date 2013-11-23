@@ -24,13 +24,28 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -530,6 +545,29 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
     }
 }
 
+/* Generate a hash value for a pair of expressions.  This can be used
+   iteratively by passing a previous result as the VAL argument.
+
+   The same hash value is always returned for a given pair of expressions,
+   regardless of the order in which they are presented.  This is useful in
+   hashing the operands of commutative functions.  */
+
+static hashval_t
+iterative_hash_exprs_commutative (const_tree t1,
+                                  const_tree t2, hashval_t val)
+{
+  hashval_t one = iterative_hash_expr (t1, 0);
+  hashval_t two = iterative_hash_expr (t2, 0);
+  hashval_t t;
+
+  if (one > two)
+    t = one, one = two, two = t;
+  val = iterative_hash_hashval_t (one, val);
+  val = iterative_hash_hashval_t (two, val);
+
+  return val;
+}
+
 /* Compute a hash value for a hashable_expr value EXPR and a
    previously accumulated hash value VAL.  If two hashable_expr
    values compare equal with hashable_expr_equal_p, they must
@@ -870,7 +908,7 @@ tree_ssa_dominator_optimize (void)
 	  while (single_succ_p (bb)
 		 && (single_succ_edge (bb)->flags & EDGE_EH) == 0)
 	    bb = single_succ (bb);
-	  if (bb == EXIT_BLOCK_PTR)
+	  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    continue;
 	  if ((unsigned) bb->index != i)
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
@@ -3022,7 +3060,8 @@ eliminate_degenerate_phis (void)
      phase in dominator order.  Presumably this is because walking
      in dominator order leaves fewer PHIs for later examination
      by the worklist phase.  */
-  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR, interesting_names);
+  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR_FOR_FN (cfun),
+			       interesting_names);
 
   /* Second phase.  Eliminate second order degenerate PHIs as well
      as trivial copies or constant initializations identified by

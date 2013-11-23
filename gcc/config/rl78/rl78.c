@@ -23,6 +23,9 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -1894,8 +1897,8 @@ post-reload optimizers could operate on the real registers, but when I
 tried that there were some issues building the target libraries.
 
 During devirtualization, a simple register move optimizer is run.  It
-would be better to run a full CSE/propogation pass on it through, or
-re-run regmove, but that has not yet been attempted.
+would be better to run a full CSE/propogation pass on it though, but
+that has not yet been attempted.
 
  */
 #define DEBUG_ALLOC 0
