@@ -1,3 +1,8 @@
+2013-11-23  Alan Modra  <amodra@gmail.com>
+
+	Apply mainline r205299.
+	* config/rs6000/vsx.md (fusion peepholes): Disable when !TARGET_VSX.
+
 2013-11-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
