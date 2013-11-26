@@ -29,6 +29,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -42,7 +47,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
-#include "hash-table.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "domwalk.h"
@@ -764,7 +768,6 @@ find_dfsnum_interval (struct dom_dfsnum *defs, unsigned n, unsigned s)
 static void
 prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 {
-  vec<int> worklist;
   bitmap_iterator bi;
   unsigned i, b, p, u, top;
   bitmap live_phis;
@@ -836,7 +839,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
      dfs_out numbers, increase the dfs number by one (so that it corresponds
      to the start of the following interval, not to the end of the current
      one).  We use WORKLIST as a stack.  */
-  worklist.create (n_defs + 1);
+  auto_vec<int> worklist (n_defs + 1);
   worklist.quick_push (1);
   top = 1;
   n_defs = 1;
@@ -923,7 +926,6 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	}
     }
 
-  worklist.release ();
   bitmap_copy (phis, live_phis);
   BITMAP_FREE (live_phis);
   free (defs);
@@ -1084,11 +1086,10 @@ insert_phi_nodes (bitmap_head *dfs)
   hash_table <var_info_hasher>::iterator hi;
   unsigned i;
   var_info_p info;
-  vec<var_info_p> vars;
 
   timevar_push (TV_TREE_INSERT_PHI_NODES);
 
-  vars.create (var_infos.elements ());
+  auto_vec<var_info_p> vars (var_infos.elements ());
   FOR_EACH_HASH_TABLE_ELEMENT (var_infos, info, var_info_p, hi)
     if (info->info.need_phi_state != NEED_PHI_STATE_NO)
       vars.quick_push (info);
@@ -1103,8 +1104,6 @@ insert_phi_nodes (bitmap_head *dfs)
       insert_phi_nodes_for (info->var, idf, false);
       BITMAP_FREE (idf);
     }
-
-  vars.release ();
 
   timevar_pop (TV_TREE_INSERT_PHI_NODES);
 }

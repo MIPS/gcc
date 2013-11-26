@@ -36,12 +36,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "hashtab.h"
 #include "toplev.h"
 #include "flags.h"
-#include "ggc.h"
 #include "debug.h"
 #include "target.h"
-#include "basic-block.h"
 #include "cgraph.h"
 #include "intl.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "timevar.h"
@@ -2334,7 +2336,7 @@ cgraph_node_cannot_return (struct cgraph_node *node)
    and thus it is safe to ignore its side effects for IPA analysis
    when computing side effects of the caller.
    FIXME: We could actually mark all edges that have no reaching
-   patch to EXIT_BLOCK_PTR or throw to get better results.  */
+   patch to the exit block or throw to get better results.  */
 bool
 cgraph_edge_cannot_lead_to_return (struct cgraph_edge *e)
 {

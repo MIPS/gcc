@@ -59,10 +59,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
-#include "ggc.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "tree-pretty-print.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -74,12 +78,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "tree-vectorizer.h"
 #include "tree-pass.h"
-#include "hash-table.h"
 #include "tree-ssa-propagate.h"
 #include "dbgcnt.h"
 
 /* Loop or bb location.  */
-LOC vect_location;
+source_location vect_location;
 
 /* Vector mapping GIMPLE stmt to stmt_vec_info. */
 vec<vec_void_p> stmt_vec_info_vec;
@@ -354,10 +357,11 @@ vectorize_loops (void)
       {
 	loop_vec_info loop_vinfo;
 	vect_location = find_loop_location (loop);
-        if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOC
+        if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOCATION
 	    && dump_enabled_p ())
 	  dump_printf (MSG_NOTE, "\nAnalyzing loop at %s:%d\n",
-                       LOC_FILE (vect_location), LOC_LINE (vect_location));
+                       LOCATION_FILE (vect_location),
+		       LOCATION_LINE (vect_location));
 
 	loop_vinfo = vect_analyze_loop (loop);
 	loop->aux = loop_vinfo;
@@ -368,7 +372,7 @@ vectorize_loops (void)
         if (!dbg_cnt (vect_loop))
 	  break;
 
-        if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOC
+        if (LOCATION_LOCUS (vect_location) != UNKNOWN_LOCATION
 	    && dump_enabled_p ())
           dump_printf_loc (MSG_OPTIMIZED_LOCATIONS, vect_location,
                            "loop vectorized\n");
@@ -390,7 +394,7 @@ vectorize_loops (void)
 	  }
       }
 
-  vect_location = UNKNOWN_LOC;
+  vect_location = UNKNOWN_LOCATION;
 
   statistics_counter_event (cfun, "Vectorized loops", num_vectorized_loops);
   if (dump_enabled_p ()
@@ -549,7 +553,7 @@ increase_alignment (void)
 {
   struct varpool_node *vnode;
 
-  vect_location = UNKNOWN_LOC;
+  vect_location = UNKNOWN_LOCATION;
 
   /* Increase the alignment of all global arrays for vectorization.  */
   FOR_EACH_DEFINED_VARIABLE (vnode)

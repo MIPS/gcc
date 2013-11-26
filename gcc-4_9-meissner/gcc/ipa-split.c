@@ -78,6 +78,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "stringpool.h"
 #include "expr.h"
@@ -635,7 +640,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
    <retval> = tmp_var;
    return <retval>
    but return_bb can not be more complex than this.
-   If nothing is found, return EXIT_BLOCK_PTR.
+   If nothing is found, return the exit block.
 
    When there are multiple RETURN statement, chose one with return value,
    since that one is more likely shared by multiple code paths.

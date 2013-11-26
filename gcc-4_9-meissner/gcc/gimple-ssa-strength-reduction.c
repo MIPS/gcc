@@ -37,12 +37,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "stor-layout.h"
 #include "expr.h"
-#include "basic-block.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
@@ -53,10 +59,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "tree-ssanames.h"
 #include "domwalk.h"
-#include "pointer-set.h"
 #include "expmed.h"
 #include "params.h"
-#include "hash-table.h"
 #include "tree-ssa-address.h"
 
 /* Information about a strength reduction candidate.  Each statement
@@ -936,7 +940,7 @@ slsr_process_ref (gimple gs)
     return;
 
   base = get_inner_reference (ref_expr, &bitsize, &bitpos, &offset, &mode,
-			      &unsignedp, &volatilep, false);
+			      &unsignedp, &volatilep);
   index = double_int::from_uhwi (bitpos);
 
   if (!restructure_reference (&base, &offset, &index, &type))

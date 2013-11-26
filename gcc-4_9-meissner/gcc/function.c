@@ -51,14 +51,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "output.h"
-#include "basic-block.h"
 #include "hashtab.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "gimple.h"
+#include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-pass.h"
 #include "predict.h"
@@ -5722,9 +5720,8 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
   rtx label;
   edge_iterator ei;
   edge e;
-  vec<basic_block> src_bbs;
+  auto_vec<basic_block> src_bbs (EDGE_COUNT (last_bb->preds));
 
-  src_bbs.create (EDGE_COUNT (last_bb->preds));
   FOR_EACH_EDGE (e, ei, last_bb->preds)
     if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
       src_bbs.quick_push (e->src);
@@ -6349,7 +6346,7 @@ thread_prologue_and_epilogue_insns (void)
 	{
 	  unsigned i, last;
 
-	  /* convert_jumps_to_returns may add to EXIT_BLOCK_PTR->preds
+	  /* convert_jumps_to_returns may add to preds of the exit block
 	     (but won't remove).  Stop at end of current preds.  */
 	  last = EDGE_COUNT (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds);
 	  for (i = 0; i < last; i++)

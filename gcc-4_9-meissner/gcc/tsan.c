@@ -27,6 +27,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm.h"
 #include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -117,7 +121,7 @@ instrument_expr (gimple_stmt_iterator gsi, tree expr, bool is_write)
   enum machine_mode mode;
   int volatilep = 0, unsignedp = 0;
   base = get_inner_reference (expr, &bitsize, &bitpos, &offset,
-			      &mode, &unsignedp, &volatilep, false);
+			      &mode, &unsignedp, &volatilep);
 
   /* No need to instrument accesses to decls that don't escape,
      they can't escape to other threads then.  */

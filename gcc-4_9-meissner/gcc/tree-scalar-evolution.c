@@ -258,8 +258,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "expr.h"
-#include "hash-table.h"
 #include "gimple-pretty-print.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -1654,7 +1658,7 @@ interpret_rhs_expr (struct loop *loop, gimple at_stmt,
 
 	  base = get_inner_reference (TREE_OPERAND (rhs1, 0),
 				      &bitsize, &bitpos, &offset,
-				      &mode, &unsignedp, &volatilep, false);
+				      &mode, &unsignedp, &volatilep);
 
 	  if (TREE_CODE (base) == MEM_REF)
 	    {
@@ -2910,34 +2914,6 @@ number_of_latch_executions (struct loop *loop)
   loop->nb_iterations = res;
   return res;
 }
-
-/* Returns the number of executions of the exit condition of LOOP,
-   i.e., the number by one higher than number_of_latch_executions.
-   Note that unlike number_of_latch_executions, this number does
-   not necessarily fit in the unsigned variant of the type of
-   the control variable -- if the number of iterations is a constant,
-   we return chrec_dont_know if adding one to number_of_latch_executions
-   overflows; however, in case the number of iterations is symbolic
-   expression, the caller is responsible for dealing with this
-   the possible overflow.  */
-
-tree
-number_of_exit_cond_executions (struct loop *loop)
-{
-  tree ret = number_of_latch_executions (loop);
-  tree type = chrec_type (ret);
-
-  if (chrec_contains_undetermined (ret))
-    return ret;
-
-  ret = chrec_fold_plus (type, ret, build_int_cst (type, 1));
-  if (TREE_CODE (ret) == INTEGER_CST
-      && TREE_OVERFLOW (ret))
-    return chrec_dont_know;
-
-  return ret;
-}
-
 
 
 /* Counters for the stats.  */

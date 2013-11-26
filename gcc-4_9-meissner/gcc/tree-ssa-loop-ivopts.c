@@ -70,6 +70,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -90,10 +97,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
-#include "ggc.h"
 #include "insn-config.h"
-#include "pointer-set.h"
-#include "hash-table.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "cfgloop.h"
@@ -1680,7 +1684,7 @@ may_be_unaligned_p (tree ref, tree step)
      does to check whether the object must be loaded by parts when
      STRICT_ALIGNMENT is true.  */
   base = get_inner_reference (ref, &bitsize, &bitpos, &toffset, &mode,
-			      &unsignedp, &volatilep, true);
+			      &unsignedp, &volatilep);
   base_type = TREE_TYPE (base);
   base_align = get_object_alignment (base);
   base_align = MAX (base_align, TYPE_ALIGN (base_type));
@@ -3777,7 +3781,7 @@ split_address_cost (struct ivopts_data *data,
   int unsignedp, volatilep;
 
   core = get_inner_reference (addr, &bitsize, &bitpos, &toffset, &mode,
-			      &unsignedp, &volatilep, false);
+			      &unsignedp, &volatilep);
 
   if (toffset != 0
       || bitpos % BITS_PER_UNIT != 0

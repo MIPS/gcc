@@ -45,6 +45,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -480,6 +485,7 @@ typedef struct partition_s
   data_reference_p main_dr;
   data_reference_p secondary_dr;
   tree niter;
+  bool plus_one;
 } *partition_t;
 
 
@@ -703,13 +709,16 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 /* Build the size argument for a memory operation call.  */
 
 static tree
-build_size_arg_loc (location_t loc, data_reference_p dr, tree nb_iter)
+build_size_arg_loc (location_t loc, data_reference_p dr, tree nb_iter,
+		    bool plus_one)
 {
-  tree size;
-  size = fold_build2_loc (loc, MULT_EXPR, sizetype,
-			  fold_convert_loc (loc, sizetype, nb_iter),
+  tree size = fold_convert_loc (loc, sizetype, nb_iter);
+  if (plus_one)
+    size = size_binop (PLUS_EXPR, size, size_one_node);
+  size = fold_build2_loc (loc, MULT_EXPR, sizetype, size,
 			  TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr))));
-  return fold_convert_loc (loc, size_type_node, size);
+  size = fold_convert_loc (loc, size_type_node, size);
+  return size;
 }
 
 /* Build an address argument for a memory operation call.  */
@@ -781,7 +790,8 @@ generate_memset_builtin (struct loop *loop, partition_t partition)
   /* The new statements will be placed before LOOP.  */
   gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
 
-  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter);
+  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter,
+				 partition->plus_one);
   nb_bytes = force_gimple_operand_gsi (&gsi, nb_bytes, true, NULL_TREE,
 				       false, GSI_CONTINUE_LINKING);
   mem = build_addr_arg_loc (loc, partition->main_dr, nb_bytes);
@@ -837,7 +847,8 @@ generate_memcpy_builtin (struct loop *loop, partition_t partition)
   /* The new statements will be placed before LOOP.  */
   gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
 
-  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter);
+  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter,
+				 partition->plus_one);
   nb_bytes = force_gimple_operand_gsi (&gsi, nb_bytes, true, NULL_TREE,
 				       false, GSI_CONTINUE_LINKING);
   dest = build_addr_arg_loc (loc, partition->main_dr, nb_bytes);
@@ -980,11 +991,13 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
   tree nb_iter;
   data_reference_p single_load, single_store;
   bool volatiles_p = false;
+  bool plus_one = false;
 
   partition->kind = PKIND_NORMAL;
   partition->main_dr = NULL;
   partition->secondary_dr = NULL;
   partition->niter = NULL_TREE;
+  partition->plus_one = false;
 
   EXECUTE_IF_SET_IN_BITMAP (partition->stmts, 0, i, bi)
     {
@@ -1047,13 +1060,12 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
   if (!single_store)
     return;
 
-  if (!dominated_by_p (CDI_DOMINATORS, single_exit (loop)->src,
-		       gimple_bb (DR_STMT (single_store))))
-    nb_iter = number_of_latch_executions (loop);
-  else
-    nb_iter = number_of_exit_cond_executions (loop);
+  nb_iter = number_of_latch_executions (loop);
   if (!nb_iter || nb_iter == chrec_dont_know)
     return;
+  if (dominated_by_p (CDI_DOMINATORS, single_exit (loop)->src,
+		      gimple_bb (DR_STMT (single_store))))
+    plus_one = true;
 
   if (single_store && !single_load)
     {
@@ -1075,6 +1087,7 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
       partition->kind = PKIND_MEMSET;
       partition->main_dr = single_store;
       partition->niter = nb_iter;
+      partition->plus_one = plus_one;
     }
   else if (single_store && single_load)
     {
@@ -1132,6 +1145,7 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
       partition->main_dr = single_store;
       partition->secondary_dr = single_load;
       partition->niter = nb_iter;
+      partition->plus_one = plus_one;
     }
 }
 
@@ -1397,7 +1411,6 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 		 control_dependences *cd, int *nb_calls)
 {
   struct graph *rdg;
-  vec<partition_t> partitions;
   partition_t partition;
   bool any_builtin;
   int i, nbp;
@@ -1423,7 +1436,7 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_rdg (dump_file, rdg);
 
-  partitions.create (3);
+  stack_vec<partition_t, 3> partitions;
   rdg_build_partitions (rdg, stmts, &partitions);
 
   any_builtin = false;
@@ -1649,7 +1662,6 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 
   FOR_EACH_VEC_ELT (partitions, i, partition)
     partition_free (partition);
-  partitions.release ();
 
   free_rdg (rdg);
   return nbp - *nb_calls;
@@ -1678,7 +1690,7 @@ tree_loop_distribution (void)
      walking to innermost loops.  */
   FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
     {
-      vec<gimple> work_list = vNULL;
+      auto_vec<gimple> work_list;
       basic_block *bbs;
       int num = loop->num;
       unsigned int i;
@@ -1760,8 +1772,6 @@ out:
 	}
       else if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Loop %d is the same.\n", num);
-
-      work_list.release ();
     }
 
   if (cd)

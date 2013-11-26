@@ -26,12 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "cgraph.h"
 #include "tree-pass.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "gimple-walk.h"
 #include "hashtab.h"
-#include "pointer-set.h"
 #include "output.h"
 #include "tm_p.h"
 #include "toplev.h"
@@ -227,8 +229,8 @@ ubsan_source_location (location_t loc)
   xloc = expand_location (loc);
 
   /* Fill in the values from LOC.  */
-  size_t len = strlen (xloc.file);
-  tree str = build_string (len + 1, xloc.file);
+  size_t len = xloc.file ? strlen (xloc.file) : 0;
+  tree str = build_string (len + 1, xloc.file ? xloc.file : "");
   TREE_TYPE (str) = build_array_type (char_type_node,
 				      build_index_type (size_int (len)));
   TREE_READONLY (str) = 1;
@@ -388,7 +390,7 @@ ubsan_create_data (const char *name, location_t loc,
 {
   va_list args;
   tree ret, t;
-  tree fields[3];
+  tree fields[5];
   vec<tree, va_gc> *saved_args = NULL;
   size_t i = 0;
 
@@ -426,7 +428,7 @@ ubsan_create_data (const char *name, location_t loc,
     {
       /* We have to add two more decls.  */
       fields[i] = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE,
-				pointer_sized_int_node);
+			      pointer_sized_int_node);
       DECL_CONTEXT (fields[i]) = ret;
       DECL_CHAIN (fields[i - 1]) = fields[i];
       i++;
@@ -642,7 +644,7 @@ ubsan_pass (void)
 	{
 	  struct walk_stmt_info wi;
 	  gimple stmt = gsi_stmt (gsi);
-	  if (is_gimple_debug (stmt))
+	  if (is_gimple_debug (stmt) || gimple_clobber_p (stmt))
 	    {
 	      gsi_next (&gsi);
 	      continue;

@@ -32,6 +32,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -518,7 +523,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
 	    result.next = exit_e->dest;
 
 	    /* If we do not dominate result.next, remove it.  It's either
-	       the EXIT_BLOCK_PTR, or another bb dominates it and will
+	       the exit block, or another bb dominates it and will
 	       call the scop detection for this bb.  */
 	    if (!dominated_by_p (CDI_DOMINATORS, result.next, bb))
 	      result.next = NULL;

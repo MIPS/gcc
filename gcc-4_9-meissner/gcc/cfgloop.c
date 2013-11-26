@@ -28,11 +28,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "flags.h"
 #include "tree.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
-#include "pointer-set.h"
-#include "ggc.h"
 #include "dumpfile.h"
 
 static void flow_loops_cfg_dump (FILE *);
@@ -405,7 +408,6 @@ flow_loops_find (struct loops *loops)
   int *rc_order;
   int b;
   unsigned i;
-  vec<loop_p> larray;
 
   /* Ensure that the dominators are computed.  */
   calculate_dominance_info (CDI_DOMINATORS);
@@ -434,7 +436,7 @@ flow_loops_find (struct loops *loops)
 
   /* Gather all loop headers in reverse completion order and allocate
      loop structures for loops that are not already present.  */
-  larray.create (loops->larray->length ());
+  auto_vec<loop_p> larray (loops->larray->length ());
   for (b = 0; b < n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS; b++)
     {
       basic_block header = BASIC_BLOCK (rc_order[b]);
@@ -509,8 +511,6 @@ flow_loops_find (struct loops *loops)
 	    }
 	}
     }
-
-  larray.release ();
 
   return loops;
 }

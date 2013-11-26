@@ -26,6 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -1281,8 +1287,7 @@ static void
 simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 {
   unsigned int branch_num = gimple_switch_num_labels (stmt);
-  vec<tree> labels;
-  labels.create (branch_num);
+  auto_vec<tree> labels (branch_num);
   unsigned int i, len;
 
   /* Collect the existing case labels in a VEC, and preprocess it as if
@@ -1343,8 +1348,6 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 	} 
       BITMAP_FREE (target_blocks);
     }
-
-  labels.release ();
 }
 
 /* STMT is a SWITCH_EXPR for which we attempt to find equivalent forms of
@@ -2994,6 +2997,69 @@ combine_conversions (gimple_stmt_iterator *gsi)
   return 0;
 }
 
+/* Combine VIEW_CONVERT_EXPRs with their defining statement.  */
+
+static bool
+simplify_vce (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree type = TREE_TYPE (gimple_assign_lhs (stmt));
+
+  /* Drop useless VIEW_CONVERT_EXPRs.  */
+  tree op = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
+  if (useless_type_conversion_p (type, TREE_TYPE (op)))
+    {
+      gimple_assign_set_rhs1 (stmt, op);
+      update_stmt (stmt);
+      return true;
+    }
+
+  if (TREE_CODE (op) != SSA_NAME)
+    return false;
+
+  gimple def_stmt = SSA_NAME_DEF_STMT (op);
+  if (!is_gimple_assign (def_stmt))
+    return false;
+
+  tree def_op = gimple_assign_rhs1 (def_stmt);
+  switch (gimple_assign_rhs_code (def_stmt))
+    {
+    CASE_CONVERT:
+      /* Strip integral conversions that do not change the precision.  */
+      if ((INTEGRAL_TYPE_P (TREE_TYPE (op))
+	   || POINTER_TYPE_P (TREE_TYPE (op)))
+	  && (INTEGRAL_TYPE_P (TREE_TYPE (def_op))
+	      || POINTER_TYPE_P (TREE_TYPE (def_op)))
+	  && (TYPE_PRECISION (TREE_TYPE (op))
+	      == TYPE_PRECISION (TREE_TYPE (def_op))))
+	{
+	  TREE_OPERAND (gimple_assign_rhs1 (stmt), 0) = def_op;
+	  update_stmt (stmt);
+	  return true;
+	}
+      break;
+
+    case VIEW_CONVERT_EXPR:
+      /* Series of VIEW_CONVERT_EXPRs on register operands can
+	 be contracted.  */
+      if (TREE_CODE (TREE_OPERAND (def_op, 0)) == SSA_NAME)
+	{
+	  if (useless_type_conversion_p (type,
+					 TREE_TYPE (TREE_OPERAND (def_op, 0))))
+	    gimple_assign_set_rhs1 (stmt, TREE_OPERAND (def_op, 0));
+	  else
+	    TREE_OPERAND (gimple_assign_rhs1 (stmt), 0)
+		= TREE_OPERAND (def_op, 0);
+	  update_stmt (stmt);
+	  return true;
+	}
+
+    default:;
+    }
+
+  return false;
+}
+
 /* Combine an element access with a shuffle.  Returns true if there were
    any changes made, else it returns false.  */
  
@@ -3482,7 +3548,8 @@ ssa_forward_propagate_and_combine (void)
 		      {
 			tree outer_type = TREE_TYPE (gimple_assign_lhs (stmt));
 			tree inner_type = TREE_TYPE (gimple_assign_rhs1 (stmt));
-			if (INTEGRAL_TYPE_P (outer_type)
+			if (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+			    && INTEGRAL_TYPE_P (outer_type)
 			    && INTEGRAL_TYPE_P (inner_type)
 			    && (TYPE_PRECISION (outer_type)
 				<= TYPE_PRECISION (inner_type)))
@@ -3491,6 +3558,8 @@ ssa_forward_propagate_and_combine (void)
 		      
 		    changed = did_something != 0;
 		  }
+		else if (code == VIEW_CONVERT_EXPR)
+		  changed = simplify_vce (&gsi);
 		else if (code == VEC_PERM_EXPR)
 		  {
 		    int did_something = simplify_permutation (&gsi);

@@ -89,6 +89,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -1215,7 +1220,6 @@ if_convertible_loop_p (struct loop *loop)
 	free (dr->aux);
     }
 
-  loop_nest.release ();
   free_data_refs (refs);
   free_dependence_relations (ddrs);
   return res;
