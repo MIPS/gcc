@@ -1,6 +1,14 @@
 
 2013-11-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-base.melt: Still not translatable.
+	(each_loop): Gives two versions, on for GCC 4.7 & 4.8 another for
+	GCC 4.9
+	(each_cgraph_fun_body): Still bad. Needs some GCC 4.9 specific
+	code.
+
+2013-11-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{unstable, xtramelt-ana-base.melt is not translatable. Merge with
 	trunk svn rev 205391}}
 	* melt-run.proto.h: Move MELT_GCC_VERSION #definition above.

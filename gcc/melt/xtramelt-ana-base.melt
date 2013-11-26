@@ -608,21 +608,46 @@ unsigned int melthk_rtl_execute(void)
 
 
 ;; iterator on all the loops
-(defciterator each_loop
+
+;; the FOR_EACH_LOOP has changed in GCC 4.9
+(gccif 
+ ("4.7."  "4.8.")
+ (defciterator each_loop
+   ()
+   eachloop
+   (:loop curloop :long loopix)
+   :doc #{Iterate on all loops $CURLOOP of index $LOOPIX.}#
+   ;; before expansion
+   #{ /* each_loop GCC 4.7 or 4.8 $EACHLOOP +*/ {
+   loop_iterator $EACHLOOP#_li		;
+
+   FOR_EACH_LOOP($EACHLOOP#_li, $CURLOOP, 0) {
+   $LOOPIX = $CURLOOP->num		;
+   }#
+   ;;after expansion
+   #{ } /*each_loop GCC 4.7 or 4.8 $EACHLOOP -*/ }
+   }#
+   )
+ )
+
+(gccif
+ ("4.9.")
+ (defciterator each_loop
   ()
   eachloop
   (:loop curloop :long loopix)
   :doc #{Iterate on all loops $CURLOOP of index $LOOPIX.}#
   ;; before expansion
-  #{ /* each_loop $EACHLOOP +*/ {
-   loop_iterator $EACHLOOP#_li;
-   FOR_EACH_LOOP($EACHLOOP#_li, $CURLOOP, 0) {
+  #{ /* each_loop GCC 4.9 $EACHLOOP +*/ {
+   FOR_EACH_LOOP($CURLOOP, 0) {
      $LOOPIX = $CURLOOP->num;
   }#
   ;;after expansion
-   #{ } /*each_loop $EACHLOOP -*/ }
+   #{ } /*each_loop GCC 4.9 $EACHLOOP -*/ }
    }#
 )
+)
+ 
 
 
 
@@ -1188,6 +1213,7 @@ unsigned int melthk_rtl_execute(void)
   a function declared as $FUNTREE with a body $FUNBODY.}#
   ;; before expansion
   #{ /*  each_cgraph_fun_body $EACHCGRFUN + */
+#warning each_cgraph_fun_body $EACHCGRFUN 
    struct cgraph_node *$EACHCGRFUN#_nd = NULL; 
    /* each_cgraph_fun_body $EACHCGRFUN; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
 #ifdef FOR_EACH_DEFINED_FUNCTION
@@ -1200,10 +1226,9 @@ unsigned int melthk_rtl_execute(void)
      {  /* each_cgraph_fun_body $EACHCGRFUN inside for */
        tree $EACHCGRFUN#_dcl = NULL;
        gimple_seq  $EACHCGRFUN#_bdy = NULL;
-   /* in each_cgraph_fun_body $EACHCGRFUN; 
-      notice that GCCPLUGIN_VERSION exists from GCC 4.7, but not in GCC 4.6 */
-#if (defined(GCCPLUGIN_VERSION) && (GCCPLUGIN_VERSION >= 4008)) \
-    || (defined (MELT_GCC_VERSION) && (MELT_GCC_VERSION >= 4008))
+   /* in each_cgraph_fun_body $EACHCGRFUN */
+#warning each_cgraph_fun_body $EACHCGRFUN testing MELT_GCC_VERSION
+#if MELT_GCC_VERSION >= 4008
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->symbol.decl;
 #else /* GCC 4.7 or older */
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->decl;
@@ -1228,6 +1253,7 @@ unsigned int melthk_rtl_execute(void)
   ;;before expansion
   #{ /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO + */
    struct cgraph_node *$EACHCGRAFUNENTRBLO#_nd = NULL; 
+#warning each_cgraph_fun_entryblock  $EACHCGRAFUNENTRBLO
    /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
 #ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNENTRBLO#_nd)
