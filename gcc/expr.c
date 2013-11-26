@@ -47,6 +47,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tm_p.h"
 #include "tree-iterator.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "cgraph.h"
@@ -6305,6 +6310,18 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 	    enum machine_mode mode = GET_MODE (target);
 
 	    icode = (int) optab_handler (vec_init_optab, mode);
+	    /* Don't use vec_init<mode> if some elements have VECTOR_TYPE.  */
+	    if (icode != CODE_FOR_nothing)
+	      {
+		tree value;
+
+		FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (exp), idx, value)
+		  if (TREE_CODE (TREE_TYPE (value)) == VECTOR_TYPE)
+		    {
+		      icode = CODE_FOR_nothing;
+		      break;
+		    }
+	      }
 	    if (icode != CODE_FOR_nothing)
 	      {
 		unsigned int i;
@@ -6382,8 +6399,8 @@ store_constructor (tree exp, rtx target, int cleared, HOST_WIDE_INT size)
 
 	    if (vector)
 	      {
-	        /* Vector CONSTRUCTORs should only be built from smaller
-		   vectors in the case of BLKmode vectors.  */
+		/* vec_init<mode> should not be used if there are VECTOR_TYPE
+		   elements.  */
 		gcc_assert (TREE_CODE (TREE_TYPE (value)) != VECTOR_TYPE);
 		RTVEC_ELT (vector, eltpos)
 		  = expand_normal (value);

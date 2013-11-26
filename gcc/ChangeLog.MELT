@@ -1,4 +1,15 @@
 
+2013-11-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{unstable, xtramelt-ana-base.melt is not translatable. Merge with
+	trunk svn rev 205391}}
+	* melt-run.proto.h: Move MELT_GCC_VERSION #definition above.
+	Include basic-block.h, tree-ssa-alias.h, internal-fn.h,
+	gimple-expr.h, is-a.h for GCC 4.9...
+	* melt-runtime.cc: Include basic-block.h, tree-ssa-alias.h, internal-fn.h,
+	gimple-expr.h, is-a.h, pointer-set.h for GCC 4.9...
+
+
 2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{unstable, xtramelt-ana-base.melt is not translatable.}}

@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "obstack.h"
 #include "toplev.h" /* get_random_seed */
-#include "ggc.h"
 #include "hashtab.h"
 #include "filenames.h"
 #include "output.h"
@@ -52,6 +51,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "basic-block.h"
 #include "bitmap.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
@@ -63,7 +67,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-dfa.h"
 #include "params.h"
-#include "pointer-set.h"
 #include "tree-pass.h"
 #include "langhooks-def.h"
 #include "diagnostic.h"
@@ -9101,7 +9104,7 @@ get_file_function_name (const char *type)
     {
       const char *file = main_input_filename;
       if (! file)
-	file = input_filename;
+	file = LOCATION_FILE (input_location);
       /* Just use the file's basename, because the full pathname
 	 might be quite long.  */
       p = q = ASTRDUP (lbasename (file));
@@ -9118,7 +9121,7 @@ get_file_function_name (const char *type)
       if (! name)
 	name = "";
       if (! file)
-	file = input_filename;
+	file = LOCATION_FILE (input_location);
 
       len = strlen (file);
       q = (char *) alloca (9 + 17 + len + 1);
@@ -9547,10 +9550,11 @@ make_or_reuse_accum_type (unsigned size, int unsignedp, int satp)
    during initialization of data types to create the 5 basic atomic
    types. The generic build_variant_type function requires these to
    already be set up in order to function properly, so cannot be
-   called from there.  */
+   called from there.  If ALIGN is non-zero, then ensure alignment is
+   overridden to this value.  */
 
 static tree
-build_atomic_base (tree type)
+build_atomic_base (tree type, unsigned int align)
 {
   tree t;
 
@@ -9560,6 +9564,9 @@ build_atomic_base (tree type)
   
   t = build_variant_type_copy (type);
   set_type_quals (t, TYPE_QUAL_ATOMIC);
+
+  if (align)
+    TYPE_ALIGN (t) = align;
 
   return t;
 }
@@ -9648,14 +9655,21 @@ build_common_tree_nodes (bool signed_char, bool short_double)
 
   /* Don't call build_qualified type for atomics.  That routine does
      special processing for atomics, and until they are initialized
-     it's better not to make that call.  */
+     it's better not to make that call.
+     
+     Check to see if there is a target override for atomic types.  */
 
-  atomicQI_type_node = build_atomic_base (unsigned_intQI_type_node);
-  atomicHI_type_node = build_atomic_base (unsigned_intHI_type_node);
-  atomicSI_type_node = build_atomic_base (unsigned_intSI_type_node);
-  atomicDI_type_node = build_atomic_base (unsigned_intDI_type_node);
-  atomicTI_type_node = build_atomic_base (unsigned_intTI_type_node);
-
+  atomicQI_type_node = build_atomic_base (unsigned_intQI_type_node,
+					targetm.atomic_align_for_mode (QImode));
+  atomicHI_type_node = build_atomic_base (unsigned_intHI_type_node,
+					targetm.atomic_align_for_mode (HImode));
+  atomicSI_type_node = build_atomic_base (unsigned_intSI_type_node,
+					targetm.atomic_align_for_mode (SImode));
+  atomicDI_type_node = build_atomic_base (unsigned_intDI_type_node,
+					targetm.atomic_align_for_mode (DImode));
+  atomicTI_type_node = build_atomic_base (unsigned_intTI_type_node,
+					targetm.atomic_align_for_mode (TImode));
+  	
   access_public_node = get_identifier ("public");
   access_protected_node = get_identifier ("protected");
   access_private_node = get_identifier ("private");

@@ -25,6 +25,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "expr.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -515,7 +524,7 @@ internal_get_tmp_var (tree val, gimple_seq *pre_p, gimple_seq *post_p,
 
   mod = build2 (INIT_EXPR, TREE_TYPE (t), t, unshare_expr (val));
 
-  SET_EXPR_LOCATION (mod, EXPR_LOC_OR_HERE (val));
+  SET_EXPR_LOCATION (mod, EXPR_LOC_OR_LOC (val, input_location));
 
   /* gimplify_modify_expr might want to reduce this further.  */
   gimplify_and_add (mod, pre_p);
@@ -1748,6 +1757,59 @@ gimplify_var_or_parm_decl (tree *expr_p)
   return GS_ALL_DONE;
 }
 
+/* Recalculate the value of the TREE_SIDE_EFFECTS flag for T.  */
+
+static void
+recalculate_side_effects (tree t)
+{
+  enum tree_code code = TREE_CODE (t);
+  int len = TREE_OPERAND_LENGTH (t);
+  int i;
+
+  switch (TREE_CODE_CLASS (code))
+    {
+    case tcc_expression:
+      switch (code)
+	{
+	case INIT_EXPR:
+	case MODIFY_EXPR:
+	case VA_ARG_EXPR:
+	case PREDECREMENT_EXPR:
+	case PREINCREMENT_EXPR:
+	case POSTDECREMENT_EXPR:
+	case POSTINCREMENT_EXPR:
+	  /* All of these have side-effects, no matter what their
+	     operands are.  */
+	  return;
+
+	default:
+	  break;
+	}
+      /* Fall through.  */
+
+    case tcc_comparison:  /* a comparison expression */
+    case tcc_unary:       /* a unary arithmetic expression */
+    case tcc_binary:      /* a binary arithmetic expression */
+    case tcc_reference:   /* a reference */
+    case tcc_vl_exp:        /* a function call */
+      TREE_SIDE_EFFECTS (t) = TREE_THIS_VOLATILE (t);
+      for (i = 0; i < len; ++i)
+	{
+	  tree op = TREE_OPERAND (t, i);
+	  if (op && TREE_SIDE_EFFECTS (op))
+	    TREE_SIDE_EFFECTS (t) = 1;
+	}
+      break;
+
+    case tcc_constant:
+      /* No side-effects.  */
+      return;
+
+    default:
+      gcc_unreachable ();
+   }
+}
+
 /* Gimplify the COMPONENT_REF, ARRAY_REF, REALPART_EXPR or IMAGPART_EXPR
    node *EXPR_P.
 
@@ -2514,7 +2576,7 @@ shortcut_cond_expr (tree expr)
       while (TREE_CODE (pred) == TRUTH_ANDIF_EXPR)
 	{
 	  /* Keep the original source location on the first 'if'.  */
-	  location_t locus = EXPR_LOC_OR_HERE (expr);
+	  location_t locus = EXPR_LOC_OR_LOC (expr, input_location);
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  /* Set the source location of the && on the second 'if'.  */
 	  if (EXPR_HAS_LOCATION (pred))
@@ -2536,7 +2598,7 @@ shortcut_cond_expr (tree expr)
       while (TREE_CODE (pred) == TRUTH_ORIF_EXPR)
 	{
 	  /* Keep the original source location on the first 'if'.  */
-	  location_t locus = EXPR_LOC_OR_HERE (expr);
+	  location_t locus = EXPR_LOC_OR_LOC (expr, input_location);
 	  TREE_OPERAND (expr, 0) = TREE_OPERAND (pred, 1);
 	  /* Set the source location of the || on the second 'if'.  */
 	  if (EXPR_HAS_LOCATION (pred))
@@ -2600,7 +2662,7 @@ shortcut_cond_expr (tree expr)
   /* If there was nothing else in our arms, just forward the label(s).  */
   if (!then_se && !else_se)
     return shortcut_cond_r (pred, true_label_p, false_label_p,
-			    EXPR_LOC_OR_HERE (expr));
+			    EXPR_LOC_OR_LOC (expr, input_location));
 
   /* If our last subexpression already has a terminal label, reuse it.  */
   if (else_se)
@@ -2632,7 +2694,7 @@ shortcut_cond_expr (tree expr)
   jump_over_else = block_may_fallthru (then_);
 
   pred = shortcut_cond_r (pred, true_label_p, false_label_p,
-			  EXPR_LOC_OR_HERE (expr));
+			  EXPR_LOC_OR_LOC (expr, input_location));
 
   expr = NULL;
   append_to_statement_list (pred, &expr);

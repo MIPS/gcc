@@ -1,3 +1,146 @@
+2013-11-26  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/thumb1-pic-high-reg.c: New case.
+	* gcc.target/arm/thumb1-pic-single-base.c: New case.
+
+2013-11-26  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58700
+	* g++.dg/parse/bitfield4.C: New.
+
+2013-11-26  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59287
+	* gcc.dg/tree-ssa/alias-29.c: New testcase.
+
+2013-11-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/54485
+	* g++.dg/other/default8.C: New.
+	* g++.dg/tc1/dr217.C: Remove xfail.
+	* g++.dg/other/default5.C: Adjust.
+	* g++.old-deja/g++.mike/p1989.C: Likewise.
+
+2013-11-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58607
+	* g++.dg/cpp0x/constexpr-ice9.C: New.
+
+2013-11-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58810
+	* g++.dg/other/cv_func3.C: New.
+	* g++.dg/other/cv_func.C: Adjust.
+	* g++.dg/parse/fn-typedef2.C: Likewise.
+
+2013-11-25  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59250
+	* g++.dg/ubsan/pr59250.C: New test.
+
+2013-11-25  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59143
+	* gfortran.dg/typebound_proc_30.f90: New.
+
+2013-11-25  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59080
+	* g++.dg/cpp0x/initlist75.C: New.
+
+	PR c++/59096
+	* g++.dg/cpp0x/gen-attrs-57.C: New.
+
+2013-11-25  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/59112
+	PR c++/59113
+	* g++.dg/cpp1y/pr58533.C: Updated testcase.
+	* g++.dg/cpp1y/pr59112.C: New testcase.
+	* g++.dg/cpp1y/pr59113.C: New testcase.
+
+2013-11-25  Terry Guo  <terry.guo@arm.com>
+
+	* gcc.target/arm/thumb2-slow-flash-data.c: New.
+
+2013-11-23  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/float-exact-1.c: Use dg-add-options ieee.
+	[LDBL_MANT_DIG == 113]: Fix wrong variable name.
+
+2013-11-23  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59228
+	* gfortran.dg/asynchronous_4.f90: New.
+
+2013-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/asan/no-redundant-instrumentation-7.c: Fix
+	cleanup-tree-dump directive.
+
+2013-11-22  Jan Hubicka  <jh@suse.cz>
+
+	* gcc.dg/20081223-1.c: Add -ffat-lto-objects.
+	* gcc.dg/vect/vect.exp: Add -ffat-lto-objects.
+
+2013-11-22  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/ubsan/return-1.C: New test.
+	* g++.dg/ubsan/return-2.C: New test.
+
+	* c-c++-common/asan/no-redundant-instrumentation-1.c: Tweak to avoid
+	optimizing away some __asan_report* calls.
+
+2013-11-22  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.dg/pr10474.c: Also test ppc64.
+	* gcc.dg/ira-shrinkwrap-prep-1.c: Also test ppc64, change all ints
+	to longs.
+	* gcc.dg/ira-shrinkwrap-prep-2.c: Likewise.
+
+2013-11-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/59054
+	* gcc.target/powerpc/direct-move.h (VSX_REG_ATTR): Allow test to
+	specify an appropriate register class for VSX operations.
+	(load_vsx): Use it.
+	(load_gpr_to_vsx): Likewise.
+	(load_vsx_to_gpr): Likewise.
+	* gcc.target/powerpc/direct-move-vint1.c: Use an appropriate
+	register class for VSX registers that the type can handle.  Remove
+	checks for explicit number of instructions generated, just check
+	if the instruction is generated.
+	* gcc.target/powerpc/direct-move-vint2.c: Likewise.
+	* gcc.target/powerpc/direct-move-float1.c: Likewise.
+	* gcc.target/powerpc/direct-move-float2.c: Likewise.
+	* gcc.target/powerpc/direct-move-double1.c: Likewise.
+	* gcc.target/powerpc/direct-move-double2.c: Likewise.
+	* gcc.target/powerpc/direct-move-long1.c: Likewise.
+	* gcc.target/powerpc/direct-move-long2.c: Likewise.
+
+	* gcc.target/powerpc/pr59054.c: Remove duplicate code.
+
+	* gcc.target/powerpc/bool3-av.c: Limit to 64-bit mode for now.
+	* gcc.target/powerpc/bool3-p7.c: Likewise.
+	* gcc.target/powerpc/bool3-p8.c: Likewise.
+
+	* gcc.target/powerpc/p8vector-ldst.c: Just check that the
+	appropriate instructions are generated, don't check the count.
+
+2013-11-22  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR target/59216
+	* gcc.target/arm/negdi-4.c: Delete invalid test.
+	* gcc.dg/torture/pr59216.c: New test.
+
+2013-11-22  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* gcc.target/aarch64/vmov_n_1.c: New testcase.
+
+2013-11-22  Richard Biener  <rguenther@suse.de>
+
+	* gcc.dg/torture/20131122-0.c: New testcase.
+
 2013-11-22  Jakub Jelinek  <jakub@redhat.com>
 
 	* gcc.dg/vect/vect-124.c: New test.

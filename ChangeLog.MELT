@@ -1,11 +1,16 @@
 
+2013-11-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev 205391 now in
+	stage 3; very unstable}}
+
 2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	{{merge with trunk GCC 4.9 svn rev 205247 now in stage 3}}
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev 205247 now in stage 3}}
 
 2013-11-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
-	{{merge with trunk GCC 4.9 svn rev 204695; previous trunk merge
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev 204695; previous trunk merge
 	was 202773; very unstable...}}
 
 2013-11-06  Basile Starynkevitch  <basile@starynkevitch.net>

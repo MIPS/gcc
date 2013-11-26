@@ -46,6 +46,16 @@
 #include "recog.h"
 #include "langhooks.h"
 #include "diagnostic-core.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "optabs.h"
@@ -208,6 +218,15 @@ __extension__
 static const struct tune_params generic_tunings =
 {
   &generic_extra_costs,
+  &generic_addrcost_table,
+  &generic_regmove_cost,
+  &generic_vector_cost,
+  NAMED_PARAM (memmov_cost, 4)
+};
+
+static const struct tune_params cortexa53_tunings =
+{
+  &cortexa53_extra_costs,
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,

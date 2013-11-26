@@ -56,13 +56,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "diagnostic-core.h"
 #include "intl.h"
-#include "ggc.h"
-#include "hash-table.h"
 #include "langhooks.h"
 #include "md5.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "tree-dfa.h"
+#include "hash-table.h"  /* Required for ENABLE_FOLD_CHECKING.  */
 
 /* Nonzero if we are folding constants inside an initializer; zero
    otherwise.  */

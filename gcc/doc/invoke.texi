@@ -455,7 +455,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{@var{object-file-name}  -l@var{library} @gol
 -nostartfiles  -nodefaultlibs  -nostdlib -pie -rdynamic @gol
 -s  -static -static-libgcc -static-libstdc++ @gol
--static-libasan -static-libtsan -static-libubsan @gol
+-static-libasan -static-libtsan -static-liblsan -static-libubsan @gol
 -shared -shared-libgcc  -symbolic @gol
 -T @var{script}  -Wl,@var{option}  -Xlinker @var{option} @gol
 -u @var{symbol}}
@@ -533,6 +533,7 @@ Objective-C and Objective-C++ Dialects}.
 -mfix-cortex-m3-ldrd @gol
 -munaligned-access @gol
 -mneon-for-64bits @gol
+-mslow-flash-data @gol
 -mrestrict-it}
 
 @emph{AVR Options}
@@ -5271,7 +5272,17 @@ See @uref{http://code.google.com/p/address-sanitizer/} for more details.
 Enable ThreadSanitizer, a fast data race detector.
 Memory access instructions will be instrumented to detect
 data race bugs.
-See @uref{http://code.google.com/p/data-race-test/wiki/ThreadSanitizer} for more details.
+See @uref{http://code.google.com/p/data-race-test/wiki/ThreadSanitizer} for
+more details.
+
+@item -fsanitize=leak
+Enable LeakSanitizer, a memory leak detector.
+This option only matters for linking of executables and if neither
+@option{-fsanitize=address} nor @option{-fsanitize=thread} is used.  In that
+case it will link the executable against a library that overrides @code{malloc}
+and other allocator functions.  See
+@uref{https://code.google.com/p/address-sanitizer/wiki/LeakSanitizer} for more
+details.
 
 @item -fsanitize=undefined
 Enable UndefinedBehaviorSanitizer, a fast undefined behavior detector.
@@ -10232,6 +10243,15 @@ option is not used, then this links against the shared version of
 driver to link @file{libtsan} statically, without necessarily linking
 other libraries statically.
 
+@item -static-liblsan
+When the @option{-fsanitize=leak} option is used to link a program,
+the GCC driver automatically links against @option{liblsan}.  If
+@file{liblsan} is available as a shared library, and the @option{-static}
+option is not used, then this links against the shared version of
+@file{liblsan}.  The @option{-static-liblsan} option directs the GCC
+driver to link @file{liblsan} statically, without necessarily linking
+other libraries statically.
+
 @item -static-libubsan
 When the @option{-fsanitize=undefined} option is used to link a program,
 the GCC driver automatically links against @option{libubsan}.  If
@@ -12201,8 +12221,11 @@ before execution begins.
 
 @item -mpic-register=@var{reg}
 @opindex mpic-register
-Specify the register to be used for PIC addressing.  The default is R10
-unless stack-checking is enabled, when R9 is used.
+Specify the register to be used for PIC addressing.
+For standard PIC base case, the default will be any suitable register
+determined by compiler.  For single PIC base case, the default is
+@samp{R9} if target is EABI based or stack-checking is enabled,
+otherwise the default is @samp{R10}.
 
 @item -mpic-data-is-text-relative
 @opindex mpic-data-is-text-relative
@@ -12330,6 +12353,13 @@ defined.
 Enables using Neon to handle scalar 64-bits operations. This is
 disabled by default since the cost of moving data from core registers
 to Neon is high.
+
+@item -mslow-flash-data
+@opindex mslow-flash-data
+Assume loading data from flash is slower than fetching instruction.
+Therefore literal load is minimized for better performance.
+This option is only supported when compiling for ARMv7 M-profile and
+off by default.
 
 @item -mrestrict-it
 @opindex mrestrict-it
@@ -14517,22 +14547,22 @@ Intel Core 2 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3 and SSSE3
 instruction set support.
 
 @item corei7
-Intel Core i7 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3, SSSE3, SSE4.1
-and SSE4.2 instruction set support.
+Intel Core i7 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3, SSSE3,
+SSE4.1, SSE4.2 and POPCNT instruction set support.
 
 @item corei7-avx
 Intel Core i7 CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3, SSSE3,
-SSE4.1, SSE4.2, AVX, AES and PCLMUL instruction set support.
+SSE4.1, SSE4.2, POPCNT, AVX, AES and PCLMUL instruction set support.
 
 @item core-avx-i
 Intel Core CPU with 64-bit extensions, MMX, SSE, SSE2, SSE3, SSSE3,
-SSE4.1, SSE4.2, AVX, AES, PCLMUL, FSGSBASE, RDRND and F16C instruction
-set support.
+SSE4.1, SSE4.2, POPCNT, AVX, AES, PCLMUL, FSGSBASE, RDRND and F16C
+instruction set support.
 
 @item core-avx2
 Intel Core CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
-SSE4.1, SSE4.2, AVX, AVX2, AES, PCLMUL, FSGSBASE, RDRND, FMA, BMI, BMI2
-and F16C instruction set support.
+SSE4.1, SSE4.2, POPCNT, AVX, AVX2, AES, PCLMUL, FSGSBASE, RDRND, FMA,
+BMI, BMI2 and F16C instruction set support.
 
 @item atom
 Intel Atom CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3 and SSSE3
@@ -14540,7 +14570,7 @@ instruction set support.
 
 @item slm
 Intel Silvermont CPU with 64-bit extensions, MOVBE, MMX, SSE, SSE2, SSE3, SSSE3,
-SSE4.1 and SSE4.2 instruction set support.
+SSE4.1, SSE4.2, POPCNT, AES, PCLMUL and RDRND instruction set support.
 
 @item k6
 AMD K6 CPU with MMX instruction set support.

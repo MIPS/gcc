@@ -66,6 +66,15 @@ const int melt_is_plugin = 0;
 
 #include "ggc.h"
 #include "tree.h"
+
+#if MELT_GCC_VERSION >= 4009
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#endif /*GCC 4.9 */
+
 #include "gimple.h"
 #include "intl.h"
 #include "filenames.h"
@@ -83,6 +92,7 @@ const int melt_is_plugin = 0;
 #include "print-tree.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
+#include "pointer-set.h"
 #else
 #include "tree-flow.h"
 #endif

@@ -24,6 +24,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "basic-block.h"
 #include "function.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -33,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ssa-iterators.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
-#include "hash-table.h"
 #include "dbgcnt.h"
 #include "tree-cfg.h"
 #include "tree-pass.h"
@@ -1575,7 +1579,6 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   bitmap_iterator bi;
   bitmap threaded_blocks;
   struct loop *loop;
-  bool totally_clobbered_loops = false;
 
   /* We must know about loops in order to preserve them.  */
   gcc_assert (current_loops != NULL);
@@ -1671,9 +1674,15 @@ thread_through_all_blocks (bool may_peel_loop_headers)
 		/* Our path is still valid, thread it.  */
 	        if (e->aux)
 		  {
-		    totally_clobbered_loops
-		      |= thread_block ((*path)[0]->e->dest, false);
+		    struct loop *loop = (*path)[0]->e->dest->loop_father;
+
+		    retval |= thread_block ((*path)[0]->e->dest, false);
 		    e->aux = NULL;
+
+		    /* This jump thread likely totally scrambled this loop.
+		       So arrange for it to be fixed up.  */
+		    loop->header = NULL;
+		    loop->latch = NULL;
 		  }
 	      }
 	   else
@@ -1696,32 +1705,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   threaded_blocks = NULL;
   paths.release ();
 
-  /* If we made changes to the CFG that might have totally messed
-     up the loop structure, then drop the old loop structure and
-     rebuild.  */
-  if (totally_clobbered_loops)
-    {
-      /* Release the current loop structures, they are totally
-	 clobbered at this point.  */
-      loop_optimizer_finalize ();
-      current_loops = NULL;
-
-      /* Similarly for dominance information.  */
-      free_dominance_info (CDI_DOMINATORS);
-      free_dominance_info (CDI_POST_DOMINATORS);
-
-      /* Before we can rebuild the loop structures, we need dominators,
-	 which requires no unreachable code.  So remove unreachable code.  */
-      delete_unreachable_blocks ();
-
-      /* Now rebuild the loop structures.  */
-      cfun->curr_properties &= ~PROP_loops;
-      loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
-      cfun->curr_properties |= PROP_loops;
-      retval = 1;
-    }
-
-  if (retval && current_loops)
+  if (retval)
     loops_state_set (LOOPS_NEED_FIXUP);
 
   return retval;

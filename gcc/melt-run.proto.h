@@ -24,6 +24,11 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.   If not see
 <http://www.gnu.org/licenses/>.    */
 
+#ifndef MELT_GCC_VERSION
+/* Actually, the generated melt-run.h contains a number like 4007 for
+   GCC 4.7 etc.  This is the version of the GCC using this MELT. */
+#define MELT_GCC_VERSION YY
+#endif
 
 /* all file including this are somehow plugins, perhaps MELT specific ones */
 #include "gcc-plugin.h"
@@ -44,6 +49,16 @@ along with GCC; see the file COPYING3.   If not see
 #include "obstack.h"
 #include "tm.h"
 #include "tree.h"
+
+#if MELT_GCC_VERSION >= 4009
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#endif /*GCC 4.9 */
+
+
 #include "gimple.h"
 #include "filenames.h"
 #include "tree-pass.h"
@@ -59,11 +74,6 @@ along with GCC; see the file COPYING3.   If not see
 /* Notice that gtype-desc.h is included thru ggc.h so all the
    gt_ggc_mx_* marking routines are visible.  */
 
-#ifndef MELT_GCC_VERSION
-/* Actually, the generated melt-run.h contains a number like 4007 for
-   GCC 4.7 etc.  This is the version of the GCC using this MELT. */
-#define MELT_GCC_VERSION YY
-#endif
 
 #include "c-family/c-pragma.h"
 #include "c-family/c-pretty-print.h"

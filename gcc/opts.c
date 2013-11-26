@@ -1450,6 +1450,7 @@ common_handle_option (struct gcc_options *opts,
 	    {
 	      { "address", SANITIZE_ADDRESS, sizeof "address" - 1 },
 	      { "thread", SANITIZE_THREAD, sizeof "thread" - 1 },
+	      { "leak", SANITIZE_LEAK, sizeof "leak" - 1 },
 	      { "shift", SANITIZE_SHIFT, sizeof "shift" - 1 },
 	      { "integer-divide-by-zero", SANITIZE_DIVIDE,
 		sizeof "integer-divide-by-zero" - 1 },
@@ -1457,6 +1458,7 @@ common_handle_option (struct gcc_options *opts,
 	      { "unreachable", SANITIZE_UNREACHABLE,
 		sizeof "unreachable" - 1 },
 	      { "vla-bound", SANITIZE_VLA, sizeof "vla-bound" - 1 },
+	      { "return", SANITIZE_RETURN, sizeof "return" - 1 },
 	      { "null", SANITIZE_NULL, sizeof "null" - 1 },
 	      { NULL, 0, 0 }
 	    };
