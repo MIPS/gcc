@@ -1,3 +1,10 @@
+26-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Add OpenCL attributes.
+
+	* gcc/gimple-opencl.h: Add attributes spec and retrieval.
+	* gcc/gimple-opencl.c: Likewise
+	* gcc/oacc-low.c: Add attributes setting. 
+
 22-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Add maintainer mode to liboacc config.
 

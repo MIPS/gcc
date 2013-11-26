@@ -25,8 +25,61 @@
 #include "dumpfile.h"
 #include "tree-flow.h"
 #include "tree-ssa.h"
+#include "plugin.h"
 #include "ssaexpand.h"
 #include "gimple-opencl.h"
+
+struct opencl_attribute_spec
+{
+  struct attribute_spec spec;
+  tree attr_node;
+};
+
+struct opencl_attribute_spec opencl_attributes[] =
+{
+    {{ "*kernel", 0, 0, true, false, false, NULL, false}, NULL_TREE},
+    {{ "*global", 0, 0, true, false, false, NULL, false}, NULL_TREE},
+    {{ "*local", 0, 0, true, false, false, NULL, false}, NULL_TREE},
+    {{ "*constant", 0, 0, true, false, false, NULL, false}, NULL_TREE},
+    {{ "*private", 0, 0, true, false, false, NULL, false }, NULL_TREE}
+};
+
+static struct opencl_attribute_spec*
+find_attribute(const char* name)
+{
+  size_t i;
+  struct opencl_attribute_spec* spec = NULL;
+  
+  for(i = 0; i < sizeof(opencl_attributes) / sizeof(opencl_attributes[0]); ++i)
+    {
+      if(strcmp(name, opencl_attributes[i].spec.name) == 0)
+        {
+          spec = &opencl_attributes[i];
+          break;
+        }
+    }
+  return spec;
+}
+
+tree
+get_opencl_attribute(const char* name)
+{
+  struct opencl_attribute_spec* spec = NULL; 
+  
+  spec =  find_attribute(name);
+  if(spec != NULL)
+    {
+      if(spec->attr_node == NULL_TREE)
+        {
+            register_attribute(&spec->spec);
+            spec->attr_node =
+                    tree_cons(get_identifier(spec->spec.name), NULL, NULL);
+        }
+      return spec->attr_node;
+    }
+  
+  return NULL_TREE;
+}
 
 static void
 escape_name(FILE* fp, const char* name)
@@ -90,6 +143,35 @@ generate_name(FILE *fp, tree decl, bool get_asm = false)
 }
 
 static void
+generate_opencl_attributes(FILE *fp, tree decl)
+{
+  tree attrs = DECL_ATTRIBUTES(decl);
+  
+  if(TREE_CODE(decl) == FUNCTION_DECL)
+    {
+    if(lookup_attribute("*kernel", attrs) != NULL_TREE)
+        {
+          fprintf(fp, "__kernel ");
+        }
+    }
+  else
+    {
+    if(lookup_attribute("*global", attrs) != NULL_TREE)
+      {
+        fprintf(fp, "__global ");
+      }
+    if(lookup_attribute("*local", attrs) != NULL_TREE)
+      {
+        fprintf(fp, "__local ");
+      }
+    if(lookup_attribute("*private", attrs) != NULL_TREE)
+      {
+        fprintf(fp, "__private ");
+      }
+  }
+}
+
+static void
 generate_integer_type(FILE *fp, tree type)
 {
   unsigned prec = TYPE_PRECISION(type);
@@ -120,7 +202,7 @@ generate_real_type(FILE *fp, tree type)
 }
 
 static bool
-generate_type(FILE* fp, tree type, tree decl)
+generate_type_1(FILE* fp, tree type, tree decl)
 {
   bool retval = false;
 
@@ -139,17 +221,29 @@ generate_type(FILE* fp, tree type, tree decl)
       fprintf(fp, "int ");
       break;
     case ARRAY_TYPE:
-      generate_type(fp, TREE_TYPE(type), decl);
+      generate_type_1(fp, TREE_TYPE(type), decl);
       fprintf(fp, "* ");
       break;
     case POINTER_TYPE:
-      fprintf(fp, "__global ");
-      generate_type(fp, TREE_TYPE(type), decl);
+      generate_type_1(fp, TREE_TYPE(type), decl);
       fprintf(fp, "* ");
       break;
     default:
       gcc_unreachable();
     }
+  return retval;
+}
+
+static bool
+generate_type(FILE* fp, tree type, tree decl)
+{
+  bool retval = false;
+
+  if(decl != NULL_TREE && TREE_CODE(decl) != SSA_NAME)
+    {
+        generate_opencl_attributes(fp, decl);
+    }
+  generate_type_1(fp, type, decl);
   return retval;
 }
 
@@ -169,14 +263,11 @@ generate_kernel_header(FILE* fp, tree kernel_fn)
 {
   tree param;
 
-  fprintf(fp, "__kernel ");
-  generate_type(fp, TREE_TYPE(DECL_RESULT(kernel_fn)), NULL_TREE);
+  generate_type(fp, TREE_TYPE(DECL_RESULT(kernel_fn)), kernel_fn);
   fprintf(fp, IDENTIFIER_POINTER(DECL_NAME(kernel_fn)));
   fputc('(', fp);
   for(param = DECL_ARGUMENTS(kernel_fn); param; param = DECL_CHAIN(param))
     {
-      if (TREE_CODE(TREE_TYPE(param)) != POINTER_TYPE)
-        fprintf(fp, "__global ");
       generate_var_decl(fp, param);
       if(DECL_CHAIN(param) != NULL_TREE)
         fputc(',', fp);
@@ -890,4 +981,3 @@ generate_opencl_kernel(char* cl_file, tree kernel_fn, struct ssaexpand* ssa)
   generate_kernel(fp, kernel_fn);
   fclose(fp);
 }
-

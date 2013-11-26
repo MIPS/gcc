@@ -170,7 +170,6 @@ lambda_transform_legal_p (lambda_trans_matrix trans,
 
 static GTY(()) char *ocl_module;
 
-
 typedef struct acc_region_t* acc_region;
 
 typedef struct acc_region_t
@@ -507,7 +506,7 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
     gimple stmt = gsi_stmt (*gsi);
     gimple_seq body, orig;
     unsigned i;
-
+    
     orig = gimple_acc_body(stmt);
     if(dump_file)
         {
@@ -762,7 +761,13 @@ create_oacc_child_function(oacc_context* ctx)
     tree name, type, decl, t;
     vec<tree> args, types;
     unsigned i;
-
+    tree kernel_attr = NULL_TREE, global_attr = NULL_TREE;
+    
+    kernel_attr = get_opencl_attribute("*kernel");
+    global_attr = get_opencl_attribute("*global");
+    gcc_checking_assert(kernel_attr != NULL_TREE
+                         && global_attr != NULL_TREE);
+    
     name = clone_function_name(current_function_decl, "_oacc_fn");
     name = normalize_name(name);
     if(dump_file)
@@ -790,7 +795,8 @@ create_oacc_child_function(oacc_context* ctx)
                                      types.address());
     decl = build_decl(gimple_location(ctx->stmt), FUNCTION_DECL, name, type);
     ctx->cb.dst_fn = decl;
-
+    
+    decl_attributes(&decl, kernel_attr, 0);
     TREE_STATIC (decl) = 1;
     TREE_USED (decl) = 1;
     DECL_ARTIFICIAL (decl) = 1;
@@ -812,13 +818,14 @@ create_oacc_child_function(oacc_context* ctx)
     for(i = args.length(); i > 0; --i)
         {
             const char *id = "_oacc_param";
+            
             if(DECL_NAME(args[i-1]))
                 {
                     id = IDENTIFIER_POINTER(DECL_NAME(args[i-1]));
                 }
             t = build_decl(DECL_SOURCE_LOCATION (decl), PARM_DECL,
                            create_tmp_var_name(id), types[i-1]);
-            if(dump_file)
+          if(dump_file)
                 {
                     fprintf(dump_file, "Create formal param: ");
                     print_generic_expr(dump_file, t, 0);
@@ -833,6 +840,7 @@ create_oacc_child_function(oacc_context* ctx)
             DECL_CONTEXT(t) = decl;
             TREE_USED (t) = 1;
             TREE_ADDRESSABLE (t) = 1;
+            decl_attributes(&t, global_attr, 0);
             if(i > 0)
                 DECL_CHAIN (t) = DECL_ARGUMENTS (decl);
             DECL_ARGUMENTS (decl) = t;
@@ -1085,7 +1093,6 @@ execute_lower_oacc (void)
                 }
         }
     XDELETEVEC(cur_module);
-
 
     all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
                                    delete_oacc_context);
@@ -1421,7 +1428,8 @@ clone_function(tree fn, gimple kernel_stmt)
   DECL_EXTERNAL (new_fn) = 0;
   DECL_CONTEXT (new_fn) = NULL_TREE;
   DECL_INITIAL (new_fn) = make_node (BLOCK);
-
+  DECL_ATTRIBUTES(new_fn) = DECL_ATTRIBUTES(fn);
+  
   t = build_decl (DECL_SOURCE_LOCATION (new_fn),
                   RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (t) = 1;
@@ -1471,6 +1479,7 @@ map_parameters(tree orig_fn, acc_kernel kernel, gimple kernel_stmt)
       DECL_CONTEXT(t) = kernel->func;
       TREE_USED (t) = 1;
       TREE_ADDRESSABLE (t) = 1;
+      DECL_ATTRIBUTES(t) = DECL_ATTRIBUTES(param);
       if(i > 0)
           DECL_CHAIN (t) = DECL_ARGUMENTS (kernel->func);
       DECL_ARGUMENTS (kernel->func) = t;
