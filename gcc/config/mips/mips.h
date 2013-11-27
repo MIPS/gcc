@@ -963,6 +963,10 @@ struct mips_cpu_info {
 /* ISA has floating-point madd and msub instructions 'd = a * b [+-] c'.  */
 #define ISA_HAS_FP_MADD4_MSUB4  ISA_HAS_FP4
 
+/* ISA has floating-point maddf and msubf instructions 'd = d [+-] a * b  */
+#define ISA_HAS_FP_MADDF_MSUBF  (ISA_MIPS32R6				\
+				 || ISA_MIPS64R6)
+
 /* ISA has floating-point madd and msub instructions 'c = a * b [+-] c'.  */
 #define ISA_HAS_FP_MADD3_MSUB3  TARGET_LOONGSON_2EF
 
