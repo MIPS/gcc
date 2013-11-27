@@ -2433,6 +2433,17 @@
    (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
 
+(define_insn "*maddf<mode>"
+  [(set (match_operand:ANYF 0 "register_operand" "=f")
+	(plus:ANYF (match_operand:ANYF 1 "register_operand" "0")
+		   (mult:ANYF (match_operand:ANYF 2 "register_operand" "f")
+			      (match_operand:ANYF 3 "register_operand" "f"))))]
+  "ISA_HAS_FP_MADDF_MSUBF"
+  "maddf.<fmt>\t%0,%2,%3"
+  [(set_attr "type" "fmadd")
+   (set_attr "accum_in"	"3")
+   (set_attr "mode" "<UNITMODE>")])
+
 (define_insn "*madd3<mode>"
   [(set (match_operand:ANYF 0 "register_operand" "=f")
 	(plus:ANYF (mult:ANYF (match_operand:ANYF 1 "register_operand" "f")
@@ -2451,6 +2462,17 @@
 		    (match_operand:ANYF 3 "register_operand" "f")))]
   "ISA_HAS_FP_MADD4_MSUB4 && TARGET_FUSED_MADD"
   "msub.<fmt>\t%0,%3,%1,%2"
+  [(set_attr "type" "fmadd")
+   (set_attr "accum_in"	"3")
+   (set_attr "mode" "<UNITMODE>")])
+
+(define_insn "*msubf<mode>"
+  [(set (match_operand:ANYF 0 "register_operand" "=f")
+	(minus:ANYF (match_operand:ANYF 1 "register_operand" "0")
+		    (mult:ANYF (match_operand:ANYF 2 "register_operand" "f")
+			       (match_operand:ANYF 3 "register_operand" "f"))))]
+  "ISA_HAS_FP_MADDF_MSUBF"
+  "msubf.<fmt>\t%0,%2,%3"
   [(set_attr "type" "fmadd")
    (set_attr "accum_in"	"3")
    (set_attr "mode" "<UNITMODE>")])
