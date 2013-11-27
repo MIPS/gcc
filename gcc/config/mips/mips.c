@@ -9027,7 +9027,8 @@ mips_file_start (void)
 	     "\t.previous\n", TARGET_LONG64 ? 64 : 32);
 
   /* Record the NaN encoding.  */
-  if (HAVE_AS_NAN || mips_nan != MIPS_IEEE_754_DEFAULT)
+  if ((HAVE_AS_NAN && ISA_HAS_NANLEGACY)
+      || mips_nan != MIPS_IEEE_754_DEFAULT)
     fprintf (asm_out_file, "\t.nan\t%s\n",
 	     mips_nan == MIPS_IEEE_754_2008 ? "2008" : "legacy");
 
@@ -17234,9 +17235,22 @@ mips_option_override (void)
 	}
     }
 
+  /* Check for explicit nan formats that may or may not be supported */
+  if ((mips_nan == MIPS_IEEE_754_LEGACY
+       || mips_abs == MIPS_IEEE_754_LEGACY)
+      && !ISA_HAS_NANLEGACY)
+    warning (0, "the %qs architecture does not support nan legacy"
+	     " format", mips_arch_info->name);
+
+  if ((mips_nan == MIPS_IEEE_754_2008
+       || mips_abs == MIPS_IEEE_754_2008)
+      && !ISA_HAS_NAN2008)
+    warning (0, "the %qs architecture does not support nan 2008"
+	     " format", mips_arch_info->name);
+
   /* Pre-IEEE 754-2008 MIPS hardware has a quirky almost-IEEE format
      for all its floating point.  */
-  if (mips_nan != MIPS_IEEE_754_2008)
+  if (mips_nan != MIPS_IEEE_754_2008 && ISA_HAS_NANLEGACY)
     {
       REAL_MODE_FORMAT (SFmode) = &mips_single_format;
       REAL_MODE_FORMAT (DFmode) = &mips_double_format;
