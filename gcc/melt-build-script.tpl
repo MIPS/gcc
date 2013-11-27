@@ -654,8 +654,18 @@ meltbuild_notice 'doing applications'  [+(.(fromline))+] doing applications
 	  GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS" \
 	  GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/[+base+] \
 	  GCCMELT_MODULE_BINARYBASE=meltbuild-modules/[+base+] \
-	  || meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile application [+base+] [+flavor+] "($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS
-  else
+	  || ( meltbuild_notice [+(.(fromline))+] in meltbuild-modules failure to compile application [+base+] [+flavor+] ; \
+	       $GCCMELT_MAKE -f $GCCMELT_MODULE_MK melt_module \
+			     GCCMELT_FROM=[+(.(fromline))+] \
+			     GCCMELT_MODULE_WORKSPACE=meltbuild-workdir \
+			     GCCMELT_MODULE_FLAVOR=[+flavor+] \
+			     GCCMELT_COMPILER="$GCCMELT_COMPILER" \
+			     GCCMELT_CFLAGS="$GCCMELT_COMPILER_FLAGS -DMELTGCC_NOLINENUMBERING" \
+			     GCCMELT_MODULE_SOURCEBASE=meltbuild-sources/[+base+] \
+			     GCCMELT_MODULE_BINARYBASE=meltbuild-modules/[+base+] ; \
+	       meltbuild_error  [+(.(fromline))+] in meltbuild-modules failed to compile application [+base+] [+flavor+] \
+				"($GCCMELT_MAKE -f $GCCMELT_MODULE_MK)" compiler $GCCMELT_COMPILER_FLAGS cflags $GCCMELT_COMPILER_FLAGS )
+	       else
       meltbuild_info [+(.(fromline))+] not compiling application module for [+base+] [+flavor+]
   fi
  [+ENDFOR flavor+]
