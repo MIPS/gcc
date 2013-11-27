@@ -9788,7 +9788,7 @@ mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
   if (MD_REG_P (regno))
     return true;
 
-  if (TARGET_DSP && DSP_ACC_REG_P (regno))
+  if (ISA_HAS_DSP && DSP_ACC_REG_P (regno))
     return true;
 
   if (GP_REG_P (regno) && !cfun->machine->use_shadow_register_set_p)
@@ -12220,7 +12220,7 @@ mips_vector_mode_supported_p (enum machine_mode mode)
     case V2UHAmode:
     case V4QQmode:
     case V4UQQmode:
-      return TARGET_DSP;
+      return ISA_HAS_DSP;
 
     case V2SImode:
     case V4HImode:
@@ -13750,11 +13750,11 @@ AVAIL_ALL (hard_float, TARGET_HARD_FLOAT_ABI)
 AVAIL_NON_MIPS16 (paired_single, TARGET_PAIRED_SINGLE_FLOAT)
 AVAIL_NON_MIPS16 (sb1_paired_single, TARGET_SB1 && TARGET_PAIRED_SINGLE_FLOAT)
 AVAIL_NON_MIPS16 (mips3d, TARGET_MIPS3D)
-AVAIL_NON_MIPS16 (dsp, TARGET_DSP)
-AVAIL_NON_MIPS16 (dspr2, TARGET_DSPR2)
-AVAIL_NON_MIPS16 (dsp_32, !TARGET_64BIT && TARGET_DSP)
-AVAIL_NON_MIPS16 (dsp_64, TARGET_64BIT && TARGET_DSP)
-AVAIL_NON_MIPS16 (dspr2_32, !TARGET_64BIT && TARGET_DSPR2)
+AVAIL_NON_MIPS16 (dsp, ISA_HAS_DSP)
+AVAIL_NON_MIPS16 (dspr2, ISA_HAS_DSPR2)
+AVAIL_NON_MIPS16 (dsp_32, !TARGET_64BIT && ISA_HAS_DSP)
+AVAIL_NON_MIPS16 (dsp_64, TARGET_64BIT && ISA_HAS_DSP)
+AVAIL_NON_MIPS16 (dspr2_32, !TARGET_64BIT && ISA_HAS_DSPR2)
 AVAIL_NON_MIPS16 (loongson, TARGET_LOONGSON_VECTORS)
 AVAIL_NON_MIPS16 (cache, TARGET_CACHE_BUILTIN)
 
@@ -17219,6 +17219,13 @@ mips_option_override (void)
   /* If TARGET_DSPR2, enable TARGET_DSP.  */
   if (TARGET_DSPR2)
     TARGET_DSP = true;
+
+  if (TARGET_DSP
+      && (ISA_MIPS32R6
+          || ISA_MIPS64R6))
+    error ("the %qs architecture does not support dsp"
+	   " instructions", mips_arch_info->name);
+
 
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler

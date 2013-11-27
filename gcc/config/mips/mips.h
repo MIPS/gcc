@@ -1102,10 +1102,16 @@ struct mips_cpu_info {
 				 && TARGET_64BIT)
 
 /* The DSP ASE is available.  */
-#define ISA_HAS_DSP		(TARGET_DSP && !TARGET_MIPS16)
+#define ISA_HAS_DSP		(TARGET_DSP				\
+				 && !ISA_MIPS32R6			\
+				 && !ISA_MIPS64R6			\
+				 && !TARGET_MIPS16)
 
 /* Revision 2 of the DSP ASE is available.  */
-#define ISA_HAS_DSPR2		(TARGET_DSPR2 && !TARGET_MIPS16)
+#define ISA_HAS_DSPR2		(TARGET_DSPR2				\
+				 && !ISA_MIPS32R6			\
+				 && !ISA_MIPS64R6			\
+				 && !TARGET_MIPS16)
 
 /* True if the result of a load is not available to the next instruction.
    A nop will then be needed between instructions like "lw $4,..."
