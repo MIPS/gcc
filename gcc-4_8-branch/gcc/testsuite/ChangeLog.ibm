@@ -1,3 +1,10 @@
+2013-11-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r205464
+	2013-11-27  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gfortran.dg/nan_7.f90: Disable for little endian PowerPC.
+
 2013-11-22  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Backport from mainline
