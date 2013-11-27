@@ -1,5 +1,10 @@
 
 2013-11-27  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/xtramelt-ana-base.melt: Still not translatable.  Should use
+	ENTRY_BLOCK_PTR_FOR_FN instead of ENTRY_BLOCK_PTR_FOR_FUNCTION
+	etc...
+
+2013-11-27  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-build-script.tpl (meltbuild_do_applications): Restart the
 	compilation without line numbering on error, and make a notice of

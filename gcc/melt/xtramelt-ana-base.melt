@@ -1218,7 +1218,7 @@ unsigned int melthk_rtl_execute(void)
    /* each_cgraph_fun_body $EACHCGRFUN; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
 #ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRFUN#_nd)
-#else /* for GCC 4.6 & 4.7 without FOR_EACH_DEFINED_FUNCTION */
+#else /* for GCC 4.7 without FOR_EACH_DEFINED_FUNCTION */
    for ($EACHCGRFUN#_nd = cgraph_nodes; 
 	$EACHCGRFUN#_nd != NULL; 
 	$EACHCGRFUN#_nd = $EACHCGRFUN#_nd->next) 
@@ -1228,11 +1228,11 @@ unsigned int melthk_rtl_execute(void)
        gimple_seq  $EACHCGRFUN#_bdy = NULL;
    /* in each_cgraph_fun_body $EACHCGRFUN */
 #warning each_cgraph_fun_body $EACHCGRFUN testing MELT_GCC_VERSION
-#if MELT_GCC_VERSION >= 4008
+#if MELT_GCC_VERSION == 4008
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->symbol.decl;
-#else /* GCC 4.7 or older */
+#else /* GCC 4.7 or GCC 4.9 but not 4.8! */
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->decl;
-#endif /* older than GCC 4.8 */
+#endif /* variant GCC 4.8 */
        if (!$EACHCGRFUN#_dcl) continue;
        if (TREE_CODE($EACHCGRFUN#_dcl) != FUNCTION_DECL) continue;
        $EACHCGRFUN#_bdy = gimple_body($EACHCGRFUN#_dcl);
@@ -1257,7 +1257,7 @@ unsigned int melthk_rtl_execute(void)
    /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
 #ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNENTRBLO#_nd)
-#else /* for GCC 4.6 & 4.7 without FOR_EACH_DEFINED_FUNCTION */
+#else /* for GCC 4.7 without FOR_EACH_DEFINED_FUNCTION */
    for ($EACHCGRAFUNENTRBLO#_nd = cgraph_nodes; 
         $EACHCGRAFUNENTRBLO#_nd != NULL; 
         $EACHCGRAFUNENTRBLO#_nd = $EACHCGRAFUNENTRBLO#_nd->next) 
@@ -1267,14 +1267,12 @@ unsigned int melthk_rtl_execute(void)
    basic_block  $EACHCGRAFUNENTRBLO#_entrybb = NULL;
    basic_block  $EACHCGRAFUNENTRBLO#_exitbb = NULL;
    struct function *$EACHCGRAFUNENTRBLO#_fun = NULL;
-   /* in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO; 
-      notice that GCCPLUGIN_VERSION exists from GCC 4.7, but not in GCC 4.6 */
-#if (defined(GCCPLUGIN_VERSION) && (GCCPLUGIN_VERSION >= 4008)) \
-    || (defined (MELT_GCC_VERSION) && (MELT_GCC_VERSION >= 4008))
+   /* in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO */
+#if MELT_GCC_VERSION == 4008
    $EACHCGRAFUNENTRBLO#_dcl = $EACHCGRAFUNENTRBLO#_nd->symbol.decl;
-#else /* GCC 4.7 or older */
+#else /* GCC 4.7 or 4.9 but not 4.8 */
    $EACHCGRAFUNENTRBLO#_dcl = $EACHCGRAFUNENTRBLO#_nd->decl;
-#endif /* older than GCC 4.8 */
+#endif /* GCC 4.8 or not */
    if (! $EACHCGRAFUNENTRBLO#_dcl) continue;
    if (TREE_CODE($EACHCGRAFUNENTRBLO#_dcl) != FUNCTION_DECL) continue;
    $EACHCGRAFUNENTRBLO#_fun = DECL_STRUCT_FUNCTION($EACHCGRAFUNENTRBLO#_dcl);
@@ -1311,10 +1309,11 @@ unsigned int melthk_rtl_execute(void)
   ;; before expansion
   #{ /* each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG + */
    struct cgraph_node *$EACHCGRAFUNCFG#_nd = NULL; 
-   /*  each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG; GCC 4.8 has  FOR_EACH_DEFINED_FUNCTION */
+   /* each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG;
+    * GCC 4.8 has  FOR_EACH_DEFINED_FUNCTION...  */
 #ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNCFG#_nd)
-#else /* for GCC 4.6 & 4.7 without FOR_EACH_DEFINED_FUNCTION */
+#else /* for GCC 4.7 without FOR_EACH_DEFINED_FUNCTION */
    for ($EACHCGRAFUNCFG#_nd = cgraph_nodes; 
         $EACHCGRAFUNCFG#_nd != NULL; 
         $EACHCGRAFUNCFG#_nd = $EACHCGRAFUNCFG#_nd->next) 
@@ -1325,12 +1324,10 @@ unsigned int melthk_rtl_execute(void)
       struct function *$EACHCGRAFUNCFG#_fun = NULL;
       int $EACHCGRAFUNCFG#_n_bb = 0;
       int $EACHCGRAFUNCFG#_ix = 0;
-      /* inside  each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG;
-         notice that GCCPLUGIN_VERSION exists from GCC 4.7, but not in GCC 4.6 */
-#if (defined(GCCPLUGIN_VERSION) && (GCCPLUGIN_VERSION >= 4008)) \
-    || (defined (MELT_GCC_VERSION) && (MELT_GCC_VERSION >= 4008))
+      /* inside  each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG */
+#if MELT_GCC_VERSION == 4008
       $EACHCGRAFUNCFG#_dcl = $EACHCGRAFUNCFG#_nd->symbol.decl;
-#else /* GCC 4.7 or older */
+#else /* GCC 4.7 or 4.9 but not 4.8 */
       $EACHCGRAFUNCFG#_dcl = $EACHCGRAFUNCFG#_nd->decl;
 #endif /* older than GCC 4.8 */
       if (! $EACHCGRAFUNCFG#_dcl) 
@@ -1378,12 +1375,13 @@ unsigned int melthk_rtl_execute(void)
 ;;;;;;;;;;;;;;;;
 ;;;; iterate on every cgraph_node which is a declaration; don't exist in 4.8
 (gccif 
- ("4.6."  "4.7.")
+ (  "4.7."   "4.9.")
 (defciterator each_cgraph_decl
   ()
   eachcgrdcl
   (:tree decl)
-  :doc #{$EACH_CGRAPH_DECL iterates on every cgraph_node which is a declaration $DECL; only for GCC 4.6 or 4.7}#
+  :doc #{$EACH_CGRAPH_DECL iterates on every cgraph_node which is a declaration $DECL; 
+  only for GCC  4.7 or GCC 4.9 but not GCC 4.8 }#
   ;;before expansion
 #{ /*  each_cgraph_decl $EACHCGRDCL */ {
    struct cgraph_node *$EACHCGRDCL#_nd = NULL; 
@@ -1800,6 +1798,8 @@ current function and gives its declaration in $CFUNDECL}#
 (defprimitive cfun_has_cfg () :long
   #{ (cfun?(cfun->cfg != NULL):0) }#)
 
+
+;; with GCC 4.9 should use ENTRY_BLOCK_PTR_FOR_FN & EXIT_BLOCK_PTR_FOR_FN
 (defprimitive cfun_cfg_entry_block () :basic_block
   #{ ((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun):NULL) }#)
 
