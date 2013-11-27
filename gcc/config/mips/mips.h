@@ -985,6 +985,14 @@ struct mips_cpu_info {
 				      && (MODE) == V2SFmode))		\
 				 && !TARGET_MIPS16)
 
+#define ISA_HAS_NANLEGACY	(!ISA_MIPS32R6				\
+				 && !ISA_MIPS64R6)
+
+#define ISA_HAS_NAN2008		(ISA_MIPS32R2				\
+				 || ISA_MIPS32R6			\
+				 || ISA_MIPS64R2			\
+				 || ISA_MIPS64R6)
+
 #define ISA_HAS_LWL_LWR		(!ISA_MIPS32R6				\
 				 && !ISA_MIPS64R6)
 
