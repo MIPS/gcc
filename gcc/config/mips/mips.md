@@ -761,14 +761,14 @@
 ;; 32-bit integer moves for which we provide move patterns.
 (define_mode_iterator IMOVE32
   [SI
-   (V2HI "TARGET_DSP")
-   (V4QI "TARGET_DSP")
-   (V2HQ "TARGET_DSP")
-   (V2UHQ "TARGET_DSP")
-   (V2HA "TARGET_DSP")
-   (V2UHA "TARGET_DSP")
-   (V4QQ "TARGET_DSP")
-   (V4UQQ "TARGET_DSP")])
+   (V2HI "ISA_HAS_DSP")
+   (V4QI "ISA_HAS_DSP")
+   (V2HQ "ISA_HAS_DSP")
+   (V2UHQ "ISA_HAS_DSP")
+   (V2HA "ISA_HAS_DSP")
+   (V2UHA "ISA_HAS_DSP")
+   (V4QQ "ISA_HAS_DSP")
+   (V4UQQ "ISA_HAS_DSP")])
 
 ;; 64-bit modes for which we provide move patterns.
 (define_mode_iterator MOVE64
