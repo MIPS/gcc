@@ -1,3 +1,8 @@
+2013-11-30  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* config/i386/i386.c (ix86_simd_clone_compute_vecsize_and_simdlen):
+	Removed a carriage return from the warning string.
+
 2013-11-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/i386/i386.c (ix86_cilkplus_default_vecsize_mangle,
