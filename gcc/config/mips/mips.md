@@ -1629,7 +1629,7 @@
 		 (match_operand:SI 3 "register_operand" "0,d")))
    (clobber (match_scratch:SI 4 "=X,l"))
    (clobber (match_scratch:SI 5 "=X,&d"))]
-  "!lra_in_progress && GENERATE_MADD_MSUB && !TARGET_MIPS16"
+  "TARGET_RELOAD && GENERATE_MADD_MSUB && !TARGET_MIPS16"
   "@
     madd\t%1,%2
     #"
@@ -1648,7 +1648,7 @@
 		 (match_operand:SI 3 "register_operand" "0,d")))
    (clobber (match_scratch:SI 4 "=X,l"))
    (clobber (match_scratch:SI 5 "=X,&d"))]
-  "lra_in_progress && GENERATE_MADD_MSUB && !TARGET_MIPS16"
+  "!TARGET_RELOAD && GENERATE_MADD_MSUB && !TARGET_MIPS16"
   "@
     madd\t%1,%2
     #"
@@ -1666,7 +1666,7 @@
 		 (match_operand:SI 3 "register_operand" "0,l,d")))
    (clobber (match_scratch:SI 4 "=X,3,l"))
    (clobber (match_scratch:SI 5 "=X,X,&d"))]
-  "!lra_in_progress && TARGET_MIPS3900 && !TARGET_MIPS16"
+  "TARGET_RELOAD && TARGET_MIPS3900 && !TARGET_MIPS16"
   "@
     madd\t%1,%2
     madd\t%0,%1,%2
@@ -1684,7 +1684,7 @@
 		 (match_operand:SI 3 "register_operand" "0,l,d")))
    (clobber (match_scratch:SI 4 "=X,3,l"))
    (clobber (match_scratch:SI 5 "=X,X,&d"))]
-  "lra_in_progress && TARGET_MIPS3900 && !TARGET_MIPS16"
+  "!TARGET_RELOAD && TARGET_MIPS3900 && !TARGET_MIPS16"
   "@
     madd\t%1,%2
     madd\t%0,%1,%2
@@ -1902,7 +1902,7 @@
                            (match_operand:SI 3 "register_operand" "d,d"))))
    (clobber (match_scratch:SI 4 "=X,l"))
    (clobber (match_scratch:SI 5 "=X,&d"))]
-  "!lra_in_progress && GENERATE_MADD_MSUB"
+  "TARGET_RELOAD && GENERATE_MADD_MSUB"
   "@
    msub\t%2,%3
    #"
@@ -1919,7 +1919,7 @@
                            (match_operand:SI 3 "register_operand" "d,d"))))
    (clobber (match_scratch:SI 4 "=X,l"))
    (clobber (match_scratch:SI 5 "=X,&d"))]
-  "lra_in_progress && GENERATE_MADD_MSUB"
+  "!TARGET_RELOAD && GENERATE_MADD_MSUB"
   "@
    msub\t%2,%3
    #"
