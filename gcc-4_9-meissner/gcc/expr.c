@@ -2061,12 +2061,14 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
       HOST_WIDE_INT bytepos = INTVAL (XEXP (XVECEXP (src, 0, i), 1));
       enum machine_mode mode = GET_MODE (tmps[i]);
       unsigned int bytelen = GET_MODE_SIZE (mode);
-      unsigned int adj_bytelen = bytelen;
+      unsigned int adj_bytelen;
       rtx dest = dst;
 
       /* Handle trailing fragments that run over the size of the struct.  */
       if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
 	adj_bytelen = ssize - bytepos;
+      else
+	adj_bytelen = bytelen;
 
       if (GET_CODE (dst) == CONCAT)
 	{
@@ -2107,6 +2109,7 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	    }
 	}
 
+      /* Handle trailing fragments that run over the size of the struct.  */
       if (ssize >= 0 && bytepos + (HOST_WIDE_INT) bytelen > ssize)
 	{
 	  /* store_bit_field always takes its value from the lsb.
@@ -2124,16 +2127,22 @@ emit_group_store (rtx orig_dst, rtx src, tree type ATTRIBUTE_UNUSED, int ssize)
 	      tmps[i] = expand_shift (RSHIFT_EXPR, mode, tmps[i],
 				      shift, tmps[i], 0);
 	    }
-	  bytelen = adj_bytelen;
+
+	  /* Make sure not to write past the end of the struct.  */
+	  store_bit_field (dest,
+			   adj_bytelen * BITS_PER_UNIT, bytepos * BITS_PER_UNIT,
+			   bytepos * BITS_PER_UNIT, ssize * BITS_PER_UNIT - 1,
+			   VOIDmode, tmps[i]);
 	}
 
       /* Optimize the access just a bit.  */
-      if (MEM_P (dest)
-	  && (! SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (dest))
-	      || MEM_ALIGN (dest) >= GET_MODE_ALIGNMENT (mode))
-	  && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
-	  && bytelen == GET_MODE_SIZE (mode))
+      else if (MEM_P (dest)
+	       && (!SLOW_UNALIGNED_ACCESS (mode, MEM_ALIGN (dest))
+		   || MEM_ALIGN (dest) >= GET_MODE_ALIGNMENT (mode))
+	       && bytepos * BITS_PER_UNIT % GET_MODE_ALIGNMENT (mode) == 0
+	       && bytelen == GET_MODE_SIZE (mode))
 	emit_move_insn (adjust_address (dest, mode, bytepos), tmps[i]);
+
       else
 	store_bit_field (dest, bytelen * BITS_PER_UNIT, bytepos * BITS_PER_UNIT,
 			 0, 0, mode, tmps[i]);
@@ -4648,7 +4657,7 @@ get_bit_range (unsigned HOST_WIDE_INT *bitstart,
       int unsignedp;
       int volatilep = 0;
       get_inner_reference (TREE_OPERAND (exp, 0), &rbitsize, &rbitpos,
-			   &roffset, &rmode, &unsignedp, &volatilep);
+			   &roffset, &rmode, &unsignedp, &volatilep, false);
       if ((rbitpos % BITS_PER_UNIT) != 0)
 	{
 	  *bitstart = *bitend = 0;
@@ -4776,8 +4785,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  expand_insn (icode, 2, ops);
 	}
       else
-	store_bit_field (mem, GET_MODE_BITSIZE (mode),
-			 0, 0, 0, mode, reg);
+	store_bit_field (mem, GET_MODE_BITSIZE (mode), 0, 0, 0, mode, reg);
       return;
     }
 
@@ -4802,7 +4810,7 @@ expand_assignment (tree to, tree from, bool nontemporal)
 
       push_temp_slots ();
       tem = get_inner_reference (to, &bitsize, &bitpos, &offset, &mode1,
-				 &unsignedp, &volatilep);
+				 &unsignedp, &volatilep, true);
 
       /* Make sure bitpos is not negative, it can wreak havoc later.  */
       if (bitpos < 0)
@@ -6644,13 +6652,27 @@ store_field (rtx target, HOST_WIDE_INT bitsize, HOST_WIDE_INT bitpos,
 
    If the field describes a variable-sized object, *PMODE is set to
    BLKmode and *PBITSIZE is set to -1.  An access cannot be made in
-   this case, but the address of the object can be found.  */
+   this case, but the address of the object can be found.
+
+   If KEEP_ALIGNING is true and the target is STRICT_ALIGNMENT, we don't
+   look through nodes that serve as markers of a greater alignment than
+   the one that can be deduced from the expression.  These nodes make it
+   possible for front-ends to prevent temporaries from being created by
+   the middle-end on alignment considerations.  For that purpose, the
+   normal operating mode at high-level is to always pass FALSE so that
+   the ultimate containing object is really returned; moreover, the
+   associated predicate handled_component_p will always return TRUE
+   on these nodes, thus indicating that they are essentially handled
+   by get_inner_reference.  TRUE should only be passed when the caller
+   is scanning the expression in order to build another representation
+   and specifically knows how to handle these nodes; as such, this is
+   the normal operating mode in the RTL expanders.  */
 
 tree
 get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 		     HOST_WIDE_INT *pbitpos, tree *poffset,
 		     enum machine_mode *pmode, int *punsignedp,
-		     int *pvolatilep)
+		     int *pvolatilep, bool keep_aligning)
 {
   tree size_tree = 0;
   enum machine_mode mode = VOIDmode;
@@ -6770,6 +6792,14 @@ get_inner_reference (tree exp, HOST_WIDE_INT *pbitsize,
 	  break;
 
 	case VIEW_CONVERT_EXPR:
+	  if (keep_aligning && STRICT_ALIGNMENT
+	      && (TYPE_ALIGN (TREE_TYPE (exp))
+	       > TYPE_ALIGN (TREE_TYPE (TREE_OPERAND (exp, 0))))
+	      && (TYPE_ALIGN (TREE_TYPE (TREE_OPERAND (exp, 0)))
+		  < BIGGEST_ALIGNMENT)
+	      && (TYPE_ALIGN_OK (TREE_TYPE (exp))
+		  || TYPE_ALIGN_OK (TREE_TYPE (TREE_OPERAND (exp, 0)))))
+	    goto done;
 	  break;
 
 	case MEM_REF:
@@ -7634,7 +7664,7 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 	 they won't change the final object whose address will be returned
 	 (they actually exist only for that purpose).  */
       inner = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-				   &mode1, &unsignedp, &volatilep);
+				   &mode1, &unsignedp, &volatilep, false);
       break;
     }
 
@@ -9911,7 +9941,7 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	tree offset;
 	int volatilep = 0, must_force_mem;
 	tree tem = get_inner_reference (exp, &bitsize, &bitpos, &offset,
-					&mode1, &unsignedp, &volatilep);
+					&mode1, &unsignedp, &volatilep, true);
 	rtx orig_op0, memloc;
 	bool mem_attrs_from_type = false;
 
@@ -10272,7 +10302,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 	int volatilep = 0;
 	tree tem
 	  = get_inner_reference (treeop0, &bitsize, &bitpos,
-				 &offset, &mode1, &unsignedp, &volatilep);
+				 &offset, &mode1, &unsignedp, &volatilep,
+				 true);
 	rtx orig_op0;
 
 	/* ??? We should work harder and deal with non-zero offsets.  */
