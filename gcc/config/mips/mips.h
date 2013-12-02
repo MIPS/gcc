@@ -1081,6 +1081,10 @@ struct mips_cpu_info {
 				  || ISA_MIPS64R6)			\
 				 && !TARGET_MIPS16)
 
+/* ISA has data prefetch with limited 9-bit displacement */ 
+#define ISA_HAS_PREFETCH_9BIT	(ISA_MIPS32R6				\
+				 || ISA_MIPS64R6)
+
 /* ISA has data indexed prefetch instructions.  This controls use of
    'prefx', along with TARGET_HARD_FLOAT and TARGET_DOUBLE_FLOAT.
    (prefx is a cop1x instruction, so can only be used if FP is
@@ -2184,6 +2188,7 @@ enum reg_class
 #define SMALL_INT_UNSIGNED(X) SMALL_OPERAND_UNSIGNED (INTVAL (X))
 #define LUI_INT(X) LUI_OPERAND (INTVAL (X))
 #define UMIPS_12BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -2048, 2047))
+#define MIPSR6_9BIT_OFFSET_P(OFFSET) (IN_RANGE (OFFSET, -256, 255))
 
 /* The HI and LO registers can only be reloaded via the general
    registers.  Condition code registers can only be loaded to the

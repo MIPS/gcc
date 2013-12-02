@@ -5383,7 +5383,7 @@
 (define_insn "mips_cache"
   [(set (mem:BLK (scratch))
 	(unspec:BLK [(match_operand:SI 0 "const_int_operand")
-		     (match_operand:QI 1 "address_operand" "p")]
+		     (match_operand:QI 1 "address_operand" "ZD")]
 		    UNSPEC_MIPS_CACHE))]
   "ISA_HAS_CACHE"
   "cache\t%X0,%a1")

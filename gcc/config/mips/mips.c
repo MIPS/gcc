@@ -2605,6 +2605,20 @@ umips_12bit_offset_address_p (rtx x, enum machine_mode mode)
 	  && UMIPS_12BIT_OFFSET_P (INTVAL (addr.offset)));
 }
 
+/* Return true if X is a legitimate address with a 9-bit offset.
+   MODE is the mode of the value being accessed.  */
+
+bool
+mipsr6_9bit_offset_address_p (rtx x, enum machine_mode mode)
+{
+  struct mips_address_info addr;
+
+  return (mips_classify_address (&addr, x, mode, false)
+	  && addr.type == ADDRESS_REG
+	  && CONST_INT_P (addr.offset)
+	  && MIPSR6_9BIT_OFFSET_P (INTVAL (addr.offset)));
+}
+
 /* Return the number of instructions needed to load constant X,
    assuming that BASE_INSN_LENGTH is the length of one instruction.
    Return 0 if X isn't a valid constant.  */
