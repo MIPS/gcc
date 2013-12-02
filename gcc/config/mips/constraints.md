@@ -324,7 +324,9 @@
    not compiling for microMIPS code, @code{ZD} is equivalent to @code{p}."
    (if_then_else (match_test "TARGET_MICROMIPS")
 		 (match_test "umips_12bit_offset_address_p (op, mode)")
-		 (match_test "mips_address_insns (op, mode, false)")))
+                 (if_then_else (match_test "ISA_HAS_PREFETCH_9BIT")
+			(match_test "mipsr6_9bit_offset_address_p (op, mode)")
+			(match_test "mips_address_insns (op, mode, false)"))))
 
 (define_memory_constraint "ZR"
  "@internal
