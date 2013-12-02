@@ -548,21 +548,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
-/* Nonzero if this type is a pointer bounds type.  */
-#define POINTER_BOUNDS_TYPE_P(NODE) \
-  (TREE_CODE (NODE) == POINTER_BOUNDS_TYPE)
-
-/* Nonzero if this node has a pointer bounds type.  */
-#define POINTER_BOUNDS_P(NODE) \
-  (POINTER_BOUNDS_TYPE_P (TREE_TYPE (NODE)))
-
-/* Nonzero if this type supposes bounds existence.  */
-#define BOUNDED_TYPE_P(type) (POINTER_TYPE_P (type))
-
-/* Nonzero for objects with bounded type.  */
-#define BOUNDED_P(node) \
-  BOUNDED_TYPE_P (TREE_TYPE (node))
-
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 
@@ -835,9 +820,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
    it has been built for the declaration of a variable-sized object.  */
 #define CALL_ALLOCA_FOR_VAR_P(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.protected_flag)
-
-/* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
-#define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
 
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
@@ -1344,6 +1326,10 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_CLAUSE_LINEAR_NO_COPYOUT(NODE) \
   TREE_PRIVATE (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR))
 
+/* True if a LINEAR clause has a stride that is variable.  */
+#define OMP_CLAUSE_LINEAR_VARIABLE_STRIDE(NODE) \
+  TREE_PROTECTED (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR))
+
 #define OMP_CLAUSE_LINEAR_STEP(NODE) \
   OMP_CLAUSE_OPERAND (OMP_CLAUSE_SUBCODE_CHECK (NODE, OMP_CLAUSE_LINEAR), 1)
 
@@ -1431,6 +1417,14 @@ extern void protected_set_expr_location (tree, location_t);
 /* Attributes for SSA_NAMEs for pointer-type variables.  */
 #define SSA_NAME_PTR_INFO(N) \
    SSA_NAME_CHECK (N)->ssa_name.info.ptr_info
+
+/* True if SSA_NAME_RANGE_INFO describes an anti-range.  */
+#define SSA_NAME_ANTI_RANGE_P(N) \
+    SSA_NAME_CHECK (N)->base.static_flag
+
+/* The type of range described by SSA_NAME_RANGE_INFO.  */
+#define SSA_NAME_RANGE_TYPE(N) \
+    (SSA_NAME_ANTI_RANGE_P (N) ? VR_ANTI_RANGE : VR_RANGE)
 
 /* Value range info attributes for SSA_NAMEs of non pointer-type variables.  */
 #define SSA_NAME_RANGE_INFO(N) \
@@ -3233,8 +3227,6 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
 
-#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
-
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
@@ -4511,7 +4503,8 @@ extern tree build_personality_function (const char *);
    look for the ultimate containing object, which is returned and specify
    the access position and size.  */
 extern tree get_inner_reference (tree, HOST_WIDE_INT *, HOST_WIDE_INT *,
-				 tree *, enum machine_mode *, int *, int *);
+				 tree *, enum machine_mode *, int *, int *,
+				 bool);
 
 /* Return a tree representing the lower bound of the array mentioned in
    EXP, an ARRAY_REF or an ARRAY_RANGE_REF.  */

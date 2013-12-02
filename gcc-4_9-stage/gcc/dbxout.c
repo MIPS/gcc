@@ -2367,10 +2367,6 @@ dbxout_type (tree type, int full)
       dbxout_type (TREE_TYPE (type), 0);
       break;
 
-    case POINTER_BOUNDS_TYPE:
-      /* No debug info for pointer bounds type supported yet.  */
-      break;
-
     default:
       gcc_unreachable ();
     }
@@ -2515,7 +2511,7 @@ dbxout_expand_expr (tree expr)
 	rtx x;
 
 	tem = get_inner_reference (expr, &bitsize, &bitpos, &offset,
-				   &mode, &unsignedp, &volatilep);
+				   &mode, &unsignedp, &volatilep, true);
 
 	x = dbxout_expand_expr (tem);
 	if (x == NULL || !MEM_P (x))
