@@ -175,6 +175,11 @@ along with GCC; see the file COPYING3.  If not see
 /* Return the usual opcode for a nop.  */
 #define MIPS_NOP 0
 
+/* Temporary register that is used after a call, and suitable for both
+   MIPS16 and non-MIPS16 code.  $4 and $5 are used for returning complex double
+   values in soft-float code, so $6 is the first suitable candidate.  */
+#define POST_CALL_TMP_REG (GP_ARG_FIRST + 2)
+
 /* Classifies an address.
 
    ADDRESS_REG
@@ -6990,10 +6995,8 @@ mips_split_call (rtx insn, rtx call_pattern)
 {
   emit_call_insn (call_pattern);
   if (!find_reg_note (insn, REG_NORETURN, 0))
-    /* Pick a temporary register that is suitable for both MIPS16 and
-       non-MIPS16 code.  $4 and $5 are used for returning complex double
-       values in soft-float code, so $6 is the first suitable candidate.  */
-    mips_restore_gp_from_cprestore_slot (gen_rtx_REG (Pmode, GP_ARG_FIRST + 2));
+    mips_restore_gp_from_cprestore_slot (gen_rtx_REG (Pmode,
+						      POST_CALL_TMP_REG));
 }
 
 /* Return true if a call to DECL may need to use JALX.  */
@@ -18699,6 +18702,32 @@ mips_case_values_threshold (void)
   else
     return default_case_values_threshold ();
 }
+
+/* Implement TARGET_FN_OTHER_HARD_REG_USAGE.  */
+
+static void
+mips_fn_other_hard_reg_usage (struct hard_reg_set_container *fn_used_regs)
+{
+  /* POST_CALL_TMP_REG is used in splitting calls after register allocation.
+     With -fno-use-caller-save, the register is available because register
+     allocation ensures that members of call_used_regs are not live across
+     calls.
+     With -fuse-caller-save that's not the case, so we're missing a clobber on
+     the unsplit call insn to tell register allocation that the register is used
+     by the split call insn(s) after register allocation (we don't need the
+     clobber for a non-returning call, but we don't expect there will be a
+     penalty if we add the clobber for both returning and non-returning calls).
+
+     For the sake of simplicity we don't add the individual clobbers, but we use
+     this hook to mark the reg as clobbered.  This is a bit ugly, since this
+     hook is called during the final pass on a function, and we're expressing
+     here that the insn after a call to this function will clobber a register.
+
+     The condition is the pass-independent part of TARGET_SPLIT_CALLS.  */
+  if (TARGET_EXPLICIT_RELOCS
+      && TARGET_CALL_CLOBBERED_GP)
+    SET_HARD_REG_BIT (fn_used_regs->set, POST_CALL_TMP_REG);
+}
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -18932,6 +18961,9 @@ mips_case_values_threshold (void)
 
 #undef TARGET_CASE_VALUES_THRESHOLD
 #define TARGET_CASE_VALUES_THRESHOLD mips_case_values_threshold
+
+#undef TARGET_FN_OTHER_HARD_REG_USAGE
+#define TARGET_FN_OTHER_HARD_REG_USAGE mips_fn_other_hard_reg_usage
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
