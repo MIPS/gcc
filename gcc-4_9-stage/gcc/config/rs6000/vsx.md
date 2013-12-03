@@ -69,37 +69,79 @@
 			 (SF	"sp")
 			 (TI    "dp")])
 
-;; Map the register class used
+;; Map the preferred register class used for VSX operations
 (define_mode_attr VSr	[(V16QI "v")
 			 (V8HI  "v")
 			 (V4SI  "v")
 			 (V4SF  "wf")
 			 (V2DI  "wd")
 			 (V2DF  "wd")
+			 (DI	"wi")
 			 (DF    "ws")
-			 (SF	"d")
+			 (SF	"ww")
 			 (TI    "wt")])
 
-;; Map the register class used for float<->int conversions
+;; Map any VSX register class for a given mode.
+(define_mode_attr VSa	[(V16QI "wa")
+			 (V8HI  "wa")
+			 (V4SI  "wa")
+			 (V4SF  "wa")
+			 (V2DI  "wa")
+			 (V2DF  "wa")
+			 (DI	"wi")
+			 (DF    "ws")
+			 (SF	"ww")
+			 (TI    "wt")])
+
+;; Map the register class used for float<->int conversions (floating point side)
+;; VSr2 is the preferred register class, VSr3 is any register class that will
+;; hold the data
 (define_mode_attr VSr2	[(V2DF  "wd")
 			 (V4SF  "wf")
-			 (DF    "ws")])
+			 (DF    "ws")
+			 (SF	"ww")
+			 (DI	"wi")])
 
 (define_mode_attr VSr3	[(V2DF  "wa")
 			 (V4SF  "wa")
-			 (DF    "ws")])
+			 (DF    "ws")
+			 (SF	"ww")
+			 (DI	"wi")])
+
+;; Map the register class used for float<->int conversions (integer side).
+;; VSj2 is the preferred register class, VSj3 is any register class that will
+;; hold the data
+(define_mode_attr VSj2	[(V2DF  "wd")
+			 (V2DI	"v")
+			 (V4SF  "v")
+			 (DF    "wi")
+			 (SF	"ww")
+			 (DI	"wi")])
+
+(define_mode_attr VSj3	[(V2DF  "wa")
+			 (V2DI	"wa")
+			 (V4SF  "wa")
+			 (DF	"wi")
+			 (SF	"wi")
+			 (DI	"wi")])
 
 ;; Map the register class for sp<->dp float conversions, destination
 (define_mode_attr VSr4	[(SF	"ws")
-			 (DF	"f")
+			 (DF	"ww")
+			 (DI	"wi")
 			 (V2DF  "wd")
 			 (V4SF	"v")])
 
-;; Map the register class for sp<->dp float conversions, destination
+;; Map the register class for sp<->dp float conversions, source
 (define_mode_attr VSr5	[(SF	"ws")
-			 (DF	"f")
+			 (DF	"ww")
+			 (DI	"wi")
 			 (V2DF  "v")
 			 (V4SF	"wd")])
+
+;; Map the scalar register class for vector types for concatenation
+(define_mode_attr VSx	[(V2DF	"ws")
+			 (V2DI	"wi")])
 
 ;; Same size integer type for floating point data
 (define_mode_attr VSi [(V4SF  "v4si")
@@ -570,8 +612,8 @@
 
 
 (define_insn "*vsx_mov<mode>"
-  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?wa,?wa,wQ,?&r,??Y,??r,??r,<VSr>,?wa,*r,v,wZ, v")
-	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,wa,Z,wa,r,wQ,r,Y,r,j,j,j,W,v,wZ"))]
+  [(set (match_operand:VSX_M 0 "nonimmediate_operand" "=Z,<VSr>,<VSr>,?Z,?<VSa>,?<VSa>,wQ,?&r,??Y,??r,??r,<VSr>,?<VSa>,*r,v,wZ, v")
+	(match_operand:VSX_M 1 "input_operand" "<VSr>,Z,<VSr>,<VSa>,Z,<VSa>,r,wQ,r,Y,r,j,j,j,W,v,wZ"))]
   "VECTOR_MEM_VSX_P (<MODE>mode)
    && (register_operand (operands[0], <MODE>mode) 
        || register_operand (operands[1], <MODE>mode))"
@@ -738,8 +780,8 @@
 
 (define_insn "*vsx_tdiv<mode>3_internal"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=x,x")
-	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")
-		      (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,wa")]
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,?<VSa>")
+		      (match_operand:VSX_B 2 "vsx_register_operand" "<VSr>,<VSa>")]
 		   UNSPEC_VSX_TDIV))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>tdiv<VSs> %0,%x1,%x2"
@@ -844,7 +886,7 @@
 
 (define_insn "*vsx_tsqrt<mode>2_internal"
   [(set (match_operand:CCFP 0 "cc_reg_operand" "=x,x")
-	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+	(unspec:CCFP [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,?<VSa>")]
 		     UNSPEC_VSX_TSQRT))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>tsqrt<VSs> %0,%x1"
@@ -1020,33 +1062,33 @@
 
 ;; Vector select
 (define_insn "*vsx_xxsel<mode>"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
+  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?<VSa>")
 	(if_then_else:VSX_L
-	 (ne:CC (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
+	 (ne:CC (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,<VSa>")
 		(match_operand:VSX_L 4 "zero_constant" ""))
-	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")
-	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,wa")))]
+	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,<VSa>")
+	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,<VSa>")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxsel %x0,%x3,%x2,%x1"
   [(set_attr "type" "vecperm")])
 
 (define_insn "*vsx_xxsel<mode>_uns"
-  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?wa")
+  [(set (match_operand:VSX_L 0 "vsx_register_operand" "=<VSr>,?<VSa>")
 	(if_then_else:VSX_L
-	 (ne:CCUNS (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,wa")
+	 (ne:CCUNS (match_operand:VSX_L 1 "vsx_register_operand" "<VSr>,<VSa>")
 		   (match_operand:VSX_L 4 "zero_constant" ""))
-	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,wa")
-	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,wa")))]
+	 (match_operand:VSX_L 2 "vsx_register_operand" "<VSr>,<VSa>")
+	 (match_operand:VSX_L 3 "vsx_register_operand" "<VSr>,<VSa>")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "xxsel %x0,%x3,%x2,%x1"
   [(set_attr "type" "vecperm")])
 
 ;; Copy sign
 (define_insn "vsx_copysign<mode>3"
-  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?wa")
+  [(set (match_operand:VSX_F 0 "vsx_register_operand" "=<VSr>,?<VSa>")
 	(unspec:VSX_F
-	 [(match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,wa")
-	  (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,wa")]
+	 [(match_operand:VSX_F 1 "vsx_register_operand" "<VSr>,<VSa>")
+	  (match_operand:VSX_F 2 "vsx_register_operand" "<VSr>,<VSa>")]
 	 UNSPEC_COPYSIGN))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "xvcpsgn<VSs> %x0,%x2,%x1"
@@ -1059,32 +1101,32 @@
 ;; in rs6000.md so don't test VECTOR_UNIT_VSX_P, just test against VSX.
 ;; Don't use vsx_register_operand here, use gpc_reg_operand to match rs6000.md.
 (define_insn "vsx_float<VSi><mode>2"
-  [(set (match_operand:VSX_B 0 "gpc_reg_operand" "=<VSr>,?wa")
-	(float:VSX_B (match_operand:<VSI> 1 "gpc_reg_operand" "<VSr2>,<VSr3>")))]
+  [(set (match_operand:VSX_B 0 "gpc_reg_operand" "=<VSr2>,?<VSr3>")
+	(float:VSX_B (match_operand:<VSI> 1 "gpc_reg_operand" "<VSj2>,<VSj3>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cvsx<VSc><VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_floatuns<VSi><mode>2"
-  [(set (match_operand:VSX_B 0 "gpc_reg_operand" "=<VSr>,?wa")
-	(unsigned_float:VSX_B (match_operand:<VSI> 1 "gpc_reg_operand" "<VSr2>,<VSr3>")))]
+  [(set (match_operand:VSX_B 0 "gpc_reg_operand" "=<VSr2>,?<VSr3>")
+	(unsigned_float:VSX_B (match_operand:<VSI> 1 "gpc_reg_operand" "<VSj2>,<VSj3>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cvux<VSc><VSs> %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_fix_trunc<mode><VSi>2"
-  [(set (match_operand:<VSI> 0 "gpc_reg_operand" "=<VSr2>,?<VSr3>")
-	(fix:<VSI> (match_operand:VSX_B 1 "gpc_reg_operand" "<VSr>,wa")))]
+  [(set (match_operand:<VSI> 0 "gpc_reg_operand" "=<VSj2>,?<VSj3>")
+	(fix:<VSI> (match_operand:VSX_B 1 "gpc_reg_operand" "<VSr2>,<VSr3>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cv<VSs>sx<VSc>s %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_fixuns_trunc<mode><VSi>2"
-  [(set (match_operand:<VSI> 0 "gpc_reg_operand" "=<VSr2>,?<VSr3>")
-	(unsigned_fix:<VSI> (match_operand:VSX_B 1 "gpc_reg_operand" "<VSr>,wa")))]
+  [(set (match_operand:<VSI> 0 "gpc_reg_operand" "=<VSj2>,?<VSj3>")
+	(unsigned_fix:<VSI> (match_operand:VSX_B 1 "gpc_reg_operand" "<VSr2>,<VSr3>")))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>cv<VSs>ux<VSc>s %x0,%x1"
   [(set_attr "type" "<VStype_simple>")
@@ -1092,8 +1134,8 @@
 
 ;; Math rounding functions
 (define_insn "vsx_x<VSv>r<VSs>i"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr2>,?<VSr3>")
+	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr2>,<VSr3>")]
 		      UNSPEC_VSX_ROUND_I))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>r<VSs>i %x0,%x1"
@@ -1101,8 +1143,8 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "vsx_x<VSv>r<VSs>ic"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr2>,?<VSr3>")
+	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr2>,<VSr3>")]
 		      UNSPEC_VSX_ROUND_IC))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>r<VSs>ic %x0,%x1"
@@ -1118,8 +1160,8 @@
    (set_attr "fp_type" "<VSfptype_simple>")])
 
 (define_insn "*vsx_b2trunc<mode>2"
-  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr>,?wa")
-	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr>,wa")]
+  [(set (match_operand:VSX_B 0 "vsx_register_operand" "=<VSr2>,?<VSr3>")
+	(unspec:VSX_B [(match_operand:VSX_B 1 "vsx_register_operand" "<VSr2>,<VSr3>")]
 		      UNSPEC_FRIZ))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "x<VSv>r<VSs>iz %x0,%x1"
@@ -1152,8 +1194,8 @@
 ;; scalar single precision instructions internally use the double format.
 ;; Prefer the altivec registers, since we likely will need to do a vperm
 (define_insn "vsx_<VS_spdp_insn>"
-  [(set (match_operand:<VS_spdp_res> 0 "vsx_register_operand" "=<VSr4>,?wa")
-	(unspec:<VS_spdp_res> [(match_operand:VSX_SPDP 1 "vsx_register_operand" "<VSr5>,wa")]
+  [(set (match_operand:<VS_spdp_res> 0 "vsx_register_operand" "=<VSr4>,?<VSr3>")
+	(unspec:<VS_spdp_res> [(match_operand:VSX_SPDP 1 "vsx_register_operand" "<VSr5>,<VSr3>")]
 			      UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (<MODE>mode)"
   "<VS_spdp_insn> %x0,%x1"
@@ -1161,8 +1203,8 @@
 
 ;; xscvspdp, represent the scalar SF type as V4SF
 (define_insn "vsx_xscvspdp"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
-	(unspec:DF [(match_operand:V4SF 1 "vsx_register_operand" "wa,wa")]
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?ws")
+	(unspec:DF [(match_operand:V4SF 1 "vsx_register_operand" "wf,wa")]
 		   UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xscvspdp %x0,%x1"
@@ -1171,8 +1213,8 @@
 ;; xscvdpsp used for splat'ing a scalar to V4SF, knowing that the internal SF
 ;; format of scalars is actually DF.
 (define_insn "vsx_xscvdpsp_scalar"
-  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa")
-	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "f")]
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf,?wa")
+	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "ww,ww")]
 		     UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xscvdpsp %x0,%x1"
@@ -1180,8 +1222,8 @@
 
 ;; Same as vsx_xscvspdp, but use SF as the type
 (define_insn "vsx_xscvspdp_scalar2"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f")
-	(unspec:SF [(match_operand:V4SF 1 "vsx_register_operand" "wa")]
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww,?ww")
+	(unspec:SF [(match_operand:V4SF 1 "vsx_register_operand" "wf,wa")]
 		   UNSPEC_VSX_CVSPDP))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "xscvspdp %x0,%x1"
@@ -1189,24 +1231,24 @@
 
 ;; ISA 2.07 xscvdpspn/xscvspdpn that does not raise an error on signalling NaNs
 (define_insn "vsx_xscvdpspn"
-  [(set (match_operand:V4SF 0 "vsx_register_operand" "=ws,?wa")
-	(unspec:V4SF [(match_operand:DF 1 "vsx_register_operand" "wd,wa")]
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf,?wa")
+	(unspec:V4SF [(match_operand:DF 1 "vsx_register_operand" "ws,ws")]
 		     UNSPEC_VSX_CVDPSPN))]
   "TARGET_XSCVDPSPN"
   "xscvdpspn %x0,%x1"
   [(set_attr "type" "fp")])
 
 (define_insn "vsx_xscvspdpn"
-  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?wa")
-	(unspec:DF [(match_operand:V4SF 1 "vsx_register_operand" "wa,wa")]
+  [(set (match_operand:DF 0 "vsx_register_operand" "=ws,?ws")
+	(unspec:DF [(match_operand:V4SF 1 "vsx_register_operand" "wf,wa")]
 		   UNSPEC_VSX_CVSPDPN))]
   "TARGET_XSCVSPDPN"
   "xscvspdpn %x0,%x1"
   [(set_attr "type" "fp")])
 
 (define_insn "vsx_xscvdpspn_scalar"
-  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wa")
-	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "f")]
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf,?wa")
+	(unspec:V4SF [(match_operand:SF 1 "vsx_register_operand" "ww,ww")]
 		     UNSPEC_VSX_CVDPSPN))]
   "TARGET_XSCVDPSPN"
   "xscvdpspn %x0,%x1"
@@ -1214,8 +1256,8 @@
 
 ;; Used by direct move to move a SFmode value from GPR to VSX register
 (define_insn "vsx_xscvspdpn_directmove"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=wa")
-	(unspec:SF [(match_operand:SF 1 "vsx_register_operand" "wa")]
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww")
+	(unspec:SF [(match_operand:SF 1 "vsx_register_operand" "ww")]
 		   UNSPEC_VSX_CVSPDPN))]
   "TARGET_XSCVSPDPN"
   "xscvspdpn %x0,%x1"
@@ -1294,10 +1336,10 @@
 ;; since the xsrdpiz instruction does not truncate the value if the floating
 ;; point value is < LONG_MIN or > LONG_MAX.
 (define_insn "*vsx_float_fix_<mode>2"
-  [(set (match_operand:VSX_DF 0 "vsx_register_operand" "=<VSr>,?wa")
+  [(set (match_operand:VSX_DF 0 "vsx_register_operand" "=<VSr2>,?<VSr3>")
 	(float:VSX_DF
 	 (fix:<VSI>
-	  (match_operand:VSX_DF 1 "vsx_register_operand" "<VSr>,?wa"))))]
+	  (match_operand:VSX_DF 1 "vsx_register_operand" "<VSr2>,?<VSr3>"))))]
   "TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT
    && VECTOR_UNIT_VSX_P (<MODE>mode) && flag_unsafe_math_optimizations
    && !flag_trapping_math && TARGET_FRIZ"
@@ -1310,10 +1352,10 @@
 
 ;; Build a V2DF/V2DI vector from two scalars
 (define_insn "vsx_concat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSr>,?wa")
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSr>,?<VSa>")
 	(vec_concat:VSX_D
-	 (match_operand:<VS_scalar> 1 "vsx_register_operand" "ws,wa")
-	 (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")))]
+	 (match_operand:<VS_scalar> 1 "vsx_register_operand" "<VSx>,<VSx>")
+	 (match_operand:<VS_scalar> 2 "vsx_register_operand" "<VSx>,<VSx>")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   if (BYTES_BIG_ENDIAN)
@@ -1327,10 +1369,10 @@
 ;; together, relying on the fact that internally scalar floats are represented
 ;; as doubles.  This is used to initialize a V4SF vector with 4 floats
 (define_insn "vsx_concat_v2sf"
-  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?wa")
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,?<VSa>")
 	(unspec:V2DF
-	 [(match_operand:SF 1 "vsx_register_operand" "f,f")
-	  (match_operand:SF 2 "vsx_register_operand" "f,f")]
+	 [(match_operand:SF 1 "vsx_register_operand" "ww,ww")
+	  (match_operand:SF 2 "vsx_register_operand" "ww,ww")]
 	 UNSPEC_VSX_CONCAT))]
   "VECTOR_MEM_VSX_P (V2DFmode)"
 {
@@ -1490,11 +1532,12 @@
 
 ;; Set the element of a V2DI/VD2F mode
 (define_insn "vsx_set_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,?wa")
-	(unspec:VSX_D [(match_operand:VSX_D 1 "vsx_register_operand" "wd,wa")
-		       (match_operand:<VS_scalar> 2 "vsx_register_operand" "ws,wa")
-		       (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
-		      UNSPEC_VSX_SET))]
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=<VSr>,?<VSa>")
+	(unspec:VSX_D
+	 [(match_operand:VSX_D 1 "vsx_register_operand" "<VSr>,<VSa>")
+	  (match_operand:<VS_scalar> 2 "vsx_register_operand" "<VSx>,<VSx>")
+	  (match_operand:QI 3 "u5bit_cint_operand" "i,i")]
+	 UNSPEC_VSX_SET))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int idx_first = BYTES_BIG_ENDIAN ? 0 : 1;
@@ -1509,10 +1552,11 @@
 
 ;; Extract a DF/DI element from V2DF/V2DI
 (define_insn "vsx_extract_<mode>"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
-	(vec_select:<VS_scalar> (match_operand:VSX_D 1 "vsx_register_operand" "wd,wd,wa")
-		       (parallel
-			[(match_operand:QI 2 "u5bit_cint_operand" "i,i,i")])))]
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=<VSx>,?<VSx>")
+	(vec_select:<VS_scalar>
+	 (match_operand:VSX_D 1 "vsx_register_operand" "<VSr>,<VSa>")
+	 (parallel
+	  [(match_operand:QI 2 "u5bit_cint_operand" "i,i")])))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
 {
   int fldDM;
@@ -1527,9 +1571,9 @@
 
 ;; Optimize extracting element 0 from memory
 (define_insn "*vsx_extract_<mode>_zero"
-  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=ws,d,?wa")
+  [(set (match_operand:<VS_scalar> 0 "vsx_register_operand" "=<VSx>")
 	(vec_select:<VS_scalar>
-	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z,Z,Z")
+	 (match_operand:VSX_D 1 "indexed_or_indirect_operand" "Z")
 	 (parallel [(const_int 0)])))]
   "VECTOR_MEM_VSX_P (<MODE>mode) && WORDS_BIG_ENDIAN"
   "lxsd%U1x %x0,%y1"
@@ -1557,7 +1601,7 @@
 
 ;; Extract a SF element from V4SF
 (define_insn_and_split "vsx_extract_v4sf"
-  [(set (match_operand:SF 0 "vsx_register_operand" "=f,f")
+  [(set (match_operand:SF 0 "vsx_register_operand" "=ww,ww")
 	(vec_select:SF
 	 (match_operand:V4SF 1 "vsx_register_operand" "wa,wa")
 	 (parallel [(match_operand:QI 2 "u5bit_cint_operand" "O,i")])))
@@ -1676,18 +1720,16 @@
 
 ;; V2DF/V2DI splat
 (define_insn "vsx_splat_<mode>"
-  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,wd,?wa,?wa,?wa")
+  [(set (match_operand:VSX_D 0 "vsx_register_operand" "=wd,wd,?wa,?wa")
 	(vec_duplicate:VSX_D
-	 (match_operand:<VS_scalar> 1 "splat_input_operand" "ws,f,Z,wa,wa,Z")))]
+	 (match_operand:<VS_scalar> 1 "splat_input_operand" "<VSx>,Z,<VSx>,Z")))]
   "VECTOR_MEM_VSX_P (<MODE>mode)"
   "@
    xxpermdi %x0,%x1,%x1,0
-   xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1
    xxpermdi %x0,%x1,%x1,0
-   xxpermdi %x0,%x1,%x1,0
    lxvdsx %x0,%y1"
-  [(set_attr "type" "vecperm,vecperm,vecload,vecperm,vecperm,vecload")])
+  [(set_attr "type" "vecperm,vecload,vecperm,vecload")])
 
 ;; V4SF/V4SI splat
 (define_insn "vsx_xxspltw_<mode>"
@@ -1811,7 +1853,7 @@
 ;; to the top element of the V2DF array without doing an extract.
 
 (define_insn_and_split "*vsx_reduc_<VEC_reduc_name>_v2df_scalar"
-  [(set (match_operand:DF 0 "vfloat_operand" "=&ws,&?wa,ws,?wa")
+  [(set (match_operand:DF 0 "vfloat_operand" "=&ws,&ws,ws,ws")
 	(vec_select:DF
 	 (VEC_reduc:V2DF
 	  (vec_concat:V2DF
@@ -1843,7 +1885,7 @@
    (set_attr "type" "veccomplex")])
 
 (define_insn_and_split "*vsx_reduc_<VEC_reduc_name>_v4sf_scalar"
-  [(set (match_operand:SF 0 "vfloat_operand" "=f,?f")
+  [(set (match_operand:SF 0 "vfloat_operand" "=ww,?ww")
 	(vec_select:SF
 	 (VEC_reduc:V4SF
 	  (unspec:V4SF [(const_int 0)] UNSPEC_REDUC)

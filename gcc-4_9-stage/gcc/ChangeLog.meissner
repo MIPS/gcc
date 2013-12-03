@@ -1,5 +1,130 @@
 2013-12-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/constraints.md (wi constraint): New constraint for
+	DImode in floating point/VSX registers.
+	(wy constraint): Update documentation.
+
+	* config/rs6000/rs6000-protos.h (merge_peephole2_move_p): New
+	declaration.
+
+	* config/rs6000/rs6000.c (RELOAD_REG_AND_M16): New address mask
+	for VMX load/stores that ignore the bottom 3 bits of the address.
+	(struct rs6000_reg_addr): Add scalar_in_vmx_p field to track if
+	SFmode or DFmode can go in the VMX/Altivec registers.
+	(rs6000_hard_regno_mode_ok): Simplify code to use the
+	scalar_in_vmx_p field.
+	(rs6000_debug_print_mode): Print scalar_in_vmx_p and
+	RELOAD_REG_AND_M16 address mask.
+	(rs6000_debug_reg_global): Print wi constraint.
+	(rs6000_setup_reg_addr_masks): Simplify code to use the
+	scalar_in_vmx_p field.
+	(rs6000_setup_reg_addr_masks): Add support for RELOAD_REG_AND_M16
+	address mask.
+	(rs6000_init_hard_regno_mode_ok): Don't set DFmode to use VSX
+	memory instructions if -mupper-regs-df.  Update comments about the
+	constraints.  Set wi constraint to FLOAT_REGS if we have a
+	traditional hardware floating point unit.  Assume that
+	-mupper-regs-df requires -mvsx and -mupper-regs-sf requires
+	-mpower8-vector.  Set scalar_in_vmx_p if SFmode/DFmode can go in
+	VMX registers.
+	(rs6000_option_override_internal): If -mupper-regs-df require
+	-mvsx.  If -mupper-regs-sf require -mpower8-vector.
+	(merge_peephole2_move_p): New function to ensure that we don't
+	optimize move to moves in the peephole2 pass if the first move
+	loads up a traditional floating point register using D-form
+	addressing, and the move is to a VMX register which does not
+	support D-form addressing.
+	(rs6000_secondary_reload): Simplify logic somewhat by having an
+	explicit done flag.  Use GPR_REG_CLASS_P instead of testing for
+	GENERAL_REGS and BASE_REGS.
+	(rs6000_secondary_reload_gpr): Likewise.
+	(rs6000_preferred_reload_class): Simplify constant handling.  If
+	we are doing a scalar VSX memory instruction with D-form
+	addressing, prefer FLOAT_REGS over VSX_REGS.  Use
+	GPR_REGS_CLASS_P.
+	(rs6000_secondary_reload_class): Delete code that tried to reset
+	the reload class for scalars in VMX registers in favor of the code
+	in rs6000_preferred_reload_class.
+
+	* config/rs6000/vsx.md (VSr mode attribute): Add DImode, change
+	SFmode to use the ww constraint.
+	(VSa mode attribute): New mode attribute for the maximal
+	register class that is allowed.  Limit SFmode, DFmode, DImode to
+	just the traditional floating point registers, unless the
+	mode is allowed in VMX registers.
+	(VSr2 mode attribute): Add DImode, SFmode.
+	(VSr3 mode attribute): Likewise.
+	(VSj2 mode attribute): New mode attribute for the integer side
+	of int<->floating point conversions.
+	(VSj3 mode attribute): Likewise.
+	(VSr5 mode attribute): Update DFmode to allow VMX registers if
+	-mupper-regs-df.  Add DImode.
+	(VSx mode attribute): New mode attribute for scalar register class
+	to build vector types.
+	(vsx_mov<mode>): Use new mode attributes to restrict register
+	classes to the registers that are allowed for the mode.  Don't use
+	wa constraint for scalar types.
+	(vsx_tdiv<mode>3_internal): Likewise.
+	(vsx_tsqrt<mode>2_internal): Likewise.
+	(vsx_xxsel<mode>): Likewise.
+	(vsx_xxsel<mode>_uns): Likewise.
+	(vsx_copysign<mode>3): Likewise.
+	(vsx_float<VSi><mode>2): Likewise.
+	(vsx_floatuns<VSi><mode>2): Likewise.
+	(vsx_fix_trunc<mode><VSi>2): Likewise.
+	(vsx_fixuns_trunc<mode><VSi>2): Likewise.
+	(vsx_x<VSv>r<VSs>i): Likewise.
+	(vsx_x<VSv>r<VSs>ic): Likewise.
+	(vsx_b2trunc<mode>2): Likewise.
+	(vsx_<VS_spdp_insn>): Likewise.
+	(vsx_xscvspdp): Likewise.
+	(vsx_xscvdpsp_scalar): Likewise.
+	(vsx_xscvspdp_scalar2): Likewise.
+	(vsx_xscvdpspn): Likewise.
+	(vsx_xscvspdpn): Likewise.
+	(vsx_xscvdpspn_scalar): Likewise.
+	(vsx_xscvspdpn_directmove): Likewise.
+	(vsx_xvcvspuxds): Likewise.
+	(vsx_concat_<mode>): Likewise.
+	(vsx_concat_v2sf): Likewise.
+	(vsx_set_<mode>): Likewise.
+	(vsx_extract_<mode>): Likewise.
+	(vsx_extract_<mode>_zero): Likewise.
+	(vsx_extract_v4sf): Likewise.
+	(vsx_splat_<mode>): Likewise.
+	(vsx_xxspltw_<mode>): Likewise.
+	(vsx_reduc_<VEC_reduc_name>_v2df_scalar): Likewise.
+	(vsx_reduc_<VEC_reduc_name>_v4sf_scalar): Likewise.
+
+	* config/rs6000/rs6000.h (r6000_reg_class_enum): Add wi
+	constraint.
+	(GPR_REG_CLASS_P): Add convenience macro to return true if
+	register class targets general purpose registers.
+
+	* config/rs6000/rs6000.md (rreg mode attribute): Support SFmode in
+	VMX registers.
+	(rreg3 mode attribute): New mode attribute for SFmode/DFmode
+	register class if those modes are allowed in VMX registers.
+	(extendsfdf2_fp): Correct register class when DFmode and SFmode
+	registers are allowed in VMX registers.
+	(lfiwax): Likewise.
+	(floatsi<mode>2_lfiwax_mem): Likewise.
+	(floatunssi<mode>2_lfiwzx_mem): Likewise.
+	(fctiwuz_<mode>): Likewise.
+	(mov<mode>_hardfloat, SF/SDmode): Likewise.
+	(mov<mode>_hardfloat32 DF/DDmode): Likewise.
+	(mov<mode>_hardfloat64 DF/DDmode): Likewise.
+	(reload_vsx_from_gprsf): Likewise.
+	(reload_gpr_from_vsxsf): Likewise.
+	(SFmode/DFmode move/move peephole2s): Combine SFmode/DFmode
+	move/move peephole2 patterns to one pattern.  Use
+	merge_peephole2_move_p to prevent loads using D-form addresses to
+	traditional floating point registers from being combined with
+	moves to VMX registers.
+
+	* doc/md.texi (PowerPC and IBM RS6000): Document new wi
+	constraint.  Update wy constraint documentation.
+
 	Merge up to 205590.
 	* REVISION: Update subversion id.
 
