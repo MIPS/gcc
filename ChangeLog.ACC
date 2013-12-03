@@ -1,3 +1,21 @@
+03-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Add gimplification of DATA construct and data clauses
+
+	* gcc/fortran/openmp.c: Refactoring
+	* gcc/gimple-oacc.c
+	(gimple_acc_data_clauses, gimple_acc_data_set_clauses): 
+	New functions
+	* gcc/gimple-oacc.h: Likewise
+	* gcc/gimple-pretty-print.c(pp_gimple_stmt_1):
+	Dump DATA constuct
+	* gcc/gimplify.c
+	(ART_DATA): New ACC region type
+	(gimplify_scan_acc_clauses): Gimplify data clauses
+	(gimplify_acc_data): Gimplify DATA construct
+	(gimplify_expr): Likewise
+	* gcc/testsuite/gfortran.dg/gacc/_data-tree.f95:
+	Check gimple tree
+
 26-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Add OpenCL attributes.
 
