@@ -27,6 +27,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "sbitmap.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -599,11 +604,11 @@ remove_unused_scope_block_p (tree scope)
       eliminated.  */
    else if (!nsubblocks)
      ;
-   /* For terse debug info we can eliminate info on unused variables.  */
-   else if (debug_info_level == DINFO_LEVEL_NONE
-	    || debug_info_level == DINFO_LEVEL_TERSE)
+   /* When not generating debug info we can eliminate info on unused
+      variables.  */
+   else if (debug_info_level == DINFO_LEVEL_NONE)
      {
-       /* Even for -g0/-g1 don't prune outer scopes from artificial
+       /* Even for -g0 don't prune outer scopes from artificial
 	  functions, otherwise diagnostics using tree_nonartificial_location
 	  will not be emitted properly.  */
        if (inlined_function_outer_scope_p (scope))

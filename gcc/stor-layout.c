@@ -33,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "function.h"
 #include "expr.h"
 #include "diagnostic-core.h"
-#include "ggc.h"
 #include "target.h"
 #include "langhooks.h"
 #include "regs.h"
@@ -41,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "tree-inline.h"
 #include "tree-dump.h"
-#include "gimple.h"
 #include "gimplify.h"
 
 /* Data type for the expressions representing sizes of data types.
@@ -388,7 +386,6 @@ int_mode_for_mode (enum machine_mode mode)
     case MODE_VECTOR_ACCUM:
     case MODE_VECTOR_UFRACT:
     case MODE_VECTOR_UACCUM:
-    case MODE_POINTER_BOUNDS:
       mode = mode_for_size (GET_MODE_BITSIZE (mode), MODE_INT, 0);
       break;
 
@@ -1204,7 +1201,7 @@ place_field (record_layout_info rli, tree field)
       unsigned int type_align = TYPE_ALIGN (type);
       tree dsize = DECL_SIZE (field);
       HOST_WIDE_INT field_size = tree_to_uhwi (dsize);
-      HOST_WIDE_INT offset = tree_to_shwi (rli->offset);
+      HOST_WIDE_INT offset = tree_to_uhwi (rli->offset);
       HOST_WIDE_INT bit_offset = tree_to_shwi (rli->bitpos);
 
 #ifdef ADJUST_FIELD_ALIGN
@@ -1248,7 +1245,7 @@ place_field (record_layout_info rli, tree field)
       unsigned int type_align = TYPE_ALIGN (type);
       tree dsize = DECL_SIZE (field);
       HOST_WIDE_INT field_size = tree_to_uhwi (dsize);
-      HOST_WIDE_INT offset = tree_to_shwi (rli->offset);
+      HOST_WIDE_INT offset = tree_to_uhwi (rli->offset);
       HOST_WIDE_INT bit_offset = tree_to_shwi (rli->bitpos);
 
 #ifdef ADJUST_FIELD_ALIGN
@@ -1304,7 +1301,7 @@ place_field (record_layout_info rli, tree field)
 	      && !integer_zerop (DECL_SIZE (field))
 	      && !integer_zerop (DECL_SIZE (rli->prev_field))
 	      && tree_fits_shwi_p (DECL_SIZE (rli->prev_field))
-	      && tree_fits_shwi_p (TYPE_SIZE (type))
+	      && tree_fits_uhwi_p (TYPE_SIZE (type))
 	      && simple_cst_equal (TYPE_SIZE (type), TYPE_SIZE (prev_type)))
 	    {
 	      /* We're in the middle of a run of equal type size fields; make
@@ -2125,14 +2122,6 @@ layout_type (tree type)
       TYPE_ALIGN (type) = 1;
       TYPE_USER_ALIGN (type) = 0;
       SET_TYPE_MODE (type, VOIDmode);
-      break;
-
-    case POINTER_BOUNDS_TYPE:
-      SET_TYPE_MODE (type,
-                     mode_for_size (TYPE_PRECISION (type),
-				    MODE_POINTER_BOUNDS, 0));
-      TYPE_SIZE (type) = bitsize_int (GET_MODE_BITSIZE (TYPE_MODE (type)));
-      TYPE_SIZE_UNIT (type) = size_int (GET_MODE_SIZE (TYPE_MODE (type)));
       break;
 
     case OFFSET_TYPE:

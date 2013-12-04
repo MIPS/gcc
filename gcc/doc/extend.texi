@@ -82,7 +82,6 @@ extensions, accepted by GCC in C90 mode and in C++.
 * x86 specific memory model extensions for transactional memory:: x86 memory models.
 * Object Size Checking:: Built-in functions for limited buffer overflow
                         checking.
-* Pointer Bounds Checker builtins:: Built-in functions for Pointer Bounds Checker.
 * Cilk Plus Builtins::  Built-in functions for the Cilk Plus language extension.
 * Other Builtins::      Other built-in functions.
 * Target Builtins::     Built-in functions specific to particular targets.
@@ -2167,7 +2166,7 @@ attributes are currently defined for functions on all targets:
 @code{returns_nonnull}, @code{gnu_inline},
 @code{externally_visible}, @code{hot}, @code{cold}, @code{artificial},
 @code{no_sanitize_address}, @code{no_address_safety_analysis},
-@code{no_sanitize_undefined}, @code{bnd_legacy},
+@code{no_sanitize_undefined},
 @code{error} and @code{warning}.
 Several other attributes are defined for functions on particular
 target systems.  Other attributes, including @code{section} are
@@ -3610,12 +3609,6 @@ The @code{no_address_safety_analysis} is a deprecated alias of the
 The @code{no_sanitize_undefined} attribute on functions is used
 to inform the compiler that it should not check for undefined behavior
 in the function when compiling with the @option{-fsanitize=undefined} option.
-
-@item bnd_legacy
-@cindex @code{bnd_legacy} function attribute
-The @code{bnd_legacy} attribute on functions is used to inform
-compiler that function should not be instrumented when compiled
-with @option{-fcheck-pointers} option.
 
 @item regparm (@var{number})
 @cindex @code{regparm} attribute
@@ -5410,12 +5403,12 @@ placed in either the @code{.bss_below100} section or the
 The keyword @code{__attribute__} allows you to specify special
 attributes of @code{struct} and @code{union} types when you define
 such types.  This keyword is followed by an attribute specification
-inside double parentheses.  Eight attributes are currently defined for
+inside double parentheses.  Seven attributes are currently defined for
 types: @code{aligned}, @code{packed}, @code{transparent_union},
-@code{unused}, @code{deprecated}, @code{visibility}, @code{may_alias}
-and @code{bnd_variable_size}.  Other attributes are defined for
-functions (@pxref{Function Attributes}) and for variables
-(@pxref{Variable Attributes}).
+@code{unused}, @code{deprecated}, @code{visibility}, and
+@code{may_alias}.  Other attributes are defined for functions
+(@pxref{Function Attributes}) and for variables (@pxref{Variable
+Attributes}).
 
 You may also specify any one of these attributes with @samp{__}
 preceding and following its keyword.  This allows you to use these
@@ -5706,35 +5699,6 @@ particular, if a class is thrown as an exception in one shared object
 and caught in another, the class must have default visibility.
 Otherwise the two shared objects are unable to use the same
 typeinfo node and exception handling will break.
-
-@item bnd_variable_size
-When applied to a structure field, this attribute tells Pointer
-Bounds Checker that the size of this field should not be computed
-using static type information.  It may be used to mark variable
-sized static array fields placed at the end of a structure.
-
-@smallexample
-struct S
-@{
-  int size;
-  char data[1];
-@}
-S *p = (S *)malloc (sizeof(S) + 100);
-p->data[10] = 0; //Bounds violation
-@end smallexample
-
-By using an attribute for a field we may avoid bound violation
-we most probably do not want to see:
-
-@smallexample
-struct S
-@{
-  int size;
-  char data[1] __attribute__((bnd_variable_size));
-@}
-S *p = (S *)malloc (sizeof(S) + 100);
-p->data[10] = 0; //OK
-@end smallexample
 
 @end table
 
@@ -7871,176 +7835,6 @@ format string @var{fmt}.  If the compiler is able to optimize them to
 @code{fputc} etc.@: functions, it does, otherwise the checking function
 is called and the @var{flag} argument passed to it.
 
-@node Pointer Bounds Checker builtins
-@section Pointer Bounds Checker Built-in Functions
-@findex __builtin___bnd_set_ptr_bounds
-@findex __builtin___bnd_narrow_ptr_bounds
-@findex __builtin___bnd_copy_ptr_bounds
-@findex __builtin___bnd_init_ptr_bounds
-@findex __builtin___bnd_null_ptr_bounds
-@findex __builtin___bnd_store_ptr_bounds
-@findex __builtin___bnd_chk_ptr_lbounds
-@findex __builtin___bnd_chk_ptr_ubounds
-@findex __builtin___bnd_chk_ptr_bounds
-@findex __builtin___bnd_get_ptr_lbound
-@findex __builtin___bnd_get_ptr_ubound
-
-GCC provides a set of built-in functions to control Pointer Bounds Checker
-instrumentation.  Note that all Pointer Bounds Checker builtins are allowed
-to use even if you compile with Pointer Bounds Checker off.  But functions
-behavior may differ in such case.
-
-@deftypefn {Built-in Function} void * __builtin___bnd_set_ptr_bounds (const void * @var{q}, size_t @var{size})
-
-This built-in function returns a new pointer with the value of @var{q}, and
-associate it with the bounds [@var{q}, @var{q}+@var{size}-1].  With Pointer
-Bounds Checker off built-in function just returns the first argument.
-
-@smallexample
-extern void *__wrap_malloc (size_t n)
-@{
-  void *p = (void *)__real_malloc (n);
-  if (!p) return __builtin___bnd_null_ptr_bounds (p);
-  return __builtin___bnd_set_ptr_bounds (p, n);
-@}
-@end smallexample
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void * __builtin___bnd_narrow_ptr_bounds (const void * @var{p}, const void * @var{q}, size_t  @var{size})
-
-This built-in function returns a new pointer with the value of @var{p}
-and associate it with the narrowed bounds formed by the intersection
-of bounds associated with @var{q} and the [@var{p}, @var{p} + @var{size} - 1].
-With Pointer Bounds Checker off built-in function just returns the first
-argument.
-
-@smallexample
-void init_objects (object *objs, size_t size)
-@{
-  size_t i;
-  /* Initialize objects one-by-one passing pointers with bounds of an object,
-     not the full array of objects.  */
-  for (i = 0; i < size; i++)
-    init_object (__builtin___bnd_narrow_ptr_bounds (objs + i, objs, sizeof(object)));
-@}
-@end smallexample
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void * __builtin___bnd_copy_ptr_bounds (const void * @var{q}, const void * @var{r})
-
-This built-in function returns a new pointer with the value of @var{q},
-and associate it with the bounds already associated with pointer @var{r}.
-With Pointer Bounds Checker off built-in function just returns the first
-argument.
-
-@smallexample
-/* Here is a way to get pointer to object's field but
-   still with the full object's bounds.  */
-int *field_ptr = __builtin___bnd_copy_ptr_bounds (&objptr->int_filed, objptr);
-@end smallexample
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void * __builtin___bnd_init_ptr_bounds (const void * @var{q})
-
-This built-in function returns a new pointer with the value of @var{q}, and
-associate it with INIT (allowing full memory access) bounds. With Pointer
-Bounds Checker off built-in function just returns the first argument.
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void * __builtin___bnd_null_ptr_bounds (const void * @var{q})
-
-This built-in function returns a new pointer with the value of @var{q}, and
-associate it with NULL (allowing no memory access) bounds. With Pointer
-Bounds Checker off built-in function just returns the first argument.
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void __builtin___bnd_store_ptr_bounds (const void ** @var{ptr_addr}, const void * @var{ptr_val})
-
-This built-in function stores the bounds associated with pointer @var{ptr_val}
-and location @var{ptr_addr} into Bounds Table.  This can be useful to propagate
-bounds from legacy code without touching the associated pointer's memory when
-pointers were copied as integers.  With Pointer Bounds Checker off built-in
-function call is ignored.
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_lbounds (const void * @var{q})
-
-This built-in function checks if the pointer @var{q} is within the lower
-bound of its associated bounds.  With Pointer Bounds Checker off built-in
-function call is ignored.
-
-@smallexample
-extern void *__wrap_memset (void *dst, int c, size_t len)
-@{
-  if (len > 0)
-    @{
-      __builtin___bnd_chk_ptr_lbounds (dst);
-      __builtin___bnd_chk_ptr_ubounds ((char *)dst + len - 1);
-      __real_memset (dst, c, len);
-    @}
-  return dst;
-@}
-@end smallexample
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_ubounds (const void * @var{q})
-
-This built-in function checks if the pointer @var{q} is within the upper
-bound of its associated bounds.  With Pointer Bounds Checker off built-in
-function call is ignored.
-
-@end deftypefn
-
-@deftypefn {Built-in Function} void __builtin___bnd_chk_ptr_bounds (const void * @var{q}, size_t @var{size})
-
-This built-in function checks if [@var{q}, @var{q} + @var{size} - 1] is within
-the lower and upper bounds associated with @var{q}.  With Pointer Bounds Checker
-off built-in function call is ignored.
-
-@smallexample
-extern void *__wrap_memcpy (void *dst, const void *src, size_t n)
-@{
-  if (n > 0)
-    @{
-      __bnd_chk_ptr_bounds (dst, n);
-      __bnd_chk_ptr_bounds (src, n);
-      __real_memcpy (dst, src, n);
-    @}
-  return dst;
-@}
-@end smallexample
-
-@end deftypefn
-
-@deftypefn {Built-in Function} const void * __builtin___bnd_get_ptr_lbound (const void * @var{q})
-
-This built-in function returns the lower bound (which is a pointer) associated
-with the pointer @var{q}.  This is at least useful for debugging using printf.
-With Pointer Bounds Checker off built-in function returns 0.
-
-@smallexample
-void *lb = __builtin___bnd_get_ptr_lbound (q);
-void *ub = __builtin___bnd_get_ptr_ubound (q);
-printf ("q = %p  lb(q) = %p  ub(q) = %p", q, lb, ub);
-@end smallexample
-
-@end deftypefn
-
-@deftypefn {Built-in Function} const void * __builtin___bnd_get_ptr_ubound (const void * @var{q})
-
-This built-in function returns the upper bound (which is a pointer) associated
-with the pointer @var{q}.  With Pointer Bounds Checker off built-in function
-returns -1.
-
-@end deftypefn
-
 @node Cilk Plus Builtins
 @section Cilk Plus C/C++ language extension Built-in Functions.
 
@@ -9218,6 +9012,7 @@ instructions, but allow the compiler to schedule those calls.
 * picoChip Built-in Functions::
 * PowerPC Built-in Functions::
 * PowerPC AltiVec/VSX Built-in Functions::
+* PowerPC Hardware Transactional Memory Built-in Functions::
 * RX Built-in Functions::
 * S/390 System z Built-in Functions::
 * SH Built-in Functions::
@@ -15169,6 +14964,196 @@ The second argument to the @var{__builtin_crypto_vshasigmad} and
 @var{__builtin_crypto_vshasigmaw} builtin functions must be a constant
 integer that is 0 or 1.  The third argument to these builtin functions
 must be a constant integer in the range of 0 to 15.
+
+@node PowerPC Hardware Transactional Memory Built-in Functions
+@subsection PowerPC Hardware Transactional Memory Built-in Functions
+GCC provides two interfaces for accessing the Hardware Transactional
+Memory (HTM) instructions available on some of the PowerPC family
+of prcoessors (eg, POWER8).  The two interfaces come in a low level
+interface, consisting of built-in functions specific to PowerPC and a
+higher level interface consisting of inline functions that are common
+between PowerPC and S/390.
+
+@subsubsection PowerPC HTM Low Level Built-in Functions
+
+The following low level built-in functions are available with
+@option{-mhtm} or @option{-mcpu=CPU} where CPU is `power8' or later.
+They all generate the machine instruction that is part of the name.
+
+The HTM built-ins return true or false depending on their success and
+their arguments match exactly the type and order of the associated
+hardware instruction's operands.  Refer to the ISA manual for a
+description of each instruction's operands.
+
+@smallexample
+unsigned int __builtin_tbegin (unsigned int)
+unsigned int __builtin_tend (unsigned int)
+
+unsigned int __builtin_tabort (unsigned int)
+unsigned int __builtin_tabortdc (unsigned int, unsigned int, unsigned int)
+unsigned int __builtin_tabortdci (unsigned int, unsigned int, int)
+unsigned int __builtin_tabortwc (unsigned int, unsigned int, unsigned int)
+unsigned int __builtin_tabortwci (unsigned int, unsigned int, int)
+
+unsigned int __builtin_tcheck (unsigned int)
+unsigned int __builtin_treclaim (unsigned int)
+unsigned int __builtin_trechkpt (void)
+unsigned int __builtin_tsr (unsigned int)
+@end smallexample
+
+In addition to the above HTM built-ins, we have added built-ins for
+some common extended mnemonics of the HTM instructions:
+
+@smallexample
+unsigned int __builtin_tendall (void)
+unsigned int __builtin_tresume (void)
+unsigned int __builtin_tsuspend (void)
+@end smallexample
+
+The following set of built-in functions are available to gain access
+to the HTM specific special purpose registers.
+
+@smallexample
+unsigned long __builtin_get_texasr (void)
+unsigned long __builtin_get_texasru (void)
+unsigned long __builtin_get_tfhar (void)
+unsigned long __builtin_get_tfiar (void)
+
+void __builtin_set_texasr (unsigned long);
+void __builtin_set_texasru (unsigned long);
+void __builtin_set_tfhar (unsigned long);
+void __builtin_set_tfiar (unsigned long);
+@end smallexample
+
+Example usage of these low level built-in functions may look like:
+
+@smallexample
+#include <htmintrin.h>
+
+int num_retries = 10;
+
+while (1)
+  @{
+    if (__builtin_tbegin (0))
+      @{
+        /* Transaction State Initiated.  */
+        if (is_locked (lock))
+          __builtin_tabort (0);
+        ... transaction code...
+        __builtin_tend (0);
+        break;
+      @}
+    else
+      @{
+        /* Transaction State Failed.  Use locks if the transaction
+           failure is "persistent" or we've tried too many times.  */
+        if (num_retries-- <= 0
+            || _TEXASRU_FAILURE_PERSISTENT (__builtin_get_texasru ()))
+          @{
+            acquire_lock (lock);
+            ... non transactional fallback path...
+            release_lock (lock);
+            break;
+          @}
+      @}
+  @}
+@end smallexample
+
+One final built-in function has been added that returns the value of
+the 2-bit Transaction State field of the Machine Status Register (MSR)
+as stored in @code{CR0}.
+
+@smallexample
+unsigned long __builtin_ttest (void)
+@end smallexample
+
+This built-in can be used to determine the current transaction state
+using the following code example:
+
+@smallexample
+#include <htmintrin.h>
+
+unsigned char tx_state = _HTM_STATE (__builtin_ttest ());
+
+if (tx_state == _HTM_TRANSACTIONAL)
+  @{
+    /* Code to use in transactional state.  */
+  @}
+else if (tx_state == _HTM_NONTRANSACTIONAL)
+  @{
+    /* Code to use in non-transactional state.  */
+  @}
+else if (tx_state == _HTM_SUSPENDED)
+  @{
+    /* Code to use in transaction suspended state.  */
+  @}
+@end smallexample
+
+@subsubsection PowerPC HTM High Level Inline Functions
+
+The following high level HTM interface is made available by including
+@code{<htmxlintrin.h>} and using @option{-mhtm} or @option{-mcpu=CPU}
+where CPU is `power8' or later.  This interface is common between PowerPC
+and S/390, allowing users to write one HTM source implementation that
+can be compiled and executed on either system.
+
+@smallexample
+long __TM_simple_begin (void)
+long __TM_begin (void* const TM_buff)
+long __TM_end (void)
+void __TM_abort (void)
+void __TM_named_abort (unsigned char const code)
+void __TM_resume (void)
+void __TM_suspend (void)
+
+long __TM_is_user_abort (void* const TM_buff)
+long __TM_is_named_user_abort (void* const TM_buff, unsigned char *code)
+long __TM_is_illegal (void* const TM_buff)
+long __TM_is_footprint_exceeded (void* const TM_buff)
+long __TM_nesting_depth (void* const TM_buff)
+long __TM_is_nested_too_deep(void* const TM_buff)
+long __TM_is_conflict(void* const TM_buff)
+long __TM_is_failure_persistent(void* const TM_buff)
+long __TM_failure_address(void* const TM_buff)
+long long __TM_failure_code(void* const TM_buff)
+@end smallexample
+
+Using these common set of HTM inline functions, we can create
+a more portable version of the HTM example in the previous
+section that will work on either PowerPC or S/390:
+
+@smallexample
+#include <htmxlintrin.h>
+
+int num_retries = 10;
+TM_buff_type TM_buff;
+
+while (1)
+  @{
+    if (__TM_begin (TM_buff))
+      @{
+        /* Transaction State Initiated.  */
+        if (is_locked (lock))
+          __TM_abort ();
+        ... transaction code...
+        __TM_end ();
+        break;
+      @}
+    else
+      @{
+        /* Transaction State Failed.  Use locks if the transaction
+           failure is "persistent" or we've tried too many times.  */
+        if (num_retries-- <= 0
+            || __TM_is_failure_persistent (TM_buff))
+          @{
+            acquire_lock (lock);
+            ... non transactional fallback path...
+            release_lock (lock);
+            break;
+          @}
+      @}
+  @}
+@end smallexample
 
 @node RX Built-in Functions
 @subsection RX Built-in Functions

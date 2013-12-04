@@ -30,6 +30,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -47,9 +54,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
-#include "vec.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "cfgloop.h"
 #include "flags.h"
 #include "target.h"
@@ -2660,8 +2665,8 @@ maybe_optimize_range_tests (gimple stmt)
   basic_block bb;
   edge_iterator ei;
   edge e;
-  vec<operand_entry_t> ops = vNULL;
-  vec<inter_bb_range_test_entry> bbinfo = vNULL;
+  auto_vec<operand_entry_t> ops;
+  auto_vec<inter_bb_range_test_entry> bbinfo;
   bool any_changes = false;
 
   /* Consider only basic blocks that end with GIMPLE_COND or
@@ -2930,9 +2935,15 @@ maybe_optimize_range_tests (gimple stmt)
 		      tree new_lhs = make_ssa_name (TREE_TYPE (lhs), NULL);
 		      enum tree_code rhs_code
 			= gimple_assign_rhs_code (cast_stmt);
-		      gimple g
-			= gimple_build_assign_with_ops (rhs_code, new_lhs,
-							new_op, NULL_TREE);
+		      gimple g;
+		      if (is_gimple_min_invariant (new_op))
+			{
+			  new_op = fold_convert (TREE_TYPE (lhs), new_op);
+			  g = gimple_build_assign (new_lhs, new_op);
+			}
+		      else
+			g = gimple_build_assign_with_ops (rhs_code, new_lhs,
+							  new_op, NULL_TREE);
 		      gimple_stmt_iterator gsi = gsi_for_stmt (cast_stmt);
 		      gimple_set_uid (g, gimple_uid (cast_stmt));
 		      gimple_set_visited (g, true);
@@ -2975,8 +2986,6 @@ maybe_optimize_range_tests (gimple stmt)
 	    break;
 	}
     }
-  bbinfo.release ();
-  ops.release ();
 }
 
 /* Return true if OPERAND is defined by a PHI node which uses the LHS
@@ -4401,7 +4410,7 @@ reassociate_bb (basic_block bb)
 
 	  if (associative_tree_code (rhs_code))
 	    {
-	      vec<operand_entry_t> ops = vNULL;
+	      auto_vec<operand_entry_t> ops;
 	      tree powi_result = NULL_TREE;
 
 	      /* There may be no immediate uses left by the time we
@@ -4489,8 +4498,6 @@ reassociate_bb (basic_block bb)
 		      gsi_insert_after (&gsi, mul_stmt, GSI_NEW_STMT);
 		    }
 		}
-
-	      ops.release ();
 	    }
 	}
     }
