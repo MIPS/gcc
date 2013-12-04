@@ -1,3 +1,8 @@
+04-12-2013 Ilmir Usmanov <i.Usmanov@samsung.com>
+	Fix regression in loops
+
+	* gcc/fortran/openmp.c: Check for SEQ and INDEPENDENT
+
 03-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Add gimplification of DATA construct and data clauses
 

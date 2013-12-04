@@ -2675,6 +2675,8 @@ resolve_acc_loop_blocks (gfc_code *code)
 
   if (code->ext.omp_clauses->seq)
     {
+      if (code->ext.omp_clauses->independent)
+        gfc_error ("Both SEQ and INDEPENDENT are not allowed in %L", &code->loc);
       if (code->ext.omp_clauses->gang)
         gfc_error ("Both SEQ and GANG are not allowed in %L", &code->loc);
       if (code->ext.omp_clauses->worker)
