@@ -2511,17 +2511,20 @@ resolve_omp_do (gfc_code *code)
 typedef struct omp_context acc_context;
 acc_context *acc_current_ctx;
 
-static bool acc_is_parallel (gfc_code *code)
+static bool
+acc_is_parallel (gfc_code *code)
 {
   return code->op == EXEC_ACC_PARALLEL || code->op == EXEC_ACC_PARALLEL_LOOP;
 }
 
-static bool acc_is_kernels (gfc_code *code)
+static bool
+acc_is_kernels (gfc_code *code)
 {
   return code->op == EXEC_ACC_KERNELS || code->op == EXEC_ACC_KERNELS_LOOP;
 }
 
-static bool acc_is_loop (gfc_code *code)
+static bool
+acc_is_loop (gfc_code *code)
 {
   return code->op == EXEC_ACC_PARALLEL_LOOP
          || code->op == EXEC_ACC_KERNELS_LOOP

@@ -79,6 +79,10 @@ extern void gimple_acc_parallel_set_child_fn (gimple, tree);
 extern tree *gimple_acc_parallel_params_ptr(gimple);
 extern tree gimple_acc_parallel_param(gimple, unsigned);
 
+/* DATA */
+extern tree gimple_acc_data_clauses (const_gimple);
+extern void gimple_acc_data_set_clauses (gimple, tree);
+
 /* LOOP */
 extern tree gimple_acc_loop_child_fn (const_gimple);
 extern tree *gimple_acc_loop_params_ptr(gimple);

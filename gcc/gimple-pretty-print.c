@@ -2164,7 +2164,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_acc_kernels (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_DATA:
-      pp_string (buffer, "acc_data");
+      pp_string (buffer, "#pragma acc data");
+      dump_acc_clauses (buffer, gimple_acc_data_clauses(gs), spc, flags);
       break;
     case GIMPLE_ACC_CACHE:
       pp_string (buffer, "acc_cache");

@@ -91,7 +91,8 @@ enum acc_region_type
   ART_PARALLEL = 1,
   ART_COMBINED_PARALLEL = 2,
   ART_KERNELS = 3,
-  ART_COMBINED_KERNELS = 4
+  ART_COMBINED_KERNELS = 4,
+  ART_DATA = 5
 };
 
 struct gimplify_acc_ctx
@@ -7147,17 +7148,21 @@ gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
       break;
     case ACC_CLAUSE_COLLAPSE:
       break;
+    case ACC_CLAUSE_DEVICEPTR:
     case ACC_CLAUSE_COPY:
-      break;
     case ACC_CLAUSE_COPYIN:
-      break;
     case ACC_CLAUSE_COPYOUT:
-      break;
     case ACC_CLAUSE_CREATE:
+    case ACC_CLAUSE_PRESENT:
+    case ACC_CLAUSE_PRESENT_OR_COPY:
+    case ACC_CLAUSE_PRESENT_OR_COPYIN:
+    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+    case ACC_CLAUSE_PRESENT_OR_CREATE:
+      decl = ACC_CLAUSE_DECL (c);
+      if (error_operand_p (decl))
+        remove = true;
       break;
     case ACC_CLAUSE_DEVICE:
-      break;
-    case ACC_CLAUSE_DEVICEPTR:
       break;
     case ACC_CLAUSE_DEVICE_RESIDENT:
       break;
@@ -7185,16 +7190,6 @@ gimplify_scan_acc_clauses (tree *list_p, gimple_seq *pre_p,
       if (gimplify_expr (&ACC_CLAUSE_OPERAND (c, 0), pre_p, NULL,
                          is_gimple_val, fb_rvalue) == GS_ERROR)
           remove = true;
-      break;
-    case ACC_CLAUSE_PRESENT:
-      break;
-    case ACC_CLAUSE_PRESENT_OR_COPY:
-      break;
-    case ACC_CLAUSE_PRESENT_OR_COPYIN:
-      break;
-    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
-      break;
-    case ACC_CLAUSE_PRESENT_OR_CREATE:
       break;
     case ACC_CLAUSE_PRIVATE:
       break;
@@ -7484,19 +7479,20 @@ gimplify_acc_data (tree *expr_p, gimple_seq *pre_p)
   gimple_seq body = NULL;
   struct gimplify_ctx gctx;
 
-  //gimplify_scan_acc_clauses (&ACC_DATA_CLAUSES (expr), pre_p, ART_DATA);
+  gimplify_scan_acc_clauses (&ACC_DATA_CLAUSES (expr), pre_p, ART_DATA);
 
   push_gimplify_context (&gctx);
 
-  //g = gimplify_and_return_first (ACC_DATA (expr), &body);
+  g = gimplify_and_return_first (ACC_DATA_BODY (expr), &body);
   if (gimple_code (g) == GIMPLE_BIND)
     pop_gimplify_context (g);
   else
     pop_gimplify_context (NULL);
 
-  //gimplify_adjust_acc_clauses (&ACC__CLAUSES (expr));
+  gimplify_adjust_acc_clauses (&ACC_DATA_CLAUSES (expr));
 
-  gimple p = gimple_alloc (GIMPLE_ACC_DATA, 0);
+  g = gimple_build_acc_data (body, ACC_DATA_CLAUSES (expr),
+                             NULL_TREE, NULL_TREE);
 
   gimplify_seq_add_stmt (pre_p, g);
   *expr_p = NULL_TREE;
@@ -8357,7 +8353,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case ACC_DATA:
-	  //gimplify_acc_data (expr_p, pre_p);
+	  gimplify_acc_data (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
 	  break;
 

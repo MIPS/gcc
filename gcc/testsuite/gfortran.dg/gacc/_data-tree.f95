@@ -1,5 +1,5 @@
 ! { dg-do compile } 
-! { dg-options "-fopenacc -fdump-tree-original" } 
+! { dg-options "-fopenacc -fdump-tree-original -fdump-tree-gimple" } 
 
 ! test for tree-dump-original and spaces-commas
 
@@ -29,4 +29,21 @@ end program test
 ! { dg-final { scan-tree-dump "present_or_create" "original" } } 
 
 ! { dg-final { scan-tree-dump "deviceptr" "original" } } 
+
+! { dg-final { scan-tree-dump "pragma acc data" "gimple" } } 
+
+! { dg-final { scan-tree-dump "if" "gimple" } }
+! { dg-final { scan-tree-dump "copy" "gimple" } } 
+! { dg-final { scan-tree-dump "copyin" "gimple" } } 
+! { dg-final { scan-tree-dump "copyout" "gimple" } } 
+! { dg-final { scan-tree-dump "create" "gimple" } } 
+
+! { dg-final { scan-tree-dump "present" "gimple" } } 
+! { dg-final { scan-tree-dump "present_or_copy" "gimple" } } 
+! { dg-final { scan-tree-dump "present_or_copyin" "gimple" } } 
+! { dg-final { scan-tree-dump "present_or_copyout" "gimple" } } 
+! { dg-final { scan-tree-dump "present_or_create" "gimple" } } 
+
+! { dg-final { scan-tree-dump "deviceptr" "gimple" } } 
+! { dg-final { cleanup-tree-dump "gimple" } } 
 ! { dg-final { cleanup-tree-dump "original" } } 

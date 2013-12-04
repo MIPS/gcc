@@ -191,6 +191,21 @@ gimple_acc_parallel_param(gimple gs, unsigned i)
   return gs->gimple_acc_parallel.op[i];
 }
 
+tree
+gimple_acc_data_clauses (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_DATA);
+  return gs->gimple_acc_data.clauses;
+}
+
+void
+gimple_acc_data_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_DATA);
+  gs->gimple_acc_data.clauses = clauses;
+}
+
+
 /******************************************************************************/
 
 /* Return the child function of ACC_LOOP GS.  */
@@ -272,6 +287,7 @@ gimple_build_acc_data (gimple_seq body, tree clauses, tree child_fn,
     gimple_acc_set_body (p, body);
   }
 
+  gimple_acc_data_set_clauses (p, clauses);
   return p;
 }
 
