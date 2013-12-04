@@ -175,12 +175,6 @@
 #			Set to an initializer for configure_default_options
 #			in configargs.h, based on --with-cpu et cetera.
 #
-#  native_system_header_dir
-#			Where system header files are found for this
-#			target.  This defaults to /usr/include.  If
-#			the --with-sysroot configure option or the
-#			--sysroot command line option is used this
-#			will be relative to the sysroot.
 # target_type_format_char 
 # 			The default character to be used for formatting
 #			the attribute in a
@@ -235,7 +229,6 @@ default_gnu_indirect_function=no
 target_gtfiles=
 need_64bit_hwint=
 need_64bit_isa=
-native_system_header_dir=/usr/include
 target_type_format_char='@'
 
 # Don't carry these over build->host->target.  Please.
@@ -669,13 +662,6 @@ case ${target} in
     "" | yes | posix) thread_file='posix' ;;
   esac
   tmake_file="t-slibgcc"
-  case $target in
-    *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-kopensolaris*-gnu)
-      :;;
-    *-*-gnu*)
-      native_system_header_dir=/include
-      ;;
-  esac
   # glibc / uclibc / bionic switch.
   # uclibc and bionic aren't usable for GNU/Hurd and neither for GNU/k*BSD.
   case $target in
@@ -1473,7 +1459,6 @@ x86_64-*-linux* | x86_64-*-kfreebsd*-gnu | x86_64-*-knetbsd*-gnu)
 i[34567]86-pc-msdosdjgpp*)
 	xm_file=i386/xm-djgpp.h
 	tm_file="dbxcoff.h ${tm_file} i386/unix.h i386/bsd.h i386/gas.h i386/djgpp.h i386/djgpp-stdint.h"
-	native_system_header_dir=/dev/env/DJDIR/include
 	extra_options="${extra_options} i386/djgpp.opt"
 	gnu_ld=yes
 	gas=yes
@@ -1632,7 +1617,6 @@ i[34567]86-*-mingw* | x86_64-*-mingw*)
 			tmake_file="${tmake_file} i386/t-mingw-w32"
 			;;
 	esac
-        native_system_header_dir=/mingw/include
 	target_gtfiles="\$(srcdir)/config/i386/winnt.c"
 	extra_options="${extra_options} i386/cygming.opt i386/mingw.opt"
 	case ${target} in
@@ -2692,7 +2676,6 @@ sparc64-*-openbsd*)
 spu-*-elf*)
 	tm_file="dbxelf.h elfos.h spu/spu-elf.h spu/spu.h newlib-stdint.h"
 	tmake_file="spu/t-spu-elf"
-        native_system_header_dir=/include
 	extra_headers="spu_intrinsics.h spu_internals.h vmx2spu.h spu_mfcio.h vec_types.h spu_cache.h"
 	extra_modes=spu/spu-modes.def
 	c_target_objs="${c_target_objs} spu-c.o"

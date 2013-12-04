@@ -30,6 +30,7 @@ m4_include([ltversion.m4])
 m4_include([lt~obsolete.m4])
 m4_include([config/isl.m4])
 m4_include([config/cloog.m4])
+m4_include([config/gcc-setup.m4])
 
 AC_INIT(move-if-change)
 AC_PREREQ(2.64)
@@ -2178,13 +2179,7 @@ ACX_TOOL_DIRS
 
 copy_dirs=
 
-AC_ARG_WITH([build-sysroot], 
-  [AS_HELP_STRING([--with-build-sysroot=SYSROOT],
-		  [use sysroot as the system root during the build])],
-  [if test x"$withval" != x ; then
-     SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
-   fi],
-  [SYSROOT_CFLAGS_FOR_TARGET=])
+GCC_SETUP
 AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
 
 AC_ARG_WITH([debug-prefix-map],
