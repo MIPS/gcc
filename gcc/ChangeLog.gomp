@@ -1,3 +1,7 @@
+2013-12-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimple.h (is_a_helper): Handle GIMPLE_OACC_PARALLEL.
+
 2013-11-30  Balaji V. Iyer  <balaji.v.iyer@intel.com>
 
 	* config/i386/i386.c (ix86_simd_clone_compute_vecsize_and_simdlen):

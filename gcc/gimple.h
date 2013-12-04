@@ -969,7 +969,8 @@ template <>
 inline bool
 is_a_helper <const gimple_statement_omp_parallel>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_OMP_PARALLEL || gs->code == GIMPLE_OMP_TASK || gs->code == GIMPLE_OMP_TARGET;
+  return gs->code == GIMPLE_OMP_PARALLEL || gs->code == GIMPLE_OMP_TASK
+	 || gs->code == GIMPLE_OMP_TARGET || gs->code == GIMPLE_OACC_PARALLEL;
 }
 
 template <>
