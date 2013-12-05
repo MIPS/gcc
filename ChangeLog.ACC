@@ -1,4 +1,14 @@
 05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Fix size of ACC_CLAUSE_* on i386
+	
+	* gcc/fortran/openmp.c
+	(ACC_CLAUSE_SEQ, ACC_CLAUSE_INDEPENDENT, ACC_CLAUSE_USE_DEVICE
+	ACC_CLAUSE_DEVICE_RESIDENT, ACC_CLAUSE_HOST, ACC_CLAUSE_DEVICE,
+	ACC_CLAUSE_DEFAULT, ACC_CLAUSE_WAIT, ACC_CLAUSE_DELETE,
+	ACC_CLAUSE_AUTO, ACC_CLAUSE_TILE, gfc_match_omp_clauses): 
+	Change long to long long
+
+05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Gimplify LOOP directive and its clauses
 
 	* gcc/gimple-oacc.h
@@ -101,6 +111,15 @@
 	Loop collapsing.
 
 	* gcc/oacc-low.c(generate_ctrl_var_init): Indices fixup.
+
+15-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Loop collapsing.
+
+	* gcc/oacc-low.c(parallelize_loop): Add new structure for collapsing.
+
+15-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	Loop collapsing.
+
 
 15-11-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	Loop collapsing.
@@ -569,15 +588,6 @@
 	* gcc/builtins.def: Add builtins for OpenACC.
 	* gcc/fortran/*: Add ACC support for Fortran.
 	* gcc/fortran/gfortran.h: Likewise.
-	* gcc/fortran/lang.opt: Likewise..
-	* gcc/fortran/trans-stmt.h: Likewise.
-	* gcc/fortran/scanner.c: Likewise.
-	* gcc/fortran/trans-openacc.c: Likewise.
-	* gcc/fortran/resolve.c: Likewise.
-	* gcc/fortran/f95-lang.c: Likewise.
-	* gcc/fortran/match.c: Likewise.
-	* gcc/fortran/match.h: Likewise.
-	* gcc/fortran/types.def: Likewise.
 	* gcc/fortran/decl.c: Likewise.
 	* gcc/fortran/openacc.c: Likewise.
 	* gcc/fortran/dump-parse-tree.c: Likewise.

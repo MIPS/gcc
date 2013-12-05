@@ -380,24 +380,24 @@ match_acc_clause_gang (gfc_acc_clauses *cp)
 #define ACC_CLAUSE_GANG                 (1 << 29)
 #define ACC_CLAUSE_WORKER               (1 << 30)
 #define ACC_CLAUSE_VECTOR               (1 << 31)
-#define ACC_CLAUSE_SEQ                  (1l << 32)
-#define ACC_CLAUSE_INDEPENDENT          (1l << 33)
-#define ACC_CLAUSE_USE_DEVICE           (1l << 34)
-#define ACC_CLAUSE_DEVICE_RESIDENT      (1l << 35)
-#define ACC_CLAUSE_HOST                 (1l << 36)
-#define ACC_CLAUSE_DEVICE               (1l << 37)
-#define ACC_CLAUSE_DEFAULT              (1l << 38)
-#define ACC_CLAUSE_WAIT                 (1l << 39)
-#define ACC_CLAUSE_DELETE               (1l << 40)
-#define ACC_CLAUSE_AUTO                 (1l << 41)
-#define ACC_CLAUSE_TILE                 (1l << 42)
+#define ACC_CLAUSE_SEQ                  (1ll << 32)
+#define ACC_CLAUSE_INDEPENDENT          (1ll << 33)
+#define ACC_CLAUSE_USE_DEVICE           (1ll << 34)
+#define ACC_CLAUSE_DEVICE_RESIDENT      (1ll << 35)
+#define ACC_CLAUSE_HOST                 (1ll << 36)
+#define ACC_CLAUSE_DEVICE               (1ll << 37)
+#define ACC_CLAUSE_DEFAULT              (1ll << 38)
+#define ACC_CLAUSE_WAIT                 (1ll << 39)
+#define ACC_CLAUSE_DELETE               (1ll << 40)
+#define ACC_CLAUSE_AUTO                 (1ll << 41)
+#define ACC_CLAUSE_TILE                 (1ll << 42)
 
 
 /* Match OpenMP directive clauses. MASK is a bitmask of
    clauses that are allowed for a particular directive.  */
 
 static match
-gfc_match_omp_clauses (gfc_omp_clauses **cp, long mask, bool is_acc)
+gfc_match_omp_clauses (gfc_omp_clauses **cp, long long mask, bool is_acc)
 {
   gfc_omp_clauses *c = gfc_get_omp_clauses ();
   locus old_loc;
