@@ -2355,6 +2355,15 @@ gimple_copy (gimple stmt)
 	  gimple_wce_set_cleanup (copy, new_seq);
 	  break;
 
+  case GIMPLE_ACC_PARALLEL:
+  case GIMPLE_ACC_KERNELS:
+  case GIMPLE_ACC_LOOP:
+  case GIMPLE_ACC_DATA:
+  case GIMPLE_ACC_HOST_DATA:
+    new_seq = gimple_seq_copy (gimple_acc_body(stmt));
+    gimple_acc_set_body(copy, new_seq);
+    break;
+          
 	default:
 	  gcc_unreachable ();
 	}

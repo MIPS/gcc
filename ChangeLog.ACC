@@ -1,3 +1,9 @@
+05-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Add deep copy of OpenACC GIMPLE statements
+
+  * gcc/gimple.c (gimple_copy): Add OpenACC handling.
+  * gcc/gimple.h (gimple_has_substatements): Remove non-compound statements.
+
 05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Fix size of ACC_CLAUSE_* on i386
 	
