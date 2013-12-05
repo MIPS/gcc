@@ -1487,11 +1487,19 @@ pragma_acc_clause_get_name(const char* p, pragma_acc_clause result)
       result = PRAGMA_ACC_CLAUSE_PRESENT;
     else if (!strcmp("present_or_copy", p))
       result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPY;
+    else if (!strcmp("pcopy", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPY;
     else if (!strcmp("present_or_copyin", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYIN;
+    else if (!strcmp("pcopyin", p))
       result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYIN;
     else if (!strcmp("present_or_copyout", p))
       result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYOUT;
+    else if (!strcmp("pcopyout", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYOUT;
     else if (!strcmp("present_or_create", p))
+      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_CREATE;
+    else if (!strcmp("pcreate", p))
       result = PRAGMA_ACC_CLAUSE_PRESENT_OR_CREATE;
 
     break;

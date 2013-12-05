@@ -641,6 +641,14 @@ extern tree c_finish_omp_clauses (tree);
 extern tree c_build_va_arg (location_t, tree, tree);
 extern tree c_finish_transaction (location_t, tree, int);
 
+/* OpenACC region */
+extern tree c_begin_acc_parallel (void);
+extern tree c_begin_acc_kernels (void);
+extern tree c_begin_acc_data (void);
+extern tree c_finish_acc_parallel (location_t, tree, tree);
+extern tree c_finish_acc_kernels (location_t, tree, tree);
+extern tree c_finish_acc_data (location_t, tree, tree);
+
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */
 

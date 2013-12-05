@@ -1,3 +1,19 @@
+05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Add #pragma acc data parsing routines to C FE
+
+	* gcc/c-family/c-pragma.c(pragma_acc_clause_get_name):
+	Support short names of present_or_* clauses
+	* gcc/c/c-parser.c(c_begin_acc_data, c_finish_acc_data):
+	New functions
+	(c_parser_acc_data): Fix parsing
+	* gcc/c/c-tree.h(c_begin_acc_parallel, c_finish_acc_parallel,
+	c_begin_acc_kernels, c_finish_acc_kernels, c_begin_acc_data,
+	c_finish_acc_data): New functions
+	* gcc/testsuite/gcc.dg/gacc/data-clause-several-variables.c:
+	New test
+	* gcc/tree-pretty-print.c(dump_acc_clause): Add '(' after 
+	vector and worker
+
 05-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Add deep copy of OpenACC GIMPLE statements
 

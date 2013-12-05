@@ -142,7 +142,7 @@ dump_acc_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     break;
 
   case ACC_CLAUSE_VECTOR:
-    pp_string (buffer, "vector");
+    pp_string (buffer, "vector(");
     dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
     pp_character(buffer, ')');
     break;
@@ -154,7 +154,7 @@ dump_acc_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     break;
 
   case ACC_CLAUSE_WORKER:
-    pp_string (buffer, "worker");
+    pp_string (buffer, "worker(");
     dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
     pp_character(buffer, ')');
     break;

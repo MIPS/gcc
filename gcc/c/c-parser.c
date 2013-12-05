@@ -11685,6 +11685,19 @@ c_begin_acc_kernels (void)
   return block;
 }
 
+/* Like c_begin_compound_stmt, except force the retention of the BLOCK.
+ */
+tree
+c_begin_acc_data (void)
+{
+  tree block;
+
+  keep_next_level ();
+  block = c_begin_compound_stmt (true);
+
+  return block;
+}
+
 /* Generate ACC_PARALLEL, with CLAUSES and BLOCK as its compound
    statement. */
 tree
@@ -11716,6 +11729,24 @@ c_finish_acc_kernels (location_t loc, tree clauses, tree block)
   TREE_TYPE (stmt) = void_type_node;
   ACC_KERNELS_CLAUSES (stmt) = clauses;
   ACC_KERNELS_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  return add_stmt (stmt);
+}
+
+/* Generate ACC_DATA, with CLAUSES and BLOCK as its compound
+   statement. */
+tree
+c_finish_acc_data (location_t loc, tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (loc, block, true);
+
+  stmt = make_node (ACC_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  ACC_DATA_CLAUSES (stmt) = clauses;
+  ACC_DATA_BODY (stmt) = block;
   SET_EXPR_LOCATION (stmt, loc);
 
   return add_stmt (stmt);
@@ -12164,16 +12195,15 @@ c_parser_acc_data (location_t loc, c_parser *parser)
 {
   enum pragma_kind p_kind = PRAGMA_ACC_DATA;
   const char *p_name = "#pragma acc data";
-  tree clauses;
-  tree stmt = make_node (ACC_DATA);
+  tree clauses, stmt, block;
   unsigned int mask = ACC_DATA_CLAUSE_MASK;
 
   clauses = c_parser_acc_all_clauses (parser, mask, p_name);
+  block = c_begin_acc_data ();
+  c_parser_statement (parser);
+  stmt = c_finish_acc_data (loc, clauses, block);
 
-  TREE_TYPE (stmt) = void_type_node;
-  SET_EXPR_LOCATION (stmt, loc);
-
-  return add_stmt (stmt);
+  return stmt;
 }
 
 /* OpenACC 1.0:
