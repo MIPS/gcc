@@ -239,6 +239,130 @@ gimple_acc_loop_set_child_fn (gimple gs, tree child_fn)
   gs->gimple_acc_loop.child_fn = child_fn;
 }
 
+/* Set CLAUSES to be associated with ACC_LOOP GS.  */
+void
+gimple_acc_loop_set_clauses (gimple gs, tree clauses)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gs->gimple_acc_loop.clauses = clauses;
+}
+
+tree
+gimple_acc_loop_clauses (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  return gs->gimple_acc_loop.clauses;
+}
+
+/* Set PRE_BODY to be associated with ACC_LOOP GS.  */
+void
+gimple_acc_loop_set_pre_body (gimple gs, gimple_seq pre_body)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gs->gimple_acc_loop.pre_body = pre_body;
+}
+
+gimple_seq
+gimple_acc_loop_pre_body (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  return gs->gimple_acc_loop.pre_body;
+}
+
+void
+gimple_acc_loop_set_collapse (gimple gs, size_t collapse)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gs->gimple_acc_loop.collapse = collapse;
+}
+
+size_t
+gimple_acc_loop_collapse (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  return gs->gimple_acc_loop.collapse;
+}
+
+void
+gimple_acc_loop_set_index (gimple gs, size_t i, tree index)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  gs->gimple_acc_loop.iter[i].index = index;
+}
+
+tree
+gimple_acc_loop_index (const_gimple gs, size_t i)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  return gs->gimple_acc_loop.iter[i].index;
+}
+
+void
+gimple_acc_loop_set_initial (gimple gs, size_t i, tree initial)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  gs->gimple_acc_loop.iter[i].initial = initial;
+}
+
+tree
+gimple_acc_loop_initial (const_gimple gs, size_t i)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  return gs->gimple_acc_loop.iter[i].initial;
+}
+
+void
+gimple_acc_loop_set_final (gimple gs, size_t i, tree final)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  gs->gimple_acc_loop.iter[i].final = final;
+}
+
+tree
+gimple_acc_loop_final (const_gimple gs, size_t i)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  return gs->gimple_acc_loop.iter[i].final;
+}
+
+void
+gimple_acc_loop_set_incr (gimple gs, size_t i, tree incr)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  gs->gimple_acc_loop.iter[i].incr = incr;
+}
+
+tree
+gimple_acc_loop_incr (const_gimple gs, size_t i)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  return gs->gimple_acc_loop.iter[i].incr;
+}
+
+void
+gimple_acc_loop_set_cond (gimple gs, size_t i, enum tree_code cond)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  gs->gimple_acc_loop.iter[i].cond = cond;
+}
+
+enum tree_code
+gimple_acc_loop_cond (const_gimple gs, size_t i)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_LOOP);
+  gcc_gimple_checking_assert (i < gs->gimple_acc_loop.collapse);
+  return gs->gimple_acc_loop.iter[i].cond;
+}
+
 /******************************************************************************/
 /********************* Begin of GIMPLE building routines **********************/
 
@@ -334,15 +458,18 @@ gimple_build_acc_host_data (gimple_seq body, tree clauses, tree child_fn,
 }
 
 gimple
-gimple_build_acc_loop (gimple_seq body, tree clauses, tree child_fn,
-                       tree data_arg)
+gimple_build_acc_loop (gimple_seq body, tree clauses, size_t collapse,
+                       gimple_seq pre_body)
 {
   gimple p = gimple_alloc (GIMPLE_ACC_LOOP, 0);
-
   if (body)
-  {
     gimple_acc_set_body (p, body);
-  }
+  gimple_acc_loop_set_clauses (p, clauses);
+  p->gimple_acc_loop.collapse = collapse;
+  p->gimple_acc_loop.iter
+      = ggc_alloc_cleared_vec_gimple_acc_loop_iter (collapse);
+  if (pre_body)
+    gimple_acc_loop_set_pre_body (p, pre_body);
 
   return p;
 }

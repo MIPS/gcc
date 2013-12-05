@@ -1,4 +1,34 @@
-04-12-2013 Ilmir Usmanov <i.Usmanov@samsung.com>
+05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Gimplify LOOP directive and its clauses
+
+	* gcc/gimple-oacc.h
+	(gimple_acc_loop_set_clauses, gimple_acc_loop_clauses,
+	gimple_acc_loop_set_pre_body, gimple_acc_loop_pre_body,
+	gimple_acc_loop_set_collapse, gimple_acc_loop_collapse,
+	gimple_acc_loop_set_index, gimple_acc_loop_index,
+	gimple_acc_loop_set_initial, gimple_acc_loop_initial,
+	gimple_acc_loop_set_final, gimple_acc_loop_final,
+	gimple_acc_loop_set_incr, gimple_acc_loop_incr,
+	gimple_acc_loop_set_cond, gimple_acc_loop_cond):
+	New functions
+	(gimple_build_acc_loop): Change signature
+	* gcc/gimple-oacc.c: Likewise
+	(gimple_build_acc_loop): Add loop-specific data:
+	collapse, iter, pre_body
+	* gcc/gimple-pretty-print.c(dump_gimple_acc_loop):
+	New function
+	(pp_gimple_stmt_1): Change behaviour in ACC LOOP
+	* gcc/gimplify.c(GAVD_SEEN, GAVD_REDUCTION): 
+	New gimplify variable data
+	(ART_LOOP): New region type
+	(acc_add_variable): New function
+	(gimplify_acc_loop): Gimplify ACC LOOP directive,
+	its clauses and the for loop
+	(gimplify_expr): Gimplify ACC LOOP
+	* gcc/testsuite/gfortran.dg/gacc/_loop-tree.f95:
+	New test
+
+04-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Fix regression in loops
 
 	* gcc/fortran/openmp.c: Check for SEQ and INDEPENDENT

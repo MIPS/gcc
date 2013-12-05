@@ -132,27 +132,31 @@ dump_acc_clause (pretty_printer *buffer, tree clause, int spc, int flags)
   switch (clause_code)
   {
   case ACC_CLAUSE_ASYNC:
-    name = "async";
-    pp_string (buffer, name);
-    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    pp_string (buffer, "async");
+    if (ACC_CLAUSE_DECL (clause))
+      {
+        pp_character(buffer, '(');
+        dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+        pp_character(buffer, ')');
+      }
     break;
 
   case ACC_CLAUSE_VECTOR:
-    name = "vector";
-    pp_string (buffer, name);
+    pp_string (buffer, "vector");
     dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    pp_character(buffer, ')');
     break;
 
   case ACC_CLAUSE_GANG:
-    name = "gang";
-    pp_string (buffer, name);
+    pp_string (buffer, "gang(");
     dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    pp_character(buffer, ')');
     break;
 
   case ACC_CLAUSE_WORKER:
-    name = "worker";
-    pp_string (buffer, name);
+    pp_string (buffer, "worker");
     dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    pp_character(buffer, ')');
     break;
 
   case ACC_CLAUSE_INDEPENDENT:
