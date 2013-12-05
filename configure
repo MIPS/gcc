@@ -14836,21 +14836,6 @@ fi
     fi
   fi
 
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether a default assembler was specified" >&5
-$as_echo_n "checking whether a default assembler was specified... " >&6; }
-  if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
-    if test x"$gas_flag" = x"no"; then
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes ($DEFAULT_ASSEMBLER)" >&5
-$as_echo "yes ($DEFAULT_ASSEMBLER)" >&6; }
-    else
-      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes ($DEFAULT_ASSEMBLER - GNU as)" >&5
-$as_echo "yes ($DEFAULT_ASSEMBLER - GNU as)" >&6; }
-    fi
-  else
-    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
-$as_echo "no" >&6; }
-  fi
-
 
         gcc_cv_gas_major_version=
   gcc_cv_gas_minor_version=
@@ -14984,11 +14969,11 @@ $as_echo_n "checking for GNU binutils version... " >&6; }
     case $gcc_cv_gas_patch_version in
     "") gcc_cv_gas_patch_version="0" ;;
     esac
-    gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
-			    + $gcc_cv_gas_minor_version \) \* 1000 \
-			    + $gcc_cv_gas_patch_version`
     { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_gas_major_version.$gcc_cv_gas_minor_version.$gcc_cv_gas_patch_version" >&5
 $as_echo "$gcc_cv_gas_major_version.$gcc_cv_gas_minor_version.$gcc_cv_gas_patch_version" >&6; }
+    gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
+				+ $gcc_cv_gas_minor_version \) \* 1000 \
+				+ $gcc_cv_gas_patch_version`
   fi
 
 

@@ -227,25 +227,7 @@ AC_ARG_WITH(demangler-in-ld,
 demangler_in_ld="$with_demangler_in_ld",
 demangler_in_ld=yes)
 
-# ----------------------
-# Find default assembler
-# ----------------------
-
-# With GNU as
-AC_ARG_WITH(gnu-as,
-[AS_HELP_STRING([--with-gnu-as], [arrange to work with GNU as])],
-gas_flag="$with_gnu_as",
-gas_flag=no)
-
-AC_ARG_WITH(as,
-[AS_HELP_STRING([--with-as], [arrange to use the specified as (full pathname)])],
-DEFAULT_ASSEMBLER="$with_as")
 if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
-  if test ! -x "$DEFAULT_ASSEMBLER"; then
-    AC_MSG_ERROR([cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER])
-  elif $DEFAULT_ASSEMBLER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
-    gas_flag=yes
-  fi
   AC_DEFINE_UNQUOTED(DEFAULT_ASSEMBLER,"$DEFAULT_ASSEMBLER",
 	[Define to enable the use of a default assembler.])
 fi
@@ -1834,60 +1816,12 @@ AC_PROG_LIBTOOL
 AC_SUBST(objdir)
 AC_SUBST(enable_fast_install)
 
-# Identify the assembler which will work hand-in-glove with the newly
-# built GCC, so that we can examine its features.  This is the assembler
-# which will be driven by the driver program.
-#
-# If build != host, and we aren't building gas in-tree, we identify a
-# build->target assembler and hope that it will have the same features
-# as the host->target assembler we'll be using.
-gcc_cv_gas_major_version=
-gcc_cv_gas_minor_version=
-gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
-
-m4_pattern_allow([AS_FOR_TARGET])dnl
-AS_VAR_SET_IF(gcc_cv_as,, [
-if test -x "$DEFAULT_ASSEMBLER"; then
-	gcc_cv_as="$DEFAULT_ASSEMBLER"
-elif test -f $gcc_cv_as_gas_srcdir/configure.in \
-     && test -f ../gas/Makefile \
-     && test x$build = x$host; then
-	gcc_cv_as=../gas/as-new$build_exeext
-elif test -x as$build_exeext; then
-	# Build using assembler in the current directory.
-	gcc_cv_as=./as$build_exeext
-elif ( set dummy $AS_FOR_TARGET; test -x $[2] ); then
-        gcc_cv_as="$AS_FOR_TARGET"
-else
-        AC_PATH_PROG(gcc_cv_as, $AS_FOR_TARGET)
-fi])
-
 ORIGINAL_AS_FOR_TARGET=$gcc_cv_as
 AC_SUBST(ORIGINAL_AS_FOR_TARGET)
 case "$ORIGINAL_AS_FOR_TARGET" in
   ./as | ./as$build_exeext) ;;
   *) AC_CONFIG_FILES(as:exec-tool.in, [chmod +x as]) ;;
 esac 
-
-AC_MSG_CHECKING(what assembler to use)
-if test "$gcc_cv_as" = ../gas/as-new$build_exeext; then
-  # Single tree build which includes gas.  We want to prefer it
-  # over whatever linker top-level may have detected, since
-  # we'll use what we're building after installation anyway.
-  AC_MSG_RESULT(newly built gas)
-  in_tree_gas=yes
-  _gcc_COMPUTE_GAS_VERSION
-  in_tree_gas_is_elf=no
-  if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
-     || (grep 'obj_format = multi' ../gas/Makefile \
-         && grep 'extra_objects =.* obj-elf' ../gas/Makefile) > /dev/null
-  then
-    in_tree_gas_is_elf=yes
-  fi
-else
-  AC_MSG_RESULT($gcc_cv_as)
-  in_tree_gas=no
-fi
 
 default_ld=
 AC_ARG_ENABLE(ld,
@@ -2398,13 +2332,9 @@ L2:],
   # ??? There exists an elf-specific test that will crash
   # the assembler.  Perhaps it's better to figure out whether
   # arbitrary sections are supported and try the test.
-  as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
-  if echo "$as_ver" | grep GNU > /dev/null; then
-    as_vers=`echo $as_ver | sed -n \
-	-e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
-    as_major=`expr "$as_vers" : '\([0-9]*\)'`
-    as_minor=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
-    if test $as_major -eq 2 && test $as_minor -lt 11
+  if test x$gcc_cv_gas_major_version != x; then
+    if test $gcc_cv_gas_major_version -eq 2 \
+       && test $gcc_cv_gas_minor_version -lt 11
     then :
     else gcc_cv_as_leb128=yes
     fi

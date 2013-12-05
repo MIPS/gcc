@@ -185,17 +185,6 @@ AC_DEFUN([GCC_SETUP], [
     fi
   fi
 
-  AC_MSG_CHECKING([whether a default assembler was specified])
-  if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
-    if test x"$gas_flag" = x"no"; then
-      AC_MSG_RESULT([yes ($DEFAULT_ASSEMBLER)])
-    else
-      AC_MSG_RESULT([yes ($DEFAULT_ASSEMBLER - GNU as)])
-    fi
-  else
-    AC_MSG_RESULT(no)
-  fi
-
   dnl Identify the assembler which will work hand-in-glove with the newly
   dnl built GCC, so that we can examine its features.  This is the assembler
   dnl which will be driven by the driver program.
@@ -298,6 +287,9 @@ AC_DEFUN([GCC_SETUP], [
     "") gcc_cv_gas_patch_version="0" ;;
     esac
     AC_MSG_RESULT([$gcc_cv_gas_major_version.$gcc_cv_gas_minor_version.$gcc_cv_gas_patch_version])
+    gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
+				+ $gcc_cv_gas_minor_version \) \* 1000 \
+				+ $gcc_cv_gas_patch_version`
   fi
 
   dnl Determine the version of glibc, if any, used on the target.

@@ -380,38 +380,6 @@ if test $enable_initfini_array = yes; then
     [Define .init_array/.fini_array sections are available and working.])
 fi])
 
-dnl # _gcc_COMPUTE_GAS_VERSION
-dnl # Used by gcc_GAS_VERSION_GTE_IFELSE
-dnl #
-dnl # WARNING:
-dnl # gcc_cv_as_gas_srcdir must be defined before this.
-dnl # This gross requirement will go away eventually.
-AC_DEFUN([_gcc_COMPUTE_GAS_VERSION],
-[gcc_cv_as_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
-for f in $gcc_cv_as_bfd_srcdir/configure \
-         $gcc_cv_as_gas_srcdir/configure \
-         $gcc_cv_as_gas_srcdir/configure.in \
-         $gcc_cv_as_gas_srcdir/Makefile.in ; do
-  gcc_cv_gas_version=`sed -n -e 's/^[[ 	]]*VERSION=[[^0-9A-Za-z_]]*\([[0-9]]*\.[[0-9]]*.*\)/VERSION=\1/p' < $f`
-  if test x$gcc_cv_gas_version != x; then
-    break
-  fi
-done
-case $gcc_cv_gas_version in
-  VERSION=[[0-9]]*) ;;
-  *) AC_MSG_ERROR([[cannot find version of in-tree assembler]]);;
-esac
-gcc_cv_gas_major_version=`expr "$gcc_cv_gas_version" : "VERSION=\([[0-9]]*\)"`
-gcc_cv_gas_minor_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.\([[0-9]]*\)"`
-gcc_cv_gas_patch_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)"`
-case $gcc_cv_gas_patch_version in
-  "") gcc_cv_gas_patch_version="0" ;;
-esac
-gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
-			    + $gcc_cv_gas_minor_version \) \* 1000 \
-			    + $gcc_cv_gas_patch_version`
-]) []dnl # _gcc_COMPUTE_GAS_VERSION
-
 dnl # gcc_GAS_VERSION_GTE_IFELSE([elf,] major, minor, patchlevel,
 dnl #                     [command_if_true = :], [command_if_false = :])
 dnl # Check to see if the version of GAS is greater than or
@@ -433,9 +401,8 @@ ifelse([$6],,,[
 fi])
 
 AC_DEFUN([gcc_GAS_VERSION_GTE_IFELSE],
-[AC_REQUIRE([_gcc_COMPUTE_GAS_VERSION])dnl
-ifelse([$1], elf, [_gcc_GAS_VERSION_GTE_IFELSE($@)],
-                  [_gcc_GAS_VERSION_GTE_IFELSE(,$@)])])
+[ifelse([$1], elf, [_gcc_GAS_VERSION_GTE_IFELSE($@)],
+                   [_gcc_GAS_VERSION_GTE_IFELSE(,$@)])])
 
 dnl # gcc_GAS_FLAGS
 dnl # Used by gcc_GAS_CHECK_FEATURE 
