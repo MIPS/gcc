@@ -3,6 +3,7 @@
    references to RESULT outside the loop, otherwise there is no reason
    to prefer multiply/accumulator registers over GPRs.  */
 /* { dg-skip-if "requires register frequencies" { *-*-* } { "-O0" "-Os" } { "" } } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* Check that the zero-initialization of the accumulator feeding into
    the madd is done by means of a mult instruction instead of mthi/mtlo.  */

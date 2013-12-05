@@ -3,6 +3,7 @@
 /* { dg-do compile } */ 
 /* { dg-options "-mpaired-single -mgp64 -ffinite-math-only" } */
 /* { dg-skip-if "nmadd and nmsub need combine" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 /* { dg-final { scan-assembler "\tcvt.ps.s\t" } } */
 /* { dg-final { scan-assembler "\tmov.ps\t" } } */
 /* { dg-final { scan-assembler "\tldc1\t" } } */
