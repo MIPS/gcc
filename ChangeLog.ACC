@@ -1,4 +1,9 @@
 05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Check GIMPLE for data clauses
+
+	* gcc/testsuite/gcc.dg/gacc/data-tree.c: Likewise
+
+05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Add #pragma acc data parsing routines to C FE
 
 	* gcc/c-family/c-pragma.c(pragma_acc_clause_get_name):
