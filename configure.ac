@@ -2179,9 +2179,6 @@ ACX_TOOL_DIRS
 
 copy_dirs=
 
-GCC_SETUP
-AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
-
 AC_ARG_WITH([debug-prefix-map],
   [AS_HELP_STRING([--with-debug-prefix-map='A=B C=D ...'],
 		  [map A to B, C to D ... in debug information])],
@@ -3232,6 +3229,9 @@ fi
 AC_SUBST(COMPILER_AS_FOR_TARGET)
 AC_SUBST(COMPILER_LD_FOR_TARGET)
 AC_SUBST(COMPILER_NM_FOR_TARGET)
+
+GCC_SETUP
+AC_SUBST(SYSROOT_CFLAGS_FOR_TARGET)
 
 AC_MSG_CHECKING([whether to enable maintainer-specific portions of Makefiles])
 AC_ARG_ENABLE(maintainer-mode,

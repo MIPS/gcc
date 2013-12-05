@@ -166,6 +166,124 @@ AC_DEFUN([GCC_SETUP], [
     target_header_dir=${native_system_header_dir}
   fi
 
+  dnl Find default assembler
+
+  dnl With GNU as
+  AC_ARG_WITH(gnu-as,
+  [AS_HELP_STRING([--with-gnu-as], [arrange to work with GNU as])],
+   gas_flag="$with_gnu_as",
+   gas_flag=no)
+
+  AC_ARG_WITH(as,
+  [AS_HELP_STRING([--with-as], [arrange to use the specified as (full pathname)])],
+   DEFAULT_ASSEMBLER="$with_as")
+  if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
+    if test ! -x "$DEFAULT_ASSEMBLER"; then
+      AC_MSG_ERROR([cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER])
+    elif $DEFAULT_ASSEMBLER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
+      gas_flag=yes
+    fi
+  fi
+
+  AC_MSG_CHECKING([whether a default assembler was specified])
+  if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
+    if test x"$gas_flag" = x"no"; then
+      AC_MSG_RESULT([yes ($DEFAULT_ASSEMBLER)])
+    else
+      AC_MSG_RESULT([yes ($DEFAULT_ASSEMBLER - GNU as)])
+    fi
+  else
+    AC_MSG_RESULT(no)
+  fi
+
+  dnl Identify the assembler which will work hand-in-glove with the newly
+  dnl built GCC, so that we can examine its features.  This is the assembler
+  dnl which will be driven by the driver program.
+
+  dnl If build != host, and we aren't building gas in-tree, we identify a
+  dnl  build->target assembler and hope that it will have the same features
+  dnl as the host->target assembler we'll be using.
+  gcc_cv_gas_major_version=
+  gcc_cv_gas_minor_version=
+  gcc_cv_gas_patch_version=
+  gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
+
+  m4_pattern_allow([AS_FOR_TARGET])dnl
+  AS_VAR_SET_IF(gcc_cv_as,, [
+  if test -x "$DEFAULT_ASSEMBLER"; then
+	gcc_cv_as="$DEFAULT_ASSEMBLER"
+  elif test -f $gcc_cv_as_gas_srcdir/configure.in \
+       && test -f ../gas/Makefile \
+       && test x$build = x$host; then
+	  gcc_cv_as=../gas/as-new$build_exeext
+  elif test -x as$build_exeext; then
+	dnl Build using assembler in the current directory.
+	gcc_cv_as=./as$build_exeext
+  elif ( set dummy $AS_FOR_TARGET; test -x $[2] ); then
+        gcc_cv_as="$AS_FOR_TARGET"
+  elif test "$AS_FOR_TARGET" = "\$(AS)"; then
+        gcc_cv_as="$AS"
+  else
+        AC_PATH_PROG(gcc_cv_as, $AS_FOR_TARGET)
+  fi])
+
+  AC_MSG_CHECKING(what assembler to use)
+  if test "$gcc_cv_as" = ../gas/as-new$build_exeext; then
+    dnl Single tree build which includes gas.  We want to prefer it
+    dnl over whatever linker top-level may have detected, since
+    dnl we'll use what we're building after installation anyway.
+    AC_MSG_RESULT(newly built gas)
+    in_tree_gas=yes
+    gcc_cv_as_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
+    for f in $gcc_cv_as_bfd_srcdir/configure \
+	     $gcc_cv_as_gas_srcdir/configure \
+	     $gcc_cv_as_gas_srcdir/configure.in \
+	     $gcc_cv_as_gas_srcdir/Makefile.in ; do
+      gcc_cv_gas_version=`sed -n -e 's/^[[ 	]]*VERSION=[[^0-9A-Za-z_]]*\([[0-9]]*\.[[0-9]]*.*\)/VERSION=\1/p' < $f`
+      if test x$gcc_cv_gas_version != x; then
+        break
+      fi
+    done
+    case $gcc_cv_gas_version in
+    VERSION=[[0-9]]*) ;;
+    *) AC_MSG_ERROR([[cannot find version of in-tree assembler]]);;
+    esac
+    gcc_cv_gas_major_version=`expr "$gcc_cv_gas_version" : "VERSION=\([[0-9]]*\)"`
+    gcc_cv_gas_minor_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.\([[0-9]]*\)"`
+    gcc_cv_gas_patch_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)"`
+    in_tree_gas_is_elf=no
+    if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
+       || (grep 'obj_format = multi' ../gas/Makefile \
+           && grep 'extra_objects =.* obj-elf' ../gas/Makefile) > /dev/null
+    then
+      in_tree_gas_is_elf=yes
+    fi
+  else
+    AC_MSG_RESULT($gcc_cv_as)
+    in_tree_gas=no
+    as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
+    if echo "$as_ver" | grep GNU > /dev/null; then
+      changequote(,)dnl
+      as_vers=`echo $as_ver | sed -n \
+	  -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
+      gcc_cv_gas_major_version=`expr "$as_vers" : '\([0-9]*\)'`
+      gcc_cv_gas_minor_version=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
+      gcc_cv_gas_patch_version=`expr "$as_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+      changequote([,])dnl
+    fi
+  fi
+
+  if test x$gcc_cv_gas_major_version != x; then
+    AC_MSG_CHECKING([for GNU binutils version])
+    case $gcc_cv_gas_patch_version in
+    "") gcc_cv_gas_patch_version="0" ;;
+    esac
+    gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
+			    + $gcc_cv_gas_minor_version \) \* 1000 \
+			    + $gcc_cv_gas_patch_version`
+    AC_MSG_RESULT([$gcc_cv_gas_major_version.$gcc_cv_gas_minor_version.$gcc_cv_gas_patch_version])
+  fi
+
   dnl Determine the version of glibc, if any, used on the target.
   AC_REQUIRE([AC_PROG_EGREP])
   AC_MSG_CHECKING([for target glibc version])

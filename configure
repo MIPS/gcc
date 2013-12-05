@@ -563,6 +563,10 @@ stage1_cflags
 MAINT
 MAINTAINER_MODE_FALSE
 MAINTAINER_MODE_TRUE
+SYSROOT_CFLAGS_FOR_TARGET
+EGREP
+GREP
+gcc_cv_as
 COMPILER_NM_FOR_TARGET
 COMPILER_LD_FOR_TARGET
 COMPILER_AS_FOR_TARGET
@@ -641,9 +645,6 @@ LDFLAGS_FOR_TARGET
 CXXFLAGS_FOR_TARGET
 CFLAGS_FOR_TARGET
 DEBUG_PREFIX_CFLAGS_FOR_TARGET
-SYSROOT_CFLAGS_FOR_TARGET
-EGREP
-GREP
 stage1_languages
 extra_host_libiberty_configure_flags
 clooginc
@@ -782,16 +783,18 @@ enable_cloog_version_check
 enable_lto
 enable_stage1_languages
 enable_objc_gc
-with_local_prefix
-with_native_system_header_dir
-with_build_sysroot
-with_sysroot
-with_glibc_version
-with_kernel_version
 with_debug_prefix_map
 with_build_config
 enable_serial_configure
 with_build_time_tools
+with_local_prefix
+with_native_system_header_dir
+with_build_sysroot
+with_sysroot
+with_gnu_as
+with_as
+with_glibc_version
+with_kernel_version
 enable_maintainer_mode
 enable_stage1_checking
 enable_werror
@@ -1546,6 +1549,12 @@ Optional Packages:
                           Specify directory for installed CLooG include files
   --with-cloog-lib=PATH   Specify the directory for the installed CLooG
                           library
+  --with-debug-prefix-map='A=B C=D ...'
+                          map A to B, C to D ... in debug information
+  --with-build-config='NAME NAME2...'
+                          use config/NAME.mk build configuration
+  --with-build-time-tools=PATH
+                          use given path to find target tools during the build
   --with-local-prefix=DIR specifies directory to put local include
   --with-native-system-header-dir=dir
                             use dir as the directory to look for standard
@@ -1553,17 +1562,13 @@ Optional Packages:
   --with-build-sysroot=sysroot
                           use sysroot as the system root during the build
   --with-sysroot[=DIR]    search for usr/lib, usr/include, et al, within DIR
+  --with-gnu-as           arrange to work with GNU as
+  --with-as               arrange to use the specified as (full pathname)
   --with-glibc-version=M.N
                           assume GCC used with glibc version M.N or later
   --with-kernel-version=M.N.P
                           assume GCC used with Linux kernel version M.N.P or
                           later
-  --with-debug-prefix-map='A=B C=D ...'
-                          map A to B, C to D ... in debug information
-  --with-build-config='NAME NAME2...'
-                          use config/NAME.mk build configuration
-  --with-build-time-tools=PATH
-                          use given path to find target tools during the build
 
 Some influential environment variables:
   CC          C compiler command
@@ -6808,363 +6813,6 @@ fi
 
 
 copy_dirs=
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for grep that handles long lines and -e" >&5
-$as_echo_n "checking for grep that handles long lines and -e... " >&6; }
-if test "${ac_cv_path_GREP+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  if test -z "$GREP"; then
-  ac_path_GREP_found=false
-  # Loop through the user's path and test for each of PROGNAME-LIST
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_prog in grep ggrep; do
-    for ac_exec_ext in '' $ac_executable_extensions; do
-      ac_path_GREP="$as_dir/$ac_prog$ac_exec_ext"
-      { test -f "$ac_path_GREP" && $as_test_x "$ac_path_GREP"; } || continue
-# Check for GNU ac_path_GREP and select it if it is found.
-  # Check for GNU $ac_path_GREP
-case `"$ac_path_GREP" --version 2>&1` in
-*GNU*)
-  ac_cv_path_GREP="$ac_path_GREP" ac_path_GREP_found=:;;
-*)
-  ac_count=0
-  $as_echo_n 0123456789 >"conftest.in"
-  while :
-  do
-    cat "conftest.in" "conftest.in" >"conftest.tmp"
-    mv "conftest.tmp" "conftest.in"
-    cp "conftest.in" "conftest.nl"
-    $as_echo 'GREP' >> "conftest.nl"
-    "$ac_path_GREP" -e 'GREP$' -e '-(cannot match)-' < "conftest.nl" >"conftest.out" 2>/dev/null || break
-    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
-    as_fn_arith $ac_count + 1 && ac_count=$as_val
-    if test $ac_count -gt ${ac_path_GREP_max-0}; then
-      # Best one so far, save it but keep looking for a better one
-      ac_cv_path_GREP="$ac_path_GREP"
-      ac_path_GREP_max=$ac_count
-    fi
-    # 10*(2^10) chars as input seems more than enough
-    test $ac_count -gt 10 && break
-  done
-  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
-esac
-
-      $ac_path_GREP_found && break 3
-    done
-  done
-  done
-IFS=$as_save_IFS
-  if test -z "$ac_cv_path_GREP"; then
-    as_fn_error "no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
-  fi
-else
-  ac_cv_path_GREP=$GREP
-fi
-
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_GREP" >&5
-$as_echo "$ac_cv_path_GREP" >&6; }
- GREP="$ac_cv_path_GREP"
-
-
-{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for egrep" >&5
-$as_echo_n "checking for egrep... " >&6; }
-if test "${ac_cv_path_EGREP+set}" = set; then :
-  $as_echo_n "(cached) " >&6
-else
-  if echo a | $GREP -E '(a|b)' >/dev/null 2>&1
-   then ac_cv_path_EGREP="$GREP -E"
-   else
-     if test -z "$EGREP"; then
-  ac_path_EGREP_found=false
-  # Loop through the user's path and test for each of PROGNAME-LIST
-  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-    for ac_prog in egrep; do
-    for ac_exec_ext in '' $ac_executable_extensions; do
-      ac_path_EGREP="$as_dir/$ac_prog$ac_exec_ext"
-      { test -f "$ac_path_EGREP" && $as_test_x "$ac_path_EGREP"; } || continue
-# Check for GNU ac_path_EGREP and select it if it is found.
-  # Check for GNU $ac_path_EGREP
-case `"$ac_path_EGREP" --version 2>&1` in
-*GNU*)
-  ac_cv_path_EGREP="$ac_path_EGREP" ac_path_EGREP_found=:;;
-*)
-  ac_count=0
-  $as_echo_n 0123456789 >"conftest.in"
-  while :
-  do
-    cat "conftest.in" "conftest.in" >"conftest.tmp"
-    mv "conftest.tmp" "conftest.in"
-    cp "conftest.in" "conftest.nl"
-    $as_echo 'EGREP' >> "conftest.nl"
-    "$ac_path_EGREP" 'EGREP$' < "conftest.nl" >"conftest.out" 2>/dev/null || break
-    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
-    as_fn_arith $ac_count + 1 && ac_count=$as_val
-    if test $ac_count -gt ${ac_path_EGREP_max-0}; then
-      # Best one so far, save it but keep looking for a better one
-      ac_cv_path_EGREP="$ac_path_EGREP"
-      ac_path_EGREP_max=$ac_count
-    fi
-    # 10*(2^10) chars as input seems more than enough
-    test $ac_count -gt 10 && break
-  done
-  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
-esac
-
-      $ac_path_EGREP_found && break 3
-    done
-  done
-  done
-IFS=$as_save_IFS
-  if test -z "$ac_cv_path_EGREP"; then
-    as_fn_error "no acceptable egrep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
-  fi
-else
-  ac_cv_path_EGREP=$EGREP
-fi
-
-   fi
-fi
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_EGREP" >&5
-$as_echo "$ac_cv_path_EGREP" >&6; }
- EGREP="$ac_cv_path_EGREP"
-
-
-
-    local_prefix=
-
-# Check whether --with-local-prefix was given.
-if test "${with_local_prefix+set}" = set; then :
-  withval=$with_local_prefix; case "${withval}" in
-  yes)	as_fn_error "bad value ${withval} given for local include directory prefix" "$LINENO" 5 ;;
-  no)	;;
-  *)	local_prefix=$with_local_prefix ;;
-  esac
-fi
-
-
-    if test x$local_prefix = x; then
-	local_prefix=/usr/local
-  fi
-
-
-# Check whether --with-native-system-header-dir was given.
-if test "${with_native_system_header_dir+set}" = set; then :
-  withval=$with_native_system_header_dir;
-   case ${with_native_system_header_dir} in
-   yes|no) as_fn_error "bad value ${withval} given for --with-native-system-header-dir" "$LINENO" 5 ;;
-   /* | [A-Za-z]:[\\/]*) ;;
-   *) as_fn_error "--with-native-system-header-dir argument ${withval} must be an absolute directory" "$LINENO" 5 ;;
-   esac
-   configured_native_system_header_dir="${withval}"
-
-else
-  configured_native_system_header_dir=
-fi
-
-
-
-# Check whether --with-build-sysroot was given.
-if test "${with_build_sysroot+set}" = set; then :
-  withval=$with_build_sysroot; if test x"$withval" != x ; then
-       SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
-     fi
-else
-  SYSROOT_CFLAGS_FOR_TARGET=
-fi
-
-
-  if test "x$prefix" = xNONE; then
-   test_prefix=/usr/local
-  else
-   test_prefix=$prefix
-  fi
-  if test "x$exec_prefix" = xNONE; then
-   test_exec_prefix=$test_prefix
-  else
-   test_exec_prefix=$exec_prefix
-  fi
-
-
-# Check whether --with-sysroot was given.
-if test "${with_sysroot+set}" = set; then :
-  withval=$with_sysroot;
-   case ${with_sysroot} in
-   yes) TARGET_SYSTEM_ROOT='${exec_prefix}/${target_noncanonical}/sys-root' ;;
-   *) TARGET_SYSTEM_ROOT=$with_sysroot ;;
-   esac
-
-   TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
-   CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
-
-   case ${TARGET_SYSTEM_ROOT} in
-   "${test_prefix}"|"${test_prefix}/"*|\
-   "${test_exec_prefix}"|"${test_exec_prefix}/"*|\
-   '${prefix}'|'${prefix}/'*|\
-   '${exec_prefix}'|'${exec_prefix}/'*)
-     t="$TARGET_SYSTEM_ROOT_DEFINE -DTARGET_SYSTEM_ROOT_RELOCATABLE"
-     TARGET_SYSTEM_ROOT_DEFINE="$t"
-     ;;
-   esac
-
-else
-
-   TARGET_SYSTEM_ROOT=
-   TARGET_SYSTEM_ROOT_DEFINE=
-   CROSS_SYSTEM_HEADER_DIR='$(gcc_tooldir)/sys-include'
-
-fi
-
-
-  if test -n "$configured_native_system_header_dir"; then
-    native_system_header_dir=$configured_native_system_header_dir
-  else
-    native_system_header_dir=/usr/include
-
-    case $target in
-    i3456786-pc-msdosdjgpp*)
-      native_system_header_dir=/dev/env/DJDIR/include
-      ;;
-    i3456786-*-mingw* | x86_64-*-mingw*)
-      native_system_header_dir=/mingw/include
-      ;;
-    *-*-linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-kopensolaris*-gnu)
-      ;;
-    *-*-gnu* | spu-*-elf*)
-      native_system_header_dir=/include
-      ;;
-    esac
-  fi
-  NATIVE_SYSTEM_HEADER_DIR="$native_system_header_dir"
-
-        GCC_CROSS=
-  GCC_ALL=all.internal
-  SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
-
-  if test "x$with_build_sysroot" != x; then
-    build_system_header_dir=$with_build_sysroot'$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
-  else
-                build_system_header_dir='$(CROSS_SYSTEM_HEADER_DIR)'
-  fi
-
-  if test x$host != x$target; then
-	GCC_CROSS="-DCROSS_DIRECTORY_STRUCTURE"
-	GCC_ALL=all.cross
-	SYSTEM_HEADER_DIR=$build_system_header_dir
-	case "$host","$target" in
-						    *-*-darwin*,*-*-darwin*)
-		hostos=`echo $host | sed 's/.*-darwin/darwin/'`
-		targetos=`echo $target | sed 's/.*-darwin/darwin/'`
-		if test $hostos = $targetos -o $targetos = darwin ; then
-		    GCC_CROSS=
-		    SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
-		    with_headers=yes
-		fi
-		;;
-
-	    i?86-*-*,x86_64-*-* \
-	    | powerpc*-*-*,powerpc64*-*-*)
-		GCC_CROSS="$CROSS -DNATIVE_CROSS" ;;
-	esac
-
-	case $target in
-		*-*-mingw*)
-			if test "x$with_headers" = x; then
-				with_headers=yes
-			fi
-			;;
-		*)
-			;;
-	esac
-  elif test "x$TARGET_SYSTEM_ROOT" != x; then
-        SYSTEM_HEADER_DIR=$build_system_header_dir
-  fi
-
-  if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
-    if test "x$with_headers" != x; then
-      target_header_dir=$with_headers
-    elif test "x$with_sysroot" = x; then
-      target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
-    elif test "x$with_build_sysroot" != "x"; then
-      target_header_dir="${with_build_sysroot}${native_system_header_dir}"
-    elif test "x$with_sysroot" = xyes; then
-      target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
-    else
-      target_header_dir="${with_sysroot}${native_system_header_dir}"
-    fi
-  else
-    target_header_dir=${native_system_header_dir}
-  fi
-
-
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for target glibc version" >&5
-$as_echo_n "checking for target glibc version... " >&6; }
-
-# Check whether --with-glibc-version was given.
-if test "${with_glibc_version+set}" = set; then :
-  withval=$with_glibc_version;
-if echo "$with_glibc_version" | grep '^[0-9][0-9]*\.[0-9][0-9]*$'; then
-  glibc_version_major=`echo "$with_glibc_version" | sed -e 's/\..*//'`
-  glibc_version_minor=`echo "$with_glibc_version" | sed -e 's/.*\.//'`
-else
-  as_fn_error "option --with-glibc-version requires a version number M.N" "$LINENO" 5
-fi
-else
-
-glibc_version_major=0
-glibc_version_minor=0
-if test -f $target_header_dir/features.h \
-  && glibc_version_major_define=`$EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC__[ 	]+[0-9]' $target_header_dir/features.h` \
-  && glibc_version_minor_define=`$EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+[0-9]' $target_header_dir/features.h`; then
-  glibc_version_major=`echo "$glibc_version_major_define" | sed -e 's/.*__GLIBC__[ 	]*//'`
-  glibc_version_minor=`echo "$glibc_version_minor_define" | sed -e 's/.*__GLIBC_MINOR__[ 	]*//'`
-fi
-fi
-
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibc_version_major.$glibc_version_minor" >&5
-$as_echo "$glibc_version_major.$glibc_version_minor" >&6; }
-
-
-
-  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for target Linux kernel version" >&5
-$as_echo_n "checking for target Linux kernel version... " >&6; }
-
-# Check whether --with-kernel-version was given.
-if test "${with_kernel_version+set}" = set; then :
-  withval=$with_kernel_version;
-if echo "$with_kernel_version" | grep '^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$'; then
-  kernel_version_major=`echo "$with_kernel_version" | sed -e '/\(0-9*\)\.\(0-9*\)\.\(0-9*\).*/\1/'`
-  kernel_version_minor=`echo "$with_kernel_version" | sed -e '/\(0-9*\)\.\(0-9*\)\.\(0-9*\).*/\2/'`
-  kernel_version_patch=`echo "$with_kernel_version" | sed -e '/\(0-9*\)\.\(0-9*\)\.\(0-9*\).*/\3/'`
-else
-  as_fn_error "option --with-kernel-version requires a version number M.N.P" "$LINENO" 5
-fi
-else
-
-kernel_version_major=0
-kernel_version_minor=0
-kernel_version_patch=0
-if test -f $target_header_dir/linux/version.h \
-  && kernel_version_code=`$GREP LINUX_VERSION_CODE $target_header_dir/linux/version.h | $AWK '{ print $ 3 }'`; then
-  kernel_version_major=`echo "$kernel_version_code" | $AWK '{ print and (rshift ($ 1, 16), 0xff) }'`
-  kernel_version_minor=`echo "$kernel_version_code" | $AWK '{ print and (rshift ($ 1, 8), 0xff) }'`
-  kernel_version_patch=`echo "$kernel_version_code" | $AWK '{ print and ($ 1, 0xff) }'`
-fi
-fi
-
-  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $kernel_version_major.$kernel_version_minor.$kernel_version_patch" >&5
-$as_echo "$kernel_version_major.$kernel_version_minor.$kernel_version_patch" >&6; }
-
-
 
 
 # Check whether --with-debug-prefix-map was given.
@@ -14865,6 +14513,525 @@ if test $host = $build; then
 fi
 
 
+
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for grep that handles long lines and -e" >&5
+$as_echo_n "checking for grep that handles long lines and -e... " >&6; }
+if test "${ac_cv_path_GREP+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -z "$GREP"; then
+  ac_path_GREP_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in grep ggrep; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_GREP="$as_dir/$ac_prog$ac_exec_ext"
+      { test -f "$ac_path_GREP" && $as_test_x "$ac_path_GREP"; } || continue
+# Check for GNU ac_path_GREP and select it if it is found.
+  # Check for GNU $ac_path_GREP
+case `"$ac_path_GREP" --version 2>&1` in
+*GNU*)
+  ac_cv_path_GREP="$ac_path_GREP" ac_path_GREP_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo 'GREP' >> "conftest.nl"
+    "$ac_path_GREP" -e 'GREP$' -e '-(cannot match)-' < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_GREP_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_GREP="$ac_path_GREP"
+      ac_path_GREP_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_GREP_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_GREP"; then
+    as_fn_error "no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
+  fi
+else
+  ac_cv_path_GREP=$GREP
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_GREP" >&5
+$as_echo "$ac_cv_path_GREP" >&6; }
+ GREP="$ac_cv_path_GREP"
+
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for egrep" >&5
+$as_echo_n "checking for egrep... " >&6; }
+if test "${ac_cv_path_EGREP+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  if echo a | $GREP -E '(a|b)' >/dev/null 2>&1
+   then ac_cv_path_EGREP="$GREP -E"
+   else
+     if test -z "$EGREP"; then
+  ac_path_EGREP_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in egrep; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_EGREP="$as_dir/$ac_prog$ac_exec_ext"
+      { test -f "$ac_path_EGREP" && $as_test_x "$ac_path_EGREP"; } || continue
+# Check for GNU ac_path_EGREP and select it if it is found.
+  # Check for GNU $ac_path_EGREP
+case `"$ac_path_EGREP" --version 2>&1` in
+*GNU*)
+  ac_cv_path_EGREP="$ac_path_EGREP" ac_path_EGREP_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo 'EGREP' >> "conftest.nl"
+    "$ac_path_EGREP" 'EGREP$' < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_EGREP_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_EGREP="$ac_path_EGREP"
+      ac_path_EGREP_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_EGREP_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_EGREP"; then
+    as_fn_error "no acceptable egrep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
+  fi
+else
+  ac_cv_path_EGREP=$EGREP
+fi
+
+   fi
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_EGREP" >&5
+$as_echo "$ac_cv_path_EGREP" >&6; }
+ EGREP="$ac_cv_path_EGREP"
+
+
+
+    local_prefix=
+
+# Check whether --with-local-prefix was given.
+if test "${with_local_prefix+set}" = set; then :
+  withval=$with_local_prefix; case "${withval}" in
+  yes)	as_fn_error "bad value ${withval} given for local include directory prefix" "$LINENO" 5 ;;
+  no)	;;
+  *)	local_prefix=$with_local_prefix ;;
+  esac
+fi
+
+
+    if test x$local_prefix = x; then
+	local_prefix=/usr/local
+  fi
+
+
+# Check whether --with-native-system-header-dir was given.
+if test "${with_native_system_header_dir+set}" = set; then :
+  withval=$with_native_system_header_dir;
+   case ${with_native_system_header_dir} in
+   yes|no) as_fn_error "bad value ${withval} given for --with-native-system-header-dir" "$LINENO" 5 ;;
+   /* | [A-Za-z]:[\\/]*) ;;
+   *) as_fn_error "--with-native-system-header-dir argument ${withval} must be an absolute directory" "$LINENO" 5 ;;
+   esac
+   configured_native_system_header_dir="${withval}"
+
+else
+  configured_native_system_header_dir=
+fi
+
+
+
+# Check whether --with-build-sysroot was given.
+if test "${with_build_sysroot+set}" = set; then :
+  withval=$with_build_sysroot; if test x"$withval" != x ; then
+       SYSROOT_CFLAGS_FOR_TARGET="--sysroot=$withval"
+     fi
+else
+  SYSROOT_CFLAGS_FOR_TARGET=
+fi
+
+
+  if test "x$prefix" = xNONE; then
+   test_prefix=/usr/local
+  else
+   test_prefix=$prefix
+  fi
+  if test "x$exec_prefix" = xNONE; then
+   test_exec_prefix=$test_prefix
+  else
+   test_exec_prefix=$exec_prefix
+  fi
+
+
+# Check whether --with-sysroot was given.
+if test "${with_sysroot+set}" = set; then :
+  withval=$with_sysroot;
+   case ${with_sysroot} in
+   yes) TARGET_SYSTEM_ROOT='${exec_prefix}/${target_noncanonical}/sys-root' ;;
+   *) TARGET_SYSTEM_ROOT=$with_sysroot ;;
+   esac
+
+   TARGET_SYSTEM_ROOT_DEFINE='-DTARGET_SYSTEM_ROOT=\"$(TARGET_SYSTEM_ROOT)\"'
+   CROSS_SYSTEM_HEADER_DIR='$(TARGET_SYSTEM_ROOT)$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
+
+   case ${TARGET_SYSTEM_ROOT} in
+   "${test_prefix}"|"${test_prefix}/"*|\
+   "${test_exec_prefix}"|"${test_exec_prefix}/"*|\
+   '${prefix}'|'${prefix}/'*|\
+   '${exec_prefix}'|'${exec_prefix}/'*)
+     t="$TARGET_SYSTEM_ROOT_DEFINE -DTARGET_SYSTEM_ROOT_RELOCATABLE"
+     TARGET_SYSTEM_ROOT_DEFINE="$t"
+     ;;
+   esac
+
+else
+
+   TARGET_SYSTEM_ROOT=
+   TARGET_SYSTEM_ROOT_DEFINE=
+   CROSS_SYSTEM_HEADER_DIR='$(gcc_tooldir)/sys-include'
+
+fi
+
+
+  if test -n "$configured_native_system_header_dir"; then
+    native_system_header_dir=$configured_native_system_header_dir
+  else
+    native_system_header_dir=/usr/include
+
+    case $target in
+    i3456786-pc-msdosdjgpp*)
+      native_system_header_dir=/dev/env/DJDIR/include
+      ;;
+    i3456786-*-mingw* | x86_64-*-mingw*)
+      native_system_header_dir=/mingw/include
+      ;;
+    *-*-linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-kopensolaris*-gnu)
+      ;;
+    *-*-gnu* | spu-*-elf*)
+      native_system_header_dir=/include
+      ;;
+    esac
+  fi
+  NATIVE_SYSTEM_HEADER_DIR="$native_system_header_dir"
+
+        GCC_CROSS=
+  GCC_ALL=all.internal
+  SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
+
+  if test "x$with_build_sysroot" != x; then
+    build_system_header_dir=$with_build_sysroot'$${sysroot_headers_suffix}$(NATIVE_SYSTEM_HEADER_DIR)'
+  else
+                build_system_header_dir='$(CROSS_SYSTEM_HEADER_DIR)'
+  fi
+
+  if test x$host != x$target; then
+	GCC_CROSS="-DCROSS_DIRECTORY_STRUCTURE"
+	GCC_ALL=all.cross
+	SYSTEM_HEADER_DIR=$build_system_header_dir
+	case "$host","$target" in
+						    *-*-darwin*,*-*-darwin*)
+		hostos=`echo $host | sed 's/.*-darwin/darwin/'`
+		targetos=`echo $target | sed 's/.*-darwin/darwin/'`
+		if test $hostos = $targetos -o $targetos = darwin ; then
+		    GCC_CROSS=
+		    SYSTEM_HEADER_DIR='$(NATIVE_SYSTEM_HEADER_DIR)'
+		    with_headers=yes
+		fi
+		;;
+
+	    i?86-*-*,x86_64-*-* \
+	    | powerpc*-*-*,powerpc64*-*-*)
+		GCC_CROSS="$CROSS -DNATIVE_CROSS" ;;
+	esac
+
+	case $target in
+		*-*-mingw*)
+			if test "x$with_headers" = x; then
+				with_headers=yes
+			fi
+			;;
+		*)
+			;;
+	esac
+  elif test "x$TARGET_SYSTEM_ROOT" != x; then
+        SYSTEM_HEADER_DIR=$build_system_header_dir
+  fi
+
+  if test x$host != x$target || test "x$TARGET_SYSTEM_ROOT" != x; then
+    if test "x$with_headers" != x; then
+      target_header_dir=$with_headers
+    elif test "x$with_sysroot" = x; then
+      target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-include"
+    elif test "x$with_build_sysroot" != "x"; then
+      target_header_dir="${with_build_sysroot}${native_system_header_dir}"
+    elif test "x$with_sysroot" = xyes; then
+      target_header_dir="${test_exec_prefix}/${target_noncanonical}/sys-root${native_system_header_dir}"
+    else
+      target_header_dir="${with_sysroot}${native_system_header_dir}"
+    fi
+  else
+    target_header_dir=${native_system_header_dir}
+  fi
+
+
+
+# Check whether --with-gnu-as was given.
+if test "${with_gnu_as+set}" = set; then :
+  withval=$with_gnu_as; gas_flag="$with_gnu_as"
+else
+  gas_flag=no
+fi
+
+
+
+# Check whether --with-as was given.
+if test "${with_as+set}" = set; then :
+  withval=$with_as; DEFAULT_ASSEMBLER="$with_as"
+fi
+
+  if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
+    if test ! -x "$DEFAULT_ASSEMBLER"; then
+      as_fn_error "cannot execute: $DEFAULT_ASSEMBLER: check --with-as or env. var. DEFAULT_ASSEMBLER" "$LINENO" 5
+    elif $DEFAULT_ASSEMBLER -v < /dev/null 2>&1 | grep GNU > /dev/null; then
+      gas_flag=yes
+    fi
+  fi
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether a default assembler was specified" >&5
+$as_echo_n "checking whether a default assembler was specified... " >&6; }
+  if test x"${DEFAULT_ASSEMBLER+set}" = x"set"; then
+    if test x"$gas_flag" = x"no"; then
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes ($DEFAULT_ASSEMBLER)" >&5
+$as_echo "yes ($DEFAULT_ASSEMBLER)" >&6; }
+    else
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes ($DEFAULT_ASSEMBLER - GNU as)" >&5
+$as_echo "yes ($DEFAULT_ASSEMBLER - GNU as)" >&6; }
+    fi
+  else
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+  fi
+
+
+        gcc_cv_gas_major_version=
+  gcc_cv_gas_minor_version=
+  gcc_cv_gas_patch_version=
+  gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
+
+    if test "${gcc_cv_as+set}" = set; then :
+
+else
+
+  if test -x "$DEFAULT_ASSEMBLER"; then
+	gcc_cv_as="$DEFAULT_ASSEMBLER"
+  elif test -f $gcc_cv_as_gas_srcdir/configure.in \
+       && test -f ../gas/Makefile \
+       && test x$build = x$host; then
+	  gcc_cv_as=../gas/as-new$build_exeext
+  elif test -x as$build_exeext; then
+		gcc_cv_as=./as$build_exeext
+  elif ( set dummy $AS_FOR_TARGET; test -x $2 ); then
+        gcc_cv_as="$AS_FOR_TARGET"
+  elif test "$AS_FOR_TARGET" = "\$(AS)"; then
+        gcc_cv_as="$AS"
+  else
+        # Extract the first word of "$AS_FOR_TARGET", so it can be a program name with args.
+set dummy $AS_FOR_TARGET; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if test "${ac_cv_path_gcc_cv_as+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+  case $gcc_cv_as in
+  [\\/]* | ?:[\\/]*)
+  ac_cv_path_gcc_cv_as="$gcc_cv_as" # Let the user override the test with a path.
+  ;;
+  *)
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_test_x "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_path_gcc_cv_as="$as_dir/$ac_word$ac_exec_ext"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  ;;
+esac
+fi
+gcc_cv_as=$ac_cv_path_gcc_cv_as
+if test -n "$gcc_cv_as"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as" >&5
+$as_echo "$gcc_cv_as" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+  fi
+fi
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking what assembler to use" >&5
+$as_echo_n "checking what assembler to use... " >&6; }
+  if test "$gcc_cv_as" = ../gas/as-new$build_exeext; then
+                { $as_echo "$as_me:${as_lineno-$LINENO}: result: newly built gas" >&5
+$as_echo "newly built gas" >&6; }
+    in_tree_gas=yes
+    gcc_cv_as_bfd_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/bfd
+    for f in $gcc_cv_as_bfd_srcdir/configure \
+	     $gcc_cv_as_gas_srcdir/configure \
+	     $gcc_cv_as_gas_srcdir/configure.in \
+	     $gcc_cv_as_gas_srcdir/Makefile.in ; do
+      gcc_cv_gas_version=`sed -n -e 's/^[ 	]*VERSION=[^0-9A-Za-z_]*\([0-9]*\.[0-9]*.*\)/VERSION=\1/p' < $f`
+      if test x$gcc_cv_gas_version != x; then
+        break
+      fi
+    done
+    case $gcc_cv_gas_version in
+    VERSION=[0-9]*) ;;
+    *) as_fn_error "cannot find version of in-tree assembler" "$LINENO" 5;;
+    esac
+    gcc_cv_gas_major_version=`expr "$gcc_cv_gas_version" : "VERSION=\([0-9]*\)"`
+    gcc_cv_gas_minor_version=`expr "$gcc_cv_gas_version" : "VERSION=[0-9]*\.\([0-9]*\)"`
+    gcc_cv_gas_patch_version=`expr "$gcc_cv_gas_version" : "VERSION=[0-9]*\.[0-9]*\.\([0-9]*\)"`
+    in_tree_gas_is_elf=no
+    if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
+       || (grep 'obj_format = multi' ../gas/Makefile \
+           && grep 'extra_objects =.* obj-elf' ../gas/Makefile) > /dev/null
+    then
+      in_tree_gas_is_elf=yes
+    fi
+  else
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_as" >&5
+$as_echo "$gcc_cv_as" >&6; }
+    in_tree_gas=no
+    as_ver=`$gcc_cv_as --version 2>/dev/null | sed 1q`
+    if echo "$as_ver" | grep GNU > /dev/null; then
+            as_vers=`echo $as_ver | sed -n \
+	  -e 's,^.*[	 ]\([0-9][0-9]*\.[0-9][0-9]*.*\)$,\1,p'`
+      gcc_cv_gas_major_version=`expr "$as_vers" : '\([0-9]*\)'`
+      gcc_cv_gas_minor_version=`expr "$as_vers" : '[0-9]*\.\([0-9]*\)'`
+      gcc_cv_gas_patch_version=`expr "$as_vers" : '[0-9]*\.[0-9]*\.\([0-9]*\)'`
+          fi
+  fi
+
+  if test x$gcc_cv_gas_major_version != x; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for GNU binutils version" >&5
+$as_echo_n "checking for GNU binutils version... " >&6; }
+    case $gcc_cv_gas_patch_version in
+    "") gcc_cv_gas_patch_version="0" ;;
+    esac
+    gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
+			    + $gcc_cv_gas_minor_version \) \* 1000 \
+			    + $gcc_cv_gas_patch_version`
+    { $as_echo "$as_me:${as_lineno-$LINENO}: result: $gcc_cv_gas_major_version.$gcc_cv_gas_minor_version.$gcc_cv_gas_patch_version" >&5
+$as_echo "$gcc_cv_gas_major_version.$gcc_cv_gas_minor_version.$gcc_cv_gas_patch_version" >&6; }
+  fi
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for target glibc version" >&5
+$as_echo_n "checking for target glibc version... " >&6; }
+
+# Check whether --with-glibc-version was given.
+if test "${with_glibc_version+set}" = set; then :
+  withval=$with_glibc_version;
+if echo "$with_glibc_version" | grep '^[0-9][0-9]*\.[0-9][0-9]*$'; then
+  glibc_version_major=`echo "$with_glibc_version" | sed -e 's/\..*//'`
+  glibc_version_minor=`echo "$with_glibc_version" | sed -e 's/.*\.//'`
+else
+  as_fn_error "option --with-glibc-version requires a version number M.N" "$LINENO" 5
+fi
+else
+
+glibc_version_major=0
+glibc_version_minor=0
+if test -f $target_header_dir/features.h \
+  && glibc_version_major_define=`$EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC__[ 	]+[0-9]' $target_header_dir/features.h` \
+  && glibc_version_minor_define=`$EGREP '^[ 	]*#[ 	]*define[ 	]+__GLIBC_MINOR__[ 	]+[0-9]' $target_header_dir/features.h`; then
+  glibc_version_major=`echo "$glibc_version_major_define" | sed -e 's/.*__GLIBC__[ 	]*//'`
+  glibc_version_minor=`echo "$glibc_version_minor_define" | sed -e 's/.*__GLIBC_MINOR__[ 	]*//'`
+fi
+fi
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibc_version_major.$glibc_version_minor" >&5
+$as_echo "$glibc_version_major.$glibc_version_minor" >&6; }
+
+
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for target Linux kernel version" >&5
+$as_echo_n "checking for target Linux kernel version... " >&6; }
+
+# Check whether --with-kernel-version was given.
+if test "${with_kernel_version+set}" = set; then :
+  withval=$with_kernel_version;
+if echo "$with_kernel_version" | grep '^[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*$'; then
+  kernel_version_major=`echo "$with_kernel_version" | sed -e '/\(0-9*\)\.\(0-9*\)\.\(0-9*\).*/\1/'`
+  kernel_version_minor=`echo "$with_kernel_version" | sed -e '/\(0-9*\)\.\(0-9*\)\.\(0-9*\).*/\2/'`
+  kernel_version_patch=`echo "$with_kernel_version" | sed -e '/\(0-9*\)\.\(0-9*\)\.\(0-9*\).*/\3/'`
+else
+  as_fn_error "option --with-kernel-version requires a version number M.N.P" "$LINENO" 5
+fi
+else
+
+kernel_version_major=0
+kernel_version_minor=0
+kernel_version_patch=0
+if test -f $target_header_dir/linux/version.h \
+  && kernel_version_code=`$GREP LINUX_VERSION_CODE $target_header_dir/linux/version.h | $AWK '{ print $ 3 }'`; then
+  kernel_version_major=`echo "$kernel_version_code" | $AWK '{ print and (rshift ($ 1, 16), 0xff) }'`
+  kernel_version_minor=`echo "$kernel_version_code" | $AWK '{ print and (rshift ($ 1, 8), 0xff) }'`
+  kernel_version_patch=`echo "$kernel_version_code" | $AWK '{ print and ($ 1, 0xff) }'`
+fi
+fi
+
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $kernel_version_major.$kernel_version_minor.$kernel_version_patch" >&5
+$as_echo "$kernel_version_major.$kernel_version_minor.$kernel_version_patch" >&6; }
 
 
 
