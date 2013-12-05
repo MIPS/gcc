@@ -1,5 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-mnan=legacy -EB" } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 float f = __builtin_nanf ("");
 

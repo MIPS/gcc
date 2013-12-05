@@ -1,5 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-mdsp -mgp32" } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 extern void abort (void);
 extern void exit (int);

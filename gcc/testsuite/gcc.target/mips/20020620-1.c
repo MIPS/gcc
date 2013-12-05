@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-mlong64" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 int foo (int *x, int i)
 {
   return x[i] + i;
