@@ -208,23 +208,40 @@ AC_DEFUN([GCC_SETUP], [
   gcc_cv_gas_patch_version=
   gcc_cv_as_gas_srcdir=`echo $srcdir | sed -e 's,/gcc$,,'`/gas
 
+  dnl Check if this is the toplevel configure.
+  in_tree_gas=
+  if test -f $srcdir/config/gcc-setup.m4; then
+    toplevel=yes
+    case " $noconfigdirs " in
+    *" gas "*) 
+      in_tree_gas=no
+    esac
+  else
+    toplevel=no
+  fi
+
   m4_pattern_allow([AS_FOR_TARGET])dnl
   AS_VAR_SET_IF(gcc_cv_as,, [
   if test -x "$DEFAULT_ASSEMBLER"; then
-	gcc_cv_as="$DEFAULT_ASSEMBLER"
+    gcc_cv_as="$DEFAULT_ASSEMBLER"
   elif test -f $gcc_cv_as_gas_srcdir/configure.in \
-       && test -f ../gas/Makefile \
+       && (test -f ../gas/Makefile \
+           || test x"$in_tree_gas" != x"no")\
        && test x$build = x$host; then
-	  gcc_cv_as=../gas/as-new$build_exeext
+    gcc_cv_as=../gas/as-new$build_exeext
   elif test -x as$build_exeext; then
-	dnl Build using assembler in the current directory.
-	gcc_cv_as=./as$build_exeext
-  elif ( set dummy $AS_FOR_TARGET; test -x $[2] ); then
-        gcc_cv_as="$AS_FOR_TARGET"
+    dnl Build using assembler in the current directory.
+    gcc_cv_as=./as$build_exeext
+  elif test $toplevel = "no"; then
+    if ( set dummy $AS_FOR_TARGET; test -x $[2] ); then
+     gcc_cv_as="$AS_FOR_TARGET"
+    else
+      AC_PATH_PROG(gcc_cv_as, $AS_FOR_TARGET)
+    fi
   elif test "$AS_FOR_TARGET" = "\$(AS)"; then
-        gcc_cv_as="$AS"
+    gcc_cv_as="$AS"
   else
-        AC_PATH_PROG(gcc_cv_as, $AS_FOR_TARGET)
+    AC_MSG_ERROR([cannot find assembler])
   fi])
 
   AC_MSG_CHECKING(what assembler to use)
@@ -252,9 +269,11 @@ AC_DEFUN([GCC_SETUP], [
     gcc_cv_gas_minor_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.\([[0-9]]*\)"`
     gcc_cv_gas_patch_version=`expr "$gcc_cv_gas_version" : "VERSION=[[0-9]]*\.[[0-9]]*\.\([[0-9]]*\)"`
     in_tree_gas_is_elf=no
-    if grep 'obj_format = elf' ../gas/Makefile > /dev/null \
-       || (grep 'obj_format = multi' ../gas/Makefile \
-           && grep 'extra_objects =.* obj-elf' ../gas/Makefile) > /dev/null
+    dnl No need to check if gas is ELF at toplevel.
+    if test $toplevel = "no" \
+       && (grep 'obj_format = elf' ../gas/Makefile > /dev/null \
+	   || (grep 'obj_format = multi' ../gas/Makefile \
+	       && grep 'extra_objects =.* obj-elf' ../gas/Makefile)) > /dev/null
     then
       in_tree_gas_is_elf=yes
     fi
@@ -278,9 +297,6 @@ AC_DEFUN([GCC_SETUP], [
     case $gcc_cv_gas_patch_version in
     "") gcc_cv_gas_patch_version="0" ;;
     esac
-    gcc_cv_gas_vers=`expr \( \( $gcc_cv_gas_major_version \* 1000 \) \
-			    + $gcc_cv_gas_minor_version \) \* 1000 \
-			    + $gcc_cv_gas_patch_version`
     AC_MSG_RESULT([$gcc_cv_gas_major_version.$gcc_cv_gas_minor_version.$gcc_cv_gas_patch_version])
   fi
 
