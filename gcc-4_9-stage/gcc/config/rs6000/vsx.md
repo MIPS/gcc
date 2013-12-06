@@ -899,11 +899,11 @@
 ;; multiply.
 
 (define_insn "*vsx_fmav4sf4"
-  [(set (match_operand:V4SF 0 "vsx_register_operand" "=ws,ws,?wa,?wa,v")
+  [(set (match_operand:V4SF 0 "vsx_register_operand" "=wf,wf,?wa,?wa,v")
 	(fma:V4SF
-	  (match_operand:V4SF 1 "vsx_register_operand" "%ws,ws,wa,wa,v")
-	  (match_operand:V4SF 2 "vsx_register_operand" "ws,0,wa,0,v")
-	  (match_operand:V4SF 3 "vsx_register_operand" "0,ws,0,wa,v")))]
+	  (match_operand:V4SF 1 "vsx_register_operand" "%wf,wf,wa,wa,v")
+	  (match_operand:V4SF 2 "vsx_register_operand" "wf,0,wa,0,v")
+	  (match_operand:V4SF 3 "vsx_register_operand" "0,wf,0,wa,v")))]
   "VECTOR_UNIT_VSX_P (V4SFmode)"
   "@
    xvmaddasp %x0,%x1,%x2
@@ -914,11 +914,11 @@
   [(set_attr "type" "vecfloat")])
 
 (define_insn "*vsx_fmav2df4"
-  [(set (match_operand:V2DF 0 "vsx_register_operand" "=ws,ws,?wa,?wa")
+  [(set (match_operand:V2DF 0 "vsx_register_operand" "=wd,wd,?wa,?wa")
 	(fma:V2DF
-	  (match_operand:V2DF 1 "vsx_register_operand" "%ws,ws,wa,wa")
-	  (match_operand:V2DF 2 "vsx_register_operand" "ws,0,wa,0")
-	  (match_operand:V2DF 3 "vsx_register_operand" "0,ws,0,wa")))]
+	  (match_operand:V2DF 1 "vsx_register_operand" "%wd,wd,wa,wa")
+	  (match_operand:V2DF 2 "vsx_register_operand" "wd,0,wa,0")
+	  (match_operand:V2DF 3 "vsx_register_operand" "0,wd,0,wa")))]
   "VECTOR_UNIT_VSX_P (V2DFmode)"
   "@
    xvmaddadp %x0,%x1,%x2
