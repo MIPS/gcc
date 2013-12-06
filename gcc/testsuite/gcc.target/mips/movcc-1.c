@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "isa>=4" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 /* { dg-final { scan-assembler "\tmovz\t" } } */
 /* { dg-final { scan-assembler "\tmovn\t" } } */
 

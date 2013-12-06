@@ -1,5 +1,6 @@
 /* { dg-do run } */
 /* { dg-options "-mpaired-single" } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* Test v2sf calculations */
 #include <stdlib.h>

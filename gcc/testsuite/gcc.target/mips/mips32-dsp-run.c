@@ -1,6 +1,7 @@
 /* Test MIPS32 DSP instructions */
 /* { dg-do run } */
 /* { dg-options "-mdsp" } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 #include <stdlib.h>
 #include <stdio.h>

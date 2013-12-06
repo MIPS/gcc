@@ -3,6 +3,7 @@
 /* { dg-skip-if "requires -fira-region=all or =mixed" { *-*-* } { "-Os" } { "" } } */
 /* { dg-final { scan-assembler-not "\tmul\t" } } */
 /* { dg-final { scan-assembler "\tmsub\t" } } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 NOMIPS16 int
 f1 (int *a, int *b, int n)

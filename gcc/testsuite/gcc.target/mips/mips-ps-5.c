@@ -1,6 +1,7 @@
 /* { dg-do compile } */
 /* { dg-options "-mpaired-single -mgp64 -ftree-vectorize" } */
 /* { dg-skip-if "requires vectorization" { *-*-* } { "-O0" "-Os" } { "" } } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 extern float a[] __attribute__ ((aligned (8)));
 extern float b[] __attribute__ ((aligned (8)));

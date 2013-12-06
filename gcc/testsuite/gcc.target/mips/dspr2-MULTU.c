@@ -3,6 +3,7 @@
 /* { dg-do compile } */
 /* { dg-options "-mgp32 -mdspr2 -mtune=74kc" } */
 /* { dg-skip-if "code quality test" { *-*-* } { "-O0" } { "" } } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 
 /* See PR target/51729 for the reason behind the XFAILs.  */
 /* { dg-final { scan-assembler "\tmultu\t" } } */

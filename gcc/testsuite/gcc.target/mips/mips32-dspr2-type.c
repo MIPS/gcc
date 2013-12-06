@@ -1,6 +1,7 @@
 /* Test MIPS32 DSP REV 2 instructions */
 /* { dg-do compile } */
 /* { dg-options "-mdspr2" } */
+/* { dg-skip-if "Removed from mipsr6" { *-img-* } { "*" } { "" } } */
 /* { dg-final { scan-assembler "\tmul.ph\t" } } */
 
 typedef short v2hi __attribute__ ((vector_size(4)));
