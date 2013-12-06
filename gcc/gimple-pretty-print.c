@@ -1843,6 +1843,8 @@ static void
 dump_gimple_acc_body (pretty_printer *buffer, gimple_seq body,
                       int spc, int flags)
 {
+  if(flags & TDF_SLIM)
+    return;
   if (body && gimple_code (gimple_seq_first_stmt (body)) != GIMPLE_BIND)
   {
     newline_and_indent (buffer, spc + 2);

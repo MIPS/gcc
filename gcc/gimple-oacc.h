@@ -51,6 +51,12 @@ along with GCC; see the file COPYING3.  If not see
                                   (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
                                   gimple_acc_parallel_params_ptr(g) : 0)
 
+#define GIMPLE_ACC_CLAUSES(g)   ((gimple_code(g) == GIMPLE_ACC_KERNELS) ? \
+                                  gimple_acc_kernels_clauses(g) : \
+                                 (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
+                                  gimple_acc_parallel_clauses(g) : \
+                                 (gimple_code(g) == GIMPLE_ACC_DATA) ? \
+                                 gimple_acc_data_clauses(g) : NULL_TREE)
 
 extern bool is_gimple_acc (const_gimple);
 

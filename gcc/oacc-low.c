@@ -590,6 +590,25 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
     gimple_acc_set_body(new_stmt, NULL);
 }
 
+static void
+lower_oacc_data(gimple_stmt_iterator *gsi, oacc_context* ctx)
+{
+  gimple_seq body;
+  gimple stmt = gsi_stmt (*gsi);
+   
+  body = gimple_acc_body(stmt);
+  lower_oacc(&body, ctx);
+  add_host_version(gsi, body);
+  gsi_insert_after(gsi, gimple_alloc(GIMPLE_ACC_DATA_REGION_END, 0),
+                 GSI_CONTINUE_LINKING);
+  gimple_acc_set_body(stmt, NULL);
+}
+
+static void
+lower_oacc_loop(gimple_stmt_iterator *gsi, oacc_context* ctx)
+{
+}
+
 static tree
 lower_stmt_cb(gimple_stmt_iterator *gsi, bool *handled_ops_p,
               struct walk_stmt_info *wi)
@@ -608,6 +627,9 @@ lower_stmt_cb(gimple_stmt_iterator *gsi, bool *handled_ops_p,
             lower_oacc_kernels (gsi, ctx);
             break;
         case GIMPLE_ACC_DATA:
+            ctx = (oacc_context*)splay_tree_lookup(all_contexts,
+                                                   (splay_tree_key)stmt)->value;
+            lower_oacc_data (gsi, ctx);
             break;
         case GIMPLE_ACC_CACHE:
             break;
@@ -616,6 +638,9 @@ lower_stmt_cb(gimple_stmt_iterator *gsi, bool *handled_ops_p,
         case GIMPLE_ACC_HOST_DATA:
             break;
         case GIMPLE_ACC_LOOP:
+            ctx = (oacc_context*)splay_tree_lookup(all_contexts,
+                                                   (splay_tree_key)stmt)->value;
+            lower_oacc_loop (gsi, ctx);
             break;
         case GIMPLE_ACC_DECLARE:
             break;
@@ -636,7 +661,7 @@ lower_op_cb(tree *tp, int *walk_subtrees, void *data)
     oacc_context* ctx = (oacc_context*)wi->info;
     tree t = *tp;
 
-    if(ctx != 0 && is_gimple_variable(t))
+    if(ctx != NULL && ctx->param_map != NULL && is_gimple_variable(t))
         {
             tree t1 = NULL_TREE;
             splay_tree_node v = splay_tree_lookup(ctx->param_map,
@@ -887,6 +912,46 @@ scan_oacc_kernels (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
     GIMPLE_ACC_SET_CHILD_FN(stmt, child_fn);
 }
 
+static void
+scan_oacc_data (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
+{
+    oacc_context* ctx;
+    gimple stmt = gsi_stmt (*gsi);
+
+    /* Ignore directives with empty bodies.  */
+    if (empty_body_p (gimple_acc_body (stmt)))
+        {
+            gsi_replace (gsi, gimple_build_nop (), false);
+            return;
+        }
+
+    ctx = new_oacc_context (stmt, outer_ctx);
+    if (nesting_level > 1)
+        ctx->is_nested = true;
+
+    analyze_gimple(gimple_acc_body_ptr(stmt), ctx);
+}
+
+static void
+scan_oacc_loop (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
+{
+    oacc_context* ctx;
+    gimple stmt = gsi_stmt (*gsi);
+
+    /* Ignore directives with empty bodies.  */
+    if (empty_body_p (gimple_acc_body (stmt)))
+        {
+            gsi_replace (gsi, gimple_build_nop (), false);
+            return;
+        }
+
+    ctx = new_oacc_context (stmt, outer_ctx);
+    if (nesting_level > 1)
+        ctx->is_nested = true;
+
+    analyze_gimple(gimple_acc_body_ptr(stmt), ctx);
+}
+
 static bool
 check_oacc_nesting_restrictions (gimple stmt, oacc_context *ctx)
 {
@@ -960,8 +1025,14 @@ analyze_stmt_cb(gimple_stmt_iterator *gsi, bool *handled_ops_p,
             nesting_level--;
             break;
         case GIMPLE_ACC_LOOP:
+            nesting_level++;
+            scan_oacc_loop (gsi, ctx);
+            nesting_level--;
             break;
         case GIMPLE_ACC_DATA:
+            nesting_level++;
+            scan_oacc_data (gsi, ctx);
+            nesting_level--;
             break;
         case GIMPLE_ACC_DECLARE:
             break;
@@ -998,7 +1069,7 @@ analyze_op_cb(tree *tp, int *walk_subtrees, void *data)
     oacc_context* ctx = (oacc_context*)wi->info;
     tree t = *tp;
 
-    if(ctx != 0 && is_gimple_variable(t))
+    if(ctx != NULL && ctx->param_map != NULL && is_gimple_variable(t))
         {
             tree* n = (tree *) pointer_map_contains (ctx->cb.decl_map, t);
             if(!n)
@@ -2723,6 +2794,54 @@ schedule_kernel(acc_schedule sched, tree niter, tree clause)
   }
 }
 
+static bool
+need_copy(tree param, gimple stmt, bool out)
+{
+  tree clause;
+  bool seen = false, specified = false;
+  tree decl;
+  
+  clause = GIMPLE_ACC_CLAUSES(stmt);
+  
+  while(clause != NULL_TREE)
+    {
+      enum acc_clause_code code = ACC_CLAUSE_CODE(clause);
+
+      switch(code)
+        {
+        case ACC_CLAUSE_COPY:
+          decl = ACC_CLAUSE_DECL(clause);
+          if(decl == param)
+            {
+              seen = true;
+              specified = true;
+            }
+          break;
+        case ACC_CLAUSE_COPYIN:
+          decl = ACC_CLAUSE_DECL(clause);
+          if(decl == param)
+            {
+              seen = true;
+              specified = !out;
+            }
+          break;
+        case ACC_CLAUSE_COPYOUT:
+          decl = ACC_CLAUSE_DECL(clause);
+          if(decl == param)
+            {
+              seen = true;
+              specified = out;
+            }
+          break;
+        default:
+          break;
+        }
+      clause = ACC_CLAUSE_CHAIN(clause);
+    }
+ 
+  return (specified || !seen);
+}
+
 static void
 generate_region_start(gimple_stmt_iterator* gsi, location_t locus)
 {
@@ -3050,10 +3169,10 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
           size = TYPE_SIZE(type);
 
           generate_copyin(gsi, locus, build_fold_addr_expr(arg),
-            fold_binary(TRUNC_DIV_EXPR, uint32_type_node,
-                          size, bits_per_byte),
-            integer_one_node, build_int_cst(uint32_type_node, i),
-            queue_handle, buffer_handle);
+                fold_binary(TRUNC_DIV_EXPR, uint32_type_node,
+                        size, bits_per_byte),
+                integer_one_node, build_int_cst(uint32_type_node, i),
+          queue_handle, buffer_handle);
           for(j = 0; j < kernels.length(); ++j)
             {
               generate_set_arg(gsi, locus, kernels[j]->kernel_handle,
@@ -3096,11 +3215,14 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
             type = TREE_TYPE(arg);
             size = TYPE_SIZE(type);
 
-            generate_copyout(gsi, locus, build_fold_addr_expr(arg),
-              fold_binary(TRUNC_DIV_EXPR, uint32_type_node, size,
-                  bits_per_byte),
-              integer_one_node, build_int_cst(uint32_type_node, i),
-              queue_handle);
+            if(need_copy(arg, stmt, true))
+              {
+                generate_copyout(gsi, locus, build_fold_addr_expr(arg),
+                  fold_binary(TRUNC_DIV_EXPR, uint32_type_node, size,
+                      bits_per_byte),
+                  integer_one_node, build_int_cst(uint32_type_node, i),
+                  queue_handle);
+              }
         }
 
     generate_advance_events(gsi, locus, queue_handle);
@@ -3119,6 +3241,11 @@ generate_opencl(void)
     finish_out_of_ssa(&SA);
 }
 
+static void
+expand_oacc_data(gimple_stmt_iterator* gsi)
+{
+  gsi_replace( gsi, gimple_build_nop (), false);  
+}
 
 /* if we generated OenCL code, function body isn't needed */
 static void
@@ -3155,6 +3282,10 @@ expand_region (acc_region region)
       gsi = gsi_for_stmt(stmt);
       expand_oacc_kernels(&gsi);
       break;
+    case GIMPLE_ACC_DATA:
+      gsi = gsi_for_stmt(stmt);
+      expand_oacc_data(&gsi);
+      break;
     default:
       gcc_unreachable();
     }
@@ -3190,6 +3321,10 @@ build_acc_region(basic_block bb, acc_region outer)
         {
         case GIMPLE_ACC_KERNELS:
         case GIMPLE_ACC_PARALLEL:
+          region = new_acc_region(stmt, outer);
+          outer = region;
+          break;
+        case GIMPLE_ACC_DATA:
           region = new_acc_region(stmt, outer);
           outer = region;
           break;

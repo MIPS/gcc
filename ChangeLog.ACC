@@ -1,4 +1,12 @@
 06-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Add data directive support in lowering pass
+
+  * gcc/gimple-oacc.h(GIMPLE_ACC_CLAUSES): New macro.
+  * gcc/gimple-pretty-print.c(dump_gimple_acc_body): Don't print body
+      with TDF_SLIM.
+  * gcc/oacc-low.c: Add support for data directive in lowering pass.
+
+06-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Add dump routines for GIMPLE OpenACC statements.
 
   * gcc/gimple-pretty-print.c: Add OpenACC dump routines.
