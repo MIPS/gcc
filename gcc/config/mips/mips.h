@@ -1051,7 +1051,7 @@ struct mips_cpu_info {
 
 /* ISA has the "ror" (rotate right) instructions.  */
 #define ISA_HAS_ROR		((ISA_MIPS32R2				\
-				  || ISA_MIPS32R2			\
+				  || ISA_MIPS32R6			\
 				  || ISA_MIPS64R2			\
 				  || ISA_MIPS64R6			\
 				  || TARGET_MIPS5400			\
