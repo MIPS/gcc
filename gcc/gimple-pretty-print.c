@@ -2043,6 +2043,156 @@ dump_gimple_acc_loop (pretty_printer *buffer, gimple gs, int spc, int flags)
     }
 }
 
+/* Dump a GIMPLE_ACC_DATA tuple on the pretty_printer BUFFER, SPC spaces
+   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   dumpfile.h).  */
+
+static void
+dump_gimple_acc_data (pretty_printer *buffer, gimple gs,
+                         int spc, int flags)
+{
+  if (flags & TDF_RAW)
+  {
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+                     gimple_acc_body (gs));
+
+    dump_acc_clauses (buffer, gimple_acc_data_clauses (gs), spc, flags);
+  }
+  else
+  {
+    gimple_seq body;
+    pp_string (buffer, "#pragma acc data");
+    dump_acc_clauses (buffer, gimple_acc_data_clauses (gs), spc, flags);
+
+    body = gimple_acc_body (gs);
+    dump_gimple_acc_body (buffer, body, spc, flags);
+  }
+}
+
+/* Dump a GIMPLE_ACC_CACHE tuple on the pretty_printer BUFFER, SPC spaces
+   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   dumpfile.h).  */
+
+static void
+dump_gimple_acc_cache (pretty_printer *buffer, gimple gs,
+                         int spc, int flags)
+{
+  if (flags & TDF_RAW)
+  {
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+                     gimple_acc_body (gs));
+
+    //dump_acc_clauses (buffer, gimple_acc_cache_clauses (gs), spc, flags);
+  }
+  else
+  {
+    pp_string (buffer, "#pragma acc cache");
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+
+  }
+}
+
+/* Dump a GIMPLE_ACC_WAIT tuple on the pretty_printer BUFFER, SPC spaces
+   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   dumpfile.h).  */
+
+static void
+dump_gimple_acc_wait (pretty_printer *buffer, gimple gs,
+                         int spc, int flags)
+{
+  if (flags & TDF_RAW)
+  {
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+                     gimple_acc_body (gs));
+
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+  }
+  else
+  {
+    pp_string (buffer, "#pragma acc wait");
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+
+  }
+}
+
+/* Dump a GIMPLE_ACC_HOST_DATA tuple on the pretty_printer BUFFER, SPC spaces
+   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   dumpfile.h).  */
+
+static void
+dump_gimple_acc_host_data (pretty_printer *buffer, gimple gs,
+                         int spc, int flags)
+{
+  if (flags & TDF_RAW)
+  {
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+                     gimple_acc_body (gs));
+
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+  }
+  else
+  {
+    gimple_seq body;
+    pp_string (buffer, "#pragma acc host_data");
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+
+
+    body = gimple_acc_body (gs);
+    dump_gimple_acc_body (buffer, body, spc, flags);
+  }
+}
+
+/* Dump a GIMPLE_ACC_DECLARE tuple on the pretty_printer BUFFER, SPC spaces
+   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   dumpfile.h).  */
+
+static void
+dump_gimple_acc_declare (pretty_printer *buffer, gimple gs,
+                         int spc, int flags)
+{
+  if (flags & TDF_RAW)
+  {
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+                     gimple_acc_body (gs));
+
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+    //      dump_gimple_fmt (buffer, spc, flags, " >, %T, %T%n>",
+    //                       gimple_acc_kernels_child_fn (gs),
+    //                       gimple_acc_kernels_data_arg (gs));
+  }
+  else
+  {
+    pp_string (buffer, "#pragma acc declare");
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+
+  }
+}
+
+/* Dump a GIMPLE_ACC_UPDATE tuple on the pretty_printer BUFFER, SPC spaces
+   of indent.  FLAGS specifies details to show in the dump (see TDF_* in
+   dumpfile.h).  */
+
+static void
+dump_gimple_acc_update (pretty_printer *buffer, gimple gs,
+                         int spc, int flags)
+{
+  if (flags & TDF_RAW)
+  {
+    dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
+                     gimple_acc_body (gs));
+
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+    //      dump_gimple_fmt (buffer, spc, flags, " >, %T, %T%n>",
+    //                       gimple_acc_kernels_child_fn (gs),
+    //                       gimple_acc_kernels_data_arg (gs));
+  }
+  else
+  {
+    pp_string (buffer, "#pragma acc update");
+    //dump_acc_clauses (buffer, gimple_acc_kernels_clauses (gs), spc, flags);
+
+  }
+}
 
 
 /* Dump all the memory operands for statement GS.  BUFFER, SPC and
@@ -2250,26 +2400,25 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_acc_kernels (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_DATA:
-      pp_string (buffer, "#pragma acc data");
-      dump_acc_clauses (buffer, gimple_acc_data_clauses(gs), spc, flags);
+      dump_gimple_acc_data (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_CACHE:
-      pp_string (buffer, "acc_cache");
+      dump_gimple_acc_cache (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_WAIT:
-      pp_string (buffer, "acc_wait");
+      dump_gimple_acc_wait (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_HOST_DATA:
-      pp_string (buffer, "acc_host_data");
+      dump_gimple_acc_host_data (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_LOOP:
       dump_gimple_acc_loop (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_DECLARE:
-      pp_string (buffer, "acc_declare");
+      dump_gimple_acc_declare (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_UPDATE:
-      pp_string (buffer, "acc_update");
+      dump_gimple_acc_update (buffer, gs, spc, flags);
       break;
     case GIMPLE_ACC_COMPUTE_REGION_END:
       pp_string (buffer, "acc_compute_region_end");

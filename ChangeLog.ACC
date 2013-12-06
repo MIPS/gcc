@@ -1,3 +1,8 @@
+06-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Add dump routines for GIMPLE OpenACC statements.
+
+  * gcc/gimple-pretty-print.c: Add OpenACC dump routines.
+
 05-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Check GIMPLE for data clauses
 
