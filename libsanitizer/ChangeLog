@@ -1,3 +1,29 @@
+2013-12-05  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* configure.ac (link_sanitizer_common): Add -lm.
+	* configure: Regenerated.
+
+2013-12-05  Kostya Serebryany  <kcc@google.com>
+
+	* All source files: Merge from upstream r196489.
+	* merge.sh: Add *.S to the list of merged files.
+
+2013-12-05  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/59368
+	* Makefile.am (gcc_version): Added gcc_version.
+	* Makefile.in: Regenerate.
+
+2013-12-05  Kostya Serebryany  <kcc@google.com>
+
+	* All source files: Merge from upstream r196090.
+	* tsan/Makefile.am (tsan_files): Added new files.
+	* tsan/Makefile.in: Regenerate.
+	* sanitizer_common/Makefile.am (sanitizer_common_files): Added new fles.
+	* sanitizer_common/Makefile.in: Regenerate.
+	* lsan/Makefile.am (lsan_files): Added new files.
+	* lsan/Makefile.in: Regenerate.
+
 2013-11-29  Jakub Jelinek  <jakub@redhat.com>
 	    Yury Gribov  <y.gribov@samsung.com>
 

@@ -1,3 +1,149 @@
+2013-12-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/warn/pr15774-1.C: Adjust expected message.
+
+2013-12-05  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59317
+	* testsuite/gcc.target/mips/pr59317.c: New.
+
+2013-12-05  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59333
+	PR sanitizer/59397
+	* c-c++-common/ubsan/pr59333.c: New test.
+	* c-c++-common/ubsan/pr59397.c: New test.
+
+2013-12-05  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* gcc.dg/vect/vect-nop-move.c: New test.
+
+2013-12-05  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* c-c++-common/tsan/atomic_stack.c: New test.
+	* c-c++-common/tsan/fd_pipe_race.c: New test.
+	* c-c++-common/tsan/free_race.c: New test.
+	* c-c++-common/tsan/mutexset1.c: New test.
+	* c-c++-common/tsan/race_on_barrier.c: New test.
+	* c-c++-common/tsan/sleep_sync.c: New test.
+	* c-c++-common/tsan/thread_leak.c: New test.
+	* c-c++-common/tsan/thread_leak1.c: New test.
+	* c-c++-common/tsan/thread_leak2.c: New test.
+	* c-c++-common/tsan/tiny_race.c: New test.
+	* c-c++-common/tsan/tls_race.c: New test.
+	* c-c++-common/tsan/write_in_reader_lock.c: New test.
+	* lib/tsan-dg.exp: New file.
+	* gcc.dg/tsan/tsan.exp: New file.
+	* g++.dg/tsan/tsan.exp: New file.
+	* g++.dg/dg.exp: Prune tsan subdirectory.
+
+2013-12-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+        * gcc.target/i386/readeflags-1.c: New.
+	* gcc.target/i386/writeeflags-1.c: Ditto.
+
+2013-12-05  Yury Gribov  <y.gribov@samsung.com>
+
+	PR sanitizer/59369
+	* c-c++-common/asan/pr59063-1.c: Disable on non-Linux platforms.
+	* c-c++-common/asan/pr59063-2.c: Likewise.
+
+2013-12-05  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/cpp0x/constexpr-46336.C: Adjust expected messages.
+	* g++.dg/cpp0x/defaulted2.C: Likewise.
+	* g++.dg/cpp1y/auto-fn8.C: Likewise.
+	* g++.dg/gomp/udr-3.C: Likewise.
+	* g++.dg/lookup/extern-c-redecl5.C: Likewise.
+	* g++.dg/lookup/linkage1.C: Likewise.
+	* g++.dg/overload/new1.C: Likewise.
+	* g++.dg/parse/friend5.C: Likewise.
+	* g++.dg/parse/namespace-alias-1.C: Likewise.
+	* g++.dg/parse/namespace10.C: Likewise.
+	* g++.dg/parse/redef2.C: Likewise.
+	* g++.dg/template/friend44.C: Likewise.
+	* g++.old-deja/g++.brendan/crash42.C: Likewise.
+	* g++.old-deja/g++.brendan/crash52.C: Likewise.
+	* g++.old-deja/g++.brendan/crash55.C: Likewise.
+	* g++.old-deja/g++.jason/overload21.C: Likewise.
+	* g++.old-deja/g++.jason/overload5.C: Likewise.
+	* g++.old-deja/g++.jason/redecl1.C: Likewise.
+	* g++.old-deja/g++.law/arm8.C: Likewise.
+	* g++.old-deja/g++.other/main1.C: Likewise.
+
+2013-12-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/56787
+	* gcc.dg/vect/pr56787.c: Adjust to not require vector float
+	division.
+
+2013-12-05  Kostya Serebryany  <kcc@google.com>
+
+	* c-c++-common/asan/null-deref-1.c: Update the test
+	to match the fresh asan run-time.
+
+2013-12-05  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59374
+	* gcc.dg/torture/pr59374-1.c: New testcase.
+	* gcc.dg/torture/pr59374-2.c: Likewise.
+
+2013-12-05  Kirill Yukhin  <kirill.yukhin@intel.com>
+
+	* gcc.target/ia64/pr52731.c: New.
+
+2013-12-04  Jeff Law  <law@redhat.com>
+
+	* gcc.dg/pr38984.c: Use -fno-isolate-erroneous-paths-dereference.
+	* gcc.dg/tree-ssa/isolate-2.c: Explicitly turn on
+	-fisolate-erroneous-paths-attribute.
+	* gcc.dg/tree-ssa/isolate-4.c: Likewise.
+
+2013-12-04  Joseph Myers  <joseph@codesourcery.com>
+
+	PR c/52023
+	* gcc.dg/c11-align-6.c: New test.
+
+2013-12-04  Marek Polacek  <polacek@redhat.com>
+
+	* c-c++-common/ubsan/overflow-mul-2.c: New test.
+	* c-c++-common/ubsan/overflow-add-1.c: New test.
+	* c-c++-common/ubsan/overflow-add-2.c: New test.
+	* c-c++-common/ubsan/overflow-mul-1.c: New test.
+	* c-c++-common/ubsan/overflow-sub-1.c: New test.
+	* c-c++-common/ubsan/overflow-sub-2.c: New test.
+	* c-c++-common/ubsan/overflow-negate-1.c: New test.
+
+2013-12-04  Marek Polacek  <polacek@redhat.com>
+
+	PR c/54113
+	* gcc.dg/pr54113.c: New test.
+
+2013-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59268
+	* g++.dg/cpp0x/constexpr-template6.C: New test.
+
+2013-12-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/pack19.adb: New test.
+
+2013-12-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58726
+	* gcc.c-torture/execute/pr58726.c: New test.
+
+	PR target/59163
+	* g++.dg/torture/pr59163.C: New test.
+
+	PR tree-optimization/59355
+	* g++.dg/ipa/pr59355.C: New test.
+
+2013-12-04  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.dg/tree-ssa/slsr-39.c: Update.
+	* gcc.dg/tree-ssa/slsr-41.c: New test.
+
 2013-12-03  Adhemerval Zanella  <azanella@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/pr57363.c: New test.

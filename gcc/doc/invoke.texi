@@ -378,7 +378,7 @@ Objective-C and Objective-C++ Dialects}.
 -fira-region=@var{region} -fira-hoist-pressure @gol
 -fira-loop-pressure -fno-ira-share-save-slots @gol
 -fno-ira-share-spill-slots -fira-verbose=@var{n} @gol
--fisolate-erroneous-paths
+-fisolate-erroneous-paths-dereference -fisolate-erroneous-paths-attribute
 -fivopts -fkeep-inline-functions -fkeep-static-consts -flive-range-shrinkage @gol
 -floop-block -floop-interchange -floop-strip-mine -floop-nest-optimize @gol
 -floop-parallelize-all -flto -flto-compression-level @gol
@@ -5363,6 +5363,19 @@ built with this option turned on will issue an error message
 when the end of a non-void function is reached without actually
 returning a value.  This option works in C++ only.
 
+@item -fsanitize=signed-integer-overflow
+@opindex fsanitize=signed-integer-overflow
+
+This option enables signed integer overflow checking.  We check that
+the result of @code{+}, @code{*}, and both unary and binary @code{-}
+does not overflow in the signed arithmetics.  Note, integer promotion
+rules must be taken into account.  That is, the following is not an
+overflow:
+@smallexample
+signed char a = SCHAR_MAX;
+a++;
+@end smallexample
+
 @end table
 
 While @option{-ftrapv} causes traps for signed overflows to be emitted,
@@ -6848,7 +6861,7 @@ also turns on the following optimization flags:
 -finline-small-functions @gol
 -findirect-inlining @gol
 -fipa-sra @gol
--fisolate-erroneous-paths @gol
+-fisolate-erroneous-paths-dereference @gol
 -foptimize-sibling-calls @gol
 -fpartial-inlining @gol
 -fpeephole2 @gol
@@ -7742,10 +7755,17 @@ it may significantly increase code size
 (see @option{--param ipcp-unit-growth=@var{value}}).
 This flag is enabled by default at @option{-O3}.
 
-@item -fisolate-erroneous-paths
-Detect paths which trigger erroneous or undefined behaviour.  Isolate those
-paths from the main control flow and turn the statement with erroneous or
-undefined behaviour into a trap.
+@item -fisolate-erroneous-paths-dereference
+Detect paths which trigger erroneous or undefined behaviour due to
+dereferencing a NULL pointer.  Isolate those paths from the main control
+flow and turn the statement with erroneous or undefined behaviour into a trap.
+
+@item -fisolate-erroneous-paths-attribute
+Detect paths which trigger erroneous or undefined behaviour due a NULL value
+being used in a way which is forbidden by a @code{returns_nonnull} or @code{nonnull}
+attribute.  Isolate those paths from the main control flow and turn the
+statement with erroneous or undefined behaviour into a trap.  This is not
+currently enabled, but may be enabled by @code{-O2} in the future.
 
 @item -ftree-sink
 @opindex ftree-sink
@@ -14736,7 +14756,7 @@ then @option{-mtune=pentium4} generates code that is tuned for Pentium 4
 but still runs on i686 machines.
 
 The choices for @var{cpu-type} are the same as for @option{-march}.
-In addition, @option{-mtune} supports an extra choice for @var{cpu-type}:
+In addition, @option{-mtune} supports 2 extra choices for @var{cpu-type}:
 
 @table @samp
 @item generic
@@ -14755,6 +14775,26 @@ that are most common at the time that version of GCC is released.
 There is no @option{-march=generic} option because @option{-march}
 indicates the instruction set the compiler can use, and there is no
 generic instruction set applicable to all processors.  In contrast,
+@option{-mtune} indicates the processor (or, in this case, collection of
+processors) for which the code is optimized.
+
+@item ia
+Produce code optimized for the most current Intel processors, which are
+Haswell and Silvermont for this version of GCC.  If you know the CPU
+on which your code will run, then you should use the corresponding
+@option{-mtune} or @option{-march} option instead of @option{-mtune=ia}.
+But, if you want your application performs better on both Haswell and
+Silvermont, then you should use this option.
+
+As new Intel processors are deployed in the marketplace, the behavior of
+this option will change.  Therefore, if you upgrade to a newer version of
+GCC, code generation controlled by this option will change to reflect
+the most current Intel processors at the time that version of GCC is
+released.
+
+There is no @option{-march=ia} option because @option{-march} indicates
+the instruction set the compiler can use, and there is no common
+instruction set applicable to all processors.  In contrast,
 @option{-mtune} indicates the processor (or, in this case, collection of
 processors) for which the code is optimized.
 @end table

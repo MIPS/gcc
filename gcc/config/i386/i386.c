@@ -2434,6 +2434,7 @@ static const char *const cpu_names[TARGET_CPU_DEFAULT_max] =
   "core-avx2",
   "atom",
   "slm",
+  "ia",
   "geode",
   "k6",
   "k6-2",
@@ -3142,6 +3143,9 @@ ix86_option_override_internal (bool main_args_p,
 	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3
 	| PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_POPCNT | PTA_AES
 	| PTA_PCLMUL | PTA_RDRND | PTA_MOVBE | PTA_FXSR},
+      {"ia", PROCESSOR_SLM, CPU_SLM,
+	PTA_64BIT | PTA_MMX | PTA_SSE | PTA_SSE2 | PTA_SSE3 | PTA_SSSE3
+	| PTA_SSE4_1 | PTA_SSE4_2 | PTA_CX16 | PTA_POPCNT | PTA_FXSR},
       {"geode", PROCESSOR_GEODE, CPU_GEODE,
 	PTA_MMX | PTA_3DNOW | PTA_3DNOW_A | PTA_PREFETCH_SSE | PTA_PRFCHW},
       {"k6", PROCESSOR_K6, CPU_K6, PTA_MMX},
@@ -3627,6 +3631,9 @@ ix86_option_override_internal (bool main_args_p,
 
   if (!strcmp (opts->x_ix86_arch_string, "generic"))
     error ("generic CPU can be used only for %stune=%s %s",
+	   prefix, suffix, sw);
+  else if (!strcmp (ix86_arch_string, "ia"))
+    error ("ia CPU can be used only for %stune=%s %s",
 	   prefix, suffix, sw);
   else if (!strncmp (opts->x_ix86_arch_string, "generic", 7) || i == pta_size)
     error ("bad value (%s) for %sarch=%s %s",
@@ -5732,6 +5739,17 @@ ix86_legitimate_combined_insn (rtx insn)
 	  int offset = 0;
 	  bool win;
 	  int j;
+
+	  /* For pre-AVX disallow unaligned loads/stores where the
+	     instructions don't support it.  */
+	  if (!TARGET_AVX
+	      && VECTOR_MODE_P (GET_MODE (op))
+	      && misaligned_operand (op, GET_MODE (op)))
+	    {
+	      int min_align = get_attr_ssememalign (insn);
+	      if (min_align == 0)
+		return false;
+	    }
 
 	  /* A unary operator may be accepted by the predicate, but it
 	     is irrelevant for matching constraints.  */
@@ -27909,6 +27927,10 @@ enum ix86_builtins
   IX86_BUILTIN_CPU_IS,
   IX86_BUILTIN_CPU_SUPPORTS,
 
+  /* Read/write FLAGS register built-ins.  */
+  IX86_BUILTIN_READ_FLAGS,
+  IX86_BUILTIN_WRITE_FLAGS,
+
   IX86_BUILTIN_MAX
 };
 
@@ -29749,6 +29771,17 @@ ix86_init_mmx_sse_builtins (void)
 	       "__builtin_ia32_addcarryx_u64",
 	       UCHAR_FTYPE_UCHAR_ULONGLONG_ULONGLONG_PULONGLONG,
 	       IX86_BUILTIN_ADDCARRYX64);
+
+  /* Read/write FLAGS.  */
+  def_builtin (~OPTION_MASK_ISA_64BIT, "__builtin_ia32_readeflags_u32",
+               UNSIGNED_FTYPE_VOID, IX86_BUILTIN_READ_FLAGS);
+  def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_ia32_readeflags_u64",
+               UINT64_FTYPE_VOID, IX86_BUILTIN_READ_FLAGS);
+  def_builtin (~OPTION_MASK_ISA_64BIT, "__builtin_ia32_writeeflags_u32",
+               VOID_FTYPE_UNSIGNED, IX86_BUILTIN_WRITE_FLAGS);
+  def_builtin (OPTION_MASK_ISA_64BIT, "__builtin_ia32_writeeflags_u64",
+               VOID_FTYPE_UINT64, IX86_BUILTIN_WRITE_FLAGS);
+
 
   /* Add FMA4 multi-arg argument instructions */
   for (i = 0, d = bdesc_multi_arg; i < ARRAY_SIZE (bdesc_multi_arg); i++, d++)
@@ -32481,11 +32514,12 @@ ix86_expand_args_builtin (const struct builtin_description *d,
 
 static rtx
 ix86_expand_special_args_builtin (const struct builtin_description *d,
-				    tree exp, rtx target)
+				  tree exp, rtx target)
 {
   tree arg;
   rtx pat, op;
   unsigned int i, nargs, arg_adjust, memory;
+  bool aligned_mem = false;
   struct
     {
       rtx op;
@@ -32531,6 +32565,15 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       nargs = 1;
       klass = load;
       memory = 0;
+      switch (icode)
+	{
+	case CODE_FOR_sse4_1_movntdqa:
+	case CODE_FOR_avx2_movntdqa:
+	  aligned_mem = true;
+	  break;
+	default:
+	  break;
+	}
       break;
     case VOID_FTYPE_PV2SF_V4SF:
     case VOID_FTYPE_PV4DI_V4DI:
@@ -32548,6 +32591,26 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
       klass = store;
       /* Reserve memory operand for target.  */
       memory = ARRAY_SIZE (args);
+      switch (icode)
+	{
+	/* These builtins and instructions require the memory
+	   to be properly aligned.  */
+	case CODE_FOR_avx_movntv4di:
+	case CODE_FOR_sse2_movntv2di:
+	case CODE_FOR_avx_movntv8sf:
+	case CODE_FOR_sse_movntv4sf:
+	case CODE_FOR_sse4a_vmmovntv4sf:
+	case CODE_FOR_avx_movntv4df:
+	case CODE_FOR_sse2_movntv2df:
+	case CODE_FOR_sse4a_vmmovntv2df:
+	case CODE_FOR_sse2_movntidi:
+	case CODE_FOR_sse_movntq:
+	case CODE_FOR_sse2_movntisi:
+	  aligned_mem = true;
+	  break;
+	default:
+	  break;
+	}
       break;
     case V4SF_FTYPE_V4SF_PCV2SF:
     case V2DF_FTYPE_V2DF_PCDOUBLE:
@@ -32604,6 +32667,17 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	{
 	  op = ix86_zero_extend_to_Pmode (op);
 	  target = gen_rtx_MEM (tmode, op);
+	  /* target at this point has just BITS_PER_UNIT MEM_ALIGN
+	     on it.  Try to improve it using get_pointer_alignment,
+	     and if the special builtin is one that requires strict
+	     mode alignment, also from it's GET_MODE_ALIGNMENT.
+	     Failure to do so could lead to ix86_legitimate_combined_insn
+	     rejecting all changes to such insns.  */
+	  unsigned int align = get_pointer_alignment (arg);
+	  if (aligned_mem && align < GET_MODE_ALIGNMENT (tmode))
+	    align = GET_MODE_ALIGNMENT (tmode);
+	  if (MEM_ALIGN (target) < align)
+	    set_mem_align (target, align);
 	}
       else
 	target = force_reg (tmode, op);
@@ -32649,8 +32723,17 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
 	      /* This must be the memory operand.  */
 	      op = ix86_zero_extend_to_Pmode (op);
 	      op = gen_rtx_MEM (mode, op);
-	      gcc_assert (GET_MODE (op) == mode
-			  || GET_MODE (op) == VOIDmode);
+	      /* op at this point has just BITS_PER_UNIT MEM_ALIGN
+		 on it.  Try to improve it using get_pointer_alignment,
+		 and if the special builtin is one that requires strict
+		 mode alignment, also from it's GET_MODE_ALIGNMENT.
+		 Failure to do so could lead to ix86_legitimate_combined_insn
+		 rejecting all changes to such insns.  */
+	      unsigned int align = get_pointer_alignment (arg);
+	      if (aligned_mem && align < GET_MODE_ALIGNMENT (mode))
+		align = GET_MODE_ALIGNMENT (mode);
+	      if (MEM_ALIGN (op) < align)
+		set_mem_align (op, align);
 	    }
 	  else
 	    {
@@ -33377,6 +33460,29 @@ addcarryx:
       PUT_MODE (pat, QImode);
       emit_insn (gen_rtx_SET (VOIDmode, target, pat));
       return target;
+
+    case IX86_BUILTIN_READ_FLAGS:
+      emit_insn (gen_push (gen_rtx_REG (word_mode, FLAGS_REG)));
+
+      if (optimize
+	  || target == NULL_RTX
+	  || !nonimmediate_operand (target, word_mode)
+	  || GET_MODE (target) != word_mode)
+	target = gen_reg_rtx (word_mode);
+
+      emit_insn (gen_pop (target));
+      return target;
+
+    case IX86_BUILTIN_WRITE_FLAGS:
+
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      op0 = expand_normal (arg0);
+      if (!general_no_elim_operand (op0, word_mode))
+	op0 = copy_to_mode_reg (word_mode, op0);
+
+      emit_insn (gen_push (op0));
+      emit_insn (gen_pop (gen_rtx_REG (word_mode, FLAGS_REG)));
+      return 0;
 
     case IX86_BUILTIN_GATHERSIV2DF:
       icode = CODE_FOR_avx2_gathersiv2df;
