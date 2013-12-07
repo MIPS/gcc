@@ -27,4 +27,4 @@ main (void)
 /* { dg-final { scan-assembler-times "(?n)s\[wd\]\t\\\$.*,.*\\(\\\$sp\\)" 2 } } */
 
 /* Check that the first caller-save register is unused.  */
-/* { dg-final { scan-assembler-not "(\\\$16)" } } */
+/* { dg-final { scan-assembler-not "\\\$16" } } */
