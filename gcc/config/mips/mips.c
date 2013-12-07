@@ -18717,12 +18717,15 @@ mips_fn_other_hard_reg_usage (struct hard_reg_set_container *fn_used_regs)
      by the split call insn(s) after register allocation (we don't need the
      clobber for a non-returning call, but we don't expect there will be a
      penalty if we add the clobber for both returning and non-returning calls).
+
      For the sake of simplicity we don't add the individual clobbers, but we use
-     this hook to mark the reg as clobbered during a call (though strictly
-     speaking this is not accurate, since this register is clobbered not during
-     but after a call).  */
-  if (TARGET_SPLIT_CALLS
-      && cfun->machine->must_restore_gp_when_clobbered_p)
+     this hook to mark the reg as clobbered.  This is a bit ugly, since this
+     hook is called during the final pass on a function, and we're expressing
+     here that the insn after a call to this function will clobber a register.
+
+     The condition is the pass-independent part of TARGET_SPLIT_CALLS.  */
+  if (TARGET_EXPLICIT_RELOCS
+      && TARGET_CALL_CLOBBERED_GP)
     SET_HARD_REG_BIT (fn_used_regs->set, POST_CALL_TMP_REG);
 }
 
