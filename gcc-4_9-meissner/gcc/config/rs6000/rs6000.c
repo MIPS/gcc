@@ -329,27 +329,12 @@ enum rs6000_reg_type {
 /* Map register class to register type.  */
 static enum rs6000_reg_type reg_class_to_reg_type[N_REG_CLASSES];
 
-/* Return whether a given register class is one of register classes (VSX_REGS,
-   ALTIVEC_REGS, and FLOAT_REGS) that could go in VSX registers.  If no -mvsx,
-   the floating point and altivec registers don't get mapped to vsx
-   registers.  */
-
-/* Return whether a given register class is one of the register classes that
-   VSX instructions can use (VSX_REGS, ALTIVEC_REGS, and FLOAT_REGS).  */
-#define VSX_REG_CLASS_P(CLASS)			\
-  (reg_class_to_reg_type[(ssize_t)(CLASS)] == VSX_REG_TYPE)
-
-/* Return whether a given register class is one of the GPR register classes
-   (GENERAL_REGS, BASE_REGS).  */
-
-#define GPR_REG_CLASS_P(CLASS)			\
-  (reg_class_to_reg_type[(ssize_t)(CLASS)] == GPR_REG_TYPE)
-
 /* First/last register type for the 'normal' register types (i.e. general
    purpose, floating point, altivec, and VSX registers).  */
 #define IS_STD_REG_TYPE(RTYPE) IN_RANGE(RTYPE, GPR_REG_TYPE, FPR_REG_TYPE)
 
 #define IS_FP_VECT_REG_TYPE(RTYPE) IN_RANGE(RTYPE, VSX_REG_TYPE, FPR_REG_TYPE)
+
 
 /* Register classes we care about in secondary reload or go if legitimate
    address.  We only need to worry about GPR, FPR, and Altivec registers here,
@@ -2711,16 +2696,16 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_di_load;
 	  if (TARGET_UPPER_REGS_DF)
 	    {
-	      reg_addr[DFmode].reload_store = CODE_FOR_reload_df_di_store;
-	      reg_addr[DFmode].reload_load  = CODE_FOR_reload_df_di_load;
-	      reg_addr[DFmode].new_reload_p = true;
+	      reg_addr[DFmode].reload_store    = CODE_FOR_reload_df_di_store;
+	      reg_addr[DFmode].reload_load     = CODE_FOR_reload_df_di_load;
+	      reg_addr[DFmode].new_reload_p    = true;
 	      reg_addr[DFmode].scalar_in_vmx_p = true;
 	    }
 	  if (TARGET_UPPER_REGS_SF)
 	    {
-	      reg_addr[SFmode].reload_store = CODE_FOR_reload_sf_di_store;
-	      reg_addr[SFmode].reload_load  = CODE_FOR_reload_sf_di_load;
-	      reg_addr[SFmode].new_reload_p = true;
+	      reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_di_store;
+	      reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_di_load;
+	      reg_addr[SFmode].new_reload_p    = true;
 	      reg_addr[SFmode].scalar_in_vmx_p = true;
 	    }
 	  if (TARGET_VSX_TIMODE)
@@ -2774,16 +2759,16 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_si_load;
 	  if (TARGET_UPPER_REGS_DF)
 	    {
-	      reg_addr[DFmode].reload_store = CODE_FOR_reload_df_si_store;
-	      reg_addr[DFmode].reload_load  = CODE_FOR_reload_df_si_load;
-	      reg_addr[DFmode].new_reload_p = true;
+	      reg_addr[DFmode].reload_store    = CODE_FOR_reload_df_si_store;
+	      reg_addr[DFmode].reload_load     = CODE_FOR_reload_df_si_load;
+	      reg_addr[DFmode].new_reload_p    = true;
 	      reg_addr[DFmode].scalar_in_vmx_p = true;
 	    }
 	  if (TARGET_UPPER_REGS_SF)
 	    {
-	      reg_addr[SFmode].reload_store = CODE_FOR_reload_sf_si_store;
-	      reg_addr[SFmode].reload_load  = CODE_FOR_reload_sf_si_load;
-	      reg_addr[SFmode].new_reload_p = true;
+	      reg_addr[SFmode].reload_store    = CODE_FOR_reload_sf_si_store;
+	      reg_addr[SFmode].reload_load     = CODE_FOR_reload_sf_si_load;
+	      reg_addr[SFmode].new_reload_p    = true;
 	      reg_addr[SFmode].scalar_in_vmx_p = true;
 	    }
 	  if (TARGET_VSX_TIMODE)
@@ -18169,8 +18154,7 @@ print_operand (FILE *file, rtx x, int code)
     case 'x':
       /* X is a FPR or Altivec register used in a VSX context.  */
       if (GET_CODE (x) != REG || !VSX_REGNO_P (REGNO (x)))
-	/* output_operand_lossage ("invalid %%x value"); */
-	fatal_insn ("invalid %%x value", x);
+	output_operand_lossage ("invalid %%x value");
       else
 	{
 	  int reg = REGNO (x);

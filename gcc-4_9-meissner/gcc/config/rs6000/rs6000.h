@@ -621,7 +621,7 @@ extern int rs6000_vector_align[];
 #define TARGET_DF_SPE	(TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT	\
 			 && !TARGET_FPRS && TARGET_E500_DOUBLE)
 
-/* Whether SF/DF operations are supported by by the normal floating point unit
+/* Whether SF/DF operations are supported by the normal floating point unit
    (or the vector/scalar unit).  */
 #define TARGET_SF_FPR	(TARGET_HARD_FLOAT && TARGET_FPRS		\
 			 && TARGET_SINGLE_FLOAT)
@@ -1441,6 +1441,13 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 /* The class value for index registers, and the one for base regs.  */
 #define INDEX_REG_CLASS GENERAL_REGS
 #define BASE_REG_CLASS BASE_REGS
+
+/* Return whether a given register class can hold VSX objects.  */
+#define VSX_REG_CLASS_P(CLASS)			\
+  ((CLASS) == VSX_REGS || (CLASS) == FLOAT_REGS || (CLASS) == ALTIVEC_REGS)
+
+/* Return whether a given register class targets general purpose registers.  */
+#define GPR_REG_CLASS_P(CLASS) ((CLASS) == GENERAL_REGS || (CLASS) == BASE_REGS)
 
 /* Given an rtx X being reloaded into a reg required to be
    in class CLASS, return the class of reg to actually use.
