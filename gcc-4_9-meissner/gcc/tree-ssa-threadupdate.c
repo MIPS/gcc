@@ -421,27 +421,22 @@ create_edge_and_update_destination_phis (struct redirection_data *rd,
   e->probability = REG_BR_PROB_BASE;
   e->count = bb->count;
 
-  /* We have to copy path -- which means creating a new vector as well
-     as all the jump_thread_edge entries.  */
-  if (rd->path->last ()->e->aux)
-    {
-      vec<jump_thread_edge *> *path = THREAD_PATH (rd->path->last ()->e);
-      vec<jump_thread_edge *> *copy = new vec<jump_thread_edge *> ();
+  /* We used to copy the thread path here.  That was added in 2007
+     and dutifully updated through the representation changes in 2013.
 
-      /* Sadly, the elements of the vector are pointers and need to
-	 be copied as well.  */
-      for (unsigned int i = 0; i < path->length (); i++)
-	{
-	  jump_thread_edge *x
-	    = new jump_thread_edge ((*path)[i]->e, (*path)[i]->type);
-	  copy->safe_push (x);
-	}
-      e->aux = (void *)copy;
-    }
-  else
-    {
-      e->aux = NULL;
-    }
+     In 2013 we added code to thread from an interior node through
+     the backedge to another interior node.  That runs after the code
+     to thread through loop headers from outside the loop.
+
+     The latter may delete edges in the CFG, including those
+     which appeared in the jump threading path we copied here.  Thus
+     we'd end up using a dangling pointer.
+
+     After reviewing the 2007/2011 code, I can't see how anything
+     depended on copying the AUX field and clearly copying the jump
+     threading path is problematical due to embedded edge pointers.
+     It has been removed.  */
+  e->aux = NULL;
 
   /* If there are any PHI nodes at the destination of the outgoing edge
      from the duplicate block, then we will need to add a new argument
@@ -1417,7 +1412,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
     {
       EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
 	{
-	  bb = BASIC_BLOCK (i);
+	  bb = BASIC_BLOCK_FOR_FN (cfun, i);
 	  if (EDGE_COUNT (bb->preds) > 1
 	      && !redirection_block_p (bb))
 	    {
@@ -1447,7 +1442,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
      by trimming off the end of the jump thread path.  */
   EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
     {
-      basic_block bb = BASIC_BLOCK (i);
+      basic_block bb = BASIC_BLOCK_FOR_FN (cfun, i);
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (e->aux)
@@ -1517,7 +1512,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
      we have to iterate on those rather than the threaded_edges vector.  */
   EXECUTE_IF_SET_IN_BITMAP (tmp, 0, i, bi)
     {
-      bb = BASIC_BLOCK (i);
+      bb = BASIC_BLOCK_FOR_FN (cfun, i);
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
 	  if (e->aux)
@@ -1597,7 +1592,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
      loop structure.  */
   EXECUTE_IF_SET_IN_BITMAP (threaded_blocks, 0, i, bi)
     {
-      basic_block bb = BASIC_BLOCK (i);
+      basic_block bb = BASIC_BLOCK_FOR_FN (cfun, i);
 
       if (EDGE_COUNT (bb->preds) > 0)
 	retval |= thread_block (bb, true);
@@ -1636,7 +1631,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
      ahead and thread it, else ignore it.  */
   basic_block bb;
   edge e;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       /* If we do end up threading here, we can remove elements from
 	 BB->preds.  Thus we can not use the FOR_EACH_EDGE iterator.  */

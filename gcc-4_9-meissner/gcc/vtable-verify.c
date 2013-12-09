@@ -586,10 +586,10 @@ verify_bb_vtables (basic_block bb)
       stmt = gsi_stmt (gsi_virtual_call);
 
       /* Count virtual calls.  */
-      if (gimple_code (stmt) == GIMPLE_CALL)
+      if (is_gimple_call (stmt))
         {
           tree fncall = gimple_call_fn (stmt);
-          if (TREE_CODE (fncall) == OBJ_TYPE_REF)
+          if (fncall && TREE_CODE (fncall) == OBJ_TYPE_REF)
             total_num_virtual_calls++;
         }
 
@@ -646,9 +646,6 @@ verify_bb_vtables (basic_block bb)
 
               if (vtable_map_node && vtable_map_node->vtbl_map_decl)
                 {
-                  use_operand_p use_p;
-                  ssa_op_iter iter;
-
                   vtable_map_node->is_used = true;
                   vtbl_var_decl = vtable_map_node->vtbl_map_decl;
 
@@ -695,35 +692,27 @@ verify_bb_vtables (basic_block bb)
                   gimple_call_set_lhs (call_stmt, tmp0);
                   update_stmt (call_stmt);
 
-                  /* Find the next stmt, after the vptr assignment
-                     statememt, which should use the result of the
-                     vptr assignment statement value. */
-                  gsi_next (&gsi_vtbl_assign);
-                  gimple next_stmt = gsi_stmt (gsi_vtbl_assign);
-
-                  if (!next_stmt)
-                    return;
-
-                  /* Find any/all uses of 'lhs' in next_stmt, and
-                     replace them with 'tmp0'.  */
+                  /* Replace all uses of lhs with tmp0. */
                   found = false;
-                  FOR_EACH_PHI_OR_STMT_USE (use_p, next_stmt, iter,
-                                            SSA_OP_ALL_USES)
+                  imm_use_iterator iterator;
+                  gimple use_stmt;
+                  FOR_EACH_IMM_USE_STMT (use_stmt, iterator, lhs)
                     {
-                      tree op = USE_FROM_PTR (use_p);
-                      if (op == lhs)
-                        {
-                          SET_USE (use_p, tmp0);
-                          found = true;
-                        }
+                      use_operand_p use_p;
+                      if (use_stmt == call_stmt)
+                        continue;
+                      FOR_EACH_IMM_USE_ON_STMT (use_p, iterator)
+                        SET_USE (use_p, tmp0);
+                      update_stmt (use_stmt);
+                      found = true;
                     }
-                  update_stmt (next_stmt);
+
                   gcc_assert (found);
 
                   /* Insert the new verification call just after the
                      statement that gets the vtable pointer out of the
                      object.  */
-                  gsi_vtbl_assign = gsi_for_stmt (stmt);
+                  gcc_assert (gsi_stmt (gsi_vtbl_assign) == stmt);
                   gsi_insert_after (&gsi_vtbl_assign, call_stmt,
                                     GSI_NEW_STMT);
 
@@ -746,7 +735,7 @@ vtable_verify_main (void)
   unsigned int ret = 1;
   basic_block bb;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
       verify_bb_vtables (bb);
 
   return ret;
