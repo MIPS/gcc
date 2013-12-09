@@ -3,58 +3,58 @@
 
 int test1()
 {
-  int i, j, k, b(10);
+  int i, j, k, b[10];
   int a[30];
   double d;
   float r;
   i = 0;
 #pragma acc loop
-  while(1)  /* { dg-error "cannot be a WHILE without loop control" } */
+  while(1)  /* { dg-error "for statement expected" } */
     {
-      if (i > 0) break; /* { dg-error "BREAK statement" }{ */
+      if (i > 0) break; 
       i = i + 1;
     }
   i = 0;
 #pragma acc loop
-  for(;;)  /* { dg-error "cannot be a WHILE without loop control" } */
+  for(;;)  /* { dg-error "expected iteration declaration or initialization" } */
     {
-      if (i > 0) break; /* { dg-error "BREAK statement" }{ */
+      if (i > 0) break; /* { dg-error "break statement used" }{ */
       i = i + 1;
     }
   i = 0;
 #pragma acc loop
-  do  /* { dg-error "cannot be a WHILE without loop control" } */
+  do  /* { dg-error "for statement expected" } */
     {
       i = i + 1;
     }
   while (i < 4);
 #pragma acc loop
-  while (i < 8)  /* { dg-error "cannot be a WHILE without loop control" } */
+  while (i < 8)  /* { dg-error "for statement expected" } */
     {
       i = i + 1;
     }
 #pragma acc loop
-  for (d = 1; d < 30; d+= 6)  /* { dg-error "integer" } */
+  for (d = 1; d < 30; d+= 6)  /* { dg-error "invalid type for iteration variable" } */
     {
       i = d;
-      a(i) = 1;
+      a[i] = 1;
     }
 #pragma acc loop
-  for (d = 1; d < 30; d+= 5)  /* { dg-error "integer" } */
+  for (d = 1; d < 30; d+= 5)  /* { dg-error "invalid type for iteration variable" } */
     {
       i = d;
-      a(i) = 2;
+      a[i] = 2;
     }
 #pragma acc loop
   for (i = 1; i < 30; i++ )
-    if (i == 16) break; /* { dg-error "BREAK statement" }{ */
-}
+    if (i == 16) break; /* { dg-error "break statement used" }{ */
+
 #pragma acc loop
 for(i = 1; i < 30; i++)
   {
     for(j = 5; j < 10; j++)
       {
-        if (i == 6 && j == 7) break outer; /* { dg-error "BREAK statement" }{ */
+        if (i == 6 && j == 7) goto outer; /* { dg-error "invalid branch" }{ */
       }
   }
 outer:
@@ -67,12 +67,12 @@ for (i = 1; i < 10; i++)
 #pragma acc loop
 for (i = 1; i < 10; i+=2)
   {
-    a(i) = i;
+    a[i] = i;
   }
 
 /* after loop directive must be loop */
 #pragma acc loop
-a(1) = 1; /* { dg-error "Unexpected" } */
+a[1] = 1; /* { dg-error "for statement expected" } */
        for (i = 1; i < 10; i++)
   {
   }
@@ -86,53 +86,33 @@ for(i = 1; i < 10; i++)
   {
   }
 
-/* reduction clause not allowed in kernels region */
-#pragma acc kernels loop reduction(max:i) /* { dg-error "KERNELS region" } */
-for(i = 1; i < 10; i++)
-  {
-  }
-#pragma acc kernels
-{
-#pragma acc loop reduction(max:i) /* { dg-error "KERNELS region" } */
+#pragma acc parallel loop collapse(0) /* { dg-error "positive constant integer" } */
   for(i = 1; i < 10; i++)
     {
     }
 
-
-#pragma acc parallel loop collapse(0) /* { dg-error "constant positive integer" } */
+#pragma acc parallel loop collapse(-1) /* { dg-error "positive constant integer" } */
   for(i = 1; i < 10; i++)
     {
     }
 
-#pragma acc parallel loop collapse(-1) /* { dg-error "constant positive integer" } */
+#pragma acc parallel loop collapse(i) /* { dg-error "positive constant integer" } */
   for(i = 1; i < 10; i++)
     {
     }
 
-#pragma acc parallel loop collapse(i) /* { dg-error "Constant expression required" } */
-  for(i = 1; i < 10; i++)
-    {
-    }
-
-#pragma acc parallel loop collapse(4) /* { dg-error "not enough FOR loops for collapsed" } */
+#pragma acc parallel loop collapse(4) 
   for (i = 1; i < 3; i++)
     {
       for (j = 4; j < 6; j++)
         {
           for (k = 5; k < 7; k++)
             {
-              a(i+j-k) = i + j + k;
+              a[i+j-k] = i + j + k; /* { dg-error "not enough perfectly nested loops before" } */
             }
         }
     }
 #pragma acc parallel loop collapse(2)
-  for(i = 1; i < 5; i+=2)
-    {
-      for(j = i + 1; j < 7; j+=i) 	/* { dg-error "collapsed loops don.t form rectangular iteration space" } */
-        {
-        }
-    }
-#pragma acc parallel loop collapse(2)
   for(i = 1; i < 3; i++)
     {
       for(j = 4; j < 6; j++)
@@ -145,31 +125,23 @@ for(i = 1; i < 10; i++)
       for(j = 4; j < 6; j++)
         {
         }
-      k = 4;
+      k = 4;/* { dg-error "collapsed loops not perfectly nested before" } */
     }
 #pragma acc parallel loop collapse(2)
   for (i = 1; i < 3; i++)
     {
-      do			/* { dg-error "cannot be a WHILE without loop control" } */
-      }
-  while(0)
+      do			/* { dg-error "not enough perfectly nested loops before" } */
+      {}
+      while(0);
   }
 #pragma acc parallel loop collapse(2)
 for (i = 1; i < 3; i++)
   {
-    for (r = 4, r < 6; r++)		/* { dg-error "integer" } */
+    for (r = 4; r < 6; r++)		/* { dg-error "invalid type for iteration variable" } */
       {
       }
   }
 
-/* Both seq and independent are not allowed */
-#pragma acc loop independent seq /* { dg-error "not allowed" } */
-for(i = 1; i < 10; i++)
-  {
-  }
-
-
-#pragma acc cache (a(1)) /* { dg-error "inside of loop" } */
 
 for(i = 1; i < 10; i++)
   {
@@ -188,14 +160,15 @@ for(i = 1; i < 10; i++)
 
 for(i = 1; i < 10; i++)
   {
-#pragma acc cache(a(1))
+#pragma acc cache(a[1])
   }
 
 for(i = 1; i < 10; i++)
   {
-    a(i) = i
-#pragma acc cache(a(1))
+    a[i] = i;
+#pragma acc cache(a[1])
   }
 
+  return 0;
+
 }
-/* { dg-excess-errors "Deleted" } */

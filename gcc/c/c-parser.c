@@ -11125,6 +11125,63 @@ c_parser_acc_var_list_parens (c_parser *parser, enum acc_clause_code kind,
   return list;
 }
 
+static tree
+c_parser_acc_cache_list_parens (c_parser *parser, tree list)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+
+  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+  {
+    if (c_parser_next_token_is_not (parser, CPP_NAME) ||
+          c_parser_peek_token (parser)->id_kind != C_ID_ID)
+      {
+        c_parser_error (parser, "expected identifier");
+      }
+
+      while (c_parser_next_token_is (parser, CPP_NAME) &&
+             c_parser_peek_token (parser)->id_kind == C_ID_ID)
+      {
+        tree t_name = lookup_name (c_parser_peek_token (parser)->value);
+
+        if (t_name == NULL_TREE)
+            undeclared_variable (c_parser_peek_token (parser)->location,
+                                 c_parser_peek_token (parser)->value);
+        else
+          {
+            tree idx, array_ref, new_clause;
+
+            /* Parse array reference. */
+            c_parser_consume_token (parser);
+            if (c_parser_next_token_is_not (parser, CPP_OPEN_SQUARE))
+              c_parser_error (parser, "only single array elements and subarrays"
+                                      " are allowed in #pragma acc cache");
+
+            /* TODO: use Cilk+ c_parser_array_notation for subarrays */
+            c_parser_consume_token (parser);
+            idx = c_parser_expression (parser).value;
+            c_parser_skip_until_found (parser, CPP_CLOSE_SQUARE,
+                                       "expected %<]%>");
+            array_ref = build_array_ref (loc, t_name, idx);
+
+            new_clause = build_acc_clause (loc, ACC_NO_CLAUSE_CACHE);
+            ACC_CLAUSE_DECL (new_clause) = array_ref;
+            ACC_CLAUSE_CHAIN (new_clause) = list;
+
+            list = new_clause;
+          }
+
+        if (c_parser_next_token_is_not (parser, CPP_COMMA))
+          break;
+
+        c_parser_consume_token (parser);
+      }
+
+    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+  }
+
+  return list;
+}
+
 /* OpenACC 1.0:
    async */
 static tree
@@ -11244,10 +11301,10 @@ c_parser_acc_clause_collapse (c_parser *parser, tree list)
   return c;
 }
 
-/* OpenACC 1.0:
-   num_gangs ( expression ) */
 static tree
-c_parser_acc_clause_num_gangs (c_parser *parser, tree list)
+c_parser_acc_positive_integer_expression (c_parser *parser, tree list,
+                                          enum acc_clause_code code,
+                                          const char *name)
 {
   location_t loc = c_parser_peek_token (parser)->location;
 
@@ -11277,20 +11334,51 @@ c_parser_acc_clause_num_gangs (c_parser *parser, tree list)
     if (c == boolean_true_node)
     {
       warning_at (expr_loc, 0,
-                  "%<num_gangs%> value must be positive");
+                  "%<%s%> value must be positive", name);
       t = integer_one_node;
     }
 
-    c_parser_acc_clause_check_no_duplicate (list, ACC_CLAUSE_NUM_GANGS,
-                                            "num_gangs");
+    c_parser_acc_clause_check_no_duplicate (list, code, name);
 
-    c = build_acc_clause (loc, ACC_CLAUSE_NUM_GANGS);
-    ACC_CLAUSE_NUM_GANGS_EXPR (c) = t;
+    c = build_acc_clause (loc, code);
+    switch (code)
+      {
+      case ACC_CLAUSE_NUM_GANGS:
+        ACC_CLAUSE_NUM_GANGS_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_VECTOR_LENGTH:
+        ACC_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_NUM_WORKERS:
+        ACC_CLAUSE_NUM_WORKERS_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_GANG:
+        ACC_CLAUSE_GANG_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_WORKER:
+        ACC_CLAUSE_WORKER_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_VECTOR:
+        ACC_CLAUSE_VECTOR_EXPR (c) = t;
+        break;
+      default:
+        gcc_unreachable ();
+      }
     ACC_CLAUSE_CHAIN (c) = list;
     list = c;
   }
 
   return list;
+}
+
+/* OpenACC 1.0:
+   num_gangs ( expression ) */
+static tree
+c_parser_acc_clause_num_gangs (c_parser *parser, tree list)
+{
+  return c_parser_acc_positive_integer_expression(parser, list,
+                                                  ACC_CLAUSE_NUM_GANGS,
+                                                  "num_gangs");
 }
 
 /* OpenACC 1.0:
@@ -11298,96 +11386,19 @@ c_parser_acc_clause_num_gangs (c_parser *parser, tree list)
 static tree
 c_parser_acc_clause_vector_length (c_parser *parser, tree list)
 {
-  location_t loc = c_parser_peek_token (parser)->location;
-
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-  {
-    location_t expr_loc = c_parser_peek_token (parser)->location;
-    tree c, t = c_parser_expression (parser).value;
-    mark_exp_read (t);
-    t = c_fully_fold (t, false, NULL);
-
-    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-
-    if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
-    {
-      c_parser_error (parser, "expected integer expression");
-      return list;
-    }
-
-    /* Attempt to statically determine when the number isn't positive.  */
-    c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
-                         build_int_cst (TREE_TYPE (t), 0));
-    if (CAN_HAVE_LOCATION_P (c))
-    {
-      SET_EXPR_LOCATION (c, expr_loc);
-    }
-
-    if (c == boolean_true_node)
-    {
-      warning_at (expr_loc, 0,
-                  "%<vector_length%> value must be positive");
-      t = integer_one_node;
-    }
-
-    c_parser_acc_clause_check_no_duplicate (list, ACC_CLAUSE_NUM_GANGS, "num_gangs");
-
-    c = build_acc_clause (loc, ACC_CLAUSE_VECTOR_LENGTH);
-    ACC_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
-    ACC_CLAUSE_CHAIN (c) = list;
-    list = c;
-  }
-
-  return list;
+  return c_parser_acc_positive_integer_expression(parser, list,
+                                                  ACC_CLAUSE_VECTOR_LENGTH,
+                                                  "vector_length");
 }
+
 /* OpenACC 1.0:
    num_workers ( expression ) */
 static tree
 c_parser_acc_clause_num_workers (c_parser *parser, tree list)
 {
-  location_t loc = c_parser_peek_token (parser)->location;
-
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-  {
-    location_t expr_loc = c_parser_peek_token (parser)->location;
-    tree c, t = c_parser_expression (parser).value;
-    mark_exp_read (t);
-    t = c_fully_fold (t, false, NULL);
-
-    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-
-    if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
-    {
-      c_parser_error (parser, "expected integer expression");
-      return list;
-    }
-
-    /* Attempt to statically determine when the number isn't positive.  */
-    c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
-                         build_int_cst (TREE_TYPE (t), 0));
-    if (CAN_HAVE_LOCATION_P (c))
-    {
-      SET_EXPR_LOCATION (c, expr_loc);
-    }
-
-    if (c == boolean_true_node)
-    {
-      warning_at (expr_loc, 0,
-                  "%<num_workers%> value must be positive");
-      t = integer_one_node;
-    }
-
-    c_parser_acc_clause_check_no_duplicate (list,
-                                            ACC_CLAUSE_NUM_WORKERS,
-                                            "num_workers");
-
-    c = build_acc_clause (loc, ACC_CLAUSE_NUM_WORKERS);
-    ACC_CLAUSE_NUM_WORKERS_EXPR (c) = t;
-    ACC_CLAUSE_CHAIN (c) = list;
-    list = c;
-  }
-
-  return list;
+  return c_parser_acc_positive_integer_expression(parser, list,
+                                                  ACC_CLAUSE_NUM_WORKERS,
+                                                  "num_workers");
 }
 
 /* OpenACC 1.0:
@@ -11603,21 +11614,21 @@ c_parser_acc_all_clauses (c_parser *parser, unsigned int mask,
       c_name = "deviceptr";
       break;
     case PRAGMA_ACC_CLAUSE_GANG:
-      clauses = c_parser_acc_var_list_parens (parser,
-                                              ACC_CLAUSE_GANG,
-                                              clauses);
+      clauses =
+          c_parser_acc_positive_integer_expression(parser, clauses,
+                                                   ACC_CLAUSE_GANG, "gang");
       c_name = "gang";
       break;
     case PRAGMA_ACC_CLAUSE_WORKER:
-      clauses = c_parser_acc_var_list_parens (parser,
-                                              ACC_CLAUSE_WORKER,
-                                              clauses);
+      clauses =
+          c_parser_acc_positive_integer_expression(parser, clauses,
+                                                   ACC_CLAUSE_WORKER, "worker");
       c_name = "worker";
       break;
     case PRAGMA_ACC_CLAUSE_VECTOR:
-      clauses = c_parser_acc_var_list_parens (parser,
-                                              ACC_CLAUSE_VECTOR,
-                                              clauses);
+      clauses =
+          c_parser_acc_positive_integer_expression(parser, clauses,
+                                                   ACC_CLAUSE_VECTOR, "vector");
       break;
       /* Undone - TODO Do not know how it should look like.
 
@@ -11752,85 +11763,310 @@ c_finish_acc_data (location_t loc, tree clauses, tree block)
   return add_stmt (stmt);
 }
 
-/* OpenACC 1.0:
-   # pragma parallel parallel-clause new-line
-   # pragma parallel for parallel-for-clause new-line
-
-   LOC is the location of the #pragma token.
-*/
+/* FIXME: split with check_omp_for_incr_expr */
 static tree
-c_parser_acc_parallel (location_t loc, c_parser *parser)
+check_acc_loop_incr_expr (location_t loc, tree exp, tree decl)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_PARALLEL;
-  const char *p_name = "#pragma acc parallel";
-  tree stmt, clauses, block;
-  unsigned int mask = ACC_PARALLEL_CLAUSE_MASK;
+  tree t;
 
-/* TODO FIX ERROR
- *   const char *next_token = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-  if (!strcmp(next_token, "loop"))
+  if (!INTEGRAL_TYPE_P (TREE_TYPE (exp))
+      || TYPE_PRECISION (TREE_TYPE (exp)) < TYPE_PRECISION (TREE_TYPE (decl)))
+    return error_mark_node;
+
+  if (exp == decl)
+    return build_int_cst (TREE_TYPE (exp), 0);
+
+  switch (TREE_CODE (exp))
     {
-      c_parser_consume_token (parser);
-      p_kind = PRAGMA_ACC_PARALLEL_LOOP;
-      p_name = "#pragma acc parallel loop";
-      mask |= ACC_LOOP_CLAUSE_MASK;
+    CASE_CONVERT:
+      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 0), decl);
+      if (t != error_mark_node)
+        return fold_convert_loc (loc, TREE_TYPE (exp), t);
+      break;
+    case MINUS_EXPR:
+      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 0), decl);
+      if (t != error_mark_node)
+        return fold_build2_loc (loc, MINUS_EXPR,
+                            TREE_TYPE (exp), t, TREE_OPERAND (exp, 1));
+      break;
+    case PLUS_EXPR:
+      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 0), decl);
+      if (t != error_mark_node)
+        return fold_build2_loc (loc, PLUS_EXPR,
+                            TREE_TYPE (exp), t, TREE_OPERAND (exp, 1));
+      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 1), decl);
+      if (t != error_mark_node)
+        return fold_build2_loc (loc, PLUS_EXPR,
+                            TREE_TYPE (exp), TREE_OPERAND (exp, 0), t);
+      break;
+    case COMPOUND_EXPR:
+      {
+        /* cp_build_modify_expr forces preevaluation of the RHS to make
+           sure that it is evaluated before the lvalue-rvalue conversion
+           is applied to the LHS.  Reconstruct the original expression.  */
+        tree op0 = TREE_OPERAND (exp, 0);
+        if (TREE_CODE (op0) == TARGET_EXPR
+            && !VOID_TYPE_P (TREE_TYPE (op0)))
+          {
+            tree op1 = TREE_OPERAND (exp, 1);
+            tree temp = TARGET_EXPR_SLOT (op0);
+            if (TREE_CODE_CLASS (TREE_CODE (op1)) == tcc_binary
+                && TREE_OPERAND (op1, 1) == temp)
+              {
+                op1 = copy_node (op1);
+                TREE_OPERAND (op1, 1) = TARGET_EXPR_INITIAL (op0);
+                return check_acc_loop_incr_expr (loc, op1, decl);
+              }
+          }
+        break;
+      }
+    default:
+      break;
     }
-*/
 
-  clauses = c_parser_acc_all_clauses (parser, mask, p_name);
-
-  switch (p_kind)
-  {
-  case PRAGMA_ACC_PARALLEL:
-    block = c_begin_acc_parallel ();
-    c_parser_statement (parser);
-    stmt = c_finish_acc_parallel (loc, clauses, block);
-    break;
-
-  default:
-    gcc_unreachable ();
-  }
-
-  return stmt;
+  return error_mark_node;
 }
 
-/*
- * OpenACC 1.0
- * Kernels pragma
- * */
+/* FIXME: split with c_finish_omp_for */
 static tree
-c_parser_acc_kernels (location_t loc, c_parser *parser)
+c_finish_acc_loop (location_t locus, tree declv, tree initv, tree condv,
+                   tree incrv, tree body, tree pre_body)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_KERNELS;
-  const char *p_name = "#pragma acc kernels";
-  tree stmt, clauses, block;
-  unsigned int mask = ACC_KERNELS_CLAUSE_MASK;
+  location_t elocus;
+  bool fail = false;
+  int i;
 
-  /* TODO FIX ERROR
-   * const char *next_token = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
-  if (!strcmp(next_token, "loop"))
+  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (initv));
+  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (condv));
+  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (incrv));
+  for (i = 0; i < TREE_VEC_LENGTH (declv); i++)
     {
-      c_parser_consume_token (parser);
-      p_kind = PRAGMA_ACC_KERNELS_LOOP;
-      p_name = "#pragma acc kernels loop";
-      mask |= ACC_LOOP_CLAUSE_MASK;
+      tree decl = TREE_VEC_ELT (declv, i);
+      tree init = TREE_VEC_ELT (initv, i);
+      tree cond = TREE_VEC_ELT (condv, i);
+      tree incr = TREE_VEC_ELT (incrv, i);
+
+      elocus = locus;
+      if (EXPR_HAS_LOCATION (init))
+        elocus = EXPR_LOCATION (init);
+
+      /* Validate the iteration variable.  */
+      if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
+          && TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE)
+        {
+          error_at (elocus, "invalid type for iteration variable %qE", decl);
+          fail = true;
+        }
+
+      /* In the case of "for (int i = 0...)", init will be a decl.  It should
+         have a DECL_INITIAL that we can turn into an assignment.  */
+      if (init == decl)
+        {
+          elocus = DECL_SOURCE_LOCATION (decl);
+
+          init = DECL_INITIAL (decl);
+          if (init == NULL)
+            {
+              error_at (elocus, "%qE is not initialized", decl);
+              init = integer_zero_node;
+              fail = true;
+            }
+
+          init = build_modify_expr (elocus, decl, NULL_TREE, NOP_EXPR,
+                                    /* FIXME diagnostics: This should
+                                       be the location of the INIT.  */
+                                    elocus,
+                                    init,
+                                    NULL_TREE);
+        }
+      gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
+      gcc_assert (TREE_OPERAND (init, 0) == decl);
+
+      if (cond == NULL_TREE)
+        {
+          error_at (elocus, "missing controlling predicate");
+          fail = true;
+        }
+      else
+        {
+          bool cond_ok = false;
+
+          if (EXPR_HAS_LOCATION (cond))
+            elocus = EXPR_LOCATION (cond);
+
+          if (TREE_CODE (cond) == LT_EXPR
+              || TREE_CODE (cond) == LE_EXPR
+              || TREE_CODE (cond) == GT_EXPR
+              || TREE_CODE (cond) == GE_EXPR
+              || TREE_CODE (cond) == NE_EXPR
+              || TREE_CODE (cond) == EQ_EXPR)
+            {
+              tree op0 = TREE_OPERAND (cond, 0);
+              tree op1 = TREE_OPERAND (cond, 1);
+
+              /* 2.5.1.  The comparison in the condition is computed in
+                 the type of DECL, otherwise the behavior is undefined.
+
+                 For example:
+                 long n; int i;
+                 i < n;
+
+                 according to ISO will be evaluated as:
+                 (long)i < n;
+
+                 We want to force:
+                 i < (int)n;  */
+              if (TREE_CODE (op0) == NOP_EXPR
+                  && decl == TREE_OPERAND (op0, 0))
+                {
+                  TREE_OPERAND (cond, 0) = TREE_OPERAND (op0, 0);
+                  TREE_OPERAND (cond, 1)
+                    = fold_build1_loc (elocus, NOP_EXPR, TREE_TYPE (decl),
+                                   TREE_OPERAND (cond, 1));
+                }
+              else if (TREE_CODE (op1) == NOP_EXPR
+                       && decl == TREE_OPERAND (op1, 0))
+                {
+                  TREE_OPERAND (cond, 1) = TREE_OPERAND (op1, 0);
+                  TREE_OPERAND (cond, 0)
+                    = fold_build1_loc (elocus, NOP_EXPR, TREE_TYPE (decl),
+                                   TREE_OPERAND (cond, 0));
+                }
+
+              if (decl == TREE_OPERAND (cond, 0))
+                cond_ok = true;
+              else if (decl == TREE_OPERAND (cond, 1))
+                {
+                  TREE_SET_CODE (cond,
+                                 swap_tree_comparison (TREE_CODE (cond)));
+                  TREE_OPERAND (cond, 1) = TREE_OPERAND (cond, 0);
+                  TREE_OPERAND (cond, 0) = decl;
+                  cond_ok = true;
+                }
+
+              if (TREE_CODE (cond) == NE_EXPR
+                  || TREE_CODE (cond) == EQ_EXPR)
+                {
+                  if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
+                    cond_ok = false;
+                  else if (operand_equal_p (TREE_OPERAND (cond, 1),
+                                            TYPE_MIN_VALUE (TREE_TYPE (decl)),
+                                            0))
+                    TREE_SET_CODE (cond, TREE_CODE (cond) == NE_EXPR
+                                         ? GT_EXPR : LE_EXPR);
+                  else if (operand_equal_p (TREE_OPERAND (cond, 1),
+                                            TYPE_MAX_VALUE (TREE_TYPE (decl)),
+                                            0))
+                    TREE_SET_CODE (cond, TREE_CODE (cond) == NE_EXPR
+                                         ? LT_EXPR : GE_EXPR);
+                  else
+                    cond_ok = false;
+                }
+            }
+
+          if (!cond_ok)
+            {
+              error_at (elocus, "invalid controlling predicate");
+              fail = true;
+            }
+        }
+
+      if (incr == NULL_TREE)
+        {
+          error_at (elocus, "missing increment expression");
+          fail = true;
+        }
+      else
+        {
+          bool incr_ok = false;
+
+          if (EXPR_HAS_LOCATION (incr))
+            elocus = EXPR_LOCATION (incr);
+
+          /* Check all the valid increment expressions: v++, v--, ++v, --v,
+             v = v + incr, v = incr + v and v = v - incr.  */
+          switch (TREE_CODE (incr))
+            {
+            case POSTINCREMENT_EXPR:
+            case PREINCREMENT_EXPR:
+            case POSTDECREMENT_EXPR:
+            case PREDECREMENT_EXPR:
+              if (TREE_OPERAND (incr, 0) != decl)
+                break;
+
+              incr_ok = true;
+              if (POINTER_TYPE_P (TREE_TYPE (decl))
+                  && TREE_OPERAND (incr, 1))
+                {
+                  tree t = fold_convert_loc (elocus,
+                                             sizetype, TREE_OPERAND (incr, 1));
+
+                  if (TREE_CODE (incr) == POSTDECREMENT_EXPR
+                      || TREE_CODE (incr) == PREDECREMENT_EXPR)
+                    t = fold_build1_loc (elocus, NEGATE_EXPR, sizetype, t);
+                  t = fold_build_pointer_plus (decl, t);
+                  incr = build2 (MODIFY_EXPR, void_type_node, decl, t);
+                }
+              break;
+
+            case MODIFY_EXPR:
+              if (TREE_OPERAND (incr, 0) != decl)
+                break;
+              if (TREE_OPERAND (incr, 1) == decl)
+                break;
+              if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
+                  && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl
+                      || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == decl))
+                incr_ok = true;
+              else if ((TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
+                        || (TREE_CODE (TREE_OPERAND (incr, 1))
+                            == POINTER_PLUS_EXPR))
+                       && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl)
+                incr_ok = true;
+              else
+                {
+                  tree t = check_acc_loop_incr_expr (elocus,
+                                                    TREE_OPERAND (incr, 1),
+                                                    decl);
+                  if (t != error_mark_node)
+                    {
+                      incr_ok = true;
+                      t = build2 (PLUS_EXPR, TREE_TYPE (decl), decl, t);
+                      incr = build2 (MODIFY_EXPR, void_type_node, decl, t);
+                    }
+                }
+              break;
+
+            default:
+              break;
+            }
+          if (!incr_ok)
+            {
+              error_at (elocus, "invalid increment expression");
+              fail = true;
+            }
+        }
+
+      TREE_VEC_ELT (initv, i) = init;
+      TREE_VEC_ELT (incrv, i) = incr;
     }
-*/
-  clauses = c_parser_acc_all_clauses (parser, mask, p_name);
 
-  switch (p_kind)
-  {
-  case PRAGMA_ACC_KERNELS:
-    block = c_begin_acc_kernels ();
-    c_parser_statement (parser);
-    stmt = c_finish_acc_kernels (loc, clauses, block);
-    break;
+  if (fail)
+    return NULL;
+  else
+    {
+      tree t = make_node (ACC_LOOP);
 
-  default:
-    gcc_unreachable ();
-  }
+      TREE_TYPE (t) = void_type_node;
+      ACC_LOOP_INIT (t) = initv;
+      ACC_LOOP_COND (t) = condv;
+      ACC_LOOP_INCR (t) = incrv;
+      ACC_LOOP_BODY (t) = body;
+      ACC_LOOP_PRE_BODY (t) = pre_body;
 
-  return stmt;
+      SET_EXPR_LOCATION (t, locus);
+      return add_stmt (t);
+    }
 }
 
 static tree
@@ -12065,7 +12301,7 @@ c_parser_acc_loop_1 (location_t loc,
      an error from the initialization parsing.  */
   if (!fail)
   {
-    stmt = c_finish_omp_for (loc, declv, initv, condv, incrv, body, NULL);
+    stmt = c_finish_acc_loop (loc, declv, initv, condv, incrv, body, NULL);
     if (stmt)
     {
       if (par_clauses != NULL)
@@ -12103,6 +12339,105 @@ c_parser_acc_loop (location_t loc, c_parser *parser)
   add_stmt (block);
 
   return ret;
+}
+
+/* OpenACC 1.0:
+   # pragma parallel parallel-clause new-line
+   # pragma parallel for parallel-for-clause new-line
+
+   LOC is the location of the #pragma token.
+*/
+static tree
+c_parser_acc_parallel (location_t loc, c_parser *parser)
+{
+  enum pragma_kind p_kind = PRAGMA_ACC_PARALLEL;
+  const char *p_name = "#pragma acc parallel";
+  tree stmt, clauses, block;
+  unsigned int mask = ACC_PARALLEL_CLAUSE_MASK;
+
+  if (c_parser_next_token_is (parser, CPP_NAME))
+    {
+      const char *next_token = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      if (!strcmp(next_token, "loop"))
+        {
+          c_parser_consume_token (parser);
+          p_kind = PRAGMA_ACC_PARALLEL_LOOP;
+          p_name = "#pragma acc parallel loop";
+          mask |= ACC_LOOP_CLAUSE_MASK;
+        }
+    }
+
+  clauses = c_parser_acc_all_clauses (parser, mask, p_name);
+
+  switch (p_kind)
+    {
+    case PRAGMA_ACC_PARALLEL:
+      block = c_begin_acc_parallel ();
+      c_parser_statement (parser);
+      stmt = c_finish_acc_parallel (loc, clauses, block);
+      break;
+    case PRAGMA_ACC_PARALLEL_LOOP:
+      block = c_begin_compound_stmt (true);
+      stmt = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
+      block = c_end_compound_stmt (loc, block, true);
+      add_stmt (block);
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  return stmt;
+}
+
+/*
+ * OpenACC 1.0
+ * Kernels pragma
+ * */
+static tree
+c_parser_acc_kernels (location_t loc, c_parser *parser)
+{
+  enum pragma_kind p_kind = PRAGMA_ACC_KERNELS;
+  const char *p_name = "#pragma acc kernels";
+  tree stmt, clauses, block, for_block;
+  unsigned int mask = ACC_KERNELS_CLAUSE_MASK;
+
+  if (c_parser_next_token_is (parser, CPP_NAME))
+    {
+      const char *next_token =
+          IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      if (!strcmp(next_token, "loop"))
+        {
+          c_parser_consume_token (parser);
+          p_kind = PRAGMA_ACC_KERNELS_LOOP;
+          p_name = "#pragma acc kernels loop";
+          mask |= ACC_LOOP_CLAUSE_MASK;
+        }
+    }
+
+  clauses = c_parser_acc_all_clauses (parser, mask, p_name);
+
+  switch (p_kind)
+  {
+  case PRAGMA_ACC_KERNELS:
+    block = c_begin_acc_kernels ();
+    c_parser_statement (parser);
+    stmt = c_finish_acc_kernels (loc, clauses, block);
+    break;
+  case PRAGMA_ACC_KERNELS_LOOP:
+    block = c_begin_acc_kernels ();
+    for_block = c_begin_compound_stmt (true);
+    stmt = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
+    for_block = c_end_compound_stmt (loc, for_block, true);
+    add_stmt (for_block);
+    stmt = c_finish_acc_kernels (loc, clauses, block);
+    break;
+
+  default:
+    gcc_unreachable ();
+  }
+
+  return stmt;
 }
 
 /* OpenACC 1.0:
@@ -12177,11 +12512,13 @@ c_parser_acc_cache (location_t loc, c_parser *parser)
 {
   enum pragma_kind p_kind = PRAGMA_ACC_CACHE;
   const char *p_name = "#pragma acc cache";
-  tree clauses, stmt = make_node (ACC_CACHE);
+  tree clauses = NULL, stmt = make_node (ACC_CACHE);
 
+  clauses = c_parser_acc_cache_list_parens (parser, clauses);
   c_parser_skip_to_pragma_eol (parser);
 
   TREE_TYPE (stmt) = void_type_node;
+  ACC_CACHE_CLAUSES (stmt) = clauses;
   SET_EXPR_LOCATION (stmt, loc);
 
   return add_stmt (stmt);

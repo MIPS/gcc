@@ -1,3 +1,21 @@
+09-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Parse #pragma acc loop in C FE
+
+	* gcc/c/c-parser.c
+	(c_parser_acc_cache_list_parens, 
+	c_parser_acc_positive_integer_expression,
+	check_acc_loop_incr_expr, c_finish_acc_loop):
+	New functions
+	(c_parser_acc_clause_num_gangs, 
+	c_parser_acc_clause_vector_length,
+	c_parser_acc_clause_num_workers): Refactoring
+	(c_parser_acc_all_clauses): Parse gang, worker and vector
+	clauses as positive integer expressions
+	(c_parser_acc_loop_1): Fix
+	(c_parser_acc_cache): Parse only array elements
+	* gcc/testsuite/gcc.dg/gacc/loop-tree.c: New test
+	* gcc/testsuite/gcc.dg/gacc/loop.c: Fix test
+
 06-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Add data directive support in lowering pass
 
