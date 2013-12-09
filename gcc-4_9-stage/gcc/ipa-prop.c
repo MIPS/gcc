@@ -3444,7 +3444,15 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments)
 	  if (adj->by_ref)
 	    ptype = build_pointer_type (adj->type);
 	  else
-	    ptype = adj->type;
+	    {
+	      ptype = adj->type;
+	      if (is_gimple_reg_type (ptype))
+		{
+		  unsigned malign = GET_MODE_ALIGNMENT (TYPE_MODE (ptype));
+		  if (TYPE_ALIGN (ptype) < malign)
+		    ptype = build_aligned_type (ptype, malign);
+		}
+	    }
 
 	  if (care_for_types)
 	    new_arg_types = tree_cons (NULL_TREE, ptype, new_arg_types);
@@ -4718,7 +4726,7 @@ ipcp_transform_function (struct cgraph_node *node)
   descriptors.safe_grow_cleared (param_count);
   ipa_populate_param_decls (node, descriptors);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	struct ipa_agg_replacement_value *v;

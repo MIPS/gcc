@@ -4286,7 +4286,7 @@ emit_cmp_and_jump_insn_1 (rtx test, enum machine_mode mode, rtx label, int prob)
   insn = emit_jump_insn (GEN_FCN (icode) (test, XEXP (test, 0),
                                           XEXP (test, 1), label));
   if (prob != -1
-      && profile_status != PROFILE_ABSENT
+      && profile_status_for_fn (cfun) != PROFILE_ABSENT
       && insn
       && JUMP_P (insn)
       && any_condjump_p (insn)
@@ -4566,8 +4566,10 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
   if (!COMPARISON_P (comparison))
     return NULL_RTX;
 
-  do_pending_stack_adjust ();
+  saved_pending_stack_adjust save;
+  save_pending_stack_adjust (&save);
   last = get_last_insn ();
+  do_pending_stack_adjust ();
   prepare_cmp_insn (XEXP (comparison, 0), XEXP (comparison, 1),
 		    GET_CODE (comparison), NULL_RTX, unsignedp, OPTAB_WIDEN,
 		    &comparison, &cmode);
@@ -4587,6 +4589,7 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	}
     }
   delete_insns_since (last);
+  restore_pending_stack_adjust (&save);
   return NULL_RTX;
 }
 
