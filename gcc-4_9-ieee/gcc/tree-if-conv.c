@@ -212,7 +212,7 @@ free_bb_predicate (basic_block bb)
       gimple_stmt_iterator i;
 
       for (i = gsi_start (stmts); !gsi_end_p (i); gsi_next (&i))
-	free_stmt_operands (gsi_stmt (i));
+	free_stmt_operands (cfun, gsi_stmt (i));
     }
 
   free (bb->aux);
@@ -1815,7 +1815,7 @@ main_tree_if_conversion (void)
 #ifdef ENABLE_CHECKING
   {
     basic_block bb;
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, cfun)
       gcc_assert (!bb->aux);
   }
 #endif

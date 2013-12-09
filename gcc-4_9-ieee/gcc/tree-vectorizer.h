@@ -250,8 +250,11 @@ typedef struct _loop_vec_info {
   /* The loop basic blocks.  */
   basic_block *bbs;
 
+  /* Number of latch executions.  */
+  tree num_itersm1;
   /* Number of iterations.  */
   tree num_iters;
+  /* Number of iterations of the original loop.  */
   tree num_iters_unchanged;
 
   /* Minimum number of iterations below which vectorization is expected to
@@ -349,9 +352,11 @@ typedef struct _loop_vec_info {
 /* Access Functions.  */
 #define LOOP_VINFO_LOOP(L)                 (L)->loop
 #define LOOP_VINFO_BBS(L)                  (L)->bbs
+#define LOOP_VINFO_NITERSM1(L)             (L)->num_itersm1
 #define LOOP_VINFO_NITERS(L)               (L)->num_iters
-/* Since LOOP_VINFO_NITERS can change after prologue peeling
-   retain total unchanged scalar loop iterations for cost model.  */
+/* Since LOOP_VINFO_NITERS and LOOP_VINFO_NITERSM1 can change after
+   prologue peeling retain total unchanged scalar loop iterations for
+   cost model.  */
 #define LOOP_VINFO_NITERS_UNCHANGED(L)     (L)->num_iters_unchanged
 #define LOOP_VINFO_COST_MODEL_MIN_ITERS(L) (L)->min_profitable_iters
 #define LOOP_VINFO_VECTORIZABLE_P(L)       (L)->vectorizable
@@ -443,6 +448,7 @@ enum stmt_vec_info_type {
   shift_vec_info_type,
   op_vec_info_type,
   call_vec_info_type,
+  call_simd_clone_vec_info_type,
   assignment_vec_info_type,
   condition_vec_info_type,
   reduc_vec_info_type,
@@ -565,6 +571,9 @@ typedef struct _stmt_vec_info {
      of this stmt.  */
   vec<dr_p> same_align_refs;
 
+  /* Selected SIMD clone's function decl.  */
+  tree simd_clone_fndecl;
+
   /* Classify the def of this stmt.  */
   enum vect_def_type def_type;
 
@@ -633,6 +642,7 @@ typedef struct _stmt_vec_info {
 #define STMT_VINFO_RELATED_STMT(S)         (S)->related_stmt
 #define STMT_VINFO_PATTERN_DEF_SEQ(S)      (S)->pattern_def_seq
 #define STMT_VINFO_SAME_ALIGN_REFS(S)      (S)->same_align_refs
+#define STMT_VINFO_SIMD_CLONE_FNDECL(S)	   (S)->simd_clone_fndecl
 #define STMT_VINFO_DEF_TYPE(S)             (S)->def_type
 #define STMT_VINFO_GROUP_FIRST_ELEMENT(S)  (S)->first_element
 #define STMT_VINFO_GROUP_NEXT_ELEMENT(S)   (S)->next_element
@@ -910,9 +920,12 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
 
 /* Return true if the vect cost model is unlimited.  */
 static inline bool
-unlimited_cost_model ()
+unlimited_cost_model (loop_p loop)
 {
-  return flag_vect_cost_model == VECT_COST_MODEL_UNLIMITED;
+  if (loop != NULL && loop->force_vect
+      && flag_simd_cost_model != VECT_COST_MODEL_DEFAULT)
+    return flag_simd_cost_model == VECT_COST_MODEL_UNLIMITED;
+  return (flag_vect_cost_model == VECT_COST_MODEL_UNLIMITED);
 }
 
 /* Source location */

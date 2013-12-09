@@ -1424,7 +1424,7 @@ determine_known_aggregate_parts (gimple call, tree arg,
 
       lhs = gimple_assign_lhs (stmt);
       rhs = gimple_assign_rhs1 (stmt);
-      if (!is_gimple_reg_type (rhs)
+      if (!is_gimple_reg_type (TREE_TYPE (rhs))
 	  || TREE_CODE (lhs) == BIT_FIELD_REF
 	  || contains_bitfld_component_ref_p (lhs))
 	break;
@@ -3217,7 +3217,8 @@ ipa_node_duplication_hook (struct cgraph_node *src, struct cgraph_node *dst,
 static void
 ipa_add_new_function (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 {
-  ipa_analyze_node (node);
+  if (cgraph_function_with_gimple_body_p (node))
+    ipa_analyze_node (node);
 }
 
 /* Register our cgraph hooks if they are not already there.  */
@@ -3443,7 +3444,15 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments)
 	  if (adj->by_ref)
 	    ptype = build_pointer_type (adj->type);
 	  else
-	    ptype = adj->type;
+	    {
+	      ptype = adj->type;
+	      if (is_gimple_reg_type (ptype))
+		{
+		  unsigned malign = GET_MODE_ALIGNMENT (TYPE_MODE (ptype));
+		  if (TYPE_ALIGN (ptype) < malign)
+		    ptype = build_aligned_type (ptype, malign);
+		}
+	    }
 
 	  if (care_for_types)
 	    new_arg_types = tree_cons (NULL_TREE, ptype, new_arg_types);
@@ -4717,7 +4726,7 @@ ipcp_transform_function (struct cgraph_node *node)
   descriptors.safe_grow_cleared (param_count);
   ipa_populate_param_decls (node, descriptors);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	struct ipa_agg_replacement_value *v;

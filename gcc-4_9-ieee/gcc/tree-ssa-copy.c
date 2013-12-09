@@ -469,7 +469,7 @@ init_copy_prop (void)
   n_copy_of = num_ssa_names;
   copy_of = XCNEWVEC (prop_value_t, n_copy_of);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator si;
       int depth = bb_loop_depth (bb);
@@ -576,6 +576,7 @@ fini_copy_prop (void)
 		   && SSA_NAME_RANGE_INFO (var)
 		   && !SSA_NAME_RANGE_INFO (copy_of[i].value))
 	    duplicate_ssa_name_range_info (copy_of[i].value,
+					   SSA_NAME_RANGE_TYPE (var),
 					   SSA_NAME_RANGE_INFO (var));
 	}
     }
