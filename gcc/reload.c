@@ -1064,7 +1064,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
   if (in != 0 && GET_CODE (in) == SUBREG
       && (subreg_lowpart_p (in) || strict_low)
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SUBREG_REG (in)), inmode, rclass)
+      && !CANNOT_CHANGE_MODE_CLASS_P (GET_MODE (SUBREG_REG (in)),
+				      SUBREG_BYTE (in), inmode, rclass)
 #endif
       && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (in))]
       && (CONSTANT_P (SUBREG_REG (in))
@@ -1113,7 +1114,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	  || (REG_P (SUBREG_REG (in))
 	      && REGNO (SUBREG_REG (in)) < FIRST_PSEUDO_REGISTER
 	      && REG_CANNOT_CHANGE_MODE_P
-	      (REGNO (SUBREG_REG (in)), GET_MODE (SUBREG_REG (in)), inmode))
+	      (REGNO (SUBREG_REG (in)), GET_MODE (SUBREG_REG (in)),
+	       SUBREG_BYTE (in), inmode))
 #endif
 	  ))
     {
@@ -1174,7 +1176,8 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
   if (out != 0 && GET_CODE (out) == SUBREG
       && (subreg_lowpart_p (out) || strict_low)
 #ifdef CANNOT_CHANGE_MODE_CLASS
-      && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SUBREG_REG (out)), outmode, rclass)
+      && !CANNOT_CHANGE_MODE_CLASS_P (GET_MODE (SUBREG_REG (out)),
+				      SUBREG_BYTE (out), outmode, rclass)
 #endif
       && contains_reg_of_mode[(int) rclass][(int) GET_MODE (SUBREG_REG (out))]
       && (CONSTANT_P (SUBREG_REG (out))
@@ -1209,6 +1212,7 @@ push_reload (rtx in, rtx out, rtx *inloc, rtx *outloc,
 	      && REGNO (SUBREG_REG (out)) < FIRST_PSEUDO_REGISTER
 	      && REG_CANNOT_CHANGE_MODE_P (REGNO (SUBREG_REG (out)),
 					   GET_MODE (SUBREG_REG (out)),
+					   SUBREG_BYTE (out),
 					   outmode))
 #endif
 	  ))

@@ -348,9 +348,11 @@ reload_cse_simplify_set (rtx set, rtx insn)
 	  if (GET_MODE_BITSIZE (GET_MODE (SET_DEST (set))) < BITS_PER_WORD
 	      && extend_op != UNKNOWN
 #ifdef CANNOT_CHANGE_MODE_CLASS
-	      && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
-					    word_mode,
-					    REGNO_REG_CLASS (REGNO (SET_DEST (set))))
+	      && !CANNOT_CHANGE_MODE_CLASS_P (GET_MODE (SET_DEST (set)),
+					      (GET_CODE (SET_DEST (set)) == SUBREG
+					       ? SUBREG_BYTE (SET_DEST (set)) : 0),
+					      word_mode,
+					      REGNO_REG_CLASS (REGNO (SET_DEST (set))))
 #endif
 	      )
 	    {
@@ -458,9 +460,11 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	  /* If the register cannot change mode to word_mode, it follows that
 	     it cannot have been used in word_mode.  */
 	  else if (REG_P (SET_DEST (set))
-		   && CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
-						word_mode,
-						REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
+		   && CANNOT_CHANGE_MODE_CLASS_P (GET_MODE (SET_DEST (set)),
+						  (GET_CODE (SET_DEST (set)) == SUBREG
+						   ? SUBREG_BYTE (SET_DEST (set)) : 0),
+						  word_mode,
+						  REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
 	    ; /* Continue ordinary processing.  */
 #endif
 	  /* If this is a straight load, make the extension explicit.  */

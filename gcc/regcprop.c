@@ -389,7 +389,9 @@ mode_change_ok (enum machine_mode orig_mode, enum machine_mode new_mode,
     return false;
 
 #ifdef CANNOT_CHANGE_MODE_CLASS
-  return !REG_CANNOT_CHANGE_MODE_P (regno, orig_mode, new_mode);
+  return !REG_CANNOT_CHANGE_MODE_P (regno, orig_mode,
+				    (MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT),
+				    new_mode);
 #endif
 
   return true;

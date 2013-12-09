@@ -2539,6 +2539,20 @@ as below:
 @end smallexample
 @end defmac
 
+@defmac MAYBE_VECTOR_CLASS_P (@var{class})
+A C expression that returns @code{true} for a @var{class} of registers
+which may be vector registers.  Defaults to @code{false}.
+
+For the example, on x86 system, MMX and SSE registers are vector
+registers.  Therefore, @file{i386.h} defines @code{MAYBE_VECTOR_CLASS_P}
+as below:
+
+@smallexample
+#define MAYBE_VECTOR_CLASS_P(CLASS) \
+  (MAYBE_SSE_CLASS_P (CLASS) || MAYBE_MMX_CLASS_P (CLASS))
+@end smallexample
+@end defmac
+
 @hook TARGET_LRA_P
 
 @hook TARGET_REGISTER_PRIORITY

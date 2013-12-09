@@ -748,7 +748,7 @@ validate_subreg (enum machine_mode omode, enum machine_mode imode,
       if ((COMPLEX_MODE_P (imode) || VECTOR_MODE_P (imode))
 	  && GET_MODE_INNER (imode) == omode)
 	;
-      else if (REG_CANNOT_CHANGE_MODE_P (regno, imode, omode))
+      else if (REG_CANNOT_CHANGE_MODE_P (regno, imode, offset, omode))
 	return false;
 #endif
 

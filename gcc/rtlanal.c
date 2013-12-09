@@ -3533,7 +3533,7 @@ simplify_subreg_regno (unsigned int xregno, enum machine_mode xmode,
   /* Give the backend a chance to disallow the mode change.  */
   if (GET_MODE_CLASS (xmode) != MODE_COMPLEX_INT
       && GET_MODE_CLASS (xmode) != MODE_COMPLEX_FLOAT
-      && REG_CANNOT_CHANGE_MODE_P (xregno, xmode, ymode)
+      && REG_CANNOT_CHANGE_MODE_P (xregno, xmode, offset, ymode)
       /* We can use mode change in LRA for some transformations.  */
       && ! lra_in_progress)
     return -1;

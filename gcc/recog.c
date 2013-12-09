@@ -1069,7 +1069,8 @@ register_operand (rtx op, enum machine_mode mode)
 #ifdef CANNOT_CHANGE_MODE_CLASS
       if (REG_P (sub)
 	  && REGNO (sub) < FIRST_PSEUDO_REGISTER
-	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub), mode)
+	  && REG_CANNOT_CHANGE_MODE_P (REGNO (sub), GET_MODE (sub),
+				       SUBREG_BYTE (op), mode)
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_INT
 	  && GET_MODE_CLASS (GET_MODE (sub)) != MODE_COMPLEX_FLOAT
 	  /* LRA can generate some invalid SUBREGS just for matched

@@ -1,0 +1,27 @@
+2013-12-14   H.J. Lu  <hongjiu.lu@intel.com>
+
+	* combine.c (subst): Pass subreg byte to REG_CANNOT_CHANGE_MODE_P.
+	(simplify_set): Likewise.
+	* emit-rtl.c (validate_subreg): Likewise.
+	* recog.c (register_operand): Likewise.
+	* rtlanal.c (simplify_subreg_regno): Likewise.
+	* defaults.h (MAYBE_VECTOR_CLASS_P): New macro.
+	* hard-reg-set.h (CANNOT_CHANGE_MODE_CLASS_P): New macro.
+	(REG_CANNOT_CHANGE_MODE_P): Add SUBREG_BYTE and pass it to
+	CANNOT_CHANGE_MODE_CLASS_P.
+	* postreload.c (reload_cse_simplify_set): Pass subreg byte to
+	CANNOT_CHANGE_MODE_CLASS_P.
+	(reload_cse_simplify_operands): Likewise.
+	* reload.c (push_reload): Likewise.
+	* regcprop.c (mode_change_ok): Pass unknown subreg byte to
+	REG_CANNOT_CHANGE_MODE_P.
+	* reginfo.c (record_subregs_of_mode): Likewise.
+	* reload1.c (choose_reload_regs): Pass subreg byte to
+	REG_CANNOT_CHANGE_MODE_P.
+	(inherit_piecemeal_p): Pass unknown subreg byte to
+	REG_CANNOT_CHANGE_MODE_P.
+	* config/i386/i386.c (ix86_cannot_change_mode_class): Don't
+	check mode size.
+	* config/i386/i386.h (MAYBE_VECTOR_CLASS_P): New macro.
+	* doc/tm.texi.in: Document MAYBE_VECTOR_CLASS_P.
+	* doc/tm.texi: Regenerated.

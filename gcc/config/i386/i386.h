@@ -1522,10 +1522,15 @@ enum reg_class
    ? mode_for_size (32, GET_MODE_CLASS (MODE), 0)		\
    : MODE)
 
-/* Return a class of registers that cannot change FROM mode to TO mode.  */
+/* Return true if the registers in CLASS cannot represent the change
+   from mode FROM to mode TO.  */
 
 #define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
   ix86_cannot_change_mode_class (FROM, TO, CLASS)
+
+/* Return true if the register CLASS may be a vector class.  */
+#define MAYBE_VECTOR_CLASS_P(CLASS) \
+  (MAYBE_SSE_CLASS_P (CLASS) || MAYBE_MMX_CLASS_P (CLASS))
 
 /* Stack layout; function entry, exit and calling.  */
 

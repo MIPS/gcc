@@ -1388,6 +1388,10 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define SWITCHABLE_TARGET 0
 #endif
 
+#ifndef MAYBE_VECTOR_CLASS_P
+#define MAYBE_VECTOR_CLASS_P(CLASS) false
+#endif
+
 #endif /* GCC_INSN_FLAGS_H  */
 
 #endif  /* ! GCC_DEFAULTS_H */
