@@ -394,11 +394,11 @@ typedef struct
   ((TARGET_LARGE && ((NREGS) <= 2)) ? PSImode : choose_hard_reg_mode ((REGNO), (NREGS), false))
 
 /* Also stop GCC from thinking that it can eliminate (SUBREG:PSI (SI)).  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM,TO,CLASS) \
-  (   ((TO) == PSImode && (FROM) == SImode)	\
-   || ((TO) == SImode  && (FROM) == PSImode)    \
-   || ((TO) == DImode  && (FROM) == PSImode)    \
-   || ((TO) == PSImode && (FROM) == DImode)     \
+#define CANNOT_CHANGE_MODE_CLASS(FROM,SUBREG_BYTE,TO,CLASS) \
+  (   ((TO) == PSImode && (FROM) == SImode)		    \
+   || ((TO) == SImode  && (FROM) == PSImode)		    \
+   || ((TO) == DImode  && (FROM) == PSImode)		    \
+   || ((TO) == PSImode && (FROM) == DImode)		    \
       )
 
 #define ACCUMULATE_OUTGOING_ARGS 1

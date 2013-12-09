@@ -5084,6 +5084,7 @@ subst (rtx x, rtx from, rtx to, int in_dest, int in_cond, int unique_copy)
 		      && REGNO (to) < FIRST_PSEUDO_REGISTER
 		      && REG_CANNOT_CHANGE_MODE_P (REGNO (to),
 						   GET_MODE (to),
+						   SUBREG_BYTE (x),
 						   GET_MODE (x)))
 		    return gen_rtx_CLOBBER (VOIDmode, const0_rtx);
 #endif
@@ -6450,6 +6451,7 @@ simplify_set (rtx x)
       && ! (REG_P (dest) && REGNO (dest) < FIRST_PSEUDO_REGISTER
 	    && REG_CANNOT_CHANGE_MODE_P (REGNO (dest),
 					 GET_MODE (SUBREG_REG (src)),
+					 SUBREG_BYTE (src),
 					 GET_MODE (src)))
 #endif
       && (REG_P (dest)

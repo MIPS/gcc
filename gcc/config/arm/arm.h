@@ -1247,10 +1247,10 @@ enum reg_class
    In big-endian mode, modes greater than word size (i.e. DFmode) are stored in
    VFP registers in little-endian order.  We can't describe that accurately to
    GCC, so avoid taking subregs of such values.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
-  (TARGET_VFP && TARGET_BIG_END				\
-   && (GET_MODE_SIZE (FROM) > UNITS_PER_WORD		\
-       || GET_MODE_SIZE (TO) > UNITS_PER_WORD)		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS)	\
+  (TARGET_VFP && TARGET_BIG_END					\
+   && (GET_MODE_SIZE (FROM) > UNITS_PER_WORD			\
+       || GET_MODE_SIZE (TO) > UNITS_PER_WORD)			\
    && reg_classes_intersect_p (VFP_REGS, (CLASS)))
 
 /* The class value for index registers, and the one for base regs.  */

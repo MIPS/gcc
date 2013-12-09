@@ -1222,6 +1222,7 @@ record_subregs_of_mode (rtx subreg, bitmap subregs_of_mode)
 	if (!bitmap_bit_p (invalid_mode_changes,
 			   regno * N_REG_CLASSES + rclass)
 	    && CANNOT_CHANGE_MODE_CLASS (PSEUDO_REGNO_MODE (regno),
+					 (MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT),
 					 mode, (enum reg_class) rclass))
 	  bitmap_set_bit (invalid_mode_changes,
 			  regno * N_REG_CLASSES + rclass);

@@ -414,8 +414,8 @@ enum reg_class
 #define SECONDARY_OUTPUT_RELOAD_CLASS(CLASS, MODE, X) \
   score_secondary_reload_class (CLASS, MODE, X)
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)    \
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)        \
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) \
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		       \
    ? reg_classes_intersect_p (HI_REG, (CLASS)) : 0)
 
 

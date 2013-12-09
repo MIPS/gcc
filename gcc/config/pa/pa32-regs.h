@@ -296,7 +296,7 @@ enum reg_class { NO_REGS, R1_REGS, GENERAL_REGS, FPUPPER_REGS, FP_REGS,
 
 /* Defines invalid mode changes.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) \
   pa_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Return the class number of the smallest class containing

@@ -224,7 +224,7 @@ enum reg_class {
 
 /* GCC assumes that modes are in the lowpart of a register, which is
    only true for SPU. */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) \
         ((GET_MODE_SIZE (FROM) > 4 || GET_MODE_SIZE (TO) > 4) \
 	 && (GET_MODE_SIZE (FROM) < 16 || GET_MODE_SIZE (TO) < 16) \
 	 && GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO))

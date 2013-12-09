@@ -167,7 +167,9 @@ extern bool ix86_modes_tieable_p (enum machine_mode, enum machine_mode);
 extern bool ix86_secondary_memory_needed (enum reg_class, enum reg_class,
 					  enum machine_mode, int);
 extern bool ix86_cannot_change_mode_class (enum machine_mode,
-					   enum machine_mode, enum reg_class);
+					   unsigned int,
+					   enum machine_mode,
+					   enum reg_class);
 
 extern int ix86_mode_needed (int, rtx);
 extern int ix86_mode_after (int, int, rtx);

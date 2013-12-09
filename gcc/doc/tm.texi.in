@@ -2521,9 +2521,11 @@ This macro helps control the handling of multiple-word values
 in the reload pass.
 @end defmac
 
-@defmac CANNOT_CHANGE_MODE_CLASS (@var{from}, @var{to}, @var{class})
+@defmac CANNOT_CHANGE_MODE_CLASS (@var{from}, @var{subreg_byte}, @var{to}, @var{class})
 If defined, a C expression that returns nonzero for a @var{class} for which
-a change from mode @var{from} to mode @var{to} is invalid.
+a change from mode @var{from} at the @code{subreg} offset @var{subreg_byte}
+to mode @var{to} is invalid.  If the @code{subreg} offset is unknown, the
+size of the largest mode on the target should be used.
 
 For the example, loading 32-bit integer or floating-point objects into
 floating-point registers on the Alpha extends them to 64 bits.
@@ -2533,7 +2535,7 @@ register.  Therefore, @file{alpha.h} defines @code{CANNOT_CHANGE_MODE_CLASS}
 as below:
 
 @smallexample
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) \
   (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO) \
    ? reg_classes_intersect_p (FLOAT_REGS, (CLASS)) : 0)
 @end smallexample

@@ -820,9 +820,9 @@ do {									     \
 
 /*  VFP registers may only be accessed in the mode they
    were set.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)	\
-  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)		\
-   ? reg_classes_intersect_p (FP_REGS, (CLASS))		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS)	\
+  (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)			\
+   ? reg_classes_intersect_p (FP_REGS, (CLASS))			\
    : 0)
 
 

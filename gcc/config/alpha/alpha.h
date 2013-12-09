@@ -541,7 +541,7 @@ enum reg_class {
 
 /* Return the class of registers that cannot change mode from FROM to TO.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS)	\
   (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)			\
    ? reg_classes_intersect_p (FLOAT_REGS, CLASS) : 0)
 

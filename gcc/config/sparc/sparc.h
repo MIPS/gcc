@@ -912,7 +912,7 @@ extern enum reg_class sparc_regno_reg_class[FIRST_PSEUDO_REGISTER];
    Likewise for SFmode, since word-mode paradoxical subregs are
    problematic on big-endian architectures.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS)	\
   (TARGET_ARCH64						\
    && GET_MODE_SIZE (FROM) == 4					\
    && GET_MODE_SIZE (TO) != 4					\

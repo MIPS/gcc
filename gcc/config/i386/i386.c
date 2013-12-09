@@ -35035,10 +35035,12 @@ ix86_class_max_nregs (reg_class_t rclass, enum machine_mode mode)
 }
 
 /* Return true if the registers in CLASS cannot represent the change from
-   modes FROM to TO.  */
+   modes FROM at offset SUBREG_BYTE to TO.  */
 
 bool
-ix86_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
+ix86_cannot_change_mode_class (enum machine_mode from,
+			       unsigned int subreg_byte,
+			       enum machine_mode to,
 			       enum reg_class regclass)
 {
   if (from == to)
@@ -35059,10 +35061,8 @@ ix86_cannot_change_mode_class (enum machine_mode from, enum machine_mode to,
 	return true;
 
       /* Vector registers do not support subreg with nonzero offsets, which
-	 are otherwise valid for integer registers.  Since we can't see
-	 whether we have a nonzero offset from here, prohibit all
-         nonparadoxical subregs changing size.  */
-      if (GET_MODE_SIZE (to) < GET_MODE_SIZE (from))
+	 are otherwise valid for integer registers.  */
+      if (subreg_byte != 0 && GET_MODE_SIZE (to) < GET_MODE_SIZE (from))
 	return true;
     }
 

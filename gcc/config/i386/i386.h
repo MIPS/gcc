@@ -1522,10 +1522,11 @@ enum reg_class
    ? mode_for_size (32, GET_MODE_CLASS (MODE), 0)		\
    : MODE)
 
-/* Return a class of registers that cannot change FROM mode to TO mode.  */
+/* Return a class of registers that cannot change FROM mode to TO mode
+   with SUBREG_BYTE.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
-  ix86_cannot_change_mode_class (FROM, TO, CLASS)
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) \
+  ix86_cannot_change_mode_class (FROM, SUBREG_BYTE, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */
 

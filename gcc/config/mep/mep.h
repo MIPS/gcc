@@ -321,7 +321,7 @@ extern char mep_leaf_registers[];
 
 #define MODES_TIEABLE_P(MODE1, MODE2) 1
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) \
   mep_cannot_change_mode_class (FROM, TO, CLASS)
 
 enum reg_class

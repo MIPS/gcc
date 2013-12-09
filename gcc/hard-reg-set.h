@@ -716,9 +716,9 @@ extern struct target_hard_regs *this_target_hard_regs;
 
 extern const char * reg_class_names[];
 
-/* Given a hard REGN a FROM mode and a TO mode, return nonzero if
+/* Given a hard REGN a FROM mode at SUBREG_BYTE and a TO mode, return nonzero if
    REGN cannot change modes between the specified modes.  */
-#define REG_CANNOT_CHANGE_MODE_P(REGN, FROM, TO)                          \
-         CANNOT_CHANGE_MODE_CLASS (FROM, TO, REGNO_REG_CLASS (REGN))
+#define REG_CANNOT_CHANGE_MODE_P(REGN, FROM, SUBREG_BYTE, TO) \
+  CANNOT_CHANGE_MODE_CLASS (FROM, SUBREG_BYTE, TO, REGNO_REG_CLASS (REGN))
 
 #endif /* ! GCC_HARD_REG_SET_H */

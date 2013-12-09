@@ -1979,11 +1979,12 @@ value @samp{(reg:HI 4)}.
 @cindex @code{CANNOT_CHANGE_MODE_CLASS} and subreg semantics
 The rules above apply to both pseudo @var{reg}s and hard @var{reg}s.
 If the semantics are not correct for particular combinations of
-@var{m1}, @var{m2} and hard @var{reg}, the target-specific code
-must ensure that those combinations are never used.  For example:
+@var{m1}, @var{subreg_byte}, @var{m2} and hard @var{reg}, the
+target-specific code must ensure that those combinations are never used.
+For example:
 
 @smallexample
-CANNOT_CHANGE_MODE_CLASS (@var{m2}, @var{m1}, @var{class})
+CANNOT_CHANGE_MODE_CLASS (@var{m2}, @var{subreg_byte}, @var{m1}, @var{class})
 @end smallexample
 
 must be true for every class @var{class} that includes @var{reg}.

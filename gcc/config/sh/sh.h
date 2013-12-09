@@ -1149,7 +1149,7 @@ extern enum reg_class regno_reg_class[FIRST_PSEUDO_REGISTER];
    operand of a SUBREG that changes the mode of the object illegally.
    ??? We need to renumber the internal numbers for the frnn registers
    when in little endian in order to allow mode size changes.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) \
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) \
   sh_cannot_change_mode_class (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */

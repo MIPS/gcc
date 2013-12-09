@@ -1505,7 +1505,7 @@ extern enum reg_class rs6000_constraints[RS6000_CONSTRAINT_MAX];
 
 /* Return nonzero if for CLASS a mode change from FROM to TO is invalid.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)			\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS)		\
   rs6000_cannot_change_mode_class_ptr (FROM, TO, CLASS)
 
 /* Stack layout; function entry, exit and calling.  */

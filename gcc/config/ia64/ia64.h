@@ -856,7 +856,7 @@ enum reg_class
    In FP regs, we can't change FP values to integer values and vice versa,
    but we can change e.g. DImode to SImode, and V2SFmode into DImode.  */
 
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS) 		\
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS) 	\
   (reg_classes_intersect_p (CLASS, BR_REGS)			\
    ? (FROM) != (TO)						\
    : (SCALAR_FLOAT_MODE_P (FROM) != SCALAR_FLOAT_MODE_P (TO)	\

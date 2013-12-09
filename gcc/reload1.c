@@ -6609,7 +6609,7 @@ choose_reload_regs (struct insn_chain *chain)
 		     mode MODE.  */
 		  && !REG_CANNOT_CHANGE_MODE_P (REGNO (reg_last_reload_reg[regno]),
 						GET_MODE (reg_last_reload_reg[regno]),
-						mode)
+						byte, mode)
 #endif
 		  )
 		{
@@ -8080,8 +8080,12 @@ inherit_piecemeal_p (int dest ATTRIBUTE_UNUSED,
 		     enum machine_mode mode ATTRIBUTE_UNUSED)
 {
 #ifdef CANNOT_CHANGE_MODE_CLASS
-  return (!REG_CANNOT_CHANGE_MODE_P (dest, mode, reg_raw_mode[dest])
-	  && !REG_CANNOT_CHANGE_MODE_P (src, mode, reg_raw_mode[src]));
+  return (!REG_CANNOT_CHANGE_MODE_P (dest, mode,
+				     (MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT),
+				     reg_raw_mode[dest])
+	  && !REG_CANNOT_CHANGE_MODE_P (src, mode,
+					(MAX_BITSIZE_MODE_ANY_MODE / BITS_PER_UNIT),
+					reg_raw_mode[src]));
 #else
   return true;
 #endif

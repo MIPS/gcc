@@ -419,7 +419,7 @@ enum processor_flags
    cannot use SUBREGs to switch between modes in FP registers.
    Likewise for access registers, since they have only half the
    word size on 64-bit.  */
-#define CANNOT_CHANGE_MODE_CLASS(FROM, TO, CLASS)		        \
+#define CANNOT_CHANGE_MODE_CLASS(FROM, SUBREG_BYTE, TO, CLASS)	        \
   (GET_MODE_SIZE (FROM) != GET_MODE_SIZE (TO)			        \
    ? ((reg_classes_intersect_p (FP_REGS, CLASS)				\
        && (GET_MODE_SIZE (FROM) < 8 || GET_MODE_SIZE (TO) < 8))		\

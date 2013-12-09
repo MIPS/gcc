@@ -349,6 +349,8 @@ reload_cse_simplify_set (rtx set, rtx insn)
 	      && extend_op != UNKNOWN
 #ifdef CANNOT_CHANGE_MODE_CLASS
 	      && !CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
+					    (GET_CODE (SET_DEST (set)) == SUBREG
+					     ? SUBREG_BYTE (SET_DEST (set)) : 0),
 					    word_mode,
 					    REGNO_REG_CLASS (REGNO (SET_DEST (set))))
 #endif
@@ -459,6 +461,8 @@ reload_cse_simplify_operands (rtx insn, rtx testreg)
 	     it cannot have been used in word_mode.  */
 	  else if (REG_P (SET_DEST (set))
 		   && CANNOT_CHANGE_MODE_CLASS (GET_MODE (SET_DEST (set)),
+						(GET_CODE (SET_DEST (set)) == SUBREG
+						 ? SUBREG_BYTE (SET_DEST (set)) : 0),
 						word_mode,
 						REGNO_REG_CLASS (REGNO (SET_DEST (set)))))
 	    ; /* Continue ordinary processing.  */
