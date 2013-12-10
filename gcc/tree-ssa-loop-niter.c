@@ -2155,7 +2155,7 @@ finite_loop_p (struct loop *loop)
    result by a chain of operations such that all but exactly one of their
    operands are constants.  */
 
-static gimple
+static gimple_phi
 chain_of_csts_start (struct loop *loop, tree x)
 {
   gimple stmt = SSA_NAME_DEF_STMT (x);
@@ -2170,7 +2170,7 @@ chain_of_csts_start (struct loop *loop, tree x)
   if (gimple_code (stmt) == GIMPLE_PHI)
     {
       if (bb == loop->header)
-	return stmt;
+	return as_a <gimple_phi> (stmt);
 
       return NULL;
     }
@@ -2203,10 +2203,10 @@ chain_of_csts_start (struct loop *loop, tree x)
 
    If such phi node exists, it is returned, otherwise NULL is returned.  */
 
-static gimple
+static gimple_phi
 get_base_for (struct loop *loop, tree x)
 {
-  gimple phi;
+  gimple_phi phi;
   tree init, next;
 
   if (is_gimple_min_invariant (x))
@@ -2297,7 +2297,8 @@ loop_niter_by_eval (struct loop *loop, edge exit)
 {
   tree acnd;
   tree op[2], val[2], next[2], aval[2];
-  gimple phi, cond;
+  gimple_phi phi;
+  gimple cond;
   unsigned i, j;
   enum tree_code cmp;
 

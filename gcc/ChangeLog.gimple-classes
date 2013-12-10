@@ -1,5 +1,14 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	tree-ssa-loop-niter.c: use gimple_phi in a few places
+
+	* tree-ssa-loop-niter.c (chain_of_csts_start): Return a gimple_phi
+	rather than a gimple.
+	(get_base_for): Likewise; convert local "phi" to be a gimple_phi.
+	(loop_niter_by_eval): Convert local "phi" to be a gimple_phi.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	tree-ssa-phiprop.c: use gimple_phi
 
 	* tree-ssa-phiprop.c (phiprop_insert_phi): Strengthen types of
