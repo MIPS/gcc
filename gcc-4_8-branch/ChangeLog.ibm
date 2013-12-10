@@ -1,3 +1,28 @@
+2013-11-18  Alan Modra  <amodra@gmail.com>
+
+	Backport mainline r205844.
+	* libffi/src/powerpc/ffitarget.h: Import from upstream.
+	* libffi/src/powerpc/ffi_powerpc.h: Likewise.
+	* libffi/src/powerpc/ffi.c: Likewise.
+	* libffi/src/powerpc/ffi_sysv.c: Likewise.
+	* libffi/src/powerpc/ffi_linux64.c: Likewise.
+	* libffi/src/powerpc/sysv.S: Likewise.
+	* libffi/src/powerpc/ppc_closure.S: Likewise.
+	* libffi/src/powerpc/linux64.S: Likewise.
+	* libffi/src/powerpc/linux64_closure.S: Likewise.
+	* libffi/src/types.c: Likewise.
+	* libffi/Makefile.am (EXTRA_DIST): Add new src/powerpc files.
+	(nodist_libffi_la_SOURCES <POWERPC, POWERPC_FREEBSD>): Likewise.
+	* libffi/configure.ac (HAVE_LONG_DOUBLE_VARIANT): Define for powerpc.
+	* libffi/include/ffi.h.in (ffi_prep_types): Declare.
+	* libffi/src/prep_cif.c (ffi_prep_cif_core): Call ffi_prep_types.
+	* libffi/configure: Regenerate.
+	* libffi/fficonfig.h.in: Regenerate.
+	* libffi/Makefile.in: Regenerate.
+	* libffi/man/Makefile.in: Regenerate.
+	* libffi/include/Makefile.in: Regenerate.
+	* libffi/testsuite/Makefile.in: Regenerate.
+
 2013-11-22  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	* libgo/config/libtool.m4: Update to mainline version.
