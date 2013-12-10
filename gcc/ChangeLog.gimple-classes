@@ -1,5 +1,17 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	tree-predcom.c: use gimple_phi in various places
+
+	* tree-predcom.c (find_looparound_phi): Return a gimple_phi rather
+	than just a gimple.
+	(insert_looparound_copy): Require a gimple_phi rather than just a
+	gimple.
+	(add_looparound_copies): Convert local "phi" to be a gimple_phi.
+	(initialize_root_vars): Likewise.
+	(initialize_root_vars_lm): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	tree-parloops.c: use gimple_phi in various places
 
 	* tree-parloops.c (struct reduction_info): Strengthen field "new_phi"

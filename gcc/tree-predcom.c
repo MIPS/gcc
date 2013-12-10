@@ -1112,7 +1112,7 @@ valid_initializer_p (struct data_reference *ref,
    iteration), returns the phi node.  Otherwise, NULL_TREE is returned.  ROOT
    is the root of the current chain.  */
 
-static gimple
+static gimple_phi
 find_looparound_phi (struct loop *loop, dref ref, dref root)
 {
   tree name, init, init_ref;
@@ -1174,7 +1174,7 @@ find_looparound_phi (struct loop *loop, dref ref, dref root)
 /* Adds a reference for the looparound copy of REF in PHI to CHAIN.  */
 
 static void
-insert_looparound_copy (chain_p chain, dref ref, gimple phi)
+insert_looparound_copy (chain_p chain, dref ref, gimple_phi phi)
 {
   dref nw = XCNEW (struct dref_d), aref;
   unsigned i;
@@ -1205,7 +1205,7 @@ add_looparound_copies (struct loop *loop, chain_p chain)
 {
   unsigned i;
   dref ref, root = get_chain_root (chain);
-  gimple phi;
+  gimple_phi phi;
 
   FOR_EACH_VEC_ELT (chain->refs, i, ref)
     {
@@ -1457,7 +1457,7 @@ initialize_root_vars (struct loop *loop, chain_p chain, bitmap tmp_vars)
   dref root = get_chain_root (chain);
   bool reuse_first = !chain->has_max_use_after;
   tree ref, init, var, next;
-  gimple phi;
+  gimple_phi phi;
   gimple_seq stmts;
   edge entry = loop_preheader_edge (loop), latch = loop_latch_edge (loop);
 
@@ -1531,7 +1531,7 @@ initialize_root_vars_lm (struct loop *loop, dref root, bool written,
   unsigned i;
   tree ref = DR_REF (root->ref), init, var, next;
   gimple_seq stmts;
-  gimple phi;
+  gimple_phi phi;
   edge entry = loop_preheader_edge (loop), latch = loop_latch_edge (loop);
 
   /* Find the initializer for the variable, and check that it cannot
