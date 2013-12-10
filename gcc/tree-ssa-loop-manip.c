@@ -276,7 +276,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 static void
 add_exit_phi (basic_block exit, tree var)
 {
-  gimple phi;
+  gimple_phi phi;
   edge e;
   edge_iterator ei;
 
@@ -627,7 +627,7 @@ split_loop_exit_edge (edge exit)
 {
   basic_block dest = exit->dest;
   basic_block bb = split_edge (exit);
-  gimple phi, new_phi;
+  gimple_phi phi, new_phi;
   tree new_name, name;
   use_operand_p op_p;
   gimple_phi_iterator psi;

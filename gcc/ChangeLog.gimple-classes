@@ -1,5 +1,13 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	tree-ssa-loop-manip.c: use gimple_phi in three places
+
+	* tree-ssa-loop-manip.c (add_exit_phi): Convert local "phi" to be a
+	gimple_phi.
+	(split_loop_exit_edge): Likewise for "phi" and "new_phi".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	tree-ssa-loop-niter.c: use gimple_phi in a few places
 
 	* tree-ssa-loop-niter.c (chain_of_csts_start): Return a gimple_phi
