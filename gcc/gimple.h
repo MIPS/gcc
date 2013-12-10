@@ -780,6 +780,20 @@ struct GTY((tag("GSS_WITH_OPS")))
 };
 
 /* A statement with the invariant that
+      stmt->code == GIMPLE_DEBUG
+   i.e. a debug statement.
+
+   This type will normally be accessed via the gimple_debug and
+   const_gimple_debug typedefs (in coretypes.h), which are pointers to
+   this type.  */
+
+struct GTY((tag("GSS_WITH_OPS")))
+  gimple_statement_debug : public gimple_statement_with_ops
+{
+  /* no additional fields; this uses the layout for GSS_WITH_OPS. */
+};
+
+/* A statement with the invariant that
       stmt->code == GIMPLE_LABEL
    i.e. a label statement.
 
@@ -859,6 +873,14 @@ inline bool
 is_a_helper <gimple_statement_cond *>::test (gimple gs)
 {
   return gs->code == GIMPLE_COND;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <gimple_statement_debug *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_DEBUG;
 }
 
 template <>
@@ -1278,10 +1300,10 @@ gimple gimple_build_resx (int);
 gimple_switch gimple_build_switch_nlabels (unsigned, tree, tree);
 gimple_switch gimple_build_switch (tree, tree, vec<tree> );
 gimple gimple_build_eh_dispatch (int);
-gimple gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
+gimple_debug gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 #define gimple_build_debug_bind(var,val,stmt)			\
   gimple_build_debug_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
-gimple gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DECL);
+gimple_debug gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 #define gimple_build_debug_source_bind(var,val,stmt)			\
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
 gimple gimple_build_omp_critical (gimple_seq, tree);

@@ -1,5 +1,42 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_debug and use it in a few places
+
+	* coretypes.h (gimple_debug): New typedef.
+	(const_gimple_debug): New typedef.
+
+	* gimple.h (struct gimple_statement_debug): New subclass of
+	gimple_statement_with_ops, adding the invariant that
+	stmt->code == GIMPLE_DEBUG.
+	(is_a_helper <gimple_statement_debug>::test): New.
+
+	* gdbhooks.py (build_pretty_printer): Add gimple_debug and its
+	variants, using the gimple printer.
+
+	* gimple-pretty-print.c (dump_gimple_debug): Require a gimple_debug
+	rather than just a gimple.
+	* tree-inline.c (copy_debug_stmt): Likewise.
+
+	* tree-inline.h (struct copy_body_data): Strengthen field
+	"debug_stmts" from a vec<gimple> to a vec<gimple_debug>.
+
+	* gimple.c (gimple_build_debug_bind_stat): Return a gimple_debug
+	rather than just a gimple.
+	(gimple_build_debug_source_bind_stat): Likewise.
+	* gimple.h (gimple_build_debug_bind_stat): Likewise.
+	(gimple_build_debug_source_bind_stat): Likewise.
+
+	* tree-inline.c (remap_gimple_stmt): Update locals to be a
+	gimple_debug.
+	(maybe_move_debug_stmts_to_successors): Likewise.
+	(copy_debug_stmts): Likewise.
+
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Add checked cast to
+	gimple_debug in regions where a stmt is known to have code
+	GIMPLE_DEBUG.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_label and use it in a few places
 
 	* coretypes.h (gimple_label): New typedef.

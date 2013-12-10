@@ -1082,7 +1082,7 @@ dump_gimple_eh_dispatch (pretty_printer *buffer, gimple gs, int spc, int flags)
    in dumpfile.h).  */
 
 static void
-dump_gimple_debug (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_debug (pretty_printer *buffer, gimple_debug gs, int spc, int flags)
 {
   switch (gs->subcode)
     {
@@ -2217,7 +2217,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_DEBUG:
-      dump_gimple_debug (buffer, gs, spc, flags);
+      dump_gimple_debug (buffer, as_a <gimple_debug> (gs), spc, flags);
       break;
 
     case GIMPLE_PREDICT:

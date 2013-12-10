@@ -1509,15 +1509,16 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
       if (gimple_debug_bind_p (stmt))
 	{
-	  copy = gimple_build_debug_bind (gimple_debug_bind_get_var (stmt),
-					  gimple_debug_bind_get_value (stmt),
-					  stmt);
+	  gimple_debug copy =
+	    gimple_build_debug_bind (gimple_debug_bind_get_var (stmt),
+				     gimple_debug_bind_get_value (stmt),
+				     stmt);
 	  id->debug_stmts.safe_push (copy);
 	  return copy;
 	}
       if (gimple_debug_source_bind_p (stmt))
 	{
-	  copy = gimple_build_debug_source_bind
+	  gimple_debug copy = gimple_build_debug_source_bind
 		   (gimple_debug_source_bind_get_var (stmt),
 		    gimple_debug_source_bind_get_value (stmt), stmt);
 	  id->debug_stmts.safe_push (copy);
@@ -2317,7 +2318,8 @@ maybe_move_debug_stmts_to_successors (copy_body_data *id, basic_block new_bb)
       gimple_stmt_iterator dsi = gsi_after_labels (e->dest);
       while (is_gimple_debug (gsi_stmt (ssi)))
 	{
-	  gimple stmt = gsi_stmt (ssi), new_stmt;
+	  gimple stmt = gsi_stmt (ssi);
+	  gimple_debug new_stmt;
 	  tree var;
 	  tree value;
 
@@ -2645,7 +2647,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
    this arises, we drop the VALUE expression altogether.  */
 
 static void
-copy_debug_stmt (gimple stmt, copy_body_data *id)
+copy_debug_stmt (gimple_debug stmt, copy_body_data *id)
 {
   tree t, *n;
   struct walk_stmt_info wi;
@@ -2737,7 +2739,7 @@ static void
 copy_debug_stmts (copy_body_data *id)
 {
   size_t i;
-  gimple stmt;
+  gimple_debug stmt;
 
   if (!id->debug_stmts.exists ())
     return;

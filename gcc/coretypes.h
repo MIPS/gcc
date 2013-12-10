@@ -94,6 +94,10 @@ struct gimple_statement_cond;
 typedef struct gimple_statement_cond *gimple_cond;
 typedef const struct gimple_statement_cond *const_gimple_cond;
 
+struct gimple_statement_debug;
+typedef struct gimple_statement_debug *gimple_debug;
+typedef const struct gimple_statement_debug *const_gimple_debug;
+
 struct gimple_statement_label;
 typedef struct gimple_statement_label *gimple_label;
 typedef const struct gimple_statement_label *const_gimple_label;

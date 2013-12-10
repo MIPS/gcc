@@ -765,13 +765,13 @@ gimple_build_eh_dispatch (int region)
 
    VAR is bound to VALUE; block and location are taken from STMT.  */
 
-gimple
+gimple_debug
 gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
 {
-  gimple p = gimple_build_with_ops_stat (GIMPLE_DEBUG,
-					 (unsigned)GIMPLE_DEBUG_BIND, 2
-					 PASS_MEM_STAT);
-
+  gimple_debug p =
+    as_a <gimple_debug> (gimple_build_with_ops_stat (GIMPLE_DEBUG,
+						     (unsigned)GIMPLE_DEBUG_BIND, 2
+						     PASS_MEM_STAT));
   gimple_debug_bind_set_var (p, var);
   gimple_debug_bind_set_value (p, value);
   if (stmt)
@@ -785,13 +785,15 @@ gimple_build_debug_bind_stat (tree var, tree value, gimple stmt MEM_STAT_DECL)
 
    VAR is bound to VALUE; block and location are taken from STMT.  */
 
-gimple
+gimple_debug
 gimple_build_debug_source_bind_stat (tree var, tree value,
 				     gimple stmt MEM_STAT_DECL)
 {
-  gimple p = gimple_build_with_ops_stat (GIMPLE_DEBUG,
-					 (unsigned)GIMPLE_DEBUG_SOURCE_BIND, 2
-					 PASS_MEM_STAT);
+  gimple_debug p =
+    as_a <gimple_debug> (
+      gimple_build_with_ops_stat (GIMPLE_DEBUG,
+				  (unsigned)GIMPLE_DEBUG_SOURCE_BIND, 2
+				  PASS_MEM_STAT));
 
   gimple_debug_source_bind_set_var (p, var);
   gimple_debug_source_bind_set_value (p, value);
