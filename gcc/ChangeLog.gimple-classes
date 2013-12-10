@@ -1,5 +1,13 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	tree-ssa-loop-ivopts.c: use gimple_phi in a few places
+
+	* tree-ssa-loop-ivopts.c (determine_biv_step): Require a gimple_phi.
+	(find_bivs): Convert local "phi" into a gimple_phi.
+	(mark_bivs): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	tree-ssa-loop-manip.c: use gimple_phi in three places
 
 	* tree-ssa-loop-manip.c (add_exit_phi): Convert local "phi" to be a
