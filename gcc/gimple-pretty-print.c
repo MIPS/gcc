@@ -1812,7 +1812,7 @@ dump_ssaname_info (pretty_printer *buffer, tree node, int spc)
    pretty printer.  If COMMENT is true, print this after #.  */
 
 static void
-dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, bool comment,
+dump_gimple_phi (pretty_printer *buffer, gimple_phi phi, int spc, bool comment,
 		 int flags)
 {
   size_t i;
@@ -2129,7 +2129,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_PHI:
-      dump_gimple_phi (buffer, gs, spc, false, flags);
+      dump_gimple_phi (buffer, as_a <gimple_phi> (gs), spc, false, flags);
       break;
 
     case GIMPLE_OMP_PARALLEL:
@@ -2305,7 +2305,7 @@ dump_phi_nodes (pretty_printer *buffer, basic_block bb, int indent, int flags)
       if (!virtual_operand_p (gimple_phi_result (phi)) || (flags & TDF_VOPS))
         {
           INDENT (indent);
-	  dump_gimple_phi (buffer, phi, indent, true, flags);
+	  dump_gimple_phi (buffer, as_a <gimple_phi> (phi), indent, true, flags);
           pp_newline (buffer);
         }
     }

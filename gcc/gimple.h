@@ -24,10 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 
 typedef gimple gimple_seq_node;
 
-/* For each block, the PHI nodes that need to be rewritten are stored into
-   these vectors.  */
-typedef vec<gimple> gimple_vec;
-
 enum gimple_code {
 #define DEFGSCODE(SYM, STRING, STRUCT)	SYM,
 #include "gimple.def"
@@ -3888,8 +3884,8 @@ gimple_wce_set_cleanup_eh_only (gimple gs, bool eh_only_p)
 static inline unsigned
 gimple_phi_capacity (const_gimple gs)
 {
-  const gimple_statement_phi *phi_stmt =
-    as_a <const gimple_statement_phi *> (gs);
+  const_gimple_phi phi_stmt =
+    as_a <const_gimple_phi> (gs);
   return phi_stmt->capacity;
 }
 
@@ -3901,8 +3897,8 @@ gimple_phi_capacity (const_gimple gs)
 static inline unsigned
 gimple_phi_num_args (const_gimple gs)
 {
-  const gimple_statement_phi *phi_stmt =
-    as_a <const gimple_statement_phi *> (gs);
+  const_gimple_phi phi_stmt =
+    as_a <const_gimple_phi> (gs);
   return phi_stmt->nargs;
 }
 
@@ -3912,8 +3908,8 @@ gimple_phi_num_args (const_gimple gs)
 static inline tree
 gimple_phi_result (const_gimple gs)
 {
-  const gimple_statement_phi *phi_stmt =
-    as_a <const gimple_statement_phi *> (gs);
+  const_gimple_phi phi_stmt =
+    as_a <const_gimple_phi> (gs);
   return phi_stmt->result;
 }
 
@@ -3922,7 +3918,7 @@ gimple_phi_result (const_gimple gs)
 static inline tree *
 gimple_phi_result_ptr (gimple gs)
 {
-  gimple_statement_phi *phi_stmt = as_a <gimple_statement_phi *> (gs);
+  gimple_phi phi_stmt = as_a <gimple_phi> (gs);
   return &phi_stmt->result;
 }
 
@@ -3931,7 +3927,7 @@ gimple_phi_result_ptr (gimple gs)
 static inline void
 gimple_phi_set_result (gimple gs, tree result)
 {
-  gimple_statement_phi *phi_stmt = as_a <gimple_statement_phi *> (gs);
+  gimple_phi phi_stmt = as_a <gimple_phi> (gs);
   phi_stmt->result = result;
   if (result && TREE_CODE (result) == SSA_NAME)
     SSA_NAME_DEF_STMT (result) = gs;
@@ -3944,7 +3940,7 @@ gimple_phi_set_result (gimple gs, tree result)
 static inline struct phi_arg_d *
 gimple_phi_arg (gimple gs, unsigned index)
 {
-  gimple_statement_phi *phi_stmt = as_a <gimple_statement_phi *> (gs);
+  gimple_phi phi_stmt = as_a <gimple_phi> (gs);
   gcc_gimple_checking_assert (index <= phi_stmt->capacity);
   return &(phi_stmt->args[index]);
 }
@@ -3955,7 +3951,7 @@ gimple_phi_arg (gimple gs, unsigned index)
 static inline void
 gimple_phi_set_arg (gimple gs, unsigned index, struct phi_arg_d * phiarg)
 {
-  gimple_statement_phi *phi_stmt = as_a <gimple_statement_phi *> (gs);
+  gimple_phi phi_stmt = as_a <gimple_phi> (gs);
   gcc_gimple_checking_assert (index <= phi_stmt->nargs);
   phi_stmt->args[index] = *phiarg;
 }

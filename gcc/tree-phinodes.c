@@ -97,10 +97,10 @@ phinodes_print_statistics (void)
    happens to contain a PHI node with LEN arguments or more, return
    that one.  */
 
-static inline gimple_statement_phi *
+static inline gimple_phi
 allocate_phi_node (size_t len)
 {
-  gimple_statement_phi *phi;
+  gimple_phi phi;
   size_t bucket = NUM_BUCKETS - 2;
   size_t size = sizeof (struct gimple_statement_phi)
 	        + (len - 1) * sizeof (struct phi_arg_d);
@@ -123,8 +123,7 @@ allocate_phi_node (size_t len)
     }
   else
     {
-      phi = static_cast <gimple_statement_phi *> (
-	ggc_internal_alloc (size));
+      phi = static_cast <gimple_phi> (ggc_internal_alloc (size));
       if (GATHER_STATISTICS)
 	{
 	  enum gimple_alloc_kind kind = gimple_alloc_kind (GIMPLE_PHI);
@@ -173,10 +172,10 @@ ideal_phi_node_len (int len)
 
 /* Return a PHI node with LEN argument slots for variable VAR.  */
 
-static gimple
+static gimple_phi
 make_phi_node (tree var, int len)
 {
-  gimple_statement_phi *phi;
+  gimple_phi phi;
   int capacity, i;
 
   capacity = ideal_phi_node_len (len);
@@ -241,11 +240,11 @@ release_phi_node (gimple phi)
 /* Resize an existing PHI node.  The only way is up.  Return the
    possibly relocated phi.  */
 
-static gimple_statement_phi *
-resize_phi_node (gimple_statement_phi *phi, size_t len)
+static gimple_phi
+resize_phi_node (gimple_phi phi, size_t len)
 {
   size_t old_size, i;
-  gimple_statement_phi *new_phi;
+  gimple_phi new_phi;
 
   gcc_assert (len > gimple_phi_capacity (phi));
 
@@ -296,12 +295,11 @@ reserve_phi_args_for_new_edge (basic_block bb)
 
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple_statement_phi *stmt =
-	as_a <gimple_statement_phi *> (gsi_stmt (gsi));
+      gimple_phi stmt = as_a <gimple_phi> (gsi_stmt (gsi));
 
       if (len > gimple_phi_capacity (stmt))
 	{
-	  gimple_statement_phi *new_phi = resize_phi_node (stmt, cap);
+	  gimple_phi new_phi = resize_phi_node (stmt, cap);
 
 	  /* The result of the PHI is defined by this PHI node.  */
 	  SSA_NAME_DEF_STMT (gimple_phi_result (new_phi)) = new_phi;
@@ -347,10 +345,10 @@ add_phi_node_to_bb (gimple phi, basic_block bb)
 
 /* Create a new PHI node for variable VAR at basic block BB.  */
 
-gimple
+gimple_phi
 create_phi_node (tree var, basic_block bb)
 {
-  gimple phi = make_phi_node (var, EDGE_COUNT (bb->preds));
+  gimple_phi phi = make_phi_node (var, EDGE_COUNT (bb->preds));
 
   add_phi_node_to_bb (phi, bb);
   return phi;
@@ -397,7 +395,7 @@ add_phi_arg (gimple phi, tree def, edge e, source_location locus)
    is consistent with how we remove an edge from the edge vector.  */
 
 static void
-remove_phi_arg_num (gimple_statement_phi *phi, int i)
+remove_phi_arg_num (gimple_phi phi, int i)
 {
   int num_elem = gimple_phi_num_args (phi);
 

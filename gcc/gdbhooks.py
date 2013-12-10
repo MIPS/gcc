@@ -469,7 +469,9 @@ def build_pretty_printer():
                               'gimple_assign', 'const_gimple_assign',
                               'gimple_statement_assign *',
                               'gimple_bind', 'const_gimple_bind',
-                              'gimple_statement_bind *'],
+                              'gimple_statement_bind *',
+                              'gimple_phi', 'const_gimple_phi',
+                              'gimple_statement_phi *'],
 
                              'gimple',
                              GimplePrinter)

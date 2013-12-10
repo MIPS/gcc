@@ -114,6 +114,10 @@ struct gimple_statement_bind;
 typedef struct gimple_statement_bind *gimple_bind;
 typedef const struct gimple_statement_bind *const_gimple_bind;
 
+struct gimple_statement_phi;
+typedef struct gimple_statement_phi *gimple_phi;
+typedef const struct gimple_statement_phi *const_gimple_phi;
+
 union section;
 typedef union section section;
 struct gcc_options;

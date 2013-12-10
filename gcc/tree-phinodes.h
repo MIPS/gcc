@@ -24,7 +24,7 @@ extern void phinodes_print_statistics (void);
 extern void release_phi_node (gimple);
 extern void reserve_phi_args_for_new_edge (basic_block);
 extern void add_phi_node_to_bb (gimple phi, basic_block bb);
-extern gimple create_phi_node (tree, basic_block);
+extern gimple_phi create_phi_node (tree, basic_block);
 extern void add_phi_arg (gimple, tree, edge, source_location);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (gimple_stmt_iterator *, bool);

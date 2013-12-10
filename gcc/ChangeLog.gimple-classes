@@ -1,5 +1,60 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_phi and use it in various places
+
+	* coretypes.h (gimple_phi): New typedef.
+	(const_gimple_phi): New typedef.
+
+	* gdbhooks.py (build_pretty_printer): Add gimple_phi and its
+	variants, using the gimple printer.
+
+	* gimple.h (gimple_vec): Eliminate thie typedef in the hope of using
+	vecs of more concrete gimple subclasses as appropriate; also the
+	comment is about to become misleading.
+
+	* gimple.h (gimple_phi_capacity): Use const_gimple_phi typedef
+	rather than spelling out the full type.
+	(gimple_phi_num_args): Likewise.
+	(gimple_phi_result): Likewise.
+	(gimple_phi_result_ptr): Use gimple_phi typedef.
+	(gimple_phi_set_result): Likewise.
+	(gimple_phi_arg): Likewise.
+	(gimple_phi_set_arg): Likewise.
+	* tree-phinodes.c (allocate_phi_node): Likewise.
+	(resize_phi_node): Likewise.
+	(reserve_phi_args_for_new_edge): Likewise.
+	(remove_phi_arg_num): Likewise.
+
+	* gimple-pretty-print.c (dump_gimple_phi): Require a gimple_phi
+	rather than just a gimple.
+	* tree-into-ssa.c (mark_phi_for_rewrite): Likewise.
+
+	* tree-phinodes.c (make_phi_node): Return a gimple_phi rather than
+	just a gimple.
+	(create_phi_node): Likewise.
+	* tree-phinodes.h (create_phi_node): Likewise.
+
+	* trans-mem.c (struct struct tm_log_entry): Replace use of
+	now-removed gimple_vec with a plain vec<gimple>.
+
+	* tree-into-ssa.c (phis_to_rewrite): Strengthen from a
+	vec<gimple_vec> to a vec< vec<gimple_phi> >.
+
+	* tree-into-ssa.c (insert_phi_nodes_for): Update local to be a
+	gimple_phi.
+	* tree-into-ssa.c (rewrite_update_phi_arguments): Strengthen local
+	"phis" from a gimple_vec to a vec<gimple_phi>, and local "phi" to
+	a gimple_phi.
+	* tree-into-ssa.c (delete_update_ssa): Strengthen local
+	"phis" from a gimple_vec to a vec<gimple_phi>.
+
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Add checked cast to
+	gimple_phi in regions where a stmt is known to have code
+	GIMPLE_PHI.
+	* tree-into-ssa.c (mark_use_interesting): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_debug and use it in a few places
 
 	* coretypes.h (gimple_debug): New typedef.

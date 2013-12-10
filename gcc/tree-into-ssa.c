@@ -118,7 +118,7 @@ static bitmap names_to_release;
 /* vec of vec of PHIs to rewrite in a basic block.  Element I corresponds
    the to basic block with index I.  Allocated once per compilation, *not*
    released between different functions.  */
-static vec<gimple_vec> phis_to_rewrite;
+static vec< vec<gimple_phi> > phis_to_rewrite;
 
 /* The bitmap of non-NULL elements of PHIS_TO_REWRITE.  */
 static bitmap blocks_with_phis_to_rewrite;
@@ -950,9 +950,9 @@ find_def_blocks_for (tree var)
 /* Marks phi node PHI in basic block BB for rewrite.  */
 
 static void
-mark_phi_for_rewrite (basic_block bb, gimple phi)
+mark_phi_for_rewrite (basic_block bb, gimple_phi phi)
 {
-  gimple_vec phis;
+  vec<gimple_phi> phis;
   unsigned n, idx = bb->index;
 
   if (rewrite_uses_p (phi))
@@ -991,7 +991,7 @@ insert_phi_nodes_for (tree var, bitmap phi_insertion_points, bool update_p)
 {
   unsigned bb_index;
   edge e;
-  gimple phi;
+  gimple_phi phi;
   basic_block bb;
   bitmap_iterator bi;
   struct def_blocks_d *def_map = find_def_blocks_for (var);
@@ -1991,8 +1991,8 @@ rewrite_update_phi_arguments (basic_block bb)
 
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
-      gimple phi;
-      gimple_vec phis;
+      gimple_phi phi;
+      vec<gimple_phi> phis;
 
       if (!bitmap_bit_p (blocks_with_phis_to_rewrite, e->dest->index))
 	continue;
@@ -2452,7 +2452,7 @@ mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
   mark_block_for_update (bb);
 
   if (gimple_code (stmt) == GIMPLE_PHI)
-    mark_phi_for_rewrite (def_bb, stmt);
+    mark_phi_for_rewrite (def_bb, as_a <gimple_phi> (stmt));
   else
     {
       set_rewrite_uses (stmt, true);
@@ -2812,7 +2812,7 @@ delete_update_ssa (void)
   if (blocks_with_phis_to_rewrite)
     EXECUTE_IF_SET_IN_BITMAP (blocks_with_phis_to_rewrite, 0, i, bi)
       {
-	gimple_vec phis = phis_to_rewrite[i];
+	vec<gimple_phi> phis = phis_to_rewrite[i];
 	phis.release ();
 	phis_to_rewrite[i].create (0);
       }

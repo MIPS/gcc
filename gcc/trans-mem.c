@@ -918,7 +918,7 @@ typedef struct tm_log_entry
   /* Entry block for the transaction this address occurs in.  */
   basic_block entry_block;
   /* Dominating statements the store occurs in.  */
-  gimple_vec stmts;
+  vec<gimple> stmts;
   /* Initially, while we are building the log, we place a nonzero
      value here to mean that this address *will* be saved with a
      save/restore sequence.  Later, when generating the save sequence
