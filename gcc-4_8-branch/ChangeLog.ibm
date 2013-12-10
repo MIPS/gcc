@@ -1,3 +1,13 @@
+2013-12-10  Alan Modra  <amodra@gmail.com>
+
+	Apply gcc-4_8-branch r205803
+	2013-12-05  Alan Modra  <amodra@gmail.com>
+	* gcc/configure.ac (BUILD_CXXFLAGS) Don't use ALL_CXXFLAGS for
+	build != host.
+	<recursive call for build != host>: Clear GMPINC.  Don't bother
+	saving CFLAGS.
+	* gcc/configure: Regenerate.
+
 2013-11-18  Alan Modra  <amodra@gmail.com>
 
 	Backport mainline r205844.
