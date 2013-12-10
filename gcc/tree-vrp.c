@@ -8467,7 +8467,7 @@ vrp_meet (value_range_t *vr0, value_range_t *vr1)
    value ranges, set a new range for the LHS of PHI.  */
 
 static enum ssa_prop_result
-vrp_visit_phi_node (gimple phi)
+vrp_visit_phi_node (gimple_phi phi)
 {
   size_t i;
   tree lhs = PHI_RESULT (phi);

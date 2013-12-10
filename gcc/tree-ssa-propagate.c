@@ -324,7 +324,7 @@ simulate_stmt (gimple stmt)
 
   if (gimple_code (stmt) == GIMPLE_PHI)
     {
-      val = ssa_prop_visit_phi (stmt);
+      val = ssa_prop_visit_phi (as_a <gimple_phi> (stmt));
       output_name = gimple_phi_result (stmt);
     }
   else

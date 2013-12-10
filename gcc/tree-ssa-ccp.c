@@ -1018,7 +1018,7 @@ ccp_lattice_meet (ccp_prop_value_t *val1, ccp_prop_value_t *val2)
    of the PHI node that are incoming via executable edges.  */
 
 static enum ssa_prop_result
-ccp_visit_phi_node (gimple phi)
+ccp_visit_phi_node (gimple_phi phi)
 {
   unsigned i;
   ccp_prop_value_t *old_val, new_val;

@@ -399,7 +399,7 @@ complex_visit_stmt (gimple stmt, edge *taken_edge_p ATTRIBUTE_UNUSED,
 /* Evaluate a PHI node against the complex lattice defined above.  */
 
 static enum ssa_prop_result
-complex_visit_phi (gimple phi)
+complex_visit_phi (gimple_phi phi)
 {
   complex_lattice_t new_l, old_l;
   unsigned int ver;

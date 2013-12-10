@@ -1,5 +1,21 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Update ssa_prop_visit_phi_fn callbacks to take a gimple_phi
+
+	* tree-ssa-propagate.h (typedef ssa_prop_visit_phi_fn): Strengthen
+	type of parameter from gimple to gimple_phi.
+
+	* tree-complex.c (complex_visit_phi): Update signature of callback
+	implementation accordingly.
+	* tree-ssa-ccp.c (ccp_visit_phi_node): Likewise.
+	* tree-ssa-copy.c (copy_prop_visit_phi_node): Likewise.
+	* tree-vrp.c (vrp_visit_phi_node): Likewise.
+
+	* tree-ssa-propagate.c (simulate_stmt): Add a checked cast to
+	gimple_phi when invoking the ssa_prop_visit_phi callback.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_phi_iterator
 
 	* gimple-iterator.h (struct gimple_phi_iterator): New subclass of
