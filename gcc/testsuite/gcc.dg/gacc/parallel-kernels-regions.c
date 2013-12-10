@@ -6,41 +6,41 @@ int main()
 
 #pragma acc parallel
   {
-#pragma acc kernels /* { dg-error "parallel or kernels regions" } */
+#pragma acc kernels /* { dg-error "parallel/kernels regions" } */
     {}
   }
 
 #pragma acc parallel
   {
-#pragma acc parallel /* { dg-error "parallel or kernels regions" } */
+#pragma acc parallel /* { dg-error "parallel/kernels regions" } */
     {}
   }
 
 #pragma acc parallel
   {
-#pragma acc parallel /* { dg-error "parallel or kernels regions" } */
+#pragma acc parallel /* { dg-error "parallel/kernels regions" } */
     {}
-#pragma acc kernels /* { dg-error "parallel or kernels regions" } */
-    {}
-  }
-
-#pragma acc kernels
-  {
-#pragma acc kernels /* { dg-error "parallel or kernels regions" } */
+#pragma acc kernels /* { dg-error "parallel/kernels regions" } */
     {}
   }
 
 #pragma acc kernels
   {
-#pragma acc parallel /* { dg-error "parallel or kernels regions" } */
+#pragma acc kernels /* { dg-error "parallel/kernels regions" } */
     {}
   }
 
 #pragma acc kernels
   {
-#pragma acc parallel /* { dg-error "parallel or kernels regions" } */
+#pragma acc parallel /* { dg-error "parallel/kernels regions" } */
     {}
-#pragma acc kernels /* { dg-error "parallel or kernels regions" } */
+  }
+
+#pragma acc kernels
+  {
+#pragma acc parallel /* { dg-error "parallel/kernels regions" } */
+    {}
+#pragma acc kernels /* { dg-error "parallel/kernels regions" } */
     {}
   }
 

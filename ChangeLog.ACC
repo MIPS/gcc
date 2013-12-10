@@ -1,3 +1,18 @@
+10-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Fix reduction in C FE
+
+	* gcc/c/c-parser.c 
+	(ACC_REGION_KERNELS, ACC_REGION_PARALLEL): 
+	Region types, that used by context
+	(acc_context): Parsing context
+	(c_parser_acc_clause_reduction): Add checks
+	(c_parser_acc_parallel, c_parser_acc_kernels): 
+	Add context generation 
+	* gcc/testsuite/gcc.dg/gacc/parallel-kernels-regions.c:
+	Fix test
+	* gcc/testsuite/gcc.dg/gacc/reduction.c: Likewise
+	* gcc/testsuite/gfortran.dg/gacc/_reduction.f95: Likewise
+
 09-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Parse #pragma acc loop in C FE
 

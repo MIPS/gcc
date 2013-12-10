@@ -24,29 +24,39 @@ integer, allocatable :: aa1 (:,:)
 save i2
 common /blk/ i1
 
-!$acc parallel reduction (+:i3, ia2, r1, ra1, d1, da1, c1, ca1)
+!$acc parallel reduction (+:ia2)	! { dg-error "SCALAR variable" }
 !$acc end parallel
-!$acc parallel reduction (*:i3, ia2, r1, ra1, d1, da1, c1, ca1)
+!$acc parallel reduction (+:ra1)	! { dg-error "SCALAR variable" }
 !$acc end parallel
-!$acc parallel reduction (-:i3, ia2, r1, ra1, d1, da1, c1, ca1)
+!$acc parallel reduction (+:ca1)	! { dg-error "SCALAR variable" }
 !$acc end parallel
-!$acc parallel reduction (.and.:l1, la1)
+!$acc parallel reduction (+:da1)	! { dg-error "SCALAR variable" }
 !$acc end parallel
-!$acc parallel reduction (.or.:l1, la1)
+!$acc parallel reduction (.and.:la1)	! { dg-error "SCALAR variable" }
 !$acc end parallel
-!$acc parallel reduction (.eqv.:l1, la1)
+!$acc parallel reduction (+:i3, r1, d1, c1)
 !$acc end parallel
-!$acc parallel reduction (.neqv.:l1, la1)
+!$acc parallel reduction (*:i3, r1, d1, c1)
 !$acc end parallel
-!$acc parallel reduction (min:i3, ia2, r1, ra1, d1, da1)
+!$acc parallel reduction (-:i3, r1, d1, c1)
 !$acc end parallel
-!$acc parallel reduction (max:i3, ia2, r1, ra1, d1, da1)
+!$acc parallel reduction (.and.:l1)
 !$acc end parallel
-!$acc parallel reduction (iand:i3, ia2)
+!$acc parallel reduction (.or.:l1)
 !$acc end parallel
-!$acc parallel reduction (ior:i3, ia2)
+!$acc parallel reduction (.eqv.:l1)
 !$acc end parallel
-!$acc parallel reduction (ieor:i3, ia2)
+!$acc parallel reduction (.neqv.:l1)
+!$acc end parallel
+!$acc parallel reduction (min:i3, r1, d1)
+!$acc end parallel
+!$acc parallel reduction (max:i3, r1, d1)
+!$acc end parallel
+!$acc parallel reduction (iand:i3)
+!$acc end parallel
+!$acc parallel reduction (ior:i3)
+!$acc end parallel
+!$acc parallel reduction (ieor:i3)
 !$acc end parallel
 !$acc parallel reduction (+:/blk/)	! { dg-error "Syntax error" }
 !$acc end parallel			! { dg-error "Unexpected" }

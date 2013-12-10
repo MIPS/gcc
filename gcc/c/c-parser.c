@@ -11154,7 +11154,7 @@ c_parser_acc_cache_list_parens (c_parser *parser, tree list)
             c_parser_consume_token (parser);
             if (c_parser_next_token_is_not (parser, CPP_OPEN_SQUARE))
               c_parser_error (parser, "only single array elements and subarrays"
-                                      " are allowed in #pragma acc cache");
+                                      " are allowed in %<#pragma acc cache%>");
 
             /* TODO: use Cilk+ c_parser_array_notation for subarrays */
             c_parser_consume_token (parser);
@@ -11401,6 +11401,18 @@ c_parser_acc_clause_num_workers (c_parser *parser, tree list)
                                                   "num_workers");
 }
 
+enum acc_context_region_type
+{
+  ACC_REGION_KERNELS,
+  ACC_REGION_PARALLEL
+};
+
+struct acc_context
+{
+  enum acc_context_region_type region_type;
+  struct acc_context *previous;
+} *acc_current_ctx;
+
 /* OpenACC 1.0:
    reduction ( reduction-operator : variable-list )
 
@@ -11410,6 +11422,12 @@ c_parser_acc_clause_num_workers (c_parser *parser, tree list)
 static tree
 c_parser_acc_clause_reduction(c_parser *parser, tree list) {
   location_t clause_loc = c_parser_peek_token(parser)->location;
+  struct acc_context *ctx;
+
+  for (ctx = acc_current_ctx; ctx; ctx = ctx->previous)
+    if (ctx->region_type == ACC_REGION_KERNELS)
+      c_parser_error (parser, "%<reduction%> clause is not allowed "
+                              "in kernels region");
 
   if (c_parser_require(parser, CPP_OPEN_PAREN, "expected %<(%>")) {
     enum tree_code code;
@@ -11467,9 +11485,59 @@ c_parser_acc_clause_reduction(c_parser *parser, tree list) {
 
       nl = c_parser_acc_variable_list(parser, clause_loc,
               ACC_CLAUSE_REDUCTION, list);
-      for (c = nl; c != list; c = ACC_CLAUSE_CHAIN(c)) {
-        ACC_CLAUSE_REDUCTION_CODE(c) = code;
-      }
+      for (c = nl; c != list; c = ACC_CLAUSE_CHAIN(c))
+        {
+          tree t = ACC_CLAUSE_DECL (c);
+          /* Check types. */
+          if (AGGREGATE_TYPE_P (TREE_TYPE (t))
+              || POINTER_TYPE_P (TREE_TYPE (t)))
+            {
+              error_at (clause_loc,
+                        "%qE has invalid type for %<reduction%>", t);
+              continue;
+            }
+          else if (FLOAT_TYPE_P (TREE_TYPE (t)))
+            {
+              const char *r_name = NULL;
+
+              switch (code)
+                {
+                case PLUS_EXPR:
+                case MULT_EXPR:
+                case MINUS_EXPR:
+                case MIN_EXPR:
+                case MAX_EXPR:
+                  break;
+                case BIT_AND_EXPR:
+                  r_name = "&";
+                  break;
+                case BIT_XOR_EXPR:
+                  r_name = "^";
+                  break;
+                case BIT_IOR_EXPR:
+                  r_name = "|";
+                  break;
+                case TRUTH_ANDIF_EXPR:
+                  r_name = "&&";
+                  break;
+                case TRUTH_ORIF_EXPR:
+                  r_name = "||";
+                  break;
+                default:
+                  gcc_unreachable ();
+                }
+              if (r_name)
+                {
+                  error_at (clause_loc,
+                            "%qE has invalid type for %<reduction(%s)%>",
+                            t, r_name);
+                  continue;
+                }
+            }
+
+          /* Add to chain. */
+          ACC_CLAUSE_REDUCTION_CODE(c) = code;
+        }
 
       list = nl;
     }
@@ -12354,10 +12422,16 @@ c_parser_acc_parallel (location_t loc, c_parser *parser)
   const char *p_name = "#pragma acc parallel";
   tree stmt, clauses, block;
   unsigned int mask = ACC_PARALLEL_CLAUSE_MASK;
+  struct acc_context ctx;
+
+  ctx.previous = acc_current_ctx;
+  ctx.region_type = ACC_REGION_PARALLEL;
+  acc_current_ctx = &ctx;
 
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
-      const char *next_token = IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
+      const char *next_token =
+          IDENTIFIER_POINTER (c_parser_peek_token (parser)->value);
       if (!strcmp(next_token, "loop"))
         {
           c_parser_consume_token (parser);
@@ -12382,10 +12456,11 @@ c_parser_acc_parallel (location_t loc, c_parser *parser)
       block = c_end_compound_stmt (loc, block, true);
       add_stmt (block);
       break;
-
     default:
       gcc_unreachable ();
     }
+
+  acc_current_ctx = ctx.previous;
 
   return stmt;
 }
@@ -12401,6 +12476,11 @@ c_parser_acc_kernels (location_t loc, c_parser *parser)
   const char *p_name = "#pragma acc kernels";
   tree stmt, clauses, block, for_block;
   unsigned int mask = ACC_KERNELS_CLAUSE_MASK;
+  struct acc_context ctx;
+
+  ctx.previous = acc_current_ctx;
+  ctx.region_type = ACC_REGION_KERNELS;
+  acc_current_ctx = &ctx;
 
   if (c_parser_next_token_is (parser, CPP_NAME))
     {
@@ -12432,10 +12512,11 @@ c_parser_acc_kernels (location_t loc, c_parser *parser)
     add_stmt (for_block);
     stmt = c_finish_acc_kernels (loc, clauses, block);
     break;
-
   default:
     gcc_unreachable ();
   }
+
+  acc_current_ctx = ctx.previous;
 
   return stmt;
 }
