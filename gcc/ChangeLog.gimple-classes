@@ -1,5 +1,12 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	tree-ssa-phiprop.c: use gimple_phi
+
+	* tree-ssa-phiprop.c (phiprop_insert_phi): Strengthen types of
+	parameter "phi" and local "new_phi" from gimple to gimple_phi.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	tree-predcom.c: use gimple_phi in various places
 
 	* tree-predcom.c (find_looparound_phi): Return a gimple_phi rather

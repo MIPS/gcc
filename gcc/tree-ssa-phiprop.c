@@ -139,11 +139,11 @@ phivn_valid_p (struct phiprop_d *phivn, tree name, basic_block bb)
    BB with the virtual operands from USE_STMT.  */
 
 static tree
-phiprop_insert_phi (basic_block bb, gimple phi, gimple use_stmt,
+phiprop_insert_phi (basic_block bb, gimple_phi phi, gimple use_stmt,
 		    struct phiprop_d *phivn, size_t n)
 {
   tree res;
-  gimple new_phi;
+  gimple_phi new_phi;
   edge_iterator ei;
   edge e;
 
