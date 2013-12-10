@@ -197,7 +197,7 @@ struct reduction_info
   tree initial_value;		/* The initial value of the reduction var before entering the loop.  */
   tree field;			/*  the name of the field in the parloop data structure intended for reduction.  */
   tree init;			/* reduction initialization value.  */
-  gimple new_phi;		/* (helper field) Newly created phi node whose result
+  gimple_phi new_phi;		/* (helper field) Newly created phi node whose result
 				   will be passed to the atomic operation.  Represents
 				   the local result each thread computed for the reduction
 				   operation.  */
@@ -1027,7 +1027,7 @@ create_phi_for_local_result (reduction_info **slot, struct loop *loop)
 {
   struct reduction_info *const reduc = *slot;
   edge e;
-  gimple new_phi;
+  gimple_phi new_phi;
   basic_block store_bb;
   tree local_res;
   source_location locus;
@@ -1930,7 +1930,7 @@ loop_has_vector_phi_nodes (struct loop *loop ATTRIBUTE_UNUSED)
 
 static void
 build_new_reduction (reduction_info_table_type *reduction_list,
-		     gimple reduc_stmt, gimple phi)
+		     gimple reduc_stmt, gimple_phi phi)
 {
   reduction_info **slot;
   struct reduction_info *new_reduction;
@@ -1970,14 +1970,14 @@ set_reduc_phi_uids (reduction_info **slot, void *data ATTRIBUTE_UNUSED)
 static void
 gather_scalar_reductions (loop_p loop, reduction_info_table_type *reduction_list)
 {
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
   loop_vec_info simple_loop_info;
 
   simple_loop_info = vect_analyze_loop_form (loop);
 
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       affine_iv iv;
       tree res = PHI_RESULT (phi);
       bool double_reduc;
@@ -2033,7 +2033,7 @@ try_create_reduction_list (loop_p loop,
 			   reduction_info_table_type *reduction_list)
 {
   edge exit = single_dom_exit (loop);
-  gimple_stmt_iterator gsi;
+  gimple_phi_iterator gsi;
 
   gcc_assert (exit);
 
@@ -2042,7 +2042,7 @@ try_create_reduction_list (loop_p loop,
 
   for (gsi = gsi_start_phis (exit->dest); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       struct reduction_info *red;
       imm_use_iterator imm_iter;
       use_operand_p use_p;
@@ -2100,7 +2100,7 @@ try_create_reduction_list (loop_p loop,
      iteration space can be distributed efficiently.  */
   for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
     {
-      gimple phi = gsi_stmt (gsi);
+      gimple_phi phi = gsi.phi ();
       tree def = PHI_RESULT (phi);
       affine_iv iv;
 

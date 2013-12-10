@@ -1,5 +1,17 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	tree-parloops.c: use gimple_phi in various places
+
+	* tree-parloops.c (struct reduction_info): Strengthen field "new_phi"
+	from gimple to gimple_phi.
+	(create_phi_for_local_result): Convert local "new_phi" to gimple_phi.
+	(loop_has_vector_phi_nodes): Require a gimple_phi rather than a gimple.
+	(gather_scalar_reductions): Convert to a gimple_phi_iterator and
+	gimple_phi.
+	(try_create_reduction_list): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Update ssa_prop_visit_phi_fn callbacks to take a gimple_phi
 
 	* tree-ssa-propagate.h (typedef ssa_prop_visit_phi_fn): Strengthen
