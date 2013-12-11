@@ -1,4 +1,9 @@
 11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Support for data directive.
+
+	* gcc/oacc-low.c: Add support for data directive.
+
+11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Quickfix.
 
 	* gcc/oacc-low.c: Fix kernel arguments copyin.

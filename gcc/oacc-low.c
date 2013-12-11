@@ -232,6 +232,9 @@ typedef struct copyin_data_t *copyin_data;
 typedef struct copyin_data_t
 {
   vec<copy_data_item_t> data;
+  unsigned event_count;
+  copyin_data_t() : event_count(0)
+  {}
 } copyin_data_t;
 
 typedef struct copyout_data_t *copyout_data;
@@ -2981,6 +2984,8 @@ create_copyin_list(gimple stmt, copyin_data data)
           item.check_presence = true;
         }
       data->data.safe_push(item);
+      if(item.to_do != OACC_CF_NONE)
+        data->event_count++;
     }
   
   for(clause = GIMPLE_ACC_CLAUSES(stmt); clause != NULL_TREE;
@@ -3006,6 +3011,8 @@ create_copyin_list(gimple stmt, copyin_data data)
             apply_clause(clause, &item);
             pointer_set_insert(vars, (void*)var);
             data->data.safe_push(item);
+            if(item.to_do != OACC_CF_NONE)
+              data->event_count++;
             break;
           default:
             continue;
@@ -3244,18 +3251,6 @@ generate_start_kernel(gimple_stmt_iterator* gsi, location_t locus,
 }
 
 static void
-do_copyin(gimple stmt)
-{
-  
-}
-
-static void
-do_copyout(gimple stmt)
-{
-}
-
-
-static void
 tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
               acc_schedule_t* sched, tree queue_handle)
 {
@@ -3373,7 +3368,7 @@ tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
 static void
 expand_oacc_kernels(gimple_stmt_iterator* gsi)
 {
-    unsigned i, j;
+    unsigned i, j, idx;
     gimple stmt = gsi_stmt(*gsi);
     tree sched_clauses = ((gimple_code(stmt) == GIMPLE_ACC_PARALLEL)
       ? gimple_acc_parallel_clauses(stmt) : NULL_TREE);
@@ -3448,7 +3443,7 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
     generate_create_event_queue(gsi, locus, queue_handle, src_file, src_line);
 
     generate_enqueue_events(gsi, locus, queue_handle,
-        cpin.data.length(), OACC_PF_DATAIN);
+        cpin.event_count, OACC_PF_DATAIN);
     for(i = 0; i < kernels.length(); ++i)
       {
         generate_enqueue_events(gsi, locus, queue_handle, 1, OACC_PF_EXEC);
@@ -3459,12 +3454,14 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
 
     bits_per_byte = build_int_cst(uint32_type_node, 8);
 
+    idx = 0;
     for(i = 0; i < cpin.data.length(); ++i)
       {
           tree arg = cpin.data[i].datum;
           tree type, size;
           tree check_presence = (cpin.data[i].check_presence) ? 
               integer_zero_node : integer_one_node;
+          
           if(is_gimple_reg(arg))
             continue;
           type = TREE_TYPE(arg);
@@ -3483,14 +3480,14 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
                 generate_copyin(gsi, locus, build_fold_addr_expr(arg),
                       fold_binary(TRUNC_DIV_EXPR, uint32_type_node,
                               size, bits_per_byte),
-                      check_presence, build_int_cst(uint32_type_node, i),
+                      check_presence, build_int_cst(uint32_type_node, idx++),
                 queue_handle, buffer_handle);
                 break;
             case OACC_CF_CREATE:
                 generate_create(gsi, locus, build_fold_addr_expr(arg),
                       fold_binary(TRUNC_DIV_EXPR, uint32_type_node,
                               size, bits_per_byte),
-                      check_presence, build_int_cst(uint32_type_node, i),
+                      check_presence, build_int_cst(uint32_type_node, idx++),
                 queue_handle, buffer_handle);
               break;
             default:
@@ -3505,7 +3502,8 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
             }
       }
 
-    generate_advance_events(gsi, locus, queue_handle);
+    if(cpin.event_count > 0)
+        generate_advance_events(gsi, locus, queue_handle);
 
     for(i = 0; i < kernels.length(); ++i)
     {
@@ -3545,6 +3543,166 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
 
             switch(cpout.data[i].to_do)
               {
+              case OACC_CF_COPY:
+                generate_copyout(gsi, locus, build_fold_addr_expr(arg),
+                  fold_binary(TRUNC_DIV_EXPR, uint32_type_node, size,
+                      bits_per_byte),
+                  integer_one_node, build_int_cst(uint32_type_node, i),
+                  queue_handle);
+                break;
+              default:
+                gcc_unreachable();
+              }
+        }
+
+    if(cpout.data.length() > 0)
+        generate_advance_events(gsi, locus, queue_handle);
+    generate_wait_events(gsi, locus, queue_handle);
+
+}
+
+static void
+expand_oacc_data(gimple_stmt_iterator* gsi)
+{
+    unsigned i;
+    gimple stmt = gsi_stmt(*gsi);
+    tree type, buffer_handle, queue_handle, bits_per_byte;
+    location_t locus;
+    const char* src_file = NULL;
+    int src_line = 0;
+    copyin_data_t cpin;
+
+    type = build_pointer_type(void_type_node);
+    buffer_handle = create_tmp_reg(type, "_oacc_tmp");
+    queue_handle = create_tmp_reg(type, "_oacc_tmp");
+
+    locus = gimple_location(stmt);
+    src_file = LOCATION_FILE(locus);
+    src_line = LOCATION_LINE(locus);
+    if(dump_file)
+      {
+          fprintf(dump_file, "Data region start at file: '%s', line %d\n",
+                        src_file, src_line);
+      }
+    create_copyin_list(stmt, &cpin);
+
+    if(dump_file)
+      {
+        fprintf(dump_file, "copyin list:\n");
+        for(i = 0; i < cpin.data.length(); ++i)
+          {
+            print_generic_expr(dump_file, cpin.data[i].datum, 0);
+            fprintf(dump_file, " %u, %d, %d\n", cpin.data[i].to_do,
+                    cpin.data[i].check_presence, cpin.data[i].is_arg);
+          }
+      }
+    
+    generate_region_start(gsi, locus);
+    generate_create_event_queue(gsi, locus, queue_handle, src_file, src_line);
+
+    generate_enqueue_events(gsi, locus, queue_handle,
+        cpin.data.length(), OACC_PF_DATAIN);
+
+   bits_per_byte = build_int_cst(uint32_type_node, 8);
+
+    for(i = 0; i < cpin.data.length(); ++i)
+      {
+          tree arg = cpin.data[i].datum;
+          tree type, size;
+          tree check_presence = (cpin.data[i].check_presence) ? 
+              integer_zero_node : integer_one_node;
+          if(is_gimple_reg(arg))
+            continue;
+          type = TREE_TYPE(arg);
+          size = TYPE_SIZE(type);
+
+          switch(cpin.data[i].to_do)
+            {
+            case OACC_CF_NONE:
+              if(cpin.data[i].check_presence)
+                {
+                  generate_check_present(gsi, locus, build_fold_addr_expr(arg),
+                                         buffer_handle);
+                }
+              break;
+            case OACC_CF_COPY:
+                generate_copyin(gsi, locus, build_fold_addr_expr(arg),
+                      fold_binary(TRUNC_DIV_EXPR, uint32_type_node,
+                              size, bits_per_byte),
+                      check_presence, build_int_cst(uint32_type_node, i),
+                queue_handle, buffer_handle);
+                break;
+            case OACC_CF_CREATE:
+                generate_create(gsi, locus, build_fold_addr_expr(arg),
+                      fold_binary(TRUNC_DIV_EXPR, uint32_type_node,
+                              size, bits_per_byte),
+                      check_presence, build_int_cst(uint32_type_node, i),
+                queue_handle, buffer_handle);
+              break;
+            default:
+              gcc_unreachable();
+            }
+      }
+
+    generate_advance_events(gsi, locus, queue_handle);
+    generate_wait_events(gsi, locus, queue_handle);
+
+ }
+
+static void
+expand_oacc_end_data_region(gimple_stmt_iterator* gsi, gimple start_stmt)
+{
+    unsigned i;
+    gimple stmt = gsi_stmt(*gsi);
+    tree type, buffer_handle, queue_handle, bits_per_byte;
+    location_t locus;
+    const char* src_file = NULL;
+    int src_line = 0;
+    copyout_data_t cpout;
+
+    type = build_pointer_type(void_type_node);
+    buffer_handle = create_tmp_reg(type, "_oacc_tmp");
+    queue_handle = create_tmp_reg(type, "_oacc_tmp");
+
+    locus = gimple_location(start_stmt);
+    src_file = LOCATION_FILE(locus);
+    src_line = LOCATION_LINE(locus);
+    if(dump_file)
+      {
+          fprintf(dump_file, "Data region end at file: '%s', line %d\n",
+                        src_file, src_line);
+      }
+    create_copyout_list(start_stmt, &cpout);
+
+    if(dump_file)
+      {
+        fprintf(dump_file, "copyout list:\n");
+        for(i = 0; i < cpout.data.length(); ++i)
+          {
+            print_generic_expr(dump_file, cpout.data[i].datum, 0);
+            fprintf(dump_file, " %u, %d, %d\n", cpout.data[i].to_do,
+                    cpout.data[i].check_presence, cpout.data[i].is_arg);
+          }
+      }
+    
+    generate_region_start(gsi, locus);
+    generate_create_event_queue(gsi, locus, queue_handle, src_file, src_line);
+    generate_enqueue_events(gsi, locus, queue_handle,
+        cpout.data.length(), OACC_PF_DATAOUT);
+
+    bits_per_byte = build_int_cst(uint32_type_node, 8);
+    for(i = 0; i < cpout.data.length(); ++i)
+        {
+            tree arg = cpout.data[i].datum;
+            tree type, size;
+
+            if(is_gimple_reg(arg))
+              continue;
+            type = TREE_TYPE(arg);
+            size = TYPE_SIZE(type);
+
+            switch(cpout.data[i].to_do)
+              {
               case OACC_CF_NONE:
                 break;
               case OACC_CF_COPY:
@@ -3561,19 +3719,6 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
 
     generate_advance_events(gsi, locus, queue_handle);
     generate_wait_events(gsi, locus, queue_handle);
-
-}
-
-static void
-expand_oacc_data(gimple_stmt_iterator* gsi)
-{
-  gsi_replace( gsi, gimple_build_nop (), false);  
-}
-
-static void
-expand_oacc_end_data_region(gimple_stmt_iterator* gsi)
-{
-  gsi_replace (gsi, gimple_build_nop (), false);
 }
 
 static void
@@ -3634,7 +3779,7 @@ expand_region (acc_region region)
       expand_oacc_data(&gsi);
       gcc_checking_assert(region->end_stmt);
       gsi = gsi_for_stmt(region->end_stmt);
-      expand_oacc_end_data_region(&gsi);
+      expand_oacc_end_data_region(&gsi, stmt);
       break;
     default:
       gcc_unreachable();
