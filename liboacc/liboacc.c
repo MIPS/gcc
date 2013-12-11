@@ -94,7 +94,7 @@ OACC_check_present(void *mem)
   OACC_CHECK_DEV_INIT(OACC_curr_dev[OACC_curr_num])
   if((buf = OACC_is_present(mem, OACC_curr_dev[OACC_curr_num])) == NULL)
     {
-      OACC_fatal("Required data not present");
+      OACC_fatal("Required data not present\n");
     }
   return buf;
 }

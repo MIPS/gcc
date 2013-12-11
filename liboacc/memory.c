@@ -243,6 +243,7 @@ OACC_create_or_copy_to_device(void *ptr, size_t size, OACC_device_ptr dev_ptr,
   else if(ptr != NULL && dev_only != 0)
     {
       OACC_EQ_FIRE_EVENT(queue, idx, dev_ptr)
+      buf->flags |= OACC_BF_PRESENT;
     }
 
   return buf;

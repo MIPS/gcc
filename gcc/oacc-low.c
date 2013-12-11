@@ -3009,14 +3009,20 @@ create_copyin_list(gimple stmt, copyin_data data)
           case ACC_CLAUSE_PRESENT_OR_COPYIN:
           case ACC_CLAUSE_PRESENT_OR_CREATE:
             apply_clause(clause, &item);
-            pointer_set_insert(vars, (void*)var);
-            data->data.safe_push(item);
-            if(item.to_do != OACC_CF_NONE)
-              data->event_count++;
+            break;
+          case ACC_CLAUSE_COPYOUT:
+          case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+            item.to_do = OACC_CF_CREATE;
+            if(code == ACC_CLAUSE_PRESENT_OR_COPYOUT)
+              item.check_presence = true;
             break;
           default:
             continue;
           }
+        pointer_set_insert(vars, (void*)var);
+        data->data.safe_push(item);
+        if(item.to_do != OACC_CF_NONE)
+          data->event_count++;
       }
   
   pointer_set_destroy(vars);

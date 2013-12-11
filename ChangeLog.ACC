@@ -1,4 +1,12 @@
 11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Fix copyout.
+
+	* gcc/oacc-low.c: Add creation of copyout object.
+	* liboacc/liboacc.c (OACC_check_present): Newline in message.
+	* liboacc/memory.c (OACC_create_or_copy_to_device): Set present flag for
+      created objects.
+
+11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Support for data directive.
 
 	* gcc/oacc-low.c: Add support for data directive.
