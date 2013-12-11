@@ -363,6 +363,34 @@ gimple_acc_loop_cond (const_gimple gs, size_t i)
   return gs->gimple_acc_loop.iter[i].cond;
 }
 
+gimple
+gimple_acc_data_region_end_statement (const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_DATA_REGION_END);
+  return gs->gimple_acc_region_end.stmt;
+}
+
+void
+gimple_acc_data_region_end_set_statement(gimple gs, gimple s)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_DATA_REGION_END);
+  gs->gimple_acc_region_end.stmt = s;
+}
+
+gimple
+gimple_acc_compute_region_end_statement(const_gimple gs)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_COMPUTE_REGION_END);
+  return gs->gimple_acc_region_end.stmt;
+}
+
+void
+gimple_acc_compute_region_end_set_statement(gimple gs, gimple s)
+{
+  GIMPLE_CHECK (gs, GIMPLE_ACC_COMPUTE_REGION_END);
+  gs->gimple_acc_region_end.stmt = s;
+}
+
 /******************************************************************************/
 /********************* Begin of GIMPLE building routines **********************/
 

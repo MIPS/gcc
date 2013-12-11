@@ -823,6 +823,18 @@ struct GTY(()) gimple_statement_acc_update {
   tree clauses;
 };
 
+/* GIMPLE_ACC_DATA_REGION_END & GIMPLE_ACC_COMPUTE_REGION_END */
+
+struct GTY(()) gimple_statement_acc_region_end {
+  /* [ WORD 1-10 ]  */
+  struct gimple_statement_acc acc;
+
+  /* [ WORD 11 ]
+      Begin of region statement */
+  gimple stmt;
+};
+
+
 /* GIMPLE_TRANSACTION.  */
 
 /* Bits to be stored in the GIMPLE_TRANSACTION subcode.  */
@@ -913,6 +925,7 @@ union GTY ((desc ("gimple_statement_structure (&%h)"),
   struct gimple_statement_acc_loop GTY ((tag ("GSS_ACC_LOOP"))) gimple_acc_loop;
   struct gimple_statement_acc_declare GTY ((tag ("GSS_ACC_DECLARE"))) gimple_acc_declare;
   struct gimple_statement_acc_update GTY ((tag ("GSS_ACC_UPDATE"))) gimple_acc_update;
+  struct gimple_statement_acc_region_end GTY ((tag ("GSS_ACC_REGION_END"))) gimple_acc_region_end;
 
   struct gimple_statement_transaction GTY((tag ("GSS_TRANSACTION"))) gimple_transaction;
 };

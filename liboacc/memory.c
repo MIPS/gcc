@@ -100,8 +100,9 @@ OACC_alloc_on_device(void *host_ptr, size_t size, OACC_device_ptr dev_ptr,
       mem_flags |= ((dev_ptr->flags & OACC_DF_UNIFIED_MEM) != 0) 
         ? CL_MEM_USE_HOST_PTR : CL_MEM_COPY_HOST_PTR;
     }
-
-  mem_obj = clCreateBuffer(dev_ptr->ctx, mem_flags, size, host_ptr, &err);
+  
+  mem_obj = clCreateBuffer(dev_ptr->ctx, mem_flags, size,
+                           (dev_only != 0) ? NULL : host_ptr, &err);
   if(err < 0)
     {
       OACC_fatal("Can't create memory buffer: %d\n", err);
@@ -238,6 +239,10 @@ OACC_create_or_copy_to_device(void *ptr, size_t size, OACC_device_ptr dev_ptr,
 #endif
         }
       buf->flags |= OACC_BF_PRESENT;
+    }
+  else if(ptr != NULL && dev_only != 0)
+    {
+      OACC_EQ_FIRE_EVENT(queue, idx, dev_ptr)
     }
 
   return buf;

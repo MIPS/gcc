@@ -61,5 +61,6 @@ DEFGSSTRUCT(GSS_ACC_HOST_DATA, gimple_statement_acc_host_data, false)
 DEFGSSTRUCT(GSS_ACC_LOOP, gimple_statement_acc_loop, false)
 DEFGSSTRUCT(GSS_ACC_DECLARE, gimple_statement_acc_declare, false)
 DEFGSSTRUCT(GSS_ACC_UPDATE, gimple_statement_acc_update, false)
+DEFGSSTRUCT(GSS_ACC_REGION_END, gimple_statement_acc_region_end, false)
 
 DEFGSSTRUCT(GSS_TRANSACTION, gimple_statement_transaction, false)

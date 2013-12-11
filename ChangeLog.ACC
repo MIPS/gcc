@@ -1,3 +1,14 @@
+11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Add support for data clauses.
+
+	* gcc/gimple-oacc.c: New functions.
+	* gcc/gimple-oacc.h: Likewise.
+	* gcc/gimple.def: Change type for end region stmts.
+	* gcc/gimple.h: Add new structure for end region stmts.
+	* gcc/gsstruct.def: Likewise.
+	* gcc/oacc-low.c: Add support for data clauses.
+	* liboacc/memory.c: Fix buffer creation.
+
 10-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Fix reduction in C FE
 

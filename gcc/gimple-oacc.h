@@ -57,6 +57,17 @@ along with GCC; see the file COPYING3.  If not see
                                   gimple_acc_parallel_clauses(g) : \
                                  (gimple_code(g) == GIMPLE_ACC_DATA) ? \
                                  gimple_acc_data_clauses(g) : NULL_TREE)
+#define GIMPLE_ACC_STATEMENT(g) \
+                        ((gimple_code(g) == GIMPLE_ACC_COMPUTE_REGION_END) ? \
+                         gimple_acc_compute_region_end_statement(g) : \
+                        (gimple_code(g) == GIMPLE_ACC_DATA_REGION_END) ? \
+                         gimple_acc_data_region_end_statement(g) : NULL)
+
+#define GIMPLE_ACC_SET_STATEMENT(g,s) \
+                        ((gimple_code(g) == GIMPLE_ACC_COMPUTE_REGION_END) ? \
+                         gimple_acc_compute_region_end_set_statement(g,s) : \
+                        (gimple_code(g) == GIMPLE_ACC_DATA_REGION_END) ? \
+                         gimple_acc_data_region_end_set_statement(g,s) : (void)0)
 
 extern bool is_gimple_acc (const_gimple);
 
@@ -110,6 +121,12 @@ extern void gimple_acc_loop_set_incr (gimple, size_t i, tree incr);
 extern tree gimple_acc_loop_incr (const_gimple, size_t i);
 extern void gimple_acc_loop_set_cond (gimple, size_t i, enum tree_code cond);
 extern enum tree_code gimple_acc_loop_cond (const_gimple, size_t i);
+
+/* REGION END */
+extern gimple gimple_acc_data_region_end_statement (const_gimple);
+extern void gimple_acc_data_region_end_set_statement(gimple, gimple);
+extern gimple gimple_acc_compute_region_end_statement(const_gimple);
+extern void gimple_acc_compute_region_end_set_statement(gimple, gimple);
 
 /* BUILD */
 extern gimple gimple_build_acc_parallel (gimple_seq, tree, tree, tree);

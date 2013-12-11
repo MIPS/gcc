@@ -167,10 +167,12 @@ DEFGSCODE(GIMPLE_ACC_DECLARE, "gimple_acc_declare", GSS_ACC_DECLARE)
 DEFGSCODE(GIMPLE_ACC_UPDATE, "gimple_acc_update", GSS_ACC_UPDATE)
 
 /* GIMPLE_ACC_COMPUTE_REGION_END */
-DEFGSCODE(GIMPLE_ACC_COMPUTE_REGION_END, "gimple_acc_compute_region_end", GSS_ACC)
+DEFGSCODE(GIMPLE_ACC_COMPUTE_REGION_END, "gimple_acc_compute_region_end",
+          GSS_ACC_REGION_END)
 
 /* GIMPLE_ACC_DATA_REGION_END */
-DEFGSCODE(GIMPLE_ACC_DATA_REGION_END, "gimple_acc_data_region_end", GSS_ACC)
+DEFGSCODE(GIMPLE_ACC_DATA_REGION_END, "gimple_acc_data_region_end",
+          GSS_ACC_REGION_END)
 
 
 /* GIMPLE_RETURN <RETVAL> represents return statements.
