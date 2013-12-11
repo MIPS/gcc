@@ -2867,7 +2867,7 @@ schedule_kernel(acc_schedule sched, tree niter, tree clause)
 }
 
 static tree
-find_clause(tree var, gimple stmt, bool out)
+find_clause(tree var, gimple stmt)
 {
   tree clause = NULL_TREE;
 
@@ -2887,19 +2887,11 @@ find_clause(tree var, gimple stmt, bool out)
            case ACC_CLAUSE_PRESENT:
            case ACC_CLAUSE_PRESENT_OR_COPY:
            case ACC_CLAUSE_PRESENT_OR_CREATE:
-             return clause;
            case ACC_CLAUSE_COPYIN:
            case ACC_CLAUSE_PRESENT_OR_COPYIN:
-             if(!out)
-               return clause;
-             else
-               break;
            case ACC_CLAUSE_PRESENT_OR_COPYOUT:
            case ACC_CLAUSE_COPYOUT:
-             //if(out)
                return clause;
-             //else
-               //break;
            default:
              break;
            }
@@ -2969,7 +2961,7 @@ create_copyin_list(gimple stmt, copyin_data data)
       pointer_set_insert(vars, (void*)arg);
       item.datum = arg;
       item.is_arg = true;
-      clause = find_clause(arg, stmt, false);
+      clause = find_clause(arg, stmt);
       if(clause != NULL_TREE)
         {
            enum acc_clause_code code = ACC_CLAUSE_CODE(clause);
@@ -3045,10 +3037,22 @@ create_copyout_list(gimple stmt, copyout_data data)
       pointer_set_insert(vars, (void*)arg);
       item.datum = arg;
       item.is_arg = true;
-      clause = find_clause(arg, stmt, true);
+      clause = find_clause(arg, stmt);
       if(clause != NULL_TREE)
         {
-          apply_clause(clause, &item);
+            enum acc_clause_code code = ACC_CLAUSE_CODE(clause);
+            if(code == ACC_CLAUSE_COPY
+               || code == ACC_CLAUSE_PRESENT_OR_COPY
+               || code == ACC_CLAUSE_COPYOUT
+               || code ==  ACC_CLAUSE_PRESENT_OR_COPYOUT)
+              {
+                apply_clause(clause, &item);
+                data->data.safe_push(item);
+              }
+        }
+      else
+        {
+          item.to_do = OACC_CF_COPY;
           data->data.safe_push(item);
         }
     }
@@ -3085,22 +3089,18 @@ create_copyout_list(gimple stmt, copyout_data data)
 static void
 generate_region_start(gimple_stmt_iterator* gsi, location_t locus)
 {
+  gsi_replace( gsi, gimple_build_nop (), false);  
+
   if(flag_enable_openacc_profiling)
     {
       /* OACC_start_profiling */
-      gen_replace(gsi, build_call(locus,
-        builtin_decl_explicit(BUILT_IN_OACC_START_PROFILING), 0));
-
-      /* OACC_check_cur_dev */
       gen_add(gsi, build_call(locus,
-        builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
+        builtin_decl_explicit(BUILT_IN_OACC_START_PROFILING), 0));
     }
-  else
-    {
-      /* OACC_check_cur_dev */
-      gen_replace(gsi, build_call(locus,
-        builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
-    }
+
+  /* OACC_check_cur_dev */
+  gen_add(gsi, build_call(locus,
+    builtin_decl_explicit(BUILT_IN_OACC_CHECK_CUR_DEV), 0));
 }
 
 static void

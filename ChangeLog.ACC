@@ -1,4 +1,9 @@
 11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Quickfix.
+
+	* gcc/oacc-low.c: Fix kernel arguments copyin.
+
+11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Add support for data clauses.
 
 	* gcc/gimple-oacc.c: New functions.
