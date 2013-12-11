@@ -4880,6 +4880,9 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	      && MEM_ALIGN (to_rtx) == GET_MODE_ALIGNMENT (mode1))
 	    {
 	      to_rtx = adjust_address (to_rtx, mode1, bitpos / BITS_PER_UNIT);
+	      bitregion_start = 0;
+	      if (bitregion_end >= (unsigned HOST_WIDE_INT) bitpos)
+		bitregion_end -= bitpos;
 	      bitpos = 0;
 	    }
 
@@ -10154,6 +10157,8 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 		if (target == 0)
 		  target = assign_temp (type, 1, 1);
 
+		/* ??? Unlike the similar test a few lines below, this one is
+		   very likely obsolete.  */
 		if (bitsize == 0)
 		  return target;
 
@@ -10173,6 +10178,13 @@ expand_expr_real_1 (tree exp, rtx target, enum machine_mode tmode,
 
 		return target;
 	      }
+
+	    /* If we have nothing to extract, the result will be 0 for targets
+	       with SHIFT_COUNT_TRUNCATED == 0 and garbage otherwise.  Always
+	       return 0 for the sake of consistency, as reading a zero-sized
+	       bitfield is valid in Ada and the value is fully specified.  */
+	    if (bitsize == 0)
+	      return const0_rtx;
 
 	    op0 = validize_mem (op0);
 

@@ -1,3 +1,180 @@
+2013-12-10  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/35831
+	* gfortran.dg/c_by_val_5.f90: Modified.
+	* gfortran.dg/dummy_procedure_10.f90: New.
+
+2013-12-10  Yury Gribov  <y.gribov@samsung.com>
+
+	* gcc-dg/tsan/tsan.exp: Added missing call to torture-finish.
+	* g++-dg/tsan/tsan.exp: Likewise.
+
+2013-12-10  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/38474
+	* gcc.dg/ipa/ipa-pta-14.c: Un-XFAIL.
+
+2013-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/vect/vect-cond-11.c: New test.
+	* gcc.target/i386/vect-cond-1.c: New test.
+	* gcc.target/i386/avx2-gather-5.c: New test.
+	* gcc.target/i386/avx2-gather-6.c: New test.
+	* gcc.dg/vect/vect-mask-loadstore-1.c: New test.
+	* gcc.dg/vect/vect-mask-load-1.c: New test.
+
+2013-12-09  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59437
+	* g++.dg/ubsan/pr59437.C: New test.
+
+2013-12-10  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* c-c++-common/tsan/thread_leak2.c: `dg-skip-if' removed.
+	* gcc-dg/tsan/tsan.exp: Run only with '-O0' and '-O2' options.
+	* g++-dg/tsan/tsan.exp: Likewise.
+
+2013-12-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/vect/pr58508.c: XFAIL for vect_no_align.
+	* gcc.dg/vect/vect-reduc-pattern-3.c: Require vect_int_mult.
+
+2013-12-10  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/41488
+	* gcc.dg/tree-ssa/scev-7.c: New test.
+	* gcc.dg/pr41488.c: New test.
+
+2013-12-09  Joseph Myers  <joseph@codesourcery.com>
+
+	PR preprocessor/55715
+	* gcc.dg/cpp/expr-overflow-1.c: New test.
+
+2013-12-10  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/59428
+	PR fortran/58099
+	PR fortran/58676
+	PR fortran/41724
+	* gfortran.dg/proc_ptr_result_4.f90: Fix proc-ptr interface.
+
+2013-12-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59435
+	* g++.dg/cpp0x/variadic-sizeof3.C: New.
+
+2013-12-09  David Malcolm  <dmalcolm@redhat.com>
+
+	* g++.dg/plugin/selfassign.c (execute_warn_self_assign): Eliminate
+	use of FOR_EACH_BB in favor of FOR_EACH_BB_FN, to make use of cfun
+	explicit.
+	* gcc.dg/plugin/selfassign.c (execute_warn_self_assign): Likewise.
+
+2013-12-09  Richard Earnshaw  <rearnsha@arm.com>
+
+	* gcc.target/arm/ldrd-strd-offset.c: New.
+
+2013-12-09  Martin Jambor  <mjambor@suse.cz>
+
+	* gcc.c-torture/compile/pr39834.c: Remove optimization level option.
+	* gcc.c-torture/compile/pr48929.c: Likewise.
+	* gcc.c-torture/compile/pr55569.c: Likewise.
+	* gcc.c-torture/compile/sra-1.c: Likewise.
+	* gcc.c-torture/compile/pr45085.c: Moved to...
+	* gcc.dg/tree-ssa/pr45085.c: ...here, added compile dg-do.
+
+2013-12-09  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59415
+	* g++.dg/ubsan/pr59415.C: New test.
+
+2013-12-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/52707
+	* g++.dg/cpp0x/deleted2.C: New.
+
+2013-12-09  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* gcc.dg/tree-ssa/loop-31.c: Update scan pattern.
+
+2013-12-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lib/asan-dg.exp (asan-gtest): Remove expected output from the
+	pass/fail line and add it to the log instead.
+
+2013-12-08  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	PR target/52898
+	PR target/51697
+	* gcc.target/sh/pr51697.c: New.
+
+2013-12-08  Uros Bizjak  <ubizjak@gmail.com>
+
+	* gcc.dg/macro-fusion-1.c: Cleanup sched2 rtl dump.
+	* gcc.dg/macro-fusion-2.c: Ditto.
+	* gcc.dg/vect/vect-simd-clone-10a.c: Cleanup vect tree dump.
+	* gcc.dg/vect/vect-simd-clone-12a.c: Ditto.
+
+2013-12-08  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/58099
+	PR fortran/58676
+	PR fortran/41724
+	* gfortran.dg/elemental_subroutine_8.f90: New.
+	* gfortran.dg/proc_decl_9.f90: Add ELEMENTAL to make valid.
+	* gfortran.dg/proc_ptr_11.f90: Ditto.
+	* gfortran.dg/proc_ptr_result_8.f90: Ditto.
+	* gfortran.dg/proc_ptr_32.f90: Update dg-error.
+	* gfortran.dg/proc_ptr_33.f90: Ditto.
+	* gfortran.dg/proc_ptr_result_1.f90: Add abstract interface
+	which is not elemental.
+	* gfortran.dg/proc_ptr_result_7.f90: Ditto.
+
+2013-12-07  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59414
+	* gfortran.dg/class_result_2.f90: New.
+
+2013-12-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59388
+	* gcc.c-torture/execute/pr59388.c: New test.
+
+2013-12-06  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR testsuite/59043
+	* g++.dg/pubtypes.C: Adjust the regular expression.
+	* gcc.dg/pubtypes-1.c: Likewise.
+	* gcc.dg/pubtypes-2.c: Likewise.
+	* gcc.dg/pubtypes-3.c: Likewise.
+	* gcc.dg/pubtypes-4.c: Likewise.
+
+2013-12-06  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* gcc.dg/vect/vect-nop-move.c: Fix dg options.
+
+2013-12-06  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/59405
+	* gcc.target/i386/pr59405.c: New test.
+
+2013-12-06  Ian Bolton  <ian.bolton@arm.com>
+	    Mark Mitchell  <mark@codesourcery.com>
+
+	PR target/59091
+	* gcc.target/arm/builtin-trap.c: New test.
+	* gcc.target/arm/thumb-builtin-trap.c: Likewise.
+
+2013-12-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/sparc/pdistn.c: New test.
+	* gcc.target/sparc/pdistn-2.c: Likewise.
+
+2013-12-06  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59058
+	* gcc.dg/torture/pr59058.c: New testcase.
+
 2013-12-05  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	* g++.dg/warn/pr15774-1.C: Adjust expected message.
@@ -39,7 +216,7 @@
 
 2013-12-05  Kirill Yukhin  <kirill.yukhin@intel.com>
 
-        * gcc.target/i386/readeflags-1.c: New.
+	* gcc.target/i386/readeflags-1.c: New.
 	* gcc.target/i386/writeeflags-1.c: Ditto.
 
 2013-12-05  Yury Gribov  <y.gribov@samsung.com>
@@ -74,8 +251,7 @@
 2013-12-05  Richard Biener  <rguenther@suse.de>
 
 	PR tree-optimization/56787
-	* gcc.dg/vect/pr56787.c: Adjust to not require vector float
-	division.
+	* gcc.dg/vect/pr56787.c: Adjust to not require vector float division.
 
 2013-12-05  Kostya Serebryany  <kcc@google.com>
 
@@ -165,10 +341,9 @@
 
 2013-12-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
-	* gcc.dg/vect/costmodel/ppc/costmodel-slp-34.c: Skip for little
-	endian.
+	* gcc.dg/vect/costmodel/ppc/costmodel-slp-34.c: Skip for little endian.
 
-2013-12-03   H.J. Lu  <hongjiu.lu@intel.com>
+2013-12-03  H.J. Lu  <hongjiu.lu@intel.com>
 
 	PR target/59363
 	* gcc.target/i386/pr59363.c: New file.
@@ -213,7 +388,7 @@
 2013-12-02  Sriraman Tallam  <tmsriram@google.com>
 
 	PR target/58944
-	* testsuite/gcc.target/i386/pr58944.c: New test.	
+	* testsuite/gcc.target/i386/pr58944.c: New test.
 
 2013-12-02  Joseph Myers  <joseph@codesourcery.com>
 
@@ -2289,7 +2464,7 @@
 
 	* gcc.dg/tree-prof/tree-prof.exp: Fix comment.
 
-2013-10-15 Sriraman Tallam  <tmsriram@google.com>
+2013-10-15  Sriraman Tallam  <tmsriram@google.com>
 
 	PR target/57756
 	* gcc.target/i386/pr57756.c: New test.

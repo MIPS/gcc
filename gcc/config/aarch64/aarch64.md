@@ -293,7 +293,8 @@
 (define_insn "trap"
   [(trap_if (const_int 1) (const_int 8))]
   ""
-  "brk #1000")
+  "brk #1000"
+  [(set_attr "type" "trap")])
 
 (define_expand "prologue"
   [(clobber (const_int 0))]

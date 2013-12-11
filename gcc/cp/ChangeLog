@@ -1,3 +1,19 @@
+2013-12-09  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59435
+	* parser.c (cp_parser_cache_defarg): sizeof ... ( p ) can
+	occur in a default argument too.
+
+2013-12-06  Caroline Tice  <cmtice@google.com>
+
+	Submitting patch from Stephen Checkoway, s@cs.jhu.edu
+	* vtable-class-hierarchy.c (init_functions): Make the libvtv
+	function decls externally visible.
+
+2013-12-06  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* decl2.c: Remove struct tags when referring to class varpool_node.
+
 2013-12-05  Jason Merrill  <jason@redhat.com>
 
 	PR c++/59044

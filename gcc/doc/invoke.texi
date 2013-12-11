@@ -959,7 +959,7 @@ See RS/6000 and PowerPC Options.
 -mindexed-addressing -mgettrcost=@var{number} -mpt-fixed @gol
 -maccumulate-outgoing-args -minvalid-symbols @gol
 -matomic-model=@var{atomic-model} @gol
--mbranch-cost=@var{num} -mzdcbranch -mno-zdcbranch -mcbranchdi -mcmpeqdi @gol
+-mbranch-cost=@var{num} -mzdcbranch -mno-zdcbranch @gol
 -mfused-madd -mno-fused-madd -mfsca -mno-fsca -mfsrra -mno-fsrra @gol
 -mpretend-cmove -mtas}
 
@@ -12156,9 +12156,10 @@ assembly code.  Permissible names are: @samp{arm2}, @samp{arm250},
 @samp{arm10e}, @samp{arm1020e}, @samp{arm1022e},
 @samp{arm1136j-s}, @samp{arm1136jf-s}, @samp{mpcore}, @samp{mpcorenovfp},
 @samp{arm1156t2-s}, @samp{arm1156t2f-s}, @samp{arm1176jz-s}, @samp{arm1176jzf-s},
-@samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8}, @samp{cortex-a9}, 
-@samp{cortex-a15}, @samp{cortex-a53}, @samp{cortex-r4}, @samp{cortex-r4f},
-@samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m4}, @samp{cortex-m3},
+@samp{cortex-a5}, @samp{cortex-a7}, @samp{cortex-a8}, @samp{cortex-a9},
+@samp{cortex-a12}, @samp{cortex-a15}, @samp{cortex-a53}, @samp{cortex-r4},
+@samp{cortex-r4f}, @samp{cortex-r5}, @samp{cortex-r7}, @samp{cortex-m4},
+@samp{cortex-m3},
 @samp{cortex-m1},
 @samp{cortex-m0},
 @samp{cortex-m0plus},
@@ -14778,11 +14779,11 @@ generic instruction set applicable to all processors.  In contrast,
 @option{-mtune} indicates the processor (or, in this case, collection of
 processors) for which the code is optimized.
 
-@item ia
+@item intel
 Produce code optimized for the most current Intel processors, which are
 Haswell and Silvermont for this version of GCC.  If you know the CPU
 on which your code will run, then you should use the corresponding
-@option{-mtune} or @option{-march} option instead of @option{-mtune=ia}.
+@option{-mtune} or @option{-march} option instead of @option{-mtune=intel}.
 But, if you want your application performs better on both Haswell and
 Silvermont, then you should use this option.
 
@@ -14792,7 +14793,7 @@ GCC, code generation controlled by this option will change to reflect
 the most current Intel processors at the time that version of GCC is
 released.
 
-There is no @option{-march=ia} option because @option{-march} indicates
+There is no @option{-march=intel} option because @option{-march} indicates
 the instruction set the compiler can use, and there is no common
 instruction set applicable to all processors.  In contrast,
 @option{-mtune} indicates the processor (or, in this case, collection of
@@ -20251,15 +20252,6 @@ Assume (do not assume) that zero displacement conditional branch instructions
 compiler will try to prefer zero displacement branch code sequences.  This is
 enabled by default when generating code for SH4 and SH4A.  It can be explicitly
 disabled by specifying @option{-mno-zdcbranch}.
-
-@item -mcbranchdi
-@opindex mcbranchdi
-Enable the @code{cbranchdi4} instruction pattern.
-
-@item -mcmpeqdi
-@opindex mcmpeqdi
-Emit the @code{cmpeqdi_t} instruction pattern even when @option{-mcbranchdi}
-is in effect.
 
 @item -mfused-madd
 @itemx -mno-fused-madd
