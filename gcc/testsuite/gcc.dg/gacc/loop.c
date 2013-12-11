@@ -142,6 +142,13 @@ for (i = 1; i < 3; i++)
       }
   }
 
+  /* Both seq and independent are not allowed */
+  #pragma acc loop independent seq /* { dg-error "not allowed" } */
+  for(i = 1; i < 10; i++)
+    {
+    }
+
+  #pragma acc cache (a[1]) /* { dg-error "inside of loop" } */
 
 for(i = 1; i < 10; i++)
   {

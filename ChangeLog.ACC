@@ -1,3 +1,17 @@
+11-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Fix data clauses and seq/independent pair in C FE
+
+	* gcc/c/c-parser.c 
+	(c_parser_acc_check_multiple_clauses): New function
+	(c_parser_acc_variable_list): Check for presence of 
+	variable in multiple clauses and type checks
+	(c_parser_acc_clause_seq, c_parser_acc_clause_independent):
+	Check for presence of both seq and independent in single directive
+	* gcc/testsuite/gcc.dg/gacc/branch.c: Fix test
+	* gcc/testsuite/gcc.dg/gacc/data-clauses.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/if.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/loop.c: Likewise
+
 11-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Fix copyout.
 

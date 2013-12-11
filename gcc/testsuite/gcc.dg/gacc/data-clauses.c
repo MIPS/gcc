@@ -4,6 +4,8 @@
 /* without suarrays, since they are not implemented yet */
 /* todo: some of warnings are not necessary */
 
+#include <stdlib.h>
+
 struct t {
   int i;
 };
@@ -14,240 +16,199 @@ void foo (int vi) {
 	float r;
 	float ra[10];
 	float *rp = &r;
-	float *aa = malloc(sizeof(float)*2);
+	float *aa = (float*) malloc(sizeof(float)*2);
 	struct t ti;
 	struct t* tia;
 	struct t tit;
 	struct t *tip = &tit;
 
-	#pragma acc parallel deviceptr (rp) /* { dg-error "POINTER" } */
+	#pragma acc parallel deviceptr (rp) 
 		{}
-	#pragma acc parallel deviceptr (vi) /* { dg-error "VALUE" } */
+	#pragma acc parallel deviceptr (vi) /* { dg-error "must be pointer for" } */
+		{}
+	#pragma acc parallel deviceptr (i) /* { dg-error "must be pointer for" } */
+		{}
+	#pragma acc parallel deviceptr (r) /* { dg-error "must be pointer for" } */
+		{}
+	#pragma acc parallel deviceptr (ti) /* { dg-error "must be pointer for" } */
 		{}
 	#pragma acc parallel deviceptr (aa) /* { dg-error "dynamically" } */
 		{}
 
-	#pragma acc parallel deviceptr (i, c, r, ia, ra, ti)
+	#pragma acc parallel deviceptr (ia) /* { dg-error "must be pointer for" } */
 		{}
-	#pragma acc kernels deviceptr (i, c, r, ia, ra, ti)
+	#pragma acc data deviceptr (ra) /* { dg-error "must be pointer for" } */
 		{}
-	#pragma acc data deviceptr (i, c, r, ia, ra, ti)
+
+	#pragma acc parallel deviceptr (rp) copy (rp) /* { dg-warning "multiple clauses" } */
+		{}
+
+	#pragma acc parallel copy (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc kernels copy (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc data copy (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+
+	#pragma acc parallel deviceptr (rp) copyin (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copy (rp) copyin (rp) /* { dg-warning "multiple clauses" } */
+		{}
+
+	#pragma acc parallel copyin (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc kernels copyin (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc data copyin (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+
+	#pragma acc parallel deviceptr (rp) copyout (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copy (rp) copyout (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copyin (rp) copyout (rp) /* { dg-warning "multiple clauses" } */
+		{}
+
+	#pragma acc parallel copyout (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc kernels copyout (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc data copyout (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+
+	#pragma acc parallel deviceptr (rp) create (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copy (rp) create (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copyin (rp) create (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copyout (rp) create (rp) /* { dg-warning "multiple clauses" } */
+		{}
+
+	#pragma acc parallel create (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc kernels create (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc data create (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+
+	#pragma acc parallel deviceptr (rp) present (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copy (rp) present (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copyin (rp) present (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel copyout (rp) present (rp) /* { dg-warning "multiple clauses" } */
+		{}
+	#pragma acc parallel create (rp) present (rp) /* { dg-warning "multiple clauses" } */
+		{}
+
+	#pragma acc parallel present (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc kernels present (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
+		{}
+	#pragma acc data present (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
 
 
-	#pragma acc parallel copy (tip) /* { dg-error "POINTER" } */
+	#pragma acc parallel pcopy (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc parallel copy (tia) /* { dg-error "ALLOCATABLE" } */
+	#pragma acc parallel pcopyin (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc parallel deviceptr (i) copy (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel pcopyout (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-
-	#pragma acc parallel copy (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-	#pragma acc kernels copy (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-	#pragma acc data copy (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel pcreate (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
 
-
-	#pragma acc parallel copyin (tip) /* { dg-error "POINTER" } */
+	#pragma acc parallel deviceptr (rp) present_or_copy (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel copyin (tia) /* { dg-error "ALLOCATABLE" } */
+	#pragma acc parallel copy (rp) present_or_copy (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel deviceptr (i) copyin (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel copyin (rp) present_or_copy (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel copy (i) copyin (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel copyout (rp) present_or_copy (rp) /* { dg-warning "multiple clauses" } */
 		{}
-
-	#pragma acc parallel copyin (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel create (rp) present_or_copy (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc kernels copyin (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-	#pragma acc data copyin (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel present (rp) present_or_copy (rp) /* { dg-warning "multiple clauses" } */
 		{}
 
-
-	#pragma acc parallel copyout (tip) /* { dg-error "POINTER" } */
+	#pragma acc parallel present_or_copy (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc parallel copyout (tia) /* { dg-error "ALLOCATABLE" } */
+	#pragma acc kernels present_or_copy (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc parallel deviceptr (i) copyout (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copy (i) copyout (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyin (i) copyout (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc data present_or_copy (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
 
-	#pragma acc parallel copyout (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel deviceptr (rp) present_or_copyin (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc kernels copyout (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel copy (rp) present_or_copyin (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc data copyout (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel copyin (rp) present_or_copyin (rp) /* { dg-warning "multiple clauses" } */
 		{}
-
-
-	#pragma acc parallel create (tip) /* { dg-error "POINTER" } */
+	#pragma acc parallel copyout (rp) present_or_copyin (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel create (tia) /* { dg-error "ALLOCATABLE" } */
+	#pragma acc parallel create (rp) present_or_copyin (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel deviceptr (i) create (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel present (rp) present_or_copyin (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel copy (i) create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyin (i) create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyout (i) create (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel present_or_copy (rp) present_or_copyin (rp) /* { dg-warning "multiple clauses" } */
 		{}
 
-	#pragma acc parallel create (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel present_or_copyin (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc kernels create (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc kernels present_or_copyin (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc data create (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-
-
-	#pragma acc parallel present (tip) /* { dg-error "POINTER" } */
-		{}
-	#pragma acc parallel present (tia) /* { dg-error "ALLOCATABLE" } */
-		{}
-	#pragma acc parallel deviceptr (i) present (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copy (i) present (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyin (i) present (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyout (i) present (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel create (i) present (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc data present_or_copyin (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
 
-	#pragma acc parallel present (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel deviceptr (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc kernels present (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel copy (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc data present (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel copyin (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
-
-
-	#pragma acc parallel pcopy (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel copyout (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel pcopyin (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel create (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel pcopyout (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel present (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel pcreate (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel present_or_copy (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
-
-
-	#pragma acc parallel present_or_copy (tip) /* { dg-error "POINTER" } */
-		{}
-	#pragma acc parallel present_or_copy (tia) /* { dg-error "ALLOCATABLE" } */
-		{}
-	#pragma acc parallel deviceptr (i) present_or_copy (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copy (i) present_or_copy (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyin (i) present_or_copy (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyout (i) present_or_copy (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel create (i) present_or_copy (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present (i) present_or_copy (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel present_or_copyin (rp) present_or_copyout (rp) /* { dg-warning "multiple clauses" } */
 		{}
 
-	#pragma acc parallel present_or_copy (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel present_or_copyout (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc kernels present_or_copy (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc kernels present_or_copyout (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc data present_or_copy (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-
-
-	#pragma acc parallel present_or_copyin (tip) /* { dg-error "POINTER" } */
-		{}
-	#pragma acc parallel present_or_copyin (tia) /* { dg-error "ALLOCATABLE" } */
-		{}
-	#pragma acc parallel deviceptr (i) present_or_copyin (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copy (i) present_or_copyin (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyin (i) present_or_copyin (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyout (i) present_or_copyin (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel create (i) present_or_copyin (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present (i) present_or_copyin (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present_or_copy (i) present_or_copyin (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc data present_or_copyout (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
 
-	#pragma acc parallel present_or_copyin (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel deviceptr (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc kernels present_or_copyin (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel copy (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc data present_or_copyin (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel copyin (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-
-
-	#pragma acc parallel present_or_copyout (tip) /* { dg-error "POINTER" } */
+	#pragma acc parallel copyout (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel present_or_copyout (tia) /* { dg-error "ALLOCATABLE" } */
+	#pragma acc parallel create (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel deviceptr (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel present (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel copy (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel present_or_copy (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel copyin (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel present_or_copyin (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
-	#pragma acc parallel copyout (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel create (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present_or_copy (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present_or_copyin (i) present_or_copyout (i) /* { dg-warning "multiple clauses" } */
+	#pragma acc parallel present_or_copyout (rp) present_or_create (rp) /* { dg-warning "multiple clauses" } */
 		{}
 
-	#pragma acc parallel present_or_copyout (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc parallel present_or_create (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc kernels present_or_copyout (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc kernels present_or_create (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
-	#pragma acc data present_or_copyout (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-
-
-	#pragma acc parallel present_or_create (tip) /* { dg-error "POINTER" } */
-		{}
-	#pragma acc parallel present_or_create (tia) /* { dg-error "ALLOCATABLE" } */
-		{}
-	#pragma acc parallel deviceptr (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copy (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyin (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel copyout (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel create (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present_or_copy (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present_or_copyin (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-	#pragma acc parallel present_or_copyout (i) present_or_create (i) /* { dg-warning "multiple clauses" } */
-		{}
-
-	#pragma acc parallel present_or_create (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-	#pragma acc kernels present_or_create (i, c, r, ia, ra, rp, ti, vi, aa)
-		{}
-	#pragma acc data present_or_create (i, c, r, ia, ra, rp, ti, vi, aa)
+	#pragma acc data present_or_create (i, r, ia, ra, rp, ti, vi, aa, tia, tip)
 		{}
 }

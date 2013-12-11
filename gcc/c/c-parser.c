@@ -11058,6 +11058,20 @@ c_parser_acc_clause_check_no_duplicate(tree clauses,
   }
 }
 
+static void
+c_parser_acc_check_multiple_clauses (tree clauses, tree var)
+{
+  tree c;
+
+  for (c = clauses; c; c = ACC_CLAUSE_CHAIN(c))
+    if (ACC_CLAUSE_DECL(c) == var)
+      {
+        location_t loc = ACC_CLAUSE_LOCATION(c);
+        warning_at (loc, 0, "%qE appears in multiple clauses", var);
+        break;
+      }
+}
+
 /* OpenACC 1.0:
    variable-list:
      identifier
@@ -11086,6 +11100,7 @@ c_parser_acc_variable_list (c_parser *parser,
     }
     else if (kind != 0)
     {
+      c_parser_acc_check_multiple_clauses(list, t_name);
       tree new_clause = build_acc_clause (clause_loc, kind);
       ACC_CLAUSE_DECL (new_clause) = t_name;
       ACC_CLAUSE_CHAIN (new_clause) = list;
@@ -11098,6 +11113,33 @@ c_parser_acc_variable_list (c_parser *parser,
     }
 
     c_parser_consume_token (parser);
+
+    /* Check types. */
+    switch (kind)
+      {
+      case ACC_CLAUSE_DEVICEPTR:
+        if (!POINTER_TYPE_P (TREE_TYPE (t_name)))
+          error_at (clause_loc,
+                    "%qE must be pointer for %<deviceptr%>", t_name);
+        break;
+
+      case ACC_CLAUSE_COPY:
+      case ACC_CLAUSE_COPYIN:
+      case ACC_CLAUSE_COPYOUT:
+      case ACC_CLAUSE_CREATE:
+      case ACC_CLAUSE_PRESENT:
+      case ACC_CLAUSE_PRESENT_OR_COPY:
+      case ACC_CLAUSE_PRESENT_OR_COPYIN:
+      case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+      case ACC_CLAUSE_PRESENT_OR_CREATE:
+      case ACC_CLAUSE_REDUCTION:
+      case ACC_CLAUSE_PRIVATE:
+      case ACC_CLAUSE_FIRSTPRIVATE:
+        break;
+
+      default:
+        gcc_unreachable();
+      }
 
     if (c_parser_next_token_is_not (parser, CPP_COMMA))
     {
@@ -11209,6 +11251,14 @@ c_parser_acc_clause_seq (c_parser *parser, tree list)
   c_parser_acc_clause_check_no_duplicate (list, ACC_CLAUSE_SEQ,
                                           "seq");
 
+  for (c = list; c; c = ACC_CLAUSE_CHAIN(c)) {
+    if (ACC_CLAUSE_CODE(c) == ACC_CLAUSE_INDEPENDENT) {
+      location_t loc = ACC_CLAUSE_LOCATION(c);
+      error_at (loc, "both %<seq%> and %<independent are not allowed%>");
+      break;
+    }
+  }
+
   c = build_acc_clause (c_parser_peek_token (parser)->location,
                         ACC_CLAUSE_SEQ);
   ACC_CLAUSE_CHAIN (c) = list;
@@ -11225,6 +11275,13 @@ c_parser_acc_clause_independent (c_parser *parser, tree list)
 
   c_parser_acc_clause_check_no_duplicate (list, ACC_CLAUSE_INDEPENDENT,
                                           "independent");
+  for (c = list; c; c = ACC_CLAUSE_CHAIN(c)) {
+    if (ACC_CLAUSE_CODE(c) == ACC_CLAUSE_SEQ) {
+      location_t loc = ACC_CLAUSE_LOCATION(c);
+      error_at (loc, "both %<seq%> and %<independent are not allowed%>");
+      break;
+    }
+  }
 
   c = build_acc_clause (c_parser_peek_token (parser)->location,
                         ACC_CLAUSE_INDEPENDENT);
