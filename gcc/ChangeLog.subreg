@@ -1,0 +1,48 @@
+2013-12-11   H.J. Lu  <hongjiu.lu@intel.com>
+
+	* combine.c (subst): Pass subreg byte to REG_CANNOT_CHANGE_MODE_P.
+	(simplify_set): Likewise.
+	* emit-rtl.c (validate_subreg): Likewise.
+	* recog.c (register_operand): Likewise.
+	* rtlanal.c (simplify_subreg_regno): Likewise.
+	* hard-reg-set.h (REG_CANNOT_CHANGE_MODE_P): Add SUBREG_BYTE
+	and pass it to CANNOT_CHANGE_MODE_CLASS.
+	* regcprop.c (mode_change_ok): Pass unknown subreg byte to
+	REG_CANNOT_CHANGE_MODE_P.
+	* reginfo.c (record_subregs_of_mode): Pass unknown subreg byte
+	to CANNOT_CHANGE_MODE_CLASS.
+	* postreload.c (reload_cse_simplify_set): Pass subreg byte to
+	CANNOT_CHANGE_MODE_CLASS.
+	(reload_cse_simplify_operands): Likewise.
+	* reload.c (push_reload): Likewise.
+	* reload1.c (choose_reload_regs): Pass subreg byte to
+	REG_CANNOT_CHANGE_MODE_P.
+	(inherit_piecemeal_p): Pass unknown subreg byte to
+	REG_CANNOT_CHANGE_MODE_P.
+	* config/aarch64/aarch64.h (CANNOT_CHANGE_MODE_CLASS): Add
+	and ignore subreg byte.
+	* config/alpha/alpha.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/arm/arm.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/ia64/ia64.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/m32c/m32c.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/mep/mep.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/mips/mips.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/msp430/msp430.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/pa/pa32-regs.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/pa/pa64-regs.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/pdp11/pdp11.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/rs6000/rs6000.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/s390/s390.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/score/score.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/sh/sh.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/sparc/sparc.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/spu/spu.h (CANNOT_CHANGE_MODE_CLASS): Likewise.
+	* config/i386/i386-protos.h (ix86_cannot_change_mode_class): Add
+	an unsigned int argument.
+	* config/i386/i386.c (ix86_cannot_change_mode_class): Take subreg
+	byte.  Return true only if subreg byte is non-zero.
+	* config/i386/i386.h (CANNOT_CHANGE_MODE_CLASS): Add SUBREG_BYTE
+	and pass it to ix86_cannot_change_mode_class.
+	* doc/rtl.texi: Add subreg_byte to CANNOT_CHANGE_MODE_CLASS.
+	* doc/tm.texi.in: Likewise.
+	* doc/tm.texi: Regenerated.
