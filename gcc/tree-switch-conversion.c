@@ -1243,7 +1243,7 @@ gen_inbound_check (gimple_switch swtch, struct switch_conv_info *info)
   tree label_decl1 = create_artificial_label (UNKNOWN_LOCATION);
   tree label_decl2 = create_artificial_label (UNKNOWN_LOCATION);
   tree label_decl3 = create_artificial_label (UNKNOWN_LOCATION);
-  gimple label1, label2, label3;
+  gimple_label label1, label2, label3;
   tree utype, tidx;
   tree bound;
 

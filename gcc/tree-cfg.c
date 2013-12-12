@@ -4429,7 +4429,7 @@ verify_gimple_debug (gimple stmt ATTRIBUTE_UNUSED)
    Returns true if anything is wrong.  */
 
 static bool
-verify_gimple_label (gimple stmt)
+verify_gimple_label (gimple_label stmt)
 {
   tree decl = gimple_label_label (stmt);
   int uid;
@@ -4479,7 +4479,7 @@ verify_gimple_stmt (gimple stmt)
       return verify_gimple_assign (as_a <gimple_assign> (stmt));
 
     case GIMPLE_LABEL:
-      return verify_gimple_label (stmt);
+      return verify_gimple_label (as_a <gimple_label> (stmt));
 
     case GIMPLE_CALL:
       return verify_gimple_call (stmt);

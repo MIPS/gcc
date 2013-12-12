@@ -482,10 +482,11 @@ gimple_cond_set_condition_from_tree (gimple_cond stmt, tree cond)
 
 /* Build a GIMPLE_LABEL statement for LABEL.  */
 
-gimple
+gimple_label
 gimple_build_label (tree label)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_LABEL, ERROR_MARK, 1);
+  gimple_label p =
+    as_a <gimple_label> (gimple_build_with_ops (GIMPLE_LABEL, ERROR_MARK, 1));
   gimple_label_set_label (p, label);
   return p;
 }

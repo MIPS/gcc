@@ -460,6 +460,8 @@ def build_pretty_printer():
                               # Keep this in the same order as gimple.def:
                               'gimple_cond', 'const_gimple_cond',
                               'gimple_statement_cond *',
+                              'gimple_label', 'const_gimple_label',
+                              'gimple_statement_label *',
                               'gimple_switch', 'const_gimple_switch',
                               'gimple_statement_switch *',
                               'gimple_assign', 'const_gimple_assign',

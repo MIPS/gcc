@@ -780,6 +780,20 @@ struct GTY((tag("GSS_WITH_OPS")))
 };
 
 /* A statement with the invariant that
+      stmt->code == GIMPLE_LABEL
+   i.e. a label statement.
+
+   This type will normally be accessed via the gimple_label and
+   const_gimple_label typedefs (in coretypes.h), which are pointers to
+   this type.  */
+
+struct GTY((tag("GSS_WITH_OPS")))
+  gimple_statement_label : public gimple_statement_with_ops
+{
+  /* no additional fields; this uses the layout for GSS_WITH_OPS. */
+};
+
+/* A statement with the invariant that
       stmt->code == GIMPLE_SWITCH
    i.e. a switch statement.  */
 
@@ -845,6 +859,14 @@ inline bool
 is_a_helper <gimple_statement_cond *>::test (gimple gs)
 {
   return gs->code == GIMPLE_COND;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <gimple_statement_label *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_LABEL;
 }
 
 template <>
@@ -1238,7 +1260,7 @@ gimple_assign gimple_build_assign_with_ops (enum tree_code, tree,
 gimple_cond gimple_build_cond (enum tree_code, tree, tree, tree, tree);
 gimple_cond gimple_build_cond_from_tree (tree, tree, tree);
 void gimple_cond_set_condition_from_tree (gimple_cond, tree);
-gimple gimple_build_label (tree label);
+gimple_label gimple_build_label (tree label);
 gimple gimple_build_goto (tree dest);
 gimple gimple_build_nop (void);
 gimple_bind gimple_build_bind (tree, gimple_seq, tree);

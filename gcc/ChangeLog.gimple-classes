@@ -1,5 +1,37 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_label and use it in a few places
+
+	* coretypes.h (gimple_label): New typedef.
+	(const_gimple_label): New typedef.
+
+	* gimple.h (struct gimple_statement_label): New subclass of
+	gimple_statement_with_ops, adding the invariant that
+	stmt->code == GIMPLE_LABEL.
+	(is_a_helper <gimple_statement_label>::test): New.
+
+	* gdbhooks.py (build_pretty_printer): Add gimple_label and its
+	variants, reusing the gimple printer.
+
+	* gimple-pretty-print.c (dump_gimple_label): Require a gimple_label
+	rather than just a gimple.
+	* tree-cfg.c (verify_gimple_label): Likewise.
+
+	* gimple.c (gimple_build_label): Return a gimple_label rather than
+	just a gimple.
+	* gimple.h (gimple_build_label): Likewise.
+
+	* gimplify.c (gimplify_case_label_expr): Update local to be a
+	gimple_label.
+	* tree-switch-conversion.c (gen_inbound_check): Likewise.
+
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Add checked cast to
+	gimple_label in regions where a stmt is known to have code
+	GIMPLE_LABEL.
+	* tree-cfg.c (verify_gimple_stmt): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_assign and use it in various places
 
 	* coretypes.h (gimple_assign): New typedef.

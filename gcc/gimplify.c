@@ -1531,7 +1531,7 @@ static enum gimplify_status
 gimplify_case_label_expr (tree *expr_p, gimple_seq *pre_p)
 {
   struct gimplify_ctx *ctxp;
-  gimple gimple_label;
+  gimple_label label_stmt;
 
   /* Invalid OpenMP programs can play Duff's Device type games with
      #pragma omp parallel.  At least in the C front end, we don't
@@ -1540,9 +1540,9 @@ gimplify_case_label_expr (tree *expr_p, gimple_seq *pre_p)
     if (ctxp->case_labels.exists ())
       break;
 
-  gimple_label = gimple_build_label (CASE_LABEL (*expr_p));
+  label_stmt = gimple_build_label (CASE_LABEL (*expr_p));
   ctxp->case_labels.safe_push (*expr_p);
-  gimplify_seq_add_stmt (pre_p, gimple_label);
+  gimplify_seq_add_stmt (pre_p, label_stmt);
 
   return GS_ALL_DONE;
 }

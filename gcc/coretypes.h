@@ -94,6 +94,10 @@ struct gimple_statement_cond;
 typedef struct gimple_statement_cond *gimple_cond;
 typedef const struct gimple_statement_cond *const_gimple_cond;
 
+struct gimple_statement_label;
+typedef struct gimple_statement_label *gimple_label;
+typedef const struct gimple_statement_label *const_gimple_label;
+
 struct gimple_statement_switch;
 typedef struct gimple_statement_switch *gimple_switch;
 typedef const struct gimple_statement_switch *const_gimple_switch;
