@@ -1,4 +1,25 @@
 12-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Consider #pragma acc loop as construct in GENERIC and high
+	GIMPLE
+	
+	* gcc/c/c-parser.c(c_parser_acc_clause_check_no_duplicate):
+	Beautification
+	(c_begin_acc_loop, c_finish_acc_loop): New functions
+	(check_acc_loop_incr_expr, c_finish_acc_loop, 
+	c_parser_acc_loop_1): Remove
+	(c_parser_acc_loop, c_parser_acc_parallel, c_parser_acc_kernels): 
+	Consider #pragma acc loop as construct 
+	* gcc/fortran/trans-openacc.c(trans_acc_loop, 
+	trans_acc_parallel_loop, trans_acc_kernels_loop, 
+	gfc_trans_acc_directive): Likewise
+	* gcc/gimple-oacc.c(gimple_build_acc_loop): Likewise
+	* gcc/gimplify.c(gimplify_acc_loop): Likewise
+	* gcc/tree-pretty-print.c(dump_generic_node): Likewise
+	* gcc/tree.def(ACC_LOOP): Likewise
+	* gcc/tree.h(ACC_LOOP_INIT, ACC_LOOP_COND, ACC_LOOP_INCR,
+	ACC_LOOP_PRE_BODY): Remove
+
+12-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Fix parsing of scalar integer expressions and variable lists
 	in C FE
 

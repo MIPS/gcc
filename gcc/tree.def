@@ -1017,14 +1017,11 @@ DEFTREECODE (ACC_KERNELS, "acc_kernels", tcc_statement, 2)
 DEFTREECODE (ACC_DATA, "acc_data", tcc_statement, 2)
 
 /* #pragma acc loop */
+/* Consider #pragma acc loop as construct */
 /* Operand 0: BODY
    Operand 1: CLAUSES
-   Operand 2: INIT
-   Operand 3: COND
-   Operand 4: INCR
-   Operand 5: PRE_BODY
 */
-DEFTREECODE (ACC_LOOP, "acc_loop", tcc_statement, 6)
+DEFTREECODE (ACC_LOOP, "acc_loop", tcc_statement, 2)
 
 /* #pragma acc host_data */
 /* Operand 0: BODY

@@ -11045,8 +11045,8 @@ c_parser_acc_clause_name (c_parser *parser)
 /* Validate that a clause of the given type does not already exist.  */
 static void
 c_parser_acc_clause_check_no_duplicate(tree clauses,
-                                           enum acc_clause_code code,
-                                           const char *name) {
+                                       enum acc_clause_code code,
+                                       const char *name) {
   tree c;
 
   for (c = clauses; c; c = ACC_CLAUSE_CHAIN(c)) {
@@ -11894,6 +11894,19 @@ c_begin_acc_host_data (void)
   return block;
 }
 
+/* Unlike OMP, in ACC we consider LOOP directive as construct.
+ */
+tree
+c_begin_acc_loop (void)
+{
+  tree block;
+
+  keep_next_level ();
+  block = c_begin_compound_stmt (true);
+
+  return block;
+}
+
 /* Generate ACC_PARALLEL, with CLAUSES and BLOCK as its compound
    statement. */
 tree
@@ -11966,563 +11979,22 @@ c_finish_acc_host_data (location_t loc, tree clauses, tree block)
   return add_stmt (stmt);
 }
 
-
-/* FIXME: split with check_omp_for_incr_expr */
-static tree
-check_acc_loop_incr_expr (location_t loc, tree exp, tree decl)
+/* Generate ACC_LOOP, with CLAUSES and BLOCK as its compound
+   statement. */
+tree
+c_finish_acc_loop (location_t loc, tree clauses, tree block)
 {
-  tree t;
+  tree stmt;
 
-  if (!INTEGRAL_TYPE_P (TREE_TYPE (exp))
-      || TYPE_PRECISION (TREE_TYPE (exp)) < TYPE_PRECISION (TREE_TYPE (decl)))
-    return error_mark_node;
+  block = c_end_compound_stmt (loc, block, true);
 
-  if (exp == decl)
-    return build_int_cst (TREE_TYPE (exp), 0);
+  stmt = make_node (ACC_LOOP);
+  TREE_TYPE (stmt) = void_type_node;
+  ACC_LOOP_CLAUSES (stmt) = clauses;
+  ACC_LOOP_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
 
-  switch (TREE_CODE (exp))
-    {
-    CASE_CONVERT:
-      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 0), decl);
-      if (t != error_mark_node)
-        return fold_convert_loc (loc, TREE_TYPE (exp), t);
-      break;
-    case MINUS_EXPR:
-      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 0), decl);
-      if (t != error_mark_node)
-        return fold_build2_loc (loc, MINUS_EXPR,
-                            TREE_TYPE (exp), t, TREE_OPERAND (exp, 1));
-      break;
-    case PLUS_EXPR:
-      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 0), decl);
-      if (t != error_mark_node)
-        return fold_build2_loc (loc, PLUS_EXPR,
-                            TREE_TYPE (exp), t, TREE_OPERAND (exp, 1));
-      t = check_acc_loop_incr_expr (loc, TREE_OPERAND (exp, 1), decl);
-      if (t != error_mark_node)
-        return fold_build2_loc (loc, PLUS_EXPR,
-                            TREE_TYPE (exp), TREE_OPERAND (exp, 0), t);
-      break;
-    case COMPOUND_EXPR:
-      {
-        /* cp_build_modify_expr forces preevaluation of the RHS to make
-           sure that it is evaluated before the lvalue-rvalue conversion
-           is applied to the LHS.  Reconstruct the original expression.  */
-        tree op0 = TREE_OPERAND (exp, 0);
-        if (TREE_CODE (op0) == TARGET_EXPR
-            && !VOID_TYPE_P (TREE_TYPE (op0)))
-          {
-            tree op1 = TREE_OPERAND (exp, 1);
-            tree temp = TARGET_EXPR_SLOT (op0);
-            if (TREE_CODE_CLASS (TREE_CODE (op1)) == tcc_binary
-                && TREE_OPERAND (op1, 1) == temp)
-              {
-                op1 = copy_node (op1);
-                TREE_OPERAND (op1, 1) = TARGET_EXPR_INITIAL (op0);
-                return check_acc_loop_incr_expr (loc, op1, decl);
-              }
-          }
-        break;
-      }
-    default:
-      break;
-    }
-
-  return error_mark_node;
-}
-
-/* FIXME: split with c_finish_omp_for */
-static tree
-c_finish_acc_loop (location_t locus, tree declv, tree initv, tree condv,
-                   tree incrv, tree body, tree pre_body)
-{
-  location_t elocus;
-  bool fail = false;
-  int i;
-
-  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (initv));
-  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (condv));
-  gcc_assert (TREE_VEC_LENGTH (declv) == TREE_VEC_LENGTH (incrv));
-  for (i = 0; i < TREE_VEC_LENGTH (declv); i++)
-    {
-      tree decl = TREE_VEC_ELT (declv, i);
-      tree init = TREE_VEC_ELT (initv, i);
-      tree cond = TREE_VEC_ELT (condv, i);
-      tree incr = TREE_VEC_ELT (incrv, i);
-
-      elocus = locus;
-      if (EXPR_HAS_LOCATION (init))
-        elocus = EXPR_LOCATION (init);
-
-      /* Validate the iteration variable.  */
-      if (!INTEGRAL_TYPE_P (TREE_TYPE (decl))
-          && TREE_CODE (TREE_TYPE (decl)) != POINTER_TYPE)
-        {
-          error_at (elocus, "invalid type for iteration variable %qE", decl);
-          fail = true;
-        }
-
-      /* In the case of "for (int i = 0...)", init will be a decl.  It should
-         have a DECL_INITIAL that we can turn into an assignment.  */
-      if (init == decl)
-        {
-          elocus = DECL_SOURCE_LOCATION (decl);
-
-          init = DECL_INITIAL (decl);
-          if (init == NULL)
-            {
-              error_at (elocus, "%qE is not initialized", decl);
-              init = integer_zero_node;
-              fail = true;
-            }
-
-          init = build_modify_expr (elocus, decl, NULL_TREE, NOP_EXPR,
-                                    /* FIXME diagnostics: This should
-                                       be the location of the INIT.  */
-                                    elocus,
-                                    init,
-                                    NULL_TREE);
-        }
-      gcc_assert (TREE_CODE (init) == MODIFY_EXPR);
-      gcc_assert (TREE_OPERAND (init, 0) == decl);
-
-      if (cond == NULL_TREE)
-        {
-          error_at (elocus, "missing controlling predicate");
-          fail = true;
-        }
-      else
-        {
-          bool cond_ok = false;
-
-          if (EXPR_HAS_LOCATION (cond))
-            elocus = EXPR_LOCATION (cond);
-
-          if (TREE_CODE (cond) == LT_EXPR
-              || TREE_CODE (cond) == LE_EXPR
-              || TREE_CODE (cond) == GT_EXPR
-              || TREE_CODE (cond) == GE_EXPR
-              || TREE_CODE (cond) == NE_EXPR
-              || TREE_CODE (cond) == EQ_EXPR)
-            {
-              tree op0 = TREE_OPERAND (cond, 0);
-              tree op1 = TREE_OPERAND (cond, 1);
-
-              /* 2.5.1.  The comparison in the condition is computed in
-                 the type of DECL, otherwise the behavior is undefined.
-
-                 For example:
-                 long n; int i;
-                 i < n;
-
-                 according to ISO will be evaluated as:
-                 (long)i < n;
-
-                 We want to force:
-                 i < (int)n;  */
-              if (TREE_CODE (op0) == NOP_EXPR
-                  && decl == TREE_OPERAND (op0, 0))
-                {
-                  TREE_OPERAND (cond, 0) = TREE_OPERAND (op0, 0);
-                  TREE_OPERAND (cond, 1)
-                    = fold_build1_loc (elocus, NOP_EXPR, TREE_TYPE (decl),
-                                   TREE_OPERAND (cond, 1));
-                }
-              else if (TREE_CODE (op1) == NOP_EXPR
-                       && decl == TREE_OPERAND (op1, 0))
-                {
-                  TREE_OPERAND (cond, 1) = TREE_OPERAND (op1, 0);
-                  TREE_OPERAND (cond, 0)
-                    = fold_build1_loc (elocus, NOP_EXPR, TREE_TYPE (decl),
-                                   TREE_OPERAND (cond, 0));
-                }
-
-              if (decl == TREE_OPERAND (cond, 0))
-                cond_ok = true;
-              else if (decl == TREE_OPERAND (cond, 1))
-                {
-                  TREE_SET_CODE (cond,
-                                 swap_tree_comparison (TREE_CODE (cond)));
-                  TREE_OPERAND (cond, 1) = TREE_OPERAND (cond, 0);
-                  TREE_OPERAND (cond, 0) = decl;
-                  cond_ok = true;
-                }
-
-              if (TREE_CODE (cond) == NE_EXPR
-                  || TREE_CODE (cond) == EQ_EXPR)
-                {
-                  if (!INTEGRAL_TYPE_P (TREE_TYPE (decl)))
-                    cond_ok = false;
-                  else if (operand_equal_p (TREE_OPERAND (cond, 1),
-                                            TYPE_MIN_VALUE (TREE_TYPE (decl)),
-                                            0))
-                    TREE_SET_CODE (cond, TREE_CODE (cond) == NE_EXPR
-                                         ? GT_EXPR : LE_EXPR);
-                  else if (operand_equal_p (TREE_OPERAND (cond, 1),
-                                            TYPE_MAX_VALUE (TREE_TYPE (decl)),
-                                            0))
-                    TREE_SET_CODE (cond, TREE_CODE (cond) == NE_EXPR
-                                         ? LT_EXPR : GE_EXPR);
-                  else
-                    cond_ok = false;
-                }
-            }
-
-          if (!cond_ok)
-            {
-              error_at (elocus, "invalid controlling predicate");
-              fail = true;
-            }
-        }
-
-      if (incr == NULL_TREE)
-        {
-          error_at (elocus, "missing increment expression");
-          fail = true;
-        }
-      else
-        {
-          bool incr_ok = false;
-
-          if (EXPR_HAS_LOCATION (incr))
-            elocus = EXPR_LOCATION (incr);
-
-          /* Check all the valid increment expressions: v++, v--, ++v, --v,
-             v = v + incr, v = incr + v and v = v - incr.  */
-          switch (TREE_CODE (incr))
-            {
-            case POSTINCREMENT_EXPR:
-            case PREINCREMENT_EXPR:
-            case POSTDECREMENT_EXPR:
-            case PREDECREMENT_EXPR:
-              if (TREE_OPERAND (incr, 0) != decl)
-                break;
-
-              incr_ok = true;
-              if (POINTER_TYPE_P (TREE_TYPE (decl))
-                  && TREE_OPERAND (incr, 1))
-                {
-                  tree t = fold_convert_loc (elocus,
-                                             sizetype, TREE_OPERAND (incr, 1));
-
-                  if (TREE_CODE (incr) == POSTDECREMENT_EXPR
-                      || TREE_CODE (incr) == PREDECREMENT_EXPR)
-                    t = fold_build1_loc (elocus, NEGATE_EXPR, sizetype, t);
-                  t = fold_build_pointer_plus (decl, t);
-                  incr = build2 (MODIFY_EXPR, void_type_node, decl, t);
-                }
-              break;
-
-            case MODIFY_EXPR:
-              if (TREE_OPERAND (incr, 0) != decl)
-                break;
-              if (TREE_OPERAND (incr, 1) == decl)
-                break;
-              if (TREE_CODE (TREE_OPERAND (incr, 1)) == PLUS_EXPR
-                  && (TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl
-                      || TREE_OPERAND (TREE_OPERAND (incr, 1), 1) == decl))
-                incr_ok = true;
-              else if ((TREE_CODE (TREE_OPERAND (incr, 1)) == MINUS_EXPR
-                        || (TREE_CODE (TREE_OPERAND (incr, 1))
-                            == POINTER_PLUS_EXPR))
-                       && TREE_OPERAND (TREE_OPERAND (incr, 1), 0) == decl)
-                incr_ok = true;
-              else
-                {
-                  tree t = check_acc_loop_incr_expr (elocus,
-                                                    TREE_OPERAND (incr, 1),
-                                                    decl);
-                  if (t != error_mark_node)
-                    {
-                      incr_ok = true;
-                      t = build2 (PLUS_EXPR, TREE_TYPE (decl), decl, t);
-                      incr = build2 (MODIFY_EXPR, void_type_node, decl, t);
-                    }
-                }
-              break;
-
-            default:
-              break;
-            }
-          if (!incr_ok)
-            {
-              error_at (elocus, "invalid increment expression");
-              fail = true;
-            }
-        }
-
-      TREE_VEC_ELT (initv, i) = init;
-      TREE_VEC_ELT (incrv, i) = incr;
-    }
-
-  if (fail)
-    return NULL;
-  else
-    {
-      tree t = make_node (ACC_LOOP);
-
-      TREE_TYPE (t) = void_type_node;
-      ACC_LOOP_INIT (t) = initv;
-      ACC_LOOP_COND (t) = condv;
-      ACC_LOOP_INCR (t) = incrv;
-      ACC_LOOP_BODY (t) = body;
-      ACC_LOOP_PRE_BODY (t) = pre_body;
-
-      SET_EXPR_LOCATION (t, locus);
-      return add_stmt (t);
-    }
-}
-
-static tree
-c_parser_acc_loop_1 (location_t loc,
-                     c_parser *parser,
-                     tree clauses,
-                     tree *par_clauses)
-{
-  tree decl, cond, incr, save_break, save_cont, body, init, stmt, cl;
-  tree declv, condv, incrv, initv, ret = NULL;
-  bool fail = false, open_brace_parsed = false;
-  int i, collapse = 1, nbraces = 0;
-  location_t for_loc;
-  vec<tree, va_gc> *for_block = make_tree_vector ();
-
-  for (cl = clauses; cl; cl = ACC_CLAUSE_CHAIN (cl))
-  {
-    if (ACC_CLAUSE_CODE (cl) == ACC_CLAUSE_COLLAPSE)
-    {
-      collapse = tree_low_cst (ACC_CLAUSE_COLLAPSE_EXPR (cl), 0);
-    }
-  }
-
-  gcc_assert (collapse >= 1);
-
-  declv = make_tree_vec (collapse);
-  initv = make_tree_vec (collapse);
-  condv = make_tree_vec (collapse);
-  incrv = make_tree_vec (collapse);
-
-  if (!c_parser_next_token_is_keyword (parser, RID_FOR))
-  {
-    c_parser_error (parser, "for statement expected");
-    return NULL;
-  }
-
-  for_loc = c_parser_peek_token (parser)->location;
-  c_parser_consume_token (parser);
-
-  for (i = 0; i < collapse; i++)
-  {
-    int bracecount = 0;
-
-    if (!c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-      goto pop_scopes;
-
-    /* Parse the initialization declaration or expression.  */
-    if (c_parser_next_tokens_start_declaration (parser))
-      {
-        if (i > 0)
-          vec_safe_push (for_block, c_begin_compound_stmt (true));
-        c_parser_declaration_or_fndef (parser, true, true, true, true, true, NULL);
-        decl = check_for_loop_decls (for_loc, flag_isoc99);
-        if (decl == NULL)
-          goto error_init;
-        if (DECL_INITIAL (decl) == error_mark_node)
-          decl = error_mark_node;
-        init = decl;
-      }
-    else if (c_parser_next_token_is (parser, CPP_NAME)
-             && c_parser_peek_2nd_token (parser)->type == CPP_EQ)
-      {
-        struct c_expr decl_exp;
-        struct c_expr init_exp;
-        location_t init_loc;
-
-        decl_exp = c_parser_postfix_expression (parser);
-        decl = decl_exp.value;
-
-        c_parser_require (parser, CPP_EQ, "expected %<=%>");
-
-        init_loc = c_parser_peek_token (parser)->location;
-        init_exp = c_parser_expr_no_commas (parser, NULL);
-        init_exp = default_function_array_read_conversion (init_loc,
-                                                           init_exp);
-        init = build_modify_expr (init_loc, decl, decl_exp.original_type,
-                                  NOP_EXPR, init_loc, init_exp.value,
-                                  init_exp.original_type);
-        init = c_process_expr_stmt (init_loc, init);
-
-        c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
-      }
-    else
-      {
-      error_init:
-        c_parser_error (parser,
-                        "expected iteration declaration or initialization");
-        c_parser_skip_until_found (parser, CPP_CLOSE_PAREN,
-                                   "expected %<)%>");
-        fail = true;
-        goto parse_next;
-      }
-
-    /* Parse the loop condition.  */
-    cond = NULL_TREE;
-    if (c_parser_next_token_is_not (parser, CPP_SEMICOLON))
-      {
-        location_t cond_loc = c_parser_peek_token (parser)->location;
-        struct c_expr cond_expr = c_parser_binary_expression (parser, NULL,
-                                                              PREC_NONE);
-
-        cond = cond_expr.value;
-        cond = c_objc_common_truthvalue_conversion (cond_loc, cond);
-        cond = c_fully_fold (cond, false, NULL);
-        switch (cond_expr.original_code)
-          {
-          case GT_EXPR:
-          case GE_EXPR:
-          case LT_EXPR:
-          case LE_EXPR:
-            break;
-          default:
-            /* Can't be cond = error_mark_node, because we want to preserve
-               the location until c_finish_omp_for.  */
-            cond = build1 (NOP_EXPR, boolean_type_node, error_mark_node);
-            break;
-          }
-        protected_set_expr_location (cond, cond_loc);
-      }
-    c_parser_skip_until_found (parser, CPP_SEMICOLON, "expected %<;%>");
-
-    /* Parse the increment expression.  */
-    incr = NULL_TREE;
-    if (c_parser_next_token_is_not (parser, CPP_CLOSE_PAREN))
-      {
-        location_t incr_loc = c_parser_peek_token (parser)->location;
-
-        incr = c_process_expr_stmt (incr_loc,
-                                    c_parser_expression (parser).value);
-      }
-    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-
-    if (decl == NULL || decl == error_mark_node || init == error_mark_node)
-      fail = true;
-    else
-      {
-        TREE_VEC_ELT (declv, i) = decl;
-        TREE_VEC_ELT (initv, i) = init;
-        TREE_VEC_ELT (condv, i) = cond;
-        TREE_VEC_ELT (incrv, i) = incr;
-      }
-
-  parse_next:
-    if (i == collapse - 1)
-      break;
-
-    do
-      {
-        if (c_parser_next_token_is_keyword (parser, RID_FOR))
-          {
-            c_parser_consume_token (parser);
-            break;
-          }
-        else if (c_parser_next_token_is (parser, CPP_OPEN_BRACE))
-          {
-            c_parser_consume_token (parser);
-            bracecount++;
-          }
-        else if (bracecount
-                 && c_parser_next_token_is (parser, CPP_SEMICOLON))
-          c_parser_consume_token (parser);
-        else
-          {
-            c_parser_error (parser, "not enough perfectly nested loops");
-            if (bracecount)
-              {
-                open_brace_parsed = true;
-                bracecount--;
-              }
-            fail = true;
-            collapse = 0;
-            break;
-          }
-      }
-    while (1);
-
-    nbraces += bracecount;
-  }
-
-  save_break = c_break_label;
-  c_break_label = size_one_node;
-  save_cont = c_cont_label;
-  c_cont_label = NULL_TREE;
-  body = push_stmt_list ();
-
-  if (open_brace_parsed)
-    {
-      location_t here = c_parser_peek_token (parser)->location;
-      stmt = c_begin_compound_stmt (true);
-      c_parser_compound_statement_nostart (parser);
-      add_stmt (c_end_compound_stmt (here, stmt, true));
-    }
-  else
-    add_stmt (c_parser_c99_block_statement (parser));
-  if (c_cont_label)
-    {
-      tree t = build1 (LABEL_EXPR, void_type_node, c_cont_label);
-      SET_EXPR_LOCATION (t, loc);
-      add_stmt (t);
-    }
-
-  body = pop_stmt_list (body);
-  c_break_label = save_break;
-  c_cont_label = save_cont;
-
-  while (nbraces)
-    {
-      if (c_parser_next_token_is (parser, CPP_CLOSE_BRACE))
-        {
-          c_parser_consume_token (parser);
-          nbraces--;
-        }
-      else if (c_parser_next_token_is (parser, CPP_SEMICOLON))
-        c_parser_consume_token (parser);
-      else
-        {
-          c_parser_error (parser, "collapsed loops not perfectly nested");
-          while (nbraces)
-            {
-              location_t here = c_parser_peek_token (parser)->location;
-              stmt = c_begin_compound_stmt (true);
-              add_stmt (body);
-              c_parser_compound_statement_nostart (parser);
-              body = c_end_compound_stmt (here, stmt, true);
-              nbraces--;
-            }
-          goto pop_scopes;
-        }
-    }
-
-  /* Only bother calling c_finish_omp_for if we haven't already generated
-     an error from the initialization parsing.  */
-  if (!fail)
-  {
-    stmt = c_finish_acc_loop (loc, declv, initv, condv, incrv, body, NULL);
-    if (stmt)
-    {
-      if (par_clauses != NULL)
-      {
-      }
-      ACC_LOOP_CLAUSES (stmt) = clauses;
-    }
-    ret = stmt;
-  }
-pop_scopes:
-  while (!for_block->is_empty ())
-    {
-      stmt = c_end_compound_stmt (loc, for_block->pop (), true);
-      add_stmt (stmt);
-    }
-  release_tree_vector (for_block);
-  return ret;
+  return add_stmt (stmt);
 }
 
 /* OpenACC 1.0:
@@ -12531,18 +12003,16 @@ pop_scopes:
 static tree
 c_parser_acc_loop (location_t loc, c_parser *parser)
 {
-  tree block, clauses, ret;
+  const char *p_name = "#pragma acc loop";
+  tree clauses, stmt, block;
+  unsigned int mask = ACC_LOOP_CLAUSE_MASK;
 
-  clauses = c_parser_acc_all_clauses (parser,
-                                      ACC_LOOP_CLAUSE_MASK,
-                                      "#pragma acc loop");
+  clauses = c_parser_acc_all_clauses (parser, mask, p_name);
+  block = c_begin_acc_loop ();
+  c_parser_statement (parser);
+  stmt = c_finish_acc_loop (loc, clauses, block);
 
-  block = c_begin_compound_stmt (true);
-  ret = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
-  block = c_end_compound_stmt (loc, block, true);
-  add_stmt (block);
-
-  return ret;
+  return stmt;
 }
 
 /* OpenACC 1.0:
@@ -12556,7 +12026,7 @@ c_parser_acc_parallel (location_t loc, c_parser *parser)
 {
   enum pragma_kind p_kind = PRAGMA_ACC_PARALLEL;
   const char *p_name = "#pragma acc parallel";
-  tree stmt, clauses, block;
+  tree stmt, clauses, block, loop_block;
   unsigned int mask = ACC_PARALLEL_CLAUSE_MASK;
   struct acc_context ctx;
 
@@ -12587,10 +12057,11 @@ c_parser_acc_parallel (location_t loc, c_parser *parser)
       stmt = c_finish_acc_parallel (loc, clauses, block);
       break;
     case PRAGMA_ACC_PARALLEL_LOOP:
-      block = c_begin_compound_stmt (true);
-      stmt = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
-      block = c_end_compound_stmt (loc, block, true);
-      add_stmt (block);
+      block = c_begin_acc_parallel ();
+      loop_block = c_begin_acc_loop ();
+      c_parser_statement (parser);
+      c_finish_acc_loop (loc, clauses, loop_block);
+      stmt = c_finish_acc_parallel (loc, clauses, block);
       break;
     default:
       gcc_unreachable ();
@@ -12610,7 +12081,7 @@ c_parser_acc_kernels (location_t loc, c_parser *parser)
 {
   enum pragma_kind p_kind = PRAGMA_ACC_KERNELS;
   const char *p_name = "#pragma acc kernels";
-  tree stmt, clauses, block;
+  tree stmt, clauses, block, loop_block;
   unsigned int mask = ACC_KERNELS_CLAUSE_MASK;
   struct acc_context ctx;
 
@@ -12634,21 +12105,22 @@ c_parser_acc_kernels (location_t loc, c_parser *parser)
   clauses = c_parser_acc_all_clauses (parser, mask, p_name);
 
   switch (p_kind)
-  {
-  case PRAGMA_ACC_KERNELS:
-    block = c_begin_acc_kernels ();
-    c_parser_statement (parser);
-    stmt = c_finish_acc_kernels (loc, clauses, block);
-    break;
-  case PRAGMA_ACC_KERNELS_LOOP:
-    block = c_begin_compound_stmt (true);
-    stmt = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
-    block = c_end_compound_stmt (loc, block, true);
-    add_stmt (block);
-    break;
-  default:
-    gcc_unreachable ();
-  }
+    {
+    case PRAGMA_ACC_KERNELS:
+      block = c_begin_acc_kernels ();
+      c_parser_statement (parser);
+      stmt = c_finish_acc_kernels (loc, clauses, block);
+      break;
+    case PRAGMA_ACC_KERNELS_LOOP:
+      block = c_begin_acc_kernels ();
+      loop_block = c_begin_acc_loop ();
+      c_parser_statement (parser);
+      c_finish_acc_loop (loc, clauses, loop_block);
+      stmt = c_finish_acc_kernels (loc, clauses, block);
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   acc_current_ctx = ctx.previous;
 

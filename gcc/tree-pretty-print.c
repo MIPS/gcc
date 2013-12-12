@@ -2625,54 +2625,7 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
     case ACC_LOOP:
       pp_string (buffer, "#pragma acc loop");
       dump_acc_clauses (buffer, ACC_LOOP_CLAUSES(node), spc, flags);
-      if (!(flags & TDF_SLIM))
-        {
-          int i;
-
-          if (ACC_LOOP_PRE_BODY (node))
-            {
-              newline_and_indent (buffer, spc + 2);
-              pp_character (buffer, '{');
-              spc += 4;
-              newline_and_indent (buffer, spc);
-              dump_generic_node (buffer, ACC_LOOP_PRE_BODY (node),
-                  spc, flags, false);
-            }
-          spc -= 2;
-          for (i = 0; i < TREE_VEC_LENGTH (ACC_LOOP_INIT (node)); i++)
-            {
-              spc += 2;
-              newline_and_indent (buffer, spc);
-              pp_string (buffer, "for (");
-              dump_generic_node (buffer, TREE_VEC_ELT (ACC_LOOP_INIT (node), i),
-                                 spc, flags, false);
-              pp_string (buffer, "; ");
-              dump_generic_node (buffer, TREE_VEC_ELT (ACC_LOOP_COND (node), i),
-                                 spc, flags, false);
-              pp_string (buffer, "; ");
-              dump_generic_node (buffer, TREE_VEC_ELT (ACC_LOOP_INCR (node), i),
-                                 spc, flags, false);
-              pp_string (buffer, ")");
-            }
-          if (ACC_LOOP_BODY (node))
-            {
-              newline_and_indent (buffer, spc + 2);
-              pp_character (buffer, '{');
-              newline_and_indent (buffer, spc + 4);
-              dump_generic_node (buffer, ACC_LOOP_BODY (node), spc + 4, flags,
-                  false);
-              newline_and_indent (buffer, spc + 2);
-              pp_character (buffer, '}');
-            }
-          spc -= 2 * TREE_VEC_LENGTH (ACC_LOOP_INIT (node)) - 2;
-          if (ACC_LOOP_PRE_BODY (node))
-            {
-              spc -= 4;
-              newline_and_indent (buffer, spc + 2);
-              pp_character (buffer, '}');
-            }
-        }
-      is_expr = false;
+      is_expr = dump_acc_body(flags, node, spc, is_expr, buffer);
 
       break;
     case ACC_HOST_DATA:

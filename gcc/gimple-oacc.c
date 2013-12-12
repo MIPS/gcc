@@ -486,19 +486,15 @@ gimple_build_acc_host_data (gimple_seq body, tree clauses, tree child_fn,
 }
 
 gimple
-gimple_build_acc_loop (gimple_seq body, tree clauses, size_t collapse,
-                       gimple_seq pre_body)
+gimple_build_acc_loop (gimple_seq body, tree clauses, tree child_fn,
+                       tree data_arg)
 {
   gimple p = gimple_alloc (GIMPLE_ACC_LOOP, 0);
+
   if (body)
     gimple_acc_set_body (p, body);
-  gimple_acc_loop_set_clauses (p, clauses);
-  p->gimple_acc_loop.collapse = collapse;
-  p->gimple_acc_loop.iter
-      = ggc_alloc_cleared_vec_gimple_acc_loop_iter (collapse);
-  if (pre_body)
-    gimple_acc_loop_set_pre_body (p, pre_body);
 
+  gimple_acc_loop_set_clauses (p, clauses);
   return p;
 }
 

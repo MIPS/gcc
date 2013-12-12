@@ -1195,10 +1195,6 @@ extern void protected_set_expr_location (tree, location_t);
 
 #define ACC_LOOP_BODY(NODE)          TREE_OPERAND (ACC_LOOP_CHECK (NODE), 0)
 #define ACC_LOOP_CLAUSES(NODE)       TREE_OPERAND (ACC_LOOP_CHECK (NODE), 1)
-#define ACC_LOOP_INIT(NODE)          TREE_OPERAND (ACC_LOOP_CHECK (NODE), 2)
-#define ACC_LOOP_COND(NODE)          TREE_OPERAND (ACC_LOOP_CHECK (NODE), 3)
-#define ACC_LOOP_INCR(NODE)          TREE_OPERAND (ACC_LOOP_CHECK (NODE), 4)
-#define ACC_LOOP_PRE_BODY(NODE)      TREE_OPERAND (ACC_LOOP_CHECK (NODE), 5)
 
 /* OpenACC clauses */
 #define ACC_CLAUSE_NUM_GANGS_EXPR(NODE)          ACC_CLAUSE_DECL (NODE)

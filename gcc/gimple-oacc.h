@@ -135,7 +135,7 @@ extern gimple gimple_build_acc_data (gimple_seq, tree, tree, tree);
 extern gimple gimple_build_acc_cache (gimple_seq, tree, tree, tree);
 extern gimple gimple_build_acc_wait (gimple_seq, tree, tree, tree);
 extern gimple gimple_build_acc_host_data (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_loop (gimple_seq, tree, size_t, gimple_seq);
+extern gimple gimple_build_acc_loop (gimple_seq, tree, tree, tree);
 extern gimple gimple_build_acc_declare (gimple_seq, tree, tree, tree);
 extern gimple gimple_build_acc_update (gimple_seq, tree, tree, tree);
 extern gimple gimple_build_acc_compute_region_end ();

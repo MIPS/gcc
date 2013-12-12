@@ -742,178 +742,18 @@ typedef struct dovar_init_d {
 } dovar_init;
 
 static tree
-trans_acc_loop (gfc_code *code, stmtblock_t *pblock,
-                    gfc_acc_clauses *do_clauses)
+trans_acc_loop (gfc_code *code, gfc_acc_clauses *do_clauses)
 {
-  gfc_se se;
-  tree dovar, stmt, from, to, step, type, init, cond, incr;
-  tree count = NULL_TREE, cycle_label, tmp, acc_clauses;
   stmtblock_t block;
-  stmtblock_t body;
-  gfc_acc_clauses *clauses = code->ext.omp_clauses;
-  int i, collapse = clauses->collapse;
-  vec<dovar_init> inits = vNULL;
-  dovar_init *di;
-  unsigned ix;
+  tree stmt, acc_clauses;
 
-  if (collapse <= 0)
-    collapse = 1;
-
-  code = code->block->next;
-  gcc_assert (code->op == EXEC_DO);
-
-  init = make_tree_vec (collapse);
-  cond = make_tree_vec (collapse);
-  incr = make_tree_vec (collapse);
-
-  if (pblock == NULL)
-    {
-      gfc_start_block (&block);
-      pblock = &block;
-    }
-
-  acc_clauses = trans_acc_clauses (pblock, do_clauses, code->loc);
-
-  for (i = 0; i < collapse; i++)
-    {
-      int simple = 0;
-      int dovar_found = 0;
-      tree dovar_decl;
-
-      /* Evaluate all the expressions in the iterator.  */
-      gfc_init_se (&se, NULL);
-      gfc_conv_expr_lhs (&se, code->ext.iterator->var);
-      gfc_add_block_to_block (pblock, &se.pre);
-      dovar = se.expr;
-      type = TREE_TYPE (dovar);
-      gcc_assert (TREE_CODE (type) == INTEGER_TYPE);
-
-      gfc_init_se (&se, NULL);
-      gfc_conv_expr_val (&se, code->ext.iterator->start);
-      gfc_add_block_to_block (pblock, &se.pre);
-      from = gfc_evaluate_now (se.expr, pblock);
-
-      gfc_init_se (&se, NULL);
-      gfc_conv_expr_val (&se, code->ext.iterator->end);
-      gfc_add_block_to_block (pblock, &se.pre);
-      to = gfc_evaluate_now (se.expr, pblock);
-
-      gfc_init_se (&se, NULL);
-      gfc_conv_expr_val (&se, code->ext.iterator->step);
-      gfc_add_block_to_block (pblock, &se.pre);
-      step = gfc_evaluate_now (se.expr, pblock);
-      dovar_decl = dovar;
-
-      /* Special case simple loops.  */
-      if (TREE_CODE (dovar) == VAR_DECL)
-        {
-          if (integer_onep (step))
-            simple = 1;
-          else if (tree_int_cst_equal (step, integer_minus_one_node))
-            simple = -1;
-        }
-      else
-        dovar_decl
-          = trans_acc_variable (code->ext.iterator->var->symtree->n.sym);
-
-      /* Loop body.  */
-      if (simple)
-        {
-          TREE_VEC_ELT (init, i) = build2_v (MODIFY_EXPR, dovar, from);
-          /* The condition should not be folded.  */
-          TREE_VEC_ELT (cond, i) = build2_loc (input_location, simple > 0
-                                               ? LE_EXPR : GE_EXPR,
-                                               boolean_type_node, dovar, to);
-          TREE_VEC_ELT (incr, i) = fold_build2_loc (input_location, PLUS_EXPR,
-                                                    type, dovar, step);
-          TREE_VEC_ELT (incr, i) = fold_build2_loc (input_location,
-                                                    MODIFY_EXPR,
-                                                    type, dovar,
-                                                    TREE_VEC_ELT (incr, i));
-        }
-      else
-        {
-          /* STEP is not 1 or -1.  Use:
-             for (count = 0; count < (to + step - from) / step; count++)
-               {
-                 dovar = from + count * step;
-                 body;
-               cycle_label:;
-               }  */
-          tmp = fold_build2_loc (input_location, MINUS_EXPR, type, step, from);
-          tmp = fold_build2_loc (input_location, PLUS_EXPR, type, to, tmp);
-          tmp = fold_build2_loc (input_location, TRUNC_DIV_EXPR, type, tmp,
-                                 step);
-          tmp = gfc_evaluate_now (tmp, pblock);
-          count = gfc_create_var (type, "count");
-          TREE_VEC_ELT (init, i) = build2_v (MODIFY_EXPR, count,
-                                             build_int_cst (type, 0));
-          /* The condition should not be folded.  */
-          TREE_VEC_ELT (cond, i) = build2_loc (input_location, LT_EXPR,
-                                               boolean_type_node,
-                                               count, tmp);
-          TREE_VEC_ELT (incr, i) = fold_build2_loc (input_location, PLUS_EXPR,
-                                                    type, count,
-                                                    build_int_cst (type, 1));
-          TREE_VEC_ELT (incr, i) = fold_build2_loc (input_location,
-                                                    MODIFY_EXPR, type, count,
-                                                    TREE_VEC_ELT (incr, i));
-
-          /* Initialize DOVAR.  */
-          tmp = fold_build2_loc (input_location, MULT_EXPR, type, count, step);
-          tmp = fold_build2_loc (input_location, PLUS_EXPR, type, from, tmp);
-          dovar_init e = {dovar, tmp};
-          inits.safe_push (e);
-        }
-      gcc_assert (dovar_found != 2);
-
-      if (i + 1 < collapse)
-        code = code->block->next;
-    }
-
-  if (pblock != &block)
-    {
-      pushlevel ();
-      gfc_start_block (&block);
-    }
-
-  gfc_start_block (&body);
-
-  FOR_EACH_VEC_ELT (inits, ix, di)
-    gfc_add_modify (&body, di->var, di->init);
-  inits.release ();
-
-  /* Cycle statement is implemented with a goto.  Exit statement must not be
-     present for this loop.  */
-  cycle_label = gfc_build_label_decl (NULL_TREE);
-
-  /* Put these labels where they can be found later.  */
-
-  code->cycle_label = cycle_label;
-  code->exit_label = NULL_TREE;
-
-  /* Main loop body.  */
-  tmp = trans_acc_code (code->block->next, true);
-  gfc_add_expr_to_block (&body, tmp);
-
-  /* Label for cycle statements (if needed).  */
-  if (TREE_USED (cycle_label))
-    {
-      tmp = build1_v (LABEL_EXPR, cycle_label);
-      gfc_add_expr_to_block (&body, tmp);
-    }
-
-  /* End of loop body.  */
-  stmt = make_node (ACC_LOOP);
-
-  TREE_TYPE (stmt) = void_type_node;
-  ACC_LOOP_BODY (stmt) = gfc_finish_block (&body);
-  ACC_LOOP_CLAUSES (stmt) = acc_clauses;
-  ACC_LOOP_INIT (stmt) = init;
-  ACC_LOOP_COND (stmt) = cond;
-  ACC_LOOP_INCR (stmt) = incr;
+  gfc_start_block (&block);
+  acc_clauses = trans_acc_clauses (&block, do_clauses,
+                                       code->loc);
+  stmt = trans_acc_code (code->block->next, true);
+  stmt = build2_loc (input_location, ACC_LOOP, void_type_node, stmt,
+                     acc_clauses);
   gfc_add_expr_to_block (&block, stmt);
-
   return gfc_finish_block (&block);
 }
 
@@ -1020,7 +860,7 @@ trans_acc_parallel_loop (gfc_code *code)
     pblock = &block;
   else
     pushlevel ();
-  stmt = trans_acc_loop (code, pblock, &loop_clauses);
+  stmt = trans_acc_loop (code, &loop_clauses);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
   else
@@ -1064,7 +904,7 @@ trans_acc_kernels_loop (gfc_code *code)
     pblock = &block;
   else
     pushlevel ();
-  stmt = trans_acc_loop (code, pblock, &loop_clauses);
+  stmt = trans_acc_loop (code, &loop_clauses);
   if (TREE_CODE (stmt) != BIND_EXPR)
     stmt = build3_v (BIND_EXPR, NULL, stmt, poplevel (1, 0));
   else
@@ -1103,7 +943,7 @@ gfc_trans_acc_directive (gfc_code *code)
     case EXEC_ACC_HOST_DATA:
       return trans_acc_host_data (code);
     case EXEC_ACC_LOOP:
-      return trans_acc_loop (code, NULL, code->ext.omp_clauses);
+      return trans_acc_loop (code, code->ext.omp_clauses);
     case EXEC_ACC_UPDATE:
       return trans_acc_update (code);
     case EXEC_ACC_WAIT:

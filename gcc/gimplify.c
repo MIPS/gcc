@@ -7576,152 +7576,28 @@ gimplify_acc_host_data (tree *expr_p, gimple_seq *pre_p)
 static enum gimplify_status
 gimplify_acc_loop (tree *expr_p, gimple_seq *pre_p)
 {
-  tree for_stmt, decl, var, t;
-  enum gimplify_status ret = GS_ALL_DONE;
-  enum gimplify_status tret;
-  gimple gfor;
-  gimple_seq for_body, for_pre_body;
-  int i;
-  bitmap has_decl_expr = NULL;
+  tree expr = *expr_p;
+  gimple g;
+  gimple_seq body = NULL;
+  struct gimplify_ctx gctx;
 
-  for_stmt = *expr_p;
+  gimplify_scan_acc_clauses (&ACC_LOOP_CLAUSES (expr), pre_p, ART_LOOP);
 
-  gimplify_scan_acc_clauses (&ACC_LOOP_CLAUSES (for_stmt), pre_p, ART_LOOP);
+  push_gimplify_context (&gctx);
 
-  /* Handle ACC_LOOP_INIT.  */
-  for_pre_body = NULL;
+  g = gimplify_and_return_first (ACC_LOOP_BODY (expr), &body);
+  if (gimple_code (g) == GIMPLE_BIND)
+    pop_gimplify_context (g);
+  else
+    pop_gimplify_context (NULL);
 
-  gimplify_and_add (ACC_LOOP_PRE_BODY (for_stmt), &for_pre_body);
-  ACC_LOOP_PRE_BODY (for_stmt) = NULL_TREE;
+  gimplify_adjust_acc_clauses (&ACC_LOOP_CLAUSES (expr));
 
-  for_body = NULL;
-  gcc_assert (TREE_VEC_LENGTH (ACC_LOOP_INIT (for_stmt))
-              == TREE_VEC_LENGTH (ACC_LOOP_COND (for_stmt)));
-  gcc_assert (TREE_VEC_LENGTH (ACC_LOOP_INIT (for_stmt))
-              == TREE_VEC_LENGTH (ACC_LOOP_INCR (for_stmt)));
-  for (i = 0; i < TREE_VEC_LENGTH (ACC_LOOP_INIT (for_stmt)); i++)
-    {
-      t = TREE_VEC_ELT (ACC_LOOP_INIT (for_stmt), i);
-      gcc_assert (TREE_CODE (t) == MODIFY_EXPR);
-      decl = TREE_OPERAND (t, 0);
-      gcc_assert (DECL_P (decl));
-      gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (decl))
-                  || POINTER_TYPE_P (TREE_TYPE (decl)));
+  g = gimple_build_acc_loop (body, ACC_LOOP_CLAUSES (expr),
+                             NULL_TREE, NULL_TREE);
 
-      acc_add_variable (gimplify_acc_ctxp, decl, GAVD_SEEN);
-
-      /* If DECL is not a gimple register, create a temporary variable to act
-         as an iteration counter.  This is valid, since DECL cannot be
-         modified in the body of the loop.  */
-      if (!is_gimple_reg (decl))
-        {
-          var = create_tmp_var (TREE_TYPE (decl), get_name (decl));
-          TREE_OPERAND (t, 0) = var;
-
-          gimplify_seq_add_stmt (&for_body, gimple_build_assign (decl, var));
-
-          acc_add_variable (gimplify_acc_ctxp, var, GAVD_SEEN);
-        }
-      else
-        var = decl;
-
-      tret = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
-                            is_gimple_val, fb_rvalue);
-      ret = MIN (ret, tret);
-      if (ret == GS_ERROR)
-        return ret;
-
-      /* Handle ACC_LOOP_COND.  */
-      t = TREE_VEC_ELT (ACC_LOOP_COND (for_stmt), i);
-      gcc_assert (COMPARISON_CLASS_P (t));
-      gcc_assert (TREE_OPERAND (t, 0) == decl);
-
-      tret = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
-                            is_gimple_val, fb_rvalue);
-      ret = MIN (ret, tret);
-
-      /* Handle ACC_LOOP_INCR.  */
-      t = TREE_VEC_ELT (ACC_LOOP_INCR (for_stmt), i);
-      switch (TREE_CODE (t))
-        {
-        case PREINCREMENT_EXPR:
-        case POSTINCREMENT_EXPR:
-          t = build_int_cst (TREE_TYPE (decl), 1);
-          t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
-          t = build2 (MODIFY_EXPR, TREE_TYPE (var), var, t);
-          TREE_VEC_ELT (ACC_LOOP_INCR (for_stmt), i) = t;
-          break;
-
-        case PREDECREMENT_EXPR:
-        case POSTDECREMENT_EXPR:
-          t = build_int_cst (TREE_TYPE (decl), -1);
-          t = build2 (PLUS_EXPR, TREE_TYPE (decl), var, t);
-          t = build2 (MODIFY_EXPR, TREE_TYPE (var), var, t);
-          TREE_VEC_ELT (ACC_LOOP_INCR (for_stmt), i) = t;
-          break;
-
-        case MODIFY_EXPR:
-          gcc_assert (TREE_OPERAND (t, 0) == decl);
-          TREE_OPERAND (t, 0) = var;
-
-          t = TREE_OPERAND (t, 1);
-          switch (TREE_CODE (t))
-            {
-            case PLUS_EXPR:
-              if (TREE_OPERAND (t, 1) == decl)
-                {
-                  TREE_OPERAND (t, 1) = TREE_OPERAND (t, 0);
-                  TREE_OPERAND (t, 0) = var;
-                  break;
-                }
-
-              /* Fallthru.  */
-            case MINUS_EXPR:
-            case POINTER_PLUS_EXPR:
-              gcc_assert (TREE_OPERAND (t, 0) == decl);
-              TREE_OPERAND (t, 0) = var;
-              break;
-            default:
-              gcc_unreachable ();
-            }
-
-          tret = gimplify_expr (&TREE_OPERAND (t, 1), &for_pre_body, NULL,
-                                is_gimple_val, fb_rvalue);
-          ret = MIN (ret, tret);
-          break;
-
-        default:
-          gcc_unreachable ();
-        }
-    }
-
-  BITMAP_FREE (has_decl_expr);
-
-  gimplify_and_add (ACC_LOOP_BODY (for_stmt), &for_body);
-
-  gimplify_adjust_acc_clauses (&ACC_LOOP_CLAUSES (for_stmt));
-
-  gfor = gimple_build_acc_loop (for_body, ACC_LOOP_CLAUSES (for_stmt),
-                                TREE_VEC_LENGTH (ACC_LOOP_INIT (for_stmt)),
-                                for_pre_body);
-
-  for (i = 0; i < TREE_VEC_LENGTH (ACC_LOOP_INIT (for_stmt)); i++)
-    {
-      t = TREE_VEC_ELT (ACC_LOOP_INIT (for_stmt), i);
-      gimple_acc_loop_set_index (gfor, i, TREE_OPERAND (t, 0));
-      gimple_acc_loop_set_initial (gfor, i, TREE_OPERAND (t, 1));
-      t = TREE_VEC_ELT (ACC_LOOP_COND (for_stmt), i);
-      gimple_acc_loop_set_cond (gfor, i, TREE_CODE (t));
-      gimple_acc_loop_set_final (gfor, i, TREE_OPERAND (t, 1));
-      t = TREE_VEC_ELT (ACC_LOOP_INCR (for_stmt), i);
-      gimple_acc_loop_set_incr (gfor, i, TREE_OPERAND (t, 1));
-    }
-
-  gimplify_seq_add_stmt (pre_p, gfor);
-  if (ret != GS_ALL_DONE)
-    return GS_ERROR;
+  gimplify_seq_add_stmt (pre_p, g);
   *expr_p = NULL_TREE;
-  return GS_ALL_DONE;
 }
 
 /* Gimplify the contents of an ACC_CACHE statement. */
