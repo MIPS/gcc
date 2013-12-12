@@ -1,5 +1,70 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_assign and use it in various places
+
+	* coretypes.h (gimple_assign): New typedef.
+	(const_gimple_assign): New typedef.
+
+	* gimple.h (struct gimple_statement_assign): New subclass of
+	gimple_statement_with_memory_ops, adding the invariant that
+	stmt->code == GIMPLE_ASSIGN.
+	(is_a_helper <gimple_statement_assign>::test): New.
+
+	* gdbhooks.py (build_pretty_printer): Add gimple_assign and its
+	variants, using the gimple printer.
+
+	* gimple-builder.c (build_assign): Return a gimple_assign rather
+	than just a gimple from each of the overloaded variants.
+	(build_type_cast): Likewise.
+	* gimple-builder.h (build_assign): Likewise.
+	(build_type_cast): Likewise.
+	* gimple.c (gimple_build_assign_stat): Likewise.
+	(gimple_build_assign_with_ops): Likewise.
+	* gimple.h (gimple_build_assign_stat): Likewise.
+	(gimple_build_assign_with_ops): Likewise.
+
+	* asan.c (get_mem_ref_of_assignment): Require a const_gimple_assign
+	rather than just a "const gimple" (the latter is not a
+	"const_gimple").
+	* gimple-pretty-print.c (dump_unary_rhs): Require a gimple_assign
+	rather than just a gimple.
+	(dump_binary_rhs): Likewise.
+	(dump_ternary_rhs): Likewise.
+	* tree-cfg.c (verify_gimple_assign_unary): Likewise.
+	(verify_gimple_assign_binary): Likewise.
+	(verify_gimple_assign_ternary): Likewise.
+	(verify_gimple_assign_single): Likewise.
+	(verify_gimple_assign): Likewise.
+	* tree-ssa-sccvn.c (simplify_unary_expression): Likewise.
+	(try_to_simplify): Likewise.
+	* tree-tailcall.c (process_assignment): Likewise.
+	* tree-vect-generic.c (expand_vector_operation): Likewise.
+	* tree-vrp.c (extract_range_from_cond_expr): Likewise.
+	(extract_range_from_assignment): Likewise.
+
+	* asan.c (has_stmt_been_instrumented_p): Add checked cast to
+	gimple_assign in regions where a stmt is known to have code
+	GIMPLE_ASSIGN.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+	* tree-cfg.c (verify_gimple_stmt): Likewise.
+	* tree-ssa-sccvn.c (visit_use): Likewise.
+	* tree-tailcall.c (find_tail_calls): Likewise.
+	* tree-vrp.c (vrp_visit_assignment_or_call): Likewise.
+
+	* tree-vrp.c (simplify_stmt_for_jump_threading): Replace a check
+	against GIMPLE_ASSIGN with a dyn_cast<gimple_assign>, introducing
+	a gimple_assign local.
+
+	* tree-vect-generic.c (expand_vector_condition): Convert local to a
+	gimple_assign, adding a checked cast when extracting from gsi, since
+	this is only called when  underlying stmt has code GIMPLE_ASSIGN.
+	(optimize_vector_constructor): Likewise.
+	(lower_vec_perm): Likewise.
+	(expand_vector_operations_1): Convert local to a gimple_assign,
+	introducing a dyn_cast.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_cond and use it in various places
 
 	* coretypes.h (gimple_cond): New typedef.

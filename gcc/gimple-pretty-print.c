@@ -261,7 +261,7 @@ dump_gimple_fmt (pretty_printer *buffer, int spc, int flags,
    assignment GS.  BUFFER, SPC and FLAGS are as in pp_gimple_stmt_1.  */
 
 static void
-dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_unary_rhs (pretty_printer *buffer, gimple_assign gs, int spc, int flags)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (gs);
   tree lhs = gimple_assign_lhs (gs);
@@ -345,7 +345,7 @@ dump_unary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
    assignment GS.  BUFFER, SPC and FLAGS are as in pp_gimple_stmt_1.  */
 
 static void
-dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_binary_rhs (pretty_printer *buffer, gimple_assign gs, int spc, int flags)
 {
   const char *p;
   enum tree_code code = gimple_assign_rhs_code (gs);
@@ -401,7 +401,7 @@ dump_binary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
    assignment GS.  BUFFER, SPC and FLAGS are as in pp_gimple_stmt_1.  */
 
 static void
-dump_ternary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_ternary_rhs (pretty_printer *buffer, gimple_assign gs, int spc, int flags)
 {
   const char *p;
   enum tree_code code = gimple_assign_rhs_code (gs);
@@ -496,7 +496,7 @@ dump_ternary_rhs (pretty_printer *buffer, gimple gs, int spc, int flags)
    pp_gimple_stmt_1.  */
 
 static void
-dump_gimple_assign (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_assign (pretty_printer *buffer, gimple_assign gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2089,7 +2089,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_ASSIGN:
-      dump_gimple_assign (buffer, gs, spc, flags);
+      dump_gimple_assign (buffer, as_a <gimple_assign> (gs), spc, flags);
       break;
 
     case GIMPLE_BIND:

@@ -789,12 +789,30 @@ struct GTY((tag("GSS_WITH_OPS")))
   /* no additional fields; this uses the layout for GSS_WITH_OPS. */
 };
 
+/* A statement with the invariant that
+      stmt->code == GIMPLE_ASSIGN
+   i.e. an assignment statement.  */
+
+struct GTY((tag("GSS_WITH_MEM_OPS")))
+  gimple_statement_assign : public gimple_statement_with_memory_ops
+{
+  /* no additional fields; this uses the layout for GSS_WITH_MEM_OPS. */
+};
+
 template <>
 template <>
 inline bool
 is_a_helper <gimple_statement_asm *>::test (gimple gs)
 {
   return gs->code == GIMPLE_ASM;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <gimple_statement_assign *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_ASSIGN;
 }
 
 template <>
@@ -1210,12 +1228,13 @@ gimple gimple_build_call_valist (tree, unsigned, va_list);
 gimple gimple_build_call_internal (enum internal_fn, unsigned, ...);
 gimple gimple_build_call_internal_vec (enum internal_fn, vec<tree> );
 gimple gimple_build_call_from_tree (tree);
-gimple gimple_build_assign_stat (tree, tree MEM_STAT_DECL);
+gimple_assign gimple_build_assign_stat (tree, tree MEM_STAT_DECL);
 #define gimple_build_assign(l,r) gimple_build_assign_stat (l, r MEM_STAT_INFO)
-gimple gimple_build_assign_with_ops (enum tree_code, tree,
-				     tree, tree, tree CXX_MEM_STAT_INFO);
-gimple gimple_build_assign_with_ops (enum tree_code, tree,
-				     tree, tree CXX_MEM_STAT_INFO);
+gimple_assign gimple_build_assign_with_ops (enum tree_code, tree,
+					    tree, tree,
+					    tree CXX_MEM_STAT_INFO);
+gimple_assign gimple_build_assign_with_ops (enum tree_code, tree,
+					    tree, tree CXX_MEM_STAT_INFO);
 gimple_cond gimple_build_cond (enum tree_code, tree, tree, tree, tree);
 gimple_cond gimple_build_cond_from_tree (tree, tree, tree);
 void gimple_cond_set_condition_from_tree (gimple_cond, tree);

@@ -3678,7 +3678,7 @@ extract_range_from_unary_expr (value_range_t *vr, enum tree_code code,
    the ranges of each of its operands and the expression code.  */
 
 static void
-extract_range_from_cond_expr (value_range_t *vr, gimple stmt)
+extract_range_from_cond_expr (value_range_t *vr, gimple_assign stmt)
 {
   tree op0, op1;
   value_range_t vr0 = VR_INITIALIZER;
@@ -3988,7 +3988,7 @@ extract_range_basic (value_range_t *vr, gimple stmt)
    in *VR.  */
 
 static void
-extract_range_from_assignment (value_range_t *vr, gimple stmt)
+extract_range_from_assignment (value_range_t *vr, gimple_assign stmt)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
 
@@ -6917,7 +6917,7 @@ vrp_visit_assignment_or_call (gimple stmt, tree *output_p)
       else if (code == GIMPLE_CALL)
 	extract_range_basic (&new_vr, stmt);
       else
-	extract_range_from_assignment (&new_vr, stmt);
+	extract_range_from_assignment (&new_vr, as_a <gimple_assign> (stmt));
 
       if (update_value_range (lhs, &new_vr))
 	{
@@ -9715,16 +9715,16 @@ simplify_stmt_for_jump_threading (gimple stmt, gimple within_stmt)
 				     gimple_cond_lhs (stmt),
 				     gimple_cond_rhs (stmt), within_stmt);
 
-  if (gimple_code (stmt) == GIMPLE_ASSIGN)
+  if (gimple_assign assign_stmt = dyn_cast <gimple_assign> (stmt))
     {
       value_range_t new_vr = VR_INITIALIZER;
-      tree lhs = gimple_assign_lhs (stmt);
+      tree lhs = gimple_assign_lhs (assign_stmt);
 
       if (TREE_CODE (lhs) == SSA_NAME
 	  && (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
 	      || POINTER_TYPE_P (TREE_TYPE (lhs))))
 	{
-	  extract_range_from_assignment (&new_vr, stmt);
+	  extract_range_from_assignment (&new_vr, assign_stmt);
 	  if (range_int_cst_singleton_p (&new_vr))
 	    return new_vr.min;
 	}

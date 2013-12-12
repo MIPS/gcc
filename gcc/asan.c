@@ -454,7 +454,7 @@ has_mem_ref_been_instrumented (const asan_mem_ref *ref, tree len)
    otherwise.  */
 
 static bool
-get_mem_ref_of_assignment (const gimple assignment,
+get_mem_ref_of_assignment (const_gimple_assign assignment,
 			   asan_mem_ref *ref,
 			   bool *ref_is_store)
 {
@@ -822,7 +822,8 @@ has_stmt_been_instrumented_p (gimple stmt)
       asan_mem_ref r;
       asan_mem_ref_init (&r, NULL, 1);
 
-      if (get_mem_ref_of_assignment (stmt, &r, &r_is_store))
+      if (get_mem_ref_of_assignment (as_a <gimple_assign> (stmt), &r,
+				     &r_is_store))
 	return has_mem_ref_been_instrumented (&r);
     }
   else if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))

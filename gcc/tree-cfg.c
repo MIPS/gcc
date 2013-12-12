@@ -3423,7 +3423,7 @@ verify_gimple_comparison (tree type, tree op0, tree op1)
    Returns true if anything is wrong.  */
 
 static bool
-verify_gimple_assign_unary (gimple stmt)
+verify_gimple_assign_unary (gimple_assign stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree lhs = gimple_assign_lhs (stmt);
@@ -3576,7 +3576,7 @@ verify_gimple_assign_unary (gimple stmt)
    Returns true if anything is wrong.  */
 
 static bool
-verify_gimple_assign_binary (gimple stmt)
+verify_gimple_assign_binary (gimple_assign stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree lhs = gimple_assign_lhs (stmt);
@@ -3850,7 +3850,7 @@ verify_gimple_assign_binary (gimple stmt)
    Returns true if anything is wrong.  */
 
 static bool
-verify_gimple_assign_ternary (gimple stmt)
+verify_gimple_assign_ternary (gimple_assign stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree lhs = gimple_assign_lhs (stmt);
@@ -4023,7 +4023,7 @@ verify_gimple_assign_ternary (gimple stmt)
    Returns true if anything is wrong.  */
 
 static bool
-verify_gimple_assign_single (gimple stmt)
+verify_gimple_assign_single (gimple_assign stmt)
 {
   enum tree_code rhs_code = gimple_assign_rhs_code (stmt);
   tree lhs = gimple_assign_lhs (stmt);
@@ -4237,7 +4237,7 @@ verify_gimple_assign_single (gimple stmt)
    is a problem, otherwise false.  */
 
 static bool
-verify_gimple_assign (gimple stmt)
+verify_gimple_assign (gimple_assign stmt)
 {
   switch (gimple_assign_rhs_class (stmt))
     {
@@ -4476,7 +4476,7 @@ verify_gimple_stmt (gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_ASSIGN:
-      return verify_gimple_assign (stmt);
+      return verify_gimple_assign (as_a <gimple_assign> (stmt));
 
     case GIMPLE_LABEL:
       return verify_gimple_label (stmt);

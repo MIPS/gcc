@@ -3298,7 +3298,7 @@ simplify_binary_expression (gimple stmt)
    simplified. */
 
 static tree
-simplify_unary_expression (gimple stmt)
+simplify_unary_expression (gimple_assign stmt)
 {
   tree result = NULL_TREE;
   tree orig_op0, op0 = gimple_assign_rhs1 (stmt);
@@ -3362,7 +3362,7 @@ simplify_unary_expression (gimple stmt)
 /* Try to simplify RHS using equivalences and constant folding.  */
 
 static tree
-try_to_simplify (gimple stmt)
+try_to_simplify (gimple_assign stmt)
 {
   enum tree_code code = gimple_assign_rhs_code (stmt);
   tree tem;
@@ -3450,7 +3450,7 @@ visit_use (tree use)
 	      changed = visit_copy (lhs, rhs1);
 	      goto done;
 	    }
-	  simplified = try_to_simplify (stmt);
+	  simplified = try_to_simplify (as_a <gimple_assign> (stmt));
 	  if (simplified)
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))

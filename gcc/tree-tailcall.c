@@ -267,7 +267,7 @@ independent_of_stmt_p (tree expr, gimple at, gimple_stmt_iterator gsi)
    additive factor for the real return value.  */
 
 static bool
-process_assignment (gimple stmt, gimple_stmt_iterator call, tree *m,
+process_assignment (gimple_assign stmt, gimple_stmt_iterator call, tree *m,
 		    tree *a, tree *ass_var)
 {
   tree op0, op1 = NULL_TREE, non_ass_var = NULL_TREE;
@@ -559,7 +559,8 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
 	return;
 
       /* This is a gimple assign. */
-      if (! process_assignment (stmt, gsi, &tmp_m, &tmp_a, &ass_var))
+      if (! process_assignment (as_a <gimple_assign> (stmt), gsi, &tmp_m,
+				&tmp_a, &ass_var))
 	return;
 
       if (tmp_a)

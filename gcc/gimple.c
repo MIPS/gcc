@@ -377,7 +377,7 @@ gimple_build_call_from_tree (tree t)
    LHS of the assignment.
    RHS of the assignment which can be unary or binary.  */
 
-gimple
+gimple_assign
 gimple_build_assign_stat (tree lhs, tree rhs MEM_STAT_DECL)
 {
   enum tree_code subcode;
@@ -393,19 +393,20 @@ gimple_build_assign_stat (tree lhs, tree rhs MEM_STAT_DECL)
    OP1 and OP2.  If OP2 is NULL then SUBCODE must be of class
    GIMPLE_UNARY_RHS or GIMPLE_SINGLE_RHS.  */
 
-gimple
+gimple_assign
 gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
 			      tree op2, tree op3 MEM_STAT_DECL)
 {
   unsigned num_ops;
-  gimple p;
+  gimple_assign p;
 
   /* Need 1 operand for LHS and 1 or 2 for the RHS (depending on the
      code).  */
   num_ops = get_gimple_rhs_num_ops (subcode) + 1;
 
-  p = gimple_build_with_ops_stat (GIMPLE_ASSIGN, (unsigned)subcode, num_ops
-  			          PASS_MEM_STAT);
+  p = as_a <gimple_assign> (
+        gimple_build_with_ops_stat (GIMPLE_ASSIGN, (unsigned)subcode, num_ops
+				    PASS_MEM_STAT));
   gimple_assign_set_lhs (p, lhs);
   gimple_assign_set_rhs1 (p, op1);
   if (op2)
@@ -423,7 +424,7 @@ gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
   return p;
 }
 
-gimple
+gimple_assign
 gimple_build_assign_with_ops (enum tree_code subcode, tree lhs, tree op1,
 			      tree op2 MEM_STAT_DECL)
 {
