@@ -1,3 +1,164 @@
+2013-12-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/59382
+	* indepsw-darwin.adb: New file.
+
+2013-12-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (components_to_record): Add specific handling
+	for fields with zero size and no representation clause.
+
+2013-12-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Case_Statement_to_gnu): Do not push a binding
+	level for each branch if this is a case expression in Ada 2012.
+	(gnat_to_gnu) <case N_Expression_With_Actions>: Adjust comment.
+
+2013-11-29  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR ada/54040
+	PR ada/59346
+	* s-osinte-hpux.ads (timespec): Change type of tv_nsec field to time_t.
+	* s-osinte-kfreebsd-gnu.ads (timespec): Likewise.
+	* s-osinte-solaris-posix.ads (timespec): Likewise.
+
+2013-11-23  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Loop_Statement_to_gnu): Set TREE_SIDE_EFFECTS
+	on the conditional expression directly.
+
+2013-11-22  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gcc-interface/trans.c: Add required include files from gimple.h.
+
+2013-11-22  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc-interface/utils2.c (build_call_raise): Remove use of
+	input_line macro.
+	(build_call_raise_range): Likewise.
+	(build_call_raise_column): Likewise.
+
+2013-11-20  Kenneth Zadeck  <zadeck@naturalbridge.com>
+	    Mike Stump  <mikestump@comcast.net>
+	    Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc-interface/cuintp.c (UI_From_gnu): Use tree_to_shwi.
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Use tree_to_uhwi.
+	* gcc-interface/utils.c (make_packable_type): Likewise.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc-interface/cuintp.c (UI_From_gnu): Use tree_to_shwi rather than
+	tree_low_cst.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc-interface/decl.c, gcc-interface/utils.c, gcc-interface/utils2.c:
+	Replace tree_low_cst (..., 1) with tree_to_uhwi throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc-interface/cuintp.c: Update comments to refer to
+	tree_fits_shwi_p rather than host_integerp.
+	* gcc-interface/decl.c (gnat_to_gnu_entity): Use tree_fits_uhwi_p
+	rather than host_integerp.
+	* gcc-interface/utils.c (rest_of_record_type_compilation): Likewise.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc-interface/decl.c, gcc-interface/misc.c, gcc-interface/utils.c:
+	Replace host_integerp (..., 1) with tree_fits_uhwi_p throughout.
+
+2013-11-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc-interface/cuintp.c: Replace host_integerp (..., 0) with
+	tree_fits_shwi_p throughout.
+
+2013-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (TARGET_ABI_OPEN_VMS): Delete as redundant.
+
+2013-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/trans.c (Call_to_gnu): For an Out parameter passed by
+	copy and that don't need to be  copied in, only evaluate its address.
+
+2013-11-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/decl.c (gnat_to_gnu_entity) <object>: Deal with an
+	error mark as renamed object in type annotating mode.
+
+2013-11-15  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR ada/54040
+	* s-linux-x32.ads: New file.
+	* s-osprim-x32.adb: Likewise.
+	* s-linux.ads (time_t): New type.
+	* s-linux-alpha.ads (time_t):  Likewise.
+	* s-linux-hppa.ads (time_t):  Likewise.
+	* s-linux-mipsel.ads (time_t):  Likewise.
+	* s-linux-sparc.ads (time_t):  Likewise.
+	* s-osinte-linux.ads (time_t): Mark it private.  Replace long
+	with System.Linux.time_t.
+	(timespec): Replace long with time_t.
+	* s-osinte-posix.adb (To_Timespec): Likewise.
+	* s-taprop-linux.adb (timeval): Replace C.long with
+	System.OS_Interface.time_t.
+	* gcc-interface/Makefile.in (LIBGNAT_TARGET_PAIRS): Replace
+	s-linux.ads with s-linux-x32.ads, s-osprim-posix.adb with
+	s-osprim-x32.adb for x32.
+
+2013-11-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* gcc-interface/trans.c: Include gimple.h and pointer-set.h.
+
+2013-11-14  Diego Novillo  <dnovillo@google.com>
+
+	* gcc-interface/decl.c: Include stringpool.h
+	Include stor-layout.h
+	* gcc-interface/misc.c: Include stor-layout.h
+	Include print-tree.h
+	* gcc-interface/trans.c: Include stringpool.h
+	Include stor-layout.h
+	Include stmt.h
+	Include varasm.h
+	* gcc-interface/utils.c: Include stringpool.h
+	Include stor-layout.h
+	Include attribs.h
+	Include varasm.h
+	* gcc-interface/utils2.c: Include stringpool.h
+	Include stor-layout.h
+	Include attribs.h
+	Include varasm.h
+
+2013-11-12  Andrew MacLeod  <amacleod@redhat.com>
+
+	* gcc-interface/trans.c: Include gimplify.h.
+
+2013-11-11  Tristan Gingold  <gingold@adacore.com>
+	    Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc-interface/utils2.c (gnat_build_constructor): Also set the flag
+	CONSTRUCTOR_NO_CLEARING on the constructor.
+
+2013-10-30  Sharad Singhai  <singhai@google.com>
+
+	* gnat_ugn.texi: Remove option description for PR middle-end/58134.
+
+2013-10-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* gcc-interface/trans.c (finalize_nrv): Update for conversion of
+	symtab types to a true class hierarchy.
+	* gcc-interface/utils.c (gnat_write_global_declarations): Likewise.
+
+2013-10-28  Trevor Saunders  <tsaunders@mozilla.com>
+
+	* gcc-interface/decl.c (components_to_record): Adjust stack vector.
+
+2013-10-24  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc-interface/Make-lang.in (ADA_DEPS): Fix quoting.
+
 2013-10-19  Thomas Quinot  <quinot@adacore.com>
 
 	* gcc-interface/Makefile.in: Use canonical absolute path to refer to
@@ -3657,7 +3818,7 @@
 	* gcc-interface/decl.c (gnat_to_gnu_entity) <E_Array_Subtype>: Use
 	int_const_binop to shift bounds by 1 when they are integer constants.
 
-2013-04-25  Arnaud Charlet  <charlet@adacore.com>>
+2013-04-25  Arnaud Charlet  <charlet@adacore.com>
 
 	* gcc-interface/Makefile.in (ADA_EXCLUDE_SRCS): Exclude s-init.ad{s,b}
 
@@ -7343,7 +7504,7 @@
 	accept an aspect name followed by a comma, indicating a defaulted
 	boolean aspect.
 
-2013-01-04  Joel Brobecker  <brobecker@adacore.com brobecker>
+2013-01-04  Joel Brobecker  <brobecker@adacore.com>
 
 	* gnat_ugn.texi: Document procedure to codesign GDB on Darwin.
 	Update doc on gnattest --separates switch.

@@ -40,7 +40,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "cfgloop.h"
 #include "tree-pass.h"
 #include "tree-chrec.h"
@@ -656,9 +674,9 @@ try_unroll_loop_completely (struct loop *loop,
      If the number of execution of loop is determined by standard induction
      variable test, then EXIT and EDGE_TO_CANCEL are the two edges leaving
      from the iv test.  */
-  if (host_integerp (niter, 1))
+  if (tree_fits_uhwi_p (niter))
     {
-      n_unroll = tree_low_cst (niter, 1);
+      n_unroll = tree_to_uhwi (niter);
       n_unroll_found = true;
       edge_to_cancel = EDGE_SUCC (exit->src, 0);
       if (edge_to_cancel == exit)
@@ -971,7 +989,6 @@ canonicalize_loop_induction_variables (struct loop *loop,
 unsigned int
 canonicalize_induction_variables (void)
 {
-  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   bool irred_invalidated = false;
@@ -980,7 +997,7 @@ canonicalize_induction_variables (void)
   free_numbers_of_iterations_estimates ();
   estimate_numbers_of_iterations ();
 
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       changed |= canonicalize_loop_induction_variables (loop,
 							true, UL_SINGLE_ITER,
@@ -1090,7 +1107,7 @@ propagate_constants_for_unrolling (basic_block bb)
 
 static bool
 tree_unroll_loops_completely_1 (bool may_increase_size, bool unroll_outer,
-				vec<loop_p, va_stack>& father_stack,
+				vec<loop_p, va_heap>& father_stack,
 				struct loop *loop)
 {
   struct loop *loop_father;
@@ -1154,12 +1171,11 @@ tree_unroll_loops_completely_1 (bool may_increase_size, bool unroll_outer,
 unsigned int
 tree_unroll_loops_completely (bool may_increase_size, bool unroll_outer)
 {
-  vec<loop_p, va_stack> father_stack;
+  stack_vec<loop_p, 16> father_stack;
   bool changed;
   int iteration = 0;
   bool irred_invalidated = false;
 
-  vec_stack_alloc (loop_p, father_stack, 16);
   do
     {
       changed = false;

@@ -24,7 +24,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "cfgloop.h"
 #include "params.h"
 #include "tree-pass.h"
@@ -75,13 +87,12 @@ static tree tree_may_unswitch_on (basic_block, struct loop *);
 unsigned int
 tree_ssa_unswitch_loops (void)
 {
-  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   HOST_WIDE_INT iterations;
 
   /* Go through inner loops (only original ones).  */
-  FOR_EACH_LOOP (li, loop, LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
         fprintf (dump_file, ";; Considering loop %d\n", loop->num);
@@ -187,7 +198,7 @@ simplify_using_entry_checks (struct loop *loop, tree cond)
 	return cond;
 
       e = single_pred_edge (e->src);
-      if (e->src == ENTRY_BLOCK_PTR)
+      if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	return cond;
     }
 }

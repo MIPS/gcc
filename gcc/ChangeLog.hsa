@@ -1,3 +1,13 @@
+2013-12-12  Martin Jambor  <mjambor@suse.cz>
+
+	Merge from trunk revision 205789.
+	* hsa-gen.c: Added new necessary includes.  Changed all tree_low_cst
+	to tree_to_uhwi and {ENTRY,EXIT}_BLOCK_PTR to
+	{ENTRY,EXIT}_BLOCK_PTR_FOR_FN.
+	* hsa-brig.c: Likewise.
+	* hsa-dump.c: Likewise.
+	* hsa-regalloc.c: Likewise.
+
 2013-11-15  Michael Matz  <matz@suse.de>
 
 	* hsa-brig.c (emit_symbol_directive): Kernarg symbols must

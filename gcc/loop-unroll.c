@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "tree.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
@@ -268,7 +269,6 @@ unroll_and_peel_loops (int flags)
 {
   struct loop *loop;
   bool changed = false;
-  loop_iterator li;
 
   /* First perform complete loop peeling (it is almost surely a win,
      and affects parameters for further decision a lot).  */
@@ -278,7 +278,7 @@ unroll_and_peel_loops (int flags)
   decide_unrolling_and_peeling (flags);
 
   /* Scan the loops, inner ones first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       /* And perform the appropriate transformations.  */
       switch (loop->lpt_decision.decision)
@@ -344,11 +344,10 @@ static void
 peel_loops_completely (int flags)
 {
   struct loop *loop;
-  loop_iterator li;
   bool changed = false;
 
   /* Scan the loops, the inner ones first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       loop->lpt_decision.decision = LPT_NONE;
       location_t locus = get_loop_location (loop);
@@ -385,10 +384,9 @@ static void
 decide_unrolling_and_peeling (int flags)
 {
   struct loop *loop;
-  loop_iterator li;
 
   /* Scan the loops, inner ones first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       loop->lpt_decision.decision = LPT_NONE;
       location_t locus = get_loop_location (loop);
@@ -580,7 +578,6 @@ peel_loop_completely (struct loop *loop)
   sbitmap wont_exit;
   unsigned HOST_WIDE_INT npeel;
   unsigned i;
-  vec<edge> remove_edges;
   edge ein;
   struct niter_desc *desc = get_simple_loop_desc (loop);
   struct opt_info *opt_info = NULL;
@@ -597,8 +594,7 @@ peel_loop_completely (struct loop *loop)
       if (desc->noloop_assumptions)
 	bitmap_clear_bit (wont_exit, 1);
 
-      remove_edges.create (0);
-
+      auto_vec<edge> remove_edges;
       if (flag_split_ivs_in_unroller)
         opt_info = analyze_insns_in_loop (loop);
 
@@ -624,7 +620,6 @@ peel_loop_completely (struct loop *loop)
       /* Remove the exit edges.  */
       FOR_EACH_VEC_ELT (remove_edges, i, ein)
 	remove_path (ein);
-      remove_edges.release ();
     }
 
   ein = desc->in_edge;
@@ -668,6 +663,9 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
     nunroll = nunroll_by_av;
   if (nunroll > (unsigned) PARAM_VALUE (PARAM_MAX_UNROLL_TIMES))
     nunroll = PARAM_VALUE (PARAM_MAX_UNROLL_TIMES);
+
+  if (targetm.loop_unroll_adjust)
+    nunroll = targetm.loop_unroll_adjust (nunroll, loop);
 
   /* Skip big loops.  */
   if (nunroll <= 1)
@@ -762,7 +760,6 @@ unroll_loop_constant_iterations (struct loop *loop)
   unsigned exit_mod;
   sbitmap wont_exit;
   unsigned i;
-  vec<edge> remove_edges;
   edge e;
   unsigned max_unroll = loop->lpt_decision.times;
   struct niter_desc *desc = get_simple_loop_desc (loop);
@@ -780,7 +777,7 @@ unroll_loop_constant_iterations (struct loop *loop)
   wont_exit = sbitmap_alloc (max_unroll + 1);
   bitmap_ones (wont_exit);
 
-  remove_edges.create (0);
+  auto_vec<edge> remove_edges;
   if (flag_split_ivs_in_unroller
       || flag_variable_expansion_in_unroller)
     opt_info = analyze_insns_in_loop (loop);
@@ -930,7 +927,6 @@ unroll_loop_constant_iterations (struct loop *loop)
   /* Remove the edges.  */
   FOR_EACH_VEC_ELT (remove_edges, i, e)
     remove_path (e);
-  remove_edges.release ();
 
   if (dump_file)
     fprintf (dump_file,
@@ -1101,11 +1097,9 @@ unroll_loop_runtime_iterations (struct loop *loop)
   rtx old_niter, niter, init_code, branch_code, tmp;
   unsigned i, j, p;
   basic_block preheader, *body, swtch, ezc_swtch;
-  vec<basic_block> dom_bbs;
   sbitmap wont_exit;
   int may_exit_copy;
   unsigned n_peel;
-  vec<edge> remove_edges;
   edge e;
   bool extra_zero_check, last_may_exit;
   unsigned max_unroll = loop->lpt_decision.times;
@@ -1119,7 +1113,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
     opt_info = analyze_insns_in_loop (loop);
 
   /* Remember blocks whose dominators will have to be updated.  */
-  dom_bbs.create (0);
+  auto_vec<basic_block> dom_bbs;
 
   body = get_loop_body (loop);
   for (i = 0; i < loop->num_nodes; i++)
@@ -1176,7 +1170,7 @@ unroll_loop_runtime_iterations (struct loop *loop)
   /* Precondition the loop.  */
   split_edge_and_insert (loop_preheader_edge (loop), init_code);
 
-  remove_edges.create (0);
+  auto_vec<edge> remove_edges;
 
   wont_exit = sbitmap_alloc (max_unroll + 2);
 
@@ -1300,7 +1294,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
   /* Remove the edges.  */
   FOR_EACH_VEC_ELT (remove_edges, i, e)
     remove_path (e);
-  remove_edges.release ();
 
   /* We must be careful when updating the number of iterations due to
      preconditioning and the fact that the value must be valid at entry
@@ -1337,8 +1330,6 @@ unroll_loop_runtime_iterations (struct loop *loop)
 	     ";; Unrolled loop %d times, counting # of iterations "
 	     "in runtime, %i insns\n",
 	     max_unroll, num_loop_insns (loop));
-
-  dom_bbs.release ();
 }
 
 /* Decide whether to simply peel LOOP and how much.  */

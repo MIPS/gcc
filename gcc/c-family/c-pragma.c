@@ -22,6 +22,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
+#include "varasm.h"
+#include "gcc-symtab.h"
 #include "function.h"		/* For cfun.  FIXME: Does the parser know
 				   when it is inside a function, so that
 				   we don't have to look at cfun?  */
@@ -307,7 +311,7 @@ maybe_apply_pending_pragma_weaks (void)
   tree alias_id, id, decl;
   int i;
   pending_weak *pe;
-  symtab_node target;
+  symtab_node *target;
 
   if (!pending_weaks)
     return;
@@ -322,7 +326,7 @@ maybe_apply_pending_pragma_weaks (void)
 
       target = symtab_node_for_asm (id);
       decl = build_decl (UNKNOWN_LOCATION,
-			 target ? TREE_CODE (target->symbol.decl) : FUNCTION_DECL,
+			 target ? TREE_CODE (target->decl) : FUNCTION_DECL,
 			 alias_id, default_function_type);
 
       DECL_ARTIFICIAL (decl) = 1;
@@ -1117,7 +1121,7 @@ handle_pragma_float_const_decimal64 (cpp_reader *ARG_UNUSED (dummy))
 {
   if (c_dialect_cxx ())
     {
-      if (warn_unknown_pragmas > in_system_header)
+      if (warn_unknown_pragmas > in_system_header_at (input_location))
 	warning (OPT_Wunknown_pragmas,
 		 "%<#pragma STDC FLOAT_CONST_DECIMAL64%> is not supported"
 		 " for C++");
@@ -1126,7 +1130,7 @@ handle_pragma_float_const_decimal64 (cpp_reader *ARG_UNUSED (dummy))
 
   if (!targetm.decimal_float_supported_p ())
     {
-      if (warn_unknown_pragmas > in_system_header)
+      if (warn_unknown_pragmas > in_system_header_at (input_location))
 	warning (OPT_Wunknown_pragmas,
 		 "%<#pragma STDC FLOAT_CONST_DECIMAL64%> is not supported"
 		 " on this target");
@@ -1170,31 +1174,35 @@ static const struct omp_pragma_def omp_pragmas[] = {
   { "cancel", PRAGMA_OMP_CANCEL },
   { "cancellation", PRAGMA_OMP_CANCELLATION_POINT },
   { "critical", PRAGMA_OMP_CRITICAL },
-  { "declare", PRAGMA_OMP_DECLARE_REDUCTION },
-  { "distribute", PRAGMA_OMP_DISTRIBUTE },
   { "end", PRAGMA_OMP_END_DECLARE_TARGET },
   { "flush", PRAGMA_OMP_FLUSH },
-  { "for", PRAGMA_OMP_FOR },
   { "master", PRAGMA_OMP_MASTER },
   { "ordered", PRAGMA_OMP_ORDERED },
-  { "parallel", PRAGMA_OMP_PARALLEL },
   { "section", PRAGMA_OMP_SECTION },
   { "sections", PRAGMA_OMP_SECTIONS },
-  { "simd", PRAGMA_OMP_SIMD },
   { "single", PRAGMA_OMP_SINGLE },
-  { "target", PRAGMA_OMP_TARGET },
-  { "task", PRAGMA_OMP_TASK },
   { "taskgroup", PRAGMA_OMP_TASKGROUP },
   { "taskwait", PRAGMA_OMP_TASKWAIT },
   { "taskyield", PRAGMA_OMP_TASKYIELD },
-  { "teams", PRAGMA_OMP_TEAMS },
   { "threadprivate", PRAGMA_OMP_THREADPRIVATE }
+};
+static const struct omp_pragma_def omp_pragmas_simd[] = {
+  { "declare", PRAGMA_OMP_DECLARE_REDUCTION },
+  { "distribute", PRAGMA_OMP_DISTRIBUTE },
+  { "for", PRAGMA_OMP_FOR },
+  { "parallel", PRAGMA_OMP_PARALLEL },
+  { "simd", PRAGMA_OMP_SIMD },
+  { "target", PRAGMA_OMP_TARGET },
+  { "task", PRAGMA_OMP_TASK },
+  { "teams", PRAGMA_OMP_TEAMS },
 };
 
 void
 c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
 {
   const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
+  const int n_omp_pragmas_simd = sizeof (omp_pragmas_simd)
+				 / sizeof (*omp_pragmas);
   int i;
 
   for (i = 0; i < n_omp_pragmas; ++i)
@@ -1202,6 +1210,14 @@ c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
       {
 	*space = "omp";
 	*name = omp_pragmas[i].name;
+	return;
+      }
+
+  for (i = 0; i < n_omp_pragmas_simd; ++i)
+    if (omp_pragmas_simd[i].id == id)
+      {
+	*space = "omp";
+	*name = omp_pragmas_simd[i].name;
 	return;
       }
 
@@ -1357,11 +1373,27 @@ init_pragma (void)
 	cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas[i].name,
 				      omp_pragmas[i].id, true, true);
     }
+  if (flag_openmp || flag_openmp_simd)
+    {
+      const int n_omp_pragmas_simd = sizeof (omp_pragmas_simd)
+				     / sizeof (*omp_pragmas);
+      int i;
+
+      for (i = 0; i < n_omp_pragmas_simd; ++i)
+	cpp_register_deferred_pragma (parse_in, "omp", omp_pragmas_simd[i].name,
+				      omp_pragmas_simd[i].id, true, true);
+    }
+
+  if (flag_enable_cilkplus && !flag_preprocess_only)
+    cpp_register_deferred_pragma (parse_in, NULL, "simd", PRAGMA_CILK_SIMD,
+				  true, false);
 
   if (!flag_preprocess_only)
     cpp_register_deferred_pragma (parse_in, "GCC", "pch_preprocess",
 				  PRAGMA_GCC_PCH_PREPROCESS, false, false);
 
+  cpp_register_deferred_pragma (parse_in, "GCC", "ivdep", PRAGMA_IVDEP, false,
+				false);
 #ifdef HANDLE_PRAGMA_PACK_WITH_EXPANSION
   c_register_pragma_with_expansion (0, "pack", handle_pragma_pack);
 #else

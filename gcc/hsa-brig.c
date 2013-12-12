@@ -1072,7 +1072,7 @@ perhaps_emit_branch (basic_block bb, basic_block next_bb)
       }
   gcc_assert (ff);
   if (ff == next_bb
-      || ff == EXIT_BLOCK_PTR)
+      || ff == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   repr.size = htole16 (sizeof (repr));
@@ -1109,11 +1109,11 @@ hsa_brig_emit_function (void)
   op_queue.projected_size = brig_operand.total_size;
 
   ptr_to_fndir = emit_function_directives ();
-  for (insn = hsa_bb_for_bb (ENTRY_BLOCK_PTR)->first_insn;
+  for (insn = hsa_bb_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun))->first_insn;
        insn;
        insn = insn->next)
     emit_insn (insn);
-  prev_bb = ENTRY_BLOCK_PTR;
+  prev_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
   FOR_EACH_BB (bb)
     {
       perhaps_emit_branch (prev_bb, bb);

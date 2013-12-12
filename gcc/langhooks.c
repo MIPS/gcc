@@ -25,15 +25,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "tree-inline.h"
-#include "gimple.h"
+#include "gimplify.h"
 #include "rtl.h"
 #include "insn-config.h"
 #include "flags.h"
 #include "langhooks.h"
 #include "target.h"
 #include "langhooks-def.h"
-#include "ggc.h"
 #include "diagnostic.h"
 #include "tree-diagnostic.h"
 #include "cgraph.h"
@@ -674,4 +675,19 @@ lhd_end_section (void)
       switch_to_section (saved_section);
       saved_section = NULL;
     }
+}
+
+/* Empty function that is replaced with appropriate language dependent
+   frame cleanup function for _Cilk_spawn.  */
+
+void
+lhd_install_body_with_frame_cleanup (tree, tree)
+{
+}
+
+/* Empty function to handle cilk_valid_spawn.  */
+bool
+lhd_cilk_detect_spawn (tree *)
+{
+  return false;
 }

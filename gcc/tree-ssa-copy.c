@@ -27,7 +27,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
@@ -565,6 +576,7 @@ fini_copy_prop (void)
 		   && SSA_NAME_RANGE_INFO (var)
 		   && !SSA_NAME_RANGE_INFO (copy_of[i].value))
 	    duplicate_ssa_name_range_info (copy_of[i].value,
+					   SSA_NAME_RANGE_TYPE (var),
 					   SSA_NAME_RANGE_INFO (var));
 	}
     }

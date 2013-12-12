@@ -312,11 +312,11 @@ struct GTY(()) control_flow_graph {
 };
 
 /* Defines for accessing the fields of the CFG structure for function FN.  */
-#define ENTRY_BLOCK_PTR_FOR_FUNCTION(FN)     ((FN)->cfg->x_entry_block_ptr)
-#define EXIT_BLOCK_PTR_FOR_FUNCTION(FN)	     ((FN)->cfg->x_exit_block_ptr)
+#define ENTRY_BLOCK_PTR_FOR_FN(FN)	     ((FN)->cfg->x_entry_block_ptr)
+#define EXIT_BLOCK_PTR_FOR_FN(FN)	     ((FN)->cfg->x_exit_block_ptr)
 #define basic_block_info_for_function(FN)    ((FN)->cfg->x_basic_block_info)
-#define n_basic_blocks_for_function(FN)	     ((FN)->cfg->x_n_basic_blocks)
-#define n_edges_for_function(FN)	     ((FN)->cfg->x_n_edges)
+#define n_basic_blocks_for_fn(FN)	     ((FN)->cfg->x_n_basic_blocks)
+#define n_edges_for_fn(FN)		     ((FN)->cfg->x_n_edges)
 #define last_basic_block_for_function(FN)    ((FN)->cfg->x_last_basic_block)
 #define label_to_block_map_for_function(FN)  ((FN)->cfg->x_label_to_block_map)
 #define profile_status_for_function(FN)	     ((FN)->cfg->x_profile_status)
@@ -327,11 +327,7 @@ struct GTY(()) control_flow_graph {
   ((*basic_block_info_for_function (FN))[(N)] = (BB))
 
 /* Defines for textual backward source compatibility.  */
-#define ENTRY_BLOCK_PTR		(cfun->cfg->x_entry_block_ptr)
-#define EXIT_BLOCK_PTR		(cfun->cfg->x_exit_block_ptr)
 #define basic_block_info	(cfun->cfg->x_basic_block_info)
-#define n_basic_blocks		(cfun->cfg->x_n_basic_blocks)
-#define n_edges			(cfun->cfg->x_n_edges)
 #define last_basic_block	(cfun->cfg->x_last_basic_block)
 #define label_to_block_map	(cfun->cfg->x_label_to_block_map)
 #define profile_status		(cfun->cfg->x_profile_status)
@@ -380,10 +376,10 @@ struct GTY(()) control_flow_graph {
    exit block).  */
 
 #define FOR_ALL_BB(BB) \
-  for (BB = ENTRY_BLOCK_PTR; BB; BB = BB->next_bb)
+  for (BB = ENTRY_BLOCK_PTR_FOR_FN (cfun); BB; BB = BB->next_bb)
 
 #define FOR_ALL_BB_FN(BB, FN) \
-  for (BB = ENTRY_BLOCK_PTR_FOR_FUNCTION (FN); BB; BB = BB->next_bb)
+  for (BB = ENTRY_BLOCK_PTR_FOR_FN (FN); BB; BB = BB->next_bb)
 
 
 /* Stuff for recording basic block info.  */
@@ -795,6 +791,8 @@ extern void connect_infinite_loops_to_exit (void);
 extern int post_order_compute (int *, bool, bool);
 extern basic_block dfs_find_deadend (basic_block);
 extern int inverted_post_order_compute (int *);
+extern int pre_and_rev_post_order_compute_fn (struct function *,
+					      int *, int *, bool);
 extern int pre_and_rev_post_order_compute (int *, int *, bool);
 extern int dfs_enumerate_from (basic_block, int,
 			       bool (*)(const_basic_block, const void *),
@@ -894,6 +892,14 @@ void set_loop_copy (struct loop *, struct loop *);
 struct loop *get_loop_copy (struct loop *);
 
 #include "cfghooks.h"
+
+/* Return true if BB is in a transaction.  */
+
+static inline bool
+bb_in_transaction (basic_block bb)
+{
+  return bb->flags & BB_IN_TRANSACTION;
+}
 
 /* Return true when one of the predecessor edges of BB is marked with EDGE_EH.  */
 static inline bool
@@ -997,5 +1003,20 @@ inverse_probability (int prob1)
 {
   check_probability (prob1);
   return REG_BR_PROB_BASE - prob1;
+}
+
+/* Return true if BB has at least one abnormal outgoing edge.  */
+
+static inline bool
+has_abnormal_or_eh_outgoing_edge_p (basic_block bb)
+{
+  edge e;
+  edge_iterator ei;
+
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    if (e->flags & (EDGE_ABNORMAL | EDGE_EH))
+      return true;
+
+  return false;
 }
 #endif /* GCC_BASIC_BLOCK_H */

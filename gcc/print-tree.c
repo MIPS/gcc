@@ -23,12 +23,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "varasm.h"
+#include "print-rtl.h"
+#include "stor-layout.h"
 #include "ggc.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h" /* FIXME */
-#include "tree-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
 #include "tree-dump.h"
 #include "dumpfile.h"
 
@@ -304,6 +308,8 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
 
   if (TYPE_P (node) ? TYPE_READONLY (node) : TREE_READONLY (node))
     fputs (" readonly", file);
+  if (TYPE_P (node) && TYPE_ATOMIC (node))
+    fputs (" atomic", file);
   if (!TYPE_P (node) && TREE_CONSTANT (node))
     fputs (" constant", file);
   else if (TYPE_P (node) && TYPE_SIZES_GIMPLIFIED (node))
@@ -957,30 +963,6 @@ print_node (FILE *file, const char *prefix, tree node, int indent)
     }
 
   fprintf (file, ">");
-}
-
-/* Print the tree vector VEC in full on file FILE, preceded by PREFIX,
-   starting in column INDENT.  */
-
-void
-print_vec_tree (FILE *file, const char *prefix, vec<tree, va_gc> *vec, int indent)
-{
-  tree elt;
-  unsigned ix;
-
-  /* Indent to the specified column, since this is the long form.  */
-  indent_to (file, indent);
-
-  /* Print the slot this node is in, and its code, and address.  */
-  fprintf (file, "%s <VEC", prefix);
-  dump_addr (file, " ", vec->address ());
-
-  FOR_EACH_VEC_ELT (*vec, ix, elt)
-    {
-      char temp[10];
-      sprintf (temp, "elt %d", ix);
-      print_node (file, temp, elt, indent + 4);
-    }
 }
 
 

@@ -85,9 +85,26 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
@@ -195,7 +212,7 @@ free_bb_predicate (basic_block bb)
       gimple_stmt_iterator i;
 
       for (i = gsi_start (stmts); !gsi_end_p (i); gsi_next (&i))
-	free_stmt_operands (gsi_stmt (i));
+	free_stmt_operands (cfun, gsi_stmt (i));
     }
 
   free (bb->aux);
@@ -906,7 +923,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
   unsigned int visited_count = 0;
 
   gcc_assert (loop->num_nodes);
-  gcc_assert (loop->latch != EXIT_BLOCK_PTR);
+  gcc_assert (loop->latch != EXIT_BLOCK_PTR_FOR_FN (cfun));
 
   blocks = XCNEWVEC (basic_block, loop->num_nodes);
   visited = BITMAP_ALLOC (NULL);
@@ -1158,7 +1175,6 @@ if_convertible_loop_p (struct loop *loop)
   bool res = false;
   vec<data_reference_p> refs;
   vec<ddr_p> ddrs;
-  vec<loop_p> loop_nest;
 
   /* Handle only innermost loop.  */
   if (!loop || loop->inner)
@@ -1192,7 +1208,7 @@ if_convertible_loop_p (struct loop *loop)
 
   refs.create (5);
   ddrs.create (25);
-  loop_nest.create (3);
+  stack_vec<loop_p, 3> loop_nest;
   res = if_convertible_loop_p_1 (loop, &loop_nest, &refs, &ddrs);
 
   if (flag_tree_loop_if_convert_stores)
@@ -1204,7 +1220,6 @@ if_convertible_loop_p (struct loop *loop)
 	free (dr->aux);
     }
 
-  loop_nest.release ();
   free_data_refs (refs);
   free_dependence_relations (ddrs);
   return res;
@@ -1324,7 +1339,6 @@ predicate_scalar_phi (gimple phi, tree cond,
     }
 
   new_stmt = gimple_build_assign (res, rhs);
-  SSA_NAME_DEF_STMT (gimple_phi_result (phi)) = new_stmt;
   gsi_insert_before (gsi, new_stmt, GSI_SAME_STMT);
   update_stmt (new_stmt);
 
@@ -1778,7 +1792,6 @@ tree_if_conversion (struct loop *loop)
 static unsigned int
 main_tree_if_conversion (void)
 {
-  loop_iterator li;
   struct loop *loop;
   bool changed = false;
   unsigned todo = 0;
@@ -1786,7 +1799,7 @@ main_tree_if_conversion (void)
   if (number_of_loops (cfun) <= 1)
     return 0;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     if (flag_tree_loop_if_convert == 1
 	|| flag_tree_loop_if_convert_stores == 1
 	|| flag_tree_loop_vectorize

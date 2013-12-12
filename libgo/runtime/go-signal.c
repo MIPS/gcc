@@ -139,22 +139,6 @@ SigTab runtime_sigtab[] = {
 #undef P
 #undef D
 
-
-static int8 badsignal[] = "runtime: signal received on thread not created by Go.\n";
-
-static void
-runtime_badsignal(int32 sig)
-{
-	// Avoid -D_FORTIFY_SOURCE problems.
-	int rv __attribute__((unused));
-
-	if (sig == SIGPROF) {
-		return;  // Ignore SIGPROFs intended for a non-Go thread.
-	}
-	rv = runtime_write(2, badsignal, sizeof badsignal - 1);
-	runtime_exit(1);
-}
-
 /* Handle a signal, for cases where we don't panic.  We can split the
    stack here.  */
 
@@ -234,7 +218,7 @@ runtime_sighandler (int sig, Siginfo *info,
 	  G *g;
 
 	  g = runtime_g ();
-	  runtime_traceback (g);
+	  runtime_traceback ();
 	  runtime_tracebackothers (g);
 
 	  /* The gc library calls runtime_dumpregs here, and provides
@@ -268,7 +252,7 @@ sig_panic_leadin (int sig)
   /* The signal handler blocked signals; unblock them.  */
   i = sigfillset (&clear);
   __go_assert (i == 0);
-  i = sigprocmask (SIG_UNBLOCK, &clear, NULL);
+  i = pthread_sigmask (SIG_UNBLOCK, &clear, NULL);
   __go_assert (i == 0);
 }
 

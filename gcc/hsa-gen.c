@@ -27,7 +27,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "tree-pass.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
 #include "machmode.h"
 #include "output.h"
 #include "basic-block.h"
@@ -39,10 +43,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-operands.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "ssa-iterators.h"
 #include "cgraph.h"
+#include "stor-layout.h"
+#include "gimplify-me.h"
+#include "print-tree.h"
 
 /* Structure containing intermediate HSA representation of the generated
    function. */
@@ -253,7 +262,7 @@ hsa_type_for_scalar_tree_type (const_tree type)
   else
     base = type;
 
-  bsize = tree_low_cst (TYPE_SIZE (base), 1);
+  bsize = tree_to_uhwi (TYPE_SIZE (base));
   if (INTEGRAL_TYPE_P (base))
     {
       if (TYPE_UNSIGNED (base))
@@ -323,7 +332,7 @@ hsa_type_for_scalar_tree_type (const_tree type)
 
   if (TREE_CODE (type) == VECTOR_TYPE)
     {
-      HOST_WIDE_INT tsize = tree_low_cst (TYPE_SIZE (type), 1);
+      HOST_WIDE_INT tsize = tree_to_uhwi (TYPE_SIZE (type));
       switch (tsize)
 	{
 	case 32:
@@ -638,7 +647,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
 	  tree t0 = TREE_OPERAND (ref, 0);
 
 	  if (!integer_zerop (TREE_OPERAND (ref, 1)))
-	    offset += tree_low_cst (TREE_OPERAND (ref, 1), 1);
+	    offset += tree_to_uhwi (TREE_OPERAND (ref, 1));
 
 	  if (TREE_CODE (t0) == SSA_NAME)
 	    {
@@ -669,7 +678,7 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
 	gcc_unreachable ();
 
       case INTEGER_CST:
-	offset += tree_low_cst (ref, 1);
+	offset += tree_to_uhwi (ref);
 	goto done;
 
       default:
@@ -1276,8 +1285,8 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
   tree parm;
   int i, count = 0;
 
-  ENTRY_BLOCK_PTR->aux = &hsa_cfun.prologue;
-  hsa_cfun.prologue.bb = ENTRY_BLOCK_PTR;
+  ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux = &hsa_cfun.prologue;
+  hsa_cfun.prologue.bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   for (parm = DECL_ARGUMENTS (cfun->decl); parm; parm = DECL_CHAIN (parm))
     count++;

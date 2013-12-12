@@ -11,7 +11,9 @@
 #include "toplev.h"
 #include "intl.h"
 #include "tree.h"
-#include "gimple.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "gimple-expr.h"
 #include "tree-iterator.h"
 #include "convert.h"
 #include "real.h"
@@ -3342,23 +3344,20 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
       tree int_type_tree = type_to_tree(int_type->get_backend(gogo));
 
       expr_tree = fold_convert(int_type_tree, expr_tree);
-      if (host_integerp(expr_tree, 0))
+      if (tree_fits_shwi_p (expr_tree))
 	{
-	  HOST_WIDE_INT intval = tree_low_cst(expr_tree, 0);
+	  HOST_WIDE_INT intval = tree_to_shwi (expr_tree);
 	  std::string s;
 	  Lex::append_char(intval, true, &s, this->location());
 	  Expression* se = Expression::make_string(s, this->location());
 	  return se->get_tree(context);
 	}
 
-      static tree int_to_string_fndecl;
-      ret = Gogo::call_builtin(&int_to_string_fndecl,
-			       this->location(),
-			       "__go_int_to_string",
-			       1,
-			       type_tree,
-			       int_type_tree,
-			       expr_tree);
+      Expression* i2s_expr =
+          Runtime::make_call(Runtime::INT_TO_STRING, this->location(), 1,
+                             this->expr_);
+      i2s_expr = Expression::make_cast(type, i2s_expr, this->location());
+      ret = i2s_expr->get_tree(context);
     }
   else if (type->is_string_type() && expr_type->is_slice_type())
     {
@@ -3408,29 +3407,20 @@ Type_conversion_expression::do_get_tree(Translate_context* context)
     {
       Type* e = type->array_type()->element_type()->forwarded();
       go_assert(e->integer_type() != NULL);
+
+      Expression* s2a_expr;
       if (e->integer_type()->is_byte())
-	{
-	  tree string_to_byte_array_fndecl = NULL_TREE;
-	  ret = Gogo::call_builtin(&string_to_byte_array_fndecl,
-				   this->location(),
-				   "__go_string_to_byte_array",
-				   1,
-				   type_tree,
-				   TREE_TYPE(expr_tree),
-				   expr_tree);
-	}
+        s2a_expr = Runtime::make_call(Runtime::STRING_TO_BYTE_ARRAY,
+                                      this->location(), 1, this->expr_);
       else
 	{
 	  go_assert(e->integer_type()->is_rune());
-	  tree string_to_int_array_fndecl = NULL_TREE;
-	  ret = Gogo::call_builtin(&string_to_int_array_fndecl,
-				   this->location(),
-				   "__go_string_to_int_array",
-				   1,
-				   type_tree,
-				   TREE_TYPE(expr_tree),
-				   expr_tree);
+          s2a_expr = Runtime::make_call(Runtime::STRING_TO_INT_ARRAY,
+                                        this->location(), 1, this->expr_);
 	}
+      s2a_expr = Expression::make_unsafe_cast(type, s2a_expr,
+					      this->location());
+      ret = s2a_expr->get_tree(context);
     }
   else if ((type->is_unsafe_pointer_type()
 	    && expr_type->points_to() != NULL)
@@ -3645,7 +3635,8 @@ class Unary_expression : public Expression
  public:
   Unary_expression(Operator op, Expression* expr, Location location)
     : Expression(EXPRESSION_UNARY, location),
-      op_(op), escapes_(true), create_temp_(false), expr_(expr)
+      op_(op), escapes_(true), create_temp_(false), expr_(expr),
+      issue_nil_check_(false)
   { }
 
   // Return the operator.
@@ -3731,6 +3722,10 @@ class Unary_expression : public Expression
   void
   do_dump_expression(Ast_dump_context*) const;
 
+  void
+  do_issue_nil_check()
+  { this->issue_nil_check_ = (this->op_ == OPERATOR_MULT); }
+
  private:
   // The unary operator to apply.
   Operator op_;
@@ -3742,6 +3737,9 @@ class Unary_expression : public Expression
   bool create_temp_;
   // The operand.
   Expression* expr_;
+  // Whether or not to issue a nil check for this expression if its address
+  // is being taken.
+  bool issue_nil_check_;
 };
 
 // If we are taking the address of a composite literal, and the
@@ -4119,7 +4117,10 @@ Unary_expression::do_check_types(Gogo*)
 	    this->report_error(_("invalid operand for unary %<&%>"));
 	}
       else
-	this->expr_->address_taken(this->escapes_);
+        {
+          this->expr_->address_taken(this->escapes_);
+          this->expr_->issue_nil_check();
+        }
       break;
 
     case OPERATOR_MULT:
@@ -4289,12 +4290,13 @@ Unary_expression::do_get_tree(Translate_context* context)
 	// If we are dereferencing the pointer to a large struct, we
 	// need to check for nil.  We don't bother to check for small
 	// structs because we expect the system to crash on a nil
-	// pointer dereference.
+	// pointer dereference.	 However, if we know the address of this
+	// expression is being taken, we must always check for nil.
 	tree target_type_tree = TREE_TYPE(TREE_TYPE(expr));
 	if (!VOID_TYPE_P(target_type_tree))
 	  {
 	    HOST_WIDE_INT s = int_size_in_bytes(target_type_tree);
-	    if (s == -1 || s >= 4096)
+	    if (s == -1 || s >= 4096 || this->issue_nil_check_)
 	      {
 		if (!DECL_P(expr))
 		  expr = save_expr(expr);
@@ -5320,7 +5322,7 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
 	}
     }
 
-  // Lower struct and array comparisons.
+  // Lower struct, array, and some interface comparisons.
   if (op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ)
     {
       if (left->type()->struct_type() != NULL)
@@ -5328,6 +5330,11 @@ Binary_expression::do_lower(Gogo* gogo, Named_object*,
       else if (left->type()->array_type() != NULL
 	       && !left->type()->is_slice_type())
 	return this->lower_array_comparison(gogo, inserter);
+      else if ((left->type()->interface_type() != NULL
+                && right->type()->interface_type() == NULL)
+               || (left->type()->interface_type() == NULL
+                   && right->type()->interface_type() != NULL))
+	return this->lower_interface_value_comparison(gogo, inserter);
     }
 
   return this;
@@ -5454,6 +5461,57 @@ Binary_expression::lower_array_comparison(Gogo* gogo,
     ret = Expression::make_unary(OPERATOR_NOT, ret, loc);
 
   return ret;
+}
+
+// Lower an interface to value comparison.
+
+Expression*
+Binary_expression::lower_interface_value_comparison(Gogo*,
+                                                    Statement_inserter* inserter)
+{
+  Type* left_type = this->left_->type();
+  Type* right_type = this->right_->type();
+  Interface_type* ift;
+  if (left_type->interface_type() != NULL)
+    {
+      ift = left_type->interface_type();
+      if (!ift->implements_interface(right_type, NULL))
+        return this;
+    }
+  else
+    {
+      ift = right_type->interface_type();
+      if (!ift->implements_interface(left_type, NULL))
+        return this;
+    }
+  if (!Type::are_compatible_for_comparison(true, left_type, right_type, NULL))
+    return this;
+
+  Location loc = this->location();
+
+  if (left_type->interface_type() == NULL
+      && left_type->points_to() == NULL
+      && !this->left_->is_addressable())
+    {
+      Temporary_statement* temp =
+          Statement::make_temporary(left_type, NULL, loc);
+      inserter->insert(temp);
+      this->left_ =
+          Expression::make_set_and_use_temporary(temp, this->left_, loc);
+    }
+
+  if (right_type->interface_type() == NULL
+      && right_type->points_to() == NULL
+      && !this->right_->is_addressable())
+    {
+      Temporary_statement* temp =
+          Statement::make_temporary(right_type, NULL, loc);
+      inserter->insert(temp);
+      this->right_ =
+          Expression::make_set_and_use_temporary(temp, this->right_, loc);
+    }
+
+  return this;
 }
 
 // Lower a struct or array comparison to a call to memcmp.
@@ -5918,8 +5976,7 @@ Binary_expression::do_get_tree(Translate_context* context)
     case OPERATOR_GT:
     case OPERATOR_GE:
       return Expression::comparison_tree(context, this->type_, this->op_,
-					 this->left_->type(), left,
-					 this->right_->type(), right,
+					 this->left_, this->right_,
 					 this->location());
 
     case OPERATOR_OROR:
@@ -6416,12 +6473,16 @@ Expression::make_binary(Operator op, Expression* left, Expression* right,
 
 tree
 Expression::comparison_tree(Translate_context* context, Type* result_type,
-			    Operator op, Type* left_type, tree left_tree,
-			    Type* right_type, tree right_tree,
-			    Location location)
+			    Operator op, Expression* left_expr,
+			    Expression* right_expr, Location location)
 {
-  Type* int_type = Type::lookup_integer_type("int");
-  tree int_type_tree = type_to_tree(int_type->get_backend(context->gogo()));
+  Type* left_type = left_expr->type();
+  Type* right_type = right_expr->type();
+
+  mpz_t zval;
+  mpz_init_set_ui(zval, 0UL);
+  Expression* zexpr = Expression::make_integer(&zval, NULL, location);
+  mpz_clear(zval);
 
   enum tree_code code;
   switch (op)
@@ -6448,21 +6509,17 @@ Expression::comparison_tree(Translate_context* context, Type* result_type,
       go_unreachable();
     }
 
+  // FIXME: Computing the tree here means it will be computed multiple times,
+  // which is wasteful.  This is a temporary modification until all tree code
+  // here can be replaced with frontend expressions.
+  tree left_tree = left_expr->get_tree(context);
+  tree right_tree = right_expr->get_tree(context);
   if (left_type->is_string_type() && right_type->is_string_type())
     {
-      Type* st = Type::make_string_type();
-      tree string_type = type_to_tree(st->get_backend(context->gogo()));
-      static tree string_compare_decl;
-      left_tree = Gogo::call_builtin(&string_compare_decl,
-				     location,
-				     "__go_strcmp",
-				     2,
-				     int_type_tree,
-				     string_type,
-				     left_tree,
-				     string_type,
-				     right_tree);
-      right_tree = build_int_cst_type(int_type_tree, 0);
+      Expression* strcmp_call = Runtime::make_call(Runtime::STRCMP, location, 2,
+                                                   left_expr, right_expr);
+      left_tree = strcmp_call->get_tree(context);
+      right_tree = zexpr->get_tree(context);
     }
   else if ((left_type->interface_type() != NULL
 	    && right_type->interface_type() == NULL
@@ -6475,154 +6532,61 @@ Expression::comparison_tree(Translate_context* context, Type* result_type,
       if (left_type->interface_type() == NULL)
 	{
 	  std::swap(left_type, right_type);
-	  std::swap(left_tree, right_tree);
+	  std::swap(left_expr, right_expr);
 	}
 
       // The right operand is not an interface.  We need to take its
       // address if it is not a pointer.
-      tree make_tmp;
-      tree arg;
+      Expression* pointer_arg = NULL;
       if (right_type->points_to() != NULL)
-	{
-	  make_tmp = NULL_TREE;
-	  arg = right_tree;
-	}
-      else if (TREE_ADDRESSABLE(TREE_TYPE(right_tree))
-	       || (TREE_CODE(right_tree) != CONST_DECL
-		   && DECL_P(right_tree)))
-	{
-	  make_tmp = NULL_TREE;
-	  arg = build_fold_addr_expr_loc(location.gcc_location(), right_tree);
-	  if (DECL_P(right_tree))
-	    TREE_ADDRESSABLE(right_tree) = 1;
-	}
+        pointer_arg = right_expr;
       else
 	{
-	  tree tmp = create_tmp_var(TREE_TYPE(right_tree),
-				    get_name(right_tree));
-	  DECL_IGNORED_P(tmp) = 0;
-	  DECL_INITIAL(tmp) = right_tree;
-	  TREE_ADDRESSABLE(tmp) = 1;
-	  make_tmp = build1(DECL_EXPR, void_type_node, tmp);
-	  SET_EXPR_LOCATION(make_tmp, location.gcc_location());
-	  arg = build_fold_addr_expr_loc(location.gcc_location(), tmp);
+          go_assert(right_expr->is_addressable());
+          pointer_arg = Expression::make_unary(OPERATOR_AND, right_expr,
+                                               location);
 	}
-      arg = fold_convert_loc(location.gcc_location(), ptr_type_node, arg);
 
-      Bexpression* descriptor_bexpr =
-          right_type->type_descriptor_pointer(context->gogo(), location);
-      tree descriptor = expr_to_tree(descriptor_bexpr);
-
-      if (left_type->interface_type()->is_empty())
-	{
-	  static tree empty_interface_value_compare_decl;
-	  left_tree = Gogo::call_builtin(&empty_interface_value_compare_decl,
-					 location,
-					 "__go_empty_interface_value_compare",
-					 3,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(descriptor),
-					 descriptor,
-					 ptr_type_node,
-					 arg);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is not comparable.
-	  TREE_NOTHROW(empty_interface_value_compare_decl) = 0;
-	}
-      else
-	{
-	  static tree interface_value_compare_decl;
-	  left_tree = Gogo::call_builtin(&interface_value_compare_decl,
-					 location,
-					 "__go_interface_value_compare",
-					 3,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(descriptor),
-					 descriptor,
-					 ptr_type_node,
-					 arg);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is not comparable.
-	  TREE_NOTHROW(interface_value_compare_decl) = 0;
-	}
-      right_tree = build_int_cst_type(int_type_tree, 0);
-
-      if (make_tmp != NULL_TREE)
-	left_tree = build2(COMPOUND_EXPR, TREE_TYPE(left_tree), make_tmp,
-			   left_tree);
+      Expression* descriptor_expr = Expression::make_type_descriptor(right_type,
+                                                                     location);
+      Call_expression* iface_valcmp =
+          Runtime::make_call((left_type->interface_type()->is_empty()
+                              ? Runtime::EMPTY_INTERFACE_VALUE_COMPARE
+                              : Runtime::INTERFACE_VALUE_COMPARE),
+                             location, 3, left_expr, descriptor_expr,
+                             pointer_arg);
+      left_tree = iface_valcmp->get_tree(context);
+      right_tree = zexpr->get_tree(context);
     }
   else if (left_type->interface_type() != NULL
 	   && right_type->interface_type() != NULL)
     {
+      Runtime::Function compare_function;
       if (left_type->interface_type()->is_empty()
 	  && right_type->interface_type()->is_empty())
-	{
-	  static tree empty_interface_compare_decl;
-	  left_tree = Gogo::call_builtin(&empty_interface_compare_decl,
-					 location,
-					 "__go_empty_interface_compare",
-					 2,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(right_tree),
-					 right_tree);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is uncomparable.
-	  TREE_NOTHROW(empty_interface_compare_decl) = 0;
-	}
+	compare_function = Runtime::EMPTY_INTERFACE_COMPARE;
       else if (!left_type->interface_type()->is_empty()
 	       && !right_type->interface_type()->is_empty())
-	{
-	  static tree interface_compare_decl;
-	  left_tree = Gogo::call_builtin(&interface_compare_decl,
-					 location,
-					 "__go_interface_compare",
-					 2,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(right_tree),
-					 right_tree);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is uncomparable.
-	  TREE_NOTHROW(interface_compare_decl) = 0;
-	}
+	compare_function = Runtime::INTERFACE_COMPARE;
       else
 	{
 	  if (left_type->interface_type()->is_empty())
 	    {
 	      go_assert(op == OPERATOR_EQEQ || op == OPERATOR_NOTEQ);
 	      std::swap(left_type, right_type);
-	      std::swap(left_tree, right_tree);
+	      std::swap(left_expr, right_expr);
 	    }
 	  go_assert(!left_type->interface_type()->is_empty());
 	  go_assert(right_type->interface_type()->is_empty());
-	  static tree interface_empty_compare_decl;
-	  left_tree = Gogo::call_builtin(&interface_empty_compare_decl,
-					 location,
-					 "__go_interface_empty_compare",
-					 2,
-					 int_type_tree,
-					 TREE_TYPE(left_tree),
-					 left_tree,
-					 TREE_TYPE(right_tree),
-					 right_tree);
-	  if (left_tree == error_mark_node)
-	    return error_mark_node;
-	  // This can panic if the type is uncomparable.
-	  TREE_NOTHROW(interface_empty_compare_decl) = 0;
+	  compare_function = Runtime::INTERFACE_EMPTY_COMPARE;
 	}
 
-      right_tree = build_int_cst_type(int_type_tree, 0);
+      Call_expression* ifacecmp_call =
+          Runtime::make_call(compare_function, location, 2,
+                             left_expr, right_expr);
+
+      left_tree = ifacecmp_call->get_tree(context);
+      right_tree = zexpr->get_tree(context);
     }
 
   if (left_type->is_nil_type()
@@ -9899,8 +9863,11 @@ Call_expression::do_get_tree(Translate_context* context)
     fndecl = TREE_OPERAND(fndecl, 0);
 
   // Add a type cast in case the type of the function is a recursive
-  // type which refers to itself.
-  if (!DECL_P(fndecl) || !DECL_IS_BUILTIN(fndecl))
+  // type which refers to itself.  We don't do this for an interface
+  // method because 1) an interface method never refers to itself, so
+  // we always have a function type here; 2) we pass an extra first
+  // argument to an interface method, so fnfield_type is not correct.
+  if ((!DECL_P(fndecl) || !DECL_IS_BUILTIN(fndecl)) && !is_interface_method)
     fn = fold_convert_loc(location.gcc_location(), fnfield_type, fn);
 
   // This is to support builtin math functions when using 80387 math.
@@ -10250,7 +10217,9 @@ Index_expression::do_traverse(Traverse* traverse)
   if (Expression::traverse(&this->left_, traverse) == TRAVERSE_EXIT
       || Expression::traverse(&this->start_, traverse) == TRAVERSE_EXIT
       || (this->end_ != NULL
-	  && Expression::traverse(&this->end_, traverse) == TRAVERSE_EXIT))
+	  && Expression::traverse(&this->end_, traverse) == TRAVERSE_EXIT)
+      || (this->cap_ != NULL
+          && Expression::traverse(&this->cap_, traverse) == TRAVERSE_EXIT))
     return TRAVERSE_EXIT;
   return TRAVERSE_CONTINUE;
 }
@@ -10265,6 +10234,7 @@ Index_expression::do_lower(Gogo*, Named_object*, Statement_inserter*, int)
   Expression* left = this->left_;
   Expression* start = this->start_;
   Expression* end = this->end_;
+  Expression* cap = this->cap_;
 
   Type* type = left->type();
   if (type->is_error())
@@ -10275,20 +10245,27 @@ Index_expression::do_lower(Gogo*, Named_object*, Statement_inserter*, int)
       return Expression::make_error(location);
     }
   else if (type->array_type() != NULL)
-    return Expression::make_array_index(left, start, end, location);
+    return Expression::make_array_index(left, start, end, cap, location);
   else if (type->points_to() != NULL
 	   && type->points_to()->array_type() != NULL
 	   && !type->points_to()->is_slice_type())
     {
       Expression* deref = Expression::make_unary(OPERATOR_MULT, left,
 						 location);
-      return Expression::make_array_index(deref, start, end, location);
+      return Expression::make_array_index(deref, start, end, cap, location);
     }
   else if (type->is_string_type())
-    return Expression::make_string_index(left, start, end, location);
+    {
+      if (cap != NULL)
+        {
+          error_at(location, "invalid 3-index slice of string");
+          return Expression::make_error(location);
+        }
+      return Expression::make_string_index(left, start, end, location);
+    }
   else if (type->map_type() != NULL)
     {
-      if (end != NULL)
+      if (end != NULL || cap != NULL)
 	{
 	  error_at(location, "invalid slice of map");
 	  return Expression::make_error(location);
@@ -10307,14 +10284,15 @@ Index_expression::do_lower(Gogo*, Named_object*, Statement_inserter*, int)
     }
 }
 
-// Write an indexed expression (expr[expr:expr] or expr[expr]) to a
-// dump context
+// Write an indexed expression
+// (expr[expr:expr:expr], expr[expr:expr] or expr[expr]) to a dump context.
 
 void
 Index_expression::dump_index_expression(Ast_dump_context* ast_dump_context, 
 					const Expression* expr, 
 					const Expression* start,
-					const Expression* end)
+					const Expression* end,
+					const Expression* cap)
 {
   expr->dump_expression(ast_dump_context);
   ast_dump_context->ostream() << "[";
@@ -10323,6 +10301,11 @@ Index_expression::dump_index_expression(Ast_dump_context* ast_dump_context,
     {
       ast_dump_context->ostream() << ":";
       end->dump_expression(ast_dump_context);
+    }
+  if (cap != NULL)
+    {
+      ast_dump_context->ostream() << ":";
+      cap->dump_expression(ast_dump_context);
     }
   ast_dump_context->ostream() << "]";
 }
@@ -10334,16 +10317,16 @@ Index_expression::do_dump_expression(Ast_dump_context* ast_dump_context)
     const
 {
   Index_expression::dump_index_expression(ast_dump_context, this->left_, 
-                                          this->start_, this->end_);
+                                          this->start_, this->end_, this->cap_);
 }
 
 // Make an index expression.
 
 Expression*
 Expression::make_index(Expression* left, Expression* start, Expression* end,
-		       Location location)
+		       Expression* cap, Location location)
 {
-  return new Index_expression(left, start, end, location);
+  return new Index_expression(left, start, end, cap, location);
 }
 
 // An array index.  This is used for both indexing and slicing.
@@ -10352,9 +10335,9 @@ class Array_index_expression : public Expression
 {
  public:
   Array_index_expression(Expression* array, Expression* start,
-			 Expression* end, Location location)
+			 Expression* end, Expression* cap, Location location)
     : Expression(EXPRESSION_ARRAY_INDEX, location),
-      array_(array), start_(start), end_(end), type_(NULL)
+      array_(array), start_(start), end_(end), cap_(cap), type_(NULL)
   { }
 
  protected:
@@ -10378,6 +10361,9 @@ class Array_index_expression : public Expression
 					(this->end_ == NULL
 					 ? NULL
 					 : this->end_->copy()),
+					(this->cap_ == NULL
+					 ? NULL
+					 : this->cap_->copy()),
 					this->location());
   }
 
@@ -10395,6 +10381,10 @@ class Array_index_expression : public Expression
   do_address_taken(bool escapes)
   { this->array_->address_taken(escapes); }
 
+  void
+  do_issue_nil_check()
+  { this->array_->issue_nil_check(); }
+
   tree
   do_get_tree(Translate_context*);
 
@@ -10409,6 +10399,9 @@ class Array_index_expression : public Expression
   // The end index of a slice.  This may be NULL for a simple array
   // index, or it may be a nil expression for the length of the array.
   Expression* end_;
+  // The capacity argument of a slice.  This may be NULL for an array index or
+  // slice.
+  Expression* cap_;
   // The type of the expression.
   Type* type_;
 };
@@ -10426,6 +10419,11 @@ Array_index_expression::do_traverse(Traverse* traverse)
     {
       if (Expression::traverse(&this->end_, traverse) == TRAVERSE_EXIT)
 	return TRAVERSE_EXIT;
+    }
+  if (this->cap_ != NULL)
+    {
+      if (Expression::traverse(&this->cap_, traverse) == TRAVERSE_EXIT)
+        return TRAVERSE_EXIT;
     }
   return TRAVERSE_CONTINUE;
 }
@@ -10466,6 +10464,8 @@ Array_index_expression::do_determine_type(const Type_context*)
   this->start_->determine_type_no_context();
   if (this->end_ != NULL)
     this->end_->determine_type_no_context();
+  if (this->cap_ != NULL)
+    this->cap_->determine_type_no_context();
 }
 
 // Check types of an array index.
@@ -10488,6 +10488,14 @@ Array_index_expression::do_check_types(Gogo*)
       && (!this->end_->numeric_constant_value(&nc)
 	  || nc.to_unsigned_long(&v) == Numeric_constant::NC_UL_NOTINT))
     this->report_error(_("slice end must be integer"));
+  if (this->cap_ != NULL
+      && this->cap_->type()->integer_type() == NULL
+      && !this->cap_->type()->is_error()
+      && !this->cap_->is_nil_expression()
+      && !this->cap_->is_error_expression()
+      && (!this->cap_->numeric_constant_value(&nc)
+	  || nc.to_unsigned_long(&v) == Numeric_constant::NC_UL_NOTINT))
+    this->report_error(_("slice capacity must be integer"));
 
   Array_type* array_type = this->array_->type()->array_type();
   if (array_type == NULL)
@@ -10525,8 +10533,10 @@ Array_index_expression::do_check_types(Gogo*)
     {
       Numeric_constant enc;
       mpz_t eval;
+      bool eval_valid = false;
       if (this->end_->numeric_constant_value(&enc) && enc.to_int(&eval))
 	{
+	  eval_valid = true;
 	  if (mpz_sgn(eval) < 0
 	      || mpz_sizeinbase(eval, 2) >= int_bits
 	      || (lval_valid && mpz_cmp(eval, lval) > 0))
@@ -10536,8 +10546,37 @@ Array_index_expression::do_check_types(Gogo*)
 	    }
 	  else if (ival_valid && mpz_cmp(ival, eval) > 0)
 	    this->report_error(_("inverted slice range"));
-	  mpz_clear(eval);
 	}
+
+      Numeric_constant cnc;
+      mpz_t cval;
+      if (this->cap_ != NULL
+          && this->cap_->numeric_constant_value(&cnc) && cnc.to_int(&cval))
+        {
+          if (mpz_sgn(cval) < 0
+              || mpz_sizeinbase(cval, 2) >= int_bits
+              || (lval_valid && mpz_cmp(cval, lval) > 0))
+            {
+              error_at(this->cap_->location(), "array index out of bounds");
+              this->set_is_error();
+            }
+	  else if (ival_valid && mpz_cmp(ival, cval) > 0)
+	    {
+	      error_at(this->cap_->location(),
+		       "invalid slice index: capacity less than start");
+	      this->set_is_error();
+	    }
+          else if (eval_valid && mpz_cmp(eval, cval) > 0)
+            {
+              error_at(this->cap_->location(),
+                       "invalid slice index: capacity less than length");
+              this->set_is_error();
+            }
+          mpz_clear(cval);
+        }
+
+      if (eval_valid)
+        mpz_clear(eval);
     }
   if (ival_valid)
     mpz_clear(ival);
@@ -10617,9 +10656,17 @@ Array_index_expression::do_get_tree(Translate_context* context)
       capacity_tree = save_expr(capacity_tree);
     }
 
+  tree cap_arg = capacity_tree;
+  if (this->cap_ != NULL)
+    {
+      cap_arg = this->cap_->get_tree(context);
+      if (cap_arg == error_mark_node)
+        return error_mark_node;
+    }
+
   tree length_type = (length_tree != NULL_TREE
 		      ? TREE_TYPE(length_tree)
-		      : TREE_TYPE(capacity_tree));
+		      : TREE_TYPE(cap_arg));
 
   tree bad_index = boolean_false_node;
 
@@ -10691,6 +10738,29 @@ Array_index_expression::do_get_tree(Translate_context* context)
 
   // Array slice.
 
+  if (this->cap_ != NULL)
+    {
+      if (!DECL_P(cap_arg))
+        cap_arg = save_expr(cap_arg);
+      if (!INTEGRAL_TYPE_P(TREE_TYPE(cap_arg)))
+        cap_arg = convert_to_integer(length_type, cap_arg);
+
+      bad_index = Expression::check_bounds(cap_arg, length_type, bad_index,
+                                           loc);
+      cap_arg = fold_convert_loc(loc.gcc_location(), length_type, cap_arg);
+
+      tree bad_cap = fold_build2_loc(loc.gcc_location(), TRUTH_OR_EXPR,
+                                     boolean_type_node,
+                                     fold_build2_loc(loc.gcc_location(),
+                                                     LT_EXPR, boolean_type_node,
+                                                     cap_arg, start_tree),
+                                     fold_build2_loc(loc.gcc_location(),
+                                                     GT_EXPR, boolean_type_node,
+                                                     cap_arg, capacity_tree));
+      bad_index = fold_build2_loc(loc.gcc_location(), TRUTH_OR_EXPR,
+                                  boolean_type_node, bad_index, bad_cap);
+    }
+
   tree end_tree;
   if (this->end_->is_nil_expression())
     end_tree = length_tree;
@@ -10716,10 +10786,11 @@ Array_index_expression::do_get_tree(Translate_context* context)
 						     end_tree, start_tree),
 				     fold_build2_loc(loc.gcc_location(),
                                                      GT_EXPR, boolean_type_node,
-						     end_tree, capacity_tree));
+						     end_tree, cap_arg));
       bad_index = fold_build2_loc(loc.gcc_location(), TRUTH_OR_EXPR,
                                   boolean_type_node, bad_index, bad_end);
     }
+
 
   Type* element_type = array_type->element_type();
   tree element_type_tree = type_to_tree(element_type->get_backend(gogo));
@@ -10744,8 +10815,7 @@ Array_index_expression::do_get_tree(Translate_context* context)
                                             length_type, end_tree, start_tree);
 
   tree result_capacity_tree = fold_build2_loc(loc.gcc_location(), MINUS_EXPR,
-                                              length_type, capacity_tree,
-                                              start_tree);
+                                              length_type, cap_arg, start_tree);
 
   tree struct_tree = type_to_tree(this->type()->get_backend(gogo));
   go_assert(TREE_CODE(struct_tree) == RECORD_TYPE);
@@ -10795,16 +10865,17 @@ Array_index_expression::do_dump_expression(Ast_dump_context* ast_dump_context)
     const
 {
   Index_expression::dump_index_expression(ast_dump_context, this->array_, 
-                                          this->start_, this->end_);
+                                          this->start_, this->end_, this->cap_);
 }
 
-// Make an array index expression.  END may be NULL.
+// Make an array index expression.  END and CAP may be NULL.
 
 Expression*
 Expression::make_array_index(Expression* array, Expression* start,
-			     Expression* end, Location location)
+                             Expression* end, Expression* cap,
+                             Location location)
 {
-  return new Array_index_expression(array, start, end, location);
+  return new Array_index_expression(array, start, end, cap, location);
 }
 
 // A string index.  This is used for both indexing and slicing.
@@ -11082,8 +11153,8 @@ void
 String_index_expression::do_dump_expression(Ast_dump_context* ast_dump_context)
     const
 {
-  Index_expression::dump_index_expression(ast_dump_context, this->string_, 
-					  this->start_, this->end_);
+  Index_expression::dump_index_expression(ast_dump_context, this->string_,
+                                          this->start_, this->end_, NULL);
 }
 
 // Make a string index expression.  END may be NULL.
@@ -11310,8 +11381,8 @@ void
 Map_index_expression::do_dump_expression(Ast_dump_context* ast_dump_context) 
     const
 {
-  Index_expression::dump_index_expression(ast_dump_context, 
-                                          this->map_, this->index_, NULL);
+  Index_expression::dump_index_expression(ast_dump_context, this->map_,
+                                          this->index_, NULL, NULL);
 }
 
 // Make a map index expression.
@@ -11803,14 +11874,11 @@ Interface_field_reference_expression::do_get_tree(Translate_context* context)
   // Note that we are evaluating this->expr_ twice, but that is OK
   // because in the lowering pass we forced it into a temporary
   // variable.
-  tree expr_tree = this->expr_->get_tree(context);
   tree nil_check_tree = Expression::comparison_tree(context,
 						    Type::lookup_bool_type(),
 						    OPERATOR_EQEQ,
-						    this->expr_->type(),
-						    expr_tree,
-						    Type::make_nil_type(),
-						    null_pointer_node,
+						    this->expr_,
+						    Expression::make_nil(loc),
 						    loc);
   tree crash = context->gogo()->runtime_error(RUNTIME_ERROR_NIL_DEREFERENCE,
 					      loc);
@@ -13400,10 +13468,52 @@ class Composite_literal_expression : public Parser_expression
 int
 Composite_literal_expression::do_traverse(Traverse* traverse)
 {
-  if (this->vals_ != NULL
-      && this->vals_->traverse(traverse) == TRAVERSE_EXIT)
+  if (Type::traverse(this->type_, traverse) == TRAVERSE_EXIT)
     return TRAVERSE_EXIT;
-  return Type::traverse(this->type_, traverse);
+
+  // If this is a struct composite literal with keys, then the keys
+  // are field names, not expressions.  We don't want to traverse them
+  // in that case.  If we do, we can give an erroneous error "variable
+  // initializer refers to itself."  See bug482.go in the testsuite.
+  if (this->has_keys_ && this->vals_ != NULL)
+    {
+      // The type may not be resolvable at this point.
+      Type* type = this->type_;
+      while (true)
+	{
+	  if (type->classification() == Type::TYPE_NAMED)
+	    type = type->named_type()->real_type();
+	  else if (type->classification() == Type::TYPE_FORWARD)
+	    {
+	      Type* t = type->forwarded();
+	      if (t == type)
+		break;
+	      type = t;
+	    }
+	  else
+	    break;
+	}
+
+      if (type->classification() == Type::TYPE_STRUCT)
+	{
+	  Expression_list::iterator p = this->vals_->begin();
+	  while (p != this->vals_->end())
+	    {
+	      // Skip key.
+	      ++p;
+	      go_assert(p != this->vals_->end());
+	      if (Expression::traverse(&*p, traverse) == TRAVERSE_EXIT)
+		return TRAVERSE_EXIT;
+	      ++p;
+	    }
+	  return TRAVERSE_CONTINUE;
+	}
+    }
+
+  if (this->vals_ != NULL)
+    return this->vals_->traverse(traverse);
+
+  return TRAVERSE_CONTINUE;
 }
 
 // Lower a generic composite literal into a specific version based on

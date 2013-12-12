@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "version.h"
 #include "flags.h"
 #include "rtl.h"
+#include "tree.h"
+#include "stor-layout.h"
 #include "function.h"
 #include "basic-block.h"
 #include "dwarf2.h"
@@ -904,6 +906,7 @@ notice_eh_throw (rtx insn)
 static inline unsigned
 dwf_regno (const_rtx reg)
 {
+  gcc_assert (REGNO (reg) < FIRST_PSEUDO_REGISTER);
   return DWARF_FRAME_REGNUM (REGNO (reg));
 }
 

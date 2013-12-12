@@ -237,7 +237,6 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
   bool found_tail;
   unsigned dwork = 0;
   basic_block bb;
-  vec<basic_block> works;
 
   loop->tail = tail_bb;
   loop->loop_end = tail_insn;
@@ -253,7 +252,7 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
   loop->head = BRANCH_EDGE (tail_bb)->dest;
   loop->successor = FALLTHRU_EDGE (tail_bb)->dest;
 
-  works.create (20);
+  stack_vec<basic_block, 20> works;
   works.safe_push (loop->head);
 
   found_tail = false;
@@ -261,7 +260,7 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
     {
       edge e;
       edge_iterator ei;
-      if (bb == EXIT_BLOCK_PTR)
+      if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	{
 	  /* We've reached the exit block.  The loop must be bad. */
 	  if (dump_file)
@@ -340,8 +339,6 @@ discover_loop (hwloop_info loop, basic_block tail_bb, rtx tail_insn, rtx reg)
 	    }
 	}
     }
-
-  works.release ();
 }
 
 /* Analyze the structure of the loops in the current function.  Use
@@ -542,7 +539,7 @@ reorder_loops (hwloop_info loops)
   
   FOR_EACH_BB (bb)
     {
-      if (bb->next_bb != EXIT_BLOCK_PTR)
+      if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	bb->aux = bb->next_bb;
       else
 	bb->aux = NULL;

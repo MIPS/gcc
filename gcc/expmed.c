@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "insn-config.h"
@@ -624,13 +625,28 @@ store_bit_field_1 (rtx str_rtx, unsigned HOST_WIDE_INT bitsize,
 	  || (bitsize % BITS_PER_WORD == 0 && bitnum % BITS_PER_WORD == 0)))
     {
       /* Use the subreg machinery either to narrow OP0 to the required
-	 words or to cope with mode punning between equal-sized modes.  */
-      rtx sub = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
-				     bitnum / BITS_PER_UNIT);
-      if (sub)
+	 words or to cope with mode punning between equal-sized modes.
+	 In the latter case, use subreg on the rhs side, not lhs.  */
+      rtx sub;
+
+      if (bitsize == GET_MODE_BITSIZE (GET_MODE (op0)))
 	{
-	  emit_move_insn (sub, value);
-	  return true;
+	  sub = simplify_gen_subreg (GET_MODE (op0), value, fieldmode, 0);
+	  if (sub)
+	    {
+	      emit_move_insn (op0, sub);
+	      return true;
+	    }
+	}
+      else
+	{
+	  sub = simplify_gen_subreg (fieldmode, op0, GET_MODE (op0),
+				     bitnum / BITS_PER_UNIT);
+	  if (sub)
+	    {
+	      emit_move_insn (sub, value);
+	      return true;
+	    }
 	}
     }
 
@@ -3720,11 +3736,6 @@ expand_sdiv_pow2 (enum machine_mode mode, rtx op0, HOST_WIDE_INT d)
     {
       rtx temp2;
 
-      /* ??? emit_conditional_move forces a stack adjustment via
-	 compare_from_rtx so, if the sequence is discarded, it will
-	 be lost.  Do it now instead.  */
-      do_pending_stack_adjust ();
-
       start_sequence ();
       temp2 = copy_to_mode_reg (mode, op0);
       temp = expand_binop (mode, add_optab, temp2, gen_int_mode (d - 1, mode),
@@ -5385,6 +5396,13 @@ emit_store_flag (rtx target, enum rtx_code code, rtx op0, rtx op1,
   enum rtx_code rcode;
   rtx subtarget;
   rtx tem, last, trueval;
+
+  /* If we compare constants, we shouldn't use a store-flag operation,
+     but a constant load.  We can get there via the vanilla route that
+     usually generates a compare-branch sequence, but will in this case
+     fold the comparison to a constant, and thus elide the branch.  */
+  if (CONSTANT_P (op0) && CONSTANT_P (op1))
+    return NULL_RTX;
 
   tem = emit_store_flag_1 (target, code, op0, op1, mode, unsignedp, normalizep,
 			   target_mode);

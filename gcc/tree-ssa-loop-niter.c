@@ -22,14 +22,29 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "calls.h"
+#include "expr.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "intl.h"
-#include "tree-ssa.h"
+#include "pointer-set.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa-loop-ivopts.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
 #include "dumpfile.h"
 #include "cfgloop.h"
-#include "ggc.h"
 #include "tree-chrec.h"
 #include "tree-scalar-evolution.h"
 #include "tree-data-ref.h"
@@ -38,6 +53,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 
 
 #define SWAP(X, Y) do { affine_iv *tmp = (X); (X) = (Y); (Y) = tmp; } while (0)
@@ -112,9 +129,12 @@ split_to_var_and_offset (tree expr, tree *var, mpz_t offset)
    in TYPE to MIN and MAX.  */
 
 static void
-determine_value_range (tree type, tree var, mpz_t off,
+determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
 		       mpz_t min, mpz_t max)
 {
+  double_int minv, maxv;
+  enum value_range_type rtype = VR_VARYING;
+
   /* If the expression is a constant, we know its value exactly.  */
   if (integer_zerop (var))
     {
@@ -123,9 +143,73 @@ determine_value_range (tree type, tree var, mpz_t off,
       return;
     }
 
+  get_type_static_bounds (type, min, max);
+
+  /* See if we have some range info from VRP.  */
+  if (TREE_CODE (var) == SSA_NAME && INTEGRAL_TYPE_P (type))
+    {
+      edge e = loop_preheader_edge (loop);
+      gimple_stmt_iterator gsi;
+
+      /* Either for VAR itself...  */
+      rtype = get_range_info (var, &minv, &maxv);
+      /* Or for PHI results in loop->header where VAR is used as
+	 PHI argument from the loop preheader edge.  */
+      for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple phi = gsi_stmt (gsi);
+	  double_int minc, maxc;
+	  if (PHI_ARG_DEF_FROM_EDGE (phi, e) == var
+	      && (get_range_info (gimple_phi_result (phi), &minc, &maxc)
+		  == VR_RANGE))
+	    {
+	      if (rtype != VR_RANGE)
+		{
+		  rtype = VR_RANGE;
+		  minv = minc;
+		  maxv = maxc;
+		}
+	      else
+		{
+		  minv = minv.max (minc, TYPE_UNSIGNED (type));
+		  maxv = maxv.min (maxc, TYPE_UNSIGNED (type));
+		  gcc_assert (minv.cmp (maxv, TYPE_UNSIGNED (type)) <= 0);
+		}
+	    }
+	}
+      if (rtype == VR_RANGE)
+	{
+	  mpz_t minm, maxm;
+	  gcc_assert (minv.cmp (maxv, TYPE_UNSIGNED (type)) <= 0);
+	  mpz_init (minm);
+	  mpz_init (maxm);
+	  mpz_set_double_int (minm, minv, TYPE_UNSIGNED (type));
+	  mpz_set_double_int (maxm, maxv, TYPE_UNSIGNED (type));
+	  mpz_add (minm, minm, off);
+	  mpz_add (maxm, maxm, off);
+	  /* If the computation may not wrap or off is zero, then this
+	     is always fine.  If off is negative and minv + off isn't
+	     smaller than type's minimum, or off is positive and
+	     maxv + off isn't bigger than type's maximum, use the more
+	     precise range too.  */
+	  if (nowrap_type_p (type)
+	      || mpz_sgn (off) == 0
+	      || (mpz_sgn (off) < 0 && mpz_cmp (minm, min) >= 0)
+	      || (mpz_sgn (off) > 0 && mpz_cmp (maxm, max) <= 0))
+	    {
+	      mpz_set (min, minm);
+	      mpz_set (max, maxm);
+	      mpz_clear (minm);
+	      mpz_clear (maxm);
+	      return;
+	    }
+	  mpz_clear (minm);
+	  mpz_clear (maxm);
+	}
+    }
+
   /* If the computation may wrap, we know nothing about the value, except for
      the range of the type.  */
-  get_type_static_bounds (type, min, max);
   if (!nowrap_type_p (type))
     return;
 
@@ -398,8 +482,8 @@ bound_difference (struct loop *loop, tree x, tree y, bounds *bnds)
       mpz_init (maxx);
       mpz_init (miny);
       mpz_init (maxy);
-      determine_value_range (type, varx, offx, minx, maxx);
-      determine_value_range (type, vary, offy, miny, maxy);
+      determine_value_range (loop, type, varx, offx, minx, maxx);
+      determine_value_range (loop, type, vary, offy, miny, maxy);
 
       mpz_sub (bnds->below, minx, maxy);
       mpz_sub (bnds->up, maxx, miny);
@@ -416,7 +500,7 @@ bound_difference (struct loop *loop, tree x, tree y, bounds *bnds)
   /* Now walk the dominators of the loop header and use the entry
      guards to refine the estimates.  */
   for (bb = loop->header;
-       bb != ENTRY_BLOCK_PTR && cnt < MAX_DOMINATORS_TO_WALK;
+       bb != ENTRY_BLOCK_PTR_FOR_FN (cfun) && cnt < MAX_DOMINATORS_TO_WALK;
        bb = get_immediate_dominator (CDI_DOMINATORS, bb))
     {
       if (!single_pred_p (bb))
@@ -582,7 +666,7 @@ number_of_iterations_ne_max (mpz_t bnd, bool no_overflow, tree c, tree s,
   if (!no_overflow)
     {
       max = double_int::mask (TYPE_PRECISION (type)
-			      - tree_low_cst (num_ending_zeros (s), 1));
+			      - tree_to_uhwi (num_ending_zeros (s)));
       mpz_set_double_int (bnd, max, true);
       return;
     }
@@ -671,7 +755,7 @@ number_of_iterations_ne (tree type, affine_iv *iv, tree final,
   bits = num_ending_zeros (s);
   bound = build_low_bits_mask (niter_type,
 			       (TYPE_PRECISION (niter_type)
-				- tree_low_cst (bits, 1)));
+				- tree_to_uhwi (bits)));
 
   d = fold_binary_to_constant (LSHIFT_EXPR, niter_type,
 			       build_int_cst (niter_type, 1), bits);
@@ -1701,7 +1785,7 @@ simplify_using_initial_conditions (struct loop *loop, tree expr)
      the number of BBs times the number of loops in degenerate
      cases.  */
   for (bb = loop->header;
-       bb != ENTRY_BLOCK_PTR && cnt < MAX_DOMINATORS_TO_WALK;
+       bb != ENTRY_BLOCK_PTR_FOR_FN (cfun) && cnt < MAX_DOMINATORS_TO_WALK;
        bb = get_immediate_dominator (CDI_DOMINATORS, bb))
     {
       if (!single_pred_p (bb))
@@ -2083,7 +2167,8 @@ chain_of_csts_start (struct loop *loop, tree x)
       return NULL;
     }
 
-  if (gimple_code (stmt) != GIMPLE_ASSIGN)
+  if (gimple_code (stmt) != GIMPLE_ASSIGN
+      || gimple_assign_rhs_class (stmt) == GIMPLE_TERNARY_RHS)
     return NULL;
 
   code = gimple_assign_rhs_code (stmt);
@@ -2151,7 +2236,7 @@ get_val_for (tree x, tree base)
 {
   gimple stmt;
 
-  gcc_assert (is_gimple_min_invariant (base));
+  gcc_checking_assert (is_gimple_min_invariant (base));
 
   if (!x)
     return base;
@@ -2160,7 +2245,7 @@ get_val_for (tree x, tree base)
   if (gimple_code (stmt) == GIMPLE_PHI)
     return base;
 
-  gcc_assert (is_gimple_assign (stmt));
+  gcc_checking_assert (is_gimple_assign (stmt));
 
   /* STMT must be either an assignment of a single SSA name or an
      expression involving an SSA name and a constant.  Try to fold that
@@ -3506,14 +3591,13 @@ estimated_stmt_executions (struct loop *loop, double_int *nit)
 void
 estimate_numbers_of_iterations (void)
 {
-  loop_iterator li;
   struct loop *loop;
 
   /* We don't want to issue signed overflow warnings while getting
      loop iteration estimates.  */
   fold_defer_overflow_warnings ();
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       estimate_numbers_of_iterations_loop (loop);
     }
@@ -3783,10 +3867,9 @@ free_numbers_of_iterations_estimates_loop (struct loop *loop)
 void
 free_numbers_of_iterations_estimates (void)
 {
-  loop_iterator li;
   struct loop *loop;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       free_numbers_of_iterations_estimates_loop (loop);
     }

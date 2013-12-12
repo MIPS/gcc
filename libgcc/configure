@@ -2277,9 +2277,6 @@ case "${host}" in
     i[34567]86-*-* | x86_64-*-*)
 	PICFLAG=-fpic
 	;;
-    m68k-*-*)
-	PICFLAG=-fpic
-	;;
     # FIXME: Override -fPIC default in libgcc only?
     sh-*-linux* | sh[2346lbe]*-*-linux*)
 	PICFLAG=-fpic
@@ -4066,7 +4063,20 @@ if test "${libgcc_cv_dfp+set}" = set; then :
 else
   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
+
+#include <fenv.h>
+
+int
+main ()
+{
+
 _Decimal32 x;
+int fe_except =
+  FE_INVALID|FE_DIVBYZERO|FE_OVERFLOW|FE_UNDERFLOW|FE_INEXACT;
+
+  ;
+  return 0;
+}
 _ACEOF
 if ac_fn_c_try_compile "$LINENO"; then :
   libgcc_cv_dfp=yes

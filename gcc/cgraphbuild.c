@@ -23,12 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-ssa.h"
-#include "langhooks.h"
 #include "pointer-set.h"
-#include "cgraph.h"
-#include "intl.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
+#include "langhooks.h"
+#include "intl.h"
 #include "tree-pass.h"
 #include "ipa-utils.h"
 #include "except.h"
@@ -38,7 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 struct record_reference_ctx
 {
   bool only_vars;
-  struct varpool_node *varpool_node;
+  class varpool_node *varpool_node;
 };
 
 /* Walk tree and record all calls and references to functions/variables.
@@ -73,19 +79,19 @@ record_reference (tree *tp, int *walk_subtrees, void *data)
       decl = get_base_var (*tp);
       if (TREE_CODE (decl) == FUNCTION_DECL)
 	{
-	  struct cgraph_node *node = cgraph_get_create_real_symbol_node (decl);
+	  struct cgraph_node *node = cgraph_get_create_node (decl);
 	  if (!ctx->only_vars)
 	    cgraph_mark_address_taken_node (node);
-	  ipa_record_reference ((symtab_node)ctx->varpool_node,
-				(symtab_node)node,
+	  ipa_record_reference (ctx->varpool_node,
+				node,
 			        IPA_REF_ADDR, NULL);
 	}
 
       if (TREE_CODE (decl) == VAR_DECL)
 	{
-	  struct varpool_node *vnode = varpool_node_for_decl (decl);
-	  ipa_record_reference ((symtab_node)ctx->varpool_node,
-				(symtab_node)vnode,
+	  varpool_node *vnode = varpool_node_for_decl (decl);
+	  ipa_record_reference (ctx->varpool_node,
+				vnode,
 				IPA_REF_ADDR, NULL);
 	}
       *walk_subtrees = 0;
@@ -122,9 +128,9 @@ record_type_list (struct cgraph_node *node, tree list)
 	  type = TREE_OPERAND (type, 0);
 	  if (TREE_CODE (type) == VAR_DECL)
 	    {
-	      struct varpool_node *vnode = varpool_node_for_decl (type);
-	      ipa_record_reference ((symtab_node)node,
-				    (symtab_node)vnode,
+	      varpool_node *vnode = varpool_node_for_decl (type);
+	      ipa_record_reference (node,
+				    vnode,
 				    IPA_REF_ADDR, NULL);
 	    }
 	}
@@ -139,12 +145,12 @@ record_eh_tables (struct cgraph_node *node, struct function *fun)
 {
   eh_region i;
 
-  if (DECL_FUNCTION_PERSONALITY (node->symbol.decl))
+  if (DECL_FUNCTION_PERSONALITY (node->decl))
     {
-      struct cgraph_node *per_node;
+      tree per_decl = DECL_FUNCTION_PERSONALITY (node->decl);
+      struct cgraph_node *per_node = cgraph_get_create_node (per_decl);
 
-      per_node = cgraph_get_create_real_symbol_node (DECL_FUNCTION_PERSONALITY (node->symbol.decl));
-      ipa_record_reference ((symtab_node)node, (symtab_node)per_node, IPA_REF_ADDR, NULL);
+      ipa_record_reference (node, per_node, IPA_REF_ADDR, NULL);
       cgraph_mark_address_taken_node (per_node);
     }
 
@@ -198,7 +204,7 @@ record_eh_tables (struct cgraph_node *node, struct function *fun)
 int
 compute_call_stmt_bb_frequency (tree decl, basic_block bb)
 {
-  int entry_freq = ENTRY_BLOCK_PTR_FOR_FUNCTION
+  int entry_freq = ENTRY_BLOCK_PTR_FOR_FN
   		     (DECL_STRUCT_FUNCTION (decl))->frequency;
   int freq = bb->frequency;
 
@@ -223,19 +229,19 @@ mark_address (gimple stmt, tree addr, void *data)
   addr = get_base_address (addr);
   if (TREE_CODE (addr) == FUNCTION_DECL)
     {
-      struct cgraph_node *node = cgraph_get_create_real_symbol_node (addr);
+      struct cgraph_node *node = cgraph_get_create_node (addr);
       cgraph_mark_address_taken_node (node);
-      ipa_record_reference ((symtab_node)data,
-			    (symtab_node)node,
+      ipa_record_reference ((symtab_node *)data,
+			    node,
 			    IPA_REF_ADDR, stmt);
     }
   else if (addr && TREE_CODE (addr) == VAR_DECL
 	   && (TREE_STATIC (addr) || DECL_EXTERNAL (addr)))
     {
-      struct varpool_node *vnode = varpool_node_for_decl (addr);
+      varpool_node *vnode = varpool_node_for_decl (addr);
 
-      ipa_record_reference ((symtab_node)data,
-			    (symtab_node)vnode,
+      ipa_record_reference ((symtab_node *)data,
+			    vnode,
 			    IPA_REF_ADDR, stmt);
     }
 
@@ -252,19 +258,19 @@ mark_load (gimple stmt, tree t, void *data)
     {
       /* ??? This can happen on platforms with descriptors when these are
 	 directly manipulated in the code.  Pretend that it's an address.  */
-      struct cgraph_node *node = cgraph_get_create_real_symbol_node (t);
+      struct cgraph_node *node = cgraph_get_create_node (t);
       cgraph_mark_address_taken_node (node);
-      ipa_record_reference ((symtab_node)data,
-			    (symtab_node)node,
+      ipa_record_reference ((symtab_node *)data,
+			    node,
 			    IPA_REF_ADDR, stmt);
     }
   else if (t && TREE_CODE (t) == VAR_DECL
 	   && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
-      struct varpool_node *vnode = varpool_node_for_decl (t);
+      varpool_node *vnode = varpool_node_for_decl (t);
 
-      ipa_record_reference ((symtab_node)data,
-			    (symtab_node)vnode,
+      ipa_record_reference ((symtab_node *)data,
+			    vnode,
 			    IPA_REF_LOAD, stmt);
     }
   return false;
@@ -279,10 +285,10 @@ mark_store (gimple stmt, tree t, void *data)
   if (t && TREE_CODE (t) == VAR_DECL
       && (TREE_STATIC (t) || DECL_EXTERNAL (t)))
     {
-      struct varpool_node *vnode = varpool_node_for_decl (t);
+      varpool_node *vnode = varpool_node_for_decl (t);
 
-      ipa_record_reference ((symtab_node)data,
-			    (symtab_node)vnode,
+      ipa_record_reference ((symtab_node *)data,
+			    vnode,
 			    IPA_REF_STORE, stmt);
      }
   return false;
@@ -329,6 +335,8 @@ build_cgraph_edges (void)
 	      if (decl)
 		cgraph_create_edge (node, cgraph_get_create_node (decl),
 				    stmt, bb->count, freq);
+	      else if (gimple_call_internal_p (stmt))
+		;
 	      else
 		cgraph_create_indirect_edge (node, stmt,
 					     gimple_call_flags (stmt),
@@ -339,21 +347,21 @@ build_cgraph_edges (void)
 	      && gimple_omp_parallel_child_fn (stmt))
 	    {
 	      tree fn = gimple_omp_parallel_child_fn (stmt);
-	      ipa_record_reference ((symtab_node)node,
-				    (symtab_node)cgraph_get_create_real_symbol_node (fn),
+	      ipa_record_reference (node,
+				    cgraph_get_create_node (fn),
 				    IPA_REF_ADDR, stmt);
 	    }
 	  if (gimple_code (stmt) == GIMPLE_OMP_TASK)
 	    {
 	      tree fn = gimple_omp_task_child_fn (stmt);
 	      if (fn)
-		ipa_record_reference ((symtab_node)node,
-				      (symtab_node) cgraph_get_create_real_symbol_node (fn),
+		ipa_record_reference (node,
+				      cgraph_get_create_node (fn),
 				      IPA_REF_ADDR, stmt);
 	      fn = gimple_omp_task_copy_fn (stmt);
 	      if (fn)
-		ipa_record_reference ((symtab_node)node,
-				      (symtab_node)cgraph_get_create_real_symbol_node (fn),
+		ipa_record_reference (node,
+				      cgraph_get_create_node (fn),
 				      IPA_REF_ADDR, stmt);
 	    }
 	}
@@ -418,7 +426,7 @@ void
 record_references_in_initializer (tree decl, bool only_vars)
 {
   struct pointer_set_t *visited_nodes = pointer_set_create ();
-  struct varpool_node *node = varpool_node_for_decl (decl);
+  varpool_node *node = varpool_node_for_decl (decl);
   struct record_reference_ctx ctx = {false, NULL};
 
   ctx.varpool_node = node;
@@ -439,9 +447,9 @@ rebuild_cgraph_edges (void)
   gimple_stmt_iterator gsi;
 
   cgraph_node_remove_callees (node);
-  ipa_remove_all_references (&node->symbol.ref_list);
+  ipa_remove_all_references (&node->ref_list);
 
-  node->count = ENTRY_BLOCK_PTR->count;
+  node->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
 
   FOR_EACH_BB (bb)
     {
@@ -458,6 +466,8 @@ rebuild_cgraph_edges (void)
 	      if (decl)
 		cgraph_create_edge (node, cgraph_get_create_node (decl), stmt,
 				    bb->count, freq);
+	      else if (gimple_call_internal_p (stmt))
+		;
 	      else
 		cgraph_create_indirect_edge (node, stmt,
 					     gimple_call_flags (stmt),
@@ -487,13 +497,13 @@ cgraph_rebuild_references (void)
   int i;
 
   /* Keep speculative references for further cgraph edge expansion.  */
-  for (i = 0; ipa_ref_list_reference_iterate (&node->symbol.ref_list, i, ref);)
+  for (i = 0; ipa_ref_list_reference_iterate (&node->ref_list, i, ref);)
     if (!ref->speculative)
       ipa_remove_reference (ref);
     else
       i++;
 
-  node->count = ENTRY_BLOCK_PTR->count;
+  node->count = ENTRY_BLOCK_PTR_FOR_FN (cfun)->count;
 
   FOR_EACH_BB (bb)
     {
@@ -549,7 +559,7 @@ remove_cgraph_callee_edges (void)
 {
   struct cgraph_node *node = cgraph_get_node (current_function_decl);
   cgraph_node_remove_callees (node);
-  ipa_remove_all_references (&node->symbol.ref_list);
+  ipa_remove_all_references (&node->ref_list);
   return 0;
 }
 

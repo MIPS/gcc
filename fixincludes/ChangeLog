@@ -1,3 +1,10 @@
+2013-12-06  Richard Biener  <rguenther@suse.de>
+
+	* inclhack.def (suse_linux_vt_cxx): New fix for linux/vt.h
+	being not compatible with C++.
+	* fixincl.x: Regenerate.
+	* tests/base/linux/vt.h: New test.
+
 2013-09-20  Alan Modra  <amodra@gmail.com>
 
 	* configure: Regenerate.
@@ -13,7 +20,7 @@
 	* inclhack.def (cdef_cplusplus): removed, per Bug 51776
 	* tests/base/sys/cdefs.h (CDEF_CPLUSPLUS_CHECK): obsolete
 
-2013-05-23  Alexander Ivchenko <alexander.ivchenko@intel.com>
+2013-05-23  Alexander Ivchenko  <alexander.ivchenko@intel.com>
 
 	* inclhack.def (complier_h_tradcpp): New.
 	* fixincl.x: Rebuilt.

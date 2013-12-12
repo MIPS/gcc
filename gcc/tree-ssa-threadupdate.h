@@ -1,5 +1,5 @@
 /* Communication between registering jump thread requests and
-   updating the SSA/CFG for jump threading. 
+   updating the SSA/CFG for jump threading.
    Copyright (C) 2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
@@ -42,4 +42,5 @@ public:
 };
 
 extern void register_jump_thread (vec <class jump_thread_edge *> *);
+extern void delete_jump_thread_path (vec <class jump_thread_edge *> *);
 #endif

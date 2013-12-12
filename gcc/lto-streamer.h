@@ -25,8 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "plugin-api.h"
 #include "hash-table.h"
-#include "tree.h"
-#include "gimple.h"
 #include "target.h"
 #include "cgraph.h"
 #include "vec.h"
@@ -224,7 +222,8 @@ enum LTO_tags
   LTO_const_decl_ref,
   LTO_imported_decl_ref,
   LTO_translation_unit_decl_ref,
-  LTO_global_decl_ref,			/* Do not change.  */
+  LTO_global_decl_ref,
+  LTO_namelist_decl_ref,		/* Do not change.  */
 
   /* This tag must always be last.  */
   LTO_NUM_TAGS
@@ -432,7 +431,7 @@ struct lto_stats_d
 /* Entry of LTO symtab encoder.  */
 typedef struct
 {
-  symtab_node node;
+  symtab_node *node;
   /* Is the node in this partition (i.e. ltrans of this partition will
      be responsible for outputting it)? */
   unsigned int in_partition:1;
@@ -775,7 +774,7 @@ extern int lto_eq_in_decl_state (const void *, const void *);
 extern struct lto_in_decl_state *lto_get_function_in_decl_state (
 				      struct lto_file_decl_data *, tree);
 extern void lto_free_function_in_decl_state (struct lto_in_decl_state *);
-extern void lto_free_function_in_decl_state_for_node (symtab_node);
+extern void lto_free_function_in_decl_state_for_node (symtab_node *);
 extern void lto_section_overrun (struct lto_input_block *) ATTRIBUTE_NORETURN;
 extern void lto_value_range_error (const char *,
 				   HOST_WIDE_INT, HOST_WIDE_INT,
@@ -864,6 +863,8 @@ extern void destroy_output_block (struct output_block *);
 extern void lto_output_tree (struct output_block *, tree, bool, bool);
 extern void lto_output_toplevel_asms (void);
 extern void produce_asm (struct output_block *ob, tree fn);
+extern void lto_output ();
+extern void produce_asm_for_decls ();
 void lto_output_decl_state_streams (struct output_block *,
 				    struct lto_out_decl_state *);
 void lto_output_decl_state_refs (struct output_block *,
@@ -874,18 +875,18 @@ void lto_output_location (struct output_block *, struct bitpack_d *, location_t)
 
 /* In lto-cgraph.c  */
 lto_symtab_encoder_t lto_symtab_encoder_new (bool);
-int lto_symtab_encoder_encode (lto_symtab_encoder_t, symtab_node);
+int lto_symtab_encoder_encode (lto_symtab_encoder_t, symtab_node *);
 void lto_symtab_encoder_delete (lto_symtab_encoder_t);
-bool lto_symtab_encoder_delete_node (lto_symtab_encoder_t, symtab_node);
+bool lto_symtab_encoder_delete_node (lto_symtab_encoder_t, symtab_node *);
 bool lto_symtab_encoder_encode_body_p (lto_symtab_encoder_t,
 				       struct cgraph_node *);
 bool lto_symtab_encoder_in_partition_p (lto_symtab_encoder_t,
-					symtab_node);
+					symtab_node *);
 void lto_set_symtab_encoder_in_partition (lto_symtab_encoder_t,
-					  symtab_node);
+					  symtab_node *);
 
 bool lto_symtab_encoder_encode_initializer_p (lto_symtab_encoder_t,
-					      struct varpool_node *);
+					      varpool_node *);
 void output_symtab (void);
 void input_symtab (void);
 bool referenced_from_other_partition_p (struct ipa_ref_list *,
@@ -1045,7 +1046,7 @@ lto_symtab_encoder_size (lto_symtab_encoder_t encoder)
 
 static inline int
 lto_symtab_encoder_lookup (lto_symtab_encoder_t encoder,
-			   symtab_node node)
+			   symtab_node *node)
 {
   void **slot = pointer_map_contains (encoder->map, node);
   return (slot && *slot ? (size_t) *(slot) - 1 : LCC_NOT_FOUND);
@@ -1066,7 +1067,7 @@ lsei_next (lto_symtab_encoder_iterator *lsei)
 }
 
 /* Return the node pointed to by LSI.  */
-static inline symtab_node
+static inline symtab_node *
 lsei_node (lto_symtab_encoder_iterator lsei)
 {
   return lsei.encoder->nodes[lsei.index].node;
@@ -1080,7 +1081,7 @@ lsei_cgraph_node (lto_symtab_encoder_iterator lsei)
 }
 
 /* Return the node pointed to by LSI.  */
-static inline struct varpool_node *
+static inline varpool_node *
 lsei_varpool_node (lto_symtab_encoder_iterator lsei)
 {
   return varpool (lsei.encoder->nodes[lsei.index].node);
@@ -1088,7 +1089,7 @@ lsei_varpool_node (lto_symtab_encoder_iterator lsei)
 
 /* Return the cgraph node corresponding to REF using ENCODER.  */
 
-static inline symtab_node
+static inline symtab_node *
 lto_symtab_encoder_deref (lto_symtab_encoder_t encoder, int ref)
 {
   if (ref == LCC_NOT_FOUND)

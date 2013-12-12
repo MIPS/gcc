@@ -23,9 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "expr.h"
 #include "tree-pretty-print.h"
 #include "hashtab.h"
-#include "tree-ssa.h"
+#include "pointer-set.h"
+#include "gimple-expr.h"
+#include "cgraph.h"
 #include "langhooks.h"
 #include "tree-iterator.h"
 #include "tree-chrec.h"
@@ -271,8 +275,8 @@ dump_array_domain (pretty_printer *buffer, tree domain, int spc, int flags)
 
       if (min && max
 	  && integer_zerop (min)
-	  && host_integerp (max, 0))
-	pp_wide_integer (buffer, TREE_INT_CST_LOW (max) + 1);
+	  && tree_fits_shwi_p (max))
+	pp_wide_integer (buffer, tree_to_shwi (max) + 1);
       else
 	{
 	  if (min)
@@ -876,6 +880,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 	unsigned int quals = TYPE_QUALS (node);
 	enum tree_code_class tclass;
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	else if (quals & TYPE_QUAL_VOLATILE)
@@ -1177,6 +1183,8 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       {
 	unsigned int quals = TYPE_QUALS (node);
 
+	if (quals & TYPE_QUAL_ATOMIC)
+	  pp_string (buffer, "atomic ");
 	if (quals & TYPE_QUAL_CONST)
 	  pp_string (buffer, "const ");
 	if (quals & TYPE_QUAL_VOLATILE)
@@ -2094,6 +2102,18 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " predictor.");
       break;
 
+    case ANNOTATE_EXPR:
+      pp_string (buffer, "ANNOTATE_EXPR <");
+      switch ((enum annot_expr_kind) TREE_INT_CST_LOW (TREE_OPERAND (node, 1)))
+	{
+	case annot_expr_ivdep_kind:
+	  pp_string (buffer, "ivdep, ");
+	  break;
+	}
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      pp_greater (buffer);
+      break;
+
     case RETURN_EXPR:
       pp_string (buffer, "return");
       op0 = TREE_OPERAND (node, 0);
@@ -2210,6 +2230,12 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "OBJ_TYPE_REF(");
       dump_generic_node (buffer, OBJ_TYPE_REF_EXPR (node), spc, flags, false);
       pp_semicolon (buffer);
+      if (!(flags & TDF_SLIM) && virtual_method_call_p (node))
+	{
+	  pp_string (buffer, "(");
+	  dump_generic_node (buffer, obj_type_ref_class (node), spc, flags, false);
+	  pp_string (buffer, ")");
+	}
       dump_generic_node (buffer, OBJ_TYPE_REF_OBJECT (node), spc, flags, false);
       pp_arrow (buffer);
       dump_generic_node (buffer, OBJ_TYPE_REF_TOKEN (node), spc, flags, false);
@@ -2360,6 +2386,10 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case OMP_SIMD:
       pp_string (buffer, "#pragma omp simd");
+      goto dump_omp_loop;
+
+    case CILK_SIMD:
+      pp_string (buffer, "#pragma simd");
       goto dump_omp_loop;
 
     case OMP_DISTRIBUTE:
@@ -2628,6 +2658,15 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
 
     case BLOCK:
       dump_block_node (buffer, node, spc, flags);
+      break;
+
+    case CILK_SPAWN_STMT:
+      pp_string (buffer, "_Cilk_spawn ");
+      dump_generic_node (buffer, TREE_OPERAND (node, 0), spc, flags, false);
+      break;
+
+    case CILK_SYNC_STMT:
+      pp_string (buffer, "_Cilk_sync");
       break;
 
     default:
@@ -3376,7 +3415,7 @@ dump_function_header (FILE *dump_file, tree fdecl, int flags)
     fprintf (dump_file, ", decl_uid=%d", DECL_UID (fdecl));
   if (node)
     {
-      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->symbol.order,
+      fprintf (dump_file, ", symbol_order=%d)%s\n\n", node->order,
                node->frequency == NODE_FREQUENCY_HOT
                ? " (hot)"
                : node->frequency == NODE_FREQUENCY_UNLIKELY_EXECUTED

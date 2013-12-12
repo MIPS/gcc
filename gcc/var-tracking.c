@@ -91,26 +91,30 @@
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "basic-block.h"
 #include "tm_p.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "insn-config.h"
 #include "reload.h"
 #include "sbitmap.h"
 #include "alloc-pool.h"
 #include "fibheap.h"
-#include "hash-table.h"
 #include "regs.h"
 #include "expr.h"
 #include "tree-pass.h"
+#include "bitmap.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "cselib.h"
 #include "target.h"
 #include "params.h"
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
-#include "pointer-set.h"
 #include "recog.h"
 #include "tm_p.h"
 #include "alias.h"
@@ -831,16 +835,18 @@ vt_stack_adjustments (void)
   int sp;
 
   /* Initialize entry block.  */
-  VTI (ENTRY_BLOCK_PTR)->visited = true;
-  VTI (ENTRY_BLOCK_PTR)->in.stack_adjust = INCOMING_FRAME_SP_OFFSET;
-  VTI (ENTRY_BLOCK_PTR)->out.stack_adjust = INCOMING_FRAME_SP_OFFSET;
+  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->visited = true;
+  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->in.stack_adjust =
+ INCOMING_FRAME_SP_OFFSET;
+  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->out.stack_adjust =
+ INCOMING_FRAME_SP_OFFSET;
 
   /* Allocate stack for back-tracking up CFG.  */
-  stack = XNEWVEC (edge_iterator, n_basic_blocks + 1);
+  stack = XNEWVEC (edge_iterator, n_basic_blocks_for_fn (cfun) + 1);
   sp = 0;
 
   /* Push the first edge on to the stack.  */
-  stack[sp++] = ei_start (ENTRY_BLOCK_PTR->succs);
+  stack[sp++] = ei_start (ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs);
 
   while (sp)
     {
@@ -861,7 +867,7 @@ vt_stack_adjustments (void)
 	  VTI (dest)->visited = true;
 	  VTI (dest)->in.stack_adjust = offset = VTI (src)->out.stack_adjust;
 
-	  if (dest != EXIT_BLOCK_PTR)
+	  if (dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    for (insn = BB_HEAD (dest);
 		 insn != NEXT_INSN (BB_END (dest));
 		 insn = NEXT_INSN (insn))
@@ -5065,6 +5071,11 @@ track_expr_p (tree expr, bool need_rtl)
 					   &maxsize);
 	      if (!DECL_P (innerdecl)
 		  || DECL_IGNORED_P (innerdecl)
+		  /* Do not track declarations for parts of tracked parameters
+		     since we want to track them as a whole instead.  */
+		  || (TREE_CODE (innerdecl) == PARM_DECL
+		      && DECL_MODE (innerdecl) != BLKmode
+		      && TREE_CODE (TREE_TYPE (innerdecl)) != UNION_TYPE)
 		  || TREE_STATIC (innerdecl)
 		  || bitsize <= 0
 		  || bitpos + bitsize > 256
@@ -5919,6 +5930,20 @@ add_stores (rtx loc, const_rtx expr, void *cuip)
   if (type != MO_VAL_SET)
     goto log_and_return;
 
+  /* We cannot track values for multiple-part variables, so we track only
+     locations for tracked parameters passed either by invisible reference
+     or directly in multiple locations.  */
+  if (track_p
+      && REG_P (loc)
+      && REG_EXPR (loc)
+      && TREE_CODE (REG_EXPR (loc)) == PARM_DECL
+      && DECL_MODE (REG_EXPR (loc)) != BLKmode
+      && ((MEM_P (DECL_INCOMING_RTL (REG_EXPR (loc)))
+	   && XEXP (DECL_INCOMING_RTL (REG_EXPR (loc)), 0) != arg_pointer_rtx)
+          || (GET_CODE (DECL_INCOMING_RTL (REG_EXPR (loc))) == PARALLEL
+	      && XVECLEN (DECL_INCOMING_RTL (REG_EXPR (loc)), 0) > 1)))
+    goto log_and_return;
+
   v = find_use_val (oloc, mode, cui);
 
   if (!v)
@@ -6288,9 +6313,9 @@ prepare_call_arguments (basic_block bb, rtx insn)
 			  && DECL_INITIAL (SYMBOL_REF_DECL (l->loc)))
 			{
 			  initial = DECL_INITIAL (SYMBOL_REF_DECL (l->loc));
-			  if (host_integerp (initial, 0))
+			  if (tree_fits_shwi_p (initial))
 			    {
-			      item = GEN_INT (tree_low_cst (initial, 0));
+			      item = GEN_INT (tree_to_shwi (initial));
 			      item = gen_rtx_CONCAT (indmode, mem, item);
 			      call_arguments
 				= gen_rtx_EXPR_LIST (VOIDmode, item,
@@ -6369,7 +6394,7 @@ prepare_call_arguments (basic_block bb, rtx insn)
 	= TYPE_MODE (TREE_TYPE (OBJ_TYPE_REF_EXPR (obj_type_ref)));
       rtx clobbered = gen_rtx_MEM (mode, this_arg);
       HOST_WIDE_INT token
-	= tree_low_cst (OBJ_TYPE_REF_TOKEN (obj_type_ref), 0);
+	= tree_to_shwi (OBJ_TYPE_REF_TOKEN (obj_type_ref));
       if (token)
 	clobbered = plus_constant (mode, clobbered,
 				   token * GET_MODE_SIZE (mode));
@@ -6902,10 +6927,10 @@ vt_find_locations (void)
   timevar_push (TV_VAR_TRACKING_DATAFLOW);
   /* Compute reverse completion order of depth first search of the CFG
      so that the data-flow runs faster.  */
-  rc_order = XNEWVEC (int, n_basic_blocks - NUM_FIXED_BLOCKS);
+  rc_order = XNEWVEC (int, n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS);
   bb_order = XNEWVEC (int, last_basic_block);
   pre_and_rev_post_order_compute (NULL, rc_order, false);
-  for (i = 0; i < n_basic_blocks - NUM_FIXED_BLOCKS; i++)
+  for (i = 0; i < n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS; i++)
     bb_order[rc_order[i]] = i;
   free (rc_order);
 
@@ -7030,7 +7055,7 @@ vt_find_locations (void)
 		{
 		  FOR_EACH_EDGE (e, ei, bb->succs)
 		    {
-		      if (e->dest == EXIT_BLOCK_PTR)
+		      if (e->dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 			continue;
 
 		      if (bitmap_bit_p (visited, e->dest->index))
@@ -7905,7 +7930,7 @@ struct expand_loc_callback_data
 
   /* Stack of values and debug_exprs under expansion, and their
      children.  */
-  vec<rtx, va_stack> expanding;
+  stack_vec<rtx, 4> expanding;
 
   /* Stack of values and debug_exprs whose expansion hit recursion
      cycles.  They will have VALUE_RECURSED_INTO marked when added to
@@ -7913,7 +7938,7 @@ struct expand_loc_callback_data
      resolves to a valid location.  So, if the flag remains set at the
      end of the search, we know no valid location for this one can
      possibly exist.  */
-  vec<rtx, va_stack> pending;
+  stack_vec<rtx, 4> pending;
 
   /* The maximum depth among the sub-expressions under expansion.
      Zero indicates no expansion so far.  */
@@ -8415,11 +8440,11 @@ vt_expand_loc_callback (rtx x, bitmap regs,
    This function performs this finalization of NULL locations.  */
 
 static void
-resolve_expansions_pending_recursion (vec<rtx, va_stack> pending)
+resolve_expansions_pending_recursion (vec<rtx, va_heap> *pending)
 {
-  while (!pending.is_empty ())
+  while (!pending->is_empty ())
     {
-      rtx x = pending.pop ();
+      rtx x = pending->pop ();
       decl_or_value dv;
 
       if (!VALUE_RECURSED_INTO (x))
@@ -8439,8 +8464,6 @@ resolve_expansions_pending_recursion (vec<rtx, va_stack> pending)
   do								\
     {								\
       (d).vars = (v);						\
-      vec_stack_alloc (rtx, (d).expanding, 4);			\
-      vec_stack_alloc (rtx, (d).pending, 4);			\
       (d).depth.complexity = (d).depth.entryvals = 0;		\
     }								\
   while (0)
@@ -8448,7 +8471,7 @@ resolve_expansions_pending_recursion (vec<rtx, va_stack> pending)
 #define FINI_ELCD(d, l)						\
   do								\
     {								\
-      resolve_expansions_pending_recursion ((d).pending);	\
+      resolve_expansions_pending_recursion (&(d).pending);	\
       (d).pending.release ();					\
       (d).expanding.release ();					\
 								\
@@ -8742,7 +8765,7 @@ emit_note_insn_var_location (variable_def **varp, emit_note_data *data)
 
 int
 var_track_values_to_stack (variable_def **slot,
-			   vec<rtx, va_stack> *changed_values_stack)
+			   vec<rtx, va_heap> *changed_values_stack)
 {
   variable var = *slot;
 
@@ -8777,7 +8800,7 @@ remove_value_from_changed_variables (rtx val)
 
 static void
 notify_dependents_of_changed_value (rtx val, variable_table_type htab,
-				    vec<rtx, va_stack> *changed_values_stack)
+				    vec<rtx, va_heap> *changed_values_stack)
 {
   variable_def **slot;
   variable var;
@@ -8862,13 +8885,11 @@ process_changed_values (variable_table_type htab)
 {
   int i, n;
   rtx val;
-  vec<rtx, va_stack> changed_values_stack;
-
-  vec_stack_alloc (rtx, changed_values_stack, 20);
+  stack_vec<rtx, 20> changed_values_stack;
 
   /* Move values from changed_variables to changed_values_stack.  */
   changed_variables
-    .traverse <vec<rtx, va_stack>*, var_track_values_to_stack>
+    .traverse <vec<rtx, va_heap>*, var_track_values_to_stack>
       (&changed_values_stack);
 
   /* Back-propagate change notifications in values while popping
@@ -8889,8 +8910,6 @@ process_changed_values (variable_table_type htab)
 	  n--;
 	}
     }
-
-  changed_values_stack.release ();
 }
 
 /* Emit NOTE_INSN_VAR_LOCATION note for each variable from a chain
@@ -9447,6 +9466,32 @@ vt_get_decl_and_offset (rtx rtl, tree *declp, HOST_WIDE_INT *offsetp)
 	  return true;
 	}
     }
+  else if (GET_CODE (rtl) == PARALLEL)
+    {
+      tree decl = NULL_TREE;
+      HOST_WIDE_INT offset = MAX_VAR_PARTS;
+      int len = XVECLEN (rtl, 0), i;
+
+      for (i = 0; i < len; i++)
+	{
+	  rtx reg = XEXP (XVECEXP (rtl, 0, i), 0);
+	  if (!REG_P (reg) || !REG_ATTRS (reg))
+	    break;
+	  if (!decl)
+	    decl = REG_EXPR (reg);
+	  if (REG_EXPR (reg) != decl)
+	    break;
+	  if (REG_OFFSET (reg) < offset)
+	    offset = REG_OFFSET (reg);
+	}
+
+      if (i == len)
+	{
+	  *declp = decl;
+	  *offsetp = offset;
+	  return true;
+	}
+    }
   else if (MEM_P (rtl))
     {
       if (MEM_ATTRS (rtl))
@@ -9532,6 +9577,28 @@ vt_add_function_parameter (tree parm)
 	  p.outgoing = incoming;
 	  vec_safe_push (windowed_parm_regs, p);
 	}
+      else if (GET_CODE (incoming) == PARALLEL)
+	{
+	  rtx outgoing
+	    = gen_rtx_PARALLEL (VOIDmode, rtvec_alloc (XVECLEN (incoming, 0)));
+	  int i;
+
+	  for (i = 0; i < XVECLEN (incoming, 0); i++)
+	    {
+	      rtx reg = XEXP (XVECEXP (incoming, 0, i), 0);
+	      parm_reg_t p;
+	      p.incoming = reg;
+	      reg = gen_rtx_REG_offset (reg, GET_MODE (reg),
+					OUTGOING_REGNO (REGNO (reg)), 0);
+	      p.outgoing = reg;
+	      XVECEXP (outgoing, 0, i)
+		= gen_rtx_EXPR_LIST (VOIDmode, reg,
+				     XEXP (XVECEXP (incoming, 0, i), 1));
+	      vec_safe_push (windowed_parm_regs, p);
+	    }
+
+	  incoming = outgoing;
+	}
       else if (MEM_P (incoming)
 	       && REG_P (XEXP (incoming, 0))
 	       && HARD_REGISTER_P (XEXP (incoming, 0)))
@@ -9585,7 +9652,7 @@ vt_add_function_parameter (tree parm)
   if (!track_loc_p (incoming, parm, offset, false, &mode, &offset))
     return;
 
-  out = &VTI (ENTRY_BLOCK_PTR)->out;
+  out = &VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->out;
 
   dv = dv_from_decl (parm);
 
@@ -9663,6 +9730,20 @@ vt_add_function_parameter (tree parm)
 				     VAR_INIT_STATUS_INITIALIZED, NULL, INSERT);
 		}
 	    }
+	}
+    }
+  else if (GET_CODE (incoming) == PARALLEL && !dv_onepart_p (dv))
+    {
+      int i;
+
+      for (i = 0; i < XVECLEN (incoming, 0); i++)
+	{
+	  rtx reg = XEXP (XVECEXP (incoming, 0, i), 0);
+	  offset = REG_OFFSET (reg);
+	  gcc_assert (REGNO (reg) < FIRST_PSEUDO_REGISTER);
+	  attrs_list_insert (&out->regs[REGNO (reg)], dv, offset, reg);
+	  set_variable_part (out, reg, dv, offset,
+			     VAR_INIT_STATUS_INITIALIZED, NULL, INSERT);
 	}
     }
   else if (MEM_P (incoming))
@@ -9932,7 +10013,7 @@ vt_initialize (void)
       for (;;)
 	{
 	  edge e;
-	  if (bb->next_bb == EXIT_BLOCK_PTR
+	  if (bb->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
 	      || ! single_pred_p (bb->next_bb))
 	    break;
 	  e = find_edge (bb, bb->next_bb);
@@ -10035,7 +10116,7 @@ vt_initialize (void)
     }
 
   hard_frame_pointer_adjustment = -1;
-  VTI (ENTRY_BLOCK_PTR)->flooded = true;
+  VTI (ENTRY_BLOCK_PTR_FOR_FN (cfun))->flooded = true;
   cfa_base_rtx = NULL_RTX;
   return true;
 }
@@ -10161,7 +10242,8 @@ variable_tracking_main_1 (void)
       return 0;
     }
 
-  if (n_basic_blocks > 500 && n_edges / n_basic_blocks >= 20)
+  if (n_basic_blocks_for_fn (cfun) > 500 &&
+      n_edges_for_fn (cfun) / n_basic_blocks_for_fn (cfun) >= 20)
     {
       vt_debug_insns_local (true);
       return 0;

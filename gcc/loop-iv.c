@@ -436,7 +436,9 @@ iv_subreg (struct rtx_iv *iv, enum machine_mode mode)
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
-      val = lowpart_subreg (mode, val, iv->extend_mode);
+      val = lowpart_subreg (mode, val,
+			    iv->extend == IV_UNKNOWN_EXTEND
+			    ? iv->mode : iv->extend_mode);
 
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
@@ -476,8 +478,14 @@ iv_extend (struct rtx_iv *iv, enum iv_extend_code extend, enum machine_mode mode
       && !iv->first_special)
     {
       rtx val = get_iv_value (iv, const0_rtx);
+      if (iv->extend_mode != iv->mode
+	  && iv->extend != IV_UNKNOWN_EXTEND
+	  && iv->extend != extend)
+	val = lowpart_subreg (iv->mode, val, iv->extend_mode);
       val = simplify_gen_unary (iv_extend_to_rtx_code (extend), mode,
-				val, iv->extend_mode);
+				val,
+				iv->extend == extend
+				? iv->extend_mode : iv->mode);
       iv->base = val;
       iv->extend = IV_UNKNOWN_EXTEND;
       iv->mode = iv->extend_mode = mode;
@@ -1929,7 +1937,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
     return;
 
   e = loop_preheader_edge (loop);
-  if (e->src == ENTRY_BLOCK_PTR)
+  if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   altered = ALLOC_REG_SET (&reg_obstack);
@@ -2060,7 +2068,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	}
 
       if (!single_pred_p (e->src)
-	  || single_pred (e->src) == ENTRY_BLOCK_PTR)
+	  || single_pred (e->src) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	break;
       e = single_pred_edge (e->src);
     }

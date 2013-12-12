@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "hsa.h"
 #include "tm.h"
 #include "tree.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
 #include "gimple.h"
 #include "basic-block.h"
 #include "vec.h"
@@ -239,7 +242,7 @@ stupid_regalloc (void)
       classes[i].max_num = 2;
     }
 
-  stupid_regalloc_bb (ENTRY_BLOCK_PTR, classes);
+  stupid_regalloc_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun), classes);
   FOR_EACH_BB (bb)
     stupid_regalloc_bb (bb, classes);
 }

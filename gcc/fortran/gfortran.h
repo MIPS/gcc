@@ -2286,6 +2286,7 @@ typedef struct
   int flag_cray_pointer;
   int flag_d_lines;
   int gfc_flag_openmp;
+  int gfc_flag_openmp_simd;
   int flag_sign_zero;
   int flag_stack_arrays;
   int flag_module_private;
@@ -2396,7 +2397,6 @@ void gfc_add_include_path (const char *, bool, bool, bool);
 void gfc_add_intrinsic_modules_path (const char *);
 void gfc_release_include_path (void);
 FILE *gfc_open_included_file (const char *, bool, bool);
-FILE *gfc_open_intrinsic_module (const char *);
 
 int gfc_at_end (void);
 int gfc_at_eof (void);

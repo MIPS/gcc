@@ -1156,7 +1156,7 @@ ffast-math
 Common
 
 ffat-lto-objects
-Common Var(flag_fat_lto_objects) Init(1)
+Common Var(flag_fat_lto_objects)
 Output lto objects containing both the intermediate language and binary output.
 
 ffinite-math-only
@@ -1392,6 +1392,10 @@ fipa-pure-const
 Common Report Var(flag_ipa_pure_const) Init(0) Optimization
 Discover pure and const functions
 
+fipa-sem-equality
+Common Report Var(flag_ipa_sem_equality) Iinit(1) Optimization
+Perform Semantic function equality
+
 fipa-reference
 Common Report Var(flag_ipa_reference) Init(0) Optimization
 Discover readonly and non addressable static variables
@@ -1592,8 +1596,8 @@ Common Joined RejectNegative Var(common_deferred_options) Defer
 -fopt-info[-<type>=filename]	Dump compiler optimization details
 
 foptimize-register-move
-Common Report Var(flag_regmove) Optimization
-Do the full register move optimization pass
+Common Ignore
+Does nothing. Preserved for backward compatibility.
 
 foptimize-sibling-calls
 Common Report Var(flag_optimize_sibling_calls) Optimization
@@ -1730,8 +1734,12 @@ Common Report Var(flag_pcc_struct_return,0) Optimization
 Return small aggregates in registers
 
 fregmove
-Common Report Var(flag_regmove) Optimization
-Enables a register move optimization
+Common Ignore
+Does nothing. Preserved for backward compatibility.
+
+flive-range-shrinkage
+Common Report Var(flag_live_range_shrinkage) Init(0) Optimization
+Relief of register pressure through live range shrinkage
 
 frename-registers
 Common Report Var(flag_rename_registers) Init(2) Optimization
@@ -2104,6 +2112,19 @@ foptimize-strlen
 Common Report Var(flag_optimize_strlen) Optimization
 Enable string length optimizations on trees
 
+fisolate-erroneous-paths-dereference
+Common Report Var(flag_isolate_erroneous_paths_dereference) Optimization
+Detect paths which trigger erroneous or undefined behaviour due to
+dereferencing a NULL pointer.  Isolate those paths from the main control
+flow and turn the statement with erroneous or undefined behaviour into a trap.
+
+fisolate-erroneous-paths-attribute
+Common Report Var(flag_isolate_erroneous_paths_attribute) Optimization
+Detect paths which trigger erroneous or undefined behaviour due a NULL value
+being used in a way which is forbidden by a returns_nonnull or nonnull
+attribute.  Isolate those paths from the main control flow and turn the
+statement with erroneous or undefined behaviour into a trap. 
+
 ftree-loop-distribution
 Common Report Var(flag_tree_loop_distribution) Optimization
 Enable loop distribution on trees
@@ -2233,7 +2254,7 @@ Common Negative(fuse-ld=bfd)
 Use the gold linker instead of the default linker
 
 fuse-linker-plugin
-Common Undocumented
+Common Undocumented Var(flag_use_linker_plugin)
 
 ; Positive if we should track variables, negative if we should run
 ; the var-tracking pass only to discard debug annotations, zero if
@@ -2271,8 +2292,8 @@ Common Report Var(flag_tree_vectorize) Optimization
 Enable vectorization on trees
 
 ftree-vectorizer-verbose=
-Common RejectNegative Joined UInteger Var(common_deferred_options) Defer
--ftree-vectorizer-verbose=<number>	This switch is deprecated. Use -fopt-info instead.
+Common Joined RejectNegative Ignore
+Does nothing.  Preserved for backward compatibility.
 
 ftree-loop-vectorize
 Common Report Var(flag_tree_loop_vectorize) Optimization
@@ -2286,6 +2307,10 @@ fvect-cost-model=
 Common Joined RejectNegative Enum(vect_cost_model) Var(flag_vect_cost_model) Init(VECT_COST_MODEL_DEFAULT)
 Specifies the cost model for vectorization
  
+fsimd-cost-model=
+Common Joined RejectNegative Enum(vect_cost_model) Var(flag_simd_cost_model) Init(VECT_COST_MODEL_UNLIMITED)
+Specifies the vectorization cost model for code marked with a simd directive
+
 Enum
 Name(vect_cost_model) Type(enum vect_cost_model) UnknownError(unknown vectorizer cost model %qs)
 
@@ -2412,12 +2437,16 @@ Common JoinedOrMissing
 Generate debug information in default extended format
 
 gno-pubnames
-Common RejectNegative Var(debug_generate_pub_sections, 0) Init(-1)
+Common Negative(gpubnames) Var(debug_generate_pub_sections, 0) Init(-1)
 Don't generate DWARF pubnames and pubtypes sections.
 
 gpubnames
-Common RejectNegative Var(debug_generate_pub_sections, 1)
+Common Negative(ggnu-pubnames) Var(debug_generate_pub_sections, 1)
 Generate DWARF pubnames and pubtypes sections.
+
+ggnu-pubnames
+Common Negative(gno-pubnames) Var(debug_generate_pub_sections, 2)
+Generate DWARF pubnames and pubtypes sections with GNU extensions.
 
 gno-record-gcc-switches
 Common RejectNegative Var(dwarf_record_gcc_switches,0) Init(1)
@@ -2634,6 +2663,9 @@ static-libasan
 Driver
 
 static-libtsan
+Driver
+
+static-liblsan
 Driver
 
 static-libubsan

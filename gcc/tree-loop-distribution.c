@@ -44,6 +44,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "stor-layout.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
@@ -86,15 +105,6 @@ enum rdg_dep_type
   /* Read After Write (RAW).  */
   flow_dd = 'f',
 
-  /* Write After Read (WAR).  */
-  anti_dd = 'a',
-
-  /* Write After Write (WAW).  */
-  output_dd = 'o',
-
-  /* Read After Read (RAR).  */
-  input_dd = 'i',
-
   /* Control dependence (execute conditional on).  */
   control_dd = 'c'
 };
@@ -105,19 +115,9 @@ typedef struct rdg_edge
 {
   /* Type of the dependence.  */
   enum rdg_dep_type type;
-
-  /* Levels of the dependence: the depth of the loops that carry the
-     dependence.  */
-  unsigned level;
-
-  /* Dependence relation between data dependences, NULL when one of
-     the vertices is a scalar.  */
-  ddr_p relation;
 } *rdg_edge_p;
 
 #define RDGE_TYPE(E)        ((struct rdg_edge *) ((E)->data))->type
-#define RDGE_LEVEL(E)       ((struct rdg_edge *) ((E)->data))->level
-#define RDGE_RELATION(E)    ((struct rdg_edge *) ((E)->data))->relation
 
 /* Dump vertex I in RDG to FILE.  */
 
@@ -205,21 +205,9 @@ dot_rdg_1 (FILE *file, struct graph *rdg)
        for (e = v->succ; e; e = e->succ_next)
          switch (RDGE_TYPE (e))
            {
-           case input_dd:
-             fprintf (file, "%d -> %d [label=input] \n", i, e->dest);
-             break;
-
-           case output_dd:
-             fprintf (file, "%d -> %d [label=output] \n", i, e->dest);
-             break;
-
            case flow_dd:
              /* These are the most common dependences: don't print these. */
              fprintf (file, "%d -> %d \n", i, e->dest);
-             break;
-
-           case anti_dd:
-             fprintf (file, "%d -> %d [label=anti] \n", i, e->dest);
              break;
 
 	   case control_dd:
@@ -263,52 +251,6 @@ rdg_vertex_for_stmt (struct graph *rdg ATTRIBUTE_UNUSED, gimple stmt)
   return index;
 }
 
-/* Creates an edge in RDG for each distance vector from DDR.  The
-   order that we keep track of in the RDG is the order in which
-   statements have to be executed.  */
-
-static void
-create_rdg_edge_for_ddr (struct graph *rdg, ddr_p ddr)
-{
-  struct graph_edge *e;
-  int va, vb;
-  data_reference_p dra = DDR_A (ddr);
-  data_reference_p drb = DDR_B (ddr);
-  unsigned level = ddr_dependence_level (ddr);
-
-  /* For non scalar dependences, when the dependence is REVERSED,
-     statement B has to be executed before statement A.  */
-  if (level > 0
-      && !DDR_REVERSED_P (ddr))
-    {
-      data_reference_p tmp = dra;
-      dra = drb;
-      drb = tmp;
-    }
-
-  va = rdg_vertex_for_stmt (rdg, DR_STMT (dra));
-  vb = rdg_vertex_for_stmt (rdg, DR_STMT (drb));
-
-  if (va < 0 || vb < 0)
-    return;
-
-  e = add_edge (rdg, va, vb);
-  e->data = XNEW (struct rdg_edge);
-
-  RDGE_LEVEL (e) = level;
-  RDGE_RELATION (e) = ddr;
-
-  /* Determines the type of the data dependence.  */
-  if (DR_IS_READ (dra) && DR_IS_READ (drb))
-    RDGE_TYPE (e) = input_dd;
-  else if (DR_IS_WRITE (dra) && DR_IS_WRITE (drb))
-    RDGE_TYPE (e) = output_dd;
-  else if (DR_IS_WRITE (dra) && DR_IS_READ (drb))
-    RDGE_TYPE (e) = flow_dd;
-  else if (DR_IS_READ (dra) && DR_IS_WRITE (drb))
-    RDGE_TYPE (e) = anti_dd;
-}
-
 /* Creates dependence edges in RDG for all the uses of DEF.  IDEF is
    the index of DEF in RDG.  */
 
@@ -329,7 +271,6 @@ create_rdg_edges_for_scalar (struct graph *rdg, tree def, int idef)
       e = add_edge (rdg, idef, use);
       e->data = XNEW (struct rdg_edge);
       RDGE_TYPE (e) = flow_dd;
-      RDGE_RELATION (e) = NULL;
     }
 }
 
@@ -356,7 +297,6 @@ create_edge_for_control_dependence (struct graph *rdg, basic_block bb,
 	  e = add_edge (rdg, c, v);
 	  e->data = XNEW (struct rdg_edge);
 	  RDGE_TYPE (e) = control_dd;
-	  RDGE_RELATION (e) = NULL;
 	}
     }
 }
@@ -364,38 +304,38 @@ create_edge_for_control_dependence (struct graph *rdg, basic_block bb,
 /* Creates the edges of the reduced dependence graph RDG.  */
 
 static void
-create_rdg_edges (struct graph *rdg, vec<ddr_p> ddrs, control_dependences *cd)
+create_rdg_flow_edges (struct graph *rdg)
 {
   int i;
-  struct data_dependence_relation *ddr;
   def_operand_p def_p;
   ssa_op_iter iter;
-
-  FOR_EACH_VEC_ELT (ddrs, i, ddr)
-    if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
-      create_rdg_edge_for_ddr (rdg, ddr);
-    else
-      free_dependence_relation (ddr);
 
   for (i = 0; i < rdg->n_vertices; i++)
     FOR_EACH_PHI_OR_STMT_DEF (def_p, RDG_STMT (rdg, i),
 			      iter, SSA_OP_DEF)
       create_rdg_edges_for_scalar (rdg, DEF_FROM_PTR (def_p), i);
+}
 
-  if (cd)
-    for (i = 0; i < rdg->n_vertices; i++)
-      {
-	gimple stmt = RDG_STMT (rdg, i);
-	if (gimple_code (stmt) == GIMPLE_PHI)
-	  {
-	    edge_iterator ei;
-	    edge e;
-	    FOR_EACH_EDGE (e, ei, gimple_bb (stmt)->preds)
+/* Creates the edges of the reduced dependence graph RDG.  */
+
+static void
+create_rdg_cd_edges (struct graph *rdg, control_dependences *cd)
+{
+  int i;
+
+  for (i = 0; i < rdg->n_vertices; i++)
+    {
+      gimple stmt = RDG_STMT (rdg, i);
+      if (gimple_code (stmt) == GIMPLE_PHI)
+	{
+	  edge_iterator ei;
+	  edge e;
+	  FOR_EACH_EDGE (e, ei, gimple_bb (stmt)->preds)
 	      create_edge_for_control_dependence (rdg, e->src, i, cd);
-	  }
-	else
-	  create_edge_for_control_dependence (rdg, gimple_bb (stmt), i, cd);
-      }
+	}
+      else
+	create_edge_for_control_dependence (rdg, gimple_bb (stmt), i, cd);
+    }
 }
 
 /* Build the vertices of the reduced dependence graph RDG.  Return false
@@ -484,10 +424,7 @@ free_rdg (struct graph *rdg)
       struct graph_edge *e;
 
       for (e = v->succ; e; e = e->succ_next)
-	{
-	  free_dependence_relation (RDGE_RELATION (e));
-	  free (e->data);
-	}
+	free (e->data);
 
       if (v->data)
 	{
@@ -508,37 +445,25 @@ static struct graph *
 build_rdg (vec<loop_p> loop_nest, control_dependences *cd)
 {
   struct graph *rdg;
-  vec<gimple> stmts;
   vec<data_reference_p> datarefs;
-  vec<ddr_p> dependence_relations;
 
   /* Create the RDG vertices from the stmts of the loop nest.  */
-  stmts.create (10);
+  stack_vec<gimple, 10> stmts;
   stmts_from_loop (loop_nest[0], &stmts);
   rdg = new_graph (stmts.length ());
   datarefs.create (10);
   if (!create_rdg_vertices (rdg, stmts, loop_nest[0], &datarefs))
     {
-      stmts.release ();
       datarefs.release ();
       free_rdg (rdg);
       return NULL;
     }
   stmts.release ();
 
-  /* Create the RDG edges from the data dependences in the loop nest.  */
-  dependence_relations.create (100);
-  if (!compute_all_dependences (datarefs, &dependence_relations, loop_nest,
-				false)
-      || !known_dependences_p (dependence_relations))
-    {
-      free_dependence_relations (dependence_relations);
-      datarefs.release ();
-      free_rdg (rdg);
-      return NULL;
-    }
-  create_rdg_edges (rdg, dependence_relations, cd);
-  dependence_relations.release ();
+  create_rdg_flow_edges (rdg);
+  if (cd)
+    create_rdg_cd_edges (rdg, cd);
+
   datarefs.release ();
 
   return rdg;
@@ -560,6 +485,7 @@ typedef struct partition_s
   data_reference_p main_dr;
   data_reference_p secondary_dr;
   tree niter;
+  bool plus_one;
 } *partition_t;
 
 
@@ -783,13 +709,16 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 /* Build the size argument for a memory operation call.  */
 
 static tree
-build_size_arg_loc (location_t loc, data_reference_p dr, tree nb_iter)
+build_size_arg_loc (location_t loc, data_reference_p dr, tree nb_iter,
+		    bool plus_one)
 {
-  tree size;
-  size = fold_build2_loc (loc, MULT_EXPR, sizetype,
-			  fold_convert_loc (loc, sizetype, nb_iter),
+  tree size = fold_convert_loc (loc, sizetype, nb_iter);
+  if (plus_one)
+    size = size_binop (PLUS_EXPR, size, size_one_node);
+  size = fold_build2_loc (loc, MULT_EXPR, sizetype, size,
 			  TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dr))));
-  return fold_convert_loc (loc, size_type_node, size);
+  size = fold_convert_loc (loc, size_type_node, size);
+  return size;
 }
 
 /* Build an address argument for a memory operation call.  */
@@ -861,7 +790,8 @@ generate_memset_builtin (struct loop *loop, partition_t partition)
   /* The new statements will be placed before LOOP.  */
   gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
 
-  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter);
+  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter,
+				 partition->plus_one);
   nb_bytes = force_gimple_operand_gsi (&gsi, nb_bytes, true, NULL_TREE,
 				       false, GSI_CONTINUE_LINKING);
   mem = build_addr_arg_loc (loc, partition->main_dr, nb_bytes);
@@ -917,7 +847,8 @@ generate_memcpy_builtin (struct loop *loop, partition_t partition)
   /* The new statements will be placed before LOOP.  */
   gsi = gsi_last_bb (loop_preheader_edge (loop)->src);
 
-  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter);
+  nb_bytes = build_size_arg_loc (loc, partition->main_dr, partition->niter,
+				 partition->plus_one);
   nb_bytes = force_gimple_operand_gsi (&gsi, nb_bytes, true, NULL_TREE,
 				       false, GSI_CONTINUE_LINKING);
   dest = build_addr_arg_loc (loc, partition->main_dr, nb_bytes);
@@ -1033,11 +964,10 @@ static partition_t
 build_rdg_partition_for_vertex (struct graph *rdg, int v)
 {
   partition_t partition = partition_alloc (NULL, NULL);
-  vec<int> nodes;
+  stack_vec<int, 3> nodes;
   unsigned i;
   int x;
 
-  nodes.create (3);
   graphds_dfs (rdg, &v, 1, &nodes, false, NULL);
 
   FOR_EACH_VEC_ELT (nodes, i, x)
@@ -1047,7 +977,6 @@ build_rdg_partition_for_vertex (struct graph *rdg, int v)
 		      loop_containing_stmt (RDG_STMT (rdg, x))->num);
     }
 
-  nodes.release ();
   return partition;
 }
 
@@ -1062,11 +991,13 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
   tree nb_iter;
   data_reference_p single_load, single_store;
   bool volatiles_p = false;
+  bool plus_one = false;
 
   partition->kind = PKIND_NORMAL;
   partition->main_dr = NULL;
   partition->secondary_dr = NULL;
   partition->niter = NULL_TREE;
+  partition->plus_one = false;
 
   EXECUTE_IF_SET_IN_BITMAP (partition->stmts, 0, i, bi)
     {
@@ -1129,13 +1060,12 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
   if (!single_store)
     return;
 
-  if (!dominated_by_p (CDI_DOMINATORS, single_exit (loop)->src,
-		       gimple_bb (DR_STMT (single_store))))
-    nb_iter = number_of_latch_executions (loop);
-  else
-    nb_iter = number_of_exit_cond_executions (loop);
+  nb_iter = number_of_latch_executions (loop);
   if (!nb_iter || nb_iter == chrec_dont_know)
     return;
+  if (dominated_by_p (CDI_DOMINATORS, single_exit (loop)->src,
+		      gimple_bb (DR_STMT (single_store))))
+    plus_one = true;
 
   if (single_store && !single_load)
     {
@@ -1157,6 +1087,7 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
       partition->kind = PKIND_MEMSET;
       partition->main_dr = single_store;
       partition->niter = nb_iter;
+      partition->plus_one = plus_one;
     }
   else if (single_store && single_load)
     {
@@ -1214,6 +1145,7 @@ classify_partition (loop_p loop, struct graph *rdg, partition_t partition)
       partition->main_dr = single_store;
       partition->secondary_dr = single_load;
       partition->niter = nb_iter;
+      partition->plus_one = plus_one;
     }
 }
 
@@ -1395,6 +1327,79 @@ partition_contains_all_rw (struct graph *rdg,
   return false;
 }
 
+/* Compute partition dependence created by the data references in DRS1
+   and DRS2 and modify and return DIR according to that.  */
+
+static int
+pg_add_dependence_edges (struct graph *rdg, vec<loop_p> loops, int dir,
+			 vec<data_reference_p> drs1,
+			 vec<data_reference_p> drs2)
+{
+  data_reference_p dr1, dr2;
+
+  /* dependence direction - 0 is no dependence, -1 is back,
+     1 is forth, 2 is both (we can stop then, merging will occur).  */
+  for (int ii = 0; drs1.iterate (ii, &dr1); ++ii)
+    for (int jj = 0; drs2.iterate (jj, &dr2); ++jj)
+      {
+	int this_dir = 1;
+	ddr_p ddr;
+	/* Re-shuffle data-refs to be in dominator order.  */
+	if (rdg_vertex_for_stmt (rdg, DR_STMT (dr1))
+	    > rdg_vertex_for_stmt (rdg, DR_STMT (dr2)))
+	  {
+	    data_reference_p tem = dr1;
+	    dr1 = dr2;
+	    dr2 = tem;
+	    this_dir = -this_dir;
+	  }
+	ddr = initialize_data_dependence_relation (dr1, dr2, loops);
+	compute_affine_dependence (ddr, loops[0]);
+	if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
+	  this_dir = 2;
+	else if (DDR_ARE_DEPENDENT (ddr) == NULL_TREE)
+	  {
+	    if (DDR_REVERSED_P (ddr))
+	      {
+		data_reference_p tem = dr1;
+		dr1 = dr2;
+		dr2 = tem;
+		this_dir = -this_dir;
+	      }
+	    /* Known dependences can still be unordered througout the
+	       iteration space, see gcc.dg/tree-ssa/ldist-16.c.  */
+	    if (DDR_NUM_DIST_VECTS (ddr) != 1)
+	      this_dir = 2;
+	    /* If the overlap is exact preserve stmt order.  */
+	    else if (lambda_vector_zerop (DDR_DIST_VECT (ddr, 0), 1))
+	      ;
+	    else
+	      {
+		/* Else as the distance vector is lexicographic positive
+		   swap the dependence direction.  */
+		this_dir = -this_dir;
+	      }
+	  }
+	else
+	  this_dir = 0;
+	free_dependence_relation (ddr);
+	if (dir == 0)
+	  dir = this_dir;
+	else if (dir != this_dir)
+	  return 2;
+      }
+  return dir;
+}
+
+/* Compare postorder number of the partition graph vertices V1 and V2.  */
+
+static int
+pgcmp (const void *v1_, const void *v2_)
+{
+  const vertex *v1 = (const vertex *)v1_;
+  const vertex *v2 = (const vertex *)v2_;
+  return v2->post - v1->post;
+}
 
 /* Distributes the code from LOOP in such a way that producer
    statements are placed before consumer statements.  Tries to separate
@@ -1406,19 +1411,16 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 		 control_dependences *cd, int *nb_calls)
 {
   struct graph *rdg;
-  vec<loop_p> loop_nest;
-  vec<partition_t> partitions;
   partition_t partition;
   bool any_builtin;
   int i, nbp;
+  graph *pg = NULL;
+  int num_sccs = 1;
 
   *nb_calls = 0;
-  loop_nest.create (3);
+  stack_vec<loop_p, 3> loop_nest;
   if (!find_loop_nest (loop, &loop_nest))
-    {
-      loop_nest.release ();
-      return 0;
-    }
+    return 0;
 
   rdg = build_rdg (loop_nest, cd);
   if (!rdg)
@@ -1428,14 +1430,13 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 		 "Loop %d not distributed: failed to build the RDG.\n",
 		 loop->num);
 
-      loop_nest.release ();
       return 0;
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_rdg (dump_file, rdg);
 
-  partitions.create (3);
+  stack_vec<partition_t, 3> partitions;
   rdg_build_partitions (rdg, stmts, &partitions);
 
   any_builtin = false;
@@ -1445,8 +1446,8 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
       any_builtin |= partition_builtin_p (partition);
     }
 
-  /* If we did not detect any builtin but are not asked to apply
-     regular loop distribution simply bail out.  */
+  /* If we are only distributing patterns but did not detect any,
+     simply bail out.  */
   if (!flag_tree_loop_distribution
       && !any_builtin)
     {
@@ -1454,9 +1455,56 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
       goto ldist_done;
     }
 
+  /* If we are only distributing patterns fuse all partitions that
+     were not classified as builtins.  This also avoids chopping
+     a loop into pieces, separated by builtin calls.  That is, we
+     only want no or a single loop body remaining.  */
+  partition_t into;
+  if (!flag_tree_loop_distribution)
+    {
+      for (i = 0; partitions.iterate (i, &into); ++i)
+	if (!partition_builtin_p (into))
+	  break;
+      for (++i; partitions.iterate (i, &partition); ++i)
+	if (!partition_builtin_p (partition))
+	  {
+	    if (dump_file && (dump_flags & TDF_DETAILS))
+	      {
+		fprintf (dump_file, "fusing non-builtin partitions\n");
+		dump_bitmap (dump_file, into->stmts);
+		dump_bitmap (dump_file, partition->stmts);
+	      }
+	    partition_merge_into (into, partition);
+	    partitions.unordered_remove (i);
+	    partition_free (partition);
+	    i--;
+	  }
+    }
+
+  /* Due to limitations in the transform phase we have to fuse all
+     reduction partitions into the last partition so the existing
+     loop will contain all loop-closed PHI nodes.  */
+  for (i = 0; partitions.iterate (i, &into); ++i)
+    if (partition_reduction_p (into))
+      break;
+  for (i = i + 1; partitions.iterate (i, &partition); ++i)
+    if (partition_reduction_p (partition))
+      {
+	if (dump_file && (dump_flags & TDF_DETAILS))
+	  {
+	    fprintf (dump_file, "fusing partitions\n");
+	    dump_bitmap (dump_file, into->stmts);
+	    dump_bitmap (dump_file, partition->stmts);
+	    fprintf (dump_file, "because they have reductions\n");
+	  }
+	partition_merge_into (into, partition);
+	partitions.unordered_remove (i);
+	partition_free (partition);
+	i--;
+      }
+
   /* Apply our simple cost model - fuse partitions with similar
      memory accesses.  */
-  partition_t into;
   for (i = 0; partitions.iterate (i, &into); ++i)
     {
       if (partition_builtin_p (into))
@@ -1476,61 +1524,119 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 			   "memory accesses\n");
 		}
 	      partition_merge_into (into, partition);
-	      partitions.ordered_remove (j);
+	      partitions.unordered_remove (j);
 	      partition_free (partition);
 	      j--;
 	    }
 	}
     }
 
-  /* If we are only distributing patterns fuse all partitions that
-     were not properly classified as builtins.  */
-  if (!flag_tree_loop_distribution)
-    {
-      partition_t into;
-      /* Only fuse adjacent non-builtin partitions, see PR53616.
-         ???  Use dependence information to improve partition ordering.  */
-      i = 0;
-      do
-	{
-	  for (; partitions.iterate (i, &into); ++i)
-	    if (!partition_builtin_p (into))
-	      break;
-	  for (++i; partitions.iterate (i, &partition); ++i)
-	    if (!partition_builtin_p (partition))
-	      {
-		partition_merge_into (into, partition);
-		partitions.ordered_remove (i);
-		partition_free (partition);
-		i--;
-	      }
-	    else
-	      break;
-	}
-      while ((unsigned) i < partitions.length ());
-    }
-
-  /* Fuse all reduction partitions into the last.  */
+  /* Build the partition dependency graph.  */
   if (partitions.length () > 1)
     {
-      partition_t into = partitions.last ();
-      for (i = partitions.length () - 2; i >= 0; --i)
+      pg = new_graph (partitions.length ());
+      struct pgdata {
+	  partition_t partition;
+	  vec<data_reference_p> writes;
+	  vec<data_reference_p> reads;
+      };
+#define PGDATA(i) ((pgdata *)(pg->vertices[i].data))
+      for (i = 0; partitions.iterate (i, &partition); ++i)
 	{
-	  partition_t what = partitions[i];
-	  if (partition_reduction_p (what))
-	    {
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "fusing partitions\n");
-		  dump_bitmap (dump_file, into->stmts);
-		  dump_bitmap (dump_file, what->stmts);
-		  fprintf (dump_file, "because the latter has reductions\n");
-		}
-	      partition_merge_into (into, what);
-	      partitions.ordered_remove (i);
-	      partition_free (what);
-	    }
+	  vertex *v = &pg->vertices[i];
+	  pgdata *data = new pgdata;
+	  data_reference_p dr;
+	  /* FIXME - leaks.  */
+	  v->data = data;
+	  bitmap_iterator bi;
+	  unsigned j;
+	  data->partition = partition;
+	  data->reads = vNULL;
+	  data->writes = vNULL;
+	  EXECUTE_IF_SET_IN_BITMAP (partition->stmts, 0, j, bi)
+	    for (int k = 0; RDG_DATAREFS (rdg, j).iterate (k, &dr); ++k)
+	      if (DR_IS_READ (dr))
+		data->reads.safe_push (dr);
+	      else
+		data->writes.safe_push (dr);
 	}
+      partition_t partition1, partition2;
+      for (i = 0; partitions.iterate (i, &partition1); ++i)
+	for (int j = i + 1; partitions.iterate (j, &partition2); ++j)
+	  {
+	    /* dependence direction - 0 is no dependence, -1 is back,
+	       1 is forth, 2 is both (we can stop then, merging will occur).  */
+	    int dir = 0;
+	    dir = pg_add_dependence_edges (rdg, loop_nest, dir,
+					   PGDATA(i)->writes,
+					   PGDATA(j)->reads);
+	    if (dir != 2)
+	      dir = pg_add_dependence_edges (rdg, loop_nest, dir,
+					     PGDATA(i)->reads,
+					     PGDATA(j)->writes);
+	    if (dir != 2)
+	      dir = pg_add_dependence_edges (rdg, loop_nest, dir,
+					     PGDATA(i)->writes,
+					     PGDATA(j)->writes);
+	    if (dir == 1 || dir == 2)
+	      add_edge (pg, i, j);
+	    if (dir == -1 || dir == 2)
+	      add_edge (pg, j, i);
+	  }
+
+      /* Add edges to the reduction partition (if any) to force it last.  */
+      unsigned j;
+      for (j = 0; partitions.iterate (j, &partition); ++j)
+	if (partition_reduction_p (partition))
+	  break;
+      if (j < partitions.length ())
+	{
+	  for (unsigned i = 0; partitions.iterate (i, &partition); ++i)
+	    if (i != j)
+	      add_edge (pg, i, j);
+	}
+
+      /* Compute partitions we cannot separate and fuse them.  */
+      num_sccs = graphds_scc (pg, NULL);
+      for (i = 0; i < num_sccs; ++i)
+	{
+	  partition_t first;
+	  int j;
+	  for (j = 0; partitions.iterate (j, &first); ++j)
+	    if (pg->vertices[j].component == i)
+	      break;
+	  for (j = j + 1; partitions.iterate (j, &partition); ++j)
+	    if (pg->vertices[j].component == i)
+	      {
+		if (dump_file && (dump_flags & TDF_DETAILS))
+		  {
+		    fprintf (dump_file, "fusing partitions\n");
+		    dump_bitmap (dump_file, first->stmts);
+		    dump_bitmap (dump_file, partition->stmts);
+		    fprintf (dump_file, "because they are in the same "
+			     "dependence SCC\n");
+		  }
+		partition_merge_into (first, partition);
+		partitions[j] = NULL;
+		partition_free (partition);
+		PGDATA (j)->partition = NULL;
+	      }
+	}
+
+      /* Now order the remaining nodes in postorder.  */
+      qsort (pg->vertices, pg->n_vertices, sizeof (vertex), pgcmp);
+      partitions.truncate (0);
+      for (i = 0; i < pg->n_vertices; ++i)
+	{
+	  pgdata *data = PGDATA (i);
+	  if (data->partition)
+	    partitions.safe_push (data->partition);
+	  data->reads.release ();
+	  data->writes.release ();
+	  delete data;
+	}
+      gcc_assert (partitions.length () == (unsigned)num_sccs);
+      free_graph (pg);
     }
 
   nbp = partitions.length ();
@@ -1556,10 +1662,8 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 
   FOR_EACH_VEC_ELT (partitions, i, partition)
     partition_free (partition);
-  partitions.release ();
 
   free_rdg (rdg);
-  loop_nest.release ();
   return nbp - *nb_calls;
 }
 
@@ -1569,7 +1673,6 @@ static unsigned int
 tree_loop_distribution (void)
 {
   struct loop *loop;
-  loop_iterator li;
   bool changed = false;
   basic_block bb;
   control_dependences *cd = NULL;
@@ -1585,9 +1688,9 @@ tree_loop_distribution (void)
 
   /* We can at the moment only distribute non-nested loops, thus restrict
      walking to innermost loops.  */
-  FOR_EACH_LOOP (li, loop, LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
     {
-      vec<gimple> work_list = vNULL;
+      auto_vec<gimple> work_list;
       basic_block *bbs;
       int num = loop->num;
       unsigned int i;
@@ -1634,8 +1737,7 @@ tree_loop_distribution (void)
 	      if (stmt_has_scalar_dependences_outside_loop (loop, stmt))
 		;
 	      /* Otherwise only distribute stores for now.  */
-	      else if (!gimple_assign_single_p (stmt)
-		       || is_gimple_reg (gimple_assign_lhs (stmt)))
+	      else if (!gimple_vdef (stmt))
 		continue;
 
 	      work_list.safe_push (stmt);
@@ -1670,8 +1772,6 @@ out:
 	}
       else if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Loop %d is the same.\n", num);
-
-      work_list.release ();
     }
 
   if (cd)

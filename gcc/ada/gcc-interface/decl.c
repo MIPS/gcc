@@ -28,6 +28,8 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "toplev.h"
 #include "ggc.h"
@@ -837,13 +839,13 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 		align_cap = get_mode_alignment (ptr_mode);
 	      }
 
-	    if (!host_integerp (TYPE_SIZE (gnu_type), 1)
+	    if (!tree_fits_uhwi_p (TYPE_SIZE (gnu_type))
 		|| compare_tree_int (TYPE_SIZE (gnu_type), size_cap) > 0)
 	      align = 0;
 	    else if (compare_tree_int (TYPE_SIZE (gnu_type), align_cap) > 0)
 	      align = align_cap;
 	    else
-	      align = ceil_pow2 (tree_low_cst (TYPE_SIZE (gnu_type), 1));
+	      align = ceil_pow2 (tree_to_uhwi (TYPE_SIZE (gnu_type)));
 
 	    /* But make sure not to under-align the object.  */
 	    if (align <= TYPE_ALIGN (gnu_type))
@@ -1117,8 +1119,12 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			   as we have a VAR_DECL for the pointer we make.  */
 		      }
 
-		    gnu_expr = build_unary_op (ADDR_EXPR, gnu_type,
-					       maybe_stable_expr);
+		    if (type_annotate_only
+ 			&& TREE_CODE (maybe_stable_expr) == ERROR_MARK)
+		      gnu_expr = NULL_TREE;
+		    else
+		      gnu_expr = build_unary_op (ADDR_EXPR, gnu_type,
+						 maybe_stable_expr);
 
 		    gnu_size = NULL_TREE;
 		    used_by_ref = true;
@@ -1478,10 +1484,10 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 	    && const_flag
 	    && gnu_expr && TREE_CONSTANT (gnu_expr)
 	    && AGGREGATE_TYPE_P (gnu_type)
-	    && host_integerp (TYPE_SIZE_UNIT (gnu_type), 1)
+	    && tree_fits_uhwi_p (TYPE_SIZE_UNIT (gnu_type))
 	    && !(TYPE_IS_PADDING_P (gnu_type)
-		 && !host_integerp (TYPE_SIZE_UNIT
-				    (TREE_TYPE (TYPE_FIELDS (gnu_type))), 1)))
+		 && !tree_fits_uhwi_p (TYPE_SIZE_UNIT
+				       (TREE_TYPE (TYPE_FIELDS (gnu_type))))))
 	  static_p = true;
 
 	/* Now create the variable or the constant and set various flags.  */
@@ -3493,7 +3499,7 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			gnu_size = DECL_SIZE (gnu_old_field);
 			if (RECORD_OR_UNION_TYPE_P (gnu_field_type)
 			    && !TYPE_FAT_POINTER_P (gnu_field_type)
-			    && host_integerp (TYPE_SIZE (gnu_field_type), 1))
+			    && tree_fits_uhwi_p (TYPE_SIZE (gnu_field_type)))
 			  gnu_field_type
 			    = make_packable_type (gnu_field_type, true);
 		      }
@@ -4918,22 +4924,22 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 
 	      /* Consider an alignment as suspicious if the alignment/size
 		 ratio is greater or equal to the byte/bit ratio.  */
-	      if (host_integerp (size, 1)
-		  && align >= TREE_INT_CST_LOW (size) * BITS_PER_UNIT)
+	      if (tree_fits_uhwi_p (size)
+		  && align >= tree_to_uhwi (size) * BITS_PER_UNIT)
 		post_error_ne ("?suspiciously large alignment specified for&",
 			       Expression (Alignment_Clause (gnat_entity)),
 			       gnat_entity);
 	    }
 	}
       else if (Is_Atomic (gnat_entity) && !gnu_size
-	       && host_integerp (TYPE_SIZE (gnu_type), 1)
+	       && tree_fits_uhwi_p (TYPE_SIZE (gnu_type))
 	       && integer_pow2p (TYPE_SIZE (gnu_type)))
 	align = MIN (BIGGEST_ALIGNMENT,
-		     tree_low_cst (TYPE_SIZE (gnu_type), 1));
+		     tree_to_uhwi (TYPE_SIZE (gnu_type)));
       else if (Is_Atomic (gnat_entity) && gnu_size
-	       && host_integerp (gnu_size, 1)
+	       && tree_fits_uhwi_p (gnu_size)
 	       && integer_pow2p (gnu_size))
-	align = MIN (BIGGEST_ALIGNMENT, tree_low_cst (gnu_size, 1));
+	align = MIN (BIGGEST_ALIGNMENT, tree_to_uhwi (gnu_size));
 
       /* See if we need to pad the type.  If we did, and made a record,
 	 the name of the new type may be changed.  So get it back for
@@ -5579,7 +5585,7 @@ gnat_to_gnu_component_type (Entity_Id gnat_array, bool definition,
       && !Strict_Alignment (gnat_type)
       && RECORD_OR_UNION_TYPE_P (gnu_type)
       && !TYPE_FAT_POINTER_P (gnu_type)
-      && host_integerp (TYPE_SIZE (gnu_type), 1))
+      && tree_fits_uhwi_p (TYPE_SIZE (gnu_type)))
     gnu_type = make_packable_type (gnu_type, false);
 
   if (Has_Atomic_Components (gnat_array))
@@ -6503,7 +6509,7 @@ gnat_to_gnu_field (Entity_Id gnat_field, tree gnu_record_type, int packed,
   if (!needs_strict_alignment
       && RECORD_OR_UNION_TYPE_P (gnu_field_type)
       && !TYPE_FAT_POINTER_P (gnu_field_type)
-      && host_integerp (TYPE_SIZE (gnu_field_type), 1)
+      && tree_fits_uhwi_p (TYPE_SIZE (gnu_field_type))
       && (packed == 1
 	  || (gnu_size
 	      && (tree_int_cst_lt (gnu_size, TYPE_SIZE (gnu_field_type))
@@ -6926,6 +6932,7 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
   tree gnu_rep_list = NULL_TREE;
   tree gnu_var_list = NULL_TREE;
   tree gnu_self_list = NULL_TREE;
+  tree gnu_zero_list = NULL_TREE;
 
   /* For each component referenced in a component declaration create a GCC
      field and add it to the list, skipping pragmas in the GNAT list.  */
@@ -7003,12 +7010,10 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
       tree gnu_union_type, gnu_union_name;
       tree this_first_free_pos, gnu_variant_list = NULL_TREE;
       bool union_field_needs_strict_alignment = false;
-      vec <vinfo_t, va_stack> variant_types;
+      stack_vec <vinfo_t, 16> variant_types;
       vinfo_t *gnu_variant;
       unsigned int variants_align = 0;
       unsigned int i;
-
-      vec_stack_alloc (vinfo_t, variant_types, 16);
 
       if (TREE_CODE (gnu_name) == TYPE_DECL)
 	gnu_name = DECL_NAME (gnu_name);
@@ -7205,9 +7210,6 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 	  gnu_variant_list = gnu_field;
 	}
 
-      /* We are done with the variants.  */
-      variant_types.release ();
-
       /* Only make the QUAL_UNION_TYPE if there are non-empty variants.  */
       if (gnu_variant_list)
 	{
@@ -7261,6 +7263,10 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
      to do this in a separate pass since we want to handle the discriminants
      but can't play with them until we've used them in debugging data above.
 
+     Similarly, pull out the fields with zero size and no rep clause, as they
+     would otherwise modify the layout and thus very likely run afoul of the
+     Ada semantics, which are different from those of C here.
+
      ??? If we reorder them, debugging information will be wrong but there is
      nothing that can be done about this at the moment.  */
   gnu_last = NULL_TREE;
@@ -7296,6 +7302,19 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
       if (reorder && field_has_variable_size (gnu_field))
 	{
 	  MOVE_FROM_FIELD_LIST_TO (gnu_var_list);
+	  continue;
+	}
+
+      if (DECL_SIZE (gnu_field) && integer_zerop (DECL_SIZE (gnu_field)))
+	{
+	  DECL_FIELD_OFFSET (gnu_field) = size_zero_node;
+	  SET_DECL_OFFSET_ALIGN (gnu_field, BIGGEST_ALIGNMENT);
+	  DECL_FIELD_BIT_OFFSET (gnu_field) = bitsize_zero_node;
+	  if (field_is_aliased (gnu_field))
+	    TYPE_ALIGN (gnu_record_type)
+	      = MAX (TYPE_ALIGN (gnu_record_type),
+		     TYPE_ALIGN (TREE_TYPE (gnu_field)));
+	  MOVE_FROM_FIELD_LIST_TO (gnu_zero_list);
 	  continue;
 	}
 
@@ -7390,6 +7409,11 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 
   finish_record_type (gnu_record_type, gnu_field_list, layout_with_rep ? 1 : 0,
 		      debug_info && !maybe_unused);
+
+  /* Chain the fields with zero size at the beginning of the field list.  */
+  if (gnu_zero_list)
+    TYPE_FIELDS (gnu_record_type)
+      = chainon (gnu_zero_list, TYPE_FIELDS (gnu_record_type));
 
   return (gnu_rep_list && !p_gnu_rep_list) || variants_have_rep;
 }
@@ -8363,7 +8387,7 @@ create_field_decl_from (tree old_field, tree field_type, tree record_type,
 {
   tree t = TREE_VALUE (purpose_member (old_field, pos_list));
   tree pos = TREE_VEC_ELT (t, 0), bitpos = TREE_VEC_ELT (t, 2);
-  unsigned int offset_align = tree_low_cst (TREE_VEC_ELT (t, 1), 1);
+  unsigned int offset_align = tree_to_uhwi (TREE_VEC_ELT (t, 1));
   tree new_pos, new_field;
   unsigned int i;
   subst_pair *s;

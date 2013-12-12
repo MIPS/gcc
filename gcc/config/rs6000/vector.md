@@ -108,6 +108,7 @@
   if (!BYTES_BIG_ENDIAN
       && VECTOR_MEM_VSX_P (<MODE>mode)
       && <MODE>mode != TImode
+      && !gpr_or_gpr_p (operands[0], operands[1])
       && (memory_operand (operands[0], <MODE>mode)
           ^ memory_operand (operands[1], <MODE>mode)))
     {
@@ -951,8 +952,8 @@
     	      				 operands[2], operands[3]));
   else
     {
-      /* Avoid the "subtract from splat31" workaround for vperm since
-         we have changed lvsr to lvsl instead.  */
+      /* We have changed lvsr to lvsl, so to complete the transformation
+         of vperm for LE, we must swap the inputs.  */
       rtx unspec = gen_rtx_UNSPEC (<MODE>mode,
                                    gen_rtvec (3, operands[2],
                                               operands[1], operands[3]),

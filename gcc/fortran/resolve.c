@@ -2616,7 +2616,9 @@ found:
     expr->ts = sym->ts;
   expr->value.function.name = sym->name;
   expr->value.function.esym = sym;
-  if (sym->as != NULL)
+  if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)
+    expr->rank = CLASS_DATA (sym)->as->rank;
+  else if (sym->as != NULL)
     expr->rank = sym->as->rank;
 
   return MATCH_YES;
@@ -8247,10 +8249,11 @@ resolve_transfer (gfc_code *code)
 	 && exp->value.op.op == INTRINSIC_PARENTHESES)
     exp = exp->value.op.op1;
 
-  if (exp && exp->expr_type == EXPR_NULL && exp->ts.type == BT_UNKNOWN)
+  if (exp && exp->expr_type == EXPR_NULL
+      && code->ext.dt)
     {
-      gfc_error ("NULL intrinsic at %L in data transfer statement requires "
-		 "MOLD=", &exp->where);
+      gfc_error ("Invalid context for NULL () intrinsic at %L",
+		 &exp->where);
       return;
     }
 
