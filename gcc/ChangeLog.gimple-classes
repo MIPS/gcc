@@ -1,5 +1,27 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Update various expressions within tree-scalar-evolution.c to be gimple_phi
+
+	* tree-scalar-evolution.c (follow_ssa_edge): Require a gimple_phi,
+	rather than a gimple.
+	(follow_ssa_edge_binary): Likewise.
+	(follow_ssa_edge_expr): Likewise.
+	(follow_ssa_edge_in_rhs): Likewise.
+	(backedge_phi_arg_p): Likewise.
+	(follow_ssa_edge_in_condition_phi_branch): Likewise.
+	(follow_ssa_edge_in_condition_phi): Likewise.
+	(follow_ssa_edge_inner_loop_phi): Likewise.
+	(analyze_evolution_in_loop): Likewise.
+	(analyze_initial_condition): Likewise.
+	(interpret_loop_phi): Likewise.
+	(interpret_condition_phi): Likewise.
+	(follow_ssa_edge): Likewise; also, add checked casts to gimple_phi.
+
+	(analyze_scalar_evolution_1): Add checked casts to gimple_phi
+	within "case GIMPLE_PHI".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	tree-ssa-loop-ivopts.c: use gimple_phi in a few places
 
 	* tree-ssa-loop-ivopts.c (determine_biv_step): Require a gimple_phi.
