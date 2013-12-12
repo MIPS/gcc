@@ -551,6 +551,8 @@ trans_acc_clauses (stmtblock_t *block, gfc_acc_clauses *clauses,
   if (clauses->async)
     {
       c = build_acc_clause (where.lb->location, ACC_CLAUSE_ASYNC);
+      ACC_CLAUSE_ASYNC_EXPR (c) =
+          convert_expr_to_tree (block, clauses->async_expr);
       acc_clauses = trans_add_clause (c, acc_clauses);
     }
   if (clauses->seq)

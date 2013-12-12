@@ -5,8 +5,8 @@ int main() {
 
 
 	int i, j, k, l, a[10];
-	float* p1 = NULL;
-	double c, d[10]
+	float* p1 = 0;
+	double c, d[10];
 
 	#pragma acc parallel private(i)
 	{}
@@ -23,18 +23,22 @@ int main() {
 	#pragma acc parallel private (i) private (j)
 	{}
 
-	#pragma acc parallel private /* { dg-error "Unclassifiable OpenACC directive" } */
-
-	#pragma acc parallel private() /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc parallel private(a[1:2]) /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc parallel private(10) /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc parallel private(i, j, i) /* { dg-warning "present on multiple clauses" } */
+	#pragma acc parallel private /* { dg-error "expected" } */
 	{}
 
-	#pragma acc parallel private(p1) /* { dg-error "POINTER" } */
+	#pragma acc parallel private() /* { dg-error "expected identifier" } */
+	{}
+
+	#pragma acc parallel private(a[1:2]) /* { dg-error "expected" } */
+	{}
+
+	#pragma acc parallel private(10) /* { dg-error "expected identifier" } */
+	{}
+
+	#pragma acc parallel private(i, j, i) /* { dg-warning "multiple clauses" } */
+	{}
+
+	#pragma acc parallel private(p1) 
 	{}
 
 	#pragma acc parallel firstprivate(i)
@@ -52,21 +56,25 @@ int main() {
 	#pragma acc parallel firstprivate (i) firstprivate (j)
 	{}
 
-	#pragma acc parallel firstprivate /* { dg-error "Unclassifiable OpenACC directive" } */
-
-	#pragma acc parallel firstprivate() /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc parallel firstprivate(a[1:3]) /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc parallel firstprivate(10) /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc parallel firstprivate (i, j, i) /* { dg-warning "present on multiple clauses" } */
+	#pragma acc parallel firstprivate /* { dg-error "expected" } */
 	{}
 
-	#pragma acc parallel firstprivate(p1) /* { dg-error "POINTER" } */
+	#pragma acc parallel firstprivate() /* { dg-error "expected identifier" } */
 	{}
 
-	#pragma acc parallel private (i) firstprivate (i) /* { dg-warning "present on multiple clauses" } */
+	#pragma acc parallel firstprivate(a[1:3]) /* { dg-error "expected" } */
+	{}
+
+	#pragma acc parallel firstprivate(10) /* { dg-error "expected identifier" } */
+	{}
+
+	#pragma acc parallel firstprivate (i, j, i) /* { dg-warning "multiple clauses" } */
+	{}
+
+	#pragma acc parallel firstprivate(p1) 
+	{}
+
+	#pragma acc parallel private (i) firstprivate (i) /* { dg-warning "multiple clauses" } */
 	{}
 
 	#pragma acc host_data use_device(i)
@@ -84,18 +92,22 @@ int main() {
 	#pragma acc host_data use_device (i) use_device (j)
 	{}
 
-	#pragma acc host_data use_device /* { dg-error "Unclassifiable OpenACC directive" } */
-
-	#pragma acc host_data use_device() /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc host_data use_device(a[1:3]) /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc host_data use_device(10) /* { dg-error "Syntax error in OpenACC variable list" } */
-
-	#pragma acc host_data use_device(i, j, i) /* { dg-warning "present on multiple clauses" } */
+	#pragma acc host_data use_device /* { dg-error "expected" } */
 	{}
 
-	#pragma acc host_data use_device(p1) /* { dg-error "POINTER" } */
+	#pragma acc host_data use_device() /* { dg-error "expected identifier" } */
+	{}
+
+	#pragma acc host_data use_device(a[1:3]) /* { dg-error "expected" } */
+	{}
+
+	#pragma acc host_data use_device(10) /* { dg-error "expected identifier" } */
+	{}
+
+	#pragma acc host_data use_device(i, j, i) /* { dg-warning "multiple clauses" } */
+	{}
+
+	#pragma acc host_data use_device(p1) /* { dg-error "pointer" } */
 	{}
 
 }

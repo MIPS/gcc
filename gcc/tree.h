@@ -1209,6 +1209,7 @@ extern void protected_set_expr_location (tree, location_t);
 #define ACC_CLAUSE_GANG_EXPR(NODE)               ACC_CLAUSE_DECL (NODE)
 #define ACC_CLAUSE_COLLAPSE_EXPR(NODE)           ACC_CLAUSE_DECL (NODE)
 #define ACC_CLAUSE_IF_EXPR(NODE)                 ACC_CLAUSE_DECL (NODE)
+#define ACC_CLAUSE_ASYNC_EXPR(NODE)              ACC_CLAUSE_DECL (NODE)
 
 #define ACC_WAIT_EXPR(NODE)                      ACC_CLAUSE_DECL (NODE)
 

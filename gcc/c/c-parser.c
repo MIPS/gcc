@@ -11123,6 +11123,12 @@ c_parser_acc_variable_list (c_parser *parser,
                     "%qE must be pointer for %<deviceptr%>", t_name);
         break;
 
+      case ACC_CLAUSE_USE_DEVICE:
+        if (POINTER_TYPE_P (TREE_TYPE (t_name)))
+          error_at (clause_loc,
+                    "%qE cannot be pointer for %<use_device%>", t_name);
+        break;
+
       case ACC_CLAUSE_COPY:
       case ACC_CLAUSE_COPYIN:
       case ACC_CLAUSE_COPYOUT:
@@ -11224,21 +11230,134 @@ c_parser_acc_cache_list_parens (c_parser *parser, tree list)
   return list;
 }
 
+static tree
+c_parser_acc_positive_integer_expression (c_parser *parser, tree list,
+                                          enum acc_clause_code code,
+                                          const char *name)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+
+  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
+  {
+    location_t expr_loc = c_parser_peek_token (parser)->location;
+    tree c, t = c_parser_expression (parser).value;
+    mark_exp_read (t);
+    t = c_fully_fold (t, false, NULL);
+
+    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
+
+    if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
+    {
+      c_parser_error (parser, "expected integer expression");
+      return list;
+    }
+
+    /* Attempt to statically determine when the number isn't positive.  */
+    c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
+                         build_int_cst (TREE_TYPE (t), 0));
+    if (CAN_HAVE_LOCATION_P (c))
+    {
+      SET_EXPR_LOCATION (c, expr_loc);
+    }
+
+    if (c == boolean_true_node)
+    {
+      warning_at (expr_loc, 0,
+                  "%<%s%> value must be positive", name);
+      t = integer_one_node;
+    }
+
+    c_parser_acc_clause_check_no_duplicate (list, code, name);
+
+    c = build_acc_clause (loc, code);
+    switch (code)
+      {
+      case ACC_CLAUSE_NUM_GANGS:
+        ACC_CLAUSE_NUM_GANGS_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_VECTOR_LENGTH:
+        ACC_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_NUM_WORKERS:
+        ACC_CLAUSE_NUM_WORKERS_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_GANG:
+        ACC_CLAUSE_GANG_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_WORKER:
+        ACC_CLAUSE_WORKER_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_VECTOR:
+        ACC_CLAUSE_VECTOR_EXPR (c) = t;
+        break;
+      case ACC_CLAUSE_ASYNC:
+        ACC_CLAUSE_ASYNC_EXPR (c) = t;
+        break;
+      default:
+        gcc_unreachable ();
+      }
+    ACC_CLAUSE_CHAIN (c) = list;
+    list = c;
+  }
+
+  return list;
+}
+
+static tree
+c_parser_acc_optional_integer_expression (c_parser *parser, tree list,
+                                          enum acc_clause_code code,
+                                          const char *name)
+{
+  if (c_parser_next_token_is (parser, CPP_OPEN_PAREN))
+    return c_parser_acc_positive_integer_expression (parser, list, code, name);
+  else
+    {
+      tree c;
+      c_parser_acc_clause_check_no_duplicate (list, code, name);
+      c = build_acc_clause (c_parser_peek_token (parser)->location, code);
+      ACC_CLAUSE_CHAIN (c) = list;
+      return c;
+    }
+}
+
 /* OpenACC 1.0:
    async */
 static tree
 c_parser_acc_clause_async (c_parser *parser, tree list)
 {
-  tree c;
+  return c_parser_acc_optional_integer_expression (parser, list,
+                                                   ACC_CLAUSE_ASYNC,
+                                                   "async");
+}
 
-  c_parser_acc_clause_check_no_duplicate (list, ACC_CLAUSE_ASYNC,
-                                          "async");
+/* OpenACC 1.0:
+   gang */
+static tree
+c_parser_acc_clause_gang (c_parser *parser, tree list)
+{
+  return c_parser_acc_optional_integer_expression (parser, list,
+                                                   ACC_CLAUSE_GANG,
+                                                   "gang");
+}
 
-  c = build_acc_clause (c_parser_peek_token (parser)->location,
-                        ACC_CLAUSE_ASYNC);
-  ACC_CLAUSE_CHAIN (c) = list;
+/* OpenACC 1.0:
+   worker */
+static tree
+c_parser_acc_clause_worker (c_parser *parser, tree list)
+{
+  return c_parser_acc_optional_integer_expression (parser, list,
+                                                   ACC_CLAUSE_WORKER,
+                                                   "worker");
+}
 
-  return c;
+/* OpenACC 1.0:
+   vector */
+static tree
+c_parser_acc_clause_vector (c_parser *parser, tree list)
+{
+  return c_parser_acc_optional_integer_expression (parser, list,
+                                                   ACC_CLAUSE_VECTOR,
+                                                   "vector");
 }
 
 /* OpenACC 1.0:
@@ -11356,76 +11475,6 @@ c_parser_acc_clause_collapse (c_parser *parser, tree list)
   ACC_CLAUSE_CHAIN (c) = list;
 
   return c;
-}
-
-static tree
-c_parser_acc_positive_integer_expression (c_parser *parser, tree list,
-                                          enum acc_clause_code code,
-                                          const char *name)
-{
-  location_t loc = c_parser_peek_token (parser)->location;
-
-  if (c_parser_require (parser, CPP_OPEN_PAREN, "expected %<(%>"))
-  {
-    location_t expr_loc = c_parser_peek_token (parser)->location;
-    tree c, t = c_parser_expression (parser).value;
-    mark_exp_read (t);
-    t = c_fully_fold (t, false, NULL);
-
-    c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
-
-    if (!INTEGRAL_TYPE_P (TREE_TYPE (t)))
-    {
-      c_parser_error (parser, "expected integer expression");
-      return list;
-    }
-
-    /* Attempt to statically determine when the number isn't positive.  */
-    c = fold_build2_loc (expr_loc, LE_EXPR, boolean_type_node, t,
-                         build_int_cst (TREE_TYPE (t), 0));
-    if (CAN_HAVE_LOCATION_P (c))
-    {
-      SET_EXPR_LOCATION (c, expr_loc);
-    }
-
-    if (c == boolean_true_node)
-    {
-      warning_at (expr_loc, 0,
-                  "%<%s%> value must be positive", name);
-      t = integer_one_node;
-    }
-
-    c_parser_acc_clause_check_no_duplicate (list, code, name);
-
-    c = build_acc_clause (loc, code);
-    switch (code)
-      {
-      case ACC_CLAUSE_NUM_GANGS:
-        ACC_CLAUSE_NUM_GANGS_EXPR (c) = t;
-        break;
-      case ACC_CLAUSE_VECTOR_LENGTH:
-        ACC_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
-        break;
-      case ACC_CLAUSE_NUM_WORKERS:
-        ACC_CLAUSE_NUM_WORKERS_EXPR (c) = t;
-        break;
-      case ACC_CLAUSE_GANG:
-        ACC_CLAUSE_GANG_EXPR (c) = t;
-        break;
-      case ACC_CLAUSE_WORKER:
-        ACC_CLAUSE_WORKER_EXPR (c) = t;
-        break;
-      case ACC_CLAUSE_VECTOR:
-        ACC_CLAUSE_VECTOR_EXPR (c) = t;
-        break;
-      default:
-        gcc_unreachable ();
-      }
-    ACC_CLAUSE_CHAIN (c) = list;
-    list = c;
-  }
-
-  return list;
 }
 
 /* OpenACC 1.0:
@@ -11739,21 +11788,17 @@ c_parser_acc_all_clauses (c_parser *parser, unsigned int mask,
       c_name = "deviceptr";
       break;
     case PRAGMA_ACC_CLAUSE_GANG:
-      clauses =
-          c_parser_acc_positive_integer_expression(parser, clauses,
-                                                   ACC_CLAUSE_GANG, "gang");
+      clauses = c_parser_acc_clause_gang (parser, clauses);
       c_name = "gang";
       break;
+      break;
     case PRAGMA_ACC_CLAUSE_WORKER:
-      clauses =
-          c_parser_acc_positive_integer_expression(parser, clauses,
-                                                   ACC_CLAUSE_WORKER, "worker");
+      clauses = c_parser_acc_clause_worker (parser, clauses);
       c_name = "worker";
       break;
     case PRAGMA_ACC_CLAUSE_VECTOR:
-      clauses =
-          c_parser_acc_positive_integer_expression(parser, clauses,
-                                                   ACC_CLAUSE_VECTOR, "vector");
+      clauses = c_parser_acc_clause_vector (parser, clauses);
+      c_name = "vector";
       break;
       /* Undone - TODO Do not know how it should look like.
 
@@ -11768,11 +11813,13 @@ c_parser_acc_all_clauses (c_parser *parser, unsigned int mask,
     case PRAGMA_ACC_CLAUSE_DEVICE_RESIDENT:
       clauses = c_parser_acc_clause_resident (parser, clauses);
       c_name = "resident";
-      break;
-    case PRAGMA_ACC_CLAUSE_USE_DEVICE:
-      clauses = c_parser_acc_clause_use_device (parser, clauses);
-      c_name = "device";
       break;*/
+    case PRAGMA_ACC_CLAUSE_USE_DEVICE:
+      clauses = c_parser_acc_var_list_parens (parser,
+                                              ACC_CLAUSE_USE_DEVICE,
+                                              clauses);
+      c_name = "use_device";
+      break;
 
     default:
       c_parser_error (parser, "expected %<#pragma acc%> clause");
@@ -11825,6 +11872,19 @@ c_begin_acc_kernels (void)
  */
 tree
 c_begin_acc_data (void)
+{
+  tree block;
+
+  keep_next_level ();
+  block = c_begin_compound_stmt (true);
+
+  return block;
+}
+
+/* Like c_begin_compound_stmt, except force the retention of the BLOCK.
+ */
+tree
+c_begin_acc_host_data (void)
 {
   tree block;
 
@@ -11887,6 +11947,25 @@ c_finish_acc_data (location_t loc, tree clauses, tree block)
 
   return add_stmt (stmt);
 }
+
+/* Generate ACC_HOST_DATA, with CLAUSES and BLOCK as its compound
+   statement. */
+tree
+c_finish_acc_host_data (location_t loc, tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (loc, block, true);
+
+  stmt = make_node (ACC_HOST_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  ACC_HOST_DATA_CLAUSES (stmt) = clauses;
+  ACC_HOST_DATA_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  return add_stmt (stmt);
+}
+
 
 /* FIXME: split with check_omp_for_incr_expr */
 static tree
@@ -12531,7 +12610,7 @@ c_parser_acc_kernels (location_t loc, c_parser *parser)
 {
   enum pragma_kind p_kind = PRAGMA_ACC_KERNELS;
   const char *p_name = "#pragma acc kernels";
-  tree stmt, clauses, block, for_block;
+  tree stmt, clauses, block;
   unsigned int mask = ACC_KERNELS_CLAUSE_MASK;
   struct acc_context ctx;
 
@@ -12562,12 +12641,10 @@ c_parser_acc_kernels (location_t loc, c_parser *parser)
     stmt = c_finish_acc_kernels (loc, clauses, block);
     break;
   case PRAGMA_ACC_KERNELS_LOOP:
-    block = c_begin_acc_kernels ();
-    for_block = c_begin_compound_stmt (true);
+    block = c_begin_compound_stmt (true);
     stmt = c_parser_acc_loop_1 (loc, parser, clauses, NULL);
-    for_block = c_end_compound_stmt (loc, for_block, true);
-    add_stmt (for_block);
-    stmt = c_finish_acc_kernels (loc, clauses, block);
+    block = c_end_compound_stmt (loc, block, true);
+    add_stmt (block);
     break;
   default:
     gcc_unreachable ();
@@ -12584,7 +12661,6 @@ c_parser_acc_kernels (location_t loc, c_parser *parser)
 static tree
 c_parser_acc_wait (location_t loc, c_parser *parser)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_WAIT;
   const char *p_name = "#pragma acc wait";
   tree clauses, stmt;
 
@@ -12610,7 +12686,6 @@ c_parser_acc_wait (location_t loc, c_parser *parser)
 static tree
 c_parser_acc_update (location_t loc, c_parser *parser)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_UPDATE;
   const char *p_name = "#pragma acc update";
   tree clauses, stmt = make_node (ACC_UPDATE);
   unsigned int mask = ACC_UPDATE_CLAUSE_MASK;
@@ -12629,7 +12704,6 @@ c_parser_acc_update (location_t loc, c_parser *parser)
 static tree
 c_parser_acc_declare (location_t loc, c_parser *parser)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_DECLARE;
   const char *p_name = "#pragma acc declare";
   tree clauses, stmt = make_node (ACC_DECLARE);
   unsigned int mask = ACC_DECLARE_CLAUSE_MASK;
@@ -12648,7 +12722,6 @@ c_parser_acc_declare (location_t loc, c_parser *parser)
 static tree
 c_parser_acc_cache (location_t loc, c_parser *parser)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_CACHE;
   const char *p_name = "#pragma acc cache";
   tree clauses = NULL, stmt = make_node (ACC_CACHE);
 
@@ -12668,7 +12741,6 @@ c_parser_acc_cache (location_t loc, c_parser *parser)
 static tree
 c_parser_acc_data (location_t loc, c_parser *parser)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_DATA;
   const char *p_name = "#pragma acc data";
   tree clauses, stmt, block;
   unsigned int mask = ACC_DATA_CLAUSE_MASK;
@@ -12687,16 +12759,14 @@ c_parser_acc_data (location_t loc, c_parser *parser)
 static tree
 c_parser_acc_host_data (location_t loc, c_parser *parser)
 {
-  enum pragma_kind p_kind = PRAGMA_ACC_HOST_DATA;
   const char *p_name = "#pragma acc host_data";
-  tree clauses;
-  tree stmt = make_node (ACC_HOST_DATA);
+  tree clauses, block, stmt = make_node (ACC_HOST_DATA);
   unsigned int mask = ACC_HOST_DATA_CLAUSE_MASK;
 
   clauses = c_parser_acc_all_clauses (parser, mask, p_name);
-
-  TREE_TYPE (stmt) = void_type_node;
-  SET_EXPR_LOCATION (stmt, loc);
+  block = c_begin_acc_host_data ();
+  c_parser_statement (parser);
+  stmt = c_finish_acc_host_data (loc, clauses, block);
 
   return add_stmt (stmt);
 }

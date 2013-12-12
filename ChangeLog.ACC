@@ -1,3 +1,24 @@
+12-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Fix parsing of scalar integer expressions and variable lists
+	in C FE
+
+	* gcc/tree.h(ACC_CLAUSE_ASYNC_EXPR): New macros
+	* gcc/c/c-parser.c (c_parser_acc_variable_list): Support use_device
+	(c_parser_acc_positive_integer_expression): Support async
+	(c_parser_acc_clause_gang, c_parser_acc_clause_worker,
+	c_parser_acc_clause_vector, c_begin_acc_host_data,
+	c_parser_acc_optional_integer_expression, c_finish_acc_host_data):
+	New functions
+	(c_parser_acc_clause_async): Refactor
+	(c_parser_acc_all_clauses): Refactor, support use_device
+	(c_parser_acc_kernels, c_parser_acc_wait, c_parser_acc_update,
+	c_parser_acc_declare, c_parser_acc_cache, c_parser_acc_data):
+	Remove unnecessary code
+	(c_parser_acc_host_data): Parse host_data clause (use_device)
+	* gcc/fortran/trans-openacc.c(trans_acc_clauses): Fix async
+	* gcc/testsuite/gcc.dg/gacc/list.c: Fix test
+	* gcc/testsuite/gcc.dg/gacc/sie.c: Likewise
+
 11-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Fix data clauses and seq/independent pair in C FE
 
