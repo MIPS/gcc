@@ -1,3 +1,171 @@
+2013-12-12  Jeff Law  <law@redhat.com>
+
+	* i386.md (simple LEA peephole2): Add missing mode to zero_extend
+	for zero-extended MULT simple LEA pattern.
+
+2013-12-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/59470
+	* lra-coalesce.c (lra_coalesce): Invalidate inheritance pseudo
+	values if necessary.
+
+2013-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/59467
+	* gimplify.c (omp_check_private): Add copyprivate argument, if it
+	is true, don't check omp_privatize_by_reference.
+	(gimplify_scan_omp_clauses): For OMP_CLAUSE_COPYPRIVATE verify
+	decl is private in outer context.  Adjust omp_check_private caller.
+
+2013-12-11  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/59446
+	* tree-ssa-threadupdate.c (mark_threaded_blocks): Properly
+	test for crossing a loop header.
+
+2013-12-11  Sriraman Tallam  <tmsriram@google.com>
+
+	PR target/59390
+	* config/i386/i386.c (get_builtin): New function.
+	(ix86_builtin_vectorized_function): Replace all instances of
+	ix86_builtins[...] with get_builtin(...).
+	(ix86_builtin_reciprocal): Ditto.
+
+2013-12-11  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* langhooks.h (lang_hooks_for_decls): Remove lang_hooks_for_cilkplus.
+	(lang_hooks_for_cilkplus): Remove.
+	* langhooks.c (lhd_cilk_detect_spawn): Likewise.
+	(lhd_install_body_with_frame_cleanup): Likewise.
+	* langhooks-def.h (LANG_HOOKS_CILKPLUS_FRAME_CLEANUP): Likewise.
+	(LANG_HOOKS_CILKPLUS_DETECT_SPAWN_AND_UNWRAP): Likewise.
+	(LANG_HOOKS_CILKPLUS_CILKPLUS_GIMPLIFY_SPAWN): Likewise.
+	(LANG_HOOKS_CILKPLUS): Likewise.
+	(LANG_HOOKS_DECLS): Remove LANG_HOOKS_CILKPLUS.
+	* gimplify.c (gimplify_expr): Removed CILK_SPAWN_STMT case.
+	(gimplify_modify_expr): Removed handling of _Cilk_spawn in expr.
+	(gimplify_call_expr): Likewise.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* expr.c (expand_assignment): Remove dependency on
+	flag_strict_volatile_bitfields. Always set the memory 
+	access mode.
+	(expand_expr_real_1): Likewise.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/59134
+	* expmed.c (store_bit_field): Use narrow_bit_field_mem and
+	store_fixed_bit_field_1 for -fstrict-volatile-bitfields.
+	(store_fixed_bit_field): Split up.  Call store_fixed_bit_field_1
+	to do the real work.
+	(store_fixed_bit_field_1): New function.
+	(store_split_bit_field): Limit the unit size to the memory mode size,
+	to prevent recursion.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR middle-end/23623
+	PR middle-end/48784
+	PR middle-end/56341
+	PR middle-end/56997
+	* expmed.c (strict_volatile_bitfield_p): Add bitregion_start
+	and bitregion_end parameters.  Test for compliance with C++
+	memory model.
+	(store_bit_field): Adjust call to strict_volatile_bitfield_p.
+	Add fallback logic for cases where -fstrict-volatile-bitfields
+	is supposed to apply, but cannot.
+	(extract_bit_field): Likewise. Use narrow_bit_field_mem and
+	extract_fixed_bit_field_1 to do the extraction.
+	(extract_fixed_bit_field): Revert to previous mode selection algorithm.
+	Call extract_fixed_bit_field_1 to do the real work.
+	(extract_fixed_bit_field_1): New function.
+
+2013-12-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR middle-end/23623
+	PR middle-end/48784
+	PR middle-end/56341
+	PR middle-end/56997
+	* expmed.c (strict_volatile_bitfield_p): New function.
+	(store_bit_field_1): Don't special-case strict volatile
+	bitfields here.
+	(store_bit_field): Handle strict volatile bitfields here instead.
+	(store_fixed_bit_field): Don't special-case strict volatile
+	bitfields here.
+	(extract_bit_field_1): Don't special-case strict volatile
+	bitfields here.
+	(extract_bit_field): Handle strict volatile bitfields here instead.
+	(extract_fixed_bit_field): Don't special-case strict volatile
+	bitfields here.  Simplify surrounding code to resemble that in
+	store_fixed_bit_field.
+	* doc/invoke.texi (Code Gen Options): Update
+	-fstrict-volatile-bitfields description.
+
+2013-12-11  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* configure.ac: Add check for aarch64 assembler -mabi support.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/aarch64/aarch64-elf.h (ASM_MABI_SPEC): New define.
+	(ASM_SPEC): Update to substitute -mabi with ASM_MABI_SPEC.
+	* config/aarch64/aarch64.h (aarch64_override_options): Issue error
+	if assembler does not support -mabi and option ilp32 is selected.
+	* doc/install.texi: Added note that building gcc 4.9 and after
+	with pre 2.24 binutils will not support -mabi=ilp32.
+
+2013-12-11  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59399
+	* expr.c (expand_expr_real_1): Remove assert dealing with
+	internal calls and turn that into a condition instead.
+
+2013-12-11  Yvan Roux  <yvan.roux@linaro.org>
+
+	* config/arm/arm.opt (mlra): Enable LRA by default.
+
+2013-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59417
+	* tree-ssa-copy.c (fini_copy_prop): If copy_of[i].value is defined
+	in a different bb rhan var, only duplicate points-to info and
+	not alignment info and don't duplicate range info.
+	* tree-ssa-loop-niter.c (determine_value_range): Instead of
+	assertion failure handle inconsistencies in range info by only
+	using var's range info and not PHI result range infos.
+
+	PR tree-optimization/59386
+	* tree-inline.c (remap_gimple_stmt): If not id->do_not_unshare,
+	unshare_expr (id->retval) before passing it to gimple_build_assign.
+
+2013-12-11  Bin Cheng  <bin.cheng@arm.com>
+
+	Reverted:
+	2013-12-10  Bin Cheng  <bin.cheng@arm.com>
+	PR tree-optimization/41488
+	* tree-ssa-loop-ivopts.c (add_old_iv_candidates): Don't add cand
+	for PEELED_CHREC kind IV.
+	* tree-scalar-evolution.c: Include necessary header files.
+	(peeled_chrec_map, simplify_peeled_chrec): New.
+	(analyze_evolution_in_loop): New static variable.
+	Call simplify_peeled_chrec.
+	(scev_initialize): Initialize peeled_chrec_map.
+	(scev_reset, scev_finalize): Reset and release peeled_chrec_map.
+
+2013-12-10   H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59458
+	* config/i386/i386.md (*movsf_internal): Set mode to SI for
+	alternative 13.
+
+2013-12-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/58295
+	* simplify-rtx.c (simplify_truncation): Restrict the distribution for
+	WORD_REGISTER_OPERATIONS targets.
+
 2013-12-10  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* genrecog.c (validate_pattern): Treat all messages except missing
@@ -1230,7 +1398,7 @@
 	(ix86_expand_builtin): Expand them.
 	* config/i386/ia32intrin.h (__readeflags): New.
 	(__writeeflags): Ditto.
-	* gcc/config/i386/i386.md (*pushfl<mode>): Ditto.
+	* config/i386/i386.md (*pushfl<mode>): Ditto.
 	(*popfl<mode>1): Ditto.
 
 2013-12-05  Richard Biener  <rguenther@suse.de>
@@ -3708,7 +3876,7 @@
 
 2013-11-20  James Greenhalgh  <james.greenhalgh@arm.com>
 
-	* gcc/config/aarch64/aarch64-builtins.c
+	* config/aarch64/aarch64-builtins.c
 	(aarch64_simd_itype): Remove.
 	(aarch64_simd_builtin_datum): Remove itype, add qualifiers pointer.
 	(VAR1): Use qualifiers.

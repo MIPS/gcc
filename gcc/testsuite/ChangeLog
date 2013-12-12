@@ -1,3 +1,112 @@
+2013-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/59440
+	* gfortran.dg/namelist_83.f90: New.
+	* gfortran.dg/namelist_83_2.f90: New.
+
+2013-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59470
+	* g++.dg/opt/pr59470.C: New test.
+
+2013-12-12  Max Ostapenko  <m.ostapenko@partner.samsung.com>
+
+	* c-c++-common/tsan/free_race2.c: New file.
+	* c-c++-common/tsan/race_on_barrier2.c: Likewise.
+	* c-c++-common/tsan/race_on_mutex.c: Likewise.
+	* c-c++-common/tsan/race_on_mutex2.c: Likewise.
+	* c-c++-common/tsan/simple_race.c: Likewise.
+	* c-c++-common/tsan/simple_stack.c: Likewise.
+	* g++.dg/tsan/aligned_vs_unaligned_race.C: Likewise.
+	* g++.dg/tsan/atomic_free.C: Likewise.
+	* g++.dg/tsan/atomic_free2.C: Likewise.
+	* g++.dg/tsan/benign_race.C: Likewise.
+	* g++.dg/tsan/cond_race.C: Likewise.
+	* g++.dg/tsan/default_options.C: Likewise.
+	* g++.dg/tsan/fd_close_norace.C: Likewise.
+	* g++.dg/tsan/fd_close_norace2.C: Likewise.
+	* g++-dg/tsan/tsan.exp: Modified to run additional C++ tests.
+
+2013-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/59467
+	* gfortran.dg/gomp/pr59467.f90: New test.
+	* c-c++-common/gomp/pr59467.c: New test.
+
+2013-12-12  Ryan Mansfield  <rmansfield@qnx.com>
+
+	PR testsuite/59442
+	* gcc.target/i386/sse2-movapd-1.c: Fix alignment attributes.
+	* gcc.target/i386/sse2-movapd-2.c: Likewise.
+	* gcc.target/i386/avx-vmovapd-256-1.c: Likewise.
+	* gcc.target/i386/avx-vmovapd-256-2.c: Likewise.
+
+2013-12-11  Sriraman Tallam  <tmsriram@google.com>
+
+	PR target/59390
+	* gcc.target/i386/pr59390.c: New test.
+	* gcc.target/i386/pr59390_1.c: New test.
+	* gcc.target/i386/pr59390_2.c: New test.
+
+2013-12-11  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* g++.dg/cilk-plus/CK/catch_exc.cc: New test case.
+	* g++.dg/cilk-plus/CK/const_spawn.cc: Likewise.
+	* g++.dg/cilk-plus/CK/fib-opr-overload.cc: Likewise.
+	* g++.dg/cilk-plus/CK/fib-tplt.cc: Likewise.
+	* g++.dg/cilk-plus/CK/lambda_spawns.cc: Likewise.
+	* g++.dg/cilk-plus/CK/lambda_spawns_tplt.cc: Likewise.
+	* g++.dg/cilk-plus/cilk-plus.exp: Added support to run Cilk Keywords
+	test stored in c-c++-common.  Also, added the Cilk runtime's library
+	to the ld_library_path.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/59134
+	* gcc.c-torture/compile/pr59134.c: New test.
+	* gnat.dg/misaligned_volatile.adb: New test.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	* gcc.dg/pr23623.c: Update to test interaction with C++ memory model.
+
+2013-12-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR middle-end/23623
+	PR middle-end/48784
+	PR middle-end/56341
+	PR middle-end/56997
+	* gcc.dg/pr23623.c: New test.
+	* gcc.dg/pr48784-1.c: New test.
+	* gcc.dg/pr48784-2.c: New test.
+	* gcc.dg/pr56341-1.c: New test.
+	* gcc.dg/pr56341-2.c: New test.
+	* gcc.dg/pr56997-1.c: New test.
+	* gcc.dg/pr56997-2.c: New test.
+	* gcc.dg/pr56997-3.c: New test.
+
+2013-12-11  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58916
+	* gfortran.dg/allocate_with_source_4.f90: New.
+
+2013-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59417
+	* gcc.c-torture/compile/pr59417.c: New test.
+
+	PR tree-optimization/59386
+	* gcc.c-torture/compile/pr59386.c: New test.
+
+2013-12-11  Bin Cheng  <bin.cheng@arm.com>
+
+	Reverted:
+	2013-12-10  Bin Cheng  <bin.cheng@arm.com>
+	PR tree-optimization/41488
+	* gcc.dg/tree-ssa/scev-7.c: New test.
+	* gcc.dg/pr41488.c: New test.
+
 2013-12-10  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/35831

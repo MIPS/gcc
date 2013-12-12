@@ -1,3 +1,16 @@
+2013-12-12  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/59440
+	* trans-decl.c (generate_namelist_decl): Ensure debug DIE
+	is created by setting DECL_IGNORED_P to 0.
+
+2013-12-11  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/58916
+	* resolve.c (conformable_arrays): Treat scalar 'e2'.
+	(resolve_allocate_expr): Check rank also for unlimited-polymorphic
+	variables.
+
 2013-12-10  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/35831
