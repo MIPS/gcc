@@ -9911,7 +9911,8 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   location_t loc = gimple_location (stmt);
 
   clauses = gimple_omp_taskreg_clauses (stmt);
-  par_bind = gimple_seq_first_stmt_as_a_bind (gimple_omp_body (stmt));
+  par_bind =
+    as_a <gimple_bind> (gimple_seq_first_stmt (gimple_omp_body (stmt)));
   par_body = gimple_bind_body (par_bind);
   child_fn = ctx->cb.dst_fn;
   if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL

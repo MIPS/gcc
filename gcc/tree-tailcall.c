@@ -747,7 +747,8 @@ static void
 adjust_return_value (basic_block bb, tree m, tree a)
 {
   tree retval;
-  gimple ret_stmt = gimple_seq_last_stmt (bb_seq (bb));
+  gimple_return ret_stmt =
+    as_a <gimple_return> (gimple_seq_last_stmt (bb_seq (bb)));
   gimple_stmt_iterator gsi = gsi_last_bb (bb);
 
   gcc_assert (gimple_code (ret_stmt) == GIMPLE_RETURN);

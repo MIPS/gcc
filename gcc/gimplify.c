@@ -1191,7 +1191,7 @@ gimplify_bind_expr (tree *expr_p, gimple_seq *pre_p)
 static enum gimplify_status
 gimplify_return_expr (tree stmt, gimple_seq *pre_p)
 {
-  gimple ret;
+  gimple_return ret;
   tree ret_expr = TREE_OPERAND (stmt, 0);
   tree result_decl, result;
 
@@ -1211,7 +1211,7 @@ gimplify_return_expr (tree stmt, gimple_seq *pre_p)
       || TREE_CODE (ret_expr) == RESULT_DECL
       || ret_expr == error_mark_node)
     {
-      gimple ret = gimple_build_return (ret_expr);
+      gimple_return ret = gimple_build_return (ret_expr);
       gimple_set_no_warning (ret, TREE_NO_WARNING (stmt));
       gimplify_seq_add_stmt (pre_p, ret);
       return GS_ALL_DONE;

@@ -1,5 +1,48 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_return
+
+	* coretypes.h (gimple_return): New typedef.
+	(const_gimple_return): New typedef.
+
+	* gimple.h (gimple_statement_return): New subclass of
+	gimple_statement_with_memory_ops, adding the invariant that
+	stmt->code == GIMPLE_RETURN.
+	(is_a_helper <gimple_statement_return>::test): New.
+	(gimple_build_return): Return a gimple_return rather
+	than a plain gimple.
+
+	* gimple.c (gimple_build_return): Return a gimple_return rather
+	than a plain gimple.
+
+	* cgraphunit.c (expand_thunk): Convert local from a gimple to
+	a gimple_return.
+
+	* gimple-low.c (struct return_statements_t): Convert field "stmt"
+	from a gimple to a gimple_return.
+	(lower_gimple_return): Convert local from a gimple to a
+	gimple_return.
+
+	* gimple-pretty-print.c (dump_gimple_return): Require a
+	gimple_return rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_return within
+	case GIMPLE_RETURN of switch statement.
+
+	* gimplify.c (gimplify_return_expr): Convert locals from
+	gimple to gimple_return.
+
+	* ipa-split.c (split_function): Likewise.
+
+	* tree-cfg.c (verify_gimple_assign): Require a gimple_return
+	rather than a plain gimple.
+	(verify_gimple_stmt): Add checked cast to gimple_return within
+	case GIMPLE_RETURN of switch statement.
+
+	* tree-tailcall.c (adjust_return_value): Convert local from
+	gimple to gimple_return.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_call
 
 	* coretypes.h (gimple_call): New typedef.

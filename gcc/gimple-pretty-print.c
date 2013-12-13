@@ -555,7 +555,7 @@ dump_gimple_assign (pretty_printer *buffer, gimple_assign gs, int spc, int flags
    pp_gimple_stmt_1.  */
 
 static void
-dump_gimple_return (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_return (pretty_printer *buffer, gimple_return gs, int spc, int flags)
 {
   tree t;
 
@@ -2117,7 +2117,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_RETURN:
-      dump_gimple_return (buffer, gs, spc, flags);
+      dump_gimple_return (buffer, as_a <gimple_return> (gs), spc, flags);
       break;
 
     case GIMPLE_SWITCH:

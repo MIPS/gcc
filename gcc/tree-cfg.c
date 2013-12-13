@@ -4262,7 +4262,7 @@ verify_gimple_assign (gimple_assign stmt)
    is a problem, otherwise false.  */
 
 static bool
-verify_gimple_return (gimple stmt)
+verify_gimple_return (gimple_return stmt)
 {
   tree op = gimple_return_retval (stmt);
   tree restype = TREE_TYPE (TREE_TYPE (cfun->decl));
@@ -4510,7 +4510,7 @@ verify_gimple_stmt (gimple stmt)
       return verify_gimple_switch (as_a <gimple_switch> (stmt));
 
     case GIMPLE_RETURN:
-      return verify_gimple_return (stmt);
+      return verify_gimple_return (as_a <gimple_return> (stmt));
 
     case GIMPLE_ASM:
       return false;

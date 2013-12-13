@@ -823,6 +823,16 @@ struct GTY((tag("GSS_WITH_MEM_OPS")))
   /* no additional fields; this uses the layout for GSS_WITH_MEM_OPS. */
 };
 
+/* A statement with the invariant that
+      stmt->code == GIMPLE_RETURN
+   i.e. a return statement.  */
+
+struct GTY((tag("GSS_WITH_MEM_OPS")))
+  gimple_statement_return : public gimple_statement_with_memory_ops
+{
+  /* no additional fields; this uses the layout for GSS_WITH_MEM_OPS. */
+};
+
 template <>
 template <>
 inline bool
@@ -1042,9 +1052,9 @@ is_a_helper <gimple_statement_phi *>::test (gimple gs)
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_transaction *>::test (gimple gs)
+is_a_helper <gimple_statement_return *>::test (gimple gs)
 {
-  return gs->code == GIMPLE_TRANSACTION;
+  return gs->code == GIMPLE_RETURN;
 }
 
 template <>
@@ -1053,6 +1063,14 @@ inline bool
 is_a_helper <gimple_statement_switch *>::test (gimple gs)
 {
   return gs->code == GIMPLE_SWITCH;
+}
+
+template <>
+template <>
+inline bool
+is_a_helper <gimple_statement_transaction *>::test (gimple gs)
+{
+  return gs->code == GIMPLE_TRANSACTION;
 }
 
 template <>
@@ -1260,7 +1278,7 @@ extern gimple currently_expanding_gimple_stmt;
 
 #define gimple_alloc(c, n) gimple_alloc_stat (c, n MEM_STAT_INFO)
 gimple gimple_alloc_stat (enum gimple_code, unsigned MEM_STAT_DECL);
-gimple gimple_build_return (tree);
+gimple_return gimple_build_return (tree);
 void gimple_call_reset_alias_info (gimple_call);
 gimple_call gimple_build_call_vec (tree, vec<tree> );
 gimple_call gimple_build_call (tree, unsigned, ...);

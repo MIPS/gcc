@@ -1489,7 +1489,7 @@ split_function (struct split_point *split_point)
 	 */
       else
 	{
-	  gimple ret;
+	  gimple_return ret;
 	  if (split_point->split_part_set_retval
 	      && !VOID_TYPE_P (TREE_TYPE (TREE_TYPE (current_function_decl))))
 	    {

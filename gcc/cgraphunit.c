@@ -1496,7 +1496,7 @@ cgraph_node::expand_thunk (bool output_asm_thunks, bool force_gimple_thunk)
       tree restmp = NULL;
 
       gimple_call call;
-      gimple ret;
+      gimple_return ret;
 
       if (in_lto_p)
 	get_body ();

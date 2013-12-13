@@ -60,7 +60,7 @@ along with GCC; see the file COPYING3.  If not see
 struct return_statements_t
 {
   tree label;
-  gimple stmt;
+  gimple_return stmt;
 };
 typedef struct return_statements_t return_statements_t;
 
@@ -619,7 +619,7 @@ gimple_seq_may_fallthru (gimple_seq seq)
 static void
 lower_gimple_return (gimple_stmt_iterator *gsi, struct lower_data *data)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_return stmt = as_a <gimple_return> (gsi_stmt (*gsi));
   gimple t;
   int i;
   return_statements_t tmp_rs;
