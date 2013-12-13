@@ -2924,7 +2924,7 @@ gen_load_const_gp (rtx reg)
 static rtx
 mips16_gp_pseudo_reg (void)
 {
-  if (cfun->machine->mips16_gp_pseudo_rtx == NULL)
+  if (cfun->machine->mips16_gp_pseudo_rtx == NULL_RTX)
     {
       rtx insn, scan;
 
@@ -2986,14 +2986,14 @@ mips_unspec_call (rtx reg, rtx symbol)
 }
 
 /* If SRC is the RHS of a load_call<mode> insn, return the underlying symbol
-   reference.  Return NULL otherwise.  */
+   reference.  Return NULL_RTX otherwise.  */
 
 static rtx
 mips_strip_unspec_call (rtx src)
 {
   if (GET_CODE (src) == UNSPEC && XINT (src, 1) == UNSPEC_LOAD_CALL)
     return mips_strip_unspec_address (XVECEXP (src, 0, 1));
-  return NULL;
+  return NULL_RTX;
 }
 
 /* Create and return a GOT reference of type TYPE for address ADDR.
@@ -3152,7 +3152,7 @@ mips_call_tls_get_addr (rtx sym, enum mips_symbol_type type, rtx v0)
   emit_insn (gen_rtx_SET (Pmode, a0,
 			  gen_rtx_LO_SUM (Pmode, pic_offset_table_rtx, loc)));
   insn = mips_expand_call (MIPS_CALL_NORMAL, v0, mips_tls_symbol,
-			   const0_rtx, NULL, false);
+			   const0_rtx, NULL_RTX, false);
   RTL_CONST_CALL_P (insn) = 1;
   use_reg (&CALL_INSN_FUNCTION_USAGE (insn), a0);
   insn = get_insns ();
