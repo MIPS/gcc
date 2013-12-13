@@ -4304,7 +4304,7 @@ verify_gimple_return (gimple_return stmt)
    is a problem, otherwise false.  */
 
 static bool
-verify_gimple_goto (gimple stmt)
+verify_gimple_goto (gimple_goto stmt)
 {
   tree dest = gimple_goto_dest (stmt);
 
@@ -4504,7 +4504,7 @@ verify_gimple_stmt (gimple stmt)
 				       gimple_cond_rhs (stmt));
 
     case GIMPLE_GOTO:
-      return verify_gimple_goto (stmt);
+      return verify_gimple_goto (as_a <gimple_goto> (stmt));
 
     case GIMPLE_SWITCH:
       return verify_gimple_switch (as_a <gimple_switch> (stmt));

@@ -98,6 +98,10 @@ struct gimple_statement_debug;
 typedef struct gimple_statement_debug *gimple_debug;
 typedef const struct gimple_statement_debug *const_gimple_debug;
 
+struct gimple_statement_goto;
+typedef struct gimple_statement_goto *gimple_goto;
+typedef const struct gimple_statement_goto *const_gimple_goto;
+
 struct gimple_statement_label;
 typedef struct gimple_statement_label *gimple_label;
 typedef const struct gimple_statement_label *const_gimple_label;

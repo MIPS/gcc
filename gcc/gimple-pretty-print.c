@@ -884,7 +884,7 @@ dump_gimple_label (pretty_printer *buffer, gimple_label gs, int spc, int flags)
    TDF_* in dumpfile.h).  */
 
 static void
-dump_gimple_goto (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_goto (pretty_printer *buffer, gimple_goto gs, int spc, int flags)
 {
   tree label = gimple_goto_dest (gs);
   if (flags & TDF_RAW)
@@ -2109,7 +2109,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_GOTO:
-      dump_gimple_goto (buffer, gs, spc, flags);
+      dump_gimple_goto (buffer, as_a <gimple_goto> (gs), spc, flags);
       break;
 
     case GIMPLE_NOP:

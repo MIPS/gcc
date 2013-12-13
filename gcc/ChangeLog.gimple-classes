@@ -1,5 +1,32 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_goto
+
+	* coretypes.h (gimple_goto): New typedef.
+	(const_gimple_goto): New typedef.
+
+	* gimple.h (gimple_statement_goto): New subclass of
+	gimple_statement_with_ops, adding the invariant that
+	stmt->code == GIMPLE_GOTO.
+	(is_a_helper <gimple_statement_goto>::test): New.
+	(gimple_build_goto): Return a gimple_goto rather than a
+	plain gimple.
+
+	* gimple-pretty-print.c (dump_gimple_goto): Require a gimple_goto
+	rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_goto within
+	GIMPLE_GOTO case of switch statement.
+
+	* gimple.c (gimple_build_goto): Return a gimple_goto rather than a
+	plain gimple.
+
+	* tree-cfg.c (verify_gimple_goto): Require a gimple_goto rather
+	than a plain gimple.
+	(verify_gimple_stmt): Add a checked cast to gimple_goto within
+	GIMPLE_GOTO case of switch statement.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_return
 
 	* coretypes.h (gimple_return): New typedef.

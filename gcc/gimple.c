@@ -499,10 +499,11 @@ gimple_build_label (tree label)
 
 /* Build a GIMPLE_GOTO statement to label DEST.  */
 
-gimple
+gimple_goto
 gimple_build_goto (tree dest)
 {
-  gimple p = gimple_build_with_ops (GIMPLE_GOTO, ERROR_MARK, 1);
+  gimple_goto p =
+    as_a <gimple_goto> (gimple_build_with_ops (GIMPLE_GOTO, ERROR_MARK, 1));
   gimple_goto_set_dest (p, dest);
   return p;
 }
