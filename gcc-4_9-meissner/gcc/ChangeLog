@@ -1,3 +1,569 @@
+2013-12-13  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	* genmodes.c (emit_max_int): Fixed missing parens.
+	
+2013-12-13  Aldy Hernandez  <aldyh@redhat.com>
+
+	PR tree-optimization/59149
+	* calls.c (flags_from_decl_or_type): Fail on non decl or type.
+	* trans-mem.c (diagnose_tm_1): Do not call flags_from_decl_or_type
+	if no type or decl.
+
+2013-12-13  Kenneth Zadeck  <zadeck@naturalbridge.com>
+
+	* config/arc/arc.h (BITS_PER_UNIT): Removed.
+	* config/bfin/bfin.h (BITS_PER_UNIT): Removed.
+	* config/lm32/lm32.h (BITS_PER_UNIT): Removed.
+	* config/m32c/m32c.h (BITS_PER_UNIT): Removed.
+	* config/microblaze/microblaze.h (BITS_PER_UNIT): Removed.
+	* config/picochip/picochip.h (BITS_PER_UNIT): Removed.
+	* config/spu/spu.h (BITS_PER_UNIT): Removed.
+	* defaults.h (BITS_PER_UNIT): Removed.
+	* config/i386/i386-modes.def (MAX_BITSIZE_MODE_ANY_INT): New.
+	* doc/rtl (BITS_PER_UNIT): Moved from tm.texi.
+	(MAX_BITSIZE_MODE_ANY_INT): Updated.
+	* doc/tm.texi (BITS_PER_UNIT): Removed.
+	* doc/tm.texi.in (BITS_PER_UNIT): Removed.
+	* genmodes.c (bits_per_unit, max_bitsize_mode_any_int): New.
+	(create_modes): Added code to set bits_per_unit and
+	max_bitsize_mode_any_int.
+	(emit_max_int): Changed code generation.
+	* mkconfig.sh: Added insn-modes.h.
+
+2013-12-13  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/45685
+	* tree-ssa-phiopt.c (neg_replacement): New function.
+	(tree_ssa_phiopt_worker): Call it.
+
+2013-12-13  Yuri Rumyantsev  <ysrumyan@gmail.com>
+
+	* config/i386/i386.c (slm_cost): Fix imul cost for HI.
+
+2013-12-13  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/58296
+	PR tree-optimization/41488
+	* tree-scalar-evolution.c: Include necessary header files.
+	(simplify_peeled_chrec): New function.
+	(analyze_evolution_in_loop): New static variable.
+	Call simplify_peeled_chrec.
+	* tree-ssa-loop-ivopts.c (mark_bivs): Don't mark peeled IV as biv.
+	(add_old_iv_candidates): Don't add candidate for peeled IV.
+	* tree-affine.h (aff_combination_zero_p): New function.
+
+2013-12-13  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.c (is_wakeup_func): New function.  Returns
+	true if the current function has the wakeup attribute.
+	(msp430_start_function): Note if the function has the wakeup
+	attribute.
+	(msp430_attribute_table): Add wakeup attribute.
+	(msp430_expand_epilogue): Add support for wakeup functions.
+	* config/msp430/msp430.md (disable_interrupts): Emit a NOP after
+	the DINT instruction.
+	* doc/extend.texi: Document the wakeup attribute.
+
+2013-12-13  Kai Tietz  <kitetz@redhat.com>
+
+	PR c++/57897
+	* config/i386/i386.c (ix86_option_override_internal): Set for
+	x64 target flag_unwind_tables, if flag_asynchronous_unwind_tables
+	was explicit set.
+
+2013-12-12  Jeff Law  <law@redhat.com>
+
+	* i386.md (simple LEA peephole2): Add missing mode to zero_extend
+	for zero-extended MULT simple LEA pattern.
+
+2013-12-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/59470
+	* lra-coalesce.c (lra_coalesce): Invalidate inheritance pseudo
+	values if necessary.
+
+2013-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/59467
+	* gimplify.c (omp_check_private): Add copyprivate argument, if it
+	is true, don't check omp_privatize_by_reference.
+	(gimplify_scan_omp_clauses): For OMP_CLAUSE_COPYPRIVATE verify
+	decl is private in outer context.  Adjust omp_check_private caller.
+
+2013-12-11  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/59446
+	* tree-ssa-threadupdate.c (mark_threaded_blocks): Properly
+	test for crossing a loop header.
+
+2013-12-11  Sriraman Tallam  <tmsriram@google.com>
+
+	PR target/59390
+	* config/i386/i386.c (get_builtin): New function.
+	(ix86_builtin_vectorized_function): Replace all instances of
+	ix86_builtins[...] with get_builtin(...).
+	(ix86_builtin_reciprocal): Ditto.
+
+2013-12-11  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* langhooks.h (lang_hooks_for_decls): Remove lang_hooks_for_cilkplus.
+	(lang_hooks_for_cilkplus): Remove.
+	* langhooks.c (lhd_cilk_detect_spawn): Likewise.
+	(lhd_install_body_with_frame_cleanup): Likewise.
+	* langhooks-def.h (LANG_HOOKS_CILKPLUS_FRAME_CLEANUP): Likewise.
+	(LANG_HOOKS_CILKPLUS_DETECT_SPAWN_AND_UNWRAP): Likewise.
+	(LANG_HOOKS_CILKPLUS_CILKPLUS_GIMPLIFY_SPAWN): Likewise.
+	(LANG_HOOKS_CILKPLUS): Likewise.
+	(LANG_HOOKS_DECLS): Remove LANG_HOOKS_CILKPLUS.
+	* gimplify.c (gimplify_expr): Removed CILK_SPAWN_STMT case.
+	(gimplify_modify_expr): Removed handling of _Cilk_spawn in expr.
+	(gimplify_call_expr): Likewise.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* expr.c (expand_assignment): Remove dependency on
+	flag_strict_volatile_bitfields. Always set the memory 
+	access mode.
+	(expand_expr_real_1): Likewise.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/59134
+	* expmed.c (store_bit_field): Use narrow_bit_field_mem and
+	store_fixed_bit_field_1 for -fstrict-volatile-bitfields.
+	(store_fixed_bit_field): Split up.  Call store_fixed_bit_field_1
+	to do the real work.
+	(store_fixed_bit_field_1): New function.
+	(store_split_bit_field): Limit the unit size to the memory mode size,
+	to prevent recursion.
+
+2013-12-11  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+	    Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR middle-end/23623
+	PR middle-end/48784
+	PR middle-end/56341
+	PR middle-end/56997
+	* expmed.c (strict_volatile_bitfield_p): Add bitregion_start
+	and bitregion_end parameters.  Test for compliance with C++
+	memory model.
+	(store_bit_field): Adjust call to strict_volatile_bitfield_p.
+	Add fallback logic for cases where -fstrict-volatile-bitfields
+	is supposed to apply, but cannot.
+	(extract_bit_field): Likewise. Use narrow_bit_field_mem and
+	extract_fixed_bit_field_1 to do the extraction.
+	(extract_fixed_bit_field): Revert to previous mode selection algorithm.
+	Call extract_fixed_bit_field_1 to do the real work.
+	(extract_fixed_bit_field_1): New function.
+
+2013-12-11  Sandra Loosemore  <sandra@codesourcery.com>
+
+	PR middle-end/23623
+	PR middle-end/48784
+	PR middle-end/56341
+	PR middle-end/56997
+	* expmed.c (strict_volatile_bitfield_p): New function.
+	(store_bit_field_1): Don't special-case strict volatile
+	bitfields here.
+	(store_bit_field): Handle strict volatile bitfields here instead.
+	(store_fixed_bit_field): Don't special-case strict volatile
+	bitfields here.
+	(extract_bit_field_1): Don't special-case strict volatile
+	bitfields here.
+	(extract_bit_field): Handle strict volatile bitfields here instead.
+	(extract_fixed_bit_field): Don't special-case strict volatile
+	bitfields here.  Simplify surrounding code to resemble that in
+	store_fixed_bit_field.
+	* doc/invoke.texi (Code Gen Options): Update
+	-fstrict-volatile-bitfields description.
+
+2013-12-11  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* configure.ac: Add check for aarch64 assembler -mabi support.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* config/aarch64/aarch64-elf.h (ASM_MABI_SPEC): New define.
+	(ASM_SPEC): Update to substitute -mabi with ASM_MABI_SPEC.
+	* config/aarch64/aarch64.h (aarch64_override_options): Issue error
+	if assembler does not support -mabi and option ilp32 is selected.
+	* doc/install.texi: Added note that building gcc 4.9 and after
+	with pre 2.24 binutils will not support -mabi=ilp32.
+
+2013-12-11  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59399
+	* expr.c (expand_expr_real_1): Remove assert dealing with
+	internal calls and turn that into a condition instead.
+
+2013-12-11  Yvan Roux  <yvan.roux@linaro.org>
+
+	* config/arm/arm.opt (mlra): Enable LRA by default.
+
+2013-12-11  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59417
+	* tree-ssa-copy.c (fini_copy_prop): If copy_of[i].value is defined
+	in a different bb rhan var, only duplicate points-to info and
+	not alignment info and don't duplicate range info.
+	* tree-ssa-loop-niter.c (determine_value_range): Instead of
+	assertion failure handle inconsistencies in range info by only
+	using var's range info and not PHI result range infos.
+
+	PR tree-optimization/59386
+	* tree-inline.c (remap_gimple_stmt): If not id->do_not_unshare,
+	unshare_expr (id->retval) before passing it to gimple_build_assign.
+
+2013-12-11  Bin Cheng  <bin.cheng@arm.com>
+
+	Reverted:
+	2013-12-10  Bin Cheng  <bin.cheng@arm.com>
+	PR tree-optimization/41488
+	* tree-ssa-loop-ivopts.c (add_old_iv_candidates): Don't add cand
+	for PEELED_CHREC kind IV.
+	* tree-scalar-evolution.c: Include necessary header files.
+	(peeled_chrec_map, simplify_peeled_chrec): New.
+	(analyze_evolution_in_loop): New static variable.
+	Call simplify_peeled_chrec.
+	(scev_initialize): Initialize peeled_chrec_map.
+	(scev_reset, scev_finalize): Reset and release peeled_chrec_map.
+
+2013-12-10   H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59458
+	* config/i386/i386.md (*movsf_internal): Set mode to SI for
+	alternative 13.
+
+2013-12-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/58295
+	* simplify-rtx.c (simplify_truncation): Restrict the distribution for
+	WORD_REGISTER_OPERATIONS targets.
+
+2013-12-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* genrecog.c (validate_pattern): Treat all messages except missing
+	modes as errors.
+	* config/epiphany/epiphany.md: Remove constraints from
+	define_peephole2s.
+	* config/h8300/h8300.md: Remove constraints from define_splits.
+	* config/msp430/msp430.md: Likewise.
+	* config/mcore/mcore.md (movdi_i, movsf_i, movdf_k): Use
+	nonimmediate_operand rather than general_operand for operand 0.
+	* config/moxie/moxie.md (*movsi, *movqi, *movhi): Likewise.
+	* config/pdp11/predicates.md (float_operand, float_nonimm_operand):
+	Use match_operator rather than match_test to invoke general_operand.
+	* config/v850/v850.md (*movqi_internal, *movhi_internal)
+	(*movsi_internal_v850e, *movsi_internal, *movsf_internal): Likewise.
+
+2013-12-10  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/tilegx/tilegx.md (insn_ld_add<bitsuffix>): Use
+	register_operand rather than pointer_operand.  Add modes to the
+	operands.
+	(insn_ldna_add<bitsuffix>): Likewise.
+	(insn_ld<I124MODE:n><s>_add<I48MODE:bitsuffix>): Likewise.
+	(insn_ldnt_add<bitsuffix>): Likewise.
+	(insn_ldnt<I124MODE:n><s>_add<I48MODE:bitsuffix>): Likewise.
+	(insn_ld_add_L2<bitsuffix>): Likewise.
+	(insn_ldna_add_L2<bitsuffix>): Likewise.
+	(insn_ld<I124MODE:n><s>_add_L2<I48MODE:bitsuffix>): Likewise.
+	(insn_ldnt_add_L2<bitsuffix>): Likewise.
+	(insn_ldnt<I124MODE:n><s>_add_L2<I48MODE:bitsuffix>): Likewise.
+	(insn_ld_add_miss<bitsuffix>): Likewise.
+	(insn_ldna_add_miss<bitsuffix>): Likewise.
+	(insn_ld<I124MODE:n><s>_add_miss<I48MODE:bitsuffix>): Likewise.
+	(insn_ldnt_add_miss<bitsuffix>): Likewise.
+	(insn_ldnt<I124MODE:n><s>_add_miss<I48MODE:bitsuffix>): Likewise.
+	(insn_st_add<bitsuffix>): Likewise.
+	(insn_st<I124MODE:n>_add<I48MODE:bitsuffix>): Likewise.
+	(*insn_st<I124MODE:n>_add<I48MODE:bitsuffix>): Likewise.
+	(insn_stnt_add<bitsuffix>): Likewise.
+	(insn_stnt<I124MODE:n>_add<I48MODE:bitsuffix>): Likewise.
+	(*insn_stnt<I124MODE:n>_add<I48MODE:bitsuffix>): Likewise.
+	(vec_pack_<pack_optab>_v4hi): Use register_operand rather than
+	reg_or_0_operand for operand 0.
+	(insn_v2<pack_insn>): Likewise.
+	(vec_pack_hipart_v4hi): Likewise.
+	(insn_v2packh): Likewise.
+	(vec_pack_ssat_v2si): Likewise.
+	(insn_v4packsc): Likewise.
+
+2013-12-10  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* basic-block.h (gcov_working_set_t): Put back typedef. 
+	* gcov-io.h (gcov_bucket_type): Likewise.
+	(gcov_working_set_info, gcov_working_set_t): Likewise.
+
+2013-12-10  Oleg Endo  <olegendo@gcc.gnu.org>
+
+	* cgraph.h (cgraph_node_set_iterator, varpool_node_set_iterator):
+	Remove typedef.
+	(cgraph_inline_failed_enum, cgraph_inline_failed_t): Remove typedef and
+	rename to cgraph_inline_failed_t.
+	* tree-ssa-alias.h (ao_ref_s, ao_ref): Remove typedef and rename
+	to ao_ref.
+	* reload.h (reg_equivs_s, reg_equivs_t): Remove typedef and rename
+	to reg_equivs_t.
+	* conditions.h (CC_STATUS): Remove typedef.
+	* bitmap.h (bitmap_obstack): Remove typedef.
+	(bitmap_element_def, bitmap_element): Remove typedef and rename to
+	bitmap_element.
+	(bitmap_head_def, bitmap_head): Remove typedef and rename to
+	bitmap_head.
+	(bitmap_iterator): Remove typedef.
+	* target.h (cumulative_args_t, print_switch_type,
+	secondary_reload_info): Remove typedef.
+	* dwarf2out.h (dw_cfi_oprnd_struct, dw_cfi_oprnd): Remove
+	dw_cfi_oprnd_struct alias.
+	(dw_cfi_struct, dw_cfi_node): Remove typedef and rename to dw_cfi_node.
+	(dw_fde_struct, dw_fde_node): Remove typedef and rename to dw_fde_node.
+	(cfa_loc, dw_cfa_location): Remove typedef and rename to
+	dw_cfa_location.
+	(dw_vec_struct, dw_vec_const): Remove typedef and rename to
+	dw_vec_const.
+	(dw_val_struct, dw_val_node): Remove typedef and rename to dw_val_node.
+	(dw_loc_descr_struct, dw_loc_descr_node): Remove typedef and rename to
+	dw_loc_descr_node.
+	* params.h (param_info, compiler_param): Remove typedef.
+	* opts.h (cl_deferred_param): Remove typedef.
+	* sreal.h (sreal): Remove typedef.
+	* ddg.h (dep_type, dep_data_type): Remove typedef.
+	* graphite-clast-to-gimple.h (cloog_prog_clast, bb_pbb_def): Remove
+	typedef.
+	* lto-streamer.h (lto_decl_stream_e_t, lto_encoder_entry,
+	lto_symtab_encoder_iterator, res_pair): Remove typedef.
+	* tree-affine.h (affine_tree_combination, aff_tree): Remove typedef
+	and rename to aff_tree.
+	* sched-int.h (region): Remove typedef.
+	* diagnostic.h (diagnostic_info,
+	diagnostic_classification_change_t): Remove typedef.
+	* tree-ssa-loop.h (affine_iv_d): Remove typedef and rename to
+	affine_iv.
+	* sbitmap.h (sbitmap_iterator): Remove typedef.
+	* ssa-iterators.h (immediate_use_iterator_d, imm_use_iterator):
+	Remove typedef and rename to imm_use_iterator.
+	(ssa_operand_iterator_d, ssa_op_iter): Remove typedef and rename to
+	ssa_op_iter.
+	* ggc-internal.h (ggc_statistics): Remove typedef.
+	* cselib.h (cselib_val_struct, cselib_val): Remove typedef and
+	rename to cselib_val.
+	* tree-core.h (alias_pair): Remove typedef.
+	(constructor_elt_d, constructor_elt): Remove typedef and rename to
+	constructor_elt.
+	(ssa_use_operand_d, ssa_use_operand_t): Remove typedef and rename to
+	ssa_use_operand_t.
+	* graphite-sese-to-poly.h (base_alias_pair): Remove typedef.
+	* tree-data-ref.h (conflict_function): Remove typedef.
+	* tree-inline.h (copy_body_data): Remove typedef.
+	* ipa-inline.h (condition, size_time_entry, inline_param_summary_t,
+	edge_growth_cache_entry): Remove typedef.
+	* regrename.h (operand_rr_info, insn_rr_info): Remove typedef.
+	* gimple-iterator.h (gimple_stmt_iterator_d, gimple_stmt_iterator):
+	Remove typedef and rename to gimple_stmt_iterator.
+	* basic-block.h (ce_if_block, ce_if_block_t): Remove typedef and
+	rename to ce_if_block.
+	(edge_iterator): Remove typedef.
+	* ipa-prop.h (ipa_agg_jf_item, ipa_agg_jf_item_t): Remove typedef
+	and rename to ipa_agg_jf_item.
+	(ipa_agg_jump_function_t, ipa_param_descriptor_t, ipa_node_params_t,
+	ipa_parm_adjustment_t): Remove typedef.
+	(ipa_jump_func, ipa_jump_func_t): Remove typedef and rename to
+	ipa_jump_func.
+	(ipa_edge_args, ipa_edge_args_t): Remove typedef and rename to
+	ipa_edge_args.
+	* gcov-io.h (gcov_bucket_type): Remove typedef.
+	(gcov_working_set_info, gcov_working_set_t): Remove typedef and rename
+	to gcov_working_set_t.
+	* ira-int.h (minmax_set_iterator, ira_allocno_iterator,
+	ira_object_iterator, ira_allocno_object_iterator, ira_pref_iterator,
+	ira_copy_iterator, ira_object_conflict_iterator): Remove typedef.
+	* tree-iterator.h (tree_stmt_iterator): Remove typedef.
+	* rtl.h (addr_diff_vec_flags, mem_attrs, reg_attrs,
+	replace_label_data): Remove typedef.
+	(rtunion_def, rtunion): Remove typedef and rename to rtunion.
+	* hard-reg-set.h (hard_reg_set_iterator): Remove typedef.
+	* sel-sched-ir.h (_list_iterator, sel_global_bb_info_def,
+	sel_region_bb_info_def, succ_iterator): Remove typedef.
+	(deps_where_def, deps_where_t): Remove typedef and rename to
+	deps_where_t.
+	* coretypes.h: Adapt forward declarations.
+	* tree-scalar-evolution.h: Likewise.
+	* tree-ssa-address.h: Likewise.
+	* tree-ssa-operands.h: Likewise.
+	* function.h: Likewise.
+	* config/frv/frv-protos.h: Likewise.
+	* targhooks.h: Likewise.
+	* basic_block.h: Likewise.
+	* rtl.def: Adapt documentation.
+	* doc/tm.texi: Likewise.
+	* ipa-cp.c: Adapt uses.
+	* bitmap.c: Likewise.
+	* dwarf2out.c: Likewise.
+	* target.def: Likewise.
+	* ipa-inline-analysis.c: Likewise.
+	* dwarf2cfi.c: Likewise.
+	* tree-ssa-loop-ivopts.c: Likewise.
+	* lto-cgraph.c: Likewise.
+	* config/frv/frv.c: Likewise.
+	* ifcvt.c: Likewise.
+	* ipa-prop.c: Likewise.
+
+2013-12-10  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/56807
+	* config/i386/i386.c (ix86_expand_prologue): Address saved
+	registers stack-relative, not via frame-pointer.
+
+2013-12-10  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/38474
+	* tree-ssa-structalias.c (solution_set_expand): Expand into
+	a different possibly cached bitmap and return the result.
+	(set_union_with_increment): Pass in a shared expanded bitmap
+	and adjust.
+	(do_sd_constraint): Likewise.
+	(do_ds_constraint): Likewise.
+	(do_complex_constraint): Likewise.
+	(solve_graph): Manage the shared expanded bitmap.
+
+2013-12-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vectorizer.h (struct _loop_vec_info): Add scalar_loop field.
+	(LOOP_VINFO_SCALAR_LOOP): Define.
+	(slpeel_tree_duplicate_loop_to_edge_cfg): Add scalar_loop argument.
+	* config/i386/sse.md (maskload<mode>, maskstore<mode>): New expanders.
+	* tree-data-ref.c (get_references_in_stmt): Handle MASK_LOAD and
+	MASK_STORE.
+	* internal-fn.def (LOOP_VECTORIZED, MASK_LOAD, MASK_STORE): New
+	internal fns.
+	* tree-if-conv.c: Include expr.h, optabs.h, tree-ssa-loop-ivopts.h and
+	tree-ssa-address.h.
+	(release_bb_predicate): New function.
+	(free_bb_predicate): Use it.
+	(reset_bb_predicate): Likewise.  Don't unallocate bb->aux
+	just to immediately allocate it again.
+	(add_to_predicate_list): Add loop argument.  If basic blocks that
+	dominate loop->latch don't insert any predicate.
+	(add_to_dst_predicate_list): Adjust caller.
+	(if_convertible_phi_p): Add any_mask_load_store argument, if true,
+	handle it like flag_tree_loop_if_convert_stores.
+	(insert_gimplified_predicates): Likewise.
+	(ifcvt_can_use_mask_load_store): New function.
+	(if_convertible_gimple_assign_stmt_p): Add any_mask_load_store
+	argument, check if some conditional loads or stores can't be
+	converted into MASK_LOAD or MASK_STORE.
+	(if_convertible_stmt_p): Add any_mask_load_store argument,
+	pass it down to if_convertible_gimple_assign_stmt_p.
+	(predicate_bbs): Don't return bool, only check if the last stmt
+	of a basic block is GIMPLE_COND and handle that.  Adjust
+	add_to_predicate_list caller.
+	(if_convertible_loop_p_1): Only call predicate_bbs if
+	flag_tree_loop_if_convert_stores and free_bb_predicate in that case
+	afterwards, check gimple_code of stmts here.  Replace is_predicated
+	check with dominance check.  Add any_mask_load_store argument,
+	pass it down to if_convertible_stmt_p and if_convertible_phi_p,
+	call if_convertible_phi_p only after all if_convertible_stmt_p
+	calls.
+	(if_convertible_loop_p): Add any_mask_load_store argument,
+	pass it down to if_convertible_loop_p_1.
+	(predicate_mem_writes): Emit MASK_LOAD and/or MASK_STORE calls.
+	(combine_blocks): Add any_mask_load_store argument, pass
+	it down to insert_gimplified_predicates and call predicate_mem_writes
+	if it is set.  Call predicate_bbs.
+	(version_loop_for_if_conversion): New function.
+	(tree_if_conversion): Adjust if_convertible_loop_p and combine_blocks
+	calls.  Return todo flags instead of bool, call
+	version_loop_for_if_conversion if if-conversion should be just
+	for the vectorized loops and nothing else.
+	(main_tree_if_conversion): Adjust caller.  Don't call
+	tree_if_conversion for dont_vectorize loops if if-conversion
+	isn't explicitly enabled.
+	* tree-vect-data-refs.c (vect_check_gather): Handle
+	MASK_LOAD/MASK_STORE.
+	(vect_analyze_data_refs, vect_supportable_dr_alignment): Likewise.
+	* gimple.h (gimple_expr_type): Handle MASK_STORE.
+	* internal-fn.c (expand_LOOP_VECTORIZED, expand_MASK_LOAD,
+	expand_MASK_STORE): New functions.
+	* tree-vectorizer.c: Include tree-cfg.h and gimple-fold.h.
+	(vect_loop_vectorized_call, fold_loop_vectorized_call): New functions.
+	(vectorize_loops): Don't try to vectorize loops with
+	loop->dont_vectorize set.  Set LOOP_VINFO_SCALAR_LOOP for if-converted
+	loops, fold LOOP_VECTORIZED internal call depending on if loop
+	has been vectorized or not.
+	* tree-vect-loop-manip.c (slpeel_duplicate_current_defs_from_edges):
+	New function.
+	(slpeel_tree_duplicate_loop_to_edge_cfg): Add scalar_loop argument.
+	If non-NULL, copy basic blocks from scalar_loop instead of loop, but
+	still to loop's entry or exit edge.
+	(slpeel_tree_peel_loop_to_edge): Add scalar_loop argument, pass it
+	down to slpeel_tree_duplicate_loop_to_edge_cfg.
+	(vect_do_peeling_for_loop_bound, vect_do_peeling_for_loop_alignment):
+	Adjust callers.
+	(vect_loop_versioning): If LOOP_VINFO_SCALAR_LOOP, perform loop
+	versioning from that loop instead of LOOP_VINFO_LOOP, move it to the
+	right place in the CFG afterwards.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): Handle
+	MASK_STORE.
+	* cfgloop.h (struct loop): Add dont_vectorize field.
+	* tree-loop-distribution.c (copy_loop_before): Adjust
+	slpeel_tree_duplicate_loop_to_edge_cfg caller.
+	* optabs.def (maskload_optab, maskstore_optab): New optabs.
+	* passes.def: Add a note that pass_vectorize must immediately follow
+	pass_if_conversion.
+	* tree-predcom.c (split_data_refs_to_components): Give up if
+	DR_STMT is a call.
+	* tree-vect-stmts.c (vect_mark_relevant): Don't crash if lhs
+	is NULL.
+	(exist_non_indexing_operands_for_use_p): Handle MASK_LOAD
+	and MASK_STORE.
+	(vectorizable_mask_load_store): New function.
+	(vectorizable_call): Call it for MASK_LOAD or MASK_STORE.
+	(vect_transform_stmt): Handle MASK_STORE.
+	* tree-ssa-phiopt.c (cond_if_else_store_replacement): Ignore
+	DR_STMT where lhs is NULL.
+	* optabs.h (can_vec_perm_p): Fix up comment typo.
+	(can_vec_mask_load_store_p): New prototype.
+	* optabs.c (can_vec_mask_load_store_p): New function.
+
+2013-12-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* expr.c (expand_expr_real_1) <normal_inner_ref>: Always return 0 for
+	the extraction of a bit-field of null size.
+
+2013-12-10  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59437
+	* vtable-verify.c (var_is_used_for_virtual_call_p): Check the
+	return value of gimple_call_fn.  Use is_gimple_call/is_gimple_assign
+	instead of gimple_code.
+
+2013-12-10  Maxim Kuvyrkov  <maxim@kugelworks.com>
+
+	* config.gcc (mips*-mti-linux*, mips64*-*-linux*):
+	Add android definitions.
+	(s390x-*-linux*): Use linux-protos.h.
+
+2013-12-10  Bin Cheng  <bin.cheng@arm.com>
+
+	PR tree-optimization/41488
+	* tree-ssa-loop-ivopts.c (add_old_iv_candidates): Don't add cand
+	for PEELED_CHREC kind IV.
+	* tree-scalar-evolution.c: Include necessary header files.
+	(peeled_chrec_map, simplify_peeled_chrec): New.
+	(analyze_evolution_in_loop): New static variable.
+	Call simplify_peeled_chrec.
+	(scev_initialize): Initialize peeled_chrec_map.
+	(scev_reset, scev_finalize): Reset and release peeled_chrec_map.
+
+2013-12-09  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/t-aarch64 (MULTILIB_OPTIONS): Fix definition so
+	that options are conflicting ones.
+
+2013-12-09  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* optabs.c (gen_int_libfunc): Do not compare modes directly.
+
 2013-12-09  David Malcolm  <dmalcolm@redhat.com>
 
 	* basic-block.h (FOR_ALL_BB): Eliminate macro.
@@ -905,7 +1471,7 @@
 	(ix86_expand_builtin): Expand them.
 	* config/i386/ia32intrin.h (__readeflags): New.
 	(__writeeflags): Ditto.
-	* gcc/config/i386/i386.md (*pushfl<mode>): Ditto.
+	* config/i386/i386.md (*pushfl<mode>): Ditto.
 	(*popfl<mode>1): Ditto.
 
 2013-12-05  Richard Biener  <rguenther@suse.de>
@@ -3383,7 +3949,7 @@
 
 2013-11-20  James Greenhalgh  <james.greenhalgh@arm.com>
 
-	* gcc/config/aarch64/aarch64-builtins.c
+	* config/aarch64/aarch64-builtins.c
 	(aarch64_simd_itype): Remove.
 	(aarch64_simd_builtin_datum): Remove itype, add qualifiers pointer.
 	(VAR1): Use qualifiers.
