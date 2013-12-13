@@ -787,14 +787,15 @@ emit_address_operand (hsa_op_address *addr)
       out.offsetHi = 0;
     }
 
-  /* The standard says these should be U types but the validator insists these
-     are B types, so as a hackish workaround, we run the type through
-     regtype_for_type.  */
+  BrigType16_t optype;
   if (addr->symbol)
-    out.type = htole16 (regtype_for_type
-			(hsa_get_segment_addr_type (addr->symbol->segment)));
+    optype = hsa_get_segment_addr_type (addr->symbol->segment);
   else
-    out.type = htole16 (hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT));
+    optype = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
+  /* The standard (PRM 19.8.3 BrigOperandAddress) says these should be U types
+     but the validator insists these are B types, so as a hackish workaround,
+     we run the type through regtype_for_type.  */
+  out.type = htole16 (regtype_for_type (optype));
   out.reserved = 0;
   brig_operand.add (&out, sizeof (out));
 }

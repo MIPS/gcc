@@ -213,13 +213,13 @@ hsa_get_segment_addr_type (BrigSegment8_t segment)
     case BRIG_SEGMENT_GLOBAL:
     case BRIG_SEGMENT_READONLY:
     case BRIG_SEGMENT_KERNARG:
-      return hsa_machine_large_p () ? BRIG_TYPE_B64 : BRIG_TYPE_B32;
+      return hsa_machine_large_p () ? BRIG_TYPE_U64 : BRIG_TYPE_U32;
 
     case BRIG_SEGMENT_GROUP:
     case BRIG_SEGMENT_PRIVATE:
     case BRIG_SEGMENT_SPILL:
     case BRIG_SEGMENT_ARG:
-      return BRIG_TYPE_B32;
+      return BRIG_TYPE_U32;
     }
   gcc_unreachable ();
 }

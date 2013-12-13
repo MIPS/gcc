@@ -1,3 +1,10 @@
+2013-12-13  Martin Jambor  <mjambor@suse.cz>
+
+	* hsa-brig.c (emit_address_operand): Always put types through
+	regtype_for_type even when the address does not refer to a symbol.
+	* hsa-gen.c (hsa_get_segment_addr_type): Return U types instead of
+	B types.
+
 2013-12-12  Martin Jambor  <mjambor@suse.cz>
 
 	Merge from trunk revision 205789.
