@@ -867,10 +867,10 @@ add_to_evolution (unsigned loop_nb, tree chrec_before, enum tree_code code,
    guards the exit edge.  If the expression is too difficult to
    analyze, then give up.  */
 
-gimple
+gimple_cond
 get_loop_exit_condition (const struct loop *loop)
 {
-  gimple res = NULL;
+  gimple_cond res = NULL;
   edge exit_edge = single_exit (loop);
 
   if (dump_file && (dump_flags & TDF_SCEV))
@@ -881,8 +881,8 @@ get_loop_exit_condition (const struct loop *loop)
       gimple stmt;
 
       stmt = last_stmt (exit_edge->src);
-      if (gimple_code (stmt) == GIMPLE_COND)
-	res = stmt;
+      if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
+	res = cond_stmt;
     }
 
   if (dump_file && (dump_flags & TDF_SCEV))

@@ -805,7 +805,8 @@ vect_analyze_scalar_cycles (loop_vec_info loop_vinfo)
 
    Return the loop exit condition.  */
 
-static gimple
+
+static gimple_cond
 vect_get_loop_niters (struct loop *loop, tree *number_of_iterations,
 		      tree *number_of_iterationsm1)
 {
@@ -1085,7 +1086,7 @@ loop_vec_info
 vect_analyze_loop_form (struct loop *loop)
 {
   loop_vec_info loop_vinfo;
-  gimple loop_cond;
+  gimple_cond loop_cond;
   tree number_of_iterations = NULL, number_of_iterationsm1 = NULL;
   loop_vec_info inner_loop_vinfo = NULL;
 

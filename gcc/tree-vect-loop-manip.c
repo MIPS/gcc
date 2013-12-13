@@ -667,8 +667,8 @@ void
 slpeel_make_loop_iterate_ntimes (struct loop *loop, tree niters)
 {
   tree indx_before_incr, indx_after_incr;
-  gimple cond_stmt;
-  gimple orig_cond;
+  gimple_cond cond_stmt;
+  gimple_cond orig_cond;
   edge exit_edge = single_exit (loop);
   gimple_stmt_iterator loop_cond_gsi;
   gimple_stmt_iterator incr_gsi;
@@ -974,7 +974,7 @@ slpeel_can_duplicate_loop_p (const struct loop *loop, const_edge e)
 {
   edge exit_e = single_exit (loop);
   edge entry_e = loop_preheader_edge (loop);
-  gimple orig_cond = get_loop_exit_condition (loop);
+  gimple_cond orig_cond = get_loop_exit_condition (loop);
   gimple_stmt_iterator loop_exit_gsi = gsi_last_bb (exit_e->src);
 
   if (loop->inner

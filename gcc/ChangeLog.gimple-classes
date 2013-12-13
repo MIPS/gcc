@@ -1,5 +1,19 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize get_loop_exit_condition et al to working on gimple_cond
+
+	* tree-scalar-evolution.h (get_loop_exit_condition): Return a
+	gimple_cond.
+	* tree-scalar-evolution.c (get_loop_exit_condition): Likewise, also
+	concretizing local "res" from gimple to gimple_cond.
+	* tree-vect-loop-manip.c (slpeel_make_loop_iterate_ntimes): Convert
+	locals from gimple to gimple_cond.
+	(slpeel_can_duplicate_loop_p): Likewise.
+	* tree-vect-loop.c (vect_get_loop_niters): Return a gimple_cond.
+	(vect_analyze_loop_form): Convert local from gimple to gimple_cond.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Update various expressions within tree-scalar-evolution.c to be gimple_phi
 
 	* tree-scalar-evolution.c (follow_ssa_edge): Require a gimple_phi,
