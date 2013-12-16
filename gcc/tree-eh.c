@@ -1861,7 +1861,8 @@ lower_eh_must_not_throw (struct leh_state *state, gimple tp)
 
       this_region = gen_eh_region_must_not_throw (state->cur_region);
       this_region->u.must_not_throw.failure_decl
-	= gimple_eh_must_not_throw_fndecl (inner);
+	= gimple_eh_must_not_throw_fndecl (
+	    as_a <gimple_eh_must_not_throw> (inner));
       this_region->u.must_not_throw.failure_loc
 	= LOCATION_LOCUS (gimple_location (tp));
 

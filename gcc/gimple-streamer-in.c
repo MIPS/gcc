@@ -127,7 +127,9 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case GIMPLE_EH_MUST_NOT_THROW:
-      gimple_eh_must_not_throw_set_fndecl (stmt, stream_read_tree (ib, data_in));
+      gimple_eh_must_not_throw_set_fndecl (
+	as_a <gimple_eh_must_not_throw> (stmt),
+	stream_read_tree (ib, data_in));
       break;
 
     case GIMPLE_EH_DISPATCH:

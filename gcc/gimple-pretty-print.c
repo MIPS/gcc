@@ -1021,8 +1021,8 @@ dump_gimple_eh_filter (pretty_printer *buffer, gimple_eh_filter gs, int spc,
 /* Dump a GIMPLE_EH_MUST_NOT_THROW tuple.  */
 
 static void
-dump_gimple_eh_must_not_throw (pretty_printer *buffer, gimple gs,
-			       int spc, int flags)
+dump_gimple_eh_must_not_throw (pretty_printer *buffer,
+			       gimple_eh_must_not_throw gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
     dump_gimple_fmt (buffer, spc, flags, "%G <%T>", gs,
@@ -2203,7 +2203,9 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_EH_MUST_NOT_THROW:
-      dump_gimple_eh_must_not_throw (buffer, gs, spc, flags);
+      dump_gimple_eh_must_not_throw (buffer,
+				     as_a <gimple_eh_must_not_throw> (gs),
+				     spc, flags);
       break;
 
     case GIMPLE_EH_ELSE:

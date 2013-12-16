@@ -1327,7 +1327,7 @@ gimple_asm gimple_build_asm_vec (const char *, vec<tree, va_gc> *,
 				 vec<tree, va_gc> *);
 gimple_catch gimple_build_catch (tree, gimple_seq);
 gimple_eh_filter gimple_build_eh_filter (tree, gimple_seq);
-gimple gimple_build_eh_must_not_throw (tree);
+gimple_eh_must_not_throw gimple_build_eh_must_not_throw (tree);
 gimple gimple_build_eh_else (gimple_seq, gimple_seq);
 gimple_statement_try *gimple_build_try (gimple_seq, gimple_seq,
 					enum gimple_try_flags);
@@ -3652,18 +3652,17 @@ gimple_eh_filter_set_failure (gimple gs, gimple_seq failure)
 /* Get the function decl to be called by the MUST_NOT_THROW region.  */
 
 static inline tree
-gimple_eh_must_not_throw_fndecl (gimple gs)
+gimple_eh_must_not_throw_fndecl (gimple_eh_must_not_throw eh_mnt_stmt)
 {
-  gimple_statement_eh_mnt *eh_mnt_stmt = as_a <gimple_statement_eh_mnt *> (gs);
   return eh_mnt_stmt->fndecl;
 }
 
 /* Set the function decl to be called by GS to DECL.  */
 
 static inline void
-gimple_eh_must_not_throw_set_fndecl (gimple gs, tree decl)
+gimple_eh_must_not_throw_set_fndecl (gimple_eh_must_not_throw eh_mnt_stmt,
+				     tree decl)
 {
-  gimple_statement_eh_mnt *eh_mnt_stmt = as_a <gimple_statement_eh_mnt *> (gs);
   eh_mnt_stmt->fndecl = decl;
 }
 

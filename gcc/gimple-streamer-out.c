@@ -101,7 +101,10 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
       break;
 
     case GIMPLE_EH_MUST_NOT_THROW:
-      stream_write_tree (ob, gimple_eh_must_not_throw_fndecl (stmt), true);
+      stream_write_tree (ob,
+			 gimple_eh_must_not_throw_fndecl (
+			   as_a <gimple_eh_must_not_throw> (stmt)),
+			 true);
       break;
 
     case GIMPLE_EH_DISPATCH:
