@@ -1359,7 +1359,7 @@ gimple gimple_build_omp_target (gimple_seq, int, tree);
 gimple gimple_build_omp_teams (gimple_seq, tree);
 gimple gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
-gimple gimple_build_transaction (gimple_seq, tree);
+gimple_transaction gimple_build_transaction (gimple_seq, tree);
 gimple gimple_build_predict (enum br_predictor, enum prediction);
 extern void gimple_seq_add_stmt (gimple_seq *, gimple);
 extern void gimple_seq_add_stmt_without_update (gimple_seq *, gimple);
@@ -5545,78 +5545,70 @@ gimple_omp_continue_set_control_use (gimple g, tree use)
   omp_continue_stmt->control_use = use;
 }
 
-/* Return a pointer to the body for the GIMPLE_TRANSACTION statement GS.  */
+/* Return a pointer to the body for the GIMPLE_TRANSACTION statement
+   TRANSACTION_STMT.  */
 
 static inline gimple_seq *
-gimple_transaction_body_ptr (gimple gs)
+gimple_transaction_body_ptr (gimple_transaction transaction_stmt)
 {
-  gimple_statement_transaction *transaction_stmt =
-    as_a <gimple_statement_transaction *> (gs);
   return &transaction_stmt->body;
 }
 
-/* Return the body for the GIMPLE_TRANSACTION statement GS.  */
+/* Return the body for the GIMPLE_TRANSACTION statement TRANSACTION_STMT.  */
 
 static inline gimple_seq
-gimple_transaction_body (gimple gs)
+gimple_transaction_body (gimple_transaction transaction_stmt)
 {
-  return *gimple_transaction_body_ptr (gs);
+  return *gimple_transaction_body_ptr (transaction_stmt);
 }
 
 /* Return the label associated with a GIMPLE_TRANSACTION.  */
 
 static inline tree
-gimple_transaction_label (const_gimple gs)
+gimple_transaction_label (const_gimple_transaction transaction_stmt)
 {
-  const gimple_statement_transaction *transaction_stmt =
-    as_a <const gimple_statement_transaction *> (gs);
   return transaction_stmt->label;
 }
 
 static inline tree *
-gimple_transaction_label_ptr (gimple gs)
+gimple_transaction_label_ptr (gimple_transaction transaction_stmt)
 {
-  gimple_statement_transaction *transaction_stmt =
-    as_a <gimple_statement_transaction *> (gs);
   return &transaction_stmt->label;
 }
 
 /* Return the subcode associated with a GIMPLE_TRANSACTION.  */
 
 static inline unsigned int
-gimple_transaction_subcode (const_gimple gs)
+gimple_transaction_subcode (const_gimple_transaction transaction_stmt)
 {
-  GIMPLE_CHECK (gs, GIMPLE_TRANSACTION);
-  return gs->subcode;
+  return transaction_stmt->subcode;
 }
 
-/* Set BODY to be the body for the GIMPLE_TRANSACTION statement GS.  */
+/* Set BODY to be the body for the GIMPLE_TRANSACTION statement
+   TRANSACTION_STMT.  */
 
 static inline void
-gimple_transaction_set_body (gimple gs, gimple_seq body)
+gimple_transaction_set_body (gimple_transaction transaction_stmt,
+			     gimple_seq body)
 {
-  gimple_statement_transaction *transaction_stmt =
-    as_a <gimple_statement_transaction *> (gs);
   transaction_stmt->body = body;
 }
 
 /* Set the label associated with a GIMPLE_TRANSACTION.  */
 
 static inline void
-gimple_transaction_set_label (gimple gs, tree label)
+gimple_transaction_set_label (gimple_transaction transaction_stmt, tree label)
 {
-  gimple_statement_transaction *transaction_stmt =
-    as_a <gimple_statement_transaction *> (gs);
   transaction_stmt->label = label;
 }
 
 /* Set the subcode associated with a GIMPLE_TRANSACTION.  */
 
 static inline void
-gimple_transaction_set_subcode (gimple gs, unsigned int subcode)
+gimple_transaction_set_subcode (gimple_transaction transaction_stmt,
+				unsigned int subcode)
 {
-  GIMPLE_CHECK (gs, GIMPLE_TRANSACTION);
-  gs->subcode = subcode;
+  transaction_stmt->subcode = subcode;
 }
 
 

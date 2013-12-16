@@ -361,7 +361,9 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       return;
 
     case GIMPLE_TRANSACTION:
-      lower_sequence (gimple_transaction_body_ptr (stmt), data);
+      lower_sequence (gimple_transaction_body_ptr (
+			as_a <gimple_transaction> (stmt)),
+		      data);
       break;
 
     default:

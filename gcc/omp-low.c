@@ -10468,7 +10468,9 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       lower_omp (gimple_try_cleanup_ptr (stmt), ctx);
       break;
     case GIMPLE_TRANSACTION:
-      lower_omp (gimple_transaction_body_ptr (stmt), ctx);
+      lower_omp (gimple_transaction_body_ptr (
+                   as_a <gimple_transaction> (stmt)),
+		 ctx);
       break;
     case GIMPLE_BIND:
       lower_omp (gimple_bind_body_ptr (as_a <gimple_bind> (stmt)), ctx);

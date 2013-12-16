@@ -1,5 +1,88 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_transaction
+
+	* coretypes.h (gimple_transaction): New typedef.
+	(const_gimple_transaction): New typedef.
+
+	* gimple.h (gimple_build_transaction): Return a gimple_transaction
+	rather than a plain gimple.
+	(gimple_transaction_body_ptr): Require a gimple_transaction rather
+	than a plain gimple.
+	(gimple_transaction_body): Likewise.
+	(gimple_transaction_label_ptr): Likewise.
+	(gimple_transaction_set_body): Likewise.
+	(gimple_transaction_set_label): Likewise.
+	(gimple_transaction_set_subcode): Likewise.
+	(gimple_transaction_label): Require a const_gimple_transaction
+	rather than a plain const_gimple.
+	(gimple_transaction_subcode): Likewise.
+
+	* gimple-low.c (lower_stmt): Add checked cast to
+	gimple_transaction within GIMPLE_TRANSACTION case of switch
+	statement.
+
+	* gimple-pretty-print.c (dump_gimple_transaction): Require a
+	gimple_transaction rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_transaction within
+	GIMPLE_TRANSACTION case of switch statement.
+	* gimple-streamer-in.c (input_gimple_stmt): Likewise.
+	* gimple-streamer-out.c (output_gimple_stmt): Likewise.
+	* gimple-walk.c (walk_gimple_op): Likewise.
+	(walk_gimple_stmt): Likewise.
+
+	* gimple.c (gimple_build_transaction): Return a gimple_transaction
+	rather than a plain gimple.
+	(gimple_copy): Add checked casts to gimple_transaction within
+	GIMPLE_TRANSACTION case of switch statement.
+
+	* gimplify.c (gimplify_transaction): Split local "g" into
+	"body_stmt" and "trans_stmt", strengthening the type of the latter
+	from gimple to gimple_transaction.
+
+	* omp-low.c (lower_omp_1): Add checked cast to gimple_transaction
+	within GIMPLE_TRANSACTION case of switch statement.
+
+	* trans-mem.c (diagnose_tm_1): Add checked cast within
+	GIMPLE_TRANSACTION case of switch statement, introducing a new
+	local "trans_stmt".  Use it in place of "stmt".
+	(examine_call_tm): Convert local from gimple to gimple_transaction.
+	(tm_region::get_transaction_stmt): New method.
+	(tm_region::transaction_stmt): Add clarification of type to the
+	comment.
+	(tm_region_init_0): Require a gimple_transaction rather than a
+	plain gimple.
+	(tm_region_init): Convert a check against GIMPLE_TRANSACTION to a
+	dyn_cast<gimple_transaction> and new local.
+	(transaction_subcode_ior): Add a new local, using the new
+	get_transaction_stmt method to perform a checked cast.
+	(propagate_tm_flags_out): Likewise.
+	(expand_transaction): Add a checked cast using the new
+	get_transaction_stmt method.
+	(generate_tm_state): Likewise.
+	(execute_tm_mark): Likewise.
+	(ipa_tm_diagnose_transaction): Likewise.
+
+	* tree-cfg.c (verify_gimple_transaction): Require a
+	gimple_transaction rather than a plain gimple.
+	(make_edges): Add checked cast within GIMPLE_TRANSACTION case of
+	switch statement
+	(cleanup_dead_labels): Likewise.
+	(verify_gimple_stmt): Likewise.
+	(verify_gimple_in_seq_2): Likewise.
+	(verify_gimple_in_seq_2): Likewise.
+	(gimple_redirect_edge_and_branch): Add checked cast.
+
+	* tree-inline.c (remap_gimple_stmt): Add checked cast within
+	GIMPLE_TRANSACTION case of switch statement, introducing a new
+	local "old_trans_stmt".  Use it in place of "stmt".  Add new
+	local "new_trans_stmt", using it to initialize "copy", and for
+	type-safe operations as a transaction.
+	(estimate_num_insns): Add checked cast within GIMPLE_TRANSACTION
+	case of switch statement.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_asm
 
 	* coretypes.h (gimple_asm): New typedef.

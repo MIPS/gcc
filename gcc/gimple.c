@@ -1101,10 +1101,11 @@ gimple_build_omp_atomic_store (tree val)
 
 /* Build a GIMPLE_TRANSACTION statement.  */
 
-gimple
+gimple_transaction
 gimple_build_transaction (gimple_seq body, tree label)
 {
-  gimple p = gimple_alloc (GIMPLE_TRANSACTION, 0);
+  gimple_transaction p =
+    as_a <gimple_transaction> (gimple_alloc (GIMPLE_TRANSACTION, 0));
   gimple_transaction_set_body (p, body);
   gimple_transaction_set_label (p, label);
   return p;
@@ -1765,8 +1766,10 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_TRANSACTION:
-	  new_seq = gimple_seq_copy (gimple_transaction_body (stmt));
-	  gimple_transaction_set_body (copy, new_seq);
+	  new_seq = gimple_seq_copy (gimple_transaction_body (
+				       as_a <gimple_transaction> (stmt)));
+	  gimple_transaction_set_body (as_a <gimple_transaction> (copy),
+				       new_seq);
 	  break;
 
 	case GIMPLE_WITH_CLEANUP_EXPR:

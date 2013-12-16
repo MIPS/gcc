@@ -755,9 +755,10 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
     case GIMPLE_TRANSACTION:
       {
+	gimple_transaction trans_stmt = as_a <gimple_transaction> (stmt);
 	unsigned char inner_flags = DIAG_TM_SAFE;
 
-	if (gimple_transaction_subcode (stmt) & GTMA_IS_RELAXED)
+	if (gimple_transaction_subcode (trans_stmt) & GTMA_IS_RELAXED)
 	  {
 	    if (d->block_flags & DIAG_TM_SAFE)
 	      error_at (gimple_location (stmt),
@@ -767,7 +768,7 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 			"relaxed transaction in %<transaction_safe%> function");
 	    inner_flags = DIAG_TM_RELAXED;
 	  }
-	else if (gimple_transaction_subcode (stmt) & GTMA_IS_OUTER)
+	else if (gimple_transaction_subcode (trans_stmt) & GTMA_IS_OUTER)
 	  {
 	    if (d->block_flags)
 	      error_at (gimple_location (stmt),
@@ -783,7 +784,7 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	  }
 
 	*handled_ops_p = true;
-	if (gimple_transaction_body (stmt))
+	if (gimple_transaction_body (trans_stmt))
 	  {
 	    struct walk_stmt_info wi_inner;
 	    struct diagnose_tm d_inner;
@@ -796,7 +797,7 @@ diagnose_tm_1 (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	    memset (&wi_inner, 0, sizeof (wi_inner));
 	    wi_inner.info = &d_inner;
 
-	    walk_gimple_seq (gimple_transaction_body (stmt),
+	    walk_gimple_seq (gimple_transaction_body (trans_stmt),
 			     diagnose_tm_1, diagnose_tm_1_op, &wi_inner);
 	  }
       }
@@ -1598,7 +1599,8 @@ examine_call_tm (unsigned *state, gimple_stmt_iterator *gsi)
 static void
 lower_transaction (gimple_stmt_iterator *gsi, struct walk_stmt_info *wi)
 {
-  gimple g, stmt = gsi_stmt (*gsi);
+  gimple g;
+  gimple_transaction stmt = as_a <gimple_transaction> (gsi_stmt (*gsi));
   unsigned int *outer_state = (unsigned int *) wi->info;
   unsigned int this_state = 0;
   struct walk_stmt_info this_wi;
@@ -1794,6 +1796,22 @@ make_pass_lower_tm (gcc::context *ctxt)
 
 struct tm_region
 {
+public:
+
+  /* The field "transaction_stmt" is initially a gimple_transaction,
+     but eventually gets lowered to a gimple_call (to BUILT_IN_TM_START).
+
+     Helper method to get it as a gimple_transaction, with code-checking
+     in a checked-build.  */
+
+  gimple_transaction
+  get_transaction_stmt () const
+  {
+    return as_a <gimple_transaction> (transaction_stmt);
+  }
+
+public:
+
   /* Link to the next unnested transaction.  */
   struct tm_region *next;
 
@@ -1805,7 +1823,8 @@ struct tm_region
 
   /* The GIMPLE_TRANSACTION statement beginning this transaction.
      After TM_MARK, this gets replaced by a call to
-     BUILT_IN_TM_START.  */
+     BUILT_IN_TM_START.
+     Hence this will be either a gimple_transaction or a gimple_call.  */
   gimple transaction_stmt;
 
   /* After TM_MARK expands the GIMPLE_TRANSACTION into a call to
@@ -1848,7 +1867,8 @@ static bitmap_obstack tm_obstack;
    GIMPLE_TRANSACTION statement in a tree of tm_region elements.  */
 
 static struct tm_region *
-tm_region_init_0 (struct tm_region *outer, basic_block bb, gimple stmt)
+tm_region_init_0 (struct tm_region *outer, basic_block bb,
+		  gimple_transaction stmt)
 {
   struct tm_region *region;
 
@@ -1963,8 +1983,9 @@ tm_region_init (struct tm_region *region)
       /* Check for the last statement in the block beginning a new region.  */
       g = last_stmt (bb);
       old_region = region;
-      if (g && gimple_code (g) == GIMPLE_TRANSACTION)
-	region = tm_region_init_0 (region, bb, g);
+      if (g)
+	if (gimple_transaction trans_stmt = dyn_cast <gimple_transaction> (g))
+	  region = tm_region_init_0 (region, bb, trans_stmt);
 
       /* Process subsequent blocks.  */
       FOR_EACH_EDGE (e, ei, bb->succs)
@@ -2073,8 +2094,9 @@ transaction_subcode_ior (struct tm_region *region, unsigned flags)
 {
   if (region && region->transaction_stmt)
     {
-      flags |= gimple_transaction_subcode (region->transaction_stmt);
-      gimple_transaction_set_subcode (region->transaction_stmt, flags);
+      gimple_transaction transaction_stmt = region->get_transaction_stmt ();
+      flags |= gimple_transaction_subcode (transaction_stmt);
+      gimple_transaction_set_subcode (transaction_stmt, flags);
     }
 }
 
@@ -2698,7 +2720,7 @@ expand_transaction (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
 
   /* ??? There are plenty of bits here we're not computing.  */
   {
-    int subcode = gimple_transaction_subcode (region->transaction_stmt);
+    int subcode = gimple_transaction_subcode (region->get_transaction_stmt ());
     int flags = 0;
     if (subcode & GTMA_DOES_GO_IRREVOCABLE)
       flags |= PR_DOESGOIRREVOCABLE;
@@ -2903,8 +2925,8 @@ generate_tm_state (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
   // again as we process blocks.
   if (region->exit_blocks)
     {
-      unsigned int subcode
-	= gimple_transaction_subcode (region->transaction_stmt);
+      gimple_transaction transaction_stmt = region->get_transaction_stmt ();
+      unsigned int subcode = gimple_transaction_subcode (transaction_stmt);
 
       if (subcode & GTMA_DOES_GO_IRREVOCABLE)
 	subcode &= (GTMA_DECLARATION_MASK | GTMA_DOES_GO_IRREVOCABLE
@@ -2912,7 +2934,7 @@ generate_tm_state (struct tm_region *region, void *data ATTRIBUTE_UNUSED)
 		    | GTMA_HAS_NO_INSTRUMENTATION);
       else
 	subcode &= GTMA_DECLARATION_MASK;
-      gimple_transaction_set_subcode (region->transaction_stmt, subcode);
+      gimple_transaction_set_subcode (transaction_stmt, subcode);
     }
 
   return NULL;
@@ -2928,11 +2950,13 @@ propagate_tm_flags_out (struct tm_region *region)
 
   if (region->outer && region->outer->transaction_stmt)
     {
-      unsigned s = gimple_transaction_subcode (region->transaction_stmt);
+      unsigned s =
+	gimple_transaction_subcode (region->get_transaction_stmt ());
       s &= (GTMA_HAVE_ABORT | GTMA_HAVE_LOAD | GTMA_HAVE_STORE
             | GTMA_MAY_ENTER_IRREVOCABLE);
-      s |= gimple_transaction_subcode (region->outer->transaction_stmt);
-      gimple_transaction_set_subcode (region->outer->transaction_stmt, s);
+      s |= gimple_transaction_subcode (region->outer->get_transaction_stmt ());
+      gimple_transaction_set_subcode (region->outer->get_transaction_stmt (),
+				      s);
     }
 
   propagate_tm_flags_out (region->next);
@@ -2967,7 +2991,8 @@ execute_tm_mark (void)
 	{
 	  if (r->transaction_stmt)
 	    {
-	      unsigned sub = gimple_transaction_subcode (r->transaction_stmt);
+	      unsigned sub =
+		gimple_transaction_subcode (r->get_transaction_stmt ());
 
 	      /* If we're sure to go irrevocable, there won't be
 		 anything to expand, since the run-time will go
@@ -4664,7 +4689,8 @@ ipa_tm_diagnose_transaction (struct cgraph_node *node,
   struct tm_region *r;
 
   for (r = all_tm_regions; r ; r = r->next)
-    if (gimple_transaction_subcode (r->transaction_stmt) & GTMA_IS_RELAXED)
+    if (gimple_transaction_subcode (r->get_transaction_stmt ())
+	& GTMA_IS_RELAXED)
       {
 	/* Atomic transactions can be nested inside relaxed.  */
 	if (r->inner)

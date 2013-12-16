@@ -1519,7 +1519,8 @@ dump_gimple_omp_return (pretty_printer *buffer, gimple gs, int spc, int flags)
 /* Dump a GIMPLE_TRANSACTION tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_transaction (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_transaction (pretty_printer *buffer, gimple_transaction gs,
+			 int spc, int flags)
 {
   unsigned subcode = gimple_transaction_subcode (gs);
 
@@ -2231,7 +2232,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_TRANSACTION:
-      dump_gimple_transaction (buffer, gs, spc, flags);
+      dump_gimple_transaction (buffer, as_a <gimple_transaction> (gs), spc,
+			       flags);
       break;
 
     default:

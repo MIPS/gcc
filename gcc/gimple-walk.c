@@ -438,8 +438,9 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_TRANSACTION:
-      ret = walk_tree (gimple_transaction_label_ptr (stmt), callback_op,
-		       wi, pset);
+      ret = walk_tree (gimple_transaction_label_ptr (
+			 as_a <gimple_transaction> (stmt)),
+		       callback_op, wi, pset);
       if (ret)
 	return ret;
       break;
@@ -618,7 +619,8 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       break;
 
     case GIMPLE_TRANSACTION:
-      ret = walk_gimple_seq_mod (gimple_transaction_body_ptr (stmt),
+      ret = walk_gimple_seq_mod (gimple_transaction_body_ptr (
+				   as_a <gimple_transaction> (stmt)),
 			     callback_stmt, callback_op, wi);
       if (ret)
 	return wi->callback_result;

@@ -177,8 +177,11 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
       break;
 
     case GIMPLE_TRANSACTION:
-      gcc_assert (gimple_transaction_body (stmt) == NULL);
-      stream_write_tree (ob, gimple_transaction_label (stmt), true);
+      {
+	gimple_transaction trans_stmt = as_a <gimple_transaction> (stmt);
+	gcc_assert (gimple_transaction_body (trans_stmt) == NULL);
+	stream_write_tree (ob, gimple_transaction_label (trans_stmt), true);
+      }
       break;
 
     default:

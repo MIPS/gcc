@@ -122,6 +122,10 @@ struct gimple_statement_call;
 typedef struct gimple_statement_call *gimple_call;
 typedef const struct gimple_statement_call *const_gimple_call;
 
+struct gimple_statement_transaction;
+typedef struct gimple_statement_transaction *gimple_transaction;
+typedef const struct gimple_statement_transaction *const_gimple_transaction;
+
 struct gimple_statement_return;
 typedef struct gimple_statement_return *gimple_return;
 typedef const struct gimple_statement_return *const_gimple_return;

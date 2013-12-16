@@ -7359,7 +7359,8 @@ static enum gimplify_status
 gimplify_transaction (tree *expr_p, gimple_seq *pre_p)
 {
   tree expr = *expr_p, temp, tbody = TRANSACTION_EXPR_BODY (expr);
-  gimple g;
+  gimple body_stmt;
+  gimple_transaction trans_stmt;
   gimple_seq body = NULL;
   int subcode = 0;
 
@@ -7376,17 +7377,17 @@ gimplify_transaction (tree *expr_p, gimple_seq *pre_p)
   push_gimplify_context ();
   temp = voidify_wrapper_expr (*expr_p, NULL);
 
-  g = gimplify_and_return_first (TRANSACTION_EXPR_BODY (expr), &body);
-  pop_gimplify_context (g);
+  body_stmt = gimplify_and_return_first (TRANSACTION_EXPR_BODY (expr), &body);
+  pop_gimplify_context (body_stmt);
 
-  g = gimple_build_transaction (body, NULL);
+  trans_stmt = gimple_build_transaction (body, NULL);
   if (TRANSACTION_EXPR_OUTER (expr))
     subcode = GTMA_IS_OUTER;
   else if (TRANSACTION_EXPR_RELAXED (expr))
     subcode = GTMA_IS_RELAXED;
-  gimple_transaction_set_subcode (g, subcode);
+  gimple_transaction_set_subcode (trans_stmt, subcode);
 
-  gimplify_seq_add_stmt (pre_p, g);
+  gimplify_seq_add_stmt (pre_p, trans_stmt);
 
   if (temp)
     {

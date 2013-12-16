@@ -1455,9 +1455,19 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_TRANSACTION:
-	  s1 = remap_gimple_seq (gimple_transaction_body (stmt), id);
-	  copy = gimple_build_transaction (s1, gimple_transaction_label (stmt));
-	  gimple_transaction_set_subcode (copy, gimple_transaction_subcode (stmt));
+	  {
+	    gimple_transaction old_trans_stmt =
+	      as_a <gimple_transaction> (stmt);
+	    gimple_transaction new_trans_stmt;
+	    s1 = remap_gimple_seq (gimple_transaction_body (old_trans_stmt),
+				   id);
+	    copy = new_trans_stmt =
+	      gimple_build_transaction (s1,
+					gimple_transaction_label (old_trans_stmt));
+	    gimple_transaction_set_subcode (
+              new_trans_stmt,
+	      gimple_transaction_subcode (old_trans_stmt));
+	  }
 	  break;
 
 	default:
@@ -4012,7 +4022,8 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
     case GIMPLE_TRANSACTION:
       return (weights->tm_cost
-	      + estimate_num_insns_seq (gimple_transaction_body (stmt),
+	      + estimate_num_insns_seq (gimple_transaction_body (
+					  as_a <gimple_transaction> (stmt)),
 					weights));
 
     default:

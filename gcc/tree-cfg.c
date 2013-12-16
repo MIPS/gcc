@@ -163,7 +163,7 @@ static inline bool stmt_starts_bb_p (gimple, gimple);
 static int gimple_verify_flow_info (void);
 static void gimple_make_forwarder_block (edge);
 static gimple first_non_label_stmt (basic_block);
-static bool verify_gimple_transaction (gimple);
+static bool verify_gimple_transaction (gimple_transaction);
 static bool call_can_make_abnormal_goto (gimple);
 
 /* Flowgraph optimization and cleanup.  */
@@ -859,7 +859,8 @@ make_edges (void)
 
 	    case GIMPLE_TRANSACTION:
 	      {
-		tree abort_label = gimple_transaction_label (last);
+		tree abort_label =
+		  gimple_transaction_label (as_a <gimple_transaction> (last));
 		if (abort_label)
 		  make_edge (bb, label_to_block (abort_label), EDGE_TM_ABORT);
 		fallthru = true;
@@ -1473,12 +1474,13 @@ cleanup_dead_labels (void)
 
 	case GIMPLE_TRANSACTION:
 	  {
-	    tree label = gimple_transaction_label (stmt);
+	    gimple_transaction trans_stmt = as_a <gimple_transaction> (stmt);
+	    tree label = gimple_transaction_label (trans_stmt);
 	    if (label)
 	      {
 		tree new_label = main_block_label (label);
 		if (new_label != label)
-		  gimple_transaction_set_label (stmt, new_label);
+		  gimple_transaction_set_label (trans_stmt, new_label);
 	      }
 	  }
 	  break;
@@ -4517,7 +4519,7 @@ verify_gimple_stmt (gimple stmt)
       return false;
 
     case GIMPLE_TRANSACTION:
-      return verify_gimple_transaction (stmt);
+      return verify_gimple_transaction (as_a <gimple_transaction> (stmt));
 
     /* Tuples that do not have tree operands.  */
     case GIMPLE_NOP:
@@ -4646,7 +4648,7 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
 	  break;
 
 	case GIMPLE_TRANSACTION:
-	  err |= verify_gimple_transaction (stmt);
+	  err |= verify_gimple_transaction (as_a <gimple_transaction> (stmt));
 	  break;
 
 	default:
@@ -4666,7 +4668,7 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
    is a problem, otherwise false.  */
 
 static bool
-verify_gimple_transaction (gimple stmt)
+verify_gimple_transaction (gimple_transaction stmt)
 {
   tree lab = gimple_transaction_label (stmt);
   if (lab != NULL && TREE_CODE (lab) != LABEL_DECL)
@@ -5579,7 +5581,8 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
       /* The ABORT edge has a stored label associated with it, otherwise
 	 the edges are simply redirectable.  */
       if (e->flags == 0)
-	gimple_transaction_set_label (stmt, gimple_block_label (dest));
+	gimple_transaction_set_label (as_a <gimple_transaction> (stmt),
+				      gimple_block_label (dest));
       break;
 
     default:
