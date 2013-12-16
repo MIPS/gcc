@@ -263,7 +263,9 @@ collect_finally_tree (gimple stmt, gimple region)
       break;
 
     case GIMPLE_CATCH:
-      collect_finally_tree_1 (gimple_catch_handler (stmt), region);
+      collect_finally_tree_1 (gimple_catch_handler (
+				 as_a <gimple_catch> (stmt)),
+			      region);
       break;
 
     case GIMPLE_EH_FILTER:
@@ -519,7 +521,9 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
       replace_goto_queue_stmt_list (gimple_try_cleanup_ptr (stmt), tf);
       break;
     case GIMPLE_CATCH:
-      replace_goto_queue_stmt_list (gimple_catch_handler_ptr (stmt), tf);
+      replace_goto_queue_stmt_list (gimple_catch_handler_ptr (
+				      as_a <gimple_catch> (stmt)),
+				    tf);
       break;
     case GIMPLE_EH_FILTER:
       replace_goto_queue_stmt_list (gimple_eh_filter_failure_ptr (stmt), tf);
@@ -1764,10 +1768,10 @@ lower_catch (struct leh_state *state, gimple tp)
        gsi_next (&gsi))
     {
       eh_catch c;
-      gimple gcatch;
+      gimple_catch gcatch;
       gimple_seq handler;
 
-      gcatch = gsi_stmt (gsi);
+      gcatch = as_a <gimple_catch> (gsi_stmt (gsi));
       c = gen_eh_region_catch (try_region, gimple_catch_types (gcatch));
 
       handler = gimple_catch_handler (gcatch);
@@ -3061,7 +3065,7 @@ refactor_eh_r (gimple_seq seq)
 	    refactor_eh_r (gimple_try_cleanup (one));
 	    break;
 	  case GIMPLE_CATCH:
-	    refactor_eh_r (gimple_catch_handler (one));
+	    refactor_eh_r (gimple_catch_handler (as_a <gimple_catch> (one)));
 	    break;
 	  case GIMPLE_EH_FILTER:
 	    refactor_eh_r (gimple_eh_filter_failure (one));

@@ -1,5 +1,53 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_catch
+
+	* coretypes.h (gimple_catch): New typedef.
+	(const_gimple_catch): New typedef.
+
+	* gimple-low.c (lower_try_catch): Add checked cast to gimple_catch.
+	(gimple_try_catch_may_fallthru): Likewise.
+
+	* gimple-pretty-print.c (dump_gimple_catch): Require a gimple_catch
+	rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_catch within
+	GIMPLE_CATCH case of switch statement.
+
+	* gimple-walk.c (walk_gimple_op): Likewise.
+	(walk_gimple_stmt): Likewise.
+
+	* gimple.c (gimple_build_catch): Return a gimple_catch rather than
+	a plain gimple.
+	(gimple_copy): Add checked casts to gimple_catch within
+	GIMPLE_CATCH case of switch statement, introducing new locals.
+
+	* gimple.h (gimple_build_catch): Return a gimple_catch rather than
+	a plain gimple.
+	(gimple_catch_types_ptr): Require a gimple_catch rather than a
+	plain gimple.
+	(gimple_catch_handler_ptr): Likewise.
+	(gimple_catch_handler): Likewise.
+	(gimple_catch_set_types): Likewise.
+	(gimple_catch_set_handler): Likewise.
+
+	* omp-low.c (lower_omp_1): Add checked cast to gimple_catch within
+	GIMPLE_CATCH case of switch statement.
+
+	* tree-cfg.c (verify_gimple_in_seq_2): Likewise.
+	(do_warn_unused_result): Likewise.
+
+	* tree-eh.c (collect_finally_tree): Likewise.
+	(replace_goto_queue_1): Likewise.
+	(lower_catch): Convert local from gimple to gimple_catch.
+	(refactor_eh_r): Add checked cast to gimple_catch within
+	GIMPLE_CATCH case of switch statement.
+
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	(estimate_num_insns): Add checked cast to gimple_catch within
+	GIMPLE_CATCH case of switch statement, introducing new local.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_transaction
 
 	* coretypes.h (gimple_transaction): New typedef.

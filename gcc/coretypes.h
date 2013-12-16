@@ -134,6 +134,10 @@ struct gimple_statement_bind;
 typedef struct gimple_statement_bind *gimple_bind;
 typedef const struct gimple_statement_bind *const_gimple_bind;
 
+struct gimple_statement_catch;
+typedef struct gimple_statement_catch *gimple_catch;
+typedef const struct gimple_statement_catch *const_gimple_catch;
+
 struct gimple_statement_phi;
 typedef struct gimple_statement_phi *gimple_phi;
 typedef const struct gimple_statement_phi *const_gimple_phi;

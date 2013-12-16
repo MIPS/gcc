@@ -1325,7 +1325,7 @@ gimple_bind gimple_build_bind (tree, gimple_seq, tree);
 gimple_asm gimple_build_asm_vec (const char *, vec<tree, va_gc> *,
 				 vec<tree, va_gc> *, vec<tree, va_gc> *,
 				 vec<tree, va_gc> *);
-gimple gimple_build_catch (tree, gimple_seq);
+gimple_catch gimple_build_catch (tree, gimple_seq);
 gimple gimple_build_eh_filter (tree, gimple_seq);
 gimple gimple_build_eh_must_not_throw (tree);
 gimple gimple_build_eh_else (gimple_seq, gimple_seq);
@@ -3535,53 +3535,49 @@ gimple_catch_types (const_gimple gs)
 }
 
 
-/* Return a pointer to the types handled by GIMPLE_CATCH statement GS.  */
+/* Return a pointer to the types handled by GIMPLE_CATCH statement CATCH_STMT.  */
 
 static inline tree *
-gimple_catch_types_ptr (gimple gs)
+gimple_catch_types_ptr (gimple_catch catch_stmt)
 {
-  gimple_statement_catch *catch_stmt = as_a <gimple_statement_catch *> (gs);
   return &catch_stmt->types;
 }
 
 
 /* Return a pointer to the GIMPLE sequence representing the body of
-   the handler of GIMPLE_CATCH statement GS.  */
+   the handler of GIMPLE_CATCH statement CATCH_STMT.  */
 
 static inline gimple_seq *
-gimple_catch_handler_ptr (gimple gs)
+gimple_catch_handler_ptr (gimple_catch catch_stmt)
 {
-  gimple_statement_catch *catch_stmt = as_a <gimple_statement_catch *> (gs);
   return &catch_stmt->handler;
 }
 
 
 /* Return the GIMPLE sequence representing the body of the handler of
-   GIMPLE_CATCH statement GS.  */
+   GIMPLE_CATCH statement CATCH_STMT.  */
 
 static inline gimple_seq
-gimple_catch_handler (gimple gs)
+gimple_catch_handler (gimple_catch catch_stmt)
 {
-  return *gimple_catch_handler_ptr (gs);
+  return *gimple_catch_handler_ptr (catch_stmt);
 }
 
 
-/* Set T to be the set of types handled by GIMPLE_CATCH GS.  */
+/* Set T to be the set of types handled by GIMPLE_CATCH CATCH_STMT.  */
 
 static inline void
-gimple_catch_set_types (gimple gs, tree t)
+gimple_catch_set_types (gimple_catch catch_stmt, tree t)
 {
-  gimple_statement_catch *catch_stmt = as_a <gimple_statement_catch *> (gs);
   catch_stmt->types = t;
 }
 
 
-/* Set HANDLER to be the body of GIMPLE_CATCH GS.  */
+/* Set HANDLER to be the body of GIMPLE_CATCH CATCH_STMT.  */
 
 static inline void
-gimple_catch_set_handler (gimple gs, gimple_seq handler)
+gimple_catch_set_handler (gimple_catch catch_stmt, gimple_seq handler)
 {
-  gimple_statement_catch *catch_stmt = as_a <gimple_statement_catch *> (gs);
   catch_stmt->handler = handler;
 }
 

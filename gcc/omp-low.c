@@ -10458,7 +10458,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	gimple_regimplify_operands (stmt, gsi_p);
       break;
     case GIMPLE_CATCH:
-      lower_omp (gimple_catch_handler_ptr (stmt), ctx);
+      lower_omp (gimple_catch_handler_ptr (as_a <gimple_catch> (stmt)), ctx);
       break;
     case GIMPLE_EH_FILTER:
       lower_omp (gimple_eh_filter_failure_ptr (stmt), ctx);

@@ -614,10 +614,10 @@ gimple_build_asm_vec (const char *string, vec<tree, va_gc> *inputs,
   TYPES are the catch types.
   HANDLER is the exception handler.  */
 
-gimple
+gimple_catch
 gimple_build_catch (tree types, gimple_seq handler)
 {
-  gimple p = gimple_alloc (GIMPLE_CATCH, 0);
+  gimple_catch p = as_a <gimple_catch> (gimple_alloc (GIMPLE_CATCH, 0));
   gimple_catch_set_types (p, types);
   if (handler)
     gimple_catch_set_handler (p, handler);
@@ -1664,10 +1664,14 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_CATCH:
-	  new_seq = gimple_seq_copy (gimple_catch_handler (stmt));
-	  gimple_catch_set_handler (copy, new_seq);
-	  t = unshare_expr (gimple_catch_types (stmt));
-	  gimple_catch_set_types (copy, t);
+	  {
+	    gimple_catch catch_stmt = as_a <gimple_catch> (stmt);
+	    gimple_catch catch_copy = as_a <gimple_catch> (copy);
+	    new_seq = gimple_seq_copy (gimple_catch_handler (catch_stmt));
+	    gimple_catch_set_handler (catch_copy, new_seq);
+	    t = unshare_expr (gimple_catch_types (catch_stmt));
+	    gimple_catch_set_types (catch_copy, t);
+	  }
 	  break;
 
 	case GIMPLE_EH_FILTER:

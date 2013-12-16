@@ -4644,7 +4644,8 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
 	  break;
 
 	case GIMPLE_CATCH:
-	  err |= verify_gimple_in_seq_2 (gimple_catch_handler (stmt));
+	  err |= verify_gimple_in_seq_2 (gimple_catch_handler (
+					   as_a <gimple_catch> (stmt)));
 	  break;
 
 	case GIMPLE_TRANSACTION:
@@ -8364,7 +8365,8 @@ do_warn_unused_result (gimple_seq seq)
 	  do_warn_unused_result (gimple_try_cleanup (g));
 	  break;
 	case GIMPLE_CATCH:
-	  do_warn_unused_result (gimple_catch_handler (g));
+	  do_warn_unused_result (gimple_catch_handler (
+				   as_a <gimple_catch> (g)));
 	  break;
 	case GIMPLE_EH_FILTER:
 	  do_warn_unused_result (gimple_eh_filter_failure (g));

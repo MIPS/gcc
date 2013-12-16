@@ -988,7 +988,7 @@ dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
    dumpfile.h).  */
 
 static void
-dump_gimple_catch (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_catch (pretty_printer *buffer, gimple_catch gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
       dump_gimple_fmt (buffer, spc, flags, "%G <%T, %+CATCH <%S>%->", gs,
@@ -2194,7 +2194,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_CATCH:
-      dump_gimple_catch (buffer, gs, spc, flags);
+      dump_gimple_catch (buffer, as_a <gimple_catch> (gs), spc, flags);
       break;
 
     case GIMPLE_EH_FILTER:

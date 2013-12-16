@@ -453,7 +453,9 @@ lower_try_catch (gimple_stmt_iterator *gsi, struct lower_data *data)
       for (; !gsi_end_p (i); gsi_next (&i))
 	{
 	  data->cannot_fallthru = false;
-	  lower_sequence (gimple_catch_handler_ptr (gsi_stmt (i)), data);
+	  lower_sequence (gimple_catch_handler_ptr (
+                            as_a <gimple_catch> (gsi_stmt (i))),
+			  data);
 	  if (!data->cannot_fallthru)
 	    cannot_fallthru = false;
 	}
@@ -515,7 +517,8 @@ gimple_try_catch_may_fallthru (gimple stmt)
 	 through iff any of the catch bodies falls through.  */
       for (; !gsi_end_p (i); gsi_next (&i))
 	{
-	  if (gimple_seq_may_fallthru (gimple_catch_handler (gsi_stmt (i))))
+	  if (gimple_seq_may_fallthru (gimple_catch_handler (
+					 as_a <gimple_catch> (gsi_stmt (i)))))
 	    return true;
 	}
       return false;

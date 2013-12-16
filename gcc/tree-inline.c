@@ -1338,8 +1338,11 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_CATCH:
-	  s1 = remap_gimple_seq (gimple_catch_handler (stmt), id);
-	  copy = gimple_build_catch (gimple_catch_types (stmt), s1);
+	  {
+	    gimple_catch catch_stmt = as_a <gimple_catch> (stmt);
+	    s1 = remap_gimple_seq (gimple_catch_handler (catch_stmt), id);
+	    copy = gimple_build_catch (gimple_catch_types (catch_stmt), s1);
+	  }
 	  break;
 
 	case GIMPLE_EH_FILTER:
@@ -3983,7 +3986,9 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
       return estimate_num_insns_seq (gimple_eh_filter_failure (stmt), weights);
 
     case GIMPLE_CATCH:
-      return estimate_num_insns_seq (gimple_catch_handler (stmt), weights);
+      return estimate_num_insns_seq (gimple_catch_handler (
+				       as_a <gimple_catch> (stmt)),
+				     weights);
 
     case GIMPLE_TRY:
       return (estimate_num_insns_seq (gimple_try_eval (stmt), weights)
