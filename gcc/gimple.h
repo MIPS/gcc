@@ -1349,7 +1349,7 @@ gimple gimple_build_omp_task (gimple_seq, tree, tree, tree, tree, tree, tree);
 gimple gimple_build_omp_section (gimple_seq);
 gimple gimple_build_omp_master (gimple_seq);
 gimple gimple_build_omp_taskgroup (gimple_seq);
-gimple gimple_build_omp_continue (tree, tree);
+gimple_omp_continue gimple_build_omp_continue (tree, tree);
 gimple gimple_build_omp_ordered (gimple_seq);
 gimple gimple_build_omp_return (bool);
 gimple gimple_build_omp_sections (gimple_seq, tree);
@@ -5448,64 +5448,52 @@ gimple_omp_atomic_load_rhs_ptr (gimple_omp_atomic_load load_stmt)
 /* Get the definition of the control variable in a GIMPLE_OMP_CONTINUE.  */
 
 static inline tree
-gimple_omp_continue_control_def (const_gimple g)
+gimple_omp_continue_control_def (const_gimple_omp_continue cont_stmt)
 {
-  const gimple_statement_omp_continue *omp_continue_stmt =
-    as_a <const gimple_statement_omp_continue *> (g);
-  return omp_continue_stmt->control_def;
+  return cont_stmt->control_def;
 }
 
 /* The same as above, but return the address.  */
 
 static inline tree *
-gimple_omp_continue_control_def_ptr (gimple g)
+gimple_omp_continue_control_def_ptr (gimple_omp_continue cont_stmt)
 {
-  gimple_statement_omp_continue *omp_continue_stmt =
-    as_a <gimple_statement_omp_continue *> (g);
-  return &omp_continue_stmt->control_def;
+  return &cont_stmt->control_def;
 }
 
 /* Set the definition of the control variable in a GIMPLE_OMP_CONTINUE.  */
 
 static inline void
-gimple_omp_continue_set_control_def (gimple g, tree def)
+gimple_omp_continue_set_control_def (gimple_omp_continue cont_stmt, tree def)
 {
-  gimple_statement_omp_continue *omp_continue_stmt =
-    as_a <gimple_statement_omp_continue *> (g);
-  omp_continue_stmt->control_def = def;
+  cont_stmt->control_def = def;
 }
 
 
 /* Get the use of the control variable in a GIMPLE_OMP_CONTINUE.  */
 
 static inline tree
-gimple_omp_continue_control_use (const_gimple g)
+gimple_omp_continue_control_use (const_gimple_omp_continue cont_stmt)
 {
-  const gimple_statement_omp_continue *omp_continue_stmt =
-    as_a <const gimple_statement_omp_continue *> (g);
-  return omp_continue_stmt->control_use;
+  return cont_stmt->control_use;
 }
 
 
 /* The same as above, but return the address.  */
 
 static inline tree *
-gimple_omp_continue_control_use_ptr (gimple g)
+gimple_omp_continue_control_use_ptr (gimple_omp_continue cont_stmt)
 {
-  gimple_statement_omp_continue *omp_continue_stmt =
-    as_a <gimple_statement_omp_continue *> (g);
-  return &omp_continue_stmt->control_use;
+  return &cont_stmt->control_use;
 }
 
 
 /* Set the use of the control variable in a GIMPLE_OMP_CONTINUE.  */
 
 static inline void
-gimple_omp_continue_set_control_use (gimple g, tree use)
+gimple_omp_continue_set_control_use (gimple_omp_continue cont_stmt, tree use)
 {
-  gimple_statement_omp_continue *omp_continue_stmt =
-    as_a <gimple_statement_omp_continue *> (g);
-  omp_continue_stmt->control_use = use;
+  cont_stmt->control_use = use;
 }
 
 /* Return a pointer to the body for the GIMPLE_TRANSACTION statement

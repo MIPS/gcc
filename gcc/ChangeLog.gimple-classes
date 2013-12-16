@@ -1,5 +1,45 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_continue
+
+	* coretypes.h (gimple_omp_continue): New typedef.
+	(const_gimple_omp_continue): New typedef.
+
+	* gimple.h (gimple_build_omp_continue): Return a
+	gimple_omp_continue rather than a plain gimple.
+	(gimple_omp_continue_control_def): Require a
+	const_gimple_omp_continue rather than a plain const_gimple.
+	(gimple_omp_continue_control_use): Likewise.
+	(gimple_omp_continue_control_def_ptr): Require a gimple_omp_continue
+	rather than a plain gimple.
+	(gimple_omp_continue_set_control_def): Likewise.
+	(gimple_omp_continue_control_use_ptr): Likewise.
+	(gimple_omp_continue_set_control_use): Likewise.
+
+	* gimple-pretty-print.c (dump_gimple_omp_continue): Require a
+	gimple_omp_continue rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_omp_continue
+	within GIMPLE_OMP_CONTINUE case of switch statement.
+
+	* gimple-walk.c (walk_gimple_op): Likewise, adding a new local.
+
+	* gimple.c (gimple_build_omp_continue): Return a
+	gimple_omp_continue rather than a plain gimple.
+
+	* omp-low.c (gimple_build_cond_empty): Return a gimple_cond
+	rather than a plain gimple.
+	(expand_omp_for_generic): Split local "stmt" into "assign_stmt",
+	"cont_stmt", "cond_stmt", "call_stmt" of types gimple_assign,
+	gimple_omp_continue, gimple_cond, gimple_call respectively.
+	(expand_omp_for_static_nochunk): Likewise, splitting into two
+	"cond_stmt" decls. "assign_stmt", "cont_stmt"
+	(expand_omp_for_static_chunk): Likewise, splitting into
+	"cond_stmt", "assign_stmt", "cont_stmt".
+	(expand_omp_sections): Strengthen local "cont" from gimple to
+	gimple_omp_continue.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_atomic_store
 
 	* coretypes.h (gimple_omp_atomic_store): New typedef.

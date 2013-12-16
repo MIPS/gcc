@@ -176,6 +176,10 @@ typedef struct gimple_statement_omp_atomic_store *gimple_omp_atomic_store;
 typedef const struct gimple_statement_omp_atomic_store *
   const_gimple_omp_atomic_store;
 
+struct gimple_statement_omp_continue;
+typedef struct gimple_statement_omp_continue *gimple_omp_continue;
+typedef const struct gimple_statement_omp_continue *const_gimple_omp_continue;
+
 union section;
 typedef union section section;
 struct gcc_options;

@@ -959,10 +959,11 @@ gimple_build_omp_taskgroup (gimple_seq body)
    CONTROL_DEF is the definition of the control variable.
    CONTROL_USE is the use of the control variable.  */
 
-gimple
+gimple_omp_continue
 gimple_build_omp_continue (tree control_def, tree control_use)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_CONTINUE, 0);
+  gimple_omp_continue p =
+    as_a <gimple_omp_continue> (gimple_alloc (GIMPLE_OMP_CONTINUE, 0));
   gimple_omp_continue_set_control_def (p, control_def);
   gimple_omp_continue_set_control_use (p, control_use);
   return p;
