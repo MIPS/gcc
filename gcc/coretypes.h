@@ -180,6 +180,10 @@ struct gimple_statement_omp_continue;
 typedef struct gimple_statement_omp_continue *gimple_omp_continue;
 typedef const struct gimple_statement_omp_continue *const_gimple_omp_continue;
 
+struct gimple_statement_omp_critical;
+typedef struct gimple_statement_omp_critical *gimple_omp_critical;
+typedef const struct gimple_statement_omp_critical *const_gimple_omp_critical;
+
 union section;
 typedef union section section;
 struct gcc_options;

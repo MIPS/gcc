@@ -818,10 +818,11 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
    BODY is the sequence of statements for which only one thread can execute.
    NAME is optional identifier for this critical block.  */
 
-gimple
+gimple_omp_critical
 gimple_build_omp_critical (gimple_seq body, tree name)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_CRITICAL, 0);
+  gimple_omp_critical p =
+    as_a <gimple_omp_critical> (gimple_alloc (GIMPLE_OMP_CRITICAL, 0));
   gimple_omp_critical_set_name (p, name);
   if (body)
     gimple_omp_set_body (p, body);
@@ -1755,8 +1756,9 @@ gimple_copy (gimple stmt)
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_CRITICAL:
-	  t = unshare_expr (gimple_omp_critical_name (stmt));
-	  gimple_omp_critical_set_name (copy, t);
+	  t = unshare_expr (gimple_omp_critical_name (
+			      as_a <gimple_omp_critical> (stmt)));
+	  gimple_omp_critical_set_name (as_a <gimple_omp_critical> (copy), t);
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_SECTIONS:

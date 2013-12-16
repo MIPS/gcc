@@ -1,5 +1,43 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_critical
+
+	* coretypes.h (gimple_omp_critical): New typedef.
+	(const_gimple_omp_critical): New typedef.
+
+	* gimple-pretty-print.c (dump_gimple_omp_critical): Require a
+	gimple_omp_critical rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_omp_critical
+	within GIMPLE_OMP_CRITICAL case of switch statement.
+
+	* gimple-walk.c (walk_gimple_op): Likewise.
+
+	* gimple.c (gimple_build_omp_critical): Return a gimple_omp_critical
+	rather than a plain gimple.
+	(gimple_copy): Add checked casts to gimple_omp_critical
+	within GIMPLE_OMP_CRITICAL case of switch statement.
+
+	* gimple.h (gimple_debug): Likewise.
+	(gimple_build_omp_critical): Return a gimple_omp_critical rather
+	than a plain gimple.
+	(gimple_omp_critical_name): Require a const_gimple_omp_critical
+	rather than a plain const_gimple.
+	(gimple_omp_critical_name_ptr): Require a gimple_omp_critical
+	rather than a plain gimple.
+	(gimple_omp_critical_set_name): Likewise.
+
+	* omp-low.c (check_omp_nesting_restrictions): Add a checked cast
+	to gimple_omp_critical within GIMPLE_OMP_CRITICAL case of switch
+	statement, introducing a new local "other_crit" for type-safety.
+	(lower_omp_critical): Strengthen local "stmt" to
+	gimple_omp_critical.
+
+	* tree-inline.c (remap_gimple_stmt): Add a checked cast to
+	gimple_omp_critical within GIMPLE_OMP_CRITICAL case of switch
+	statement.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_continue
 
 	* coretypes.h (gimple_omp_continue): New typedef.

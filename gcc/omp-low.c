@@ -2624,16 +2624,20 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 	  }
       break;
     case GIMPLE_OMP_CRITICAL:
-      for (; ctx != NULL; ctx = ctx->outer)
-	if (gimple_code (ctx->stmt) == GIMPLE_OMP_CRITICAL
-	    && (gimple_omp_critical_name (stmt)
-		== gimple_omp_critical_name (ctx->stmt)))
-	  {
-	    error_at (gimple_location (stmt),
-		      "critical region may not be nested inside a critical "
-		      "region with the same name");
-	    return false;
-	  }
+      {
+	tree this_stmt_name =
+	  gimple_omp_critical_name (as_a <gimple_omp_critical> (stmt));
+	for (; ctx != NULL; ctx = ctx->outer)
+	  if (gimple_omp_critical other_crit =
+	      dyn_cast <gimple_omp_critical> (ctx->stmt))
+	    if (this_stmt_name == gimple_omp_critical_name (other_crit))
+	      {
+		error_at (gimple_location (stmt),
+			  "critical region may not be nested inside a critical "
+			  "region with the same name");
+		return false;
+	      }
+      }
       break;
     case GIMPLE_OMP_TEAMS:
       if (ctx == NULL
@@ -9249,7 +9253,7 @@ lower_omp_critical (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block;
   tree name, lock, unlock;
-  gimple stmt = gsi_stmt (*gsi_p);
+  gimple_omp_critical stmt = as_a <gimple_omp_critical> (gsi_stmt (*gsi_p));
   gimple_bind bind;
   location_t loc = gimple_location (stmt);
   gimple_seq tbody;

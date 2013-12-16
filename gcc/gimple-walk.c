@@ -313,8 +313,9 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_CRITICAL:
-      ret = walk_tree (gimple_omp_critical_name_ptr (stmt), callback_op, wi,
-		       pset);
+      ret = walk_tree (gimple_omp_critical_name_ptr (
+			 as_a <gimple_omp_critical> (stmt)),
+		       callback_op, wi, pset);
       if (ret)
 	return ret;
       break;

@@ -1461,8 +1461,8 @@ dump_gimple_omp_block (pretty_printer *buffer, gimple gs, int spc, int flags)
 /* Dump a GIMPLE_OMP_CRITICAL tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_omp_critical (pretty_printer *buffer, gimple gs, int spc,
-			  int flags)
+dump_gimple_omp_critical (pretty_printer *buffer, gimple_omp_critical gs,
+			  int spc, int flags)
 {
   if (flags & TDF_RAW)
     dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S> >", gs,
@@ -2196,7 +2196,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_CRITICAL:
-      dump_gimple_omp_critical (buffer, gs, spc, flags);
+      dump_gimple_omp_critical (buffer, as_a <gimple_omp_critical> (gs), spc,
+				flags);
       break;
 
     case GIMPLE_CATCH:

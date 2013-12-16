@@ -1342,7 +1342,7 @@ gimple_debug gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 gimple_debug gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 #define gimple_build_debug_source_bind(var,val,stmt)			\
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
-gimple gimple_build_omp_critical (gimple_seq, tree);
+gimple_omp_critical gimple_build_omp_critical (gimple_seq, tree);
 gimple gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
 gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
 gimple gimple_build_omp_task (gimple_seq, tree, tree, tree, tree, tree, tree);
@@ -4354,36 +4354,30 @@ gimple_omp_set_body (gimple gs, gimple_seq body)
 }
 
 
-/* Return the name associated with OMP_CRITICAL statement GS.  */
+/* Return the name associated with OMP_CRITICAL statement CRIT_STMT.  */
 
 static inline tree
-gimple_omp_critical_name (const_gimple gs)
+gimple_omp_critical_name (const_gimple_omp_critical crit_stmt)
 {
-  const gimple_statement_omp_critical *omp_critical_stmt =
-    as_a <const gimple_statement_omp_critical *> (gs);
-  return omp_critical_stmt->name;
+  return crit_stmt->name;
 }
 
 
 /* Return a pointer to the name associated with OMP critical statement GS.  */
 
 static inline tree *
-gimple_omp_critical_name_ptr (gimple gs)
+gimple_omp_critical_name_ptr (gimple_omp_critical crit_stmt)
 {
-  gimple_statement_omp_critical *omp_critical_stmt =
-    as_a <gimple_statement_omp_critical *> (gs);
-  return &omp_critical_stmt->name;
+  return &crit_stmt->name;
 }
 
 
 /* Set NAME to be the name associated with OMP critical statement GS.  */
 
 static inline void
-gimple_omp_critical_set_name (gimple gs, tree name)
+gimple_omp_critical_set_name (gimple_omp_critical crit_stmt, tree name)
 {
-  gimple_statement_omp_critical *omp_critical_stmt =
-    as_a <gimple_statement_omp_critical *> (gs);
-  omp_critical_stmt->name = name;
+  crit_stmt->name = name;
 }
 
 
