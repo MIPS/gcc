@@ -1,3 +1,9 @@
+16-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Split clauses in combined directives
+	
+	* gcc/c/c-parser.c(c_finish_acc_loop, c_finish_acc_loop, 
+	c_finish_acc_loop): Likewise
+
 12-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Consider #pragma acc loop as construct in GENERIC and high
 	GIMPLE
