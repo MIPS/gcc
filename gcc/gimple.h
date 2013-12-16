@@ -1328,7 +1328,7 @@ gimple_asm gimple_build_asm_vec (const char *, vec<tree, va_gc> *,
 gimple_catch gimple_build_catch (tree, gimple_seq);
 gimple_eh_filter gimple_build_eh_filter (tree, gimple_seq);
 gimple_eh_must_not_throw gimple_build_eh_must_not_throw (tree);
-gimple gimple_build_eh_else (gimple_seq, gimple_seq);
+gimple_eh_else gimple_build_eh_else (gimple_seq, gimple_seq);
 gimple_statement_try *gimple_build_try (gimple_seq, gimple_seq,
 					enum gimple_try_flags);
 gimple gimple_build_wce (gimple_seq);
@@ -3669,46 +3669,38 @@ gimple_eh_must_not_throw_set_fndecl (gimple_eh_must_not_throw eh_mnt_stmt,
 /* GIMPLE_EH_ELSE accessors.  */
 
 static inline gimple_seq *
-gimple_eh_else_n_body_ptr (gimple gs)
+gimple_eh_else_n_body_ptr (gimple_eh_else eh_else_stmt)
 {
-  gimple_statement_eh_else *eh_else_stmt =
-    as_a <gimple_statement_eh_else *> (gs);
   return &eh_else_stmt->n_body;
 }
 
 static inline gimple_seq
-gimple_eh_else_n_body (gimple gs)
+gimple_eh_else_n_body (gimple_eh_else eh_else_stmt)
 {
-  return *gimple_eh_else_n_body_ptr (gs);
+  return *gimple_eh_else_n_body_ptr (eh_else_stmt);
 }
 
 static inline gimple_seq *
-gimple_eh_else_e_body_ptr (gimple gs)
+gimple_eh_else_e_body_ptr (gimple_eh_else eh_else_stmt)
 {
-  gimple_statement_eh_else *eh_else_stmt =
-    as_a <gimple_statement_eh_else *> (gs);
   return &eh_else_stmt->e_body;
 }
 
 static inline gimple_seq
-gimple_eh_else_e_body (gimple gs)
+gimple_eh_else_e_body (gimple_eh_else eh_else_stmt)
 {
-  return *gimple_eh_else_e_body_ptr (gs);
+  return *gimple_eh_else_e_body_ptr (eh_else_stmt);
 }
 
 static inline void
-gimple_eh_else_set_n_body (gimple gs, gimple_seq seq)
+gimple_eh_else_set_n_body (gimple_eh_else eh_else_stmt, gimple_seq seq)
 {
-  gimple_statement_eh_else *eh_else_stmt =
-    as_a <gimple_statement_eh_else *> (gs);
   eh_else_stmt->n_body = seq;
 }
 
 static inline void
-gimple_eh_else_set_e_body (gimple gs, gimple_seq seq)
+gimple_eh_else_set_e_body (gimple_eh_else eh_else_stmt, gimple_seq seq)
 {
-  gimple_statement_eh_else *eh_else_stmt =
-    as_a <gimple_statement_eh_else *> (gs);
   eh_else_stmt->e_body = seq;
 }
 

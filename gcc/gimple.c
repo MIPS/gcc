@@ -660,10 +660,10 @@ gimple_build_eh_must_not_throw (tree decl)
 
 /* Build a GIMPLE_EH_ELSE statement.  */
 
-gimple
+gimple_eh_else
 gimple_build_eh_else (gimple_seq n_body, gimple_seq e_body)
 {
-  gimple p = gimple_alloc (GIMPLE_EH_ELSE, 0);
+  gimple_eh_else p = as_a <gimple_eh_else> (gimple_alloc (GIMPLE_EH_ELSE, 0));
   gimple_eh_else_set_n_body (p, n_body);
   gimple_eh_else_set_e_body (p, e_body);
   return p;
@@ -1685,10 +1685,14 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_EH_ELSE:
-	  new_seq = gimple_seq_copy (gimple_eh_else_n_body (stmt));
-	  gimple_eh_else_set_n_body (copy, new_seq);
-	  new_seq = gimple_seq_copy (gimple_eh_else_e_body (stmt));
-	  gimple_eh_else_set_e_body (copy, new_seq);
+	  {
+	    gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	    gimple_eh_else eh_else_copy = as_a <gimple_eh_else> (copy);
+	    new_seq = gimple_seq_copy (gimple_eh_else_n_body (eh_else_stmt));
+	    gimple_eh_else_set_n_body (eh_else_copy, new_seq);
+	    new_seq = gimple_seq_copy (gimple_eh_else_e_body (eh_else_stmt));
+	    gimple_eh_else_set_e_body (eh_else_copy, new_seq);
+	  }
 	  break;
 
 	case GIMPLE_TRY:

@@ -1,5 +1,61 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_eh_else
+
+	* coretypes.h (gimple_eh_else): New typedef.
+	(const_gimple_eh_else): New typedef.
+
+	* gimple.h (gimple_build_eh_else): Return a gimple_eh_else rather
+	than a plain gimple.
+	(gimple_eh_else_n_body_ptr): Require a gimple_eh_else rather than
+	a plain gimple.
+	(gimple_eh_else_n_body): Likewise.
+	(gimple_eh_else_e_body_ptr): Likewise.
+	(gimple_eh_else_e_body): Likewise.
+	(gimple_eh_else_set_n_body): Likewise.
+	(gimple_eh_else_set_e_body): Likewise.
+
+	* gimple-low.c (lower_stmt): Add checked cast to gimple_eh_else
+	within GIMPLE_EH_ELSE case of switch statement, introducing a new
+	local.
+	(gimple_stmt_may_fallthru): Likewise.
+
+	* gimple-pretty-print.c (dump_gimple_eh_else): Require a
+	gimple_eh_else rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_eh_else within
+	GIMPLE_EH_ELSE case of switch statement
+
+	* gimple-walk.c (walk_gimple_stmt): Add checked cast to
+	gimple_eh_else within GIMPLE_EH_ELSE case of switch statement,
+	introducing a new local.
+
+	* gimple.c (gimple_build_eh_else): Return a gimple_eh_else
+	rather than a plain gimple.
+	(gimple_copy): Add checked casts to gimple_eh_else within
+	GIMPLE_EH_ELSE case of switch statement, introducing new locals.
+
+	* tree-cfg.c (verify_gimple_in_seq_2): Add checked cast to
+	gimple_eh_else within GIMPLE_EH_ELSE case of switch statement,
+	introducing a new local.
+
+	* tree-eh.c (collect_finally_tree): Likewise.
+	(replace_goto_queue_1): Likewise.
+	(get_eh_else): Return a gimple_eh_else rather than a plain gimple.
+	(honor_protect_cleanup_actions): Convert local "eh_else" from
+	gimple to gimple_eh_else.
+	(lower_try_finally_nofallthru): Likewise.
+	(lower_try_finally_onedest): Introduce locals "eh_else" and
+	"label_stmt", using them in favor of "x" for the gimple_eh_else
+	and the gimple_label.
+	(lower_try_finally_copy): Convert local "eh_else" from gimple to
+	gimple_eh_else.
+	(lower_try_finally_switch): Likewise.
+	(decide_copy_try_finally): Likewise.
+	(refactor_eh_r): Add checked cast to gimple_eh_else within
+	GIMPLE_EH_ELSE case of switch statement, introducing a new local.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_eh_must_not_throw
 
 	* coretypes.h (gimple_eh_must_not_throw): New typedef.

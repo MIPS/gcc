@@ -146,6 +146,10 @@ struct gimple_statement_eh_mnt;
 typedef struct gimple_statement_eh_mnt *gimple_eh_must_not_throw;
 typedef const struct gimple_statement_eh_mnt *const_gimple_eh_must_not_throw;
 
+struct gimple_statement_eh_else;
+typedef struct gimple_statement_eh_else *gimple_eh_else;
+typedef const struct gimple_statement_eh_else *const_gimple_eh_else;
+
 struct gimple_statement_phi;
 typedef struct gimple_statement_phi *gimple_phi;
 typedef const struct gimple_statement_phi *const_gimple_phi;

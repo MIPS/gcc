@@ -566,14 +566,17 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
       break;
 
     case GIMPLE_EH_ELSE:
-      ret = walk_gimple_seq_mod (gimple_eh_else_n_body_ptr (stmt),
-			     callback_stmt, callback_op, wi);
-      if (ret)
-	return wi->callback_result;
-      ret = walk_gimple_seq_mod (gimple_eh_else_e_body_ptr (stmt),
-			     callback_stmt, callback_op, wi);
-      if (ret)
-	return wi->callback_result;
+      {
+	gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	ret = walk_gimple_seq_mod (gimple_eh_else_n_body_ptr (eh_else_stmt),
+				   callback_stmt, callback_op, wi);
+	if (ret)
+	  return wi->callback_result;
+	ret = walk_gimple_seq_mod (gimple_eh_else_e_body_ptr (eh_else_stmt),
+				   callback_stmt, callback_op, wi);
+	if (ret)
+	  return wi->callback_result;
+      }
       break;
 
     case GIMPLE_TRY:

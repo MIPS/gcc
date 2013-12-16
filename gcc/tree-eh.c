@@ -273,8 +273,11 @@ collect_finally_tree (gimple stmt, gimple region)
       break;
 
     case GIMPLE_EH_ELSE:
-      collect_finally_tree_1 (gimple_eh_else_n_body (stmt), region);
-      collect_finally_tree_1 (gimple_eh_else_e_body (stmt), region);
+      {
+	gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	collect_finally_tree_1 (gimple_eh_else_n_body (eh_else_stmt), region);
+	collect_finally_tree_1 (gimple_eh_else_e_body (eh_else_stmt), region);
+      }
       break;
 
     default:
@@ -529,8 +532,13 @@ replace_goto_queue_1 (gimple stmt, struct leh_tf_state *tf,
       replace_goto_queue_stmt_list (gimple_eh_filter_failure_ptr (stmt), tf);
       break;
     case GIMPLE_EH_ELSE:
-      replace_goto_queue_stmt_list (gimple_eh_else_n_body_ptr (stmt), tf);
-      replace_goto_queue_stmt_list (gimple_eh_else_e_body_ptr (stmt), tf);
+      {
+	gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	replace_goto_queue_stmt_list (gimple_eh_else_n_body_ptr (eh_else_stmt),
+				      tf);
+	replace_goto_queue_stmt_list (gimple_eh_else_e_body_ptr (eh_else_stmt),
+				      tf);
+      }
       break;
 
     default:
@@ -940,14 +948,14 @@ lower_try_finally_fallthru_label (struct leh_tf_state *tf)
 /* A subroutine of lower_try_finally.  If FINALLY consits of a
    GIMPLE_EH_ELSE node, return it.  */
 
-static inline gimple
+static inline gimple_eh_else
 get_eh_else (gimple_seq finally)
 {
   gimple x = gimple_seq_first_stmt (finally);
   if (gimple_code (x) == GIMPLE_EH_ELSE)
     {
       gcc_assert (gimple_seq_singleton_p (finally));
-      return x;
+      return as_a <gimple_eh_else> (x);
     }
   return NULL;
 }
@@ -981,7 +989,8 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
   gimple_stmt_iterator gsi;
   bool finally_may_fallthru;
   gimple_seq finally;
-  gimple x, eh_else;
+  gimple x;
+  gimple_eh_else eh_else;
 
   /* First check for nothing to do.  */
   if (lang_hooks.eh_protect_cleanup_actions == NULL)
@@ -1049,7 +1058,8 @@ lower_try_finally_nofallthru (struct leh_state *state,
 			      struct leh_tf_state *tf)
 {
   tree lab;
-  gimple x, eh_else;
+  gimple x;
+  gimple_eh_else eh_else;
   gimple_seq finally;
   struct goto_queue_node *q, *qe;
 
@@ -1113,6 +1123,8 @@ static void
 lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
 {
   struct goto_queue_node *q, *qe;
+  gimple_eh_else eh_else;
+  gimple_label label_stmt;
   gimple x;
   gimple_seq finally;
   gimple_stmt_iterator gsi;
@@ -1125,13 +1137,13 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
   /* Since there's only one destination, and the destination edge can only
      either be EH or non-EH, that implies that all of our incoming edges
      are of the same type.  Therefore we can lower EH_ELSE immediately.  */
-  x = get_eh_else (finally);
-  if (x)
+  eh_else = get_eh_else (finally);
+  if (eh_else)
     {
       if (tf->may_throw)
-	finally = gimple_eh_else_e_body (x);
+	finally = gimple_eh_else_e_body (eh_else);
       else
-	finally = gimple_eh_else_n_body (x);
+	finally = gimple_eh_else_n_body (eh_else);
     }
 
   lower_eh_constructs_1 (state, &finally);
@@ -1166,8 +1178,8 @@ lower_try_finally_onedest (struct leh_state *state, struct leh_tf_state *tf)
     }
 
   finally_label = create_artificial_label (loc);
-  x = gimple_build_label (finally_label);
-  gimple_seq_add_stmt (&tf->top_p_seq, x);
+  label_stmt = gimple_build_label (finally_label);
+  gimple_seq_add_stmt (&tf->top_p_seq, label_stmt);
 
   gimple_seq_add_seq (&tf->top_p_seq, finally);
 
@@ -1215,7 +1227,8 @@ lower_try_finally_copy (struct leh_state *state, struct leh_tf_state *tf)
   gimple_seq finally;
   gimple_seq new_stmt;
   gimple_seq seq;
-  gimple x, eh_else;
+  gimple x;
+  gimple_eh_else eh_else;
   tree tmp;
   location_t tf_loc = gimple_location (tf->try_finally_expr);
 
@@ -1348,7 +1361,8 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   tree last_case;
   vec<tree> case_label_vec;
   gimple_seq switch_body = NULL;
-  gimple x, eh_else;
+  gimple x;
+  gimple_eh_else eh_else;
   tree tmp;
   gimple switch_stmt;
   gimple_seq finally;
@@ -1560,7 +1574,7 @@ static bool
 decide_copy_try_finally (int ndests, bool may_throw, gimple_seq finally)
 {
   int f_estimate, sw_estimate;
-  gimple eh_else;
+  gimple_eh_else eh_else;
 
   /* If there's an EH_ELSE involved, the exception path is separate
      and really doesn't come into play for this computation.  */
@@ -3072,8 +3086,11 @@ refactor_eh_r (gimple_seq seq)
 	    refactor_eh_r (gimple_eh_filter_failure (one));
 	    break;
 	  case GIMPLE_EH_ELSE:
-	    refactor_eh_r (gimple_eh_else_n_body (one));
-	    refactor_eh_r (gimple_eh_else_e_body (one));
+	    {
+	      gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (one);
+	      refactor_eh_r (gimple_eh_else_n_body (eh_else_stmt));
+	      refactor_eh_r (gimple_eh_else_e_body (eh_else_stmt));
+	    }
 	    break;
 	  default:
 	    break;

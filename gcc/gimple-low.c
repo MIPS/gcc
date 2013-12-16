@@ -288,8 +288,11 @@ lower_stmt (gimple_stmt_iterator *gsi, struct lower_data *data)
       return;
 
     case GIMPLE_EH_ELSE:
-      lower_sequence (gimple_eh_else_n_body_ptr (stmt), data);
-      lower_sequence (gimple_eh_else_e_body_ptr (stmt), data);
+      {
+	gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	lower_sequence (gimple_eh_else_n_body_ptr (eh_else_stmt), data);
+	lower_sequence (gimple_eh_else_e_body_ptr (eh_else_stmt), data);
+      }
       break;
 
     case GIMPLE_NOP:
@@ -597,8 +600,12 @@ gimple_stmt_may_fallthru (gimple stmt)
 	      && gimple_seq_may_fallthru (gimple_try_cleanup (stmt)));
 
     case GIMPLE_EH_ELSE:
-      return (gimple_seq_may_fallthru (gimple_eh_else_n_body (stmt))
-	      || gimple_seq_may_fallthru (gimple_eh_else_e_body (stmt)));
+      {
+	gimple_eh_else eh_else_stmt = as_a <gimple_eh_else> (stmt);
+	return (gimple_seq_may_fallthru (gimple_eh_else_n_body (eh_else_stmt))
+		|| gimple_seq_may_fallthru (gimple_eh_else_e_body (
+					      eh_else_stmt)));
+      }
 
     case GIMPLE_CALL:
       /* Functions that do not return do not fall through.  */

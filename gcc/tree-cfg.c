@@ -4639,8 +4639,11 @@ verify_gimple_in_seq_2 (gimple_seq stmts)
 	  break;
 
 	case GIMPLE_EH_ELSE:
-	  err |= verify_gimple_in_seq_2 (gimple_eh_else_n_body (stmt));
-	  err |= verify_gimple_in_seq_2 (gimple_eh_else_e_body (stmt));
+	  {
+	    gimple_eh_else eh_else = as_a <gimple_eh_else> (stmt);
+	    err |= verify_gimple_in_seq_2 (gimple_eh_else_n_body (eh_else));
+	    err |= verify_gimple_in_seq_2 (gimple_eh_else_e_body (eh_else));
+	  }
 	  break;
 
 	case GIMPLE_CATCH:
