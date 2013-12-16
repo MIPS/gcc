@@ -1605,7 +1605,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gimple_stmt_iterator gsi;
   basic_block bb, paral_bb, for_bb, ex_bb;
   tree t, param;
-  gimple stmt, for_stmt, phi, cond_stmt;
+  gimple stmt, phi, cond_stmt;
+  gimple_omp_for for_stmt;
   tree cvar, cvar_init, initvar, cvar_next, cvar_base, type;
   edge exit, nexit, guard, end, e;
 

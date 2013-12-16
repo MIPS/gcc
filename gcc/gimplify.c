@@ -6708,7 +6708,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   tree for_stmt, orig_for_stmt, decl, var, t;
   enum gimplify_status ret = GS_ALL_DONE;
   enum gimplify_status tret;
-  gimple gfor;
+  gimple_omp_for gfor;
   gimple_seq for_body, for_pre_body;
   int i;
   bool simd;

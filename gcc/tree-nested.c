@@ -613,7 +613,7 @@ walk_function (walk_stmt_fn callback_stmt, walk_tree_fn callback_op,
 /* Invoke CALLBACK on a GIMPLE_OMP_FOR's init, cond, incr and pre-body.  */
 
 static void
-walk_gimple_omp_for (gimple for_stmt,
+walk_gimple_omp_for (gimple_omp_for for_stmt,
     		     walk_stmt_fn callback_stmt, walk_tree_fn callback_op,
     		     struct nesting_info *info)
 {
@@ -1345,7 +1345,8 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_FOR:
       save_suppress = info->suppress_expansion;
       convert_nonlocal_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
-      walk_gimple_omp_for (stmt, convert_nonlocal_reference_stmt,
+      walk_gimple_omp_for (as_a <gimple_omp_for> (stmt),
+			   convert_nonlocal_reference_stmt,
 	  		   convert_nonlocal_reference_op, info);
       walk_body (convert_nonlocal_reference_stmt,
 	  	 convert_nonlocal_reference_op, info, gimple_omp_body_ptr (stmt));
@@ -1913,7 +1914,8 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_FOR:
       save_suppress = info->suppress_expansion;
       convert_local_omp_clauses (gimple_omp_for_clauses_ptr (stmt), wi);
-      walk_gimple_omp_for (stmt, convert_local_reference_stmt,
+      walk_gimple_omp_for (as_a <gimple_omp_for> (stmt),
+			   convert_local_reference_stmt,
 			   convert_local_reference_op, info);
       walk_body (convert_local_reference_stmt, convert_local_reference_op,
 		 info, gimple_omp_body_ptr (stmt));

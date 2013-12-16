@@ -1343,7 +1343,7 @@ gimple_debug gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DE
 #define gimple_build_debug_source_bind(var,val,stmt)			\
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
 gimple_omp_critical gimple_build_omp_critical (gimple_seq, tree);
-gimple gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
+gimple_omp_for gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
 gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
 gimple gimple_build_omp_task (gimple_seq, tree, tree, tree, tree, tree, tree);
 gimple gimple_build_omp_section (gimple_seq);
@@ -4394,9 +4394,8 @@ gimple_omp_for_kind (const_gimple g)
 /* Set the OMP for kind.  */
 
 static inline void
-gimple_omp_for_set_kind (gimple g, int kind)
+gimple_omp_for_set_kind (gimple_omp_for g, int kind)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_FOR);
   g->subcode = (g->subcode & ~GF_OMP_FOR_KIND_MASK)
 		      | (kind & GF_OMP_FOR_KIND_MASK);
 }
@@ -4417,9 +4416,8 @@ gimple_omp_for_combined_p (const_gimple g)
    value of COMBINED_P.  */
 
 static inline void
-gimple_omp_for_set_combined_p (gimple g, bool combined_p)
+gimple_omp_for_set_combined_p (gimple_omp_for g, bool combined_p)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_FOR);
   if (combined_p)
     g->subcode |= GF_OMP_FOR_COMBINED;
   else
@@ -4442,9 +4440,8 @@ gimple_omp_for_combined_into_p (const_gimple g)
    value of COMBINED_P.  */
 
 static inline void
-gimple_omp_for_set_combined_into_p (gimple g, bool combined_p)
+gimple_omp_for_set_combined_into_p (gimple_omp_for g, bool combined_p)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_FOR);
   if (combined_p)
     g->subcode |= GF_OMP_FOR_COMBINED_INTO;
   else

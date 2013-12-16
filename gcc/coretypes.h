@@ -184,6 +184,10 @@ struct gimple_statement_omp_critical;
 typedef struct gimple_statement_omp_critical *gimple_omp_critical;
 typedef const struct gimple_statement_omp_critical *const_gimple_omp_critical;
 
+struct gimple_statement_omp_for;
+typedef struct gimple_statement_omp_for *gimple_omp_for;
+typedef const struct gimple_statement_omp_for *const_gimple_omp_for;
+
 union section;
 typedef union section section;
 struct gcc_options;

@@ -839,12 +839,11 @@ gimple_build_omp_critical (gimple_seq body, tree name)
    COLLAPSE is the collapse count.
    PRE_BODY is the sequence of statements that are loop invariant.  */
 
-gimple
+gimple_omp_for
 gimple_build_omp_for (gimple_seq body, int kind, tree clauses, size_t collapse,
 		      gimple_seq pre_body)
 {
-  gimple_statement_omp_for *p =
-    as_a <gimple_statement_omp_for *> (gimple_alloc (GIMPLE_OMP_FOR, 0));
+  gimple_omp_for p = as_a <gimple_omp_for> (gimple_alloc (GIMPLE_OMP_FOR, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_for_set_clauses (p, clauses);
@@ -1711,8 +1710,7 @@ gimple_copy (gimple stmt)
 	  t = unshare_expr (gimple_omp_for_clauses (stmt));
 	  gimple_omp_for_set_clauses (copy, t);
 	  {
-	    gimple_statement_omp_for *omp_for_copy =
-	      as_a <gimple_statement_omp_for *> (copy);
+	    gimple_omp_for omp_for_copy = as_a <gimple_omp_for> (copy);
 	    omp_for_copy->iter = ggc_vec_alloc<gimple_omp_for_iter>
 	      ( gimple_omp_for_collapse (stmt));
           }

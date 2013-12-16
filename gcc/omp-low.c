@@ -190,7 +190,7 @@ struct omp_for_data
 {
   struct omp_for_data_loop loop;
   tree chunk_size;
-  gimple for_stmt;
+  gimple_omp_for for_stmt;
   tree pre, iter_type;
   int collapse;
   bool have_nowait, have_ordered;
@@ -290,7 +290,7 @@ is_combined_parallel (struct omp_region *region)
    them into *FD.  */
 
 static void
-extract_omp_for_data (gimple for_stmt, struct omp_for_data *fd,
+extract_omp_for_data (gimple_omp_for for_stmt, struct omp_for_data *fd,
 		      struct omp_for_data_loop *loops)
 {
   tree t, var, *collapse_iter, *collapse_count;
@@ -638,7 +638,7 @@ workshare_safe_to_combine_p (basic_block ws_entry_bb)
 
   gcc_assert (gimple_code (ws_stmt) == GIMPLE_OMP_FOR);
 
-  extract_omp_for_data (ws_stmt, &fd, NULL);
+  extract_omp_for_data (as_a <gimple_omp_for> (ws_stmt), &fd, NULL);
 
   if (fd.collapse > 1 && TREE_CODE (fd.loop.n2) != INTEGER_CST)
     return false;
@@ -671,16 +671,16 @@ get_ws_args_for (gimple par_stmt, gimple ws_stmt)
   location_t loc = gimple_location (ws_stmt);
   vec<tree, va_gc> *ws_args;
 
-  if (gimple_code (ws_stmt) == GIMPLE_OMP_FOR)
+  if (gimple_omp_for for_stmt = dyn_cast <gimple_omp_for> (ws_stmt))
     {
       struct omp_for_data fd;
       tree n1, n2;
 
-      extract_omp_for_data (ws_stmt, &fd, NULL);
+      extract_omp_for_data (for_stmt, &fd, NULL);
       n1 = fd.loop.n1;
       n2 = fd.loop.n2;
 
-      if (gimple_omp_for_combined_into_p (ws_stmt))
+      if (gimple_omp_for_combined_into_p (for_stmt))
 	{
 	  tree innerc
 	    = find_omp_clause (gimple_omp_parallel_clauses (par_stmt),
@@ -2064,16 +2064,15 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
 
   if (gimple_omp_parallel_combined_p (stmt))
     {
-      gimple for_stmt;
       struct walk_stmt_info wi;
 
       memset (&wi, 0, sizeof (wi));
       wi.val_only = true;
       walk_gimple_seq (gimple_omp_body (stmt),
 		       find_combined_for, NULL, &wi);
-      for_stmt = (gimple) wi.info;
-      if (for_stmt)
+      if (wi.info)
 	{
+	  gimple_omp_for for_stmt = as_a <gimple_omp_for> ((gimple) wi.info);
 	  struct omp_for_data fd;
 	  extract_omp_for_data (for_stmt, &fd, NULL);
 	  /* We need two temporaries with fd.loop.v type (istart/iend)
@@ -2273,7 +2272,7 @@ finish_taskreg_scan (omp_context *ctx)
 /* Scan an OpenMP loop directive.  */
 
 static void
-scan_omp_for (gimple stmt, omp_context *outer_ctx)
+scan_omp_for (gimple_omp_for stmt, omp_context *outer_ctx)
 {
   omp_context *ctx;
   size_t i;
@@ -2811,7 +2810,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_FOR:
-      scan_omp_for (stmt, ctx);
+      scan_omp_for (as_a <gimple_omp_for> (stmt), ctx);
       break;
 
     case GIMPLE_OMP_SECTIONS:
@@ -7323,7 +7322,8 @@ expand_omp_for (struct omp_region *region, gimple inner_stmt)
     = (struct omp_for_data_loop *)
       alloca (gimple_omp_for_collapse (last_stmt (region->entry))
 	      * sizeof (struct omp_for_data_loop));
-  extract_omp_for_data (last_stmt (region->entry), &fd, loops);
+  extract_omp_for_data (as_a <gimple_omp_for> (last_stmt (region->entry)),
+			&fd, loops);
   region->sched_kind = fd.sched_kind;
 
   gcc_assert (EDGE_COUNT (region->entry->succs) == 2);
@@ -9396,7 +9396,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree *rhs_p, block;
   struct omp_for_data fd, *fdp = NULL;
-  gimple stmt = gsi_stmt (*gsi_p);
+  gimple_omp_for stmt = as_a <gimple_omp_for> (gsi_stmt (*gsi_p));
   gimple_bind new_stmt;
   gimple_seq omp_for_body, body, dlist;
   size_t i;

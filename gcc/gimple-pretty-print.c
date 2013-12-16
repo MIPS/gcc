@@ -1117,7 +1117,7 @@ dump_gimple_debug (pretty_printer *buffer, gimple_debug gs, int spc, int flags)
 
 /* Dump a GIMPLE_OMP_FOR tuple on the pretty_printer BUFFER.  */
 static void
-dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_omp_for (pretty_printer *buffer, gimple_omp_for gs, int spc, int flags)
 {
   size_t i;
 
@@ -2156,7 +2156,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_FOR:
-      dump_gimple_omp_for (buffer, gs, spc, flags);
+      dump_gimple_omp_for (buffer, as_a <gimple_omp_for> (gs), spc, flags);
       break;
 
     case GIMPLE_OMP_CONTINUE:

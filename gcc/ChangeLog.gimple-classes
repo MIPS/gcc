@@ -1,5 +1,58 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_for
+
+	* coretypes.h (gimple_omp_for): New.
+	(const_gimple_omp_for): New.
+
+	* gimple.h (gimple_build_omp_for): Return a gimple_omp_for rather
+	than a plain gimple.
+	(gimple_omp_for_set_kind): Require a gimple_omp_for rather than a
+	plain gimple.
+	(gimple_omp_for_set_combined_p): Likewise.
+	(gimple_omp_for_set_combined_into_p): Likewise.
+
+	* gimple-pretty-print.c (dump_gimple_omp_for): Require a
+	gimple_omp_for rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_omp_for in
+	GIMPLE_OMP_FOR case of switch statement.
+
+	* gimple.c (gimple_build_omp_for): Return a gimple_omp_for rather
+	than a plain gimple.
+	(gimple_copy): Add a checked cast to gimple_omp_for and a new local.
+
+	* gimplify.c (gimplify_omp_for): Strengthen local "gfor" from
+	gimple to gimple_omp_for.
+
+	* omp-low.c (omp_for_data::for_stmt): Strengthen field from gimple
+	to gimple_omp_for.
+	(extract_omp_for_data): Require a gimple_omp_for rather than a
+	plain gimple.
+	(workshare_safe_to_combine_p): Add a checked cast to
+	gimple_omp_for.
+	(get_ws_args_for): Convert check of code against GIMPLE_OMP_FOR
+	with a dyn_cast<gimple_omp_for> and a new local.
+	(scan_omp_parallel): Add a checked cast to gimple_omp_for and a
+	new local.
+	(scan_omp_for): Require a gimple_omp_for rather than a plain
+	gimple.
+	(scan_omp_1_stmt): Add a checked cast to gimple_omp_for in
+	GIMPLE_OMP_FOR case of switch statement.
+	(expand_omp_for): Add a checked cast to gimple_omp_for.
+	(lower_omp_for): Strengthen local "stmt" from gimple to
+	gimple_omp_for.
+
+	* tree-nested.c (walk_gimple_omp_for): Require a gimple_omp_for
+	rather than a plain gimple.
+	(convert_nonlocal_reference_stmt): Add a checked cast to
+	gimple_omp_for in GIMPLE_OMP_FOR case of switch statement.
+	(convert_local_reference_stmt): Likewise.
+
+	* tree-parloops.c (create_parallel_loop): Strengthen local
+	"for_stmt" from gimple to gimple_omp_for.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_critical
 
 	* coretypes.h (gimple_omp_critical): New typedef.
