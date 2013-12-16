@@ -1094,10 +1094,11 @@ gimple_build_omp_atomic_load (tree lhs, tree rhs)
 
    VAL is the value we are storing.  */
 
-gimple
+gimple_omp_atomic_store
 gimple_build_omp_atomic_store (tree val)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_STORE, 0);
+  gimple_omp_atomic_store p =
+    as_a <gimple_omp_atomic_store> (gimple_alloc (GIMPLE_OMP_ATOMIC_STORE, 0));
   gimple_omp_atomic_store_set_val (p, val);
   return p;
 }

@@ -7308,7 +7308,8 @@ gimplify_omp_atomic (tree *expr_p, gimple_seq *pre_p)
 	     ? NULL : TREE_OPERAND (*expr_p, 1);
   tree type = TYPE_MAIN_VARIANT (TREE_TYPE (TREE_TYPE (addr)));
   tree tmp_load;
-  gimple loadstmt, storestmt;
+  gimple_omp_atomic_load loadstmt;
+  gimple_omp_atomic_store storestmt;
 
   tmp_load = create_tmp_reg (type, NULL);
   if (rhs && goa_stabilize_expr (&rhs, pre_p, addr, tmp_load) < 0)

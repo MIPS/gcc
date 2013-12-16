@@ -1,5 +1,36 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_atomic_store
+
+	* coretypes.h (gimple_omp_atomic_store): New typedef.
+	(const_gimple_omp_atomic_store): New typedef.
+
+	* gimple-pretty-print.c (dump_gimple_omp_atomic_store): Require
+	a gimple_omp_atomic_store rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_omp_atomic_store
+	within GIMPLE_OMP_ATOMIC_STORE case of switch statement.
+	* gimple-walk.c (walk_gimple_op): Likewise.
+
+	* gimple.c (gimple_build_omp_atomic_store): Return a
+	gimple_omp_atomic_store rather than a plain gimple.
+
+	* gimple.h (gimple_build_omp_atomic_store): Return a
+	gimple_omp_atomic_store rather than a plain gimple.
+	(gimple_omp_atomic_store_set_val): Require a gimple_omp_atomic_store
+	rather than a plain gimple.
+	(gimple_omp_atomic_store_val_ptr): Likewise.
+	(gimple_omp_atomic_store_val): Require a
+	const_gimple_omp_atomic_store rather than a plain const_gimple.
+
+	* gimplify.c (gimplify_omp_atomic): Strengthen locals "loadstmt" and
+	"storestmt" from gimple to gimple_omp_atomic_load loadstmt and
+	gimple_omp_atomic_store storestmt respectively.
+
+	* omp-low.c (expand_omp_atomic): Strengthen local "store" from
+	gimple to gimple_omp_atomic_store.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_atomic_load
 
 	* coretypes.h (gimple_omp_atomic_load): New typedef.

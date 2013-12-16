@@ -1358,7 +1358,7 @@ gimple gimple_build_omp_single (gimple_seq, tree);
 gimple gimple_build_omp_target (gimple_seq, int, tree);
 gimple gimple_build_omp_teams (gimple_seq, tree);
 gimple_omp_atomic_load gimple_build_omp_atomic_load (tree, tree);
-gimple gimple_build_omp_atomic_store (tree);
+gimple_omp_atomic_store gimple_build_omp_atomic_store (tree);
 gimple_transaction gimple_build_transaction (gimple_seq, tree);
 gimple gimple_build_predict (enum br_predictor, enum prediction);
 extern void gimple_seq_add_stmt (gimple_seq *, gimple);
@@ -5367,33 +5367,27 @@ gimple_omp_for_cond (const_gimple gs, size_t i)
 /* Set the value being stored in an atomic store.  */
 
 static inline void
-gimple_omp_atomic_store_set_val (gimple g, tree val)
+gimple_omp_atomic_store_set_val (gimple_omp_atomic_store store_stmt, tree val)
 {
-  gimple_statement_omp_atomic_store *omp_atomic_store_stmt =
-    as_a <gimple_statement_omp_atomic_store *> (g);
-  omp_atomic_store_stmt->val = val;
+  store_stmt->val = val;
 }
 
 
 /* Return the value being stored in an atomic store.  */
 
 static inline tree
-gimple_omp_atomic_store_val (const_gimple g)
+gimple_omp_atomic_store_val (const_gimple_omp_atomic_store store_stmt)
 {
-  const gimple_statement_omp_atomic_store *omp_atomic_store_stmt =
-    as_a <const gimple_statement_omp_atomic_store *> (g);
-  return omp_atomic_store_stmt->val;
+  return store_stmt->val;
 }
 
 
 /* Return a pointer to the value being stored in an atomic store.  */
 
 static inline tree *
-gimple_omp_atomic_store_val_ptr (gimple g)
+gimple_omp_atomic_store_val_ptr (gimple_omp_atomic_store store_stmt)
 {
-  gimple_statement_omp_atomic_store *omp_atomic_store_stmt =
-    as_a <gimple_statement_omp_atomic_store *> (g);
-  return &omp_atomic_store_stmt->val;
+  return &store_stmt->val;
 }
 
 

@@ -434,8 +434,9 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_ATOMIC_STORE:
-      ret = walk_tree (gimple_omp_atomic_store_val_ptr (stmt), callback_op,
-		       wi, pset);
+      ret = walk_tree (gimple_omp_atomic_store_val_ptr (
+		         as_a <gimple_omp_atomic_store> (stmt)),
+		       callback_op, wi, pset);
       if (ret)
 	return ret;
       break;

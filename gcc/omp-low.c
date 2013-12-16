@@ -8188,7 +8188,8 @@ expand_omp_atomic (struct omp_region *region)
   basic_block load_bb = region->entry, store_bb = region->exit;
   gimple_omp_atomic_load load =
     as_a <gimple_omp_atomic_load> (last_stmt (load_bb));
-  gimple store = last_stmt (store_bb);
+  gimple_omp_atomic_store store =
+    as_a <gimple_omp_atomic_store> (last_stmt (store_bb));
   tree loaded_val = gimple_omp_atomic_load_lhs (load);
   tree addr = gimple_omp_atomic_load_rhs (load);
   tree stored_val = gimple_omp_atomic_store_val (store);
