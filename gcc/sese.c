@@ -726,7 +726,7 @@ set_ifsese_condition (ifsese if_region, tree condition)
   basic_block bb = entry->dest;
   gimple last = last_stmt (bb);
   gimple_stmt_iterator gsi = gsi_last_bb (bb);
-  gimple cond_stmt;
+  gimple_cond cond_stmt;
 
   gcc_assert (gimple_code (last) == GIMPLE_COND);
 

@@ -1487,7 +1487,7 @@ create_cond_insert_point (gimple_stmt_iterator *iter,
    pointing to initially.  */
 
 static void
-insert_if_then_before_iter (gimple cond,
+insert_if_then_before_iter (gimple_cond cond,
 			    gimple_stmt_iterator *iter,
 			    bool then_more_likely_p,
 			    basic_block *then_bb,
@@ -2577,8 +2577,9 @@ asan_expand_check_ifn (gimple_stmt_iterator *iter, bool use_calls)
       gimple_set_location (g, loc);
 
       basic_block then_bb, fallthrough_bb;
-      insert_if_then_before_iter (g, iter, /*then_more_likely_p=*/true,
-				 &then_bb, &fallthrough_bb);
+      insert_if_then_before_iter (as_a <gimple_cond> (g), iter,
+				  /*then_more_likely_p=*/true,
+				  &then_bb, &fallthrough_bb);
       /* Note that fallthrough_bb starts with the statement that was
 	pointed to by ITER.  */
 

@@ -929,7 +929,7 @@ slpeel_add_loop_guard (basic_block guard_bb, tree cond,
 {
   gimple_stmt_iterator gsi;
   edge new_e, enter_e;
-  gimple cond_stmt;
+  gimple_cond cond_stmt;
   gimple_seq gimplify_stmt_list = NULL;
 
   enter_e = EDGE_SUCC (guard_bb, 0);
@@ -1042,9 +1042,9 @@ set_prologue_iterations (basic_block bb_before_first_loop,
   basic_block cond_bb, then_bb;
   tree var, prologue_after_cost_adjust_name;
   gimple_stmt_iterator gsi;
-  gimple newphi;
+  gimple_phi newphi;
   edge e_true, e_false, e_fallthru;
-  gimple cond_stmt;
+  gimple_cond cond_stmt;
   gimple_seq stmts = NULL;
   tree cost_pre_condition = NULL_TREE;
   tree scalar_loop_iters =

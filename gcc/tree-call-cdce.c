@@ -332,7 +332,9 @@ gen_one_condition (tree arg, int lbub,
 {
   tree lbub_real_cst, lbub_cst, float_type;
   tree temp, tempn, tempc, tempcn;
-  gimple stmt1, stmt2, stmt3;
+  gimple_assign stmt1;
+  gimple_assign stmt2;
+  gimple_cond stmt3;
 
   float_type = TREE_TYPE (arg);
   lbub_cst = build_int_cst (integer_type_node, lbub);

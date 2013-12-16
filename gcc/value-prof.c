@@ -1468,7 +1468,7 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
       && (dflags & ECF_NORETURN) == 0)
     {
       tree result = gimple_call_lhs (icall_stmt);
-      gimple phi = create_phi_node (result, join_bb);
+      gimple_phi phi = create_phi_node (result, join_bb);
       gimple_call_set_lhs (icall_stmt,
 			   duplicate_ssa_name (result, icall_stmt));
       add_phi_arg (phi, gimple_call_lhs (icall_stmt), e_ij, UNKNOWN_LOCATION);
@@ -1636,7 +1636,9 @@ static void
 gimple_stringop_fixed_value (gimple_call vcall_stmt, tree icall_size, int prob,
 			     gcov_type count, gcov_type all)
 {
-  gimple tmp_stmt, cond_stmt, icall_stmt;
+  gimple_assign tmp_stmt;
+  gimple_cond cond_stmt;
+  gimple_call icall_stmt;
   tree tmp0, tmp1, vcall_size, optype;
   basic_block cond_bb, icall_bb, vcall_bb, join_bb;
   edge e_ci, e_cv, e_iv, e_ij, e_vj;
@@ -1668,7 +1670,7 @@ gimple_stringop_fixed_value (gimple_call vcall_stmt, tree icall_size, int prob,
   gimple_set_vdef (vcall_stmt, NULL);
   gimple_set_vuse (vcall_stmt, NULL);
   update_stmt (vcall_stmt);
-  icall_stmt = gimple_copy (vcall_stmt);
+  icall_stmt = as_a <gimple_call> (gimple_copy (vcall_stmt));
   gimple_call_set_arg (icall_stmt, size_arg, icall_size);
   gsi_insert_before (&gsi, icall_stmt, GSI_SAME_STMT);
 
@@ -1708,7 +1710,7 @@ gimple_stringop_fixed_value (gimple_call vcall_stmt, tree icall_size, int prob,
       && TREE_CODE (gimple_call_lhs (vcall_stmt)) == SSA_NAME)
     {
       tree result = gimple_call_lhs (vcall_stmt);
-      gimple phi = create_phi_node (result, join_bb);
+      gimple_phi phi = create_phi_node (result, join_bb);
       gimple_call_set_lhs (vcall_stmt,
 			   duplicate_ssa_name (result, vcall_stmt));
       add_phi_arg (phi, gimple_call_lhs (vcall_stmt), e_vj, UNKNOWN_LOCATION);

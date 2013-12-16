@@ -910,7 +910,8 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
 		    tree arg0, tree arg1)
 {
   tree result, type;
-  gimple cond, new_stmt;
+  gimple_cond cond;
+  gimple_assign new_stmt;
   edge true_edge, false_edge;
   enum tree_code cmp, minmax, ass_code;
   tree smaller, larger, arg_true, arg_false;
@@ -922,7 +923,7 @@ minmax_replacement (basic_block cond_bb, basic_block middle_bb,
   if (HONOR_NANS (TYPE_MODE (type)))
     return false;
 
-  cond = last_stmt (cond_bb);
+  cond = as_a <gimple_cond> (last_stmt (cond_bb));
   cmp = gimple_cond_code (cond);
 
   /* This transformation is only valid for order comparisons.  Record which
@@ -1638,7 +1639,8 @@ cond_store_replacement (basic_block middle_bb, basic_block join_bb,
 {
   gimple assign = last_and_only_stmt (middle_bb);
   tree lhs, rhs, name, name2;
-  gimple newphi, new_stmt;
+  gimple_phi newphi;
+  gimple_assign new_stmt;
   gimple_stmt_iterator gsi;
   source_location locus;
 
@@ -1711,7 +1713,8 @@ cond_if_else_store_replacement_1 (basic_block then_bb, basic_block else_bb,
   tree lhs_base, lhs, then_rhs, else_rhs, name;
   source_location then_locus, else_locus;
   gimple_stmt_iterator gsi;
-  gimple newphi, new_stmt;
+  gimple_phi newphi;
+  gimple_assign new_stmt;
 
   if (then_assign == NULL
       || !gimple_assign_single_p (then_assign)

@@ -690,7 +690,7 @@ create_empty_if_region_on_edge (edge entry_edge, tree condition)
 
   basic_block cond_bb, true_bb, false_bb, join_bb;
   edge e_true, e_false, exit_edge;
-  gimple cond_stmt;
+  gimple_cond cond_stmt;
   tree simple_cond;
   gimple_stmt_iterator gsi;
 

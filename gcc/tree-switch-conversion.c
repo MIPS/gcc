@@ -85,7 +85,7 @@ hoist_edge_and_branch_if_true (gimple_stmt_iterator *gsip,
 			       bool update_dominators)
 {
   tree tmp;
-  gimple cond_stmt;
+  gimple_cond cond_stmt;
   edge e_false;
   basic_block new_bb, split_bb = gsi_bb (*gsip);
   bool dominated_e_true = false;
@@ -1156,11 +1156,11 @@ build_arrays (gimple_switch swtch, struct switch_conv_info *info)
 /* Generates and appropriately inserts loads of default values at the position
    given by BSI.  Returns the last inserted statement.  */
 
-static gimple
+static gimple_assign
 gen_def_assigns (gimple_stmt_iterator *gsi, struct switch_conv_info *info)
 {
   int i;
-  gimple assign = NULL;
+  gimple_assign assign = NULL;
 
   for (i = 0; i < info->phi_count; i++)
     {
@@ -1247,9 +1247,9 @@ gen_inbound_check (gimple_switch swtch, struct switch_conv_info *info)
   tree utype, tidx;
   tree bound;
 
-  gimple cond_stmt;
+  gimple_cond cond_stmt;
 
-  gimple last_assign;
+  gimple_assign last_assign;
   gimple_stmt_iterator gsi;
   basic_block bb0, bb1, bb2, bbf, bbd;
   edge e01, e02, e21, e1d, e1f, e2f;

@@ -3313,8 +3313,11 @@ do_regular_insertion (basic_block block, basic_block dom)
 
 	      tree temp = make_temp_ssa_name (get_expr_type (expr),
 					      NULL, "pretmp");
-	      gimple assign = gimple_build_assign (temp,
-						   edoubleprime->kind == CONSTANT ? PRE_EXPR_CONSTANT (edoubleprime) : PRE_EXPR_NAME (edoubleprime));
+	      gimple_assign assign =
+		gimple_build_assign (temp,
+				     edoubleprime->kind == CONSTANT ?
+				       PRE_EXPR_CONSTANT (edoubleprime) :
+				       PRE_EXPR_NAME (edoubleprime));
 	      gimple_stmt_iterator gsi = gsi_after_labels (block);
 	      gsi_insert_before (&gsi, assign, GSI_NEW_STMT);
 

@@ -1,5 +1,49 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Use subclasses of gimple in various places
+
+	* asan.c (insert_if_then_before_iter): Require a gimple cond
+	rathern than a plain gimple.
+	(asan_expand_check_ifn): Add a checked cast to gimple_cond.
+
+	* cfgloopmanip.c (create_empty_if_region_on_edge): Likewise.
+
+	* omp-low.c (simd_clone_adjust): Strengthen local from gimple
+	to gimple_phi.
+
+	* sese.c (set_ifsese_condition): Strengthen local from gimple to
+	gimple_cond.
+
+	* tree-call-cdce.c (gen_one_condition): Strengthen locals from
+	gimple to gimple_assign and gimple_cond.
+
+	* tree-ssa-phiopt.c (minmax_replacement): Likewise.
+	(cond_store_replacement): Strengthen locals from gimple to
+	gimple_phi and gimple_assign.
+	(cond_if_else_store_replacement_1): Likewise.
+
+	* tree-ssa-pre.c (do_regular_insertion): Strengthen local from
+	gimple to gimple_assign.
+
+	* tree-switch-conversion.c (hoist_edge_and_branch_if_true):
+	Strengthen local from gimple to gimple_cond.
+	(gen_def_assigns): Return a gimple_assign rather than a plain
+	gimple.
+	(gen_inbound_check): Strengthen locals from gimple to gimple_cond
+	and gimple_assign.
+
+	* tree-vect-loop-manip.c (slpeel_add_loop_guard): Strengthen local
+	from gimple to gimple_cond.
+	(set_prologue_iterations): Strengthen locals from gimple to
+	gimple_phi and gimple_cond.
+
+	* value-prof.c (gimple_ic): Strengthen local from gimple to
+	gimple_phi.
+	(gimple_stringop_fixed_value): Strengthen locals from gimple to
+	gimple_assign, gimple_cond, gimple_call, and gimple_phi.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_eh_dispatch
 
 	* coretypes.h (gimple_eh_dispatch): New typedef.

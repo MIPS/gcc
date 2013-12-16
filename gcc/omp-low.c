@@ -12070,7 +12070,7 @@ simd_clone_adjust (struct cgraph_node *node)
      make_edge (incr_bb, latch_bb, EDGE_TRUE_VALUE);  */
   FALLTHRU_EDGE (incr_bb)->flags = EDGE_TRUE_VALUE;
 
-  gimple phi = create_phi_node (iter1, body_bb);
+  gimple_phi phi = create_phi_node (iter1, body_bb);
   edge preheader_edge = find_edge (entry_bb, body_bb);
   edge latch_edge = single_succ_edge (latch_bb);
   add_phi_arg (phi, build_zero_cst (unsigned_type_node), preheader_edge,
