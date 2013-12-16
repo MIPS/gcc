@@ -162,6 +162,10 @@ struct gimple_statement_phi;
 typedef struct gimple_statement_phi *gimple_phi;
 typedef const struct gimple_statement_phi *const_gimple_phi;
 
+struct gimple_statement_try;
+typedef struct gimple_statement_try *gimple_try;
+typedef const struct gimple_statement_try *const_gimple_try;
+
 union section;
 typedef union section section;
 struct gcc_options;

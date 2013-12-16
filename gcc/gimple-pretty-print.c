@@ -932,7 +932,7 @@ dump_gimple_bind (pretty_printer *buffer, gimple_bind gs, int spc, int flags)
    dumpfile.h).  */
 
 static void
-dump_gimple_try (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_try (pretty_printer *buffer, gimple_try gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2128,7 +2128,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_TRY:
-      dump_gimple_try (buffer, gs, spc, flags);
+      dump_gimple_try (buffer, as_a <gimple_try> (gs), spc, flags);
       break;
 
     case GIMPLE_PHI:

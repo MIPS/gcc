@@ -1,5 +1,47 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_try
+
+	* coretypes.h (gimple_try): New typedef.
+	(const_gimple_try): New typedef.
+
+	* gimple-low.c (gimple_try_catch_may_fallthru): Require a
+	gimple_try rather than a plain gimple.
+	(gimple_stmt_may_fallthru): Add checked cast to gimple_try.
+
+	* gimple-pretty-print.c (dump_gimple_try): Require a gimple_try
+	rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_try within
+	GIMPLE_TRY case of switch statement.
+
+	* tree-eh.c (finally_tree_node::parent): Strengthen field from
+	gimple to gimple_try.
+	(record_in_finally_tree): Require a gimple_try rather than a plain
+	gimple.
+	(collect_finally_tree): Likewise.
+	(collect_finally_tree_1): Likewise.
+	(struct leh_tf_state::try_finally_expr): Strengthen field from
+	gimple to gimple_try.
+	(struct leh_tf_state::top_p): Likewise.
+	(lower_eh_must_not_throw): Require a gimple_try rather than a
+	plain gimple.
+	(frob_into_branch_around): Likewise.
+	(lower_try_finally_dup_block): Strengthen local from gimple to
+	gimple_try.
+	(honor_protect_cleanup_actions): Split out uses of "x" into new
+	locals "eh_mnt" and "try_stmt" with stronger types.
+	(lower_try_finally): Require a gimple_try rather than a plain
+	gimple.
+	(lower_catch): Likewise.
+	(lower_eh_filter): Likewise.
+	(lower_eh_must_not_throw): Likewise.
+	(lower_cleanup): Likewise.
+	(lower_eh_constructs_2): Add checked cast to gimple_try within
+	GIMPLE_TRY case of switch statement, introducing new local
+	"try_stmt", using it for type-safety.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Use subclasses of gimple in various places
 
 	* asan.c (insert_if_then_before_iter): Require a gimple cond

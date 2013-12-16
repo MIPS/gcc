@@ -177,7 +177,7 @@ struct finally_tree_node
      tree) leaves the TRY block, its necessary to record a tree in
      this field.  Thus a treemple is used. */
   treemple child;
-  gimple parent;
+  gimple_try parent;
 };
 
 /* Hashtable helpers.  */
@@ -206,7 +206,7 @@ finally_tree_hasher::equal (const value_type *v, const compare_type *c)
 static hash_table<finally_tree_hasher> *finally_tree;
 
 static void
-record_in_finally_tree (treemple child, gimple parent)
+record_in_finally_tree (treemple child, gimple_try parent)
 {
   struct finally_tree_node *n;
   finally_tree_node **slot;
@@ -221,13 +221,13 @@ record_in_finally_tree (treemple child, gimple parent)
 }
 
 static void
-collect_finally_tree (gimple stmt, gimple region);
+collect_finally_tree (gimple stmt, gimple_try region);
 
 /* Go through the gimple sequence.  Works with collect_finally_tree to
    record all GIMPLE_LABEL and GIMPLE_TRY statements. */
 
 static void
-collect_finally_tree_1 (gimple_seq seq, gimple region)
+collect_finally_tree_1 (gimple_seq seq, gimple_try region)
 {
   gimple_stmt_iterator gsi;
 
@@ -236,7 +236,7 @@ collect_finally_tree_1 (gimple_seq seq, gimple region)
 }
 
 static void
-collect_finally_tree (gimple stmt, gimple region)
+collect_finally_tree (gimple stmt, gimple_try region)
 {
   treemple temp;
 
@@ -252,7 +252,8 @@ collect_finally_tree (gimple stmt, gimple region)
         {
           temp.g = stmt;
           record_in_finally_tree (temp, region);
-          collect_finally_tree_1 (gimple_try_eval (stmt), stmt);
+          collect_finally_tree_1 (gimple_try_eval (stmt),
+				  as_a <gimple_try> (stmt));
 	  collect_finally_tree_1 (gimple_try_cleanup (stmt), region);
         }
       else if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
@@ -369,8 +370,8 @@ struct leh_tf_state
      try_finally_expr is the original GIMPLE_TRY_FINALLY.  We need to retain
      this so that outside_finally_tree can reliably reference the tree used
      in the collect_finally_tree data structures.  */
-  gimple try_finally_expr;
-  gimple top_p;
+  gimple_try try_finally_expr;
+  gimple_try top_p;
 
   /* While lowering a top_p usually it is expanded into multiple statements,
      thus we need the following field to store them. */
@@ -410,7 +411,7 @@ struct leh_tf_state
   bool may_throw;
 };
 
-static gimple_seq lower_eh_must_not_throw (struct leh_state *, gimple);
+static gimple_seq lower_eh_must_not_throw (struct leh_state *, gimple_try);
 
 /* Search for STMT in the goto queue.  Return the replacement,
    or null if the statement isn't in the queue.  */
@@ -861,7 +862,7 @@ eh_region_may_contain_throw (eh_region r)
    an existing label that should be put at the exit, or NULL.  */
 
 static gimple_seq
-frob_into_branch_around (gimple tp, eh_region region, tree over)
+frob_into_branch_around (gimple_try tp, eh_region region, tree over)
 {
   gimple x;
   gimple_seq cleanup, result;
@@ -898,7 +899,7 @@ static gimple_seq
 lower_try_finally_dup_block (gimple_seq seq, struct leh_state *outer_state,
 			     location_t loc)
 {
-  gimple region = NULL;
+  gimple_try region = NULL;
   gimple_seq new_seq;
   gimple_stmt_iterator gsi;
 
@@ -990,6 +991,8 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
   bool finally_may_fallthru;
   gimple_seq finally;
   gimple x;
+  gimple_eh_must_not_throw eh_mnt;
+  gimple_try try_stmt;
   gimple_eh_else eh_else;
 
   /* First check for nothing to do.  */
@@ -1032,10 +1035,10 @@ honor_protect_cleanup_actions (struct leh_state *outer_state,
     }
 
   /* Wrap the block with protect_cleanup_actions as the action.  */
-  x = gimple_build_eh_must_not_throw (protect_cleanup_actions);
-  x = gimple_build_try (finally, gimple_seq_alloc_with_stmt (x),
-			GIMPLE_TRY_CATCH);
-  finally = lower_eh_must_not_throw (outer_state, x);
+  eh_mnt = gimple_build_eh_must_not_throw (protect_cleanup_actions);
+  try_stmt = gimple_build_try (finally, gimple_seq_alloc_with_stmt (eh_mnt),
+			       GIMPLE_TRY_CATCH);
+  finally = lower_eh_must_not_throw (outer_state, try_stmt);
 
   /* Drop all of this into the exception sequence.  */
   emit_post_landing_pad (&eh_seq, tf->region);
@@ -1640,7 +1643,7 @@ cleanup_is_dead_in (eh_region reg)
    arrange for the FINALLY block to be executed on all exits.  */
 
 static gimple_seq
-lower_try_finally (struct leh_state *state, gimple tp)
+lower_try_finally (struct leh_state *state, gimple_try tp)
 {
   struct leh_tf_state this_tf;
   struct leh_state this_state;
@@ -1747,7 +1750,7 @@ lower_try_finally (struct leh_state *state, gimple tp)
    exception region trees that records all the magic.  */
 
 static gimple_seq
-lower_catch (struct leh_state *state, gimple tp)
+lower_catch (struct leh_state *state, gimple_try tp)
 {
   eh_region try_region = NULL;
   struct leh_state this_state = *state;
@@ -1819,7 +1822,7 @@ lower_catch (struct leh_state *state, gimple tp)
    region trees that record all the magic.  */
 
 static gimple_seq
-lower_eh_filter (struct leh_state *state, gimple tp)
+lower_eh_filter (struct leh_state *state, gimple_try tp)
 {
   struct leh_state this_state = *state;
   eh_region this_region = NULL;
@@ -1864,7 +1867,7 @@ lower_eh_filter (struct leh_state *state, gimple tp)
    plus the exception region trees that record all the magic.  */
 
 static gimple_seq
-lower_eh_must_not_throw (struct leh_state *state, gimple tp)
+lower_eh_must_not_throw (struct leh_state *state, gimple_try tp)
 {
   struct leh_state this_state = *state;
 
@@ -1897,7 +1900,7 @@ lower_eh_must_not_throw (struct leh_state *state, gimple tp)
    except that we only execute the cleanup block for exception edges.  */
 
 static gimple_seq
-lower_cleanup (struct leh_state *state, gimple tp)
+lower_cleanup (struct leh_state *state, gimple_try tp)
 {
   struct leh_state this_state = *state;
   eh_region this_region = NULL;
@@ -2052,36 +2055,39 @@ lower_eh_constructs_2 (struct leh_state *state, gimple_stmt_iterator *gsi)
       break;
 
     case GIMPLE_TRY:
-      if (gimple_try_kind (stmt) == GIMPLE_TRY_FINALLY)
-	replace = lower_try_finally (state, stmt);
-      else
-	{
-	  x = gimple_seq_first_stmt (gimple_try_cleanup (stmt));
-	  if (!x)
-	    {
-	      replace = gimple_try_eval (stmt);
-	      lower_eh_constructs_1 (state, &replace);
-	    }
-	  else
-	    switch (gimple_code (x))
+      {
+	gimple_try try_stmt = as_a <gimple_try> (stmt);
+	if (gimple_try_kind (try_stmt) == GIMPLE_TRY_FINALLY)
+	  replace = lower_try_finally (state, try_stmt);
+	else
+	  {
+	    x = gimple_seq_first_stmt (gimple_try_cleanup (try_stmt));
+	    if (!x)
 	      {
-		case GIMPLE_CATCH:
-		    replace = lower_catch (state, stmt);
-		    break;
-		case GIMPLE_EH_FILTER:
-		    replace = lower_eh_filter (state, stmt);
-		    break;
-		case GIMPLE_EH_MUST_NOT_THROW:
-		    replace = lower_eh_must_not_throw (state, stmt);
-		    break;
-		case GIMPLE_EH_ELSE:
-		    /* This code is only valid with GIMPLE_TRY_FINALLY.  */
-		    gcc_unreachable ();
-		default:
-		    replace = lower_cleanup (state, stmt);
-		    break;
+		replace = gimple_try_eval (try_stmt);
+		lower_eh_constructs_1 (state, &replace);
 	      }
-	}
+	    else
+	      switch (gimple_code (x))
+		{
+		case GIMPLE_CATCH:
+		  replace = lower_catch (state, try_stmt);
+		  break;
+		case GIMPLE_EH_FILTER:
+		  replace = lower_eh_filter (state, try_stmt);
+		  break;
+		case GIMPLE_EH_MUST_NOT_THROW:
+		  replace = lower_eh_must_not_throw (state, try_stmt);
+		  break;
+		case GIMPLE_EH_ELSE:
+		  /* This code is only valid with GIMPLE_TRY_FINALLY.  */
+		  gcc_unreachable ();
+		default:
+		  replace = lower_cleanup (state, try_stmt);
+		  break;
+		}
+	  }
+      }
 
       /* Remove the old stmt and insert the transformed sequence
 	 instead. */

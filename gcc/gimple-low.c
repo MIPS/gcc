@@ -499,7 +499,7 @@ lower_try_catch (gimple_stmt_iterator *gsi, struct lower_data *data)
    This is a subroutine of gimple_stmt_may_fallthru.  */
 
 static bool
-gimple_try_catch_may_fallthru (gimple stmt)
+gimple_try_catch_may_fallthru (gimple_try stmt)
 {
   gimple_stmt_iterator i;
 
@@ -585,7 +585,7 @@ gimple_stmt_may_fallthru (gimple stmt)
 
     case GIMPLE_TRY:
       if (gimple_try_kind (stmt) == GIMPLE_TRY_CATCH)
-        return gimple_try_catch_may_fallthru (stmt);
+        return gimple_try_catch_may_fallthru (as_a <gimple_try> (stmt));
 
       /* It must be a GIMPLE_TRY_FINALLY.  */
 
