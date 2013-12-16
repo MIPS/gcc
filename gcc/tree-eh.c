@@ -816,7 +816,7 @@ emit_resx (gimple_seq *seq, eh_region region)
 static void
 emit_eh_dispatch (gimple_seq *seq, eh_region region)
 {
-  gimple x = gimple_build_eh_dispatch (region->index);
+  gimple_eh_dispatch x = gimple_build_eh_dispatch (region->index);
   gimple_seq_add_stmt (seq, x);
 }
 
@@ -2197,7 +2197,7 @@ make_pass_lower_eh (gcc::context *ctxt)
    no fallthru edge; false if there is.  */
 
 bool
-make_eh_dispatch_edges (gimple stmt)
+make_eh_dispatch_edges (gimple_eh_dispatch stmt)
 {
   eh_region r;
   eh_catch c;
@@ -2355,7 +2355,7 @@ redirect_eh_edge (edge edge_in, basic_block new_bb)
    The actual edge update will happen in the caller.  */
 
 void
-redirect_eh_dispatch_edge (gimple stmt, edge e, basic_block new_bb)
+redirect_eh_dispatch_edge (gimple_eh_dispatch stmt, edge e, basic_block new_bb)
 {
   tree new_lab = gimple_block_label (new_bb);
   bool any_changed = false;
@@ -3544,7 +3544,7 @@ sink_clobbers (basic_block bb)
    we have found some duplicate labels and removed some edges.  */
 
 static bool
-lower_eh_dispatch (basic_block src, gimple stmt)
+lower_eh_dispatch (basic_block src, gimple_eh_dispatch stmt)
 {
   gimple_stmt_iterator gsi;
   int region_nr;
@@ -3732,7 +3732,8 @@ pass_lower_eh_dispatch::execute (function *fun)
 	continue;
       if (gimple_code (last) == GIMPLE_EH_DISPATCH)
 	{
-	  redirected |= lower_eh_dispatch (bb, last);
+	  redirected |= lower_eh_dispatch (bb,
+					   as_a <gimple_eh_dispatch> (last));
 	  flags |= TODO_update_ssa_only_virtuals;
 	}
       else if (gimple_code (last) == GIMPLE_RESX)
@@ -3824,7 +3825,9 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 			      gimple_resx_region (as_a <gimple_resx> (stmt)));
 	      break;
 	    case GIMPLE_EH_DISPATCH:
-	      bitmap_set_bit (r_reachable, gimple_eh_dispatch_region (stmt));
+	      bitmap_set_bit (r_reachable,
+			      gimple_eh_dispatch_region (
+                                as_a <gimple_eh_dispatch> (stmt)));
 	      break;
 	    default:
 	      break;
@@ -4666,7 +4669,7 @@ verify_eh_edges (gimple stmt)
 /* Similarly, but handle GIMPLE_EH_DISPATCH specifically.  */
 
 DEBUG_FUNCTION bool
-verify_eh_dispatch_edge (gimple stmt)
+verify_eh_dispatch_edge (gimple_eh_dispatch stmt)
 {
   eh_region r;
   eh_catch c;

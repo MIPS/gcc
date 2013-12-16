@@ -760,11 +760,11 @@ gimple_build_switch (tree index, tree default_label, vec<tree> args)
 
 /* Build a GIMPLE_EH_DISPATCH statement.  */
 
-gimple
+gimple_eh_dispatch
 gimple_build_eh_dispatch (int region)
 {
-  gimple_statement_eh_dispatch *p =
-    as_a <gimple_statement_eh_dispatch *> (
+  gimple_eh_dispatch p =
+    as_a <gimple_eh_dispatch> (
       gimple_build_with_ops (GIMPLE_EH_DISPATCH, ERROR_MARK, 0));
   p->region = region;
   return p;

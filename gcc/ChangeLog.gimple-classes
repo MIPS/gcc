@@ -1,5 +1,58 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_eh_dispatch
+
+	* coretypes.h (gimple_eh_dispatch): New typedef.
+	(const_gimple_eh_dispatch): New typedef.
+
+	* gimple-pretty-print.c (dump_gimple_eh_dispatch): Require a
+	gimple_eh_dispatch rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_eh_dispatch
+	within GIMPLE_EH_DISPATCH case of switch statement.
+
+	* gimple-streamer-in.c (input_gimple_stmt): Likewise.
+
+	* gimple-streamer-out.c (output_gimple_stmt): Likewise.
+
+	* gimple.c (gimple_build_eh_dispatch): Return a gimple_eh_dispatch
+	rather than a plain gimple.
+
+	* gimple.h (gimple_build_eh_dispatch): Return a gimple_eh_dispatch
+	rather than a plain gimple.
+	(gimple_eh_dispatch_region): Require a const_gimple_eh_dispatch
+	rather than a plain const_gimple.
+	(gimple_eh_dispatch_set_region): Require a gimple_eh_dispatch
+	rather than a plain gimple.
+
+	* tree-cfg.c (make_edges): Add a checked cast to gimple_eh_dispatch
+	within GIMPLE_EH_DISPATCH case of switch statement.
+	(gimple_verify_flow_info): Likewise.
+	(gimple_redirect_edge_and_branch): Likewise.
+	(move_stmt_r): Likewise, adding a local.
+
+	* tree-eh.c (emit_eh_dispatch): Convert local from gimple to
+	gimple_eh_dispatch.
+	(make_eh_dispatch_edges): Require a gimple_eh_dispatch rather than
+	a plain gimple.
+	(redirect_eh_dispatch_edge): Likewise.
+	(lower_eh_dispatch): Likewise.
+	(execute_lower_eh_dispatch): Add a checked cast to
+	gimple_eh_dispatch.
+	(mark_reachable_handlers): Likewise.
+	(verify_eh_dispatch_edge): Require a gimple_eh_dispatch rather
+	than a plain gimple.
+
+	* tree-eh.h (make_eh_dispatch_edges): Likewise.
+	(redirect_eh_dispatch_edge): Likewise.
+	(verify_eh_dispatch_edge): Likewise.
+
+	* tree-inline.c (remap_gimple_stmt): Add a checked cast to
+	gimple_eh_dispatch within GIMPLE_EH_DISPATCH case of switch
+	statement, adding a local.
+	(copy_edges_for_bb): Add a checked cast to gimple_eh_dispatch.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_resx
 
 	* coretypes.h (gimple_resx): New typedef.

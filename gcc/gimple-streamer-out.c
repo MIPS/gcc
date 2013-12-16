@@ -108,7 +108,9 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
       break;
 
     case GIMPLE_EH_DISPATCH:
-      streamer_write_hwi (ob, gimple_eh_dispatch_region (stmt));
+      streamer_write_hwi (ob,
+			  gimple_eh_dispatch_region (
+			    as_a <gimple_eh_dispatch> (stmt)));
       break;
 
     case GIMPLE_ASM:

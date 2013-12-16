@@ -1335,7 +1335,7 @@ gimple gimple_build_wce (gimple_seq);
 gimple_resx gimple_build_resx (int);
 gimple_switch gimple_build_switch_nlabels (unsigned, tree, tree);
 gimple_switch gimple_build_switch (tree, tree, vec<tree> );
-gimple gimple_build_eh_dispatch (int);
+gimple_eh_dispatch gimple_build_eh_dispatch (int);
 gimple_debug gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 #define gimple_build_debug_bind(var,val,stmt)			\
   gimple_build_debug_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
@@ -4035,23 +4035,20 @@ gimple_resx_set_region (gimple_resx resx_stmt, int region)
   resx_stmt->region = region;
 }
 
-/* Return the region number for GIMPLE_EH_DISPATCH GS.  */
+/* Return the region number for GIMPLE_EH_DISPATCH EH_DISPATCH_STMT.  */
 
 static inline int
-gimple_eh_dispatch_region (const_gimple gs)
+gimple_eh_dispatch_region (const_gimple_eh_dispatch eh_dispatch_stmt)
 {
-  const gimple_statement_eh_dispatch *eh_dispatch_stmt =
-    as_a <const gimple_statement_eh_dispatch *> (gs);
   return eh_dispatch_stmt->region;
 }
 
-/* Set REGION to be the region number for GIMPLE_EH_DISPATCH GS.  */
+/* Set REGION to be the region number for GIMPLE_EH_DISPATCH
+   EH_DISPATCH_STMT.  */
 
 static inline void
-gimple_eh_dispatch_set_region (gimple gs, int region)
+gimple_eh_dispatch_set_region (gimple_eh_dispatch eh_dispatch_stmt, int region)
 {
-  gimple_statement_eh_dispatch *eh_dispatch_stmt =
-    as_a <gimple_statement_eh_dispatch *> (gs);
   eh_dispatch_stmt->region = region;
 }
 

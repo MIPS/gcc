@@ -1593,9 +1593,10 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	  case GIMPLE_EH_DISPATCH:
 	    {
-	      int r = gimple_eh_dispatch_region (copy);
+	      gimple_eh_dispatch eh_dispatch = as_a <gimple_eh_dispatch> (copy);
+	      int r = gimple_eh_dispatch_region (eh_dispatch);
 	      r = remap_eh_region_nr (r, id);
-	      gimple_eh_dispatch_set_region (copy, r);
+	      gimple_eh_dispatch_set_region (eh_dispatch, r);
 	    }
 	    break;
 
@@ -2105,7 +2106,7 @@ copy_edges_for_bb (basic_block bb, gcov_type count_scale, basic_block ret_bb,
 	}
 
       if (gimple_code (copy_stmt) == GIMPLE_EH_DISPATCH)
-	make_eh_dispatch_edges (copy_stmt);
+	make_eh_dispatch_edges (as_a <gimple_eh_dispatch> (copy_stmt));
       else if (can_throw)
 	make_eh_edges (copy_stmt);
 

@@ -154,6 +154,10 @@ struct gimple_statement_resx;
 typedef struct gimple_statement_resx *gimple_resx;
 typedef const struct gimple_statement_resx *const_gimple_resx;
 
+struct gimple_statement_eh_dispatch;
+typedef struct gimple_statement_eh_dispatch *gimple_eh_dispatch;
+typedef const struct gimple_statement_eh_dispatch *const_gimple_eh_dispatch;
+
 struct gimple_statement_phi;
 typedef struct gimple_statement_phi *gimple_phi;
 typedef const struct gimple_statement_phi *const_gimple_phi;

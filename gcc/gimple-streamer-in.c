@@ -134,7 +134,8 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
       break;
 
     case GIMPLE_EH_DISPATCH:
-      gimple_eh_dispatch_set_region (stmt, streamer_read_hwi (ib));
+      gimple_eh_dispatch_set_region (as_a <gimple_eh_dispatch> (stmt),
+				     streamer_read_hwi (ib));
       break;
 
     case GIMPLE_ASM:

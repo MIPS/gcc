@@ -812,7 +812,8 @@ make_edges (void)
 	      fallthru = false;
 	      break;
 	    case GIMPLE_EH_DISPATCH:
-	      fallthru = make_eh_dispatch_edges (last);
+	      fallthru =
+		make_eh_dispatch_edges (as_a <gimple_eh_dispatch> (last));
 	      break;
 
 	    case GIMPLE_CALL:
@@ -5324,7 +5325,7 @@ gimple_verify_flow_info (void)
 	  break;
 
 	case GIMPLE_EH_DISPATCH:
-	  err |= verify_eh_dispatch_edge (stmt);
+	  err |= verify_eh_dispatch_edge (as_a <gimple_eh_dispatch> (stmt));
 	  break;
 
 	default:
@@ -5578,7 +5579,7 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 
     case GIMPLE_EH_DISPATCH:
       if (!(e->flags & EDGE_FALLTHRU))
-	redirect_eh_dispatch_edge (stmt, e, dest);
+	redirect_eh_dispatch_edge (as_a <gimple_eh_dispatch> (stmt), e, dest);
       break;
 
     case GIMPLE_TRANSACTION:
@@ -6533,9 +6534,10 @@ move_stmt_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
     case GIMPLE_EH_DISPATCH:
       {
-	int r = gimple_eh_dispatch_region (stmt);
+	gimple_eh_dispatch eh_dispatch_stmt = as_a <gimple_eh_dispatch> (stmt);
+	int r = gimple_eh_dispatch_region (eh_dispatch_stmt);
 	r = move_stmt_eh_region_nr (r, p);
-	gimple_eh_dispatch_set_region (stmt, r);
+	gimple_eh_dispatch_set_region (eh_dispatch_stmt, r);
       }
       break;
 

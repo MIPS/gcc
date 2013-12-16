@@ -1069,7 +1069,7 @@ dump_gimple_resx (pretty_printer *buffer, gimple_resx gs, int spc, int flags)
 /* Dump a GIMPLE_EH_DISPATCH tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_eh_dispatch (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_eh_dispatch (pretty_printer *buffer, gimple_eh_dispatch gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
     dump_gimple_fmt (buffer, spc, flags, "%G <%d>", gs,
@@ -2218,7 +2218,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_EH_DISPATCH:
-      dump_gimple_eh_dispatch (buffer, gs, spc, flags);
+      dump_gimple_eh_dispatch (buffer, as_a <gimple_eh_dispatch> (gs), spc,
+			       flags);
       break;
 
     case GIMPLE_DEBUG:
