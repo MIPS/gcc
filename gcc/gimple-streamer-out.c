@@ -109,12 +109,15 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
       break;
 
     case GIMPLE_ASM:
-      streamer_write_uhwi (ob, gimple_asm_ninputs (stmt));
-      streamer_write_uhwi (ob, gimple_asm_noutputs (stmt));
-      streamer_write_uhwi (ob, gimple_asm_nclobbers (stmt));
-      streamer_write_uhwi (ob, gimple_asm_nlabels (stmt));
-      streamer_write_string (ob, ob->main_stream, gimple_asm_string (stmt),
-			     true);
+      {
+	gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	streamer_write_uhwi (ob, gimple_asm_ninputs (asm_stmt));
+	streamer_write_uhwi (ob, gimple_asm_noutputs (asm_stmt));
+	streamer_write_uhwi (ob, gimple_asm_nclobbers (asm_stmt));
+	streamer_write_uhwi (ob, gimple_asm_nlabels (asm_stmt));
+	streamer_write_string (ob, ob->main_stream,
+			       gimple_asm_string (asm_stmt), true);
+      }
       /* Fallthru  */
 
     case GIMPLE_ASSIGN:

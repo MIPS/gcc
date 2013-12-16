@@ -542,11 +542,11 @@ gimple_build_bind (tree vars, gimple_seq body, tree block)
    NCLOBBERS is the number of clobbered registers.
    */
 
-static inline gimple
+static inline gimple_asm
 gimple_build_asm_1 (const char *string, unsigned ninputs, unsigned noutputs,
                     unsigned nclobbers, unsigned nlabels)
 {
-  gimple_statement_asm *p;
+  gimple_asm p;
   int size = strlen (string);
 
   /* ASMs with labels cannot have outputs.  This should have been
@@ -580,12 +580,12 @@ gimple_build_asm_1 (const char *string, unsigned ninputs, unsigned noutputs,
    CLOBBERS is a vector of the clobbered register parameters.
    LABELS is a vector of destination labels.  */
 
-gimple
+gimple_asm
 gimple_build_asm_vec (const char *string, vec<tree, va_gc> *inputs,
                       vec<tree, va_gc> *outputs, vec<tree, va_gc> *clobbers,
 		      vec<tree, va_gc> *labels)
 {
-  gimple p;
+  gimple_asm p;
   unsigned i;
 
   p = gimple_build_asm_1 (string,
@@ -1821,7 +1821,7 @@ gimple_has_side_effects (const_gimple s)
     return true;
 
   if (gimple_code (s) == GIMPLE_ASM
-      && gimple_asm_volatile_p (s))
+      && gimple_asm_volatile_p (as_a <const_gimple_asm> (s)))
     return true;
 
   if (is_gimple_call (s))
@@ -1862,7 +1862,7 @@ gimple_could_trap_p_1 (gimple s, bool include_mem, bool include_stores)
   switch (gimple_code (s))
     {
     case GIMPLE_ASM:
-      return gimple_asm_volatile_p (s);
+      return gimple_asm_volatile_p (as_a <gimple_asm> (s));
 
     case GIMPLE_CALL:
       t = gimple_call_fndecl (s);
@@ -2477,7 +2477,7 @@ gimple_call_builtin_p (const_gimple stmt, enum built_in_function code)
    GIMPLE_ASM.  */
 
 bool
-gimple_asm_clobbers_memory_p (const_gimple stmt)
+gimple_asm_clobbers_memory_p (const_gimple_asm stmt)
 {
   unsigned i;
 

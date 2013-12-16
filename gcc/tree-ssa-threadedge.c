@@ -345,7 +345,8 @@ record_temporary_equivalences_from_stmts_at_dest (edge e,
       /* If the statement has volatile operands, then we assume we
 	 can not thread through this block.  This is overly
 	 conservative in some ways.  */
-      if (gimple_code (stmt) == GIMPLE_ASM && gimple_asm_volatile_p (stmt))
+      if (gimple_code (stmt) == GIMPLE_ASM
+	  && gimple_asm_volatile_p (as_a <gimple_asm> (stmt)))
 	return NULL;
 
       /* If duplicating this block is going to cause too much code

@@ -1606,7 +1606,7 @@ dump_gimple_transaction (pretty_printer *buffer, gimple gs, int spc, int flags)
    dumpfile.h).  */
 
 static void
-dump_gimple_asm (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_asm (pretty_printer *buffer, gimple_asm gs, int spc, int flags)
 {
   unsigned int i, n, f, fields;
 
@@ -2085,7 +2085,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
   switch (gimple_code (gs))
     {
     case GIMPLE_ASM:
-      dump_gimple_asm (buffer, gs, spc, flags);
+      dump_gimple_asm (buffer, as_a <gimple_asm> (gs), spc, flags);
       break;
 
     case GIMPLE_ASSIGN:

@@ -610,7 +610,7 @@ op_iter_init (ssa_op_iter *ptr, gimple stmt, int flags)
 	    ptr->numops = 1;
 	    break;
 	  case GIMPLE_ASM:
-	    ptr->numops = gimple_asm_noutputs (stmt);
+	    ptr->numops = gimple_asm_noutputs (as_a <gimple_asm> (stmt));
 	    break;
 	  default:
 	    ptr->numops = 0;

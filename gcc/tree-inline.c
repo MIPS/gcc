@@ -3944,7 +3944,8 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
 
     case GIMPLE_ASM:
       {
-	int count = asm_str_count (gimple_asm_string (stmt));
+	int count =
+	  asm_str_count (gimple_asm_string (as_a <gimple_asm> (stmt)));
 	/* 1000 means infinity. This avoids overflows later
 	   with very long asm statements.  */
 	if (count > 1000)

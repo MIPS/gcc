@@ -655,7 +655,7 @@ maybe_add_call_vops (struct function *fn, gimple_call stmt)
 /* Scan operands in the ASM_EXPR stmt referred to in INFO.  */
 
 static void
-get_asm_stmt_operands (struct function *fn, gimple stmt)
+get_asm_stmt_operands (struct function *fn, gimple_asm stmt)
 {
   size_t i, noutputs;
   const char **oconstraints;
@@ -909,7 +909,7 @@ parse_ssa_operands (struct function *fn, gimple stmt)
   switch (code)
     {
     case GIMPLE_ASM:
-      get_asm_stmt_operands (fn, stmt);
+      get_asm_stmt_operands (fn, as_a <gimple_asm> (stmt));
       break;
 
     case GIMPLE_TRANSACTION:

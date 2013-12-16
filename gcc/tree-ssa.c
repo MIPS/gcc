@@ -1454,9 +1454,10 @@ execute_update_addresses_taken (void)
 
 	  else if (code == GIMPLE_ASM)
 	    {
-	      for (i = 0; i < gimple_asm_noutputs (stmt); ++i)
+	      gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	      for (i = 0; i < gimple_asm_noutputs (asm_stmt); ++i)
 		{
-		  tree link = gimple_asm_output_op (stmt, i);
+		  tree link = gimple_asm_output_op (asm_stmt, i);
 		  tree lhs = TREE_VALUE (link);
 		  if (TREE_CODE (lhs) != SSA_NAME)
 		    {
@@ -1471,9 +1472,9 @@ execute_update_addresses_taken (void)
 			bitmap_set_bit (not_reg_needs, DECL_UID (decl));
 		    }
 		}
-	      for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
+	      for (i = 0; i < gimple_asm_ninputs (asm_stmt); ++i)
 		{
-		  tree link = gimple_asm_input_op (stmt, i);
+		  tree link = gimple_asm_input_op (asm_stmt, i);
 		  if ((decl = non_rewritable_mem_ref_base (TREE_VALUE (link))))
 		    bitmap_set_bit (not_reg_needs, DECL_UID (decl));
 		}
@@ -1584,16 +1585,17 @@ execute_update_addresses_taken (void)
 
 	    else if (gimple_code (stmt) == GIMPLE_ASM)
 	      {
+		gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
 		unsigned i;
-		for (i = 0; i < gimple_asm_noutputs (stmt); ++i)
+		for (i = 0; i < gimple_asm_noutputs (asm_stmt); ++i)
 		  {
-		    tree link = gimple_asm_output_op (stmt, i);
+		    tree link = gimple_asm_output_op (asm_stmt, i);
 		    maybe_rewrite_mem_ref_base (&TREE_VALUE (link),
 						suitable_for_renaming);
 		  }
-		for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
+		for (i = 0; i < gimple_asm_ninputs (asm_stmt); ++i)
 		  {
-		    tree link = gimple_asm_input_op (stmt, i);
+		    tree link = gimple_asm_input_op (asm_stmt, i);
 		    maybe_rewrite_mem_ref_base (&TREE_VALUE (link),
 						suitable_for_renaming);
 		  }

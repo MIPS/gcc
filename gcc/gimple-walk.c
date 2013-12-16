@@ -94,7 +94,7 @@ walk_gimple_seq (gimple_seq seq, walk_stmt_fn callback_stmt,
 /* Helper function for walk_gimple_stmt.  Walk operands of a GIMPLE_ASM.  */
 
 static tree
-walk_gimple_asm (gimple stmt, walk_tree_fn callback_op,
+walk_gimple_asm (gimple_asm stmt, walk_tree_fn callback_op,
 		 struct walk_stmt_info *wi)
 {
   tree ret, op;
@@ -292,7 +292,7 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_ASM:
-      ret = walk_gimple_asm (stmt, callback_op, wi);
+      ret = walk_gimple_asm (as_a <gimple_asm> (stmt), callback_op, wi);
       if (ret)
 	return ret;
       break;
@@ -779,18 +779,18 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 	ret |= visit_addr (stmt, gimple_call_lhs (stmt),
 			   gimple_call_lhs (stmt), data);
     }
-  else if (gimple_code (stmt) == GIMPLE_ASM)
+  else if (gimple_asm asm_stmt = dyn_cast <gimple_asm> (stmt))
     {
       unsigned noutputs;
       const char *constraint;
       const char **oconstraints;
       bool allows_mem, allows_reg, is_inout;
-      noutputs = gimple_asm_noutputs (stmt);
+      noutputs = gimple_asm_noutputs (asm_stmt);
       oconstraints = XALLOCAVEC (const char *, noutputs);
       if (visit_store || visit_addr)
-	for (i = 0; i < gimple_asm_noutputs (stmt); ++i)
+	for (i = 0; i < gimple_asm_noutputs (asm_stmt); ++i)
 	  {
-	    tree link = gimple_asm_output_op (stmt, i);
+	    tree link = gimple_asm_output_op (asm_stmt, i);
 	    tree op = get_base_loadstore (TREE_VALUE (link));
 	    if (op && visit_store)
 	      ret |= visit_store (stmt, op, TREE_VALUE (link), data);
@@ -806,9 +806,9 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 	      }
 	  }
       if (visit_load || visit_addr)
-	for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
+	for (i = 0; i < gimple_asm_ninputs (asm_stmt); ++i)
 	  {
-	    tree link = gimple_asm_input_op (stmt, i);
+	    tree link = gimple_asm_input_op (asm_stmt, i);
 	    tree op = TREE_VALUE (link);
 	    if (visit_addr
 		&& TREE_CODE (op) == ADDR_EXPR)

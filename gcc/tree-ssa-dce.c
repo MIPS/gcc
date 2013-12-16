@@ -882,14 +882,14 @@ propagate_necessity (bool aggressive)
 		    mark_all_reaching_defs_necessary (stmt);
 		}
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_ASM)
+	  else if (gimple_asm asm_stmt = dyn_cast <gimple_asm> (stmt))
 	    {
 	      unsigned i;
 	      mark_all_reaching_defs_necessary (stmt);
 	      /* Inputs may perform loads.  */
-	      for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
+	      for (i = 0; i < gimple_asm_ninputs (asm_stmt); ++i)
 		{
-		  tree op = TREE_VALUE (gimple_asm_input_op (stmt, i));
+		  tree op = TREE_VALUE (gimple_asm_input_op (asm_stmt, i));
 		  if (TREE_CODE (op) != SSA_NAME
 		      && !is_gimple_min_invariant (op)
 		      && TREE_CODE (op) != CONSTRUCTOR

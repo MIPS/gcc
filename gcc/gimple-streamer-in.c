@@ -218,11 +218,12 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
     }
   else if (code == GIMPLE_ASM)
     {
+      gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
       unsigned i;
 
-      for (i = 0; i < gimple_asm_noutputs (stmt); i++)
+      for (i = 0; i < gimple_asm_noutputs (asm_stmt); i++)
 	{
-	  tree op = TREE_VALUE (gimple_asm_output_op (stmt, i));
+	  tree op = TREE_VALUE (gimple_asm_output_op (asm_stmt, i));
 	  if (TREE_CODE (op) == SSA_NAME)
 	    SSA_NAME_DEF_STMT (op) = stmt;
 	}

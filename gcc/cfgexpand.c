@@ -2927,7 +2927,7 @@ expand_asm_operands (tree string, tree outputs, tree inputs,
 
 
 static void
-expand_asm_stmt (gimple stmt)
+expand_asm_stmt (gimple_asm stmt)
 {
   int noutputs;
   tree outputs, tail, t;
@@ -3212,7 +3212,7 @@ expand_gimple_stmt_1 (gimple stmt)
       expand_case (as_a <gimple_switch> (stmt));
       break;
     case GIMPLE_ASM:
-      expand_asm_stmt (stmt);
+      expand_asm_stmt (as_a <gimple_asm> (stmt));
       break;
     case GIMPLE_CALL:
       expand_call_stmt (as_a <gimple_call> (stmt));

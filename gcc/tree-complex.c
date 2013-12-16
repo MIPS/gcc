@@ -1419,7 +1419,7 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
 static void
 expand_complex_asm (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_asm stmt = as_a <gimple_asm> (gsi_stmt (*gsi));
   unsigned int i;
 
   for (i = 0; i < gimple_asm_noutputs (stmt); ++i)

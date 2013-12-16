@@ -1,5 +1,128 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_asm
+
+	* coretypes.h (gimple_asm): New typedef.
+	(const_gimple_asm): New typedef.
+
+	* gimple.h (gimple_build_asm_vec): Return a gimple_asm rather than
+	just a gimple.
+	(gimple_asm_clobbers_memory_p): Require a const_gimple_asm rather
+	than just a const_gimple.
+	(gimple_asm_ninputs): Likewise.
+	(gimple_asm_noutputs): Likewise.
+	(gimple_asm_nclobbers): Likewise.
+	(gimple_asm_nlabels): Likewise.
+	(gimple_asm_input_op): Likewise.
+	(gimple_asm_input_op_ptr): Likewise.
+	(gimple_asm_output_op): Likewise.
+	(gimple_asm_output_op_ptr): Likewise.
+	(gimple_asm_clobber_op): Likewise.
+	(gimple_asm_label_op): Likewise.
+	(gimple_asm_string): Likewise.
+	(gimple_asm_volatile_p): Likewise.
+	(gimple_asm_input_p): Likewise.
+	(gimple_asm_set_input_op): Require a gimple_asm rather than a plain
+	gimple.
+	(gimple_asm_set_output_op): Likewise.
+	(gimple_asm_set_clobber_op): Likewise.
+	(gimple_asm_set_label_op): Likewise.
+	(gimple_asm_set_volatile): Likewise.
+	(gimple_asm_set_input): Likewise.
+
+	* cfgexpand.c (expand_asm_stmt): Require a gimple_asm rather than
+	a plain gimple.
+	(expand_gimple_stmt_1): Add checked cast to gimple_asm within
+	GIMPLE_ASM case of switch statement.
+
+	* gimple-fold.c (fold_stmt_1): Add new local from checked cast to
+	gimple_asm within case GIMPLE_ASM.
+
+	* gimple-pretty-print.c (dump_gimple_asm): Require a gimple_asm
+	rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_asm within
+	GIMPLE_ASM case of switch statement.
+
+	* gimple-streamer-in.c (input_gimple_stmt): Rework existing
+	checked cast to gimple_asm; add a new one.
+
+	* gimple-streamer-out.c (output_gimple_stmt): Add new local from
+	checked cast to gimple_asm within case GIMPLE_ASM.
+
+	* gimple-walk.c (walk_gimple_asm): Require a gimple_asm rather
+	than a plain gimple.
+	(walk_gimple_op): Add checked cast to gimple_asm within GIMPLE_ASM
+	case of switch statement.
+	(walk_stmt_load_store_addr_ops): Use dyn_cast<gimple_asm> in place
+	of a code check against GIMPLE_ASM to introduce a new gimple_asm
+	local.
+
+	* gimple.c (gimple_build_asm_1): Return a gimple_asm rather than
+	a plain gimple.
+	(gimple_build_asm_vec): Likewise.
+	(gimple_has_side_effects): Add a checked cast to gimple_asm.
+	(gimple_could_trap_p_1): Likewise.
+	(gimple_call_builtin_p): Require a const_gimple_asm rather then
+	a const_gimple.
+
+	* gimplify-me.c (gimple_regimplify_operands): Add a checked cast
+	and a new local of type gimple_asm within GIMPLE_ASM case.
+
+	* gimplify.c (gimplify_asm_expr): Convert a local from gimple to
+	gimple_asm.
+
+	* ipa-pure-const.c (check_stmt): Add checked casts within
+	GIMPLE_ASM case.
+
+	* ssa-iterators.h (op_iter_init): Likewise.
+
+	* tree-cfg.c (make_goto_expr_edges): Convert a local from gimple
+	to gimple_asm.
+	(cleanup_dead_labels): Add a checked cast and a new local of type
+	gimple_asm within GIMPLE_ASM case.
+	(gimple_redirect_edge_and_branch): Likewise.
+	(is_ctrl_altering_stmt): Add a checked cast.
+	(need_fake_edge_p): Replace a code check against GIMPLE_ASM with a
+	dyn_cast<gimple_asm>.
+
+	* tree-complex.c (expand_complex_comparison): Convert a local from
+	gimple to gimple_asm.
+
+	* tree-data-ref.c (get_references_in_stmt): Add a checked cast to
+	gimple_asm.
+
+	* tree-eh.c (stmt_could_throw_p): Likewise.
+
+	* tree-inline.c (estimate_num_insns): Likewise.
+
+	* tree-sra.c (scan_function): Add a checked cast and a new local
+	of type gimple_asm within GIMPLE_ASM case.
+	(sra_modify_function_body): Likewise.
+	(ipa_sra_modify_function_body): Likewise.
+
+	* tree-ssa-coalesce.c (create_outofssa_var_map): Likewise.
+
+	* tree-ssa-dce.c (propagate_necessity): Replace a code check
+	against GIMPLE_ASM with a dyn_cast<gimple_asm>.
+
+	* tree-ssa-operands.c (maybe_add_call_vops): Require a gimple_asm
+	rather than a plain gimple.
+	(parse_ssa_operands): Add a checked cast to gimple_asm.
+
+	* tree-ssa-structalias.c (find_func_aliases): Replace a check for
+	GIMPLE_ASM with a dyn_cast<gimple_asm>, introducing  a new local
+	"asm_stmt", using it in place of "t" for typesafety.
+
+	* tree-ssa-threadedge.c
+	(record_temporary_equivalences_from_stmts_at_dest): Add a checked
+	cast to gimple_asm.
+
+	* tree-ssa.c (execute_update_addresses_taken): Add checked casts
+	and new locals of type gimple_asm within clauses guarded by code
+	check.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_goto
 
 	* coretypes.h (gimple_goto): New typedef.

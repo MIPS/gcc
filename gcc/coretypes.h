@@ -114,6 +114,10 @@ struct gimple_statement_assign;
 typedef struct gimple_statement_assign *gimple_assign;
 typedef const struct gimple_statement_assign *const_gimple_assign;
 
+struct gimple_statement_asm;
+typedef struct gimple_statement_asm *gimple_asm;
+typedef const struct gimple_statement_asm *const_gimple_asm;
+
 struct gimple_statement_call;
 typedef struct gimple_statement_call *gimple_call;
 typedef const struct gimple_statement_call *const_gimple_call;

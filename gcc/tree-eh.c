@@ -2773,7 +2773,7 @@ stmt_could_throw_p (gimple stmt)
     case GIMPLE_ASM:
       if (!cfun->can_throw_non_call_exceptions)
         return false;
-      return gimple_asm_volatile_p (stmt);
+      return gimple_asm_volatile_p (as_a <gimple_asm> (stmt));
 
     default:
       return false;

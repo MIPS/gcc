@@ -1247,7 +1247,7 @@ make_goto_expr_edges (basic_block bb)
 static void
 make_gimple_asm_edges (basic_block bb)
 {
-  gimple stmt = last_stmt (bb);
+  gimple_asm stmt = as_a <gimple_asm> (last_stmt (bb));
   int i, n = gimple_asm_nlabels (stmt);
 
   for (i = 0; i < n; ++i)
@@ -1447,11 +1447,12 @@ cleanup_dead_labels (void)
 
 	case GIMPLE_ASM:
 	  {
-	    int i, n = gimple_asm_nlabels (stmt);
+	    gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	    int i, n = gimple_asm_nlabels (asm_stmt);
 
 	    for (i = 0; i < n; ++i)
 	      {
-		tree cons = gimple_asm_label_op (stmt, i);
+		tree cons = gimple_asm_label_op (asm_stmt, i);
 		tree label = main_block_label (TREE_VALUE (cons));
 		TREE_VALUE (cons) = label;
 	      }
@@ -2414,7 +2415,7 @@ is_ctrl_altering_stmt (gimple t)
       return true;
 
     case GIMPLE_ASM:
-      if (gimple_asm_nlabels (t) > 0)
+      if (gimple_asm_nlabels (as_a <gimple_asm> (t)) > 0)
 	return true;
       break;
 
@@ -5535,12 +5536,13 @@ gimple_redirect_edge_and_branch (edge e, basic_block dest)
 
     case GIMPLE_ASM:
       {
-	int i, n = gimple_asm_nlabels (stmt);
+	gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	int i, n = gimple_asm_nlabels (asm_stmt);
 	tree label = NULL;
 
 	for (i = 0; i < n; ++i)
 	  {
-	    tree cons = gimple_asm_label_op (stmt, i);
+	    tree cons = gimple_asm_label_op (asm_stmt, i);
 	    if (label_to_block (TREE_VALUE (cons)) == e->dest)
 	      {
 		if (!label)
@@ -7567,9 +7569,9 @@ need_fake_edge_p (gimple t)
 	  return true;
     }
 
-  if (gimple_code (t) == GIMPLE_ASM
-       && (gimple_asm_volatile_p (t) || gimple_asm_input_p (t)))
-    return true;
+  if (gimple_asm asm_stmt = dyn_cast <gimple_asm> (t))
+    if (gimple_asm_volatile_p (asm_stmt) || gimple_asm_input_p (asm_stmt))
+      return true;
 
   return false;
 }

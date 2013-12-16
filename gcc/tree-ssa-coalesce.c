@@ -1008,15 +1008,16 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
 	    case GIMPLE_ASM:
 	      {
+		gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
 		unsigned long noutputs, i;
 		unsigned long ninputs;
 		tree *outputs, link;
-		noutputs = gimple_asm_noutputs (stmt);
-		ninputs = gimple_asm_ninputs (stmt);
+		noutputs = gimple_asm_noutputs (asm_stmt);
+		ninputs = gimple_asm_ninputs (asm_stmt);
 		outputs = (tree *) alloca (noutputs * sizeof (tree));
 		for (i = 0; i < noutputs; ++i)
 		  {
-		    link = gimple_asm_output_op (stmt, i);
+		    link = gimple_asm_output_op (asm_stmt, i);
 		    outputs[i] = TREE_VALUE (link);
 		  }
 
@@ -1027,7 +1028,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		    char *end;
 		    unsigned long match;
 
-		    link = gimple_asm_input_op (stmt, i);
+		    link = gimple_asm_input_op (asm_stmt, i);
 		    constraint
 		      = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (link)));
 		    input = TREE_VALUE (link);

@@ -1322,9 +1322,9 @@ gimple_label gimple_build_label (tree label);
 gimple_goto gimple_build_goto (tree dest);
 gimple gimple_build_nop (void);
 gimple_bind gimple_build_bind (tree, gimple_seq, tree);
-gimple gimple_build_asm_vec (const char *, vec<tree, va_gc> *,
-			     vec<tree, va_gc> *, vec<tree, va_gc> *,
-			     vec<tree, va_gc> *);
+gimple_asm gimple_build_asm_vec (const char *, vec<tree, va_gc> *,
+				 vec<tree, va_gc> *, vec<tree, va_gc> *,
+				 vec<tree, va_gc> *);
 gimple gimple_build_catch (tree, gimple_seq);
 gimple gimple_build_eh_filter (tree, gimple_seq);
 gimple gimple_build_eh_must_not_throw (tree);
@@ -1401,7 +1401,7 @@ extern bool gimple_builtin_call_types_compatible_p (const_gimple, tree);
 extern bool gimple_call_builtin_p (const_gimple);
 extern bool gimple_call_builtin_p (const_gimple, enum built_in_class);
 extern bool gimple_call_builtin_p (const_gimple, enum built_in_function);
-extern bool gimple_asm_clobbers_memory_p (const_gimple);
+extern bool gimple_asm_clobbers_memory_p (const_gimple_asm);
 extern void dump_decl_set (FILE *, bitmap);
 extern bool nonfreeing_call_p (gimple);
 extern bool infer_nonnull_range (gimple, tree, bool, bool);
@@ -3339,218 +3339,188 @@ gimple_bind_set_block (gimple_bind bind_stmt, tree block)
 }
 
 
-/* Return the number of input operands for GIMPLE_ASM GS.  */
+/* Return the number of input operands for GIMPLE_ASM ASM_STMT.  */
 
 static inline unsigned
-gimple_asm_ninputs (const_gimple gs)
+gimple_asm_ninputs (const_gimple_asm asm_stmt)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   return asm_stmt->ni;
 }
 
 
-/* Return the number of output operands for GIMPLE_ASM GS.  */
+/* Return the number of output operands for GIMPLE_ASM ASM_STMT.  */
 
 static inline unsigned
-gimple_asm_noutputs (const_gimple gs)
+gimple_asm_noutputs (const_gimple_asm asm_stmt)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   return asm_stmt->no;
 }
 
 
-/* Return the number of clobber operands for GIMPLE_ASM GS.  */
+/* Return the number of clobber operands for GIMPLE_ASM ASM_STMT.  */
 
 static inline unsigned
-gimple_asm_nclobbers (const_gimple gs)
+gimple_asm_nclobbers (const_gimple_asm asm_stmt)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   return asm_stmt->nc;
 }
 
-/* Return the number of label operands for GIMPLE_ASM GS.  */
+/* Return the number of label operands for GIMPLE_ASM ASM_STMT.  */
 
 static inline unsigned
-gimple_asm_nlabels (const_gimple gs)
+gimple_asm_nlabels (const_gimple_asm asm_stmt)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   return asm_stmt->nl;
 }
 
-/* Return input operand INDEX of GIMPLE_ASM GS.  */
+/* Return input operand INDEX of GIMPLE_ASM ASM_STMT.  */
 
 static inline tree
-gimple_asm_input_op (const_gimple gs, unsigned index)
+gimple_asm_input_op (const_gimple_asm asm_stmt, unsigned index)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->ni);
-  return gimple_op (gs, index + asm_stmt->no);
+  return gimple_op (asm_stmt, index + asm_stmt->no);
 }
 
-/* Return a pointer to input operand INDEX of GIMPLE_ASM GS.  */
+/* Return a pointer to input operand INDEX of GIMPLE_ASM ASM_STMT.  */
 
 static inline tree *
-gimple_asm_input_op_ptr (const_gimple gs, unsigned index)
+gimple_asm_input_op_ptr (const_gimple_asm asm_stmt, unsigned index)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->ni);
-  return gimple_op_ptr (gs, index + asm_stmt->no);
+  return gimple_op_ptr (asm_stmt, index + asm_stmt->no);
 }
 
 
-/* Set IN_OP to be input operand INDEX in GIMPLE_ASM GS.  */
+/* Set IN_OP to be input operand INDEX in GIMPLE_ASM ASM_STMT.  */
 
 static inline void
-gimple_asm_set_input_op (gimple gs, unsigned index, tree in_op)
+gimple_asm_set_input_op (gimple_asm asm_stmt, unsigned index, tree in_op)
 {
-  gimple_statement_asm *asm_stmt = as_a <gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->ni
 			      && TREE_CODE (in_op) == TREE_LIST);
-  gimple_set_op (gs, index + asm_stmt->no, in_op);
+  gimple_set_op (asm_stmt, index + asm_stmt->no, in_op);
 }
 
 
-/* Return output operand INDEX of GIMPLE_ASM GS.  */
+/* Return output operand INDEX of GIMPLE_ASM ASM_STMT.  */
 
 static inline tree
-gimple_asm_output_op (const_gimple gs, unsigned index)
+gimple_asm_output_op (const_gimple_asm asm_stmt, unsigned index)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->no);
-  return gimple_op (gs, index);
+  return gimple_op (asm_stmt, index);
 }
 
-/* Return a pointer to output operand INDEX of GIMPLE_ASM GS.  */
+/* Return a pointer to output operand INDEX of GIMPLE_ASM ASM_STMT.  */
 
 static inline tree *
-gimple_asm_output_op_ptr (const_gimple gs, unsigned index)
+gimple_asm_output_op_ptr (const_gimple_asm asm_stmt, unsigned index)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->no);
-  return gimple_op_ptr (gs, index);
+  return gimple_op_ptr (asm_stmt, index);
 }
 
 
-/* Set OUT_OP to be output operand INDEX in GIMPLE_ASM GS.  */
+/* Set OUT_OP to be output operand INDEX in GIMPLE_ASM ASM_STMT.  */
 
 static inline void
-gimple_asm_set_output_op (gimple gs, unsigned index, tree out_op)
+gimple_asm_set_output_op (gimple_asm asm_stmt, unsigned index, tree out_op)
 {
-  gimple_statement_asm *asm_stmt = as_a <gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->no
 			      && TREE_CODE (out_op) == TREE_LIST);
-  gimple_set_op (gs, index, out_op);
+  gimple_set_op (asm_stmt, index, out_op);
 }
 
 
-/* Return clobber operand INDEX of GIMPLE_ASM GS.  */
+/* Return clobber operand INDEX of GIMPLE_ASM ASM_STMT.  */
 
 static inline tree
-gimple_asm_clobber_op (const_gimple gs, unsigned index)
+gimple_asm_clobber_op (const_gimple_asm asm_stmt, unsigned index)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->nc);
-  return gimple_op (gs, index + asm_stmt->ni + asm_stmt->no);
+  return gimple_op (asm_stmt, index + asm_stmt->ni + asm_stmt->no);
 }
 
 
-/* Set CLOBBER_OP to be clobber operand INDEX in GIMPLE_ASM GS.  */
+/* Set CLOBBER_OP to be clobber operand INDEX in GIMPLE_ASM ASM_STMT.  */
 
 static inline void
-gimple_asm_set_clobber_op (gimple gs, unsigned index, tree clobber_op)
+gimple_asm_set_clobber_op (gimple_asm asm_stmt, unsigned index, tree clobber_op)
 {
-  gimple_statement_asm *asm_stmt = as_a <gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->nc
 			      && TREE_CODE (clobber_op) == TREE_LIST);
-  gimple_set_op (gs, index + asm_stmt->ni + asm_stmt->no, clobber_op);
+  gimple_set_op (asm_stmt, index + asm_stmt->ni + asm_stmt->no, clobber_op);
 }
 
-/* Return label operand INDEX of GIMPLE_ASM GS.  */
+/* Return label operand INDEX of GIMPLE_ASM ASM_STMT.  */
 
 static inline tree
-gimple_asm_label_op (const_gimple gs, unsigned index)
+gimple_asm_label_op (const_gimple_asm asm_stmt, unsigned index)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->nl);
-  return gimple_op (gs, index + asm_stmt->ni + asm_stmt->nc);
+  return gimple_op (asm_stmt, index + asm_stmt->ni + asm_stmt->nc);
 }
 
-/* Set LABEL_OP to be label operand INDEX in GIMPLE_ASM GS.  */
+/* Set LABEL_OP to be label operand INDEX in GIMPLE_ASM ASM_STMT.  */
 
 static inline void
-gimple_asm_set_label_op (gimple gs, unsigned index, tree label_op)
+gimple_asm_set_label_op (gimple_asm asm_stmt, unsigned index, tree label_op)
 {
-  gimple_statement_asm *asm_stmt = as_a <gimple_statement_asm *> (gs);
   gcc_gimple_checking_assert (index < asm_stmt->nl
 			      && TREE_CODE (label_op) == TREE_LIST);
-  gimple_set_op (gs, index + asm_stmt->ni + asm_stmt->nc, label_op);
+  gimple_set_op (asm_stmt, index + asm_stmt->ni + asm_stmt->nc, label_op);
 }
 
 /* Return the string representing the assembly instruction in
-   GIMPLE_ASM GS.  */
+   GIMPLE_ASM ASM_STMT.  */
 
 static inline const char *
-gimple_asm_string (const_gimple gs)
+gimple_asm_string (const_gimple_asm asm_stmt)
 {
-  const gimple_statement_asm *asm_stmt =
-    as_a <const gimple_statement_asm *> (gs);
   return asm_stmt->string;
 }
 
 
-/* Return true if GS is an asm statement marked volatile.  */
+/* Return true ASM_STMT ASM_STMT is an asm statement marked volatile.  */
 
 static inline bool
-gimple_asm_volatile_p (const_gimple gs)
+gimple_asm_volatile_p (const_gimple_asm asm_stmt)
 {
-  GIMPLE_CHECK (gs, GIMPLE_ASM);
-  return (gs->subcode & GF_ASM_VOLATILE) != 0;
+  return (asm_stmt->subcode & GF_ASM_VOLATILE) != 0;
 }
 
 
-/* If VOLATLE_P is true, mark asm statement GS as volatile.  */
+/* If VOLATLE_P is true, mark asm statement ASM_STMT as volatile.  */
 
 static inline void
-gimple_asm_set_volatile (gimple gs, bool volatile_p)
+gimple_asm_set_volatile (gimple_asm asm_stmt, bool volatile_p)
 {
-  GIMPLE_CHECK (gs, GIMPLE_ASM);
   if (volatile_p)
-    gs->subcode |= GF_ASM_VOLATILE;
+    asm_stmt->subcode |= GF_ASM_VOLATILE;
   else
-    gs->subcode &= ~GF_ASM_VOLATILE;
+    asm_stmt->subcode &= ~GF_ASM_VOLATILE;
 }
 
 
-/* If INPUT_P is true, mark asm GS as an ASM_INPUT.  */
+/* If INPUT_P is true, mark asm ASM_STMT as an ASM_INPUT.  */
 
 static inline void
-gimple_asm_set_input (gimple gs, bool input_p)
+gimple_asm_set_input (gimple_asm asm_stmt, bool input_p)
 {
-  GIMPLE_CHECK (gs, GIMPLE_ASM);
   if (input_p)
-    gs->subcode |= GF_ASM_INPUT;
+    asm_stmt->subcode |= GF_ASM_INPUT;
   else
-    gs->subcode &= ~GF_ASM_INPUT;
+    asm_stmt->subcode &= ~GF_ASM_INPUT;
 }
 
 
-/* Return true if asm GS is an ASM_INPUT.  */
+/* Return true if asm ASM_STMT is an ASM_INPUT.  */
 
 static inline bool
-gimple_asm_input_p (const_gimple gs)
+gimple_asm_input_p (const_gimple_asm asm_stmt)
 {
-  GIMPLE_CHECK (gs, GIMPLE_ASM);
-  return (gs->subcode & GF_ASM_INPUT) != 0;
+  return (asm_stmt->subcode & GF_ASM_INPUT) != 0;
 }
 
 

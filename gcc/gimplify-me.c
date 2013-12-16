@@ -183,7 +183,8 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
       break;
     case GIMPLE_ASM:
       {
-	size_t i, noutputs = gimple_asm_noutputs (stmt);
+	gimple_asm asm_stmt = as_a <gimple_asm> (stmt);
+	size_t i, noutputs = gimple_asm_noutputs (asm_stmt);
 	const char *constraint, **oconstraints;
 	bool allows_mem, allows_reg, is_inout;
 
@@ -191,7 +192,7 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 	  = (const char **) alloca ((noutputs) * sizeof (const char *));
 	for (i = 0; i < noutputs; i++)
 	  {
-	    tree op = gimple_asm_output_op (stmt, i);
+	    tree op = gimple_asm_output_op (asm_stmt, i);
 	    constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
 	    oconstraints[i] = constraint;
 	    parse_output_constraint (&constraint, i, 0, 0, &allows_mem,
@@ -200,9 +201,9 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 			   is_inout ? is_gimple_min_lval : is_gimple_lvalue,
 			   fb_lvalue | fb_mayfail);
 	  }
-	for (i = 0; i < gimple_asm_ninputs (stmt); i++)
+	for (i = 0; i < gimple_asm_ninputs (asm_stmt); i++)
 	  {
-	    tree op = gimple_asm_input_op (stmt, i);
+	    tree op = gimple_asm_input_op (asm_stmt, i);
 	    constraint = TREE_STRING_POINTER (TREE_VALUE (TREE_PURPOSE (op)));
 	    parse_input_constraint (&constraint, 0, 0, noutputs, 0,
 				    oconstraints, &allows_mem, &allows_reg);

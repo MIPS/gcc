@@ -698,14 +698,14 @@ check_stmt (gimple_stmt_iterator *gsip, funct_state local, bool ipa)
 	}
       break;
     case GIMPLE_ASM:
-      if (gimple_asm_clobbers_memory_p (stmt))
+      if (gimple_asm_clobbers_memory_p (as_a <gimple_asm> (stmt)))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "    memory asm clobber is not const/pure\n");
 	  /* Abandon all hope, ye who enter here. */
 	  local->pure_const_state = IPA_NEITHER;
 	}
-      if (gimple_asm_volatile_p (stmt))
+      if (gimple_asm_volatile_p (as_a <gimple_asm> (stmt)))
 	{
 	  if (dump_file)
 	    fprintf (dump_file, "    volatile is not const/pure\n");
