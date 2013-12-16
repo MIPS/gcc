@@ -138,6 +138,10 @@ struct gimple_statement_catch;
 typedef struct gimple_statement_catch *gimple_catch;
 typedef const struct gimple_statement_catch *const_gimple_catch;
 
+struct gimple_statement_eh_filter;
+typedef struct gimple_statement_eh_filter *gimple_eh_filter;
+typedef const struct gimple_statement_eh_filter *const_gimple_eh_filter;
+
 struct gimple_statement_phi;
 typedef struct gimple_statement_phi *gimple_phi;
 typedef const struct gimple_statement_phi *const_gimple_phi;

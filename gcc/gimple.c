@@ -630,10 +630,11 @@ gimple_build_catch (tree types, gimple_seq handler)
    TYPES are the filter's types.
    FAILURE is the filter's failure action.  */
 
-gimple
+gimple_eh_filter
 gimple_build_eh_filter (tree types, gimple_seq failure)
 {
-  gimple p = gimple_alloc (GIMPLE_EH_FILTER, 0);
+  gimple_eh_filter p =
+    as_a <gimple_eh_filter> (gimple_alloc (GIMPLE_EH_FILTER, 0));
   gimple_eh_filter_set_types (p, types);
   if (failure)
     gimple_eh_filter_set_failure (p, failure);

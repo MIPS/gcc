@@ -1,5 +1,23 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_eh_filter
+
+	* coretypes.h (gimple_eh_filter): New typedef.
+	(const_gimple_eh_filter): New typedef.
+
+	* gimple.h (gimple_build_eh_filter): Return a gimple_eh_filter
+	rather than a plain gimple.
+
+	* gimple-pretty-print.c (dump_gimple_eh_filter): Require a
+	gimple_eh_filter rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_eh_filter within
+	GIMPLE_EH_FILTER case of switch statement.
+
+	* gimple.c (gimple_build_eh_filter): Return a gimple_eh_filter
+	rather than a plain gimple.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_catch
 
 	* coretypes.h (gimple_catch): New typedef.

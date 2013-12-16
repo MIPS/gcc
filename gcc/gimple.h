@@ -1326,7 +1326,7 @@ gimple_asm gimple_build_asm_vec (const char *, vec<tree, va_gc> *,
 				 vec<tree, va_gc> *, vec<tree, va_gc> *,
 				 vec<tree, va_gc> *);
 gimple_catch gimple_build_catch (tree, gimple_seq);
-gimple gimple_build_eh_filter (tree, gimple_seq);
+gimple_eh_filter gimple_build_eh_filter (tree, gimple_seq);
 gimple gimple_build_eh_must_not_throw (tree);
 gimple gimple_build_eh_else (gimple_seq, gimple_seq);
 gimple_statement_try *gimple_build_try (gimple_seq, gimple_seq,
