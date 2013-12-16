@@ -150,6 +150,10 @@ struct gimple_statement_eh_else;
 typedef struct gimple_statement_eh_else *gimple_eh_else;
 typedef const struct gimple_statement_eh_else *const_gimple_eh_else;
 
+struct gimple_statement_resx;
+typedef struct gimple_statement_resx *gimple_resx;
+typedef const struct gimple_statement_resx *const_gimple_resx;
+
 struct gimple_statement_phi;
 typedef struct gimple_statement_phi *gimple_phi;
 typedef const struct gimple_statement_phi *const_gimple_phi;

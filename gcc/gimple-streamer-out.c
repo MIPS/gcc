@@ -97,7 +97,7 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_RESX:
-      streamer_write_hwi (ob, gimple_resx_region (stmt));
+      streamer_write_hwi (ob, gimple_resx_region (as_a <gimple_resx> (stmt)));
       break;
 
     case GIMPLE_EH_MUST_NOT_THROW:

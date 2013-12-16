@@ -1584,9 +1584,10 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 
 	  case GIMPLE_RESX:
 	    {
-	      int r = gimple_resx_region (copy);
+	      gimple_resx resx_stmt = as_a <gimple_resx> (copy);
+	      int r = gimple_resx_region (resx_stmt);
 	      r = remap_eh_region_nr (r, id);
-	      gimple_resx_set_region (copy, r);
+	      gimple_resx_set_region (resx_stmt, r);
 	    }
 	    break;
 

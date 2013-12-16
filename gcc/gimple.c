@@ -710,12 +710,11 @@ gimple_build_wce (gimple_seq cleanup)
 
 /* Build a GIMPLE_RESX statement.  */
 
-gimple
+gimple_resx
 gimple_build_resx (int region)
 {
-  gimple_statement_resx *p =
-    as_a <gimple_statement_resx *> (
-      gimple_build_with_ops (GIMPLE_RESX, ERROR_MARK, 0));
+  gimple_resx p =
+    as_a <gimple_resx> (gimple_build_with_ops (GIMPLE_RESX, ERROR_MARK, 0));
   p->region = region;
   return p;
 }

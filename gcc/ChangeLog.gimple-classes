@@ -1,5 +1,44 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_resx
+
+	* coretypes.h (gimple_resx): New typedef.
+	(const_gimple_resx): New typedef.
+
+	* gimple.h (gimple_build_resx): Return a gimple_resx rather than a
+	plain gimple.
+	(gimple_resx_region): Require a const_gimple_resx rather than a
+	plain const_gimple.
+	(gimple_resx_set_region): Require a gimple_resx rather than a
+	plain gimple.
+
+	* gimple-pretty-print.c (dump_gimple_resx): Require a gimple_resx
+	rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_resx within
+	GIMPLE_RESX case of switch statement.
+
+	* gimple-streamer-in.c (input_gimple_stmt): Likewise.
+
+	* gimple-streamer-out.c (output_gimple_stmt): Likewise.
+
+	* gimple.c (gimple_build_resx): Return a gimple_resx rather than
+	a plain gimple.
+
+	* tree-cfg.c (move_stmt_r): Add a checked cast to gimple_resx
+	within GIMPLE_RESX case of switch statement, adding a new local.
+
+	* tree-eh.c (emit_resx): Convert local "x" from gimple to
+	gimple_resx.
+	(lower_resx): Require a gimple_resx rather than a plain gimple.
+	(pass_lower_resx::execute): Add a checked cast to gimple_resx.
+	(mark_reachable_handlers): Likewise.
+
+	* tree-inline.c (remap_gimple_stmt): Add a checked cast to
+	gimple_resx within GIMPLE_RESX case of switch statement, adding
+	a new local.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_eh_else
 
 	* coretypes.h (gimple_eh_else): New typedef.

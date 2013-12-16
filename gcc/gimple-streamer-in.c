@@ -123,7 +123,8 @@ input_gimple_stmt (struct lto_input_block *ib, struct data_in *data_in,
   switch (code)
     {
     case GIMPLE_RESX:
-      gimple_resx_set_region (stmt, streamer_read_hwi (ib));
+      gimple_resx_set_region (as_a <gimple_resx> (stmt),
+			      streamer_read_hwi (ib));
       break;
 
     case GIMPLE_EH_MUST_NOT_THROW:

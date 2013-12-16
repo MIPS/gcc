@@ -805,7 +805,7 @@ emit_post_landing_pad (gimple_seq *seq, eh_region region)
 static void
 emit_resx (gimple_seq *seq, eh_region region)
 {
-  gimple x = gimple_build_resx (region->index);
+  gimple_resx x = gimple_build_resx (region->index);
   gimple_seq_add_stmt (seq, x);
   if (region->outer)
     record_stmt_eh_region (region->outer, x);
@@ -3145,7 +3145,8 @@ make_pass_refactor_eh (gcc::context *ctxt)
 /* At the end of gimple optimization, we can lower RESX.  */
 
 static bool
-lower_resx (basic_block bb, gimple stmt, hash_map<eh_region, tree> *mnt_map)
+lower_resx (basic_block bb, gimple_resx stmt,
+	    hash_map<eh_region, tree> *mnt_map)
 {
   int lp_nr;
   eh_region src_r, dst_r;
@@ -3333,7 +3334,8 @@ pass_lower_resx::execute (function *fun)
       gimple last = last_stmt (bb);
       if (last && is_gimple_resx (last))
 	{
-	  dominance_invalidated |= lower_resx (bb, last, &mnt_map);
+	  dominance_invalidated |=
+	    lower_resx (bb, as_a <gimple_resx> (last), &mnt_map);
 	  any_rewritten = true;
 	}
     }
@@ -3818,7 +3820,8 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_RESX:
-	      bitmap_set_bit (r_reachable, gimple_resx_region (stmt));
+	      bitmap_set_bit (r_reachable,
+			      gimple_resx_region (as_a <gimple_resx> (stmt)));
 	      break;
 	    case GIMPLE_EH_DISPATCH:
 	      bitmap_set_bit (r_reachable, gimple_eh_dispatch_region (stmt));

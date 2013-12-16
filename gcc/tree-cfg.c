@@ -6524,9 +6524,10 @@ move_stmt_r (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
     case GIMPLE_RESX:
       {
-	int r = gimple_resx_region (stmt);
+	gimple_resx resx_stmt = as_a <gimple_resx> (stmt);
+	int r = gimple_resx_region (resx_stmt);
 	r = move_stmt_eh_region_nr (r, p);
-	gimple_resx_set_region (stmt, r);
+	gimple_resx_set_region (resx_stmt, r);
       }
       break;
 

@@ -1057,7 +1057,7 @@ dump_gimple_eh_else (pretty_printer *buffer, gimple_eh_else gs, int spc,
    dumpfile.h).  */
 
 static void
-dump_gimple_resx (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_resx (pretty_printer *buffer, gimple_resx gs, int spc, int flags)
 {
   if (flags & TDF_RAW)
     dump_gimple_fmt (buffer, spc, flags, "%G <%d>", gs,
@@ -2214,7 +2214,7 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_RESX:
-      dump_gimple_resx (buffer, gs, spc, flags);
+      dump_gimple_resx (buffer, as_a <gimple_resx> (gs), spc, flags);
       break;
 
     case GIMPLE_EH_DISPATCH:

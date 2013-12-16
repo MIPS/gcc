@@ -1332,7 +1332,7 @@ gimple_eh_else gimple_build_eh_else (gimple_seq, gimple_seq);
 gimple_statement_try *gimple_build_try (gimple_seq, gimple_seq,
 					enum gimple_try_flags);
 gimple gimple_build_wce (gimple_seq);
-gimple gimple_build_resx (int);
+gimple_resx gimple_build_resx (int);
 gimple_switch gimple_build_switch_nlabels (unsigned, tree, tree);
 gimple_switch gimple_build_switch (tree, tree, vec<tree> );
 gimple gimple_build_eh_dispatch (int);
@@ -4019,22 +4019,19 @@ gimple_phi_arg_has_location (gimple gs, size_t i)
 }
 
 
-/* Return the region number for GIMPLE_RESX GS.  */
+/* Return the region number for GIMPLE_RESX RESX_STMT.  */
 
 static inline int
-gimple_resx_region (const_gimple gs)
+gimple_resx_region (const_gimple_resx resx_stmt)
 {
-  const gimple_statement_resx *resx_stmt =
-    as_a <const gimple_statement_resx *> (gs);
   return resx_stmt->region;
 }
 
-/* Set REGION to be the region number for GIMPLE_RESX GS.  */
+/* Set REGION to be the region number for GIMPLE_RESX RESX_STMT.  */
 
 static inline void
-gimple_resx_set_region (gimple gs, int region)
+gimple_resx_set_region (gimple_resx resx_stmt, int region)
 {
-  gimple_statement_resx *resx_stmt = as_a <gimple_statement_resx *> (gs);
   resx_stmt->region = region;
 }
 
