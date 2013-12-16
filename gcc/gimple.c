@@ -1080,10 +1080,11 @@ gimple_build_omp_teams (gimple_seq body, tree clauses)
 
 /* Build a GIMPLE_OMP_ATOMIC_LOAD statement.  */
 
-gimple
+gimple_omp_atomic_load
 gimple_build_omp_atomic_load (tree lhs, tree rhs)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD, 0);
+  gimple_omp_atomic_load p =
+    as_a <gimple_omp_atomic_load> (gimple_alloc (GIMPLE_OMP_ATOMIC_LOAD, 0));
   gimple_omp_atomic_load_set_lhs (p, lhs);
   gimple_omp_atomic_load_set_rhs (p, rhs);
   return p;

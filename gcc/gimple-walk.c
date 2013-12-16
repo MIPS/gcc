@@ -419,15 +419,18 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_ATOMIC_LOAD:
-      ret = walk_tree (gimple_omp_atomic_load_lhs_ptr (stmt), callback_op, wi,
-		       pset);
-      if (ret)
-	return ret;
+      {
+	gimple_omp_atomic_load omp_stmt = as_a <gimple_omp_atomic_load> (stmt);
+	ret = walk_tree (gimple_omp_atomic_load_lhs_ptr (omp_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
 
-      ret = walk_tree (gimple_omp_atomic_load_rhs_ptr (stmt), callback_op, wi,
-		       pset);
-      if (ret)
-	return ret;
+	ret = walk_tree (gimple_omp_atomic_load_rhs_ptr (omp_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_ATOMIC_STORE:

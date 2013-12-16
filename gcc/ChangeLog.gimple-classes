@@ -1,5 +1,42 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_atomic_load
+
+	* coretypes.h (gimple_omp_atomic_load): New typedef.
+	(const_gimple_omp_atomic_load): New typedef.
+
+	* gimple-pretty-print.c (dump_gimple_omp_atomic_load): Require a
+	gimple_omp_atomic_load rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_omp_atomic_load
+	within GIMPLE_OMP_ATOMIC_LOAD case of switch statement.
+
+	* gimple-walk.c (walk_gimple_op): Likewise, introducing a new local.
+
+	* gimple.c (gimple_build_omp_atomic_load): Return a
+	gimple_omp_atomic_load rather than a plain gimple.
+
+	* gimple.h (gimple_build_omp_atomic_load): Return a
+	gimple_omp_atomic_load rather than a plain gimple.
+	(gimple_omp_atomic_load_set_lhs): Require a
+	gimple_omp_atomic_load rather than a plain gimple.
+	(gimple_omp_atomic_load_lhs_ptr): Likewise.
+	(gimple_omp_atomic_load_set_rhs): Likewise.
+	(gimple_omp_atomic_load_rhs_ptr): Likewise.
+	(gimple_omp_atomic_load_lhs): Require a
+	const_gimple_omp_atomic_load rather than a plain const_gimple.
+	(gimple_omp_atomic_load_rhs): Likewise.
+
+	* gimplify-me.c (gimple_regimplify_operands): Add a checked cast
+	to gimple_omp_atomic_load within GIMPLE_OMP_ATOMIC_LOAD case of
+	switch statement.
+
+	* omp-low.c (expand_omp_atomic): Strengthen type of local "load"
+	from gimple to gimple_omp_atomic_load.
+	(lower_omp_1): Add a checked cast to gimple_omp_atomic_load within
+	GIMPLE_OMP_ATOMIC_LOAD case of switch statement.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Use more concrete types for various gimple statements
 
 	* cgraphunit.c (thunk_adjust): Strengthen local "stmt" from gimple

@@ -8186,7 +8186,9 @@ static void
 expand_omp_atomic (struct omp_region *region)
 {
   basic_block load_bb = region->entry, store_bb = region->exit;
-  gimple load = last_stmt (load_bb), store = last_stmt (store_bb);
+  gimple_omp_atomic_load load =
+    as_a <gimple_omp_atomic_load> (last_stmt (load_bb));
+  gimple store = last_stmt (store_bb);
   tree loaded_val = gimple_omp_atomic_load_lhs (load);
   tree addr = gimple_omp_atomic_load_rhs (load);
   tree stored_val = gimple_omp_atomic_store_val (store);
@@ -10524,7 +10526,8 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       break;
     case GIMPLE_OMP_ATOMIC_LOAD:
       if ((ctx || task_shared_vars)
-	  && walk_tree (gimple_omp_atomic_load_rhs_ptr (stmt),
+	  && walk_tree (gimple_omp_atomic_load_rhs_ptr (
+			  as_a <gimple_omp_atomic_load> (stmt)),
 			lower_omp_regimplify_p, ctx ? NULL : &wi, NULL))
 	gimple_regimplify_operands (stmt, gsi_p);
       break;

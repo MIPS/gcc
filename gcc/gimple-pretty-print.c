@@ -1967,8 +1967,8 @@ dump_gimple_omp_task (pretty_printer *buffer, gimple gs, int spc,
    in dumpfile.h).  */
 
 static void
-dump_gimple_omp_atomic_load (pretty_printer *buffer, gimple gs, int spc,
-                             int flags)
+dump_gimple_omp_atomic_load (pretty_printer *buffer, gimple_omp_atomic_load gs,
+			     int spc, int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2144,8 +2144,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_ATOMIC_LOAD:
-      dump_gimple_omp_atomic_load (buffer, gs, spc, flags);
-
+      dump_gimple_omp_atomic_load (buffer, as_a <gimple_omp_atomic_load> (gs),
+				   spc, flags);
       break;
 
     case GIMPLE_OMP_ATOMIC_STORE:

@@ -178,8 +178,9 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 		     is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_OMP_ATOMIC_LOAD:
-      gimplify_expr (gimple_omp_atomic_load_rhs_ptr (stmt), &pre, NULL,
-		     is_gimple_val, fb_rvalue);
+      gimplify_expr (gimple_omp_atomic_load_rhs_ptr (
+		       as_a <gimple_omp_atomic_load> (stmt)),
+		     &pre, NULL, is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_ASM:
       {

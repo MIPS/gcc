@@ -1357,7 +1357,7 @@ gimple gimple_build_omp_sections_switch (void);
 gimple gimple_build_omp_single (gimple_seq, tree);
 gimple gimple_build_omp_target (gimple_seq, int, tree);
 gimple gimple_build_omp_teams (gimple_seq, tree);
-gimple gimple_build_omp_atomic_load (tree, tree);
+gimple_omp_atomic_load gimple_build_omp_atomic_load (tree, tree);
 gimple gimple_build_omp_atomic_store (tree);
 gimple_transaction gimple_build_transaction (gimple_seq, tree);
 gimple gimple_build_predict (enum br_predictor, enum prediction);
@@ -5400,66 +5400,54 @@ gimple_omp_atomic_store_val_ptr (gimple g)
 /* Set the LHS of an atomic load.  */
 
 static inline void
-gimple_omp_atomic_load_set_lhs (gimple g, tree lhs)
+gimple_omp_atomic_load_set_lhs (gimple_omp_atomic_load load_stmt, tree lhs)
 {
-  gimple_statement_omp_atomic_load *omp_atomic_load_stmt =
-    as_a <gimple_statement_omp_atomic_load *> (g);
-  omp_atomic_load_stmt->lhs = lhs;
+  load_stmt->lhs = lhs;
 }
 
 
 /* Get the LHS of an atomic load.  */
 
 static inline tree
-gimple_omp_atomic_load_lhs (const_gimple g)
+gimple_omp_atomic_load_lhs (const_gimple_omp_atomic_load load_stmt)
 {
-  const gimple_statement_omp_atomic_load *omp_atomic_load_stmt =
-    as_a <const gimple_statement_omp_atomic_load *> (g);
-  return omp_atomic_load_stmt->lhs;
+  return load_stmt->lhs;
 }
 
 
 /* Return a pointer to the LHS of an atomic load.  */
 
 static inline tree *
-gimple_omp_atomic_load_lhs_ptr (gimple g)
+gimple_omp_atomic_load_lhs_ptr (gimple_omp_atomic_load load_stmt)
 {
-  gimple_statement_omp_atomic_load *omp_atomic_load_stmt =
-    as_a <gimple_statement_omp_atomic_load *> (g);
-  return &omp_atomic_load_stmt->lhs;
+  return &load_stmt->lhs;
 }
 
 
 /* Set the RHS of an atomic load.  */
 
 static inline void
-gimple_omp_atomic_load_set_rhs (gimple g, tree rhs)
+gimple_omp_atomic_load_set_rhs (gimple_omp_atomic_load load_stmt, tree rhs)
 {
-  gimple_statement_omp_atomic_load *omp_atomic_load_stmt =
-    as_a <gimple_statement_omp_atomic_load *> (g);
-  omp_atomic_load_stmt->rhs = rhs;
+  load_stmt->rhs = rhs;
 }
 
 
 /* Get the RHS of an atomic load.  */
 
 static inline tree
-gimple_omp_atomic_load_rhs (const_gimple g)
+gimple_omp_atomic_load_rhs (const_gimple_omp_atomic_load load_stmt)
 {
-  const gimple_statement_omp_atomic_load *omp_atomic_load_stmt =
-    as_a <const gimple_statement_omp_atomic_load *> (g);
-  return omp_atomic_load_stmt->rhs;
+  return load_stmt->rhs;
 }
 
 
 /* Return a pointer to the RHS of an atomic load.  */
 
 static inline tree *
-gimple_omp_atomic_load_rhs_ptr (gimple g)
+gimple_omp_atomic_load_rhs_ptr (gimple_omp_atomic_load load_stmt)
 {
-  gimple_statement_omp_atomic_load *omp_atomic_load_stmt =
-    as_a <gimple_statement_omp_atomic_load *> (g);
-  return &omp_atomic_load_stmt->rhs;
+  return &load_stmt->rhs;
 }
 
 
