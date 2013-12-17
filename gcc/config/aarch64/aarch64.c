@@ -224,6 +224,15 @@ static const struct tune_params generic_tunings =
   NAMED_PARAM (memmov_cost, 4)
 };
 
+static const struct tune_params cortexa53_tunings =
+{
+  &cortexa53_extra_costs,
+  &generic_addrcost_table,
+  &generic_regmove_cost,
+  &generic_vector_cost,
+  NAMED_PARAM (memmov_cost, 4)
+};
+
 /* A processor implementing AArch64.  */
 struct processor
 {
@@ -1694,7 +1703,7 @@ aarch64_frame_pointer_required (void)
   if (flag_omit_frame_pointer && !faked_omit_frame_pointer)
     return false;
   else if (flag_omit_leaf_frame_pointer)
-    return !crtl->is_leaf;
+    return !crtl->is_leaf || df_regs_ever_live_p (LR_REGNUM);
   return true;
 }
 
@@ -4117,7 +4126,7 @@ aarch64_can_eliminate (const int from, const int to)
 	 of faked_omit_frame_pointer here (which is true when we always
 	 wish to keep non-leaf frame pointers but only wish to keep leaf frame
 	 pointers when LR is clobbered).  */
-      if (from == FRAME_POINTER_REGNUM && to == STACK_POINTER_REGNUM
+      if (to == STACK_POINTER_REGNUM
 	  && df_regs_ever_live_p (LR_REGNUM)
 	  && faked_omit_frame_pointer)
 	return false;
@@ -5177,6 +5186,13 @@ aarch64_override_options (void)
     {
       aarch64_parse_tune ();
     }
+
+#ifndef HAVE_AS_MABI_OPTION
+  /* The compiler may have been configured with 2.23.* binutils, which does
+     not have support for ILP32.  */
+  if (TARGET_ILP32)
+    error ("Assembler does not support -mabi=ilp32");
+#endif
 
   initialize_aarch64_code_model ();
 

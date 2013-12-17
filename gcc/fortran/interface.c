@@ -1114,8 +1114,37 @@ check_dummy_characteristics (gfc_symbol *s1, gfc_symbol *s2,
       return false;
     }
 
-  /* FIXME: Do more comprehensive testing of attributes, like e.g.
-	    ASYNCHRONOUS, CONTIGUOUS, VALUE, VOLATILE, etc.  */
+  /* Check ASYNCHRONOUS attribute.  */
+  if (s1->attr.asynchronous != s2->attr.asynchronous)
+    {
+      snprintf (errmsg, err_len, "ASYNCHRONOUS mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check CONTIGUOUS attribute.  */
+  if (s1->attr.contiguous != s2->attr.contiguous)
+    {
+      snprintf (errmsg, err_len, "CONTIGUOUS mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check VALUE attribute.  */
+  if (s1->attr.value != s2->attr.value)
+    {
+      snprintf (errmsg, err_len, "VALUE mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
+
+  /* Check VOLATILE attribute.  */
+  if (s1->attr.volatile_ != s2->attr.volatile_)
+    {
+      snprintf (errmsg, err_len, "VOLATILE mismatch in argument '%s'",
+		s1->name);
+      return false;
+    }
 
   /* Check interface of dummy procedures.  */
   if (s1->attr.flavor == FL_PROCEDURE)
@@ -2426,6 +2455,24 @@ get_expr_storage_size (gfc_expr *e)
 			- mpz_get_si (ref->u.ar.as->lower[i]->value.integer));
 	    }
         }
+      else if (ref->type == REF_COMPONENT && ref->u.c.component->attr.function
+	       && ref->u.c.component->attr.proc_pointer
+	       && ref->u.c.component->attr.dimension)
+	{
+	  /* Array-valued procedure-pointer components.  */
+	  gfc_array_spec *as = ref->u.c.component->as;
+	  for (i = 0; i < as->rank; i++)
+	    {
+	      if (!as->upper[i] || !as->lower[i]
+		  || as->upper[i]->expr_type != EXPR_CONSTANT
+		  || as->lower[i]->expr_type != EXPR_CONSTANT)
+		return 0;
+
+	      elements = elements
+			 * (mpz_get_si (as->upper[i]->value.integer)
+			    - mpz_get_si (as->lower[i]->value.integer) + 1L);
+	    }
+	}
     }
 
   if (substrlen)
