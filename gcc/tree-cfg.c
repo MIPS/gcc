@@ -3208,7 +3208,7 @@ valid_fixed_convert_types_p (tree type1, tree type2)
    is a problem, otherwise false.  */
 
 static bool
-verify_gimple_call (gimple stmt)
+verify_gimple_call (gimple_call stmt)
 {
   tree fn = gimple_call_fn (stmt);
   tree fntype, fndecl;
@@ -4486,7 +4486,7 @@ verify_gimple_stmt (gimple stmt)
       return verify_gimple_label (as_a <gimple_label> (stmt));
 
     case GIMPLE_CALL:
-      return verify_gimple_call (stmt);
+      return verify_gimple_call (as_a <gimple_call> (stmt));
 
     case GIMPLE_COND:
       if (TREE_CODE_CLASS (gimple_cond_code (stmt)) != tcc_comparison)
