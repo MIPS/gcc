@@ -1372,7 +1372,7 @@ static gimple_seq maybe_catch_exception (gimple_seq);
 /* Finalize task copyfn.  */
 
 static void
-finalize_task_copyfn (gimple task_stmt)
+finalize_task_copyfn (gimple_omp_task task_stmt)
 {
   struct function *child_cfun;
   tree child_fn;
@@ -1434,7 +1434,7 @@ delete_omp_context (splay_tree_value value)
     }
 
   if (is_task_ctx (ctx))
-    finalize_task_copyfn (ctx->stmt);
+    finalize_task_copyfn (as_a <gimple_omp_task> (ctx->stmt));
 
   XDELETE (ctx);
 }
@@ -2126,7 +2126,7 @@ scan_omp_task (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
 {
   omp_context *ctx;
   tree name, t;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_omp_task stmt = as_a <gimple_omp_task> (gsi_stmt (*gsi));
 
   /* Ignore task directives with empty bodies.  */
   if (optimize > 0
@@ -4566,7 +4566,7 @@ expand_cilk_for_call (basic_block bb, gimple_omp_parallel entry_stmt,
    generate the task operation.  BB is the block where to insert the code.  */
 
 static void
-expand_task_call (basic_block bb, gimple entry_stmt)
+expand_task_call (basic_block bb, gimple_omp_task entry_stmt)
 {
   tree t, t1, t2, t3, flags, cond, c, c2, clauses, depend;
   gimple_stmt_iterator gsi;
@@ -5127,7 +5127,7 @@ expand_omp_taskreg (struct omp_region *region)
     expand_parallel_call (region, new_bb,
 			  as_a <gimple_omp_parallel> (entry_stmt), ws_args);
   else
-    expand_task_call (new_bb, entry_stmt);
+    expand_task_call (new_bb, as_a <gimple_omp_task> (entry_stmt));
   if (gimple_in_ssa_p (cfun))
     update_ssa (TODO_update_ssa_only_virtuals);
 }
@@ -9623,7 +9623,7 @@ task_copyfn_remap_type (struct omp_taskcopy_context *tcctx, tree orig_type)
 /* Create task copyfn.  */
 
 static void
-create_task_copyfn (gimple task_stmt, omp_context *ctx)
+create_task_copyfn (gimple_omp_task task_stmt, omp_context *ctx)
 {
   struct function *child_cfun;
   tree child_fn, t, c, src, dst, f, sf, arg, sarg, decl;
@@ -9954,7 +9954,7 @@ lower_omp_taskreg (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     }
 
   if (ctx->srecord_type)
-    create_task_copyfn (stmt, ctx);
+    create_task_copyfn (as_a <gimple_omp_task> (stmt), ctx);
 
   push_gimplify_context ();
 

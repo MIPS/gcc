@@ -890,12 +890,13 @@ gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
    COPY_FN is the optional function for firstprivate initialization.
    ARG_SIZE and ARG_ALIGN are size and alignment of the data block.  */
 
-gimple
+gimple_omp_task
 gimple_build_omp_task (gimple_seq body, tree clauses, tree child_fn,
 		       tree data_arg, tree copy_fn, tree arg_size,
 		       tree arg_align)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_TASK, 0);
+  gimple_omp_task p =
+    as_a <gimple_omp_task> (gimple_alloc (GIMPLE_OMP_TASK, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_task_set_clauses (p, clauses);
