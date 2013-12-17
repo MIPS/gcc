@@ -1,5 +1,16 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	tree-parloops.c: Use gimple_phi in various places
+
+	* tree-parloops.c (reduction_info::keep_res): Strengthen field
+	from plain gimple to gimple_phi.
+	(transform_to_exit_first_loop): Strengthen locals "phi", "nphi"
+	to gimple_phi.  Eliminate early decl of gimple_stmt_iterator gsi
+	in favor of more tightly scoped gimple_phi_iterators, and a final
+	later decl as a gimple_stmt_iterator.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_sections
 
 	* coretypes.h (gimple_omp_sections): New typedef.

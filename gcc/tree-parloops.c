@@ -192,7 +192,7 @@ struct reduction_info
   enum tree_code reduction_code;/* code for the reduction operation.  */
   unsigned reduc_version;	/* SSA_NAME_VERSION of original reduc_phi
 				   result.  */
-  gimple keep_res;		/* The PHI_RESULT of this phi is the resulting value
+  gimple_phi keep_res;		/* The PHI_RESULT of this phi is the resulting value
 				   of the reduction variable when existing the loop. */
   tree initial_value;		/* The initial value of the reduction var before entering the loop.  */
   tree field;			/*  the name of the field in the parloop data structure intended for reduction.  */
@@ -1498,8 +1498,8 @@ transform_to_exit_first_loop (struct loop *loop,
   bool ok;
   edge exit = single_dom_exit (loop), hpred;
   tree control, control_name, res, t;
-  gimple phi, nphi, cond_stmt, stmt, cond_nit;
-  gimple_stmt_iterator gsi;
+  gimple_phi phi, nphi;
+  gimple cond_stmt, stmt, cond_nit;
   tree nit_1;
 
   split_block_after_labels (loop->header);
@@ -1512,9 +1512,11 @@ transform_to_exit_first_loop (struct loop *loop,
 
   /* Make sure that we have phi nodes on exit for all loop header phis
      (create_parallel_loop requires that).  */
-  for (gsi = gsi_start_phis (loop->header); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gsi = gsi_start_phis (loop->header);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
-      phi = gsi_stmt (gsi);
+      phi = gsi.phi ();
       res = PHI_RESULT (phi);
       t = copy_ssa_name (res, phi);
       SET_PHI_RESULT (phi, t);
@@ -1545,9 +1547,10 @@ transform_to_exit_first_loop (struct loop *loop,
      out of the loop is the control variable.  */
   exit = single_dom_exit (loop);
   control_name = NULL_TREE;
-  for (gsi = gsi_start_phis (ex_bb); !gsi_end_p (gsi); )
+  for (gimple_phi_iterator gsi = gsi_start_phis (ex_bb);
+       !gsi_end_p (gsi); )
     {
-      phi = gsi_stmt (gsi);
+      phi = gsi.phi ();
       res = PHI_RESULT (phi);
       if (virtual_operand_p (res))
 	{
@@ -1582,7 +1585,7 @@ transform_to_exit_first_loop (struct loop *loop,
 
   /* Initialize the control variable to number of iterations
      according to the rhs of the exit condition.  */
-  gsi = gsi_after_labels (ex_bb);
+  gimple_stmt_iterator gsi = gsi_after_labels (ex_bb);
   cond_nit = last_stmt (exit->src);
   nit_1 =  gimple_cond_rhs (cond_nit);
   nit_1 = force_gimple_operand_gsi (&gsi,
