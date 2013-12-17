@@ -8710,10 +8710,10 @@ meltgc_read_from_rawstring (const char *rawstr, const char *locnam,
   rds.rlineno = 0;
   rds.rcurlin = rbuf;
   rds.rsrcloc = loch;
+  rds.rhas_file_location = false;
   rd = &rds;
   if (locnam)
     {
-      rds.rhas_file_location = true;
       locnamv = meltgc_new_stringdup ((meltobject_ptr_t) MELT_PREDEF (DISCR_STRING), locnam);
       MELT_LOCATION_HERE_PRINTF(curlocbuf, "meltgc_read_from_rawstring locnam=%s", locnam);
     }
@@ -8723,7 +8723,6 @@ meltgc_read_from_rawstring (const char *rawstr, const char *locnam,
       char locnambuf[64];
       bufcount++;
       snprintf (locnambuf, sizeof (locnambuf), "<string-buffer-%ld>", bufcount);
-      rds.rhas_file_location = false;
       locnamv = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
                                    locnambuf);
       MELT_LOCATION_HERE_PRINTF(curlocbuf, "meltgc_read_from_rawstring rawstr=%.50s", rawstr);
@@ -8810,7 +8809,7 @@ meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
   rds.rpath = 0;
   rds.rlineno = 0;
   rds.rcurlin = rbuf;
-  rds.rhas_file_location = true;
+  rds.rhas_file_location = false;
   rd = &rds;
   rds.readmagic = MELT_READING_MAGIC;
   if (setjmp (rds.readjmpbuf))
@@ -8825,7 +8824,6 @@ meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
       char buf[40];
       memset(buf, 0, sizeof(buf));
       snprintf (buf, sizeof(buf), "<parsed-string#%ld>", parsecount);
-      rds.rhas_file_location = false;
       locnamv = meltgc_new_string ((meltobject_ptr_t) MELT_PREDEF(DISCR_STRING),
                                    buf);
     }
