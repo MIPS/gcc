@@ -196,6 +196,10 @@ struct gimple_statement_omp_task;
 typedef struct gimple_statement_omp_task *gimple_omp_task;
 typedef const struct gimple_statement_omp_task *const_gimple_omp_task;
 
+struct gimple_statement_omp_single;
+typedef struct gimple_statement_omp_single *gimple_omp_single;
+typedef const struct gimple_statement_omp_single *const_gimple_omp_single;
+
 union section;
 typedef union section section;
 struct gcc_options;

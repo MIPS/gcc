@@ -1,5 +1,35 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_single
+
+	* coretypes.h (gimple_omp_single): New typedef.
+	(const_gimple_omp_single): New typedef.
+
+	* gimple.h (gimple_build_omp_single): Return a gimple_omp_single
+	rather than a plain gimple.
+	(gimple_omp_single_set_clauses): Require a gimple_omp_single
+	rather than a plain gimple.
+
+	* gimple-pretty-print.c (dump_gimple_omp_single): Require a
+	gimple_omp_single rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_omp_single within
+	GIMPLE_OMP_SINGLE case of switch statement.
+
+	* gimple.c (gimple_build_omp_single): Return a gimple_omp_single
+	rather than a plain gimple.
+
+	* omp-low.c (scan_omp_single): Require a gimple_omp_single rather
+	than a plain gimple.
+	(scan_omp_1_stmt): Add checked cast to gimple_omp_single within
+	GIMPLE_OMP_SINGLE case of switch statement.
+	(lower_omp_single_simple): Require a gimple_omp_single rather
+	than a plain gimple.
+	(lower_omp_single_copy): Likewise.
+	(lower_omp_single): Strengthen local "single_stmt" from gimple to
+	gimple_omp_single.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_task
 
 	* coretypes.h (gimple_omp_task): New typedef.

@@ -1278,7 +1278,8 @@ dump_gimple_omp_continue (pretty_printer *buffer, gimple_omp_continue gs,
 /* Dump a GIMPLE_OMP_SINGLE tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_omp_single (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_omp_single (pretty_printer *buffer, gimple_omp_single gs,
+			int spc, int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2166,7 +2167,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_SINGLE:
-      dump_gimple_omp_single (buffer, gs, spc, flags);
+      dump_gimple_omp_single (buffer, as_a <gimple_omp_single> (gs), spc,
+			      flags);
       break;
 
     case GIMPLE_OMP_TARGET:

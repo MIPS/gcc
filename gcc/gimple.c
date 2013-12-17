@@ -1034,10 +1034,11 @@ gimple_build_omp_sections_switch (void)
    CLAUSES are any of the OMP single construct's clauses: private, firstprivate,
    copyprivate, nowait.  */
 
-gimple
+gimple_omp_single
 gimple_build_omp_single (gimple_seq body, tree clauses)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_SINGLE, 0);
+  gimple_omp_single p =
+    as_a <gimple_omp_single> (gimple_alloc (GIMPLE_OMP_SINGLE, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_single_set_clauses (p, clauses);

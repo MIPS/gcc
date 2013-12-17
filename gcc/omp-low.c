@@ -2307,7 +2307,7 @@ scan_omp_sections (gimple stmt, omp_context *outer_ctx)
 /* Scan an OpenMP single directive.  */
 
 static void
-scan_omp_single (gimple stmt, omp_context *outer_ctx)
+scan_omp_single (gimple_omp_single stmt, omp_context *outer_ctx)
 {
   omp_context *ctx;
   tree name;
@@ -2818,7 +2818,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_SINGLE:
-      scan_omp_single (stmt, ctx);
+      scan_omp_single (as_a <gimple_omp_single> (stmt), ctx);
       break;
 
     case GIMPLE_OMP_SECTION:
@@ -8974,7 +8974,7 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   to a synchronization analysis pass.  */
 
 static void
-lower_omp_single_simple (gimple single_stmt, gimple_seq *pre_p)
+lower_omp_single_simple (gimple_omp_single single_stmt, gimple_seq *pre_p)
 {
   location_t loc = gimple_location (single_stmt);
   tree tlabel = create_artificial_label (loc);
@@ -9029,7 +9029,8 @@ lower_omp_single_simple (gimple single_stmt, gimple_seq *pre_p)
   to a synchronization analysis pass.  */
 
 static void
-lower_omp_single_copy (gimple single_stmt, gimple_seq *pre_p, omp_context *ctx)
+lower_omp_single_copy (gimple_omp_single single_stmt, gimple_seq *pre_p,
+		       omp_context *ctx)
 {
   tree ptr_type, t, l0, l1, l2, bfn_decl;
   gimple_seq copyin_seq;
@@ -9085,7 +9086,8 @@ static void
 lower_omp_single (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block;
-  gimple t, single_stmt = gsi_stmt (*gsi_p);
+  gimple t;
+  gimple_omp_single single_stmt = as_a <gimple_omp_single> (gsi_stmt (*gsi_p));
   gimple_bind bind;
   gimple_seq bind_body, bind_body_tail = NULL, dlist;
 
