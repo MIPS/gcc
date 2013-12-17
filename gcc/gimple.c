@@ -1071,10 +1071,11 @@ gimple_build_omp_target (gimple_seq body, int kind, tree clauses)
    BODY is the sequence of statements that will be executed.
    CLAUSES are any of the OMP teams construct's clauses.  */
 
-gimple
+gimple_omp_teams
 gimple_build_omp_teams (gimple_seq body, tree clauses)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_TEAMS, 0);
+  gimple_omp_teams p =
+    as_a <gimple_omp_teams> (gimple_alloc (GIMPLE_OMP_TEAMS, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_teams_set_clauses (p, clauses);

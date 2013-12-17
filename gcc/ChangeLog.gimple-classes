@@ -1,5 +1,31 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_teams
+
+	* coretypes.h (gimple_omp_teams): New typedef.
+	(const_gimple_omp_teams): New typedef.
+
+	* gimple.h (gimple_build_omp_teams): Return a gimple_omp_teams
+	rather than a plain gimple.
+	(gimple_omp_teams_set_clauses): Require a gimple_omp_teams rather
+	than a plain gimple.
+
+	* gimple-pretty-print.c (dump_gimple_omp_teams): Require a
+	gimple_omp_teams rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_omp_teams within
+	GIMPLE_OMP_TEAMS case of switch statement.
+
+	* gimple.c (gimple_build_omp_teams): Return a gimple_omp_teams
+	rather than a plain gimple.
+
+	* omp-low.c (scan_omp_teams): Likewise.
+	(scan_omp_1_stmt): Add checked cast to gimple_omp_teams within
+	GIMPLE_OMP_TEAMS case of switch statement.
+	(lower_omp_teams): Strengthen local "teams_stmt" from gimple to
+	gimple_omp_teams.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_target
 
 	* coretypes.h (gimple_omp_target): New typedef.

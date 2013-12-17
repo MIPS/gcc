@@ -2380,7 +2380,7 @@ scan_omp_target (gimple_omp_target stmt, omp_context *outer_ctx)
 /* Scan an OpenMP teams directive.  */
 
 static void
-scan_omp_teams (gimple stmt, omp_context *outer_ctx)
+scan_omp_teams (gimple_omp_teams stmt, omp_context *outer_ctx)
 {
   omp_context *ctx = new_omp_context (stmt, outer_ctx);
   scan_sharing_clauses (gimple_omp_teams_clauses (stmt), ctx);
@@ -2835,7 +2835,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TEAMS:
-      scan_omp_teams (stmt, ctx);
+      scan_omp_teams (as_a <gimple_omp_teams> (stmt), ctx);
       break;
 
     case GIMPLE_BIND:
@@ -10356,7 +10356,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 static void
 lower_omp_teams (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
-  gimple teams_stmt = gsi_stmt (*gsi_p);
+  gimple_omp_teams teams_stmt = as_a <gimple_omp_teams> (gsi_stmt (*gsi_p));
   push_gimplify_context ();
 
   tree block = make_node (BLOCK);

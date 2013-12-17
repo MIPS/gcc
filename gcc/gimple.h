@@ -1357,7 +1357,7 @@ gimple gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_sections_switch (void);
 gimple_omp_single gimple_build_omp_single (gimple_seq, tree);
 gimple_omp_target gimple_build_omp_target (gimple_seq, int, tree);
-gimple gimple_build_omp_teams (gimple_seq, tree);
+gimple_omp_teams gimple_build_omp_teams (gimple_seq, tree);
 gimple_omp_atomic_load gimple_build_omp_atomic_load (tree, tree);
 gimple_omp_atomic_store gimple_build_omp_atomic_store (tree);
 gimple_transaction gimple_build_transaction (gimple_seq, tree);
@@ -5222,13 +5222,11 @@ gimple_omp_teams_clauses_ptr (gimple gs)
 }
 
 
-/* Set CLAUSES to be the clauses associated with OMP_TEAMS GS.  */
+/* Set CLAUSES to be the clauses associated with OMP_TEAMS_STMT.  */
 
 static inline void
-gimple_omp_teams_set_clauses (gimple gs, tree clauses)
+gimple_omp_teams_set_clauses (gimple_omp_teams omp_teams_stmt, tree clauses)
 {
-  gimple_statement_omp_teams *omp_teams_stmt =
-    as_a <gimple_statement_omp_teams *> (gs);
   omp_teams_stmt->clauses = clauses;
 }
 

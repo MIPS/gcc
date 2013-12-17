@@ -1359,7 +1359,8 @@ dump_gimple_omp_target (pretty_printer *buffer, gimple_omp_target gs,
 /* Dump a GIMPLE_OMP_TEAMS tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_omp_teams (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_omp_teams (pretty_printer *buffer, gimple_omp_teams gs, int spc,
+		       int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2178,7 +2179,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_TEAMS:
-      dump_gimple_omp_teams (buffer, gs, spc, flags);
+      dump_gimple_omp_teams (buffer, as_a <gimple_omp_teams> (gs), spc,
+			     flags);
       break;
 
     case GIMPLE_OMP_RETURN:
