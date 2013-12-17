@@ -1392,7 +1392,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	  OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TO;
 	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
-	  gimple_omp_target_set_clauses (stmt, c);
+	  gimple_omp_target_set_clauses (as_a <gimple_omp_target> (stmt), c);
 	}
 
       save_local_var_chain = info->new_local_var_chain;
@@ -1958,7 +1958,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	  OMP_CLAUSE_MAP_KIND (c) = OMP_CLAUSE_MAP_TOFROM;
 	  OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (info->frame_decl);
 	  OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
-	  gimple_omp_target_set_clauses (stmt, c);
+	  gimple_omp_target_set_clauses (as_a <gimple_omp_target> (stmt), c);
 	}
 
       save_local_var_chain = info->new_local_var_chain;
@@ -2400,7 +2400,8 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 		= i ? OMP_CLAUSE_MAP_TO : OMP_CLAUSE_MAP_TOFROM;
 	      OMP_CLAUSE_SIZE (c) = DECL_SIZE_UNIT (decl);
 	      OMP_CLAUSE_CHAIN (c) = gimple_omp_target_clauses (stmt);
-	      gimple_omp_target_set_clauses (stmt, c);
+	      gimple_omp_target_set_clauses (as_a <gimple_omp_target> (stmt),
+					     c);
 	    }
 	}
       info->static_chain_added |= save_static_chain_added;

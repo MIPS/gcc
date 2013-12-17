@@ -1307,7 +1307,8 @@ dump_gimple_omp_single (pretty_printer *buffer, gimple_omp_single gs,
 /* Dump a GIMPLE_OMP_TARGET tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_omp_target (pretty_printer *buffer, gimple gs, int spc, int flags)
+dump_gimple_omp_target (pretty_printer *buffer, gimple_omp_target gs,
+			int spc, int flags)
 {
   const char *kind;
   switch (gimple_omp_target_kind (gs))
@@ -2172,7 +2173,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_TARGET:
-      dump_gimple_omp_target (buffer, gs, spc, flags);
+      dump_gimple_omp_target (buffer, as_a <gimple_omp_target> (gs), spc,
+			      flags);
       break;
 
     case GIMPLE_OMP_TEAMS:

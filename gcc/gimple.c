@@ -1052,10 +1052,11 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
    BODY is the sequence of statements that will be executed.
    CLAUSES are any of the OMP target construct's clauses.  */
 
-gimple
+gimple_omp_target
 gimple_build_omp_target (gimple_seq body, int kind, tree clauses)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_TARGET, 0);
+  gimple_omp_target p =
+    as_a <gimple_omp_target> (gimple_alloc (GIMPLE_OMP_TARGET, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_target_set_clauses (p, clauses);

@@ -2332,7 +2332,7 @@ scan_omp_single (gimple_omp_single stmt, omp_context *outer_ctx)
 /* Scan an OpenMP target{, data, update} directive.  */
 
 static void
-scan_omp_target (gimple stmt, omp_context *outer_ctx)
+scan_omp_target (gimple_omp_target stmt, omp_context *outer_ctx)
 {
   omp_context *ctx;
   tree name;
@@ -2831,7 +2831,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
-      scan_omp_target (stmt, ctx);
+      scan_omp_target (as_a <gimple_omp_target> (stmt), ctx);
       break;
 
     case GIMPLE_OMP_TEAMS:
@@ -8265,10 +8265,11 @@ expand_omp_target (struct omp_region *region)
   struct function *child_cfun = NULL;
   tree child_fn = NULL_TREE, block, t;
   gimple_stmt_iterator gsi;
-  gimple entry_stmt, stmt;
+  gimple_omp_target entry_stmt;
+  gimple stmt;
   edge e;
 
-  entry_stmt = last_stmt (region->entry);
+  entry_stmt = as_a <gimple_omp_target> (last_stmt (region->entry));
   new_bb = region->entry;
   int kind = gimple_omp_target_kind (entry_stmt);
   if (kind == GF_OMP_TARGET_KIND_REGION)
@@ -10045,7 +10046,7 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree clauses;
   tree child_fn, t, c;
-  gimple stmt = gsi_stmt (*gsi_p);
+  gimple_omp_target stmt = as_a <gimple_omp_target> (gsi_stmt (*gsi_p));
   gimple_bind tgt_bind = NULL, bind;
   gimple_seq tgt_body = NULL, olist, ilist, new_body;
   location_t loc = gimple_location (stmt);

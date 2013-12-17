@@ -1356,7 +1356,7 @@ gimple gimple_build_omp_return (bool);
 gimple gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_sections_switch (void);
 gimple_omp_single gimple_build_omp_single (gimple_seq, tree);
-gimple gimple_build_omp_target (gimple_seq, int, tree);
+gimple_omp_target gimple_build_omp_target (gimple_seq, int, tree);
 gimple gimple_build_omp_teams (gimple_seq, tree);
 gimple_omp_atomic_load gimple_build_omp_atomic_load (tree, tree);
 gimple_omp_atomic_store gimple_build_omp_atomic_store (tree);
@@ -5113,13 +5113,12 @@ gimple_omp_target_clauses_ptr (gimple gs)
 }
 
 
-/* Set CLAUSES to be the clauses associated with OMP_TARGET GS.  */
+/* Set CLAUSES to be the clauses associated with OMP_TARGET_STMT.  */
 
 static inline void
-gimple_omp_target_set_clauses (gimple gs, tree clauses)
+gimple_omp_target_set_clauses (gimple_omp_target omp_target_stmt,
+			       tree clauses)
 {
-  gimple_statement_omp_target *omp_target_stmt =
-    as_a <gimple_statement_omp_target *> (gs);
   omp_target_stmt->clauses = clauses;
 }
 
@@ -5137,55 +5136,47 @@ gimple_omp_target_kind (const_gimple g)
 /* Set the OMP target kind.  */
 
 static inline void
-gimple_omp_target_set_kind (gimple g, int kind)
+gimple_omp_target_set_kind (gimple_omp_target g, int kind)
 {
-  GIMPLE_CHECK (g, GIMPLE_OMP_TARGET);
   g->subcode = (g->subcode & ~GF_OMP_TARGET_KIND_MASK)
 		      | (kind & GF_OMP_TARGET_KIND_MASK);
 }
 
 
-/* Return the child function used to hold the body of OMP_TARGET GS.  */
+/* Return the child function used to hold the body of OMP_TARGET_STMT.  */
 
 static inline tree
-gimple_omp_target_child_fn (const_gimple gs)
+gimple_omp_target_child_fn (const_gimple_omp_target omp_target_stmt)
 {
-  const gimple_statement_omp_target *omp_target_stmt =
-    as_a <const gimple_statement_omp_target *> (gs);
   return omp_target_stmt->child_fn;
 }
 
 /* Return a pointer to the child function used to hold the body of
-   OMP_TARGET GS.  */
+   OMP_TARGET_STMT.  */
 
 static inline tree *
-gimple_omp_target_child_fn_ptr (gimple gs)
+gimple_omp_target_child_fn_ptr (gimple_omp_target omp_target_stmt)
 {
-  gimple_statement_omp_target *omp_target_stmt =
-    as_a <gimple_statement_omp_target *> (gs);
   return &omp_target_stmt->child_fn;
 }
 
 
-/* Set CHILD_FN to be the child function for OMP_TARGET GS.  */
+/* Set CHILD_FN to be the child function for OMP_TARGET_STMT.  */
 
 static inline void
-gimple_omp_target_set_child_fn (gimple gs, tree child_fn)
+gimple_omp_target_set_child_fn (gimple_omp_target omp_target_stmt,
+				tree child_fn)
 {
-  gimple_statement_omp_target *omp_target_stmt =
-    as_a <gimple_statement_omp_target *> (gs);
   omp_target_stmt->child_fn = child_fn;
 }
 
 
 /* Return the artificial argument used to send variables and values
-   from the parent to the children threads in OMP_TARGET GS.  */
+   from the parent to the children threads in OMP_TARGET_STMT.  */
 
 static inline tree
-gimple_omp_target_data_arg (const_gimple gs)
+gimple_omp_target_data_arg (const_gimple_omp_target omp_target_stmt)
 {
-  const gimple_statement_omp_target *omp_target_stmt =
-    as_a <const gimple_statement_omp_target *> (gs);
   return omp_target_stmt->data_arg;
 }
 
@@ -5193,21 +5184,18 @@ gimple_omp_target_data_arg (const_gimple gs)
 /* Return a pointer to the data argument for OMP_TARGET GS.  */
 
 static inline tree *
-gimple_omp_target_data_arg_ptr (gimple gs)
+gimple_omp_target_data_arg_ptr (gimple_omp_target omp_target_stmt)
 {
-  gimple_statement_omp_target *omp_target_stmt =
-    as_a <gimple_statement_omp_target *> (gs);
   return &omp_target_stmt->data_arg;
 }
 
 
-/* Set DATA_ARG to be the data argument for OMP_TARGET GS.  */
+/* Set DATA_ARG to be the data argument for OMP_TARGET_STMT.  */
 
 static inline void
-gimple_omp_target_set_data_arg (gimple gs, tree data_arg)
+gimple_omp_target_set_data_arg (gimple_omp_target omp_target_stmt,
+				tree data_arg)
 {
-  gimple_statement_omp_target *omp_target_stmt =
-    as_a <gimple_statement_omp_target *> (gs);
   omp_target_stmt->data_arg = data_arg;
 }
 

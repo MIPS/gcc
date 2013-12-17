@@ -7180,7 +7180,7 @@ static void
 gimplify_omp_target_update (tree *expr_p, gimple_seq *pre_p)
 {
   tree expr = *expr_p;
-  gimple stmt;
+  gimple_omp_target stmt;
 
   gimplify_scan_omp_clauses (&OMP_TARGET_UPDATE_CLAUSES (expr), pre_p,
 			     ORT_WORKSHARE);

@@ -200,6 +200,10 @@ struct gimple_statement_omp_single;
 typedef struct gimple_statement_omp_single *gimple_omp_single;
 typedef const struct gimple_statement_omp_single *const_gimple_omp_single;
 
+struct gimple_statement_omp_target;
+typedef struct gimple_statement_omp_target *gimple_omp_target;
+typedef const struct gimple_statement_omp_target *const_gimple_omp_target;
+
 union section;
 typedef union section section;
 struct gcc_options;

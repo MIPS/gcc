@@ -1,5 +1,49 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_target
+
+	* coretypes.h (gimple_omp_target): New typedef.
+	(const_gimple_omp_target): New typedef.
+
+	* gimple.h (gimple_build_omp_target): Return a gimple_omp_target
+	rather than a plain gimple.
+	(gimple_omp_target_set_clauses): Require a gimple_omp_target
+	rather than a plain gimple.
+	(gimple_omp_target_set_kind): Likewise.
+	(gimple_omp_target_child_fn_ptr): Likewise.
+	(gimple_omp_target_set_child_fn): Likewise.
+	(gimple_omp_target_data_arg_ptr): Likewise.
+	(gimple_omp_target_set_data_arg): Likewise.
+	(gimple_omp_target_child_fn): Require a const_gimple_omp_target
+	rather than a plain const_gimple.
+	(gimple_omp_target_data_arg): Likewise.
+
+	* gimple-pretty-print.c (dump_gimple_omp_target): Require a
+	gimple_omp_target rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_omp_target within
+	GIMPLE_OMP_TARGET case of switch statement.
+
+	* gimple.c (gimple_build_omp_target): Return a gimple_omp_target
+	rather than a plain gimple.
+
+	* gimplify.c (gimplify_omp_target_update): Strengthen local "stmt"
+	from gimple to gimple_omp_target.
+
+	* omp-low.c (scan_omp_target): Require a gimple_omp_target rather
+	than a plain gimple.
+	(scan_omp_1_stmt): Add checked cast to gimple_omp_target within
+	GIMPLE_OMP_TARGET case of switch statement.
+	(expand_omp_target): Strengthen local "entry_stmt" from gimple to
+	gimple_omp_target.
+	(lower_omp_target): Likewise for "stmt".
+
+	* tree-nested.c (convert_nonlocal_reference_stmt): Add checked
+	cast to gimple_omp_target.
+	(convert_local_reference_stmt): Likewise.
+	(convert_gimple_call): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_single
 
 	* coretypes.h (gimple_omp_single): New typedef.
