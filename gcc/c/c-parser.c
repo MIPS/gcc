@@ -11927,7 +11927,7 @@ c_finish_acc_parallel (location_t loc, tree clauses, tree block)
     {
       tree parallel_clauses = NULL, c;
 
-      for (c = clauses; c; c = ACC_CLAUSE_CHAIN (clauses))
+      for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
           switch (ACC_CLAUSE_CODE (c))
             {
@@ -11991,7 +11991,7 @@ c_finish_acc_kernels (location_t loc, tree clauses, tree block)
     {
       tree kernels_clauses = NULL, c;
 
-      for (c = clauses; c; c = ACC_CLAUSE_CHAIN (clauses))
+      for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
           switch (ACC_CLAUSE_CODE (c))
             {
@@ -12085,7 +12085,7 @@ c_finish_acc_loop (location_t loc, tree clauses, tree block)
     {
       tree loop_clauses = NULL, c;
 
-      for (c = clauses; c; c = ACC_CLAUSE_CHAIN (clauses))
+      for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
           switch (ACC_CLAUSE_CODE (c))
             {
@@ -12095,6 +12095,8 @@ c_finish_acc_loop (location_t loc, tree clauses, tree block)
             case ACC_CLAUSE_VECTOR:
             case ACC_CLAUSE_SEQ:
             case ACC_CLAUSE_INDEPENDENT:
+            case ACC_CLAUSE_PRIVATE:
+            case ACC_CLAUSE_REDUCTION:
               if (loop_clauses == NULL)
                 loop_clauses = c;
               else
@@ -12105,7 +12107,6 @@ c_finish_acc_loop (location_t loc, tree clauses, tree block)
             case ACC_CLAUSE_NUM_GANGS:
             case ACC_CLAUSE_NUM_WORKERS:
             case ACC_CLAUSE_VECTOR_LENGTH:
-            case ACC_CLAUSE_REDUCTION:
             case ACC_CLAUSE_COPY:
             case ACC_CLAUSE_COPYIN:
             case ACC_CLAUSE_COPYOUT:
@@ -12116,7 +12117,6 @@ c_finish_acc_loop (location_t loc, tree clauses, tree block)
             case ACC_CLAUSE_PRESENT_OR_COPYOUT:
             case ACC_CLAUSE_PRESENT_OR_CREATE:
             case ACC_CLAUSE_DEVICEPTR:
-            case ACC_CLAUSE_PRIVATE:
             case ACC_CLAUSE_FIRSTPRIVATE:
               break;
             default:
