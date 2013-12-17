@@ -865,11 +865,12 @@ gimple_build_omp_for (gimple_seq body, int kind, tree clauses, size_t collapse,
    CHILD_FN is the function created for the parallel threads to execute.
    DATA_ARG are the shared data argument(s).  */
 
-gimple
+gimple_omp_parallel
 gimple_build_omp_parallel (gimple_seq body, tree clauses, tree child_fn,
 			   tree data_arg)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_PARALLEL, 0);
+  gimple_omp_parallel p =
+    as_a <gimple_omp_parallel> (gimple_alloc (GIMPLE_OMP_PARALLEL, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_parallel_set_clauses (p, clauses);
@@ -1730,12 +1731,18 @@ gimple_copy (gimple stmt)
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_PARALLEL:
-	  t = unshare_expr (gimple_omp_parallel_clauses (stmt));
-	  gimple_omp_parallel_set_clauses (copy, t);
-	  t = unshare_expr (gimple_omp_parallel_child_fn (stmt));
-	  gimple_omp_parallel_set_child_fn (copy, t);
-	  t = unshare_expr (gimple_omp_parallel_data_arg (stmt));
-	  gimple_omp_parallel_set_data_arg (copy, t);
+	  {
+	    gimple_omp_parallel omp_par_stmt =
+	      as_a <gimple_omp_parallel> (stmt);
+	    gimple_omp_parallel omp_par_copy =
+	      as_a <gimple_omp_parallel> (copy);
+	    t = unshare_expr (gimple_omp_parallel_clauses (omp_par_stmt));
+	    gimple_omp_parallel_set_clauses (omp_par_copy, t);
+	    t = unshare_expr (gimple_omp_parallel_child_fn (omp_par_stmt));
+	    gimple_omp_parallel_set_child_fn (omp_par_copy, t);
+	    t = unshare_expr (gimple_omp_parallel_data_arg (omp_par_stmt));
+	    gimple_omp_parallel_set_data_arg (omp_par_copy, t);
+	  }
 	  goto copy_omp_body;
 
 	case GIMPLE_OMP_TASK:

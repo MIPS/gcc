@@ -188,6 +188,10 @@ struct gimple_statement_omp_for;
 typedef struct gimple_statement_omp_for *gimple_omp_for;
 typedef const struct gimple_statement_omp_for *const_gimple_omp_for;
 
+struct gimple_statement_omp_parallel;
+typedef struct gimple_statement_omp_parallel *gimple_omp_parallel;
+typedef const struct gimple_statement_omp_parallel *const_gimple_omp_parallel;
+
 union section;
 typedef union section section;
 struct gcc_options;

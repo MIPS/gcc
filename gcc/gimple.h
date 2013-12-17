@@ -1344,7 +1344,7 @@ gimple_debug gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DE
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
 gimple_omp_critical gimple_build_omp_critical (gimple_seq, tree);
 gimple_omp_for gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
-gimple gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
+gimple_omp_parallel gimple_build_omp_parallel (gimple_seq, tree, tree, tree);
 gimple gimple_build_omp_task (gimple_seq, tree, tree, tree, tree, tree, tree);
 gimple gimple_build_omp_section (gimple_seq);
 gimple gimple_build_omp_master (gimple_seq);
@@ -4682,92 +4682,78 @@ gimple_omp_parallel_clauses (const_gimple gs)
 }
 
 
-/* Return a pointer to the clauses associated with OMP_PARALLEL GS.  */
+/* Return a pointer to the clauses associated with OMP_PARALLEL_STMT.  */
 
 static inline tree *
-gimple_omp_parallel_clauses_ptr (gimple gs)
+gimple_omp_parallel_clauses_ptr (gimple_omp_parallel omp_parallel_stmt)
 {
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel *> (gs);
   return &omp_parallel_stmt->clauses;
 }
 
 
-/* Set CLAUSES to be the list of clauses associated with OMP_PARALLEL
-   GS.  */
+/* Set CLAUSES to be the list of clauses associated with OMP_PARALLEL_STMT.  */
 
 static inline void
-gimple_omp_parallel_set_clauses (gimple gs, tree clauses)
+gimple_omp_parallel_set_clauses (gimple_omp_parallel omp_parallel_stmt,
+				 tree clauses)
 {
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel *> (gs);
   omp_parallel_stmt->clauses = clauses;
 }
 
 
-/* Return the child function used to hold the body of OMP_PARALLEL GS.  */
+/* Return the child function used to hold the body of OMP_PARALLEL_STMT.  */
 
 static inline tree
-gimple_omp_parallel_child_fn (const_gimple gs)
+gimple_omp_parallel_child_fn (const_gimple_omp_parallel omp_parallel_stmt)
 {
-  const gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <const gimple_statement_omp_parallel *> (gs);
   return omp_parallel_stmt->child_fn;
 }
 
 /* Return a pointer to the child function used to hold the body of
-   OMP_PARALLEL GS.  */
+   OMP_PARALLEL_STMT.  */
 
 static inline tree *
-gimple_omp_parallel_child_fn_ptr (gimple gs)
+gimple_omp_parallel_child_fn_ptr (gimple_omp_parallel omp_parallel_stmt)
 {
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel *> (gs);
   return &omp_parallel_stmt->child_fn;
 }
 
 
-/* Set CHILD_FN to be the child function for OMP_PARALLEL GS.  */
+/* Set CHILD_FN to be the child function for OMP_PARALLEL_STMT.  */
 
 static inline void
-gimple_omp_parallel_set_child_fn (gimple gs, tree child_fn)
+gimple_omp_parallel_set_child_fn (gimple_omp_parallel omp_parallel_stmt,
+				  tree child_fn)
 {
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel *> (gs);
   omp_parallel_stmt->child_fn = child_fn;
 }
 
 
 /* Return the artificial argument used to send variables and values
-   from the parent to the children threads in OMP_PARALLEL GS.  */
+   from the parent to the children threads in OMP_PARALLEL_STMT.  */
 
 static inline tree
-gimple_omp_parallel_data_arg (const_gimple gs)
+gimple_omp_parallel_data_arg (const_gimple_omp_parallel omp_parallel_stmt)
 {
-  const gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <const gimple_statement_omp_parallel *> (gs);
   return omp_parallel_stmt->data_arg;
 }
 
 
-/* Return a pointer to the data argument for OMP_PARALLEL GS.  */
+/* Return a pointer to the data argument for OMP_PARALLEL_STMT.  */
 
 static inline tree *
-gimple_omp_parallel_data_arg_ptr (gimple gs)
+gimple_omp_parallel_data_arg_ptr (gimple_omp_parallel omp_parallel_stmt)
 {
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel *> (gs);
   return &omp_parallel_stmt->data_arg;
 }
 
 
-/* Set DATA_ARG to be the data argument for OMP_PARALLEL GS.  */
+/* Set DATA_ARG to be the data argument for OMP_PARALLEL_STMT.  */
 
 static inline void
-gimple_omp_parallel_set_data_arg (gimple gs, tree data_arg)
+gimple_omp_parallel_set_data_arg (gimple_omp_parallel omp_parallel_stmt,
+				  tree data_arg)
 {
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel *> (gs);
   omp_parallel_stmt->data_arg = data_arg;
 }
 

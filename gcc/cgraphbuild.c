@@ -352,10 +352,10 @@ pass_build_cgraph_edges::execute (function *fun)
 					    bb->count, freq);
 	    }
 	  node->record_stmt_references (stmt);
-	  if (gimple_code (stmt) == GIMPLE_OMP_PARALLEL
-	      && gimple_omp_parallel_child_fn (stmt))
+	  if (gimple_omp_parallel omp_par_stmt =
+	      dyn_cast <gimple_omp_parallel> (stmt))
 	    {
-	      tree fn = gimple_omp_parallel_child_fn (stmt);
+	      tree fn = gimple_omp_parallel_child_fn (omp_par_stmt);
 	      node->create_reference (cgraph_node::get_create (fn),
 				      IPA_REF_ADDR, stmt);
 	    }

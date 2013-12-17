@@ -1,5 +1,53 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_parallel
+
+	* coretypes.h (gimple_omp_parallel): New typedef.
+	(const_gimple_omp_parallel): New typedef.
+
+	* cgraphbuild.c (build_cgraph_edges): Convert check of code
+	against GIMPLE_OMP_PARALLEL to a dyn_cast <gimple_omp_parallel>
+	and new local.
+
+	* gimple-pretty-print.c (dump_gimple_omp_parallel): Require a
+	gimple_omp_parallel rather than a plain gimple.
+	(pp_gimple_stmt_1): Add a checked cast to gimple_omp_parallel
+	within GIMPLE_OMP_PARALLEL case of switch statement.
+
+	* gimple-walk.c (walk_gimple_op): Likewise, introducing a local.
+
+	* gimple.c (gimple_build_omp_parallel): Return a
+	gimple_omp_parallel rather than a plain gimple.
+	(gimple_copy): Add checked casts to gimple_omp_parallel within
+	GIMPLE_OMP_PARALLEL case of switch statement, introducing locals.
+
+	* gimple.h (gimple_build_omp_parallel): Return a
+	gimple_omp_parallel rather than a plain gimple.
+	(gimple_omp_parallel_clauses_ptr): Require a gimple_omp_parallel
+	rather than a plain gimple.
+	(gimple_omp_parallel_set_clauses): Likewise.
+	(gimple_omp_parallel_data_arg_ptr): Likewise.
+	(gimple_omp_parallel_set_data_arg): Likewise.
+	(gimple_omp_parallel_child_fn_ptr): Likewise.
+	(gimple_omp_parallel_set_child_fn): Likewise.
+	(gimple_omp_parallel_child_fn): Require a
+	const_gimple_omp_parallel rather than a plain const_gimple.
+	(gimple_omp_parallel_data_arg): Likewise.
+
+	* omp-low.c (scan_omp_parallel): Strengthen local "stmt" from
+	gimple to gimple_omp_parallel.
+	(expand_parallel_call): Require a gimple_omp_parallel for
+	"entry_stmt" rather than a plain gimple.
+	(remove_exit_barrier):  Strengthen local "parallel_stmt" from
+	gimple to gimple_omp_parallel.
+	(expand_omp_taskreg): Add checked casts to gimple_omp_parallel.
+
+	* tree-inline.c (remap_gimple_stmt): Add a checked cast to
+	gimple_omp_parallel within GIMPLE_OMP_PARALLEL case of switch
+	statement, introducing local.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_for
 
 	* coretypes.h (gimple_omp_for): New.

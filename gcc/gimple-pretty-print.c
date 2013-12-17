@@ -1857,8 +1857,8 @@ dump_gimple_phi (pretty_printer *buffer, gimple_phi phi, int spc, bool comment,
    dumpfile.h).  */
 
 static void
-dump_gimple_omp_parallel (pretty_printer *buffer, gimple gs, int spc,
-                          int flags)
+dump_gimple_omp_parallel (pretty_printer *buffer, gimple_omp_parallel gs,
+			  int spc, int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2137,7 +2137,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_PARALLEL:
-      dump_gimple_omp_parallel (buffer, gs, spc, flags);
+      dump_gimple_omp_parallel (buffer, as_a <gimple_omp_parallel> (gs), spc,
+				flags);
       break;
 
     case GIMPLE_OMP_TASK:

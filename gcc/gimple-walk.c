@@ -347,18 +347,21 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       break;
 
     case GIMPLE_OMP_PARALLEL:
-      ret = walk_tree (gimple_omp_parallel_clauses_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_parallel_child_fn_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_omp_parallel_data_arg_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
+      {
+	gimple_omp_parallel omp_par_stmt = as_a <gimple_omp_parallel> (stmt);
+	ret = walk_tree (gimple_omp_parallel_clauses_ptr (omp_par_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_parallel_child_fn_ptr (omp_par_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+	ret = walk_tree (gimple_omp_parallel_data_arg_ptr (omp_par_stmt),
+			 callback_op, wi, pset);
+	if (ret)
+	  return ret;
+      }
       break;
 
     case GIMPLE_OMP_TASK:

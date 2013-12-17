@@ -2049,7 +2049,7 @@ scan_omp_parallel (gimple_stmt_iterator *gsi, omp_context *outer_ctx)
 {
   omp_context *ctx;
   tree name;
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_omp_parallel stmt = as_a <gimple_omp_parallel> (gsi_stmt (*gsi));
 
   /* Ignore parallel directives with empty bodies, unless there
      are copyin clauses.  */
@@ -4363,7 +4363,8 @@ gimple_build_cond_empty (tree cond)
 
 static void
 expand_parallel_call (struct omp_region *region, basic_block bb,
-		      gimple entry_stmt, vec<tree, va_gc> *ws_args)
+		      gimple_omp_parallel entry_stmt,
+		      vec<tree, va_gc> *ws_args)
 {
   tree t, t1, t2, val, cond, c, clauses, flags;
   gimple_stmt_iterator gsi;
@@ -4526,7 +4527,7 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
    ENTRY_STMT into the basic_block BB.  */
 
 static void
-expand_cilk_for_call (basic_block bb, gimple entry_stmt,
+expand_cilk_for_call (basic_block bb, gimple_omp_parallel entry_stmt,
 		      vec <tree, va_gc> *ws_args)
 {
   tree t, t1, t2;
@@ -4719,7 +4720,8 @@ remove_exit_barrier (struct omp_region *region)
 	     of such a variable.  */
 	  if (any_addressable_vars < 0)
 	    {
-	      gimple parallel_stmt = last_stmt (region->entry);
+	      gimple_omp_parallel parallel_stmt =
+		as_a <gimple_omp_parallel> (last_stmt (region->entry));
 	      tree child_fun = gimple_omp_parallel_child_fn (parallel_stmt);
 	      tree local_decls, block, decl;
 	      unsigned ix;
@@ -5119,9 +5121,11 @@ expand_omp_taskreg (struct omp_region *region)
 
   /* Emit a library call to launch the children threads.  */
   if (is_cilk_for)
-    expand_cilk_for_call (new_bb, entry_stmt, ws_args);
+    expand_cilk_for_call (new_bb,
+			  as_a <gimple_omp_parallel> (entry_stmt), ws_args);
   else if (gimple_code (entry_stmt) == GIMPLE_OMP_PARALLEL)
-    expand_parallel_call (region, new_bb, entry_stmt, ws_args);
+    expand_parallel_call (region, new_bb,
+			  as_a <gimple_omp_parallel> (entry_stmt), ws_args);
   else
     expand_task_call (new_bb, entry_stmt);
   if (gimple_in_ssa_p (cfun))
@@ -6877,7 +6881,8 @@ expand_cilk_for (struct omp_region *region, struct omp_for_data *fd)
      comment).  */
 
   tree child_fndecl
-    = gimple_omp_parallel_child_fn (last_stmt (region->outer->entry));
+    = gimple_omp_parallel_child_fn (
+        as_a <gimple_omp_parallel> (last_stmt (region->outer->entry)));
   tree t, low_val = NULL_TREE, high_val = NULL_TREE;
   for (t = DECL_ARGUMENTS (child_fndecl); t; t = TREE_CHAIN (t))
     {

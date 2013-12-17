@@ -1362,12 +1362,16 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  break;
 
 	case GIMPLE_OMP_PARALLEL:
-	  s1 = remap_gimple_seq (gimple_omp_body (stmt), id);
-	  copy = gimple_build_omp_parallel
-	           (s1,
-		    gimple_omp_parallel_clauses (stmt),
-		    gimple_omp_parallel_child_fn (stmt),
-		    gimple_omp_parallel_data_arg (stmt));
+	  {
+	    gimple_omp_parallel omp_par_stmt =
+	      as_a <gimple_omp_parallel> (stmt);
+	    s1 = remap_gimple_seq (gimple_omp_body (omp_par_stmt), id);
+	    copy = gimple_build_omp_parallel
+	             (s1,
+		      gimple_omp_parallel_clauses (omp_par_stmt),
+		      gimple_omp_parallel_child_fn (omp_par_stmt),
+		      gimple_omp_parallel_data_arg (omp_par_stmt));
+	  }
 	  break;
 
 	case GIMPLE_OMP_TASK:
