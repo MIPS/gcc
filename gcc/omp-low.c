@@ -2295,7 +2295,7 @@ scan_omp_for (gimple_omp_for stmt, omp_context *outer_ctx)
 /* Scan an OpenMP sections directive.  */
 
 static void
-scan_omp_sections (gimple stmt, omp_context *outer_ctx)
+scan_omp_sections (gimple_omp_sections stmt, omp_context *outer_ctx)
 {
   omp_context *ctx;
 
@@ -2814,7 +2814,7 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_SECTIONS:
-      scan_omp_sections (stmt, ctx);
+      scan_omp_sections (as_a <gimple_omp_sections> (stmt), ctx);
       break;
 
     case GIMPLE_OMP_SINGLE:
@@ -7423,7 +7423,8 @@ expand_omp_sections (struct omp_region *region)
   unsigned len;
   basic_block entry_bb, l0_bb, l1_bb, l2_bb, default_bb;
   gimple_stmt_iterator si, switch_si;
-  gimple sections_stmt, stmt;
+  gimple_omp_sections sections_stmt;
+  gimple stmt;
   gimple_omp_continue cont;
   edge_iterator ei;
   edge e;
@@ -7478,7 +7479,7 @@ expand_omp_sections (struct omp_region *region)
   /* The call to GOMP_sections_start goes in ENTRY_BB, replacing the
      GIMPLE_OMP_SECTIONS statement.  */
   si = gsi_last_bb (entry_bb);
-  sections_stmt = gsi_stmt (si);
+  sections_stmt = as_a <gimple_omp_sections> (gsi_stmt (si));
   gcc_assert (gimple_code (sections_stmt) == GIMPLE_OMP_SECTIONS);
   vin = gimple_omp_sections_control (sections_stmt);
   if (!is_combined_parallel (region))
@@ -8876,11 +8877,12 @@ lower_omp_sections (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree block, control;
   gimple_stmt_iterator tgsi;
-  gimple stmt, t;
+  gimple_omp_sections stmt;
+  gimple t;
   gimple_bind new_stmt, bind;
   gimple_seq ilist, dlist, olist, new_body;
 
-  stmt = gsi_stmt (*gsi_p);
+  stmt = as_a <gimple_omp_sections> (gsi_stmt (*gsi_p));
 
   push_gimplify_context ();
 

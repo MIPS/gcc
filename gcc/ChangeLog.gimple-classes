@@ -1,5 +1,31 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Introduce gimple_omp_sections
+
+	* coretypes.h (gimple_omp_sections): New typedef.
+	(const_gimple_omp_sections): New typedef.
+
+	* gimple-pretty-print.c (dump_gimple_omp_sections): Require a
+	gimple_omp_sections rather than a plain gimple.
+	(pp_gimple_stmt_1): Add checked cast to gimple_omp_sections within
+	GIMPLE_OMP_SECTIONS case of switch statement.
+
+	* gimple.c (gimple_build_omp_sections): Return a
+	gimple_omp_sections rather than a plain gimple.
+
+	* gimple.h (gimple_build_omp_sections): Return a
+	gimple_omp_sections rather than a plain gimple.
+
+	* omp-low.c (scan_omp_sections): Require a gimple_omp_sections
+	rather than a plain gimple.
+	(scan_omp_1_stmt): Add checked cast to gimple_omp_sections within
+	GIMPLE_OMP_SECTIONS case of switch statement.
+	(expand_omp_sections): Strengthen local "sections_stmt" from gimple
+	to gimple_omp_sections.
+	(lower_omp_sections): Likewise for "stmt".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Introduce gimple_omp_teams
 
 	* coretypes.h (gimple_omp_teams): New typedef.

@@ -1007,10 +1007,11 @@ gimple_build_omp_return (bool wait_p)
    CLAUSES are any of the OMP sections contsruct's clauses: private,
    firstprivate, lastprivate, reduction, and nowait.  */
 
-gimple
+gimple_omp_sections
 gimple_build_omp_sections (gimple_seq body, tree clauses)
 {
-  gimple p = gimple_alloc (GIMPLE_OMP_SECTIONS, 0);
+  gimple_omp_sections p =
+    as_a <gimple_omp_sections> (gimple_alloc (GIMPLE_OMP_SECTIONS, 0));
   if (body)
     gimple_omp_set_body (p, body);
   gimple_omp_sections_set_clauses (p, clauses);

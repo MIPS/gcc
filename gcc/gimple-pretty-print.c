@@ -1388,8 +1388,8 @@ dump_gimple_omp_teams (pretty_printer *buffer, gimple_omp_teams gs, int spc,
 /* Dump a GIMPLE_OMP_SECTIONS tuple on the pretty_printer BUFFER.  */
 
 static void
-dump_gimple_omp_sections (pretty_printer *buffer, gimple gs, int spc,
-			  int flags)
+dump_gimple_omp_sections (pretty_printer *buffer, gimple_omp_sections gs,
+			  int spc, int flags)
 {
   if (flags & TDF_RAW)
     {
@@ -2188,7 +2188,8 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       break;
 
     case GIMPLE_OMP_SECTIONS:
-      dump_gimple_omp_sections (buffer, gs, spc, flags);
+      dump_gimple_omp_sections (buffer, as_a <gimple_omp_sections> (gs),
+				spc, flags);
       break;
 
     case GIMPLE_OMP_SECTIONS_SWITCH:

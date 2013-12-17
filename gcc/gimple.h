@@ -1353,7 +1353,7 @@ gimple gimple_build_omp_taskgroup (gimple_seq);
 gimple_omp_continue gimple_build_omp_continue (tree, tree);
 gimple gimple_build_omp_ordered (gimple_seq);
 gimple gimple_build_omp_return (bool);
-gimple gimple_build_omp_sections (gimple_seq, tree);
+gimple_omp_sections gimple_build_omp_sections (gimple_seq, tree);
 gimple gimple_build_omp_sections_switch (void);
 gimple_omp_single gimple_build_omp_single (gimple_seq, tree);
 gimple_omp_target gimple_build_omp_target (gimple_seq, int, tree);
