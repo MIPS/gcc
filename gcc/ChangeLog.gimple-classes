@@ -1,5 +1,12 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_phi_arg_set_location require a gimple_phi
+
+	* gimple.h (gimple_phi_arg_set_location): Require a gimple_phi
+	rather than a plain gimple.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make add_phi_arg require a gimple_phi
 
 	* tree-phinodes.h (add_phi_arg): Require a gimple_phi rather than
