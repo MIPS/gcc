@@ -17502,7 +17502,7 @@ mips_conditional_register_usage (void)
       fixed_regs[26] = call_used_regs[26] = 1;
       fixed_regs[27] = call_used_regs[27] = 1;
       fixed_regs[30] = call_used_regs[30] = 1;
-      if (optimize_size && !targetm.lra_p())
+      if (optimize_size)
 	{
 	  fixed_regs[8] = call_used_regs[8] = 1;
 	  fixed_regs[9] = call_used_regs[9] = 1;
