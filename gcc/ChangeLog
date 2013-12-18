@@ -1,3 +1,8 @@
+2013-12-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (lower_oacc_parallel): Switch kinds array to unsigned
+	short, and shift alignment description to begin at bit 8.
+
 2013-11-21  Joseph Myers  <joseph@codesourcery.com>
 
 	PR rtl-optimization/55950

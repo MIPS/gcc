@@ -1,3 +1,10 @@
+2013-12-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp_g.h (GOACC_parallel): Switch kinds array to unsigned
+	short.
+	* oacc-parallel.c (GOACC_parallel): Likewise, and catch
+	unsupported kinds.
+
 2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/lib/libgomp.exp (libgomp_init): Don't add -fopenmp to

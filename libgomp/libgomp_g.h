@@ -217,6 +217,6 @@ extern void GOMP_teams (unsigned int, unsigned int);
 /* oacc-parallel.c */
 
 extern void GOACC_parallel (int, void (*) (void *), const void *,
-			    size_t, void **, size_t *, unsigned char *);
+			    size_t, void **, size_t *, unsigned short *);
 
 #endif /* LIBGOMP_G_H */

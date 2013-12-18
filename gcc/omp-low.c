@@ -8775,7 +8775,7 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       TREE_ADDRESSABLE (TREE_VEC_ELT (t, 1)) = 1;
       TREE_STATIC (TREE_VEC_ELT (t, 1)) = 1;
       TREE_VEC_ELT (t, 2)
-	= create_tmp_var (build_array_type_nelts (unsigned_char_type_node,
+	= create_tmp_var (build_array_type_nelts (short_unsigned_type_node,
 						  map_cnt),
 			  ".omp_data_kinds");
       DECL_NAMELESS (TREE_VEC_ELT (t, 2)) = 1;
@@ -8884,7 +8884,7 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    if (TREE_CODE (s) != INTEGER_CST)
 	      TREE_STATIC (TREE_VEC_ELT (t, 1)) = 0;
 
-	    unsigned char tkind = 0;
+	    unsigned short tkind = 0;
 	    switch (OMP_CLAUSE_CODE (c))
 	      {
 	      case OMP_CLAUSE_MAP:
@@ -8903,9 +8903,9 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    if (DECL_P (ovar) && DECL_ALIGN_UNIT (ovar) > talign)
 	      talign = DECL_ALIGN_UNIT (ovar);
 	    talign = ceil_log2 (talign);
-	    tkind |= talign << 3;
+	    tkind |= talign << 8;
 	    CONSTRUCTOR_APPEND_ELT (vkind, purpose,
-				    build_int_cst (unsigned_char_type_node,
+				    build_int_cst (short_unsigned_type_node,
 						   tkind));
 	    if (nc && nc != c)
 	      c = nc;

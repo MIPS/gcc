@@ -25,12 +25,29 @@
 
 /* This file handles the OpenACC parallel construct.  */
 
+#include "libgomp.h"
 #include "libgomp_g.h"
 
 void
 GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
 		size_t mapnum, void **hostaddrs, size_t *sizes,
-		unsigned char *kinds)
+		unsigned short *kinds)
 {
-  GOMP_target (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds);
+  unsigned char kinds_[mapnum];
+  size_t i;
+
+  /* TODO.  Eventually, we'll be interpreting all mapping kinds according to
+     the OpenACC semantics; for now we're re-using what is implemented for
+     OpenMP.  */
+  for (i = 0; i < mapnum; ++i)
+    {
+      unsigned char kind = kinds[i];
+      unsigned char align = kinds[i] >> 8;
+      if (kind > 4)
+	gomp_fatal ("memory mapping kind %x for %zd is not yet supported",
+		    kind, i);
+
+      kinds_[i] = kind | align << 3;
+    }
+  GOMP_target (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds_);
 }
