@@ -1,4 +1,11 @@
 
+
+2013-12-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{for timestamping MELT 1.0.2 release, which is
+	not extracted from svn, but applied patch
+	https://sourceforge.net/p/gcc-melt/tickets/_discuss/thread/7f87d051/affe/attachment/patch-melt-plugin-1.0.1-to-1.0.2.diff
+	to MELT 1.0.1}}
+
 2013-11-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{merge using svnmerge.py with trunk GCC 4.9 svn rev 205391 now in
