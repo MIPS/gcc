@@ -1,6 +1,10 @@
 
 
 2013-12-18  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{for timestamping MELT 1.0.2 release}}
+	* INSTALL/README-MELT-PLUGIN: mention 1.0.2 & MELT-SFT-7
+
+2013-12-18  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{for timestamping MELT 1.0.2 release, which is
 	not extracted from svn, but applied patch
 	https://sourceforge.net/p/gcc-melt/tickets/_discuss/thread/7f87d051/affe/attachment/patch-melt-plugin-1.0.1-to-1.0.2.diff

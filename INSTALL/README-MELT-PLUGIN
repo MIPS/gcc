@@ -196,6 +196,16 @@ the subject line] and to <gcc-melt@googlegroups.com>
 
 
 ################################################################
+NEWS for 1.0.2 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
+[[december 18th, 2013]]
+
+This is just a bug-fix release for MELT-SFT-7 (see
+https://sourceforge.net/p/gcc-melt/tickets/7/ for more); We are
+releasing MELT 1.0.2 as MELT 1.0.1 improved with the patch given in
+this ticket.
+
+
+################################################################
 NEWS for 1.0.1 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
 [[november 7th, 2013]]
 
@@ -204,6 +214,7 @@ https://sourceforge.net/p/gcc-melt/tickets/6/ for more); it adds a
 workaround for GCC 4.7 gengtype inability to process operator
 conversion.  The unifdef utility is now required to build the MELT
 plugin.
+
 
 ################################################################
 NEWS for 1.0 MELT plugin for GCC 4.7 & 4.8 [and future 4.9?]
