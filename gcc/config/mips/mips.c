@@ -12144,6 +12144,31 @@ mips_register_move_cost (enum machine_mode mode,
   return 0;
 }
 
+/* Return a register priority for hard reg REGNO.  */
+
+static int
+mips_register_priority (int hard_regno)
+{
+  if (TARGET_MIPS16)
+   {
+     /* Treat MIPS16 registers with higher priority than other regs */
+     switch (hard_regno)
+       {
+       case 2:
+       case 3:
+       case 4:
+       case 5:
+       case 6:
+       case 7:
+       case 16:
+       case 17:
+         return 1;
+       default:
+         return 0;
+       }
+   }
+}
+
 /* Implement TARGET_MEMORY_MOVE_COST.  */
 
 static int
@@ -18996,6 +19021,8 @@ mips_lra_p (void)
 #define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
 #undef TARGET_REGISTER_MOVE_COST
 #define TARGET_REGISTER_MOVE_COST mips_register_move_cost
+#undef TARGET_REGISTER_PRIORITY
+#define TARGET_REGISTER_PRIORITY mips_register_priority
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST mips_memory_move_cost
 #undef TARGET_RTX_COSTS
