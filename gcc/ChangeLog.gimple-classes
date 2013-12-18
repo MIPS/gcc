@@ -1,5 +1,22 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	omp-low.c: Use more concrete types of gimple statement for various locals
+
+	* omp-low.c (finalize_task_copyfn): Strengthen local "bind" from
+	plain gimple to gimple_bind.
+	(lower_rec_input_clauses): Strengthen local "g" from
+	plain gimple to gimple_assign.
+	(lower_lastprivate_clauses): Likewise for "stmt" to gimple_cond
+	and "g" to gimple_call.
+	(expand_omp_for_init_vars): Likewise, for two decls of "stmt" to
+	gimple_assign.
+	(expand_omp_atomic_pipeline): Likewise for one decl of "stmt".
+	(expand_omp_atomic_mutex): Likewise.
+	(lower_omp_master): Likewise for "x" to gimple_call.
+	(lower_omp_ordered): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	tree-parloops.c: Use gimple_phi in various places
 
 	* tree-parloops.c (reduction_info::keep_res): Strengthen field
