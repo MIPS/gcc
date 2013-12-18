@@ -1,5 +1,80 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make add_phi_arg require a gimple_phi
+
+	* tree-phinodes.h (add_phi_arg): Require a gimple_phi rather than
+	a plain gimple.
+	* tree-phinodes.c (add_phi_arg): Likewise.
+
+	* gimple-ssa-strength-reduction.c (create_phi_basis): Strengthen
+	local "phi" from plain gimple to gimple_phi.
+
+	* graphite-scop-detection.c (canonicalize_loop_closed_ssa):
+	Likewise for "close_phi".
+
+	* ipa-split.c (split_function): Convert "psi" to
+	gimple_phi_iterator.
+
+	* omp-low.c (expand_omp_for_static_nochunk): Introduce
+	gimple_phi_iterator gpi, using it to strengthen "phi" to be a
+	gimple_phi.
+	(expand_omp_for_static_chunk): Likewise.
+
+	* tree-cfg.c (gimple_duplicate_bb): Make topmost "gsi" decl more
+	tightly-scoped, and eliminate decls "phis", "phi", "stmt", "copy"
+	in favor of more tightly-scoped gimple_phi_iterator gpi and
+	gimple_phi decls "phi" and "copy", and gimple decls "stmt" and
+	"copy".
+
+	* tree-parloops.c (create_parallel_loop): Introduce
+	gimple_phi_iterator gpi, using it to strengthen "phi" to be a
+	gimple_phi.
+
+	* tree-ssa-loop-im.c (execute_sm_if_changed): Likewise.
+
+	* tree-ssa-loop-manip.c (create_iv): Split out new gimple_phi
+	local "phi" from "stmt", and convert the latter into being a
+	gimple_assign.
+
+	* tree-ssa-pre.c (insert_into_preds_of_block): Strengthen local
+	"phi" to be a gimple_phi.
+
+	* tree-ssa-tail-merge.c (vop_phi): Require a gimple_phi rather
+	than a plain gimple.
+	(replace_block_by): Strengthen local "bb2_phi" to be a gimple_phi.
+
+	* tree-tailcall.c (add_successor_phi_arg): Use gsi.phi when
+	invoking add_phi_arg.
+	(eliminate_tail_call): Introduce gimple_phi_iterator gpi, using it
+	to strengthen "phi" to be a gimple_phi.
+	(create_tailcall_accumulator): Strengthen local "phi" to be a
+	gimple_phi.
+	(tree_optimize_tail_calls_1): Likewise.
+
+	* tree-vect-data-refs.c (vect_setup_realignment): Strengthen
+	local "phi_stmt" to be a gimple_phi.
+
+	* tree-vect-loop-manip.c (slpeel_tree_duplicate_loop_to_edge_cfg):
+	Strengthen "gsi", "gsi_orig", "gsi_new" to be
+	gimple_phi_iterators, and "phi" "orig_phi", "new_phi" to be
+	gimple_phi instances.
+	(slpeel_tree_peel_loop_to_edge): Strengthen local "new_phi" to be
+	a gimple_phi.
+
+	* tree-vect-loop.c (get_initial_def_for_induction): Likewise for
+	"induction_phi".
+	(vect_create_epilog_for_reduction): Add checked casts to
+	gimple_phi; strengthen local "outer_phi" to gimple_phi and
+	"new_vec_stmt" to gimple_assign.
+	(vect_finalize_reduction): Strengthen local "vect_phi" to
+	gimple_phi.
+	(vectorizable_reduction): Likewise for "new_phi".
+
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Likewise.
+	(vectorizable_load): Likewise for "phi".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_phi_arg_def_ptr and gimple_phi_arg_has_location require a gimple_phi
 
 	* gimple.h (gimple_phi_arg_def_ptr): Require a gimple_phi rather

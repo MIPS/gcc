@@ -3258,7 +3258,8 @@ get_initial_def_for_induction (gimple iv_phi)
   tree new_vec, vec_init, vec_step, t;
   tree new_var;
   tree new_name;
-  gimple init_stmt, induction_phi, new_stmt;
+  gimple init_stmt, new_stmt;
+  gimple_phi induction_phi;
   tree induc_def, vec_def, vec_dest;
   tree init_expr, step_expr;
   int vf = LOOP_VINFO_VECT_FACTOR (loop_vinfo);
@@ -3964,14 +3965,15 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple stmt,
       for (j = 0; j < ncopies; j++)
         {
           /* Set the loop-entry arg of the reduction-phi.  */
-          add_phi_arg (phi, vec_init_def, loop_preheader_edge (loop),
-                       UNKNOWN_LOCATION);
+          add_phi_arg (as_a <gimple_phi> (phi), vec_init_def,
+		       loop_preheader_edge (loop), UNKNOWN_LOCATION);
 
           /* Set the loop-latch arg for the reduction-phi.  */
           if (j > 0)
             def = vect_get_vec_def_for_stmt_copy (vect_unknown_def_type, def);
 
-          add_phi_arg (phi, def, loop_latch_edge (loop), UNKNOWN_LOCATION);
+          add_phi_arg (as_a <gimple_phi> (phi), def, loop_latch_edge (loop),
+		       UNKNOWN_LOCATION);
 
           if (dump_enabled_p ())
             {
@@ -4051,7 +4053,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple stmt,
       FOR_EACH_VEC_ELT (new_phis, i, phi)
 	{
 	  tree new_result = copy_ssa_name (PHI_RESULT (phi), NULL);
-	  gimple outer_phi = create_phi_node (new_result, exit_bb);
+	  gimple_phi outer_phi = create_phi_node (new_result, exit_bb);
 	  SET_PHI_ARG_DEF (outer_phi, single_exit (loop)->dest_idx,
 			   PHI_RESULT (phi));
 	  set_vinfo_for_stmt (outer_phi, new_stmt_vec_info (outer_phi,
@@ -4138,7 +4140,7 @@ vect_create_epilog_for_reduction (vec<tree> vect_defs, gimple stmt,
     {
       tree first_vect = PHI_RESULT (new_phis[0]);
       tree tmp;
-      gimple new_vec_stmt = NULL;
+      gimple_assign new_vec_stmt = NULL;
 
       vec_dest = vect_create_destination_var (scalar_dest, vectype);
       for (k = 1; k < new_phis.length (); k++)
@@ -4514,7 +4516,7 @@ vect_finalize_reduction:
           if (outer_loop)
             {
               stmt_vec_info exit_phi_vinfo = vinfo_for_stmt (exit_phi);
-              gimple vect_phi;
+              gimple_phi vect_phi;
 
               /* FORNOW. Currently not supporting the case that an inner-loop
                  reduction is not used in the outer-loop (but only outside the
@@ -4729,7 +4731,7 @@ vectorizable_reduction (gimple stmt, gimple_stmt_iterator *gsi,
   tree def;
   gimple def_stmt;
   enum vect_def_type dt;
-  gimple new_phi = NULL;
+  gimple_phi new_phi = NULL;
   tree scalar_type;
   bool is_simple_use;
   gimple orig_stmt;

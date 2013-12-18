@@ -25,7 +25,7 @@ extern void release_phi_node (gimple);
 extern void reserve_phi_args_for_new_edge (basic_block);
 extern void add_phi_node_to_bb (gimple_phi phi, basic_block bb);
 extern gimple_phi create_phi_node (tree, basic_block);
-extern void add_phi_arg (gimple, tree, edge, source_location);
+extern void add_phi_arg (gimple_phi, tree, edge, source_location);
 extern void remove_phi_args (edge);
 extern void remove_phi_node (gimple_stmt_iterator *, bool);
 extern void remove_phi_nodes (basic_block);

@@ -5756,17 +5756,18 @@ static basic_block
 gimple_duplicate_bb (basic_block bb)
 {
   basic_block new_bb;
-  gimple_stmt_iterator gsi, gsi_tgt;
-  gimple_seq phis = phi_nodes (bb);
-  gimple phi, stmt, copy;
+  gimple_stmt_iterator gsi_tgt;
 
   new_bb = create_empty_bb (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
 
   /* Copy the PHI nodes.  We ignore PHI node arguments here because
      the incoming edges have not been setup yet.  */
-  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gpi = gsi_start_phis (bb);
+       !gsi_end_p (gpi);
+       gsi_next (&gpi))
     {
-      phi = gsi_stmt (gsi);
+      gimple_phi phi, copy;
+      phi = gpi.phi ();
       copy = create_phi_node (NULL_TREE, new_bb);
       create_new_def_for (gimple_phi_result (phi), copy,
 			  gimple_phi_result_ptr (copy));
@@ -5774,11 +5775,14 @@ gimple_duplicate_bb (basic_block bb)
     }
 
   gsi_tgt = gsi_start_bb (new_bb);
-  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+       !gsi_end_p (gsi);
+       gsi_next (&gsi))
     {
       def_operand_p def_p;
       ssa_op_iter op_iter;
       tree lhs;
+      gimple stmt, copy;
 
       stmt = gsi_stmt (gsi);
       if (gimple_code (stmt) == GIMPLE_LABEL)

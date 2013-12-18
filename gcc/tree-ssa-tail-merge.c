@@ -1466,10 +1466,10 @@ find_clusters (void)
 
 /* Returns the vop phi of BB, if any.  */
 
-static gimple
+static gimple_phi
 vop_phi (basic_block bb)
 {
-  gimple stmt;
+  gimple_phi stmt;
   gimple_phi_iterator gsi;
   for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
     {
@@ -1490,7 +1490,7 @@ replace_block_by (basic_block bb1, basic_block bb2)
   edge e1, e2;
   edge_iterator ei;
   unsigned int i;
-  gimple bb2_phi;
+  gimple_phi bb2_phi;
 
   bb2_phi = vop_phi (bb2);
 

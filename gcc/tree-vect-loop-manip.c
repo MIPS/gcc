@@ -820,13 +820,13 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop,
     {
       if (scalar_loop != loop)
 	{
-	  gimple_stmt_iterator gsi;
+	  gimple_phi_iterator gsi;
 	  new_exit = redirect_edge_and_branch (new_exit, exit_dest);
 
 	  for (gsi = gsi_start_phis (exit_dest); !gsi_end_p (gsi);
 	       gsi_next (&gsi))
 	    {
-	      gimple phi = gsi_stmt (gsi);
+	      gimple_phi phi = gsi.phi ();
 	      tree orig_arg = PHI_ARG_DEF_FROM_EDGE (phi, e);
 	      location_t orig_locus
 		= gimple_phi_arg_location_from_edge (phi, e);
@@ -886,7 +886,7 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop,
     {
       /* Update new_loop->header PHIs, so that on the preheader
 	 edge they are the ones from loop rather than scalar_loop.  */
-      gimple_stmt_iterator gsi_orig, gsi_new;
+      gimple_phi_iterator gsi_orig, gsi_new;
       edge orig_e = loop_preheader_edge (loop);
       edge new_e = loop_preheader_edge (new_loop);
 
@@ -895,8 +895,8 @@ slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *loop,
 	   !gsi_end_p (gsi_orig) && !gsi_end_p (gsi_new);
 	   gsi_next (&gsi_orig), gsi_next (&gsi_new))
 	{
-	  gimple orig_phi = gsi_stmt (gsi_orig);
-	  gimple new_phi = gsi_stmt (gsi_new);
+	  gimple_phi orig_phi = gsi_orig.phi ();
+	  gimple_phi new_phi = gsi_new.phi ();
 	  tree orig_arg = PHI_ARG_DEF_FROM_EDGE (orig_phi, orig_e);
 	  location_t orig_locus
 	    = gimple_phi_arg_location_from_edge (orig_phi, orig_e);
@@ -1213,7 +1213,7 @@ slpeel_tree_peel_loop_to_edge (struct loop *loop, struct loop *scalar_loop,
 	if (gsi_end_p (gsi))
 	  {
 	    tree new_vop = copy_ssa_name (PHI_RESULT (phi), NULL);
-	    gimple new_phi = create_phi_node (new_vop, exit_e->dest);
+	    gimple_phi new_phi = create_phi_node (new_vop, exit_e->dest);
 	    tree vop = PHI_ARG_DEF_FROM_EDGE (phi, EDGE_SUCC (loop->latch, 0));
 	    imm_use_iterator imm_iter;
 	    gimple stmt;

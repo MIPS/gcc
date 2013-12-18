@@ -1353,7 +1353,7 @@ canonicalize_loop_closed_ssa (loop_p loop)
 	      {
 		tree res, arg = gimple_phi_arg_def (phi, i);
 		use_operand_p use_p;
-		gimple close_phi;
+		gimple_phi close_phi;
 
 		if (TREE_CODE (arg) != SSA_NAME)
 		  continue;

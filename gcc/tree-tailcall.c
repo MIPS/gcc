@@ -628,7 +628,7 @@ add_successor_phi_arg (edge e, tree var, tree phi_arg)
       break;
 
   gcc_assert (!gsi_end_p (gsi));
-  add_phi_arg (gsi_stmt (gsi), phi_arg, e, UNKNOWN_LOCATION);
+  add_phi_arg (gsi.phi (), phi_arg, e, UNKNOWN_LOCATION);
 }
 
 /* Creates a GIMPLE statement which computes the operation specified by
@@ -821,7 +821,8 @@ eliminate_tail_call (struct tailcall *t)
   size_t idx;
   basic_block bb, first;
   edge e;
-  gimple phi;
+  gimple_phi phi;
+  gimple_phi_iterator gpi;
   gimple_stmt_iterator gsi;
   gimple orig_stmt;
 
@@ -874,7 +875,7 @@ eliminate_tail_call (struct tailcall *t)
   /* Add phi node entries for arguments.  The ordering of the phi nodes should
      be the same as the ordering of the arguments.  */
   for (param = DECL_ARGUMENTS (current_function_decl),
-	 idx = 0, gsi = gsi_start_phis (first);
+	 idx = 0, gpi = gsi_start_phis (first);
        param;
        param = DECL_CHAIN (param), idx++)
     {
@@ -882,11 +883,11 @@ eliminate_tail_call (struct tailcall *t)
 	continue;
 
       arg = gimple_call_arg (stmt, idx);
-      phi = gsi_stmt (gsi);
+      phi = gpi.phi ();
       gcc_assert (param == SSA_NAME_VAR (PHI_RESULT (phi)));
 
       add_phi_arg (phi, arg, e, gimple_location (stmt));
-      gsi_next (&gsi);
+      gsi_next (&gpi);
     }
 
   /* Update the values of accumulators.  */
@@ -948,7 +949,7 @@ create_tailcall_accumulator (const char *label, basic_block bb, tree init)
     ret_type = sizetype;
 
   tree tmp = make_temp_ssa_name (ret_type, NULL, label);
-  gimple phi;
+  gimple_phi phi;
 
   phi = create_phi_node (tmp, bb);
   /* RET_TYPE can be a float when -ffast-maths is enabled.  */
@@ -1012,7 +1013,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	      {
 		tree name = ssa_default_def (cfun, param);
 		tree new_name = make_ssa_name (param, SSA_NAME_DEF_STMT (name));
-		gimple phi;
+		gimple_phi phi;
 
 		set_ssa_default_def (cfun, param, new_name);
 		phi = create_phi_node (name, first);

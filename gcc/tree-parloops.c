@@ -1673,11 +1673,12 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   guard = make_edge (for_bb, ex_bb, 0);
   single_succ_edge (loop->latch)->flags = 0;
   end = make_edge (loop->latch, ex_bb, EDGE_FALLTHRU);
-  for (gsi = gsi_start_phis (ex_bb); !gsi_end_p (gsi); gsi_next (&gsi))
+  for (gimple_phi_iterator gpi = gsi_start_phis (ex_bb);
+       !gsi_end_p (gpi); gsi_next (&gpi))
     {
       source_location locus;
       tree def;
-      phi = gsi_stmt (gsi);
+      gimple_phi phi = gpi.phi ();
       stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit));
 
       def = PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop));

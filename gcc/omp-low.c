@@ -6108,10 +6108,10 @@ expand_omp_for_static_nochunk (struct omp_region *region,
       if (gimple_in_ssa_p (cfun))
 	{
 	  int dest_idx = find_edge (entry_bb, fin_bb)->dest_idx;
-	  for (gsi = gsi_start_phis (fin_bb);
-	       !gsi_end_p (gsi); gsi_next (&gsi))
+	  for (gimple_phi_iterator gpi = gsi_start_phis (fin_bb);
+	       !gsi_end_p (gpi); gsi_next (&gpi))
 	    {
-	      gimple phi = gsi_stmt (gsi);
+	      gimple_phi phi = gpi.phi ();
 	      add_phi_arg (phi, gimple_phi_arg_def (phi, dest_idx),
 			   ep, UNKNOWN_LOCATION);
 	    }
@@ -6490,10 +6490,10 @@ expand_omp_for_static_chunk (struct omp_region *region,
       if (gimple_in_ssa_p (cfun))
 	{
 	  int dest_idx = find_edge (entry_bb, fin_bb)->dest_idx;
-	  for (gsi = gsi_start_phis (fin_bb);
-	       !gsi_end_p (gsi); gsi_next (&gsi))
+	  for (gimple_phi_iterator gpi = gsi_start_phis (fin_bb);
+	       !gsi_end_p (gpi); gsi_next (&gpi))
 	    {
-	      gimple phi = gsi_stmt (gsi);
+	      gimple_phi phi = gpi.phi ();
 	      add_phi_arg (phi, gimple_phi_arg_def (phi, dest_idx),
 			   se, UNKNOWN_LOCATION);
 	    }

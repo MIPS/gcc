@@ -4772,7 +4772,7 @@ vect_setup_realignment (gimple stmt, gimple_stmt_iterator *gsi,
   basic_block new_bb;
   tree msq_init = NULL_TREE;
   tree new_temp;
-  gimple phi_stmt;
+  gimple_phi phi_stmt;
   tree msq = NULL_TREE;
   gimple_seq stmts = NULL;
   bool inv_p;

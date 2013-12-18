@@ -1878,9 +1878,10 @@ execute_sm_if_changed (edge ex, tree mem, tree tmp_var, tree flag)
   }
 
   if (!loop_has_only_one_exit)
-    for (gsi = gsi_start_phis (old_dest); !gsi_end_p (gsi); gsi_next (&gsi))
+    for (gimple_phi_iterator gpi = gsi_start_phis (old_dest);
+	 !gsi_end_p (gpi); gsi_next (&gpi))
       {
-	gimple phi = gsi_stmt (gsi);
+	gimple_phi phi = gpi.phi ();
 	unsigned i;
 
 	for (i = 0; i < gimple_phi_num_args (phi); i++)

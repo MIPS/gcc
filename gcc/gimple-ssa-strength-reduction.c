@@ -2235,7 +2235,7 @@ create_phi_basis (slsr_cand_t c, gimple from_phi, tree basis_name,
 {
   int i;
   tree name, phi_arg;
-  gimple phi;
+  gimple_phi phi;
   vec<tree> phi_args;
   slsr_cand_t basis = lookup_cand (c->basis);
   int nargs = gimple_phi_num_args (from_phi);

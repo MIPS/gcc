@@ -71,7 +71,8 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
 	   gimple_stmt_iterator *incr_pos, bool after,
 	   tree *var_before, tree *var_after)
 {
-  gimple stmt;
+  gimple_assign stmt;
+  gimple_phi phi;
   tree initial, step1;
   gimple_seq stmts;
   tree vb, va;
@@ -143,9 +144,9 @@ create_iv (tree base, tree step, tree var, struct loop *loop,
   if (stmts)
     gsi_insert_seq_on_edge_immediate (pe, stmts);
 
-  stmt = create_phi_node (vb, loop->header);
-  add_phi_arg (stmt, initial, loop_preheader_edge (loop), UNKNOWN_LOCATION);
-  add_phi_arg (stmt, va, loop_latch_edge (loop), UNKNOWN_LOCATION);
+  phi = create_phi_node (vb, loop->header);
+  add_phi_arg (phi, initial, loop_preheader_edge (loop), UNKNOWN_LOCATION);
+  add_phi_arg (phi, va, loop_latch_edge (loop), UNKNOWN_LOCATION);
 }
 
 /* Return the innermost superloop LOOP of USE_LOOP that is a superloop of
