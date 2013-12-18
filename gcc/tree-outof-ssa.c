@@ -788,7 +788,7 @@ eliminate_phi (edge e, elim_graph g)
    check to see if this allows another PHI node to be removed.  */
 
 static void
-remove_gimple_phi_args (gimple phi)
+remove_gimple_phi_args (gimple_phi phi)
 {
   use_operand_p arg_p;
   ssa_op_iter iter;
@@ -816,7 +816,7 @@ remove_gimple_phi_args (gimple phi)
 	      /* Also remove the def if it is a PHI node.  */
 	      if (gimple_code (stmt) == GIMPLE_PHI)
 		{
-		  remove_gimple_phi_args (stmt);
+		  remove_gimple_phi_args (as_a <gimple_phi> (stmt));
 		  gsi = gsi_for_stmt (stmt);
 		  remove_phi_node (&gsi, true);
 		}

@@ -3909,15 +3909,14 @@ gimple_phi_result_ptr (gimple gs)
   return &phi_stmt->result;
 }
 
-/* Set RESULT to be the SSA name created by GIMPLE_PHI GS.  */
+/* Set RESULT to be the SSA name created by GIMPLE_PHI PHI.  */
 
 static inline void
-gimple_phi_set_result (gimple gs, tree result)
+gimple_phi_set_result (gimple_phi phi, tree result)
 {
-  gimple_phi phi_stmt = as_a <gimple_phi> (gs);
-  phi_stmt->result = result;
+  phi->result = result;
   if (result && TREE_CODE (result) == SSA_NAME)
-    SSA_NAME_DEF_STMT (result) = gs;
+    SSA_NAME_DEF_STMT (result) = phi;
 }
 
 
@@ -3933,14 +3932,13 @@ gimple_phi_arg (gimple gs, unsigned index)
 }
 
 /* Set PHIARG to be the argument corresponding to incoming edge INDEX
-   for GIMPLE_PHI GS.  */
+   for GIMPLE_PHI PHI.  */
 
 static inline void
-gimple_phi_set_arg (gimple gs, unsigned index, struct phi_arg_d * phiarg)
+gimple_phi_set_arg (gimple_phi phi, unsigned index, struct phi_arg_d * phiarg)
 {
-  gimple_phi phi_stmt = as_a <gimple_phi> (gs);
-  gcc_gimple_checking_assert (index <= phi_stmt->nargs);
-  phi_stmt->args[index] = *phiarg;
+  gcc_gimple_checking_assert (index <= phi->nargs);
+  phi->args[index] = *phiarg;
 }
 
 /* Return the PHI nodes for basic block BB, or NULL if there are no

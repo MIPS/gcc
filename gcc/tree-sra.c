@@ -4556,7 +4556,7 @@ replace_removed_params_ssa_names (gimple stmt,
   else if (is_gimple_call (stmt))
     gimple_call_set_lhs (stmt, name);
   else
-    gimple_phi_set_result (stmt, name);
+    gimple_phi_set_result (as_a <gimple_phi> (stmt), name);
 
   replace_uses_by (lhs, name);
   release_ssa_name (lhs);
