@@ -1,5 +1,18 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_phi_arg_location_from_edge require a gimple_phi
+
+	* gimple.h (gimple_phi_arg_location_from_edge): Require a
+	gimple_phi.
+
+	* tree-parloops.c (create_parallel_loop): Split up local variable
+	"stmt", introducing other locals for the various statements created
+	by this function.  Reuse "stmt" within the phi-handling code, and
+	change to type gimple_phi, since this is the only remaining
+	"non-phi" user of gimple_phi_arg_location_from_edge.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize three gimple_try_set_ accessors
 
 	* gimple.c (gimple_copy): Add checked casts to gimple_try.

@@ -1608,8 +1608,11 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   gimple_stmt_iterator gsi;
   basic_block bb, paral_bb, for_bb, ex_bb;
   tree t, param;
-  gimple stmt, phi, cond_stmt;
+  gimple_omp_parallel omp_par_stmt;
+  gimple omp_return_stmt1, omp_return_stmt2;
+  gimple phi, cond_stmt;
   gimple_omp_for for_stmt;
+  gimple_omp_continue omp_cont_stmt;
   tree cvar, cvar_init, initvar, cvar_next, cvar_base, type;
   edge exit, nexit, guard, end, e;
 
@@ -1621,31 +1624,33 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   t = build_omp_clause (loc, OMP_CLAUSE_NUM_THREADS);
   OMP_CLAUSE_NUM_THREADS_EXPR (t)
     = build_int_cst (integer_type_node, n_threads);
-  stmt = gimple_build_omp_parallel (NULL, t, loop_fn, data);
-  gimple_set_location (stmt, loc);
+  omp_par_stmt = gimple_build_omp_parallel (NULL, t, loop_fn, data);
+  gimple_set_location (omp_par_stmt, loc);
 
-  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+  gsi_insert_after (&gsi, omp_par_stmt, GSI_NEW_STMT);
 
   /* Initialize NEW_DATA.  */
   if (data)
     {
+      gimple_assign assign_stmt;
+
       gsi = gsi_after_labels (bb);
 
       param = make_ssa_name (DECL_ARGUMENTS (loop_fn), NULL);
-      stmt = gimple_build_assign (param, build_fold_addr_expr (data));
-      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+      assign_stmt = gimple_build_assign (param, build_fold_addr_expr (data));
+      gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
 
-      stmt = gimple_build_assign (new_data,
+      assign_stmt = gimple_build_assign (new_data,
 				  fold_convert (TREE_TYPE (new_data), param));
-      gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
+      gsi_insert_before (&gsi, assign_stmt, GSI_SAME_STMT);
     }
 
   /* Emit GIMPLE_OMP_RETURN for GIMPLE_OMP_PARALLEL.  */
   bb = split_loop_exit_edge (single_dom_exit (loop));
   gsi = gsi_last_bb (bb);
-  stmt = gimple_build_omp_return (false);
-  gimple_set_location (stmt, loc);
-  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+  omp_return_stmt1 = gimple_build_omp_return (false);
+  gimple_set_location (omp_return_stmt1, loc);
+  gsi_insert_after (&gsi, omp_return_stmt1, GSI_NEW_STMT);
 
   /* Extract data for GIMPLE_OMP_FOR.  */
   gcc_assert (loop->header == single_dom_exit (loop)->src);
@@ -1679,7 +1684,10 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
       source_location locus;
       tree def;
       gimple_phi phi = gpi.phi ();
-      stmt = SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit));
+      gimple_phi stmt;
+
+      stmt = as_a <gimple_phi> (
+	       SSA_NAME_DEF_STMT (PHI_ARG_DEF_FROM_EDGE (phi, exit)));
 
       def = PHI_ARG_DEF_FROM_EDGE (stmt, loop_preheader_edge (loop));
       locus = gimple_phi_arg_location_from_edge (stmt,
@@ -1715,16 +1723,16 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 
   /* Emit GIMPLE_OMP_CONTINUE.  */
   gsi = gsi_last_bb (loop->latch);
-  stmt = gimple_build_omp_continue (cvar_next, cvar);
-  gimple_set_location (stmt, loc);
-  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
-  SSA_NAME_DEF_STMT (cvar_next) = stmt;
+  omp_cont_stmt = gimple_build_omp_continue (cvar_next, cvar);
+  gimple_set_location (omp_cont_stmt, loc);
+  gsi_insert_after (&gsi, omp_cont_stmt, GSI_NEW_STMT);
+  SSA_NAME_DEF_STMT (cvar_next) = omp_cont_stmt;
 
   /* Emit GIMPLE_OMP_RETURN for GIMPLE_OMP_FOR.  */
   gsi = gsi_last_bb (ex_bb);
-  stmt = gimple_build_omp_return (true);
-  gimple_set_location (stmt, loc);
-  gsi_insert_after (&gsi, stmt, GSI_NEW_STMT);
+  omp_return_stmt2 = gimple_build_omp_return (true);
+  gimple_set_location (omp_return_stmt2, loc);
+  gsi_insert_after (&gsi, omp_return_stmt2, GSI_NEW_STMT);
 
   /* After the above dom info is hosed.  Re-compute it.  */
   free_dominance_info (CDI_DOMINATORS);
