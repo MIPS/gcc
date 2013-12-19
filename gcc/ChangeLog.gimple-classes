@@ -1,5 +1,13 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize locals within expand_omp_for_init_counts
+
+	* omp-low.c (expand_omp_for_init_counts): Eliminate local "stmt"
+	in favor of new locals "cond_stmt" and "assign_stmt" with more
+	concrete types.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_cond_set_{true|false}_label require gimple_cond.
 
 	* gimple.h (gimple_cond_set_true_label): Require a gimple_cond.

@@ -5193,7 +5193,6 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 			    basic_block &l2_dom_bb)
 {
   tree t, type = TREE_TYPE (fd->loop.v);
-  gimple stmt;
   edge e, ne;
   int i;
 
@@ -5232,6 +5231,7 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 				fold_convert (itype, fd->loops[i].n2)))
 	      == NULL_TREE || !integer_onep (t)))
 	{
+	  gimple_cond cond_stmt;
 	  tree n1, n2;
 	  n1 = fold_convert (itype, unshare_expr (fd->loops[i].n1));
 	  n1 = force_gimple_operand_gsi (gsi, n1, true, NULL_TREE,
@@ -5239,27 +5239,28 @@ expand_omp_for_init_counts (struct omp_for_data *fd, gimple_stmt_iterator *gsi,
 	  n2 = fold_convert (itype, unshare_expr (fd->loops[i].n2));
 	  n2 = force_gimple_operand_gsi (gsi, n2, true, NULL_TREE,
 					 true, GSI_SAME_STMT);
-	  stmt = gimple_build_cond (fd->loops[i].cond_code, n1, n2,
-				    NULL_TREE, NULL_TREE);
-	  gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
-	  if (walk_tree (gimple_cond_lhs_ptr (stmt),
+	  cond_stmt = gimple_build_cond (fd->loops[i].cond_code, n1, n2,
+					 NULL_TREE, NULL_TREE);
+	  gsi_insert_before (gsi, cond_stmt, GSI_SAME_STMT);
+	  if (walk_tree (gimple_cond_lhs_ptr (cond_stmt),
 			 expand_omp_regimplify_p, NULL, NULL)
-	      || walk_tree (gimple_cond_rhs_ptr (stmt),
+	      || walk_tree (gimple_cond_rhs_ptr (cond_stmt),
 			    expand_omp_regimplify_p, NULL, NULL))
 	    {
-	      *gsi = gsi_for_stmt (stmt);
-	      gimple_regimplify_operands (stmt, gsi);
+	      *gsi = gsi_for_stmt (cond_stmt);
+	      gimple_regimplify_operands (cond_stmt, gsi);
 	    }
-	  e = split_block (entry_bb, stmt);
+	  e = split_block (entry_bb, cond_stmt);
 	  if (zero_iter_bb == NULL)
 	    {
+	      gimple_assign assign_stmt;
 	      first_zero_iter = i;
 	      zero_iter_bb = create_empty_bb (entry_bb);
 	      add_bb_to_loop (zero_iter_bb, entry_bb->loop_father);
 	      *gsi = gsi_after_labels (zero_iter_bb);
-	      stmt = gimple_build_assign (fd->loop.n2,
-					  build_zero_cst (type));
-	      gsi_insert_before (gsi, stmt, GSI_SAME_STMT);
+	      assign_stmt = gimple_build_assign (fd->loop.n2,
+						 build_zero_cst (type));
+	      gsi_insert_before (gsi, assign_stmt, GSI_SAME_STMT);
 	      set_immediate_dominator (CDI_DOMINATORS, zero_iter_bb,
 				       entry_bb);
 	    }
