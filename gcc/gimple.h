@@ -2964,23 +2964,21 @@ gimple_call_copy_flags (gimple dest_call, gimple orig_call)
 
 
 /* Return a pointer to the points-to solution for the set of call-used
-   variables of the call CALL.  */
+   variables of the call CALL_STMT.  */
 
 static inline struct pt_solution *
-gimple_call_use_set (gimple call)
+gimple_call_use_set (gimple_call call_stmt)
 {
-  gimple_statement_call *call_stmt = as_a <gimple_statement_call *> (call);
   return &call_stmt->call_used;
 }
 
 
 /* Return a pointer to the points-to solution for the set of call-used
-   variables of the call CALL.  */
+   variables of the call CALL_STMT.  */
 
 static inline struct pt_solution *
-gimple_call_clobber_set (gimple call)
+gimple_call_clobber_set (gimple_call call_stmt)
 {
-  gimple_statement_call *call_stmt = as_a <gimple_statement_call *> (call);
   return &call_stmt->call_clobbered;
 }
 

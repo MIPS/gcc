@@ -1,5 +1,12 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_use_set and gimple_call_clobber_set
+
+	* gimple.h (gimple_call_use_set): Require a gimple_call.
+	(gimple_call_clobber_set): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_catch_types
 
 	* gimple.h (gimple_catch_types): Require a const_gimple_catch
