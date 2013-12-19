@@ -586,7 +586,7 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
     }
 
   /* See if this is a tail call we can handle.  */
-  ret_var = gimple_return_retval (stmt);
+  ret_var = gimple_return_retval (as_a <gimple_return> (stmt));
 
   /* We may proceed if there either is no return value, or the return value
      is identical to the call's return.  */

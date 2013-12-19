@@ -11951,9 +11951,9 @@ ipa_simd_modify_function_body (struct cgraph_node *node,
 	  wi.info = &info;
 	  walk_gimple_op (stmt, ipa_simd_modify_stmt_ops, &wi);
 
-	  if (gimple_code (stmt) == GIMPLE_RETURN)
+	  if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
 	    {
-	      tree retval = gimple_return_retval (stmt);
+	      tree retval = gimple_return_retval (return_stmt);
 	      if (!retval)
 		{
 		  gsi_remove (&gsi, true);

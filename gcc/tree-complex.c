@@ -855,7 +855,7 @@ expand_complex_move (gimple_stmt_iterator *gsi, tree type)
 
 	  stmt = gsi_stmt (*gsi);
 	  gcc_assert (gimple_code (stmt) == GIMPLE_RETURN);
-	  gimple_return_set_retval (stmt, lhs);
+	  gimple_return_set_retval (as_a <gimple_return> (stmt), lhs);
 	}
 
       update_stmt (stmt);
@@ -1391,8 +1391,11 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
   switch (gimple_code (stmt))
     {
     case GIMPLE_RETURN:
-      type = TREE_TYPE (gimple_return_retval (stmt));
-      gimple_return_set_retval (stmt, fold_convert (type, cc));
+      {
+	gimple_return return_stmt = as_a <gimple_return> (stmt);
+	type = TREE_TYPE (gimple_return_retval (return_stmt));
+	gimple_return_set_retval (return_stmt, fold_convert (type, cc));
+      }
       break;
 
     case GIMPLE_ASSIGN:

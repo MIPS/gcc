@@ -4732,12 +4732,13 @@ find_func_aliases (struct function *fn, gimple origt)
     }
   /* Handle escapes through return.  */
   else if (gimple_code (t) == GIMPLE_RETURN
-	   && gimple_return_retval (t) != NULL_TREE)
+	   && gimple_return_retval (as_a <gimple_return> (t)) != NULL_TREE)
     {
+      gimple_return return_stmt = as_a <gimple_return> (t);
       fi = NULL;
       if (!in_ipa_mode
 	  || !(fi = get_vi_for_tree (fn->decl)))
-	make_escape_constraint (gimple_return_retval (t));
+	make_escape_constraint (gimple_return_retval (return_stmt));
       else if (in_ipa_mode
 	       && fi != NULL)
 	{
@@ -4746,7 +4747,7 @@ find_func_aliases (struct function *fn, gimple origt)
 	  unsigned i;
 
 	  lhs = get_function_part_constraint (fi, fi_result);
-	  get_constraint_for_rhs (gimple_return_retval (t), &rhsc);
+	  get_constraint_for_rhs (gimple_return_retval (return_stmt), &rhsc);
 	  FOR_EACH_VEC_ELT (rhsc, i, rhsp)
 	    process_constraint (new_constraint (lhs, *rhsp));
 	}
@@ -4885,10 +4886,11 @@ find_func_clobbers (struct function *fn, gimple origt)
   /* Account for uses in assigments and returns.  */
   if (gimple_assign_single_p (t)
       || (gimple_code (t) == GIMPLE_RETURN
-	  && gimple_return_retval (t) != NULL_TREE))
+	  && gimple_return_retval (as_a <gimple_return> (t)) != NULL_TREE))
     {
       tree rhs = (gimple_assign_single_p (t)
-		  ? gimple_assign_rhs1 (t) : gimple_return_retval (t));
+		  ? gimple_assign_rhs1 (t)
+		  : gimple_return_retval (as_a <gimple_return> (t)));
       tree tem = rhs;
       while (handled_component_p (tem))
 	tem = TREE_OPERAND (tem, 0);

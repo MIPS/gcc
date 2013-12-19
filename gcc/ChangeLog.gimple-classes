@@ -1,5 +1,46 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize three gimple_return_ accessors
+
+	* gimple.h (gimple_return_retval_ptr): Require a const_gimple_return
+	rather than a const_gimple.
+	(gimple_return_retval): Likewise.
+	(gimple_return_set_retval): Require a gimple_return.
+
+	* cfgexpand.c (expand_gimple_stmt_1): Add a checked cast to
+	gimple_return.
+	(expand_gimple_basic_block): Likewise.
+	* tree-complex.c (expand_complex_move): Likewise.
+	(expand_complex_comparison): Likewise.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	* tree-sra.c (scan_function): Likewise.
+	(sra_modify_function_body): Likewise.
+	(ipa_sra_modify_function_body): Likewise.
+	* tree-ssa-structalias.c (find_func_aliases): Likewise.
+
+	* gimple-ssa-isolate-paths.c (isolate_path): Strengthen local
+	"ret" from gimple to gimple_return.
+	(find_implicit_erroneous_behaviour): Replace a check for code
+	GIMPLE_RETURN with a dyn_cast and a new local.
+	(find_explicit_erroneous_behaviour): Likewise.
+	* gimple-walk.c (walk_stmt_load_store_addr_ops): Likewise.
+	* gimple.c (infer_nonnull_range): Likewise.
+	* ipa-split.c (find_return_bb): Likewise.
+	(find_retval): Likewise.
+	(split_function): Likewise.
+	* omp-low.c (ipa_simd_modify_function_body): Likewise.
+	* tree-cfg.c (pass_warn_function_return::execute): Likewise.
+	* tree-nrv.c (tree_nrv): Likewise.
+	* tree-ssa-alias.c (ref_maybe_used_by_stmt_p): Likewise.
+	* tree-ssa-dce.c (propagate_necessity): Likewise.
+	* tree-ssa-structalias.c (find_func_clobbers): Likewise.
+	* tree-tailcall.c (find_tail_calls): Likewise.
+
+	* predict.c (apply_return_prediction): Rework the search for
+	return_stmt so that the latter can have type gimple_return.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_phi_arg_location require a gimple_phi.
 
 	* gimple.h (gimple_phi_arg_location): Require a gimple_phi.

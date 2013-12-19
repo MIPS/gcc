@@ -1280,7 +1280,7 @@ scan_function (void)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_RETURN:
-	      t = gimple_return_retval (stmt);
+	      t = gimple_return_retval (as_a <gimple_return> (stmt));
 	      if (t != NULL_TREE)
 		ret |= build_access_from_expr (t, stmt, false);
 	      if (final_bbs)
@@ -3389,7 +3389,7 @@ sra_modify_function_body (void)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_RETURN:
-	      t = gimple_return_retval_ptr (stmt);
+	      t = gimple_return_retval_ptr (as_a <gimple_return> (stmt));
 	      if (*t != NULL_TREE)
 		modified |= sra_modify_expr (t, &gsi, false);
 	      break;
@@ -4652,7 +4652,7 @@ ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_RETURN:
-	      t = gimple_return_retval_ptr (stmt);
+	      t = gimple_return_retval_ptr (as_a <gimple_return> (stmt));
 	      if (*t != NULL_TREE)
 		modified |= ipa_modify_expr (t, true, adjustments);
 	      break;

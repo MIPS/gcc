@@ -1826,9 +1826,9 @@ ref_maybe_used_by_stmt_p (gimple stmt, ao_ref *ref)
     }
   else if (is_gimple_call (stmt))
     return ref_maybe_used_by_call_p (as_a <gimple_call> (stmt), ref);
-  else if (gimple_code (stmt) == GIMPLE_RETURN)
+  else if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
     {
-      tree retval = gimple_return_retval (stmt);
+      tree retval = gimple_return_retval (return_stmt);
       if (retval
 	  && TREE_CODE (retval) != SSA_NAME
 	  && !is_gimple_min_invariant (retval)

@@ -868,9 +868,9 @@ propagate_necessity (bool aggressive)
 		    mark_all_reaching_defs_necessary (stmt);
 		}
 	    }
-	  else if (gimple_code (stmt) == GIMPLE_RETURN)
+	  else if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
 	    {
-	      tree rhs = gimple_return_retval (stmt);
+	      tree rhs = gimple_return_retval (return_stmt);
 	      /* A return statement may perform a load.  */
 	      if (rhs
 		  && TREE_CODE (rhs) != SSA_NAME

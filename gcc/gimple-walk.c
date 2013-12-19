@@ -852,9 +852,9 @@ walk_stmt_load_store_addr_ops (gimple stmt, void *data,
 	      }
 	  }
     }
-  else if (gimple_code (stmt) == GIMPLE_RETURN)
+  else if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
     {
-      tree op = gimple_return_retval (stmt);
+      tree op = gimple_return_retval (return_stmt);
       if (op)
 	{
 	  if (visit_addr

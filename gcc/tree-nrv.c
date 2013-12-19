@@ -180,12 +180,12 @@ pass_nrv::execute (function *fun)
 	  gimple stmt = gsi_stmt (gsi);
 	  tree ret_val;
 
-	  if (gimple_code (stmt) == GIMPLE_RETURN)
+	  if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
 	    {
 	      /* In a function with an aggregate return value, the
 		 gimplifier has changed all non-empty RETURN_EXPRs to
 		 return the RESULT_DECL.  */
-	      ret_val = gimple_return_retval (stmt);
+	      ret_val = gimple_return_retval (return_stmt);
 	      if (ret_val)
 		gcc_assert (ret_val == result);
 	    }

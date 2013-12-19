@@ -5513,18 +5513,16 @@ gimple_transaction_set_subcode (gimple_transaction transaction_stmt,
 /* Return a pointer to the return value for GIMPLE_RETURN GS.  */
 
 static inline tree *
-gimple_return_retval_ptr (const_gimple gs)
+gimple_return_retval_ptr (const_gimple_return gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_RETURN);
   return gimple_op_ptr (gs, 0);
 }
 
 /* Return the return value for GIMPLE_RETURN GS.  */
 
 static inline tree
-gimple_return_retval (const_gimple gs)
+gimple_return_retval (const_gimple_return gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_RETURN);
   return gimple_op (gs, 0);
 }
 
@@ -5532,9 +5530,8 @@ gimple_return_retval (const_gimple gs)
 /* Set RETVAL to be the return value for GIMPLE_RETURN GS.  */
 
 static inline void
-gimple_return_set_retval (gimple gs, tree retval)
+gimple_return_set_retval (gimple_return gs, tree retval)
 {
-  GIMPLE_CHECK (gs, GIMPLE_RETURN);
   gimple_set_op (gs, 0, retval);
 }
 

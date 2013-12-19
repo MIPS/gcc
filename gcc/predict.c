@@ -2145,7 +2145,7 @@ return_prediction (tree val, enum prediction *prediction)
 static void
 apply_return_prediction (void)
 {
-  gimple return_stmt = NULL;
+  gimple_return return_stmt = NULL;
   tree return_val;
   edge e;
   gimple_phi phi;
@@ -2156,10 +2156,13 @@ apply_return_prediction (void)
 
   FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
-      return_stmt = last_stmt (e->src);
-      if (return_stmt
-	  && gimple_code (return_stmt) == GIMPLE_RETURN)
-	break;
+      gimple last = last_stmt (e->src);
+      if (last
+	  && gimple_code (last) == GIMPLE_RETURN)
+	{
+	  return_stmt = as_a <gimple_return> (last);
+	  break;
+	}
     }
   if (!e)
     return;

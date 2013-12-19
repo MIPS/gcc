@@ -205,7 +205,7 @@ isolate_path (basic_block bb, basic_block duplicate,
     {
       if (ret_zero)
 	{
-	  gimple ret = gsi_stmt (si2);
+	  gimple_return ret = as_a <gimple_return> (gsi_stmt (si2));
 	  tree zero = build_zero_cst (TREE_TYPE (gimple_return_retval (ret)));
 	  gimple_return_set_retval (ret, zero);
 	  update_stmt (ret);
@@ -285,8 +285,12 @@ find_implicit_erroneous_behaviour (void)
 		    {
 		      FOR_EACH_IMM_USE_STMT (use_stmt, iter, lhs)
 			{
-			  if (gimple_code (use_stmt) != GIMPLE_RETURN
-			      || gimple_return_retval (use_stmt) != lhs)
+			  gimple_return return_stmt =
+			    dyn_cast <gimple_return> (use_stmt);
+			  if (!return_stmt)
+			    continue;
+
+			  if (gimple_return_retval (return_stmt) != lhs)
 			    continue;
 
 			  if (warning_at (gimple_location (use_stmt),
@@ -399,9 +403,9 @@ find_explicit_erroneous_behaviour (void)
 	  /* Detect returning the address of a local variable.  This only
 	     becomes undefined behavior if the result is used, so we do not
 	     insert a trap and only return NULL instead.  */
-	  if (gimple_code (stmt) == GIMPLE_RETURN)
+	  if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
 	    {
-	      tree val = gimple_return_retval (stmt);
+	      tree val = gimple_return_retval (return_stmt);
 	      if (val && TREE_CODE (val) == ADDR_EXPR)
 		{
 		  tree valbase = get_base_address (TREE_OPERAND (val, 0));
@@ -425,7 +429,7 @@ find_explicit_erroneous_behaviour (void)
 				      OPT_Wreturn_local_addr, msg))
 			inform (DECL_SOURCE_LOCATION(valbase), "declared here");
 		      tree zero = build_zero_cst (TREE_TYPE (val));
-		      gimple_return_set_retval (stmt, zero);
+		      gimple_return_set_retval (return_stmt, zero);
 		      update_stmt (stmt);
 		    }
 		}

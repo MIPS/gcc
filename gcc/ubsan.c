@@ -1364,7 +1364,7 @@ instrument_nonnull_arg (gimple_stmt_iterator *gsi)
 static void
 instrument_nonnull_return (gimple_stmt_iterator *gsi)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_return stmt = as_a <gimple_return> (gsi_stmt (*gsi));
   location_t loc[2];
   tree arg = gimple_return_retval (stmt);
   /* infer_nonnull_range needs flag_delete_null_pointer_checks set,

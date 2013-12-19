@@ -1302,7 +1302,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
      statement.  */
   if (gimple_code (stmt) == GIMPLE_RETURN && id->transform_return_to_modify)
     {
-      tree retval = gimple_return_retval (stmt);
+      tree retval = gimple_return_retval (as_a <gimple_return> (stmt));
 
       /* If we're returning something, just turn that into an
 	 assignment into the equivalent of the original RESULT_DECL.

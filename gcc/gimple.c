@@ -2653,13 +2653,13 @@ infer_nonnull_range (gimple stmt, tree op, bool dereference, bool attribute)
 
   /* If this function is marked as returning non-null, then we can
      infer OP is non-null if it is used in the return statement.  */
-  if (attribute
-      && gimple_code (stmt) == GIMPLE_RETURN
-      && gimple_return_retval (stmt)
-      && operand_equal_p (gimple_return_retval (stmt), op, 0)
-      && lookup_attribute ("returns_nonnull",
-			   TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
-    return true;
+  if (attribute)
+    if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
+      if (gimple_return_retval (return_stmt)
+	  && operand_equal_p (gimple_return_retval (return_stmt), op, 0)
+	  && lookup_attribute ("returns_nonnull",
+			       TYPE_ATTRIBUTES (TREE_TYPE (current_function_decl))))
+	return true;
 
   return false;
 }

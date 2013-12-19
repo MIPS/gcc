@@ -3220,7 +3220,7 @@ expand_gimple_stmt_1 (gimple stmt)
       break;
 
     case GIMPLE_RETURN:
-      op0 = gimple_return_retval (stmt);
+      op0 = gimple_return_retval (as_a <gimple_return> (stmt));
 
       if (op0 && op0 != error_mark_node)
 	{
@@ -4915,7 +4915,7 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
   if (!gsi_end_p (gsi)
       && gimple_code (gsi_stmt (gsi)) == GIMPLE_RETURN)
     {
-      gimple ret_stmt = gsi_stmt (gsi);
+      gimple_return ret_stmt = as_a <gimple_return> (gsi_stmt (gsi));
 
       gcc_assert (single_succ_p (bb));
       gcc_assert (single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun));

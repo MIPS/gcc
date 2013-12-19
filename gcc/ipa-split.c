@@ -710,10 +710,10 @@ find_return_bb (void)
 		   || is_gimple_min_invariant (gimple_assign_rhs1 (stmt)))
 	       && retval == gimple_assign_lhs (stmt))
 	;
-      else if (gimple_code (stmt) == GIMPLE_RETURN)
+      else if (gimple_return return_stmt = dyn_cast <gimple_return> (stmt))
 	{
 	  found_return = true;
-	  retval = gimple_return_retval (stmt);
+	  retval = gimple_return_retval (return_stmt);
 	}
       else
 	break;
@@ -731,8 +731,8 @@ find_retval (basic_block return_bb)
 {
   gimple_stmt_iterator bsi;
   for (bsi = gsi_start_bb (return_bb); !gsi_end_p (bsi); gsi_next (&bsi))
-    if (gimple_code (gsi_stmt (bsi)) == GIMPLE_RETURN)
-      return gimple_return_retval (gsi_stmt (bsi));
+    if (gimple_return return_stmt = dyn_cast <gimple_return> (gsi_stmt (bsi)))
+      return gimple_return_retval (return_stmt);
     else if (gimple_code (gsi_stmt (bsi)) == GIMPLE_ASSIGN
 	     && !gimple_clobber_p (gsi_stmt (bsi)))
       return gimple_assign_rhs1 (gsi_stmt (bsi));
@@ -1446,9 +1446,10 @@ split_function (struct split_point *split_point)
 		      gimple_stmt_iterator bsi;
 		      for (bsi = gsi_start_bb (return_bb); !gsi_end_p (bsi);
 			   gsi_next (&bsi))
-			if (gimple_code (gsi_stmt (bsi)) == GIMPLE_RETURN)
+			if (gimple_return return_stmt =
+			      dyn_cast <gimple_return> (gsi_stmt (bsi)))
 			  {
-			    gimple_return_set_retval (gsi_stmt (bsi), retval);
+			    gimple_return_set_retval (return_stmt, retval);
 			    break;
 			  }
 			else if (gimple_code (gsi_stmt (bsi)) == GIMPLE_ASSIGN

@@ -8335,8 +8335,9 @@ pass_warn_function_return::execute (function *fun)
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (fun)->preds)
 	{
 	  gimple last = last_stmt (e->src);
-	  if (gimple_code (last) == GIMPLE_RETURN
-	      && gimple_return_retval (last) == NULL
+	  gimple_return return_stmt = dyn_cast <gimple_return> (last);
+	  if (return_stmt
+	      && gimple_return_retval (return_stmt) == NULL
 	      && !gimple_no_warning_p (last))
 	    {
 	      location = gimple_location (last);
