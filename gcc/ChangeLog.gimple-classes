@@ -1,5 +1,12 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize parameter to gimple_call_copy_skip_args
+
+	* gimple.c (gimple_call_copy_skip_args): Require a gimple_call.
+	* gimple.h (gimple_call_copy_skip_args): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Various gimple to gimple_call conversions in IPA
 
 	* ipa-prop.c (detect_type_change_from_memory_writes): Require a

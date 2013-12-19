@@ -1392,7 +1392,7 @@ bool gimple_assign_rhs_could_trap_p (gimple);
 extern void dump_gimple_statistics (void);
 unsigned get_gimple_rhs_num_ops (enum tree_code);
 extern tree canonicalize_cond_expr_cond (tree);
-gimple_call gimple_call_copy_skip_args (gimple, bitmap);
+gimple_call gimple_call_copy_skip_args (gimple_call, bitmap);
 extern bool gimple_compare_field_offset (tree, tree);
 extern tree gimple_unsigned_type (tree);
 extern tree gimple_signed_type (tree);
