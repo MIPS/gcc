@@ -3972,12 +3972,12 @@ gimple_phi_arg_edge (gimple_phi phi, size_t i)
   return EDGE_PRED (gimple_bb (phi), i);
 }
 
-/* Return the source location of gimple argument I of phi node GS.  */
+/* Return the source location of gimple argument I of phi node PHI.  */
 
 static inline source_location
-gimple_phi_arg_location (gimple gs, size_t i)
+gimple_phi_arg_location (gimple_phi phi, size_t i)
 {
-  return gimple_phi_arg (gs, i)->locus;
+  return gimple_phi_arg (phi, i)->locus;
 }
 
 /* Return the source location of the argument on edge E of phi node PHI.  */

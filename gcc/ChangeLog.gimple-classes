@@ -1,5 +1,30 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_phi_arg_location require a gimple_phi.
+
+	* gimple.h (gimple_phi_arg_location): Require a gimple_phi.
+
+	* tree-into-ssa.c (rewrite_update_phi_arguments): Replace a check
+	for code GIMPLE_PHI with a dyn_cast and a new local.
+	* tree-ssa-ter.c (ter_is_replaceable_p): Likewise.
+
+	* tree-ssa-live.c (remove_unused_locals): Replace a
+	gimple_stmt_iterator with a gimple_phi_iterator, using it to make
+	local "phi" be a gimple_phi.
+	* tree-ssa-phiopt.c (tree_ssa_phiopt_worker): Likewise.
+
+	* tree-ssa-phiopt.c (conditional_replacement): Require a gimple_phi.
+	(single_non_singleton_phi_for_edges): Return a gimple_phi; update
+	local to be a gimple_phi, adding checked casts since we're working
+	on a sequence of gimple_phi.
+	(conditional_replacement): Require a gimple_phi.
+
+	* tree-ssa-threadupdate.c (get_value_locus_in_path): Strengthen
+	type of local "def_phi" to gimple_phi by replacing a check of the
+	code for GIMPLE_PHI with a dyn_cast<gimple_phi>.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_phi_arg_location_from_edge require a gimple_phi
 
 	* gimple.h (gimple_phi_arg_location_from_edge): Require a

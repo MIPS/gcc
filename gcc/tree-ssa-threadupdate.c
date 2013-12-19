@@ -419,14 +419,14 @@ get_value_locus_in_path (tree def, vec<jump_thread_edge *> *path,
 			 basic_block bb, int idx, source_location *locus)
 {
   tree arg;
-  gimple def_phi;
+  gimple_phi def_phi;
   basic_block def_bb;
 
   if (path == NULL || idx == 0)
     return def;
 
-  def_phi = SSA_NAME_DEF_STMT (def);
-  if (gimple_code (def_phi) != GIMPLE_PHI)
+  def_phi = dyn_cast <gimple_phi> (SSA_NAME_DEF_STMT (def));
+  if (!def_phi)
     return def;
 
   def_bb = gimple_bb (def_phi);

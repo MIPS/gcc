@@ -2045,12 +2045,13 @@ rewrite_update_phi_arguments (basic_block bb)
 	      else
 		{
 		  gimple stmt = SSA_NAME_DEF_STMT (reaching_def);
+		  gimple_phi other_phi = dyn_cast <gimple_phi> (stmt);
 
 		  /* Single element PHI nodes  behave like copies, so get the
 		     location from the phi argument.  */
-		  if (gimple_code (stmt) == GIMPLE_PHI
-		      && gimple_phi_num_args (stmt) == 1)
-		    locus = gimple_phi_arg_location (stmt, 0);
+		  if (other_phi
+		      && gimple_phi_num_args (other_phi) == 1)
+		    locus = gimple_phi_arg_location (other_phi, 0);
 		  else
 		    locus = gimple_location (stmt);
 		}

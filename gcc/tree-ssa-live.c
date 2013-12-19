@@ -819,12 +819,14 @@ remove_unused_locals (void)
 	    mark_all_vars_used (gimple_op_ptr (gsi_stmt (gsi), i));
 	}
 
-      for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+      for (gimple_phi_iterator gpi = gsi_start_phis (bb);
+	   !gsi_end_p (gpi);
+	   gsi_next (&gpi))
         {
           use_operand_p arg_p;
           ssa_op_iter i;
 	  tree def;
-	  gimple phi = gsi_stmt (gsi);
+	  gimple_phi phi = gpi.phi ();
 
 	  if (virtual_operand_p (gimple_phi_result (phi)))
 	    continue;

@@ -62,7 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 
 static unsigned int tree_ssa_phiopt_worker (bool, bool);
 static bool conditional_replacement (basic_block, basic_block,
-				     edge, edge, gimple, tree, tree);
+				     edge, edge, gimple_phi, tree, tree);
 static int value_replacement (basic_block, basic_block,
 			      edge, edge, gimple, tree, tree);
 static bool minmax_replacement (basic_block, basic_block,
@@ -138,16 +138,16 @@ tree_ssa_cs_elim (void)
 
 /* Return the singleton PHI in the SEQ of PHIs for edges E0 and E1. */
 
-static gimple
+static gimple_phi
 single_non_singleton_phi_for_edges (gimple_seq seq, edge e0, edge e1)
 {
   gimple_stmt_iterator i;
-  gimple phi = NULL;
+  gimple_phi phi = NULL;
   if (gimple_seq_singleton_p (seq))
-    return gsi_stmt (gsi_start (seq));
+    return as_a <gimple_phi> (gsi_stmt (gsi_start (seq)));
   for (i = gsi_start (seq); !gsi_end_p (i); gsi_next (&i))
     {
-      gimple p = gsi_stmt (i);
+      gimple_phi p = as_a <gimple_phi> (gsi_stmt (i));
       /* If the PHI arguments are equal then we can skip this PHI. */
       if (operand_equal_for_phi_arg_p (gimple_phi_arg_def (p, e0->dest_idx),
 				       gimple_phi_arg_def (p, e1->dest_idx)))
@@ -211,7 +211,8 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 
   for (i = 0; i < n; i++)
     {
-      gimple cond_stmt, phi;
+      gimple cond_stmt;
+      gimple_phi phi;
       basic_block bb1, bb2;
       edge e1, e2;
       tree arg0, arg1;
@@ -322,7 +323,7 @@ tree_ssa_phiopt_worker (bool do_store_elim, bool do_hoist_loads)
 	     so try that first. */
 	  for (gsi = gsi_start (phis); !gsi_end_p (gsi); gsi_next (&gsi))
 	    {
-	      phi = gsi_stmt (gsi);
+	      phi = as_a <gimple_phi> (gsi_stmt (gsi));
 	      arg0 = gimple_phi_arg_def (phi, e1->dest_idx);
 	      arg1 = gimple_phi_arg_def (phi, e2->dest_idx);
 	      if (value_replacement (bb, bb1, e1, e2, phi, arg0, arg1) == 2)
@@ -433,7 +434,7 @@ replace_phi_edge_with_variable (basic_block cond_block,
 
 static bool
 conditional_replacement (basic_block cond_bb, basic_block middle_bb,
-			 edge e0, edge e1, gimple phi,
+			 edge e0, edge e1, gimple_phi phi,
 			 tree arg0, tree arg1)
 {
   tree result;
