@@ -1,5 +1,14 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_try_set_catch_is_cleanup
+
+	* gimple.h (gimple_try_set_catch_is_cleanup): Require a gimple_try.
+
+	* gimplify.c (gimplify_expr): Convert local "try_" from a gimple
+	to a gimple_try.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_eh_filter_set_types and gimple_eh_filter_set_failure
 
 	* gimple.h (gimple_eh_filter_set_types): Require a gimple_eh_filter.

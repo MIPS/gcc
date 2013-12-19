@@ -3775,7 +3775,7 @@ gimple_try_cleanup (gimple gs)
 /* Set the GIMPLE_TRY_CATCH_IS_CLEANUP flag.  */
 
 static inline void
-gimple_try_set_catch_is_cleanup (gimple g, bool catch_is_cleanup)
+gimple_try_set_catch_is_cleanup (gimple_try g, bool catch_is_cleanup)
 {
   gcc_gimple_checking_assert (gimple_try_kind (g) == GIMPLE_TRY_CATCH);
   if (catch_is_cleanup)

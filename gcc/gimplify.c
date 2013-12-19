@@ -7993,7 +7993,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case TRY_CATCH_EXPR:
 	  {
 	    gimple_seq eval, cleanup;
-	    gimple try_;
+	    gimple_try try_;
 
 	    /* Calls to destructors are generated automatically in FINALLY/CATCH
 	       block. They should have location as UNKNOWN_LOCATION. However,
