@@ -1045,7 +1045,7 @@ assign_discriminators (void)
 static void
 make_cond_expr_edges (basic_block bb)
 {
-  gimple entry = last_stmt (bb);
+  gimple_cond entry = as_a <gimple_cond> (last_stmt (bb));
   gimple then_stmt, else_stmt;
   basic_block then_bb, else_bb;
   tree then_label, else_label;
@@ -1414,21 +1414,24 @@ cleanup_dead_labels (void)
       switch (gimple_code (stmt))
 	{
 	case GIMPLE_COND:
-	  label = gimple_cond_true_label (stmt);
-	  if (label)
-	    {
-	      new_label = main_block_label (label);
-	      if (new_label != label)
-		gimple_cond_set_true_label (stmt, new_label);
-	    }
+	  {
+	    gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	    label = gimple_cond_true_label (cond_stmt);
+	    if (label)
+	      {
+		new_label = main_block_label (label);
+		if (new_label != label)
+		  gimple_cond_set_true_label (cond_stmt, new_label);
+	      }
 
-	  label = gimple_cond_false_label (stmt);
-	  if (label)
-	    {
-	      new_label = main_block_label (label);
-	      if (new_label != label)
-		gimple_cond_set_false_label (stmt, new_label);
-	    }
+	    label = gimple_cond_false_label (cond_stmt);
+	    if (label)
+	      {
+		new_label = main_block_label (label);
+		if (new_label != label)
+		  gimple_cond_set_false_label (cond_stmt, new_label);
+	      }
+	  }
 	  break;
 
 	case GIMPLE_SWITCH:

@@ -3091,9 +3091,8 @@ gimple_cond_true_label (const_gimple gs)
    predicate evaluates to true.  */
 
 static inline void
-gimple_cond_set_true_label (gimple gs, tree label)
+gimple_cond_set_true_label (gimple_cond gs, tree label)
 {
-  GIMPLE_CHECK (gs, GIMPLE_COND);
   gimple_set_op (gs, 2, label);
 }
 
@@ -3102,9 +3101,8 @@ gimple_cond_set_true_label (gimple gs, tree label)
    predicate evaluates to false.  */
 
 static inline void
-gimple_cond_set_false_label (gimple gs, tree label)
+gimple_cond_set_false_label (gimple_cond gs, tree label)
 {
-  GIMPLE_CHECK (gs, GIMPLE_COND);
   gimple_set_op (gs, 3, label);
 }
 

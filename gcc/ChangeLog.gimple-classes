@@ -1,5 +1,17 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_cond_set_{true|false}_label require gimple_cond.
+
+	* gimple.h (gimple_cond_set_true_label): Require a gimple_cond.
+	(gimple_cond_set_false_label): Likewise.
+
+	* tree-cfg.c (make_cond_expr_edges): Convert "entry" from gimple to
+	a gimple_cond.
+	(cleanup_dead_labels): Introduce a checked cast to a gimple_cond within
+	the GIMPLE_COND case.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize three gimple_return_ accessors
 
 	* gimple.h (gimple_return_retval_ptr): Require a const_gimple_return
