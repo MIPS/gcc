@@ -3711,9 +3711,8 @@ gimple_try_kind (const_gimple gs)
 /* Set the kind of try block represented by GIMPLE_TRY GS.  */
 
 static inline void
-gimple_try_set_kind (gimple gs, enum gimple_try_flags kind)
+gimple_try_set_kind (gimple_try gs, enum gimple_try_flags kind)
 {
-  GIMPLE_CHECK (gs, GIMPLE_TRY);
   gcc_gimple_checking_assert (kind == GIMPLE_TRY_CATCH
 			      || kind == GIMPLE_TRY_FINALLY);
   if (gimple_try_kind (gs) != kind)
@@ -3786,23 +3785,21 @@ gimple_try_set_catch_is_cleanup (gimple_try g, bool catch_is_cleanup)
 
 
 /* Set EVAL to be the sequence of statements to use as the body for
-   GIMPLE_TRY GS.  */
+   GIMPLE_TRY TRY_STMT.  */
 
 static inline void
-gimple_try_set_eval (gimple gs, gimple_seq eval)
+gimple_try_set_eval (gimple_try try_stmt, gimple_seq eval)
 {
-  gimple_statement_try *try_stmt = as_a <gimple_statement_try *> (gs);
   try_stmt->eval = eval;
 }
 
 
 /* Set CLEANUP to be the sequence of statements to use as the cleanup
-   body for GIMPLE_TRY GS.  */
+   body for GIMPLE_TRY TRY_STMT.  */
 
 static inline void
-gimple_try_set_cleanup (gimple gs, gimple_seq cleanup)
+gimple_try_set_cleanup (gimple_try try_stmt, gimple_seq cleanup)
 {
-  gimple_statement_try *try_stmt = as_a <gimple_statement_try *> (gs);
   try_stmt->cleanup = cleanup;
 }
 

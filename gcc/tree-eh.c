@@ -3024,7 +3024,7 @@ same_handler_p (gimple_seq oneh, gimple_seq twoh)
    temporary used in the initializer for A.  */
 
 static void
-optimize_double_finally (gimple one, gimple two)
+optimize_double_finally (gimple_try one, gimple_try two)
 {
   gimple oneh;
   gimple_stmt_iterator gsi;
@@ -3071,13 +3071,12 @@ refactor_eh_r (gimple_seq seq)
 	two = NULL;
       else
 	two = gsi_stmt (gsi);
-      if (one
-	  && two
-	  && gimple_code (one) == GIMPLE_TRY
-	  && gimple_code (two) == GIMPLE_TRY
-	  && gimple_try_kind (one) == GIMPLE_TRY_FINALLY
-	  && gimple_try_kind (two) == GIMPLE_TRY_FINALLY)
-	optimize_double_finally (one, two);
+      if (one && two)
+	if (gimple_try try_one = dyn_cast <gimple_try> (one))
+	  if (gimple_try try_two = dyn_cast <gimple_try> (two))
+	    if (gimple_try_kind (try_one) == GIMPLE_TRY_FINALLY
+		&& gimple_try_kind (try_two) == GIMPLE_TRY_FINALLY)
+	      optimize_double_finally (try_one, try_two);
       if (one)
 	switch (gimple_code (one))
 	  {

@@ -1709,10 +1709,14 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_TRY:
-	  new_seq = gimple_seq_copy (gimple_try_eval (stmt));
-	  gimple_try_set_eval (copy, new_seq);
-	  new_seq = gimple_seq_copy (gimple_try_cleanup (stmt));
-	  gimple_try_set_cleanup (copy, new_seq);
+	  {
+	    gimple_try try_stmt = as_a <gimple_try> (stmt);
+	    gimple_try try_copy = as_a <gimple_try> (copy);
+	    new_seq = gimple_seq_copy (gimple_try_eval (try_stmt));
+	    gimple_try_set_eval (try_copy, new_seq);
+	    new_seq = gimple_seq_copy (gimple_try_cleanup (try_stmt));
+	    gimple_try_set_cleanup (try_copy, new_seq);
+	  }
 	  break;
 
 	case GIMPLE_OMP_FOR:

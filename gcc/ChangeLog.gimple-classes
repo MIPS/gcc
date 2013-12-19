@@ -1,5 +1,19 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize three gimple_try_set_ accessors
+
+	* gimple.c (gimple_copy): Add checked casts to gimple_try.
+
+	* gimple.h (gimple_try_set_kind): Require a gimple_try.
+	(gimple_try_set_eval): Likewise.
+	(gimple_try_set_cleanup): Likewise.
+
+	* tree-eh.c (optimize_double_finally): Require a pair of gimple_try
+	statements.
+	(refactor_eh_r): Convert code comparisons to dynamic casts.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_try_set_catch_is_cleanup
 
 	* gimple.h (gimple_try_set_catch_is_cleanup): Require a gimple_try.
