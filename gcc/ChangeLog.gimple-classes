@@ -1,5 +1,14 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_eh_filter_set_types and gimple_eh_filter_set_failure
+
+	* gimple.h (gimple_eh_filter_set_types): Require a gimple_eh_filter.
+	(gimple_eh_filter_set_failure): Likewise.
+	* gimple.c (gimple_copy): Add checked casts to gimple_eh_filter
+	within GIMPLE_EH_FILTER case.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_label_label
 
 	* gimple.h (gimple_label_label): Require a const_gimple_label

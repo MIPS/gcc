@@ -1686,10 +1686,15 @@ gimple_copy (gimple stmt)
 	  break;
 
 	case GIMPLE_EH_FILTER:
-	  new_seq = gimple_seq_copy (gimple_eh_filter_failure (stmt));
-	  gimple_eh_filter_set_failure (copy, new_seq);
-	  t = unshare_expr (gimple_eh_filter_types (stmt));
-	  gimple_eh_filter_set_types (copy, t);
+	  {
+	    gimple_eh_filter eh_filter_stmt = as_a <gimple_eh_filter> (stmt);
+	    gimple_eh_filter eh_filter_copy = as_a <gimple_eh_filter> (copy);
+	    new_seq =
+	      gimple_seq_copy (gimple_eh_filter_failure (eh_filter_stmt));
+	    gimple_eh_filter_set_failure (eh_filter_copy, new_seq);
+	    t = unshare_expr (gimple_eh_filter_types (eh_filter_stmt));
+	    gimple_eh_filter_set_types (eh_filter_copy, t);
+	  }
 	  break;
 
 	case GIMPLE_EH_ELSE:

@@ -3620,25 +3620,23 @@ gimple_eh_filter_failure (gimple gs)
 }
 
 
-/* Set TYPES to be the set of types handled by GIMPLE_EH_FILTER GS.  */
+/* Set TYPES to be the set of types handled by GIMPLE_EH_FILTER
+   EH_FILTER_STMT.  */
 
 static inline void
-gimple_eh_filter_set_types (gimple gs, tree types)
+gimple_eh_filter_set_types (gimple_eh_filter eh_filter_stmt, tree types)
 {
-  gimple_statement_eh_filter *eh_filter_stmt =
-    as_a <gimple_statement_eh_filter *> (gs);
   eh_filter_stmt->types = types;
 }
 
 
 /* Set FAILURE to be the sequence of statements to execute on failure
-   for GIMPLE_EH_FILTER GS.  */
+   for GIMPLE_EH_FILTER EH_FILTER_STMT.  */
 
 static inline void
-gimple_eh_filter_set_failure (gimple gs, gimple_seq failure)
+gimple_eh_filter_set_failure (gimple_eh_filter eh_filter_stmt,
+			      gimple_seq failure)
 {
-  gimple_statement_eh_filter *eh_filter_stmt =
-    as_a <gimple_statement_eh_filter *> (gs);
   eh_filter_stmt->failure = failure;
 }
 
