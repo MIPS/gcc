@@ -3218,9 +3218,8 @@ gimple_label_label (const_gimple gs)
    GS.  */
 
 static inline void
-gimple_label_set_label (gimple gs, tree label)
+gimple_label_set_label (gimple_label gs, tree label)
 {
-  GIMPLE_CHECK (gs, GIMPLE_LABEL);
   gimple_set_op (gs, 0, label);
 }
 

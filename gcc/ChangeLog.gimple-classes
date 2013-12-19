@@ -1,5 +1,11 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Make gimple_label_set_label require a gimple_label
+
+	* gimple.h (gimple_label_set_label): Require a gimple_label.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize parameter to gimple_call_copy_skip_args
 
 	* gimple.c (gimple_call_copy_skip_args): Require a gimple_call.
