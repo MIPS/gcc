@@ -1,5 +1,12 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_catch_types
+
+	* gimple.h (gimple_catch_types): Require a const_gimple_catch
+	rather than a const_gimple.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Make gimple_goto_set_dest require a gimple_goto
 
 	* gimple.h (gimple_goto_set_dest): Require a gimple_goto.

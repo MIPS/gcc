@@ -3522,13 +3522,11 @@ gimple_asm_input_p (const_gimple_asm asm_stmt)
 }
 
 
-/* Return the types handled by GIMPLE_CATCH statement GS.  */
+/* Return the types handled by GIMPLE_CATCH statement CATCH_STMT.  */
 
 static inline tree
-gimple_catch_types (const_gimple gs)
+gimple_catch_types (const_gimple_catch catch_stmt)
 {
-  const gimple_statement_catch *catch_stmt =
-    as_a <const gimple_statement_catch *> (gs);
   return catch_stmt->types;
 }
 
