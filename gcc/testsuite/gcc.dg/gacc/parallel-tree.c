@@ -5,7 +5,7 @@
 
 int main() {
 
-	int q, i, j, k, m, n, o, p, r, s, t, u, v, w;
+	int q, i, j, k, m, n, o, p, r, s, t, *u, v, w;
 	int l;
 
 #pragma acc parallel if(l) async num_gangs(i) num_workers(i) vector_length(i) \

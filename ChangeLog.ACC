@@ -1,3 +1,16 @@
+20-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Fix some regressions
+
+	* gcc/c/c-parser.c(acc_is_loop_clause): New function
+	(c_finish_acc_parallel, c_finish_acc_kernels, c_finish_acc_loop):
+	Split clauses in combined directives into loop-specific and 
+	construct-specific
+	* gcc/fortran/openmp.c(resolve_omp_clauses): Fix reduction
+	* gcc/fortran/trans-openacc.c(trans_acc_clauses): Fix async
+	* gcc/testsuite/gcc.dg/gacc/loop-tree.c: Fix test
+	* gcc/testsuite/gcc.dg/gacc/parallel-tree.c: Likewise
+	* gcc/testsuite/gfortran.dg/gacc/_reduction.f95: Likewise
+
 20-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Loop collapsing.
 

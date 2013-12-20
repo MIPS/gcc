@@ -6,14 +6,14 @@ main()
 {
    int i, j, k, m, sum;
 
-   #pragma acc kernels 
+    
    {
-      #pragma acc loop seq collapse(2)
+      #pragma acc kernels loop seq collapse(2)
       for(i = 0; i < 10; i++)
          for(j = 0; j < 10; j++)
             {}
 
-      #pragma acc loop independent gang (3)
+      #pragma acc kernels loop independent gang (3)
       for( i = 0; i < 10; i++)
          {
             #pragma acc loop worker(3)
@@ -27,12 +27,10 @@ main()
    }
 
    sum = 0;
-   #pragma acc parallel
-      {
-         #pragma acc loop private(m) reduction(+:sum)
+   #pragma acc parallel loop private(m) reduction(+:sum)
          for( i = 0; i < 10; i++)
             sum += 1;
-      }
+      
 
    return 0;
 }

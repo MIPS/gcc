@@ -1705,6 +1705,12 @@ resolve_omp_clauses (gfc_code *code)
 		  gfc_error ("Variable '%s' in %s clause is used in "
 			     "NAMELIST statement at %L",
 			     n->sym->name, name, &code->loc);
+	        if (list >= ACC_LIST_REDUCTION_FIRST
+	            && list <= ACC_LIST_REDUCTION_LAST
+	            && n->sym->as && n->sym->as->rank != 0)
+	          gfc_error ("OpenACC reduction requires SCALAR variable "
+	                     "at %L", &code->loc);
+
 		switch (list)
 		  {
 		  case OMP_LIST_PLUS:
@@ -1838,7 +1844,6 @@ resolve_omp_clauses (gfc_code *code)
               gfc_error ("POINTER object '%s' of DERIVED type in %s clause at %L",
                          n->sym->name, name, &code->loc);
           }
-
       }
 }
 

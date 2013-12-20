@@ -11907,6 +11907,25 @@ c_begin_acc_loop (void)
   return block;
 }
 
+static bool
+acc_is_loop_clause (tree clause)
+{
+  switch (ACC_CLAUSE_CODE (clause))
+    {
+    case ACC_CLAUSE_COLLAPSE:
+    case ACC_CLAUSE_GANG:
+    case ACC_CLAUSE_WORKER:
+    case ACC_CLAUSE_VECTOR:
+    case ACC_CLAUSE_SEQ:
+    case ACC_CLAUSE_INDEPENDENT:
+    case ACC_CLAUSE_PRIVATE:
+    case ACC_CLAUSE_REDUCTION:
+      return true;
+    default:
+      return false;
+  }
+}
+
 /* Generate ACC_PARALLEL, with CLAUSES and BLOCK as its compound
    statement. */
 tree
@@ -11925,44 +11944,16 @@ c_finish_acc_parallel (location_t loc, tree clauses, tree block)
     ACC_PARALLEL_CLAUSES (stmt) = NULL;
   else
     {
-      tree parallel_clauses = NULL, c;
-
+      tree parallel_clauses = NULL_TREE, c, parallel_c = NULL_TREE;
       for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
-          switch (ACC_CLAUSE_CODE (c))
+          if (!acc_is_loop_clause (c))
             {
-            case ACC_CLAUSE_IF:
-            case ACC_CLAUSE_ASYNC:
-            case ACC_CLAUSE_NUM_GANGS:
-            case ACC_CLAUSE_NUM_WORKERS:
-            case ACC_CLAUSE_VECTOR_LENGTH:
-            case ACC_CLAUSE_REDUCTION:
-            case ACC_CLAUSE_COPY:
-            case ACC_CLAUSE_COPYIN:
-            case ACC_CLAUSE_COPYOUT:
-            case ACC_CLAUSE_CREATE:
-            case ACC_CLAUSE_PRESENT:
-            case ACC_CLAUSE_PRESENT_OR_COPY:
-            case ACC_CLAUSE_PRESENT_OR_COPYIN:
-            case ACC_CLAUSE_PRESENT_OR_COPYOUT:
-            case ACC_CLAUSE_PRESENT_OR_CREATE:
-            case ACC_CLAUSE_DEVICEPTR:
-            case ACC_CLAUSE_PRIVATE:
-            case ACC_CLAUSE_FIRSTPRIVATE:
-              if (parallel_clauses == NULL)
+              if (parallel_clauses == NULL_TREE)
                 parallel_clauses = c;
               else
-                ACC_CLAUSE_CHAIN (parallel_clauses) = c;
-              break;
-            case ACC_CLAUSE_COLLAPSE:
-            case ACC_CLAUSE_GANG:
-            case ACC_CLAUSE_WORKER:
-            case ACC_CLAUSE_VECTOR:
-            case ACC_CLAUSE_SEQ:
-            case ACC_CLAUSE_INDEPENDENT:
-              break;
-            default:
-              gcc_unreachable ();
+                ACC_CLAUSE_CHAIN (parallel_c) = c;
+              parallel_c = c;
             }
         }
       ACC_PARALLEL_CLAUSES (stmt) = parallel_clauses;
@@ -11989,38 +11980,16 @@ c_finish_acc_kernels (location_t loc, tree clauses, tree block)
     ACC_KERNELS_CLAUSES (stmt) = NULL;
   else
     {
-      tree kernels_clauses = NULL, c;
-
+      tree kernels_clauses = NULL_TREE, c, kernels_c = NULL_TREE;
       for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
-          switch (ACC_CLAUSE_CODE (c))
+          if (!acc_is_loop_clause (c))
             {
-            case ACC_CLAUSE_IF:
-            case ACC_CLAUSE_ASYNC:
-            case ACC_CLAUSE_COPY:
-            case ACC_CLAUSE_COPYIN:
-            case ACC_CLAUSE_COPYOUT:
-            case ACC_CLAUSE_CREATE:
-            case ACC_CLAUSE_PRESENT:
-            case ACC_CLAUSE_PRESENT_OR_COPY:
-            case ACC_CLAUSE_PRESENT_OR_COPYIN:
-            case ACC_CLAUSE_PRESENT_OR_COPYOUT:
-            case ACC_CLAUSE_PRESENT_OR_CREATE:
-            case ACC_CLAUSE_DEVICEPTR:
-              if (kernels_clauses == NULL)
+              if (kernels_clauses == NULL_TREE)
                 kernels_clauses = c;
               else
-                ACC_CLAUSE_CHAIN (kernels_clauses) = c;
-              break;
-            case ACC_CLAUSE_COLLAPSE:
-            case ACC_CLAUSE_GANG:
-            case ACC_CLAUSE_WORKER:
-            case ACC_CLAUSE_VECTOR:
-            case ACC_CLAUSE_SEQ:
-            case ACC_CLAUSE_INDEPENDENT:
-              break;
-            default:
-              gcc_unreachable ();
+                ACC_CLAUSE_CHAIN (kernels_c) = c;
+              kernels_c = c;
             }
         }
       ACC_KERNELS_CLAUSES (stmt) = kernels_clauses;
@@ -12079,48 +12048,21 @@ c_finish_acc_loop (location_t loc, tree clauses, tree block)
   ACC_LOOP_BODY (stmt) = block;
   SET_EXPR_LOCATION (stmt, loc);
 
-  if (clauses == NULL)
-    ACC_LOOP_CLAUSES (stmt) = NULL;
+  if (clauses == NULL_TREE)
+    ACC_LOOP_CLAUSES (stmt) = NULL_TREE;
   else
     {
-      tree loop_clauses = NULL, c;
-
+      /* Pull only LOOP clauses. */
+      tree loop_clauses = NULL_TREE, c, loop_c = NULL_TREE;
       for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
-          switch (ACC_CLAUSE_CODE (c))
+          if (acc_is_loop_clause (c))
             {
-            case ACC_CLAUSE_COLLAPSE:
-            case ACC_CLAUSE_GANG:
-            case ACC_CLAUSE_WORKER:
-            case ACC_CLAUSE_VECTOR:
-            case ACC_CLAUSE_SEQ:
-            case ACC_CLAUSE_INDEPENDENT:
-            case ACC_CLAUSE_PRIVATE:
-            case ACC_CLAUSE_REDUCTION:
-              if (loop_clauses == NULL)
+              if (loop_clauses == NULL_TREE)
                 loop_clauses = c;
               else
-                ACC_CLAUSE_CHAIN (loop_clauses) = c;
-              break;
-            case ACC_CLAUSE_IF:
-            case ACC_CLAUSE_ASYNC:
-            case ACC_CLAUSE_NUM_GANGS:
-            case ACC_CLAUSE_NUM_WORKERS:
-            case ACC_CLAUSE_VECTOR_LENGTH:
-            case ACC_CLAUSE_COPY:
-            case ACC_CLAUSE_COPYIN:
-            case ACC_CLAUSE_COPYOUT:
-            case ACC_CLAUSE_CREATE:
-            case ACC_CLAUSE_PRESENT:
-            case ACC_CLAUSE_PRESENT_OR_COPY:
-            case ACC_CLAUSE_PRESENT_OR_COPYIN:
-            case ACC_CLAUSE_PRESENT_OR_COPYOUT:
-            case ACC_CLAUSE_PRESENT_OR_CREATE:
-            case ACC_CLAUSE_DEVICEPTR:
-            case ACC_CLAUSE_FIRSTPRIVATE:
-              break;
-            default:
-              gcc_unreachable ();
+                ACC_CLAUSE_CHAIN (loop_c) = c;
+              loop_c = c;
             }
         }
       ACC_LOOP_CLAUSES (stmt) = loop_clauses;

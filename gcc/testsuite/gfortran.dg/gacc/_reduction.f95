@@ -62,7 +62,7 @@ common /blk/ i1
 !$acc end parallel			! { dg-error "Unexpected" }
 !$acc parallel reduction (*:p1)		! { dg-error "POINTER object" }
 !$acc end parallel
-!$acc parallel reduction (-:aa1)
+!$acc parallel reduction (-:aa1)	! { dg-error "SCALAR variable" }
 !$acc end parallel
 !$acc parallel reduction (*:ia1)	! { dg-error "Assumed size" }
 !$acc end parallel
@@ -136,3 +136,4 @@ common /blk/ i1
 !$acc end parallel
 
 end subroutine
+! { dg-excess-errors "SCALAR variable" }
