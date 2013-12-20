@@ -2644,13 +2644,12 @@ gimple_call_fntype (const_gimple gs)
   return call_stmt->u.fntype;
 }
 
-/* Set the type of the function called by GS to FNTYPE.  */
+/* Set the type of the function called by CALL_STMT to FNTYPE.  */
 
 static inline void
-gimple_call_set_fntype (gimple gs, tree fntype)
+gimple_call_set_fntype (gimple_call call_stmt, tree fntype)
 {
-  gimple_statement_call *call_stmt = as_a <gimple_statement_call *> (gs);
-  gcc_gimple_checking_assert (!gimple_call_internal_p (gs));
+  gcc_gimple_checking_assert (!gimple_call_internal_p (call_stmt));
   call_stmt->u.fntype = fntype;
 }
 

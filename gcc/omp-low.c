@@ -10455,6 +10455,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   gimple stmt = gsi_stmt (*gsi_p);
   struct walk_stmt_info wi;
+  gimple_call call_stmt;
 
   if (gimple_has_location (stmt))
     input_location = gimple_location (stmt);
@@ -10570,7 +10571,8 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       break;
     case GIMPLE_CALL:
       tree fndecl;
-      fndecl = gimple_call_fndecl (stmt);
+      call_stmt = as_a <gimple_call> (stmt);
+      fndecl = gimple_call_fndecl (call_stmt);
       if (fndecl
 	  && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL)
 	switch (DECL_FUNCTION_CODE (fndecl))
@@ -10585,7 +10587,7 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    cctx = ctx;
 	    if (gimple_code (cctx->stmt) == GIMPLE_OMP_SECTION)
 	      cctx = cctx->outer;
-	    gcc_assert (gimple_call_lhs (stmt) == NULL_TREE);
+	    gcc_assert (gimple_call_lhs (call_stmt) == NULL_TREE);
 	    if (!cctx->cancellable)
 	      {
 		if (DECL_FUNCTION_CODE (fndecl)
@@ -10599,12 +10601,12 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	    if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_GOMP_BARRIER)
 	      {
 		fndecl = builtin_decl_explicit (BUILT_IN_GOMP_BARRIER_CANCEL);
-		gimple_call_set_fndecl (stmt, fndecl);
-		gimple_call_set_fntype (stmt, TREE_TYPE (fndecl));
+		gimple_call_set_fndecl (call_stmt, fndecl);
+		gimple_call_set_fntype (call_stmt, TREE_TYPE (fndecl));
 	      }
 	    tree lhs;
 	    lhs = create_tmp_var (TREE_TYPE (TREE_TYPE (fndecl)), NULL);
-	    gimple_call_set_lhs (stmt, lhs);
+	    gimple_call_set_lhs (call_stmt, lhs);
 	    tree fallthru_label;
 	    fallthru_label = create_artificial_label (UNKNOWN_LOCATION);
 	    gimple g;

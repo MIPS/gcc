@@ -1,5 +1,18 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_set_fntype
+
+	* gimple-fold.c (gimple_fold_builtin_sprintf_chk): Strengthen
+	local "stmt" from gimple to gimple_call.
+
+	* gimple.h (gimple_call_set_fntype): Require a gimple_call.
+
+	* omp-low.c (lower_omp_1): Add a new local gimple_call "call_stmt",
+	from a checked cast to gimple_call within the "case GIMPLE_CALL",
+	for the regions where "stmt" is not subsequently overwritten.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_set_fn
 
 	* gimple.h (gimple_call_set_fn): Require a gimple_call.
