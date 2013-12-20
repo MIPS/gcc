@@ -3008,9 +3008,8 @@ gimple_cond_code (const_gimple gs)
 /* Set CODE to be the predicate code for the conditional statement GS.  */
 
 static inline void
-gimple_cond_set_code (gimple gs, enum tree_code code)
+gimple_cond_set_code (gimple_cond gs, enum tree_code code)
 {
-  GIMPLE_CHECK (gs, GIMPLE_COND);
   gs->subcode = code;
 }
 

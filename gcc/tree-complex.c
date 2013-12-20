@@ -1405,9 +1405,12 @@ expand_complex_comparison (gimple_stmt_iterator *gsi, tree ar, tree ai,
       break;
 
     case GIMPLE_COND:
-      gimple_cond_set_code (stmt, EQ_EXPR);
-      gimple_cond_set_lhs (stmt, cc);
-      gimple_cond_set_rhs (stmt, boolean_true_node);
+      {
+	gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	gimple_cond_set_code (cond_stmt, EQ_EXPR);
+	gimple_cond_set_lhs (cond_stmt, cc);
+	gimple_cond_set_rhs (cond_stmt, boolean_true_node);
+      }
       break;
 
     default:

@@ -1,5 +1,31 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_cond_set_code
+
+	* gimple.h (gimple_cond_set_code): Require a gimple_cond.
+
+	* tree-complex.c (expand_complex_comparison): Add a checked cast to
+	gimple_cond within "case GIMPLE_COND".
+
+	* tree-ssa-loop-ivcanon.c (create_canonical_iv): Convert local "cond"
+	to a gimple_cond, adding a checked cast.  The existing code requires
+	that the last statement before the exit edge have code GIMPLE_COND,
+	though it's not clear to me where this is verified.
+
+	* tree-ssa-loop-ivopts.c (rewrite_use_compare): Add a checked cast
+	to gimple_cond on "use->stmt".
+
+	* tree-ssa-loop-manip.c (tree_transform_and_unroll_loop): Convert
+	local "exit_if" to gimple_cond, adding a checked cast.  It's not
+	clear to me exactly where the GIMPLE_COND-ness of this is
+	established, but the existing code requires it.
+	(canonicalize_loop_ivs): Similarly for "stmt".
+
+	* tree-ssa-propagate.c (propagate_tree_value_into_stmt): Replace
+	a check against GIMPLE_COND with a dyn_cast<gimple_cond>.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_cond_{true|false}_label
 
 	* gimple.h (gimple_cond_true_label): Require a const_gimple_cond

@@ -1020,7 +1020,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
 				transform_callback transform,
 				void *data)
 {
-  gimple exit_if;
+  gimple_cond exit_if;
   tree ctr_before, ctr_after;
   tree enter_main_cond, exit_base, exit_step, exit_bound;
   enum tree_code exit_cmp;
@@ -1217,7 +1217,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   /* Finally create the new counter for number of iterations and add the new
      exit instruction.  */
   bsi = gsi_last_nondebug_bb (exit_bb);
-  exit_if = gsi_stmt (bsi);
+  exit_if = as_a <gimple_cond> (gsi_stmt (bsi));
   create_iv (exit_base, exit_step, NULL_TREE, loop,
 	     &bsi, false, &ctr_before, &ctr_after);
   gimple_cond_set_code (exit_if, exit_cmp);
@@ -1328,7 +1328,7 @@ canonicalize_loop_ivs (struct loop *loop, tree *nit, bool bump_in_latch)
   tree type, var_before;
   gimple_stmt_iterator gsi;
   gimple_phi_iterator psi;
-  gimple stmt;
+  gimple_cond stmt;
   edge exit = single_dom_exit (loop);
   gimple_seq stmts;
   enum machine_mode mode;
@@ -1379,7 +1379,7 @@ canonicalize_loop_ivs (struct loop *loop, tree *nit, bool bump_in_latch)
 
   rewrite_all_phi_nodes_with_iv (loop, var_before);
 
-  stmt = last_stmt (exit->src);
+  stmt = as_a <gimple_cond> (last_stmt (exit->src));
   /* Make the loop exit if the control condition is not satisfied.  */
   if (exit->flags & EDGE_TRUE_VALUE)
     {

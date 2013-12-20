@@ -6480,9 +6480,10 @@ rewrite_use_compare (struct ivopts_data *data,
 		loop_preheader_edge (data->current_loop),
 		stmts);
 
-      gimple_cond_set_lhs (use->stmt, var);
-      gimple_cond_set_code (use->stmt, compare);
-      gimple_cond_set_rhs (use->stmt, op);
+      gimple_cond cond_stmt = as_a <gimple_cond> (use->stmt);
+      gimple_cond_set_lhs (cond_stmt, var);
+      gimple_cond_set_code (cond_stmt, compare);
+      gimple_cond_set_rhs (cond_stmt, op);
       return;
     }
 

@@ -89,7 +89,7 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
 {
   edge in;
   tree type, var;
-  gimple cond;
+  gimple_cond cond;
   gimple_stmt_iterator incr_at;
   enum tree_code cmp;
 
@@ -100,7 +100,7 @@ create_canonical_iv (struct loop *loop, edge exit, tree niter)
       fprintf (dump_file, " iterations.\n");
     }
 
-  cond = last_stmt (exit->src);
+  cond = as_a <gimple_cond> (last_stmt (exit->src));
   in = EDGE_SUCC (exit->src, 0);
   if (in == exit)
     in = EDGE_SUCC (exit->src, 1);

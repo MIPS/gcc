@@ -1445,14 +1445,14 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
       propagate_tree_value (&expr, val);
       gimple_assign_set_rhs_from_tree (gsi, expr);
     }
-  else if (gimple_code (stmt) == GIMPLE_COND)
+  else if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
     {
       tree lhs = NULL_TREE;
       tree rhs = build_zero_cst (TREE_TYPE (val));
       propagate_tree_value (&lhs, val);
-      gimple_cond_set_code (stmt, NE_EXPR);
-      gimple_cond_set_lhs (stmt, lhs);
-      gimple_cond_set_rhs (stmt, rhs);
+      gimple_cond_set_code (cond_stmt, NE_EXPR);
+      gimple_cond_set_lhs (cond_stmt, lhs);
+      gimple_cond_set_rhs (cond_stmt, rhs);
     }
   else if (is_gimple_call (stmt)
            && gimple_call_lhs (stmt) != NULL_TREE)
