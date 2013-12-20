@@ -3121,7 +3121,7 @@ gimple_cond_false_label (const_gimple gs)
 /* Set the conditional COND_STMT to be of the form 'if (1 == 0)'.  */
 
 static inline void
-gimple_cond_make_false (gimple gs)
+gimple_cond_make_false (gimple_cond gs)
 {
   gimple_cond_set_lhs (gs, boolean_true_node);
   gimple_cond_set_rhs (gs, boolean_false_node);
@@ -3132,7 +3132,7 @@ gimple_cond_make_false (gimple gs)
 /* Set the conditional COND_STMT to be of the form 'if (1 == 1)'.  */
 
 static inline void
-gimple_cond_make_true (gimple gs)
+gimple_cond_make_true (gimple_cond gs)
 {
   gimple_cond_set_lhs (gs, boolean_true_node);
   gimple_cond_set_rhs (gs, boolean_true_node);

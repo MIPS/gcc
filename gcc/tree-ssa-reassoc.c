@@ -3040,18 +3040,19 @@ maybe_optimize_range_tests (gimple stmt)
 	      && bbinfo[idx].op == NULL_TREE
 	      && ops[bbinfo[idx].first_idx]->op != NULL_TREE)
 	    {
-	      stmt = last_stmt (bb);
+	      gimple_cond cond_stmt = as_a <gimple_cond> (last_stmt (bb));
 	      if (integer_zerop (ops[bbinfo[idx].first_idx]->op))
-		gimple_cond_make_false (stmt);
+		gimple_cond_make_false (cond_stmt);
 	      else if (integer_onep (ops[bbinfo[idx].first_idx]->op))
-		gimple_cond_make_true (stmt);
+		gimple_cond_make_true (cond_stmt);
 	      else
 		{
-		  gimple_cond_set_code (stmt, NE_EXPR);
-		  gimple_cond_set_lhs (stmt, ops[bbinfo[idx].first_idx]->op);
-		  gimple_cond_set_rhs (stmt, boolean_false_node);
+		  gimple_cond_set_code (cond_stmt, NE_EXPR);
+		  gimple_cond_set_lhs (cond_stmt,
+				       ops[bbinfo[idx].first_idx]->op);
+		  gimple_cond_set_rhs (cond_stmt, boolean_false_node);
 		}
-	      update_stmt (stmt);
+	      update_stmt (cond_stmt);
 	    }
 	  if (bb == first_bb)
 	    break;

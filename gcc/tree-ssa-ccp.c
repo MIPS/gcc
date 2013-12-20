@@ -2061,6 +2061,7 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
     {
     case GIMPLE_COND:
       {
+	gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
 	ccp_prop_value_t val;
 	/* Statement evaluation will handle type mismatches in constants
 	   more gracefully than the final propagation.  This allows us to
@@ -2080,9 +2081,9 @@ ccp_fold_stmt (gimple_stmt_iterator *gsi)
 	  }
 
 	if (integer_zerop (val.value))
-	  gimple_cond_make_false (stmt);
+	  gimple_cond_make_false (cond_stmt);
 	else
-	  gimple_cond_make_true (stmt);
+	  gimple_cond_make_true (cond_stmt);
 
 	return true;
       }
@@ -2588,15 +2589,15 @@ optimize_unreachable (gimple_stmt_iterator i)
 	continue;
 
       stmt = gsi_stmt (gsi);
-      if (gimple_code (stmt) == GIMPLE_COND)
+      if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
 	{
 	  if (e->flags & EDGE_TRUE_VALUE)
-	    gimple_cond_make_false (stmt);
+	    gimple_cond_make_false (cond_stmt);
 	  else if (e->flags & EDGE_FALSE_VALUE)
-	    gimple_cond_make_true (stmt);
+	    gimple_cond_make_true (cond_stmt);
 	  else
 	    gcc_unreachable ();
-	  update_stmt (stmt);
+	  update_stmt (cond_stmt);
 	}
       else
 	{

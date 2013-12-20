@@ -591,13 +591,16 @@ fold_cond_expr_cond (void)
 
       if (stmt && gimple_code (stmt) == GIMPLE_COND)
 	{
+	  gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
 	  location_t loc = gimple_location (stmt);
 	  tree cond;
 	  bool zerop, onep;
 
 	  fold_defer_overflow_warnings ();
-	  cond = fold_binary_loc (loc, gimple_cond_code (stmt), boolean_type_node,
-			      gimple_cond_lhs (stmt), gimple_cond_rhs (stmt));
+	  cond = fold_binary_loc (loc, gimple_cond_code (cond_stmt),
+				  boolean_type_node,
+				  gimple_cond_lhs (cond_stmt),
+				  gimple_cond_rhs (cond_stmt));
 	  if (cond)
 	    {
 	      zerop = integer_zerop (cond);
@@ -610,9 +613,9 @@ fold_cond_expr_cond (void)
 					  stmt,
 					  WARN_STRICT_OVERFLOW_CONDITIONAL);
 	  if (zerop)
-	    gimple_cond_make_false (stmt);
+	    gimple_cond_make_false (cond_stmt);
 	  else if (onep)
-	    gimple_cond_make_true (stmt);
+	    gimple_cond_make_true (cond_stmt);
 	}
     }
 }

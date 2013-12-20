@@ -9671,10 +9671,11 @@ fold_predicate_in (gimple_stmt_iterator *si)
       else
 	{
 	  gcc_assert (gimple_code (stmt) == GIMPLE_COND);
+	  gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
 	  if (integer_zerop (val))
-	    gimple_cond_make_false (stmt);
+	    gimple_cond_make_false (cond_stmt);
 	  else if (integer_onep (val))
-	    gimple_cond_make_true (stmt);
+	    gimple_cond_make_true (cond_stmt);
 	  else
 	    gcc_unreachable ();
 	}

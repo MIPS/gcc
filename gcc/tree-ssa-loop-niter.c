@@ -1922,7 +1922,8 @@ number_of_iterations_exit (struct loop *loop, edge exit,
 			   struct tree_niter_desc *niter,
 			   bool warn, bool every_iteration)
 {
-  gimple stmt;
+  gimple last;
+  gimple_cond stmt;
   tree type;
   tree op0, op1;
   enum tree_code code;
@@ -1935,8 +1936,11 @@ number_of_iterations_exit (struct loop *loop, edge exit,
     return false;
 
   niter->assumptions = boolean_false_node;
-  stmt = last_stmt (exit->src);
-  if (!stmt || gimple_code (stmt) != GIMPLE_COND)
+  last = last_stmt (exit->src);
+  if (!last)
+    return false;
+  stmt = dyn_cast <gimple_cond> (last);
+  if (!stmt)
     return false;
 
   /* We want the condition for staying inside loop.  */

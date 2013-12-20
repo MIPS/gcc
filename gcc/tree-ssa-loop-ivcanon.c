@@ -521,11 +521,12 @@ remove_exits_and_undefined_stmts (struct loop *loop, unsigned int npeeled)
 	  if (!loop_exit_edge_p (loop, exit_edge))
 	    exit_edge = EDGE_SUCC (bb, 1);
 	  gcc_checking_assert (loop_exit_edge_p (loop, exit_edge));
+	  gimple_cond cond_stmt = as_a <gimple_cond> (elt->stmt);
 	  if (exit_edge->flags & EDGE_TRUE_VALUE)
-	    gimple_cond_make_true (elt->stmt);
+	    gimple_cond_make_true (cond_stmt);
 	  else
-	    gimple_cond_make_false (elt->stmt);
-	  update_stmt (elt->stmt);
+	    gimple_cond_make_false (cond_stmt);
+	  update_stmt (cond_stmt);
 	  changed = true;
 	}
     }
@@ -574,11 +575,12 @@ remove_redundant_iv_tests (struct loop *loop)
 	      fprintf (dump_file, "Removed pointless exit: ");
 	      print_gimple_stmt (dump_file, elt->stmt, 0, 0);
 	    }
+	  gimple_cond cond_stmt = as_a <gimple_cond> (elt->stmt);
 	  if (exit_edge->flags & EDGE_TRUE_VALUE)
-	    gimple_cond_make_false (elt->stmt);
+	    gimple_cond_make_false (cond_stmt);
 	  else
-	    gimple_cond_make_true (elt->stmt);
-	  update_stmt (elt->stmt);
+	    gimple_cond_make_true (cond_stmt);
+	  update_stmt (cond_stmt);
 	  changed = true;
 	}
     }
@@ -658,7 +660,6 @@ try_unroll_loop_completely (struct loop *loop,
 			    location_t locus)
 {
   unsigned HOST_WIDE_INT n_unroll, ninsns, max_unroll, unr_insns;
-  gimple cond;
   struct loop_size size;
   bool n_unroll_found = false;
   edge edge_to_cancel = NULL;
@@ -855,7 +856,7 @@ try_unroll_loop_completely (struct loop *loop,
   /* Remove the conditional from the last copy of the loop.  */
   if (edge_to_cancel)
     {
-      cond = last_stmt (edge_to_cancel->src);
+      gimple_cond cond = as_a <gimple_cond> (last_stmt (edge_to_cancel->src));
       if (edge_to_cancel->flags & EDGE_TRUE_VALUE)
 	gimple_cond_make_false (cond);
       else

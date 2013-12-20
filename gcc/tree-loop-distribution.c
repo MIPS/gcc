@@ -680,9 +680,9 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 	    {
 	      /* Choose an arbitrary path through the empty CFG part
 		 that this unnecessary control stmt controls.  */
-	      if (gimple_code (stmt) == GIMPLE_COND)
+	      if (gimple_cond cond_stmt = dyn_cast <gimple_cond> (stmt))
 		{
-		  gimple_cond_make_false (stmt);
+		  gimple_cond_make_false (cond_stmt);
 		  update_stmt (stmt);
 		}
 	      else if (gimple_code (stmt) == GIMPLE_SWITCH)

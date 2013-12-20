@@ -1,5 +1,39 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_cond_make_{false|true}
+
+	* gimple.h (gimple_cond_make_false): Require a gimple_cond.
+	(gimple_cond_make_true): Likewise.
+
+	* tree-cfg.c (fold_cond_expr_cond): Add a checked cast to
+	gimple_cond within region guarded by check for GIMPLE_COND.
+	* tree-ssa-ccp.c (ccp_fold_stmt): Likewise.
+
+	* tree-loop-distribution.c (generate_loops_for_partition): Replace
+	a check for GIMPLE_COND with a dyn_cast<gimple_cond>.
+	* tree-ssa-ccp.c (optimize_unreachable): Likewise.
+	* tree-ssa-loop-niter.c (number_of_iterations_exit): Likewise.
+	* tree-ssa-pre.c (eliminate_dom_walker::before_dom_children):
+	Likewise.
+
+	* tree-vrp.c (fold_predicate_in): Add a checked cast to
+	gimple_cond.  We must be dealing with a GIMPLE_COND since logic
+	at top of the function ensures we only act on GIMPLE_ASSIGN and
+	GIMPLE_COND statements, and we're now within a "not a GIMPLE_ASSIGN"
+	clause.
+
+	* tree-ssa-loop-ivcanon.c (remove_exits_and_undefined_stmts): Add
+	checked cast of elt->stmt to gimple_cond.  The existing code requires
+	this to be a GIMPLE_COND, though it's not clear to me how this
+	requirement is enforced.
+	(remove_redundant_iv_tests): Likewise.
+	(try_unroll_loop_completely): Likewise, for the last_stmt of the
+	preceding bb along edge_to_cancel.
+	* tree-ssa-reassoc.c (maybe_optimize_range_tests): Likewise, for the
+	last_stmt of bb.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize locals within expand_omp_for_init_counts
 
 	* omp-low.c (expand_omp_for_init_counts): Eliminate local "stmt"
