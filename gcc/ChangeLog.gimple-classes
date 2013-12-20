@@ -1,5 +1,24 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_cond_{lhs|rhs}_ptr
+
+	* gimple.h (gimple_cond_lhs_ptr): Require a const_gimple_cond
+	rather than just a const_gimple_cond.
+	(gimple_cond_rhs_ptr): Likewise.
+
+	* gimplify-me.c (gimple_regimplify_operands): Add a checked cast
+	to gimple_cond within "case GIMPLE_COND".
+	* omp-low.c (lower_omp_1): Likewise.
+
+	* omp-low.c (expand_omp_simd): Introduce a new local cond_stmt
+	to express that the conditional is indeed a gimple_cond.
+
+	* tree-ssa-loop-ivopts.c (extract_cond_operands): Add a checked
+	cast to gimple_cond within a region where the code is known to
+	be GIMPLE_COND.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_cond_set_{lhs|rhs}
 
 	* gimple.h (gimple_cond_set_lhs): Require a gimple_cond.

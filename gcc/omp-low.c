@@ -7073,6 +7073,7 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
   basic_block entry_bb, cont_bb, exit_bb, l0_bb, l1_bb, l2_bb, l2_dom_bb;
   gimple_stmt_iterator gsi;
   gimple stmt;
+  gimple_cond cond_stmt;
   bool broken_loop = region->cont == NULL;
   edge e, ne;
   tree *counts = NULL;
@@ -7232,15 +7233,15 @@ expand_omp_simd (struct omp_region *region, struct omp_for_data *fd)
   t = force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 				false, GSI_CONTINUE_LINKING);
   t = build2 (fd->loop.cond_code, boolean_type_node, fd->loop.v, t);
-  stmt = gimple_build_cond_empty (t);
-  gsi_insert_after (&gsi, stmt, GSI_CONTINUE_LINKING);
-  if (walk_tree (gimple_cond_lhs_ptr (stmt), expand_omp_regimplify_p,
+  cond_stmt = gimple_build_cond_empty (t);
+  gsi_insert_after (&gsi, cond_stmt, GSI_CONTINUE_LINKING);
+  if (walk_tree (gimple_cond_lhs_ptr (cond_stmt), expand_omp_regimplify_p,
 		 NULL, NULL)
-      || walk_tree (gimple_cond_rhs_ptr (stmt), expand_omp_regimplify_p,
+      || walk_tree (gimple_cond_rhs_ptr (cond_stmt), expand_omp_regimplify_p,
 		    NULL, NULL))
     {
-      gsi = gsi_for_stmt (stmt);
-      gimple_regimplify_operands (stmt, &gsi);
+      gsi = gsi_for_stmt (cond_stmt);
+      gimple_regimplify_operands (cond_stmt, &gsi);
     }
 
   /* Remove GIMPLE_OMP_RETURN.  */
@@ -10473,12 +10474,17 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   switch (gimple_code (stmt))
     {
     case GIMPLE_COND:
-      if ((ctx || task_shared_vars)
-	  && (walk_tree (gimple_cond_lhs_ptr (stmt), lower_omp_regimplify_p,
-	      		 ctx ? NULL : &wi, NULL)
-	      || walk_tree (gimple_cond_rhs_ptr (stmt), lower_omp_regimplify_p,
-			    ctx ? NULL : &wi, NULL)))
-	gimple_regimplify_operands (stmt, gsi_p);
+      {
+	gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	if ((ctx || task_shared_vars)
+	    && (walk_tree (gimple_cond_lhs_ptr (cond_stmt),
+			   lower_omp_regimplify_p,
+			   ctx ? NULL : &wi, NULL)
+		|| walk_tree (gimple_cond_rhs_ptr (cond_stmt),
+			      lower_omp_regimplify_p,
+			      ctx ? NULL : &wi, NULL)))
+	  gimple_regimplify_operands (cond_stmt, gsi_p);
+      }
       break;
     case GIMPLE_CATCH:
       lower_omp (gimple_catch_handler_ptr (as_a <gimple_catch> (stmt)), ctx);

@@ -168,10 +168,13 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
   switch (gimple_code (stmt))
     {
     case GIMPLE_COND:
-      gimplify_expr (gimple_cond_lhs_ptr (stmt), &pre, NULL,
-		     is_gimple_val, fb_rvalue);
-      gimplify_expr (gimple_cond_rhs_ptr (stmt), &pre, NULL,
-		     is_gimple_val, fb_rvalue);
+      {
+	gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	gimplify_expr (gimple_cond_lhs_ptr (cond_stmt), &pre, NULL,
+		       is_gimple_val, fb_rvalue);
+	gimplify_expr (gimple_cond_rhs_ptr (cond_stmt), &pre, NULL,
+		       is_gimple_val, fb_rvalue);
+      }
       break;
     case GIMPLE_SWITCH:
       gimplify_expr (gimple_switch_index_ptr (as_a <gimple_switch> (stmt)),

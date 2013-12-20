@@ -1379,8 +1379,9 @@ extract_cond_operands (struct ivopts_data *data, gimple stmt,
 
   if (gimple_code (stmt) == GIMPLE_COND)
     {
-      op0 = gimple_cond_lhs_ptr (stmt);
-      op1 = gimple_cond_rhs_ptr (stmt);
+      gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+      op0 = gimple_cond_lhs_ptr (cond_stmt);
+      op1 = gimple_cond_rhs_ptr (cond_stmt);
     }
   else
     {
