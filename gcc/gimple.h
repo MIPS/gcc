@@ -2679,9 +2679,8 @@ gimple_call_fn_ptr (const_gimple gs)
 /* Set FN to be the function called by call statement GS.  */
 
 static inline void
-gimple_call_set_fn (gimple gs, tree fn)
+gimple_call_set_fn (gimple_call gs, tree fn)
 {
-  GIMPLE_CHECK (gs, GIMPLE_CALL);
   gcc_gimple_checking_assert (!gimple_call_internal_p (gs));
   gimple_set_op (gs, 1, fn);
 }

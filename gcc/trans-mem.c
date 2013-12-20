@@ -3778,7 +3778,7 @@ dump_tm_memopt_transform (gimple stmt)
 
 static void
 tm_memopt_transform_stmt (unsigned int offset,
-			  gimple stmt,
+			  gimple_call stmt,
 			  gimple_stmt_iterator *gsi)
 {
   tree fn = gimple_call_fn (stmt);
@@ -3814,28 +3814,30 @@ tm_memopt_transform_blocks (vec<basic_block> blocks)
 
 	  if (is_tm_simple_load (stmt))
 	    {
+	      gimple_call call_stmt = as_a <gimple_call> (stmt);
 	      loc = tm_memopt_value_number (stmt, NO_INSERT);
 	      if (store_avail && bitmap_bit_p (store_avail, loc))
-		tm_memopt_transform_stmt (TRANSFORM_RAW, stmt, &gsi);
+		tm_memopt_transform_stmt (TRANSFORM_RAW, call_stmt, &gsi);
 	      else if (store_antic && bitmap_bit_p (store_antic, loc))
 		{
-		  tm_memopt_transform_stmt (TRANSFORM_RFW, stmt, &gsi);
+		  tm_memopt_transform_stmt (TRANSFORM_RFW, call_stmt, &gsi);
 		  bitmap_set_bit (store_avail, loc);
 		}
 	      else if (read_avail && bitmap_bit_p (read_avail, loc))
-		tm_memopt_transform_stmt (TRANSFORM_RAR, stmt, &gsi);
+		tm_memopt_transform_stmt (TRANSFORM_RAR, call_stmt, &gsi);
 	      else
 		bitmap_set_bit (read_avail, loc);
 	    }
 	  else if (is_tm_simple_store (stmt))
 	    {
+	      gimple_call call_stmt = as_a <gimple_call> (stmt);
 	      loc = tm_memopt_value_number (stmt, NO_INSERT);
 	      if (store_avail && bitmap_bit_p (store_avail, loc))
-		tm_memopt_transform_stmt (TRANSFORM_WAW, stmt, &gsi);
+		tm_memopt_transform_stmt (TRANSFORM_WAW, call_stmt, &gsi);
 	      else
 		{
 		  if (read_avail && bitmap_bit_p (read_avail, loc))
-		    tm_memopt_transform_stmt (TRANSFORM_WAR, stmt, &gsi);
+		    tm_memopt_transform_stmt (TRANSFORM_WAR, call_stmt, &gsi);
 		  bitmap_set_bit (store_avail, loc);
 		}
 	    }

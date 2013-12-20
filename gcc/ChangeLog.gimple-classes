@@ -1,5 +1,17 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_set_fn
+
+	* gimple.h (gimple_call_set_fn): Require a gimple_call.
+
+	* trans-mem.c (dump_tm_memopt_transform): Likewise.
+	(tm_memopt_transform_blocks): Add checked casts to gimple_call in
+	suites guarded by is_tm_simple_{load|store}, which enforce that
+	the statement must be a GIMPLE_CALL; use this when invoking
+	dump_tm_memopt_transform.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Tweak to gimplify_modify_expr
 
 	* gimplify.c (gimplify_modify_expr): Introduce local "call_stmt".
