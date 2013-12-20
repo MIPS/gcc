@@ -10919,7 +10919,8 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
     case GIMPLE_COND:
 	{
-	  tree lab = gimple_cond_true_label (stmt);
+	  gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	  tree lab = gimple_cond_true_label (cond_stmt);
 	  if (lab)
 	    {
 	      n = splay_tree_lookup (all_labels,
@@ -10927,7 +10928,7 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 	      diagnose_sb_0 (gsi_p, context,
 			     n ? (gimple) n->value : NULL);
 	    }
-	  lab = gimple_cond_false_label (stmt);
+	  lab = gimple_cond_false_label (cond_stmt);
 	  if (lab)
 	    {
 	      n = splay_tree_lookup (all_labels,

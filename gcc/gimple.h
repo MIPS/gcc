@@ -3080,9 +3080,8 @@ gimple_cond_set_rhs (gimple gs, tree rhs)
    predicate evaluates to true.  */
 
 static inline tree
-gimple_cond_true_label (const_gimple gs)
+gimple_cond_true_label (const_gimple_cond gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_COND);
   return gimple_op (gs, 2);
 }
 
@@ -3111,9 +3110,9 @@ gimple_cond_set_false_label (gimple_cond gs, tree label)
    predicate evaluates to false.  */
 
 static inline tree
-gimple_cond_false_label (const_gimple gs)
+gimple_cond_false_label (const_gimple_cond gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_COND);
+
   return gimple_op (gs, 3);
 }
 

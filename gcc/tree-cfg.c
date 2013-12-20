@@ -4482,6 +4482,31 @@ verify_gimple_label (gimple_label stmt)
   return err;
 }
 
+/* Verify a gimple cond statement STMT.
+   Returns true if anything is wrong.  */
+
+static bool
+verify_gimple_cond (gimple_cond stmt)
+{
+  if (TREE_CODE_CLASS (gimple_cond_code (stmt)) != tcc_comparison)
+    {
+      error ("invalid comparison code in gimple cond");
+      return true;
+    }
+  if (!(!gimple_cond_true_label (stmt)
+	|| TREE_CODE (gimple_cond_true_label (stmt)) == LABEL_DECL)
+      || !(!gimple_cond_false_label (stmt)
+	   || TREE_CODE (gimple_cond_false_label (stmt)) == LABEL_DECL))
+    {
+      error ("invalid labels in gimple cond");
+      return true;
+    }
+
+  return verify_gimple_comparison (boolean_type_node,
+				   gimple_cond_lhs (stmt),
+				   gimple_cond_rhs (stmt));
+}
+
 /* Verify the GIMPLE statement STMT.  Returns true if there is an
    error, otherwise false.  */
 
@@ -4500,23 +4525,7 @@ verify_gimple_stmt (gimple stmt)
       return verify_gimple_call (as_a <gimple_call> (stmt));
 
     case GIMPLE_COND:
-      if (TREE_CODE_CLASS (gimple_cond_code (stmt)) != tcc_comparison)
-	{
-	  error ("invalid comparison code in gimple cond");
-	  return true;
-	}
-      if (!(!gimple_cond_true_label (stmt)
-	    || TREE_CODE (gimple_cond_true_label (stmt)) == LABEL_DECL)
-	  || !(!gimple_cond_false_label (stmt)
-	       || TREE_CODE (gimple_cond_false_label (stmt)) == LABEL_DECL))
-	{
-	  error ("invalid labels in gimple cond");
-	  return true;
-	}
-	  
-      return verify_gimple_comparison (boolean_type_node,
-				       gimple_cond_lhs (stmt),
-				       gimple_cond_rhs (stmt));
+      return verify_gimple_cond (as_a <gimple_cond> (stmt));
 
     case GIMPLE_GOTO:
       return verify_gimple_goto (as_a <gimple_goto> (stmt));

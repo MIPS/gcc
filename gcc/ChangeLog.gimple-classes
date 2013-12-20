@@ -1,5 +1,21 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_cond_{true|false}_label
+
+	* gimple.h (gimple_cond_true_label): Require a const_gimple_cond
+	rather than just a const_gimple.
+	(gimple_cond_false_label): Likewise.
+
+	* omp-low.c (diagnose_sb_2): Add checked cast to gimple_cond within
+	case GIMPLE_COND.
+	* tree-eh.c (maybe_record_in_goto_queue): Likewise.
+
+	* tree-cfg.c (verify_gimple_stmt): Add a checked cast to gimple_cond
+	within "case GIMPLE_COND", splitting it out into...
+	(verify_gimple_label): New.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_switch_index and gimple_switch_index_ptr
 
 	* gimple.h (gimple_switch_index): Require a const_gimple_switch rather

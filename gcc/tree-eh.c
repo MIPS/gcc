@@ -671,12 +671,17 @@ maybe_record_in_goto_queue (struct leh_state *state, gimple stmt)
   switch (gimple_code (stmt))
     {
     case GIMPLE_COND:
-      new_stmt.tp = gimple_op_ptr (stmt, 2);
-      record_in_goto_queue_label (tf, new_stmt, gimple_cond_true_label (stmt),
-				  EXPR_LOCATION (*new_stmt.tp));
-      new_stmt.tp = gimple_op_ptr (stmt, 3);
-      record_in_goto_queue_label (tf, new_stmt, gimple_cond_false_label (stmt),
-				  EXPR_LOCATION (*new_stmt.tp));
+      {
+	gimple_cond cond_stmt = as_a <gimple_cond> (stmt);
+	new_stmt.tp = gimple_op_ptr (cond_stmt, 2);
+	record_in_goto_queue_label (tf, new_stmt,
+				    gimple_cond_true_label (cond_stmt),
+				    EXPR_LOCATION (*new_stmt.tp));
+	new_stmt.tp = gimple_op_ptr (cond_stmt, 3);
+	record_in_goto_queue_label (tf, new_stmt,
+				    gimple_cond_false_label (cond_stmt),
+				    EXPR_LOCATION (*new_stmt.tp));
+      }
       break;
     case GIMPLE_GOTO:
       new_stmt.g = stmt;
