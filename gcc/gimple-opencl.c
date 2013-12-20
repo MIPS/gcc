@@ -635,7 +635,7 @@ generate_binary_rhs(FILE* fp, enum tree_code code, gimple stmt)
       fprintf(fp, " / ");
       break;
     case TRUNC_MOD_EXPR:
-      fprintf(fp, " % ");
+      fprintf(fp, " %% ");
       break;
 
     case LT_EXPR:

@@ -35,6 +35,22 @@ along with GCC; see the file COPYING3.  If not see
     case GIMPLE_ACC_COMPUTE_REGION_END: \
     case GIMPLE_ACC_DATA_REGION_END
 
+#define CASE_GIMPLE_ACC_ALTER_CF \
+    case GIMPLE_ACC_PARALLEL: \
+    case GIMPLE_ACC_KERNELS: \
+    case GIMPLE_ACC_DATA: \
+    case GIMPLE_ACC_HOST_DATA: \
+    case GIMPLE_ACC_COMPUTE_REGION_END: \
+    case GIMPLE_ACC_DATA_REGION_END
+
+#define CASE_GIMPLE_ACC_NOT_ALTER_CF \
+    case GIMPLE_ACC_CACHE: \
+    case GIMPLE_ACC_WAIT: \
+    case GIMPLE_ACC_LOOP: \
+    case GIMPLE_ACC_DECLARE: \
+    case GIMPLE_ACC_UPDATE
+
+
 #define GIMPLE_ACC_CHILD_FN(g)  ((gimple_code(g) == GIMPLE_ACC_KERNELS) ? \
                                   gimple_acc_kernels_child_fn(g) : \
                                   (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
@@ -56,7 +72,9 @@ along with GCC; see the file COPYING3.  If not see
                                  (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
                                   gimple_acc_parallel_clauses(g) : \
                                  (gimple_code(g) == GIMPLE_ACC_DATA) ? \
-                                 gimple_acc_data_clauses(g) : NULL_TREE)
+                                 gimple_acc_data_clauses(g) : \
+                                 (gimple_code(g) == GIMPLE_ACC_LOOP) ? \
+                                 gimple_acc_loop_clauses(g) : NULL_TREE)
 #define GIMPLE_ACC_STATEMENT(g) \
                         ((gimple_code(g) == GIMPLE_ACC_COMPUTE_REGION_END) ? \
                          gimple_acc_compute_region_end_statement(g) : \

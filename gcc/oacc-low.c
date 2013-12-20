@@ -196,11 +196,13 @@ typedef struct acc_kernel_t *acc_kernel;
 typedef struct acc_kernel_t
 {
   tree func;
-  struct tree_niter_desc niter_desc;
+  //struct tree_niter_desc niter_desc;
+  vec<tree> niters;
   basic_block bb_entry;
   basic_block bb_exit;
   splay_tree params_map;
   tree kernel_handle;
+  unsigned collapse;
 } acc_kernel_t;
 
 typedef struct collapse_loop_data_t *collapse_loop_data;
@@ -351,10 +353,11 @@ static acc_kernel
 new_acc_kernel(tree func)
 {
   acc_kernel kernel;
-
+  
   kernel = XCNEW(acc_kernel_t);
   kernel->func = func;
-  kernel->niter_desc.niter = NULL_TREE;
+  kernel->niters.create(1);
+  kernel->collapse = 0;
   kernel->bb_entry = kernel->bb_exit = NULL;
   kernel->params_map = splay_tree_new(splay_tree_compare_pointers, 0, 0);
   kernel->kernel_handle = NULL_TREE;
@@ -540,16 +543,29 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
     orig = gimple_acc_body(stmt);
     if(dump_file)
         {
-            fprintf(dump_file, "Original KERNELS body:\n\n");
+            fprintf(dump_file, "Original KERNELS body:\n");
             print_gimple_seq(dump_file, orig, 0, 0);
+            fprintf(dump_file, "\n");
+        }
+    lower_oacc(&orig, ctx);
+    if(dump_file)
+        {
+            fprintf(dump_file, "After lowering in kernels:\n");
+            print_gimple_seq(dump_file, orig, 0, 0);
+            fprintf(dump_file, "\n");
         }
     body = gimple_seq_copy(orig);
-    lower_oacc(&body, ctx);
     add_assingments_to_ptrs(&body, ctx);
     child_fn = GIMPLE_ACC_CHILD_FN(stmt);
 
     add_locals(&body, ctx);
     gimple_set_body(child_fn, body);
+    if(dump_file)
+        {
+            fprintf(dump_file, "In child fn:\n");
+            print_gimple_seq(dump_file, gimple_body(child_fn), 0, 0);
+            fprintf(dump_file, "\n");
+        }
 
     child_cfun = DECL_STRUCT_FUNCTION (child_fn);
     child_cfun->curr_properties = cfun->curr_properties;
@@ -653,12 +669,29 @@ lower_oacc_loop(gimple_stmt_iterator *gsi, oacc_context* ctx)
 {
   gimple_seq body;
   gimple stmt = gsi_stmt (*gsi);
-   
+  gimple_seq outer_body;
+  gimple outer_bind;
+  
+  gcc_checking_assert(ctx != 0 && ctx->stmt != 0 && is_gimple_acc(ctx->stmt));
+  outer_body = gimple_acc_body(ctx->stmt);
+  outer_bind = gimple_seq_first(outer_body);
+  
   body = gimple_acc_body(stmt);
+    if(dump_file)
+        {
+            fprintf(dump_file, "Before lowering in loop:\n");
+            print_gimple_seq(dump_file, body, 0, 0);
+            fprintf(dump_file, "\n");
+        }
   lower_oacc(&body, ctx);
+    if(dump_file)
+        {
+            fprintf(dump_file, "After lowering in loop:\n");
+            print_gimple_seq(dump_file, body, 0, 0);
+            fprintf(dump_file, "\n");
+        }
+  gimple_bind_append_vars(outer_bind, gimple_bind_vars(gimple_seq_first(body)));
   add_host_version(gsi, body);
-  gsi_insert_after(gsi, gimple_alloc(GIMPLE_ACC_COMPUTE_REGION_END, 0),
-                 GSI_CONTINUE_LINKING);
   gimple_acc_set_body(stmt, NULL);
 }
 
@@ -690,8 +723,6 @@ lower_stmt_cb(gimple_stmt_iterator *gsi, bool *handled_ops_p,
             lower_oacc_host_data (gsi, ctx);
             break;
         case GIMPLE_ACC_LOOP:
-            ctx = (oacc_context*)splay_tree_lookup(all_contexts,
-                                                   (splay_tree_key)stmt)->value;
             lower_oacc_loop (gsi, ctx);
             break;
         case GIMPLE_ACC_CACHE:
@@ -1019,11 +1050,7 @@ scan_oacc_loop (gimple_stmt_iterator *gsi, oacc_context *outer_ctx)
             return;
         }
 
-    ctx = new_oacc_context (stmt, outer_ctx);
-    if (nesting_level > 1)
-        ctx->is_nested = true;
-
-    analyze_gimple(gimple_acc_body_ptr(stmt), ctx);
+    analyze_gimple(gimple_acc_body_ptr(stmt), outer_ctx);
 }
 
 static bool
@@ -1099,9 +1126,7 @@ analyze_stmt_cb(gimple_stmt_iterator *gsi, bool *handled_ops_p,
             nesting_level--;
             break;
         case GIMPLE_ACC_LOOP:
-            nesting_level++;
             scan_oacc_loop (gsi, ctx);
-            nesting_level--;
             break;
         case GIMPLE_ACC_DATA:
             nesting_level++;
@@ -1227,7 +1252,7 @@ static unsigned int
 execute_lower_oacc (void)
 {
     gimple_seq func_body = 0;
-
+    
     char* cur_module = generate_ocl_module_name ();
     if(switch_ocl_module (cur_module))
         {
@@ -1240,6 +1265,12 @@ execute_lower_oacc (void)
         }
     XDELETEVEC(cur_module);
 
+    if(lookup_attribute("*kernel", DECL_ATTRIBUTES(current_function_decl))
+                        != NULL_TREE)
+      {
+        return 0;
+      }
+    
     all_contexts = splay_tree_new (splay_tree_compare_pointers, 0,
                                    delete_oacc_context);
     func_body = gimple_body (current_function_decl);
@@ -1806,18 +1837,57 @@ guess_loop_location(struct loop* l)
 static void
 check_loop_parallelizable(struct loop* loop, acc_kernel kernel)
 {
-  bool is_parallelizable = loop_parallelizable_p(loop, &(kernel->niter_desc));
+  struct tree_niter_desc niter_desc;
+  struct loop* l;
+  unsigned collapse = kernel->collapse;
+  
+  niter_desc.niter = NULL_TREE;
+  bool is_parallelizable = loop_parallelizable_p(loop, &niter_desc);
   if(!is_parallelizable)
-  {
-    warning_at(guess_loop_location(loop), 
-      OPT_fopenacc, "loop cannot be parallelized");
-  }
+    {
+      warning_at(guess_loop_location(loop), 
+        OPT_fopenacc, "loop cannot be parallelized");
+      kernel->niters.safe_push(integer_one_node);
+      kernel->collapse = 0;
+      return;
+    }
+  for(l = loop; collapse != 0 && l != NULL; collapse--, l = l->inner)
+    {
+      niter_desc.niter = NULL_TREE;
+      if(!get_loop_iteration_count(l, &niter_desc))
+        break;
+      kernel->niters.safe_push(niter_desc.niter);
+    }
+}
+
+static void
+get_collapse_count(struct loop* loop, splay_tree schedule, acc_kernel kernel)
+{
+  if(splay_tree_lookup(schedule, (splay_tree_key)loop) != NULL)
+    {
+      tree clause = (tree)(splay_tree_lookup(schedule,
+                                             (splay_tree_key)loop)->value);
+      while(clause != NULL_TREE)
+        {
+          if(ACC_CLAUSE_CODE(clause) == ACC_CLAUSE_COLLAPSE)
+            break;
+          clause = ACC_CLAUSE_CHAIN(clause);
+        }
+      if(clause != NULL_TREE)
+        {
+          tree collapse = ACC_CLAUSE_COLLAPSE_EXPR(clause);
+          HOST_WIDE_INT n = tree_low_cst(collapse, 0);
+          kernel->collapse = (unsigned)n;
+        }
+    }
+  else
+    kernel->collapse = 1;
 }
 
 static void
 create_fns_for_kernels(tree child_fn, vec<acc_kernel>* kernels,
                        gimple kernel_stmt, unsigned nloops,
-                       struct loop **vloops)
+                       struct loop **vloops, splay_tree schedule)
 {
   unsigned i;
   acc_kernel kernel;
@@ -1835,6 +1905,7 @@ create_fns_for_kernels(tree child_fn, vec<acc_kernel>* kernels,
       {
         map_parameters(child_fn, kernel, kernel_stmt);
       }
+      get_collapse_count(vloops[i], schedule, kernel);
       check_loop_parallelizable(vloops[i], kernel);
       kernels->safe_push(kernel);
     }
@@ -1983,6 +2054,80 @@ map_params_in_new_fn(acc_kernel kernel)
   }
 }
 
+static struct loop*
+find_dominated_loop(basic_block bb, struct loop* root)
+{
+  basic_block son;
+  
+  for(son = first_dom_son(CDI_DOMINATORS, bb); son != NULL;
+      son = next_dom_son(CDI_DOMINATORS, son))
+    {
+      if(son == root->header)
+        return root;
+    }
+  
+  for(struct loop* l = root->inner; l != NULL;
+      l = l->next)
+    {
+      struct loop* found = find_dominated_loop(bb, l);
+      if(found != NULL)
+        return found;
+    }
+  return NULL;
+}
+
+DEBUG_FUNCTION static void
+dump_clauses(tree clauses)
+{
+  while(clauses != NULL_TREE)
+    {
+      print_generic_expr(dump_file, clauses, 0);
+      fprintf(dump_file, "\n");
+      clauses = ACC_CLAUSE_CHAIN(clauses);
+    }
+}
+
+static void
+gather_loop_schedule(tree child_fn, struct loops* loops, splay_tree schedule)
+{
+    struct function* child_cfun;
+    basic_block bb;
+    gimple_stmt_iterator gsi;
+    
+    child_cfun = DECL_STRUCT_FUNCTION(child_fn);
+    push_cfun(child_cfun);
+    FOR_EACH_BB(bb)
+    {
+      for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+        {
+          gimple stmt = gsi_stmt(gsi);
+
+          if(gimple_code(stmt) == GIMPLE_ACC_LOOP)
+            {
+              tree clauses = gimple_acc_loop_clauses(stmt);
+              if(clauses != NULL_TREE)
+                {
+                  struct loop* loop = find_dominated_loop(bb, loops->tree_root);
+                  
+                  if(dump_file)
+                    {
+                      fprintf(dump_file, "LOOP statement clauses\n");
+                      dump_clauses(clauses);
+                    }
+                  
+                  if(loop != NULL)
+                    {
+                      splay_tree_insert(schedule, (splay_tree_key)loop,
+                                        (splay_tree_value)clauses);
+                    }
+                }
+            }
+        }
+    }
+
+    pop_cfun();
+}
+
 static void
 extract_kernels(struct loops* loops, tree child_fn,
                 vec<acc_kernel>* kernels, gimple kernel_stmt)
@@ -1992,7 +2137,11 @@ extract_kernels(struct loops* loops, tree child_fn,
   unsigned nloops, i;
   struct loop **vloops;
   struct function* child_cfun;
-
+  splay_tree loop_schedule;
+  
+  loop_schedule = splay_tree_new(splay_tree_compare_pointers, 0, 0);
+  
+  gather_loop_schedule (child_fn, loops, loop_schedule);
   if(gimple_code(kernel_stmt) == GIMPLE_ACC_PARALLEL 
     || loops->tree_root->inner == NULL 
     || loops->tree_root->inner->next == NULL)
@@ -2001,12 +2150,14 @@ extract_kernels(struct loops* loops, tree child_fn,
 
       if(loops->tree_root->inner != NULL)
         {
+          get_collapse_count(loops->tree_root->inner,
+                                          loop_schedule, kernel);
           check_loop_parallelizable(loops->tree_root->inner, kernel);
         }
 
       kernels->safe_push(kernel);
-      mark_kernels_parallel (child_fn,
-        (kernel->niter_desc.niter != NULL_TREE) ? 1 : 0);
+      mark_kernels_parallel (child_fn, kernel->collapse);
+      splay_tree_delete(loop_schedule);
       return;
     }
 
@@ -2050,7 +2201,8 @@ extract_kernels(struct loops* loops, tree child_fn,
       --i, ploop = ploop->next)
       vloops[i-1] = ploop;
 
-  create_fns_for_kernels(child_fn, kernels, kernel_stmt, nloops, vloops);
+  create_fns_for_kernels(child_fn, kernels, kernel_stmt,
+                         nloops, vloops, loop_schedule);
 
   if(dump_file)
   {
@@ -2157,10 +2309,10 @@ extract_kernels(struct loops* loops, tree child_fn,
       if(save_opt_level >= 0)
         optimize = opt_level;
     }
-    mark_kernels_parallel (fn, 
-      ((*kernels)[i]->niter_desc.niter != NULL_TREE) ? 1 : 0);
+    mark_kernels_parallel (fn, (*kernels)[i]->collapse);
   }
 
+  splay_tree_delete(loop_schedule);
 }
 
 static tree
@@ -2433,16 +2585,41 @@ find_last_dom_def(vec<gimple_stmt_iterator>* defs, basic_block dom_bb)
   return def_var;
 }
 
+static tree
+generate_unsigned_typecast(gimple_stmt_iterator *gsi, tree type, tree var,
+                           gimple* def_stmt)
+{
+  gimple stmt = NULL;
+  tree convert_var = NULL_TREE;
+  
+  if(TYPE_UNSIGNED(type) == TYPE_UNSIGNED(TREE_TYPE(var)))
+    return var;
+  
+  stmt = build_type_cast(type, var);
+  convert_var = create_tmp_reg(type, "_acc_tmp");
+  
+  convert_var = make_ssa_name(convert_var, stmt);
+  set_gimple_def_var(stmt, convert_var);
+  gen_add (gsi, stmt);
+  if(def_stmt != NULL)
+    *def_stmt = stmt;
+  return convert_var;
+}
+
 static void
 generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
                        collapse_data data, unsigned idx)
 {
   location_t location = gimple_location(stmt);
   tree lhs = get_gimple_def_var(stmt);
-  tree workitem_id = NULL_TREE;
+  tree workitem_id = NULL_TREE, init = NULL_TREE;
+  tree builtin_decl = NULL_TREE;
   tree builtin_return_type = NULL_TREE;
   tree new_var = NULL_TREE;
-  gimple add_stmt;
+  gimple add_stmt = NULL, copy_stmt = NULL;
+
+  builtin_decl = builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID);
+  builtin_return_type = TREE_TYPE (TREE_TYPE (builtin_decl));
 
   if(idx > 0)
   {
@@ -2450,10 +2627,6 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
   }
   else
   {
-
-    tree builtin_decl = builtin_decl_explicit(BUILT_IN_OACC_GET_GLOBAL_ID);
-    builtin_return_type = TREE_TYPE (TREE_TYPE (builtin_decl));
-
     //FIXME: add more conversion magic???
     gcc_checking_assert(TREE_CODE(builtin_return_type) == TREE_CODE(TREE_TYPE(lhs)));
 
@@ -2472,51 +2645,54 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
   if (TYPE_UNSIGNED(builtin_return_type) != TYPE_UNSIGNED(TREE_TYPE(lhs)))
     {
       /* _ = (int) _oacc_tmp; */
-      gimple convert_stmt = build_type_cast (TREE_TYPE(lhs), workitem_id);
-      tree convert_var = create_tmp_reg(TREE_TYPE(lhs), "_acc_tmp");
-      convert_var = make_ssa_name(convert_var, convert_stmt);
-      set_gimple_def_var(convert_stmt, convert_var);
-      gen_add (gsi, convert_stmt);
-
-      workitem_id = convert_var;
-      data->workitem_id = convert_var;
+      gimple convert_stmt = NULL;
+      
+      workitem_id = generate_unsigned_typecast(gsi, TREE_TYPE(lhs), 
+                               workitem_id, &convert_stmt);
+      data->workitem_id = workitem_id;
       data->wi_def_stmt = convert_stmt;
     }
 
-    if(idx < data->loops.length() - 1)
+  copy_stmt = build_type_cast(TREE_TYPE(workitem_id), workitem_id);
+  init = create_tmp_reg(TREE_TYPE(workitem_id), "_acc_tmp");
+  init = make_ssa_name(init, copy_stmt);
+  set_gimple_def_var(copy_stmt, init);
+  gen_add(gsi, copy_stmt);
+  
+  if(idx + 1 < data->loops.length())
     {
       unsigned i;
-      tree quotient = NULL_TREE;
+      tree quotient = NULL_TREE, divisor = NULL_TREE;
       gimple div_stmt = NULL;
 
       for(i = idx + 1; i < data->loops.length(); ++i)
       {
-        quotient = make_ssa_name(SSA_NAME_VAR(workitem_id),
-                                data->wi_def_stmt);
-        div_stmt = build_assign(TRUNC_DIV_EXPR, workitem_id,
-                                data->loops[i]->niter);
+        divisor = generate_unsigned_typecast(gsi, TREE_TYPE(init),
+                            data->loops[i]->niter, NULL);
+        quotient = make_ssa_name(SSA_NAME_VAR(init), copy_stmt);
+        div_stmt = build_assign(TRUNC_DIV_EXPR, init, divisor);
         set_gimple_def_var(div_stmt, quotient);
         gen_add(gsi, div_stmt);
-        workitem_id = quotient;
+        init = quotient;
       }
+      
     }
 
-    if(idx > 0)
+  if(idx > 0)
     {
-      tree remain = NULL_TREE;
+      tree remain = NULL_TREE, divisor = NULL_TREE;
       gimple mod_stmt = NULL;
-
-      remain = make_ssa_name(SSA_NAME_VAR(workitem_id),
-                              data->wi_def_stmt);
-      mod_stmt = build_assign(TRUNC_MOD_EXPR, workitem_id,
-                           data->loops[idx]->niter);
+      divisor = generate_unsigned_typecast(gsi, TREE_TYPE(init),
+                    data->loops[idx]->niter, NULL);
+      remain = make_ssa_name(SSA_NAME_VAR(init), copy_stmt);
+      mod_stmt = build_assign(TRUNC_MOD_EXPR, init, divisor);
       set_gimple_def_var(mod_stmt, remain);
       gen_add(gsi, mod_stmt);
-      workitem_id = remain;
+      init = remain;
     }
 
     /* i = _oacc_tmp + i; */
-    add_stmt = build_assign(PLUS_EXPR, workitem_id, lhs);
+    add_stmt = build_assign(PLUS_EXPR, init, lhs);
     new_var = make_ssa_name(SSA_NAME_VAR(lhs), add_stmt);
     set_gimple_def_var(add_stmt, new_var);
     gen_add(gsi, add_stmt);
@@ -2652,7 +2828,7 @@ collapse_loop(struct loop* l, collapse_loop_data data)
 
 
 
-    if(dump_file)
+    if(dump_file && 0)
       {
           dump_fn_body(dump_file, "AFTER REDIRECT");
       }
@@ -2663,7 +2839,7 @@ collapse_loop(struct loop* l, collapse_loop_data data)
     remove_branch(exit);
     fix_dominators(exit_bb);
 
-    if(dump_file)
+    if(dump_file && 0)
       {
           dump_fn_body(dump_file, "AFTER REMOVE EXIT");
       }
@@ -2677,7 +2853,7 @@ collapse_loop(struct loop* l, collapse_loop_data data)
     fix_ctrl_var_defs(&ctrl_var_defs, &loop_blocks, def_var, hdr_blk, data);
 
 
-    if(dump_file)
+    if(dump_file && 0)
       {
           dump_fn_body(dump_file, "AFTER CTRL VAR");
       }
@@ -2703,6 +2879,10 @@ collapse_loop(struct loop* l, collapse_loop_data data)
 
       }
     }
+    if(dump_file)
+      {
+          dump_fn_body(dump_file, "AFTER");
+      }
 }
 
 static void
@@ -3311,18 +3491,8 @@ tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
   init_stmt = gimple_build_assign(counter_1, integer_zero_node);
   gen_add(gsi, init_stmt);
 
-  if(TYPE_UNSIGNED(TREE_TYPE(sched->items))
-      != TYPE_UNSIGNED(TREE_TYPE(counter)))
-  {
-    conv_var = create_tmp_reg(TREE_TYPE(counter), "_acc_tmp");
-    stmt = build_type_cast(TREE_TYPE(counter), sched->items);
-    set_gimple_def_var(stmt, conv_var);
-    gen_add(gsi, stmt);
-  }
-  else
-  {
-    conv_var = sched->items;
-  }
+  conv_var = generate_unsigned_typecast(gsi, TREE_TYPE(counter),
+                sched->items, NULL);
 
   counter_2 = make_ssa_name(counter, init_stmt);
   counter_3 = make_ssa_name(counter, init_stmt);
@@ -3369,6 +3539,38 @@ tile_the_loop(gimple_stmt_iterator* gsi, location_t locus, tree kernel_handle,
   gen_add(gsi, gimple_build_cond(LT_EXPR, counter_2, conv_var,
                     NULL, NULL));
   *gsi = gsi_start_bb(new_bb);
+}
+
+static tree
+get_workitem_count(gimple_stmt_iterator *gsi, vec<tree>* nitems)
+{
+    gimple stmt0;
+    tree count = NULL_TREE, count0;
+    unsigned i;
+
+    gcc_checking_assert(nitems->length() > 0);
+
+    if(nitems->length() == 1)
+      return (*nitems)[0];
+  
+    count = create_tmp_reg(TREE_TYPE((*nitems)[0]), "_acc_tmp");
+    stmt0 = build_assign(MULT_EXPR, (*nitems)[0], (*nitems)[1]);
+    set_gimple_def_var(stmt0, count);
+    gen_add(gsi, stmt0);
+  
+    count0 = count;
+    for(i = 2; i < nitems->length(); ++i)
+      {
+        gimple stmt;
+        tree count_n = make_ssa_name(count0, stmt0);
+        
+        stmt = build_assign(MULT_EXPR, count, (*nitems)[i]);
+        set_gimple_def_var(stmt, count_n);
+        gen_add(gsi, stmt);
+        count = count_n;
+      }
+  
+  return count;
 }
 
 static void
@@ -3514,9 +3716,10 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
     for(i = 0; i < kernels.length(); ++i)
     {
       acc_schedule_t sched;
-
+      tree nworkitems = get_workitem_count(gsi, &(kernels[i]->niters));
+      
       memset(&sched, sizeof(acc_schedule_t), 0);
-      schedule_kernel(&sched, kernels[i]->niter_desc.niter, sched_clauses);
+      schedule_kernel(&sched, nworkitems, sched_clauses);
 
       if(sched.tiling != NULL_TREE)
       {
@@ -3738,6 +3941,22 @@ generate_opencl(void)
 {
     rewrite_out_of_ssa(&SA);
     cleanup_tree_cfg();
+    {
+      basic_block bb;
+      gimple_stmt_iterator gsi;
+      
+      FOR_EACH_BB(bb)
+      {
+        for(gsi = gsi_start_bb(bb); !gsi_end_p(gsi); gsi_next(&gsi))
+          {
+            gimple stmt = gsi_stmt(gsi);
+            if(is_gimple_acc(stmt))
+              {
+                gsi_replace(&gsi, gimple_build_nop(), true);
+              }
+          }
+      }
+    }
     generate_opencl_kernel(ocl_module, current_function_decl, &SA);
     finish_out_of_ssa(&SA);
 }

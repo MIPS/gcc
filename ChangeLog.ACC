@@ -1,3 +1,11 @@
+20-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
+  Loop collapsing.
+
+	* gcc/gimple-oacc.h: New macros.
+	* gcc/gimple-opencl.c (generate_binary_rhs): Fix mod operation.
+	* gcc/oacc-low.c: Add loop collapsing support.
+	* gcc/tree-cfg.c (is_ctrl_altering_stmt): Separate OpenACC directive.
+
 17-12-2013 Ilmir Usmanov <i.sumanov@samsung.com>
 	Fix infinite loop in C FE
 	

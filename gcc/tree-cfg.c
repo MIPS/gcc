@@ -2294,10 +2294,12 @@ is_ctrl_altering_stmt (gimple t)
       /* OpenMP directives alter control flow.  */
       return true;
 
-    CASE_GIMPLE_ACC:
-      /* OpenACC directives alter control flow.  */
+    CASE_GIMPLE_ACC_ALTER_CF:
+      /* OpenACC directives that alter control flow.  */
       return true;
-			//return false;
+    CASE_GIMPLE_ACC_NOT_ALTER_CF:
+      /* OpenACC directives that DO NOT alter control flow. */
+      return false;
 
     case GIMPLE_TRANSACTION:
       /* A transaction start alters control flow.  */
