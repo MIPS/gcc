@@ -1,5 +1,15 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_set_nothrow
+
+	* gimple.h (gimple_call_set_nothrow): Require a gimple_call.
+
+	* trans-mem.c (ipa_tm_insert_gettmclone_call): Likewise.
+	(ipa_tm_transform_calls_redirect): Add checked cast to gimple call; this
+	is only called for gsi on a GIMPLE_CALL statement.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize various expressions from gimple to gimple_cond
 
 	* ipa-split.c (check_forbidden_calls): Replace check against

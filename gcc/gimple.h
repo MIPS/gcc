@@ -2912,9 +2912,8 @@ gimple_call_noreturn_p (gimple s)
    even if the called function can throw in other cases.  */
 
 static inline void
-gimple_call_set_nothrow (gimple s, bool nothrow_p)
+gimple_call_set_nothrow (gimple_call s, bool nothrow_p)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   if (nothrow_p)
     s->subcode |= GF_CALL_NOTHROW;
   else

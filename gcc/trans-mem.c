@@ -4988,7 +4988,7 @@ ipa_tm_insert_irr_call (struct cgraph_node *node, struct tm_region *region,
 static bool
 ipa_tm_insert_gettmclone_call (struct cgraph_node *node,
 			       struct tm_region *region,
-			       gimple_stmt_iterator *gsi, gimple stmt)
+			       gimple_stmt_iterator *gsi, gimple_call stmt)
 {
   tree gettm_fn, ret, old_fn, callfn;
   gimple_call g;
@@ -5088,7 +5088,7 @@ ipa_tm_transform_calls_redirect (struct cgraph_node *node,
 				 gimple_stmt_iterator *gsi,
 				 bool *need_ssa_rename_p)
 {
-  gimple stmt = gsi_stmt (*gsi);
+  gimple_call stmt = as_a <gimple_call> (gsi_stmt (*gsi));
   struct cgraph_node *new_node;
   struct cgraph_edge *e = node->get_edge (stmt);
   tree fndecl = gimple_call_fndecl (stmt);
