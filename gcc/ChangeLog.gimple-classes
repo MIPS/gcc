@@ -1,5 +1,32 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_switch_index and gimple_switch_index_ptr
+
+	* gimple.h (gimple_switch_index): Require a const_gimple_switch rather
+	than a plain const_gimple.
+	(gimple_switch_index_ptr): Likewise.
+
+	* gimplify-me.c (gimple_regimplify_operands): Add checked cast to
+	gimple_switch within "case GIMPLE_SWITCH".
+	* tree-cfgcleanup.c (cleanup_control_expr_graph): Likewise.
+	* tree-ssa-ccp.c (ccp_fold): Likewise.
+	* tree-ssa-dom.c (optimize_stmt): Likewise.
+
+	* tree-ssa-ccp.c (evaluate_stmt): Add checked cast to
+	gimple_switch within region guarded by check for GIMPLE_SWITCH.
+	* tree-ssa-dom.c (record_edge_info): Likewise.
+	(eliminate_redundant_computations): Likewise.
+	* tree-ssa-loop-ivcanon.c (tree_estimate_loop_size): Likewise.
+	* tree-ssa-threadedge.c (simplify_control_stmt_condition): Likewise.
+
+	* tree-ssa-dom.c (initialize_hash_element): Replace check for
+	code GIMPLE_SWITCH with a dyn_cast<gimple_switch>.
+	(propagate_rhs_into_lhs): Likewise.
+	* tree-ssa-propagate.c (may_propagate_copy_into_stmt): Likewise.
+	(propagate_tree_value_into_stmt): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_cond_make_{false|true}
 
 	* gimple.h (gimple_cond_make_false): Require a gimple_cond.

@@ -4257,7 +4257,7 @@ cond_dom_walker::before_dom_children (basic_block bb)
 	break;
       }
     case GIMPLE_SWITCH:
-      val = gimple_switch_index (stmt);
+      val = gimple_switch_index (as_a <gimple_switch> (stmt));
       break;
     case GIMPLE_GOTO:
       val = gimple_goto_dest (stmt);

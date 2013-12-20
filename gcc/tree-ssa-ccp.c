@@ -1143,7 +1143,7 @@ ccp_fold (gimple stmt)
     case GIMPLE_SWITCH:
       {
 	/* Return the constant switch index.  */
-        return valueize_op (gimple_switch_index (stmt));
+        return valueize_op (gimple_switch_index (as_a <gimple_switch> (stmt)));
       }
 
     case GIMPLE_ASSIGN:
@@ -1692,7 +1692,7 @@ evaluate_stmt (gimple stmt)
             simplified = gimple_assign_rhs1 (stmt);
         }
       else if (code == GIMPLE_SWITCH)
-        simplified = gimple_switch_index (stmt);
+        simplified = gimple_switch_index (as_a <gimple_switch> (stmt));
       else
 	/* These cannot satisfy is_gimple_min_invariant without folding.  */
 	gcc_assert (code == GIMPLE_CALL || code == GIMPLE_COND);

@@ -306,7 +306,9 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 		    && constant_after_peeling (gimple_cond_lhs (stmt), stmt, loop)
 		    && constant_after_peeling (gimple_cond_rhs (stmt), stmt, loop))
 		   || (gimple_code (stmt) == GIMPLE_SWITCH
-		       && constant_after_peeling (gimple_switch_index (stmt), stmt, loop)))
+		       && constant_after_peeling (gimple_switch_index (
+						    as_a <gimple_switch> (stmt)),
+						  stmt, loop)))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 	        fprintf (dump_file, "   Constant conditional.\n");
@@ -358,7 +360,9 @@ tree_estimate_loop_size (struct loop *loop, edge exit, edge edge_to_cancel, stru
 	        && (!constant_after_peeling (gimple_cond_lhs (stmt), stmt, loop)
 		    || constant_after_peeling (gimple_cond_rhs (stmt), stmt, loop)))
 	       || (gimple_code (stmt) == GIMPLE_SWITCH
-		   && !constant_after_peeling (gimple_switch_index (stmt), stmt, loop)))
+		   && !constant_after_peeling (gimple_switch_index (
+						 as_a <gimple_switch> (stmt)),
+					       stmt, loop)))
 	      && (!exit || bb != exit->src))
 	    size->num_branches_on_hot_path++;
 	}

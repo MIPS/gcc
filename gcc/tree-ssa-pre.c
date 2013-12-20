@@ -4372,7 +4372,9 @@ eliminate_dom_walker::before_dom_children (basic_block b)
 		   && (gimple_cond_true_p (as_a <gimple_cond> (stmt))
 		       || gimple_cond_false_p (as_a <gimple_cond> (stmt))))
 		  || (gimple_code (stmt) == GIMPLE_SWITCH
-		      && TREE_CODE (gimple_switch_index (stmt)) == INTEGER_CST))
+		      && TREE_CODE (gimple_switch_index (
+				      as_a <gimple_switch> (stmt)))
+		         == INTEGER_CST))
 		el_todo |= TODO_cleanup_cfg;
 	    }
 	  /* If we removed EH side-effects from the statement, clean

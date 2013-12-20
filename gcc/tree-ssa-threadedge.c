@@ -619,7 +619,7 @@ simplify_control_stmt_condition (edge e,
     }
 
   if (code == GIMPLE_SWITCH)
-    cond = gimple_switch_index (stmt);
+    cond = gimple_switch_index (as_a <gimple_switch> (stmt));
   else if (code == GIMPLE_GOTO)
     cond = gimple_goto_dest (stmt);
   else

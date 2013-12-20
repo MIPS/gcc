@@ -174,8 +174,8 @@ gimple_regimplify_operands (gimple stmt, gimple_stmt_iterator *gsi_p)
 		     is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_SWITCH:
-      gimplify_expr (gimple_switch_index_ptr (stmt), &pre, NULL,
-		     is_gimple_val, fb_rvalue);
+      gimplify_expr (gimple_switch_index_ptr (as_a <gimple_switch> (stmt)),
+		     &pre, NULL, is_gimple_val, fb_rvalue);
       break;
     case GIMPLE_OMP_ATOMIC_LOAD:
       gimplify_expr (gimple_omp_atomic_load_rhs_ptr (

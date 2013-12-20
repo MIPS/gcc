@@ -346,11 +346,11 @@ initialize_hash_element (gimple stmt, tree lhs,
       for (i = 0; i < nargs; i++)
         expr->ops.call.args[i] = gimple_call_arg (stmt, i);
     }
-  else if (code == GIMPLE_SWITCH)
+  else if (gimple_switch swtch_stmt = dyn_cast <gimple_switch> (stmt))
     {
-      expr->type = TREE_TYPE (gimple_switch_index (stmt));
+      expr->type = TREE_TYPE (gimple_switch_index (swtch_stmt));
       expr->kind = EXPR_SINGLE;
-      expr->ops.single.rhs = gimple_switch_index (stmt);
+      expr->ops.single.rhs = gimple_switch_index (swtch_stmt);
     }
   else if (code == GIMPLE_GOTO)
     {
@@ -1796,7 +1796,7 @@ record_edge_info (basic_block bb)
       if (gimple_code (stmt) == GIMPLE_SWITCH)
 	{
 	  gimple_switch switch_stmt = as_a <gimple_switch> (stmt);
-	  tree index = gimple_switch_index (stmt);
+	  tree index = gimple_switch_index (switch_stmt);
 
 	  if (TREE_CODE (index) == SSA_NAME)
 	    {
@@ -2081,8 +2081,8 @@ eliminate_redundant_computations (gimple_stmt_iterator* gsi)
       expr_type = TREE_TYPE (gimple_call_lhs (stmt));
       assigns_var_p = true;
     }
-  else if (gimple_code (stmt) == GIMPLE_SWITCH)
-    expr_type = TREE_TYPE (gimple_switch_index (stmt));
+  else if (gimple_switch swtch_stmt = dyn_cast <gimple_switch> (stmt))
+    expr_type = TREE_TYPE (gimple_switch_index (swtch_stmt));
   else if (gimple_code (stmt) == GIMPLE_PHI)
     /* We can't propagate into a phi, so the logic below doesn't apply.
        Instead record an equivalence between the cached LHS and the
@@ -2359,9 +2359,9 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
         rhs = gimple_assign_rhs1 (stmt);
       else if (gimple_code (stmt) == GIMPLE_GOTO)
         rhs = gimple_goto_dest (stmt);
-      else if (gimple_code (stmt) == GIMPLE_SWITCH)
+      else if (gimple_switch swtch_stmt = dyn_cast <gimple_switch> (stmt))
         /* This should never be an ADDR_EXPR.  */
-        rhs = gimple_switch_index (stmt);
+        rhs = gimple_switch_index (swtch_stmt);
 
       if (rhs && TREE_CODE (rhs) == ADDR_EXPR)
         recompute_tree_invariant_for_addr_expr (rhs);
@@ -2483,8 +2483,8 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
         val = fold_binary_loc (gimple_location (stmt),
 			   gimple_cond_code (stmt), boolean_type_node,
                            gimple_cond_lhs (stmt),  gimple_cond_rhs (stmt));
-      else if (gimple_code (stmt) == GIMPLE_SWITCH)
-	val = gimple_switch_index (stmt);
+      else if (gimple_switch swtch_stmt = dyn_cast <gimple_switch> (stmt))
+	val = gimple_switch_index (swtch_stmt);
 
       if (val && TREE_CODE (val) == INTEGER_CST && find_taken_edge (bb, val))
 	cfg_altered = true;
@@ -2836,7 +2836,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
                                    gimple_cond_lhs (use_stmt),
                                    gimple_cond_rhs (use_stmt));
               else if (gimple_code (use_stmt) == GIMPLE_SWITCH)
-		val = gimple_switch_index (use_stmt);
+		val = gimple_switch_index (as_a <gimple_switch> (use_stmt));
 	      else
 		val = gimple_goto_dest  (use_stmt);
 

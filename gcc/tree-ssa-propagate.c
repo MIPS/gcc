@@ -1316,8 +1316,8 @@ may_propagate_copy_into_stmt (gimple dest, tree orig)
 
   if (gimple_assign_single_p (dest))
     return may_propagate_copy (gimple_assign_rhs1 (dest), orig);
-  else if (gimple_code (dest) == GIMPLE_SWITCH)
-    return may_propagate_copy (gimple_switch_index (dest), orig);
+  else if (gimple_switch dest_swtch = dyn_cast <gimple_switch> (dest))
+    return may_propagate_copy (gimple_switch_index (dest_swtch), orig);
 
   /* In other cases, the expression is not materialized, so there
      is no destination to pass to may_propagate_copy.  On the other
@@ -1463,8 +1463,8 @@ propagate_tree_value_into_stmt (gimple_stmt_iterator *gsi, tree val)
       res = update_call_from_tree (gsi, expr);
       gcc_assert (res);
     }
-  else if (gimple_code (stmt) == GIMPLE_SWITCH)
-    propagate_tree_value (gimple_switch_index_ptr (stmt), val);
+  else if (gimple_switch swtch_stmt = dyn_cast <gimple_switch> (stmt))
+    propagate_tree_value (gimple_switch_index_ptr (swtch_stmt), val);
   else
     gcc_unreachable ();
 }

@@ -4062,9 +4062,8 @@ gimple_switch_set_num_labels (gimple_switch g, unsigned nlabels)
 /* Return the index variable used by the switch statement GS.  */
 
 static inline tree
-gimple_switch_index (const_gimple gs)
+gimple_switch_index (const_gimple_switch gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   return gimple_op (gs, 0);
 }
 
@@ -4072,9 +4071,8 @@ gimple_switch_index (const_gimple gs)
 /* Return a pointer to the index variable for the switch statement GS.  */
 
 static inline tree *
-gimple_switch_index_ptr (const_gimple gs)
+gimple_switch_index_ptr (const_gimple_switch gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_SWITCH);
   return gimple_op_ptr (gs, 0);
 }
 

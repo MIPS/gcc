@@ -113,7 +113,7 @@ cleanup_control_expr_graph (basic_block bb, gimple_stmt_iterator gsi)
 	  break;
 
 	case GIMPLE_SWITCH:
-	  val = gimple_switch_index (stmt);
+	  val = gimple_switch_index (as_a <gimple_switch> (stmt));
 	  break;
 
 	default:
