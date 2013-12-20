@@ -1499,14 +1499,15 @@ transform_to_exit_first_loop (struct loop *loop,
   edge exit = single_dom_exit (loop), hpred;
   tree control, control_name, res, t;
   gimple_phi phi, nphi;
-  gimple cond_stmt, stmt, cond_nit;
+  gimple_assign stmt;
+  gimple_cond cond_stmt, cond_nit;
   tree nit_1;
 
   split_block_after_labels (loop->header);
   orig_header = single_succ (loop->header);
   hpred = single_succ_edge (loop->header);
 
-  cond_stmt = last_stmt (exit->src);
+  cond_stmt = as_a <gimple_cond> (last_stmt (exit->src));
   control = gimple_cond_lhs (cond_stmt);
   gcc_assert (gimple_cond_rhs (cond_stmt) == nit);
 
@@ -1586,7 +1587,7 @@ transform_to_exit_first_loop (struct loop *loop,
   /* Initialize the control variable to number of iterations
      according to the rhs of the exit condition.  */
   gimple_stmt_iterator gsi = gsi_after_labels (ex_bb);
-  cond_nit = last_stmt (exit->src);
+  cond_nit = as_a <gimple_cond> (last_stmt (exit->src));
   nit_1 =  gimple_cond_rhs (cond_nit);
   nit_1 = force_gimple_operand_gsi (&gsi,
 				  fold_convert (TREE_TYPE (control_name), nit_1),
@@ -1610,7 +1611,8 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
   tree t, param;
   gimple_omp_parallel omp_par_stmt;
   gimple omp_return_stmt1, omp_return_stmt2;
-  gimple phi, cond_stmt;
+  gimple phi;
+  gimple_cond cond_stmt;
   gimple_omp_for for_stmt;
   gimple_omp_continue omp_cont_stmt;
   tree cvar, cvar_init, initvar, cvar_next, cvar_base, type;
@@ -1654,7 +1656,7 @@ create_parallel_loop (struct loop *loop, tree loop_fn, tree data,
 
   /* Extract data for GIMPLE_OMP_FOR.  */
   gcc_assert (loop->header == single_dom_exit (loop)->src);
-  cond_stmt = last_stmt (loop->header);
+  cond_stmt = as_a <gimple_cond> (last_stmt (loop->header));
 
   cvar = gimple_cond_lhs (cond_stmt);
   cvar_base = SSA_NAME_VAR (cvar);

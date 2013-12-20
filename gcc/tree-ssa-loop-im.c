@@ -914,6 +914,7 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
   gimple stmt1;
   gimple_assign stmt2;
   gimple use_stmt;
+  gimple_cond cond_stmt;
   tree lhs, name, t, a, b;
   use_operand_p use;
 
@@ -922,13 +923,15 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
 
   /* Verify that the single use of lhs is a comparison against zero.  */
   if (TREE_CODE (lhs) != SSA_NAME
-      || !single_imm_use (lhs, &use, &use_stmt)
-      || gimple_code (use_stmt) != GIMPLE_COND)
+      || !single_imm_use (lhs, &use, &use_stmt))
     return stmt;
-  if (gimple_cond_lhs (use_stmt) != lhs
-      || (gimple_cond_code (use_stmt) != NE_EXPR
-	  && gimple_cond_code (use_stmt) != EQ_EXPR)
-      || !integer_zerop (gimple_cond_rhs (use_stmt)))
+  cond_stmt = dyn_cast <gimple_cond> (use_stmt);
+  if (!cond_stmt)
+    return stmt;
+  if (gimple_cond_lhs (cond_stmt) != lhs
+      || (gimple_cond_code (cond_stmt) != NE_EXPR
+	  && gimple_cond_code (cond_stmt) != EQ_EXPR)
+      || !integer_zerop (gimple_cond_rhs (cond_stmt)))
     return stmt;
 
   /* Get at the operands of the shift.  The rhs is TMP1 & 1.  */
@@ -976,7 +979,9 @@ rewrite_bittest (gimple_stmt_iterator *bsi)
       /* Replace the SSA_NAME we compare against zero.  Adjust
 	 the type of zero accordingly.  */
       SET_USE (use, name);
-      gimple_cond_set_rhs (use_stmt, build_int_cst_type (TREE_TYPE (name), 0));
+      gimple_cond_set_rhs (cond_stmt,
+			   build_int_cst_type (TREE_TYPE (name),
+					       0));
 
       /* Don't use gsi_replace here, none of the new assignments sets
 	 the variable originally set in stmt.  Move bsi to stmt1, and

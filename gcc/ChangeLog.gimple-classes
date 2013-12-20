@@ -1,5 +1,21 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_cond_set_{lhs|rhs}
+
+	* gimple.h (gimple_cond_set_lhs): Require a gimple_cond.
+	(gimple_cond_set_rhs): Likewise.
+
+	* tree-parloops.c (transform_to_exit_first_loop): Convert locals
+	"cond_stmt" and "cond_nit" to gimple_cond, adding checked casts,
+	since the existing code assumes that code is GIMPLE_COND.  Convert
+	"stmt" to a gimple_assign.
+	(create_parallel_loop): Likewise for "cond_stmt".
+
+	* tree-ssa-loop-im.c (rewrite_bittest): Replace check for code
+	GIMPLE_COND with a dyn_cast, adding new local "cond_stmt".
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_cond_set_code
 
 	* gimple.h (gimple_cond_set_code): Require a gimple_cond.

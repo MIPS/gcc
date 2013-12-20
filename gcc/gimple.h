@@ -3037,9 +3037,8 @@ gimple_cond_lhs_ptr (const_gimple gs)
    conditional statement GS.  */
 
 static inline void
-gimple_cond_set_lhs (gimple gs, tree lhs)
+gimple_cond_set_lhs (gimple_cond gs, tree lhs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_COND);
   gimple_set_op (gs, 0, lhs);
 }
 
@@ -3068,9 +3067,8 @@ gimple_cond_rhs_ptr (const_gimple gs)
    conditional statement GS.  */
 
 static inline void
-gimple_cond_set_rhs (gimple gs, tree rhs)
+gimple_cond_set_rhs (gimple_cond gs, tree rhs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_COND);
   gimple_set_op (gs, 1, rhs);
 }
 
