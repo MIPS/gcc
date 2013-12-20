@@ -920,7 +920,7 @@ optimize_tail_call (struct tailcall *t, bool opt_tailcalls)
 
   if (opt_tailcalls)
     {
-      gimple stmt = gsi_stmt (t->call_gsi);
+      gimple_call stmt = as_a <gimple_call> (gsi_stmt (t->call_gsi));
 
       gimple_call_set_tail (stmt, true);
       cfun->tail_call_marked = true;

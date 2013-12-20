@@ -3111,23 +3111,26 @@ expand_block_edges (struct tm_region *const region, basic_block bb)
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi = next_gsi)
     {
       gimple stmt = gsi_stmt (gsi);
+      gimple_call call_stmt;
 
       next_gsi = gsi;
       gsi_next (&next_gsi);
 
       // ??? Shouldn't we split for any non-pure, non-irrevocable function?
-      if (gimple_code (stmt) != GIMPLE_CALL
-	  || (gimple_call_flags (stmt) & ECF_TM_BUILTIN) == 0)
+      call_stmt = dyn_cast <gimple_call> (stmt);
+      if ((!call_stmt)
+	  || (gimple_call_flags (call_stmt) & ECF_TM_BUILTIN) == 0)
 	continue;
 
-      if (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt)) == BUILT_IN_TM_ABORT)
+      if (DECL_FUNCTION_CODE (gimple_call_fndecl (call_stmt))
+	  == BUILT_IN_TM_ABORT)
 	{
 	  // If we have a ``_transaction_cancel [[outer]]'', there is only
 	  // one abnormal edge: to the transaction marked OUTER.
 	  // All compiler-generated instances of BUILT_IN_TM_ABORT have a
 	  // constant argument, which we can examine here.  Users invoking
 	  // TM_ABORT directly get what they deserve.
-	  tree arg = gimple_call_arg (stmt, 0);
+	  tree arg = gimple_call_arg (call_stmt, 0);
 	  if (TREE_CODE (arg) == INTEGER_CST
 	      && (TREE_INT_CST_LOW (arg) & AR_OUTERABORT) != 0
 	      && !decl_is_tm_clone (current_function_decl))
@@ -3136,7 +3139,7 @@ expand_block_edges (struct tm_region *const region, basic_block bb)
 	      for (struct tm_region *o = region; o; o = o->outer)
 		if (o->original_transaction_was_outer)
 		  {
-		    split_bb_make_tm_edge (stmt, o->restart_block,
+		    split_bb_make_tm_edge (call_stmt, o->restart_block,
 					   gsi, &next_gsi);
 		    break;
 		  }
@@ -3149,7 +3152,8 @@ expand_block_edges (struct tm_region *const region, basic_block bb)
 
 	  // Non-outer, TM aborts have an abnormal edge to the inner-most
 	  // transaction, the one being aborted;
-	  split_bb_make_tm_edge (stmt, region->restart_block, gsi, &next_gsi);
+	  split_bb_make_tm_edge (call_stmt, region->restart_block, gsi,
+				 &next_gsi);
 	}
 
       // All TM builtins have an abnormal edge to the outer-most transaction.
@@ -3167,14 +3171,14 @@ expand_block_edges (struct tm_region *const region, basic_block bb)
       for (struct tm_region *o = region; o; o = o->outer)
 	if (!o->outer)
 	  {
-            split_bb_make_tm_edge (stmt, o->restart_block, gsi, &next_gsi);
+            split_bb_make_tm_edge (call_stmt, o->restart_block, gsi, &next_gsi);
 	    break;
 	  }
 
       // Delete any tail-call annotation that may have been added.
       // The tail-call pass may have mis-identified the commit as being
       // a candidate because we had not yet added this restart edge.
-      gimple_call_set_tail (stmt, false);
+      gimple_call_set_tail (call_stmt, false);
     }
 }
 

@@ -3407,7 +3407,7 @@ expand_gimple_stmt (gimple stmt)
    tailcall) and the normal result happens via a sqrt instruction.  */
 
 static basic_block
-expand_gimple_tailcall (basic_block bb, gimple stmt, bool *can_fallthru)
+expand_gimple_tailcall (basic_block bb, gimple_call stmt, bool *can_fallthru)
 {
   rtx_insn *last2, *last;
   edge e;
@@ -5172,15 +5172,16 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 	}
       else
 	{
-	  if (is_gimple_call (stmt)
-	      && gimple_call_tail_p (stmt)
+	  gimple_call call_stmt = dyn_cast <gimple_call> (stmt);
+	  if (call_stmt
+	      && gimple_call_tail_p (call_stmt)
 	      && disable_tail_calls)
-	    gimple_call_set_tail (stmt, false);
+	    gimple_call_set_tail (call_stmt, false);
 
-	  if (is_gimple_call (stmt) && gimple_call_tail_p (stmt))
+	  if (call_stmt && gimple_call_tail_p (call_stmt))
 	    {
 	      bool can_fallthru;
-	      new_bb = expand_gimple_tailcall (bb, stmt, &can_fallthru);
+	      new_bb = expand_gimple_tailcall (bb, call_stmt, &can_fallthru);
 	      if (new_bb)
 		{
 		  if (can_fallthru)

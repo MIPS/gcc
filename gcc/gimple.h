@@ -2808,9 +2808,8 @@ gimple_call_set_arg (gimple gs, unsigned index, tree arg)
    candidate for tail call optimization.  */
 
 static inline void
-gimple_call_set_tail (gimple s, bool tail_p)
+gimple_call_set_tail (gimple_call s, bool tail_p)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   if (tail_p)
     s->subcode |= GF_CALL_TAILCALL;
   else
@@ -2821,9 +2820,8 @@ gimple_call_set_tail (gimple s, bool tail_p)
 /* Return true if GIMPLE_CALL S is marked as a tail call.  */
 
 static inline bool
-gimple_call_tail_p (gimple s)
+gimple_call_tail_p (gimple_call s)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   return (s->subcode & GF_CALL_TAILCALL) != 0;
 }
 

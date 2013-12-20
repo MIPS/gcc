@@ -1,5 +1,25 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_set_tail and gimple_call_tail_p
+
+	* gimple.h (gimple_call_set_tail): Require a gimple_call.
+	(gimple_call_tail_p): Likewise.
+
+	* cfgexpand.c (expand_gimple_tailcall): Likewise.
+	(expand_gimple_basic_block): Convert calls to is_gimple_call to a
+	dyn_cast, introducing a new "call_stmt" local.
+
+	* trans-mem.c (expand_block_edges): Likewise, for comparison against
+	GIMPLE_CALL.
+
+	* tree-inline.c (remap_gimple_stmt): Add checked casts to
+	gimple_call in region guarded by is_gimple_call.
+
+	* tree-tailcall.c (optimize_tail_call): Add checked cast to gimple_call
+	for t->call_gsi.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_set_fntype
 
 	* gimple-fold.c (gimple_fold_builtin_sprintf_chk): Strengthen
