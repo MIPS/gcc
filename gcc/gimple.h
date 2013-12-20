@@ -2923,9 +2923,8 @@ gimple_call_set_nothrow (gimple_call s, bool nothrow_p)
 /* Return true if S is a nothrow call.  */
 
 static inline bool
-gimple_call_nothrow_p (gimple s)
+gimple_call_nothrow_p (gimple_call s)
 {
-  GIMPLE_CHECK (s, GIMPLE_CALL);
   return (gimple_call_flags (s) & ECF_NOTHROW) != 0;
 }
 

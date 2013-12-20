@@ -2792,7 +2792,7 @@ stmt_could_throw_p (gimple stmt)
       return true;
 
     case GIMPLE_CALL:
-      return !gimple_call_nothrow_p (stmt);
+      return !gimple_call_nothrow_p (as_a <gimple_call> (stmt));
 
     case GIMPLE_ASSIGN:
     case GIMPLE_COND:

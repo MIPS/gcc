@@ -1,5 +1,16 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_nothrow_p
+
+	* gimple.h (gimple_call_nothrow_p): Require a gimple_call.
+
+	* tree-eh.c (stmt_could_throw_p): Add checked cast to gimple_call.
+
+	* tree-vect-slp.c (vect_build_slp_tree_1): Replace call to
+	is_gimple_call with dyn_cast<gimple_call>, introducing a local.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_set_nothrow
 
 	* gimple.h (gimple_call_set_nothrow): Require a gimple_call.
