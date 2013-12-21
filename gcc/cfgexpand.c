@@ -3251,7 +3251,8 @@ expand_gimple_stmt_1 (gimple stmt)
 
     case GIMPLE_ASSIGN:
       {
-	tree lhs = gimple_assign_lhs (stmt);
+	gimple_assign assign_stmt = as_a <gimple_assign> (stmt);
+	tree lhs = gimple_assign_lhs (assign_stmt);
 
 	/* Tree expand used to fiddle with |= and &= of two bitfield
 	   COMPONENT_REFs here.  This can't happen with gimple, the LHS
@@ -3261,7 +3262,7 @@ expand_gimple_stmt_1 (gimple stmt)
 	    || get_gimple_rhs_class (gimple_expr_code (stmt))
 	       == GIMPLE_SINGLE_RHS)
 	  {
-	    tree rhs = gimple_assign_rhs1 (stmt);
+	    tree rhs = gimple_assign_rhs1 (assign_stmt);
 	    gcc_assert (get_gimple_rhs_class (gimple_expr_code (stmt))
 			== GIMPLE_SINGLE_RHS);
 	    if (gimple_has_location (stmt) && CAN_HAVE_LOCATION_P (rhs))
@@ -3272,12 +3273,13 @@ expand_gimple_stmt_1 (gimple stmt)
 	      ;
 	    else
 	      expand_assignment (lhs, rhs,
-				 gimple_assign_nontemporal_move_p (stmt));
+				 gimple_assign_nontemporal_move_p (
+				   assign_stmt));
 	  }
 	else
 	  {
 	    rtx target, temp;
-	    bool nontemporal = gimple_assign_nontemporal_move_p (stmt);
+	    bool nontemporal = gimple_assign_nontemporal_move_p (assign_stmt);
 	    struct separate_ops ops;
 	    bool promoted = false;
 
@@ -3285,18 +3287,18 @@ expand_gimple_stmt_1 (gimple stmt)
 	    if (GET_CODE (target) == SUBREG && SUBREG_PROMOTED_VAR_P (target))
 	      promoted = true;
 
-	    ops.code = gimple_assign_rhs_code (stmt);
+	    ops.code = gimple_assign_rhs_code (assign_stmt);
 	    ops.type = TREE_TYPE (lhs);
 	    switch (get_gimple_rhs_class (gimple_expr_code (stmt)))
 	      {
 		case GIMPLE_TERNARY_RHS:
-		  ops.op2 = gimple_assign_rhs3 (stmt);
+		  ops.op2 = gimple_assign_rhs3 (assign_stmt);
 		  /* Fallthru */
 		case GIMPLE_BINARY_RHS:
-		  ops.op1 = gimple_assign_rhs2 (stmt);
+		  ops.op1 = gimple_assign_rhs2 (assign_stmt);
 		  /* Fallthru */
 		case GIMPLE_UNARY_RHS:
-		  ops.op0 = gimple_assign_rhs1 (stmt);
+		  ops.op0 = gimple_assign_rhs1 (assign_stmt);
 		  break;
 		default:
 		  gcc_unreachable ();

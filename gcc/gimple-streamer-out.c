@@ -80,7 +80,10 @@ output_gimple_stmt (struct output_block *ob, gimple stmt)
   bp_pack_var_len_unsigned (&bp, gimple_num_ops (stmt));
   bp_pack_value (&bp, gimple_no_warning_p (stmt), 1);
   if (is_gimple_assign (stmt))
-    bp_pack_value (&bp, gimple_assign_nontemporal_move_p (stmt), 1);
+    bp_pack_value (&bp,
+		   gimple_assign_nontemporal_move_p (
+		     as_a <gimple_assign> (stmt)),
+		   1);
   bp_pack_value (&bp, gimple_has_volatile_ops (stmt), 1);
   hist = gimple_histogram_value (cfun, stmt);
   bp_pack_value (&bp, hist != NULL, 1);

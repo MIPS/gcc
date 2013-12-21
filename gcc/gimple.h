@@ -2426,9 +2426,8 @@ gimple_assign_set_rhs_with_ops (gimple_stmt_iterator *gsi, enum tree_code code,
 /* Returns true if GS is a nontemporal move.  */
 
 static inline bool
-gimple_assign_nontemporal_move_p (const_gimple gs)
+gimple_assign_nontemporal_move_p (const_gimple_assign gs)
 {
-  GIMPLE_CHECK (gs, GIMPLE_ASSIGN);
   return gs->nontemporal_move;
 }
 

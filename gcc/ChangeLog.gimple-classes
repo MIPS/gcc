@@ -1,5 +1,18 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_assign_nontemporal_move_p
+
+	* gimple.h (gimple_assign_nontemporal_move_p): Require a
+	const_gimple_assign rather than a const_gimple.
+
+	* cfgexpand.c (expand_gimple_stmt_1): Add local assign_stmt and
+	checked cast within "case GIMPLE_ASSIGN".
+
+	* gimple-streamer-out.c (output_gimple_stmt): Add checked cast to
+	gimple_assign.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_arg_flags
 
 	* gimple.h (gimple_call_arg_flags): Require a const_gimple_call
