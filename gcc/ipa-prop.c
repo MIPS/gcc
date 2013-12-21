@@ -4147,7 +4147,7 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments)
    contain the corresponding call graph edge.  */
 
 void
-ipa_modify_call_arguments (struct cgraph_edge *cs, gimple stmt,
+ipa_modify_call_arguments (struct cgraph_edge *cs, gimple_call stmt,
 			   ipa_parm_adjustment_vec adjustments)
 {
   struct cgraph_node *current_node = cgraph_node::get (current_function_decl);

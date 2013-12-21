@@ -1,5 +1,21 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Concretize gimple_call_copy_flags and ipa_modify_call_arguments
+
+	* gimple.h (gimple_call_copy_flags): Require gimple_calls.
+
+	* ipa-prop.c (ipa_modify_call_arguments): Require a gimple_call.
+	* ipa-prop.h (ipa_modify_call_arguments): Likewise.
+
+	* tree-inline.c (copy_bb): Replace is_gimple_call with new local
+	and call to dyn_cast<gimple_call>, updating gimple_call_ uses to
+	use the type-checked local.
+
+	* tree-sra.c (convert_callers): Replace check for GIMPLE_CALL with
+	a dyn_cast.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_assign_nontemporal_move_p
 
 	* gimple.h (gimple_assign_nontemporal_move_p): Require a

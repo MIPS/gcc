@@ -2948,10 +2948,8 @@ gimple_call_alloca_for_var_p (gimple_call s)
 /* Copy all the GF_CALL_* flags from ORIG_CALL to DEST_CALL.  */
 
 static inline void
-gimple_call_copy_flags (gimple dest_call, gimple orig_call)
+gimple_call_copy_flags (gimple_call dest_call, gimple_call orig_call)
 {
-  GIMPLE_CHECK (dest_call, GIMPLE_CALL);
-  GIMPLE_CHECK (orig_call, GIMPLE_CALL);
   dest_call->subcode = orig_call->subcode;
 }
 

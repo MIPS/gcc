@@ -1725,10 +1725,12 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
       do
 	{
 	  tree fn;
+	  gimple_call call_stmt;
 
 	  stmt = gsi_stmt (copy_gsi);
-	  if (is_gimple_call (stmt)
-	      && gimple_call_va_arg_pack_p (as_a <gimple_call> (stmt))
+	  call_stmt = dyn_cast <gimple_call> (stmt);
+	  if (call_stmt
+	      && gimple_call_va_arg_pack_p (call_stmt)
 	      && id->gimple_call)
 	    {
 	      /* __builtin_va_arg_pack () should be replaced by
@@ -1743,33 +1745,33 @@ copy_bb (copy_body_data *id, basic_block bb, int frequency_scale,
 		nargs--;
 
 	      /* Create the new array of arguments.  */
-	      n = nargs + gimple_call_num_args (stmt);
+	      n = nargs + gimple_call_num_args (call_stmt);
 	      argarray.create (n);
 	      argarray.safe_grow_cleared (n);
 
 	      /* Copy all the arguments before '...'  */
 	      memcpy (argarray.address (),
-		      gimple_call_arg_ptr (stmt, 0),
-		      gimple_call_num_args (stmt) * sizeof (tree));
+		      gimple_call_arg_ptr (call_stmt, 0),
+		      gimple_call_num_args (call_stmt) * sizeof (tree));
 
 	      /* Append the arguments passed in '...'  */
-	      memcpy (argarray.address () + gimple_call_num_args (stmt),
+	      memcpy (argarray.address () + gimple_call_num_args (call_stmt),
 		      gimple_call_arg_ptr (id->gimple_call, 0)
 			+ (gimple_call_num_args (id->gimple_call) - nargs),
 		      nargs * sizeof (tree));
 
-	      new_call = gimple_build_call_vec (gimple_call_fn (stmt),
+	      new_call = gimple_build_call_vec (gimple_call_fn (call_stmt),
 						argarray);
 
 	      argarray.release ();
 
 	      /* Copy all GIMPLE_CALL flags, location and block, except
 		 GF_CALL_VA_ARG_PACK.  */
-	      gimple_call_copy_flags (new_call, stmt);
+	      gimple_call_copy_flags (new_call, call_stmt);
 	      gimple_call_set_va_arg_pack (new_call, false);
 	      gimple_set_location (new_call, gimple_location (stmt));
 	      gimple_set_block (new_call, gimple_block (stmt));
-	      gimple_call_set_lhs (new_call, gimple_call_lhs (stmt));
+	      gimple_call_set_lhs (new_call, gimple_call_lhs (call_stmt));
 
 	      gsi_replace (&copy_gsi, new_call, false);
 	      stmt = new_call;

@@ -4884,9 +4884,10 @@ convert_callers (struct cgraph_node *node, tree old_decl,
 
       for (gsi = gsi_start_bb (this_block); !gsi_end_p (gsi); gsi_next (&gsi))
         {
-	  gimple stmt = gsi_stmt (gsi);
+	  gimple_call stmt;
 	  tree call_fndecl;
-	  if (gimple_code (stmt) != GIMPLE_CALL)
+	  stmt = dyn_cast <gimple_call> (gsi_stmt (gsi));
+	  if (!stmt)
 	    continue;
 	  call_fndecl = gimple_call_fndecl (stmt);
 	  if (call_fndecl == old_decl)
