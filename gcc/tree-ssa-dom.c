@@ -81,7 +81,7 @@ struct hashable_expr
     struct { enum tree_code op;  tree opnd; } unary;
     struct { enum tree_code op;  tree opnd0, opnd1; } binary;
     struct { enum tree_code op;  tree opnd0, opnd1, opnd2; } ternary;
-    struct { gimple fn_from; bool pure; size_t nargs; tree *args; } call;
+    struct { gimple_call fn_from; bool pure; size_t nargs; tree *args; } call;
     struct { size_t nargs; tree *args; } phi;
   } ops;
 };
@@ -325,18 +325,18 @@ initialize_hash_element (gimple stmt, tree lhs,
       expr->ops.binary.opnd0 = gimple_cond_lhs (stmt);
       expr->ops.binary.opnd1 = gimple_cond_rhs (stmt);
     }
-  else if (code == GIMPLE_CALL)
+  else if (gimple_call call_stmt = dyn_cast <gimple_call> (stmt))
     {
-      size_t nargs = gimple_call_num_args (stmt);
+      size_t nargs = gimple_call_num_args (call_stmt);
       size_t i;
 
-      gcc_assert (gimple_call_lhs (stmt));
+      gcc_assert (gimple_call_lhs (call_stmt));
 
-      expr->type = TREE_TYPE (gimple_call_lhs (stmt));
+      expr->type = TREE_TYPE (gimple_call_lhs (call_stmt));
       expr->kind = EXPR_CALL;
-      expr->ops.call.fn_from = stmt;
+      expr->ops.call.fn_from = call_stmt;
 
-      if (gimple_call_flags (stmt) & (ECF_CONST | ECF_PURE))
+      if (gimple_call_flags (call_stmt) & (ECF_CONST | ECF_PURE))
         expr->ops.call.pure = true;
       else
         expr->ops.call.pure = false;
@@ -344,7 +344,7 @@ initialize_hash_element (gimple stmt, tree lhs,
       expr->ops.call.nargs = nargs;
       expr->ops.call.args = XCNEWVEC (tree, nargs);
       for (i = 0; i < nargs; i++)
-        expr->ops.call.args[i] = gimple_call_arg (stmt, i);
+        expr->ops.call.args[i] = gimple_call_arg (call_stmt, i);
     }
   else if (gimple_switch swtch_stmt = dyn_cast <gimple_switch> (stmt))
     {
@@ -635,7 +635,7 @@ add_hashable_expr (const struct hashable_expr *expr, hash &hstate)
       {
         size_t i;
         enum tree_code code = CALL_EXPR;
-        gimple fn_from;
+        gimple_call fn_from;
 
         hstate.add_object (code);
         fn_from = expr->ops.call.fn_from;
@@ -711,7 +711,7 @@ print_expr_hash_elt (FILE * stream, const struct expr_hash_elt *element)
         {
           size_t i;
           size_t nargs = element->expr.ops.call.nargs;
-          gimple fn_from;
+          gimple_call fn_from;
 
           fn_from = element->expr.ops.call.fn_from;
           if (gimple_call_internal_p (fn_from))

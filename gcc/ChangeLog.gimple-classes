@@ -1,5 +1,18 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Use gimple_call in some places within tree-ssa-dom.c
+
+	* tree-ssa-dom.c (struct hashable_expr): Strengthen field
+	call.fn_from from gimple to gimple_call.
+	(initialize_hash_element): Replace check against GIMPLE_CALL
+	with dyn_cast<gimple_call> and update gimple_call_ uses to use
+	new gimple_call local, along with fn_from initializer.
+	(iterative_hash_hashable_expr): Strengthen type of local "fn_from"
+	from gimple to gimple_call.
+	(print_expr_hash_elt): Likewise.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Concretize gimple_call_copy_flags and ipa_modify_call_arguments
 
 	* gimple.h (gimple_call_copy_flags): Require gimple_calls.
