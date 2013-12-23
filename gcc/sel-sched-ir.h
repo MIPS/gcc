@@ -926,7 +926,7 @@ extern vec<sel_region_bb_info_def> sel_region_bb_info;
 #define BB_AV_SET_VALID_P(BB) (BB_AV_LEVEL (BB) == global_level)
 
 /* Used in bb_in_ebb_p.  */
-extern bitmap_head *forced_ebb_heads;
+extern bitmap_head forced_ebb_heads;
 
 /* The loop nest being pipelined.  */
 extern struct loop *current_loop_nest;

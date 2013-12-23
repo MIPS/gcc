@@ -3407,7 +3407,6 @@ schedule_insns (void)
   haifa_sched_init ();
   sched_rgn_init (reload_completed);
 
-  bitmap_initialize (&not_in_df, 0);
   bitmap_clear (&not_in_df);
 
   /* Schedule every region in the subroutine.  */

@@ -596,7 +596,6 @@ schedule_ebbs_init (void)
   compute_bb_for_insn ();
 
   /* Initialize DONT_CALC_DEPS and ebb-{start, end} markers.  */
-  bitmap_initialize (&dont_calc_deps, 0);
   bitmap_clear (&dont_calc_deps);
 }
 

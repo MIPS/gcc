@@ -4615,11 +4615,9 @@ estimate_shadow_tick (struct delay_pair *p)
   bitmap_head processed;
   int t;
   bool cutoff;
-  bitmap_initialize (&processed, 0);
 
   cutoff = !estimate_insn_tick (&processed, p->i2,
 				max_insn_queue_index + pair_delay (p));
-  bitmap_clear (&processed);
   if (cutoff)
     return max_insn_queue_index;
   t = INSN_TICK_ESTIMATE (p->i2) - (clock_var + pair_delay (p) + 1);
@@ -6841,8 +6839,6 @@ fix_inter_tick (rtx head, rtx tail)
      a one cycle dependency over insn from the previous block.  */
   int next_clock = clock_var + 1;
 
-  bitmap_initialize (&processed, 0);
-
   /* Iterates over scheduled instructions and fix their INSN_TICKs and
      INSN_TICKs of dependent instructions, so that INSN_TICKs are consistent
      across different blocks.  */
@@ -6899,7 +6895,6 @@ fix_inter_tick (rtx head, rtx tail)
 	    }
 	}
     }
-  bitmap_clear (&processed);
 }
 
 /* Check if NEXT is ready to be added to the ready or queue list.
@@ -7949,8 +7944,6 @@ fix_recovery_deps (basic_block rec)
   bitmap_head in_ready;
   rtx link;
 
-  bitmap_initialize (&in_ready, 0);
-
   /* NOTE - a basic block note.  */
   note = NEXT_INSN (BB_HEAD (rec));
   gcc_assert (NOTE_INSN_BASIC_BLOCK_P (note));
@@ -7986,8 +7979,6 @@ fix_recovery_deps (basic_block rec)
       insn = PREV_INSN (insn);
     }
   while (insn != note);
-
-  bitmap_clear (&in_ready);
 
   /* Try to add instructions to the ready or queue list.  */
   for (link = ready_list; link; link = XEXP (link, 1))

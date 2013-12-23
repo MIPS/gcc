@@ -4858,7 +4858,7 @@ bb_ends_ebb_p (basic_block bb)
   edge e;
 
   if (next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
-      || bitmap_bit_p (forced_ebb_heads, next_bb->index)
+      || bitmap_bit_p (&forced_ebb_heads, next_bb->index)
       || (LABEL_P (BB_HEAD (next_bb))
 	  /* NB: LABEL_NUSES () is not maintained outside of jump.c.
 	     Work around that.  */

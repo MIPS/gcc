@@ -4503,18 +4503,16 @@ find_moveable_pseudos (void)
   int *uid_luid = XNEWVEC (int, max_uid);
   rtx *closest_uses = XNEWVEC (rtx, max_regs);
   /* A set of registers which are live but not modified throughout a block.  */
-  bitmap_head *bb_transp_live = XNEWVEC (bitmap_head,
-					 last_basic_block_for_fn (cfun));
+  bitmap_head *bb_transp_live
+  = new bitmap_head[last_basic_block_for_fn (cfun)];
   /* A set of registers which only exist in a given basic block.  */
-  bitmap_head *bb_local = XNEWVEC (bitmap_head,
-				   last_basic_block_for_fn (cfun));
+  bitmap_head *bb_local = new bitmap_head[last_basic_block_for_fn (cfun)];
   /* A set of registers which are set once, in an instruction that can be
      moved freely downwards, but are otherwise transparent to a block.  */
-  bitmap_head *bb_moveable_reg_sets = XNEWVEC (bitmap_head,
-					       last_basic_block_for_fn (cfun));
+  bitmap_head *bb_moveable_reg_sets
+    = new bitmap_head[last_basic_block_for_fn (cfun)];
   bitmap_head live, used, set, interesting, unusable_as_input;
   bitmap_iterator bi;
-  bitmap_initialize (&interesting, 0);
 
   first_moveable_pseudo = max_regs;
   pseudo_replaced_reg.release ();
@@ -4524,26 +4522,17 @@ find_moveable_pseudos (void)
   calculate_dominance_info (CDI_DOMINATORS);
 
   i = 0;
-  bitmap_initialize (&live, 0);
-  bitmap_initialize (&used, 0);
-  bitmap_initialize (&set, 0);
-  bitmap_initialize (&unusable_as_input, 0);
   FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn;
       bitmap transp = bb_transp_live + bb->index;
       bitmap moveable = bb_moveable_reg_sets + bb->index;
-      bitmap local = bb_local + bb->index;
 
-      bitmap_initialize (local, 0);
-      bitmap_initialize (transp, 0);
-      bitmap_initialize (moveable, 0);
       bitmap_copy (&live, df_get_live_out (bb));
       bitmap_and_into (&live, df_get_live_in (bb));
       bitmap_copy (transp, &live);
       bitmap_clear (moveable);
       bitmap_clear (&live);
-      bitmap_clear (&used);
       bitmap_clear (&set);
       FOR_BB_INSNS (bb, insn)
 	if (NONDEBUG_INSN_P (insn))
@@ -4563,14 +4552,12 @@ find_moveable_pseudos (void)
 		unsigned regno = DF_REF_REGNO (*u_rec);
 		bitmap_set_bit (moveable, regno);
 		bitmap_set_bit (&set, regno);
-		bitmap_set_bit (&used, regno);
 		bitmap_clear_bit (transp, regno);
 		continue;
 	      }
 	    while (*u_rec)
 	      {
 		unsigned regno = DF_REF_REGNO (*u_rec);
-		bitmap_set_bit (&used, regno);
 		if (bitmap_clear_bit (moveable, regno))
 		  bitmap_clear_bit (transp, regno);
 		u_rec++;
@@ -4588,8 +4575,6 @@ find_moveable_pseudos (void)
     }
 
   bitmap_clear (&live);
-  bitmap_clear (&used);
-  bitmap_clear (&set);
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -4820,19 +4805,11 @@ find_moveable_pseudos (void)
 	}
     }
   
-  FOR_EACH_BB_FN (bb, cfun)
-    {
-      bitmap_clear (bb_local + bb->index);
-      bitmap_clear (bb_transp_live + bb->index);
-      bitmap_clear (bb_moveable_reg_sets + bb->index);
-    }
-  bitmap_clear (&interesting);
-  bitmap_clear (&unusable_as_input);
   free (uid_luid);
   free (closest_uses);
-  free (bb_local);
-  free (bb_transp_live);
-  free (bb_moveable_reg_sets);
+  delete[] bb_local;
+  delete[] bb_transp_live;
+  delete[] bb_moveable_reg_sets;
 
   last_moveable_pseudo = max_reg_num ();
 
@@ -4913,8 +4890,6 @@ split_live_ranges_for_shrink_wrap (void)
   if (!flag_shrink_wrap)
     return false;
 
-  bitmap_initialize (&need_new, 0);
-  bitmap_initialize (&reachable, 0);
   queue.create (n_basic_blocks_for_fn (cfun));
 
   FOR_EACH_BB_FN (bb, cfun)
@@ -4923,8 +4898,6 @@ split_live_ranges_for_shrink_wrap (void)
 	{
 	  if (bb == first)
 	    {
-	      bitmap_clear (&need_new);
-	      bitmap_clear (&reachable);
 	      queue.release ();
 	      return false;
 	    }
@@ -4937,8 +4910,6 @@ split_live_ranges_for_shrink_wrap (void)
 
   if (queue.is_empty ())
     {
-      bitmap_clear (&need_new);
-      bitmap_clear (&reachable);
       queue.release ();
       return false;
     }
@@ -4963,11 +4934,7 @@ split_live_ranges_for_shrink_wrap (void)
 	continue;
 
       if (DF_REG_DEF_COUNT (REGNO (dest)) > 1)
-	{
-	  bitmap_clear (&need_new);
-	  bitmap_clear (&reachable);
-	  return false;
-	}
+	return false;
 
       for (df_ref use = DF_REG_USE_CHAIN (REGNO(dest));
 	   use;
@@ -4979,8 +4946,6 @@ split_live_ranges_for_shrink_wrap (void)
 	      /* This is necessary to avoid hitting an assert at
 		 postreload.c:2294 in libstc++ testcases on x86_64-linux.  I'm
 		 not really sure what the probblem actually is there.  */
-	      bitmap_clear (&need_new);
-	      bitmap_clear (&reachable);
 	      return false;
 	    }
 
@@ -4991,15 +4956,10 @@ split_live_ranges_for_shrink_wrap (void)
       last_interesting_insn = insn;
     }
 
-  bitmap_clear (&reachable);
   if (!last_interesting_insn)
-    {
-      bitmap_clear (&need_new);
-      return false;
-    }
+    return false;
 
   call_dom = nearest_common_dominator_for_set (CDI_DOMINATORS, &need_new);
-  bitmap_clear (&need_new);
   if (call_dom == first)
     return false;
 

@@ -477,8 +477,7 @@ static int first_emitted_uid;
 
 /* Set of basic blocks that are forced to start new ebbs.  This is a subset
    of all the ebb heads.  */
-static bitmap_head _forced_ebb_heads;
-bitmap_head *forced_ebb_heads = &_forced_ebb_heads;
+bitmap_head forced_ebb_heads;
 
 /* Blocks that need to be rescheduled after pipelining.  */
 bitmap blocks_to_reschedule = NULL;
@@ -693,7 +692,7 @@ extract_new_fences_from (flist_t old_fences, flist_tail_t new_fences,
           else
             {
               /* Mark block of the SUCC as head of the new ebb.  */
-              bitmap_set_bit (forced_ebb_heads, BLOCK_NUM (succ));
+              bitmap_set_bit (&forced_ebb_heads, BLOCK_NUM (succ));
               add_clean_fence_to_fences (new_fences, succ, fence);
             }
         }
@@ -6832,7 +6831,7 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 	  init_seqno_1 (succ, visited_bbs, blocks_to_reschedule);
 	}
       else if (blocks_to_reschedule)
-        bitmap_set_bit (forced_ebb_heads, succ->index);
+        bitmap_set_bit (&forced_ebb_heads, succ->index);
     }
 
   for (insn = BB_END (bb); insn != note; insn = PREV_INSN (insn))
@@ -7021,8 +7020,7 @@ sel_region_init (int rgn)
   memset (reg_rename_tick, 0, sizeof reg_rename_tick);
   reg_rename_this_tick = 0;
 
-  bitmap_initialize (forced_ebb_heads, 0);
-  bitmap_clear (forced_ebb_heads);
+  bitmap_clear (&forced_ebb_heads);
 
   setup_nop_vinsn ();
   current_copies = BITMAP_ALLOC (NULL);
@@ -7362,7 +7360,7 @@ sel_region_finish (bool reset_sched_cycles_p)
 
   sel_finish_global_and_expr ();
 
-  bitmap_clear (forced_ebb_heads);
+  bitmap_clear (&forced_ebb_heads);
 
   free_nop_vinsn ();
 
@@ -7676,7 +7674,7 @@ sel_sched_region_1 (void)
                   orig_max_seqno = init_seqno (blocks_to_reschedule, bb);
 
                   /* Mark BB as head of the new ebb.  */
-                  bitmap_set_bit (forced_ebb_heads, bb->index);
+                  bitmap_set_bit (&forced_ebb_heads, bb->index);
 
                   gcc_assert (fences == NULL);
 
