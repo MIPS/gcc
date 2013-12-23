@@ -622,7 +622,7 @@ mem_ref_in_stmt (gimple stmt)
    else return false.  */
 
 static bool
-extract_true_false_args_from_phi (basic_block dom, gimple phi,
+extract_true_false_args_from_phi (basic_block dom, gimple_phi phi,
 				  tree *true_arg_p, tree *false_arg_p)
 {
   basic_block bb = gimple_bb (phi);
@@ -705,7 +705,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
     level = superloop_at_depth (loop, 1);
   lim_data->max_loop = level;
 
-  if (gimple_code (stmt) == GIMPLE_PHI)
+  if (gimple_phi phi = dyn_cast <gimple_phi> (stmt))
     {
       use_operand_p use_p;
       unsigned min_cost = UINT_MAX;
@@ -716,7 +716,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
 	 evaluated.  For this reason the PHI cost (and thus the
 	 cost we remove from the loop by doing the invariant motion)
 	 is that of the cheapest PHI argument dependency chain.  */
-      FOR_EACH_PHI_ARG (use_p, stmt, iter, SSA_OP_USE)
+      FOR_EACH_PHI_ARG (use_p, phi, iter, SSA_OP_USE)
 	{
 	  val = USE_FROM_PTR (use_p);
 
@@ -746,7 +746,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
       min_cost = MIN (min_cost, total_cost);
       lim_data->cost += min_cost;
 
-      if (gimple_phi_num_args (stmt) > 1)
+      if (gimple_phi_num_args (phi) > 1)
 	{
 	  basic_block dom = get_immediate_dominator (CDI_DOMINATORS, bb);
 	  gimple cond;
@@ -758,7 +758,7 @@ determine_max_movement (gimple stmt, bool must_preserve_exec)
 	  /* Verify that this is an extended form of a diamond and
 	     the PHI arguments are completely controlled by the
 	     predicate in DOM.  */
-	  if (!extract_true_false_args_from_phi (dom, stmt, NULL, NULL))
+	  if (!extract_true_false_args_from_phi (dom, phi, NULL, NULL))
 	    return false;
 
 	  /* Fold in dependencies and cost of the condition.  */
@@ -1165,18 +1165,16 @@ void
 move_computations_dom_walker::before_dom_children (basic_block bb)
 {
   struct loop *level;
-  gimple_stmt_iterator bsi;
-  gimple stmt;
   unsigned cost = 0;
   struct lim_aux_data *lim_data;
 
   if (!loop_outer (bb->loop_father))
     return;
 
-  for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); )
+  for (gimple_phi_iterator bsi = gsi_start_phis (bb); !gsi_end_p (bsi); )
     {
       gimple_assign new_stmt;
-      stmt = gsi_stmt (bsi);
+      gimple_phi stmt = bsi.phi ();
 
       lim_data = get_lim_data (stmt);
       if (lim_data == NULL)
@@ -1230,11 +1228,11 @@ move_computations_dom_walker::before_dom_children (basic_block bb)
       remove_phi_node (&bsi, false);
     }
 
-  for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); )
+  for (gimple_stmt_iterator bsi = gsi_start_bb (bb); !gsi_end_p (bsi); )
     {
       edge e;
 
-      stmt = gsi_stmt (bsi);
+      gimple stmt = gsi_stmt (bsi);
 
       lim_data = get_lim_data (stmt);
       if (lim_data == NULL)

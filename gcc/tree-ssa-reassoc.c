@@ -3068,6 +3068,7 @@ static bool
 is_phi_for_stmt (gimple stmt, tree operand)
 {
   gimple def_stmt;
+  gimple_phi def_phi;
   tree lhs;
   use_operand_p arg_p;
   ssa_op_iter i;
@@ -3078,10 +3079,11 @@ is_phi_for_stmt (gimple stmt, tree operand)
   lhs = gimple_assign_lhs (stmt);
 
   def_stmt = SSA_NAME_DEF_STMT (operand);
-  if (gimple_code (def_stmt) != GIMPLE_PHI)
+  def_phi = dyn_cast <gimple_phi> (def_stmt);
+  if (!def_phi)
     return false;
 
-  FOR_EACH_PHI_ARG (arg_p, def_stmt, i, SSA_OP_USE)
+  FOR_EACH_PHI_ARG (arg_p, def_phi, i, SSA_OP_USE)
     if (lhs == USE_FROM_PTR (arg_p))
       return true;
   return false;

@@ -1,5 +1,29 @@
 2014-10-24  David Malcolm  <dmalcolm@redhat.com>
 
+	Convert various gimple to gimple_phi within ssa-iterators.h
+
+	* ssa-iterators.h (FOR_EACH_PHI_OR_STMT_USE): Add checked cast to
+	gimple_phi.
+	(FOR_EACH_PHI_OR_STMT_DEF): Likewise.
+
+	* ssa-iterators.h (single_phi_def): Require a gimple_phi.
+	(op_iter_init_phiuse): Likewise.
+	(op_iter_init_phidef): Likewise.
+	* tree-ssa-loop-im.c (extract_true_false_args_from_phi): Likewise.
+
+	* tree-ssa-loop-im.c (link_use_stmts_after): Replace check against
+	GIMPLE_PHI with add a dyn_cast to gimple_phi, using result as needed.
+	(determine_max_movement): Likewise.
+	* tree-ssa-reassoc.c (is_phi_for_stmt): Likewise.
+	* tree-ssa-sccvn.c (start_over:): Likewise.
+
+	* tree-ssa-loop-im.c
+	(move_computations_dom_walker::before_dom_children): Split iterator
+	into gimple_stmt_iterator and a gimple_phi_iterator so that a local
+	can become a gimple_phi.
+
+2014-10-24  David Malcolm  <dmalcolm@redhat.com>
+
 	Use gimple_phi in many more places.
 
 	* gimple-ssa-strength-reduction.c (slsr_process_phi): Require a

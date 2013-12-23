@@ -3934,8 +3934,8 @@ start_over:
   if (!gimple_nop_p (defstmt))
     {
       /* Push a new iterator.  */
-      if (gimple_code (defstmt) == GIMPLE_PHI)
-	usep = op_iter_init_phiuse (&iter, defstmt, SSA_OP_ALL_USES);
+      if (gimple_phi phi = dyn_cast <gimple_phi> (defstmt))
+	usep = op_iter_init_phiuse (&iter, phi, SSA_OP_ALL_USES);
       else
 	usep = op_iter_init_use (&iter, defstmt, SSA_OP_ALL_USES);
     }
