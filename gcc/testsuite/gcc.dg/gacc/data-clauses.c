@@ -32,7 +32,7 @@ void foo (int vi) {
 		{}
 	#pragma acc parallel deviceptr (ti) /* { dg-error "must be pointer for" } */
 		{}
-	#pragma acc parallel deviceptr (aa) /* { dg-error "dynamically" } */
+	#pragma acc parallel deviceptr (aa) 
 		{}
 
 	#pragma acc parallel deviceptr (ia) /* { dg-error "must be pointer for" } */

@@ -1,3 +1,16 @@
+23-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Fix combined directives and its clauses
+
+	* gcc/c/c-parser.c(c_parser_acc_check_multiple_clauses):
+	Do not check for presence of variable in clauses that 
+	require expressions
+	(acc_is_parallel_clause, acc_is_kernels_clause): New functions
+	(c_finish_acc_parallel, c_finish_acc_kernels): Fix
+	* gcc/testsuite/gcc.dg/gacc/data-clauses.c: Fix test
+	* gcc/testsuite/gcc.dg/gacc/data-tree.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/kernels-tree.c: Likewise
+	* gcc/testsuite/gcc.dg/gacc/several-directives.c: Likewise
+
 20-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
 	Fix some regressions
 

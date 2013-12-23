@@ -3,6 +3,7 @@
 
 int main() {
 	/* only one directive-name may appear in directive */
-	#pragma acc parallel kernels /* { dg-error "Unclassifiable OpenACC directive" } */
+	#pragma acc parallel kernels /* { dg-error "expected" } */
+	{}
 	return 0;
 }

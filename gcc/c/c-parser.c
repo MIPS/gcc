@@ -11064,12 +11064,25 @@ c_parser_acc_check_multiple_clauses (tree clauses, tree var)
   tree c;
 
   for (c = clauses; c; c = ACC_CLAUSE_CHAIN(c))
-    if (ACC_CLAUSE_DECL(c) == var)
-      {
-        location_t loc = ACC_CLAUSE_LOCATION(c);
-        warning_at (loc, 0, "%qE appears in multiple clauses", var);
-        break;
-      }
+    {
+      switch (ACC_CLAUSE_CODE (c))
+        {
+        case ACC_CLAUSE_IF:
+        case ACC_CLAUSE_ASYNC:
+        case ACC_CLAUSE_NUM_GANGS:
+        case ACC_CLAUSE_NUM_WORKERS:
+        case ACC_CLAUSE_VECTOR_LENGTH:
+          continue;
+        default:
+          break;
+        }
+      if (ACC_CLAUSE_DECL(c) == var)
+        {
+          location_t loc = ACC_CLAUSE_LOCATION(c);
+          warning_at (loc, 0, "%qE appears in multiple clauses", var);
+          break;
+        }
+    }
 }
 
 /* OpenACC 1.0:
@@ -11908,22 +11921,32 @@ c_begin_acc_loop (void)
 }
 
 static bool
-acc_is_loop_clause (tree clause)
+acc_is_parallel_clause (tree clause)
 {
   switch (ACC_CLAUSE_CODE (clause))
     {
-    case ACC_CLAUSE_COLLAPSE:
-    case ACC_CLAUSE_GANG:
-    case ACC_CLAUSE_WORKER:
-    case ACC_CLAUSE_VECTOR:
-    case ACC_CLAUSE_SEQ:
-    case ACC_CLAUSE_INDEPENDENT:
-    case ACC_CLAUSE_PRIVATE:
+    case ACC_CLAUSE_IF:
+    case ACC_CLAUSE_ASYNC:
+    case ACC_CLAUSE_NUM_GANGS:
+    case ACC_CLAUSE_NUM_WORKERS:
+    case ACC_CLAUSE_VECTOR_LENGTH:
     case ACC_CLAUSE_REDUCTION:
+    case ACC_CLAUSE_COPY:
+    case ACC_CLAUSE_COPYIN:
+    case ACC_CLAUSE_COPYOUT:
+    case ACC_CLAUSE_CREATE:
+    case ACC_CLAUSE_PRESENT:
+    case ACC_CLAUSE_PRESENT_OR_COPY:
+    case ACC_CLAUSE_PRESENT_OR_COPYIN:
+    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+    case ACC_CLAUSE_PRESENT_OR_CREATE:
+    case ACC_CLAUSE_DEVICEPTR:
+    case ACC_CLAUSE_PRIVATE:
+    case ACC_CLAUSE_FIRSTPRIVATE:
       return true;
     default:
       return false;
-  }
+    }
 }
 
 /* Generate ACC_PARALLEL, with CLAUSES and BLOCK as its compound
@@ -11947,7 +11970,7 @@ c_finish_acc_parallel (location_t loc, tree clauses, tree block)
       tree parallel_clauses = NULL_TREE, c, parallel_c = NULL_TREE;
       for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
-          if (!acc_is_loop_clause (c))
+          if (acc_is_parallel_clause (c))
             {
               if (parallel_clauses == NULL_TREE)
                 parallel_clauses = c;
@@ -11960,6 +11983,29 @@ c_finish_acc_parallel (location_t loc, tree clauses, tree block)
     }
 
   return add_stmt (stmt);
+}
+
+static bool
+acc_is_kernels_clause (tree clause)
+{
+  switch (ACC_CLAUSE_CODE (clause))
+    {
+    case ACC_CLAUSE_IF:
+    case ACC_CLAUSE_ASYNC:
+    case ACC_CLAUSE_COPY:
+    case ACC_CLAUSE_COPYIN:
+    case ACC_CLAUSE_COPYOUT:
+    case ACC_CLAUSE_CREATE:
+    case ACC_CLAUSE_PRESENT:
+    case ACC_CLAUSE_PRESENT_OR_COPY:
+    case ACC_CLAUSE_PRESENT_OR_COPYIN:
+    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+    case ACC_CLAUSE_PRESENT_OR_CREATE:
+    case ACC_CLAUSE_DEVICEPTR:
+      return true;
+    default:
+      return false;
+    }
 }
 
 /* Generate ACC_KERNELS, with CLAUSES and BLOCK as its compound
@@ -11983,7 +12029,7 @@ c_finish_acc_kernels (location_t loc, tree clauses, tree block)
       tree kernels_clauses = NULL_TREE, c, kernels_c = NULL_TREE;
       for (c = clauses; c; c = ACC_CLAUSE_CHAIN (c))
         {
-          if (!acc_is_loop_clause (c))
+          if (acc_is_kernels_clause (c))
             {
               if (kernels_clauses == NULL_TREE)
                 kernels_clauses = c;
@@ -12032,6 +12078,25 @@ c_finish_acc_host_data (location_t loc, tree clauses, tree block)
   SET_EXPR_LOCATION (stmt, loc);
 
   return add_stmt (stmt);
+}
+
+static bool
+acc_is_loop_clause (tree clause)
+{
+  switch (ACC_CLAUSE_CODE (clause))
+    {
+    case ACC_CLAUSE_COLLAPSE:
+    case ACC_CLAUSE_GANG:
+    case ACC_CLAUSE_WORKER:
+    case ACC_CLAUSE_VECTOR:
+    case ACC_CLAUSE_SEQ:
+    case ACC_CLAUSE_INDEPENDENT:
+    case ACC_CLAUSE_PRIVATE:
+    case ACC_CLAUSE_REDUCTION:
+      return true;
+    default:
+      return false;
+  }
 }
 
 /* Generate ACC_LOOP, with CLAUSES and BLOCK as its compound

@@ -5,7 +5,7 @@
 
 int main() {
 
-	int q, i, j, k, m, n, o, p, r, s, t, u, v, w;
+	int q, i, j, k, m, n, o, p, r, s, t, *u, v, w;
 	int l;
 
 	#pragma acc kernels if(l) async copy(i), copyin(j), copyout(k), create(m) \
