@@ -3719,6 +3719,20 @@ foo:
 
 changequote(,)dnl
   i[34567]86-*-* | x86_64-*-*)
+    case $target_cpu in
+      i386)
+	target_cpu_default=PROCESSOR_I386
+	;;
+      i486)
+	target_cpu_default=PROCESSOR_I486
+	;;
+      i586)
+	target_cpu_default=PROCESSOR_PENTIUM
+	;;
+      i[67]86)
+	target_cpu_default=PROCESSOR_PENTIUMPRO
+	;;
+    esac
 changequote([,])dnl
     case $target_os in
       cygwin*)

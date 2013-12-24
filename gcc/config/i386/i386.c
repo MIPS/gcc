@@ -2438,7 +2438,11 @@ static enum calling_abi ix86_function_abi (const_tree);
 
 
 #ifndef SUBTARGET32_DEFAULT_CPU
-#define SUBTARGET32_DEFAULT_CPU "i386"
+# ifdef TARGET_CPU_DEFAULT
+#  define SUBTARGET32_DEFAULT_CPU processor_target_table[TARGET_CPU_DEFAULT].name
+# else
+#  define SUBTARGET32_DEFAULT_CPU "i386"
+# endif
 #endif
 
 /* Whether -mtune= or -march= were specified */
@@ -3384,7 +3388,12 @@ ix86_option_override_internal (bool main_args_p,
       if (!opts->x_ix86_tune_string)
 	{
 	  opts->x_ix86_tune_string
-	    = processor_target_table[TARGET_CPU_DEFAULT].name;
+#ifdef TARGET_CPU_DEFAULT
+	    = TARGET_64BIT_P (opts->x_ix86_isa_flags)
+	      ? "generic" : processor_target_table[TARGET_CPU_DEFAULT].name;
+#else
+	    = "generic";
+#endif
 	  ix86_tune_defaulted = 1;
 	}
 

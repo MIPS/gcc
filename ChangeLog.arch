@@ -1,0 +1,12 @@
+2013-12-24   H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59587
+	* configure.ac (target_cpu_default): Defined to PROCESSOR_XXX
+	for i[34567]86 targets.
+	* configure: Regenerated.
+	* config/i386/i386.c (SUBTARGET32_DEFAULT_CPU): Use
+	TARGET_CPU_DEFAULT if it is defined.
+	(ix86_option_override_internal): Default x_ix86_tune_string
+	to processor_target_table[TARGET_CPU_DEFAULT].name for 32-bit
+	if it is defined.  Otherwise, default to "generic".
+	* config/i386/i386.h (TARGET_CPU_DEFAULT): Removed.

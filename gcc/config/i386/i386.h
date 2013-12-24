@@ -249,12 +249,6 @@ extern const struct processor_costs ix86_size_cost;
 
 /* Macros used in the machine description to test the flags.  */
 
-/* configure can arrange to change it.  */
-
-#ifndef TARGET_CPU_DEFAULT
-#define TARGET_CPU_DEFAULT PROCESSOR_GENERIC
-#endif
-
 #ifndef TARGET_FPMATH_DEFAULT
 #define TARGET_FPMATH_DEFAULT \
   (TARGET_64BIT && TARGET_SSE ? FPMATH_SSE : FPMATH_387)
