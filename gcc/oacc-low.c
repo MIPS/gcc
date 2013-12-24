@@ -196,13 +196,14 @@ typedef struct acc_kernel_t *acc_kernel;
 typedef struct acc_kernel_t
 {
   tree func;
-  //struct tree_niter_desc niter_desc;
   vec<tree> niters;
   basic_block bb_entry;
   basic_block bb_exit;
   splay_tree params_map;
   tree kernel_handle;
   unsigned collapse;
+  vec<tree> clauses;
+  bool no_check, no_parallel;
 } acc_kernel_t;
 
 typedef struct collapse_loop_data_t *collapse_loop_data;
@@ -361,6 +362,9 @@ new_acc_kernel(tree func)
   kernel->bb_entry = kernel->bb_exit = NULL;
   kernel->params_map = splay_tree_new(splay_tree_compare_pointers, 0, 0);
   kernel->kernel_handle = NULL_TREE;
+  kernel->clauses.create(1);
+  kernel->no_check = false;
+  kernel->no_parallel = false;
   return kernel;
 }
 
@@ -1835,6 +1839,32 @@ guess_loop_location(struct loop* l)
 }
 
 static void
+get_loop_parallelization(acc_kernel kernel)
+{
+  unsigned i;
+  
+  for(i = 0; i < kernel->clauses.length(); ++i)
+    {
+      tree clause = kernel->clauses[i];
+      while(clause != NULL_TREE)
+        {
+          switch(ACC_CLAUSE_CODE(clause))
+            {
+            case ACC_CLAUSE_INDEPENDENT:
+              kernel->no_check = true;
+              break;
+            case ACC_CLAUSE_SEQ:
+              kernel->no_parallel = true;
+              break;
+            default:
+              break;
+            }
+          clause = ACC_CLAUSE_CHAIN(clause);
+        }
+    }
+}
+
+static void
 check_loop_parallelizable(struct loop* loop, acc_kernel kernel)
 {
   struct tree_niter_desc niter_desc;
@@ -1842,11 +1872,19 @@ check_loop_parallelizable(struct loop* loop, acc_kernel kernel)
   unsigned collapse = kernel->collapse;
   
   niter_desc.niter = NULL_TREE;
-  bool is_parallelizable = loop_parallelizable_p(loop, &niter_desc);
+  bool is_parallelizable = true;
+  
+  get_loop_parallelization(kernel);
+  if(!kernel->no_check)
+    is_parallelizable = loop_parallelizable_p(loop, &niter_desc);
+  else if(kernel->no_parallel)
+    is_parallelizable = false;
+  
   if(!is_parallelizable)
     {
-      warning_at(guess_loop_location(loop), 
-        OPT_fopenacc, "loop cannot be parallelized");
+      if(!kernel->no_parallel)
+        warning_at(guess_loop_location(loop), 
+            OPT_fopenacc, "loop cannot be parallelized");
       kernel->niters.safe_push(integer_one_node);
       kernel->collapse = 0;
       return;
@@ -1855,18 +1893,47 @@ check_loop_parallelizable(struct loop* loop, acc_kernel kernel)
     {
       niter_desc.niter = NULL_TREE;
       if(!get_loop_iteration_count(l, &niter_desc))
-        break;
+        {
+          if(kernel->niters.length() < 1)
+            {
+                kernel->niters.safe_push(integer_one_node);
+                kernel->collapse = 0;
+            }
+          break;
+        }
       kernel->niters.safe_push(niter_desc.niter);
     }
 }
 
 static void
-get_collapse_count(struct loop* loop, splay_tree schedule, acc_kernel kernel)
+gather_kernel_schedule(struct loop* root, splay_tree schedule, acc_kernel kernel)
 {
-  if(splay_tree_lookup(schedule, (splay_tree_key)loop) != NULL)
+  splay_tree_node node = splay_tree_lookup(schedule, (splay_tree_key)root);
+  struct loop* loop = NULL;
+  
+  if(node != NULL)
     {
-      tree clause = (tree)(splay_tree_lookup(schedule,
-                                             (splay_tree_key)loop)->value);
+      tree clauses = (tree)node->value;
+      kernel->clauses.safe_push(clauses);
+    }
+  for(loop = root->next; loop != NULL; loop = loop->next)
+    {
+      gather_kernel_schedule(loop, schedule, kernel);
+    }
+  if(root->inner != NULL)
+    gather_kernel_schedule(root->inner, schedule, kernel);
+}
+
+static void
+get_collapse_count(acc_kernel kernel)
+{
+  unsigned i;
+  
+  kernel->collapse = 1;
+  
+  for(i = 0; i < kernel->clauses.length(); ++i)
+    {
+      tree clause = kernel->clauses[i];
       while(clause != NULL_TREE)
         {
           if(ACC_CLAUSE_CODE(clause) == ACC_CLAUSE_COLLAPSE)
@@ -1878,10 +1945,9 @@ get_collapse_count(struct loop* loop, splay_tree schedule, acc_kernel kernel)
           tree collapse = ACC_CLAUSE_COLLAPSE_EXPR(clause);
           HOST_WIDE_INT n = tree_low_cst(collapse, 0);
           kernel->collapse = (unsigned)n;
+          return;
         }
     }
-  else
-    kernel->collapse = 1;
 }
 
 static void
@@ -1905,7 +1971,8 @@ create_fns_for_kernels(tree child_fn, vec<acc_kernel>* kernels,
       {
         map_parameters(child_fn, kernel, kernel_stmt);
       }
-      get_collapse_count(vloops[i], schedule, kernel);
+      gather_kernel_schedule(vloops[i], schedule, kernel);
+      get_collapse_count(kernel);
       check_loop_parallelizable(vloops[i], kernel);
       kernels->safe_push(kernel);
     }
@@ -2150,8 +2217,9 @@ extract_kernels(struct loops* loops, tree child_fn,
 
       if(loops->tree_root->inner != NULL)
         {
-          get_collapse_count(loops->tree_root->inner,
-                                          loop_schedule, kernel);
+          gather_kernel_schedule(loops->tree_root->inner,
+                                 loop_schedule, kernel);
+          get_collapse_count(kernel);
           check_loop_parallelizable(loops->tree_root->inner, kernel);
         }
 
@@ -2989,11 +3057,12 @@ switch_func_back(int save_opt_level)
 }
 
 static void
-schedule_kernel(acc_schedule sched, tree niter, tree clause)
+schedule_kernel(acc_schedule sched, tree niter, tree clause, acc_kernel kernel)
 {
   tree num_gangs = NULL_TREE,
     num_workers = NULL_TREE,
     vector_length = NULL_TREE;
+  unsigned i;
 
   while(clause != NULL_TREE)
   {
@@ -3014,6 +3083,32 @@ schedule_kernel(acc_schedule sched, tree niter, tree clause)
     clause = ACC_CLAUSE_CHAIN(clause);
   }
 
+  for(i = 0; i < kernel->clauses.length(); ++i)
+    {
+      clause = kernel->clauses[i];
+      while(clause != NULL_TREE)
+        {
+          switch(ACC_CLAUSE_CODE(clause))
+            {
+            case ACC_CLAUSE_GANG:
+              if(ACC_CLAUSE_GANG_EXPR(clause) != NULL_TREE)
+                num_gangs = ACC_CLAUSE_GANG_EXPR(clause);
+              break;
+            case ACC_CLAUSE_WORKER:
+              if(ACC_CLAUSE_WORKER_EXPR(clause) != NULL_TREE)
+                num_workers = ACC_CLAUSE_WORKER_EXPR(clause);
+              break;
+            case ACC_CLAUSE_VECTOR:
+              if(ACC_CLAUSE_VECTOR_EXPR(clause) != NULL_TREE)
+                vector_length = ACC_CLAUSE_VECTOR_EXPR(clause);
+              break;
+            default:
+              break;
+            }
+          clause = ACC_CLAUSE_CHAIN(clause);
+        }
+    }
+  
   sched->items = integer_one_node;
   sched->tiling = NULL;
   sched->group_size = integer_minus_one_node;
@@ -3719,7 +3814,7 @@ expand_oacc_kernels(gimple_stmt_iterator* gsi)
       tree nworkitems = get_workitem_count(gsi, &(kernels[i]->niters));
       
       memset(&sched, sizeof(acc_schedule_t), 0);
-      schedule_kernel(&sched, nworkitems, sched_clauses);
+      schedule_kernel(&sched, nworkitems, sched_clauses, kernels[i]);
 
       if(sched.tiling != NULL_TREE)
       {
