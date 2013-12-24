@@ -4273,8 +4273,6 @@ df_md_local_compute (bitmap all_blocks)
 {
   unsigned int bb_index, df_bb_index;
   bitmap_iterator bi1, bi2;
-  basic_block bb;
-  bitmap_head *frontiers;
 
   bitmap_initialize (&seen_in_insn, &bitmap_default_obstack);
 
@@ -4285,10 +4283,7 @@ df_md_local_compute (bitmap all_blocks)
 
   bitmap_clear (&seen_in_insn);
 
-  frontiers = XNEWVEC (bitmap_head, last_basic_block_for_fn (cfun));
-  FOR_ALL_BB_FN (bb, cfun)
-    bitmap_initialize (&frontiers[bb->index], &bitmap_default_obstack);
-
+  bitmap_head *frontiers = new bitmap_head[last_basic_block_for_fn (cfun)];
   compute_dominance_frontiers (frontiers);
 
   /* Add each basic block's kills to the nodes in the frontier of the BB.  */
@@ -4304,9 +4299,7 @@ df_md_local_compute (bitmap all_blocks)
 	}
     }
 
-  FOR_ALL_BB_FN (bb, cfun)
-    bitmap_clear (&frontiers[bb->index]);
-  free (frontiers);
+  delete[] frontiers;
 }
 
 

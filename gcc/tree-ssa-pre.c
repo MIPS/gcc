@@ -805,7 +805,6 @@ bitmap_set_subtract_values (bitmap_set_t a, bitmap_set_t b)
       if (bitmap_set_contains_value (b, get_expr_value_id (expr)))
 	bitmap_remove_from_set (a, expr);
     }
-  bitmap_clear (&temp);
 }
 
 

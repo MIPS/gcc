@@ -4166,7 +4166,7 @@ lra_constraints (bool first_p)
 	    }
 	}
     }
-  bitmap_clear (&equiv_insn_bitmap);
+
   /* If we used a new hard regno, changed_p should be true because the
      hard reg is assigned to a new pseudo.  */
 #ifdef ENABLE_CHECKING

@@ -4121,7 +4121,6 @@ build_insn_chain (void)
      live_subreg[allocno] is number of bytes that the pseudo can
      occupy.  */
   sbitmap *live_subregs = XCNEWVEC (sbitmap, max_regno);
-  bitmap_head live_subregs_used;
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (eliminable_regset, i))
@@ -4132,7 +4131,7 @@ build_insn_chain (void)
       rtx insn;
 
       CLEAR_REG_SET (&live_relevant_regs);
-      bitmap_clear (&live_subregs_used);
+      bitmap_head live_subregs_used;
 
       EXECUTE_IF_SET_IN_BITMAP (df_get_live_out (bb), 0, i, bi)
 	{
@@ -4511,7 +4510,7 @@ find_moveable_pseudos (void)
      moved freely downwards, but are otherwise transparent to a block.  */
   bitmap_head *bb_moveable_reg_sets
     = new bitmap_head[last_basic_block_for_fn (cfun)];
-  bitmap_head live, used, set, interesting, unusable_as_input;
+  bitmap_head used, interesting, unusable_as_input;
   bitmap_iterator bi;
 
   first_moveable_pseudo = max_regs;
@@ -4528,12 +4527,11 @@ find_moveable_pseudos (void)
       bitmap transp = bb_transp_live + bb->index;
       bitmap moveable = bb_moveable_reg_sets + bb->index;
 
+      bitmap_head live;
       bitmap_copy (&live, df_get_live_out (bb));
       bitmap_and_into (&live, df_get_live_in (bb));
       bitmap_copy (transp, &live);
-      bitmap_clear (moveable);
-      bitmap_clear (&live);
-      bitmap_clear (&set);
+      bitmap_head set;
       FOR_BB_INSNS (bb, insn)
 	if (NONDEBUG_INSN_P (insn))
 	  {
@@ -4573,8 +4571,6 @@ find_moveable_pseudos (void)
 	      }
 	  }
     }
-
-  bitmap_clear (&live);
 
   FOR_EACH_BB_FN (bb, cfun)
     {
