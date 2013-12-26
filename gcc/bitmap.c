@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include <utility>
 #include "obstack.h"
 #include "ggc.h"
 #include "bitmap.h"
@@ -2223,5 +2224,14 @@ debug (const bitmap_head *ptr)
     fprintf (stderr, "<nil>\n");
 }
 
+void
+bitmap_head::swap (bitmap_head *other)
+{
+  other->indx = indx = 0;
+  other->current = current = NULL;
+  std::swap (other->descriptor_id, descriptor_id);
+  std::swap (other->first, first);
+  std::swap (other->obstack, obstack);
+}
 
 #include "gt-bitmap.h"

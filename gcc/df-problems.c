@@ -534,9 +534,7 @@ df_rd_transfer_function (int bb_index)
       if (changed)
 	{
 	  bitmap_clear (out);
-	  bb_info->out = tmp;
-    // kind of hacky but hopefully that'll be fixed by more c++ification
-     tmp.first = tmp.current = NULL;
+	  tmp.swap (&bb_info->out);
 	}
       else
 	bitmap_clear (&tmp);
@@ -1284,8 +1282,6 @@ df_lr_verify_transfer_functions (void)
   if (!df)
     return;
 
-  bitmap_head saved_def;
-  bitmap_head saved_use;
   bitmap_head all_blocks;
   FOR_ALL_BB_FN (bb, cfun)
     {
@@ -1300,10 +1296,9 @@ df_lr_verify_transfer_functions (void)
 	  if (!bitmap_bit_p (df_lr->out_of_date_transfer_functions,
 			     bb->index))
 	    {
-	      bitmap_copy (&saved_def, &bb_info->def);
-	      bitmap_copy (&saved_use, &bb_info->use);
-	      bitmap_clear (&bb_info->def);
-	      bitmap_clear (&bb_info->use);
+        bitmap_head saved_def, saved_use;
+	      saved_def.swap (&bb_info->def);
+	      saved_use.swap (&bb_info->use);
 
 	      df_lr_bb_local_compute (bb->index);
 	      gcc_assert (bitmap_equal_p (&saved_def, &bb_info->def));
@@ -1820,8 +1815,6 @@ df_live_verify_transfer_functions (void)
   if (!df)
     return;
 
-  bitmap_head saved_gen;
-  bitmap_head saved_kill;
   bitmap_head all_blocks;
   df_grow_insn_info ();
 
@@ -1838,10 +1831,9 @@ df_live_verify_transfer_functions (void)
 	  if (!bitmap_bit_p (df_live->out_of_date_transfer_functions,
 			     bb->index))
 	    {
-	      bitmap_copy (&saved_gen, &bb_info->gen);
-	      bitmap_copy (&saved_kill, &bb_info->kill);
-	      bitmap_clear (&bb_info->gen);
-	      bitmap_clear (&bb_info->kill);
+	      bitmap_head saved_gen, saved_kill;
+	      saved_gen.swap (&bb_info->gen);
+	      saved_kill.swap (&bb_info->kill);
 
 	      df_live_bb_local_compute (bb->index);
 	      gcc_assert (bitmap_equal_p (&saved_gen, &bb_info->gen));

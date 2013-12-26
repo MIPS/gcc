@@ -199,6 +199,8 @@ struct GTY(()) bitmap_head {
   }
   ~bitmap_head () { bitmap_clear (this); }
 
+  void swap (bitmap_head *);
+
   unsigned int indx;			/* Index of last element looked at.  */
   unsigned int descriptor_id;		/* Unique identifier for the allocation
 					   site of this bitmap, for detailed
