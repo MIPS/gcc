@@ -1386,7 +1386,6 @@ df_insn_rescan_all (void)
   basic_block bb;
   bitmap_iterator bi;
   unsigned int uid;
-  bitmap_head tmp (&df_bitmap_obstack);
 
   if (df->changeable_flags & DF_NO_INSN_RESCAN)
     {
@@ -1400,7 +1399,7 @@ df_insn_rescan_all (void)
       defer_insn_rescan = true;
     }
 
-  bitmap_copy (&tmp, &df->insns_to_delete);
+  bitmap_head tmp (df->insns_to_delete);
   EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, uid, bi)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
@@ -1437,7 +1436,6 @@ df_process_deferred_rescans (void)
   bool defer_insn_rescan = false;
   bitmap_iterator bi;
   unsigned int uid;
-  bitmap_head tmp (&df_bitmap_obstack);
 
   if (df->changeable_flags & DF_NO_INSN_RESCAN)
     {
@@ -1454,7 +1452,7 @@ df_process_deferred_rescans (void)
   if (dump_file)
     fprintf (dump_file, "starting the processing of deferred insns\n");
 
-  bitmap_copy (&tmp, &df->insns_to_delete);
+  bitmap_head tmp (df->insns_to_delete);
   EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, uid, bi)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);

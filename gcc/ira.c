@@ -4527,8 +4527,7 @@ find_moveable_pseudos (void)
       bitmap transp = bb_transp_live + bb->index;
       bitmap moveable = bb_moveable_reg_sets + bb->index;
 
-      bitmap_head live;
-      bitmap_copy (&live, df_get_live_out (bb));
+      bitmap_head live (*df_get_live_out (bb));
       bitmap_and_into (&live, df_get_live_in (bb));
       bitmap_copy (transp, &live);
       bitmap_head set;

@@ -837,7 +837,6 @@ static bool
 word_dce_process_block (basic_block bb, bool redo_out,
 			struct dead_debug_global *global_debug)
 {
-  bitmap_head local_live (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
   struct dead_debug_local debug;
@@ -861,7 +860,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
       df_print_word_regset (dump_file, DF_WORD_LR_OUT (bb));
     }
 
-  bitmap_copy (&local_live, DF_WORD_LR_OUT (bb));
+  bitmap_head local_live (*DF_WORD_LR_OUT (bb));
   dead_debug_local_init (&debug, NULL, global_debug);
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -934,7 +933,6 @@ static bool
 dce_process_block (basic_block bb, bool redo_out, bitmap au,
 		   struct dead_debug_global *global_debug)
 {
-  bitmap_head local_live (&dce_tmp_bitmap_obstack);
   rtx insn;
   bool block_changed;
   df_ref *def_rec;
@@ -959,7 +957,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
       df_print_regset (dump_file, DF_LR_OUT (bb));
     }
 
-  bitmap_copy (&local_live, DF_LR_OUT (bb));
+  bitmap_head local_live (*DF_LR_OUT (bb));
 
   df_simulate_initialize_backwards (bb, &local_live);
   dead_debug_local_init (&debug, NULL, global_debug);

@@ -184,11 +184,19 @@ extern void bitmap_clear (bitmap);
 
 static void bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL);
 
+/* Copy a bitmap to another bitmap.  */
+extern void bitmap_copy (bitmap, const_bitmap);
+
 /* Head of bitmap linked list.  The 'current' member points to something
    already pointed to by the chain started by first, so GTY((skip)) it.  */
 struct GTY(()) bitmap_head {
   bitmap_head (bitmap_obstack *o = &bitmap_default_obstack MEM_STAT_DECL)
   { bitmap_initialize_stat (this, o PASS_MEM_STAT); }
+  explicit bitmap_head (const bitmap_head &other MEM_STAT_DECL)
+  {
+    bitmap_initialize_stat (this, other.obstack PASS_MEM_STAT);
+    bitmap_copy (this, &other);
+  }
   ~bitmap_head () { bitmap_clear (this); }
 
   unsigned int indx;			/* Index of last element looked at.  */
@@ -201,9 +209,6 @@ struct GTY(()) bitmap_head {
 					   If NULL, then use GGC allocation.  */
 };
 
-
-/* Copy a bitmap to another bitmap.  */
-extern void bitmap_copy (bitmap, const_bitmap);
 
 /* True if two bitmaps are identical.  */
 extern bool bitmap_equal_p (const_bitmap, const_bitmap);

@@ -2090,9 +2090,8 @@ df_chain_create_bb (unsigned int bb_index)
   basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
   struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
   rtx insn;
-  bitmap_head cpy;
+  bitmap_head cpy (bb_info->in);
 
-  bitmap_copy (&cpy, &bb_info->in);
   bitmap_set_bit (df_chain->out_of_date_transfer_functions, bb_index);
 
   /* Since we are going forwards, process the artificial uses first

@@ -5720,9 +5720,8 @@ undo_optional_reloads (void)
   unsigned int regno, uid;
   bitmap_iterator bi, bi2;
   rtx insn, set, src, dest;
-  bitmap_head removed_optional_reload_pseudos (&reg_obstack);
 
-  bitmap_copy (&removed_optional_reload_pseudos, &lra_optional_reload_pseudos);
+  bitmap_head removed_optional_reload_pseudos (lra_optional_reload_pseudos);
   EXECUTE_IF_SET_IN_BITMAP (&lra_optional_reload_pseudos, 0, regno, bi)
     {
       keep_p = false;
@@ -5763,12 +5762,11 @@ undo_optional_reloads (void)
 	}
     }
   change_p = ! bitmap_empty_p (&removed_optional_reload_pseudos);
-  bitmap_head insn_bitmap (&reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&removed_optional_reload_pseudos, 0, regno, bi)
     {
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "Remove optional reload reg %d\n", regno);
-      bitmap_copy (&insn_bitmap, &lra_reg_info[regno].insn_bitmap);
+      bitmap_head insn_bitmap (lra_reg_info[regno].insn_bitmap);
       EXECUTE_IF_SET_IN_BITMAP (&insn_bitmap, 0, uid, bi2)
 	{
 	  insn = lra_insn_recog_data[uid]->insn;

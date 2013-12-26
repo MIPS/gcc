@@ -3630,7 +3630,6 @@ peephole2_optimize (void)
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     peep2_insn_data[i].live_before = BITMAP_ALLOC (&reg_obstack);
   search_ofs = 0;
-  bitmap_head live;
 
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
@@ -3640,7 +3639,7 @@ peephole2_optimize (void)
       rtl_profile_for_bb (bb);
 
       /* Start up propagation.  */
-      bitmap_copy (&live, DF_LR_IN (bb));
+      bitmap_head live (*DF_LR_IN (bb));
       df_simulate_initialize_forwards (bb, &live);
       peep2_reinit_state (&live);
 

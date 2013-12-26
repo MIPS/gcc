@@ -412,9 +412,7 @@ find_pseudo_copy (rtx set)
 static void
 propagate_pseudo_copies (void)
 {
-  bitmap_head queue;
-
-  bitmap_copy (&queue, decomposable_context);
+  bitmap_head queue (*decomposable_context);
   do
     {
       bitmap_head propagate;

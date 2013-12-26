@@ -3043,7 +3043,7 @@ eliminate_degenerate_phis (void)
 
      Experiments have show we generally get better compilation
      time behavior with bitmaps rather than sbitmaps.  */
-  bitmap_head interesting_names, interesting_names1;
+  bitmap_head interesting_names;
 
   calculate_dominance_info (CDI_DOMINATORS);
   cfg_altered = false;
@@ -3071,7 +3071,7 @@ eliminate_degenerate_phis (void)
       /* EXECUTE_IF_SET_IN_BITMAP does not like its bitmap
 	 changed during the loop.  Copy it to another bitmap and
 	 use that.  */
-      bitmap_copy (&interesting_names1, &interesting_names);
+      bitmap_head interesting_names1 (interesting_names);
 
       EXECUTE_IF_SET_IN_BITMAP (&interesting_names1, 0, i, bi)
 	{

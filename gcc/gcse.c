@@ -3513,14 +3513,13 @@ calculate_bb_reg_pressure (void)
 
 
   ira_setup_eliminable_regset ();
-  bitmap_head curr_regs_live (&reg_obstack);
   FOR_EACH_BB_FN (bb, cfun)
     {
       curr_bb = bb;
       BB_DATA (bb)->live_in = BITMAP_ALLOC (NULL);
       BB_DATA (bb)->backup = BITMAP_ALLOC (NULL);
       bitmap_copy (BB_DATA (bb)->live_in, df_get_live_in (bb));
-      bitmap_copy (&curr_regs_live, df_get_live_out (bb));
+      bitmap_head curr_regs_live (*df_get_live_out (bb));
       for (i = 0; i < ira_pressure_classes_num; i++)
 	curr_reg_pressure[ira_pressure_classes[i]] = 0;
       EXECUTE_IF_SET_IN_BITMAP (&curr_regs_live, 0, j, bi)

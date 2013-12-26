@@ -2481,7 +2481,6 @@ static bool
 analyze_all_variable_accesses (void)
 {
   int res = 0;
-  bitmap_head tmp;
   bitmap_iterator bi;
   unsigned i, max_total_scalarization_size;
 
@@ -2517,7 +2516,7 @@ analyze_all_variable_accesses (void)
 	  }
       }
 
-  bitmap_copy (&tmp, candidate_bitmap);
+  bitmap_head tmp (*candidate_bitmap);
   EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, i, bi)
     {
       tree var = candidate (i);

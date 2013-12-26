@@ -340,11 +340,8 @@ copy_static_var_set (bitmap set)
 {
   if (set == NULL || set == all_module_statics)
     return set;
-  bitmap_obstack *o = set->obstack;
-  gcc_checking_assert (o);
-  bitmap copy = BITMAP_ALLOC (o);
-  bitmap_copy (copy, set);
-  return copy;
+  gcc_checking_assert (set->obstack);
+  return new bitmap_head (*set);
 }
 
 /* Compute the union all of the statics read and written by every callee of X

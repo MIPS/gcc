@@ -1136,10 +1136,8 @@ thread_across_edge (gimple dummy_cond,
 
     /* We need to restore the state of the maps to this point each loop
        iteration.  */
-    bitmap src_map_copy = BITMAP_ALLOC (NULL);
-    bitmap dst_map_copy = BITMAP_ALLOC (NULL);
-    bitmap_copy (src_map_copy, src_map);
-    bitmap_copy (dst_map_copy, dst_map);
+    bitmap_head src_map_copy (*src_map);
+    bitmap_head dst_map_copy (*dst_map);
 
     /* Look at each successor of E->dest to see if we can thread through it.  */
     FOR_EACH_EDGE (taken_edge, ei, e->dest->succs)
@@ -1147,8 +1145,8 @@ thread_across_edge (gimple dummy_cond,
 	/* Push a fresh marker so we can unwind the equivalences created
 	   for each of E->dest's successors.  */
 	stack->safe_push (NULL_TREE);
-	bitmap_copy (src_map, src_map_copy);
-	bitmap_copy (dst_map, dst_map_copy);
+	bitmap_copy (src_map, &src_map_copy);
+	bitmap_copy (dst_map, &dst_map_copy);
      
 	/* Avoid threading to any block we have already visited.  */
 	bitmap_clear (visited);
@@ -1206,8 +1204,6 @@ thread_across_edge (gimple dummy_cond,
     BITMAP_FREE (visited);
     BITMAP_FREE (src_map);
     BITMAP_FREE (dst_map);
-    BITMAP_FREE (src_map_copy);
-    BITMAP_FREE (dst_map_copy);
   }
 
   remove_temporary_equivalences (stack);
