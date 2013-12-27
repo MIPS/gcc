@@ -809,7 +809,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
      If we store the bounds for all the uses to an array and sort it, we can
      locate the nearest dominating def in logarithmic time by binary search.*/
   bitmap_ior (&to_remove, kills, phis);
-  n_defs = bitmap_count_bits (&to_remove);
+  n_defs = to_remove.count_bits ();
   defs = XNEWVEC (struct dom_dfsnum, 2 * n_defs + 1);
   defs[0].bb_index = 1;
   defs[0].dfs_num = 0;

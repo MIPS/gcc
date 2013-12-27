@@ -199,6 +199,9 @@ struct GTY(()) bitmap_head {
   }
   ~bitmap_head () { bitmap_clear (this); }
 
+  /* Count the number of bits set in the bitmap.  */
+  unsigned long count_bits () const;
+
   unsigned first_set_bit () const;
   unsigned last_set_bit () const;
 
@@ -236,9 +239,6 @@ inline bool bitmap_empty_p (const_bitmap map)
 
 /* True if the bitmap has only a single bit set.  */
 extern bool bitmap_single_bit_set_p (const_bitmap);
-
-/* Count the number of bits set in the bitmap.  */
-extern unsigned long bitmap_count_bits (const_bitmap);
 
 /* Boolean operations on bitmaps.  The _into variants are two operand
    versions that modify the first source operand.  The other variants

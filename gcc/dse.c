@@ -2896,8 +2896,8 @@ dse_step2_init (void)
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "group %d(%d+%d): ", i,
-		   (int)bitmap_count_bits (group->store2_n),
-		   (int)bitmap_count_bits (group->store2_p));
+		   (int)group->store2_n->count_bits (),
+		   (int)group->store2_p->count_bits ());
 	  bitmap_print (dump_file, group->store2_n, "n ", " ");
 	  bitmap_print (dump_file, group->store2_p, "p ", "\n");
 	}

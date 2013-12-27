@@ -682,7 +682,7 @@ add_to_worklist (same_succ same)
   if (same->in_worklist)
     return;
 
-  if (bitmap_count_bits (same->bbs) < 2)
+  if (same->bbs->count_bits () < 2)
     return;
 
   same->in_worklist = true;

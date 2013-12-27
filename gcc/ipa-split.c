@@ -516,7 +516,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   /* FIXME: we currently can pass only SSA function parameters to the split
      arguments.  Once parm_adjustment infrastructure is supported by cloning,
      we can pass more than that.  */
-  if (num_args != bitmap_count_bits (current->ssa_names_to_pass))
+  if (num_args != current->ssa_names_to_pass->count_bits ())
     {
       
       if (dump_file && (dump_flags & TDF_DETAILS))

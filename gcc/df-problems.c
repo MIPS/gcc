@@ -622,7 +622,7 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
   unsigned int m = DF_REG_SIZE (df);
   bool first_reg = true;
 
-  fprintf (file, "%s\t(%d) ", prefix, (int) bitmap_count_bits (defs_set));
+  fprintf (file, "%s\t(%d) ", prefix, (int) defs_set->count_bits ());
 
   for (regno = 0; regno < m; regno++)
     {

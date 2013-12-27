@@ -2660,7 +2660,7 @@ alloc_use_cost_map (struct ivopts_data *data)
 	size = n_iv_cands (data);
       else
 	{
-	  s = bitmap_count_bits (use->related_cands);
+	  s = use->related_cands->count_bits ();
 
 	  /* Round up to the power of two, so that moduling by it is fast.  */
 	  size = s ? (1 << ceil_log2 (s)) : 1;
@@ -4826,7 +4826,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
 	 'base + n' will be loop invariant, resulting in only one live value
 	 during the loop.  So in that case we clear depends_on_elim and set
         elim_inv_expr_id instead.  */
-      if (depends_on_elim && bitmap_count_bits (depends_on_elim) > 1)
+      if (depends_on_elim && depends_on_elim->count_bits () > 1)
 	{
 	  elim_inv_expr_id = get_expr_id (data, bound);
 	  bitmap_clear (depends_on_elim);

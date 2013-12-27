@@ -1631,7 +1631,7 @@ output_node_opt_summary (struct output_block *ob,
 
   if (node->clone.args_to_skip)
     {
-      streamer_write_uhwi (ob, bitmap_count_bits (node->clone.args_to_skip));
+      streamer_write_uhwi (ob, node->clone.args_to_skip->count_bits ());
       EXECUTE_IF_SET_IN_BITMAP (node->clone.args_to_skip, 0, index, bi)
 	streamer_write_uhwi (ob, index);
     }
@@ -1639,7 +1639,7 @@ output_node_opt_summary (struct output_block *ob,
     streamer_write_uhwi (ob, 0);
   if (node->clone.combined_args_to_skip)
     {
-      streamer_write_uhwi (ob, bitmap_count_bits (node->clone.combined_args_to_skip));
+      streamer_write_uhwi (ob, node->clone.combined_args_to_skip->count_bits ());
       EXECUTE_IF_SET_IN_BITMAP (node->clone.combined_args_to_skip, 0, index, bi)
 	streamer_write_uhwi (ob, index);
     }

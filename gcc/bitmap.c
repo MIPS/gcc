@@ -732,13 +732,13 @@ bitmap_popcount (BITMAP_WORD a)
 /* Count the number of bits set in the bitmap, and return it.  */
 
 unsigned long
-bitmap_count_bits (const_bitmap a)
+bitmap_head::count_bits () const
 {
   unsigned long count = 0;
   const bitmap_element *elt;
   unsigned ix;
 
-  for (elt = a->first; elt; elt = elt->next)
+  for (elt = first; elt; elt = elt->next)
     {
       for (ix = 0; ix != BITMAP_ELEMENT_WORDS; ix++)
 	{

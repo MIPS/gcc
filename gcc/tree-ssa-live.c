@@ -304,7 +304,7 @@ partition_view_fini (var_map map, bitmap selected)
 
   gcc_assert (selected);
 
-  count = bitmap_count_bits (selected);
+  count = selected->count_bits ();
   limit = map->partition_size;
 
   /* If its a one-to-one ratio, we don't need any view compaction.  */

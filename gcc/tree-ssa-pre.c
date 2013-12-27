@@ -718,7 +718,7 @@ sorted_array_from_bitmap_set (bitmap_set_t set)
   vec<pre_expr> result;
 
   /* Pre-allocate roughly enough space for the array.  */
-  result.create (bitmap_count_bits (&set->values));
+  result.create (set->values.count_bits ());
 
   FOR_EACH_VALUE_ID_IN_SET (set, i, bi)
     {
@@ -2319,7 +2319,7 @@ compute_partial_antic_aux (basic_block block,
      before the translation starts.  */
   if (max_pa
       && single_succ_p (block)
-      && bitmap_count_bits (&PA_IN (single_succ (block))->values) > max_pa)
+      && PA_IN (single_succ (block))->values.count_bits () > max_pa)
     goto maybe_dump_sets;
 
   old_PA_IN = PA_IN (block);
