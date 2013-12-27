@@ -450,7 +450,7 @@ stmt_update_dep_bb (gimple stmt)
 static hashval_t
 same_succ_hash (const_same_succ e)
 {
-  hashval_t hashval = bitmap_hash (e->succs);
+  hashval_t hashval = e->succs->hash ();
   int flags;
   unsigned int i;
   unsigned int first = bitmap_first_set_bit (e->bbs);

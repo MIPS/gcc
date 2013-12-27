@@ -2059,13 +2059,13 @@ bitmap_ior_and_into (bitmap a, const_bitmap b, const_bitmap c)
 
 /* Compute hash of bitmap (for purposes of hashing).  */
 hashval_t
-bitmap_hash (const_bitmap head)
+bitmap_head::hash () const
 {
   const bitmap_element *ptr;
   BITMAP_WORD hash = 0;
   int ix;
 
-  for (ptr = head->first; ptr; ptr = ptr->next)
+  for (ptr = first; ptr; ptr = ptr->next)
     {
       hash ^= ptr->indx;
       for (ix = 0; ix != BITMAP_ELEMENT_WORDS; ix++)

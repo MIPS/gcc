@@ -201,6 +201,9 @@ struct GTY(()) bitmap_head {
 
   void swap (bitmap_head *);
 
+  /* Compute bitmap hash (for purposes of hashing etc.)  */
+  hashval_t hash () const;
+
   unsigned int indx;			/* Index of last element looked at.  */
   unsigned int descriptor_id;		/* Unique identifier for the allocation
 					   site of this bitmap, for detailed
@@ -313,8 +316,6 @@ extern void debug (const bitmap_head *ptr);
 extern unsigned bitmap_first_set_bit (const_bitmap);
 extern unsigned bitmap_last_set_bit (const_bitmap);
 
-/* Compute bitmap hash (for purposes of hashing etc.)  */
-extern hashval_t bitmap_hash (const_bitmap);
 
 /* Allocate a bitmap from a bit obstack.  */
 #define BITMAP_ALLOC(OBSTACK) bitmap_obstack_alloc (OBSTACK)

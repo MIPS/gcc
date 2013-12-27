@@ -1935,7 +1935,7 @@ equiv_class_lookup_or_add (hash_table <equiv_class_hasher> table, bitmap labels)
   equiv_class_label ecl;
 
   ecl.labels = labels;
-  ecl.hashcode = bitmap_hash (labels);
+  ecl.hashcode = labels->hash ();
   slot = table.find_slot_with_hash (&ecl, ecl.hashcode, INSERT);
   if (!*slot)
     {
@@ -5964,7 +5964,7 @@ shared_bitmap_lookup (bitmap pt_vars)
   struct shared_bitmap_info sbi;
 
   sbi.pt_vars = pt_vars;
-  sbi.hashcode = bitmap_hash (pt_vars);
+  sbi.hashcode = pt_vars->hash ();
 
   slot = shared_bitmap_table.find_slot_with_hash (&sbi, sbi.hashcode,
 						  NO_INSERT);
@@ -5984,7 +5984,7 @@ shared_bitmap_add (bitmap pt_vars)
   shared_bitmap_info_t sbi = XNEW (struct shared_bitmap_info);
 
   sbi->pt_vars = pt_vars;
-  sbi->hashcode = bitmap_hash (pt_vars);
+  sbi->hashcode = pt_vars->hash ();
 
   slot = shared_bitmap_table.find_slot_with_hash (sbi, sbi->hashcode, INSERT);
   gcc_assert (!*slot);
