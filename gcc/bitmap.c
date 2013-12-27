@@ -278,7 +278,7 @@ bitmap_elt_clear_from (bitmap head, bitmap_element *elt)
   if (prev)
     {
       prev->next = NULL;
-      if (head->current->indx > prev->indx)
+      if (head->current && head->current->indx > prev->indx)
 	{
 	  head->current = prev;
 	  head->indx = prev->indx;
@@ -996,7 +996,7 @@ bitmap_and_into (bitmap a, const_bitmap b)
       bitmap_elt_clear_from (a, a_elt);
     }
 
-  gcc_checking_assert (!a->current == !a->first
+  gcc_checking_assert (((a->current && a->first) || !a->current)
 		       && (!a->current || a->indx == a->current->indx));
 
   return changed;
