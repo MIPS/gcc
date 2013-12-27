@@ -199,6 +199,9 @@ struct GTY(()) bitmap_head {
   }
   ~bitmap_head () { bitmap_clear (this); }
 
+  unsigned first_set_bit () const;
+  unsigned last_set_bit () const;
+
   void swap (bitmap_head *);
 
   /* Compute bitmap hash (for purposes of hashing etc.)  */
@@ -312,9 +315,6 @@ inline void dump_bitmap (FILE *file, const_bitmap map)
 }
 extern void debug (const bitmap_head &ref);
 extern void debug (const bitmap_head *ptr);
-
-extern unsigned bitmap_first_set_bit (const_bitmap);
-extern unsigned bitmap_last_set_bit (const_bitmap);
 
 
 /* Allocate a bitmap from a bit obstack.  */

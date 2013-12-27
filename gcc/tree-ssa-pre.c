@@ -4561,7 +4561,7 @@ remove_dead_inserted_code (void)
     }
   while (!bitmap_empty_p (worklist))
     {
-      i = bitmap_first_set_bit (worklist);
+      i = worklist->first_set_bit ();
       bitmap_clear_bit (worklist, i);
       t = SSA_NAME_DEF_STMT (ssa_name (i));
 

@@ -554,7 +554,7 @@ set_livein_block (tree var, basic_block bb)
      NEED_PHI_STATE_MAYBE.  */
   if (info->need_phi_state == NEED_PHI_STATE_NO)
     {
-      int def_block_index = bitmap_first_set_bit (db_p->def_blocks);
+      int def_block_index = db_p->def_blocks->first_set_bit ();
 
       if (def_block_index == -1
 	  || ! dominated_by_p (CDI_DOMINATORS, bb,

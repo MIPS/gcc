@@ -512,7 +512,7 @@ kill_expr (temp_expr_table_p tab, int partition)
      finished_with_expr can modify the bitmap, so we can't execute over it.  */
   while (tab->kill_list[partition])
     {
-      version = bitmap_first_set_bit (tab->kill_list[partition]);
+      version = tab->kill_list[partition]->first_set_bit ();
       finished_with_expr (tab, version, true);
     }
 

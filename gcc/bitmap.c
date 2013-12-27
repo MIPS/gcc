@@ -794,9 +794,9 @@ bitmap_single_bit_set_p (const_bitmap a)
    bitmap must be non-empty.  */
 
 unsigned
-bitmap_first_set_bit (const_bitmap a)
+bitmap_head::first_set_bit () const
 {
-  const bitmap_element *elt = a->first;
+  const bitmap_element *elt = first;
   unsigned bit_no;
   BITMAP_WORD word;
   unsigned ix;
@@ -845,9 +845,9 @@ bitmap_first_set_bit (const_bitmap a)
    bitmap must be non-empty.  */
 
 unsigned
-bitmap_last_set_bit (const_bitmap a)
+bitmap_head::last_set_bit () const
 {
-  const bitmap_element *elt = a->current ? a->current : a->first;
+  const bitmap_element *elt = current ? current : first;
   unsigned bit_no;
   BITMAP_WORD word;
   int ix;

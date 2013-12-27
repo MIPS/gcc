@@ -453,8 +453,7 @@ same_succ_hash (const_same_succ e)
   hashval_t hashval = e->succs->hash ();
   int flags;
   unsigned int i;
-  unsigned int first = bitmap_first_set_bit (e->bbs);
-  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, first);
+  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, e->bbs->first_set_bit ());
   int size = 0;
   gimple_stmt_iterator gsi;
   gimple stmt;
@@ -548,7 +547,7 @@ inverse_flags (const_same_succ e1, const_same_succ e2)
 int
 same_succ_def::equal (const value_type *e1, const compare_type *e2)
 {
-  unsigned int i, first1, first2;
+  unsigned int i;
   gimple_stmt_iterator gsi1, gsi2;
   gimple s1, s2;
   basic_block bb1, bb2;
@@ -569,11 +568,8 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
 	  return 0;
     }
 
-  first1 = bitmap_first_set_bit (e1->bbs);
-  first2 = bitmap_first_set_bit (e2->bbs);
-
-  bb1 = BASIC_BLOCK_FOR_FN (cfun, first1);
-  bb2 = BASIC_BLOCK_FOR_FN (cfun, first2);
+  bb1 = BASIC_BLOCK_FOR_FN (cfun, e1->bbs->first_set_bit ());
+  bb2 = BASIC_BLOCK_FOR_FN (cfun, e2->bbs->first_set_bit ());
 
   if (BB_SIZE (bb1) != BB_SIZE (bb2))
     return 0;

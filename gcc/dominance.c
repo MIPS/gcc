@@ -882,12 +882,11 @@ nearest_common_dominator (enum cdi_direction dir, basic_block bb1, basic_block b
 basic_block
 nearest_common_dominator_for_set (enum cdi_direction dir, bitmap blocks)
 {
-  unsigned i, first;
+  unsigned i;
   bitmap_iterator bi;
   basic_block dom;
 
-  first = bitmap_first_set_bit (blocks);
-  dom = BASIC_BLOCK_FOR_FN (cfun, first);
+  dom = BASIC_BLOCK_FOR_FN (cfun, blocks->first_set_bit ());
   EXECUTE_IF_SET_IN_BITMAP (blocks, 0, i, bi)
     if (dom != BASIC_BLOCK_FOR_FN (cfun, i))
       dom = nearest_common_dominator (dir, dom, BASIC_BLOCK_FOR_FN (cfun, i));

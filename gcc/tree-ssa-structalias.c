@@ -1438,7 +1438,7 @@ scc_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 	      bitmap_set_bit (scc, w);
 	    }
 
-	  lowest_node = bitmap_first_set_bit (scc);
+	  lowest_node = scc->first_set_bit ();
 	  gcc_assert (lowest_node < FIRST_REF_NODE);
 
 	  /* Collapse the SCC nodes into a single node, and mark the
@@ -6284,7 +6284,7 @@ pt_solution_singleton_p (struct pt_solution *pt, unsigned *uid)
       || !bitmap_single_bit_set_p (pt->vars))
     return false;
 
-  *uid = bitmap_first_set_bit (pt->vars);
+  *uid = pt->vars->first_set_bit ();
   return true;
 }
 

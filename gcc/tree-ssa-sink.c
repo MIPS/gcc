@@ -179,7 +179,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 	  bitmap_set_bit (&blocks, useblock->index);
 	}
     }
-  commondom = BASIC_BLOCK_FOR_FN (cfun, bitmap_first_set_bit (&blocks));
+  commondom = BASIC_BLOCK_FOR_FN (cfun, blocks.first_set_bit ());
   EXECUTE_IF_SET_IN_BITMAP (&blocks, 0, j, bi)
     commondom = nearest_common_dominator (CDI_DOMINATORS, commondom,
 					  BASIC_BLOCK_FOR_FN (cfun, j));

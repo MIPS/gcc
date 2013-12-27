@@ -652,7 +652,7 @@ cleanup_tree_cfg_1 (void)
   /* Now process the altered blocks, as long as any are available.  */
   while (!bitmap_empty_p (cfgcleanup_altered_bbs))
     {
-      i = bitmap_first_set_bit (cfgcleanup_altered_bbs);
+      i =  cfgcleanup_altered_bbs->first_set_bit ();
       bitmap_clear_bit (cfgcleanup_altered_bbs, i);
       if (i < NUM_FIXED_BLOCKS)
 	continue;
