@@ -312,10 +312,10 @@ static inline void
 remove_from_partition_kill_list (temp_expr_table_p tab, int p, int version)
 {
   gcc_checking_assert (tab->kill_list[p]);
-  bitmap_clear_bit (tab->kill_list[p], version);
+  tab->kill_list[p]->clear_bit (version);
   if (bitmap_empty_p (tab->kill_list[p]))
     {
-      bitmap_clear_bit (tab->partition_in_use, p);
+      tab->partition_in_use->clear_bit (p);
       BITMAP_FREE (tab->kill_list[p]);
     }
 }

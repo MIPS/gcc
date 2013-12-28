@@ -663,8 +663,8 @@ bitmap_remove_from_set (bitmap_set_t set, pre_expr expr)
   unsigned int val  = get_expr_value_id (expr);
   if (!value_id_constant_p (val))
     {
-      bitmap_clear_bit (&set->values, val);
-      bitmap_clear_bit (&set->expressions, get_expression_id (expr));
+      set->values.clear_bit (val);
+      set->expressions.clear_bit (get_expression_id (expr));
     }
 }
 
@@ -762,7 +762,7 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
 	  pre_expr expr = expression_for_id (i);
 	  unsigned int value_id = get_expr_value_id (expr);
 	  if (!bitmap_bit_p (&dest->values, value_id))
-	    bitmap_clear_bit (&dest->expressions, i);
+	    dest->expressions.clear_bit (i);
 	}
     }
 }
@@ -856,7 +856,7 @@ bitmap_set_replace_value (bitmap_set_t set, unsigned int lookfor,
   exprset = value_expressions[lookfor];
   EXECUTE_IF_SET_IN_BITMAP (exprset, 0, i, bi)
     {
-      if (bitmap_clear_bit (&set->expressions, i))
+      if (set->expressions.clear_bit (i))
 	{
 	  bitmap_set_bit (&set->expressions, get_expression_id (expr));
 	  return;
@@ -4472,7 +4472,7 @@ eliminate (void)
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
 	  if (inserted_exprs
 	      && TREE_CODE (lhs) == SSA_NAME)
-	    bitmap_clear_bit (inserted_exprs, SSA_NAME_VERSION (lhs));
+	    inserted_exprs->clear_bit (SSA_NAME_VERSION (lhs));
 	  release_defs (stmt);
 	}
     }
@@ -4561,7 +4561,7 @@ remove_dead_inserted_code (void)
   while (!bitmap_empty_p (&worklist))
     {
       i = worklist.first_set_bit ();
-      bitmap_clear_bit (&worklist, i);
+      worklist.clear_bit (i);
       t = SSA_NAME_DEF_STMT (ssa_name (i));
 
       /* PHI nodes are somewhat special in that each PHI alternative has

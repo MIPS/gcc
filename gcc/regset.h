@@ -74,7 +74,7 @@ typedef bitmap regset;
   bitmap_ior_and_compl_into (TO, FROM1, FROM2)
 
 /* Clear a single register in a register set.  */
-#define CLEAR_REGNO_REG_SET(HEAD, REG) bitmap_clear_bit (HEAD, REG)
+#define CLEAR_REGNO_REG_SET(HEAD, REG) (HEAD)->clear_bit (REG)
 
 /* Set a single register in a register set.  */
 #define SET_REGNO_REG_SET(HEAD, REG) bitmap_set_bit (HEAD, REG)

@@ -962,7 +962,7 @@ mark_regno_birth_or_death (bitmap live, int *pressure, int regno, bool birth_p)
 	    }
 	  else
 	    {
-	      if (!live || bitmap_clear_bit (live, regno))
+	      if (!live || live->clear_bit (regno))
 		pressure[pressure_class]
 		  -= (ira_reg_class_max_nregs
 		      [pressure_class][PSEUDO_REGNO_MODE (regno)]);
@@ -979,7 +979,7 @@ mark_regno_birth_or_death (bitmap live, int *pressure, int regno, bool birth_p)
 	}
       else
 	{
-	  if (!live || bitmap_clear_bit (live, regno))
+	  if (!live || live->clear_bit (regno))
 	    pressure[pressure_class]--;
 	}
     }

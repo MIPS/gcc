@@ -2995,7 +2995,7 @@ scan_stores_nospill (store_info_t store_info, bitmap gen, bitmap kill)
 	      {
 		bitmap_set_bit (gen, index);
 		if (kill)
-		  bitmap_clear_bit (kill, index);
+		  kill->clear_bit (index);
 	      }
 	  }
       store_info = store_info->next;
@@ -3019,7 +3019,7 @@ scan_stores_spill (store_info_t store_info, bitmap gen, bitmap kill)
 	    {
 	      bitmap_set_bit (gen, index);
 	      if (kill)
-		bitmap_clear_bit (kill, index);
+		kill->clear_bit (index);
 	    }
 	}
       store_info = store_info->next;
@@ -3090,7 +3090,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 			    {
 			      if (kill)
 				bitmap_set_bit (kill, index);
-			      bitmap_clear_bit (gen, index);
+			      gen->clear_bit (index);
 			    }
 			}
 		    }
@@ -3137,7 +3137,7 @@ scan_reads_spill (read_info_t read_info, bitmap gen, bitmap kill)
 	    {
 	      if (kill)
 		bitmap_set_bit (kill, index);
-	      bitmap_clear_bit (gen, index);
+	      gen->clear_bit (index);
 	    }
 	}
 

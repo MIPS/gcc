@@ -2675,7 +2675,7 @@ propagate_freq (basic_block head, bitmap tovisit)
 	    }
 	}
 
-      bitmap_clear_bit (tovisit, bb->index);
+      tovisit->clear_bit (bb->index);
 
       e = find_edge (bb, head);
       if (e)

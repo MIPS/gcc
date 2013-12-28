@@ -1040,8 +1040,8 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
 		  boundary_cst, cmp_code, visited_phis, visited_flag_phis))
             return false;
 
-          bitmap_clear_bit (*visited_flag_phis,
-                            SSA_NAME_VERSION (gimple_phi_result (flag_arg_def)));
+          (*visited_flag_phis)->clear_bit
+                            (SSA_NAME_VERSION (gimple_phi_result (flag_arg_def)));
           continue;
         }
 

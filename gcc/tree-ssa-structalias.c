@@ -1493,7 +1493,7 @@ unify_nodes (constraint_graph_t graph, unsigned int to, unsigned int from,
      as changed, decrease the changed count.  */
 
   if (update_changed
-      && bitmap_clear_bit (changed, from))
+      && changed->clear_bit (from))
     bitmap_set_bit (changed, to);
   varinfo_t fromvi = get_varinfo (from);
   if (fromvi->solution)
@@ -1516,7 +1516,7 @@ unify_nodes (constraint_graph_t graph, unsigned int to, unsigned int from,
 	BITMAP_FREE (tovi->oldsolution);
     }
   if (graph->succs[to])
-    bitmap_clear_bit (graph->succs[to], to);
+    graph->succs[to]->clear_bit (to);
 }
 
 /* Information needed to compute the topological ordering of a graph.  */
@@ -2675,7 +2675,7 @@ solve_graph (constraint_graph_t graph)
 
 	  /* If the node has changed, we need to process the
 	     complex constraints and outgoing edges again.  */
-	  if (bitmap_clear_bit (changed, i))
+	  if (changed->clear_bit (i))
 	    {
 	      unsigned int j;
 	      constraint_t c;

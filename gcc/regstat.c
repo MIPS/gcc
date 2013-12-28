@@ -142,7 +142,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
     {
       df_ref def = *def_rec;
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -262,7 +262,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 			  REG_LIVE_LENGTH (dregno) +=
 			    (luid - local_live_last_luid[dregno]);
 			  local_live_last_luid[dregno] = luid;
-			  bitmap_clear_bit (local_live, dregno);
+			  local_live->clear_bit (dregno);
 			}
 		    }
 		  else
@@ -279,7 +279,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		     basic block.  This results in poor calculations of
 		     REG_LIVE_LENGTH in large basic blocks.  */
 		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		    bitmap_clear_bit (live, dregno);
+		    live->clear_bit (dregno);
 		}
 	      else if ((!(DF_REF_FLAGS (def) & DF_REF_MW_HARDREG))
 		       && (!bitmap_bit_p (artificial_uses, dregno)))
@@ -449,7 +449,7 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
     {
       df_ref def = *def_rec;
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -490,7 +490,7 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
 	    {
 	      /* Kill this register if it is not a subreg store or conditional store.  */
 	      if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		bitmap_clear_bit (live, DF_REF_REGNO (def));
+		live->clear_bit (DF_REF_REGNO (def));
 	    }
 	}
 

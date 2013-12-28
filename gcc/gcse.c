@@ -2940,7 +2940,7 @@ update_bb_reg_pressure (basic_block bb, rtx from)
 	{
 	  decreased_pressure += nregs;
 	  BB_DATA (bb)->max_reg_pressure[pressure_class] -= nregs;
-	  bitmap_clear_bit (BB_DATA (bb)->live_in, REGNO (dreg));
+	  BB_DATA (bb)->live_in->clear_bit (REGNO (dreg));
 	}
     }
   return decreased_pressure;
@@ -3532,7 +3532,7 @@ calculate_bb_reg_pressure (void)
 	      if (!(DF_REF_FLAGS (*def_rec) 
 		    & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
 		{
-		  if (bitmap_clear_bit (&curr_regs_live, regno))
+		  if (curr_regs_live.clear_bit (regno))
 		    change_pressure (regno, false);
 		}
 	    }

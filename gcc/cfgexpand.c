@@ -447,7 +447,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 	  if (DECL_RTL_IF_SET (lhs) == pc_rtx
 	      && (v = (size_t *)
 		  pointer_map_contains (decl_to_stack_part, lhs)))
-	    bitmap_clear_bit (work, *v);
+	    work->clear_bit (*v);
 	}
       else if (!is_gimple_debug (stmt))
 	{

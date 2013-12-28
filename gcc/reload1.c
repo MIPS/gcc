@@ -1049,7 +1049,7 @@ reload (rtx first, int global)
 
   if (! frame_pointer_needed)
     FOR_EACH_BB_FN (bb, cfun)
-      bitmap_clear_bit (df_get_live_in (bb), HARD_FRAME_POINTER_REGNUM);
+      df_get_live_in (bb)->clear_bit (HARD_FRAME_POINTER_REGNUM);
 
   /* Come here (with failure set nonzero) if we can't get enough spill
      regs.  */

@@ -372,7 +372,7 @@ update_lives (int regno, bool free_p)
     {
       for (p = r->start; p <= r->finish; p++)
 	if (free_p)
-	  bitmap_clear_bit (&live_hard_reg_pseudos[p], regno);
+	  live_hard_reg_pseudos[p].clear_bit (regno);
 	else
 	  {
 	    bitmap_set_bit (&live_hard_reg_pseudos[p], regno);
@@ -794,7 +794,7 @@ assign_temporarily (int regno, int hard_regno)
     {
       for (p = r->start; p <= r->finish; p++)
 	if (hard_regno < 0)
-	  bitmap_clear_bit (&live_hard_reg_pseudos[p], regno);
+	  live_hard_reg_pseudos[p].clear_bit (regno);
 	else
 	  {
 	    bitmap_set_bit (&live_hard_reg_pseudos[p], regno);
@@ -1221,7 +1221,7 @@ assign_by_spills (void)
 	    {
 	      /* This register might have been spilled by the previous
 		 pass.  Indicate that it is no longer spilled.  */
-	      bitmap_clear_bit (&all_spilled_pseudos, regno);
+	      all_spilled_pseudos.clear_bit (regno);
 	      assign_hard_regno (hard_regno, regno);
 	      if (! reload_p)
 		/* As non-reload pseudo assignment is changed we
@@ -1248,7 +1248,7 @@ assign_by_spills (void)
 			       &lra_reg_info[regno].insn_bitmap);
 	      /* Assign an arbitrary hard register of regno class to
 		 avoid further trouble with the asm insns.  */
-	      bitmap_clear_bit (&all_spilled_pseudos, regno);
+	      all_spilled_pseudos.clear_bit (regno);
 	      assign_hard_regno
 		(ira_class_hard_regs[regno_allocno_class_array[regno]][0],
 		 regno);

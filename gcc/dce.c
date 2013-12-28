@@ -242,7 +242,7 @@ check_argument_store (rtx mem, HOST_WIDE_INT off, HOST_WIDE_INT min_sp_off,
     {
       if (byte < min_sp_off
 	  || byte >= max_sp_off
-	  || !bitmap_clear_bit (sp_bytes, byte - min_sp_off))
+	  || !sp_bytes->clear_bit (byte - min_sp_off))
 	return false;
     }
   return true;

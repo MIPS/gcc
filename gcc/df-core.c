@@ -1060,7 +1060,7 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 	  unsigned bb_index;
 	  dcount++;
 
-	  bitmap_clear_bit (pending, index);
+	  pending->clear_bit (index);
 	  bb_index = blocks_in_postorder[index];
 	  bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
 	  prev_age = last_visit_age[index];
@@ -1668,7 +1668,7 @@ df_clear_bb_dirty (basic_block bb)
     {
       struct dataflow *dflow = df->problems_in_order[p];
       if (dflow->out_of_date_transfer_functions)
-	bitmap_clear_bit (dflow->out_of_date_transfer_functions, bb->index);
+	dflow->out_of_date_transfer_functions->clear_bit (bb->index);
     }
 }
 

@@ -683,7 +683,7 @@ propagate (void)
 	|| TREE_READONLY (vnode->decl)
 	|| !is_proper_for_analysis (vnode->decl)
 	|| !vnode->definition)
-      bitmap_clear_bit (all_module_statics, DECL_UID (vnode->decl));
+      all_module_statics->clear_bit (DECL_UID (vnode->decl));
 
   /* Forget info we collected "just for fun" on variables that turned out to be
      non-local.  */

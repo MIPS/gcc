@@ -178,7 +178,7 @@ process_defs (df_ref *def_rec, int top_flag)
 	}
       else
 	{
-	  bitmap_clear_bit (local_md, dregno);
+	  local_md->clear_bit (dregno);
 	  reg_defs[dregno] = def;
 	}
     }

@@ -1692,7 +1692,7 @@ mark_regno_live (int regno)
 static void
 mark_regno_death (int regno)
 {
-  if (! bitmap_clear_bit (&curr_regs_live, regno))
+  if (! curr_regs_live.clear_bit (regno))
     return;
   change_pressure (regno, false);
 }

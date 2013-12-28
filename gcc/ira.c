@@ -2958,7 +2958,7 @@ mark_elimination (int from, int to)
       r = DF_LR_IN (bb);
       if (bitmap_bit_p (r, from))
 	{
-	  bitmap_clear_bit (r, from);
+	  r->clear_bit (from);
 	  bitmap_set_bit (r, to);
 	}
       if (! df_live)
@@ -2966,7 +2966,7 @@ mark_elimination (int from, int to)
       r = DF_LIVE_IN (bb);
       if (bitmap_bit_p (r, from))
 	{
-	  bitmap_clear_bit (r, from);
+	  r->clear_bit (from);
 	  bitmap_set_bit (r, to);
 	}
     }
@@ -4227,8 +4227,8 @@ build_insn_chain (void)
 
 			    if (bitmap_empty_p (live_subregs[regno]))
 			      {
-				bitmap_clear_bit (&live_subregs_used, regno);
-				bitmap_clear_bit (&live_relevant_regs, regno);
+				live_subregs_used.clear_bit (regno);
+				live_relevant_regs.clear_bit (regno);
 			      }
 			    else
 			      /* Set live_relevant_regs here because
@@ -4245,8 +4245,8 @@ build_insn_chain (void)
 			       modeling the def as a killing def.  */
 			    if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL))
 			      {
-				bitmap_clear_bit (&live_subregs_used, regno);
-				bitmap_clear_bit (&live_relevant_regs, regno);
+				live_subregs_used.clear_bit (regno);
+				live_relevant_regs.clear_bit (regno);
 			      }
 			  }
 		      }
@@ -4316,7 +4316,7 @@ build_insn_chain (void)
 			     effectively saying do not use the subregs
 			     because we are reading the whole
 			     pseudo.  */
-			  bitmap_clear_bit (&live_subregs_used, regno);
+			  live_subregs_used.clear_bit (regno);
 			bitmap_set_bit (&live_relevant_regs, regno);
 		      }
 		  }
@@ -4549,14 +4549,14 @@ find_moveable_pseudos (void)
 		unsigned regno = DF_REF_REGNO (*u_rec);
 		bitmap_set_bit (moveable, regno);
 		bitmap_set_bit (&set, regno);
-		bitmap_clear_bit (transp, regno);
+		transp->clear_bit (regno);
 		continue;
 	      }
 	    while (*u_rec)
 	      {
 		unsigned regno = DF_REF_REGNO (*u_rec);
-		if (bitmap_clear_bit (moveable, regno))
-		  bitmap_clear_bit (transp, regno);
+		if (moveable->clear_bit (regno))
+		  transp->clear_bit (regno);
 		u_rec++;
 	      }
 
@@ -4564,8 +4564,8 @@ find_moveable_pseudos (void)
 	      {
 		unsigned regno = DF_REF_REGNO (*d_rec);
 		bitmap_set_bit (&set, regno);
-		bitmap_clear_bit (transp, regno);
-		bitmap_clear_bit (moveable, regno);
+		transp->clear_bit (regno);
+		moveable->clear_bit (regno);
 		d_rec++;
 	      }
 	  }

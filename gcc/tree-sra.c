@@ -705,7 +705,7 @@ sra_deinitialize (void)
 static void
 disqualify_candidate (tree decl, const char *reason)
 {
-  if (bitmap_clear_bit (candidate_bitmap, DECL_UID (decl)))
+  if (candidate_bitmap->clear_bit (DECL_UID (decl)))
     candidates.clear_slot (candidates.find_slot_with_hash (decl,
 							   DECL_UID (decl),
 							   NO_INSERT));

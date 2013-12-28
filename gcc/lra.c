@@ -1697,7 +1697,7 @@ invalidate_insn_data_regno_info (lra_insn_recog_data_t data, rtx insn,
       i = ir->regno;
       next_ir = ir->next;
       free_insn_reg (ir);
-      bitmap_clear_bit (&lra_reg_info[i].insn_bitmap, uid);
+      lra_reg_info[i].insn_bitmap.clear_bit (uid);
       if (i >= FIRST_PSEUDO_REGISTER && ! debug_p)
 	{
 	  lra_reg_info[i].nrefs--;

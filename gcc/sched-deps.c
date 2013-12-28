@@ -1092,15 +1092,15 @@ update_dependency_caches (dep_t dep, enum reg_note old_type)
       switch (old_type)
 	{
 	case REG_DEP_OUTPUT:
-	  bitmap_clear_bit (&output_dependency_cache[insn_luid], elem_luid);
+	  output_dependency_cache[insn_luid].clear_bit (elem_luid);
 	  break;
 
 	case REG_DEP_ANTI:
-	  bitmap_clear_bit (&anti_dependency_cache[insn_luid], elem_luid);
+	  anti_dependency_cache[insn_luid].clear_bit (elem_luid);
 	  break;
 
 	case REG_DEP_CONTROL:
-	  bitmap_clear_bit (&control_dependency_cache[insn_luid], elem_luid);
+	  control_dependency_cache[insn_luid].clear_bit (elem_luid);
 	  break;
 
 	default:
@@ -1127,8 +1127,7 @@ change_spec_dep_to_hard (sd_iterator_def sd_it)
 
   if (true_dependency_cache != NULL)
     /* Clear the cache entry.  */
-    bitmap_clear_bit (&spec_dependency_cache[INSN_LUID (insn)],
-		      INSN_LUID (elem));
+    spec_dependency_cache[INSN_LUID (insn)].clear_bit (INSN_LUID (elem));
 }
 
 /* Update DEP to incorporate information from NEW_DEP.
@@ -1438,13 +1437,13 @@ sd_delete_dep (sd_iterator_def sd_it)
       int elem_luid = INSN_LUID (pro);
       int insn_luid = INSN_LUID (con);
 
-      bitmap_clear_bit (&true_dependency_cache[insn_luid], elem_luid);
-      bitmap_clear_bit (&anti_dependency_cache[insn_luid], elem_luid);
-      bitmap_clear_bit (&control_dependency_cache[insn_luid], elem_luid);
-      bitmap_clear_bit (&output_dependency_cache[insn_luid], elem_luid);
+      true_dependency_cache[insn_luid].clear_bit (elem_luid);
+      anti_dependency_cache[insn_luid].clear_bit (elem_luid);
+      control_dependency_cache[insn_luid].clear_bit (elem_luid);
+      output_dependency_cache[insn_luid].clear_bit (elem_luid);
 
       if (current_sched_info->flags & DO_SPECULATION)
-	bitmap_clear_bit (&spec_dependency_cache[insn_luid], elem_luid);
+	spec_dependency_cache[insn_luid].clear_bit (elem_luid);
     }
 
   get_back_and_forw_lists (dep, sd_it.resolved_p,

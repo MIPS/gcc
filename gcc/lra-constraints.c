@@ -4888,7 +4888,7 @@ update_ebb_live_info (rtx head, rtx tail)
 		if (bitmap_bit_p (&live_regs, j))
 		  bitmap_set_bit (df_get_live_in (prev_bb), j);
 		else
-		  bitmap_clear_bit (df_get_live_in (prev_bb), j);
+		  df_get_live_in (prev_bb)->clear_bit (j);
 	    }
 	  if (curr_bb != last_bb)
 	    {
@@ -4906,7 +4906,7 @@ update_ebb_live_info (rtx head, rtx tail)
 		  if (live_p)
 		    bitmap_set_bit (df_get_live_out (curr_bb), j);
 		  else
-		    bitmap_clear_bit (df_get_live_out (curr_bb), j);
+		    df_get_live_out (curr_bb)->clear_bit (j);
 		}
 	    }
 	  prev_bb = curr_bb;
@@ -4925,10 +4925,10 @@ update_ebb_live_info (rtx head, rtx tail)
       /* See which defined values die here.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_OUT && ! reg->subreg_p)
-	  bitmap_clear_bit (&live_regs, reg->regno);
+	  live_regs.clear_bit (reg->regno);
       for (reg = curr_static_id->hard_regs; reg != NULL; reg = reg->next)
 	if (reg->type == OP_OUT && ! reg->subreg_p)
-	  bitmap_clear_bit (&live_regs, reg->regno);
+	  live_regs.clear_bit (reg->regno);
       /* Mark each used value as live.  */
       for (reg = curr_id->regs; reg != NULL; reg = reg->next)
 	if (reg->type != OP_OUT
@@ -5520,7 +5520,7 @@ fix_bb_live_info (bitmap live, bitmap removed_pseudos)
   bitmap_iterator bi;
 
   EXECUTE_IF_SET_IN_BITMAP (removed_pseudos, 0, regno, bi)
-    if (bitmap_clear_bit (live, regno))
+    if (live->clear_bit (regno))
       bitmap_set_bit (live, lra_reg_info[regno].restore_regno);
 }
 
@@ -5756,7 +5756,7 @@ undo_optional_reloads (void)
 	  }
       if (keep_p)
 	{
-	  bitmap_clear_bit (&removed_optional_reload_pseudos, regno);
+	  removed_optional_reload_pseudos.clear_bit (regno);
 	  if (lra_dump_file != NULL)
 	    fprintf (lra_dump_file, "Keep optional reload reg %d\n", regno);
 	}

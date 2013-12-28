@@ -1106,9 +1106,9 @@ df_insn_info_delete (unsigned int uid)
 {
   struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
 
-  bitmap_clear_bit (&df->insns_to_delete, uid);
-  bitmap_clear_bit (&df->insns_to_rescan, uid);
-  bitmap_clear_bit (&df->insns_to_notes_rescan, uid);
+  df->insns_to_delete.clear_bit (uid);
+  df->insns_to_rescan.clear_bit (uid);
+  df->insns_to_notes_rescan.clear_bit (uid);
   if (insn_info)
     {
       struct df_scan_problem_data *problem_data
@@ -1185,8 +1185,8 @@ df_insn_delete (rtx insn)
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
 	{
-	  bitmap_clear_bit (&df->insns_to_rescan, uid);
-	  bitmap_clear_bit (&df->insns_to_notes_rescan, uid);
+	  df->insns_to_rescan.clear_bit (uid);
+	  df->insns_to_notes_rescan.clear_bit (uid);
 	  bitmap_set_bit (&df->insns_to_delete, uid);
 	}
       if (dump_file)
@@ -1270,15 +1270,15 @@ df_insn_rescan (rtx insn)
       if (dump_file)
 	fprintf (dump_file, "deferring rescan insn with uid = %d.\n", uid);
 
-      bitmap_clear_bit (&df->insns_to_delete, uid);
-      bitmap_clear_bit (&df->insns_to_notes_rescan, uid);
+      df->insns_to_delete.clear_bit (uid);
+      df->insns_to_notes_rescan.clear_bit (uid);
       bitmap_set_bit (&df->insns_to_rescan, INSN_UID (insn));
       return false;
     }
 
-  bitmap_clear_bit (&df->insns_to_delete, uid);
-  bitmap_clear_bit (&df->insns_to_rescan, uid);
-  bitmap_clear_bit (&df->insns_to_notes_rescan, uid);
+  df->insns_to_delete.clear_bit (uid);
+  df->insns_to_rescan.clear_bit (uid);
+  df->insns_to_notes_rescan.clear_bit (uid);
   if (insn_info)
     {
       int luid;
@@ -1338,9 +1338,9 @@ df_insn_rescan_debug_internal (rtx insn)
   if (dump_file)
     fprintf (dump_file, "deleting debug_insn with uid = %d.\n", uid);
 
-  bitmap_clear_bit (&df->insns_to_delete, uid);
-  bitmap_clear_bit (&df->insns_to_rescan, uid);
-  bitmap_clear_bit (&df->insns_to_notes_rescan, uid);
+  df->insns_to_delete.clear_bit (uid);
+  df->insns_to_rescan.clear_bit (uid);
+  df->insns_to_notes_rescan.clear_bit (uid);
 
   if (!insn_info->defs)
     return false;
@@ -2194,7 +2194,7 @@ df_notes_rescan (rtx insn)
 	  insn_info->mw_hardregs = df_null_mw_rec;
 	}
 
-      bitmap_clear_bit (&df->insns_to_delete, uid);
+      df->insns_to_delete.clear_bit (uid);
       /* If the insn is set to be rescanned, it does not need to also
 	 be notes rescanned.  */
       if (!bitmap_bit_p (&df->insns_to_rescan, uid))
@@ -2202,8 +2202,8 @@ df_notes_rescan (rtx insn)
       return;
     }
 
-  bitmap_clear_bit (&df->insns_to_delete, uid);
-  bitmap_clear_bit (&df->insns_to_notes_rescan, uid);
+  df->insns_to_delete.clear_bit (uid);
+  df->insns_to_notes_rescan.clear_bit (uid);
 
   if (insn_info)
     {

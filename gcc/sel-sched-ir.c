@@ -2697,7 +2697,7 @@ setup_id_reg_sets (idata_t id, insn_t insn)
       /* When these refs are met for the first time, skip them, as
          these uses are just counterparts of some defs.  */
       if (bitmap_bit_p (tmp, regno))
-        bitmap_clear_bit (tmp, regno);
+        tmp->clear_bit (regno);
       else if (! DF_REF_FLAGS_IS_SET (use, DF_REF_CALL_STACK_USAGE))
 	{
 	  SET_REGNO_REG_SET (IDATA_REG_USES (id), regno);
@@ -5102,7 +5102,7 @@ delete_and_free_basic_block (basic_block bb)
   if (BB_LV_SET (bb))
     free_lv_set (bb);
 
-  bitmap_clear_bit (blocks_to_reschedule, bb->index);
+  blocks_to_reschedule->clear_bit (bb->index);
 
   /* Can't assert av_set properties because we use sel_aremove_bb
      when removing loop preheader from the region.  At the point of
@@ -5238,7 +5238,7 @@ sel_remove_bb (basic_block bb, bool remove_from_cfg_p)
 
   remove_bb_from_region (bb);
   return_bb_to_pool (bb);
-  bitmap_clear_bit (blocks_to_reschedule, idx);
+  blocks_to_reschedule->clear_bit (idx);
 
   if (remove_from_cfg_p)
     {

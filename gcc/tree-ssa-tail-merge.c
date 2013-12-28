@@ -818,7 +818,7 @@ same_succ_flush_bb (basic_block bb)
   if (bitmap_single_bit_set_p (same->bbs))
     same_succ_htab.remove_elt_with_hash (same, same->hashval);
   else
-    bitmap_clear_bit (same->bbs, bb->index);
+    same->bbs->clear_bit (bb->index);
 }
 
 /* Removes all bbs in BBS from their corresponding same_succ.  */
@@ -877,7 +877,7 @@ update_worklist (void)
   bitmap_and_compl_into (deleted_bb_preds, deleted_bbs);
   bitmap_clear (deleted_bbs);
 
-  bitmap_clear_bit (deleted_bb_preds, ENTRY_BLOCK);
+  deleted_bb_preds->clear_bit (ENTRY_BLOCK);
   same_succ_flush_bbs (deleted_bb_preds);
 
   same = same_succ_alloc ();
@@ -1565,11 +1565,11 @@ apply_clusters (void)
       bb2 = c->rep_bb;
       bitmap_set_bit (update_bbs, bb2->index);
 
-      bitmap_clear_bit (c->bbs, bb2->index);
+      c->bbs->clear_bit (bb2->index);
       EXECUTE_IF_SET_IN_BITMAP (c->bbs, 0, j, bj)
 	{
 	  bb1 = BASIC_BLOCK_FOR_FN (cfun, j);
-	  bitmap_clear_bit (update_bbs, bb1->index);
+	  update_bbs->clear_bit (bb1->index);
 
 	  replace_block_by (bb1, bb2);
 	  nr_bbs_removed++;

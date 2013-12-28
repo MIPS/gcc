@@ -352,7 +352,7 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
 	  else
 	    bitmap_set_bit (rescan, INSN_UID (insn));
 	  if (debug->to_rescan)
-	    bitmap_clear_bit (debug->to_rescan, INSN_UID (insn));
+	    debug->to_rescan->clear_bit (INSN_UID (insn));
 	}
       XDELETE (head);
       head = next;
@@ -551,7 +551,7 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
   global = (debug->global && debug->global->used
 	    && bitmap_bit_p (debug->global->used, uregno));
 
-  if (!global && !bitmap_clear_bit (debug->used, uregno))
+  if (!global && !debug->used->clear_bit (uregno))
     return 0;
 
   /* Move all uses of uregno from debug->head to uses, setting mode to

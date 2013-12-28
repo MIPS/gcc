@@ -1612,7 +1612,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 		fprintf (dump_file, "expanding: r%d into: ", regno);
 
 	      result = expand_loc (l->elt->locs, evd, max_depth);
-	      bitmap_clear_bit (evd->regs_active, regno);
+	      evd->regs_active->clear_bit (regno);
 
 	      if (result)
 		return result;

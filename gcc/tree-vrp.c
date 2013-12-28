@@ -6977,8 +6977,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
      names can be compared without checking their ranges.  */
   if (bitmap_intersect_p (e1, e2))
     {
-      bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-      bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+      e1->clear_bit (SSA_NAME_VERSION (n1));
+      e2->clear_bit (SSA_NAME_VERSION (n2));
 
       return (comp == EQ_EXPR || comp == GE_EXPR || comp == LE_EXPR)
 	     ? boolean_true_node
@@ -7013,8 +7013,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
 	      if (retval != NULL
 		  && t != retval)
 		{
-		  bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-		  bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+		  e1->clear_bit (SSA_NAME_VERSION (n1));
+		  e2->clear_bit (SSA_NAME_VERSION (n2));
 		  return NULL_TREE;
 		}
 	      retval = t;
@@ -7028,8 +7028,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
 
       if (retval)
 	{
-	  bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-	  bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+	  e1->clear_bit (SSA_NAME_VERSION (n1));
+	  e2->clear_bit (SSA_NAME_VERSION (n2));
 	  if (used_strict_overflow > 0)
 	    *strict_overflow_p = true;
 	  return retval;
@@ -7038,8 +7038,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
 
   /* None of the equivalent ranges are useful in computing this
      comparison.  */
-  bitmap_clear_bit (e1, SSA_NAME_VERSION (n1));
-  bitmap_clear_bit (e2, SSA_NAME_VERSION (n2));
+  e1->clear_bit (SSA_NAME_VERSION (n1));
+  e2->clear_bit (SSA_NAME_VERSION (n2));
   return NULL_TREE;
 }
 

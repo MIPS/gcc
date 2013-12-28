@@ -632,9 +632,9 @@ bitmap_find_bit (bitmap head, unsigned int bit)
 /* Clear a single bit in a bitmap.  Return true if the bit changed.  */
 
 bool
-bitmap_clear_bit (bitmap head, int bit)
+bitmap_head::clear_bit (int bit)
 {
-  bitmap_element *const ptr = bitmap_find_bit (head, bit);
+  bitmap_element *const ptr = bitmap_find_bit (this, bit);
 
   if (ptr != 0)
     {
@@ -648,7 +648,7 @@ bitmap_clear_bit (bitmap head, int bit)
 	  /* If we cleared the entire word, free up the element.  */
 	  if (!ptr->bits[word_num]
 	      && bitmap_element_zerop (ptr))
-	    bitmap_element_free (head, ptr);
+	    bitmap_element_free (this, ptr);
 	}
 
       return res;

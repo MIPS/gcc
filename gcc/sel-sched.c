@@ -2506,11 +2506,11 @@ update_bitmap_cache (expr_t expr, insn_t insn, bool inside_insn_group,
   else if (res == MOVEUP_EXPR_SAME)
     {
       bitmap_set_bit (INSN_ANALYZED_DEPS (insn), expr_uid);
-      bitmap_clear_bit (INSN_FOUND_DEPS (insn), expr_uid);
+      INSN_FOUND_DEPS (insn)->clear_bit (expr_uid);
     }
   else if (res == MOVEUP_EXPR_AS_RHS)
     {
-      bitmap_clear_bit (INSN_ANALYZED_DEPS (insn), expr_uid);
+      INSN_ANALYZED_DEPS (insn)->clear_bit (expr_uid);
       bitmap_set_bit (INSN_FOUND_DEPS (insn), expr_uid);
     }
   else
@@ -4707,7 +4707,7 @@ create_block_for_bookkeeping (edge e1, edge e2)
 		if (INSN_P (insn))
 		  EXPR_ORIG_BB_INDEX (INSN_EXPR (insn)) = succ->index;
 
-	      if (bitmap_clear_bit (code_motion_visited_blocks, new_bb->index))
+	      if (code_motion_visited_blocks->clear_bit (new_bb->index))
 		bitmap_set_bit (code_motion_visited_blocks, succ->index);
 
 	      gcc_assert (LABEL_P (BB_HEAD (new_bb))
@@ -5888,7 +5888,7 @@ track_scheduled_insns_and_blocks (rtx insn)
      we still need to count it as an originator.  */
   bitmap_set_bit (current_originators, INSN_UID (insn));
 
-  if (!bitmap_clear_bit (current_copies, INSN_UID (insn)))
+  if (!current_copies->clear_bit (INSN_UID (insn)))
     {
       /* Note that original block needs to be rescheduled, as we pulled an
 	 instruction out of it.  */
@@ -6814,7 +6814,7 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 
   bitmap_set_bit (visited_bbs, bbi);
   if (blocks_to_reschedule)
-    bitmap_clear_bit (blocks_to_reschedule, bb->index);
+    blocks_to_reschedule->clear_bit (bb->index);
 
   FOR_EACH_SUCC_1 (succ_insn, si, BB_END (bb),
 		   SUCCS_NORMAL | SUCCS_SKIP_TO_LOOP_EXITS)
@@ -7640,7 +7640,7 @@ sel_sched_region_1 (void)
                     bitmap_set_bit (blocks_to_reschedule, bb_next_bb (bb)->index);
                   if (sel_bb_empty_p (bb))
                     {
-                      bitmap_clear_bit (blocks_to_reschedule, bb->index);
+                      blocks_to_reschedule->clear_bit (bb->index);
                       continue;
                     }
                   clear_outdated_rtx_info (bb);

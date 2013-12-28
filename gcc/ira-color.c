@@ -3158,7 +3158,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
       n++;
       if (! ALLOCNO_ASSIGNED_P (a))
 	continue;
-      bitmap_clear_bit (coloring_allocno_bitmap, ALLOCNO_NUM (a));
+      coloring_allocno_bitmap->clear_bit (ALLOCNO_NUM (a));
     }
   allocno_color_data
     = (allocno_color_data_t) ira_allocate (sizeof (struct allocno_color_data)
@@ -3184,7 +3184,7 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	if (ALLOCNO_CAP_MEMBER (a) == NULL)
 	  continue;
 	/* Remove from processing in the next loop.  */
-	bitmap_clear_bit (consideration_allocno_bitmap, j);
+	consideration_allocno_bitmap->clear_bit (j);
 	rclass = ALLOCNO_CLASS (a);
 	pclass = ira_pressure_class_translate[rclass];
 	if (flag_ira_region == IRA_REGION_MIXED

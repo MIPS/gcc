@@ -1015,7 +1015,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
       || object_sizes[object_size_type][varno] == unknown[object_size_type])
     {
       bitmap_set_bit (computed[object_size_type], varno);
-      bitmap_clear_bit (&osi->reexamine, varno);
+      osi->reexamine.clear_bit (varno);
     }
   else
     {
@@ -1050,7 +1050,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	  for (sp = osi->tos; sp > osi->stack; )
 	    {
 	      --sp;
-	      bitmap_clear_bit (&osi->reexamine, *sp);
+	      osi->reexamine.clear_bit (*sp);
 	      bitmap_set_bit (computed[osi->object_size_type], *sp);
 	      object_sizes[osi->object_size_type][*sp] = 0;
 	      if (*sp == varno)

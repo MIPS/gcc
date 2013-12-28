@@ -5317,7 +5317,7 @@ iv_ca_set_no_cp (struct ivopts_data *data, struct iv_ca *ivs,
 
   if (ivs->n_cand_uses[cid] == 0)
     {
-      bitmap_clear_bit (ivs->cands, cid);
+      ivs->cands->clear_bit (cid);
       /* Do not count the pseudocandidates.  */
       if (cp->cand->iv)
 	ivs->n_regs--;

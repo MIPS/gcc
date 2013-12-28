@@ -7695,7 +7695,7 @@ remove_edge_and_dominated_blocks (edge e)
 	    }
 	}
       FOR_EACH_VEC_ELT (bbs_to_remove, i, bb)
-	bitmap_clear_bit (&df, bb->index);
+	df.clear_bit (bb->index);
 
       EXECUTE_IF_SET_IN_BITMAP (&df, 0, i, bi)
 	{

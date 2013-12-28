@@ -1131,7 +1131,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl, enum scan_actions action,
 
 	  if (subset && !superset)
 	    head->cannot_rename = 1;
-	  bitmap_clear_bit (open_chains_set, head->id);
+	  open_chains_set->clear_bit (head->id);
 
 	  nregs = head->nregs;
 	  while (nregs-- > 0)

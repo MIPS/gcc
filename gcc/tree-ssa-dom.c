@@ -2937,7 +2937,7 @@ eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
      deleted.  */
   if (has_zero_uses (lhs))
     {
-      bitmap_clear_bit (interesting_names, version);
+      interesting_names->clear_bit (version);
       remove_stmt_or_phi (stmt);
       return;
     }
@@ -2947,7 +2947,7 @@ eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
   rhs = get_rhs_or_phi_arg (stmt);
   if (!rhs)
     {
-      bitmap_clear_bit (interesting_names, version);
+      interesting_names->clear_bit (version);
       return;
     }
 
@@ -2971,7 +2971,7 @@ eliminate_const_or_copy (gimple stmt, bitmap interesting_names)
   /* Note that STMT may well have been deleted by now, so do
      not access it, instead use the saved version # to clear
      T's entry in the worklist.  */
-  bitmap_clear_bit (interesting_names, version);
+  interesting_names->clear_bit (version);
 }
 
 /* The first phase in degenerate PHI elimination.

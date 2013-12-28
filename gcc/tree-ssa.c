@@ -654,7 +654,7 @@ release_defs_bitset (bitmap toremove)
 		release_defs (def);
 	      }
 
-	    bitmap_clear_bit (toremove, j);
+	    toremove->clear_bit (j);
 	  }
       }
 }

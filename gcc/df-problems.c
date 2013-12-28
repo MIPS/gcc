@@ -843,7 +843,7 @@ df_lr_bb_local_compute (unsigned int bb_index)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
 	  bitmap_set_bit (&bb_info->def, dregno);
-	  bitmap_clear_bit (&bb_info->use, dregno);
+	  bb_info->use.clear_bit (dregno);
 	}
     }
 
@@ -872,7 +872,7 @@ df_lr_bb_local_compute (unsigned int bb_index)
 	    {
 	      unsigned int dregno = DF_REF_REGNO (def);
 	      bitmap_set_bit (&bb_info->def, dregno);
-	      bitmap_clear_bit (&bb_info->use, dregno);
+	      bb_info->use.clear_bit (dregno);
 	    }
 	}
 
@@ -894,7 +894,7 @@ df_lr_bb_local_compute (unsigned int bb_index)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
 	  bitmap_set_bit (&bb_info->def, dregno);
-	  bitmap_clear_bit (&bb_info->use, dregno);
+	  bb_info->use.clear_bit (dregno);
 	}
     }
 
@@ -2488,9 +2488,9 @@ df_word_lr_mark_ref (df_ref ref, bool is_set, regset live)
   else
     {
       if (which_subword != 1)
-	changed |= bitmap_clear_bit (live, regno * 2);
+	changed |= live->clear_bit (regno * 2);
       if (which_subword != 0)
-	changed |= bitmap_clear_bit (live, regno * 2 + 1);
+	changed |= live->clear_bit (regno * 2 + 1);
     }
   return changed;
 }
@@ -3150,7 +3150,7 @@ df_note_bb_compute (unsigned int bb_index,
 	fprintf (dump_file, "artificial def %d\n", DF_REF_REGNO (def));
 
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -3224,7 +3224,7 @@ df_note_bb_compute (unsigned int bb_index,
 		}
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
-		bitmap_clear_bit (live, dregno);
+		live->clear_bit (dregno);
 	    }
 	}
       else
@@ -3252,7 +3252,7 @@ df_note_bb_compute (unsigned int bb_index,
 		bitmap_set_bit (do_not_gen, dregno);
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
-		bitmap_clear_bit (live, dregno);
+		live->clear_bit (dregno);
 	    }
 	}
 
@@ -3501,7 +3501,7 @@ df_simulate_defs (rtx insn, bitmap live)
       /* If the def is to only part of the reg, it does
 	 not kill the other defs that reach here.  */
       if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	bitmap_clear_bit (live, dregno);
+	live->clear_bit (dregno);
     }
 }
 
@@ -3566,7 +3566,7 @@ df_simulate_initialize_backwards (basic_block bb, bitmap live)
     {
       df_ref def = *def_rec;
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -3608,7 +3608,7 @@ df_simulate_finalize_backwards (basic_block bb, bitmap live)
     {
       df_ref def = *def_rec;
       if (DF_REF_FLAGS (def) & DF_REF_AT_TOP)
-	bitmap_clear_bit (live, DF_REF_REGNO (def));
+	live->clear_bit (DF_REF_REGNO (def));
     }
 
 #ifdef EH_USES
@@ -3683,7 +3683,7 @@ df_simulate_one_insn_forwards (basic_block bb, rtx insn, bitmap live)
 	      bitmap_clear_range (live, regno,
 				  hard_regno_nregs[regno][GET_MODE (reg)]);
 	    else
-	      bitmap_clear_bit (live, regno);
+	      live->clear_bit (regno);
 	  }
 	  break;
 	default:
@@ -4145,7 +4145,7 @@ df_md_simulate_artificial_defs_at_top (basic_block bb, bitmap local_md)
 	      & (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))
 	    bitmap_set_bit (local_md, dregno);
 	  else
-	    bitmap_clear_bit (local_md, dregno);
+	    local_md->clear_bit (dregno);
 	}
     }
 }
@@ -4172,7 +4172,7 @@ df_md_simulate_one_insn (basic_block bb ATTRIBUTE_UNUSED, rtx insn,
 	      & (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))
            bitmap_set_bit (local_md, DF_REF_ID (def));
          else
-           bitmap_clear_bit (local_md, DF_REF_ID (def));
+           local_md->clear_bit (DF_REF_ID (def));
         }
     }
 }
@@ -4198,7 +4198,7 @@ df_md_bb_local_compute_process_def (struct df_md_bb_info *bb_info,
 	          & (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))
 	        {
 	          bitmap_set_bit (&bb_info->gen, dregno);
-	          bitmap_clear_bit (&bb_info->kill, dregno);
+	          bb_info->kill.clear_bit (dregno);
 	        }
 	      else
 	        {
@@ -4206,7 +4206,7 @@ df_md_bb_local_compute_process_def (struct df_md_bb_info *bb_info,
 		     make sure the regular def wins.  */
 	          bitmap_set_bit (&seen_in_insn, dregno);
 	          bitmap_set_bit (&bb_info->kill, dregno);
-	          bitmap_clear_bit (&bb_info->gen, dregno);
+	          bb_info->gen.clear_bit (dregno);
 	        }
 	    }
 	}

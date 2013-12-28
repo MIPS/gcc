@@ -6129,7 +6129,7 @@ thread_prologue_and_epilogue_insns (void)
 	  basic_block tmp_bb = vec.pop ();
 	  bool all_set = true;
 
-	  bitmap_clear_bit (&bb_on_list, tmp_bb->index);
+	  bb_on_list.clear_bit (tmp_bb->index);
 	  FOR_EACH_EDGE (e, ei, tmp_bb->succs)
 	    if (!bitmap_bit_p (&bb_antic_flags, e->dest->index))
 	      {
@@ -6213,7 +6213,7 @@ thread_prologue_and_epilogue_insns (void)
 		if (some_pro && some_no_pro)
 		  vec.quick_push (bb);
 		else
-		  bitmap_clear_bit (&bb_tail, bb->index);
+		  bb_tail.clear_bit (bb->index);
 	      }
 	  /* Find the head of each tail.  */
 	  while (!vec.is_empty ())
@@ -6226,7 +6226,7 @@ thread_prologue_and_epilogue_insns (void)
 	      while (single_succ_p (tbb))
 		{
 		  tbb = single_succ (tbb);
-		  bitmap_clear_bit (&bb_tail, tbb->index);
+		  bb_tail.clear_bit (tbb->index);
 		}
 	    }
 	  /* Now duplicate the tails.  */
@@ -6237,7 +6237,7 @@ thread_prologue_and_epilogue_insns (void)
 		rtx insert_point;
 		int eflags;
 
-		if (!bitmap_clear_bit (&bb_tail, bb->index))
+		if (!bb_tail.clear_bit (bb->index))
 		  continue;
 
 		/* Create a copy of BB, instructions and all, for
