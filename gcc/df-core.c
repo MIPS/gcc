@@ -500,7 +500,7 @@ df_set_blocks (bitmap blocks)
   if (blocks)
     {
       if (dump_file)
-	bitmap_print (dump_file, blocks, "setting blocks to analyze ", "\n");
+	blocks->print (dump_file, "setting blocks to analyze ", "\n");
       if (df->blocks_to_analyze)
 	{
 	  /* This block is called to change the focus from one subset

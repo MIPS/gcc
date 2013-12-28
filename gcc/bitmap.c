@@ -2078,15 +2078,15 @@ bitmap_head::hash () const
 /* Debugging function to print out the contents of a bitmap.  */
 
 DEBUG_FUNCTION void
-debug_bitmap_file (FILE *file, const_bitmap head)
+bitmap_head::debug (FILE *file) const
 {
   const bitmap_element *ptr;
 
   fprintf (file, "\nfirst = " HOST_PTR_PRINTF
 	   " current = " HOST_PTR_PRINTF " indx = %u\n",
-	   (void *) head->first, (void *) head->current, head->indx);
+	   (void *) first, (void *) current, indx);
 
-  for (ptr = head->first; ptr; ptr = ptr->next)
+  for (ptr = first; ptr; ptr = ptr->next)
     {
       unsigned int i, j, col = 26;
 
@@ -2114,28 +2114,18 @@ debug_bitmap_file (FILE *file, const_bitmap head)
     }
 }
 
-/* Function to be called from the debugger to print the contents
-   of a bitmap.  */
-
-DEBUG_FUNCTION void
-debug_bitmap (const_bitmap head)
-{
-  debug_bitmap_file (stdout, head);
-}
-
 /* Function to print out the contents of a bitmap.  Unlike debug_bitmap_file,
    it does not print anything but the bits.  */
 
 DEBUG_FUNCTION void
-bitmap_print (FILE *file, const_bitmap head, const char *prefix,
-	      const char *suffix)
+bitmap_head::print (FILE *file, const char *prefix, const char *suffix) const
 {
   const char *comma = "";
   unsigned i;
   bitmap_iterator bi;
 
   fputs (prefix, file);
-  EXECUTE_IF_SET_IN_BITMAP (head, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (this, 0, i, bi)
     {
       fprintf (file, "%s%d", comma, i);
       comma = ", ";
@@ -2207,21 +2197,6 @@ dump_bitmap_statistics (void)
 	   "%-41s %9"HOST_WIDEST_INT_PRINT"d %15"HOST_WIDEST_INT_PRINT"d\n",
 	   "Total", info.count, info.size);
   fprintf (stderr, "---------------------------------------------------------------------------------\n");
-}
-
-DEBUG_FUNCTION void
-debug (const bitmap_head &ref)
-{
-  dump_bitmap (stderr, &ref);
-}
-
-DEBUG_FUNCTION void
-debug (const bitmap_head *ptr)
-{
-  if (ptr)
-    debug (*ptr);
-  else
-    fprintf (stderr, "<nil>\n");
 }
 
 void

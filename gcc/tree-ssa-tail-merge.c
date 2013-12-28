@@ -389,9 +389,9 @@ static void
 same_succ_print (FILE *file, const same_succ e)
 {
   unsigned int i;
-  bitmap_print (file, e->bbs, "bbs:", "\n");
-  bitmap_print (file, e->succs, "succs:", "\n");
-  bitmap_print (file, e->inverse, "inverse:", "\n");
+  e->bbs->print (file, "bbs:", "\n");
+  e->succs->print (file, "succs:", "\n");
+  e->inverse->print (file, "inverse:", "\n");
   fprintf (file, "flags:");
   for (i = 0; i < e->succ_flags.length (); ++i)
     fprintf (file, " %x", e->succ_flags[i]);
@@ -900,8 +900,8 @@ print_cluster (FILE *file, bb_cluster c)
 {
   if (c == NULL)
     return;
-  bitmap_print (file, c->bbs, "bbs:", "\n");
-  bitmap_print (file, c->preds, "preds:", "\n");
+  c->bbs->print (file, "bbs:", "\n");
+  c->preds->print (file, "preds:", "\n");
 }
 
 /* Prints cluster C to stderr.  */

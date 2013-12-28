@@ -1254,7 +1254,7 @@ dump_rdg_partitions (FILE *file, vec<partition_t> partitions)
   partition_t partition;
 
   FOR_EACH_VEC_ELT (partitions, i, partition)
-    debug_bitmap_file (file, partition->stmts);
+    partition->stmts->debug (file);
 }
 
 /* Debug PARTITIONS.  */

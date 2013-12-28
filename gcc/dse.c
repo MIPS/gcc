@@ -2896,8 +2896,8 @@ dse_step2_init (void)
 	  fprintf (dump_file, "group %d(%d+%d): ", i,
 		   (int)group->store2_n->count_bits (),
 		   (int)group->store2_p->count_bits ());
-	  bitmap_print (dump_file, group->store2_n, "n ", " ");
-	  bitmap_print (dump_file, group->store2_p, "p ", "\n");
+	  group->store2_n->print (dump_file, "n ", " ");
+	  group->store2_p->print (dump_file, "p ", "\n");
 	}
     }
 }
@@ -3467,19 +3467,19 @@ dse_step4 (void)
 
 	  df_print_bb_index (bb, dump_file);
 	  if (bb_info->in)
-	    bitmap_print (dump_file, bb_info->in, "  in:   ", "\n");
+	    bb_info->in->print (dump_file, "  in:   ", "\n");
 	  else
 	    fprintf (dump_file, "  in:   *MISSING*\n");
 	  if (bb_info->gen)
-	    bitmap_print (dump_file, bb_info->gen, "  gen:  ", "\n");
+	    bb_info->gen->print (dump_file, "  gen:  ", "\n");
 	  else
 	    fprintf (dump_file, "  gen:  *MISSING*\n");
 	  if (bb_info->kill)
-	    bitmap_print (dump_file, bb_info->kill, "  kill: ", "\n");
+	    bb_info->kill->print (dump_file, "  kill: ", "\n");
 	  else
 	    fprintf (dump_file, "  kill: *MISSING*\n");
 	  if (bb_info->out)
-	    bitmap_print (dump_file, bb_info->out, "  out:  ", "\n");
+	    bb_info->out->print (dump_file, "  out:  ", "\n");
 	  else
 	    fprintf (dump_file, "  out:  *MISSING*\n\n");
 	}
@@ -3512,7 +3512,7 @@ dse_step5_nospill (void)
 	    {
 	      fprintf (dump_file, "starting to process insn %d\n",
 		       INSN_UID (insn_info->insn));
-	      bitmap_print (dump_file, v, "  v:  ", "\n");
+	      v->print (dump_file, "  v:  ", "\n");
 	    }
 
 	  /* There may have been code deleted by the dce pass run before

@@ -210,6 +210,12 @@ struct GTY(()) bitmap_head {
   /* Compute bitmap hash (for purposes of hashing etc.)  */
   hashval_t hash () const;
 
+/* Print a bitmap.  */
+  void print (FILE * = stderr, const char * = "", const char * = "\n") const;
+
+/* Debug functions to print a bitmap linked list.  */
+  void debug (FILE * = stdout) const;
+
   unsigned int indx;			/* Index of last element looked at.  */
   unsigned int descriptor_id;		/* Unique identifier for the allocation
 					   site of this bitmap, for detailed
@@ -275,13 +281,6 @@ extern bool bitmap_set_bit (bitmap, int);
 /* Return true if a register is set in a register set.  */
 extern int bitmap_bit_p (bitmap, int);
 
-/* Debug functions to print a bitmap linked list.  */
-extern void debug_bitmap (const_bitmap);
-extern void debug_bitmap_file (FILE *, const_bitmap);
-
-/* Print a bitmap.  */
-extern void bitmap_print (FILE *, const_bitmap, const char *, const char *);
-
 /* Initialize and release a bitmap obstack.  */
 extern void bitmap_obstack_initialize (bitmap_obstack *);
 extern void bitmap_obstack_release (bitmap_obstack *);
@@ -311,10 +310,8 @@ extern void bitmap_obstack_free (bitmap);
 /* A few compatibility/functions macros for compatibility with sbitmaps */
 inline void dump_bitmap (FILE *file, const_bitmap map)
 {
-  bitmap_print (file, map, "", "\n");
+  map->print (file);
 }
-extern void debug (const bitmap_head &ref);
-extern void debug (const bitmap_head *ptr);
 
 
 /* Allocate a bitmap from a bit obstack.  */

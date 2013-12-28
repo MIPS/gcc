@@ -5070,8 +5070,7 @@ determine_use_iv_costs (struct ivopts_data *data)
 		       use->cost_map[j].cost.cost,
 		       use->cost_map[j].cost.complexity);
 	      if (use->cost_map[j].depends_on)
-		bitmap_print (dump_file,
-			      use->cost_map[j].depends_on, "","");
+		use->cost_map[j].depends_on->print (dump_file, "","");
               if (use->cost_map[j].inv_expr_id != -1)
                 fprintf (dump_file, " inv_expr:%d", use->cost_map[j].inv_expr_id);
 	      fprintf (dump_file, "\n");
@@ -5641,7 +5640,7 @@ iv_ca_dump (struct ivopts_data *data, FILE *file, struct iv_ca *ivs)
   fprintf (file, "  cost: %d (complexity %d)\n", cost.cost, cost.complexity);
   fprintf (file, "  cand_cost: %d\n  cand_use_cost: %d (complexity %d)\n",
            ivs->cand_cost, ivs->cand_use_cost.cost, ivs->cand_use_cost.complexity);
-  bitmap_print (file, ivs->cands, "  candidates: ","\n");
+  ivs->cands->print (file, "  candidates: ", "\n");
 
    for (i = 0; i < ivs->upto; i++)
     {

@@ -1689,12 +1689,10 @@ debug_var_infos_r (var_info_d **slot, FILE *file)
 
   fprintf (file, "VAR: ");
   print_generic_expr (file, info->var, dump_flags);
-  bitmap_print (file, info->info.def_blocks.def_blocks,
-		", DEF_BLOCKS: { ", "}");
-  bitmap_print (file, info->info.def_blocks.livein_blocks,
-		", LIVEIN_BLOCKS: { ", "}");
-  bitmap_print (file, info->info.def_blocks.phi_blocks,
-		", PHI_BLOCKS: { ", "}\n");
+  info->info.def_blocks.def_blocks->print (file, ", DEF_BLOCKS: { ", "}");
+  info->info.def_blocks.livein_blocks->print (file, ", LIVEIN_BLOCKS: { ",
+					      "}");
+  info->info.def_blocks.phi_blocks->print (file, ", PHI_BLOCKS: { ", "}\n");
 
   return 1;
 }

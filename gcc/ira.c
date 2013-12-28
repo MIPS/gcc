@@ -4047,8 +4047,8 @@ static void
 print_insn_chain (FILE *file, struct insn_chain *c)
 {
   fprintf (file, "insn=%d, ", INSN_UID (c->insn));
-  bitmap_print (file, &c->live_throughout, "live_throughout: ", ", ");
-  bitmap_print (file, &c->dead_or_set, "dead_or_set: ", "\n");
+  c->live_throughout.print (file, "live_throughout: ", ", ");
+  c->dead_or_set.print (file, "dead_or_set: ", "\n");
 }
 
 

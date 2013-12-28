@@ -795,8 +795,8 @@ debug_ter (FILE *f, temp_expr_table_p t)
 	fprintf (f, "\n");
       }
 
-  bitmap_print (f, t->partition_in_use, "Partitions in use ",
-		"\npartition KILL lists:\n");
+  t->partition_in_use->print (f, "Partitions in use ",
+			      "\npartition KILL lists:\n");
 
   for (x = 0; x <= num_var_partitions (t->map); x++)
     if (t->kill_list[x])
