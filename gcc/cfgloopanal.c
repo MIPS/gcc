@@ -495,7 +495,7 @@ get_loop_hot_path (const struct loop *loop)
 {
   basic_block bb = loop->header;
   vec<basic_block> path = vNULL;
-  bitmap visited = BITMAP_ALLOC (NULL);
+  bitmap_head visited;
 
   while (true)
     {
@@ -504,16 +504,15 @@ get_loop_hot_path (const struct loop *loop)
       edge best = NULL;
 
       path.safe_push (bb);
-      bitmap_set_bit (visited, bb->index);
+      bitmap_set_bit (&visited, bb->index);
       FOR_EACH_EDGE (e, ei, bb->succs)
         if ((!best || e->probability > best->probability)
 	    && !loop_exit_edge_p (loop, e)
-	    && !bitmap_bit_p (visited, e->dest->index))
+	    && !bitmap_bit_p (&visited, e->dest->index))
 	  best = e;
       if (!best || best->dest == loop->header)
 	break;
       bb = best->dest;
     }
-  BITMAP_FREE (visited);
   return path;
 }

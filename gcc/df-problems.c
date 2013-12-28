@@ -548,16 +548,15 @@ df_rd_transfer_function (int bb_index)
 	 outweighs the cost.  */
       struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
       bitmap regs_live_out = &df_lr_get_bb_info (bb_index)->out;
-      bitmap live_defs = BITMAP_ALLOC (&df_bitmap_obstack);
       unsigned int regno;
       bitmap_iterator bi;
 
+      bitmap_head live_defs (&df_bitmap_obstack);
       EXECUTE_IF_SET_IN_BITMAP (regs_live_out, 0, regno, bi)
-	bitmap_set_range (live_defs,
+	bitmap_set_range (&live_defs,
 			  DF_DEFS_BEGIN (regno),
 			  DF_DEFS_COUNT (regno));
-      changed |= bitmap_and_into (&bb_info->out, live_defs);
-      BITMAP_FREE (live_defs);
+      changed |= bitmap_and_into (&bb_info->out, &live_defs);
     }
 
   return changed;
@@ -3784,8 +3783,6 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 		       regset other_branch_live, rtx *pmove_upto)
 {
   rtx insn, next, max_to;
-  bitmap merge_set, merge_use, local_merge_live;
-  bitmap test_set, test_use;
   unsigned i, fail = 0;
   bitmap_iterator bi;
   int memrefs_in_across = 0;
@@ -3842,23 +3839,23 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
      TEST_USE = set of registers used between ACROSS_FROM and ACROSS_END,
      and live before ACROSS_FROM.  */
 
-  merge_set = BITMAP_ALLOC (&reg_obstack);
-  merge_use = BITMAP_ALLOC (&reg_obstack);
-  local_merge_live = BITMAP_ALLOC (&reg_obstack);
-  test_set = BITMAP_ALLOC (&reg_obstack);
-  test_use = BITMAP_ALLOC (&reg_obstack);
+  bitmap_head merge_set (&reg_obstack);
+  bitmap_head merge_use (&reg_obstack);
+  bitmap_head local_merge_live (&reg_obstack);
+  bitmap_head test_set (&reg_obstack);
+  bitmap_head test_use (&reg_obstack);
 
   /* Compute the set of registers set and used in the ACROSS range.  */
   if (other_branch_live != NULL)
-    bitmap_copy (test_use, other_branch_live);
-  df_simulate_initialize_backwards (merge_bb, test_use);
+    bitmap_copy (&test_use, other_branch_live);
+  df_simulate_initialize_backwards (merge_bb, &test_use);
   for (insn = across_to; ; insn = next)
     {
       if (NONDEBUG_INSN_P (insn))
 	{
-	  df_simulate_find_defs (insn, test_set);
-	  df_simulate_defs (insn, test_use);
-	  df_simulate_uses (insn, test_use);
+	  df_simulate_find_defs (insn, &test_set);
+	  df_simulate_defs (insn, &test_use);
+	  df_simulate_uses (insn, &test_use);
 	}
       next = PREV_INSN (insn);
       if (insn == across_from)
@@ -3916,13 +3913,13 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 		  || (mem_sets_in_across != 0 && mem_ref_flags != 0))
 		break;
 	    }
-	  df_simulate_find_uses (insn, merge_use);
+	  df_simulate_find_uses (insn, &merge_use);
 	  /* We're only interested in uses which use a value live at
 	     the top, not one previously set in this block.  */
-	  bitmap_and_compl_into (merge_use, merge_set);
-	  df_simulate_find_defs (insn, merge_set);
-	  if (bitmap_intersect_p (merge_set, test_use)
-	      || bitmap_intersect_p (merge_use, test_set))
+	  bitmap_and_compl_into (&merge_use, &merge_set);
+	  df_simulate_find_defs (insn, &merge_set);
+	  if (bitmap_intersect_p (&merge_set, &test_use)
+	      || bitmap_intersect_p (&merge_use, &test_set))
 	    break;
 #ifdef HAVE_cc0
 	  if (!sets_cc0_p (insn))
@@ -3937,7 +3934,7 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
     fail = 1;
 
   if (max_to == NULL_RTX || (fail && pmove_upto == NULL))
-    goto out;
+    return !fail;
 
   /* Now, lower this upper bound by also taking into account that
      a range of insns moved across ACROSS must not leave a register
@@ -3953,18 +3950,18 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 
      MERGE_LIVE is provided by the caller and holds live registers after
      TO.  */
-  bitmap_copy (local_merge_live, merge_live);
+  bitmap_copy (&local_merge_live, merge_live);
   for (insn = to; insn != max_to; insn = PREV_INSN (insn))
-    df_simulate_one_insn_backwards (merge_bb, insn, local_merge_live);
+    df_simulate_one_insn_backwards (merge_bb, insn, &local_merge_live);
 
   /* We're not interested in registers that aren't set in the moved
      region at all.  */
-  bitmap_and_into (local_merge_live, merge_set);
+  bitmap_and_into (&local_merge_live, &merge_set);
   for (;;)
     {
       if (NONDEBUG_INSN_P (insn))
 	{
-	  if (!bitmap_intersect_p (test_set, local_merge_live)
+	  if (!bitmap_intersect_p (&test_set, &local_merge_live)
 #ifdef HAVE_cc0
 	      && !sets_cc0_p (insn)
 #endif
@@ -3975,13 +3972,10 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 	    }
 
 	  df_simulate_one_insn_backwards (merge_bb, insn,
-					  local_merge_live);
+					  &local_merge_live);
 	}
       if (insn == from)
-	{
-	  fail = 1;
-	  goto out;
-	}
+	return false;
       insn = PREV_INSN (insn);
     }
 
@@ -3996,7 +3990,7 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
   if (! reload_completed
       && targetm.small_register_classes_for_mode_p (VOIDmode))
     {
-      EXECUTE_IF_SET_IN_BITMAP (merge_set, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&merge_set, 0, i, bi)
 	{
 	  if (i < FIRST_PSEUDO_REGISTER
 	      && ! fixed_regs[i]
@@ -4007,13 +4001,6 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 	    }
 	}
     }
-
- out:
-  BITMAP_FREE (merge_set);
-  BITMAP_FREE (merge_use);
-  BITMAP_FREE (local_merge_live);
-  BITMAP_FREE (test_set);
-  BITMAP_FREE (test_use);
 
   return !fail;
 }

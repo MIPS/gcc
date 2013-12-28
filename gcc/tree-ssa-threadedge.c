@@ -1070,31 +1070,27 @@ thread_across_edge (gimple dummy_cond,
 		    vec<tree> *stack,
 		    tree (*simplify) (gimple, gimple))
 {
-  bitmap visited = BITMAP_ALLOC (NULL);
-  bitmap src_map = BITMAP_ALLOC (NULL);
-  bitmap dst_map = BITMAP_ALLOC (NULL);
+  bitmap_head src_map;
+  bitmap_head dst_map;
   bool backedge_seen;
 
   stmt_count = 0;
 
   vec<jump_thread_edge *> *path = new vec<jump_thread_edge *> ();
-  bitmap_clear (visited);
-  bitmap_set_bit (visited, e->src->index);
-  bitmap_set_bit (visited, e->dest->index);
+  bitmap_head visited;
+  bitmap_set_bit (&visited, e->src->index);
+  bitmap_set_bit (&visited, e->dest->index);
   backedge_seen = ((e->flags & EDGE_DFS_BACK) != 0);
   if (backedge_seen)
     simplify = dummy_simplify;
 
   if (thread_through_normal_block (e, dummy_cond, handle_dominating_asserts,
-				   stack, simplify, path, visited,
-				   &backedge_seen, src_map, dst_map))
+				   stack, simplify, path, &visited,
+				   &backedge_seen, &src_map, &dst_map))
     {
       propagate_threaded_block_debug_into (path->last ()->e->dest,
 					   e->dest);
       remove_temporary_equivalences (stack);
-      BITMAP_FREE (visited);
-      BITMAP_FREE (src_map);
-      BITMAP_FREE (dst_map);
       register_jump_thread (path);
       return;
     }
@@ -1128,16 +1124,13 @@ thread_across_edge (gimple dummy_cond,
       if (taken_edge->flags & EDGE_ABNORMAL)
 	{
 	  remove_temporary_equivalences (stack);
-	  BITMAP_FREE (visited);
-	  BITMAP_FREE (src_map);
-	  BITMAP_FREE (dst_map);
 	  return;
 	}
 
     /* We need to restore the state of the maps to this point each loop
        iteration.  */
-    bitmap_head src_map_copy (*src_map);
-    bitmap_head dst_map_copy (*dst_map);
+    bitmap_head src_map_copy (src_map);
+    bitmap_head dst_map_copy (dst_map);
 
     /* Look at each successor of E->dest to see if we can thread through it.  */
     FOR_EACH_EDGE (taken_edge, ei, e->dest->succs)
@@ -1145,14 +1138,14 @@ thread_across_edge (gimple dummy_cond,
 	/* Push a fresh marker so we can unwind the equivalences created
 	   for each of E->dest's successors.  */
 	stack->safe_push (NULL_TREE);
-	bitmap_copy (src_map, &src_map_copy);
-	bitmap_copy (dst_map, &dst_map_copy);
+	bitmap_copy (&src_map, &src_map_copy);
+	bitmap_copy (&dst_map, &dst_map_copy);
      
 	/* Avoid threading to any block we have already visited.  */
-	bitmap_clear (visited);
-	bitmap_set_bit (visited, e->src->index);
-	bitmap_set_bit (visited, e->dest->index);
-	bitmap_set_bit (visited, taken_edge->dest->index);
+	bitmap_clear (&visited);
+	bitmap_set_bit (&visited, e->src->index);
+	bitmap_set_bit (&visited, e->dest->index);
+	bitmap_set_bit (&visited, taken_edge->dest->index);
         vec<jump_thread_edge *> *path = new vec<jump_thread_edge *> ();
 
 	/* Record whether or not we were able to thread through a successor
@@ -1171,7 +1164,7 @@ thread_across_edge (gimple dummy_cond,
 					    dummy_cond,
 					    handle_dominating_asserts,
 					    simplify,
-					    visited,
+					    &visited,
 					    path,
 					    &backedge_seen);
 
@@ -1181,9 +1174,9 @@ thread_across_edge (gimple dummy_cond,
 	if (!found)
 	  found = thread_through_normal_block (path->last ()->e, dummy_cond,
 					       handle_dominating_asserts,
-					       stack, simplify, path, visited,
+					       stack, simplify, path, &visited,
 					       &backedge_seen,
-					       src_map, dst_map);
+					       &src_map, &dst_map);
 
 	/* If we were able to thread through a successor of E->dest, then
 	   record the jump threading opportunity.  */
@@ -1201,9 +1194,6 @@ thread_across_edge (gimple dummy_cond,
 	/* And unwind the equivalence table.  */
 	remove_temporary_equivalences (stack);
       }
-    BITMAP_FREE (visited);
-    BITMAP_FREE (src_map);
-    BITMAP_FREE (dst_map);
   }
 
   remove_temporary_equivalences (stack);

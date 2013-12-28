@@ -2011,25 +2011,23 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
 	 live at this point.  For instance, this can happen if one of
 	 the insns sets the CC and the CC happened to be live at that
 	 point.  This does occasionally happen, see PR 37922.  */
-      bitmap regs_set = BITMAP_ALLOC (&reg_obstack);
+      bitmap_head regs_set (&reg_obstack);
 
       for (this_insn = insns; this_insn != NULL_RTX; this_insn = NEXT_INSN (this_insn))
-	note_stores (PATTERN (this_insn), look_for_hardregs, regs_set);
+	note_stores (PATTERN (this_insn), look_for_hardregs, &regs_set);
 
-      bitmap_and_into (regs_set, regs_live);
-      if (!bitmap_empty_p (regs_set))
+      bitmap_and_into (&regs_set, regs_live);
+      if (!bitmap_empty_p (&regs_set))
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file,
 		       "abandoning replacement because sequence clobbers live hardregs:");
-	      df_print_regset (dump_file, regs_set);
+	      df_print_regset (dump_file, &regs_set);
 	    }
 
-	  BITMAP_FREE (regs_set);
 	  return false;
 	}
-      BITMAP_FREE (regs_set);
     }
 
   if (validate_change (read_insn->insn, loc, read_reg, 0))
@@ -3285,7 +3283,6 @@ dse_step3 (bool for_spills)
   basic_block bb;
   sbitmap unreachable_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   sbitmap_iterator sbi;
-  bitmap all_ones = NULL;
   unsigned int i;
 
   bitmap_ones (unreachable_blocks);
@@ -3315,6 +3312,12 @@ dse_step3 (bool for_spills)
 	BITMAP_FREE (bb_info->out);
     }
 
+    unsigned int j;
+    group_info_t group;
+    bitmap_head all_ones (&dse_bitmap_obstack);
+    FOR_EACH_VEC_ELT (rtx_group_vec, j, group)
+      bitmap_ior_into (&all_ones, group->group_kill);
+
   /* For any block in an infinite loop, we must initialize the out set
      to all ones.  This could be expensive, but almost never occurs in
      practice. However, it is common in regression tests.  */
@@ -3323,25 +3326,14 @@ dse_step3 (bool for_spills)
       if (bitmap_bit_p (all_blocks, i))
 	{
 	  bb_info_t bb_info = bb_table[i];
-	  if (!all_ones)
-	    {
-	      unsigned int j;
-	      group_info_t group;
-
-	      all_ones = BITMAP_ALLOC (&dse_bitmap_obstack);
-	      FOR_EACH_VEC_ELT (rtx_group_vec, j, group)
-		bitmap_ior_into (all_ones, group->group_kill);
-	    }
 	  if (!bb_info->out)
 	    {
 	      bb_info->out = BITMAP_ALLOC (&dse_bitmap_obstack);
-	      bitmap_copy (bb_info->out, all_ones);
+	      bitmap_copy (bb_info->out, &all_ones);
 	    }
 	}
     }
 
-  if (all_ones)
-    BITMAP_FREE (all_ones);
   sbitmap_free (unreachable_blocks);
 }
 

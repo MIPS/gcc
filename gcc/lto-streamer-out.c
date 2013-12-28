@@ -2032,7 +2032,7 @@ lto_output (void)
 {
   struct lto_out_decl_state *decl_state;
 #ifdef ENABLE_CHECKING
-  bitmap output = lto_bitmap_alloc ();
+  bitmap_head output;
 #endif
   int i, n_nodes;
   lto_symtab_encoder_t encoder = lto_get_out_decl_state ()->symtab_node_encoder;
@@ -2051,8 +2051,8 @@ lto_output (void)
 	  && !node->alias)
 	{
 #ifdef ENABLE_CHECKING
-	  gcc_assert (!bitmap_bit_p (output, DECL_UID (node->decl)));
-	  bitmap_set_bit (output, DECL_UID (node->decl));
+	  gcc_assert (!bitmap_bit_p (&output, DECL_UID (node->decl)));
+	  bitmap_set_bit (&output, DECL_UID (node->decl));
 #endif
 	  decl_state = lto_new_out_decl_state ();
 	  lto_push_out_decl_state (decl_state);
@@ -2071,10 +2071,6 @@ lto_output (void)
      have been renumbered so that edges can be associated with call
      statements using the statement UIDs.  */
   output_symtab ();
-
-#ifdef ENABLE_CHECKING
-  lto_bitmap_free (output);
-#endif
 }
 
 /* Write each node in encoded by ENCODER to OB, as well as those reachable

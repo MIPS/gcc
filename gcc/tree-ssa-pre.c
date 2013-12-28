@@ -4547,22 +4547,21 @@ mark_operand_necessary (tree op)
 static void
 remove_dead_inserted_code (void)
 {
-  bitmap worklist;
+  bitmap_head worklist;
   unsigned i;
   bitmap_iterator bi;
   gimple t;
 
-  worklist = BITMAP_ALLOC (NULL);
   EXECUTE_IF_SET_IN_BITMAP (inserted_exprs, 0, i, bi)
     {
       t = SSA_NAME_DEF_STMT (ssa_name (i));
       if (gimple_plf (t, NECESSARY))
-	bitmap_set_bit (worklist, i);
+	bitmap_set_bit (&worklist, i);
     }
-  while (!bitmap_empty_p (worklist))
+  while (!bitmap_empty_p (&worklist))
     {
-      i = worklist->first_set_bit ();
-      bitmap_clear_bit (worklist, i);
+      i = worklist.first_set_bit ();
+      bitmap_clear_bit (&worklist, i);
       t = SSA_NAME_DEF_STMT (ssa_name (i));
 
       /* PHI nodes are somewhat special in that each PHI alternative has
@@ -4579,7 +4578,7 @@ remove_dead_inserted_code (void)
 		{
 		  gimple n = mark_operand_necessary (arg);
 		  if (n)
-		    bitmap_set_bit (worklist, SSA_NAME_VERSION (arg));
+		    bitmap_set_bit (&worklist, SSA_NAME_VERSION (arg));
 		}
 	    }
 	}
@@ -4600,7 +4599,7 @@ remove_dead_inserted_code (void)
 	    {
 	      gimple n = mark_operand_necessary (use);
 	      if (n)
-		bitmap_set_bit (worklist, SSA_NAME_VERSION (use));
+		bitmap_set_bit (&worklist, SSA_NAME_VERSION (use));
 	    }
 	}
     }
@@ -4628,7 +4627,6 @@ remove_dead_inserted_code (void)
 	    }
 	}
     }
-  BITMAP_FREE (worklist);
 }
 
 

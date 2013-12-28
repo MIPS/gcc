@@ -268,7 +268,6 @@ thread_jump (edge e, basic_block b)
   enum rtx_code code1, code2, reversed_code2;
   bool reverse1 = false;
   unsigned i;
-  regset nonequal;
   bool failed = false;
   reg_set_iterator rsi;
 
@@ -342,8 +341,7 @@ thread_jump (edge e, basic_block b)
     if (INSN_P (insn))
       cselib_process_insn (insn);
 
-  nonequal = BITMAP_ALLOC (NULL);
-  CLEAR_REG_SET (nonequal);
+  regset_head nonequal;
 
   /* Now assume that we've continued by the edge E to B and continue
      processing as if it were same basic block.
@@ -360,10 +358,10 @@ thread_jump (edge e, basic_block b)
 	  if (GET_CODE (pat) == PARALLEL)
 	    {
 	      for (i = 0; i < (unsigned)XVECLEN (pat, 0); i++)
-		failed |= mark_effect (XVECEXP (pat, 0, i), nonequal);
+		failed |= mark_effect (XVECEXP (pat, 0, i), &nonequal);
 	    }
 	  else
-	    failed |= mark_effect (pat, nonequal);
+	    failed |= mark_effect (pat, &nonequal);
 	}
 
       cselib_process_insn (insn);
@@ -379,13 +377,12 @@ thread_jump (edge e, basic_block b)
 
   /* cond2 must not mention any register that is not equal to the
      former block.  */
-  if (for_each_rtx (&cond2, mentions_nonequal_regs, nonequal))
+  if (for_each_rtx (&cond2, mentions_nonequal_regs, &nonequal))
     goto failed_exit;
 
-  EXECUTE_IF_SET_IN_REG_SET (nonequal, 0, i, rsi)
+  EXECUTE_IF_SET_IN_REG_SET (&nonequal, 0, i, rsi)
     goto failed_exit;
 
-  BITMAP_FREE (nonequal);
   cselib_finish ();
   if ((comparison_dominates_p (code1, code2) != 0)
       != (XEXP (SET_SRC (set2), 1) == pc_rtx))
@@ -394,7 +391,6 @@ thread_jump (edge e, basic_block b)
     return FALLTHRU_EDGE (b);
 
 failed_exit:
-  BITMAP_FREE (nonequal);
   cselib_finish ();
   return NULL;
 }

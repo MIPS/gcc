@@ -1271,7 +1271,6 @@ can_move_up (const_basic_block bb, const_rtx insn, int n_insns)
 static int
 migrate_btr_def (btr_def def, int min_cost)
 {
-  bitmap live_range;
   HARD_REG_SET btrs_live_in_range;
   int btr_used_near_def = 0;
   int def_basic_block_freq;
@@ -1305,8 +1304,7 @@ migrate_btr_def (btr_def def, int min_cost)
     }
 
   btr_def_live_range (def, &btrs_live_in_range);
-  live_range = BITMAP_ALLOC (NULL);
-  bitmap_copy (live_range, def->live_range);
+  bitmap_head live_range (*def->live_range);
 
 #ifdef INSN_SCHEDULING
   def_latency = insn_default_latency (def->insn) * issue_rate;
@@ -1354,7 +1352,7 @@ migrate_btr_def (btr_def def, int min_cost)
 	  || (try_freq == def_basic_block_freq && btr_used_near_def))
 	{
 	  int btr;
-	  augment_live_range (live_range, &btrs_live_in_range, def->bb, attempt,
+	  augment_live_range (&live_range, &btrs_live_in_range, def->bb, attempt,
 			      flag_btr_bb_exclusive);
 	  if (dump_file)
 	    {
@@ -1365,8 +1363,8 @@ migrate_btr_def (btr_def def, int min_cost)
 	  btr = choose_btr (btrs_live_in_range);
 	  if (btr != -1)
 	    {
-	      move_btr_def (attempt, btr, def, live_range, &btrs_live_in_range);
-	      bitmap_copy (live_range, def->live_range);
+	      move_btr_def (attempt, btr, def, &live_range, &btrs_live_in_range);
+	      bitmap_copy (&live_range, def->live_range);
 	      btr_used_near_def = 0;
 	      def_moved = 1;
 	      def_basic_block_freq = basic_block_freq (def->bb);
@@ -1389,7 +1387,6 @@ migrate_btr_def (btr_def def, int min_cost)
       if (dump_file)
 	fprintf (dump_file, "failed to move\n");
     }
-  BITMAP_FREE (live_range);
   return !give_up;
 }
 

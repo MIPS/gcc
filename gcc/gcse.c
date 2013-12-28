@@ -3152,9 +3152,7 @@ hoist_code (void)
   int changed = 0;
   struct bb_data *data;
   /* Basic blocks that have occurrences reachable from BB.  */
-  bitmap from_bbs;
-  /* Basic blocks through which expr is hoisted.  */
-  bitmap hoisted_bbs = NULL;
+  bitmap_head from_bbs;
   bitmap_iterator bi;
 
   /* Compute a mapping from expression number (`bitmap_index') to
@@ -3193,9 +3191,8 @@ hoist_code (void)
 	      && (EDGE_SUCC (ENTRY_BLOCK_PTR_FOR_FN (cfun), 0)->dest
 		  == ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb));
 
-  from_bbs = BITMAP_ALLOC (NULL);
-  if (flag_ira_hoist_pressure)
-    hoisted_bbs = BITMAP_ALLOC (NULL);
+  /* Basic blocks through which expr is hoisted.  */
+  bitmap_head hoisted_bbs;
 
   dom_tree_walk = get_all_dominated_blocks (CDI_DOMINATORS,
 					    ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb);
@@ -3292,11 +3289,11 @@ hoist_code (void)
 		  if (should_hoist_expr_to_dom (bb, expr, dominated, NULL,
 						max_distance, bb_size,
 						pressure_class,	&nregs,
-						hoisted_bbs, occr->insn))
+						&hoisted_bbs, occr->insn))
 		    {
 		      hoistable++;
 		      occrs_to_hoist.safe_push (occr);
-		      bitmap_set_bit (from_bbs, dominated->index);
+		      bitmap_set_bit (&from_bbs, dominated->index);
 		    }
 		}
 
@@ -3320,7 +3317,7 @@ hoist_code (void)
 		      basic_block lca;
 
 		      lca = nearest_common_dominator_for_set (CDI_DOMINATORS,
-							      from_bbs);
+							      &from_bbs);
 		      if (lca != bb)
 			/* Punt, it's better to hoist these occurrences to
 			   LCA.  */
@@ -3339,7 +3336,7 @@ hoist_code (void)
 		     output.  */
 		  data = BB_DATA (bb);
 		  data->max_reg_pressure[pressure_class] += nregs;
-		  EXECUTE_IF_SET_IN_BITMAP (hoisted_bbs, 0, k, bi)
+		  EXECUTE_IF_SET_IN_BITMAP (&hoisted_bbs, 0, k, bi)
 		    {
 		      data = BB_DATA (BASIC_BLOCK_FOR_FN (cfun, k));
 		      data->max_reg_pressure[pressure_class] += nregs;
@@ -3350,7 +3347,7 @@ hoist_code (void)
 		  /* Restore register pressure and live_in info for basic
 		     blocks recorded in hoisted_bbs when expr will not be
 		     hoisted.  */
-		  EXECUTE_IF_SET_IN_BITMAP (hoisted_bbs, 0, k, bi)
+		  EXECUTE_IF_SET_IN_BITMAP (&hoisted_bbs, 0, k, bi)
 		    {
 		      data = BB_DATA (BASIC_BLOCK_FOR_FN (cfun, k));
 		      bitmap_copy (data->live_in, data->backup);
@@ -3358,9 +3355,6 @@ hoist_code (void)
 			  = data->old_pressure;
 		    }
 		}
-
-	      if (flag_ira_hoist_pressure)
-		bitmap_clear (hoisted_bbs);
 
 	      insn_inserted_p = 0;
 
@@ -3403,17 +3397,13 @@ hoist_code (void)
 		}
 
 	      occrs_to_hoist.release ();
-	      bitmap_clear (from_bbs);
+	      bitmap_clear (&from_bbs);
 	    }
 	}
       domby.release ();
     }
 
   dom_tree_walk.release ();
-  BITMAP_FREE (from_bbs);
-  if (flag_ira_hoist_pressure)
-    BITMAP_FREE (hoisted_bbs);
-
   free (bb_size);
   free (to_bb_head);
   free (index_map);

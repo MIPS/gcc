@@ -6564,7 +6564,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   gimple_seq for_body, for_pre_body;
   int i;
   bool simd;
-  bitmap has_decl_expr = NULL;
+  bitmap_head has_decl_expr;
 
   orig_for_stmt = for_stmt = *expr_p;
 
@@ -6577,13 +6577,12 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   for_pre_body = NULL;
   if (simd && OMP_FOR_PRE_BODY (for_stmt))
     {
-      has_decl_expr = BITMAP_ALLOC (NULL);
       if (TREE_CODE (OMP_FOR_PRE_BODY (for_stmt)) == DECL_EXPR
 	  && TREE_CODE (DECL_EXPR_DECL (OMP_FOR_PRE_BODY (for_stmt)))
 	     == VAR_DECL)
 	{
 	  t = OMP_FOR_PRE_BODY (for_stmt);
-	  bitmap_set_bit (has_decl_expr, DECL_UID (DECL_EXPR_DECL (t)));
+	  bitmap_set_bit (&has_decl_expr, DECL_UID (DECL_EXPR_DECL (t)));
 	}
       else if (TREE_CODE (OMP_FOR_PRE_BODY (for_stmt)) == STATEMENT_LIST)
 	{
@@ -6594,7 +6593,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	      t = tsi_stmt (si);
 	      if (TREE_CODE (t) == DECL_EXPR
 		  && TREE_CODE (DECL_EXPR_DECL (t)) == VAR_DECL)
-		bitmap_set_bit (has_decl_expr, DECL_UID (DECL_EXPR_DECL (t)));
+		bitmap_set_bit (&has_decl_expr, DECL_UID (DECL_EXPR_DECL (t)));
 	    }
 	}
     }
@@ -6638,8 +6637,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    {
 	      c = build_omp_clause (input_location, OMP_CLAUSE_LINEAR);
 	      OMP_CLAUSE_LINEAR_NO_COPYIN (c) = 1;
-	      if (has_decl_expr
-		  && bitmap_bit_p (has_decl_expr, DECL_UID (decl)))
+	      if (bitmap_bit_p (&has_decl_expr, DECL_UID (decl)))
 		OMP_CLAUSE_LINEAR_NO_COPYOUT (c) = 1;
 	      OMP_CLAUSE_DECL (c) = decl;
 	      OMP_CLAUSE_CHAIN (c) = OMP_FOR_CLAUSES (for_stmt);
@@ -6649,9 +6647,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	  else
 	    {
-	      bool lastprivate
-		= (!has_decl_expr
-		   || !bitmap_bit_p (has_decl_expr, DECL_UID (decl)));
+	      bool lastprivate = !bitmap_bit_p (&has_decl_expr, DECL_UID (decl));
 	      c = build_omp_clause (input_location,
 				    lastprivate ? OMP_CLAUSE_LASTPRIVATE
 						: OMP_CLAUSE_PRIVATE);
@@ -6806,8 +6802,6 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	}
     }
-
-  BITMAP_FREE (has_decl_expr);
 
   gimplify_and_add (OMP_FOR_BODY (orig_for_stmt), &for_body);
 

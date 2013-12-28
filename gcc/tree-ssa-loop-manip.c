@@ -193,7 +193,6 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
   bitmap_iterator bi;
   struct loop *def_loop = def_bb->loop_father;
   unsigned def_loop_depth = loop_depth (def_loop);
-  bitmap def_loop_exits;
 
   /* Normally the work list size is bounded by the number of basic
      blocks in the largest loop.  We don't know this number, but we
@@ -262,13 +261,12 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 	}
     }
 
-  def_loop_exits = BITMAP_ALLOC (&loop_renamer_obstack);
+  bitmap_head def_loop_exits (&loop_renamer_obstack);
   for (struct loop *loop = def_loop;
        loop != current_loops->tree_root;
        loop = loop_outer (loop))
-    bitmap_ior_into (def_loop_exits, loop_exits[loop->num]);
-  bitmap_and_into (live_exits, def_loop_exits);
-  BITMAP_FREE (def_loop_exits);
+    bitmap_ior_into (&def_loop_exits, loop_exits[loop->num]);
+  bitmap_and_into (live_exits, &def_loop_exits);
 }
 
 /* Add a loop-closing PHI for VAR in basic block EXIT.  */

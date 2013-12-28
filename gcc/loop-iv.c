@@ -1858,7 +1858,6 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
   bool expression_valid;
   rtx head, tail, insn, cond_list, last_valid_expr;
   rtx neutral, aggr;
-  regset altered, this_altered;
   edge e;
 
   if (!*expr)
@@ -1928,8 +1927,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
   if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
     return;
 
-  altered = ALLOC_REG_SET (&reg_obstack);
-  this_altered = ALLOC_REG_SET (&reg_obstack);
+  regset_head altered (&reg_obstack), this_altered (&reg_obstack);
 
   expression_valid = true;
   last_valid_expr = *expr;
@@ -1946,7 +1944,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	  if (cond)
 	    {
 	      rtx old = *expr;
-	      simplify_using_condition (cond, expr, altered);
+	      simplify_using_condition (cond, expr, &altered);
 	      if (old != *expr)
 		{
 		  rtx note;
@@ -1954,7 +1952,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 		    goto out;
 		  for (note = cond_list; note; note = XEXP (note, 1))
 		    {
-		      simplify_using_condition (XEXP (note, 0), expr, altered);
+		      simplify_using_condition (XEXP (note, 0), expr, &altered);
 		      if (CONSTANT_P (*expr))
 			goto out;
 		    }
@@ -1971,8 +1969,8 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	  if (!INSN_P (insn))
 	    continue;
 
-	  CLEAR_REG_SET (this_altered);
-	  note_stores (PATTERN (insn), mark_altered, this_altered);
+	  CLEAR_REG_SET (&this_altered);
+	  note_stores (PATTERN (insn), mark_altered, &this_altered);
 	  if (CALL_P (insn))
 	    {
 	      /* Kill all call clobbered registers.  */
@@ -1980,7 +1978,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	      hard_reg_set_iterator hrsi;
 	      EXECUTE_IF_SET_IN_HARD_REG_SET (regs_invalidated_by_call,
 					      0, i, hrsi)
-		SET_REGNO_REG_SET (this_altered, i);
+		SET_REGNO_REG_SET (&this_altered, i);
 	    }
 
 	  if (suitable_set_for_replacement (insn, &dest, &src))
@@ -2011,7 +2009,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 		  /* Retry simplifications with this condition if either the
 		     expression or the condition changed.  */
 		  else if (old_cond != XEXP (note, 0) || old != *expr)
-		    simplify_using_condition (XEXP (note, 0), expr, altered);
+		    simplify_using_condition (XEXP (note, 0), expr, &altered);
 		}
 	    }
 	  else
@@ -2021,7 +2019,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	      /* If we did not use this insn to make a replacement, any overlap
 		 between stores in this insn and our expression will cause the
 		 expression to become invalid.  */
-	      if (for_each_rtx (expr, altered_reg_used, this_altered))
+	      if (for_each_rtx (expr, altered_reg_used, &this_altered))
 		goto out;
 
 	      /* Likewise for the conditions.  */
@@ -2031,7 +2029,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 		  rtx old_cond = XEXP (note, 0);
 
 		  pnote_next = &XEXP (note, 1);
-		  if (for_each_rtx (&old_cond, altered_reg_used, this_altered))
+		  if (for_each_rtx (&old_cond, altered_reg_used, &this_altered))
 		    {
 		      *pnote = *pnote_next;
 		      pnote_next = pnote;
@@ -2043,13 +2041,13 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	  if (CONSTANT_P (*expr))
 	    goto out;
 
-	  IOR_REG_SET (altered, this_altered);
+	  IOR_REG_SET (&altered, &this_altered);
 
 	  /* If the expression now contains regs that have been altered, we
 	     can't return it to the caller.  However, it is still valid for
 	     further simplification, so keep searching to see if we can
 	     eventually turn it into a constant.  */
-	  if (for_each_rtx (expr, altered_reg_used, altered))
+	  if (for_each_rtx (expr, altered_reg_used, &altered))
 	    expression_valid = false;
 	  if (expression_valid)
 	    last_valid_expr = *expr;
@@ -2065,8 +2063,6 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
   free_EXPR_LIST_list (&cond_list);
   if (!CONSTANT_P (*expr))
     *expr = last_valid_expr;
-  FREE_REG_SET (altered);
-  FREE_REG_SET (this_altered);
 }
 
 /* Transforms invariant IV into MODE.  Adds assumptions based on the fact

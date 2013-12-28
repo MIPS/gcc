@@ -262,9 +262,8 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
   struct comparison *last_cmp;
   rtx insn, next, last_clobber;
   bool last_cmp_valid;
-  bitmap killed;
+  bitmap_head killed;
 
-  killed = BITMAP_ALLOC (NULL);
 
   /* The last comparison that was made.  Will be reset to NULL
      once the flags are clobbered.  */
@@ -296,8 +295,8 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 	continue;
 
       /* Compute the set of registers modified by this instruction.  */
-      bitmap_clear (killed);
-      df_simulate_find_defs (insn, killed);
+      bitmap_clear (&killed);
+      df_simulate_find_defs (insn, &killed);
 
       src = conforming_compare (insn);
       if (src)
@@ -351,7 +350,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 	}
 
       /* Notice if this instruction kills the flags register.  */
-      else if (bitmap_bit_p (killed, targetm.flags_regnum))
+      else if (bitmap_bit_p (&killed, targetm.flags_regnum))
 	{
 	  /* See if this insn could be the "clobber" that eliminates
 	     a future comparison.   */
@@ -369,13 +368,11 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 
       /* Notice if any of the inputs to the comparison have changed.  */
       if (last_cmp_valid
-	  && (bitmap_bit_p (killed, REGNO (last_cmp->in_a))
+	  && (bitmap_bit_p (&killed, REGNO (last_cmp->in_a))
 	      || (REG_P (last_cmp->in_b)
-		  && bitmap_bit_p (killed, REGNO (last_cmp->in_b)))))
+		  && bitmap_bit_p (&killed, REGNO (last_cmp->in_b)))))
 	last_cmp_valid = false;
     }
-
-  BITMAP_FREE (killed);
 
   /* Remember the live comparison for subsequent members of
      the extended basic block.  */

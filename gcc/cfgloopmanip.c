@@ -1168,7 +1168,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   int prob_pass_thru, prob_pass_wont_exit, prob_pass_main;
   int add_irreducible_flag;
   basic_block place_after;
-  bitmap bbs_to_scale = NULL;
+  bitmap_head bbs_to_scale;
   bitmap_iterator bi;
 
   gcc_assert (e->dest == loop->header);
@@ -1227,12 +1227,11 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  scale_after_exit
               = GCOV_COMPUTE_SCALE (REG_BR_PROB_BASE,
                                     REG_BR_PROB_BASE - orig->probability);
-	  bbs_to_scale = BITMAP_ALLOC (NULL);
 	  for (i = 0; i < n; i++)
 	    {
 	      if (bbs[i] != orig->src
 		  && dominated_by_p (CDI_DOMINATORS, bbs[i], orig->src))
-		bitmap_set_bit (bbs_to_scale, i);
+		bitmap_set_bit (&bbs_to_scale, i);
 	    }
 	}
 
@@ -1382,13 +1381,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	  set_zero_probability (new_spec_edges[SE_ORIG]);
 
 	  /* Scale the frequencies of the blocks dominated by the exit.  */
-	  if (bbs_to_scale)
+	  EXECUTE_IF_SET_IN_BITMAP (&bbs_to_scale, 0, i, bi)
 	    {
-	      EXECUTE_IF_SET_IN_BITMAP (bbs_to_scale, 0, i, bi)
-		{
-		  scale_bbs_frequencies_int (new_bbs + i, 1, scale_after_exit,
-					     REG_BR_PROB_BASE);
-		}
+	      scale_bbs_frequencies_int (new_bbs + i, 1, scale_after_exit,
+					 REG_BR_PROB_BASE);
 	    }
 	}
 
@@ -1418,13 +1414,10 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
       set_zero_probability (orig);
 
       /* Scale the frequencies of the blocks dominated by the exit.  */
-      if (bbs_to_scale)
+      EXECUTE_IF_SET_IN_BITMAP (&bbs_to_scale, 0, i, bi)
 	{
-	  EXECUTE_IF_SET_IN_BITMAP (bbs_to_scale, 0, i, bi)
-	    {
-	      scale_bbs_frequencies_int (bbs + i, 1, scale_after_exit,
-					 REG_BR_PROB_BASE);
-	    }
+	  scale_bbs_frequencies_int (bbs + i, 1, scale_after_exit,
+				     REG_BR_PROB_BASE);
 	}
     }
 
@@ -1461,7 +1454,6 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
   free (first_active);
 
   free (bbs);
-  BITMAP_FREE (bbs_to_scale);
 
   return true;
 }

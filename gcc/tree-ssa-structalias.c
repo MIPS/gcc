@@ -2633,7 +2633,6 @@ solve_graph (constraint_graph_t graph)
 {
   unsigned int size = graph->size;
   unsigned int i;
-  bitmap pts;
 
   changed = BITMAP_ALLOC (NULL);
 
@@ -2648,7 +2647,7 @@ solve_graph (constraint_graph_t graph)
     }
 
   /* Allocate a bitmap to be used to store the changed bits.  */
-  pts = BITMAP_ALLOC (&pta_obstack);
+  bitmap_head pts (&pta_obstack);
 
   while (!bitmap_empty_p (changed))
     {
@@ -2695,22 +2694,22 @@ solve_graph (constraint_graph_t graph)
 		  if (vi->oldsolution
 		      && bitmap_bit_p (vi->oldsolution, anything_id))
 		    continue;
-		  bitmap_copy (pts, get_varinfo (find (anything_id))->solution);
+		  bitmap_copy (&pts, get_varinfo (find (anything_id))->solution);
 		}
 	      else if (vi->oldsolution)
-		bitmap_and_compl (pts, vi->solution, vi->oldsolution);
+		bitmap_and_compl (&pts, vi->solution, vi->oldsolution);
 	      else
-		bitmap_copy (pts, vi->solution);
+		bitmap_copy (&pts, vi->solution);
 
-	      if (bitmap_empty_p (pts))
+	      if (bitmap_empty_p (&pts))
 		continue;
 
 	      if (vi->oldsolution)
-		bitmap_ior_into (vi->oldsolution, pts);
+		bitmap_ior_into (vi->oldsolution, &pts);
 	      else
 		{
 		  vi->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
-		  bitmap_copy (vi->oldsolution, pts);
+		  bitmap_copy (vi->oldsolution, &pts);
 		}
 
 	      solution = vi->solution;
@@ -2732,7 +2731,7 @@ solve_graph (constraint_graph_t graph)
 		     is a constraint where the lhs side is receiving
 		     some set from elsewhere.  */
 		  if (!solution_empty || c->lhs.type != DEREF)
-		    do_complex_constraint (graph, c, pts, &expanded_pts);
+		    do_complex_constraint (graph, c, &pts, &expanded_pts);
 		}
 	      BITMAP_FREE (expanded_pts);
 
@@ -2763,7 +2762,7 @@ solve_graph (constraint_graph_t graph)
 		      if (i == eff_escaped_id)
 			flag = bitmap_set_bit (tmp, escaped_id);
 		      else
-			flag = bitmap_ior_into (tmp, pts);
+			flag = bitmap_ior_into (tmp, &pts);
 
 		      if (flag)
 			bitmap_set_bit (changed, to);
@@ -2775,7 +2774,6 @@ solve_graph (constraint_graph_t graph)
       bitmap_obstack_release (&iteration_obstack);
     }
 
-  BITMAP_FREE (pts);
   BITMAP_FREE (changed);
   bitmap_obstack_release (&oldpta_obstack);
 }
