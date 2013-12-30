@@ -21,7 +21,7 @@
 # Load support procs.
 load_lib gcc-dg.exp
 
-if ![check_effective_target_fopenmp] {
+if ![check_effective_target_fopenacc] {
   return
 }
 
@@ -29,7 +29,7 @@ if ![check_effective_target_fopenmp] {
 dg-init
 
 # Main loop.
-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.c]] "" "-fopenacc"
+dg-runtest [find $srcdir/$subdir *.c] "" "-fopenacc"
 
 # All done.
 dg-finish

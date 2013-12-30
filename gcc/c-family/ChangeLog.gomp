@@ -1,0 +1,150 @@
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-omp.c (c_omp_split_clauses): Catch OACC_PARALLEL.
+
+	* c-pragma.h (pragma_kind): Add PRAGMA_OACC_PARALLEL.
+	* c-pragma.c (oacc_pragmas): Add "parallel".
+
+	* c-omp.c (c_omp_split_clauses): Catch OACC_PARALLEL.
+
+	* c-pragma.h (pragma_kind): Add PRAGMA_OACC_PARALLEL.
+	* c-pragma.c (oacc_pragmas): Add "parallel".
+
+	* c-pragma.c (oacc_pragmas): New array.
+	(c_pp_lookup_pragma, init_pragma): Handle it.
+
+	* c-pragma.c (oacc_pragmas): New array.
+	(c_pp_lookup_pragma, init_pragma): Handle it.
+
+	* c-cppbuiltin.c (c_cpp_builtins): Conditionally define _OPENACC.
+
+	* c-cppbuiltin.c (c_cpp_builtins): Conditionally define _OPENACC.
+
+	* c.opt (fopenacc): New option.
+
+2013-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-cppbuiltin.c (c_cpp_builtins): Predefine _OPENMP to
+	201307 instead of 201107.
+
+2013-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/58482
+	* c-omp.c (c_omp_split_clauses) <case OMP_CLAUSE_REDUCTION>: Copy
+	also OMP_CLAUSE_REDUCTION_PLACEHOLDER.
+
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h (c_finish_omp_taskgroup): New prototype.
+	* c-omp.c (c_finish_omp_taskgroup): New function.
+
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_declare_simd_clauses_to_numbers): Change first
+	argument from a fndecl to its parms.
+
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.h (enum pragma_kind): Remove PRAGMA_OMP_DECLARE_SIMD,
+	PRAGMA_OMP_DECLARE_TARGET, PRAGMA_OMP_DISTRIBUTE_PARALLEL_FOR,
+	PRAGMA_OMP_DISTRIBUTE_PARALLEL_FOR_SIMD, PRAGMA_OMP_DISTRIBUTE_SIMD,
+	PRAGMA_OMP_FOR_SIMD, PRAGMA_OMP_PARALLEL_FOR,
+	PRAGMA_OMP_PARALLEL_FOR_SIMD, PRAGMA_OMP_PARALLEL_SECTIONS,
+	PRAGMA_OMP_TARGET_DATA, PRAGMA_OMP_TARGET_TEAMS,
+	PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE,
+	PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR,
+	PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD,
+	PRAGMA_OMP_TARGET_UPDATE, PRAGMA_OMP_TEAMS_DISTRIBUTE,
+	PRAGMA_OMP_TEAMS_DISTRIBUTE_PARALLEL_FOR and
+	PRAGMA_OMP_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD.
+
+2013-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_omp_split_clauses): Fix up OMP_CLAUSE_COLLAPSE
+	handling.
+
+2013-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.h: Move omp_clause_mask code earlier in the file.
+	(c_omp_split_clauses): New prototype.
+	(c_split_parallel_clauses): Removed.
+	* c-pragma.h (enum pragma_kind): Add
+	PRAGMA_OMP_DISTRIBUTE_PARALLEL_FOR,
+	PRAGMA_OMP_DISTRIBUTE_PARALLEL_FOR_SIMD,
+	PRAGMA_OMP_DISTRIBUTE_SIMD, PRAGMA_OMP_TARGET_TEAMS,
+	PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE,
+	PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR,
+	PRAGMA_OMP_TARGET_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD,
+	PRAGMA_OMP_TEAMS_DISTRIBUTE,
+	PRAGMA_OMP_TEAMS_DISTRIBUTE_PARALLEL_FOR,
+	and PRAGMA_OMP_TEAMS_DISTRIBUTE_PARALLEL_FOR_SIMD.
+	* c-omp.c: Include c-pragma.h.
+	(c_omp_split_clauses): New function.
+	(c_split_parallel_clauses): Remove.
+
+2013-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Add
+	PRAGMA_OMP_CLAUSE_THREAD_LIMIT.
+
+2013-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (c_common_attribute_table): Add "omp declare target"
+	attribute.
+	(handle_omp_declare_target_attribute): New function.
+
+2013-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (c_common_attribute_table): Add "omp declare simd"
+	attribute.
+	(handle_omp_declare_simd_attribute): New function.
+	* c-common.h (c_omp_declare_simd_clauses_to_numbers,
+	c_omp_declare_simd_clauses_to_decls): Declare.
+	* c-omp.c (c_omp_declare_simd_clause_cmp,
+	c_omp_declare_simd_clauses_to_numbers,
+	c_omp_declare_simd_clauses_to_decls): New functions.
+
+2013-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_finish_omp_atomic): Add seq_cst argument, store it
+	into OMP_ATOMIC_SEQ_CST bit.
+	* c-common.h (c_finish_omp_atomic): Adjust prototype.
+
+	* c-pragma.c (omp_pragmas): Add PRAGMA_OMP_DISTRIBUTE.
+
+2013-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-common.c (DEF_FUNCTION_TYPE_8): Define.
+	* c-omp.c (c_split_parallel_clauses): Handle OMP_CLAUSE_PROC_BIND.
+
+2013-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-omp.c (c_finish_omp_for): Add code argument, pass it down to
+	make_code.
+	(c_split_parallel_clauses): Handle OMP_CLAUSE_SAFELEN,
+	OMP_CLAUSE_ALIGNED and OMP_CLAUSE_LINEAR.
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OMP_CANCEL,
+	PRAGMA_OMP_CANCELLATION_POINT, PRAGMA_OMP_DECLARE_REDUCTION,
+	PRAGMA_OMP_DECLARE_SIMD, PRAGMA_OMP_DECLARE_TARGET,
+	PRAGMA_OMP_DISTRIBUTE, PRAGMA_OMP_END_DECLARE_TARGET,
+	PRAGMA_OMP_FOR_SIMD, PRAGMA_OMP_PARALLEL_FOR_SIMD, PRAGMA_OMP_SIMD,
+	PRAGMA_OMP_TARGET, PRAGMA_OMP_TARGET_DATA, PRAGMA_OMP_TARGET_UPDATE,
+	PRAGMA_OMP_TASKGROUP and PRAGMA_OMP_TEAMS.
+	(enum pragma_omp_clause): Add PRAGMA_OMP_CLAUSE_ALIGNED,
+	PRAGMA_OMP_CLAUSE_DEPEND, PRAGMA_OMP_CLAUSE_DEVICE,
+	PRAGMA_OMP_CLAUSE_DIST_SCHEDULE, PRAGMA_OMP_CLAUSE_FOR,
+	PRAGMA_OMP_CLAUSE_FROM, PRAGMA_OMP_CLAUSE_INBRANCH,
+	PRAGMA_OMP_CLAUSE_LINEAR, PRAGMA_OMP_CLAUSE_MAP,
+	PRAGMA_OMP_CLAUSE_NOTINBRANCH, PRAGMA_OMP_CLAUSE_NUM_TEAMS,
+	PRAGMA_OMP_CLAUSE_PARALLEL, PRAGMA_OMP_CLAUSE_PROC_BIND,
+	PRAGMA_OMP_CLAUSE_SAFELEN, PRAGMA_OMP_CLAUSE_SECTIONS,
+	PRAGMA_OMP_CLAUSE_SIMDLEN, PRAGMA_OMP_CLAUSE_TASKGROUP,
+	PRAGMA_OMP_CLAUSE_TO and PRAGMA_OMP_CLAUSE_UNIFORM.
+	* c-pragma.c (omp_pragmas): Add new OpenMP 4.0 constructs.
+	* c-common.h (c_finish_omp_for): Add enum tree_code as second
+	argument.
+	(OMP_CLAUSE_MASK_1): Define.
+	(omp_clause_mask): For HWI >= 64 new typedef for
+	unsigned HOST_WIDE_INT, otherwise a class with needed ctors and
+	operators.
+

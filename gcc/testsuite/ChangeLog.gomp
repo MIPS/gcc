@@ -1,0 +1,221 @@
+2013-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/declare-simd-1.C (f38): Make sure
+	simdlen is a power of two.
+	* gcc.dg/gomp/simd-clones-2.c: Compile on all targets.
+	Remove -msse2.  Adjust regexps for name mangling changes.
+	* gcc.dg/gomp/simd-clones-3.c: Likewise.
+	* gcc.dg/vect/vect-simd-clone-1.c: New test.
+	* gcc.dg/vect/vect-simd-clone-2.c: New test.
+	* gcc.dg/vect/vect-simd-clone-3.c: New test.
+	* gcc.dg/vect/vect-simd-clone-4.c: New test.
+	* gcc.dg/vect/vect-simd-clone-5.c: New test.
+	* gcc.dg/vect/vect-simd-clone-6.c: New test.
+	* gcc.dg/vect/vect-simd-clone-7.c: New test.
+	* gcc.dg/vect/vect-simd-clone-8.c: New test.
+	* gcc.dg/vect/vect-simd-clone-9.c: New test.
+	* gcc.dg/vect/vect-simd-clone-10.c: New test.
+	* gcc.dg/vect/vect-simd-clone-10.h: New file.
+	* gcc.dg/vect/vect-simd-clone-10a.c: New file.
+
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: New file.
+	* c-c++-common/goacc/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/parallel-1.c: Likewise.
+	* c-c++-common/goacc/parallel-fail-1.c: Likewise.
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: New file.
+	* c-c++-common/goacc/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/parallel-1.c: Likewise.
+	* c-c++-common/goacc/parallel-fail-1.c: Likewise.
+
+	* gcc.dg/goacc-gomp/goacc-gomp.exp: New file.
+	* gcc.dg/goacc/goacc.exp: Likewise.
+
+	* gcc.dg/goacc-gomp/goacc-gomp.exp: New file.
+	* gcc.dg/goacc/goacc.exp: Likewise.
+
+	* c-c++-common/cpp/openacc-define-1.c: Test _OPENACC.
+	* c-c++-common/cpp/openacc-define-2.c: Likewise.
+	* c-c++-common/cpp/openacc-define-3.c: Likewise.
+	* gfortran.dg/openacc-define-1.f90: Likewise.
+	* gfortran.dg/openacc-define-2.f90: Likewise.
+	* gfortran.dg/openacc-define-3.f90: Likewise.
+
+	* c-c++-common/cpp/openacc-define-1.c: Test _OPENACC.
+	* c-c++-common/cpp/openacc-define-2.c: Likewise.
+	* c-c++-common/cpp/openacc-define-3.c: Likewise.
+	* gfortran.dg/openacc-define-1.f90: Likewise.
+	* gfortran.dg/openacc-define-2.f90: Likewise.
+	* gfortran.dg/openacc-define-3.f90: Likewise.
+
+	* c-c++-common/cpp/openacc-define-1.c: New file.
+	* c-c++-common/cpp/openacc-define-2.c: Likewise.
+	* c-c++-common/cpp/openacc-define-3.c: Likewise.
+	* gfortran.dg/openacc-define-1.f90: Likewise.
+	* gfortran.dg/openacc-define-2.f90: Likewise.
+	* gfortran.dg/openacc-define-3.f90: Likewise.
+
+	* lib/target-supports.exp (check_effective_target_fopenacc): New
+	procedure.
+
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/depend-1.C (foo): Adjust expected error messages.
+	* g++.dg/gomp/depend-2.C (foo): Likewise.
+	* c-c++-common/gomp/depend-1.c (foo): Likewise.
+	* c-c++-common/gomp/map-1.c (foo): Likewise.
+
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/depend-1.C (foo): Adjust expected error messages.
+	* g++.dg/gomp/depend-2.C (foo): Likewise.
+	* c-c++-common/gomp/depend-1.c (foo): Likewise.
+	* c-c++-common/gomp/map-1.c (foo): Likewise.
+
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/udr-6.C: New test.
+
+2013-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/autopar/outer-1.c: Expect 4 instead of 5 loopfn matches.
+	* gcc.dg/autopar/outer-2.c: Likewise.
+	* gcc.dg/autopar/outer-3.c: Likewise.
+	* gcc.dg/autopar/outer-4.c: Likewise.
+	* gcc.dg/autopar/outer-5.c: Likewise.
+	* gcc.dg/autopar/outer-6.c: Likewise.
+	* gcc.dg/autopar/parallelization-1.c: Likewise.
+
+2013-10-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/udr-1.C: Adjust expected error messages.
+
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/target-1.C: New test.
+	* g++.dg/gomp/target-2.C: New test.
+	* g++.dg/gomp/teams-1.C: New test.
+	* g++.dg/gomp/taskgroup-1.C: New test.
+	* gcc.dg/gomp/teams-1.c: New test.
+	* gcc.dg/gomp/taskgroup-1.c: New test.
+	* gcc.dg/gomp/target-1.c: New test.
+	* gcc.dg/gomp/target-2.c: New test.
+	* c-c++-common/gomp/cancel-1.c: New test.
+
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/58472
+	* c-c++-common/gomp/pr58472.c: New test.
+
+	PR tree-optimization/58472
+	* c-c++-common/gomp/pr58472.c: New test.
+
+	* gcc.dg/gomp/udr-1.c: New test.
+	* gcc.dg/gomp/udr-2.c: New test.
+	* gcc.dg/gomp/udr-3.c: New test.
+	* gcc.dg/gomp/udr-4.c: New test.
+	* gcc.dg/gomp/clause-1.c: Adjust error messages.
+
+2013-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/clause-3.C: Adjust error messages.
+	* g++.dg/gomp/udr-1.C: New test.
+	* g++.dg/gomp/udr-2.C: New test.
+	* g++.dg/gomp/udr-3.C: New test.
+	* g++.dg/gomp/udr-4.C: New test.
+	* g++.dg/gomp/udr-5.C: New test.
+
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/map-1.c (foo): Add dg-error for implicitly
+	mapped non-mappable var.
+
+2013-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/declare-simd-1.c (f16, f17, f18): New tests.
+
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/declare-simd-1.C: Add some new tests.
+	* g++.dg/gomp/declare-simd-2.C: Remove a test that should no longer
+	fail, adjust fn11 error locus, add new tests.
+
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/depend-1.c: Enable for C as well.
+	* c-c++-common/gomp/depend-2.c: Likewise.
+	* c-c++-common/gomp/map-1.c: Likewise.
+
+2013-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/block-0.C: Adjust for stricter #pragma omp sections
+	parser.
+	* g++.dg/gomp/block-3.C: Likewise.
+	* gcc.dg/gomp/block-3.c: Likewise.
+	* gcc.dg/gomp/nesting-1.c: Likewise.  Add further #pragma omp sections
+	nesting tests.
+	* c-c++-common/gomp/sections1.c: New test.
+	* c-c++-common/gomp/single1.c: New test.
+	* c-c++-common/gomp/atomic-16.c: New test.
+
+2013-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/depend-1.C: New test.
+	* g++.dg/gomp/depend-2.C: New test.
+	* c-c++-common/gomp/depend-1.c: New test.
+	* c-c++-common/gomp/depend-2.c: New test.
+	* c-c++-common/gomp/map-1.c: New test.
+
+2013-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/declare-simd-1.c: New test.
+	* gcc.dg/gomp/declare-simd-2.c: New test.
+
+2013-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* g++.dg/gomp/declare-simd-1.C: New test.
+	* g++.dg/gomp/declare-simd-2.C: New test.
+
+2013-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gfortran.dg/gomp/appendix-a/a.35.5.f90: Add dg-error.
+
+2013-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/simd1.c: Enable also for C.
+	* c-c++-common/gomp/simd2.c: Likewise.
+	* c-c++-common/gomp/simd3.c: Likewise.
+	* c-c++-common/gomp/simd4.c: Likewise.  Adjust expected
+	diagnostics for C.
+	* c-c++-common/gomp/simd5.c: Enable also for C.
+
+2013-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/simd3.c: New test.
+	* c-c++-common/gomp/simd4.c: New test.
+	* c-c++-common/gomp/simd5.c: New test.
+
+2013-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/simd1.c: New test.
+	* c-c++-common/gomp/simd2.c: New test.
+
+2013-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/gomp/combined-1.c: Look for GOMP_parallel_loop_runtime
+	instead of GOMP_parallel_loop_runtime_start.
+
+2013-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-c++-common/gomp/atomic-15.c: Adjust for C diagnostics.
+
+	* c-c++-common/gomp/atomic-15.c: Remove error test that is now
+	valid in OpenMP 4.0.
+
+Copyright (C) 2013 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

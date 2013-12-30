@@ -1,0 +1,68 @@
+2013-10-30  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-vect-stmts.c: Include cgraph.h.
+	(vectorizable_call): Allow > 3 arguments when a SIMD clone may be
+	available.
+	(vectorizable_function): Use SIMD clone if available.
+	* ipa-cp.c (determine_versionability): Nodes with SIMD clones are
+	not versionable.
+	* ggc.h (ggc_alloc_cleared_simd_clone_stat): New.
+	* cgraph.h (enum linear_stride_type): New.
+	(struct simd_clone_arg): New.
+	(struct simd_clone): New.
+	(struct cgraph_node): Add simdclone and simdclone_of fields.
+	(get_simd_clone): Protoize.
+	* cgraph.c (get_simd_clone): New.
+	Add `has_simd_clones' field.
+	* ipa-cp.c (determine_versionability): Disallow functions with
+	simd clones.
+	* ipa-prop.h (ipa_sra_modify_function_body): Protoize.
+	(sra_ipa_modify_expr): Same.
+	(struct ipa_parm_adjustment): Add new_arg_prefix and new_param
+	fields.  Document their use.
+	* ipa-prop.c (ipa_modify_formal_parameters): Handle creating brand
+	new parameters and minor cleanups.
+	* omp-low.c: Add new pass_omp_simd_clone support code.
+	(make_pass_omp_simd_clone): New.
+	(pass_data_omp_simd_clone): Declare.
+	(class pass_omp_simd_clone): Declare.
+	(vecsize_mangle): New.
+	(ipa_omp_simd_clone): New.
+	(simd_clone_clauses_extract): New.
+	(simd_clone_compute_base_data_type): New.
+	(simd_clone_compute_vecsize_and_simdlen): New.
+	(simd_clone_create): New.
+	(simd_clone_adjust_return_type): New.
+	(simd_clone_adjust_return_types): New.
+	(simd_clone_adjust): New.
+	(simd_clone_init_simd_arrays): New.
+	(ipa_simd_modify_function_body): New.
+	(simd_clone_mangle): New.
+	(simd_clone_struct_alloc): New.
+	(simd_clone_struct_copy): New.
+	(class argno_map): New.
+	(argno_map::argno_map(tree)): New.
+	(argno_map::~argno_map): New.
+	(argno_map::operator []): New.
+	(argno_map::length): New.
+	(expand_simd_clones): New.
+	(create_tmp_simd_array): New.
+	* tree.h (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE): New.
+	* tree-core.h (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE): Document.
+	* tree-pass.h (make_pass_omp_simd_clone): New.
+	* passes.def (pass_omp_simd_clone): New.
+	* target.def: Define new hook prefix "TARGET_CILKPLUS_".
+	(default_vecsize_mangle): New.
+	(vecsize_for_mangle): New.
+	* doc/tm.texi.in: Add placeholder for
+	TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE and
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE.
+	* tree-sra.c (sra_ipa_modify_expr): Remove static modifier.
+	(ipa_sra_modify_function_body): Same.
+	* tree.h (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE): Define.
+	* doc/tm.texi: Regenerate.
+	* config/i386/i386.c (ix86_cilkplus_default_vecsize_mangle): New.
+	(ix86_cilkplus_vecsize_for_mangle): New.
+	(TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE): New.
+	(TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): New.
+

@@ -1,0 +1,52 @@
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* f95-lang.c (DEF_GOACC_BUILTIN): New macro.
+	Include "../oacc-builtins.def".
+
+	* f95-lang.c (DEF_GOACC_BUILTIN): New macro.
+	Include "../oacc-builtins.def".
+
+	* cpp.c (cpp_define_builtins): Conditionally define _OPENACC.
+
+	* cpp.c (cpp_define_builtins): Conditionally define _OPENACC.
+
+	* lang.opt (fopenacc): New option.
+	* invoke.texi (-fopenacc): Document it.
+	* gfortran.h (gfc_option_t): New member.
+	* options.c (gfc_init_options, gfc_handle_option): Handle it.
+
+2013-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): Remove.
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR): New.
+
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_VOID_INT_SIZE_PTR_PTR_PTR): Remove.
+	(BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR): New.
+
+2013-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* trans-openmp.c (gfc_omp_clause_default_ctor,
+	gfc_omp_clause_dtor): Return NULL for OMP_CLAUSE_REDUCTION.
+
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_VOID_UINT_UINT, BT_FN_VOID_INT_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR): New.
+
+2013-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* types.def (BT_FN_BOOL_INT, BT_FN_BOOL_INT_BOOL): New.
+
+2013-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_8): Define.
+	* types.def (DEF_FUNCTION_TYPE_8): Document.
+	(BT_FN_VOID_OMPFN_PTR_UINT, BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_LONG): Remove.
+	(BT_FN_VOID_OMPFN_PTR_UINT_UINT_UINT,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_UINT,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_LONG_UINT): New.
+

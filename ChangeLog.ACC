@@ -1,3 +1,6 @@
+30-12-2013 Ilmir Usmanov <i.usmanov@samsung.com>
+	Merge with gomp-4_0-branch
+
 24-12-2013  Dmitry Bocharnikov  <dmitry.b@samsung.com>
   Loop scheduling clauses.
 

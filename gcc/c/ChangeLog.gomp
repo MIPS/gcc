@@ -1,0 +1,328 @@
+2013-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-decl.c (c_builtin_function_ext_scope): Don't bind if
+	external_scope is NULL.
+
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-tree.h (c_finish_oacc_parallel): New declaration.
+	* c-typeck.c (c_finish_oacc_parallel): New function.
+
+	* c-parser.c (c_parser_omp_structured_block): Update comment.
+	(c_parser_oacc_parallel): New function.
+	(c_parser_omp_construct): Handle PRAGMA_OACC_PARALLEL.
+
+	* c-tree.h (c_finish_oacc_parallel): New declaration.
+	* c-typeck.c (c_finish_oacc_parallel): New function.
+
+	* c-parser.c (c_parser_omp_structured_block): Update comment.
+	(c_parser_oacc_parallel): New function.
+	(c_parser_omp_construct): Handle PRAGMA_OACC_PARALLEL.
+
+	* c-parser.c (c_parser_omp_all_clauses): Make a parser error
+	message suitable for OpenACC, too.
+
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_binary_expression): Document omp_atomic_lhs
+	argument in function comment and drop prec argument description.
+
+	* c-parser.c (c_parser_binary_expression): Document omp_atomic_lhs
+	argument in function comment and drop prec argument description.
+
+	* c-typeck.c (handle_omp_array_sections_1): Change wording
+	of errors requesting specification of length.
+	(c_finish_omp_clauses): For error about non-integral non-pointer
+	linear clause include type in the diagnostic message.
+	* c-parser.c (c_finish_omp_declare_simd): If
+	c_omp_declare_simd_clauses_to_numbers returned non-NULL, store
+	the clauses into TREE_VALUE of an extra TREE_LIST pointed out
+	by TREE_VALUE of the attribute.
+
+2013-10-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_clauses): Remove name variable, use
+	omp_clause_code_name[OMP_CLAUSE_CODE (c) instead.
+
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_taskgroup): Return tree.
+	Don't call c_begin_omp_taskgroup.
+	(c_parser_omp_construct): Adjust caller.
+	* c-typeck.c (c_begin_omp_taskgroup, c_finish_omp_taskgroup): Remove.
+	* c-tree.h (c_begin_omp_taskgroup, c_finish_omp_taskgroup): Remove.
+
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-tree.h (c_omp_reduction_id, c_omp_reduction_decl,
+	c_omp_reduction_lookup, c_check_omp_declare_reduction_r): New
+	prototypes.
+	* c-typeck.c: Include tree-inline.h.
+	(c_clone_udr, c_find_omp_placeholder_r): New functions.
+	(c_finish_omp_clauses): Handle user defined reductions.
+	* Make-lang.in (c-typeck.o): Depend on $(TREE_INLINE_H).
+	* c-parser.c (c_parser_omp_clause_reduction): Handle user
+	defined reductions.
+	(c_parser_omp_declare_reduction): New function.
+	(c_parser_omp_declare): Call it.
+	* c-decl.c (c_omp_reduction_id, c_omp_reduction_decl,
+	c_omp_reduction_lookup, c_check_omp_declare_reduction_r): New
+	functions.
+
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (handle_omp_array_sections_1): Remove pointer_based_p
+	argument.  Do c_save_expr on low bound unconditionally.
+	(handle_omp_array_sections): Adjust caller.  Call c_fully_fold when
+	needed.  Add OMP_CLAUSE_MAP_POINTER map clause even for array based
+	array sections.
+	(c_finish_omp_clauses): Don't complain about non-mappable types
+	for OMP_CLAUSE_MAP_POINTER.  Check for duplicates even for map
+	clauses.  Handle OMP_CLAUSE_NUM_TEAMS.
+	* c-parser.c (c_parser_omp_target_data, c_parser_omp_target): Call
+	keep_next_level ().
+
+2013-07-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_declare_simd): Moved to...
+	* c-parser.c (c_finish_omp_declare_simd): ... here.  Add
+	first c_parser * argument and change last argument to vec<c_token>.
+	Parse clauses here from the saved c_tokens.
+	(struct c_parser): Change tokens to c_token *.
+	Add tokens_buf field.  Change tokens_avail type to unsigned int.
+	(c_parser_consume_token): If parser->tokens isn't
+	&parser->tokens_buf[0], increment parser->tokens.
+	(c_parser_consume_pragma): Likewise
+	(c_parser_declaration_or_fndef): Change last argument to vec<c_token>.
+	Pass parser as first argument to c_finish_omp_declare_simd.  For
+	prototypes, fix code indentation and call temp_store_parm_decls
+	and temp_pop_parm_decls around c_finish_omp_declare_simd.
+	(c_parser_omp_variable_list): Remove declare_simd argument, call
+	lookup_name unconditionally.
+	(c_parser_omp_var_list_parens, c_parser_omp_clause_reduction,
+	c_parser_omp_clause_depend, c_parser_omp_clause_map,
+	c_parser_omp_clause_uniform): Adjust c_parser_omp_variable_list
+	callers.
+	(c_parser_omp_clause_aligned, c_parser_omp_clause_linear): Likewise.
+	Remove declare_simd argument.
+	(c_parser_omp_all_clauses): Remove declare_simd argument.  Adjust
+	c_parser_omp_clause_aligned and c_parser_omp_clause_linear callers.
+	(c_parser_omp_declare_simd): Don't parse declare simd clauses here,
+	instead push the clause c_tokens starting with simd token up to
+	CPP_PRAGMA_EOL for each #pragma omp declare simd into a vector.
+	(c_parser_omp_declare): Don't consume simd token here.
+	(c_parse_file): Initialize tparser.tokens and the_parser->tokens here.
+	* c-decl.c (temp_store_parm_decls, temp_pop_parm_decls): New
+	functions.
+	* c-tree.h (temp_store_parm_decls, temp_pop_parm_decls): New
+	prototypes.
+	(c_finish_omp_declare_simd): Remove prototype.
+
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_declare_simd): Don't remove
+	redundant "omp declare simd" clauses here.  Adjust
+	c_omp_declare_simd_clauses_to_numbers caller.
+
+2013-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-typeck.c (c_finish_omp_cancel): Pass two arguments to GOMP_cancel
+	rather than just one, if no OMP_CLAUSE_IF, pass true, otherwise pass
+	if clause argument.  Emit the call unconditionally.
+
+2013-07-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-lang.h (current_omp_declare_target_attribute): New extern
+	decl.
+	* Make-lang.in (c/c-parser.o): Depend on c/c-lang.h.
+	* c-parser.c: Include c-lang.h.
+	(c_parser_pragma): Handle PRAGMA_OMP_TARGET and
+	PRAGMA_OMP_END_DECLARE_TARGET.
+	(c_parser_omp_clause_name): Handle thread_limit clause.
+	(c_parser_omp_variable_list): Parse array sections for
+	OMP_CLAUSE_{DEPEND,MAP,TO,FROM} clauses.
+	(c_parser_omp_clause_reduction): Remove declare_simd argument.
+	Pass false instead of declare_simd to c_parser_omp_variable_list.
+	(c_parser_omp_clause_cancelkind): Remove diagnostics.
+	(c_parser_omp_clause_thread_limit): New function.
+	(c_parser_omp_all_clauses): Add finish_p argument.  Don't call
+	c_finish_omp_clauses if it is false.  Require that
+	OMP_CLAUSE_{PARALLEL,FOR,SECTIONS,TASKGROUP} must be first in
+	the list of clauses.  Adjust c_parser_omp_clause_reduction
+	caller.
+	(c_parser_omp_for_loop): Change last argument to cclauses,
+	and adjust uses to grab parallel clauses from the array of all
+	the split clauses.
+	(omp_split_clauses): New function.
+	(c_parser_omp_simd): Add p_name, mask and cclauses arguments.
+	Allow the function to be called also when parsing combined constructs.
+	(c_parser_omp_sections): Likewise.
+	(c_parser_omp_for): Add p_name, mask and cclauses arguments.
+	Allow the function to be called also when parsing combined constructs,
+	and call cp_parser_omp_simd when parsing for simd.
+	(c_parser_omp_parallel): Likewise.
+	(c_parser_omp_single, c_parser_omp_task, c_parser_omp_cancel,
+	c_parser_omp_cancellation_point, c_parser_omp_declare_simd): Adjust
+	c_parser_omp_all_clauses callers.
+	(OMP_TEAMS_CLAUSE_MASK, OMP_TARGET_CLAUSE_MASK,
+	OMP_TARGET_DATA_CLAUSE_MASK, OMP_TARGET_UPDATE_CLAUSE_MASK,
+	OMP_DISTRIBUTE_CLAUSE_MASK): Define.
+	(c_parser_omp_teams, c_parser_omp_target, c_parser_omp_target_data,
+	c_parser_omp_target_update, c_parser_omp_distribute): New
+	functions.
+	(c_parser_omp_construct): Handle PRAGMA_OMP_DISTRIBUTE and
+	PRAGMA_OMP_TEAMS.  Adjust callers of c_parser_omp_simd,
+	c_parser_omp_sections, c_parser_omp_for and c_parser_omp_parallel.
+	(OMP_DECLARE_SIMD_CLAUSE_MASK): Remove OMP_CLAUSE_REDUCTION.
+	(c_parser_omp_declare_target, c_parser_omp_end_declare_target): New
+	functions.
+	(c_parser_omp_declare): For target keyword call
+	c_parser_omp_declare_target.  Adjust expected keyword diagnostics.
+	* c-decl.c (current_omp_declare_target_attribute): New variable.
+	(c_decl_attributes): New function.
+	(start_decl, start_function): Use it instead of decl_attributes.
+	* c-typeck.c (handle_omp_array_sections_1, handle_omp_array_sections):
+	New functions.
+	(c_finish_omp_clauses): Handle array sections on
+	OMP_CLAUSE_{MAP,TO,FROM,DEPEND}.  If not array sections, mark the
+	decl addressable.  Complain if OMP_CLAUSE_{MAP,TO,FROM}
+	decls or array sections don't have complete type. Handle
+	OMP_CLAUSE_THREAD_LIMIT.
+
+2013-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_atomic): Disallow seq_cst before
+	atomic-clause, disallow comma in between atomic-clause and
+	seq_cst.
+	(c_parser_omp_sections_scope): If section-sequence doesn't
+	start with #pragma omp section, require exactly one structured-block
+	instead of sequence of statements.
+	* c-typeck.c (c_finish_omp_clauses): Diagnose copyprivate clause
+	appearing together with nowait clause.
+
+2013-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_for): Comment out OMP_FOR_SIMD uses.
+	(c_parser_omp_parallel): Call c_omp_split_clauses instead of
+	c_split_parallel_clauses, adjust the code for different API
+	of the new function.
+
+2013-05-13  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-tree.h (c_finish_omp_declare_simd): New prototype.
+	* c-typeck.c (c_finish_omp_clauses): Handle OMP_CLAUSE_LINEAR_STEP
+	adjustments for pointer-types here.  Diagnose inbranch notinbranch
+	being used together.
+	(c_finish_omp_declare_simd): New function.
+	* c-parser.c (enum pragma_context): Add pragma_struct and
+	pragma_param.
+	(c_parser_declaration_or_fndef): Add omp_declare_simd_clauses
+	argument.  Call c_finish_omp_declare_simd if needed.
+	(c_parser_external_declaration, c_parser_compound_statement_nostart,
+	c_parser_label, c_parser_for_statement, c_parser_objc_methodprotolist,
+	c_parser_omp_for_loop): Adjust c_parser_declaration_or_fndef callers.
+	(c_parser_struct_or_union_specifier): Use pragma_struct instead of
+	pragma_external.
+	(c_parser_parameter_declaration): Use pragma_param instead of
+	pragma_external.
+	(c_parser_pragma): Handle PRAGMA_OMP_DECLARE_REDUCTION.
+	Replace == pragma_external with != pragma_stmt && != pragma_compound
+	test.
+	(c_parser_omp_variable_list): Add declare_simd argument.  Don't lookup
+	vars if it is true, just store identifiers.
+	(c_parser_omp_var_list_parens, c_parser_omp_clause_depend,
+	c_parser_omp_clause_map): Adjust callers.
+	(c_parser_omp_clause_reduction, c_parser_omp_clause_aligned): Add
+	declare_simd argument, pass it through to c_parser_omp_variable_list.
+	(c_parser_omp_clause_linear): Likewise.  Don't handle
+	OMP_CLAUSE_LINEAR_STEP adjustements for pointer-types here.
+	(c_parser_omp_clause_uniform): Call c_parser_omp_variable_list
+	instead of c_parser_omp_var_list_parens to pass true as declare_simd.
+	(c_parser_omp_all_clauses): Add declare_simd argument, pass it through
+	clause parsing routines as needed.  Don't call c_finish_omp_clauses if
+	set.
+	(c_parser_omp_simd, c_parser_omp_for, c_parser_omp_sections,
+	c_parser_omp_parallel, c_parser_omp_single, c_parser_omp_task,
+	c_parser_omp_cancel, c_parser_omp_cancellation_point): Adjust callers.
+	(OMP_DECLARE_SIMD_CLAUSE_MASK): Define.
+	(c_parser_omp_declare_simd, c_parser_omp_declare): New functions.
+
+2013-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_atomic): Parse seq_cst clause, pass
+	true if it is present to c_finish_omp_atomic.
+
+2013-04-24  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_compound_statement,
+	c_parser_statement): Adjust comments for OpenMP 3.0+
+	additions.
+	(c_parser_pragma): Handle PRAGMA_OMP_CANCEL and
+	PRAGMA_OMP_CANCELLATION_POINT.
+	(c_parser_omp_clause_name): Handle new OpenMP 4.0 clauses.
+	(c_parser_omp_clause_collapse): Fully fold collapse
+	expression.
+	(c_parser_omp_clause_branch, c_parser_omp_clause_cancelkind,
+	c_parser_omp_clause_num_teams, c_parser_omp_clause_aligned,
+	c_parser_omp_clause_linear, c_parser_omp_clause_safelen,
+	c_parser_omp_clause_simdlen, c_parser_omp_clause_depend,
+	c_parser_omp_clause_map, c_parser_omp_clause_device,
+	c_parser_omp_clause_dist_schedule, c_parser_omp_clause_proc_bind,
+	c_parser_omp_clause_to, c_parser_omp_clause_from,
+	c_parser_omp_clause_uniform): New functions.
+	(c_parser_omp_all_clauses): Handle new OpenMP 4.0 clauses.
+	(c_parser_omp_for_loop): Add CODE argument, pass it through
+	to c_finish_omp_for.
+	(OMP_SIMD_CLAUSE_MASK): Define.
+	(c_parser_omp_simd): New function.
+	(c_parser_omp_for): Parse #pragma omp for simd.
+	(OMP_PARALLEL_CLAUSE_MASK): Add OMP_CLAUSE_PROC_BIND.
+	(c_parser_omp_parallel): Parse #pragma omp parallel for simd.
+	(OMP_TASK_CLAUSE_MASK): Add OMP_CLAUSE_DEPEND.
+	(c_parser_omp_taskgroup): New function.
+	(OMP_CANCEL_CLAUSE_MASK, OMP_CANCELLATION_POINT_CLAUSE_MASK): Define.
+	(c_parser_omp_cancel, c_parser_omp_cancellation_point): New functions.
+	(c_parser_omp_construct): Handle PRAGMA_OMP_SIMD and
+	PRAGMA_OMP_TASKGROUP.
+	(c_parser_transaction_cancel): Formatting fix.
+	* c-tree.h (c_begin_omp_taskgroup, c_finish_omp_taskgroup,
+	c_finish_omp_cancel, c_finish_omp_cancellation_point): New prototypes.
+	* c-typeck.c (c_begin_omp_taskgroup, c_finish_omp_taskgroup,
+	c_finish_omp_cancel, c_finish_omp_cancellation_point): New functions.
+	(c_finish_omp_clauses): Handle new OpenMP 4.0 clauses.
+
+2013-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_omp_all_clauses): Change mask argument type
+	from unsigned to omp_clause_mask.
+	(c_parser_omp_for_loop): Adjust c_finish_omp_for caller.
+	(OMP_FOR_CLAUSE_MASK, OMP_SECTIONS_CLAUSE_MASK,
+	OMP_PARALLEL_CLAUSE_MASK, OMP_SINGLE_CLAUSE_MASK,
+	OMP_TASK_CLAUSE_MASK): Use OMP_CLAUSE_MASK_1 instead of 1.
+	(c_parser_omp_parallel): Use omp_clause_mask type instead of unsigned
+	for mask, use OMP_CLAUSE_MASK_1 instead of 1 for masks.
+
+2013-03-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* c-parser.c (c_parser_expr_no_commas): Add omp_atomic_lhs argument
+	with default value, pass it down to c_parser_conditional_expression.
+	(c_parser_conditional_expression): Add omp_atomic_lhs argument, pass
+	it down to c_parser_binary_expression.  Don't pass PREC_NONE to
+	it.  Adjust recursive call.
+	(c_parser_binary_expression): Remove prec argument, add omp_atomic_lhs
+	argument.  Always start from PREC_NONE, if omp_atomic_lhs is non-NULL
+	and one of the arguments of toplevel binop matches it, use build2
+	instead of parser_build_binary_op.
+	(c_parser_omp_atomic): Handle OpenMP 4.0 atomics.
+	(c_parser_omp_for_loop): Adjust c_parser_binary_expression caller.
+	* c-tree.h (c_tree_equal): New prototype.
+	* c-typeck.c (c_tree_equal): New function.
+
+	* c-parser.c (c_parser_omp_atomic): Adjust comment.
+	Add another argument to c_finish_omp_atomic.
+
+Copyright (C) 2013 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

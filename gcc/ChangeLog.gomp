@@ -1,0 +1,1093 @@
+2013-12-04  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimple.h (is_a_helper): Handle GIMPLE_OACC_PARALLEL.
+
+2013-11-30  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* config/i386/i386.c (ix86_simd_clone_compute_vecsize_and_simdlen):
+	Removed a carriage return from the warning string.
+
+2013-11-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_cilkplus_default_vecsize_mangle,
+	ix86_cilkplus_vecsize_for_mangle): Remove.
+	(ix86_simd_clone_compute_vecsize_and_simdlen,
+	ix86_simd_clone_adjust, ix86_simd_clone_usable): New functions.
+	(TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE,
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): Remove.
+	(TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN,
+	TARGET_SIMD_CLONE_ADJUST, TARGET_SIMD_CLONE_USABLE): Define.
+	* omp-low.c (class argno_map): Remove.
+	(argno_map::argno_map): Remove.
+	(simd_clone_vector_of_formal_parm_types): New function.
+	(simd_clone_struct_alloc): Use struct cgraph_simd_clone
+	instead of struct simd_clone and struct cgraph_simd_clone_arg
+	instead of struct simd_clone_arg.
+	(simd_clone_struct_copy): Likewise.
+	(simd_clone_clauses_extract): Likewise.  Return struct
+	cgraph_simd_clone *, don't change anything in node.
+	Use simd_clone_vector_of_formal_parm_types instead of argno_map.
+	Fail if ignoring linear step.
+	(vecsize_mangle): Remove.
+	(simd_clone_compute_base_data_type): Add clone_info argument.
+	Use simd_clone_vector_of_formal_parm_types instead of argno_map.
+	(simd_clone_compute_vecsize_and_simdlen): Remove.
+	(simd_clone_mangle): Remove new_node argument, add clone_info
+	argument, return the identifier rather than changing anything in
+	node.  If mangled name doesn't already exist among simd clones,
+	fail.
+	(simd_clone_create): Handle !old_node->definition case, don't
+	ICE if cgraph_function_versioning fails.
+	(simd_clone_adjust_return_type): Handle simdlens larger than
+	what can be returned or passed in hw register.  Handle
+	!node->definition.
+	(simd_clone_adjust_argument_types): Likewise.  Use
+	ipa_get_vector_of_formal_parms or
+	simd_clone_vector_of_formal_parm_types instead of argno_map.
+	(simd_clone_init_simd_arrays): Handle simdlens larger than
+	what can be passed in hw register.
+	(ipa_simd_modify_function_body): Likewise.  Call walk_gimple_op
+	also on GIMPLE_RETURN.
+	(simd_clone_adjust): Call targetm.simd_clone.adjust.  Create
+	PHI for the iter, rather than waiting for into ssa.  Handle
+	aligned clause on uniform pointer arguments.  Handle linear
+	arguments properly.
+	(expand_simd_clones): Don't do anything if noclone attribute
+	is present.  Ignore non-prototype C declarations.  Rewritten to
+	only clone if it is possible and desirable to create the simd clone.
+	Use new target simd_clone hooks to drive the process, allow
+	creating more than two clones.  Handle !node->definition cloning.
+	(ipa_omp_simd_clone): Use FOR_EACH_FUNCTION instead of
+	FOR_EACH_DEFINED_FUNCTION.
+	(pass_omp_simd_clone::gate): Return true also for flag_openmp_simd.
+	* ipa-cp.c (determine_versionability): Use simd_clones field instead
+	of has_simd_clones.  Also fail if node->simdclone is non-NULL.
+	(initialize_node_lattices): Set disable = true for simd clones.
+	* cgraph.c (get_simd_clone): Remove.
+	* ipa.c (symtab_remove_unreachable_nodes): If node with simd clones
+	is kept, keep also the simd clones.
+	* ipa-prop.h (ipa_get_vector_of_formal_parm_types): New prototype.
+	* ipa-prop.c (get_vector_of_formal_parm_types): Renamed to ...
+	(ipa_get_vector_of_formal_parm_types): ... this.  No longer static.
+	(ipa_modify_formal_parameters): Adjust caller.
+	* target.def (TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE,
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): Remove.
+	(TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN,
+	TARGET_SIMD_CLONE_ADJUST, TARGET_SIMD_CLONE_USABLE): New target
+	hooks.
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Use simd_clones
+	field instead of has_simd_clones.
+	* target.h (struct cgraph_node, struct cgraph_simd_node): Declare.
+	* doc/tm.texi.in (TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE,
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): Remove.
+	(TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN,
+	TARGET_SIMD_CLONE_ADJUST, TARGET_SIMD_CLONE_USABLE): Add.
+	* doc/tm.texi: Regenerated.
+	* cgraph.h (enum simd_clone_arg_type): Rename to ...
+	(enum cgraph_simd_clone_arg_type): ... this.  Add
+	SIMD_CLONE_ARG_TYPE_MASK.
+	(struct simd_clone_arg): Rename to ...
+	(struct cgraph_simd_clone_arg): ... this.  Add orig_type and
+	vector_type fields.  Adjust arg_type field's type.
+	(struct simd_clone): Rename to ...
+	(struct cgraph_simd_clone): ... this.  Remove hw_vector_size
+	field.  Add vecsize_int, vecsize_float, prev_clone, next_clone
+	and origin fields.  Adjust args field's type.
+	(struct cgraph_node): Adjust simdclone field's type.  Remove
+	simdclone_of and has_simd_clones fields.  Add simd_clones field.
+	(get_simd_clone): Remove prototype.
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Use simd_clones
+	field instead of has_simd_clones, improve walking of simd clones,
+	handle arguments and/or return types larger than corresponding
+	ISA hw vector size, use targetm.simd_clone.usable hook.
+
+2013-11-21  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* cgraph.h (symtab_node): Add need_dump.
+	* cgraphunit.c (ipa_passes): Run ipa_write_summaries for omp.
+	(compile): Intialize streamer for omp.
+	* ipa-inline-analysis.c (inline_generate_summary): Add flag_openmp.
+	* lto-cgraph.c (lto_set_symtab_encoder_in_partition): Respect
+	need_dump flag.
+	(select_what_to_dump): New.
+	* lto-streamer.c (section_name_prefix): New.
+	(lto_get_section_name): Use section_name_prefix.
+	(lto_streamer_init): Add flag_openmp.
+	* lto-streamer.h (OMP_SECTION_NAME_PREFIX): New.
+	(section_name_prefix): Ditto.
+	(select_what_to_dump): Ditto.
+	* lto/lto-partition.c (add_symbol_to_partition_1): Set need_dump.
+	(lto_promote_cross_file_statics): Dump everyhtinh.
+	* passes.c (ipa_write_summaries): Add parameter,
+	call select_what_to_dump.
+	* tree-pass.h (void ipa_write_summaries): Add parameter.
+
+2013-11-15  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Avoid
+	-Wsign-compare warning.
+
+2013-11-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* ipa-prop.h (enum ipa_parm_op): Adjust comment to IPA_PARM_OP_NEW
+	entry.
+
+2013-11-12  Aldy Hernandez  <aldyh@redhat.com>
+
+	* ipa-prop.c (ipa_modify_expr): Pass expr by address.
+	(ipa_get_adjustment_candidate): Add another level of indirection
+	to expr.  Adjust comment.
+	(ipa_get_adjustment_candidate): Add another level of indirection
+	to first argument.
+
+2013-11-11  Aldy Hernandez  <aldyh@redhat.com>
+
+	* ipa-prop.c (get_ssa_base_param): New.
+	* ipa-prop.h (ipa_modify_expr): Rename from ipa_sra_modify_expr.
+	Remove ipa_sra_modify_function_body.
+	(ipa_get_adjustment_candidate): Rename from
+	sra_ipa_get_adjustment_candidate.
+	* omp-low.c (ipa_simd_modify_stmt_ops): Rename
+	sra_ipa_get_adjustment_candidate to ipa_get_adjustment_candidate.
+	* tree-sra.c (get_ssa_base_param): Remove default_def argument.
+	(create_access): Remove lass argument to get_ssa_base_param.
+	(disqualify_base_of_expr): Same.
+	(sra_ipa_get_adjustment_candidate): Rename to
+	ipa_get_adjustment_candidate and move to ipa-prop.c.
+	(sra_ipa_modify_expr): Rename to ipa_modify_expr and move to
+	ipa-prop.c.
+	(sra_ipa_modify_assign): Rename sra_ipa_modify_expr to
+	ipa_modify_expr.
+	(ipa_sra_modify_function_body): Same.
+
+2013-11-11  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Check loop->safelen
+	rather than loop->simdlen.
+	* tree-vect-stmts.c (vectorizable_simd_clone_call): Likewise.
+
+2013-11-08  Aldy Hernandez  <aldyh@redhat.com>
+
+	* ipa-prop.c (ipa_modify_formal_parameters): Remove
+	synth_parm_prefix argument.
+	Use operator enum instead of bit fields.
+	Add assert for properly handling vector of references.
+	(ipa_modify_call_arguments): Use operator enum instead of bit
+	fields.
+	(ipa_combine_adjustments): Same.
+	Assert that IPA_PARM_OP_NEW is not used.
+	(ipa_dump_param_adjustments): Rename reduction to new_decl.
+	Use operator enum instead of bit fields.
+	* ipa-prop.h (enum ipa_parm_op): New.
+	(struct ipa_parm_adjustment): New field op.
+	Rename reduction to new_decl.
+	Rename new_arg_prefix to arg_prefix.
+	Remove new_param, remove_param, copy_param.
+	(ipa_modify_formal_parameters): Remove argument.
+	* omp-low.c (simd_clone_adjust_argument_types):	Set arg_prefix.
+	Use operator enum instead of bit fields.
+	(simd_clone_adjust_argument_types): Use operator enum instead of
+	bit fields.
+	Remove last argument to ipa_modify_formal_parameters call.
+	(simd_clone_init_simd_arrays): Use operator enum.
+	(ipa_simd_modify_stmt_ops): Rename reduction to new_decl.
+	(ipa_simd_modify_function_body): Same.
+	* tree-sra.c (turn_representatives_into_adjustments): Use operator
+	enum.  Set arg_prefix.
+	(get_adjustment_for_base): Use operator enum.
+	(sra_ipa_get_adjustment_candidate): Same.
+	(sra_ipa_modify_expr): Rename reduction to new_decl.
+	(sra_ipa_reset_debug_stmts): Use operator enum.
+	(modify_function): Do not pass prefix argument.
+
+2013-11-07  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vectorizer.h (enum stmt_vec_info_type): Add
+	call_simd_clone_vec_info_type.
+	* expr.c (store_constructor): Allow CONSTRUCTOR with VECTOR_TYPE
+	(same sized) elements even if the type of the CONSTRUCTOR has
+	vector mode and target is a REG.
+	* tree-vect-data-refs.c: Include cgraph.h.
+	(vect_analyze_data_refs): Inline by hand find_data_references_in_loop
+	and find_data_references_in_bb, if find_data_references_in_stmt
+	fails, still allow calls to #pragma omp declare simd functions
+	in #pragma omp simd loops unless they contain data references among
+	the call arguments or in lhs.
+	* tree-vect-loop.c (vect_determine_vectorization_factor): If a call
+	doesn't have lhs, set STMT_VINFO_VECTYPE to vector type corresponding
+	to any of the argument types and exclude it from adjustments of the
+	vectorization factor.
+	* tree-vect-stmts.c: Include tree-ssa-loop.h and
+	tree-scalar-evolution.h.
+	(vectorizable_function): Don't handle functions with simd clones here.
+	(vectorizable_call): Nor here.  Return early if call doesn't have lhs.
+	(struct simd_call_arg_info): New type.
+	(vectorizable_simd_clone_call): New function.
+	(vect_analyze_stmt, vect_transform_stmt): Call it.
+
+2013-11-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimple.def (GIMPLE_OACC_PARALLEL): New code.
+	* doc/gimple.texi: Document it.
+	* gimple.h (gimple_build_oacc_parallel): New declaration.
+	(gimple_oacc_parallel_clauses, gimple_oacc_parallel_clauses_ptr)
+	(gimple_oacc_parallel_set_clauses, gimple_oacc_parallel_child_fn)
+	(gimple_oacc_parallel_child_fn_ptr)
+	(gimple_oacc_parallel_set_child_fn, gimple_oacc_parallel_data_arg)
+	(gimple_oacc_parallel_data_arg_ptr)
+	(gimple_oacc_parallel_set_data_arg): New inline functions.
+	(CASE_GIMPLE_OMP): Add GIMPLE_OACC_PARALLEL.
+	* gimple.c (gimple_build_oacc_parallel): New function.
+	(walk_gimple_op, walk_gimple_stmt, gimple_copy): Handle
+	GIMPLE_OACC_PARALLEL.
+	* gimplify.c (is_gimple_stmt): Handle GIMPLE_OACC_PARALLEL.
+	(gimplify_oacc_parallel): New function.
+	(gimplify_expr): Handle OACC_PARALLEL.
+	* cgraphbuild.c (build_cgraph_edges): Handle GIMPLE_OACC_PARALLEL.
+	* gimple-low.c (lower_stmt): Likewise.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+	(dump_gimple_oacc_parallel): New function.
+	* oacc-builtins.def (BUILT_IN_GOACC_PARALLEL): New macro.
+	* omp-low.c (scan_oacc_parallel, expand_oacc_parallel)
+	(lower_oacc_parallel): New functions.
+	(use_pointer_for_field, build_outer_var_ref, scan_sharing_clauses)
+	(create_omp_child_function, check_omp_nesting_restrictions)
+	(scan_omp_1_stmt, lower_rec_simd_input_clauses)
+	(lower_lastprivate_clauses, lower_reduction_clauses)
+	(lower_copyprivate_clauses, lower_send_clauses)
+	(lower_send_shared_vars, expand_omp)
+	(maybe_add_implicit_barrier_cancel, create_task_copyfn)
+	(lower_omp_1, make_gimple_omp_edges): Handle GIMPLE_OACC_PARALLEL,
+	or catch it.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt)
+	(convert_local_reference_stmt, convert_tramp_reference_stmt)
+	(convert_gimple_call): Likewise.
+
+	* tree.def (OACC_PARALLEL): New code.
+	* doc/generic.texi (OpenMP): Document it.
+	* tree.h (OMP_BODY, OMP_CLAUSES): Include it.
+	(OACC_PARALLEL_BODY, OACC_PARALLEL_CLAUSES): New macros.
+	* tree-pretty-print.c (dump_generic_node): Handle OACC_PARALLEL.
+
+	* doc/invoke.texi (-fopenacc): Update.
+
+	* gimplify.c (gimplify_body): Consider flag_openacc additionally
+	to flag_openmp.
+	* omp-low.c (execute_expand_omp, execute_lower_omp)
+	(gate_diagnose_omp_blocks): Likewise.
+
+	* oacc-builtins.def: New file.
+	* Makefile.in (BUILTINS_DEF): Add oacc-builtins.def.
+	* builtins.def (DEF_GOACC_BUILTIN): New macro.
+	Include "oacc-builtins.def".
+
+	* gcc.c (LINK_COMMAND_SPEC, GOMP_SELF_SPECS): For -fopenacc, link
+	to libgomp and its dependencies.
+	* config/arc/arc.h (LINK_COMMAND_SPEC): Likewise.
+	* config/darwin.h (LINK_COMMAND_SPEC_A): Likewise.
+	* config/i386/mingw32.h (GOMP_SELF_SPECS): Likewise.
+	* config/ia64/hpux.h (LIB_SPEC): Likewise.
+	* config/pa/pa-hpux11.h (LIB_SPEC): Likewise.
+	* config/pa/pa64-hpux.h (LIB_SPEC): Likewise.
+	* doc/invoke.texi (-fopenacc): Update.
+
+	* doc/invoke.texi (-fopenacc): Document it.
+	* doc/sourcebuild.texi (fopenacc): Document it.
+
+	Backport from trunk, r204517:
+
+	* config/arc/arc.h (LINK_COMMAND_SPEC): For
+	-ftree-parallelize-loops=*, link to libgomp and its dependencies.
+	* config/ia64/hpux.h (LIB_SPEC): Likewise.
+	* config/pa/pa-hpux11.h (LIB_SPEC): Likewise.
+	* config/pa/pa64-hpux.h (LIB_SPEC): Likewise.
+	* gcc.c (GOMP_SELF_SPECS): Update comment about libgomp's
+	dependencies.
+
+2013-11-07  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (ipa_simd_modify_function_body): Avoid
+	regimplification of GIMPLE_RETURNs.
+
+2013-11-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* ipa-prop.h (sra_ipa_get_adjustment_candidate): Protoize.
+	* omp-low.c (struct modify_stmt_info): New.
+	(ipa_simd_modify_function_body_ops_1): Remove.
+	(ipa_simd_modify_stmt_ops): New.
+	(ipa_simd_modify_function_body_ops): Remove.
+	(ipa_simd_modify_function_body): Set new callback info.
+	Remove special casing.  Handle all operators with walk_gimple_op.
+	* tree-sra.c (get_ssa_base_param): Add new argument.  Use it.
+	(disqualify_base_of_expr): Pass new argument to
+	get_ssa_base_param.
+	(sra_ipa_modify_expr): Abstract candidate search into...
+	(sra_ipa_get_adjustment_candidate): ...here.
+
+2013-11-06  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (simd_clone_mangle): Linear step of 1 is mangled as
+	'l'.
+
+2013-11-04  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (ipa_simd_modify_function_body): Adjust tree operands
+	on the LHS of an assign.
+	(ipa_simd_modify_function_body_ops_1): New.
+	(ipa_simd_modify_function_body_ops): New.
+
+2013-11-02  Aldy Hernandez  <aldyh@redhat.com>
+
+	* omp-low.c (ipa_simd_modify_function_body): Handle empty returns.
+
+2013-11-01  Jakub Jelinek  <jakub@redhat.com>
+
+	* cgraph.h (enum linear_stride_type): Remove.
+	(enum simd_clone_arg_type): New.
+	(struct simd_clone_arg): Remove linear_stride, linear_stride_num
+	and uniform fields.  Add arg_type and linear_step.
+	* omp-low.c (simd_clone_struct_copy): Formatting.
+	(simd_clone_struct_alloc): Likewise.  Use size_t.
+	(simd_clone_clauses_extract, simd_clone_compute_base_data_type,
+	simd_clone_adjust_argument_types): Adjust for struct simd_clone_arg
+	changes.
+	(simd_clone_mangle): Likewise.  Handle negative linear step.
+
+2013-11-01  Aldy Hernandez  <aldyh@redhat.com>
+
+	* tree-vect-stmts.c: Include cgraph.h.
+	(vectorizable_call): Allow > 3 arguments when a SIMD clone may be
+	available.
+	(vectorizable_function): Use SIMD clone if available.
+	* ipa-cp.c (determine_versionability): Nodes with SIMD clones are
+	not versionable.
+	* ggc.h (ggc_alloc_cleared_simd_clone_stat): New.
+	* cgraph.h (enum linear_stride_type): New.
+	(struct simd_clone_arg): New.
+	(struct simd_clone): New.
+	(struct cgraph_node): Add simdclone and simdclone_of fields.
+	(get_simd_clone): Protoize.
+	* cgraph.c (get_simd_clone): New.
+	Add `has_simd_clones' field.
+	* ipa-cp.c (determine_versionability): Disallow functions with
+	simd clones.
+	* ipa-prop.h (ipa_sra_modify_function_body): Protoize.
+	(sra_ipa_modify_expr): Same.
+	(struct ipa_parm_adjustment): Add new_arg_prefix and new_param
+	fields.  Document their use.
+	* ipa-prop.c (ipa_modify_formal_parameters): Handle creating brand
+	new parameters and minor cleanups.
+	* omp-low.c: Add new pass_omp_simd_clone support code.
+	(make_pass_omp_simd_clone): New.
+	(pass_data_omp_simd_clone): Declare.
+	(class pass_omp_simd_clone): Declare.
+	(vecsize_mangle): New.
+	(ipa_omp_simd_clone): New.
+	(simd_clone_clauses_extract): New.
+	(simd_clone_compute_base_data_type): New.
+	(simd_clone_compute_vecsize_and_simdlen): New.
+	(simd_clone_create): New.
+	(simd_clone_adjust_return_type): New.
+	(simd_clone_adjust_return_types): New.
+	(simd_clone_adjust): New.
+	(simd_clone_init_simd_arrays): New.
+	(ipa_simd_modify_function_body): New.
+	(simd_clone_mangle): New.
+	(simd_clone_struct_alloc): New.
+	(simd_clone_struct_copy): New.
+	(class argno_map): New.
+	(argno_map::argno_map(tree)): New.
+	(argno_map::~argno_map): New.
+	(argno_map::operator []): New.
+	(argno_map::length): New.
+	(expand_simd_clones): New.
+	(create_tmp_simd_array): New.
+	* tree.h (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE): New.
+	* tree-core.h (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE): Document.
+	* tree-pass.h (make_pass_omp_simd_clone): New.
+	* passes.def (pass_omp_simd_clone): New.
+	* target.def: Define new hook prefix "TARGET_CILKPLUS_".
+	(default_vecsize_mangle): New.
+	(vecsize_for_mangle): New.
+	* doc/tm.texi.in: Add placeholder for
+	TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE and
+	TARGET_CILKPLUS_VECSIZE_FOR_MANGLE.
+	* tree-sra.c (sra_ipa_modify_expr): Remove static modifier.
+	(ipa_sra_modify_function_body): Same.
+	* tree.h (OMP_CLAUSE_LINEAR_VARIABLE_STRIDE): Define.
+	* doc/tm.texi: Regenerate.
+	* config/i386/i386.c (ix86_cilkplus_default_vecsize_mangle): New.
+	(ix86_cilkplus_vecsize_for_mangle): New.
+	(TARGET_CILKPLUS_DEFAULT_VECSIZE_MANGLE): New.
+	(TARGET_CILKPLUS_VECSIZE_FOR_MANGLE): New.
+
+2013-10-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (omp_remove_redundant_declare_simd_attrs): Adjust
+	for the clauses being stored into TREE_VALUE of an extra TREE_LIST
+	pointed out by TREE_VALUE of the attribute.
+
+2013-10-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_target): When handling IF clause on
+	#pragma omp target, split new_bb rather than entry_bb.  If
+	not GF_OMP_TARGET_KIND_REGION, split new_bb right before
+	the GOMP_TARGET stmt, rather than after labels.
+
+2013-09-26  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_task_call): If there are depend clauses,
+	pass bit 8 in 7th argument and pass pointer to depend array
+	as 8th argument.
+	(lower_depend_clauses): New function.
+	(lower_omp_taskreg): Handle depend clauses.
+	* omp-builtins.def (BUILT_IN_GOMP_TASK): Use
+	BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR
+	instead of BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT.
+	* builtin-types.def
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT): Remove.
+	(BT_FN_VOID_OMPFN_PTR_OMPCPYFN_LONG_LONG_BOOL_UINT_PTR): New.
+
+2013-09-25  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (lower_omp_sections, lower_omp_for, lower_omp_taskreg):
+	Emit ctx->cancel_label before destructors.
+
+	* gimple-pretty-print.c (dump_gimple_omp_block,
+	pp_gimple_stmt_1): Handle GIMPLE_OMP_TASKGROUP.
+	* tree-nested.c (convert_nonlocal_reference_stmt,
+	convert_local_reference_stmt, convert_gimple_call): Likewise.
+	* tree-cfg.c (make_edges): Likewise.
+	* gimple.h (gimple_build_omp_taskgroup): New prototype.
+	(gimple_has_substatement): Handle GIMPLE_OMP_TASKGROUP.
+	(CASE_GIMPLE_OMP): Likewise.
+	* gimplify.c (is_gimple_stmt, gimplify_expr): Handle OMP_TASKGROUP.
+	* omp-low.c (check_omp_nesting_restrictions): Warn if #pragma omp
+	cancel is used in nowait loop or sections construct.
+	(scan_omp_1_stmt, expand_omp_synch, expand_omp, lower_omp_1): Handle
+	GIMPLE_OMP_TASKGROUP.
+	(diagnose_sb_1, diagnose_sb_2): Likewise.  Handle GIMPLE_OMP_TARGET
+	and GIMPLE_OMP_TEAMS.
+	(lower_omp_taskgroup): New function.
+	* tree-inline.c (remap_gimple_stmt, estimate_num_insns): Handle
+	GIMPLE_OMP_TASKGROUP.
+	* gimple-low.c (lower_stmt): Likewise.
+	* tree.h (OMP_TASKGROUP_BODY): Define.
+	* tree.def (OMP_TASKGROUP): New tree.
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_TASKGROUP.
+	* gimple.c (gimple_build_omp_taskgroup): New function.
+	(walk_gimple_stmt, gimple_copy): Handle GIMPLE_OMP_TASKGROUP.
+	* gimple.def (GIMPLE_OMP_TASKGROUP): New GIMPLE code.
+
+2013-09-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET_DATA,
+	BUILT_IN_GOMP_TARGET_UPDATE): Use BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR
+	rather than BT_FN_VOID_INT_SIZE_PTR_PTR_PTR.
+	* builtin-types.def (BT_FN_VOID_INT_SIZE_PTR_PTR_PTR): Remove.
+	(BT_FN_VOID_INT_PTR_SIZE_PTR_PTR_PTR): New.
+	* omp-low.c (expand_omp_target): Remove fnname argument from
+	GOMP_target, add openmp_target argument to GOMP_target,
+	GOMP_target_data and GOMP_target_update calls.
+
+2013-09-18  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_REDUCTION_OMP_ORIG_REF): Define.
+	* tree-core.h (OMP_CLAUSE_REDUCTION_OMP_ORIG_REF): Document.
+	* omp-low.c (lower_rec_simd_input_clauses): Don't set DECL_VALUE_EXPR
+	on new_var if it is not a DECL_P.
+	(lower_rec_input_clauses): Don't force max_vf = 1
+	if OMP_CLAUSE_REDUCTION_PLACEHOLDER.  Add barrier also if any
+	OMP_CLAUSE_REDUCTION_OMP_ORIG_REF is seen.  For OMP_CLAUSE_PRIVATE
+	in simd, fix last argument to omp_clause_default_ctor langhook.
+	Handle OMP_CLAUSE_REDUCTION_PLACEHOLDER in simd loops, if
+	OMP_CLAUSE_REDUCTION_GIMPLE_INIT is NULL, emit omp_clause_default_ctor
+	if any and emit omp_clause_dtor if any.  Handle C++ references in
+	OMP_CLAUSE_REDUCTION clauses.
+	(lower_reduction_clauses): Adjust comment for UDRs.  Handle
+	C++ references in OMP_CLAUSE_REDUCTION clauses.
+	(lower_omp_taskreg): Emit reduction merges before destructors.
+	* tree-pretty-print.c (dump_omp_clause): Don't emit any reduction
+	operator name if OMP_CLAUSE_REDUCTION_CODE is ERROR_MARK.
+	* gimplify.c (omp_add_variable): Ignore GOVD_LOCAL decls for which
+	privatize_by_reference returns true.
+
+	* tree-core.h (OMP_CLAUSE_DEPEND_KIND, OMP_CLAUSE_MAP_KIND,
+	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION, OMP_CLAUSE_PROC_BIND_KIND):
+	Move definitions...
+	* tree.h (OMP_CLAUSE_DEPEND_KIND, OMP_CLAUSE_MAP_KIND,
+	OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION, OMP_CLAUSE_PROC_BIND_KIND):
+	... here.
+
+2013-09-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (install_var_field): Use (mask & 4) to request double
+	indirection.
+	(scan_sharing_clauses): For OMP_CLAUSE_MAP_POINTER arrays pass
+	7 instead of 3 to install_var_field.
+	(lower_omp_target): For OMP_CLAUSE_MAP_POINTER arrays add extra
+	indirection.
+
+2013-09-06  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (scan_sharing_clauses): Handle VLAs in
+	OMP_CLAUSE_{MAP,TO,FROM}.  Set DECL_ALIGN (field) before
+	calling insert_field_into_struct.
+	(scan_omp_target): Reverse TYPE_FIELDS, verify that
+	all field alignments are the same.
+	(lower_omp_target): Use maybe_lookup_field instead of
+	lookup_sfield to check if field is present.  Handle VLAs.
+	* tree-pretty-print.c (dump_omp_clause): Only check
+	OMP_CLAUSE_MAP_KIND on OMP_CLAUSE_MAP clauses.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP_TO_ONLY.
+	(omp_firstprivatize_variable, omp_add_variable,
+	gimplify_adjust_omp_clauses_1, gimplify_adjust_omp_clauses): Handle
+	VLAs in OMP_CLAUSE_{MAP,TO,FROM}.
+
+2013-09-05  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_call_expr): Don't call fold_stmt
+	inside of #pragma omp target construct.
+	(gimplify_modify_expr): Likewise.
+	* omp-low.c (target_nesting_level): New variable.
+	(lower_omp_target): Increase/restore target_nesting_level
+	around lowering #pragma omp target body.  Use TYPE_SIZE_UNIT
+	instead of TYPE_SIZE if OMP_CLAUSE_SIZE is missing.
+	Or log2 of needed alignment into high 5 bits of kind.
+	(lower_omp): Call fold_stmt on all stmts inside of
+	#pragma omp target construct.
+
+	* tree-cfg.c (make_edges): For GIMPLE_OMP_TARGET
+	with GF_OMP_TARGET_KIND_UPDATE, don't look for
+	GIMPLE_OMP_RETURN and immediately restore previous
+	region.
+	* langhooks.c (lhd_omp_mappable_type): New function.
+	* omp-low.c (scan_sharing_clauses): Ignore OMP_CLAUSE_SHARED
+	in GIMPLE_OMP_TEAMS constructs.  Handle OMP_CLAUSE_NUM_TEAMS,
+	OMP_CLAUSE_THREAD_LIMIT, OMP_CLAUSE_DEVICE, OMP_CLAUSE_MAP,
+	OMP_CLAUSE_TO and OMP_CLAUSE_FROM.
+	(create_omp_child_function): If current function has
+	"omp declare target" attribute or if current region
+	is OMP_TARGET or lexically nested in it, add that
+	attribute to the omp child function.
+	(scan_omp_target, scan_omp_teams): New functions.
+	(check_omp_nesting_restrictions): Fix a typo in TEAMS nesting
+	check.
+	(scan_omp_1_stmt): Handle GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	(lower_rec_input_clauses): Ignore OMP_CLAUSE_SHARED
+	in GIMPLE_OMP_TEAMS constructs.
+	(expand_omp_synch): Handle GIMPLE_OMP_TEAMS.
+	(expand_omp_target): New function.
+	(expand_omp): Handle GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	(build_omp_regions_1): For GIMPLE_OMP_TARGET with
+	GF_OMP_TARGET_KIND_UPDATE, don't look for GIMPLE_OMP_RETURN and
+	immediately restore previous region.
+	(lower_omp_single): Emit a CLOBBER stmt after GIMPLE_OMP_RETURN.
+	(lower_omp_taskreg): Likewise.
+	(lower_omp_target, lower_omp_teams): New functions.
+	(lower_omp_1): Handle GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	* tree.h (enum omp_clause_map_kind): Improve description of
+	OMP_CLAUSE_MAP_POINTER.
+	(OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION): Define.
+	* gimple.def (GIMPLE_OMP_TARGET): Use GSS_OMP_PARALLEL instead
+	of GSS_OMP_SINGLE.
+	* langhooks.h (struct lang_hooks_for_types): Add
+	omp_mappable_type hook.
+	* langhooks-def.h (lhd_omp_mappable_type): New prototype.
+	(LANG_HOOKS_OMP_MAPPABLE_TYPE): Define.
+	(LANG_HOOKS_FOR_TYPES_INITIALIZER): Use it.
+	* gimple.h (gimple_omp_target_clauses, gimple_omp_target_clauses_ptr,
+	gimple_omp_target_set_clauses): Use gimple_omp_parallel
+	instead of gimple_omp_single.
+	(gimple_omp_target_child_fn, gimple_omp_target_child_fn_ptr,
+	gimple_omp_target_set_child_fn, gimple_omp_target_data_arg,
+	gimple_omp_target_data_arg_ptr, gimple_omp_target_set_data_arg): New
+	inlines.
+	* omp-builtins.def (BUILT_IN_GOMP_TARGET, BUILT_IN_GOMP_TARGET_DATA,
+	BUILT_IN_GOMP_TARGET_END_DATA, BUILT_IN_GOMP_TARGET_UPDATE,
+	BUILT_IN_GOMP_TEAMS): New builtins.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Print child_fn
+	for #pragma omp target.
+	* gimplify.c (omp_notice_variable): Diagnose if implicitly mapped
+	decl doesn't have mappable type.
+	(gimplify_scan_omp_clauses): For OMP_CLAUSE_MAP don't clear
+	notice_outer.
+	(gimplify_adjust_omp_clauses_1): Add OMP_CLAUSE_MAP even if the same
+	decl is already referenced in target data construct surrounding it.
+	(gimplify_adjust_omp_clauses): Likewise.  Handle
+	OMP_CLAUSE_THREAD_LIMIT.
+	(gimplify_omp_workshare): Fix up gimplification of target or target
+	data construct body.  For target data add GOMP_target_end_data
+	call in a try/finally cleanup.
+	* builtin-types.def (BT_FN_VOID_UINT_UINT,
+	BT_FN_VOID_INT_SIZE_PTR_PTR_PTR,
+	BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR): New.
+
+2013-07-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (omp_declare_simd_clauses_equal): Remove prototype.
+	(omp_remove_redundant_declare_simd_attrs): New prototype.
+	* tree.c (omp_declare_simd_clauses_equal): Make static.
+	(omp_remove_redundant_declare_simd_attrs): New function.
+
+2013-07-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_omp_return): Print
+	gimple_omp_return_lhs if non-NULL.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1,
+	call_may_clobber_ref_p_1): Handle BUILT_IN_GOMP_BARRIER_CANCEL,
+	BUILT_IN_GOMP_LOOP_END_CANCEL, BUILT_IN_GOMP_SECTIONS_END_CANCEL.
+	* gimple.h (gimple_omp_return_set_lhs, gimple_omp_return_lhs,
+	gimple_omp_return_lhs_ptr): New inlines.
+	* gimple.def (GIMPLE_OMP_RETURN): Use GSS_OMP_ATOMIC_STORE
+	instead of GSS_BASE.
+	* gimple.c (walk_gimple_op) <case GIMPLE_OMP_RETURN>: Walk lhs.
+	* builtin-types.def (BT_FN_BOOL_INT, BT_FN_BOOL_INT_BOOL): New.
+	* omp-builtins.def (BUILT_IN_GOMP_CANCELLATION_POINT): Use
+	ATTR_NOTHROW_LEAF_LIST instead of ATTR_NULL.  Return type is now
+	bool.
+	(BUILT_IN_GOMP_CANCEL): Likewise.  Add second argument with bool type.
+	(BUILT_IN_BARRIER_CANCEL, BUILT_IN_GOMP_LOOP_END_CANCEL,
+	BUILT_IN_GOMP_SECTIONS_END_CANCEL): New builtins.
+	* omp-low.c (struct omp_context): Add cancel_label and cancellable
+	fields.
+	(extract_omp_for_data): Set have_nowait even for simd implicitly.
+	(check_omp_nesting_restrictions): Verify nesting restrictions for
+	#pragma omp cancel and #pragma omp cancellation point.
+	Set ctx->cancellable for regions that can be cancelled or also
+	for any task region that contains #pragma omp cancellation point.
+	(scan_omp_1_stmt): Check nesting restrictions even if ctx == NULL.
+	(build_omp_barrier): Return gimple instead of tree, add lhs argument,
+	if non-NULL, build GOMP_barrier_cancel builtin instead and set its 
+	call lhs to lhs.
+	(lower_rec_input_clauses): Adjust build_omp_barrier caller.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk,
+	expand_omp_single): Likewise.  If OMP_RETURN has lhs, pass it to
+	build_omp_barrier.
+	(expand_omp_for_generic): If OMP_RETURN has lhs, use
+	GOMP_loop_end_cancel libcall instead of GOMP_loop_end and set its
+	lhs from OMP_RETURN's lhs.
+	(expand_omp_sections): If OMP_RETURN has lhs, use
+	GOMP_sections_end_cancel libcall instead of GOMP_sections_end and set
+	its lhs from OMP_RETURN's lhs.
+	(maybe_add_implicit_barrier_cancel): New function.
+	(lower_omp_sections): If ctx->cancellable, emit cancel_label before
+	OMP_RETURN.  Call maybe_add_implicit_barrier_cancel.
+	(lower_omp_for): Likewise.
+	(lower_omp_single): Call maybe_add_implicit_barrier_cancel.
+	(lower_omp_taskreg): If ctx->cancellable, emit cancel_label before
+	OMP_RETURN.
+	(lower_omp_1): If ctx->cancellable, create ctx->cancel_label.
+	Adjust GOMP_barrier libcalls to GOMP_barrier_cancel plus conditional
+	branch in cancellable regions, adjust GOMP_cancel and
+	GOMP_cancellation_point in cancellable regions or remove
+	GOMP_cancellation_point in non-cancellable regions.
+
+2013-07-03  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_single): Don't force barrier for
+	copyprivate.
+
+2013-06-28  Jakub Jelinek  <jakub@redhat.com>
+	    Aldy Hernandez  <aldyh@redhat.com>
+
+	* internal-fn.def (GOMP_SIMD_LANE, GOMP_SIMD_VF,
+	GOMP_SIMD_LAST_LANE): New internal functions.
+	* omp-low.c (omp_max_vf, lower_rec_simd_input_clauses): New
+	functions.
+	(lower_rec_input_clauses): Add fd argument.  Enforce max_vf = 1
+	if any data sharing clauses mention VLAs or for array reductions.
+	Handle OMP_CLAUSE__LOOPTEMP_ clause.  For
+	OMP_CLAUSE_{{FIRST,LAST,}PRIVATE,LINEAR,REDUCTION} on SIMD
+	constructs use "omp simd array" temporaries.  For OMP_CLAUSE_LINEAR
+	adjust initial value in combined constructs.  Don't emit any
+	barriers for #pragma omp distribute.  If max_vf is lower than
+	current safelen, prepend an OMP_CLAUSE_SAFELEN clause.
+	(lower_lastprivate_clauses): Handle "omp simd array" temporaries.
+	(lower_reduction_clauses): Exit early for #pragma omp simd.
+	(expand_omp_simd): Set loop->simduid from OMP_CLAUSE__SIMDUID_
+	and cfun->has_simduid_loops if set.
+	If OMP_CLAUSE_SAFELEN (1) is present, don't set loop->safelen
+	nor loop->force_vect.
+	(lower_omp_sections, lower_omp_single, lower_omp_taskreg): Adjust
+	lower_rec_input_clauses callers.
+	(lower_omp_for_lastprivate): Unshare vinit.
+	(lower_omp_for): Add OMP_CLAUSE__LOOPTEMP_ clauses before calling
+	lower_rec_input_clauses.  Adjust lower_rec_input_clauses caller.
+	Always call lower_omp_for_lastprivate at the same place, even for
+	#pragma omp simd.
+	* tree.h (enum clause_code): Add OMP_CLAUSE__SIMDUID_.
+	(OMP_CLAUSE__SIMDUID__DECL): Define.
+	* tree-vectorizer.c: Include hash-table.h and tree-ssa-propagate.h.
+	(simduid_to_vf, decl_to_simduid): New classes.
+	(simduid_to_vf::hash, simduid_to_vf::equal, decl_to_simduid::hash,
+	decl_to_simduid::equal): New methods.
+	(note_simd_array_uses_struct): New struct.
+	(adjust_simduid_builtins, note_simd_array_uses_cb,
+	note_simd_array_uses): New functions.
+	(vectorize_loops): Adjust "omp simd array" temporary array sizes
+	and fold GOMP_SIMD_{LANE,VF,LAST_LANE} builtins.
+	* tree-vectorizer.h (struct _stmt_vec_info): Add simd_lane_access_p
+	field.
+	(STMT_VINFO_SIMD_LANE_ACCESS_P): Define.
+	* tree-data-ref.c (get_references_in_stmt): Allow GOMP_SIMD_LANE
+	builtins in their own loops.
+	* tree-inline.c (copy_cfg_body): Propagate has_force_vect_loops
+	and has_simduid_loops.
+	* function.h (struct function): Add has_simduid_loops field.
+	* tree-ssa-ccp.c (likely_value): For GOMP_SIMD_{LANE,LAST_LANE,VF}
+	builtins ignore the undefined magic argument.
+	* tree-pretty-print.c (dump_omp_clause): Handle OMP_CLAUSE__SIMDUID_
+	clause.
+	* cfgloop.h (struct loop): Add simduid field.
+	* Makefile.in (tree-vectorizer.o): Depend on $(HASH_TABLE_H)
+	and tree-ssa-propagate.h.
+	* tree-vect-data-refs.c (vect_analyze_data_refs): Check for SIMD
+	lane access.
+	* gimplify.c (omp_add_variable): Handle combination of aligned
+	clause and some data sharing clause for the same decl.
+	(gimplify_omp_for): For collapse (2) and above simd loops
+	predetermine loop iteration vars as lastprivate instead of
+	linear.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Add
+	entries for OMP_CLAUSE__SIMDUID_.
+	(walk_tree_1): Handle OMP_CLAUSE__SIMDUID_.
+	* tree-vect-loop.c (vectorizable_live_operation): Handle live
+	GOMP_SIMD_LANE result.
+	* tree-vect-stmts.c (vectorizable_call): Vectorize GOMP_SIMD_LANE
+	builtin.
+	(vectorizable_store, vectorizable_load): Handle
+	STMT_VINFO_SIMD_LANE_ACCESS_P.
+	* internal-fn.c (expand_GOMP_SIMD_LANE, expand_GOMP_SIMD_VF,
+	expand_GOMP_SIMD_LAST_LANE): New functions.
+
+2013-06-21  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple.h (enum gf_mask): Adjust GF_OMP_FOR_COMBINED
+	value representation, add GF_OMP_FOR_COMBINED_INTO.
+	(gimple_omp_for_combined_into_p,
+	gimple_omp_for_set_combined_into_p): New inlines.
+	* gimplify.c (enum omp_region_type): Remove outdated
+	ORT_SIMD comment.
+	(struct gimplify_omp_ctx): Add combined_loop field.
+	(gimplify_omp_for): Call gimple_omp_for_set_combined_into_p
+	for inner for/simd constructs combined with an outer
+	loop construct (for or distribute).
+	* tree.c (omp_clause_num_ops): Add OMP_CLAUSE__LOOPTEMP_
+	entry.
+	(omp_clause_code_name): Likewise.
+	(walk_tree_1): Handle OMP_CLAUSE__LOOPTEMP_.
+	* tree-pretty-print.c (dump_omp_clause): Handle OMP_CLAUSE__LOOPTEMP_.
+	* tree.h (enum omp_clause_code): Add OMP_CLAUSE__LOOPTEMP_.
+	(OMP_CLAUSE_DECL): Allow also on OMP_CLAUSE__LOOPTEMP_.
+	* omp-low.c (extract_omp_for_data): Rename non_ws to simd.  Don't set
+	fd->chunk_size for non-chunk OMP_CLAUSE_SCHEDULE_STATIC, unless
+	fd->have_ordered.  For OMP_CLAUSE_SCHEDULE_STATIC non-ordered loops
+	compute fd->iter_type the same as for simd.
+	(get_ws_args_for): Add par_stmt argument, if
+	gimple_omp_for_combined_into_p, use first two _looptemp_ clauses
+	temporaries instead of fd->loop.n{1,2}.
+	(determine_parallel_type): Adjust caller.
+	(scan_sharing_clauses): Handle OMP_CLAUSE__LOOPTEMP_.
+	(find_combined_for): New function.
+	(scan_omp_parallel): If gimple_omp_parallel_combined_p and
+	it is combined with gimple_omp_for_combined_into_p OMP_FOR,
+	add OMP_CLAUSE__LOOPTEMP_ clauses to the parallel.
+	(check_omp_nesting_restrictions): Don't insist that the only construct
+	nested in OMP_DISTRIBUTE must be OMP_PARALLEL.
+	(lower_rec_input_clauses, lower_send_clauses): Handle
+	OMP_CLAUSE__LOOPTEMP_.
+	(expand_omp_for_init_counts, expand_omp_for_init_vars,
+	extract_omp_for_update_vars): New functions.
+	(expand_omp_for_generic): Add inner_stmt argument.  Use
+	expand_omp_for_{init,update}* helper functions.  Handle combined loop
+	constructs.
+	(expand_omp_for_static_nochunk, expand_omp_for_static_chunk):
+	Likewise.  Handle fd->collapse > 1 and broken_loop cases.
+	(expand_omp_simd): Use expand_omp_for_init* helper functions.  Handle
+	combined loop constructs.
+	(expand_omp_for): Add inner_stmt argument.  Pass it through to
+	expand_omp_for_{generic,static_{,no}chunk}.  Use
+	expand_omp_for_static* even for fd->collapse > 1 and/or broken_loop
+	cases, just not when fd->have_ordered.
+	(expand_omp): Adjust expand_omp_for caller.
+	(lower_omp_for): If gimple_omp_parallel_combined_p, add
+	OMP_CLAUSE__LOOPTEMP_ clauses to the GIMPLE_FOR stmt.
+
+2013-06-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_omp_for): Don't handle
+	GF_OMP_FOR_KIND_FOR_SIMD.
+	* gimple.h (GF_OMP_FOR_KIND_FOR_SIMD): Remove.
+	(GF_OMP_FOR_COMBINED): New.
+	(gimple_omp_for_combined_p, gimple_omp_for_set_combined_p): New
+	inline functions.
+	* gimplify.c (is_gimple_stmt): Don't handle OMP_FOR_SIMD.
+	(find_combined_omp_for): New function.
+	(gimplify_omp_for): Handle combined OMP_DISTRIBUTE and OMP_FOR
+	loops.
+	* Makefile.in (c-family/c-omp.o): Depend on $(C_PRAGMA_H).
+	* omp-low.c (build_outer_var_ref): Fix up simd handling.
+	(check_omp_nesting_restrictions): Don't handle
+	GF_OMP_FOR_KIND_FOR_SIMD.
+	* tree.def (OMP_FOR_SIMD): Remove.
+	* tree-pretty-print.c (dump_generic_node): Don't handle OMP_FOR_SIMD.
+	Handle NULL OMP_FOR_INIT.
+
+2013-06-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle
+	OMP_CLAUSE_THREAD_LIMIT.
+	* tree-pretty-print.c (dump_omp_clause): Likewise.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Add entries for
+	OMP_CLAUSE_THREAD_LIMIT.
+	* tree.h (enum omp_clause_code): Add OMP_CLAUSE_THREAD_LIMIT.
+	(OMP_CLAUSE_THREAD_LIMIT_EXPR): Define.
+
+2013-06-04  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimplify.c (gimplify_scan_omp_clauses): Handle array
+	sections on OMP_CLAUSE_{MAP,TO,FROM} clauses, handle
+	OMP_CLAUSE_DEPEND clause.
+	(gimplify_adjust_omp_clauses): Handle array sections on
+	OMP_CLAUSE_MAP, handle OMP_CLAUSE_DEPEND clause.
+	* tree.c (omp_clause_num_ops): OMP_CLAUSE_{MAP,TO,FROM}
+	now have 2 arguments, move OMP_CLAUSE_UNIFORM before these
+	3.
+	(omp_clause_code_name): Adjust for OMP_CLAUSE_UNIFORM movement.
+	(walk_tree_1): Adjust to handle 2 arguments of
+	OMP_CLAUSE_{MAP,TO,FROM}.
+	* tree-pretty-print.c (dump_omp_clause): For OMP_CLAUSE_{MAP,TO,FROM}
+	print OMP_CLAUSE_SIZE, and for OMP_CLAUSE_MAP handle
+	OMP_CLAUSE_MAP_POINTER.
+	* tree.h (enum omp_clause_code): Move OMP_CLAUSE_UNIFORM before
+	OMP_CLAUSE_{MAP,TO,FROM}.
+	(OMP_CLAUSE_SIZE): Define.
+	(enum omp_clause_map_kind): Add OMP_CLAUSE_MAP_POINTER.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE_DEPEND.
+
+2013-05-29  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-builtins.def (BUILT_IN_OMP_GET_TEAM_NUM,
+	BUILT_IN_OMP_GET_NUM_TEAMS): New built-ins.
+	* omp-low.c (extract_omp_for_data, expand_omp_for_static_nochunk,
+	expand_omp_for_static_chunk): Handle #pragma omp distribute.
+	(expand_omp_for): Add assertion for non-finished distribute collapse
+	> 1 support.
+	(check_omp_nesting_restrictions): Allow orphaned distribute construct.
+
+	* omp-low.c (check_omp_nesting_restrictions): Add some
+	accelerator related nesting restrictions.
+	(scan_omp_1_stmt): Call check_omp_nesting_restrictions
+	even for GOMP_taskgroup_{start,end}.
+	* gimplify.c (omp_notice_threadprivate_variable): Fix a typo.
+	(gimplify_body): For functions with "omp declare target" attribute
+	add ORT_TARGET region around the body.
+
+2013-05-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.def (OMP_TEAMS, OMP_TARGET_DATA, OMP_TARGET,
+	OMP_TARGET_UPDATE): New tree codes.
+	* tree-cfg.c (make_edges): Handle GIMPLE_OMP_TARGET
+	and GIMPLE_OMP_TEAMS.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE_DIST_SCHEDULE.
+	* gimple-low.c (lower_stmt): Handle GIMPLE_OMP_TARGET
+	and GIMPLE_OMP_TEAMS.
+	* tree.h (OMP_TEAMS_BODY, OMP_TEAMS_CLAUSES, OMP_TARGET_DATA_BODY,
+	OMP_TARGET_DATA_CLAUSES, OMP_TARGET_BODY, OMP_TARGET_CLAUSES,
+	OMP_TARGET_UPDATE_CLAUSES): Define.
+ 	* tree-nested.c (convert_nonlocal_reference_stmt,
+	convert_local_reference_stmt, convert_gimple_call): Handle
+	GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	* tree-inline.c (estimate_num_insns): Likewise.
+	(remap_gimple_stmt): Likewise.  Adjust gimple_build_omp_for
+	caller.
+	* gimple.def: Adjust comments describing OMP_CLAUSEs.
+	(GIMPLE_OMP_TARGET, GIMPLE_OMP_TEAMS): New GIMPLE stmts.
+	* tree-parloops.c (create_parallel_loop): Adjust gimple_build_omp_for
+	caller.
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_TEAMS,
+	OMP_TARGET, OMP_TARGET_DATA and OMP_TARGET_UPDATE.
+	* gimple.h (GF_OMP_TARGET_KIND_MASK, GF_OMP_TARGET_KIND_REGION,
+	GF_OMP_TARGET_KIND_DATA, GF_OMP_TARGET_KIND_UPDATE): New.
+	(gimple_build_omp_for): Add kind argument to prototype.
+	(gimple_build_omp_target, gimple_build_omp_teams): New prototypes.
+	(gimple_has_substatements): Handle GIMPLE_OMP_TARGET and
+	GIMPLE_OMP_TEAMS.
+	(gimple_omp_subcode): Change GIMPLE_OMP_SINGLE to GIMPLE_OMP_TEAMS.
+	(gimple_omp_target_clauses, gimple_omp_target_clauses_ptr,
+	gimple_omp_target_set_clauses, gimple_omp_target_kind,
+	gimple_omp_target_set_kind, gimple_omp_teams_clauses,
+	gimple_omp_teams_clauses_ptr, gimple_omp_teams_set_clauses): New
+	inline functions.
+	(gimple_return_set_retval): Handle GIMPLE_OMP_TARGET and
+	GIMPLE_OMP_TEAMS.
+	* gimple.c (gimple_build_omp_for): Add kind argument, call
+	gimple_omp_for_set_kind.
+	(gimple_build_omp_target, gimple_build_omp_teams): New functions.
+	(walk_gimple_op, walk_gimple_stmt, gimple_copy): Handle
+	GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	* gimple-pretty-print.c (dump_gimple_omp_target,
+	dump_gimple_omp_teams): New functions.
+	(pp_gimple_stmt_1): Handle GIMPLE_OMP_TARGET and GIMPLE_OMP_TEAMS.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_MAP.
+	(enum omp_region_type): Add ORT_TEAMS, ORT_TARGET and ORT_TARGET_DATA.
+	(omp_add_variable): Add temporary assertions.
+	(omp_notice_threadprivate_variable): Complain if threadprivate vars
+	appear in target region.
+	(omp_notice_variable): ORT_TARGET, ORT_TARGET_DATA and ORT_TEAMS
+	handling.
+	(omp_check_private): Ignore ORT_TARGET and ORT_TARGET_DATA regions.
+	(gimplify_scan_omp_clauses): Handle OMP_CLAUSE_MAP, OMP_CLAUSE_TO,
+	OMP_CLAUSE_FROM, OMP_CLAUSE_NUM_TEAMS, OMP_CLAUSE_DIST_SCHEDULE
+	and OMP_CLAUSE_DEVICE.
+	(gimplify_adjust_omp_clauses): Likewise.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_MAP.  Fix up
+	check for privatization by also testing for GOVD_LINEAR.
+	(gimplify_omp_for): Adjust gimple_build_omp_for caller.
+	Clear *expr_p.
+	(gimplify_omp_workshare): Handle also OMP_TARGET, OMP_TARGET_DATA
+	and OMP_TEAMS.  Clear *expr_p.
+	(gimplify_omp_target_update): New function.
+	(gimplify_expr): Handle OMP_TARGET, OMP_TARGET_DATA, OMP_TARGET_UPDATE
+	and OMP_TEAMS.
+
+2013-05-20  Jakub Jelinek  <jakub@redhat.com>
+
+	* omp-low.c (expand_omp_simd): For collapse > 1 loops,
+	if some loop condition might be not true initially, add runtime
+	test and skip the whole loop.
+
+2013-05-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* cfgloop.h (struct loop): Add safelen and force_vect fields.
+	* function.h (struct function): Add has_force_vect_loops field.
+	* omp-low.c (expand_omp_simd): If !broken_loop, create loop for
+	the simd region and set safelen and force_vect fields in it.
+	* tree-vectorizer.c (vectorize_loops): If loop has force_vect set,
+	vectorize it even if flag_vectorize isn't set.  Clear loop->force_vect
+	after vectorization.
+	* tree-ssa-loop.c (gate_tree_vectorize): Return true even
+	cfun->has_force_vect_loops.
+	* tree-ssa-loop-ivcanon.c (tree_unroll_loops_completely_1): Don't
+	unroll loops with loop->force_vect.
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): For
+	unknown or bad data dependency, if loop->safelen is non-zero, just
+	decrease *max_vf to loop->safelen if needed and return false.
+	* tree-if-conv.c (main_tree_if_conversion): If-convert also loops with
+	loop->force_vect.
+	(gate_tree_if_conversion): Return true even if
+	cfun->has_force_vect_loops.
+
+2013-05-09  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.c (omp_declare_simd_clauses_equal): New function.
+	(attribute_value_equal): Call it for -fopenmp if
+	TREE_VALUE of the attributes are both OMP_CLAUSEs.
+	* tree.h (omp_declare_simd_clauses_equal): Declare.
+
+2013-04-30  Jakub Jelinek  <jakub@redhat.com>
+
+	* gimple-pretty-print.c (dump_gimple_omp_atomic_load,
+	dump_gimple_omp_atomic_store): Handle gimple_omp_atomic_seq_cst_p.
+	* gimple.h (enum gf_mask): Add GF_OMP_ATOMIC_SEQ_CST.
+	(gimple_omp_atomic_set_seq_cst, gimple_omp_atomic_seq_cst_p): New
+	inline functions.
+	* omp-low.c (expand_omp_atomic_load, expand_omp_atomic_store,
+	expand_omp_atomic_fetch_op): If gimple_omp_atomic_seq_cst_p,
+	pass MEMMODEL_SEQ_CST instead of MEMMODEL_RELAXED to the builtin.
+	* gimplify.c (gimplify_omp_atomic): Handle OMP_ATOMIC_SEQ_CST.
+	* tree-pretty-print.c (dump_generic_node): Handle OMP_ATOMIC_SEQ_CST.
+	* tree.def (OMP_ATOMIC): Add comment that OMP_ATOMIC* must stay
+	consecutive.
+	* tree.h (OMP_ATOMIC_SEQ_CST): Define.
+
+	* omp-low.c (check_omp_nesting_restrictions): Diagnose
+	OpenMP constructs nested inside simd region.  Don't treat
+	#pragma omp simd as work-sharing region.  Disallow work-sharing
+	constructs inside of critical region.  Complain if ordered
+	region is nested inside of parallel region without loop
+	region in between.
+	(scan_omp_1_stmt): Call check_omp_nesting_restrictions even
+	for GOMP_{cancel{,lation_point},taskyield,taskwait} calls.
+
+2013-04-23  Jakub Jelinek  <jakub@redhat.com>
+
+	* Makefile.in (omp-low.o): Depend on $(TARGET_H).
+	* gimplify.c (gimplify_adjust_omp_clauses): For linear clauses
+	if outer_context is non-NULL, but not ORT_COMBINED_PARALLEL,
+	call omp_notice_variable.  Remove aligned clauses that can't
+	be handled yet.
+	* omp-low.c: Include target.h.
+	(scan_sharing_clauses): For aligned clauses with global arrays
+	register local replacement.
+	(omp_clause_aligned_alignment): New function.
+	(lower_rec_input_clauses): For aligned clauses for global
+	arrays or automatic pointers emit __builtin_assume_aligned
+	before the loop if possible.
+	(expand_omp_regimplify_p, expand_omp_build_assign): New functions.
+	(expand_omp_simd): Use them.  Handle pointer iterators and broken
+	loops.
+	(lower_omp_for): Call lower_omp on gimple_omp_body_ptr after
+	calling lower_rec_input_clauses, not before it.
+
+2013-04-19  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree.h (OMP_CLAUSE_LINEAR_NO_COPYIN,
+	OMP_CLAUSE_LINEAR_NO_COPYOUT): Define.
+	* omp-low.c (extract_omp_for_data): Handle #pragma omp simd.
+	(build_outer_var_ref): For #pragma omp simd allow linear etc.
+	clauses to bind even to private vars.
+	(scan_sharing_clauses): Handle OMP_CLAUSE_LINEAR, OMP_CLAUSE_ALIGNED
+	and OMP_CLAUSE_SAFELEN.
+	(lower_rec_input_clauses): Handle OMP_CLAUSE_LINEAR.  Don't emit
+	a GOMP_barrier call for firstprivate/lastprivate in #pragma omp simd.
+	(lower_lastprivate_clauses): Handle also OMP_CLAUSE_LINEAR.
+	(expand_omp_simd): New function.
+	(expand_omp_for): Handle #pragma omp simd.
+	* gimplify.c (enum gimplify_omp_var_data): Add GOVD_LINEAR and
+	GOVD_ALIGNED, add GOVD_LINEAR into GOVD_DATA_SHARE_CLASS.
+	(enum omp_region_type): Add ORT_SIMD.
+	(gimple_add_tmp_var, gimplify_var_or_parm_decl, omp_check_private,
+	omp_firstprivatize_variable, omp_notice_variable): Handle ORT_SIMD
+	like ORT_WORKSHARE.
+	(omp_is_private): Likewise.  Add SIMD argument, tweak diagnostics
+	and add extra errors in simd constructs.
+	(gimplify_scan_omp_clauses, gimplify_adjust_omp_clauses): Handle
+	OMP_CLAUSE_LINEAR, OMP_CLAUSE_ALIGNED and OMP_CLAUSE_SAFELEN.
+	(gimplify_adjust_omp_clauses_1): Handle GOVD_LASTPRIVATE and
+	GOVD_ALIGNED.
+	(gimplify_omp_for): Handle #pragma omp simd.
+
+2013-04-10  Jakub Jelinek  <jakub@redhat.com>
+
+	* builtin-types.def (DEF_FUNCTION_TYPE_8): Document.
+	(BT_FN_VOID_OMPFN_PTR_UINT, BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_LONG): Remove.
+	(BT_FN_VOID_OMPFN_PTR_UINT_UINT_UINT,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_UINT,
+	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_LONG_UINT): New.
+	* gimplify.c (gimplify_scan_omp_clauses, gimplify_adjust_omp_clauses):
+	Handle OMP_CLAUSE_PROC_BIND.
+	* omp-builtins.def (BUILT_IN_GOMP_TASKGROUP_START,
+	BUILT_IN_GOMP_TASKGROUP_END, BUILT_IN_GOMP_PARALLEL_LOOP_STATIC,
+	BUILT_IN_GOMP_PARALLEL_LOOP_DYNAMIC,
+	BUILT_IN_GOMP_PARALLEL_LOOP_GUIDED,
+	BUILT_IN_GOMP_PARALLEL_LOOP_RUNTIME, BUILT_IN_GOMP_PARALLEL,
+	BUILT_IN_GOMP_PARALLEL_SECTIONS): New built-ins.
+	(BUILT_IN_GOMP_PARALLEL_LOOP_STATIC_START,
+	BUILT_IN_GOMP_PARALLEL_LOOP_DYNAMIC_START,
+	BUILT_IN_GOMP_PARALLEL_LOOP_GUIDED_START,
+	BUILT_IN_GOMP_PARALLEL_LOOP_RUNTIME_START,
+	BUILT_IN_GOMP_PARALLEL_START, BUILT_IN_GOMP_PARALLEL_END,
+	BUILT_IN_GOMP_PARALLEL_SECTIONS_START): Remove.
+	* omp-low.c (scan_sharing_clauses): Handle OMP_CLAUSE_PROC_BIND.
+	(expand_parallel_call): Expand #pragma omp parallel* as
+	calls to the new GOMP_parallel_* APIs without _start at the end,
+	instead of GOMP_parallel_*_start followed by fn.omp_fn.N call,
+	followed by GOMP_parallel_end.  Handle OMP_CLAUSE_PROC_BIND.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1,
+	call_may_clobber_ref_p_1): Handle BUILT_IN_GOMP_TASKGROUP_END
+	instead of BUILT_IN_GOMP_PARALLEL_END.
+
