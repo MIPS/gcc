@@ -1,3 +1,46 @@
+2013-12-23  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59271
+	* lambda.c (build_capture_proxy): Use build_cplus_array_type.
+
+	PR c++/59349
+	* parser.c (cp_parser_lambda_introducer): Handle empty init.
+
+2013-12-23  Stuart Hastings <stuart@apple.com>
+	    Bill Maddox  <maddox@google.com>
+	    Jason Merrill  <jason@redhat.com>
+
+	PR c++/41090
+	* optimize.c (can_alias_cdtor, populate_clone_array): Split out
+	from maybe_clone_body.
+	(maybe_thunk_body): New function.
+	(maybe_clone_body): Call it.
+	* mangle.c (write_mangled_name): Remove code to suppress
+	writing of mangled name for cloned constructor or destructor.
+	(write_special_name_constructor): Handle decloned constructor.
+	(write_special_name_destructor): Handle decloned destructor.
+	* method.c (trivial_fn_p): Handle decloning.
+	* semantics.c (expand_or_defer_fn_1): Clone after setting linkage.
+
+2013-12-23  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/59111
+	* search.c (lookup_conversions): Return NULL_TREE if !CLASS_TYPE_P.
+
+2013-12-20  Trevor saunders  <tsaunders@mozilla.com>
+
+	* semantics.c (build_anon_member_initialization): Replace
+	stack_vec<T, N> with auto_vec<T, N>.
+
+2013-12-18  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	* parser.c (cp_parser_cilk_simd_clause_name): Changed cilk_clause_name
+	to omp_clause_name.
+
+2013-12-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* parser.c (cp_parser_omp_parallel): Fix description.
+
 2013-12-12  Jason Merrill  <jason@redhat.com>
 
 	PR c++/58954
@@ -31,7 +74,7 @@
 	* cp-gimplify.c (cp_gimplify_expr): Added a CILK_SPAWN_STMT and
 	CALL_EXPR case.  Added handling of spawned function in MODIFY_EXPR
 	and INIT_EXPR.
-	
+
 2013-12-09  Paolo Carlini  <paolo.carlini@oracle.com>
 
 	PR c++/59435
@@ -2133,19 +2176,19 @@
 	ARRAY_NOTATION_REF case.
 	* cp-gimplify.c (cp_genericize): Added expansion of array notation
 	expressions here.
-	* cp-array-notation.c (make_triplet_val_inv): Removed loc and cry 
+	* cp-array-notation.c (make_triplet_val_inv): Removed loc and cry
 	parameters.  Replaced build_decls with get_temp_regvar with type as
 	ptrdiff.
 	(create_array_refs): Made the type-casting to ptrdiff_type.
-	(replace_invariant_var): Added a check for void return type before 
+	(replace_invariant_var): Added a check for void return type before
 	creating new var.  Replaced build_decl and build_min_nt_loc with
 	get_temp_regvar.
-	(expand_an_in_modify_expr): Ditto.  Replaced body of redundant else 
-	with gcc_unreachable.  Removed few unwanted checks.  Made induction 
-	variable type as ptrdiff_type.  Removed loc and complain arguments 
-	passed into make_triplet_val_inv.  Replaced all modify expression's 
-	code from NOP EXPR to INIT EXPR.  Replaced all forceful appending 
-	into stmt. list with the non-forceful one.  Replaced some integer 
+	(expand_an_in_modify_expr): Ditto.  Replaced body of redundant else
+	with gcc_unreachable.  Removed few unwanted checks.  Made induction
+	variable type as ptrdiff_type.  Removed loc and complain arguments
+	passed into make_triplet_val_inv.  Replaced all modify expression's
+	code from NOP EXPR to INIT EXPR.  Replaced all forceful appending
+	into stmt. list with the non-forceful one.  Replaced some integer
 	conversion and equality-checking to using tree_int_cst_equal.
 	(expand_sec_reduce_builtin): All changes mentioned in above function
 	expand_an_in_modify_expr.  Made the new variable type of
