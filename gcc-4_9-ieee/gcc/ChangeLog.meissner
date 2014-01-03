@@ -1,3 +1,47 @@
+2014-01-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_L): Add XFmode (ieee 128-bit
+	floating point).
+	(VEC_M): Likewise.
+	(VEC_R): Likewise.
+
+	* config/rs6000/predicates.md (easy_fp_support): Add support for
+	XFmode.
+
+	* config/rs6000/rs6000-modes.def (XFmode): Add new floating point
+	type that is IEEE 128-bit floating point.  Make this mode a
+	fractional mode so it is not selected by normal mode lookup
+	rules.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Add XFmode to
+	modes to print out with debugging.
+	(rs6000_init_hard_regno_mode_ok): Setup XFmode if VSX is
+	available.
+	(reg_offset_addressing_ok_p): Treat XFmode as a vector type that
+	only uses reg+reg addressing, and is passed/returned like a vector
+	type.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_emit_move): Likewise.
+	(rs6000_function_arg_boundary): Likewise.
+	(rs6000_init_builtins): Add support for new __float128 keyword.
+	Setup XFmode.
+	(rs6000_output_function_epilogue): Add XFmode support.
+
+	* config/rs6000/vsx.md (VSX_L): Add XFmode to VSX mode iterators.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+
+	* config/rs6000/rs6000.h (VSX_VECTOR_MODE): Treat XFmode (ieee
+	128-bit floating point) as a VSX mode.
+	(enum rs6000_builtin_type_index): Add type for IEEE 128-bit
+	floating point.
+	(ieee128_float_type_node): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add XFmode to VMX mode
+	iterators.
+	(VM2): Likewise.
+
 2014-01-02  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 206281.

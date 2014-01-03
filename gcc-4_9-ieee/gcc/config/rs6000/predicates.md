@@ -433,11 +433,12 @@
     return 1;
 
   /* The constant 0.0 is easy under VSX.  */
-  if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode)
+  if ((mode == SFmode || mode == DFmode || mode == SDmode || mode == DDmode
+       || mode == XFmode)
       && VECTOR_UNIT_VSX_P (DFmode) && op == CONST0_RTX (mode))
     return 1;
 
-  if (DECIMAL_FLOAT_MODE_P (mode))
+  if (DECIMAL_FLOAT_MODE_P (mode) || mode == XFmode)
     return 0;
 
   /* If we are using V.4 style PIC, consider all constants to be hard.  */

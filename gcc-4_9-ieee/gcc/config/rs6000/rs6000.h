@@ -1170,9 +1170,12 @@ enum data_align { align_abi, align_opt, align_both };
        && GET_MODE_SIZE (MODE) > 8 && ((MODE) != TDmode) 		\
        && ((MODE) != TFmode)))
 
+/* Note XFmode (i.e. IEEE 128-bit floating point) is not really a vector, but
+   we want to treat it as a vector for moves, and such.  */
 #define VSX_VECTOR_MODE(MODE)		\
 	 ((MODE) == V4SFmode		\
-	  || (MODE) == V2DFmode)	\
+	  || (MODE) == V2DFmode		\
+	  || (MODE) == XFmode)
 
 #define ALTIVEC_VECTOR_MODE(MODE)	\
 	 ((MODE) == V16QImode		\
@@ -2599,6 +2602,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_float,	         /* float_type_node */
   RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
+  RS6000_BTI_ieee128_float,	 /* ieee 128-bit floating point */
   RS6000_BTI_MAX
 };
 
@@ -2646,6 +2650,7 @@ enum rs6000_builtin_type_index
 #define float_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_float])
 #define double_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_double])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
+#define ieee128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128_float])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];

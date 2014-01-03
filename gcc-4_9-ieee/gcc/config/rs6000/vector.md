@@ -36,10 +36,10 @@
 (define_mode_iterator VEC_K [V16QI V8HI V4SI V4SF])
 
 ;; Vector logical modes
-(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
+(define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF TI XF])
 
 ;; Vector modes for moves.  Don't do TImode here.
-(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF])
+(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF XF])
 
 ;; Vector modes for types that don't need a realignment under VSX
 (define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF])
@@ -54,7 +54,8 @@
 (define_mode_iterator VEC_64 [V2DI V2DF])
 
 ;; Vector reload iterator
-(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF SF SD SI DF DD DI TI])
+(define_mode_iterator VEC_R [V16QI V8HI V4SI V2DI V4SF V2DF
+			     SF SD SI DF DD DI TI XF])
 
 ;; Base type from vector mode
 (define_mode_attr VEC_base [(V16QI "QI")

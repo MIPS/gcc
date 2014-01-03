@@ -1960,6 +1960,7 @@ rs6000_debug_reg_global (void)
     SFmode,
     DFmode,
     TFmode,
+    XFmode,
     SDmode,
     DDmode,
     TDmode,
@@ -2497,6 +2498,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       align32 = 128;
     }
 
+  /* XF mode (ieee 128-bit), VSX only.  We do not have arithmetic, so only set
+     the memory modes.  */
+  if (TARGET_VSX)
+    {
+      rs6000_vector_mem[XFmode] = VECTOR_VSX;
+      rs6000_vector_align[V2DFmode] = 128;
+    }
+
   /* V2DF mode, VSX only.  */
   if (TARGET_VSX)
     {
@@ -2679,6 +2688,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_di_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_di_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_di_load;
+	  reg_addr[XFmode].reload_store    = CODE_FOR_reload_xf_di_store;
+	  reg_addr[XFmode].reload_load     = CODE_FOR_reload_xf_di_load;
 	  if (TARGET_VSX && TARGET_UPPER_REGS_DF)
 	    {
 	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_di_store;
@@ -2742,6 +2753,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_si_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_si_store;
 	  reg_addr[V2DFmode].reload_load   = CODE_FOR_reload_v2df_si_load;
+	  reg_addr[XFmode].reload_store    = CODE_FOR_reload_xf_si_store;
+	  reg_addr[XFmode].reload_load     = CODE_FOR_reload_xf_si_load;
 	  if (TARGET_VSX && TARGET_UPPER_REGS_DF)
 	    {
 	      reg_addr[DFmode].reload_store  = CODE_FOR_reload_df_si_store;
@@ -6042,6 +6055,7 @@ reg_offset_addressing_ok_p (enum machine_mode mode)
     case V2DFmode:
     case V2DImode:
     case TImode:
+    case XFmode:
       /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  While
 	 TImode is not a vector mode, if we want to use the VSX registers to
 	 move it around, we need to restrict ourselves to reg+reg
@@ -6324,6 +6338,7 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
     case TDmode:
     case TImode:
     case PTImode:
+    case XFmode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
 		&& SPE_CONST_OFFSET_OK (offset + 8));
@@ -6513,6 +6528,7 @@ rs6000_legitimize_address (rtx x, rtx oldx ATTRIBUTE_UNUSED,
     case TDmode:
     case TImode:
     case PTImode:
+    case XFmode:
       /* As in legitimate_offset_address_p we do not assume
 	 worst-case.  The mode here is just a hint as to the registers
 	 used.  A TImode is usually in gprs, but may actually be in
@@ -7308,6 +7324,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 	 mem is sufficiently aligned.  */
       && mode != TFmode
       && mode != TDmode
+      && mode != XFmode
       && (mode != TImode || !TARGET_VSX_TIMODE)
       && mode != PTImode
       && (mode != DImode || TARGET_POWERPC64)
@@ -8282,6 +8299,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     case V1DImode:
     case V2DFmode:
     case V2DImode:
+    case XFmode:
       if (CONSTANT_P (operands[1])
 	  && !easy_vector_constant (operands[1], mode))
 	operands[1] = force_const_mem (mode, operands[1]);
@@ -9042,6 +9060,8 @@ rs6000_function_arg_boundary (enum machine_mode mode, const_tree type)
 	      && TARGET_FPRS
 	      && (mode == TFmode || mode == TDmode))))
     return 64;
+  else if (mode == XFmode)
+    return 128;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
 	       && int_size_in_bytes (type) >= 8
@@ -13434,6 +13454,18 @@ rs6000_init_builtins (void)
   double_type_internal_node = double_type_node;
   void_type_internal_node = void_type_node;
 
+  /* The __float128 type (ieee 128-bit).  */
+  if (TARGET_VSX)
+    {
+      enum machine_mode ieee_mode = (TARGET_IEEEQUAD) ? TFmode : XFmode;
+      ieee128_float_type_node = make_node (REAL_TYPE);
+      TYPE_PRECISION (ieee128_float_type_node) = 128;
+      layout_type (ieee128_float_type_node);
+      SET_TYPE_MODE (ieee128_float_type_node, ieee_mode);
+      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					      "__float128");
+    }
+
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
   builtin_mode_to_type[QImode][0] = integer_type_node;
@@ -13444,6 +13476,7 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[DImode][1] = unsigned_intDI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
+  builtin_mode_to_type[XFmode][0] = ieee128_float_type_node;
   builtin_mode_to_type[V2SImode][0] = V2SI_type_node;
   builtin_mode_to_type[V2SFmode][0] = V2SF_type_node;
   builtin_mode_to_type[V2DImode][0] = V2DI_type_node;
@@ -24395,6 +24428,7 @@ rs6000_output_function_epilogue (FILE *file,
 			case DDmode:
 			case TFmode:
 			case TDmode:
+			case XFmode:
 			  bits = 0x3;
 			  break;
 
