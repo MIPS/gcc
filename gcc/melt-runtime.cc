@@ -1,7 +1,7 @@
 /*** file melt-runtime.cc - see http://gcc-melt.org/ for more.
      Middle End Lisp Translator [MELT] runtime support.
 
-     Copyright (C) 2008 - 2013 Free Software Foundation, Inc.
+     Copyright (C) 2008 - 2014  Free Software Foundation, Inc.
      Contributed by Basile Starynkevitch <basile@starynkevitch.net>
        and Pierre Vittet  <piervit@pvittet.com>
        and Romain Geissler  <romain.geissler@gmail.com>
@@ -1317,7 +1317,7 @@ meltgc_make_special (melt_ptr_t discr_p)
       spda_specv->meltspec_next = melt_newspecdatalist;
       melt_newspecdatalist = (struct meltspecialdata_st*)specv;
       melt_debuggc_eprintf ("make_special data %p discr %p magic %d %s",
-                            specv, discrv, magic, melt_obmag_string(magic));
+                            (void*)specv, (void*)discrv, magic, melt_obmag_string(magic));
 #if ENABLE_CHECKING
       if (melt_alptr_1 && (void*)melt_alptr_1 == specv)
         {
@@ -1832,7 +1832,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
   melt_debuggc_eprintf ("melt_garbcoll melt_forwarded_copy_byte_count=%ld",
                         melt_forwarded_copy_byte_count);
   if (!needfullreason && gckd > MELT_ONLY_MINOR
-      && melt_forwarded_copy_byte_count
+      && (long) melt_forwarded_copy_byte_count
          > (long) 5*melt_minorsizekilow*(1024*sizeof(void*)))
     {
       melt_kilowords_forwarded
@@ -8361,7 +8361,6 @@ void
 melt_warning_str (int opt, melt_ptr_t mixloc_p, const char *msg,
                   melt_ptr_t str_p)
 {
-  int mixmag = 0;
   int lineno = 0;
   location_t loc = 0;
   MELT_ENTERFRAME (3, NULL);
@@ -8391,7 +8390,7 @@ melt_warning_str (int opt, melt_ptr_t mixloc_p, const char *msg,
 			melt_dbgcounter, msg);
 	  else
 	    warning_at (loc, opt, "MELT warning: %s",
-			melt_dbgcounter, msg);
+			msg);
 	}
     }
   else

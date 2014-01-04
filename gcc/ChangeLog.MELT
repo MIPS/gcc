@@ -1,4 +1,12 @@
 
+2014-01-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc: Update copyright year.
+	(meltgc_make_special): Better debug printf.
+	(melt_garbcoll): Cast to long in compare.
+	(melt_warning_str): Remove mixmag variable.  Correct the
+	warning_at format string when melt_dbgcounter is 0.
+
 2013-12-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (meltgc_read_from_rawstring)
