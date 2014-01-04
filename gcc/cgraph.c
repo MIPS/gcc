@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -1468,7 +1468,7 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
     {
       new_stmt = e->call_stmt;
       gimple_call_set_fndecl (new_stmt, e->callee->decl);
-      update_stmt (new_stmt);
+      update_stmt_fn (DECL_STRUCT_FUNCTION (e->caller->decl), new_stmt);
     }
 
   cgraph_set_call_stmt_including_clones (e->caller, e->call_stmt, new_stmt, false);
@@ -2666,10 +2666,18 @@ verify_cgraph_node (struct cgraph_node *node)
 	  error_found = true;
 	}
     }
+  bool check_comdat = symtab_comdat_local_p (node);
   for (e = node->callers; e; e = e->next_caller)
     {
       if (verify_edge_count_and_frequency (e))
 	error_found = true;
+      if (check_comdat
+	  && !symtab_in_same_comdat_p (e->caller, node))
+	{
+	  error ("comdat-local function called by %s outside its comdat",
+		 identifier_to_locale (e->caller->name ()));
+	  error_found = true;
+	}
       if (!e->inline_failed)
 	{
 	  if (node->global.inlined_to

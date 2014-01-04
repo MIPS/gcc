@@ -1,5 +1,5 @@
 /* Control flow optimization code for GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2613,7 +2613,7 @@ try_optimize_cfg (int mode)
 
   crossjumps_occured = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     update_forwarder_flag (bb);
 
   if (! targetm.cannot_modify_jumps_p ())
@@ -2864,7 +2864,7 @@ try_optimize_cfg (int mode)
       while (changed);
     }
 
-  FOR_ALL_BB (b)
+  FOR_ALL_BB_FN (b, cfun)
     b->flags &= ~(BB_FORWARDER_BLOCK | BB_NONTHREADABLE_BLOCK);
 
   return changed_overall;
@@ -2955,7 +2955,7 @@ delete_dead_jumptables (void)
 
   /* A dead jump table does not belong to any basic block.  Scan insns
      between two adjacent basic blocks.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn, next;
 

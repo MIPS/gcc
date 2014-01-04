@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -162,6 +162,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return false;
     }
 
+  // TODO: Use a function vector to dispatch, instead of using switch-case.
   template<typename _BiIter, typename _Alloc, typename _TraitsT,
     bool __dfs_mode>
   template<bool __match_mode>

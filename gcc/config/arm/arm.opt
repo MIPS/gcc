@@ -1,6 +1,6 @@
 ; Options for the ARM port of the compiler.
 
-; Copyright (C) 2005-2013 Free Software Foundation, Inc.
+; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;
 ; This file is part of GCC.
 ;
@@ -144,7 +144,7 @@ Target RejectNegative Joined Enum(arm_fpu) Var(arm_fpu_index)
 Specify the name of the target floating point hardware/format
 
 mlra
-Target Report Var(arm_lra_flag) Init(0) Save
+Target Report Var(arm_lra_flag) Init(1) Save
 Use LRA instead of reload (transitional)
 
 mhard-float

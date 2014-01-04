@@ -1,5 +1,5 @@
 /* Swing Modulo Scheduling implementation.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Ayal Zaks and Mustafa Hagog <zaks,mustafa@il.ibm.com>
 
 This file is part of GCC.
@@ -3343,7 +3343,7 @@ rest_of_handle_sms (void)
   max_regno = max_reg_num ();
 
   /* Finalize layout changes.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     if (bb->next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
       bb->aux = bb->next_bb;
   free_dominance_info (CDI_DOMINATORS);

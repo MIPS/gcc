@@ -1,6 +1,6 @@
 // class template regex -*- C++ -*-
 
-// Copyright (C) 2010-2013 Free Software Foundation, Inc.
+// Copyright (C) 2010-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -237,6 +237,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
     };
 
   /// Matches a character range (bracket expression)
+  // TODO: Convert used _M_flags fields to template parameters, including
+  // collate and icase. Avoid using std::set, could use flat_set
+  // (sorted vector and binary search) instead; use an fixed sized (256)
+  // vector<bool> for char specialization if necessary.
   template<typename _TraitsT>
     struct _BracketMatcher
     {

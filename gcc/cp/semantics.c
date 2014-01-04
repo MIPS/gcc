@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -2041,12 +2041,10 @@ empty_expr_stmt_p (tree expr_stmt)
 
 /* Perform Koenig lookup.  FN is the postfix-expression representing
    the function (or functions) to call; ARGS are the arguments to the
-   call; if INCLUDE_STD then the `std' namespace is automatically
-   considered an associated namespace (used in range-based for loops).
-   Returns the functions to be considered by overload resolution.  */
+   call.  Returns the functions to be considered by overload resolution.  */
 
 tree
-perform_koenig_lookup (tree fn, vec<tree, va_gc> *args, bool include_std,
+perform_koenig_lookup (tree fn, vec<tree, va_gc> *args,
 		       tsubst_flags_t complain)
 {
   tree identifier = NULL_TREE;
@@ -2083,7 +2081,7 @@ perform_koenig_lookup (tree fn, vec<tree, va_gc> *args, bool include_std,
   if (!any_type_dependent_arguments_p (args)
       && !any_dependent_template_arguments_p (tmpl_args))
     {
-      fn = lookup_arg_dependent (identifier, functions, args, include_std);
+      fn = lookup_arg_dependent (identifier, functions, args);
       if (!fn)
 	{
 	  /* The unqualified name could not be resolved.  */
@@ -3901,20 +3899,6 @@ expand_or_defer_fn_1 (tree fn)
 
   gcc_assert (DECL_SAVED_TREE (fn));
 
-  /* If this is a constructor or destructor body, we have to clone
-     it.  */
-  if (maybe_clone_body (fn))
-    {
-      /* We don't want to process FN again, so pretend we've written
-	 it out, even though we haven't.  */
-      TREE_ASM_WRITTEN (fn) = 1;
-      /* If this is an instantiation of a constexpr function, keep
-	 DECL_SAVED_TREE for explain_invalid_constexpr_fn.  */
-      if (!is_instantiation_of_constexpr (fn))
-	DECL_SAVED_TREE (fn) = NULL_TREE;
-      return false;
-    }
-
   /* We make a decision about linkage for these functions at the end
      of the compilation.  Until that point, we do not want the back
      end to output them -- but we do want it to see the bodies of
@@ -3960,6 +3944,20 @@ expand_or_defer_fn_1 (tree fn)
 	  mark_needed (fn);
 	  DECL_EXTERNAL (fn) = 0;
 	}
+    }
+
+  /* If this is a constructor or destructor body, we have to clone
+     it.  */
+  if (maybe_clone_body (fn))
+    {
+      /* We don't want to process FN again, so pretend we've written
+	 it out, even though we haven't.  */
+      TREE_ASM_WRITTEN (fn) = 1;
+      /* If this is an instantiation of a constexpr function, keep
+	 DECL_SAVED_TREE for explain_invalid_constexpr_fn.  */
+      if (!is_instantiation_of_constexpr (fn))
+	DECL_SAVED_TREE (fn) = NULL_TREE;
+      return false;
     }
 
   /* There's no reason to do any of the work here if we're only doing
@@ -4643,7 +4641,7 @@ omp_reduction_lookup (location_t loc, tree id, tree type, tree *baselinkp,
 	{
 	  vec<tree, va_gc> *args = NULL;
 	  vec_safe_push (args, build_reference_type (type));
-	  id = perform_koenig_lookup (id, args, false, tf_none);
+	  id = perform_koenig_lookup (id, args, tf_none);
 	}
     }
   else if (TREE_CODE (id) == SCOPE_REF)
@@ -5202,6 +5200,8 @@ finish_omp_clauses (tree clauses)
 	      t = mark_rvalue_use (t);
 	      if (!processing_template_decl)
 		{
+		  if (TREE_CODE (OMP_CLAUSE_DECL (c)) == PARM_DECL)
+		    t = maybe_constant_value (t);
 		  t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
 		  if (TREE_CODE (TREE_TYPE (OMP_CLAUSE_DECL (c)))
 		      == POINTER_TYPE)
@@ -6546,7 +6546,7 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
       stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node, stmt);
       OMP_ATOMIC_SEQ_CST (stmt) = seq_cst;
     }
-  add_stmt (stmt);
+  finish_expr_stmt (stmt);
 }
 
 void
@@ -7437,7 +7437,7 @@ build_anon_member_initialization (tree member, tree init,
      to build up the initializer from the outside in so that we can reuse
      previously built CONSTRUCTORs if this is, say, the second field in an
      anonymous struct.  So we use a vec as a stack.  */
-  stack_vec<tree, 2> fields;
+  auto_vec<tree, 2> fields;
   do
     {
       fields.safe_push (TREE_OPERAND (member, 1));
@@ -9122,7 +9122,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	      unsigned HOST_WIDE_INT indexi = offset * BITS_PER_UNIT;
 	      tree index = bitsize_int (indexi);
 
-	      if (offset/part_widthi <= TYPE_VECTOR_SUBPARTS (op00type))
+	      if (offset / part_widthi < TYPE_VECTOR_SUBPARTS (op00type))
 		return fold_build3_loc (loc,
 					BIT_FIELD_REF, type, op00,
 					part_width, index);
@@ -9601,6 +9601,16 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
       break;
 
     case COMPONENT_REF:
+      if (is_overloaded_fn (t))
+	{
+	  /* We can only get here in checking mode via 
+	     build_non_dependent_expr,  because any expression that
+	     calls or takes the address of the function will have
+	     pulled a FUNCTION_DECL out of the COMPONENT_REF.  */
+	  gcc_checking_assert (allow_non_constant);
+	  *non_constant_p = true;
+	  return t;
+	}
       r = cxx_eval_component_reference (call, t, allow_non_constant, addr,
 					non_constant_p, overflow_p);
       break;
@@ -10417,6 +10427,8 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	  return false;
       return true;
 
+    case CILK_SYNC_STMT:
+    case CILK_SPAWN_STMT:
     case ARRAY_NOTATION_REF:
       return false;
 

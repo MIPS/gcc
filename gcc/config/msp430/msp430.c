@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on TI MSP430 processors.
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Red Hat.
 
    This file is part of GCC.
@@ -188,7 +188,7 @@ msp430_mcu_name (void)
 	mcu_name[i] = TOUPPER (mcu_name[i]);
       return mcu_name;
     }
-  
+
   return msp430x ? "__MSP430XGENERIC__" : "__MSP430GENERIC__";
 }
 
@@ -966,6 +966,12 @@ msp430_is_interrupt_func (void)
   return is_attr_func ("interrupt");
 }
 
+static bool
+is_wakeup_func (void)
+{
+  return msp430_is_interrupt_func () && is_attr_func ("wakeup");
+}
+
 static inline bool
 is_naked_func (void)
 {
@@ -1005,6 +1011,8 @@ msp430_start_function (FILE *outfile, HOST_WIDE_INT hwi_local ATTRIBUTE_UNUSED)
 	fprintf (outfile, "reentrant ");
       if (is_critical_func ())
 	fprintf (outfile, "critical ");
+      if (is_wakeup_func ())
+	fprintf (outfile, "wakeup ");
       fprintf (outfile, "\n");
     }
 
@@ -1131,6 +1139,7 @@ const struct attribute_spec msp430_attribute_table[] =
   { "naked",          0, 0, true,  false, false, msp430_attr, false },
   { "reentrant",      0, 0, true,  false, false, msp430_attr, false },
   { "critical",       0, 0, true,  false, false, msp430_attr, false },
+  { "wakeup",         0, 0, true,  false, false, msp430_attr, false },
   { NULL,             0, 0, false, false, false, NULL,        false }
 };
 
@@ -1408,6 +1417,14 @@ msp430_expand_epilogue (int is_eh)
     }
 
   emit_insn (gen_epilogue_start_marker ());
+
+  if (is_wakeup_func ())
+    /* Clear the SCG1, SCG0, OSCOFF and CPUOFF bits in the saved copy of the
+       status register current residing on the stack.  When this function
+       executes its RETI instruction the SR will be updated with this saved
+       value, thus ensuring that the processor is woken up from any low power
+       state in which it may be residing.  */
+    emit_insn (gen_bic_SR (GEN_INT (0xf0)));
 
   fs = cfun->machine->framesize_locals + cfun->machine->framesize_outgoing;
 
@@ -1828,7 +1845,7 @@ msp430_output_labelref (FILE *file, const char *name)
 static void
 msp430_print_operand_raw (FILE * file, rtx op)
 {
-  int i;
+  HOST_WIDE_INT i;
 
   switch (GET_CODE (op))
     {
@@ -1839,9 +1856,9 @@ msp430_print_operand_raw (FILE * file, rtx op)
     case CONST_INT:
       i = INTVAL (op);
       if (TARGET_ASM_HEX)
-	fprintf (file, "%#x", i);
+	fprintf (file, "%#" HOST_WIDE_INT_PRINT "x", i);
       else
-	fprintf (file, "%d", i);
+	fprintf (file, "%" HOST_WIDE_INT_PRINT "d", i);
       break;
 
     case CONST:
@@ -1896,6 +1913,24 @@ msp430_print_operand_addr (FILE * file, rtx addr)
 
 #undef  TARGET_PRINT_OPERAND
 #define TARGET_PRINT_OPERAND		msp430_print_operand
+
+/* A   low 16-bits of int/lower of register pair
+   B   high 16-bits of int/higher of register pair
+   C   bits 32-47 of a 64-bit value/reg 3 of a DImode value
+   D   bits 48-63 of a 64-bit value/reg 4 of a DImode value
+   H   like %B (for backwards compatibility)
+   I   inverse of value
+   L   like %A (for backwards compatibility)
+   O   offset of the top of the stack
+   Q   like X but generates an A postfix
+   R   inverse of condition code, unsigned.
+   X   X instruction postfix in large mode
+   Y   value - 4
+   Z   value - 1
+   b   .B or .W or .A, depending upon the mode
+   p   bit position
+   r   inverse of condition code
+   x   like X but only for pointers.  */
 
 static void
 msp430_print_operand (FILE * file, rtx op, int letter)
@@ -1961,7 +1996,7 @@ msp430_print_operand (FILE * file, rtx op, int letter)
       gcc_assert (CONST_INT_P (op));
       fprintf (file, "#%d", 1 << INTVAL (op));
       return;
-    case 'B':
+    case 'b':
       switch (GET_MODE (op))
 	{
 	case QImode: fprintf (file, ".B"); return;
@@ -1971,6 +2006,7 @@ msp430_print_operand (FILE * file, rtx op, int letter)
 	default:
 	  return;
 	}
+    case 'A':
     case 'L': /* Low half.  */
       switch (GET_CODE (op))
 	{
@@ -1988,6 +2024,7 @@ msp430_print_operand (FILE * file, rtx op, int letter)
 	  gcc_unreachable ();
 	}
       break;
+    case 'B':
     case 'H': /* high half */
       switch (GET_CODE (op))
 	{
@@ -1999,6 +2036,42 @@ msp430_print_operand (FILE * file, rtx op, int letter)
 	  break;
 	case CONST_INT:
 	  op = GEN_INT (INTVAL (op) >> 16);
+	  letter = 0;
+	  break;
+	default:
+	  /* If you get here, figure out a test case :-) */
+	  gcc_unreachable ();
+	}
+      break;
+    case 'C':
+      switch (GET_CODE (op))
+	{
+	case MEM:
+	  op = adjust_address (op, Pmode, 3);
+	  break;
+	case REG:
+	  op = gen_rtx_REG (Pmode, REGNO (op) + 2);
+	  break;
+	case CONST_INT:
+	  op = GEN_INT (INTVAL (op) >> 32);
+	  letter = 0;
+	  break;
+	default:
+	  /* If you get here, figure out a test case :-) */
+	  gcc_unreachable ();
+	}
+      break;
+    case 'D':
+      switch (GET_CODE (op))
+	{
+	case MEM:
+	  op = adjust_address (op, Pmode, 4);
+	  break;
+	case REG:
+	  op = gen_rtx_REG (Pmode, REGNO (op) + 3);
+	  break;
+	case CONST_INT:
+	  op = GEN_INT (INTVAL (op) >> 48);
 	  letter = 0;
 	  break;
 	default:
@@ -2022,7 +2095,7 @@ msp430_print_operand (FILE * file, rtx op, int letter)
 	fprintf (file, "X");
       return;
 
-    case 'A':
+    case 'Q':
       /* Likewise, for BR -> BRA.  */
       if (TARGET_LARGE)
 	fprintf (file, "A");
@@ -2035,6 +2108,12 @@ msp430_print_operand (FILE * file, rtx op, int letter)
       fprintf (file, "%d",
 	       msp430_initial_elimination_offset (ARG_POINTER_REGNUM, STACK_POINTER_REGNUM)
 	        - 2);
+      return;
+
+    case 0:
+      break;
+    default:
+      output_operand_lossage ("invalid operand prefix");
       return;
     }
 

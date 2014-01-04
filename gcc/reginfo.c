@@ -1,5 +1,5 @@
 /* Compute different info about registers.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1266,7 +1266,7 @@ init_subregs_of_mode (void)
   bitmap_obstack_initialize (&srom_obstack);
   subregs_of_mode = BITMAP_ALLOC (&srom_obstack);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       if (NONDEBUG_INSN_P (insn))
         find_subregs_of_mode (PATTERN (insn), subregs_of_mode);

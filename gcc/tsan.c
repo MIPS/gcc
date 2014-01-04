@@ -1,5 +1,5 @@
 /* GCC instrumentation plugin for ThreadSanitizer.
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Dmitry Vyukov <dvyukov@google.com>
 
 This file is part of GCC.
@@ -640,7 +640,7 @@ instrument_memory_accesses (void)
   gimple_stmt_iterator gsi;
   bool fentry_exit_instrument = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       fentry_exit_instrument |= instrument_gimple (&gsi);
   return fentry_exit_instrument;
