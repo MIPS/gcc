@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -4461,7 +4461,7 @@ find_data_references_in_stmt (struct loop *nest, gimple stmt,
 			      vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  stack_vec<data_ref_loc, 2> references;
+  auto_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
@@ -4491,7 +4491,7 @@ graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple stmt,
 				       vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  stack_vec<data_ref_loc, 2> references;
+  auto_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;

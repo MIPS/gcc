@@ -1,5 +1,5 @@
 /* C-compiler utilities for types and variables storage layout
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2528,7 +2528,7 @@ set_min_and_max_values_for_integral_type (tree type,
       max_value
 	= build_int_cst_wide (type, precision - HOST_BITS_PER_WIDE_INT >= 0
 			      ? -1
-			      : ((HOST_WIDE_INT) 1 << precision) - 1,
+			      : (HOST_WIDE_INT_1U << precision) - 1,
 			      precision - HOST_BITS_PER_WIDE_INT > 0
 			      ? ((unsigned HOST_WIDE_INT) ~0
 				 >> (HOST_BITS_PER_WIDE_INT
@@ -2541,7 +2541,7 @@ set_min_and_max_values_for_integral_type (tree type,
 	= build_int_cst_wide (type,
 			      (precision - HOST_BITS_PER_WIDE_INT > 0
 			       ? 0
-			       : (HOST_WIDE_INT) (-1) << (precision - 1)),
+			       : HOST_WIDE_INT_M1U << (precision - 1)),
 			      (((HOST_WIDE_INT) (-1)
 				<< (precision - HOST_BITS_PER_WIDE_INT - 1 > 0
 				    ? precision - HOST_BITS_PER_WIDE_INT - 1
@@ -2823,7 +2823,7 @@ get_mode_bounds (enum machine_mode mode, int sign,
 		 enum machine_mode target_mode,
 		 rtx *mmin, rtx *mmax)
 {
-  unsigned size = GET_MODE_BITSIZE (mode);
+  unsigned size = GET_MODE_PRECISION (mode);
   unsigned HOST_WIDE_INT min_val, max_val;
 
   gcc_assert (size <= HOST_BITS_PER_WIDE_INT);
