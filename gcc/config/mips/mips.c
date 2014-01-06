@@ -11994,28 +11994,6 @@ mips_canonicalize_move_class (reg_class_t rclass)
   return rclass;
 }
 
-/* For MIPS16 register allocation must avoid GENERAL_REGS as much as possible.
-   This is particularly important when LRA is used as initial allocation
-   decisions tend to not be overruled. With classic reload, initial allocation
-   decisions are effectively overridden if a reload register turns out to be
-   more appropriate. That said, when optimizing for size, reload can also
-   benefit from avoiding GENERAL_REGS albeit costing more spills. LRA avoids
-   spills as it is able to use SPILL_REGS as a spill_class.
-   Forcing IRA to only consider the preferred register class prevents
-   any non-mips16 regs from being assigned during initial register allocation.
-   */
-static bool
-mips_ira_use_alt_class (void)
-{
-  return !(mips_ira_fix == 2
-           && TARGET_MIPS16
-           && (targetm.lra_p() || optimize_size));
-}
-
-#define DISPARAGE_GENERAL_REGS (mips_ira_fix == 1                              \
-                                && TARGET_MIPS16                               \
-                                && (targetm.lra_p() || optimize_size))
-
 /* Return the cost of moving a value of mode MODE from a register of
    class FROM to a GPR.  Return 0 for classes that are unions of other
    classes handled by this function.  */
@@ -12029,7 +12007,7 @@ mips_move_to_gpr_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
     case M16_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
-      return DISPARAGE_GENERAL_REGS ? 5 : 2;
+      return 2;
 
     case ACC_REGS:
       /* MFLO and MFHI.  */
@@ -12066,7 +12044,7 @@ mips_move_from_gpr_cost (enum machine_mode mode, reg_class_t to)
     case M16_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
-      return DISPARAGE_GENERAL_REGS ? 5 : 2;
+      return 2;
 
     case ACC_REGS:
       /* MTLO and MTHI.  */
@@ -12123,14 +12101,6 @@ mips_register_move_cost (enum machine_mode mode,
     return mips_move_from_gpr_cost (mode, to);
   if (to == dregs)
     return mips_move_to_gpr_cost (mode, from);
-
-  /* For MIPS16 ensure that GENERAL_REGS -> GENERAL_REGS is less costly than
-     memory even even though the sum of GENERAL_REGS->M16_REGS and
-     M16_REGS->GENERAL_REGS is more costly. This is to ensure that GENERAL_REGS
-     can be a conflict class but will not be allocated instead of spilling by
-     IRA. */
-  if (DISPARAGE_GENERAL_REGS && from == GENERAL_REGS && to == GENERAL_REGS)
-    return 8;
 
   /* Handles cases that require a GPR temporary.  */
   cost1 = mips_move_to_gpr_cost (mode, from);
@@ -19204,14 +19174,8 @@ mips_lra_p (void)
 #undef TARGET_SPILL_CLASS
 #define TARGET_SPILL_CLASS mips_spill_class
 
-#undef TARGET_IRA_USE_ALT_CLASS_P
-#define TARGET_IRA_USE_ALT_CLASS_P mips_ira_use_alt_class
-
 #undef TARGET_LRA_P
 #define TARGET_LRA_P mips_lra_p
-
-#undef TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
-#define TARGET_DIFFERENT_ADDR_DISPLACEMENT_P hook_bool_void_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
