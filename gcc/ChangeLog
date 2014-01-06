@@ -1,7 +1,88 @@
-2014-01-03  Bingfeng Mei <bmei@broadcom.com>
+2014-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59644
+	* config/i386/i386.h (struct machine_function): Add
+	no_drap_save_restore field.
+	* config/i386/i386.c (ix86_save_reg): Use
+	!cfun->machine->no_drap_save_restore instead of
+	crtl->stack_realign_needed.
+	(ix86_finalize_stack_realign_flags): Don't clear drap_reg unless
+	this function clears frame_pointer_needed.  Set
+	cfun->machine->no_drap_save_restore if clearing frame_pointer_needed
+	and DRAP reg is needed.
+
+2014-01-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/57773
+	* doc/implement-c.texi: Mention that other integer types are
+	permitted as bit-field types in strictly conforming mode.
+
+2014-01-02  Felix Yang  <fei.yang0953@gmail.com>
+
+	* modulo-sched.c (schedule_reg_moves): Clear distance1_uses if it
+	is newly allocated.
+
+2014-01-06  Richard Earnshaw  <rearnsha@arm.com>
+
+	* aarch64.c (aarch64_rtx_costs): Fix cost calculation for MADD.
+
+2014-01-06  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59008
+	* ipa-cp.c (ipcp_discover_new_direct_edges): Changed param_index type
+	to int.
+	* ipa-prop.c (ipa_print_node_params): Fix indentation.
+
+2014-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR debug/59350
+	PR debug/59510
+	* var-tracking.c (add_stores): Preserve the value of the source even if
+	we don't record the store.
+
+2014-01-06  Terry Guo  <terry.guo@arm.com>
+
+	* config.gcc (arm*-*-*): Check --with-arch against arm-arches.def.
+
+2014-01-05  Iain Sandoe  <iain@codesourcery.com>
+
+	PR bootstrap/59541
+	* config/darwin.c (darwin_function_section): Adjust return values to
+	correspond to optimisation changes made in r206070.
+
+2014-01-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_data_alignment): Calculate max_align
+	from prefetch_block tune setting.
+	(nocona_cost): Correct size of prefetch block to 64.
+
+2014-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_get_frame_offsets): Revamp long lines.
+	(arm_expand_epilogue_apcs_frame): Take into account the number of bytes
+	used to save the static chain register in the computation of the offset
+	from which the FP registers need to be restored.
+
+2014-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59519
+	* tree-vect-loop-manip.c (slpeel_update_phi_nodes_for_guard1): Don't
+	ICE if get_current_def (current_new_name) is already non-NULL, as long
+	as it is a phi result of some other phi in *new_exit_bb that has
+	the same argument.
+
+	* config/i386/sse.md (avx512f_load<mode>_mask): Emit vmovup{s,d}
+	or vmovdqu* for misaligned_operand.
+	(<sse>_loadu<ssemodesuffix><avxsizesuffix><mask_name>,
+	<sse2_avx_avx512f>_loaddqu<mode><mask_name>): Handle <mask_applied>.
+	* config/i386/i386.c (ix86_expand_special_args_builtin): Set
+	aligned_mem for AVX512F masked aligned load and store builtins and for
+	non-temporal moves.
+
+2014-01-03  Bingfeng Mei  <bmei@broadcom.com>
 
 	PR tree-optimization/59651
-	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks): 
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks):
 	Address	range for negative step should be added by TYPE_SIZE_UNIT.
 
 2014-01-03  Andreas Schwab  <schwab@linux-m68k.org>
@@ -79,20 +160,21 @@
 
 2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
-	Update copyright years
+	Update copyright years.
 
 2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* common/config/arc/arc-common.c, config/arc/arc-modes.def,
 	config/arc/arc-protos.h, config/arc/arc.c, config/arc/arc.h,
-	config/arc/arc.md, config/arc/arc.opt, config/arm/arm_neon_builtins.def,
-	config/arm/crypto.def, config/i386/avx512cdintrin.h,
-	config/i386/avx512erintrin.h, config/i386/avx512fintrin.h,
-	config/i386/avx512pfintrin.h, config/i386/btver2.md,
-	config/i386/shaintrin.h, config/i386/slm.md, config/linux-protos.h,
-	config/linux.c, config/winnt-c.c, diagnostic-color.c,
-	diagnostic-color.h, gimple-ssa-isolate-paths.c, vtable-verify.c,
-	vtable-verify.h: Use the standard form for the copyright notice.
+	config/arc/arc.md, config/arc/arc.opt,
+	config/arm/arm_neon_builtins.def, config/arm/crypto.def,
+	config/i386/avx512cdintrin.h, config/i386/avx512erintrin.h,
+	config/i386/avx512fintrin.h, config/i386/avx512pfintrin.h,
+	config/i386/btver2.md, config/i386/shaintrin.h, config/i386/slm.md,
+	config/linux-protos.h, config/linux.c, config/winnt-c.c,
+	diagnostic-color.c, diagnostic-color.h, gimple-ssa-isolate-paths.c,
+	vtable-verify.c, vtable-verify.h: Use the standard form for the
+	copyright notice.
 
 2014-01-02  Tobias Burnus  <burnus@net-b.de>
 
