@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -970,7 +970,7 @@ maybe_add_lambda_conv_op (tree type)
      the conversion op is used.  */
   if (varargs_function_p (callop))
     {
-      DECL_DELETED_FN (fn) = 1;
+      DECL_DELETED_FN (STRIP_TEMPLATE (fn)) = 1;
       return;
     }
 
