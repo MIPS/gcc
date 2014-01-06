@@ -1,3 +1,159 @@
+2014-01-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/57773
+	* gcc.dg/pr57773.c: New test.
+
+2014-01-06  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/59635
+	PR c++/59636
+	PR c++/59629
+	PR c++/59638
+	* g++.dg/cpp1y/pr59635.C: New testcase.
+	* g++.dg/cpp1y/pr59636.C: New testcase.
+	* g++.dg/cpp1y/pr59629.C: New testcase.
+	* g++.dg/cpp1y/pr59638.C: New testcase.
+
+2014-01-06  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59008
+	* gcc.dg/ipa/pr59008.c: New test.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/vect/vect.exp: Add clearcap_ldflags to DEFAULT_VECTCFLAGS
+	if supported.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/avx512f-vcmppd-2.c: Add -std=c99.
+	Require c99_runtime.
+	* gcc.target/i386/avx512f-vcmpps-2.c: Likewise.
+
+	* gcc.target/i386/avx512f-vfixupimmpd-2.c: Add -std=gnu99.
+	Require c99_runtime.
+	* gcc.target/i386/avx512f-vfixupimmps-2.c: Likewise.
+	* gcc.target/i386/avx512f-vfixupimmsd-2.c: Likewise.
+	* gcc.target/i386/avx512f-vfixupimmss-2.c: Likewise.
+
+	* gcc.target/i386/avx512f-vgetmantpd-2.c: Add -std=c99.
+	Require c99_runtime.
+	Make CALC void static.
+	* gcc.target/i386/avx512f-vgetmantps-2.c: Likewise.
+
+	* gcc.target/i386/avx512f-vgetmantsd-2.c: Add -std=c99.
+	Require c99_runtime.
+	* gcc.target/i386/avx512f-vgetmantss-2.c: Likewise.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/pr59501-1.c: Require avx effective target.
+	* gcc.target/i386/pr59501-2.c: Likewise.
+	* gcc.target/i386/pr59501-3.c: Likewise.
+	* gcc.target/i386/pr59501-4.c: Likewise.
+	* gcc.target/i386/pr59501-5.c: Likewise.
+	* gcc.target/i386/pr59501-6.c: Likewise.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/pr59390.c: Replace math.h by fma declaration.
+	* gcc.target/i386/pr59390_1.c: Likewise.
+	* gcc.target/i386/pr59390_2.c: Likewise.
+
+2014-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr59350.c: Tweak.
+	* gcc.dg/pr59350-2.c: New test.
+	* g++.dg/pr59510.C: Likewise.
+
+2014-01-06  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59023
+	* gfortran.dg/bind_c_procs_2.f90: New.
+
+2014-01-05  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/reassoc-33.c: Don't run on hppa*-*-*.
+	* gcc.dg/tree-ssa/reassoc-34.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-35.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-36.c: Likewise.
+	* gcc.dg/tree-ssa/forwprop-28.c: Skip compile on hppa*-*-*.
+	* gcc.dg/tree-ssa/vrp47.c: Likewise.
+	* gcc.dg/tree-ssa/vrp87.c: Likewise.
+
+2014-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/arm/neon-nested-apcs.c: New test.
+
+2014-01-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59519
+	* gcc.dg/vect/pr59519-1.c: New test.
+	* gcc.dg/vect/pr59519-2.c: New test.
+
+	* gcc.target/i386/avx512f-vmovdqu32-1.c: Allow vmovdqu64 instead of
+	vmovdqu32.
+
+2014-01-04  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59547
+	* gfortran.dg/typebound_proc_32.f90: New.
+
+2014-01-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/58950
+	* g++.dg/pr58950.C: New file.
+
+2014-01-03  Tobias Burnus  <burnus@net-b.de>
+
+	PR c++/58567
+	* g++.dg/gomp/pr58567.C: New.
+
+2014-01-03  Bingfeng Mei  <bmei@broadcom.com>
+
+	PR tree-optimization/59651
+	* gcc.dg/torture/pr59651.c: New test.
+	* gcc.dg/vect/pr59651.c: Ditto.
+
+2014-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59625
+	* gcc.target/i386/pr59625.c: New test.
+
+2014-01-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	Core DR 1442
+	PR c++/59165
+	* g++.dg/cpp0x/range-for28.C: New.
+	* g++.dg/cpp0x/range-for3.C: Update.
+
+2014-01-02  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.target/powerpc/rs6000-ldouble-3.c: New test.
+
+2014-01-02  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/59641
+	* g++.dg/cpp0x/pr59641.C: New file.
+
+2014-01-02  Marc Glisse  <marc.glisse@inria.fr>
+
+	* g++.dg/cpp0x/initlist-explicit-sfinae.C: New file.
+
+2014-01-02  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/59378
+	* g++.dg/ext/pr59378.C: New file.
+
+2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	Update copyright years
+
+2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/arc/arc.exp: Use the standard form for the copyright
+	notice.
+
 2014-01-02  Janus Weil  <janus@gcc.gnu.org>
 
 	PR fortran/59654
