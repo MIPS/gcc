@@ -1,5 +1,5 @@
 ;; GCC machine description for SSE instructions
-;; Copyright (C) 2005-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2005-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -669,7 +669,7 @@
       /* There is no evex-encoded vmov* for sizes smaller than 64-bytes
 	 in avx512f, so we need to use workarounds, to access sse registers
 	 16-31, which are evex-only.  */
-      if (TARGET_AVX512F && GET_MODE_SIZE (<MODE>mode) < 64
+      if (TARGET_AVX512F && <MODE_SIZE> < 64
 	  && ((REG_P (operands[0])
 	       && EXT_REX_SSE_REGNO_P (REGNO (operands[0])))
 	      || (REG_P (operands[1])
@@ -677,18 +677,18 @@
 	{
 	  if (memory_operand (operands[0], <MODE>mode))
 	    {
-	      if (GET_MODE_SIZE (<MODE>mode) == 32)
+	      if (<MODE_SIZE> == 32)
 		return "vextract<shuffletype>64x4\t{$0x0, %g1, %0|%0, %g1, 0x0}";
-	      else if (GET_MODE_SIZE (<MODE>mode) == 16)
+	      else if (<MODE_SIZE> == 16)
 		return "vextract<shuffletype>32x4\t{$0x0, %g1, %0|%0, %g1, 0x0}";
 	      else
 		gcc_unreachable ();
 	    }
 	  else if (memory_operand (operands[1], <MODE>mode))
 	    {
-	      if (GET_MODE_SIZE (<MODE>mode) == 32)
+	      if (<MODE_SIZE> == 32)
 		return "vbroadcast<shuffletype>64x4\t{%1, %g0|%g0, %1}";
-	      else if (GET_MODE_SIZE (<MODE>mode) == 16)
+	      else if (<MODE_SIZE> == 16)
 		return "vbroadcast<shuffletype>32x4\t{%1, %g0|%g0, %1}";
 	      else
 		gcc_unreachable ();
@@ -759,7 +759,7 @@
    (set (attr "mode")
 	(cond [(match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
 		 (const_string "<ssePSmode>")
-	       (and (match_test "GET_MODE_SIZE (<MODE>mode) == 16")
+	       (and (match_test "<MODE_SIZE> == 16")
 		    (and (eq_attr "alternative" "2")
 			 (match_test "TARGET_SSE_TYPELESS_STORES")))
 		 (const_string "<ssePSmode>")
@@ -786,8 +786,12 @@
     {
     case MODE_V8DF:
     case MODE_V16SF:
+      if (misaligned_operand (operands[1], <MODE>mode))
+	return "vmovu<ssemodesuffix>\t{%1, %0%{%3%}%N2|%0%{%3%}%N2, %1}";
       return "vmova<ssemodesuffix>\t{%1, %0%{%3%}%N2|%0%{%3%}%N2, %1}";
     default:
+      if (misaligned_operand (operands[1], <MODE>mode))
+	return "vmovdqu<ssescalarsize>\t{%1, %0%{%3%}%N2|%0%{%3%}%N2, %1}";
       return "vmovdqa<ssescalarsize>\t{%1, %0%{%3%}%N2|%0%{%3%}%N2, %1}";
     }
 }
@@ -936,11 +940,14 @@
      false, still emit UNSPEC_LOADU insn to honor user's request for
      misaligned load.  */
   if (TARGET_AVX
-      && misaligned_operand (operands[1], <MODE>mode)
-      /* FIXME: Revisit after AVX512F merge is completed.  */
-      && !<mask_applied>)
+      && misaligned_operand (operands[1], <MODE>mode))
     {
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+      rtx src = operands[1];
+      if (<mask_applied>)
+	src = gen_rtx_VEC_MERGE (<MODE>mode, operands[1],
+				 operands[2 * <mask_applied>],
+				 operands[3 * <mask_applied>]);
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0], src));
       DONE;
     }
 })
@@ -998,7 +1005,7 @@
    (set_attr "ssememalign" "8")
    (set_attr "prefix" "maybe_vex")
    (set (attr "mode")
-        (cond [(and (match_test "GET_MODE_SIZE (<MODE>mode) == 16")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
                     (ior (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
                          (match_test "TARGET_SSE_TYPELESS_STORES")))
 		 (const_string "<ssePSmode>")
@@ -1046,11 +1053,14 @@
      false, still emit UNSPEC_LOADU insn to honor user's request for
      misaligned load.  */
   if (TARGET_AVX
-      && misaligned_operand (operands[1], <MODE>mode)
-      /* FIXME: Revisit after AVX512F merge is completed.  */
-      && !<mask_applied>)
+      && misaligned_operand (operands[1], <MODE>mode))
     {
-      emit_insn (gen_rtx_SET (VOIDmode, operands[0], operands[1]));
+      rtx src = operands[1];
+      if (<mask_applied>)
+	src = gen_rtx_VEC_MERGE (<MODE>mode, operands[1],
+				 operands[2 * <mask_applied>],
+				 operands[3 * <mask_applied>]);
+      emit_insn (gen_rtx_SET (VOIDmode, operands[0], src));
       DONE;
     }
 })
@@ -1127,7 +1137,7 @@
      (const_string "1")))
    (set_attr "prefix" "maybe_vex")
    (set (attr "mode")
-	(cond [(and (match_test "GET_MODE_SIZE (<MODE>mode) == 16")
+	(cond [(and (match_test "<MODE_SIZE> == 16")
 		    (ior (match_test "TARGET_SSE_PACKED_SINGLE_INSN_OPTIMAL")
 			 (match_test "TARGET_SSE_TYPELESS_STORES")))
 		 (const_string "<ssePSmode>")
@@ -2363,7 +2373,7 @@
     }
 
   /* There is no vandnp[sd].  Use vpandnq.  */
-  if (GET_MODE_SIZE (<MODE>mode) == 64)
+  if (<MODE_SIZE> == 64)
     {
       suffix = "q";
       ops = "vpandn%s\t{%%2, %%1, %%0|%%0, %%1, %%2}";
@@ -2435,7 +2445,7 @@
     }
 
   /* There is no v<logic>p[sd].  Use vp<logic>q.  */
-  if (GET_MODE_SIZE (<MODE>mode) == 64)
+  if (<MODE_SIZE> == 64)
     {
       suffix = "q";
       ops = "vp<logic>%s\t{%%2, %%1, %%0|%%0, %%1, %%2}";
@@ -8940,7 +8950,7 @@
 		 (const_string "<sseinsnmode>")
 	       (match_test "TARGET_AVX")
 		 (if_then_else
-		   (match_test "GET_MODE_SIZE (<MODE>mode) > 16")
+		   (match_test "<MODE_SIZE> > 16")
 		   (const_string "V8SF")
 		   (const_string "<sseinsnmode>"))
 	       (ior (not (match_test "TARGET_SSE2"))
@@ -9032,7 +9042,7 @@
 		 (const_string "<sseinsnmode>")
 	       (match_test "TARGET_AVX")
 		 (if_then_else
-		   (match_test "GET_MODE_SIZE (<MODE>mode) > 16")
+		   (match_test "<MODE_SIZE> > 16")
 		   (const_string "V8SF")
 		   (const_string "<sseinsnmode>"))
 	       (ior (not (match_test "TARGET_SSE2"))
