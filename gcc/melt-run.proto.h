@@ -3,7 +3,7 @@
   Please edit melt-run.proto.h ....
    all include files for generated code
    
-   Copyright (C) 2008 - 2013 Free Software Foundation, Inc.
+   Copyright (C) 2008 - 2014  Free Software Foundation, Inc.
    Contributed by Basile Starynkevitch  <basile@starynkevitch.net>
    and Pierre Vittet  <piervit@pvittet.com>
    and Romain Geissler  <romain.geissler@gmail.com>
@@ -83,6 +83,7 @@ along with GCC; see the file COPYING3.   If not see
 #if MELT_GCC_VERSION >= 4009
 #include "context.h"
 #include "tree-cfg.h"
+#include "gimple-iterator.h"
 #else
 #include "tree-flow.h"
 #endif /* GCC 4.9 */

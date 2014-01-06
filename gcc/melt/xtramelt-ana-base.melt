@@ -2,7 +2,7 @@
 ;; file xtramelt-ana-base.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2008 - 2014 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -1213,7 +1213,6 @@ unsigned int melthk_rtl_execute(void)
   a function declared as $FUNTREE with a body $FUNBODY.}#
   ;; before expansion
   #{ /*  each_cgraph_fun_body $EACHCGRFUN + */
-#warning each_cgraph_fun_body $EACHCGRFUN 
    struct cgraph_node *$EACHCGRFUN#_nd = NULL; 
    /* each_cgraph_fun_body $EACHCGRFUN; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
 #ifdef FOR_EACH_DEFINED_FUNCTION
@@ -1227,7 +1226,6 @@ unsigned int melthk_rtl_execute(void)
        tree $EACHCGRFUN#_dcl = NULL;
        gimple_seq  $EACHCGRFUN#_bdy = NULL;
    /* in each_cgraph_fun_body $EACHCGRFUN */
-#warning each_cgraph_fun_body $EACHCGRFUN testing MELT_GCC_VERSION
 #if MELT_GCC_VERSION == 4008
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->symbol.decl;
 #else /* GCC 4.7 or GCC 4.9 but not 4.8! */
@@ -1253,7 +1251,6 @@ unsigned int melthk_rtl_execute(void)
   ;;before expansion
   #{ /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO + */
    struct cgraph_node *$EACHCGRAFUNENTRBLO#_nd = NULL; 
-#warning each_cgraph_fun_entryblock  $EACHCGRAFUNENTRBLO
    /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
 #ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNENTRBLO#_nd)
@@ -1280,12 +1277,22 @@ unsigned int melthk_rtl_execute(void)
    /* this assert fails when in a pass without control flow graph */
    melt_assertmsg ("no cfg in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO",
 		   $EACHCGRAFUNENTRBLO#_fun->cfg != NULL);
+#if MELT_GCC_VERSION == 4009
+   /* GCC 4.9 in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO : */
+   $EACHCGRAFUNENTRBLO#_entrybb =
+     ENTRY_BLOCK_PTR_FOR_FN ($EACHCGRAFUNENTRBLO#_fun);
+   if (!$EACHCGRAFUNENTRBLO#_entrybb) continue;
+   $EACHCGRAFUNENTRBLO#_exitbb =
+     EXIT_BLOCK_PTR_FOR_FN ($EACHCGRAFUNENTRBLO#_fun);
+   if (! $EACHCGRAFUNENTRBLO#_exitbb) continue;
+#else /*GCC 4.8 or earlier*/
    $EACHCGRAFUNENTRBLO#_entrybb = 
      ENTRY_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAFUNENTRBLO#_fun);
-   if (! $EACHCGRAFUNENTRBLO#_entrybb) continue;
+   if (!$EACHCGRAFUNENTRBLO#_entrybb) continue;
    $EACHCGRAFUNENTRBLO#_exitbb = 
      EXIT_BLOCK_PTR_FOR_FUNCTION ($EACHCGRAFUNENTRBLO#_fun);
-   if (! $EACHCGRAFUNENTRBLO#_exitbb) continue;
+   if (!$EACHCGRAFUNENTRBLO#_exitbb) continue;
+#endif /* GCC 4.8 or earlier */
    $funtree = $EACHCGRAFUNENTRBLO#_dcl;
    $funentrybb = $EACHCGRAFUNENTRBLO#_entrybb;
    $funexitbb = $EACHCGRAFUNENTRBLO#_exitbb;
@@ -1343,7 +1350,11 @@ unsigned int melthk_rtl_execute(void)
       /*  each_cgraph_fun_call_flow_graph this assert fails when in a pass without control flow graph */
       melt_assertmsg ("no cfg in each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG",
 		   $EACHCGRAFUNCFG#_fun->cfg != NULL);
+#if MELT_GCC_VERSION == 4009
+      $EACHCGRAFUNCFG#_n_bb = n_basic_blocks_for_fn ($EACHCGRAFUNCFG#_fun);
+#else
       $EACHCGRAFUNCFG#_n_bb = n_basic_blocks_for_function ($EACHCGRAFUNCFG#_fun);
+#endif /* GCC 4.9 */
       /*  each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG create the tuple of basic blocks */
       $BBTUP = meltgc_new_multiple
         ((meltobject_ptr_t) MELT_PREDEF (DISCR_MULTIPLE),
@@ -1351,8 +1362,15 @@ unsigned int melthk_rtl_execute(void)
       for ($EACHCGRAFUNCFG#_ix = 0;
 	   $EACHCGRAFUNCFG#_ix < $EACHCGRAFUNCFG#_n_bb;
 	   $EACHCGRAFUNCFG#_ix ++) {
+#if  MELT_GCC_VERSION == 4009
+           $EACHCGRAFUNCFG#_curbb =
+              BASIC_BLOCK_FOR_FN ($EACHCGRAFUNCFG#_fun,
+				  $EACHCGRAFUNCFG#_ix);
+#else /* GCC 4.8 or earlier */
 	   $EACHCGRAFUNCFG#_curbb =
-	   BASIC_BLOCK_FOR_FUNCTION($EACHCGRAFUNCFG#_fun, $EACHCGRAFUNCFG#_ix);
+  	     BASIC_BLOCK_FOR_FUNCTION ($EACHCGRAFUNCFG#_fun,
+				       $EACHCGRAFUNCFG#_ix);
+#endif /* GCC 4.9 */
 	   if (!$EACHCGRAFUNCFG#_curbb) 
 	     continue;
 	   $TMPV = 
@@ -1373,15 +1391,16 @@ unsigned int melthk_rtl_execute(void)
 )
 
 ;;;;;;;;;;;;;;;;
-;;;; iterate on every cgraph_node which is a declaration; don't exist in 4.8
+;;;; iterate on every cgraph_node which is a declaration; don't exist
+;;;; in 4.8 or 4.9
 (gccif 
- (  "4.7."   "4.9.")
+ ("4.7.")
 (defciterator each_cgraph_decl
   ()
   eachcgrdcl
   (:tree decl)
   :doc #{$EACH_CGRAPH_DECL iterates on every cgraph_node which is a declaration $DECL; 
-  only for GCC  4.7 or GCC 4.9 but not GCC 4.8 }#
+  only for GCC  4.7. }#
   ;;before expansion
 #{ /*  each_cgraph_decl $EACHCGRDCL */ {
    struct cgraph_node *$EACHCGRDCL#_nd = NULL; 
@@ -1531,10 +1550,6 @@ current function and gives its declaration in $CFUNDECL}#
 (defprimitive edge_for_false_value (:edge eg) :long
 #{ ($eg && $eg->flags & EDGE_FALSE_VALUE) }#)
 
-(defprimitive debugtreecodenum  (:cstring msg :long opcod) :void
-  #{ debugeprintf("debugtreecodenum %s #%ld %s", $msg, 
-		  $opcod, tree_code_name[$opcod]);
-}#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;; basicblock iteration
@@ -1801,10 +1816,23 @@ current function and gives its declaration in $CFUNDECL}#
 
 ;; with GCC 4.9 should use ENTRY_BLOCK_PTR_FOR_FN & EXIT_BLOCK_PTR_FOR_FN
 (defprimitive cfun_cfg_entry_block () :basic_block
-  #{ ((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun):NULL) }#)
+  #{ /* cfun_cfg_entry_block */
+#if MELT_GCC_VERSION == 4009
+((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FN(cfun):NULL)
+#else
+((cfun && cfun->cfg)? ENTRY_BLOCK_PTR_FOR_FUNCTION(cfun):NULL)
+#endif
+  }#)
 
 (defprimitive cfun_cfg_exit_block () :basic_block
-  #{ ((cfun && cfun->cfg)? EXIT_BLOCK_PTR_FOR_FUNCTION(cfun):NULL) }#)
+  #{
+  /* cfun_cfg_exit_block */
+#if MELT_GCC_VERSION == 4009
+((cfun && cfun->cfg)? EXIT_BLOCK_PTR_FOR_FN(cfun):NULL)
+#else
+((cfun && cfun->cfg)? EXIT_BLOCK_PTR_FOR_FUNCTION(cfun):NULL)
+#endif
+  }#)
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -1,4 +1,15 @@
 
+2014-01-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{still unstable; xtramelt-ana-tree.melt don't compile!}}
+	* melt-run.proto.h: Update copyright year.
+	For GCC 4.9 #include "gimple-iterator.h"
+
+	* xtramelt-ana-base.melt: Update copyright year.
+	(each_cgraph_fun_entryblock, each_cgraph_fun_call_flow_graph)
+	(each_cgraph_decl, cfun_cfg_entry_block, cfun_cfg_exit_block):
+	Adapt for GCC 4.9...
+
 2014-01-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc: Update copyright year.
