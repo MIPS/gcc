@@ -1,6 +1,12 @@
 
 2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt: Update copyright year.
+	(valdesc_routine): Use reinterpret_cast in
+	MELT_ROUTINE_SET_ROUTCODE.
+
+2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-modes.melt: Update copyright year.
 	(generate_runtypesupport_predefined_hooks): Emit a
 	reinterpret_cast for hook routines.

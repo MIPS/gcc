@@ -2,7 +2,7 @@
 ;; file warmelt-base.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2008 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                and Pierre Vittet  <piervit@pvittet.com>
 
@@ -2348,7 +2348,7 @@ typedef struct meltroutine_st *meltroutine_ptr_t;
    routine function pointer to Rout */
 #define MELT_ROUTINE_SET_ROUTCODE(Rptr,Rout) do {	\
   ((struct meltroutine_st*)(Rptr))->routfunad		\
-     = (Rout);						\
+     = reinterpret_cast<meltroutfun_t*> (Rout);		\
 } while(0)
 
 #define MELT_ROUTINE_STRUCT(N) {		\
