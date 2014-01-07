@@ -1,6 +1,10 @@
 
 2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (MELT_VERSION_STRING): Update to 1.1-pre!
+
+2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* Makefile.in (upgrade-warmelt): Fancier echo-s.
 
 	* melt-build-script.tpl: Ensure that regenerate overall goal is
