@@ -6525,6 +6525,24 @@ finish_struct_1 (tree t)
         && TREE_TYPE (x) != error_mark_node
 	&& same_type_p (TYPE_MAIN_VARIANT (TREE_TYPE (x)), t))
       DECL_MODE (x) = TYPE_MODE (t);
+    else if (TYPE_REVERSE_STORAGE_ORDER (t)
+	     && TREE_CODE (x) == FIELD_DECL
+	     && TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE)
+      {
+	tree ftype = TREE_TYPE (x);
+	do
+	  ftype = TREE_TYPE (ftype);
+	while (TREE_CODE (ftype) == ARRAY_TYPE);
+	if (!RECORD_OR_UNION_TYPE_P (ftype))
+	  {
+	    tree *ftypep = &TREE_TYPE (x);
+	    do {
+	      *ftypep = build_distinct_type_copy (*ftypep);
+	      TYPE_REVERSE_STORAGE_ORDER (*ftypep) = 1;
+	      ftypep = &TREE_TYPE (*ftypep);
+	    } while (TREE_CODE (*ftypep) == ARRAY_TYPE);
+	  }
+      }
 
   /* Done with FIELDS...now decide whether to sort these for
      faster lookups later.

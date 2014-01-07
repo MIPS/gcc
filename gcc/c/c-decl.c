@@ -7350,27 +7350,44 @@ finish_struct (location_t loc, tree t, tree fieldlist, tree attributes,
       && !valid_constant_size_p (TYPE_SIZE_UNIT (t)))
     error ("type %qT is too large", t);
 
-  /* Give bit-fields their proper types.  */
-  {
-    tree *fieldlistp = &fieldlist;
-    while (*fieldlistp)
-      if (TREE_CODE (*fieldlistp) == FIELD_DECL && DECL_INITIAL (*fieldlistp)
-	  && TREE_TYPE (*fieldlistp) != error_mark_node)
+  /* Give bit-fields their proper types and rewrite the type of array fields
+     if the enclosing type has reverse storage order.  */
+  for (tree field = fieldlist; field; field = DECL_CHAIN (field))
+    {
+      if (TREE_CODE (field) == FIELD_DECL
+	  && DECL_INITIAL (field)
+	  && TREE_TYPE (field) != error_mark_node)
 	{
 	  unsigned HOST_WIDE_INT width
-	    = tree_to_uhwi (DECL_INITIAL (*fieldlistp));
-	  tree type = TREE_TYPE (*fieldlistp);
+	    = tree_to_uhwi (DECL_INITIAL (field));
+	  tree type = TREE_TYPE (field);
 	  if (width != TYPE_PRECISION (type))
 	    {
-	      TREE_TYPE (*fieldlistp)
+	      TREE_TYPE (field)
 		= c_build_bitfield_integer_type (width, TYPE_UNSIGNED (type));
-	      DECL_MODE (*fieldlistp) = TYPE_MODE (TREE_TYPE (*fieldlistp));
+	      DECL_MODE (field) = TYPE_MODE (TREE_TYPE (field));
 	    }
-	  DECL_INITIAL (*fieldlistp) = 0;
+	  DECL_INITIAL (field) = 0;
 	}
-      else
-	fieldlistp = &DECL_CHAIN (*fieldlistp);
-  }
+      else if (TYPE_REVERSE_STORAGE_ORDER (t)
+	       && TREE_CODE (field) == FIELD_DECL
+	       && TREE_CODE (TREE_TYPE (field)) == ARRAY_TYPE)
+	{
+	  tree ftype = TREE_TYPE (field);
+	  do
+	    ftype = TREE_TYPE (ftype);
+	  while (TREE_CODE (ftype) == ARRAY_TYPE);
+	  if (!RECORD_OR_UNION_TYPE_P (ftype))
+	    {
+	      tree *ftypep = &TREE_TYPE (field);
+	      do {
+		*ftypep = build_distinct_type_copy (*ftypep);
+		TYPE_REVERSE_STORAGE_ORDER (*ftypep) = 1;
+		ftypep = &TREE_TYPE (*ftypep);
+	      } while (TREE_CODE (*ftypep) == ARRAY_TYPE);
+	    }
+	}
+    }
 
   /* Now we have the truly final field list.
      Store it in this type and in the variants.  */

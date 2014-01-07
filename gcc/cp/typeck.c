@@ -1200,6 +1200,9 @@ structural_comptypes (tree t1, tree t2, int strict)
     return false;
   if (TYPE_FOR_JAVA (t1) != TYPE_FOR_JAVA (t2))
     return false;
+  if (AGGREGATE_TYPE_P (t1)
+      && TYPE_REVERSE_STORAGE_ORDER (t1) != TYPE_REVERSE_STORAGE_ORDER (t2))
+    return false;
 
   /* Allow for two different type nodes which have essentially the same
      definition.  Note that we already checked for equality of the type
@@ -5413,6 +5416,40 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	}
       break;
 
+    case COMPONENT_REF:
+      if (BASELINK_P (TREE_OPERAND (arg, 1)))
+	break;
+
+      if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
+	{
+	  if (complain & tf_error)
+	    error ("attempt to take address of bit-field structure member %qD",
+		   TREE_OPERAND (arg, 1));
+	  return error_mark_node;
+	}
+      /* Fall through.  */
+
+    case ARRAY_REF:
+      if (TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (arg, 0))))
+	{
+	  if (!AGGREGATE_TYPE_P (TREE_TYPE (arg)))
+	    {
+	      if (complain & tf_error)
+		error ("attempt to take address of scalar with reverse "
+		       "storage order");
+	      return error_mark_node;
+	    }
+
+	   if (TREE_CODE (TREE_TYPE (arg)) == ARRAY_TYPE
+	       && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (arg)))
+	    {
+	      if (complain & tf_warning)
+		warning (OPT_Wscalar_storage_order, "address of array with "
+			 "reverse scalar storage order requested");
+	    }
+	}
+      break;
+
     case BASELINK:
       arg = BASELINK_FUNCTIONS (arg);
       /* Fall through.  */
@@ -5484,13 +5521,6 @@ cp_build_addr_expr_1 (tree arg, bool strict_lvalue, tsubst_flags_t complain)
 	/* Do not lose object's side effects.  */
 	val = build2 (COMPOUND_EXPR, TREE_TYPE (val),
 		      TREE_OPERAND (arg, 0), val);
-    }
-  else if (DECL_C_BIT_FIELD (TREE_OPERAND (arg, 1)))
-    {
-      if (complain & tf_error)
-	error ("attempt to take address of bit-field structure member %qD",
-	       TREE_OPERAND (arg, 1));
-      return error_mark_node;
     }
   else
     {

@@ -171,7 +171,7 @@ proc gnat_target_compile { source dest type options } {
     return [target_compile $source $dest $type $options]
 }
 
-# Run testacase with options and compare the output with resultfile
+# Run testcase with options and compare the output with resultfile
 
 proc gnat_test { testcase options resultfile } {
     global subdir

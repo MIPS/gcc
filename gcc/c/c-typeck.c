@@ -4127,18 +4127,10 @@ build_unary_op (location_t location,
 	  goto return_build_unary_op;
 	}
 
-      /* For &x[y], return x+y */
-      if (TREE_CODE (arg) == ARRAY_REF)
-	{
-	  tree op0 = TREE_OPERAND (arg, 0);
-	  if (!c_mark_addressable (op0))
-	    return error_mark_node;
-	}
-
       /* Anything not already handled and not a true memory reference
 	 or a non-lvalue array is an error.  */
-      else if (typecode != FUNCTION_TYPE && !flag
-	       && !lvalue_or_else (location, arg, lv_addressof))
+      if (typecode != FUNCTION_TYPE && !flag
+	  && !lvalue_or_else (location, arg, lv_addressof))
 	return error_mark_node;
 
       /* Move address operations inside C_MAYBE_CONST_EXPR to simplify
@@ -4327,8 +4319,25 @@ c_mark_addressable (tree exp)
 
 	/* ... fall through ...  */
 
-      case ADDR_EXPR:
       case ARRAY_REF:
+	if (TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (TREE_OPERAND (x, 0))))
+	  {
+	    if (!AGGREGATE_TYPE_P (TREE_TYPE (x)))
+	      {
+		error ("cannot take address of scalar with reverse storage "
+		       "order");
+		return false;
+	      }
+
+	    if (TREE_CODE (TREE_TYPE (x)) == ARRAY_TYPE
+		&& TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (x)))
+	      warning (OPT_Wscalar_storage_order, "address of array with "
+		       "reverse scalar storage order requested");
+	  }
+
+	/* ... fall through ...  */
+
+      case ADDR_EXPR:
       case REALPART_EXPR:
       case IMAGPART_EXPR:
 	x = TREE_OPERAND (x, 0);

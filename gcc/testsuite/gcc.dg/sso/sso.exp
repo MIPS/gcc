@@ -1,0 +1,50 @@
+# Copyright (C) 2013 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
+# Load support procs.
+load_lib gcc.exp
+
+# The default option list can be overridden by
+# TORTURE_OPTIONS="{ { list1 } ... { listN } }"
+
+if ![info exists TORTURE_OPTIONS] {
+    set TORTURE_OPTIONS [list \
+	{ -O0 } \
+	{ -O1 -fno-inline } \
+	{ -O2 } \
+	{ -O3 -finline-functions } \
+	{ -Os } \
+	{ -Og -g } ]
+}
+
+catch { lsort [glob -nocomplain ${srcdir}/${subdir}/*.out] } outfiles
+verbose "outfiles are $outfiles"
+
+foreach outfile $outfiles {
+    global runtests
+
+    regsub "\\.out$" $outfile "" testcase
+
+    # If we're only testing specific files and this isn't one of them, skip it.
+    if ![runtest_file_p $runtests $outfile] {
+	continue
+    }
+
+    verbose "Testing ${subdir}/[file tail $outfile]"
+    foreach option $TORTURE_OPTIONS {
+	gcc_test "$testcase.c" $option $outfile
+    }
+}
