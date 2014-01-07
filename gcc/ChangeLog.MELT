@@ -1,6 +1,12 @@
 
 2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-modes.melt: Update copyright year.
+	(generate_runtypesupport_predefined_hooks): Emit a
+	reinterpret_cast for hook routines.
+
+2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{still unstable; xtramelt-ana-gimple.melt don't compile!}}
 	* melt-run.proto.h: For GCC 4.9 include "stringpool.h" and
 	"tree-ssa-threadedge.h" headers.

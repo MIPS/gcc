@@ -1,7 +1,7 @@
 ;; file warmelt-modes.melt -*- Lisp -*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright (C) 2011 - 2013 Free Software Foundation, Inc.
+    Copyright (C) 2011 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -4070,7 +4070,8 @@ melt_scanning (melt_ptr_t p)
                   outcodebuf 
 ##{ /* check hook routine $HKNAME */
                   melthooksig_$HKNAME#_t *melthookptr_$HKNAME = 
-                  (melthooksig_$HKNAME#_t*) (melthkp->hookad) ;
+		     reinterpret_cast <melthooksig_$HKNAME#_t*>
+		        (melthkp->hookad) ;
                   melt_assertmsg("check predefhook routine $HKNAME", 
                                  melthookptr_$HKNAME);
 }#)
