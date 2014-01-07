@@ -20,8 +20,8 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20130920 (experimental) [melt-branch revision 204400] MELT_1\
-.0.1-pre"
+const char melt_genversionstr[]="4.9.0 20140104 (experimental) [melt-branch revision 206385] MELT_1\
+.1-pre"
 
 	     #ifdef __cplusplus
 	     " (in C++)"
@@ -30,18 +30,18 @@ const char melt_genversionstr[]="4.9.0 20130920 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.0.1-pre [melt-branch_revision_204400]";
+const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_206385]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-first */
 const char melt_modulename[]="warmelt-first";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.0.1-pre/warmelt-first";
+/1.0.1+post/warmelt-first";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="49f00181bf9aa32f5350ead0a23ef72f";
+const char melt_prepromd5meltrun[]="bd4941f35268783fb715137bcd6d3c27";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="ab4bd8d7ea9ba41844caf6716592ee81";
+const char melt_primaryhexmd5[]="5444f9f00551d7a6a61a8188af2fd551";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="7b78526f9b4a01fc3f4b7ac06dd2a928" ;
+const char melt_cumulated_hexmd5[]="f74dbc1c207c567d0b53ffb4df2ebfbb" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiFIRST_mds__7B78526F9B4A01FC3F4B7AC06DD2A928 1
+#define meltmod_WARMELTmiFIRST_mds__F74DBC1C207C567D0B53FFB4DF2EBFBB 1
 #include "warmelt-first+melttime.h"
 	 
 

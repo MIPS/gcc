@@ -1,4 +1,9 @@
 
+
+2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated all files.
+
 2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (MELT_VERSION_STRING): Update to 1.1-pre!
