@@ -2,7 +2,7 @@
 ;; file xtramelt-ana-tree.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2008 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
@@ -983,10 +983,22 @@ current :tree and :gimple. Stop walking if the closure gives null.}#
   treeintk
   :doc #{ $TREE_INTEGER_CST match a constant integer tree $TR extracting the constant $N. Might behave strangely if the constant don't fit in a long.}#
   ;; test expander
-  #{ /*tree_integer_cst $TREEINTK ?*/ (($TR) && TREE_CODE($TR) == INTEGER_CST 
-		      && host_integerp($TR, 0)) }#
+  #{ /*tree_integer_cst $TREEINTK ?*/
+#if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
+  (($TR) && TREE_CODE($TR) == INTEGER_CST 
+         && tree_fits_shwi_p ($TR))
+#else /* GCC 4.8*/
+  (($TR) && TREE_CODE($TR) == INTEGER_CST 
+         && host_integerp($TR, 0))
+#endif /* GCC 4.8 */
+  }#
   ;; fill expander
-  #{ /*tree_integer_cst $TREEINTK !*/ $N  = tree_low_cst(($TR), 0);
+  #{ /*tree_integer_cst $TREEINTK !*/
+#if  MELT_GCC_VERSION >= 4009 /* GCC 4.9 or later */
+    $N = tree_to_shwi(($TR));    
+#else  /* GCC 4.8 */
+    $N  = tree_low_cst(($TR), 0);
+#endif /* GCC 4.9 */
   }#  )
 
 

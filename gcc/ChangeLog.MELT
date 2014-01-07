@@ -1,4 +1,18 @@
 
+2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{still unstable; xtramelt-ana-gimple.melt don't compile!}}
+	* melt-run.proto.h: For GCC 4.9 include "stringpool.h" and
+	"tree-ssa-threadedge.h" headers.
+
+	* melt-runtime.cc (MELTDESCR_UNION_SYMBOL): Remove
+	macro.
+	(meltgc_run_cc_extension): Use reinterpret_cast with dlsym.
+
+	* melt/xtramelt-ana-tree.melt: Update copyright year.
+	(tree_integer_cst): Use tree_fits_shwi_p & tree_to_shwi for GCC
+	4.9.
+
 2014-01-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{still unstable; xtramelt-ana-tree.melt don't compile!}}

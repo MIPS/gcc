@@ -84,6 +84,8 @@ along with GCC; see the file COPYING3.   If not see
 #include "context.h"
 #include "tree-cfg.h"
 #include "gimple-iterator.h"
+#include "stringpool.h"
+#include "tree-ssa-threadedge.h"
 #else
 #include "tree-flow.h"
 #endif /* GCC 4.9 */

@@ -9722,16 +9722,14 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   validh = TRUE;
 
   /* Retrieve our dynamic symbols. */
-#define MELTDESCR_UNION_SYMBOL(Sym,Typ)  union { void* ptr_##Sym;	\
-    Typ* dat_##Sym; } u_##Sym
 
 #define MELTDESCR_REQUIRED_SYMBOL(Sym,Typ) do {			\
-    MELTDESCR_UNION_SYMBOL(Sym,Typ);				\
-    u_##Sym.ptr_##Sym = (void*) dlsym (dlh, #Sym);		\
+    Typ* aptr_##Sym =						\
+        reinterpret_cast<Typ*> (dlsym (dlh, #Sym));		\
       debugeprintf ("melt_load_module_index req. " #Sym		\
 		    " %p validh %d",				\
-		    u_##Sym.ptr_##Sym, (int) validh);		\
-      if (!u_##Sym.ptr_##Sym) {					\
+		    aptr_##Sym, (int) validh);			\
+      if (!aptr_##Sym) {					\
 	char* dler = dlerror ();				\
 	debugeprintf("melt_load_module_index req. " #Sym	\
 		     " not found - %s", dler);			\
@@ -9739,7 +9737,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 	  *errorp = concat("Cannot find " #Sym, "; ",		\
 			   dler, NULL);				\
 	validh = FALSE;						\
-      } else dynr_##Sym = u_##Sym.dat_##Sym; } while(0)
+      } else dynr_##Sym = aptr_##Sym; } while(0)
 
   /* Fetch required symbols */
   MELTDESCR_REQUIRED_LIST;
@@ -9747,10 +9745,10 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 #undef MELTDESCR_REQUIRED_SYMBOL
 
 #define MELTDESCR_OPTIONAL_SYMBOL(Sym,Typ) do {         \
-    MELTDESCR_UNION_SYMBOL(Sym,Typ);                    \
-    u_##Sym.ptr_##Sym = (void*) dlsym (dlh, #Sym);      \
-      if (u_##Sym.ptr_##Sym)				\
-	dyno_##Sym = u_##Sym.dat_##Sym; } while(0)
+    Typ* optr_##Sym					\
+      = reinterpret_cast<Typ*> (dlsym (dlh, #Sym));	\
+    if (optr_##Sym)					\
+	dyno_##Sym = optr_##Sym; } while(0)
 
   /* Fetch optional symbols */
   MELTDESCR_OPTIONAL_LIST;
@@ -10117,7 +10115,7 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
   MELTRUNDESCR_REQUIRED_LIST;
 #undef MELTRUNDESCR_REQUIRED_SYMBOL
 #define MELTRUNDESCR_OPTIONAL_SYMBOL(Sym,Typ) \
-  dyno_##Sym = (Typ*) dlsym (dlh, #Sym);
+  dyno_##Sym = reinterpret_cast<Typ*> (dlsym (dlh, #Sym));
   MELTRUNDESCR_OPTIONAL_LIST;
 #undef MELTRUNDESCR_OPTIONAL_SYMBOL
   /* check the primary md5sum */
