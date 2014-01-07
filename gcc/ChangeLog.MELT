@@ -1,6 +1,17 @@
 
 2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* Makefile.in (upgrade-warmelt): Fancier echo-s.
+
+	* melt-build-script.tpl: Ensure that regenerate overall goal is
+	done even when application files don't compile.
+	Generate warmelt modules lists.
+	Move application overall goal after regenerate.
+
+	* melt-build-script.sh: Regenerate.
+
+2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt: Update copyright year.
 	(valdesc_routine): Use reinterpret_cast in
 	MELT_ROUTINE_SET_ROUTCODE.

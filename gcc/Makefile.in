@@ -4173,16 +4173,16 @@ upgrade-warmelt: melt-build-settings.sh  melt-build-param.sh $(srcdir)/melt-buil
 	@which unifdef > /dev/zero || (echo unifdef not found but needed to upgrade-warmelt ; exit 1)
 	@echo upgrade-warmelt script $(realpath $(srcdir)/melt-build-script.sh) MAKE= $(MAKE) MAKEFLAGS= $(MAKEFLAGS)
 	+env GCCMELT_MAKE="$(MAKE)" GCCMELT_MAKEFLAGS="$(MAKEFLAGS)" $(SHELL) $(srcdir)/melt-build-script.sh regenerate
-	@echo upgrade-warmelt rebuild runtime with the newly generated meltrunsup files
+	@echo; echo upgrade-warmelt rebuild runtime with the newly generated meltrunsup files
 	$(COMPILER) -H -I meltbuild-sources/generated/ -c  $(shell cat melt-runtime.args) -o /dev/null
-	@echo upgrade-warmelt copy the generated files into the source tree
+	@echo; echo upgrade-warmelt copy the generated files into the source tree
 	$(SHELL) $(srcdir)/melt-upgrade.sh $(realpath meltbuild-sources/) $(realpath $(srcdir))
 	$(RM) melt-runtime.o melt-runtime.i s-gtype */warmelt*.o
 	$(MAKE) s-gtype
 ## rebuild translator to be sure
-	@echo upgrade-warmelt rebuilding melt-translator
+	@echo; echo upgrade-warmelt rebuilding melt-translator
 	$(MAKE) melt-translator
-	@echo upgrade-warmelt complete
+	@echo; echo upgrade-warmelt complete
 
 
 
