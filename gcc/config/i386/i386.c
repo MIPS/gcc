@@ -1568,7 +1568,7 @@ struct processor_costs nocona_cost = {
   8,					/* MMX or SSE register to integer */
   8,					/* size of l1 cache.  */
   1024,					/* size of l2 cache.  */
-  128,					/* size of prefetch block */
+  64,					/* size of prefetch block */
   8,					/* number of parallel prefetches */
   1,					/* Branch cost */
   COSTS_N_INSNS (6),			/* cost of FADD and FSUB insns.  */
@@ -9281,7 +9281,7 @@ ix86_save_reg (unsigned int regno, bool maybe_eh_return)
 
   if (crtl->drap_reg
       && regno == REGNO (crtl->drap_reg)
-      && crtl->stack_realign_needed)
+      && !cfun->machine->no_drap_save_restore)
     return true;
 
   return (df_regs_ever_live_p (regno)
@@ -10519,18 +10519,6 @@ ix86_finalize_stack_realign_flags (void)
       return;
     }
 
-  /* If drap has been set, but it actually isn't live at the start
-     of the function and !stack_realign, there is no reason to set it up.  */
-  if (crtl->drap_reg && !stack_realign)
-    {
-      basic_block bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
-      if (! REGNO_REG_SET_P (DF_LR_IN (bb), REGNO (crtl->drap_reg)))
-	{
-	  crtl->drap_reg = NULL_RTX;
-	  crtl->need_drap = false;
-	}
-    }
-
   /* If the only reason for frame_pointer_needed is that we conservatively
      assumed stack realignment might be needed, but in the end nothing that
      needed the stack alignment had been spilled, clear frame_pointer_needed
@@ -10584,6 +10572,8 @@ ix86_finalize_stack_realign_flags (void)
 	      crtl->need_drap = false;
 	    }
 	}
+      else
+	cfun->machine->no_drap_save_restore = true;
 
       frame_pointer_needed = false;
       stack_realign = false;
@@ -26465,8 +26455,16 @@ ix86_constant_alignment (tree exp, int align)
 int
 ix86_data_alignment (tree type, int align, bool opt)
 {
-  int max_align = optimize_size ? BITS_PER_WORD
-				: MIN (512, MAX_OFILE_ALIGNMENT);
+  /* A data structure, equal or greater than the size of a cache line
+     (64 bytes in the Pentium 4 and other recent Intel processors, including
+     processors based on Intel Core microarchitecture) should be aligned
+     so that its base address is a multiple of a cache line size.  */
+
+  int max_align
+    = MIN ((unsigned) ix86_tune_cost->prefetch_block * 8, MAX_OFILE_ALIGNMENT);
+
+  if (max_align < BITS_PER_WORD)
+    max_align = BITS_PER_WORD;
 
   if (opt
       && AGGREGATE_TYPE_P (type)

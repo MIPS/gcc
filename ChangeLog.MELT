@@ -1,5 +1,9 @@
 
 
+2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.206423. All is
+	well compiled.}}
+
 2014-01-04  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merge using svnmerge.py with trunk GCC 4.9 svn rev206333 now in
 	stage 3; very unstable, xtramelt-ana-base don't compile

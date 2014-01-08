@@ -1,3 +1,187 @@
+2014-01-08  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59667
+	* ubsan.c (ubsan_type_descriptor): Call strip_array_types on type2.
+
+2014-01-08  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/59649
+	* stor-layout.c (get_mode_bounds): For BImode return
+	0 and STORE_FLAG_VALUE.
+
+2014-01-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59630
+	* gimple.h (is_gimple_builtin_call): Remove.
+	(gimple_builtin_call_types_compatible_p): New.
+	(gimple_call_builtin_p): New overload.
+	* gimple.c (is_gimple_builtin_call): Remove.
+	(validate_call): Rename to ...
+	(gimple_builtin_call_types_compatible_p): ... this and export.  Also
+	check return types.
+	(validate_type): New static function.
+	(gimple_call_builtin_p): New overload and adjust.
+	* gimple-fold.c (gimple_fold_builtin): Fold the return value.
+	(gimple_fold_call): Likewise.  Use gimple_call_builtin_p.
+	(gimple_fold_stmt_to_constant_1): Likewise.
+	* tsan.c (instrument_gimple): Use gimple_call_builtin_p.
+
+2014-01-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59471
+	* gimplify.c (gimplify_expr): Gimplify register-register type
+	VIEW_CONVERT_EXPRs to separate stmts.
+
+2014-01-07  Jeff Law  <law@redhat.com>
+
+	PR middle-end/53623
+	* ree.c (combine_set_extension): Handle case where source
+	and destination registers in an extension insn are different.
+	(combine_reaching_defs): Allow source and destination
+	registers in extension to be different under limited
+	circumstances.
+	(add_removable_extension): Remove restriction that the
+	source and destination registers in the extension are the
+	same.
+	(find_and_remove_re): Emit a copy from the extension's
+	destination to its source after the defining insn if
+	the source and destination registers are different.
+
+	PR middle-end/59285
+	* ifcvt.c (merge_if_block): If we are merging a block with more than
+	one successor with a block with no successors, remove any BARRIER
+	after the second block.
+
+2014-01-07  Dan Xio Qiang <ziyan01@163.com>
+
+	* hw-doloop.c (reorg_loops): Release the bitmap obstack.
+
+2014-01-07  John David Anglin  <danglin@gcc.gnu.org>
+
+	PR target/59652
+	* config/pa/pa.c (pa_legitimate_address_p): Return false before reload
+	for 14-bit register offsets when INT14_OK_STRICT is false.
+
+2014-01-07  Roland Stigge  <stigge@antcom.de>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR 57386/target
+	* config/rs6000/rs6000.c (rs6000_legitimate_offset_address_p):
+	Only check TFmode for SPE constants.  Don't check TImode or
+	TDmode.
+
+2014-01-07  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-elf.h (ASM_SPEC): Remove identity spec for
+	-mcpu.
+
+2014-01-07  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* config/arm/arm.c (arm_expand_neon_args): Call expand_expr
+	with EXPAND_MEMORY for NEON_ARG_MEMORY; check if the returned
+	rtx is const0_rtx or not.
+
+2014-01-07  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR target/58115
+	* target-globals.c (save_target_globals): Remove this_fn_optab
+	handling.
+	* toplev.c: Include optabs.h.
+	(target_reinit): Temporarily restore the global options if another
+	set of options are in force.
+
+2014-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58668
+	* cfgcleanup.c (flow_find_cross_jump): Don't count
+	any jumps if dir_p is NULL.  Remove p1 variable, use active_insn_p
+	to determine what is counted.
+	(flow_find_head_matching_sequence): Use active_insn_p to determine
+	what is counted.
+	(try_head_merge_bb): Adjust for the flow_find_head_matching_sequence
+	counting change.
+	* ifcvt.c (count_bb_insns): Use active_insn_p && !JUMP_P to
+	determine what is counted.
+
+	PR tree-optimization/59643
+	* tree-predcom.c (split_data_refs_to_components): If one dr is
+	read and one write, determine_offset fails and the write isn't
+	in the bad component, just put the read into the bad component.
+
+2014-01-07  Mike Stump  <mikestump@comcast.net>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR pch/59436
+	* tree-core.h (struct tree_optimization_option): Change optabs
+	type from unsigned char * to void *.
+	* optabs.c (init_tree_optimization_optabs): Adjust
+	TREE_OPTIMIZATION_OPTABS initialization.
+
+2014-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59644
+	* config/i386/i386.h (struct machine_function): Add
+	no_drap_save_restore field.
+	* config/i386/i386.c (ix86_save_reg): Use
+	!cfun->machine->no_drap_save_restore instead of
+	crtl->stack_realign_needed.
+	(ix86_finalize_stack_realign_flags): Don't clear drap_reg unless
+	this function clears frame_pointer_needed.  Set
+	cfun->machine->no_drap_save_restore if clearing frame_pointer_needed
+	and DRAP reg is needed.
+
+2014-01-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/57773
+	* doc/implement-c.texi: Mention that other integer types are
+	permitted as bit-field types in strictly conforming mode.
+
+2014-01-06  Felix Yang  <fei.yang0953@gmail.com>
+
+	* modulo-sched.c (schedule_reg_moves): Clear distance1_uses if it
+	is newly allocated.
+
+2014-01-06  Richard Earnshaw  <rearnsha@arm.com>
+
+	* aarch64.c (aarch64_rtx_costs): Fix cost calculation for MADD.
+
+2014-01-06  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59008
+	* ipa-cp.c (ipcp_discover_new_direct_edges): Changed param_index type
+	to int.
+	* ipa-prop.c (ipa_print_node_params): Fix indentation.
+
+2014-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR debug/59350
+	PR debug/59510
+	* var-tracking.c (add_stores): Preserve the value of the source even if
+	we don't record the store.
+
+2014-01-06  Terry Guo  <terry.guo@arm.com>
+
+	* config.gcc (arm*-*-*): Check --with-arch against arm-arches.def.
+
+2014-01-05  Iain Sandoe  <iain@codesourcery.com>
+
+	PR bootstrap/59541
+	* config/darwin.c (darwin_function_section): Adjust return values to
+	correspond to optimisation changes made in r206070.
+
+2014-01-05  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_data_alignment): Calculate max_align
+	from prefetch_block tune setting.
+	(nocona_cost): Correct size of prefetch block to 64.
+
+2014-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_get_frame_offsets): Revamp long lines.
+	(arm_expand_epilogue_apcs_frame): Take into account the number of bytes
+	used to save the static chain register in the computation of the offset
+	from which the FP registers need to be restored.
+
 2014-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/59519
@@ -17,7 +201,7 @@
 2014-01-03  Bingfeng Mei  <bmei@broadcom.com>
 
 	PR tree-optimization/59651
-	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks): 
+	* tree-vect-loop-manip.c (vect_create_cond_for_alias_checks):
 	Address	range for negative step should be added by TYPE_SIZE_UNIT.
 
 2014-01-03  Andreas Schwab  <schwab@linux-m68k.org>
@@ -95,20 +279,21 @@
 
 2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
-	Update copyright years
+	Update copyright years.
 
 2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	* common/config/arc/arc-common.c, config/arc/arc-modes.def,
 	config/arc/arc-protos.h, config/arc/arc.c, config/arc/arc.h,
-	config/arc/arc.md, config/arc/arc.opt, config/arm/arm_neon_builtins.def,
-	config/arm/crypto.def, config/i386/avx512cdintrin.h,
-	config/i386/avx512erintrin.h, config/i386/avx512fintrin.h,
-	config/i386/avx512pfintrin.h, config/i386/btver2.md,
-	config/i386/shaintrin.h, config/i386/slm.md, config/linux-protos.h,
-	config/linux.c, config/winnt-c.c, diagnostic-color.c,
-	diagnostic-color.h, gimple-ssa-isolate-paths.c, vtable-verify.c,
-	vtable-verify.h: Use the standard form for the copyright notice.
+	config/arc/arc.md, config/arc/arc.opt,
+	config/arm/arm_neon_builtins.def, config/arm/crypto.def,
+	config/i386/avx512cdintrin.h, config/i386/avx512erintrin.h,
+	config/i386/avx512fintrin.h, config/i386/avx512pfintrin.h,
+	config/i386/btver2.md, config/i386/shaintrin.h, config/i386/slm.md,
+	config/linux-protos.h, config/linux.c, config/winnt-c.c,
+	diagnostic-color.c, diagnostic-color.h, gimple-ssa-isolate-paths.c,
+	vtable-verify.c, vtable-verify.h: Use the standard form for the
+	copyright notice.
 
 2014-01-02  Tobias Burnus  <burnus@net-b.de>
 

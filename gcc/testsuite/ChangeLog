@@ -1,3 +1,157 @@
+2014-01-08  Marek Polacek  <polacek@redhat.com>
+
+	PR sanitizer/59667
+	* c-c++-common/ubsan/pr59667.c: New test.
+
+2014-01-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59630
+	* gcc.dg/pr59630.c: New testcase.
+
+2014-01-08  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59471
+	* gcc.dg/pr59471.c: New testcase.
+
+2014-01-07  Jeff Law  <law@redhat.com>
+
+	PR middle-end/53623
+	* gcc.target/i386/pr53623.c: New test.
+
+2014-01-07  Adam Butcher  <adam@jessamine.co.uk>
+
+	* g++.dg/cpp1y/pr58500.C: Hoist PR reference to first line and remove
+	blanks at EOF.
+	* g++.dg/cpp1y/pr58534.C: Likewise.
+	* g++.dg/cpp1y/pr58536.C: Likewise.
+	* g++.dg/cpp1y/pr58548.C: Likewise.
+	* g++.dg/cpp1y/pr58549.C: Likewise.
+	* g++.dg/cpp1y/pr58637.C: Likewise.
+	* g++.dg/cpp1y/pr59112.C: Likewise.
+	* g++.dg/cpp1y/pr59113.C: Likewise.
+	* g++.dg/cpp1y/pr59629.C: Likewise.
+	* g++.dg/cpp1y/pr59635.C: Likewise.
+	* g++.dg/cpp1y/pr59636.C: Likewise.
+	* g++.dg/cpp1y/pr59638.C: Likewise.
+
+2014-01-07  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.target/arm/neon/vst1Q_laneu64-1.c: New test.
+
+2014-01-07  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/i386/intrinsics_4.c (bar): New function.
+
+2014-01-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* g++.dg/ext/is_base_of_incomplete-2.C: New.
+
+2014-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58668
+	* gcc.dg/pr58668.c: New test.
+
+	PR tree-optimization/59643
+	* gcc.dg/pr59643.c: New test.
+	* gcc.c-torture/execute/pr59643.c: New test.
+
+2014-01-06  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59589
+	* gfortran.dg/class_allocate_16.f90: New.
+
+2014-01-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59644
+	* gcc.target/i386/pr59644.c: New test.
+
+2014-01-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/57773
+	* gcc.dg/pr57773.c: New test.
+
+2014-01-06  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/59635
+	PR c++/59636
+	PR c++/59629
+	PR c++/59638
+	* g++.dg/cpp1y/pr59635.C: New testcase.
+	* g++.dg/cpp1y/pr59636.C: New testcase.
+	* g++.dg/cpp1y/pr59629.C: New testcase.
+	* g++.dg/cpp1y/pr59638.C: New testcase.
+
+2014-01-06  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59008
+	* gcc.dg/ipa/pr59008.c: New test.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.dg/vect/vect.exp: Add clearcap_ldflags to DEFAULT_VECTCFLAGS
+	if supported.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/avx512f-vcmppd-2.c: Add -std=c99.
+	Require c99_runtime.
+	* gcc.target/i386/avx512f-vcmpps-2.c: Likewise.
+
+	* gcc.target/i386/avx512f-vfixupimmpd-2.c: Add -std=gnu99.
+	Require c99_runtime.
+	* gcc.target/i386/avx512f-vfixupimmps-2.c: Likewise.
+	* gcc.target/i386/avx512f-vfixupimmsd-2.c: Likewise.
+	* gcc.target/i386/avx512f-vfixupimmss-2.c: Likewise.
+
+	* gcc.target/i386/avx512f-vgetmantpd-2.c: Add -std=c99.
+	Require c99_runtime.
+	Make CALC void static.
+	* gcc.target/i386/avx512f-vgetmantps-2.c: Likewise.
+
+	* gcc.target/i386/avx512f-vgetmantsd-2.c: Add -std=c99.
+	Require c99_runtime.
+	* gcc.target/i386/avx512f-vgetmantss-2.c: Likewise.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/pr59501-1.c: Require avx effective target.
+	* gcc.target/i386/pr59501-2.c: Likewise.
+	* gcc.target/i386/pr59501-3.c: Likewise.
+	* gcc.target/i386/pr59501-4.c: Likewise.
+	* gcc.target/i386/pr59501-5.c: Likewise.
+	* gcc.target/i386/pr59501-6.c: Likewise.
+
+2014-01-06  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	* gcc.target/i386/pr59390.c: Replace math.h by fma declaration.
+	* gcc.target/i386/pr59390_1.c: Likewise.
+	* gcc.target/i386/pr59390_2.c: Likewise.
+
+2014-01-06  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.dg/pr59350.c: Tweak.
+	* gcc.dg/pr59350-2.c: New test.
+	* g++.dg/pr59510.C: Likewise.
+
+2014-01-06  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59023
+	* gfortran.dg/bind_c_procs_2.f90: New.
+
+2014-01-05  John David Anglin  <danglin@gcc.gnu.org>
+
+	* gcc.dg/tree-ssa/reassoc-33.c: Don't run on hppa*-*-*.
+	* gcc.dg/tree-ssa/reassoc-34.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-35.c: Likewise.
+	* gcc.dg/tree-ssa/reassoc-36.c: Likewise.
+	* gcc.dg/tree-ssa/forwprop-28.c: Skip compile on hppa*-*-*.
+	* gcc.dg/tree-ssa/vrp47.c: Likewise.
+	* gcc.dg/tree-ssa/vrp87.c: Likewise.
+
+2014-01-04  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gcc.target/arm/neon-nested-apcs.c: New test.
+
 2014-01-04  Jakub Jelinek  <jakub@redhat.com>
 
 	PR tree-optimization/59519
