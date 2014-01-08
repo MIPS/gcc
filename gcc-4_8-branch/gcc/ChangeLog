@@ -1,3 +1,199 @@
+2014-01-07  Roland Stigge  <stigge@antcom.de>
+	    Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR 57386/target
+	* config/rs6000/rs6000.c (rs6000_legitimate_offset_address_p):
+	Only check TFmode for SPE constants.  Don't check TImode or
+	TDmode.
+
+2014-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/58668
+	* cfgcleanup.c (flow_find_cross_jump): Don't count
+	any jumps if dir_p is NULL.  Remove p1 variable and make USE/CLOBBER
+	check consistent with other places.
+	(flow_find_head_matching_sequence): Don't count USE or CLOBBER insns.
+	(try_head_merge_bb): Adjust for the flow_find_head_matching_sequence
+	counting change.
+	* ifcvt.c (count_bb_insns): Don't count USE or CLOBBER insns.
+
+2014-01-07  Mike Stump  <mikestump@comcast.net>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR pch/59436
+	* tree.h (struct tree_optimization_option): Change optabs
+	type from unsigned char * to void *.
+	* optabs.c (init_tree_optimization_optabs): Adjust
+	TREE_OPTIMIZATION_OPTABS initialization.
+
+2014-01-07  Jakub Jelinek  <jakub@redhat.com>
+
+	Backported from mainline
+	2013-12-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58956
+	PR middle-end/59470
+	* gimple.h (walk_stmt_load_store_addr_fn): New typedef.
+	(walk_stmt_load_store_addr_ops, walk_stmt_load_store_ops): Use it
+	for callback params.
+	* gimple.c (walk_stmt_load_store_ops): Likewise.
+	(walk_stmt_load_store_addr_ops): Likewise.  Adjust all callback
+	calls to supply the gimple operand containing the base tree
+	as an extra argument.
+	* tree-ssa-ter.c (find_ssaname, find_ssaname_in_store): New helper
+	functions.
+	(find_replaceable_in_bb): For calls or GIMPLE_ASM, only set
+	same_root_var if USE is used somewhere in the stores of the stmt.
+	* ipa-prop.c (visit_ref_for_mod_analysis): Remove name of the stmt
+	argument and ATTRIBUTE_UNUSED, add another unnamed tree argument.
+	* ipa-pure-const.c (check_load, check_store, check_ipa_load,
+	check_ipa_store): Likewise.
+	* gimple.c (gimple_ior_addresses_taken_1): Likewise.
+	* ipa-split.c (test_nonssa_use, mark_nonssa_use): Likewise.
+	(verify_non_ssa_vars, visit_bb): Adjust their callers.
+	* cfgexpand.c (add_scope_conflicts_1): Use
+	walk_stmt_load_store_addr_fn type for visit variable.
+	(visit_op, visit_conflict): Remove name of the stmt
+	argument and ATTRIBUTE_UNUSED, add another unnamed tree argument.
+	* tree-sra.c (asm_visit_addr): Likewise.  Remove name of the data
+	argument and ATTRIBUTE_UNUSED.
+	* cgraphbuild.c (mark_address, mark_load, mark_store): Add another
+	unnamed tree argument.
+
+2014-01-03  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* config/m68k/m68k.c (handle_move_double): Handle pushes with
+	overlapping registers also for registers other than the stack
+	pointer.
+
+2014-01-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59625
+	* config/i386/i386.c (ix86_avoid_jump_mispredicts): Don't consider
+	asm goto as jump.
+
+2014-01-01  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/59647
+	* cse.c (cse_process_notes_1): Don't substitute negative VOIDmode
+	new_rtx into UNSIGNED_FLOAT rtxes.
+
+2013-12-28  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* doc/invoke.texi (output file options): Document -fada-spec-parent.
+
+2013-12-26  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/driver-i386.c (decode_caches_intel): Add missing entries.
+
+2013-12-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/59255
+	Backported from mainline
+	2013-08-19  Dehao Chen  <dehao@google.com>
+
+	* value-prof.c (gimple_ic): Fix the bug of adding EH edge.
+
+2013-12-19  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	Backport from Mainline.
+	2013-05-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/aarch64-simd-builtins.def (cmhs): Rename to...
+	(cmgeu): ...This.
+	(cmhi): Rename to...
+	(cmgtu): ...This.
+	* config/aarch64/aarch64-simd.md
+	(simd_mode): Add SF.
+	(aarch64_vcond_internal): Use new names for unsigned comparison insns.
+	(aarch64_cm<optab><mode>): Rewrite to not use UNSPECs.
+	* config/aarch64/aarch64.md (*cstore<mode>_neg): Rename to...
+	(cstore<mode>_neg): ...This.
+	* config/aarch64/iterators.md
+	(VALLF): new.
+	(unspec): Remove UNSPEC_CM<EQ, LE, LT, GE, GT, HS, HI, TST>.
+	(COMPARISONS): New.
+	(UCOMPARISONS): Likewise.
+	(optab): Add missing comparisons.
+	(n_optab): New.
+	(cmp_1): Likewise.
+	(cmp_2): Likewise.
+	(CMP): Likewise.
+	(cmp): Remove.
+	(VCMP_S): Likewise.
+	(VCMP_U): Likewise.
+	(V_cmp_result): Add DF, SF modes.
+	(v_cmp_result): Likewise.
+	(v): Likewise.
+	(vmtype): Likewise.
+	* config/aarch64/predicates.md (aarch64_reg_or_fp_zero): New.
+
+	Partial Backport from mainline.
+	2013-05-01  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* config/aarch64/arm_neon.h
+	(vc<eq, lt, le, gt, ge, tst><qsd>_<u><8,16,32,64>): Remap
+	to builtins or C as appropriate.
+
+2013-12-19  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+	    Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	Backport from mainline
+	2013-12-19  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+	* config/s390/s390.c (s390_hotpatch_trampoline_halfwords_default): New
+	constant
+	(s390_hotpatch_trampoline_halfwords_max): New constant
+	(s390_hotpatch_trampoline_halfwords): New static variable
+	(get_hotpatch_attribute): New function
+	(s390_handle_hotpatch_attribute): New function
+	(s390_attribute_table): New target specific attribute table to implement
+	the hotpatch attribute
+	(s390_option_override): Parse hotpatch options
+	(s390_function_num_hotpatch_trampoline_halfwords): New function
+	(s390_can_inline_p): Implement target hook to
+	suppress hotpatching for explicitly inlined functions
+	(s390_asm_output_function_label): Generate hotpatch prologue
+	(TARGET_ATTRIBUTE_TABLE): Define to implement target attribute table
+	(TARGET_CAN_INLINE_P): Define to implement target hook
+	* config/s390/s390.opt (mhotpatch): New options -mhotpatch, -mhotpatch=
+	* config/s390/s390-protos.h (s390_asm_output_function_label): Add
+	prototype
+	* config/s390/s390.h (ASM_OUTPUT_FUNCTION_LABEL): Target specific
+	function label generation for hotpatching
+	(FUNCTION_BOUNDARY): Align functions to eight bytes
+	* doc/extend.texi: Document hotpatch attribute
+	* doc/invoke.texi: Document -mhotpatch option
+
+2013-12-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* config/arm/arm.c (arm_expand_epilogue_apcs_frame): Fix thinko.
+
+2013-12-12  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/59470
+	* lra-coalesce.c (lra_coalesce): Invalidate inheritance pseudo
+	values if necessary.
+
+2013-12-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR libgomp/59467
+	* gimplify.c (omp_check_private): Add copyprivate argument, if it
+	is true, don't check omp_privatize_by_reference.
+	(gimplify_scan_omp_clauses): For OMP_CLAUSE_COPYPRIVATE verify
+	decl is private in outer context.  Adjust omp_check_private caller.
+
+2013-12-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	PR rtl-optimization/58295
+	* simplify-rtx.c (simplify_truncation): Restrict the distribution for
+	WORD_REGISTER_OPERATIONS targets.
+
+2013-12-10  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/56807
+	* config/i386/i386.c (ix86_expand_prologue): Address saved
+	registers stack-relative, not via frame-pointer.
+
 2013-12-09  Alan Modra  <amodra@gmail.com>
 
 	Apply from mainline
