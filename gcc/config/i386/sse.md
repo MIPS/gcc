@@ -3276,7 +3276,7 @@
 	(vec_select:V4SF
 	  (vec_concat:V8SF
 	    (match_operand:V4SF 1 "nonimmediate_operand" " 0,x,0,x,0")
-	    (match_operand:V4SF 2 "nonimmediate_operand" " x,x,m,x,x"))
+	    (match_operand:V4SF 2 "nonimmediate_operand" " x,x,m,m,x"))
 	  (parallel [(const_int 0)
 		     (const_int 1)
 		     (const_int 4)
@@ -11456,7 +11456,6 @@
   [(set_attr "type" "ssecvt1")
    (set_attr "mode" "<MODE>")])
 
-;; scalar insns
 (define_expand "xop_vmfrcz<mode>2"
   [(set (match_operand:VF_128 0 "register_operand")
 	(vec_merge:VF_128
@@ -11466,11 +11465,9 @@
 	  (match_dup 3)
 	  (const_int 1)))]
   "TARGET_XOP"
-{
-  operands[3] = CONST0_RTX (<MODE>mode);
-})
+  "operands[3] = CONST0_RTX (<MODE>mode);")
 
-(define_insn "*xop_vmfrcz_<mode>"
+(define_insn "*xop_vmfrcz<mode>2"
   [(set (match_operand:VF_128 0 "register_operand" "=x")
 	(vec_merge:VF_128
 	  (unspec:VF_128
