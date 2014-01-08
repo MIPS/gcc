@@ -1088,10 +1088,8 @@ struct mips_cpu_info {
    enabled.)  */
 #define ISA_HAS_PREFETCHX	((ISA_MIPS4				\
 				  || ISA_MIPS32R2			\
-				  || ISA_MIPS32R6			\
 				  || ISA_MIPS64				\
-				  || ISA_MIPS64R2			\
-				  || ISA_MIPS64R6)			\
+				  || ISA_MIPS64R2)			\
 				 && !TARGET_MIPS16)
 
 /* True if trunc.w.s and trunc.w.d are real (not synthetic)
