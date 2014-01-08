@@ -1,5 +1,11 @@
 
 
+2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/xtramelt-ana-gimple.melt: Update copyright year.
+	(gimple_seq_alloc): Remove primitive.
+	(gimple_seq_alloc_with_stmt): Add primitive.
+
 2014-01-07  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated all files.

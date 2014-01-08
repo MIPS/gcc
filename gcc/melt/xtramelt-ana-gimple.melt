@@ -2,13 +2,13 @@
 ;; file xtramelt-ana-gimple.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2008 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
                 and Jeremie Salvucci  <jeremie.salvucci@free.fr>
                 and Pierre Vittet  <piervit@pvittet.com>
                 and Romain Geissler  <romain.geissler@gmail.com>
 
-    This file xtramelt-ana-gimple.{melt,c} is part of GCC.
+    This file xtramelt-ana-gimple.{melt,cc} is part of GCC.
 
     GCC is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -2353,9 +2353,10 @@ and discriminant $DIS, usually $DISCR_MIXED_LOCATION.}#
   #{(($GS)?gimple_seq_copy(($GS)):((gimple_seq)0))}#
 )
 
-(defprimitive gimple_seq_alloc () :gimple_seq
- :doc #{Allocate e new raw gimple sequence. GCC may use cached free gimple sequences.}#
- #{/*gimple_seq_alloc:*/ gimple_seq_alloc()}#)
+(defprimitive gimple_seq_alloc_with_stmt (:gimple g) :gimple_seq
+  :doc #{Allocate a new raw gimple sequence containing the gimple statement $G.
+  GCC may use cached free gimple sequences.}#
+ #{/*gimple_seq_alloc_with_stmt:*/ (($G)?gimple_seq_alloc_with_stmt(($G)):((gimple)NULL))}#)
 
 
 (defprimitive gimple_seq_boxed_add_stmt (bgs :gimple g) :void
@@ -2708,7 +2709,7 @@ $TREECLOS, TRUE) }#)
  gimple_return
  gimple_seq_add_seq
  gimple_seq_add_stmt 
- gimple_seq_alloc
+ gimple_seq_alloc_with_stmt
  gimple_seq_boxed_add_seq 
  gimple_seq_boxed_add_stmt 
  gimple_seq_boxed_make_fill 
