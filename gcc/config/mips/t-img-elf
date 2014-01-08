@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013 Free Software Foundation, Inc.
+# Copyright (C) 2012-2014 Free Software Foundation, Inc.
 #
 # This file is part of GCC.
 #
@@ -17,17 +17,23 @@
 # <http://www.gnu.org/licenses/>.
 
 # The default build is mips32r6, hard-float big-endian.
+# A multilib for mips32r6+LE
 # A multilib for mips64r6
-# A multilib for mips32r6+magic+softfloat
+# A multilib for mips64r6+LE
+# A multilib for mips32r6+LE+magic+softfloat
 
-MULTILIB_OPTIONS = mips64r6 magic=7 msoft-float
-MULTILIB_DIRNAMES = mips64r6 magic7 sof
+MULTILIB_OPTIONS = mips64r6 EL magic=7 msoft-float
+MULTILIB_DIRNAMES = mips64r6 el magic7 sof
+MULTILIB_MATCHES = EL=mel EB=meb
 
 # Don't build magic without soft float
 MULTILIB_EXCEPTIONS += *magic=7
+# Don't build magic without little endian
+MULTILIB_EXCEPTIONS += magic=7*
 
-# Don't build 64r6 with anything else
-MULTILIB_EXCEPTIONS += mips64r6/*
+# Don't build 64r6 with magic or soft float
+MULTILIB_EXCEPTIONS += mips64r6/*m*
 
 # Don't build soft-float 32r6
 MULTILIB_EXCEPTIONS += msoft-float
+MULTILIB_EXCEPTIONS += EL/msoft-float
