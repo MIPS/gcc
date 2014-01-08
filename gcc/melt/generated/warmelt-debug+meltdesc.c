@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140104 (experimental) [melt-branch revision 206385] MELT_1\
+const char melt_genversionstr[]="4.9.0 20140104 (experimental) [melt-branch revision 206419] MELT_1\
 .1-pre"
 
 	     #ifdef __cplusplus
@@ -36,10 +36,10 @@ const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_206385]";
 /*MELTMODULENAME meltbuild-sources/warmelt-debug */
 const char melt_modulename[]="warmelt-debug";
 const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/melt-modules\
-/1.0.1+post/warmelt-debug";
+/1.1-pre/warmelt-debug";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="bd4941f35268783fb715137bcd6d3c27";
+const char melt_prepromd5meltrun[]="78e89b6c7b85525eb15b6a13df110109";
 /* hexmd5checksum of primary C++ file */
 const char melt_primaryhexmd5[]="b28f489af13ef06bd81fb738110bb337";
 
