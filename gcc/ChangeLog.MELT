@@ -2,6 +2,14 @@
 
 2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tgccif.melt: New file. Still failing but should
+	work.
+
+	* melt/warmelt-normal.melt: Update copyright.
+	(normexp_any_value): Add debug.
+
+2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/xtramelt-ana-gimple.melt: Update copyright year.
 	(gimple_seq_alloc): Remove primitive.
 	(gimple_seq_alloc_with_stmt): Add primitive.

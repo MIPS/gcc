@@ -1,0 +1,20 @@
+;; file tgccif.melt -*- lisp -*-
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tgccif.melt 
+
+ ./cc1plus -fmelt-mode=translatequickly @meltbuild-common.args \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tgccif.melt \
+     meltbuild-empty-file.c
+|#
+(defun test_gccif (foo)
+  (debug "test_gccif start foo=" foo)
+  (gccif "4.9."
+	 (debug "test_gccif with GCC 4.9 foo=" foo))
+  (debug "test_gccif end foo=" foo)
+  (return :true))
+
+(debug "before calling test_gccif")
+(test_gccif 'bar)
+(debug "after calling test_gccif")
+
+;; eof tgccif.melt

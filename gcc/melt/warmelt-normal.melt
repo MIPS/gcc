@@ -1,7 +1,7 @@
 ;; file warmelt-normal.melt -*- Lisp -*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2008 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -1261,11 +1261,14 @@ routine procedures.}#
   ;; they are containers for stuff like DISCR_TREE etc..., then we
   ;; should unbox that stuff.  so the normalized expression would be
   ;; an access to some constant offset inside a tuple or its unboxing
+  (debug "normexp_any_value recv=" recv)
   (let ( (cla (discrim recv))
 	 (claname (get_field :named_name cla))
 	 )
     (error_at psloc 
-		"unimplemented normalization for literal value of $1"_ claname)
+	      "unimplemented normalization for literal value of $1"_ claname)
+    (warning_at psloc
+		"unnormalizable literal value is $1" recv)
     (assert_msg "@$@ unimplemented normexp_any_value" () recv)))
 (install_method discr_any_receiver normal_exp  normexp_any_value)
 
