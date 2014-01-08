@@ -1,6 +1,21 @@
 2015-02-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
+	2014-01-07  Jeff Law  <law@redhat.com>
+
+	PR middle-end/53623
+	* ree.c (combine_set_extension): Handle case where source
+	and destination registers in an extension insn are different.
+	(combine_reaching_defs): Allow source and destination
+	registers in extension to be different under limited
+	circumstances.
+	(add_removable_extension): Remove restriction that the
+	source and destination registers in the extension are the
+	same.
+	(find_and_remove_re): Emit a copy from the extension's
+	destination to its source after the defining insn if
+	the source and destination registers are different.
+
 	2013-12-12  Jeff Law  <law@redhat.com>
 
 	* i386.md (simple LEA peephole2): Add missing mode to zero_extend
