@@ -1,7 +1,7 @@
 ;; file warmelt-moremacro.melt -*- Lisp -*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2008 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -106,9 +106,8 @@
 
 (export_macro each_component_in_list)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+;;; gccif support
 (defun filtergccversion (versionstr)
   (assert_msg "check versionstr" (is_string versionstr) versionstr )
   (let ( (:long versionlen (string_length versionstr))
@@ -124,10 +123,11 @@
 	}#)
     (return res)))
 
+;;;;
 (defun mexpand_gccif (sexpr env mexpander modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
-  (debug "mexpand_gccif sexpr" sexpr)
+  (debug "mexpand_gccif sexpr=" sexpr)
   (let (
 	(cont (unsafe_get_field :sexp_contents sexpr))
 	(sloc  (unsafe_get_field :loca_location sexpr))
@@ -135,24 +135,30 @@
 	(curif (pair_head curpair)) 
 	(restpair (pair_tail curpair))
 	)
+    (debug "mexpand_gccif restpair=" restpair)
     (if (is_a curif class_sexpr)
 	(let ( (xcurif (get_field :sexp_contents curif))
-	      )
+	       )
 	  (debug "mexpand_gccif xcurif=" xcurif)
 	  (setq curif xcurif)
 	  ))
-    (debug "mexpand_gccif curif" curif)
     (cond 
      ((is_string curif)
+      (debug "mexpand_gccif string curif=" curif)
       (if (filtergccversion curif)
-	  (let ( (exprest (expand_pairlist_as_tuple restpair env mexpander modctx))
+	  (let ( (exprestlist (expand_pairlist_as_list restpair env mexpander modctx))
 		 )
-	    (debug "mexpand_gccif return exprest" exprest)
-	    (return exprest))
+	    (debug "mexpand_gccif stringy exprestlist=" exprestlist)
+	    (let ( (expfirst (list_first_element exprestlist))
+		   (exptail (list_popfirst exprestlist))
+		   )
+	      (debug "mexpand_gccif stringy return expfirst=" expfirst " exptail=" exptail)
+	      (return expfirst exptail)))
 	(progn
 	  (debug "mexpand_gccif sexpr gcc version mismatched" sexpr)
 	  (return))))
      ((is_list curif)
+      (debug "mexpand_gccif list curif=" curif)
       (let ( (ok ())
 	     )
 	(foreach_pair_component_in_list 
@@ -163,29 +169,34 @@
 	 (if (filtergccversion curstr)
 	     (setq ok :true))
 	 )
+	(debug "mexpand_gccif ok=" ok)
 	(if ok
-	  (let ( (exprest (expand_pairlist_as_tuple restpair env mexpander modctx))
-		 )
-	    (debug "mexpand_gccif return exprest multicond" exprest)
-	    (return exprest))
-	(progn
-	  (debug "mexpand_gccif sexpr gcc version multicond mismatched" sexpr)
-	  (return))))
-
-	)
+	    (let ( (exprestlist (expand_pairlist_as_list restpair env mexpander modctx))
+		   )
+	      (debug "mexpand_gccif  multicond exprestlist=" exprestlist)
+	      (let ( (expfirst (list_first_element exprestlist))
+		     (exptail (list_popfirst exprestlist))
+		     )
+		(debug "mexpand_gccif multicond  return expfirst=" expfirst " exptail=" exptail)
+		(return expfirst exptail))
+	      )
+	  (progn
+	    (debug "mexpand_gccif sexpr gcc version multicond mismatched" sexpr)
+	    (return))))
+      )
      (:else 
       (error_plain sloc "GCCIF bad condition, should be a string or a list of strings")
       (return)
-     ))))
+      ))))
 
 (install_initial_macro 'gccif mexpand_gccif)
 (export_macro gccif mexpand_gccif
  :doc #{The $GCCIF macro expands the rest of the expression if the
 version string of the GCC translating this MELT expression matches
 the condition. Syntax is ($GCCIF condition expr...), where the
-condition is a string such as "4.7." or a list of strings.}#)
+condition is a constant string such as "4.7." or a list of such strings.}#)
 
-
+;;;;;;;;;;;;;;;;
 ;;;; obsolete CONTAINER same as REFERENCE
 
 (defun mexpandobsolete_container (sexpr env mexpander modctx)

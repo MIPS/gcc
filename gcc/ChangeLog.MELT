@@ -2,6 +2,19 @@
 
 2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{The tgccif test passes and MELT is more stable since entirely
+	compilable.}}
+	* melt/warmelt-base.melt (valdesc_hook): The
+	MELT_HOOK_SET_ROUTCODE macro uses a reinterpret_cast.
+
+	* melt/warmelt-macro.melt: Update copyright year.
+
+	* melt/warmelt-moremacro.melt Update copyright year.
+	(mexpand_gccif): Use expand_pairlist_as_list and return both first
+	and rest of expansion...
+
+2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tgccif.melt: New file. Still failing but should
 	work.
 

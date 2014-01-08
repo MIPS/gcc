@@ -2416,7 +2416,7 @@ typedef struct melthook_st *melthook_ptr_t;
    routine function pointer to Hookroot */
 #define MELT_HOOK_SET_ROUTCODE(Hptr,Hookrout) do {	\
   ((struct melthook_st*)(Hptr))->hookad		        \
-     = (void*) (Hookrout);				\
+     = reinterpret_cast<void*> (Hookrout);    		\
 } while(0)
 
 #define MELT_HOOK_STRUCT(N) {		        \
