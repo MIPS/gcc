@@ -3251,6 +3251,18 @@ rs6000_option_override_internal (bool global_init_p)
       && !(processor_target_table[tune_index].target_enable & OPTION_MASK_HTM))
     rs6000_isa_flags |= ~rs6000_isa_flags_explicit & OPTION_MASK_STRICT_ALIGN;
 
+  /* -maltivec={le,be} implies -maltivec.  */
+  if (rs6000_altivec_element_order != 0)
+    rs6000_isa_flags |= OPTION_MASK_ALTIVEC;
+
+  /* Disallow -maltivec=le in big endian mode for now.  This is not
+     known to be useful for anyone.  */
+  if (BYTES_BIG_ENDIAN && rs6000_altivec_element_order == 1)
+    {
+      warning (0, N_("-maltivec=le not allowed for big-endian targets"));
+      rs6000_altivec_element_order = 0;
+    }
+
   /* Add some warnings for VSX.  */
   if (TARGET_VSX)
     {
@@ -6335,14 +6347,15 @@ rs6000_legitimate_offset_address_p (enum machine_mode mode, rtx x,
       break;
 
     case TFmode:
-    case TDmode:
-    case TImode:
-    case PTImode:
     case XFmode:
       if (TARGET_E500_DOUBLE)
 	return (SPE_CONST_OFFSET_OK (offset)
 		&& SPE_CONST_OFFSET_OK (offset + 8));
+      /* fall through */
 
+    case TDmode:
+    case TImode:
+    case PTImode:
       extra = 8;
       if (!worst_case)
 	break;
