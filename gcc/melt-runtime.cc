@@ -2557,7 +2557,7 @@ meltgc_strbuf_reserve (melt_ptr_t outbuf_p, unsigned reslen)
               debugeprintf_raw("\n\n##########%06lx##\n", rnd);
               debugeprintf
               ("MELT string buffer @%p of length %ld growing very big to %ld\n",
-               outbufv,
+               (void*) outbufv,
                (long) (buf_outbufv->bufend -  buf_outbufv->bufstart),
                newsiz);
               debugeprintf("MELT big string buffer starts with %d bytes:\n%.*s\n",
@@ -10783,13 +10783,6 @@ end:
 #undef cmdv
 }
 
-
-
-static void
-meltgc_set_user_options (const char* optstr)
-{
-  melt_fatal_error ("cannot set user option %s", optstr);
-}
 
 
 

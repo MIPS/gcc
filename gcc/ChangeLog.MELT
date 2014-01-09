@@ -1,10 +1,15 @@
 
-2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+2014-01-09  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (meltgc_strbuf_reserve): Improve debugprintf.
+	(meltgc_set_user_options): Remove function.
+
+2014-01-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerate all.
 	* melt/generated/warmelt-normatch+06.cc: Remove.
 
-2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+2014-01-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{removing option facility; should use std::sort for sorting..}}
 
