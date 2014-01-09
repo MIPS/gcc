@@ -1,6 +1,12 @@
 2015-02-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
+	2014-01-08  Jeff Law  <law@redhat.com>
+
+	* ree.c (get_sub_rtx): New function, extracted from...
+	(merge_def_and_ext): Here.
+	(combine_reaching_defs): Use get_sub_rtx.
+
 	2014-01-07  Jeff Law  <law@redhat.com>
 
 	PR middle-end/53623
