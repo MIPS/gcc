@@ -36,6 +36,4 @@ module openacc
 
   integer, parameter :: openacc_version = 201306
 
-  integer, parameter :: openacc_version = 201306
-
 end module openacc

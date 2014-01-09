@@ -3,11 +3,6 @@
 	* f95-lang.c (DEF_GOACC_BUILTIN): New macro.
 	Include "../oacc-builtins.def".
 
-	* f95-lang.c (DEF_GOACC_BUILTIN): New macro.
-	Include "../oacc-builtins.def".
-
-	* cpp.c (cpp_define_builtins): Conditionally define _OPENACC.
-
 	* cpp.c (cpp_define_builtins): Conditionally define _OPENACC.
 
 	* lang.opt (fopenacc): New option.
@@ -50,3 +45,12 @@
 	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_UINT,
 	BT_FN_VOID_OMPFN_PTR_UINT_LONG_LONG_LONG_LONG_UINT): New.
 
+2013-03-27  Jakub Jelinek  <jakub@redhat.com>
+
+	* f95-lang.c (ATTR_NULL): Define.
+
+Copyright (C) 2013 Free Software Foundation, Inc.
+
+Copying and distribution of this file, with or without modification,
+are permitted in any medium without royalty provided the copyright
+notice and this notice are preserved.

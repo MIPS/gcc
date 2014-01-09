@@ -24,6 +24,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "print-tree.h"
+#include "attribs.h"
 #include "cp-tree.h"
 #include "name-lookup.h"
 #include "timevar.h"
@@ -3572,7 +3575,7 @@ handle_namespace_attrs (tree ns, tree attributes)
 
   for (d = attributes; d; d = TREE_CHAIN (d))
     {
-      tree name = TREE_PURPOSE (d);
+      tree name = get_attribute_name (d);
       tree args = TREE_VALUE (d);
 
       if (is_attribute_p ("visibility", name))

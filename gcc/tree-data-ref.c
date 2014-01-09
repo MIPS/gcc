@@ -76,7 +76,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
+#include "expr.h"
 #include "gimple-pretty-print.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-data-ref.h"
@@ -1136,13 +1142,13 @@ common_affine_function (conflict_function *cf)
   affine_fn comm;
 
   if (!CF_NONTRIVIAL_P (cf))
-    return affine_fn();
+    return affine_fn ();
 
   comm = cf->fns[0];
 
   for (i = 1; i < cf->n; i++)
     if (!affine_function_equal_p (comm, cf->fns[i]))
-      return affine_fn();
+      return affine_fn ();
 
   return comm;
 }
@@ -1637,12 +1643,12 @@ conflict_fn (unsigned n, ...)
   va_list ap;
 
   gcc_assert (0 < n && n <= MAX_DIM);
-  va_start(ap, n);
+  va_start (ap, n);
 
   ret->n = n;
   for (i = 0; i < n; i++)
     ret->fns[i] = va_arg (ap, affine_fn);
-  va_end(ap);
+  va_end (ap);
 
   return ret;
 }
@@ -2833,16 +2839,16 @@ gcd_of_steps_may_divide_p (const_tree chrec, const_tree cst)
   HOST_WIDE_INT cd = 0, val;
   tree step;
 
-  if (!host_integerp (cst, 0))
+  if (!tree_fits_shwi_p (cst))
     return true;
-  val = tree_low_cst (cst, 0);
+  val = tree_to_shwi (cst);
 
   while (TREE_CODE (chrec) == POLYNOMIAL_CHREC)
     {
       step = CHREC_RIGHT (chrec);
-      if (!host_integerp (step, 0))
+      if (!tree_fits_shwi_p (step))
 	return true;
-      cd = gcd (cd, tree_low_cst (step, 0));
+      cd = gcd (cd, tree_to_shwi (step));
       chrec = CHREC_LEFT (chrec);
     }
 
@@ -4321,7 +4327,7 @@ typedef struct data_ref_loc_d
    true if STMT clobbers memory, false otherwise.  */
 
 static bool
-get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_stack> *references)
+get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
 {
   bool clobbers_memory = false;
   data_ref_loc ref;
@@ -4413,17 +4419,13 @@ find_data_references_in_stmt (struct loop *nest, gimple stmt,
 			      vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  vec<data_ref_loc, va_stack> references;
+  stack_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
 
-  vec_stack_alloc (data_ref_loc, references, 2);
   if (get_references_in_stmt (stmt, &references))
-    {
-      references.release ();
-      return false;
-    }
+    return false;
 
   FOR_EACH_VEC_ELT (references, i, ref)
     {
@@ -4447,17 +4449,13 @@ graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple stmt,
 				       vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  vec<data_ref_loc, va_stack> references;
+  stack_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
 
-  vec_stack_alloc (data_ref_loc, references, 2);
   if (get_references_in_stmt (stmt, &references))
-    {
-      references.release ();
-      return false;
-    }
+    return false;
 
   FOR_EACH_VEC_ELT (references, i, ref)
     {
@@ -4747,10 +4745,9 @@ analyze_all_data_dependences (struct loop *loop)
 void
 tree_check_data_deps (void)
 {
-  loop_iterator li;
   struct loop *loop_nest;
 
-  FOR_EACH_LOOP (li, loop_nest, 0)
+  FOR_EACH_LOOP (loop_nest, 0)
     analyze_all_data_dependences (loop_nest);
 }
 

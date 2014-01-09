@@ -146,6 +146,7 @@ gfc_init_options (unsigned int decoded_options_count,
   gfc_option.blas_matmul_limit = 30;
   gfc_option.flag_cray_pointer = 0;
   gfc_option.flag_d_lines = -1;
+  gfc_option.gfc_flag_openacc = 0;
   gfc_option.gfc_flag_openmp = 0;
   gfc_option.flag_sign_zero = 1;
   gfc_option.flag_recursive = 0;
@@ -832,12 +833,16 @@ gfc_handle_option (size_t scode, const char *arg, int value,
       gfc_option.source_form = FORM_FREE;
       break;
 
+    case OPT_fopenacc:
+      gfc_option.gfc_flag_openacc = value;
+      break;
+
     case OPT_fopenmp:
       gfc_option.gfc_flag_openmp = value;
       break;
 
-    case OPT_fopenacc:
-      gfc_option.gfc_flag_openacc = value;
+    case OPT_fopenmp_simd:
+      gfc_option.gfc_flag_openmp_simd = value;
       break;
 
     case OPT_ffree_line_length_none:
@@ -1169,6 +1174,10 @@ gfc_get_option_string (void)
   unsigned j;
   size_t len, pos;
   char *result;
+
+  /* Allocate and return a one-character string with '\0'.  */
+  if (!save_decoded_options_count)
+    return XCNEWVEC (char, 1);
 
   /* Determine required string length.  */
 

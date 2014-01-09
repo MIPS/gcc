@@ -246,7 +246,8 @@ insert_set_in_table (rtx dest, rtx src, rtx insn, struct hash_table_d *table,
 
   /* Record bitmap_index of the implicit set in implicit_set_indexes.  */
   if (implicit)
-    implicit_set_indexes[BLOCK_FOR_INSN(insn)->index] = cur_expr->bitmap_index;
+    implicit_set_indexes[BLOCK_FOR_INSN (insn)->index]
+      = cur_expr->bitmap_index;
 }
 
 /* Determine whether the rtx X should be treated as a constant for CPROP.
@@ -966,7 +967,7 @@ cprop_jump (basic_block bb, rtx setcc, rtx jump, rtx from, rtx src)
       edge_iterator ei;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (e->dest != EXIT_BLOCK_PTR
+	if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	    && BB_HEAD (e->dest) == JUMP_LABEL (jump))
 	  {
 	    e->flags |= EDGE_FALLTHRU;
@@ -1375,7 +1376,7 @@ find_implicit_sets (void)
 	? BRANCH_EDGE (bb)->dest : FALLTHRU_EDGE (bb)->dest;
 
       /* If DEST doesn't go anywhere, ignore it.  */
-      if (! dest || dest == EXIT_BLOCK_PTR)
+      if (! dest || dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	continue;
 
       /* We have found a suitable implicit set.  Try to record it now as
@@ -1402,9 +1403,9 @@ find_implicit_sets (void)
       implicit_sets[dest->index] = new_rtx;
       if (dump_file)
 	{
-	  fprintf(dump_file, "Implicit set of reg %d in ",
-		  REGNO (XEXP (cond, 0)));
-	  fprintf(dump_file, "basic block %d\n", dest->index);
+	  fprintf (dump_file, "Implicit set of reg %d in ",
+		   REGNO (XEXP (cond, 0)));
+	  fprintf (dump_file, "basic block %d\n", dest->index);
 	}
       count++;
     }
@@ -1611,7 +1612,7 @@ bypass_block (basic_block bb, rtx setcc, rtx jump)
 	  old_dest = e->dest;
 	  if (dest != NULL
 	      && dest != old_dest
-	      && dest != EXIT_BLOCK_PTR)
+	      && dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
             {
 	      redirect_edge_and_branch_force (e, dest);
 
@@ -1663,15 +1664,15 @@ bypass_conditional_jumps (void)
   rtx dest;
 
   /* Note we start at block 1.  */
-  if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
+  if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return 0;
 
   bypass_last_basic_block = last_basic_block;
   mark_dfs_back_edges ();
 
   changed = 0;
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb->next_bb,
-		  EXIT_BLOCK_PTR, next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
       /* Check for more than one predecessor.  */
       if (!single_pred_p (bb))
@@ -1728,24 +1729,25 @@ is_too_expensive (const char *pass)
      which have a couple switch statements.  Rather than simply
      threshold the number of blocks, uses something with a more
      graceful degradation.  */
-  if (n_edges > 20000 + n_basic_blocks * 4)
+  if (n_edges_for_fn (cfun) > 20000 + n_basic_blocks_for_fn (cfun) * 4)
     {
       warning (OPT_Wdisabled_optimization,
 	       "%s: %d basic blocks and %d edges/basic block",
-	       pass, n_basic_blocks, n_edges / n_basic_blocks);
+	       pass, n_basic_blocks_for_fn (cfun),
+	       n_edges_for_fn (cfun) / n_basic_blocks_for_fn (cfun));
 
       return true;
     }
 
   /* If allocating memory for the cprop bitmap would take up too much
      storage it's better just to disable the optimization.  */
-  if ((n_basic_blocks
+  if ((n_basic_blocks_for_fn (cfun)
        * SBITMAP_SET_SIZE (max_reg_num ())
        * sizeof (SBITMAP_ELT_TYPE)) > MAX_GCSE_MEMORY)
     {
       warning (OPT_Wdisabled_optimization,
 	       "%s: %d basic blocks and %d registers",
-	       pass, n_basic_blocks, max_reg_num ());
+	       pass, n_basic_blocks_for_fn (cfun), max_reg_num ());
 
       return true;
     }
@@ -1762,7 +1764,7 @@ one_cprop_pass (void)
   int changed = 0;
 
   /* Return if there's nothing to do, or it is too expensive.  */
-  if (n_basic_blocks <= NUM_FIXED_BLOCKS + 1
+  if (n_basic_blocks_for_fn (cfun) <= NUM_FIXED_BLOCKS + 1
       || is_too_expensive (_ ("const/copy propagation disabled")))
     return 0;
 
@@ -1834,7 +1836,8 @@ one_cprop_pass (void)
       /* Allocate vars to track sets of regs.  */
       reg_set_bitmap = ALLOC_REG_SET (NULL);
 
-      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb->next_bb, EXIT_BLOCK_PTR,
+      FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb->next_bb,
+		      EXIT_BLOCK_PTR_FOR_FN (cfun),
 		      next_bb)
 	{
 	  /* Reset tables used to keep track of what's still valid [since
@@ -1872,7 +1875,8 @@ one_cprop_pass (void)
   if (dump_file)
     {
       fprintf (dump_file, "CPROP of %s, %d basic blocks, %d bytes needed, ",
-	       current_function_name (), n_basic_blocks, bytes_used);
+	       current_function_name (), n_basic_blocks_for_fn (cfun),
+	       bytes_used);
       fprintf (dump_file, "%d local const props, %d local copy props, ",
 	       local_const_prop_count, local_copy_prop_count);
       fprintf (dump_file, "%d global const props, %d global copy props\n\n",
@@ -1934,12 +1938,12 @@ const pass_data pass_data_rtl_cprop =
 class pass_rtl_cprop : public rtl_opt_pass
 {
 public:
-  pass_rtl_cprop(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_cprop, ctxt)
+  pass_rtl_cprop (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_cprop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_rtl_cprop (ctxt_); }
+  opt_pass * clone () { return new pass_rtl_cprop (m_ctxt); }
   bool gate () { return gate_rtl_cprop (); }
   unsigned int execute () { return execute_rtl_cprop (); }
 

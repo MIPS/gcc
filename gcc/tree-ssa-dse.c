@@ -26,11 +26,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "bitmap.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "domwalk.h"
 #include "flags.h"
 #include "langhooks.h"
+#include "tree-cfgcleanup.h"
 
 /* This file implements dead store elimination.
 
@@ -375,12 +386,12 @@ const pass_data pass_data_dse =
 class pass_dse : public gimple_opt_pass
 {
 public:
-  pass_dse(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_dse, ctxt)
+  pass_dse (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_dse, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dse (ctxt_); }
+  opt_pass * clone () { return new pass_dse (m_ctxt); }
   bool gate () { return gate_dse (); }
   unsigned int execute () { return tree_ssa_dse (); }
 

@@ -38,9 +38,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "rtl.h"
 #include "tree.h"
+#include "varasm.h"
+#include "gimple.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "function.h"
+#include "stringpool.h"
 #include "expr.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -55,6 +58,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "params.h"
 #include "target.h"
+#include "tree-eh.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -1540,12 +1544,12 @@ get_mem_align_offset (rtx mem, unsigned int align)
 	  tree bit_offset = DECL_FIELD_BIT_OFFSET (field);
 
 	  if (!byte_offset
-	      || !host_integerp (byte_offset, 1)
-	      || !host_integerp (bit_offset, 1))
+	      || !tree_fits_uhwi_p (byte_offset)
+	      || !tree_fits_uhwi_p (bit_offset))
 	    return -1;
 
-	  offset += tree_low_cst (byte_offset, 1);
-	  offset += tree_low_cst (bit_offset, 1) / BITS_PER_UNIT;
+	  offset += tree_to_uhwi (byte_offset);
+	  offset += tree_to_uhwi (bit_offset) / BITS_PER_UNIT;
 
 	  if (inner == NULL_TREE)
 	    {
@@ -1704,7 +1708,7 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 
       /* If this expression uses it's parent's alias set, mark it such
 	 that we won't change it.  */
-      if (component_uses_parent_alias_set (t))
+      if (component_uses_parent_alias_set_from (t) != NULL_TREE)
 	MEM_KEEP_ALIAS_SET_P (ref) = 1;
 
       /* If this is a decl, set the attributes of the MEM from it.  */
@@ -1769,10 +1773,10 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
 	    {
 	      attrs.expr = t2;
 	      attrs.offset_known_p = false;
-	      if (host_integerp (off_tree, 1))
+	      if (tree_fits_uhwi_p (off_tree))
 		{
 		  attrs.offset_known_p = true;
-		  attrs.offset = tree_low_cst (off_tree, 1);
+		  attrs.offset = tree_to_uhwi (off_tree);
 		  apply_bitpos = bitpos;
 		}
 	    }
@@ -1799,10 +1803,10 @@ set_mem_attributes_minus_bitpos (rtx ref, tree t, int objectp,
       attrs.align = MAX (attrs.align, obj_align);
     }
 
-  if (host_integerp (new_size, 1))
+  if (tree_fits_uhwi_p (new_size))
     {
       attrs.size_known_p = true;
-      attrs.size = tree_low_cst (new_size, 1);
+      attrs.size = tree_to_uhwi (new_size);
     }
 
   /* If we modified OFFSET based on T, then subtract the outstanding
@@ -2272,15 +2276,15 @@ widen_memory_access (rtx memref, enum machine_mode mode, HOST_WIDE_INT offset)
 	      && attrs.offset >= 0)
 	    break;
 
-	  if (! host_integerp (offset, 1))
+	  if (! tree_fits_uhwi_p (offset))
 	    {
 	      attrs.expr = NULL_TREE;
 	      break;
 	    }
 
 	  attrs.expr = TREE_OPERAND (attrs.expr, 0);
-	  attrs.offset += tree_low_cst (offset, 1);
-	  attrs.offset += (tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1)
+	  attrs.offset += tree_to_uhwi (offset);
+	  attrs.offset += (tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field))
 			   / BITS_PER_UNIT);
 	}
       /* Similarly for the decl.  */
@@ -3461,7 +3465,7 @@ try_split (rtx pat, rtx trial, int last)
 
   if (any_condjump_p (trial)
       && (note = find_reg_note (trial, REG_BR_PROB, 0)))
-    split_branch_probability = INTVAL (XEXP (note, 0));
+    split_branch_probability = XINT (note, 0);
   probability = split_branch_probability;
 
   seq = split_insns (pat, trial);
@@ -3512,7 +3516,7 @@ try_split (rtx pat, rtx trial, int last)
 		 is responsible for this step using
 		 split_branch_probability variable.  */
 	      gcc_assert (njumps == 1);
-	      add_reg_note (insn, REG_BR_PROB, GEN_INT (probability));
+	      add_int_reg_note (insn, REG_BR_PROB, probability);
 	    }
 	}
     }
@@ -4090,7 +4094,7 @@ reorder_insns_nobb (rtx from, rtx to, rtx after)
   NEXT_INSN (to) = NEXT_INSN (after);
   PREV_INSN (from) = after;
   NEXT_INSN (after) = from;
-  if (after == get_last_insn())
+  if (after == get_last_insn ())
     set_last_insn (to);
 }
 
@@ -4300,7 +4304,7 @@ emit_insn_after_1 (rtx first, rtx after, basic_block bb)
   if (after_after)
     PREV_INSN (after_after) = last;
 
-  if (after == get_last_insn())
+  if (after == get_last_insn ())
     set_last_insn (last);
 
   return last;
@@ -4700,7 +4704,7 @@ emit_debug_insn_before (rtx pattern, rtx before)
 rtx
 emit_insn (rtx x)
 {
-  rtx last = get_last_insn();
+  rtx last = get_last_insn ();
   rtx insn;
 
   if (x == NULL_RTX)
@@ -4747,7 +4751,7 @@ emit_insn (rtx x)
 rtx
 emit_debug_insn (rtx x)
 {
-  rtx last = get_last_insn();
+  rtx last = get_last_insn ();
   rtx insn;
 
   if (x == NULL_RTX)
@@ -5804,9 +5808,9 @@ init_emit_once (void)
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
-      FCONST0(mode).data.high = 0;
-      FCONST0(mode).data.low = 0;
-      FCONST0(mode).mode = mode;
+      FCONST0 (mode).data.high = 0;
+      FCONST0 (mode).data.low = 0;
+      FCONST0 (mode).mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      FCONST0 (mode), mode);
     }
@@ -5815,9 +5819,9 @@ init_emit_once (void)
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
-      FCONST0(mode).data.high = 0;
-      FCONST0(mode).data.low = 0;
-      FCONST0(mode).mode = mode;
+      FCONST0 (mode).data.high = 0;
+      FCONST0 (mode).data.low = 0;
+      FCONST0 (mode).mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      FCONST0 (mode), mode);
     }
@@ -5826,17 +5830,17 @@ init_emit_once (void)
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
-      FCONST0(mode).data.high = 0;
-      FCONST0(mode).data.low = 0;
-      FCONST0(mode).mode = mode;
+      FCONST0 (mode).data.high = 0;
+      FCONST0 (mode).data.low = 0;
+      FCONST0 (mode).mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      FCONST0 (mode), mode);
 
       /* We store the value 1.  */
-      FCONST1(mode).data.high = 0;
-      FCONST1(mode).data.low = 0;
-      FCONST1(mode).mode = mode;
-      FCONST1(mode).data
+      FCONST1 (mode).data.high = 0;
+      FCONST1 (mode).data.low = 0;
+      FCONST1 (mode).mode = mode;
+      FCONST1 (mode).data
 	= double_int_one.lshift (GET_MODE_FBIT (mode),
 				 HOST_BITS_PER_DOUBLE_INT,
 				 SIGNED_FIXED_POINT_MODE_P (mode));
@@ -5848,17 +5852,17 @@ init_emit_once (void)
        mode != VOIDmode;
        mode = GET_MODE_WIDER_MODE (mode))
     {
-      FCONST0(mode).data.high = 0;
-      FCONST0(mode).data.low = 0;
-      FCONST0(mode).mode = mode;
+      FCONST0 (mode).data.high = 0;
+      FCONST0 (mode).data.low = 0;
+      FCONST0 (mode).mode = mode;
       const_tiny_rtx[0][(int) mode] = CONST_FIXED_FROM_FIXED_VALUE (
 				      FCONST0 (mode), mode);
 
       /* We store the value 1.  */
-      FCONST1(mode).data.high = 0;
-      FCONST1(mode).data.low = 0;
-      FCONST1(mode).mode = mode;
-      FCONST1(mode).data
+      FCONST1 (mode).data.high = 0;
+      FCONST1 (mode).data.low = 0;
+      FCONST1 (mode).mode = mode;
+      FCONST1 (mode).data
 	= double_int_one.lshift (GET_MODE_FBIT (mode),
 				 HOST_BITS_PER_DOUBLE_INT,
 				 SIGNED_FIXED_POINT_MODE_P (mode));
@@ -5968,7 +5972,7 @@ emit_copy_of_insn_after (rtx insn, rtx after)
 	  add_reg_note (new_rtx, REG_NOTE_KIND (link),
 			copy_insn_1 (XEXP (link, 0)));
 	else
-	  add_reg_note (new_rtx, REG_NOTE_KIND (link), XEXP (link, 0));
+	  add_shallow_copy_of_reg_note (new_rtx, link);
       }
 
   INSN_CODE (new_rtx) = INSN_CODE (insn);

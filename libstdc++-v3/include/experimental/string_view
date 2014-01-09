@@ -73,13 +73,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
    *  @code
    *    static constexpr value_type _S_empty_str[1]{0};
    *  @endcode
-   *
-   *  A basic_string_view represents an empty string with a static constexpr
-   *  length one string:
-   *
-   *  @code
-   *    static constexpr value_type _S_empty_str[1]{0};
-   *  @endcode
    */
   template<typename _CharT, typename _Traits = char_traits<_CharT>>
     class basic_string_view
@@ -434,8 +427,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	     ? std::numeric_limits<int>::min()
 	     : static_cast<int>(difference_type{__n1 - __n2});
       }
-
-      static constexpr value_type _S_empty_str[1]{};
 
       static constexpr value_type _S_empty_str[1]{};
 

@@ -24,18 +24,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
+#include "tree-ssa-threadupdate.h"
 #include "langhooks.h"
 #include "params.h"
+#include "tree-ssa-threadedge.h"
+#include "tree-ssa-dom.h"
 
 /* This file implements optimizations on the dominator tree.  */
 
@@ -527,6 +539,29 @@ hashable_expr_equal_p (const struct hashable_expr *expr0,
     }
 }
 
+/* Generate a hash value for a pair of expressions.  This can be used
+   iteratively by passing a previous result as the VAL argument.
+
+   The same hash value is always returned for a given pair of expressions,
+   regardless of the order in which they are presented.  This is useful in
+   hashing the operands of commutative functions.  */
+
+static hashval_t
+iterative_hash_exprs_commutative (const_tree t1,
+                                  const_tree t2, hashval_t val)
+{
+  hashval_t one = iterative_hash_expr (t1, 0);
+  hashval_t two = iterative_hash_expr (t2, 0);
+  hashval_t t;
+
+  if (one > two)
+    t = one, one = two, two = t;
+  val = iterative_hash_hashval_t (one, val);
+  val = iterative_hash_hashval_t (two, val);
+
+  return val;
+}
+
 /* Compute a hash value for a hashable_expr value EXPR and a
    previously accumulated hash value VAL.  If two hashable_expr
    values compare equal with hashable_expr_equal_p, they must
@@ -638,18 +673,18 @@ print_expr_hash_elt (FILE * stream, const struct expr_hash_elt *element)
         break;
 
       case EXPR_UNARY:
-        fprintf (stream, "%s ", tree_code_name[element->expr.ops.unary.op]);
+	fprintf (stream, "%s ", get_tree_code_name (element->expr.ops.unary.op));
         print_generic_expr (stream, element->expr.ops.unary.opnd, 0);
         break;
 
       case EXPR_BINARY:
         print_generic_expr (stream, element->expr.ops.binary.opnd0, 0);
-        fprintf (stream, " %s ", tree_code_name[element->expr.ops.binary.op]);
+	fprintf (stream, " %s ", get_tree_code_name (element->expr.ops.binary.op));
         print_generic_expr (stream, element->expr.ops.binary.opnd1, 0);
         break;
 
       case EXPR_TERNARY:
-        fprintf (stream, " %s <", tree_code_name[element->expr.ops.ternary.op]);
+	fprintf (stream, " %s <", get_tree_code_name (element->expr.ops.ternary.op));
         print_generic_expr (stream, element->expr.ops.ternary.opnd0, 0);
 	fputs (", ", stream);
         print_generic_expr (stream, element->expr.ops.ternary.opnd1, 0);
@@ -774,7 +809,7 @@ class dom_opt_dom_walker : public dom_walker
 {
 public:
   dom_opt_dom_walker (cdi_direction direction)
-    : dom_walker (direction), dummy_cond_ (NULL) {}
+    : dom_walker (direction), m_dummy_cond (NULL) {}
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
@@ -782,7 +817,7 @@ public:
 private:
   void thread_across_edge (edge);
 
-  gimple dummy_cond_;
+  gimple m_dummy_cond;
 };
 
 /* Jump threading, redundancy elimination and const/copy propagation.
@@ -867,7 +902,7 @@ tree_ssa_dominator_optimize (void)
 	  while (single_succ_p (bb)
 		 && (single_succ_edge (bb)->flags & EDGE_EH) == 0)
 	    bb = single_succ (bb);
-	  if (bb == EXIT_BLOCK_PTR)
+	  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    continue;
 	  if ((unsigned) bb->index != i)
 	    bitmap_set_bit (need_eh_cleanup, bb->index);
@@ -901,7 +936,6 @@ tree_ssa_dominator_optimize (void)
 
   /* Free the value-handle array.  */
   threadedge_finalize_values ();
-  ssa_name_values.release ();
 
   return 0;
 }
@@ -934,12 +968,12 @@ const pass_data pass_data_dominator =
 class pass_dominator : public gimple_opt_pass
 {
 public:
-  pass_dominator(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_dominator, ctxt)
+  pass_dominator (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_dominator, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dominator (ctxt_); }
+  opt_pass * clone () { return new pass_dominator (m_ctxt); }
   bool gate () { return gate_dominator (); }
   unsigned int execute () { return tree_ssa_dominator_optimize (); }
 
@@ -1070,6 +1104,35 @@ simplify_stmt_for_jump_threading (gimple stmt,
   return lookup_avail_expr (stmt, false);
 }
 
+/* Record into the equivalence tables any equivalences implied by
+   traversing edge E (which are cached in E->aux).
+
+   Callers are responsible for managing the unwinding markers.  */
+static void
+record_temporary_equivalences (edge e)
+{
+  int i;
+  struct edge_info *edge_info = (struct edge_info *) e->aux;
+
+  /* If we have info associated with this edge, record it into
+     our equivalence tables.  */
+  if (edge_info)
+    {
+      cond_equivalence *eq;
+      tree lhs = edge_info->lhs;
+      tree rhs = edge_info->rhs;
+
+      /* If we have a simple NAME = VALUE equivalence, record it.  */
+      if (lhs && TREE_CODE (lhs) == SSA_NAME)
+	record_const_or_copy (lhs, rhs);
+
+      /* If we have 0 = COND or 1 = COND equivalences, record them
+	 into our expression hash tables.  */
+      for (i = 0; edge_info->cond_equivalences.iterate (i, &eq); ++i)
+	record_cond (eq);
+    }
+}
+
 /* Wrapper for common code to attempt to thread an edge.  For example,
    it handles lazily building the dummy condition and the bookkeeping
    when jump threading is successful.  */
@@ -1077,15 +1140,33 @@ simplify_stmt_for_jump_threading (gimple stmt,
 void
 dom_opt_dom_walker::thread_across_edge (edge e)
 {
-  if (! dummy_cond_)
-    dummy_cond_ =
+  if (! m_dummy_cond)
+    m_dummy_cond =
         gimple_build_cond (NE_EXPR,
                            integer_zero_node, integer_zero_node,
                            NULL, NULL);
 
-  ::thread_across_edge (dummy_cond_, e, false,
+  /* Push a marker on both stacks so we can unwind the tables back to their
+     current state.  */
+  avail_exprs_stack.safe_push (NULL);
+  const_and_copies_stack.safe_push (NULL_TREE);
+
+  /* Traversing E may result in equivalences we can utilize.  */
+  record_temporary_equivalences (e);
+
+  /* With all the edge equivalences in the tables, go ahead and attempt
+     to thread through E->dest.  */
+  ::thread_across_edge (m_dummy_cond, e, false,
 		        &const_and_copies_stack,
 		        simplify_stmt_for_jump_threading);
+
+  /* And restore the various tables to their state before
+     we threaded this edge. 
+
+     XXX The code in tree-ssa-threadedge.c will restore the state of
+     the const_and_copies table.  We we just have to restore the expression
+     table.  */
+  remove_local_expressions_from_table ();
 }
 
 /* PHI nodes can create equivalences too.
@@ -1905,9 +1986,6 @@ dom_opt_dom_walker::after_dom_children (basic_block bb)
       && (single_succ_edge (bb)->flags & EDGE_ABNORMAL) == 0
       && potentially_threadable_block (single_succ (bb)))
     {
-      /* Push a marker on the stack, which thread_across_edge expects
-	 and will remove.  */
-      const_and_copies_stack.safe_push (NULL_TREE);
       thread_across_edge (single_succ_edge (bb));
     }
   else if ((last = last_stmt (bb))
@@ -1923,79 +2001,15 @@ dom_opt_dom_walker::after_dom_children (basic_block bb)
       /* Only try to thread the edge if it reaches a target block with
 	 more than one predecessor and more than one successor.  */
       if (potentially_threadable_block (true_edge->dest))
-	{
-	  struct edge_info *edge_info;
-	  unsigned int i;
-
-	  /* Push a marker onto the available expression stack so that we
-	     unwind any expressions related to the TRUE arm before processing
-	     the false arm below.  */
-          avail_exprs_stack.safe_push (NULL);
-	  const_and_copies_stack.safe_push (NULL_TREE);
-
-	  edge_info = (struct edge_info *) true_edge->aux;
-
-	  /* If we have info associated with this edge, record it into
-	     our equivalence tables.  */
-	  if (edge_info)
-	    {
-	      cond_equivalence *eq;
-	      tree lhs = edge_info->lhs;
-	      tree rhs = edge_info->rhs;
-
-	      /* If we have a simple NAME = VALUE equivalence, record it.  */
-	      if (lhs && TREE_CODE (lhs) == SSA_NAME)
-		record_const_or_copy (lhs, rhs);
-
-	      /* If we have 0 = COND or 1 = COND equivalences, record them
-		 into our expression hash tables.  */
-	      for (i = 0; edge_info->cond_equivalences.iterate (i, &eq); ++i)
-		record_cond (eq);
-	    }
-
-	  thread_across_edge (true_edge);
-
-	  /* And restore the various tables to their state before
-	     we threaded this edge.  */
-	  remove_local_expressions_from_table ();
-	}
+	thread_across_edge (true_edge);
 
       /* Similarly for the ELSE arm.  */
       if (potentially_threadable_block (false_edge->dest))
-	{
-	  struct edge_info *edge_info;
-	  unsigned int i;
+	thread_across_edge (false_edge);
 
-	  const_and_copies_stack.safe_push (NULL_TREE);
-	  edge_info = (struct edge_info *) false_edge->aux;
-
-	  /* If we have info associated with this edge, record it into
-	     our equivalence tables.  */
-	  if (edge_info)
-	    {
-	      cond_equivalence *eq;
-	      tree lhs = edge_info->lhs;
-	      tree rhs = edge_info->rhs;
-
-	      /* If we have a simple NAME = VALUE equivalence, record it.  */
-	      if (lhs && TREE_CODE (lhs) == SSA_NAME)
-		record_const_or_copy (lhs, rhs);
-
-	      /* If we have 0 = COND or 1 = COND equivalences, record them
-		 into our expression hash tables.  */
-	      for (i = 0; edge_info->cond_equivalences.iterate (i, &eq); ++i)
-		record_cond (eq);
-	    }
-
-	  /* Now thread the edge.  */
-	  thread_across_edge (false_edge);
-
-	  /* No need to remove local expressions from our tables
-	     or restore vars to their original value as that will
-	     be done immediately below.  */
-	}
     }
 
+  /* These remove expressions local to BB from the tables.  */
   remove_local_expressions_from_table ();
   restore_vars_to_original_value ();
 }
@@ -2608,42 +2622,6 @@ avail_expr_hash (const void *p)
 /* PHI-ONLY copy and constant propagation.  This pass is meant to clean
    up degenerate PHIs created by or exposed by jump threading.  */
 
-/* Given PHI, return its RHS if the PHI is a degenerate, otherwise return
-   NULL.  */
-
-tree
-degenerate_phi_result (gimple phi)
-{
-  tree lhs = gimple_phi_result (phi);
-  tree val = NULL;
-  size_t i;
-
-  /* Ignoring arguments which are the same as LHS, if all the remaining
-     arguments are the same, then the PHI is a degenerate and has the
-     value of that common argument.  */
-  for (i = 0; i < gimple_phi_num_args (phi); i++)
-    {
-      tree arg = gimple_phi_arg_def (phi, i);
-
-      if (arg == lhs)
-	continue;
-      else if (!arg)
-	break;
-      else if (!val)
-	val = arg;
-      else if (arg == val)
-	continue;
-      /* We bring in some of operand_equal_p not only to speed things
-	 up, but also to avoid crashing when dereferencing the type of
-	 a released SSA name.  */
-      else if (TREE_CODE (val) != TREE_CODE (arg)
-	       || TREE_CODE (val) == SSA_NAME
-	       || !operand_equal_p (arg, val, 0))
-	break;
-    }
-  return (i == gimple_phi_num_args (phi) ? val : NULL);
-}
-
 /* Given a statement STMT, which is either a PHI node or an assignment,
    remove it from the IL.  */
 
@@ -3076,7 +3054,8 @@ eliminate_degenerate_phis (void)
      phase in dominator order.  Presumably this is because walking
      in dominator order leaves fewer PHIs for later examination
      by the worklist phase.  */
-  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR, interesting_names);
+  eliminate_degenerate_phis_1 (ENTRY_BLOCK_PTR_FOR_FN (cfun),
+			       interesting_names);
 
   /* Second phase.  Eliminate second order degenerate PHIs as well
      as trivial copies or constant initializations identified by
@@ -3147,12 +3126,12 @@ const pass_data pass_data_phi_only_cprop =
 class pass_phi_only_cprop : public gimple_opt_pass
 {
 public:
-  pass_phi_only_cprop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_phi_only_cprop, ctxt)
+  pass_phi_only_cprop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_phi_only_cprop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_phi_only_cprop (ctxt_); }
+  opt_pass * clone () { return new pass_phi_only_cprop (m_ctxt); }
   bool gate () { return gate_dominator (); }
   unsigned int execute () { return eliminate_degenerate_phis (); }
 

@@ -30,10 +30,19 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "flags.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
-#include "tree-flow-inline.h"
-#include "tree-ssa-operands.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "cgraph.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
 #include "cfgloop.h"
@@ -348,15 +357,13 @@ emit_case_bit_tests (gimple swtch, tree index_expr,
       else
         test[k].bits++;
 
-      lo = tree_low_cst (int_const_binop (MINUS_EXPR,
-					  CASE_LOW (cs), minval),
-			 1);
+      lo = tree_to_uhwi (int_const_binop (MINUS_EXPR,
+					  CASE_LOW (cs), minval));
       if (CASE_HIGH (cs) == NULL_TREE)
 	hi = lo;
       else
-	hi = tree_low_cst (int_const_binop (MINUS_EXPR, 
-					    CASE_HIGH (cs), minval),
-			   1);
+	hi = tree_to_uhwi (int_const_binop (MINUS_EXPR,
+					    CASE_HIGH (cs), minval));
 
       for (j = lo; j <= hi; j++)
         if (j >= HOST_BITS_PER_WIDE_INT)
@@ -365,7 +372,7 @@ emit_case_bit_tests (gimple swtch, tree index_expr,
 	  test[k].lo |= (HOST_WIDE_INT) 1 << j;
     }
 
-  qsort (test, count, sizeof(*test), case_bit_test_cmp);
+  qsort (test, count, sizeof (*test), case_bit_test_cmp);
 
   /* We generate two jumps to the default case label.
      Split the default edge, so that we don't have to do any PHI node
@@ -691,13 +698,13 @@ static bool
 check_range (struct switch_conv_info *info)
 {
   gcc_assert (info->range_size);
-  if (!host_integerp (info->range_size, 1))
+  if (!tree_fits_uhwi_p (info->range_size))
     {
       info->reason = "index range way too large or otherwise unusable";
       return false;
     }
 
-  if ((unsigned HOST_WIDE_INT) tree_low_cst (info->range_size, 1)
+  if (tree_to_uhwi (info->range_size)
       > ((unsigned) info->count * SWITCH_CONVERSION_BRANCH_RATIO))
     {
       info->reason = "the maximum range-branch ratio exceeded";
@@ -799,7 +806,7 @@ create_temp_arrays (struct switch_conv_info *info)
   info->target_inbound_names = info->default_values + info->phi_count;
   info->target_outbound_names = info->target_inbound_names + info->phi_count;
   for (i = 0; i < info->phi_count; i++)
-    vec_alloc (info->constructors[i], tree_low_cst (info->range_size, 1) + 1);
+    vec_alloc (info->constructors[i], tree_to_uhwi (info->range_size) + 1);
 }
 
 /* Free the arrays created by create_temp_arrays().  The vectors that are
@@ -1485,8 +1492,8 @@ const pass_data pass_data_convert_switch =
 class pass_convert_switch : public gimple_opt_pass
 {
 public:
-  pass_convert_switch(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_convert_switch, ctxt)
+  pass_convert_switch (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_convert_switch, ctxt)
   {}
 
   /* opt_pass methods: */

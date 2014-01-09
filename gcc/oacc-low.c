@@ -24,7 +24,7 @@
 #include "gimple-oacc.h"
 #include "tree-inline.h"
 #include "diagnostic-core.h"
-#include "tree-flow.h"
+#include "tree-cfg.h"
 #include "tree-ssa.h"
 #include "expr.h"
 #include "tree-pass.h"
@@ -33,13 +33,35 @@
 #include "gimple-pretty-print.h"
 #include "tree-data-ref.h"
 #include "tree-scalar-evolution.h"
-#include "ssaexpand.h"
+#include "plugin.h"
+#include "function.h"
+#include "stringpool.h"
+#include "tree-ssa-alias.h"   
+#include "tree-ssanames.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "bitmap.h"
+#include "tree-ssa-live.h"
+#include "tree-outof-ssa.h"
+#include "tree-into-ssa.h"
 #include "gimple-opencl.h"
 #include "diagnose-gotos.h"
 #include "input.h"
 #include "gtype-desc.h"
 #include "options.h"
 #include "pointer-set.h"
+#include "gimple-iterator.h"
+#include "cgraph.h"
+#include "gimple-builder.h"
+#include "gimple-walk.h"
+#include "attribs.h"
+#include "gimplify.h"
+#include "tree-ssa-loop.h"
+#include "tree-ssa-loop-ivopts.h"   
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-cfgcleanup.h"
+#include "tree-phinodes.h"
 
 #define OACC_PF_DATAIN  1
 #define OACC_PF_EXEC    2
@@ -524,9 +546,8 @@ add_assingments_to_ptrs (gimple_seq *seq, oacc_context* ctx)
 
                   /* D.1988 = _oacc_ptr_tmp + offset */
                   gimple assign_stmt = build_assign (
-                      (enum tree_code)inner_stmt->gsbase.subcode,
-                      convert_var, op, M_NORMAL);
-                  gimple_assign_set_lhs (assign_stmt, lhs);
+                      (enum tree_code)inner_stmt->subcode,
+                      convert_var, op, lhs);
                   gsi_replace (&inner_gsi, assign_stmt, true);
                 }
             }
@@ -584,7 +605,7 @@ lower_oacc_kernels(gimple_stmt_iterator *gsi, oacc_context* ctx)
                + (args.length() - 1) * sizeof(tree);
     else
         size = sizeof(struct gimple_statement_acc_kernels);
-    gimple new_stmt = ggc_alloc_gimple_statement_d (size);
+    gimple new_stmt = ggc_alloc_cleared_gimple_statement_stat (size);
     memcpy(new_stmt, stmt, sizeof(struct gimple_statement_acc_kernels));
 
     gimple_set_num_ops(new_stmt, args.length());
@@ -1284,8 +1305,7 @@ execute_lower_oacc (void)
 
     if(all_contexts->root)
         {
-            struct gimplify_ctx gctx;
-            push_gimplify_context(&gctx);
+            push_gimplify_context();
             lower_oacc(&func_body, NULL);
             pop_gimplify_context(NULL);
         }
@@ -1518,7 +1538,6 @@ get_loop_iteration_count(struct loop *loop, struct tree_niter_desc *pniter_desc)
 {
   HOST_WIDE_INT estimated;
 
-  estimate_numbers_of_iterations_loop(loop);
   estimated = estimated_stmt_executions_int (loop);
   if (estimated == -1)
       estimated = max_stmt_executions_int (loop);
@@ -1943,7 +1962,7 @@ get_collapse_count(acc_kernel kernel)
       if(clause != NULL_TREE)
         {
           tree collapse = ACC_CLAUSE_COLLAPSE_EXPR(clause);
-          HOST_WIDE_INT n = tree_low_cst(collapse, 0);
+          HOST_WIDE_INT n = tree_to_shwi(collapse);
           kernel->collapse = (unsigned)n;
           return;
         }
@@ -2041,12 +2060,12 @@ collect_sese_regions(struct loop **vloops, unsigned nloops,
   unsigned i;
   basic_block bb_entry, bb_exit;
 
-  bb_entry = single_succ_edge(ENTRY_BLOCK_PTR)->dest;
+  bb_entry = single_succ_edge(ENTRY_BLOCK_PTR_FOR_FN(cfun))->dest;
   for(i = 0; i < nloops; ++i)
   {
     if(i == nloops - 1)
     {
-      bb_exit = single_pred_edge(EXIT_BLOCK_PTR)->src;
+      bb_exit = single_pred_edge(EXIT_BLOCK_PTR_FOR_FN(cfun))->src;
     }
     else
     {
@@ -2296,7 +2315,7 @@ extract_kernels(struct loops* loops, tree child_fn,
 
   if(dump_file)
   {
-    dump_dominators(dump_file, ENTRY_BLOCK_PTR, 0);
+    dump_dominators(dump_file, ENTRY_BLOCK_PTR_FOR_FN(cfun), 0);
   }
 
   for(i = 0; i < nloops; ++i)
@@ -2342,7 +2361,7 @@ extract_kernels(struct loops* loops, tree child_fn,
       {
         dump_fn_body(dump_file, "AFTER MOVE SESE");
         dump_ssa(dump_file);
-        dump_dominators(dump_file, ENTRY_BLOCK_PTR, 0);
+        dump_dominators(dump_file, ENTRY_BLOCK_PTR_FOR_FN(cfun), 0);
         fflush(dump_file);
       }
 
@@ -2428,6 +2447,80 @@ struct loop_ctrl_var
   struct loop* loop;
 };
 static bool check_for_ctrl_var(tree, struct loop_ctrl_var* ctrl_var);
+
+typedef bool (*walk_use_def_chains_fn) (tree, gimple, void *);
+
+static bool
+walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
+                      struct pointer_set_t *visited, bool is_dfs)
+{
+  gimple def_stmt;
+
+  if (pointer_set_insert (visited, var))
+    return false;
+
+  def_stmt = SSA_NAME_DEF_STMT (var);
+
+  if (gimple_code (def_stmt) != GIMPLE_PHI)
+    {
+      /* If we reached the end of the use-def chain, call FN.  */
+      return fn (var, def_stmt, data);
+    }
+  else
+    {
+      size_t i;
+
+      /* When doing a breadth-first search, call FN before following the
+        use-def links for each argument.  */
+      if (!is_dfs)
+       for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
+         if (fn (gimple_phi_arg_def (def_stmt, i), def_stmt, data))
+           return true;
+
+      /* Follow use-def links out of each PHI argument.  */
+      for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
+       {
+         tree arg = gimple_phi_arg_def (def_stmt, i);
+
+         /* ARG may be NULL for newly introduced PHI nodes.  */
+         if (arg
+             && TREE_CODE (arg) == SSA_NAME
+             && walk_use_def_chains_1 (arg, fn, data, visited, is_dfs))
+           return true;
+       }
+
+      /* When doing a depth-first search, call FN after following the
+        use-def links for each argument.  */
+      if (is_dfs)
+       for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
+         if (fn (gimple_phi_arg_def (def_stmt, i), def_stmt, data))
+           return true;
+    }
+
+  return false;
+}
+
+static void
+walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
+                     bool is_dfs)
+{
+  gimple def_stmt;
+
+  gcc_assert (TREE_CODE (var) == SSA_NAME);
+
+  def_stmt = SSA_NAME_DEF_STMT (var);
+
+  /* We only need to recurse if the reaching definition comes from a PHI
+     node.  */
+  if (gimple_code (def_stmt) != GIMPLE_PHI)
+    (*fn) (var, def_stmt, data);
+  else
+    {
+      struct pointer_set_t *visited = pointer_set_create ();
+      walk_use_def_chains_1 (var, fn, data, visited, is_dfs);
+      pointer_set_destroy (visited);
+    }
+}
 
 static bool
 check_for_ctrl_var_cb(tree var, gimple stmt, void* data)
@@ -2760,8 +2853,7 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
     }
 
     /* i = _oacc_tmp + i; */
-    add_stmt = build_assign(PLUS_EXPR, init, lhs);
-    new_var = make_ssa_name(SSA_NAME_VAR(lhs), add_stmt);
+    add_stmt = build_assign(PLUS_EXPR, lhs, new_var);
     set_gimple_def_var(add_stmt, new_var);
     gen_add(gsi, add_stmt);
 }
@@ -4179,7 +4271,7 @@ execute_expand_oacc (void)
 
     root_region = new_acc_region(NULL, NULL);
     calculate_dominance_info (CDI_DOMINATORS);
-    build_acc_region (ENTRY_BLOCK_PTR, root_region);
+    build_acc_region (ENTRY_BLOCK_PTR_FOR_FN(cfun), root_region);
 
     if(root_region->children->length() > 0)
       {

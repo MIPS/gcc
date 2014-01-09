@@ -291,6 +291,21 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
 	return ret;
       break;
 
+    case GIMPLE_OACC_PARALLEL:
+      ret = walk_tree (gimple_oacc_parallel_clauses_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_oacc_parallel_child_fn_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      ret = walk_tree (gimple_oacc_parallel_data_arg_ptr (stmt), callback_op,
+		       wi, pset);
+      if (ret)
+	return ret;
+      break;
+
     case GIMPLE_OMP_CONTINUE:
       ret = walk_tree (gimple_omp_continue_control_def_ptr (stmt),
 	  	       callback_op, wi, pset);
@@ -586,6 +601,7 @@ walk_gimple_stmt (gimple_stmt_iterator *gsi, walk_stmt_fn callback_stmt,
 	return wi->callback_result;
 
       /* FALL THROUGH.  */
+    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_CRITICAL:
     case GIMPLE_OMP_MASTER:
     case GIMPLE_OMP_TASKGROUP:

@@ -26,6 +26,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"		/* For UNITS_PER_WORD.  */
 #include "tree.h"
+#include "stringpool.h"
+#include "tree-nested.h"
+#include "stor-layout.h"
 #include "ggc.h"
 #include "diagnostic-core.h"	/* For internal_error.  */
 #include "toplev.h"	/* For rest_of_decl_compilation.  */
@@ -39,6 +42,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-array.h"
 /* Only for gfc_trans_assign and gfc_trans_pointer_assign.  */
 #include "trans-stmt.h"
+#include "tree-nested.h"
 
 /* This maps Fortran intrinsic math functions to external library or GCC
    builtin functions.  */
@@ -7639,7 +7643,8 @@ conv_intrinsic_move_alloc (gfc_code *code)
 				  from_se.expr));
 
               /* Reset _vptr component to declared type.  */
-	      if (UNLIMITED_POLY (from_expr))
+	      if (vtab == NULL)
+		/* Unlimited polymorphic.  */
 		gfc_add_modify_loc (input_location, &block, from_se.expr,
 				    fold_convert (TREE_TYPE (from_se.expr),
 						  null_pointer_node));
@@ -7695,7 +7700,8 @@ conv_intrinsic_move_alloc (gfc_code *code)
 			      from_se.expr));
 
 	  /* Reset _vptr component to declared type.  */
-	  if (UNLIMITED_POLY (from_expr))
+	  if (vtab == NULL)
+	    /* Unlimited polymorphic.  */
 	    gfc_add_modify_loc (input_location, &block, from_se.expr,
 				fold_convert (TREE_TYPE (from_se.expr),
 					      null_pointer_node));

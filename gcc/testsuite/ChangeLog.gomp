@@ -25,23 +25,8 @@
 	* c-c++-common/goacc/parallel-1.c: Likewise.
 	* c-c++-common/goacc/parallel-fail-1.c: Likewise.
 
-	* c-c++-common/goacc-gomp/nesting-fail-1.c: New file.
-	* c-c++-common/goacc/nesting-fail-1.c: Likewise.
-	* c-c++-common/goacc/parallel-1.c: Likewise.
-	* c-c++-common/goacc/parallel-fail-1.c: Likewise.
-
 	* gcc.dg/goacc-gomp/goacc-gomp.exp: New file.
 	* gcc.dg/goacc/goacc.exp: Likewise.
-
-	* gcc.dg/goacc-gomp/goacc-gomp.exp: New file.
-	* gcc.dg/goacc/goacc.exp: Likewise.
-
-	* c-c++-common/cpp/openacc-define-1.c: Test _OPENACC.
-	* c-c++-common/cpp/openacc-define-2.c: Likewise.
-	* c-c++-common/cpp/openacc-define-3.c: Likewise.
-	* gfortran.dg/openacc-define-1.f90: Likewise.
-	* gfortran.dg/openacc-define-2.f90: Likewise.
-	* gfortran.dg/openacc-define-3.f90: Likewise.
 
 	* c-c++-common/cpp/openacc-define-1.c: Test _OPENACC.
 	* c-c++-common/cpp/openacc-define-2.c: Likewise.
@@ -59,13 +44,6 @@
 
 	* lib/target-supports.exp (check_effective_target_fopenacc): New
 	procedure.
-
-2013-10-10  Jakub Jelinek  <jakub@redhat.com>
-
-	* g++.dg/gomp/depend-1.C (foo): Adjust expected error messages.
-	* g++.dg/gomp/depend-2.C (foo): Likewise.
-	* c-c++-common/gomp/depend-1.c (foo): Likewise.
-	* c-c++-common/gomp/map-1.c (foo): Likewise.
 
 2013-10-10  Jakub Jelinek  <jakub@redhat.com>
 
@@ -105,9 +83,6 @@
 	* c-c++-common/gomp/cancel-1.c: New test.
 
 2013-09-19  Jakub Jelinek  <jakub@redhat.com>
-
-	PR tree-optimization/58472
-	* c-c++-common/gomp/pr58472.c: New test.
 
 	PR tree-optimization/58472
 	* c-c++-common/gomp/pr58472.c: New test.

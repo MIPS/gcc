@@ -23,6 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "stringpool.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -2643,7 +2646,7 @@ frv_print_operand_jump_hint (rtx insn)
   rtx note;
   rtx labelref;
   int ret;
-  HOST_WIDE_INT prob = -1;
+  int prob = -1;
   enum { UNKNOWN, BACKWARD, FORWARD } jump_type = UNKNOWN;
 
   gcc_assert (JUMP_P (insn));
@@ -2669,7 +2672,7 @@ frv_print_operand_jump_hint (rtx insn)
 
       else
 	{
-	  prob = INTVAL (XEXP (note, 0));
+	  prob = XINT (note, 0);
 	  ret = ((prob >= (REG_BR_PROB_BASE / 2))
 		 ? FRV_JUMP_LIKELY
 		 : FRV_JUMP_NOT_LIKELY);
@@ -2690,10 +2693,10 @@ frv_print_operand_jump_hint (rtx insn)
 	}
 
       fprintf (stderr,
-	       "%s: uid %ld, %s, probability = %ld, max prob. = %ld, hint = %d\n",
+	       "%s: uid %ld, %s, probability = %d, max prob. = %d, hint = %d\n",
 	       IDENTIFIER_POINTER (DECL_NAME (current_function_decl)),
-	       (long)INSN_UID (insn), direction, (long)prob,
-	       (long)REG_BR_PROB_BASE, ret);
+	       (long)INSN_UID (insn), direction, prob,
+	       REG_BR_PROB_BASE, ret);
     }
 #endif
 
@@ -3094,7 +3097,7 @@ frv_init_cumulative_args (CUMULATIVE_ARGS *cum,
 	{
 	  tree ret_type = TREE_TYPE (fntype);
 	  fprintf (stderr, " return=%s,",
-		   tree_code_name[ (int)TREE_CODE (ret_type) ]);
+		   get_tree_code_name (TREE_CODE (ret_type)));
 	}
 
       if (libname && GET_CODE (libname) == SYMBOL_REF)
@@ -8024,7 +8027,7 @@ frv_optimize_membar_global (basic_block bb, struct frv_io *first_io,
   /* We need to keep the membar if there is an edge to the exit block.  */
   FOR_EACH_EDGE (succ, ei, bb->succs)
   /* for (succ = bb->succ; succ != 0; succ = succ->succ_next) */
-    if (succ->dest == EXIT_BLOCK_PTR)
+    if (succ->dest == EXIT_BLOCK_PTR_FOR_FN (cfun))
       return;
 
   /* Work out the union of all successor blocks.  */

@@ -180,7 +180,7 @@ static vec<invariant_p> invariants;
 static void
 check_invariant_table_size (void)
 {
-  if (invariant_table_size < DF_DEFS_TABLE_SIZE())
+  if (invariant_table_size < DF_DEFS_TABLE_SIZE ())
     {
       unsigned int new_size = DF_DEFS_TABLE_SIZE () + (DF_DEFS_TABLE_SIZE () / 4);
       invariant_table = XRESIZEVEC (struct invariant *, invariant_table, new_size);
@@ -274,13 +274,13 @@ invariant_for_use (df_ref use)
     return NULL;
   def = defs->ref;
   check_invariant_table_size ();
-  if (!invariant_table[DF_REF_ID(def)])
+  if (!invariant_table[DF_REF_ID (def)])
     return NULL;
 
   def_bb = DF_REF_BB (def);
   if (!dominated_by_p (CDI_DOMINATORS, bb, def_bb))
     return NULL;
-  return invariant_table[DF_REF_ID(def)];
+  return invariant_table[DF_REF_ID (def)];
 }
 
 /* Computes hash value for invariant expression X in INSN.  */
@@ -807,7 +807,7 @@ check_dependency (basic_block bb, df_ref use, bitmap depends_on)
 
   def = defs->ref;
   check_invariant_table_size ();
-  inv = invariant_table[DF_REF_ID(def)];
+  inv = invariant_table[DF_REF_ID (def)];
   if (!inv)
     return false;
 
@@ -908,7 +908,7 @@ find_invariant_insn (rtx insn, bool always_reached, bool always_executed)
     {
       ref = df_find_def (insn, dest);
       check_invariant_table_size ();
-      invariant_table[DF_REF_ID(ref)] = inv;
+      invariant_table[DF_REF_ID (ref)] = inv;
     }
 }
 
@@ -1815,9 +1815,8 @@ calculate_loop_reg_pressure (void)
   basic_block bb;
   rtx insn, link;
   struct loop *loop, *parent;
-  loop_iterator li;
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     if (loop->aux == NULL)
       {
 	loop->aux = xcalloc (1, sizeof (struct loop_data));
@@ -1884,7 +1883,7 @@ calculate_loop_reg_pressure (void)
   bitmap_clear (&curr_regs_live);
   if (flag_ira_region == IRA_REGION_MIXED
       || flag_ira_region == IRA_REGION_ALL)
-    FOR_EACH_LOOP (li, loop, 0)
+    FOR_EACH_LOOP (loop, 0)
       {
 	EXECUTE_IF_SET_IN_BITMAP (&LOOP_DATA (loop)->regs_live, 0, j, bi)
 	  if (! bitmap_bit_p (&LOOP_DATA (loop)->regs_ref, j))
@@ -1898,7 +1897,7 @@ calculate_loop_reg_pressure (void)
       }
   if (dump_file == NULL)
     return;
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       parent = loop_outer (loop);
       fprintf (dump_file, "\n  Loop %d (parent %d, header bb%d, depth %d)\n",
@@ -1933,7 +1932,6 @@ void
 move_loop_invariants (void)
 {
   struct loop *loop;
-  loop_iterator li;
 
   if (flag_ira_loop_pressure)
     {
@@ -1945,7 +1943,7 @@ move_loop_invariants (void)
     }
   df_set_flags (DF_EQ_NOTES + DF_DEFER_INSN_RESCAN);
   /* Process the loops, innermost first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       curr_loop = loop;
       /* move_single_loop_invariants for very large loops
@@ -1954,7 +1952,7 @@ move_loop_invariants (void)
 	move_single_loop_invariants (loop);
     }
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     {
       free_loop_data (loop);
     }

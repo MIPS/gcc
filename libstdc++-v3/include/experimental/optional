@@ -313,10 +313,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
     private:
       struct _Empty_byte { };
-      union
-      {
-	_Empty_byte _M_empty;
-	_Stored_type _M_payload;
+      union {
+          _Empty_byte _M_empty;
+          _Stored_type _M_payload;
       };
       bool _M_engaged = false;
     };

@@ -22,10 +22,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-into-ssa.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "gimple-pretty-print.h"
 #include "except.h"
 #include "tree-pass.h"
@@ -446,7 +457,9 @@ find_tail_calls (basic_block bb, struct tailcall **ret)
   /* We found the call, check whether it is suitable.  */
   tail_recursion = false;
   func = gimple_call_fndecl (call);
-  if (func && recursive_call_p (current_function_decl, func))
+  if (func
+      && !DECL_BUILT_IN (func)
+      && recursive_call_p (current_function_decl, func))
     {
       tree arg;
 
@@ -808,7 +821,7 @@ eliminate_tail_call (struct tailcall *t)
 
   gcc_assert (is_gimple_call (stmt));
 
-  first = single_succ (ENTRY_BLOCK_PTR);
+  first = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
   /* Remove the code after call_gsi that will become unreachable.  The
      possibly unreachable code in other blocks is removed later in
@@ -829,9 +842,10 @@ eliminate_tail_call (struct tailcall *t)
 
   /* Number of executions of function has reduced by the tailcall.  */
   e = single_succ_edge (gsi_bb (t->call_gsi));
-  decrease_profile (EXIT_BLOCK_PTR, e->count, EDGE_FREQUENCY (e));
-  decrease_profile (ENTRY_BLOCK_PTR, e->count, EDGE_FREQUENCY (e));
-  if (e->dest != EXIT_BLOCK_PTR)
+  decrease_profile (EXIT_BLOCK_PTR_FOR_FN (cfun), e->count, EDGE_FREQUENCY (e));
+  decrease_profile (ENTRY_BLOCK_PTR_FOR_FN (cfun), e->count,
+		    EDGE_FREQUENCY (e));
+  if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
     decrease_profile (e->dest, e->count, EDGE_FREQUENCY (e));
 
   /* Replace the call by a jump to the start of function.  */
@@ -935,7 +949,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   bool phis_constructed = false;
   struct tailcall *tailcalls = NULL, *act, *next;
   bool changed = false;
-  basic_block first = single_succ (ENTRY_BLOCK_PTR);
+  basic_block first = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
   tree param;
   gimple stmt;
   edge_iterator ei;
@@ -945,7 +959,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (opt_tailcalls)
     opt_tailcalls = suitable_for_tail_call_opt_p ();
 
-  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+  FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
     {
       /* Only traverse the normal exits, i.e. those that end with return
 	 statement.  */
@@ -969,7 +983,8 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
 	     or if there are existing degenerate PHI nodes.  */
 	  if (!single_pred_p (first)
 	      || !gimple_seq_empty_p (phi_nodes (first)))
-	    first = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
+	    first =
+	      split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
 	  /* Copy the args if needed.  */
 	  for (param = DECL_ARGUMENTS (current_function_decl);
@@ -1016,7 +1031,7 @@ tree_optimize_tail_calls_1 (bool opt_tailcalls)
   if (a_acc || m_acc)
     {
       /* Modify the remaining return statements.  */
-      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
 	{
 	  stmt = last_stmt (e->src);
 
@@ -1083,12 +1098,12 @@ const pass_data pass_data_tail_recursion =
 class pass_tail_recursion : public gimple_opt_pass
 {
 public:
-  pass_tail_recursion(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tail_recursion, ctxt)
+  pass_tail_recursion (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tail_recursion, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_tail_recursion (ctxt_); }
+  opt_pass * clone () { return new pass_tail_recursion (m_ctxt); }
   bool gate () { return gate_tail_calls (); }
   unsigned int execute () { return execute_tail_recursion (); }
 
@@ -1122,8 +1137,8 @@ const pass_data pass_data_tail_calls =
 class pass_tail_calls : public gimple_opt_pass
 {
 public:
-  pass_tail_calls(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_tail_calls, ctxt)
+  pass_tail_calls (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_tail_calls, ctxt)
   {}
 
   /* opt_pass methods: */

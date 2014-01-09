@@ -892,7 +892,7 @@ get_avail_load_store_reg (rtx insn)
 {
   if (REG_P (SET_DEST (PATTERN (insn))))
     /* A load.  */
-    return SET_DEST(PATTERN(insn));
+    return SET_DEST (PATTERN (insn));
   else
     {
       /* A store.  */
@@ -1158,12 +1158,12 @@ eliminate_partially_redundant_loads (void)
 
   /* Note we start at block 1.  */
 
-  if (ENTRY_BLOCK_PTR->next_bb == EXIT_BLOCK_PTR)
+  if (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   FOR_BB_BETWEEN (bb,
-		  ENTRY_BLOCK_PTR->next_bb->next_bb,
-		  EXIT_BLOCK_PTR,
+		  ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb->next_bb,
+		  EXIT_BLOCK_PTR_FOR_FN (cfun),
 		  next_bb)
     {
       /* Don't try anything on basic blocks with strange predecessors.  */
@@ -1344,8 +1344,8 @@ const pass_data pass_data_gcse2 =
 class pass_gcse2 : public rtl_opt_pass
 {
 public:
-  pass_gcse2(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_gcse2, ctxt)
+  pass_gcse2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_gcse2, ctxt)
   {}
 
   /* opt_pass methods: */

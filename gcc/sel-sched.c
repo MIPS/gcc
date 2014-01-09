@@ -509,12 +509,12 @@ typedef vec<vinsn_t> vinsn_vec_t;
    can't be moved up due to bookkeeping created during code motion to another
    fence.  See comment near the call to update_and_record_unavailable_insns
    for the detailed explanations.  */
-static vinsn_vec_t vec_bookkeeping_blocked_vinsns = vinsn_vec_t();
+static vinsn_vec_t vec_bookkeeping_blocked_vinsns = vinsn_vec_t ();
 
 /* This vector has vinsns which are scheduled with renaming on the first fence
    and then seen on the second.  For expressions with such vinsns, target
    availability information may be wrong.  */
-static vinsn_vec_t vec_target_unavailable_vinsns = vinsn_vec_t();
+static vinsn_vec_t vec_target_unavailable_vinsns = vinsn_vec_t ();
 
 /* Vector to store temporary nops inserted in move_op to prevent removal
    of empty bbs.  */
@@ -809,7 +809,7 @@ count_occurrences_1 (rtx *cur_rtx, void *arg)
       /* Bail out if mode is different or more than one register is used.  */
       if (GET_MODE (*cur_rtx) != GET_MODE (p->x)
           || (HARD_REGISTER_P (*cur_rtx)
-	      && hard_regno_nregs[REGNO(*cur_rtx)][GET_MODE (*cur_rtx)] > 1))
+	      && hard_regno_nregs[REGNO (*cur_rtx)][GET_MODE (*cur_rtx)] > 1))
         {
           p->n = 0;
           return 1;
@@ -4551,7 +4551,8 @@ find_block_for_bookkeeping (edge e1, edge e2, bool lax)
   edge e;
 
   /* Loop over edges from E1 to E2, inclusive.  */
-  for (e = e1; !lax || e->dest != EXIT_BLOCK_PTR; e = EDGE_SUCC (e->dest, 0))
+  for (e = e1; !lax || e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun); e =
+       EDGE_SUCC (e->dest, 0))
     {
       if (EDGE_COUNT (e->dest->preds) == 2)
 	{
@@ -4642,7 +4643,7 @@ create_block_for_bookkeeping (edge e1, edge e2)
       if (DEBUG_INSN_P (insn)
 	  && single_succ_p (new_bb)
 	  && (succ = single_succ (new_bb))
-	  && succ != EXIT_BLOCK_PTR
+	  && succ != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	  && DEBUG_INSN_P ((last = sel_bb_end (new_bb))))
 	{
 	  while (insn != last && (DEBUG_INSN_P (insn) || NOTE_P (insn)))
@@ -7764,7 +7765,7 @@ run_selective_scheduling (void)
 {
   int rgn;
 
-  if (n_basic_blocks == NUM_FIXED_BLOCKS)
+  if (n_basic_blocks_for_fn (cfun) == NUM_FIXED_BLOCKS)
     return;
 
   sel_global_init ();

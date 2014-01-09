@@ -6,8 +6,6 @@
 
 #include "config.h"
 
-#include "config.h"
-
 	.global	reflect.makeFuncStub
 
 #ifdef __ELF__

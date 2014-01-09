@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "tree.h"
 #include "hard-reg-set.h"
 #include "obstack.h"
 #include "basic-block.h"
@@ -268,7 +269,6 @@ unroll_and_peel_loops (int flags)
 {
   struct loop *loop;
   bool changed = false;
-  loop_iterator li;
 
   /* First perform complete loop peeling (it is almost surely a win,
      and affects parameters for further decision a lot).  */
@@ -278,7 +278,7 @@ unroll_and_peel_loops (int flags)
   decide_unrolling_and_peeling (flags);
 
   /* Scan the loops, inner ones first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       /* And perform the appropriate transformations.  */
       switch (loop->lpt_decision.decision)
@@ -344,11 +344,10 @@ static void
 peel_loops_completely (int flags)
 {
   struct loop *loop;
-  loop_iterator li;
   bool changed = false;
 
   /* Scan the loops, the inner ones first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       loop->lpt_decision.decision = LPT_NONE;
       location_t locus = get_loop_location (loop);
@@ -385,10 +384,9 @@ static void
 decide_unrolling_and_peeling (int flags)
 {
   struct loop *loop;
-  loop_iterator li;
 
   /* Scan the loops, inner ones first.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       loop->lpt_decision.decision = LPT_NONE;
       location_t locus = get_loop_location (loop);
@@ -469,7 +467,7 @@ decide_peel_once_rolling (struct loop *loop, int flags ATTRIBUTE_UNUSED)
       || desc->infinite
       || !desc->const_iter
       || (desc->niter != 0
-	  && max_loop_iterations_int (loop) != 0))
+	  && get_max_loop_iterations_int (loop) != 0))
     {
       if (dump_file)
 	fprintf (dump_file,
@@ -694,8 +692,8 @@ decide_unroll_constant_iterations (struct loop *loop, int flags)
      than one exit it may well loop less than determined maximal number
      of iterations.  */
   if (desc->niter < 2 * nunroll
-      || ((estimated_loop_iterations (loop, &iterations)
-	   || max_loop_iterations (loop, &iterations))
+      || ((get_estimated_loop_iterations (loop, &iterations)
+	   || get_max_loop_iterations (loop, &iterations))
 	  && iterations.ult (double_int::from_shwi (2 * nunroll))))
     {
       if (dump_file)
@@ -999,8 +997,8 @@ decide_unroll_runtime_iterations (struct loop *loop, int flags)
     }
 
   /* Check whether the loop rolls.  */
-  if ((estimated_loop_iterations (loop, &iterations)
-       || max_loop_iterations (loop, &iterations))
+  if ((get_estimated_loop_iterations (loop, &iterations)
+       || get_max_loop_iterations (loop, &iterations))
       && iterations.ult (double_int::from_shwi (2 * nunroll)))
     {
       if (dump_file)
@@ -1388,7 +1386,7 @@ decide_peel_simple (struct loop *loop, int flags)
     }
 
   /* If we have realistic estimate on number of iterations, use it.  */
-  if (estimated_loop_iterations (loop, &iterations))
+  if (get_estimated_loop_iterations (loop, &iterations))
     {
       if (double_int::from_shwi (npeel).ule (iterations))
 	{
@@ -1406,7 +1404,7 @@ decide_peel_simple (struct loop *loop, int flags)
     }
   /* If we have small enough bound on iterations, we can still peel (completely
      unroll).  */
-  else if (max_loop_iterations (loop, &iterations)
+  else if (get_max_loop_iterations (loop, &iterations)
            && iterations.ult (double_int::from_shwi (npeel)))
     npeel = iterations.to_shwi () + 1;
   else
@@ -1556,8 +1554,8 @@ decide_unroll_stupid (struct loop *loop, int flags)
     }
 
   /* Check whether the loop rolls.  */
-  if ((estimated_loop_iterations (loop, &iterations)
-       || max_loop_iterations (loop, &iterations))
+  if ((get_estimated_loop_iterations (loop, &iterations)
+       || get_max_loop_iterations (loop, &iterations))
       && iterations.ult (double_int::from_shwi (2 * nunroll)))
     {
       if (dump_file)

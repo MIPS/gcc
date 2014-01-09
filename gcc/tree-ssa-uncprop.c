@@ -22,11 +22,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "function.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "domwalk.h"
 #include "tree-pass.h"
 #include "tree-ssa-propagate.h"
@@ -188,7 +194,7 @@ associate_equivalences_with_edges (void)
 
 	      /* Now walk over the blocks to determine which ones were
 		 marked as being reached by a useful case label.  */
-	      for (i = 0; i < n_basic_blocks; i++)
+	      for (i = 0; i < n_basic_blocks_for_fn (cfun); i++)
 		{
 		  tree node = info[i];
 
@@ -357,26 +363,18 @@ record_equiv (tree value, tree equivalence)
 class uncprop_dom_walker : public dom_walker
 {
 public:
-  uncprop_dom_walker (cdi_direction direction)
-    : dom_walker (direction)
-  {
-    equiv_stack_.create (2);
-  }
-  ~uncprop_dom_walker ()
-  {
-    equiv_stack_.release ();
-  }
+  uncprop_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
 
 private:
 
-/* As we enter each block we record the value for any edge equivalency
-   leading to this block.  If no such edge equivalency exists, then we
-   record NULL.  These equivalences are live until we leave the dominator
-   subtree rooted at the block where we record the equivalency.  */
-  vec<tree> equiv_stack_;
+  /* As we enter each block we record the value for any edge equivalency
+     leading to this block.  If no such edge equivalency exists, then we
+     record NULL.  These equivalences are live until we leave the dominator
+     subtree rooted at the block where we record the equivalency.  */
+  stack_vec<tree, 2> m_equiv_stack;
 };
 
 /* Main driver for un-cprop.  */
@@ -428,7 +426,7 @@ void
 uncprop_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 {
   /* Pop the topmost value off the equiv stack.  */
-  tree value = equiv_stack_.pop ();
+  tree value = m_equiv_stack.pop ();
 
   /* If that value was non-null, then pop the topmost equivalency off
      its equivalency stack.  */
@@ -566,13 +564,13 @@ uncprop_dom_walker::before_dom_children (basic_block bb)
 	  struct edge_equivalency *equiv = (struct edge_equivalency *) e->aux;
 
 	  record_equiv (equiv->rhs, equiv->lhs);
-	  equiv_stack_.safe_push (equiv->rhs);
+	  m_equiv_stack.safe_push (equiv->rhs);
 	  recorded = true;
 	}
     }
 
   if (!recorded)
-    equiv_stack_.safe_push (NULL_TREE);
+    m_equiv_stack.safe_push (NULL_TREE);
 
   uncprop_into_successor_phis (bb);
 }
@@ -603,12 +601,12 @@ const pass_data pass_data_uncprop =
 class pass_uncprop : public gimple_opt_pass
 {
 public:
-  pass_uncprop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_uncprop, ctxt)
+  pass_uncprop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_uncprop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_uncprop (ctxt_); }
+  opt_pass * clone () { return new pass_uncprop (m_ctxt); }
   bool gate () { return gate_uncprop (); }
   unsigned int execute () { return tree_ssa_uncprop (); }
 

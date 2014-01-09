@@ -28,9 +28,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tree.h"
 #include "gimple.h"
-#include "tree-ssa.h"
-#include "diagnostic-core.h"
 #include "bitmap.h"
+#include "diagnostic-core.h"
 #include "vec.h"
 #include "tree-streamer.h"
 #include "lto-streamer.h"
@@ -44,6 +43,7 @@ struct lto_stats_d lto_stats;
 static bitmap_obstack lto_obstack;
 static bool lto_obstack_initialized;
 
+const char *section_name_prefix = LTO_SECTION_NAME_PREFIX;
 
 /* Return a string representing LTO tag TAG.  */
 
@@ -54,7 +54,7 @@ lto_tag_name (enum LTO_tags tag)
     {
       /* For tags representing tree nodes, return the name of the
 	 associated tree code.  */
-      return tree_code_name[lto_tag_to_tree_code (tag)];
+      return get_tree_code_name (lto_tag_to_tree_code (tag));
     }
 
   if (lto_tag_is_gimple_code_p (tag))
@@ -173,7 +173,7 @@ lto_get_section_name (int section_type, const char *name, struct lto_file_decl_d
     sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, f->id);
   else
     sprintf (post, "." HOST_WIDE_INT_PRINT_HEX_PURE, get_random_seed (false)); 
-  return concat (LTO_SECTION_NAME_PREFIX, sep, add, post, NULL);
+  return concat (section_name_prefix, sep, add, post, NULL);
 }
 
 
@@ -199,7 +199,7 @@ print_lto_report (const char *s)
     if (lto_stats.num_trees[i])
       fprintf (stderr, "[%s] # of '%s' objects read: "
 	       HOST_WIDE_INT_PRINT_UNSIGNED "\n", s,
-	       tree_code_name[i], lto_stats.num_trees[i]);
+	       get_tree_code_name ((enum tree_code) i), lto_stats.num_trees[i]);
 
   if (flag_lto)
     {
@@ -311,7 +311,7 @@ lto_streamer_init (void)
 bool
 gate_lto_out (void)
 {
-  return ((flag_generate_lto || in_lto_p)
+  return ((flag_generate_lto || in_lto_p || flag_openmp)
 	  /* Don't bother doing anything if the program has errors.  */
 	  && !seen_error ());
 }

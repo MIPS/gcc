@@ -59,13 +59,23 @@ namespace __detail
 {
 _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+  template<typename _FwdIter, typename _TraitsT>
+    _Compiler<_FwdIter, _TraitsT>::
     _Compiler(_FwdIter __b, _FwdIter __e,
 	      const _TraitsT& __traits, _FlagT __flags)
-    : _M_traits(__traits), _M_scanner(__b, __e, __flags, _M_traits.getloc()),
-      _M_ctype(std::use_facet<std::ctype<_CharT>>(_M_traits.getloc())),
-      _M_nfa(__flags), _M_flags(__flags)
+    : _M_flags((__flags
+		& (regex_constants::ECMAScript
+		   | regex_constants::basic
+		   | regex_constants::extended
+		   | regex_constants::grep
+		   | regex_constants::egrep
+		   | regex_constants::awk))
+	       ? __flags
+	       : __flags | regex_constants::ECMAScript),
+    _M_traits(__traits),
+    _M_ctype(std::use_facet<_CtypeT>(_M_traits.getloc())),
+    _M_scanner(__b, __e, _M_flags, _M_traits.getloc()),
+    _M_nfa(_M_flags)
     {
       _StateSeqT __r(_M_nfa, _M_nfa._M_start());
       __r._M_append(_M_nfa._M_insert_subexpr_begin());
@@ -79,13 +89,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _M_nfa._M_eliminate_dummy();
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     void
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_disjunction()
     {
       this->_M_alternative();
-      // TODO empty alternative like, um, "(|asdf)"
       while (_M_match_token(_ScannerT::_S_token_or))
 	{
 	  _StateSeqT __alt1 = _M_pop();
@@ -101,9 +110,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     void
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_alternative()
     {
       if (this->_M_term())
@@ -117,9 +126,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_dummy()));
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     bool
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_term()
     {
       if (this->_M_assertion())
@@ -132,17 +141,15 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return false;
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     bool
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_assertion()
     {
       if (_M_match_token(_ScannerT::_S_token_line_begin))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa.
-	      _M_insert_line_begin()));
+	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_line_begin()));
       else if (_M_match_token(_ScannerT::_S_token_line_end))
-	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa.
-	      _M_insert_line_end()));
+	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_line_end()));
       else if (_M_match_token(_ScannerT::_S_token_word_bound))
 	// _M_value[0] == 'n' means it's negtive, say "not word boundary".
 	_M_stack.push(_StateSeqT(_M_nfa, _M_nfa.
@@ -165,12 +172,12 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return true;
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     void
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_quantifier()
     {
-      bool __neg = regex_constants::ECMAScript;
+      bool __neg = (_M_flags & regex_constants::ECMAScript);
       auto __init = [this, &__neg]()
 	{
 	  if (_M_stack.empty())
@@ -207,70 +214,83 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
       else if (_M_match_token(_ScannerT::_S_token_interval_begin))
 	{
-	  __init();
+	  if (_M_stack.empty())
+	    __throw_regex_error(regex_constants::error_badrepeat);
 	  if (!_M_match_token(_ScannerT::_S_token_dup_count))
 	    __throw_regex_error(regex_constants::error_badbrace);
 	  _StateSeqT __r(_M_pop());
 	  _StateSeqT __e(_M_nfa, _M_nfa._M_insert_dummy());
-	  int __min_rep = _M_cur_int_value(10);
+	  long __min_rep = _M_cur_int_value(10);
+	  bool __infi = false;
+	  long __n;
+
 	  // {3
-	  for (int __i = 0; __i < __min_rep; ++__i)
-	    __e._M_append(__r._M_clone());
 	  if (_M_match_token(_ScannerT::_S_token_comma))
 	    if (_M_match_token(_ScannerT::_S_token_dup_count)) // {3,7}
-	      {
-		int __n = _M_cur_int_value(10) - __min_rep;
-		if (__n < 0)
-		  __throw_regex_error(regex_constants::error_badbrace);
-		auto __end = _M_nfa._M_insert_dummy();
-		// _M_alt is the "match more" branch, and _M_next is the
-		// "match less" one. Switch _M_alt and _M_next of all created
-		// nodes. This is a hacking but IMO works well.
-		std::stack<_StateIdT> __stack;
-		for (int __i = 0; __i < __n; ++__i)
-		  {
-		    auto __tmp = __r._M_clone();
-		    auto __alt = _M_nfa._M_insert_alt(__tmp._M_start,
-						      __end, __neg);
-		    __stack.push(__alt);
-		    __e._M_append(_StateSeqT(_M_nfa, __alt, __tmp._M_end));
-		  }
-		__e._M_append(__end);
-		while (!__stack.empty())
-		  {
-		    auto& __tmp = _M_nfa[__stack.top()];
-		    __stack.pop();
-		    swap(__tmp._M_next, __tmp._M_alt);
-		  }
-	      }
-	    else // {3,}
-	      {
-		auto __tmp = __r._M_clone();
-		_StateSeqT __s(_M_nfa,
-			       _M_nfa._M_insert_alt(_S_invalid_state_id,
-						    __tmp._M_start, __neg));
-		__tmp._M_append(__s);
-		__e._M_append(__s);
-	      }
+	      __n = _M_cur_int_value(10) - __min_rep;
+	    else
+	      __infi = true;
+	  else
+	    __n = 0;
 	  if (!_M_match_token(_ScannerT::_S_token_interval_end))
 	    __throw_regex_error(regex_constants::error_brace);
+
+	  __neg = __neg && _M_match_token(_ScannerT::_S_token_opt);
+
+	  for (long __i = 0; __i < __min_rep; ++__i)
+	    __e._M_append(__r._M_clone());
+
+	  if (__infi)
+	    {
+	      auto __tmp = __r._M_clone();
+	      _StateSeqT __s(_M_nfa,
+			     _M_nfa._M_insert_alt(_S_invalid_state_id,
+						  __tmp._M_start, __neg));
+	      __tmp._M_append(__s);
+	      __e._M_append(__s);
+	    }
+	  else
+	    {
+	      if (__n < 0)
+		__throw_regex_error(regex_constants::error_badbrace);
+	      auto __end = _M_nfa._M_insert_dummy();
+	      // _M_alt is the "match more" branch, and _M_next is the
+	      // "match less" one. Switch _M_alt and _M_next of all created
+	      // nodes. This is a hacking but IMO works well.
+	      std::stack<_StateIdT> __stack;
+	      for (long __i = 0; __i < __n; ++__i)
+		{
+		  auto __tmp = __r._M_clone();
+		  auto __alt = _M_nfa._M_insert_alt(__tmp._M_start,
+						    __end, __neg);
+		  __stack.push(__alt);
+		  __e._M_append(_StateSeqT(_M_nfa, __alt, __tmp._M_end));
+		}
+	      __e._M_append(__end);
+	      while (!__stack.empty())
+		{
+		  auto& __tmp = _M_nfa[__stack.top()];
+		  __stack.pop();
+		  swap(__tmp._M_next, __tmp._M_alt);
+		}
+	    }
 	  _M_stack.push(__e);
 	}
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     bool
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_atom()
     {
       if (_M_match_token(_ScannerT::_S_token_anychar))
 	_M_stack.push(_StateSeqT(_M_nfa,
 				_M_nfa._M_insert_matcher
-				(_AnyMatcher<_CharT, _TraitsT>(_M_traits))));
+				(_AnyMatcher<_TraitsT>(_M_traits))));
       else if (_M_try_char())
 	_M_stack.push(_StateSeqT(_M_nfa,
 				 _M_nfa._M_insert_matcher
-				 (_CharMatcher<_CharT, _TraitsT>(_M_value[0],
+				 (_CharMatcher<_TraitsT>(_M_value[0],
 								 _M_traits,
 								 _M_flags))));
       else if (_M_match_token(_ScannerT::_S_token_backref))
@@ -283,7 +303,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 			       _M_traits, _M_flags);
 	  __matcher._M_add_character_class(_M_value);
 	  _M_stack.push(_StateSeqT(_M_nfa,
-		_M_nfa._M_insert_matcher(__matcher)));
+		_M_nfa._M_insert_matcher(std::move(__matcher))));
 	}
       else if (_M_match_token(_ScannerT::_S_token_subexpr_no_group_begin))
 	{
@@ -296,7 +316,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	}
       else if (_M_match_token(_ScannerT::_S_token_subexpr_begin))
 	{
-	  int __mark = _M_nfa._M_sub_count();
 	  _StateSeqT __r(_M_nfa, _M_nfa._M_insert_subexpr_begin());
 	  this->_M_disjunction();
 	  if (!_M_match_token(_ScannerT::_S_token_subexpr_end))
@@ -310,9 +329,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return true;
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     bool
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_bracket_expression()
     {
       bool __neg =
@@ -322,13 +341,14 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _BMatcherT __matcher(__neg, _M_traits, _M_flags);
       while (!_M_match_token(_ScannerT::_S_token_bracket_end))
 	_M_expression_term(__matcher);
-      _M_stack.push(_StateSeqT(_M_nfa, _M_nfa._M_insert_matcher(__matcher)));
+      _M_stack.push(_StateSeqT(_M_nfa,
+			       _M_nfa._M_insert_matcher(std::move(__matcher))));
       return true;
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     void
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_expression_term(_BMatcherT& __matcher)
     {
       if (_M_match_token(_ScannerT::_S_token_collsymbol))
@@ -363,9 +383,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	__throw_regex_error(regex_constants::error_brack);
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     bool
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_try_char()
     {
       bool __is_char = false;
@@ -384,9 +404,9 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return __is_char;
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     bool
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_match_token(_TokenT token)
     {
       if (token == _M_scanner._M_get_token())
@@ -398,26 +418,26 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       return false;
     }
 
-  template<typename _FwdIter, typename _CharT, typename _TraitsT>
+  template<typename _FwdIter, typename _TraitsT>
     int
-    _Compiler<_FwdIter, _CharT, _TraitsT>::
+    _Compiler<_FwdIter, _TraitsT>::
     _M_cur_int_value(int __radix)
     {
-      int __v = 0;
+      long __v = 0;
       for (typename _StringT::size_type __i = 0;
 	   __i < _M_value.length(); ++__i)
 	__v =__v * __radix + _M_traits.value(_M_value[__i], __radix);
       return __v;
     }
 
-  template<typename _CharT, typename _TraitsT>
-    bool _BracketMatcher<_CharT, _TraitsT>::
-    operator()(_CharT __ch) const
+  template<typename _TraitsT>
+    bool
+    _BracketMatcher<_TraitsT>::operator()(_CharT __ch) const
     {
       bool __ret = false;
-      if (_M_traits.isctype(__ch, _M_class_set))
-	__ret = true;
-      else if (_M_char_set.count(_M_translate(__ch)))
+      if (_M_traits.isctype(__ch, _M_class_set)
+	  || _M_char_set.count(_M_translate(__ch))
+	  || _M_equiv_set.count(_M_traits.transform_primary(&__ch, &__ch+1)))
 	__ret = true;
       else
 	{

@@ -46,6 +46,8 @@ contains
     select type (o)
       type is (complex(c2))
         if (storage_size(o) /= sz) call abort()
+    end select
+    select type (o)
       type is (complex(c3))
         if (storage_size(o) /= sz) call abort()
      end select

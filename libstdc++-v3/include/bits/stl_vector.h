@@ -332,6 +332,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       /// Move constructor with alternative allocator
       vector(vector&& __rv, const allocator_type& __m)
+      noexcept(_Alloc_traits::_S_always_equal())
       : _Base(std::move(__rv), __m)
       {
 	if (__rv.get_allocator() != __m)
@@ -785,7 +786,10 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       _M_range_check(size_type __n) const
       {
 	if (__n >= this->size())
-	  __throw_out_of_range(__N("vector::_M_range_check"));
+	  __throw_out_of_range_fmt(__N("vector::_M_range_check: __n "
+				       "(which is %zu) >= this->size() "
+				       "(which is %zu)"),
+				   __n, this->size());
       }
 
     public:

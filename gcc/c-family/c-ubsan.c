@@ -24,8 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "alloc-pool.h"
 #include "cgraph.h"
-#include "gimple.h"
-#include "hash-table.h"
 #include "output.h"
 #include "toplev.h"
 #include "ubsan.h"
@@ -51,14 +49,6 @@ ubsan_instrument_division (location_t loc, tree op0, tree op1)
   if (TREE_CODE (type) != INTEGER_TYPE)
     return NULL_TREE;
 
-  /* If we *know* that the divisor is not -1 or 0, we don't have to
-     instrument this expression.
-     ??? We could use decl_constant_value to cover up more cases.  */
-  if (TREE_CODE (op1) == INTEGER_CST
-      && integer_nonzerop (op1)
-      && !integer_minus_onep (op1))
-    return NULL_TREE;
-
   t = fold_build2 (EQ_EXPR, boolean_type_node,
 		    op1, build_int_cst (type, 0));
 
@@ -74,11 +64,17 @@ ubsan_instrument_division (location_t loc, tree op0, tree op1)
       t = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, t, x);
     }
 
+  /* If the condition was folded to 0, no need to instrument
+     this expression.  */
+  if (integer_zerop (t))
+    return NULL_TREE;
+
   /* In case we have a SAVE_EXPR in a conditional context, we need to
      make sure it gets evaluated before the condition.  */
   t = fold_build2 (COMPOUND_EXPR, TREE_TYPE (t), op0, t);
   tree data = ubsan_create_data ("__ubsan_overflow_data",
-				 loc, ubsan_type_descriptor (type),
+				 loc, NULL,
+				 ubsan_type_descriptor (type, false),
 				 NULL_TREE);
   data = build_fold_addr_expr_loc (loc, data);
   tt = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_DIVREM_OVERFLOW);
@@ -89,8 +85,7 @@ ubsan_instrument_division (location_t loc, tree op0, tree op1)
   return t;
 }
 
-/* Instrument left and right shifts.  If not instrumenting, return
-   NULL_TREE.  */
+/* Instrument left and right shifts.  */
 
 tree
 ubsan_instrument_shift (location_t loc, enum tree_code code,
@@ -138,12 +133,19 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
       tt = fold_build2 (TRUTH_OR_EXPR, boolean_type_node, x, tt);
     }
 
+  /* If the condition was folded to 0, no need to instrument
+     this expression.  */
+  if (integer_zerop (t) && (tt == NULL_TREE || integer_zerop (tt)))
+    return NULL_TREE;
+
   /* In case we have a SAVE_EXPR in a conditional context, we need to
      make sure it gets evaluated before the condition.  */
   t = fold_build2 (COMPOUND_EXPR, TREE_TYPE (t), op0, t);
   tree data = ubsan_create_data ("__ubsan_shift_data",
-				 loc, ubsan_type_descriptor (type0),
-				 ubsan_type_descriptor (type1), NULL_TREE);
+				 loc, NULL,
+				 ubsan_type_descriptor (type0, false),
+				 ubsan_type_descriptor (type1, false),
+				 NULL_TREE);
 
   data = build_fold_addr_expr_loc (loc, data);
 
@@ -152,6 +154,27 @@ ubsan_instrument_shift (location_t loc, enum tree_code code,
   tt = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_SHIFT_OUT_OF_BOUNDS);
   tt = build_call_expr_loc (loc, tt, 3, data, ubsan_encode_value (op0),
 			    ubsan_encode_value (op1));
+  t = fold_build3 (COND_EXPR, void_type_node, t, tt, void_zero_node);
+
+  return t;
+}
+
+/* Instrument variable length array bound.  */
+
+tree
+ubsan_instrument_vla (location_t loc, tree size)
+{
+  tree type = TREE_TYPE (size);
+  tree t, tt;
+
+  t = fold_build2 (LE_EXPR, boolean_type_node, size, build_int_cst (type, 0));
+  tree data = ubsan_create_data ("__ubsan_vla_data",
+				 loc, NULL,
+				 ubsan_type_descriptor (type, false),
+				 NULL_TREE);
+  data = build_fold_addr_expr_loc (loc, data);
+  tt = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_VLA_BOUND_NOT_POSITIVE);
+  tt = build_call_expr_loc (loc, tt, 2, data, ubsan_encode_value (size));
   t = fold_build3 (COND_EXPR, void_type_node, t, tt, void_zero_node);
 
   return t;

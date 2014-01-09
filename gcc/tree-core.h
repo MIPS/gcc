@@ -43,6 +43,7 @@ struct function;
 struct real_value;
 struct fixed_value;
 struct ptr_info_def;
+struct range_info_def;
 struct die_struct;
 struct pointer_set_t;
 
@@ -242,8 +243,26 @@ enum omp_clause_code {
   /* OpenMP clause: linear (variable-list[:linear-step]).  */
   OMP_CLAUSE_LINEAR,
 
+  /* OpenMP clause: aligned (variable-list[:alignment]).  */
+  OMP_CLAUSE_ALIGNED,
+
+  /* OpenMP clause: depend ({in,out,inout}:variable-list).  */
+  OMP_CLAUSE_DEPEND,
+
   /* OpenMP clause: uniform (argument-list).  */
   OMP_CLAUSE_UNIFORM,
+
+  /* OpenMP clause: from (variable-list).  */
+  OMP_CLAUSE_FROM,
+
+  /* OpenMP clause: to (variable-list).  */
+  OMP_CLAUSE_TO,
+
+  /* OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
+  OMP_CLAUSE_MAP,
+
+  /* Internal clause: temporary for combined loops expansion.  */
+  OMP_CLAUSE__LOOPTEMP_,
 
   /* OpenMP clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
@@ -275,8 +294,44 @@ enum omp_clause_code {
   /* OpenMP clause: mergeable.  */
   OMP_CLAUSE_MERGEABLE,
 
+  /* OpenMP clause: device (integer-expression).  */
+  OMP_CLAUSE_DEVICE,
+
+  /* OpenMP clause: dist_schedule (static[:chunk-size]).  */
+  OMP_CLAUSE_DIST_SCHEDULE,
+
+  /* OpenMP clause: inbranch.  */
+  OMP_CLAUSE_INBRANCH,
+
+  /* OpenMP clause: notinbranch.  */
+  OMP_CLAUSE_NOTINBRANCH,
+
+  /* OpenMP clause: num_teams(integer-expression).  */
+  OMP_CLAUSE_NUM_TEAMS,
+
+  /* OpenMP clause: thread_limit(integer-expression).  */
+  OMP_CLAUSE_THREAD_LIMIT,
+
+  /* OpenMP clause: proc_bind ({master,close,spread}).  */
+  OMP_CLAUSE_PROC_BIND,
+
   /* OpenMP clause: safelen (constant-integer-expression).  */
   OMP_CLAUSE_SAFELEN,
+
+  /* OpenMP clause: simdlen (constant-integer-expression).  */
+  OMP_CLAUSE_SIMDLEN,
+
+  /* OpenMP clause: for.  */
+  OMP_CLAUSE_FOR,
+
+  /* OpenMP clause: parallel.  */
+  OMP_CLAUSE_PARALLEL,
+
+  /* OpenMP clause: sections.  */
+  OMP_CLAUSE_SECTIONS,
+
+  /* OpenMP clause: taskgroup.  */
+  OMP_CLAUSE_TASKGROUP,
 
   /* Internally used only clause, holding SIMD uid.  */
   OMP_CLAUSE__SIMDUID_
@@ -313,7 +368,8 @@ enum cv_qualifier {
   TYPE_UNQUALIFIED   = 0x0,
   TYPE_QUAL_CONST    = 0x1,
   TYPE_QUAL_VOLATILE = 0x2,
-  TYPE_QUAL_RESTRICT = 0x4
+  TYPE_QUAL_RESTRICT = 0x4,
+  TYPE_QUAL_ATOMIC   = 0x8
 };
 
 /* Enumerate visibility settings.  */
@@ -341,6 +397,12 @@ enum tree_index {
   TI_UINTSI_TYPE,
   TI_UINTDI_TYPE,
   TI_UINTTI_TYPE,
+
+  TI_ATOMICQI_TYPE,
+  TI_ATOMICHI_TYPE,
+  TI_ATOMICSI_TYPE,
+  TI_ATOMICDI_TYPE,
+  TI_ATOMICTI_TYPE,
 
   TI_UINT16_TYPE,
   TI_UINT32_TYPE,
@@ -392,6 +454,8 @@ enum tree_index {
   TI_BOOLEAN_TYPE,
   TI_FILEPTR_TYPE,
   TI_POINTER_SIZED_TYPE,
+
+  TI_POINTER_BOUNDS_TYPE,
 
   TI_DFLOAT32_TYPE,
   TI_DFLOAT64_TYPE,
@@ -596,6 +660,9 @@ enum tree_node_kind {
 /* Number of operands and names for each clause.  */
 extern unsigned const char acc_clause_num_ops[];
 extern const char* const acc_clause_code_name[];
+enum annot_expr_kind {
+  annot_expr_ivdep_kind
+};
 
 /* Clause codes. Do not reorder.  */
 enum acc_clause_code
@@ -721,7 +788,8 @@ struct GTY(()) tree_base {
       unsigned packed_flag : 1;
       unsigned user_align : 1;
       unsigned nameless_flag : 1;
-      unsigned spare0 : 4;
+      unsigned atomic_flag : 1;
+      unsigned spare0 : 3;
 
       unsigned spare1 : 8;
 
@@ -806,6 +874,9 @@ struct GTY(()) tree_base {
            VAR_DECL, FUNCTION_DECL
            IDENTIFIER_NODE
 
+       CONSTRUCTOR_NO_CLEARING in
+           CONSTRUCTOR
+
        ASM_VOLATILE_P in
            ASM_EXPR
 
@@ -827,6 +898,12 @@ struct GTY(()) tree_base {
        OMP_CLAUSE_LINEAR_NO_COPYIN in
 	   OMP_CLAUSE_LINEAR
 
+       OMP_CLAUSE_MAP_ZERO_BIAS_ARRAY_SECTION in
+	   OMP_CLAUSE_MAP
+
+       OMP_CLAUSE_REDUCTION_OMP_ORIG_REF in
+	   OMP_CLAUSE_REDUCTION
+
        TRANSACTION_EXPR_RELAXED in
 	   TRANSACTION_EXPR
 
@@ -843,6 +920,9 @@ struct GTY(()) tree_base {
 
        OMP_PARALLEL_COMBINED in
            OMP_PARALLEL
+
+       OMP_ATOMIC_SEQ_CST in
+	   OMP_ATOMIC*
 
        OMP_CLAUSE_PRIVATE_OUTER_REF in
 	   OMP_CLAUSE_PRIVATE
@@ -865,6 +945,9 @@ struct GTY(()) tree_base {
        CALL_FROM_THUNK_P and
        CALL_ALLOCA_FOR_VAR_P in
            CALL_EXPR
+
+       OMP_CLAUSE_LINEAR_VARIABLE_STRIDE in
+	   OMP_CLAUSE_LINEAR
 
    side_effects_flag:
 
@@ -1063,6 +1146,35 @@ struct GTY(()) tree_constructor {
   vec<constructor_elt, va_gc> *elts;
 };
 
+enum omp_clause_depend_kind
+{
+  OMP_CLAUSE_DEPEND_IN,
+  OMP_CLAUSE_DEPEND_OUT,
+  OMP_CLAUSE_DEPEND_INOUT
+};
+
+enum omp_clause_map_kind
+{
+  OMP_CLAUSE_MAP_ALLOC,
+  OMP_CLAUSE_MAP_TO,
+  OMP_CLAUSE_MAP_FROM,
+  OMP_CLAUSE_MAP_TOFROM,
+  /* The following kind is an internal only map kind, used for pointer based
+     array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
+     which is implicitly POINTER_SIZE / BITS_PER_UNIT, but the bias.  */
+  OMP_CLAUSE_MAP_POINTER
+};
+
+enum omp_clause_proc_bind_kind
+{
+  /* Numbers should match omp_proc_bind_t enum in omp.h.  */
+  OMP_CLAUSE_PROC_BIND_FALSE = 0,
+  OMP_CLAUSE_PROC_BIND_TRUE = 1,
+  OMP_CLAUSE_PROC_BIND_MASTER = 2,
+  OMP_CLAUSE_PROC_BIND_CLOSE = 3,
+  OMP_CLAUSE_PROC_BIND_SPREAD = 4
+};
+
 struct GTY(()) tree_exp {
   struct tree_typed typed;
   location_t locus;
@@ -1094,8 +1206,14 @@ struct GTY(()) tree_ssa_name {
   /* Statement that defines this SSA name.  */
   gimple def_stmt;
 
-  /* Pointer attributes used for alias analysis.  */
-  struct ptr_info_def *ptr_info;
+  /* Value range information.  */
+  union ssa_name_info_type {
+    /* Pointer attributes used for alias analysis.  */
+    struct GTY ((tag ("0"))) ptr_info_def *ptr_info;
+    /* Value range attributes used for zero/sign extension elimination.  */
+    struct GTY ((tag ("1"))) range_info_def *range_info;
+  } GTY ((desc ("%1.typed.type ?" \
+		"!POINTER_TYPE_P (TREE_TYPE ((tree)&%1)) : 2"))) info;
 
   /* Immediate uses list for this SSA_NAME.  */
   struct ssa_use_operand_d imm_uses;
@@ -1114,9 +1232,12 @@ struct GTY(()) tree_omp_clause {
   location_t locus;
   enum omp_clause_code code;
   union omp_clause_subcode {
-    enum omp_clause_default_kind  default_kind;
-    enum omp_clause_schedule_kind schedule_kind;
-    enum tree_code                reduction_code;
+    enum omp_clause_default_kind   default_kind;
+    enum omp_clause_schedule_kind  schedule_kind;
+    enum omp_clause_depend_kind    depend_kind;
+    enum omp_clause_map_kind       map_kind;
+    enum omp_clause_proc_bind_kind proc_bind_kind;
+    enum tree_code                 reduction_code;
   } GTY ((skip)) subcode;
 
   /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's
@@ -1721,9 +1842,6 @@ extern const char *const tree_code_class_strings[];
 
 /* Number of argument-words in each kind of tree-node.  */
 extern const unsigned char tree_code_length[];
-
-/* Names of tree components.  */
-extern const char *const tree_code_name[];
 
 /* Vector of all alias pairs for global symbols.  */
 extern GTY(()) vec<alias_pair, va_gc> *alias_pairs;

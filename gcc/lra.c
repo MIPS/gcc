@@ -130,11 +130,13 @@ static void invalidate_insn_data_regno_info (lra_insn_recog_data_t, rtx, int);
 
 /* Expand all regno related info needed for LRA.  */
 static void
-expand_reg_data (void)
+expand_reg_data (int old)
 {
   resize_reg_info ();
   expand_reg_info ();
   ira_expand_reg_equiv ();
+  for (int i = (int) max_reg_num () - 1; i >= old; i--)
+    lra_change_class (i, ALL_REGS, "      Set", true);
 }
 
 /* Create and return a new reg of ORIGINAL mode.  If ORIGINAL is NULL
@@ -178,7 +180,7 @@ lra_create_new_reg_with_unique_value (enum machine_mode md_mode, rtx original,
 		 title, REGNO (new_reg));
       fprintf (lra_dump_file, "\n");
     }
-  expand_reg_data ();
+  expand_reg_data (max_reg_num ());
   setup_reg_classes (REGNO (new_reg), rclass, NO_REGS, rclass);
   return new_reg;
 }
@@ -417,7 +419,7 @@ lra_emit_add (rtx x, rtx y, rtx z)
   /* Functions emit_... can create pseudos -- so expand the pseudo
      data.  */
   if (old != max_reg_num ())
-    expand_reg_data ();
+    expand_reg_data (old);
 }
 
 /* The number of emitted reload insns so far.  */
@@ -443,7 +445,7 @@ lra_emit_move (rtx x, rtx y)
       /* Function emit_move can create pseudos -- so expand the pseudo
 	 data.	*/
       if (old != max_reg_num ())
-	expand_reg_data ();
+	expand_reg_data (old);
       return;
     }
   lra_emit_add (x, XEXP (y, 0), XEXP (y, 1));
@@ -2017,10 +2019,8 @@ restore_scratches (void)
 static void
 check_rtl (bool final_p)
 {
-  int i;
   basic_block bb;
   rtx insn;
-  lra_insn_recog_data_t id;
 
   lra_assert (! final_p || reload_completed);
   FOR_EACH_BB (bb)
@@ -2036,31 +2036,13 @@ check_rtl (bool final_p)
 	    lra_assert (constrain_operands (1));
 	    continue;
 	  }
+	/* LRA code is based on assumption that all addresses can be
+	   correctly decomposed.  LRA can generate reloads for
+	   decomposable addresses.  The decomposition code checks the
+	   correctness of the addresses.  So we don't need to check
+	   the addresses here.  */
 	if (insn_invalid_p (insn, false))
 	  fatal_insn_not_found (insn);
-	if (asm_noperands (PATTERN (insn)) >= 0)
-	  continue;
-	id = lra_get_insn_recog_data (insn);
-	/* The code is based on assumption that all addresses in
-	   regular instruction are legitimate before LRA.  The code in
-	   lra-constraints.c is based on assumption that there is no
-	   subreg of memory as an insn operand.	 */
-	for (i = 0; i < id->insn_static_data->n_operands; i++)
-	  {
-	    rtx op = *id->operand_loc[i];
-
-	    if (MEM_P (op)
-		&& (GET_MODE (op) != BLKmode
-		    || GET_CODE (XEXP (op, 0)) != SCRATCH)
-		&& ! memory_address_p (GET_MODE (op), XEXP (op, 0))
-		/* Some ports don't recognize the following addresses
-		   as legitimate.  Although they are legitimate if
-		   they satisfies the constraints and will be checked
-		   by insn constraints which we ignore here.  */
-		&& GET_CODE (XEXP (op, 0)) != UNSPEC
-		&& GET_RTX_CLASS (GET_CODE (XEXP (op, 0))) != RTX_AUTOINC)
-	      fatal_insn_not_found (insn);
-	  }
       }
 }
 #endif /* #ifdef ENABLE_CHECKING */
@@ -2079,14 +2061,14 @@ has_nonexceptional_receiver (void)
     return true;
 
   /* First determine which blocks can reach exit via normal paths.  */
-  tos = worklist = XNEWVEC (basic_block, n_basic_blocks + 1);
+  tos = worklist = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun) + 1);
 
   FOR_EACH_BB (bb)
     bb->flags &= ~BB_REACHABLE;
 
   /* Place the exit block on our worklist.  */
-  EXIT_BLOCK_PTR->flags |= BB_REACHABLE;
-  *tos++ = EXIT_BLOCK_PTR;
+  EXIT_BLOCK_PTR_FOR_FN (cfun)->flags |= BB_REACHABLE;
+  *tos++ = EXIT_BLOCK_PTR_FOR_FN (cfun);
 
   /* Iterate: find everything reachable from what we've already seen.  */
   while (tos != worklist)
@@ -2163,7 +2145,9 @@ update_inc_notes (void)
 	pnote = &REG_NOTES (insn);
 	while (*pnote != 0)
 	  {
-	    if (REG_NOTE_KIND (*pnote) == REG_INC)
+	    if (REG_NOTE_KIND (*pnote) == REG_DEAD
+                || REG_NOTE_KIND (*pnote) == REG_UNUSED
+                || REG_NOTE_KIND (*pnote) == REG_INC)
 	      *pnote = XEXP (*pnote, 1);
 	    else
 	      pnote = &XEXP (*pnote, 1);
@@ -2256,6 +2240,10 @@ lra (FILE *f)
 
   init_insn_recog_data ();
 
+  /* We can not set up reload_in_progress because it prevents new
+     pseudo creation.  */
+  lra_in_progress = 1;
+
 #ifdef ENABLE_CHECKING
   check_rtl (false);
 #endif
@@ -2265,10 +2253,6 @@ lra (FILE *f)
   lra_inheritance_iter = lra_undo_inheritance_iter = 0;
 
   setup_reg_spill_flag ();
-
-  /* We can not set up reload_in_progress because it prevents new
-     pseudo creation.  */
-  lra_in_progress = 1;
 
   /* Function remove_scratches can creates new pseudos for clobbers --
      so set up lra_constraint_new_regno_start before its call to

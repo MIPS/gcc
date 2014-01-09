@@ -61,8 +61,12 @@ TargetSave
 HOST_WIDE_INT x_ix86_isa_flags_explicit
 
 ;; which flags were passed by the user
-TargetSave
+Variable
 int ix86_target_flags_explicit
+
+;; which flags were passed by the user
+TargetSave
+HOST_WIDE_INT x_ix86_target_flags_explicit
 
 ;; whether -mtune was not specified
 TargetSave
@@ -440,7 +444,7 @@ the function.
 
 mdispatch-scheduler
 Target RejectNegative Var(flag_dispatch_scheduler)
-Do dispatch scheduling if processor is bdver1 or bdver2 or bdver3 and Haifa scheduling
+Do dispatch scheduling if processor is bdver1 or bdver2 or bdver3 or bdver4 and Haifa scheduling
 is selected.
 
 mprefer-avx128
@@ -664,6 +668,10 @@ Split 32-byte AVX unaligned store
 mrtm
 Target Report Mask(ISA_RTM) Var(ix86_isa_flags) Save
 Support RTM built-in functions and code generation
+
+mmpx
+Target Report Mask(ISA_MPX) Var(ix86_isa_flags) Save
+Support MPX code generation
 
 mstack-protector-guard=
 Target RejectNegative Joined Enum(stack_protector_guard) Var(ix86_stack_protector_guard) Init(SSP_TLS)

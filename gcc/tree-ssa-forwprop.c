@@ -22,18 +22,30 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"
-#include "gimple.h"
 #include "expr.h"
 #include "cfgloop.h"
 #include "optabs.h"
 #include "tree-ssa-propagate.h"
+#include "tree-ssa-dom.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
@@ -161,7 +173,7 @@ along with GCC; see the file COPYING3.  If not see
 
    This will (of course) be extended as other needs arise.  */
 
-static bool forward_propagate_addr_expr (tree name, tree rhs);
+static bool forward_propagate_addr_expr (tree, tree, bool);
 
 /* Set to true if we delete dead edges during the optimization.  */
 static bool cfg_changed;
@@ -714,35 +726,44 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
   rhs_code = gimple_assign_rhs_code (use_stmt);
   rhs = gimple_assign_rhs1 (use_stmt);
 
-  /* Trivial cases.  The use statement could be a trivial copy or a
-     useless conversion.  Recurse to the uses of the lhs as copyprop does
-     not copy through different variant pointers and FRE does not catch
-     all useless conversions.  Treat the case of a single-use name and
+  /* Do not perform copy-propagation but recurse through copy chains.  */
+  if (TREE_CODE (lhs) == SSA_NAME
+      && rhs_code == SSA_NAME)
+    return forward_propagate_addr_expr (lhs, def_rhs, single_use_p);
+
+  /* The use statement could be a conversion.  Recurse to the uses of the
+     lhs as copyprop does not copy through pointer to integer to pointer
+     conversions and FRE does not catch all cases either.
+     Treat the case of a single-use name and
      a conversion to def_rhs type separate, though.  */
   if (TREE_CODE (lhs) == SSA_NAME
-      && ((rhs_code == SSA_NAME && rhs == name)
-	  || CONVERT_EXPR_CODE_P (rhs_code)))
+      && CONVERT_EXPR_CODE_P (rhs_code))
     {
-      /* Only recurse if we don't deal with a single use or we cannot
-	 do the propagation to the current statement.  In particular
-	 we can end up with a conversion needed for a non-invariant
-	 address which we cannot do in a single statement.  */
-      if (!single_use_p
-	  || (!useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (def_rhs))
-	      && (!is_gimple_min_invariant (def_rhs)
-		  || (INTEGRAL_TYPE_P (TREE_TYPE (lhs))
-		      && POINTER_TYPE_P (TREE_TYPE (def_rhs))
-		      && (TYPE_PRECISION (TREE_TYPE (lhs))
-			  > TYPE_PRECISION (TREE_TYPE (def_rhs)))))))
-	return forward_propagate_addr_expr (lhs, def_rhs);
+      /* If there is a point in a conversion chain where the types match
+         so we can remove a conversion re-materialize the address here
+	 and stop.  */
+      if (single_use_p
+	  && useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (def_rhs)))
+	{
+	  gimple_assign_set_rhs1 (use_stmt, unshare_expr (def_rhs));
+	  gimple_assign_set_rhs_code (use_stmt, TREE_CODE (def_rhs));
+	  return true;
+	}
 
-      gimple_assign_set_rhs1 (use_stmt, unshare_expr (def_rhs));
-      if (useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (def_rhs)))
-	gimple_assign_set_rhs_code (use_stmt, TREE_CODE (def_rhs));
-      else
-	gimple_assign_set_rhs_code (use_stmt, NOP_EXPR);
-      return true;
+      /* Else recurse if the conversion preserves the address value.  */
+      if ((INTEGRAL_TYPE_P (TREE_TYPE (lhs))
+	   || POINTER_TYPE_P (TREE_TYPE (lhs)))
+	  && (TYPE_PRECISION (TREE_TYPE (lhs))
+	      >= TYPE_PRECISION (TREE_TYPE (def_rhs))))
+	return forward_propagate_addr_expr (lhs, def_rhs, single_use_p);
+
+      return false;
     }
+
+  /* If this isn't a conversion chain from this on we only can propagate
+     into compatible pointer contexts.  */
+  if (!types_compatible_p (TREE_TYPE (name), TREE_TYPE (def_rhs)))
+    return false;
 
   /* Propagate through constant pointer adjustments.  */
   if (TREE_CODE (lhs) == SSA_NAME
@@ -768,7 +789,7 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
       /* Recurse.  If we could propagate into all uses of lhs do not
 	 bother to replace into the current use but just pretend we did.  */
       if (TREE_CODE (new_def_rhs) == ADDR_EXPR
-	  && forward_propagate_addr_expr (lhs, new_def_rhs))
+	  && forward_propagate_addr_expr (lhs, new_def_rhs, single_use_p))
 	return true;
 
       if (useless_type_conversion_p (TREE_TYPE (lhs), TREE_TYPE (new_def_rhs)))
@@ -996,16 +1017,20 @@ forward_propagate_addr_expr_1 (tree name, tree def_rhs,
    Try to forward propagate the ADDR_EXPR into all uses of the SSA_NAME.
    Often this will allow for removal of an ADDR_EXPR and INDIRECT_REF
    node or for recovery of array indexing from pointer arithmetic.
+
+   PARENT_SINGLE_USE_P tells if, when in a recursive invocation, NAME was
+   the single use in the previous invocation.  Pass true when calling
+   this as toplevel.
+
    Returns true, if all uses have been propagated into.  */
 
 static bool
-forward_propagate_addr_expr (tree name, tree rhs)
+forward_propagate_addr_expr (tree name, tree rhs, bool parent_single_use_p)
 {
-  int stmt_loop_depth = bb_loop_depth (gimple_bb (SSA_NAME_DEF_STMT (name)));
   imm_use_iterator iter;
   gimple use_stmt;
   bool all = true;
-  bool single_use_p = has_single_use (name);
+  bool single_use_p = parent_single_use_p && has_single_use (name);
 
   FOR_EACH_IMM_USE_STMT (use_stmt, iter, name)
     {
@@ -1014,37 +1039,24 @@ forward_propagate_addr_expr (tree name, tree rhs)
 
       /* If the use is not in a simple assignment statement, then
 	 there is nothing we can do.  */
-      if (gimple_code (use_stmt) != GIMPLE_ASSIGN)
+      if (!is_gimple_assign (use_stmt))
 	{
 	  if (!is_gimple_debug (use_stmt))
 	    all = false;
 	  continue;
 	}
 
-      /* If the use is in a deeper loop nest, then we do not want
-	 to propagate non-invariant ADDR_EXPRs into the loop as that
-	 is likely adding expression evaluations into the loop.  */
-      if (bb_loop_depth (gimple_bb (use_stmt)) > stmt_loop_depth
-	  && !is_gimple_min_invariant (rhs))
+      gimple_stmt_iterator gsi = gsi_for_stmt (use_stmt);
+      result = forward_propagate_addr_expr_1 (name, rhs, &gsi,
+					      single_use_p);
+      /* If the use has moved to a different statement adjust
+	 the update machinery for the old statement too.  */
+      if (use_stmt != gsi_stmt (gsi))
 	{
-	  all = false;
-	  continue;
+	  update_stmt (use_stmt);
+	  use_stmt = gsi_stmt (gsi);
 	}
-
-      {
-	gimple_stmt_iterator gsi = gsi_for_stmt (use_stmt);
-	result = forward_propagate_addr_expr_1 (name, rhs, &gsi,
-						single_use_p);
-	/* If the use has moved to a different statement adjust
-	   the update machinery for the old statement too.  */
-	if (use_stmt != gsi_stmt (gsi))
-	  {
-	    update_stmt (use_stmt);
-	    use_stmt = gsi_stmt (gsi);
-	  }
-
-	update_stmt (use_stmt);
-      }
+      update_stmt (use_stmt);
       all &= result;
 
       /* Remove intermediate now unused copy and conversion chains.  */
@@ -1518,8 +1530,8 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  char *src_buf;
 	  use_operand_p use_p;
 
-	  if (!host_integerp (val2, 0)
-	      || !host_integerp (len2, 1))
+	  if (!tree_fits_shwi_p (val2)
+	      || !tree_fits_uhwi_p (len2))
 	    break;
 	  if (is_gimple_call (stmt1))
 	    {
@@ -1538,15 +1550,15 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	      src1 = gimple_call_arg (stmt1, 1);
 	      len1 = gimple_call_arg (stmt1, 2);
 	      lhs1 = gimple_call_lhs (stmt1);
-	      if (!host_integerp (len1, 1))
+	      if (!tree_fits_uhwi_p (len1))
 		break;
 	      str1 = string_constant (src1, &off1);
 	      if (str1 == NULL_TREE)
 		break;
-	      if (!host_integerp (off1, 1)
+	      if (!tree_fits_uhwi_p (off1)
 		  || compare_tree_int (off1, TREE_STRING_LENGTH (str1) - 1) > 0
 		  || compare_tree_int (len1, TREE_STRING_LENGTH (str1)
-					     - tree_low_cst (off1, 1)) > 0
+					     - tree_to_uhwi (off1)) > 0
 		  || TREE_CODE (TREE_TYPE (str1)) != ARRAY_TYPE
 		  || TYPE_MODE (TREE_TYPE (TREE_TYPE (str1)))
 		     != TYPE_MODE (char_type_node))
@@ -1560,7 +1572,7 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	      src1 = gimple_assign_rhs1 (stmt1);
 	      if (TREE_CODE (ptr1) != MEM_REF
 		  || TYPE_MODE (TREE_TYPE (ptr1)) != TYPE_MODE (char_type_node)
-		  || !host_integerp (src1, 0))
+		  || !tree_fits_shwi_p (src1))
 		break;
 	      ptr1 = build_fold_addr_expr (ptr1);
 	      callee1 = NULL_TREE;
@@ -1584,16 +1596,16 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  /* If the difference between the second and first destination pointer
 	     is not constant, or is bigger than memcpy length, bail out.  */
 	  if (diff == NULL
-	      || !host_integerp (diff, 1)
+	      || !tree_fits_uhwi_p (diff)
 	      || tree_int_cst_lt (len1, diff))
 	    break;
 
 	  /* Use maximum of difference plus memset length and memcpy length
 	     as the new memcpy length, if it is too big, bail out.  */
-	  src_len = tree_low_cst (diff, 1);
-	  src_len += tree_low_cst (len2, 1);
-	  if (src_len < (unsigned HOST_WIDE_INT) tree_low_cst (len1, 1))
-	    src_len = tree_low_cst (len1, 1);
+	  src_len = tree_to_uhwi (diff);
+	  src_len += tree_to_uhwi (len2);
+	  if (src_len < tree_to_uhwi (len1))
+	    src_len = tree_to_uhwi (len1);
 	  if (src_len > 1024)
 	    break;
 
@@ -1619,12 +1631,12 @@ simplify_builtin_call (gimple_stmt_iterator *gsi_p, tree callee2)
 	  src_buf = XALLOCAVEC (char, src_len + 1);
 	  if (callee1)
 	    memcpy (src_buf,
-		    TREE_STRING_POINTER (str1) + tree_low_cst (off1, 1),
-		    tree_low_cst (len1, 1));
+		    TREE_STRING_POINTER (str1) + tree_to_uhwi (off1),
+		    tree_to_uhwi (len1));
 	  else
-	    src_buf[0] = tree_low_cst (src1, 0);
-	  memset (src_buf + tree_low_cst (diff, 1),
-		  tree_low_cst (val2, 0), tree_low_cst (len2, 1));
+	    src_buf[0] = tree_to_shwi (src1);
+	  memset (src_buf + tree_to_uhwi (diff),
+		  tree_to_shwi (val2), tree_to_uhwi (len2));
 	  src_buf[src_len] = '\0';
 	  /* Neither builtin_strncpy_read_str nor builtin_memcpy_read_str
 	     handle embedded '\0's.  */
@@ -2308,10 +2320,10 @@ simplify_rotate (gimple_stmt_iterator *gsi)
     return false;
 
   /* CNT1 + CNT2 == B case above.  */
-  if (host_integerp (def_arg2[0], 1)
-      && host_integerp (def_arg2[1], 1)
-      && (unsigned HOST_WIDE_INT) tree_low_cst (def_arg2[0], 1)
-	 + tree_low_cst (def_arg2[1], 1) == TYPE_PRECISION (rtype))
+  if (tree_fits_uhwi_p (def_arg2[0])
+      && tree_fits_uhwi_p (def_arg2[1])
+      && tree_to_uhwi (def_arg2[0])
+	 + tree_to_uhwi (def_arg2[1]) == TYPE_PRECISION (rtype))
     rotcnt = def_arg2[0];
   else if (TREE_CODE (def_arg2[0]) != SSA_NAME
 	   || TREE_CODE (def_arg2[1]) != SSA_NAME)
@@ -2345,8 +2357,8 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 	/* Check for one shift count being Y and the other B - Y,
 	   with optional casts.  */
 	if (cdef_code[i] == MINUS_EXPR
-	    && host_integerp (cdef_arg1[i], 0)
-	    && tree_low_cst (cdef_arg1[i], 0) == TYPE_PRECISION (rtype)
+	    && tree_fits_shwi_p (cdef_arg1[i])
+	    && tree_to_shwi (cdef_arg1[i]) == TYPE_PRECISION (rtype)
 	    && TREE_CODE (cdef_arg2[i]) == SSA_NAME)
 	  {
 	    tree tem;
@@ -2377,8 +2389,8 @@ simplify_rotate (gimple_stmt_iterator *gsi)
 	   This alternative is safe even for rotation count of 0.
 	   One shift count is Y and the other (-Y) & (B - 1).  */
 	else if (cdef_code[i] == BIT_AND_EXPR
-		 && host_integerp (cdef_arg2[i], 0)
-		 && tree_low_cst (cdef_arg2[i], 0)
+		 && tree_fits_shwi_p (cdef_arg2[i])
+		 && tree_to_shwi (cdef_arg2[i])
 		    == TYPE_PRECISION (rtype) - 1
 		 && TREE_CODE (cdef_arg1[i]) == SSA_NAME
 		 && gimple_assign_rhs_code (stmt) == BIT_IOR_EXPR)
@@ -2982,6 +2994,69 @@ combine_conversions (gimple_stmt_iterator *gsi)
   return 0;
 }
 
+/* Combine VIEW_CONVERT_EXPRs with their defining statement.  */
+
+static bool
+simplify_vce (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree type = TREE_TYPE (gimple_assign_lhs (stmt));
+
+  /* Drop useless VIEW_CONVERT_EXPRs.  */
+  tree op = TREE_OPERAND (gimple_assign_rhs1 (stmt), 0);
+  if (useless_type_conversion_p (type, TREE_TYPE (op)))
+    {
+      gimple_assign_set_rhs1 (stmt, op);
+      update_stmt (stmt);
+      return true;
+    }
+
+  if (TREE_CODE (op) != SSA_NAME)
+    return false;
+
+  gimple def_stmt = SSA_NAME_DEF_STMT (op);
+  if (!is_gimple_assign (def_stmt))
+    return false;
+
+  tree def_op = gimple_assign_rhs1 (def_stmt);
+  switch (gimple_assign_rhs_code (def_stmt))
+    {
+    CASE_CONVERT:
+      /* Strip integral conversions that do not change the precision.  */
+      if ((INTEGRAL_TYPE_P (TREE_TYPE (op))
+	   || POINTER_TYPE_P (TREE_TYPE (op)))
+	  && (INTEGRAL_TYPE_P (TREE_TYPE (def_op))
+	      || POINTER_TYPE_P (TREE_TYPE (def_op)))
+	  && (TYPE_PRECISION (TREE_TYPE (op))
+	      == TYPE_PRECISION (TREE_TYPE (def_op))))
+	{
+	  TREE_OPERAND (gimple_assign_rhs1 (stmt), 0) = def_op;
+	  update_stmt (stmt);
+	  return true;
+	}
+      break;
+
+    case VIEW_CONVERT_EXPR:
+      /* Series of VIEW_CONVERT_EXPRs on register operands can
+	 be contracted.  */
+      if (TREE_CODE (TREE_OPERAND (def_op, 0)) == SSA_NAME)
+	{
+	  if (useless_type_conversion_p (type,
+					 TREE_TYPE (TREE_OPERAND (def_op, 0))))
+	    gimple_assign_set_rhs1 (stmt, TREE_OPERAND (def_op, 0));
+	  else
+	    TREE_OPERAND (gimple_assign_rhs1 (stmt), 0)
+		= TREE_OPERAND (def_op, 0);
+	  update_stmt (stmt);
+	  return true;
+	}
+
+    default:;
+    }
+
+  return false;
+}
+
 /* Combine an element access with a shuffle.  Returns true if there were
    any changes made, else it returns false.  */
  
@@ -3191,9 +3266,9 @@ simplify_permutation (gimple_stmt_iterator *gsi)
 	    return 0;
 	  arg1 = arg0;
 	}
-      opt = fold_ternary (VEC_PERM_EXPR, TREE_TYPE(op0), arg0, arg1, op2);
+      opt = fold_ternary (VEC_PERM_EXPR, TREE_TYPE (op0), arg0, arg1, op2);
       if (!opt
-	  || (TREE_CODE (opt) != CONSTRUCTOR && TREE_CODE(opt) != VECTOR_CST))
+	  || (TREE_CODE (opt) != CONSTRUCTOR && TREE_CODE (opt) != VECTOR_CST))
 	return 0;
       gimple_assign_set_rhs_from_tree (gsi, opt);
       update_stmt (gsi_stmt (*gsi));
@@ -3350,7 +3425,7 @@ ssa_forward_propagate_and_combine (void)
 		   || !DECL_P (base)
 		   || decl_address_invariant_p (base))
 		  && !stmt_references_abnormal_ssa_name (stmt)
-		  && forward_propagate_addr_expr (lhs, rhs))
+		  && forward_propagate_addr_expr (lhs, rhs, true))
 		{
 		  release_defs (stmt);
 		  gsi_remove (&gsi, true);
@@ -3374,7 +3449,7 @@ ssa_forward_propagate_and_combine (void)
 						 TREE_TYPE (TREE_TYPE (rhs)),
 						 rhs,
 						 fold_convert (ptr_type_node,
-							       off)))))
+							       off))), true))
 		{
 		  release_defs (stmt);
 		  gsi_remove (&gsi, true);
@@ -3479,6 +3554,8 @@ ssa_forward_propagate_and_combine (void)
 		      
 		    changed = did_something != 0;
 		  }
+		else if (code == VIEW_CONVERT_EXPR)
+		  changed = simplify_vce (&gsi);
 		else if (code == VEC_PERM_EXPR)
 		  {
 		    int did_something = simplify_permutation (&gsi);
@@ -3574,12 +3651,12 @@ const pass_data pass_data_forwprop =
 class pass_forwprop : public gimple_opt_pass
 {
 public:
-  pass_forwprop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_forwprop, ctxt)
+  pass_forwprop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_forwprop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_forwprop (ctxt_); }
+  opt_pass * clone () { return new pass_forwprop (m_ctxt); }
   bool gate () { return gate_forwprop (); }
   unsigned int execute () { return ssa_forward_propagate_and_combine (); }
 

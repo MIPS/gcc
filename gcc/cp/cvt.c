@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "cp-tree.h"
 #include "intl.h"
@@ -203,12 +204,12 @@ cp_convert_to_pointer (tree type, tree expr, tsubst_flags_t complain)
 
   if (null_ptr_cst_p (expr))
     {
-      if (complain & tf_warning)
-	maybe_warn_zero_as_null_pointer_constant (expr, loc);
-
       if (TYPE_PTRMEMFUNC_P (type))
 	return build_ptrmemfunc (TYPE_PTRMEMFUNC_FN_TYPE (type), expr, 0,
 				 /*c_cast_p=*/false, complain);
+
+      if (complain & tf_warning)
+	maybe_warn_zero_as_null_pointer_constant (expr, loc);
 
       /* A NULL pointer-to-data-member is represented by -1, not by
 	 zero.  */

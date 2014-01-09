@@ -30,7 +30,6 @@ Jeff Law					law@redhat.com
 Michael Meissner				gnu@the-meissners.org
 Jason Merrill					jason@redhat.com
 David S. Miller					davem@redhat.com
-Mark Mitchell					mark@codesourcery.com
 Joseph Myers					joseph@codesourcery.com
 Diego Novillo					dnovillo@google.com
 Bernd Schmidt					bernds@codesourcery.com
@@ -151,7 +150,6 @@ Ada front end		Arnaud Charlet		charlet@act-europe.fr
 Ada front end		Eric Botcazou		ebotcazou@libertysurf.fr
 Fortran			Paul Brook		paul@codesourcery.com
 c++			Jason Merrill		jason@redhat.com
-c++			Mark Mitchell		mark@codesourcery.com
 c++			Nathan Sidwell		nathan@codesourcery.com
 go			Ian Lance Taylor	ian@airs.com
 java			Per Bothner		per@bothner.com
@@ -239,7 +237,6 @@ tree-ssa		Diego Novillo		dnovillo@google.com
 tree-ssa		Andrew MacLeod		amacleod@redhat.com
 PRE			Daniel Berlin		dberlin@dberlin.org
 code sinking		Daniel Berlin		dberlin@dberlin.org
-mudflap			Frank Ch. Eigler	fche@redhat.com
 tree browser/unparser	Sebastian Pop		sebastian.pop@amd.com
 scev, data dependence	Daniel Berlin		dberlin@dberlin.org
 scev, data dependence	Sebastian Pop		sebastian.pop@amd.com
@@ -406,6 +403,7 @@ Fergus Henderson				fjh@cs.mu.oz.au
 Stuart Henderson				shenders@gcc.gnu.org
 Matthew Hiller					hiller@redhat.com
 Manfred Hollstein				mh@suse.com
+Cong Hou					congh@google.com
 Falk Hueffner					falk@debian.org
 Andrew John Hughes				gnu_andrew@member.fsf.org
 Andy Hutchinson					hutchinsonandy@aim.com
@@ -514,6 +512,7 @@ Matthew Sachs					msachs@apple.com
 Hariharan Sandanagobalane			hariharan.gcc@gmail.com
 Iain Sandoe					iain@codesourcery.com
 Duncan Sands					baldrick@gcc.gnu.org
+Trevor Saunders				tsaunders@mozilla.com
 William Schmidt 				wschmidt@linux.vnet.ibm.com
 Tilo Schwarz					tilo@tilo-schwarz.de
 Dodji Seketeli					dodji@gcc.gnu.org
@@ -526,7 +525,7 @@ Johannes Singler				singler@kit.edu
 Franz Sirl					franz.sirl-kernel@lauterbach.com
 Jan Sjodin					jan.sjodin@amd.com
 Edward Smith-Rowland				3dw4rd@verizon.net
-Jayant Sonar					jayant.sonar@kpitcummins.com
+Jayant Sonar					rsonar.jayant@gmail.com
 Michael Sokolov					msokolov@ivan.Harhan.ORG
 Richard Stallman				rms@gnu.org
 Basile Starynkevitch				basile@starynkevitch.net

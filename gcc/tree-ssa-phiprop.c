@@ -26,7 +26,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
-#include "tree-ssa.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "langhooks.h"
 #include "flags.h"
@@ -374,7 +381,7 @@ tree_ssa_phiprop (void)
 
   /* Walk the dominator tree in preorder.  */
   bbs = get_all_dominated_blocks (CDI_DOMINATORS,
-				  single_succ (ENTRY_BLOCK_PTR));
+				  single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
   FOR_EACH_VEC_ELT (bbs, i, bb)
     for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       did_something |= propagate_with_phi (bb, gsi_stmt (gsi), phivn, n);
@@ -414,8 +421,8 @@ const pass_data pass_data_phiprop =
 class pass_phiprop : public gimple_opt_pass
 {
 public:
-  pass_phiprop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_phiprop, ctxt)
+  pass_phiprop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_phiprop, ctxt)
   {}
 
   /* opt_pass methods: */

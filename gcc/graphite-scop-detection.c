@@ -31,6 +31,16 @@ along with GCC; see the file COPYING3.  If not see
 
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
@@ -38,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-scalar-evolution.h"
 #include "tree-pass.h"
 #include "sese.h"
+#include "tree-ssa-propagate.h"
 
 #ifdef HAVE_cloog
 #include "graphite-poly.h"
@@ -159,10 +170,10 @@ graphite_can_represent_init (tree e)
     case MULT_EXPR:
       if (chrec_contains_symbols (TREE_OPERAND (e, 0)))
 	return graphite_can_represent_init (TREE_OPERAND (e, 0))
-	  && host_integerp (TREE_OPERAND (e, 1), 0);
+	  && tree_fits_shwi_p (TREE_OPERAND (e, 1));
       else
 	return graphite_can_represent_init (TREE_OPERAND (e, 1))
-	  && host_integerp (TREE_OPERAND (e, 0), 0);
+	  && tree_fits_shwi_p (TREE_OPERAND (e, 0));
 
     case PLUS_EXPR:
     case POINTER_PLUS_EXPR:
@@ -437,7 +448,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
   gimple stmt;
 
   /* XXX: ENTRY_BLOCK_PTR could be optimized in later steps.  */
-  basic_block entry_block = ENTRY_BLOCK_PTR;
+  basic_block entry_block = ENTRY_BLOCK_PTR_FOR_FN (cfun);
   stmt = harmful_stmt_in_bb (entry_block, outermost_loop, bb);
   result.difficult = (stmt != NULL);
   result.exit = NULL;
@@ -465,8 +476,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
 
     case GBB_LOOP_SING_EXIT_HEADER:
       {
-	vec<sd_region> regions;
-	regions.create (3);
+	stack_vec<sd_region, 3> regions;
 	struct scopdet_info sinfo;
 	edge exit_e = single_exit (loop);
 
@@ -508,7 +518,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
 	    result.next = exit_e->dest;
 
 	    /* If we do not dominate result.next, remove it.  It's either
-	       the EXIT_BLOCK_PTR, or another bb dominates it and will
+	       the exit block, or another bb dominates it and will
 	       call the scop detection for this bb.  */
 	    if (!dominated_by_p (CDI_DOMINATORS, result.next, bb))
 	      result.next = NULL;
@@ -531,8 +541,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
       {
         /* XXX: For now we just do not join loops with multiple exits.  If the
            exits lead to the same bb it may be possible to join the loop.  */
-        vec<sd_region> regions;
-	regions.create (3);
+        stack_vec<sd_region, 3> regions;
         vec<edge> exits = get_loop_exit_edges (loop);
         edge e;
         int i;
@@ -575,8 +584,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
       }
     case GBB_COND_HEADER:
       {
-	vec<sd_region> regions;
-	regions.create (3);
+	stack_vec<sd_region, 3> regions;
 	struct scopdet_info sinfo;
 	vec<basic_block> dominated;
 	int i;
@@ -1022,7 +1030,7 @@ create_sese_edges (vec<sd_region> regions)
   FOR_EACH_VEC_ELT (regions, i, s)
     /* Don't handle multiple edges exiting the function.  */
     if (!find_single_exit_edge (s)
-	&& s->exit != EXIT_BLOCK_PTR)
+	&& s->exit != EXIT_BLOCK_PTR_FOR_FN (cfun))
       create_single_exit_edge (s);
 
   unmark_exit_edges (regions);
@@ -1179,8 +1187,7 @@ print_graphite_statistics (FILE* file, vec<scop_p> scops)
 static void
 limit_scops (vec<scop_p> *scops)
 {
-  vec<sd_region> regions;
-  regions.create (3);
+  stack_vec<sd_region, 3> regions;
 
   int i;
   scop_p scop;
@@ -1215,7 +1222,6 @@ limit_scops (vec<scop_p> *scops)
 
   create_sese_edges (regions);
   build_graphite_scops (regions, scops);
-  regions.release ();
 }
 
 /* Returns true when P1 and P2 are close phis with the same
@@ -1369,14 +1375,13 @@ canonicalize_loop_closed_ssa (loop_p loop)
 static void
 canonicalize_loop_closed_ssa_form (void)
 {
-  loop_iterator li;
   loop_p loop;
 
 #ifdef ENABLE_CHECKING
   verify_loop_closed_ssa (true);
 #endif
 
-  FOR_EACH_LOOP (li, loop, 0)
+  FOR_EACH_LOOP (loop, 0)
     canonicalize_loop_closed_ssa (loop);
 
   rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
@@ -1394,11 +1399,11 @@ void
 build_scops (vec<scop_p> *scops)
 {
   struct loop *loop = current_loops->tree_root;
-  vec<sd_region> regions;
-  regions.create (3);
+  stack_vec<sd_region, 3> regions;
 
   canonicalize_loop_closed_ssa_form ();
-  build_scops_1 (single_succ (ENTRY_BLOCK_PTR), ENTRY_BLOCK_PTR->loop_father,
+  build_scops_1 (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
+		 ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father,
 		 &regions, loop);
   create_sese_edges (regions);
   build_graphite_scops (regions, scops);
@@ -1585,7 +1590,7 @@ dot_all_scops (vec<scop_p> scops)
 DEBUG_FUNCTION void
 dot_scop (scop_p scop)
 {
-  vec<scop_p> scops = vNULL;
+  stack_vec<scop_p, 1> scops;
 
   if (scop)
     scops.safe_push (scop);
@@ -1605,8 +1610,6 @@ dot_scop (scop_p scop)
 #else
   dot_all_scops_1 (stderr, scops);
 #endif
-
-  scops.release ();
 }
 
 #endif

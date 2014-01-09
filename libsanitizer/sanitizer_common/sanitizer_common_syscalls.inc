@@ -60,8 +60,6 @@
 
 #ifdef SYSCALL_INTERCEPTION
 
-#ifdef SYSCALL_INTERCEPTION
-
 // FIXME: do some kind of PRE_READ for all syscall arguments (int(s) and such).
 
 extern "C" {
@@ -2725,8 +2723,6 @@ POST_SYSCALL(vfork)(long res) {
   COMMON_SYSCALL_POST_FORK(res);
 }
 }  // extern "C"
-
-#endif
 
 #endif
 

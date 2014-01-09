@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "constructor.h"
 #include "tree.h"
+#include "stringpool.h"
 
 /* Macros to access allocate memory for gfc_data_variable,
    gfc_data_value and gfc_data.  */
@@ -5055,7 +5056,14 @@ match_ppc_decl (void)
       if (!gfc_add_proc (&c->attr, name, NULL))
 	return MATCH_ERROR;
 
-      c->tb = tb;
+      if (num == 1)
+	c->tb = tb;
+      else
+	{
+	  c->tb = XCNEW (gfc_typebound_proc);
+	  c->tb->where = gfc_current_locus;
+	  *c->tb = *tb;
+	}
 
       /* Set interface.  */
       if (proc_if != NULL)
@@ -7391,6 +7399,7 @@ syntax:
 
 
 /* Check a derived type that is being extended.  */
+
 static gfc_symbol*
 check_extended_derived_type (char *name)
 {
@@ -7402,13 +7411,14 @@ check_extended_derived_type (char *name)
       return NULL;
     }
 
+  extended = gfc_find_dt_in_generic (extended);
+
+  /* F08:C428.  */
   if (!extended)
     {
-      gfc_error ("No such symbol in TYPE definition at %C");
+      gfc_error ("Symbol '%s' at %C has not been previously defined", name);
       return NULL;
     }
-
-  extended = gfc_find_dt_in_generic (extended);
 
   if (extended->attr.flavor != FL_DERIVED)
     {

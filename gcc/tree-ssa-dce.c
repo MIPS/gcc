@@ -48,10 +48,22 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 
 #include "tree.h"
+#include "calls.h"
 #include "gimple-pretty-print.h"
 #include "basic-block.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-niter.h"
+#include "tree-into-ssa.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-pass.h"
 #include "flags.h"
 #include "cfgloop.h"
@@ -316,9 +328,9 @@ mark_control_dependent_edges_necessary (basic_block bb, bool ignore_self)
   unsigned edge_number;
   bool skipped = false;
 
-  gcc_assert (bb != EXIT_BLOCK_PTR);
+  gcc_assert (bb != EXIT_BLOCK_PTR_FOR_FN (cfun));
 
-  if (bb == ENTRY_BLOCK_PTR)
+  if (bb == ENTRY_BLOCK_PTR_FOR_FN (cfun))
     return;
 
   EXECUTE_IF_SET_IN_BITMAP (cd->get_edges_dependent_on (bb->index),
@@ -384,7 +396,6 @@ find_obviously_necessary_stmts (bool aggressive)
   /* Prevent the empty possibly infinite loops from being removed.  */
   if (aggressive)
     {
-      loop_iterator li;
       struct loop *loop;
       scev_initialize ();
       if (mark_irreducible_loops ())
@@ -402,7 +413,7 @@ find_obviously_necessary_stmts (bool aggressive)
 		}
 	  }
 
-      FOR_EACH_LOOP (li, loop, 0)
+      FOR_EACH_LOOP (loop, 0)
 	if (!finite_loop_p (loop))
 	  {
 	    if (dump_file)
@@ -625,7 +636,7 @@ propagate_necessity (bool aggressive)
 	     containing STMT is control dependent, but only if we haven't
 	     already done so.  */
 	  basic_block bb = gimple_bb (stmt);
-	  if (bb != ENTRY_BLOCK_PTR
+	  if (bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 	      && !bitmap_bit_p (visited_control_parents, bb->index))
 	    mark_control_dependent_edges_necessary (bb, false);
 	}
@@ -731,7 +742,7 @@ propagate_necessity (bool aggressive)
 		      if (!bitmap_bit_p (last_stmt_necessary, arg_bb->index))
 			mark_last_stmt_necessary (arg_bb);
 		    }
-		  else if (arg_bb != ENTRY_BLOCK_PTR
+		  else if (arg_bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 		           && !bitmap_bit_p (visited_control_parents,
 					 arg_bb->index))
 		    mark_control_dependent_edges_necessary (arg_bb, true);
@@ -907,48 +918,6 @@ propagate_necessity (bool aggressive)
     }
 }
 
-/* Replace all uses of NAME by underlying variable and mark it
-   for renaming.  This assumes the defining statement of NAME is
-   going to be removed.  */
-
-void
-mark_virtual_operand_for_renaming (tree name)
-{
-  tree name_var = SSA_NAME_VAR (name);
-  bool used = false;
-  imm_use_iterator iter;
-  use_operand_p use_p;
-  gimple stmt;
-
-  gcc_assert (VAR_DECL_IS_VIRTUAL_OPERAND (name_var));
-  FOR_EACH_IMM_USE_STMT (stmt, iter, name)
-    {
-      FOR_EACH_IMM_USE_ON_STMT (use_p, iter)
-        SET_USE (use_p, name_var);
-      used = true;
-    }
-  if (used)
-    mark_virtual_operands_for_renaming (cfun);
-}
-
-/* Replace all uses of the virtual PHI result by its underlying variable
-   and mark it for renaming.  This assumes the PHI node is going to be
-   removed.  */
-
-void
-mark_virtual_phi_result_for_renaming (gimple phi)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "Marking result for renaming : ");
-      print_gimple_stmt (dump_file, phi, 0, TDF_SLIM);
-      fprintf (dump_file, "\n");
-    }
-
-  mark_virtual_operand_for_renaming (gimple_phi_result (phi));
-}
-
-
 /* Remove dead PHI nodes from block BB.  */
 
 static bool
@@ -1107,7 +1076,7 @@ remove_dead_stmt (gimple_stmt_iterator *i, basic_block bb)
 	 fake edges in the dominator tree.  */
       if (e)
         ;
-      else if (! post_dom_bb || post_dom_bb == EXIT_BLOCK_PTR)
+      else if (! post_dom_bb || post_dom_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	e = EDGE_SUCC (bb, 0);
       else
         e = forward_edge_to_pdom (EDGE_SUCC (bb, 0), post_dom_bb);
@@ -1199,7 +1168,8 @@ eliminate_unnecessary_stmts (void)
 
      as desired.  */
   gcc_assert (dom_info_available_p (CDI_DOMINATORS));
-  h = get_all_dominated_blocks (CDI_DOMINATORS, single_succ (ENTRY_BLOCK_PTR));
+  h = get_all_dominated_blocks (CDI_DOMINATORS,
+				single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
   while (h.length ())
     {
@@ -1296,7 +1266,8 @@ eliminate_unnecessary_stmts (void)
       find_unreachable_blocks ();
 
       /* Delete all unreachable basic blocks in reverse dominator order.  */
-      for (bb = EXIT_BLOCK_PTR->prev_bb; bb != ENTRY_BLOCK_PTR; bb = prev_bb)
+      for (bb = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
+	   bb != ENTRY_BLOCK_PTR_FOR_FN (cfun); bb = prev_bb)
 	{
 	  prev_bb = bb->prev_bb;
 
@@ -1560,12 +1531,12 @@ const pass_data pass_data_dce =
 class pass_dce : public gimple_opt_pass
 {
 public:
-  pass_dce(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_dce, ctxt)
+  pass_dce (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_dce, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce (ctxt_); }
+  opt_pass * clone () { return new pass_dce (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_dce (); }
 
@@ -1599,12 +1570,12 @@ const pass_data pass_data_dce_loop =
 class pass_dce_loop : public gimple_opt_pass
 {
 public:
-  pass_dce_loop(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_dce_loop, ctxt)
+  pass_dce_loop (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_dce_loop, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_dce_loop (ctxt_); }
+  opt_pass * clone () { return new pass_dce_loop (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_dce_loop (); }
 
@@ -1638,12 +1609,12 @@ const pass_data pass_data_cd_dce =
 class pass_cd_dce : public gimple_opt_pass
 {
 public:
-  pass_cd_dce(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_cd_dce, ctxt)
+  pass_cd_dce (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cd_dce, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_cd_dce (ctxt_); }
+  opt_pass * clone () { return new pass_cd_dce (m_ctxt); }
   bool gate () { return gate_dce (); }
   unsigned int execute () { return tree_ssa_cd_dce (); }
 

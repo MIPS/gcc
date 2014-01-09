@@ -549,7 +549,7 @@ df_set_blocks (bitmap blocks)
 		    {
 		      basic_block bb;
 		      bitmap_initialize (&blocks_to_reset, &df_bitmap_obstack);
-		      FOR_ALL_BB(bb)
+		      FOR_ALL_BB (bb)
 			{
 			  bitmap_set_bit (&blocks_to_reset, bb->index);
 			}
@@ -766,8 +766,8 @@ const pass_data pass_data_df_initialize_opt =
 class pass_df_initialize_opt : public rtl_opt_pass
 {
 public:
-  pass_df_initialize_opt(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_df_initialize_opt, ctxt)
+  pass_df_initialize_opt (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_df_initialize_opt, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -812,8 +812,8 @@ const pass_data pass_data_df_initialize_no_opt =
 class pass_df_initialize_no_opt : public rtl_opt_pass
 {
 public:
-  pass_df_initialize_no_opt(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_df_initialize_no_opt, ctxt)
+  pass_df_initialize_no_opt (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_df_initialize_no_opt, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -878,8 +878,8 @@ const pass_data pass_data_df_finish =
 class pass_df_finish : public rtl_opt_pass
 {
 public:
-  pass_df_finish(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_df_finish, ctxt)
+  pass_df_finish (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_df_finish, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1097,8 +1097,8 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
     fprintf (dump_file, "df_worklist_dataflow_doublequeue:"
 	     "n_basic_blocks %d n_edges %d"
 	     " count %d (%5.2g)\n",
-	     n_basic_blocks, n_edges,
-	     dcount, dcount / (float)n_basic_blocks);
+	     n_basic_blocks_for_fn (cfun), n_edges_for_fn (cfun),
+	     dcount, dcount / (float)n_basic_blocks_for_fn (cfun));
 }
 
 /* Worklist-based dataflow solver. It uses sbitmap as a worklist,
@@ -1606,7 +1606,7 @@ df_compact_blocks (void)
       i++;
     }
 
-  gcc_assert (i == n_basic_blocks);
+  gcc_assert (i == n_basic_blocks_for_fn (cfun));
 
   for (; i < last_basic_block; i++)
     SET_BASIC_BLOCK (i, NULL);
@@ -1714,7 +1714,7 @@ static int *
 df_compute_cfg_image (void)
 {
   basic_block bb;
-  int size = 2 + (2 * n_basic_blocks);
+  int size = 2 + (2 * n_basic_blocks_for_fn (cfun));
   int i;
   int * map;
 
@@ -2078,7 +2078,7 @@ df_dump_start (FILE *file)
 	{
 	  df_dump_problem_function fun = dflow->problem->dump_start_fun;
 	  if (fun)
-	    fun(file);
+	    fun (file);
 	}
     }
 }

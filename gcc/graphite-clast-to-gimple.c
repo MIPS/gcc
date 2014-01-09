@@ -35,7 +35,14 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "diagnostic-core.h"
-#include "tree-ssa.h"
+#include "tree.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "tree-chrec.h"
@@ -1091,7 +1098,7 @@ translate_clast_user (struct clast_user_stmt *stmt, edge next_e,
   gimple_bb_p gbb = PBB_BLACK_BOX (pbb);
   vec<tree> iv_map;
 
-  if (GBB_BB (gbb) == ENTRY_BLOCK_PTR)
+  if (GBB_BB (gbb) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
     return next_e;
 
   nb_loops = number_of_loops (cfun);
@@ -1306,7 +1313,7 @@ translate_clast (loop_p context_loop, struct clast_stmt *stmt, edge next_e,
     next_e = translate_clast_assignment ((struct clast_assignment *) stmt,
 					 next_e, level, ip);
   else
-    gcc_unreachable();
+    gcc_unreachable ();
 
   recompute_all_dominators ();
   graphite_verify ();
@@ -1409,7 +1416,7 @@ init_cloog_input_file (int scop_number)
 /* Extend the scattering to NEW_DIMS scattering dimensions.  */
 
 static
-isl_map *extend_scattering(isl_map *scattering, int new_dims)
+isl_map *extend_scattering (isl_map *scattering, int new_dims)
 {
   int old_dims, i;
   isl_space *space;
@@ -1462,12 +1469,13 @@ build_cloog_union_domain (scop_p scop, int nb_scattering_dims)
 
       /* Dead code elimination: when the domain of a PBB is empty,
 	 don't generate code for the PBB.  */
-      if (isl_set_is_empty(pbb->domain))
+      if (isl_set_is_empty (pbb->domain))
 	continue;
 
-      domain = cloog_domain_from_isl_set(isl_set_copy(pbb->domain));
-      scattering = cloog_scattering_from_isl_map(extend_scattering(isl_map_copy(pbb->transformed),
-						 nb_scattering_dims));
+      domain = cloog_domain_from_isl_set (isl_set_copy (pbb->domain));
+      scattering = cloog_scattering_from_isl_map
+	(extend_scattering (isl_map_copy (pbb->transformed),
+			    nb_scattering_dims));
 
       union_domain = cloog_union_domain_add_domain (union_domain, "", domain,
 						    scattering, pbb);
@@ -1646,8 +1654,7 @@ debug_generated_program (scop_p scop)
 bool
 gloog (scop_p scop, bb_pbb_htab_type bb_pbb_mapping)
 {
-  vec<tree> newivs;
-  newivs.create (10);
+  stack_vec<tree, 10> newivs;
   loop_p context_loop;
   sese region = SCOP_REGION (scop);
   ifsese if_region = NULL;
@@ -1705,17 +1712,15 @@ gloog (scop_p scop, bb_pbb_htab_type bb_pbb_mapping)
 
   newivs_index.dispose ();
   params_index.dispose ();
-  newivs.release ();
   cloog_clast_free (clast);
   timevar_pop (TV_GRAPHITE_CODE_GEN);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
       loop_p loop;
-      loop_iterator li;
       int num_no_dependency = 0;
 
-      FOR_EACH_LOOP (li, loop, 0)
+      FOR_EACH_LOOP (loop, 0)
 	if (loop->can_be_parallel)
 	  num_no_dependency++;
 

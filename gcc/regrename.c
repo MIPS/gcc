@@ -672,7 +672,7 @@ regrename_analyze (bitmap bb_mask)
   n_bbs = pre_and_rev_post_order_compute (NULL, inverse_postorder, false);
 
   /* Gather some information about the blocks in this function.  */
-  rename_info = XCNEWVEC (struct bb_rename_info, n_basic_blocks);
+  rename_info = XCNEWVEC (struct bb_rename_info, n_basic_blocks_for_fn (cfun));
   i = 0;
   FOR_EACH_BB (bb)
     {
@@ -1862,8 +1862,8 @@ const pass_data pass_data_regrename =
 class pass_regrename : public rtl_opt_pass
 {
 public:
-  pass_regrename(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_regrename, ctxt)
+  pass_regrename (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_regrename, ctxt)
   {}
 
   /* opt_pass methods: */

@@ -23,17 +23,21 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
 #include "hashtab.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "bitmap.h"
 #include "cfgloop.h"
 #include "params.h"
 
@@ -166,7 +170,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 	    }
 
 	  /* Short circuit. Nothing dominates the entry block.  */
-	  if (useblock == ENTRY_BLOCK_PTR)
+	  if (useblock == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	    {
 	      BITMAP_FREE (blocks);
 	      return NULL;
@@ -564,7 +568,7 @@ execute_sink_code (void)
   memset (&sink_stats, 0, sizeof (sink_stats));
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
-  sink_code_in_bb (EXIT_BLOCK_PTR);
+  sink_code_in_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
   statistics_counter_event (cfun, "Sunk statements", sink_stats.sunk);
   free_dominance_info (CDI_POST_DOMINATORS);
   remove_fake_exit_edges ();
@@ -607,8 +611,8 @@ const pass_data pass_data_sink_code =
 class pass_sink_code : public gimple_opt_pass
 {
 public:
-  pass_sink_code(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_sink_code, ctxt)
+  pass_sink_code (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_sink_code, ctxt)
   {}
 
   /* opt_pass methods: */

@@ -28,6 +28,9 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "varasm.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
 #include "flags.h"
@@ -1904,7 +1907,7 @@ java_mark_decl_local (tree decl)
   if (TREE_CODE (decl) == FUNCTION_DECL)
     {
       struct cgraph_node *node = cgraph_get_node (decl);
-      gcc_assert (!node || !node->symbol.definition);
+      gcc_assert (!node || !node->definition);
     }
 #endif
   gcc_assert (!DECL_RTL_SET_P (decl));

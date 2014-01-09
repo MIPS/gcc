@@ -22,8 +22,12 @@
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tree.h"
+#include "alias.h"
 #include "gimple.h"
 #include "tree-iterator.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
 #include "splay-tree.h"
 #include "diagnose-gotos.h"
 

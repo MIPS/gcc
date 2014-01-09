@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "tree.h"
 #include "c-common.h"
+#include "gimplify.h"
 #include "gimple.h"
 #include "tree-inline.h"
 #include "diagnostic-core.h"
@@ -98,7 +99,7 @@ c_genericize (tree fndecl)
   /* Dump all nested functions now.  */
   cgn = cgraph_get_create_node (fndecl);
   for (cgn = cgn->nested; cgn ; cgn = cgn->next_nested)
-    c_genericize (cgn->symbol.decl);
+    c_genericize (cgn->decl);
 }
 
 static void

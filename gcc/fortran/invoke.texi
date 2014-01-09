@@ -120,7 +120,7 @@ by type.  Explanations are in the following sections.
 -ffixed-line-length-none -ffree-form -ffree-line-length-@var{n} @gol
 -ffree-line-length-none -fimplicit-none -finteger-4-integer-8 @gol
 -fmax-identifier-length -fmodule-private -fno-fixed-form -fno-range-check @gol
--fopenmp -freal-4-real-10 -freal-4-real-16 -freal-4-real-8 @gol
+-fopenacc -fopenmp -freal-4-real-10 -freal-4-real-16 -freal-4-real-8 @gol
 -freal-8-real-10 -freal-8-real-16 -freal-8-real-4 -std=@var{std}
 }
 
@@ -335,6 +335,11 @@ representation of the translated Fortran code, produced by
 @opindex @code{fcray-pointer}
 Enable the Cray pointer extension, which provides C-like pointer
 functionality.
+
+@item -fopenacc
+@opindex @code{fopenacc}
+@cindex OpenACC
+Enable the OpenACC extensions.
 
 @item -fopenmp
 @opindex @code{fopenmp}

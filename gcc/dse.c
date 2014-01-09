@@ -29,6 +29,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -46,7 +47,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "target.h"
 #include "params.h"
-#include "tree-ssa.h" /* for may_be_aliased */
+#include "gimple.h"
+#include "gimple-ssa.h"
 
 /* This file contains three techniques for performing Dead Store
    Elimination (dse).
@@ -2749,7 +2751,7 @@ dse_step1 (void)
 	  if (stores_off_frame_dead_at_return
 	      && (EDGE_COUNT (bb->succs) == 0
 		  || (single_succ_p (bb)
-		      && single_succ (bb) == EXIT_BLOCK_PTR
+		      && single_succ (bb) == EXIT_BLOCK_PTR_FOR_FN (cfun)
 		      && ! crtl->calls_eh_return)))
 	    {
 	      insn_info_t i_ptr = active_local_stores;
@@ -2916,8 +2918,8 @@ dse_step2_nospill (void)
       if (group == clear_alias_group)
 	continue;
 
-      memset (group->offset_map_n, 0, sizeof(int) * group->offset_map_size_n);
-      memset (group->offset_map_p, 0, sizeof(int) * group->offset_map_size_p);
+      memset (group->offset_map_n, 0, sizeof (int) * group->offset_map_size_n);
+      memset (group->offset_map_p, 0, sizeof (int) * group->offset_map_size_p);
       bitmap_clear (group->group_kill);
 
       EXECUTE_IF_SET_IN_BITMAP (group->store2_n, 0, j, bi)
@@ -3749,8 +3751,8 @@ const pass_data pass_data_rtl_dse1 =
 class pass_rtl_dse1 : public rtl_opt_pass
 {
 public:
-  pass_rtl_dse1(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_dse1, ctxt)
+  pass_rtl_dse1 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_dse1, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -3787,8 +3789,8 @@ const pass_data pass_data_rtl_dse2 =
 class pass_rtl_dse2 : public rtl_opt_pass
 {
 public:
-  pass_rtl_dse2(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_dse2, ctxt)
+  pass_rtl_dse2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_dse2, ctxt)
   {}
 
   /* opt_pass methods: */

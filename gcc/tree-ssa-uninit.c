@@ -30,8 +30,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "pointer-set.h"
-#include "tree-ssa.h"
 #include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "hashtab.h"
 #include "tree-pass.h"
@@ -171,7 +175,7 @@ warn_uninitialized_vars (bool warn_possibly_uninitialized)
   FOR_EACH_BB (bb)
     {
       bool always_executed = dominated_by_p (CDI_POST_DOMINATORS,
-					     single_succ (ENTRY_BLOCK_PTR), bb);
+					     single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)), bb);
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  gimple stmt = gsi_stmt (gsi);
@@ -311,14 +315,14 @@ compute_uninit_opnds_pos (gimple phi)
 static inline basic_block
 find_pdom (basic_block block)
 {
-   if (block == EXIT_BLOCK_PTR)
-     return EXIT_BLOCK_PTR;
+   if (block == EXIT_BLOCK_PTR_FOR_FN (cfun))
+     return EXIT_BLOCK_PTR_FOR_FN (cfun);
    else
      {
        basic_block bb
            = get_immediate_dominator (CDI_POST_DOMINATORS, block);
        if (! bb)
-         return EXIT_BLOCK_PTR;
+	 return EXIT_BLOCK_PTR_FOR_FN (cfun);
        return bb;
      }
 }
@@ -329,13 +333,13 @@ find_pdom (basic_block block)
 static inline basic_block
 find_dom (basic_block block)
 {
-   if (block == ENTRY_BLOCK_PTR)
-     return ENTRY_BLOCK_PTR;
+   if (block == ENTRY_BLOCK_PTR_FOR_FN (cfun))
+     return ENTRY_BLOCK_PTR_FOR_FN (cfun);
    else
      {
        basic_block bb = get_immediate_dominator (CDI_DOMINATORS, block);
        if (! bb)
-         return ENTRY_BLOCK_PTR;
+	 return ENTRY_BLOCK_PTR_FOR_FN (cfun);
        return bb;
      }
 }
@@ -450,7 +454,8 @@ compute_control_dep_chain (basic_block bb, basic_block dep_bb,
 
           cd_bb = find_pdom (cd_bb);
           post_dom_check++;
-          if (cd_bb == EXIT_BLOCK_PTR || post_dom_check > MAX_POSTDOM_CHECK)
+	  if (cd_bb == EXIT_BLOCK_PTR_FOR_FN (cfun) || post_dom_check >
+	      MAX_POSTDOM_CHECK)
             break;
         }
       cur_cd_chain->pop ();
@@ -2193,12 +2198,12 @@ const pass_data pass_data_late_warn_uninitialized =
 class pass_late_warn_uninitialized : public gimple_opt_pass
 {
 public:
-  pass_late_warn_uninitialized(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_late_warn_uninitialized, ctxt)
+  pass_late_warn_uninitialized (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_late_warn_uninitialized, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_late_warn_uninitialized (ctxt_); }
+  opt_pass * clone () { return new pass_late_warn_uninitialized (m_ctxt); }
   bool gate () { return gate_warn_uninitialized (); }
   unsigned int execute () { return execute_late_warn_uninitialized (); }
 
@@ -2254,8 +2259,8 @@ const pass_data pass_data_early_warn_uninitialized =
 class pass_early_warn_uninitialized : public gimple_opt_pass
 {
 public:
-  pass_early_warn_uninitialized(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_early_warn_uninitialized, ctxt)
+  pass_early_warn_uninitialized (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_early_warn_uninitialized, ctxt)
   {}
 
   /* opt_pass methods: */

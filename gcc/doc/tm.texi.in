@@ -744,6 +744,8 @@ Define this macro to 1 if your target needs this facility.  The default
 is 0.
 @end defmac
 
+@hook TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
+
 @node Per-Function Data
 @section Defining data structures for per-function information.
 @cindex per-function data
@@ -3694,6 +3696,8 @@ stack.
 
 @hook TARGET_FN_ABI_VA_LIST
 
+@hook TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE
+
 @hook TARGET_CANONICAL_VA_LIST_TYPE
 
 @hook TARGET_GIMPLIFY_VA_ARG_EXPR
@@ -4064,6 +4068,10 @@ These machine description macros help implement varargs:
 
 @hook TARGET_PRETEND_OUTGOING_VARARGS_NAMED
 
+@hook TARGET_LOAD_BOUNDS_FOR_ARG
+
+@hook TARGET_STORE_BOUNDS_FOR_ARG
+
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions
@@ -4413,6 +4421,12 @@ address;  but often a machine-dependent strategy can generate better code.
 @hook TARGET_VECTORIZE_BUILTIN_TM_STORE
 
 @hook TARGET_VECTORIZE_BUILTIN_GATHER
+
+@hook TARGET_SIMD_CLONE_COMPUTE_VECSIZE_AND_SIMDLEN
+
+@hook TARGET_SIMD_CLONE_ADJUST
+
+@hook TARGET_SIMD_CLONE_USABLE
 
 @node Anchored Addresses
 @section Anchored Addresses
@@ -4929,6 +4943,10 @@ them: try the first ones in this list first.
 @hook TARGET_SCHED_REORDER
 
 @hook TARGET_SCHED_REORDER2
+
+@hook TARGET_SCHED_MACRO_FUSION_P
+
+@hook TARGET_SCHED_MACRO_FUSION_PAIR_P
 
 @hook TARGET_SCHED_DEPENDENCIES_EVALUATION_HOOK
 
@@ -8184,6 +8202,10 @@ to by @var{ce_info}.
 
 @hook TARGET_EXPAND_BUILTIN
 
+@hook TARGET_BUILTIN_CHKP_FUNCTION
+@hook TARGET_CHKP_BOUND_TYPE
+@hook TARGET_CHKP_BOUND_MODE
+
 @hook TARGET_RESOLVE_OVERLOADED_BUILTIN
 
 @hook TARGET_FOLD_BUILTIN
@@ -8195,6 +8217,8 @@ to by @var{ce_info}.
 @hook TARGET_GET_FUNCTION_VERSIONS_DISPATCHER
 
 @hook TARGET_GENERATE_VERSION_DISPATCHER_BODY
+
+@hook TARGET_CAN_USE_DOLOOP_P
 
 @hook TARGET_INVALID_WITHIN_DOLOOP
 
@@ -8388,3 +8412,5 @@ and the associated definitions of those functions.
 @hook TARGET_ATOMIC_TEST_AND_SET_TRUEVAL
 
 @hook TARGET_HAS_IFUNC_P
+
+@hook TARGET_ATOMIC_ASSIGN_EXPAND_FENV

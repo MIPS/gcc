@@ -50,9 +50,6 @@ AM_LDFLAGS = -lpthread
 # May be used by toolexeclibdir.
 gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
 
-# May be used by toolexeclibdir.
-gcc_version := $(shell cat $(top_srcdir)/../gcc/BASE-VER)
-
 # Target list.
 toolexeclib_LTLIBRARIES = libcilkrts.la
 

@@ -40,15 +40,6 @@ static void gomp_target_init (void);
 
 static pthread_once_t gomp_is_initialized = PTHREAD_ONCE_INIT;
 
-#ifdef PLUGIN_SUPPORT
-# include <dlfcn.h>
-# include <dirent.h>
-#endif
-
-static void gomp_target_init (void);
-
-static pthread_once_t gomp_is_initialized = PTHREAD_ONCE_INIT;
-
 /* Forward declaration for a node in the tree.  */
 typedef struct splay_tree_node_s *splay_tree_node;
 typedef struct splay_tree_s *splay_tree;
@@ -92,12 +83,6 @@ struct splay_tree_key_s {
   /* True if data should be copied from device to host at the end.  */
   bool copy_from;
 };
-
-/* Array of descriptors of all available devices.  */
-static struct gomp_device_descr *devices;
-
-/* Total number of available devices.  */
-static int num_devices;
 
 /* Array of descriptors of all available devices.  */
 static struct gomp_device_descr *devices;
@@ -735,12 +720,5 @@ gomp_target_init (void)
 static void
 gomp_target_init (void)
 {
-  if (thread_limit)
-    {
-      struct gomp_task_icv *icv = gomp_icv (true);
-      icv->thread_limit_var
-	= thread_limit > INT_MAX ? UINT_MAX : thread_limit;
-    }
-  (void) num_teams;
 }
 #endif /* PLUGIN_SUPPORT */

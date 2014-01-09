@@ -30,6 +30,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-attr.h"
 #include "flags.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
+#include "varasm.h"
+#include "calls.h"
 #include "output.h"
 #include "dbxout.h"
 #include "except.h"
@@ -512,6 +516,12 @@ pa_option_override (void)
       warning (0, "-g option disabled");
       write_symbols = NO_DEBUG;
     }
+
+#ifdef AUTO_INC_DEC
+  /* FIXME: Disable auto increment and decrement processing until reload
+     is completed.  See PR middle-end 56791.  */
+  flag_auto_inc_dec = reload_completed;
+#endif
 
   /* We only support the "big PIC" model now.  And we always generate PIC
      code when in 64bit mode.  */

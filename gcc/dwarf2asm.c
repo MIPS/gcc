@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
 #include "rtl.h"
 #include "output.h"
 #include "target.h"
@@ -315,7 +317,7 @@ dw2_asm_output_nstring (const char *str, size_t orig_len,
 	  int c = str[i];
 	  if (c == '\"' || c == '\\')
 	    fputc ('\\', asm_out_file);
-	  if (ISPRINT(c))
+	  if (ISPRINT (c))
 	    fputc (c, asm_out_file);
 	  else
 	    fprintf (asm_out_file, "\\%o", c);

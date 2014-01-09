@@ -25,6 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -49,7 +52,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "splay-tree.h"
 #include "gimple.h"
-#include "tree-flow.h"
+#include "gimplify.h"
+#include "gimple-ssa.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-stdarg.h"
 #include "tm-constrs.h"
@@ -4228,12 +4233,12 @@ alpha_expand_builtin_vector_binop (rtx (*gen) (rtx, rtx, rtx),
 static void
 emit_unlikely_jump (rtx cond, rtx label)
 {
-  rtx very_unlikely = GEN_INT (REG_BR_PROB_BASE / 100 - 1);
+  int very_unlikely = REG_BR_PROB_BASE / 100 - 1;
   rtx x;
 
   x = gen_rtx_IF_THEN_ELSE (VOIDmode, cond, label, pc_rtx);
   x = emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx, x));
-  add_reg_note (x, REG_BR_PROB, very_unlikely);
+  add_int_reg_note (x, REG_BR_PROB, very_unlikely);
 }
 
 /* A subroutine of the atomic operation splitters.  Emit a load-locked
@@ -4830,7 +4835,8 @@ alpha_gp_save_rtx (void)
 	 label.  Emit the sequence properly on the edge.  We are only
 	 invoked from dw2_build_landing_pads and finish_eh_generation
 	 will call commit_edge_insertions thanks to a kludge.  */
-      insert_insn_on_edge (seq, single_succ_edge (ENTRY_BLOCK_PTR));
+      insert_insn_on_edge (seq,
+			   single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
 
       cfun->machine->gp_save_rtx = m;
     }
@@ -5859,7 +5865,7 @@ va_list_skip_additions (tree lhs)
       if (!CONVERT_EXPR_CODE_P (code)
 	  && ((code != PLUS_EXPR && code != POINTER_PLUS_EXPR)
 	      || TREE_CODE (gimple_assign_rhs2 (stmt)) != INTEGER_CST
-	      || !host_integerp (gimple_assign_rhs2 (stmt), 1)))
+	      || !tree_fits_uhwi_p (gimple_assign_rhs2 (stmt))))
 	return stmt;
 
       lhs = gimple_assign_rhs1 (stmt);
@@ -5985,10 +5991,10 @@ alpha_stdarg_optimize_hook (struct stdarg_info *si, const_gimple stmt)
 	  else
 	    goto escapes;
 
-	  if (!host_integerp (gimple_assign_rhs2 (arg2_stmt), 0))
+	  if (!tree_fits_shwi_p (gimple_assign_rhs2 (arg2_stmt)))
 	    goto escapes;
 
-	  sub = tree_low_cst (gimple_assign_rhs2 (arg2_stmt), 0);
+	  sub = tree_to_shwi (gimple_assign_rhs2 (arg2_stmt));
 	  if (code2 == MINUS_EXPR)
 	    sub = -sub;
 	  if (sub < -48 || sub > -32)

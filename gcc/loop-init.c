@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "rtl.h"
+#include "tree.h"
 #include "regs.h"
 #include "obstack.h"
 #include "basic-block.h"
@@ -30,7 +31,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "df.h"
 #include "ggc.h"
-#include "tree-ssa.h"
+#include "tree-ssa-loop-niter.h"
 
 
 /* Apply FLAGS to the loop state.  */
@@ -134,7 +135,6 @@ loop_optimizer_init (unsigned flags)
 void
 loop_optimizer_finalize (void)
 {
-  loop_iterator li;
   struct loop *loop;
   basic_block bb;
 
@@ -161,10 +161,8 @@ loop_optimizer_finalize (void)
 
   gcc_assert (current_loops != NULL);
 
-  FOR_EACH_LOOP (li, loop, 0)
-    {
-      free_simple_loop_desc (loop);
-    }
+  FOR_EACH_LOOP (loop, 0)
+    free_simple_loop_desc (loop);
 
   /* Clean up.  */
   flow_loops_free (current_loops);
@@ -198,7 +196,6 @@ fix_loop_structure (bitmap changed_bbs)
 {
   basic_block bb;
   int record_exits = 0;
-  loop_iterator li;
   struct loop *loop;
   unsigned old_nloops, i;
 
@@ -223,7 +220,7 @@ fix_loop_structure (bitmap changed_bbs)
      loops, so that when we remove the loops, we know that the loops inside
      are preserved, and do not waste time relinking loops that will be
      removed later.  */
-  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       /* Detect the case that the loop is no longer present even though
          it wasn't marked for removal.
@@ -336,8 +333,8 @@ const pass_data pass_data_loop2 =
 class pass_loop2 : public rtl_opt_pass
 {
 public:
-  pass_loop2(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_loop2, ctxt)
+  pass_loop2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_loop2, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -390,8 +387,8 @@ const pass_data pass_data_rtl_loop_init =
 class pass_rtl_loop_init : public rtl_opt_pass
 {
 public:
-  pass_rtl_loop_init(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_loop_init, ctxt)
+  pass_rtl_loop_init (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_loop_init, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -448,8 +445,8 @@ const pass_data pass_data_rtl_loop_done =
 class pass_rtl_loop_done : public rtl_opt_pass
 {
 public:
-  pass_rtl_loop_done(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_loop_done, ctxt)
+  pass_rtl_loop_done (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_loop_done, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -502,8 +499,8 @@ const pass_data pass_data_rtl_move_loop_invariants =
 class pass_rtl_move_loop_invariants : public rtl_opt_pass
 {
 public:
-  pass_rtl_move_loop_invariants(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_move_loop_invariants, ctxt)
+  pass_rtl_move_loop_invariants (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_move_loop_invariants, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -556,8 +553,8 @@ const pass_data pass_data_rtl_unswitch =
 class pass_rtl_unswitch : public rtl_opt_pass
 {
 public:
-  pass_rtl_unswitch(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_unswitch, ctxt)
+  pass_rtl_unswitch (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_unswitch, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -623,8 +620,8 @@ const pass_data pass_data_rtl_unroll_and_peel_loops =
 class pass_rtl_unroll_and_peel_loops : public rtl_opt_pass
 {
 public:
-  pass_rtl_unroll_and_peel_loops(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_unroll_and_peel_loops, ctxt)
+  pass_rtl_unroll_and_peel_loops (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_unroll_and_peel_loops, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -683,8 +680,8 @@ const pass_data pass_data_rtl_doloop =
 class pass_rtl_doloop : public rtl_opt_pass
 {
 public:
-  pass_rtl_doloop(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_doloop, ctxt)
+  pass_rtl_doloop (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_doloop, ctxt)
   {}
 
   /* opt_pass methods: */

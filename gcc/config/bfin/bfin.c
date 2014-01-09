@@ -32,6 +32,8 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "tree.h"
+#include "varasm.h"
+#include "calls.h"
 #include "flags.h"
 #include "except.h"
 #include "function.h"
@@ -2438,7 +2440,7 @@ cbranch_predicted_taken_p (rtx insn)
 
   if (x)
     {
-      int pred_val = INTVAL (XEXP (x, 0));
+      int pred_val = XINT (x, 0);
 
       return pred_val >= REG_BR_PROB_BASE / 2;
     }
@@ -3366,6 +3368,22 @@ find_prev_insn_start (rtx insn)
   return insn;
 }
 
+/* Implement TARGET_CAN_USE_DOLOOP_P.  */
+
+static bool
+bfin_can_use_doloop_p (double_int, double_int iterations_max,
+		       unsigned int, bool)
+{
+  /* Due to limitations in the hardware (an initial loop count of 0
+     does not loop 2^32 times) we must avoid to generate a hardware
+     loops when we cannot rule out this case.  */
+  if (!flag_unsafe_loop_optimizations
+      && (iterations_max.high != 0
+	  || iterations_max.low >= 0xFFFFFFFF))
+    return false;
+  return true;
+}
+
 /* Increment the counter for the number of loop instructions in the
    current function.  */
 
@@ -3582,7 +3600,7 @@ hwloop_optimize (hwloop_info loop)
 
       if (single_pred_p (bb)
 	  && single_pred_edge (bb)->flags & EDGE_FALLTHRU
-	  && single_pred (bb) != ENTRY_BLOCK_PTR)
+	  && single_pred (bb) != ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	{
 	  bb = single_pred (bb);
 	  last_insn = BB_END (bb);
@@ -5809,5 +5827,8 @@ bfin_conditional_register_usage (void)
    change order of insns.  It also needs a valid CFG.  */
 #undef TARGET_DELAY_VARTRACK
 #define TARGET_DELAY_VARTRACK true
+
+#undef TARGET_CAN_USE_DOLOOP_P
+#define TARGET_CAN_USE_DOLOOP_P bfin_can_use_doloop_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;

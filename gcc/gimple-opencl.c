@@ -21,13 +21,23 @@
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree.h"
 #include "gimple-pretty-print.h"
 #include "dumpfile.h"
-#include "tree-flow.h"
+#include "tree-cfg.h"
 #include "tree-ssa.h"
 #include "plugin.h"
-#include "ssaexpand.h"
+#include "function.h"
+#include "stringpool.h"
+#include "tree-ssa-alias.h"   
+#include "tree-ssanames.h"
+#include "gimple.h"
+#include "gimple-ssa.h"
+#include "bitmap.h"
+#include "tree-ssa-live.h"
+#include "tree-outof-ssa.h"
 #include "gimple-opencl.h"
+#include "gimple-iterator.h"
 
 struct opencl_attribute_spec
 {
@@ -308,12 +318,12 @@ generate_constant(FILE* fp, tree cnst)
   switch(TREE_CODE(cnst))
     {
     case INTEGER_CST:
-      if(host_integerp(cnst, 0))
+      if(tree_fits_shwi_p(cnst))
         {
           fprintf(fp, HOST_WIDE_INT_PRINT_DEC,
             (HOST_WIDE_INT)TREE_INT_CST_LOW(cnst));
         }
-      else if(host_integerp(cnst, 1))
+      else if(tree_fits_uhwi_p(cnst))
         {
           fprintf(fp, HOST_WIDE_INT_PRINT_UNSIGNED,
             (unsigned HOST_WIDE_INT)TREE_INT_CST_LOW(cnst));

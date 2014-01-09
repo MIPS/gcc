@@ -25,12 +25,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "hash-table.h"
 
-typedef source_location LOC;
-#define UNKNOWN_LOC UNKNOWN_LOCATION
-#define EXPR_LOC(e) EXPR_LOCATION(e)
-#define LOC_FILE(l) LOCATION_FILE (l)
-#define LOC_LINE(l) LOCATION_LINE (l)
-
 /* Used for naming of new temporaries.  */
 enum vect_var_kind {
   vect_simple_var,
@@ -175,6 +169,37 @@ typedef struct _slp_oprnd_info
 
 
 
+/* This struct is used to store the information of a data reference,
+   including the data ref itself, the access offset (calculated by summing its
+   offset and init) and the segment length for aliasing checks.
+   This is used to merge alias checks.  */
+
+struct dr_with_seg_len
+{
+  dr_with_seg_len (data_reference_p d, tree len)
+    : dr (d),
+      offset (size_binop (PLUS_EXPR, DR_OFFSET (d), DR_INIT (d))),
+      seg_len (len) {}
+
+  data_reference_p dr;
+  tree offset;
+  tree seg_len;
+};
+
+/* This struct contains two dr_with_seg_len objects with aliasing data
+   refs.  Two comparisons are generated from them.  */
+
+struct dr_with_seg_len_pair_t
+{
+  dr_with_seg_len_pair_t (const dr_with_seg_len& d1,
+			       const dr_with_seg_len& d2)
+    : first (d1), second (d2) {}
+
+  dr_with_seg_len first;
+  dr_with_seg_len second;
+};
+
+
 typedef struct _vect_peel_info
 {
   int npeel;
@@ -242,9 +267,6 @@ typedef struct _loop_vec_info {
   /* Unrolling factor  */
   int vectorization_factor;
 
-  /* The loop location in the source.  */
-  LOC loop_line_number;
-
   /* Unknown DRs according to which loop was peeled.  */
   struct data_reference *unaligned_dr;
 
@@ -273,6 +295,10 @@ typedef struct _loop_vec_info {
   /* Data Dependence Relations defining address ranges that are candidates
      for a run-time aliasing check.  */
   vec<ddr_p> may_alias_ddrs;
+
+  /* Data Dependence Relations defining address ranges together with segment
+     lengths from which the run-time aliasing check is built.  */
+  vec<dr_with_seg_len_pair_t> comp_alias_ddrs;
 
   /* Statements in the loop that have data references that are candidates for a
      runtime (loop versioning) misalignment check.  */
@@ -308,6 +334,10 @@ typedef struct _loop_vec_info {
      this.  */
   bool peeling_for_gaps;
 
+  /* When the number of iterations is not a multiple of the vector size
+     we need to peel off iterations at the end to form an epilogue loop.  */
+  bool peeling_for_niter;
+
   /* Reductions are canonicalized so that the last operand is the reduction
      operand.  If this places a constant into RHS1, this decanonicalizes
      GIMPLE for other phases, so we must track when this has occurred and
@@ -331,11 +361,11 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_DATAREFS(L)             (L)->datarefs
 #define LOOP_VINFO_DDRS(L)                 (L)->ddrs
 #define LOOP_VINFO_INT_NITERS(L)           (TREE_INT_CST_LOW ((L)->num_iters))
-#define LOOP_PEELING_FOR_ALIGNMENT(L)      (L)->peeling_for_alignment
+#define LOOP_VINFO_PEELING_FOR_ALIGNMENT(L) (L)->peeling_for_alignment
 #define LOOP_VINFO_UNALIGNED_DR(L)         (L)->unaligned_dr
 #define LOOP_VINFO_MAY_MISALIGN_STMTS(L)   (L)->may_misalign_stmts
-#define LOOP_VINFO_LOC(L)                  (L)->loop_line_number
 #define LOOP_VINFO_MAY_ALIAS_DDRS(L)       (L)->may_alias_ddrs
+#define LOOP_VINFO_COMP_ALIAS_DDRS(L)      (L)->comp_alias_ddrs
 #define LOOP_VINFO_GROUPED_STORES(L)       (L)->grouped_stores
 #define LOOP_VINFO_SLP_INSTANCES(L)        (L)->slp_instances
 #define LOOP_VINFO_SLP_UNROLLING_FACTOR(L) (L)->slp_unrolling_factor
@@ -345,18 +375,15 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_TARGET_COST_DATA(L)     (L)->target_cost_data
 #define LOOP_VINFO_PEELING_FOR_GAPS(L)     (L)->peeling_for_gaps
 #define LOOP_VINFO_OPERANDS_SWAPPED(L)     (L)->operands_swapped
+#define LOOP_VINFO_PEELING_FOR_NITER(L)    (L)->peeling_for_niter
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L) \
-(L)->may_misalign_stmts.length () > 0
+  (L)->may_misalign_stmts.length () > 0
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIAS(L)     \
-(L)->may_alias_ddrs.length () > 0
-
-#define NITERS_KNOWN_P(n)                     \
-(host_integerp ((n),0)                        \
-&& TREE_INT_CST_LOW ((n)) > 0)
+  (L)->may_alias_ddrs.length () > 0
 
 #define LOOP_VINFO_NITERS_KNOWN_P(L)          \
-NITERS_KNOWN_P((L)->num_iters)
+  (tree_fits_shwi_p ((L)->num_iters) && tree_to_shwi ((L)->num_iters) > 0)
 
 static inline loop_vec_info
 loop_vec_info_for_loop (struct loop *loop)
@@ -416,6 +443,7 @@ enum stmt_vec_info_type {
   shift_vec_info_type,
   op_vec_info_type,
   call_vec_info_type,
+  call_simd_clone_vec_info_type,
   assignment_vec_info_type,
   condition_vec_info_type,
   reduc_vec_info_type,
@@ -880,8 +908,16 @@ known_alignment_for_access_p (struct data_reference *data_ref_info)
   return (DR_MISALIGNMENT (data_ref_info) != -1);
 }
 
+
+/* Return true if the vect cost model is unlimited.  */
+static inline bool
+unlimited_cost_model ()
+{
+  return flag_vect_cost_model == VECT_COST_MODEL_UNLIMITED;
+}
+
 /* Source location */
-extern LOC vect_location;
+extern source_location vect_location;
 
 /*-----------------------------------------------------------------*/
 /* Function prototypes.                                            */
@@ -891,11 +927,13 @@ extern LOC vect_location;
    in tree-vect-loop-manip.c.  */
 extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
 extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
+struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *, edge);
 extern void vect_loop_versioning (loop_vec_info, unsigned int, bool);
-extern void vect_do_peeling_for_loop_bound (loop_vec_info, tree *,
+extern void vect_do_peeling_for_loop_bound (loop_vec_info, tree, tree,
 					    unsigned int, bool);
-extern void vect_do_peeling_for_alignment (loop_vec_info, unsigned int, bool);
-extern LOC find_loop_location (struct loop *);
+extern void vect_do_peeling_for_alignment (loop_vec_info, tree,
+					   unsigned int, bool);
+extern source_location find_loop_location (struct loop *);
 extern bool vect_can_advance_ivs_p (loop_vec_info);
 
 /* In tree-vect-stmts.c.  */
@@ -1026,7 +1064,7 @@ extern void vect_detect_hybrid_slp (loop_vec_info);
 extern void vect_get_slp_defs (vec<tree> , slp_tree,
 			       vec<vec<tree> > *, int);
 
-extern LOC find_bb_location (basic_block);
+extern source_location find_bb_location (basic_block);
 extern bb_vec_info vect_slp_analyze_bb (basic_block);
 extern void vect_slp_transform_bb (basic_block);
 

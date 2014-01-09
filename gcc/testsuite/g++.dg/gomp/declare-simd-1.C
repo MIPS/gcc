@@ -241,22 +241,3 @@ f38 (D &d)
 {
   d.f37 <16> (6);
 }
-
-#pragma omp declare simd simdlen (N)
-template <int N>
-int f36 (int);
-
-struct D
-{
-  int d;
-  #pragma omp declare simd simdlen (N) linear (a : sizeof (a) + sizeof (d) + sizeof (this) + sizeof (this->d))
-  template <int N>
-  int f37 (int a);
-  int e;
-};
-
-void
-f38 (D &d)
-{
-  d.f37 <16> (6);
-}
