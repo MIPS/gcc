@@ -1,4 +1,11 @@
 09-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
+	Remove auto-generated tests, fix cp build
+
+	* gcc/testsuite/gfortran.dg/gacc/^[a-zA-Z].*f95: Remove
+	* Makefile.in: remove libmudflap
+	* gcc/cp/parser.h: Fix typo
+
+09-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
 	Merge with gomp-4_0-branch: step 2
 
 
