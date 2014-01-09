@@ -1,7 +1,7 @@
 ;; file warmelt-outobj.melt -*- Lisp -*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright (C) 2008 - 2013 Free Software Foundation, Inc.
+    Copyright (C) 2008 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -62,21 +62,6 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	  (set_ref buffer_limit_cont vlim)
 	  )
       )))
-
-
-;;;;;;;;;;;;;;;;
-(defun code_buffer_limit_optset (optsymb :cstring csopt)
-  (let ( (:long lim 0) )
-    (code_chunk getlimchk
-		#{/*$GETLIMCHK*/ $LIM = atoi($CSOPT);
-		}#)
-    (if (>i lim 0)
-	(put_code_buffer_limit (make_integerbox discr_constant_integer 
-						(*i lim 1024))))))
-
-(register_option 'code_buffer_limit
-		 '"set limit in kilobytes for the generated code buffer size"
-		 code_buffer_limit_optset)
 
 
 

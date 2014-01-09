@@ -3234,6 +3234,43 @@ typedef struct melthook_st *melthook_ptr_t;
 (export_synonym make_sexpr melt_make_sexpr)
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+
+
+(defhook hook_sort_compare
+  (:value left right cmp)
+  ()
+  :long
+  :predef HOOK_SORT_COMPARE
+  :doc #{The internal $HOOK_SOURCE_COMPARE is for sorting
+  multiples. It should return boolean true if $LEFT is strictly less
+  than $RIGHT using the $CMP function. This $CMP function should return
+  @code{:TRUE} when $LEFT is strictly less than $RIGHT. If $CMP
+  returns a boxed number, it should be strictly negative iff $LEFT is
+  strictly less than $RIGHT.}#
+  (if (== left right)
+      (return 0))
+  (let ( (cmpres (cmp left right))
+	 )
+    (cond ( (null cmpres)
+	    (return 0)
+	    (void))
+	  ( (== cmpres :true)
+	    (return 1)
+	    (void))
+	  ( (is_integerbox cmpres)
+	    (let ( (:long cmpl (get_int cmpres))
+		   )
+	      (if (<i cmpl 0)
+		  (return 1)
+		(return 0)))
+	    (void)
+	    )
+	  )
+    (return 1)	    
+    )
+  )					;end hook_sort_compare
+;;;;;
+
 (export_values
  ;; keep the alphanumerical order
 		

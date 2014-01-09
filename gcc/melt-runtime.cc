@@ -9723,20 +9723,20 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 
   /* Retrieve our dynamic symbols. */
 
-#define MELTDESCR_REQUIRED_SYMBOL(Sym,Typ) do {			\
-    Typ* aptr_##Sym =						\
-        reinterpret_cast<Typ*> (dlsym (dlh, #Sym));		\
-      debugeprintf ("melt_load_module_index req. " #Sym		\
-		    " %p validh %d",				\
-		    aptr_##Sym, (int) validh);			\
-      if (!aptr_##Sym) {					\
-	char* dler = dlerror ();				\
-	debugeprintf("melt_load_module_index req. " #Sym	\
-		     " not found - %s", dler);			\
-	if (dler && errorp && !*errorp)				\
-	  *errorp = concat("Cannot find " #Sym, "; ",		\
-			   dler, NULL);				\
-	validh = FALSE;						\
+#define MELTDESCR_REQUIRED_SYMBOL(Sym,Typ) do {                 \
+    Typ* aptr_##Sym =                                           \
+        reinterpret_cast<Typ*> (dlsym (dlh, #Sym));             \
+      debugeprintf ("melt_load_module_index req. " #Sym         \
+                    " %p validh %d",                            \
+                    (void*)aptr_##Sym, (int) validh);           \
+      if (!aptr_##Sym) {                                        \
+        char* dler = dlerror ();                                \
+        debugeprintf("melt_load_module_index req. " #Sym        \
+                     " not found - %s", dler);                  \
+        if (dler && errorp && !*errorp)                         \
+          *errorp = concat("Cannot find " #Sym, "; ",           \
+                           dler, NULL);                         \
+        validh = FALSE;                                         \
       } else dynr_##Sym = aptr_##Sym; } while(0)
 
   /* Fetch required symbols */
@@ -10788,93 +10788,7 @@ end:
 static void
 meltgc_set_user_options (const char* optstr)
 {
-#if MELT_HAVE_DEBUG
-  char locbuf[220];
-#endif
-  MELT_ENTERFRAME(3, NULL);
-#define optsetv    meltfram__.mcfr_varptr[0]
-#define optsymbv   meltfram__.mcfr_varptr[1]
-#define optresv    meltfram__.mcfr_varptr[2]
-  debugeprintf ("meltgc_set_user_options start option; optstr %s",
-                optstr);
-  if (optstr)
-    debugeprintf ("meltgc_set_user_options optstr.len %d ",
-                  (int) strlen (optstr));
-  optsetv = NULL;
-  if (optstr && optstr[0])
-    {
-      optsetv=melt_get_inisysdata (MELTFIELD_SYSDATA_OPTION_SET);
-      debugeprintf("meltfield_sysdata_option_set optsetv %p for optstr '%s'", 
-		   (void*) optsetv, optstr);
-      if (optsetv != NULL
-          && melt_magic_discr ((melt_ptr_t) optsetv) == MELTOBMAG_CLOSURE)
-        {
-          char *optc = 0;
-          char *optname = 0;
-          char *optvalue = 0;
-          for (optc = CONST_CAST (char *, optstr);
-               optc && *optc;
-              )
-            {
-              optname = optvalue = NULL;
-              if (!ISALPHA(*optc))
-                melt_fatal_error ("invalid MELT option name %s [should start with letter]",
-                                  optc);
-              optname = optc;
-              while (*optc && (ISALNUM(*optc) || *optc=='_' || *optc=='-'))
-                optc++;
-              if (*optc == '=')
-                {
-                  warning(0, "MELT option %s with obsolete equal sign '=' replaced by colon ':'",
-                          optstr);
-                  *optc = ':';
-                }
-              if (*optc == ':')
-                {
-                  *optc = (char)0;
-                  optc++;
-                  optvalue = optc;
-                  while (*optc && *optc != ',')
-                    optc++;
-                }
-              if (*optc==',')
-                {
-                  *optc = (char)0;
-                  optc++;
-                }
-              debugeprintf("optname '%s", optname);
-              if (!optname || !optname[0])
-                error ("MELT option %s without valid name", optstr);
-              optsymbv = melthookproc_HOOK_NAMED_SYMBOL (optname, (long) MELT_CREATE);
-              debugeprintf("optname '%s got optsymbv %p", optname, 
-			   (void*) optsymbv);
-              {
-                union meltparam_un pararg[1];
-                memset (&pararg, 0, sizeof (pararg));
-                pararg[0].meltbp_cstring = optvalue;
-                MELT_LOCATION_HERE_PRINTF (locbuf,
-                                           "meltgc_set_user_options option %s set before apply", optname);
-                debugeprintf ("MELT option %s value %s", optname,
-                              optvalue?optvalue:"_");
-                optresv =
-                  melt_apply ((meltclosure_ptr_t) optsetv,
-                              (melt_ptr_t) optsymbv,
-                              MELTBPARSTR_CSTRING, pararg, "", NULL);
-                if (!optresv)
-                  warning (0, "unhandled MELT option %s", optname);
-
-                /* after options setting, force a minor collection to ensure
-                nothing is left in young region */
-                MELT_LOCATION_HERE ("meltgc_set_user_options option set done");
-                melt_garbcoll (0, MELT_ONLY_MINOR);
-              }
-            }
-        }
-    }
-  MELT_EXITFRAME();
-#undef optsetv
-#undef optsymbv
-#undef optresv
+  melt_fatal_error ("cannot set user option %s", optstr);
 }
 
 
@@ -11015,24 +10929,6 @@ meltgc_load_modules_and_do_mode (void)
   if (melt_get_inisysdata (MELTFIELD_SYSDATA_MODE_DICT) && modstr
       && modstr[0])
     {
-      /**
-       * First we set MELT options.
-       **/
-      const char* optstr = melt_argument("option");
-      debugeprintf("meltgc_load_modules_and_do_mode optstr %s", optstr);
-      if (optstr && optstr[0])
-        {
-          char* optdup = xstrdup (optstr);
-          MELT_LOCATION_HERE_PRINTF
-          (locbuf,
-           "meltgc_load_modules_and_do_mode mode %s before setting options %s", modstr, optdup);
-          debugeprintf("meltgc_load_modules_and_do_mode handling user options optdup %s",
-                       optdup);
-          meltgc_set_user_options (optdup);
-          debugeprintf("meltgc_load_modules_and_do_mode handled user options optdup %s",
-                       optdup);
-          free (optdup);
-        }
       MELT_LOCATION_HERE_PRINTF
       (locbuf,
        "meltgc_load_modules_and_do_mode before do_initial_mode mode %s", modstr);

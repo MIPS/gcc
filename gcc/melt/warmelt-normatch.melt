@@ -1,7 +1,7 @@
 ; file warmelt-normatch.melt -*- Lisp -*-
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2008 - 2013 Free Software Foundation, Inc.
+    Copyright 2008 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -1932,18 +1932,6 @@ scanning variables.}#
 (definstance match_graphic_dot_prefix class_reference
   :referenced_value ())
 
-(defun match_graphic_optset (optsymb :cstring prefixs)
-  (debug "match_graphic_optset optsumb" optsymb)
-  (let ( (prefstr (make_stringconst discr_string prefixs)) )
-    (put_fields match_graphic_dot_prefix :referenced_value prefstr)
-    (debug "match_graphic_optset match_graphic_dot_prefix" match_graphic_dot_prefix)
-    (return match_graphic_dot_prefix)
-    ))
-
-(register_option
- 'match_graphic
- '"Prefix for Graphviz .dot files generated about match normalization when debugging" 
- match_graphic_optset)
 		 
 
 ;;; a private class to help generate dot graphics

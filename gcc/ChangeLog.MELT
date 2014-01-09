@@ -1,6 +1,35 @@
 
 2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{removing option facility; should use std::sort for sorting..}}
+
+	* melt-predef.list: Update copyright year.
+	(HOOK_SORT_COMPARE): Add.
+
+	* melt-runtime.cc (melt_load_module_index): Improve debugprintf in
+	MELTDESCR_REQUIRED_SYMBOL.
+	(meltgc_set_user_options): Becomes obsolete.
+	(meltgc_load_modules_and_do_mode): Don't set options.
+
+	* melt/warmelt-first.melt: Update copyright year.
+	(class_initial_system_data): Remove sysdata_option_set field.
+	(option_map_container, class_option_descriptor, init_optionsetter): Remove
+	(register_option): Obsolete.
+	(option_helper_fun): Remove.
+	(initial_system_data): Remove sysdata_option_set.
+
+	* melt/warmelt-base.melt (hook_sort_compare): New hook.
+
+	* melt/warmelt-normatch.melt (match_graphic_dot_prefix): Remove.
+	(match_graphic_optset): Remove.
+	(match_graphic): Removed option.
+
+	* melt/warmelt-outobj.melt: Update copyright year.
+	(code_buffer_limit_optset): Remove function.
+	(code_buffer_limit): Remove option.
+
+2014-01-08  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated all files.
 
 

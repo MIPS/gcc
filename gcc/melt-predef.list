@@ -1,5 +1,5 @@
 ## file melt-predef.list
-# Copyright (C) 2009 - 2013 Free Software Foundation, Inc.
+# Copyright (C) 2009 - 2014  Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -164,6 +164,7 @@
   HOOK_RTL_EXECUTE
   HOOK_RTL_GATE
   HOOK_SIMPLE_IPA_EXECUTE
+  HOOK_SORT_COMPARE
   HOOK_START_UNIT
   HOOK_FRESH_ENVIRONMENT_REFERENCE_MAKER
   HOOK_SYMBOL_IMPORTER
