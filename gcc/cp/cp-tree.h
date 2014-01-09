@@ -4033,7 +4033,7 @@ more_aggr_init_expr_args_p (const aggr_init_expr_arg_iterator *iter)
 /* A language-specific token attached to the OpenACC data clauses to
    hold code (or code fragments) related to ctors, dtors, and op=.
    See semantics.c for details.  */
-#define CP_ACC_CLAUSE_INFO(NODE)                   TREE_TYPE (NODE)
+#define CP_OACC_CLAUSE_INFO(NODE)                   TREE_TYPE (NODE)
 
 /* Nonzero if this transaction expression's body contains statements.  */
 #define TRANSACTION_EXPR_IS_STMT(NODE) \
@@ -5185,7 +5185,7 @@ extern tree declare_local_label			(tree);
 extern tree define_label			(location_t, tree);
 extern void check_goto				(tree);
 extern bool check_omp_return                    (void);
-extern bool check_acc_return                    (void);
+extern bool check_oacc_return                    (void);
 extern tree make_typename_type			(tree, tree, enum tag_types, tsubst_flags_t);
 extern tree make_unbound_class_template		(tree, tree, tree, tsubst_flags_t);
 extern tree build_library_fn_ptr		(const char *, tree, int);
@@ -5797,14 +5797,14 @@ extern void note_decl_for_pch			(tree);
 extern tree omp_reduction_id			(enum tree_code, tree, tree);
 extern tree cp_remove_omp_priv_cleanup_stmt	(tree *, int *, void *);
 extern void cp_check_omp_declare_reduction	(tree);
-extern tree begin_acc_structured_block          (void);
-extern tree finish_acc_structured_block         (tree);
+extern tree begin_oacc_structured_block          (void);
+extern tree finish_oacc_structured_block         (tree);
 
-extern tree begin_acc_parallel                  (void);
-extern tree finish_acc_parallel                 (tree, tree);
-extern tree begin_acc_kernels                   (void);
-extern tree finish_acc_kernels                  (tree, tree);
-extern tree finish_acc_clauses                  (tree);
+extern tree begin_oacc_parallel                  (void);
+extern tree finish_oacc_parallel                 (tree, tree);
+extern tree begin_oacc_kernels                   (void);
+extern tree finish_oacc_kernels                  (tree, tree);
+extern tree finish_oacc_clauses                  (tree);
 
 
 extern tree finish_omp_clauses			(tree);

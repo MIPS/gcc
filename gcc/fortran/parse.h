@@ -30,7 +30,7 @@ typedef enum
   COMP_BLOCK, COMP_ASSOCIATE, COMP_IF,
   COMP_DO, COMP_SELECT, COMP_FORALL, COMP_WHERE, COMP_CONTAINS, COMP_ENUM,
   COMP_SELECT_TYPE, COMP_OMP_STRUCTURED_BLOCK, COMP_CRITICAL, COMP_DO_CONCURRENT,
-  COMP_ACC_STRUCTURED_BLOCK
+  COMP_OACC_STRUCTURED_BLOCK
 }
 gfc_compile_state;
 
@@ -50,7 +50,7 @@ typedef struct gfc_state_data
   union
   {
     gfc_st_label *end_do_label;
-    gfc_acc_clauses *declare_clauses;
+    gfc_oacc_clauses *declare_clauses;
   }
   ext;
 

@@ -22,141 +22,141 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GIMPLE_OACC_H
 #define	GIMPLE_OACC_H
 
-#define CASE_GIMPLE_ACC \
-    case GIMPLE_ACC_PARALLEL: \
-    case GIMPLE_ACC_KERNELS: \
-    case GIMPLE_ACC_DATA: \
-    case GIMPLE_ACC_CACHE: \
-    case GIMPLE_ACC_WAIT: \
-    case GIMPLE_ACC_HOST_DATA: \
-    case GIMPLE_ACC_LOOP: \
-    case GIMPLE_ACC_DECLARE: \
-    case GIMPLE_ACC_UPDATE: \
-    case GIMPLE_ACC_COMPUTE_REGION_END: \
-    case GIMPLE_ACC_DATA_REGION_END
+#define CASE_GIMPLE_OACC \
+    case GIMPLE_OACC_PARALLEL: \
+    case GIMPLE_OACC_KERNELS: \
+    case GIMPLE_OACC_DATA: \
+    case GIMPLE_OACC_CACHE: \
+    case GIMPLE_OACC_WAIT: \
+    case GIMPLE_OACC_HOST_DATA: \
+    case GIMPLE_OACC_LOOP: \
+    case GIMPLE_OACC_DECLARE: \
+    case GIMPLE_OACC_UPDATE: \
+    case GIMPLE_OACC_COMPUTE_REGION_END: \
+    case GIMPLE_OACC_DATA_REGION_END
 
-#define CASE_GIMPLE_ACC_ALTER_CF \
-    case GIMPLE_ACC_PARALLEL: \
-    case GIMPLE_ACC_KERNELS: \
-    case GIMPLE_ACC_DATA: \
-    case GIMPLE_ACC_HOST_DATA: \
-    case GIMPLE_ACC_COMPUTE_REGION_END: \
-    case GIMPLE_ACC_DATA_REGION_END
+#define CASE_GIMPLE_OACC_ALTER_CF \
+    case GIMPLE_OACC_PARALLEL: \
+    case GIMPLE_OACC_KERNELS: \
+    case GIMPLE_OACC_DATA: \
+    case GIMPLE_OACC_HOST_DATA: \
+    case GIMPLE_OACC_COMPUTE_REGION_END: \
+    case GIMPLE_OACC_DATA_REGION_END
 
-#define CASE_GIMPLE_ACC_NOT_ALTER_CF \
-    case GIMPLE_ACC_CACHE: \
-    case GIMPLE_ACC_WAIT: \
-    case GIMPLE_ACC_LOOP: \
-    case GIMPLE_ACC_DECLARE: \
-    case GIMPLE_ACC_UPDATE
+#define CASE_GIMPLE_OACC_NOT_ALTER_CF \
+    case GIMPLE_OACC_CACHE: \
+    case GIMPLE_OACC_WAIT: \
+    case GIMPLE_OACC_LOOP: \
+    case GIMPLE_OACC_DECLARE: \
+    case GIMPLE_OACC_UPDATE
 
 
-#define GIMPLE_ACC_CHILD_FN(g)  ((gimple_code(g) == GIMPLE_ACC_KERNELS) ? \
-                                  gimple_acc_kernels_child_fn(g) : \
-                                  (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
-                                  gimple_acc_parallel_child_fn(g) : NULL_TREE)
+#define GIMPLE_OACC_CHILD_FN(g)  ((gimple_code(g) == GIMPLE_OACC_KERNELS) ? \
+                                  gimple_oacc_kernels_child_fn(g) : \
+                                  (gimple_code(g) == GIMPLE_OACC_PARALLEL) ? \
+                                  gimple_oacc_parallel_child_fn(g) : NULL_TREE)
 
-#define GIMPLE_ACC_SET_CHILD_FN(g, f) ((gimple_code(g) == GIMPLE_ACC_KERNELS)? \
-                                    gimple_acc_kernels_set_child_fn(g,f) :\
-                                  (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
-                                  gimple_acc_parallel_set_child_fn(g,f) \
+#define GIMPLE_OACC_SET_CHILD_FN(g, f) ((gimple_code(g) == GIMPLE_OACC_KERNELS)? \
+                                    gimple_oacc_kernels_set_child_fn(g,f) :\
+                                  (gimple_code(g) == GIMPLE_OACC_PARALLEL) ? \
+                                  gimple_oacc_parallel_set_child_fn(g,f) \
                                   : (void)0)
 
-#define GIMPLE_ACC_PARAMS_PTR(g) ((gimple_code(g) == GIMPLE_ACC_KERNELS) ? \
-                                  gimple_acc_kernels_params_ptr(g) : \
-                                  (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
-                                  gimple_acc_parallel_params_ptr(g) : 0)
+#define GIMPLE_OACC_PARAMS_PTR(g) ((gimple_code(g) == GIMPLE_OACC_KERNELS) ? \
+                                  gimple_oacc_kernels_params_ptr(g) : \
+                                  (gimple_code(g) == GIMPLE_OACC_PARALLEL) ? \
+                                  gimple_oacc_parallel_params_ptr(g) : 0)
 
-#define GIMPLE_ACC_CLAUSES(g)   ((gimple_code(g) == GIMPLE_ACC_KERNELS) ? \
-                                  gimple_acc_kernels_clauses(g) : \
-                                 (gimple_code(g) == GIMPLE_ACC_PARALLEL) ? \
-                                  gimple_acc_parallel_clauses(g) : \
-                                 (gimple_code(g) == GIMPLE_ACC_DATA) ? \
-                                 gimple_acc_data_clauses(g) : \
-                                 (gimple_code(g) == GIMPLE_ACC_LOOP) ? \
-                                 gimple_acc_loop_clauses(g) : NULL_TREE)
-#define GIMPLE_ACC_STATEMENT(g) \
-                        ((gimple_code(g) == GIMPLE_ACC_COMPUTE_REGION_END) ? \
-                         gimple_acc_compute_region_end_statement(g) : \
-                        (gimple_code(g) == GIMPLE_ACC_DATA_REGION_END) ? \
-                         gimple_acc_data_region_end_statement(g) : NULL)
+#define GIMPLE_OACC_CLAUSES(g)   ((gimple_code(g) == GIMPLE_OACC_KERNELS) ? \
+                                  gimple_oacc_kernels_clauses(g) : \
+                                 (gimple_code(g) == GIMPLE_OACC_PARALLEL) ? \
+                                  gimple_oacc_parallel_clauses(g) : \
+                                 (gimple_code(g) == GIMPLE_OACC_DATA) ? \
+                                 gimple_oacc_data_clauses(g) : \
+                                 (gimple_code(g) == GIMPLE_OACC_LOOP) ? \
+                                 gimple_oacc_loop_clauses(g) : NULL_TREE)
+#define GIMPLE_OACC_STATEMENT(g) \
+                        ((gimple_code(g) == GIMPLE_OACC_COMPUTE_REGION_END) ? \
+                         gimple_oacc_compute_region_end_statement(g) : \
+                        (gimple_code(g) == GIMPLE_OACC_DATA_REGION_END) ? \
+                         gimple_oacc_data_region_end_statement(g) : NULL)
 
-#define GIMPLE_ACC_SET_STATEMENT(g,s) \
-                        ((gimple_code(g) == GIMPLE_ACC_COMPUTE_REGION_END) ? \
-                         gimple_acc_compute_region_end_set_statement(g,s) : \
-                        (gimple_code(g) == GIMPLE_ACC_DATA_REGION_END) ? \
-                         gimple_acc_data_region_end_set_statement(g,s) : (void)0)
+#define GIMPLE_OACC_SET_STATEMENT(g,s) \
+                        ((gimple_code(g) == GIMPLE_OACC_COMPUTE_REGION_END) ? \
+                         gimple_oacc_compute_region_end_set_statement(g,s) : \
+                        (gimple_code(g) == GIMPLE_OACC_DATA_REGION_END) ? \
+                         gimple_oacc_data_region_end_set_statement(g,s) : (void)0)
 
-extern bool is_gimple_acc (const_gimple);
+extern bool is_gimple_oacc (const_gimple);
 
-extern void gimple_acc_set_body (gimple, gimple_seq);
-extern gimple_seq *gimple_acc_body_ptr (gimple);
-extern gimple_seq gimple_acc_body (gimple);
-extern unsigned gimple_acc_nparams(const_gimple);
+extern void gimple_oacc_set_body (gimple, gimple_seq);
+extern gimple_seq *gimple_oacc_body_ptr (gimple);
+extern gimple_seq gimple_oacc_body (gimple);
+extern unsigned gimple_oacc_nparams(const_gimple);
 
 /* KERNELS */
-extern tree gimple_acc_kernels_clauses (const_gimple);
-extern tree *gimple_acc_kernels_clauses_ptr (gimple);
-extern void gimple_acc_kernels_set_clauses (gimple, tree);
-extern tree gimple_acc_kernels_child_fn (const_gimple);
-extern tree *gimple_acc_kernels_child_fn_ptr (gimple);
-extern void gimple_acc_kernels_set_child_fn (gimple, tree);
-extern tree gimple_acc_kernels_param(gimple, unsigned);
-extern tree* gimple_acc_kernels_params_ptr(gimple);
+extern tree gimple_oacc_kernels_clauses (const_gimple);
+extern tree *gimple_oacc_kernels_clauses_ptr (gimple);
+extern void gimple_oacc_kernels_set_clauses (gimple, tree);
+extern tree gimple_oacc_kernels_child_fn (const_gimple);
+extern tree *gimple_oacc_kernels_child_fn_ptr (gimple);
+extern void gimple_oacc_kernels_set_child_fn (gimple, tree);
+extern tree gimple_oacc_kernels_param(gimple, unsigned);
+extern tree* gimple_oacc_kernels_params_ptr(gimple);
 
 /* PARALLEL */
-extern tree gimple_acc_parallel_clauses (const_gimple);
-extern tree *gimple_acc_parallel_clauses_ptr (gimple);
-extern void gimple_acc_parallel_set_clauses (gimple, tree);
-extern tree gimple_acc_parallel_child_fn (const_gimple);
-extern tree *gimple_acc_parallel_child_fn_ptr (gimple);
-extern void gimple_acc_parallel_set_child_fn (gimple, tree);
-extern tree *gimple_acc_parallel_params_ptr(gimple);
-extern tree gimple_acc_parallel_param(gimple, unsigned);
+extern tree gimple_oacc_parallel_clauses (const_gimple);
+extern tree *gimple_oacc_parallel_clauses_ptr (gimple);
+extern void gimple_oacc_parallel_set_clauses (gimple, tree);
+extern tree gimple_oacc_parallel_child_fn (const_gimple);
+extern tree *gimple_oacc_parallel_child_fn_ptr (gimple);
+extern void gimple_oacc_parallel_set_child_fn (gimple, tree);
+extern tree *gimple_oacc_parallel_params_ptr(gimple);
+extern tree gimple_oacc_parallel_param(gimple, unsigned);
 
 /* DATA */
-extern tree gimple_acc_data_clauses (const_gimple);
-extern void gimple_acc_data_set_clauses (gimple, tree);
+extern tree gimple_oacc_data_clauses (const_gimple);
+extern void gimple_oacc_data_set_clauses (gimple, tree);
 
 /* LOOP */
-extern tree gimple_acc_loop_child_fn (const_gimple);
-extern tree *gimple_acc_loop_params_ptr(gimple);
-extern tree gimple_acc_loop_param(gimple, unsigned);
-extern void gimple_acc_loop_set_child_fn (gimple, tree);
-extern void gimple_acc_loop_set_clauses (gimple, tree);
-extern tree gimple_acc_loop_clauses (const_gimple);
-extern void gimple_acc_loop_set_pre_body (gimple, gimple_seq);
-extern gimple_seq gimple_acc_loop_pre_body (const_gimple);
-extern void gimple_acc_loop_set_collapse (gimple, size_t);
-extern size_t gimple_acc_loop_collapse (const_gimple);
-extern void gimple_acc_loop_set_index (gimple, size_t i, tree index);
-extern tree gimple_acc_loop_index (const_gimple, size_t i);
-extern void gimple_acc_loop_set_initial (gimple, size_t i, tree initial);
-extern tree gimple_acc_loop_initial (const_gimple, size_t i);
-extern void gimple_acc_loop_set_final (gimple, size_t i, tree final);
-extern tree gimple_acc_loop_final (const_gimple, size_t i);
-extern void gimple_acc_loop_set_incr (gimple, size_t i, tree incr);
-extern tree gimple_acc_loop_incr (const_gimple, size_t i);
-extern void gimple_acc_loop_set_cond (gimple, size_t i, enum tree_code cond);
-extern enum tree_code gimple_acc_loop_cond (const_gimple, size_t i);
+extern tree gimple_oacc_loop_child_fn (const_gimple);
+extern tree *gimple_oacc_loop_params_ptr(gimple);
+extern tree gimple_oacc_loop_param(gimple, unsigned);
+extern void gimple_oacc_loop_set_child_fn (gimple, tree);
+extern void gimple_oacc_loop_set_clauses (gimple, tree);
+extern tree gimple_oacc_loop_clauses (const_gimple);
+extern void gimple_oacc_loop_set_pre_body (gimple, gimple_seq);
+extern gimple_seq gimple_oacc_loop_pre_body (const_gimple);
+extern void gimple_oacc_loop_set_collapse (gimple, size_t);
+extern size_t gimple_oacc_loop_collapse (const_gimple);
+extern void gimple_oacc_loop_set_index (gimple, size_t i, tree index);
+extern tree gimple_oacc_loop_index (const_gimple, size_t i);
+extern void gimple_oacc_loop_set_initial (gimple, size_t i, tree initial);
+extern tree gimple_oacc_loop_initial (const_gimple, size_t i);
+extern void gimple_oacc_loop_set_final (gimple, size_t i, tree final);
+extern tree gimple_oacc_loop_final (const_gimple, size_t i);
+extern void gimple_oacc_loop_set_incr (gimple, size_t i, tree incr);
+extern tree gimple_oacc_loop_incr (const_gimple, size_t i);
+extern void gimple_oacc_loop_set_cond (gimple, size_t i, enum tree_code cond);
+extern enum tree_code gimple_oacc_loop_cond (const_gimple, size_t i);
 
 /* REGION END */
-extern gimple gimple_acc_data_region_end_statement (const_gimple);
-extern void gimple_acc_data_region_end_set_statement(gimple, gimple);
-extern gimple gimple_acc_compute_region_end_statement(const_gimple);
-extern void gimple_acc_compute_region_end_set_statement(gimple, gimple);
+extern gimple gimple_oacc_data_region_end_statement (const_gimple);
+extern void gimple_oacc_data_region_end_set_statement(gimple, gimple);
+extern gimple gimple_oacc_compute_region_end_statement(const_gimple);
+extern void gimple_oacc_compute_region_end_set_statement(gimple, gimple);
 
 /* BUILD */
-extern gimple gimple_build_acc_parallel (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_kernels (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_data (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_cache (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_wait (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_host_data (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_loop (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_declare (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_update (gimple_seq, tree, tree, tree);
-extern gimple gimple_build_acc_compute_region_end ();
-extern gimple gimpale_build_acc_data_region_end ();
+extern gimple gimple_build_oacc_parallel (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_kernels (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_data (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_cache (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_wait (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_host_data (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_loop (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_declare (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_update (gimple_seq, tree, tree, tree);
+extern gimple gimple_build_oacc_compute_region_end ();
+extern gimple gimpale_build_oacc_data_region_end ();
 
 #endif	/* GIMPLE_OACC_H */

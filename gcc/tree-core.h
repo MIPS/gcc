@@ -653,54 +653,54 @@ enum tree_node_kind {
   lang_decl,
   lang_type,
   omp_clause_kind,
-  acc_clause_kind,
+  oacc_clause_kind,
   all_kinds
 };
 
 /* Number of operands and names for each clause.  */
-extern unsigned const char acc_clause_num_ops[];
-extern const char* const acc_clause_code_name[];
+extern unsigned const char oacc_clause_num_ops[];
+extern const char* const oacc_clause_code_name[];
 enum annot_expr_kind {
   annot_expr_ivdep_kind
 };
 
 /* Clause codes. Do not reorder.  */
-enum acc_clause_code
+enum oacc_clause_code
 {
   /* Clause zero is special-cased inside the parser */
-  ACC_CLAUSE_ERROR = 0,
-  ACC_CLAUSE_IF,
-  ACC_CLAUSE_ASYNC,
-  ACC_CLAUSE_COLLAPSE,
-  ACC_CLAUSE_SEQ,
-  ACC_CLAUSE_INDEPENDENT,
-  ACC_CLAUSE_GANG,
-  ACC_CLAUSE_WORKER,
-  ACC_CLAUSE_VECTOR,
-  ACC_CLAUSE_NUM_GANGS,
-  ACC_CLAUSE_NUM_WORKERS,
-  ACC_CLAUSE_VECTOR_LENGTH,
-  ACC_CLAUSE_REDUCTION,
-  ACC_CLAUSE_COPY,
-  ACC_CLAUSE_COPYIN,
-  ACC_CLAUSE_COPYOUT,
-  ACC_CLAUSE_CREATE,
-  ACC_CLAUSE_PRESENT,
-  ACC_CLAUSE_PRESENT_OR_COPY,
-  ACC_CLAUSE_PRESENT_OR_COPYIN,
-  ACC_CLAUSE_PRESENT_OR_COPYOUT,
-  ACC_CLAUSE_PRESENT_OR_CREATE,
-  ACC_CLAUSE_HOST,
-  ACC_CLAUSE_DEVICE,
-  ACC_CLAUSE_DEVICEPTR,
-  ACC_CLAUSE_DEVICE_RESIDENT,
-  ACC_CLAUSE_USE_DEVICE,
-  ACC_CLAUSE_PRIVATE,
-  ACC_CLAUSE_FIRSTPRIVATE,
-  ACC_NO_CLAUSE_WAIT,
-  ACC_NO_CLAUSE_CACHE,
-  ACC_CLAUSE_WAIT,
-  ACC_CLAUSE_DELETE
+  OACC_CLAUSE_ERROR = 0,
+  OACC_CLAUSE_IF,
+  OACC_CLAUSE_ASYNC,
+  OACC_CLAUSE_COLLAPSE,
+  OACC_CLAUSE_SEQ,
+  OACC_CLAUSE_INDEPENDENT,
+  OACC_CLAUSE_GANG,
+  OACC_CLAUSE_WORKER,
+  OACC_CLAUSE_VECTOR,
+  OACC_CLAUSE_NUM_GANGS,
+  OACC_CLAUSE_NUM_WORKERS,
+  OACC_CLAUSE_VECTOR_LENGTH,
+  OACC_CLAUSE_REDUCTION,
+  OACC_CLAUSE_COPY,
+  OACC_CLAUSE_COPYIN,
+  OACC_CLAUSE_COPYOUT,
+  OACC_CLAUSE_CREATE,
+  OACC_CLAUSE_PRESENT,
+  OACC_CLAUSE_PRESENT_OR_COPY,
+  OACC_CLAUSE_PRESENT_OR_COPYIN,
+  OACC_CLAUSE_PRESENT_OR_COPYOUT,
+  OACC_CLAUSE_PRESENT_OR_CREATE,
+  OACC_CLAUSE_HOST,
+  OACC_CLAUSE_DEVICE,
+  OACC_CLAUSE_DEVICEPTR,
+  OACC_CLAUSE_DEVICE_RESIDENT,
+  OACC_CLAUSE_USE_DEVICE,
+  OACC_CLAUSE_PRIVATE,
+  OACC_CLAUSE_FIRSTPRIVATE,
+  OACC_NO_CLAUSE_WAIT,
+  OACC_NO_CLAUSE_CACHE,
+  OACC_CLAUSE_WAIT,
+  OACC_CLAUSE_DELETE
 };
 
 /*---------------------------------------------------------------------------
@@ -1253,12 +1253,12 @@ struct GTY(()) tree_omp_clause {
    we use the same constant */
 #define MAX_DIMENSIONS 7
 
-struct GTY(()) tree_acc_clause {
+struct GTY(()) tree_oacc_clause {
     struct tree_common common;
     location_t locus;
-    enum acc_clause_code code;
-    union acc_clause_subcode {
-        //enum acc_clause_default_kind  default_kind;
+    enum oacc_clause_code code;
+    union oacc_clause_subcode {
+        //enum oacc_clause_default_kind  default_kind;
         enum tree_code                reduction_code;
         struct {
             tree left[MAX_DIMENSIONS];
@@ -1272,7 +1272,7 @@ struct GTY(()) tree_acc_clause {
     //gimple_seq gimple_reduction_init;
     //gimple_seq gimple_reduction_merge;
 
-    tree GTY ((length ("acc_clause_num_ops[ACC_CLAUSE_CODE ((tree)&%h)]"))) ops[1];
+    tree GTY ((length ("oacc_clause_num_ops[OACC_CLAUSE_CODE ((tree)&%h)]"))) ops[1];
 };
 
 struct GTY(()) tree_block {
@@ -1674,7 +1674,7 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
   struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
-  struct tree_acc_clause GTY ((tag ("TS_ACC_CLAUSE"))) acc_clause;
+  struct tree_oacc_clause GTY ((tag ("TS_OACC_CLAUSE"))) oacc_clause;
   struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };

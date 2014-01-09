@@ -5532,7 +5532,7 @@ gfc_generate_function_code (gfc_namespace * ns)
   /* Generate !$ACC DECLARE directive. */
   if (ns->declare_clauses)
     {
-      tmp = gfc_trans_acc_declare(&body, ns);
+      tmp = gfc_trans_oacc_declare(&body, ns);
       gfc_add_expr_to_block(&body, tmp);
     }
 

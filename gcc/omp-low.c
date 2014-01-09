@@ -64,6 +64,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pretty-print.h"
 #include "ipa-prop.h"
 #include "tree-nested.h"
+#include "gimple-oacc.h"
 
 
 /* Lowering of OpenMP parallel and workshare constructs proceeds in two
@@ -228,6 +229,16 @@ scan_omp_op (tree *tp, omp_context *ctx)
 static void lower_omp (gimple_seq *, omp_context *);
 static tree lookup_decl_in_outer_ctx (tree, omp_context *);
 static tree maybe_lookup_decl_in_outer_ctx (tree, omp_context *);
+
+static tree 
+gimple_oacc_parallel_data_arg (const_gimple gs)
+{
+  return NULL_TREE;
+}
+
+static void
+gimple_oacc_parallel_set_data_arg (const_gimple gs, tree t)
+{}
 
 /* Find an OpenMP clause of type KIND within CLAUSES.  */
 
@@ -3111,8 +3122,8 @@ lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 tree
 acc_reduction_init (tree clause, tree type)
 {
-  location_t loc = ACC_CLAUSE_LOCATION (clause);
-  switch (ACC_CLAUSE_REDUCTION_CODE (clause))
+  location_t loc = OACC_CLAUSE_LOCATION (clause);
+  switch (OACC_CLAUSE_REDUCTION_CODE (clause))
     {
     case PLUS_EXPR:
     case MINUS_EXPR:
@@ -10650,12 +10661,6 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       break;
     case GIMPLE_BIND:
       lower_omp (gimple_bind_body_ptr (stmt), ctx);
-      break;
-    case GIMPLE_OACC_PARALLEL:
-      ctx = maybe_lookup_ctx (stmt);
-      gcc_assert (ctx);
-      gcc_assert (!ctx->cancellable);
-      lower_oacc_parallel (gsi_p, ctx);
       break;
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:

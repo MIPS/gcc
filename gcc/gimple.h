@@ -324,8 +324,8 @@ struct GTY((tag("GSS_OMP")))
 
 /* OpenACC statements (#pragma acc).  */
 
-struct GTY((tag("GSS_ACC"))) 
-  gimple_statement_acc : public gimple_statement_with_memory_ops_base {
+struct GTY((tag("GSS_OACC"))) 
+  gimple_statement_oacc : public gimple_statement_with_memory_ops_base {
   /* [ WORD 1-9 ] : base class  */
 
   /* [ WORD 10 ]  */
@@ -684,7 +684,7 @@ struct GTY((tag("GSS_OMP_ATOMIC_STORE")))
 
 /* GIMPLE OpenACC structs */
 
-struct GTY(()) gimple_acc_for_iter {
+struct GTY(()) gimple_oacc_for_iter {
   /* Condition code.  */
   enum tree_code cond;
 
@@ -701,10 +701,10 @@ struct GTY(()) gimple_acc_for_iter {
   tree incr;
 };
 
-/* GIMPLE_ACC_LOOP */
+/* GIMPLE_OACC_LOOP */
 
-struct GTY((tag("GSS_ACC_LOOP")))
-  gimple_statement_acc_loop : public gimple_statement_acc
+struct GTY((tag("GSS_OACC_LOOP")))
+  gimple_statement_oacc_loop : public gimple_statement_oacc
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -716,7 +716,7 @@ struct GTY((tag("GSS_ACC_LOOP")))
   size_t collapse;
 
   /* [ WORD 10 ]  */
-  struct gimple_acc_for_iter * GTY((length ("%h.collapse"))) iter;
+  struct gimple_oacc_for_iter * GTY((length ("%h.collapse"))) iter;
 
   /* [ WORD 14 ]
      Pre-body evaluated before the loop body begins.  */
@@ -732,10 +732,10 @@ struct GTY((tag("GSS_ACC_LOOP")))
 };
 
 
-/* GIMPLE_ACC_PARALLEL */
+/* GIMPLE_OACC_PARALLEL */
 
-struct GTY((tag("GSS_ACC_PARALLEL")))
-  gimple_statement_acc_parallel : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_PARALLEL")))
+  gimple_statement_oacc_parallel : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -753,10 +753,10 @@ struct GTY((tag("GSS_ACC_PARALLEL")))
 };
 
 
-/* GIMPLE_ACC_KERNELS */
+/* GIMPLE_OACC_KERNELS */
 
-struct GTY((tag("GSS_ACC_KERNELS"))) 
-  gimple_statement_acc_kernels : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_KERNELS"))) 
+  gimple_statement_oacc_kernels : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -773,10 +773,10 @@ struct GTY((tag("GSS_ACC_KERNELS")))
 	tree GTY((length("%h.num_ops"))) op[1];
 };
 
-/* GIMPLE_ACC_DATA */
+/* GIMPLE_OACC_DATA */
 
-struct GTY((tag("GSS_ACC_DATA"))) 
-  gimple_statement_acc_data : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_DATA"))) 
+  gimple_statement_oacc_data : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -789,10 +789,10 @@ struct GTY((tag("GSS_ACC_DATA")))
   tree child_fn;
 };
 
-/* GIMPLE_ACC_HOST_DATA */
+/* GIMPLE_OACC_HOST_DATA */
 
-struct GTY((tag("GSS_ACC_HOST_DATA"))) 
-  gimple_statement_acc_host_data : gimple_statement_acc 
+struct GTY((tag("GSS_OACC_HOST_DATA"))) 
+  gimple_statement_oacc_host_data : gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -805,10 +805,10 @@ struct GTY((tag("GSS_ACC_HOST_DATA")))
   tree child_fn;
 };
 
-/* GIMPLE_ACC_CACHE */
+/* GIMPLE_OACC_CACHE */
 
-struct GTY((tag("GSS_ACC_CACHE"))) 
-  gimple_statement_acc_cache : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_CACHE"))) 
+  gimple_statement_oacc_cache : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -817,10 +817,10 @@ struct GTY((tag("GSS_ACC_CACHE")))
   tree list_arg;
 };
 
-/* GIMPLE_ACC_WAIT */
+/* GIMPLE_OACC_WAIT */
 
-struct GTY((tag("GSS_ACC_WAIT"))) 
-  gimple_statement_acc_wait : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_WAIT"))) 
+  gimple_statement_oacc_wait : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -829,10 +829,10 @@ struct GTY((tag("GSS_ACC_WAIT")))
   tree expression;
 };
 
-/* GIMPLE_ACC_DECLARE */
+/* GIMPLE_OACC_DECLARE */
 
-struct GTY((tag("GSS_ACC_DECLARE"))) 
-  gimple_statement_acc_declare : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_DECLARE"))) 
+  gimple_statement_oacc_declare : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -841,10 +841,10 @@ struct GTY((tag("GSS_ACC_DECLARE")))
   tree clauses;
 };
 
-/* GIMPLE_ACC_UPDATE */
+/* GIMPLE_OACC_UPDATE */
 
-struct GTY((tag("GSS_ACC_UPDATE"))) 
-  gimple_statement_acc_update : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_UPDATE"))) 
+  gimple_statement_oacc_update : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -853,10 +853,10 @@ struct GTY((tag("GSS_ACC_UPDATE")))
   tree clauses;
 };
 
-/* GIMPLE_ACC_DATA_REGION_END & GIMPLE_ACC_COMPUTE_REGION_END */
+/* GIMPLE_OACC_DATA_REGION_END & GIMPLE_OACC_COMPUTE_REGION_END */
 
-struct GTY((tag("GSS_ACC_REGION_END"))) 
-  gimple_statement_acc_region_end : public gimple_statement_acc 
+struct GTY((tag("GSS_OACC_REGION_END"))) 
+  gimple_statement_oacc_region_end : public gimple_statement_oacc 
 {
   /* [ WORD 1-10 ] : base class */
 
@@ -1053,99 +1053,99 @@ is_a_helper <gimple_statement_omp_task>::test (gimple gs)
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_loop>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_loop>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_LOOP;
+  return gs->code == GIMPLE_OACC_LOOP;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_parallel>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_parallel>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_PARALLEL;
+  return gs->code == GIMPLE_OACC_PARALLEL;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_kernels>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_kernels>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_KERNELS;
+  return gs->code == GIMPLE_OACC_KERNELS;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_data>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_data>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_DATA;
+  return gs->code == GIMPLE_OACC_DATA;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_host_data>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_host_data>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_HOST_DATA;
+  return gs->code == GIMPLE_OACC_HOST_DATA;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_cache>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_cache>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_CACHE;
+  return gs->code == GIMPLE_OACC_CACHE;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_wait>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_wait>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_WAIT;
+  return gs->code == GIMPLE_OACC_WAIT;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_declare>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_declare>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_DECLARE;
+  return gs->code == GIMPLE_OACC_DECLARE;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_update>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_update>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_UPDATE;
+  return gs->code == GIMPLE_OACC_UPDATE;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc_region_end>::test (gimple gs)
+is_a_helper <gimple_statement_oacc_region_end>::test (gimple gs)
 {
-  return gs->code == GIMPLE_ACC_COMPUTE_REGION_END 
-    || gs->code == GIMPLE_ACC_DATA_REGION_END;
+  return gs->code == GIMPLE_OACC_COMPUTE_REGION_END 
+    || gs->code == GIMPLE_OACC_DATA_REGION_END;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <gimple_statement_acc>::test (gimple gs)
+is_a_helper <gimple_statement_oacc>::test (gimple gs)
 {
-  return is_a <gimple_statement_acc_loop> (gs)
-         || is_a <gimple_statement_acc_parallel> (gs)
-         || is_a <gimple_statement_acc_kernels> (gs)
-         || is_a <gimple_statement_acc_data> (gs)
-         || is_a <gimple_statement_acc_host_data> (gs)
-         || is_a <gimple_statement_acc_cache> (gs)
-         || is_a <gimple_statement_acc_wait> (gs)
-         || is_a <gimple_statement_acc_declare> (gs)
-         || is_a <gimple_statement_acc_update> (gs)
-         || is_a <gimple_statement_acc_region_end> (gs);
+  return is_a <gimple_statement_oacc_loop> (gs)
+         || is_a <gimple_statement_oacc_parallel> (gs)
+         || is_a <gimple_statement_oacc_kernels> (gs)
+         || is_a <gimple_statement_oacc_data> (gs)
+         || is_a <gimple_statement_oacc_host_data> (gs)
+         || is_a <gimple_statement_oacc_cache> (gs)
+         || is_a <gimple_statement_oacc_wait> (gs)
+         || is_a <gimple_statement_oacc_declare> (gs)
+         || is_a <gimple_statement_oacc_update> (gs)
+         || is_a <gimple_statement_oacc_region_end> (gs);
 }
 
 template <>
@@ -1304,82 +1304,82 @@ is_a_helper <const gimple_statement_omp_task>::test (const_gimple gs)
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_loop>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_loop>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_LOOP;
+  return gs->code == GIMPLE_OACC_LOOP;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_parallel>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_parallel>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_PARALLEL;
+  return gs->code == GIMPLE_OACC_PARALLEL;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_kernels>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_kernels>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_KERNELS;
+  return gs->code == GIMPLE_OACC_KERNELS;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_data>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_data>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_DATA;
+  return gs->code == GIMPLE_OACC_DATA;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_host_data>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_host_data>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_HOST_DATA;
+  return gs->code == GIMPLE_OACC_HOST_DATA;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_cache>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_cache>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_CACHE;
+  return gs->code == GIMPLE_OACC_CACHE;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_wait>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_wait>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_WAIT;
+  return gs->code == GIMPLE_OACC_WAIT;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_declare>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_declare>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_DECLARE;
+  return gs->code == GIMPLE_OACC_DECLARE;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_update>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_update>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_UPDATE;
+  return gs->code == GIMPLE_OACC_UPDATE;
 }
 
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc_region_end>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc_region_end>::test (const_gimple gs)
 {
-  return gs->code == GIMPLE_ACC_COMPUTE_REGION_END 
-    || gs->code == GIMPLE_ACC_DATA_REGION_END;
+  return gs->code == GIMPLE_OACC_COMPUTE_REGION_END 
+    || gs->code == GIMPLE_OACC_DATA_REGION_END;
 }
 
 template <>
@@ -1401,18 +1401,18 @@ is_a_helper <const gimple_statement_transaction>::test (const_gimple gs)
 template <>
 template <>
 inline bool
-is_a_helper <const gimple_statement_acc>::test (const_gimple gs)
+is_a_helper <const gimple_statement_oacc>::test (const_gimple gs)
 {
-  return is_a <const gimple_statement_acc_loop> (gs)
-         || is_a <const gimple_statement_acc_parallel> (gs)
-         || is_a <const gimple_statement_acc_kernels> (gs)
-         || is_a <const gimple_statement_acc_data> (gs)
-         || is_a <const gimple_statement_acc_host_data> (gs)
-         || is_a <const gimple_statement_acc_cache> (gs)
-         || is_a <const gimple_statement_acc_wait> (gs)
-         || is_a <const gimple_statement_acc_declare> (gs)
-         || is_a <const gimple_statement_acc_update> (gs)
-         || is_a <const gimple_statement_acc_region_end> (gs);
+  return is_a <const gimple_statement_oacc_loop> (gs)
+         || is_a <const gimple_statement_oacc_parallel> (gs)
+         || is_a <const gimple_statement_oacc_kernels> (gs)
+         || is_a <const gimple_statement_oacc_data> (gs)
+         || is_a <const gimple_statement_oacc_host_data> (gs)
+         || is_a <const gimple_statement_oacc_cache> (gs)
+         || is_a <const gimple_statement_oacc_wait> (gs)
+         || is_a <const gimple_statement_oacc_declare> (gs)
+         || is_a <const gimple_statement_oacc_update> (gs)
+         || is_a <const gimple_statement_oacc_region_end> (gs);
 }
 
 /* Offset in bytes to the location of the operand vector.
@@ -4650,101 +4650,6 @@ gimple_omp_set_body (gimple gs, gimple_seq body)
 }
 
 
-/* Return the clauses associated with OACC_PARALLEL statement GS.  */
-
-static inline tree
-gimple_oacc_parallel_clauses (const_gimple gs)
-{
-  const gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <const gimple_statement_omp_parallel> (gs);
-  return omp_parallel_stmt->clauses;
-}
-
-/* Return a pointer to the clauses associated with OACC_PARALLEL statement
-   GS.  */
-
-static inline tree *
-gimple_oacc_parallel_clauses_ptr (gimple gs)
-{
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel> (gs);
-  return &omp_parallel_stmt->clauses;
-}
-
-/* Set CLAUSES to be the list of clauses associated with OACC_PARALLEL
-   statement GS.  */
-
-static inline void
-gimple_oacc_parallel_set_clauses (gimple gs, tree clauses)
-{
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel> (gs);
-  omp_parallel_stmt->clauses = clauses;
-}
-
-/* Return the child function used to hold the body of OACC_PARALLEL statement
-   GS.  */
-
-static inline tree
-gimple_oacc_parallel_child_fn (const_gimple gs)
-{
-  const gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <const gimple_statement_omp_parallel> (gs);
-  return omp_parallel_stmt->child_fn;
-}
-
-/* Return a pointer to the child function used to hold the body of
-   OACC_PARALLEL statement GS.  */
-
-static inline tree *
-gimple_oacc_parallel_child_fn_ptr (gimple gs)
-{
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel> (gs);
-  return &omp_parallel_stmt->child_fn;
-}
-
-/* Set CHILD_FN to be the child function for OACC_PARALLEL statement GS.  */
-
-static inline void
-gimple_oacc_parallel_set_child_fn (gimple gs, tree child_fn)
-{
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel> (gs);
-  omp_parallel_stmt->child_fn = child_fn;
-}
-
-/* Return the data argument for OACC_PARALLEL statement GS.  */
-
-static inline tree
-gimple_oacc_parallel_data_arg (const_gimple gs)
-{
-  const gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <const gimple_statement_omp_parallel> (gs);
-  return omp_parallel_stmt->data_arg;
-}
-
-/* Return a pointer to the data argument for OACC_PARALLEL statement GS.  */
-
-static inline tree *
-gimple_oacc_parallel_data_arg_ptr (gimple gs)
-{
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel> (gs);
-  return &omp_parallel_stmt->data_arg;
-}
-
-/* Set DATA_ARG to be the data argument for OACC_PARALLEL statement GS.  */
-
-static inline void
-gimple_oacc_parallel_set_data_arg (gimple gs, tree data_arg)
-{
-  gimple_statement_omp_parallel *omp_parallel_stmt =
-    as_a <gimple_statement_omp_parallel> (gs);
-  omp_parallel_stmt->data_arg = data_arg;
-}
-
-
 /* Return the name associated with OMP_CRITICAL statement GS.  */
 
 static inline tree
@@ -6044,7 +5949,6 @@ gimple_return_set_retbnd (gimple gs, tree retval)
 /* Returns true when the gimple statement STMT is any of the OpenMP types.  */
 
 #define CASE_GIMPLE_OMP				\
-    case GIMPLE_OACC_PARALLEL:			\
     case GIMPLE_OMP_PARALLEL:			\
     case GIMPLE_OMP_TASK:			\
     case GIMPLE_OMP_FOR:			\

@@ -36,12 +36,12 @@ extern void debug_generic_expr (tree);
 extern void debug_generic_stmt (tree);
 extern void debug_tree_chain (tree);
 extern void print_generic_decl (FILE *, tree, int);
-extern unsigned char dump_acc_body
+extern unsigned char dump_oacc_body
                         (int, tree, int, unsigned char, pretty_printer*);
-extern void dump_acc_clause_remap
+extern void dump_oacc_clause_remap
                         (const char*, tree, int, int, pretty_printer*);
-extern void dump_acc_clause (pretty_printer *, tree, int, int);
-extern void dump_acc_clauses (pretty_printer *, tree, int, int);
+extern void dump_oacc_clause (pretty_printer *, tree, int, int);
+extern void dump_oacc_clauses (pretty_printer *, tree, int, int);
 
 extern void print_generic_stmt (FILE *, tree, int);
 extern void print_generic_stmt_indented (FILE *, tree, int, int);

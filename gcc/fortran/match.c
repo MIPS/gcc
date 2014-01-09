@@ -2516,7 +2516,7 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
   /* Find the loop specified by the label (or lack of a label).  */
   for (o = NULL, p = gfc_state_stack; p; p = p->previous)
     if (o == NULL
-        && (p->state == COMP_OMP_STRUCTURED_BLOCK || p->state == COMP_ACC_STRUCTURED_BLOCK))
+        && (p->state == COMP_OMP_STRUCTURED_BLOCK || p->state == COMP_OACC_STRUCTURED_BLOCK))
       o = p;
     else if (p->state == COMP_CRITICAL)
       {
@@ -2595,7 +2595,7 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
     o = o->previous;
   if (cnt > 0
       && o != NULL
-      && (o->state == COMP_OMP_STRUCTURED_BLOCK || o->state == COMP_ACC_STRUCTURED_BLOCK)
+      && (o->state == COMP_OMP_STRUCTURED_BLOCK || o->state == COMP_OACC_STRUCTURED_BLOCK)
       && (o->head->op == EXEC_OMP_DO
 	  || o->head->op == EXEC_OMP_PARALLEL_DO))
     {
@@ -2622,9 +2622,9 @@ match_exit_cycle (gfc_statement st, gfc_exec_op op)
     }
   if (cnt > 0
       && o != NULL
-      && (o->state == COMP_OMP_STRUCTURED_BLOCK || o->state == COMP_ACC_STRUCTURED_BLOCK)
-      && (o->head->op == EXEC_ACC_LOOP
-          || o->head->op == EXEC_ACC_PARALLEL_LOOP))
+      && (o->state == COMP_OMP_STRUCTURED_BLOCK || o->state == COMP_OACC_STRUCTURED_BLOCK)
+      && (o->head->op == EXEC_OACC_LOOP
+          || o->head->op == EXEC_OACC_PARALLEL_LOOP))
     {
       int collapse = 1;
       gcc_assert (o->head->next != NULL
@@ -4590,8 +4590,8 @@ gfc_free_namelist (gfc_namelist *name)
   for (; name; name = n)
     {
       n = name->next;
-      if (name->acc_subarray)
-        free (name->acc_subarray);
+      if (name->oacc_subarray)
+        free (name->oacc_subarray);
       free (name);
     }
 }

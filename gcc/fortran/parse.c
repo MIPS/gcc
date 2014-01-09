@@ -532,7 +532,7 @@ decode_statement (void)
 }
 
 static gfc_statement
-decode_acc_directive (void)
+decode_oacc_directive (void)
 {
   locus old_locus;
   char c;
@@ -564,41 +564,41 @@ decode_acc_directive (void)
   switch (c)
     {
     case 'c':
-      match ("cache", gfc_match_acc_cache, ST_ACC_CACHE);
+      match ("cache", gfc_match_oacc_cache, ST_OACC_CACHE);
       break;
     case 'd':
-      match ("data", gfc_match_acc_data, ST_ACC_DATA);
-      match ("declare", gfc_match_acc_declare, ST_ACC_DECLARE);
+      match ("data", gfc_match_oacc_data, ST_OACC_DATA);
+      match ("declare", gfc_match_oacc_declare, ST_OACC_DECLARE);
       break;
     case 'e':
-      match ("end data", gfc_match_omp_eos, ST_ACC_END_DATA);
-      match ("end host_data", gfc_match_omp_eos, ST_ACC_END_HOST_DATA);
-      match ("end kernels loop", gfc_match_omp_eos, ST_ACC_END_KERNELS_LOOP);
-      match ("end kernels", gfc_match_omp_eos, ST_ACC_END_KERNELS);
-      match ("end parallel loop", gfc_match_omp_eos, ST_ACC_END_PARALLEL_LOOP);
-      match ("end parallel", gfc_match_omp_eos, ST_ACC_END_PARALLEL);
-      match ("enter data", gfc_match_acc_enter_data, ST_ACC_ENTER_DATA);
-      match ("exit data", gfc_match_acc_exit_data, ST_ACC_EXIT_DATA);
+      match ("end data", gfc_match_omp_eos, ST_OACC_END_DATA);
+      match ("end host_data", gfc_match_omp_eos, ST_OACC_END_HOST_DATA);
+      match ("end kernels loop", gfc_match_omp_eos, ST_OACC_END_KERNELS_LOOP);
+      match ("end kernels", gfc_match_omp_eos, ST_OACC_END_KERNELS);
+      match ("end parallel loop", gfc_match_omp_eos, ST_OACC_END_PARALLEL_LOOP);
+      match ("end parallel", gfc_match_omp_eos, ST_OACC_END_PARALLEL);
+      match ("enter data", gfc_match_oacc_enter_data, ST_OACC_ENTER_DATA);
+      match ("exit data", gfc_match_oacc_exit_data, ST_OACC_EXIT_DATA);
       break;
     case 'h':
-      match ("host_data", gfc_match_acc_host_data, ST_ACC_HOST_DATA);
+      match ("host_data", gfc_match_oacc_host_data, ST_OACC_HOST_DATA);
       break;
     case 'p':
-      match ("parallel loop", gfc_match_acc_parallel_loop, ST_ACC_PARALLEL_LOOP);
-      match ("parallel", gfc_match_acc_parallel, ST_ACC_PARALLEL);
+      match ("parallel loop", gfc_match_oacc_parallel_loop, ST_OACC_PARALLEL_LOOP);
+      match ("parallel", gfc_match_oacc_parallel, ST_OACC_PARALLEL);
       break;
     case 'k':
-      match ("kernels loop", gfc_match_acc_kernels_loop, ST_ACC_KERNELS_LOOP);
-      match ("kernels", gfc_match_acc_kernels, ST_ACC_KERNELS);
+      match ("kernels loop", gfc_match_oacc_kernels_loop, ST_OACC_KERNELS_LOOP);
+      match ("kernels", gfc_match_oacc_kernels, ST_OACC_KERNELS);
       break;
     case 'l':
-      match ("loop", gfc_match_acc_loop, ST_ACC_LOOP);
+      match ("loop", gfc_match_oacc_loop, ST_OACC_LOOP);
       break;
     case 'u':
-      match ("update", gfc_match_acc_update, ST_ACC_UPDATE);
+      match ("update", gfc_match_oacc_update, ST_OACC_UPDATE);
       break;
     case 'w':
-      match ("wait", gfc_match_acc_wait, ST_ACC_WAIT);
+      match ("wait", gfc_match_oacc_wait, ST_OACC_WAIT);
       break;
     }
 
@@ -887,7 +887,7 @@ next_free (void)
                   gfc_gobble_whitespace ();
                   if (last_was_use_stmt)
                     use_modules ();
-                  return decode_acc_directive ();
+                  return decode_oacc_directive ();
                 }
             }
           else if (gfc_option.gfc_flag_openacc)
@@ -902,7 +902,7 @@ next_free (void)
               gfc_gobble_whitespace ();
               if (last_was_use_stmt)
                 use_modules ();
-              return decode_acc_directive ();
+              return decode_oacc_directive ();
             }
         }
 
@@ -1028,7 +1028,7 @@ next_fixed (void)
                         }
                       if (last_was_use_stmt)
                         use_modules ();
-                      return decode_acc_directive ();
+                      return decode_oacc_directive ();
                     }
                 }
               else if (gfc_option.gfc_flag_openacc)
@@ -1044,7 +1044,7 @@ next_fixed (void)
                     }
                   if (last_was_use_stmt)
                     use_modules ();
-                  return decode_acc_directive ();
+                  return decode_oacc_directive ();
                 }
 	    }
 	  /* FALLTHROUGH */
@@ -1204,9 +1204,9 @@ next_statement (void)
   case ST_LABEL_ASSIGNMENT: case ST_FLUSH: case ST_OMP_FLUSH: \
   case ST_OMP_BARRIER: case ST_OMP_TASKWAIT: case ST_OMP_TASKYIELD: \
   case ST_ERROR_STOP: case ST_SYNC_ALL: case ST_SYNC_IMAGES: \
-  case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK: case ST_ACC_UPDATE: \
-  case ST_ACC_WAIT: case ST_ACC_CACHE: case ST_ACC_ENTER_DATA: \
-  case ST_ACC_EXIT_DATA
+  case ST_SYNC_MEMORY: case ST_LOCK: case ST_UNLOCK: case ST_OACC_UPDATE: \
+  case ST_OACC_WAIT: case ST_OACC_CACHE: case ST_OACC_ENTER_DATA: \
+  case ST_OACC_EXIT_DATA
 
 /* Statements that mark other executable statements.  */
 
@@ -1219,8 +1219,8 @@ next_statement (void)
   case ST_OMP_DO: case ST_OMP_PARALLEL_DO: case ST_OMP_ATOMIC: \
   case ST_OMP_WORKSHARE: case ST_OMP_PARALLEL_WORKSHARE: \
   case ST_OMP_TASK: case ST_CRITICAL: \
-  case ST_ACC_PARALLEL_LOOP: case ST_ACC_PARALLEL: case ST_ACC_KERNELS: \
-  case ST_ACC_DATA: case ST_ACC_HOST_DATA: case ST_ACC_LOOP: case ST_ACC_KERNELS_LOOP
+  case ST_OACC_PARALLEL_LOOP: case ST_OACC_PARALLEL: case ST_OACC_KERNELS: \
+  case ST_OACC_DATA: case ST_OACC_HOST_DATA: case ST_OACC_LOOP: case ST_OACC_KERNELS_LOOP
 
 /* Declaration statements */
 
@@ -1810,61 +1810,61 @@ gfc_ascii_statement (gfc_statement st)
     case ST_OMP_WORKSHARE:
       p = "!$OMP WORKSHARE";
       break;
-    case ST_ACC_PARALLEL_LOOP:
+    case ST_OACC_PARALLEL_LOOP:
       p = "!$ACC PARALLEL LOOP";
       break;
-    case ST_ACC_END_PARALLEL_LOOP:
+    case ST_OACC_END_PARALLEL_LOOP:
       p = "!$ACC END PARALLEL LOOP";
       break;
-    case ST_ACC_PARALLEL:
+    case ST_OACC_PARALLEL:
       p = "!$ACC PARALLEL";
       break;
-    case ST_ACC_END_PARALLEL:
+    case ST_OACC_END_PARALLEL:
       p = "!$ACC END PARALLEL";
       break;
-    case ST_ACC_KERNELS:
+    case ST_OACC_KERNELS:
       p = "!$ACC KERNELS";
       break;
-    case ST_ACC_END_KERNELS:
+    case ST_OACC_END_KERNELS:
       p = "!$ACC END KERNELS";
       break;
-    case ST_ACC_KERNELS_LOOP:
+    case ST_OACC_KERNELS_LOOP:
       p = "!$ACC KERNELS LOOP";
       break;
-    case ST_ACC_END_KERNELS_LOOP:
+    case ST_OACC_END_KERNELS_LOOP:
       p = "!$ACC END KERNELS LOOP";
       break;
-    case ST_ACC_DATA:
+    case ST_OACC_DATA:
       p = "!$ACC DATA";
       break;
-    case ST_ACC_END_DATA:
+    case ST_OACC_END_DATA:
       p = "!$ACC END DATA";
       break;
-    case ST_ACC_HOST_DATA:
+    case ST_OACC_HOST_DATA:
       p = "!$ACC HOST_DATA";
       break;
-    case ST_ACC_END_HOST_DATA:
+    case ST_OACC_END_HOST_DATA:
       p = "!$ACC END HOST_DATA";
       break;
-    case ST_ACC_LOOP:
+    case ST_OACC_LOOP:
       p = "!$ACC LOOP";
       break;
-    case ST_ACC_DECLARE:
+    case ST_OACC_DECLARE:
       p = "!$ACC DECLARE";
       break;
-    case ST_ACC_UPDATE:
+    case ST_OACC_UPDATE:
       p = "!$ACC UPDATE";
       break;
-    case ST_ACC_WAIT:
+    case ST_OACC_WAIT:
       p = "!$ACC WAIT";
       break;
-    case ST_ACC_CACHE:
+    case ST_OACC_CACHE:
       p = "!$ACC CACHE";
       break;
-    case ST_ACC_ENTER_DATA:
+    case ST_OACC_ENTER_DATA:
       p = "!$ACC ENTER DATA";
       break;
-    case ST_ACC_EXIT_DATA:
+    case ST_OACC_EXIT_DATA:
       p = "!$ACC EXIT DATA";
       break;
     default:
@@ -2135,7 +2135,7 @@ verify_st_order (st_state *p, gfc_statement st, bool silent)
     case ST_PUBLIC:
     case ST_PRIVATE:
     case ST_DERIVED_DECL:
-    case ST_ACC_DECLARE:
+    case ST_OACC_DECLARE:
     case_decl:
       if (p->state >= ORDER_EXEC)
 	goto order;
@@ -3038,7 +3038,7 @@ declSt:
       goto loop;
 
       /* In case of !$ACC DECLARE directive we have to transform it to !$ACC DATA construct */
-    case ST_ACC_DECLARE:
+    case ST_OACC_DECLARE:
       if (!verify_st_order(&ss, st, false))
         {
           reject_statement ();
@@ -4084,7 +4084,7 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
 /* Parse the statements of an OpenACC structured block.  */
 
 static void
-parse_acc_structured_block (gfc_statement acc_st)
+parse_oacc_structured_block (gfc_statement acc_st)
 {
   gfc_statement st, acc_end_st;
   gfc_code *cp, *np;
@@ -4093,23 +4093,23 @@ parse_acc_structured_block (gfc_statement acc_st)
   accept_statement (acc_st);
 
   cp = gfc_state_stack->tail;
-  push_state (&s, COMP_ACC_STRUCTURED_BLOCK, NULL);
+  push_state (&s, COMP_OACC_STRUCTURED_BLOCK, NULL);
   np = new_level (cp);
   np->op = cp->op;
   np->block = NULL;
   switch (acc_st)
     {
-    case ST_ACC_PARALLEL:
-      acc_end_st = ST_ACC_END_PARALLEL;
+    case ST_OACC_PARALLEL:
+      acc_end_st = ST_OACC_END_PARALLEL;
       break;
-    case ST_ACC_KERNELS:
-      acc_end_st = ST_ACC_END_KERNELS;
+    case ST_OACC_KERNELS:
+      acc_end_st = ST_OACC_END_KERNELS;
       break;
-    case ST_ACC_DATA:
-      acc_end_st = ST_ACC_END_DATA;
+    case ST_OACC_DATA:
+      acc_end_st = ST_OACC_END_DATA;
       break;
-    case ST_ACC_HOST_DATA:
-      acc_end_st = ST_ACC_END_HOST_DATA;
+    case ST_OACC_HOST_DATA:
+      acc_end_st = ST_OACC_END_HOST_DATA;
       break;
     default:
       gcc_unreachable ();
@@ -4136,7 +4136,7 @@ parse_acc_structured_block (gfc_statement acc_st)
 /* Parse the statements of OpenACC loop/parallel loop/kernels loop.  */
 
 static gfc_statement
-parse_acc_loop (gfc_statement acc_st)
+parse_oacc_loop (gfc_statement acc_st)
 {
   gfc_statement st;
   gfc_code *cp, *np;
@@ -4145,7 +4145,7 @@ parse_acc_loop (gfc_statement acc_st)
   accept_statement (acc_st);
 
   cp = gfc_state_stack->tail;
-  push_state (&s, COMP_ACC_STRUCTURED_BLOCK, NULL);
+  push_state (&s, COMP_OACC_STRUCTURED_BLOCK, NULL);
   np = new_level (cp);
   np->op = cp->op;
   np->block = NULL;
@@ -4175,8 +4175,8 @@ parse_acc_loop (gfc_statement acc_st)
   pop_state ();
 
   st = next_statement ();
-  if (acc_st == ST_ACC_PARALLEL_LOOP && st == ST_ACC_END_PARALLEL_LOOP ||
-      acc_st == ST_ACC_KERNELS_LOOP && st == ST_ACC_END_KERNELS_LOOP)
+  if (acc_st == ST_OACC_PARALLEL_LOOP && st == ST_OACC_END_PARALLEL_LOOP ||
+      acc_st == ST_OACC_KERNELS_LOOP && st == ST_OACC_END_KERNELS_LOOP)
     {
       gcc_assert (new_st.op == EXEC_NOP);
       gfc_clear_new_st ();
@@ -4312,19 +4312,19 @@ parse_executable (gfc_statement st)
 	  st = parse_omp_atomic ();
 	  continue;
 
-	case ST_ACC_PARALLEL_LOOP:
-	case ST_ACC_KERNELS_LOOP:
-	case ST_ACC_LOOP:
-	  st = parse_acc_loop (st);
+	case ST_OACC_PARALLEL_LOOP:
+	case ST_OACC_KERNELS_LOOP:
+	case ST_OACC_LOOP:
+	  st = parse_oacc_loop (st);
           if (st == ST_IMPLIED_ENDDO)
             return st;
 	  continue;
 
-	case ST_ACC_PARALLEL:
-	case ST_ACC_KERNELS:
-	case ST_ACC_DATA:
-	case ST_ACC_HOST_DATA:
-	  parse_acc_structured_block (st);
+	case ST_OACC_PARALLEL:
+	case ST_OACC_KERNELS:
+	case ST_OACC_DATA:
+	case ST_OACC_HOST_DATA:
+	  parse_oacc_structured_block (st);
 	  break;
 
 	default:

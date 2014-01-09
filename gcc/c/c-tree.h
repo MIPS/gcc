@@ -642,7 +642,6 @@ extern tree c_finish_bc_stmt (location_t, tree *, bool);
 extern tree c_finish_goto_label (location_t, tree);
 extern tree c_finish_goto_ptr (location_t, tree);
 extern tree c_expr_to_decl (tree, bool *, bool *);
-extern tree c_finish_oacc_parallel (location_t, tree, tree);
 extern tree c_begin_omp_parallel (void);
 extern tree c_finish_omp_parallel (location_t, tree, tree);
 extern tree c_begin_omp_task (void);
@@ -655,12 +654,12 @@ extern tree c_finish_transaction (location_t, tree, int);
 extern bool c_tree_equal (tree, tree);
 
 /* OpenACC region */
-extern tree c_begin_acc_parallel (void);
-extern tree c_begin_acc_kernels (void);
-extern tree c_begin_acc_data (void);
-extern tree c_finish_acc_parallel (location_t, tree, tree);
-extern tree c_finish_acc_kernels (location_t, tree, tree);
-extern tree c_finish_acc_data (location_t, tree, tree);
+extern tree c_begin_oacc_parallel (void);
+extern tree c_begin_oacc_kernels (void);
+extern tree c_begin_oacc_data (void);
+extern tree c_finish_oacc_parallel (location_t, tree, tree);
+extern tree c_finish_oacc_kernels (location_t, tree, tree);
+extern tree c_finish_oacc_data (location_t, tree, tree);
 
 /* Set to 0 at beginning of a function definition, set to 1 if
    a return statement that specifies a return value is seen.  */

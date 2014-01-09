@@ -754,17 +754,17 @@ make_edges (void)
 	      }
 	      break;
 
-        case GIMPLE_ACC_PARALLEL:
-        case GIMPLE_ACC_KERNELS:
-        case GIMPLE_ACC_DATA:
-        case GIMPLE_ACC_CACHE:
-        case GIMPLE_ACC_WAIT:
-        case GIMPLE_ACC_HOST_DATA:
-        case GIMPLE_ACC_DECLARE:
-        case GIMPLE_ACC_UPDATE:
-        case GIMPLE_ACC_LOOP:
-        case GIMPLE_ACC_COMPUTE_REGION_END:
-        case GIMPLE_ACC_DATA_REGION_END:
+        case GIMPLE_OACC_PARALLEL:
+        case GIMPLE_OACC_KERNELS:
+        case GIMPLE_OACC_DATA:
+        case GIMPLE_OACC_CACHE:
+        case GIMPLE_OACC_WAIT:
+        case GIMPLE_OACC_HOST_DATA:
+        case GIMPLE_OACC_DECLARE:
+        case GIMPLE_OACC_UPDATE:
+        case GIMPLE_OACC_LOOP:
+        case GIMPLE_OACC_COMPUTE_REGION_END:
+        case GIMPLE_OACC_DATA_REGION_END:
           fallthru = true;
           break;
 
@@ -2307,10 +2307,10 @@ is_ctrl_altering_stmt (gimple t)
       /* OpenMP directives alter control flow.  */
       return true;
 
-    CASE_GIMPLE_ACC_ALTER_CF:
+    CASE_GIMPLE_OACC_ALTER_CF:
       /* OpenACC directives that alter control flow.  */
       return true;
-    CASE_GIMPLE_ACC_NOT_ALTER_CF:
+    CASE_GIMPLE_OACC_NOT_ALTER_CF:
       /* OpenACC directives that DO NOT alter control flow. */
       return false;
 
@@ -4373,7 +4373,7 @@ verify_gimple_stmt (gimple stmt)
 	 how to setup the parallel iteration.  */
       return false;
 
-    CASE_GIMPLE_ACC:
+    CASE_GIMPLE_OACC:
       return false;
 
     case GIMPLE_DEBUG:

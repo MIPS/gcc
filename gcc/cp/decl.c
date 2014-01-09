@@ -203,7 +203,7 @@ struct GTY((chain_next ("%h.next"))) named_label_use_entry {
      illegally exit an OpenMP scope.  */
   bool in_omp_scope;
 
-  bool in_acc_scope;
+  bool in_oacc_scope;
 };
 
 /* A list of all LABEL_DECLs in the function that have names.  Here so
@@ -235,7 +235,7 @@ struct GTY(()) named_label_entry {
   bool in_try_scope;
   bool in_catch_scope;
   bool in_omp_scope;
-  bool in_acc_scope;
+  bool in_oacc_scope;
 };
 
 #define named_labels cp_function_chain->x_named_labels
@@ -507,7 +507,7 @@ poplevel_named_label_1 (void **slot, void *data)
           ent->in_omp_scope = true;
           break;
         case sk_acc:
-          ent->in_acc_scope = true;
+          ent->in_oacc_scope = true;
           break;
 	default:
 	  break;
@@ -525,7 +525,7 @@ poplevel_named_label_1 (void **slot, void *data)
             if (bl->kind == sk_omp)
               use->in_omp_scope = true;
             if (bl->kind == sk_acc)
-              use->in_acc_scope = true;
+              use->in_oacc_scope = true;
 	  }
     }
 
@@ -2884,7 +2884,7 @@ check_previous_goto (tree decl, struct named_label_use_entry *use)
   check_previous_goto_1 (decl, use->binding_level,
 			 use->names_in_scope,
 			 use->in_omp_scope,
-			 use->in_acc_scope,
+			 use->in_oacc_scope,
 			 &use->o_goto_locus);
 }
 
@@ -2936,7 +2936,7 @@ check_goto (tree decl)
       new_use->names_in_scope = current_binding_level->names;
       new_use->o_goto_locus = input_location;
       new_use->in_omp_scope = false;
-      new_use->in_acc_scope = false;
+      new_use->in_oacc_scope = false;
 
       new_use->next = ent->uses;
       ent->uses = new_use;
@@ -2946,7 +2946,7 @@ check_goto (tree decl)
   if (ent->in_try_scope
       || ent->in_catch_scope
       || ent->in_omp_scope
-      || ent->in_acc_scope
+      || ent->in_oacc_scope
       || !vec_safe_is_empty (ent->bad_decls))
     {
       permerror (input_location, "jump to label %q+D", decl);
@@ -2999,7 +2999,7 @@ check_goto (tree decl)
 	}
     }
 
-  if (ent->in_acc_scope)
+  if (ent->in_oacc_scope)
     error ("  enters OpenACC structured block");
   else if (flag_openacc)
     {
@@ -3045,7 +3045,7 @@ check_omp_return (void)
  * Called by finish_return_stmt.  Returns true if all is well.
  */
 bool
-check_acc_return (void)
+check_oacc_return (void)
 {
   cp_binding_level *b;
   for (b = current_binding_level; b ; b = b->level_chain)

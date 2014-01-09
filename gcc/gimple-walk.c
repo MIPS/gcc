@@ -28,7 +28,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
-#include "gimple-walk.h"
+#include "gimple-oacc.h"
 #include "demangle.h"
 
 /* Walk all the statements in the sequence *PSEQ calling walk_gimple_stmt
@@ -297,10 +297,6 @@ walk_gimple_op (gimple stmt, walk_tree_fn callback_op,
       if (ret)
 	return ret;
       ret = walk_tree (gimple_oacc_parallel_child_fn_ptr (stmt), callback_op,
-		       wi, pset);
-      if (ret)
-	return ret;
-      ret = walk_tree (gimple_oacc_parallel_data_arg_ptr (stmt), callback_op,
 		       wi, pset);
       if (ret)
 	return ret;

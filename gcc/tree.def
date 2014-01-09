@@ -1013,70 +1013,65 @@ DEFTREECODE (MEM_REF, "mem_ref", tcc_reference, 2)
    Operand 1: OACC_PARALLEL_CLAUSES: List of clauses.  */
 
 DEFTREECODE (OACC_PARALLEL, "oacc_parallel", tcc_statement, 2)
-/* #pragma acc parallel */
-/* Operand 0: BODY
-   Operand 1: CLAUSES   
-*/
-DEFTREECODE (ACC_PARALLEL, "acc_parallel", tcc_statement, 2)
 
 /* #pragma acc kernels */
 /* Operand 0: BODY
    Operand 1: CLAUSES   
 */
-DEFTREECODE (ACC_KERNELS, "acc_kernels", tcc_statement, 2)
+DEFTREECODE (OACC_KERNELS, "oacc_kernels", tcc_statement, 2)
 
 /* #pragma acc data */
 /* Operand 0: BODY
    Operand 1: CLAUSES   
 */
-DEFTREECODE (ACC_DATA, "acc_data", tcc_statement, 2)
+DEFTREECODE (OACC_DATA, "oacc_data", tcc_statement, 2)
 
 /* #pragma acc loop */
 /* Consider #pragma acc loop as construct */
 /* Operand 0: BODY
    Operand 1: CLAUSES
 */
-DEFTREECODE (ACC_LOOP, "acc_loop", tcc_statement, 2)
+DEFTREECODE (OACC_LOOP, "oacc_loop", tcc_statement, 2)
 
 /* #pragma acc host_data */
 /* Operand 0: BODY
    Operand 1: CLAUSES   
 */
-DEFTREECODE (ACC_HOST_DATA, "acc_host_data", tcc_statement, 2)
+DEFTREECODE (OACC_HOST_DATA, "oacc_host_data", tcc_statement, 2)
 
 /* #pragma acc declare */
 /* Operand 0: CLAUSES   
 */
-DEFTREECODE (ACC_DECLARE, "acc_declare", tcc_statement, 1)
+DEFTREECODE (OACC_DECLARE, "oacc_declare", tcc_statement, 1)
 
 /* #pragma acc update */
 /* Operand 0: CLAUSES   
 */
-DEFTREECODE (ACC_UPDATE, "acc_update", tcc_statement, 1)
+DEFTREECODE (OACC_UPDATE, "oacc_update", tcc_statement, 1)
 
 /* #pragma acc enter data */
 /* Operand 0: CLAUSES   
 */
 
-DEFTREECODE (ACC_ENTER_DATA, "acc_enter_data", tcc_statement, 1)
+DEFTREECODE (OACC_ENTER_DATA, "oacc_enter_data", tcc_statement, 1)
 
 /* #pragma acc exit data */
 /* Operand 0: CLAUSES   
 */
 
-DEFTREECODE (ACC_EXIT_DATA, "acc_exit_data", tcc_statement, 1)
+DEFTREECODE (OACC_EXIT_DATA, "oacc_exit_data", tcc_statement, 1)
 
 /* #pragma acc wait */
 /* Operand 0: INT_EXPR
 */
-DEFTREECODE (ACC_WAIT, "acc_wait", tcc_statement, 1)
+DEFTREECODE (OACC_WAIT, "oacc_wait", tcc_statement, 1)
 
 /* #pragma acc cache */
 /* Operand 0: LIST
 */
-DEFTREECODE (ACC_CACHE, "acc_cache", tcc_statement, 1)
+DEFTREECODE (OACC_CACHE, "oacc_cache", tcc_statement, 1)
 
-DEFTREECODE (ACC_CLAUSE, "acc_clause", tcc_exceptional, 1)
+DEFTREECODE (OACC_CLAUSE, "oacc_clause", tcc_exceptional, 1)
 
 /* OpenMP - #pragma omp parallel [clause1 ... clauseN]
    Operand 0: OMP_PARALLEL_BODY: Code to be executed by all threads.

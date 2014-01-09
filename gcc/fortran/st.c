@@ -195,18 +195,18 @@ gfc_free_statement (gfc_code *p)
     case EXEC_OMP_TASK:
     case EXEC_OMP_WORKSHARE:
     case EXEC_OMP_PARALLEL_WORKSHARE:
-    case EXEC_ACC_WAIT:
-    case EXEC_ACC_UPDATE:
-    case EXEC_ACC_CACHE:
-    case EXEC_ACC_LOOP:
-    case EXEC_ACC_DATA:
-    case EXEC_ACC_HOST_DATA:
-    case EXEC_ACC_KERNELS:
-    case EXEC_ACC_KERNELS_LOOP:
-    case EXEC_ACC_PARALLEL:
-    case EXEC_ACC_PARALLEL_LOOP:
-    case EXEC_ACC_ENTER_DATA:
-    case EXEC_ACC_EXIT_DATA:
+    case EXEC_OACC_WAIT:
+    case EXEC_OACC_UPDATE:
+    case EXEC_OACC_CACHE:
+    case EXEC_OACC_LOOP:
+    case EXEC_OACC_DATA:
+    case EXEC_OACC_HOST_DATA:
+    case EXEC_OACC_KERNELS:
+    case EXEC_OACC_KERNELS_LOOP:
+    case EXEC_OACC_PARALLEL:
+    case EXEC_OACC_PARALLEL_LOOP:
+    case EXEC_OACC_ENTER_DATA:
+    case EXEC_OACC_EXIT_DATA:
       gfc_free_omp_clauses (p->ext.omp_clauses);
       break;
 

@@ -1168,9 +1168,19 @@ typedef struct
 static vec<pragma_ns_name> registered_pp_pragmas;
 
 struct omp_pragma_def { const char *name; unsigned int id; };
+
 static const struct omp_pragma_def oacc_pragmas[] = {
   { "parallel", PRAGMA_OACC_PARALLEL },
+  { "kernels", PRAGMA_OACC_KERNELS },
+  { "data", PRAGMA_OACC_DATA },
+  { "host_data", PRAGMA_OACC_HOST_DATA },
+  { "cache", PRAGMA_OACC_CACHE },
+  { "wait", PRAGMA_OACC_WAIT },
+  { "update", PRAGMA_OACC_UPDATE },
+  { "loop", PRAGMA_OACC_LOOP },
+  { "declare", PRAGMA_OACC_DECLARE }
 };
+
 static const struct omp_pragma_def omp_pragmas[] = {
   { "atomic", PRAGMA_OMP_ATOMIC },
   { "barrier", PRAGMA_OMP_BARRIER },
@@ -1200,19 +1210,6 @@ static const struct omp_pragma_def omp_pragmas_simd[] = {
   { "teams", PRAGMA_OMP_TEAMS },
 };
 
-struct acc_pragma_def { const char *name; unsigned int id; };
-static const struct acc_pragma_def acc_pragmas[] = {
-  { "parallel", PRAGMA_ACC_PARALLEL },
-  { "kernels", PRAGMA_ACC_KERNELS },
-  { "data", PRAGMA_ACC_DATA },
-  { "host_data", PRAGMA_ACC_HOST_DATA },
-  { "cache", PRAGMA_ACC_CACHE },
-  { "wait", PRAGMA_ACC_WAIT },
-  { "update", PRAGMA_ACC_UPDATE },
-  { "loop", PRAGMA_ACC_LOOP },
-  { "declare", PRAGMA_ACC_DECLARE }
-};
-
 void
 c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
 {
@@ -1220,7 +1217,6 @@ c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
   const int n_omp_pragmas = sizeof (omp_pragmas) / sizeof (*omp_pragmas);
   const int n_omp_pragmas_simd = sizeof (omp_pragmas_simd)
 				 / sizeof (*omp_pragmas);
-  const int n_acc_pragmas = sizeof (acc_pragmas) / sizeof (*acc_pragmas);
   int i;
 
   for (i = 0; i < n_oacc_pragmas; ++i)
@@ -1246,11 +1242,11 @@ c_pp_lookup_pragma (unsigned int id, const char **space, const char **name)
 	return;
       }
 
-  for (i = 0; i < n_acc_pragmas; ++i)
-    if (acc_pragmas[i].id == id)
+  for (i = 0; i < n_oacc_pragmas; ++i)
+    if (oacc_pragmas[i].id == id)
       {
 		*space = "acc";
-		*name = acc_pragmas[i].name;
+		*name = oacc_pragmas[i].name;
 		return;
       }
 
@@ -1434,12 +1430,12 @@ init_pragma (void)
 
   if (flag_openacc)
     {
-      const int n_acc_pragmas = sizeof (acc_pragmas) / sizeof (*acc_pragmas);
+      const int n_oacc_pragmas = sizeof (oacc_pragmas) / sizeof (*oacc_pragmas);
       int i;
 
-      for (i = 0; i < n_acc_pragmas; ++i)
-    	  cpp_register_deferred_pragma (parse_in, "acc", acc_pragmas[i].name,
-				      acc_pragmas[i].id, true, true);
+      for (i = 0; i < n_oacc_pragmas; ++i)
+    	  cpp_register_deferred_pragma (parse_in, "acc", oacc_pragmas[i].name,
+				      oacc_pragmas[i].id, true, true);
     }
 
   if (!flag_preprocess_only)
@@ -1480,112 +1476,112 @@ init_pragma (void)
 }
 
 
-pragma_acc_clause
-pragma_acc_clause_get_name(const char* p, pragma_acc_clause result)
+pragma_oacc_clause
+pragma_oacc_clause_get_name(const char* p, pragma_oacc_clause result)
 {
   switch (p[0]) {
   case 'a':
     if (!strcmp("async", p))
-      result = PRAGMA_ACC_CLAUSE_ASYNC;
+      result = PRAGMA_OACC_CLAUSE_ASYNC;
 
     break;
   case 'c':
     if (!strcmp("collapse", p))
-      result = PRAGMA_ACC_CLAUSE_COLLAPSE;
+      result = PRAGMA_OACC_CLAUSE_COLLAPSE;
     else if (!strcmp("create", p))
-      result = PRAGMA_ACC_CLAUSE_CREATE;
+      result = PRAGMA_OACC_CLAUSE_CREATE;
     else if (!strcmp("copy", p))
-      result = PRAGMA_ACC_CLAUSE_COPY;
+      result = PRAGMA_OACC_CLAUSE_COPY;
     else if (!strcmp("copyin", p))
-      result = PRAGMA_ACC_CLAUSE_COPYIN;
+      result = PRAGMA_OACC_CLAUSE_COPYIN;
     else if (!strcmp("copyout", p))
-      result = PRAGMA_ACC_CLAUSE_COPYOUT;
+      result = PRAGMA_OACC_CLAUSE_COPYOUT;
 
     break;
   case 'd':
     if (!strcmp("device", p))
-      result = PRAGMA_ACC_CLAUSE_DEVICE;
+      result = PRAGMA_OACC_CLAUSE_DEVICE;
     else if (!strcmp("deviceptr", p))
-      result = PRAGMA_ACC_CLAUSE_DEVICEPTR;
+      result = PRAGMA_OACC_CLAUSE_DEVICEPTR;
     else if (!strcmp("device_resident", p))
-      result = PRAGMA_ACC_CLAUSE_DEVICE_RESIDENT;
+      result = PRAGMA_OACC_CLAUSE_DEVICE_RESIDENT;
 
     break;
   case 'f':
     if (!strcmp("firstprivate", p))
-      result = PRAGMA_ACC_CLAUSE_FIRSTPRIVATE;
+      result = PRAGMA_OACC_CLAUSE_FIRSTPRIVATE;
 
     break;
   case 'g':
     if (!strcmp("gang", p))
-      result = PRAGMA_ACC_CLAUSE_GANG;
+      result = PRAGMA_OACC_CLAUSE_GANG;
 
     break;
   case 'h':
     if (!strcmp("host", p))
-      result = PRAGMA_ACC_CLAUSE_HOST;
+      result = PRAGMA_OACC_CLAUSE_HOST;
 
     break;
   case 's':
     if (!strcmp("seq", p))
-      result = PRAGMA_ACC_CLAUSE_SEQ;
+      result = PRAGMA_OACC_CLAUSE_SEQ;
 
     break;
   case 'i':
     if (!strcmp("independent", p))
-      result = PRAGMA_ACC_CLAUSE_INDEPENDENT;
+      result = PRAGMA_OACC_CLAUSE_INDEPENDENT;
 
     break;
   case 'n':
     if (!strcmp("num_gangs", p))
-      result = PRAGMA_ACC_CLAUSE_NUM_GANGS;
+      result = PRAGMA_OACC_CLAUSE_NUM_GANGS;
     else if (!strcmp("num_workers", p))
-      result = PRAGMA_ACC_CLAUSE_NUM_WORKERS;
+      result = PRAGMA_OACC_CLAUSE_NUM_WORKERS;
 
     break;
   case 'p':
     if (!strcmp("private", p))
-      result = PRAGMA_ACC_CLAUSE_PRIVATE;
+      result = PRAGMA_OACC_CLAUSE_PRIVATE;
     else if (!strcmp("present", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT;
+      result = PRAGMA_OACC_CLAUSE_PRESENT;
     else if (!strcmp("present_or_copy", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPY;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_COPY;
     else if (!strcmp("pcopy", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPY;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_COPY;
     else if (!strcmp("present_or_copyin", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYIN;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYIN;
     else if (!strcmp("pcopyin", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYIN;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYIN;
     else if (!strcmp("present_or_copyout", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYOUT;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYOUT;
     else if (!strcmp("pcopyout", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_COPYOUT;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_COPYOUT;
     else if (!strcmp("present_or_create", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_CREATE;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE;
     else if (!strcmp("pcreate", p))
-      result = PRAGMA_ACC_CLAUSE_PRESENT_OR_CREATE;
+      result = PRAGMA_OACC_CLAUSE_PRESENT_OR_CREATE;
 
     break;
   case 'r':
    if (!strcmp("reduction", p))
-     result = PRAGMA_ACC_CLAUSE_REDUCTION;
+     result = PRAGMA_OACC_CLAUSE_REDUCTION;
 
    break;
   case 'v':
     if (!strcmp("vector", p))
-      result = PRAGMA_ACC_CLAUSE_VECTOR;
+      result = PRAGMA_OACC_CLAUSE_VECTOR;
     else if (!strcmp("vector_length", p))
-      result = PRAGMA_ACC_CLAUSE_VECTOR_LENGTH;
+      result = PRAGMA_OACC_CLAUSE_VECTOR_LENGTH;
 
     break;
   case 'u':
     if (!strcmp("use_device", p))
-      result = PRAGMA_ACC_CLAUSE_USE_DEVICE;
+      result = PRAGMA_OACC_CLAUSE_USE_DEVICE;
 
     break;
   case 'w':
     if (!strcmp("worker", p))
-      result = PRAGMA_ACC_CLAUSE_WORKER;
+      result = PRAGMA_OACC_CLAUSE_WORKER;
 
     break;
   }

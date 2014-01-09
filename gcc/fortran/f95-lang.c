@@ -1055,15 +1055,6 @@ gfc_init_builtin_functions (void)
 #undef DEF_GOMP_BUILTIN
     }
 
-	if(gfc_option.gfc_flag_openacc) {
-#undef DEF_GOACC_BUILTIN
-#define DEF_GOACC_BUILTIN(code, name, type, attr) \
-      gfc_define_builtin ("__builtin_" name, builtin_types[type], \
-			  code, name, attr);
-#include "../oacc-builtins.def"
-#undef DEF_OACC_BUILTIN
-	}
-
   gfc_define_builtin ("__builtin_trap", builtin_types[BT_FN_VOID],
 		      BUILT_IN_TRAP, NULL, ATTR_NOTHROW_LEAF_LIST);
   TREE_THIS_VOLATILE (builtin_decl_explicit (BUILT_IN_TRAP)) = 1;

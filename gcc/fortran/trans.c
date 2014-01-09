@@ -1851,19 +1851,19 @@ trans_code (gfc_code * code, tree cond)
 	  res = gfc_trans_omp_directive (code);
 	  break;
 
-	case EXEC_ACC_CACHE:
-	case EXEC_ACC_WAIT:
-	case EXEC_ACC_UPDATE:
-	case EXEC_ACC_LOOP:
-	case EXEC_ACC_HOST_DATA:
-	case EXEC_ACC_DATA:
-	case EXEC_ACC_KERNELS:
-	case EXEC_ACC_KERNELS_LOOP:
-	case EXEC_ACC_PARALLEL:
-	case EXEC_ACC_PARALLEL_LOOP:
-        case EXEC_ACC_ENTER_DATA:
-        case EXEC_ACC_EXIT_DATA:
-	  res = gfc_trans_acc_directive (code);
+	case EXEC_OACC_CACHE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_PARALLEL_LOOP:
+        case EXEC_OACC_ENTER_DATA:
+        case EXEC_OACC_EXIT_DATA:
+	  res = gfc_trans_oacc_directive (code);
 	  break;
 
 	default:

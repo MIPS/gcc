@@ -211,11 +211,12 @@ typedef enum
   ST_OMP_PARALLEL, ST_OMP_PARALLEL_DO, ST_OMP_PARALLEL_SECTIONS,
   ST_OMP_PARALLEL_WORKSHARE, ST_OMP_SECTIONS, ST_OMP_SECTION, ST_OMP_SINGLE,
   ST_OMP_THREADPRIVATE, ST_OMP_WORKSHARE, ST_OMP_TASK, ST_OMP_END_TASK,
-  ST_OMP_TASKWAIT, ST_OMP_TASKYIELD, ST_ACC_PARALLEL_LOOP, ST_ACC_END_PARALLEL_LOOP,
-  ST_ACC_PARALLEL, ST_ACC_END_PARALLEL, ST_ACC_KERNELS, ST_ACC_END_KERNELS,
-  ST_ACC_DATA, ST_ACC_END_DATA, ST_ACC_HOST_DATA, ST_ACC_END_HOST_DATA, ST_ACC_LOOP,
-  ST_ACC_DECLARE, ST_ACC_UPDATE, ST_ACC_WAIT, ST_ACC_CACHE, ST_ACC_KERNELS_LOOP,
-  ST_ACC_END_KERNELS_LOOP, ST_ACC_ENTER_DATA, ST_ACC_EXIT_DATA,
+  ST_OMP_TASKWAIT, ST_OMP_TASKYIELD, ST_OACC_PARALLEL_LOOP, 
+  ST_OACC_END_PARALLEL_LOOP, ST_OACC_PARALLEL, ST_OACC_END_PARALLEL, 
+  ST_OACC_KERNELS, ST_OACC_END_KERNELS, ST_OACC_DATA, ST_OACC_END_DATA, 
+  ST_OACC_HOST_DATA, ST_OACC_END_HOST_DATA, ST_OACC_LOOP, ST_OACC_DECLARE, 
+  ST_OACC_UPDATE, ST_OACC_WAIT, ST_OACC_CACHE, ST_OACC_KERNELS_LOOP,
+  ST_OACC_END_KERNELS_LOOP, ST_OACC_ENTER_DATA, ST_OACC_EXIT_DATA,
   ST_PROCEDURE, ST_GENERIC, ST_CRITICAL,
   ST_END_CRITICAL, ST_GET_FCN_CHARACTERISTICS, ST_LOCK, ST_UNLOCK, ST_NONE
 }
@@ -1019,7 +1020,7 @@ gfc_actual_arglist;
 #define gfc_get_actual_arglist() XCNEW (gfc_actual_arglist)
 
 /* Used only in OpenACC, since we cannot use array range ref */
-struct gfc_acc_subarray
+struct gfc_oacc_subarray
 {
   int dimensions;
 
@@ -1027,7 +1028,7 @@ struct gfc_acc_subarray
   gfc_expr *left[GFC_MAX_DIMENSIONS], *right[GFC_MAX_DIMENSIONS];
 };
 
-#define gfc_get_acc_subarray() XCNEW (struct gfc_acc_subarray)
+#define gfc_get_oacc_subarray() XCNEW (struct gfc_oacc_subarray)
 
 /* Because a symbol can belong to multiple namelists, they must be
    linked externally to the symbol itself.  */
@@ -1035,7 +1036,7 @@ typedef struct gfc_namelist
 {
   struct gfc_symbol *sym;
   struct gfc_namelist *next;
-  struct gfc_acc_subarray *acc_subarray;
+  struct gfc_oacc_subarray *oacc_subarray;
 }
 gfc_namelist;
 
@@ -1054,16 +1055,16 @@ gfc_exprlist;
 enum
 {
   OMP_LIST_PRIVATE,
-  ACC_LIST_PRIVATE = OMP_LIST_PRIVATE,
+  OACC_LIST_PRIVATE = OMP_LIST_PRIVATE,
   OMP_LIST_FIRSTPRIVATE,
-  ACC_LIST_FIRSTPRIVATE = OMP_LIST_FIRSTPRIVATE,
+  OACC_LIST_FIRSTPRIVATE = OMP_LIST_FIRSTPRIVATE,
   OMP_LIST_LASTPRIVATE,
   OMP_LIST_COPYPRIVATE,
   OMP_LIST_SHARED,
   OMP_LIST_COPYIN,
   OMP_LIST_PLUS,
   OMP_LIST_REDUCTION_FIRST = OMP_LIST_PLUS,
-  ACC_LIST_REDUCTION_FIRST = OMP_LIST_REDUCTION_FIRST,
+  OACC_LIST_REDUCTION_FIRST = OMP_LIST_REDUCTION_FIRST,
   OMP_LIST_MULT,
   OMP_LIST_SUB,
   OMP_LIST_AND,
@@ -1076,29 +1077,29 @@ enum
   OMP_LIST_IOR,
   OMP_LIST_IEOR,
   OMP_LIST_REDUCTION_LAST = OMP_LIST_IEOR,
-  ACC_LIST_REDUCTION_LAST = OMP_LIST_REDUCTION_LAST,
+  OACC_LIST_REDUCTION_LAST = OMP_LIST_REDUCTION_LAST,
   OMP_LIST_NUM,
 
-  ACC_LIST_COPY = OMP_LIST_NUM,
-  ACC_LIST_FIRST = ACC_LIST_COPY,
-  ACC_LIST_DATA_CLAUSE_FIRST = ACC_LIST_COPY,
-  ACC_LIST_COPYIN,
-  ACC_LIST_COPYOUT,
-  ACC_LIST_CREATE,
-  ACC_LIST_DELETE,
-  ACC_LIST_PRESENT,
-  ACC_LIST_PRESENT_OR_COPY,
-  ACC_LIST_PRESENT_OR_COPYIN,
-  ACC_LIST_PRESENT_OR_COPYOUT,
-  ACC_LIST_PRESENT_OR_CREATE,
-  ACC_LIST_DEVICEPTR,
-  ACC_LIST_DATA_CLAUSE_LAST = ACC_LIST_DEVICEPTR,
-  ACC_LIST_USE_DEVICE,
-  ACC_LIST_DEVICE_RESIDENT,
-  ACC_LIST_HOST,
-  ACC_LIST_DEVICE,
-  ACC_LIST_CACHE,
-  ACC_LIST_NUM
+  OACC_LIST_COPY = OMP_LIST_NUM,
+  OACC_LIST_FIRST = OACC_LIST_COPY,
+  OACC_LIST_DATA_CLAUSE_FIRST = OACC_LIST_COPY,
+  OACC_LIST_COPYIN,
+  OACC_LIST_COPYOUT,
+  OACC_LIST_CREATE,
+  OACC_LIST_DELETE,
+  OACC_LIST_PRESENT,
+  OACC_LIST_PRESENT_OR_COPY,
+  OACC_LIST_PRESENT_OR_COPYIN,
+  OACC_LIST_PRESENT_OR_COPYOUT,
+  OACC_LIST_PRESENT_OR_CREATE,
+  OACC_LIST_DEVICEPTR,
+  OACC_LIST_DATA_CLAUSE_LAST = OACC_LIST_DEVICEPTR,
+  OACC_LIST_USE_DEVICE,
+  OACC_LIST_DEVICE_RESIDENT,
+  OACC_LIST_HOST,
+  OACC_LIST_DEVICE,
+  OACC_LIST_CACHE,
+  OACC_LIST_NUM
 };
 
 /* Because a symbol can belong to multiple namelists, they must be
@@ -1128,7 +1129,7 @@ typedef struct gfc_omp_clauses
   struct gfc_expr *if_expr;
   struct gfc_expr *final_expr;
   struct gfc_expr *num_threads;
-  gfc_namelist *lists[ACC_LIST_NUM];
+  gfc_namelist *lists[OACC_LIST_NUM];
   enum gfc_omp_sched_kind sched_kind;
   struct gfc_expr *chunk_size;
   enum gfc_omp_default_sharing default_sharing;
@@ -1154,12 +1155,12 @@ gfc_omp_clauses;
 
 #define gfc_get_omp_clauses() XCNEW (gfc_omp_clauses)
 
-typedef gfc_omp_clauses gfc_acc_clauses;
+typedef gfc_omp_clauses gfc_oacc_clauses;
 
-static inline gfc_acc_clauses*
-gfc_get_acc_clauses()
+static inline gfc_oacc_clauses*
+gfc_get_oacc_clauses()
 {
-  gfc_acc_clauses *result = XCNEW (gfc_acc_clauses);
+  gfc_oacc_clauses *result = XCNEW (gfc_oacc_clauses);
   result->is_acc = true;
   return result;
 }
@@ -1520,7 +1521,7 @@ typedef struct gfc_namespace
   struct gfc_data *data;
 
   /* !$ACC DECLARE clauses */
-  gfc_acc_clauses *declare_clauses;
+  gfc_oacc_clauses *declare_clauses;
 
   gfc_charlen *cl_list, *old_cl_list;
 
@@ -2186,10 +2187,10 @@ typedef enum
   EXEC_OMP_SECTIONS, EXEC_OMP_SINGLE, EXEC_OMP_WORKSHARE,
   EXEC_OMP_ATOMIC, EXEC_OMP_BARRIER, EXEC_OMP_END_NOWAIT,
   EXEC_OMP_END_SINGLE, EXEC_OMP_TASK, EXEC_OMP_TASKWAIT,
-  EXEC_OMP_TASKYIELD, EXEC_ACC_KERNELS_LOOP,
-  EXEC_ACC_PARALLEL_LOOP, EXEC_ACC_PARALLEL, EXEC_ACC_KERNELS, EXEC_ACC_DATA,
-  EXEC_ACC_HOST_DATA, EXEC_ACC_LOOP, EXEC_ACC_UPDATE, EXEC_ACC_WAIT, EXEC_ACC_CACHE,
-  EXEC_ACC_ENTER_DATA, EXEC_ACC_EXIT_DATA
+  EXEC_OMP_TASKYIELD, EXEC_OACC_KERNELS_LOOP, EXEC_OACC_PARALLEL_LOOP, 
+  EXEC_OACC_PARALLEL, EXEC_OACC_KERNELS, EXEC_OACC_DATA, EXEC_OACC_HOST_DATA, 
+  EXEC_OACC_LOOP, EXEC_OACC_UPDATE, EXEC_OACC_WAIT, EXEC_OACC_CACHE,
+  EXEC_OACC_ENTER_DATA, EXEC_OACC_EXIT_DATA
 }
 gfc_exec_op;
 
@@ -2826,9 +2827,9 @@ void gfc_resolve_omp_do_blocks (gfc_code *, gfc_namespace *);
 void gfc_omp_save_and_clear_state (struct gfc_omp_saved_state *);
 void gfc_omp_restore_state (struct gfc_omp_saved_state *);
 void gfc_free_exprlist (gfc_exprlist *);
-void gfc_resolve_acc_directive (gfc_code *, gfc_namespace *);
-void gfc_resolve_acc_parallel_loop_blocks (gfc_code *, gfc_namespace *);
-void gfc_resolve_acc_blocks (gfc_code *, gfc_namespace *);
+void gfc_resolve_oacc_directive (gfc_code *, gfc_namespace *);
+void gfc_resolve_oacc_parallel_loop_blocks (gfc_code *, gfc_namespace *);
+void gfc_resolve_oacc_blocks (gfc_code *, gfc_namespace *);
 
 /* expr.c */
 void gfc_free_actual_arglist (gfc_actual_arglist *);

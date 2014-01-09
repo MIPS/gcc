@@ -55,15 +55,15 @@ static pretty_printer buffer;
 static int initialized = 0;
 
 unsigned char
-dump_acc_body (int flags, tree node, int spc,
+dump_oacc_body (int flags, tree node, int spc,
                unsigned char is_expr, pretty_printer* buffer)
 {
-  if (!(flags & TDF_SLIM) && ACC_BODY (node))
+  if (!(flags & TDF_SLIM) && OACC_BODY (node))
   {
     newline_and_indent (buffer, spc + 2);
     pp_character (buffer, '{');
     newline_and_indent (buffer, spc + 4);
-    dump_generic_node (buffer, ACC_BODY (node), spc + 4, flags, false);
+    dump_generic_node (buffer, OACC_BODY (node), spc + 4, flags, false);
     newline_and_indent (buffer, spc + 2);
     pp_character (buffer, '}');
   }
@@ -72,7 +72,7 @@ dump_acc_body (int flags, tree node, int spc,
 }
 
 void
-dump_acc_clause_remap (const char* name,
+dump_oacc_clause_remap (const char* name,
                        tree clause,
                        int spc,
                        int flags,
@@ -80,23 +80,23 @@ dump_acc_clause_remap (const char* name,
 {
   pp_string (buffer, name);
   pp_character (buffer, '(');
-  dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
-  if (ACC_IS_SUBARRAY (clause))
+  dump_generic_node (buffer, OACC_CLAUSE_DECL (clause), spc, flags, false);
+  if (OACC_IS_SUBARRAY (clause))
   {
     int i;
 
     pp_character (buffer, '(');
-    for (i = 0; i < ACC_SUBARRAY_DIMENSIONS (clause) - 1; i++)
+    for (i = 0; i < OACC_SUBARRAY_DIMENSIONS (clause) - 1; i++)
     {
       dump_generic_node (buffer,
-                         ACC_SUBARRAY_LEFT_BOUND (clause, i),
+                         OACC_SUBARRAY_LEFT_BOUND (clause, i),
                          spc,
                          flags,
                          false);
       pp_character (buffer, ':');
 
       dump_generic_node (buffer,
-                         ACC_SUBARRAY_RIGHT_BOUND (clause, i),
+                         OACC_SUBARRAY_RIGHT_BOUND (clause, i),
                          spc,
                          flags,
                          false);
@@ -104,14 +104,14 @@ dump_acc_clause_remap (const char* name,
     }
 
     dump_generic_node (buffer,
-                       ACC_SUBARRAY_LEFT_BOUND (clause, i),
+                       OACC_SUBARRAY_LEFT_BOUND (clause, i),
                        spc,
                        flags,
                        false);
     pp_character (buffer, ':');
 
     dump_generic_node (buffer,
-                       ACC_SUBARRAY_RIGHT_BOUND (clause, i),
+                       OACC_SUBARRAY_RIGHT_BOUND (clause, i),
                        spc,
                        flags,
                        false);
@@ -122,201 +122,201 @@ dump_acc_clause_remap (const char* name,
 }
 
 void
-dump_acc_clause (pretty_printer *buffer, tree clause, int spc, int flags)
+dump_oacc_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 {
   const char *name;
-  enum acc_clause_code clause_code;
+  enum oacc_clause_code clause_code;
 
   if (clause == NULL)
     return;
 
-  clause_code = ACC_CLAUSE_CODE (clause);
+  clause_code = OACC_CLAUSE_CODE (clause);
 
   switch (clause_code)
   {
-  case ACC_CLAUSE_ASYNC:
+  case OACC_CLAUSE_ASYNC:
     pp_string (buffer, "async");
-    if (ACC_CLAUSE_DECL (clause))
+    if (OACC_CLAUSE_DECL (clause))
       {
         pp_character(buffer, '(');
-        dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+        dump_generic_node (buffer, OACC_CLAUSE_DECL (clause), spc, flags, false);
         pp_character(buffer, ')');
       }
     break;
 
-  case ACC_CLAUSE_VECTOR:
+  case OACC_CLAUSE_VECTOR:
     pp_string (buffer, "vector(");
-    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    dump_generic_node (buffer, OACC_CLAUSE_DECL (clause), spc, flags, false);
     pp_character(buffer, ')');
     break;
 
-  case ACC_CLAUSE_GANG:
+  case OACC_CLAUSE_GANG:
     pp_string (buffer, "gang(");
-    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    dump_generic_node (buffer, OACC_CLAUSE_DECL (clause), spc, flags, false);
     pp_character(buffer, ')');
     break;
 
-  case ACC_CLAUSE_WORKER:
+  case OACC_CLAUSE_WORKER:
     pp_string (buffer, "worker(");
-    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause), spc, flags, false);
+    dump_generic_node (buffer, OACC_CLAUSE_DECL (clause), spc, flags, false);
     pp_character(buffer, ')');
     break;
 
-  case ACC_CLAUSE_INDEPENDENT:
+  case OACC_CLAUSE_INDEPENDENT:
     name = "independent";
     pp_string (buffer, name);
     break;
 
-  case ACC_CLAUSE_SEQ:
+  case OACC_CLAUSE_SEQ:
     name = "seq";
     pp_string (buffer, name);
     break;
 
-  case ACC_CLAUSE_COPY:
+  case OACC_CLAUSE_COPY:
     name = "copy";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_COPYIN:
+  case OACC_CLAUSE_COPYIN:
     name = "copyin";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_COPYOUT:
+  case OACC_CLAUSE_COPYOUT:
     name = "copyout";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_CREATE:
+  case OACC_CLAUSE_CREATE:
     name = "create";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_PRESENT:
+  case OACC_CLAUSE_PRESENT:
     name = "present";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_PRESENT_OR_COPY:
+  case OACC_CLAUSE_PRESENT_OR_COPY:
     name = "present_or_copy";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_PRESENT_OR_COPYIN:
+  case OACC_CLAUSE_PRESENT_OR_COPYIN:
     name = "present_or_copyin";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+  case OACC_CLAUSE_PRESENT_OR_COPYOUT:
     name = "present_or_copyout";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_PRESENT_OR_CREATE:
+  case OACC_CLAUSE_PRESENT_OR_CREATE:
     name = "present_or_create";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_FIRSTPRIVATE:
+  case OACC_CLAUSE_FIRSTPRIVATE:
     name = "firstprivate";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_PRIVATE:
+  case OACC_CLAUSE_PRIVATE:
     name = "private";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_DEVICEPTR:
+  case OACC_CLAUSE_DEVICEPTR:
     name = "deviceptr";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_USE_DEVICE:
+  case OACC_CLAUSE_USE_DEVICE:
     name = "use_device";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_DEVICE_RESIDENT:
+  case OACC_CLAUSE_DEVICE_RESIDENT:
     name = "device_resident";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_HOST:
+  case OACC_CLAUSE_HOST:
     name = "host";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_DEVICE:
+  case OACC_CLAUSE_DEVICE:
     name = "device";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_NO_CLAUSE_CACHE:
+  case OACC_NO_CLAUSE_CACHE:
     name = "";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
 
-  case ACC_CLAUSE_REDUCTION:
+  case OACC_CLAUSE_REDUCTION:
     pp_string (buffer, "reduction(");
-    pp_string (buffer, op_symbol_code (ACC_CLAUSE_REDUCTION_CODE (clause)));
+    pp_string (buffer, op_symbol_code (OACC_CLAUSE_REDUCTION_CODE (clause)));
     pp_character (buffer, ':');
-    dump_generic_node (buffer, ACC_CLAUSE_DECL (clause),
+    dump_generic_node (buffer, OACC_CLAUSE_DECL (clause),
                        spc, flags, false);
     pp_character (buffer, ')');
     break;
 
-  case ACC_CLAUSE_IF:
+  case OACC_CLAUSE_IF:
     pp_string (buffer, "if(");
-    dump_generic_node (buffer, ACC_CLAUSE_IF_EXPR (clause),
+    dump_generic_node (buffer, OACC_CLAUSE_IF_EXPR (clause),
                        spc, flags, false);
     pp_character (buffer, ')');
     break;
 
-  case ACC_CLAUSE_NUM_GANGS:
+  case OACC_CLAUSE_NUM_GANGS:
     pp_string (buffer, "num_gangs(");
-    dump_generic_node (buffer, ACC_CLAUSE_NUM_GANGS_EXPR (clause),
+    dump_generic_node (buffer, OACC_CLAUSE_NUM_GANGS_EXPR (clause),
                        spc, flags, false);
     pp_character (buffer, ')');
     break;
 
-  case ACC_CLAUSE_NUM_WORKERS:
+  case OACC_CLAUSE_NUM_WORKERS:
     pp_string (buffer, "num_workers(");
-    dump_generic_node (buffer, ACC_CLAUSE_NUM_WORKERS_EXPR (clause),
+    dump_generic_node (buffer, OACC_CLAUSE_NUM_WORKERS_EXPR (clause),
                        spc, flags, false);
     pp_character (buffer, ')');
     break;
 
-  case ACC_CLAUSE_VECTOR_LENGTH:
+  case OACC_CLAUSE_VECTOR_LENGTH:
     pp_string (buffer, "vector_length(");
-    dump_generic_node (buffer, ACC_CLAUSE_VECTOR_LENGTH_EXPR (clause),
+    dump_generic_node (buffer, OACC_CLAUSE_VECTOR_LENGTH_EXPR (clause),
                        spc, flags, false);
     pp_character (buffer, ')');
     break;
 
-  case ACC_CLAUSE_COLLAPSE:
+  case OACC_CLAUSE_COLLAPSE:
     pp_string (buffer, "collapse(");
-    dump_generic_node (buffer, ACC_CLAUSE_COLLAPSE_EXPR (clause),
+    dump_generic_node (buffer, OACC_CLAUSE_COLLAPSE_EXPR (clause),
                        spc, flags, false);
     pp_character (buffer, ')');
     break;
 
-  case ACC_NO_CLAUSE_WAIT:
+  case OACC_NO_CLAUSE_WAIT:
     pp_string (buffer, "(");
-    dump_generic_node (buffer, ACC_WAIT_EXPR (clause),
+    dump_generic_node (buffer, OACC_WAIT_EXPR (clause),
                        spc, flags, false);
     pp_character (buffer, ')');
     break;
 
   default:
-    name = "unrecognized_acc_clause";
-    dump_acc_clause_remap (name, clause, spc, flags, buffer);
+    name = "unrecognized_oacc_clause";
+    dump_oacc_clause_remap (name, clause, spc, flags, buffer);
     break;
   }
 }
 
 void
-dump_acc_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
+dump_oacc_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
 {
   if (clause == NULL)
     return;
@@ -324,8 +324,8 @@ dump_acc_clauses (pretty_printer *buffer, tree clause, int spc, int flags)
   pp_space (buffer);
   while (1)
   {
-    dump_acc_clause (buffer, clause, spc, flags);
-    clause = ACC_CLAUSE_CHAIN (clause);
+    dump_oacc_clause (buffer, clause, spc, flags);
+    clause = OACC_CLAUSE_CHAIN (clause);
     if (clause == NULL)
       return;
     pp_space (buffer);
@@ -2636,11 +2636,6 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, " > ");
       break;
 
-    case OACC_PARALLEL:
-      pp_string (buffer, "#pragma acc parallel");
-      dump_omp_clauses (buffer, OACC_PARALLEL_CLAUSES (node), spc, flags);
-      goto dump_omp_body;
-
     case OMP_PARALLEL:
       pp_string (buffer, "#pragma omp parallel");
       dump_omp_clauses (buffer, OMP_PARALLEL_CLAUSES (node), spc, flags);
@@ -2837,58 +2832,58 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       is_expr = false;
       break;
 
-    case ACC_PARALLEL:
+    case OACC_PARALLEL:
       pp_string (buffer, "#pragma acc parallel");
-      dump_acc_clauses (buffer, ACC_PARALLEL_CLAUSES (node), spc, flags);
-      is_expr = dump_acc_body(flags, node, spc, is_expr, buffer);
+      dump_oacc_clauses (buffer, OACC_PARALLEL_CLAUSES (node), spc, flags);
+      is_expr = dump_oacc_body(flags, node, spc, is_expr, buffer);
 
       break;
-    case ACC_KERNELS:
+    case OACC_KERNELS:
       pp_string (buffer, "#pragma acc kernels");
-      dump_acc_clauses (buffer, ACC_KERNELS_CLAUSES(node), spc, flags);
-      is_expr = dump_acc_body(flags, node, spc, is_expr, buffer);
+      dump_oacc_clauses (buffer, OACC_KERNELS_CLAUSES(node), spc, flags);
+      is_expr = dump_oacc_body(flags, node, spc, is_expr, buffer);
 
       break;
-    case ACC_LOOP:
+    case OACC_LOOP:
       pp_string (buffer, "#pragma acc loop");
-      dump_acc_clauses (buffer, ACC_LOOP_CLAUSES(node), spc, flags);
-      is_expr = dump_acc_body(flags, node, spc, is_expr, buffer);
+      dump_oacc_clauses (buffer, OACC_LOOP_CLAUSES(node), spc, flags);
+      is_expr = dump_oacc_body(flags, node, spc, is_expr, buffer);
 
       break;
-    case ACC_HOST_DATA:
+    case OACC_HOST_DATA:
       pp_string (buffer, "#pragma acc host_data");
-      dump_acc_clauses (buffer, ACC_HOST_DATA_CLAUSES(node), spc, flags);
-      is_expr = dump_acc_body(flags, node, spc, is_expr, buffer);
+      dump_oacc_clauses (buffer, OACC_HOST_DATA_CLAUSES(node), spc, flags);
+      is_expr = dump_oacc_body(flags, node, spc, is_expr, buffer);
 
       break;
-    case ACC_DATA:
+    case OACC_DATA:
       pp_string (buffer, "#pragma acc data");
-      dump_acc_clauses (buffer, ACC_DATA_CLAUSES(node), spc, flags);
-      is_expr = dump_acc_body(flags, node, spc, is_expr, buffer);
+      dump_oacc_clauses (buffer, OACC_DATA_CLAUSES(node), spc, flags);
+      is_expr = dump_oacc_body(flags, node, spc, is_expr, buffer);
 
       break;
-    case ACC_WAIT:
+    case OACC_WAIT:
       pp_string (buffer, "#pragma acc wait");
-      dump_acc_clauses (buffer, ACC_WAIT_CLAUSES(node), spc, flags);
+      dump_oacc_clauses (buffer, OACC_WAIT_CLAUSES(node), spc, flags);
 
       break;
-    case ACC_UPDATE:
+    case OACC_UPDATE:
       pp_string (buffer, "#pragma acc update");
-      dump_acc_clauses (buffer, ACC_UPDATE_CLAUSES(node), spc, flags);
+      dump_oacc_clauses (buffer, OACC_UPDATE_CLAUSES(node), spc, flags);
 
       break;
-    case ACC_DECLARE:
+    case OACC_DECLARE:
       pp_string (buffer, "#pragma acc declare");
-      dump_acc_clauses (buffer, ACC_DECLARE_CLAUSES(node), spc, flags);
+      dump_oacc_clauses (buffer, OACC_DECLARE_CLAUSES(node), spc, flags);
 
       break;
-    case ACC_CACHE:
+    case OACC_CACHE:
       pp_string (buffer, "#pragma acc cache");
-      dump_acc_clauses (buffer, ACC_CACHE_CLAUSES(node), spc, flags);
+      dump_oacc_clauses (buffer, OACC_CACHE_CLAUSES(node), spc, flags);
 
       break;
-    case ACC_CLAUSE:
-      dump_acc_clause (buffer, node, spc, flags);
+    case OACC_CLAUSE:
+      dump_oacc_clause (buffer, node, spc, flags);
       is_expr = false;
 
       break;

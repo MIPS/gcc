@@ -33,6 +33,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "ipa-utils.h"
 #include "except.h"
 #include "ipa-inline.h"
+#include "gimple-oacc.h"
 
 /* Context of record_reference.  */
 struct record_reference_ctx

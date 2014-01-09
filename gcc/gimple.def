@@ -136,43 +136,43 @@ DEFGSCODE(GIMPLE_TRANSACTION, "gimple_transaction", GSS_TRANSACTION)
     must be before GIMPLE_RETURN because we have operands and
     gimple_has_ops check for code <= GIMPLE_RETURN */
 
-/* GIMPLE_ACC base structure for OpenACC statements */
-DEFGSCODE(GIMPLE_ACC, "gimple_acc", GSS_ACC)
+/* GIMPLE_OACC base structure for OpenACC statements */
+DEFGSCODE(GIMPLE_OACC, "gimple_oacc", GSS_OACC)
 
-/* GIMPLE_ACC_PARALLEL */
-DEFGSCODE(GIMPLE_ACC_PARALLEL, "gimple_acc_parallel", GSS_ACC_PARALLEL)
+/* GIMPLE_OACC_PARALLEL */
+DEFGSCODE(GIMPLE_OACC_PARALLEL, "gimple_oacc_parallel", GSS_OACC_PARALLEL)
 
-/* GIMPLE_ACC_KERNELS */
-DEFGSCODE(GIMPLE_ACC_KERNELS, "gimple_acc_kernels", GSS_ACC_KERNELS)
+/* GIMPLE_OACC_KERNELS */
+DEFGSCODE(GIMPLE_OACC_KERNELS, "gimple_oacc_kernels", GSS_OACC_KERNELS)
 
-/* GIMPLE_ACC_DATA */
-DEFGSCODE(GIMPLE_ACC_DATA, "gimple_acc_data", GSS_ACC_DATA)
+/* GIMPLE_OACC_DATA */
+DEFGSCODE(GIMPLE_OACC_DATA, "gimple_oacc_data", GSS_OACC_DATA)
 
-/* GIMPLE_ACC_CACHE */
-DEFGSCODE(GIMPLE_ACC_CACHE, "gimple_acc_cache", GSS_ACC_CACHE)
+/* GIMPLE_OACC_CACHE */
+DEFGSCODE(GIMPLE_OACC_CACHE, "gimple_oacc_cache", GSS_OACC_CACHE)
 
-/* GIMPLE_ACC_WAIT */
-DEFGSCODE(GIMPLE_ACC_WAIT, "gimple_acc_wait", GSS_ACC_WAIT)
+/* GIMPLE_OACC_WAIT */
+DEFGSCODE(GIMPLE_OACC_WAIT, "gimple_oacc_wait", GSS_OACC_WAIT)
 
-/* GIMPLE_ACC_HOST_DATA */
-DEFGSCODE(GIMPLE_ACC_HOST_DATA, "gimple_acc_host_data", GSS_ACC_HOST_DATA)
+/* GIMPLE_OACC_HOST_DATA */
+DEFGSCODE(GIMPLE_OACC_HOST_DATA, "gimple_oacc_host_data", GSS_OACC_HOST_DATA)
 
-/* GIMPLE_ACC_LOOP */
-DEFGSCODE(GIMPLE_ACC_LOOP, "gimple_acc_loop", GSS_ACC_LOOP)
+/* GIMPLE_OACC_LOOP */
+DEFGSCODE(GIMPLE_OACC_LOOP, "gimple_oacc_loop", GSS_OACC_LOOP)
 
-/* GIMPLE_ACC_DECLARE */
-DEFGSCODE(GIMPLE_ACC_DECLARE, "gimple_acc_declare", GSS_ACC_DECLARE)
+/* GIMPLE_OACC_DECLARE */
+DEFGSCODE(GIMPLE_OACC_DECLARE, "gimple_oacc_declare", GSS_OACC_DECLARE)
 
-/* GIMPLE_ACC_UPDATE */
-DEFGSCODE(GIMPLE_ACC_UPDATE, "gimple_acc_update", GSS_ACC_UPDATE)
+/* GIMPLE_OACC_UPDATE */
+DEFGSCODE(GIMPLE_OACC_UPDATE, "gimple_oacc_update", GSS_OACC_UPDATE)
 
-/* GIMPLE_ACC_COMPUTE_REGION_END */
-DEFGSCODE(GIMPLE_ACC_COMPUTE_REGION_END, "gimple_acc_compute_region_end",
-          GSS_ACC_REGION_END)
+/* GIMPLE_OACC_COMPUTE_REGION_END */
+DEFGSCODE(GIMPLE_OACC_COMPUTE_REGION_END, "gimple_oacc_compute_region_end",
+          GSS_OACC_REGION_END)
 
-/* GIMPLE_ACC_DATA_REGION_END */
-DEFGSCODE(GIMPLE_ACC_DATA_REGION_END, "gimple_acc_data_region_end",
-          GSS_ACC_REGION_END)
+/* GIMPLE_OACC_DATA_REGION_END */
+DEFGSCODE(GIMPLE_OACC_DATA_REGION_END, "gimple_oacc_data_region_end",
+          GSS_OACC_REGION_END)
 
 
 /* GIMPLE_RETURN <RETVAL> represents return statements.
@@ -250,13 +250,6 @@ DEFGSCODE(GIMPLE_NOP, "gimple_nop", GSS_BASE)
 
    Do not rearrange any of the GIMPLE_OACC_* and GIMPLE_OMP_* codes.  This
    ordering is exposed by the range check in gimple_omp_subcode.  */
-
-
-/* GIMPLE_OACC_PARALLEL <BODY, CLAUSES, CHILD_FN, DATA_ARG> represents
-
-   #pragma acc parallel [CLAUSES]
-   BODY */
-DEFGSCODE(GIMPLE_OACC_PARALLEL, "gimple_oacc_parallel", GSS_OMP_PARALLEL)
 
 /* Tuples used for lowering of OMP_ATOMIC.  Although the form of the OMP_ATOMIC
    expression is very simple (just in form mem op= expr), various implicit

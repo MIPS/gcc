@@ -805,7 +805,7 @@ finish_return_stmt (tree expr)
   if (error_operand_p (expr)
       || (flag_openmp && !check_omp_return ()))
     return error_mark_node;
-  if (flag_openacc && !check_acc_return ())
+  if (flag_openacc && !check_oacc_return ())
     return error_mark_node;
   if (!processing_template_decl)
     {
@@ -4079,66 +4079,66 @@ finalize_nrv (tree *tp, tree var, tree result)
 /********************** OpenACC parsing routines ******************************/
 /******************************************************************************/
 tree
-begin_acc_structured_block (void)
+begin_oacc_structured_block (void)
 {
   return do_pushlevel (sk_acc);
 }
 
 tree
-finish_acc_structured_block (tree block)
+finish_oacc_structured_block (tree block)
 {
   return do_poplevel (block);
 }
 
 tree
-begin_acc_parallel (void)
+begin_oacc_parallel (void)
 {
   keep_next_level (true);
-  return begin_acc_structured_block ();
+  return begin_oacc_structured_block ();
 }
 
 tree
-finish_acc_parallel (tree clauses, tree body)
+finish_oacc_parallel (tree clauses, tree body)
 {
   tree stmt;
 
-  body = finish_acc_structured_block (body);
+  body = finish_oacc_structured_block (body);
 
-  stmt = make_node (ACC_PARALLEL);
+  stmt = make_node (OACC_PARALLEL);
   TREE_TYPE (stmt) = void_type_node;
-  ACC_PARALLEL_CLAUSES (stmt) = clauses;
-  ACC_PARALLEL_BODY (stmt) = body;
+  OACC_PARALLEL_CLAUSES (stmt) = clauses;
+  OACC_PARALLEL_BODY (stmt) = body;
 
   return add_stmt (stmt);
 }
 
 tree
-begin_acc_kernels (void)
+begin_oacc_kernels (void)
 {
   keep_next_level (true);
-  return begin_acc_structured_block ();
+  return begin_oacc_structured_block ();
 }
 
 tree
-finish_acc_kernels (tree clauses, tree body)
+finish_oacc_kernels (tree clauses, tree body)
 {
   tree stmt;
 
-  body = finish_acc_structured_block (body);
+  body = finish_oacc_structured_block (body);
 
-  stmt = make_node (ACC_KERNELS);
+  stmt = make_node (OACC_KERNELS);
   TREE_TYPE (stmt) = void_type_node;
-  ACC_KERNELS_CLAUSES (stmt) = clauses;
-  ACC_KERNELS_BODY (stmt) = body;
+  OACC_KERNELS_CLAUSES (stmt) = clauses;
+  OACC_KERNELS_BODY (stmt) = body;
 
   return add_stmt (stmt);
 }
 
-/* Create CP_ACC_CLAUSE_INFO for clause C.
+/* Create CP_OACC_CLAUSE_INFO for clause C.
  * Returns true if it is invalid.  */
 
 bool
-cxx_acc_create_clause_info (tree c,
+cxx_oacc_create_clause_info (tree c,
                             tree type,
                             bool need_default_ctor,
                             bool need_copy_ctor,
@@ -4150,10 +4150,10 @@ cxx_acc_create_clause_info (tree c,
   /* Always allocate 3 elements for simplicity.  These are the
      function decls for the ctor, dtor, and assignment op.
      This layout is known to the three lang hooks,
-     cxx_acc_clause_default_init, cxx_acc_clause_copy_init,
-     and cxx_acc_clause_assign_op.  */
+     cxx_oacc_clause_default_init, cxx_oacc_clause_copy_init,
+     and cxx_oacc_clause_assign_op.  */
   info = make_tree_vec (3);
-  CP_ACC_CLAUSE_INFO (c) = info;
+  CP_OACC_CLAUSE_INFO (c) = info;
 
   if (need_default_ctor || need_copy_ctor)
     {
@@ -4184,7 +4184,7 @@ cxx_acc_create_clause_info (tree c,
 /* Validata all CLAUSES
    Remove any invalid.  */
 tree
-finish_acc_clauses (tree clauses)
+finish_oacc_clauses (tree clauses)
 {
   bitmap_head generic_head, firstprivate_head;
   tree c, t, *pc = &clauses;
@@ -4198,40 +4198,40 @@ finish_acc_clauses (tree clauses)
   {
     bool remove = false;
 
-    switch (ACC_CLAUSE_CODE (c))
+    switch (OACC_CLAUSE_CODE (c))
     {
-    case ACC_CLAUSE_PRIVATE:
+    case OACC_CLAUSE_PRIVATE:
       name = "private";
       goto check_dup_generic;
-    case ACC_CLAUSE_REDUCTION:
+    case OACC_CLAUSE_REDUCTION:
       name = "reduction";
       goto check_dup_generic;
-    case ACC_CLAUSE_CREATE:
+    case OACC_CLAUSE_CREATE:
       name = "create";
       goto check_dup_generic;
-    case ACC_CLAUSE_COPY:
+    case OACC_CLAUSE_COPY:
       name = "copy";
       goto check_dup_generic;
-    case ACC_CLAUSE_COPYIN:
+    case OACC_CLAUSE_COPYIN:
       name = "copyin";
       goto check_dup_generic;
-    case ACC_CLAUSE_COPYOUT:
+    case OACC_CLAUSE_COPYOUT:
       name = "copyout";
       goto check_dup_generic;
-    case ACC_CLAUSE_PRESENT:
+    case OACC_CLAUSE_PRESENT:
       name = "present";
       goto check_dup_generic;
-    case ACC_CLAUSE_PRESENT_OR_COPY:
+    case OACC_CLAUSE_PRESENT_OR_COPY:
       name = "present_or_copy";
       goto check_dup_generic;
-    case ACC_CLAUSE_PRESENT_OR_COPYIN:
+    case OACC_CLAUSE_PRESENT_OR_COPYIN:
       name = "present_or_copyin";
       goto check_dup_generic;
-    case ACC_CLAUSE_PRESENT_OR_COPYOUT:
+    case OACC_CLAUSE_PRESENT_OR_COPYOUT:
       name = "present_or_copyout";
       goto check_dup_generic;
     check_dup_generic:
-      t = ACC_CLAUSE_DECL (c);
+      t = OACC_CLAUSE_DECL (c);
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
       {
         if (processing_template_decl)
@@ -4252,8 +4252,8 @@ finish_acc_clauses (tree clauses)
         bitmap_set_bit (&generic_head, DECL_UID (t));
       break;
 
-    case ACC_CLAUSE_FIRSTPRIVATE:
-      t = ACC_CLAUSE_DECL (c);
+    case OACC_CLAUSE_FIRSTPRIVATE:
+      t = OACC_CLAUSE_DECL (c);
       if (!VAR_P (t) && TREE_CODE (t) != PARM_DECL)
       {
         if (processing_template_decl)
@@ -4274,8 +4274,8 @@ finish_acc_clauses (tree clauses)
         bitmap_set_bit (&firstprivate_head, DECL_UID (t));
       break;
 
-    case ACC_CLAUSE_IF:
-      t = ACC_CLAUSE_IF_EXPR (c);
+    case OACC_CLAUSE_IF:
+      t = OACC_CLAUSE_IF_EXPR (c);
       t = maybe_convert_cond (t);
       if (t == error_mark_node)
       {
@@ -4285,11 +4285,11 @@ finish_acc_clauses (tree clauses)
       {
         t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
       }
-      ACC_CLAUSE_IF_EXPR (c) = t;
+      OACC_CLAUSE_IF_EXPR (c) = t;
       break;
 
-    case ACC_CLAUSE_NUM_GANGS:
-      t = ACC_CLAUSE_NUM_GANGS_EXPR (c);
+    case OACC_CLAUSE_NUM_GANGS:
+      t = OACC_CLAUSE_NUM_GANGS_EXPR (c);
       if (t == error_mark_node)
       {
         remove = true;
@@ -4305,12 +4305,12 @@ finish_acc_clauses (tree clauses)
         t = mark_rvalue_use (t);
         if (!processing_template_decl)
           t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-        ACC_CLAUSE_NUM_GANGS_EXPR (c) = t;
+        OACC_CLAUSE_NUM_GANGS_EXPR (c) = t;
       }
       break;
 
-    case ACC_CLAUSE_NUM_WORKERS:
-      t = ACC_CLAUSE_NUM_WORKERS_EXPR (c);
+    case OACC_CLAUSE_NUM_WORKERS:
+      t = OACC_CLAUSE_NUM_WORKERS_EXPR (c);
       if (t == error_mark_node)
       {
         remove = true;
@@ -4326,12 +4326,12 @@ finish_acc_clauses (tree clauses)
         t = mark_rvalue_use (t);
         if (!processing_template_decl)
           t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-        ACC_CLAUSE_NUM_WORKERS_EXPR (c) = t;
+        OACC_CLAUSE_NUM_WORKERS_EXPR (c) = t;
       }
       break;
 
-    case ACC_CLAUSE_VECTOR_LENGTH:
-      t = ACC_CLAUSE_VECTOR_LENGTH_EXPR (c);
+    case OACC_CLAUSE_VECTOR_LENGTH:
+      t = OACC_CLAUSE_VECTOR_LENGTH_EXPR (c);
       if (t == error_mark_node)
       {
         remove = true;
@@ -4347,12 +4347,12 @@ finish_acc_clauses (tree clauses)
         t = mark_rvalue_use (t);
         if (!processing_template_decl)
           t = fold_build_cleanup_point_expr (TREE_TYPE (t), t);
-        ACC_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
+        OACC_CLAUSE_VECTOR_LENGTH_EXPR (c) = t;
       }
       break;
 
-    case ACC_CLAUSE_INDEPENDENT:
-    case ACC_CLAUSE_SEQ:
+    case OACC_CLAUSE_INDEPENDENT:
+    case OACC_CLAUSE_SEQ:
       break;
 
 
@@ -4361,14 +4361,14 @@ finish_acc_clauses (tree clauses)
     }
 
     if (remove)
-      *pc = ACC_CLAUSE_CHAIN (c);
+      *pc = OACC_CLAUSE_CHAIN (c);
     else
-      pc = &ACC_CLAUSE_CHAIN (c);
+      pc = &OACC_CLAUSE_CHAIN (c);
   }
 
   for (pc = &clauses, c = clauses; c ; c = *pc)
   {
-    enum acc_clause_code c_kind = ACC_CLAUSE_CODE (c);
+    enum oacc_clause_code c_kind = OACC_CLAUSE_CODE (c);
     bool remove = false;
     bool need_complete_non_reference = false;
     bool need_default_ctor = false;
@@ -4414,22 +4414,22 @@ finish_acc_clauses (tree clauses)
         need_copy_assignment = true;
         break;
       default:
-        pc = &ACC_CLAUSE_CHAIN (c);
+        pc = &OACC_CLAUSE_CHAIN (c);
         continue;
-      }*/pc = &ACC_CLAUSE_CHAIN (c);
+      }*/pc = &OACC_CLAUSE_CHAIN (c);
 
-    t = ACC_CLAUSE_DECL (c);
+    t = OACC_CLAUSE_DECL (c);
     if (processing_template_decl
         && !VAR_P (t)
         && TREE_CODE (t) != PARM_DECL)
       {
-        pc = &ACC_CLAUSE_CHAIN (c);
+        pc = &OACC_CLAUSE_CHAIN (c);
         continue;
       }
 
     switch (c_kind)
       {
-      case ACC_CLAUSE_REDUCTION:
+      case OACC_CLAUSE_REDUCTION:
         if (AGGREGATE_TYPE_P (TREE_TYPE (t))
             || POINTER_TYPE_P (TREE_TYPE (t)))
           {
@@ -4438,7 +4438,7 @@ finish_acc_clauses (tree clauses)
           }
         else if (FLOAT_TYPE_P (TREE_TYPE (t)))
           {
-            enum tree_code r_code = ACC_CLAUSE_REDUCTION_CODE (c);
+            enum tree_code r_code = OACC_CLAUSE_REDUCTION_CODE (c);
             switch (r_code)
               {
               case PLUS_EXPR:
@@ -4455,7 +4455,7 @@ finish_acc_clauses (tree clauses)
           }
         break;
 
-      case ACC_CLAUSE_COPYIN:
+      case OACC_CLAUSE_COPYIN:
         /*if (!VAR_P (t) || !DECL_THREAD_LOCAL_P (t))
           {
             error ("%qE must be %<private%> for %<copyin%>", t);
@@ -4496,16 +4496,16 @@ finish_acc_clauses (tree clauses)
         && COMPLETE_TYPE_P (inner_type)
         && (need_default_ctor || need_copy_ctor || need_copy_assignment)
         && !type_dependent_expression_p (t)
-        && cxx_acc_create_clause_info (c, inner_type, need_default_ctor,
+        && cxx_oacc_create_clause_info (c, inner_type, need_default_ctor,
                                        need_copy_ctor, need_copy_assignment))
     {
       remove = true;
     }
 
     if (remove)
-      *pc = ACC_CLAUSE_CHAIN (c);
+      *pc = OACC_CLAUSE_CHAIN (c);
     else
-      pc = &ACC_CLAUSE_CHAIN (c);
+      pc = &OACC_CLAUSE_CHAIN (c);
   }
 
   bitmap_obstack_release (NULL);

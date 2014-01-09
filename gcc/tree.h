@@ -1179,95 +1179,95 @@ extern void protected_set_expr_location (tree, location_t);
   (TRANSACTION_EXPR_CHECK (NODE)->base.public_flag)
 
 /* OpenACC directives and clause accessors. */
-#define ACC_BODY(NODE) \
+#define OACC_BODY(NODE) \
             TREE_OPERAND (NODE, 0)
 
-#define ACC_CLAUSE_CHAIN(NODE) \
-            ((NODE)->acc_clause.common.chain)
+#define OACC_CLAUSE_CHAIN(NODE) \
+            ((NODE)->oacc_clause.common.chain)
 
-#define ACC_CLAUSE(NODE) \
+#define OACC_CLAUSE(NODE) \
             TREE_OPERAND (NODE, 0)
 
-#define ACC_CLAUSE_DECL(NODE) \
-            ((NODE)->acc_clause.ops[0])
+#define OACC_CLAUSE_DECL(NODE) \
+            ((NODE)->oacc_clause.ops[0])
 
-#define ACC_CLAUSE_CODE(NODE) \
-            ((NODE)->acc_clause.code)
+#define OACC_CLAUSE_CODE(NODE) \
+            ((NODE)->oacc_clause.code)
 
-#define ACC_CLAUSE_OPERAND(T, i) \
-            ((T)->acc_clause.ops[i])
+#define OACC_CLAUSE_OPERAND(T, i) \
+            ((T)->oacc_clause.ops[i])
 
-#define ACC_CLAUSE_SET_CODE(NODE, CODE) \
-            ((NODE)->acc_clause.code = (CODE))
+#define OACC_CLAUSE_SET_CODE(NODE, CODE) \
+            ((NODE)->oacc_clause.code = (CODE))
 
-#define ACC_CLAUSE_LOCATION(NODE) \
-            ((NODE)->acc_clause.locus)
+#define OACC_CLAUSE_LOCATION(NODE) \
+            ((NODE)->oacc_clause.locus)
 
-#define ACC_SUBARRAY_LEFT_BOUND(NODE, i) \
-            ((NODE)->acc_clause.subcode.subarray.left[i])
+#define OACC_SUBARRAY_LEFT_BOUND(NODE, i) \
+            ((NODE)->oacc_clause.subcode.subarray.left[i])
 
-#define ACC_SUBARRAY_RIGHT_BOUND(NODE, i) \
-            ((NODE)->acc_clause.subcode.subarray.right[i])
+#define OACC_SUBARRAY_RIGHT_BOUND(NODE, i) \
+            ((NODE)->oacc_clause.subcode.subarray.right[i])
 
-#define ACC_SUBARRAY_DIMENSIONS(NODE) \
-            ((NODE)->acc_clause.subcode.subarray.dimensions)
+#define OACC_SUBARRAY_DIMENSIONS(NODE) \
+            ((NODE)->oacc_clause.subcode.subarray.dimensions)
 
-#define ACC_IS_SUBARRAY(NODE) \
-            ((NODE)->acc_clause.is_subarray)
+#define OACC_IS_SUBARRAY(NODE) \
+            ((NODE)->oacc_clause.is_subarray)
 
-#define ACC_PARALLEL_BODY(NODE)      TREE_OPERAND (ACC_PARALLEL_CHECK(NODE), 0)
-#define ACC_PARALLEL_CLAUSES(NODE)   TREE_OPERAND (ACC_PARALLEL_CHECK(NODE), 1)
+#define OACC_PARALLEL_BODY(NODE)      TREE_OPERAND (OACC_PARALLEL_CHECK(NODE), 0)
+#define OACC_PARALLEL_CLAUSES(NODE)   TREE_OPERAND (OACC_PARALLEL_CHECK(NODE), 1)
 
-#define ACC_KERNELS_BODY(NODE)       TREE_OPERAND (ACC_KERNELS_CHECK(NODE), 0)
-#define ACC_KERNELS_CLAUSES(NODE)    TREE_OPERAND (ACC_KERNELS_CHECK(NODE), 1)
+#define OACC_KERNELS_BODY(NODE)       TREE_OPERAND (OACC_KERNELS_CHECK(NODE), 0)
+#define OACC_KERNELS_CLAUSES(NODE)    TREE_OPERAND (OACC_KERNELS_CHECK(NODE), 1)
 
-#define ACC_LOOP_BODY(NODE)          TREE_OPERAND (ACC_LOOP_CHECK (NODE), 0)
-#define ACC_LOOP_CLAUSES(NODE)       TREE_OPERAND (ACC_LOOP_CHECK (NODE), 1)
+#define OACC_LOOP_BODY(NODE)          TREE_OPERAND (OACC_LOOP_CHECK (NODE), 0)
+#define OACC_LOOP_CLAUSES(NODE)       TREE_OPERAND (OACC_LOOP_CHECK (NODE), 1)
 
 /* OpenACC clauses */
-#define ACC_CLAUSE_NUM_GANGS_EXPR(NODE)          ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_NUM_WORKERS_EXPR(NODE)        ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_VECTOR_LENGTH_EXPR(NODE)      ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_VECTOR_EXPR(NODE)             ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_WORKER_EXPR(NODE)             ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_GANG_EXPR(NODE)               ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_COLLAPSE_EXPR(NODE)           ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_IF_EXPR(NODE)                 ACC_CLAUSE_DECL (NODE)
-#define ACC_CLAUSE_ASYNC_EXPR(NODE)              ACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_NUM_GANGS_EXPR(NODE)          OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_NUM_WORKERS_EXPR(NODE)        OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_VECTOR_LENGTH_EXPR(NODE)      OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_VECTOR_EXPR(NODE)             OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_WORKER_EXPR(NODE)             OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_GANG_EXPR(NODE)               OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_COLLAPSE_EXPR(NODE)           OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_IF_EXPR(NODE)                 OACC_CLAUSE_DECL (NODE)
+#define OACC_CLAUSE_ASYNC_EXPR(NODE)              OACC_CLAUSE_DECL (NODE)
 
-#define ACC_WAIT_EXPR(NODE)                      ACC_CLAUSE_DECL (NODE)
+#define OACC_WAIT_EXPR(NODE)                      OACC_CLAUSE_DECL (NODE)
 
-#define ACC_DATA_BODY(NODE) \
-            TREE_OPERAND (ACC_DATA_CHECK (NODE), 0)
+#define OACC_DATA_BODY(NODE) \
+            TREE_OPERAND (OACC_DATA_CHECK (NODE), 0)
 
-#define ACC_DATA_CLAUSES(NODE) \
-            TREE_OPERAND (ACC_DATA_CHECK (NODE), 1)
+#define OACC_DATA_CLAUSES(NODE) \
+            TREE_OPERAND (OACC_DATA_CHECK (NODE), 1)
 
-#define ACC_DECLARE_CLAUSES(NODE) \
-            TREE_OPERAND (ACC_DECLARE_CHECK (NODE), 0)
+#define OACC_DECLARE_CLAUSES(NODE) \
+            TREE_OPERAND (OACC_DECLARE_CHECK (NODE), 0)
 
-#define ACC_UPDATE_CLAUSES(NODE) \
-            TREE_OPERAND (ACC_UPDATE_CHECK (NODE), 0)
+#define OACC_UPDATE_CLAUSES(NODE) \
+            TREE_OPERAND (OACC_UPDATE_CHECK (NODE), 0)
 
-#define ACC_WAIT_CLAUSES(NODE) \
-            TREE_OPERAND (ACC_WAIT_CHECK (NODE), 0)
+#define OACC_WAIT_CLAUSES(NODE) \
+            TREE_OPERAND (OACC_WAIT_CHECK (NODE), 0)
 
-#define ACC_CACHE_CLAUSES(NODE) \
-            TREE_OPERAND (ACC_CACHE_CHECK (NODE), 0)
+#define OACC_CACHE_CLAUSES(NODE) \
+            TREE_OPERAND (OACC_CACHE_CHECK (NODE), 0)
 
-#define ACC_HOST_DATA_BODY(NODE) \
-            TREE_OPERAND (ACC_HOST_DATA_CHECK (NODE), 0)
-#define ACC_HOST_DATA_CLAUSES(NODE) \
-            TREE_OPERAND (ACC_HOST_DATA_CHECK (NODE), 1)
+#define OACC_HOST_DATA_BODY(NODE) \
+            TREE_OPERAND (OACC_HOST_DATA_CHECK (NODE), 0)
+#define OACC_HOST_DATA_CLAUSES(NODE) \
+            TREE_OPERAND (OACC_HOST_DATA_CHECK (NODE), 1)
 
-#define ACC_CLAUSE_REDUCTION_CODE(NODE) \
-            ((NODE)->acc_clause.subcode.reduction_code)
-#define ACC_CLAUSE_REDUCTION_INIT(NODE) \
-            ((NODE)->acc_clause.ops[1])
-#define ACC_CLAUSE_REDUCTION_MERGE(NODE) \
-            ((NODE)->acc_clause.ops[2])
-#define ACC_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
-            ((NODE)->acc_clause.ops[3])
+#define OACC_CLAUSE_REDUCTION_CODE(NODE) \
+            ((NODE)->oacc_clause.subcode.reduction_code)
+#define OACC_CLAUSE_REDUCTION_INIT(NODE) \
+            ((NODE)->oacc_clause.ops[1])
+#define OACC_CLAUSE_REDUCTION_MERGE(NODE) \
+            ((NODE)->oacc_clause.ops[2])
+#define OACC_CLAUSE_REDUCTION_PLACEHOLDER(NODE) \
+            ((NODE)->oacc_clause.ops[3])
 
 /* OpenMP directive and clause accessors.  */
 
@@ -1275,11 +1275,6 @@ extern void protected_set_expr_location (tree, location_t);
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_CRITICAL), 0)
 #define OMP_CLAUSES(NODE) \
   TREE_OPERAND (TREE_RANGE_CHECK (NODE, OACC_PARALLEL, OMP_SINGLE), 1)
-
-#define OACC_PARALLEL_BODY(NODE) \
-  TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 0)
-#define OACC_PARALLEL_CLAUSES(NODE) \
-  TREE_OPERAND (OACC_PARALLEL_CHECK (NODE), 1)
 
 #define OMP_PARALLEL_BODY(NODE)    TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 0)
 #define OMP_PARALLEL_CLAUSES(NODE) TREE_OPERAND (OMP_PARALLEL_CHECK (NODE), 1)
@@ -3676,9 +3671,9 @@ extern tree build_translation_unit_decl (tree);
 extern tree build_block (tree, tree, tree, tree);
 extern tree build_empty_stmt (location_t);
 extern tree build_omp_clause (location_t, enum omp_clause_code);
-extern tree build_acc_clause (location_t, enum acc_clause_code);
-extern tree build_acc_subarray_bounds (tree, tree, tree);
-extern tree build_acc_subarray (tree, tree);
+extern tree build_oacc_clause (location_t, enum oacc_clause_code);
+extern tree build_oacc_subarray_bounds (tree, tree, tree);
+extern tree build_oacc_subarray (tree, tree);
 
 extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
 #define build_vl_exp(c, n) build_vl_exp_stat (c, n MEM_STAT_INFO)

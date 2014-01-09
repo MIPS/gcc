@@ -1,4 +1,57 @@
 09-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
+	Replace acc_* with oacc_* 
+
+        gcc/c-family/c-pragma.c: Likewise
+        gcc/c-family/c-pragma.h: Likewise
+        gcc/c/c-parser.c: Likewise
+        gcc/c/c-tree.h: Likewise
+        gcc/c/c-typeck.c: Likewise
+        gcc/cgraphbuild.c: Likewise
+        gcc/cp/cp-tree.h: Likewise
+        gcc/cp/decl.c: Likewise
+        gcc/cp/parser.c: Likewise
+        gcc/cp/parser.h: Likewise
+        gcc/cp/semantics.c: Likewise
+        gcc/fortran/decl.c: Likewise
+        gcc/fortran/dump-parse-tree.c: Likewise
+        gcc/fortran/f95-lang.c: Likewise
+        gcc/fortran/gfortran.h: Likewise
+        gcc/fortran/match.c: Likewise
+        gcc/fortran/match.h: Likewise
+        gcc/fortran/openmp.c: Likewise
+        gcc/fortran/parse.c: Likewise
+        gcc/fortran/parse.h: Likewise
+        gcc/fortran/resolve.c: Likewise
+        gcc/fortran/st.c: Likewise
+        gcc/fortran/trans-decl.c: Likewise
+        gcc/fortran/trans-openacc.c: Likewise
+        gcc/fortran/trans-stmt.h: Likewise
+        gcc/fortran/trans.c: Likewise
+        gcc/gimple-low.c: Likewise
+        gcc/gimple-oacc.c: Likewise
+        gcc/gimple-oacc.h: Likewise
+        gcc/gimple-pretty-print.c: Likewise
+        gcc/gimple-walk.c: Likewise
+        gcc/gimple.def: Likewise
+        gcc/gimple.h: Likewise
+        gcc/gimplify.c: Likewise
+        gcc/gsstruct.def: Likewise
+        gcc/oacc-builtins.def: Likewise
+        gcc/oacc-low.c: Likewise
+        gcc/omp-low.c: Likewise
+        gcc/tree-cfg.c: Likewise
+        gcc/tree-core.h: Likewise
+        gcc/tree-dump.c: Likewise
+        gcc/tree-inline.c: Likewise
+        gcc/tree-pretty-print.c: Likewise
+        gcc/tree-pretty-print.h: Likewise
+        gcc/tree.c: Likewise
+        gcc/tree.def: Likewise
+        gcc/tree.h: Likewise
+        gcc/treestruct.def: Likewise
+
+
+09-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
 	Remove auto-generated tests, fix cp build
 
 	* gcc/testsuite/gfortran.dg/gacc/^[a-zA-Z].*f95: Remove
