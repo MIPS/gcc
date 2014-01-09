@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140104 (experimental) [melt-branch revision 206419] MELT_1\
+const char melt_genversionstr[]="4.9.0 20140108 (experimental) [melt-branch revision 206465] MELT_1\
 .1-pre"
 
 	     #ifdef __cplusplus
@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.9.0 20140104 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_206385]";
+const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_206465]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-first */
@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1-pre/warmelt-first";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="78e89b6c7b85525eb15b6a13df110109";
+const char melt_prepromd5meltrun[]="1f254eeaa790eabd4c4815dc7910b3f9";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="5444f9f00551d7a6a61a8188af2fd551";
+const char melt_primaryhexmd5[]="170411a86886e4afd51272ef3e1d0856";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "6abbd13311eea48efa5d0906472590be",
- /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "5376d28b2a38c76245a7df16be2d0e15",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+01.cc #1 */ "71d4ceb141951ea21b223e608392be83",
+ /*sechexmd5checksum meltbuild-sources/warmelt-first+02.cc #2 */ "5c02ab97b91b51d252971f5929c45145",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="f74dbc1c207c567d0b53ffb4df2ebfbb" ;
+const char melt_cumulated_hexmd5[]="a601d4451b7e5eab18c0f4a487b134d6" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiFIRST_mds__F74DBC1C207C567D0B53FFB4DF2EBFBB 1
+#define meltmod_WARMELTmiFIRST_mds__A601D4451B7E5EAB18C0F4A487B134D6 1
 #include "warmelt-first+melttime.h"
 	 
 
