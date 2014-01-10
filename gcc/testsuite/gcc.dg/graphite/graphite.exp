@@ -60,8 +60,12 @@ dg-runtest $block_files       "" "-O2 -floop-block -fno-loop-strip-mine -fno-loo
 global DEFAULT_VECTCFLAGS
 set DEFAULT_VECTCFLAGS "-O2 -fgraphite-identity -ftree-vectorize -fno-vect-cost-model -fdump-tree-vect-details -ffast-math"
 
+# Reset list of effective targets to be checked against tests.
+global ET_TARGETS
+set ET_TARGETS ""
+
 if [check_vect_support_and_set_flags] {
-    dg-runtest $vect_files        "" $DEFAULT_VECTCFLAGS
+    et-dg-runtest dg-runtest $vect_files        "" $DEFAULT_VECTCFLAGS
 }
 
 # The default action for the rest of the files is 'compile'.

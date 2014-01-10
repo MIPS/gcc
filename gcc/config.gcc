@@ -414,7 +414,8 @@ microblaze*-*-*)
         ;;
 mips*-*-*)
 	cpu_type=mips
-	extra_headers="loongson.h"
+	need_64bit_hwint=yes
+	extra_headers="loongson.h msa.h"
 	extra_options="${extra_options} g.opt mips/mips-tables.opt"
 	;;
 nds32*)
