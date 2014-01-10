@@ -31,6 +31,12 @@
 	occurs before the extension when optimizing extensions with
 	different source and destination hard registers.
 
+	2014-01-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/59754
+	* ree.c (combine_reaching_defs): Disallow !SCALAR_INT_MODE_P
+	modes in the REGNO != REGNO case.
+
 	2014-01-08  Jeff Law  <law@redhat.com>
 
 	* ree.c (get_sub_rtx): New function, extracted from...
