@@ -65,6 +65,7 @@
   sr71000
   xlr
   xlp
+  p5600
 ])
 
 (define_c_enum "unspec" [
@@ -239,6 +240,13 @@
 	 (const_string "yes")]
 	(const_string "no")))
 
+;; True if the main data type is four times of the size of a word.
+(define_attr "qword_mode" "no,yes"
+  (cond [(and (eq_attr "mode" "TI,TF")
+	      (not (match_test "TARGET_64BIT")))
+	 (const_string "yes")]
+	(const_string "no")))
+
 ;; Attributes describing a sync loop.  These loops have the form:
 ;;
 ;;       if (RELEASE_BARRIER == YES) sync
@@ -396,6 +404,11 @@
 	 (eq_attr "move_type" "constN,shift_shift")
 	   (const_string "multi")
 
+	 ;; These types of move are split for quadword modes only.
+	 (and (eq_attr "move_type" "move,const")
+	      (eq_attr "qword_mode" "yes"))
+	   (const_string "multi")
+
 	 ;; These types of move are split for doubleword modes only.
 	 (and (eq_attr "move_type" "move,const")
 	      (eq_attr "dword_mode" "yes"))
@@ -467,6 +480,18 @@
 	      (eq_attr "dword_mode" "yes"))
 	 (const_int 2)
 
+	 ;; Check for quadword moves that are decomposed into four
+	 ;; instructions.
+	 (and (eq_attr "move_type" "mtc,mfc,move")
+	      (eq_attr "qword_mode" "yes"))
+	 (const_int 16)
+
+	 ;; Quadword CONST moves are split into four word
+	 ;; CONST moves.
+	 (and (eq_attr "move_type" "const")
+	      (eq_attr "qword_mode" "yes"))
+	 (symbol_ref "mips_split_128bit_const_insns (operands[1]) * 4")
+
 	 ;; Constants, loads and stores are handled by external routines.
 	 (and (eq_attr "move_type" "const,constN")
 	      (eq_attr "dword_mode" "yes"))
@@ -508,7 +533,9 @@
 	 (const_int 2)
 
 	 (eq_attr "type" "idiv,idiv3")
-	 (symbol_ref "mips_idiv_insns ()")
+	 (cond [(eq_attr "mode" "TI")
+		(symbol_ref "mips_msa_idiv_insns () * 4")]
+	        (symbol_ref "mips_idiv_insns () * 4"))
 
 	 (not (eq_attr "sync_mem" "none"))
 	 (symbol_ref "mips_sync_loop_insns (insn, operands)")]
@@ -853,8 +880,10 @@
 (define_mode_attr fmt [(SF "s") (DF "d") (V2SF "ps")])
 
 ;; This attribute gives the upper-case mode name for one unit of a
-;; floating-point mode.
-(define_mode_attr UNITMODE [(SF "SF") (DF "DF") (V2SF "SF")])
+;; floating-point mode or vector mode.
+(define_mode_attr UNITMODE [(SF "SF") (DF "DF") (V2SF "SF") (V4SF "SF")
+                            (V16QI "QI") (V8HI "HI") (V4SI "SI") (V2DI "DI")
+                            (V2DF "DF")])
 
 ;; This attribute gives the integer mode that has the same size as a
 ;; fixed-point mode.
@@ -1049,6 +1078,9 @@
 (define_insn_reservation "ghost" 0
   (eq_attr "type" "ghost")
   "nothing")
+
+;; Pipeline description for P5600
+(include "P5600.md")
 
 (include "4k.md")
 (include "5k.md")
@@ -4787,7 +4819,7 @@
 (define_expand "movti"
   [(set (match_operand:TI 0)
 	(match_operand:TI 1))]
-  "TARGET_64BIT"
+  "TARGET_64BIT || TARGET_MSA"
 {
   if (mips_legitimize_move (TImode, operands[0], operands[1]))
     DONE;
@@ -4797,6 +4829,7 @@
   [(set (match_operand:TI 0 "nonimmediate_operand" "=d,d,d,m,*a,*a,*d")
 	(match_operand:TI 1 "move_operand" "d,i,m,dJ,*J,*d,*a"))]
   "TARGET_64BIT
+   && !TARGET_MSA
    && !TARGET_MIPS16
    && (register_operand (operands[0], TImode)
        || reg_or_0_operand (operands[1], TImode))"
@@ -4865,7 +4898,7 @@
 (define_split
   [(set (match_operand:MOVE128 0 "nonimmediate_operand")
 	(match_operand:MOVE128 1 "move_operand"))]
-  "reload_completed && mips_split_move_insn_p (operands[0], operands[1], insn)"
+  "reload_completed && !TARGET_MSA && mips_split_move_insn_p (operands[0], operands[1], insn)"
   [(const_int 0)]
 {
   mips_split_move_insn (operands[0], operands[1], curr_insn);
@@ -6091,10 +6124,10 @@
   rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
-  
+
   output_asm_insn ("sltu\t%0, %1", operands);
   output_asm_insn ("bteqz\t%3", operands);
-  
+
   switch (GET_MODE (diff_vec))
     {
     case HImode:
@@ -7184,6 +7217,9 @@
 
 ; ST-Microelectronics Loongson-2E/2F-specific patterns.
 (include "loongson.md")
+
+; The MIPS MSA Instructions.
+(include "mips-msa.md")
 
 (define_c_enum "unspec" [
   UNSPEC_ADDRESS_FIRST
