@@ -197,8 +197,10 @@ extern bool mips_stack_address_p (rtx, enum machine_mode);
 extern int mips_address_insns (rtx, enum machine_mode, bool);
 extern int mips_const_insns (rtx);
 extern int mips_split_const_insns (rtx);
+extern int mips_split_128bit_const_insns (rtx);
 extern int mips_load_store_insns (rtx, rtx);
 extern int mips_idiv_insns (void);
+extern int mips_msa_idiv_insns (void);
 extern rtx mips_emit_move (rtx, rtx);
 #ifdef RTX_CODE
 extern void mips_emit_binary (enum rtx_code, rtx, rtx, rtx);
@@ -212,10 +214,16 @@ extern void mips_move_integer (rtx, rtx, unsigned HOST_WIDE_INT);
 extern bool mips_legitimize_move (enum machine_mode, rtx, rtx);
 
 extern rtx mips_subword (rtx, bool);
+extern rtx mips_subword_at_byte (rtx, unsigned int);
 extern bool mips_split_move_p (rtx, rtx, enum mips_split_type);
-extern void mips_split_move (rtx, rtx, enum mips_split_type);
+extern bool mips_split_128bit_move_p (rtx, rtx);
 extern bool mips_split_move_insn_p (rtx, rtx, rtx);
+extern void mips_split_move (rtx, rtx, enum mips_split_type);
 extern void mips_split_move_insn (rtx, rtx, rtx);
+extern void mips_split_128bit_move (rtx, rtx);
+extern void mips_split_msa_copy_d (rtx, rtx, rtx, rtx (*)(rtx, rtx, rtx));
+extern void mips_split_msa_insert_d (rtx, rtx, rtx, rtx);
+extern void mips_split_msa_fill_d (rtx, rtx);
 extern const char *mips_output_move (rtx, rtx);
 extern bool mips_cfun_has_cprestore_slot_p (void);
 extern bool mips_cprestore_address_p (rtx, bool);
@@ -225,6 +233,7 @@ extern void mips_restore_gp_from_cprestore_slot (rtx);
 extern void mips_expand_scc (rtx *);
 extern void mips_expand_conditional_branch (rtx *);
 extern void mips_expand_vcondv2sf (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
+extern void mips_expand_msa_vcond (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
 extern void mips_expand_conditional_move (rtx *);
 extern void mips_expand_conditional_trap (rtx);
 #endif
@@ -276,7 +285,11 @@ extern void mips_expand_prologue (void);
 extern void mips_expand_before_return (void);
 extern void mips_expand_epilogue (bool);
 extern bool mips_can_use_return_insn (void);
-
+extern bool mips_const_vector_same_val_p (rtx, enum machine_mode);
+extern bool mips_const_vector_same_int_p (rtx, enum machine_mode, HOST_WIDE_INT, HOST_WIDE_INT);
+extern bool mips_const_vector_any_int_p (rtx, enum machine_mode, HOST_WIDE_INT, HOST_WIDE_INT);
+extern bool mips_const_vector_bitimm_set_p (rtx, enum machine_mode);
+extern bool mips_const_vector_bitimm_clr_p (rtx, enum machine_mode);
 extern bool mips_cannot_change_mode_class (enum machine_mode,
 					   enum machine_mode, enum reg_class);
 extern bool mips_dangerous_for_la25_p (rtx);
@@ -285,7 +298,9 @@ extern enum reg_class mips_secondary_reload_class (enum reg_class,
 						   enum machine_mode,
 						   rtx, bool);
 extern int mips_class_max_nregs (enum reg_class, enum machine_mode);
-
+extern enum machine_mode mips_hard_regno_caller_save_mode (unsigned int,
+							   unsigned int,
+							   enum machine_mode);
 extern int mips_adjust_insn_length (rtx, int);
 extern void mips_output_load_label (rtx);
 extern const char *mips_output_conditional_branch (rtx, rtx *, const char *,
@@ -295,6 +310,7 @@ extern const char *mips_output_sync (void);
 extern const char *mips_output_sync_loop (rtx, rtx *);
 extern unsigned int mips_sync_loop_insns (rtx, rtx *);
 extern const char *mips_output_division (const char *, rtx *);
+extern const char *mips_msa_output_division (const char *, rtx *);
 extern const char *mips_output_probe_stack_range (rtx, rtx);
 extern unsigned int mips_hard_regno_nregs (int, enum machine_mode);
 extern bool mips_linked_madd_p (rtx, rtx);
@@ -342,7 +358,7 @@ extern bool umips_movep_target_p (rtx, rtx);
 extern bool umips_12bit_offset_address_p (rtx, enum machine_mode);
 extern bool lwsp_swsp_address_p (rtx, enum machine_mode);
 extern bool m16_based_address_p (rtx, enum machine_mode,
-			         int (*)(rtx_def*, machine_mode)); 
+				 int (*)(rtx_def*, machine_mode)); 
 extern rtx mips_expand_thread_pointer (rtx);
 extern void mips16_expand_get_fcsr (rtx);
 extern void mips16_expand_set_fcsr (rtx);

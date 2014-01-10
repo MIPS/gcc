@@ -308,6 +308,36 @@
    "@internal"
    (match_operand 0 "low_bitmask_operand"))
 
+(define_constraint "YC"
+  "@internal
+   A constant vector with each element is a unsigned bitimm-bit integer with only one bit set"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_bitimm_set_p (op, mode)")))
+
+(define_constraint "YZ"
+  "@internal
+   A constant vector with each element is a unsigned bitimm-bit integer with only one bit clear"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_bitimm_clr_p (op, mode)")))
+
+(define_constraint "Y5"
+  "@internal
+   A constant vector with each element is a signed 6-bit integer"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_any_int_p (op, mode, -32, 31)")))
+
+(define_constraint "Y6"
+  "@internal
+   A constant vector with each element a unsigned 6-bit integer"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_any_int_p (op, mode, 0, 31)")))
+
+(define_constraint "Y8"
+  "@internal
+   A constant vector with each element a unsigned 0-bit integer"
+  (and (match_code "const_vector")
+       (match_test "mips_const_vector_any_int_p (op, mode, 0, 255)")))
+
 (define_memory_constraint "ZC"
   "When compiling microMIPS code, this constraint matches a memory operand
    whose address is formed from a base register and a 12-bit offset.  These

@@ -775,8 +775,9 @@ Objective-C and Objective-C++ Dialects}.
 -mips1  -mips2  -mips3  -mips4  -mips32  -mips32r2  -mips32r3  -mips32r5 @gol
 -mips64  -mips64r2  -mips64r3  -mips64r5 @gol
 -mips16  -mno-mips16  -mflip-mips16 @gol
--minterlink-compressed -mno-interlink-compressed @gol
+-minterlink-compressed  -mno-interlink-compressed @gol
 -minterlink-mips16  -mno-interlink-mips16 @gol
+-minterlink-fr  -mno-interlink-fr @gol
 -mabi=@var{abi}  -mabicalls  -mno-abicalls @gol
 -mshared  -mno-shared  -mplt  -mno-plt  -mxgot  -mno-xgot @gol
 -mgp32  -mgp64  -mfp32  -mfp64  -mhard-float  -msoft-float @gol
@@ -788,6 +789,7 @@ Objective-C and Objective-C++ Dialects}.
 -mvirt -mno-virt @gol
 -mxpa -mno-xpa @gol
 -mmicromips -mno-micromips @gol
+-msa -mno-msa @gol
 -mfpu=@var{fpu-type} @gol
 -msmartmips  -mno-smartmips @gol
 -mpaired-single  -mno-paired-single  -mdmx  -mno-mdmx @gol
