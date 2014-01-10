@@ -270,6 +270,7 @@ foreach option {
     synci
     relax-pic-calls
     mcount-ra-address
+    msa
 } {
     lappend mips_option_groups $option "-m(no-|)$option"
 }
@@ -788,6 +789,12 @@ proc mips-dg-init {} {
 	    "-msynci",
 	    #else
 	    "-mno-synci",
+	    #endif
+
+	    #ifdef __mips_msa
+	    "-msa"
+	    #else
+	    "-mno-msa"
 	    #endif
 
 	    0
