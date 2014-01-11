@@ -402,6 +402,19 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 #define TARGET_DEBUG_TARGET	(rs6000_debug & MASK_DEBUG_TARGET)
 #define TARGET_DEBUG_BUILTIN	(rs6000_debug & MASK_DEBUG_BUILTIN)
 
+/* Helper macros for TFmode.  Quad floating point (TFmode) can be either IBM
+   long double format that uses a pair of doubles, or IEEE 128-bit floating
+   point.  XFmode was added as a way to represent IEEE 128-bit floating point,
+   even if the default for long double is the IBM long double format.
+   Similarly, IFmode is a way to represent the IBM long double format.  */
+#define IEEE128_MODE_P(MODE)				\
+  (((MODE) == XFmode)					\
+   || (((MODE) == TFmode) && TARGET_IEEEQUAD))
+
+#define IBM128_MODE_P(MODE)				\
+  (((MODE) == JFmode)					\
+   || (((MODE) == TFmode) && !TARGET_IEEEQUAD))
+
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
 
@@ -887,7 +900,7 @@ enum data_align { align_abi, align_opt, align_both };
    aligned to 4 or 8 bytes.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
-   || (((MODE) == SFmode || (MODE) == DFmode || (MODE) == TFmode	\
+   || (((MODE) == SFmode || (MODE) == DFmode || IBM128_MODE_P (MODE)	\
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)	\
        && (ALIGN) < 32)							\
    || (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE))))
@@ -1165,7 +1178,7 @@ enum data_align { align_abi, align_opt, align_both };
    && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
    && FP_REGNO_P (REGNO)						\
    ? V2DFmode								\
-   : ((MODE) == TFmode && FP_REGNO_P (REGNO))				\
+   : (IBM128_MODE_P(MODE) && FP_REGNO_P (REGNO))			\
    ? DFmode								\
    : ((MODE) == TDmode && FP_REGNO_P (REGNO))				\
    ? DImode								\
@@ -1177,20 +1190,19 @@ enum data_align { align_abi, align_opt, align_both };
      && INT_REGNO_P (REGNO)) ? 1 : 0)					\
    || (TARGET_VSX && FP_REGNO_P (REGNO)					\
        && GET_MODE_SIZE (MODE) > 8 && ((MODE) != TDmode) 		\
-       && ((MODE) != TFmode)))
+       && !IBM128_MODE_P (MODE)))
 
-/* Note XFmode (i.e. IEEE 128-bit floating point) is not really a vector, but
+#define VSX_VECTOR_MODE(MODE) ((MODE) == V4SFmode || (MODE) == V2DFmode)
+
+/* Note XFmode and possibly TFmode (i.e. IEEE 128-bit floating point) are not really a vector, but
    we want to treat it as a vector for moves, and such.  */
-#define VSX_VECTOR_MODE(MODE)		\
-	 ((MODE) == V4SFmode		\
-	  || (MODE) == V2DFmode		\
-	  || (MODE) == XFmode)
 
-#define ALTIVEC_VECTOR_MODE(MODE)	\
-	 ((MODE) == V16QImode		\
-	  || (MODE) == V8HImode		\
-	  || (MODE) == V4SFmode		\
-	  || (MODE) == V4SImode)
+#define ALTIVEC_VECTOR_MODE(MODE)					\
+  ((MODE) == V16QImode							\
+   || (MODE) == V8HImode						\
+   || (MODE) == V4SFmode						\
+   || (MODE) == V4SImode						\
+   || (TARGET_IEEE128_VECTOR && IEEE128_MODE_P (MODE)))
 
 #define ALTIVEC_OR_VSX_VECTOR_MODE(MODE)				\
   (ALTIVEC_VECTOR_MODE (MODE) || VSX_VECTOR_MODE (MODE)			\
@@ -2612,6 +2624,7 @@ enum rs6000_builtin_type_index
   RS6000_BTI_double,	         /* double_type_node */
   RS6000_BTI_void,	         /* void_type_node */
   RS6000_BTI_ieee128_float,	 /* ieee 128-bit floating point */
+  RS6000_BTI_ibm128_float,	 /* ibm 128-bit double/double floating point */
   RS6000_BTI_MAX
 };
 
@@ -2660,6 +2673,7 @@ enum rs6000_builtin_type_index
 #define double_type_internal_node	 (rs6000_builtin_types[RS6000_BTI_double])
 #define void_type_internal_node		 (rs6000_builtin_types[RS6000_BTI_void])
 #define ieee128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ieee128_float])
+#define ibm128_float_type_node		 (rs6000_builtin_types[RS6000_BTI_ibm128_float])
 
 extern GTY(()) tree rs6000_builtin_types[RS6000_BTI_MAX];
 extern GTY(()) tree rs6000_builtin_decls[RS6000_BUILTIN_COUNT];

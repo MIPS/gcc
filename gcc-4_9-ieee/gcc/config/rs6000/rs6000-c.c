@@ -341,6 +341,8 @@ rs6000_target_modify_macros (bool define_p, HOST_WIDE_INT flags,
     rs6000_define_or_undefine_macro (define_p, "__POWER8_VECTOR__");
   if ((flags & OPTION_MASK_CRYPTO) != 0)
     rs6000_define_or_undefine_macro (define_p, "__CRYPTO__");
+  if ((flags & OPTION_MASK_IEEE128_VECTOR) != 0)
+    rs6000_define_or_undefine_macro (define_p, "__IEEE128_VECTOR__");
 
   /* options from the builtin masks.  */
   if ((bu_mask & RS6000_BTM_SPE) != 0)
