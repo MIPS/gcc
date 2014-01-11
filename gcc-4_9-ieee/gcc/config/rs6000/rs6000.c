@@ -2505,13 +2505,14 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   /* XF mode (ieee 128-bit) where we can pass it as a vector.  We do not have
      arithmetic, so only set the memory modes.  */
-  if (TARGET_IEEE128_VECTOR)
+  if (TARGET_ALTIVEC && TARGET_IEEE128_VECTOR)
     {
-      rs6000_vector_mem[XFmode] = VECTOR_VSX;
+      enum rs6000_vector mem_type = (TARGET_VSX) ? VECTOR_VSX : VECTOR_ALTIVEC;
+      rs6000_vector_mem[XFmode] = mem_type;
       rs6000_vector_align[XFmode] = 128;
       if (TARGET_IEEEQUAD)
 	{
-	  rs6000_vector_mem[TFmode] = VECTOR_VSX;
+	  rs6000_vector_mem[TFmode] = mem_type;
 	  rs6000_vector_align[TFmode] = 128;
 	}
     }
