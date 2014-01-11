@@ -6197,7 +6197,7 @@ pt_solution_set (struct pt_solution *pt, bitmap vars,
   pt->vars_contains_nonlocal = vars_contains_nonlocal;
   pt->vars_contains_escaped
     = (cfun->gimple_df->escaped.anything
-       || bitmap_intersect_p (cfun->gimple_df->escaped.vars, vars));
+       || cfun->gimple_df->escaped.vars->intersects (*vars));
 }
 
 /* Set the points-to solution *PT to point only to the variable VAR.  */
@@ -6406,7 +6406,7 @@ pt_solutions_intersect_1 (struct pt_solution *pt1, struct pt_solution *pt2)
   /* Now both pointers alias if their points-to solution intersects.  */
   return (pt1->vars
 	  && pt2->vars
-	  && bitmap_intersect_p (pt1->vars, pt2->vars));
+	  && pt1->vars->intersects (*pt2->vars));
 }
 
 bool

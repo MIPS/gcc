@@ -4234,7 +4234,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 	  && ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb == test_bb
 	  && single_succ_p (new_dest)
 	  && single_succ (new_dest) == EXIT_BLOCK_PTR_FOR_FN (cfun)
-	  && bitmap_intersect_p (df_get_live_in (new_dest), &merge_set))
+	  && df_get_live_in (new_dest)->intersects (merge_set))
 	{
 	  unsigned int i;
 	  regset_head return_regs (&reg_obstack);
@@ -4272,7 +4272,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 		    if (*def_rec)
 		      df_simulate_uses (insn, &return_regs);
 		  }
-	      if (bitmap_intersect_p (&merge_set, &return_regs))
+	      if (merge_set.intersects (return_regs))
 		return FALSE;
 	    }
 	}

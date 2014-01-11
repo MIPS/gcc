@@ -910,8 +910,8 @@ write_node_summary_p (struct cgraph_node *node,
     return false;
 
   /* See if the info has non-empty intersections with vars we want to encode.  */
-  if (!bitmap_intersect_p (info->statics_not_read, ltrans_statics)
-      && !bitmap_intersect_p (info->statics_not_written, ltrans_statics))
+  if (!info->statics_not_read->intersects (*ltrans_statics)
+      && !info->statics_not_written->intersects (*ltrans_statics))
     return false;
   return true;
 }

@@ -1910,8 +1910,8 @@ undo_transformations (av_set_t *av_ptr, rtx insn)
      required for correctness.  */
   FOR_EACH_EXPR_1 (expr, av_iter, av_ptr)
     if (!sched_insns_conditions_mutex_p (insn, EXPR_INSN_RTX (expr))
-        && bitmap_intersect_p (INSN_REG_SETS (insn),
-                               VINSN_REG_USES (EXPR_VINSN (expr)))
+        && INSN_REG_SETS (insn)->intersects
+	(*VINSN_REG_USES (EXPR_VINSN (expr)))
         /* When an insn looks like 'r1 = r1', we could substitute through
            it, but the above condition will still hold.  This happened with
            gcc.c-torture/execute/961125-1.c.  */
@@ -3651,8 +3651,8 @@ vinsn_vec_has_expr_p (vinsn_vec_t vinsn_vec, expr_t expr)
 	     another pattern due to substitution, and we can't choose
 	     different register as in the above case.  Check all registers
 	     being written instead.  */
-	  if (bitmap_intersect_p (VINSN_REG_SETS (vinsn),
-				  VINSN_REG_SETS (expr_vinsn)))
+	  if (VINSN_REG_SETS (vinsn)->intersects
+	      (*VINSN_REG_SETS (expr_vinsn)))
 	    return true;
 	}
 

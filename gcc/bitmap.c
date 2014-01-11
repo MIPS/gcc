@@ -1805,13 +1805,13 @@ bitmap_equal_p (const_bitmap a, const_bitmap b)
 /* Return true if A AND B is not empty.  */
 
 bool
-bitmap_intersect_p (const_bitmap a, const_bitmap b)
+bitmap_head::intersects (const bitmap_head &other) const
 {
   const bitmap_element *a_elt;
   const bitmap_element *b_elt;
   unsigned ix;
 
-  for (a_elt = a->first, b_elt = b->first;
+  for (a_elt = first, b_elt = other.first;
        a_elt && b_elt;)
     {
       if (a_elt->indx < b_elt->indx)

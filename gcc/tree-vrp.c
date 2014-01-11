@@ -6975,7 +6975,7 @@ compare_names (enum tree_code comp, tree n1, tree n2,
 
   /* If the equivalence sets have a common intersection, then the two
      names can be compared without checking their ranges.  */
-  if (bitmap_intersect_p (e1, e2))
+  if (e1->intersects (*e2))
     {
       e1->clear_bit (SSA_NAME_VERSION (n1));
       e2->clear_bit (SSA_NAME_VERSION (n2));

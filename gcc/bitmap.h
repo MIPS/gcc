@@ -213,6 +213,9 @@ struct GTY(()) bitmap_head {
   unsigned first_set_bit () const;
   unsigned last_set_bit () const;
 
+/* True if the bitmaps intersect (their AND is non-empty).  */
+  bool intersects (const bitmap_head &) const;
+
   void swap (bitmap_head *);
 
   /* Compute bitmap hash (for purposes of hashing etc.)  */
@@ -237,9 +240,6 @@ struct GTY(()) bitmap_head {
 
 /* True if two bitmaps are identical.  */
 extern bool bitmap_equal_p (const_bitmap, const_bitmap);
-
-/* True if the bitmaps intersect (their AND is non-empty).  */
-extern bool bitmap_intersect_p (const_bitmap, const_bitmap);
 
 /* True if the complement of the second intersects the first (their
    AND_COMPL is non-empty).  */
