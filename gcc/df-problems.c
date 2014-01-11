@@ -144,7 +144,7 @@ df_print_bb_index (basic_block bb, FILE *file)
    strings of 1 bits in the kill sets.  Bitvectors that are indexed
    by the regnum are used to represent that there is a killing def
    for the register.  The confluence and transfer functions use
-   these along with the bitmap_clear_range call to remove ranges of
+   these along with the bitmap.clear_range call to remove ranges of
    bits without actually generating a knockout vector.
 
    The kill and sparse_kill and the dense_invalidated_by_call and
@@ -253,9 +253,8 @@ df_rd_simulate_artificial_defs_at_top (basic_block bb, bitmap local_rd)
 	{
 	  unsigned int dregno = DF_REF_REGNO (def);
 	  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	    bitmap_clear_range (local_rd,
-				DF_DEFS_BEGIN (dregno),
-				DF_DEFS_COUNT (dregno));
+	    local_rd->clear_range (DF_DEFS_BEGIN (dregno),
+				   DF_DEFS_COUNT (dregno));
 	  local_rd->set_bit (DF_REF_ID (def));
 	}
     }
@@ -279,9 +278,8 @@ df_rd_simulate_one_insn (basic_block bb ATTRIBUTE_UNUSED, rtx insn,
           || (dregno >= FIRST_PSEUDO_REGISTER))
         {
           if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-	    bitmap_clear_range (local_rd,
-				DF_DEFS_BEGIN (dregno),
-				DF_DEFS_COUNT (dregno));
+	    local_rd->clear_range (DF_DEFS_BEGIN (dregno),
+				   DF_DEFS_COUNT (dregno));
 	  if (!(DF_REF_FLAGS (def)
 		& (DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER)))
 	    local_rd->set_bit (DF_REF_ID (def));
@@ -326,12 +324,12 @@ df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info,
 		      if (n_defs > DF_SPARSE_THRESHOLD)
 			{
 			  bb_info->sparse_kill.set_bit (regno);
-			  bitmap_clear_range (&bb_info->gen, begin, n_defs);
+			  bb_info->gen.clear_range (begin, n_defs);
 			}
 		      else
 			{
-			  bitmap_set_range (&bb_info->kill, begin, n_defs);
-			  bitmap_clear_range (&bb_info->gen, begin, n_defs);
+			  bb_info->kill.set_range (begin, n_defs);
+			  bb_info->gen.clear_range (begin, n_defs);
 			}
 		    }
 
@@ -428,9 +426,8 @@ df_rd_local_compute (bitmap all_blocks)
 	  if (DF_DEFS_COUNT (regno) > DF_SPARSE_THRESHOLD)
 	    sparse_invalidated->set_bit (regno);
 	  else
-	    bitmap_set_range (dense_invalidated,
-			      DF_DEFS_BEGIN (regno),
-			      DF_DEFS_COUNT (regno));
+	    dense_invalidated->set_range (DF_DEFS_BEGIN (regno),
+					  DF_DEFS_COUNT (regno));
 	}
     }
 
@@ -483,9 +480,7 @@ df_rd_confluence_n (edge e)
 
       EXECUTE_IF_SET_IN_BITMAP (sparse_invalidated, 0, regno, bi)
  	{
- 	  bitmap_clear_range (&tmp,
- 			      DF_DEFS_BEGIN (regno),
- 			      DF_DEFS_COUNT (regno));
+ 	  tmp.clear_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
 	}
       changed |= bitmap_ior_into (op1, &tmp);
       return changed;
@@ -524,9 +519,7 @@ df_rd_transfer_function (int bb_index)
       bitmap_copy (&tmp, in);
       EXECUTE_IF_SET_IN_BITMAP (sparse_kill, 0, regno, bi)
 	{
-	  bitmap_clear_range (&tmp,
-			      DF_DEFS_BEGIN (regno),
-			      DF_DEFS_COUNT (regno));
+	  tmp.clear_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
 	}
       bitmap_and_compl_into (&tmp, kill);
       bitmap_ior_into (&tmp, gen);
@@ -553,9 +546,7 @@ df_rd_transfer_function (int bb_index)
 
       bitmap_head live_defs (&df_bitmap_obstack);
       EXECUTE_IF_SET_IN_BITMAP (regs_live_out, 0, regno, bi)
-	bitmap_set_range (&live_defs,
-			  DF_DEFS_BEGIN (regno),
-			  DF_DEFS_COUNT (regno));
+	live_defs.set_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
       changed |= bitmap_and_into (&bb_info->out, &live_defs);
     }
 
@@ -628,7 +619,7 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
       if (HARD_REGISTER_NUM_P (regno)
 	  && (df->changeable_flags & DF_NO_HARD_REGS))
 	continue;
-      bitmap_set_range (&tmp, DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
+      tmp.set_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
       bitmap_and_into (&tmp, defs_set);
       if (! bitmap_empty_p (&tmp))
 	{
@@ -3679,8 +3670,8 @@ df_simulate_one_insn_forwards (basic_block bb, rtx insn, bitmap live)
 	    rtx reg = XEXP (link, 0);
 	    int regno = REGNO (reg);
 	    if (HARD_REGISTER_NUM_P (regno))
-	      bitmap_clear_range (live, regno,
-				  hard_regno_nregs[regno][GET_MODE (reg)]);
+	      live->clear_range (regno,
+				 hard_regno_nregs[regno][GET_MODE (reg)]);
 	    else
 	      live->clear_bit (regno);
 	  }

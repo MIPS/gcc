@@ -206,8 +206,8 @@ mark_effect (rtx exp, regset nonequal)
 	  dest = XEXP (exp, 0);
 	  regno = REGNO (dest);
 	  if (HARD_REGISTER_NUM_P (regno))
-	    bitmap_clear_range (nonequal, regno,
-				hard_regno_nregs[regno][GET_MODE (dest)]);
+	    nonequal->clear_range (regno,
+				   hard_regno_nregs[regno][GET_MODE (dest)]);
 	  else
 	    nonequal->clear_bit (regno);
 	}
@@ -223,8 +223,7 @@ mark_effect (rtx exp, regset nonequal)
 	return true;
       regno = REGNO (dest);
       if (HARD_REGISTER_NUM_P (regno))
-	bitmap_set_range (nonequal, regno,
-			  hard_regno_nregs[regno][GET_MODE (dest)]);
+	nonequal->set_range (regno, hard_regno_nregs[regno][GET_MODE (dest)]);
       else
 	nonequal->set_bit (regno);
       return false;

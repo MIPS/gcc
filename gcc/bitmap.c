@@ -1205,7 +1205,7 @@ bitmap_and_compl_into (bitmap a, const_bitmap b)
 
 /* Set COUNT bits from START in HEAD.  */
 void
-bitmap_set_range (bitmap head, unsigned int start, unsigned int count)
+bitmap_head::set_range (unsigned int start, unsigned int count)
 {
   unsigned int first_index, end_bit_plus1, last_index;
   bitmap_element *elt, *elt_prev;
@@ -1217,7 +1217,7 @@ bitmap_set_range (bitmap head, unsigned int start, unsigned int count)
   first_index = start / BITMAP_ELEMENT_ALL_BITS;
   end_bit_plus1 = start + count;
   last_index = (end_bit_plus1 - 1) / BITMAP_ELEMENT_ALL_BITS;
-  elt = bitmap_find_bit (head, start);
+  elt = bitmap_find_bit (this, start);
 
   /* If bitmap_find_bit returns zero, the current is the closest block
      to the result.  Otherwise, just use bitmap_element_allocate to
@@ -1225,9 +1225,9 @@ bitmap_set_range (bitmap head, unsigned int start, unsigned int count)
      at the end of the bitmap".  */
   if (!elt)
     {
-      elt = bitmap_element_allocate (head);
+      elt = bitmap_element_allocate (this);
       elt->indx = first_index;
-      bitmap_element_link (head, elt);
+      bitmap_element_link (this, elt);
     }
 
   gcc_checking_assert (elt->indx == first_index);
@@ -1244,7 +1244,7 @@ bitmap_set_range (bitmap head, unsigned int start, unsigned int count)
       unsigned int ix;
 
       if (!elt || elt->indx != i)
-	elt = bitmap_elt_insert_after (head, elt_prev, i);
+	elt = bitmap_elt_insert_after (this, elt_prev, i);
 
       if (elt_start_bit <= start)
 	{
@@ -1299,13 +1299,13 @@ bitmap_set_range (bitmap head, unsigned int start, unsigned int count)
       elt = elt->next;
     }
 
-  head->current = elt ? elt : elt_prev;
-  head->indx = head->current->indx;
+  current = elt ? elt : elt_prev;
+  indx = current->indx;
 }
 
 /* Clear COUNT bits from START in HEAD.  */
 void
-bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
+bitmap_head::clear_range (unsigned int start, unsigned int count)
 {
   unsigned int first_index, end_bit_plus1, last_index;
   bitmap_element *elt;
@@ -1316,23 +1316,23 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
   first_index = start / BITMAP_ELEMENT_ALL_BITS;
   end_bit_plus1 = start + count;
   last_index = (end_bit_plus1 - 1) / BITMAP_ELEMENT_ALL_BITS;
-  elt = bitmap_find_bit (head, start);
+  elt = bitmap_find_bit (this, start);
 
   /* If bitmap_find_bit returns zero, the current is the closest block
      to the result.  If the current is less than first index, find the
      next one.  Otherwise, just set elt to be current.  */
   if (!elt)
     {
-      if (head->current)
+      if (current)
 	{
-	  if (head->indx < first_index)
+	  if (indx < first_index)
 	    {
-	      elt = head->current->next;
+	      elt = current->next;
 	      if (!elt)
 		return;
 	    }
 	  else
-	    elt = head->current;
+	    elt = current;
 	}
       else
 	return;
@@ -1347,7 +1347,7 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 
       if (elt_start_bit >= start && elt_end_bit_plus1 <= end_bit_plus1)
 	/* Get rid of the entire elt and go to the next one.  */
-	bitmap_element_free (head, elt);
+	bitmap_element_free (this, elt);
       else
 	{
 	  /* Going to have to knock out some bits in this elt.  */
@@ -1417,15 +1417,15 @@ bitmap_clear_range (bitmap head, unsigned int start, unsigned int count)
 	      }
 	  /* Check to see if there are any bits left.  */
 	  if (clear)
-	    bitmap_element_free (head, elt);
+	    bitmap_element_free (this, elt);
 	}
       elt = next_elt;
     }
 
   if (elt)
     {
-      head->current = elt;
-      head->indx = head->current->indx;
+      current = elt;
+      indx = current->indx;
     }
 }
 

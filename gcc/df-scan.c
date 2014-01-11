@@ -3759,7 +3759,7 @@ df_mark_reg (rtx reg, void *vset)
   if (regno < FIRST_PSEUDO_REGISTER)
     {
       int n = hard_regno_nregs[regno][GET_MODE (reg)];
-      bitmap_set_range (set, regno, n);
+      set->set_range (regno, n);
     }
   else
     set->set_bit (regno);

@@ -1849,8 +1849,7 @@ look_for_hardregs (rtx x, const_rtx pat ATTRIBUTE_UNUSED, void *data)
       && HARD_REGISTER_P (x))
     {
       unsigned int regno = REGNO (x);
-      bitmap_set_range (regs_set, regno,
-			hard_regno_nregs[regno][GET_MODE (x)]);
+      regs_set->set_range (regno, hard_regno_nregs[regno][GET_MODE (x)]);
     }
 }
 

@@ -1791,8 +1791,8 @@ update_live_1 (int src, rtx x)
 	  basic_block b = candidate_table[src].update_bbs.first_member[i];
 
 	  if (HARD_REGISTER_NUM_P (regno))
-	    bitmap_set_range (df_get_live_in (b), regno,
-			      hard_regno_nregs[regno][GET_MODE (reg)]);
+	    df_get_live_in (b)->set_range (regno,
+					   hard_regno_nregs[regno][GET_MODE (reg)]);
 	  else
 	    df_get_live_in (b)->set_bit (regno);
 	}

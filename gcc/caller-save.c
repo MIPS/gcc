@@ -1349,7 +1349,7 @@ add_used_regs_1 (rtx *loc, void *data)
     {
       regno = REGNO (x);
       if (HARD_REGISTER_NUM_P (regno))
-	bitmap_set_range (live, regno, hard_regno_nregs[regno][GET_MODE (x)]);
+	live->set_range (regno, hard_regno_nregs[regno][GET_MODE (x)]);
       else
 	regno = reg_renumber[regno];
     }

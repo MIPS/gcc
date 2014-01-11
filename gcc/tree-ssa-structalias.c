@@ -6680,8 +6680,7 @@ remove_preds_and_fake_succs (constraint_graph_t graph)
   for (i = 1; i < FIRST_REF_NODE; i++)
     {
       if (graph->succs[i])
-	bitmap_clear_range (graph->succs[i], FIRST_REF_NODE,
-			    FIRST_REF_NODE * 2);
+	graph->succs[i]->clear_range (FIRST_REF_NODE, FIRST_REF_NODE * 2);
     }
 
   /* Free the successor list for the non-ref nodes.  */

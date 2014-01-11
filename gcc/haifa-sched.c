@@ -1016,8 +1016,8 @@ setup_ref_regs (rtx x)
     {
       regno = REGNO (x);
       if (HARD_REGISTER_NUM_P (regno))
-	bitmap_set_range (region_ref_regs, regno,
-			  hard_regno_nregs[regno][GET_MODE (x)]);
+	region_ref_regs->set_range (regno,
+				    hard_regno_nregs[regno][GET_MODE (x)]);
       else
 	region_ref_regs->set_bit (REGNO (x));
       return;

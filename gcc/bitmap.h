@@ -204,6 +204,8 @@ struct GTY(()) bitmap_head {
 
 /* Set a single bit in a bitmap.  Return true if the bit changed.  */
   bool set_bit (int);
+  void clear_range (unsigned int, unsigned int);
+  void set_range (unsigned int, unsigned int);
 
   /* Count the number of bits set in the bitmap.  */
   unsigned long count_bits () const;
@@ -262,8 +264,6 @@ extern bool bitmap_and_compl (bitmap, const_bitmap, const_bitmap);
 extern bool bitmap_and_compl_into (bitmap, const_bitmap);
 #define bitmap_compl_and(DST, A, B) bitmap_and_compl (DST, B, A)
 extern void bitmap_compl_and_into (bitmap, const_bitmap);
-extern void bitmap_clear_range (bitmap, unsigned int, unsigned int);
-extern void bitmap_set_range (bitmap, unsigned int, unsigned int);
 extern bool bitmap_ior (bitmap, const_bitmap, const_bitmap);
 extern bool bitmap_ior_into (bitmap, const_bitmap);
 extern void bitmap_xor (bitmap, const_bitmap, const_bitmap);
