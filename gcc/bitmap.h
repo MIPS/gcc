@@ -190,7 +190,7 @@ extern void bitmap_copy (bitmap, const_bitmap);
 /* Head of bitmap linked list.  The 'current' member points to something
    already pointed to by the chain started by first, so GTY((skip)) it.  */
 struct GTY(()) bitmap_head {
-  bitmap_head (bitmap_obstack *o = &bitmap_default_obstack MEM_STAT_DECL)
+  explicit bitmap_head (bitmap_obstack *o = &bitmap_default_obstack MEM_STAT_DECL)
   { bitmap_initialize_stat (this, o PASS_MEM_STAT); }
   explicit bitmap_head (const bitmap_head &other MEM_STAT_DECL)
   {
