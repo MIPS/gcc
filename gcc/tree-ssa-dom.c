@@ -911,7 +911,7 @@ tree_ssa_dominator_optimize (void)
 	  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    continue;
 	  if ((unsigned) bb->index != i)
-	    bitmap_set_bit (need_eh_cleanup, bb->index);
+	    need_eh_cleanup->set_bit (bb->index);
 	}
 
       gimple_purge_all_dead_eh_edges (need_eh_cleanup);
@@ -2441,7 +2441,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	      unlink_stmt_vdef (stmt);
 	      if (gsi_remove (&si, true))
 		{
-		  bitmap_set_bit (need_eh_cleanup, bb->index);
+		  need_eh_cleanup->set_bit (bb->index);
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "  Flagged to clear EH edges.\n");
 		}
@@ -2500,7 +2500,7 @@ optimize_stmt (basic_block bb, gimple_stmt_iterator si)
 	 cannot trap, update the eh information and the cfg to match.  */
       if (maybe_clean_or_replace_eh_stmt (old_stmt, stmt))
 	{
-	  bitmap_set_bit (need_eh_cleanup, bb->index);
+	  need_eh_cleanup->set_bit (bb->index);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "  Flagged to clear EH edges.\n");
 	}
@@ -2775,7 +2775,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 		}
 
 	      result = get_lhs_or_phi_result (use_stmt);
-	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
+	      interesting_names->set_bit (SSA_NAME_VERSION (result));
 	      continue;
 	    }
 
@@ -2816,7 +2816,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 	     mark its containing block as needing EH cleanups.  */
 	  if (maybe_clean_or_replace_eh_stmt (use_stmt, use_stmt))
 	    {
-	      bitmap_set_bit (need_eh_cleanup, gimple_bb (use_stmt)->index);
+	      need_eh_cleanup->set_bit (gimple_bb (use_stmt)->index);
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file, "  Flagged to clear EH edges.\n");
 	    }
@@ -2829,7 +2829,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
                   || is_gimple_min_invariant (gimple_assign_rhs1 (use_stmt))))
             {
 	      tree result = get_lhs_or_phi_result (use_stmt);
-	      bitmap_set_bit (interesting_names, SSA_NAME_VERSION (result));
+	      interesting_names->set_bit (SSA_NAME_VERSION (result));
 	    }
 
 	  /* Propagation into these nodes may make certain edges in
@@ -2877,7 +2877,7 @@ propagate_rhs_into_lhs (gimple stmt, tree lhs, tree rhs, bitmap interesting_name
 			      tree result = gimple_phi_result (phi);
 			      int version = SSA_NAME_VERSION (result);
 
-			      bitmap_set_bit (interesting_names, version);
+			      interesting_names->set_bit (version);
 			    }
 
 			  te->probability += e->probability;

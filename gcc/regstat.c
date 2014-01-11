@@ -151,8 +151,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
 	{
 	  regno = DF_REF_REGNO (use);
-	  bitmap_set_bit (live, regno);
-	  bitmap_set_bit (artificial_uses, regno);
+	  live->set_bit (regno);
+	  artificial_uses->set_bit (regno);
 	}
     }
 
@@ -202,7 +202,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		 Conclusion: such a pseudo must not go in a hard
 		 reg.  */
 	      if (set_jump)
-		bitmap_set_bit (setjmp_crosses, regno);
+		setjmp_crosses->set_bit (regno);
 	    }
 	}
 
@@ -267,7 +267,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		    }
 		  else
 		    {
-		      bitmap_set_bit (local_processed, dregno);
+		      local_processed->set_bit (dregno);
 		      REG_LIVE_LENGTH (dregno) += luid;
 		      local_live_last_luid[dregno] = luid;
 		    }
@@ -318,7 +318,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		REG_BASIC_BLOCK (uregno) = REG_BLOCK_GLOBAL;
 	    }
 
-	  if (bitmap_set_bit (live, uregno))
+	  if (live->set_bit (uregno))
 	    {
 	      /* This register is now live.  Begin to process it locally.
 
@@ -327,8 +327,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		 does not effect the calculations.  */
 	      REG_LIVE_LENGTH (uregno) ++;
 	      local_live_last_luid[uregno] = luid;
-	      bitmap_set_bit (local_live, uregno);
-	      bitmap_set_bit (local_processed, uregno);
+	      local_live->set_bit (uregno);
+	      local_processed->set_bit (uregno);
 	    }
 	}
     }
@@ -456,7 +456,7 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
     {
       df_ref use = *use_rec;
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
-	bitmap_set_bit (live, DF_REF_REGNO (use));
+	live->set_bit (DF_REF_REGNO (use));
     }
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -497,7 +497,7 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
       for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
 	{
 	  df_ref use = *use_rec;
-	  bitmap_set_bit (live, DF_REF_REGNO (use));
+	  live->set_bit (DF_REF_REGNO (use));
 	}
     }
 }

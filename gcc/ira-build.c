@@ -508,7 +508,7 @@ ira_create_allocno (int regno, bool cap_p,
   ALLOCNO_CAP (a) = NULL;
   ALLOCNO_CAP_MEMBER (a) = NULL;
   ALLOCNO_NUM (a) = ira_allocnos_num;
-  bitmap_set_bit (loop_tree_node->all_allocnos, ALLOCNO_NUM (a));
+  loop_tree_node->all_allocnos->set_bit (ALLOCNO_NUM (a));
   ALLOCNO_NREFS (a) = 0;
   ALLOCNO_FREQ (a) = 0;
   ALLOCNO_HARD_REGNO (a) = -1;
@@ -1878,7 +1878,7 @@ create_insn_allocnos (rtx x, bool output_p)
 	  ALLOCNO_NREFS (a)++;
 	  ALLOCNO_FREQ (a) += REG_FREQ_FROM_BB (curr_bb);
 	  if (output_p)
-	    bitmap_set_bit (ira_curr_loop_tree_node->modified_regnos, regno);
+	    ira_curr_loop_tree_node->modified_regnos->set_bit (regno);
 	}
       return;
     }
@@ -1966,8 +1966,7 @@ create_loop_allocnos (edge e)
 	      ira_create_allocno (i, false, parent);
 	    ira_create_allocno (i, false, ira_curr_loop_tree_node);
 	  }
-	bitmap_set_bit (border_allocnos,
-			ALLOCNO_NUM (ira_curr_regno_allocno_map[i]));
+	border_allocnos->set_bit (ALLOCNO_NUM (ira_curr_regno_allocno_map[i]));
       }
 }
 
@@ -2481,7 +2480,7 @@ remove_unnecessary_allocnos (void)
 		  prev_a = a;
 		  ALLOCNO_LOOP_TREE_NODE (a) = parent;
 		  parent->regno_allocno_map[regno] = a;
-		  bitmap_set_bit (parent->all_allocnos, ALLOCNO_NUM (a));
+		  parent->all_allocnos->set_bit (ALLOCNO_NUM (a));
 		  rebuild_p = true;
 		}
 	      else
@@ -2660,7 +2659,7 @@ update_bad_spill_attribute (void)
 	continue;
       FOR_EACH_ALLOCNO_OBJECT (a, obj, aoi)
 	for (r = OBJECT_LIVE_RANGES (obj); r != NULL; r = r->next)
-	  bitmap_set_bit (&dead_points[aclass], r->finish);
+	  dead_points[aclass].set_bit (r->finish);
     }
   FOR_EACH_ALLOCNO (a, ai)
     {

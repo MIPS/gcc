@@ -235,7 +235,7 @@ fix_bb_placements (basic_block from,
 	    {
 	      basic_block *bbs = get_loop_body (from->loop_father);
 	      for (unsigned i = 0; i < from->loop_father->num_nodes; ++i)
-		bitmap_set_bit (loop_closed_ssa_invalidated, bbs[i]->index);
+		loop_closed_ssa_invalidated->set_bit (bbs[i]->index);
 	      free (bbs);
 	    }
 	}
@@ -246,7 +246,7 @@ fix_bb_placements (basic_block from,
 	    continue;
 	  target_loop = from->loop_father;
 	  if (loop_closed_ssa_invalidated)
-	    bitmap_set_bit (loop_closed_ssa_invalidated, from->index);
+	    loop_closed_ssa_invalidated->set_bit (from->index);
 	}
 
       FOR_EACH_EDGE (e, ei, from->succs)
@@ -1231,7 +1231,7 @@ duplicate_loop_to_header_edge (struct loop *loop, edge e,
 	    {
 	      if (bbs[i] != orig->src
 		  && dominated_by_p (CDI_DOMINATORS, bbs[i], orig->src))
-		bitmap_set_bit (&bbs_to_scale, i);
+		bbs_to_scale.set_bit (i);
 	    }
 	}
 

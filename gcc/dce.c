@@ -380,7 +380,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
 	  }
 	for (byte = off; byte < off + MEM_SIZE (mem); byte++)
 	  {
-	    if (!bitmap_set_bit (&sp_bytes, byte - min_sp_off))
+	    if (!sp_bytes.set_bit (byte - min_sp_off))
 	      gcc_unreachable ();
 	  }
       }
@@ -472,7 +472,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
       if (do_mark)
 	mark_insn (insn, fast);
       else
-	bitmap_set_bit (arg_stores, INSN_UID (insn));
+	arg_stores->set_bit (INSN_UID (insn));
 
       if (bitmap_empty_p (&sp_bytes))
 	{
@@ -1048,7 +1048,7 @@ fast_dce (bool word_level)
   prescan_insns_for_dce (true);
 
   for (i = 0; i < n_blocks; i++)
-    bitmap_set_bit (&all_blocks, postorder[i]);
+    all_blocks.set_bit (postorder[i]);
 
   dead_debug_global_init (&global_debug, NULL);
 
@@ -1064,7 +1064,7 @@ fast_dce (bool word_level)
 
 	  if (index < NUM_FIXED_BLOCKS)
 	    {
-	      bitmap_set_bit (&processed, index);
+	      processed.set_bit (index);
 	      continue;
 	    }
 
@@ -1077,7 +1077,7 @@ fast_dce (bool word_level)
 	      = dce_process_block (bb, bitmap_bit_p (&redo_out, index),
 				   bb_has_eh_pred (bb) ? au_eh : au,
 				   &global_debug);
-	  bitmap_set_bit (&processed, index);
+	  processed.set_bit (index);
 
 	  if (local_changed)
 	    {
@@ -1091,7 +1091,7 @@ fast_dce (bool word_level)
 		     entry to a loop.  */
 		  global_changed = true;
 		else
-		  bitmap_set_bit (&redo_out, e->src->index);
+		  redo_out.set_bit (e->src->index);
 	    }
 	}
 

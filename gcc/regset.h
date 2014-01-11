@@ -77,7 +77,7 @@ typedef bitmap regset;
 #define CLEAR_REGNO_REG_SET(HEAD, REG) (HEAD)->clear_bit (REG)
 
 /* Set a single register in a register set.  */
-#define SET_REGNO_REG_SET(HEAD, REG) bitmap_set_bit (HEAD, REG)
+#define SET_REGNO_REG_SET(HEAD, REG) (HEAD)->set_bit (REG)
 
 /* Return true if a register is set in a register set.  */
 #define REGNO_REG_SET_P(TO, REG) bitmap_bit_p (TO, REG)

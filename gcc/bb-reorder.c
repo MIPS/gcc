@@ -2452,7 +2452,7 @@ duplicate_computed_gotos (void)
       if (all_flags & EDGE_COMPLEX)
 	continue;
 
-      bitmap_set_bit (&candidates, bb->index);
+      candidates.set_bit (bb->index);
     }
 
   /* Nothing to do if there is no computed jump here.  */

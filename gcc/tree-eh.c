@@ -837,7 +837,7 @@ emit_eh_dispatch (gimple_seq *seq, eh_region region)
 static void
 note_eh_region_may_contain_throw (eh_region region)
 {
-  while (bitmap_set_bit (eh_region_may_contain_throw_map, region->index))
+  while (eh_region_may_contain_throw_map->set_bit (region->index))
     {
       if (region->type == ERT_MUST_NOT_THROW)
 	break;
@@ -4185,7 +4185,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
 		    goto fail;
 		}
 	    }
-	  bitmap_set_bit (&ophi_handled, SSA_NAME_VERSION (nop));
+	  ophi_handled.set_bit (SSA_NAME_VERSION (nop));
 	  FOR_EACH_EDGE (e, ei, old_bb->preds)
 	    {
 	      location_t oloc;

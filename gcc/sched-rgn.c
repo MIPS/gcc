@@ -1794,7 +1794,7 @@ update_live_1 (int src, rtx x)
 	    bitmap_set_range (df_get_live_in (b), regno,
 			      hard_regno_nregs[regno][GET_MODE (reg)]);
 	  else
-	    bitmap_set_bit (df_get_live_in (b), regno);
+	    df_get_live_in (b)->set_bit (regno);
 	}
     }
 }
@@ -3477,7 +3477,7 @@ static void
 rgn_add_block (basic_block bb, basic_block after)
 {
   extend_regions ();
-  bitmap_set_bit (&not_in_df, bb->index);
+  not_in_df.set_bit (bb->index);
 
   if (after == 0 || after == EXIT_BLOCK_PTR_FOR_FN (cfun))
     {

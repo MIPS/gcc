@@ -283,7 +283,7 @@ partition_view_init (var_map map)
       if (ssa_name (tmp) != NULL_TREE && !virtual_operand_p (ssa_name (tmp))
 	  && (!has_zero_uses (ssa_name (tmp))
 	      || !SSA_NAME_IS_DEFAULT_DEF (ssa_name (tmp))))
-	bitmap_set_bit (used, tmp);
+	used->set_bit (tmp);
     }
 
   map->num_partitions = map->partition_size;
@@ -365,7 +365,7 @@ partition_view_bitmap (var_map map, bitmap only, bool want_bases)
     {
       p = partition_find (map->var_partition, x);
       gcc_assert (bitmap_bit_p (used, p));
-      bitmap_set_bit (new_partitions, p);
+      new_partitions->set_bit (p);
     }
   partition_view_fini (map, new_partitions);
 
@@ -384,7 +384,7 @@ static bitmap usedvars;
 static inline bool
 set_is_used (tree var)
 {
-  return bitmap_set_bit (usedvars, DECL_UID (var));
+  return usedvars->set_bit (DECL_UID (var));
 }
 
 /* Return true if VAR is marked as used.  */
@@ -1088,7 +1088,7 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
       def_bb = gimple_bb (stmt);
       /* Mark defs in liveout bitmap temporarily.  */
       if (def_bb)
-	bitmap_set_bit (&live->liveout[def_bb->index], p);
+	live->liveout[def_bb->index].set_bit (p);
     }
   else
     def_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
@@ -1127,14 +1127,14 @@ set_var_live_on_entry (tree ssa_name, tree_live_info_p live)
       if (add_block)
         {
 	  global = true;
-	  bitmap_set_bit (&live->livein[add_block->index], p);
+	  live->livein[add_block->index].set_bit (p);
 	}
     }
 
   /* If SSA_NAME is live on entry to at least one block, fill in all the live
      on entry blocks between the def and all the uses.  */
   if (global)
-    bitmap_set_bit (live->global, p);
+    live->global->set_bit (p);
 }
 
 
@@ -1174,7 +1174,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 		continue;
 	      e = gimple_phi_arg_edge (phi, i);
 	      if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
-		bitmap_set_bit (&liveinfo->liveout[e->src->index], p);
+		liveinfo->liveout[e->src->index].set_bit (p);
 	    }
 	}
 

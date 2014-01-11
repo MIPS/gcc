@@ -6582,7 +6582,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	     == VAR_DECL)
 	{
 	  t = OMP_FOR_PRE_BODY (for_stmt);
-	  bitmap_set_bit (&has_decl_expr, DECL_UID (DECL_EXPR_DECL (t)));
+	  has_decl_expr.set_bit (DECL_UID (DECL_EXPR_DECL (t)));
 	}
       else if (TREE_CODE (OMP_FOR_PRE_BODY (for_stmt)) == STATEMENT_LIST)
 	{
@@ -6593,7 +6593,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	      t = tsi_stmt (si);
 	      if (TREE_CODE (t) == DECL_EXPR
 		  && TREE_CODE (DECL_EXPR_DECL (t)) == VAR_DECL)
-		bitmap_set_bit (&has_decl_expr, DECL_UID (DECL_EXPR_DECL (t)));
+		has_decl_expr.set_bit (DECL_UID (DECL_EXPR_DECL (t)));
 	    }
 	}
     }

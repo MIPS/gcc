@@ -1909,7 +1909,7 @@ do_invalidate (basic_block dombb, gimple phi, bitmap visited, int *count)
       basic_block bb = gimple_bb (stmt);
       if (bb == NULL
 	  || bb == dombb
-	  || !bitmap_set_bit (visited, bb->index)
+	  || !visited->set_bit (bb->index)
 	  || !dominated_by_p (CDI_DOMINATORS, bb, dombb))
 	continue;
       while (1)
@@ -1935,7 +1935,7 @@ do_invalidate (basic_block dombb, gimple phi, bitmap visited, int *count)
 	      bb = gimple_bb (stmt);
 	      if (bb == NULL
 		  || bb == dombb
-		  || !bitmap_set_bit (visited, bb->index)
+		  || !visited->set_bit (bb->index)
 		  || !dominated_by_p (CDI_DOMINATORS, bb, dombb))
 		break;
 	    }

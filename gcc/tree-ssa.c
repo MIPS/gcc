@@ -1024,8 +1024,8 @@ verify_ssa (bool check_modified_stmt)
 	  if (verify_phi_args (phi, bb, definition_block))
 	    goto err;
 
-	  bitmap_set_bit (&names_defined_in_bb,
-			  SSA_NAME_VERSION (gimple_phi_result (phi)));
+	  names_defined_in_bb.set_bit
+	    (SSA_NAME_VERSION (gimple_phi_result (phi)));
 	}
 
       /* Now verify all the uses and vuses in every statement of the block.  */
@@ -1072,7 +1072,7 @@ verify_ssa (bool check_modified_stmt)
 				     4, TDF_VOPS);
 		  goto err;
 		}
-	      bitmap_set_bit (&names_defined_in_bb, SSA_NAME_VERSION (op));
+	      names_defined_in_bb.set_bit (SSA_NAME_VERSION (op));
 	    }
 	}
 
@@ -1411,7 +1411,7 @@ maybe_optimize_var (tree var, bitmap addresses_taken, bitmap not_reg_needs,
     {
       TREE_ADDRESSABLE (var) = 0;
       if (is_gimple_reg (var))
-	bitmap_set_bit (suitable_for_renaming, DECL_UID (var));
+	suitable_for_renaming->set_bit (DECL_UID (var));
       if (dump_file)
 	{
 	  fprintf (dump_file, "No longer having address taken: ");
@@ -1428,7 +1428,7 @@ maybe_optimize_var (tree var, bitmap addresses_taken, bitmap not_reg_needs,
       && (TREE_CODE (var) != VAR_DECL || !DECL_HARD_REGISTER (var)))
     {
       DECL_GIMPLE_REG_P (var) = 1;
-      bitmap_set_bit (suitable_for_renaming, DECL_UID (var));
+      suitable_for_renaming->set_bit (DECL_UID (var));
       if (dump_file)
 	{
 	  fprintf (dump_file, "Now a gimple register: ");
@@ -1475,7 +1475,7 @@ execute_update_addresses_taken (void)
 		{
 		  decl = get_base_address (lhs);
 		  if (DECL_P (decl))
-		    bitmap_set_bit (&not_reg_needs, DECL_UID (decl));
+		    not_reg_needs.set_bit (DECL_UID (decl));
                 }
 	    }
 
@@ -1483,7 +1483,7 @@ execute_update_addresses_taken (void)
 	    {
 	      tree rhs = gimple_assign_rhs1 (stmt);
 	      if ((decl = non_rewritable_mem_ref_base (rhs)))
-		bitmap_set_bit (&not_reg_needs, DECL_UID (decl));
+		not_reg_needs.set_bit (DECL_UID (decl));
 	    }
 
 	  else if (code == GIMPLE_CALL)
@@ -1492,7 +1492,7 @@ execute_update_addresses_taken (void)
 		{
 		  tree arg = gimple_call_arg (stmt, i);
 		  if ((decl = non_rewritable_mem_ref_base (arg)))
-		    bitmap_set_bit (&not_reg_needs, DECL_UID (decl));
+		    not_reg_needs.set_bit (DECL_UID (decl));
 		}
 	    }
 
@@ -1512,14 +1512,14 @@ execute_update_addresses_taken (void)
 				 require we do not need any.  */
 			      || !useless_type_conversion_p
 			            (TREE_TYPE (lhs), TREE_TYPE (decl))))
-			bitmap_set_bit (&not_reg_needs, DECL_UID (decl));
+			not_reg_needs.set_bit (DECL_UID (decl));
 		    }
 		}
 	      for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
 		{
 		  tree link = gimple_asm_input_op (stmt, i);
 		  if ((decl = non_rewritable_mem_ref_base (TREE_VALUE (link))))
-		    bitmap_set_bit (&not_reg_needs, DECL_UID (decl));
+		    not_reg_needs.set_bit (DECL_UID (decl));
 		}
 	    }
 	}
@@ -1535,7 +1535,7 @@ execute_update_addresses_taken (void)
 	      if (TREE_CODE (op) == ADDR_EXPR
 		  && (var = get_base_address (TREE_OPERAND (op, 0))) != NULL
 		  && DECL_P (var))
-		bitmap_set_bit (&addresses_taken, DECL_UID (var));
+		addresses_taken.set_bit (DECL_UID (var));
 	    }
 	}
     }

@@ -207,7 +207,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 			   && ! flow_loop_nested_p (def_loop, use_loop));
       if (! flow_loop_nested_p (use_loop, def_loop))
 	use_bb = find_sibling_superloop (use_loop, def_loop)->header;
-      if (bitmap_set_bit (live_exits, use_bb->index))
+      if (live_exits->set_bit (use_bb->index))
 	worklist.safe_push (use_bb);
     }
 
@@ -248,7 +248,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 
 	  /* Add PRED to the LIVEIN set.  PRED_VISITED is true if
 	     we had already added PRED to LIVEIN before.  */
-	  pred_visited = !bitmap_set_bit (live_exits, pred->index);
+	  pred_visited = !live_exits->set_bit (pred->index);
 
 	  /* If we have visited PRED before, don't add it to the worklist.
 	     If BB dominates PRED, then we're probably looking at a loop.
@@ -357,7 +357,7 @@ get_loops_exits (bitmap *loop_exits)
       vec<edge> exit_edges = get_loop_exit_edges (loop);
       loop_exits[loop->num] = BITMAP_ALLOC (&loop_renamer_obstack);
       FOR_EACH_VEC_ELT (exit_edges, j, e)
-        bitmap_set_bit (loop_exits[loop->num], e->dest->index);
+        loop_exits[loop->num]->set_bit (e->dest->index);
       exit_edges.release ();
     }
 }
@@ -394,9 +394,9 @@ find_uses_to_rename_use (basic_block bb, tree use, bitmap *use_blocks,
 
   /* If we're seeing VER for the first time, we still have to allocate
      a bitmap for its uses.  */
-  if (bitmap_set_bit (need_phis, ver))
+  if (need_phis->set_bit (ver))
     use_blocks[ver] = BITMAP_ALLOC (&loop_renamer_obstack);
-  bitmap_set_bit (use_blocks[ver], bb->index);
+  use_blocks[ver]->set_bit (bb->index);
 }
 
 /* For uses in STMT, mark names that are used outside of the loop they are

@@ -548,7 +548,7 @@ df_set_blocks (bitmap blocks)
 		      basic_block bb;
 		      FOR_ALL_BB_FN (bb, cfun)
 			{
-			  bitmap_set_bit (&blocks_to_reset, bb->index);
+			  blocks_to_reset.set_bit (bb->index);
 			}
 		    }
 		  dflow->problem->reset_fun (&blocks_to_reset);
@@ -952,7 +952,7 @@ df_worklist_propagate_forward (struct dataflow *dataflow,
           unsigned ob_index = e->dest->index;
 
           if (bitmap_bit_p (considered, ob_index))
-            bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
+            pending->set_bit (bbindex_to_postorder[ob_index]);
         }
       return true;
     }
@@ -997,7 +997,7 @@ df_worklist_propagate_backward (struct dataflow *dataflow,
           unsigned ob_index = e->src->index;
 
           if (bitmap_bit_p (considered, ob_index))
-            bitmap_set_bit (pending, bbindex_to_postorder[ob_index]);
+            pending->set_bit (bbindex_to_postorder[ob_index]);
         }
       return true;
     }
@@ -1139,7 +1139,7 @@ df_worklist_dataflow (struct dataflow *dataflow,
     {
       bbindex_to_postorder[blocks_in_postorder[i]] = i;
       /* Add all blocks to the worklist.  */
-      bitmap_set_bit (pending, i);
+      pending->set_bit (i);
     }
 
   /* Initialize the problem. */
@@ -1289,7 +1289,7 @@ df_analyze (void)
   df->n_blocks_inverted = inverted_post_order_compute (df->postorder_inverted);
 
   for (i = 0; i < df->n_blocks; i++)
-    bitmap_set_bit (current_all_blocks, df->postorder[i]);
+    current_all_blocks->set_bit (df->postorder[i]);
 
 #ifdef ENABLE_CHECKING
   /* Verify that POSTORDER_INVERTED only contains blocks reachable from
@@ -1354,7 +1354,7 @@ loop_post_order_compute (int *post_order, struct loop *loop)
       /* Check if the edge destination has been visited yet and mark it
          if not so.  */
       if (flow_bb_inside_loop_p (loop, dest)
-	  && bitmap_set_bit (visited, dest->index))
+	  && visited->set_bit (dest->index))
 	{
 	  if (EDGE_COUNT (dest->succs) > 0)
 	    /* Since the DEST node has been visited for the first
@@ -1406,7 +1406,7 @@ loop_inverted_post_order_compute (int *post_order, struct loop *loop)
      endless loops.  It doesn't really matter for DF iteration order and
      handling latches last is probably even better.  */
   stack[sp++] = ei_start (loop->header->preds);
-  bitmap_set_bit (visited, loop->header->index);
+  visited->set_bit (loop->header->index);
 
   /* The inverted traversal loop. */
   while (sp)
@@ -1422,7 +1422,7 @@ loop_inverted_post_order_compute (int *post_order, struct loop *loop)
       /* Check if the predecessor has been visited yet and mark it
 	 if not so.  */
       if (flow_bb_inside_loop_p (loop, pred)
-	  && bitmap_set_bit (visited, pred->index))
+	  && visited->set_bit (pred->index))
 	{
 	  if (EDGE_COUNT (pred->preds) > 0)
 	    /* Since the predecessor node has been visited for the first
@@ -1468,7 +1468,7 @@ df_analyze_loop (struct loop *loop)
 
   bitmap blocks = BITMAP_ALLOC (&df_bitmap_obstack);
   for (int i = 0; i < df->n_blocks; ++i)
-    bitmap_set_bit (blocks, df->postorder[i]);
+    blocks->set_bit (df->postorder[i]);
   df_set_blocks (blocks);
   BITMAP_FREE (blocks);
 
@@ -1627,7 +1627,7 @@ df_set_bb_dirty (basic_block bb)
 	{
 	  struct dataflow *dflow = df->problems_in_order[p];
 	  if (dflow->out_of_date_transfer_functions)
-	    bitmap_set_bit (dflow->out_of_date_transfer_functions, bb->index);
+	    dflow->out_of_date_transfer_functions->set_bit (bb->index);
 	}
       df_mark_solutions_dirty ();
     }
@@ -1694,15 +1694,15 @@ df_compact_blocks (void)
 	  bitmap_copy (&tmp, dflow->out_of_date_transfer_functions);
 	  bitmap_clear (dflow->out_of_date_transfer_functions);
 	  if (bitmap_bit_p (&tmp, ENTRY_BLOCK))
-	    bitmap_set_bit (dflow->out_of_date_transfer_functions, ENTRY_BLOCK);
+	    dflow->out_of_date_transfer_functions->set_bit (ENTRY_BLOCK);
 	  if (bitmap_bit_p (&tmp, EXIT_BLOCK))
-	    bitmap_set_bit (dflow->out_of_date_transfer_functions, EXIT_BLOCK);
+	    dflow->out_of_date_transfer_functions->set_bit (EXIT_BLOCK);
 
 	  i = NUM_FIXED_BLOCKS;
 	  FOR_EACH_BB_FN (bb, cfun)
 	    {
 	      if (bitmap_bit_p (&tmp, bb->index))
-		bitmap_set_bit (dflow->out_of_date_transfer_functions, i);
+		dflow->out_of_date_transfer_functions->set_bit (i);
 	      i++;
 	    }
 	}
@@ -1740,16 +1740,16 @@ df_compact_blocks (void)
   if (df->blocks_to_analyze)
     {
       if (bitmap_bit_p (&tmp, ENTRY_BLOCK))
-	bitmap_set_bit (df->blocks_to_analyze, ENTRY_BLOCK);
+	df->blocks_to_analyze->set_bit (ENTRY_BLOCK);
       if (bitmap_bit_p (&tmp, EXIT_BLOCK))
-	bitmap_set_bit (df->blocks_to_analyze, EXIT_BLOCK);
+	df->blocks_to_analyze->set_bit (EXIT_BLOCK);
       bitmap_copy (&tmp, df->blocks_to_analyze);
       bitmap_clear (df->blocks_to_analyze);
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB_FN (bb, cfun)
 	{
 	  if (bitmap_bit_p (&tmp, bb->index))
-	    bitmap_set_bit (df->blocks_to_analyze, i);
+	    df->blocks_to_analyze->set_bit (i);
 	  i++;
 	}
     }

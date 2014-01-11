@@ -310,7 +310,7 @@ dead_debug_global_replace_temp (struct dead_debug_global *global,
     {
       if (!*pto_rescan)
 	*pto_rescan = BITMAP_ALLOC (NULL);
-      bitmap_set_bit (*pto_rescan, INSN_UID (DF_REF_INSN (use)));
+      (*pto_rescan)->set_bit (INSN_UID (DF_REF_INSN (use)));
     }
 
   return true;
@@ -350,7 +350,7 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
 	  if (got_head)
 	    df_insn_rescan_debug_internal (insn);
 	  else
-	    bitmap_set_bit (rescan, INSN_UID (insn));
+	    rescan->set_bit (INSN_UID (insn));
 	  if (debug->to_rescan)
 	    debug->to_rescan->clear_bit (INSN_UID (insn));
 	}
@@ -407,7 +407,7 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
       if (!debug->global->used)
 	debug->global->used = BITMAP_ALLOC (NULL);
 
-      bool added = bitmap_set_bit (debug->global->used, REGNO (reg));
+      bool added = debug->global->used->set_bit (REGNO (reg));
       gcc_checking_assert (added);
 
       entry = dead_debug_global_insert (debug->global, reg,
@@ -431,7 +431,7 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
 	      {
 		rtx insn = DF_REF_INSN (ref);
 		INSN_VAR_LOCATION_LOC (insn) = gen_rtx_UNKNOWN_VAR_LOC ();
-		bitmap_set_bit (debug->to_rescan, INSN_UID (insn));
+		debug->to_rescan->set_bit (INSN_UID (insn));
 	      }
 	  }
 
@@ -446,7 +446,7 @@ dead_debug_promote_uses (struct dead_debug_local *debug)
 					 gen_rtx_UNKNOWN_VAR_LOC (),
 					 VAR_INIT_STATUS_INITIALIZED);
 	    rtx insn = emit_debug_insn_before (bind, DF_REF_INSN (ref));
-	    bitmap_set_bit (debug->to_rescan, INSN_UID (insn));
+	    debug->to_rescan->set_bit (INSN_UID (insn));
 	  }
 
       entry->dtemp = NULL;
@@ -520,7 +520,7 @@ dead_debug_add (struct dead_debug_local *debug, df_ref use, unsigned int uregno)
   /* ??? If we dealt with split multi-registers below, we should set
      all registers for the used mode in case of hardware
      registers.  */
-  bitmap_set_bit (debug->used, uregno);
+  debug->used->set_bit (uregno);
 }
 
 /* If UREGNO is referenced by any entry in DEBUG, emit a debug insn
@@ -720,7 +720,7 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
     bind = emit_debug_insn_before (bind, insn);
   if (debug->to_rescan == NULL)
     debug->to_rescan = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (debug->to_rescan, INSN_UID (bind));
+  debug->to_rescan->set_bit (INSN_UID (bind));
 
   /* Adjust all uses.  */
   while ((cur = uses))
@@ -731,7 +731,7 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
 	*DF_REF_REAL_LOC (cur->use)
 	  = gen_lowpart_SUBREG (GET_MODE (*DF_REF_REAL_LOC (cur->use)), dval);
       /* ??? Should we simplify subreg of subreg?  */
-      bitmap_set_bit (debug->to_rescan, INSN_UID (DF_REF_INSN (cur->use)));
+      debug->to_rescan->set_bit (INSN_UID (DF_REF_INSN (cur->use)));
       uses = cur->next;
       XDELETE (cur);
     }

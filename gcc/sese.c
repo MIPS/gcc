@@ -142,7 +142,7 @@ sese_record_loop (sese region, loop_p loop)
   if (sese_contains_loop (region, loop))
     return;
 
-  bitmap_set_bit (SESE_LOOPS (region), loop->num);
+  SESE_LOOPS (region)->set_bit (loop->num);
   SESE_LOOP_NEST (region).safe_push (loop);
 }
 
@@ -205,7 +205,7 @@ sese_build_liveouts_use (sese region, bitmap liveouts, basic_block bb,
       || bb_in_sese_p (bb, region))
     return;
 
-  bitmap_set_bit (liveouts, ver);
+  liveouts->set_bit (ver);
 }
 
 /* Marks for rewrite all the SSA_NAMES defined in REGION and that are

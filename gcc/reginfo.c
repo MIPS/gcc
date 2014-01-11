@@ -1214,8 +1214,7 @@ record_subregs_of_mode (rtx subreg, bitmap subregs_of_mode)
   if (regno < FIRST_PSEUDO_REGISTER)
     return;
 
-  if (bitmap_set_bit (subregs_of_mode,
-		      regno * NUM_MACHINE_MODES + (unsigned int) mode))
+  if (subregs_of_mode->set_bit (regno * NUM_MACHINE_MODES + (unsigned int)mode))
     {
       unsigned int rclass;
       for (rclass = 0; rclass < N_REG_CLASSES; rclass++)
@@ -1223,8 +1222,7 @@ record_subregs_of_mode (rtx subreg, bitmap subregs_of_mode)
 			   regno * N_REG_CLASSES + rclass)
 	    && CANNOT_CHANGE_MODE_CLASS (PSEUDO_REGNO_MODE (regno),
 					 mode, (enum reg_class) rclass))
-	  bitmap_set_bit (invalid_mode_changes,
-			  regno * N_REG_CLASSES + rclass);
+	  invalid_mode_changes->set_bit (regno * N_REG_CLASSES + rclass);
     }
 }
 

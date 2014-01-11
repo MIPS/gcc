@@ -1037,19 +1037,19 @@ set_dependency_caches (dep_t dep)
       switch (DEP_TYPE (dep))
 	{
 	case REG_DEP_TRUE:
-	  bitmap_set_bit (&true_dependency_cache[insn_luid], elem_luid);
+	  true_dependency_cache[insn_luid].set_bit (elem_luid);
 	  break;
 
 	case REG_DEP_OUTPUT:
-	  bitmap_set_bit (&output_dependency_cache[insn_luid], elem_luid);
+	  output_dependency_cache[insn_luid].set_bit (elem_luid);
 	  break;
 
 	case REG_DEP_ANTI:
-	  bitmap_set_bit (&anti_dependency_cache[insn_luid], elem_luid);
+	  anti_dependency_cache[insn_luid].set_bit (elem_luid);
 	  break;
 
 	case REG_DEP_CONTROL:
-	  bitmap_set_bit (&control_dependency_cache[insn_luid], elem_luid);
+	  control_dependency_cache[insn_luid].set_bit (elem_luid);
 	  break;
 
 	default:
@@ -1061,18 +1061,18 @@ set_dependency_caches (dep_t dep)
       ds_t ds = DEP_STATUS (dep);
 
       if (ds & DEP_TRUE)
-	bitmap_set_bit (&true_dependency_cache[insn_luid], elem_luid);
+	true_dependency_cache[insn_luid].set_bit (elem_luid);
       if (ds & DEP_OUTPUT)
-	bitmap_set_bit (&output_dependency_cache[insn_luid], elem_luid);
+	output_dependency_cache[insn_luid].set_bit (elem_luid);
       if (ds & DEP_ANTI)
-	bitmap_set_bit (&anti_dependency_cache[insn_luid], elem_luid);
+	anti_dependency_cache[insn_luid].set_bit (elem_luid);
       if (ds & DEP_CONTROL)
-	bitmap_set_bit (&control_dependency_cache[insn_luid], elem_luid);
+	control_dependency_cache[insn_luid].set_bit (elem_luid);
 
       if (ds & SPECULATIVE)
 	{
 	  gcc_assert (current_sched_info->flags & DO_SPECULATION);
-	  bitmap_set_bit (&spec_dependency_cache[insn_luid], elem_luid);
+	  spec_dependency_cache[insn_luid].set_bit (elem_luid);
 	}
     }
 }

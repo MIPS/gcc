@@ -536,7 +536,7 @@ ssa_conflicts_add_one (ssa_conflicts_p ptr, unsigned x, unsigned y)
   /* If there are no conflicts yet, allocate the bitmap and set bit.  */
   if (! bx)
     bx = ptr->conflicts[x] = BITMAP_ALLOC (&ptr->obstack);
-  bitmap_set_bit (bx, y);
+  bx->set_bit (y);
 }
 
 
@@ -572,7 +572,7 @@ ssa_conflicts_merge (ssa_conflicts_p ptr, unsigned x, unsigned y)
     {
       bitmap bz = ptr->conflicts[z];
       if (bz)
-	bitmap_set_bit (bz, x);
+	bz->set_bit (x);
     }
 
   if (bx)
@@ -691,9 +691,9 @@ live_track_add_partition (live_track_p ptr, int partition)
   root = basevar_index (ptr->map, partition);
   /* If this base var wasn't live before, it is now.  Clear the element list
      since it was delayed until needed.  */
-  if (bitmap_set_bit (ptr->live_base_var, root))
+  if (ptr->live_base_var->set_bit (root))
     bitmap_clear (ptr->live_base_partitions[root]);
-  bitmap_set_bit (ptr->live_base_partitions[root], partition);
+  ptr->live_base_partitions[root]->set_bit (partition);
 
 }
 
@@ -959,7 +959,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		  || (e->flags & EDGE_ABNORMAL))
 		{
 		  saw_copy = true;
-		  bitmap_set_bit (used_in_copy, SSA_NAME_VERSION (arg));
+		  used_in_copy->set_bit (SSA_NAME_VERSION (arg));
 		  if ((e->flags & EDGE_ABNORMAL) == 0)
 		    {
 		      int cost = coalesce_cost_edge (e);
@@ -971,7 +971,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		}
 	    }
 	  if (saw_copy)
-	    bitmap_set_bit (used_in_copy, ver);
+	    used_in_copy->set_bit (ver);
 	}
 
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -999,8 +999,8 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		    v2 = SSA_NAME_VERSION (rhs1);
 		    cost = coalesce_cost_bb (bb);
 		    add_coalesce (cl, v1, v2, cost);
-		    bitmap_set_bit (used_in_copy, v1);
-		    bitmap_set_bit (used_in_copy, v2);
+		    used_in_copy->set_bit (v1);
+		    used_in_copy->set_bit (v2);
 		  }
 	      }
 	      break;
@@ -1049,8 +1049,8 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 			cost = coalesce_cost (REG_BR_PROB_BASE,
 					      optimize_bb_for_size_p (bb));
 			add_coalesce (cl, v1, v2, cost);
-			bitmap_set_bit (used_in_copy, v1);
-			bitmap_set_bit (used_in_copy, v2);
+			used_in_copy->set_bit (v1);
+			used_in_copy->set_bit (v2);
 		      }
 		  }
 		break;
@@ -1081,8 +1081,8 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		  gcc_assert (gimple_can_coalesce_p (var, first));
 		  v1 = SSA_NAME_VERSION (first);
 		  v2 = SSA_NAME_VERSION (var);
-		  bitmap_set_bit (used_in_copy, v1);
-		  bitmap_set_bit (used_in_copy, v2);
+		  used_in_copy->set_bit (v1);
+		  used_in_copy->set_bit (v2);
 		  cost = coalesce_cost_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
 		  add_coalesce (cl, v1, v2, cost);
 		}
@@ -1092,7 +1092,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 	     not marked as present, they won't be in the coalesce view. */
 	  if (SSA_NAME_IS_DEFAULT_DEF (var)
 	      && !has_zero_uses (var))
-	    bitmap_set_bit (used_in_copy, SSA_NAME_VERSION (var));
+	    used_in_copy->set_bit (SSA_NAME_VERSION (var));
 	}
     }
 
@@ -1295,8 +1295,8 @@ coalesce_ssa_name (void)
 		      ? MUST_COALESCE_COST - 1 : MUST_COALESCE_COST;
 		  add_coalesce (cl, SSA_NAME_VERSION (a),
 				SSA_NAME_VERSION (*slot), cost);
-		  bitmap_set_bit (&used_in_copies, SSA_NAME_VERSION (a));
-		  bitmap_set_bit (&used_in_copies, SSA_NAME_VERSION (*slot));
+		  used_in_copies.set_bit (SSA_NAME_VERSION (a));
+		  used_in_copies.set_bit (SSA_NAME_VERSION (*slot));
 		}
 	    }
 	}

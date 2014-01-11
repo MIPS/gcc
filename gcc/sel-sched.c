@@ -692,7 +692,7 @@ extract_new_fences_from (flist_t old_fences, flist_tail_t new_fences,
           else
             {
               /* Mark block of the SUCC as head of the new ebb.  */
-              bitmap_set_bit (&forced_ebb_heads, BLOCK_NUM (succ));
+              forced_ebb_heads.set_bit (BLOCK_NUM (succ));
               add_clean_fence_to_fences (new_fences, succ, fence);
             }
         }
@@ -2500,18 +2500,18 @@ update_bitmap_cache (expr_t expr, insn_t insn, bool inside_insn_group,
 
   if (res == MOVEUP_EXPR_NULL)
     {
-      bitmap_set_bit (INSN_ANALYZED_DEPS (insn), expr_uid);
-      bitmap_set_bit (INSN_FOUND_DEPS (insn), expr_uid);
+      INSN_ANALYZED_DEPS (insn)->set_bit (expr_uid);
+      INSN_FOUND_DEPS (insn)->set_bit (expr_uid);
     }
   else if (res == MOVEUP_EXPR_SAME)
     {
-      bitmap_set_bit (INSN_ANALYZED_DEPS (insn), expr_uid);
+      INSN_ANALYZED_DEPS (insn)->set_bit (expr_uid);
       INSN_FOUND_DEPS (insn)->clear_bit (expr_uid);
     }
   else if (res == MOVEUP_EXPR_AS_RHS)
     {
       INSN_ANALYZED_DEPS (insn)->clear_bit (expr_uid);
-      bitmap_set_bit (INSN_FOUND_DEPS (insn), expr_uid);
+      INSN_FOUND_DEPS (insn)->set_bit (expr_uid);
     }
   else
     gcc_unreachable ();
@@ -4708,7 +4708,7 @@ create_block_for_bookkeeping (edge e1, edge e2)
 		  EXPR_ORIG_BB_INDEX (INSN_EXPR (insn)) = succ->index;
 
 	      if (code_motion_visited_blocks->clear_bit (new_bb->index))
-		bitmap_set_bit (code_motion_visited_blocks, succ->index);
+		code_motion_visited_blocks->set_bit (succ->index);
 
 	      gcc_assert (LABEL_P (BB_HEAD (new_bb))
 			  && LABEL_P (BB_HEAD (succ)));
@@ -4842,7 +4842,7 @@ emit_bookkeeping_insn (insn_t place_to_insert, expr_t c_expr, int new_seqno)
 					       place_to_insert);
 
   INSN_SCHED_TIMES (new_insn) = 0;
-  bitmap_set_bit (current_copies, INSN_UID (new_insn));
+  current_copies->set_bit (INSN_UID (new_insn));
 
   return new_insn;
 }
@@ -5886,14 +5886,14 @@ track_scheduled_insns_and_blocks (rtx insn)
 {
   /* Even if this insn can be a copy that will be removed during current move_op,
      we still need to count it as an originator.  */
-  bitmap_set_bit (current_originators, INSN_UID (insn));
+  current_originators->set_bit (INSN_UID (insn));
 
   if (!current_copies->clear_bit (INSN_UID (insn)))
     {
       /* Note that original block needs to be rescheduled, as we pulled an
 	 instruction out of it.  */
       if (INSN_SCHED_TIMES (insn) > 0)
-	bitmap_set_bit (blocks_to_reschedule, BLOCK_FOR_INSN (insn)->index);
+	blocks_to_reschedule->set_bit (BLOCK_FOR_INSN (insn)->index);
       else if (INSN_UID (insn) < first_emitted_uid && !DEBUG_INSN_P (insn))
 	num_insns_scheduled++;
     }
@@ -6746,7 +6746,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
   /* If we have simplified the control flow and removed the first jump insn,
      there's no point in marking this block in the visited blocks bitmap.  */
   if (BLOCK_FOR_INSN (insn))
-    bitmap_set_bit (code_motion_visited_blocks, BLOCK_FOR_INSN (insn)->index);
+    code_motion_visited_blocks->set_bit (BLOCK_FOR_INSN (insn)->index);
   return true;
 }
 
@@ -6831,7 +6831,7 @@ init_seqno_1 (basic_block bb, sbitmap visited_bbs, bitmap blocks_to_reschedule)
 	  init_seqno_1 (succ, visited_bbs, blocks_to_reschedule);
 	}
       else if (blocks_to_reschedule)
-        bitmap_set_bit (&forced_ebb_heads, succ->index);
+        forced_ebb_heads.set_bit (succ->index);
     }
 
   for (insn = BB_END (bb); insn != note; insn = PREV_INSN (insn))
@@ -7065,7 +7065,7 @@ find_ebb_boundaries (basic_block bb, bitmap scheduled_blocks)
 
   do
     {
-      bitmap_set_bit (scheduled_blocks, BLOCK_TO_BB (bb1->index));
+      scheduled_blocks->set_bit (BLOCK_TO_BB (bb1->index));
 
       if (sched_verbose >= 2)
 	sel_print ("%d; ", bb1->index);
@@ -7637,7 +7637,7 @@ sel_sched_region_1 (void)
               if (bitmap_bit_p (blocks_to_reschedule, bb->index))
                 {
                   if (! bb_ends_ebb_p (bb))
-                    bitmap_set_bit (blocks_to_reschedule, bb_next_bb (bb)->index);
+                    blocks_to_reschedule->set_bit (bb_next_bb (bb)->index);
                   if (sel_bb_empty_p (bb))
                     {
                       blocks_to_reschedule->clear_bit (bb->index);
@@ -7646,12 +7646,12 @@ sel_sched_region_1 (void)
                   clear_outdated_rtx_info (bb);
                   if (sel_insn_is_speculation_check (BB_END (bb))
                       && JUMP_P (BB_END (bb)))
-                    bitmap_set_bit (blocks_to_reschedule,
-                                    BRANCH_EDGE (bb)->dest->index);
+                    blocks_to_reschedule->set_bit
+                                    (BRANCH_EDGE (bb)->dest->index);
                 }
               else if (! sel_bb_empty_p (bb)
                        && INSN_SCHED_TIMES (sel_bb_head (bb)) <= 0)
-                bitmap_set_bit (blocks_to_reschedule, bb->index);
+                blocks_to_reschedule->set_bit (bb->index);
             }
 
           for (i = 0; i < current_nr_blocks; i++)
@@ -7674,7 +7674,7 @@ sel_sched_region_1 (void)
                   orig_max_seqno = init_seqno (blocks_to_reschedule, bb);
 
                   /* Mark BB as head of the new ebb.  */
-                  bitmap_set_bit (&forced_ebb_heads, bb->index);
+                  forced_ebb_heads.set_bit (bb->index);
 
                   gcc_assert (fences == NULL);
 

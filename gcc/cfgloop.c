@@ -932,7 +932,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
       edge e;
       edge_iterator ei;
 
-      if (bitmap_set_bit (&visited, bb->index))
+      if (visited.set_bit (bb->index))
 	/* This basic block is now visited */
 	blocks[i++] = bb;
 
@@ -940,7 +940,7 @@ get_loop_body_in_bfs_order (const struct loop *loop)
 	{
 	  if (flow_bb_inside_loop_p (loop, e->dest))
 	    {
-	      if (bitmap_set_bit (&visited, e->dest->index))
+	      if (visited.set_bit (e->dest->index))
 		blocks[i++] = e->dest;
 	    }
 	}

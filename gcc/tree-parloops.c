@@ -1456,7 +1456,7 @@ create_loop_fn (location_t loc)
   decl = build_decl (loc, FUNCTION_DECL, name, type);
   if (!parallelized_functions)
     parallelized_functions = BITMAP_GGC_ALLOC ();
-  bitmap_set_bit (parallelized_functions, DECL_UID (decl));
+  parallelized_functions->set_bit (DECL_UID (decl));
 
   TREE_STATIC (decl) = 1;
   TREE_USED (decl) = 1;

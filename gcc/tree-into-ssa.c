@@ -279,7 +279,7 @@ mark_for_renaming (tree sym)
 {
   if (!symbols_to_rename_set)
     symbols_to_rename_set = BITMAP_ALLOC (NULL);
-  if (bitmap_set_bit (symbols_to_rename_set, DECL_UID (sym)))
+  if (symbols_to_rename_set->set_bit (DECL_UID (sym)))
     symbols_to_rename.safe_push (sym);
 }
 
@@ -472,7 +472,7 @@ static void
 mark_block_for_update (basic_block bb)
 {
   gcc_checking_assert (blocks_to_update != NULL);
-  if (!bitmap_set_bit (blocks_to_update, bb->index))
+  if (!blocks_to_update->set_bit (bb->index))
     return;
   initialize_flags_in_bb (bb);
 }
@@ -509,9 +509,9 @@ set_def_block (tree var, basic_block bb, bool phi_p)
   db_p = get_def_blocks_for (info);
 
   /* Set the bit corresponding to the block where VAR is defined.  */
-  bitmap_set_bit (db_p->def_blocks, bb->index);
+  db_p->def_blocks->set_bit (bb->index);
   if (phi_p)
-    bitmap_set_bit (db_p->phi_blocks, bb->index);
+    db_p->phi_blocks->set_bit (bb->index);
 
   /* Keep track of whether or not we may need to insert PHI nodes.
 
@@ -544,7 +544,7 @@ set_livein_block (tree var, basic_block bb)
   db_p = get_def_blocks_for (info);
 
   /* Set the bit corresponding to the block where VAR is live in.  */
-  bitmap_set_bit (db_p->livein_blocks, bb->index);
+  db_p->livein_blocks->set_bit (bb->index);
 
   /* Keep track of whether or not we may need to insert PHI nodes.
 
@@ -609,7 +609,7 @@ add_to_repl_tbl (tree new_tree, tree old)
   bitmap *set = &get_ssa_name_ann (new_tree)->repl_set;
   if (!*set)
     *set = BITMAP_ALLOC (&update_ssa_obstack);
-  bitmap_set_bit (*set, SSA_NAME_VERSION (old));
+  (*set)->set_bit (SSA_NAME_VERSION (old));
 }
 
 
@@ -708,7 +708,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
     {
       gcc_checking_assert (DECL_P (def));
       set_def_block (def, bb, false);
-      bitmap_set_bit (kills, DECL_UID (def));
+      kills->set_bit (DECL_UID (def));
       set_register_defs (stmt, true);
     }
 
@@ -898,7 +898,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	}
 
       /* If the phi node is already live, there is nothing to do.  */
-      if (!bitmap_set_bit (&live_phis, p))
+      if (!live_phis.set_bit (p))
 	continue;
 
       /* Add the new uses to the worklist.  */
@@ -916,7 +916,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	  if (bitmap_bit_p (kills, u))
 	    continue;
 
-	  bitmap_set_bit (uses, u);
+	  uses->set_bit (u);
 	  worklist.safe_push (u);
 	}
     }
@@ -955,7 +955,7 @@ mark_phi_for_rewrite (basic_block bb, gimple phi)
   if (!blocks_with_phis_to_rewrite)
     return;
 
-  bitmap_set_bit (blocks_with_phis_to_rewrite, idx);
+  blocks_with_phis_to_rewrite->set_bit (idx);
 
   n = (unsigned) last_basic_block_for_fn (cfun) + 1;
   if (phis_to_rewrite.length () < n)
@@ -2948,7 +2948,7 @@ release_ssa_name_after_update_ssa (tree name)
   if (names_to_release == NULL)
     names_to_release = BITMAP_ALLOC (NULL);
 
-  bitmap_set_bit (names_to_release, SSA_NAME_VERSION (name));
+  names_to_release->set_bit (SSA_NAME_VERSION (name));
 }
 
 
@@ -3015,7 +3015,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 	      if (BASIC_BLOCK_FOR_FN (cfun, i) != entry
 		  && dominated_by_p (CDI_DOMINATORS,
 				     BASIC_BLOCK_FOR_FN (cfun, i), entry))
-		bitmap_set_bit (&pruned_idf, i);
+		pruned_idf.set_bit (i);
 	}
       else
 	{
@@ -3050,7 +3050,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (e->src->index >= 0)
-	      bitmap_set_bit (blocks, e->src->index);
+	      blocks->set_bit (e->src->index);
 	}
 
       insert_phi_nodes_for (var, &pruned_idf, true);

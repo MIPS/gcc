@@ -1187,7 +1187,7 @@ df_insn_delete (rtx insn)
 	{
 	  df->insns_to_rescan.clear_bit (uid);
 	  df->insns_to_notes_rescan.clear_bit (uid);
-	  bitmap_set_bit (&df->insns_to_delete, uid);
+	  df->insns_to_delete.set_bit (uid);
 	}
       if (dump_file)
 	fprintf (dump_file, "deferring deletion of insn with uid = %d.\n", uid);
@@ -1272,7 +1272,7 @@ df_insn_rescan (rtx insn)
 
       df->insns_to_delete.clear_bit (uid);
       df->insns_to_notes_rescan.clear_bit (uid);
-      bitmap_set_bit (&df->insns_to_rescan, INSN_UID (insn));
+      df->insns_to_rescan.set_bit (INSN_UID (insn));
       return false;
     }
 
@@ -2198,7 +2198,7 @@ df_notes_rescan (rtx insn)
       /* If the insn is set to be rescanned, it does not need to also
 	 be notes rescanned.  */
       if (!bitmap_bit_p (&df->insns_to_rescan, uid))
-	bitmap_set_bit (&df->insns_to_notes_rescan, INSN_UID (insn));
+	df->insns_to_notes_rescan.set_bit (INSN_UID (insn));
       return;
     }
 
@@ -3662,7 +3662,7 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
   if (reload_completed)
     {
       if (frame_pointer_needed)
-	bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+	regular_block_artificial_uses->set_bit (HARD_FRAME_POINTER_REGNUM);
     }
   else
     /* Before reload, there are a few registers that must be forced
@@ -3673,27 +3673,27 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
-      bitmap_set_bit (regular_block_artificial_uses, FRAME_POINTER_REGNUM);
+      regular_block_artificial_uses->set_bit (FRAME_POINTER_REGNUM);
 
 #if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-      bitmap_set_bit (regular_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+      regular_block_artificial_uses->set_bit (HARD_FRAME_POINTER_REGNUM);
 #endif
 
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
       if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (regular_block_artificial_uses, ARG_POINTER_REGNUM);
+	regular_block_artificial_uses->set_bit (ARG_POINTER_REGNUM);
 #endif
 
       /* Any constant, or pseudo with constant equivalences, may
 	 require reloading from memory using the pic register.  */
       if (picreg != INVALID_REGNUM
 	  && fixed_regs[picreg])
-	bitmap_set_bit (regular_block_artificial_uses, picreg);
+	regular_block_artificial_uses->set_bit (picreg);
     }
   /* The all-important stack pointer must always be live.  */
-  bitmap_set_bit (regular_block_artificial_uses, STACK_POINTER_REGNUM);
+  regular_block_artificial_uses->set_bit (STACK_POINTER_REGNUM);
 
 #ifdef EH_USES
   /* EH_USES registers are used:
@@ -3726,14 +3726,14 @@ df_get_eh_block_artificial_uses (bitmap eh_block_artificial_uses)
     {
       if (frame_pointer_needed)
 	{
-	  bitmap_set_bit (eh_block_artificial_uses, FRAME_POINTER_REGNUM);
+	  eh_block_artificial_uses->set_bit (FRAME_POINTER_REGNUM);
 #if !HARD_FRAME_POINTER_IS_FRAME_POINTER
-	  bitmap_set_bit (eh_block_artificial_uses, HARD_FRAME_POINTER_REGNUM);
+	  eh_block_artificial_uses->set_bit (HARD_FRAME_POINTER_REGNUM);
 #endif
 	}
 #if FRAME_POINTER_REGNUM != ARG_POINTER_REGNUM
       if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (eh_block_artificial_uses, ARG_POINTER_REGNUM);
+	eh_block_artificial_uses->set_bit (ARG_POINTER_REGNUM);
 #endif
     }
 }
@@ -3762,7 +3762,7 @@ df_mark_reg (rtx reg, void *vset)
       bitmap_set_range (set, regno, n);
     }
   else
-    bitmap_set_bit (set, regno);
+    set->set_bit (regno);
 }
 
 
@@ -3779,13 +3779,13 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
       if (global_regs[i])
-	bitmap_set_bit (entry_block_defs, i);
+	entry_block_defs->set_bit (i);
       if (FUNCTION_ARG_REGNO_P (i))
-	bitmap_set_bit (entry_block_defs, INCOMING_REGNO (i));
+	entry_block_defs->set_bit (INCOMING_REGNO (i));
     }
 
   /* The always important stack pointer.  */
-  bitmap_set_bit (entry_block_defs, STACK_POINTER_REGNUM);
+  entry_block_defs->set_bit (STACK_POINTER_REGNUM);
 
   /* Once the prologue has been generated, all of these registers
      should just show up in the first regular block.  */
@@ -3795,28 +3795,28 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 	 pushes have some defining location.  */
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if ((call_used_regs[i] == 0) && (df_regs_ever_live_p (i)))
-	  bitmap_set_bit (entry_block_defs, i);
+	  entry_block_defs->set_bit (i);
     }
 
   r = targetm.calls.struct_value_rtx (current_function_decl, true);
   if (r && REG_P (r))
-    bitmap_set_bit (entry_block_defs, REGNO (r));
+    entry_block_defs->set_bit (REGNO (r));
 
   /* If the function has an incoming STATIC_CHAIN, it has to show up
      in the entry def set.  */
   r = targetm.calls.static_chain (current_function_decl, true);
   if (r && REG_P (r))
-    bitmap_set_bit (entry_block_defs, REGNO (r));
+    entry_block_defs->set_bit (REGNO (r));
 
   if ((!reload_completed) || frame_pointer_needed)
     {
       /* Any reference to any pseudo before reload is a potential
 	 reference of the frame pointer.  */
-      bitmap_set_bit (entry_block_defs, FRAME_POINTER_REGNUM);
+      entry_block_defs->set_bit (FRAME_POINTER_REGNUM);
 #if !HARD_FRAME_POINTER_IS_FRAME_POINTER
       /* If they are different, also mark the hard frame pointer as live.  */
       if (!LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
-	bitmap_set_bit (entry_block_defs, HARD_FRAME_POINTER_REGNUM);
+	entry_block_defs->set_bit (HARD_FRAME_POINTER_REGNUM);
 #endif
     }
 
@@ -3831,7 +3831,7 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
       /* Pseudos with argument area equivalences may require
 	 reloading via the argument pointer.  */
       if (fixed_regs[ARG_POINTER_REGNUM])
-	bitmap_set_bit (entry_block_defs, ARG_POINTER_REGNUM);
+	entry_block_defs->set_bit (ARG_POINTER_REGNUM);
 #endif
 
 #ifdef PIC_OFFSET_TABLE_REGNUM
@@ -3839,13 +3839,13 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
 	 require reloading from memory using the pic register.  */
       if (picreg != INVALID_REGNUM
 	  && fixed_regs[picreg])
-	bitmap_set_bit (entry_block_defs, picreg);
+	entry_block_defs->set_bit (picreg);
 #endif
     }
 
 #ifdef INCOMING_RETURN_ADDR_RTX
   if (REG_P (INCOMING_RETURN_ADDR_RTX))
-    bitmap_set_bit (entry_block_defs, REGNO (INCOMING_RETURN_ADDR_RTX));
+    entry_block_defs->set_bit (REGNO (INCOMING_RETURN_ADDR_RTX));
 #endif
 
   targetm.extra_live_on_entry (entry_block_defs);
@@ -3940,7 +3940,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
   bitmap_clear (exit_block_uses);
 
   /* Stack pointer is always live at the exit.  */
-  bitmap_set_bit (exit_block_uses, STACK_POINTER_REGNUM);
+  exit_block_uses->set_bit (STACK_POINTER_REGNUM);
 
   /* Mark the frame pointer if needed at the end of the function.
      If we end up eliminating it, it will be removed from the live
@@ -3948,11 +3948,11 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
 
   if ((!reload_completed) || frame_pointer_needed)
     {
-      bitmap_set_bit (exit_block_uses, FRAME_POINTER_REGNUM);
+      exit_block_uses->set_bit (FRAME_POINTER_REGNUM);
 #if !HARD_FRAME_POINTER_IS_FRAME_POINTER
       /* If they are different, also mark the hard frame pointer as live.  */
       if (!LOCAL_REGNO (HARD_FRAME_POINTER_REGNUM))
-	bitmap_set_bit (exit_block_uses, HARD_FRAME_POINTER_REGNUM);
+	exit_block_uses->set_bit (HARD_FRAME_POINTER_REGNUM);
 #endif
     }
 
@@ -3962,14 +3962,14 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
   if (!PIC_OFFSET_TABLE_REG_CALL_CLOBBERED
       && picreg != INVALID_REGNUM
       && fixed_regs[picreg])
-    bitmap_set_bit (exit_block_uses, picreg);
+    exit_block_uses->set_bit (picreg);
 
   /* Mark all global registers, and all registers used by the
      epilogue as being live at the end of the function since they
      may be referenced by our caller.  */
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (global_regs[i] || EPILOGUE_USES (i))
-      bitmap_set_bit (exit_block_uses, i);
+      exit_block_uses->set_bit (i);
 
   if (HAVE_epilogue && epilogue_completed)
     {
@@ -3977,7 +3977,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
       for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 	if (df_regs_ever_live_p (i) && !LOCAL_REGNO (i)
 	    && !TEST_HARD_REG_BIT (regs_invalidated_by_call, i))
-	  bitmap_set_bit (exit_block_uses, i);
+	  exit_block_uses->set_bit (i);
     }
 
 #ifdef EH_RETURN_DATA_REGNO
@@ -3988,7 +3988,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
 	unsigned regno = EH_RETURN_DATA_REGNO (i);
 	if (regno == INVALID_REGNUM)
 	  break;
-	bitmap_set_bit (exit_block_uses, regno);
+	exit_block_uses->set_bit (regno);
       }
 #endif
 

@@ -6051,7 +6051,7 @@ thread_prologue_and_epilogue_insns (void)
 		  {
 		    if (bb == entry_edge->dest)
 		      goto fail_shrinkwrap;
-		    bitmap_set_bit (&bb_flags, bb->index);
+		    bb_flags.set_bit (bb->index);
 		    vec.quick_push (bb);
 		    break;
 		  }
@@ -6059,7 +6059,7 @@ thread_prologue_and_epilogue_insns (void)
 		  {
 		    size += get_attr_min_length (insn);
 		    if (size > max_grow_size)
-		      bitmap_set_bit (&bb_on_list, bb->index);
+		      bb_on_list.set_bit (bb->index);
 		  }
 	      }
 	}
@@ -6076,7 +6076,7 @@ thread_prologue_and_epilogue_insns (void)
 
 	  FOR_EACH_EDGE (e, ei, tmp_bb->succs)
 	    if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-		&& bitmap_set_bit (&bb_flags, e->dest->index))
+		&& bb_flags.set_bit (e->dest->index))
 	      vec.quick_push (e->dest);
 	}
 
@@ -6104,7 +6104,7 @@ thread_prologue_and_epilogue_insns (void)
 		  if ((pe->flags & EDGE_COMPLEX) != 0
 		      && !bitmap_bit_p (&bb_flags, pe->src->index))
 		    break;
-		if (pe == NULL && bitmap_set_bit (&bb_tail, e->src->index))
+		if (pe == NULL && bb_tail.set_bit (e->src->index))
 		  vec.quick_push (e->src);
 	      }
 	}
@@ -6121,7 +6121,7 @@ thread_prologue_and_epilogue_insns (void)
 	    continue;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
-		&& bitmap_set_bit (&bb_on_list, e->src->index))
+		&& bb_on_list.set_bit (e->src->index))
 	      vec.quick_push (e->src);
 	}
       while (!vec.is_empty ())
@@ -6139,10 +6139,10 @@ thread_prologue_and_epilogue_insns (void)
 
 	  if (all_set)
 	    {
-	      bitmap_set_bit (&bb_antic_flags, tmp_bb->index);
+	      bb_antic_flags.set_bit (tmp_bb->index);
 	      FOR_EACH_EDGE (e, ei, tmp_bb->preds)
 		if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
-		    && bitmap_set_bit (&bb_on_list, e->src->index))
+		    && bb_on_list.set_bit (e->src->index))
 		  vec.quick_push (e->src);
 	    }
 	}
@@ -6389,7 +6389,7 @@ thread_prologue_and_epilogue_insns (void)
 	      /* Emitting the return may add a basic block.
 		 Fix bb_flags for the added block.  */
 	      if (last_bb != exit_fallthru_edge->src)
-		bitmap_set_bit (&bb_flags, last_bb->index);
+		bb_flags.set_bit (last_bb->index);
 #endif
 	      goto epilogue_done;
 	    }

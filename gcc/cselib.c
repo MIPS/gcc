@@ -1606,7 +1606,7 @@ cselib_expand_value_rtx_1 (rtx orig, struct expand_value_data *evd,
 		  || regno == cfa_base_preserved_regno)
 		return orig;
 
-	      bitmap_set_bit (evd->regs_active, regno);
+	      evd->regs_active->set_bit (regno);
 
 	      if (dump_file && (dump_flags & TDF_CSELIB))
 		fprintf (dump_file, "expanding: r%d into: ", regno);

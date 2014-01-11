@@ -925,7 +925,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
       gcc_assert (dominated_by_p (CDI_DOMINATORS, head_bb, new_bb));
 
       IOR_HARD_REG_SET (*btrs_live_in_range, btrs_live[head_bb->index]);
-      bitmap_set_bit (live_range, new_block);
+      live_range->set_bit (new_block);
       /* A previous btr migration could have caused a register to be
 	live just at the end of new_block which we need in full, so
 	use trs_live_at_end even if full_range is set.  */
@@ -953,7 +953,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	  edge e;
 	  edge_iterator ei;
 
-	  bitmap_set_bit (live_range, bb->index);
+	  live_range->set_bit (bb->index);
 	  IOR_HARD_REG_SET (*btrs_live_in_range,
 	    btrs_live[bb->index]);
 	  /* A previous btr migration could have caused a register to be
@@ -1017,7 +1017,7 @@ btr_def_live_range (btr_def def, HARD_REG_SET *btrs_live_in_range)
 
       def->live_range = BITMAP_ALLOC (NULL);
 
-      bitmap_set_bit (def->live_range, def->bb->index);
+      def->live_range->set_bit (def->bb->index);
       COPY_HARD_REG_SET (*btrs_live_in_range,
 			 (flag_btr_bb_exclusive
 			  ? btrs_live : btrs_live_at_end)[def->bb->index]);

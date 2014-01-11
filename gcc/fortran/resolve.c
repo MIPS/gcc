@@ -8365,7 +8365,7 @@ find_reachable_labels (gfc_code *block)
   for (c = block; c; c = c->next)
     {
       if (c->here && c->op != EXEC_END_NESTED_BLOCK)
-	bitmap_set_bit (cs_base->reachable_labels, c->here->value);
+	cs_base->reachable_labels->set_bit (c->here->value);
     }
 
   /* Merge with labels from parent block.  */

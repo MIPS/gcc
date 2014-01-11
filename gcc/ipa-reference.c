@@ -219,7 +219,7 @@ add_static_var (tree var)
   if (dump_file)
     splay_tree_insert (reference_vars_to_consider,
 		       uid, (splay_tree_value)var);
-  bitmap_set_bit (all_module_statics, uid);
+  all_module_statics->set_bit (uid);
 }
 
 /* Return true if the variable T is the right kind of static variable to
@@ -471,12 +471,12 @@ analyze_function (struct cgraph_node *fn)
       switch (ref->use)
 	{
 	case IPA_REF_LOAD:
-          bitmap_set_bit (local->statics_read, DECL_UID (var));
+          local->statics_read->set_bit (DECL_UID (var));
 	  break;
 	case IPA_REF_STORE:
 	  if (ipa_ref_cannot_lead_to_return (ref))
 	    break;
-          bitmap_set_bit (local->statics_written, DECL_UID (var));
+          local->statics_written->set_bit (DECL_UID (var));
 	  break;
 	case IPA_REF_ADDR:
 	  break;
@@ -976,7 +976,7 @@ ipa_reference_write_optimization_summary (void)
 	  && referenced_from_this_partition_p (&vnode->ref_list, encoder))
 	{
 	  tree decl = vnode->decl;
-	  bitmap_set_bit (&ltrans_statics, DECL_UID (decl));
+	  ltrans_statics.set_bit (DECL_UID (decl));
 	  splay_tree_insert (reference_vars_to_consider,
 			     DECL_UID (decl), (splay_tree_value)decl);
 	  ltrans_statics_bitcount ++;
@@ -1063,7 +1063,7 @@ ipa_reference_read_optimization_summary (void)
 	      unsigned int var_index = streamer_read_uhwi (ib);
 	      tree v_decl = lto_file_decl_data_get_var_decl (file_data,
 							     var_index);
-	      bitmap_set_bit (all_module_statics, DECL_UID (v_decl));
+	      all_module_statics->set_bit (DECL_UID (v_decl));
 	      if (dump_file)
 		fprintf (dump_file, " %s", fndecl_name (v_decl));
 	    }
@@ -1102,7 +1102,7 @@ ipa_reference_read_optimization_summary (void)
 		    unsigned int var_index = streamer_read_uhwi (ib);
 		    tree v_decl = lto_file_decl_data_get_var_decl (file_data,
 								   var_index);
-		    bitmap_set_bit (info->statics_not_read, DECL_UID (v_decl));
+		    info->statics_not_read->set_bit (DECL_UID (v_decl));
 		    if (dump_file)
 		      fprintf (dump_file, " %s", fndecl_name (v_decl));
 		  }
@@ -1124,7 +1124,7 @@ ipa_reference_read_optimization_summary (void)
 		    unsigned int var_index = streamer_read_uhwi (ib);
 		    tree v_decl = lto_file_decl_data_get_var_decl (file_data,
 								   var_index);
-		    bitmap_set_bit (info->statics_not_written, DECL_UID (v_decl));
+		    info->statics_not_written->set_bit (DECL_UID (v_decl));
 		    if (dump_file)
 		      fprintf (dump_file, " %s", fndecl_name (v_decl));
 		  }

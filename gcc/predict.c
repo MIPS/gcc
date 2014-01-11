@@ -1809,7 +1809,7 @@ expr_expected_value_1 (tree type, tree op0, enum tree_code code,
       def = SSA_NAME_DEF_STMT (op0);
 
       /* If we were already here, break the infinite cycle.  */
-      if (!bitmap_set_bit (visited, SSA_NAME_VERSION (op0)))
+      if (!visited->set_bit (SSA_NAME_VERSION (op0)))
 	return NULL;
 
       if (gimple_code (def) == GIMPLE_PHI)
@@ -2494,7 +2494,7 @@ predict_paths_for_bb (basic_block cur, basic_block bb,
 	 prevent visiting given BB twice.  */
       if (found)
         predict_edge_def (e, pred, taken);
-      else if (bitmap_set_bit (visited, e->src->index))
+      else if (visited->set_bit (e->src->index))
 	predict_paths_for_bb (e->src, e->src, pred, taken, visited);
     }
   for (son = first_dom_son (CDI_POST_DOMINATORS, cur);
@@ -2733,7 +2733,7 @@ estimate_loops_at_level (struct loop *first_loop)
 
       bbs = get_loop_body (loop);
       for (i = 0; i < loop->num_nodes; i++)
-	bitmap_set_bit (&tovisit, bbs[i]->index);
+	tovisit.set_bit (bbs[i]->index);
       free (bbs);
       propagate_freq (loop->header, &tovisit);
     }
@@ -2754,7 +2754,7 @@ estimate_loops (void)
   /* Now propagate the frequencies through all the blocks.  */
   FOR_ALL_BB_FN (bb, cfun)
     {
-      bitmap_set_bit (&tovisit, bb->index);
+      tovisit.set_bit (bb->index);
     }
   propagate_freq (ENTRY_BLOCK_PTR_FOR_FN (cfun), &tovisit);
 }

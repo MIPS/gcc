@@ -773,7 +773,7 @@ handle_member_annotations (int member_index, JCF *jcf,
   annotation_write_int (new_len);
   annotation_write_byte (JV_ANNOTATIONS_KIND);
   if (member_type == JV_FIELD_ATTR)
-    bitmap_set_bit (field_offsets, TYPE_REFLECTION_DATASIZE (current_class));
+    field_offsets->set_bit (TYPE_REFLECTION_DATASIZE (current_class));
   if (member_type != JV_CLASS_ATTR)
     annotation_write_short (member_index);
   handle_annotation_attribute (member_index, jcf, len);

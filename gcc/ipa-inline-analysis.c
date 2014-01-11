@@ -2075,10 +2075,10 @@ record_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
     (struct record_modified_bb_info *) data;
   if (SSA_NAME_DEF_STMT (vdef) == info->stmt)
     return false;
-  bitmap_set_bit (info->bb_set,
-		  SSA_NAME_IS_DEFAULT_DEF (vdef)
-		  ? ENTRY_BLOCK_PTR_FOR_FN (cfun)->index
-		  : gimple_bb (SSA_NAME_DEF_STMT (vdef))->index);
+  int index = SSA_NAME_IS_DEFAULT_DEF (vdef)
+    ? ENTRY_BLOCK_PTR_FOR_FN (cfun)->index
+    : gimple_bb (SSA_NAME_DEF_STMT (vdef))->index;
+  info->bb_set->set_bit (index);
   return false;
 }
 

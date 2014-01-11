@@ -259,7 +259,7 @@ fix_loop_structure (bitmap changed_bbs)
       FOR_EACH_BB_FN (bb, cfun)
 	{
 	  if ((void *) (size_t) loop_depth (bb->loop_father) != bb->aux)
-	    bitmap_set_bit (changed_bbs, bb->index);
+	    changed_bbs->set_bit (bb->index);
 
     	  bb->aux = NULL;
 	}

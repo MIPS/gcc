@@ -234,8 +234,8 @@ record_temporary_equivalences_from_phis (edge e, vec<tree> *stack,
 	 we might need to invalidate.  */
       if (backedge_seen && TREE_CODE (src) == SSA_NAME)
 	{
-	  bitmap_set_bit (src_map, SSA_NAME_VERSION (src));
-	  bitmap_set_bit (dst_map, SSA_NAME_VERSION (dst));
+	  src_map->set_bit (SSA_NAME_VERSION (src));
+	  dst_map->set_bit (SSA_NAME_VERSION (dst));
 	}
     }
   return true;
@@ -845,7 +845,7 @@ thread_around_empty_blocks (edge taken_edge,
 	      jump_thread_edge *x
 		= new jump_thread_edge (taken_edge, EDGE_NO_COPY_SRC_BLOCK);
 	      path->safe_push (x);
-	      bitmap_set_bit (visited, taken_edge->dest->index);
+	      visited->set_bit (taken_edge->dest->index);
 	      *backedge_seen_p |= ((taken_edge->flags & EDGE_DFS_BACK) != 0);
 	      if (*backedge_seen_p)
 		simplify = dummy_simplify;
@@ -891,7 +891,7 @@ thread_around_empty_blocks (edge taken_edge,
 
       if (bitmap_bit_p (visited, taken_edge->dest->index))
 	return false;
-      bitmap_set_bit (visited, taken_edge->dest->index);
+      visited->set_bit (taken_edge->dest->index);
 
       jump_thread_edge *x
 	= new jump_thread_edge (taken_edge, EDGE_NO_COPY_SRC_BLOCK);
@@ -1021,8 +1021,8 @@ thread_through_normal_block (edge e,
 
 	     We don't want to thread back to a block we have already
  	     visited.  This may be overly conservative.  */
-	  bitmap_set_bit (visited, dest->index);
-	  bitmap_set_bit (visited, e->dest->index);
+	  visited->set_bit (dest->index);
+	  visited->set_bit (e->dest->index);
 	  thread_around_empty_blocks (taken_edge,
 				      dummy_cond,
 				      handle_dominating_asserts,
@@ -1078,8 +1078,8 @@ thread_across_edge (gimple dummy_cond,
 
   vec<jump_thread_edge *> *path = new vec<jump_thread_edge *> ();
   bitmap_head visited;
-  bitmap_set_bit (&visited, e->src->index);
-  bitmap_set_bit (&visited, e->dest->index);
+  visited.set_bit (e->src->index);
+  visited.set_bit (e->dest->index);
   backedge_seen = ((e->flags & EDGE_DFS_BACK) != 0);
   if (backedge_seen)
     simplify = dummy_simplify;
@@ -1143,9 +1143,9 @@ thread_across_edge (gimple dummy_cond,
      
 	/* Avoid threading to any block we have already visited.  */
 	bitmap_clear (&visited);
-	bitmap_set_bit (&visited, e->src->index);
-	bitmap_set_bit (&visited, e->dest->index);
-	bitmap_set_bit (&visited, taken_edge->dest->index);
+	visited.set_bit (e->src->index);
+	visited.set_bit (e->dest->index);
+	visited.set_bit (taken_edge->dest->index);
         vec<jump_thread_edge *> *path = new vec<jump_thread_edge *> ();
 
 	/* Record whether or not we were able to thread through a successor

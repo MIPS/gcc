@@ -972,9 +972,9 @@ build_rdg_partition_for_vertex (struct graph *rdg, int v)
 
   FOR_EACH_VEC_ELT (nodes, i, x)
     {
-      bitmap_set_bit (partition->stmts, x);
-      bitmap_set_bit (partition->loops,
-		      loop_containing_stmt (RDG_STMT (rdg, x))->num);
+      partition->stmts->set_bit (x);
+      partition->loops->set_bit
+	(loop_containing_stmt (RDG_STMT (rdg, x))->num);
     }
 
   return partition;

@@ -1332,7 +1332,7 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 	{
 	  tree elt = gimple_switch_label (stmt, i);
 	  basic_block target = label_to_block (CASE_LABEL (elt));
-	  bitmap_set_bit (&target_blocks, target->index);
+	  target_blocks.set_bit (target->index);
 	}
       for (ei = ei_start (gimple_bb (stmt)->succs); (e = ei_safe_edge (ei)); )
 	{

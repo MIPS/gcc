@@ -1050,8 +1050,8 @@ set_usage_bits (group_info_t group, HOST_WIDE_INT offset, HOST_WIDE_INT width,
 	    ai = i;
 	  }
 
-	if (!bitmap_set_bit (store1, ai))
-	  bitmap_set_bit (store2, ai);
+	if (!store1->set_bit (ai))
+	  store2->set_bit (ai);
 	else
 	  {
 	    if (i < 0)
@@ -1066,7 +1066,7 @@ set_usage_bits (group_info_t group, HOST_WIDE_INT offset, HOST_WIDE_INT width,
 	      }
 	  }
         if (expr_escapes)
-          bitmap_set_bit (escaped, ai);
+          escaped->set_bit (ai);
       }
 }
 
@@ -1304,7 +1304,7 @@ set_position_unneeded (store_info_t s_info, int pos)
 {
   if (__builtin_expect (s_info->is_large, false))
     {
-      if (bitmap_set_bit (s_info->positions_needed.large.bmap, pos))
+      if (s_info->positions_needed.large.bmap->set_bit (pos))
 	s_info->positions_needed.large.count++;
     }
   else
@@ -1321,7 +1321,7 @@ set_all_positions_unneeded (store_info_t s_info)
     {
       int pos, end = s_info->end - s_info->begin;
       for (pos = 0; pos < end; pos++)
-	bitmap_set_bit (s_info->positions_needed.large.bmap, pos);
+	s_info->positions_needed.large.bmap->set_bit (pos);
       s_info->positions_needed.large.count = end;
     }
   else
@@ -1458,8 +1458,8 @@ record_store (rtx body, bb_info_t bb_info)
 
       gcc_assert (GET_MODE (mem) != BLKmode);
 
-      if (!bitmap_set_bit (store1, spill_alias_set))
-	bitmap_set_bit (store2, spill_alias_set);
+      if (!store1->set_bit (spill_alias_set))
+	store2->set_bit (spill_alias_set);
 
       if (clear_alias_group->offset_map_size_p < spill_alias_set)
 	clear_alias_group->offset_map_size_p = spill_alias_set;
@@ -2703,8 +2703,8 @@ dse_step1 (void)
 
   cselib_init (0);
   all_blocks = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (all_blocks, ENTRY_BLOCK);
-  bitmap_set_bit (all_blocks, EXIT_BLOCK);
+  all_blocks->set_bit (ENTRY_BLOCK);
+  all_blocks->set_bit (EXIT_BLOCK);
 
   FOR_ALL_BB_FN (bb, cfun)
     {
@@ -2712,7 +2712,7 @@ dse_step1 (void)
       bb_info_t bb_info = (bb_info_t) pool_alloc (bb_info_pool);
 
       memset (bb_info, 0, sizeof (struct bb_info));
-      bitmap_set_bit (all_blocks, bb->index);
+      all_blocks->set_bit (bb->index);
       bb_info->regs_live = regs_live;
 
       bitmap_copy (regs_live, DF_LR_IN (bb));
@@ -2927,17 +2927,17 @@ dse_step2_nospill (void)
 
       EXECUTE_IF_SET_IN_BITMAP (group->store2_n, 0, j, bi)
 	{
-	  bitmap_set_bit (group->group_kill, current_position);
+	  group->group_kill->set_bit (current_position);
           if (bitmap_bit_p (group->escaped_n, j))
-	    bitmap_set_bit (kill_on_calls, current_position);
+	    kill_on_calls->set_bit (current_position);
 	  group->offset_map_n[j] = current_position++;
 	  group->process_globally = true;
 	}
       EXECUTE_IF_SET_IN_BITMAP (group->store2_p, 0, j, bi)
 	{
-	  bitmap_set_bit (group->group_kill, current_position);
+	  group->group_kill->set_bit (current_position);
           if (bitmap_bit_p (group->escaped_p, j))
-	    bitmap_set_bit (kill_on_calls, current_position);
+	    kill_on_calls->set_bit (current_position);
 	  group->offset_map_p[j] = current_position++;
 	  group->process_globally = true;
 	}
@@ -2993,7 +2993,7 @@ scan_stores_nospill (store_info_t store_info, bitmap gen, bitmap kill)
 	    int index = get_bitmap_index (group_info, i);
 	    if (index != 0)
 	      {
-		bitmap_set_bit (gen, index);
+		gen->set_bit (index);
 		if (kill)
 		  kill->clear_bit (index);
 	      }
@@ -3017,7 +3017,7 @@ scan_stores_spill (store_info_t store_info, bitmap gen, bitmap kill)
 					store_info->alias_set);
 	  if (index != 0)
 	    {
-	      bitmap_set_bit (gen, index);
+	      gen->set_bit (index);
 	      if (kill)
 		kill->clear_bit (index);
 	    }
@@ -3089,7 +3089,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 			  if (index != 0)
 			    {
 			      if (kill)
-				bitmap_set_bit (kill, index);
+				kill->set_bit (index);
 			      gen->clear_bit (index);
 			    }
 			}
@@ -3136,7 +3136,7 @@ scan_reads_spill (read_info_t read_info, bitmap gen, bitmap kill)
 	  if (index != 0)
 	    {
 	      if (kill)
-		bitmap_set_bit (kill, index);
+		kill->set_bit (index);
 	      gen->clear_bit (index);
 	    }
 	}

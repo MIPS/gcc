@@ -3378,7 +3378,7 @@ scev_const_prop (void)
 	  if (name != ev)
 	    replace_uses_by (name, ev);
 
-	  bitmap_set_bit (&ssa_names_to_remove, SSA_NAME_VERSION (name));
+	  ssa_names_to_remove.set_bit (SSA_NAME_VERSION (name));
 	}
     }
 

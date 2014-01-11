@@ -1171,7 +1171,7 @@ update_caller_keys (fibheap_t heap, struct cgraph_node *node,
   if ((!node->alias && !inline_summary (node)->inlinable)
       || node->global.inlined_to)
     return;
-  if (!bitmap_set_bit (updated_nodes, node->uid))
+  if (!updated_nodes->set_bit (node->uid))
     return;
 
   for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list,

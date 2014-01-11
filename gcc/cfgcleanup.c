@@ -226,7 +226,7 @@ mark_effect (rtx exp, regset nonequal)
 	bitmap_set_range (nonequal, regno,
 			  hard_regno_nregs[regno][GET_MODE (dest)]);
       else
-	bitmap_set_bit (nonequal, regno);
+	nonequal->set_bit (regno);
       return false;
 
     default:

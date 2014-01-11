@@ -711,11 +711,11 @@ find_same_succ_bb (basic_block bb, same_succ *same_p)
 	 keeping it throughout tail-merge using this test.  */
       || bb->loop_father->latch == bb)
     return;
-  bitmap_set_bit (same->bbs, bb->index);
+  same->bbs->set_bit (bb->index);
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       int index = e->dest->index;
-      bitmap_set_bit (same->succs, index);
+      same->succs->set_bit (index);
       same_succ_edge_flags[index] = e->flags;
     }
   EXECUTE_IF_SET_IN_BITMAP (same->succs, 0, j, bj)
@@ -733,11 +733,11 @@ find_same_succ_bb (basic_block bb, same_succ *same_p)
     }
   else
     {
-      bitmap_set_bit ((*slot)->bbs, bb->index);
+      (*slot)->bbs->set_bit (bb->index);
       BB_SAME_SUCC (bb) = *slot;
       add_to_worklist (*slot);
       if (inverse_flags (same, *slot))
-	bitmap_set_bit ((*slot)->inverse, bb->index);
+	(*slot)->inverse->set_bit (bb->index);
       same_succ_reset (same);
     }
 }
@@ -802,10 +802,10 @@ mark_basic_block_deleted (basic_block bb)
   edge e;
   edge_iterator ei;
 
-  bitmap_set_bit (deleted_bbs, bb->index);
+  deleted_bbs->set_bit (bb->index);
 
   FOR_EACH_EDGE (e, ei, bb->preds)
-    bitmap_set_bit (deleted_bb_preds, e->src->index);
+    deleted_bb_preds->set_bit (e->src->index);
 }
 
 /* Removes BB from its corresponding same_succ.  */
@@ -955,10 +955,10 @@ add_bb_to_cluster (bb_cluster c, basic_block bb)
   edge e;
   edge_iterator ei;
 
-  bitmap_set_bit (c->bbs, bb->index);
+  c->bbs->set_bit (bb->index);
 
   FOR_EACH_EDGE (e, ei, bb->preds)
-    bitmap_set_bit (c->preds, e->src->index);
+    c->preds->set_bit (e->src->index);
 
   update_rep_bb (c, bb);
 }
@@ -1365,7 +1365,7 @@ deps_ok_for_redirect_from_bb_to_bb (basic_block from, basic_block to)
     return true;
 
   FOR_EACH_EDGE (e, ei, from->preds)
-    bitmap_set_bit (&from_preds, e->src->index);
+    from_preds.set_bit (e->src->index);
   cd = nearest_common_dominator_for_set (CDI_DOMINATORS, &from_preds);
 
   return dominated_by_p (CDI_DOMINATORS, dep_bb, cd);
@@ -1563,7 +1563,7 @@ apply_clusters (void)
 	continue;
 
       bb2 = c->rep_bb;
-      bitmap_set_bit (update_bbs, bb2->index);
+      update_bbs->set_bit (bb2->index);
 
       c->bbs->clear_bit (bb2->index);
       EXECUTE_IF_SET_IN_BITMAP (c->bbs, 0, j, bj)

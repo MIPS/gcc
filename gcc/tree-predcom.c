@@ -1212,7 +1212,7 @@ add_looparound_copies (struct loop *loop, chain_p chain)
       if (!phi)
 	continue;
 
-      bitmap_set_bit (looparound_phis, SSA_NAME_VERSION (PHI_RESULT (phi)));
+      looparound_phis->set_bit (SSA_NAME_VERSION (PHI_RESULT (phi)));
       insert_looparound_copy (chain, ref, phi);
     }
 }
@@ -1440,7 +1440,7 @@ predcom_tmp_var (tree ref, unsigned i, bitmap tmp_vars)
   /* We never access the components of the temporary variable in predictive
      commoning.  */
   tree var = create_tmp_reg (type, get_lsm_tmp_name (ref, i));
-  bitmap_set_bit (tmp_vars, DECL_UID (var));
+  tmp_vars->set_bit (DECL_UID (var));
   return var;
 }
 

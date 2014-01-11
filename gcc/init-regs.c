@@ -99,7 +99,7 @@ initialize_uninitialized_regs (void)
 		  rtx move_insn;
 		  rtx reg = DF_REF_REAL_REG (use);
 
-		  bitmap_set_bit (&already_genned, regno);
+		  already_genned.set_bit (regno);
 
 		  start_sequence ();
 		  emit_move_insn (reg, CONST0_RTX (GET_MODE (reg)));

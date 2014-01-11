@@ -202,6 +202,9 @@ struct GTY(()) bitmap_head {
 /* Clear a single bit in a bitmap.  Return true if the bit changed.  */
   bool clear_bit (int);
 
+/* Set a single bit in a bitmap.  Return true if the bit changed.  */
+  bool set_bit (int);
+
   /* Count the number of bits set in the bitmap.  */
   unsigned long count_bits () const;
 
@@ -274,9 +277,6 @@ extern bool bitmap_ior_and_compl (bitmap DST, const_bitmap A,
 /* A |= (B & ~C).  Return true if A changes.  */
 extern bool bitmap_ior_and_compl_into (bitmap A,
 				       const_bitmap B, const_bitmap C);
-
-/* Set a single bit in a bitmap.  Return true if the bit changed.  */
-extern bool bitmap_set_bit (bitmap, int);
 
 /* Return true if a register is set in a register set.  */
 extern int bitmap_bit_p (bitmap, int);

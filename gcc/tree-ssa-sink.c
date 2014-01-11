@@ -176,7 +176,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 	  /* Short circuit. Nothing dominates the entry block.  */
 	  if (useblock == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 	    return NULL;
-	  bitmap_set_bit (&blocks, useblock->index);
+	  blocks.set_bit (useblock->index);
 	}
     }
   commondom = BASIC_BLOCK_FOR_FN (cfun, blocks.first_set_bit ());

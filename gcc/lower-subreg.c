@@ -398,7 +398,7 @@ find_pseudo_copy (rtx set)
       reg_copy_graph[rs] = b;
     }
 
-  bitmap_set_bit (b, rd);
+  b->set_bit (rd);
 
   return true;
 }
@@ -490,7 +490,7 @@ find_decomposable_subregs (rtx *px, void *data)
 
       if (outer_words == 1 && inner_words > 1)
 	{
-	  bitmap_set_bit (decomposable_context, regno);
+	  decomposable_context->set_bit (regno);
 	  return -1;
 	}
 
@@ -502,8 +502,8 @@ find_decomposable_subregs (rtx *px, void *data)
 	  && outer_size == inner_size
 	  && !MODES_TIEABLE_P (GET_MODE (x), GET_MODE (inner)))
 	{
-	  bitmap_set_bit (non_decomposable_context, regno);
-	  bitmap_set_bit (subreg_context, regno);
+	  non_decomposable_context->set_bit (regno);
+	  subreg_context->set_bit (regno);
 	  return -1;
 	}
     }
@@ -534,11 +534,11 @@ find_decomposable_subregs (rtx *px, void *data)
 	  switch (*pcmi)
 	    {
 	    case NOT_SIMPLE_MOVE:
-	      bitmap_set_bit (non_decomposable_context, regno);
+	      non_decomposable_context->set_bit (regno);
 	      break;
 	    case DECOMPOSABLE_SIMPLE_MOVE:
 	      if (MODES_TIEABLE_P (GET_MODE (x), word_mode))
-		bitmap_set_bit (decomposable_context, regno);
+		decomposable_context->set_bit (regno);
 	      break;
 	    case SIMPLE_MOVE:
 	      break;
@@ -1214,10 +1214,10 @@ find_decomposable_shift_zext (rtx insn, bool speed_p)
 	  || !splitting[INTVAL (XEXP (op, 1)) - BITS_PER_WORD])
 	return false;
 
-      bitmap_set_bit (decomposable_context, REGNO (op_operand));
+      decomposable_context->set_bit (REGNO (op_operand));
     }
 
-  bitmap_set_bit (decomposable_context, REGNO (SET_DEST (set)));
+  decomposable_context->set_bit (REGNO (SET_DEST (set)));
 
   return true;
 }

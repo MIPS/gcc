@@ -976,7 +976,7 @@ set_iv (struct ivopts_data *data, tree iv, tree base, tree step)
 
   gcc_assert (!info->iv);
 
-  bitmap_set_bit (data->relevant, SSA_NAME_VERSION (iv));
+  data->relevant->set_bit (SSA_NAME_VERSION (iv));
   info->iv = alloc_iv (base, step);
   info->iv->ssa_name = iv;
 }
@@ -1280,7 +1280,7 @@ record_invariant (struct ivopts_data *data, tree op, bool nonlinear_use)
   info->has_nonlin_use |= nonlinear_use;
   if (!info->inv_id)
     info->inv_id = ++data->max_inv_id;
-  bitmap_set_bit (data->relevant, SSA_NAME_VERSION (op));
+  data->relevant->set_bit (SSA_NAME_VERSION (op));
 }
 
 /* Checks whether the use OP is interesting and if so, records it.  */
@@ -2252,7 +2252,7 @@ find_depends (tree *expr_p, int *ws ATTRIBUTE_UNUSED, void *data)
 
   if (!*depends_on)
     *depends_on = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (*depends_on, info->inv_id);
+  (*depends_on)->set_bit (info->inv_id);
 
   return NULL_TREE;
 }
@@ -2360,7 +2360,7 @@ add_candidate_1 (struct ivopts_data *data,
 
   if (use)
     {
-      bitmap_set_bit (use->related_cands, i);
+      use->related_cands->set_bit (i);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Candidate %d is related to use %d\n",
 		 cand->id, use->id);
@@ -2618,7 +2618,7 @@ record_important_candidates (struct ivopts_data *data)
       struct iv_cand *cand = iv_cand (data, i);
 
       if (cand->important)
-	bitmap_set_bit (data->important_candidates, i);
+	data->important_candidates->set_bit (i);
     }
 
   data->consider_all_candidates = (n_iv_cands (data)
@@ -5039,7 +5039,7 @@ determine_use_iv_costs (struct ivopts_data *data)
 	    {
 	      cand = iv_cand (data, j);
 	      if (!determine_use_iv_cost (data, use, cand))
-		bitmap_set_bit (&to_clear, j);
+		to_clear.set_bit (j);
 	    }
 
 	  /* Remove the candidates for that the cost is infinite from
@@ -5382,7 +5382,7 @@ iv_ca_set_cp (struct ivopts_data *data, struct iv_ca *ivs,
       ivs->n_cand_uses[cid]++;
       if (ivs->n_cand_uses[cid] == 1)
 	{
-	  bitmap_set_bit (ivs->cands, cid);
+	  ivs->cands->set_bit (cid);
 	  /* Do not count the pseudocandidates.  */
 	  if (cp->cand->iv)
 	    ivs->n_regs++;
@@ -6559,7 +6559,7 @@ remove_unused_ivs (struct ivopts_data *data)
 	  && !info->iv->have_use_for
 	  && !info->preserve_biv)
 	{
-	  bitmap_set_bit (&toremove, SSA_NAME_VERSION (info->iv->ssa_name));
+	  toremove.set_bit (SSA_NAME_VERSION (info->iv->ssa_name));
 	  
 	  tree def = info->iv->ssa_name;
 

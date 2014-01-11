@@ -3325,7 +3325,7 @@ maybe_lower_iteration_bound (struct loop *loop)
      iteration.  */
   queue.safe_push (loop->header);
   bitmap_head visited;
-  bitmap_set_bit (&visited, loop->header->index);
+  visited.set_bit (loop->header->index);
   found_exit = false;
 
   do
@@ -3366,7 +3366,7 @@ maybe_lower_iteration_bound (struct loop *loop)
 		  found_exit = true;
 		  break;
 		}
-	      if (bitmap_set_bit (&visited, e->dest->index))
+	      if (visited.set_bit (e->dest->index))
 		queue.safe_push (e->dest);
 	    }
 	}

@@ -1136,7 +1136,7 @@ build_access_from_expr (tree expr, gimple stmt, bool write)
 	 assign statement and thus cannot be removed even if we had a scalar
 	 replacement for everything.  */
       if (cannot_scalarize_away_bitmap)
-	bitmap_set_bit (cannot_scalarize_away_bitmap, DECL_UID (access->base));
+	cannot_scalarize_away_bitmap->set_bit (DECL_UID (access->base));
       return true;
     }
   return false;
@@ -1194,7 +1194,7 @@ build_accesses_from_assign (gimple stmt)
       racc->grp_assignment_read = 1;
       if (should_scalarize_away_bitmap && !gimple_has_volatile_ops (stmt)
 	  && !is_gimple_reg_type (racc->type))
-	bitmap_set_bit (should_scalarize_away_bitmap, DECL_UID (racc->base));
+	should_scalarize_away_bitmap->set_bit (DECL_UID (racc->base));
     }
 
   if (lacc && racc
@@ -1261,7 +1261,7 @@ scan_function (void)
 	  unsigned i;
 
 	  if (final_bbs && stmt_can_throw_external (stmt))
-	    bitmap_set_bit (final_bbs, bb->index);
+	    final_bbs->set_bit (bb->index);
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_RETURN:
@@ -1269,7 +1269,7 @@ scan_function (void)
 	      if (t != NULL_TREE)
 		ret |= build_access_from_expr (t, stmt, false);
 	      if (final_bbs)
-		bitmap_set_bit (final_bbs, bb->index);
+		final_bbs->set_bit (bb->index);
 	      break;
 
 	    case GIMPLE_ASSIGN:
@@ -1301,7 +1301,7 @@ scan_function (void)
 
 		  if (final_bbs
 		      && (flags & (ECF_CONST | ECF_PURE)) == 0)
-		    bitmap_set_bit (final_bbs, bb->index);
+		    final_bbs->set_bit (bb->index);
 		}
 
 	      t = gimple_call_lhs (stmt);
@@ -1313,7 +1313,7 @@ scan_function (void)
 	      walk_stmt_load_store_addr_ops (stmt, NULL, NULL, NULL,
 					     asm_visit_addr);
 	      if (final_bbs)
-		bitmap_set_bit (final_bbs, bb->index);
+		final_bbs->set_bit (bb->index);
 
 	      for (i = 0; i < gimple_asm_ninputs (stmt); i++)
 		{
@@ -1793,7 +1793,7 @@ maybe_add_sra_candidate (tree var)
       return false;
     }
 
-  bitmap_set_bit (candidate_bitmap, DECL_UID (var));
+  candidate_bitmap->set_bit (DECL_UID (var));
   slot = candidates.find_slot_with_hash (var, DECL_UID (var), INSERT);
   *slot = var;
 
@@ -3709,7 +3709,7 @@ find_param_candidates (void)
 	      && type_internals_preclude_sra_p (type, &msg)))
 	continue;
 
-      bitmap_set_bit (candidate_bitmap, DECL_UID (parm));
+      candidate_bitmap->set_bit (DECL_UID (parm));
       slot = candidates.find_slot_with_hash (parm, DECL_UID (parm), INSERT);
       *slot = parm;
 
@@ -4789,7 +4789,7 @@ convert_callers_for_node (struct cgraph_node *node,
     }
 
   for (cs = node->callers; cs; cs = cs->next_caller)
-    if (bitmap_set_bit (&recomputed_callers, cs->caller->uid)
+    if (recomputed_callers.set_bit (cs->caller->uid)
 	&& gimple_in_ssa_p (DECL_STRUCT_FUNCTION (cs->caller->decl)))
       compute_inline_parameters (cs->caller, true);
 

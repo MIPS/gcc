@@ -2959,7 +2959,7 @@ mark_elimination (int from, int to)
       if (bitmap_bit_p (r, from))
 	{
 	  r->clear_bit (from);
-	  bitmap_set_bit (r, to);
+	  r->set_bit (to);
 	}
       if (! df_live)
         continue;
@@ -2967,7 +2967,7 @@ mark_elimination (int from, int to)
       if (bitmap_bit_p (r, from))
 	{
 	  r->clear_bit (from);
-	  bitmap_set_bit (r, to);
+	  r->set_bit (to);
 	}
     }
 }
@@ -3863,7 +3863,7 @@ update_equiv_regs (void)
 			= XEXP (reg_equiv[regno].init_insns, 1);
 
 		      ira_reg_equiv[regno].init_insns = NULL_RTX;
-		      bitmap_set_bit (&cleared_regs, regno);
+		      cleared_regs.set_bit (regno);
 		    }
 		  /* Move the initialization of the register to just before
 		     INSN.  Update the flow information.  */
@@ -3897,7 +3897,7 @@ update_equiv_regs (void)
 
 		      ira_reg_equiv[regno].init_insns
 			= gen_rtx_INSN_LIST (VOIDmode, new_insn, NULL_RTX);
-		      bitmap_set_bit (&cleared_regs, regno);
+		      cleared_regs.set_bit (regno);
 		    }
 		}
 	    }
@@ -4098,7 +4098,7 @@ init_live_subregs (bool init_value, sbitmap *live_subregs,
   else
     bitmap_clear (live_subregs[allocnum]);
 
-  bitmap_set_bit (live_subregs_used, allocnum);
+  live_subregs_used->set_bit (allocnum);
 }
 
 /* Walk the insns of the current function and build reload_insn_chain,
@@ -4124,7 +4124,7 @@ build_insn_chain (void)
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     if (TEST_HARD_REG_BIT (eliminable_regset, i))
-      bitmap_set_bit (&elim_regset, i);
+      elim_regset.set_bit (i);
   FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       bitmap_iterator bi;
@@ -4137,14 +4137,14 @@ build_insn_chain (void)
 	{
 	  if (i >= FIRST_PSEUDO_REGISTER)
 	    break;
-	  bitmap_set_bit (&live_relevant_regs, i);
+	  live_relevant_regs.set_bit (i);
 	}
 
       EXECUTE_IF_SET_IN_BITMAP (df_get_live_out (bb),
 				FIRST_PSEUDO_REGISTER, i, bi)
 	{
 	  if (pseudo_for_reload_consideration_p (i))
-	    bitmap_set_bit (&live_relevant_regs, i);
+	    live_relevant_regs.set_bit (i);
 	}
 
       FOR_BB_INSNS_REVERSE (bb, insn)
@@ -4178,10 +4178,10 @@ build_insn_chain (void)
 			if (regno < FIRST_PSEUDO_REGISTER)
 			  {
 			    if (!fixed_regs[regno])
-			      bitmap_set_bit (&c->dead_or_set, regno);
+			      c->dead_or_set.set_bit (regno);
 			  }
 			else if (pseudo_for_reload_consideration_p (regno))
-			  bitmap_set_bit (&c->dead_or_set, regno);
+			  c->dead_or_set.set_bit (regno);
 		      }
 
 		    if ((regno < FIRST_PSEUDO_REGISTER
@@ -4234,7 +4234,7 @@ build_insn_chain (void)
 			      /* Set live_relevant_regs here because
 				 that bit has to be true to get us to
 				 look at the live_subregs fields.  */
-			      bitmap_set_bit (&live_relevant_regs, regno);
+			      live_relevant_regs.set_bit (regno);
 			  }
 			else
 			  {
@@ -4279,10 +4279,10 @@ build_insn_chain (void)
 			if (regno < FIRST_PSEUDO_REGISTER)
 			  {
 			    if (!fixed_regs[regno])
-			      bitmap_set_bit (&c->dead_or_set, regno);
+			      c->dead_or_set.set_bit (regno);
 			  }
 			else if (pseudo_for_reload_consideration_p (regno))
-			  bitmap_set_bit (&c->dead_or_set, regno);
+			  c->dead_or_set.set_bit (regno);
 		      }
 
 		    if (regno < FIRST_PSEUDO_REGISTER
@@ -4317,7 +4317,7 @@ build_insn_chain (void)
 			     because we are reading the whole
 			     pseudo.  */
 			  live_subregs_used.clear_bit (regno);
-			bitmap_set_bit (&live_relevant_regs, regno);
+			live_relevant_regs.set_bit (regno);
 		      }
 		  }
 	    }
@@ -4547,8 +4547,8 @@ find_moveable_pseudos (void)
 		&& rtx_moveable_p (&PATTERN (insn), OP_IN))
 	      {
 		unsigned regno = DF_REF_REGNO (*u_rec);
-		bitmap_set_bit (moveable, regno);
-		bitmap_set_bit (&set, regno);
+		moveable->set_bit (regno);
+		set.set_bit (regno);
 		transp->clear_bit (regno);
 		continue;
 	      }
@@ -4563,7 +4563,7 @@ find_moveable_pseudos (void)
 	    while (*d_rec)
 	      {
 		unsigned regno = DF_REF_REGNO (*d_rec);
-		bitmap_set_bit (&set, regno);
+		set.set_bit (regno);
 		transp->clear_bit (regno);
 		moveable->clear_bit (regno);
 		d_rec++;
@@ -4612,7 +4612,7 @@ find_moveable_pseudos (void)
 		if (dump_file)
 		  fprintf (dump_file, "Ignoring reg %d, has equiv memory\n",
 			   regno);
-		bitmap_set_bit (&unusable_as_input, regno);
+		unusable_as_input.set_bit (regno);
 		continue;
 	      }
 
@@ -4654,7 +4654,7 @@ find_moveable_pseudos (void)
 		continue;
 	      }
 	    if (all_local)
-	      bitmap_set_bit (local, regno);
+	      local->set_bit (regno);
 	    if (closest_use == const0_rtx || closest_use == NULL
 		|| next_nonnote_nondebug_insn (def_insn) == closest_use)
 	      {
@@ -4673,7 +4673,7 @@ find_moveable_pseudos (void)
 		continue;
 	      }
 #endif
-	    bitmap_set_bit (&interesting, regno);
+	    interesting.set_bit (regno);
 	    closest_uses[regno] = closest_use;
 
 	    if (dump_file && (all_local || all_dominated))
@@ -4897,8 +4897,8 @@ split_live_ranges_for_shrink_wrap (void)
 	      return false;
 	    }
 
-	  bitmap_set_bit (&need_new, bb->index);
-	  bitmap_set_bit (&reachable, bb->index);
+	  need_new.set_bit (bb->index);
+	  reachable.set_bit (bb->index);
 	  queue.quick_push (bb);
 	  break;
 	}
@@ -4917,7 +4917,7 @@ split_live_ranges_for_shrink_wrap (void)
       bb = queue.pop ();
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
-	    && bitmap_set_bit (&reachable, e->dest->index))
+	    && reachable.set_bit (e->dest->index))
 	  queue.quick_push (e->dest);
     }
   queue.release ();
@@ -4946,7 +4946,7 @@ split_live_ranges_for_shrink_wrap (void)
 
 	  int ubbi = DF_REF_BB (use)->index;
 	  if (bitmap_bit_p (&reachable, ubbi))
-	    bitmap_set_bit (&need_new, ubbi);
+	    need_new.set_bit (ubbi);
 	}
       last_interesting_insn = insn;
     }

@@ -1450,7 +1450,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	{
 	  edge e = (*path)[0]->e;
 	  e->aux = (void *)path;
-	  bitmap_set_bit (&tmp, e->dest->index);
+	  tmp.set_bit (e->dest->index);
 	}
     }
 
@@ -1475,7 +1475,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	    {
 	      edge e = (*path)[0]->e;
 	      e->aux = path;
-	      bitmap_set_bit (&tmp, e->dest->index);
+	      tmp.set_bit (e->dest->index);
 	    }
 	  else if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -1506,7 +1506,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 		}
 	    }
 	  else
-	    bitmap_set_bit (threaded_blocks, i);
+	    threaded_blocks->set_bit (i);
 	}
     }
   else

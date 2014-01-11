@@ -12105,7 +12105,7 @@ ix86_live_on_entry (bitmap regs)
   if (cfun->machine->split_stack_varargs_pointer != NULL_RTX)
     {
       gcc_assert (flag_split_stack);
-      bitmap_set_bit (regs, split_stack_prologue_scratch_regno ());
+      regs->set_bit (split_stack_prologue_scratch_regno ());
     }
 }
 

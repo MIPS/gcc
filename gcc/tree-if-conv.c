@@ -1045,7 +1045,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
 	      || bb == loop->header)
 	    {
 	      /* This block is now visited.  */
-	      bitmap_set_bit (&visited, bb->index);
+	      visited.set_bit (bb->index);
 	      blocks[visited_count++] = bb;
 	    }
 	}

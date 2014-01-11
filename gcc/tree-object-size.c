@@ -594,7 +594,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 	      while (osi.changed);
 	    }
 	  EXECUTE_IF_SET_IN_BITMAP (&osi.reexamine, 0, i, bi)
-	    bitmap_set_bit (computed[object_size_type], i);
+	    computed[object_size_type]->set_bit (i);
 
 	  /* Debugging dumps.  */
 	  if (dump_file)
@@ -902,7 +902,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
 
   if (osi->pass == 0)
     {
-      if (bitmap_set_bit (&osi->visited, varno))
+      if (osi->visited.set_bit (varno))
 	{
 	  object_sizes[object_size_type][varno]
 	    = (object_size_type & 2) ? -1 : 0;
@@ -911,7 +911,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
 	{
 	  /* Found a dependency loop.  Mark the variable for later
 	     re-examination.  */
-	  bitmap_set_bit (&osi->reexamine, varno);
+	  osi->reexamine.set_bit (varno);
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
 	      fprintf (dump_file, "Found a dependency loop at ");
@@ -1014,12 +1014,12 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
   if (! reexamine
       || object_sizes[object_size_type][varno] == unknown[object_size_type])
     {
-      bitmap_set_bit (computed[object_size_type], varno);
+      computed[object_size_type]->set_bit (varno);
       osi->reexamine.clear_bit (varno);
     }
   else
     {
-      bitmap_set_bit (&osi->reexamine, varno);
+      osi->reexamine.set_bit (varno);
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{
 	  fprintf (dump_file, "Need to reexamine ");
@@ -1051,7 +1051,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	    {
 	      --sp;
 	      osi->reexamine.clear_bit (*sp);
-	      bitmap_set_bit (computed[osi->object_size_type], *sp);
+	      computed[osi->object_size_type]->set_bit (*sp);
 	      object_sizes[osi->object_size_type][*sp] = 0;
 	      if (*sp == varno)
 		break;

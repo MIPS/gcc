@@ -557,7 +557,7 @@ get_or_alloc_constant_value_id (tree constant)
   vcp->constant = constant;
   vcp->value_id = get_next_value_id ();
   *slot = vcp;
-  bitmap_set_bit (constant_value_ids, vcp->value_id);
+  constant_value_ids->set_bit (vcp->value_id);
   return vcp->value_id;
 }
 

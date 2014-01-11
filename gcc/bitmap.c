@@ -660,19 +660,19 @@ bitmap_head::clear_bit (int bit)
 /* Set a single bit in a bitmap.  Return true if the bit changed.  */
 
 bool
-bitmap_set_bit (bitmap head, int bit)
+bitmap_head::set_bit (int bit)
 {
-  bitmap_element *ptr = bitmap_find_bit (head, bit);
+  bitmap_element *ptr = bitmap_find_bit (this, bit);
   unsigned word_num = bit / BITMAP_WORD_BITS % BITMAP_ELEMENT_WORDS;
   unsigned bit_num  = bit % BITMAP_WORD_BITS;
   BITMAP_WORD bit_val = ((BITMAP_WORD) 1) << bit_num;
 
   if (ptr == 0)
     {
-      ptr = bitmap_element_allocate (head);
+      ptr = bitmap_element_allocate (this);
       ptr->indx = bit / BITMAP_ELEMENT_ALL_BITS;
       ptr->bits[word_num] = bit_val;
-      bitmap_element_link (head, ptr);
+      bitmap_element_link (this, ptr);
       return true;
     }
   else

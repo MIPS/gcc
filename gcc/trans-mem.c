@@ -1923,12 +1923,12 @@ tm_region_init_1 (struct tm_region *region, basic_block bb)
 		   || DECL_FUNCTION_CODE (fn) == BUILT_IN_TM_COMMIT_EH)
 		  && region->exit_blocks)
 		{
-		  bitmap_set_bit (region->exit_blocks, bb->index);
+		  region->exit_blocks->set_bit (bb->index);
 		  region = region->outer;
 		  break;
 		}
 	      if (DECL_FUNCTION_CODE (fn) == BUILT_IN_TM_IRREVOCABLE)
-		bitmap_set_bit (region->irr_blocks, bb->index);
+		region->irr_blocks->set_bit (bb->index);
 	    }
 	}
     }
@@ -1980,7 +1980,7 @@ tm_region_init (struct tm_region *region)
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (!bitmap_bit_p (&visited_blocks, e->dest->index))
 	  {
-	    bitmap_set_bit (&visited_blocks, e->dest->index);
+	    visited_blocks.set_bit (e->dest->index);
 	    queue.safe_push (e->dest);
 
 	    /* If the current block started a new region, make sure that only
@@ -2535,7 +2535,7 @@ get_tm_region_blocks (basic_block entry_block,
 
   i = 0;
   bbs.safe_push (entry_block);
-  bitmap_set_bit (&visited_blocks, entry_block->index);
+  visited_blocks.set_bit (entry_block->index);
 
   do
     {
@@ -2555,7 +2555,7 @@ get_tm_region_blocks (basic_block entry_block,
 	     || !(e->flags & EDGE_TM_UNINSTRUMENTED))
 	    && !bitmap_bit_p (&visited_blocks, e->dest->index))
 	  {
-	    bitmap_set_bit (&visited_blocks, e->dest->index);
+	    visited_blocks.set_bit (e->dest->index);
 	    bbs.safe_push (e->dest);
 	  }
     }
@@ -3427,7 +3427,7 @@ tm_memopt_accumulate_memops (basic_block bb)
 	continue;
 
       loc = tm_memopt_value_number (stmt, INSERT);
-      bitmap_set_bit (bits, loc);
+      bits->set_bit (loc);
       if (dump_file)
 	{
 	  fprintf (dump_file, "TM memopt (%s): value num=%d, BB=%d, addr=",
@@ -3814,12 +3814,12 @@ tm_memopt_transform_blocks (vec<basic_block> blocks)
 	      else if (store_antic && bitmap_bit_p (store_antic, loc))
 		{
 		  tm_memopt_transform_stmt (TRANSFORM_RFW, stmt, &gsi);
-		  bitmap_set_bit (store_avail, loc);
+		  store_avail->set_bit (loc);
 		}
 	      else if (read_avail && bitmap_bit_p (read_avail, loc))
 		tm_memopt_transform_stmt (TRANSFORM_RAR, stmt, &gsi);
 	      else
-		bitmap_set_bit (read_avail, loc);
+		read_avail->set_bit (loc);
 	    }
 	  else if (is_tm_simple_store (stmt))
 	    {
@@ -3830,7 +3830,7 @@ tm_memopt_transform_blocks (vec<basic_block> blocks)
 		{
 		  if (read_avail && bitmap_bit_p (read_avail, loc))
 		    tm_memopt_transform_stmt (TRANSFORM_WAR, stmt, &gsi);
-		  bitmap_set_bit (store_avail, loc);
+		  store_avail->set_bit (loc);
 		}
 	    }
 	}
@@ -4378,7 +4378,7 @@ ipa_tm_scan_irr_blocks (vec<basic_block> *pqueue, bitmap new_irr,
 
       if (ipa_tm_scan_irr_block (bb))
 	{
-	  bitmap_set_bit (new_irr, bb->index);
+	  new_irr->set_bit (bb->index);
 	  any_new_irr = true;
 	}
       else if (exit_blocks == NULL || !bitmap_bit_p (exit_blocks, bb->index))
@@ -4386,7 +4386,7 @@ ipa_tm_scan_irr_blocks (vec<basic_block> *pqueue, bitmap new_irr,
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    if (!bitmap_bit_p (&visited_blocks, e->dest->index))
 	      {
-		bitmap_set_bit (&visited_blocks, e->dest->index);
+		visited_blocks.set_bit (e->dest->index);
 		pqueue->safe_push (e->dest);
 	      }
 	}
@@ -4442,7 +4442,7 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
 	      /* Add block to new_irr if it hasn't already been processed. */
 	      if (!old_irr || !bitmap_bit_p (old_irr, bb->index))
 		{
-		  bitmap_set_bit (new_irr, bb->index);
+		  new_irr->set_bit (bb->index);
 		  this_irr = true;
 		}
 	    }
@@ -4460,7 +4460,7 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
 		 isn't already in old_irr.  */
 	      if ((!old_irr || !bitmap_bit_p (old_irr, son->index))
 		  && bitmap_bit_p (&all_region_blocks, son->index))
-		bitmap_set_bit (new_irr, son->index);
+		new_irr->set_bit (son->index);
 	    }
 	}
     }
@@ -5220,7 +5220,7 @@ ipa_tm_transform_calls (struct cgraph_node *node, struct tm_region *region,
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (!bitmap_bit_p (&visited_blocks, e->dest->index))
 	  {
-	    bitmap_set_bit (&visited_blocks, e->dest->index);
+	    visited_blocks.set_bit (e->dest->index);
 	    queue.safe_push (e->dest);
 	  }
     }

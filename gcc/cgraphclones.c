@@ -493,11 +493,11 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
 	{
 	  if (bitmap_bit_p (old_node->clone.combined_args_to_skip, oldi))
 	    {
-	      bitmap_set_bit (new_args_to_skip, oldi);
+	      new_args_to_skip->set_bit (oldi);
 	      continue;
 	    }
 	  if (bitmap_bit_p (args_to_skip, newi))
-	    bitmap_set_bit (new_args_to_skip, oldi);
+	    new_args_to_skip->set_bit (oldi);
 	  newi++;
 	}
       new_node->clone.combined_args_to_skip = new_args_to_skip;

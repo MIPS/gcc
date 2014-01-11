@@ -955,7 +955,7 @@ mark_regno_birth_or_death (bitmap live, int *pressure, int regno, bool birth_p)
 	{
 	  if (birth_p)
 	    {
-	      if (!live || bitmap_set_bit (live, regno))
+	      if (!live || live->set_bit (regno))
 		pressure[pressure_class]
 		  += (ira_reg_class_max_nregs
 		      [pressure_class][PSEUDO_REGNO_MODE (regno)]);
@@ -974,7 +974,7 @@ mark_regno_birth_or_death (bitmap live, int *pressure, int regno, bool birth_p)
     {
       if (birth_p)
 	{
-	  if (!live || bitmap_set_bit (live, regno))
+	  if (!live || live->set_bit (regno))
 	    pressure[pressure_class]++;
 	}
       else
@@ -1019,7 +1019,7 @@ setup_ref_regs (rtx x)
 	bitmap_set_range (region_ref_regs, regno,
 			  hard_regno_nregs[regno][GET_MODE (x)]);
       else
-	bitmap_set_bit (region_ref_regs, REGNO (x));
+	region_ref_regs->set_bit (REGNO (x));
       return;
     }
   fmt = GET_RTX_FORMAT (code);
@@ -4600,7 +4600,7 @@ estimate_insn_tick (bitmap processed, rtx insn, int budget)
 	    earliest = t;
 	}
     }
-  bitmap_set_bit (processed, INSN_LUID (insn));
+  processed->set_bit (INSN_LUID (insn));
   INSN_TICK_ESTIMATE (insn) = earliest;
   return true;
 }
@@ -6854,7 +6854,7 @@ fix_inter_tick (rtx head, rtx tail)
 	  gcc_assert (tick >= MIN_TICK);
 
 	  /* Fix INSN_TICK of instruction from just scheduled block.  */
-	  if (bitmap_set_bit (&processed, INSN_LUID (head)))
+	  if (processed.set_bit (INSN_LUID (head)))
 	    {
 	      tick -= next_clock;
 
@@ -6878,7 +6878,7 @@ fix_inter_tick (rtx head, rtx tail)
 		  /* If NEXT has its INSN_TICK calculated, fix it.
 		     If not - it will be properly calculated from
 		     scratch later in fix_tick_ready.  */
-		  && bitmap_set_bit (&processed, INSN_LUID (next)))
+		  && processed.set_bit (INSN_LUID (next)))
 		{
 		  tick -= next_clock;
 
@@ -7965,7 +7965,7 @@ fix_recovery_deps (basic_block rec)
 	    {
 	      sd_delete_dep (sd_it);
 
-	      if (bitmap_set_bit (&in_ready, INSN_LUID (consumer)))
+	      if (in_ready.set_bit (INSN_LUID (consumer)))
 		ready_list = alloc_INSN_LIST (consumer, ready_list);
 	    }
 	  else

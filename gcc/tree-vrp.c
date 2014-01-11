@@ -862,7 +862,7 @@ add_equivalence (bitmap *equiv, const_tree var)
 
   if (*equiv == NULL)
     *equiv = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (*equiv, ver);
+  (*equiv)->set_bit (ver);
   if (vr && vr->equiv)
     bitmap_ior_into (*equiv, vr->equiv);
 }
@@ -4742,7 +4742,7 @@ register_new_assert_for (tree name, tree expr,
   else
     asserts_for[SSA_NAME_VERSION (name)] = n;
 
-  bitmap_set_bit (need_assert_for, SSA_NAME_VERSION (name));
+  need_assert_for->set_bit (SSA_NAME_VERSION (name));
 }
 
 /* (COND_OP0 COND_CODE COND_OP1) is a predicate which uses NAME.
@@ -6970,8 +6970,8 @@ compare_names (enum tree_code comp, tree n1, tree n2,
   /* Add N1 and N2 to their own set of equivalences to avoid
      duplicating the body of the loop just to check N1 and N2
      ranges.  */
-  bitmap_set_bit (e1, SSA_NAME_VERSION (n1));
-  bitmap_set_bit (e2, SSA_NAME_VERSION (n2));
+  e1->set_bit (SSA_NAME_VERSION (n1));
+  e2->set_bit (SSA_NAME_VERSION (n2));
 
   /* If the equivalence sets have a common intersection, then the two
      names can be compared without checking their ranges.  */

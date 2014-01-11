@@ -195,7 +195,7 @@ mark_conflict (struct du_head *chains, unsigned id)
 {
   while (chains)
     {
-      bitmap_set_bit (&chains->conflicts, id);
+      chains->conflicts.set_bit (id);
       chains = chains->next_chain;
     }
 }
@@ -249,7 +249,7 @@ create_new_chain (unsigned this_regno, unsigned this_nregs, rtx *loc,
     }
 
   COPY_HARD_REG_SET (head->hard_conflicts, live_hard_regs);
-  bitmap_set_bit (open_chains_set, head->id);
+  open_chains_set->set_bit (head->id);
 
   open_chains = head;
 
@@ -580,7 +580,7 @@ init_rename_info (struct bb_rename_info *p, basic_block bb)
 	  if (dump_file)
 	    fprintf (dump_file, "opening incoming chain\n");
 	  chain = create_new_chain (i, iri->nregs, NULL, NULL_RTX, NO_REGS);
-	  bitmap_set_bit (&p->incoming_open_chains_set, chain->id);
+	  p->incoming_open_chains_set.set_bit (chain->id);
 	}
     }
 }

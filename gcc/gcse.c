@@ -1507,10 +1507,10 @@ record_last_mem_set_info (rtx insn)
      everything.  */
   bb = BLOCK_FOR_INSN (insn)->index;
   modify_mem_list[bb].safe_push (insn);
-  bitmap_set_bit (modify_mem_list_set, bb);
+  modify_mem_list_set->set_bit (bb);
 
   if (CALL_P (insn))
-    bitmap_set_bit (blocks_with_calls, bb);
+    blocks_with_calls->set_bit (bb);
   else
     note_stores (PATTERN (insn), canon_list_insert, (void*) insn);
 }
@@ -3073,7 +3073,7 @@ should_hoist_expr_to_dom (basic_block expr_bb, struct expr *expr,
 	  /* Record the basic block from which EXPR is hoisted.  */
 	  bitmap_set_bit (visited, bb->index);
 	  EXECUTE_IF_SET_IN_BITMAP (visited, 0, i, sbi)
-	    bitmap_set_bit (hoisted_bbs, i);
+	    hoisted_bbs->set_bit (i);
 	}
       sbitmap_free (visited);
     }
@@ -3293,7 +3293,7 @@ hoist_code (void)
 		    {
 		      hoistable++;
 		      occrs_to_hoist.safe_push (occr);
-		      bitmap_set_bit (&from_bbs, dominated->index);
+		      from_bbs.set_bit (dominated->index);
 		    }
 		}
 
@@ -3542,7 +3542,7 @@ calculate_bb_reg_pressure (void)
 	      dreg = DF_REF_REAL_REG (*use_rec);
 	      gcc_assert (REG_P (dreg));
 	      regno = REGNO (dreg);
-	      if (bitmap_set_bit (&curr_regs_live, regno))
+	      if (curr_regs_live.set_bit (regno))
 		change_pressure (regno, true);
 	    }
 	}

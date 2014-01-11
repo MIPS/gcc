@@ -1015,7 +1015,7 @@ remove_ssa_form (bool perform_ter, struct ssaexpand *sa)
 	{
 	  int p = var_to_partition (map, t);
 	  if (p != NO_PARTITION)
-	    bitmap_set_bit (sa->partition_has_default_def, p);
+	    sa->partition_has_default_def->set_bit (p);
 	}
     }
 }

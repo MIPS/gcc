@@ -365,7 +365,7 @@ calc_dfs_tree (struct dom_info *di, bool reverse)
 		saw_unconnected = true;
 	      continue;
 	    }
-	  bitmap_set_bit (di->fake_exit_edge, b->index);
+	  di->fake_exit_edge->set_bit (b->index);
 	  di->dfs_order[b->index] = di->dfsnum;
 	  di->dfs_to_bb[di->dfsnum] = b;
 	  di->dfs_parent[di->dfsnum] =
@@ -383,7 +383,7 @@ calc_dfs_tree (struct dom_info *di, bool reverse)
 		continue;
 	      b2 = dfs_find_deadend (b);
 	      gcc_checking_assert (di->dfs_order[b2->index] == 0);
-	      bitmap_set_bit (di->fake_exit_edge, b2->index);
+	      di->fake_exit_edge->set_bit (b2->index);
 	      di->dfs_order[b2->index] = di->dfsnum;
 	      di->dfs_to_bb[di->dfsnum] = b2;
 	      di->dfs_parent[di->dfsnum] =
@@ -1189,7 +1189,7 @@ determine_dominators_for_sons (struct graph *g, vec<basic_block> bbs,
 
   bitmap_head gprime;
   for (a = son[y]; a != -1; a = brother[a])
-    bitmap_set_bit (&gprime, a);
+    gprime.set_bit (a);
 
   nc = graphds_scc (g, &gprime);
 
@@ -1361,7 +1361,7 @@ iterate_fix_dominators (enum cdi_direction dir, vec<basic_block> bbs,
 	  dom_i = *map->contains (dom);
 
 	  /* Do not include parallel edges to G.  */
-	  if (!bitmap_set_bit ((bitmap) g->vertices[dom_i].data, i))
+	  if (!((bitmap) g->vertices[dom_i].data)->set_bit (i))
 	    continue;
 
 	  add_edge (g, dom_i, i);

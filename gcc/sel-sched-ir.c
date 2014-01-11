@@ -2686,7 +2686,7 @@ setup_id_reg_sets (idata_t id, insn_t insn)
       /* Mark special refs that generate read/write def pair.  */
       if (DF_REF_FLAGS_IS_SET (def, DF_REF_CONDITIONAL)
           || regno == STACK_POINTER_REGNUM)
-        bitmap_set_bit (tmp, regno);
+        tmp->set_bit (regno);
     }
 
   for (rec = DF_INSN_UID_USES (uid); *rec; rec++)
@@ -5421,7 +5421,7 @@ sel_split_block (basic_block bb, rtx after)
 
   if (!sel_bb_empty_p (new_bb)
       && bitmap_bit_p (blocks_to_reschedule, bb->index))
-    bitmap_set_bit (blocks_to_reschedule, new_bb->index);
+    blocks_to_reschedule->set_bit (new_bb->index);
 
   return new_bb;
 }

@@ -107,7 +107,7 @@ merge_pseudos (int regno1, int regno2)
        regno = next_coalesced_pseudo[regno])
     {
       first_coalesced_pseudo[regno] = first;
-      bitmap_set_bit (&coalesced_pseudos_bitmap, regno);
+      coalesced_pseudos_bitmap.set_bit (regno);
       if (regno == regno2)
 	break;
       last = regno;
@@ -193,7 +193,7 @@ update_live_info (bitmap lr_bitmap)
   bitmap_clear (&used_pseudos_bitmap);
   EXECUTE_IF_AND_IN_BITMAP (&coalesced_pseudos_bitmap, lr_bitmap,
 			    FIRST_PSEUDO_REGISTER, j, bi)
-    bitmap_set_bit (&used_pseudos_bitmap, first_coalesced_pseudo[j]);
+    used_pseudos_bitmap.set_bit (first_coalesced_pseudo[j]);
   if (! bitmap_empty_p (&used_pseudos_bitmap))
     {
       bitmap_and_compl_into (lr_bitmap, &coalesced_pseudos_bitmap);
@@ -339,8 +339,8 @@ lra_coalesce (void)
      So invalidate such inheritance pseudo values.  */
   bitmap_initialize (&result_pseudo_vals_bitmap, &reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&coalesced_pseudos_bitmap, 0, regno, bi)
-    bitmap_set_bit (&result_pseudo_vals_bitmap,
-		    lra_reg_info[first_coalesced_pseudo[regno]].val);
+    result_pseudo_vals_bitmap.set_bit
+		    (lra_reg_info[first_coalesced_pseudo[regno]].val);
   EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, regno, bi)
     if (bitmap_bit_p (&result_pseudo_vals_bitmap, lra_reg_info[regno].val))
       {

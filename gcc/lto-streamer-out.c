@@ -2052,7 +2052,7 @@ lto_output (void)
 	{
 #ifdef ENABLE_CHECKING
 	  gcc_assert (!bitmap_bit_p (&output, DECL_UID (node->decl)));
-	  bitmap_set_bit (&output, DECL_UID (node->decl));
+	  output.set_bit (DECL_UID (node->decl));
 #endif
 	  decl_state = lto_new_out_decl_state ();
 	  lto_push_out_decl_state (decl_state);

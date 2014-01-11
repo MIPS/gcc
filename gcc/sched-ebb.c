@@ -683,7 +683,7 @@ ebb_add_block (basic_block bb, basic_block after)
      therefore, they always form single block EBB,
      therefore, we can use rec->index to identify such EBBs.  */
   if (after == EXIT_BLOCK_PTR_FOR_FN (cfun))
-    bitmap_set_bit (&dont_calc_deps, bb->index);
+    dont_calc_deps.set_bit (bb->index);
   else if (after == last_bb)
     last_bb = bb;
 }

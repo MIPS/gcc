@@ -1591,7 +1591,7 @@ add_regs_to_insn_regno_info (lra_insn_recog_data_t data, rtx x, int uid,
 	  && ! TEST_HARD_REG_BIT (eliminable_regset, regno))
 	return;
       expand_reg_info ();
-      if (bitmap_set_bit (&lra_reg_info[regno].insn_bitmap, uid))
+      if (lra_reg_info[regno].insn_bitmap.set_bit (uid))
 	{
 	  data->regs = new_insn_reg (data->insn, regno, type, mode, subreg_p,
 				     early_clobber, data->regs);
@@ -1988,9 +1988,9 @@ remove_scratches (void)
 	      loc->insn = insn;
 	      loc->nop = i;
 	      scratches.safe_push (loc);
-	      bitmap_set_bit (&scratch_bitmap, REGNO (*id->operand_loc[i]));
-	      bitmap_set_bit (&scratch_operand_bitmap,
-			      INSN_UID (insn) * MAX_RECOG_OPERANDS + i);
+	      scratch_bitmap.set_bit (REGNO (*id->operand_loc[i]));
+	      scratch_operand_bitmap.set_bit
+			      (INSN_UID (insn) * MAX_RECOG_OPERANDS + i);
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file,
 			 "Removing SCRATCH in insn #%u (nop %d)\n",

@@ -287,7 +287,7 @@ make_dependent_on_partition (temp_expr_table_p tab, int version, int p)
   if (!tab->partition_dependencies[version])
     tab->partition_dependencies[version] = BITMAP_ALLOC (&ter_bitmap_obstack);
 
-  bitmap_set_bit (tab->partition_dependencies[version], p);
+  tab->partition_dependencies[version]->set_bit (p);
 }
 
 
@@ -299,9 +299,9 @@ add_to_partition_kill_list (temp_expr_table_p tab, int p, int ver)
   if (!tab->kill_list[p])
     {
       tab->kill_list[p] = BITMAP_ALLOC (&ter_bitmap_obstack);
-      bitmap_set_bit (tab->partition_in_use, p);
+      tab->partition_in_use->set_bit (p);
     }
-  bitmap_set_bit (tab->kill_list[p], ver);
+  tab->kill_list[p]->set_bit (ver);
 }
 
 
@@ -470,7 +470,7 @@ process_replaceable (temp_expr_table_p tab, gimple stmt, int call_cnt)
 
   basevar = SSA_NAME_VAR (def);
   if (basevar)
-    bitmap_set_bit (def_vars, DECL_UID (basevar));
+    def_vars->set_bit (DECL_UID (basevar));
 
   /* Add this expression to the dependency list for each use partition.  */
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, iter, SSA_OP_USE)
@@ -485,7 +485,7 @@ process_replaceable (temp_expr_table_p tab, gimple stmt, int call_cnt)
 	  BITMAP_FREE (tab->expr_decl_uids[var_version]);
 	}
       else if (SSA_NAME_VAR (var))
-	bitmap_set_bit (def_vars, DECL_UID (SSA_NAME_VAR (var)));
+	def_vars->set_bit (DECL_UID (SSA_NAME_VAR (var)));
     }
   tab->expr_decl_uids[version] = def_vars;
 
@@ -551,7 +551,7 @@ mark_replaceable (temp_expr_table_p tab, tree var, bool more_replacing)
      on the default obstack.  */
   if (!tab->replaceable_expressions)
     tab->replaceable_expressions = BITMAP_ALLOC (NULL);
-  bitmap_set_bit (tab->replaceable_expressions, version);
+  tab->replaceable_expressions->set_bit (version);
 }
 
 

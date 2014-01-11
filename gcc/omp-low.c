@@ -933,7 +933,7 @@ use_pointer_for_field (tree decl, omp_context *shared_ctx)
 		 variable.  */
 	      if (!task_shared_vars)
 		task_shared_vars = BITMAP_ALLOC (NULL);
-	      bitmap_set_bit (task_shared_vars, DECL_UID (outer));
+	      task_shared_vars->set_bit (DECL_UID (outer));
 	      TREE_ADDRESSABLE (outer) = 1;
 	    }
 	  return true;

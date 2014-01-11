@@ -2197,7 +2197,7 @@ maybe_skip_until (gimple phi, tree target, ao_ref *ref,
   if (!*visited)
     *visited = BITMAP_ALLOC (NULL);
 
-  bitmap_set_bit (*visited, SSA_NAME_VERSION (PHI_RESULT (phi)));
+  (*visited)->set_bit (SSA_NAME_VERSION (PHI_RESULT (phi)));
 
   /* Walk until we hit the target.  */
   while (vuse != target)
@@ -2228,7 +2228,7 @@ maybe_skip_until (gimple phi, tree target, ao_ref *ref,
          in a previous walk that ended successfully.  */
       if (gimple_bb (def_stmt) != bb)
 	{
-	  if (!bitmap_set_bit (*visited, SSA_NAME_VERSION (vuse)))
+	  if (!(*visited)->set_bit (SSA_NAME_VERSION (vuse)))
 	    return !abort_on_visited;
 	  bb = gimple_bb (def_stmt);
 	}
@@ -2462,7 +2462,7 @@ walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
       gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
 
       if (*visited
-	  && !bitmap_set_bit (*visited, SSA_NAME_VERSION (vdef)))
+	  && !(*visited)->set_bit (SSA_NAME_VERSION (vdef)))
 	return cnt;
 
       if (gimple_nop_p (def_stmt))

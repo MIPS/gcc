@@ -2763,7 +2763,7 @@ create_specialized_node (struct cgraph_node *node,
 
 	  if ((t && TREE_CODE (t) != TREE_BINFO)
 	      || !ipa_is_param_used (info, i))
-	    bitmap_set_bit (args_to_skip, i);
+	    args_to_skip->set_bit (i);
 	}
     }
   else

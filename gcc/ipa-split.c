@@ -219,7 +219,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	&& !bitmap_bit_p (current->split_bbs, e->src->index))
       {
         worklist.safe_push (e->src);
-	bitmap_set_bit (&seen, e->src->index);
+	seen.set_bit (e->src->index);
       }
 
   while (!worklist.is_empty ())
@@ -229,7 +229,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
-	    && bitmap_set_bit (&seen, e->src->index))
+	    && seen.set_bit (e->src->index))
 	  {
 	    gcc_checking_assert (!bitmap_bit_p (current->split_bbs,
 					        e->src->index));
@@ -346,7 +346,7 @@ check_forbidden_calls (gimple stmt)
       else
 	forbidden_bb = true_edge->dest;
 
-      bitmap_set_bit (forbidden_dominators, forbidden_bb->index);
+      forbidden_dominators->set_bit (forbidden_bb->index);
     }
 }
 
@@ -734,7 +734,7 @@ mark_nonssa_use (gimple, tree t, tree, void *data)
        && auto_var_in_fn_p (t, current_function_decl))
       || TREE_CODE (t) == RESULT_DECL
       || TREE_CODE (t) == LABEL_DECL)
-    bitmap_set_bit ((bitmap)data, DECL_UID (t));
+    ((bitmap)data)->set_bit (DECL_UID (t));
 
   /* For DECL_BY_REFERENCE, the return value is actually a pointer.  We want
      to pretend that the value pointed to is actual result decl.  */
@@ -831,9 +831,9 @@ visit_bb (basic_block bb, basic_block return_bb,
 	  }
 
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_DEF)
-	bitmap_set_bit (set_ssa_names, SSA_NAME_VERSION (op));
+	set_ssa_names->set_bit (SSA_NAME_VERSION (op));
       FOR_EACH_SSA_TREE_OPERAND (op, stmt, iter, SSA_OP_USE)
-	bitmap_set_bit (used_ssa_names, SSA_NAME_VERSION (op));
+	used_ssa_names->set_bit (SSA_NAME_VERSION (op));
       can_split &= !walk_stmt_load_store_addr_ops (stmt, non_ssa_vars,
 						   mark_nonssa_use,
 						   mark_nonssa_use,
@@ -846,13 +846,12 @@ visit_bb (basic_block bb, basic_block return_bb,
 
       if (virtual_operand_p (gimple_phi_result (stmt)))
 	continue;
-      bitmap_set_bit (set_ssa_names,
-		      SSA_NAME_VERSION (gimple_phi_result (stmt)));
+      set_ssa_names->set_bit (SSA_NAME_VERSION (gimple_phi_result (stmt)));
       for (i = 0; i < gimple_phi_num_args (stmt); i++)
 	{
 	  tree op = gimple_phi_arg_def (stmt, i);
 	  if (TREE_CODE (op) == SSA_NAME)
-	    bitmap_set_bit (used_ssa_names, SSA_NAME_VERSION (op));
+	    used_ssa_names->set_bit (SSA_NAME_VERSION (op));
 	}
       can_split &= !walk_stmt_load_store_addr_ops (stmt, non_ssa_vars,
 						   mark_nonssa_use,
@@ -871,7 +870,7 @@ visit_bb (basic_block bb, basic_block return_bb,
 	    if (virtual_operand_p (gimple_phi_result (stmt)))
 	      continue;
 	    if (TREE_CODE (op) == SSA_NAME)
-	      bitmap_set_bit (used_ssa_names, SSA_NAME_VERSION (op));
+	      used_ssa_names->set_bit (SSA_NAME_VERSION (op));
 	    else
 	      can_split &= !mark_nonssa_use (stmt, op, op, non_ssa_vars);
 	  }
@@ -1033,7 +1032,7 @@ find_split_points (int overall_time, int overall_size)
 	      new_entry.bbs_visited = BITMAP_ALLOC (NULL);
 	      new_entry.non_ssa_vars = BITMAP_ALLOC (NULL);
 	      new_entry.can_split = true;
-	      bitmap_set_bit (new_entry.bbs_visited, dest->index);
+	      new_entry.bbs_visited->set_bit (dest->index);
 	      stack.safe_push (new_entry);
 	      dest->aux = (void *)(intptr_t)stack.length ();
 	    }
@@ -1119,7 +1118,7 @@ split_function (struct split_point *split_point)
 	    || (ddef = ssa_default_def (cfun, parm)) == NULL_TREE
 	    || !bitmap_bit_p (split_point->ssa_names_to_pass,
 			      SSA_NAME_VERSION (ddef))))
-      bitmap_set_bit (args_to_skip, num);
+      args_to_skip->set_bit (num);
     else
       {
 	/* This parm might not have been used up to now, but is going to be
@@ -1178,11 +1177,11 @@ split_function (struct split_point *split_point)
       e->count = new_return_bb->count;
       if (current_loops)
 	add_bb_to_loop (new_return_bb, current_loops->tree_root);
-      bitmap_set_bit (split_point->split_bbs, new_return_bb->index);
+      split_point->split_bbs->set_bit (new_return_bb->index);
     }
   /* When we pass around the value, use existing return block.  */
   else
-    bitmap_set_bit (split_point->split_bbs, return_bb->index);
+    split_point->split_bbs->set_bit (return_bb->index);
 
   /* If RETURN_BB has virtual operand PHIs, they must be removed and the
      virtual operand marked for renaming as we change the CFG in a way that

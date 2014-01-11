@@ -337,8 +337,8 @@ add_stack_var_conflict (size_t x, size_t y)
     a->conflicts = BITMAP_ALLOC (&stack_var_bitmap_obstack);
   if (!b->conflicts)
     b->conflicts = BITMAP_ALLOC (&stack_var_bitmap_obstack);
-  bitmap_set_bit (a->conflicts, y);
-  bitmap_set_bit (b->conflicts, x);
+  a->conflicts->set_bit (y);
+  b->conflicts->set_bit (x);
 }
 
 /* Check whether the decls associated with luid's X and Y conflict.  */
@@ -375,7 +375,7 @@ visit_op (gimple, tree op, tree, void *data)
     {
       size_t *v = (size_t *) pointer_map_contains (decl_to_stack_part, op);
       if (v)
-	bitmap_set_bit (active, *v);
+	active->set_bit (*v);
     }
   return false;
 }
@@ -395,7 +395,7 @@ visit_conflict (gimple, tree op, tree, void *data)
     {
       size_t *v =
 	(size_t *) pointer_map_contains (decl_to_stack_part, op);
-      if (v && bitmap_set_bit (active, *v))
+      if (v && active->set_bit (*v))
 	{
 	  size_t num = *v;
 	  bitmap_iterator bi;
@@ -663,7 +663,7 @@ update_alias_info_with_stack_vars (void)
 	{
 	  tree decl = stack_vars[j].decl;
 	  unsigned int uid = DECL_PT_UID (decl);
-	  bitmap_set_bit (part, uid);
+	  part->set_bit (uid);
 	  *((bitmap *) pointer_map_insert (decls_to_partitions,
 					   (void *)(size_t) uid)) = part;
 	  *((tree *) pointer_map_insert (cfun->gimple_df->decls_to_pointers,

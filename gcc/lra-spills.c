@@ -285,7 +285,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
       if (DEBUG_INSN_P (insn)
 	  || ((set = single_set (insn)) != NULL_RTX
 	      && REG_P (SET_SRC (set)) && REG_P (SET_DEST (set))))
-	bitmap_set_bit (&ok_insn_bitmap, INSN_UID (insn));
+	ok_insn_bitmap.set_bit (INSN_UID (insn));
   for (res = i = 0; i < n; i++)
     {
       regno = pseudo_regnos[i];
@@ -474,7 +474,7 @@ spill_pseudos (void)
       if (lra_reg_info[i].nrefs != 0 && lra_get_regno_hard_regno (i) < 0
 	  && ! lra_former_scratch_p (i))
 	{
-	  bitmap_set_bit (&spilled_pseudos, i);
+	  spilled_pseudos.set_bit (i);
 	  bitmap_ior_into (&changed_insns, &lra_reg_info[i].insn_bitmap);
 	}
     }
