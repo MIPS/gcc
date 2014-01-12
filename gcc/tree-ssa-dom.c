@@ -890,7 +890,7 @@ tree_ssa_dominator_optimize (void)
 
   /* Removal of statements may make some EH edges dead.  Purge
      such edges from the CFG as needed.  */
-  if (!bitmap_empty_p (need_eh_cleanup))
+  if (!need_eh_cleanup->is_empty ())
     {
       unsigned i;
       bitmap_iterator bi;
@@ -3063,7 +3063,7 @@ eliminate_degenerate_phis (void)
      as trivial copies or constant initializations identified by
      the first phase or this phase.  Basically we keep iterating
      until our set of INTERESTING_NAMEs is empty.   */
-  while (!bitmap_empty_p (&interesting_names))
+  while (!interesting_names.is_empty ())
     {
       unsigned int i;
       bitmap_iterator bi;
@@ -3095,7 +3095,7 @@ eliminate_degenerate_phis (void)
 
   /* Propagation of const and copies may make some EH edges dead.  Purge
      such edges from the CFG as needed.  */
-  if (!bitmap_empty_p (need_eh_cleanup))
+  if (!need_eh_cleanup->is_empty ())
     {
       gimple_purge_all_dead_eh_edges (need_eh_cleanup);
       BITMAP_FREE (need_eh_cleanup);

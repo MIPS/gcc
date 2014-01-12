@@ -541,7 +541,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 	  /* Second pass: keep recomputing object sizes of variables
 	     that need reexamination, until no object sizes are
 	     increased or all object sizes are computed.  */
-	  if (! bitmap_empty_p (&osi.reexamine))
+	  if (! osi.reexamine.is_empty ())
 	    {
 	      bitmap_head reexamine;
 

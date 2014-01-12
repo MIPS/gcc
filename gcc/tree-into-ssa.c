@@ -776,7 +776,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
   struct dom_dfsnum *defs;
   unsigned n_defs, adef;
 
-  if (bitmap_empty_p (uses))
+  if (uses->is_empty ())
     {
       bitmap_clear (phis);
       return;
@@ -787,7 +787,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
   bitmap_head to_remove;
   bitmap_and_compl (&to_remove, kills, uses);
   bitmap_and_compl_into (phis, &to_remove);
-  if (bitmap_empty_p (phis))
+  if (phis->is_empty ())
     return;
 
   /* We want to remove the unnecessary phi nodes, but we do not want to compute
@@ -2724,14 +2724,14 @@ dump_update_ssa (FILE *file)
 	dump_names_replaced_by (file, ssa_name (i));
     }
 
-  if (symbols_to_rename_set && !bitmap_empty_p (symbols_to_rename_set))
+  if (symbols_to_rename_set && !symbols_to_rename_set->is_empty ())
     {
       fprintf (file, "\nSymbols to be put in SSA form\n");
       dump_decl_set (file, symbols_to_rename_set);
       fprintf (file, "\n");
     }
 
-  if (names_to_release && !bitmap_empty_p (names_to_release))
+  if (names_to_release && !names_to_release->is_empty ())
     {
       fprintf (file, "\nSSA names to release after updating the SSA web\n\n");
       EXECUTE_IF_SET_IN_BITMAP (names_to_release, 0, i, bi)
@@ -2994,7 +2994,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
   db = find_def_blocks_for (var);
 
   /* No need to do anything if there were no definitions to VAR.  */
-  if (db == NULL || bitmap_empty_p (db->def_blocks))
+  if (db == NULL || db->def_blocks->is_empty ())
     return;
 
   /* Compute the initial iterated dominance frontier.  */
@@ -3032,7 +3032,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
       bitmap_copy (&pruned_idf, idf);
     }
 
-  if (!bitmap_empty_p (&pruned_idf))
+  if (!pruned_idf.is_empty ())
     {
       /* Make sure that PRUNED_IDF blocks and all their feeding blocks
 	 are included in the region to be updated.  The feeding blocks

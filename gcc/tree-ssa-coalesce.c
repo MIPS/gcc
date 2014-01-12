@@ -676,7 +676,7 @@ live_track_remove_partition (live_track_p ptr, int partition)
   root = basevar_index (ptr->map, partition);
   ptr->live_base_partitions[root]->clear_bit (partition);
   /* If the element list is empty, make the base variable not live either.  */
-  if (bitmap_empty_p (ptr->live_base_partitions[root]))
+  if (ptr->live_base_partitions[root]->is_empty ())
     ptr->live_base_var->clear_bit (root);
 }
 

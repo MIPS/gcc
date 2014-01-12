@@ -5560,7 +5560,7 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
   rtx set, prev_set, prev_insn;
   bool change_p, done_p;
 
-  change_p = ! bitmap_empty_p (remove_pseudos);
+  change_p = ! remove_pseudos->is_empty ();
   /* We can not finish the function right away if CHANGE_P is true
      because we need to marks insns affected by previous
      inheritance/split pass for processing by the subsequent
@@ -5761,7 +5761,7 @@ undo_optional_reloads (void)
 	    fprintf (lra_dump_file, "Keep optional reload reg %d\n", regno);
 	}
     }
-  change_p = ! bitmap_empty_p (&removed_optional_reload_pseudos);
+  change_p = ! removed_optional_reload_pseudos.is_empty ();
   EXECUTE_IF_SET_IN_BITMAP (&removed_optional_reload_pseudos, 0, regno, bi)
     {
       if (lra_dump_file != NULL)

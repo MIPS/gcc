@@ -505,7 +505,7 @@ df_rd_transfer_function (int bb_index)
   bitmap sparse_kill = &bb_info->sparse_kill;
   bool changed = false;
 
-  if (bitmap_empty_p (sparse_kill))
+  if (sparse_kill->is_empty ())
     changed = bitmap_ior_and_compl (out, gen, in, kill);
   else
     {
@@ -621,7 +621,7 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
 	continue;
       tmp.set_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
       bitmap_and_into (&tmp, defs_set);
-      if (! bitmap_empty_p (&tmp))
+      if (! tmp.is_empty ())
 	{
 	  bitmap_iterator bi;
 	  unsigned int ix;

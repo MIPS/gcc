@@ -2174,7 +2174,7 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
       return;
     }
 
-  if (!bitmap_empty_p (graph->points_to[n]))
+  if (!graph->points_to[n]->is_empty ())
     {
       equiv_class_label_t ecl;
       ecl = equiv_class_lookup_or_add (pointer_equiv_class_table,
@@ -2221,7 +2221,7 @@ dump_pred_graph (struct scc_info *si, FILE *file)
       else
 	fprintf (file, "\"*%s\"", get_varinfo (i - FIRST_REF_NODE)->name);
       if (graph->points_to[i]
-	  && !bitmap_empty_p (graph->points_to[i]))
+	  && !graph->points_to[i]->is_empty ())
 	{
 	  fprintf (file, "[label=\"%s = {", get_varinfo (i)->name);
 	  unsigned j;
@@ -2589,7 +2589,7 @@ static bool
 eliminate_indirect_cycles (unsigned int node)
 {
   if (graph->indirect_cycles[node] != -1
-      && !bitmap_empty_p (get_varinfo (node)->solution))
+      && !get_varinfo (node)->solution->is_empty ())
     {
       unsigned int i;
       auto_vec<unsigned> queue;
@@ -2640,8 +2640,8 @@ solve_graph (constraint_graph_t graph)
   for (i = 1; i < size; i++)
     {
       varinfo_t ivi = get_varinfo (i);
-      if (find (i) == i && !bitmap_empty_p (ivi->solution)
-	  && ((graph->succs[i] && !bitmap_empty_p (graph->succs[i]))
+      if (find (i) == i && !ivi->solution->is_empty ()
+	  && ((graph->succs[i] && !graph->succs[i]->is_empty ())
 	      || graph->complex[i].length () > 0))
 	changed->set_bit (i);
     }
@@ -2649,7 +2649,7 @@ solve_graph (constraint_graph_t graph)
   /* Allocate a bitmap to be used to store the changed bits.  */
   bitmap_head pts (&pta_obstack);
 
-  while (!bitmap_empty_p (changed))
+  while (!changed->is_empty ())
     {
       unsigned int i;
       struct topo_info *ti = init_topo_info ();
@@ -2701,7 +2701,7 @@ solve_graph (constraint_graph_t graph)
 	      else
 		bitmap_copy (&pts, vi->solution);
 
-	      if (bitmap_empty_p (&pts))
+	      if (pts.is_empty ())
 		continue;
 
 	      if (vi->oldsolution)
@@ -2713,7 +2713,7 @@ solve_graph (constraint_graph_t graph)
 		}
 
 	      solution = vi->solution;
-	      solution_empty = bitmap_empty_p (solution);
+	      solution_empty = solution->is_empty ();
 
 	      /* Process the complex constraints */
 	      bitmap expanded_pts = NULL;
@@ -2735,7 +2735,7 @@ solve_graph (constraint_graph_t graph)
 		}
 	      BITMAP_FREE (expanded_pts);
 
-	      solution_empty = bitmap_empty_p (solution);
+	      solution_empty = solution->is_empty ();
 
 	      if (!solution_empty)
 		{
@@ -6255,7 +6255,7 @@ pt_solution_empty_p (struct pt_solution *pt)
     return false;
 
   if (pt->vars
-      && !bitmap_empty_p (pt->vars))
+      && !pt->vars->is_empty ())
     return false;
 
   /* If the solution includes ESCAPED, check if that is empty.  */

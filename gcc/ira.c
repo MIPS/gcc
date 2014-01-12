@@ -3904,7 +3904,7 @@ update_equiv_regs (void)
 	}
     }
 
-  if (!bitmap_empty_p (&cleared_regs))
+  if (!cleared_regs.is_empty ())
     {
       FOR_EACH_BB_FN (bb, cfun)
 	{

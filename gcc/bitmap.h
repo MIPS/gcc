@@ -210,6 +210,9 @@ struct GTY(()) bitmap_head {
   /* Count the number of bits set in the bitmap.  */
   unsigned long count_bits () const;
 
+/* True if the bitmap has only a single bit set.  */
+  bool is_empty () const { return !first; }
+
   unsigned first_set_bit () const;
   unsigned last_set_bit () const;
 
@@ -246,12 +249,6 @@ extern bool bitmap_equal_p (const_bitmap, const_bitmap);
 extern bool bitmap_intersect_compl_p (const_bitmap, const_bitmap);
 
 /* True if MAP is an empty bitmap.  */
-inline bool bitmap_empty_p (const_bitmap map)
-{
-  return !map->first;
-}
-
-/* True if the bitmap has only a single bit set.  */
 extern bool bitmap_single_bit_set_p (const_bitmap);
 
 /* Boolean operations on bitmaps.  The _into variants are two operand

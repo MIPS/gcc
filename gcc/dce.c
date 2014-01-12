@@ -474,7 +474,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
       else
 	arg_stores->set_bit (INSN_UID (insn));
 
-      if (bitmap_empty_p (&sp_bytes))
+      if (sp_bytes.is_empty ())
 	{
 	  ret = true;
 	  break;
@@ -894,7 +894,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
 	   insns.  We may have to emit a debug temp even if the insn
 	   was marked, in case the debug use was after the point of
 	   death.  */
-	if (debug.used && !bitmap_empty_p (debug.used))
+	if (debug.used && !debug.used->is_empty ())
 	  {
 	    df_ref *def_rec;
 
@@ -999,7 +999,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
 	   insns.  We may have to emit a debug temp even if the insn
 	   was marked, in case the debug use was after the point of
 	   death.  */
-	if (debug.used && !bitmap_empty_p (debug.used))
+	if (debug.used && !debug.used->is_empty ())
 	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
 	    dead_debug_insert_temp (&debug, DF_REF_REGNO (*def_rec), insn,
 				    needed && !control_flow_insn_p (insn)

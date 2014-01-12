@@ -967,7 +967,7 @@ execute_optimize_stdarg (void)
 
   if (! va_list_escapes
       && va_list_simple_ptr
-      && ! bitmap_empty_p (si.va_list_escape_vars)
+      && ! si.va_list_escape_vars->is_empty ()
       && check_all_va_list_escapes (&si))
     va_list_escapes = true;
 

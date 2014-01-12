@@ -1683,8 +1683,8 @@ find_best_reg_for_expr (expr_t expr, blist_t bnds, bool *is_orig_reg_p)
   *is_orig_reg_p = false;
 
   /* Don't bother to do anything if this insn doesn't set any registers.  */
-  if (bitmap_empty_p (VINSN_REG_SETS (EXPR_VINSN (expr)))
-      && bitmap_empty_p (VINSN_REG_CLOBBERS (EXPR_VINSN (expr))))
+  if (VINSN_REG_SETS (EXPR_VINSN (expr))->is_empty ()
+      && VINSN_REG_CLOBBERS (EXPR_VINSN (expr))->is_empty ())
     return true;
 
   used_regs = get_clear_regset_from_pool ();

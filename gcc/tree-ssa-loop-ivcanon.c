@@ -1014,7 +1014,7 @@ canonicalize_induction_variables (void)
      evaluation could reveal new information.  */
   scev_reset ();
 
-  if (!bitmap_empty_p (&loop_closed_ssa_invalidated))
+  if (!loop_closed_ssa_invalidated.is_empty ())
     {
       gcc_checking_assert (loops_state_satisfies_p (LOOP_CLOSED_SSA));
       rewrite_into_loop_closed_ssa (NULL, TODO_update_ssa);
@@ -1205,7 +1205,7 @@ tree_unroll_loops_completely (bool may_increase_size, bool unroll_outer)
 
 	  /* We can not use TODO_update_ssa_no_phi because VOPS gets confused.  */
 	  if (loop_closed_ssa_invalidated
-	      && !bitmap_empty_p (loop_closed_ssa_invalidated))
+	      && !loop_closed_ssa_invalidated->is_empty ())
             rewrite_into_loop_closed_ssa (loop_closed_ssa_invalidated,
 					  TODO_update_ssa);
 	  else

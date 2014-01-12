@@ -764,7 +764,7 @@ bitmap_single_bit_set_p (const_bitmap a)
   const bitmap_element *elt;
   unsigned ix;
 
-  if (bitmap_empty_p (a))
+  if (a->is_empty ())
     return false;
 
   elt = a->first;
@@ -1052,7 +1052,7 @@ bitmap_and_compl (bitmap dst, const_bitmap a, const_bitmap b)
 
   if (a == b)
     {
-      changed = !bitmap_empty_p (dst);
+      changed = !dst->is_empty ();
       bitmap_clear (dst);
       return changed;
     }
@@ -1161,7 +1161,7 @@ bitmap_and_compl_into (bitmap a, const_bitmap b)
 
   if (a == b)
     {
-      if (bitmap_empty_p (a))
+      if (a->is_empty ())
 	return false;
       else
 	{
@@ -1441,12 +1441,12 @@ bitmap_compl_and_into (bitmap a, const_bitmap b)
 
   gcc_assert (a != b);
 
-  if (bitmap_empty_p (a))
+  if (a->is_empty ())
     {
       bitmap_copy (a, b);
       return;
     }
-  if (bitmap_empty_p (b))
+  if (b->is_empty ())
     {
       bitmap_clear (a);
       return;
@@ -1875,16 +1875,16 @@ bitmap_ior_and_compl (bitmap dst, const_bitmap a, const_bitmap b, const_bitmap k
   gcc_assert (dst != a && dst != b && dst != kill);
 
   /* Special cases.  We don't bother checking for bitmap_equal_p (b, kill).  */
-  if (b == kill || bitmap_empty_p (b))
+  if (b == kill || b->is_empty ())
     {
       changed = !bitmap_equal_p (dst, a);
       if (changed)
 	bitmap_copy (dst, a);
       return changed;
     }
-  if (bitmap_empty_p (kill))
+  if (kill->is_empty ())
     return bitmap_ior (dst, a, b);
-  if (bitmap_empty_p (a))
+  if (a->is_empty ())
     return bitmap_and_compl (dst, b, kill);
 
   while (a_elt || b_elt)
@@ -1994,7 +1994,7 @@ bitmap_ior_and_into (bitmap a, const_bitmap b, const_bitmap c)
 
   if (b == c)
     return bitmap_ior_into (a, b);
-  if (bitmap_empty_p (b) || bitmap_empty_p (c))
+  if (b->is_empty () || c->is_empty ())
     return false;
 
   and_elt.indx = -1;

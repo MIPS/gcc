@@ -4561,7 +4561,7 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
   /* If we found any new irrevocable blocks, reduce the call count for
      transactional clones within the irrevocable blocks.  Save the new
      set of irrevocable blocks for next time.  */
-  if (!bitmap_empty_p (new_irr))
+  if (!new_irr->is_empty ())
     {
       bitmap_iterator bmi;
       unsigned i;

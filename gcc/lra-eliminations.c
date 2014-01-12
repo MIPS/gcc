@@ -1370,7 +1370,7 @@ lra_eliminate (bool final_p, bool first_p)
     {
 #ifdef ENABLE_CHECKING
       update_reg_eliminate (&insns_with_changed_offsets);
-      if (! bitmap_empty_p (&insns_with_changed_offsets))
+      if (! insns_with_changed_offsets.is_empty ())
 	gcc_unreachable ();
 #endif
       /* We change eliminable hard registers in insns so we should do

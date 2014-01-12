@@ -385,7 +385,7 @@ build_function_decl_skip_args (tree orig_decl, bitmap args_to_skip,
   /* When signature changes, we need to clear builtin info.  */
   if (DECL_BUILT_IN (new_decl)
       && args_to_skip
-      && !bitmap_empty_p (args_to_skip))
+      && !args_to_skip->is_empty ())
     {
       DECL_BUILT_IN_CLASS (new_decl) = NOT_BUILT_IN;
       DECL_FUNCTION_CODE (new_decl) = (enum built_in_function) 0;

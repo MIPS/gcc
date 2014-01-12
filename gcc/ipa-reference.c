@@ -844,7 +844,7 @@ propagate (void)
 
 	  /* Create the complimentary sets.  */
 
-	  if (bitmap_empty_p (node_g->statics_read))
+	  if (node_g->statics_read->is_empty ())
 	    opt->statics_not_read = all_module_statics;
 	  else
 	    {
@@ -856,7 +856,7 @@ propagate (void)
 				  node_g->statics_read);
 	    }
 
-	  if (bitmap_empty_p (node_g->statics_written))
+	  if (node_g->statics_written->is_empty ())
 	    opt->statics_not_written = all_module_statics;
 	  else
 	    {
@@ -895,8 +895,8 @@ write_node_summary_p (struct cgraph_node *node,
   if (!node->definition || node->global.inlined_to)
     return false;
   info = get_reference_optimization_summary (node);
-  if (!info || (bitmap_empty_p (info->statics_not_read)
-		&& bitmap_empty_p (info->statics_not_written)))
+  if (!info || (info->statics_not_read->is_empty ()
+		&& info->statics_not_written->is_empty ()))
     return false;
 
   /* See if we want to encode it.

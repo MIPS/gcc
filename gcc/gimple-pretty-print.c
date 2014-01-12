@@ -611,7 +611,7 @@ pp_points_to_solution (pretty_printer *buffer, struct pt_solution *pt)
   if (pt->null)
     pp_string (buffer, "null ");
   if (pt->vars
-      && !bitmap_empty_p (pt->vars))
+      && !pt->vars->is_empty ())
     {
       bitmap_iterator bi;
       unsigned i;

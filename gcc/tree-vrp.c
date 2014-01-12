@@ -459,7 +459,7 @@ set_value_range (value_range_t *vr, enum value_range_type t, tree min,
     gcc_assert (min == NULL_TREE && max == NULL_TREE);
 
   if (t == VR_UNDEFINED || t == VR_VARYING)
-    gcc_assert (equiv == NULL || bitmap_empty_p (equiv));
+    gcc_assert (equiv == NULL || equiv->is_empty ());
 #endif
 
   vr->type = t;
@@ -474,7 +474,7 @@ set_value_range (value_range_t *vr, enum value_range_type t, tree min,
 
   if (equiv != vr->equiv)
     {
-      if (equiv && !bitmap_empty_p (equiv))
+      if (equiv && !equiv->is_empty ())
 	bitmap_copy (vr->equiv, equiv);
       else
 	bitmap_clear (vr->equiv);
@@ -801,8 +801,8 @@ static inline bool
 vrp_bitmap_equal_p (const_bitmap b1, const_bitmap b2)
 {
   return (b1 == b2
-	  || ((!b1 || bitmap_empty_p (b1))
-	      && (!b2 || bitmap_empty_p (b2)))
+	  || ((!b1 || b1->is_empty ())
+	      && (!b2 || b2->is_empty ()))
 	  || (b1 && b2
 	      && bitmap_equal_p (b1, b2)));
 }

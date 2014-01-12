@@ -1045,7 +1045,7 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 
   /* Double-queueing. Worklist is for the current iteration,
      and pending is for the next. */
-  while (!bitmap_empty_p (pending))
+  while (!pending->is_empty ())
     {
       bitmap_iterator bi;
       unsigned int index;

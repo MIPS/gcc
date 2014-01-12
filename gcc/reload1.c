@@ -1307,7 +1307,7 @@ reload (rtx first, int global)
 
   substitute_stack.release ();
 
-  gcc_assert (bitmap_empty_p (&spilled_pseudos));
+  gcc_assert (spilled_pseudos.is_empty ());
 
   reload_completed = !failure;
 

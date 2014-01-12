@@ -816,7 +816,7 @@ bitmap_set_contains_value (bitmap_set_t set, unsigned int value_id)
   if (value_id_constant_p (value_id))
     return true;
 
-  if (!set || bitmap_empty_p (&set->expressions))
+  if (!set || set->expressions.is_empty ())
     return false;
 
   return bitmap_bit_p (&set->values, value_id);
@@ -4488,8 +4488,8 @@ eliminate (void)
 static unsigned 
 fini_eliminate (void)
 {
-  bool do_eh_cleanup = !bitmap_empty_p (need_eh_cleanup);
-  bool do_ab_cleanup = !bitmap_empty_p (need_ab_cleanup);
+  bool do_eh_cleanup = !need_eh_cleanup->is_empty ();
+  bool do_ab_cleanup = !need_ab_cleanup->is_empty ();
 
   if (do_eh_cleanup)
     gimple_purge_all_dead_eh_edges (need_eh_cleanup);
@@ -4553,7 +4553,7 @@ remove_dead_inserted_code (void)
       if (gimple_plf (t, NECESSARY))
 	worklist.set_bit (i);
     }
-  while (!bitmap_empty_p (&worklist))
+  while (!worklist.is_empty ())
     {
       i = worklist.first_set_bit ();
       worklist.clear_bit (i);

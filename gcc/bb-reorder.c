@@ -2456,7 +2456,7 @@ duplicate_computed_gotos (void)
     }
 
   /* Nothing to do if there is no computed jump here.  */
-  if (bitmap_empty_p (&candidates))
+  if (candidates.is_empty ())
     goto done;
 
   /* Duplicate computed gotos.  */

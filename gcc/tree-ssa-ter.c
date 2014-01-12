@@ -313,7 +313,7 @@ remove_from_partition_kill_list (temp_expr_table_p tab, int p, int version)
 {
   gcc_checking_assert (tab->kill_list[p]);
   tab->kill_list[p]->clear_bit (version);
-  if (bitmap_empty_p (tab->kill_list[p]))
+  if (tab->kill_list[p]->is_empty ())
     {
       tab->partition_in_use->clear_bit (p);
       BITMAP_FREE (tab->kill_list[p]);
@@ -336,7 +336,7 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
   i = SSA_NAME_VERSION (var);
   if (version_to_be_replaced_p (tab, i))
     {
-      if (!bitmap_empty_p (tab->new_replaceable_dependencies))
+      if (!tab->new_replaceable_dependencies->is_empty ())
         {
 	  /* Version will now be killed by a write to any partition the
 	     substituted expression would have been killed by.  */
@@ -618,7 +618,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	      /* See if the root variables are the same.  If they are, we
 		 do not want to do the replacement to avoid problems with
 		 code size, see PR tree-optimization/17549.  */
-	      if (!bitmap_empty_p (vars))
+	      if (!vars->is_empty ())
 		FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter2, SSA_OP_DEF)
 		  {
 		    if (SSA_NAME_VAR (def)
@@ -731,7 +731,7 @@ find_replaceable_exprs (var_map map)
   FOR_EACH_BB_FN (bb, cfun)
     {
       find_replaceable_in_bb (table, bb);
-      gcc_checking_assert (bitmap_empty_p (table->partition_in_use));
+      gcc_checking_assert (table->partition_in_use->is_empty ());
     }
   ret = free_temp_expr_table (table);
   bitmap_obstack_release (&ter_bitmap_obstack);
@@ -783,7 +783,7 @@ debug_ter (FILE *f, temp_expr_table_p t)
         print_generic_expr (f, ssa_name (x), TDF_SLIM);
         fprintf (f, " dep-parts : ");
 	if (t->partition_dependencies[x]
-	    && !bitmap_empty_p (t->partition_dependencies[x]))
+	    && !t->partition_dependencies[x]->is_empty ())
 	  {
 	    EXECUTE_IF_SET_IN_BITMAP (t->partition_dependencies[x], 0, y, bi)
 	      fprintf (f, "P%d ",y);

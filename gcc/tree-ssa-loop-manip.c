@@ -524,7 +524,7 @@ rewrite_into_loop_closed_ssa (bitmap changed_bbs, unsigned update_flag)
   /* Find the uses outside loops.  */
   find_uses_to_rename (changed_bbs, use_blocks, names_to_rename);
 
-  if (!bitmap_empty_p (names_to_rename))
+  if (!names_to_rename->is_empty ())
     {
       /* An array of bitmaps where LOOP_EXITS[I] is the set of basic blocks
 	 that are the destination of an edge exiting loop number I.  */

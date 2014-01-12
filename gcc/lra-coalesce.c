@@ -194,7 +194,7 @@ update_live_info (bitmap lr_bitmap)
   EXECUTE_IF_AND_IN_BITMAP (&coalesced_pseudos_bitmap, lr_bitmap,
 			    FIRST_PSEUDO_REGISTER, j, bi)
     used_pseudos_bitmap.set_bit (first_coalesced_pseudo[j]);
-  if (! bitmap_empty_p (&used_pseudos_bitmap))
+  if (! used_pseudos_bitmap.is_empty ())
     {
       bitmap_and_compl_into (lr_bitmap, &coalesced_pseudos_bitmap);
       bitmap_ior_into (lr_bitmap, &used_pseudos_bitmap);

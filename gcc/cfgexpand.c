@@ -616,8 +616,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
 	&& (part = (bitmap *) pointer_map_contains (decls_to_partitions,
 						    (void *)(size_t) i)))
       bitmap_ior_into (temp, *part);
-  if (!bitmap_empty_p (temp))
-    bitmap_ior_into (pt->vars, temp);
+  bitmap_ior_into (pt->vars, temp);
 }
 
 /* Update points-to sets based on partition info, so we can use them on RTL.

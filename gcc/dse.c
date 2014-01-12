@@ -2016,7 +2016,7 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
 	note_stores (PATTERN (this_insn), look_for_hardregs, &regs_set);
 
       bitmap_and_into (&regs_set, regs_live);
-      if (!bitmap_empty_p (&regs_set))
+      if (!regs_set.is_empty ())
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    {
@@ -3519,7 +3519,7 @@ dse_step5_nospill (void)
 	  if (insn_info->insn
 	      && INSN_P (insn_info->insn)
 	      && (!insn_info->cannot_delete)
-	      && (!bitmap_empty_p (v)))
+	      && (!v->is_empty ()))
 	    {
 	      store_info_t store_info = insn_info->store_rec;
 

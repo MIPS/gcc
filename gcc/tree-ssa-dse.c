@@ -350,7 +350,7 @@ tree_ssa_dse (void)
 
   /* Removal of stores may make some EH edges dead.  Purge such edges from
      the CFG as needed.  */
-  if (!bitmap_empty_p (need_eh_cleanup))
+  if (!need_eh_cleanup->is_empty ())
     {
       gimple_purge_all_dead_eh_edges (need_eh_cleanup);
       cleanup_tree_cfg ();

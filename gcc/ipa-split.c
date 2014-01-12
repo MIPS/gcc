@@ -528,7 +528,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   /* When there are non-ssa vars used in the split region, see if they
      are used in the header region.  If so, reject the split.
      FIXME: we can use nested function support to access both.  */
-  if (!bitmap_empty_p (non_ssa_vars)
+  if (!non_ssa_vars->is_empty ()
       && !verify_non_ssa_vars (current, non_ssa_vars, return_bb))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -539,7 +539,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 
   /* If the split point is dominated by a forbidden block, reject
      the split.  */
-  if (!bitmap_empty_p (forbidden_dominators)
+  if (!forbidden_dominators->is_empty ()
       && dominated_by_forbidden (current->entry_bb))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))

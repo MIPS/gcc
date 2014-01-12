@@ -604,7 +604,7 @@ release_defs_bitset (bitmap toremove)
   /* Performing a topological sort is probably overkill, this will
      most likely run in slightly superlinear time, rather than the
      pathological quadratic worst case.  */
-  while (!bitmap_empty_p (toremove))
+  while (!toremove->is_empty ())
     EXECUTE_IF_SET_IN_BITMAP (toremove, 0, j, bi)
       {
 	bool remove_now = true;
@@ -1553,7 +1553,7 @@ execute_update_addresses_taken (void)
 
   /* Operand caches need to be recomputed for operands referencing the updated
      variables and operands need to be rewritten to expose bare symbols.  */
-  if (!bitmap_empty_p (&suitable_for_renaming))
+  if (!suitable_for_renaming.is_empty ())
     {
       FOR_EACH_BB_FN (bb, cfun)
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)

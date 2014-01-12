@@ -429,7 +429,7 @@ propagate_pseudo_copies (void)
       bitmap_and_compl (&queue, &propagate, decomposable_context);
       bitmap_ior_into (decomposable_context, &propagate);
     }
-  while (!bitmap_empty_p (&queue));
+  while (!queue.is_empty ());
 }
 
 /* A pointer to one of these values is passed to
@@ -1518,7 +1518,7 @@ decompose_multiword_subregs (bool decompose_copies)
     }
 
   bitmap_and_compl_into (decomposable_context, non_decomposable_context);
-  if (!bitmap_empty_p (decomposable_context))
+  if (!decomposable_context->is_empty ())
     {
       sbitmap sub_blocks;
       unsigned int i;

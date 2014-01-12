@@ -4031,7 +4031,7 @@ generate_setjmp_warnings (void)
   bitmap setjmp_crosses = regstat_get_setjmp_crosses ();
 
   if (n_basic_blocks_for_fn (cfun) == NUM_FIXED_BLOCKS
-      || bitmap_empty_p (setjmp_crosses))
+      || setjmp_crosses->is_empty ())
     return;
 
   setjmp_vars_warning (setjmp_crosses, DECL_INITIAL (current_function_decl));
@@ -6196,7 +6196,7 @@ thread_prologue_and_epilogue_insns (void)
 
 	  /* Find tail blocks reachable from both blocks needing a
 	     prologue and blocks not needing a prologue.  */
-	  if (!bitmap_empty_p (&bb_tail))
+	  if (!bb_tail.is_empty ())
 	    FOR_EACH_BB_FN (bb, cfun)
 	      {
 		bool some_pro, some_no_pro;
@@ -6230,7 +6230,7 @@ thread_prologue_and_epilogue_insns (void)
 		}
 	    }
 	  /* Now duplicate the tails.  */
-	  if (!bitmap_empty_p (&bb_tail))
+	  if (!bb_tail.is_empty ())
 	    FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	      {
 		basic_block copy_bb, tbb;
@@ -6294,7 +6294,7 @@ thread_prologue_and_epilogue_insns (void)
 		/* verify_flow_info doesn't like a note after a
 		   sibling call.  */
 		delete_insn (insert_point);
-		if (bitmap_empty_p (&bb_tail))
+		if (bb_tail.is_empty ())
 		  break;
 	      }
 	}
