@@ -1913,7 +1913,7 @@ inline bool
 equiv_class_hasher::equal (const value_type *eql1, const compare_type *eql2)
 {
   return (eql1->hashcode == eql2->hashcode
-	  && bitmap_equal_p (eql1->labels, eql2->labels));
+	  && *eql1->labels == *eql2->labels);
 }
 
 /* A hashtable for mapping a bitmap of labels->pointer equivalence
@@ -5945,7 +5945,7 @@ shared_bitmap_hasher::hash (const value_type *bi)
 inline bool
 shared_bitmap_hasher::equal (const value_type *sbi1, const compare_type *sbi2)
 {
-  return bitmap_equal_p (sbi1->pt_vars, sbi2->pt_vars);
+  return *sbi1->pt_vars == *sbi2->pt_vars;
 }
 
 /* Shared_bitmap hashtable.  */

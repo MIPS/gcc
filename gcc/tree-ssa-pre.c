@@ -871,7 +871,7 @@ bitmap_set_replace_value (bitmap_set_t set, unsigned int lookfor,
 static bool
 bitmap_set_equal (bitmap_set_t a, bitmap_set_t b)
 {
-  return bitmap_equal_p (&a->values, &b->values);
+  return a->values == b->values;
 }
 
 /* Replace an instance of EXPR's VALUE with EXPR in SET if it exists,

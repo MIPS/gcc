@@ -914,7 +914,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
 	  }
       }
 
-  block_changed = !bitmap_equal_p (&local_live, DF_WORD_LR_IN (bb));
+  block_changed = local_live != *DF_WORD_LR_IN (bb);
   if (block_changed)
     bitmap_copy (DF_WORD_LR_IN (bb), &local_live);
 
@@ -1010,7 +1010,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
   dead_debug_local_finish (&debug, NULL);
   df_simulate_finalize_backwards (bb, &local_live);
 
-  block_changed = !bitmap_equal_p (&local_live, DF_LR_IN (bb));
+  block_changed = local_live != *DF_LR_IN (bb);
   if (block_changed)
     bitmap_copy (DF_LR_IN (bb), &local_live);
 

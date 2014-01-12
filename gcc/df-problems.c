@@ -523,7 +523,7 @@ df_rd_transfer_function (int bb_index)
 	}
       bitmap_and_compl_into (&tmp, kill);
       bitmap_ior_into (&tmp, gen);
-      changed = !bitmap_equal_p (&tmp, out);
+      changed = tmp != *out;
       if (changed)
 	{
 	  bitmap_clear (out);
@@ -1192,8 +1192,8 @@ df_lr_verify_solution_end (void)
   else
     FOR_ALL_BB_FN (bb, cfun)
       {
-	if ((!bitmap_equal_p (&problem_data->in[bb->index], DF_LR_IN (bb)))
-	    || (!bitmap_equal_p (&problem_data->out[bb->index], DF_LR_OUT (bb))))
+	if (problem_data->in[bb->index] != *DF_LR_IN (bb)
+	    || problem_data->out[bb->index] != *DF_LR_OUT (bb))
 	  {
 	    /*df_dump (stderr);*/
 	    gcc_unreachable ();
@@ -1290,8 +1290,8 @@ df_lr_verify_transfer_functions (void)
 	      saved_use.swap (&bb_info->use);
 
 	      df_lr_bb_local_compute (bb->index);
-	      gcc_assert (bitmap_equal_p (&saved_def, &bb_info->def));
-	      gcc_assert (bitmap_equal_p (&saved_use, &bb_info->use));
+	      gcc_assert (saved_def == bb_info->def);
+	      gcc_assert (saved_use == bb_info->use);
 	    }
 	}
       else
@@ -1710,8 +1710,8 @@ df_live_verify_solution_end (void)
 
   FOR_ALL_BB_FN (bb, cfun)
     {
-      if ((!bitmap_equal_p (&problem_data->in[bb->index], DF_LIVE_IN (bb)))
-	  || (!bitmap_equal_p (&problem_data->out[bb->index], DF_LIVE_OUT (bb))))
+      if (problem_data->in[bb->index] != *DF_LIVE_IN (bb)
+	  || problem_data->out[bb->index] != *DF_LIVE_OUT (bb))
 	{
 	  /*df_dump (stderr);*/
 	  gcc_unreachable ();
@@ -1822,8 +1822,8 @@ df_live_verify_transfer_functions (void)
 	      saved_kill.swap (&bb_info->kill);
 
 	      df_live_bb_local_compute (bb->index);
-	      gcc_assert (bitmap_equal_p (&saved_gen, &bb_info->gen));
-	      gcc_assert (bitmap_equal_p (&saved_kill, &bb_info->kill));
+	      gcc_assert (saved_gen == bb_info->gen);
+	      gcc_assert (saved_kill == bb_info->kill);
 	    }
 	}
       else

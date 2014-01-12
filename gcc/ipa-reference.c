@@ -302,7 +302,7 @@ union_static_var_sets (bitmap &x, bitmap y)
 	     turns out to be an overall win to check this here for
 	     an LTO bootstrap of GCC itself.  Liberally extrapoliate
 	     that result to be applicable to all cases.  */
-	  if (bitmap_equal_p (x, all_module_statics))
+	  if (*x == *all_module_statics)
 	    {
 	      BITMAP_FREE (x);
 	      x = all_module_statics;
@@ -323,7 +323,7 @@ intersect_static_var_sets (bitmap &x, bitmap y)
       bitmap_and_into (x, y);
       /* As with union_static_var_sets, reducing to the maximum
 	 set as early as possible is an overall win.  */
-      if (bitmap_equal_p (x, all_module_statics))
+      if (*x == *all_module_statics)
 	{
 	  BITMAP_FREE (x);
 	  x = all_module_statics;

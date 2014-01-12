@@ -3902,7 +3902,7 @@ df_update_entry_block_defs (void)
   df_get_entry_block_def_set (&refs);
   if (df->entry_block_defs)
     {
-      if (!bitmap_equal_p (df->entry_block_defs, &refs))
+      if (*df->entry_block_defs != refs)
 	{
 	  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (ENTRY_BLOCK);
 	  df_ref_chain_delete_du_chain (bb_info->artificial_defs);
@@ -4073,7 +4073,7 @@ df_update_exit_block_uses (void)
   df_get_exit_block_use_set (&refs);
   if (df->exit_block_uses)
     {
-      if (!bitmap_equal_p (df->exit_block_uses, &refs))
+      if (*df->exit_block_uses != refs)
 	{
 	  struct df_scan_bb_info *bb_info = df_scan_get_bb_info (EXIT_BLOCK);
 	  df_ref_chain_delete_du_chain (bb_info->artificial_uses);
@@ -4451,7 +4451,7 @@ df_entry_block_bitmap_verify (bool abort_if_fail)
 
   df_get_entry_block_def_set (&entry_block_defs);
 
-  is_eq = bitmap_equal_p (&entry_block_defs, df->entry_block_defs);
+  is_eq = entry_block_defs == *df->entry_block_defs;
 
   if (!is_eq && abort_if_fail)
     {
@@ -4477,7 +4477,7 @@ df_exit_block_bitmap_verify (bool abort_if_fail)
 
   df_get_exit_block_use_set (&exit_block_uses);
 
-  is_eq = bitmap_equal_p (&exit_block_uses, df->exit_block_uses);
+  is_eq = exit_block_uses == *df->exit_block_uses;
 
   if (!is_eq && abort_if_fail)
     {
@@ -4530,10 +4530,9 @@ df_scan_verify (void)
 		   &regular_block_artificial_uses);
 
   /* Check artificial_uses bitmaps didn't change. */
-  gcc_assert (bitmap_equal_p (&regular_block_artificial_uses,
-			      &df->regular_block_artificial_uses));
-  gcc_assert (bitmap_equal_p (&eh_block_artificial_uses,
-			      &df->eh_block_artificial_uses));
+  gcc_assert (regular_block_artificial_uses ==
+	      df->regular_block_artificial_uses);
+  gcc_assert (eh_block_artificial_uses == df->eh_block_artificial_uses);
 
   /* Verify entry block and exit block. These only verify the bitmaps,
      the refs are verified in df_bb_verify.  */

@@ -558,7 +558,7 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
   if (e1->succ_flags.length () != e2->succ_flags.length ())
     return 0;
 
-  if (!bitmap_equal_p (e1->succs, e2->succs))
+  if (*e1->succs != *e2->succs)
     return 0;
 
   if (!inverse_flags (e1, e2))

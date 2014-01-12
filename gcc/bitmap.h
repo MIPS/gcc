@@ -225,6 +225,13 @@ struct GTY(()) bitmap_head {
   /* Return true if a register is set in a register set.  */
   bool bit (int) const;
 
+/* True if two bitmaps are identical.  */
+  bool operator== (const bitmap_head &) const;
+  bool operator!= (const bitmap_head &other) const
+    {
+      return !(*this == other);
+    }
+
   void swap (bitmap_head *);
 
   /* Compute bitmap hash (for purposes of hashing etc.)  */
@@ -246,9 +253,6 @@ struct GTY(()) bitmap_head {
 					   If NULL, then use GGC allocation.  */
 };
 
-
-/* True if two bitmaps are identical.  */
-extern bool bitmap_equal_p (const_bitmap, const_bitmap);
 
 /* True if the complement of the second intersects the first (their
    AND_COMPL is non-empty).  */

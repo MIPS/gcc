@@ -804,7 +804,7 @@ vrp_bitmap_equal_p (const_bitmap b1, const_bitmap b2)
 	  || ((!b1 || b1->is_empty ())
 	      && (!b2 || b2->is_empty ()))
 	  || (b1 && b2
-	      && bitmap_equal_p (b1, b2)));
+	      && *b1 == *b2));
 }
 
 /* Update the value range and equivalence set for variable VAR to

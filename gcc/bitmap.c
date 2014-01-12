@@ -1783,13 +1783,13 @@ bitmap_xor_into (bitmap a, const_bitmap b)
    occurs in practice.  */
 
 bool
-bitmap_equal_p (const_bitmap a, const_bitmap b)
+bitmap_head::operator== (const bitmap_head &other) const
 {
   const bitmap_element *a_elt;
   const bitmap_element *b_elt;
   unsigned ix;
 
-  for (a_elt = a->first, b_elt = b->first;
+  for (a_elt = first, b_elt = other.first;
        a_elt && b_elt;
        a_elt = a_elt->next, b_elt = b_elt->next)
     {
@@ -1877,7 +1877,7 @@ bitmap_ior_and_compl (bitmap dst, const_bitmap a, const_bitmap b, const_bitmap k
   /* Special cases.  We don't bother checking for bitmap_equal_p (b, kill).  */
   if (b == kill || b->is_empty ())
     {
-      changed = !bitmap_equal_p (dst, a);
+      changed = *dst != *a;
       if (changed)
 	bitmap_copy (dst, a);
       return changed;
