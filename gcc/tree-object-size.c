@@ -81,7 +81,7 @@ static void check_for_plus_in_loops_1 (struct object_size_info *, tree,
 static vec<unsigned HOST_WIDE_INT> object_sizes[4];
 
 /* Bitmaps what object sizes have been computed already.  */
-static bitmap computed[4];
+static bitmap computed;
 
 /* Maximum value of offset we consider to be addition.  */
 static unsigned HOST_WIDE_INT offset_limit;
@@ -197,7 +197,7 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	  tree var = TREE_OPERAND (pt_var, 0);
 	  if (osi->pass == 0)
 	    collect_object_sizes_for (osi, var);
-	  if (computed[object_size_type]->bit (SSA_NAME_VERSION (var)))
+	  if (computed[object_size_type].bit (SSA_NAME_VERSION (var)))
 	    sz = object_sizes[object_size_type][SSA_NAME_VERSION (var)];
 	  else
 	    sz = unknown[object_size_type];
@@ -505,9 +505,9 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 
   if (TREE_CODE (ptr) == SSA_NAME
       && POINTER_TYPE_P (TREE_TYPE (ptr))
-      && computed[object_size_type] != NULL)
+      && computed != NULL)
     {
-      if (!computed[object_size_type]->bit (SSA_NAME_VERSION (ptr)))
+      if (!computed[object_size_type].bit (SSA_NAME_VERSION (ptr)))
 	{
 	  struct object_size_info osi;
 	  bitmap_iterator bi;
@@ -593,7 +593,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 	      while (osi.changed);
 	    }
 	  EXECUTE_IF_SET_IN_BITMAP (&osi.reexamine, 0, i, bi)
-	    computed[object_size_type]->set_bit (i);
+	    computed[object_size_type].set_bit (i);
 
 	  /* Debugging dumps.  */
 	  if (dump_file)
@@ -896,7 +896,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
   gimple stmt;
   bool reexamine;
 
-  if (computed[object_size_type]->bit (varno))
+  if (computed[object_size_type].bit (varno))
     return;
 
   if (osi->pass == 0)
@@ -1013,7 +1013,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
   if (! reexamine
       || object_sizes[object_size_type][varno] == unknown[object_size_type])
     {
-      computed[object_size_type]->set_bit (varno);
+      computed[object_size_type].set_bit (varno);
       osi->reexamine.clear_bit (varno);
     }
   else
@@ -1050,7 +1050,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	    {
 	      --sp;
 	      osi->reexamine.clear_bit (*sp);
-	      computed[osi->object_size_type]->set_bit (*sp);
+	      computed[osi->object_size_type].set_bit (*sp);
 	      object_sizes[osi->object_size_type][*sp] = 0;
 	      if (*sp == varno)
 		break;
@@ -1169,14 +1169,12 @@ init_object_sizes (void)
 {
   int object_size_type;
 
-  if (computed[0])
+  if (computed)
     return;
 
+  computed = new bitmap_head[4];
   for (object_size_type = 0; object_size_type <= 3; object_size_type++)
-    {
-      object_sizes[object_size_type].safe_grow (num_ssa_names);
-      computed[object_size_type] = BITMAP_ALLOC (NULL);
-    }
+    object_sizes[object_size_type].safe_grow (num_ssa_names);
 
   init_offset_limit ();
 }
@@ -1189,11 +1187,9 @@ fini_object_sizes (void)
 {
   int object_size_type;
 
+  delete[] computed;
   for (object_size_type = 0; object_size_type <= 3; object_size_type++)
-    {
-      object_sizes[object_size_type].release ();
-      BITMAP_FREE (computed[object_size_type]);
-    }
+    object_sizes[object_size_type].release ();
 }
 
 
