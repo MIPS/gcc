@@ -20,6 +20,7 @@ along with GCC; see the file COPYING3.  If not see
 
 
 #include "config.h"
+#include <new>
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
@@ -176,8 +177,8 @@ typedef struct temp_expr_table_d
   bitmap *expr_decl_uids;		/* Base uids of exprs.  */
   bitmap *kill_list;			/* Expr's killed by a partition.  */
   int virtual_partition;		/* Pseudo partition for virtual ops.  */
-  bitmap partition_in_use;		/* Partitions with kill entries.  */
-  bitmap new_replaceable_dependencies;	/* Holding place for pending dep's.  */
+  bitmap_head partition_in_use;		/* Partitions with kill entries.  */
+  bitmap_head new_replaceable_dependencies;	/* Holding place for pending dep's.  */
   int *num_in_part;			/* # of ssa_names in a partition.  */
   int *call_cnt;			/* Call count at definition.  */
 } *temp_expr_table_p;
@@ -208,10 +209,10 @@ new_temp_expr_table (var_map map)
   t->expr_decl_uids = XCNEWVEC (bitmap, num_ssa_names + 1);
   t->kill_list = XCNEWVEC (bitmap, num_var_partitions (map) + 1);
 
-  t->partition_in_use = BITMAP_ALLOC (&ter_bitmap_obstack);
+  new (&t->partition_in_use) bitmap_head (&ter_bitmap_obstack);
 
   t->virtual_partition = num_var_partitions (map);
-  t->new_replaceable_dependencies = BITMAP_ALLOC (&ter_bitmap_obstack);
+  new (&t->new_replaceable_dependencies) bitmap_head (&ter_bitmap_obstack);
 
   t->replaceable_expressions = NULL;
   t->num_in_part = XCNEWVEC (int, num_var_partitions (map));
@@ -250,8 +251,8 @@ free_temp_expr_table (temp_expr_table_p t)
     }
 #endif
 
-  BITMAP_FREE (t->partition_in_use);
-  BITMAP_FREE (t->new_replaceable_dependencies);
+  t->partition_in_use.~bitmap_head ();
+  t->new_replaceable_dependencies.~bitmap_head ();
 
   free (t->expr_decl_uids);
   free (t->kill_list);
@@ -299,7 +300,7 @@ add_to_partition_kill_list (temp_expr_table_p tab, int p, int ver)
   if (!tab->kill_list[p])
     {
       tab->kill_list[p] = BITMAP_ALLOC (&ter_bitmap_obstack);
-      tab->partition_in_use->set_bit (p);
+      tab->partition_in_use.set_bit (p);
     }
   tab->kill_list[p]->set_bit (ver);
 }
@@ -315,7 +316,7 @@ remove_from_partition_kill_list (temp_expr_table_p tab, int p, int version)
   tab->kill_list[p]->clear_bit (version);
   if (tab->kill_list[p]->is_empty ())
     {
-      tab->partition_in_use->clear_bit (p);
+      tab->partition_in_use.clear_bit (p);
       BITMAP_FREE (tab->kill_list[p]);
     }
 }
@@ -336,11 +337,11 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
   i = SSA_NAME_VERSION (var);
   if (version_to_be_replaced_p (tab, i))
     {
-      if (!tab->new_replaceable_dependencies->is_empty ())
+      if (!tab->new_replaceable_dependencies.is_empty ())
         {
 	  /* Version will now be killed by a write to any partition the
 	     substituted expression would have been killed by.  */
-	  EXECUTE_IF_SET_IN_BITMAP (tab->new_replaceable_dependencies, 0, x, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (&tab->new_replaceable_dependencies, 0, x, bi)
 	    add_to_partition_kill_list (tab, x, version);
 
 	  /* Rather than set partition_dependencies and in_use lists bit by
@@ -349,11 +350,11 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
 	    tab->partition_dependencies[version] =
 	      BITMAP_ALLOC (&ter_bitmap_obstack);
 	  bitmap_ior_into (tab->partition_dependencies[version],
-			   tab->new_replaceable_dependencies);
-	  bitmap_ior_into (tab->partition_in_use,
-			   tab->new_replaceable_dependencies);
+			   &tab->new_replaceable_dependencies);
+	  bitmap_ior_into (&tab->partition_in_use,
+			   &tab->new_replaceable_dependencies);
 	  /* It is only necessary to add these once.  */
-	  bitmap_clear (tab->new_replaceable_dependencies);
+	  bitmap_clear (&tab->new_replaceable_dependencies);
 	}
     }
   else
@@ -541,7 +542,7 @@ mark_replaceable (temp_expr_table_p tab, tree var, bool more_replacing)
 
   /* Move the dependence list to the pending listpending.  */
   if (more_replacing && tab->partition_dependencies[version])
-    bitmap_ior_into (tab->new_replaceable_dependencies,
+    bitmap_ior_into (&tab->new_replaceable_dependencies,
 		     tab->partition_dependencies[version]);
 
   finished_with_expr (tab, version, !more_replacing);
@@ -701,7 +702,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	process_replaceable (tab, stmt, cur_call_cnt);
 
       /* Free any unused dependency lists.  */
-      bitmap_clear (tab->new_replaceable_dependencies);
+      bitmap_clear (&tab->new_replaceable_dependencies);
 
       /* A V_{MAY,MUST}_DEF kills any expression using a virtual operand,
 	 including the current stmt.  */
@@ -731,7 +732,7 @@ find_replaceable_exprs (var_map map)
   FOR_EACH_BB_FN (bb, cfun)
     {
       find_replaceable_in_bb (table, bb);
-      gcc_checking_assert (table->partition_in_use->is_empty ());
+      gcc_checking_assert (table->partition_in_use.is_empty ());
     }
   ret = free_temp_expr_table (table);
   bitmap_obstack_release (&ter_bitmap_obstack);
@@ -795,8 +796,8 @@ debug_ter (FILE *f, temp_expr_table_p t)
 	fprintf (f, "\n");
       }
 
-  t->partition_in_use->print (f, "Partitions in use ",
-			      "\npartition KILL lists:\n");
+  t->partition_in_use.print (f, "Partitions in use ",
+			     "\npartition KILL lists:\n");
 
   for (x = 0; x <= num_var_partitions (t->map); x++)
     if (t->kill_list[x])
