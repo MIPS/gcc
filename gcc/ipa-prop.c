@@ -769,7 +769,7 @@ parm_preserved_before_stmt_p (struct param_analysis_info *parm_ainfo,
 			       gimple stmt, tree parm_load)
 {
   bool modified = false;
-  bitmap *visited_stmts;
+  bitmap visited_stmts;
   ao_ref refd;
 
   if (parm_ainfo && parm_ainfo->parm_modified)
@@ -782,7 +782,7 @@ parm_preserved_before_stmt_p (struct param_analysis_info *parm_ainfo,
   if (!parm_ainfo || TREE_CODE (parm_load) != PARM_DECL)
     visited_stmts = NULL;
   else
-    visited_stmts = &parm_ainfo->parm_visited_statements;
+    visited_stmts = parm_ainfo->parm_visited_statements;
   walk_aliased_vdefs (&refd, gimple_vuse (stmt), mark_modified, &modified,
 		      visited_stmts);
   if (parm_ainfo && modified)
@@ -866,7 +866,7 @@ parm_ref_data_pass_through_p (struct param_analysis_info *parm_ainfo,
 
   ao_ref_init_from_ptr_and_size (&refd, parm, NULL_TREE);
   walk_aliased_vdefs (&refd, gimple_vuse (call), mark_modified, &modified,
-		      parm_ainfo ? &parm_ainfo->pt_visited_statements : NULL);
+		      parm_ainfo ? parm_ainfo->pt_visited_statements : NULL);
   if (modified)
     parm_ainfo->pt_modified = true;
   return !modified;

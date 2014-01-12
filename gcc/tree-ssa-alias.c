@@ -2455,14 +2455,13 @@ walk_non_aliased_vuses (ao_ref *ref, tree vuse,
 static unsigned int
 walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
 		      bool (*walker)(ao_ref *, tree, void *), void *data,
-		      bitmap *visited, unsigned int cnt)
+		      bitmap visited, unsigned int cnt)
 {
   do
     {
       gimple def_stmt = SSA_NAME_DEF_STMT (vdef);
 
-      if (*visited
-	  && !(*visited)->set_bit (SSA_NAME_VERSION (vdef)))
+      if (!visited->set_bit (SSA_NAME_VERSION (vdef)))
 	return cnt;
 
       if (gimple_nop_p (def_stmt))
@@ -2470,8 +2469,6 @@ walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
       else if (gimple_code (def_stmt) == GIMPLE_PHI)
 	{
 	  unsigned i;
-	  if (!*visited)
-	    *visited = BITMAP_ALLOC (NULL);
 	  for (i = 0; i < gimple_phi_num_args (def_stmt); ++i)
 	    cnt += walk_aliased_vdefs_1 (ref, gimple_phi_arg_def (def_stmt, i),
 					 walker, data, visited, 0);
@@ -2493,17 +2490,15 @@ walk_aliased_vdefs_1 (ao_ref *ref, tree vdef,
 unsigned int
 walk_aliased_vdefs (ao_ref *ref, tree vdef,
 		    bool (*walker)(ao_ref *, tree, void *), void *data,
-		    bitmap *visited)
+		    bitmap visited)
 {
-  bitmap local_visited = NULL;
   unsigned int ret;
 
   timevar_push (TV_ALIAS_STMT_WALK);
 
+  bitmap_head local_visited;
   ret = walk_aliased_vdefs_1 (ref, vdef, walker, data,
 			      visited ? visited : &local_visited, 0);
-  if (local_visited)
-    BITMAP_FREE (local_visited);
 
   timevar_pop (TV_ALIAS_STMT_WALK);
 

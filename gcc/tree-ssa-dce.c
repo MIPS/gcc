@@ -592,7 +592,7 @@ static void
 mark_all_reaching_defs_necessary (gimple stmt)
 {
   walk_aliased_vdefs (NULL, gimple_vuse (stmt),
-		      mark_all_reaching_defs_necessary_1, NULL, &visited);
+		      mark_all_reaching_defs_necessary_1, NULL, visited);
 }
 
 /* Return true for PHI nodes with one or identical arguments

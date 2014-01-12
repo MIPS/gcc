@@ -3756,7 +3756,6 @@ analyze_modified_params (vec<access_p> representatives)
 	   repr = repr->next_grp)
 	{
 	  struct access *access;
-	  bitmap visited;
 	  ao_ref ar;
 
 	  if (no_accesses_p (repr))
@@ -3766,7 +3765,7 @@ analyze_modified_params (vec<access_p> representatives)
 	    continue;
 
 	  ao_ref_init (&ar, repr->expr);
-	  visited = BITMAP_ALLOC (NULL);
+	  bitmap_head visited;
 	  for (access = repr; access; access = access->next_sibling)
 	    {
 	      /* All accesses are read ones, otherwise grp_maybe_modified would
@@ -3776,7 +3775,6 @@ analyze_modified_params (vec<access_p> representatives)
 	      if (repr->grp_maybe_modified)
 		break;
 	    }
-	  BITMAP_FREE (visited);
 	}
     }
 }
