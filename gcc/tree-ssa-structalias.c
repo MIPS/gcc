@@ -6279,7 +6279,7 @@ pt_solution_singleton_p (struct pt_solution *pt, unsigned *uid)
 {
   if (pt->anything || pt->nonlocal || pt->escaped || pt->ipa_escaped
       || pt->null || pt->vars == NULL
-      || !bitmap_single_bit_set_p (pt->vars))
+      || !pt->vars->is_single_bit_set ())
     return false;
 
   *uid = pt->vars->first_set_bit ();

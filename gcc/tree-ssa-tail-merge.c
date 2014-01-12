@@ -815,7 +815,7 @@ same_succ_flush_bb (basic_block bb)
 {
   same_succ same = BB_SAME_SUCC (bb);
   BB_SAME_SUCC (bb) = NULL;
-  if (bitmap_single_bit_set_p (same->bbs))
+  if (same->bbs->is_single_bit_set ())
     same_succ_htab.remove_elt_with_hash (same, same->hashval);
   else
     same->bbs->clear_bit (bb->index);

@@ -211,6 +211,9 @@ struct GTY(()) bitmap_head {
   unsigned long count_bits () const;
 
 /* True if the bitmap has only a single bit set.  */
+  bool is_single_bit_set () const;
+
+/* True if MAP is an empty bitmap.  */
   bool is_empty () const { return !first; }
 
   unsigned first_set_bit () const;
@@ -247,9 +250,6 @@ extern bool bitmap_equal_p (const_bitmap, const_bitmap);
 /* True if the complement of the second intersects the first (their
    AND_COMPL is non-empty).  */
 extern bool bitmap_intersect_compl_p (const_bitmap, const_bitmap);
-
-/* True if MAP is an empty bitmap.  */
-extern bool bitmap_single_bit_set_p (const_bitmap);
 
 /* Boolean operations on bitmaps.  The _into variants are two operand
    versions that modify the first source operand.  The other variants

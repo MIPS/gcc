@@ -758,16 +758,16 @@ bitmap_head::count_bits () const
    false.  */
 
 bool
-bitmap_single_bit_set_p (const_bitmap a)
+bitmap_head::is_single_bit_set () const
 {
   unsigned long count = 0;
   const bitmap_element *elt;
   unsigned ix;
 
-  if (a->is_empty ())
+  if (is_empty ())
     return false;
 
-  elt = a->first;
+  elt = first;
   /* As there are no completely empty bitmap elements, a second one
      means we have more than one bit set.  */
   if (elt->next != NULL)
