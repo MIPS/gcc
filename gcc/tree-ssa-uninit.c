@@ -988,7 +988,7 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
 					      tree boundary_cst,
 					      enum tree_code cmp_code,
 					      pointer_set_t *visited_phis,
-					      bitmap *visited_flag_phis)
+					      bitmap visited_flag_phis)
 {
   unsigned i;
 
@@ -1023,15 +1023,11 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
           if (gimple_bb (phi_arg_def) != gimple_bb (flag_arg_def))
             return false;
 
-          if (!*visited_flag_phis)
-            *visited_flag_phis = BITMAP_ALLOC (NULL);
-
-          if ((*visited_flag_phis)->bit
-	      (SSA_NAME_VERSION (gimple_phi_result (flag_arg_def))))
+	  int version = SSA_NAME_VERSION (gimple_phi_result (flag_arg_def));
+          if (visited_flag_phis->bit (version))
             return false;
 
-	  (*visited_flag_phis)->set_bit
-	    (SSA_NAME_VERSION (gimple_phi_result (flag_arg_def)));
+	  visited_flag_phis->set_bit (version);
 
           /* Now recursively prune the uninitialized phi args.  */
           uninit_opnds_arg_phi = compute_uninit_opnds_pos (phi_arg_def);
@@ -1040,7 +1036,7 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
 		  boundary_cst, cmp_code, visited_phis, visited_flag_phis))
             return false;
 
-          (*visited_flag_phis)->clear_bit
+          visited_flag_phis->clear_bit
                             (SSA_NAME_VERSION (gimple_phi_result (flag_arg_def)));
           continue;
         }
@@ -1166,7 +1162,6 @@ use_pred_not_overlap_with_undef_path_pred (pred_chain_union preds,
   bool swap_cond = false;
   bool invert = false;
   pred_chain the_pred_chain = vNULL;
-  bitmap visited_flag_phis = NULL;
   bool all_pruned = false;
   size_t num_preds = preds.length ();
 
@@ -1228,6 +1223,7 @@ use_pred_not_overlap_with_undef_path_pred (pred_chain_union preds,
   if (cmp_code == ERROR_MARK)
     return false;
 
+  bitmap_head visited_flag_phis;
   all_pruned = prune_uninit_phi_opnds_in_unrealizable_paths (phi,
                                                              uninit_opnds,
                                                              flag_def,
@@ -1235,9 +1231,6 @@ use_pred_not_overlap_with_undef_path_pred (pred_chain_union preds,
                                                              cmp_code,
                                                              visited_phis,
                                                              &visited_flag_phis);
-
-  if (visited_flag_phis)
-    BITMAP_FREE (visited_flag_phis);
 
   return all_pruned;
 }
