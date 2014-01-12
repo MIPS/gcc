@@ -292,7 +292,7 @@ dead_debug_global_replace_temp (struct dead_debug_global *global,
       || !global->used
       || !REG_P (*DF_REF_REAL_LOC (use))
       || REGNO (*DF_REF_REAL_LOC (use)) != uregno
-      || !bitmap_bit_p (global->used, uregno))
+      || !global->used->bit (uregno))
     return false;
 
   dead_debug_global_entry *entry
@@ -365,7 +365,7 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
     }
 
   while ((cur = *tailp))
-    if (bitmap_bit_p (rescan, INSN_UID (DF_REF_INSN (cur->use))))
+    if (rescan->bit (INSN_UID (DF_REF_INSN (cur->use))))
       {
 	*tailp = cur->next;
 	XDELETE (cur);
@@ -549,7 +549,7 @@ dead_debug_insert_temp (struct dead_debug_local *debug, unsigned int uregno,
     return 0;
 
   global = (debug->global && debug->global->used
-	    && bitmap_bit_p (debug->global->used, uregno));
+	    && debug->global->used->bit (uregno));
 
   if (!global && !debug->used->clear_bit (uregno))
     return 0;

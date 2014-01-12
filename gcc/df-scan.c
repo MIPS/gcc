@@ -767,7 +767,7 @@ df_install_ref_incremental (df_ref ref)
 
   /* Do not add if ref is not in the right blocks.  */
   if (add_to_table && df->analyze_subset)
-    add_to_table = bitmap_bit_p (df->blocks_to_analyze, bb->index);
+    add_to_table = df->blocks_to_analyze->bit (bb->index);
 
   df_install_ref (ref, reg_info[DF_REF_REGNO (ref)], ref_info, add_to_table);
 
@@ -896,7 +896,7 @@ df_reg_chain_unlink (df_ref ref)
     {
       if (df->analyze_subset)
 	{
-	  if (bitmap_bit_p (df->blocks_to_analyze, DF_REF_BBNO (ref)))
+	  if (df->blocks_to_analyze->bit (DF_REF_BBNO (ref)))
 	    refs[id] = NULL;
 	}
       else
@@ -2197,7 +2197,7 @@ df_notes_rescan (rtx insn)
       df->insns_to_delete.clear_bit (uid);
       /* If the insn is set to be rescanned, it does not need to also
 	 be notes rescanned.  */
-      if (!bitmap_bit_p (&df->insns_to_rescan, uid))
+      if (!df->insns_to_rescan.bit (uid))
 	df->insns_to_notes_rescan.set_bit (INSN_UID (insn));
       return;
     }
@@ -2639,7 +2639,7 @@ df_install_refs (basic_block bb,
 
       /* Do not add if ref is not in the right blocks.  */
       if (add_to_table && df->analyze_subset)
-	add_to_table = bitmap_bit_p (df->blocks_to_analyze, bb->index);
+	add_to_table = df->blocks_to_analyze->bit (bb->index);
 
       FOR_EACH_VEC_ELT (*old_vec, ix, this_ref)
 	{
@@ -3408,7 +3408,7 @@ df_get_call_refs (struct df_collection_rec *collection_rec,
 	       /* no clobbers for regs that are the result of the call */
 	       && !TEST_HARD_REG_BIT (defs_generated, i)
 	       && (!is_sibling_call
-		   || !bitmap_bit_p (df->exit_block_uses, i)
+		   || !df->exit_block_uses->bit (i)
 		   || refers_to_regno_p (i, i+1,
 				         crtl->return_rtx, NULL)))
 	  df_ref_record (DF_REF_BASE, collection_rec, regno_reg_rtx[i],
@@ -4034,7 +4034,7 @@ df_exit_block_uses_collect (struct df_collection_rec *collection_rec, bitmap exi
   /* It is deliberate that this is not put in the exit block uses but
      I do not know why.  */
   if (reload_completed
-      && !bitmap_bit_p (exit_block_uses, ARG_POINTER_REGNUM)
+      && !exit_block_uses->bit (ARG_POINTER_REGNUM)
       && bb_has_eh_pred (EXIT_BLOCK_PTR_FOR_FN (cfun))
       && fixed_regs[ARG_POINTER_REGNUM])
     df_ref_record (DF_REF_ARTIFICIAL, collection_rec, regno_reg_rtx[ARG_POINTER_REGNUM], NULL,

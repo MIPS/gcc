@@ -2144,7 +2144,7 @@ param_change_prob (gimple stmt, int i)
       info.bb_set = BITMAP_ALLOC (NULL);
       walk_aliased_vdefs (&refd, gimple_vuse (stmt), record_modified, &info,
 			  NULL);
-      if (bitmap_bit_p (info.bb_set, bb->index))
+      if (info.bb_set->bit (bb->index))
 	{
 	  BITMAP_FREE (info.bb_set);
 	  return REG_BR_PROB_BASE;

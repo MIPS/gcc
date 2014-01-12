@@ -86,15 +86,15 @@ initialize_uninitialized_regs (void)
 		 This is common for sequences of subreg operations.
 		 They would be deleted during combine but there is no
 		 reason to churn the system.  */
-	      if (bitmap_bit_p (&already_genned, regno))
+	      if (already_genned.bit (regno))
 		continue;
 
 	      /* A use is MUST uninitialized if it reaches the top of
 		 the block from the inside of the block (the lr test)
 		 and no def for it reaches the top of the block from
 		 outside of the block (the ur test).  */
-	      if (bitmap_bit_p (lr, regno)
-		  && (!bitmap_bit_p (ur, regno)))
+	      if (lr->bit (regno)
+		  && (!ur->bit (regno)))
 		{
 		  rtx move_insn;
 		  rtx reg = DF_REF_REAL_REG (use);

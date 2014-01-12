@@ -262,7 +262,7 @@ static inline int
 partition_is_global (tree_live_info_p live, int p)
 {
   gcc_checking_assert (live->global);
-  return bitmap_bit_p (live->global, p);
+  return live->global->bit (p);
 }
 
 

@@ -1978,7 +1978,7 @@ tm_region_init (struct tm_region *region)
 
       /* Process subsequent blocks.  */
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (!bitmap_bit_p (&visited_blocks, e->dest->index))
+	if (!visited_blocks.bit (e->dest->index))
 	  {
 	    visited_blocks.set_bit (e->dest->index);
 	    queue.safe_push (e->dest);
@@ -2542,18 +2542,18 @@ get_tm_region_blocks (basic_block entry_block,
       basic_block bb = bbs[i++];
 
       if (exit_blocks &&
-	  bitmap_bit_p (exit_blocks, bb->index))
+	  exit_blocks->bit (bb->index))
 	continue;
 
       if (stop_at_irrevocable_p
 	  && irr_blocks
-	  && bitmap_bit_p (irr_blocks, bb->index))
+	  && irr_blocks->bit (bb->index))
 	continue;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if ((include_uninstrumented_p
 	     || !(e->flags & EDGE_TM_UNINSTRUMENTED))
-	    && !bitmap_bit_p (&visited_blocks, e->dest->index))
+	    && !visited_blocks.bit (e->dest->index))
 	  {
 	    visited_blocks.set_bit (e->dest->index);
 	    bbs.safe_push (e->dest);
@@ -3627,7 +3627,7 @@ tm_memopt_compute_available (struct tm_region *region,
       changed |= bitmap_ior_into (READ_AVAIL_OUT (bb), READ_AVAIL_IN (bb));
       if (changed
 	  && (region->exit_blocks == NULL
-	      || !bitmap_bit_p (region->exit_blocks, bb->index)))
+	      || !region->exit_blocks->bit (bb->index)))
 	/* If the out state of this block changed, then we need to add
 	   its successors to the worklist if they are not already in.  */
 	FOR_EACH_EDGE (e, ei, bb->succs)
@@ -3686,7 +3686,7 @@ tm_memopt_compute_antic (struct tm_region *region,
       /* No need to insert exit blocks, since their ANTIC_IN is NULL,
 	 and their ANTIC_OUT has already been seeded in.  */
       if (region->exit_blocks
-	  && !bitmap_bit_p (region->exit_blocks, bb->index))
+	  && !region->exit_blocks->bit (bb->index))
 	{
 	  qlen++;
 	  *qin++ = bb;
@@ -3809,14 +3809,14 @@ tm_memopt_transform_blocks (vec<basic_block> blocks)
 	  if (is_tm_simple_load (stmt))
 	    {
 	      loc = tm_memopt_value_number (stmt, NO_INSERT);
-	      if (store_avail && bitmap_bit_p (store_avail, loc))
+	      if (store_avail && store_avail->bit (loc))
 		tm_memopt_transform_stmt (TRANSFORM_RAW, stmt, &gsi);
-	      else if (store_antic && bitmap_bit_p (store_antic, loc))
+	      else if (store_antic && store_antic->bit (loc))
 		{
 		  tm_memopt_transform_stmt (TRANSFORM_RFW, stmt, &gsi);
 		  store_avail->set_bit (loc);
 		}
-	      else if (read_avail && bitmap_bit_p (read_avail, loc))
+	      else if (read_avail && read_avail->bit (loc))
 		tm_memopt_transform_stmt (TRANSFORM_RAR, stmt, &gsi);
 	      else
 		read_avail->set_bit (loc);
@@ -3824,11 +3824,11 @@ tm_memopt_transform_blocks (vec<basic_block> blocks)
 	  else if (is_tm_simple_store (stmt))
 	    {
 	      loc = tm_memopt_value_number (stmt, NO_INSERT);
-	      if (store_avail && bitmap_bit_p (store_avail, loc))
+	      if (store_avail && store_avail->bit (loc))
 		tm_memopt_transform_stmt (TRANSFORM_WAW, stmt, &gsi);
 	      else
 		{
-		  if (read_avail && bitmap_bit_p (read_avail, loc))
+		  if (read_avail && read_avail->bit (loc))
 		    tm_memopt_transform_stmt (TRANSFORM_WAR, stmt, &gsi);
 		  store_avail->set_bit (loc);
 		}
@@ -4262,7 +4262,7 @@ ipa_tm_note_irrevocable (struct cgraph_node *node,
       bb = gimple_bb (e->call_stmt);
       gcc_assert (bb != NULL);
       if (d->transaction_blocks_normal
-	  && bitmap_bit_p (d->transaction_blocks_normal, bb->index))
+	  && d->transaction_blocks_normal->bit (bb->index))
 	d->want_irr_scan_normal = true;
 
       maybe_push_queue (caller, worklist_p, &d->in_worklist);
@@ -4373,7 +4373,7 @@ ipa_tm_scan_irr_blocks (vec<basic_block> *pqueue, bitmap new_irr,
       basic_block bb = pqueue->pop ();
 
       /* Don't re-scan blocks we know already are irrevocable.  */
-      if (old_irr && bitmap_bit_p (old_irr, bb->index))
+      if (old_irr && old_irr->bit (bb->index))
 	continue;
 
       if (ipa_tm_scan_irr_block (bb))
@@ -4381,10 +4381,10 @@ ipa_tm_scan_irr_blocks (vec<basic_block> *pqueue, bitmap new_irr,
 	  new_irr->set_bit (bb->index);
 	  any_new_irr = true;
 	}
-      else if (exit_blocks == NULL || !bitmap_bit_p (exit_blocks, bb->index))
+      else if (exit_blocks == NULL || !exit_blocks->bit (bb->index))
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
-	    if (!bitmap_bit_p (&visited_blocks, e->dest->index))
+	    if (!visited_blocks.bit (e->dest->index))
 	      {
 		visited_blocks.set_bit (e->dest->index);
 		pqueue->safe_push (e->dest);
@@ -4409,7 +4409,7 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
   vec<basic_block> bbs;
 
   /* If this block is in the old set, no need to rescan.  */
-  if (old_irr && bitmap_bit_p (old_irr, entry_block->index))
+  if (old_irr && old_irr->bit (entry_block->index))
     return;
 
   bitmap_head all_region_blocks (&tm_obstack);
@@ -4418,7 +4418,7 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
   do
     {
       basic_block bb = bbs.pop ();
-      bool this_irr = bitmap_bit_p (new_irr, bb->index);
+      bool this_irr = new_irr->bit (bb->index);
       bool all_son_irr = false;
       edge_iterator ei;
       edge e;
@@ -4429,7 +4429,7 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
 	{
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
-	      if (!bitmap_bit_p (new_irr, e->dest->index))
+	      if (!new_irr->bit (e->dest->index))
 		{
 		  all_son_irr = false;
 		  break;
@@ -4440,7 +4440,7 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
 	  if (all_son_irr)
 	    {
 	      /* Add block to new_irr if it hasn't already been processed. */
-	      if (!old_irr || !bitmap_bit_p (old_irr, bb->index))
+	      if (!old_irr || !old_irr->bit (bb->index))
 		{
 		  new_irr->set_bit (bb->index);
 		  this_irr = true;
@@ -4458,8 +4458,8 @@ ipa_tm_propagate_irr (basic_block entry_block, bitmap new_irr,
 	    {
 	      /* Make sure block is actually in a TM region, and it
 		 isn't already in old_irr.  */
-	      if ((!old_irr || !bitmap_bit_p (old_irr, son->index))
-		  && bitmap_bit_p (&all_region_blocks, son->index))
+	      if ((!old_irr || !old_irr->bit (son->index))
+		  && all_region_blocks.bit (son->index))
 		new_irr->set_bit (son->index);
 	    }
 	}
@@ -4539,8 +4539,8 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
 	  ipa_tm_propagate_irr (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
 				new_irr,
 				old_irr, NULL);
-	  ret = bitmap_bit_p (new_irr,
-			      single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun))->index);
+	  ret = new_irr->bit
+	    (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun))->index);
 	}
     }
   else
@@ -4727,7 +4727,7 @@ ipa_tm_diagnose_transaction (struct cgraph_node *node,
 	      /* Stop at the end of the transaction.  */
 	      if (is_tm_ending_fndecl (fndecl))
 		{
-		  if (bitmap_bit_p (r->exit_blocks, bb->index))
+		  if (r->exit_blocks->bit (bb->index))
 		    break;
 		  continue;
 		}
@@ -5167,7 +5167,7 @@ ipa_tm_transform_calls_1 (struct cgraph_node *node, struct tm_region *region,
   gimple_stmt_iterator gsi;
   bool need_ssa_rename = false;
 
-  if (irr_blocks && bitmap_bit_p (irr_blocks, bb->index))
+  if (irr_blocks && irr_blocks->bit (bb->index))
     {
       ipa_tm_insert_irr_call (node, region, bb);
       return true;
@@ -5211,14 +5211,14 @@ ipa_tm_transform_calls (struct cgraph_node *node, struct tm_region *region,
       need_ssa_rename |=
 	ipa_tm_transform_calls_1 (node, region, bb, irr_blocks);
 
-      if (irr_blocks && bitmap_bit_p (irr_blocks, bb->index))
+      if (irr_blocks && irr_blocks->bit (bb->index))
 	continue;
 
-      if (region && bitmap_bit_p (region->exit_blocks, bb->index))
+      if (region && region->exit_blocks->bit (bb->index))
 	continue;
 
       FOR_EACH_EDGE (e, ei, bb->succs)
-	if (!bitmap_bit_p (&visited_blocks, e->dest->index))
+	if (!visited_blocks.bit (e->dest->index))
 	  {
 	    visited_blocks.set_bit (e->dest->index);
 	    queue.safe_push (e->dest);
@@ -5247,8 +5247,7 @@ ipa_tm_transform_transaction (struct cgraph_node *node)
     {
       /* If we're sure to go irrevocable, don't transform anything.  */
       if (d->irrevocable_blocks_normal
-	  && bitmap_bit_p (d->irrevocable_blocks_normal,
-			   region->entry_block->index))
+	  && d->irrevocable_blocks_normal->bit (region->entry_block->index))
 	{
 	  transaction_subcode_ior (region, GTMA_DOES_GO_IRREVOCABLE
 				           | GTMA_MAY_ENTER_IRREVOCABLE

@@ -1634,9 +1634,8 @@ find_costs_and_classes (FILE *dump_file)
 		      && (parent = ALLOCNO_LOOP_TREE_NODE (a)->parent) != NULL
 		      && (parent_a = parent->regno_allocno_map[i]) != NULL
 		      /* There are no caps yet.  */
-		      && bitmap_bit_p (ALLOCNO_LOOP_TREE_NODE
-				       (a)->border_allocnos,
-				       ALLOCNO_NUM (a)))
+		      && ALLOCNO_LOOP_TREE_NODE (a)->border_allocnos->bit
+		      (ALLOCNO_NUM (a)))
 		    {
 		      /* Propagate costs to upper levels in the region
 			 tree.  */

@@ -302,7 +302,7 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
 
   for (args = TYPE_ARG_TYPES (orig_type); args && args != void_list_node;
        args = TREE_CHAIN (args), i++)
-    if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
+    if (!args_to_skip || !args_to_skip->bit (i))
       new_args = tree_cons (NULL_TREE, TREE_VALUE (args), new_args);
 
   new_reversed = nreverse (new_args);
@@ -321,7 +321,7 @@ build_function_type_skip_args (tree orig_type, bitmap args_to_skip,
      instead.  */
   if (TREE_CODE (orig_type) != METHOD_TYPE
       || !args_to_skip
-      || !bitmap_bit_p (args_to_skip, 0))
+      || !args_to_skip->bit (0))
     {
       new_type = build_distinct_type_copy (orig_type);
       TYPE_ARG_TYPES (new_type) = new_reversed;
@@ -379,7 +379,7 @@ build_function_decl_skip_args (tree orig_decl, bitmap args_to_skip,
 
   /* For declarations setting DECL_VINDEX (i.e. methods)
      we expect first argument to be THIS pointer.   */
-  if (args_to_skip && bitmap_bit_p (args_to_skip, 0))
+  if (args_to_skip && args_to_skip->bit (0))
     DECL_VINDEX (new_decl) = NULL_TREE;
 
   /* When signature changes, we need to clear builtin info.  */
@@ -491,12 +491,12 @@ cgraph_create_virtual_clone (struct cgraph_node *old_node,
       for (arg = DECL_ARGUMENTS (orig_node->decl);
 	   arg; arg = DECL_CHAIN (arg), oldi++)
 	{
-	  if (bitmap_bit_p (old_node->clone.combined_args_to_skip, oldi))
+	  if (old_node->clone.combined_args_to_skip->bit (oldi))
 	    {
 	      new_args_to_skip->set_bit (oldi);
 	      continue;
 	    }
-	  if (bitmap_bit_p (args_to_skip, newi))
+	  if (args_to_skip->bit (newi))
 	    new_args_to_skip->set_bit (oldi);
 	  newi++;
 	}
@@ -793,14 +793,14 @@ cgraph_copy_node_for_versioning (struct cgraph_node *old_version,
 
    for (e = old_version->callees; e; e=e->next_callee)
      if (!bbs_to_copy
-	 || bitmap_bit_p (bbs_to_copy, gimple_bb (e->call_stmt)->index))
+	 || bbs_to_copy->bit (gimple_bb (e->call_stmt)->index))
        cgraph_clone_edge (e, new_version, e->call_stmt,
 			  e->lto_stmt_uid, REG_BR_PROB_BASE,
 			  CGRAPH_FREQ_BASE,
 			  true);
    for (e = old_version->indirect_calls; e; e=e->next_callee)
      if (!bbs_to_copy
-	 || bitmap_bit_p (bbs_to_copy, gimple_bb (e->call_stmt)->index))
+	 || bbs_to_copy->bit (gimple_bb (e->call_stmt)->index))
        cgraph_clone_edge (e, new_version, e->call_stmt,
 			  e->lto_stmt_uid, REG_BR_PROB_BASE,
 			  CGRAPH_FREQ_BASE,

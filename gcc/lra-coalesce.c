@@ -306,7 +306,7 @@ lra_coalesce (void)
       update_live_info (df_get_live_out (bb));
       FOR_BB_INSNS_SAFE (bb, insn, next)
 	if (INSN_P (insn)
-	    && bitmap_bit_p (&involved_insns_bitmap, INSN_UID (insn)))
+	    && involved_insns_bitmap.bit (INSN_UID (insn)))
 	  {
 	    if (! substitute (&insn))
 	      continue;
@@ -342,7 +342,7 @@ lra_coalesce (void)
     result_pseudo_vals_bitmap.set_bit
 		    (lra_reg_info[first_coalesced_pseudo[regno]].val);
   EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, regno, bi)
-    if (bitmap_bit_p (&result_pseudo_vals_bitmap, lra_reg_info[regno].val))
+    if (result_pseudo_vals_bitmap.bit (lra_reg_info[regno].val))
       {
 	lra_set_regno_unique_value (regno);
 	if (lra_dump_file != NULL)

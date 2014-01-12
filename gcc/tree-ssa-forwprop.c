@@ -1336,7 +1336,7 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 	}
       for (ei = ei_start (gimple_bb (stmt)->succs); (e = ei_safe_edge (ei)); )
 	{
-	  if (! bitmap_bit_p (&target_blocks, e->dest->index))
+	  if (! target_blocks.bit (e->dest->index))
 	    {
 	      remove_edge (e);
 	      cfg_changed = true;

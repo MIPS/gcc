@@ -1424,7 +1424,7 @@ expand_loc (struct elt_loc_list *p, struct expand_value_data *evd,
 	 the same reg.  */
       if ((REG_P (p->loc))
 	  && (REGNO (p->loc) < regno)
-	  && !bitmap_bit_p (evd->regs_active, REGNO (p->loc)))
+	  && !evd->regs_active->bit (REGNO (p->loc)))
 	{
 	  reg_result = p->loc;
 	  regno = REGNO (p->loc);

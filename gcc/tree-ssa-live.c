@@ -364,7 +364,7 @@ partition_view_bitmap (var_map map, bitmap only, bool want_bases)
   EXECUTE_IF_SET_IN_BITMAP (only, 0, x, bi)
     {
       p = partition_find (map->var_partition, x);
-      gcc_assert (bitmap_bit_p (used, p));
+      gcc_assert (used->bit (p));
       new_partitions->set_bit (p);
     }
   partition_view_fini (map, new_partitions);
@@ -392,7 +392,7 @@ set_is_used (tree var)
 static inline bool
 is_used_p (tree var)
 {
-  return bitmap_bit_p (usedvars, DECL_UID (var));
+  return usedvars->bit (DECL_UID (var));
 }
 
 static inline void mark_all_vars_used (tree *);
@@ -1392,7 +1392,7 @@ verify_live_on_entry (tree_live_info_p live)
 	    d = ssa_default_def (cfun, SSA_NAME_VAR (var));
 
 	  loe = live_on_entry (live, e->dest);
-	  if (loe && bitmap_bit_p (loe, i))
+	  if (loe && loe->bit (i))
 	    {
 	      if (!gimple_nop_p (stmt))
 		{

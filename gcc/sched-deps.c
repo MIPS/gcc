@@ -904,10 +904,10 @@ sd_find_dep_between (rtx pro, rtx con, bool resolved_p)
       int elem_luid = INSN_LUID (pro);
       int insn_luid = INSN_LUID (con);
 
-      if (!bitmap_bit_p (&true_dependency_cache[insn_luid], elem_luid)
-	  && !bitmap_bit_p (&output_dependency_cache[insn_luid], elem_luid)
-	  && !bitmap_bit_p (&anti_dependency_cache[insn_luid], elem_luid)
-	  && !bitmap_bit_p (&control_dependency_cache[insn_luid], elem_luid))
+      if (!true_dependency_cache[insn_luid].bit (elem_luid)
+	  && !output_dependency_cache[insn_luid].bit (elem_luid)
+	  && !anti_dependency_cache[insn_luid].bit (elem_luid)
+	  && !control_dependency_cache[insn_luid].bit (elem_luid))
 	return NULL;
     }
 
@@ -967,13 +967,13 @@ ask_dependency_caches (dep_t dep)
     {
       enum reg_note present_dep_type;
 
-      if (bitmap_bit_p (&true_dependency_cache[insn_luid], elem_luid))
+      if (true_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_type = REG_DEP_TRUE;
-      else if (bitmap_bit_p (&output_dependency_cache[insn_luid], elem_luid))
+      else if (output_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_type = REG_DEP_OUTPUT;
-      else if (bitmap_bit_p (&anti_dependency_cache[insn_luid], elem_luid))
+      else if (anti_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_type = REG_DEP_ANTI;
-      else if (bitmap_bit_p (&control_dependency_cache[insn_luid], elem_luid))
+      else if (control_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_type = REG_DEP_CONTROL;
       else
 	/* There is no existing dep so it should be created.  */
@@ -987,13 +987,13 @@ ask_dependency_caches (dep_t dep)
     {
       ds_t present_dep_types = 0;
 
-      if (bitmap_bit_p (&true_dependency_cache[insn_luid], elem_luid))
+      if (true_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_types |= DEP_TRUE;
-      if (bitmap_bit_p (&output_dependency_cache[insn_luid], elem_luid))
+      if (output_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_types |= DEP_OUTPUT;
-      if (bitmap_bit_p (&anti_dependency_cache[insn_luid], elem_luid))
+      if (anti_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_types |= DEP_ANTI;
-      if (bitmap_bit_p (&control_dependency_cache[insn_luid], elem_luid))
+      if (control_dependency_cache[insn_luid].bit (elem_luid))
 	present_dep_types |= DEP_CONTROL;
 
       if (present_dep_types == 0)
@@ -1001,7 +1001,7 @@ ask_dependency_caches (dep_t dep)
 	return DEP_CREATED;
 
       if (!(current_sched_info->flags & DO_SPECULATION)
-	  || !bitmap_bit_p (&spec_dependency_cache[insn_luid], elem_luid))
+	  || !spec_dependency_cache[insn_luid].bit (elem_luid))
 	{
 	  if ((present_dep_types | (DEP_STATUS (dep) & DEP_TYPES))
 	      == present_dep_types)

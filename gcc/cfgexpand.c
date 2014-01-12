@@ -358,7 +358,7 @@ stack_var_conflict_p (size_t x, size_t y)
 
   if (!a->conflicts || !b->conflicts)
     return false;
-  return bitmap_bit_p (a->conflicts, y);
+  return a->conflicts->bit (y);
 }
 
 /* Callback for walk_stmt_ops.  If OP is a decl touched by add_stack_var
@@ -612,7 +612,7 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
      once.  */
   EXECUTE_IF_SET_IN_BITMAP (pt->vars, 0, i, bi)
     if ((!temp
-	 || !bitmap_bit_p (temp, i))
+	 || !temp->bit (i))
 	&& (part = (bitmap *) pointer_map_contains (decls_to_partitions,
 						    (void *)(size_t) i)))
       bitmap_ior_into (temp, *part);
@@ -1659,7 +1659,7 @@ expand_used_vars (void)
 	     we don't do anything here.  But those which don't contain the
 	     default def (representing a temporary based on the parm/result)
 	     we need to allocate space just like for normal VAR_DECLs.  */
-	  if (!bitmap_bit_p (SA.partition_has_default_def, i))
+	  if (!SA.partition_has_default_def->bit (i))
 	    {
 	      expand_one_var (var, true, true);
 	      gcc_assert (SA.partition_to_pseudo[i]);
@@ -2031,7 +2031,7 @@ expand_gimple_cond (basic_block bb, gimple stmt)
 	   && integer_zerop (op1))
 	  || (gimple_cond_code (stmt) == EQ_EXPR
 	      && integer_onep (op1)))
-      && bitmap_bit_p (SA.values, SSA_NAME_VERSION (op0)))
+      && SA.values->bit (SSA_NAME_VERSION (op0)))
     {
       gimple second = SSA_NAME_DEF_STMT (op0);
       if (gimple_code (second) == GIMPLE_ASSIGN)
@@ -5140,8 +5140,8 @@ expand_gimple_basic_block (basic_block bb, bool disable_tail_calls)
 		  /* Ignore this stmt if it is in the list of
 		     replaceable expressions.  */
 		  if (SA.values
-		      && bitmap_bit_p (SA.values,
-				       SSA_NAME_VERSION (DEF_FROM_PTR (def_p))))
+		      && SA.values->bit
+		      (SSA_NAME_VERSION (DEF_FROM_PTR (def_p))))
 		    continue;
 		}
 	      last = expand_gimple_stmt (stmt);

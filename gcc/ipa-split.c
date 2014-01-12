@@ -168,7 +168,7 @@ test_nonssa_use (gimple, tree t, tree, void *data)
 	  && auto_var_in_fn_p (t, current_function_decl))
       || TREE_CODE (t) == RESULT_DECL
       || TREE_CODE (t) == LABEL_DECL)
-    return bitmap_bit_p ((bitmap)data, DECL_UID (t));
+    return ((bitmap)data)->bit (DECL_UID (t));
 
   /* For DECL_BY_REFERENCE, the return value is actually a pointer.  We want
      to pretend that the value pointed to is actual result decl.  */
@@ -178,8 +178,7 @@ test_nonssa_use (gimple, tree t, tree, void *data)
       && TREE_CODE (SSA_NAME_VAR (TREE_OPERAND (t, 0))) == RESULT_DECL
       && DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
     return
-      bitmap_bit_p ((bitmap)data,
-		    DECL_UID (DECL_RESULT (current_function_decl)));
+      ((bitmap)data)->bit (DECL_UID (DECL_RESULT (current_function_decl)));
 
   return false;
 }
@@ -216,7 +215,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 
   FOR_EACH_EDGE (e, ei, current->entry_bb->preds)
     if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
-	&& !bitmap_bit_p (current->split_bbs, e->src->index))
+	&& !current->split_bbs->bit (e->src->index))
       {
         worklist.safe_push (e->src);
 	seen.set_bit (e->src->index);
@@ -231,8 +230,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
 	    && seen.set_bit (e->src->index))
 	  {
-	    gcc_checking_assert (!bitmap_bit_p (current->split_bbs,
-					        e->src->index));
+	    gcc_checking_assert (!current->split_bbs->bit (e->src->index));
 	    worklist.safe_push (e->src);
 	  }
       for (bsi = gsi_start_bb (bb); !gsi_end_p (bsi); gsi_next (&bsi))
@@ -395,7 +393,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
     {
       if (e->flags & EDGE_DFS_BACK)
 	back_edge = true;
-      if (!bitmap_bit_p (current->split_bbs, e->src->index))
+      if (!current->split_bbs->bit (e->src->index))
         incoming_freq += EDGE_FREQUENCY (e);
     }
 
@@ -447,7 +445,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
       for (i = 0; i < gimple_phi_num_args (stmt); i++)
 	{
 	  edge e = gimple_phi_arg_edge (stmt, i);
-	  if (!bitmap_bit_p (current->split_bbs, e->src->index))
+	  if (!current->split_bbs->bit (e->src->index))
 	    {
 	      tree edge_val = gimple_phi_arg_def (stmt, i);
 	      if (val && edge_val != val)
@@ -471,7 +469,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
     {
       if (!is_gimple_reg (parm))
 	{
-	  if (bitmap_bit_p (non_ssa_vars, DECL_UID (parm)))
+	  if (non_ssa_vars->bit (DECL_UID (parm)))
 	    {
 	      if (dump_file && (dump_flags & TDF_DETAILS))
 		fprintf (dump_file,
@@ -483,8 +481,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 	{
 	  tree ddef = ssa_default_def (cfun, parm);
 	  if (ddef
-	      && bitmap_bit_p (current->ssa_names_to_pass,
-			       SSA_NAME_VERSION (ddef)))
+	      && current->ssa_names_to_pass->bit (SSA_NAME_VERSION (ddef)))
 	    {
 	      if (!VOID_TYPE_P (TREE_TYPE (parm)))
 		call_overhead += estimate_move_cost (TREE_TYPE (parm));
@@ -570,19 +567,19 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 	   && TREE_CODE (SSA_NAME_VAR (retval)) == RESULT_DECL
 	   && DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
     current->split_part_set_retval
-       = bitmap_bit_p (non_ssa_vars, DECL_UID (SSA_NAME_VAR (retval)));
+       = non_ssa_vars->bit (DECL_UID (SSA_NAME_VAR (retval)));
   else if (TREE_CODE (retval) == SSA_NAME)
     current->split_part_set_retval
       = (!SSA_NAME_IS_DEFAULT_DEF (retval)
-	 && (bitmap_bit_p (current->split_bbs,
-			  gimple_bb (SSA_NAME_DEF_STMT (retval))->index)
+	 && (current->split_bbs->bit
+	     (gimple_bb (SSA_NAME_DEF_STMT (retval))->index)
 	     || gimple_bb (SSA_NAME_DEF_STMT (retval)) == return_bb));
   else if (TREE_CODE (retval) == PARM_DECL)
     current->split_part_set_retval = false;
   else if (TREE_CODE (retval) == VAR_DECL
 	   || TREE_CODE (retval) == RESULT_DECL)
     current->split_part_set_retval
-      = bitmap_bit_p (non_ssa_vars, DECL_UID (retval));
+      = non_ssa_vars->bit (DECL_UID (retval));
   else
     current->split_part_set_retval = true;
 
@@ -744,8 +741,7 @@ mark_nonssa_use (gimple, tree t, tree, void *data)
       && TREE_CODE (SSA_NAME_VAR (TREE_OPERAND (t, 0))) == RESULT_DECL
       && DECL_BY_REFERENCE (DECL_RESULT (current_function_decl)))
     return
-      bitmap_bit_p ((bitmap)data,
-		    DECL_UID (DECL_RESULT (current_function_decl)));
+      ((bitmap)data)->bit (DECL_UID (DECL_RESULT (current_function_decl)));
 
   return false;
 }
@@ -1116,8 +1112,7 @@ split_function (struct split_point *split_point)
     if (args_to_skip
 	&& (!is_gimple_reg (parm)
 	    || (ddef = ssa_default_def (cfun, parm)) == NULL_TREE
-	    || !bitmap_bit_p (split_point->ssa_names_to_pass,
-			      SSA_NAME_VERSION (ddef))))
+	    || !split_point->ssa_names_to_pass->bit (SSA_NAME_VERSION (ddef))))
       args_to_skip->set_bit (num);
     else
       {
@@ -1135,7 +1130,7 @@ split_function (struct split_point *split_point)
 
   /* See if the split function will return.  */
   FOR_EACH_EDGE (e, ei, return_bb->preds)
-    if (bitmap_bit_p (split_point->split_bbs, e->src->index))
+    if (split_point->split_bbs->bit (e->src->index))
       break;
   if (e)
     split_part_return_p = true;
@@ -1163,7 +1158,7 @@ split_function (struct split_point *split_point)
 	{
 	  redirected = false;
 	  FOR_EACH_EDGE (e, ei, return_bb->preds)
-	    if (bitmap_bit_p (split_point->split_bbs, e->src->index))
+	    if (split_point->split_bbs->bit (e->src->index))
 	      {
 		new_return_bb->count += e->count;
 		new_return_bb->frequency += EDGE_FREQUENCY (e);
@@ -1292,7 +1287,7 @@ split_function (struct split_point *split_point)
   if (args_to_skip)
     for (parm = DECL_ARGUMENTS (current_function_decl), num = 0;
 	 parm; parm = DECL_CHAIN (parm), num++)
-      if (bitmap_bit_p (args_to_skip, num)
+      if (args_to_skip->bit (num)
 	  && is_gimple_reg (parm))
 	{
 	  tree ddecl;

@@ -826,7 +826,7 @@ mark_parm_dereference (tree base, HOST_WIDE_INT dist, gimple stmt)
   int idx, parm_index = 0;
   tree parm;
 
-  if (bitmap_bit_p (final_bbs, bb->index))
+  if (final_bbs->bit (bb->index))
     return;
 
   for (parm = DECL_ARGUMENTS (current_function_decl);
@@ -896,7 +896,7 @@ create_access (tree expr, gimple stmt, bool write)
   else
     ptr = false;
 
-  if (!DECL_P (base) || !bitmap_bit_p (candidate_bitmap, DECL_UID (base)))
+  if (!DECL_P (base) || !candidate_bitmap->bit (DECL_UID (base)))
     return NULL;
 
   if (sra_mode == SRA_MODE_EARLY_IPA)
@@ -2261,8 +2261,7 @@ analyze_access_subtree (struct access *root, struct access *parent,
       if (allow_replacements
 	  && scalar && !root->first_child
 	  && (root->grp_scalar_write || root->grp_assignment_write)
-	  && !bitmap_bit_p (cannot_scalarize_away_bitmap,
-			    DECL_UID (root->base)))
+	  && !cannot_scalarize_away_bitmap->bit (DECL_UID (root->base)))
 	{
 	  gcc_checking_assert (!root->grp_scalar_read
 			       && !root->grp_assignment_read);
@@ -2462,7 +2461,7 @@ propagate_all_subaccesses (void)
 	{
 	  struct access *lacc = link->lacc;
 
-	  if (!bitmap_bit_p (candidate_bitmap, DECL_UID (lacc->base)))
+	  if (!candidate_bitmap->bit (DECL_UID (lacc->base)))
 	    continue;
 	  lacc = lacc->group_representative;
 	  if (propagate_subaccesses_across_link (lacc, racc)
@@ -2488,8 +2487,8 @@ analyze_all_variable_accesses (void)
     * MOVE_RATIO (optimize_function_for_speed_p (cfun));
 
   EXECUTE_IF_SET_IN_BITMAP (candidate_bitmap, 0, i, bi)
-    if (bitmap_bit_p (should_scalarize_away_bitmap, i)
-	&& !bitmap_bit_p (cannot_scalarize_away_bitmap, i))
+    if (should_scalarize_away_bitmap->bit (i)
+	&& !cannot_scalarize_away_bitmap->bit (i))
       {
 	tree var = candidate (i);
 
@@ -2711,7 +2710,7 @@ get_access_for_expr (tree expr)
   if (max_size == -1 || !DECL_P (base))
     return NULL;
 
-  if (!bitmap_bit_p (candidate_bitmap, DECL_UID (base)))
+  if (!candidate_bitmap->bit (DECL_UID (base)))
     return NULL;
 
   return get_var_base_offset_size_access (base, offset, max_size);
@@ -3401,7 +3400,7 @@ initialize_parameter_reductions (void)
       vec<access_p> *access_vec;
       struct access *access;
 
-      if (!bitmap_bit_p (candidate_bitmap, DECL_UID (parm)))
+      if (!candidate_bitmap->bit (DECL_UID (parm)))
 	continue;
       access_vec = get_base_access_vector (parm);
       if (!access_vec)
@@ -3811,7 +3810,7 @@ propagate_dereference_distances (void)
       bb = queue.pop ();
       bb->aux = NULL;
 
-      if (bitmap_bit_p (final_bbs, bb->index))
+      if (final_bbs->bit (bb->index))
 	continue;
 
       for (i = 0; i < func_param_count; i++)
@@ -3843,7 +3842,7 @@ propagate_dereference_distances (void)
 	    }
 	}
 
-      if (change && !bitmap_bit_p (final_bbs, bb->index))
+      if (change && !final_bbs->bit (bb->index))
 	FOR_EACH_EDGE (e, ei, bb->preds)
 	  {
 	    if (e->src->aux)
@@ -3866,7 +3865,7 @@ dump_dereferences_table (FILE *f, const char *str, HOST_WIDE_INT *table)
   FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun),
 		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
     {
-      fprintf (f, "%4i  %i   ", bb->index, bitmap_bit_p (final_bbs, bb->index));
+      fprintf (f, "%4i  %i   ", bb->index, final_bbs->bit (bb->index));
       if (bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	{
 	  int i;
@@ -4196,14 +4195,14 @@ splice_all_param_accesses (vec<access_p> &representatives)
 	}
       else if (POINTER_TYPE_P (TREE_TYPE (parm))
 	       && is_gimple_reg_type (TREE_TYPE (TREE_TYPE (parm)))
-	       && bitmap_bit_p (candidate_bitmap, DECL_UID (parm)))
+	       && candidate_bitmap->bit (DECL_UID (parm)))
 	{
 	  repr = unmodified_by_ref_scalar_representative (parm);
 	  representatives.quick_push (repr);
 	  if (repr)
 	    result = UNMODIF_BY_REF_ACCESSES;
 	}
-      else if (bitmap_bit_p (candidate_bitmap, DECL_UID (parm)))
+      else if (candidate_bitmap->bit (DECL_UID (parm)))
 	{
 	  bool ro_grp = false;
 	  repr = splice_param_accesses (parm, &ro_grp);

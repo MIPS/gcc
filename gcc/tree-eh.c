@@ -853,7 +853,7 @@ note_eh_region_may_contain_throw (eh_region region)
 static inline bool
 eh_region_may_contain_throw (eh_region r)
 {
-  return r && bitmap_bit_p (eh_region_may_contain_throw_map, r->index);
+  return r && eh_region_may_contain_throw_map->bit (r->index);
 }
 
 /* We want to transform
@@ -4217,7 +4217,7 @@ cleanup_empty_eh_merge_phis (basic_block new_bb, basic_block old_bb,
     {
       gimple ophi = gsi_stmt (ogsi);
       tree oresult = gimple_phi_result (ophi);
-      if (!bitmap_bit_p (&ophi_handled, SSA_NAME_VERSION (oresult)))
+      if (!ophi_handled.bit (SSA_NAME_VERSION (oresult)))
 	goto fail;
     }
 

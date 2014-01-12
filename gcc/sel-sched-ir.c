@@ -1939,7 +1939,7 @@ set_unavailable_target_for_expr (expr_t expr, regset lv_set)
 
       EXECUTE_IF_SET_IN_REG_SET (VINSN_REG_SETS (EXPR_VINSN (expr)),
                                  0, regno, rsi)
-        if (bitmap_bit_p (lv_set, regno))
+        if (lv_set->bit (regno))
           {
             EXPR_TARGET_AVAILABLE (expr) = false;
             break;
@@ -1947,7 +1947,7 @@ set_unavailable_target_for_expr (expr_t expr, regset lv_set)
 
       EXECUTE_IF_SET_IN_REG_SET (VINSN_REG_CLOBBERS (EXPR_VINSN (expr)),
                                  0, regno, rsi)
-        if (bitmap_bit_p (lv_set, regno))
+        if (lv_set->bit (regno))
           {
             EXPR_TARGET_AVAILABLE (expr) = false;
             break;
@@ -2054,13 +2054,13 @@ register_unavailable_p (regset regs, rtx reg)
   unsigned regno, end_regno;
 
   regno = REGNO (reg);
-  if (bitmap_bit_p (regs, regno))
+  if (regs->bit (regno))
     return true;
 
   end_regno = END_REGNO (reg);
 
   while (++regno < end_regno)
-    if (bitmap_bit_p (regs, regno))
+    if (regs->bit (regno))
       return true;
 
   return false;
@@ -2696,7 +2696,7 @@ setup_id_reg_sets (idata_t id, insn_t insn)
 
       /* When these refs are met for the first time, skip them, as
          these uses are just counterparts of some defs.  */
-      if (bitmap_bit_p (tmp, regno))
+      if (tmp->bit (regno))
         tmp->clear_bit (regno);
       else if (! DF_REF_FLAGS_IS_SET (use, DF_REF_CALL_STACK_USAGE))
 	{
@@ -4858,7 +4858,7 @@ bb_ends_ebb_p (basic_block bb)
   edge e;
 
   if (next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
-      || bitmap_bit_p (&forced_ebb_heads, next_bb->index)
+      || forced_ebb_heads.bit (next_bb->index)
       || (LABEL_P (BB_HEAD (next_bb))
 	  /* NB: LABEL_NUSES () is not maintained outside of jump.c.
 	     Work around that.  */
@@ -5420,7 +5420,7 @@ sel_split_block (basic_block bb, rtx after)
     }
 
   if (!sel_bb_empty_p (new_bb)
-      && bitmap_bit_p (blocks_to_reschedule, bb->index))
+      && blocks_to_reschedule->bit (bb->index))
     blocks_to_reschedule->set_bit (new_bb->index);
 
   return new_bb;

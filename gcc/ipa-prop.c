@@ -4778,7 +4778,7 @@ adjust_agg_replacement_values (struct cgraph_node *node,
 
   adj = XALLOCAVEC (int, c);
   for (i = 0; i < c; i++)
-    if (bitmap_bit_p (node->clone.combined_args_to_skip, i))
+    if (node->clone.combined_args_to_skip->bit (i))
       {
 	adj[i] = -1;
 	d++;

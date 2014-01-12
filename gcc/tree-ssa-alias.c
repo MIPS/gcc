@@ -1589,7 +1589,7 @@ ref_maybe_used_by_call_p_1 (gimple call, ao_ref *ref)
 	 IL and remove this check instead.  */
       if (node
 	  && (not_read = ipa_reference_get_not_read_global (node))
-	  && bitmap_bit_p (not_read, DECL_UID (base)))
+	  && not_read->bit (DECL_UID (base)))
 	goto process_args;
     }
 
@@ -1944,7 +1944,7 @@ call_may_clobber_ref_p_1 (gimple call, ao_ref *ref)
 
       if (node
 	  && (not_written = ipa_reference_get_not_written_global (node))
-	  && bitmap_bit_p (not_written, DECL_UID (base)))
+	  && not_written->bit (DECL_UID (base)))
 	return false;
     }
 
@@ -2207,7 +2207,7 @@ maybe_skip_until (gimple phi, tree target, ao_ref *ref,
       if (gimple_code (def_stmt) == GIMPLE_PHI)
 	{
 	  /* An already visited PHI node ends the walk successfully.  */
-	  if (bitmap_bit_p (*visited, SSA_NAME_VERSION (PHI_RESULT (def_stmt))))
+	  if ((*visited)->bit (SSA_NAME_VERSION (PHI_RESULT (def_stmt))))
 	    return !abort_on_visited;
 	  vuse = get_continuation_for_phi (def_stmt, ref, cnt,
 					   visited, abort_on_visited);

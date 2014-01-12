@@ -851,7 +851,7 @@ can_decompose_p (rtx x)
 	  return true;
 	}
       else
-	return !bitmap_bit_p (subreg_context, regno);
+	return !subreg_context->bit (regno);
     }
 
   return true;

@@ -943,10 +943,10 @@ make_regs_eqv (unsigned int new_reg, unsigned int old_reg)
       && ((new_reg < FIRST_PSEUDO_REGISTER && FIXED_REGNO_P (new_reg))
 	  || (new_reg >= FIRST_PSEUDO_REGISTER
 	      && (firstr < FIRST_PSEUDO_REGISTER
-		  || (bitmap_bit_p (cse_ebb_live_out, new_reg)
-		      && !bitmap_bit_p (cse_ebb_live_out, firstr))
-		  || (bitmap_bit_p (cse_ebb_live_in, new_reg)
-		      && !bitmap_bit_p (cse_ebb_live_in, firstr))))))
+		  || (cse_ebb_live_out->bit (new_reg)
+		      && !cse_ebb_live_out->bit (firstr))
+		  || (cse_ebb_live_in->bit (new_reg)
+		      && !cse_ebb_live_in->bit (firstr))))))
     {
       reg_eqv_table[firstr].prev = new_reg;
       reg_eqv_table[new_reg].next = firstr;

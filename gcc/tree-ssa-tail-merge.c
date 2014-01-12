@@ -1175,8 +1175,8 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
 
       code1 = gimple_expr_code (s1);
       code2 = gimple_expr_code (s2);
-      inv_cond = (bitmap_bit_p (same_succ->inverse, bb1->index)
-		  != bitmap_bit_p (same_succ->inverse, bb2->index));
+      inv_cond = (same_succ->inverse->bit (bb1->index)
+		  != same_succ->inverse->bit (bb2->index));
       if (inv_cond)
 	{
 	  bool honor_nans

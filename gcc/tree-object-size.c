@@ -197,8 +197,7 @@ addr_object_size (struct object_size_info *osi, const_tree ptr,
 	  tree var = TREE_OPERAND (pt_var, 0);
 	  if (osi->pass == 0)
 	    collect_object_sizes_for (osi, var);
-	  if (bitmap_bit_p (computed[object_size_type],
-			    SSA_NAME_VERSION (var)))
+	  if (computed[object_size_type]->bit (SSA_NAME_VERSION (var)))
 	    sz = object_sizes[object_size_type][SSA_NAME_VERSION (var)];
 	  else
 	    sz = unknown[object_size_type];
@@ -508,7 +507,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
       && POINTER_TYPE_P (TREE_TYPE (ptr))
       && computed[object_size_type] != NULL)
     {
-      if (!bitmap_bit_p (computed[object_size_type], SSA_NAME_VERSION (ptr)))
+      if (!computed[object_size_type]->bit (SSA_NAME_VERSION (ptr)))
 	{
 	  struct object_size_info osi;
 	  bitmap_iterator bi;
@@ -561,7 +560,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		     osi.reexamine bitmap, so iterate over a copy.  */
 		  bitmap_copy (&reexamine, &osi.reexamine);
 		  EXECUTE_IF_SET_IN_BITMAP (&reexamine, 0, i, bi)
-		    if (bitmap_bit_p (&osi.reexamine, i))
+		    if (osi.reexamine.bit (i))
 		      check_for_plus_in_loops (&osi, ssa_name (i));
 
 		  free (osi.depths);
@@ -579,7 +578,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		     osi.reexamine bitmap, so iterate over a copy.  */
 		  bitmap_copy (&reexamine, &osi.reexamine);
 		  EXECUTE_IF_SET_IN_BITMAP (&reexamine, 0, i, bi)
-		    if (bitmap_bit_p (&osi.reexamine, i))
+		    if (osi.reexamine.bit (i))
 		      {
 			collect_object_sizes_for (&osi, ssa_name (i));
 			if (dump_file && (dump_flags & TDF_DETAILS))
@@ -760,7 +759,7 @@ merge_object_sizes (struct object_size_info *osi, tree dest, tree orig,
 	  osi->changed = true;
 	}
     }
-  return bitmap_bit_p (&osi->reexamine, SSA_NAME_VERSION (orig));
+  return osi->reexamine.bit (SSA_NAME_VERSION (orig));
 }
 
 
@@ -897,7 +896,7 @@ collect_object_sizes_for (struct object_size_info *osi, tree var)
   gimple stmt;
   bool reexamine;
 
-  if (bitmap_bit_p (computed[object_size_type], varno))
+  if (computed[object_size_type]->bit (varno))
     return;
 
   if (osi->pass == 0)
@@ -1059,7 +1058,7 @@ check_for_plus_in_loops_1 (struct object_size_info *osi, tree var,
 	}
       return;
     }
-  else if (! bitmap_bit_p (&osi->reexamine, varno))
+  else if (! osi->reexamine.bit (varno))
     return;
 
   osi->depths[varno] = depth;

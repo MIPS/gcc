@@ -5673,7 +5673,7 @@ dup_block_and_redirect (basic_block bb, basic_block copy_bb, rtx before,
 
   /* Redirect all the paths that need no prologue into copy_bb.  */
   for (ei = ei_start (bb->preds); (e = ei_safe_edge (ei)); )
-    if (!bitmap_bit_p (need_prologue, e->src->index))
+    if (!need_prologue->bit (e->src->index))
       {
 	int freq = EDGE_FREQUENCY (e);
 	copy_bb->count += e->count;
@@ -6090,7 +6090,7 @@ thread_prologue_and_epilogue_insns (void)
 
 	  FOR_EACH_EDGE (e, ei, tmp_bb->preds)
 	    if (single_succ_p (e->src)
-		&& !bitmap_bit_p (&bb_on_list, e->src->index)
+		&& !bb_on_list.bit (e->src->index)
 		&& can_duplicate_block_p (e->src))
 	      {
 		edge pe;
@@ -6102,7 +6102,7 @@ thread_prologue_and_epilogue_insns (void)
 		   to a copy of e->src.  */
 		FOR_EACH_EDGE (pe, pei, e->src->preds)
 		  if ((pe->flags & EDGE_COMPLEX) != 0
-		      && !bitmap_bit_p (&bb_flags, pe->src->index))
+		      && !bb_flags.bit (pe->src->index))
 		    break;
 		if (pe == NULL && bb_tail.set_bit (e->src->index))
 		  vec.quick_push (e->src);
@@ -6117,10 +6117,10 @@ thread_prologue_and_epilogue_insns (void)
       bitmap_and_compl (&bb_antic_flags, &bb_flags, &bb_tail);
       FOR_EACH_BB_FN (bb, cfun)
 	{
-	  if (!bitmap_bit_p (&bb_antic_flags, bb->index))
+	  if (!bb_antic_flags.bit (bb->index))
 	    continue;
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
+	    if (!bb_antic_flags.bit (e->src->index)
 		&& bb_on_list.set_bit (e->src->index))
 	      vec.quick_push (e->src);
 	}
@@ -6131,7 +6131,7 @@ thread_prologue_and_epilogue_insns (void)
 
 	  bb_on_list.clear_bit (tmp_bb->index);
 	  FOR_EACH_EDGE (e, ei, tmp_bb->succs)
-	    if (!bitmap_bit_p (&bb_antic_flags, e->dest->index))
+	    if (!bb_antic_flags.bit (e->dest->index))
 	      {
 		all_set = false;
 		break;
@@ -6141,20 +6141,20 @@ thread_prologue_and_epilogue_insns (void)
 	    {
 	      bb_antic_flags.set_bit (tmp_bb->index);
 	      FOR_EACH_EDGE (e, ei, tmp_bb->preds)
-		if (!bitmap_bit_p (&bb_antic_flags, e->src->index)
+		if (!bb_antic_flags.bit (e->src->index)
 		    && bb_on_list.set_bit (e->src->index))
 		  vec.quick_push (e->src);
 	    }
 	}
       /* Find exactly one edge that leads to a block in ANTIC from
 	 a block that isn't.  */
-      if (!bitmap_bit_p (&bb_antic_flags, entry_edge->dest->index))
+      if (!bb_antic_flags.bit (entry_edge->dest->index))
 	FOR_EACH_BB_FN (bb, cfun)
 	  {
-	    if (!bitmap_bit_p (&bb_antic_flags, bb->index))
+	    if (!bb_antic_flags.bit (bb->index))
 	      continue;
 	    FOR_EACH_EDGE (e, ei, bb->preds)
-	      if (!bitmap_bit_p (&bb_antic_flags, e->src->index))
+	      if (!bb_antic_flags.bit (e->src->index))
 		{
 		  if (entry_edge != orig_entry_edge)
 		    {
@@ -6200,12 +6200,12 @@ thread_prologue_and_epilogue_insns (void)
 	    FOR_EACH_BB_FN (bb, cfun)
 	      {
 		bool some_pro, some_no_pro;
-		if (!bitmap_bit_p (&bb_tail, bb->index))
+		if (!bb_tail.bit (bb->index))
 		  continue;
 		some_pro = some_no_pro = false;
 		FOR_EACH_EDGE (e, ei, bb->preds)
 		  {
-		    if (bitmap_bit_p (&bb_flags, e->src->index))
+		    if (bb_flags.bit (e->src->index))
 		      some_pro = true;
 		    else
 		      some_no_pro = true;
@@ -6220,7 +6220,7 @@ thread_prologue_and_epilogue_insns (void)
 	    {
 	      basic_block tbb = vec.pop ();
 
-	      if (!bitmap_bit_p (&bb_tail, tbb->index))
+	      if (!bb_tail.bit (tbb->index))
 		continue;
 
 	      while (single_succ_p (tbb))
@@ -6245,7 +6245,7 @@ thread_prologue_and_epilogue_insns (void)
 		   Ideal placement of the copy is on a fall-thru edge
 		   or after a block that would jump to the copy.  */ 
 		FOR_EACH_EDGE (e, ei, bb->preds)
-		  if (!bitmap_bit_p (&bb_flags, e->src->index)
+		  if (!bb_flags.bit (e->src->index)
 		      && single_succ_p (e->src))
 		    break;
 		if (e)
@@ -6346,7 +6346,7 @@ thread_prologue_and_epilogue_insns (void)
 	    {
 	      e = EDGE_I (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds, i);
 	      if (LABEL_P (BB_HEAD (e->src))
-		  && !bitmap_bit_p (&bb_flags, e->src->index)
+		  && !bb_flags.bit (e->src->index)
 		  && !active_insn_between (BB_HEAD (e->src), BB_END (e->src)))
 		unconverted_simple_returns
 		  = convert_jumps_to_returns (e->src, true,
@@ -6356,7 +6356,7 @@ thread_prologue_and_epilogue_insns (void)
 
       if (exit_fallthru_edge != NULL
 	  && EDGE_COUNT (exit_fallthru_edge->src->preds) != 0
-	  && !bitmap_bit_p (&bb_flags, exit_fallthru_edge->src->index))
+	  && !bb_flags.bit (exit_fallthru_edge->src->index))
 	{
 	  basic_block last_bb;
 
@@ -6539,7 +6539,7 @@ epilogue_done:
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
 	if (EDGE_COUNT (e->src->preds) != 0
 	    && (e->flags & EDGE_FAKE) != 0
-	    && !bitmap_bit_p (&bb_flags, e->src->index))
+	    && !bb_flags.bit (e->src->index))
 	  {
 	    if (BB_PARTITION (e->src) == BB_HOT_PARTITION)
 	      pending_edge_hot = e;
@@ -6600,7 +6600,7 @@ epilogue_done:
       FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
 	if (EDGE_COUNT (e->src->preds) != 0
 	    && (e->flags & EDGE_FAKE) != 0
-	    && !bitmap_bit_p (&bb_flags, e->src->index))
+	    && !bb_flags.bit (e->src->index))
 	  {
 	    emit_return_into_block (true, e->src);
 	    e->flags &= ~(EDGE_FALLTHRU | EDGE_FAKE);
@@ -6622,7 +6622,7 @@ epilogue_done:
 	  || ! SIBLING_CALL_P (insn)
 #ifdef HAVE_simple_return
 	  || (entry_edge != orig_entry_edge
-	      && !bitmap_bit_p (&bb_flags, bb->index))
+	      && !bb_flags.bit (bb->index))
 #endif
 	  )
 	{

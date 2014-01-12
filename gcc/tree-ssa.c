@@ -630,7 +630,7 @@ release_defs_bitset (bitmap toremove)
 	      {
 		tree odef = DEF_FROM_PTR (def_p);
 
-		if (bitmap_bit_p (toremove, SSA_NAME_VERSION (odef)))
+		if (toremove->bit (SSA_NAME_VERSION (odef)))
 		  {
 		    remove_now = false;
 		    break;
@@ -816,7 +816,7 @@ verify_use (basic_block bb, basic_block def_bb, use_operand_p use_p,
     }
   else if (bb == def_bb
 	   && names_defined_in_bb != NULL
-	   && !bitmap_bit_p (names_defined_in_bb, SSA_NAME_VERSION (ssa_name)))
+	   && !names_defined_in_bb->bit (SSA_NAME_VERSION (ssa_name)))
     {
       error ("definition in block %i follows the use", def_bb->index);
       err = true;
@@ -1282,7 +1282,7 @@ maybe_rewrite_mem_ref_base (tree *tp, bitmap suitable_for_renaming)
       && (sym = TREE_OPERAND (TREE_OPERAND (*tp, 0), 0))
       && DECL_P (sym)
       && !TREE_ADDRESSABLE (sym)
-      && bitmap_bit_p (suitable_for_renaming, DECL_UID (sym)))
+      && suitable_for_renaming->bit (DECL_UID (sym)))
     {
       if (TREE_CODE (TREE_TYPE (sym)) == VECTOR_TYPE
 	  && useless_type_conversion_p (TREE_TYPE (*tp),
@@ -1397,7 +1397,7 @@ maybe_optimize_var (tree var, bitmap addresses_taken, bitmap not_reg_needs,
   /* Global Variables, result decls cannot be changed.  */
   if (is_global_var (var)
       || TREE_CODE (var) == RESULT_DECL
-      || bitmap_bit_p (addresses_taken, DECL_UID (var)))
+      || addresses_taken->bit (DECL_UID (var)))
     return;
 
   if (TREE_ADDRESSABLE (var)
@@ -1407,7 +1407,7 @@ maybe_optimize_var (tree var, bitmap addresses_taken, bitmap not_reg_needs,
       && (!is_gimple_reg_type (TREE_TYPE (var))
 	  || TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE
 	  || TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
-	  || !bitmap_bit_p (not_reg_needs, DECL_UID (var))))
+	  || !not_reg_needs->bit (DECL_UID (var))))
     {
       TREE_ADDRESSABLE (var) = 0;
       if (is_gimple_reg (var))
@@ -1421,7 +1421,7 @@ maybe_optimize_var (tree var, bitmap addresses_taken, bitmap not_reg_needs,
     }
 
   if (!DECL_GIMPLE_REG_P (var)
-      && !bitmap_bit_p (not_reg_needs, DECL_UID (var))
+      && !not_reg_needs->bit (DECL_UID (var))
       && (TREE_CODE (TREE_TYPE (var)) == COMPLEX_TYPE
 	  || TREE_CODE (TREE_TYPE (var)) == VECTOR_TYPE)
       && !TREE_THIS_VOLATILE (var)
@@ -1579,7 +1579,7 @@ execute_update_addresses_taken (void)
 		    && (sym = TREE_OPERAND (TREE_OPERAND (lhs, 0), 0))
 		    && DECL_P (sym)
 		    && !TREE_ADDRESSABLE (sym)
-		    && bitmap_bit_p (&suitable_for_renaming, DECL_UID (sym)))
+		    && suitable_for_renaming.bit (DECL_UID (sym)))
 		  lhs = sym;
 		else
 		  lhs = gimple_assign_lhs (stmt);
@@ -1601,7 +1601,7 @@ execute_update_addresses_taken (void)
 		   TREE_ADDRESSABLE just remove the stmt.  */
 		if (DECL_P (lhs)
 		    && TREE_CLOBBER_P (rhs)
-		    && bitmap_bit_p (&suitable_for_renaming, DECL_UID (lhs)))
+		    && suitable_for_renaming.bit (DECL_UID (lhs)))
 		  {
 		    unlink_stmt_vdef (stmt);
       		    gsi_remove (&gsi, true);
@@ -1651,7 +1651,7 @@ execute_update_addresses_taken (void)
 		maybe_rewrite_mem_ref_base (valuep, &suitable_for_renaming);
 		decl = non_rewritable_mem_ref_base (*valuep);
 		if (decl
-		    && bitmap_bit_p (&suitable_for_renaming, DECL_UID (decl)))
+		    && suitable_for_renaming.bit (DECL_UID (decl)))
 		  gimple_debug_bind_reset_value (stmt);
 	      }
 

@@ -643,7 +643,7 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 	  {
 	    gimple phi = gsi_stmt (bsi);
 	    if (!virtual_operand_p (gimple_phi_result (phi))
-		&& !bitmap_bit_p (partition->stmts, gimple_uid (phi)))
+		&& !partition->stmts->bit (gimple_uid (phi)))
 	      reset_debug_uses (phi);
 	  }
 
@@ -652,7 +652,7 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 	    gimple stmt = gsi_stmt (bsi);
 	    if (gimple_code (stmt) != GIMPLE_LABEL
 		&& !is_gimple_debug (stmt)
-		&& !bitmap_bit_p (partition->stmts, gimple_uid (stmt)))
+		&& !partition->stmts->bit (gimple_uid (stmt)))
 	      reset_debug_uses (stmt);
 	  }
       }
@@ -665,7 +665,7 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 	{
 	  gimple phi = gsi_stmt (bsi);
 	  if (!virtual_operand_p (gimple_phi_result (phi))
-	      && !bitmap_bit_p (partition->stmts, gimple_uid (phi)))
+	      && !partition->stmts->bit (gimple_uid (phi)))
 	    remove_phi_node (&bsi, true);
 	  else
 	    gsi_next (&bsi);
@@ -676,7 +676,7 @@ generate_loops_for_partition (struct loop *loop, partition_t partition,
 	  gimple stmt = gsi_stmt (bsi);
 	  if (gimple_code (stmt) != GIMPLE_LABEL
 	      && !is_gimple_debug (stmt)
-	      && !bitmap_bit_p (partition->stmts, gimple_uid (stmt)))
+	      && !partition->stmts->bit (gimple_uid (stmt)))
 	    {
 	      /* Choose an arbitrary path through the empty CFG part
 		 that this unnecessary control stmt controls.  */
@@ -1226,7 +1226,7 @@ rdg_build_partitions (struct graph *rdg,
 
       /* If the vertex is already contained in another partition so
          is the partition rooted at it.  */
-      if (bitmap_bit_p (&processed, v))
+      if (processed.bit (v))
 	continue;
 
       partition_t partition = build_rdg_partition_for_vertex (rdg, v);

@@ -1000,7 +1000,7 @@ initiate_reg_pressure_info (bitmap live)
   EXECUTE_IF_SET_IN_BITMAP (live, 0, j, bi)
     if (sched_pressure == SCHED_PRESSURE_MODEL
 	|| current_nr_blocks == 1
-	|| bitmap_bit_p (region_ref_regs, j))
+	|| region_ref_regs->bit (j))
       mark_regno_birth_or_death (curr_reg_live, curr_reg_pressure, j, true);
 }
 
@@ -1054,7 +1054,7 @@ initiate_bb_reg_pressure_info (basic_block bb)
 
 	if (regno == INVALID_REGNUM)
 	  break;
-	if (! bitmap_bit_p (df_get_live_in (bb), regno))
+	if (! df_get_live_in (bb)->bit (regno))
 	  mark_regno_birth_or_death (curr_reg_live, curr_reg_pressure,
 				     regno, true);
       }
@@ -4589,7 +4589,7 @@ estimate_insn_tick (bitmap processed, rtx insn, int budget)
 	  int cost = dep_cost (dep);
 	  if (cost >= budget)
 	    return false;
-	  if (!bitmap_bit_p (processed, INSN_LUID (pro)))
+	  if (!processed->bit (INSN_LUID (pro)))
 	    {
 	      if (!estimate_insn_tick (processed, pro, budget - cost))
 		return false;

@@ -9946,7 +9946,7 @@ lower_omp_regimplify_p (tree *tp, int *walk_subtrees,
 
   if (task_shared_vars
       && DECL_P (t)
-      && bitmap_bit_p (task_shared_vars, DECL_UID (t)))
+      && task_shared_vars->bit (DECL_UID (t)))
     return t;
 
   /* If a global variable has been privatized, TREE_CONSTANT on

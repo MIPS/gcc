@@ -5304,9 +5304,9 @@ finish_omp_clauses (tree clauses)
 		       omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
-		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t))
-		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
+	  else if (generic_head.bit (DECL_UID (t))
+		   || firstprivate_head.bit (DECL_UID (t))
+		   || lastprivate_head.bit (DECL_UID (t)))
 	    {
 	      error ("%qD appears more than once in data clauses", t);
 	      remove = true;
@@ -5327,8 +5327,8 @@ finish_omp_clauses (tree clauses)
 		error ("%qE is not a variable in clause %<firstprivate%>", t);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
-		   || bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+	  else if (generic_head.bit (DECL_UID (t))
+		   || firstprivate_head.bit (DECL_UID (t)))
 	    {
 	      error ("%qD appears more than once in data clauses", t);
 	      remove = true;
@@ -5349,8 +5349,8 @@ finish_omp_clauses (tree clauses)
 		error ("%qE is not a variable in clause %<lastprivate%>", t);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t))
-		   || bitmap_bit_p (&lastprivate_head, DECL_UID (t)))
+	  else if (generic_head.bit (DECL_UID (t))
+		   || lastprivate_head.bit (DECL_UID (t)))
 	    {
 	      error ("%qD appears more than once in data clauses", t);
 	      remove = true;
@@ -5554,7 +5554,7 @@ finish_omp_clauses (tree clauses)
 			"an array nor a reference to pointer or array", t);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&aligned_head, DECL_UID (t)))
+	  else if (aligned_head.bit (DECL_UID (t)))
 	    {
 	      error ("%qD appears more than once in %<aligned%> clauses", t);
 	      remove = true;
@@ -5677,7 +5677,7 @@ finish_omp_clauses (tree clauses)
 			omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
 	      remove = true;
 	    }
-	  else if (bitmap_bit_p (&generic_head, DECL_UID (t)))
+	  else if (generic_head.bit (DECL_UID (t)))
 	    {
 	      if (OMP_CLAUSE_CODE (c) != OMP_CLAUSE_MAP)
 		error ("%qD appears more than once in motion clauses", t);
@@ -5807,7 +5807,7 @@ finish_omp_clauses (tree clauses)
       switch (c_kind)
 	{
 	case OMP_CLAUSE_LASTPRIVATE:
-	  if (!bitmap_bit_p (&firstprivate_head, DECL_UID (t)))
+	  if (!firstprivate_head.bit (DECL_UID (t)))
 	    {
 	      need_default_ctor = true;
 	      need_dtor = true;

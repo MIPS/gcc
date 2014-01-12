@@ -350,7 +350,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 	}
 
       /* Notice if this instruction kills the flags register.  */
-      else if (bitmap_bit_p (&killed, targetm.flags_regnum))
+      else if (killed.bit (targetm.flags_regnum))
 	{
 	  /* See if this insn could be the "clobber" that eliminates
 	     a future comparison.   */
@@ -368,9 +368,9 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 
       /* Notice if any of the inputs to the comparison have changed.  */
       if (last_cmp_valid
-	  && (bitmap_bit_p (&killed, REGNO (last_cmp->in_a))
+	  && (killed.bit (REGNO (last_cmp->in_a))
 	      || (REG_P (last_cmp->in_b)
-		  && bitmap_bit_p (&killed, REGNO (last_cmp->in_b)))))
+		  && killed.bit (REGNO (last_cmp->in_b)))))
 	last_cmp_valid = false;
     }
 
@@ -383,7 +383,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 
       /* Look to see if the flags register is live outgoing here, and
 	 incoming to any successor not part of the extended basic block.  */
-      if (bitmap_bit_p (df_get_live_out (bb), targetm.flags_regnum))
+      if (df_get_live_out (bb)->bit (targetm.flags_regnum))
 	{
 	  edge e;
 	  edge_iterator ei;
@@ -391,8 +391,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 	  FOR_EACH_EDGE (e, ei, bb->succs)
 	    {
 	      basic_block dest = e->dest;
-	      if (bitmap_bit_p (df_get_live_in (bb),
-				targetm.flags_regnum)
+	      if (df_get_live_in (bb)->bit (targetm.flags_regnum)
 		  && !single_pred_p (dest))
 		{
 		  last_cmp->missing_uses = true;

@@ -2915,7 +2915,7 @@ update_bb_reg_pressure (basic_block bb, rtx from)
 	  if (succ_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    continue;
 
-	  if (bitmap_bit_p (BB_DATA (succ_bb)->live_in, REGNO (dreg)))
+	  if (BB_DATA (succ_bb)->live_in->bit (REGNO (dreg)))
 	    break;
 	}
       if (succ != NULL)
@@ -2991,7 +2991,7 @@ should_hoist_expr_to_dom (basic_block expr_bb, struct expr *expr,
     {
       /* Record old information of basic block BB when it is visited
 	 at the first time.  */
-      if (!bitmap_bit_p (hoisted_bbs, bb->index))
+      if (!hoisted_bbs->bit (bb->index))
 	{
 	  struct bb_data *data = BB_DATA (bb);
 	  bitmap_copy (data->backup, data->live_in);

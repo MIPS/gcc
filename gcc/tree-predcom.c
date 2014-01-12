@@ -1633,8 +1633,7 @@ single_nonlooparound_use (tree name)
 	{
 	  /* Ignore uses in looparound phi nodes.  Uses in other phi nodes
 	     could not be processed anyway, so just fail for them.  */
-	  if (bitmap_bit_p (looparound_phis,
-			    SSA_NAME_VERSION (PHI_RESULT (stmt))))
+	  if (looparound_phis->bit (SSA_NAME_VERSION (PHI_RESULT (stmt))))
 	    continue;
 
 	  return NULL;
@@ -1897,7 +1896,7 @@ eliminate_temp_copies (struct loop *loop, bitmap tmp_vars)
       phi = gsi_stmt (psi);
       name = PHI_RESULT (phi);
       var = SSA_NAME_VAR (name);
-      if (!var || !bitmap_bit_p (tmp_vars, DECL_UID (var)))
+      if (!var || !tmp_vars->bit (DECL_UID (var)))
 	continue;
       use = PHI_ARG_DEF_FROM_EDGE (phi, e);
       gcc_assert (TREE_CODE (use) == SSA_NAME);

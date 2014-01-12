@@ -1026,8 +1026,8 @@ prune_uninit_phi_opnds_in_unrealizable_paths (gimple phi,
           if (!*visited_flag_phis)
             *visited_flag_phis = BITMAP_ALLOC (NULL);
 
-          if (bitmap_bit_p (*visited_flag_phis,
-                            SSA_NAME_VERSION (gimple_phi_result (flag_arg_def))))
+          if ((*visited_flag_phis)->bit
+	      (SSA_NAME_VERSION (gimple_phi_result (flag_arg_def))))
             return false;
 
 	  (*visited_flag_phis)->set_bit

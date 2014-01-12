@@ -566,7 +566,7 @@ get_or_alloc_constant_value_id (tree constant)
 bool
 value_id_constant_p (unsigned int v)
 {
-  return bitmap_bit_p (constant_value_ids, v);
+  return constant_value_ids->bit (v);
 }
 
 /* Compute the hash for a reference operand VRO1.  */

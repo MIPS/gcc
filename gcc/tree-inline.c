@@ -1459,8 +1459,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	    {
 	      gimple def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (lhs, 0));
 	      if (gimple_bb (def_stmt)
-		  && !bitmap_bit_p (id->blocks_to_copy,
-				    gimple_bb (def_stmt)->index))
+		  && !id->blocks_to_copy->bit (gimple_bb (def_stmt)->index))
 		return gimple_build_nop ();
 	    }
 	}
@@ -2325,7 +2324,7 @@ copy_loops (copy_body_data *id,
   while (src_loop)
     {
       if (!id->blocks_to_copy
-	  || bitmap_bit_p (id->blocks_to_copy, src_loop->header->index))
+	  || id->blocks_to_copy->bit (src_loop->header->index))
 	{
 	  struct loop *dest_loop = alloc_loop ();
 
@@ -2496,7 +2495,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 
   /* Use aux pointers to map the original blocks to copy.  */
   FOR_EACH_BB_FN (bb, cfun_to_copy)
-    if (!id->blocks_to_copy || bitmap_bit_p (id->blocks_to_copy, bb->index))
+    if (!id->blocks_to_copy || id->blocks_to_copy->bit (bb->index))
       {
 	basic_block new_bb = copy_bb (id, bb, frequency_scale, count_scale);
 	bb->aux = new_bb;
@@ -2520,7 +2519,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
     }
   FOR_ALL_BB_FN (bb, cfun_to_copy)
     if (!id->blocks_to_copy
-	|| (bb->index > 0 && bitmap_bit_p (id->blocks_to_copy, bb->index)))
+	|| (bb->index > 0 && id->blocks_to_copy->bit (bb->index)))
       need_debug_cleanup |= copy_edges_for_bb (bb, count_scale, exit_block_map,
 					       abnormal_goto_dest);
 
@@ -2549,7 +2548,7 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
   if (gimple_in_ssa_p (cfun))
     FOR_ALL_BB_FN (bb, cfun_to_copy)
       if (!id->blocks_to_copy
-	  || (bb->index > 0 && bitmap_bit_p (id->blocks_to_copy, bb->index)))
+	  || (bb->index > 0 && id->blocks_to_copy->bit (bb->index)))
 	copy_phis_for_bb (bb, id);
 
   FOR_ALL_BB_FN (bb, cfun_to_copy)
@@ -5079,7 +5078,7 @@ copy_arguments_for_versioning (tree orig_parm, copy_body_data * id,
   parg = &new_parm;
 
   for (arg = orig_parm; arg; arg = DECL_CHAIN (arg), i++)
-    if (!args_to_skip || !bitmap_bit_p (args_to_skip, i))
+    if (!args_to_skip || !args_to_skip->bit (i))
       {
         tree new_tree = remap_decl (arg, id);
 	if (TREE_CODE (new_tree) != PARM_DECL)

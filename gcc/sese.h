@@ -65,7 +65,7 @@ extern tree scalar_evolution_in_region (sese, loop_p, tree);
 static inline bool
 sese_contains_loop (sese sese, struct loop *loop)
 {
-  return bitmap_bit_p (SESE_LOOPS (sese), loop->num);
+  return SESE_LOOPS (sese)->bit (loop->num);
 }
 
 /* The number of parameters in REGION. */

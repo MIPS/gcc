@@ -1230,7 +1230,7 @@ update_callee_keys (fibheap_t heap, struct cgraph_node *node,
 	    && (callee = cgraph_function_or_thunk_node (e->callee, &avail))
 	    && inline_summary (callee)->inlinable
 	    && avail >= AVAIL_AVAILABLE
-	    && !bitmap_bit_p (updated_nodes, callee->uid))
+	    && !updated_nodes->bit (callee->uid))
 	  {
 	    if (can_inline_edge_p (e, false)
 		&& want_inline_small_function_p (e, false))

@@ -80,7 +80,7 @@ typedef bitmap regset;
 #define SET_REGNO_REG_SET(HEAD, REG) (HEAD)->set_bit (REG)
 
 /* Return true if a register is set in a register set.  */
-#define REGNO_REG_SET_P(TO, REG) bitmap_bit_p (TO, REG)
+#define REGNO_REG_SET_P(TO, REG) (TO)->bit (REG)
 
 /* Copy the hard registers in a register set to the hard register set.  */
 extern void reg_set_to_hard_reg_set (HARD_REG_SET *, const_bitmap);

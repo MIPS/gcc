@@ -465,7 +465,7 @@ store_can_be_removed_p (ira_allocno_t src_allocno, ira_allocno_t dest_allocno)
       if (REGNO (allocno_emit_reg (a)) == (unsigned) regno)
 	/* We achieved the destination and everything is ok.  */
 	return true;
-      else if (bitmap_bit_p (node->modified_regnos, orig_regno))
+      else if (node->modified_regnos->bit (orig_regno))
 	return false;
       else if (node->entered_from_non_parent_p)
 	/* If there is a path from a destination loop block to the
@@ -506,7 +506,7 @@ generate_edge_moves (edge e)
   regs_live_out_src = df_get_live_out (e->src);
   EXECUTE_IF_SET_IN_REG_SET (regs_live_in_dest,
 			     FIRST_PSEUDO_REGISTER, regno, bi)
-    if (bitmap_bit_p (regs_live_out_src, regno))
+    if (regs_live_out_src->bit (regno))
       {
 	src_allocno = src_map[regno];
 	dest_allocno = dest_map[regno];
@@ -657,7 +657,7 @@ set_allocno_somewhere_renamed_p (void)
   FOR_EACH_ALLOCNO (allocno, ai)
     {
       regno = ALLOCNO_REGNO (allocno);
-      if (bitmap_bit_p (renamed_regno_bitmap, regno)
+      if (renamed_regno_bitmap->bit (regno)
 	  && REGNO (allocno_emit_reg (allocno)) == regno)
 	ALLOCNO_EMIT_DATA (allocno)->somewhere_renamed_p = true;
     }

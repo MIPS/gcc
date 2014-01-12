@@ -1166,7 +1166,7 @@ df_prune_to_subcfg (int list[], unsigned len, bitmap blocks)
   unsigned act, last;
 
   for (act = 0, last = 0; act < len; act++)
-    if (bitmap_bit_p (blocks, list[act]))
+    if (blocks->bit (list[act]))
       list[last++] = list[act];
 
   return last;
@@ -1295,7 +1295,7 @@ df_analyze (void)
   /* Verify that POSTORDER_INVERTED only contains blocks reachable from
      the ENTRY block.  */
   for (i = 0; i < df->n_blocks_inverted; i++)
-    gcc_assert (bitmap_bit_p (current_all_blocks, df->postorder_inverted[i]));
+    gcc_assert (current_all_blocks->bit (df->postorder_inverted[i]));
 #endif
 
   /* Make sure that we have pruned any unreachable blocks from these
@@ -1607,9 +1607,8 @@ df_mark_solutions_dirty (void)
 bool
 df_get_bb_dirty (basic_block bb)
 {
-  return bitmap_bit_p ((df_live
-			? df_live : df_lr)->out_of_date_transfer_functions,
-		       bb->index);
+  return (df_live ? df_live : df_lr)->out_of_date_transfer_functions->bit
+    (bb->index);
 }
 
 
@@ -1693,15 +1692,15 @@ df_compact_blocks (void)
 	{
 	  bitmap_copy (&tmp, dflow->out_of_date_transfer_functions);
 	  bitmap_clear (dflow->out_of_date_transfer_functions);
-	  if (bitmap_bit_p (&tmp, ENTRY_BLOCK))
+	  if (tmp.bit (ENTRY_BLOCK))
 	    dflow->out_of_date_transfer_functions->set_bit (ENTRY_BLOCK);
-	  if (bitmap_bit_p (&tmp, EXIT_BLOCK))
+	  if (tmp.bit (EXIT_BLOCK))
 	    dflow->out_of_date_transfer_functions->set_bit (EXIT_BLOCK);
 
 	  i = NUM_FIXED_BLOCKS;
 	  FOR_EACH_BB_FN (bb, cfun)
 	    {
-	      if (bitmap_bit_p (&tmp, bb->index))
+	      if (tmp.bit (bb->index))
 		dflow->out_of_date_transfer_functions->set_bit (i);
 	      i++;
 	    }
@@ -1739,16 +1738,16 @@ df_compact_blocks (void)
 
   if (df->blocks_to_analyze)
     {
-      if (bitmap_bit_p (&tmp, ENTRY_BLOCK))
+      if (tmp.bit (ENTRY_BLOCK))
 	df->blocks_to_analyze->set_bit (ENTRY_BLOCK);
-      if (bitmap_bit_p (&tmp, EXIT_BLOCK))
+      if (tmp.bit (EXIT_BLOCK))
 	df->blocks_to_analyze->set_bit (EXIT_BLOCK);
       bitmap_copy (&tmp, df->blocks_to_analyze);
       bitmap_clear (df->blocks_to_analyze);
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB_FN (bb, cfun)
 	{
-	  if (bitmap_bit_p (&tmp, bb->index))
+	  if (tmp.bit (bb->index))
 	    df->blocks_to_analyze->set_bit (i);
 	  i++;
 	}
@@ -2145,8 +2144,8 @@ df_print_word_regset (FILE *file, bitmap r)
       unsigned int i;
       for (i = FIRST_PSEUDO_REGISTER; i < max_reg; i++)
 	{
-	  bool found = (bitmap_bit_p (r, 2 * i)
-			|| bitmap_bit_p (r, 2 * i + 1));
+	  bool found = (r->bit (2 * i)
+			|| r->bit (2 * i + 1));
 	  if (found)
 	    {
 	      int word;
@@ -2154,7 +2153,7 @@ df_print_word_regset (FILE *file, bitmap r)
 	      fprintf (file, " %d", i);
 	      fprintf (file, "(");
 	      for (word = 0; word < 2; word++)
-		if (bitmap_bit_p (r, 2 * i + word))
+		if (r->bit (2 * i + word))
 		  {
 		    fprintf (file, "%s%d", sep, word);
 		    sep = ", ";

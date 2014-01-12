@@ -547,13 +547,13 @@ outermost_indep_loop (struct loop *outer, struct loop *loop, mem_ref_p ref)
 {
   struct loop *aloop;
 
-  if (ref->stored && bitmap_bit_p (ref->stored, loop->num))
+  if (ref->stored && ref->stored->bit (loop->num))
     return NULL;
 
   for (aloop = outer;
        aloop != loop;
        aloop = superloop_at_depth (loop, loop_depth (aloop) + 1))
-    if ((!ref->stored || !bitmap_bit_p (ref->stored, aloop->num))
+    if ((!ref->stored || !ref->stored->bit (aloop->num))
 	&& ref_indep_loop_p (aloop, ref))
       return aloop;
 
@@ -2116,7 +2116,7 @@ ref_indep_loop_p_1 (struct loop *loop, mem_ref_p ref, bool stored_p)
   else
     refs_to_check = &memory_accesses.refs_stored_in_loop[loop->num];
 
-  if (bitmap_bit_p (refs_to_check, UNANALYZABLE_MEM_ID))
+  if (refs_to_check->bit (UNANALYZABLE_MEM_ID))
     return false;
 
   EXECUTE_IF_SET_IN_BITMAP (refs_to_check, 0, i, bi)
@@ -2135,11 +2135,11 @@ ref_indep_loop_p_1 (struct loop *loop, mem_ref_p ref, bool stored_p)
 static bool
 ref_indep_loop_p_2 (struct loop *loop, mem_ref_p ref, bool stored_p)
 {
-  stored_p |= (ref->stored && bitmap_bit_p (ref->stored, loop->num));
+  stored_p |= (ref->stored && ref->stored->bit (loop->num));
 
-  if (bitmap_bit_p (&ref->indep_loop, LOOP_DEP_BIT (loop->num, stored_p)))
+  if (ref->indep_loop.bit (LOOP_DEP_BIT (loop->num, stored_p)))
     return true;
-  if (bitmap_bit_p (&ref->dep_loop, LOOP_DEP_BIT (loop->num, stored_p)))
+  if (ref->dep_loop.bit (LOOP_DEP_BIT (loop->num, stored_p)))
     return false;
 
   struct loop *inner = loop->inner;

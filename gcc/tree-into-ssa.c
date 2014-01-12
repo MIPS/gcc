@@ -290,7 +290,7 @@ marked_for_renaming (tree sym)
 {
   if (!symbols_to_rename_set || sym == NULL_TREE)
     return false;
-  return bitmap_bit_p (symbols_to_rename_set, DECL_UID (sym));
+  return symbols_to_rename_set->bit (DECL_UID (sym));
 }
 
 
@@ -697,7 +697,7 @@ mark_def_sites (basic_block bb, gimple stmt, bitmap kills)
     {
       tree sym = USE_FROM_PTR (use_p);
       gcc_checking_assert (DECL_P (sym));
-      if (!bitmap_bit_p (kills, DECL_UID (sym)))
+      if (!kills->bit (DECL_UID (sym)))
 	set_livein_block (sym, bb);
       set_rewrite_uses (stmt, true);
     }
@@ -885,7 +885,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
       /* If there is a phi node in USE_BB, it is made live.  Otherwise,
 	 find the def that dominates the immediate dominator of USE_BB
 	 (the kill in USE_BB does not dominate the use).  */
-      if (bitmap_bit_p (phis, b))
+      if (phis->bit (b))
 	p = b;
       else
 	{
@@ -893,7 +893,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 					    BASIC_BLOCK_FOR_FN (cfun, b));
 	  p = find_dfsnum_interval (defs, n_defs,
 				    bb_dom_dfs_in (CDI_DOMINATORS, use_bb));
-	  if (!bitmap_bit_p (phis, p))
+	  if (!phis->bit (p))
 	    continue;
 	}
 
@@ -906,14 +906,14 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
       FOR_EACH_EDGE (e, ei, def_bb->preds)
 	{
 	  u = e->src->index;
-	  if (bitmap_bit_p (uses, u))
+	  if (uses->bit (u))
 	    continue;
 
 	  /* In case there is a kill directly in the use block, do not record
 	     the use (this is also necessary for correctness, as we assume that
 	     uses dominated by a def directly in their block have been filtered
 	     out before).  */
-	  if (bitmap_bit_p (kills, u))
+	  if (kills->bit (u))
 	    continue;
 
 	  uses->set_bit (u);
@@ -1280,7 +1280,7 @@ rewrite_debug_stmt_uses (gimple stmt)
 
 	      /* If there are some non-debug uses in the current bb,
 		 it is fine.  */
-	      if (bitmap_bit_p (db_p->livein_blocks, bb->index))
+	      if (db_p->livein_blocks->bit (bb->index))
 		;
 	      /* Otherwise give up for now.  */
 	      else
@@ -1984,7 +1984,7 @@ rewrite_update_phi_arguments (basic_block bb)
       gimple phi;
       gimple_vec phis;
 
-      if (!bitmap_bit_p (blocks_with_phis_to_rewrite, e->dest->index))
+      if (!blocks_with_phis_to_rewrite->bit (e->dest->index))
 	continue;
 
       phis = phis_to_rewrite[e->dest->index];
@@ -2082,7 +2082,7 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
   /* Mark the unwind point for this block.  */
   block_defs_stack.safe_push (NULL_TREE);
 
-  if (!bitmap_bit_p (blocks_to_update, bb->index))
+  if (!blocks_to_update->bit (bb->index))
     return;
 
   /* Mark the LHS if any of the arguments flows through an abnormal
@@ -2128,7 +2128,7 @@ rewrite_update_dom_walker::before_dom_children (basic_block bb)
   /* Step 2.  Rewrite every variable used in each statement in the block.  */
   if (bitmap_bit_p (interesting_blocks, bb->index))
     {
-      gcc_checking_assert (bitmap_bit_p (blocks_to_update, bb->index));
+      gcc_checking_assert (blocks_to_update->bit (bb->index));
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
         rewrite_update_stmt (gsi_stmt (gsi), gsi);
     }
@@ -2409,7 +2409,7 @@ make_pass_build_ssa (gcc::context *ctxt)
 static void
 mark_def_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
 {
-  gcc_checking_assert (bitmap_bit_p (blocks_to_update, bb->index));
+  gcc_checking_assert (blocks_to_update->bit (bb->index));
   set_register_defs (stmt, true);
 
   if (insert_phi_p)
@@ -2463,7 +2463,7 @@ mark_use_interesting (tree var, gimple stmt, basic_block bb, bool insert_phi_p)
   if (insert_phi_p)
     {
       struct def_blocks_d *db_p = get_def_blocks_for (get_common_info (var));
-      if (!bitmap_bit_p (db_p->def_blocks, bb->index))
+      if (!db_p->def_blocks->bit (bb->index))
 	set_livein_block (var, bb);
     }
 }
@@ -2618,8 +2618,7 @@ prepare_def_site_for (tree name, bool insert_phi_p)
   basic_block bb;
 
   gcc_checking_assert (names_to_release == NULL
-		       || !bitmap_bit_p (names_to_release,
-					 SSA_NAME_VERSION (name)));
+		       || !names_to_release->bit (SSA_NAME_VERSION (name)));
 
   stmt = SSA_NAME_DEF_STMT (name);
   bb = gimple_bb (stmt);
@@ -2662,7 +2661,7 @@ prepare_names_to_update (bool insert_phi_p)
      OLD_SSA_NAMES, but we have to ignore its definition site.  */
   EXECUTE_IF_SET_IN_BITMAP (old_ssa_names, 0, i, sbi)
     {
-      if (names_to_release == NULL || !bitmap_bit_p (names_to_release, i))
+      if (names_to_release == NULL || !names_to_release->bit (i))
 	prepare_def_site_for (ssa_name (i), insert_phi_p);
       prepare_use_sites_for (ssa_name (i), insert_phi_p);
     }

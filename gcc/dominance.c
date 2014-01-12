@@ -524,7 +524,7 @@ calc_idoms (struct dom_info *di, bool reverse)
       if (reverse)
 	{
 	  /* If this block has a fake edge to exit, process that first.  */
-	  if (bitmap_bit_p (di->fake_exit_edge, bb->index))
+	  if (di->fake_exit_edge->bit (bb->index))
 	    {
 	      einext = ei;
 	      einext.index = 0;

@@ -254,7 +254,7 @@ sese_bad_liveouts_use (sese region, bitmap liveouts, basic_block bb,
 
   /* If it's in liveouts, the variable will get a new PHI node, and
      the debug use will be properly adjusted.  */
-  if (bitmap_bit_p (liveouts, ver))
+  if (liveouts->bit (ver))
     return false;
 
   def_bb = gimple_bb (SSA_NAME_DEF_STMT (use));

@@ -222,6 +222,9 @@ struct GTY(()) bitmap_head {
 /* True if the bitmaps intersect (their AND is non-empty).  */
   bool intersects (const bitmap_head &) const;
 
+  /* Return true if a register is set in a register set.  */
+  bool bit (int) const;
+
   void swap (bitmap_head *);
 
   /* Compute bitmap hash (for purposes of hashing etc.)  */
@@ -274,9 +277,6 @@ extern bool bitmap_ior_and_compl (bitmap DST, const_bitmap A,
 /* A |= (B & ~C).  Return true if A changes.  */
 extern bool bitmap_ior_and_compl_into (bitmap A,
 				       const_bitmap B, const_bitmap C);
-
-/* Return true if a register is set in a register set.  */
-extern int bitmap_bit_p (bitmap, int);
 
 /* Initialize and release a bitmap obstack.  */
 extern void bitmap_obstack_initialize (bitmap_obstack *);

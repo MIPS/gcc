@@ -65,7 +65,7 @@ static inline gimple
 get_gimple_for_ssa_name (tree exp)
 {
   int v = SSA_NAME_VERSION (exp);
-  if (SA.values && bitmap_bit_p (SA.values, v))
+  if (SA.values && SA.values->bit (v))
     return SSA_NAME_DEF_STMT (exp);
   return NULL;
 }

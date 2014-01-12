@@ -628,7 +628,7 @@ prescan_insns_for_dce (bool fast)
 	  {
 	    /* Don't mark argument stores now.  They will be marked
 	       if needed when the associated CALL is marked.  */
-	    if (arg_stores && bitmap_bit_p (arg_stores, INSN_UID (insn)))
+	    if (arg_stores && arg_stores->bit (INSN_UID (insn)))
 	      continue;
 	    if (deletable_insn_p (insn, fast, arg_stores))
 	      mark_nonreg_stores (PATTERN (insn), insn, fast);
@@ -871,8 +871,8 @@ word_dce_process_block (basic_block bb, bool redo_out,
 	  if (DF_REF_REGNO (*use_rec) >= FIRST_PSEUDO_REGISTER
 	      && (GET_MODE_SIZE (GET_MODE (DF_REF_REAL_REG (*use_rec)))
 		  == 2 * UNITS_PER_WORD)
-	      && !bitmap_bit_p (&local_live, 2 * DF_REF_REGNO (*use_rec))
-	      && !bitmap_bit_p (&local_live, 2 * DF_REF_REGNO (*use_rec) + 1))
+	      && !local_live.bit (2 * DF_REF_REGNO (*use_rec))
+	      && !local_live.bit (2 * DF_REF_REGNO (*use_rec) + 1))
 	    dead_debug_add (&debug, *use_rec, DF_REF_REGNO (*use_rec));
       }
     else if (INSN_P (insn))
@@ -967,8 +967,8 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
       {
 	df_ref *use_rec;
 	for (use_rec = DF_INSN_USES (insn); *use_rec; use_rec++)
-	  if (!bitmap_bit_p (&local_live, DF_REF_REGNO (*use_rec))
-	      && !bitmap_bit_p (au, DF_REF_REGNO (*use_rec)))
+	  if (!local_live.bit (DF_REF_REGNO (*use_rec))
+	      && !au->bit (DF_REF_REGNO (*use_rec)))
 	    dead_debug_add (&debug, *use_rec, DF_REF_REGNO (*use_rec));
       }
     else if (INSN_P (insn))
@@ -978,8 +978,8 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
 	/* The insn is needed if there is someone who uses the output.  */
 	if (!needed)
 	  for (def_rec = DF_INSN_DEFS (insn); *def_rec; def_rec++)
-	    if (bitmap_bit_p (&local_live, DF_REF_REGNO (*def_rec))
-		|| bitmap_bit_p (au, DF_REF_REGNO (*def_rec)))
+	    if (local_live.bit (DF_REF_REGNO (*def_rec))
+		|| au->bit (DF_REF_REGNO (*def_rec)))
 	      {
 		needed = true;
 		mark_insn (insn, true);
@@ -1070,11 +1070,11 @@ fast_dce (bool word_level)
 
 	  if (word_level)
 	    local_changed
-	      = word_dce_process_block (bb, bitmap_bit_p (&redo_out, index),
+	      = word_dce_process_block (bb, redo_out.bit (index),
 					&global_debug);
 	  else
 	    local_changed
-	      = dce_process_block (bb, bitmap_bit_p (&redo_out, index),
+	      = dce_process_block (bb, redo_out.bit (index),
 				   bb_has_eh_pred (bb) ? au_eh : au,
 				   &global_debug);
 	  processed.set_bit (index);
@@ -1084,7 +1084,7 @@ fast_dce (bool word_level)
 	      edge e;
 	      edge_iterator ei;
 	      FOR_EACH_EDGE (e, ei, bb->preds)
-		if (bitmap_bit_p (&processed, e->src->index))
+		if (processed.bit (e->src->index))
 		  /* Be tricky about when we need to iterate the
 		     analysis.  We only have redo the analysis if the
 		     bitmaps change at the top of a block that is the

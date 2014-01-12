@@ -999,7 +999,7 @@ pred_blocks_visited_p (basic_block bb, bitmap visited)
   edge e;
   edge_iterator ei;
   FOR_EACH_EDGE (e, ei, bb->preds)
-    if (!bitmap_bit_p (visited, e->src->index))
+    if (!visited->bit (e->src->index))
       return false;
 
   return true;
@@ -1039,7 +1039,7 @@ get_loop_body_in_if_conv_order (const struct loop *loop)
 	  return NULL;
 	}
 
-      if (!bitmap_bit_p (&visited, bb->index))
+      if (!visited.bit (bb->index))
 	{
 	  if (pred_blocks_visited_p (bb, &visited)
 	      || bb == loop->header)

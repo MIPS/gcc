@@ -280,12 +280,12 @@ find_va_list_reference (tree *tp, int *walk_subtrees ATTRIBUTE_UNUSED,
 
   if (TREE_CODE (var) == SSA_NAME)
     {
-      if (bitmap_bit_p (va_list_vars, SSA_NAME_VERSION (var)))
+      if (va_list_vars->bit (SSA_NAME_VERSION (var)))
 	return var;
     }
   else if (TREE_CODE (var) == VAR_DECL)
     {
-      if (bitmap_bit_p (va_list_vars, DECL_UID (var) + num_ssa_names))
+      if (va_list_vars->bit (DECL_UID (var) + num_ssa_names))
 	return var;
     }
 
@@ -364,12 +364,12 @@ va_list_counter_struct_op (struct stdarg_info *si, tree ap, tree var,
     return false;
 
   if (TREE_CODE (var) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars, SSA_NAME_VERSION (var)))
+      || si->va_list_vars->bit (SSA_NAME_VERSION (var)))
     return false;
 
   base = get_base_address (ap);
   if (TREE_CODE (base) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, DECL_UID (base) + num_ssa_names))
+      || !si->va_list_vars->bit (DECL_UID (base) + num_ssa_names))
     return false;
 
   if (TREE_OPERAND (ap, 1) == va_list_gpr_counter_field)
@@ -388,11 +388,11 @@ static bool
 va_list_ptr_read (struct stdarg_info *si, tree ap, tree tem)
 {
   if (TREE_CODE (ap) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap) + num_ssa_names))
+      || !si->va_list_vars->bit (DECL_UID (ap) + num_ssa_names))
     return false;
 
   if (TREE_CODE (tem) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars, SSA_NAME_VERSION (tem)))
+      || si->va_list_vars->bit (SSA_NAME_VERSION (tem)))
     return false;
 
   if (si->compute_sizes < 0)
@@ -438,11 +438,11 @@ va_list_ptr_write (struct stdarg_info *si, tree ap, tree tem2)
   unsigned HOST_WIDE_INT increment;
 
   if (TREE_CODE (ap) != VAR_DECL
-      || !bitmap_bit_p (si->va_list_vars, DECL_UID (ap) + num_ssa_names))
+      || !si->va_list_vars->bit (DECL_UID (ap) + num_ssa_names))
     return false;
 
   if (TREE_CODE (tem2) != SSA_NAME
-      || bitmap_bit_p (si->va_list_vars, SSA_NAME_VERSION (tem2)))
+      || si->va_list_vars->bit (SSA_NAME_VERSION (tem2)))
     return false;
 
   if (si->compute_sizes <= 0)
@@ -474,7 +474,7 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
 
   if (TREE_CODE (rhs) == SSA_NAME)
     {
-      if (! bitmap_bit_p (si->va_list_escape_vars, SSA_NAME_VERSION (rhs)))
+      if (! si->va_list_escape_vars->bit (SSA_NAME_VERSION (rhs)))
 	return;
     }
   else if (TREE_CODE (rhs) == ADDR_EXPR
@@ -482,7 +482,7 @@ check_va_list_escapes (struct stdarg_info *si, tree lhs, tree rhs)
 	   && TREE_CODE (TREE_OPERAND (TREE_OPERAND (rhs, 0), 0)) == SSA_NAME)
     {
       tree ptr = TREE_OPERAND (TREE_OPERAND (rhs, 0), 0);
-      if (! bitmap_bit_p (si->va_list_escape_vars, SSA_NAME_VERSION (ptr)))
+      if (! si->va_list_escape_vars->bit (SSA_NAME_VERSION (ptr)))
 	return;
     }
   else
@@ -549,16 +549,14 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
 	  lhs = PHI_RESULT (phi);
 	  if (virtual_operand_p (lhs)
-	      || bitmap_bit_p (si->va_list_escape_vars,
-			       SSA_NAME_VERSION (lhs)))
+	      || si->va_list_escape_vars->bit (SSA_NAME_VERSION (lhs)))
 	    continue;
 
 	  FOR_EACH_PHI_ARG (uop, phi, soi, SSA_OP_USE)
 	    {
 	      tree rhs = USE_FROM_PTR (uop);
 	      if (TREE_CODE (rhs) == SSA_NAME
-		  && bitmap_bit_p (si->va_list_escape_vars,
-				SSA_NAME_VERSION (rhs)))
+		  && si->va_list_escape_vars->bit (SSA_NAME_VERSION (rhs)))
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    {
@@ -582,8 +580,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 
 	  FOR_EACH_SSA_TREE_OPERAND (use, stmt, iter, SSA_OP_ALL_USES)
 	    {
-	      if (! bitmap_bit_p (si->va_list_escape_vars,
-				  SSA_NAME_VERSION (use)))
+	      if (! si->va_list_escape_vars->bit (SSA_NAME_VERSION (use)))
 		continue;
 
 	      if (is_gimple_assign (stmt))
@@ -628,13 +625,13 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		      tree lhs = gimple_assign_lhs (stmt);
 
 		      if (TREE_CODE (lhs) == SSA_NAME
-			  && bitmap_bit_p (si->va_list_escape_vars,
-					   SSA_NAME_VERSION (lhs)))
+			  && si->va_list_escape_vars->bit
+					   (SSA_NAME_VERSION (lhs)))
 			continue;
 
 		      if (TREE_CODE (lhs) == VAR_DECL
-			  && bitmap_bit_p (si->va_list_vars,
-					   DECL_UID (lhs) + num_ssa_names))
+			  && si->va_list_vars->bit
+			  (DECL_UID (lhs) + num_ssa_names))
 			continue;
 		    }
 		  else if (rhs_code == ADDR_EXPR
@@ -643,8 +640,8 @@ check_all_va_list_escapes (struct stdarg_info *si)
 		    {
 		      tree lhs = gimple_assign_lhs (stmt);
 
-		      if (bitmap_bit_p (si->va_list_escape_vars,
-					SSA_NAME_VERSION (lhs)))
+		      if (si->va_list_escape_vars->bit
+			  (SSA_NAME_VERSION (lhs)))
 			continue;
 		    }
 		}

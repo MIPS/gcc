@@ -735,7 +735,7 @@ sorted_array_from_bitmap_set (bitmap_set_t set)
       bitmap exprset = value_expressions[i];
       EXECUTE_IF_SET_IN_BITMAP (exprset, 0, j, bj)
 	{
-	  if (bitmap_bit_p (&set->expressions, j))
+	  if (set->expressions.bit (j))
 	    result.safe_push (expression_for_id (j));
         }
     }
@@ -761,7 +761,7 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
 	{
 	  pre_expr expr = expression_for_id (i);
 	  unsigned int value_id = get_expr_value_id (expr);
-	  if (!bitmap_bit_p (&dest->values, value_id))
+	  if (!dest->values.bit (value_id))
 	    dest->expressions.clear_bit (i);
 	}
     }
@@ -819,13 +819,13 @@ bitmap_set_contains_value (bitmap_set_t set, unsigned int value_id)
   if (!set || set->expressions.is_empty ())
     return false;
 
-  return bitmap_bit_p (&set->values, value_id);
+  return set->values.bit (value_id);
 }
 
 static inline bool
 bitmap_set_contains_expr (bitmap_set_t set, const pre_expr expr)
 {
-  return bitmap_bit_p (&set->expressions, get_expression_id (expr));
+  return set->expressions.bit (get_expression_id (expr));
 }
 
 /* Replace an instance of value LOOKFOR with expression EXPR in SET.  */
@@ -1888,8 +1888,8 @@ value_dies_in_block_x (pre_expr expr, basic_block block)
 
   /* Lookup a previously calculated result.  */
   if (EXPR_DIES (block)
-      && bitmap_bit_p (EXPR_DIES (block), id * 2))
-    return bitmap_bit_p (EXPR_DIES (block), id * 2 + 1);
+      && EXPR_DIES (block)->bit (id * 2))
+    return EXPR_DIES (block)->bit (id * 2 + 1);
 
   /* A memory expression {e, VUSE} dies in the block if there is a
      statement that may clobber e.  If, starting statement walk from the
@@ -4108,7 +4108,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
       remove_phi_node (&gsi, false);
 
       if (inserted_exprs
-	  && !bitmap_bit_p (inserted_exprs, SSA_NAME_VERSION (res))
+	  && !inserted_exprs->bit (SSA_NAME_VERSION (res))
 	  && TREE_CODE (sprime) == SSA_NAME)
 	gimple_set_plf (SSA_NAME_DEF_STMT (sprime), NECESSARY, true);
 
@@ -4123,7 +4123,7 @@ eliminate_dom_walker::before_dom_children (basic_block b)
       el_to_remove.safe_push (stmt);
       /* If we inserted this PHI node ourself, it's not an elimination.  */
       if (inserted_exprs
-	  && bitmap_bit_p (inserted_exprs, SSA_NAME_VERSION (res)))
+	  && inserted_exprs->bit (SSA_NAME_VERSION (res)))
 	pre_stats.phis--;
       else
 	pre_stats.eliminations++;
@@ -4451,7 +4451,7 @@ eliminate (void)
 	  SET_USE (use_p, rhs);
 	  update_stmt (use_stmt);
 	  if (inserted_exprs
-	      && bitmap_bit_p (inserted_exprs, SSA_NAME_VERSION (lhs))
+	      && inserted_exprs->bit (SSA_NAME_VERSION (lhs))
 	      && TREE_CODE (rhs) == SSA_NAME)
 	    gimple_set_plf (SSA_NAME_DEF_STMT (rhs), NECESSARY, true);
 	}

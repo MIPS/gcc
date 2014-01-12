@@ -1431,7 +1431,7 @@ parallelized_function_p (tree fn)
   if (!parallelized_functions || !DECL_ARTIFICIAL (fn))
     return false;
 
-  return bitmap_bit_p (parallelized_functions, DECL_UID (fn));
+  return parallelized_functions->bit (DECL_UID (fn));
 }
 
 /* Creates and returns an empty function that will receive the body of

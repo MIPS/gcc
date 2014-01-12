@@ -8509,7 +8509,7 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
      branching statement.  The hard work has been done by setting up
      the bitmap reachable_labels.  */
 
-  if (bitmap_bit_p (cs_base->reachable_labels, label->value))
+  if (cs_base->reachable_labels->bit (label->value))
     {
       /* Check now whether there is a CRITICAL construct; if so, check
 	 whether the label is still visible outside of the CRITICAL block,
@@ -8517,11 +8517,11 @@ resolve_branch (gfc_st_label *label, gfc_code *code)
       for (stack = cs_base; stack; stack = stack->prev)
 	{
 	  if (stack->current->op == EXEC_CRITICAL
-	      && bitmap_bit_p (stack->reachable_labels, label->value))
+	      && stack->reachable_labels->bit (label->value))
 	    gfc_error ("GOTO statement at %L leaves CRITICAL construct for "
 		      "label at %L", &code->loc, &label->where);
 	  else if (stack->current->op == EXEC_DO_CONCURRENT
-		   && bitmap_bit_p (stack->reachable_labels, label->value))
+		   && stack->reachable_labels->bit (label->value))
 	    gfc_error ("GOTO statement at %L leaves DO CONCURRENT construct "
 		      "for label at %L", &code->loc, &label->where);
 	}

@@ -932,7 +932,7 @@ convert_nonlocal_reference_op (tree *tp, int *walk_subtrees, void *data)
 	  wi->changed = true;
 
 	  x = get_nonlocal_debug_decl (info, t);
-	  if (!bitmap_bit_p (info->suppress_expansion, DECL_UID (t)))
+	  if (!info->suppress_expansion->bit (DECL_UID (t)))
 	    {
 	      tree target_context = decl_function_context (t);
 	      struct nesting_info *i;
@@ -1461,7 +1461,7 @@ convert_local_reference_op (tree *tp, int *walk_subtrees, void *data)
 	  wi->changed = true;
 
 	  x = get_local_debug_decl (info, t, field);
-	  if (!bitmap_bit_p (info->suppress_expansion, DECL_UID (t)))
+	  if (!info->suppress_expansion->bit (DECL_UID (t)))
 	    x = get_frame_field (info, info->context, field, &wi->gsi);
 
 	  if (wi->val_only)

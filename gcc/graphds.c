@@ -148,7 +148,7 @@ foll_in_subgraph (struct graph_edge *e, bool forward, bitmap subgraph)
   while (e)
     {
       d = dfs_edge_dest (e, forward);
-      if (bitmap_bit_p (subgraph, d))
+      if (subgraph->bit (d))
 	return e;
 
       e = forward ? e->succ_next : e->pred_next;

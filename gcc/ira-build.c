@@ -1955,7 +1955,7 @@ create_loop_allocnos (edge e)
   border_allocnos = ira_curr_loop_tree_node->border_allocnos;
   EXECUTE_IF_SET_IN_REG_SET (df_get_live_out (e->src),
 			     FIRST_PSEUDO_REGISTER, i, bi)
-    if (bitmap_bit_p (live_in_regs, i))
+    if (live_in_regs->bit (i))
       {
 	if (ira_curr_regno_allocno_map[i] == NULL)
 	  {
@@ -2034,8 +2034,8 @@ propagate_allocno_info (void)
 	  && (parent_a = parent->regno_allocno_map[i]) != NULL
 	  /* There are no caps yet at this point.  So use
 	     border_allocnos to find allocnos for the propagation.  */
-	  && bitmap_bit_p (ALLOCNO_LOOP_TREE_NODE (a)->border_allocnos,
-			   ALLOCNO_NUM (a)))
+	  && ALLOCNO_LOOP_TREE_NODE (a)->border_allocnos->bit
+	  (ALLOCNO_NUM (a)))
 	{
 	  if (! ALLOCNO_BAD_SPILL_P (a))
 	    ALLOCNO_BAD_SPILL_P (parent_a) = false;
@@ -2673,7 +2673,7 @@ update_bad_spill_attribute (void)
 	  for (r = OBJECT_LIVE_RANGES (obj); r != NULL; r = r->next)
 	    {
 	      for (i = r->start + 1; i < r->finish; i++)
-		if (bitmap_bit_p (&dead_points[aclass], i))
+		if (dead_points[aclass].bit (i))
 		  break;
 	      if (i < r->finish)
 		break;
@@ -2968,7 +2968,7 @@ create_caps (void)
       else if (ALLOCNO_CAP (a) == NULL)
 	{
 	  loop_tree_node = ALLOCNO_LOOP_TREE_NODE (a);
-	  if (!bitmap_bit_p (loop_tree_node->border_allocnos, ALLOCNO_NUM (a)))
+	  if (!loop_tree_node->border_allocnos->bit (ALLOCNO_NUM (a)))
 	    create_cap_allocno (a);
 	}
     }
@@ -3355,8 +3355,7 @@ check_allocno_creation (void)
   FOR_EACH_ALLOCNO (a, ai)
     {
       loop_tree_node = ALLOCNO_LOOP_TREE_NODE (a);
-      ira_assert (bitmap_bit_p (loop_tree_node->all_allocnos,
-				ALLOCNO_NUM (a)));
+      ira_assert (loop_tree_node->all_allocnos->bit (ALLOCNO_NUM (a)));
       if (loop_tree_node == ira_loop_tree_root)
 	continue;
       if (ALLOCNO_CAP_MEMBER (a) != NULL)
@@ -3364,8 +3363,7 @@ check_allocno_creation (void)
       else if (ALLOCNO_CAP (a) == NULL)
 	ira_assert (loop_tree_node->parent
 		    ->regno_allocno_map[ALLOCNO_REGNO (a)] != NULL
-		    && bitmap_bit_p (loop_tree_node->border_allocnos,
-				     ALLOCNO_NUM (a)));
+		    && loop_tree_node->border_allocnos->bit (ALLOCNO_NUM (a)));
     }
 }
 #endif

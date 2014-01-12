@@ -521,7 +521,7 @@ ssa_conflicts_test_p (ssa_conflicts_p ptr, unsigned x, unsigned y)
 
   if (bx)
     /* Avoid the lookup if Y has no conflicts.  */
-    return by ? bitmap_bit_p (bx, y) : false;
+    return by ? bx->bit (y) : false;
   else
     return false;
 }
@@ -722,8 +722,8 @@ live_track_live_p (live_track_p ptr, tree var)
   if (p != NO_PARTITION)
     {
       root = basevar_index (ptr->map, p);
-      if (bitmap_bit_p (ptr->live_base_var, root))
-	return bitmap_bit_p (ptr->live_base_partitions[root], p);
+      if (ptr->live_base_var->bit (root))
+	return ptr->live_base_partitions[root]->bit (p);
     }
   return false;
 }
@@ -767,7 +767,7 @@ live_track_process_def (live_track_p ptr, tree def, ssa_conflicts_p graph)
 
   /* If the bitmap isn't empty now, conflicts need to be added.  */
   root = basevar_index (ptr->map, p);
-  if (bitmap_bit_p (ptr->live_base_var, root))
+  if (ptr->live_base_var->bit (root))
     {
       b = ptr->live_base_partitions[root];
       EXECUTE_IF_SET_IN_BITMAP (b, 0, x, bi)

@@ -2477,7 +2477,7 @@ duplicate_computed_gotos (void)
 	continue;
 
       /* The successor block has to be a duplication candidate.  */
-      if (!bitmap_bit_p (&candidates, single_succ (bb)->index))
+      if (!candidates.bit (single_succ (bb)->index))
 	continue;
 
       /* Don't duplicate a partition crossing edge, which requires difficult

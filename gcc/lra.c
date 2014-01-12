@@ -1941,15 +1941,15 @@ static bitmap_head scratch_operand_bitmap;
 bool
 lra_former_scratch_p (int regno)
 {
-  return bitmap_bit_p (&scratch_bitmap, regno);
+  return scratch_bitmap.bit (regno);
 }
 
 /* Return true if the operand NOP of INSN is a former scratch.	*/
 bool
 lra_former_scratch_operand_p (rtx insn, int nop)
 {
-  return bitmap_bit_p (&scratch_operand_bitmap,
-		       INSN_UID (insn) * MAX_RECOG_OPERANDS + nop) != 0;
+  return scratch_operand_bitmap.bit
+    (INSN_UID (insn) * MAX_RECOG_OPERANDS + nop) != 0;
 }
 
 /* Change scratches onto pseudos and save their location.  */

@@ -1351,7 +1351,7 @@ all_positions_needed_p (store_info_t s_info, int start, int width)
     {
       int end = start + width;
       while (start < end)
-	if (bitmap_bit_p (s_info->positions_needed.large.bmap, start++))
+	if (s_info->positions_needed.large.bmap->bit (start++))
 	  return false;
       return true;
     }
@@ -2927,7 +2927,7 @@ dse_step2_nospill (void)
       EXECUTE_IF_SET_IN_BITMAP (group->store2_n, 0, j, bi)
 	{
 	  group->group_kill->set_bit (current_position);
-          if (bitmap_bit_p (group->escaped_n, j))
+          if (group->escaped_n->bit (j))
 	    kill_on_calls->set_bit (current_position);
 	  group->offset_map_n[j] = current_position++;
 	  group->process_globally = true;
@@ -2935,7 +2935,7 @@ dse_step2_nospill (void)
       EXECUTE_IF_SET_IN_BITMAP (group->store2_p, 0, j, bi)
 	{
 	  group->group_kill->set_bit (current_position);
-          if (bitmap_bit_p (group->escaped_p, j))
+          if (group->escaped_p->bit (j))
 	    kill_on_calls->set_bit (current_position);
 	  group->offset_map_p[j] = current_position++;
 	  group->process_globally = true;
@@ -3322,7 +3322,7 @@ dse_step3 (bool for_spills)
      practice. However, it is common in regression tests.  */
   EXECUTE_IF_SET_IN_BITMAP (unreachable_blocks, 0, i, sbi)
     {
-      if (bitmap_bit_p (all_blocks, i))
+      if (all_blocks->bit (i))
 	{
 	  bb_info_t bb_info = bb_table[i];
 	  if (!bb_info->out)
@@ -3544,7 +3544,7 @@ dse_step5_nospill (void)
 
 		      if (dump_file && (dump_flags & TDF_DETAILS))
 			fprintf (dump_file, "i = %d, index = %d\n", (int)i, index);
-		      if (index == 0 || !bitmap_bit_p (v, index))
+		      if (index == 0 || !v->bit (index))
 			{
 			  if (dump_file && (dump_flags & TDF_DETAILS))
 			    fprintf (dump_file, "failing at i = %d\n", (int)i);

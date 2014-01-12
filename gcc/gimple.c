@@ -2010,7 +2010,7 @@ gimple_call_copy_skip_args (gimple stmt, bitmap args_to_skip)
   gimple new_stmt;
 
   for (i = 0; i < nargs; i++)
-    if (!bitmap_bit_p (args_to_skip, i))
+    if (!args_to_skip->bit (i))
       vargs.quick_push (gimple_call_arg (stmt, i));
 
   if (gimple_call_internal_p (stmt))

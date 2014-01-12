@@ -274,7 +274,7 @@ version_to_be_replaced_p (temp_expr_table_p tab, int version)
 {
   if (!tab->replaceable_expressions)
     return false;
-  return bitmap_bit_p (tab->replaceable_expressions, version);
+  return tab->replaceable_expressions->bit (version);
 }
 
 
@@ -622,7 +622,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 		FOR_EACH_SSA_TREE_OPERAND (def, stmt, iter2, SSA_OP_DEF)
 		  {
 		    if (SSA_NAME_VAR (def)
-			&& bitmap_bit_p (vars, DECL_UID (SSA_NAME_VAR (def))))
+			&& vars->bit (DECL_UID (SSA_NAME_VAR (def))))
 		      {
 			same_root_var = true;
 			break;
@@ -748,7 +748,7 @@ dump_replaceable_exprs (FILE *f, bitmap expr)
 
   fprintf (f, "\nReplacing Expressions\n");
   for (x = 0; x < num_ssa_names; x++)
-    if (bitmap_bit_p (expr, x))
+    if (expr->bit (x))
       {
 	var = ssa_name (x);
 	print_generic_expr (f, var, TDF_SLIM);

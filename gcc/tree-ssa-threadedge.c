@@ -301,7 +301,7 @@ invalidate_equivalences (tree lhs, vec<tree> *stack,
      nodes.  If an entry in SRC_MAP changes, there's some destination that
      has been recorded as equivalent to the source and that equivalency
      needs to be eliminated.  */
-  if (bitmap_bit_p (src_map, SSA_NAME_VERSION (lhs)))
+  if (src_map->bit (SSA_NAME_VERSION (lhs)))
     {
       unsigned int i;
       bitmap_iterator bi;
@@ -840,7 +840,7 @@ thread_around_empty_blocks (edge taken_edge,
       if (single_succ_p (bb))
 	{
 	  taken_edge = single_succ_edge (bb);
-	  if (!bitmap_bit_p (visited, taken_edge->dest->index))
+	  if (!visited->bit (taken_edge->dest->index))
 	    {
 	      jump_thread_edge *x
 		= new jump_thread_edge (taken_edge, EDGE_NO_COPY_SRC_BLOCK);
@@ -889,7 +889,7 @@ thread_around_empty_blocks (edge taken_edge,
     {
       taken_edge = find_taken_edge (bb, cond);
 
-      if (bitmap_bit_p (visited, taken_edge->dest->index))
+      if (visited->bit (taken_edge->dest->index))
 	return false;
       visited->set_bit (taken_edge->dest->index);
 
@@ -995,7 +995,7 @@ thread_through_normal_block (edge e,
 	     address.  */
 	  if (dest == NULL
 	      || dest == e->dest
-	      || bitmap_bit_p (visited, dest->index))
+	      || visited->bit (dest->index))
 	    return false;
 
 	  /* Only push the EDGE_START_JUMP_THREAD marker if this is

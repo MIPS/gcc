@@ -968,7 +968,7 @@ set_union_with_increment  (bitmap to, bitmap delta, HOST_WIDE_INT inc,
 
   /* If the solution of DELTA contains anything it is good enough to transfer
      this to TO.  */
-  if (bitmap_bit_p (delta, anything_id))
+  if (delta->bit (anything_id))
     return to->set_bit (anything_id);
 
   /* If the offset is unknown we have to expand the solution to
@@ -1596,7 +1596,7 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 
   /* If the solution of Y contains anything it is good enough to transfer
      this to the LHS.  */
-  if (bitmap_bit_p (delta, anything_id))
+  if (delta->bit (anything_id))
     {
       flag |= sol->set_bit (anything_id);
       goto done;
@@ -1683,13 +1683,13 @@ do_ds_constraint (constraint_t c, bitmap delta, bitmap *expanded_delta)
 
   /* If the solution of y contains ANYTHING simply use the ANYTHING
      solution.  This avoids needlessly increasing the points-to sets.  */
-  if (bitmap_bit_p (sol, anything_id))
+  if (sol->bit (anything_id))
     sol = get_varinfo (find (anything_id))->solution;
 
   /* If the solution for x contains ANYTHING we have to merge the
      solution of y into all pointer variables which we do via
      STOREDANYTHING.  */
-  if (bitmap_bit_p (delta, anything_id))
+  if (delta->bit (anything_id))
     {
       unsigned t = find (storedanything_id);
       if (add_graph_edge (graph, t, rhs))
@@ -2423,7 +2423,7 @@ find_equivalent_node (constraint_graph_t graph,
      Otherwise, we know the pointers are equivalent, but not the
      locations, and we can unite them later.  */
 
-  if (!bitmap_bit_p (graph->address_taken, node))
+  if (!graph->address_taken->bit (node))
     {
       gcc_checking_assert (label < graph->size);
 
@@ -2686,13 +2686,13 @@ solve_graph (constraint_graph_t graph)
 
 	      /* Compute the changed set of solution bits.  If anything
 	         is in the solution just propagate that.  */
-	      if (bitmap_bit_p (vi->solution, anything_id))
+	      if (vi->solution->bit (anything_id))
 		{
 		  /* If anything is also in the old solution there is
 		     nothing to do.
 		     ???  But we shouldn't ended up with "changed" set ...  */
 		  if (vi->oldsolution
-		      && bitmap_bit_p (vi->oldsolution, anything_id))
+		      && vi->oldsolution->bit (anything_id))
 		    continue;
 		  bitmap_copy (&pts, get_varinfo (find (anything_id))->solution);
 		}
@@ -5999,7 +5999,7 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt)
   bitmap_iterator bi;
   varinfo_t escaped_vi = get_varinfo (find (escaped_id));
   bool everything_escaped
-    = escaped_vi->solution && bitmap_bit_p (escaped_vi->solution, anything_id);
+    = escaped_vi->solution && escaped_vi->solution->bit (anything_id);
 
   EXECUTE_IF_SET_IN_BITMAP (from, 0, i, bi)
     {
@@ -6012,7 +6012,7 @@ set_uids_in_ptset (bitmap into, bitmap from, struct pt_solution *pt)
 
       if (everything_escaped
 	  || (escaped_vi->solution
-	      && bitmap_bit_p (escaped_vi->solution, i)))
+	      && escaped_vi->solution->bit (i)))
 	{
 	  pt->vars_contains_escaped = true;
 	  pt->vars_contains_escaped_heap = vi->is_heap_var;
@@ -6211,7 +6211,7 @@ pt_solution_set_var (struct pt_solution *pt, tree var)
   pt->vars_contains_nonlocal = is_global_var (var);
   pt->vars_contains_escaped
     = (cfun->gimple_df->escaped.anything
-       || bitmap_bit_p (cfun->gimple_df->escaped.vars, DECL_PT_UID (var)));
+       || cfun->gimple_df->escaped.vars->bit (DECL_PT_UID (var)));
 }
 
 /* Computes the union of the points-to solutions *DEST and *SRC and
@@ -6330,7 +6330,7 @@ pt_solution_includes_1 (struct pt_solution *pt, const_tree decl)
     return true;
 
   if (pt->vars
-      && bitmap_bit_p (pt->vars, DECL_PT_UID (decl)))
+      && pt->vars->bit (DECL_PT_UID (decl)))
     return true;
 
   /* If the solution includes ESCAPED, check it.  */
@@ -7359,9 +7359,9 @@ ipa_pta_execute (void)
 		  fi = get_varinfo (find (fi->id));
 		  /* If we cannot constrain the set of functions we'll end up
 		     calling we end up using/clobbering everything.  */
-		  if (bitmap_bit_p (fi->solution, anything_id)
-		      || bitmap_bit_p (fi->solution, nonlocal_id)
-		      || bitmap_bit_p (fi->solution, escaped_id))
+		  if (fi->solution->bit (anything_id)
+		      || fi->solution->bit (nonlocal_id)
+		      || fi->solution->bit (escaped_id))
 		    {
 		      pt_solution_reset (gimple_call_clobber_set (stmt));
 		      pt_solution_reset (gimple_call_use_set (stmt));

@@ -317,7 +317,7 @@ add_exit_phis_var (tree var, bitmap use_blocks, bitmap *loop_exits)
   basic_block def_bb = gimple_bb (SSA_NAME_DEF_STMT (var));
   bitmap_head live_exits (&loop_renamer_obstack);
 
-  gcc_checking_assert (! bitmap_bit_p (use_blocks, def_bb->index));
+  gcc_checking_assert (! use_blocks->bit (def_bb->index));
 
   compute_live_loop_exits (&live_exits, use_blocks, loop_exits, def_bb);
 

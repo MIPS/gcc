@@ -505,7 +505,7 @@ schedule_ebb (rtx head, rtx tail, bool modulo_scheduling)
 
   gcc_assert (INSN_P (head) && INSN_P (tail));
 
-  if (!bitmap_bit_p (&dont_calc_deps, first_bb->index))
+  if (!dont_calc_deps.bit (first_bb->index))
     {
       init_deps_global ();
 

@@ -246,7 +246,7 @@ is_proper_for_analysis (tree t)
   /* This is a variable we care about.  Check if we have seen it
      before, and if not add it the set of variables we care about.  */
   if (all_module_statics
-      && !bitmap_bit_p (all_module_statics, DECL_UID (t)))
+      && !all_module_statics->bit (DECL_UID (t)))
     add_static_var (t);
 
   return true;
@@ -972,7 +972,7 @@ ipa_reference_write_optimization_summary (void)
       symtab_node *snode = lto_symtab_encoder_deref (encoder, i);
       varpool_node *vnode = dyn_cast <varpool_node> (snode);
       if (vnode
-	  && bitmap_bit_p (all_module_statics, DECL_UID (vnode->decl))
+	  && all_module_statics->bit (DECL_UID (vnode->decl))
 	  && referenced_from_this_partition_p (&vnode->ref_list, encoder))
 	{
 	  tree decl = vnode->decl;

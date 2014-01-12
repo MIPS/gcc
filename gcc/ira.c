@@ -2956,7 +2956,7 @@ mark_elimination (int from, int to)
   FOR_EACH_BB_FN (bb, cfun)
     {
       r = DF_LR_IN (bb);
-      if (bitmap_bit_p (r, from))
+      if (r->bit (from))
 	{
 	  r->clear_bit (from);
 	  r->set_bit (to);
@@ -2964,7 +2964,7 @@ mark_elimination (int from, int to)
       if (! df_live)
         continue;
       r = DF_LIVE_IN (bb);
-      if (bitmap_bit_p (r, from))
+      if (r->bit (from))
 	{
 	  r->clear_bit (from);
 	  r->set_bit (to);
@@ -3427,7 +3427,7 @@ adjust_cleared_regs (rtx loc, const_rtx old_rtx ATTRIBUTE_UNUSED, void *data)
   if (REG_P (loc))
     {
       bitmap cleared_regs = (bitmap) data;
-      if (bitmap_bit_p (cleared_regs, REGNO (loc)))
+      if (cleared_regs->bit (REGNO (loc)))
 	return simplify_replace_fn_rtx (*reg_equiv[REGNO (loc)].src_p,
 					NULL_RTX, adjust_cleared_regs, data);
     }
@@ -4084,7 +4084,7 @@ init_live_subregs (bool init_value, sbitmap *live_subregs,
   gcc_assert (size > 0);
 
   /* Been there, done that.  */
-  if (bitmap_bit_p (live_subregs_used, allocnum))
+  if (live_subregs_used->bit (allocnum))
     return;
 
   /* Create a new one.  */
@@ -4201,7 +4201,7 @@ build_insn_chain (void)
 			      + GET_MODE_SIZE (GET_MODE (reg));
 
 			    init_live_subregs
-			      (bitmap_bit_p (&live_relevant_regs, regno),
+			      (live_relevant_regs.bit (regno),
 			       live_subregs, &live_subregs_used, regno, reg);
 
 			    if (!DF_REF_FLAGS_IS_SET
@@ -4274,7 +4274,7 @@ build_insn_chain (void)
 		      continue;
 
 		    /* Add the last use of each var to dead_or_set.  */
-		    if (!bitmap_bit_p (&live_relevant_regs, regno))
+		    if (!live_relevant_regs.bit (regno))
 		      {
 			if (regno < FIRST_PSEUDO_REGISTER)
 			  {
@@ -4298,7 +4298,7 @@ build_insn_chain (void)
 			      + GET_MODE_SIZE (GET_MODE (reg));
 
 			    init_live_subregs
-			      (bitmap_bit_p (&live_relevant_regs, regno),
+			      (live_relevant_regs.bit (regno),
 			       live_subregs, &live_subregs_used, regno, reg);
 
 			    /* Ignore the paradoxical bits.  */
@@ -4543,7 +4543,7 @@ find_moveable_pseudos (void)
 	    if (d_rec[0] != NULL && d_rec[1] == NULL
 		&& u_rec[0] != NULL && u_rec[1] == NULL
 		&& DF_REF_REGNO (*u_rec) == DF_REF_REGNO (*d_rec)
-		&& !bitmap_bit_p (&set, DF_REF_REGNO (*u_rec))
+		&& !set.bit (DF_REF_REGNO (*u_rec))
 		&& rtx_moveable_p (&PATTERN (insn), OP_IN))
 	      {
 		unsigned regno = DF_REF_REGNO (*u_rec);
@@ -4698,7 +4698,7 @@ find_moveable_pseudos (void)
       bitmap def_bb_local = bb_local + def_block->index;
       bitmap def_bb_moveable = bb_moveable_reg_sets + def_block->index;
       bitmap def_bb_transp = bb_transp_live + def_block->index;
-      bool local_to_bb_p = bitmap_bit_p (def_bb_local, i);
+      bool local_to_bb_p = def_bb_local->bit (i);
       rtx use_insn = closest_uses[i];
       df_ref *def_insn_use_rec = DF_INSN_USES (def_insn);
       bool all_ok = true;
@@ -4735,16 +4735,16 @@ find_moveable_pseudos (void)
 	{
 	  df_ref use = *def_insn_use_rec;
 	  unsigned regno = DF_REF_REGNO (use);
-	  if (bitmap_bit_p (&unusable_as_input, regno))
+	  if (unusable_as_input.bit (regno))
 	    {
 	      all_ok = false;
 	      if (dump_file)
 		fprintf (dump_file, "  found unusable input reg %u.\n", regno);
 	      break;
 	    }
-	  if (!bitmap_bit_p (def_bb_transp, regno))
+	  if (!def_bb_transp->bit (regno))
 	    {
-	      if (bitmap_bit_p (def_bb_moveable, regno)
+	      if (def_bb_moveable->bit (regno)
 		  && !control_flow_insn_p (use_insn)
 #ifdef HAVE_cc0
 		  && !sets_cc0_p (use_insn)
@@ -4828,7 +4828,7 @@ interesting_dest_for_shprep_1 (rtx set, basic_block call_dom)
   rtx dest = SET_DEST (set);
   if (!REG_P (src) || !HARD_REGISTER_P (src)
       || !REG_P (dest) || HARD_REGISTER_P (dest)
-      || (call_dom && !bitmap_bit_p (df_get_live_in (call_dom), REGNO (dest))))
+      || (call_dom && !df_get_live_in (call_dom)->bit (REGNO (dest))))
     return NULL;
   return dest;
 }
@@ -4945,7 +4945,7 @@ split_live_ranges_for_shrink_wrap (void)
 	    }
 
 	  int ubbi = DF_REF_BB (use)->index;
-	  if (bitmap_bit_p (&reachable, ubbi))
+	  if (reachable.bit (ubbi))
 	    need_new.set_bit (ubbi);
 	}
       last_interesting_insn = insn;

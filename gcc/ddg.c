@@ -235,7 +235,7 @@ create_ddg_dep_from_intra_loop_link (ddg_ptr g, ddg_node_ptr src_node,
           first_def = df_bb_regno_first_def_find (g->bb, regno);
           gcc_assert (first_def);
 
-          if (bitmap_bit_p (&bb_info->gen, DF_REF_ID (first_def)))
+          if (bb_info->gen.bit (DF_REF_ID (first_def)))
             return;
         }
     }
@@ -306,8 +306,7 @@ add_cross_iteration_register_deps (ddg_ptr g, df_ref last_def)
 
 #ifdef ENABLE_CHECKING
   if (DF_REF_ID (last_def) != DF_REF_ID (first_def))
-    gcc_assert (!bitmap_bit_p (&bb_info->gen,
-			       DF_REF_ID (first_def)));
+    gcc_assert (!bb_info->gen.bit (DF_REF_ID (first_def)));
 #endif
 
   /* Create inter-loop true dependences and anti dependences.  */

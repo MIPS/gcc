@@ -311,11 +311,11 @@ df_rd_bb_local_compute_process_def (struct df_rd_bb_info *bb_info,
 	    {
 	      /* Only the last def(s) for a regno in the block has any
 		 effect.  */
-	      if (!bitmap_bit_p (&seen_in_block, regno))
+	      if (!seen_in_block.bit (regno))
 		{
 		  /* The first def for regno in insn gets to knock out the
 		     defs from other instructions.  */
-		  if ((!bitmap_bit_p (&seen_in_insn, regno))
+		  if ((!seen_in_insn.bit (regno))
 		      /* If the def is to only part of the reg, it does
 			 not kill the other defs that reach here.  */
 		      && (!(DF_REF_FLAGS (def) &
@@ -1283,8 +1283,7 @@ df_lr_verify_transfer_functions (void)
 	  /* Make a copy of the transfer functions and then compute
 	     new ones to see if the transfer functions have
 	     changed.  */
-	  if (!bitmap_bit_p (df_lr->out_of_date_transfer_functions,
-			     bb->index))
+	  if (!df_lr->out_of_date_transfer_functions->bit (bb->index))
 	    {
         bitmap_head saved_def, saved_use;
 	      saved_def.swap (&bb_info->def);
@@ -1300,8 +1299,7 @@ df_lr_verify_transfer_functions (void)
 	  /* If we do not have basic block info, the block must be in
 	     the list of dirty blocks or else some one has added a
 	     block behind our backs. */
-	  gcc_assert (bitmap_bit_p (df_lr->out_of_date_transfer_functions,
-				    bb->index));
+	  gcc_assert (df_lr->out_of_date_transfer_functions->bit (bb->index));
 	}
       /* Make sure no one created a block without following
 	 procedures.  */
@@ -1817,8 +1815,7 @@ df_live_verify_transfer_functions (void)
 	  /* Make a copy of the transfer functions and then compute
 	     new ones to see if the transfer functions have
 	     changed.  */
-	  if (!bitmap_bit_p (df_live->out_of_date_transfer_functions,
-			     bb->index))
+	  if (!df_live->out_of_date_transfer_functions->bit (bb->index))
 	    {
 	      bitmap_head saved_gen, saved_kill;
 	      saved_gen.swap (&bb_info->gen);
@@ -1834,8 +1831,8 @@ df_live_verify_transfer_functions (void)
 	  /* If we do not have basic block info, the block must be in
 	     the list of dirty blocks or else some one has added a
 	     block behind our backs. */
-	  gcc_assert (bitmap_bit_p (df_live->out_of_date_transfer_functions,
-				    bb->index));
+	  gcc_assert (df_live->out_of_date_transfer_functions->bit
+		      (bb->index));
 	}
       /* Make sure no one created a block without following
 	 procedures.  */
@@ -2869,7 +2866,7 @@ df_remove_dead_eq_notes (rtx insn, bitmap live)
 		if (DF_REF_REGNO (use) > FIRST_PSEUDO_REGISTER
 		    && DF_REF_LOC (use)
 		    && (DF_REF_FLAGS (use) & DF_REF_IN_NOTE)
-		    && ! bitmap_bit_p (live, DF_REF_REGNO (use))
+		    && ! live->bit (DF_REF_REGNO (use))
 		    && loc_mentioned_in_p (DF_REF_LOC (use), XEXP (link, 0)))
 		  {
 		    deleted = true;
@@ -2929,8 +2926,8 @@ df_whole_mw_reg_unused_p (struct df_mw_hardreg *mws,
 
   /* Likewise if some part of the register is used.  */
   for (r = mws->start_regno; r <= mws->end_regno; r++)
-    if (bitmap_bit_p (live, r)
-	|| bitmap_bit_p (artificial_uses, r))
+    if (live->bit (r)
+	|| artificial_uses->bit (r))
       return false;
 
   gcc_assert (REG_P (mws->mw_reg));
@@ -2972,8 +2969,8 @@ df_set_unused_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
   else
     for (r = mws->start_regno; r <= mws->end_regno; r++)
       {
-	if (!bitmap_bit_p (live, r)
-	    && !bitmap_bit_p (artificial_uses, r))
+	if (!live->bit (r)
+	    && !artificial_uses->bit (r))
 	  {
 	    df_set_note (REG_UNUSED, insn, regno_reg_rtx[r]);
 	    dead_debug_insert_temp (debug, r, insn, DEBUG_TEMP_AFTER_WITH_REG);
@@ -3004,9 +3001,9 @@ df_whole_mw_reg_dead_p (struct df_mw_hardreg *mws,
 
   /* Likewise if some part of the register is not dead.  */
   for (r = mws->start_regno; r <= mws->end_regno; r++)
-    if (bitmap_bit_p (live, r)
-	|| bitmap_bit_p (artificial_uses, r)
-	|| bitmap_bit_p (do_not_gen, r))
+    if (live->bit (r)
+	|| artificial_uses->bit (r)
+	|| do_not_gen->bit (r))
       return false;
 
   gcc_assert (REG_P (mws->mw_reg));
@@ -3054,9 +3051,9 @@ df_set_dead_notes_for_mw (rtx insn, struct df_mw_hardreg *mws,
   else
     {
       for (r = mws->start_regno; r <= mws->end_regno; r++)
-	if (!bitmap_bit_p (live, r)
-	    && !bitmap_bit_p (artificial_uses, r)
-	    && !bitmap_bit_p (do_not_gen, r))
+	if (!live->bit (r)
+	    && !artificial_uses->bit (r)
+	    && !do_not_gen->bit (r))
 	  {
 	    if (is_debug)
 	      {
@@ -3089,8 +3086,8 @@ df_create_unused_note (rtx insn, df_ref def,
     }
 
   if (!((DF_REF_FLAGS (def) & DF_REF_MW_HARDREG)
-	|| bitmap_bit_p (live, dregno)
-	|| bitmap_bit_p (artificial_uses, dregno)
+	|| live->bit (dregno)
+	|| artificial_uses->bit (dregno)
 	|| df_ignore_stack_reg (dregno)))
     {
       rtx reg = (DF_REF_LOC (def))
@@ -3278,7 +3275,7 @@ df_note_bb_compute (unsigned int bb_index,
 	      df_ref_debug (use, dump_file);
 	    }
 
-	  if (!bitmap_bit_p (live, uregno))
+	  if (!live->bit (uregno))
 	    {
 	      if (debug_insn)
 		{
@@ -3287,7 +3284,7 @@ df_note_bb_compute (unsigned int bb_index,
 		      /* We won't add REG_UNUSED or REG_DEAD notes for
 			 these, so we don't have to mess with them in
 			 debug insns either.  */
-		      if (!bitmap_bit_p (artificial_uses, uregno)
+		      if (!artificial_uses->bit (uregno)
 			  && !df_ignore_stack_reg (uregno))
 			dead_debug_add (&debug, use, uregno);
 		      continue;
@@ -3300,8 +3297,8 @@ df_note_bb_compute (unsigned int bb_index,
 
 	      if ( (!(DF_REF_FLAGS (use)
 		      & (DF_REF_MW_HARDREG | DF_REF_READ_WRITE)))
-		   && (!bitmap_bit_p (do_not_gen, uregno))
-		   && (!bitmap_bit_p (artificial_uses, uregno))
+		   && (!do_not_gen->bit (uregno))
+		   && (!artificial_uses->bit (uregno))
 		   && (!df_ignore_stack_reg (uregno)))
 		{
 		  rtx reg = (DF_REF_LOC (use))
@@ -4182,7 +4179,7 @@ df_md_bb_local_compute_process_def (struct df_md_bb_info *bb_info,
 	    || (dregno >= FIRST_PSEUDO_REGISTER))
 	  && top_flag == (DF_REF_FLAGS (def) & DF_REF_AT_TOP))
 	{
-          if (!bitmap_bit_p (&seen_in_insn, dregno))
+          if (!seen_in_insn.bit (dregno))
 	    {
 	      if (DF_REF_FLAGS (def)
 	          & (DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER))
@@ -4261,7 +4258,7 @@ df_md_local_compute (bitmap all_blocks)
       EXECUTE_IF_SET_IN_BITMAP (&frontiers[bb_index], 0, df_bb_index, bi2)
 	{
 	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, df_bb_index);
-	  if (bitmap_bit_p (all_blocks, df_bb_index))
+	  if (all_blocks->bit (df_bb_index))
 	    bitmap_ior_and_into (&df_md_get_bb_info (df_bb_index)->init, kill,
 				 df_get_live_in (bb));
 	}

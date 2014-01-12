@@ -218,8 +218,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
 	      unsigned int r;
 
 	      for (r = mws->start_regno; r <= mws->end_regno; r++)
-		if (bitmap_bit_p (artificial_uses, r)
-		    || bitmap_bit_p (live, r))
+		if (artificial_uses->bit (r)
+		    || live->bit (r))
 		  {
 		    all_dead = false;
 		    break;
@@ -243,7 +243,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 	    {
 	      unsigned int dregno = DF_REF_REGNO (def);
 
-	      if (bitmap_bit_p (live, dregno))
+	      if (live->bit (dregno))
 		{
 		  /* If we have seen a use of DREGNO somewhere before (i.e.
 		     later in this basic block), and DEF is not a subreg
@@ -253,7 +253,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		     If we have not seen a use of DREGNO later in this basic
 		     block, then we need to add the length from here to the
 		     end of the block to the live length.  */
-		  if (bitmap_bit_p (local_live, dregno))
+		  if (local_live->bit (dregno))
 		    {
 		      /* Note that LOCAL_LIVE implies LOCAL_PROCESSED, so
 			 we don't have to set LOCAL_PROCESSED in this clause.  */
@@ -282,7 +282,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		    live->clear_bit (dregno);
 		}
 	      else if ((!(DF_REF_FLAGS (def) & DF_REF_MW_HARDREG))
-		       && (!bitmap_bit_p (artificial_uses, dregno)))
+		       && (!artificial_uses->bit (dregno)))
 		{
 		  REG_LIVE_LENGTH (dregno)++;
 		}

@@ -678,7 +678,7 @@ regrename_analyze (bitmap bb_mask)
     {
       struct bb_rename_info *ri = rename_info + i;
       ri->bb = bb;
-      if (bb_mask != NULL && !bitmap_bit_p (bb_mask, bb->index))
+      if (bb_mask != NULL && !bb_mask->bit (bb->index))
 	bb->aux = NULL;
       else
 	bb->aux = ri;
@@ -1053,7 +1053,7 @@ scan_rtx_reg (rtx insn, rtx *loc, enum reg_class cl, enum scan_actions action,
       int subset = (this_regno >= head->regno
 		      && this_regno + this_nregs <= head->regno + head->nregs);
 
-      if (!bitmap_bit_p (open_chains_set, head->id)
+      if (!open_chains_set->bit (head->id)
 	  || head->regno + head->nregs <= this_regno
 	  || this_regno + this_nregs <= head->regno)
 	{

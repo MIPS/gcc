@@ -1668,7 +1668,7 @@ thread_through_all_blocks (bool may_peel_loop_headers)
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       if (!loop->header
-	  || !bitmap_bit_p (&threaded_blocks, loop->header->index))
+	  || !threaded_blocks.bit (loop->header->index))
 	continue;
 
       retval |= thread_through_loop_header (loop, may_peel_loop_headers);

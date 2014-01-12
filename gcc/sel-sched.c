@@ -1572,7 +1572,7 @@ verify_target_availability (expr_t expr, regset used_regs,
   live_available = hard_available = true;
   for (i = 0; i < n; i++)
     {
-      if (bitmap_bit_p (used_regs, regno + i))
+      if (used_regs->bit (regno + i))
         live_available = false;
       if (TEST_HARD_REG_BIT (reg_rename_p->unavailable_hard_regs, regno + i))
         hard_available = false;
@@ -2149,9 +2149,9 @@ implicit_clobber_conflict_p (insn_t through_insn, expr_t expr)
   EXECUTE_IF_SET_IN_HARD_REG_SET (temp, 0, regno, hrsi)
     {
       vinsn_t vi = INSN_VINSN (through_insn);
-      if (bitmap_bit_p (VINSN_REG_SETS (vi), regno)
-	  || bitmap_bit_p (VINSN_REG_CLOBBERS (vi), regno)
-	  || bitmap_bit_p (VINSN_REG_USES (vi), regno))
+      if (VINSN_REG_SETS (vi)->bit (regno)
+	  || VINSN_REG_CLOBBERS (vi)->bit (regno)
+	  || VINSN_REG_USES (vi)->bit (regno))
 	return true;
     }
 
@@ -2387,9 +2387,9 @@ try_bitmap_cache (expr_t expr, insn_t insn,
   int expr_uid = INSN_UID (EXPR_INSN_RTX (expr));
 
   /* First check whether we've analyzed this situation already.  */
-  if (bitmap_bit_p (INSN_ANALYZED_DEPS (insn), expr_uid))
+  if (INSN_ANALYZED_DEPS (insn)->bit (expr_uid))
     {
-      if (bitmap_bit_p (INSN_FOUND_DEPS (insn), expr_uid))
+      if (INSN_FOUND_DEPS (insn)->bit (expr_uid))
         {
           if (sched_verbose >= 6)
             sel_print ("removed (cached)\n");
@@ -2404,7 +2404,7 @@ try_bitmap_cache (expr_t expr, insn_t insn,
           return true;
         }
     }
-  else if (bitmap_bit_p (INSN_FOUND_DEPS (insn), expr_uid))
+  else if (INSN_FOUND_DEPS (insn)->bit (expr_uid))
     {
       if (inside_insn_group)
         {
@@ -3681,7 +3681,7 @@ av_set_could_be_blocked_by_bookkeeping_p (av_set_t orig_ops, void *static_params
 
   /* Expressions can be also blocked by bookkeeping created during current
      move_op.  */
-  if (bitmap_bit_p (current_copies, INSN_UID (sparams->failed_insn)))
+  if (current_copies->bit (INSN_UID (sparams->failed_insn)))
     FOR_EACH_EXPR (expr, iter, orig_ops)
       if (moveup_expr_cached (expr, sparams->failed_insn, false) != MOVEUP_EXPR_NULL)
         return true;
@@ -6542,7 +6542,7 @@ code_motion_path_driver (insn_t insn, av_set_t orig_ops, ilist_t path,
           return false;
         }
 
-      if (bitmap_bit_p (code_motion_visited_blocks, bb->index))
+      if (code_motion_visited_blocks->bit (bb->index))
         {
           /* We have already found an original operation on this branch, do not
              go any further and just return TRUE here.  If we don't stop here,
@@ -7288,7 +7288,7 @@ sel_region_target_finish (bool reset_sched_cycles_p)
 
   for (i = 0; i < current_nr_blocks; i++)
     {
-      if (bitmap_bit_p (&scheduled_blocks, i))
+      if (scheduled_blocks.bit (i))
 	continue;
 
       /* While pipelining outer loops, skip bundling for loop
@@ -7634,7 +7634,7 @@ sel_sched_region_1 (void)
             {
               basic_block bb = EBB_FIRST_BB (i);
 
-              if (bitmap_bit_p (blocks_to_reschedule, bb->index))
+              if (blocks_to_reschedule->bit (bb->index))
                 {
                   if (! bb_ends_ebb_p (bb))
                     blocks_to_reschedule->set_bit (bb_next_bb (bb)->index);
@@ -7667,7 +7667,7 @@ sel_sched_region_1 (void)
                   continue;
                 }
 
-              if (bitmap_bit_p (blocks_to_reschedule, bb->index))
+              if (blocks_to_reschedule->bit (bb->index))
                 {
                   flist_tail_init (new_fences);
 

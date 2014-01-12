@@ -290,7 +290,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
     {
       regno = pseudo_regnos[i];
       rclass = lra_get_allocno_class (regno);
-      if (bitmap_bit_p (setjump_crosses, regno)
+      if (setjump_crosses->bit (regno)
 	  || (spill_class
 	      = ((enum reg_class)
 		 targetm.spill_class ((reg_class_t) rclass,
@@ -481,7 +481,7 @@ spill_pseudos (void)
   FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_BB_INSNS (bb, insn)
-	if (bitmap_bit_p (&changed_insns, INSN_UID (insn)))
+	if (changed_insns.bit (INSN_UID (insn)))
 	  {
 	    rtx *link_loc, link;
 	    remove_pseudos (&PATTERN (insn), insn);

@@ -4264,7 +4264,7 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 			df_ref def = *def_rec;
 			unsigned r = DF_REF_REGNO (def);
 
-			if (bitmap_bit_p (&return_regs, r))
+			if (return_regs.bit (r))
 			  break;
 		      }
 		    /* ..then add all reg uses to the set of regs

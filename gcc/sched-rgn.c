@@ -1714,7 +1714,7 @@ check_live_1 (int src, rtx x)
 	      for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 		{
 		  basic_block b = candidate_table[src].split_bbs.first_member[i];
-		  int t = bitmap_bit_p (&not_in_df, b->index);
+		  int t = not_in_df.bit (b->index);
 
 		  /* We can have split blocks, that were recently generated.
 		     Such blocks are always outside current region.  */
@@ -1732,7 +1732,7 @@ check_live_1 (int src, rtx x)
 	  for (i = 0; i < candidate_table[src].split_bbs.nr_members; i++)
 	    {
 	      basic_block b = candidate_table[src].split_bbs.first_member[i];
-	      int t = bitmap_bit_p (&not_in_df, b->index);
+	      int t = not_in_df.bit (b->index);
 
 	      gcc_assert (!t || (CONTAINING_RGN (b->index)
 				 != CONTAINING_RGN (BB_TO_BLOCK (src))));

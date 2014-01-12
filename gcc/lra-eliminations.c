@@ -1101,7 +1101,7 @@ spill_pseudos (HARD_REG_SET set)
       }
   IOR_HARD_REG_SET (lra_no_alloc_regs, set);
   for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
-    if (bitmap_bit_p (&to_process, INSN_UID (insn)))
+    if (to_process.bit (INSN_UID (insn)))
       {
 	lra_push_insn (insn);
 	lra_set_used_insn_alternative (insn, -1);

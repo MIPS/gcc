@@ -2596,7 +2596,7 @@ propagate_freq (basic_block head, bitmap tovisit)
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	{
-	  bool visit = bitmap_bit_p (tovisit, e->src->index);
+	  bool visit = tovisit->bit (e->src->index);
 
 	  if (visit && !(e->flags & EDGE_DFS_BACK))
 	    count++;
@@ -2629,7 +2629,7 @@ propagate_freq (basic_block head, bitmap tovisit)
 	{
 #ifdef ENABLE_CHECKING
 	  FOR_EACH_EDGE (e, ei, bb->preds)
-	    gcc_assert (!bitmap_bit_p (tovisit, e->src->index)
+	    gcc_assert (!tovisit->bit (e->src->index)
 			|| (e->flags & EDGE_DFS_BACK));
 #endif
 

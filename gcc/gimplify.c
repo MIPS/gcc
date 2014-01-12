@@ -6637,7 +6637,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    {
 	      c = build_omp_clause (input_location, OMP_CLAUSE_LINEAR);
 	      OMP_CLAUSE_LINEAR_NO_COPYIN (c) = 1;
-	      if (bitmap_bit_p (&has_decl_expr, DECL_UID (decl)))
+	      if (has_decl_expr.bit (DECL_UID (decl)))
 		OMP_CLAUSE_LINEAR_NO_COPYOUT (c) = 1;
 	      OMP_CLAUSE_DECL (c) = decl;
 	      OMP_CLAUSE_CHAIN (c) = OMP_FOR_CLAUSES (for_stmt);
@@ -6647,7 +6647,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
 	    }
 	  else
 	    {
-	      bool lastprivate = !bitmap_bit_p (&has_decl_expr, DECL_UID (decl));
+	      bool lastprivate = !has_decl_expr.bit (DECL_UID (decl));
 	      c = build_omp_clause (input_location,
 				    lastprivate ? OMP_CLAUSE_LASTPRIVATE
 						: OMP_CLAUSE_PRIVATE);

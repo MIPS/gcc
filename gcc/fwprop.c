@@ -199,8 +199,8 @@ process_uses (df_ref *use_rec, int top_flag)
       {
         unsigned int uregno = DF_REF_REGNO (use);
         if (reg_defs[uregno]
-	    && !bitmap_bit_p (local_md, uregno)
-	    && bitmap_bit_p (local_lr, uregno))
+	    && !local_md->bit (uregno)
+	    && local_lr->bit (uregno))
 	  use_def_ref[DF_REF_ID (use)] = reg_defs[uregno];
       }
 }

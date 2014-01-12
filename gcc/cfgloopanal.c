@@ -508,7 +508,7 @@ get_loop_hot_path (const struct loop *loop)
       FOR_EACH_EDGE (e, ei, bb->succs)
         if ((!best || e->probability > best->probability)
 	    && !loop_exit_edge_p (loop, e)
-	    && !bitmap_bit_p (&visited, e->dest->index))
+	    && !visited.bit (e->dest->index))
 	  best = e;
       if (!best || best->dest == loop->header)
 	break;

@@ -1218,8 +1218,7 @@ record_subregs_of_mode (rtx subreg, bitmap subregs_of_mode)
     {
       unsigned int rclass;
       for (rclass = 0; rclass < N_REG_CLASSES; rclass++)
-	if (!bitmap_bit_p (invalid_mode_changes,
-			   regno * N_REG_CLASSES + rclass)
+	if (!invalid_mode_changes->bit (regno * N_REG_CLASSES + rclass)
 	    && CANNOT_CHANGE_MODE_CLASS (PSEUDO_REGNO_MODE (regno),
 					 mode, (enum reg_class) rclass))
 	  invalid_mode_changes->set_bit (regno * N_REG_CLASSES + rclass);
@@ -1278,8 +1277,7 @@ bool
 invalid_mode_change_p (unsigned int regno,
 		       enum reg_class rclass)
 {
-  return bitmap_bit_p (invalid_mode_changes,
-		       regno * N_REG_CLASSES + (unsigned) rclass);
+  return invalid_mode_changes->bit (regno * N_REG_CLASSES + (unsigned) rclass);
 }
 
 void

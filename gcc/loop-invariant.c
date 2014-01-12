@@ -554,7 +554,7 @@ compute_always_reached (struct loop *loop, basic_block *body,
       if (dominated_by_p (CDI_DOMINATORS, loop->latch, body[i]))
 	always_reached->set_bit (i);
 
-      if (bitmap_bit_p (may_exit, i))
+      if (may_exit->bit (i))
 	return;
     }
 }
@@ -977,8 +977,8 @@ find_invariants_body (struct loop *loop, basic_block *body,
 
   for (i = 0; i < loop->num_nodes; i++)
     find_invariants_bb (body[i],
-			bitmap_bit_p (always_reached, i),
-			bitmap_bit_p (always_executed, i));
+			always_reached->bit (i),
+			always_executed->bit (i));
 }
 
 /* Finds invariants in LOOP.  */
@@ -1873,7 +1873,7 @@ calculate_loop_reg_pressure (void)
     FOR_EACH_LOOP (loop, 0)
       {
 	EXECUTE_IF_SET_IN_BITMAP (&LOOP_DATA (loop)->regs_live, 0, j, bi)
-	  if (! bitmap_bit_p (&LOOP_DATA (loop)->regs_ref, j))
+	  if (! LOOP_DATA (loop)->regs_ref.bit (j))
 	    {
 	      enum reg_class pressure_class;
 	      int nregs;

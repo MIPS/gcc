@@ -948,7 +948,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
   while (tos != worklist)
     {
       basic_block bb = *--tos;
-      if (!bitmap_bit_p (live_range, bb->index))
+      if (!live_range->bit (bb->index))
 	{
 	  edge e;
 	  edge_iterator ei;
@@ -972,7 +972,7 @@ augment_live_range (bitmap live_range, HARD_REG_SET *btrs_live_in_range,
 	  FOR_EACH_EDGE (e, ei, bb->preds)
 	    {
 	      basic_block pred = e->src;
-	      if (!bitmap_bit_p (live_range, pred->index))
+	      if (!live_range->bit (pred->index))
 		*tos++ = pred;
 	    }
 	}

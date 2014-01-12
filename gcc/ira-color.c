@@ -1715,8 +1715,7 @@ assign_hard_reg (ira_allocno_t a, bool retry_p)
 	  /* Reload can give another class so we need to check all
 	     allocnos.  */
 	  if (!retry_p
-	      && (!bitmap_bit_p (consideration_allocno_bitmap,
-				 ALLOCNO_NUM (conflict_a))
+	      && (!consideration_allocno_bitmap->bit (ALLOCNO_NUM (conflict_a))
 		  || ((!ALLOCNO_ASSIGNED_P (conflict_a)
 		       || ALLOCNO_HARD_REGNO (conflict_a) < 0)
 		      && !(hard_reg_set_intersect_p
@@ -2333,8 +2332,7 @@ push_allocno_to_stack (ira_allocno_t a)
 		   (ALLOCNO_COLOR_DATA (a)->profitable_hard_regs,
 		    conflict_data->profitable_hard_regs)))
 	    continue;
-	  ira_assert (bitmap_bit_p (coloring_allocno_bitmap,
-				    ALLOCNO_NUM (conflict_a)));
+	  ira_assert (coloring_allocno_bitmap->bit (ALLOCNO_NUM (conflict_a)));
 	  if (update_left_conflict_sizes_p (conflict_a, a, size))
 	    {
 	      delete_allocno_from_bucket
@@ -2407,8 +2405,8 @@ ira_loop_edge_freq (ira_loop_tree_node_t loop_node, int regno, bool exit_p)
       FOR_EACH_EDGE (e, ei, loop_node->loop->header->preds)
 	if (e->src != loop_node->loop->latch
 	    && (regno < 0
-		|| (bitmap_bit_p (df_get_live_out (e->src), regno)
-		    && bitmap_bit_p (df_get_live_in (e->dest), regno))))
+		|| (df_get_live_out (e->src)->bit (regno)
+		    && df_get_live_in (e->dest)->bit (regno))))
 	  freq += EDGE_FREQUENCY (e);
     }
   else
@@ -2416,8 +2414,8 @@ ira_loop_edge_freq (ira_loop_tree_node_t loop_node, int regno, bool exit_p)
       edges = get_loop_exit_edges (loop_node->loop);
       FOR_EACH_VEC_ELT (edges, i, e)
 	if (regno < 0
-	    || (bitmap_bit_p (df_get_live_out (e->src), regno)
-		&& bitmap_bit_p (df_get_live_in (e->dest), regno)))
+	    || (df_get_live_out (e->src)->bit (regno)
+		&& df_get_live_in (e->dest)->bit (regno)))
 	  freq += EDGE_FREQUENCY (e);
       edges.release ();
     }
@@ -3238,8 +3236,8 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
 	      || ALLOCNO_CAP (subloop_allocno) != NULL)
 	    continue;
 	  ira_assert (ALLOCNO_CLASS (subloop_allocno) == rclass);
-	  ira_assert (bitmap_bit_p (subloop_node->all_allocnos,
-				    ALLOCNO_NUM (subloop_allocno)));
+	  ira_assert (subloop_node->all_allocnos->bit
+		      (ALLOCNO_NUM (subloop_allocno)));
 	  if ((flag_ira_region == IRA_REGION_MIXED)
 	      && (loop_tree_node->reg_pressure[pclass]
 		  <= ira_class_hard_regs_num[pclass]))
@@ -3364,7 +3362,7 @@ move_spill_restore (void)
 		 by copy although the allocno will not get memory
 		 slot.  */
 	      || ira_equiv_no_lvalue_p (regno)
-	      || !bitmap_bit_p (loop_node->border_allocnos, ALLOCNO_NUM (a)))
+	      || !loop_node->border_allocnos->bit (ALLOCNO_NUM (a)))
 	    continue;
 	  mode = ALLOCNO_MODE (a);
 	  rclass = ALLOCNO_CLASS (a);
@@ -3523,7 +3521,7 @@ ira_reassign_conflict_allocnos (int start_regno)
       int n = ALLOCNO_NUM_OBJECTS (a);
 
       if (! ALLOCNO_ASSIGNED_P (a)
-	  && ! bitmap_bit_p (allocnos_to_color, ALLOCNO_NUM (a)))
+	  && ! allocnos_to_color->bit (ALLOCNO_NUM (a)))
 	{
 	  if (ALLOCNO_CLASS (a) != NO_REGS)
 	    sorted_allocnos[allocnos_to_color_num++] = a;
@@ -4011,7 +4009,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
     {
       allocno = spilled_coalesced_allocnos[i];
       if (ALLOCNO_COALESCE_DATA (allocno)->first != allocno
-	  || bitmap_bit_p (set_jump_crosses, ALLOCNO_REGNO (allocno))
+	  || set_jump_crosses->bit (ALLOCNO_REGNO (allocno))
 	  || ira_equiv_no_lvalue_p (ALLOCNO_REGNO (allocno)))
 	continue;
       for (j = 0; j < i; j++)
@@ -4019,7 +4017,7 @@ coalesce_spill_slots (ira_allocno_t *spilled_coalesced_allocnos, int num)
 	  a = spilled_coalesced_allocnos[j];
 	  n = ALLOCNO_COALESCE_DATA (a)->temp;
 	  if (ALLOCNO_COALESCE_DATA (a)->first == a
-	      && ! bitmap_bit_p (set_jump_crosses, ALLOCNO_REGNO (a))
+	      && ! set_jump_crosses->bit (ALLOCNO_REGNO (a))
 	      && ! ira_equiv_no_lvalue_p (ALLOCNO_REGNO (a))
 	      && ! slot_coalesced_allocno_live_ranges_intersect_p (allocno, n))
 	    break;
@@ -4469,8 +4467,7 @@ ira_reuse_stack_slot (int regno, unsigned int inherent_size,
 		gcc_unreachable ();
 	      if (cp->insn == NULL_RTX)
 		continue;
-	      if (bitmap_bit_p (&slot->spilled_regs,
-				ALLOCNO_REGNO (another_allocno)))
+	      if (slot->spilled_regs.bit (ALLOCNO_REGNO (another_allocno)))
 		cost += cp->freq;
 	    }
 	  if (cost > best_cost)
