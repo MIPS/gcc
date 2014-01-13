@@ -1,3 +1,62 @@
+2014-01-10  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* gcc.target/arm/neon/vst1Q_laneu64-1.c: New test.
+
+2014-01-10  Hans-Peter Nilsson  <hp@axis.com>
+
+	* gcc.dg/pr46309.c: Disable for cris*-*-*.
+
+2014-01-10  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/56060
+	PR c++/59730
+	* g++.dg/cpp0x/variadic144.C: New.
+	* g++.dg/cpp0x/variadic145.C: Likewise.
+
+2014-01-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59715
+	* gcc.dg/torture/pr59715.c: New testcase.
+
+2014-01-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/bswap-1.c, gcc.target/mips/bswap-2.c,
+	gcc.target/mips/bswap-3.c, gcc.target/mips/bswap-4.c,
+	gcc.target/mips/bswap-5.c, gcc.target/mips/bswap-6.c: New tests.
+
+2014-01-09  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR rtl-optimization/59137
+	* gcc.target/mips/pr59137.c: New test.
+
+2014-01-09  Richard Biener  <rguenther@suse.de>
+
+	Backport from mainline
+	2013-11-18  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/59125
+	PR tree-optimization/54570
+	* gcc.dg/builtin-object-size-8.c: Un-xfail.
+	* gcc.dg/builtin-object-size-14.c: New testcase.
+	* gcc.dg/strlenopt-14gf.c: Adjust.
+	* gcc.dg/strlenopt-1f.c: Likewise.
+	* gcc.dg/strlenopt-4gf.c: Likewise.
+
+	2013-12-03  Jakub Jelinek  <jakub@redhat.com>
+
+	PR tree-optimization/59362
+	* gcc.c-torture/compile/pr59362.c: New test.
+
+2014-01-09  Richard Earnshaw  <rearnsha@arm.com>
+
+	PR rtl-optimization/54300
+	* gcc.target/arm/pr54300.C: New test.
+
+2014-01-08  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59610
+	* gcc.dg/ipa/pr59610.c: New test.
+
 2014-01-07  Jakub Jelinek  <jakub@redhat.com>
 
 	PR rtl-optimization/58668
