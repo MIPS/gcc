@@ -1797,8 +1797,7 @@ struct mips_cpu_info {
    Thus, MSA vector registers with MODE > 64 bits are part clobbered.
    When interlinking FR mode, we assume FP registers are clobbered.  */
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
-  ((TARGET_MSA && FP_REG_P (REGNO) && GET_MODE_SIZE (MODE) > 8)	\
-   || (TARGET_INTERLINK_FR && FP_REG_P (REGNO)))
+  (TARGET_MSA && FP_REG_P (REGNO) && GET_MODE_SIZE (MODE) > 8)
 
 #define MODES_TIEABLE_P mips_modes_tieable_p
 

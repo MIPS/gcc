@@ -7989,21 +7989,7 @@ mips_expand_call (enum mips_call_type type, rtx result, rtx addr,
       pattern = fn (result, addr, args_size);
     }
 
-  insn = mips_emit_call_insn (pattern, orig_addr, addr, lazy_p);
-  if (TARGET_FLOAT64 && TARGET_INTERLINK_FR)
-    {
-      /* If we are calling a stub, we need to arrange to save $16 in the
-	 prologue.  We do this by marking the function call as using the
-	 register.  The prologue will later see that it is used, and emit
-	 code to save it.  */
-      CALL_INSN_FUNCTION_USAGE (insn) =
-	gen_rtx_EXPR_LIST (VOIDmode,
-			   gen_rtx_CLOBBER (VOIDmode,
-					    gen_rtx_REG (word_mode, 16)),
-			   CALL_INSN_FUNCTION_USAGE (insn));
-    }
-
-  return insn;
+  return mips_emit_call_insn (pattern, orig_addr, addr, lazy_p);
 }
 
 /* Split call instruction INSN into a $gp-clobbering call and
@@ -8056,10 +8042,6 @@ static bool
 mips_function_ok_for_sibcall (tree decl, tree exp ATTRIBUTE_UNUSED)
 {
   if (!TARGET_SIBCALLS)
-    return false;
-
-  /* We need to restore $16 after a call, so it is not ok for sibcall.  */
-  if (TARGET_FLOAT64 && TARGET_INTERLINK_FR)
     return false;
 
   /* Interrupt handlers need special epilogue code and therefore can't
@@ -11671,25 +11653,6 @@ static void
 mips_output_function_prologue (FILE *file, HOST_WIDE_INT size ATTRIBUTE_UNUSED)
 {
   const char *fnname;
-
-  /* We may generate a stubs to handle floating-point parameters and return,
-     and adjust stack alignment.
-     We don't need the stub if the function is not public.  */
-  if (TARGET_INTERLINK_FR && TREE_PUBLIC (current_function_decl))
-    {
-      enum machine_mode mode = DECL_MODE (DECL_RESULT (current_function_decl));
-      if (TARGET_FLOAT64)
-	{
-	  if (crtl->args.info.stdarg_p
-	      || crtl->args.info.num_msa_regs != 0
-	      || MSA_SUPPORTED_VECTOR_MODE_P (mode))
-	    sorry ("FR0 to FR1 stubs.");
-	  else
-	    msa_build_function_stub (true);
-	}
-      else
-	msa_build_function_stub (false);
-    }
 
   /* In MIPS16 mode, we may need to generate a non-MIPS16 stub to handle
      floating-point arguments.  */
@@ -18965,11 +18928,6 @@ mips_option_override (void)
   /* If TARGET_DSPR2, enable TARGET_DSP.  */
   if (TARGET_DSPR2)
     TARGET_DSP = true;
-
-  /* We disable TARGET_INTERLINK_FR for 64-bit targets that are always in
-     FR1 mode.  */
-  if (TARGET_INTERLINK_FR && TARGET_64BIT)
-    TARGET_INTERLINK_FR = 0;
 
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
