@@ -119,13 +119,6 @@ static vec<df_ref> use_def_ref;
 static vec<df_ref> reg_defs;
 static vec<df_ref> reg_defs_stack;
 
-/* The MD bitmaps are trimmed to include only live registers to cut
-   memory usage on testcases like insn-recog.c.  Track live registers
-   in the basic block and do not perform forward propagation if the
-   destination is a dead pseudo occurring in a note.  */
-static bitmap local_md;
-static bitmap local_lr;
-
 /* Return the only def in USE's use-def chain, or NULL if there is
    more than one def in the chain.  */
 
@@ -135,76 +128,6 @@ get_def_for_use (df_ref use)
   return use_def_ref[DF_REF_ID (use)];
 }
 
-
-/* Update the reg_defs vector with non-partial definitions in DEF_REC.
-   TOP_FLAG says which artificials uses should be used, when DEF_REC
-   is an artificial def vector.  LOCAL_MD is modified as after a
-   df_md_simulate_* function; we do more or less the same processing
-   done there, so we do not use those functions.  */
-
-#define DF_MD_GEN_FLAGS \
-	(DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER)
-
-static void
-process_defs (df_ref *def_rec, int top_flag)
-{
-  df_ref def;
-  while ((def = *def_rec++) != NULL)
-    {
-      df_ref curr_def = reg_defs[DF_REF_REGNO (def)];
-      unsigned int dregno;
-
-      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) != top_flag)
-	continue;
-
-      dregno = DF_REF_REGNO (def);
-      if (curr_def)
-	reg_defs_stack.safe_push (curr_def);
-      else
-	{
-	  /* Do not store anything if "transitioning" from NULL to NULL.  But
-             otherwise, push a special entry on the stack to tell the
-	     leave_block callback that the entry in reg_defs was NULL.  */
-	  if (DF_REF_FLAGS (def) & DF_MD_GEN_FLAGS)
-	    ;
-	  else
-	    reg_defs_stack.safe_push (def);
-	}
-
-      if (DF_REF_FLAGS (def) & DF_MD_GEN_FLAGS)
-	{
-	  local_md->set_bit (dregno);
-	  reg_defs[dregno] = NULL;
-	}
-      else
-	{
-	  local_md->clear_bit (dregno);
-	  reg_defs[dregno] = def;
-	}
-    }
-}
-
-
-/* Fill the use_def_ref vector with values for the uses in USE_REC,
-   taking reaching definitions info from LOCAL_MD and REG_DEFS.
-   TOP_FLAG says which artificials uses should be used, when USE_REC
-   is an artificial use vector.  */
-
-static void
-process_uses (df_ref *use_rec, int top_flag)
-{
-  df_ref use;
-  while ((use = *use_rec++) != NULL)
-    if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == top_flag)
-      {
-        unsigned int uregno = DF_REF_REGNO (use);
-        if (reg_defs[uregno]
-	    && !local_md->bit (uregno)
-	    && local_lr->bit (uregno))
-	  use_def_ref[DF_REF_ID (use)] = reg_defs[uregno];
-      }
-}
-
 class single_def_use_dom_walker : public dom_walker
 {
 public:
@@ -212,6 +135,17 @@ public:
     : dom_walker (direction) {}
   virtual void before_dom_children (basic_block);
   virtual void after_dom_children (basic_block);
+
+private:
+  void process_defs (df_ref *, int);
+  void process_uses (df_ref *, int);
+
+  /* The MD bitmaps are trimmed to include only live registers to cut
+     memory usage on testcases like insn-recog.c.  Track live registers
+     in the basic block and do not perform forward propagation if the
+     destination is a dead pseudo occurring in a note.  */
+  bitmap_head local_md;
+  bitmap_head local_lr;
 };
 
 void
@@ -222,8 +156,8 @@ single_def_use_dom_walker::before_dom_children (basic_block bb)
   struct df_lr_bb_info *lr_bb_info = df_lr_get_bb_info (bb_index);
   rtx insn;
 
-  bitmap_copy (local_md, &md_bb_info->in);
-  bitmap_copy (local_lr, &lr_bb_info->in);
+  bitmap_copy (&local_md, &md_bb_info->in);
+  bitmap_copy (&local_lr, &lr_bb_info->in);
 
   /* Push a marker for the leave_block callback.  */
   reg_defs_stack.safe_push (NULL);
@@ -242,7 +176,7 @@ single_def_use_dom_walker::before_dom_children (basic_block bb)
         process_uses (DF_INSN_UID_USES (uid), 0);
         process_uses (DF_INSN_UID_EQ_USES (uid), 0);
         process_defs (DF_INSN_UID_DEFS (uid), 0);
-	df_simulate_one_insn_forwards (bb, insn, local_lr);
+	df_simulate_one_insn_forwards (bb, insn, &local_lr);
       }
 
   process_uses (df_get_artificial_uses (bb_index), 0);
@@ -269,6 +203,75 @@ single_def_use_dom_walker::after_dom_children (basic_block bb ATTRIBUTE_UNUSED)
 }
 
 
+/* Update the reg_defs vector with non-partial definitions in DEF_REC.
+   TOP_FLAG says which artificials uses should be used, when DEF_REC
+   is an artificial def vector.  LOCAL_MD is modified as after a
+   df_md_simulate_* function; we do more or less the same processing
+   done there, so we do not use those functions.  */
+
+#define DF_MD_GEN_FLAGS \
+	(DF_REF_PARTIAL | DF_REF_CONDITIONAL | DF_REF_MAY_CLOBBER)
+
+void
+single_def_use_dom_walker::process_defs (df_ref *def_rec, int top_flag)
+{
+  df_ref def;
+  while ((def = *def_rec++) != NULL)
+    {
+      df_ref curr_def = reg_defs[DF_REF_REGNO (def)];
+      unsigned int dregno;
+
+      if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) != top_flag)
+	continue;
+
+      dregno = DF_REF_REGNO (def);
+      if (curr_def)
+	reg_defs_stack.safe_push (curr_def);
+      else
+	{
+	  /* Do not store anything if "transitioning" from NULL to NULL.  But
+             otherwise, push a special entry on the stack to tell the
+	     leave_block callback that the entry in reg_defs was NULL.  */
+	  if (DF_REF_FLAGS (def) & DF_MD_GEN_FLAGS)
+	    ;
+	  else
+	    reg_defs_stack.safe_push (def);
+	}
+
+      if (DF_REF_FLAGS (def) & DF_MD_GEN_FLAGS)
+	{
+	  local_md.set_bit (dregno);
+	  reg_defs[dregno] = NULL;
+	}
+      else
+	{
+	  local_md.clear_bit (dregno);
+	  reg_defs[dregno] = def;
+	}
+    }
+}
+
+
+/* Fill the use_def_ref vector with values for the uses in USE_REC,
+   taking reaching definitions info from LOCAL_MD and REG_DEFS.
+   TOP_FLAG says which artificials uses should be used, when USE_REC
+   is an artificial use vector.  */
+
+void
+single_def_use_dom_walker::process_uses (df_ref *use_rec, int top_flag)
+{
+  df_ref use;
+  while ((use = *use_rec++) != NULL)
+    if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == top_flag)
+      {
+        unsigned int uregno = DF_REF_REGNO (use);
+        if (reg_defs[uregno]
+	    && !local_md.bit (uregno)
+	    && local_lr.bit (uregno))
+	  use_def_ref[DF_REF_ID (use)] = reg_defs[uregno];
+      }
+}
+
 /* Build a vector holding the reaching definitions of uses reached by a
    single dominating definition.  */
 
@@ -290,16 +293,12 @@ build_single_def_use_links (void)
   reg_defs.safe_grow_cleared (max_reg_num ());
 
   reg_defs_stack.create (n_basic_blocks_for_fn (cfun) * 10);
-  local_md = BITMAP_ALLOC (NULL);
-  local_lr = BITMAP_ALLOC (NULL);
 
   /* Walk the dominator tree looking for single reaching definitions
      dominating the uses.  This is similar to how SSA form is built.  */
   single_def_use_dom_walker (CDI_DOMINATORS)
     .walk (cfun->cfg->x_entry_block_ptr);
 
-  BITMAP_FREE (local_lr);
-  BITMAP_FREE (local_md);
   reg_defs.release ();
   reg_defs_stack.release ();
 }
