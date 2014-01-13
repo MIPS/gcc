@@ -255,9 +255,6 @@ minterlink-mips16
 Target Report Var(TARGET_INTERLINK_COMPRESSED) Init(0)
 An alias for minterlink-compressed provided for backward-compatibility.
 
-+minterlink-fr
-Target Report Var(TARGET_INTERLINK_FR) Init(0)
-
 mips
 Target RejectNegative Joined ToLower Enum(mips_mips_opt_value) Var(mips_isa_option)
 -mipsN	Generate code for ISA level N

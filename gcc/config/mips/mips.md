@@ -6162,10 +6162,10 @@
   rtx diff_vec = PATTERN (NEXT_INSN (operands[2]));
 
   gcc_assert (GET_CODE (diff_vec) == ADDR_DIFF_VEC);
-  
+
   output_asm_insn ("sltu\t%0, %1", operands);
   output_asm_insn ("bteqz\t%3", operands);
-  
+
   switch (GET_MODE (diff_vec))
     {
     case HImode:
