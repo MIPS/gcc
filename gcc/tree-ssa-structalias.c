@@ -1424,26 +1424,26 @@ scc_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
       if (si->scc_stack.length () > 0
 	  && si->dfs[si->scc_stack.last ()] >= my_dfs)
 	{
-	  bitmap scc = BITMAP_ALLOC (NULL);
+	  bitmap_head scc;
 	  unsigned int lowest_node;
 	  bitmap_iterator bi;
 
-	  scc->set_bit (n);
+	  scc.set_bit (n);
 
 	  while (si->scc_stack.length () != 0
 		 && si->dfs[si->scc_stack.last ()] >= my_dfs)
 	    {
 	      unsigned int w = si->scc_stack.pop ();
 
-	      scc->set_bit (w);
+	      scc.set_bit (w);
 	    }
 
-	  lowest_node = scc->first_set_bit ();
+	  lowest_node = scc.first_set_bit ();
 	  gcc_assert (lowest_node < FIRST_REF_NODE);
 
 	  /* Collapse the SCC nodes into a single node, and mark the
 	     indirect cycles.  */
-	  EXECUTE_IF_SET_IN_BITMAP (scc, 0, i, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (&scc, 0, i, bi)
 	    {
 	      if (i < FIRST_REF_NODE)
 		{
