@@ -460,7 +460,7 @@
   [(set (match_operand:<RES> 0 "register_operand" "=d")
 	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
 		       (match_operand 2 "const_<imm>_operand" "")]
-		       UNSPEC_MSA_COPY_S))]
+		      UNSPEC_MSA_COPY_S))]
   "ISA_HAS_MSA"
   "copy_s.<msafmt>\t%0,%w1[%2]"
   [(set_attr "type"     "mfc")
@@ -854,14 +854,14 @@
   {
     if (which_alternative == 1)
       {
-        operands[2] = CONST_VECTOR_ELT (operands[2], 0);
-        return "xori.b\t%w0,%w1,%2";
+	operands[2] = CONST_VECTOR_ELT (operands[2], 0);
+	return "xori.b\t%w0,%w1,%2";
       }
     else
       return "xor.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"xor")
-  (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")])
 
 (define_insn "xor<mode>3"
   [(set (match_operand:IMSA_X 0 "register_operand" "=f,f")
@@ -872,20 +872,20 @@
     if (which_alternative == 1)
       {
 	HOST_WIDE_INT val = INTVAL(CONST_VECTOR_ELT (operands[2], 0));
-        int vlog2 = exact_log2 (val);
+	int vlog2 = exact_log2 (val);
 	gcc_assert (vlog2 != -1);
-        operands[2] = GEN_INT (vlog2);
-        switch (GET_MODE (operands[0]))
-          {
-          case V8HImode:
-            return "bnegi.h\t%w0,%w1,%2";
-          case V4SImode:
-            return "bnegi.w\t%w0,%w1,%2";
-          case V2DImode:
-            return "bnegi.d\t%w0,%w1,%2";
+	operands[2] = GEN_INT (vlog2);
+	switch (GET_MODE (operands[0]))
+	  {
+	  case V8HImode:
+	    return "bnegi.h\t%w0,%w1,%2";
+	  case V4SImode:
+	    return "bnegi.w\t%w0,%w1,%2";
+	  case V2DImode:
+	    return "bnegi.d\t%w0,%w1,%2";
 	  default:
-            gcc_unreachable ();
-          }
+	    gcc_unreachable ();
+	  }
       }
     else
       return "xor.v\t%w0,%w1,%w2";
@@ -919,23 +919,23 @@
     if (which_alternative == 1)
       {
 	HOST_WIDE_INT val = INTVAL(CONST_VECTOR_ELT (operands[2], 0));
-        int vlog2 = exact_log2 (val);
+	int vlog2 = exact_log2 (val);
 	gcc_assert (vlog2 != -1);
-        operands[2] = GEN_INT (vlog2);
-        switch (GET_MODE (operands[0]))
-          {
-          case V8HImode:
-            return "bseti.h\t%w0,%w1,%2";
-          case V4SImode:
-            return "bseti.w\t%w0,%w1,%2";
-          case V2DImode:
-            return "bseti.d\t%w0,%w1,%2";
-          default:
-            gcc_unreachable ();
-          }
+	operands[2] = GEN_INT (vlog2);
+	switch (GET_MODE (operands[0]))
+	  {
+	  case V8HImode:
+	    return "bseti.h\t%w0,%w1,%2";
+	  case V4SImode:
+	    return "bseti.w\t%w0,%w1,%2";
+	  case V2DImode:
+	    return "bseti.d\t%w0,%w1,%2";
+	  default:
+	    gcc_unreachable ();
+	  }
       }
-     else
-       return "or.v\t%w0,%w1,%w2";
+    else
+      return "or.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"or")
    (set_attr "mode"	"TI")])
@@ -948,8 +948,8 @@
   {
      if (which_alternative == 1)
        {
-	 operands[2] =  CONST_VECTOR_ELT (operands[2], 0);
-         return "andi.b\t%w0,%w0,%2";
+	  operands[2] =  CONST_VECTOR_ELT (operands[2], 0);
+	  return "andi.b\t%w0,%w0,%2";
        }
      else
        return "and.v\t%w0,%w1,%w2";
@@ -968,18 +968,18 @@
 	HOST_WIDE_INT val = INTVAL(CONST_VECTOR_ELT (operands[2], 0));
 	int vlog2 = exact_log2 (~val);
 	gcc_assert (vlog2 != -1);
-        operands[2] = GEN_INT (vlog2);
-        switch (GET_MODE (operands[0]))
-          {
-          case V8HImode:
-            return "bclri.h\t%w0,%w1,%2";
-          case V4SImode:
-            return "bclri.w\t%w0,%w1,%2";
-          case V2DImode:
-            return "bclri.d\t%w0,%w1,%2";
-          default:
-            gcc_unreachable ();
-          }
+	operands[2] = GEN_INT (vlog2);
+	switch (GET_MODE (operands[0]))
+	  {
+	  case V8HImode:
+	    return "bclri.h\t%w0,%w1,%2";
+	  case V4SImode:
+	    return "bclri.w\t%w0,%w1,%2";
+	  case V2DImode:
+	    return "bclri.d\t%w0,%w1,%2";
+	  default:
+	    gcc_unreachable ();
+	  }
       }
      else
        return "and.v\t%w0,%w1,%w2";
@@ -1911,7 +1911,7 @@
 (define_insn "msa_hadd_s_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
 	(unspec:<MODE> [(match_operand:<IZDOUBLE> 1 "register_operand" "f")
-		        (match_operand:<IZDOUBLE> 2 "register_operand" "f")]
+			(match_operand:<IZDOUBLE> 2 "register_operand" "f")]
 		       UNSPEC_MSA_HADD_S))]
   "ISA_HAS_MSA"
   "hadd_s.<msafmt>\t%w0,%w1,%w2"
