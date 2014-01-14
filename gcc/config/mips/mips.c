@@ -5064,8 +5064,8 @@ mips_output_move (rtx dest, rtx src)
 	  if (FP_REG_P (REGNO (dest)))
 	    {
 	      if (msa_p)
-	        {
-		  gcc_assert (src == const0_rtx);
+		{
+		  gcc_assert (src == CONST0_RTX (GET_MODE (src)));
 
 		  switch (GET_MODE (dest))
 		    {
