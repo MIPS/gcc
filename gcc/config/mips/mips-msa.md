@@ -2572,7 +2572,7 @@
   if (REGNO (operands[0]) == REGNO (operands[1]))
     return "nop\t# Cast %1 to %w0";
   else
-    return "mov.<msafmt2>\t%w0,%1\t# Cast %1 to %w0";
+    return "mov.<msafmt2>\t%0,%1\t# Cast %1 to %w0";
 }
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
@@ -2587,7 +2587,7 @@
   if (REGNO (operands[0]) == REGNO (operands[1]))
     return "nop\t# Cast %w1 to %0";
   else
-    return "mov.<msafmt2>\t%0,%w1\t# Cast %w1 to %0";
+    return "mov.<msafmt2>\t%0,%1\t# Cast %w1 to %0";
 }
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
