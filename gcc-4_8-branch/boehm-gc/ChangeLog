@@ -1,3 +1,8 @@
+2013-12-29  Andreas Tobler  <andreast@gcc.gnu.org>
+
+	Merge from trunk:
+	* include/private/gcconfig.h: Add FreeBSD powerpc64 defines.
+
 2013-03-16  Yvan Roux <yvan.roux@linaro.org>
 
         * include/private/gcconfig.h (AARCH64): New macro (defined only if
