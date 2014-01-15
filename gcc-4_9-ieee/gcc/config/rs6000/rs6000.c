@@ -1673,16 +1673,13 @@ rs6000_hard_regno_nregs_internal (int regno, enum machine_mode mode)
 {
   unsigned HOST_WIDE_INT reg_size;
 
-  /* TF/TD modes are special in that they always take 2 registers.  */
+  /* 128-bit floating point usually takes 2 registers, unless it is IEEE
+     128-bit floating point that can go in vector registers.  */
   if (FP_REGNO_P (regno))
-    {
-      if (mode == TDmode || IBM128_MODE_P (mode))
-	reg_size = UNITS_PER_FP_WORD;
-      else if (VECTOR_MEM_VSX_P (mode))
-	reg_size = UNITS_PER_VSX_WORD;
-      else
-	reg_size = UNITS_PER_FP_WORD;
-    }
+    reg_size = ((VECTOR_MEM_VSX_P (mode) && !FLOAT128_PAIRED_P (mode))
+		? UNITS_PER_VSX_WORD
+		: UNITS_PER_FP_WORD);
+
   else if (SPE_SIMD_REGNO_P (regno) && TARGET_SPE && SPE_VECTOR_MODE (mode))
     reg_size = UNITS_PER_SPE_WORD;
 
@@ -2823,8 +2820,7 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
 	  /* TDmode & IBM 128-bit floating point always takes 2 registers, even
 	     in VSX.  */
-	  if (TARGET_VSX && VSX_REG_CLASS_P (c)
-	      && (m == TDmode || IBM128_MODE_P (m)))
+	  if (TARGET_VSX && VSX_REG_CLASS_P (c) && FLOAT128_PAIRED_P (m))
 	    reg_size2 = UNITS_PER_FP_WORD;
 
 	  rs6000_class_max_nregs[m][c]
@@ -7516,9 +7512,7 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
     return 1;
   if (rs6000_legitimate_offset_address_p (mode, x, reg_ok_strict, false))
     return 1;
-  if (!IBM128_MODE_P (mode)
-      && (IEEE128_MODE_P (mode) && !TARGET_IEEE128_VECTOR)
-      && mode != TDmode
+  if (!FLOAT128_PAIRED_P (mode)
       && ((TARGET_HARD_FLOAT && TARGET_FPRS && TARGET_DOUBLE_FLOAT)
 	  || TARGET_POWERPC64
 	  || (mode != DFmode && mode != DDmode)
@@ -8171,7 +8165,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
 
   /* 128-bit constant floating-point values on Darwin should really be
      loaded as two parts.  */
-  if (IBM128_MODE_P (mode) && GET_CODE (operands[1]) == CONST_DOUBLE)
+  if (FLOAT128_IBM_P (mode) && GET_CODE (operands[1]) == CONST_DOUBLE)
     {
       rs6000_emit_move (simplify_gen_subreg (DFmode, operands[0], mode, 0),
 			simplify_gen_subreg (DFmode, operands[1], mode, 0),
@@ -8317,7 +8311,7 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     case TDmode:
     case XFmode:
     case JFmode:
-      if (!IEEE128_MODE_P (mode) || !TARGET_IEEE128_VECTOR)
+      if (FLOAT128_PAIRED_P (mode))
 	rs6000_eliminate_indexed_memrefs (operands);
       /* fall through */
 
@@ -8853,7 +8847,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
       return true;
     }
 
-  if (DEFAULT_ABI == ABI_V4 && IEEE128_MODE_P (TYPE_MODE (type))
+  if (DEFAULT_ABI == ABI_V4 && FLOAT128_IEEE_P (TYPE_MODE (type))
       && !TARGET_IEEE128_VECTOR)
     return true;
 
@@ -9099,9 +9093,9 @@ rs6000_function_arg_boundary (enum machine_mode mode, const_tree type)
       && (GET_MODE_SIZE (mode) == 8
 	  || (TARGET_HARD_FLOAT
 	      && TARGET_FPRS
-	      && (IBM128_MODE_P (mode) || mode == TDmode))))
+	      && FLOAT128_PAIRED_P (mode))))
     return 64;
-  else if (IEEE128_MODE_P (mode))
+  else if (FLOAT128_IEEE_P (mode))
     return (TARGET_IEEE128_VECTOR) ? 128 : 64;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
@@ -9447,7 +9441,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || IBM128_MODE_P (mode)
+	      || FLOAT128_PAIRED_P (mode)
 	      || mode == SDmode || mode == DDmode || mode == TDmode))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
@@ -9455,13 +9449,13 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
-	  if (cum->fregno + (IBM128_MODE_P (mode) || mode == TDmode ? 1 : 0)
+	  if (cum->fregno + (FLOAT128_PAIRED_P (mode) ? 1 : 0)
 	      <= FP_ARG_V4_MAX_REG)
 	    cum->fregno += (GET_MODE_SIZE (mode) + 7) >> 3;
 	  else
 	    {
 	      cum->fregno = FP_ARG_V4_MAX_REG + 1;
-	      if (mode == DFmode || IBM128_MODE_P (mode)
+	      if (mode == DFmode || FLOAT128_PAIRED_P (mode)
 		  || mode == DDmode || mode == TDmode)
 		cum->words += cum->words & 1;
 	      cum->words += rs6000_arg_size (mode, type);
@@ -10107,7 +10101,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
       if (TARGET_HARD_FLOAT && TARGET_FPRS
 	  && ((TARGET_SINGLE_FLOAT && mode == SFmode)
 	      || (TARGET_DOUBLE_FLOAT && mode == DFmode)
-	      || IBM128_MODE_P (mode)
+	      || FLOAT128_PAIRED_P (mode)
 	      || mode == SDmode || mode == DDmode || mode == TDmode))
 	{
 	  /* _Decimal128 must use an even/odd register pair.  This assumes
@@ -10115,7 +10109,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 	  if (mode == TDmode && (cum->fregno % 2) == 1)
 	    cum->fregno++;
 
-	  if (cum->fregno + (IBM128_MODE_P (mode) || mode == TDmode ? 1 : 0)
+	  if (cum->fregno + (FLOAT128_PAIRED_P (mode) ? 1 : 0)
 	      <= FP_ARG_V4_MAX_REG)
 	    return gen_rtx_REG (mode, cum->fregno);
 	  else
@@ -10176,7 +10170,7 @@ rs6000_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 	      enum machine_mode fmode = elt_mode;
 	      if (cum->fregno + (i + 1) * n_fpreg > FP_ARG_MAX_REG + 1)
 		{
-		  gcc_assert (IBM128_MODE_P (fmode) || fmode == TDmode);
+		  gcc_assert (FLOAT128_PAIRED_P (fmode));
 		  fmode = DECIMAL_FLOAT_MODE_P (fmode) ? DDmode : DFmode;
 		}
 
@@ -10294,7 +10288,7 @@ rs6000_pass_by_reference (cumulative_args_t cum ATTRIBUTE_UNUSED,
 			  enum machine_mode mode, const_tree type,
 			  bool named ATTRIBUTE_UNUSED)
 {
-  if (DEFAULT_ABI == ABI_V4 && IEEE128_MODE_P (mode))
+  if (DEFAULT_ABI == ABI_V4 && FLOAT128_IEEE_P (mode))
     {
       if (TARGET_DEBUG_ARG)
 	fprintf (stderr, "function_arg_pass_by_reference: V4 long double\n");
@@ -13502,28 +13496,22 @@ rs6000_init_builtins (void)
   /* 128-bit floating point support.  XFmode is IEEE 128-bit floating point.
      JFmode is the IBM 128-bit floating point format that uses a pair of
      doubles to represent the extended value.  TFmode will be either XFmode or
-     JFmode, depending on the switches and defaults.  We only enable the
-     keywords on newer 64-bit systems where we can pass IEEE 128-bit in a
-     vector register, and pass the IBM 128-bit floating as a pair of floating
-     point registers.  */
-  if (TARGET_IEEE128_VECTOR)
-    {
-      ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : XFmode;
-      ieee128_float_type_node = make_node (REAL_TYPE);
-      TYPE_PRECISION (ieee128_float_type_node) = 128;
-      layout_type (ieee128_float_type_node);
-      SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
-      lang_hooks.types.register_builtin_type (ieee128_float_type_node,
-					      "__float128");
+     JFmode, depending on the switches and defaults.  */
+  ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : XFmode;
+  ieee128_float_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (ieee128_float_type_node) = 128;
+  layout_type (ieee128_float_type_node);
+  SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
+  lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					  "__float128");
 
-      ibm128_mode = (!TARGET_IEEEQUAD) ? TFmode : JFmode;
-      ibm128_float_type_node = make_node (REAL_TYPE);
-      TYPE_PRECISION (ibm128_float_type_node) = 128;
-      layout_type (ibm128_float_type_node);
-      SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
-      lang_hooks.types.register_builtin_type (ibm128_float_type_node,
-					      "__ibm128");
-    }
+  ibm128_mode = (!TARGET_IEEEQUAD) ? TFmode : JFmode;
+  ibm128_float_type_node = make_node (REAL_TYPE);
+  TYPE_PRECISION (ibm128_float_type_node) = 128;
+  layout_type (ibm128_float_type_node);
+  SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
+  lang_hooks.types.register_builtin_type (ibm128_float_type_node,
+					  "__ibm128");
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
@@ -14876,76 +14864,118 @@ rs6000_common_init_builtins (void)
     }
 }
 
+/* AIX/Darwin/64-bit Linux quad floating point routines.  */
+static void init_float128_ibm (enum machine_mode mode)
+{
+  if (!TARGET_XL_COMPAT)
+    {
+      set_optab_libfunc (add_optab, mode, "__gcc_qadd");
+      set_optab_libfunc (sub_optab, mode, "__gcc_qsub");
+      set_optab_libfunc (smul_optab, mode, "__gcc_qmul");
+      set_optab_libfunc (sdiv_optab, mode, "__gcc_qdiv");
+
+      if (!(TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)))
+	{
+	  set_optab_libfunc (neg_optab, mode, "__gcc_qneg");
+	  set_optab_libfunc (eq_optab, mode, "__gcc_qeq");
+	  set_optab_libfunc (ne_optab, mode, "__gcc_qne");
+	  set_optab_libfunc (gt_optab, mode, "__gcc_qgt");
+	  set_optab_libfunc (ge_optab, mode, "__gcc_qge");
+	  set_optab_libfunc (lt_optab, mode, "__gcc_qlt");
+	  set_optab_libfunc (le_optab, mode, "__gcc_qle");
+
+	  set_conv_libfunc (sext_optab, mode, SFmode, "__gcc_stoq");
+	  set_conv_libfunc (sext_optab, mode, DFmode, "__gcc_dtoq");
+	  set_conv_libfunc (trunc_optab, SFmode, mode, "__gcc_qtos");
+	  set_conv_libfunc (trunc_optab, DFmode, mode, "__gcc_qtod");
+	  set_conv_libfunc (sfix_optab, SImode, mode, "__gcc_qtoi");
+	  set_conv_libfunc (ufix_optab, SImode, mode, "__gcc_qtou");
+	  set_conv_libfunc (sfloat_optab, mode, SImode, "__gcc_itoq");
+	  set_conv_libfunc (ufloat_optab, mode, SImode, "__gcc_utoq");
+	}
+
+      if (!(TARGET_HARD_FLOAT && TARGET_FPRS))
+	set_optab_libfunc (unord_optab, mode, "__gcc_qunord");
+    }
+  else
+    {
+      set_optab_libfunc (add_optab, mode, "_xlqadd");
+      set_optab_libfunc (sub_optab, mode, "_xlqsub");
+      set_optab_libfunc (smul_optab, mode, "_xlqmul");
+      set_optab_libfunc (sdiv_optab, mode, "_xlqdiv");
+    }
+}
+
+/* 32-bit SVR4 quad floating point routines.  Use different names if the
+   arguments can be passed in a vector register.  */
+static void init_float128_ieee (enum machine_mode mode)
+{
+  if (FLOAT128_VECTOR_P (mode))
+    {
+      set_optab_libfunc (add_optab, mode, "_ieee128_add");
+      set_optab_libfunc (sub_optab, mode, "_ieee128_sub");
+      set_optab_libfunc (neg_optab, mode, "_ieee128_neg");
+      set_optab_libfunc (smul_optab, mode, "_ieee128_mul");
+      set_optab_libfunc (sdiv_optab, mode, "_ieee128_div");
+      if (TARGET_PPC_GPOPT)
+	set_optab_libfunc (sqrt_optab, mode, "_ieee128_sqrt");
+
+      set_optab_libfunc (eq_optab, mode, "_ieee128_feq");
+      set_optab_libfunc (ne_optab, mode, "_ieee128_fne");
+      set_optab_libfunc (gt_optab, mode, "_ieee128_fgt");
+      set_optab_libfunc (ge_optab, mode, "_ieee128_fge");
+      set_optab_libfunc (lt_optab, mode, "_ieee128_flt");
+      set_optab_libfunc (le_optab, mode, "_ieee128_fle");
+
+      set_conv_libfunc (sext_optab, mode, SFmode, "_ieee128_stoq");
+      set_conv_libfunc (sext_optab, mode, DFmode, "_ieee128_dtoq");
+      set_conv_libfunc (trunc_optab, SFmode, mode, "_ieee128_qtos");
+      set_conv_libfunc (trunc_optab, DFmode, mode, "_ieee128_qtod");
+      set_conv_libfunc (sfix_optab, SImode, mode, "_ieee128_qtoi");
+      set_conv_libfunc (ufix_optab, SImode, mode, "_ieee128_qtou");
+      set_conv_libfunc (sfloat_optab, mode, SImode, "_ieee128_itoq");
+      set_conv_libfunc (ufloat_optab, mode, SImode, "_ieee128_utoq");
+    }
+  else
+    {
+      set_optab_libfunc (add_optab, mode, "_q_add");
+      set_optab_libfunc (sub_optab, mode, "_q_sub");
+      set_optab_libfunc (neg_optab, mode, "_q_neg");
+      set_optab_libfunc (smul_optab, mode, "_q_mul");
+      set_optab_libfunc (sdiv_optab, mode, "_q_div");
+      if (TARGET_PPC_GPOPT)
+	set_optab_libfunc (sqrt_optab, mode, "_q_sqrt");
+
+      set_optab_libfunc (eq_optab, mode, "_q_feq");
+      set_optab_libfunc (ne_optab, mode, "_q_fne");
+      set_optab_libfunc (gt_optab, mode, "_q_fgt");
+      set_optab_libfunc (ge_optab, mode, "_q_fge");
+      set_optab_libfunc (lt_optab, mode, "_q_flt");
+      set_optab_libfunc (le_optab, mode, "_q_fle");
+
+      set_conv_libfunc (sext_optab, mode, SFmode, "_q_stoq");
+      set_conv_libfunc (sext_optab, mode, DFmode, "_q_dtoq");
+      set_conv_libfunc (trunc_optab, SFmode, mode, "_q_qtos");
+      set_conv_libfunc (trunc_optab, DFmode, mode, "_q_qtod");
+      set_conv_libfunc (sfix_optab, SImode, mode, "_q_qtoi");
+      set_conv_libfunc (ufix_optab, SImode, mode, "_q_qtou");
+      set_conv_libfunc (sfloat_optab, mode, SImode, "_q_itoq");
+      set_conv_libfunc (ufloat_optab, mode, SImode, "_q_utoq");
+    }
+}
+
 static void
 rs6000_init_libfuncs (void)
 {
+  /* AIX/Darwin/64-bit Linux quad floating point routines.  */
+  init_float128_ibm (JFmode);
   if (!TARGET_IEEEQUAD)
-      /* AIX/Darwin/64-bit Linux quad floating point routines.  */
-    if (!TARGET_XL_COMPAT)
-      {
-	set_optab_libfunc (add_optab, TFmode, "__gcc_qadd");
-	set_optab_libfunc (sub_optab, TFmode, "__gcc_qsub");
-	set_optab_libfunc (smul_optab, TFmode, "__gcc_qmul");
-	set_optab_libfunc (sdiv_optab, TFmode, "__gcc_qdiv");
+    init_float128_ibm (TFmode);
 
-	if (!(TARGET_HARD_FLOAT && (TARGET_FPRS || TARGET_E500_DOUBLE)))
-	  {
-	    set_optab_libfunc (neg_optab, TFmode, "__gcc_qneg");
-	    set_optab_libfunc (eq_optab, TFmode, "__gcc_qeq");
-	    set_optab_libfunc (ne_optab, TFmode, "__gcc_qne");
-	    set_optab_libfunc (gt_optab, TFmode, "__gcc_qgt");
-	    set_optab_libfunc (ge_optab, TFmode, "__gcc_qge");
-	    set_optab_libfunc (lt_optab, TFmode, "__gcc_qlt");
-	    set_optab_libfunc (le_optab, TFmode, "__gcc_qle");
-
-	    set_conv_libfunc (sext_optab, TFmode, SFmode, "__gcc_stoq");
-	    set_conv_libfunc (sext_optab, TFmode, DFmode, "__gcc_dtoq");
-	    set_conv_libfunc (trunc_optab, SFmode, TFmode, "__gcc_qtos");
-	    set_conv_libfunc (trunc_optab, DFmode, TFmode, "__gcc_qtod");
-	    set_conv_libfunc (sfix_optab, SImode, TFmode, "__gcc_qtoi");
-	    set_conv_libfunc (ufix_optab, SImode, TFmode, "__gcc_qtou");
-	    set_conv_libfunc (sfloat_optab, TFmode, SImode, "__gcc_itoq");
-	    set_conv_libfunc (ufloat_optab, TFmode, SImode, "__gcc_utoq");
-	  }
-
-	if (!(TARGET_HARD_FLOAT && TARGET_FPRS))
-	  set_optab_libfunc (unord_optab, TFmode, "__gcc_qunord");
-      }
-    else
-      {
-	set_optab_libfunc (add_optab, TFmode, "_xlqadd");
-	set_optab_libfunc (sub_optab, TFmode, "_xlqsub");
-	set_optab_libfunc (smul_optab, TFmode, "_xlqmul");
-	set_optab_libfunc (sdiv_optab, TFmode, "_xlqdiv");
-      }
-  else
-    {
-      /* 32-bit SVR4 quad floating point routines.  */
-
-      set_optab_libfunc (add_optab, TFmode, "_q_add");
-      set_optab_libfunc (sub_optab, TFmode, "_q_sub");
-      set_optab_libfunc (neg_optab, TFmode, "_q_neg");
-      set_optab_libfunc (smul_optab, TFmode, "_q_mul");
-      set_optab_libfunc (sdiv_optab, TFmode, "_q_div");
-      if (TARGET_PPC_GPOPT)
-	set_optab_libfunc (sqrt_optab, TFmode, "_q_sqrt");
-
-      set_optab_libfunc (eq_optab, TFmode, "_q_feq");
-      set_optab_libfunc (ne_optab, TFmode, "_q_fne");
-      set_optab_libfunc (gt_optab, TFmode, "_q_fgt");
-      set_optab_libfunc (ge_optab, TFmode, "_q_fge");
-      set_optab_libfunc (lt_optab, TFmode, "_q_flt");
-      set_optab_libfunc (le_optab, TFmode, "_q_fle");
-
-      set_conv_libfunc (sext_optab, TFmode, SFmode, "_q_stoq");
-      set_conv_libfunc (sext_optab, TFmode, DFmode, "_q_dtoq");
-      set_conv_libfunc (trunc_optab, SFmode, TFmode, "_q_qtos");
-      set_conv_libfunc (trunc_optab, DFmode, TFmode, "_q_qtod");
-      set_conv_libfunc (sfix_optab, SImode, TFmode, "_q_qtoi");
-      set_conv_libfunc (ufix_optab, SImode, TFmode, "_q_qtou");
-      set_conv_libfunc (sfloat_optab, TFmode, SImode, "_q_itoq");
-      set_conv_libfunc (ufloat_optab, TFmode, SImode, "_q_utoq");
-    }
+  /* 32-bit SVR4 quad floating point routines.  */
+  init_float128_ieee (XFmode);
+  if (TARGET_IEEEQUAD)
+    init_float128_ieee (TFmode);
 }
 
 
@@ -16768,6 +16798,8 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 	{
 	  unsigned to_nregs = hard_regno_nregs[FIRST_FPR_REGNO][to];
 	  unsigned from_nregs = hard_regno_nregs[FIRST_FPR_REGNO][from];
+	  bool to_float128_vector_p = FLOAT128_VECTOR_P (to);
+	  bool from_float128_vector_p = FLOAT128_VECTOR_P (from);
 
 	  /* Don't allow 64-bit types to overlap with 128-bit types that take a
 	     single register under VSX because the scalar part of the register
@@ -16776,14 +16808,18 @@ rs6000_cannot_change_mode_class (enum machine_mode from,
 	     IEEE floating point can't overlap, and neither can small
 	     values.  */
 
-	  if (IEEE128_MODE_P (to) || IEEE128_MODE_P (from))
+	  if (to_float128_vector_p && from_float128_vector_p)
+	    return false;
+
+	  else if (to_float128_vector_p || from_float128_vector_p)
 	    return true;
 
 	  /* TDmode in floating-mode registers must always go into a register
 	     pair with the most significant word in the even-numbered register
 	     to match ISA requirements.  In little-endian mode, this does not
 	     match subreg numbering, so we cannot allow subregs.  */
-	  if (!BYTES_BIG_ENDIAN && (to == TDmode || from == TDmode))
+	  if (!BYTES_BIG_ENDIAN
+	      && (FLOAT128_PAIRED_P (to) || FLOAT128_PAIRED_P (from)))
 	    return true;
 
 	  if (from_size < 8 || to_size < 8)
@@ -17777,7 +17813,7 @@ print_operand (FILE *file, rtx x, int code)
 	/* Ugly hack because %y is overloaded.  */
 	if ((TARGET_SPE || TARGET_E500_DOUBLE)
 	    && (GET_MODE_SIZE (GET_MODE (x)) == 8
-		|| IBM128_MODE_P (GET_MODE (x))
+		|| FLOAT128_PAIRED_P (GET_MODE (x))
 		|| GET_MODE (x) == TImode
 		|| GET_MODE (x) == PTImode))
 	  {
@@ -18312,7 +18348,7 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
       /* Generate XLC-compatible TFmode compare as PARALLEL with extra
 	 CLOBBERs to match cmptf_internal2 pattern.  */
       if (comp_mode == CCFPmode && TARGET_XL_COMPAT
-	  && IBM128_MODE_P (GET_MODE (op0))
+	  && FLOAT128_IBM_P (GET_MODE (op0))
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	emit_insn (gen_rtx_PARALLEL (VOIDmode,
 	  gen_rtvec (10,
@@ -19729,7 +19765,7 @@ rs6000_split_multireg_move (rtx dst, rtx src)
 	((TARGET_HARD_FLOAT && TARGET_DOUBLE_FLOAT) ? DFmode : SFmode);
   else if (ALTIVEC_REGNO_P (reg))
     reg_mode = V16QImode;
-  else if (TARGET_E500_DOUBLE && IBM128_MODE_P (mode))
+  else if (TARGET_E500_DOUBLE && FLOAT128_PAIRED_P (mode))
     reg_mode = DFmode;
   else
     reg_mode = word_mode;
@@ -20828,7 +20864,8 @@ spe_func_has_64bit_regs_p (void)
 
 	      if (SPE_VECTOR_MODE (mode))
 		return true;
-	      if (TARGET_E500_DOUBLE && (mode == DFmode || IBM128_MODE_P (mode)))
+	      if (TARGET_E500_DOUBLE
+		  && (mode == DFmode || FLOAT128_PAIRED_P (mode)))
 		return true;
 	    }
 	}
@@ -29305,7 +29342,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
   /* Moving between two similar registers is just one instruction.  */
   else if (reg_classes_intersect_p (to, from))
-    ret = (IBM128_MODE_P (mode) || mode == TDmode) ? 4 : 2;
+    ret = (FLOAT128_PAIRED_P (mode)) ? 4 : 2;
 
   /* Everything else has to go through GENERAL_REGS.  */
   else
@@ -30424,7 +30461,7 @@ rs6000_function_value (const_tree valtype,
     regno = ALTIVEC_ARG_RETURN;
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
-	       || IBM128_MODE_P (mode) || mode == TCmode))
+	       || FLOAT128_IBM_P (mode) || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;
@@ -30470,7 +30507,7 @@ rs6000_libcall_value (enum machine_mode mode)
     return rs6000_complex_function_value (mode);
   else if (TARGET_E500_DOUBLE && TARGET_HARD_FLOAT
 	   && (mode == DFmode || mode == DCmode
-	       || IBM128_MODE_P (mode) || mode == TCmode))
+	       || FLOAT128_IBM_P (mode) || mode == TCmode))
     return spe_build_register_parallel (mode, GP_ARG_RETURN);
   else
     regno = GP_ARG_RETURN;

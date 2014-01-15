@@ -406,14 +406,24 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    long double format that uses a pair of doubles, or IEEE 128-bit floating
    point.  XFmode was added as a way to represent IEEE 128-bit floating point,
    even if the default for long double is the IBM long double format.
-   Similarly, IFmode is a way to represent the IBM long double format.  */
-#define IEEE128_MODE_P(MODE)				\
-  (((MODE) == XFmode)					\
-   || (((MODE) == TFmode) && TARGET_IEEEQUAD))
+   Similarly, JFmode is a way to represent the IBM long double format.  */
+#define FLOAT128_IEEE_P(MODE)						\
+  (((MODE) == XFmode)							\
+   || (((MODE) == TFmode) && TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
 
-#define IBM128_MODE_P(MODE)				\
-  (((MODE) == JFmode)					\
-   || (((MODE) == TFmode) && !TARGET_IEEEQUAD))
+#define FLOAT128_IBM_P(MODE)						\
+  (((MODE) == JFmode)							\
+   || (((MODE) == TFmode) && !TARGET_IEEEQUAD && TARGET_LONG_DOUBLE_128))
+
+/* Helper macros to say whether a 128-bit floating point type can go in a
+   single vector register, or whether it needs paired scalar values.  */
+#define FLOAT128_VECTOR_P(MODE) 					\
+  (TARGET_IEEE128_VECTOR && FLOAT128_IEEE_P (MODE))
+
+#define FLOAT128_PAIRED_P(MODE)						\
+  (FLOAT128_IBM_P (MODE)						\
+   || ((MODE) == TDmode)						\
+   || (!TARGET_IEEE128_VECTOR && FLOAT128_IEEE_P (MODE)))
 
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
@@ -900,7 +910,7 @@ enum data_align { align_abi, align_opt, align_both };
    aligned to 4 or 8 bytes.  */
 #define SLOW_UNALIGNED_ACCESS(MODE, ALIGN)				\
   (STRICT_ALIGNMENT							\
-   || (((MODE) == SFmode || (MODE) == DFmode || IBM128_MODE_P (MODE)	\
+   || (((MODE) == SFmode || (MODE) == DFmode || FLOAT128_IBM_P (MODE)	\
 	|| (MODE) == SDmode || (MODE) == DDmode || (MODE) == TDmode)	\
        && (ALIGN) < 32)							\
    || (VECTOR_MODE_P ((MODE)) && (((int)(ALIGN)) < VECTOR_ALIGN (MODE))))
@@ -1173,12 +1183,12 @@ enum data_align { align_abi, align_opt, align_both };
 /* When setting up caller-save slots (MODE == VOIDmode) ensure we allocate
    enough space to account for vectors in FP regs.  However, TFmode/TDmode
    should not use VSX instructions to do a caller save. */
-#define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
+#define _REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
   (TARGET_VSX								\
    && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
    && FP_REGNO_P (REGNO)						\
    ? V2DFmode								\
-   : (IBM128_MODE_P(MODE) && FP_REGNO_P (REGNO))			\
+   : (FLOAT128_IBM_P(MODE) && FP_REGNO_P (REGNO))			\
    ? DFmode								\
    : ((MODE) == TDmode && FP_REGNO_P (REGNO))				\
    ? DImode								\
@@ -1190,7 +1200,7 @@ enum data_align { align_abi, align_opt, align_both };
      && INT_REGNO_P (REGNO)) ? 1 : 0)					\
    || (TARGET_VSX && FP_REGNO_P (REGNO)					\
        && GET_MODE_SIZE (MODE) > 8 && ((MODE) != TDmode) 		\
-       && !IBM128_MODE_P (MODE)))
+       && !FLOAT128_IBM_P (MODE)))
 
 #define VSX_VECTOR_MODE(MODE) ((MODE) == V4SFmode || (MODE) == V2DFmode)
 
@@ -1202,7 +1212,7 @@ enum data_align { align_abi, align_opt, align_both };
    || (MODE) == V8HImode						\
    || (MODE) == V4SFmode						\
    || (MODE) == V4SImode						\
-   || (TARGET_IEEE128_VECTOR && IEEE128_MODE_P (MODE)))
+   || FLOAT128_VECTOR_P (MODE))
 
 #define ALTIVEC_OR_VSX_VECTOR_MODE(MODE)				\
   (ALTIVEC_VECTOR_MODE (MODE) || VSX_VECTOR_MODE (MODE)			\

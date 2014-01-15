@@ -1,3 +1,121 @@
+2014-01-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_M): Do not include XFmode.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal): Use
+	FLOAT128_PAIRED_P, FLOAT128_IBM_P, FLOAT128_IEEE_P,
+	FLOAT128_VECTOR_P to classify 128-bit floating point.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(rs6000_function_arg_boundary): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_pass_by_reference): Likewise.
+	(rs6000_init_builtins): Always add support __float128 and
+	__ibm128, even if not -mvsx.
+	(init_float128_ibm): New functions to set up all of the optab
+	libfunc interfaces for IBM 128-bit and IEEE 128-bit floating
+	point.
+	(init_float128_ieee): Likewise.
+	(rs6000_init_libfuncs): Call init_float128_ibm, init_float128_ieee
+	to properly setup XFmode, TFmode, and JFmode.
+	(rs6000_cannot_change_mode_class): Use FLOAT128_PAIRED_P,
+	FLOAT128_IBM_P, FLOAT128_IEEE_P, FLOAT128_VECTOR_P to classify
+	128-bit floating point.
+	(print_operand): Likewise.
+	(rs6000_generate_compare): Likewise.
+	(rs6000_split_multireg_move): Likewise.
+	(spe_func_has_64bit_regs_p): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+
+	* config/rs6000/vsx.md (VSX_L): Add XFmode and TFmode if those
+	types occupy a single VSX register.
+
+	* config/rs6000/rs6000.h (IEEE128_MODE_P): Delete, rename macros
+	to be more consistent.
+	(IBM128_MODE_P): Likewise.
+	(FLOAT128_IEEE_P): New macros to classify 128-bit floating point.
+	(FLOAT128_IBM_P): Likewise.
+	(FLOAT128_VECTOR_P): Likewise.
+	(FLOAT128_PAIRED_P): Likewise.
+	(SLOW_UNALIGNED_ACCESS): Use new FLOAT128 macros for 128-bit
+	floating point.
+	(HARD_REGNO_CALLER_SAVE_MODE): Likewise.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+	(ALTIVEC_VECTOR_MODE): Likewise.
+
+	* config/rs6000/rs6000.md (FMOVE128): Remove conditions from the
+	macro attribute, and add XFmode, JFmode.
+	(FMOVE128_GPR): Add XFmode, TFmode.
+	(mov<mode>, 128-bit floating point): Add test for whether this is
+	a paired floating point move.
+
+2014-01-10  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-modes.def (JFmode): Add mode to represent
+	IBM 128-bit floating point.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Set
+	-mieee128-vector.
+	(ISA_2_7_MASKS_SERVER): Likewise.
+	(power7 cpu): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): If
+	-mieee128-vector, define ___IEEE128_VECTOR__.
+
+	* config/rs6000/rs6000.opt (-mieee128-vector): New debug switch to
+	control whether IEEE 128-bit floating point type can go in a
+	single vector register.
+
+	* config/rs6000/rs6000.c (rs6000_hard_regno_nregs_internal): IBM
+	128-bit floating point only uses 64-bit registers.
+	(rs6000_debug_reg_global): Debug JFmode.
+	(rs6000_init_hard_regno_mode_ok): Add explicit support for both
+	IEEE 128-bit floating point and IBM 128-bit floating point.  Add
+	support for -mieee128-vector to pass/return IEEE 128-bit floating
+	point as a vector.
+	(invalid_e500_subreg): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_legitimize_address): Likewise.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_legitimate_offset_address_p): Likewise.
+	(rs6000_emit_move): Likewise.
+	(rs6000_return_in_memory): Likewise.
+	(rs6000_function_arg_boundary): Likewise.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
+	(rs6000_pass_by_reference): Likewise.
+	(rs6000_init_builtins): Likewise.
+	(rs6000_cannot_change_mode_class): Likewise.
+	(print_operand): Likewise.
+	(rs6000_generate_compare): Likewise.
+	(rs6000_split_multireg_move): Likewise.
+	(spe_func_has_64bit_regs_p): Likewise.
+	(rs6000_output_function_epilogue): Likewise.
+	(output_toc): Likewise.
+	(rs6000_register_move_cost): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
+	(rs6000_opt_masks): Add debugging for -mieee128-vector.
+
+	* config/rs6000/rs6000.h (IEEE128_MODE_P): New macros to determine
+	if a mode is an IEEE 128-bit floating point or IBM 128-bit
+	floating point mode.
+	(IBM128_MODE_P): Likewise.
+	(SLOW_UNALIGNED_ACCESS): Use IEEE128_MODE_P and IBM128_MODE_P as
+	appropriate instead of testing against TFmode.
+	(HARD_REGNO_CALLER_SAVE_MODE): Likewise.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise.
+	(ALTIVEC_VECTOR_MODE): Treat IEEE 128-bit floating point as a
+	vector mode if -mieee128-vector.
+	(enum rs6000_builtin_type_index): Add IBM 128-bit floating point
+	type.
+	(ibm128_float_type_node): Likewise.
+
 2014-01-09  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 206496.

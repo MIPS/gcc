@@ -39,7 +39,7 @@
 (define_mode_iterator VEC_L [V16QI V8HI V4SI V2DI V4SF V2DF TI XF])
 
 ;; Vector modes for moves.  Don't do TImode here.
-(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF XF])
+(define_mode_iterator VEC_M [V16QI V8HI V4SI V2DI V4SF V2DF])
 
 ;; Vector modes for types that don't need a realignment under VSX
 (define_mode_iterator VEC_N [V4SI V4SF V2DI V2DF])

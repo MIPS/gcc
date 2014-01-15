@@ -34,7 +34,15 @@
 (define_mode_iterator VSX_F [V4SF V2DF])
 
 ;; Iterator for logical types supported by VSX
-(define_mode_iterator VSX_L [V16QI V8HI V4SI V2DI V4SF V2DF TI XF])
+(define_mode_iterator VSX_L [V16QI
+			     V8HI
+			     V4SI
+			     V2DI
+			     V4SF
+			     V2DF
+			     TI
+			     (XF "FLOAT128_VECTOR_P (XFmode)")
+			     (TF "FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Iterator for memory move.  Handle TImode specially to allow
 ;; it to use gprs as well as vsx registers.
