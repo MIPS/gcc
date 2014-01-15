@@ -684,29 +684,6 @@
   DONE;
 })
 
-;; Indexed load
-(define_expand "msa_ldx_<MSA:msafmt3>"
-  [(match_operand:MSA 0 "register_operand")
-   (match_operand 1 "pmode_register_operand")
-   (match_operand:SI 2 "register_operand")]
-  "ISA_HAS_MSA"
-{
-  operands[2] = convert_to_mode (Pmode, operands[2], false);
-  emit_insn (PMODE_INSN (gen_msa_ldx<mode>,
-			 (operands[0], operands[1], operands[2])));
-  DONE;
-})
-
-(define_insn "msa_ldx<MODE128:mode>_<P:mode>"
-  [(set (match_operand:MODE128 0 "register_operand" "=f")
-	(mem:<MODE> (plus:P (match_operand:P 1 "register_operand" "d")
-			    (match_operand:P 2 "register_operand" "d"))))]
-  "ISA_HAS_MSA"
-  "ldx.<msafmt>\t%w0,%2(%1)"
-  [(set_attr "type"	"fpload")
-   (set_attr "mode"	"TI")
-   (set_attr "length"	"4")])
-
 ;; Offset store
 (define_expand "msa_st_<msafmt3>"
   [(match_operand:MSA 0 "register_operand")
@@ -719,29 +696,6 @@
   mips_emit_move (gen_rtx_MEM (<MODE>mode, addr), operands[0]);
   DONE;
 })
-
-;; Indexed store
-(define_expand "msa_stx_<msafmt3>"
-  [(match_operand:MSA 0 "register_operand")
-   (match_operand 1 "pmode_register_operand")
-   (match_operand:SI 2 "register_operand")]
-  "ISA_HAS_MSA"
-{
-  operands[2] = convert_to_mode (Pmode, operands[2], false);
-  emit_insn (PMODE_INSN (gen_msa_stx<mode>,
-			 (operands[1], operands[2], operands[0])));
-  DONE;
-})
-
-(define_insn "msa_stx<MODE128:mode>_<P:mode>"
-  [(set (mem:MODE128 (plus:P (match_operand:P 0 "register_operand" "d")
-			     (match_operand:P 1 "register_operand" "d")))
-	(match_operand:<MODE> 2 "register_operand" "f"))]
-  "ISA_HAS_MSA"
-  "stx.<msafmt>\t%w2,%1(%0)"
-  [(set_attr "type"	"fpstore")
-   (set_attr "mode"	"TI")
-   (set_attr "length"	"4")])
 
 ;; Integer operations
 (define_insn "add<mode>3"
