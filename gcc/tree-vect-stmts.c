@@ -1813,6 +1813,17 @@ vectorizable_mask_load_store (gimple stmt, gimple_stmt_iterator *gsi,
 			     "gather index use not simple.");
 	  return false;
 	}
+
+      tree arglist = TYPE_ARG_TYPES (TREE_TYPE (gather_decl));
+      tree masktype
+	= TREE_VALUE (TREE_CHAIN (TREE_CHAIN (TREE_CHAIN (arglist))));
+      if (TREE_CODE (masktype) == INTEGER_TYPE)
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "masked gather with integer mask not supported.");
+	  return false;
+	}
     }
   else if (tree_int_cst_compare (nested_in_vect_loop
 				 ? STMT_VINFO_DR_STEP (stmt_info)
@@ -5761,6 +5772,7 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	{
 	  mask = build_int_cst (TREE_TYPE (masktype), -1);
 	  mask = build_vector_from_val (masktype, mask);
+	  mask = vect_init_vector (stmt, mask, masktype, NULL);
 	}
       else if (SCALAR_FLOAT_TYPE_P (TREE_TYPE (masktype)))
 	{
@@ -5771,10 +5783,10 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	  real_from_target (&r, tmp, TYPE_MODE (TREE_TYPE (masktype)));
 	  mask = build_real (TREE_TYPE (masktype), r);
 	  mask = build_vector_from_val (masktype, mask);
+	  mask = vect_init_vector (stmt, mask, masktype, NULL);
 	}
       else
 	gcc_unreachable ();
-      mask = vect_init_vector (stmt, mask, masktype, NULL);
 
       scale = build_int_cst (scaletype, gather_scale);
 
@@ -6368,12 +6380,39 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	      /* 4. Handle invariant-load.  */
 	      if (inv_p && !bb_vinfo)
 		{
-		  gimple_stmt_iterator gsi2 = *gsi;
 		  gcc_assert (!grouped_load);
-		  gsi_next (&gsi2);
-		  new_temp = vect_init_vector (stmt, scalar_dest,
-					       vectype, &gsi2);
+		  /* If we have versioned for aliasing then we are sure
+		     this is a loop invariant load and thus we can insert
+		     it on the preheader edge.  */
+		  if (LOOP_REQUIRES_VERSIONING_FOR_ALIAS (loop_vinfo))
+		    {
+		      if (dump_enabled_p ())
+			{
+			  dump_printf_loc (MSG_NOTE, vect_location,
+					   "hoisting out of the vectorized "
+					   "loop: ");
+			  dump_gimple_stmt (MSG_NOTE, TDF_SLIM, stmt, 0);
+			  dump_printf (MSG_NOTE, "\n");
+			}
+		      tree tem = copy_ssa_name (scalar_dest, NULL);
+		      gsi_insert_on_edge_immediate
+			(loop_preheader_edge (loop),
+			 gimple_build_assign (tem,
+					      unshare_expr
+					        (gimple_assign_rhs1 (stmt))));
+		      new_temp = vect_init_vector (stmt, tem, vectype, NULL);
+		    }
+		  else
+		    {
+		      gimple_stmt_iterator gsi2 = *gsi;
+		      gsi_next (&gsi2);
+		      new_temp = vect_init_vector (stmt, scalar_dest,
+						   vectype, &gsi2);
+		    }
 		  new_stmt = SSA_NAME_DEF_STMT (new_temp);
+		  set_vinfo_for_stmt (new_stmt,
+				      new_stmt_vec_info (new_stmt, loop_vinfo,
+							 bb_vinfo));
 		}
 
 	      if (negative)

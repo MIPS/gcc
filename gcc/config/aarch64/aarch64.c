@@ -221,7 +221,8 @@ static const struct tune_params generic_tunings =
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,
-  NAMED_PARAM (memmov_cost, 4)
+  NAMED_PARAM (memmov_cost, 4),
+  NAMED_PARAM (issue_rate, 2)
 };
 
 static const struct tune_params cortexa53_tunings =
@@ -230,7 +231,8 @@ static const struct tune_params cortexa53_tunings =
   &generic_addrcost_table,
   &generic_regmove_cost,
   &generic_vector_cost,
-  NAMED_PARAM (memmov_cost, 4)
+  NAMED_PARAM (memmov_cost, 4),
+  NAMED_PARAM (issue_rate, 2)
 };
 
 /* A processor implementing AArch64.  */
@@ -3326,16 +3328,23 @@ aarch64_select_cc_mode (RTX_CODE code, rtx x, rtx y)
 	  || GET_CODE (x) == NEG))
     return CC_NZmode;
 
-  /* A compare with a shifted or negated operand.  Because of canonicalization,
+  /* A compare with a shifted operand.  Because of canonicalization,
      the comparison will have to be swapped when we emit the assembly
      code.  */
   if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
       && (GET_CODE (y) == REG || GET_CODE (y) == SUBREG)
       && (GET_CODE (x) == ASHIFT || GET_CODE (x) == ASHIFTRT
 	  || GET_CODE (x) == LSHIFTRT
-	  || GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND
-	  || GET_CODE (x) == NEG))
+	  || GET_CODE (x) == ZERO_EXTEND || GET_CODE (x) == SIGN_EXTEND))
     return CC_SWPmode;
+
+  /* Similarly for a negated operand, but we can only do this for
+     equalities.  */
+  if ((GET_MODE (x) == SImode || GET_MODE (x) == DImode)
+      && (GET_CODE (y) == REG || GET_CODE (y) == SUBREG)
+      && (code == EQ || code == NE)
+      && GET_CODE (x) == NEG)
+    return CC_Zmode;
 
   /* A compare of a mode narrower than SI mode against zero can be done
      by extending the value in the comparison.  */
@@ -3423,6 +3432,15 @@ aarch64_get_condition_code (rtx x)
 	case EQ: return AARCH64_EQ;
 	case GE: return AARCH64_PL;
 	case LT: return AARCH64_MI;
+	default: gcc_unreachable ();
+	}
+      break;
+
+    case CC_Zmode:
+      switch (comp_code)
+	{
+	case NE: return AARCH64_NE;
+	case EQ: return AARCH64_EQ;
 	default: gcc_unreachable ();
 	}
       break;
@@ -4877,6 +4895,13 @@ aarch64_memory_move_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 			  bool in ATTRIBUTE_UNUSED)
 {
   return aarch64_tune_params->memmov_cost;
+}
+
+/* Return the number of instructions that can be issued per cycle.  */
+static int
+aarch64_sched_issue_rate (void)
+{
+  return aarch64_tune_params->issue_rate;
 }
 
 /* Vectorizer cost model target hooks.  */
@@ -8394,6 +8419,9 @@ aarch64_vectorize_vec_perm_const_ok (enum machine_mode vmode,
 
 #undef TARGET_RTX_COSTS
 #define TARGET_RTX_COSTS aarch64_rtx_costs
+
+#undef TARGET_SCHED_ISSUE_RATE
+#define TARGET_SCHED_ISSUE_RATE aarch64_sched_issue_rate
 
 #undef TARGET_TRAMPOLINE_INIT
 #define TARGET_TRAMPOLINE_INIT aarch64_trampoline_init
