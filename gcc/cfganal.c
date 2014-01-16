@@ -430,7 +430,7 @@ control_dependences::control_dependences (struct edge_list *edges)
   timevar_push (TV_CONTROL_DEPENDENCES);
   control_dependence_map.create (last_basic_block_for_fn (cfun));
   for (int i = 0; i < last_basic_block_for_fn (cfun); ++i)
-    control_dependence_map.quick_push (BITMAP_ALLOC (NULL));
+    control_dependence_map.quick_push (new bitmap_head);
   for (int i = 0; i < NUM_EDGES (m_el); ++i)
     find_control_dependence (i);
   timevar_pop (TV_CONTROL_DEPENDENCES);
@@ -441,7 +441,7 @@ control_dependences::control_dependences (struct edge_list *edges)
 control_dependences::~control_dependences ()
 {
   for (unsigned i = 0; i < control_dependence_map.length (); ++i)
-    BITMAP_FREE (control_dependence_map[i]);
+    delete control_dependence_map[i];
   control_dependence_map.release ();
   free_edge_list (m_el);
 }
