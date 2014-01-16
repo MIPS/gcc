@@ -2698,7 +2698,7 @@ static void
 dse_step1 (void)
 {
   basic_block bb;
-  bitmap regs_live = BITMAP_ALLOC (&reg_obstack);
+  bitmap_head regs_live (&reg_obstack);
 
   cselib_init (0);
   all_blocks = BITMAP_ALLOC (NULL);
@@ -2712,10 +2712,10 @@ dse_step1 (void)
 
       memset (bb_info, 0, sizeof (struct bb_info));
       all_blocks->set_bit (bb->index);
-      bb_info->regs_live = regs_live;
+      bb_info->regs_live = &regs_live;
 
-      bitmap_copy (regs_live, DF_LR_IN (bb));
-      df_simulate_initialize_forwards (bb, regs_live);
+      bitmap_copy (&regs_live, DF_LR_IN (bb));
+      df_simulate_initialize_forwards (bb, &regs_live);
 
       bb_table[bb->index] = bb_info;
       cselib_discard_hook = remove_useless_values;
@@ -2738,7 +2738,7 @@ dse_step1 (void)
 		scan_insn (bb_info, insn);
 	      cselib_process_insn (insn);
 	      if (INSN_P (insn))
-		df_simulate_one_insn_forwards (bb, insn, regs_live);
+		df_simulate_one_insn_forwards (bb, insn, &regs_live);
 	    }
 
 	  /* This is something of a hack, because the global algorithm
@@ -2839,7 +2839,6 @@ dse_step1 (void)
       bb_info->regs_live = NULL;
     }
 
-  BITMAP_FREE (regs_live);
   cselib_finish ();
   rtx_group_table.empty ();
 }
