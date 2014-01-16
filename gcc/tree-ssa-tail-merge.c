@@ -226,15 +226,17 @@ along with GCC; see the file COPYING3.  If not see
 
 struct same_succ_def
 {
+  same_succ_def () : succ_flags (10), in_worklist (false) {}
+
   /* The bbs that have the same successor bbs.  */
-  bitmap bbs;
+  bitmap_head bbs;
   /* The successor bbs.  */
-  bitmap succs;
+  bitmap_head succs;
   /* Indicates whether the EDGE_TRUE/FALSE_VALUEs of succ_flags are swapped for
      bb.  */
-  bitmap inverse;
+  bitmap_head inverse;
   /* The edge flags for each of the successor bbs.  */
-  vec<int> succ_flags;
+  auto_vec<int> succ_flags;
   /* Indicates whether the struct is currently in the worklist.  */
   bool in_worklist;
   /* The hash value of the struct.  */
@@ -262,10 +264,12 @@ same_succ_def::hash (const value_type *e)
 
 struct bb_cluster_def
 {
+  bb_cluster_def () : rep_bb (NULL) {}
+
   /* The bbs in the cluster.  */
-  bitmap bbs;
+  bitmap_head bbs;
   /* The preds of the bbs in the cluster.  */
-  bitmap preds;
+  bitmap_head preds;
   /* Index in all_clusters vector.  */
   int index;
   /* The bb to replace the cluster with.  */
@@ -389,9 +393,9 @@ static void
 same_succ_print (FILE *file, const same_succ e)
 {
   unsigned int i;
-  e->bbs->print (file, "bbs:", "\n");
-  e->succs->print (file, "succs:", "\n");
-  e->inverse->print (file, "inverse:", "\n");
+  e->bbs.print (file, "bbs:", "\n");
+  e->succs.print (file, "succs:", "\n");
+  e->inverse.print (file, "inverse:", "\n");
   fprintf (file, "flags:");
   for (i = 0; i < e->succ_flags.length (); ++i)
     fprintf (file, " %x", e->succ_flags[i]);
@@ -450,10 +454,10 @@ stmt_update_dep_bb (gimple stmt)
 static hashval_t
 same_succ_hash (const_same_succ e)
 {
-  hashval_t hashval = e->succs->hash ();
+  hashval_t hashval = e->succs.hash ();
   int flags;
   unsigned int i;
-  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, e->bbs->first_set_bit ());
+  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, e->bbs.first_set_bit ());
   int size = 0;
   gimple_stmt_iterator gsi;
   gimple stmt;
@@ -499,7 +503,7 @@ same_succ_hash (const_same_succ e)
       hashval = iterative_hash_hashval_t (flags, hashval);
     }
 
-  EXECUTE_IF_SET_IN_BITMAP (e->succs, 0, s, bs)
+  EXECUTE_IF_SET_IN_BITMAP (&e->succs, 0, s, bs)
     {
       int n = find_edge (bb, BASIC_BLOCK_FOR_FN (cfun, s))->dest_idx;
       for (gsi = gsi_start_phis (BASIC_BLOCK_FOR_FN (cfun, s)); !gsi_end_p (gsi);
@@ -558,7 +562,7 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
   if (e1->succ_flags.length () != e2->succ_flags.length ())
     return 0;
 
-  if (*e1->succs != *e2->succs)
+  if (e1->succs != e2->succs)
     return 0;
 
   if (!inverse_flags (e1, e2))
@@ -568,8 +572,8 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
 	  return 0;
     }
 
-  bb1 = BASIC_BLOCK_FOR_FN (cfun, e1->bbs->first_set_bit ());
-  bb2 = BASIC_BLOCK_FOR_FN (cfun, e2->bbs->first_set_bit ());
+  bb1 = BASIC_BLOCK_FOR_FN (cfun, e1->bbs.first_set_bit ());
+  bb2 = BASIC_BLOCK_FOR_FN (cfun, e2->bbs.first_set_bit ());
 
   if (BB_SIZE (bb1) != BB_SIZE (bb2))
     return 0;
@@ -595,33 +599,12 @@ same_succ_def::equal (const value_type *e1, const compare_type *e2)
   return 1;
 }
 
-/* Alloc and init a new SAME_SUCC.  */
-
-static same_succ
-same_succ_alloc (void)
-{
-  same_succ same = XNEW (struct same_succ_def);
-
-  same->bbs = BITMAP_ALLOC (NULL);
-  same->succs = BITMAP_ALLOC (NULL);
-  same->inverse = BITMAP_ALLOC (NULL);
-  same->succ_flags.create (10);
-  same->in_worklist = false;
-
-  return same;
-}
-
 /* Delete same_succ E.  */
 
 void
 same_succ_def::remove (same_succ e)
 {
-  BITMAP_FREE (e->bbs);
-  BITMAP_FREE (e->succs);
-  BITMAP_FREE (e->inverse);
-  e->succ_flags.release ();
-
-  XDELETE (e);
+  delete e;
 }
 
 /* Reset same_succ SAME.  */
@@ -629,9 +612,9 @@ same_succ_def::remove (same_succ e)
 static void
 same_succ_reset (same_succ same)
 {
-  bitmap_clear (same->bbs);
-  bitmap_clear (same->succs);
-  bitmap_clear (same->inverse);
+  bitmap_clear (&same->bbs);
+  bitmap_clear (&same->succs);
+  bitmap_clear (&same->inverse);
   same->succ_flags.truncate (0);
 }
 
@@ -682,7 +665,7 @@ add_to_worklist (same_succ same)
   if (same->in_worklist)
     return;
 
-  if (same->bbs->count_bits () < 2)
+  if (same->bbs.count_bits () < 2)
     return;
 
   same->in_worklist = true;
@@ -711,14 +694,14 @@ find_same_succ_bb (basic_block bb, same_succ *same_p)
 	 keeping it throughout tail-merge using this test.  */
       || bb->loop_father->latch == bb)
     return;
-  same->bbs->set_bit (bb->index);
+  same->bbs.set_bit (bb->index);
   FOR_EACH_EDGE (e, ei, bb->succs)
     {
       int index = e->dest->index;
-      same->succs->set_bit (index);
+      same->succs.set_bit (index);
       same_succ_edge_flags[index] = e->flags;
     }
-  EXECUTE_IF_SET_IN_BITMAP (same->succs, 0, j, bj)
+  EXECUTE_IF_SET_IN_BITMAP (&same->succs, 0, j, bj)
     same->succ_flags.safe_push (same_succ_edge_flags[j]);
 
   same->hashval = same_succ_hash (same);
@@ -733,11 +716,11 @@ find_same_succ_bb (basic_block bb, same_succ *same_p)
     }
   else
     {
-      (*slot)->bbs->set_bit (bb->index);
+      (*slot)->bbs.set_bit (bb->index);
       BB_SAME_SUCC (bb) = *slot;
       add_to_worklist (*slot);
       if (inverse_flags (same, *slot))
-	(*slot)->inverse->set_bit (bb->index);
+	(*slot)->inverse.set_bit (bb->index);
       same_succ_reset (same);
     }
 }
@@ -747,14 +730,14 @@ find_same_succ_bb (basic_block bb, same_succ *same_p)
 static void
 find_same_succ (void)
 {
-  same_succ same = same_succ_alloc ();
+  same_succ same = new same_succ_def;
   basic_block bb;
 
   FOR_EACH_BB_FN (bb, cfun)
     {
       find_same_succ_bb (bb, &same);
       if (same == NULL)
-	same = same_succ_alloc ();
+	same = new same_succ_def;
     }
 
   same_succ_def::remove (same);
@@ -815,10 +798,10 @@ same_succ_flush_bb (basic_block bb)
 {
   same_succ same = BB_SAME_SUCC (bb);
   BB_SAME_SUCC (bb) = NULL;
-  if (same->bbs->is_single_bit_set ())
+  if (same->bbs.is_single_bit_set ())
     same_succ_htab.remove_elt_with_hash (same, same->hashval);
   else
-    same->bbs->clear_bit (bb->index);
+    same->bbs.clear_bit (bb->index);
 }
 
 /* Removes all bbs in BBS from their corresponding same_succ.  */
@@ -880,14 +863,14 @@ update_worklist (void)
   deleted_bb_preds->clear_bit (ENTRY_BLOCK);
   same_succ_flush_bbs (deleted_bb_preds);
 
-  same = same_succ_alloc ();
+  same = new same_succ_def;
   EXECUTE_IF_SET_IN_BITMAP (deleted_bb_preds, 0, i, bi)
     {
       bb = BASIC_BLOCK_FOR_FN (cfun, i);
       gcc_assert (bb != NULL);
       find_same_succ_bb (bb, &same);
       if (same == NULL)
-	same = same_succ_alloc ();
+	same = new same_succ_def;
     }
   same_succ_def::remove (same);
   bitmap_clear (deleted_bb_preds);
@@ -900,8 +883,8 @@ print_cluster (FILE *file, bb_cluster c)
 {
   if (c == NULL)
     return;
-  c->bbs->print (file, "bbs:", "\n");
-  c->preds->print (file, "preds:", "\n");
+  c->bbs.print (file, "bbs:", "\n");
+  c->preds.print (file, "preds:", "\n");
 }
 
 /* Prints cluster C to stderr.  */
@@ -955,39 +938,13 @@ add_bb_to_cluster (bb_cluster c, basic_block bb)
   edge e;
   edge_iterator ei;
 
-  c->bbs->set_bit (bb->index);
+  c->bbs.set_bit (bb->index);
 
   FOR_EACH_EDGE (e, ei, bb->preds)
-    c->preds->set_bit (e->src->index);
+    c->preds.set_bit (e->src->index);
 
   update_rep_bb (c, bb);
 }
-
-/* Allocate and init new cluster.  */
-
-static bb_cluster
-new_cluster (void)
-{
-  bb_cluster c;
-  c = XCNEW (struct bb_cluster_def);
-  c->bbs = BITMAP_ALLOC (NULL);
-  c->preds = BITMAP_ALLOC (NULL);
-  c->rep_bb = NULL;
-  return c;
-}
-
-/* Delete clusters.  */
-
-static void
-delete_cluster (bb_cluster c)
-{
-  if (c == NULL)
-    return;
-  BITMAP_FREE (c->bbs);
-  BITMAP_FREE (c->preds);
-  XDELETE (c);
-}
-
 
 /* Array that contains all clusters.  */
 
@@ -1009,7 +966,7 @@ reset_cluster_vectors (void)
   unsigned int i;
   basic_block bb;
   for (i = 0; i < all_clusters.length (); ++i)
-    delete_cluster (all_clusters[i]);
+    delete all_clusters[i];
   all_clusters.truncate (0);
   FOR_EACH_BB_FN (bb, cfun)
     BB_CLUSTER (bb) = NULL;
@@ -1022,7 +979,7 @@ delete_cluster_vectors (void)
 {
   unsigned int i;
   for (i = 0; i < all_clusters.length (); ++i)
-    delete_cluster (all_clusters[i]);
+    delete all_clusters[i];
   all_clusters.release ();
 }
 
@@ -1031,8 +988,8 @@ delete_cluster_vectors (void)
 static void
 merge_clusters (bb_cluster c1, bb_cluster c2)
 {
-  bitmap_ior_into (c1->bbs, c2->bbs);
-  bitmap_ior_into (c1->preds, c2->preds);
+  bitmap_ior_into (&c1->bbs, &c2->bbs);
+  bitmap_ior_into (&c1->preds, &c2->preds);
 }
 
 /* Register equivalence of BB1 and BB2 (members of cluster C).  Store c in
@@ -1046,7 +1003,7 @@ set_cluster (basic_block bb1, basic_block bb2)
 
   if (BB_CLUSTER (bb1) == NULL && BB_CLUSTER (bb2) == NULL)
     {
-      c = new_cluster ();
+      c = new bb_cluster_def;
       add_bb_to_cluster (c, bb1);
       add_bb_to_cluster (c, bb2);
       BB_CLUSTER (bb1) = c;
@@ -1070,11 +1027,11 @@ set_cluster (basic_block bb1, basic_block bb2)
       old = BB_CLUSTER (bb2);
       merge = BB_CLUSTER (bb1);
       merge_clusters (merge, old);
-      EXECUTE_IF_SET_IN_BITMAP (old->bbs, 0, i, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&old->bbs, 0, i, bi)
 	BB_CLUSTER (BASIC_BLOCK_FOR_FN (cfun, i)) = merge;
       all_clusters[old->index] = NULL;
       update_rep_bb (merge, old->rep_bb);
-      delete_cluster (old);
+      delete old;
     }
   else
     gcc_unreachable ();
@@ -1175,8 +1132,8 @@ gimple_equal_p (same_succ same_succ, gimple s1, gimple s2)
 
       code1 = gimple_expr_code (s1);
       code2 = gimple_expr_code (s2);
-      inv_cond = (same_succ->inverse->bit (bb1->index)
-		  != same_succ->inverse->bit (bb2->index));
+      inv_cond = (same_succ->inverse.bit (bb1->index)
+		  != same_succ->inverse.bit (bb2->index));
       if (inv_cond)
 	{
 	  bool honor_nans
@@ -1314,7 +1271,7 @@ same_phi_alternatives (same_succ same_succ, basic_block bb1, basic_block bb2)
   edge e1, e2;
   basic_block succ;
 
-  EXECUTE_IF_SET_IN_BITMAP (same_succ->succs, 0, s, bs)
+  EXECUTE_IF_SET_IN_BITMAP (&same_succ->succs, 0, s, bs)
     {
       succ = BASIC_BLOCK_FOR_FN (cfun, s);
       e1 = find_edge (bb1, succ);
@@ -1399,7 +1356,7 @@ find_clusters_1 (same_succ same_succ)
   int nr_comparisons;
   int max_comparisons = PARAM_VALUE (PARAM_MAX_TAIL_MERGE_COMPARISONS);
 
-  EXECUTE_IF_SET_IN_BITMAP (same_succ->bbs, 0, i, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&same_succ->bbs, 0, i, bi)
     {
       bb1 = BASIC_BLOCK_FOR_FN (cfun, i);
 
@@ -1410,7 +1367,7 @@ find_clusters_1 (same_succ same_succ)
 	continue;
 
       nr_comparisons = 0;
-      EXECUTE_IF_SET_IN_BITMAP (same_succ->bbs, i + 1, j, bj)
+      EXECUTE_IF_SET_IN_BITMAP (&same_succ->bbs, i + 1, j, bj)
 	{
 	  bb2 = BASIC_BLOCK_FOR_FN (cfun, j);
 
@@ -1565,8 +1522,8 @@ apply_clusters (void)
       bb2 = c->rep_bb;
       update_bbs->set_bit (bb2->index);
 
-      c->bbs->clear_bit (bb2->index);
-      EXECUTE_IF_SET_IN_BITMAP (c->bbs, 0, j, bj)
+      c->bbs.clear_bit (bb2->index);
+      EXECUTE_IF_SET_IN_BITMAP (&c->bbs, 0, j, bj)
 	{
 	  bb1 = BASIC_BLOCK_FOR_FN (cfun, j);
 	  update_bbs->clear_bit (bb1->index);
