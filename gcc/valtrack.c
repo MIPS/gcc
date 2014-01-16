@@ -327,16 +327,11 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
 		       struct dead_debug_use *head)
 {
   bool got_head = (debug->head == head);
-  bitmap rescan;
+  bitmap_head rescan;
   struct dead_debug_use **tailp = &debug->head;
   struct dead_debug_use *cur;
   bitmap_iterator bi;
   unsigned int uid;
-
-  if (got_head)
-    rescan = NULL;
-  else
-    rescan = BITMAP_ALLOC (NULL);
 
   while (head)
     {
@@ -350,7 +345,7 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
 	  if (got_head)
 	    df_insn_rescan_debug_internal (insn);
 	  else
-	    rescan->set_bit (INSN_UID (insn));
+	    rescan.set_bit (INSN_UID (insn));
 	  if (debug->to_rescan)
 	    debug->to_rescan->clear_bit (INSN_UID (insn));
 	}
@@ -365,7 +360,7 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
     }
 
   while ((cur = *tailp))
-    if (rescan->bit (INSN_UID (DF_REF_INSN (cur->use))))
+    if (rescan.bit (INSN_UID (DF_REF_INSN (cur->use))))
       {
 	*tailp = cur->next;
 	XDELETE (cur);
@@ -373,14 +368,12 @@ dead_debug_reset_uses (struct dead_debug_local *debug,
     else
       tailp = &cur->next;
 
-  EXECUTE_IF_SET_IN_BITMAP (rescan, 0, uid, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&rescan, 0, uid, bi)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
       if (insn_info)
 	df_insn_rescan_debug_internal (insn_info->insn);
     }
-
-  BITMAP_FREE (rescan);
 }
 
 /* Promote pending local uses of pseudos in DEBUG to global
