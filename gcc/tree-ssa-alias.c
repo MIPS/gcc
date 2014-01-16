@@ -2189,15 +2189,12 @@ stmt_kills_ref_p (gimple stmt, tree ref)
 
 static bool
 maybe_skip_until (gimple phi, tree target, ao_ref *ref,
-		  tree vuse, unsigned int *cnt, bitmap *visited,
+		  tree vuse, unsigned int *cnt, bitmap visited,
 		  bool abort_on_visited)
 {
   basic_block bb = gimple_bb (phi);
 
-  if (!*visited)
-    *visited = BITMAP_ALLOC (NULL);
-
-  (*visited)->set_bit (SSA_NAME_VERSION (PHI_RESULT (phi)));
+  visited->set_bit (SSA_NAME_VERSION (PHI_RESULT (phi)));
 
   /* Walk until we hit the target.  */
   while (vuse != target)
@@ -2207,7 +2204,7 @@ maybe_skip_until (gimple phi, tree target, ao_ref *ref,
       if (gimple_code (def_stmt) == GIMPLE_PHI)
 	{
 	  /* An already visited PHI node ends the walk successfully.  */
-	  if ((*visited)->bit (SSA_NAME_VERSION (PHI_RESULT (def_stmt))))
+	  if (visited->bit (SSA_NAME_VERSION (PHI_RESULT (def_stmt))))
 	    return !abort_on_visited;
 	  vuse = get_continuation_for_phi (def_stmt, ref, cnt,
 					   visited, abort_on_visited);
@@ -2228,7 +2225,7 @@ maybe_skip_until (gimple phi, tree target, ao_ref *ref,
          in a previous walk that ended successfully.  */
       if (gimple_bb (def_stmt) != bb)
 	{
-	  if (!(*visited)->set_bit (SSA_NAME_VERSION (vuse)))
+	  if (!visited->set_bit (SSA_NAME_VERSION (vuse)))
 	    return !abort_on_visited;
 	  bb = gimple_bb (def_stmt);
 	}
@@ -2244,7 +2241,7 @@ maybe_skip_until (gimple phi, tree target, ao_ref *ref,
 static tree
 get_continuation_for_phi_1 (gimple phi, tree arg0, tree arg1,
 			    ao_ref *ref, unsigned int *cnt,
-			    bitmap *visited, bool abort_on_visited)
+			    bitmap visited, bool abort_on_visited)
 {
   gimple def0 = SSA_NAME_DEF_STMT (arg0);
   gimple def1 = SSA_NAME_DEF_STMT (arg1);
@@ -2303,7 +2300,7 @@ get_continuation_for_phi_1 (gimple phi, tree arg0, tree arg1,
 
 tree
 get_continuation_for_phi (gimple phi, ao_ref *ref,
-			  unsigned int *cnt, bitmap *visited,
+			  unsigned int *cnt, bitmap visited,
 			  bool abort_on_visited)
 {
   unsigned nargs = gimple_phi_num_args (phi);
@@ -2376,7 +2373,7 @@ walk_non_aliased_vuses (ao_ref *ref, tree vuse,
 			void *(*walker)(ao_ref *, tree, unsigned int, void *),
 			void *(*translate)(ao_ref *, tree, void *), void *data)
 {
-  bitmap visited = NULL;
+  bitmap_head visited;
   void *res;
   unsigned int cnt = 0;
   bool translated = false;
@@ -2429,9 +2426,6 @@ walk_non_aliased_vuses (ao_ref *ref, tree vuse,
 	}
     }
   while (vuse);
-
-  if (visited)
-    BITMAP_FREE (visited);
 
   timevar_pop (TV_ALIAS_STMT_WALK);
 

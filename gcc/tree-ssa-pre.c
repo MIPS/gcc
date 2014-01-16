@@ -1299,13 +1299,11 @@ translate_vuse_through_block (vec<vn_reference_op_s> operands,
     {
       if (use_oracle)
 	{
-	  bitmap visited = NULL;
+	  bitmap_head visited;
 	  unsigned int cnt;
 	  /* Try to find a vuse that dominates this phi node by skipping
 	     non-clobbering statements.  */
 	  vuse = get_continuation_for_phi (phi, &ref, &cnt, &visited, false);
-	  if (visited)
-	    BITMAP_FREE (visited);
 	}
       else
 	vuse = NULL_TREE;
