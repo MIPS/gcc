@@ -445,7 +445,6 @@ ref_may_be_aliased (tree ref)
 	   && !may_be_aliased (ref));
 }
 
-static bitmap visited = NULL;
 static unsigned int longest_chain = 0;
 static unsigned int total_chain = 0;
 static unsigned int nr_walks = 0;
@@ -589,7 +588,7 @@ mark_all_reaching_defs_necessary_1 (ao_ref *ref ATTRIBUTE_UNUSED,
 }
 
 static void
-mark_all_reaching_defs_necessary (gimple stmt)
+mark_all_reaching_defs_necessary (gimple stmt, bitmap visited)
 {
   walk_aliased_vdefs (NULL, gimple_vuse (stmt),
 		      mark_all_reaching_defs_necessary_1, NULL, visited);
@@ -623,6 +622,7 @@ propagate_necessity (bool aggressive)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "\nProcessing worklist:\n");
 
+  bitmap_head visited;
   while (worklist.length () > 0)
     {
       /* Take STMT from worklist.  */
@@ -792,7 +792,7 @@ propagate_necessity (bool aggressive)
 	     reachable definitions necessary.  */
 	  if (chain_ovfl)
 	    {
-	      mark_all_reaching_defs_necessary (stmt);
+	      mark_all_reaching_defs_necessary (stmt, &visited);
 	      continue;
 	    }
 
@@ -835,7 +835,7 @@ propagate_necessity (bool aggressive)
 
 	      /* Calls implicitly load from memory, their arguments
 	         in addition may explicitly perform memory loads.  */
-	      mark_all_reaching_defs_necessary (stmt);
+	      mark_all_reaching_defs_necessary (stmt, &visited);
 	      for (i = 0; i < gimple_call_num_args (stmt); ++i)
 		{
 		  tree arg = gimple_call_arg (stmt, i);
@@ -860,7 +860,7 @@ propagate_necessity (bool aggressive)
 		  if (!ref_may_be_aliased (rhs))
 		    mark_aliased_reaching_defs_necessary (stmt, rhs);
 		  else
-		    mark_all_reaching_defs_necessary (stmt);
+		    mark_all_reaching_defs_necessary (stmt, &visited);
 		}
 	    }
 	  else if (gimple_code (stmt) == GIMPLE_RETURN)
@@ -875,13 +875,13 @@ propagate_necessity (bool aggressive)
 		  if (!ref_may_be_aliased (rhs))
 		    mark_aliased_reaching_defs_necessary (stmt, rhs);
 		  else
-		    mark_all_reaching_defs_necessary (stmt);
+		    mark_all_reaching_defs_necessary (stmt, &visited);
 		}
 	    }
 	  else if (gimple_code (stmt) == GIMPLE_ASM)
 	    {
 	      unsigned i;
-	      mark_all_reaching_defs_necessary (stmt);
+	      mark_all_reaching_defs_necessary (stmt, &visited);
 	      /* Inputs may perform loads.  */
 	      for (i = 0; i < gimple_asm_ninputs (stmt); ++i)
 		{
@@ -898,7 +898,7 @@ propagate_necessity (bool aggressive)
 	      /* The beginning of a transaction is a memory barrier.  */
 	      /* ??? If we were really cool, we'd only be a barrier
 		 for the memories touched within the transaction.  */
-	      mark_all_reaching_defs_necessary (stmt);
+	      mark_all_reaching_defs_necessary (stmt, &visited);
 	    }
 	  else
 	    gcc_unreachable ();
@@ -916,8 +916,7 @@ propagate_necessity (bool aggressive)
 	      && total_chain > nr_walks * 32)
 	    {
 	      chain_ovfl = true;
-	      if (visited)
-		bitmap_clear (visited);
+	      bitmap_clear (&visited);
 	    }
 	}
     }
@@ -1448,9 +1447,7 @@ perform_tree_ssa_dce (bool aggressive)
   total_chain = 0;
   nr_walks = 0;
   chain_ovfl = false;
-  visited = BITMAP_ALLOC (NULL);
   propagate_necessity (aggressive);
-  BITMAP_FREE (visited);
 
   something_changed |= eliminate_unnecessary_stmts ();
   something_changed |= cfg_altered;
