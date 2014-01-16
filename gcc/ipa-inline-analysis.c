@@ -2061,7 +2061,9 @@ will_be_nonconstant_predicate (struct ipa_node_params *info,
 
 struct record_modified_bb_info
 {
-  bitmap bb_set;
+  record_modified_bb_info (gimple stmt) : stmt (stmt) {}
+
+  bitmap_head bb_set;
   gimple stmt;
 };
 
@@ -2078,7 +2080,7 @@ record_modified (ao_ref *ao ATTRIBUTE_UNUSED, tree vdef, void *data)
   int index = SSA_NAME_IS_DEFAULT_DEF (vdef)
     ? ENTRY_BLOCK_PTR_FOR_FN (cfun)->index
     : gimple_bb (SSA_NAME_DEF_STMT (vdef))->index;
-  info->bb_set->set_bit (index);
+  info->bb_set.set_bit (index);
   return false;
 }
 
@@ -2130,7 +2132,6 @@ param_change_prob (gimple stmt, int i)
     {
       ao_ref refd;
       int max;
-      struct record_modified_bb_info info;
       bitmap_iterator bi;
       unsigned index;
       tree init = ctor_for_folding (base);
@@ -2140,15 +2141,11 @@ param_change_prob (gimple stmt, int i)
       if (!bb->frequency)
 	return REG_BR_PROB_BASE;
       ao_ref_init (&refd, op);
-      info.stmt = stmt;
-      info.bb_set = BITMAP_ALLOC (NULL);
+      struct record_modified_bb_info info (stmt);
       walk_aliased_vdefs (&refd, gimple_vuse (stmt), record_modified, &info,
 			  NULL);
-      if (info.bb_set->bit (bb->index))
-	{
-	  BITMAP_FREE (info.bb_set);
-	  return REG_BR_PROB_BASE;
-	}
+      if (info.bb_set.bit (bb->index))
+	return REG_BR_PROB_BASE;
 
       /* Assume that every memory is initialized at entry.
          TODO: Can we easilly determine if value is always defined
@@ -2158,10 +2155,9 @@ param_change_prob (gimple stmt, int i)
       else
 	max = 1;
 
-      EXECUTE_IF_SET_IN_BITMAP (info.bb_set, 0, index, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&info.bb_set, 0, index, bi)
 	max = MIN (max, BASIC_BLOCK_FOR_FN (cfun, index)->frequency);
 
-      BITMAP_FREE (info.bb_set);
       if (max < bb->frequency)
 	return MAX (GCOV_COMPUTE_SCALE (max, bb->frequency), 1);
       else
