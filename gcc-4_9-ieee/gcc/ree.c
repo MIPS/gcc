@@ -297,6 +297,12 @@ combine_set_extension (ext_cand *cand, rtx curr_insn, rtx *orig_set)
   else
     new_reg = gen_rtx_REG (cand->mode, REGNO (SET_DEST (*orig_set)));
 
+  /* We're going to be widening the result of DEF_INSN, ensure that doing so
+     doesn't change the number of hard registers needed for the result.  */
+  if (HARD_REGNO_NREGS (REGNO (new_reg), cand->mode)
+      != HARD_REGNO_NREGS (REGNO (orig_src), GET_MODE (SET_DEST (*orig_set))))
+	return false;
+
   /* Merge constants by directly moving the constant into the register under
      some conditions.  Recall that RTL constants are sign-extended.  */
   if (GET_CODE (orig_src) == CONST_INT
@@ -702,6 +708,18 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
       if (state->modified[INSN_UID (cand->insn)].kind != EXT_MODIFIED_NONE)
 	return false;
 
+      /* Transformation of
+	 (set (reg1) (expression))
+	 (set (reg2) (any_extend (reg1)))
+	 into
+	 (set (reg2) (any_extend (expression)))
+	 (set (reg1) (reg2))
+	 is only valid for scalar integral modes, as it relies on the low
+	 subreg of reg1 to have the value of (expression), which is not true
+	 e.g. for vector modes.  */
+      if (!SCALAR_INT_MODE_P (GET_MODE (SET_DEST (PATTERN (cand->insn)))))
+	return false;
+
       /* There's only one reaching def.  */
       rtx def_insn = state->defs_list[0];
 
@@ -711,8 +729,10 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
 
       /* The defining statement and candidate insn must be in the same block.
 	 This is merely to keep the test for safety and updating the insn
-	 stream simple.  */
-      if (BLOCK_FOR_INSN (cand->insn) != BLOCK_FOR_INSN (def_insn))
+	 stream simple.  Also ensure that within the block the candidate
+	 follows the defining insn.  */
+      if (BLOCK_FOR_INSN (cand->insn) != BLOCK_FOR_INSN (def_insn)
+	  || DF_INSN_LUID (def_insn) > DF_INSN_LUID (cand->insn))
 	return false;
 
       /* If there is an overlap between the destination of DEF_INSN and
@@ -1003,11 +1023,20 @@ find_and_remove_re (void)
   for (unsigned int i = 0; i < reinsn_copy_list.length (); i += 2)
     {
       rtx curr_insn = reinsn_copy_list[i];
+      rtx def_insn = reinsn_copy_list[i + 1];
+
+      /* Use the mode of the destination of the defining insn
+	 for the mode of the copy.  This is necessary if the
+	 defining insn was used to eliminate a second extension
+	 that was wider than the first.  */
+      rtx sub_rtx = *get_sub_rtx (def_insn);
       rtx pat = PATTERN (curr_insn);
-      rtx new_reg = gen_rtx_REG (GET_MODE (SET_DEST (pat)),
+      rtx new_dst = gen_rtx_REG (GET_MODE (SET_DEST (sub_rtx)),
 				 REGNO (XEXP (SET_SRC (pat), 0)));
-      rtx set = gen_rtx_SET (VOIDmode, new_reg, SET_DEST (pat));
-      emit_insn_after (set, reinsn_copy_list[i + 1]);
+      rtx new_src = gen_rtx_REG (GET_MODE (SET_DEST (sub_rtx)),
+				 REGNO (SET_DEST (pat)));
+      rtx set = gen_rtx_SET (VOIDmode, new_dst, new_src);
+      emit_insn_after (set, def_insn);
     }
 
   /* Delete all useless extensions here in one sweep.  */

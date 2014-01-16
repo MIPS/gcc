@@ -1,3 +1,8 @@
+2014-01-16  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Merge up to 206671.
+	* REVISION: Update subversion id.
+
 2014-01-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_M): Do not include XFmode.
