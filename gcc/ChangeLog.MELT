@@ -1,4 +1,15 @@
 
+2014-01-17  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-base.melt (multiple_sort): Commented out a
+	std::stable_sort based sorting function which fails to compile
+	yet.
+
+	* melt/warmelt-normal.melt (normexp_hook_call): Slightly improved
+	error message for arity mismatch.
+
+	* melt/xtramelt-playground.melt: Add testing of inform_at...
+
 2014-01-09  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (meltgc_strbuf_reserve): Improve debugprintf.

@@ -2,7 +2,7 @@
 ;; file xtramelt-playground.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2013 Free Software Foundation, Inc.
+    Copyright 2013 - 2014 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -25,6 +25,7 @@
 ;; this file should not contain useful things on MELT plugin
 ;; releases.  It is a playground for testing purposes.
 
-
+(inform_at () "from xtramelt-playground one=dollar1=$1 2=dollar2=$2 foo=dollar3=$3"
+	   'one 2 "foo")
 (debug "xtramelt-playground ended")		
 ;; eof xtramelt-playground.melt

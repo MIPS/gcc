@@ -38,6 +38,13 @@
 ;; file, because make_sexpr is not yet available, so diagnostic
 ;; support has to be in warmelt-macro.melt file...
 
+
+;; Our multiple_sort needs std::sort used with hook_sort_compare
+(cheader #{
+/* C++ standard header for multiple_sort */
+#include <algorithm>
+}#)
+
 ;; internal primitive to make a fresh environment reference; call the
 ;; hook_fresh_environment_reference_maker from warmelt-hooks.melt
 (defprimitive melt_make_fresh_environment_reference
@@ -3242,7 +3249,7 @@ typedef struct melthook_st *melthook_ptr_t;
   :long
   :predef HOOK_SORT_COMPARE
   :doc #{The internal $HOOK_SOURCE_COMPARE is for sorting
-  multiples. It should return boolean true if $LEFT is strictly less
+  tuples. It should return boolean true if $LEFT is strictly less
   than $RIGHT using the $CMP function. This $CMP function should return
   @code{:TRUE} when $LEFT is strictly less than $RIGHT. If $CMP
   returns a boxed number, it should be strictly negative iff $LEFT is
@@ -3269,6 +3276,57 @@ typedef struct melthook_st *melthook_ptr_t;
     (return 1)	    
     )
   )					;end hook_sort_compare
+
+
+#|
+;;;;;;;; our "re-entrant" tuple sorter using std::stable_sort
+(defun multiple_sort (mul cmp discrm) 
+  :doc #{Returns a sorted tuple from the tuple $MUL, the compare
+  function $CMP, see $HOOK_SORT_COMPARE for details about it, using the
+  optional tuple discriminant $DISCRM (using $DISCR_MULTIPLE if null).
+  If $MUL is not a tuple, or $CMP is not a closure or $DISCRM is not a
+  tuple discriminant or null, then a null value is returned. If the
+  closure $CMP does not define an order the behavior is undefined.
+  The $CMP function can be simple or complex, perhaps even [recursively] calling
+  $MULTIPLE_SORT itself (but that is probably unusual). The sorting is stable.}#
+  (unless (is_multiple mul) 
+    (return ()))
+  (unless (is_closure cmp)
+    (return ()))
+  (if (null discrim)
+      (setq discrim discr_multiple))
+  (if (is_not_a discrim class_discriminant)
+      (return ()))
+  (unless (expr_chunk checkmagic_chk :long
+		      #{ /* multiple_sort $CHECKMAGIC_CHK */
+		      (((meltobject_ptr_t)($DISCRIM))->meltobj_magic == MELTOBMAG_MULTIPLE) }#)
+    (return ()))
+  (let ( (res (clone_with_discriminant mul discrm))
+	 (:long reslen (multiple_length res))
+	 )
+    (code_chunk 
+     sortres_chk 
+     #{ /* multiple_sort $SORTRES_CHK start */
+     struct Melt_Sort_Compare_$SORTRES_CHK {
+       bool operator () (melt_ptr_t meltleft_$SORTRES_CHK, melt_ptr_t meltright_$SORTRES_CHK) {
+         return (bool) 
+     	   $(hook_sort_compare 
+     	     $(expr_chunk left_chk :value #{ /* multiple_sort $LEFT_CHK */ meltleft_$SORTRES_CHK}#)
+     	     $(expr_chunk right_chk :value #{ /* multiple_sort $RIGHT_CHK */ meltright_$SORTRES_CHK}#)
+     	     cmp);
+       };
+     }; /* end struct Melt_Sort_Compare_$SORTRES_CHK */ 
+     long meltsortlen_$SORTRES_CHK = $RESLEN; 
+     struct Melt_Sort_Compare_$SORTRES_CHK meltsorter_$SORTRES_CHK; 
+     std::stable_sort (((meltmultiple_st*)$RES)->tabval,
+                       ((meltmultiple_st*)$RES)->tabval+meltsortlen_$SORTRES_CHK, 
+                       meltsorter_$SORTRES_CHK); 
+     meltgc_touch ($RES); // the touch is often useless but won't harm 
+     /* multiple_sort $SORTRES_CHK end */
+     }#)
+    (assert_msg "check res" (is_multiple res) res)
+    (return res)))
+|#
 ;;;;;
 
 (export_values
@@ -3436,6 +3494,7 @@ typedef struct melthook_st *melthook_ptr_t;
  multiple_backward_every
  multiple_every
  multiple_every_both
+ ;multiple_sort
  negi
  nonzero_hash
  noti

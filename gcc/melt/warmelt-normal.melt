@@ -2318,7 +2318,7 @@ source location.}#
       (debug "normexp_hook_call hkbind=" hkbind "\n hksymb=" hksymb)
       (assert_msg "check hkbind" (is_object hkbind) hkbind)
       (when (!=i (multiple_length sargs) (+i nbins nbouts))
-	(error_at sloc "invalid operand arity $1 for hook call $2 wanting $3 ins and $4 outs"_ 
+	(error_at sloc "invalid operand arity $1 for hook call '$2' wanting #$3 inputs and #$4 outputs"_ 
 		  (multiple_length sargs) hnamestr nbins nbouts)
 	(return () ()))
       ;; extract and normalize the inputs
