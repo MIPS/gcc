@@ -39,47 +39,47 @@ typedef void* oacc_buffer;
 typedef void* oacc_event;
 
 /* make sure environment and device initialized */
-void OACC_check_cur_dev(void);
+void GOACC_check_cur_dev(void);
 /* create or get kernel from cache */
-oacc_kernel OACC_get_kernel(const char* prog_name, const char* kern_name);
+oacc_kernel GOACC_get_kernel(const char* prog_name, const char* kern_name);
 /* start a kernel with specified worksize */
-void OACC_start_kernel(oacc_kernel kernel, unsigned worksize,
+void GOACC_start_kernel(oacc_kernel kernel, unsigned worksize,
                        unsigned offset, int groupsize, oacc_event ev,
                        unsigned ev_idx);
 /* associate memory object with kernel argument */
-void OACC_set_kernel_arg(oacc_kernel kern, unsigned idx, oacc_buffer buf);
+void GOACC_set_kernel_arg(oacc_kernel kern, unsigned idx, oacc_buffer buf);
 
 /* copy memory object to device */
-oacc_buffer OACC_copyin(void *mem, unsigned size, int check_present,
+oacc_buffer GOACC_copyin(void *mem, unsigned size, int check_present,
                         oacc_event ev, unsigned ev_idx);
 /* check object presence on device */
-oacc_buffer OACC_check_present(void *mem);
+oacc_buffer GOACC_check_present(void *mem);
 /* create memory object on device */
-oacc_buffer OACC_create_on_device(void* mem, unsigned size, int check_present,
+oacc_buffer GOACC_create_on_device(void* mem, unsigned size, int check_present,
                                   oacc_event ev, unsigned ev_idx);
 /* copy memory object to host */
-void OACC_copyout(void *mem, unsigned size, int check_present, oacc_event ev,
+void GOACC_copyout(void *mem, unsigned size, int check_present, oacc_event ev,
                   unsigned ev_idx);
 
 /* create synchro queue */
-oacc_event OACC_create_events(const char* src, int lineno);
+oacc_event GOACC_create_events(const char* src, int lineno);
 /* set one step of processing */
-void OACC_enqueue_events(oacc_event ev, unsigned n, int k);
+void GOACC_enqueue_events(oacc_event ev, unsigned n, int k);
 /* advance on next step */
-void OACC_advance_events(oacc_event ev);
+void GOACC_advance_events(oacc_event ev);
 /* synchronize */
-void OACC_wait_events(oacc_event ev);
+void GOACC_wait_events(oacc_event ev);
 
 /* create or add global named async */
-void OACC_add_named_async(int cookie, oacc_event ev);
+void GOACC_add_named_async(int cookie, oacc_event ev);
 /* create global nameless async */
-void OACC_add_nameless_async(oacc_event ev);
+void GOACC_add_nameless_async(oacc_event ev);
 /* wait specified async */
-void OACC_wait_named_async(int cookie);
+void GOACC_wait_named_async(int cookie);
 /* wait all async */
-void OACC_wait_all_async(void);
+void GOACC_wait_all_async(void);
 
-void OACC_start_profiling(void);
+void GOACC_start_profiling(void);
 
 #ifdef __cplusplus
 }

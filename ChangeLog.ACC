@@ -1,3 +1,22 @@
+17-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
+        Fix segmentation fault in SSA form and linker errors
+
+        * gcc/oacc-low.c(generate_ctrl_var_init): Fix segmentation fault
+        * liboacc/configure: Reconfigured
+        * liboacc/liboacc.c, liboacc/liboacc.h (OACC_check_cur_dev, 
+        OACC_get_kernel, OACC_start_kernel, OACC_copyin, OACC_set_kernel_arg, 
+        OACC_check_present, OACC_create_on_device, OACC_copyout, 
+        OACC_create_events, OACC_enqueue_events, OACC_advance_events,
+        OACC_wait_events, OACC_add_named_async, OACC_add_nameless_async,
+        OACC_wait_named_async, OACC_wait_all_async, OACC_start_profiling):
+        Replace with ...
+        (GOACC_check_cur_dev, GOACC_get_kernel, GOACC_start_kernel, GOACC_copyin, 
+        GOACC_set_kernel_arg, GOACC_check_present, GOACC_create_on_device, 
+        GOACC_copyout, GOACC_create_events, GOACC_enqueue_events, 
+        GOACC_advance_events, GOACC_wait_events, GOACC_add_named_async, 
+        GOACC_add_nameless_async, GOACC_wait_named_async, GOACC_wait_all_async,
+        GOACC_start_profiling): ... this
+
 10-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
         Merge OpenACC gfortran AST -> GENERIC translation with OpenMP's one.
 

@@ -2853,7 +2853,8 @@ generate_ctrl_var_init(gimple_stmt_iterator* gsi, gimple stmt,
     }
 
     /* i = _oacc_tmp + i; */
-    add_stmt = build_assign(PLUS_EXPR, lhs, new_var);
+    add_stmt = build_assign(PLUS_EXPR, lhs, init);
+    new_var = copy_ssa_name(lhs, add_stmt);
     set_gimple_def_var(add_stmt, new_var);
     gen_add(gsi, add_stmt);
 }

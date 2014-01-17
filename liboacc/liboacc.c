@@ -35,7 +35,7 @@ get_global_id(int id)
 
 /* make sure current device initialized */
 void
-OACC_check_cur_dev(void)
+GOACC_check_cur_dev(void)
 {
   OACC_CHECK_INIT
   if(OACC_curr_dev != NULL)
@@ -46,7 +46,7 @@ OACC_check_cur_dev(void)
 
 /* get function KERN_NAME form module PROG_NAME */
 oacc_kernel
-OACC_get_kernel(const char* prog_name, const char* kern_name)
+GOACC_get_kernel(const char* prog_name, const char* kern_name)
 {
   OACC_CHECK_INIT
   OACC_CHECK_DEV_INIT(OACC_curr_dev[OACC_curr_num])
@@ -55,7 +55,7 @@ OACC_get_kernel(const char* prog_name, const char* kern_name)
 
 /* enqueue kernel KERN for WORKSIZE threads */
 void
-OACC_start_kernel(oacc_kernel kern, unsigned worksize,
+GOACC_start_kernel(oacc_kernel kern, unsigned worksize,
                   unsigned offset, int groupsize, oacc_event ev,
                   unsigned idx)
 {
@@ -67,7 +67,7 @@ OACC_start_kernel(oacc_kernel kern, unsigned worksize,
 }
 
 oacc_buffer
-OACC_copyin(void *mem, unsigned size, int check_present, oacc_event ev,
+GOACC_copyin(void *mem, unsigned size, int check_present, oacc_event ev,
             unsigned idx)
 {
   OACC_CHECK_INIT
@@ -78,7 +78,7 @@ OACC_copyin(void *mem, unsigned size, int check_present, oacc_event ev,
 }
 
 void
-OACC_set_kernel_arg(oacc_kernel kern, unsigned idx, oacc_buffer buf)
+GOACC_set_kernel_arg(oacc_kernel kern, unsigned idx, oacc_buffer buf)
 {
   OACC_CHECK_KERN_PTR(kern)
   OACC_CHECK_INIT
@@ -87,7 +87,7 @@ OACC_set_kernel_arg(oacc_kernel kern, unsigned idx, oacc_buffer buf)
 }
 
 oacc_buffer
-OACC_check_present(void *mem)
+GOACC_check_present(void *mem)
 {
   OACC_buffer_ptr buf = 0;
   OACC_CHECK_INIT
@@ -100,7 +100,7 @@ OACC_check_present(void *mem)
 }
 
 oacc_buffer
-OACC_create_on_device(void* mem, unsigned size, int check_present,
+GOACC_create_on_device(void* mem, unsigned size, int check_present,
                       oacc_event ev, unsigned idx)
 {
   OACC_CHECK_INIT
@@ -111,7 +111,7 @@ OACC_create_on_device(void* mem, unsigned size, int check_present,
 }
 
 void
-OACC_copyout(void *mem, unsigned size, int check_present, oacc_event ev,
+GOACC_copyout(void *mem, unsigned size, int check_present, oacc_event ev,
              unsigned idx)
 {
   OACC_CHECK_INIT
@@ -121,32 +121,32 @@ OACC_copyout(void *mem, unsigned size, int check_present, oacc_event ev,
 }
 
 oacc_event
-OACC_create_events(const char* src, int lineno)
+GOACC_create_events(const char* src, int lineno)
 {
   return (oacc_event)OACC_create_queue(src, lineno);
 }
 
 void
-OACC_enqueue_events(oacc_event ev, unsigned n, int k)
+GOACC_enqueue_events(oacc_event ev, unsigned n, int k)
 {
   OACC_add_event((struct OACC_queue_data*)ev, n, k);
 }
 
 void
-OACC_advance_events(oacc_event ev)
+GOACC_advance_events(oacc_event ev)
 {
   struct OACC_queue_data* q = (struct OACC_queue_data*)ev;
   OACC_EQ_ADVANCE(q)
 }
 
 void
-OACC_wait_events(oacc_event ev)
+GOACC_wait_events(oacc_event ev)
 {
   OACC_wait_queue((struct OACC_queue_data*)ev);
 }
 
 void
-OACC_add_named_async(int cookie, oacc_event ev)
+GOACC_add_named_async(int cookie, oacc_event ev)
 {
   struct OACC_queue_data* q = (struct OACC_queue_data*)ev;
   OACC_CHECK_INIT
@@ -154,7 +154,7 @@ OACC_add_named_async(int cookie, oacc_event ev)
 }
 
 void
-OACC_add_nameless_async(oacc_event ev)
+GOACC_add_nameless_async(oacc_event ev)
 {
   struct OACC_queue_data* q = (struct OACC_queue_data*)ev;
   OACC_CHECK_INIT
@@ -162,7 +162,7 @@ OACC_add_nameless_async(oacc_event ev)
 }
 
 void
-OACC_wait_named_async(int cookie)
+GOACC_wait_named_async(int cookie)
 {
   struct OACC_queue_data *q = NULL, *qprev = NULL;
   OACC_CHECK_INIT
@@ -175,14 +175,14 @@ OACC_wait_named_async(int cookie)
 }
 
 void
-OACC_wait_all_async()
+GOACC_wait_all_async()
 {
   OACC_CHECK_INIT
   OACC_wait_all_global_queues();
 }
 
 void
-OACC_start_profiling(void)
+GOACC_start_profiling(void)
 {
   OACC_profiling_enable();
 }
