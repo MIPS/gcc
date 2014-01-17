@@ -1,5 +1,5 @@
 /* Loop invariant motion.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -35,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
-#include "gimplify-me.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
@@ -53,6 +52,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-affine.h"
 #include "tree-ssa-propagate.h"
 #include "trans-mem.h"
+#include "gimple-fold.h"
 
 /* TODO:  Support for predicated code motion.  I.e.
 
@@ -1135,67 +1135,6 @@ public:
   unsigned int todo_;
 };
 
-/* Return true if CODE is an operation that when operating on signed
-   integer types involves undefined behavior on overflow and the
-   operation can be expressed with unsigned arithmetic.  */
-
-static bool
-arith_code_with_undefined_signed_overflow (tree_code code)
-{
-  switch (code)
-    {
-    case PLUS_EXPR:
-    case MINUS_EXPR:
-    case MULT_EXPR:
-    case NEGATE_EXPR:
-    case POINTER_PLUS_EXPR:
-      return true;
-    default:
-      return false;
-    }
-}
-
-/* Rewrite STMT, an assignment with a signed integer or pointer arithmetic
-   operation that can be transformed to unsigned arithmetic by converting
-   its operand, carrying out the operation in the corresponding unsigned
-   type and converting the result back to the original type.
-
-   Returns a sequence of statements that replace STMT and also contain
-   a modified form of STMT itself.  */
-
-static gimple_seq
-rewrite_to_defined_overflow (gimple stmt)
-{
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fprintf (dump_file, "rewriting stmt with undefined signed "
-	       "overflow ");
-      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-    }
-
-  tree lhs = gimple_assign_lhs (stmt);
-  tree type = unsigned_type_for (TREE_TYPE (lhs));
-  gimple_seq stmts = NULL;
-  for (unsigned i = 1; i < gimple_num_ops (stmt); ++i)
-    {
-      gimple_seq stmts2 = NULL;
-      gimple_set_op (stmt, i,
-		     force_gimple_operand (fold_convert (type,
-							 gimple_op (stmt, i)),
-					   &stmts2, true, NULL_TREE));
-      gimple_seq_add_seq (&stmts, stmts2);
-    }
-  gimple_assign_set_lhs (stmt, make_ssa_name (type, stmt));
-  if (gimple_assign_rhs_code (stmt) == POINTER_PLUS_EXPR)
-    gimple_assign_set_rhs_code (stmt, PLUS_EXPR);
-  gimple_seq_add_stmt (&stmts, stmt);
-  gimple cvt = gimple_build_assign_with_ops
-      (NOP_EXPR, lhs, gimple_assign_lhs (stmt), NULL_TREE);
-  gimple_seq_add_stmt (&stmts, cvt);
-
-  return stmts;
-}
-
 /* Hoist the statements in basic block BB out of the loops prescribed by
    data stored in LIM_DATA structures associated with each statement.  Callback
    for walk_dominator_tree.  */
@@ -1601,7 +1540,7 @@ analyze_memory_references (void)
      loops postorder.  */
   i = 0;
   bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun) - NUM_FIXED_BLOCKS);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     if (bb->loop_father != current_loops->tree_root)
       bbs[i++] = bb;
   n = i;
@@ -2401,12 +2340,12 @@ fill_always_executed_in_1 (struct loop *loop, sbitmap contains_call)
 static void
 fill_always_executed_in (void)
 {
-  sbitmap contains_call = sbitmap_alloc (last_basic_block);
+  sbitmap contains_call = sbitmap_alloc (last_basic_block_for_fn (cfun));
   basic_block bb;
   struct loop *loop;
 
   bitmap_clear (contains_call);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -2478,7 +2417,7 @@ tree_ssa_lim_finalize (void)
 
   free_aux_for_edges ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     SET_ALWAYS_EXECUTED_IN (bb, NULL);
 
   bitmap_obstack_release (&lim_bitmap_obstack);

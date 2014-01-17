@@ -1250,7 +1250,7 @@ gen_body_from_gimple (vec <hsa_op_reg_p> ssa_map)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       hsa_bb *hbb = hsa_init_new_bb (bb);
@@ -1259,7 +1259,7 @@ gen_body_from_gimple (vec <hsa_op_reg_p> ssa_map)
 	gen_hsa_insns_for_gimple_stmt (gsi_stmt (gsi), hbb, ssa_map);
     }
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       hsa_bb *hbb = hsa_bb_for_bb (bb);
@@ -1426,7 +1426,7 @@ wrap_hsa (void)
   bool changed = false;
   basic_block bb;
   init_hsa_functions ();
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       tree fndecl;
@@ -1452,7 +1452,7 @@ wrap_hsa (void)
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, null_pointer_node);
 
 	    tree initval = build_constructor (hsa_kernel_desc_type, v);
-	    
+
 	    /* Create a new VAR_DECL of type descriptor.  */
 	    char tmp_name[32];
 	    static unsigned int var_id;

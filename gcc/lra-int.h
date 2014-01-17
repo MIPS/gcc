@@ -1,5 +1,5 @@
 /* Local Register Allocator (LRA) intercommunication header file.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -319,6 +319,7 @@ extern int lra_constraint_new_insn_uid_start;
 
 /* lra-constraints.c: */
 
+extern void lra_init_equiv (void);
 extern int lra_constraint_offset (int, enum machine_mode);
 
 extern int lra_constraint_iter;

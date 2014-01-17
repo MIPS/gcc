@@ -1,5 +1,5 @@
 /* Functions to determine/estimate number of iterations of a loop.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -173,7 +173,15 @@ determine_value_range (struct loop *loop, tree type, tree var, mpz_t off,
 		{
 		  minv = minv.max (minc, TYPE_UNSIGNED (type));
 		  maxv = maxv.min (maxc, TYPE_UNSIGNED (type));
-		  gcc_assert (minv.cmp (maxv, TYPE_UNSIGNED (type)) <= 0);
+		  /* If the PHI result range are inconsistent with
+		     the VAR range, give up on looking at the PHI
+		     results.  This can happen if VR_UNDEFINED is
+		     involved.  */
+		  if (minv.cmp (maxv, TYPE_UNSIGNED (type)) > 0)
+		    {
+		      rtype = get_range_info (var, &minv, &maxv);
+		      break;
+		    }
 		}
 	    }
 	}
@@ -1303,7 +1311,7 @@ dump_affine_iv (FILE *file, affine_iv *iv)
    if EVERY_ITERATION is true, we know the test is executed on every iteration.
 
    The results (number of iterations and assumptions as described in
-   comments at struct tree_niter_desc in tree-flow.h) are stored to NITER.
+   comments at struct tree_niter_desc in tree-ssa-loop.h) are stored to NITER.
    Returns false if it fails to determine number of iterations, true if it
    was determined (possibly with some assumptions).  */
 

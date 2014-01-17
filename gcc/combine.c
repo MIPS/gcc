@@ -1,5 +1,5 @@
 /* Optimize by combining instructions for GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -960,7 +960,7 @@ delete_noop_moves (void)
   rtx insn, next;
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb)); insn = next)
 	{
@@ -997,7 +997,7 @@ create_log_links (void)
      usage -- these are taken from original flow.c did. Don't ask me why it is
      done this way; I don't know and if it works, I don't want to know.  */
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_BB_INSNS_REVERSE (bb, insn)
         {
@@ -1160,7 +1160,7 @@ combine_instructions (rtx f, unsigned int nregs)
   last_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
   create_log_links ();
-  FOR_EACH_BB (this_basic_block)
+  FOR_EACH_BB_FN (this_basic_block, cfun)
     {
       optimize_this_for_speed_p = optimize_bb_for_speed_p (this_basic_block);
       last_call_luid = 0;
@@ -1211,7 +1211,7 @@ combine_instructions (rtx f, unsigned int nregs)
   setup_incoming_promotions (first);
   last_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
 
-  FOR_EACH_BB (this_basic_block)
+  FOR_EACH_BB_FN (this_basic_block, cfun)
     {
       rtx last_combined_insn = NULL_RTX;
       optimize_this_for_speed_p = optimize_bb_for_speed_p (this_basic_block);
@@ -8200,9 +8200,7 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
       /* If X is (minus C Y) where C's least set bit is larger than any bit
 	 in the mask, then we may replace with (neg Y).  */
       if (CONST_INT_P (XEXP (x, 0))
-	  && (((unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 0))
-					& -INTVAL (XEXP (x, 0))))
-	      > mask))
+	  && ((UINTVAL (XEXP (x, 0)) & -UINTVAL (XEXP (x, 0))) > mask))
 	{
 	  x = simplify_gen_unary (NEG, GET_MODE (x), XEXP (x, 1),
 				  GET_MODE (x));

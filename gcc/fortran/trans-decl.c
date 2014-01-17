@@ -1,5 +1,5 @@
 /* Backend function setup
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -4164,6 +4164,7 @@ generate_namelist_decl (gfc_symbol * sym)
 	  nml->sym->attr.referenced = 1;
 	  nml->sym->backend_decl = gfc_get_symbol_decl (nml->sym);
 	}
+      DECL_IGNORED_P (nml->sym->backend_decl) = 0;
       CONSTRUCTOR_APPEND_ELT (nml_decls, NULL_TREE, nml->sym->backend_decl);
     }
 

@@ -1115,7 +1115,7 @@ hsa_brig_emit_function (void)
        insn = insn->next)
     emit_insn (insn);
   prev_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       perhaps_emit_branch (prev_bb, bb);
       emit_bb_label_directive (hsa_bb_for_bb (bb));

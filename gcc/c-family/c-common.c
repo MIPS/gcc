@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -120,11 +120,6 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
    Used when an array of char is needed and the size is irrelevant.
 
 	tree char_array_type_node;
-
-   Type `int[SOMENUMBER]' or something like it.
-   Used when an array of int needed and the size is irrelevant.
-
-	tree int_array_type_node;
 
    Type `wchar_t[SOMENUMBER]' or something like it.
    Used when a wide string literal is created.
@@ -770,6 +765,8 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_returns_nonnull_attribute, false },
   { "omp declare simd",       0, -1, true,  false, false,
 			      handle_omp_declare_simd_attribute, false },
+  { "cilk simd function",     0, -1, true,  false, false,
+			      handle_omp_declare_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
 			      handle_omp_declare_target_attribute, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
@@ -1331,6 +1328,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
     CASE_CONVERT:
+    case ADDR_SPACE_CONVERT_EXPR:
     case VIEW_CONVERT_EXPR:
     case NON_LVALUE_EXPR:
     case NEGATE_EXPR:
@@ -5522,10 +5520,6 @@ c_common_nodes_and_builtins (void)
   char_array_type_node
     = build_array_type (char_type_node, array_domain_type);
 
-  /* Likewise for arrays of ints.  */
-  int_array_type_node
-    = build_array_type (integer_type_node, array_domain_type);
-
   string_type_node = build_pointer_type (char_type_node);
   const_string_type_node
     = build_pointer_type (build_qualified_type
@@ -8009,12 +8003,6 @@ handle_no_instrument_function_attribute (tree *node, tree name,
     {
       error_at (DECL_SOURCE_LOCATION (decl),
 		"%qE attribute applies only to functions", name);
-      *no_add_attrs = true;
-    }
-  else if (DECL_INITIAL (decl))
-    {
-      error_at (DECL_SOURCE_LOCATION (decl),
-		"can%'t set %qE attribute after definition", name);
       *no_add_attrs = true;
     }
   else

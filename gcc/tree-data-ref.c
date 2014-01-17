@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -4346,16 +4346,26 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
       && !(gimple_call_flags (stmt) & ECF_CONST))
     {
       /* Allow IFN_GOMP_SIMD_LANE in their own loops.  */
-      if (gimple_call_internal_p (stmt)
-	  && gimple_call_internal_fn (stmt) == IFN_GOMP_SIMD_LANE)
-	{
-	  struct loop *loop = gimple_bb (stmt)->loop_father;
-	  tree uid = gimple_call_arg (stmt, 0);
-	  gcc_assert (TREE_CODE (uid) == SSA_NAME);
-	  if (loop == NULL
-	      || loop->simduid != SSA_NAME_VAR (uid))
+      if (gimple_call_internal_p (stmt))
+	switch (gimple_call_internal_fn (stmt))
+	  {
+	  case IFN_GOMP_SIMD_LANE:
+	    {
+	      struct loop *loop = gimple_bb (stmt)->loop_father;
+	      tree uid = gimple_call_arg (stmt, 0);
+	      gcc_assert (TREE_CODE (uid) == SSA_NAME);
+	      if (loop == NULL
+		  || loop->simduid != SSA_NAME_VAR (uid))
+		clobbers_memory = true;
+	      break;
+	    }
+	  case IFN_MASK_LOAD:
+	  case IFN_MASK_STORE:
+	    break;
+	  default:
 	    clobbers_memory = true;
-	}
+	    break;
+	  }
       else
 	clobbers_memory = true;
     }
@@ -4385,6 +4395,25 @@ get_references_in_stmt (gimple stmt, vec<data_ref_loc, va_heap> *references)
   else if (stmt_code == GIMPLE_CALL)
     {
       unsigned i, n;
+
+      ref.is_read = false;
+      if (gimple_call_internal_p (stmt))
+	switch (gimple_call_internal_fn (stmt))
+	  {
+	  case IFN_MASK_LOAD:
+	    ref.is_read = true;
+	  case IFN_MASK_STORE:
+	    ref.ref = fold_build2 (MEM_REF,
+				   ref.is_read
+				   ? TREE_TYPE (gimple_call_lhs (stmt))
+				   : TREE_TYPE (gimple_call_arg (stmt, 3)),
+				   gimple_call_arg (stmt, 0),
+				   gimple_call_arg (stmt, 1));
+	    references->safe_push (ref);
+	    return false;
+	  default:
+	    break;
+	  }
 
       op0 = gimple_call_lhs (stmt);
       n = gimple_call_num_args (stmt);
@@ -4424,7 +4453,7 @@ find_data_references_in_stmt (struct loop *nest, gimple stmt,
 			      vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  stack_vec<data_ref_loc, 2> references;
+  auto_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;
@@ -4454,7 +4483,7 @@ graphite_find_data_references_in_stmt (loop_p nest, loop_p loop, gimple stmt,
 				       vec<data_reference_p> *datarefs)
 {
   unsigned i;
-  stack_vec<data_ref_loc, 2> references;
+  auto_vec<data_ref_loc, 2> references;
   data_ref_loc *ref;
   bool ret = true;
   data_reference_p dr;

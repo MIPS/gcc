@@ -1,5 +1,5 @@
 /* Expand builtin functions.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -434,7 +434,7 @@ get_object_alignment_2 (tree exp, unsigned int *alignp,
      alignment that can prevail.  */
   if (offset)
     {
-      int trailing_zeros = tree_ctz (offset);
+      unsigned int trailing_zeros = tree_ctz (offset);
       if (trailing_zeros < HOST_BITS_PER_INT)
 	{
 	  unsigned int inner = (1U << trailing_zeros) * BITS_PER_UNIT;
@@ -3117,7 +3117,7 @@ determine_block_size (tree len, rtx len_rtx,
 {
   if (CONST_INT_P (len_rtx))
     {
-      *min_size = *max_size = UINTVAL (len_rtx);
+      *min_size = *max_size = *probable_max_size = UINTVAL (len_rtx);
       return;
     }
   else
@@ -3131,7 +3131,8 @@ determine_block_size (tree len, rtx len_rtx,
       else
 	*min_size = 0;
       if (tree_fits_uhwi_p (TYPE_MAX_VALUE (TREE_TYPE (len))))
-	*probable_max_size = *max_size = tree_to_uhwi (TYPE_MAX_VALUE (TREE_TYPE (len)));
+	*probable_max_size = *max_size
+	  = tree_to_uhwi (TYPE_MAX_VALUE (TREE_TYPE (len)));
       else
 	*probable_max_size = *max_size = GET_MODE_MASK (GET_MODE (len_rtx));
 
@@ -8911,6 +8912,29 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
       /* Build accesses at offset zero with a ref-all character type.  */
       off0 = build_int_cst (build_pointer_type_for_mode (char_type_node,
 							 ptr_mode, true), 0);
+
+      /* For -fsanitize={bool,enum} make sure the load isn't performed in
+	 the bool or enum type.  */
+      if (((flag_sanitize & SANITIZE_BOOL)
+	   && TREE_CODE (desttype) == BOOLEAN_TYPE)
+	  || ((flag_sanitize & SANITIZE_ENUM)
+	      && TREE_CODE (desttype) == ENUMERAL_TYPE))
+	{
+	  tree destitype
+	    = lang_hooks.types.type_for_mode (TYPE_MODE (desttype),
+					      TYPE_UNSIGNED (desttype));
+	  desttype = build_aligned_type (destitype, TYPE_ALIGN (desttype));
+	}
+      if (((flag_sanitize & SANITIZE_BOOL)
+	   && TREE_CODE (srctype) == BOOLEAN_TYPE)
+	  || ((flag_sanitize & SANITIZE_ENUM)
+	      && TREE_CODE (srctype) == ENUMERAL_TYPE))
+	{
+	  tree srcitype
+	    = lang_hooks.types.type_for_mode (TYPE_MODE (srctype),
+					      TYPE_UNSIGNED (srctype));
+	  srctype = build_aligned_type (srcitype, TYPE_ALIGN (srctype));
+	}
 
       destvar = dest;
       STRIP_NOPS (destvar);

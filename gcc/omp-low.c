@@ -3,7 +3,7 @@
    marshalling to implement data sharing and copying clauses.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -1220,8 +1220,6 @@ omp_copy_decl (tree var, copy_body_data *cb)
 }
 
 
-/* Return the parallel region associated with STMT.  */
-
 /* Debugging dumps for parallel regions.  */
 void dump_omp_region (FILE *, struct omp_region *, int);
 void debug_omp_region (struct omp_region *);
@@ -1821,8 +1819,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 }
 
 /* Create a new name for omp child function.  Returns an identifier.  */
-
-static GTY(()) unsigned int tmp_ompfn_id_num;
 
 static tree
 create_omp_child_function_name (bool task_copy)
@@ -3565,19 +3561,20 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		{
 		  x = omp_reduction_init (c, TREE_TYPE (new_var));
 		  gcc_assert (TREE_CODE (TREE_TYPE (new_var)) != ARRAY_TYPE);
+		  enum tree_code code = OMP_CLAUSE_REDUCTION_CODE (c);
+
+		  /* reduction(-:var) sums up the partial results, so it
+		     acts identically to reduction(+:var).  */
+		  if (code == MINUS_EXPR)
+		    code = PLUS_EXPR;
+
 		  if (is_simd
 		      && lower_rec_simd_input_clauses (new_var, ctx, max_vf,
 						       idx, lane, ivar, lvar))
 		    {
-		      enum tree_code code = OMP_CLAUSE_REDUCTION_CODE (c);
 		      tree ref = build_outer_var_ref (var, ctx);
 
 		      gimplify_assign (unshare_expr (ivar), x, &llist[0]);
-
-		      /* reduction(-:var) sums up the partial results, so it
-			 acts identically to reduction(+:var).  */
-		      if (code == MINUS_EXPR)
-			code = PLUS_EXPR;
 
 		      x = build2 (code, TREE_TYPE (ref), ref, ivar);
 		      ref = build_outer_var_ref (var, ctx);
@@ -3587,8 +3584,13 @@ lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 		    {
 		      gimplify_assign (new_var, x, ilist);
 		      if (is_simd)
-			gimplify_assign (build_outer_var_ref (var, ctx),
-					 new_var, dlist);
+			{
+			  tree ref = build_outer_var_ref (var, ctx);
+
+			  x = build2 (code, TREE_TYPE (ref), ref, new_var);
+			  ref = build_outer_var_ref (var, ctx);
+			  gimplify_assign (ref, x, dlist);
+			}
 		    }
 		}
 	      break;
@@ -4545,7 +4547,7 @@ optimize_omp_library_calls (gimple entry_stmt)
 		      && find_omp_clause (gimple_omp_task_clauses (entry_stmt),
 					  OMP_CLAUSE_UNTIED) != NULL);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	gimple call = gsi_stmt (gsi);
@@ -4849,7 +4851,7 @@ expand_omp_taskreg (struct omp_region *region)
 	  basic_block bb;
 	  bool changed = false;
 
-	  FOR_EACH_BB (bb)
+	  FOR_EACH_BB_FN (bb, cfun)
 	    changed |= gimple_purge_dead_eh_edges (bb);
 	  if (changed)
 	    cleanup_tree_cfg ();
@@ -7534,12 +7536,21 @@ expand_omp_atomic_pipeline (basic_block load_bb, basic_block store_bb,
       loadedi = loaded_val;
     }
 
+  fncode = (enum built_in_function) (BUILT_IN_ATOMIC_LOAD_N + index + 1);
+  tree loaddecl = builtin_decl_explicit (fncode);
+  if (loaddecl)
+    initial
+      = fold_convert (TREE_TYPE (TREE_TYPE (iaddr)),
+		      build_call_expr (loaddecl, 2, iaddr,
+				       build_int_cst (NULL_TREE,
+						      MEMMODEL_RELAXED)));
+  else
+    initial = build2 (MEM_REF, TREE_TYPE (TREE_TYPE (iaddr)), iaddr,
+		      build_int_cst (TREE_TYPE (iaddr), 0));
+
   initial
-    = force_gimple_operand_gsi (&si,
-				build2 (MEM_REF, TREE_TYPE (TREE_TYPE (iaddr)),
-					iaddr,
-					build_int_cst (TREE_TYPE (iaddr), 0)),
-				true, NULL_TREE, true, GSI_SAME_STMT);
+    = force_gimple_operand_gsi (&si, initial, true, NULL_TREE, true,
+				GSI_SAME_STMT);
 
   /* Move the value to the LOADEDI temporary.  */
   if (gimple_in_ssa_p (cfun))
@@ -7939,7 +7950,7 @@ expand_omp_target (struct omp_region *region)
 	  basic_block bb;
 	  bool changed = false;
 
-	  FOR_EACH_BB (bb)
+	  FOR_EACH_BB_FN (bb, cfun)
 	    changed |= gimple_purge_dead_eh_edges (bb);
 	  if (changed)
 	    cleanup_tree_cfg ();
@@ -9046,7 +9057,7 @@ lower_omp_for (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 }
 
 /* Callback for walk_stmts.  Check if the current statement only contains
-   GIMPLE_OMP_FOR or GIMPLE_OMP_PARALLEL.  */
+   GIMPLE_OMP_FOR or GIMPLE_OMP_SECTIONS.  */
 
 static tree
 check_combined_parallel (gimple_stmt_iterator *gsi_p,
@@ -10686,7 +10697,7 @@ simd_clone_clauses_extract (struct cgraph_node *node, tree clauses,
      declare simd".  */
   bool cilk_clone
     = (flag_enable_cilkplus
-       && lookup_attribute ("cilk plus elemental",
+       && lookup_attribute ("cilk simd function",
 			    DECL_ATTRIBUTES (node->decl)));
 
   /* Allocate one more than needed just in case this is an in-branch
@@ -11535,7 +11546,7 @@ simd_clone_adjust (struct cgraph_node *node)
 	unsigned int alignment = node->simdclone->args[i].alignment;
 	tree orig_arg = node->simdclone->args[i].orig_arg;
 	tree def = ssa_default_def (cfun, orig_arg);
-	if (!has_zero_uses (def))
+	if (def && !has_zero_uses (def))
 	  {
 	    tree fn = builtin_decl_explicit (BUILT_IN_ASSUME_ALIGNED);
 	    gimple_seq seq = NULL;
@@ -11585,7 +11596,7 @@ simd_clone_adjust (struct cgraph_node *node)
 	tree def = ssa_default_def (cfun, orig_arg);
 	gcc_assert (INTEGRAL_TYPE_P (TREE_TYPE (orig_arg))
 		    || POINTER_TYPE_P (TREE_TYPE (orig_arg)));
-	if (!has_zero_uses (def))
+	if (def && !has_zero_uses (def))
 	  {
 	    iter1 = make_ssa_name (orig_arg, NULL);
 	    iter2 = make_ssa_name (orig_arg, NULL);

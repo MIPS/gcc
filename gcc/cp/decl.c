@@ -1,5 +1,5 @@
 /* Process declarations and variables for C++ compiler.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -59,6 +59,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "splay-tree.h"
 #include "plugin.h"
 #include "cgraph.h"
+#include "cilk.h"
 
 /* Possible cases of bad specifiers type used by bad_specifiers. */
 enum bad_spec_place {
@@ -10184,7 +10185,9 @@ grokdeclarator (const cp_declarator *declarator,
 	    /* The TYPE_DECL is "abstract" because there will be
 	       clones of this constructor/destructor, and there will
 	       be copies of this TYPE_DECL generated in those
-	       clones.  */
+	       clones.  The decloning optimization (for space) may
+               revert this subsequently if it determines that
+               the clones should share a common implementation.  */
 	    DECL_ABSTRACT (decl) = 1;
 	}
       else if (current_class_type
@@ -13888,6 +13891,9 @@ finish_function (int flags)
 
   /* If we're saving up tree structure, tie off the function now.  */
   DECL_SAVED_TREE (fndecl) = pop_stmt_list (DECL_SAVED_TREE (fndecl));
+
+  if (fn_contains_cilk_spawn_p (cfun) && !processing_template_decl)
+    cfun->cilk_frame_decl = insert_cilk_frame (fndecl);
 
   finish_fname_decls ();
 

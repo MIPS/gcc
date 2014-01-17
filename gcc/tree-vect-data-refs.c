@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -244,6 +244,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	{
 	  if (loop->safelen < *max_vf)
 	    *max_vf = loop->safelen;
+	  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = false;
 	  return false;
 	}
 
@@ -291,6 +292,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	{
 	  if (loop->safelen < *max_vf)
 	    *max_vf = loop->safelen;
+	  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = false;
 	  return false;
 	}
 
@@ -447,6 +449,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo, int *max_vf)
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_ref_dependences ===\n");
 
+  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = true;
   if (!compute_all_dependences (LOOP_VINFO_DATAREFS (loop_vinfo),
 				&LOOP_VINFO_DDRS (loop_vinfo),
 				LOOP_VINFO_LOOP_NEST (loop_vinfo), true))
@@ -2919,6 +2922,24 @@ vect_check_gather (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
   enum machine_mode pmode;
   int punsignedp, pvolatilep;
 
+  base = DR_REF (dr);
+  /* For masked loads/stores, DR_REF (dr) is an artificial MEM_REF,
+     see if we can use the def stmt of the address.  */
+  if (is_gimple_call (stmt)
+      && gimple_call_internal_p (stmt)
+      && (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
+	  || gimple_call_internal_fn (stmt) == IFN_MASK_STORE)
+      && TREE_CODE (base) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME
+      && integer_zerop (TREE_OPERAND (base, 1))
+      && !expr_invariant_in_loop_p (loop, TREE_OPERAND (base, 0)))
+    {
+      gimple def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (base, 0));
+      if (is_gimple_assign (def_stmt)
+	  && gimple_assign_rhs_code (def_stmt) == ADDR_EXPR)
+	base = TREE_OPERAND (gimple_assign_rhs1 (def_stmt), 0);
+    }
+
   /* The gather builtins need address of the form
      loop_invariant + vector * {1, 2, 4, 8}
      or
@@ -2931,7 +2952,7 @@ vect_check_gather (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
      vectorized.  The following code attempts to find such a preexistng
      SSA_NAME OFF and put the loop invariants into a tree BASE
      that can be gimplified before the loop.  */
-  base = get_inner_reference (DR_REF (dr), &pbitsize, &pbitpos, &off,
+  base = get_inner_reference (base, &pbitsize, &pbitpos, &off,
 			      &pmode, &punsignedp, &pvolatilep, false);
   gcc_assert (base != NULL_TREE && (pbitpos % BITS_PER_UNIT) == 0);
 
@@ -3302,9 +3323,10 @@ again:
 			    {
 			      gimple def = SSA_NAME_DEF_STMT (off);
 			      tree reft = TREE_TYPE (DR_REF (newdr));
-			      if (gimple_call_internal_p (def)
-				  && gimple_call_internal_fn (def)
-				  == IFN_GOMP_SIMD_LANE)
+			      if (is_gimple_call (def)
+				  && gimple_call_internal_p (def)
+				  && (gimple_call_internal_fn (def)
+				      == IFN_GOMP_SIMD_LANE))
 				{
 				  tree arg = gimple_call_arg (def, 0);
 				  gcc_assert (TREE_CODE (arg) == SSA_NAME);
@@ -3428,7 +3450,10 @@ again:
       offset = unshare_expr (DR_OFFSET (dr));
       init = unshare_expr (DR_INIT (dr));
 
-      if (is_gimple_call (stmt))
+      if (is_gimple_call (stmt)
+	  && (!gimple_call_internal_p (stmt)
+	      || (gimple_call_internal_fn (stmt) != IFN_MASK_LOAD
+		  && gimple_call_internal_fn (stmt) != IFN_MASK_STORE)))
 	{
 	  if (dump_enabled_p ())
 	    {
@@ -5078,6 +5103,14 @@ vect_supportable_dr_alignment (struct data_reference *dr,
 
   if (aligned_access_p (dr) && !check_aligned_accesses)
     return dr_aligned;
+
+  /* For now assume all conditional loads/stores support unaligned
+     access without any special code.  */
+  if (is_gimple_call (stmt)
+      && gimple_call_internal_p (stmt)
+      && (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
+	  || gimple_call_internal_fn (stmt) == IFN_MASK_STORE))
+    return dr_unaligned_supported;
 
   if (loop_vinfo)
     {

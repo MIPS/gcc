@@ -1,5 +1,5 @@
 /* Optimize jump instructions, for GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -275,7 +275,7 @@ mark_all_labels (rtx f)
   if (current_ir_type () == IR_RTL_CFGLAYOUT)
     {
       basic_block bb;
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
 	  /* In cfglayout mode, we don't bother with trivial next-insn
 	     propagation of LABEL_REFs into JUMP_LABEL.  This will be
@@ -1578,6 +1578,16 @@ redirect_jump_2 (rtx jump, rtx olabel, rtx nlabel, int delete_unused,
 	  redirect_exp_1 (&XEXP (note, 0), olabel, nlabel, jump);
 	  confirm_change_group ();
 	}
+    }
+
+  /* Handle the case where we had a conditional crossing jump to a return
+     label and are now changing it into a direct conditional return.
+     The jump is no longer crossing in that case.  */
+  if (ANY_RETURN_P (nlabel))
+    {
+      note = find_reg_note (jump, REG_CROSSING_JUMP, NULL_RTX);
+      if (note)
+	remove_note (jump, note);
     }
 
   if (!ANY_RETURN_P (olabel)

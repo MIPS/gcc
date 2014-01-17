@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -2666,10 +2666,18 @@ verify_cgraph_node (struct cgraph_node *node)
 	  error_found = true;
 	}
     }
+  bool check_comdat = symtab_comdat_local_p (node);
   for (e = node->callers; e; e = e->next_caller)
     {
       if (verify_edge_count_and_frequency (e))
 	error_found = true;
+      if (check_comdat
+	  && !symtab_in_same_comdat_p (e->caller, node))
+	{
+	  error ("comdat-local function called by %s outside its comdat",
+		 identifier_to_locale (e->caller->name ()));
+	  error_found = true;
+	}
       if (!e->inline_failed)
 	{
 	  if (node->global.inlined_to
@@ -3027,6 +3035,7 @@ gimple_check_call_args (gimple stmt, tree fndecl, bool args_count_match)
 	    break;
 	  arg = gimple_call_arg (stmt, i);
 	  if (p == error_mark_node
+	      || DECL_ARG_TYPE (p) == error_mark_node
 	      || arg == error_mark_node
 	      || (!types_compatible_p (DECL_ARG_TYPE (p), TREE_TYPE (arg))
 		  && !fold_convertible_p (DECL_ARG_TYPE (p), arg)))

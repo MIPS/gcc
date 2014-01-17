@@ -66,7 +66,7 @@ naive_outof_ssa (void)
 
   hsa_cfun.in_ssa = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
   {
     hsa_bb *hbb = hsa_bb_for_bb (bb);
     hsa_insn_phi *phi;
@@ -243,7 +243,7 @@ stupid_regalloc (void)
     }
 
   stupid_regalloc_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun), classes);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     stupid_regalloc_bb (bb, classes);
 }
 

@@ -1,5 +1,5 @@
 /* Convert function calls to rtl insns, for GNU C compiler.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -769,6 +769,8 @@ flags_from_decl_or_type (const_tree exp)
 	      || lookup_attribute ("transaction_pure", TYPE_ATTRIBUTES (exp))))
 	flags |= ECF_TM_PURE;
     }
+  else
+    gcc_unreachable ();
 
   if (TREE_THIS_VOLATILE (exp))
     {
@@ -2593,7 +2595,7 @@ expand_call (tree exp, rtx target, int ignore)
       /* If outgoing reg parm stack space changes, we can not do sibcall.  */
       || (OUTGOING_REG_PARM_STACK_SPACE (funtype)
 	  != OUTGOING_REG_PARM_STACK_SPACE (TREE_TYPE (current_function_decl)))
-      || (reg_parm_stack_space != REG_PARM_STACK_SPACE (fndecl))
+      || (reg_parm_stack_space != REG_PARM_STACK_SPACE (current_function_decl))
 #endif
       /* Check whether the target is able to optimize the call
 	 into a sibcall.  */

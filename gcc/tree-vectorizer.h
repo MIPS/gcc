@@ -1,5 +1,5 @@
 /* Vectorizer
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -347,6 +347,29 @@ typedef struct _loop_vec_info {
      fix it up.  */
   bool operands_swapped;
 
+  /* True if there are no loop carried data dependencies in the loop.
+     If loop->safelen <= 1, then this is always true, either the loop
+     didn't have any loop carried data dependencies, or the loop is being
+     vectorized guarded with some runtime alias checks, or couldn't
+     be vectorized at all, but then this field shouldn't be used.
+     For loop->safelen >= 2, the user has asserted that there are no
+     backward dependencies, but there still could be loop carried forward
+     dependencies in such loops.  This flag will be false if normal
+     vectorizer data dependency analysis would fail or require versioning
+     for alias, but because of loop->safelen >= 2 it has been vectorized
+     even without versioning for alias.  E.g. in:
+     #pragma omp simd
+     for (int i = 0; i < m; i++)
+       a[i] = a[i + k] * c;
+     (or #pragma simd or #pragma ivdep) we can vectorize this and it will
+     DTRT even for k > 0 && k < m, but without safelen we would not
+     vectorize this, so this field would be false.  */
+  bool no_data_dependencies;
+
+  /* If if-conversion versioned this loop before conversion, this is the
+     loop version without if-conversion.  */
+  struct loop *scalar_loop;
+
 } *loop_vec_info;
 
 /* Access Functions.  */
@@ -381,6 +404,8 @@ typedef struct _loop_vec_info {
 #define LOOP_VINFO_PEELING_FOR_GAPS(L)     (L)->peeling_for_gaps
 #define LOOP_VINFO_OPERANDS_SWAPPED(L)     (L)->operands_swapped
 #define LOOP_VINFO_PEELING_FOR_NITER(L)    (L)->peeling_for_niter
+#define LOOP_VINFO_NO_DATA_DEPENDENCIES(L) (L)->no_data_dependencies
+#define LOOP_VINFO_SCALAR_LOOP(L)	   (L)->scalar_loop
 
 #define LOOP_REQUIRES_VERSIONING_FOR_ALIGNMENT(L) \
   (L)->may_misalign_stmts.length () > 0
@@ -678,8 +703,8 @@ struct dataref_aux {
    conversion.  */
 #define MAX_INTERM_CVT_STEPS         3
 
-/* The maximum vectorization factor supported by any target (V32QI).  */
-#define MAX_VECTORIZATION_FACTOR 32
+/* The maximum vectorization factor supported by any target (V64QI).  */
+#define MAX_VECTORIZATION_FACTOR 64
 
 /* Avoid GTY(()) on stmt_vec_info.  */
 typedef void *vec_void_p;
@@ -939,7 +964,8 @@ extern source_location vect_location;
    in tree-vect-loop-manip.c.  */
 extern void slpeel_make_loop_iterate_ntimes (struct loop *, tree);
 extern bool slpeel_can_duplicate_loop_p (const struct loop *, const_edge);
-struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *, edge);
+struct loop *slpeel_tree_duplicate_loop_to_edge_cfg (struct loop *,
+						     struct loop *, edge);
 extern void vect_loop_versioning (loop_vec_info, unsigned int, bool);
 extern void vect_do_peeling_for_loop_bound (loop_vec_info, tree, tree,
 					    unsigned int, bool);

@@ -1,5 +1,5 @@
 /* Core data structures for the 'tree' type.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -667,10 +667,10 @@ enum annot_expr_kind {
 /* When processing aliases at the symbol table level, we need the
    declaration of target. For this reason we need to queue aliases and
    process them after all declarations has been produced.  */
-typedef struct GTY(()) alias_pair {
+struct GTY(()) alias_pair {
   tree decl;
   tree target;
-} alias_pair;
+};
 
 /* An initialization priority.  */
 typedef unsigned short priority_type;
@@ -1096,10 +1096,10 @@ struct GTY(()) tree_vec {
    element. INDEX can optionally design the position of VALUE: in arrays,
    it is the index where VALUE has to be placed; in structures, it is the
    FIELD_DECL of the member.  */
-typedef struct GTY(()) constructor_elt_d {
+struct GTY(()) constructor_elt {
   tree index;
   tree value;
-} constructor_elt;
+};
 
 struct GTY(()) tree_constructor {
   struct tree_typed typed;
@@ -1148,17 +1148,17 @@ struct GTY(()) tree_exp {
 
 /* Immediate use linking structure.  This structure is used for maintaining
    a doubly linked list of uses of an SSA_NAME.  */
-typedef struct GTY(()) ssa_use_operand_d {
-  struct ssa_use_operand_d* GTY((skip(""))) prev;
-  struct ssa_use_operand_d* GTY((skip(""))) next;
+struct GTY(()) ssa_use_operand_t {
+  struct ssa_use_operand_t* GTY((skip(""))) prev;
+  struct ssa_use_operand_t* GTY((skip(""))) next;
   /* Immediate uses for a given SSA name are maintained as a cyclic
      list.  To recognize the root of this list, the location field
      needs to point to the original SSA name.  Since statements and
      SSA names are of different data types, we need this union.  See
-     the explanation in struct immediate_use_iterator_d.  */
+     the explanation in struct imm_use_iterator.  */
   union { gimple stmt; tree ssa_name; } GTY((skip(""))) loc;
   tree *GTY((skip(""))) use;
-} ssa_use_operand_t;
+};
 
 struct GTY(()) tree_ssa_name {
   struct tree_typed typed;
@@ -1179,13 +1179,13 @@ struct GTY(()) tree_ssa_name {
 		"!POINTER_TYPE_P (TREE_TYPE ((tree)&%1)) : 2"))) info;
 
   /* Immediate uses list for this SSA_NAME.  */
-  struct ssa_use_operand_d imm_uses;
+  struct ssa_use_operand_t imm_uses;
 };
 
 struct GTY(()) phi_arg_d {
   /* imm_use MUST be the first element in struct because we do some
      pointer arithmetic with it.  See phi_arg_index_from_use.  */
-  struct ssa_use_operand_d imm_use;
+  struct ssa_use_operand_t imm_use;
   tree def;
   location_t locus;
 };
@@ -1550,17 +1550,24 @@ struct GTY(()) tree_optimization_option {
 
   /* Target optabs for this set of optimization options.  This is of
      type `struct target_optabs *'.  */
-  unsigned char *GTY ((atomic)) optabs;
+  void *GTY ((atomic)) optabs;
 
   /* The value of this_target_optabs against which the optabs above were
      generated.  */
   struct target_optabs *GTY ((skip)) base_optabs;
 };
 
+/* Forward declaration, defined in target-globals.h.  */
+
+struct GTY(()) target_globals;
+
 /* Target options used by a function.  */
 
 struct GTY(()) tree_target_option {
   struct tree_common common;
+
+  /* Target globals for the corresponding target option.  */
+  struct target_globals *globals;
 
   /* The optimization options used by the user.  */
   struct cl_target_option opts;

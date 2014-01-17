@@ -1,4 +1,4 @@
-# Copyright (C) 2012-2013 Free Software Foundation, Inc.
+# Copyright (C) 2012-2014 Free Software Foundation, Inc.
 
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -288,9 +288,10 @@ proc asan-gtest { args } {
 		    if { "$status" == "fail" } {
 			pass "$testname execution test"
 			if { ![regexp $regexpr ${output}] } {
-			    fail "$testname output pattern test, should match $regexpr"
+			    fail "$testname output pattern test"
+			    send_log "Output should match: $regexpr\n"
 			} else {
-			    pass "$testname output pattern test, $regexpr"
+			    pass "$testname output pattern test"
 			}
 		    } elseif { "$status" == "pass" } {
 			fail "$testname execution test"

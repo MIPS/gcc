@@ -1,4 +1,4 @@
-@c Copyright (C) 1988-2013 Free Software Foundation, Inc.
+@c Copyright (C) 1988-2014 Free Software Foundation, Inc.
 @c This is part of the GCC manual.
 @c For copying conditions, see the file gcc.texi.
 
@@ -851,11 +851,6 @@ have the value 0.  This macro need not be a constant.
 
 You need not define this macro if the ordering is the same as for
 multi-word integers.
-@end defmac
-
-@defmac BITS_PER_UNIT
-Define this macro to be the number of bits in an addressable storage
-unit (byte).  If you do not define this macro the default is 8.
 @end defmac
 
 @defmac BITS_PER_WORD

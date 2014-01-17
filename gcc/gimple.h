@@ -1,6 +1,6 @@
 /* Gimple IR definitions.
 
-   Copyright (C) 2007-2013 Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
    Contributed by Aldy Hernandez <aldyh@redhat.com>
 
 This file is part of GCC.
@@ -1253,7 +1253,8 @@ extern tree gimple_unsigned_type (tree);
 extern tree gimple_signed_type (tree);
 extern alias_set_type gimple_get_alias_set (tree);
 extern bool gimple_ior_addresses_taken (bitmap, gimple);
-extern bool is_gimple_builtin_call (gimple stmt);
+extern bool gimple_builtin_call_types_compatible_p (gimple, tree);
+extern bool gimple_call_builtin_p (gimple);
 extern bool gimple_call_builtin_p (gimple, enum built_in_class);
 extern bool gimple_call_builtin_p (gimple, enum built_in_function);
 extern bool gimple_asm_clobbers_memory_p (const_gimple);
@@ -5624,7 +5625,13 @@ gimple_expr_type (const_gimple stmt)
 	 useless conversion involved.  That means returning the
 	 original RHS type as far as we can reconstruct it.  */
       if (code == GIMPLE_CALL)
-	type = gimple_call_return_type (stmt);
+	{
+	  if (gimple_call_internal_p (stmt)
+	      && gimple_call_internal_fn (stmt) == IFN_MASK_STORE)
+	    type = TREE_TYPE (gimple_call_arg (stmt, 3));
+	  else
+	    type = gimple_call_return_type (stmt);
+	}
       else
 	switch (gimple_assign_rhs_code (stmt))
 	  {

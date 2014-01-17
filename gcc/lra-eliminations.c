@@ -1,5 +1,5 @@
 /* Code for RTL register eliminations.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1284,7 +1284,7 @@ init_elimination (void)
   struct elim_table *ep;
 
   init_elim_table ();
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       curr_sp_change = 0;
       stop_to_sp_elimination_p = false;

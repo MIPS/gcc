@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
    This file is part of GCC.
@@ -156,6 +156,7 @@ struct tune_params
   const struct cpu_regmove_cost *const regmove_cost;
   const struct cpu_vector_cost *const vec_costs;
   const int memmov_cost;
+  const int issue_rate;
 };
 
 HOST_WIDE_INT aarch64_initial_elimination_offset (unsigned, unsigned);
@@ -189,6 +190,8 @@ bool aarch64_simd_valid_immediate (rtx, enum machine_mode, bool,
 bool aarch64_symbolic_address_p (rtx);
 bool aarch64_uimm12_shift (HOST_WIDE_INT);
 const char *aarch64_output_casesi (rtx *);
+const char *aarch64_rewrite_selected_cpu (const char *name);
+
 enum aarch64_symbol_type aarch64_classify_symbol (rtx,
 						  enum aarch64_symbol_context);
 enum aarch64_symbol_type aarch64_classify_tls_symbol (rtx);

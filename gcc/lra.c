@@ -1,5 +1,5 @@
 /* LRA (local register allocator) driver and LRA utilities.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -1072,9 +1072,16 @@ lra_set_insn_recog_data (rtx insn)
       nop = asm_noperands (PATTERN (insn));
       data->operand_loc = data->dup_loc = NULL;
       if (nop < 0)
-	/* Its is a special insn like USE or CLOBBER.  */
-	data->insn_static_data = insn_static_data
-	  = get_static_insn_data (-1, 0, 0, 1);
+	{
+	  /* Its is a special insn like USE or CLOBBER.  We should
+	     recognize any regular insn otherwise LRA can do nothing
+	     with this insn.  */
+	  gcc_assert (GET_CODE (PATTERN (insn)) == USE
+		      || GET_CODE (PATTERN (insn)) == CLOBBER
+		      || GET_CODE (PATTERN (insn)) == ASM_INPUT);
+	  data->insn_static_data = insn_static_data
+	    = get_static_insn_data (-1, 0, 0, 1);
+	}
       else
 	{
 	  /* expand_asm_operands makes sure there aren't too many
@@ -1960,7 +1967,7 @@ remove_scratches (void)
   scratches.create (get_max_uid ());
   bitmap_initialize (&scratch_bitmap, &reg_obstack);
   bitmap_initialize (&scratch_operand_bitmap, &reg_obstack);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
     if (INSN_P (insn))
       {
@@ -2049,7 +2056,7 @@ check_rtl (bool final_p)
   rtx insn;
 
   lra_assert (! final_p || reload_completed);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
     if (NONDEBUG_INSN_P (insn)
 	&& GET_CODE (PATTERN (insn)) != USE
@@ -2090,7 +2097,7 @@ has_nonexceptional_receiver (void)
   /* First determine which blocks can reach exit via normal paths.  */
   tos = worklist = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun) + 1);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     bb->flags &= ~BB_REACHABLE;
 
   /* Place the exit block on our worklist.  */
@@ -2165,7 +2172,7 @@ update_inc_notes (void)
   basic_block bb;
   rtx insn;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
     if (NONDEBUG_INSN_P (insn))
       {
@@ -2321,6 +2328,7 @@ lra (FILE *f)
        may be a part of the offset computation for register
        elimination.  */
     assign_stack_local (BLKmode, 0, crtl->stack_alignment_needed);
+  lra_init_equiv ();
   for (;;)
     {
       for (;;)
@@ -2422,7 +2430,7 @@ lra (FILE *f)
   if (cfun->can_throw_non_call_exceptions)
     {
       sbitmap blocks;
-      blocks = sbitmap_alloc (last_basic_block);
+      blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_ones (blocks);
       find_many_sub_basic_blocks (blocks);
       sbitmap_free (blocks);

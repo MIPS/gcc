@@ -1,5 +1,5 @@
 /* Code for RTL transformations to satisfy insn constraints.
-   Copyright (C) 2010-2013 Free Software Foundation, Inc.
+   Copyright (C) 2010-2014 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
    This file is part of GCC.
@@ -315,6 +315,44 @@ static bool
 in_mem_p (int regno)
 {
   return get_reg_class (regno) == NO_REGS;
+}
+
+/* Initiate equivalences for LRA.  As we keep original equivalences
+   before any elimination, we need to make copies otherwise any change
+   in insns might change the equivalences.  */
+void
+lra_init_equiv (void)
+{
+  ira_expand_reg_equiv ();
+  for (int i = FIRST_PSEUDO_REGISTER; i < max_reg_num (); i++)
+    {
+      rtx res;
+
+      if ((res = ira_reg_equiv[i].memory) != NULL_RTX)
+	ira_reg_equiv[i].memory = copy_rtx (res);
+      if ((res = ira_reg_equiv[i].invariant) != NULL_RTX)
+	ira_reg_equiv[i].invariant = copy_rtx (res);
+    }
+}
+
+static rtx loc_equivalence_callback (rtx, const_rtx, void *);
+
+/* Update equivalence for REGNO.  We need to this as the equivalence
+   might contain other pseudos which are changed by their
+   equivalences.  */
+static void
+update_equiv (int regno)
+{
+  rtx x;
+  
+  if ((x = ira_reg_equiv[regno].memory) != NULL_RTX)
+    ira_reg_equiv[regno].memory
+      = simplify_replace_fn_rtx (x, NULL_RTX, loc_equivalence_callback,
+				 NULL_RTX);
+  if ((x = ira_reg_equiv[regno].invariant) != NULL_RTX)
+    ira_reg_equiv[regno].invariant
+      = simplify_replace_fn_rtx (x, NULL_RTX, loc_equivalence_callback,
+				 NULL_RTX);
 }
 
 /* If we have decided to substitute X with another value, return that
@@ -1672,7 +1710,6 @@ process_alt_operands (int only_alternative)
 			    && MEM_P (*curr_id->operand_loc[m])
 			    && curr_alt[m] == NO_REGS && ! curr_alt_win[m])
 			  continue;
-
 		      }
 		    else
 		      {
@@ -2044,7 +2081,8 @@ process_alt_operands (int only_alternative)
 		  int i;
 		  for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
 		    if (HARD_REGNO_MODE_OK (i, mode)
-			&& in_hard_reg_set_p (reg_class_contents[this_alternative], mode, i))
+			&& in_hard_reg_set_p (reg_class_contents[this_alternative],
+					      mode, i))
 		      break;
 		  if (i == FIRST_PSEUDO_REGISTER)
 		    winreg = false;
@@ -2057,7 +2095,13 @@ process_alt_operands (int only_alternative)
 		badop = false;
 
 	      if (badop)
-		goto fail;
+		{
+		  if (lra_dump_file != NULL)
+		    fprintf (lra_dump_file,
+			     "            alt=%d: Bad operand -- refuse\n",
+			     nalt);
+		  goto fail;
+		}
 
 	      this_alternative_offmemok = offmemok;
 	      if (this_costly_alternative != NO_REGS)
@@ -2094,7 +2138,14 @@ process_alt_operands (int only_alternative)
 					       [this_alternative][0],
 					       GET_MODE
 					       (*curr_id->operand_loc[nop])))
-		    goto fail;
+		    {
+		      if (lra_dump_file != NULL)
+			fprintf
+			  (lra_dump_file,
+			   "            alt=%d: Strict low subreg reload -- refuse\n",
+			   nalt);
+		      goto fail;
+		    }
 		  losers++;
 		}
 	      if (operand_reg[nop] != NULL_RTX
@@ -2137,8 +2188,17 @@ process_alt_operands (int only_alternative)
 		   && no_output_reloads_p
 		   && ! find_reg_note (curr_insn, REG_UNUSED, op))
 		  || (curr_static_id->operand[nop].type != OP_OUT
-		      && no_input_reloads_p && ! const_to_mem))
-		goto fail;
+		      && no_input_reloads_p && ! const_to_mem)
+		  || (this_alternative_matches >= 0
+		      && (no_input_reloads_p || no_output_reloads_p)))
+		{
+		  if (lra_dump_file != NULL)
+		    fprintf
+		      (lra_dump_file,
+		       "            alt=%d: No input/otput reload -- refuse\n",
+		       nalt);
+		  goto fail;
+		}
 
 	      /* Check strong discouragement of reload of non-constant
 		 into class THIS_ALTERNATIVE.  */
@@ -3694,14 +3754,16 @@ loc_equivalence_change_p (rtx *loc)
 }
 
 /* Similar to loc_equivalence_change_p, but for use as
-   simplify_replace_fn_rtx callback.  */
+   simplify_replace_fn_rtx callback.  DATA is insn for which the
+   elimination is done.  If it null we don't do the elimination.  */
 static rtx
-loc_equivalence_callback (rtx loc, const_rtx, void *)
+loc_equivalence_callback (rtx loc, const_rtx, void *data)
 {
   if (!REG_P (loc))
     return NULL_RTX;
 
-  rtx subst = get_equiv_with_elimination (loc, curr_insn);
+  rtx subst = (data == NULL
+	       ? get_equiv (loc) : get_equiv_with_elimination (loc, (rtx) data));
   if (subst != loc)
     return subst;
 
@@ -3946,6 +4008,8 @@ lra_constraints (bool first_p)
 	      bitmap_ior_into (&equiv_insn_bitmap, &lra_reg_info[i].insn_bitmap);
 	  }
       }
+  for (i = FIRST_PSEUDO_REGISTER; i < new_regno_start; i++)
+    update_equiv (i);
   /* We should add all insns containing pseudos which should be
      substituted by their equivalences.  */
   EXECUTE_IF_SET_IN_BITMAP (&equiv_insn_bitmap, 0, uid, bi)
@@ -3984,7 +4048,7 @@ lra_constraints (bool first_p)
 	      rtx old = *curr_id->operand_loc[0];
 	      *curr_id->operand_loc[0]
 		= simplify_replace_fn_rtx (old, NULL_RTX,
-					   loc_equivalence_callback, NULL);
+					   loc_equivalence_callback, curr_insn);
 	      if (old != *curr_id->operand_loc[0])
 		{
 		  lra_update_insn_regno_info (curr_insn);
@@ -4035,7 +4099,7 @@ lra_constraints (bool first_p)
 		      fprintf (lra_dump_file,
 			       "      Removing equiv init insn %i (freq=%d)\n",
 			       INSN_UID (curr_insn),
-			       BLOCK_FOR_INSN (curr_insn)->frequency);
+			       REG_FREQ_FROM_BB (BLOCK_FOR_INSN (curr_insn)));
 		      dump_insn_slim (lra_dump_file, curr_insn);
 		    }
 		  if (contains_reg_p (x, true, false))
@@ -5302,7 +5366,7 @@ lra_inheritance (void)
   bitmap_initialize (&live_regs, &reg_obstack);
   bitmap_initialize (&temp_bitmap, &reg_obstack);
   bitmap_initialize (&ebb_global_regs, &reg_obstack);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       start_bb = bb;
       if (lra_dump_file != NULL)
@@ -5403,7 +5467,7 @@ remove_inheritance_pseudos (bitmap remove_pseudos)
      because we need to marks insns affected by previous
      inheritance/split pass for processing by the subsequent
      constraint pass.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       fix_bb_live_info (df_get_live_in (bb), remove_pseudos);
       fix_bb_live_info (df_get_live_out (bb), remove_pseudos);

@@ -1,5 +1,5 @@
 /* Handle parameterized types (templates) for GNU C++.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Written by Ken Raeburn (raeburn@cygnus.com) while at Watchmaker Computing.
    Rewritten by Jason Merrill (jason@cygnus.com).
 
@@ -5149,6 +5149,15 @@ alias_template_specialization_p (const_tree t)
 	  && DECL_ALIAS_TEMPLATE_P (TYPE_TI_TEMPLATE (t)));
 }
 
+/* Return the number of innermost template parameters in TMPL.  */
+
+static int
+num_innermost_template_parms (tree tmpl)
+{
+  tree parms = INNERMOST_TEMPLATE_PARMS (DECL_TEMPLATE_PARMS (tmpl));
+  return TREE_VEC_LENGTH (parms);
+}
+
 /* Return either TMPL or another template that it is equivalent to under DR
    1286: An alias that just changes the name of a template is equivalent to
    the other template.  */
@@ -5164,6 +5173,8 @@ get_underlying_template (tree tmpl)
 	{
 	  tree sub = TYPE_TI_TEMPLATE (result);
 	  if (PRIMARY_TEMPLATE_P (sub)
+	      && (num_innermost_template_parms (tmpl)
+		  == num_innermost_template_parms (sub))
 	      && same_type_p (result, TREE_TYPE (sub)))
 	    {
 	      /* The alias type is equivalent to the pattern of the
@@ -13035,6 +13046,10 @@ tsubst_omp_for_iterator (tree t, int i, tree declv, tree initv,
   init_decl = (init && TREE_CODE (init) == DECL_EXPR);
   init = RECUR (init);
   decl = RECUR (decl);
+
+  if (decl == error_mark_node || init == error_mark_node)
+    return;
+
   if (init_decl)
     {
       gcc_assert (!processing_template_decl);
@@ -13762,6 +13777,13 @@ tsubst_expr (tree t, tree args, tsubst_flags_t complain, tree in_decl,
       error ("use %<...%> to expand argument pack");
       RETURN (error_mark_node);
 
+    case CILK_SPAWN_STMT:
+      cfun->calls_cilk_spawn = 1;
+      RETURN (build_cilk_spawn (EXPR_LOCATION (t), RECUR (CILK_SPAWN_FN (t))));
+
+    case CILK_SYNC_STMT:
+      RETURN (build_cilk_sync ());
+
     case COMPOUND_EXPR:
       tmp = RECUR (TREE_OPERAND (t, 0));
       if (tmp == NULL_TREE)
@@ -14483,8 +14505,7 @@ tsubst_copy_and_build (tree t,
 	       into a non-dependent call.  */
 	    && type_dependent_expression_p_push (t)
 	    && !any_type_dependent_arguments_p (call_args))
-	  function = perform_koenig_lookup (function, call_args, false,
-					    tf_none);
+	  function = perform_koenig_lookup (function, call_args, tf_none);
 
 	if (identifier_p (function)
 	    && !any_type_dependent_arguments_p (call_args))
@@ -15415,9 +15436,9 @@ pack_deducible_p (tree parm, tree fn)
    it.  TARGS is a vector into which the deduced template arguments
    are placed.
 
-   Return zero for success, 2 for an incomplete match that doesn't resolve
-   all the types, and 1 for complete failure.  An error message will be
-   printed only for an incomplete match.
+   Returns either a FUNCTION_DECL for the matching specialization of FN or
+   NULL_TREE if no suitable specialization can be found.  If EXPLAIN_P is
+   true, diagnostics will be printed to explain why it failed.
 
    If FN is a conversion operator, or we are trying to produce a specific
    specialization, RETURN_TYPE is the return type desired.
@@ -16400,7 +16421,7 @@ resolve_overloaded_unification (tree tparms,
 	  if (subargs != error_mark_node
 	      && !any_dependent_template_arguments_p (subargs))
 	    {
-	      elem = tsubst (TREE_TYPE (fn), subargs, tf_none, NULL_TREE);
+	      elem = TREE_TYPE (instantiate_template (fn, subargs, tf_none));
 	      if (try_one_overload (tparms, targs, tempargs, parm,
 				    elem, strict, sub_strict, addr_p, explain_p)
 		  && (!goodfn || !same_type_p (goodfn, elem)))

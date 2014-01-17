@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++11" }
 // { dg-do compile }
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -47,6 +47,8 @@ void test01()
   using namespace __gnu_test;
 
   // Positive tests.
+  static_assert(test_relationship<is_base_of, volatile ClassType,
+		ClassType>(true), "");
   static_assert(test_relationship<is_base_of, AbstractClass,
 		AbstractClass>(true), "");
   static_assert(test_relationship<is_base_of, ClassType,

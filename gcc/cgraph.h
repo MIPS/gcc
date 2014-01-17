@@ -1,5 +1,5 @@
 /* Callgraph handling code.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -428,6 +428,9 @@ public:
   unsigned tm_clone : 1;
   /* True if this decl is a dispatcher for function versions.  */
   unsigned dispatcher_function : 1;
+  /* True if this decl calls a COMDAT-local function.  This is set up in
+     compute_inline_parameters and inline_call.  */
+  unsigned calls_comdat_local : 1;
 };
 
 
@@ -502,25 +505,25 @@ typedef struct varpool_node_set_def *varpool_node_set;
 
 
 /* Iterator structure for cgraph node sets.  */
-typedef struct
+struct cgraph_node_set_iterator
 {
   cgraph_node_set set;
   unsigned index;
-} cgraph_node_set_iterator;
+};
 
 /* Iterator structure for varpool node sets.  */
-typedef struct
+struct varpool_node_set_iterator
 {
   varpool_node_set set;
   unsigned index;
-} varpool_node_set_iterator;
+};
 
 #define DEFCIFCODE(code, string)	CIF_ ## code,
 /* Reasons for inlining failures.  */
-typedef enum cgraph_inline_failed_enum {
+enum cgraph_inline_failed_t {
 #include "cif-code.def"
   CIF_N_REASONS
-} cgraph_inline_failed_t;
+};
 
 /* Structure containing additional information about an indirect call.  */
 
@@ -575,7 +578,7 @@ struct GTY((chain_next ("%h.next_caller"), chain_prev ("%h.prev_caller"))) cgrap
   PTR GTY ((skip (""))) aux;
   /* When equal to CIF_OK, inline this call.  Otherwise, points to the
      explanation why function was not inlined.  */
-  cgraph_inline_failed_t inline_failed;
+  enum cgraph_inline_failed_t inline_failed;
   /* The stmt_uid of call_stmt.  This is used by LTO to recover the call_stmt
      when the function is serialized in.  */
   unsigned int lto_stmt_uid;
@@ -1423,8 +1426,12 @@ varpool_variable_node (varpool_node *node,
 {
   varpool_node *n;
 
-  n = dyn_cast <varpool_node> (symtab_alias_ultimate_target (node,
-							     availability));
+  if (node)
+    n = dyn_cast <varpool_node> (symtab_alias_ultimate_target (node,
+							       availability));
+  else
+    n = NULL;
+
   if (!n && availability)
     *availability = AVAIL_NOT_AVAILABLE;
   return n;
@@ -1489,5 +1496,23 @@ symtab_can_be_discarded (symtab_node *node)
 	      && node->resolution != LDPR_PREVAILING_DEF
 	      && node->resolution != LDPR_PREVAILING_DEF_IRONLY
 	      && node->resolution != LDPR_PREVAILING_DEF_IRONLY_EXP));
+}
+
+/* Return true if NODE is local to a particular COMDAT group, and must not
+   be named from outside the COMDAT.  This is used for C++ decloned
+   constructors.  */
+
+static inline bool
+symtab_comdat_local_p (symtab_node *node)
+{
+  return (node->same_comdat_group && !TREE_PUBLIC (node->decl));
+}
+
+/* Return true if ONE and TWO are part of the same COMDAT group.  */
+
+static inline bool
+symtab_in_same_comdat_p (symtab_node *one, symtab_node *two)
+{
+  return DECL_COMDAT_GROUP (one->decl) == DECL_COMDAT_GROUP (two->decl);
 }
 #endif  /* GCC_CGRAPH_H  */

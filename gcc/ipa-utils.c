@@ -1,5 +1,5 @@
 /* Utilities for ipa analysis.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -655,6 +655,11 @@ ipa_merge_profiles (struct cgraph_node *dst,
     return;
   if (src->frequency < dst->frequency)
     src->frequency = dst->frequency;
+
+  /* Time profiles are merged.  */
+  if (dst->tp_first_run > src->tp_first_run && src->tp_first_run)
+    dst->tp_first_run = src->tp_first_run;
+
   if (!dst->count)
     return;
   if (cgraph_dump_file)
@@ -711,8 +716,8 @@ ipa_merge_profiles (struct cgraph_node *dst,
 		 "Giving up; number of basic block mismatch.\n");
       match = false;
     }
-  else if (last_basic_block_for_function (srccfun)
-	   != last_basic_block_for_function (dstcfun))
+  else if (last_basic_block_for_fn (srccfun)
+	   != last_basic_block_for_fn (dstcfun))
     {
       if (cgraph_dump_file)
 	fprintf (cgraph_dump_file,
@@ -727,7 +732,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	{
 	  unsigned int i;
 
-	  dstbb = BASIC_BLOCK_FOR_FUNCTION (dstcfun, srcbb->index);
+	  dstbb = BASIC_BLOCK_FOR_FN (dstcfun, srcbb->index);
 	  if (dstbb == NULL)
 	    {
 	      if (cgraph_dump_file)
@@ -772,7 +777,7 @@ ipa_merge_profiles (struct cgraph_node *dst,
 	{
 	  unsigned int i;
 
-	  dstbb = BASIC_BLOCK_FOR_FUNCTION (dstcfun, srcbb->index);
+	  dstbb = BASIC_BLOCK_FOR_FN (dstcfun, srcbb->index);
 	  dstbb->count += srcbb->count;
 	  for (i = 0; i < EDGE_COUNT (srcbb->succs); i++)
 	    {
