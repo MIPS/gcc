@@ -162,9 +162,105 @@ unsigned long aarch64_tune_flags = 0;
 #define NAMED_PARAM(NAME, VAL) (VAL)
 #endif
 
-#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
-__extension__
-#endif
+const struct cpu_cost_table thunder_extra_costs=
+{
+  /* ALU */
+  {
+    0,			/* Arith.  */
+    0,			/* Logical.  */
+    0,			/* Shift.  */
+    0,			/* Shift_reg.  */
+    COSTS_N_INSNS (1),	/* Arith_shift.  */
+    COSTS_N_INSNS (1),	/* Arith_shift_reg.  */
+    COSTS_N_INSNS (1),	/* UNUSED: Log_shift.  */
+    COSTS_N_INSNS (1),	/* UNUSED: Log_shift_reg.  */
+    0,			/* Extend.  */
+    COSTS_N_INSNS (1),	/* Extend_arith.  */
+    0,			/* Bfi.  */
+    0,			/* Bfx.  */
+    COSTS_N_INSNS (5),	/* Clz.  */
+    0,			/* UNUSED: non_exec.  */
+    false		/* UNUSED: non_exec_costs_exec.  */
+  },
+  {
+    /* MULT SImode */
+    {
+      COSTS_N_INSNS (3),	/* Simple.  */
+      0,			/* Flag_setting.  */
+      0,			/* Extend.  */
+      0,			/* Add.  */
+      COSTS_N_INSNS (1),	/* Extend_add.  */
+      COSTS_N_INSNS (21)	/* Idiv.  */
+    },
+    /* MULT DImode */
+    {
+      COSTS_N_INSNS (3),	/* Simple.  */
+      0,			/* Flag_setting.  */
+      0,			/* Extend.  */
+      0,			/* Add.  */
+      COSTS_N_INSNS (1),	/* Extend_add.  */
+      COSTS_N_INSNS (37)	/* Idiv.  */
+    },
+  },
+  /* LD/ST */
+  {
+    COSTS_N_INSNS (2),	/* Load.  */
+    COSTS_N_INSNS (2),	/* Load_sign_extend.  */
+    COSTS_N_INSNS (2),	/* Ldrd.  */
+    0,			/* N/A: Ldm_1st.  */
+    0,			/* N/A: Ldm_regs_per_insn_1st.  */
+    0,			/* N/A: Ldm_regs_per_insn_subsequent.  */
+    COSTS_N_INSNS (3),	/* Loadf.  */
+    COSTS_N_INSNS (3),	/* Loadd.  */
+    0,  		/* N/A: Load_unaligned.  */
+    0,			/* Store.  */
+    0,			/* Strd.  */
+    0,			/* N/A: Stm_1st.  */
+    0,			/* N/A: Stm_regs_per_insn_1st.  */
+    0,			/* N/A: Stm_regs_per_insn_subsequent.  */
+    0,			/* Storef.  */
+    0,			/* Stored.  */
+    COSTS_N_INSNS (1)  /* Store_unaligned.  */
+  },
+  {
+    /* FP SFmode */
+    {
+      COSTS_N_INSNS (11),	/* Div.  */
+      COSTS_N_INSNS (5),	/* Mult.  */
+      COSTS_N_INSNS (5),	/* Mult_addsub.  */
+      COSTS_N_INSNS (5),	/* Fma.  */
+      COSTS_N_INSNS (3),	/* Addsub.  */
+      0,			/* Fpconst.  */
+      COSTS_N_INSNS (1),	/* Neg.  */
+      0,			/* Compare.  */
+      COSTS_N_INSNS (5),	/* Widen.  */
+      COSTS_N_INSNS (5),	/* Narrow.  */
+      COSTS_N_INSNS (5),	/* Toint.  */
+      COSTS_N_INSNS (5),	/* Fromint.  */
+      COSTS_N_INSNS (1)		/* Roundint.  */
+    },
+    /* FP DFmode */
+    {
+      COSTS_N_INSNS (21),	/* Div.  */
+      COSTS_N_INSNS (5),	/* Mult.  */
+      COSTS_N_INSNS (5),	/* Mult_addsub.  */
+      COSTS_N_INSNS (5),	/* Fma.  */
+      COSTS_N_INSNS (3),	/* Addsub.  */
+      0,			/* Fpconst.  */
+      COSTS_N_INSNS (1),	/* Neg.  */
+      0,			/* Compare.  */
+      COSTS_N_INSNS (5),	/* Widen.  */
+      COSTS_N_INSNS (5),	/* Narrow.  */
+      COSTS_N_INSNS (5),	/* Toint.  */
+      COSTS_N_INSNS (5),	/* Fromint.  */
+      COSTS_N_INSNS (1)		/* Roundint.  */
+    }
+  },
+  /* Vector */
+  {
+    COSTS_N_INSNS (1)	/* Alu.  */
+  }
+};
 
 #if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
 __extension__
@@ -190,6 +286,17 @@ static const struct cpu_regmove_cost generic_regmove_cost =
      Therefore we need to raise the cost above 2 in order to have
      reload handle the situation.  */
   NAMED_PARAM (FP2FP, 4)
+};
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+static const struct cpu_regmove_cost thunder_regmove_cost =
+{
+  NAMED_PARAM (GP2GP, 1),
+  NAMED_PARAM (GP2FP, 2),
+  NAMED_PARAM (FP2GP, 2),
+  NAMED_PARAM (FP2FP, 2)
 };
 
 /* Generic costs for vector insn classes.  */
@@ -232,6 +339,21 @@ static const struct tune_params cortexa53_tunings =
   &generic_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
+  NAMED_PARAM (issue_rate, 2)
+};
+
+
+#if HAVE_DESIGNATED_INITIALIZERS && GCC_VERSION >= 2007
+__extension__
+#endif
+
+static const struct tune_params thunder_tunings =
+{
+  &thunder_extra_costs,
+  &generic_addrcost_table,
+  &thunder_regmove_cost,
+  &generic_vector_cost,
+  NAMED_PARAM (memmov_cost, 3),
   NAMED_PARAM (issue_rate, 2)
 };
 

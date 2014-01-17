@@ -132,6 +132,10 @@
 (define_attr "length" ""
   (const_int 4))
 
+;; Main data type used by the insn
+(define_attr "mode" "unknown,none,QI,HI,SI,DI,TI,SF,DF,TF,FPSW"
+  (const_string "unknown"))
+
 ;; Attribute that controls whether an alternative is enabled or not.
 ;; Currently it is only used to disable alternatives which touch fp or simd
 ;; registers when -mgeneral-regs-only is specified.
@@ -155,13 +159,14 @@
 
 (define_attr "generic_sched" "yes,no"
   (const (if_then_else
-          (eq_attr "tune" "cortexa53,cortexa15")
+          (eq_attr "tune" "cortexa53,cortexa15,thunder")
           (const_string "no")
           (const_string "yes"))))
 
 ;; Scheduling
 (include "../arm/cortex-a53.md")
 (include "../arm/cortex-a15.md")
+(include "thunder.md")
 
 ;; -------------------------------------------------------------------
 ;; Jumps and other miscellaneous insns
@@ -2051,7 +2056,8 @@
 	  (const_int 64))))]
   ""
   "<su>mulh\\t%0, %1, %2"
-  [(set_attr "type" "<su>mull")]
+  [(set_attr "type" "<su>mull")
+   (set_attr "mode" "TI")]
 )
 
 (define_insn "<su_optab>div<mode>3"
@@ -2060,7 +2066,8 @@
 		     (match_operand:GPI 2 "register_operand" "r")))]
   ""
   "<su>div\\t%<w>0, %<w>1, %<w>2"
-  [(set_attr "type" "<su>div")]
+  [(set_attr "type" "<su>div")
+   (set_attr "mode" "<MODE>")]
 )
 
 ;; zero_extend version of above
@@ -2071,7 +2078,8 @@
 		     (match_operand:SI 2 "register_operand" "r"))))]
   ""
   "<su>div\\t%w0, %w1, %w2"
-  [(set_attr "type" "<su>div")]
+  [(set_attr "type" "<su>div")
+   (set_attr "mode" "SI")]
 )
 
 ;; -------------------------------------------------------------------

@@ -1,3 +1,17 @@
+2014-01-13  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-cores.def (thunder): Use thunder tuning.
+	* config/aarch64/aarch64.c (thunder_extra_costs): New variable.
+	(thunder_regmove_cost): New variable.
+	(thunder_tunings): New variable.
+	* config/aarch64/aarch64.md: Include thunder.md
+	(mode): New attr.
+	(generic_sched): Default thunder to no.
+	(<su>muldi3_highpart): Add mode attr.
+	(<su_optab>div<mode>3): Likewise.
+	(*<su_optab>divsi3_uxtw): Likewise.
+	* config/aarch64/thunder.md: New file.
+
 2013-05-29  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64-cores.def: Add an entry for thunder.
