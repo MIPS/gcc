@@ -17028,7 +17028,8 @@ meltlab_endgetargs:
                         union meltparam_un argtab[5];
                         memset(&argtab, 0, sizeof(argtab));
                         /*^apply.arg*/
-                        argtab[0].meltbp_cstring =  "invalid operand arity $1 for hook call $2 wanting $3 ins and $4 outs";
+                        argtab[0].meltbp_cstring =  "invalid operand arity $1 for hook call \'$2\' wanting #$3 inputs and\
+ #$4 outputs";
                         /*^apply.arg*/
                         argtab[1].meltbp_long = /*_#MULTIPLE_LENGTH__L31*/ meltfnum[30];
                         /*^apply.arg*/

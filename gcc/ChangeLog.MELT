@@ -1,5 +1,8 @@
 
 2014-01-17  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/generated/*: Regenerate all.
+
+2014-01-17  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-base.melt (multiple_sort): Commented out a
 	std::stable_sort based sorting function which fails to compile
