@@ -3826,36 +3826,6 @@ long melthookproc_HOOK_SIMPLE_IPA_EXECUTE()
 
 
 
-/*predefined hook definition HOOK_SORT_COMPARE #138*/
-long melthookproc_HOOK_SORT_COMPARE(melt_ptr_t meltin_LEFT_p0, melt_ptr_t meltin_RIGHT_p1, melt_ptr_t meltin_CMP_p2)
-{
-    /* code emitted by generate_runtypesupport_predefined_hooks for HOOK_SORT_COMPARE*/
-#ifndef MELT_SKIP_HOOK_PREDEFINED_CODE
-    melthook_ptr_t melthkp = (melthook_ptr_t) MELT_PREDEF (HOOK_SORT_COMPARE);
-    typedef long melthooksig_HOOK_SORT_COMPARE_t (melt_ptr_t, melt_ptr_t, melt_ptr_t, melt_ptr_t);
-    /*checkhook exist*/ melt_assertmsg (" check predefhook HOOK_SORT_COMPARE exists",
-                                        melthkp != NULL);
-    /*checkhook ishook*/ melt_assertmsg (" check predefhook HOOK_SORT_COMPARE is hook",
-                                         melt_magic_discr ((melt_ptr_t) melthkp) == MELTOBMAG_HOOK);
-    /* check hook routine HOOK_SORT_COMPARE */
-    melthooksig_HOOK_SORT_COMPARE_t *melthookptr_HOOK_SORT_COMPARE =
-        reinterpret_cast <melthooksig_HOOK_SORT_COMPARE_t*>
-        (melthkp->hookad) ;
-    melt_assertmsg("check predefhook routine HOOK_SORT_COMPARE",
-                   melthookptr_HOOK_SORT_COMPARE);
-
-    /* check predefhook HOOK_SORT_COMPARE name */
-    melt_assertmsg("check predefhook name HOOK_SORT_COMPARE",
-                   !strncmp (melthkp->hookname,
-                             "HOOK_SORT_COMPARE", MELT_HOOKNAME_LEN-1));
-    return (*melthookptr_HOOK_SORT_COMPARE) ((melt_ptr_t)melthkp,
-            meltin_LEFT_p0,
-            meltin_RIGHT_p1,
-            meltin_CMP_p2);
-#endif /* MELT_SKIP_HOOK_PREDEFINED_CODE */
-} /* end  melthookproc_HOOK_SORT_COMPARE */
-
-
 
 /*predefined hook definition HOOK_SORT_COMPARE_LESS #139*/
 long melthookproc_HOOK_SORT_COMPARE_LESS(melt_ptr_t meltin_LEFT_p0, melt_ptr_t meltin_RIGHT_p1, melt_ptr_t meltin_CMP_p2)

@@ -2542,9 +2542,6 @@ MELT_EXTERN long melthookproc_HOOK_RTL_GATE();
 /*predefined hook declaration HOOK_SIMPLE_IPA_EXECUTE #137*/
 MELT_EXTERN long melthookproc_HOOK_SIMPLE_IPA_EXECUTE();
 
-/*predefined hook declaration HOOK_SORT_COMPARE #138*/
-MELT_EXTERN long melthookproc_HOOK_SORT_COMPARE(melt_ptr_t meltin_LEFT_p0, melt_ptr_t meltin_RIGHT_p1, melt_ptr_t meltin_CMP_p2);
-
 /*predefined hook declaration HOOK_SORT_COMPARE_LESS #139*/
 MELT_EXTERN long melthookproc_HOOK_SORT_COMPARE_LESS(melt_ptr_t meltin_LEFT_p0, melt_ptr_t meltin_RIGHT_p1, melt_ptr_t meltin_CMP_p2);
 

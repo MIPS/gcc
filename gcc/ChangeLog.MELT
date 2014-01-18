@@ -1,5 +1,10 @@
 
-2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net> @POISON
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-predef.list (HOOK_SORT_COMPARE): Poisoned.
 
