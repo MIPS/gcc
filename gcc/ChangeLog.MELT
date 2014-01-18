@@ -1,6 +1,16 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+	* melt-predef.list (HOOK_SORT_COMPARE_LESS): New, to replace the
+	badly named HOOK_SORT_COMPARE...
+
+	* melt/warmelt-base.melt (HOOK_SORT_COMPARE_LESS): New hook.
+	(HOOK_SORT_COMPARE): Should become obsolete.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h: Improve comment regarding melt_assermsg.
 
 	* melt/warmelt-first.melt (register_option): Inform that it is

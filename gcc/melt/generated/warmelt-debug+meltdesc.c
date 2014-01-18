@@ -39,15 +39,15 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /1.1-pre/warmelt-debug";
 
 /* hash of preprocessed melt-run.h generating this */
-const char melt_prepromd5meltrun[]="b1c24411fe456ba0c77ca05cb3758bab";
+const char melt_prepromd5meltrun[]="414be0edd6523a9b3a3affd90142d641";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="48aef51da1946a87034e1be34dfe1f1a";
+const char melt_primaryhexmd5[]="442c7aa43e08db805d5f1e1352b0e926";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-debug+01.cc #1 */ "52874da7dd7002536f67fe7e20e18053",
- /*sechexmd5checksum meltbuild-sources/warmelt-debug+02.cc #2 */ "a185c93ee19ef74743ad36f320991553",
+ /*sechexmd5checksum meltbuild-sources/warmelt-debug+01.cc #1 */ "1687cb02cb73a31915921a10982ca53a",
+ /*sechexmd5checksum meltbuild-sources/warmelt-debug+02.cc #2 */ "628cf12fec3567724d9b9d0e2f2d563c",
  /*nosecfile*/ (const char*)0,
  (const char*)0 };
 
@@ -55,13 +55,13 @@ const char* const melt_secondaryhexmd5tab[]={
 const int melt_lastsecfileindex=2;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="7e77416bbbbe9ab204d320b0c5c365ed" ;
+const char melt_cumulated_hexmd5[]="b41d491f9af534c68a160d5d40c24cbd" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiDEBUG_mds__7E77416BBBBE9AB204D320B0C5C365ED 1
+#define meltmod_WARMELTmiDEBUG_mds__B41D491F9AF534C68A160D5D40C24CBD 1
 #include "warmelt-debug+melttime.h"
 	 
 
