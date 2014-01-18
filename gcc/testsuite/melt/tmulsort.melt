@@ -61,11 +61,9 @@
       (debug "ltuuvv=" ltuuvv)))
   ;;
   (debug "before newsort mytup=" mytup)
-  (let ( (newsortedtup (multiple_sort_new mytup named_less4))
+  (let ( (newsortedtup (multiple_sort mytup named_less4))
 	 )
     (debug "after newsort newsortedtup=" newsortedtup "\n ... mytup=" mytup)
-    (let ( (oldsortedtup (multiple_sort mytup named_less4 discr_multiple))
-	   )
-      (debug "oldsortedtup=" oldsortedtup))))
+    ))
 
 ;; eof tmulsort.melt

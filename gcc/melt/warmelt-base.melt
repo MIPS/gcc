@@ -3425,6 +3425,54 @@ typedef struct melthook_st *melthook_ptr_t;
 
 ;;;;;
 
+;; utility to give a "sorted" tuple of attributes in a mapobject
+(defun mapobject_sorted_attribute_tuple (mapo)
+  :doc #{Give the alphabetically sorted tuple of attributes in a 
+given object map $MAPO}#
+  (let ( 
+	(:long mapcount (mapobject_count mapo)) 
+	(countbox (make_integerbox discr_integer 0))
+	(boxedone (make_integerbox discr_integer 1))
+	(boxedzero (make_integerbox discr_integer 0))
+	(boxedminusone (make_integerbox discr_integer -1))
+	(tupl (make_multiple discr_multiple mapcount))
+	)
+    ;; fill the tupl with (attribute value rank) entries
+    (mapobject_every
+     mapo
+     (lambda (at va)
+       (let ( (:long curcount (get_int countbox)) 
+	      (ent (tuple at va 
+			  (make_integerbox discr_integer curcount)))
+	      )
+	 (multiple_put_nth tupl curcount ent)
+	 (put_int countbox (+i curcount 1))
+	 )))
+;;; sort the tuple and output in sorted order
+    (let ( (sortupl 
+	    (multiple_sort_new 
+	     tupl
+	     (lambda (e1 e2)
+	       (let ( (e1at (multiple_nth e1 0))
+		      (e1va (multiple_nth e1 1))
+		      (e1rk (multiple_nth e1 2))
+		      (e2at (multiple_nth e2 0))
+		      (e2va (multiple_nth e2 1))
+		      (e2rk (multiple_nth e2 2))
+		      )
+		 (return 
+		  (compare_obj_ranked e1at e1rk e2at e2rk boxedminusone boxedzero boxedone) ())
+		 ))
+	     discr_multiple
+	     ))
+	   )
+      (multiple_map sortupl (lambda (el) (multiple_nth el 0)))
+      )
+    )
+  )
+
+;;;;;;;;;;;;;;;;
+
 (export_values
  ;; keep the alphanumerical order
 		
@@ -3553,6 +3601,7 @@ typedef struct melthook_st *melthook_ptr_t;
  make_string_tempname_suffixed
  make_string_without_dynloaded_suffix
  make_string_without_suffix
+ mapobject_sorted_attribute_tuple
  mapstring_count
  mapstring_every
  mapstring_iterate_test	
