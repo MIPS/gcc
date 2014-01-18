@@ -1,6 +1,14 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt (multiple_sort_new): The discriminant
+	formal is named DIS. Added debug messages. Works.
+	(multiple_sort): Is synonym of multiple_sort_new.
+
+	* testsuite/melt/tmulsort.melt: More debug messages. Works.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt: Reindented various valdesc_* code chunks.
 	(multiple_sort_new): Add debugeprintf.
 

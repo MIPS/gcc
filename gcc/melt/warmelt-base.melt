@@ -3344,29 +3344,36 @@ typedef struct melthook_st *melthook_ptr_t;
  }#)
 
 ;;;;;;;; our "re-entrant" tuple sorter using std::stable_sort
-(defun multiple_sort_new (mul cmp discrm) 
+(defun multiple_sort_new (mul cmp dis) 
   :doc #{Returns a sorted tuple from the tuple $MUL, the compare
   function $CMP, see $HOOK_SORT_COMPARE_LESS for details about it, using the
-  optional tuple discriminant $DISCRM (using $DISCR_MULTIPLE if null).
-  If $MUL is not a tuple, or $CMP is not a closure or $DISCRM is not a
+  optional tuple discriminant $DIS (using $DISCR_MULTIPLE if null).
+  If $MUL is not a tuple, or $CMP is not a closure or $DIS is not a
   tuple discriminant or null, then a null value is returned. If the
   closure $CMP does not define an order the behavior is undefined.
   The $CMP function can be simple or complex, perhaps even [recursively] calling
   $MULTIPLE_SORT itself (but that is probably unusual). The sorting is stable.}#
+  (melt_low_debug "multiple_sort_new start mul==" mul)
   (if (is_multiple mul)
       (void)
     (return ()))
   (if (is_closure cmp)
       (void)
     (return ()))
-  (if (null discrim)
-      (setq discrim discr_multiple))
-  (if (is_a discrim class_discriminant)
+  (if (null dis)
+      (setq dis discr_multiple))
+  (if (is_a dis class_discriminant)
       (void)
     (return ()))
+    (code_chunk
+     dbgmulsortdiscrim_chk
+     #{ /* multiple_sort $DBGMULSORTDISCRIM_CHK */
+     debugeprintf ("multiple_sort $DBGMULSORTDISCRIM_CHK dis=%p of magic %d",
+		   (void*)$DIS, melt_magic_discr($DIS));
+     }#)
   (if (expr_chunk checkmagic_chk :long
 		  #{ /* multiple_sort $CHECKMAGIC_CHK */
-		  (((meltobject_ptr_t)($DISCRIM))->meltobj_magic == MELTOBMAG_MULTIPLE) }#)
+		  (((meltobject_ptr_t)($DIS))->meltobj_magic == MELTOBMAG_MULTIPLE) }#)
       (void)
     (return ()))
   (let ( (:long tuplen (multiple_length mul))
@@ -3377,7 +3384,7 @@ typedef struct melthook_st *melthook_ptr_t;
      debugeprintf ("multiple_sort $DBGMULSORT_CHK tuplen=%ld", $TUPLEN);
      }#)
     (let (
-	  (res (make_multiple discrm tuplen))
+	  (res (make_multiple dis tuplen))
 	  (:long reslen (multiple_length res))
 	  )
       (code_chunk 
@@ -3413,6 +3420,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	  /* multiple_sort $SORTRES_CHK end */
 	  }#)
       (assert_msg "check res" (is_multiple res) res)
+      (melt_low_debug "multiple_sort_new end result res==" res)
       (return res))))
 
 ;;;;;
@@ -3686,6 +3694,7 @@ typedef struct melthook_st *melthook_ptr_t;
 (export_synonym melt_mode_container melt_mode_reference)
 
 
+(export_synonym multiple_sort multiple_sort_new)
 (export_synonym set_content set_reference)
 (export_synonym some_integer_!= some_integer_different_from)
 (export_synonym some_integer_= some_integer_equal_to)
