@@ -39,7 +39,7 @@
 ;; support has to be in warmelt-macro.melt file...
 
 
-;; Our multiple_sort needs std::sort used with hook_sort_compare
+;; Our multiple_sort needs std::sort used with hook_sort_compare_less
 (cheader #{
 /* C++ standard headers for multiple_sort */
 #include <vector>
@@ -3243,44 +3243,6 @@ typedef struct melthook_st *melthook_ptr_t;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
-;; hook_sort_compare is really a poor name; should be hook_sort_compare_less
-(defhook hook_sort_compare
-  (:value left right cmp)
-  ()
-  :long
-  :predef HOOK_SORT_COMPARE
-  :doc #{The badly named internal $HOOK_SOURCE_COMPARE is for sorting
-  tuples. Should be named $HOOK_SORT_COMPARE_LESS.
-  It should return boolean true if $LEFT is strictly less
-  than $RIGHT using the $CMP function. This $CMP function should return
-  @code{:TRUE} when $LEFT is strictly less than $RIGHT. If $CMP
-  returns a boxed number, it should be strictly negative iff $LEFT is
-  strictly less than $RIGHT.}#
-  (if (== left right)
-      (return 0))
-  (let ( (cmpres (cmp left right))
-	 )
-    (cond ( (null cmpres)
-	    (return 0)
-	    (void))
-	  ( (== cmpres :true)
-	    (return 1)
-	    (void))
-	  ( (is_integerbox cmpres)
-	    (let ( (:long cmpl (get_int cmpres))
-		   )
-	      (if (<i cmpl 0)
-		  (return 1)
-		(return 0)))
-	    (void)
-	    )
-	  )
-    (return 1)	    
-    )
-  )					;end hook_sort_compare
-
-;;;;
-
 
 (defhook hook_sort_compare_less
   (:value left right cmp)
@@ -3335,9 +3297,9 @@ typedef struct melthook_st *melthook_ptr_t;
        ~Melt_Sort_Compare_Index() { meltcmp_ad=NULL; melttup_ad=NULL; };
        bool operator () (int meltleftix, int meltrightix) {
          return (bool)
-            melthookproc_HOOK_SORT_COMPARE((*melttup_ad)->tabval[meltleftix],
-				           (*melttup_ad)->tabval[meltrightix],
-				           *meltcmp_ad);
+            melthookproc_HOOK_SORT_COMPARE_LESS((*melttup_ad)->tabval[meltleftix],
+				                (*melttup_ad)->tabval[meltrightix],
+				                *meltcmp_ad);
        };
      }; /* end class Melt_Sort_Compare_Index */
  }#)
@@ -3345,7 +3307,7 @@ typedef struct melthook_st *melthook_ptr_t;
 ;;;;;;;; our "re-entrant" tuple sorter using std::stable_sort
 (defun multiple_sort_new (mul cmp discrm) 
   :doc #{Returns a sorted tuple from the tuple $MUL, the compare
-  function $CMP, see $HOOK_SORT_COMPARE for details about it, using the
+  function $CMP, see $HOOK_SORT_COMPARE_LESS for details about it, using the
   optional tuple discriminant $DISCRM (using $DISCR_MULTIPLE if null).
   If $MUL is not a tuple, or $CMP is not a closure or $DISCRM is not a
   tuple discriminant or null, then a null value is returned. If the

@@ -1,4 +1,15 @@
 
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net> @POISON
+
+	* melt-predef.list (HOOK_SORT_COMPARE): Poisoned.
+
+	* melt/warmelt-base.melt (hook_sort_compare): Remove since renamed
+	as....
+	(hook_sort_compare_less): Better, since rename old
+	hook_sort_compare
+	(multiple_sort_new): Use hook_sort_compare_less.
+
+
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
