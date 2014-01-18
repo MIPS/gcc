@@ -7515,8 +7515,7 @@ meltlab_endgetargs:
         ;
         /*_.LAMBDA___V13*/ meltfptr[12] = /*_.LAMBDA___V14*/ meltfptr[13];;
         /*^compute*/
-        /*_.SORTUPL__V15*/ meltfptr[14] =
-            meltgc_sort_multiple((melt_ptr_t)(/*_.TUPL__V8*/ meltfptr[7]), (melt_ptr_t)(/*_.LAMBDA___V13*/ meltfptr[12]), (melt_ptr_t)((/*!DISCR_MULTIPLE*/ meltfrout->tabval[1])));;
+        /*_.SORTUPL__V15*/ meltfptr[14] = NULL;
         MELT_LOCATION("warmelt-first.melt:3727:/ quasiblock");
 
 

@@ -1,6 +1,19 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.h (meltgc_sort_multiple): Remove declaration.
+
+	* melt-runtime.cc (meltgc_sort_multiple): Remove function.
+
+	* melt/warmelt-first.melt (hook_intern_symbol): Remove
+	dbgintern_chk code chunk.
+
+	* melt/generated/warmelt-first+01.cc: Manually remove call to
+	meltgc_sort_multiple.
+	* melt/generated/warmelt-first.cc: Ditto.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (meltgc_sort_multiple): Obsolete
 	function. Replaced by multiple_sort MELT function.
 

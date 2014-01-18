@@ -901,16 +901,6 @@ melt_is_multiple_of_length(melt_ptr_t mul, int ln)
   return  (int)((meltmultiple_ptr_t)mul)->nbval == (int)ln;
 }
 
-/* sort a multiple MUL using as compare function the closure CMPCLO
-   which should either return a boxed integer (0 for equality, <0 for
-   less than, >0 for greater than), or return :true and a raw small
-   long (0 for equality, <0 or >0) when applied to two values to
-   compare. If the closure does not return a boxed integer or both
-   :true and a raw integer the whole sort returns null; otherwise it
-   returns a new multiple value of discriminant DISCRM */
-melt_ptr_t
-meltgc_sort_multiple(melt_ptr_t mult_p, melt_ptr_t clo_p, melt_ptr_t discrm_p);
-
 
 
 

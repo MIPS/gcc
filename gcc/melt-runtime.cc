@@ -3375,14 +3375,6 @@ end:
 
 
 
-melt_ptr_t
-meltgc_sort_multiple (melt_ptr_t mult_p, melt_ptr_t clo_p,
-                      melt_ptr_t discrm_p)
-{
-  melt_fatal_error ("obsolete call to meltgc_sort_multiple with mult_p %p",
-		    (void*) mult_p);
-}
-
 
 
 /* safely return the content of a reference - instance of CLASS_REFERENCE */
