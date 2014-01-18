@@ -1,6 +1,13 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt: Reindented various valdesc_* code chunks.
+	(multiple_sort_new): Add debugeprintf.
+
+	* testsuite/melt/tmulsort.melt: New test file.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>

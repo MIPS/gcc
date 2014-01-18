@@ -1,0 +1,44 @@
+;; file tmulsort.melt -*- lisp -*-
+
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tmulsort.melt 
+
+ ./cc1plus -fmelt-mode=runfile @meltbuild-common.args \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tmulsort.melt \
+    -fmelt-debugging=mode  meltbuild-empty-file.c
+|#
+
+
+;; a compare function for named which compares only the first four characters
+(defun named_less4 (v1 v2)
+  (debug "named_less4 start v1=" v1 " v2=" v2)
+  (shortbacktrace_dbg "named_less4" 8)
+  (let ( (n1 (get_field :named_name v1))
+	 (n2 (get_field :named_name v2))
+	 )
+    (if (is_string n1)
+	(if (is_string n2)
+	    (let ( (:long cmp 0)
+		   )
+	      (code_chunk cmp4char_chk
+			  #{ /* named_less4 $CMP4CHAR_CHK */
+			  $CMP = strncmp(melt_string_str($N1), melt_string_str($N2), 4);
+			  }#)
+	      (debug "named_less4 cmp=" cmp)
+	      (return (if (<i cmp 0) :true ()))
+	      )))
+    (debug "named_less4 nonamed n1=" n1 " n2=" n2)
+    (return ())))
+	
+;; run our tests	 
+(let ( (mytup (tuple 'atom '23 'atomic :true (list 'a 'b)))
+       )
+  (debug "mytup=" mytup)
+  (let ( (newsortedtup (multiple_sort_new mytup named_less4))
+	 )
+    (debug "newsortedtup=" newsortedtup "\n ... mytup=" mytup)
+    (let ( (oldsortedtup (multiple_sort mytup named_less4 discr_multiple))
+	   )
+      (debug "oldsortedtup=" oldsortedtup))))
+
+;; eof tmulsort.melt
