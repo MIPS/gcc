@@ -5,7 +5,7 @@
 
 
 /* This warmelt-moremacro+melttime.h is included from warmelt-moremacro+meltdesc.c only. */
-#if meltmod_WARMELTmiMOREMACRO_mds__2E90F518D1FD0E1F13B3944C4D528028
+#if meltmod_WARMELTmiMOREMACRO_mds__6C04849D6507C803C7F10CA320C25E3A
 /* MELT generation timestamp for meltbuild-sources/warmelt-moremacro */
 
 #ifdef __cplusplus
@@ -18,8 +18,8 @@ extern "C" {
 
 		 
 /*MELT BOOTSTRAP*/
-const char melt_gen_timestamp[]="Sat Jan 18 13:55:56 2014 MET";
-const long long melt_gen_timenum=1390049756;
+const char melt_gen_timestamp[]="Sat Jan 18 21:26:39 2014 MET";
+const long long melt_gen_timenum=1390076799;
 
 		 const char melt_build_timestamp[]= __DATE__ "@" __TIME__
 		 #ifdef __cplusplus
@@ -34,7 +34,7 @@ const long long melt_gen_timenum=1390049756;
 		 }  /* end extern C timestamp */
 		 #endif /*__cplusplus */
 
-		 #else /* ! meltmod_WARMELTmiMOREMACRO_mds__2E90F518D1FD0E1F13B3944C4D528028 */
+		 #else /* ! meltmod_WARMELTmiMOREMACRO_mds__6C04849D6507C803C7F10CA320C25E3A */
 		 #error invalid timestamp file for meltbuild-sources/warmelt-moremacro 
-		 #endif /* meltmod_WARMELTmiMOREMACRO_mds__2E90F518D1FD0E1F13B3944C4D528028 */
+		 #endif /* meltmod_WARMELTmiMOREMACRO_mds__6C04849D6507C803C7F10CA320C25E3A */
 		 

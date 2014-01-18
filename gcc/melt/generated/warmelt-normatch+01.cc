@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f1[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h459717329; // forward declaration fromline 6528
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h459717329 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h722042471; // forward declaration fromline 6528
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h722042471 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -764,7 +764,7 @@ MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h459717329 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h722042471 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -18733,12 +18733,24 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
 
         /*^newclosure*/
         /*newclosure*/ /*_.LAMBDA___V66*/ meltfptr[43] =
-            (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_20*/ meltfrout->tabval[20])), (0));
+            (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_21*/ meltfrout->tabval[21])), (0));
         ;
         /*_.LAMBDA___V65*/ meltfptr[42] = /*_.LAMBDA___V66*/ meltfptr[43];;
-        /*^compute*/
-        /*_.SORTEDPATFIELDS__V67*/ meltfptr[51] =
-            meltgc_sort_multiple((melt_ptr_t)(/*_.PATFIELDS__V19*/ meltfptr[18]), (melt_ptr_t)(/*_.LAMBDA___V65*/ meltfptr[42]), (melt_ptr_t)((/*!DISCR_MULTIPLE*/ meltfrout->tabval[13])));;
+
+        MELT_CHECK_SIGNAL();
+        ;
+        MELT_LOCATION("warmelt-normatch.melt:1043:/ apply");
+        /*apply*/
+        {
+            union meltparam_un argtab[2];
+            memset(&argtab, 0, sizeof(argtab));
+            /*^apply.arg*/
+            argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.LAMBDA___V65*/ meltfptr[42];
+            /*^apply.arg*/
+            argtab[1].meltbp_aptr = (melt_ptr_t*) &(/*!DISCR_MULTIPLE*/ meltfrout->tabval[13]);
+            /*_.SORTEDPATFIELDS__V67*/ meltfptr[51] =  melt_apply ((meltclosure_ptr_t)((/*!MULTIPLE_SORT*/ meltfrout->tabval[17])), (melt_ptr_t)(/*_.PATFIELDS__V19*/ meltfptr[18]), (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+        }
+        ;
 
 #if MELT_HAVE_DEBUG
         MELT_LOCATION("warmelt-normatch.melt:1063:/ cppif.then");
@@ -19066,7 +19078,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                         MELT_CHECK_SIGNAL();
                         ;
                         /*_#IS_A__L25*/ meltfnum[9] =
-                            melt_is_instance_of((melt_ptr_t)(/*_.CURPATF__V73*/ meltfptr[54]), (melt_ptr_t)((/*!CLASS_SOURCE_FIELD_PATTERN*/ meltfrout->tabval[21])));;
+                            melt_is_instance_of((melt_ptr_t)(/*_.CURPATF__V73*/ meltfptr[54]), (melt_ptr_t)((/*!CLASS_SOURCE_FIELD_PATTERN*/ meltfrout->tabval[22])));;
                         MELT_LOCATION("warmelt-normatch.melt:1069:/ cond");
                         /*cond*/ if (/*_#IS_A__L25*/ meltfnum[9]) /*then*/
                             {
@@ -19149,7 +19161,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                     MELT_LOCATION("warmelt-normatch.melt:1071:/ cond");
                     /*cond*/ if (
                         /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.CURPATF__V73*/ meltfptr[54]),
-                                                      (melt_ptr_t)((/*!CLASS_SOURCE_FIELD_PATTERN*/ meltfrout->tabval[21])))
+                                                      (melt_ptr_t)((/*!CLASS_SOURCE_FIELD_PATTERN*/ meltfrout->tabval[22])))
                     ) /*then*/
                         {
                             /*^cond.then*/
@@ -19171,7 +19183,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                     MELT_LOCATION("warmelt-normatch.melt:1072:/ cond");
                     /*cond*/ if (
                         /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.CURPATF__V73*/ meltfptr[54]),
-                                                      (melt_ptr_t)((/*!CLASS_SOURCE_FIELD_PATTERN*/ meltfrout->tabval[21])))
+                                                      (melt_ptr_t)((/*!CLASS_SOURCE_FIELD_PATTERN*/ meltfrout->tabval[22])))
                     ) /*then*/
                         {
                             /*^cond.then*/
@@ -19193,7 +19205,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                     MELT_LOCATION("warmelt-normatch.melt:1073:/ cond");
                     /*cond*/ if (
                         /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.CURFLD__V80*/ meltfptr[58]),
-                                                      (melt_ptr_t)((/*!CLASS_FIELD*/ meltfrout->tabval[22])))
+                                                      (melt_ptr_t)((/*!CLASS_FIELD*/ meltfrout->tabval[23])))
                     ) /*then*/
                         {
                             /*^cond.then*/
@@ -19217,7 +19229,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
 
                     /*^newclosure*/
                     /*newclosure*/ /*_.LAMBDA___V84*/ meltfptr[83] =
-                        (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_28*/ meltfrout->tabval[28])), (1));
+                        (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_29*/ meltfrout->tabval[29])), (1));
                     ;
                     /*^putclosedv*/
                     /*putclosv*/
@@ -19382,7 +19394,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                             MELT_LOCATION("warmelt-normatch.melt:1090:/ cond");
                                             /*cond*/ if (
                                                 /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.CURFLD__V80*/ meltfptr[58]),
-                                                                              (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[29])))
+                                                                              (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[30])))
                                             ) /*then*/
                                                 {
                                                     /*^cond.then*/
@@ -19684,7 +19696,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                     MELT_CHECK_SIGNAL();
                                     ;
                                     /*_#IS_A__L34*/ meltfnum[0] =
-                                        melt_is_instance_of((melt_ptr_t)(/*_.TESTLOCSY__V96*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[30])));;
+                                        melt_is_instance_of((melt_ptr_t)(/*_.TESTLOCSY__V96*/ meltfptr[88]), (melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[31])));;
                                     MELT_LOCATION("warmelt-normatch.melt:1099:/ cond");
                                     /*cond*/ if (/*_#IS_A__L34*/ meltfnum[0]) /*then*/
                                         {
@@ -19745,7 +19757,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1101:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.TESTLOCSY__V96*/ meltfptr[88]),
-                                                                  (melt_ptr_t)((/*!CLASS_NREP_SYMOCC*/ meltfrout->tabval[31])))
+                                                                  (melt_ptr_t)((/*!CLASS_NREP_SYMOCC*/ meltfrout->tabval[32])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -19767,7 +19779,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1101:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.NOCC_BIND__V100*/ meltfptr[98]),
-                                                                  (melt_ptr_t)((/*!CLASS_LET_BINDING*/ meltfrout->tabval[32])))
+                                                                  (melt_ptr_t)((/*!CLASS_LET_BINDING*/ meltfrout->tabval[33])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -19789,7 +19801,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1101:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.LETBIND_EXPR__V101*/ meltfptr[97]),
-                                                                  (melt_ptr_t)((/*!CLASS_NREP_UNSAFE_GET_FIELD*/ meltfrout->tabval[33])))
+                                                                  (melt_ptr_t)((/*!CLASS_NREP_UNSAFE_GET_FIELD*/ meltfrout->tabval[34])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -20005,7 +20017,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1110:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.CURFLD__V80*/ meltfptr[58]),
-                                                                  (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[29])))
+                                                                  (melt_ptr_t)((/*!CLASS_NAMED*/ meltfrout->tabval[30])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -20030,7 +20042,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1110:/ apply");
                                 /*apply*/
                                 {
-                                    /*_.NEWSYM__V112*/ meltfptr[111] =  melt_apply ((meltclosure_ptr_t)((/*!CLONE_SYMBOL*/ meltfrout->tabval[34])), (melt_ptr_t)(/*_.NAMED_NAME__V111*/ meltfptr[103]), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                                    /*_.NEWSYM__V112*/ meltfptr[111] =  melt_apply ((meltclosure_ptr_t)((/*!CLONE_SYMBOL*/ meltfrout->tabval[35])), (melt_ptr_t)(/*_.NAMED_NAME__V111*/ meltfptr[103]), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                                 }
                                 ;
 
@@ -20043,7 +20055,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 /*rawallocobj*/
                                 {
                                     melt_ptr_t newobj = 0;
-                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_UNSAFE_GET_FIELD*/ meltfrout->tabval[33])), (3), "CLASS_NREP_UNSAFE_GET_FIELD");
+                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_UNSAFE_GET_FIELD*/ meltfrout->tabval[34])), (3), "CLASS_NREP_UNSAFE_GET_FIELD");
                                     /*_.INST__V114*/ meltfptr[113] =
                                         newobj;
                                 };
@@ -20078,7 +20090,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 /*rawallocobj*/
                                 {
                                     melt_ptr_t newobj = 0;
-                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NORMAL_LET_BINDING*/ meltfrout->tabval[35])), (4), "CLASS_NORMAL_LET_BINDING");
+                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NORMAL_LET_BINDING*/ meltfrout->tabval[36])), (4), "CLASS_NORMAL_LET_BINDING");
                                     /*_.INST__V116*/ meltfptr[115] =
                                         newobj;
                                 };
@@ -20091,7 +20103,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 /*^putslot*/
                                 /*putslot*/
                                 melt_assertmsg("checkobj putslot  _ @LETBIND_TYPE", melt_magic_discr((melt_ptr_t)(/*_.INST__V116*/ meltfptr[115])) == MELTOBMAG_OBJECT);
-                                melt_putfield_object((/*_.INST__V116*/ meltfptr[115]), (1), ((/*!CTYPE_VALUE*/ meltfrout->tabval[36])), "LETBIND_TYPE");
+                                melt_putfield_object((/*_.INST__V116*/ meltfptr[115]), (1), ((/*!CTYPE_VALUE*/ meltfrout->tabval[37])), "LETBIND_TYPE");
                                 ;
                                 /*^putslot*/
                                 /*putslot*/
@@ -20118,7 +20130,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 /*rawallocobj*/
                                 {
                                     melt_ptr_t newobj = 0;
-                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[30])), (4), "CLASS_NREP_LOCSYMOCC");
+                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[31])), (4), "CLASS_NREP_LOCSYMOCC");
                                     /*_.INST__V118*/ meltfptr[117] =
                                         newobj;
                                 };
@@ -20131,7 +20143,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 /*^putslot*/
                                 /*putslot*/
                                 melt_assertmsg("checkobj putslot  _ @NOCC_CTYP", melt_magic_discr((melt_ptr_t)(/*_.INST__V118*/ meltfptr[117])) == MELTOBMAG_OBJECT);
-                                melt_putfield_object((/*_.INST__V118*/ meltfptr[117]), (2), ((/*!CTYPE_VALUE*/ meltfrout->tabval[36])), "NOCC_CTYP");
+                                melt_putfield_object((/*_.INST__V118*/ meltfptr[117]), (2), ((/*!CTYPE_VALUE*/ meltfrout->tabval[37])), "NOCC_CTYP");
                                 ;
                                 /*^putslot*/
                                 /*putslot*/
@@ -20301,7 +20313,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1134:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.NCX__V21*/ meltfptr[20]),
-                                                                  (melt_ptr_t)((/*!CLASS_NORMALIZATION_CONTEXT*/ meltfrout->tabval[37])))
+                                                                  (melt_ptr_t)((/*!CLASS_NORMALIZATION_CONTEXT*/ meltfrout->tabval[38])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -20729,7 +20741,7 @@ meltlabexit_LOOPSTUFF_2:;/*^loopepilog*/
                         argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.SUBHDLER__V83*/ meltfptr[82];
                         /*^ojbmsend.arg*/
                         argtab[2].meltbp_aptr = (melt_ptr_t*) &/*_.PCN__V5*/ meltfptr[4];
-                        /*_.NORMAL_PATTERN__V130*/ meltfptr[111] = meltgc_send((melt_ptr_t)(/*_.CURSUBPAT__V81*/ meltfptr[33]), (melt_ptr_t)((/*!NORMAL_PATTERN*/ meltfrout->tabval[38])), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                        /*_.NORMAL_PATTERN__V130*/ meltfptr[111] = meltgc_send((melt_ptr_t)(/*_.CURSUBPAT__V81*/ meltfptr[33]), (melt_ptr_t)((/*!NORMAL_PATTERN*/ meltfrout->tabval[39])), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                     }
                     ;
 
@@ -24555,12 +24567,24 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
 
         /*^newclosure*/
         /*newclosure*/ /*_.LAMBDA___V71*/ meltfptr[49] =
-            (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_21*/ meltfrout->tabval[21])), (0));
+            (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_22*/ meltfrout->tabval[22])), (0));
         ;
         /*_.LAMBDA___V70*/ meltfptr[53] = /*_.LAMBDA___V71*/ meltfptr[49];;
-        /*^compute*/
-        /*_.SORTEDSUBPA__V72*/ meltfptr[46] =
-            meltgc_sort_multiple((melt_ptr_t)(/*_.UNSORTEDSUBPA__V69*/ meltfptr[30]), (melt_ptr_t)(/*_.LAMBDA___V70*/ meltfptr[53]), (melt_ptr_t)((/*!DISCR_MULTIPLE*/ meltfrout->tabval[11])));;
+
+        MELT_CHECK_SIGNAL();
+        ;
+        MELT_LOCATION("warmelt-normatch.melt:1250:/ apply");
+        /*apply*/
+        {
+            union meltparam_un argtab[2];
+            memset(&argtab, 0, sizeof(argtab));
+            /*^apply.arg*/
+            argtab[0].meltbp_aptr = (melt_ptr_t*) &/*_.LAMBDA___V70*/ meltfptr[53];
+            /*^apply.arg*/
+            argtab[1].meltbp_aptr = (melt_ptr_t*) &(/*!DISCR_MULTIPLE*/ meltfrout->tabval[11]);
+            /*_.SORTEDSUBPA__V72*/ meltfptr[46] =  melt_apply ((meltclosure_ptr_t)((/*!MULTIPLE_SORT*/ meltfrout->tabval[19])), (melt_ptr_t)(/*_.UNSORTEDSUBPA__V69*/ meltfptr[30]), (MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+        }
+        ;
 
 #if MELT_HAVE_DEBUG
         MELT_LOCATION("warmelt-normatch.melt:1261:/ cppif.then");
@@ -25002,7 +25026,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
 
                     /*^newclosure*/
                     /*newclosure*/ /*_.LAMBDA___V87*/ meltfptr[86] =
-                        (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_27*/ meltfrout->tabval[27])), (1));
+                        (melt_ptr_t) meltgc_new_closure((meltobject_ptr_t)(((melt_ptr_t)(MELT_PREDEF(DISCR_CLOSURE)))), (meltroutine_ptr_t)((/*!konst_28*/ meltfrout->tabval[28])), (1));
                     ;
                     /*^putclosedv*/
                     /*putclosv*/
@@ -25270,7 +25294,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                     MELT_CHECK_SIGNAL();
                                     ;
                                     /*_#IS_A__L41*/ meltfnum[6] =
-                                        melt_is_instance_of((melt_ptr_t)(/*_.TESTLOCSY__V94*/ meltfptr[87]), (melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[28])));;
+                                        melt_is_instance_of((melt_ptr_t)(/*_.TESTLOCSY__V94*/ meltfptr[87]), (melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[29])));;
                                     MELT_LOCATION("warmelt-normatch.melt:1293:/ cond");
                                     /*cond*/ if (/*_#IS_A__L41*/ meltfnum[6]) /*then*/
                                         {
@@ -25331,7 +25355,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1295:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.TESTLOCSY__V94*/ meltfptr[87]),
-                                                                  (melt_ptr_t)((/*!CLASS_NREP_SYMOCC*/ meltfrout->tabval[29])))
+                                                                  (melt_ptr_t)((/*!CLASS_NREP_SYMOCC*/ meltfrout->tabval[30])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -25353,7 +25377,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1295:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.NOCC_BIND__V98*/ meltfptr[96]),
-                                                                  (melt_ptr_t)((/*!CLASS_LET_BINDING*/ meltfrout->tabval[30])))
+                                                                  (melt_ptr_t)((/*!CLASS_LET_BINDING*/ meltfrout->tabval[31])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -25375,7 +25399,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1295:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.LETBIND_EXPR__V99*/ meltfptr[95]),
-                                                                  (melt_ptr_t)((/*!CLASS_NREP_UNSAFE_NTH_COMPONENT*/ meltfrout->tabval[31])))
+                                                                  (melt_ptr_t)((/*!CLASS_NREP_UNSAFE_NTH_COMPONENT*/ meltfrout->tabval[32])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -25599,7 +25623,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1304:/ apply");
                                 /*apply*/
                                 {
-                                    /*_.NEWSYM__V109*/ meltfptr[101] =  melt_apply ((meltclosure_ptr_t)((/*!CLONE_SYMBOL*/ meltfrout->tabval[32])), (melt_ptr_t)((/*!konst_33_NTHCOMP*/ meltfrout->tabval[33])), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
+                                    /*_.NEWSYM__V109*/ meltfptr[101] =  melt_apply ((meltclosure_ptr_t)((/*!CLONE_SYMBOL*/ meltfrout->tabval[33])), (melt_ptr_t)((/*!konst_34_NTHCOMP*/ meltfrout->tabval[34])), (""), (union meltparam_un*)0, "", (union meltparam_un*)0);
                                 }
                                 ;
 
@@ -25614,7 +25638,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 /*rawallocobj*/
                                 {
                                     melt_ptr_t newobj = 0;
-                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_UNSAFE_NTH_COMPONENT*/ meltfrout->tabval[31])), (3), "CLASS_NREP_UNSAFE_NTH_COMPONENT");
+                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_UNSAFE_NTH_COMPONENT*/ meltfrout->tabval[32])), (3), "CLASS_NREP_UNSAFE_NTH_COMPONENT");
                                     /*_.INST__V112*/ meltfptr[111] =
                                         newobj;
                                 };
@@ -25649,7 +25673,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 /*rawallocobj*/
                                 {
                                     melt_ptr_t newobj = 0;
-                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NORMAL_LET_BINDING*/ meltfrout->tabval[34])), (4), "CLASS_NORMAL_LET_BINDING");
+                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NORMAL_LET_BINDING*/ meltfrout->tabval[35])), (4), "CLASS_NORMAL_LET_BINDING");
                                     /*_.INST__V114*/ meltfptr[113] =
                                         newobj;
                                 };
@@ -25662,7 +25686,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 /*^putslot*/
                                 /*putslot*/
                                 melt_assertmsg("checkobj putslot  _ @LETBIND_TYPE", melt_magic_discr((melt_ptr_t)(/*_.INST__V114*/ meltfptr[113])) == MELTOBMAG_OBJECT);
-                                melt_putfield_object((/*_.INST__V114*/ meltfptr[113]), (1), ((/*!CTYPE_VALUE*/ meltfrout->tabval[35])), "LETBIND_TYPE");
+                                melt_putfield_object((/*_.INST__V114*/ meltfptr[113]), (1), ((/*!CTYPE_VALUE*/ meltfrout->tabval[36])), "LETBIND_TYPE");
                                 ;
                                 /*^putslot*/
                                 /*putslot*/
@@ -25689,7 +25713,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 /*rawallocobj*/
                                 {
                                     melt_ptr_t newobj = 0;
-                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[28])), (4), "CLASS_NREP_LOCSYMOCC");
+                                    melt_raw_object_create(newobj,(melt_ptr_t)((/*!CLASS_NREP_LOCSYMOCC*/ meltfrout->tabval[29])), (4), "CLASS_NREP_LOCSYMOCC");
                                     /*_.INST__V116*/ meltfptr[115] =
                                         newobj;
                                 };
@@ -25702,7 +25726,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 /*^putslot*/
                                 /*putslot*/
                                 melt_assertmsg("checkobj putslot  _ @NOCC_CTYP", melt_magic_discr((melt_ptr_t)(/*_.INST__V116*/ meltfptr[115])) == MELTOBMAG_OBJECT);
-                                melt_putfield_object((/*_.INST__V116*/ meltfptr[115]), (2), ((/*!CTYPE_VALUE*/ meltfrout->tabval[35])), "NOCC_CTYP");
+                                melt_putfield_object((/*_.INST__V116*/ meltfptr[115]), (2), ((/*!CTYPE_VALUE*/ meltfrout->tabval[36])), "NOCC_CTYP");
                                 ;
                                 /*^putslot*/
                                 /*putslot*/
@@ -25869,7 +25893,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                                 MELT_LOCATION("warmelt-normatch.melt:1330:/ cond");
                                 /*cond*/ if (
                                     /*ifisa*/ melt_is_instance_of((melt_ptr_t)(/*_.NCX__V16*/ meltfptr[15]),
-                                                                  (melt_ptr_t)((/*!CLASS_NORMALIZATION_CONTEXT*/ meltfrout->tabval[36])))
+                                                                  (melt_ptr_t)((/*!CLASS_NORMALIZATION_CONTEXT*/ meltfrout->tabval[37])))
                                 ) /*then*/
                                     {
                                         /*^cond.then*/
@@ -26299,7 +26323,7 @@ meltlabexit_LOOPSTUFF_3:;/*^loopepilog*/
                         argtab[1].meltbp_aptr = (melt_ptr_t*) &/*_.SUBHDLER__V86*/ meltfptr[85];
                         /*^ojbmsend.arg*/
                         argtab[2].meltbp_aptr = (melt_ptr_t*) &/*_.PCN__V5*/ meltfptr[4];
-                        /*_.NORMAL_PATTERN__V128*/ meltfptr[109] = meltgc_send((melt_ptr_t)(/*_.CURPAT__V84*/ meltfptr[82]), (melt_ptr_t)((/*!NORMAL_PATTERN*/ meltfrout->tabval[37])), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
+                        /*_.NORMAL_PATTERN__V128*/ meltfptr[109] = meltgc_send((melt_ptr_t)(/*_.CURPAT__V84*/ meltfptr[82]), (melt_ptr_t)((/*!NORMAL_PATTERN*/ meltfrout->tabval[38])), (MELTBPARSTR_PTR MELTBPARSTR_PTR MELTBPARSTR_PTR ""), argtab, "", (union meltparam_un*)0);
                     }
                     ;
 

@@ -287,9 +287,13 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->buckl_aux = src->buckl_aux;
             dst->buckl_xnum = src->buckl_xnum;
             ucnt = dst->buckl_ucount = src->buckl_ucount;
-            for (ix = 0; ix < ucnt; ix++)
+            for (ix = 0;
+                    ix < ucnt;
+                    ix++)
                 dst->buckl_entab[ix] = src->buckl_entab[ix];
-            for (ix = ucnt; ix < len; ix++)
+            for (ix = ucnt;
+                    ix < len;
+                    ix++)
                 {
                     dst->buckl_entab[ix].ebl_at = 0L;
                     dst->buckl_entab[ix].ebl_va = NULL;
@@ -311,7 +315,6 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_meltclosure_st(SIZE) ((struct meltclosure_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
             int nbv = (int) src->nbval;
-            int ix = 0;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltclosure_st, tabval);
             dst =
                 /* Don't need a cleared allocation!  */
@@ -320,7 +323,9 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->discr = src->discr;
             dst->rout = src->rout;
             dst->nbval = (unsigned) nbv;
-            for (ix = 0; ix < nbv; ix++)
+            for (int ix = 0;
+                    ix < nbv;
+                    ix++)
                 dst->tabval[ix] = src->tabval[ix];
 
             n = (melt_ptr_t) dst;
@@ -367,7 +372,9 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->hookname[MELT_HOOKNAME_LEN - 1] = 0;
             dst->nbval = (unsigned) nbv;
             dst->hookad = src->hookad;
-            for (ix = 0; ix < nbv; ix++)
+            for (ix = 0;
+                    ix < nbv;
+                    ix++)
                 dst->tabval[ix] = src->tabval[ix];
             dst->hookdata = src->hookdata;
 
@@ -575,7 +582,6 @@ melt_forwarded_copy (melt_ptr_t p)
 #define ggc_alloc_meltmultiple_st(SIZE) ((struct meltmultiple_st *)(ggc_internal_alloc_stat (SIZE MEM_STAT_INFO)))
 #endif
             int nbv = (int) src->nbval;
-            int ix = 0;
             size_t sz = nbv*sizeof(void*) + offsetof(struct meltmultiple_st, tabval);
             dst =
                 /* Don't need a cleared allocation!  */
@@ -585,7 +591,9 @@ melt_forwarded_copy (melt_ptr_t p)
                1 and nbval could be 0 */
             dst->discr = src->discr;
             dst->nbval = src->nbval;
-            for (ix = 0; ix < nbv; ix++)
+            for (int ix = 0;
+                    ix < nbv;
+                    ix++)
                 dst->tabval[ix] = src->tabval[ix];
             /* end copy chunk from VALDESC_MULTIPLE */
 
@@ -617,7 +625,9 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->obj_hash = src->obj_hash;
             dst->obj_num = src->obj_num;
             dst->obj_len = oblen;
-            for (ix = 0; ix < oblen; ix++)
+            for (ix = 0;
+                    ix < oblen;
+                    ix++)
                 dst->obj_vartab[ix] = src->obj_vartab[ix];
 #if ENABLE_CHECKING
             /* for low level debugging with gdb, we may want to catch some copy operations */
@@ -696,7 +706,9 @@ melt_forwarded_copy (melt_ptr_t p)
             dst->routdescr[MELT_ROUTDESCR_LEN - 1] = 0;
             dst->nbval = (unsigned) nbv;
             dst->routfunad = src->routfunad;
-            for (ix = 0; ix < nbv; ix++)
+            for (ix = 0;
+                    ix < nbv;
+                    ix++)
                 dst->tabval[ix] = src->tabval[ix];
             dst->routdata = src->routdata;
 
@@ -1227,7 +1239,9 @@ melt_scanning (melt_ptr_t p)
             gcc_assert (len > 0);
             MELT_FORWARDED (src->buckl_aux);
             gcc_assert (ucnt <= len);
-            for (ix = 0; ix < ucnt; ix++)
+            for (ix = 0;
+                    ix < ucnt;
+                    ix++)
                 MELT_FORWARDED (src->buckl_entab[ix].ebl_va);
             /* end forwarding VALDESC_BUCKETLONGS */
 
@@ -1240,9 +1254,10 @@ melt_scanning (melt_ptr_t p)
             struct meltclosure_st*src = (struct meltclosure_st*) p;
             /* forwarding from VALDESC_CLOSURE */
             int nbval = (int) src->nbval;
-            int ix = 0;
             MELT_FORWARDED (src->rout);
-            for (ix = 0; ix < nbval; ix++)
+            for (int ix = 0;
+                    ix < nbval;
+                    ix++)
                 MELT_FORWARDED (src->tabval[ix]);
 
             break;
@@ -1265,7 +1280,9 @@ melt_scanning (melt_ptr_t p)
             /* from VALDESC_HOOK in warmelt-base.melt */
             int nbval = (int) src->nbval;
             int ix = 0;
-            for (ix = 0; ix < nbval; ix++)
+            for (ix = 0;
+                    ix < nbval;
+                    ix++)
                 MELT_FORWARDED (src->tabval[ix]);
             MELT_FORWARDED (src->hookdata);
 
@@ -1309,7 +1326,9 @@ melt_scanning (melt_ptr_t p)
                             siz * sizeof (struct entryobjectsmelt_st));
                     src->entab = newtab;
                 }
-            for (ix = 0; ix < siz; ix++)
+            for (ix = 0;
+                    ix < siz;
+                    ix++)
                 {
                     meltobject_ptr_t at = src->entab[ix].e_at;
                     if (!at || at == (void *) HTAB_DELETED_ENTRY)
@@ -1346,7 +1365,9 @@ melt_scanning (melt_ptr_t p)
                             siz * sizeof (struct entrystringsmelt_st));
                     src->entab = newtab;
                 }
-            for (ix = 0; ix < siz; ix++)
+            for (ix = 0;
+                    ix < siz;
+                    ix++)
                 {
                     const char *at = src->entab[ix].e_at;
                     if (!at || at == (void *) HTAB_DELETED_ENTRY)
@@ -1399,8 +1420,9 @@ melt_scanning (melt_ptr_t p)
             struct meltmultiple_st*src = (struct meltmultiple_st*) p;
             /* forwarding chunk from VALDESC_MULTIPLE */
             int nbval = (int) src->nbval;
-            int ix = 0;
-            for (ix = 0; ix < nbval; ix++)
+            for (int ix = 0;
+                    ix < nbval;
+                    ix++)
                 MELT_FORWARDED (src->tabval[ix]);
             /* end forwarding chunk from VALDESC_MULTIPLE */
 
@@ -1454,8 +1476,9 @@ melt_scanning (melt_ptr_t p)
             struct meltroutine_st*src = (struct meltroutine_st*) p;
             /* from VALDESC_ROUTINE */
             int nbval = (int) src->nbval;
-            int ix = 0;
-            for (ix = 0; ix < nbval; ix++)
+            for (int ix = 0;
+                    ix < nbval;
+                    ix++)
                 MELT_FORWARDED (src->tabval[ix]);
             MELT_FORWARDED (src->routdata);
 
@@ -2462,9 +2485,13 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             dst->buckl_aux = src->buckl_aux;
             dst->buckl_xnum = src->buckl_xnum;
             dst->buckl_lenix = src->buckl_lenix;
-            for (ix = 0; ix < cnt; ix++)
+            for (ix = 0;
+                    ix < cnt;
+                    ix++)
                 dst->buckl_entab[ix] = src->buckl_entab[ix];
-            for (ix = cnt; ix < dstlen; ix++)
+            for (ix = cnt;
+                    ix < dstlen;
+                    ix++)
                 {
                     dst->buckl_entab[ix].ebl_at = 0L;
                     dst->buckl_entab[ix].ebl_va = NULL;
@@ -2484,7 +2511,6 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             /* clone chunk for VALDESC_CLOSURE:*/
             /* cloning from VALDESC_CLOSURE */
             unsigned nbval = (int) src->nbval;
-            unsigned ix = 0;
             dst
                 = (struct meltclosure_st*)meltgc_allocate (sizeof(struct meltclosure_st),
                         nbval*sizeof(void*));
@@ -2492,7 +2518,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             src = (struct meltclosure_st*)srcvalv;
             dst->discr = (meltobject_ptr_t)newdiscrv;
             dst->rout = src->rout;
-            for (ix = 0; ix < nbval; ix++)
+            for (unsigned ix = 0;
+                    ix < nbval;
+                    ix++)
                 dst->tabval[ix] = src->tabval[ix];
             /* end cloning from VALDESC_CLOSURE */
             ;
@@ -2570,12 +2598,13 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             unsigned srccount = src->count;
             unsigned srclen = melt_primtab[src->lenix];
             unsigned newlen = 4*srccount/3+4;
-            unsigned srcix = 0;
             dst = (struct meltmapobjects_st*)
                   meltgc_new_mapobjects ((meltobject_ptr_t)newdiscrv, newlen);
             resv = (melt_ptr_t) dst;
             dst->meltmap_aux = src->meltmap_aux;
-            for (srcix = 0; srcix < srclen; srcix++)
+            for (unsigned srcix = 0;
+                    srcix < srclen;
+                    srcix++)
                 {
                     meltobject_ptr_t curat = NULL;
                     melt_ptr_t curva = NULL;
@@ -2605,11 +2634,12 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             unsigned srccount = src->count;
             unsigned srclen = melt_primtab[src->lenix];
             unsigned newlen = 4*srccount/3+4;
-            unsigned srcix = 0;
             dst = (struct meltmapstrings_st*) meltgc_new_mapstrings ((meltobject_ptr_t)newdiscrv, newlen);
             resv = (melt_ptr_t) dst;
             dst->meltmap_aux = src->meltmap_aux;
-            for (srcix = 0; srcix < srclen; srcix++)
+            for (unsigned srcix = 0;
+                    srcix < srclen;
+                    srcix++)
                 {
                     const char* curat = NULL;
                     melt_ptr_t curva = NULL;
@@ -2667,12 +2697,13 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
             /* clone chunk for VALDESC_MULTIPLE:*/
             /* cloning from VALDESC_MULTIPLE */
             unsigned srclen = src->nbval;
-            unsigned srcix = 0;
             dst =
                 (struct meltmultiple_st*) meltgc_new_multiple ((meltobject_ptr_t)newdiscrv, srclen);
             resv = (melt_ptr_t) dst;
             src = (struct meltmultiple_st*) srcvalv; /* could have moved */
-            for (srcix = 0; srcix < srclen; srcix++)
+            for (unsigned srcix = 0;
+                    srcix < srclen;
+                    srcix++)
                 dst->tabval[srcix] = src->tabval[srcix];
             /* end cloning from VALDESC_MULTIPLE */
             ;
@@ -2699,7 +2730,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                                               (((meltobject_ptr_t)newdiscrv)->obj_vartab[MELTFIELD_CLASS_FIELDS]));
                     gcc_assert (newlen <= srclen);
                     dst =  meltgc_new_raw_object ((meltobject_ptr_t)newdiscrv, newlen);
-                    for (slotix = 0; slotix < newlen; slotix++)
+                    for (slotix = 0;
+                            slotix < newlen;
+                            slotix++)
                         dst->obj_vartab[slotix] = src->obj_vartab[slotix];
                     dst->obj_num = src->obj_num;
                 }
@@ -2711,7 +2744,9 @@ meltgc_clone_with_discriminant (melt_ptr_t srcval_p, melt_ptr_t newdiscr_p)
                                               (((meltobject_ptr_t)newdiscrv)->obj_vartab[MELTFIELD_CLASS_FIELDS]));
                     gcc_assert (newlen >= srclen);
                     dst =  meltgc_new_raw_object ((meltobject_ptr_t)newdiscrv, newlen);
-                    for (slotix = 0; slotix < srclen; slotix++)
+                    for (slotix = 0;
+                            slotix < srclen;
+                            slotix++)
                         dst->obj_vartab[slotix] = src->obj_vartab[slotix];
                     dst->obj_num = src->obj_num;
                 }
