@@ -1,6 +1,10 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-predef.list (HOOK_SORT_COMPARE): Remove.
 	* melt/generated/warmelt-normal.cc: Manually replace
 	HOOK_SORT_COMAPRE with HOOK_SORT_COMPARE_LESS...
