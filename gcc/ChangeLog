@@ -1,3 +1,195 @@
+2014-01-17  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_attr_length_indirect_call): Don't output a short
+	call to $$dyncall when TARGET_LONG_CALLS is true.
+
+2014-01-17  Jeff Law  <law@redhat.com>
+
+	* ree.c (combine_set_extension): Temporarily disable test for
+	changing number of hard registers.
+
+2014-01-17  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/58125
+	* ipa-inline-analysis.c (inline_free_summary):
+	Do not free summary of aliases.
+
+2014-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59706
+	* gimplify.c (gimplify_expr): Use create_tmp_var
+	instead of create_tmp_var_raw.  If cond doesn't have
+	integral type, don't add the IFN_ANNOTATE builtin at all.
+
+2014-01-17  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59736
+	* ipa-cp.c (prev_edge_clone): New variable.
+	(grow_next_edge_clone_vector): Renamed to grow_edge_clone_vectors.
+	Also resize prev_edge_clone vector.
+	(ipcp_edge_duplication_hook): Also update prev_edge_clone.
+	(ipcp_edge_removal_hook): New function.
+	(ipcp_driver): Register ipcp_edge_removal_hook.
+
+2014-01-17  Andrew Pinski <apinski@cavium.com>
+	    Steve Ellcey  <sellcey@mips.com>
+
+	PR target/59462
+	* config/mips/mips.c (mips_print_operand): Check operand mode instead
+	of operator mode.
+
+2014-01-17  Jeff Law  <law@redhat.com>
+
+	PR middle-end/57904
+	* passes.def: Reorder pass_copy_prop, pass_unrolli, pass_ccp sequence
+	so that pass_ccp runs first.
+
+2014-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_lea_outperforms): Use TARGET_XXX.
+	(ix86_adjust_cost): Use !TARGET_XXX.
+	(do_reorder_for_imul): Likewise.
+	(swap_top_of_ready_list): Likewise.
+	(ix86_sched_reorder): Likewise.
+
+2014-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-c.c (ix86_target_macros_internal): Handle
+	PROCESSOR_INTEL.  Treat like PROCESSOR_GENERIC.
+	* config/i386/i386.c (intel_memcpy): New.  Duplicate slm_memcpy.
+	(intel_memset): New.  Duplicate slm_memset.
+	(intel_cost): New.  Duplicate slm_cost.
+	(m_INTEL): New macro.
+	(processor_target_table): Add "intel".
+	(ix86_option_override_internal): Replace PROCESSOR_SILVERMONT
+	with PROCESSOR_INTEL for "intel".
+	(ix86_lea_outperforms): Support PROCESSOR_INTEL.  Duplicate
+	PROCESSOR_SILVERMONT.
+	(ix86_issue_rate): Likewise.
+	(ix86_adjust_cost): Likewise.
+	(ia32_multipass_dfa_lookahead): Likewise.
+	(swap_top_of_ready_list): Likewise.
+	(ix86_sched_reorder): Likewise.
+	(ix86_avoid_lea_for_addr): Check TARGET_AVOID_LEA_FOR_ADDR
+	instead of TARGET_OPT_AGU.
+	* config/i386/i386.h (TARGET_INTEL): New.
+	(TARGET_AVOID_LEA_FOR_ADDR): Likewise.
+	(processor_type): Add PROCESSOR_INTEL.
+	* config/i386/x86-tune.def: Support m_INTEL. Duplicate
+	m_SILVERMONT.  Add X86_TUNE_AVOID_LEA_FOR_ADDR.
+
+2014-01-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c/58346
+	* gimple-fold.c (fold_array_ctor_reference): Don't fold if element
+	size is zero.
+
+2014-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/46590
+	* opts.c (default_options_table): Add entries for
+	OPT_fbranch_count_reg, OPT_fmove_loop_invariants and OPT_ftree_pta,
+	all enabled at -O1 but not for -Og.
+	* common.opt (fbranch-count-reg): Remove Init(1).
+	(fmove-loop-invariants): Likewise.
+	(ftree-pta): Likewise.
+
+2014-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_data_alignment): For compatibility with
+	(incorrect) GCC 4.8 and earlier alignment assumptions ensure we align
+	decls to at least the GCC 4.8 used alignments.
+
+	PR fortran/59440
+	* tree-nested.c (convert_nonlocal_reference_stmt,
+	convert_local_reference_stmt): For NAMELIST_DECLs in gimple_bind_vars
+	of GIMPLE_BIND stmts, adjust associated decls.
+
+2014-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/46590
+	* vec.h (vec<>::bseach): New member function implementing
+	binary search according to C89 bsearch.
+	(vec<>::qsort): Avoid calling ::qsort for vectors with sizes 0 or 1.
+	* tree-ssa-loop-im.c (struct mem_ref): Make stored member a
+	bitmap pointer again.  Make accesses_in_loop a flat array.
+	(mem_ref_obstack): New global.
+	(outermost_indep_loop): Adjust for mem_ref->stored changes.
+	(mark_ref_stored): Likewise.
+	(ref_indep_loop_p_2): Likewise.
+	(set_ref_stored_in_loop): New helper function.
+	(mem_ref_alloc): Allocate mem_refs on the mem_ref_obstack obstack.
+	(memref_free): Adjust.
+	(record_mem_ref_loc): Simplify.
+	(gather_mem_refs_stmt): Adjust.
+	(sort_locs_in_loop_postorder_cmp): New function.
+	(analyze_memory_references): Sort accesses_in_loop after
+	loop postorder number.
+	(find_ref_loc_in_loop_cmp): New function.
+	(for_all_locs_in_loop): Find relevant cluster of locs in
+	accesses_in_loop and iterate without recursion.
+	(execute_sm): Avoid uninit warning.
+	(struct ref_always_accessed): Simplify.
+	(ref_always_accessed::operator ()): Likewise.
+	(ref_always_accessed_p): Likewise.
+	(tree_ssa_lim_initialize): Initialize mem_ref_obstack, compute
+	loop postorder numbers here.
+	(tree_ssa_lim_finalize): Free mem_ref_obstack and loop postorder
+	numbers.
+
+2014-01-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c++/57945
+	* passes.c (rest_of_decl_compilation): Don't call varpool_finalize_decl
+	on decls for which assemble_alias has been called.
+
+2014-01-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.opt: (mcpu): New option.
+	* config/msp430/msp430.c (msp430_mcu_name): Use target_mcu.
+	(msp430_option_override): Parse target_cpu.  If the MCU name
+	matches a generic string, clear target_mcu.
+	(msp430_attr): Allow numeric interrupt values up to 63.
+	(msp430_expand_epilogue): No longer invert operand 1 of gen_popm.
+	* config/msp430/msp430.h (ASM_SPEC): Convert -mcpu into a -mmcu
+	option.
+	* config/msp430/t-msp430: (MULTILIB_MATCHES): Remove mcu matches.
+	Add mcpu matches.
+	* config/msp430/msp430.md (popm): Use %J rather than %I.
+	(addsi3): Use msp430_nonimmediate_operand for operand 2.
+	(addhi_cy_i): Use immediate_operand for operand 2.
+	* doc/invoke.texi: Document -mcpu option.
+
+2014-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/38518
+	* df.h (df_analyze_loop): Declare.
+	* df-core.c: Include cfgloop.h.
+	(df_analyze_1): Split out main part of df_analyze.
+	(df_analyze): Adjust.
+	(loop_inverted_post_order_compute): New function.
+	(loop_post_order_compute): Likewise.
+	(df_analyze_loop): New function avoiding whole-function
+	postorder computes.
+	* loop-invariant.c (find_defs): Use df_analyze_loop.
+	(find_invariants): Adjust.
+	* loop-iv.c (iv_analysis_loop_init): Use df_analyze_loop.
+
+2014-01-17  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* config/arm/arm.c (arm_v7m_tune): Set max_insns_skipped to 2.
+	(thumb2_final_prescan_insn): Set max to MAX_INSN_PER_IT_BLOCK.
+
+2014-01-16  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-ref.c (ipa_remove_stmt_references): Fix references
+	traversal when removing references.
+
+2014-01-16  Jan Hubicka  <jh@suse.cz>
+
+	PR ipa/59775
+	* tree.c (get_binfo_at_offset): Look harder for virtual bases.
+
 2014-01-16  Bernd Schmidt  <bernds@codesourcery.com>
 
 	PR middle-end/56791
@@ -43,7 +235,7 @@
 
 2014-01-16  Alan Lawrence  <alan.lawrence@arm.com>
 
-	* config/arm/arm.opt: Make -mcpu, -march, -mtune case-insensitive.
+	* config/arm/arm.opt (mcpu, march, mtune): Make case-insensitive.
 
 2014-01-16  Richard Earnshaw  <rearnsha@arm.com>
 
