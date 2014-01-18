@@ -1,4 +1,9 @@
 
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated.
+
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.h (meltgc_sort_multiple): Remove declaration.
