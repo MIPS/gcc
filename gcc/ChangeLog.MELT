@@ -1,6 +1,11 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_sort_multiple): Obsolete
+	function. Replaced by multiple_sort MELT function.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (multiple_sort)
 	(mapobject_sorted_attribute_tuple): Remove, since moved into
 	warmelt-base.melt
