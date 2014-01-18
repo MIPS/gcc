@@ -1,6 +1,10 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt (mapobject_sorted_attribute_tuple):
 	Copied here. Should be removed from warmelt-first.melt...
 
