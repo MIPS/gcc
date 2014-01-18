@@ -596,23 +596,27 @@ esac
 # Common C libraries.
 tm_defines="$tm_defines LIBC_GLIBC=1 LIBC_UCLIBC=2 LIBC_BIONIC=3"
 
-# 32-bit x86 processors supported by --with-arch=.  Each processor
-# MUST be separated by exactly one space.
+# 32-bit x86 processors supported by --with-arch=.
 x86_archs="athlon athlon-4 athlon-fx athlon-mp athlon-tbird \
-athlon-xp k6 k6-2 k6-3 geode c3 c3-2 winchip-c6 winchip2 i386 i486 \
-i586 i686 pentium pentium-m pentium-mmx pentium2 pentium3 pentium3m \
-pentium4 pentium4m pentiumpro prescott"
+	   athlon-xp k6 k6-2 k6-3 geode c3 c3-2 winchip-c6 winchip2 \
+	   i386 i486 i586 i686 pentium pentium-m pentium-mmx pentium2 \
+	   pentium3 pentium3m pentium4 pentium4m pentiumpro prescott"
+# Make sure that each processor is separated by exactly one space.
+x86_archs=`echo $x86_archs | sed -e "s/[ 	]+/ /g"`
 
-# 64-bit x86 processors supported by --with-arch=.  Each processor
-# MUST be separated by exactly one space.
+# 64-bit x86 processors supported by --with-arch=.
 x86_64_archs="amdfam10 athlon64 athlon64-sse3 barcelona bdver1 bdver2 \
-bdver3 bdver4 btver1 btver2 k8 k8-sse3 opteron opteron-sse3 nocona \
-core2 corei7 corei7-avx core-avx-i core-avx2 atom slm nehalem westmere \
-sandybridge ivybridge haswell broadwell bonnell silvermont x86-64 native"
+	      bdver3 bdver4 btver1 btver2 k8 k8-sse3 opteron \
+	      opteron-sse3 nocona core2 corei7 corei7-avx core-avx-i \
+	      core-avx2 atom slm nehalem westmere sandybridge ivybridge \
+	      haswell broadwell bonnell silvermont x86-64 native"
+# Make sure that each processor is separated by exactly one space.
+x86_64_archs=`echo $x86_64_archs | sed -e "s/[ 	]+/ /g"`
 
-# Additional x86 processors supported by --with-cpu=.  Each processor
-# MUST be separated by exactly one space.
+# Additional x86 processors supported by --with-cpu=.
 x86_cpus="generic intel"
+# Make sure that each processor is separated by exactly one space.
+x86_cpus=`echo $x86_cpus | sed -e "s/[ 	]+/ /g"`
 
 # Common parts for widely ported systems.
 case ${target} in
