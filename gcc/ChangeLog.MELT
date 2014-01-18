@@ -1,6 +1,17 @@
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt (multiple_sort)
+	(mapobject_sorted_attribute_tuple): Remove, since moved into
+	warmelt-base.melt
+
+	* melt/warmelt-base.melt (multiple_sort_new): Removed, since
+	renamed as...
+	(multiple_sort): The definitive name for the function. Was a
+	primitive in warmelt-first.melt.
+
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>

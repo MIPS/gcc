@@ -3344,7 +3344,7 @@ typedef struct melthook_st *melthook_ptr_t;
  }#)
 
 ;;;;;;;; our "re-entrant" tuple sorter using std::stable_sort
-(defun multiple_sort_new (mul cmp dis) 
+(defun multiple_sort (mul cmp dis) 
   :doc #{Returns a sorted tuple from the tuple $MUL, the compare
   function $CMP, see $HOOK_SORT_COMPARE_LESS for details about it, using the
   optional tuple discriminant $DIS (using $DISCR_MULTIPLE if null).
@@ -3353,7 +3353,7 @@ typedef struct melthook_st *melthook_ptr_t;
   closure $CMP does not define an order the behavior is undefined.
   The $CMP function can be simple or complex, perhaps even [recursively] calling
   $MULTIPLE_SORT itself (but that is probably unusual). The sorting is stable.}#
-  (melt_low_debug "multiple_sort_new start mul==" mul)
+  (melt_low_debug "multiple_sort start mul==" mul)
   (if (is_multiple mul)
       (void)
     (return ()))
@@ -3420,7 +3420,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	  /* multiple_sort $SORTRES_CHK end */
 	  }#)
       (assert_msg "check res" (is_multiple res) res)
-      (melt_low_debug "multiple_sort_new end result res==" res)
+      (melt_low_debug "multiple_sort end result res==" res)
       (return res))))
 
 ;;;;;
@@ -3450,7 +3450,7 @@ given object map $MAPO}#
 	 )))
 ;;; sort the tuple and output in sorted order
     (let ( (sortupl 
-	    (multiple_sort_new 
+	    (multiple_sort 
 	     tupl
 	     (lambda (e1 e2)
 	       (let ( (e1at (multiple_nth e1 0))
@@ -3639,7 +3639,7 @@ given object map $MAPO}#
  multiple_backward_every
  multiple_every
  multiple_every_both
- multiple_sort_new
+ multiple_sort
  negi
  nonzero_hash
  noti
@@ -3743,7 +3743,6 @@ given object map $MAPO}#
 (export_synonym melt_mode_container melt_mode_reference)
 
 
-(export_synonym multiple_sort multiple_sort_new)
 (export_synonym set_content set_reference)
 (export_synonym some_integer_!= some_integer_different_from)
 (export_synonym some_integer_= some_integer_equal_to)
