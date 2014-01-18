@@ -1485,6 +1485,7 @@ an integer $I if $I is greater than $N.}#
   :doc #{Put into tuple $MUL at rank $N the component $V. Avoid circularities!}#
   #{meltgc_multiple_put_nth((melt_ptr_t)($mul), ($n), (melt_ptr_t)($V))}#)
 ;; sort a multiple, the compare function should return a boxed integer
+;; should be replaced by a function in warmelt-base.melt
 (defprimitive multiple_sort (mul cmp discrm) :value
   :doc #{Gives the sorted tuple from tuple $MUL using compare function
   $CMP (returning a boxed integer) and discriminant $DISCRM.}#
@@ -3143,8 +3144,15 @@ Keyword is :cstring.}#
 
 	       
 (defun register_option (optsymb opthelp optfun)
-  (void)
-  )
+  (let ( (symnam (get_field :named_name optsymb))
+	 )
+    (code_chunk fail_register_option_chk
+		#{ /* register_option $FAIL_REGISTER_OPTION_CHK */
+		inform (UNKNOWN_LOCATION,
+			"register_option of %s is obsolete",
+			melt_string_str($SYMNAM)) ;
+		}#)
+    ))
 
 
 

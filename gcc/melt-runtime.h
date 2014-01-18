@@ -2658,7 +2658,7 @@ melt_ptr_t meltgc_read_from_val(melt_ptr_t strv_p, melt_ptr_t locnam_p);
 /* called from c-common.c in handle_melt_attribute */
 void melt_handle_melt_attribute(tree decl, tree name, const char* attrstr, location_t loch);
 
-/* Use melt_assert(MESSAGE,EXPR) to test invariants.  The MESSAGE
+/* Use melt_assertmsg(MESSAGE,EXPR) to test invariants.  The MESSAGE
    should be a constant string displayed when asserted EXPR is
    false */
 void

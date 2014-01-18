@@ -6905,10 +6905,6 @@ normalized expression.}#
   (install_method class_source_match normal_exp normexp_matchalt)
   (install_method class_source_matchalt normal_exp normexp_matchalt)
 )
-(register_option
- 'alternate_match
- '"exchange alternate pattern-matching implementation"
- alternate_match_optset)
 
 
 

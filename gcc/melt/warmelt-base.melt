@@ -41,7 +41,8 @@
 
 ;; Our multiple_sort needs std::sort used with hook_sort_compare
 (cheader #{
-/* C++ standard header for multiple_sort */
+/* C++ standard headers for multiple_sort */
+#include <vector>
 #include <algorithm>
 }#)
 
@@ -3277,10 +3278,32 @@ typedef struct melthook_st *melthook_ptr_t;
     )
   )					;end hook_sort_compare
 
+(cheader
+ #{
+ /* A compare structure used in multiple_sort for std::stable_sort;
+    it has to be a compilation-unit global type;
+    it cannot be a struct inside multiple_sort;
+    see http://stackoverflow.com/q/21201685/841108
+    and ISO/IEC 14882 C++03 standard section 14.3.1
+  */
+  class Melt_Sort_Compare_Index {
+       struct meltmultiple_st** melttup_ad;
+       melt_ptr_t* meltcmp_ad;
+    public:
+       Melt_Sort_Compare_Index (struct meltmultiple_st**tup_ad, melt_ptr_t* cmp_ad)
+          : melttup_ad(tup_ad), meltcmp_ad(cmp_ad) {};
+       ~Melt_Sort_Compare_Index() { meltcmp_ad=NULL; melttup_ad=NULL; };
+       bool operator () (int meltleftix, int meltrightix) {
+         return (bool)
+            melthookproc_HOOK_SORT_COMPARE((*melttup_ad)->tabval[meltleftix],
+				           (*melttup_ad)->tabval[meltrightix],
+				           *meltcmp_ad);
+       };
+     }; /* end class Melt_Sort_Compare_Index */
+ }#)
 
-#|
 ;;;;;;;; our "re-entrant" tuple sorter using std::stable_sort
-(defun multiple_sort (mul cmp discrm) 
+(defun multiple_sort_new (mul cmp discrm) 
   :doc #{Returns a sorted tuple from the tuple $MUL, the compare
   function $CMP, see $HOOK_SORT_COMPARE for details about it, using the
   optional tuple discriminant $DISCRM (using $DISCR_MULTIPLE if null).
@@ -3301,32 +3324,38 @@ typedef struct melthook_st *melthook_ptr_t;
 		      #{ /* multiple_sort $CHECKMAGIC_CHK */
 		      (((meltobject_ptr_t)($DISCRIM))->meltobj_magic == MELTOBMAG_MULTIPLE) }#)
     (return ()))
-  (let ( (res (clone_with_discriminant mul discrm))
+  (let ( (:long tuplen (multiple_length mul))
+	 (res (make_multiple discrm tuplen))
 	 (:long reslen (multiple_length res))
 	 )
     (code_chunk 
      sortres_chk 
      #{ /* multiple_sort $SORTRES_CHK start */
-     struct Melt_Sort_Compare_$SORTRES_CHK {
-       bool operator () (melt_ptr_t meltleft_$SORTRES_CHK, melt_ptr_t meltright_$SORTRES_CHK) {
-         return (bool) 
-     	   $(hook_sort_compare 
-     	     $(expr_chunk left_chk :value #{ /* multiple_sort $LEFT_CHK */ meltleft_$SORTRES_CHK}#)
-     	     $(expr_chunk right_chk :value #{ /* multiple_sort $RIGHT_CHK */ meltright_$SORTRES_CHK}#)
-     	     cmp);
-       };
-     }; /* end struct Melt_Sort_Compare_$SORTRES_CHK */ 
-     long meltsortlen_$SORTRES_CHK = $RESLEN; 
-     struct Melt_Sort_Compare_$SORTRES_CHK meltsorter_$SORTRES_CHK; 
-     std::stable_sort (((meltmultiple_st*)$RES)->tabval,
-                       ((meltmultiple_st*)$RES)->tabval+meltsortlen_$SORTRES_CHK, 
-                       meltsorter_$SORTRES_CHK); 
-     meltgc_touch ($RES); // the touch is often useless but won't harm 
+     melt_assertmsg ("check that MUL is multiple when starting multiple_sort",
+		     melt_magic_discr ($MUL) == MELTOBMAG_MULTIPLE);
+     if ($RESLEN >= (long)INT_MAX/2)
+        melt_fatal_error("too big sized %ld tuple to sort", $RESLEN);
+     Melt_Sort_Compare_Index meltixsorter_$SORTRES_CHK ((meltmultiple_st**)(&($MUL)), &($CMP));
+     std::vector<int> meltixvect_$SORTRES_CHK;
+     meltixvect_$SORTRES_CHK.resize($RESLEN);
+     for (long meltix=0; meltix<$RESLEN; meltix++)
+       meltixvect_$SORTRES_CHK[meltix] = meltix; 
+     std::stable_sort (meltixvect_$SORTRES_CHK.begin(),
+                       meltixvect_$SORTRES_CHK.end(), 
+                       meltixsorter_$SORTRES_CHK);
+     melt_assertmsg ("check that RES is multiple in multiple_sort", melt_magic_discr ($RES) == MELTOBMAG_MULTIPLE);
+     melt_assertmsg ("check that MUL is multiple in multiple_sort", melt_magic_discr ($MUL) == MELTOBMAG_MULTIPLE);
+     for (long meltix=0; meltix<$RESLEN; meltix++) {
+       int sortix_$SORTRES_CHK = meltixvect_$SORTRES_CHK[meltix];
+       melt_assertmsg ("check index in multiple_sort", sortix_$SORTRES_CHK>=0 && (long)sortix_$SORTRES_CHK < $RESLEN);
+       ((meltmultiple_st*)($RES))->tabval[meltix] = ((meltmultiple_st*)($MUL))->tabval[sortix_$SORTRES_CHK];	       
+     };
+     meltgc_touch ($RES);
      /* multiple_sort $SORTRES_CHK end */
      }#)
     (assert_msg "check res" (is_multiple res) res)
     (return res)))
-|#
+
 ;;;;;
 
 (export_values
@@ -3494,7 +3523,7 @@ typedef struct melthook_st *melthook_ptr_t;
  multiple_backward_every
  multiple_every
  multiple_every_both
- ;multiple_sort
+ multiple_sort_new
  negi
  nonzero_hash
  noti

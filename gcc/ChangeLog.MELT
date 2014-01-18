@@ -1,4 +1,24 @@
 
+2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h: Improve comment regarding melt_assermsg.
+
+	* melt/warmelt-first.melt (register_option): Inform that it is
+	obsolete. To be removed.
+	(multiple_sort): Add a comment that it should be replaced by a
+	function from warmelt-base.melt
+
+	* melt/warmelt-base.melt: Add thru cheader an #include of <vector>
+	and <algorithm>, and a global declaration of
+	Melt_Sort_Compare_Index class in the generated code.
+	(multiple_sort_new): New function which should replace the old
+	multiple_sort primitive. Uses std::stable_sort with
+	Melt_Sort_Compare_Index.  See
+	http://stackoverflow.com/q/21201685/841108 for details.
+
+	* melt/warmelt-normatch.melt: Remove register_option for
+	alternate_match.
+
 2014-01-17  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/generated/*: Regenerate all.
 
