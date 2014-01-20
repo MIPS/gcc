@@ -1,4 +1,28 @@
 17-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
+        Fix LTO ICE. Remove obsolete files.
+
+        * gcc/tree-streamer.c (streamer_check_handled_ts_structures):
+        Add TS_OACC_CLAUSE.
+        * gcc/omp-low.c (gimple_oacc_parallel_data_arg, 
+        gimple_oacc_parallel_set_data_arg, scan_oacc_parallel, 
+        expand_oacc_parallel, lower_oacc_parallel): Remove
+        (scan_omp_1_stmt, expand_omp, make_gimple_omp_edges): 
+        Remove GIMPLE_OACC_PARALLEL.
+        * gcc/config/aarch64/aarch64-generic.md: Remove file
+        * gcc/config/aarch64/large.md: Likewise
+        * gcc/config/aarch64/small.md: Likewise
+        * gcc/config/arm/neon-schedgen.ml: Likewise
+        * gcc/regmove.c: Likewise
+        * gcc/ssaexpand.h: Likewise
+        * gcc/tree-flow-inline.h: Likewise
+        * gcc/tree-flow.h: Likewise
+        * gcc/tree-mudflap.c: Likewise
+        * gcc/tree-mudflap.h: Likewise
+        * gcc/tree-nomudflap.c: Likewise
+        * gcc/tree-optimize.c: Likewise
+        * libmudflap/: Remove directory
+
+17-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
         Fix segmentation fault in SSA form and linker errors
 
         * gcc/oacc-low.c(generate_ctrl_var_init): Fix segmentation fault
