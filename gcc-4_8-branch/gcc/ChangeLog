@@ -1,3 +1,128 @@
+2014-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59860
+	* tree.h (fold_builtin_strcat): New prototype.
+	* builtins.c (fold_builtin_strcat): No longer static.  Add len
+	argument, if non-NULL, don't call c_strlen.  Optimize
+	directly into __builtin_memcpy instead of __builtin_strcpy.
+	(fold_builtin_2): Adjust fold_builtin_strcat caller.
+	* gimple-fold.c (gimple_fold_builtin): Handle BUILT_IN_STRCAT.
+
+2014-01-20  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59860
+	* builtins.c (fold_builtin_strcat): Remove case better handled
+	by tree-ssa-strlen.c.
+
+2014-01-19  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_attr_length_millicode_call): Correct length of
+	long non-pic millicode calls.
+
+2014-01-17  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_attr_length_indirect_call): Don't output a short
+	call to $$dyncall when TARGET_LONG_CALLS is true.
+
+2014-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	Backport from mainline
+	2014-01-14  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59794
+	* config/i386/i386.c (type_natural_mode): Add a bool parameter
+	to indicate if type is used for function return value.  Warn
+	ABI change if the vector mode isn't available for function
+	return value.
+	(ix86_function_arg_advance): Pass false to type_natural_mode.
+	(ix86_function_arg): Likewise.
+	(ix86_gimplify_va_arg): Likewise.
+	(function_arg_32): Don't warn ABI change.
+	(ix86_function_value): Pass true to type_natural_mode.
+	(ix86_return_in_memory): Likewise.
+	(ix86_struct_value_rtx): Removed.
+	(TARGET_STRUCT_VALUE_RTX): Likewise.
+
+2014-01-17  Charles Baylis  <charles.baylis@linaro.org>
+
+	Backport from mainline
+	2013-12-19  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR target/59142
+	* config/arm/arm-ldmstm.ml: Use low_register_operand for Thumb
+	patterns.
+	* config/arm/ldmstm.md: Regenerate.
+
+	2013-12-19  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR target/59142
+	* config/arm/predicates.md (arm_hard_general_register_operand):
+	New predicate.
+	(arm_hard_register_operand): Remove.
+	* config/arm/arm-ldmstm.ml: Use arm_hard_general_register_operand
+	for all patterns.
+	* config/arm/ldmstm.md: Regenerate.
+
+	2013-12-19  Charles Baylis  <charles.baylis@linaro.org>
+
+	PR target/59142
+	* config/arm/predicates.md (vfp_hard_register_operand): New predicate.
+	* config/arm/arm.md (vfp_pop_multiple_with_writeback): Use
+	vfp_hard_register_operand.
+
+2014-01-17  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	Backport from mainline
+	2014-01-15  Matthew Gretton-Dann  <matthew.gretton-dann@linaro.org>
+            Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	PR target/59695
+	* config/aarch64/aarch64.c (aarch64_build_constant): Fix incorrect
+	truncation.
+
+2014-01-17  Terry Guo  <terry.guo@arm.com>
+
+	PR target/59826
+	* config/arm/arm.md (prefetch): Set insn type attribute to load1.
+
+2014-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59839
+	* config/i386/i386.c (ix86_expand_builtin): If target doesn't
+	satisfy operand 0 predicate for gathers, use a new pseudo as
+	subtarget.
+
+2014-01-16  Richard Henderson <rth@redhat.com>
+
+	PR debug/54694
+	* reginfo.c (global_regs_decl): Globalize.
+	* rtl.h (global_regs_decl): Declare.
+	* ira.c (do_reload): Diagnose frame_pointer_needed and it
+	reserved via global_regs.
+
+2014-01-16  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Backport from mainline
+	2014-01-15  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_hard_regno_mode_ok): Use
+	VALID_AVX256_REG_OR_OI_MODE.
+
+	2013-09-05  Peter Bergner  <bergner@vnet.ibm.com>
+
+	PR target/58139
+	* reginfo.c (choose_hard_reg_mode): Scan through all mode classes
+	looking for widest mode.
+
+2014-01-16  Marek Polacek  <polacek@redhat.com>
+
+	Backported from mainline
+	2014-01-16  Marek Polacek  <polacek@redhat.com>
+
+	PR middle-end/59827
+	* gimple-low.c (gimple_check_call_args): Don't use DECL_ARG_TYPE if
+	it is error_mark_node.
+
 2014-01-15  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
 
 	PR target/59803
