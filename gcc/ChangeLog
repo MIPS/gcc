@@ -1,3 +1,138 @@
+2014-01-20  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* config/aarch64/aarch64-simd.md (vec_perm<mode>): Add BE check.
+
+2014-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59860
+	* tree.h (fold_builtin_strcat): New prototype.
+	* builtins.c (fold_builtin_strcat): No longer static.  Add len
+	argument, if non-NULL, don't call c_strlen.  Optimize
+	directly into __builtin_memcpy instead of __builtin_strcpy.
+	(fold_builtin_2): Adjust fold_builtin_strcat caller.
+	* gimple-fold.c (gimple_fold_builtin): Handle BUILT_IN_STRCAT.
+
+2014-01-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_avoid_lea_for_addr): Return false
+	for SImode_address_operand operands, having only a REG argument.
+
+2014-01-20  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-linux.h (GLIBC_DYNAMIC_LINKER): Expand
+	loader name using mbig-endian.
+	(LINUX_TARGET_LINK_SPEC): Pass linker -m flag.
+
+2014-01-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/invoke.texi (-march): Clarify documentation for AArch64.
+	(-mtune): Likewise.
+	(-mcpu): Likewise.
+
+2014-01-20  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-protos.h
+	(aarch64_cannot_change_mode_class_ptr): Declare.
+	* config/aarch64/aarch64.c (aarch64_cannot_change_mode_class,
+	aarch64_cannot_change_mode_class_ptr): New.
+	* config/aarch64/aarch64.h (CANNOT_CHANGE_MODE_CLASS): Change to call
+	backend hook aarch64_cannot_change_mode_class.
+
+2014-01-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* common/config/aarch64/aarch64-common.c
+	(aarch64_handle_option): Don't handle any option order logic here.
+	* config/aarch64/aarch64.c (aarch64_parse_arch): Do not override
+	selected_cpu, warn on architecture version mismatch.
+	(aarch64_override_options): Fix parsing order for option strings.
+
+2014-01-20  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR bootstrap/59496
+	* config/rs6000/darwin.h (ADJUST_FIELD_ALIGN): Fix unused variable
+	warning.  Amend comment to reflect current functionality.
+
+2014-01-20  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59860
+	* builtins.c (fold_builtin_strcat): Remove case better handled
+	by tree-ssa-strlen.c.
+
+2014-01-20  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.opt
+	(mcpu, march, mtune): Make case-insensitive.
+
+2014-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59880
+	* config/i386/i386.c (ix86_avoid_lea_for_addr): Return false
+	if operands[1] is a REG or ZERO_EXTEND of a REG.
+
+2014-01-19  Jan Hubicka  <jh@suse.cz>
+
+	* varasm.c (compute_reloc_for_constant): Use targetm.binds_local_p.
+
+2014-01-19  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_attr_length_millicode_call): Correct length of
+	long non-pic millicode calls.
+
+2014-01-19  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/vax/vax.h (FUNCTION_ARG_REGNO_P): Fix unused variable warning.
+
+2014-01-18  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59379
+	* config/i386/i386.md (*lea<mode>): Zero-extend return register
+	to DImode for zero-extended addresses.
+
+2014-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57763
+	* bb-reorder.c (fix_crossing_unconditional_branches): Set JUMP_LABEL
+	on the new indirect jump_insn and increment LABEL_NUSES (label).
+
+2014-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/59580
+	PR bootstrap/59583
+	* config.gcc (x86_archs): New variable.
+	(x86_64_archs): Likewise.
+	(x86_cpus): Likewise.
+	Use $x86_archs, $x86_64_archs and $x86_cpus to check valid
+	--with-arch/--with-cpu= options.
+	Support --with-arch=/--with-cpu={nehalem,westmere,
+	sandybridge,ivybridge,haswell,broadwell,bonnell,silvermont}.
+
+2014-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_adjust_cost): Reorder PROCESSOR_K8
+	and PROCESSOR_ATHLON to simplify code.  Move "memory" calculation.
+
+2014-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*swap<mode>): Rename from swap<mode>.
+
+2014-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58944
+	* config/i386/i386-c.c (ix86_pragma_target_parse): Temporarily
+	clear cpp_get_options (parse_in)->warn_unused_macros for
+	ix86_target_macros_internal with cpp_define.
+
+2014-01-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* jump.c (delete_related_insns): Keep (use (insn))s.
+	* reorg.c (redundant_insn): Check for barriers too.
+
+2014-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_split_lea_for_addr): Fix a comment typo.
+
 2014-01-17  John David Anglin  <danglin@gcc.gnu.org>
 
 	* config/pa/pa.c (pa_attr_length_indirect_call): Don't output a short
@@ -75,8 +210,8 @@
 	* config/i386/i386.h (TARGET_INTEL): New.
 	(TARGET_AVOID_LEA_FOR_ADDR): Likewise.
 	(processor_type): Add PROCESSOR_INTEL.
-	* config/i386/x86-tune.def: Support m_INTEL. Duplicate
-	m_SILVERMONT.  Add X86_TUNE_AVOID_LEA_FOR_ADDR.
+	* config/i386/x86-tune.def: Support m_INTEL. Duplicate m_SILVERMONT.
+	Add X86_TUNE_AVOID_LEA_FOR_ADDR.
 
 2014-01-17  Marek Polacek  <polacek@redhat.com>
 
@@ -216,16 +351,14 @@
 	* expr.c (expand_expr_real_1): Handle init == NULL_TREE.
 
 	PR target/59839
-	* config/i386/i386.c (ix86_expand_builtin): If target doesn't
-	satisfy operand 0 predicate for gathers, use a new pseudo as
-	subtarget.
+	* config/i386/i386.c (ix86_expand_builtin): If target doesn't satisfy
+	operand 0 predicate for gathers, use a new pseudo as subtarget.
 
 2014-01-16  Vladimir Makarov  <vmakarov@redhat.com>
 
 	PR middle-end/59609
-	* lra-constraints.c (process_alt_operands): Add printing debug
-	info.  Check absence of input/output reloads for matched operands
-	too.
+	* lra-constraints.c (process_alt_operands): Add printing debug info.
+	Check absence of input/output reloads for matched operands too.
 
 2014-01-16  Vladimir Makarov  <vmakarov@redhat.com>
 
@@ -270,8 +403,7 @@
 	(output_constructor_regular_field): Likewise.  Also do not
 	complain if the total number of bytes emitted is now greater
 	than the expected fieldpos.
-	* output.h (output_constant): Update prototype and descriptive
-	comment.
+	* output.h (output_constant): Update prototype and descriptive comment.
 
 2014-01-16  Marek Polacek  <polacek@redhat.com>
 
@@ -768,12 +900,10 @@
 	(partition_stack_vars): Likewise.
 	* asan.c (asan_emit_stack_protection): Optionally disable
 	after return stack usage.
-	(instrument_derefs): Optionally disable memory
-	access instrumentation.
+	(instrument_derefs): Optionally disable memory access instrumentation.
 	(instrument_builtin_call): Likewise.
 	(instrument_strlen_call): Likewise.
-	(asan_protect_global): Optionally disable
-	global variables protection.
+	(asan_protect_global): Optionally disable global variables protection.
 	* doc/invoke.texi: Added doc for new options.
 	* params.def: Added new options.
 	* params.h: Likewise.
@@ -1065,8 +1195,7 @@
 2014-01-03  Andreas Schwab  <schwab@linux-m68k.org>
 
 	* config/m68k/m68k.c (handle_move_double): Handle pushes with
-	overlapping registers also for registers other than the stack
-	pointer.
+	overlapping registers also for registers other than the stack pointer.
 
 2014-01-03  Marek Polacek  <polacek@redhat.com>
 
