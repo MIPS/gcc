@@ -308,6 +308,7 @@ extern const struct processor_costs ix86_size_cost;
 #define TARGET_HASWELL (ix86_tune == PROCESSOR_HASWELL)
 #define TARGET_BONNELL (ix86_tune == PROCESSOR_BONNELL)
 #define TARGET_SILVERMONT (ix86_tune == PROCESSOR_SILVERMONT)
+#define TARGET_INTEL (ix86_tune == PROCESSOR_INTEL)
 #define TARGET_GENERIC (ix86_tune == PROCESSOR_GENERIC)
 #define TARGET_AMDFAM10 (ix86_tune == PROCESSOR_AMDFAM10)
 #define TARGET_BDVER1 (ix86_tune == PROCESSOR_BDVER1)
@@ -429,6 +430,8 @@ extern unsigned char ix86_tune_features[X86_TUNE_LAST];
 #define TARGET_FUSE_ALU_AND_BRANCH \
 	ix86_tune_features[X86_TUNE_FUSE_ALU_AND_BRANCH]
 #define TARGET_OPT_AGU ix86_tune_features[X86_TUNE_OPT_AGU]
+#define TARGET_AVOID_LEA_FOR_ADDR \
+	ix86_tune_features[X86_TUNE_AVOID_LEA_FOR_ADDR]
 #define TARGET_VECTORIZE_DOUBLE \
 	ix86_tune_features[X86_TUNE_VECTORIZE_DOUBLE]
 #define TARGET_SOFTWARE_PREFETCHING_BENEFICIAL \
@@ -1047,7 +1050,7 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
    || (MODE) == V4DImode || (MODE) == V2TImode || (MODE) == V8SFmode	\
    || (MODE) == V4DFmode)
 
-#define VALID_AVX256_REG_OR_OI_MODE(MODE)					\
+#define VALID_AVX256_REG_OR_OI_MODE(MODE)		\
   (VALID_AVX256_REG_MODE (MODE) || (MODE) == OImode)
 
 #define VALID_AVX512F_SCALAR_MODE(MODE)					\
@@ -2184,6 +2187,7 @@ enum processor_type
   PROCESSOR_HASWELL,
   PROCESSOR_BONNELL,
   PROCESSOR_SILVERMONT,
+  PROCESSOR_INTEL,
   PROCESSOR_GEODE,
   PROCESSOR_K6,
   PROCESSOR_ATHLON,
@@ -2419,6 +2423,9 @@ struct GTY(()) machine_function {
      stack below the return address.  */
   BOOL_BITFIELD static_chain_on_stack : 1;
 
+  /* If true, it is safe to not save/restore DRAP register.  */
+  BOOL_BITFIELD no_drap_save_restore : 1;
+
   /* During prologue/epilogue generation, the current frame state.
      Otherwise, the frame state at the end of the prologue.  */
   struct machine_frame_state fs;
@@ -2506,6 +2513,9 @@ extern void debug_dispatch_window (int);
 
 #define IX86_HLE_ACQUIRE (1 << 16)
 #define IX86_HLE_RELEASE (1 << 17)
+
+/* For switching between functions with different target attributes.  */
+#define SWITCHABLE_TARGET 1
 
 /*
 Local variables:

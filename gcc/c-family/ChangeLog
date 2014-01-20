@@ -1,3 +1,32 @@
+2014-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* c-ada-spec.h (dump_ada_specs): Revert prototype change.
+	* c-ada-spec.c (dump_ads): Likewise.
+	(cpp_check): Likewise.
+	(dump_ada_specs): Likewise.
+
+2014-01-15  Laurent Alfonsi  <laurent.alfonsi@st.com>
+
+	PR c++/49718
+	* c-common.c (handle_no_instrument_function_attribute): Allow
+	no_instrument_function attribute in class member
+	definition/declaration.
+
+2014-01-15  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c/58943
+	* c-omp.c (c_finish_omp_atomic): Set in_late_binary_op around
+	build_modify_expr with non-NOP_EXPR opcode.  Handle return from it
+	being COMPOUND_EXPR.
+	(c_finish_omp_for): Handle incr being COMPOUND_EXPR with first
+	operand a SAVE_EXPR and second MODIFY_EXPR.
+
+2014-01-09  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58115
+	* c-pch.c (c_common_write_pch): Call
+	prepare_target_option_nodes_for_pch.
+
 2014-01-02  Richard Sandiford  <rdsandiford@googlemail.com>
 
 	Update copyright years

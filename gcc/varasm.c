@@ -117,8 +117,8 @@ static int compare_constant (const tree, const tree);
 static tree copy_constant (tree);
 static void output_constant_def_contents (rtx);
 static void output_addressed_constants (tree);
-static unsigned HOST_WIDE_INT array_size_for_constructor (tree);
-static unsigned min_align (unsigned, unsigned);
+static unsigned HOST_WIDE_INT output_constant (tree, unsigned HOST_WIDE_INT,
+					       unsigned int, bool);
 static void globalize_decl (tree);
 static bool decl_readonly_section_1 (enum section_category);
 #ifdef BSS_SECTION_ASM_OP
@@ -1951,7 +1951,8 @@ assemble_variable_contents (tree decl, const char *name,
 	/* Output the actual data.  */
 	output_constant (DECL_INITIAL (decl),
 			 tree_to_uhwi (DECL_SIZE_UNIT (decl)),
-			 get_variable_align (decl));
+			 get_variable_align (decl),
+			 false);
       else
 	/* Leave space for it.  */
 	assemble_zeros (tree_to_uhwi (DECL_SIZE_UNIT (decl)));
@@ -3354,7 +3355,7 @@ assemble_constant_contents (tree exp, const char *label, unsigned int align)
   targetm.asm_out.declare_constant_name (asm_out_file, label, exp, size);
 
   /* Output the value of EXP.  */
-  output_constant (exp, size, align);
+  output_constant (exp, size, align, false);
 }
 
 /* We must output the constant data referred to by SYMBOL; do so.  */
@@ -4060,7 +4061,7 @@ compute_reloc_for_constant (tree exp)
 	  break;
 	}
 
-      if (TREE_PUBLIC (tem))
+      if (!targetm.binds_local_p (tem))
 	reloc |= 2;
       else
 	reloc |= 1;
@@ -4584,8 +4585,10 @@ output_constructor (tree, unsigned HOST_WIDE_INT, unsigned int, bool,
    This includes the pseudo-op such as ".int" or ".byte", and a newline.
    Assumes output_addressed_constants has been done on EXP already.
 
-   Generate exactly SIZE bytes of assembler data, padding at the end
-   with zeros if necessary.  SIZE must always be specified.
+   Generate at least SIZE bytes of assembler data, padding at the end
+   with zeros if necessary.  SIZE must always be specified.  The returned
+   value is the actual number of bytes of assembler data generated, which
+   may be bigger than SIZE if the object contains a variable length field.
 
    SIZE is important for structure constructors,
    since trailing members may have been omitted from the constructor.
@@ -4603,15 +4606,15 @@ output_constructor (tree, unsigned HOST_WIDE_INT, unsigned int, bool,
    If REVERSE is true, EXP is interpreted in reverse storage order wrt the
    target order.  */
 
-static void
-output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
-		   bool reverse)
+static unsigned HOST_WIDE_INT
+output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
+		 bool reverse)
 {
   enum tree_code code;
   unsigned HOST_WIDE_INT thissize;
 
   if (size == 0 || flag_syntax_only)
-    return;
+    return size;
 
   /* See if we're trying to initialize a pointer in a non-default mode
      to the address of some declaration somewhere.  If the target says
@@ -4676,7 +4679,7 @@ output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
       && vec_safe_is_empty (CONSTRUCTOR_ELTS (exp)))
     {
       assemble_zeros (size);
-      return;
+      return size;
     }
 
   if (TREE_CODE (exp) == FDESC_EXPR)
@@ -4688,7 +4691,7 @@ output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 #else
       gcc_unreachable ();
 #endif
-      return;
+      return size;
     }
 
   /* Now output the underlying data.  If we've handling the padding, return.
@@ -4724,10 +4727,10 @@ output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
       break;
 
     case COMPLEX_TYPE:
-      output_constant_1 (TREE_REALPART (exp), thissize / 2, align, reverse);
-      output_constant_1 (TREE_IMAGPART (exp), thissize / 2,
-		         min_align (align, BITS_PER_UNIT * (thissize / 2)),
-			 reverse);
+      output_constant (TREE_REALPART (exp), thissize / 2, align, reverse);
+      output_constant (TREE_IMAGPART (exp), thissize / 2,
+		       min_align (align, BITS_PER_UNIT * (thissize / 2)),
+		       reverse);
       break;
 
     case ARRAY_TYPE:
@@ -4735,8 +4738,7 @@ output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
       switch (TREE_CODE (exp))
 	{
 	case CONSTRUCTOR:
-	  output_constructor (exp, size, align, reverse, NULL);
-	  return;
+	  return output_constructor (exp, size, align, reverse, NULL);
 	case STRING_CST:
 	  thissize
 	    = MIN ((unsigned HOST_WIDE_INT)TREE_STRING_LENGTH (exp), size);
@@ -4747,13 +4749,13 @@ output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 	    enum machine_mode inner = TYPE_MODE (TREE_TYPE (TREE_TYPE (exp)));
 	    unsigned int nalign = MIN (align, GET_MODE_ALIGNMENT (inner));
 	    int elt_size = GET_MODE_SIZE (inner);
-	    output_constant_1 (VECTOR_CST_ELT (exp, 0), elt_size, align,
-			       reverse);
+	    output_constant (VECTOR_CST_ELT (exp, 0), elt_size, align,
+			     reverse);
 	    thissize = elt_size;
 	    for (unsigned int i = 1; i < VECTOR_CST_NELTS (exp); i++)
 	      {
-		output_constant_1 (VECTOR_CST_ELT (exp, i), elt_size, nalign,
-				   reverse);
+		output_constant (VECTOR_CST_ELT (exp, i), elt_size, nalign,
+				 reverse);
 		thissize += elt_size;
 	      }
 	    break;
@@ -4766,11 +4768,10 @@ output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
     case RECORD_TYPE:
     case UNION_TYPE:
       gcc_assert (TREE_CODE (exp) == CONSTRUCTOR);
-      output_constructor (exp, size, align, reverse, NULL);
-      return;
+      return output_constructor (exp, size, align, reverse, NULL);
 
     case ERROR_MARK:
-      return;
+      return 0;
 
     default:
       gcc_unreachable ();
@@ -4778,12 +4779,8 @@ output_constant_1 (tree exp, unsigned HOST_WIDE_INT size, unsigned int align,
 
   if (size > thissize)
     assemble_zeros (size - thissize);
-}
 
-void
-output_constant (tree exp, unsigned HOST_WIDE_INT size, unsigned int align)
-{
-  output_constant_1 (exp, size, align, false);
+  return size;
 }
 
 /* Subroutine of output_constructor, used for computing the size of
@@ -4880,7 +4877,8 @@ output_constructor_array_range (oc_local_state *local)
       if (local->val == NULL_TREE)
 	assemble_zeros (fieldsize);
       else
-	output_constant_1 (local->val, fieldsize, align2, local->reverse);
+	fieldsize
+	  = output_constant (local->val, fieldsize, align2, local->reverse);
 
       /* Count its size.  */
       local->total_bytes += fieldsize;
@@ -4929,9 +4927,8 @@ output_constructor_regular_field (oc_local_state *local)
      Note no alignment needed in an array, since that is guaranteed
      if each element has the proper size.  */
   if ((local->field != NULL_TREE || local->index != NULL_TREE)
-      && fieldpos != local->total_bytes)
+      && fieldpos > local->total_bytes)
     {
-      gcc_assert (fieldpos >= local->total_bytes);
       assemble_zeros (fieldpos - local->total_bytes);
       local->total_bytes = fieldpos;
     }
@@ -4968,7 +4965,8 @@ output_constructor_regular_field (oc_local_state *local)
   if (local->val == NULL_TREE)
     assemble_zeros (fieldsize);
   else
-    output_constant_1 (local->val, fieldsize, align2, local->reverse);
+    fieldsize
+      = output_constant (local->val, fieldsize, align2, local->reverse);
 
   /* Count its size.  */
   local->total_bytes += fieldsize;

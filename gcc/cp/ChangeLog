@@ -1,3 +1,95 @@
+2014-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* decl2.c (cpp_check): Revert prototype change.
+
+2014-01-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59270
+	PR c++/58811
+	* init.c (build_value_init_noctor): Don't pass error_mark_node to
+	build_value_init.
+
+2014-01-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59269
+	* init.c (build_value_init_noctor): Assert !TYPE_HAS_COMPLEX_DFLT
+	only when errorcount == 0.
+
+2014-01-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/59838
+	* cvt.c (ocp_convert): Don't segfault on non-existing
+	ENUM_UNDERLYING_TYPE.
+
+2014-01-16  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59821
+	* tree.c (bot_manip): Update the location of builtin_LINE and
+	builtin_FILE calls.
+
+2014-01-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59659
+	* typeck2.c (massage_init_elt): New.
+	(process_init_constructor_record)
+	(process_init_constructor_union): Use it.
+	(process_init_constructor_array): Use it.  Use RANGE_EXPR.
+	(split_nonconstant_init_1): Handle it.
+	* semantics.c (cxx_eval_vec_init_1): Use force_rvalue.
+
+2014-01-09  Balaji V. Iyer  <balaji.v.iyer@intel.com>
+
+	PR c++/59631
+	* parser.c (cp_parser_postfix_expression): Added a new if-statement
+	and replaced an existing if-statement with else-if statement.
+	Changed an existing error message wording to match the one from the C
+	parser.
+
+2014-01-08  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59614
+	* class.c (abi_tag_data): Add tags field.
+	(check_abi_tags): Initialize it.
+	(find_abi_tags_r): Support collecting missing tags.
+	(mark_type_abi_tags): Don't look at template args.
+	(inherit_targ_abi_tags): New.
+	(check_bases_and_members): Use it.
+	* cp-tree.h (ABI_TAG_IMPLICIT): New.
+	* mangle.c (write_abi_tags): Check it.
+
+2014-01-07  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58856
+	* pt.c (num_innermost_template_parms): New.
+	(get_underlying_template): Use it.
+
+	PR c++/58965
+	* mangle.c (write_guarded_var_name): Handle null DECL_NAME.
+
+2014-01-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* semantics.c (trait_expr_value, [CPTK_IS_BASE_OF]): Implement
+	the letter of 20.11.6 about Base and Derived naming the same
+	class type modulo cv-qualifiers.
+
+2014-01-06  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/59635
+	* lambda.c (maybe_add_lambda_conv_op): Handle marking conversion
+	function as unimplemented for generic lambdas with varargs.
+
+	PR c++/59636
+	* parser.c (cp_parser_template_parameter): Early out with
+	error_mark_node if parameter declaration was not parsed.
+
+	PR c++/59629
+	* parser.c (cp_parser_lambda_expression): Save/reset/restore
+	auto_is_implicit_function_template_parm_p around lambda body.
+
+	PR c++/59638
+	* parser.c (cp_parser_init_declarator): Undo fully implicit
+	template parameter list when declarator is not a function.
+
 2014-01-03  Marc Glisse  <marc.glisse@inria.fr>
 
 	PR c++/58950
