@@ -1,3 +1,419 @@
+2014-01-20  DJ Delorie  <dj@redhat.com>
+
+	* config/rl78/rl78.c (rl78_propogate_register_origins): Verify
+	that CLOBBERs are REGs before propogating their values.
+
+2014-01-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/59789
+	* cgraph.c (cgraph_inline_failed_string): Add type to DEFCIFCODE.
+	(cgraph_inline_failed_type): New function.
+	* cgraph.h (DEFCIFCODE): Add type.
+	(cgraph_inline_failed_type_t): New enum.
+	(cgraph_inline_failed_type): New prototype.
+	* cif-code.def: Add CIF_FINAL_NORMAL to OK, FUNCTION_NOT_CONSIDERED,
+	FUNCTION_NOT_OPTIMIZED, REDEFINED_EXTERN_INLINE,
+	FUNCTION_NOT_INLINE_CANDIDATE, LARGE_FUNCTION_GROWTH_LIMIT,
+	LARGE_STACK_FRAME_GROWTH_LIMIT, MAX_INLINE_INSNS_SINGLE_LIMIT,
+	MAX_INLINE_INSNS_AUTO_LIMIT, INLINE_UNIT_GROWTH_LIMIT,
+	RECURSIVE_INLINING, UNLIKELY_CALL, NOT_DECLARED_INLINED,
+	OPTIMIZING_FOR_SIZE, ORIGINALLY_INDIRECT_CALL,
+	INDIRECT_UNKNOWN_CALL, USES_COMDAT_LOCAL. 
+	Add CIF_FINAL_ERROR to UNSPECIFIED, BODY_NOT_AVAILABLE,
+	FUNCTION_NOT_INLINABLE, OVERWRITABLE, MISMATCHED_ARGUMENTS,
+	EH_PERSONALITY, NON_CALL_EXCEPTIONS, TARGET_OPTION_MISMATCH,
+	OPTIMIZATION_MISMATCH.
+	* tree-inline.c (expand_call_inline): Emit errors during
+	early_inlining if cgraph_inline_failed_type returns
+	CIF_FINAL_ERROR.
+
+2014-01-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/59685
+	* config/i386/sse.md (*andnot<mode>3<mask_name>): Handle MODE_V16SF
+	mode attribute in insn output.
+
+2014-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* output.h (output_constant): Delete.
+	* varasm.c (output_constant): Make private.
+
+2014-01-20  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* config/aarch64/aarch64-simd.md (vec_perm<mode>): Add BE check.
+
+2014-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59860
+	* tree.h (fold_builtin_strcat): New prototype.
+	* builtins.c (fold_builtin_strcat): No longer static.  Add len
+	argument, if non-NULL, don't call c_strlen.  Optimize
+	directly into __builtin_memcpy instead of __builtin_strcpy.
+	(fold_builtin_2): Adjust fold_builtin_strcat caller.
+	* gimple-fold.c (gimple_fold_builtin): Handle BUILT_IN_STRCAT.
+
+2014-01-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_avoid_lea_for_addr): Return false
+	for SImode_address_operand operands, having only a REG argument.
+
+2014-01-20  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64-linux.h (GLIBC_DYNAMIC_LINKER): Expand
+	loader name using mbig-endian.
+	(LINUX_TARGET_LINK_SPEC): Pass linker -m flag.
+
+2014-01-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* doc/invoke.texi (-march): Clarify documentation for AArch64.
+	(-mtune): Likewise.
+	(-mcpu): Likewise.
+
+2014-01-20  Tejas Belagod  <tejas.belagod@arm.com>
+
+	* config/aarch64/aarch64-protos.h
+	(aarch64_cannot_change_mode_class_ptr): Declare.
+	* config/aarch64/aarch64.c (aarch64_cannot_change_mode_class,
+	aarch64_cannot_change_mode_class_ptr): New.
+	* config/aarch64/aarch64.h (CANNOT_CHANGE_MODE_CLASS): Change to call
+	backend hook aarch64_cannot_change_mode_class.
+
+2014-01-20  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	* common/config/aarch64/aarch64-common.c
+	(aarch64_handle_option): Don't handle any option order logic here.
+	* config/aarch64/aarch64.c (aarch64_parse_arch): Do not override
+	selected_cpu, warn on architecture version mismatch.
+	(aarch64_override_options): Fix parsing order for option strings.
+
+2014-01-20  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+	    Iain Sandoe  <iain@codesourcery.com>
+
+	PR bootstrap/59496
+	* config/rs6000/darwin.h (ADJUST_FIELD_ALIGN): Fix unused variable
+	warning.  Amend comment to reflect current functionality.
+
+2014-01-20  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59860
+	* builtins.c (fold_builtin_strcat): Remove case better handled
+	by tree-ssa-strlen.c.
+
+2014-01-20  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/aarch64/aarch64.opt
+	(mcpu, march, mtune): Make case-insensitive.
+
+2014-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59880
+	* config/i386/i386.c (ix86_avoid_lea_for_addr): Return false
+	if operands[1] is a REG or ZERO_EXTEND of a REG.
+
+2014-01-19  Jan Hubicka  <jh@suse.cz>
+
+	* varasm.c (compute_reloc_for_constant): Use targetm.binds_local_p.
+
+2014-01-19  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_attr_length_millicode_call): Correct length of
+	long non-pic millicode calls.
+
+2014-01-19  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
+
+	* config/vax/vax.h (FUNCTION_ARG_REGNO_P): Fix unused variable warning.
+
+2014-01-19  Kito Cheng  <kito@0xlab.org>
+
+	* builtins.c (expand_movstr): Check movstr expand done or fail.
+
+2014-01-18  Uros Bizjak  <ubizjak@gmail.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59379
+	* config/i386/i386.md (*lea<mode>): Zero-extend return register
+	to DImode for zero-extended addresses.
+
+2014-01-19  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/57763
+	* bb-reorder.c (fix_crossing_unconditional_branches): Set JUMP_LABEL
+	on the new indirect jump_insn and increment LABEL_NUSES (label).
+
+2014-01-18  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR bootstrap/59580
+	PR bootstrap/59583
+	* config.gcc (x86_archs): New variable.
+	(x86_64_archs): Likewise.
+	(x86_cpus): Likewise.
+	Use $x86_archs, $x86_64_archs and $x86_cpus to check valid
+	--with-arch/--with-cpu= options.
+	Support --with-arch=/--with-cpu={nehalem,westmere,
+	sandybridge,ivybridge,haswell,broadwell,bonnell,silvermont}.
+
+2014-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.c (ix86_adjust_cost): Reorder PROCESSOR_K8
+	and PROCESSOR_ATHLON to simplify code.  Move "memory" calculation.
+
+2014-01-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	* config/i386/i386.md (*swap<mode>): Rename from swap<mode>.
+
+2014-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58944
+	* config/i386/i386-c.c (ix86_pragma_target_parse): Temporarily
+	clear cpp_get_options (parse_in)->warn_unused_macros for
+	ix86_target_macros_internal with cpp_define.
+
+2014-01-18  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* jump.c (delete_related_insns): Keep (use (insn))s.
+	* reorg.c (redundant_insn): Check for barriers too.
+
+2014-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_split_lea_for_addr): Fix a comment typo.
+
+2014-01-17  John David Anglin  <danglin@gcc.gnu.org>
+
+	* config/pa/pa.c (pa_attr_length_indirect_call): Don't output a short
+	call to $$dyncall when TARGET_LONG_CALLS is true.
+
+2014-01-17  Jeff Law  <law@redhat.com>
+
+	* ree.c (combine_set_extension): Temporarily disable test for
+	changing number of hard registers.
+
+2014-01-17  Jan Hubicka  <jh@suse.cz>
+
+	PR middle-end/58125
+	* ipa-inline-analysis.c (inline_free_summary):
+	Do not free summary of aliases.
+
+2014-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59706
+	* gimplify.c (gimplify_expr): Use create_tmp_var
+	instead of create_tmp_var_raw.  If cond doesn't have
+	integral type, don't add the IFN_ANNOTATE builtin at all.
+
+2014-01-17  Martin Jambor  <mjambor@suse.cz>
+
+	PR ipa/59736
+	* ipa-cp.c (prev_edge_clone): New variable.
+	(grow_next_edge_clone_vector): Renamed to grow_edge_clone_vectors.
+	Also resize prev_edge_clone vector.
+	(ipcp_edge_duplication_hook): Also update prev_edge_clone.
+	(ipcp_edge_removal_hook): New function.
+	(ipcp_driver): Register ipcp_edge_removal_hook.
+
+2014-01-17  Andrew Pinski <apinski@cavium.com>
+	    Steve Ellcey  <sellcey@mips.com>
+
+	PR target/59462
+	* config/mips/mips.c (mips_print_operand): Check operand mode instead
+	of operator mode.
+
+2014-01-17  Jeff Law  <law@redhat.com>
+
+	PR middle-end/57904
+	* passes.def: Reorder pass_copy_prop, pass_unrolli, pass_ccp sequence
+	so that pass_ccp runs first.
+
+2014-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386.c (ix86_lea_outperforms): Use TARGET_XXX.
+	(ix86_adjust_cost): Use !TARGET_XXX.
+	(do_reorder_for_imul): Likewise.
+	(swap_top_of_ready_list): Likewise.
+	(ix86_sched_reorder): Likewise.
+
+2014-01-17  H.J. Lu  <hongjiu.lu@intel.com>
+
+	* config/i386/i386-c.c (ix86_target_macros_internal): Handle
+	PROCESSOR_INTEL.  Treat like PROCESSOR_GENERIC.
+	* config/i386/i386.c (intel_memcpy): New.  Duplicate slm_memcpy.
+	(intel_memset): New.  Duplicate slm_memset.
+	(intel_cost): New.  Duplicate slm_cost.
+	(m_INTEL): New macro.
+	(processor_target_table): Add "intel".
+	(ix86_option_override_internal): Replace PROCESSOR_SILVERMONT
+	with PROCESSOR_INTEL for "intel".
+	(ix86_lea_outperforms): Support PROCESSOR_INTEL.  Duplicate
+	PROCESSOR_SILVERMONT.
+	(ix86_issue_rate): Likewise.
+	(ix86_adjust_cost): Likewise.
+	(ia32_multipass_dfa_lookahead): Likewise.
+	(swap_top_of_ready_list): Likewise.
+	(ix86_sched_reorder): Likewise.
+	(ix86_avoid_lea_for_addr): Check TARGET_AVOID_LEA_FOR_ADDR
+	instead of TARGET_OPT_AGU.
+	* config/i386/i386.h (TARGET_INTEL): New.
+	(TARGET_AVOID_LEA_FOR_ADDR): Likewise.
+	(processor_type): Add PROCESSOR_INTEL.
+	* config/i386/x86-tune.def: Support m_INTEL. Duplicate m_SILVERMONT.
+	Add X86_TUNE_AVOID_LEA_FOR_ADDR.
+
+2014-01-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c/58346
+	* gimple-fold.c (fold_array_ctor_reference): Don't fold if element
+	size is zero.
+
+2014-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/46590
+	* opts.c (default_options_table): Add entries for
+	OPT_fbranch_count_reg, OPT_fmove_loop_invariants and OPT_ftree_pta,
+	all enabled at -O1 but not for -Og.
+	* common.opt (fbranch-count-reg): Remove Init(1).
+	(fmove-loop-invariants): Likewise.
+	(ftree-pta): Likewise.
+
+2014-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	* config/i386/i386.c (ix86_data_alignment): For compatibility with
+	(incorrect) GCC 4.8 and earlier alignment assumptions ensure we align
+	decls to at least the GCC 4.8 used alignments.
+
+	PR fortran/59440
+	* tree-nested.c (convert_nonlocal_reference_stmt,
+	convert_local_reference_stmt): For NAMELIST_DECLs in gimple_bind_vars
+	of GIMPLE_BIND stmts, adjust associated decls.
+
+2014-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/46590
+	* vec.h (vec<>::bseach): New member function implementing
+	binary search according to C89 bsearch.
+	(vec<>::qsort): Avoid calling ::qsort for vectors with sizes 0 or 1.
+	* tree-ssa-loop-im.c (struct mem_ref): Make stored member a
+	bitmap pointer again.  Make accesses_in_loop a flat array.
+	(mem_ref_obstack): New global.
+	(outermost_indep_loop): Adjust for mem_ref->stored changes.
+	(mark_ref_stored): Likewise.
+	(ref_indep_loop_p_2): Likewise.
+	(set_ref_stored_in_loop): New helper function.
+	(mem_ref_alloc): Allocate mem_refs on the mem_ref_obstack obstack.
+	(memref_free): Adjust.
+	(record_mem_ref_loc): Simplify.
+	(gather_mem_refs_stmt): Adjust.
+	(sort_locs_in_loop_postorder_cmp): New function.
+	(analyze_memory_references): Sort accesses_in_loop after
+	loop postorder number.
+	(find_ref_loc_in_loop_cmp): New function.
+	(for_all_locs_in_loop): Find relevant cluster of locs in
+	accesses_in_loop and iterate without recursion.
+	(execute_sm): Avoid uninit warning.
+	(struct ref_always_accessed): Simplify.
+	(ref_always_accessed::operator ()): Likewise.
+	(ref_always_accessed_p): Likewise.
+	(tree_ssa_lim_initialize): Initialize mem_ref_obstack, compute
+	loop postorder numbers here.
+	(tree_ssa_lim_finalize): Free mem_ref_obstack and loop postorder
+	numbers.
+
+2014-01-17  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR c++/57945
+	* passes.c (rest_of_decl_compilation): Don't call varpool_finalize_decl
+	on decls for which assemble_alias has been called.
+
+2014-01-17  Nick Clifton  <nickc@redhat.com>
+
+	* config/msp430/msp430.opt: (mcpu): New option.
+	* config/msp430/msp430.c (msp430_mcu_name): Use target_mcu.
+	(msp430_option_override): Parse target_cpu.  If the MCU name
+	matches a generic string, clear target_mcu.
+	(msp430_attr): Allow numeric interrupt values up to 63.
+	(msp430_expand_epilogue): No longer invert operand 1 of gen_popm.
+	* config/msp430/msp430.h (ASM_SPEC): Convert -mcpu into a -mmcu
+	option.
+	* config/msp430/t-msp430: (MULTILIB_MATCHES): Remove mcu matches.
+	Add mcpu matches.
+	* config/msp430/msp430.md (popm): Use %J rather than %I.
+	(addsi3): Use msp430_nonimmediate_operand for operand 2.
+	(addhi_cy_i): Use immediate_operand for operand 2.
+	* doc/invoke.texi: Document -mcpu option.
+
+2014-01-17  Richard Biener  <rguenther@suse.de>
+
+	PR rtl-optimization/38518
+	* df.h (df_analyze_loop): Declare.
+	* df-core.c: Include cfgloop.h.
+	(df_analyze_1): Split out main part of df_analyze.
+	(df_analyze): Adjust.
+	(loop_inverted_post_order_compute): New function.
+	(loop_post_order_compute): Likewise.
+	(df_analyze_loop): New function avoiding whole-function
+	postorder computes.
+	* loop-invariant.c (find_defs): Use df_analyze_loop.
+	(find_invariants): Adjust.
+	* loop-iv.c (iv_analysis_loop_init): Use df_analyze_loop.
+
+2014-01-17  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* config/arm/arm.c (arm_v7m_tune): Set max_insns_skipped to 2.
+	(thumb2_final_prescan_insn): Set max to MAX_INSN_PER_IT_BLOCK.
+
+2014-01-16  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* ipa-ref.c (ipa_remove_stmt_references): Fix references
+	traversal when removing references.
+
+2014-01-16  Jan Hubicka  <jh@suse.cz>
+
+	PR ipa/59775
+	* tree.c (get_binfo_at_offset): Look harder for virtual bases.
+
+2014-01-16  Bernd Schmidt  <bernds@codesourcery.com>
+
+	PR middle-end/56791
+	* reload.c (find_reloads_address_1): Do not use RELOAD_OTHER when
+	pushing a reload for an autoinc when we had previously reloaded an
+	inner part of the address.
+
+2014-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vectorizer.h (struct _loop_vec_info): Add no_data_dependencies
+	field.
+	(LOOP_VINFO_NO_DATA_DEPENDENCIES): Define.
+	* tree-vect-data-refs.c (vect_analyze_data_ref_dependence): Clear it
+	when not giving up or versioning for alias only because of
+	loop->safelen.
+	(vect_analyze_data_ref_dependences): Set to true.
+	* tree-vect-stmts.c (hoist_defs_of_uses): Return false if def_stmt
+	is a GIMPLE_PHI.
+	(vectorizable_load): Use LOOP_VINFO_NO_DATA_DEPENDENCIES instead of
+	LOOP_REQUIRES_VERSIONING_FOR_ALIAS, add && !nested_in_vect_loop
+	to the condition.
+
+	PR middle-end/58344
+	* expr.c (expand_expr_real_1): Handle init == NULL_TREE.
+
+	PR target/59839
+	* config/i386/i386.c (ix86_expand_builtin): If target doesn't satisfy
+	operand 0 predicate for gathers, use a new pseudo as subtarget.
+
+2014-01-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR middle-end/59609
+	* lra-constraints.c (process_alt_operands): Add printing debug info.
+	Check absence of input/output reloads for matched operands too.
+
+2014-01-16  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59835
+	* ira.c (ira_init_register_move_cost): Increase cost for
+	impossible modes.
+
+2014-01-16  Alan Lawrence  <alan.lawrence@arm.com>
+
+	* config/arm/arm.opt (mcpu, march, mtune): Make case-insensitive.
+
 2014-01-16  Richard Earnshaw  <rearnsha@arm.com>
 
 	PR target/59780
@@ -31,8 +447,7 @@
 	(output_constructor_regular_field): Likewise.  Also do not
 	complain if the total number of bytes emitted is now greater
 	than the expected fieldpos.
-	* output.h (output_constant): Update prototype and descriptive
-	comment.
+	* output.h (output_constant): Update prototype and descriptive comment.
 
 2014-01-16  Marek Polacek  <polacek@redhat.com>
 
@@ -529,12 +944,10 @@
 	(partition_stack_vars): Likewise.
 	* asan.c (asan_emit_stack_protection): Optionally disable
 	after return stack usage.
-	(instrument_derefs): Optionally disable memory
-	access instrumentation.
+	(instrument_derefs): Optionally disable memory access instrumentation.
 	(instrument_builtin_call): Likewise.
 	(instrument_strlen_call): Likewise.
-	(asan_protect_global): Optionally disable
-	global variables protection.
+	(asan_protect_global): Optionally disable global variables protection.
 	* doc/invoke.texi: Added doc for new options.
 	* params.def: Added new options.
 	* params.h: Likewise.
@@ -826,8 +1239,7 @@
 2014-01-03  Andreas Schwab  <schwab@linux-m68k.org>
 
 	* config/m68k/m68k.c (handle_move_double): Handle pushes with
-	overlapping registers also for registers other than the stack
-	pointer.
+	overlapping registers also for registers other than the stack pointer.
 
 2014-01-03  Marek Polacek  <polacek@redhat.com>
 
