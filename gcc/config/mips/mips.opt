@@ -299,6 +299,9 @@ mmicromips
 Target Report Mask(MICROMIPS)
 Use microMIPS instructions
 
+mmsa-compat
+Target Report Var(TARGET_MSA_COMPAT)  Undocumented
+
 mmsa
 Target Report Var(TARGET_MSA)
 Use MIPS MSA Extension instructions

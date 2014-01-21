@@ -757,8 +757,8 @@
 (define_insn "msa_msubv_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(minus:IMSA (match_operand:IMSA 1 "register_operand" "0")
-		      (mult:IMSA (match_operand:IMSA 2 "register_operand" "f")
-				 (match_operand:IMSA 3 "register_operand" "f"))))]
+		    (mult:IMSA (match_operand:IMSA 2 "register_operand" "f")
+			       (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
   "msubv.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"     "imadd")
@@ -1055,8 +1055,8 @@
 (define_insn "msa_fmsub_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
 	(minus:FMSA (match_operand:FMSA 1 "register_operand" "0")
-			(mult:FMSA (match_operand:FMSA 2 "register_operand" "f")
-				   (match_operand:FMSA 3 "register_operand" "f"))))]
+		    (mult:FMSA (match_operand:FMSA 2 "register_operand" "f")
+			       (match_operand:FMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
   "fmsub.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"     "fmadd")
