@@ -2228,11 +2228,17 @@ enum reg_class
    `crtl->outgoing_args_size'.  */
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 1
 
+/* Define this if STACK_BOUNDRAY and MIPS_STACK_ALIGN should be
+ * compatible with -msa code.
+ */
+#define MSA_COMPATIBLE \
+  ((TARGET_NEWABI || TARGET_MSA) || (TARGET_MSA_COMPAT && TARGET_FLOAT64))
+
 /* Because we want to allow MSA functions and non-MSA functions to
    call + each other and MSA always requires -mfp64, we set stack
-   boundary to + 128 bits when newabi or -mfp64.  */
+   boundary to + 128 bits when newabi, -mmsa or -mmsa-compat and -mfp64.  */
 #define STACK_BOUNDARY \
-  ((TARGET_NEWABI || (TARGET_MSA && TARGET_FLOAT64)) ? 128 : 64)
+  (MSA_COMPATIBLE ? 128 : 64)
 
 /* Symbolic macros for the registers used to return integer and floating
    point values.  */
@@ -2377,10 +2383,10 @@ typedef struct mips_args {
 #define EPILOGUE_USES(REGNO)	mips_epilogue_uses (REGNO)
 
 /* Treat LOC as a byte offset from the stack pointer and round it up
-   to the next fully-aligned offset.  */
+   to the next fully-aligned offset.
+   Also see comment for STACK_BOUNDARY.  */
 #define MIPS_STACK_ALIGN(LOC) \
-  ((TARGET_NEWABI || (TARGET_MSA && TARGET_FLOAT64)) ? \
-   ((LOC) + 15) & -16 : ((LOC) + 7) & -8)
+  (MSA_COMPATIBLE ? ((LOC) + 15) & -16 : ((LOC) + 7) & -8)
 
 /* Output assembler code to FILE to increment profiler label # LABELNO
    for profiling a function entry.  */
