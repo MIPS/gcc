@@ -12,6 +12,7 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
      void
      hello_world (const char *name)
      {
+        // a test comment
         printf ("hello %s\n", name);
      }
   */
@@ -42,6 +43,10 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_rvalue *args[2];
   args[0] = gcc_jit_context_new_string_literal (ctxt, "hello %s\n");
   args[1] = gcc_jit_param_as_rvalue (param_name);
+
+  gcc_jit_function_add_comment (
+    func, NULL,
+    "a test comment");
 
   gcc_jit_function_add_eval (
     func, NULL,

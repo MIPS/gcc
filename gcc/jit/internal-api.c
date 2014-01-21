@@ -923,6 +923,27 @@ add_assignment (location *loc,
 
 void
 gcc::jit::function::
+add_comment (location *loc,
+	     const char *text)
+{
+  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
+
+  /* Wrap the text in C-style comment delimiters.  */
+  size_t sz =
+    (3 /* opening delim */
+     + strlen (text)
+     + 3 /* closing delim */
+     + 1 /* terminator */);
+  char *wrapped = (char *)ggc_internal_alloc_stat (sz);
+  snprintf (wrapped, sz, "/* %s */", text);
+
+  /* For now we simply implement this by adding a dummy label with a name
+     containing the given text.  */
+  add_label (loc, wrapped);
+}
+
+void
+gcc::jit::function::
 add_conditional (location *loc,
 		 rvalue *boolval,
 		 label *on_true,

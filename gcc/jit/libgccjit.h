@@ -668,6 +668,19 @@ gcc_jit_function_add_assignment_op (gcc_jit_function *func,
 				    enum gcc_jit_binary_op op,
 				    gcc_jit_rvalue *rvalue);
 
+/* Add a no-op textual comment to the internal representation of the
+   code.  It will be optimized away, but will be visible in the dumps
+   seen via
+     GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE
+   and
+     GCC_JIT_BOOL_OPTION_DUMP_INITIAL_GIMPLE,
+   and thus may be of use when debugging how your project's internal
+   representation gets converted to the libgccjit IR.  */
+extern void
+gcc_jit_function_add_comment (gcc_jit_function *func,
+			      gcc_jit_location *loc,
+			      const char *text);
+
 /* Add evaluation of an rvalue, branching on the result to the
    appropriate label.
 

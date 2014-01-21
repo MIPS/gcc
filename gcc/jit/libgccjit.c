@@ -639,6 +639,17 @@ gcc_jit_function_add_conditional (gcc_jit_function *func,
 }
 
 void
+gcc_jit_function_add_comment (gcc_jit_function *func,
+			      gcc_jit_location *loc,
+			      const char *text)
+{
+  RETURN_IF_NOT_FUNC_DEFINITION (func);
+  RETURN_IF_FAIL (text, NULL, "NULL text");
+
+  func->add_comment (loc, text);
+}
+
+void
 gcc_jit_function_add_jump (gcc_jit_function *func,
 			gcc_jit_location *loc,
 			gcc_jit_label *target)

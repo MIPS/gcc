@@ -30,6 +30,7 @@
     gcc_jit_context_zero;
     gcc_jit_function_add_assignment;
     gcc_jit_function_add_assignment_op;
+    gcc_jit_function_add_comment;
     gcc_jit_function_add_conditional;
     gcc_jit_function_add_eval;
     gcc_jit_function_add_jump;

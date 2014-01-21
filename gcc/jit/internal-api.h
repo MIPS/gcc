@@ -319,6 +319,10 @@ public:
 		  rvalue *rvalue);
 
   void
+  add_comment (location *loc,
+	       const char *text);
+
+  void
   add_conditional (location *loc,
 		   rvalue *boolval,
 		   label *on_true,

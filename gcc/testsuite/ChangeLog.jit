@@ -1,3 +1,8 @@
+2014-01-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-hello-world.c (code_making_callback): Add usage of
+	gcc_jit_function_add_comment.
+
 2013-10-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/harness.h (main): Wrap with #ifndef TEST_PROVIDES_MAIN
