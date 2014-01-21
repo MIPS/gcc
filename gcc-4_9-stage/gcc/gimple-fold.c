@@ -921,6 +921,7 @@ gimple_fold_builtin (gimple stmt)
       break;
     case BUILT_IN_STRCPY:
     case BUILT_IN_STRNCPY:
+    case BUILT_IN_STRCAT:
       arg_idx = 1;
       type = 0;
       break;
@@ -994,6 +995,13 @@ gimple_fold_builtin (gimple stmt)
                                        gimple_call_arg (stmt, 1),
                                        gimple_call_arg (stmt, 2),
 				       val[1]);
+      break;
+
+    case BUILT_IN_STRCAT:
+      if (val[1] && is_gimple_val (val[1]) && nargs == 2)
+	result = fold_builtin_strcat (loc, gimple_call_arg (stmt, 0),
+				      gimple_call_arg (stmt, 1),
+				      val[1]);
       break;
 
     case BUILT_IN_FPUTS:
@@ -2940,7 +2948,8 @@ fold_array_ctor_reference (tree type, tree ctor,
      be larger than size of array element.  */
   if (!TYPE_SIZE_UNIT (type)
       || TREE_CODE (TYPE_SIZE_UNIT (type)) != INTEGER_CST
-      || elt_size.slt (tree_to_double_int (TYPE_SIZE_UNIT (type))))
+      || elt_size.slt (tree_to_double_int (TYPE_SIZE_UNIT (type)))
+      || elt_size.is_zero ())
     return NULL_TREE;
 
   /* Compute the array index we look for.  */
