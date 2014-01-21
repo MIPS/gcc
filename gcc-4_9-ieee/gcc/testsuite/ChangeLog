@@ -1,3 +1,181 @@
+2014-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59860
+	* gcc.dg/strlenopt-4.c: Expect the same counts on s390*-* as on all
+	other targets.
+
+2014-01-20  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/round_3.f08: Add more cases.
+	
+2014-01-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lib/target-supports.exp (force_conventional_output_for): New
+	procedure.
+	* lib/scanasm.exp (scan-assembler_required_options)
+	(scan-assembler-not_required_options)
+	(scan-assembler-times_required_options): Replace with
+	force_conventional_output_fors.
+	* lib/scanrtl.exp: Force conventional output for all rtl dump scans.
+	* gcc.target/mips/octeon-pipe-1.c: Remove -ffat-lto-objects.
+
+2014-01-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/59789
+	* gcc.target/i386/pr59789.c: New testcase.
+
+2014-01-20  Yufeng Zhang  <yufeng.zhang@arm.com>
+
+	* g++.dg/debug/ra1.C (struct tree_base): Change the width of
+	the 'code' bitfield from 16 to 8.
+
+2014-01-20  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_vect_perm): Exclude aarch64_be.
+	(check_effective_target_vect_perm_byte): Likewise.
+	(check_effective_target_vect_perm_short): Likewise.
+
+2014-01-20  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* gcc.target/aarch64/vneg_f.c (STORE_INST): New macro.
+	(RUN_TEST): Use new macro.
+	(INDEX64_32): Delete.
+	(INDEX64_64): Likewise.
+	(INDEX128_32): Likewise.
+	(INDEX128_64): Likewise.
+	(INDEX): Likewise.
+	(test_vneg_f32): Use fixed RUN_TEST.
+
+2014-01-20  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/59860
+	* gcc.dg/pr59860.c: New testcase.
+
+2014-01-20  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59880
+	* gcc.target/i386/pr59880.c: New test.
+
+2014-01-20  Renlin Li  <renlin.li@arm.com>
+
+	* gcc.dg/pr44194-1.c: Tweak regexp.
+
+2014-01-19  Steven G. Kargl  <kargl@gcc.gnu.org>
+
+	PR libfortran/59771
+	PR libfortran/59774
+	PR libfortran/59836
+	* gfortran.dg/round_3.f08: New cases added.
+	* gfortran.dg/fmt_g_1.f90: New test.
+
+2014-01-19  Uros Bizjak  <ubizjak@gmail.com>
+
+	* g++.dg/pr49718.C: Add "-mno-explicit-relocs" for alpha*-*-* targets.
+
+2014-01-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.target/mips/pr54240.c: Add -ffat-lto-objects.
+
+2014-01-19  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/vect/pr57705.c: Require vect_int.
+	* gcc.dg/vect/pr58508.c: Fix order of dg-require-effective-target line.
+	* gcc.dg/vect/vect-alias-check.c: Likewise.
+
+2014-01-18  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/58007
+	* gfortran.dg/unresolved_fixup_1.f90: New test.
+	* gfortran.dg/unresolved_fixup_2.f90: New test.
+
+2014-01-18  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58944
+	* gcc.target/i386/pr58944.c: Drop -march=native from dg-options.
+	Remove dg-prune-output lines.
+
+2014-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59706
+	* gfortran.dg/pr59706.f90: New test.
+	* g++.dg/ext/pr59706.C: New test.
+
+2014-01-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59270
+	PR c++/58811
+	* g++.dg/cpp0x/decltype-incomplete1.C: New.
+	* g++.dg/init/pr58811.C: Likewise.
+
+2014-01-17  Jeff Law  <law@redhat.com>
+
+	PR middle-end/57904
+	* gfortran.dg/pr57904.f90: New test.
+
+2014-01-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59269
+	* g++.dg/cpp0x/nsdmi-union4.C: New.
+
+2014-01-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c++/59838
+	* g++.dg/diagnostic/pr59838.C: New test.
+
+2014-01-17  Marek Polacek  <polacek@redhat.com>
+
+	PR c/58346
+	* gcc.dg/pr58346.c: New test.
+
+2014-01-17  Jakub Jelinek  <jakub@redhat.com>
+
+	PR testsuite/58776
+	* gcc.dg/tree-ssa/gen-vect-32.c: Add -fno-vect-cost-model to
+	dg-options, use dg-additional-options for i?86/x86_64 to avoid
+	option duplication.
+
+	PR fortran/59440
+	* gfortran.dg/pr59440-1.f90: New test.
+	* gfortran.dg/pr59440-2.f90: New test.
+	* gfortran.dg/pr59440-3.f90: New test.
+
+	PR testsuite/59064
+	* gcc.dg/vect/vect-ivdep-1.c: Replace two dg-bogus lines separately
+	testing for " version" and " alias" with one testing for
+	" version\[^\n\r]* alias".
+	* gcc.dg/vect/vect-ivdep-2.c: Likewise.
+	* gfortran.dg/vect/vect-do-concurrent-1.f90: Likewise.
+	* g++.dg/vect/pr33426-ivdep.cc: Likewise.
+	* g++.dg/vect/pr33426-ivdep-2.cc: Likewise.
+	* g++.dg/vect/pr33426-ivdep-3.cc: Likewise.
+	* g++.dg/vect/pr33426-ivdep-4.cc: Adjust comments similarly.
+
+	PR c++/57945
+	* c-c++-common/torture/pr57945.c: New test.
+
+2014-01-17  Zhenqiang Chen  <zhenqiang.chen@arm.com>
+
+	* gcc.target/arm/its.c: New testcase.
+
+2014-01-16  Jan Hubicka  <jh@suse.cz>
+
+	PR ipa/59775
+	* g++.dg/torture/pr59775.C: New testcase.
+
+2014-01-16  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/58344
+	* gcc.c-torture/compile/pr58344.c: New test.
+
+	PR target/59839
+	* gcc.target/i386/pr59839.c: New test.
+
+	PR debug/54694
+	* gcc.target/i386/pr9771-1.c (main): Rename to...
+	(real_main): ... this.  Add __asm name "main".
+	(ASMNAME, ASMNAME2, STRING): Define.
+
 2014-01-16  Nick Clifton  <nickc@redhat.com>
 
 	PR middle-end/28865
