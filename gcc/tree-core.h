@@ -652,8 +652,8 @@ enum tree_node_kind {
   x_kind,
   lang_decl,
   lang_type,
-  omp_clause_kind,
   oacc_clause_kind,
+  omp_clause_kind,
   all_kinds
 };
 
@@ -1227,28 +1227,6 @@ struct GTY(()) phi_arg_d {
   location_t locus;
 };
 
-struct GTY(()) tree_omp_clause {
-  struct tree_common common;
-  location_t locus;
-  enum omp_clause_code code;
-  union omp_clause_subcode {
-    enum omp_clause_default_kind   default_kind;
-    enum omp_clause_schedule_kind  schedule_kind;
-    enum omp_clause_depend_kind    depend_kind;
-    enum omp_clause_map_kind       map_kind;
-    enum omp_clause_proc_bind_kind proc_bind_kind;
-    enum tree_code                 reduction_code;
-  } GTY ((skip)) subcode;
-
-  /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's
-     usage.  */
-  gimple_seq gimple_reduction_init;
-  gimple_seq gimple_reduction_merge;
-
-  tree GTY ((length ("omp_clause_num_ops[OMP_CLAUSE_CODE ((tree)&%h)]")))
-    ops[1];
-};
-
 /* Since OpenACC supports both fortran and C/C++,
    we use the same constant */
 #define MAX_DIMENSIONS 7
@@ -1273,6 +1251,28 @@ struct GTY(()) tree_oacc_clause {
     //gimple_seq gimple_reduction_merge;
 
     tree GTY ((length ("oacc_clause_num_ops[OACC_CLAUSE_CODE ((tree)&%h)]"))) ops[1];
+};
+
+struct GTY(()) tree_omp_clause {
+  struct tree_common common;
+  location_t locus;
+  enum omp_clause_code code;
+  union omp_clause_subcode {
+    enum omp_clause_default_kind   default_kind;
+    enum omp_clause_schedule_kind  schedule_kind;
+    enum omp_clause_depend_kind    depend_kind;
+    enum omp_clause_map_kind       map_kind;
+    enum omp_clause_proc_bind_kind proc_bind_kind;
+    enum tree_code                 reduction_code;
+  } GTY ((skip)) subcode;
+
+  /* The gimplification of OMP_CLAUSE_REDUCTION_{INIT,MERGE} for omp-low's
+     usage.  */
+  gimple_seq gimple_reduction_init;
+  gimple_seq gimple_reduction_merge;
+
+  tree GTY ((length ("omp_clause_num_ops[OMP_CLAUSE_CODE ((tree)&%h)]")))
+    ops[1];
 };
 
 struct GTY(()) tree_block {
@@ -1673,8 +1673,8 @@ union GTY ((ptr_alias (union lang_tree_node),
   struct tree_binfo GTY ((tag ("TS_BINFO"))) binfo;
   struct tree_statement_list GTY ((tag ("TS_STATEMENT_LIST"))) stmt_list;
   struct tree_constructor GTY ((tag ("TS_CONSTRUCTOR"))) constructor;
-  struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
   struct tree_oacc_clause GTY ((tag ("TS_OACC_CLAUSE"))) oacc_clause;
+  struct tree_omp_clause GTY ((tag ("TS_OMP_CLAUSE"))) omp_clause;
   struct tree_optimization_option GTY ((tag ("TS_OPTIMIZATION"))) optimization;
   struct tree_target_option GTY ((tag ("TS_TARGET_OPTION"))) target_option;
 };

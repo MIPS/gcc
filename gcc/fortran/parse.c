@@ -1714,6 +1714,63 @@ gfc_ascii_statement (gfc_statement st)
     case ST_END_ENUM:
       p = "END ENUM";
       break;
+    case ST_OACC_PARALLEL_LOOP:
+      p = "!$ACC PARALLEL LOOP";
+      break;
+    case ST_OACC_END_PARALLEL_LOOP:
+      p = "!$ACC END PARALLEL LOOP";
+      break;
+    case ST_OACC_PARALLEL:
+      p = "!$ACC PARALLEL";
+      break;
+    case ST_OACC_END_PARALLEL:
+      p = "!$ACC END PARALLEL";
+      break;
+    case ST_OACC_KERNELS:
+      p = "!$ACC KERNELS";
+      break;
+    case ST_OACC_END_KERNELS:
+      p = "!$ACC END KERNELS";
+      break;
+    case ST_OACC_KERNELS_LOOP:
+      p = "!$ACC KERNELS LOOP";
+      break;
+    case ST_OACC_END_KERNELS_LOOP:
+      p = "!$ACC END KERNELS LOOP";
+      break;
+    case ST_OACC_DATA:
+      p = "!$ACC DATA";
+      break;
+    case ST_OACC_END_DATA:
+      p = "!$ACC END DATA";
+      break;
+    case ST_OACC_HOST_DATA:
+      p = "!$ACC HOST_DATA";
+      break;
+    case ST_OACC_END_HOST_DATA:
+      p = "!$ACC END HOST_DATA";
+      break;
+    case ST_OACC_LOOP:
+      p = "!$ACC LOOP";
+      break;
+    case ST_OACC_DECLARE:
+      p = "!$ACC DECLARE";
+      break;
+    case ST_OACC_UPDATE:
+      p = "!$ACC UPDATE";
+      break;
+    case ST_OACC_WAIT:
+      p = "!$ACC WAIT";
+      break;
+    case ST_OACC_CACHE:
+      p = "!$ACC CACHE";
+      break;
+    case ST_OACC_ENTER_DATA:
+      p = "!$ACC ENTER DATA";
+      break;
+    case ST_OACC_EXIT_DATA:
+      p = "!$ACC EXIT DATA";
+      break;
     case ST_OMP_ATOMIC:
       p = "!$OMP ATOMIC";
       break;
@@ -1809,63 +1866,6 @@ gfc_ascii_statement (gfc_statement st)
       break;
     case ST_OMP_WORKSHARE:
       p = "!$OMP WORKSHARE";
-      break;
-    case ST_OACC_PARALLEL_LOOP:
-      p = "!$ACC PARALLEL LOOP";
-      break;
-    case ST_OACC_END_PARALLEL_LOOP:
-      p = "!$ACC END PARALLEL LOOP";
-      break;
-    case ST_OACC_PARALLEL:
-      p = "!$ACC PARALLEL";
-      break;
-    case ST_OACC_END_PARALLEL:
-      p = "!$ACC END PARALLEL";
-      break;
-    case ST_OACC_KERNELS:
-      p = "!$ACC KERNELS";
-      break;
-    case ST_OACC_END_KERNELS:
-      p = "!$ACC END KERNELS";
-      break;
-    case ST_OACC_KERNELS_LOOP:
-      p = "!$ACC KERNELS LOOP";
-      break;
-    case ST_OACC_END_KERNELS_LOOP:
-      p = "!$ACC END KERNELS LOOP";
-      break;
-    case ST_OACC_DATA:
-      p = "!$ACC DATA";
-      break;
-    case ST_OACC_END_DATA:
-      p = "!$ACC END DATA";
-      break;
-    case ST_OACC_HOST_DATA:
-      p = "!$ACC HOST_DATA";
-      break;
-    case ST_OACC_END_HOST_DATA:
-      p = "!$ACC END HOST_DATA";
-      break;
-    case ST_OACC_LOOP:
-      p = "!$ACC LOOP";
-      break;
-    case ST_OACC_DECLARE:
-      p = "!$ACC DECLARE";
-      break;
-    case ST_OACC_UPDATE:
-      p = "!$ACC UPDATE";
-      break;
-    case ST_OACC_WAIT:
-      p = "!$ACC WAIT";
-      break;
-    case ST_OACC_CACHE:
-      p = "!$ACC CACHE";
-      break;
-    case ST_OACC_ENTER_DATA:
-      p = "!$ACC ENTER DATA";
-      break;
-    case ST_OACC_EXIT_DATA:
-      p = "!$ACC EXIT DATA";
       break;
     default:
       gfc_internal_error ("gfc_ascii_statement(): Bad statement code");
@@ -3037,7 +3037,6 @@ declSt:
       st = next_statement ();
       goto loop;
 
-      /* In case of !$ACC DECLARE directive we have to transform it to !$ACC DATA construct */
     case ST_OACC_DECLARE:
       if (!verify_st_order(&ss, st, false))
         {
@@ -3912,6 +3911,114 @@ parse_omp_atomic (void)
 }
 
 
+/* Parse the statements of an OpenACC structured block.  */
+
+static void
+parse_oacc_structured_block (gfc_statement acc_st)
+{
+  gfc_statement st, acc_end_st;
+  gfc_code *cp, *np;
+  gfc_state_data s;
+
+  accept_statement (acc_st);
+
+  cp = gfc_state_stack->tail;
+  push_state (&s, COMP_OACC_STRUCTURED_BLOCK, NULL);
+  np = new_level (cp);
+  np->op = cp->op;
+  np->block = NULL;
+  switch (acc_st)
+    {
+    case ST_OACC_PARALLEL:
+      acc_end_st = ST_OACC_END_PARALLEL;
+      break;
+    case ST_OACC_KERNELS:
+      acc_end_st = ST_OACC_END_KERNELS;
+      break;
+    case ST_OACC_DATA:
+      acc_end_st = ST_OACC_END_DATA;
+      break;
+    case ST_OACC_HOST_DATA:
+      acc_end_st = ST_OACC_END_HOST_DATA;
+      break;
+    default:
+      gcc_unreachable ();
+    }
+
+  do
+    {
+      st = parse_executable (ST_NONE);
+      if (st == ST_NONE)
+        unexpected_eof ();
+      else if (st != acc_end_st)
+        unexpected_statement (st);
+    }
+  while (st != acc_end_st);
+
+  gcc_assert (new_st.op == EXEC_NOP);
+
+  gfc_clear_new_st ();
+  gfc_commit_symbols ();
+  gfc_warning_check ();
+  pop_state ();
+}
+
+
+/* Parse the statements of OpenACC loop/parallel loop/kernels loop.  */
+
+static gfc_statement
+parse_oacc_loop (gfc_statement acc_st)
+{
+  gfc_statement st;
+  gfc_code *cp, *np;
+  gfc_state_data s;
+
+  accept_statement (acc_st);
+
+  cp = gfc_state_stack->tail;
+  push_state (&s, COMP_OACC_STRUCTURED_BLOCK, NULL);
+  np = new_level (cp);
+  np->op = cp->op;
+  np->block = NULL;
+
+  for (;;)
+    {
+      st = next_statement ();
+      if (st == ST_NONE)
+        unexpected_eof ();
+      else if (st == ST_DO)
+        break;
+      else
+        unexpected_statement (st);
+    }
+
+  parse_do_block ();
+  if (gfc_statement_label != NULL
+      && gfc_state_stack->previous != NULL
+      && gfc_state_stack->previous->state == COMP_DO
+      && gfc_state_stack->previous->ext.end_do_label == gfc_statement_label)
+    {
+      pop_state ();
+      return ST_IMPLIED_ENDDO;
+    }
+
+  check_do_closure ();
+  pop_state ();
+
+  st = next_statement ();
+  if (acc_st == ST_OACC_PARALLEL_LOOP && st == ST_OACC_END_PARALLEL_LOOP ||
+      acc_st == ST_OACC_KERNELS_LOOP && st == ST_OACC_END_KERNELS_LOOP)
+    {
+      gcc_assert (new_st.op == EXEC_NOP);
+      gfc_clear_new_st ();
+      gfc_commit_symbols ();
+      gfc_warning_check ();
+      st = next_statement ();
+    }
+  return st;
+}
+
+
 /* Parse the statements of an OpenMP structured block.  */
 
 static void
@@ -4080,113 +4187,6 @@ parse_omp_structured_block (gfc_statement omp_st, bool workshare_stmts_only)
   pop_state ();
 }
 
-
-/* Parse the statements of an OpenACC structured block.  */
-
-static void
-parse_oacc_structured_block (gfc_statement acc_st)
-{
-  gfc_statement st, acc_end_st;
-  gfc_code *cp, *np;
-  gfc_state_data s;
-
-  accept_statement (acc_st);
-
-  cp = gfc_state_stack->tail;
-  push_state (&s, COMP_OACC_STRUCTURED_BLOCK, NULL);
-  np = new_level (cp);
-  np->op = cp->op;
-  np->block = NULL;
-  switch (acc_st)
-    {
-    case ST_OACC_PARALLEL:
-      acc_end_st = ST_OACC_END_PARALLEL;
-      break;
-    case ST_OACC_KERNELS:
-      acc_end_st = ST_OACC_END_KERNELS;
-      break;
-    case ST_OACC_DATA:
-      acc_end_st = ST_OACC_END_DATA;
-      break;
-    case ST_OACC_HOST_DATA:
-      acc_end_st = ST_OACC_END_HOST_DATA;
-      break;
-    default:
-      gcc_unreachable ();
-    }
-
-  do
-    {
-      st = parse_executable (ST_NONE);
-      if (st == ST_NONE)
-        unexpected_eof ();
-      else if (st != acc_end_st)
-        unexpected_statement (st);
-    }
-  while (st != acc_end_st);
-
-  gcc_assert (new_st.op == EXEC_NOP);
-
-  gfc_clear_new_st ();
-  gfc_commit_symbols ();
-  gfc_warning_check ();
-  pop_state ();
-}
-
-/* Parse the statements of OpenACC loop/parallel loop/kernels loop.  */
-
-static gfc_statement
-parse_oacc_loop (gfc_statement acc_st)
-{
-  gfc_statement st;
-  gfc_code *cp, *np;
-  gfc_state_data s;
-
-  accept_statement (acc_st);
-
-  cp = gfc_state_stack->tail;
-  push_state (&s, COMP_OACC_STRUCTURED_BLOCK, NULL);
-  np = new_level (cp);
-  np->op = cp->op;
-  np->block = NULL;
-
-  for (;;)
-    {
-      st = next_statement ();
-      if (st == ST_NONE)
-        unexpected_eof ();
-      else if (st == ST_DO)
-        break;
-      else
-        unexpected_statement (st);
-    }
-
-  parse_do_block ();
-  if (gfc_statement_label != NULL
-      && gfc_state_stack->previous != NULL
-      && gfc_state_stack->previous->state == COMP_DO
-      && gfc_state_stack->previous->ext.end_do_label == gfc_statement_label)
-    {
-      pop_state ();
-      return ST_IMPLIED_ENDDO;
-    }
-
-  check_do_closure ();
-  pop_state ();
-
-  st = next_statement ();
-  if (acc_st == ST_OACC_PARALLEL_LOOP && st == ST_OACC_END_PARALLEL_LOOP ||
-      acc_st == ST_OACC_KERNELS_LOOP && st == ST_OACC_END_KERNELS_LOOP)
-    {
-      gcc_assert (new_st.op == EXEC_NOP);
-      gfc_clear_new_st ();
-      gfc_commit_symbols ();
-      gfc_warning_check ();
-      st = next_statement ();
-    }
-  return st;
-}
-
 /* Accept a series of executable statements.  We return the first
    statement that doesn't fit to the caller.  Any block statements are
    passed on to the correct handler, which usually passes the buck
@@ -4285,6 +4285,21 @@ parse_executable (gfc_statement st)
 	  parse_forall_block ();
 	  break;
 
+  case ST_OACC_PARALLEL_LOOP:
+  case ST_OACC_KERNELS_LOOP:
+  case ST_OACC_LOOP:
+    st = parse_oacc_loop (st);
+          if (st == ST_IMPLIED_ENDDO)
+            return st;
+    continue;
+
+  case ST_OACC_PARALLEL:
+  case ST_OACC_KERNELS:
+  case ST_OACC_DATA:
+  case ST_OACC_HOST_DATA:
+    parse_oacc_structured_block (st);
+    break;
+
 	case ST_OMP_PARALLEL:
 	case ST_OMP_PARALLEL_SECTIONS:
 	case ST_OMP_SECTIONS:
@@ -4311,21 +4326,6 @@ parse_executable (gfc_statement st)
 	case ST_OMP_ATOMIC:
 	  st = parse_omp_atomic ();
 	  continue;
-
-	case ST_OACC_PARALLEL_LOOP:
-	case ST_OACC_KERNELS_LOOP:
-	case ST_OACC_LOOP:
-	  st = parse_oacc_loop (st);
-          if (st == ST_IMPLIED_ENDDO)
-            return st;
-	  continue;
-
-	case ST_OACC_PARALLEL:
-	case ST_OACC_KERNELS:
-	case ST_OACC_DATA:
-	case ST_OACC_HOST_DATA:
-	  parse_oacc_structured_block (st);
-	  break;
 
 	default:
 	  return st;

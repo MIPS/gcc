@@ -2417,6 +2417,19 @@ show_code_node (int level, gfc_code *c)
 	fprintf (dumpfile, " EOR=%d", dt->eor->value);
       break;
 
+    case EXEC_OACC_PARALLEL_LOOP:
+    case EXEC_OACC_PARALLEL:
+    case EXEC_OACC_KERNELS_LOOP:
+    case EXEC_OACC_KERNELS:
+    case EXEC_OACC_DATA:
+    case EXEC_OACC_HOST_DATA:
+    case EXEC_OACC_LOOP:
+    case EXEC_OACC_UPDATE:
+    case EXEC_OACC_WAIT:
+    case EXEC_OACC_CACHE:
+      show_oacc_node (level, c);
+      break;
+
     case EXEC_OMP_ATOMIC:
     case EXEC_OMP_BARRIER:
     case EXEC_OMP_CRITICAL:
@@ -2435,19 +2448,6 @@ show_code_node (int level, gfc_code *c)
     case EXEC_OMP_TASKYIELD:
     case EXEC_OMP_WORKSHARE:
       show_omp_node (level, c);
-      break;
-
-    case EXEC_OACC_PARALLEL_LOOP:
-    case EXEC_OACC_PARALLEL:
-    case EXEC_OACC_KERNELS_LOOP:
-    case EXEC_OACC_KERNELS:
-    case EXEC_OACC_DATA:
-    case EXEC_OACC_HOST_DATA:
-    case EXEC_OACC_LOOP:
-    case EXEC_OACC_UPDATE:
-    case EXEC_OACC_WAIT:
-    case EXEC_OACC_CACHE:
-      show_oacc_node (level, c);
       break;
 
     default:

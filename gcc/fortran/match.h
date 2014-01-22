@@ -122,6 +122,21 @@ gfc_common_head *gfc_get_common (const char *, int);
 
 /* openmp.c.  */
 
+/* OpenACC directive matchers.  */
+match gfc_match_oacc_cache (void);
+match gfc_match_oacc_wait (void);
+match gfc_match_oacc_update (void);
+match gfc_match_oacc_declare (void);
+match gfc_match_oacc_loop (void);
+match gfc_match_oacc_host_data (void);
+match gfc_match_oacc_data (void);
+match gfc_match_oacc_kernels (void);
+match gfc_match_oacc_kernels_loop (void);
+match gfc_match_oacc_parallel (void);
+match gfc_match_oacc_parallel_loop (void);
+match gfc_match_oacc_enter_data (void);
+match gfc_match_oacc_exit_data (void);
+
 /* OpenMP directive matchers.  */
 match gfc_match_omp_eos (void);
 match gfc_match_omp_atomic (void);
@@ -144,21 +159,6 @@ match gfc_match_omp_threadprivate (void);
 match gfc_match_omp_workshare (void);
 match gfc_match_omp_end_nowait (void);
 match gfc_match_omp_end_single (void);
-
-/* OpenACC directive matchers.  */
-match gfc_match_oacc_cache (void);
-match gfc_match_oacc_wait (void);
-match gfc_match_oacc_update (void);
-match gfc_match_oacc_declare (void);
-match gfc_match_oacc_loop (void);
-match gfc_match_oacc_host_data (void);
-match gfc_match_oacc_data (void);
-match gfc_match_oacc_kernels (void);
-match gfc_match_oacc_kernels_loop (void);
-match gfc_match_oacc_parallel (void);
-match gfc_match_oacc_parallel_loop (void);
-match gfc_match_oacc_enter_data (void);
-match gfc_match_oacc_exit_data (void);
 
 /* decl.c.  */
 

@@ -1,9 +1,42 @@
+22-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
+        Beautification. Remove obsolete files.
+
+        gcc/
+        * tree.h: Replace OACC and OMP to alphabetical order.
+        * tree.c (tree_node_kind_names, tree_node_structure_for_code, 
+        initialize_tree_contains_struct, tree_code_size, tree_size,
+        record_node_allocation_statistics, build_omp_clause, build_oacc_clause):
+        Likewise
+        * tree-core.h (tree_node_kind, tree_omp_clause, tree_oacc_clause,
+        tree_block): Likewise
+        * tree-dump.c (dequeue_and_dump): Likewise
+        * tree-streamer.c (streamer_check_handled_ts_structures): Likewise
+        * treestruct.def: Likewise
+        gcc/fortran/
+        * dump-parse-tree.c (show_code_node): Likewise
+        * gfortran.h: Likewise
+        * match.c (match_exit_cycle): Likewise
+        * match.h: Likewise
+        * openmp.c: Likewise
+        * parse.c (gfc_ascii_statement, parse_executable): Likewise
+        * resolve.c (gfc_resolve_blocks, resolve_code): Likewise
+        libgcc/
+        * libgcov.c: Remove
+        libgo/go/net/
+        * fd_bsd.go: Likewise
+        * fd_poll_unix.go: Likewise
+        * fd_posix_test.go: Likewise
+        * http/server_test.go: Likewise
+        * sock_unix.go: Likewise
+        libgo/go/os/
+        * error_posix.go: Likewise
+
 21-01-2014  Dmitry Bocharnikov  <dmitry.b@samsung.com>
         Add comments.
 
         * gcc/oacc-low.c: Add comments.
         
-17-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
+18-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
         Fix LTO ICE. Remove obsolete files.
 
         * gcc/tree-streamer.c (streamer_check_handled_ts_structures):
@@ -31,7 +64,7 @@
         Fix segmentation fault in SSA form and linker errors
 
         * gcc/oacc-low.c(generate_ctrl_var_init): Fix segmentation fault
-        * liboacc/configure: Reconfigured
+        * liboacc/configure: Regenerate
         * liboacc/liboacc.c, liboacc/liboacc.h (OACC_check_cur_dev, 
         OACC_get_kernel, OACC_start_kernel, OACC_copyin, OACC_set_kernel_arg, 
         OACC_check_present, OACC_create_on_device, OACC_copyout, 
@@ -44,7 +77,7 @@
         GOACC_copyout, GOACC_create_events, GOACC_enqueue_events, 
         GOACC_advance_events, GOACC_wait_events, GOACC_add_named_async, 
         GOACC_add_nameless_async, GOACC_wait_named_async, GOACC_wait_all_async,
-        GOACC_start_profiling): ... this
+        GOACC_start_profiling): ... these
 
 10-01-2014 Ilmir Usmanov <i.usmanov@samsung.com>
         Merge OpenACC gfortran AST -> GENERIC translation with OpenMP's one.

@@ -76,8 +76,8 @@ streamer_check_handled_ts_structures (void)
   handled_p[TS_BINFO] = true;
   handled_p[TS_STATEMENT_LIST] = true;
   handled_p[TS_CONSTRUCTOR] = true;
-  handled_p[TS_OMP_CLAUSE] = true;
   handled_p[TS_OACC_CLAUSE] = true;
+  handled_p[TS_OMP_CLAUSE] = true;
   handled_p[TS_OPTIMIZATION] = true;
   handled_p[TS_TARGET_OPTION] = true;
   handled_p[TS_TRANSLATION_UNIT_DECL] = true;

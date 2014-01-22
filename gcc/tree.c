@@ -155,8 +155,8 @@ static const char * const tree_node_kind_names[] = {
   "random kinds",
   "lang_decl kinds",
   "lang_type kinds",
-  "omp clauses",
-  "acc clauses"
+  "acc clauses",
+  "omp clauses"
 };
 
 /* Unique id for next decl created.  */
@@ -465,8 +465,8 @@ tree_node_structure_for_code (enum tree_code code)
     case BLOCK:			return TS_BLOCK;
     case CONSTRUCTOR:		return TS_CONSTRUCTOR;
     case TREE_BINFO:		return TS_BINFO;
+    case OACC_CLAUSE:   return TS_OACC_CLAUSE;
     case OMP_CLAUSE:		return TS_OMP_CLAUSE;
-    case OACC_CLAUSE:		return TS_OACC_CLAUSE;
     case OPTIMIZATION_NODE:	return TS_OPTIMIZATION;
     case TARGET_OPTION_NODE:	return TS_TARGET_OPTION;
 
@@ -523,8 +523,8 @@ initialize_tree_contains_struct (void)
 	case TS_LIST:
 	case TS_VEC:
 	case TS_BINFO:
+  case TS_OACC_CLAUSE:
 	case TS_OMP_CLAUSE:
-	case TS_OACC_CLAUSE:
 	case TS_OPTIMIZATION:
 	case TS_TARGET_OPTION:
 	  MARK_TS_COMMON (code);
@@ -737,8 +737,8 @@ tree_code_size (enum tree_code code)
 	case PLACEHOLDER_EXPR:	return sizeof (struct tree_common);
 
 	case TREE_VEC:
+        case OACC_CLAUSE:
         case OMP_CLAUSE:        gcc_unreachable ();
-        case OACC_CLAUSE:        gcc_unreachable ();
 
 	case SSA_NAME:		return sizeof (struct tree_ssa_name);
 
@@ -781,14 +781,14 @@ tree_size (const_tree node)
     case STRING_CST:
       return TREE_STRING_LENGTH (node) + offsetof (struct tree_string, str) + 1;
 
-    case OMP_CLAUSE:
-      return (sizeof (struct tree_omp_clause)
-              + (omp_clause_num_ops[OMP_CLAUSE_CODE (node)] - 1)
-                * sizeof (tree));
-
     case OACC_CLAUSE:
       return (sizeof (struct tree_oacc_clause)
               + (oacc_clause_num_ops[OACC_CLAUSE_CODE (node)] - 1)
+                * sizeof (tree));
+
+    case OMP_CLAUSE:
+      return (sizeof (struct tree_omp_clause)
+              + (omp_clause_num_ops[OMP_CLAUSE_CODE (node)] - 1)
                 * sizeof (tree));
 
     default:
@@ -869,12 +869,12 @@ record_node_allocation_statistics (enum tree_code code ATTRIBUTE_UNUSED,
 	  kind = constr_kind;
 	  break;
 
+  case OACC_CLAUSE:
+    kind = oacc_clause_kind;
+    break;
+
 	case OMP_CLAUSE:
 	  kind = omp_clause_kind;
-	  break;
-
-	case OACC_CLAUSE:
-	  kind = oacc_clause_kind;
 	  break;
 
 	default:
@@ -10441,6 +10441,29 @@ build_empty_stmt (location_t loc)
 }
 
 
+/* Build an OpenACC clause with code CODE.  LOC is the location of the
+   clause.  */
+tree
+build_oacc_clause (location_t loc, enum oacc_clause_code code)
+{
+  tree t;
+  int size, length;
+
+  length = oacc_clause_num_ops[code];
+  size = (sizeof (struct tree_oacc_clause) + (length - 1) * sizeof (tree));
+
+  record_node_allocation_statistics (OACC_CLAUSE, size);
+
+  t = ggc_alloc_tree_node (size);
+  memset (t, 0, size);
+  TREE_SET_CODE (t, OACC_CLAUSE);
+  OACC_CLAUSE_SET_CODE (t, code);
+  OACC_CLAUSE_LOCATION (t) = loc;
+
+  return t;
+}
+
+
 /* Build an OpenMP clause with code CODE.  LOC is the location of the
    clause.  */
 
@@ -10460,29 +10483,6 @@ build_omp_clause (location_t loc, enum omp_clause_code code)
   TREE_SET_CODE (t, OMP_CLAUSE);
   OMP_CLAUSE_SET_CODE (t, code);
   OMP_CLAUSE_LOCATION (t) = loc;
-
-  return t;
-}
-
-
-/* Build an OpenACC clause with code CODE.  LOC is the location of the
-   clause.  */
-tree
-build_oacc_clause (location_t loc, enum oacc_clause_code code)
-{
-  tree t;
-  int size, length;
-
-  length = oacc_clause_num_ops[code];
-  size = (sizeof (struct tree_oacc_clause) + (length - 1) * sizeof (tree));
-
-  record_node_allocation_statistics (OACC_CLAUSE, size);
-
-  t = ggc_alloc_tree_node (size);
-  memset (t, 0, size);
-  TREE_SET_CODE (t, OACC_CLAUSE);
-  OACC_CLAUSE_SET_CODE (t, code);
-  OACC_CLAUSE_LOCATION (t) = loc;
 
   return t;
 }

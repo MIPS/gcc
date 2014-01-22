@@ -8976,6 +8976,16 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_WAIT:
 	  break;
 
+	case EXEC_OACC_PARALLEL_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_CACHE:
 	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_CRITICAL:
 	case EXEC_OMP_DO:
@@ -8991,16 +9001,6 @@ gfc_resolve_blocks (gfc_code *b, gfc_namespace *ns)
 	case EXEC_OMP_TASKWAIT:
 	case EXEC_OMP_TASKYIELD:
 	case EXEC_OMP_WORKSHARE:
-	case EXEC_OACC_PARALLEL_LOOP:
-	case EXEC_OACC_PARALLEL:
-	case EXEC_OACC_KERNELS_LOOP:
-	case EXEC_OACC_KERNELS:
-	case EXEC_OACC_DATA:
-	case EXEC_OACC_HOST_DATA:
-	case EXEC_OACC_LOOP:
-	case EXEC_OACC_UPDATE:
-	case EXEC_OACC_WAIT:
-	case EXEC_OACC_CACHE:
 	  break;
 
 	default:
@@ -9735,6 +9735,15 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	  omp_workshare_save = -1;
 	  switch (code->op)
 	    {
+            case EXEC_OACC_PARALLEL:
+            case EXEC_OACC_KERNELS:
+            case EXEC_OACC_DATA:
+            case EXEC_OACC_HOST_DATA:
+            case EXEC_OACC_PARALLEL_LOOP:
+            case EXEC_OACC_KERNELS_LOOP:
+            case EXEC_OACC_LOOP:
+              gfc_resolve_oacc_blocks (code, ns);
+              break;
 	    case EXEC_OMP_PARALLEL_WORKSHARE:
 	      omp_workshare_save = omp_workshare_flag;
 	      omp_workshare_flag = 1;
@@ -9760,15 +9769,6 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	      gfc_resolve_blocks (code->block, ns);
 	      gfc_do_concurrent_flag = 2;
 	      break;
-            case EXEC_OACC_PARALLEL:
-            case EXEC_OACC_KERNELS:
-            case EXEC_OACC_DATA:
-            case EXEC_OACC_HOST_DATA:
-            case EXEC_OACC_PARALLEL_LOOP:
-            case EXEC_OACC_KERNELS_LOOP:
-            case EXEC_OACC_LOOP:
-              gfc_resolve_oacc_blocks (code, ns);
-              break;
 	    case EXEC_OMP_WORKSHARE:
 	      omp_workshare_save = omp_workshare_flag;
 	      omp_workshare_flag = 1;
@@ -10070,6 +10070,21 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 		       "expression", &code->expr1->where);
 	  break;
 
+	case EXEC_OACC_PARALLEL_LOOP:
+	case EXEC_OACC_PARALLEL:
+	case EXEC_OACC_KERNELS_LOOP:
+	case EXEC_OACC_KERNELS:
+	case EXEC_OACC_DATA:
+	case EXEC_OACC_HOST_DATA:
+	case EXEC_OACC_LOOP:
+	case EXEC_OACC_UPDATE:
+	case EXEC_OACC_WAIT:
+	case EXEC_OACC_CACHE:
+	case EXEC_OACC_ENTER_DATA:
+        case EXEC_OACC_EXIT_DATA:
+	  gfc_resolve_oacc_directive (code, ns);
+	  break;
+
 	case EXEC_OMP_ATOMIC:
 	case EXEC_OMP_BARRIER:
 	case EXEC_OMP_CRITICAL:
@@ -10094,21 +10109,6 @@ resolve_code (gfc_code *code, gfc_namespace *ns)
 	  omp_workshare_flag = 0;
 	  gfc_resolve_omp_directive (code, ns);
 	  omp_workshare_flag = omp_workshare_save;
-	  break;
-
-	case EXEC_OACC_PARALLEL_LOOP:
-	case EXEC_OACC_PARALLEL:
-	case EXEC_OACC_KERNELS_LOOP:
-	case EXEC_OACC_KERNELS:
-	case EXEC_OACC_DATA:
-	case EXEC_OACC_HOST_DATA:
-	case EXEC_OACC_LOOP:
-	case EXEC_OACC_UPDATE:
-	case EXEC_OACC_WAIT:
-	case EXEC_OACC_CACHE:
-	case EXEC_OACC_ENTER_DATA:
-        case EXEC_OACC_EXIT_DATA:
-	  gfc_resolve_oacc_directive (code, ns);
 	  break;
 
 	default:

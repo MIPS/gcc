@@ -3670,10 +3670,10 @@ extern tree build_fn_decl (const char *, tree);
 extern tree build_translation_unit_decl (tree);
 extern tree build_block (tree, tree, tree, tree);
 extern tree build_empty_stmt (location_t);
-extern tree build_omp_clause (location_t, enum omp_clause_code);
 extern tree build_oacc_clause (location_t, enum oacc_clause_code);
 extern tree build_oacc_subarray_bounds (tree, tree, tree);
 extern tree build_oacc_subarray (tree, tree);
+extern tree build_omp_clause (location_t, enum omp_clause_code);
 
 extern tree build_vl_exp_stat (enum tree_code, int MEM_STAT_DECL);
 #define build_vl_exp(c, n) build_vl_exp_stat (c, n MEM_STAT_INFO)

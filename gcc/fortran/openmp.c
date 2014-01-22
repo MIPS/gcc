@@ -843,22 +843,6 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, long long mask, bool is_acc)
   return MATCH_YES;
 }
 
-#define OMP_PARALLEL_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
-   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_IF		\
-   | OMP_CLAUSE_NUM_THREADS | OMP_CLAUSE_DEFAULT)
-#define OMP_DO_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
-   | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION			\
-   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED | OMP_CLAUSE_COLLAPSE)
-#define OMP_SECTIONS_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
-   | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION)
-#define OMP_TASK_CLAUSES \
-  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
-   | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED		\
-   | OMP_CLAUSE_FINAL | OMP_CLAUSE_MERGEABLE)
-
 #define OACC_PARALLEL_CLAUSES \
   (OACC_CLAUSE_IF | OACC_CLAUSE_ASYNC | OACC_CLAUSE_NUM_GANGS                    \
    | OACC_CLAUSE_NUM_WORKERS | OACC_CLAUSE_VECTOR_LENGTH | OACC_CLAUSE_REDUCTION \
@@ -903,6 +887,201 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, long long mask, bool is_acc)
 #define OACC_EXIT_DATA_CLAUSES \
   (OACC_CLAUSE_IF | OACC_CLAUSE_ASYNC | OACC_CLAUSE_WAIT | OACC_CLAUSE_COPYOUT \
    | OACC_CLAUSE_DELETE)
+
+#define OMP_PARALLEL_CLAUSES \
+  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
+   | OMP_CLAUSE_COPYIN | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_IF		\
+   | OMP_CLAUSE_NUM_THREADS | OMP_CLAUSE_DEFAULT)
+#define OMP_DO_CLAUSES \
+  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
+   | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION			\
+   | OMP_CLAUSE_SCHEDULE | OMP_CLAUSE_ORDERED | OMP_CLAUSE_COLLAPSE)
+#define OMP_SECTIONS_CLAUSES \
+  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE				\
+   | OMP_CLAUSE_LASTPRIVATE | OMP_CLAUSE_REDUCTION)
+#define OMP_TASK_CLAUSES \
+  (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
+   | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED		\
+   | OMP_CLAUSE_FINAL | OMP_CLAUSE_MERGEABLE)
+
+
+match
+gfc_match_oacc_parallel_loop (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_LOOP_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_PARALLEL_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_parallel (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_PARALLEL;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_kernels_loop (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_KERNELS_LOOP_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_KERNELS_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_kernels (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_KERNELS_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_KERNELS;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_data (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_DATA_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_host_data (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_HOST_DATA_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_HOST_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_loop (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_LOOP_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_declare (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_update (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_UPDATE_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_UPDATE;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_enter_data (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_ENTER_DATA_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_ENTER_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_exit_data (void)
+{
+  gfc_oacc_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_EXIT_DATA_CLAUSES, true) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_EXIT_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_wait (void)
+{
+  gfc_oacc_clauses *c = gfc_get_oacc_clauses ();
+  gfc_match (" ( %e )", &c->non_clause_wait_expr);
+
+  new_st.op = EXEC_OACC_WAIT;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_cache (void)
+{
+  gfc_oacc_clauses *c = gfc_get_oacc_clauses ();
+  match m = gfc_match_omp_variable_list (" (",&c->lists[OACC_LIST_CACHE], true,
+                                     true);
+  if (m != MATCH_YES)
+    {
+      gfc_free_omp_clauses(c);
+      return m;
+    }
+
+  if (gfc_current_state() != COMP_DO)
+    {
+      gfc_error ("ACC CACHE directive must be inside of loop %C");
+      gfc_free_omp_clauses(c);
+      return MATCH_ERROR;
+    }
+
+  new_st.op = EXEC_OACC_CACHE;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
 
 
 match
@@ -1252,186 +1431,6 @@ gfc_match_omp_end_single (void)
 }
 
 
-match
-gfc_match_oacc_parallel_loop (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_LOOP_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_PARALLEL_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_parallel (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_PARALLEL;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_kernels_loop (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_KERNELS_LOOP_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_KERNELS_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_kernels (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_KERNELS_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_KERNELS;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_data (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_DATA_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_host_data (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_HOST_DATA_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_HOST_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_loop (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_LOOP_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_LOOP;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_declare (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_update (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_UPDATE_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_UPDATE;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_enter_data (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_ENTER_DATA_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_ENTER_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_exit_data (void)
-{
-  gfc_oacc_clauses *c;
-  if (gfc_match_omp_clauses (&c, OACC_EXIT_DATA_CLAUSES, true) != MATCH_YES)
-    return MATCH_ERROR;
-
-  new_st.op = EXEC_OACC_EXIT_DATA;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_wait (void)
-{
-  gfc_oacc_clauses *c = gfc_get_oacc_clauses ();
-  gfc_match (" ( %e )", &c->non_clause_wait_expr);
-
-  new_st.op = EXEC_OACC_WAIT;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-match
-gfc_match_oacc_cache (void)
-{
-  gfc_oacc_clauses *c = gfc_get_oacc_clauses ();
-  match m = gfc_match_omp_variable_list (" (",&c->lists[OACC_LIST_CACHE], true,
-                                     true);
-  if (m != MATCH_YES)
-    {
-      gfc_free_omp_clauses(c);
-      return m;
-    }
-
-  if (gfc_current_state() != COMP_DO)
-    {
-      gfc_error ("ACC CACHE directive must be inside of loop %C");
-      gfc_free_omp_clauses(c);
-      return MATCH_ERROR;
-    }
-
-  new_st.op = EXEC_OACC_CACHE;
-  new_st.ext.omp_clauses = c;
-  return MATCH_YES;
-}
-
-
-
 static void
 resolve_oacc_scalar_int_expr (gfc_expr *expr, const char *clause)
 {
@@ -1705,7 +1704,8 @@ resolve_omp_clauses (gfc_code *code)
 		  gfc_error ("Variable '%s' in %s clause is used in "
 			     "NAMELIST statement at %L",
 			     n->sym->name, name, &code->loc);
-	        if (list >= OACC_LIST_REDUCTION_FIRST
+	        if (omp_clauses->is_acc
+              && list >= OACC_LIST_REDUCTION_FIRST
 	            && list <= OACC_LIST_REDUCTION_LAST
 	            && n->sym->as && n->sym->as->rank != 0)
 	          gfc_error ("OpenACC reduction requires SCALAR variable "
@@ -2824,6 +2824,38 @@ resolve_oacc_wait (gfc_code *code)
     resolve_oacc_positive_int_expr (el->expr, "WAIT");
 }
 
+
+void
+gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
+{
+  switch (code->op)
+    {
+    case EXEC_OACC_CACHE:
+      resolve_oacc_cache (code);
+      break;
+    case EXEC_OACC_WAIT:
+      resolve_oacc_wait (code);
+      break;
+    case EXEC_OACC_UPDATE:
+    case EXEC_OACC_HOST_DATA:
+    case EXEC_OACC_DATA:
+    case EXEC_OACC_KERNELS:
+    case EXEC_OACC_PARALLEL:
+    case EXEC_OACC_ENTER_DATA:
+    case EXEC_OACC_EXIT_DATA:
+      resolve_omp_clauses (code);
+      break;
+    case EXEC_OACC_LOOP:
+    case EXEC_OACC_KERNELS_LOOP:
+    case EXEC_OACC_PARALLEL_LOOP:
+      resolve_oacc_loop (code);
+      break;
+    default:
+      break;
+    }
+}
+
+
 /* Resolve OpenMP directive clauses and check various requirements
    of each directive.  */
 
@@ -2851,37 +2883,6 @@ gfc_resolve_omp_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
       break;
     case EXEC_OMP_ATOMIC:
       resolve_omp_atomic (code);
-      break;
-    default:
-      break;
-    }
-}
-
-
-void
-gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
-{
-  switch (code->op)
-    {
-    case EXEC_OACC_CACHE:
-      resolve_oacc_cache (code);
-      break;
-    case EXEC_OACC_WAIT:
-      resolve_oacc_wait (code);
-      break;
-    case EXEC_OACC_UPDATE:
-    case EXEC_OACC_HOST_DATA:
-    case EXEC_OACC_DATA:
-    case EXEC_OACC_KERNELS:
-    case EXEC_OACC_PARALLEL:
-    case EXEC_OACC_ENTER_DATA:
-    case EXEC_OACC_EXIT_DATA:
-      resolve_omp_clauses (code);
-      break;
-    case EXEC_OACC_LOOP:
-    case EXEC_OACC_KERNELS_LOOP:
-    case EXEC_OACC_PARALLEL_LOOP:
-      resolve_oacc_loop (code);
       break;
     default:
       break;
