@@ -5225,7 +5225,7 @@ mips_output_move (rtx dest, rtx src)
 	{
 	  switch (mode)
 	    {
-	    case TImode: /* Juld use ld.d/ld.w to ldore.  */
+	    case TImode: /* Just use ld.d/ld.w to load.  */
 	      return TARGET_64BIT ? "ld.d\t%w0,%1" : "ld.w\t%w0,%1";
 	    case V16QImode: return "ld.b\t%w0,%1";
 	    case V8HImode: return "ld.h\t%w0,%1";
