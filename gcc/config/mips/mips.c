@@ -1851,37 +1851,37 @@ bool
 mips_const_vector_bitimm_clr_p (rtx op, enum machine_mode mode)
 {
   if (GET_CODE (op) == CONST_VECTOR && op != constm1_rtx)
-  {
-    rtx elt0 = CONST_VECTOR_ELT (op, 0);
-    HOST_WIDE_INT val = INTVAL (elt0);
-    int vlog2 = exact_log2 (~val);
-
-    if (vlog2 != -1)
     {
-      switch (mode)
-      {
-	case V16QImode:
-	  if (!(0 <= vlog2 && vlog2 <= 7))
-	    return false;
-	  break;	
-	case V8HImode:
-	  if (!(0 <= vlog2 && vlog2 <= 15))
-	    return false;
-	  break;
-	case V4SImode:
-	  if (!(0 <= vlog2 && vlog2 <= 31))
-	    return false;
-	  break;
-	case V2DImode:
-	  if (!(0 <= vlog2 && vlog2 <= 63))
-	    return false;
-	  break;
-	default:
-	  gcc_unreachable ();
-      }
+      rtx elt0 = CONST_VECTOR_ELT (op, 0);
+      HOST_WIDE_INT val = INTVAL (elt0);
+      int vlog2 = exact_log2 (~val);
 
-      return mips_const_vector_same_val_p (op, mode);
-    }
+      if (vlog2 != -1)
+	{
+	  switch (mode)
+	    {
+	    case V16QImode:
+	      if (!(0 <= vlog2 && vlog2 <= 7))
+		return false;
+	      break;
+	    case V8HImode:
+	      if (!(0 <= vlog2 && vlog2 <= 15))
+		return false;
+	      break;
+	    case V4SImode:
+	      if (!(0 <= vlog2 && vlog2 <= 31))
+		return false;
+	      break;
+	    case V2DImode:
+	      if (!(0 <= vlog2 && vlog2 <= 63))
+		return false;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+
+	  return mips_const_vector_same_val_p (op, mode);
+	}
   }
 
   return false;
