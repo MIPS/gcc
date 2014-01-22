@@ -863,7 +863,7 @@
   }
   [(set_attr "alu_type"	"or")
    (set_attr "mode"	"TI")])
-      
+
 (define_insn "ior<mode>3"
   [(set (match_operand:IMSA_X 0 "register_operand" "=f,f")
 	(ior:IMSA_X (match_operand:IMSA_X 1 "register_operand" "f,f")
