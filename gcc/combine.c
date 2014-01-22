@@ -5304,7 +5304,20 @@ combine_simplify_rtx (rtx x, enum machine_mode op0_mode, int in_dest,
 	  enum rtx_code cond_code = simplify_comparison (NE, &cond, &cop1);
 
 	  if (cond_code == NE && COMPARISON_P (cond))
-	    return x;
+	    {
+	      /* If we have simplified it down to an if_then_else that has
+		 one constant on the right hand side, we should if_then_else
+		 here; this allows for
+		 (and (neg (CMP (A) (B))) (C) to be converted into
+		 (if_then_else (CMP (A) (B)) (C) 0). */
+	      if (cop1 == const0_rtx
+		  && (!CONSTANT_P (true_rtx)
+		      ^ !CONSTANT_P (false_rtx)))
+		return gen_rtx_IF_THEN_ELSE (mode,
+					     cond,
+					     true_rtx, false_rtx);
+	      return x;
+	    }
 
 	  /* Simplify the alternative arms; this may collapse the true and
 	     false arms to store-flag values.  Be careful to use copy_rtx

@@ -216,6 +216,13 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2014-01-21  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #9190
+	* combine.c (combine_simplify_rtx): Produce if_then_else
+	when either true or false side is constant but not both
+	after we got a comparison back from simplify_comparison.
+
 2013-10-24  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #8531
