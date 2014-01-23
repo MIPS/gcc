@@ -10,6 +10,11 @@
 	(compile2obj_initproc, compile2obj_initextendproc): Likewise.
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (outpucod_initialmoduleroutine): Emit
+	definition of melt_module_is_gpl_compatible when
+	MODULE_IS_GPL_COMPATIBLE macro is used, otherwise give a warning.
+
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
 
