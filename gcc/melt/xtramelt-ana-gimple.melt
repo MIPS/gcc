@@ -28,8 +28,8 @@
 ;; the copyright notice above apply both to xtramelt-ana-gimple.melt and 
 ;; to the generated file  xtramelt-ana-gimple*.c
 
-;; Most code here was in xtramelt-ana-base.melt before svn rev 186705
-;; ie MELT version 0.9.5 and earlier (before april 24th, 2012).
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -2,6 +2,23 @@
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-first.melt: Add module_is_gpl_compatible.
+	* melt/warmelt-genobj.melt: Add module_is_gpl_compatible.
+	* melt/warmelt-macro.melt: Add module_is_gpl_compatible.
+	* melt/warmelt-modes.melt: Add module_is_gpl_compatible.
+	* melt/warmelt-moremacro.melt: Add module_is_gpl_compatible.
+	* melt/warmelt-normal.melt: Add module_is_gpl_compatible.
+	* melt/warmelt-normatch.melt: Add module_is_gpl_compatible.
+	* melt/warmelt-outobj.melt: Add module_is_gpl_compatible.
+	* melt/xtramelt-ana-base.melt: Add module_is_gpl_compatible.
+	* melt/xtramelt-ana-gimple.melt: Add module_is_gpl_compatible.
+	* melt/xtramelt-ana-simple.melt: Add module_is_gpl_compatible.
+	* melt/xtramelt-ana-tree.melt: Add module_is_gpl_compatible.
+	* melt/xtramelt-playground.melt: Add module_is_gpl_compatible.
+	* melt/xtramelt-probe.melt: Add module_is_gpl_compatible.
+
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>

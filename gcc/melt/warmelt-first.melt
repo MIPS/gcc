@@ -25,6 +25,10 @@
 ;; the copyright notice above apply both to warmelt-first.melt and 
 ;; to the generated files  warmelt-first*.c
 
+
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 

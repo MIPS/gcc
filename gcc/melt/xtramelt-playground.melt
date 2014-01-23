@@ -25,7 +25,9 @@
 ;; this file should not contain useful things on MELT plugin
 ;; releases.  It is a playground for testing purposes.
 
-(inform_at () "from xtramelt-playground one=dollar1=$1 2=dollar2=$2 foo=dollar3=$3"
-	   'one 2 "foo")
-(debug "xtramelt-playground ended")		
+
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
+
+	
 ;; eof xtramelt-playground.melt

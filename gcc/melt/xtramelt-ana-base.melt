@@ -28,9 +28,10 @@
 ;; the copyright notice above apply both to xtramelt-ana-base.melt and 
 ;; to the generated file  xtramelt-ana-base*.c
 
-;; This file has been split, with large parts moved into
-;; xtramelt-ana-tree.melt & xtramelt-ana-gimple.melt after svn rev
-;; 186705 ie MELT version 0.9.5 (april 24th, 2012).
+
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
+
 
 ;; a class containing the analysis state
 (defclass class_analysis_state

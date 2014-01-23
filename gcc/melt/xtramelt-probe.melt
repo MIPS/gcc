@@ -2,7 +2,7 @@
 ;; file xtramelt-probe.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2012 Free Software Foundation, Inc.
+    Copyright 2012 - 2014 Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -29,6 +29,8 @@
 
  ***")
 
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
 
 (defselector send_object_to_probe class_selector
   :doc #{The selector $SEND_OBJECT_TO_PROBE is used for sending

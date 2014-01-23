@@ -23,6 +23,10 @@
 
 ;; the copyright notice above apply both to warmelt-outobj.melt and 
 ;; to the generated file  warmelt-outobj*.c
+
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;    This file is part of a bootstrapping compiler for the MELT lisp

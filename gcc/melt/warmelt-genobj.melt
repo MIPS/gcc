@@ -1,7 +1,7 @@
  ;; File warmelt-genobj.melt -*- Lisp -*-
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
  (comment "***
-     Copyright 2008 - 2013 Free Software Foundation, Inc.
+     Copyright 2008 - 2014  Free Software Foundation, Inc.
      Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
      This file is part of GCC.
@@ -23,6 +23,10 @@
 
  ;; the copyright notice above apply both to warmelt-genobj.melt and 
  ;; to the generated file  warmelt-genobj*.c
+
+
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
 
  ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
