@@ -40,7 +40,7 @@ MELT_EXTERN const char meltrun_used_md5_melt[] = MELT_RUN_HASHMD5 /* from melt-r
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h1018415447; // forward declaration fromline 6542
+class Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h1018415447; // forward declaration fromline 6566
 typedef Melt_InitialClassyFrame_WARMELTmiMOREMACRO_h1018415447 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
@@ -118,6 +118,7 @@ MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_10_WARMELTmiMOREMACRO_MEX
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
+MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
@@ -9038,6 +9039,9 @@ meltlabend_rout:
 
 /*no syntax testing generated*/
 
+
+const char melt_module_is_gpl_compatible[]= "warmelt-moremacro: GPLv3+";
+
 /* the frame for initial routine */
 /** start of frame for melt_start_this_module of CLASS_INITIAL_MODULE_ROUTINEOBJ from 1518**/
 
@@ -9985,7 +9989,7 @@ void* melt_start_this_module (void* modargp_)
 #undef meltcallcount
 #define meltcallcount 0L
 #endif
-//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2187
+//// emitted by output_curframe_declstruct_init using LAMBDA_ @warmelt-outobj.melt:2211
 
     /* start of frame for routine melt_start_this_module fromline 1715 */
 
@@ -10596,7 +10600,7 @@ void* melt_start_this_module (void* modargp_)
     /**initial routine body**/
 
     debugeprintf (" in initialization of warmelt-moremacro thru 3 chunk routines with frame @%p of %d bytes",
-                  /*fromline 2272*/ (void*)&meltfram__, (int) sizeof(meltfram__));
+                  /*fromline 2296*/ (void*)&meltfram__, (int) sizeof(meltfram__));
     melt_debuggc_eprintf ("initialization of warmelt-moremacro thru 3 chunks, frame @%p of %d bytes",
                           (void*)&meltfram__, (int) sizeof(meltfram__));
 
@@ -10607,8 +10611,8 @@ void* melt_start_this_module (void* modargp_)
 meltlabend_rout:
     ;
     {
-        /* return out of initial fromline 2304 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
-        debugeprintf ("returning @%p from initial routine of warmelt-moremacro", (void*)retval); /*fromline 2312*/
+        /* return out of initial fromline 2328 */ melt_ptr_t retval = /*_._RETINIT___V1*/ meltfptr[0];
+        debugeprintf ("returning @%p from initial routine of warmelt-moremacro", (void*)retval); /*fromline 2336*/
         return retval;
     }
 #undef meltcallcount
@@ -10616,7 +10620,7 @@ meltlabend_rout:
 #undef MELTFRAM_NBVARNUM
 #undef MELTFRAM_NBVARPTR
 
-} /* end fromline 2325 */
+} /* end fromline 2349 */
 
 void meltmod__WARMELTmiMOREMACRO__initialmeltchunk_0 (meltinitial_frame_t* meltframptr__, char meltpredefinited[])
 {

@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f2[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiHOOKS_h319183813; // forward declaration fromline 6542
+class Melt_InitialClassyFrame_WARMELTmiHOOKS_h319183813; // forward declaration fromline 6566
 typedef Melt_InitialClassyFrame_WARMELTmiHOOKS_h319183813 Melt_InitialFrame;
 /*** 3 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
@@ -1025,6 +1025,7 @@ MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_89_WARMELTmiHOOKS_UNREGIS
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
+// this MELT module warmelt-hooks does not claim GPL compatibility.
 
 /*declare opaque initial frame: */
 

@@ -39,7 +39,7 @@ MELT_EXTERN const char meltrun_used_md5_melt_f5[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiMACRO_h183257555; // forward declaration fromline 6542
+class Melt_InitialClassyFrame_WARMELTmiMACRO_h183257555; // forward declaration fromline 6566
 typedef Melt_InitialClassyFrame_WARMELTmiMACRO_h183257555 Melt_InitialFrame;
 /*** 6 MELT module variables declarations ****/
 MELT_EXTERN void melt_forwarding_module_data (void);
@@ -982,6 +982,7 @@ MELT_EXTERN melt_ptr_t MELT_MODULE_VISIBILITY meltrout_173_WARMELTmiMACRO_MEXPAN
 
 MELT_EXTERN void* melt_start_this_module (void*); /*mandatory start of module*/
 
+MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
