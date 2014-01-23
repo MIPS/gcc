@@ -373,12 +373,6 @@ procedure Gnat1drv is
 
          Operating_Mode := Check_Semantics;
 
-         --  Skip call to gigi
-
-         --  This debug flag is not documented, AARGH! ???
-
-         Debug_Flag_HH := True;
-
          --  Enable assertions, since they give valuable extra information for
          --  formal verification.
 
@@ -388,11 +382,6 @@ procedure Gnat1drv is
          --  front-end warnings when we are getting SPARK output.
 
          Reset_Style_Check_Options;
-
-         --  Suppress compiler warnings, since what we are interested in here
-         --  is what formal verification can find out.
-
-         Warning_Mode := Suppress;
 
          --  Suppress the generation of name tables for enumerations, which are
          --  not needed for formal verification, and fall outside the SPARK
@@ -864,34 +853,9 @@ begin
       Original_Operating_Mode := Operating_Mode;
       Frontend;
 
-      --  Exit with errors if the main source could not be parsed. Also, when
-      --  -gnatd.H is present, the source file is not set.
+      --  Exit with errors if the main source could not be parsed.
 
       if Sinput.Main_Source_File = No_Source_File then
-
-         --  Handle -gnatd.H debug mode
-
-         if Debug_Flag_Dot_HH then
-
-            --  For -gnatd.H, lock all the tables to keep the convention that
-            --  the backend needs to unlock the tables it wants to touch.
-
-            Atree.Lock;
-            Elists.Lock;
-            Fname.UF.Lock;
-            Inline.Lock;
-            Lib.Lock;
-            Nlists.Lock;
-            Sem.Lock;
-            Sinput.Lock;
-            Namet.Lock;
-            Stringt.Lock;
-
-            --  And all we need to do is to call the back end
-
-            Back_End.Call_Back_End (Back_End.Generate_Object);
-         end if;
-
          Errout.Finalize (Last_Call => True);
          Errout.Output_Messages;
          Exit_Program (E_Errors);

@@ -1045,14 +1045,14 @@ package body Sem_Ch4 is
            and then Ekind (Designated_Type (Etype (Nam))) = E_Subprogram_Type
            and then
              (not Name_Denotes_Function
-                or else Nkind (N) = N_Procedure_Call_Statement
-                or else
-                  (Nkind (Parent (N)) /= N_Explicit_Dereference
-                     and then Is_Entity_Name (Nam)
-                     and then No (First_Formal (Entity (Nam)))
-                     and then not
-                       Is_Array_Type (Etype (Designated_Type (Etype (Nam))))
-                     and then Present (Actuals)))
+               or else Nkind (N) = N_Procedure_Call_Statement
+               or else
+                 (Nkind (Parent (N)) /= N_Explicit_Dereference
+                   and then Is_Entity_Name (Nam)
+                   and then No (First_Formal (Entity (Nam)))
+                   and then not
+                     Is_Array_Type (Etype (Designated_Type (Etype (Nam))))
+                   and then Present (Actuals)))
          then
             Nam_Ent := Designated_Type (Etype (Nam));
             Insert_Explicit_Dereference (Nam);
@@ -3677,13 +3677,20 @@ package body Sem_Ch4 is
                --  The parser cannot distinguish between a loop specification
                --  and an iterator specification. If after pre-analysis the
                --  proper form has been recognized, rewrite the expression to
-               --  reflect the right kind. The analysis of the loop has been
-               --  performed on a copy that has the proper iterator form. This
-               --  is needed in particular for ASIS navigation.
+               --  reflect the right kind. This is needed for proper ASIS
+               --  navigation. If expansion is enabled, the transformation is
+               --  performed when the expression is rewritten as a loop.
 
-               Set_Loop_Parameter_Specification (N, Empty);
                Set_Iterator_Specification (N,
                  New_Copy_Tree (Iterator_Specification (Parent (Loop_Par))));
+
+               Set_Defining_Identifier (Iterator_Specification (N),
+                 Relocate_Node (Defining_Identifier (Loop_Par)));
+               Set_Name (Iterator_Specification (N),
+                 Relocate_Node (Discrete_Subtype_Definition (Loop_Par)));
+               Set_Comes_From_Source (Iterator_Specification (N),
+                 Comes_From_Source (Loop_Parameter_Specification (N)));
+               Set_Loop_Parameter_Specification (N, Empty);
             end if;
          end;
       end if;
@@ -4645,15 +4652,16 @@ package body Sem_Ch4 is
                      Set_Etype (Sel, Etype (Comp));
                      Set_Etype (N,   Etype (Comp));
 
-                     --  Emit appropriate message. Gigi will replace the node
-                     --  subsequently with the appropriate Raise.
+                     --  Emit appropriate message. The node will be replaced
+                     --  by an appropriate raise statement.
 
-                     --  In SPARK mode, this is made into an error to simplify
-                     --  the processing of the formal verification backend.
+                     --  Note that in SPARK mode, as with all calls to apply a
+                     --  compile time constraint error, this will be made into
+                     --  an error to simplify the processing of the formal
+                     --  verification backend.
 
-                     Error_Msg_Warn := SPARK_Mode /= On;
                      Apply_Compile_Time_Constraint_Error
-                       (N, "component not present in }<<",
+                       (N, "component not present in }??",
                         CE_Discriminant_Check_Failed,
                         Ent => Prefix_Type, Rep => False);
 
@@ -6143,7 +6151,8 @@ package body Sem_Ch4 is
             --  In an instance a generic actual may be a numeric type even if
             --  the formal in the generic unit was not. In that case, the
             --  predefined operator was not a possible interpretation in the
-            --  generic, and cannot be one in the instance.
+            --  generic, and cannot be one in the instance, unless the operator
+            --  is an actual of an instance.
 
             if In_Instance
               and then
@@ -6568,6 +6577,17 @@ package body Sem_Ch4 is
                         if Nkind (N) /= N_Op_Concat then
                            Error_Msg_NE ("\left operand has}!",  N, Etype (L));
                            Error_Msg_NE ("\right operand has}!", N, Etype (R));
+
+                        --  For concatenation operators it is more difficult to
+                        --  determine which is the wrong operand. It is worth
+                        --  flagging explicitly an access type, for those who
+                        --  might think that a dereference happens here.
+
+                        elsif Is_Access_Type (Etype (L)) then
+                           Error_Msg_N ("\left operand is access type", N);
+
+                        elsif Is_Access_Type (Etype (R)) then
+                           Error_Msg_N ("\right operand is access type", N);
                         end if;
                      end if;
                   end if;

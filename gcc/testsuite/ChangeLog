@@ -1,3 +1,73 @@
+2014-01-22  Marek Polacek  <polacek@redhat.com>
+
+	PR c/59891
+	* gcc.dg/torture/pr59891.c: New test.
+
+2014-01-22  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/59597
+	* gcc.dg/tree-ssa/pr59597.c: New test.
+
+2014-01-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59477
+	* g++.dg/pr59477.C: New.
+
+2014-01-22  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/pr44194-1.c: Match "insn " and "insn:", but not "insn/f".
+
+2014-01-22  Ville Voutilainen  <ville.voutilainen@gmail.com>
+
+	PR c++/59482
+	* g++.dg/pr59482.C: New.
+
+2014-01-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/vmx/insert-vsx-be-order.c: New.
+	* gcc.dg/vmx/extract-vsx.c: New.
+	* gcc.dg/vmx/extract-vsx-be-order.c: New.
+	* gcc.dg/vmx/insert-vsx.c: New.
+
+2014-01-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59896
+	* gcc.target/arm/pr59896.c: New.
+
+2014-01-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59858
+	* gcc.target/arm/pr59858.c: New.
+
+2014-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59003
+	* gcc.dg/tree-prof/pr59003.c: New test.
+
+	PR middle-end/59860
+	* gcc.dg/strlenopt-4.c: Expect the same counts on s390*-* as on all
+	other targets.
+
+2014-01-20  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	* gfortran.dg/round_3.f08: Add more cases.
+
+2014-01-20  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lib/target-supports.exp (force_conventional_output_for): New
+	procedure.
+	* lib/scanasm.exp (scan-assembler_required_options)
+	(scan-assembler-not_required_options)
+	(scan-assembler-times_required_options): Replace with
+	force_conventional_output_fors.
+	* lib/scanrtl.exp: Force conventional output for all rtl dump scans.
+	* gcc.target/mips/octeon-pipe-1.c: Remove -ffat-lto-objects.
+
+2014-01-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/59789
+	* gcc.target/i386/pr59789.c: New testcase.
+
 2014-01-20  Yufeng Zhang  <yufeng.zhang@arm.com>
 
 	* g++.dg/debug/ra1.C (struct tree_base): Change the width of

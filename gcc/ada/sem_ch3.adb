@@ -91,6 +91,15 @@ package body Sem_Ch3 is
    --  abstract interface types implemented by a record type or a derived
    --  record type.
 
+   procedure Analyze_Variable_Contract (Var_Id : Entity_Id);
+   --  Analyze all delayed aspects chained on the contract of variable Var_Id
+   --  as if they appeared at the end of the declarative region. The aspects
+   --  to be considered are:
+   --    Async_Readers
+   --    Async_Writers
+   --    Effective_Reads
+   --    Effective_Writes
+
    procedure Build_Derived_Type
      (N             : Node_Id;
       Parent_Type   : Entity_Id;
@@ -724,7 +733,7 @@ package body Sem_Ch3 is
          return Empty;
       end if;
 
-      --  Ada 2005: for an object declaration the corresponding anonymous
+      --  Ada 2005: For an object declaration the corresponding anonymous
       --  type is declared in the current scope.
 
       --  If the access definition is the return type of another access to
@@ -903,7 +912,7 @@ package body Sem_Ch3 is
          Set_Has_Delayed_Freeze (Current_Scope);
       end if;
 
-      --  Ada 2005: if the designated type is an interface that may contain
+      --  Ada 2005: If the designated type is an interface that may contain
       --  tasks, create a Master entity for the declaration. This must be done
       --  before expansion of the full declaration, because the declaration may
       --  include an expression that is an allocator, whose expansion needs the
@@ -2066,6 +2075,12 @@ package body Sem_Ch3 is
       --  (They have the sloc of the label as found in the source, and that
       --  is ahead of the current declarative part).
 
+      procedure Handle_Late_Controlled_Primitive (Body_Decl : Node_Id);
+      --  Determine whether Body_Decl denotes the body of a late controlled
+      --  primitive (either Initialize, Adjust or Finalize). If this is the
+      --  case, add a proper spec if the body lacks one. The spec is inserted
+      --  before Body_Decl and immedately analyzed.
+
       procedure Remove_Visible_Refinements (Spec_Id : Entity_Id);
       --  Spec_Id is the entity of a package that may define abstract states.
       --  If the states have visible refinement, remove the visibility of each
@@ -2089,6 +2104,70 @@ package body Sem_Ch3 is
             Prev (Decl);
          end loop;
       end Adjust_Decl;
+
+      --------------------------------------
+      -- Handle_Late_Controlled_Primitive --
+      --------------------------------------
+
+      procedure Handle_Late_Controlled_Primitive (Body_Decl : Node_Id) is
+         Body_Spec : constant Node_Id    := Specification (Body_Decl);
+         Body_Id   : constant Entity_Id  := Defining_Entity (Body_Spec);
+         Loc       : constant Source_Ptr := Sloc (Body_Id);
+         Params    : constant List_Id    :=
+                       Parameter_Specifications (Body_Spec);
+         Spec      : Node_Id;
+         Spec_Id   : Entity_Id;
+
+         Dummy : Entity_Id;
+         pragma Unreferenced (Dummy);
+         --  A dummy variable used to capture the unused result of subprogram
+         --  spec analysis.
+
+      begin
+         --  Consider only procedure bodies whose name matches one of type
+         --  [Limited_]Controlled's primitives.
+
+         if Nkind (Body_Spec) /= N_Procedure_Specification
+           or else not Nam_In (Chars (Body_Id), Name_Adjust,
+                                                Name_Finalize,
+                                                Name_Initialize)
+         then
+            return;
+
+         --  A controlled primitive must have exactly one formal whose type
+         --  derives from [Limited_]Controlled.
+
+         elsif List_Length (Params) /= 1 then
+            return;
+         end if;
+
+         Dummy := Analyze_Subprogram_Specification (Body_Spec);
+
+         if not Is_Controlled (Etype (Defining_Entity (First (Params)))) then
+            return;
+         end if;
+
+         Spec_Id := Find_Corresponding_Spec (Body_Decl, Post_Error => False);
+
+         --  The body has a matching spec, therefore it cannot be a late
+         --  primitive.
+
+         if Present (Spec_Id) then
+            return;
+         end if;
+
+         --  At this point the body is known to be a late controlled primitive.
+         --  Generate a matching spec and insert it before the body.
+
+         Spec := New_Copy_Tree (Body_Spec);
+
+         Set_Defining_Unit_Name
+           (Spec, Make_Defining_Identifier (Loc, Chars (Body_Id)));
+
+         Insert_Before_And_Analyze (Body_Decl,
+           Make_Subprogram_Declaration (Loc,
+             Specification => Spec));
+      end Handle_Late_Controlled_Primitive;
 
       --------------------------------
       -- Remove_Visible_Refinements --
@@ -2162,15 +2241,15 @@ package body Sem_Ch3 is
          --  it is and the mode is Off, the package body is considered to be in
          --  regular Ada and does not require refinement.
 
-         elsif Mode_Is_Off (SPARK_Mode_Pragmas (Body_Id)) then
+         elsif Mode_Is_Off (SPARK_Pragma (Body_Id)) then
             return False;
 
          --  The body's SPARK_Mode may be inherited from a similar pragma that
          --  appears in the private declarations of the spec. The pragma we are
-         --  interested appears as the second entry in SPARK_Mode_Pragmas.
+         --  interested appears as the second entry in SPARK_Pragma.
 
-         elsif Present (SPARK_Mode_Pragmas (Spec_Id))
-           and then Mode_Is_Off (Next_Pragma (SPARK_Mode_Pragmas (Spec_Id)))
+         elsif Present (SPARK_Pragma (Spec_Id))
+           and then Mode_Is_Off (Next_Pragma (SPARK_Pragma (Spec_Id)))
          then
             return False;
 
@@ -2190,6 +2269,9 @@ package body Sem_Ch3 is
       Next_Decl   : Node_Id;
       Prag        : Node_Id;
       Spec_Id     : Entity_Id;
+
+      Body_Seen : Boolean := False;
+      --  Flag set when the first body [stub] is encountered
 
       In_Package_Body : Boolean := False;
       --  Flag set when the current declaration list belongs to a package body
@@ -2285,15 +2367,28 @@ package body Sem_Ch3 is
          --  care to attach the bodies at a proper place in the tree so as to
          --  not cause unwanted freezing at that point.
 
-         elsif not Analyzed (Next_Decl)
-           and then (Nkind_In (Next_Decl, N_Subprogram_Body,
-                                          N_Entry_Body,
-                                          N_Package_Body,
-                                          N_Protected_Body,
-                                          N_Task_Body)
-                       or else
-                     Nkind (Next_Decl) in N_Body_Stub)
-         then
+         elsif not Analyzed (Next_Decl) and then Is_Body (Next_Decl) then
+
+            --  When a controlled type is frozen, the expander generates stream
+            --  and controlled type support routines. If the freeze is caused
+            --  by the stand alone body of Initialize, Adjust and Finalize, the
+            --  expander will end up using the wrong version of these routines
+            --  as the body has not been processed yet. To remedy this, detect
+            --  a late controlled primitive and create a proper spec for it.
+            --  This ensures that the primitive will override its inherited
+            --  counterpart before the freeze takes place.
+
+            --  ??? a cleaner approach may be possible and/or this solution
+            --  could be extended to general-purpose late primitives, TBD.
+
+            if not Body_Seen and then not Is_Body (Decl) then
+               Body_Seen := True;
+
+               if Nkind (Next_Decl) = N_Subprogram_Body then
+                  Handle_Late_Controlled_Primitive (Next_Decl);
+               end if;
+            end if;
+
             Adjust_Decl;
             Freeze_All (Freeze_From, Decl);
             Freeze_From := Last_Entity (Current_Scope);
@@ -2353,8 +2448,9 @@ package body Sem_Ch3 is
          end if;
       end if;
 
-      --  Analyze the contracts of a subprogram declaration or a body now due
-      --  to delayed visibility requirements of aspects.
+      --  Analyze the contracts of subprogram declarations, subprogram bodies
+      --  and variables now due to the delayed visibility requirements of their
+      --  aspects.
 
       Decl := First (L);
       while Present (Decl) loop
@@ -2363,6 +2459,11 @@ package body Sem_Ch3 is
 
          elsif Nkind (Decl) = N_Subprogram_Declaration then
             Analyze_Subprogram_Contract (Defining_Entity (Decl));
+
+         elsif Nkind (Decl) = N_Object_Declaration
+           and then Ekind (Defining_Entity (Decl)) = E_Variable
+         then
+            Analyze_Variable_Contract (Defining_Entity (Decl));
          end if;
 
          Next (Decl);
@@ -3226,11 +3327,11 @@ package body Sem_Ch3 is
 
          --  Protected objects with interrupt handlers must be at library level
 
-         --  Ada 2005: this test is not needed (and the corresponding clause
+         --  Ada 2005: This test is not needed (and the corresponding clause
          --  in the RM is removed) because accessibility checks are sufficient
          --  to make handlers not at the library level illegal.
 
-         --  AI05-0303: the AI is in fact a binding interpretation, and thus
+         --  AI05-0303: The AI is in fact a binding interpretation, and thus
          --  applies to the '95 version of the language as well.
 
          if Has_Interrupt_Handler (T) and then Ada_Version < Ada_95 then
@@ -3622,7 +3723,7 @@ package body Sem_Ch3 is
          if No (E) then
             Act_T := Build_Default_Subtype (T, N);
          else
-            --  Ada 2005:  a limited object may be initialized by means of an
+            --  Ada 2005: A limited object may be initialized by means of an
             --  aggregate. If the type has default discriminants it has an
             --  unconstrained nominal type, Its actual subtype will be obtained
             --  from the aggregate, and not from the default discriminants.
@@ -3632,16 +3733,15 @@ package body Sem_Ch3 is
 
          Rewrite (Object_Definition (N), New_Occurrence_Of (Act_T, Loc));
 
-      elsif Present (Underlying_Type (T))
-        and then not Is_Constrained (Underlying_Type (T))
-        and then Has_Discriminants (Underlying_Type (T))
-        and then Nkind (E) = N_Function_Call
+      elsif Nkind (E) = N_Function_Call
         and then Constant_Present (N)
+        and then Has_Unconstrained_Elements (Etype (E))
       then
          --  The back-end has problems with constants of a discriminated type
          --  with defaults, if the initial value is a function call. We
-         --  generate an intermediate temporary for the result of the call.
-         --  It is unclear why this should make it acceptable to gcc. ???
+         --  generate an intermediate temporary that will receive a reference
+         --  to the result of the call. The initialization expression then
+         --  becomes a dereference of that temporary.
 
          Remove_Side_Effects (E);
 
@@ -3698,6 +3798,8 @@ package body Sem_Ch3 is
          if Present (E) then
             Set_Has_Initial_Value (Id, True);
          end if;
+
+         Set_Contract (Id, Make_Contract (Sloc (Id)));
       end if;
 
       --  Initialize alignment and size and capture alignment setting
@@ -4768,6 +4870,73 @@ package body Sem_Ch3 is
          Set_Error_Posted (T);
       end if;
    end Analyze_Subtype_Indication;
+
+   -------------------------------
+   -- Analyze_Variable_Contract --
+   -------------------------------
+
+   procedure Analyze_Variable_Contract (Var_Id : Entity_Id) is
+      Items  : constant Node_Id := Contract (Var_Id);
+      AR_Val : Boolean := False;
+      AW_Val : Boolean := False;
+      ER_Val : Boolean := False;
+      EW_Val : Boolean := False;
+      Nam    : Name_Id;
+      Prag   : Node_Id;
+      Seen   : Boolean := False;
+
+   begin
+      --  The declaration of a volatile variable must appear at the library
+      --  level. The check is only relevant when SPARK_Mode is on as it is not
+      --  standard Ada legality rule.
+
+      if SPARK_Mode = On
+        and then Is_Volatile_Object (Var_Id)
+        and then not Is_Library_Level_Entity (Var_Id)
+      then
+         Error_Msg_N
+           ("volatile variable & must be declared at library level (SPARK RM "
+            & "7.1.3(3))", Var_Id);
+      end if;
+
+      --  Examine the contract
+
+      if Present (Items) then
+
+         --  Analyze classification pragmas
+
+         Prag := Classifications (Items);
+         while Present (Prag) loop
+            Nam := Pragma_Name (Prag);
+
+            if Nam = Name_Async_Readers then
+               Analyze_External_State_In_Decl_Part (Prag, AR_Val);
+               Seen := True;
+
+            elsif Nam = Name_Async_Writers then
+               Analyze_External_State_In_Decl_Part (Prag, AW_Val);
+               Seen := True;
+
+            elsif Nam = Name_Effective_Reads then
+               Analyze_External_State_In_Decl_Part (Prag, ER_Val);
+               Seen := True;
+
+            else pragma Assert (Nam = Name_Effective_Writes);
+               Analyze_External_State_In_Decl_Part (Prag, EW_Val);
+               Seen := True;
+            end if;
+
+            Prag := Next_Pragma (Prag);
+         end loop;
+      end if;
+
+      --  Once all external properties have been processed, verify their mutual
+      --  interaction.
+
+      if Seen then
+         Check_External_Properties (Var_Id, AR_Val, AW_Val, ER_Val, EW_Val);
+      end if;
+   end Analyze_Variable_Contract;
 
    --------------------------
    -- Analyze_Variant_Part --
@@ -11089,7 +11258,7 @@ package body Sem_Ch3 is
          --  from a private type) has no discriminants. (Defect Report
          --  8652/0008, Technical Corrigendum 1, checked by ACATS B371001).
 
-         --  Rule updated for Ada 2005: the private type is said to have
+         --  Rule updated for Ada 2005: The private type is said to have
          --  a constrained partial view, given that objects of the type
          --  can be declared. Furthermore, the rule applies to all access
          --  types, unlike the rule concerning default discriminants (see
@@ -20043,7 +20212,7 @@ package body Sem_Ch3 is
 
       Final_Storage_Only := not Is_Controlled (T);
 
-      --  Ada 2005: check whether an explicit Limited is present in a derived
+      --  Ada 2005: Check whether an explicit Limited is present in a derived
       --  type declaration.
 
       if Nkind (Parent (Def)) = N_Derived_Type_Definition

@@ -958,7 +958,7 @@ package body Exp_Ch4 is
          --    [Deep_]Adjust (Temp.all);
 
          --  We analyze by hand the new internal allocator to avoid any
-         --  recursion and inappropriate call to Initialize
+         --  recursion and inappropriate call to Initialize.
 
          --  We don't want to remove side effects when the expression must be
          --  built in place. In the case of a build-in-place function call,
@@ -1046,8 +1046,7 @@ package body Exp_Ch4 is
                then
                   Insert_Action (N,
                     Make_Attach_Call (
-                      Obj_Ref =>
-                        New_Reference_To (Temp, Loc),
+                      Obj_Ref => New_Reference_To (Temp, Loc),
                       Ptr_Typ => PtrT));
                end if;
 
@@ -7331,7 +7330,6 @@ package body Exp_Ch4 is
          declare
             Bt : constant Entity_Id := Root_Type (Underlying_Type (Bastyp));
             Et : constant Entity_Id := Root_Type (Underlying_Type (Exptyp));
-
          begin
             Rewrite (N,
               Unchecked_Convert_To (Typ,
@@ -7353,7 +7351,12 @@ package body Exp_Ch4 is
       --  Test for case of known right argument where we can replace the
       --  exponentiation by an equivalent expression using multiplication.
 
-      if Compile_Time_Known_Value (Exp) then
+      --  Note: use CRT_Safe version of Compile_Time_Known_Value because in
+      --  configurable run-time mode, we may not have the exponentiation
+      --  routine available, and we don't want the legality of the program
+      --  to depend on how clever the compiler is in knowing values.
+
+      if CRT_Safe_Compile_Time_Known_Value (Exp) then
          Expv := Expr_Value (Exp);
 
          --  We only fold small non-negative exponents. You might think we
@@ -7455,7 +7458,8 @@ package body Exp_Ch4 is
       --  result if the shift causes an overflow before the modular reduction.
 
       if Nkind (Base) = N_Integer_Literal
-        and then Intval (Base) = 2
+        and then CRT_Safe_Compile_Time_Known_Value (Base)
+        and then Expr_Value (Base) = Uint_2
         and then Is_Integer_Type (Root_Type (Exptyp))
         and then Esize (Root_Type (Exptyp)) <= Esize (Standard_Integer)
         and then Is_Unsigned_Type (Exptyp)
@@ -7605,7 +7609,7 @@ package body Exp_Ch4 is
       then
          Rewrite (N,
            Make_Function_Call (Loc,
-             Name => New_Reference_To (RTE (Rent), Loc),
+             Name                   => New_Reference_To (RTE (Rent), Loc),
              Parameter_Associations => New_List (Base, Exp)));
 
       --  Otherwise we have to introduce conversions (conversions are also

@@ -1,5 +1,5 @@
 ------------------------------------------------------------------------------
---                                SPARK                                          --
+--                                                                          --
 --                         GNAT COMPILER COMPONENTS                         --
 --                                                                          --
 --                                  O P T                                   --
@@ -702,12 +702,12 @@ package Opt is
    --  GNAT
    --  This variable indicates the character set to be used for identifiers.
    --  The possible settings are:
-   --    '1'  Latin-5 (ISO-8859-1)
-   --    '2'  Latin-5 (ISO-8859-2)
-   --    '3'  Latin-5 (ISO-8859-3)
-   --    '4'  Latin-5 (ISO-8859-4)
-   --    '5'  Latin-5 (ISO-8859-5, Cyrillic)
-   --    '9'  Latin-5 (ISO-8859-9)
+   --    '1'  Latin-1 (ISO-8859-1)
+   --    '2'  Latin-2 (ISO-8859-2)
+   --    '3'  Latin-3 (ISO-8859-3)
+   --    '4'  Latin-4 (ISO-8859-4)
+   --    '5'  Latin-Cyrillic (ISO-8859-5)
+   --    '9'  Latin-9 (ISO-8859-15)
    --    'p'  PC (US, IBM page 437)
    --    '8'  PC (European, IBM page 850)
    --    'f'  Full upper set (all distinct)
@@ -1272,6 +1272,16 @@ package Opt is
    --  GNAT
    --  Current SPARK mode setting
 
+   SPARK_Mode_Pragma : Node_Id := Empty;
+   --  GNAT
+   --  If the current SPARK_Mode (above) was set by a pragma, this records
+   --  the pragma that set this mode.
+
+   SPARK_Switches_File_Name : String_Ptr := null;
+   --  GNAT
+   --  Set to non-null file name by use of the -gnates switch to specify
+   --  SPARK (gnat2why) specific switches in the given file name.
+
    Special_Exception_Package_Used : Boolean := False;
    --  GNAT
    --  Set to True if either of the unit GNAT.Most_Recent_Exception or
@@ -1727,8 +1737,11 @@ package Opt is
    --  GNAT, GNATBIND
    --  Controls treatment of warning messages. If set to Suppress, warning
    --  messages are not generated at all. In Normal mode, they are generated
-   --  but do not count as errors. In Treat_As_Error mode, warning messages
-   --  are generated and are treated as errors.
+   --  but do not count as errors. In Treat_As_Error mode, warning messages are
+   --  generated and are treated as errors. Note that Warning_Mode = Suppress
+   --  causes pragma Warnings to be ignored (except for legality checks),
+   --  unless we are in GNATprove_Mode, which requires pragma Warnings to
+   --  be stored for the formal verification backend.
 
    Wide_Character_Encoding_Method : WC_Encoding_Method := WCEM_Brackets;
    --  GNAT, GNATBIND
@@ -1904,7 +1917,12 @@ package Opt is
    --  start of analyzing each unit.
 
    SPARK_Mode_Config : SPARK_Mode_Type := None;
+   --  GNAT
    --  The setting of SPARK_Mode from configuration pragmas
+
+   SPARK_Mode_Pragma_Config : Node_Id := Empty;
+   --  If a SPARK_Mode pragma appeared in the configuration pragmas (setting
+   --  SPARK_Mode_Config appropriately), then this points to the N_Pragma node.
 
    Use_VADS_Size_Config : Boolean;
    --  GNAT
@@ -2051,6 +2069,7 @@ private
       Polling_Required               : Boolean;
       Short_Descriptors              : Boolean;
       SPARK_Mode                     : SPARK_Mode_Type;
+      SPARK_Mode_Pragma              : Node_Id;
       Use_VADS_Size                  : Boolean;
    end record;
 

@@ -3571,6 +3571,13 @@ This information is used by advanced coverage tools. See unit @file{SCOs}
 in the compiler sources for details in files @file{scos.ads} and
 @file{scos.adb}.
 
+@item -fdump-xref
+@cindex @option{-fdump-xref} (@command{gcc})
+Generates cross reference information in GLI files for C and C++ sources.
+The GLI files have the same syntax as the ALI files for Ada, and can be used
+for source navigation in IDEs and on the command line using e.g. gnatxref
+and the @option{--ext=gli} switch.
+
 @item -flto@r{[}=n@r{]}
 @cindex @option{-flto} (@command{gcc})
 Enables Link Time Optimization. This switch must be used in conjunction
@@ -5331,6 +5338,22 @@ an explicit @option{-gnatws} or
 @option{-gnatwe}. It also cancels the effect of the
 implicit @option{-gnatwe} that is activated by the
 use of @option{-gnatg}.
+
+@item -gnatw.n
+@emph{Activate warnings on atomic synchronization.}
+@cindex @option{-gnatw.n} (@command{gcc})
+@cindex Atomic Synchronization, warnings
+This switch actives warnings when an access to an atomic variable
+requires the generation of atomic synchronization code. These
+warnings are off by default and this warning is not included
+in @code{-gnatwa}.
+
+@item -gnatw.N
+@emph{Suppress warnings on atomic synchronization.}
+@cindex @option{-gnatw.n} (@command{gcc})
+@cindex Atomic Synchronization, warnings
+This switch suppresses warnings when an access to an atomic variable
+requires the generation of atomic synchronization code.
 
 @item -gnatwo
 @emph{Activate warnings on address clause overlays.}
@@ -10147,6 +10170,7 @@ some guidelines on debugging optimized code.
 * Other Optimization Switches::
 * Optimization and Strict Aliasing::
 * Aliased Variables and Optimization::
+* Passive Task Optimization::
 
 @ifset vms
 * Coverage Analysis::
@@ -10991,6 +11015,48 @@ be going on. The optimizer recognizes the aliased keyword and
 inhibits optimizations that assume the value cannot be assigned.
 This means that the above example will in fact "work" reliably,
 that is, it will produce the expected results.
+
+@node Passive Task Optimization
+@subsection Passive Task Optimization
+@cindex Passive Task
+
+A passive task is one which is sufficiently simple that
+in theory a compiler could recognize it an implement it
+efficiently without creating a new thread. The original design
+of Ada 83 had in mind this kind of passive task optimization, but
+only a few Ada 83 compilers attempted it. The problem was that
+it was difficult to determine the exact conditions under which
+the optimization was possible. The result is a very fragile
+optimization where a very minor change in the program can
+suddenly silently make a task non-optimizable.
+
+With the revisiting of this issue in Ada 95, there was general
+agreement that this approach was fundamentally flawed, and the
+notion of protected types was introduced. When using protected
+types, the restrictions are well defined, and you KNOW that the
+operations will be optimized, and furthermore this optimized
+performance is fully portable.
+
+Although it would theoretically be possible for GNAT to attempt to
+do this optimization, but it really doesn't make sense in the
+context of Ada 95, and none of the Ada 95 compilers implement
+this optimization as far as we know. In particular GNAT never
+attempts to perform this optimization.
+
+In any new Ada 95 code that is written, you should always
+use protected types in place of tasks that might be able to
+be optimized in this manner.
+Of course this does not help if you have legacy Ada 83 code
+that depends on this optimization, but it is unusual to encounter
+a case where the performance gains from this optimization
+are significant.
+
+Your program should work correctly without this optimization. If
+you have performance problems, then the most practical
+approach is to figure out exactly where these performance problems
+arise, and update those particular tasks to be protected types. Note
+that typically clients of the tasks who call entries, will not have
+to be modified, only the task definition itself.
 
 @ifset vms
 @node Coverage Analysis
@@ -13177,9 +13243,9 @@ Do not look for library files in the system default directory.
 @item --ext=@var{extension}
 @cindex @option{--ext} (@command{gnatxref})
 Specify an alternate ali file extension. The default is @code{ali} and other
-extensions (e.g. @code{sli} for SPARK library files) may be specified via this
-switch. Note that if this switch overrides the default, which means that only
-the new extension will be considered.
+extensions (e.g. @code{gli} for C/C++ sources when using @option{-fdump-xref})
+may be specified via this switch. Note that if this switch overrides the
+default, which means that only the new extension will be considered.
 
 @item --RTS=@var{rts-path}
 @cindex @option{--RTS} (@command{gnatxref})
@@ -13354,9 +13420,9 @@ Do not look for library files in the system default directory.
 @item --ext=@var{extension}
 @cindex @option{--ext} (@command{gnatfind})
 Specify an alternate ali file extension. The default is @code{ali} and other
-extensions (e.g. @code{sli} for SPARK library files) may be specified via this
-switch. Note that if this switch overrides the default, which means that only
-the new extension will be considered.
+extensions (e.g. @code{gli} for C/C++ sources when using @option{-fdump-xref})
+may be specified via this switch. Note that if this switch overrides the
+default, which means that only the new extension will be considered.
 
 @item --RTS=@var{rts-path}
 @cindex @option{--RTS} (@command{gnatfind})
@@ -15390,6 +15456,17 @@ attribute:
 @itemize @bullet
 @item
 mode indicates that the parameter is of mode 'in', 'in out', or 'out'.
+@end itemize
+
+@noindent
+All elements other than Not_An_Element have this attribute:
+
+@itemize @bullet
+@item
+checks is a comma-separated list of run-time checks that are needed
+for that element. The possible checks are: do_accessibility_check,
+do_discriminant_check,do_division_check,do_length_check,
+do_overflow_check,do_range_check,do_storage_check,do_tag_check.
 @end itemize
 
 @noindent

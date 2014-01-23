@@ -4249,6 +4249,33 @@ package body Sem_Res is
                Check_Unset_Reference (A);
             end if;
 
+            --  The following checks are only relevant when SPARK_Mode is on as
+            --  they are not standard Ada legality rule.
+
+            if SPARK_Mode = On
+              and then Is_Volatile_Object (A)
+            then
+               --  A volatile object may act as an actual parameter when the
+               --  corresponding formal is of a non-scalar volatile type.
+
+               if Is_Volatile (Etype (F))
+                 and then not Is_Scalar_Type (Etype (F))
+               then
+                  null;
+
+               --  A volatile object may act as an actual parameter in a call
+               --  to an instance of Unchecked_Conversion.
+
+               elsif Is_Unchecked_Conversion_Instance (Nam) then
+                  null;
+
+               else
+                  Error_Msg_N
+                    ("volatile object cannot act as actual in a call (SPARK "
+                     & "RM 7.1.3(8))", A);
+               end if;
+            end if;
+
             Next_Actual (A);
 
          --  Case where actual is not present
@@ -5252,8 +5279,7 @@ package body Sem_Res is
       is
          Subp_Alias : constant Entity_Id := Alias (S);
       begin
-         return S = E
-           or else (Present (Subp_Alias) and then Subp_Alias = E);
+         return S = E or else (Present (Subp_Alias) and then Subp_Alias = E);
       end Same_Or_Aliased_Subprograms;
 
    --  Start of processing for Resolve_Call
@@ -5442,6 +5468,30 @@ package body Sem_Res is
          end if;
       end if;
 
+      --  If the SPARK_05 restriction is active, we are not allowed
+      --  to have a call to a subprogram before we see its completion.
+
+      if not Has_Completion (Nam)
+        and then Restriction_Check_Required (SPARK_05)
+
+        --  Don't flag strange internal calls
+
+        and then Comes_From_Source (N)
+        and then Comes_From_Source (Nam)
+
+        --  Only flag calls in extended main source
+
+        and then In_Extended_Main_Source_Unit (Nam)
+        and then In_Extended_Main_Source_Unit (N)
+
+        --  Exclude enumeration literals from this processing
+
+        and then Ekind (Nam) /= E_Enumeration_Literal
+      then
+         Check_SPARK_Restriction
+           ("call to subprogram cannot appear before its body", N);
+      end if;
+
       --  Check that this is not a call to a protected procedure or entry from
       --  within a protected function.
 
@@ -5492,12 +5542,11 @@ package body Sem_Res is
         and then
           ((Is_Array_Type (Etype (Nam))
              and then Covers (Typ, Component_Type (Etype (Nam))))
-             or else (Is_Access_Type (Etype (Nam))
-                       and then Is_Array_Type (Designated_Type (Etype (Nam)))
-                       and then
-                         Covers
-                          (Typ,
-                           Component_Type (Designated_Type (Etype (Nam))))))
+           or else
+             (Is_Access_Type (Etype (Nam))
+               and then Is_Array_Type (Designated_Type (Etype (Nam)))
+               and then
+                 Covers (Typ, Component_Type (Designated_Type (Etype (Nam))))))
       then
          declare
             Index_Node : Node_Id;
@@ -5603,6 +5652,16 @@ package body Sem_Res is
 
       if Comes_From_Source (N) then
          Scop := Current_Scope;
+
+         --  Check violation of SPARK_05 restriction which does not permit
+         --  a subprogram body to contain a call to the subprogram directly.
+
+         if Restriction_Check_Required (SPARK_05)
+           and then Same_Or_Aliased_Subprograms (Nam, Scop)
+         then
+            Check_SPARK_Restriction
+              ("subprogram may not contain direct call to itself", N);
+         end if;
 
          --  Issue warning for possible infinite recursion in the absence
          --  of the No_Recursion restriction.
@@ -6322,7 +6381,12 @@ package body Sem_Res is
    --  Used to resolve identifiers and expanded names
 
    procedure Resolve_Entity_Name (N : Node_Id; Typ : Entity_Id) is
-      E : constant Entity_Id := Entity (N);
+      E    : constant Entity_Id := Entity (N);
+      Par  : Node_Id;
+      Prev : Node_Id;
+
+      Usage_OK : Boolean := False;
+      --  Flag set when the use of a volatile object agrees with its context
 
    begin
       --  If garbage from errors, set to Any_Type and return
@@ -6424,6 +6488,74 @@ package body Sem_Res is
          end if;
 
          Eval_Entity_Name (N);
+      end if;
+
+      --  A volatile object subject to enabled properties Async_Writers or
+      --  Effective_Reads must appear in a specific context. The following
+      --  checks are only relevant when SPARK_Mode is on as they are not
+      --  standard Ada legality rules.
+
+      if SPARK_Mode = On
+        and then Ekind (E) = E_Variable
+        and then Is_Volatile_Object (E)
+        and then
+          (Async_Writers_Enabled (E)
+             or else Effective_Reads_Enabled (E))
+      then
+         Par  := Parent (N);
+         Prev := N;
+         while Present (Par) loop
+
+            --  The variable can appear on either side of an assignment
+
+            if Nkind (Par) = N_Assignment_Statement then
+               Usage_OK := True;
+               exit;
+
+            --  The variable is part of the initialization expression of an
+            --  object. Ensure that the climb of the parent chain came from the
+            --  expression side and not from the name side.
+
+            elsif Nkind (Par) = N_Object_Declaration
+              and then Present (Expression (Par))
+              and then Prev = Expression (Par)
+            then
+               Usage_OK := True;
+               exit;
+
+            --  The variable appears as an actual parameter in a call to an
+            --  instance of Unchecked_Conversion whose result is renamed.
+
+            elsif Nkind (Par) = N_Function_Call
+              and then Is_Unchecked_Conversion_Instance (Entity (Name (Par)))
+              and then Nkind (Parent (Par)) = N_Object_Renaming_Declaration
+            then
+               Usage_OK := True;
+               exit;
+
+            --  Assume that references to volatile objects that appear as
+            --  actual parameters in a procedure call are always legal. The
+            --  full legality check is done when the actuals are resolved.
+
+            elsif Nkind (Par) = N_Procedure_Call_Statement then
+               Usage_OK := True;
+               exit;
+
+            --  Prevent the search from going too far
+
+            elsif Is_Body_Or_Package_Declaration (Par) then
+               exit;
+            end if;
+
+            Prev := Par;
+            Par  := Parent (Par);
+         end loop;
+
+         if not Usage_OK then
+            Error_Msg_N
+              ("volatile object cannot appear in this context (SPARK RM "
+               & "7.1.3(9))", N);
+         end if;
       end if;
    end Resolve_Entity_Name;
 
@@ -8970,6 +9102,8 @@ package body Sem_Res is
          T := Etype (P);
       end if;
 
+      --  Set flag for expander if discriminant check required
+
       if Has_Discriminants (T)
         and then Ekind_In (Entity (S), E_Component, E_Discriminant)
         and then Present (Original_Record_Component (Entity (S)))
@@ -10301,6 +10435,14 @@ package body Sem_Res is
       Op_Node   : Node_Id;
 
    begin
+      --  Do not perform this transformation within a pre/postcondition,
+      --  because the expression will be re-analyzed, and the transformation
+      --  might affect the visibility of the operator, e.g. in an instance.
+
+      if In_Assertion_Expr > 0 then
+         return;
+      end if;
+
       --  Rewrite the operator node using the real operator, not its renaming.
       --  Exclude user-defined intrinsic operations of the same name, which are
       --  treated separately and rewritten as calls.

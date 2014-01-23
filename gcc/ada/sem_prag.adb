@@ -1114,11 +1114,57 @@ package body Sem_Prag is
          -----------------
 
          procedure Usage_Error (Item : Node_Id; Item_Id : Entity_Id) is
+            Typ : constant Entity_Id := Etype (Item_Id);
+
          begin
+            --  Input case
+
             if Is_Input then
                Error_Msg_NE
                  ("item & must appear in at least one input list of aspect "
                   & "Depends", Item, Item_Id);
+
+               --  Case of OUT parameter for which Is_Input is set
+
+               if Nkind (Item) = N_Defining_Identifier
+                 and then Ekind (Item) = E_Out_Parameter
+               then
+                  --  One case is an unconstrained array where the bounds
+                  --  must be read, if we have this case, output a message
+                  --  indicating why the OUT parameter is read.
+
+                  if Is_Array_Type (Typ)
+                    and then not Is_Constrained (Typ)
+                  then
+                     Error_Msg_NE
+                       ("\& is an unconstrained array type, so bounds must be "
+                        & "read", Item, Typ);
+
+                  --  Another case is an unconstrained discriminated record
+                  --  type where the constrained flag must be read (and if
+                  --  set, the discriminants). Again output a message.
+
+                  elsif Is_Record_Type (Typ)
+                    and then Has_Discriminants (Typ)
+                    and then not Is_Constrained (Typ)
+                  then
+                     Error_Msg_NE
+                       ("\& is an unconstrained discriminated record type",
+                        Item, Typ);
+                     Error_Msg_N
+                       ("\constrained flag and possible discriminants must be "
+                        & "read", Item);
+
+                  --  Not clear if there are other cases. Anyway, we will
+                  --  simply ignore any other cases.
+
+                  else
+                     null;
+                  end if;
+               end if;
+
+            --  Output case
+
             else
                Error_Msg_NE
                  ("item & must appear in exactly one output list of aspect "
@@ -1637,6 +1683,53 @@ package body Sem_Prag is
       end if;
    end Analyze_Depends_In_Decl_Part;
 
+   -----------------------------------------
+   -- Analyze_External_State_In_Decl_Part --
+   -----------------------------------------
+
+   procedure Analyze_External_State_In_Decl_Part
+     (N        : Node_Id;
+      Expr_Val : out Boolean)
+   is
+      Arg1 : constant Node_Id := First (Pragma_Argument_Associations (N));
+      Obj  : constant Node_Id := Get_Pragma_Arg (Arg1);
+      Expr : constant Node_Id := Get_Pragma_Arg (Next (Arg1));
+
+   begin
+      Error_Msg_Name_1 := Pragma_Name (N);
+
+      --  The Async / Effective pragmas must apply to a volatile object other
+      --  than a formal subprogram parameter.
+
+      if Is_Volatile_Object (Obj) then
+         if Is_Entity_Name (Obj)
+           and then Present (Entity (Obj))
+           and then Is_Formal (Entity (Obj))
+         then
+            Error_Msg_N
+              ("external state % cannot apply to a formal parameter", N);
+         end if;
+      else
+         Error_Msg_N ("external state % must apply to a volatile object", N);
+      end if;
+
+      --  Ensure that the expression (if present) is static Boolean. A missing
+      --  argument defaults the value to True.
+
+      Expr_Val := True;
+
+      if Present (Expr) then
+         Analyze_And_Resolve (Expr, Standard_Boolean);
+
+         if Is_Static_Expression (Expr) then
+            Expr_Val := Is_True (Expr_Value (Expr));
+         else
+            Error_Msg_Name_1 := Pragma_Name (N);
+            Error_Msg_N ("expression of % must be static", Expr);
+         end if;
+      end if;
+   end Analyze_External_State_In_Decl_Part;
+
    ---------------------------------
    -- Analyze_Global_In_Decl_Part --
    ---------------------------------
@@ -1828,6 +1921,19 @@ package body Sem_Prag is
 
             if Nam_In (Global_Mode, Name_In_Out, Name_Output) then
                Check_Mode_Restriction_In_Enclosing_Context (Item, Item_Id);
+            end if;
+
+            --  A volatile object cannot appear as a global item of a function.
+            --  This check is only relevant when SPARK_Mode is on as it is not
+            --  a standard Ada legality rule.
+
+            if SPARK_Mode = On
+              and then Is_Volatile_Object (Item)
+              and then Ekind_In (Spec_Id, E_Function, E_Generic_Function)
+            then
+               Error_Msg_N
+                 ("volatile object cannot act as global item of a function "
+                  & "(SPARK RM 7.1.3(5))", Item);
             end if;
 
             --  The same entity might be referenced through various way. Check
@@ -2575,8 +2681,14 @@ package body Sem_Prag is
 
       Collect_States_And_Variables;
 
+      --  All done if result is null
+
+      if Nkind (Inits) = N_Null then
+         return;
+      end if;
+
       --  Single and multiple initialization clauses must appear as an
-      --  aggregate. If this is not the case, then either the parser of
+      --  aggregate. If this is not the case, then either the parser or
       --  the analysis of the pragma failed to produce an aggregate.
 
       pragma Assert (Nkind (Inits) = N_Aggregate);
@@ -2763,6 +2875,8 @@ package body Sem_Prag is
       --  Check if a rep item of the same name as the current pragma is already
       --  chained as a rep pragma to the given entity. If so give a message
       --  about the duplicate, and then raise Pragma_Exit so does not return.
+      --  Note that if E is a type, then this routine avoids flagging a pragma
+      --  which applies to a parent type from which E is derived.
 
       procedure Check_Duplicated_Export_Name (Nam : Node_Id);
       --  Nam is an N_String_Literal node containing the external name set by
@@ -3864,6 +3978,36 @@ package body Sem_Prag is
          P := Get_Rep_Item (E, Pragma_Name (N), Check_Parents => False);
 
          if Present (P) then
+
+            --  If the entity is a type, then we have to make sure that the
+            --  ostensible duplicate is not for a parent type from which this
+            --  type is derived.
+
+            if Is_Type (E) then
+               if Nkind (P) = N_Pragma then
+                  declare
+                     Args : constant List_Id :=
+                              Pragma_Argument_Associations (P);
+                  begin
+                     if Present (Args)
+                       and then Is_Entity_Name (Expression (First (Args)))
+                       and then Is_Type (Entity (Expression (First (Args))))
+                       and then Entity (Expression (First (Args))) /= E
+                     then
+                        return;
+                     end if;
+                  end;
+
+               elsif Nkind (P) = N_Aspect_Specification
+                 and then Is_Type (Entity (P))
+                 and then Entity (P) /= E
+               then
+                  return;
+               end if;
+            end if;
+
+            --  Here we have a definite duplicate
+
             Error_Msg_Name_1 := Pragma_Name (N);
             Error_Msg_Sloc := Sloc (P);
 
@@ -9427,30 +9571,50 @@ package body Sem_Prag is
          --  pragma Abstract_State (ABSTRACT_STATE_LIST)
 
          --  ABSTRACT_STATE_LIST ::=
-         --    null
-         --  | STATE_NAME_WITH_OPTIONS
-         --  | (STATE_NAME_WITH_OPTIONS {, STATE_NAME_WITH_OPTIONS})
+         --     null
+         --  |  STATE_NAME_WITH_OPTIONS
+         --  | (STATE_NAME_WITH_OPTIONS {, STATE_NAME_WITH_OPTIONS} )
 
          --  STATE_NAME_WITH_OPTIONS ::=
-         --    state_NAME
-         --  | (state_NAME with OPTION_LIST)
+         --     STATE_NAME
+         --  | (STATE_NAME with OPTION_LIST)
 
          --  OPTION_LIST ::= OPTION {, OPTION}
 
-         --  OPTION ::= SIMPLE_OPTION | NAME_VALUE_OPTION
+         --  OPTION ::=
+         --    SIMPLE_OPTION
+         --  | NAME_VALUE_OPTION
 
-         --  SIMPLE_OPTION ::=
-         --    External | Non_Volatile | Input_Only | Output_Only
+         --  SIMPLE_OPTION ::= identifier
 
-         --  NAME_VALUE_OPTION ::= Part_Of => abstract_state_NAME
+         --  NAME_VALUE_OPTION ::=
+         --    Part_Of => ABSTRACT_STATE
+         --  | External [=> EXTERNAL_PROPERTY_LIST]
+
+         --  EXTERNAL_PROPERTY_LIST ::=
+         --     EXTERNAL_PROPERTY
+         --  | (EXTERNAL_PROPERTY {, EXTERNAL_PROPERTY} )
+
+         --  EXTERNAL_PROPERTY ::=
+         --    Async_Readers    [=> boolean_EXPRESSION]
+         --  | Async_Writers    [=> boolean_EXPRESSION]
+         --  | Effective_Reads  [=> boolean_EXPRESSION]
+         --  | Effective_Writes [=> boolean_EXPRESSION]
+         --    others            => boolean_EXPRESSION
+
+         --  STATE_NAME ::= defining_identifier
+
+         --  ABSTRACT_STATE ::= name
 
          when Pragma_Abstract_State => Abstract_State : declare
-            Pack_Id : Entity_Id;
 
             --  Flags used to verify the consistency of states
 
             Non_Null_Seen : Boolean := False;
             Null_Seen     : Boolean := False;
+
+            Pack_Id : Entity_Id;
+            --  Entity of related package when pragma Abstract_State appears
 
             procedure Analyze_Abstract_State (State : Node_Id);
             --  Verify the legality of a single state declaration. Create and
@@ -9462,12 +9626,247 @@ package body Sem_Prag is
             ----------------------------
 
             procedure Analyze_Abstract_State (State : Node_Id) is
+
+               --  Flags used to verify the consistency of options
+
+               AR_Seen       : Boolean := False;
+               AW_Seen       : Boolean := False;
+               ER_Seen       : Boolean := False;
+               EW_Seen       : Boolean := False;
+               External_Seen : Boolean := False;
+               Others_Seen   : Boolean := False;
+               Part_Of_Seen  : Boolean := False;
+
+               --  Flags used to store the static value of all external states'
+               --  expressions.
+
+               AR_Val : Boolean := False;
+               AW_Val : Boolean := False;
+               ER_Val : Boolean := False;
+               EW_Val : Boolean := False;
+
+               procedure Analyze_External_Option (Opt : Node_Id);
+               --  Verify the legality of option External
+
+               procedure Analyze_External_Property
+                 (Prop : Node_Id;
+                  Expr : Node_Id := Empty);
+               --  Verify the legailty of a single external property. Prop
+               --  denotes the external property. Expr is the expression used
+               --  to set the property.
+
+               procedure Analyze_Part_Of_Option (Opt : Node_Id);
+               --  Verify the legality of option Part_Of
+
                procedure Check_Duplicate_Option
                  (Opt    : Node_Id;
                   Status : in out Boolean);
                --  Flag Status denotes whether a particular option has been
                --  seen while processing a state. This routine verifies that
                --  Opt is not a duplicate property and sets the flag Status.
+
+               -----------------------------
+               -- Analyze_External_Option --
+               -----------------------------
+
+               procedure Analyze_External_Option (Opt : Node_Id) is
+                  Errors : constant Nat := Serious_Errors_Detected;
+                  Prop   : Node_Id;
+                  Props  : Node_Id := Empty;
+
+               begin
+                  Check_Duplicate_Option (Opt, External_Seen);
+
+                  if Nkind (Opt) = N_Component_Association then
+                     Props := Expression (Opt);
+                  end if;
+
+                  --  External state with properties
+
+                  if Present (Props) then
+
+                     --  Multiple properties appear as an aggregate
+
+                     if Nkind (Props) = N_Aggregate then
+
+                        --  Simple property form
+
+                        Prop := First (Expressions (Props));
+                        while Present (Prop) loop
+                           Analyze_External_Property (Prop);
+                           Next (Prop);
+                        end loop;
+
+                        --  Property with expression form
+
+                        Prop := First (Component_Associations (Props));
+                        while Present (Prop) loop
+                           Analyze_External_Property
+                             (Prop => First (Choices (Prop)),
+                              Expr => Expression (Prop));
+
+                           Next (Prop);
+                        end loop;
+
+                     --  Single property
+
+                     else
+                        Analyze_External_Property (Props);
+                     end if;
+
+                  --  An external state defined without any properties defaults
+                  --  all properties to True.
+
+                  else
+                     AR_Val := True;
+                     AW_Val := True;
+                     ER_Val := True;
+                     EW_Val := True;
+                  end if;
+
+                  --  Once all external properties have been processed, verify
+                  --  their mutual interaction. Do not perform the check when
+                  --  at least one of the properties is illegal as this will
+                  --  produce a bogus error.
+
+                  if Errors = Serious_Errors_Detected then
+                     Check_External_Properties
+                       (State, AR_Val, AW_Val, ER_Val, EW_Val);
+                  end if;
+               end Analyze_External_Option;
+
+               -------------------------------
+               -- Analyze_External_Property --
+               -------------------------------
+
+               procedure Analyze_External_Property
+                 (Prop : Node_Id;
+                  Expr : Node_Id := Empty)
+               is
+                  Expr_Val : Boolean;
+
+               begin
+                  --  Check the placement of "others" (if available)
+
+                  if Nkind (Prop) = N_Others_Choice then
+                     if Others_Seen then
+                        Error_Msg_N
+                          ("only one others choice allowed in option External",
+                           Prop);
+                     else
+                        Others_Seen := True;
+                     end if;
+
+                  elsif Others_Seen then
+                     Error_Msg_N
+                       ("others must be the last property in option External",
+                        Prop);
+
+                  --  The only remaining legal options are the four predefined
+                  --  external properties.
+
+                  elsif Nkind (Prop) = N_Identifier
+                    and then Nam_In (Chars (Prop), Name_Async_Readers,
+                                                   Name_Async_Writers,
+                                                   Name_Effective_Reads,
+                                                   Name_Effective_Writes)
+                  then
+                     null;
+
+                  --  Otherwise the construct is not a valid property
+
+                  else
+                     Error_Msg_N ("invalid external state property", Prop);
+                     return;
+                  end if;
+
+                  --  Ensure that the expression of the external state property
+                  --  is static Boolean (if applicable).
+
+                  if Present (Expr) then
+                     Analyze_And_Resolve (Expr, Standard_Boolean);
+
+                     if Is_Static_Expression (Expr) then
+                        Expr_Val := Is_True (Expr_Value (Expr));
+                     else
+                        Error_Msg_N
+                          ("expression of external state property must be "
+                           & "static", Expr);
+                     end if;
+
+                  --  The lack of expression defaults the property to True
+
+                  else
+                     Expr_Val := True;
+                  end if;
+
+                  --  Named properties
+
+                  if Nkind (Prop) = N_Identifier then
+                     if Chars (Prop) = Name_Async_Readers then
+                        Check_Duplicate_Option (Prop, AR_Seen);
+                        AR_Val := Expr_Val;
+
+                     elsif Chars (Prop) = Name_Async_Writers then
+                        Check_Duplicate_Option (Prop, AW_Seen);
+                        AW_Val := Expr_Val;
+
+                     elsif Chars (Prop) = Name_Effective_Reads then
+                        Check_Duplicate_Option (Prop, ER_Seen);
+                        ER_Val := Expr_Val;
+
+                     else
+                        Check_Duplicate_Option (Prop, EW_Seen);
+                        EW_Val := Expr_Val;
+                     end if;
+
+                  --  The handling of property "others" must take into account
+                  --  all other named properties that have been encountered so
+                  --  far. Only those that have not been seen are affected by
+                  --  "others".
+
+                  else
+                     if not AR_Seen then
+                        AR_Val := Expr_Val;
+                     end if;
+
+                     if not AW_Seen then
+                        AW_Val := Expr_Val;
+                     end if;
+
+                     if not ER_Seen then
+                        ER_Val := Expr_Val;
+                     end if;
+
+                     if not EW_Seen then
+                        EW_Val := Expr_Val;
+                     end if;
+                  end if;
+               end Analyze_External_Property;
+
+               ----------------------------
+               -- Analyze_Part_Of_Option --
+               ----------------------------
+
+               procedure Analyze_Part_Of_Option (Opt : Node_Id) is
+                  Par_State : constant Node_Id := Expression (Opt);
+
+               begin
+                  Check_Duplicate_Option (Opt, Part_Of_Seen);
+
+                  Analyze (Par_State);
+
+                  --  Expression of option Part_Of must denote abstract state
+
+                  if not Is_Entity_Name (Par_State)
+                    or else No (Entity (Par_State))
+                    or else Ekind (Entity (Par_State)) /= E_Abstract_State
+                  then
+                     Error_Msg_N
+                       ("option Part_Of must denote an abstract state",
+                        Par_State);
+                  end if;
+               end Analyze_Part_Of_Option;
 
                ----------------------------
                -- Check_Duplicate_Option --
@@ -9489,20 +9888,11 @@ package body Sem_Prag is
 
                Errors    : constant Nat := Serious_Errors_Detected;
                Loc       : constant Source_Ptr := Sloc (State);
-               Assoc     : Node_Id;
-               Id        : Entity_Id;
                Is_Null   : Boolean := False;
-               Name      : Name_Id;
                Opt       : Node_Id;
-               Par_State : Node_Id;
-
-               --  Flags used to verify the consistency of options
-
-               External_Seen     : Boolean := False;
-               Input_Seen        : Boolean := False;
-               Non_Volatile_Seen : Boolean := False;
-               Output_Seen       : Boolean := False;
-               Part_Of_Seen      : Boolean := False;
+               Opt_Nam   : Node_Id;
+               State_Id  : Entity_Id;
+               State_Nam : Name_Id;
 
             --  Start of processing for Analyze_Abstract_State
 
@@ -9517,7 +9907,7 @@ package body Sem_Prag is
                --  Null states appear as internally generated entities
 
                elsif Nkind (State) = N_Null then
-                  Name := New_Internal_Name ('S');
+                  State_Nam := New_Internal_Name ('S');
                   Is_Null   := True;
                   Null_Seen := True;
 
@@ -9533,7 +9923,7 @@ package body Sem_Prag is
                --  Simple state declaration
 
                elsif Nkind (State) = N_Identifier then
-                  Name := Chars (State);
+                  State_Nam     := Chars (State);
                   Non_Null_Seen := True;
 
                --  State declaration with various options. This construct
@@ -9541,7 +9931,7 @@ package body Sem_Prag is
 
                elsif Nkind (State) = N_Extension_Aggregate then
                   if Nkind (Ancestor_Part (State)) = N_Identifier then
-                     Name := Chars (Ancestor_Part (State));
+                     State_Nam     := Chars (Ancestor_Part (State));
                      Non_Null_Seen := True;
                   else
                      Error_Msg_N
@@ -9549,28 +9939,39 @@ package body Sem_Prag is
                         Ancestor_Part (State));
                   end if;
 
-                  --  Process options External, Input_Only, Output_Only and
-                  --  Volatile. Ensure that none of them appear more than once.
+                  --  Catch an attempt to introduce a simple option which is
+                  --  currently not allowed. An exception to this is External
+                  --  defined without any properties.
 
                   Opt := First (Expressions (State));
                   while Present (Opt) loop
-                     if Nkind (Opt) = N_Identifier then
-                        if Chars (Opt) = Name_External then
-                           Check_Duplicate_Option (Opt, External_Seen);
-                        elsif Chars (Opt) = Name_Input_Only then
-                           Check_Duplicate_Option (Opt, Input_Seen);
-                        elsif Chars (Opt) = Name_Output_Only then
-                           Check_Duplicate_Option (Opt, Output_Seen);
-                        elsif Chars (Opt) = Name_Non_Volatile then
-                           Check_Duplicate_Option (Opt, Non_Volatile_Seen);
+                     if Nkind (Opt) = N_Identifier
+                       and then Chars (Opt) = Name_External
+                     then
+                        Analyze_External_Option (Opt);
+                     else
+                        Error_Msg_N
+                          ("simple option not allowed in state declaration",
+                           Opt);
+                     end if;
 
-                        --  Ensure that the abstract state component of option
-                        --  Part_Of has not been omitted.
+                     Next (Opt);
+                  end loop;
 
-                        elsif Chars (Opt) = Name_Part_Of then
-                           Error_Msg_N
-                             ("option Part_Of requires an abstract state",
-                              Opt);
+                  --  Options External and Part_Of appear as component
+                  --  associations.
+
+                  Opt := First (Component_Associations (State));
+                  while Present (Opt) loop
+                     Opt_Nam := First (Choices (Opt));
+
+                     if Nkind (Opt_Nam) = N_Identifier then
+                        if Chars (Opt_Nam) = Name_External then
+                           Analyze_External_Option (Opt);
+
+                        elsif Chars (Opt_Nam) = Name_Part_Of then
+                           Analyze_Part_Of_Option (Opt);
+
                         else
                            Error_Msg_N ("invalid state option", Opt);
                         end if;
@@ -9579,71 +9980,6 @@ package body Sem_Prag is
                      end if;
 
                      Next (Opt);
-                  end loop;
-
-                  --  External may appear on its own or with exactly one option
-                  --  Input_Only or Output_Only, but not both.
-
-                  if External_Seen
-                    and then Input_Seen
-                    and then Output_Seen
-                  then
-                     Error_Msg_N
-                       ("option External requires exactly one option "
-                        & "Input_Only or Output_Only", State);
-                  end if;
-
-                  --  Either Input_Only or Output_Only require External
-
-                  if (Input_Seen or Output_Seen)
-                    and then not External_Seen
-                  then
-                     Error_Msg_N
-                       ("options Input_Only and Output_Only require option "
-                        & "External", State);
-                  end if;
-
-                  --  Option Part_Of appears as a component association
-
-                  Assoc := First (Component_Associations (State));
-                  while Present (Assoc) loop
-                     Opt := First (Choices (Assoc));
-                     while Present (Opt) loop
-                        if Nkind (Opt) = N_Identifier
-                          and then Chars (Opt) = Name_Part_Of
-                        then
-                           Check_Duplicate_Option (Opt, Part_Of_Seen);
-                        else
-                           Error_Msg_N ("invalid state option", Opt);
-                        end if;
-
-                        Next (Opt);
-                     end loop;
-
-                     --  Part_Of must denote a parent state. Ensure that the
-                     --  tree is not malformed by checking the expression of
-                     --  the component association.
-
-                     Par_State := Expression (Assoc);
-                     pragma Assert (Present (Par_State));
-
-                     Analyze (Par_State);
-
-                     --  Part_Of specified a legal state, this automatically
-                     --  makes the state a constituent.
-
-                     if Is_Entity_Name (Par_State)
-                       and then Present (Entity (Par_State))
-                       and then Ekind (Entity (Par_State)) = E_Abstract_State
-                     then
-                        null;
-                     else
-                        Error_Msg_N
-                         ("option Part_Of must denote an abstract state",
-                          Par_State);
-                     end if;
-
-                     Next (Assoc);
                   end loop;
 
                --  Any other attempt to declare a state is erroneous
@@ -9662,27 +9998,29 @@ package body Sem_Prag is
                --  The generated state abstraction reuses the same characters
                --  from the original state declaration. Decorate the entity.
 
-               Id := Make_Defining_Identifier (Loc, New_External_Name (Name));
-               Set_Comes_From_Source       (Id, not Is_Null);
-               Set_Parent                  (Id, State);
-               Set_Ekind                   (Id, E_Abstract_State);
-               Set_Etype                   (Id, Standard_Void_Type);
-               Set_Refined_State           (Id, Empty);
-               Set_Refinement_Constituents (Id, New_Elmt_List);
+               State_Id :=
+                 Make_Defining_Identifier (Loc, New_External_Name (State_Nam));
+
+               Set_Comes_From_Source       (State_Id, not Is_Null);
+               Set_Parent                  (State_Id, State);
+               Set_Ekind                   (State_Id, E_Abstract_State);
+               Set_Etype                   (State_Id, Standard_Void_Type);
+               Set_Refined_State           (State_Id, Empty);
+               Set_Refinement_Constituents (State_Id, New_Elmt_List);
 
                --  Every non-null state must be nameable and resolvable the
                --  same way a constant is.
 
                if not Is_Null then
                   Push_Scope (Pack_Id);
-                  Enter_Name (Id);
+                  Enter_Name (State_Id);
                   Pop_Scope;
                end if;
 
                --  Verify whether the state introduces an illegal hidden state
                --  within a package subject to a null abstract state.
 
-               Check_No_Hidden_State (Id);
+               Check_No_Hidden_State (State_Id);
 
                --  Associate the state with its related package
 
@@ -9690,7 +10028,7 @@ package body Sem_Prag is
                   Set_Abstract_States (Pack_Id, New_Elmt_List);
                end if;
 
-               Append_Elmt (Id, Abstract_States (Pack_Id));
+               Append_Elmt (State_Id, Abstract_States (Pack_Id));
             end Analyze_Abstract_State;
 
             --  Local variables
@@ -9733,7 +10071,6 @@ package body Sem_Prag is
                State := First (Expressions (State));
                while Present (State) loop
                   Analyze_Abstract_State (State);
-
                   Next (State);
                end loop;
 
@@ -9953,8 +10290,17 @@ package body Sem_Prag is
 
          when Pragma_Allow_Integer_Address =>
             GNAT_Pragma;
+            Check_Valid_Configuration_Pragma;
             Check_Arg_Count (0);
-            Opt.Allow_Integer_Address := True;
+
+            --  If Address is a private type, then set the flag to allow
+            --  integer address values. If Address is not private (e.g. on
+            --  VMS, where it is an integer type), then this pragma has no
+            --  purpose, so it is simply ignored.
+
+            if Is_Private_Type (RTE (RE_Address)) then
+               Opt.Allow_Integer_Address := True;
+            end if;
 
          --------------
          -- Annotate --
@@ -10454,6 +10800,73 @@ package body Sem_Prag is
                Set_Is_AST_Entry (Ent);
             end if;
          end AST_Entry;
+
+         ------------------------------------------------------------------
+         -- Async_Readers/Async_Writers/Effective_Reads/Effective_Writes --
+         ------------------------------------------------------------------
+
+         --  pragma Asynch_Readers   ( identifier [, boolean_EXPRESSION] );
+         --  pragma Asynch_Writers   ( identifier [, boolean_EXPRESSION] );
+         --  pragma Effective_Reads  ( identifier [, boolean_EXPRESSION] );
+         --  pragma Effective_Writes ( identifier [, boolean_EXPRESSION] );
+
+         when Pragma_Async_Readers    |
+              Pragma_Async_Writers    |
+              Pragma_Effective_Reads  |
+              Pragma_Effective_Writes =>
+         Async_Effective : declare
+            Duplic : Node_Id;
+            Obj_Id : Entity_Id;
+
+         begin
+            GNAT_Pragma;
+            Check_No_Identifiers;
+            Check_At_Least_N_Arguments (1);
+            Check_At_Most_N_Arguments  (2);
+            Check_Arg_Is_Local_Name (Arg1);
+
+            Arg1 := Get_Pragma_Arg (Arg1);
+
+            --  Perform minimal verification to ensure that the argument is at
+            --  least a variable. Subsequent finer grained checks will be done
+            --  at the end of the declarative region the contains the pragma.
+
+            if Is_Entity_Name (Arg1) and then Present (Entity (Arg1)) then
+               Obj_Id := Entity (Get_Pragma_Arg (Arg1));
+
+               --  It is not efficient to examine preceding statements in order
+               --  to detect duplicate pragmas as Boolean aspects may appear
+               --  anywhere between the related object declaration and its
+               --  freeze point. As an alternative, inspect the contents of the
+               --  variable contract.
+
+               if Ekind (Obj_Id) = E_Variable then
+                  Duplic := Get_Pragma (Obj_Id, Prag_Id);
+
+                  if Present (Duplic) then
+                     Error_Msg_Name_1 := Pname;
+                     Error_Msg_Sloc   := Sloc (Duplic);
+                     Error_Msg_N ("pragma % duplicates pragma declared #", N);
+
+                  --  Chain the pragma on the contract for further processing.
+                  --  This also aids in detecting duplicates.
+
+                  else
+                     Add_Contract_Item (N, Obj_Id);
+                  end if;
+
+                  --  The minimum legality requirements have been met, do not
+                  --  fall through to the error message.
+
+                  return;
+               end if;
+            end if;
+
+            --  If we get here, then the pragma applies to a non-object
+            --  construct, issue a generic error.
+
+            Error_Pragma ("pragma % must apply to a volatile object");
+         end Async_Effective;
 
          ------------------
          -- Asynchronous --
@@ -14497,6 +14910,8 @@ package body Sem_Prag is
 
             --  An invariant must apply to a private type, or appear in the
             --  private part of a package spec and apply to a completion.
+            --  a class-wide invariant can only appear on a private declaration
+            --  or private extension, not a completion.
 
             elsif Ekind_In (Typ, E_Private_Type,
                                  E_Record_Type_With_Private,
@@ -14506,6 +14921,7 @@ package body Sem_Prag is
 
             elsif In_Private_Part (Current_Scope)
               and then Has_Private_Declaration (Typ)
+              and then not Class_Present (N)
             then
                null;
 
@@ -16168,11 +16584,11 @@ package body Sem_Prag is
 
                if not Rep_Item_Too_Late (Typ, N) then
 
-                  --  In the context of static code analysis, we do not need
-                  --  complex front-end expansions related to pragma Pack,
-                  --  so disable handling of pragma Pack in these cases.
+                  --  In CodePeer mode, we do not need complex front-end
+                  --  expansions related to pragma Pack, so disable handling
+                  --  of pragma Pack.
 
-                  if CodePeer_Mode or GNATprove_Mode then
+                  if CodePeer_Mode then
                      null;
 
                   --  Don't attempt any packing for VM targets. We possibly
@@ -18052,116 +18468,48 @@ package body Sem_Prag is
 
          --  pragma SPARK_Mode [(On | Off | Auto)];
 
-         when Pragma_SPARK_Mode => SPARK_Mod : declare
-            procedure Chain_Pragma (Context : Entity_Id; Prag : Node_Id);
-            --  Associate a SPARK_Mode pragma with the context where it lives.
-            --  If the context is a package spec or a body, the routine checks
-            --  the consistency between modes of visible/private declarations
-            --  and body declarations/statements.
+         when Pragma_SPARK_Mode => Do_SPARK_Mode : declare
+            Body_Id : Entity_Id;
+            Context : Node_Id;
+            Mode    : Name_Id;
+            Mode_Id : SPARK_Mode_Type;
+            Spec_Id : Entity_Id;
+            Stmt    : Node_Id;
 
-            procedure Check_Spark_Mode_Conformance
-              (Governing_Id : Entity_Id;
-               New_Id       : Entity_Id);
-            --  Verify the "monotonicity" of SPARK modes between two entities.
-            --  The order of modes is Off < Auto < On. Governing_Id establishes
-            --  the mode of the context. New_Id is the desired new mode.
-
-            procedure Check_Pragma_Conformance
-              (Governing_Mode : Node_Id;
-               New_Mode       : Node_Id);
-            --  Verify the "monotonicity" of two SPARK_Mode pragmas. The order
-            --  of modes is Off < Auto < On. Governing_Mode is the established
-            --  mode dictated by the context. New_Mode attempts to redefine the
-            --  governing mode.
+            procedure Check_Pragma_Conformance (Old_Pragma : Node_Id);
+            --  Verify the monotonicity of SPARK modes between the new pragma
+            --  N, and the old pragma, Old_Pragma, that was inherited. If
+            --  Old_Pragma is Empty, the call has no effect, otherwise we
+            --  verify that the new mode is less restrictive than the old mode.
+            --  For example, if the old mode is ON, then the new mode can be
+            --  anything. But if the old mode is OFF, then the only allowed
+            --  new mode is also OFF.
 
             function Get_SPARK_Mode_Name (Id : SPARK_Mode_Type) return Name_Id;
             --  Convert a value of type SPARK_Mode_Type to corresponding name
-
-            ------------------
-            -- Chain_Pragma --
-            ------------------
-
-            procedure Chain_Pragma (Context : Entity_Id; Prag : Node_Id) is
-               Existing_Prag : constant Node_Id :=
-                                 SPARK_Mode_Pragmas (Context);
-
-            begin
-               --  Chain existing pragmas to this one, checking consistency
-
-               if Present (Existing_Prag) then
-                  Check_Pragma_Conformance
-                    (Governing_Mode => Existing_Prag,
-                     New_Mode       => Prag);
-
-                  Set_Next_Pragma (Prag, Existing_Prag);
-               end if;
-
-               Set_SPARK_Mode_Pragmas (Context, Prag);
-            end Chain_Pragma;
-
-            ----------------------------------
-            -- Check_Spark_Mode_Conformance --
-            ----------------------------------
-
-            procedure Check_Spark_Mode_Conformance
-              (Governing_Id : Entity_Id;
-               New_Id       : Entity_Id)
-            is
-               Gov_Prag : constant Node_Id :=
-                            SPARK_Mode_Pragmas (Governing_Id);
-               New_Prag : constant Node_Id := SPARK_Mode_Pragmas (New_Id);
-
-            begin
-               --  Nothing to do when one or both entities lack a mode
-
-               if No (Gov_Prag) or else No (New_Prag) then
-                  return;
-               end if;
-
-               --  Do not compare the modes of a package spec and body when the
-               --  spec mode appears in the private part. In this case the spec
-               --  mode does not affect the body.
-
-               if Ekind_In (Governing_Id, E_Generic_Package, E_Package)
-                 and then Ekind (New_Id) = E_Package_Body
-                 and then Is_Private_SPARK_Mode (Gov_Prag)
-               then
-                  null;
-
-               --  Test the pragmas
-
-               else
-                  Check_Pragma_Conformance
-                    (Governing_Mode => Gov_Prag,
-                     New_Mode       => New_Prag);
-               end if;
-            end Check_Spark_Mode_Conformance;
 
             ------------------------------
             -- Check_Pragma_Conformance --
             ------------------------------
 
-            procedure Check_Pragma_Conformance
-              (Governing_Mode : Node_Id;
-               New_Mode       : Node_Id)
-            is
-               Gov_M : constant SPARK_Mode_Type :=
-                         Get_SPARK_Mode_From_Pragma (Governing_Mode);
-               New_M : constant SPARK_Mode_Type :=
-                         Get_SPARK_Mode_From_Pragma (New_Mode);
-
+            procedure Check_Pragma_Conformance (Old_Pragma : Node_Id) is
             begin
-               --  The new mode is less restrictive than the established mode
+               if Present (Old_Pragma) then
+                  pragma Assert (Nkind (Old_Pragma) = N_Pragma);
 
-               if Gov_M < New_M then
-                  Error_Msg_Name_1 := Get_SPARK_Mode_Name (New_M);
-                  Error_Msg_N ("cannot define 'S'P'A'R'K mode %", New_Mode);
+                  --  New mode less restrictive than the established mode
 
-                  Error_Msg_Name_1 := Get_SPARK_Mode_Name (Gov_M);
-                  Error_Msg_Sloc   := Sloc (Governing_Mode);
-                  Error_Msg_N
-                    ("\mode is less restrictive than mode % defined #",
-                     New_Mode);
+                  if Get_SPARK_Mode_From_Pragma (Old_Pragma) < Mode_Id then
+                     Error_Msg_Name_1 := Mode;
+                     Error_Msg_N ("cannot define 'S'P'A'R'K mode %", Arg1);
+
+                     Error_Msg_Name_1 := Get_SPARK_Mode_Name (SPARK_Mode);
+                     Error_Msg_Sloc   := Sloc (SPARK_Mode_Pragma);
+                     Error_Msg_N
+                       ("\mode is less restrictive than mode "
+                        & "% defined #", Arg1);
+                     raise Pragma_Exit;
+                  end if;
                end if;
             end Check_Pragma_Conformance;
 
@@ -18187,16 +18535,7 @@ package body Sem_Prag is
                end if;
             end Get_SPARK_Mode_Name;
 
-            --  Local variables
-
-            Body_Id : Entity_Id;
-            Context : Node_Id;
-            Mode    : Name_Id;
-            Mode_Id : SPARK_Mode_Type;
-            Spec_Id : Entity_Id;
-            Stmt    : Node_Id;
-
-         --  Start of processing for SPARK_Mod
+         --  Start of processing for Do_SPARK_Mode
 
          begin
             GNAT_Pragma;
@@ -18214,29 +18553,39 @@ package body Sem_Prag is
 
             Mode_Id := Get_SPARK_Mode_Type (Mode);
             Context := Parent (N);
-            SPARK_Mode := Mode_Id;
 
-            --  The pragma appears in a configuration file
+            --  The pragma appears in a configuration pragmas file
 
             if No (Context) then
                Check_Valid_Configuration_Pragma;
+
+               if Present (SPARK_Mode_Pragma) then
+                  Error_Msg_Sloc := Sloc (SPARK_Mode_Pragma);
+                  Error_Msg_N ("pragma% duplicates pragma declared#", N);
+                  raise Pragma_Exit;
+               end if;
+
+               SPARK_Mode_Pragma := N;
+               SPARK_Mode := Mode_Id;
 
             --  When the pragma is placed before the declaration of a unit, it
             --  configures the whole unit.
 
             elsif Nkind (Context) = N_Compilation_Unit then
                Check_Valid_Configuration_Pragma;
-                  Set_SPARK_Mode_Pragma (Current_Sem_Unit, N);
+
+               SPARK_Mode_Pragma := N;
+               SPARK_Mode := Mode_Id;
 
             --  The pragma applies to a [library unit] subprogram or package
 
             else
-               --  Mode "Auto" cannot be used in nested subprograms or packages
+               --  Mode "Auto" can only be used in a configuration pragma
 
                if Mode_Id = Auto then
                   Error_Pragma_Arg
-                    ("mode `Auto` can only apply to the configuration variant "
-                     & "of pragma %", Arg1);
+                    ("mode `Auto` is only allowed when pragma % appears as "
+                     & "a configuration pragma", Arg1);
                end if;
 
                --  Verify the placement of the pragma with respect to package
@@ -18252,6 +18601,7 @@ package body Sem_Prag is
                         Error_Msg_Name_1 := Pname;
                         Error_Msg_Sloc   := Sloc (Stmt);
                         Error_Msg_N ("pragma% duplicates pragma declared#", N);
+                        raise Pragma_Exit;
                      end if;
 
                   --  Skip internally generated code
@@ -18259,15 +18609,30 @@ package body Sem_Prag is
                   elsif not Comes_From_Source (Stmt) then
                      null;
 
-                  --  The pragma applies to a package or subprogram declaration
+                  --  The pragma applies to a package declaration
 
                   elsif Nkind_In (Stmt, N_Generic_Package_Declaration,
-                                        N_Generic_Subprogram_Declaration,
-                                        N_Package_Declaration,
+                                        N_Package_Declaration)
+                  then
+                     Spec_Id := Defining_Unit_Name (Specification (Stmt));
+                     Check_Pragma_Conformance (SPARK_Pragma (Spec_Id));
+
+                     Set_SPARK_Pragma               (Spec_Id, N);
+                     Set_SPARK_Pragma_Inherited     (Spec_Id, False);
+                     Set_SPARK_Aux_Pragma           (Spec_Id, N);
+                     Set_SPARK_Aux_Pragma_Inherited (Spec_Id, True);
+                     return;
+
+                  --  The pragma applies to a subprogram declaration
+
+                  elsif Nkind_In (Stmt, N_Generic_Subprogram_Declaration,
                                         N_Subprogram_Declaration)
                   then
                      Spec_Id := Defining_Unit_Name (Specification (Stmt));
-                     Chain_Pragma (Spec_Id, N);
+                     Check_Pragma_Conformance (SPARK_Pragma (Spec_Id));
+
+                     Set_SPARK_Pragma               (Spec_Id, N);
+                     Set_SPARK_Pragma_Inherited     (Spec_Id, False);
                      return;
 
                   --  The pragma does not apply to a legal construct, issue an
@@ -18301,48 +18666,89 @@ package body Sem_Prag is
                   end if;
                end if;
 
-               --  The pragma is at the top level of a package spec or appears
-               --  as an aspect on a subprogram.
-
-               --    function F ... with SPARK_Mode => ...;
+               --  The pragma is at the top level of a package spec
 
                --    package P is
                --       pragma SPARK_Mode;
 
-               if Nkind_In (Context, N_Function_Specification,
-                                     N_Package_Specification,
-                                     N_Procedure_Specification)
+               --      or
+
+               --    package P is
+               --      ...
+               --    private
+               --      pragma SPARK_Mode;
+
+               if Nkind (Context) = N_Package_Specification then
+                  Spec_Id := Defining_Unit_Name (Context);
+
+                  --  Pragma applies to private part
+
+                  if List_Containing (N) = Private_Declarations (Context) then
+                     Check_Pragma_Conformance (SPARK_Aux_Pragma (Spec_Id));
+                     SPARK_Mode_Pragma := N;
+                     SPARK_Mode := Mode_Id;
+
+                     Set_SPARK_Aux_Pragma           (Spec_Id, N);
+                     Set_SPARK_Aux_Pragma_Inherited (Spec_Id, False);
+
+                  --  Pragma applies to public part
+
+                  else
+                     Check_Pragma_Conformance (SPARK_Pragma (Spec_Id));
+                     SPARK_Mode_Pragma := N;
+                     SPARK_Mode := Mode_Id;
+
+                     Set_SPARK_Pragma               (Spec_Id, N);
+                     Set_SPARK_Pragma_Inherited     (Spec_Id, False);
+                     Set_SPARK_Aux_Pragma           (Spec_Id, N);
+                     Set_SPARK_Aux_Pragma_Inherited (Spec_Id, True);
+                  end if;
+
+               --  The pragma appears as an aspect on a subprogram.
+
+               --    function F ... with SPARK_Mode => ...;
+
+               elsif Nkind_In (Context, N_Function_Specification,
+                                        N_Procedure_Specification)
                then
                   Spec_Id := Defining_Unit_Name (Context);
-                  Chain_Pragma (Spec_Id, N);
+                  Check_Pragma_Conformance (SPARK_Pragma (Spec_Id));
 
-               --  Pragma is immediately within a package or subprogram body
+                  Set_SPARK_Pragma           (Spec_Id, N);
+                  Set_SPARK_Pragma_Inherited (Spec_Id, False);
 
-               --    function F ... is
-               --       pragma SPARK_Mode;
+               --  Pragma is immediately within a package body
 
                --    package body P is
                --       pragma SPARK_Mode;
 
-               elsif Nkind_In (Context, N_Package_Body,
-                                        N_Subprogram_Body)
-               then
+               elsif Nkind (Context) = N_Package_Body then
                   Spec_Id := Corresponding_Spec (Context);
-
-                  if Nkind (Context) = N_Subprogram_Body then
-                     Context := Specification (Context);
-                  end if;
-
                   Body_Id := Defining_Entity (Context);
+                  Check_Pragma_Conformance (SPARK_Pragma (Body_Id));
+                  SPARK_Mode_Pragma := N;
+                  SPARK_Mode := Mode_Id;
 
-                  Chain_Pragma (Body_Id, N);
+                  Set_SPARK_Pragma               (Body_Id, N);
+                  Set_SPARK_Pragma_Inherited     (Body_Id, False);
+                  Set_SPARK_Aux_Pragma           (Body_Id, N);
+                  Set_SPARK_Aux_Pragma_Inherited (Body_Id, True);
 
-                  --  Verify that the SPARK modes are consistent between
-                  --  body and spec, if any.
+               --  Pragma is immediately within a subprogram body
 
-                  if Present (Spec_Id) then
-                     Check_Spark_Mode_Conformance (Spec_Id, Body_Id);
-                  end if;
+               --    function F ... is
+               --       pragma SPARK_Mode;
+
+               elsif Nkind (Context) = N_Subprogram_Body then
+                  Spec_Id := Corresponding_Spec (Context);
+                  Context := Specification (Context);
+                  Body_Id := Defining_Entity (Context);
+                  Check_Pragma_Conformance (SPARK_Pragma (Body_Id));
+                  SPARK_Mode_Pragma := N;
+                  SPARK_Mode := Mode_Id;
+
+                  Set_SPARK_Pragma           (Body_Id, N);
+                  Set_SPARK_Pragma_Inherited (Body_Id, False);
 
                --  The pragma applies to the statements of a package body
 
@@ -18356,9 +18762,12 @@ package body Sem_Prag is
                   Context := Parent (Context);
                   Spec_Id := Corresponding_Spec (Context);
                   Body_Id := Defining_Unit_Name (Context);
+                  Check_Pragma_Conformance (SPARK_Aux_Pragma (Body_Id));
+                  SPARK_Mode_Pragma := N;
+                  SPARK_Mode := Mode_Id;
 
-                  Chain_Pragma (Body_Id, N);
-                  Check_Spark_Mode_Conformance (Spec_Id, Body_Id);
+                  Set_SPARK_Aux_Pragma           (Body_Id, N);
+                  Set_SPARK_Aux_Pragma_Inherited (Body_Id, False);
 
                --  The pragma does not apply to a legal construct, issue error
 
@@ -18366,7 +18775,7 @@ package body Sem_Prag is
                   Pragma_Misplaced;
                end if;
             end if;
-         end SPARK_Mod;
+         end Do_SPARK_Mode;
 
          --------------------------------
          -- Static_Elaboration_Desired --
@@ -22247,6 +22656,56 @@ package body Sem_Prag is
       return False;
    end Appears_In;
 
+   -------------------------------
+   -- Check_External_Properties --
+   -------------------------------
+
+   procedure Check_External_Properties
+     (Item : Node_Id;
+      AR   : Boolean;
+      AW   : Boolean;
+      ER   : Boolean;
+      EW   : Boolean)
+   is
+   begin
+      --  All properties enabled
+
+      if AR and AW and ER and EW then
+         null;
+
+      --  Async_Readers + Effective_Writes
+      --  Async_Readers + Async_Writers + Effective_Writes
+
+      elsif AR and EW and not ER then
+         null;
+
+      --  Async_Writers + Effective_Reads
+      --  Async_Readers + Async_Writers + Effective_Reads
+
+      elsif AW and ER and not EW then
+         null;
+
+      --  Async_Readers + Async_Writers
+
+      elsif AR and AW and not ER and not EW then
+         null;
+
+      --  Async_Readers
+
+      elsif AR and not AW and not ER and not EW then
+         null;
+
+      --  Async_Writers
+
+      elsif AW and not AR and not ER and not EW then
+         null;
+
+      else
+         Error_Msg_N
+           ("illegal combination of external state properties", Item);
+      end if;
+   end Check_External_Properties;
+
    ----------------
    -- Check_Kind --
    ----------------
@@ -22998,18 +23457,20 @@ package body Sem_Prag is
       Pragma_Ada_12                         => -1,
       Pragma_Ada_2012                       => -1,
       Pragma_All_Calls_Remote               => -1,
-      Pragma_Allow_Integer_Address          => 0,
+      Pragma_Allow_Integer_Address          =>  0,
       Pragma_Annotate                       => -1,
       Pragma_Assert                         => -1,
       Pragma_Assert_And_Cut                 => -1,
       Pragma_Assertion_Policy               =>  0,
       Pragma_Assume                         => -1,
       Pragma_Assume_No_Invalid_Values       =>  0,
-      Pragma_Attribute_Definition           => +3,
+      Pragma_Async_Readers                  =>  0,
+      Pragma_Async_Writers                  =>  0,
       Pragma_Asynchronous                   => -1,
       Pragma_Atomic                         =>  0,
       Pragma_Atomic_Components              =>  0,
       Pragma_Attach_Handler                 => -1,
+      Pragma_Attribute_Definition           => +3,
       Pragma_Check                          => 99,
       Pragma_Check_Float_Overflow           =>  0,
       Pragma_Check_Name                     =>  0,
@@ -23041,6 +23502,8 @@ package body Sem_Prag is
       Pragma_Disable_Atomic_Synchronization => -1,
       Pragma_Discard_Names                  =>  0,
       Pragma_Dispatching_Domain             => -1,
+      Pragma_Effective_Reads                =>  0,
+      Pragma_Effective_Writes               =>  0,
       Pragma_Elaborate                      => -1,
       Pragma_Elaborate_All                  => -1,
       Pragma_Elaborate_Body                 => -1,

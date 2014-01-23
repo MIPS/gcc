@@ -1,3 +1,126 @@
+2014-01-22  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_deque.h (_Deque_impl): Move comment.
+
+	PR libstdc++/58764
+	* include/bits/stl_deque.h (deque::deque(const allocator_type&):
+	Split into separate default constructor and constructor taking
+	allocator.
+	* include/bits/stl_list.h (list::list(const allocator_type&): Likewise.
+	* include/bits/stl_vector.h (vector::vector(const allocator_type&):
+	Likewise.
+	* include/debug/deque (deque::deque(const allocator_type&)): Likewise.
+	* include/debug/list (list::list(const _Allocator&)): Likewise.
+	* include/debug/map.h (map::map(const _Compare&, const _Allocator&)):
+	Likewise.
+	* include/debug/multimap.h
+	(multimap::multimap(const _Compare&, const _Allocator&)): Likewise.
+	* include/debug/set.h (set::set(const _Compare&, const _Allocator&)):
+	Likewise.
+	* include/debug/multiset.h
+	(multiset::multiset(const _Compare&, const _Allocator&)): Likewise.
+	* include/debug/vector (vector::vector(const allocator_type&)):
+	Likewise.
+	* include/profile/deque (deque::deque(const _Allocator&)): Likewise.
+	* include/profile/list (list::list(const _Allocator&)): Likewise.
+	* include/profile/map.h
+	(map::map(const _Compare&, const _Allocator&)): Likewise.
+	* include/profile/multimap.h
+	(multimap::multimap(const _Compare&, const _Allocator&)): Likewise.
+	* include/profile/set.h
+	(set::set(const _Compare&, const _Allocator&)): Likewise.
+	* include/profile/multiset.h
+	(multiset::multiset(const _Compare&, const _Allocator&)): Likewise.
+	* include/profile/vector (vector::vector(const _Allocator&)):
+	Likewise.
+	* testsuite/23_containers/deque/58764.cc: New.
+	* testsuite/23_containers/list/58764.cc: New.
+	* testsuite/23_containers/map/58764.cc: New.
+	* testsuite/23_containers/multimap/58764.cc: New.
+	* testsuite/23_containers/set/58764.cc: New.
+	* testsuite/23_containers/multiset/58764.cc: New.
+	* testsuite/23_containers/vector/58764.cc: New.
+	* testsuite/23_containers/deque/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/deque/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+	PR libstdc++/58764 (again)
+	* include/bits/stl_list.h (list): Make default constructor's exception
+	specification conditional.
+	* include/bits/stl_vector.h (vector): Likewise.
+	* testsuite/util/testsuite_allocator.h (SimpleAllocator): Add noexcept
+	to default constructor.
+	* testsuite/23_containers/list/requirements/dr438/assign_neg.cc:
+	Adjust dg-error line number.
+	* testsuite/23_containers/list/requirements/dr438/constructor_1_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/constructor_2_neg.cc:
+	Likewise.
+	* testsuite/23_containers/list/requirements/dr438/insert_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/assign_neg.cc:
+	Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_1_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/
+	constructor_2_neg.cc: Likewise.
+	* testsuite/23_containers/vector/requirements/dr438/insert_neg.cc:
+	Likewise.
+
+2014-01-21  Tim Shen  <timshen91@gmail.com>
+
+	* include/bits/regex.tcc: Remove incorrect `nosubs` handling.
+	* include/bits/regex_scanner.tcc: Handle `nosubs` correctly.
+	* testsuite/28_regex/constants/syntax_option_type.cc: Add a test case.
+
+2014-01-21  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/56267
+	* include/bits/hashtable.h (__cache_default): Do not depend on
+	whether the hash function is DefaultConstructible or CopyAssignable.
+	(_Hashtable): Adjust static assertions.
+	* doc/xml/manual/containers.xml (containers.unordered.cache): Update.
+	* testsuite/23_containers/unordered_set/instantiation_neg.cc: Adjust
+	dg-error line number.
+	* testsuite/23_containers/unordered_set/
+	not_default_constructible_hash_neg.cc: Remove.
+
+2014-01-20  François Dumont  <fdumont@gcc.gnu.org>
+
+	* scripts/create_testsuite_files: Add testsuite/experimental in
+	the list of folders to search for tests.
+	* include/experimental/string_view
+	(basic_string_view<>::operator[]): Comment _GLIBCXX_DEBUG_ASSERT,
+	incompatible with constexpr qualifier.
+	(basic_string_view<>::front()): Likewise.
+	(basic_string_view<>::back()): Likewise.
+	* testsuite/experimental/string_view/element_access/wchar_t/2.cc:
+	Merge dg-options directives into one.
+	* testsuite/experimental/string_view/element_access/char/2.cc:
+	Likewise. Remove invalid experimental namespace scope on
+	string_view_type.
+
 2014-01-20  Jonathan Wakely  <jwakely@redhat.com>
 
 	PR libstdc++/56267

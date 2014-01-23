@@ -1,3 +1,107 @@
+2014-01-22  David Holsgrove <david.holsgrove@xilinx.com>
+
+	* config/microblaze/microblaze.md: Correct bswaphi2 insn.
+
+2014-01-22  Jan Hubicka  <jh@suse.cz>
+
+	* config/i386/x86-tune.def (X86_TUNE_ACCUMULATE_OUTGOING_ARGS):
+	Enable for generic and recent AMD targets.
+
+2014-01-22  Jan Hubicka  <jh@suse.cz>
+
+	* combine-stack-adj.c (combine_stack_adjustments_for_block): Remove
+	ARG_SIZE note when adjustment was eliminated.
+
+2014-01-22  Jeff Law  <law@redhat.com>
+
+	PR tree-optimization/59597
+	* tree-ssa-threadupdate.c (dump_jump_thread_path): Move to earlier
+	in file.  Accept new argument REGISTERING and use it to modify
+	dump output appropriately.
+	(register_jump_thread): Corresponding changes.
+	(mark_threaded_blocks): Reinstate code to cancel unprofitable
+	thread paths involving joiner blocks.  Add code to dump cancelled
+	jump threading paths.
+
+2014-01-22  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59477
+	* lra-constraints.c (inherit_in_ebb): Process call for living hard
+	regs.  Update reloads_num and potential_reload_hard_regs for all
+	insns.
+
+2014-01-22  Tom Tromey  <tromey@redhat.com>
+
+	* config/i386/i386-interix.h (i386_pe_unique_section): Don't use
+	PARAMS.
+	* config/cr16/cr16-protos.h (notice_update_cc): Don't use PARAMS.
+
+2014-01-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59896
+	* lra-constraints.c (process_alt_operands): Check unused note for
+	matched operands of insn with no output reloads.
+
+2014-01-21  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* config/mips/mips.c (mips_move_to_gpr_cost): Add M16_REGS case.
+	(mips_move_from_gpr_cost): Likewise.
+
+2014-01-21  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/59858
+	* lra-constraints.c (SMALL_REGISTER_CLASS_P): Use
+	ira_class_hard_regs_num.
+	(process_alt_operands): Increase reject for dying matched operand.
+
+2014-01-21  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59003
+	* config/i386/i386.c (expand_small_movmem_or_setmem): If mode is
+	smaller than size, perform several stores or loads and stores
+	at dst + count - size to store or copy all of size bytes, rather
+	than just last modesize bytes.
+
+2014-01-20  DJ Delorie  <dj@redhat.com>
+
+	* config/rl78/rl78.c (rl78_propogate_register_origins): Verify
+	that CLOBBERs are REGs before propogating their values.
+
+2014-01-20  H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR middle-end/59789
+	* cgraph.c (cgraph_inline_failed_string): Add type to DEFCIFCODE.
+	(cgraph_inline_failed_type): New function.
+	* cgraph.h (DEFCIFCODE): Add type.
+	(cgraph_inline_failed_type_t): New enum.
+	(cgraph_inline_failed_type): New prototype.
+	* cif-code.def: Add CIF_FINAL_NORMAL to OK, FUNCTION_NOT_CONSIDERED,
+	FUNCTION_NOT_OPTIMIZED, REDEFINED_EXTERN_INLINE,
+	FUNCTION_NOT_INLINE_CANDIDATE, LARGE_FUNCTION_GROWTH_LIMIT,
+	LARGE_STACK_FRAME_GROWTH_LIMIT, MAX_INLINE_INSNS_SINGLE_LIMIT,
+	MAX_INLINE_INSNS_AUTO_LIMIT, INLINE_UNIT_GROWTH_LIMIT,
+	RECURSIVE_INLINING, UNLIKELY_CALL, NOT_DECLARED_INLINED,
+	OPTIMIZING_FOR_SIZE, ORIGINALLY_INDIRECT_CALL,
+	INDIRECT_UNKNOWN_CALL, USES_COMDAT_LOCAL. 
+	Add CIF_FINAL_ERROR to UNSPECIFIED, BODY_NOT_AVAILABLE,
+	FUNCTION_NOT_INLINABLE, OVERWRITABLE, MISMATCHED_ARGUMENTS,
+	EH_PERSONALITY, NON_CALL_EXCEPTIONS, TARGET_OPTION_MISMATCH,
+	OPTIMIZATION_MISMATCH.
+	* tree-inline.c (expand_call_inline): Emit errors during
+	early_inlining if cgraph_inline_failed_type returns
+	CIF_FINAL_ERROR.
+
+2014-01-20  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/59685
+	* config/i386/sse.md (*andnot<mode>3<mask_name>): Handle MODE_V16SF
+	mode attribute in insn output.
+
+2014-01-20  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* output.h (output_constant): Delete.
+	* varasm.c (output_constant): Make private.
+
 2014-01-20  Alex Velenko  <Alex.Velenko@arm.com>
 
 	* config/aarch64/aarch64-simd.md (vec_perm<mode>): Add BE check.
@@ -82,6 +186,10 @@
 2014-01-19  Jan-Benedict Glaw  <jbglaw@lug-owl.de>
 
 	* config/vax/vax.h (FUNCTION_ARG_REGNO_P): Fix unused variable warning.
+
+2014-01-19  Kito Cheng  <kito@0xlab.org>
+
+	* builtins.c (expand_movstr): Check movstr expand done or fail.
 
 2014-01-18  Uros Bizjak  <ubizjak@gmail.com>
 	    H.J. Lu  <hongjiu.lu@intel.com>
