@@ -1818,27 +1818,27 @@ mips_const_vector_bitimm_set_p (rtx op, enum machine_mode mode)
 
       if (vlog2 != -1)
 	{
-	switch (mode)
-	  {
-	  case V16QImode:
-	    if (!(0 <= vlog2 && vlog2 <= 7))
-	      return false;
-	    break;	
-	  case V8HImode:
-	    if (!(0 <= vlog2 && vlog2 <= 15))
-	      return false;
-	    break;
-	  case V4SImode:
-	    if (!(0 <= vlog2 && vlog2 <= 31))
-	      return false;
-	    break;
-	  case V2DImode:
-	    if (!(0 <= vlog2 && vlog2 <= 63))
-	      return false;
-	    break;
-	  default:
-	    gcc_unreachable ();
-	  }
+	  switch (mode)
+	    {
+	    case V16QImode:
+	      if (!(0 <= vlog2 && vlog2 <= 7))
+		return false;
+	      break;	
+	    case V8HImode:
+	      if (!(0 <= vlog2 && vlog2 <= 15))
+		return false;
+	      break;
+	    case V4SImode:
+	      if (!(0 <= vlog2 && vlog2 <= 31))
+		return false;
+	      break;
+	    case V2DImode:
+	      if (!(0 <= vlog2 && vlog2 <= 63))
+		return false;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
 
 	  return mips_const_vector_same_int_p (op, mode, 0, val);
 	}
@@ -5065,19 +5065,19 @@ mips_output_move (rtx dest, rtx src)
 	    {
 	      if (msa_p)
 		{
+		  enum machine_mode dstmode = GET_MODE (dest);
+
 		  gcc_assert (src == CONST0_RTX (GET_MODE (src)));
 
-		  switch (GET_MODE (dest))
+		  if (MSA_SUPPORTED_INT_MODE_P (dstmode))
 		    {
-		    case TImode: return "ldi.b\t%w0,0";
-		    case V16QImode: return "ldi.b\t%w0,0";
-		    case V8HImode: return "ldi.h\t%w0,0";
-		    case V4SImode: return "ldi.w\t%w0,0";
-		    case V2DImode: return "ldi.d\t%w0,0";
-		    case V4SFmode: return "ldi.w\t%w0,0";
-		    case V2DFmode: return "ldi.d\t%w0,0";
-		    default: gcc_unreachable ();
+		      if (dstmode == TImode)
+			return "ldi.b\t%w0,0";
+		      else
+			return "ldi.%v0\t%w0,0";
 		    }
+		  else
+		    gcc_unreachable ();
 		}
 
 	      return dbl_p ? "dmtc1\t%z1,%0" : "mtc1\t%z1,%0";
@@ -5203,17 +5203,15 @@ mips_output_move (rtx dest, rtx src)
 
       if (dest_code == MEM)
 	{
-	  switch (mode)
+	  if (MSA_SUPPORTED_INT_MODE_P (mode))
 	    {
-	    case TImode: /* Just use st.d/st.w to store.  */
-	      return TARGET_64BIT ? "st.d\t%w1,%0" : "st.w\t%w1,%0";
-	    case V16QImode: return "st.b\t%w1,%0";
-	    case V8HImode: return "st.h\t%w1,%0";
-	    case V4SImode: return "st.w\t%w1,%0";
-	    case V2DImode: return "st.d\t%w1,%0";
-	    case V4SFmode: return "st.w\t%w1,%0";
-	    case V2DFmode: return "st.d\t%w1,%0";
-	    default: break;
+	      if (mode == TImode)
+		{
+		  /* Just use st.d/st.w to store.  */
+		  return TARGET_64BIT ? "st.d\t%w1,%0" : "st.w\t%w1,%0";
+		}
+	      else
+		return "st.%v1\t%w1,%0";
 	    }
 
 	  return dbl_p ? "sdc1\t%1,%0" : "swc1\t%1,%0";
@@ -5223,17 +5221,15 @@ mips_output_move (rtx dest, rtx src)
     {
       if (src_code == MEM)
 	{
-	  switch (mode)
+	  if (MSA_SUPPORTED_INT_MODE_P (mode))
 	    {
-	    case TImode: /* Just use ld.d/ld.w to load.  */
-	      return TARGET_64BIT ? "ld.d\t%w0,%1" : "ld.w\t%w0,%1";
-	    case V16QImode: return "ld.b\t%w0,%1";
-	    case V8HImode: return "ld.h\t%w0,%1";
-	    case V4SImode: return "ld.w\t%w0,%1";
-	    case V2DImode: return "ld.d\t%w0,%1";
-	    case V4SFmode: return "ld.w\t%w0,%1";
-	    case V2DFmode: return "ld.d\t%w0,%1";
-	    default: break;
+	      if (mode == TImode)
+		{
+		  /* Just use ld.d/ld.w to load.  */
+		  return TARGET_64BIT ? "ld.d\t%w0,%1" : "ld.w\t%w0,%1";
+		}
+	      else
+		return "ld.%v0\t%w0,%1";
 	    }
 
 	  return dbl_p ? "ldc1\t%0,%1" : "lwc1\t%0,%1";
@@ -5687,8 +5683,7 @@ static void
 mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 		   enum machine_mode mode, const_tree type, bool named)
 {
-  bool doubleword_aligned_p;
-  bool quadword_aligned_p;
+  unsigned aligned = 0;
   unsigned int num_bytes, num_words, max_regs;
 
   /* Work out the size of the argument.  */
@@ -5779,12 +5774,11 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
     }
 
   /* See whether the argument has doubleword alignment.  */
-  doubleword_aligned_p = (mips_function_arg_boundary (mode, type)
-			  > BITS_PER_WORD);
+  if (mips_function_arg_boundary (mode, type) > BITS_PER_WORD)
+    aligned |= 1;
   /* See whether the argument has quadword alignment.  */
-  quadword_aligned_p = (mips_function_arg_boundary (mode, type)
-			> 2 * BITS_PER_WORD);
-
+  if (mips_function_arg_boundary (mode, type) > 2 * BITS_PER_WORD)
+    aligned |= 2;
   if (info->msa_reg_p)
     {
       info->reg_offset = cum->num_msa_regs;
@@ -5802,9 +5796,9 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 
 	  /* Work out the offset of a stack argument.  */
 	  info->stack_offset = cum->stack_words;
-	  if (doubleword_aligned_p)
+	  if (aligned & 1)
 	    info->stack_offset += info->stack_offset & 1;
-	  if (quadword_aligned_p)
+	  if (aligned & 2)
 	    info->stack_offset += info->stack_offset & 2;
 	}
 
@@ -5819,17 +5813,17 @@ mips_get_arg_info (struct mips_arg_info *info, const CUMULATIVE_ARGS *cum,
 		      : cum->num_gprs);
 
   /* Advance to an even register if the argument is doubleword-aligned.  */
-  if (doubleword_aligned_p)
+  if (aligned & 1)
     info->reg_offset += info->reg_offset & 1;
   /* Advance to a fourth register if the argument is quadword-aligned.  */
-  if (quadword_aligned_p)
+  if (aligned & 2)
     info->reg_offset += info->reg_offset & 2;
 
   /* Work out the offset of a stack argument.  */
   info->stack_offset = cum->stack_words;
-  if (doubleword_aligned_p)
+  if (aligned & 1)
     info->stack_offset += info->stack_offset & 1;
-  if (quadword_aligned_p)
+  if (aligned & 2)
     info->stack_offset += info->stack_offset & 2;
 
   max_regs = MAX_ARGS_IN_REGISTERS - info->reg_offset;
@@ -8874,7 +8868,9 @@ mips_print_operand_punct_valid_p (unsigned char code)
    'L'	Print the low-order register in a double-word register operand.
    'M'	Print high-order register in a double-word register operand.
    'z'	Print $0 if OP is zero, otherwise print OP normally.
-   'b'	Print the address of a memory operand, without offset.  */
+   'b'	Print the address of a memory operand, without offset.
+   'v'	Print the insn size suffix b,h,w,d,f or d for vector modes V16QI,V8HI,V4SI,
+	  V2SI,V4DF and V2DF.  */
 
 static void
 mips_print_operand (FILE *file, rtx op, int letter)
@@ -8994,6 +8990,32 @@ mips_print_operand (FILE *file, rtx op, int letter)
 	fprintf (file, "$w%s", &reg_names[REGNO (op)][2]);
       else
 	output_operand_lossage ("invalid use of '%%%c'", letter);
+      break;
+
+    case 'v':
+      switch (GET_MODE (op))
+	{
+	case V16QImode:
+	  fprintf (file, "b");
+	  break;
+	case V8HImode:
+	  fprintf (file, "h");
+	  break;
+	case V4SImode:
+	  fprintf (file, "w");
+	  break;
+	case V2DImode:
+	  fprintf (file, "d");
+	  break;
+	case V4SFmode:
+	  fprintf (file, "w");
+	  break;
+	case V2DFmode:
+	  fprintf (file, "d");
+	  break;
+	default:
+	  output_operand_lossage ("invalid use of '%%%c'", letter);
+	}
       break;
 
     default:
@@ -13776,24 +13798,7 @@ mips_msa_output_division (const char *division, rtx *operands)
   s = division;
   if (TARGET_CHECK_ZERO_DIV)
     {
-      switch (GET_MODE (operands[0]))
-	{
-	case V16QImode:
-	  output_asm_insn ("%(bnz.b\t%w2,1f", operands);
-	  break;
-	case V8HImode:
-	  output_asm_insn ("%(bnz.h\t%w2,1f", operands);
-	  break;
-	case V4SImode:
-	  output_asm_insn ("%(bnz.w\t%w2,1f", operands);
-	  break;
-	case V2DImode:
-	  output_asm_insn ("%(bnz.d\t%w2,1f", operands);
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-
+      output_asm_insn ("%(bnz.%v0\t%w2,1f", operands);
       output_asm_insn (s, operands);
       s = "break\t7%)\n1:";
     }
