@@ -1,3 +1,15 @@
+2014-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.h (gcc::jit::function::add_stmt): New.
+
+	* internal-api.c (gcc::jit::function::add_eval): Replace use of
+	tsi_link_stmt with call to add_stmt.
+	(gcc::jit::function::add_assignment): Likewise.
+	(gcc::jit::function::add_conditional): Likewise.
+	(gcc::jit::function::place_forward_label): Likewise.
+	(gcc::jit::function::add_jump): Likewise.
+	(gcc::jit::function::add_return): Likewise.
+
 2014-01-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::function::add_comment): New.

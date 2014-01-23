@@ -354,6 +354,11 @@ public:
   context *m_ctxt;
 
 private:
+  void add_stmt (tree stmt)
+  {
+    tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
+  }
+
   void
   set_tree_location (tree t, location *loc)
   {

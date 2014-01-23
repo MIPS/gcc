@@ -889,7 +889,7 @@ add_eval (location *loc,
   if (loc)
     set_tree_location (rvalue->as_tree (), loc);
 
-  tsi_link_after (&m_stmt_iter, rvalue->as_tree (), TSI_CONTINUE_LINKING);
+  add_stmt (rvalue->as_tree ());
 }
 
 void
@@ -918,7 +918,7 @@ add_assignment (location *loc,
 	    t_lvalue, t_rvalue);
   if (loc)
     set_tree_location (stmt, loc);
-  tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
+  add_stmt (stmt);
 }
 
 void
@@ -977,7 +977,7 @@ add_conditional (location *loc,
 	    true_jump, false_jump);
   if (loc)
     set_tree_location (stmt, loc);
-  tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
+  add_stmt (stmt);
 }
 
 gcc::jit::label *
@@ -1005,7 +1005,7 @@ place_forward_label (location *loc, label *lab)
 			     lab->as_label_decl ());
   if (loc)
     set_tree_location (lab->m_label_expr, loc);
-  tsi_link_after (&m_stmt_iter, lab->m_label_expr, TSI_CONTINUE_LINKING);
+  add_stmt (lab->m_label_expr);
 }
 
 void
@@ -1025,7 +1025,7 @@ add_jump (location *loc,
   tree stmt = build1 (GOTO_EXPR, void_type_node, target->as_label_decl ());
   if (loc)
     set_tree_location (stmt, loc);
-  tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
+  add_stmt (stmt);
 
   /*
   from c-typeck.c:
@@ -1069,7 +1069,7 @@ add_return (location *loc,
       set_tree_location (modify_retval, loc);
       set_tree_location (return_stmt, loc);
     }
-  tsi_link_after (&m_stmt_iter, return_stmt, TSI_CONTINUE_LINKING);
+  add_stmt (return_stmt);
 }
 
 gcc::jit::loop *
