@@ -9312,7 +9312,7 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   int desclinenum = 0;
 
   /* list of required dynamic symbols (dlsymed in the FOO module,
-     provided in the FOO+meltdesc.c or FOO+melttime.h or FOO.c
+     provided in the FOO+meltdesc.c or FOO+melttime.h or FOO.cc
      file) */
 #define MELTDESCR_REQUIRED_LIST						\
   MELTDESCR_REQUIRED_SYMBOL (melt_build_timestamp, char);		\
@@ -9329,10 +9329,11 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 
   /* list of optional dynamic symbols (dlsymed in the module, provided
      in the FOO+meltdesc.c or FOO+melttime.h file). */
-#define MELTDESCR_OPTIONAL_LIST					\
-  MELTDESCR_OPTIONAL_SYMBOL (melt_versionstr, char);		\
-  MELTDESCR_OPTIONAL_SYMBOL (melt_module_nb_module_vars, int);	\
-  MELTDESCR_OPTIONAL_SYMBOL (melt_modulerealpath, char);        \
+#define MELTDESCR_OPTIONAL_LIST						\
+  MELTDESCR_OPTIONAL_SYMBOL (melt_versionstr, char);			\
+  MELTDESCR_OPTIONAL_SYMBOL (melt_module_is_gpl_compatible, char);	\
+  MELTDESCR_OPTIONAL_SYMBOL (melt_module_nb_module_vars, int);		\
+  MELTDESCR_OPTIONAL_SYMBOL (melt_modulerealpath, char);		\
   MELTDESCR_OPTIONAL_SYMBOL (melt_forwarding_module_data, melt_forwarding_rout_t); \
   MELTDESCR_OPTIONAL_SYMBOL (melt_marking_module_data, melt_marking_rout_t);
 
@@ -9623,6 +9624,11 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
   MELTDESCR_OPTIONAL_LIST;
 
 #undef MELTDESCR_OPTIONAL_SYMBOL
+
+  if (!MELTDESCR_OPTIONAL(melt_module_is_gpl_compatible))
+    warning (0, "MELT module %s does not claim to be GPL compatible",
+	     MELTDESCR_REQUIRED (melt_modulename));
+
   if (melt_flag_bootstrapping)
     {
       debugeprintf ("melt_load_module_index validh %d bootstrapping melt_modulename %s descmodulename %s",

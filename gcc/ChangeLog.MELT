@@ -11,6 +11,12 @@
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_load_module_index): Emit a warning if
+	melt_module_is_gpl_compatible does not exist... See the
+	MODULE_IS_GPL_COMPATIBLE macro.
+
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
