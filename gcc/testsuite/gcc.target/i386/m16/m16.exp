@@ -1,0 +1,55 @@
+# Expect script for -m16 tests
+# Copyright (C) 2014 Free Software Foundation, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with GCC; see the file COPYING3.  If not see
+# <http://www.gnu.org/licenses/>.
+
+# Load support procs.
+load_lib c-torture.exp
+load_lib target-supports.exp
+load_lib torture-options.exp
+
+# Exit immediately if this isn't a native Linux/x86 target.
+if { ![isnative]
+     || ![check_effective_target_ia32]
+     || ![istarget *-*-linux*]
+     || [istarget *-*-linux*aout*]
+     || [istarget *-*-linux*oldld*] } {
+    return
+}
+
+# Check if qemu-system-i386 exists.
+set status [catch "exec qemu-system-i386 -h" exec_output]
+if { $status != 0 } {
+    return
+}
+
+catch "exec mkdir -p m16" status
+set status [catch "exec cp -L $srcdir/$subdir/Makefile m16" exec_output]
+if { $status != 0 } {
+    unresolved "-m16"
+    send_log "$exec_output\n"
+    return
+}
+
+foreach opt $C_TORTURE_OPTIONS {
+    set status [catch "exec make -C m16 clean" exec_output]
+    set status [catch "exec make -C m16 SRC-DIR=$srcdir/$subdir \"CC=$GCC_UNDER_TEST\" \"C16OPTFLAGS=$opt\"" exec_output]
+    send_log "$exec_output\n"
+    if { $status != 0 } {
+	fail "-m16 $opt"
+    } else {
+	pass "-m16 $opt"
+    }
+}

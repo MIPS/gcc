@@ -1,3 +1,22 @@
+gcc/testsuite/
+
+2014-01-23  H. Peter Anvin  <hpa@zytor.com>
+	    H.J. Lu  <hongjiu.lu@intel.com>
+
+	PR target/59672
+	* gcc.target/i386/m16/Makefile: New file.
+	* gcc.target/i386/m16/m16.exp: Likewise.
+	* gcc.target/i386/m16/include16/string.h: Likewise.
+	* gcc.target/i386/m16/include16/sys16.h: Likewise.
+	* gcc.target/i386/m16/lib16/conio.c: Likewise.
+	* gcc.target/i386/m16/lib16/crt0.c: Likewise.
+	* gcc.target/i386/m16/lib16/exit.c: Likewise.
+	* gcc.target/i386/m16/lib16/strlen.c: Likewise.
+	* gcc.target/i386/m16/run/run16.c: Likewise.
+	* gcc.target/i386/m16/run/wrap.S: Likewise.
+	* gcc.target/i386/m16/run/wwrap.S: Likewise.
+	* gcc.target/i386/m16/test16/test1.c: Likewise.
+
 gcc/
 
 2014-01-23  H.J. Lu  <hongjiu.lu@intel.com>
