@@ -829,17 +829,7 @@
 	int vlog2 = exact_log2 (val);
 	gcc_assert (vlog2 != -1);
 	operands[2] = GEN_INT (vlog2);
-	switch (GET_MODE (operands[0]))
-	  {
-	  case V8HImode:
-	    return "bnegi.h\t%w0,%w1,%2";
-	  case V4SImode:
-	    return "bnegi.w\t%w0,%w1,%2";
-	  case V2DImode:
-	    return "bnegi.d\t%w0,%w1,%2";
-	  default:
-	    gcc_unreachable ();
-	  }
+	return "bnegi.%v0\t%w0,%w1,%2";
       }
     else
       return "xor.v\t%w0,%w1,%w2";
@@ -876,17 +866,7 @@
 	int vlog2 = exact_log2 (val);
 	gcc_assert (vlog2 != -1);
 	operands[2] = GEN_INT (vlog2);
-	switch (GET_MODE (operands[0]))
-	  {
-	  case V8HImode:
-	    return "bseti.h\t%w0,%w1,%2";
-	  case V4SImode:
-	    return "bseti.w\t%w0,%w1,%2";
-	  case V2DImode:
-	    return "bseti.d\t%w0,%w1,%2";
-	  default:
-	    gcc_unreachable ();
-	  }
+	return "bseti.%v0\t%w0,%w1,%2";
       }
     else
       return "or.v\t%w0,%w1,%w2";
@@ -923,17 +903,7 @@
 	int vlog2 = exact_log2 (~val);
 	gcc_assert (vlog2 != -1);
 	operands[2] = GEN_INT (vlog2);
-	switch (GET_MODE (operands[0]))
-	  {
-	  case V8HImode:
-	    return "bclri.h\t%w0,%w1,%2";
-	  case V4SImode:
-	    return "bclri.w\t%w0,%w1,%2";
-	  case V2DImode:
-	    return "bclri.d\t%w0,%w1,%2";
-	  default:
-	    gcc_unreachable ();
-	  }
+	return "bclri.%v0\t%w0,%w1,%2";
       }
      else
        return "and.v\t%w0,%w1,%w2";
