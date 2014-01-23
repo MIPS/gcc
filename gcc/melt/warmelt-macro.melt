@@ -569,12 +569,14 @@ the expression.}#
 
 ;;;; source comment
 (defclass class_source_comment
-  :doc #{The internal $CLASS_SOURCE_COMMENT is for $COMMENT abstract
+  :doc #{The internal $CLASS_SOURCE_COMMENT is for $COMMENT
   syntax. $SCOMM_STR is the comment string.}#
   :super class_source
   :fields (scomm_str
 	   ))
 
+
+;; superclass for cheader and cimplement
 (defclass class_source_code_string
   :doc #{The internal abstract superclass $CLASS_SOURCE_CODE_STRING is
   for $C_HEADER and $C_IMPLEMENT }#
@@ -582,6 +584,14 @@ the expression.}#
   :fields (sc_codestring
 	   )
 )
+;;; source module_is_gpl_compatible
+(defclass class_source_module_is_gpl_compatible
+  :doc #{The internal $CLASS_SOURCE_MODULE_IS_GPL_COMPATIBLE is for
+  $MODULE_IS_GPL_COMPATIBLE syntax.}#
+  :super class_source_code_string
+  :fields ()
+  )
+
 ;;;; source cheader
 (defclass class_source_cheader
   :doc #{The internal $CLASS_SOURCE_CHEADER is for $C_HEADER abstract
@@ -7492,6 +7502,60 @@ remain.}#)
 
 
 ;;;;;;;;;;;;;;;;
+;;;;;;;; for MODULE_IS_GPL_COMPATIBLE
+(defun mexpand_module_is_gpl_compatible  (sexpr env mexpander modctx)
+  (debug "mexpand_module_is_gpl_compatible sexpr=" sexpr)
+  (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check modctx" (is_object modctx) modctx)
+  (let ( (cont (unsafe_get_field :sexp_contents sexpr))
+	 (loc  (unsafe_get_field :loca_location sexpr))
+	 (curpair (pair_tail (list_first cont))) 
+	 (chead (pair_head curpair))
+	 )
+    (if (pair_tail curpair)
+	(warning_plain loc "MODULE_IS_GPL_COMPATIBLE should have only one argument"))
+    (debug "mexpand_module_is_gpl_compatible chead=" chead)
+    (cond
+     ((is_string chead)
+      (void)
+      )
+     ((is_a chead class_sexpr_macrostring)
+      (let ( (sbuf (make_strbuf discr_strbuf))
+	     (scont (get_field :sexp_contents chead))
+	     (sloc (get_field :loca_location chead))
+	     )
+	(if sloc (setq loc sloc))
+	(foreach_pair_component_in_list
+	 (scont)
+	 (curpair curarg)
+	 (add2out sbuf curarg)
+	 )
+	(setq chead (strbuf2string discr_verbatim_string sbuf))
+	))
+     ((is_a chead class_symbol)
+      (setq chead (get_field :named_name chead))
+      (assert_msg "check symbol name" (is_string chead) chead))
+     (:else
+      (error_plain loc "MODULE_IS_GPL_COMPATIBLE without string or macrostring"_)
+      (return)
+      )
+     )
+    (let ( (sch (instance class_source_module_is_gpl_compatible
+			  :loca_location loc
+			  :sc_codestring chead)) )
+      (debug "mexpand_module_is_gpl_compatible gives sch=" sch)
+      (return sch)
+      )))
+(install_initial_macro 'module_is_gpl_compatible mexpand_module_is_gpl_compatible)
+(export_macro module_is_gpl_compatible mexpand_module_is_gpl_compatible
+ :doc #{The $MODULE_IS_GPL_COMPATIBLE syntax reminds that MELT modules
+ should be GPL compatible. Argument is a comment-like string or
+ symbol. This has a role analogue to the
+ @code{plugin_is_GPL_compatible} symbol in GCC plugins.}#)
+
+
+;;;;;;;;;;;;;;;;
 ;;; for USE_PACKAGE_FROM_PKG_CONFIG
 
 (defun mexpand_use_package_from_pkg_config  (sexpr env mexpander modctx)
@@ -8583,6 +8647,7 @@ $CURRENT_MODULE_ENVIRONMENT_REFERENCE. Was previously called incorrectly
  class_source_match
  class_source_match_case
  class_source_matchalt
+ class_source_module_is_gpl_compatible
  class_source_msend
  class_source_multicall
  class_source_or

@@ -6944,6 +6944,7 @@ if (1) return;
 			  :mocx_varlist (make_list discr_list)
 			  :mocx_hookdict (make_mapstring discr_map_strings 31)
 			  :mocx_macrolist (make_list discr_list)
+			  :mocx_isgplcompatible ()
 			  ))
 	(ncx (create_normcontext modctx)) 
 	)
@@ -7019,6 +7020,7 @@ if (1) return;
 			  :mocx_varlist (make_list discr_list)
 			  :mocx_hookdict (make_mapstring discr_map_strings 31)
 			  :mocx_macrolist () ;; no macro list because macros are forbidden in first
+			  :mocx_isgplcompatible ()
 			  ))
 	(ncx (create_normcontext modctx)) 
 	)
@@ -7336,6 +7338,7 @@ if (1) return;
 		     :mocx_gendevlist (make_list discr_list)
 		     :mocx_macrolist (make_list discr_list)
 		     :mocx_errorhandler runerrorhdlr
+		     :mocx_isgplcompatible ()
 		     :morcx_litervalist litvalist
 		     :morcx_countlitval (make_integerbox discr_integer 1)
 		     :morcx_literobjmap (make_mapobject discr_map_objects 53)
@@ -7630,6 +7633,7 @@ if (1) return;
 		     :mocx_varlist (make_list discr_list)
 		     :mocx_hookdict (make_mapstring discr_map_strings 31)
 		     :mocx_macrolist (make_list discr_list)
+		     :mocx_isgplcompatible ()
 		     ;; :mocx_cflags (make_list discr_list)
 		     ;; :mocx_linkflags (make_list discr_list)
 		     :mocx_packagepclist (make_list discr_list)

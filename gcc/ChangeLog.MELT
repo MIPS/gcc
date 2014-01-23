@@ -1,5 +1,25 @@
 
 
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/warmelt-first.melt (class_any_module_context): Add
+	mocx_isgplcompatible field.
+
+	* melt/warmelt-macro.melt (class_source_module_is_gpl_compatible):
+	New class.
+	(module_is_gpl_compatible): New macro.
+	(mexpand_module_is_gpl_compatible): New macro-expanding function.
+
+	* melt/warmelt-normal.melt (normexp_module_is_gpl_compatible): New
+	method for normal_exp on normexp_module_is_gpl_compatible...
+
+	* melt/warmelt-outobj.melt (compile_list_sexpr)
+	(compile_first_bootstrap_list_sexpr)
+	(melt_translate_run_macroexpansions_list): Initialize field
+	:mocx_isgplcompatible to nil.
+
+	* melt/warmelt-modes.melt (makedoc_docmd): Likewise.
+
 2014-01-18  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.

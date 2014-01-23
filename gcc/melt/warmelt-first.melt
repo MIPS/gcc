@@ -890,6 +890,7 @@ subclasses are produced by macro expanders.}# )
 	   mocx_varlist			;list of module variables bindings
 	   mocx_hookdict		;dictionnary of called hooks descriptors
 	   mocx_macrolist		;list of macros
+	   mocx_isgplcompatible		;string for GPL compatibility
 	   )
   :doc #{The internal $CLASS_ANY_MODULE_CONTEXT describes the whole
 module or extension context of a translation. $MOCX_MODULENAME gives
@@ -908,7 +909,8 @@ $CLASS_SOURCE_GENERATOR_DEVICE. $MOCX_ERRORHANDLER is the closure, if
 any, to call on errors. $MOCX_VARCOUNT is the counter for
 variables. $MOCX_VARLIST contains the list of variable
 descriptions. $MOCX_MACROLIST is the list of not-yet-compiled
-macros. For gurus!}# )
+macros. $MOCX_ISGPLCOMPATIBLE is a string or null - see
+$MODULE_IS_GPL_COMPATIBLE macro. For gurus!}# )
 
 (defclass class_module_context
   :super class_any_module_context

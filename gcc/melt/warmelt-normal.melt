@@ -8798,6 +8798,32 @@ source location.}#
 (install_method class_source_cimplement normal_exp normexp_cimplement)
 
 
+;;;; normalize a module_is_gpl_compatible
+(defun normexp_module_is_gpl_compatible (recv env ncx psloc)
+  (debug "normexp_module_is_gpl_compatible recv=" recv "\n* ncx=" ncx)
+  (assert_msg "check module_is_gpl_compatible recv" (is_a recv class_source_module_is_gpl_compatible) recv)
+  (assert_msg "check env" (is_a env class_environment) env)
+  (assert_msg "check ncx" (is_a ncx class_normalization_context) ncx)
+  (let ( 
+	(sloc (unsafe_get_field :loca_location recv))
+	(modctx (get_field :nctx_modulcontext ncx))
+	(modgplcomp (get_field :mocx_isgplcompatible modctx))
+	(gplcomp (get_field :sc_codestring recv))
+	)
+    (debug "normexp_module_is_gpl_compatible modctx=" modctx " modgplcomp=" modgplcomp " gplcomp=" gplcomp)
+    (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
+    (assert_msg "check gplcomp" (is_string gplcomp) gplcomp)
+    (when modgplcomp
+      (assert_msg "check modgplcomp" (is_string modgplcomp))
+      (warning_at sloc "duplicate MODULE_IS_GPL_COMPATIBLE, previous was $1, current is $2"
+		  modgplcomp gplcomp)
+      )
+    (put_fields modctx :mocx_isgplcompatible gplcomp)
+    (return () ())
+))
+(install_method class_source_module_is_gpl_compatible normal_exp normexp_module_is_gpl_compatible)
+
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 ;;;; normalize a use_package_from_pkg_config

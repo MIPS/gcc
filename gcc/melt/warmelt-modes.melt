@@ -1778,6 +1778,7 @@ has basic debug support thru DEBUG, ASSERT_MSG..."
 		   :mocx_varlist (make_list discr_list)
 		   :mocx_hookdict (make_mapstring discr_map_strings 101)
 		   :mocx_macrolist (make_list discr_list)
+		   :mocx_isgplcompatible ()
 		   ;; :mocx_cflags (make_list discr_list)
 		   ;; :mocx_linkflags (make_list discr_list)
 		   :mocx_packagepclist (make_list discr_list)
