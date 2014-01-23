@@ -2269,9 +2269,18 @@ enum reg_class
    && (GET_MODE_CLASS (MODE) == MODE_VECTOR_INT		\
        || GET_MODE_CLASS (MODE) == MODE_VECTOR_FLOAT))
 
+/* True if MODE is vector and supported in a MSA vector int register.  */
+#define MSA_SUPPORTED_VECTOR_INT_MODE_P(MODE)		\
+    (GET_MODE_SIZE (MODE) == UNITS_PER_MSA_REG		\
+     && GET_MODE_CLASS (MODE) == MODE_VECTOR_INT)
+
 /* True if MODE is supported in a MSA vector register.  */
 #define MSA_SUPPORTED_MODE_P(MODE)	\
   (TARGET_MSA && ((MODE) == TImode || MSA_SUPPORTED_VECTOR_MODE_P (MODE)))
+
+/* True if MODE is supported in a MSA vector register .  */
+#define MSA_SUPPORTED_INT_MODE_P(MODE)	\
+  (TARGET_MSA && ((MODE) == TImode || MSA_SUPPORTED_VECTOR_INT_MODE_P (MODE)))
 
 /* 1 if N is a possible register number for function argument passing.
    We have no FP argument registers when soft-float.  When FP registers
