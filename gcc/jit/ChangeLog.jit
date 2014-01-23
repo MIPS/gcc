@@ -1,5 +1,20 @@
 2014-01-23  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.h (gcc::jit::function): Add field
+	"m_inner_bind_expr".
+	* internal-api.c (gcc::jit::function::function): Create a BIND_EXPR
+	for all non-imported functions, and put the statement list within
+	it.
+	(gcc::jit::function::gt_ggc_mx): Visit m_inner_bind_expr.
+	(gcc::jit::function::new_local): Set the DECL_CONTEXT of the new
+	local to be the function's BIND_EXPR, and prepend the new local
+	to said BIND_EXPR's BIND_EXPR_VARS chain.
+	(gcc::jit::function::postprocess): Set the DECL_SAVED_TREE of the
+	FUNCTION_DECL to be the BIND_EXPR, rather than the statement list.
+	The latter is now contained within the former.
+
+2014-01-23  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.h (gcc::jit::function::add_stmt): New.
 
 	* internal-api.c (gcc::jit::function::add_eval): Replace use of

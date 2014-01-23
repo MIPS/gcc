@@ -1,3 +1,10 @@
+2014-01-23  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-reading-struct.c: New test, to provide test coverage
+	of gcc_jit_type_get_const and gcc_jit_lvalue_access_field, in the
+	process uncovering bugs in how locals were handled.
+	* jit.dg/test-combination.c: Add usage of test-reading-struct.c.
+
 2014-01-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-hello-world.c (code_making_callback): Add usage of

@@ -59,6 +59,13 @@
 #undef code_making_callback
 #undef verify_code
 
+/* test-reading-struct.c */
+#define code_making_callback code_making_callback_reading_struct
+#define verify_code verify_code_reading_struct
+#include "test-reading-struct.c"
+#undef code_making_callback
+#undef verify_code
+
 /* test-string-literal.c */
 #define code_making_callback code_making_callback_string_literal
 #define verify_code verify_code_string_literal

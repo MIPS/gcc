@@ -782,12 +782,16 @@ gcc::jit::function::
 function(gcc::jit::context *ctxt, tree fndecl, enum gcc_jit_function_kind kind)
 : m_ctxt(ctxt),
   m_inner_fndecl (fndecl),
+  m_inner_bind_expr (NULL),
   m_kind (kind)
 {
   if (m_kind != GCC_JIT_FUNCTION_IMPORTED)
     {
+      /* Create a BIND_EXPR, and within it, a statement list.  */
       m_stmt_list = alloc_stmt_list ();
       m_stmt_iter = tsi_start (m_stmt_list);
+      m_inner_bind_expr =
+	build3 (BIND_EXPR, void_type_node, NULL, m_stmt_list, NULL);
     }
   else
     {
@@ -800,6 +804,7 @@ gcc::jit::function::
 gt_ggc_mx ()
 {
   gt_ggc_m_9tree_node (m_inner_fndecl);
+  gt_ggc_m_9tree_node (m_inner_bind_expr);
   gt_ggc_m_9tree_node (m_stmt_list);
 }
 
@@ -821,6 +826,12 @@ new_local (location *loc,
   tree inner = build_decl (UNKNOWN_LOCATION, VAR_DECL,
 			   get_identifier (name),
 			   type->as_tree ());
+  DECL_CONTEXT (inner) = this->m_inner_fndecl;
+
+  /* Prepend to BIND_EXPR_VARS: */
+  DECL_CHAIN (inner) = BIND_EXPR_VARS (m_inner_bind_expr);
+  BIND_EXPR_VARS (m_inner_bind_expr) = inner;
+
   if (loc)
     set_tree_location (inner, loc);
   return new lvalue (m_ctxt, inner);
@@ -855,7 +866,7 @@ postprocess ()
 
       /* how to add to function? the following appears to be how to
 	 set the body of a m_inner_fndecl: */
-      DECL_SAVED_TREE(m_inner_fndecl) = m_stmt_list;
+      DECL_SAVED_TREE(m_inner_fndecl) = m_inner_bind_expr;
       //debug_tree (m_inner_fndecl);
 
       /* Convert to gimple: */

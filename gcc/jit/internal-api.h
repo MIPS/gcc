@@ -367,6 +367,7 @@ private:
 
 private:
   tree m_inner_fndecl;
+  tree m_inner_bind_expr;
   enum gcc_jit_function_kind m_kind;
   tree m_stmt_list;
   tree_stmt_iterator m_stmt_iter;
