@@ -666,6 +666,7 @@
 	    oirout_prolog       ;the prologue (list of instr) before filling the data. Imports should go here!
 	    oirout_fill			;the fill of the data (a list of instr)
 	    oirout_modulename		;the module name
+	    oirout_modctx
 	    ))
 
  ;; initial routine in modules
@@ -1573,6 +1574,7 @@
 			    :oirout_fill (make_list discr_list)
 			    :oirout_prolog oiniprolog
 			    :oirout_modulename (get_field :mocx_modulename modctx)
+			    :oirout_modctx modctx
 			    )) )
 	    (debug "compile2obj_initproc oinitrout=" oi)
 	    oi))
@@ -1899,6 +1901,7 @@
 			     :oirout_fill (make_list discr_list)
 			     :oirout_prolog oiniprolog
 			     :oirout_modulename (get_field :mocx_modulename modctx)
+			     :oirout_modctx modctx
 			     ))
 		  )
 	     (debug "compile2obj_initextendproc oinitxrout=" oi)
