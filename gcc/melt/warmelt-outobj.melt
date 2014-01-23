@@ -104,7 +104,14 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
   (debug "initial_classy_frame_name obj=" obj)
   (assert_msg "check obj" (is_a obj class_initialroutineobj) obj)
   (let ( (name (string4out discr_verbatim_string "Melt_InitialClassyFrame_" 
-			   (lambda (out o) (add2out_cident out (get_field :oirout_modulename o))) obj
+			   (lambda (out o)
+			     (add2out_cident
+			      out
+			      (get_field :mocx_modulename
+					 (get_field :oirout_modctx o)
+					 )
+			      ))
+			   obj
 			   "_h" (obj_hash obj))
 	       )
 	 )
@@ -2063,8 +2070,8 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(irfill (unsafe_get_field :oirout_fill pini))
 	(iprolog (unsafe_get_field :oirout_prolog pini))
 	(oretval (unsafe_get_field :obrout_retval pini))
-	(omodnam (unsafe_get_field :oirout_modulename pini))
 	(omodu (unsafe_get_field :oirout_modctx pini))
+	(omodnam (get_field :mocx_modulename omodu))
 	(onbval (get_field :obrout_nbval pini))
 	(:long nbval (get_int onbval))
 	(:long minihash (+i 1 (%iraw (obj_hash pini) 4096)))
@@ -2595,7 +2602,7 @@ between 2Mb and 64Mb.  See also $GET_CODE_BUFFER_LIMIT.}#
 	(orfill (get_field :oirout_fill pini))
 	(oprolog (get_field :oirout_prolog pini))
 	(omodu (unsafe_get_field :oirout_modctx pini))
-	(omodnam (unsafe_get_field :oirout_modulename pini))
+	(omodnam (get_field :mocx_modulename omodu))
 	(omodcname (let ( (sbuf (make_strbuf discr_strbuf))
 			  )
 		     (add2sbuf_cident sbuf omodnam)

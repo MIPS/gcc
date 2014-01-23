@@ -1,6 +1,11 @@
 
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-outobj.melt (initial_classy_frame_name)
+	(outpucod_initialmoduleroutine, outpucod_initialextensionroutine):
+	Use :oirout_modctx and no more :oirout_modulename...
+
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
 
