@@ -1794,8 +1794,8 @@ struct mips_cpu_info {
   mips_hard_regno_caller_save_mode (REGNO, NREGS, MODE)
 
 /* MIPS ABIs can only save 32-bit/64-bit (single/double) FP registers.
-   Thus, MSA vector registers with MODE > 64 bits are part clobbered.
-   When interlinking FR mode, we assume FP registers are clobbered.  */
+   Thus, MSA vector registers with MODE > 64 bits are part clobbered. */
+
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)	\
   (TARGET_MSA && FP_REG_P (REGNO) && GET_MODE_SIZE (MODE) > 8)
 
