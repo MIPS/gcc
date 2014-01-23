@@ -1302,6 +1302,9 @@ compile ()
       goto error;
     }
 
+  if (m_bool_options[GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE])
+      dump_generated_code ();
+
   timevar_push (TV_ASSEMBLE);
 
   /* Gross hacks follow:
@@ -1396,6 +1399,22 @@ invoke_code_factory ()
 	  func->postprocess ();
 	}
     }
+}
+
+void
+gcc::jit::context::
+dump_generated_code ()
+{
+  char buf[4096];
+  size_t sz;
+  FILE *f_in = fopen (m_path_s_file, "r");
+  if (!f_in)
+    return;
+
+  while ( (sz = fread (buf, 1, sizeof (buf), f_in)) )
+    fwrite (buf, 1, sz, stderr);
+
+  fclose (f_in);
 }
 
 static int

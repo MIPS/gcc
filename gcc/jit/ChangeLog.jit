@@ -1,5 +1,17 @@
 2014-01-23  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (enum gcc_jit_bool_option): New value:
+	GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE.
+
+	* internal-api.c (gcc::jit::context::compile): Call
+	dump_generated_code if the user has requested it.
+	(gcc::jit::context::dump_generated_code): New, copying
+	from the .s file to stderr.
+
+	* internal-api.h (gcc::jit::context::dump_generated_code): New.
+
+2014-01-23  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.h (gcc::jit::function): Add field
 	"m_inner_bind_expr".
 	* internal-api.c (gcc::jit::function::function): Create a BIND_EXPR

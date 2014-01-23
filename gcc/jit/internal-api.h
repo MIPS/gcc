@@ -176,6 +176,8 @@ public:
   as_truth_value (tree expr, location *loc);
 
 private:
+  void dump_generated_code ();
+
   source_file *
   get_source_file (const char *filename);
 
