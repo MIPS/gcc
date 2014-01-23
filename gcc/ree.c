@@ -297,6 +297,16 @@ combine_set_extension (ext_cand *cand, rtx curr_insn, rtx *orig_set)
   else
     new_reg = gen_rtx_REG (cand->mode, REGNO (SET_DEST (*orig_set)));
 
+#if 0
+  /* Rethinking test.  Temporarily disabled.  */
+  /* We're going to be widening the result of DEF_INSN, ensure that doing so
+     doesn't change the number of hard registers needed for the result.  */
+  if (HARD_REGNO_NREGS (REGNO (new_reg), cand->mode)
+      != HARD_REGNO_NREGS (REGNO (SET_DEST (*orig_set)),
+			   GET_MODE (SET_DEST (*orig_set))))
+	return false;
+#endif
+
   /* Merge constants by directly moving the constant into the register under
      some conditions.  Recall that RTL constants are sign-extended.  */
   if (GET_CODE (orig_src) == CONST_INT
@@ -580,27 +590,21 @@ make_defs_and_copies_lists (rtx extend_insn, const_rtx set_pat,
   return ret;
 }
 
-/* Merge the DEF_INSN with an extension.  Calls combine_set_extension
-   on the SET pattern.  */
-
-static bool
-merge_def_and_ext (ext_cand *cand, rtx def_insn, ext_state *state)
+/* If DEF_INSN has single SET expression, possibly buried inside
+   a PARALLEL, return the address of the SET expression, else
+   return NULL.  This is similar to single_set, except that
+   single_set allows multiple SETs when all but one is dead.  */
+static rtx *
+get_sub_rtx (rtx def_insn)
 {
-  enum machine_mode ext_src_mode;
-  enum rtx_code code;
-  rtx *sub_rtx;
-  rtx s_expr;
-  int i;
-
-  ext_src_mode = GET_MODE (XEXP (SET_SRC (cand->expr), 0));
-  code = GET_CODE (PATTERN (def_insn));
-  sub_rtx = NULL;
+  enum rtx_code code = GET_CODE (PATTERN (def_insn));
+  rtx *sub_rtx = NULL;
 
   if (code == PARALLEL)
     {
-      for (i = 0; i < XVECLEN (PATTERN (def_insn), 0); i++)
+      for (int i = 0; i < XVECLEN (PATTERN (def_insn), 0); i++)
         {
-          s_expr = XVECEXP (PATTERN (def_insn), 0, i);
+          rtx s_expr = XVECEXP (PATTERN (def_insn), 0, i);
           if (GET_CODE (s_expr) != SET)
             continue;
 
@@ -609,7 +613,7 @@ merge_def_and_ext (ext_cand *cand, rtx def_insn, ext_state *state)
           else
             {
               /* PARALLEL with multiple SETs.  */
-              return false;
+              return NULL;
             }
         }
     }
@@ -618,10 +622,27 @@ merge_def_and_ext (ext_cand *cand, rtx def_insn, ext_state *state)
   else
     {
       /* It is not a PARALLEL or a SET, what could it be ? */
-      return false;
+      return NULL;
     }
 
   gcc_assert (sub_rtx != NULL);
+  return sub_rtx;
+}
+
+/* Merge the DEF_INSN with an extension.  Calls combine_set_extension
+   on the SET pattern.  */
+
+static bool
+merge_def_and_ext (ext_cand *cand, rtx def_insn, ext_state *state)
+{
+  enum machine_mode ext_src_mode;
+  rtx *sub_rtx;
+
+  ext_src_mode = GET_MODE (XEXP (SET_SRC (cand->expr), 0));
+  sub_rtx = get_sub_rtx (def_insn);
+
+  if (sub_rtx == NULL)
+    return false;
 
   if (REG_P (SET_DEST (*sub_rtx))
       && (GET_MODE (SET_DEST (*sub_rtx)) == ext_src_mode
@@ -691,6 +712,18 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
       if (state->modified[INSN_UID (cand->insn)].kind != EXT_MODIFIED_NONE)
 	return false;
 
+      /* Transformation of
+	 (set (reg1) (expression))
+	 (set (reg2) (any_extend (reg1)))
+	 into
+	 (set (reg2) (any_extend (expression)))
+	 (set (reg1) (reg2))
+	 is only valid for scalar integral modes, as it relies on the low
+	 subreg of reg1 to have the value of (expression), which is not true
+	 e.g. for vector modes.  */
+      if (!SCALAR_INT_MODE_P (GET_MODE (SET_DEST (PATTERN (cand->insn)))))
+	return false;
+
       /* There's only one reaching def.  */
       rtx def_insn = state->defs_list[0];
 
@@ -700,15 +733,22 @@ combine_reaching_defs (ext_cand *cand, const_rtx set_pat, ext_state *state)
 
       /* The defining statement and candidate insn must be in the same block.
 	 This is merely to keep the test for safety and updating the insn
-	 stream simple.  */
-      if (BLOCK_FOR_INSN (cand->insn) != BLOCK_FOR_INSN (def_insn))
+	 stream simple.  Also ensure that within the block the candidate
+	 follows the defining insn.  */
+      if (BLOCK_FOR_INSN (cand->insn) != BLOCK_FOR_INSN (def_insn)
+	  || DF_INSN_LUID (def_insn) > DF_INSN_LUID (cand->insn))
 	return false;
 
       /* If there is an overlap between the destination of DEF_INSN and
 	 CAND->insn, then this transformation is not safe.  Note we have
 	 to test in the widened mode.  */
+      rtx *dest_sub_rtx = get_sub_rtx (def_insn);
+      if (dest_sub_rtx == NULL
+	  || !REG_P (SET_DEST (*dest_sub_rtx)))
+	return false;
+
       rtx tmp_reg = gen_rtx_REG (GET_MODE (SET_DEST (PATTERN (cand->insn))),
-				 REGNO (SET_DEST (PATTERN (def_insn))));
+				 REGNO (SET_DEST (*dest_sub_rtx)));
       if (reg_overlap_mentioned_p (tmp_reg, SET_DEST (PATTERN (cand->insn))))
 	return false;
 
@@ -987,11 +1027,20 @@ find_and_remove_re (void)
   for (unsigned int i = 0; i < reinsn_copy_list.length (); i += 2)
     {
       rtx curr_insn = reinsn_copy_list[i];
+      rtx def_insn = reinsn_copy_list[i + 1];
+
+      /* Use the mode of the destination of the defining insn
+	 for the mode of the copy.  This is necessary if the
+	 defining insn was used to eliminate a second extension
+	 that was wider than the first.  */
+      rtx sub_rtx = *get_sub_rtx (def_insn);
       rtx pat = PATTERN (curr_insn);
-      rtx new_reg = gen_rtx_REG (GET_MODE (SET_DEST (pat)),
+      rtx new_dst = gen_rtx_REG (GET_MODE (SET_DEST (sub_rtx)),
 				 REGNO (XEXP (SET_SRC (pat), 0)));
-      rtx set = gen_rtx_SET (VOIDmode, new_reg, SET_DEST (pat));
-      emit_insn_after (set, reinsn_copy_list[i + 1]);
+      rtx new_src = gen_rtx_REG (GET_MODE (SET_DEST (sub_rtx)),
+				 REGNO (SET_DEST (pat)));
+      rtx set = gen_rtx_SET (VOIDmode, new_dst, new_src);
+      emit_insn_after (set, def_insn);
     }
 
   /* Delete all useless extensions here in one sweep.  */

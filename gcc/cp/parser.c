@@ -5803,7 +5803,13 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	postfix_expression = 
 	  cp_parser_postfix_expression (parser, false, false, 
 					false, false, &idk);
-	if (saved_in_statement & IN_CILK_SPAWN)
+	if (!flag_enable_cilkplus)
+	  {
+	    error_at (token->location, "-fcilkplus must be enabled to use"
+		      " %<_Cilk_spawn%>");
+	    cfun->calls_cilk_spawn = 0;
+	  }
+	else if (saved_in_statement & IN_CILK_SPAWN)
 	  {
 	    error_at (token->location, "consecutive %<_Cilk_spawn%> keywords "
 		      "are not permitted");
@@ -5830,8 +5836,8 @@ cp_parser_postfix_expression (cp_parser *parser, bool address_p, bool cast_p,
 	  finish_expr_stmt (sync_expr);
 	}
       else
-	error_at (input_location, "_Cilk_sync cannot be used without enabling "
-		  "Cilk Plus");
+	error_at (token->location, "-fcilkplus must be enabled to use" 
+		  " %<_Cilk_sync%>");
       cp_lexer_consume_token (parser->lexer);
       break;
 
@@ -19839,7 +19845,17 @@ cp_parser_class_head (cp_parser* parser,
 
   /* Get the list of base-classes, if there is one.  */
   if (cp_lexer_next_token_is (parser->lexer, CPP_COLON))
-    bases = cp_parser_base_clause (parser);
+    {
+      /* PR59482: enter the class scope so that base-specifiers are looked
+	 up correctly */
+      if (type)
+	pushclass (type);
+      bases = cp_parser_base_clause (parser);
+      /* PR59482: get out of the previously pushed class scope so that the
+	 subsequent pops pop the right thing */
+      if (type)
+	popclass ();
+    }
   else
     bases = NULL_TREE;
 

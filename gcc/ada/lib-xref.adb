@@ -644,9 +644,9 @@ package body Lib.Xref is
             --  in SPARK mode when the related context comes from an instance.
 
            or else
-             (SPARK_Mode
-                and then In_Extended_Main_Code_Unit (N)
-                and then (Typ = 'm' or else Typ = 'r' or else Typ = 's'))
+             (GNATprove_Mode
+               and then In_Extended_Main_Code_Unit (N)
+               and then (Typ = 'm' or else Typ = 'r' or else Typ = 's'))
          then
             null;
          else
@@ -899,7 +899,7 @@ package body Lib.Xref is
          and then
            (Instantiation_Location (Sloc (N)) = No_Location
              or else Typ = 'i'
-             or else SPARK_Mode)
+             or else GNATprove_Mode)
 
         --  Ignore dummy references
 
@@ -986,7 +986,7 @@ package body Lib.Xref is
          --  the renaming, which is needed to compute a valid set of effects
          --  (reads, writes) for the enclosing subprogram.
 
-         if SPARK_Mode then
+         if GNATprove_Mode then
             Ent := Get_Through_Renamings (Ent);
 
             --  If no enclosing object, then it could be a reference to any
@@ -1015,7 +1015,9 @@ package body Lib.Xref is
             Actual_Typ := 'P';
          end if;
 
-         if SPARK_Mode then
+         --  Comment needed here for special SPARK code ???
+
+         if GNATprove_Mode then
             Ref := Sloc (Nod);
             Def := Sloc (Ent);
 
@@ -1306,6 +1308,22 @@ package body Lib.Xref is
                         Left := '<';
                         Right := '>';
                      end if;
+
+                  --  For a synchronized type that implements an interface, we
+                  --  treat the first progenitor as the parent. This is only
+                  --  needed when compiling a package declaration on its own,
+                  --  if the body is present interfaces are handled properly.
+
+                  elsif Is_Concurrent_Type (Tref)
+                    and then Is_Tagged_Type (Tref)
+                    and then not Expander_Active
+                  then
+                     if Left /= '(' then
+                        Left := '<';
+                        Right := '>';
+                     end if;
+
+                     Tref := Entity (First (Interface_List (Parent (Tref))));
 
                   --  If the completion of a private type is itself a derived
                   --  type, we need the parent of the full view.

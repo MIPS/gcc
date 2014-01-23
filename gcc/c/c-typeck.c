@@ -4708,8 +4708,10 @@ build_conditional_expr (location_t colon_loc, tree ifexp, bool ifexp_bcp,
     {
       if (int_operands)
 	{
-	  op1 = remove_c_maybe_const_expr (op1);
-	  op2 = remove_c_maybe_const_expr (op2);
+	  /* Use c_fully_fold here, since C_MAYBE_CONST_EXPR might be
+	     nested inside of the expression.  */
+	  op1 = c_fully_fold (op1, false, NULL);
+	  op2 = c_fully_fold (op2, false, NULL);
 	}
       ret = build3 (COND_EXPR, result_type, ifexp, op1, op2);
       if (int_operands)
@@ -5193,6 +5195,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
 {
   tree result;
   tree newrhs;
+  tree rhseval = NULL_TREE;
   tree rhs_semantic_type = NULL_TREE;
   tree lhstype = TREE_TYPE (lhs);
   tree olhstype = lhstype;
@@ -5254,8 +5257,17 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
       /* Construct the RHS for any non-atomic compound assignemnt. */
       if (!is_atomic_op)
         {
+	  /* If in LHS op= RHS the RHS has side-effects, ensure they
+	     are preevaluated before the rest of the assignment expression's
+	     side-effects, because RHS could contain e.g. function calls
+	     that modify LHS.  */
+	  if (TREE_SIDE_EFFECTS (rhs))
+	    {
+	      newrhs = in_late_binary_op ? save_expr (rhs) : c_save_expr (rhs);
+	      rhseval = newrhs;
+	    }
 	  newrhs = build_binary_op (location,
-				    modifycode, lhs, rhs, 1);
+				    modifycode, lhs, newrhs, 1);
 
 	  /* The original type of the right hand side is no longer
 	     meaningful.  */
@@ -5269,7 +5281,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
 	 if so, we need to generate setter calls.  */
       result = objc_maybe_build_modify_expr (lhs, newrhs);
       if (result)
-	return result;
+	goto return_result;
 
       /* Else, do the check that we postponed for Objective-C.  */
       if (!lvalue_or_else (location, lhs, lv_assign))
@@ -5363,7 +5375,7 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
       if (result)
 	{
 	  protected_set_expr_location (result, location);
-	  return result;
+	  goto return_result;
 	}
     }
 
@@ -5384,11 +5396,15 @@ build_modify_expr (location_t location, tree lhs, tree lhs_origtype,
      as the LHS argument.  */
 
   if (olhstype == TREE_TYPE (result))
-    return result;
+    goto return_result;
 
   result = convert_for_assignment (location, olhstype, result, rhs_origtype,
 				   ic_assign, false, NULL_TREE, NULL_TREE, 0);
   protected_set_expr_location (result, location);
+
+return_result:
+  if (rhseval)
+    result = build2 (COMPOUND_EXPR, TREE_TYPE (result), rhseval, result);
   return result;
 }
 
