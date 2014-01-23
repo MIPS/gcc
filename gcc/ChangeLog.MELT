@@ -2,6 +2,10 @@
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-first.melt (class_any_module_context): Add
 	mocx_isgplcompatible field.
 
