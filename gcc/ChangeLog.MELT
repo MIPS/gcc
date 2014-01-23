@@ -1,6 +1,11 @@
 
 
 2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-genobj.melt (class_initialroutineobj): Remove
+	oirout_modulename field.
+	(compile2obj_initproc, compile2obj_initextendproc): Likewise.
+
+2014-01-23  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
 
