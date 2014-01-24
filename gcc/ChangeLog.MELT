@@ -1,5 +1,10 @@
 
 
+2014-01-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (melt_handle_melt_pragma, melt_pragma_callback):
+	Remove old 4.6 pragma handling.
+
 2014-01-24  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (melt_load_module_index): For non GPL compatible
