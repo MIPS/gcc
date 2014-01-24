@@ -158,6 +158,7 @@ make_tests_of_binary_ops (gcc_jit_context *ctxt)
 			  int_type,
 			  GCC_JIT_BINARY_OP_DIVIDE,
 			  "test_BINARY_OP_DIVIDE_on_int");
+  /* TODO: test for DIVIDE on float or double */
   make_test_of_binary_op (ctxt,
 			  int_type,
 			  GCC_JIT_BINARY_OP_MODULO,
@@ -225,6 +226,8 @@ verify_binary_ops (gcc_jit_result *result)
   CHECK_VALUE (test_BINARY_OP_DIVIDE_on_int (100, -1), (100 / -1));
   CHECK_VALUE (test_BINARY_OP_DIVIDE_on_int (-1, -4), (-1 / -4));
   CHECK_VALUE (test_BINARY_OP_DIVIDE_on_int (60, 5), 12);
+
+  /* TODO: test for DIVIDE on float or double */
 
   test_fn test_BINARY_OP_MODULO_on_int =
     (test_fn)gcc_jit_result_get_code (result,

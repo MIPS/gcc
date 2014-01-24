@@ -497,9 +497,17 @@ enum gcc_jit_binary_op
 
   /* Quotient of division of arithmetic values; analogous to:
        (EXPR_A) / (EXPR_B)
-     in C.  */
+     in C.
+     The result type affects the kind of division: if the result type is
+     integer-based, then the result is truncated towards zero, whereas
+     a floating-point result type indicates floating-point division.  */
   GCC_JIT_BINARY_OP_DIVIDE,
-  /* do we want separate floor divide vs frac divide? */
+
+  /* Quotient of division of floating-point values, without rounding;
+     analogous to:
+       (EXPR_A) / (EXPR_B)
+     in C.  */
+  GCC_JIT_BINARY_OP_FLOATING_DIVIDE,
 
   /* Remainder of division of arithmetic values; analogous to:
        (EXPR_A) / (EXPR_B)

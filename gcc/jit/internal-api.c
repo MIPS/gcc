@@ -479,9 +479,13 @@ new_binary_op (location *loc,
       break;
 
     case GCC_JIT_BINARY_OP_DIVIDE:
-      inner_op = TRUNC_DIV_EXPR;
+      if (FLOAT_TYPE_P (result_type->as_tree ()))
+	/* Floating-point division: */
+	inner_op = RDIV_EXPR;
+      else
+	/* Truncating to zero: */
+	inner_op = TRUNC_DIV_EXPR;
       break;
-      /* do we want separate floor divide vs frac divide? */
 
     case GCC_JIT_BINARY_OP_MODULO:
       inner_op = TRUNC_MOD_EXPR;

@@ -1,5 +1,15 @@
 2014-01-23  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-quadratic.c: New test case, written to achieve test
+	coverage of gcc_jit_rvalue_access_field, but also exercising
+	division of doubles.
+
+	* jit.dg/test-combination.c: Add test-quadratic.c
+
+	* jit.dg/test-expressions.c: Add TODOs.
+
+2014-01-23  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-reading-struct.c: New test, to provide test coverage
 	of gcc_jit_type_get_const and gcc_jit_lvalue_access_field, in the
 	process uncovering bugs in how locals were handled.

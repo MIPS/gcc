@@ -59,6 +59,13 @@
 #undef code_making_callback
 #undef verify_code
 
+/* test-quadratic.c */
+#define code_making_callback code_making_callback_quadratic
+#define verify_code verify_code_quadratic
+#include "test-quadratic.c"
+#undef code_making_callback
+#undef verify_code
+
 /* test-reading-struct.c */
 #define code_making_callback code_making_callback_reading_struct
 #define verify_code verify_code_reading_struct
