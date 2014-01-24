@@ -9626,8 +9626,12 @@ melt_load_module_index (const char*srcbase, const char*flavor, char**errorp)
 #undef MELTDESCR_OPTIONAL_SYMBOL
 
   if (!MELTDESCR_OPTIONAL(melt_module_is_gpl_compatible))
-    warning (0, "MELT module %s does not claim to be GPL compatible",
-	     MELTDESCR_REQUIRED (melt_modulename));
+    {
+       warning (0, "MELT module %s does not claim to be GPL compatible",
+		MELTDESCR_REQUIRED (melt_modulename));
+       inform (UNKNOWN_LOCATION,
+	       "see http://www.gnu.org/licenses/gcc-exception-3.1.en.html");
+    }
 
   if (melt_flag_bootstrapping)
     {
