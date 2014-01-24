@@ -1,3 +1,13 @@
+2014-01-24  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.h (gcc::jit::context::get_str_option): New access
+	method.
+	(gcc::jit::context::get_int_option): Likewise.
+
+	* internal-api.c (gcc::jit::context::~context): Use access methods
+	for options, rather than direct field access.
+	(gcc::jit::context::compile): Likewise.
+
 2014-01-23  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (enum gcc_jit_bool_option): New value:

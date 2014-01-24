@@ -135,6 +135,18 @@ public:
   set_bool_option (enum gcc_jit_bool_option opt,
 		   int value);
 
+  const char *
+  get_str_option (enum gcc_jit_str_option opt) const
+  {
+    return m_str_options[opt];
+  }
+
+  int
+  get_int_option (enum gcc_jit_int_option opt) const
+  {
+    return m_int_options[opt];
+  }
+
   int
   get_bool_option (enum gcc_jit_bool_option opt) const
   {

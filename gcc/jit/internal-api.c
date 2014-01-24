@@ -24,7 +24,7 @@
 gcc::jit::context::
 ~context ()
 {
-  if (m_bool_options[GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES])
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES))
     fprintf (stderr, "intermediate files written to %s\n", m_path_tempdir);
   else
     {
@@ -1213,7 +1213,7 @@ compile ()
 
   /* Pass in user-provided "progname", if any, so that it makes it
      into GCC's "progname" global, used in various diagnostics. */
-  progname = m_str_options[GCC_JIT_STR_OPTION_PROGNAME];
+  progname = get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
   fake_args[0] = progname ? progname : "libgccjit.so";
 
   fake_args[1] = m_path_c_file;
@@ -1230,11 +1230,11 @@ compile ()
   ADD_ARG ("-fPIC");
 
   /* Handle int options: */
-  switch (m_int_options[GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL])
+  switch (get_int_option (GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL))
     {
     default:
       add_error ("unrecognized optimization level: %i",
-		 m_int_options[GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL]);
+		 get_int_option (GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL));
       goto error;
 
     case 0:
@@ -1256,18 +1256,18 @@ compile ()
   /* What about -Os? */
 
   /* Handle bool options: */
-  if (m_bool_options[GCC_JIT_BOOL_OPTION_DEBUGINFO])
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_DEBUGINFO))
     ADD_ARG ("-g");
 
   /* Suppress timing (and other) info.  */
-  if (!m_bool_options[GCC_JIT_BOOL_OPTION_DUMP_SUMMARY])
+  if (!get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_SUMMARY))
     {
       ADD_ARG ("-quiet");
       quiet_flag = 1;
     }
 
   /* Aggressively garbage-collect, to shake out bugs: */
-  if (m_bool_options[GCC_JIT_BOOL_OPTION_SELFCHECK_GC])
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_SELFCHECK_GC))
     {
       ADD_ARG ("--param");
       ADD_ARG ("ggc-min-expand=0");
@@ -1275,7 +1275,7 @@ compile ()
       ADD_ARG ("ggc-min-heapsize=0");
     }
 
-  if (m_bool_options[GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING])
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_EVERYTHING))
     {
       ADD_ARG ("-fdump-tree-all");
       ADD_ARG ("-fdump-rtl-all");
@@ -1302,8 +1302,8 @@ compile ()
       goto error;
     }
 
-  if (m_bool_options[GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE])
-      dump_generated_code ();
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
+    dump_generated_code ();
 
   timevar_push (TV_ASSEMBLE);
 
