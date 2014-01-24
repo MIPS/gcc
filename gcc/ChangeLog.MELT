@@ -2,6 +2,16 @@
 
 2014-01-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_send): Add comment near each
+	melt_apply...
+	(handle_melt_pragma): Call melt_fatal_error, not just fatal_error,
+	e.g. when used from lto1...
+	(melt_handle_melt_pragma, meltgc_do_initial_mode)
+	(meltgc_debugmsgval, meltgc_usedef_internalfun)
+	(meltgc_walkstmt_cb, meltgc_walktree_cb): Comment near melt_apply.
+
+2014-01-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_handle_melt_pragma, melt_pragma_callback):
 	Remove old 4.6 pragma handling.
 

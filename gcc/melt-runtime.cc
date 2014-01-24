@@ -5324,7 +5324,7 @@ meltgc_send (melt_ptr_t recv_p,
               union meltparam_un pararg[1];
               pararg[0].meltbp_aptr = (melt_ptr_t *) & selv;
               resv =
-                melt_apply ((meltclosure_ptr_t) closv,
+                melt_apply ((meltclosure_ptr_t) closv, // sending a message
                             (melt_ptr_t) recv, MELTBPARSTR_PTR, pararg, "",
                             NULL);
               closv = resv;
@@ -5337,7 +5337,7 @@ meltgc_send (melt_ptr_t recv_p,
           recv_dirtyptr = (melt_ptr_t) recv;
           /*** OLD CODE:
                resv =
-               melt_apply (closv, recv, xargdescr_, xargtab_,
+               melt_apply (closv, recv, xargdescr_, xargtab_, // sending a message, old code
                xresdescr_, xrestab_);
           ***/
           goto end;
@@ -5349,7 +5349,7 @@ end:
   MELT_EXITFRAME ();
   /* NAUGHTY TRICK  (see comments near start of function) */
   if (closure_dirtyptr)
-    return melt_apply (closure_dirtyptr, recv_dirtyptr, xargdescr_,
+    return melt_apply (closure_dirtyptr, recv_dirtyptr, xargdescr_, // dirty trick sending
                        xargtab_, xresdescr_, xrestab_);
   return (melt_ptr_t) resv;
 #undef recv
@@ -8813,7 +8813,7 @@ handle_melt_pragma (cpp_reader *ARG_UNUSED(dummy), void *data)
 #define treev     meltfram__.mcfr_varptr[1]
 #define optreev   meltfram__.mcfr_varptr[2]
   if (!pragma_lex || !c_register_pragma_with_expansion_and_data)
-    fatal_error ("Cannot use pragma symbol at this level \
+    melt_fatal_error ("Cannot use pragma symbol at this level \
                    (maybe you use -flto which is incompatible).");
   MELT_LOCATION_HERE ("handle_melt_pragma");
   MELT_CHECK_SIGNAL ();
@@ -8964,7 +8964,8 @@ handler list defined in MELTFIELD_SYSDATA_MELTPRAGMAS!", i_handler);
       union meltparam_un pararg[1];
       pararg[0].meltbp_aptr = (melt_ptr_t *) &seqv;
 
-      (void) melt_apply ((meltclosure_ptr_t) pragclov, (melt_ptr_t) optreev,
+      (void) melt_apply ((meltclosure_ptr_t) pragclov, // pragma handling
+			 (melt_ptr_t) optreev, 
                          MELTBPARSTR_PTR , pararg, "", NULL);
       goto end;
     }
@@ -10481,7 +10482,7 @@ meltgc_do_initial_mode (melt_ptr_t modata_p, const char* modstr)
           debugeprintf ("meltgc_do_initial_mode before apply closv %p", 
 			(void*) closv);
           MELT_LOCATION_HERE ("meltgc_do_initial_mode before apply");
-          resv = melt_apply ((meltclosure_ptr_t) closv,
+          resv = melt_apply ((meltclosure_ptr_t) closv, // doing initial mode
                              (melt_ptr_t) cmdv,
                              MELTBPARSTR_PTR, pararg, "",
                              NULL);
@@ -11884,7 +11885,7 @@ void meltgc_debugmsgval(void* val_p, const char*msg, long count)
     memset(argtab, 0, sizeof(argtab));
     argtab[0].meltbp_cstring = msg;
     argtab[1].meltbp_long = count;
-    (void) melt_apply ((meltclosure_ptr_t) dbgfv, (melt_ptr_t)valv,
+    (void) melt_apply ((meltclosure_ptr_t) dbgfv, (melt_ptr_t)valv, // debugmsg
                        MELTBPARSTR_CSTRING MELTBPARSTR_LONG, argtab, "", NULL);
   }
   MELT_EXITFRAME();
@@ -13251,7 +13252,7 @@ meltgc_usedef_internalfun(tree tr, gimple gi, void*data)
     argtab[0].meltbp_tree = tr;
     argtab[1].meltbp_gimple = gi;
     MELT_CHECK_SIGNAL ();
-    resv = melt_apply ((meltclosure_ptr_t) closv,
+    resv = melt_apply ((meltclosure_ptr_t) closv, //usedef internal
                        (melt_ptr_t) valv,
                        MELTBPARSTR_TREE MELTBPARSTR_GIMPLE,
                        argtab, NULL, (union meltparam_un*)NULL);
@@ -13371,7 +13372,8 @@ meltgc_walkstmt_cb (gimple_stmt_iterator *gsip, bool *okp, struct walk_stmt_info
     argtab[0].meltbp_gimple = gstmt;
     restab[0].meltbp_treeptr = &restree;
     MELT_LOCATION_HERE ("meltgc_walkstmt_cb from meltgc_walk_gimple_seq before apply");
-    resv = melt_apply ((meltclosure_ptr_t) closv, (melt_ptr_t) datav,
+    resv = melt_apply ((meltclosure_ptr_t) closv, //walkstmt 
+		       (melt_ptr_t) datav,
                        MELTBPARSTR_GIMPLE, argtab, MELTBPARSTR_TREE, restab);
     if (resv && okp)
       *okp = TRUE;
@@ -13410,7 +13412,8 @@ tree meltgc_walktree_cb (tree*ptree, int*walksubtrees, void*data)
     restab[0].meltbp_longptr = &seclng;
     restab[1].meltbp_treeptr = &restree;
     MELT_LOCATION_HERE ("meltgc_walktree_cb from meltgc_walk_gimple_seq before apply");
-    resv = melt_apply ((meltclosure_ptr_t) closv, (melt_ptr_t) datav,
+    resv = melt_apply ((meltclosure_ptr_t) closv, // walktree
+		       (melt_ptr_t) datav,
                        MELTBPARSTR_TREE, argtab, MELTBPARSTR_LONG MELTBPARSTR_TREE, restab);
     if (seclng != -2 && walksubtrees)
       *walksubtrees = (int)seclng;
