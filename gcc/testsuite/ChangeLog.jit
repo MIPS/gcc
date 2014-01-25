@@ -1,5 +1,9 @@
 2014-01-24  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-empty.c: New test case.
+
+2014-01-24  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/harness.h (code_making_callback): Rename to...
 	(create_code): ...this, and eliminate the returned
 	error-handling value: test cases will simply call into the
