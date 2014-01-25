@@ -21,8 +21,959 @@
 
 #include "internal-api.h"
 
-gcc::jit::context::
-~context ()
+namespace gcc {
+namespace jit {
+
+/**********************************************************************
+ Recording.
+ **********************************************************************/
+
+playback::location *
+recording::playback_location (recording::location *loc)
+{
+  if (loc)
+    return loc->playback_location ();
+  else
+    return NULL;
+}
+
+const char *
+recording::playback_string (recording::string *str)
+{
+  if (str)
+    return str->c_str ();
+  else
+    return NULL;
+}
+
+playback::label *
+recording::playback_label (recording::label *lab)
+{
+  if (lab)
+    return lab->playback_label ();
+  else
+    return NULL;
+}
+
+/* gcc::jit::recording::context:: */
+
+recording::context::~context ()
+{
+  int i;
+  memento *m;
+  FOR_EACH_VEC_ELT (m_mementos, i, m)
+    {
+      delete m;
+    }
+}
+
+void
+recording::context::replay_into (replayer *r)
+{
+  int i;
+  memento *m;
+  FOR_EACH_VEC_ELT (m_mementos, i, m)
+    {
+      m->replay_into (r);
+    }
+}
+
+/* During a playback, we associate objects from the recording with
+   their counterparts during this playback.
+
+   For simplicity, we store this within the recording objects.
+
+   The following method cleans away these associations, to ensure that
+   we never have out-of-date associations lingering on subsequent
+   playbacks (the objects pointed to are GC-managed, but the
+   recording objects don't own refs to them).  */
+
+void
+recording::context::disassociate_from_playback ()
+{
+  int i;
+  memento *m;
+  FOR_EACH_VEC_ELT (m_mementos, i, m)
+    {
+      m->set_playback_obj (NULL);
+    }
+}
+
+recording::string *
+recording::context::new_string (const char *text)
+{
+  if (!text)
+    return NULL;
+
+  recording::string *result = new string (this, text);
+  record (result);
+  return result;
+}
+
+recording::location *
+recording::context::new_location (const char *filename,
+				 int line,
+				 int column)
+{
+  recording::location *result =
+    new recording::location (this,
+			    new_string (filename),
+			    line, column);
+  record (result);
+  return result;
+}
+
+recording::type *
+recording::context::get_type (enum gcc_jit_types kind)
+{
+  recording::type *result = new memento_of_get_type (this, kind);
+  record (result);
+  return result;
+}
+
+recording::field *
+recording::context::new_field (recording::location *loc,
+			       recording::type *type,
+			       const char *name)
+{
+  recording::field *result =
+    new recording::field (this, loc, type, new_string (name));
+  record (result);
+  return result;
+}
+
+recording::type *
+recording::context::new_struct_type (recording::location *loc,
+				     const char *name,
+				     int num_fields,
+				     field **fields)
+{
+  vec<field *> vec_fields;
+  vec_fields.create (num_fields);
+  for (int i = 0; i < num_fields; i++)
+    vec_fields.safe_push (fields[i]);
+  recording::type *result = new struct_ (this, loc, new_string (name),
+			      vec_fields);
+  record (result);
+  return result;
+}
+
+
+recording::param *
+recording::context::new_param (recording::location *loc,
+			       recording::type *type,
+			       const char *name)
+{
+  recording::param *result = new recording::param (this, loc, type, new_string (name));
+  record (result);
+  return result;
+}
+
+recording::function *
+recording::context::new_function (recording::location *loc,
+				  enum gcc_jit_function_kind kind,
+				  recording::type *return_type,
+				  const char *name,
+				  int num_params,
+				  recording::param **params,
+				  int is_variadic)
+{
+  recording::function *result =
+    new recording::function (this,
+			     loc, kind, return_type,
+			     new_string (name),
+			     num_params, params, is_variadic);
+  record (result);
+  return result;
+}
+
+recording::lvalue *
+recording::context::new_global (recording::location *loc,
+				recording::type *type,
+				const char *name)
+{
+  recording::lvalue *result =
+    new recording::global (this, loc, type, new_string (name));
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_rvalue_from_int (recording::type *type,
+					 int value)
+{
+  recording::rvalue *result =
+    new memento_of_new_rvalue_from_int (this, NULL, type, value);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_rvalue_from_double (recording::type *type,
+					    double value)
+{
+  recording::rvalue *result =
+    new memento_of_new_rvalue_from_double (this, NULL, type, value);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_rvalue_from_ptr (recording::type *type,
+					 void *value)
+{
+  recording::rvalue *result =
+    new memento_of_new_rvalue_from_ptr (this, NULL, type, value);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_string_literal (const char *value)
+{
+  recording::rvalue *result =
+    new memento_of_new_string_literal (this, NULL, new_string (value));
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_unary_op (recording::location *loc,
+				  enum gcc_jit_unary_op op,
+				  recording::type *result_type,
+				  recording::rvalue *a)
+{
+  recording::rvalue *result =
+    new unary_op (this, loc, op, result_type, a);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_binary_op (recording::location *loc,
+				   enum gcc_jit_binary_op op,
+				   recording::type *result_type,
+				   recording::rvalue *a,
+				   recording::rvalue *b)
+{
+  recording::rvalue *result =
+    new binary_op (this, loc, op, result_type, a, b);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_comparison (recording::location *loc,
+				    enum gcc_jit_comparison op,
+				    recording::rvalue *a,
+				    recording::rvalue *b)
+{
+  recording::rvalue *result = new comparison (this, loc, op, a, b);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_call (recording::location *loc,
+			      function *func,
+			      int numargs , recording::rvalue **args)
+{
+  recording::rvalue *result = new call (this, loc, func, numargs, args);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_array_lookup (recording::location *loc,
+				      recording::rvalue *ptr,
+				      recording::rvalue *index)
+{
+  recording::rvalue *result = new array_lookup (this, loc, ptr, index);
+  record (result);
+  return result;
+}
+
+void
+recording::context::set_str_option (enum gcc_jit_str_option opt,
+				    const char *value)
+{
+  if (opt < 0 || opt >= GCC_JIT_NUM_STR_OPTIONS)
+    {
+      add_error ("unrecognized (enum gcc_jit_str_option) value: %i", opt);
+      return;
+    }
+  m_str_options[opt] = value;
+}
+
+void
+recording::context::set_int_option (enum gcc_jit_int_option opt,
+				    int value)
+{
+  if (opt < 0 || opt >= GCC_JIT_NUM_INT_OPTIONS)
+    {
+      add_error ("unrecognized (enum gcc_jit_int_option) value: %i", opt);
+      return;
+    }
+  m_int_options[opt] = value;
+}
+
+void
+recording::context::set_bool_option (enum gcc_jit_bool_option opt,
+				     int value)
+{
+  if (opt < 0 || opt >= GCC_JIT_NUM_BOOL_OPTIONS)
+    {
+      add_error ("unrecognized (enum gcc_jit_bool_option) value: %i", opt);
+      return;
+    }
+  m_bool_options[opt] = value ? true : false;
+}
+
+static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+
+result *
+recording::context::compile ()
+{
+  if (errors_occurred ())
+    return NULL;
+
+  /* Acquire the big GCC mutex. */
+  pthread_mutex_lock (&mutex);
+  gcc_assert (NULL == ::gcc::jit::active_playback_ctxt);
+
+  /* Set up a playback context.  */
+  ::gcc::jit::playback::context replayer (this);
+  ::gcc::jit::active_playback_ctxt = &replayer;
+
+  result *result_obj = replayer.compile ();
+
+  /* Release the big GCC mutex. */
+  ::gcc::jit::active_playback_ctxt = NULL;
+  pthread_mutex_unlock (&mutex);
+
+  return result_obj;
+}
+
+void
+recording::context::add_error (const char *fmt, ...)
+{
+  va_list ap;
+  va_start (ap, fmt);
+  add_error_va (fmt, ap);
+  va_end (ap);
+}
+
+void
+recording::context::add_error_va (const char *fmt, va_list ap)
+{
+  char buf[1024];
+  vsnprintf (buf, sizeof (buf) - 1, fmt, ap);
+
+  fprintf (stderr, "%s: %s\n",
+	   get_str_option (GCC_JIT_STR_OPTION_PROGNAME),
+	   buf);
+
+  if (!m_error_count)
+    {
+      strncpy (m_first_error_str, buf, sizeof(m_first_error_str));
+      m_first_error_str[sizeof(m_first_error_str) - 1] = '\0';
+    }
+
+  m_error_count++;
+}
+
+const char *
+recording::context::get_first_error () const
+{
+  if (m_error_count)
+    return m_first_error_str;
+  else
+    return NULL;
+}
+
+/* gcc::jit::recording::string:: */
+recording::string::string (context *ctxt, const char *text)
+  : memento (ctxt)
+{
+  m_len = strlen (text) ;
+  m_copy = new char[m_len + 1];
+  strcpy (m_copy, text);
+}
+
+recording::string::~string ()
+{
+  delete[] m_copy;
+}
+
+
+
+/* gcc::jit::recording::location:: */
+void
+recording::location::replay_into (replayer *r)
+{
+  m_playback_obj = r->new_location (m_filename->c_str (), m_line, m_column);
+}
+
+/* gcc::jit::recording::type:: */
+
+recording::type *
+recording::type::get_pointer ()
+{
+  recording::type *result = new memento_of_get_pointer (this);
+  m_ctxt->record (result);
+  return result;
+}
+
+recording::type *
+recording::type::get_const ()
+{
+  recording::type *result = new memento_of_get_const (this);
+  m_ctxt->record (result);
+  return result;
+}
+
+/* gcc::jit::recording::memento_of_get_type:: */
+void
+recording::memento_of_get_type::replay_into (replayer *r)
+{
+  set_playback_obj (r->get_type (m_kind));
+}
+
+/* gcc::jit::recording::memento_of_get_pointer:: */
+void
+recording::memento_of_get_pointer::replay_into (replayer *)
+{
+  set_playback_obj (m_other_type->playback_type ()->get_pointer ());
+}
+
+/* gcc::jit::recording::memento_of_get_const:: */
+
+void
+recording::memento_of_get_const::replay_into (replayer *)
+{
+  set_playback_obj (m_other_type->playback_type ()->get_const ());
+}
+
+/* gcc::jit::recording::field:: */
+void
+recording::field::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_field (playback_location (m_loc),
+				  m_type->playback_type (),
+				  playback_string (m_name)));
+}
+
+/* gcc::jit::recording::struct_:: */
+void
+recording::struct_::replay_into (replayer *r)
+{
+  vec<playback::field *> playback_fields;
+  playback_fields.create (m_fields.length ());
+  for (unsigned i = 0; i < m_fields.length (); i++)
+    playback_fields.safe_push (m_fields[i]->playback_field ());
+
+  set_playback_obj (
+    r->new_struct_type (playback_location (m_loc),
+			m_name->c_str (),
+			&playback_fields));
+}
+
+
+/* gcc::jit::recording::rvalue:: */
+
+recording::rvalue *
+recording::rvalue::access_field (recording::location *loc,
+		      const char *fieldname)
+{
+  recording::rvalue *result =
+    new access_field_rvalue (m_ctxt, loc, this,
+			     new_string (fieldname));
+  m_ctxt->record (result);
+  return result;
+}
+
+recording::lvalue *
+recording::rvalue::dereference_field (recording::location *loc,
+			   const char *fieldname)
+{
+  recording::lvalue *result =
+    new dereference_field_rvalue (m_ctxt, loc, this,
+				  new_string (fieldname));
+  m_ctxt->record (result);
+  return result;
+}
+
+recording::lvalue *
+recording::rvalue::dereference (recording::location *loc)
+{
+  recording::lvalue *result =
+    new dereference_rvalue (m_ctxt, loc, this);
+  m_ctxt->record (result);
+  return result;
+}
+
+/* gcc::jit::recording::lvalue:: */
+
+recording::lvalue *
+recording::lvalue::access_field (recording::location *loc,
+		      const char *fieldname)
+{
+  recording::lvalue *result =
+    new access_field_of_lvalue (m_ctxt, loc, this,
+				new_string (fieldname));
+  m_ctxt->record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::lvalue::get_address (recording::location *loc)
+{
+  recording::rvalue *result =
+    new get_address_of_lvalue (m_ctxt, loc, this);
+  m_ctxt->record (result);
+  return result;
+}
+
+/* gcc::jit::recording::param:: */
+void
+recording::param::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_param (playback_location (m_loc),
+				  m_type->playback_type (),
+				  m_name->c_str ()));
+}
+
+
+/* gcc::jit::recording::function:: */
+
+recording::function::function (context *ctxt,
+			       recording::location *loc,
+			       enum gcc_jit_function_kind kind,
+			       type *return_type,
+			       recording::string *name,
+			       int num_params,
+			       recording::param **params,
+			       int is_variadic)
+: memento (ctxt),
+  m_loc (loc),
+  m_kind (kind),
+  m_return_type (return_type),
+  m_name (name),
+  m_params (),
+  m_is_variadic (is_variadic)
+{
+  for (int i = 0; i< num_params; i++)
+    m_params.safe_push (params[i]);
+}
+
+void
+recording::function::replay_into (replayer *r)
+{
+  /* Convert m_params to a vec of playback param.  */
+  vec <playback::param *> params;
+  int i;
+  recording::param *param;
+  params.create (m_params.length ());
+  FOR_EACH_VEC_ELT (m_params, i, param)
+    params.safe_push (param->playback_param ());
+
+  set_playback_obj (r->new_function (playback_location (m_loc),
+				     m_kind,
+				     m_return_type->playback_type (),
+				     m_name->c_str (),
+				     &params,
+				     m_is_variadic));
+}
+
+recording::lvalue *
+recording::function::new_local (recording::location *loc,
+		     type *type,
+		     const char *name)
+{
+  local *result = new local (this, loc, type, new_string (name));
+  m_ctxt->record (result);
+  return result;
+}
+
+recording::label*
+recording::function::new_forward_label (const char *name)
+{
+  recording::label *result =
+    new recording::label (this, new_string (name));
+  m_ctxt->record (result);
+  return result;
+}
+
+void
+recording::function::add_eval (recording::location *loc,
+			       recording::rvalue *rvalue)
+{
+  statement *result = new eval (this, loc, rvalue);
+  m_ctxt->record (result);
+}
+
+void
+recording::function::add_assignment (recording::location *loc,
+				     recording::lvalue *lvalue,
+				     recording::rvalue *rvalue)
+{
+  statement *result = new assignment (this, loc, lvalue, rvalue);
+  m_ctxt->record (result);
+}
+
+void
+recording::function::add_assignment_op (recording::location *loc,
+					recording::lvalue *lvalue,
+					enum gcc_jit_binary_op op,
+					recording::rvalue *rvalue)
+{
+  statement *result = new assignment_op (this, loc, lvalue, op, rvalue);
+  m_ctxt->record (result);
+}
+
+void
+recording::function::add_comment (recording::location *loc,
+				  const char *text)
+{
+  statement *result = new comment (this, loc, new_string (text));
+  m_ctxt->record (result);
+}
+
+void
+recording::function::add_conditional (recording::location *loc,
+				      recording::rvalue *boolval,
+				      recording::label *on_true,
+				      recording::label *on_false)
+{
+  statement *result = new conditional (this, loc, boolval, on_true, on_false);
+  m_ctxt->record (result);
+}
+
+recording::label *
+recording::function::add_label (recording::location *loc,
+				const char *name)
+{
+  recording::label *lab = new_forward_label (name);
+  place_forward_label (loc, lab);
+  return lab;
+}
+
+void
+recording::function::place_forward_label (recording::location *loc,
+					  recording::label *lab)
+{
+  statement *result = new place_label (this, loc, lab);
+  m_ctxt->record (result);
+}
+
+void
+recording::function::add_jump (recording::location *loc,
+			       recording::label *target)
+{
+  statement *result = new jump (this, loc, target);
+  m_ctxt->record (result);
+}
+
+void
+recording::function::add_return (recording::location *loc,
+				 recording::rvalue *rvalue)
+{
+  statement *result = new return_ (this, loc, rvalue);
+  m_ctxt->record (result);
+}
+
+recording::loop *
+recording::function::new_loop (recording::location *loc,
+			       recording::rvalue *boolval)
+{
+  recording::loop *result = new recording::loop (this, loc, boolval);
+  m_ctxt->record (result);
+  return result;
+}
+
+/* gcc::jit::recording::label:: */
+
+void
+recording::label::replay_into (replayer *)
+{
+  set_playback_obj (m_func->playback_function ()
+		      ->new_forward_label (playback_string (m_name)));
+}
+
+/* gcc::jit::recording::global:: */
+void
+recording::global::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_global (playback_location (m_loc),
+				   m_type->playback_type (),
+				   playback_string (m_name)));
+}
+
+/* gcc::jit::recording::memento_of_new_rvalue_from_int:: */
+void
+recording::memento_of_new_rvalue_from_int::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_rvalue_from_int (m_type->playback_type (),
+					    m_value));
+}
+
+/* gcc::jit::recording::memento_of_new_rvalue_from_double:: */
+void
+recording::memento_of_new_rvalue_from_double::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_rvalue_from_double (m_type->playback_type (),
+					       m_value));
+}
+
+/* gcc::jit::recording::memento_of_new_rvalue_from_ptr:: */
+void
+recording::memento_of_new_rvalue_from_ptr::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_rvalue_from_ptr (m_type->playback_type (),
+					    m_value));
+}
+
+/* gcc::jit::recording::memento_of_new_string_literal:: */
+void
+recording::memento_of_new_string_literal::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_string_literal (m_value->c_str ()));
+}
+
+/* gcc::jit::recording::unary_op:: */
+void
+recording::unary_op::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_unary_op (playback_location (m_loc),
+				     m_op,
+				     m_result_type->playback_type (),
+				     m_a->playback_rvalue ()));
+}
+
+
+/* gcc::jit::recording::binary_op:: */
+void
+recording::binary_op::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_binary_op (playback_location (m_loc),
+				      m_op,
+				      m_result_type->playback_type (),
+				      m_a->playback_rvalue (),
+				      m_b->playback_rvalue ()));
+}
+
+void
+recording::comparison::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_comparison (playback_location (m_loc),
+				       m_op,
+				       m_a->playback_rvalue (),
+				       m_b->playback_rvalue ()));
+}
+
+recording::call::call (recording::context *ctxt,
+		       recording::location *loc,
+		       recording::function *func,
+		       int numargs,
+		       rvalue **args)
+: rvalue (ctxt, loc),
+  m_func (func),
+  m_args ()
+{
+  for (int i = 0; i< numargs; i++)
+    m_args.safe_push (args[i]);
+}
+
+void
+recording::call::replay_into (replayer *r)
+{
+  vec<playback::rvalue *> playback_args;
+  playback_args.create (m_args.length ());
+  for (unsigned i = 0; i< m_args.length (); i++)
+    playback_args.safe_push (m_args[i]->playback_rvalue ());
+
+  set_playback_obj (r->new_call (playback_location (m_loc),
+				 m_func->playback_function (),
+				 playback_args));
+}
+
+void
+recording::array_lookup::replay_into (replayer *r)
+{
+  set_playback_obj (
+    r->new_array_lookup (playback_location (m_loc),
+			 m_ptr->playback_rvalue (),
+			 m_index->playback_rvalue ()));
+}
+
+void
+recording::access_field_of_lvalue::replay_into (replayer *)
+{
+  set_playback_obj (
+    m_lvalue->playback_lvalue ()
+      ->access_field (playback_location (m_loc),
+		      m_fieldname->c_str ()));
+}
+
+void
+recording::access_field_rvalue::replay_into (replayer *)
+{
+  set_playback_obj (
+    m_rvalue->playback_rvalue ()
+      ->access_field (playback_location (m_loc),
+		      m_fieldname->c_str ()));
+}
+
+void
+recording::dereference_field_rvalue::replay_into (replayer *)
+{
+  set_playback_obj (
+    m_rvalue->playback_rvalue ()->
+      dereference_field (playback_location (m_loc),
+			 m_fieldname->c_str ()));
+}
+
+void
+recording::dereference_rvalue::replay_into (replayer *)
+{
+  set_playback_obj (
+    m_rvalue->playback_rvalue ()->
+      dereference (playback_location (m_loc)));
+}
+
+void
+recording::get_address_of_lvalue::replay_into (replayer *)
+{
+  set_playback_obj (
+    m_lvalue->playback_lvalue ()->
+      get_address (playback_location (m_loc)));
+}
+
+void
+recording::local::replay_into (replayer *)
+{
+  set_playback_obj (
+    m_func->playback_function ()
+      ->new_local (playback_location (m_loc),
+		   m_type->playback_type (),
+		   playback_string (m_name)));
+}
+
+void
+recording::eval::replay_into (replayer *)
+{
+  playback_function ()
+    ->add_eval (playback_location (),
+		m_rvalue->playback_rvalue ());
+}
+
+void
+recording::assignment::replay_into (replayer *)
+{
+  playback_function ()
+    ->add_assignment (playback_location (),
+		      m_lvalue->playback_lvalue (),
+		      m_rvalue->playback_rvalue ());
+}
+
+void
+recording::assignment_op::replay_into (replayer *r)
+{
+  playback::type *result_type =
+    m_lvalue->playback_lvalue ()->get_type ();
+
+  playback::rvalue *binary_op =
+    r->new_binary_op (playback_location (),
+		      m_op,
+		      result_type,
+		      m_lvalue->playback_rvalue (),
+		      m_rvalue->playback_rvalue ());
+
+  playback_function ()
+    ->add_assignment (playback_location (),
+		      m_lvalue->playback_lvalue (),
+		      binary_op);
+}
+
+void
+recording::comment::replay_into (replayer *)
+{
+  playback_function ()
+    ->add_comment (playback_location (),
+		   m_text->c_str ());
+}
+
+void
+recording::conditional::replay_into (replayer *)
+{
+  playback_function ()
+    ->add_conditional (playback_location (),
+		       m_boolval->playback_rvalue (),
+		       playback_label (m_on_true),
+		       playback_label (m_on_false));
+}
+
+void
+recording::place_label::replay_into (replayer *)
+{
+  playback_function ()
+    ->place_forward_label (playback_location (),
+			   m_label->playback_label ());
+}
+
+void
+recording::jump::replay_into (replayer *)
+{
+  playback_function ()
+    ->add_jump (playback_location (),
+		m_target->playback_label ());
+}
+
+void
+recording::return_::replay_into (replayer *)
+{
+  playback_function ()
+    ->add_return (playback_location (),
+		  m_rvalue ? m_rvalue->playback_rvalue () : NULL);
+}
+
+void
+recording::loop::replay_into (replayer *)
+{
+  set_playback_obj (
+    m_func->playback_function ()
+      ->new_loop (playback_location (m_loc),
+		  m_boolval->playback_rvalue ()));
+}
+
+void
+recording::loop::end (location *loc)
+{
+  recording::loop_end *m = new loop_end (this, loc);
+  m_ctxt->record (m);
+}
+
+void
+recording::loop_end::replay_into (replayer *)
+{
+  m_loop->playback_loop ()->end (playback_location (m_loc));
+}
+
+/**********************************************************************
+ Playback.
+ **********************************************************************/
+
+playback::context::context (recording::context *ctxt)
+  : m_recording_ctxt (ctxt),
+    m_char_array_type_node (NULL),
+    m_const_char_ptr (NULL)
+{
+  m_functions.create (0);
+  m_source_files.create (0);
+  m_cached_locations.create (0);
+}
+
+playback::context::~context ()
 {
   if (get_bool_option (GCC_JIT_BOOL_OPTION_KEEP_INTERMEDIATES))
     fprintf (stderr, "intermediate files written to %s\n", m_path_tempdir);
@@ -47,7 +998,7 @@ gcc::jit::context::
 }
 
 void
-gcc::jit::context::
+playback::context::
 gt_ggc_mx ()
 {
   int i;
@@ -57,15 +1008,6 @@ gt_ggc_mx ()
       if (ggc_test_and_set_mark (func))
 	func->gt_ggc_mx ();
     }
-}
-
-void
-gcc::jit::context::
-set_code_factory (gcc_jit_code_callback cb,
-		  void *user_data)
-{
-  m_code_factory = cb;
-  m_user_data = user_data;
 }
 
 static tree
@@ -130,8 +1072,8 @@ get_tree_node_for_type (enum gcc_jit_types type_)
   return NULL;
 }
 
-gcc::jit::type *
-gcc::jit::context::
+playback::type *
+playback::context::
 get_type (enum gcc_jit_types type_)
 {
   tree type_node = get_tree_node_for_type (type_);
@@ -144,10 +1086,10 @@ get_type (enum gcc_jit_types type_)
   return new type (type_node);
 }
 
-gcc::jit::field *
-gcc::jit::context::
-new_field (gcc::jit::location *loc,
-	   gcc::jit::type *type,
+playback::field *
+playback::context::
+new_field (location *loc,
+	   type *type,
 	   const char *name)
 {
   gcc_assert (type);
@@ -163,15 +1105,14 @@ new_field (gcc::jit::location *loc,
   return new field (decl);
 }
 
-gcc::jit::type *
-gcc::jit::context::
-new_struct_type (gcc::jit::location *loc,
+playback::type *
+playback::context::
+new_struct_type (location *loc,
 		 const char *name,
-		 int num_fields,
-		 gcc::jit::field **fields)
+		 vec<field *> *fields)
 {
   gcc_assert (name);
-  gcc_assert ((num_fields == 0) || fields);
+  gcc_assert (fields);
 
   /* Compare with c/c-decl.c: start_struct and finish_struct. */
 
@@ -179,10 +1120,10 @@ new_struct_type (gcc::jit::location *loc,
   TYPE_NAME (t) = get_identifier (name);
   TYPE_SIZE (t) = 0;
 
- tree fieldlist = NULL;
-  for (int i = 0; i < num_fields; i++)
+  tree fieldlist = NULL;
+  for (unsigned i = 0; i < fields->length (); i++)
     {
-      field *f = fields[i];
+      field *f = (*fields)[i];
       DECL_CONTEXT (f->as_tree ()) = t;
       fieldlist = chainon (f->as_tree (), fieldlist);
     }
@@ -198,8 +1139,8 @@ new_struct_type (gcc::jit::location *loc,
 }
 
 
-gcc::jit::param *
-gcc::jit::context::
+playback::param *
+playback::context::
 new_param (location *loc,
 	   type *type,
 	   const char *name)
@@ -214,32 +1155,32 @@ new_param (location *loc,
   return new param (this, inner);
 }
 
-gcc::jit::function *
-gcc::jit::context::
+playback::function *
+playback::context::
 new_function (location *loc,
 	      enum gcc_jit_function_kind kind,
 	      type *return_type,
 	      const char *name,
-	      int num_params,
-	      param **params,
+	      vec<param *> *params,
 	      int is_variadic)
- {
+{
+  int i;
+  param *param;
+
   //can return_type be NULL?
   gcc_assert (name);
-  gcc_assert ((num_params == 0) || params);
 
-  tree *arg_types = (tree *)xcalloc(num_params, sizeof(tree*));
-  for (int i = 0; i < num_params; i++)
-    {
-      arg_types[i] = TREE_TYPE (params[i]->as_tree ());
-    }
+  tree *arg_types = (tree *)xcalloc(params->length (), sizeof(tree*));
+  FOR_EACH_VEC_ELT (*params, i, param)
+    arg_types[i] = TREE_TYPE (param->as_tree ());
+
   tree fn_type;
   if (is_variadic)
     fn_type = build_varargs_function_type_array (return_type->as_tree (),
-						 num_params, arg_types);
+						 params->length (), arg_types);
   else
     fn_type = build_function_type_array (return_type->as_tree (),
-					 num_params, arg_types);
+					 params->length (), arg_types);
   free (arg_types);
 
   /* FIXME: this uses input_location: */
@@ -257,9 +1198,9 @@ new_function (location *loc,
   if (kind != GCC_JIT_FUNCTION_IMPORTED)
     {
       tree param_decl_list = NULL;
-      for (int i = 0; i < num_params; i++)
+      FOR_EACH_VEC_ELT (*params, i, param)
 	{
-	  param_decl_list = chainon (params[i]->as_tree (), param_decl_list);
+	  param_decl_list = chainon (param->as_tree (), param_decl_list);
 	}
 
       /* The param list was created in reverse order; fix it: */
@@ -281,8 +1222,8 @@ new_function (location *loc,
   return func;
 }
 
-gcc::jit::lvalue *
-gcc::jit::context::
+playback::lvalue *
+playback::context::
 new_global (location *loc,
             type *type,
             const char *name)
@@ -302,8 +1243,8 @@ new_global (location *loc,
   return new lvalue (this, inner);
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_rvalue_from_int (type *type,
 		     int value)
 {
@@ -323,8 +1264,8 @@ new_rvalue_from_int (type *type,
     }
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_rvalue_from_double (type *type,
 			double value)
 {
@@ -351,8 +1292,8 @@ new_rvalue_from_double (type *type,
   return new rvalue (this, inner);
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_rvalue_from_ptr (type *type,
 		     void *value)
 {
@@ -362,8 +1303,8 @@ new_rvalue_from_ptr (type *type,
   return new rvalue (this, inner);
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_string_literal (const char *value)
 {
   tree t_str = build_string (strlen (value), value);
@@ -379,7 +1320,7 @@ new_string_literal (const char *value)
 }
 
 tree
-gcc::jit::context::
+playback::context::
 as_truth_value (tree expr, location *loc)
 {
   /* Compare to c-typeck.c:c_objc_common_truthvalue_conversion */
@@ -396,8 +1337,8 @@ as_truth_value (tree expr, location *loc)
   return expr;
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_unary_op (location *loc,
 	      enum gcc_jit_unary_op op,
 	      type *result_type,
@@ -443,8 +1384,8 @@ new_unary_op (location *loc,
   return new rvalue (this, inner_result);
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_binary_op (location *loc,
 	       enum gcc_jit_binary_op op,
 	       type *result_type,
@@ -526,8 +1467,8 @@ new_binary_op (location *loc,
   return new rvalue (this, inner_expr);
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_comparison (location *loc,
 		enum gcc_jit_comparison op,
 		rvalue *a, rvalue *b)
@@ -573,26 +1514,24 @@ new_comparison (location *loc,
   return new rvalue (this, inner_expr);
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_call (location *loc,
 	  function *func,
-	  int numargs , rvalue **args)
+	  vec<rvalue *> args)
 {
   tree fndecl;
   vec<tree, va_gc> *tree_args;
 
   gcc_assert (func);
-  gcc_assert (numargs >= 0);
-  gcc_assert ((args == 0) || (args != NULL));
 
   // FIXME: type checking
   // FIXME: check num args and types
 
   fndecl = func->as_fndecl ();
 
-  vec_alloc (tree_args, numargs);
-  for (int i = 0; i < numargs; i++)
+  vec_alloc (tree_args, args.length ());
+  for (unsigned i = 0; i < args.length (); i++)
     tree_args->quick_push (args[i]->as_tree ());
 
   tree fntype = TREE_TYPE (fndecl);
@@ -616,8 +1555,8 @@ new_call (location *loc,
    */
 }
 
-gcc::jit::rvalue *
-gcc::jit::context::
+playback::rvalue *
+playback::context::
 new_array_lookup (location *loc,
 		  rvalue *ptr,
 		  rvalue *index)
@@ -675,7 +1614,7 @@ get_field (tree type, tree component)
 }
 
 tree
-gcc::jit::context::
+playback::context::
 new_field_access (location *loc,
 		  tree datum,
 		  const char *fieldname)
@@ -683,9 +1622,10 @@ new_field_access (location *loc,
   gcc_assert (datum);
   gcc_assert (fieldname);
 
-  /* Compare with c/ctypeck.c:lookup_field, build_indirect_ref, and
+  /* Compare with c/c-typeck.c:lookup_field, build_indirect_ref, and
      build_component_ref. */
   tree type = TREE_TYPE (datum);
+  gcc_assert (type);
   gcc_assert (TREE_CODE (type) != POINTER_TYPE);
 
   tree component = get_identifier (fieldname);
@@ -703,7 +1643,7 @@ new_field_access (location *loc,
 }
 
 tree
-gcc::jit::context::
+playback::context::
 new_dereference (tree ptr,
 		 location *loc)
 {
@@ -716,8 +1656,8 @@ new_dereference (tree ptr,
   return datum;
 }
 
-gcc::jit::lvalue *
-gcc::jit::lvalue::
+playback::lvalue *
+playback::lvalue::
 access_field (location *loc,
 	      const char *fieldname)
 {
@@ -728,9 +1668,9 @@ access_field (location *loc,
   return new lvalue (get_context (), ref);
 }
 
-gcc::jit::rvalue *
-gcc::jit::rvalue::
-access_field (gcc::jit::location *loc,
+playback::rvalue *
+playback::rvalue::
+access_field (location *loc,
 	      const char *fieldname)
 {
   tree datum = as_tree ();
@@ -740,30 +1680,32 @@ access_field (gcc::jit::location *loc,
   return new rvalue (get_context (), ref);
 }
 
-gcc::jit::lvalue *
-gcc::jit::rvalue::
-dereference_field (gcc::jit::location *loc,
+playback::lvalue *
+playback::rvalue::
+dereference_field (location *loc,
 		   const char *fieldname)
 {
   tree ptr = as_tree ();
   tree datum = get_context ()->new_dereference (ptr, loc);
+  if (!datum)
+    return NULL;
   tree ref = get_context ()->new_field_access (loc, datum, fieldname);
   if (!ref)
     return NULL;
   return new lvalue (get_context (), ref);
 }
 
-gcc::jit::lvalue *
-gcc::jit::rvalue::
-dereference (gcc::jit::location *loc)
+playback::lvalue *
+playback::rvalue::
+dereference (location *loc)
 {
   tree ptr = as_tree ();
   tree datum = get_context ()->new_dereference (ptr, loc);
   return new lvalue (get_context (), datum);
 }
 
-gcc::jit::rvalue *
-gcc::jit::lvalue::
+playback::rvalue *
+playback::lvalue::
 get_address (location *loc)
 {
   tree t_lvalue = as_tree ();
@@ -776,14 +1718,16 @@ get_address (location *loc)
 }
 
 void *
-gcc::jit::wrapper::
+playback::wrapper::
 operator new (size_t sz)
 {
   return ggc_internal_cleared_alloc_stat (sz MEM_STAT_INFO);
 }
 
-gcc::jit::function::
-function(gcc::jit::context *ctxt, tree fndecl, enum gcc_jit_function_kind kind)
+playback::function::
+function (context *ctxt,
+	  tree fndecl,
+	  enum gcc_jit_function_kind kind)
 : m_ctxt(ctxt),
   m_inner_fndecl (fndecl),
   m_inner_bind_expr (NULL),
@@ -804,7 +1748,7 @@ function(gcc::jit::context *ctxt, tree fndecl, enum gcc_jit_function_kind kind)
 }
 
 void
-gcc::jit::function::
+playback::function::
 gt_ggc_mx ()
 {
   gt_ggc_m_9tree_node (m_inner_fndecl);
@@ -813,14 +1757,14 @@ gt_ggc_mx ()
 }
 
 tree
-gcc::jit::function::
+playback::function::
 get_return_type_as_tree () const
 {
   return TREE_TYPE (TREE_TYPE(m_inner_fndecl));
 }
 
-gcc::jit::lvalue *
-gcc::jit::function::
+playback::lvalue *
+playback::function::
 new_local (location *loc,
 	   type *type,
 	   const char *name)
@@ -841,16 +1785,16 @@ new_local (location *loc,
   return new lvalue (m_ctxt, inner);
 }
 
-gcc::jit::label *
-gcc::jit::function::
+playback::label *
+playback::function::
 new_forward_label (const char *name)
 {
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
-  return new label (this, name);
+  return new playback::label (this, name);
 }
 
 void
-gcc::jit::function::
+playback::function::
 postprocess ()
 {
   if (m_ctxt->get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_INITIAL_TREE))
@@ -894,7 +1838,7 @@ postprocess ()
 }
 
 void
-gcc::jit::function::
+playback::function::
 add_eval (location *loc,
 	  rvalue *rvalue)
 {
@@ -908,7 +1852,7 @@ add_eval (location *loc,
 }
 
 void
-gcc::jit::function::
+playback::function::
 add_assignment (location *loc,
 		lvalue *lvalue,
 		rvalue *rvalue)
@@ -937,7 +1881,7 @@ add_assignment (location *loc,
 }
 
 void
-gcc::jit::function::
+playback::function::
 add_comment (location *loc,
 	     const char *text)
 {
@@ -958,7 +1902,7 @@ add_comment (location *loc,
 }
 
 void
-gcc::jit::function::
+playback::function::
 add_conditional (location *loc,
 		 rvalue *boolval,
 		 label *on_true,
@@ -995,8 +1939,8 @@ add_conditional (location *loc,
   add_stmt (stmt);
 }
 
-gcc::jit::label *
-gcc::jit::function::
+playback::label *
+playback::function::
 add_label (location *loc,
 	   const char *name)
 {
@@ -1008,7 +1952,7 @@ add_label (location *loc,
 }
 
 void
-gcc::jit::function::
+playback::function::
 place_forward_label (location *loc, label *lab)
 {
   gcc_assert (lab);
@@ -1024,7 +1968,7 @@ place_forward_label (location *loc, label *lab)
 }
 
 void
-gcc::jit::function::
+playback::function::
 add_jump (location *loc,
 	  label *target)
 {
@@ -1062,7 +2006,7 @@ c_finish_goto_label (location_t loc, tree label)
 }
 
 void
-gcc::jit::function::
+playback::function::
 add_return (location *loc,
 	    rvalue *rvalue)
 {
@@ -1087,15 +2031,15 @@ add_return (location *loc,
   add_stmt (return_stmt);
 }
 
-gcc::jit::loop *
-gcc::jit::function::
+playback::loop *
+playback::function::
 new_loop (location *loc,
 	  rvalue *boolval)
 {
   return new loop (this, loc, boolval);
 }
 
-gcc::jit::label::
+playback::label::
 label (function *func,
        const char *name)
 {
@@ -1114,7 +2058,7 @@ label (function *func,
 }
 
 
-gcc::jit::loop::
+playback::loop::
 loop (function *func, location *loc, rvalue *boolval) :
   m_func(func)
 {
@@ -1126,63 +2070,15 @@ loop (function *func, location *loc, rvalue *boolval) :
 }
 
 void
-gcc::jit::loop::
+playback::loop::
 end (location *loc)
 {
   m_func->add_jump (loc, m_label_cond);
   m_func->place_forward_label (loc, m_label_end);
 }
 
-void
-gcc::jit::context::
-set_str_option (enum gcc_jit_str_option opt,
-		const char *value)
-{
-  if (opt < 0 || opt >= GCC_JIT_NUM_STR_OPTIONS)
-    {
-      add_error ("unrecognized (enum gcc_jit_str_option) value: %i", opt);
-      return;
-    }
-  m_str_options[opt] = value;
-}
-
-void
-gcc::jit::context::
-set_int_option (enum gcc_jit_int_option opt,
-		int value)
-{
-  if (opt < 0 || opt >= GCC_JIT_NUM_INT_OPTIONS)
-    {
-      add_error ("unrecognized (enum gcc_jit_int_option) value: %i", opt);
-      return;
-    }
-  m_int_options[opt] = value;
-}
-
-void
-gcc::jit::context::
-set_bool_option (enum gcc_jit_bool_option opt,
-		 int value)
-{
-  if (opt < 0 || opt >= GCC_JIT_NUM_BOOL_OPTIONS)
-    {
-      add_error ("unrecognized (enum gcc_jit_bool_option) value: %i", opt);
-      return;
-    }
-  m_bool_options[opt] = value ? true : false;
-}
-
-namespace gcc
-{
-  namespace jit
-  {
-    static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
-    context *active_jit_ctxt;
-  }
-}
-
-gcc::jit::result *
-gcc::jit::context::
+result *
+playback::context::
 compile ()
 {
   void *handle = NULL;
@@ -1191,22 +2087,16 @@ compile ()
   const char *fake_args[20];
   unsigned int num_args;
 
-  /* Acquire the big GCC mutex. */
-  pthread_mutex_lock (&mutex);
-
-  gcc_assert (NULL == active_jit_ctxt);
-  active_jit_ctxt = this;
-
   m_path_template = xstrdup ("/tmp/libgccjit-XXXXXX");
   if (!m_path_template)
-    goto error;
+    return NULL;
 
   /* Create tempdir using mkdtemp.  This is created with 0700 perms and
      is unique.  Hence no other (non-root) users should have access to
      the paths within it.  */
   m_path_tempdir = mkdtemp (m_path_template);
   if (!m_path_tempdir)
-    goto error;
+    return NULL;
   m_path_c_file = concat (m_path_tempdir, "/fake.c", NULL);
   m_path_s_file = concat (m_path_tempdir, "/fake.s", NULL);
   m_path_so_file = concat (m_path_tempdir, "/fake.so", NULL);
@@ -1239,7 +2129,7 @@ compile ()
     default:
       add_error ("unrecognized optimization level: %i",
 		 get_int_option (GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL));
-      goto error;
+      return NULL;
 
     case 0:
       ADD_ARG ("-O0");
@@ -1297,17 +2187,14 @@ compile ()
   toplev_main (num_args, const_cast <char **> (fake_args), &toplev_opts);
   toplev_finalize ();
 
-  active_jit_ctxt = NULL;
+  active_playback_ctxt = NULL;
 
   if (errors_occurred ())
     {
       timevar_stop (TV_TOTAL);
       timevar_print (stderr);
-      goto error;
+      return NULL;
     }
-
-  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
-    dump_generated_code ();
 
   timevar_push (TV_ASSEMBLE);
 
@@ -1329,7 +2216,7 @@ compile ()
 	timevar_pop (TV_ASSEMBLE);
 	timevar_stop (TV_TOTAL);
 	timevar_print (stderr);
-	goto error;
+	return NULL;
       }
   }
   timevar_pop (TV_ASSEMBLE);
@@ -1360,17 +2247,12 @@ compile ()
   timevar_stop (TV_TOTAL);
   timevar_print (stderr);
 
- error:
-  /* Release the big GCC mutex. */
-  active_jit_ctxt = NULL;
-  pthread_mutex_unlock (&mutex);
-
   return result_obj;
 }
 
 void
-gcc::jit::context::
-invoke_code_factory ()
+playback::context::
+replay ()
 {
   /* Adapted from c-common.c:c_common_nodes_and_builtins.  */
   tree array_domain_type = build_index_type (size_int (200));
@@ -1381,12 +2263,18 @@ invoke_code_factory ()
     = build_pointer_type (build_qualified_type (char_type_node,
 						TYPE_QUAL_CONST));
 
-  /* Call the client-provided code factory:  */
-  timevar_push (TV_CLIENT_CALLBACK);
-  m_within_code_factory = true;
-  m_cb_result = m_code_factory ((gcc_jit_context *)this, m_user_data);
-  m_within_code_factory = false;
-  timevar_pop (TV_CLIENT_CALLBACK);
+  /* Replay the recorded events:  */
+  timevar_push (TV_JIT_REPLAY);
+
+  m_recording_ctxt->replay_into (this);
+
+  /* Clean away the temporary references from recording objects
+     to playback objects.  We have to do this now since the
+     latter are GC-allocated, but the former don't mark these
+     refs.  Hence we must stop using them before the GC can run.  */
+  m_recording_ctxt->disassociate_from_playback ();
+
+  timevar_pop (TV_JIT_REPLAY);
 
   if (!errors_occurred ())
     {
@@ -1406,7 +2294,7 @@ invoke_code_factory ()
 }
 
 void
-gcc::jit::context::
+playback::context::
 dump_generated_code ()
 {
   char buf[4096];
@@ -1424,25 +2312,25 @@ dump_generated_code ()
 static int
 line_comparator (const void *lhs, const void *rhs)
 {
-  const gcc::jit::source_line *line_lhs = \
-    *static_cast<const gcc::jit::source_line * const*> (lhs);
-  const gcc::jit::source_line *line_rhs = \
-    *static_cast<const gcc::jit::source_line * const*> (rhs);
+  const playback::source_line *line_lhs = \
+    *static_cast<const playback::source_line * const*> (lhs);
+  const playback::source_line *line_rhs = \
+    *static_cast<const playback::source_line * const*> (rhs);
   return line_lhs->get_line_num () - line_rhs->get_line_num ();
 }
 
 static int
 location_comparator (const void *lhs, const void *rhs)
 {
-  const gcc::jit::location *loc_lhs = \
-    *static_cast<const gcc::jit::location * const *> (lhs);
-  const gcc::jit::location *loc_rhs = \
-    *static_cast<const gcc::jit::location * const *> (rhs);
+  const playback::location *loc_lhs = \
+    *static_cast<const playback::location * const *> (lhs);
+  const playback::location *loc_rhs = \
+    *static_cast<const playback::location * const *> (rhs);
   return loc_lhs->get_column_num () - loc_rhs->get_column_num ();
 }
 
 void
-gcc::jit::context::
+playback::context::
 handle_locations ()
 {
   /* Create the source code locations, following the ordering rules
@@ -1518,57 +2406,35 @@ handle_locations ()
 
 
 void
-gcc::jit::context::
+playback::context::
 add_error (const char *fmt, ...)
 {
   va_list ap;
   va_start (ap, fmt);
-  add_error_va (fmt, ap);
+  m_recording_ctxt->add_error_va (fmt, ap);
   va_end (ap);
 }
 
 void
-gcc::jit::context::
+playback::context::
 add_error_va (const char *fmt, va_list ap)
 {
-  char buf[1024];
-  vsnprintf (buf, sizeof (buf) - 1, fmt, ap);
-
-  error ("%s\n", buf);
-
-  if (!m_error_count)
-    {
-      strncpy (m_first_error_str, buf, sizeof(m_first_error_str));
-      m_first_error_str[sizeof(m_first_error_str) - 1] = '\0';
-    }
-
-  m_error_count++;
+  m_recording_ctxt->add_error_va (fmt, ap);
 }
 
-const char *
-gcc::jit::context::
-get_first_error () const
-{
-  if (m_error_count)
-    return m_first_error_str;
-  else
-    return NULL;
-}
-
-gcc::jit::result::
+result::
 result(void *dso_handle)
   : m_dso_handle(dso_handle)
 {
 }
 
-gcc::jit::result::
-~result()
+result::~result()
 {
   dlclose (m_dso_handle);
 }
 
 void *
-gcc::jit::result::
+result::
 get_code (const char *funcname)
 {
   void *code;
@@ -1588,8 +2454,8 @@ get_code (const char *funcname)
 
 /* Dealing with the linemap API.  */
 
-gcc::jit::location *
-gcc::jit::context::
+playback::location *
+playback::context::
 new_location (const char *filename,
 	      int line,
 	      int column)
@@ -1604,15 +2470,15 @@ new_location (const char *filename,
 }
 
 void
-gcc::jit::context::
+playback::context::
 set_tree_location (tree t, location *loc)
 {
   m_cached_locations.safe_push (std::make_pair (t, loc));
 }
 
 
-gcc::jit::source_file *
-gcc::jit::context::
+playback::source_file *
+playback::context::
 get_source_file (const char *filename)
 {
   /* Locate the file.
@@ -1632,14 +2498,14 @@ get_source_file (const char *filename)
   return file;
 }
 
-gcc::jit::source_file::source_file (tree filename) :
+playback::source_file::source_file (tree filename) :
   m_source_lines (),
   m_filename (filename)
 {
 }
 
-gcc::jit::source_line *
-gcc::jit::source_file::
+playback::source_line *
+playback::source_file::
 get_source_line (int line_num)
 {
   /* Locate the line.
@@ -1658,15 +2524,15 @@ get_source_line (int line_num)
   return line;
 }
 
-gcc::jit::source_line::source_line (source_file *file, int line_num) :
+playback::source_line::source_line (source_file *file, int line_num) :
   m_locations (),
   m_source_file (file),
   m_line_num (line_num)
 {
 }
 
-gcc::jit::location *
-gcc::jit::source_line::
+playback::location *
+playback::source_line::
 get_location (int column_num)
 {
   int i;
@@ -1683,8 +2549,14 @@ get_location (int column_num)
   return loc;
 }
 
-gcc::jit::location::location (source_line *line, int column_num) :
+playback::location::location (source_line *line, int column_num) :
   m_line (line),
   m_column_num(column_num)
 {
 }
+
+playback::context *active_playback_ctxt;
+
+} // namespace gcc::jit
+
+} // namespace gcc

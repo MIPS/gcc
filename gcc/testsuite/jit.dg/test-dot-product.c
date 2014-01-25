@@ -6,8 +6,8 @@
 
 #include "harness.h"
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
 
@@ -94,8 +94,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     func,
     NULL,
     gcc_jit_lvalue_as_rvalue (result));
-
-  return 0;
 }
 
 void

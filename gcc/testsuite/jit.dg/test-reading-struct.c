@@ -11,8 +11,8 @@ struct bar
   int y;
 };
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
 
@@ -93,7 +93,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_function_new_local (fn_test_writing, NULL,
 				struct_type,
 				"tmp");
-#if 1
   /* tmp.x = 5; */
   gcc_jit_function_add_assignment (
     fn_test_writing, NULL,
@@ -105,7 +104,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     fn_test_writing, NULL,
     gcc_jit_lvalue_access_field (local_tmp, NULL, "y"),
     gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 7));
-#endif
 
   /* return test_reading (&tmp); */
   gcc_jit_rvalue *arg = gcc_jit_lvalue_get_address (local_tmp, NULL);
@@ -116,8 +114,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
       ctxt, NULL,
       fn_test_reading,
       1, &arg));
-
-  return 0;
 }
 
 void

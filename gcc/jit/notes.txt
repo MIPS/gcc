@@ -3,6 +3,12 @@ Client Code   . Generated .            libgccjit.so
               .           . JIT API  . JIT "Frontend". (libbackend.a)
 ....................................................................................
    │          .           .          .               .
+    ──────────────────────────>      .               .
+              .           .    │     .               .
+
+              .       (record API calls)             .
+              .           .    │     .               .
+   <───────────────────────────      .               .
    │          .           .          .               .
    │          .           .          .               .
    V          .           .  gcc_jit_context_compile .
@@ -20,26 +26,12 @@ Client Code   . Generated .            libgccjit.so
               .           .          .    │ (jit_langhook_parse_file)
               .           .          .    │          .
 ..........................................│..................VVVVVVVVVVVVV...
- code factory .           .          .    │          .       No GC in here
- callback     .           .          .    │          .
-       <───────────────────────────────────          .
-       │      .           .          .   (invoke_cb) .
-       │      .           .  C API   .               .
-       ──────────────────────>       .               .
-              .           .  │ Internal API          .
-              .           .  ───>    .               .
-              .           .      │   .               .
-              .           .      ────────────────────────> creation of functions,
-              .           .          .               .     types, expression trees
-              .           .      <──────────────────────── etc
-              .           .  <───    .               .
-              .           .  │       .               .
-       ──────────────────────        .               .
-       │etc   .           .          .               .
-       │      .           .          .               .
-       ──────────────────────────────────>           .
-Return from client callback          .    │          .
+              .           .          .    │          .       No GC in here
               .           .          .    │          .
+              .           .          .  (playback of API calls)
+              .           .          .    ───────────────> creation of functions,
+              .           .          .               .     types, expression trees
+              .           .          .    <──────────────── etc
               .           .          .    │(handle_locations: add locations to
               .           .          .    │ linemap and associate them with trees)
               .           .          .    │          .

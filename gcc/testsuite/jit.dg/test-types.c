@@ -82,8 +82,8 @@ int *test_ptr = &test_int;
 
 const char *test_string = "test_string";
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
 
@@ -236,8 +236,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
       stderr))
 
 #undef ASSIGN
-
-  return 0;
 }
 
 void

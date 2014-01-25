@@ -275,7 +275,7 @@ DEFTIMEVAR (TV_REBUILD_FREQUENCIES   , "rebuild frequencies")
 DEFTIMEVAR (TV_REPAIR_LOOPS	     , "repair loop structures")
 
 /* Stuff used by libgccjit.so.  */
-DEFTIMEVAR (TV_CLIENT_CALLBACK	     , "JIT client callback")
+DEFTIMEVAR (TV_JIT_REPLAY	     , "replay of JIT client activity")
 DEFTIMEVAR (TV_ASSEMBLE	     , "assemble JIT code")
 DEFTIMEVAR (TV_LINK		     , "link JIT code")
 DEFTIMEVAR (TV_LOAD		     , "load JIT result")

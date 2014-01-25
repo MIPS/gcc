@@ -1,3 +1,34 @@
+2014-01-24  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h (code_making_callback): Rename to...
+	(create_code): ...this, and eliminate the returned
+	error-handling value: test cases will simply call into the
+	gcc_jit_ API, without needing to be run from a callback.
+	(test_jit): Don't register a callback, simply call the
+	"create_code" function for the testcase before compiling the
+	context.
+
+	* jit.dg/test-accessing-struct.c: Rename "code_making_callback"
+	to "create_code" and eliminate the return code.
+	* jit.dg/test-calling-external-function.c: Likewise.
+	* jit.dg/test-combination.c: Likewise.
+	* jit.dg/test-dot-product.c: Likewise.
+	* jit.dg/test-expressions.c: Likewise.
+	* jit.dg/test-factorial.c: Likewise.
+	* jit.dg/test-fibonacci.c: Likewise.
+	* jit.dg/test-fuzzer.c: Likewise.
+	* jit.dg/test-hello-world.c: Likewise.
+	* jit.dg/test-null-passed-to-api.c: Likewise.
+	* jit.dg/test-quadratic.c: Likewise.
+	* jit.dg/test-reading-struct.c: Likewise.
+	* jit.dg/test-string-literal.c: Likewise.
+	* jit.dg/test-sum-of-squares.c: Likewise.
+	* jit.dg/test-types.c: Likewise.
+	* jit.dg/test-using-global.c: Likewise.
+
+	* jit.dg/test-failure.c: Remove this test case, since it was
+	specifically for testing the now-defunct callback-based API.
+
 2014-01-23  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-quadratic.c: New test case, written to achieve test

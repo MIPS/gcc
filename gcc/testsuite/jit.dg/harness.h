@@ -4,8 +4,8 @@
   This file contains "main" and support code.
   Each testcase should implement the following hooks:
 
-    extern int
-    code_making_callback (gcc_jit_context *ctxt, void * user_data);
+    extern void
+    create_code (gcc_jit_context *ctxt, void * user_data);
 
     extern void
     verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
@@ -51,8 +51,8 @@ static char test[1024];
   check_string_value ((ACTUAL), (EXPECTED));
 
 /* Hooks that testcases should provide.  */
-extern int
-code_making_callback (gcc_jit_context *ctxt, void * user_data);
+extern void
+create_code (gcc_jit_context *ctxt, void * user_data);
 
 extern void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
@@ -101,8 +101,6 @@ test_jit (const char *argv0, void *user_data)
   ctxt = gcc_jit_context_acquire ();
      /* FIXME: error-handling */
 
-  gcc_jit_context_set_code_factory (ctxt, code_making_callback, user_data);
-
   /* Set up options.  */
   gcc_jit_context_set_str_option (
     ctxt,
@@ -132,6 +130,8 @@ test_jit (const char *argv0, void *user_data)
     ctxt,
     GCC_JIT_BOOL_OPTION_DUMP_SUMMARY,
     1);
+
+  create_code (ctxt, user_data);
 
   /* This actually calls into GCC and runs the build, all
      in a mutex for now.  */

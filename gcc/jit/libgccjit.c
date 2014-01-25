@@ -8,7 +8,7 @@
 #include "libgccjit.h"
 #include "internal-api.h"
 
-struct gcc_jit_context : public gcc::jit::context
+struct gcc_jit_context : public gcc::jit::recording::context
 {
 };
 
@@ -16,39 +16,39 @@ struct gcc_jit_result : public gcc::jit::result
 {
 };
 
-struct gcc_jit_location : public gcc::jit::location
+struct gcc_jit_location : public gcc::jit::recording::location
 {
 };
 
-struct gcc_jit_type : public gcc::jit::type
+struct gcc_jit_type : public gcc::jit::recording::type
 {
 };
 
-struct gcc_jit_field : public gcc::jit::field
+struct gcc_jit_field : public gcc::jit::recording::field
 {
 };
 
-struct gcc_jit_function : public gcc::jit::function
+struct gcc_jit_function : public gcc::jit::recording::function
 {
 };
 
-struct gcc_jit_label : public gcc::jit::label
+struct gcc_jit_label : public gcc::jit::recording::label
 {
 };
 
-struct gcc_jit_rvalue : public gcc::jit::rvalue
+struct gcc_jit_rvalue : public gcc::jit::recording::rvalue
 {
 };
 
-struct gcc_jit_lvalue : public gcc::jit::lvalue
+struct gcc_jit_lvalue : public gcc::jit::recording::lvalue
 {
 };
 
-struct gcc_jit_param : public gcc::jit::param
+struct gcc_jit_param : public gcc::jit::recording::param
 {
 };
 
-struct gcc_jit_loop : public gcc::jit::loop
+struct gcc_jit_loop : public gcc::jit::recording::loop
 {
 };
 
@@ -85,35 +85,6 @@ struct gcc_jit_loop : public gcc::jit::loop
       }								\
   JIT_END_STMT
 
-/* Check that CTXT is non-NULL, and that is is before the callback.  */
-#define RETURN_IF_NOT_INITIAL_CTXT(CTXT)			\
-  JIT_BEGIN_STMT						\
-    RETURN_IF_FAIL ((CTXT), (CTXT), "NULL context");		\
-    RETURN_IF_FAIL (!(CTXT)->within_code_factory (),		\
-		    (CTXT),					\
-		    ("erroneously used within code factory"	\
-		     " callback"));				\
-  JIT_END_STMT
-
-#define RETURN_NULL_IF_NOT_INITIAL_CTXT(CTXT)				\
-  JIT_BEGIN_STMT							\
-    RETURN_NULL_IF_FAIL ((CTXT), (CTXT), "NULL context");		\
-    RETURN_NULL_IF_FAIL (!(CTXT)->within_code_factory (),		\
-			 (CTXT),					\
-			 ("erroneously used within code factory"	\
-			  " callback"));				\
-  JIT_END_STMT
-
-/* Check that CTXT is non-NULL, and that is is within the callback.  */
-#define RETURN_NULL_IF_NOT_CALLBACK_CTXT(CTXT)				\
-  JIT_BEGIN_STMT							\
-    RETURN_NULL_IF_FAIL ((CTXT), (CTXT), "NULL context");		\
-    RETURN_NULL_IF_FAIL ((CTXT)->within_code_factory (),		\
-			 (CTXT),					\
-			 ("erroneously used outside of code factory"	\
-			  " callback"));				\
-  JIT_END_STMT
-
 /* Check that FUNC is non-NULL, and that it's OK to add statements to
    it.  */
 #define RETURN_IF_NOT_FUNC_DEFINITION(FUNC) \
@@ -142,11 +113,6 @@ jit_error (gcc_jit_context *ctxt, const char *fmt, ...)
   va_list ap;
   va_start (ap, fmt);
 
-  /* If no context was given/known, try to report it on the active
-     context, if any.  */
-  if (!ctxt)
-    ctxt = (gcc_jit_context *)gcc::jit::active_jit_ctxt;
-
   if (ctxt)
     ctxt->add_error_va (fmt, ap);
   else
@@ -170,18 +136,6 @@ gcc_jit_context_release (gcc_jit_context *ctxt)
   delete ctxt;
 }
 
-void
-gcc_jit_context_set_code_factory (gcc_jit_context *ctxt,
-				  gcc_jit_code_callback cb,
-				  void *user_data)
-{
-  RETURN_IF_NOT_INITIAL_CTXT (ctxt);
-  RETURN_IF_FAIL (cb, ctxt, "NULL callback");
-  /* user_data can be anything.  */
-
-  ctxt->set_code_factory (cb, user_data);
-}
-
 /**********************************************************************
  Functions for use within the code factory.
  **********************************************************************/
@@ -191,7 +145,7 @@ gcc_jit_context_new_location (gcc_jit_context *ctxt,
 			      int line,
 			      int column)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
 
   return (gcc_jit_location *)ctxt->new_location (filename, line, column);
 }
@@ -200,7 +154,7 @@ gcc_jit_type *
 gcc_jit_context_get_type (gcc_jit_context *ctxt,
 			  enum gcc_jit_types type)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   /* The inner function checks "type" for us.  */
 
   return (gcc_jit_type *)ctxt->get_type (type);
@@ -210,7 +164,6 @@ gcc_jit_type *
 gcc_jit_type_get_pointer (gcc_jit_type *type)
 {
   RETURN_NULL_IF_FAIL (type, NULL, "NULL type");
-  /* can't check for WITHIN_CALLBACK */
 
   return (gcc_jit_type *)type->get_pointer ();
 }
@@ -219,7 +172,6 @@ gcc_jit_type *
 gcc_jit_type_get_const (gcc_jit_type *type)
 {
   RETURN_NULL_IF_FAIL (type, NULL, "NULL type");
-  /* can't check for WITHIN_CALLBACK */
 
   return (gcc_jit_type *)type->get_const ();
 }
@@ -230,7 +182,7 @@ gcc_jit_context_new_field (gcc_jit_context *ctxt,
 			   gcc_jit_type *type,
 			   const char *name)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
   RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
 
@@ -244,7 +196,7 @@ gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 				 int num_fields,
 				 gcc_jit_field **fields)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
   if (num_fields)
     RETURN_NULL_IF_FAIL (fields, ctxt, "NULL fields ptr");
@@ -252,7 +204,7 @@ gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
     RETURN_NULL_IF_FAIL (fields[i], ctxt, "NULL field ptr");
 
   return (gcc_jit_type *)ctxt->new_struct_type (loc, name, num_fields,
-						(gcc::jit::field **)fields);
+						(gcc::jit::recording::field **)fields);
 }
 
 
@@ -263,7 +215,7 @@ gcc_jit_context_new_param (gcc_jit_context *ctxt,
 			   gcc_jit_type *type,
 			   const char *name)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
   RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
 
@@ -274,7 +226,6 @@ gcc_jit_lvalue *
 gcc_jit_param_as_lvalue (gcc_jit_param *param)
 {
   RETURN_NULL_IF_FAIL (param, NULL, "NULL param");
-  /* can't check for WITHIN_CALLBACK */
 
   return (gcc_jit_lvalue *)param->as_lvalue ();
 }
@@ -283,7 +234,6 @@ gcc_jit_rvalue *
 gcc_jit_param_as_rvalue (gcc_jit_param *param)
 {
   RETURN_NULL_IF_FAIL (param, NULL, "NULL param");
-  /* can't check for WITHIN_CALLBACK */
 
   return (gcc_jit_rvalue *)param->as_rvalue ();
 }
@@ -298,7 +248,7 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			      gcc_jit_param **params,
 			      int is_variadic)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (return_type, ctxt, "NULL return_type");
   RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
   RETURN_NULL_IF_FAIL ((num_params == 0) || params, ctxt, "NULL params");
@@ -312,7 +262,7 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
   return (gcc_jit_function*)
     ctxt->new_function (loc, kind, return_type, name,
 			num_params,
-			(gcc::jit::param **)params,
+			(gcc::jit::recording::param **)params,
 			is_variadic);
 }
 
@@ -320,7 +270,6 @@ gcc_jit_label*
 gcc_jit_function_new_forward_label (gcc_jit_function *func,
 				    const char *name)
 {
-  /* can't check for WITHIN_CALLBACK */
   RETURN_NULL_IF_FAIL (func, NULL, "NULL function");
   /* name can be NULL.  */
 
@@ -333,7 +282,7 @@ gcc_jit_context_new_global (gcc_jit_context *ctxt,
 			    gcc_jit_type *type,
 			    const char *name)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
   RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
 
@@ -344,7 +293,6 @@ gcc_jit_rvalue *
 gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue *lvalue)
 {
   RETURN_NULL_IF_FAIL (lvalue, NULL, "NULL lvalue");
-  /* can't check for WITHIN_CALLBACK */
 
   return (gcc_jit_rvalue *)lvalue->as_rvalue ();
 }
@@ -354,7 +302,7 @@ gcc_jit_context_new_rvalue_from_int (gcc_jit_context *ctxt,
 				     gcc_jit_type *type,
 				     int value)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
 
   return (gcc_jit_rvalue *)ctxt->new_rvalue_from_int (type, value);
@@ -364,7 +312,7 @@ gcc_jit_rvalue *
 gcc_jit_context_zero (gcc_jit_context *ctxt,
 		      gcc_jit_type *type)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
 
   return gcc_jit_context_new_rvalue_from_int (ctxt, type, 0);
@@ -374,7 +322,7 @@ gcc_jit_rvalue *
 gcc_jit_context_one (gcc_jit_context *ctxt,
 		     gcc_jit_type *type)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
 
   return gcc_jit_context_new_rvalue_from_int (ctxt, type, 1);
@@ -385,7 +333,7 @@ gcc_jit_context_new_rvalue_from_double (gcc_jit_context *ctxt,
 					gcc_jit_type *type,
 					double value)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
 
   return (gcc_jit_rvalue *)ctxt->new_rvalue_from_double (type, value);
@@ -396,7 +344,7 @@ gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
 				     gcc_jit_type *type,
 				     void *value)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
 
   return (gcc_jit_rvalue *)ctxt->new_rvalue_from_ptr (type, value);
@@ -406,7 +354,7 @@ gcc_jit_rvalue *
 gcc_jit_context_new_string_literal (gcc_jit_context *ctxt,
 				    const char *value)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (value, ctxt, "NULL value");
 
   return (gcc_jit_rvalue *)ctxt->new_string_literal (value);
@@ -419,7 +367,7 @@ gcc_jit_context_new_unary_op (gcc_jit_context *ctxt,
 			      gcc_jit_type *result_type,
 			      gcc_jit_rvalue *rvalue)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   /* op is checked by the inner function.  */
   RETURN_NULL_IF_FAIL (result_type, ctxt, "NULL result_type");
   RETURN_NULL_IF_FAIL (rvalue, ctxt, "NULL rvalue");
@@ -434,7 +382,7 @@ gcc_jit_context_new_binary_op (gcc_jit_context *ctxt,
 			       gcc_jit_type *result_type,
 			       gcc_jit_rvalue *a, gcc_jit_rvalue *b)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   /* op is checked by the inner function.  */
   RETURN_NULL_IF_FAIL (result_type, ctxt, "NULL result_type");
   RETURN_NULL_IF_FAIL (a, ctxt, "NULL a");
@@ -449,7 +397,7 @@ gcc_jit_context_new_comparison (gcc_jit_context *ctxt,
 				enum gcc_jit_comparison op,
 				gcc_jit_rvalue *a, gcc_jit_rvalue *b)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   /* op is checked by the inner function.  */
   RETURN_NULL_IF_FAIL (a, ctxt, "NULL a");
   RETURN_NULL_IF_FAIL (b, ctxt, "NULL b");
@@ -463,7 +411,7 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
 			  gcc_jit_function *func,
 			  int numargs , gcc_jit_rvalue **args)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (func, ctxt, "NULL function");
   if (numargs)
     RETURN_NULL_IF_FAIL (args, ctxt, "NULL args");
@@ -471,7 +419,7 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
   return (gcc_jit_rvalue *)ctxt->new_call (loc,
 					   func,
 					   numargs,
-					   (gcc::jit::rvalue **)args);
+					   (gcc::jit::recording::rvalue **)args);
 }
 
 extern gcc_jit_rvalue *
@@ -480,7 +428,7 @@ gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
 				  gcc_jit_rvalue *ptr,
 				  gcc_jit_rvalue *index)
 {
-  RETURN_NULL_IF_NOT_CALLBACK_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (ptr, ctxt, "NULL ptr");
   RETURN_NULL_IF_FAIL (index, ctxt, "NULL index");
 
@@ -609,18 +557,10 @@ gcc_jit_function_add_assignment_op (gcc_jit_function *func,
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
   RETURN_IF_FAIL (lvalue, NULL, "NULL lvalue");
-  /* op is checked by new_binary_op */
+  /* FIXME: op is checked by new_binary_op */
   RETURN_IF_FAIL (rvalue, NULL, "NULL rvalue");
 
-  gcc_jit_type *type = (gcc_jit_type *)lvalue->get_type ();
-  gcc_jit_function_add_assignment (
-    func, loc,
-    lvalue,
-    gcc_jit_context_new_binary_op (
-      (gcc_jit_context *)func->m_ctxt,
-      loc, op, type,
-      gcc_jit_lvalue_as_rvalue (lvalue),
-      rvalue));
+  return func->add_assignment_op (loc, lvalue, op, rvalue);
 }
 
 void
@@ -700,7 +640,7 @@ gcc_jit_context_set_str_option (gcc_jit_context *ctxt,
 				enum gcc_jit_str_option opt,
 				const char *value)
 {
-  RETURN_IF_NOT_INITIAL_CTXT (ctxt);
+  RETURN_IF_FAIL (ctxt, NULL, "NULL context");
   /* opt is checked by the inner function.
      value can be NULL.  */
 
@@ -712,7 +652,7 @@ gcc_jit_context_set_int_option (gcc_jit_context *ctxt,
 				enum gcc_jit_int_option opt,
 				int value)
 {
-  RETURN_IF_NOT_INITIAL_CTXT (ctxt);
+  RETURN_IF_FAIL (ctxt, NULL, "NULL context");
   /* opt is checked by the inner function.  */
 
   ctxt->set_int_option (opt, value);
@@ -723,7 +663,7 @@ gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
 				 enum gcc_jit_bool_option opt,
 				 int value)
 {
-  RETURN_IF_NOT_INITIAL_CTXT (ctxt);
+  RETURN_IF_FAIL (ctxt, NULL, "NULL context");
   /* opt is checked by the inner function.  */
 
   ctxt->set_bool_option (opt, value);
@@ -732,7 +672,7 @@ gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
 gcc_jit_result *
 gcc_jit_context_compile (gcc_jit_context *ctxt)
 {
-  RETURN_NULL_IF_NOT_INITIAL_CTXT (ctxt);
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
 
   return (gcc_jit_result *)ctxt->compile ();
 }

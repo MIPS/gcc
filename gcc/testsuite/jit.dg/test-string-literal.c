@@ -6,8 +6,8 @@
 
 #include "harness.h"
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
 
@@ -32,8 +32,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_function_add_return (
     test_fn, NULL,
     gcc_jit_context_new_string_literal (ctxt, "hello world"));
-
-  return 0;
 }
 
 void

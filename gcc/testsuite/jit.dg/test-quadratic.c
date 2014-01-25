@@ -446,8 +446,8 @@ make_test_quadratic (struct quadratic_test *testcase)
     gcc_jit_context_zero (testcase->ctxt, testcase->int_type));
 }
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   struct quadratic_test testcase;
   memset (&testcase, 0, sizeof (testcase));
@@ -456,7 +456,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
   make_sqrt (&testcase);
   make_calc_discriminant (&testcase);
   make_test_quadratic (&testcase);
-  return 0;
 }
 
 void

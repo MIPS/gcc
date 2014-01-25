@@ -15,8 +15,8 @@ extern "C" {
 }
 #endif
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
      extern int the_global;
@@ -46,8 +46,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_context_new_global (ctxt, NULL, int_type, "the_global"),
     GCC_JIT_BINARY_OP_PLUS,
     gcc_jit_context_one (ctxt, int_type));
-
-    return 0;
 }
 
 int the_global;

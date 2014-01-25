@@ -6,8 +6,8 @@
 
 #include "harness.h"
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   const int FIRST_LINE = __LINE__ + 4;
   /* Let's try to inject the equivalent of:
@@ -128,7 +128,6 @@ FIRST_LINE + 7: }
 	gcc_jit_context_new_location (ctxt, __FILE__, FIRST_LINE + 6, 51),
 	func,
 	1, &x_minus_2)));
-  return 0;
 }
 
 void

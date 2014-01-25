@@ -550,16 +550,14 @@ verify_get_address (gcc_jit_result *result)
  Code for harness
  **********************************************************************/
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   make_tests_of_unary_ops (ctxt);
   make_tests_of_binary_ops (ctxt);
   make_tests_of_comparisons (ctxt);
   make_tests_of_dereferences (ctxt);
   make_test_of_get_address (ctxt);
-
-  return 0;
 }
 
 void

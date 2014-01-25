@@ -400,15 +400,13 @@ static gcc_jit_rvalue *get_random_rvalue (function_fuzzer *ff, int max_depth)
 
 
 /* Top-level defns for use by harness.	*/
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   fuzzer f;
   int seed = *(int*)user_data;
 
   fuzzer_init (&f, ctxt, seed);
-
-  return 0;
 }
 
 static int num_completed_compilations = 0;

@@ -14,16 +14,14 @@ extern "C" {
 /* All structs within the API are opaque. */
 
 /* A gcc_jit_context encapsulates the state of a compilation.  It goes
-   through three states:
+   through two states:
 
-   (1) "initial", during which you can set up options on it.
-       Invoking gcc_jit_context_compile on it transisions it to the
-       "within compilation" state.
+   (1) "initial", during which you can set up options on it, and add
+       types, functions and code, using the API below.
+       Invoking gcc_jit_context_compile on it transitions it to the
+       "after compilation" state.
 
-   (2) "within compilation", during which you can call functions to create
-       code.
-
-   (3) "after compilation", when you can call gcc_jit_context_release to
+   (2) "after compilation", when you can call gcc_jit_context_release to
        clean up.  */
 typedef struct gcc_jit_context gcc_jit_context;
 
@@ -75,9 +73,6 @@ typedef struct gcc_jit_param gcc_jit_param;
    to manually manage gcc_jit_label instances.  */
 typedef struct gcc_jit_loop gcc_jit_loop;
 
-/**********************************************************************
- Functions for use outside of the code-creation callback.
- **********************************************************************/
 /*
    Acquire a JIT-compilation context.
 
@@ -90,27 +85,6 @@ gcc_jit_context_acquire (void);
    the ctxt.  */
 extern void
 gcc_jit_context_release (gcc_jit_context *ctxt);
-
-/* A function-pointer type.
-   This is the client-provided hook for calling into the code-generation
-   API.
-   It should return 0 if there were no errors, or nonzero if errors
-   occurred (e.g. within client code that the library has no knowledge
-   of).  */
-typedef int (*gcc_jit_code_callback) (gcc_jit_context *ctxt,
-				      void *user_data);
-
-extern void
-gcc_jit_context_set_code_factory (gcc_jit_context *ctxt,
-				  gcc_jit_code_callback cb,
-				  void *user_data);
-     /* clearly I'm handwaving for now about the details of what that
-	callback looks like, but by doing it in a callback we also
-	avoid dealing with lifetimes of the results: entities can
-	only be referenced within the lifetime of the callback - once
-	control returns out of the callback, you can't use them.  This
-	avoids having to expose details of GCC's garbage-collector,
-	I hope. */
 
 /* Options taking string values. */
 enum gcc_jit_str_option
@@ -245,11 +219,14 @@ gcc_jit_result_release (gcc_jit_result *result);
 
 
 /**********************************************************************
- Functions for use within the code factory.
+ Functions for creating "contextual" objects.
 
- All objects created by these functions are cleaned up for you, after
- your code-creation hook returns.  Note that this means you can't hold
- references to them for use after you return from your callback.
+ All objects created by these functions share the lifetime of the context
+ they are created within, and are automatically cleaned up for you when
+ you call gcc_jit_context_release on the context.
+
+ Note that this means you can't use references to them after you've
+ released their context.
 
  All (const char *) string arguments passed to these functions are
  copied, so you don't need to keep them around.  Note that this *isn't*

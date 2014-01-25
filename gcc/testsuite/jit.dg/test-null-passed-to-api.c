@@ -5,8 +5,8 @@
 
 #include "harness.h"
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Trigger an API error by passing bad data.  */
   gcc_jit_context_new_function (ctxt, NULL,
@@ -15,9 +15,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
                                 "hello_world",
                                 0, NULL,
                                 0);
-
-  /* Client code erroneously considers that it succeeded, so returns 0.  */
-  return 0;
 }
 
 void

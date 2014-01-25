@@ -16,8 +16,8 @@ extern "C" {
 }
 #endif
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
      extern void called_function (int i, int j, int k);
@@ -80,8 +80,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
                               NULL,
                               called_fn,
                               3, args));
-
-    return 0;
 }
 
 static int called_with[3];

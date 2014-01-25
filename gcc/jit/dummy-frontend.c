@@ -77,8 +77,8 @@ struct GTY(()) language_function
 
 void my_walker (void *)
 {
-  if (gcc::jit::active_jit_ctxt)
-    gcc::jit::active_jit_ctxt->gt_ggc_mx ();
+  if (gcc::jit::active_playback_ctxt)
+    gcc::jit::active_playback_ctxt->gt_ggc_mx ();
 }
 
 const char *dummy;
@@ -124,9 +124,9 @@ jit_langhook_init (void)
 static void
 jit_langhook_parse_file (void)
 {
-  /* Run the IR-creation code provided by the client.  */
-  gcc_assert (gcc::jit::active_jit_ctxt);
-  gcc::jit::active_jit_ctxt->invoke_code_factory ();
+  /* Replay the activity by the client, recorded on the context.  */
+  gcc_assert (gcc::jit::active_playback_ctxt);
+  gcc::jit::active_playback_ctxt->replay ();
 }
 
 static tree

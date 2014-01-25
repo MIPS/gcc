@@ -12,8 +12,8 @@ struct foo
   int z;
 };
 
-int
-code_making_callback (gcc_jit_context *ctxt, void *user_data)
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
 {
   /* Let's try to inject the equivalent of:
      void
@@ -83,8 +83,6 @@ code_making_callback (gcc_jit_context *ctxt, void *user_data)
       NULL,
       "z"),
     sum);
-
-  return 0;
 }
 
 void
