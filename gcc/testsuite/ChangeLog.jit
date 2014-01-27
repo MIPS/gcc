@@ -1,3 +1,11 @@
+2014-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-call-with-not-enough-args.c: New test case.
+	* jit.dg/test-error-call-with-too-many-args.c: New test case.
+	* jit.dg/test-null-passed-to-api.c: Rename to...
+	* jit.dg/test-error-null-passed-to-api.c: ...this, so that
+	error-handling test cases are consistently named.
+
 2014-01-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-empty.c: New test case.

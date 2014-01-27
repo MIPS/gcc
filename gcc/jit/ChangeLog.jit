@@ -7,6 +7,16 @@
 
 2014-01-27  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api (gcc::jit::recording::context::new_call): Verify
+	the argument count of the call against the parameter count of the
+	function, issuing an error if there's a mismatch.
+
+	* internal-api.h (gcc::jit::recording::function::get_name): New.
+	* (gcc::jit::recording::function::get_params): New.
+	* (gcc::jit::recording::function::is_variadic): New.
+
+2014-01-27  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (enum gcc_jit_binary_op): Remove
 	GCC_JIT_BINARY_OP_FLOATING_DIVIDE, which I accidentally added
 	as part of a880c0d9c642730550f39d328f29a1d9935cb07e.
