@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 	  NEXT_PASS (pass_build_ealias);
 	  NEXT_PASS (pass_sra_early);
 	  NEXT_PASS (pass_fre);
+	  NEXT_PASS (pass_merge_common_code);
 	  NEXT_PASS (pass_copy_prop);
 	  NEXT_PASS (pass_merge_phi);
 	  NEXT_PASS (pass_cd_dce);
@@ -145,6 +146,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_build_alias);
       NEXT_PASS (pass_return_slot);
       NEXT_PASS (pass_fre);
+      NEXT_PASS (pass_merge_common_code);
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
@@ -192,6 +194,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_optimize_bswap);
       NEXT_PASS (pass_split_crit_edges);
       NEXT_PASS (pass_pre);
+      NEXT_PASS (pass_merge_common_code);
       NEXT_PASS (pass_sink_code);
       NEXT_PASS (pass_asan);
       NEXT_PASS (pass_tsan);

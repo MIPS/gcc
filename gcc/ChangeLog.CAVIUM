@@ -1,3 +1,16 @@
+2014-01-27  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	Ported the patch by Andrew.
+	2012-07-13  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4325
+	* tree-pass.h (*make_pass_merge_common_code) New declaration.
+	* tree-ssa-merge-common-code.c: New file.
+	* timevar.def (TV_TREE_SSA_MERGE_COMMON): New.
+	* Makefile.in (OBJS): Add tree-ssa-merge-common-code.o.
+	* passes.def (all_passes): Add pass_merge_common_code 
+	after the two fres and after the pre.
+
 2013-11-19  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.md (trap): Use #1000 instead of #0.
