@@ -1,3 +1,9 @@
+2014-01-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (enum gcc_jit_binary_op): Remove
+	GCC_JIT_BINARY_OP_FLOATING_DIVIDE, which I accidentally added
+	as part of a880c0d9c642730550f39d328f29a1d9935cb07e.
+
 2014-01-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h: Update comments to eliminate the code-creation

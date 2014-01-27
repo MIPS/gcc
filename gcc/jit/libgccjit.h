@@ -480,12 +480,6 @@ enum gcc_jit_binary_op
      a floating-point result type indicates floating-point division.  */
   GCC_JIT_BINARY_OP_DIVIDE,
 
-  /* Quotient of division of floating-point values, without rounding;
-     analogous to:
-       (EXPR_A) / (EXPR_B)
-     in C.  */
-  GCC_JIT_BINARY_OP_FLOATING_DIVIDE,
-
   /* Remainder of division of arithmetic values; analogous to:
        (EXPR_A) / (EXPR_B)
      in C.  */
