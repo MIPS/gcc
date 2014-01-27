@@ -278,6 +278,26 @@ recording::context::new_call (recording::location *loc,
 			      function *func,
 			      int numargs , recording::rvalue **args)
 {
+  int min_num_params = func->get_params ().length ();
+  bool is_variadic = func->is_variadic ();
+  if (numargs < min_num_params)
+    {
+      add_error (("gcc_jit_context_new_call: "
+		  "not enough arguments to function \"%s\""
+		  " (got %i args, expected %i)"),
+		 func->get_name ()->c_str (),
+		 numargs, min_num_params);
+      return NULL;
+    }
+  if (numargs > min_num_params && !is_variadic)
+    {
+      add_error (("gcc_jit_context_new_call: "
+		  "too many arguments to function \"%s\""
+		  " (got %i args, expected %i)"),
+		 func->get_name ()->c_str (),
+		 numargs, min_num_params);
+      return NULL;
+    }
   recording::rvalue *result = new call (this, loc, func, numargs, args);
   record (result);
   return result;

@@ -608,6 +608,10 @@ public:
   new_loop (location *loc,
 	    rvalue *boolval);
 
+  string * get_name () const { return m_name; }
+  vec<param *> get_params () const { return m_params; }
+  bool is_variadic () const { return m_is_variadic; }
+
 private:
   location *m_loc;
   enum gcc_jit_function_kind m_kind;
