@@ -1,5 +1,5 @@
 /* Detection of Static Control Parts (SCoP) for Graphite.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <sebastian.pop@amd.com> and
    Tobias Grosser <grosser@fim.uni-passau.de>.
 
@@ -32,6 +32,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -476,7 +481,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
 
     case GBB_LOOP_SING_EXIT_HEADER:
       {
-	stack_vec<sd_region, 3> regions;
+	auto_vec<sd_region, 3> regions;
 	struct scopdet_info sinfo;
 	edge exit_e = single_exit (loop);
 
@@ -541,7 +546,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
       {
         /* XXX: For now we just do not join loops with multiple exits.  If the
            exits lead to the same bb it may be possible to join the loop.  */
-        stack_vec<sd_region, 3> regions;
+        auto_vec<sd_region, 3> regions;
         vec<edge> exits = get_loop_exit_edges (loop);
         edge e;
         int i;
@@ -584,7 +589,7 @@ scopdet_basic_block_info (basic_block bb, loop_p outermost_loop,
       }
     case GBB_COND_HEADER:
       {
-	stack_vec<sd_region, 3> regions;
+	auto_vec<sd_region, 3> regions;
 	struct scopdet_info sinfo;
 	vec<basic_block> dominated;
 	int i;
@@ -1109,7 +1114,7 @@ print_graphite_scop_statistics (FILE* file, scop_p scop)
 
   basic_block bb;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator psi;
       loop_p loop = bb->loop_father;
@@ -1187,7 +1192,7 @@ print_graphite_statistics (FILE* file, vec<scop_p> scops)
 static void
 limit_scops (vec<scop_p> *scops)
 {
-  stack_vec<sd_region, 3> regions;
+  auto_vec<sd_region, 3> regions;
 
   int i;
   scop_p scop;
@@ -1399,7 +1404,7 @@ void
 build_scops (vec<scop_p> *scops)
 {
   struct loop *loop = current_loops->tree_root;
-  stack_vec<sd_region, 3> regions;
+  auto_vec<sd_region, 3> regions;
 
   canonicalize_loop_closed_ssa_form ();
   build_scops_1 (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
@@ -1445,7 +1450,7 @@ dot_all_scops_1 (FILE *file, vec<scop_p> scops)
 
   fprintf (file, "digraph all {\n");
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       int part_of_scop = false;
 
@@ -1552,7 +1557,7 @@ dot_all_scops_1 (FILE *file, vec<scop_p> scops)
       fprintf (file, "  </TABLE>>, shape=box, style=\"setlinewidth(0)\"]\n");
     }
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       FOR_EACH_EDGE (e, ei, bb->succs)
 	      fprintf (file, "%d -> %d;\n", bb->index, e->dest->index);
@@ -1590,7 +1595,7 @@ dot_all_scops (vec<scop_p> scops)
 DEBUG_FUNCTION void
 dot_scop (scop_p scop)
 {
-  stack_vec<scop_p, 1> scops;
+  auto_vec<scop_p, 1> scops;
 
   if (scop)
     scops.safe_push (scop);

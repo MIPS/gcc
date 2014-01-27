@@ -1,5 +1,5 @@
 /* Build expressions with type checking for C++ compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -31,7 +31,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stor-layout.h"
 #include "varasm.h"
-#include "gimple.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -1563,7 +1562,7 @@ cxx_sizeof_or_alignof_type (tree type, enum tree_code op, bool complain)
     }
 
   return c_sizeof_or_alignof_type (input_location, complete_type (type),
-				   op == SIZEOF_EXPR,
+				   op == SIZEOF_EXPR, false,
 				   complain);
 }
 
@@ -1883,7 +1882,7 @@ decay_conversion (tree exp, tsubst_flags_t complain)
 {
   tree type;
   enum tree_code code;
-  location_t loc = EXPR_LOC_OR_HERE (exp);
+  location_t loc = EXPR_LOC_OR_LOC (exp, input_location);
 
   type = TREE_TYPE (exp);
   if (type == error_mark_node)
@@ -2133,6 +2132,8 @@ static tree
 rationalize_conditional_expr (enum tree_code code, tree t,
                               tsubst_flags_t complain)
 {
+  location_t loc = EXPR_LOC_OR_LOC (t, input_location);
+
   /* For MIN_EXPR or MAX_EXPR, fold-const.c has arranged things so that
      the first operand is always the one to be used if both operands
      are equal, so we know what conditional expression this used to be.  */
@@ -2145,8 +2146,8 @@ rationalize_conditional_expr (enum tree_code code, tree t,
       gcc_assert (!TREE_SIDE_EFFECTS (op0)
 		  && !TREE_SIDE_EFFECTS (op1));
       return
-	build_conditional_expr (EXPR_LOC_OR_HERE (t),
-				build_x_binary_op (EXPR_LOC_OR_HERE (t),
+	build_conditional_expr (loc,
+				build_x_binary_op (loc,
 						   (TREE_CODE (t) == MIN_EXPR
 						    ? LE_EXPR : GE_EXPR),
 						   op0, TREE_CODE (op0),
@@ -2159,7 +2160,7 @@ rationalize_conditional_expr (enum tree_code code, tree t,
     }
 
   return
-    build_conditional_expr (EXPR_LOC_OR_HERE (t), TREE_OPERAND (t, 0),
+    build_conditional_expr (loc, TREE_OPERAND (t, 0),
 			    cp_build_unary_op (code, TREE_OPERAND (t, 1), 0,
                                                complain),
 			    cp_build_unary_op (code, TREE_OPERAND (t, 2), 0,
@@ -4943,12 +4944,25 @@ build_x_vec_perm_expr (location_t loc,
 			tree arg0, tree arg1, tree arg2,
 			tsubst_flags_t complain)
 {
-  if (processing_template_decl
-      && (type_dependent_expression_p (arg0)
+  tree orig_arg0 = arg0;
+  tree orig_arg1 = arg1;
+  tree orig_arg2 = arg2;
+  if (processing_template_decl)
+    {
+      if (type_dependent_expression_p (arg0)
 	  || type_dependent_expression_p (arg1)
-	  || type_dependent_expression_p (arg2)))
-    return build_min_nt_loc (loc, VEC_PERM_EXPR, arg0, arg1, arg2);
-  return c_build_vec_perm_expr (loc, arg0, arg1, arg2, complain & tf_error);
+	  || type_dependent_expression_p (arg2))
+	return build_min_nt_loc (loc, VEC_PERM_EXPR, arg0, arg1, arg2);
+      arg0 = build_non_dependent_expr (arg0);
+      if (arg1)
+	arg1 = build_non_dependent_expr (arg1);
+      arg2 = build_non_dependent_expr (arg2);
+    }
+  tree exp = c_build_vec_perm_expr (loc, arg0, arg1, arg2, complain & tf_error);
+  if (processing_template_decl && exp != error_mark_node)
+    return build_min_non_dep (VEC_PERM_EXPR, exp, orig_arg0,
+			      orig_arg1, orig_arg2);
+  return exp;
 }
 
 /* Return a tree for the sum or difference (RESULTCODE says which)
@@ -5747,7 +5761,9 @@ cp_build_unary_op (enum tree_code code, tree xarg, int noconvert,
 	    inc = cxx_sizeof_nowarn (TREE_TYPE (argtype));
 	  }
 	else
-	  inc = integer_one_node;
+	  inc = VECTOR_TYPE_P (argtype)
+	    ? build_one_cst (argtype)
+	    : integer_one_node;
 
 	inc = cp_convert (argtype, inc, complain);
 
@@ -6042,8 +6058,9 @@ build_x_compound_expr_from_list (tree list, expr_list_kind exp,
       && !CONSTRUCTOR_IS_DIRECT_INIT (expr))
     {
       if (complain & tf_error)
-	pedwarn (EXPR_LOC_OR_HERE (expr), 0, "list-initializer for "
-		 "non-class type must not be parenthesized");
+	pedwarn (EXPR_LOC_OR_LOC (expr, input_location), 0,
+		 "list-initializer for non-class type must not "
+		 "be parenthesized");
       else
 	return error_mark_node;
     }
@@ -6161,6 +6178,17 @@ cp_build_compound_expr (tree lhs, tree rhs, tsubst_flags_t complain)
 
   if (lhs == error_mark_node || rhs == error_mark_node)
     return error_mark_node;
+
+  if (flag_enable_cilkplus
+      && (TREE_CODE (lhs) == CILK_SPAWN_STMT
+	  || TREE_CODE (rhs) == CILK_SPAWN_STMT))
+    {
+      location_t loc = (EXPR_HAS_LOCATION (lhs) ? EXPR_LOCATION (lhs)
+			: EXPR_LOCATION (rhs));
+      error_at (loc,
+		"spawned function call cannot be part of a comma expression");
+      return error_mark_node;
+    }
 
   if (TREE_CODE (rhs) == TARGET_EXPR)
     {
@@ -8101,7 +8129,7 @@ convert_for_assignment (tree type, tree rhs,
       && TREE_CODE (TREE_TYPE (rhs)) != BOOLEAN_TYPE
       && (complain & tf_warning))
     {
-      location_t loc = EXPR_LOC_OR_HERE (rhs);
+      location_t loc = EXPR_LOC_OR_LOC (rhs, input_location);
 
       warning_at (loc, OPT_Wparentheses,
 		  "suggest parentheses around assignment used as truth value");
@@ -8285,6 +8313,13 @@ check_return_expr (tree retval, bool *no_warning)
   bool named_return_value_okay_p;
 
   *no_warning = false;
+
+  if (flag_enable_cilkplus && retval && TREE_CODE (retval) == CILK_SPAWN_STMT)
+    {
+      error_at (EXPR_LOCATION (retval), "use of %<_Cilk_spawn%> in a return "
+		"statement is not allowed");
+      return NULL_TREE;
+    }
 
   /* A `volatile' function is one that isn't supposed to return, ever.
      (This is a G++ extension, used to get better code for functions

@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -1240,8 +1240,7 @@ mn10300_expand_epilogue (void)
    registers it saves.  Return 0 otherwise.  */
 
 int
-mn10300_store_multiple_operation (rtx op,
-				  enum machine_mode mode ATTRIBUTE_UNUSED)
+mn10300_store_multiple_operation_p (rtx op)
 {
   int count;
   int mask;

@@ -1,5 +1,5 @@
 /* Print RTL for GCC.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -585,6 +585,8 @@ print_rtx (const_rtx in_rtx)
 
       if (MEM_EXPR (in_rtx))
 	print_mem_expr (outfile, MEM_EXPR (in_rtx));
+      else
+	fputc (' ', outfile);
 
       if (MEM_OFFSET_KNOWN_P (in_rtx))
 	fprintf (outfile, "+" HOST_WIDE_INT_PRINT_DEC, MEM_OFFSET (in_rtx));

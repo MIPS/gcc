@@ -1,5 +1,5 @@
 /* Subroutines shared by all languages that are variants of C.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -32,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "trans-mem.h"
 #include "flags.h"
 #include "c-pragma.h"
-#include "ggc.h"
 #include "c-common.h"
 #include "c-objc.h"
 #include "tm_p.h"
@@ -49,7 +48,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "opts.h"
 #include "cgraph.h"
 #include "target-def.h"
-#include "gimple.h"
 #include "gimplify.h"
 
 cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
@@ -122,11 +120,6 @@ cpp_reader *parse_in;		/* Declared in c-pragma.h.  */
    Used when an array of char is needed and the size is irrelevant.
 
 	tree char_array_type_node;
-
-   Type `int[SOMENUMBER]' or something like it.
-   Used when an array of int needed and the size is irrelevant.
-
-	tree int_array_type_node;
 
    Type `wchar_t[SOMENUMBER]' or something like it.
    Used when a wide string literal is created.
@@ -384,8 +377,6 @@ static tree handle_omp_declare_simd_attribute (tree *, tree, tree, int,
 					       bool *);
 static tree handle_omp_declare_target_attribute (tree *, tree, tree, int,
 						 bool *);
-static tree handle_bnd_variable_size_attribute (tree *, tree, tree, int, bool *);
-static tree handle_bnd_legacy (tree *, tree, tree, int, bool *);
 
 static void check_function_nonnull (tree, int, tree *);
 static void check_nonnull_arg (void *, tree, unsigned HOST_WIDE_INT);
@@ -771,12 +762,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_returns_nonnull_attribute, false },
   { "omp declare simd",       0, -1, true,  false, false,
 			      handle_omp_declare_simd_attribute, false },
+  { "cilk simd function",     0, -1, true,  false, false,
+			      handle_omp_declare_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
 			      handle_omp_declare_target_attribute, false },
-  { "bnd_variable_size",      0, 0, true,  false, false,
-			      handle_bnd_variable_size_attribute, false },
-  { "bnd_legacy",             0, 0, true, false, false,
-			      handle_bnd_legacy, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -1336,6 +1325,7 @@ c_fully_fold_internal (tree expr, bool in_init, bool *maybe_const_operands,
     case FIX_TRUNC_EXPR:
     case FLOAT_EXPR:
     CASE_CONVERT:
+    case ADDR_SPACE_CONVERT_EXPR:
     case VIEW_CONVERT_EXPR:
     case NON_LVALUE_EXPR:
     case NEGATE_EXPR:
@@ -2552,7 +2542,7 @@ unsafe_conversion_p (tree type, tree expr, bool produce_warns)
 {
   enum conversion_safety give_warning = SAFE_CONVERSION; /* is 0 or false */
   tree expr_type = TREE_TYPE (expr);
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (TREE_CODE (expr) == REAL_CST || TREE_CODE (expr) == INTEGER_CST)
     {
@@ -2718,7 +2708,7 @@ static void
 conversion_warning (tree type, tree expr)
 {
   tree expr_type = TREE_TYPE (expr);
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
   enum conversion_safety conversion_kind;
 
   if (!warn_conversion && !warn_sign_conversion && !warn_float_conversion)
@@ -2791,7 +2781,7 @@ conversion_warning (tree type, tree expr)
 void
 warnings_for_convert_and_check (tree type, tree expr, tree result)
 {
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (TREE_CODE (expr) == INTEGER_CST
       && (TREE_CODE (type) == INTEGER_TYPE
@@ -3001,7 +2991,7 @@ warn_for_collisions_1 (tree written, tree writer, struct tlist *list,
 	  && (!only_writes || list->writer))
 	{
 	  warned_ids = new_tlist (warned_ids, written, NULL_TREE);
-	  warning_at (EXPR_LOC_OR_HERE (writer),
+	  warning_at (EXPR_LOC_OR_LOC (writer, input_location),
 		      OPT_Wsequence_point, "operation on %qE may be undefined",
 		      list->expr);
 	}
@@ -3999,7 +3989,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
   int real1, real2;
   tree primop0, primop1;
   enum tree_code code = *rescode_ptr;
-  location_t loc = EXPR_LOC_OR_HERE (op0);
+  location_t loc = EXPR_LOC_OR_LOC (op0, input_location);
 
   /* Throw away any conversions to wider types
      already present in the operands.  */
@@ -4297,7 +4287,7 @@ shorten_compare (tree *op0_ptr, tree *op1_ptr, tree *restype_ptr,
 	     the comparison isn't an issue, so suppress the
 	     warning.  */
 	  bool warn = 
-	    warn_type_limits && !in_system_header
+	    warn_type_limits && !in_system_header_at (loc)
 	    && c_inhibit_evaluation_warnings == 0
 	    && !(TREE_CODE (primop0) == INTEGER_CST
 		 && !TREE_OVERFLOW (convert (c_common_signed_type (type),
@@ -4929,14 +4919,17 @@ c_common_get_alias_set (tree t)
 }
 
 /* Compute the value of 'sizeof (TYPE)' or '__alignof__ (TYPE)', where
-   the second parameter indicates which OPERATOR is being applied.
+   the IS_SIZEOF parameter indicates which operator is being applied.
    The COMPLAIN flag controls whether we should diagnose possibly
    ill-formed constructs or not.  LOC is the location of the SIZEOF or
-   TYPEOF operator.  */
+   TYPEOF operator.  If MIN_ALIGNOF, the least alignment required for
+   a type in any context should be returned, rather than the normal
+   alignment for that type.  */
 
 tree
 c_sizeof_or_alignof_type (location_t loc,
-			  tree type, bool is_sizeof, int complain)
+			  tree type, bool is_sizeof, bool min_alignof,
+			  int complain)
 {
   const char *op_name;
   tree value = NULL;
@@ -5002,6 +4995,22 @@ c_sizeof_or_alignof_type (location_t loc,
 	value = size_binop_loc (loc, CEIL_DIV_EXPR, TYPE_SIZE_UNIT (type),
 				size_int (TYPE_PRECISION (char_type_node)
 					  / BITS_PER_UNIT));
+      else if (min_alignof)
+	{
+	  unsigned int align = TYPE_ALIGN (type);
+	  align = MIN (align, BIGGEST_ALIGNMENT);
+#ifdef BIGGEST_FIELD_ALIGNMENT
+	  align = MIN (align, BIGGEST_FIELD_ALIGNMENT);
+#endif
+	  unsigned int field_align = align;
+#ifdef ADJUST_FIELD_ALIGN
+	  tree field = build_decl (UNKNOWN_LOCATION, FIELD_DECL, NULL_TREE,
+				   type);
+	  field_align = ADJUST_FIELD_ALIGN (field, field_align);
+#endif
+	  align = MIN (align, field_align);
+	  value = size_int (align / BITS_PER_UNIT);
+	}
       else
 	value = size_int (TYPE_ALIGN_UNIT (type));
     }
@@ -5507,10 +5516,6 @@ c_common_nodes_and_builtins (void)
      array type.  */
   char_array_type_node
     = build_array_type (char_type_node, array_domain_type);
-
-  /* Likewise for arrays of ints.  */
-  int_array_type_node
-    = build_array_type (integer_type_node, array_domain_type);
 
   string_type_node = build_pointer_type (char_type_node);
   const_string_type_node
@@ -7016,6 +7021,10 @@ get_priority (tree args, bool is_destructor)
     }
 
   arg = TREE_VALUE (args);
+  if (TREE_CODE (arg) == IDENTIFIER_NODE)
+    goto invalid;
+  if (arg == error_mark_node)
+    return DEFAULT_INIT_PRIORITY;
   arg = default_conversion (arg);
   if (!tree_fits_shwi_p (arg)
       || !INTEGRAL_TYPE_P (TREE_TYPE (arg)))
@@ -7976,12 +7985,6 @@ handle_no_instrument_function_attribute (tree *node, tree name,
 		"%qE attribute applies only to functions", name);
       *no_add_attrs = true;
     }
-  else if (DECL_INITIAL (decl))
-    {
-      error_at (DECL_SOURCE_LOCATION (decl),
-		"can%'t set %qE attribute after definition", name);
-      *no_add_attrs = true;
-    }
   else
     DECL_NO_INSTRUMENT_FUNCTION_ENTRY_EXIT (decl) = 1;
 
@@ -8044,38 +8047,6 @@ handle_fnspec_attribute (tree *node ATTRIBUTE_UNUSED, tree ARG_UNUSED (name),
   gcc_assert (args
 	      && TREE_CODE (TREE_VALUE (args)) == STRING_CST
 	      && !TREE_CHAIN (args));
-  return NULL_TREE;
-}
-
-/* Handle a "bnd_variable_size" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-handle_bnd_variable_size_attribute (tree *node, tree name, tree ARG_UNUSED (args),
-				    int ARG_UNUSED (flags), bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FIELD_DECL)
-    {
-      warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
-    }
-
-  return NULL_TREE;
-}
-
-/* Handle a "bnd_legacy" attribute; arguments as in
-   struct attribute_spec.handler.  */
-
-static tree
-handle_bnd_legacy (tree *node, tree name, tree ARG_UNUSED (args),
-		   int ARG_UNUSED (flags), bool *no_add_attrs)
-{
-  if (TREE_CODE (*node) != FUNCTION_DECL)
-    {
-      warning (OPT_Wattributes, "%qE attribute ignored", name);
-      *no_add_attrs = true;
-    }
-
   return NULL_TREE;
 }
 

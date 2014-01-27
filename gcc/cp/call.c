@@ -1,5 +1,5 @@
 /* Functions related to invoking methods and overloaded functions.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) and
    modified by Brendan Kehoe (brendan@cygnus.com).
 
@@ -3687,7 +3687,7 @@ build_integral_nontype_arg_conv (tree type, tree expr, tsubst_flags_t complain)
   conversion *conv;
   void *p;
   tree t;
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (error_operand_p (expr))
     return error_mark_node;
@@ -3956,7 +3956,7 @@ build_operator_new_call (tree fnname, vec<tree, va_gc> **args,
   if (size_check != NULL_TREE)
     {
       tree errval = TYPE_MAX_VALUE (sizetype);
-      if (cxx_dialect >= cxx11)
+      if (cxx_dialect >= cxx11 && flag_exceptions)
 	errval = throw_bad_array_new_length ();
       *size = fold_build3 (COND_EXPR, sizetype, size_check,
 			   original_size, errval);
@@ -4401,6 +4401,12 @@ build_conditional_expr_1 (location_t loc, tree arg1, tree arg2, tree arg3,
       arg1 = force_rvalue (arg1, complain);
       arg2 = force_rvalue (arg2, complain);
       arg3 = force_rvalue (arg3, complain);
+
+      /* force_rvalue can return error_mark on valid arguments.  */
+      if (error_operand_p (arg1)
+	  || error_operand_p (arg2)
+	  || error_operand_p (arg3))
+	return error_mark_node;
 
       tree arg1_type = TREE_TYPE (arg1);
       arg2_type = TREE_TYPE (arg2);
@@ -5850,7 +5856,7 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
   tree totype = convs->type;
   diagnostic_t diag_kind;
   int flags;
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (convs->bad_p && !(complain & tf_error))
     return error_mark_node;
@@ -5934,6 +5940,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	    && !(BRACE_ENCLOSED_INITIALIZER_P (expr)
 		 && CONSTRUCTOR_IS_DIRECT_INIT (expr)))
 	  {
+	    if (!(complain & tf_error))
+	      return error_mark_node;
 	    error ("converting to %qT from initializer list would use "
 		   "explicit constructor %qD", totype, convfn);
 	  }
@@ -6263,7 +6271,7 @@ tree
 convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 {
   tree arg_type;
-  location_t loc = EXPR_LOC_OR_HERE (arg);
+  location_t loc = EXPR_LOC_OR_LOC (arg, input_location);
 
   /* [expr.call]
 
@@ -7168,7 +7176,7 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
   int optimize_sav;
 
   /* Remember roughly where this call is.  */
-  location_t loc = EXPR_LOC_OR_HERE (fn);
+  location_t loc = EXPR_LOC_OR_LOC (fn, input_location);
   fn = build_call_a (fn, nargs, argarray);
   SET_EXPR_LOCATION (fn, loc);
 
@@ -7514,7 +7522,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
   struct z_candidate *candidates = 0, *cand;
   tree explicit_targs = NULL_TREE;
   tree basetype = NULL_TREE;
-  tree access_binfo;
+  tree access_binfo, binfo;
   tree optype;
   tree first_mem_arg = NULL_TREE;
   tree name;
@@ -7553,6 +7561,7 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
   if (!conversion_path)
     conversion_path = BASELINK_BINFO (fns);
   access_binfo = BASELINK_ACCESS_BINFO (fns);
+  binfo = BASELINK_BINFO (fns);
   optype = BASELINK_OPTYPE (fns);
   fns = BASELINK_FUNCTIONS (fns);
   if (TREE_CODE (fns) == TEMPLATE_ID_EXPR)
@@ -7799,13 +7808,13 @@ build_new_method_call_1 (tree instance, tree fns, vec<tree, va_gc> **args,
 	    {
 	      /* Optimize away vtable lookup if we know that this
 		 function can't be overridden.  We need to check if
-		 the context and the instance type are the same,
+		 the context and the type where we found fn are the same,
 		 actually FN might be defined in a different class
 		 type because of a using-declaration. In this case, we
 		 do not want to perform a non-virtual call.  */
 	      if (DECL_VINDEX (fn) && ! (flags & LOOKUP_NONVIRTUAL)
 		  && same_type_ignoring_top_level_qualifiers_p
-		  (DECL_CONTEXT (fn), TREE_TYPE (instance))
+		  (DECL_CONTEXT (fn), BINFO_TYPE (binfo))
 		  && resolves_to_fixed_type_p (instance, 0))
 		flags |= LOOKUP_NONVIRTUAL;
               if (explicit_targs)
@@ -8979,7 +8988,7 @@ perform_implicit_conversion_flags (tree type, tree expr,
 {
   conversion *conv;
   void *p;
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (error_operand_p (expr))
     return error_mark_node;
@@ -9295,7 +9304,7 @@ initialize_reference (tree type, tree expr,
 {
   conversion *conv;
   void *p;
-  location_t loc = EXPR_LOC_OR_HERE (expr);
+  location_t loc = EXPR_LOC_OR_LOC (expr, input_location);
 
   if (type == error_mark_node || error_operand_p (expr))
     return error_mark_node;

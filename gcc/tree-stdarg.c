@@ -1,5 +1,5 @@
 /* Pass computing data for optimizing stdarg functions.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Jakub Jelinek <jakub@redhat.com>
 
 This file is part of GCC.
@@ -28,6 +28,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "target.h"
 #include "bitmap.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-walk.h"
@@ -67,7 +72,7 @@ reachable_at_most_once (basic_block va_arg_bb, basic_block va_start_bb)
   if (! dominated_by_p (CDI_DOMINATORS, va_arg_bb, va_start_bb))
     return false;
 
-  visited = sbitmap_alloc (last_basic_block);
+  visited = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (visited);
   ret = true;
 
@@ -531,7 +536,7 @@ check_all_va_list_escapes (struct stdarg_info *si)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator i;
 
@@ -698,7 +703,7 @@ execute_optimize_stdarg (void)
 			   || TREE_TYPE (cfun_va_list) == char_type_node);
   gcc_assert (is_gimple_reg_type (cfun_va_list) == va_list_simple_ptr);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator i;
 
@@ -808,7 +813,7 @@ execute_optimize_stdarg (void)
   memset (&wi, 0, sizeof (wi));
   wi.info = si.va_list_vars;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator i;
 

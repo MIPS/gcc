@@ -1,5 +1,5 @@
 /* Induction variable canonicalization and loop peeling.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -40,6 +40,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -1165,7 +1171,7 @@ tree_unroll_loops_completely_1 (bool may_increase_size, bool unroll_outer,
 unsigned int
 tree_unroll_loops_completely (bool may_increase_size, bool unroll_outer)
 {
-  stack_vec<loop_p, 16> father_stack;
+  auto_vec<loop_p, 16> father_stack;
   bool changed;
   int iteration = 0;
   bool irred_invalidated = false;

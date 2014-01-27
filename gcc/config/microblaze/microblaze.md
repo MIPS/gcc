@@ -1,5 +1,5 @@
 ;; microblaze.md -- Machine description for Xilinx MicroBlaze processors.
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
 ;; Contributed by Michael Eager <eager@eagercon.com>.
 
@@ -365,7 +365,8 @@
   [(set (match_operand:HI 0 "register_operand" "=r")
         (bswap:HI (match_operand:HI 1 "register_operand" "r")))]
   "TARGET_REORDER"
-  "swaph %0, %1"
+  "swapb %0, %1
+   swaph %0, %0"
 )
 
 ;;----------------------------------------------------------------

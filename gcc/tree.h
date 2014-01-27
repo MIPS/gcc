@@ -1,5 +1,5 @@
 /* Definitions for the ubiquitous 'tree' type for GNU compilers.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -548,21 +548,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 /* Nonzero if this type is a complete type.  */
 #define COMPLETE_TYPE_P(NODE) (TYPE_SIZE (NODE) != NULL_TREE)
 
-/* Nonzero if this type is a pointer bounds type.  */
-#define POINTER_BOUNDS_TYPE_P(NODE) \
-  (TREE_CODE (NODE) == POINTER_BOUNDS_TYPE)
-
-/* Nonzero if this node has a pointer bounds type.  */
-#define POINTER_BOUNDS_P(NODE) \
-  (POINTER_BOUNDS_TYPE_P (TREE_TYPE (NODE)))
-
-/* Nonzero if this type supposes bounds existence.  */
-#define BOUNDED_TYPE_P(type) (POINTER_TYPE_P (type))
-
-/* Nonzero for objects with bounded type.  */
-#define BOUNDED_P(node) \
-  BOUNDED_TYPE_P (TREE_TYPE (node))
-
 /* Nonzero if this type is the (possibly qualified) void type.  */
 #define VOID_TYPE_P(NODE) (TREE_CODE (NODE) == VOID_TYPE)
 
@@ -836,9 +821,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
 #define CALL_ALLOCA_FOR_VAR_P(NODE) \
   (CALL_EXPR_CHECK (NODE)->base.protected_flag)
 
-/* In a CALL_EXPR, means call was instrumented by Pointer Bounds Checker.  */
-#define CALL_WITH_BOUNDS_P(NODE) (CALL_EXPR_CHECK (NODE)->base.deprecated_flag)
-
 /* In a type, nonzero means that all objects of the type are guaranteed by the
    language or front-end to be properly aligned, so we can indicate that a MEM
    of this type is aligned at least to the alignment of the type, even if it
@@ -1044,8 +1026,6 @@ extern void omp_clause_range_check_failed (const_tree, const char *, int,
   != UNKNOWN_LOCATION)
 /* The location to be used in a diagnostic about this expression.  Do not
    use this macro if the location will be assigned to other expressions.  */
-#define EXPR_LOC_OR_HERE(NODE) (EXPR_HAS_LOCATION (NODE) \
-				? (NODE)->exp.locus : input_location)
 #define EXPR_LOC_OR_LOC(NODE, LOCUS) (EXPR_HAS_LOCATION (NODE) \
 				      ? (NODE)->exp.locus : (LOCUS))
 #define EXPR_FILENAME(NODE) LOCATION_FILE (EXPR_CHECK ((NODE))->exp.locus)
@@ -1133,9 +1113,6 @@ extern void protected_set_expr_location (tree, location_t);
 /* LABEL_EXPR accessor. This gives access to the label associated with
    the given label expression.  */
 #define LABEL_EXPR_LABEL(NODE)  TREE_OPERAND (LABEL_EXPR_CHECK (NODE), 0)
-
-/* VDEF_EXPR accessors are specified in tree-flow.h, along with the other
-   accessors for SSA operands.  */
 
 /* CATCH_EXPR accessors.  */
 #define CATCH_TYPES(NODE)	TREE_OPERAND (CATCH_EXPR_CHECK (NODE), 0)
@@ -1442,6 +1419,14 @@ extern void protected_set_expr_location (tree, location_t);
 /* Attributes for SSA_NAMEs for pointer-type variables.  */
 #define SSA_NAME_PTR_INFO(N) \
    SSA_NAME_CHECK (N)->ssa_name.info.ptr_info
+
+/* True if SSA_NAME_RANGE_INFO describes an anti-range.  */
+#define SSA_NAME_ANTI_RANGE_P(N) \
+    SSA_NAME_CHECK (N)->base.static_flag
+
+/* The type of range described by SSA_NAME_RANGE_INFO.  */
+#define SSA_NAME_RANGE_TYPE(N) \
+    (SSA_NAME_ANTI_RANGE_P (N) ? VR_ANTI_RANGE : VR_RANGE)
 
 /* Value range info attributes for SSA_NAMEs of non pointer-type variables.  */
 #define SSA_NAME_RANGE_INFO(N) \
@@ -2681,6 +2666,11 @@ extern vec<tree, va_gc> **decl_debug_args_insert (tree);
 #define IMPORTED_DECL_ASSOCIATED_DECL(NODE) \
 (DECL_INITIAL (IMPORTED_DECL_CHECK (NODE)))
 
+/* Getter of the symbol declaration associated with the
+   NAMELIST_DECL node.  */
+#define NAMELIST_DECL_ASSOCIATED_DECL(NODE) \
+  (DECL_INITIAL (NODE))
+
 /* A STATEMENT_LIST chains statements together in GENERIC and GIMPLE.
    To reduce overhead, the nodes containing the statements are not trees.
    This avoids the overhead of tree_common on all linked list elements.
@@ -2707,8 +2697,13 @@ extern tree build_optimization_node (struct gcc_options *opts);
 #define TREE_TARGET_OPTION(NODE) \
   (&TARGET_OPTION_NODE_CHECK (NODE)->target_option.opts)
 
+#define TREE_TARGET_GLOBALS(NODE) \
+  (TARGET_OPTION_NODE_CHECK (NODE)->target_option.globals)
+
 /* Return a tree node that encapsulates the target options in OPTS.  */
 extern tree build_target_option_node (struct gcc_options *opts);
+
+extern void prepare_target_option_nodes_for_pch (void);
 
 #if defined ENABLE_TREE_CHECKING && (GCC_VERSION >= 2007)
 
@@ -3243,8 +3238,6 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define complex_float_type_node		global_trees[TI_COMPLEX_FLOAT_TYPE]
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
-
-#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
 
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */
@@ -4539,6 +4532,7 @@ extern tree fold_call_expr (location_t, tree, bool);
 extern tree fold_builtin_fputs (location_t, tree, tree, bool, bool, tree);
 extern tree fold_builtin_strcpy (location_t, tree, tree, tree, tree);
 extern tree fold_builtin_strncpy (location_t, tree, tree, tree, tree, tree);
+extern tree fold_builtin_strcat (location_t, tree, tree, tree);
 extern tree fold_builtin_memory_chk (location_t, tree, tree, tree, tree, tree, tree, bool,
 				     enum built_in_function);
 extern tree fold_builtin_stxcpy_chk (location_t, tree, tree, tree, tree, tree, bool,

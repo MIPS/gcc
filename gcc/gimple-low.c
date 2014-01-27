@@ -1,6 +1,6 @@
 /* GIMPLE lowering pass.  Converts High GIMPLE into Low GIMPLE.
 
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tree-nested.h"
 #include "calls.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "tree-iterator.h"

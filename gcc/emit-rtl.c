@@ -1,5 +1,5 @@
 /* Emit RTL for the GCC expander.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -39,7 +39,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "tree.h"
 #include "varasm.h"
-#include "gimple.h"
+#include "basic-block.h"
+#include "tree-eh.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "function.h"
@@ -51,14 +52,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "bitmap.h"
-#include "basic-block.h"
-#include "ggc.h"
 #include "debug.h"
 #include "langhooks.h"
 #include "df.h"
 #include "params.h"
 #include "target.h"
-#include "tree-eh.h"
 
 struct target_rtl default_target_rtl;
 #if SWITCHABLE_TARGET
@@ -1953,7 +1951,9 @@ change_address_1 (rtx memref, enum machine_mode mode, rtx addr, int validate)
       && (!validate || memory_address_addr_space_p (mode, addr, as)))
     return memref;
 
-  if (validate)
+  /* Don't validate address for LRA.  LRA can make the address valid
+     by itself in most efficient way.  */
+  if (validate && !lra_in_progress)
     {
       if (reload_in_progress || reload_completed)
 	gcc_assert (memory_address_addr_space_p (mode, addr, as));

@@ -1,5 +1,5 @@
 /* Combining of if-expressions on trees.
-   Copyright (C) 2007-2013 Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
    Contributed by Richard Guenther <rguenther@suse.de>
 
 This file is part of GCC.
@@ -30,6 +30,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"

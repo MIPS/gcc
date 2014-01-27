@@ -1,5 +1,5 @@
 ;; VSX patterns.
-;; Copyright (C) 2009-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2009-2014 Free Software Foundation, Inc.
 ;; Contributed by Michael Meissner <meissner@linux.vnet.ibm.com>
 
 ;; This file is part of GCC.
@@ -1895,7 +1895,7 @@
    (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
 	(mem:VSX_M2 (plus:P (match_dup 0)
 			    (match_operand:P 3 "int_reg_operand" ""))))]
-  "TARGET_P8_FUSION"
+  "TARGET_VSX && TARGET_P8_FUSION"
   "li %0,%1\t\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
   [(set_attr "length" "8")
    (set_attr "type" "vecload")])
@@ -1906,7 +1906,7 @@
    (set (match_operand:VSX_M2 2 "vsx_register_operand" "")
 	(mem:VSX_M2 (plus:P (match_operand:P 3 "int_reg_operand" "")
 			    (match_dup 0))))]
-  "TARGET_P8_FUSION"
+  "TARGET_VSX && TARGET_P8_FUSION"
   "li %0,%1\t\t\t# vector load fusion\;lx<VSX_M2:VSm>x %x2,%0,%3"  
   [(set_attr "length" "8")
    (set_attr "type" "vecload")])

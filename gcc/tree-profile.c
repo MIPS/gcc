@@ -1,5 +1,5 @@
 /* Calculate branch probabilities, and basic block execution counts.
-   Copyright (C) 1990-2013 Free Software Foundation, Inc.
+   Copyright (C) 1990-2014 Free Software Foundation, Inc.
    Contributed by James E. Wilson, UC Berkeley/Cygnus Support;
    based on some ideas from Dain Samples of UC Berkeley.
    Further mangling by Bob Manson, Cygnus Support.
@@ -34,6 +34,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic-core.h"
 #include "coverage.h"
 #include "tree.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "varasm.h"
 #include "tree-nested.h"
@@ -633,7 +637,7 @@ tree_profiling (void)
 
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
 	  gimple_stmt_iterator gsi;
 	  for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))

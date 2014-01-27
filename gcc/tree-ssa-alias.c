@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -27,12 +27,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "basic-block.h"
 #include "timevar.h"	/* for TV_ALIAS_STMT_WALK */
-#include "ggc.h"
 #include "langhooks.h"
 #include "flags.h"
 #include "function.h"
 #include "tree-pretty-print.h"
 #include "dumpfile.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "stringpool.h"
@@ -41,8 +45,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include "tree-inline.h"
 #include "params.h"
-#include "vec.h"
-#include "pointer-set.h"
 #include "alloc-pool.h"
 #include "tree-ssa-alias.h"
 #include "ipa-reference.h"
@@ -766,8 +768,8 @@ aliasing_component_refs_p (tree ref1,
 static bool
 nonoverlapping_component_refs_of_decl_p (tree ref1, tree ref2)
 {
-  stack_vec<tree, 16> component_refs1;
-  stack_vec<tree, 16> component_refs2;
+  auto_vec<tree, 16> component_refs1;
+  auto_vec<tree, 16> component_refs2;
 
   /* Create the stack of handled components for REF1.  */
   while (handled_component_p (ref1))

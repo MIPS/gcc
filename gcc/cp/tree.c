@@ -1,5 +1,5 @@
 /* Language-dependent node constructors for parse phase of GNU compiler.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -33,9 +33,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "convert.h"
 #include "cgraph.h"
 #include "splay-tree.h"
-#include "gimple.h"
-#include "gimplify.h"
 #include "hash-table.h"
+#include "gimple-expr.h"
+#include "gimplify.h"
 
 static tree bot_manip (tree *, int *, void *);
 static tree bot_replace (tree *, int *, void *);
@@ -2306,7 +2306,20 @@ bot_manip (tree* tp, int* walk_subtrees, void* data)
   /* Make a copy of this node.  */
   t = copy_tree_r (tp, walk_subtrees, NULL);
   if (TREE_CODE (*tp) == CALL_EXPR)
-    set_flags_from_callee (*tp);
+    {
+      set_flags_from_callee (*tp);
+
+      /* builtin_LINE and builtin_FILE get the location where the default
+	 argument is expanded, not where the call was written.  */
+      tree callee = get_callee_fndecl (*tp);
+      if (callee && DECL_BUILT_IN (callee))
+	switch (DECL_FUNCTION_CODE (callee))
+	  {
+	  case BUILT_IN_FILE:
+	  case BUILT_IN_LINE:
+	    SET_EXPR_LOCATION (*tp, input_location);
+	  }
+    }
   return t;
 }
 

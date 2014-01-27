@@ -2034,9 +2034,19 @@ package body Exp_Util is
       --  may be constants that depend on the bounds of a string literal, both
       --  standard string types and more generally arrays of characters.
 
-      if not Expander_Active
+      --  In GNATprove mode, we also need the more precise subtype to be set
+
+      if not (Expander_Active or GNATprove_Mode)
         and then (No (Etype (Exp)) or else not Is_String_Type (Etype (Exp)))
       then
+         return;
+      end if;
+
+      --  In GNATprove mode, Unc_Type might not be complete when analyzing
+      --  a generic unit. As generic units are not analyzed directly in
+      --  GNATprove, return here rather than failing later.
+
+      if GNATprove_Mode and then No (Underlying_Type (Unc_Type)) then
          return;
       end if;
 
@@ -3307,7 +3317,21 @@ package body Exp_Util is
 
                   Kill_Current_Values;
 
-                  if Present (Actions (P)) then
+                  --  If P has already been expanded, we can't park new actions
+                  --  on it, so we need to expand them immediately, introducing
+                  --  an Expression_With_Actions. N can't be an expression
+                  --  with actions, or else then the actions would have been
+                  --  inserted at an inner level.
+
+                  if Analyzed (P) then
+                     pragma Assert (Nkind (N) /= N_Expression_With_Actions);
+                     Rewrite (N,
+                       Make_Expression_With_Actions (Sloc (N),
+                         Actions    => Ins_Actions,
+                         Expression => Relocate_Node (N)));
+                     Analyze_And_Resolve (N);
+
+                  elsif Present (Actions (P)) then
                      Insert_List_After_And_Analyze
                        (Last (Actions (P)), Ins_Actions);
                   else
@@ -3397,8 +3421,12 @@ package body Exp_Util is
             --  the new actions come from the expression of the expression with
             --  actions, they must be added to the existing actions. The other
             --  alternative is when the new actions are related to one of the
-            --  existing actions of the expression with actions. In that case
-            --  they must be inserted further up the tree.
+            --  existing actions of the expression with actions, and should
+            --  never reach here: if actions are inserted on a statement
+            --  within the Actions of an expression with actions, or on some
+            --  sub-expression of such a statement, then the outermost proper
+            --  insertion point is right before the statement, and we should
+            --  never climb up as far as the N_Expression_With_Actions itself.
 
             when N_Expression_With_Actions =>
                if N = Expression (P) then
@@ -3409,7 +3437,11 @@ package body Exp_Util is
                      Insert_List_After_And_Analyze
                        (Last (Actions (P)), Ins_Actions);
                   end if;
+
                   return;
+
+               else
+                  raise Program_Error;
                end if;
 
             --  Case of appearing in the condition of a while expression or
@@ -6862,9 +6894,11 @@ package body Exp_Util is
    --  Start of processing for Remove_Side_Effects
 
    begin
-      --  Handle cases in which there is nothing to do
+      --  Handle cases in which there is nothing to do. In GNATprove mode,
+      --  removal of side effects is useful for the light expansion of
+      --  renamings.
 
-      if not Expander_Active then
+      if not (Expander_Active or (Full_Analysis and GNATprove_Mode)) then
          return;
       end if;
 
@@ -7074,7 +7108,7 @@ package body Exp_Util is
          --  free if the resulting value is captured by a variable or a
          --  constant.
 
-         if SPARK_Mode
+         if GNATprove_Mode
            and then Nkind (Parent (Exp)) = N_Object_Declaration
          then
             goto Leave;
@@ -7119,7 +7153,7 @@ package body Exp_Util is
          --  types, use a different approach which ignores the secondary stack
          --  and "copies" the returned object.
 
-         if SPARK_Mode then
+         if GNATprove_Mode then
             Res := New_Reference_To (Def_Id, Loc);
             Ref_Type := Exp_Type;
 
@@ -7156,7 +7190,7 @@ package body Exp_Util is
             --  Do not generate a 'reference in SPARK mode since the access
             --  type is not created in the first place.
 
-            if SPARK_Mode then
+            if GNATprove_Mode then
                New_Exp := E;
 
             --  Otherwise generate reference, marking the value as non-null

@@ -1,5 +1,5 @@
 /* Implements exception handling.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
    Contributed by Mike Stump <mrs@cygnus.com>.
 
 This file is part of GCC.
@@ -124,7 +124,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "except.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "output.h"
 #include "dwarf2asm.h"
 #include "dwarf2out.h"
@@ -132,7 +131,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "toplev.h"
 #include "hash-table.h"
 #include "intl.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "target.h"
 #include "common/common-target.h"
@@ -141,7 +139,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "tree-pretty-print.h"
 #include "tree-pass.h"
-#include "gimple.h"
+#include "pointer-set.h"
 #include "cfgloop.h"
 
 /* Provide defaults for stuff that may not be defined when using
@@ -1513,7 +1511,7 @@ finish_eh_generation (void)
     commit_edge_insertions ();
 
   /* Redirect all EH edges from the post_landing_pad to the landing pad.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       eh_landing_pad lp;
       edge_iterator ei;

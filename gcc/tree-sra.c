@@ -1,7 +1,7 @@
 /* Scalar Replacement of Aggregates (SRA) converts some structure
    references into scalar references, exposing them to the scalar
    optimizers.
-   Copyright (C) 2008-2013 Free Software Foundation, Inc.
+   Copyright (C) 2008-2014 Free Software Foundation, Inc.
    Contributed by Martin Jambor <mjambor@suse.cz>
 
 This file is part of GCC.
@@ -78,6 +78,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "alloc-pool.h"
 #include "tm.h"
 #include "tree.h"
+#include "pointer-set.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "stor-layout.h"
 #include "gimplify.h"
@@ -1216,8 +1223,7 @@ build_accesses_from_assign (gimple stmt)
    GIMPLE_ASM operands with memory constrains which cannot be scalarized.  */
 
 static bool
-asm_visit_addr (gimple stmt ATTRIBUTE_UNUSED, tree op,
-		void *data ATTRIBUTE_UNUSED)
+asm_visit_addr (gimple, tree op, tree, void *)
 {
   op = get_base_address (op);
   if (op
@@ -1245,7 +1251,7 @@ scan_function (void)
   basic_block bb;
   bool ret = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -3304,7 +3310,7 @@ sra_modify_function_body (void)
   bool cfg_changed = false;
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi = gsi_start_bb (bb);
       while (!gsi_end_p (gsi))
@@ -3784,12 +3790,11 @@ analyze_modified_params (vec<access_p> representatives)
 static void
 propagate_dereference_distances (void)
 {
-  vec<basic_block> queue;
   basic_block bb;
 
-  queue.create (last_basic_block_for_function (cfun));
+  auto_vec<basic_block> queue (last_basic_block_for_fn (cfun));
   queue.quick_push (ENTRY_BLOCK_PTR_FOR_FN (cfun));
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       queue.quick_push (bb);
       bb->aux = bb;
@@ -3847,8 +3852,6 @@ propagate_dereference_distances (void)
 	    queue.quick_push (e->src);
 	  }
     }
-
-  queue.release ();
 }
 
 /* Dump a dereferences TABLE with heading STR to file F.  */
@@ -4568,7 +4571,7 @@ ipa_sra_modify_function_body (ipa_parm_adjustment_vec adjustments)
   bool cfg_changed = false;
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -4807,7 +4810,7 @@ convert_callers (struct cgraph_node *node, tree old_decl,
   if (!encountered_recursive_call)
     return;
 
-  FOR_EACH_BB (this_block)
+  FOR_EACH_BB_FN (this_block, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -4966,7 +4969,7 @@ ipa_early_sra (void)
 
   bb_dereferences = XCNEWVEC (HOST_WIDE_INT,
 				 func_param_count
-				 * last_basic_block_for_function (cfun));
+				 * last_basic_block_for_fn (cfun));
   final_bbs = BITMAP_ALLOC (NULL);
 
   scan_function ();

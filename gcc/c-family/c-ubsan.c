@@ -1,5 +1,5 @@
 /* UndefinedBehaviorSanitizer, undefined behavior detector.
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
    Contributed by Marek Polacek <polacek@redhat.com>
 
 This file is part of GCC.
@@ -178,4 +178,15 @@ ubsan_instrument_vla (location_t loc, tree size)
   t = fold_build3 (COND_EXPR, void_type_node, t, tt, void_zero_node);
 
   return t;
+}
+
+/* Instrument missing return in C++ functions returning non-void.  */
+
+tree
+ubsan_instrument_return (location_t loc)
+{
+  tree data = ubsan_create_data ("__ubsan_missing_return_data", loc,
+				 NULL, NULL_TREE);
+  tree t = builtin_decl_explicit (BUILT_IN_UBSAN_HANDLE_MISSING_RETURN);
+  return build_call_expr_loc (loc, t, 1, build_fold_addr_expr_loc (loc, data));
 }

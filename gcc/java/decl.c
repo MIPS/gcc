@@ -1,6 +1,6 @@
 /* Process declarations and variables for the GNU compiler for the
    Java(TM) language.
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -2018,7 +2018,7 @@ java_add_stmt (tree new_stmt)
   tree stmts = current_binding_level->stmts;
   tree_stmt_iterator i;
 
-  if (input_filename)
+  if (LOCATION_FILE (input_location))
     walk_tree (&new_stmt, set_input_location, NULL, NULL);
 
   if (stmts == NULL)

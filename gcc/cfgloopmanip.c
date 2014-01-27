@@ -1,5 +1,5 @@
 /* Loop manipulation code for GNU compiler.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,6 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "cfgloop.h"
 #include "tree.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -200,7 +204,7 @@ fix_bb_placements (basic_block from,
       || from == base_loop->header)
     return;
 
-  in_queue = sbitmap_alloc (last_basic_block);
+  in_queue = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (in_queue);
   bitmap_set_bit (in_queue, from->index);
   /* Prevent us from going out of the base_loop.  */
@@ -344,7 +348,7 @@ remove_path (edge e)
 
   n_bord_bbs = 0;
   bord_bbs = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
-  seen = sbitmap_alloc (last_basic_block);
+  seen = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (seen);
 
   /* Find "border" hexes -- i.e. those with predecessor in removed path.  */
@@ -619,7 +623,7 @@ update_dominators_in_loop (struct loop *loop)
   basic_block *body;
   unsigned i;
 
-  seen = sbitmap_alloc (last_basic_block);
+  seen = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (seen);
   body = get_loop_body (loop);
 

@@ -1,5 +1,5 @@
 /* Data References Analysis and Manipulation Utilities for Vectorization.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Dorit Naishlos <dorit@il.ibm.com>
    and Ira Rosen <irar@il.ibm.com>
 
@@ -24,13 +24,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "dumpfile.h"
 #include "tm.h"
-#include "ggc.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "tm_p.h"
 #include "target.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -240,6 +244,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	{
 	  if (loop->safelen < *max_vf)
 	    *max_vf = loop->safelen;
+	  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = false;
 	  return false;
 	}
 
@@ -287,6 +292,7 @@ vect_analyze_data_ref_dependence (struct data_dependence_relation *ddr,
 	{
 	  if (loop->safelen < *max_vf)
 	    *max_vf = loop->safelen;
+	  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = false;
 	  return false;
 	}
 
@@ -443,6 +449,7 @@ vect_analyze_data_ref_dependences (loop_vec_info loop_vinfo, int *max_vf)
     dump_printf_loc (MSG_NOTE, vect_location,
                      "=== vect_analyze_data_ref_dependences ===\n");
 
+  LOOP_VINFO_NO_DATA_DEPENDENCIES (loop_vinfo) = true;
   if (!compute_all_dependences (LOOP_VINFO_DATAREFS (loop_vinfo),
 				&LOOP_VINFO_DDRS (loop_vinfo),
 				LOOP_VINFO_LOOP_NEST (loop_vinfo), true))
@@ -493,31 +500,17 @@ vect_slp_analyze_data_ref_dependence (struct data_dependence_relation *ddr)
   /* Unknown data dependence.  */
   if (DDR_ARE_DEPENDENT (ddr) == chrec_dont_know)
     {
-      gimple earlier_stmt;
-
-      if (dump_enabled_p ())
-        {
-          dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
-                           "can't determine dependence between ");
-          dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, DR_REF (dra));
-          dump_printf (MSG_MISSED_OPTIMIZATION,  " and ");
-          dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, DR_REF (drb));
+      if  (dump_enabled_p ())
+	{
+	  dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			   "can't determine dependence between ");
+	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, DR_REF (dra));
+	  dump_printf (MSG_MISSED_OPTIMIZATION,  " and ");
+	  dump_generic_expr (MSG_MISSED_OPTIMIZATION, TDF_SLIM, DR_REF (drb));
 	  dump_printf (MSG_MISSED_OPTIMIZATION,  "\n");
-        }
-
-      /* We do not vectorize basic blocks with write-write dependencies.  */
-      if (DR_IS_WRITE (dra) && DR_IS_WRITE (drb))
-        return true;
-
-      /* Check that it's not a load-after-store dependence.  */
-      earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
-      if (DR_IS_WRITE (STMT_VINFO_DATA_REF (vinfo_for_stmt (earlier_stmt))))
-        return true;
-
-      return false;
+	}
     }
-
-  if (dump_enabled_p ())
+  else if (dump_enabled_p ())
     {
       dump_printf_loc (MSG_NOTE, vect_location,
 		       "determined dependence between ");
@@ -527,49 +520,23 @@ vect_slp_analyze_data_ref_dependence (struct data_dependence_relation *ddr)
       dump_printf (MSG_NOTE,  "\n");
     }
 
-  /* Do not vectorize basic blocks with write-write dependences.  */
+  /* We do not vectorize basic blocks with write-write dependencies.  */
   if (DR_IS_WRITE (dra) && DR_IS_WRITE (drb))
     return true;
 
-  /* Check dependence between DRA and DRB for basic block vectorization.
-     If the accesses share same bases and offsets, we can compare their initial
-     constant offsets to decide whether they differ or not.  In case of a read-
-     write dependence we check that the load is before the store to ensure that
-     vectorization will not change the order of the accesses.  */
-
-  HOST_WIDE_INT type_size_a, type_size_b, init_a, init_b;
-  gimple earlier_stmt;
-
-  /* Check that the data-refs have same bases and offsets.  If not, we can't
-     determine if they are dependent.  */
-  if (!operand_equal_p (DR_BASE_ADDRESS (dra), DR_BASE_ADDRESS (drb), 0)
-      || !dr_equal_offsets_p (dra, drb))
-    return true;
-
-  /* Check the types.  */
-  type_size_a = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (dra))));
-  type_size_b = TREE_INT_CST_LOW (TYPE_SIZE_UNIT (TREE_TYPE (DR_REF (drb))));
-
-  if (type_size_a != type_size_b
-      || !types_compatible_p (TREE_TYPE (DR_REF (dra)),
-                              TREE_TYPE (DR_REF (drb))))
-    return true;
-
-  init_a = TREE_INT_CST_LOW (DR_INIT (dra));
-  init_b = TREE_INT_CST_LOW (DR_INIT (drb));
-
-  /* Two different locations - no dependence.  */
-  if (init_a != init_b)
-    return false;
-
-  /* We have a read-write dependence.  Check that the load is before the store.
+  /* If we have a read-write dependence check that the load is before the store.
      When we vectorize basic blocks, vector load can be only before
      corresponding scalar load, and vector store can be only after its
      corresponding scalar store.  So the order of the acceses is preserved in
      case the load is before the store.  */
-  earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
+  gimple earlier_stmt = get_earlier_stmt (DR_STMT (dra), DR_STMT (drb));
   if (DR_IS_READ (STMT_VINFO_DATA_REF (vinfo_for_stmt (earlier_stmt))))
-    return false;
+    {
+      /* That only holds for load-store pairs taking part in vectorization.  */
+      if (STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (dra)))
+	  && STMT_VINFO_VECTORIZABLE (vinfo_for_stmt (DR_STMT (drb))))
+	return false;
+    }
 
   return true;
 }
@@ -1093,7 +1060,8 @@ vect_peeling_hash_insert (loop_vec_info loop_vinfo, struct data_reference *dr,
       *new_slot = slot;
     }
 
-  if (!supportable_dr_alignment && unlimited_cost_model ())
+  if (!supportable_dr_alignment
+      && unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
     slot->count += VECT_MAX_COST;
 }
 
@@ -1203,7 +1171,7 @@ vect_peeling_hash_choose_best_peeling (loop_vec_info loop_vinfo,
    res.peel_info.dr = NULL;
    res.body_cost_vec = stmt_vector_for_cost ();
 
-   if (!unlimited_cost_model ())
+   if (!unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
      {
        res.inside_cost = INT_MAX;
        res.outside_cost = INT_MAX;
@@ -1432,7 +1400,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
                  vectorization factor.
                  We do this automtically for cost model, since we calculate cost
                  for every peeling option.  */
-              if (unlimited_cost_model ())
+              if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
                 possible_npeel_number = vf /nelements;
 
               /* Handle the aligned case. We may decide to align some other
@@ -1440,7 +1408,7 @@ vect_enhance_data_refs_alignment (loop_vec_info loop_vinfo)
               if (DR_MISALIGNMENT (dr) == 0)
                 {
                   npeel_tmp = 0;
-                  if (unlimited_cost_model ())
+                  if (unlimited_cost_model (LOOP_VINFO_LOOP (loop_vinfo)))
                     possible_npeel_number++;
                 }
 
@@ -2954,6 +2922,24 @@ vect_check_gather (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
   enum machine_mode pmode;
   int punsignedp, pvolatilep;
 
+  base = DR_REF (dr);
+  /* For masked loads/stores, DR_REF (dr) is an artificial MEM_REF,
+     see if we can use the def stmt of the address.  */
+  if (is_gimple_call (stmt)
+      && gimple_call_internal_p (stmt)
+      && (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
+	  || gimple_call_internal_fn (stmt) == IFN_MASK_STORE)
+      && TREE_CODE (base) == MEM_REF
+      && TREE_CODE (TREE_OPERAND (base, 0)) == SSA_NAME
+      && integer_zerop (TREE_OPERAND (base, 1))
+      && !expr_invariant_in_loop_p (loop, TREE_OPERAND (base, 0)))
+    {
+      gimple def_stmt = SSA_NAME_DEF_STMT (TREE_OPERAND (base, 0));
+      if (is_gimple_assign (def_stmt)
+	  && gimple_assign_rhs_code (def_stmt) == ADDR_EXPR)
+	base = TREE_OPERAND (gimple_assign_rhs1 (def_stmt), 0);
+    }
+
   /* The gather builtins need address of the form
      loop_invariant + vector * {1, 2, 4, 8}
      or
@@ -2966,7 +2952,7 @@ vect_check_gather (gimple stmt, loop_vec_info loop_vinfo, tree *basep,
      vectorized.  The following code attempts to find such a preexistng
      SSA_NAME OFF and put the loop invariants into a tree BASE
      that can be gimplified before the loop.  */
-  base = get_inner_reference (DR_REF (dr), &pbitsize, &pbitpos, &off,
+  base = get_inner_reference (base, &pbitsize, &pbitpos, &off,
 			      &pmode, &punsignedp, &pvolatilep, false);
   gcc_assert (base != NULL_TREE && (pbitpos % BITS_PER_UNIT) == 0);
 
@@ -3337,9 +3323,10 @@ again:
 			    {
 			      gimple def = SSA_NAME_DEF_STMT (off);
 			      tree reft = TREE_TYPE (DR_REF (newdr));
-			      if (gimple_call_internal_p (def)
-				  && gimple_call_internal_fn (def)
-				  == IFN_GOMP_SIMD_LANE)
+			      if (is_gimple_call (def)
+				  && gimple_call_internal_p (def)
+				  && (gimple_call_internal_fn (def)
+				      == IFN_GOMP_SIMD_LANE))
 				{
 				  tree arg = gimple_call_arg (def, 0);
 				  gcc_assert (TREE_CODE (arg) == SSA_NAME);
@@ -3463,7 +3450,10 @@ again:
       offset = unshare_expr (DR_OFFSET (dr));
       init = unshare_expr (DR_INIT (dr));
 
-      if (is_gimple_call (stmt))
+      if (is_gimple_call (stmt)
+	  && (!gimple_call_internal_p (stmt)
+	      || (gimple_call_internal_fn (stmt) != IFN_MASK_LOAD
+		  && gimple_call_internal_fn (stmt) != IFN_MASK_STORE)))
 	{
 	  if (dump_enabled_p ())
 	    {
@@ -5113,6 +5103,14 @@ vect_supportable_dr_alignment (struct data_reference *dr,
 
   if (aligned_access_p (dr) && !check_aligned_accesses)
     return dr_aligned;
+
+  /* For now assume all conditional loads/stores support unaligned
+     access without any special code.  */
+  if (is_gimple_call (stmt)
+      && gimple_call_internal_p (stmt)
+      && (gimple_call_internal_fn (stmt) == IFN_MASK_LOAD
+	  || gimple_call_internal_fn (stmt) == IFN_MASK_STORE))
+    return dr_unaligned_supported;
 
   if (loop_vinfo)
     {

@@ -1,5 +1,5 @@
 /* Global, SSA-based optimizations using mathematical identities.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -90,6 +90,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -105,7 +111,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
-#include "basic-block.h"
 #include "target.h"
 #include "gimple-pretty-print.h"
 
@@ -522,7 +527,7 @@ execute_cse_reciprocals (void)
   calculate_dominance_info (CDI_POST_DOMINATORS);
 
 #ifdef ENABLE_CHECKING
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     gcc_assert (!bb->aux);
 #endif
 
@@ -535,7 +540,7 @@ execute_cse_reciprocals (void)
 	  execute_cse_reciprocals_1 (NULL, name);
       }
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       gimple phi;
@@ -1414,7 +1419,7 @@ execute_cse_sincos (void)
   calculate_dominance_info (CDI_DOMINATORS);
   memset (&sincos_stats, 0, sizeof (sincos_stats));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       bool cleanup_eh = false;
@@ -1934,7 +1939,7 @@ execute_optimize_bswap (void)
 
   memset (&bswap_stats, 0, sizeof (bswap_stats));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -2780,7 +2785,7 @@ execute_optimize_widening_mul (void)
 
   memset (&widen_mul_stats, 0, sizeof (widen_mul_stats));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 

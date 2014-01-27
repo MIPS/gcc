@@ -1,5 +1,5 @@
 /* Memory address lowering and addressing mode selection.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -29,6 +29,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "tree-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -47,7 +51,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "rtl.h"
 #include "recog.h"
 #include "expr.h"
-#include "ggc.h"
 #include "target.h"
 #include "expmed.h"
 #include "tree-ssa-address.h"

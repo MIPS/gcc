@@ -1,5 +1,5 @@
 /* Analysis Utilities for Loop Vectorization.
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
    Contributed by Dorit Nuzman <dorit@il.ibm.com>
 
 This file is part of GCC.
@@ -22,12 +22,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "ggc.h"
 #include "tree.h"
 #include "stor-layout.h"
 #include "target.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -3209,7 +3213,7 @@ vect_pattern_recog (loop_vec_info loop_vinfo, bb_vec_info bb_vinfo)
   gimple_stmt_iterator si;
   unsigned int i, j;
   vect_recog_func_ptr vect_recog_func;
-  stack_vec<gimple, 1> stmts_to_replace;
+  auto_vec<gimple, 1> stmts_to_replace;
   gimple stmt;
 
   if (dump_enabled_p ())

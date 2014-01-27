@@ -1,4 +1,4 @@
-/* Copyright (C) 2006-2013 Free Software Foundation, Inc.
+/* Copyright (C) 2006-2014 Free Software Foundation, Inc.
 
    This file is free software; you can redistribute it and/or modify it under
    the terms of the GNU General Public License as published by the Free
@@ -49,6 +49,14 @@
 #include "sched-int.h"
 #include "params.h"
 #include "machmode.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "tm-constrs.h"
@@ -2461,7 +2469,7 @@ spu_machine_dependent_reorg (void)
       return;
     }
 
-  blocks = sbitmap_alloc (last_basic_block);
+  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (blocks);
 
   in_spu_reorg = 1;
@@ -2482,7 +2490,7 @@ spu_machine_dependent_reorg (void)
 
   for (i = n_basic_blocks_for_fn (cfun) - 1; i >= 0; i--)
     {
-      bb = BASIC_BLOCK (i);
+      bb = BASIC_BLOCK_FOR_FN (cfun, i);
       branch = 0;
       if (spu_bb_info[i].prop_jump)
 	{
@@ -2637,7 +2645,7 @@ spu_machine_dependent_reorg (void)
     find_many_sub_basic_blocks (blocks);
 
   /* We have to schedule to make sure alignment is ok. */
-  FOR_EACH_BB (bb) bb->flags &= ~BB_DISABLE_SCHEDULE;
+  FOR_EACH_BB_FN (bb, cfun) bb->flags &= ~BB_DISABLE_SCHEDULE;
 
   /* The hints need to be scheduled, so call it again. */
   schedule_insns ();

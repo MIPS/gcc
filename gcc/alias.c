@@ -1,5 +1,5 @@
 /* Alias analysis for GNU C
-   Copyright (C) 1997-2013 Free Software Foundation, Inc.
+   Copyright (C) 1997-2014 Free Software Foundation, Inc.
    Contributed by John Carr (jfc@mit.edu).
 
 This file is part of GCC.
@@ -32,12 +32,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "emit-rtl.h"
 #include "regs.h"
 #include "hard-reg-set.h"
-#include "basic-block.h"
 #include "flags.h"
 #include "diagnostic-core.h"
 #include "cselib.h"
 #include "splay-tree.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "timevar.h"
 #include "dumpfile.h"
@@ -45,6 +43,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "df.h"
 #include "tree-ssa-alias.h"
 #include "pointer-set.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 
@@ -2988,7 +2989,7 @@ init_alias_analysis (void)
       /* Walk the insns adding values to the new_reg_base_value array.  */
       for (i = 0; i < rpo_cnt; i++)
 	{
-	  basic_block bb = BASIC_BLOCK (rpo[i]);
+	  basic_block bb = BASIC_BLOCK_FOR_FN (cfun, rpo[i]);
 	  FOR_BB_INSNS (bb, insn)
 	    {
 	      if (NONDEBUG_INSN_P (insn))

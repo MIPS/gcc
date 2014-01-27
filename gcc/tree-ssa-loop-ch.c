@@ -1,5 +1,5 @@
 /* Loop header copying on trees.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -243,16 +247,6 @@ copy_loop_headers (void)
 	 are not now, since there was the loop exit condition.  */
       split_edge (loop_preheader_edge (loop));
       split_edge (loop_latch_edge (loop));
-
-      /* We peeled off one iteration of the loop thus we can lower
-	 the maximum number of iterations if we have a previously
-	 recorded value for that.  */
-      double_int max;
-      if (get_max_loop_iterations (loop, &max))
-	{
-	  max -= double_int_one;
-	  loop->nb_iterations_upper_bound = max;
-	}
     }
 
   update_ssa (TODO_update_ssa);

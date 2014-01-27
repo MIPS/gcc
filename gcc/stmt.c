@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -43,16 +43,20 @@ along with GCC; see the file COPYING3.  If not see
 #include "machmode.h"
 #include "diagnostic-core.h"
 #include "output.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "predict.h"
 #include "optabs.h"
 #include "target.h"
+#include "pointer-set.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "regs.h"
 #include "alloc-pool.h"
 #include "pretty-print.h"
-#include "pointer-set.h"
 #include "params.h"
 #include "dumpfile.h"
 

@@ -1,7 +1,7 @@
 /* Tree lowering to gimple for middle end use only.  
    This converts the GENERIC functions-as-trees tree representation into
    the GIMPLE form.
-   Copyright (C) 2013 Free Software Foundation, Inc.
+   Copyright (C) 2013-2014 Free Software Foundation, Inc.
    Major work done by Sebastian Pop <s.pop@laposte.net>,
    Diego Novillo <dnovillo@redhat.com> and Jason Merrill <jason@redhat.com>.
 
@@ -27,6 +27,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "stmt.h"
 #include "stor-layout.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"

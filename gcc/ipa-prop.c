@@ -1,5 +1,5 @@
 /* Interprocedural analyses.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -21,6 +21,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "expr.h"
 #include "stor-layout.h"
@@ -30,7 +37,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "gimple-walk.h"
 #include "langhooks.h"
-#include "ggc.h"
 #include "target.h"
 #include "ipa-prop.h"
 #include "bitmap.h"
@@ -62,11 +68,11 @@ struct param_analysis_info
 };
 
 /* Vector where the parameter infos are actually stored. */
-vec<ipa_node_params_t> ipa_node_params_vector;
+vec<ipa_node_params> ipa_node_params_vector;
 /* Vector of known aggregate values in cloned nodes.  */
 vec<ipa_agg_replacement_value_p, va_gc> *ipa_node_agg_replacements;
 /* Vector where the parameter infos are actually stored. */
-vec<ipa_edge_args_t, va_gc> *ipa_edge_args_vector;
+vec<ipa_edge_args, va_gc> *ipa_edge_args_vector;
 
 /* Holders of ipa cgraph hooks: */
 static struct cgraph_edge_hook_list *edge_removal_hook_holder;
@@ -110,7 +116,7 @@ ipa_func_spec_opts_forbid_analysis_p (struct cgraph_node *node)
    to INFO.  */
 
 static int
-ipa_get_param_decl_index_1 (vec<ipa_param_descriptor_t> descriptors, tree ptree)
+ipa_get_param_decl_index_1 (vec<ipa_param_descriptor> descriptors, tree ptree)
 {
   int i, count;
 
@@ -136,7 +142,7 @@ ipa_get_param_decl_index (struct ipa_node_params *info, tree ptree)
 
 static void
 ipa_populate_param_decls (struct cgraph_node *node,
-			  vec<ipa_param_descriptor_t> &descriptors)
+			  vec<ipa_param_descriptor> &descriptors)
 {
   tree fndecl;
   tree fnargs;
@@ -554,6 +560,8 @@ stmt_may_be_vtbl_ptr_store (gimple stmt)
 {
   if (is_gimple_call (stmt))
     return false;
+  else if (gimple_clobber_p (stmt))
+    return false;
   else if (is_gimple_assign (stmt))
     {
       tree lhs = gimple_assign_lhs (stmt);
@@ -769,7 +777,7 @@ parm_preserved_before_stmt_p (struct param_analysis_info *parm_ainfo,
    modified.  Otherwise return -1.  */
 
 static int
-load_from_unmodified_param (vec<ipa_param_descriptor_t> descriptors,
+load_from_unmodified_param (vec<ipa_param_descriptor> descriptors,
 			    struct param_analysis_info *parms_ainfo,
 			    gimple stmt)
 {
@@ -857,7 +865,7 @@ parm_ref_data_pass_through_p (struct param_analysis_info *parm_ainfo,
    reference respectively.  */
 
 static bool
-ipa_load_from_parm_agg_1 (vec<ipa_param_descriptor_t> descriptors,
+ipa_load_from_parm_agg_1 (vec<ipa_param_descriptor> descriptors,
 			  struct param_analysis_info *parms_ainfo, gimple stmt,
 			  tree op, int *index_p, HOST_WIDE_INT *offset_p,
 			  HOST_WIDE_INT *size_p, bool *by_ref_p)
@@ -1418,7 +1426,7 @@ determine_known_aggregate_parts (gimple call, tree arg,
 
       lhs = gimple_assign_lhs (stmt);
       rhs = gimple_assign_rhs1 (stmt);
-      if (!is_gimple_reg_type (rhs)
+      if (!is_gimple_reg_type (TREE_TYPE (rhs))
 	  || TREE_CODE (lhs) == BIT_FIELD_REF
 	  || contains_bitfld_component_ref_p (lhs))
 	break;
@@ -2016,8 +2024,17 @@ ipa_analyze_call_uses (struct cgraph_node *node,
 		       struct param_analysis_info *parms_ainfo, gimple call)
 {
   tree target = gimple_call_fn (call);
+  struct cgraph_edge *cs;
 
-  if (!target)
+  if (!target
+      || (TREE_CODE (target) != SSA_NAME
+          && !virtual_method_call_p (target)))
+    return;
+
+  /* If we previously turned the call into a direct call, there is
+     no need to analyze.  */
+  cs = cgraph_edge (node, call);
+  if (cs && !cs->indirect_unknown_callee)
     return;
   if (TREE_CODE (target) == SSA_NAME)
     ipa_analyze_indirect_call_uses (node, info, parms_ainfo, call, target);
@@ -2044,8 +2061,7 @@ ipa_analyze_stmt_uses (struct cgraph_node *node, struct ipa_node_params *info,
    passed in DATA.  */
 
 static bool
-visit_ref_for_mod_analysis (gimple stmt ATTRIBUTE_UNUSED,
-			     tree op, void *data)
+visit_ref_for_mod_analysis (gimple, tree op, tree, void *data)
 {
   struct ipa_node_params *info = (struct ipa_node_params *) data;
 
@@ -2111,8 +2127,11 @@ ipa_analyze_params_uses (struct cgraph_node *node,
 	      FOR_EACH_IMM_USE_FAST (use_p, imm_iter, ddef)
 		if (!is_gimple_call (USE_STMT (use_p)))
 		  {
-		    controlled_uses = IPA_UNDESCRIBED_USE;
-		    break;
+		    if (!is_gimple_debug (USE_STMT (use_p)))
+		      {
+			controlled_uses = IPA_UNDESCRIBED_USE;
+			break;
+		      }
 		  }
 		else
 		  controlled_uses++;
@@ -3211,7 +3230,8 @@ ipa_node_duplication_hook (struct cgraph_node *src, struct cgraph_node *dst,
 static void
 ipa_add_new_function (struct cgraph_node *node, void *data ATTRIBUTE_UNUSED)
 {
-  ipa_analyze_node (node);
+  if (cgraph_function_with_gimple_body_p (node))
+    ipa_analyze_node (node);
 }
 
 /* Register our cgraph hooks if they are not already there.  */
@@ -3309,6 +3329,7 @@ ipa_print_node_params (FILE *f, struct cgraph_node *node)
     {
       int c;
 
+      fprintf (f, "    ");
       ipa_dump_param (f, info, i);
       if (ipa_is_param_used (info, i))
 	fprintf (f, " used");
@@ -3434,22 +3455,17 @@ ipa_modify_formal_parameters (tree fndecl, ipa_parm_adjustment_vec adjustments)
 	  tree new_parm;
 	  tree ptype;
 
-	  if (adj->simdlen)
-	    {
-	      /* If we have a non-null simdlen but by_ref is true, we
-		 want a vector of pointers.  Build the vector of
-		 pointers here, not a pointer to a vector in the
-		 adj->by_ref case below.  */
-	      ptype = build_vector_type (adj->type, adj->simdlen);
-	    }
-	  else if (adj->by_ref)
-	    {
-	      ptype = build_pointer_type (adj->type);
-	    }
+	  if (adj->by_ref)
+	    ptype = build_pointer_type (adj->type);
 	  else
 	    {
-	      gcc_checking_assert (!adj->by_ref || adj->simdlen);
 	      ptype = adj->type;
+	      if (is_gimple_reg_type (ptype))
+		{
+		  unsigned malign = GET_MODE_ALIGNMENT (TYPE_MODE (ptype));
+		  if (TYPE_ALIGN (ptype) < malign)
+		    ptype = build_aligned_type (ptype, malign);
+		}
 	    }
 
 	  if (care_for_types)
@@ -4695,7 +4711,7 @@ adjust_agg_replacement_values (struct cgraph_node *node,
 unsigned int
 ipcp_transform_function (struct cgraph_node *node)
 {
-  vec<ipa_param_descriptor_t> descriptors = vNULL;
+  vec<ipa_param_descriptor> descriptors = vNULL;
   struct param_analysis_info *parms_ainfo;
   struct ipa_agg_replacement_value *aggval;
   gimple_stmt_iterator gsi;
@@ -4724,7 +4740,7 @@ ipcp_transform_function (struct cgraph_node *node)
   descriptors.safe_grow_cleared (param_count);
   ipa_populate_param_decls (node, descriptors);
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	struct ipa_agg_replacement_value *v;

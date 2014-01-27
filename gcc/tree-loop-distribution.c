@@ -1,5 +1,5 @@
 /* Loop distribution.
-   Copyright (C) 2006-2013 Free Software Foundation, Inc.
+   Copyright (C) 2006-2014 Free Software Foundation, Inc.
    Contributed by Georges-Andre Silber <Georges-Andre.Silber@ensmp.fr>
    and Sebastian Pop <sebastian.pop@amd.com>.
 
@@ -45,6 +45,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -443,7 +448,7 @@ build_rdg (vec<loop_p> loop_nest, control_dependences *cd)
   vec<data_reference_p> datarefs;
 
   /* Create the RDG vertices from the stmts of the loop nest.  */
-  stack_vec<gimple, 10> stmts;
+  auto_vec<gimple, 10> stmts;
   stmts_from_loop (loop_nest[0], &stmts);
   rdg = new_graph (stmts.length ());
   datarefs.create (10);
@@ -583,7 +588,7 @@ copy_loop_before (struct loop *loop)
   edge preheader = loop_preheader_edge (loop);
 
   initialize_original_copy_tables ();
-  res = slpeel_tree_duplicate_loop_to_edge_cfg (loop, preheader);
+  res = slpeel_tree_duplicate_loop_to_edge_cfg (loop, NULL, preheader);
   gcc_assert (res != NULL);
   free_original_copy_tables ();
   delete_update_ssa ();
@@ -959,7 +964,7 @@ static partition_t
 build_rdg_partition_for_vertex (struct graph *rdg, int v)
 {
   partition_t partition = partition_alloc (NULL, NULL);
-  stack_vec<int, 3> nodes;
+  auto_vec<int, 3> nodes;
   unsigned i;
   int x;
 
@@ -1406,7 +1411,6 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 		 control_dependences *cd, int *nb_calls)
 {
   struct graph *rdg;
-  vec<partition_t> partitions;
   partition_t partition;
   bool any_builtin;
   int i, nbp;
@@ -1414,7 +1418,7 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
   int num_sccs = 1;
 
   *nb_calls = 0;
-  stack_vec<loop_p, 3> loop_nest;
+  auto_vec<loop_p, 3> loop_nest;
   if (!find_loop_nest (loop, &loop_nest))
     return 0;
 
@@ -1432,7 +1436,7 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_rdg (dump_file, rdg);
 
-  partitions.create (3);
+  auto_vec<partition_t, 3> partitions;
   rdg_build_partitions (rdg, stmts, &partitions);
 
   any_builtin = false;
@@ -1658,7 +1662,6 @@ distribute_loop (struct loop *loop, vec<gimple> stmts,
 
   FOR_EACH_VEC_ELT (partitions, i, partition)
     partition_free (partition);
-  partitions.release ();
 
   free_rdg (rdg);
   return nbp - *nb_calls;
@@ -1674,7 +1677,7 @@ tree_loop_distribution (void)
   basic_block bb;
   control_dependences *cd = NULL;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -1687,7 +1690,7 @@ tree_loop_distribution (void)
      walking to innermost loops.  */
   FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
     {
-      vec<gimple> work_list = vNULL;
+      auto_vec<gimple> work_list;
       basic_block *bbs;
       int num = loop->num;
       unsigned int i;
@@ -1769,8 +1772,6 @@ out:
 	}
       else if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file, "Loop %d is the same.\n", num);
-
-      work_list.release ();
     }
 
   if (cd)

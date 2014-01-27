@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the DEC Alpha.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
 This file is part of GCC.
@@ -51,6 +51,16 @@ along with GCC; see the file COPYING3.  If not see
 #include "debug.h"
 #include "langhooks.h"
 #include "splay-tree.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-ssa.h"

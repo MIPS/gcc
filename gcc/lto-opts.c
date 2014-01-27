@@ -1,6 +1,6 @@
 /* LTO IL options.
 
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Simon Baldwin <simonb@google.com>
 
 This file is part of GCC.
@@ -23,10 +23,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "hashtab.h"
-#include "ggc.h"
-#include "vec.h"
 #include "bitmap.h"
 #include "flags.h"
 #include "opts.h"

@@ -3,7 +3,7 @@
    building RTL.  These routines are used both during actual parsing
    and during the instantiation of template functions.
 
-   Copyright (C) 1998-2013 Free Software Foundation, Inc.
+   Copyright (C) 1998-2014 Free Software Foundation, Inc.
    Written by Mark Mitchell (mmitchell@usa.net) based on code found
    formerly in parse.y and pt.c.
 
@@ -43,12 +43,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "diagnostic.h"
 #include "cgraph.h"
 #include "tree-iterator.h"
-#include "vec.h"
 #include "target.h"
-#include "gimple.h"
+#include "pointer-set.h"
+#include "hash-table.h"
 #include "gimplify.h"
 #include "bitmap.h"
-#include "hash-table.h"
 #include "omp-low.h"
 
 static bool verify_constant (tree, bool, bool *, bool *);
@@ -2042,12 +2041,10 @@ empty_expr_stmt_p (tree expr_stmt)
 
 /* Perform Koenig lookup.  FN is the postfix-expression representing
    the function (or functions) to call; ARGS are the arguments to the
-   call; if INCLUDE_STD then the `std' namespace is automatically
-   considered an associated namespace (used in range-based for loops).
-   Returns the functions to be considered by overload resolution.  */
+   call.  Returns the functions to be considered by overload resolution.  */
 
 tree
-perform_koenig_lookup (tree fn, vec<tree, va_gc> *args, bool include_std,
+perform_koenig_lookup (tree fn, vec<tree, va_gc> *args,
 		       tsubst_flags_t complain)
 {
   tree identifier = NULL_TREE;
@@ -2084,7 +2081,7 @@ perform_koenig_lookup (tree fn, vec<tree, va_gc> *args, bool include_std,
   if (!any_type_dependent_arguments_p (args)
       && !any_dependent_template_arguments_p (tmpl_args))
     {
-      fn = lookup_arg_dependent (identifier, functions, args, include_std);
+      fn = lookup_arg_dependent (identifier, functions, args);
       if (!fn)
 	{
 	  /* The unqualified name could not be resolved.  */
@@ -2146,7 +2143,7 @@ finish_call_expr (tree fn, vec<tree, va_gc> **args, bool disallow_virtual,
 	      && type_dependent_expression_p (current_class_ref)))
 	{
 	  result = build_nt_call_vec (fn, *args);
-	  SET_EXPR_LOCATION (result, EXPR_LOC_OR_HERE (fn));
+	  SET_EXPR_LOCATION (result, EXPR_LOC_OR_LOC (fn, input_location));
 	  KOENIG_LOOKUP_P (result) = koenig_p;
 	  if (cfun)
 	    {
@@ -2721,7 +2718,8 @@ begin_class_definition (tree t)
      before.  */
   if (! TYPE_ANONYMOUS_P (t))
     {
-      struct c_fileinfo *finfo = get_fileinfo (input_filename);
+      struct c_fileinfo *finfo = \
+	get_fileinfo (LOCATION_FILE (input_location));
       CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X
 	(t, finfo->interface_unknown);
@@ -3901,20 +3899,6 @@ expand_or_defer_fn_1 (tree fn)
 
   gcc_assert (DECL_SAVED_TREE (fn));
 
-  /* If this is a constructor or destructor body, we have to clone
-     it.  */
-  if (maybe_clone_body (fn))
-    {
-      /* We don't want to process FN again, so pretend we've written
-	 it out, even though we haven't.  */
-      TREE_ASM_WRITTEN (fn) = 1;
-      /* If this is an instantiation of a constexpr function, keep
-	 DECL_SAVED_TREE for explain_invalid_constexpr_fn.  */
-      if (!is_instantiation_of_constexpr (fn))
-	DECL_SAVED_TREE (fn) = NULL_TREE;
-      return false;
-    }
-
   /* We make a decision about linkage for these functions at the end
      of the compilation.  Until that point, we do not want the back
      end to output them -- but we do want it to see the bodies of
@@ -3960,6 +3944,20 @@ expand_or_defer_fn_1 (tree fn)
 	  mark_needed (fn);
 	  DECL_EXTERNAL (fn) = 0;
 	}
+    }
+
+  /* If this is a constructor or destructor body, we have to clone
+     it.  */
+  if (maybe_clone_body (fn))
+    {
+      /* We don't want to process FN again, so pretend we've written
+	 it out, even though we haven't.  */
+      TREE_ASM_WRITTEN (fn) = 1;
+      /* If this is an instantiation of a constexpr function, keep
+	 DECL_SAVED_TREE for explain_invalid_constexpr_fn.  */
+      if (!is_instantiation_of_constexpr (fn))
+	DECL_SAVED_TREE (fn) = NULL_TREE;
+      return false;
     }
 
   /* There's no reason to do any of the work here if we're only doing
@@ -4376,24 +4374,17 @@ handle_omp_array_sections (tree c)
 {
   bool maybe_zero_len = false;
   unsigned int first_non_one = 0;
-  vec<tree> types = vNULL;
+  auto_vec<tree> types;
   tree first = handle_omp_array_sections_1 (c, OMP_CLAUSE_DECL (c), types,
 					    maybe_zero_len, first_non_one);
   if (first == error_mark_node)
-    {
-      types.release ();
-      return true;
-    }
+    return true;
   if (first == NULL_TREE)
-    {
-      types.release ();
-      return false;
-    }
+    return false;
   if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_DEPEND)
     {
       tree t = OMP_CLAUSE_DECL (c);
       tree tem = NULL_TREE;
-      types.release ();
       if (processing_template_decl)
 	return false;
       /* Need to evaluate side effects in the length expressions
@@ -4423,10 +4414,7 @@ handle_omp_array_sections (tree c)
       if (int_size_in_bytes (TREE_TYPE (first)) <= 0)
 	maybe_zero_len = true;
       if (processing_template_decl && maybe_zero_len)
-	{
-	  types.release ();
-	  return false;
-	}
+	return false;
 
       for (i = num, t = OMP_CLAUSE_DECL (c); i > 0;
 	   t = TREE_CHAIN (t))
@@ -4469,7 +4457,6 @@ handle_omp_array_sections (tree c)
 				"array section is not contiguous in %qs "
 				"clause",
 				omp_clause_code_name[OMP_CLAUSE_CODE (c)]);
-		      types.release ();
 		      return true;
 		    }
 		}
@@ -4525,7 +4512,6 @@ handle_omp_array_sections (tree c)
 		size = size_binop (MULT_EXPR, size, l);
 	    }
 	}
-      types.release ();
       if (!processing_template_decl)
 	{
 	  if (side_effects)
@@ -4655,7 +4641,7 @@ omp_reduction_lookup (location_t loc, tree id, tree type, tree *baselinkp,
 	{
 	  vec<tree, va_gc> *args = NULL;
 	  vec_safe_push (args, build_reference_type (type));
-	  id = perform_koenig_lookup (id, args, false, tf_none);
+	  id = perform_koenig_lookup (id, args, tf_none);
 	}
     }
   else if (TREE_CODE (id) == SCOPE_REF)
@@ -6560,7 +6546,7 @@ finish_omp_atomic (enum tree_code code, enum tree_code opcode, tree lhs,
       stmt = build2 (OMP_ATOMIC, void_type_node, integer_zero_node, stmt);
       OMP_ATOMIC_SEQ_CST (stmt) = seq_cst;
     }
-  add_stmt (stmt);
+  finish_expr_stmt (stmt);
 }
 
 void
@@ -7120,7 +7106,8 @@ trait_expr_value (cp_trait_kind kind, tree type1, tree type2)
 
     case CPTK_IS_BASE_OF:
       return (NON_UNION_CLASS_TYPE_P (type1) && NON_UNION_CLASS_TYPE_P (type2)
-	      && DERIVED_FROM_P (type1, type2));
+	      && (same_type_ignoring_top_level_qualifiers_p (type1, type2)
+		  || DERIVED_FROM_P (type1, type2)));
 
     case CPTK_IS_CLASS:
       return (NON_UNION_CLASS_TYPE_P (type1));
@@ -7451,7 +7438,7 @@ build_anon_member_initialization (tree member, tree init,
      to build up the initializer from the outside in so that we can reuse
      previously built CONSTRUCTORs if this is, say, the second field in an
      anonymous struct.  So we use a vec as a stack.  */
-  stack_vec<tree, 2> fields;
+  auto_vec<tree, 2> fields;
   do
     {
       fields.safe_push (TREE_OPERAND (member, 1));
@@ -7610,6 +7597,11 @@ check_constexpr_ctor_body (tree last, tree list)
 	    break;
 	  if (TREE_CODE (t) == BIND_EXPR)
 	    {
+	      if (BIND_EXPR_VARS (t))
+		{
+		  ok = false;
+		  break;
+		}
 	      if (!check_constexpr_ctor_body (last, BIND_EXPR_BODY (t)))
 		return false;
 	      else
@@ -8280,7 +8272,7 @@ cxx_eval_call_expression (const constexpr_call *old_call, tree t,
 			  bool allow_non_constant, bool addr,
 			  bool *non_constant_p, bool *overflow_p)
 {
-  location_t loc = EXPR_LOC_OR_HERE (t);
+  location_t loc = EXPR_LOC_OR_LOC (t, input_location);
   tree fun = get_function_named_in_call (t);
   tree result;
   constexpr_call new_call = { NULL, NULL, NULL, 0 };
@@ -8969,19 +8961,13 @@ cxx_eval_vec_init_1 (const constexpr_call *call, tree atype, tree init,
       else
 	{
 	  /* Copying an element.  */
-	  vec<tree, va_gc> *argvec;
 	  gcc_assert (same_type_ignoring_top_level_qualifiers_p
 		      (atype, TREE_TYPE (init)));
 	  eltinit = cp_build_array_ref (input_location, init, idx,
 					tf_warning_or_error);
 	  if (!real_lvalue_p (init))
 	    eltinit = move (eltinit);
-	  argvec = make_tree_vector ();
-	  argvec->quick_push (eltinit);
-	  eltinit = (build_special_member_call
-		     (NULL_TREE, complete_ctor_identifier, &argvec,
-		      elttype, LOOKUP_NORMAL, tf_warning_or_error));
-	  release_tree_vector (argvec);
+	  eltinit = force_rvalue (eltinit, tf_warning_or_error);
 	  eltinit = cxx_eval_constant_expression
 	    (call, eltinit, allow_non_constant, addr, non_constant_p, overflow_p);
 	}
@@ -9131,7 +9117,7 @@ cxx_fold_indirect_ref (location_t loc, tree type, tree op0, bool *empty_base)
 	      unsigned HOST_WIDE_INT indexi = offset * BITS_PER_UNIT;
 	      tree index = bitsize_int (indexi);
 
-	      if (offset/part_widthi <= TYPE_VECTOR_SUBPARTS (op00type))
+	      if (offset / part_widthi < TYPE_VECTOR_SUBPARTS (op00type))
 		return fold_build3_loc (loc,
 					BIT_FIELD_REF, type, op00,
 					part_width, index);
@@ -9610,6 +9596,16 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
       break;
 
     case COMPONENT_REF:
+      if (is_overloaded_fn (t))
+	{
+	  /* We can only get here in checking mode via 
+	     build_non_dependent_expr,  because any expression that
+	     calls or takes the address of the function will have
+	     pulled a FUNCTION_DECL out of the COMPONENT_REF.  */
+	  gcc_checking_assert (allow_non_constant);
+	  *non_constant_p = true;
+	  return t;
+	}
       r = cxx_eval_component_reference (call, t, allow_non_constant, addr,
 					non_constant_p, overflow_p);
       break;
@@ -9661,7 +9657,7 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
 	    && !integer_zerop (op))
 	  {
 	    if (!allow_non_constant)
-	      error_at (EXPR_LOC_OR_HERE (t),
+	      error_at (EXPR_LOC_OR_LOC (t, input_location),
 			"reinterpret_cast from integer to pointer");
 	    *non_constant_p = true;
 	    return t;
@@ -9707,7 +9703,7 @@ cxx_eval_constant_expression (const constexpr_call *call, tree t,
     case EXPR_STMT:
     case OFFSET_REF:
       if (!allow_non_constant)
-        error_at (EXPR_LOC_OR_HERE (t),
+        error_at (EXPR_LOC_OR_LOC (t, input_location),
 		  "expression %qE is not a constant-expression", t);
       *non_constant_p = true;
       break;
@@ -9980,7 +9976,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 		  {
 		    if (flags & tf_error)
 		      {
-			error_at (EXPR_LOC_OR_HERE (t),
+			error_at (EXPR_LOC_OR_LOC (t, input_location),
 				  "call to non-constexpr function %qD", fun);
 			explain_invalid_constexpr_fn (fun);
 		      }
@@ -10072,7 +10068,7 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	    && !integer_zerop (from))
 	  {
 	    if (flags & tf_error)
-	      error_at (EXPR_LOC_OR_HERE (t),
+	      error_at (EXPR_LOC_OR_LOC (t, input_location),
 			"reinterpret_cast from integer to pointer");
 	    return false;
 	  }
@@ -10426,6 +10422,8 @@ potential_constant_expression_1 (tree t, bool want_rval, tsubst_flags_t flags)
 	  return false;
       return true;
 
+    case CILK_SYNC_STMT:
+    case CILK_SPAWN_STMT:
     case ARRAY_NOTATION_REF:
       return false;
 

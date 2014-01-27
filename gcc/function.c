@@ -1,5 +1,5 @@
 /* Expands front end tree to back end RTL for GCC.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -51,14 +51,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "insn-config.h"
 #include "recog.h"
 #include "output.h"
-#include "basic-block.h"
 #include "hashtab.h"
-#include "ggc.h"
 #include "tm_p.h"
 #include "langhooks.h"
 #include "target.h"
 #include "common/common-target.h"
-#include "gimple.h"
+#include "gimple-expr.h"
 #include "gimplify.h"
 #include "tree-pass.h"
 #include "predict.h"
@@ -4116,7 +4114,7 @@ reorder_blocks (void)
   if (block == NULL_TREE)
     return;
 
-  stack_vec<tree, 10> block_stack;
+  auto_vec<tree, 10> block_stack;
 
   /* Reset the TREE_ASM_WRITTEN bit for all blocks.  */
   clear_block_marks (block);
@@ -5722,9 +5720,8 @@ convert_jumps_to_returns (basic_block last_bb, bool simple_p,
   rtx label;
   edge_iterator ei;
   edge e;
-  vec<basic_block> src_bbs;
+  auto_vec<basic_block> src_bbs (EDGE_COUNT (last_bb->preds));
 
-  src_bbs.create (EDGE_COUNT (last_bb->preds));
   FOR_EACH_EDGE (e, ei, last_bb->preds)
     if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
       src_bbs.quick_push (e->src);
@@ -6045,7 +6042,7 @@ thread_prologue_and_epilogue_insns (void)
       max_grow_size = get_uncond_jump_length ();
       max_grow_size *= PARAM_VALUE (PARAM_MAX_GROW_COPY_BB_INSNS);
 
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
 	  rtx insn;
 	  unsigned size = 0;
@@ -6122,7 +6119,7 @@ thread_prologue_and_epilogue_insns (void)
 	 needing a prologue.  */
       bitmap_clear (&bb_on_list);
       bitmap_and_compl (&bb_antic_flags, &bb_flags, &bb_tail);
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	{
 	  if (!bitmap_bit_p (&bb_antic_flags, bb->index))
 	    continue;
@@ -6156,7 +6153,7 @@ thread_prologue_and_epilogue_insns (void)
       /* Find exactly one edge that leads to a block in ANTIC from
 	 a block that isn't.  */
       if (!bitmap_bit_p (&bb_antic_flags, entry_edge->dest->index))
-	FOR_EACH_BB (bb)
+	FOR_EACH_BB_FN (bb, cfun)
 	  {
 	    if (!bitmap_bit_p (&bb_antic_flags, bb->index))
 	      continue;
@@ -6204,7 +6201,7 @@ thread_prologue_and_epilogue_insns (void)
 	  /* Find tail blocks reachable from both blocks needing a
 	     prologue and blocks not needing a prologue.  */
 	  if (!bitmap_empty_p (&bb_tail))
-	    FOR_EACH_BB (bb)
+	    FOR_EACH_BB_FN (bb, cfun)
 	      {
 		bool some_pro, some_no_pro;
 		if (!bitmap_bit_p (&bb_tail, bb->index))
@@ -6238,7 +6235,7 @@ thread_prologue_and_epilogue_insns (void)
 	    }
 	  /* Now duplicate the tails.  */
 	  if (!bitmap_empty_p (&bb_tail))
-	    FOR_EACH_BB_REVERSE (bb)
+	    FOR_EACH_BB_REVERSE_FN (bb, cfun)
 	      {
 		basic_block copy_bb, tbb;
 		rtx insert_point;
@@ -6482,7 +6479,7 @@ thread_prologue_and_epilogue_insns (void)
 	 we take advantage of cfg_layout_finalize using
 	 fixup_fallthru_exit_predecessor.  */
       cfg_layout_initialize (0);
-      FOR_EACH_BB (cur_bb)
+      FOR_EACH_BB_FN (cur_bb, cfun)
 	if (cur_bb->index >= NUM_FIXED_BLOCKS
 	    && cur_bb->next_bb->index >= NUM_FIXED_BLOCKS)
 	  cur_bb->aux = cur_bb->next_bb;
@@ -6500,7 +6497,7 @@ epilogue_done:
       commit_edge_insertions ();
 
       /* Look for basic blocks within the prologue insns.  */
-      blocks = sbitmap_alloc (last_basic_block);
+      blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
       bitmap_clear (blocks);
       bitmap_set_bit (blocks, entry_edge->dest->index);
       bitmap_set_bit (blocks, orig_entry_edge->dest->index);
@@ -7194,7 +7191,7 @@ rest_of_match_asm_constraints (void)
     return 0;
 
   df_set_flags (DF_DEFER_INSN_RESCAN);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       FOR_BB_INSNS (bb, insn)
 	{

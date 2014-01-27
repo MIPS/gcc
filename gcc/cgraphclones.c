@@ -1,5 +1,5 @@
 /* Callgraph clones
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -73,15 +73,19 @@ along with GCC; see the file COPYING3.  If not see
 #include "stringpool.h"
 #include "function.h"
 #include "emit-rtl.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "bitmap.h"
 #include "tree-cfg.h"
 #include "tree-inline.h"
 #include "langhooks.h"
-#include "pointer-set.h"
 #include "toplev.h"
 #include "flags.h"
-#include "ggc.h"
 #include "debug.h"
 #include "target.h"
 #include "diagnostic.h"
@@ -119,7 +123,10 @@ cgraph_clone_edge (struct cgraph_edge *e, struct cgraph_node *n,
     {
       tree decl;
 
-      if (call_stmt && (decl = gimple_call_fndecl (call_stmt)))
+      if (call_stmt && (decl = gimple_call_fndecl (call_stmt))
+	  /* When the call is speculative, we need to resolve it 
+	     via cgraph_resolve_speculation and not here.  */
+	  && !e->speculative)
 	{
 	  struct cgraph_node *callee = cgraph_get_node (decl);
 	  gcc_checking_assert (callee);

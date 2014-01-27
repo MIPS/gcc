@@ -1,5 +1,5 @@
 /* Lower vector operations to scalar operations.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,6 +24,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "stor-layout.h"
 #include "tm.h"
 #include "langhooks.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -34,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "ggc.h"
 #include "diagnostic.h"
 #include "target.h"
 
@@ -988,6 +993,89 @@ expand_vector_operation (gimple_stmt_iterator *gsi, tree type, tree compute_type
 				    gimple_assign_rhs1 (assign),
 				    gimple_assign_rhs2 (assign), code);
 }
+
+/* Try to optimize
+   a_5 = { b_7, b_7 + 3, b_7 + 6, b_7 + 9 };
+   style stmts into:
+   _9 = { b_7, b_7, b_7, b_7 };
+   a_5 = _9 + { 0, 3, 6, 9 };
+   because vector splat operation is usually more efficient
+   than piecewise initialization of the vector.  */
+
+static void
+optimize_vector_constructor (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  tree lhs = gimple_assign_lhs (stmt);
+  tree rhs = gimple_assign_rhs1 (stmt);
+  tree type = TREE_TYPE (rhs);
+  unsigned int i, j, nelts = TYPE_VECTOR_SUBPARTS (type);
+  bool all_same = true;
+  constructor_elt *elt;
+  tree *cst;
+  gimple g;
+  tree base = NULL_TREE;
+  optab op;
+
+  if (nelts <= 2 || CONSTRUCTOR_NELTS (rhs) != nelts)
+    return;
+  op = optab_for_tree_code (PLUS_EXPR, type, optab_default);
+  if (op == unknown_optab
+      || optab_handler (op, TYPE_MODE (type)) == CODE_FOR_nothing)
+    return;
+  FOR_EACH_VEC_SAFE_ELT (CONSTRUCTOR_ELTS (rhs), i, elt)
+    if (TREE_CODE (elt->value) != SSA_NAME
+	|| TREE_CODE (TREE_TYPE (elt->value)) == VECTOR_TYPE)
+      return;
+    else
+      {
+	tree this_base = elt->value;
+	if (this_base != CONSTRUCTOR_ELT (rhs, 0)->value)
+	  all_same = false;
+	for (j = 0; j < nelts + 1; j++)
+	  {
+	    g = SSA_NAME_DEF_STMT (this_base);
+	    if (is_gimple_assign (g)
+		&& gimple_assign_rhs_code (g) == PLUS_EXPR
+		&& TREE_CODE (gimple_assign_rhs2 (g)) == INTEGER_CST
+		&& TREE_CODE (gimple_assign_rhs1 (g)) == SSA_NAME
+		&& !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (gimple_assign_rhs1 (g)))
+	      this_base = gimple_assign_rhs1 (g);
+	    else
+	      break;
+	  }
+	if (i == 0)
+	  base = this_base;
+	else if (this_base != base)
+	  return;
+      }
+  if (all_same)
+    return;
+  cst = XALLOCAVEC (tree, nelts);
+  for (i = 0; i < nelts; i++)
+    {
+      tree this_base = CONSTRUCTOR_ELT (rhs, i)->value;;
+      cst[i] = build_zero_cst (TREE_TYPE (base));
+      while (this_base != base)
+	{
+	  g = SSA_NAME_DEF_STMT (this_base);
+	  cst[i] = fold_binary (PLUS_EXPR, TREE_TYPE (base),
+				cst[i], gimple_assign_rhs2 (g));
+	  if (cst[i] == NULL_TREE
+	      || TREE_CODE (cst[i]) != INTEGER_CST
+	      || TREE_OVERFLOW (cst[i]))
+	    return;
+	  this_base = gimple_assign_rhs1 (g);
+	}
+    }
+  for (i = 0; i < nelts; i++)
+    CONSTRUCTOR_ELT (rhs, i)->value = base;
+  g = gimple_build_assign (make_ssa_name (type, NULL), rhs);
+  gsi_insert_before (gsi, g, GSI_SAME_STMT);
+  g = gimple_build_assign_with_ops (PLUS_EXPR, lhs, gimple_assign_lhs (g),
+				    build_vector (type, cst));
+  gsi_replace (gsi, g, false);
+}
 
 /* Return a type for the widest vector mode whose components are of type
    TYPE, or NULL_TREE if none is found.  */
@@ -1278,6 +1366,17 @@ expand_vector_operations_1 (gimple_stmt_iterator *gsi)
       expand_vector_condition (gsi);
       return;
     }
+
+  if (code == CONSTRUCTOR
+      && TREE_CODE (lhs) == SSA_NAME
+      && VECTOR_MODE_P (TYPE_MODE (TREE_TYPE (lhs)))
+      && !gimple_clobber_p (stmt)
+      && optimize)
+    {
+      optimize_vector_constructor (gsi);
+      return;
+    }
+
   if (rhs_class != GIMPLE_UNARY_RHS && rhs_class != GIMPLE_BINARY_RHS)
     return;
 
@@ -1442,7 +1541,7 @@ expand_vector_operations (void)
   basic_block bb;
   bool cfg_changed = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{

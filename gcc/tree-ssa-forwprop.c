@@ -1,5 +1,5 @@
 /* Forward propagation of expressions for single use variables.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -26,6 +26,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -1281,8 +1287,7 @@ static void
 simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 {
   unsigned int branch_num = gimple_switch_num_labels (stmt);
-  vec<tree> labels;
-  labels.create (branch_num);
+  auto_vec<tree> labels (branch_num);
   unsigned int i, len;
 
   /* Collect the existing case labels in a VEC, and preprocess it as if
@@ -1343,8 +1348,6 @@ simplify_gimple_switch_label_vec (gimple stmt, tree index_type)
 	} 
       BITMAP_FREE (target_blocks);
     }
-
-  labels.release ();
 }
 
 /* STMT is a SWITCH_EXPR for which we attempt to find equivalent forms of
@@ -3383,7 +3386,7 @@ ssa_forward_propagate_and_combine (void)
 
   cfg_changed = false;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -3545,7 +3548,8 @@ ssa_forward_propagate_and_combine (void)
 		      {
 			tree outer_type = TREE_TYPE (gimple_assign_lhs (stmt));
 			tree inner_type = TREE_TYPE (gimple_assign_rhs1 (stmt));
-			if (INTEGRAL_TYPE_P (outer_type)
+			if (TREE_CODE (gimple_assign_rhs1 (stmt)) == SSA_NAME
+			    && INTEGRAL_TYPE_P (outer_type)
 			    && INTEGRAL_TYPE_P (inner_type)
 			    && (TYPE_PRECISION (outer_type)
 				<= TYPE_PRECISION (inner_type)))

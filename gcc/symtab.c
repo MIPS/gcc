@@ -1,5 +1,5 @@
 /* Symbol table.
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -28,11 +28,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "varasm.h"
 #include "function.h"
 #include "emit-rtl.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "tree-inline.h"
 #include "langhooks.h"
 #include "hashtab.h"
-#include "ggc.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
@@ -534,6 +538,10 @@ symtab_dissolve_same_comdat_group_list (symtab_node *node)
     {
       next = n->same_comdat_group;
       n->same_comdat_group = NULL;
+      /* Clear DECL_COMDAT_GROUP for comdat locals, since
+         make_decl_local doesn't.  */
+      if (!TREE_PUBLIC (n->decl))
+	DECL_COMDAT_GROUP (n->decl) = NULL_TREE;
       n = next;
     }
   while (n != node);
@@ -840,6 +848,21 @@ verify_symtab_base (symtab_node *node)
 	  n = n->same_comdat_group;
 	}
       while (n != node);
+      if (symtab_comdat_local_p (node))
+	{
+	  struct ipa_ref_list *refs = &node->ref_list;
+	  struct ipa_ref *ref;
+	  for (int i = 0; ipa_ref_list_referring_iterate (refs, i, ref); ++i)
+	    {
+	      if (!symtab_in_same_comdat_p (ref->referring, node))
+		{
+		  error ("comdat-local symbol referred to by %s outside its "
+			 "comdat",
+			 identifier_to_locale (ref->referring->name()));
+		  error_found = true;
+		}
+	    }
+	}
     }
   return error_found;
 }
@@ -906,6 +929,10 @@ void
 symtab_make_decl_local (tree decl)
 {
   rtx rtl, symbol;
+
+  /* Avoid clearing DECL_COMDAT_GROUP on comdat-local decls.  */
+  if (TREE_PUBLIC (decl) == 0)
+    return;
 
   if (TREE_CODE (decl) == VAR_DECL)
     DECL_COMMON (decl) = 0;
