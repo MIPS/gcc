@@ -2216,6 +2216,9 @@ compile ()
       return NULL;
     }
 
+  if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
+   dump_generated_code ();
+
   timevar_push (TV_ASSEMBLE);
 
   /* Gross hacks follow:

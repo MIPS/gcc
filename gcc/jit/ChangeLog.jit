@@ -1,5 +1,12 @@
 2014-01-27  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::playback::context::compile): Removal
+	of the code-creation callback (96b218c9a1d5f39fb649e02c0e77586b180e8516)
+	accidentally removed the implementation of
+	GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE; reinstate it.
+
+2014-01-27  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (enum gcc_jit_binary_op): Remove
 	GCC_JIT_BINARY_OP_FLOATING_DIVIDE, which I accidentally added
 	as part of a880c0d9c642730550f39d328f29a1d9935cb07e.
