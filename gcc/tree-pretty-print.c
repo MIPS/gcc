@@ -507,6 +507,27 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
 	case OMP_CLAUSE_MAP_TOFROM:
 	  pp_string (buffer, "tofrom");
 	  break;
+	case OMP_CLAUSE_MAP_FORCE_ALLOC:
+	  pp_string (buffer, "force_alloc");
+	  break;
+	case OMP_CLAUSE_MAP_FORCE_TO:
+	  pp_string (buffer, "force_to");
+	  break;
+	case OMP_CLAUSE_MAP_FORCE_FROM:
+	  pp_string (buffer, "force_from");
+	  break;
+	case OMP_CLAUSE_MAP_FORCE_TOFROM:
+	  pp_string (buffer, "force_tofrom");
+	  break;
+	case OMP_CLAUSE_MAP_FORCE_PRESENT:
+	  pp_string (buffer, "force_present");
+	  break;
+	case OMP_CLAUSE_MAP_FORCE_DEALLOC:
+	  pp_string (buffer, "force_dealloc");
+	  break;
+	case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
+	  pp_string (buffer, "force_deviceptr");
+	  break;
 	default:
 	  gcc_unreachable ();
 	}

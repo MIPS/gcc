@@ -1071,6 +1071,8 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
 	      || !splay_tree_lookup (ctx->field_map, (splay_tree_key) var));
   gcc_assert ((mask & 2) == 0 || !ctx->sfield_map
 	      || !splay_tree_lookup (ctx->sfield_map, (splay_tree_key) var));
+  gcc_assert ((mask & 3) == 3
+	      || gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
 
   type = TREE_TYPE (var);
   if (mask & 4)
@@ -1616,6 +1618,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
+	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
 	case OMP_CLAUSE_MAP:
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_SIZE (c), ctx->outer);
@@ -1635,11 +1638,11 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
 	      && OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_POINTER)
 	    {
-	      gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
 	      /* Ignore OMP_CLAUSE_MAP_POINTER kind for arrays in
 		 #pragma omp target data, there is nothing to map for
 		 those.  */
-	      if (gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_DATA
+	      if (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL
+		  && gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_DATA
 		  && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		break;
 	    }
@@ -8763,8 +8766,6 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       default:
 	break;
       case OMP_CLAUSE_MAP:
-      case OMP_CLAUSE_TO:
-      case OMP_CLAUSE_FROM:
 	var = OMP_CLAUSE_DECL (c);
 	if (!DECL_P (var))
 	  {
@@ -8851,8 +8852,6 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	  default:
 	    break;
 	  case OMP_CLAUSE_MAP:
-	  case OMP_CLAUSE_TO:
-	  case OMP_CLAUSE_FROM:
 	    nc = c;
 	    ovar = OMP_CLAUSE_DECL (c);
 	    if (!DECL_P (ovar))
@@ -8946,12 +8945,6 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 	      {
 	      case OMP_CLAUSE_MAP:
 		tkind = OMP_CLAUSE_MAP_KIND (c);
-		break;
-	      case OMP_CLAUSE_TO:
-		tkind = OMP_CLAUSE_MAP_TO;
-		break;
-	      case OMP_CLAUSE_FROM:
-		tkind = OMP_CLAUSE_MAP_FROM;
 		break;
 	      default:
 		gcc_unreachable ();
@@ -10233,6 +10226,22 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       default:
 	break;
       case OMP_CLAUSE_MAP:
+#ifdef ENABLE_CHECKING
+	/* First check what we're prepared to handle in the following.  */
+	switch (OMP_CLAUSE_MAP_KIND (c))
+	  {
+	  case OMP_CLAUSE_MAP_ALLOC:
+	  case OMP_CLAUSE_MAP_TO:
+	  case OMP_CLAUSE_MAP_FROM:
+	  case OMP_CLAUSE_MAP_TOFROM:
+	  case OMP_CLAUSE_MAP_POINTER:
+	    break;
+	  default:
+	    gcc_unreachable ();
+	  }
+#endif
+	  /* FALLTHRU */
+
       case OMP_CLAUSE_TO:
       case OMP_CLAUSE_FROM:
 	var = OMP_CLAUSE_DECL (c);

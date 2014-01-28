@@ -78,7 +78,13 @@ enum gimplify_omp_var_data
   GOVD_PRIVATE_OUTER_REF = 1024,
   GOVD_LINEAR = 2048,
   GOVD_ALIGNED = 4096,
+
+  /* Flags for GOVD_MAP.  */
+  /* Don't copy back.  */
   GOVD_MAP_TO_ONLY = 8192,
+  /* Force a specific behavior (or else, a run-time error).  */
+  GOVD_MAP_FORCE = 16384,
+
   GOVD_DATA_SHARE_CLASS = (GOVD_SHARED | GOVD_PRIVATE | GOVD_FIRSTPRIVATE
 			   | GOVD_LASTPRIVATE | GOVD_REDUCTION | GOVD_LINEAR
 			   | GOVD_LOCAL)
@@ -95,7 +101,11 @@ enum omp_region_type
   ORT_UNTIED_TASK = 5,
   ORT_TEAMS = 8,
   ORT_TARGET_DATA = 16,
-  ORT_TARGET = 32
+  ORT_TARGET = 32,
+
+  /* Flags for ORT_TARGET.  */
+  /* Default to GOVD_MAP_FORCE for implicit mappings in this region.  */
+  ORT_TARGET_MAP_FORCE = 64
 };
 
 /* Gimplify hashtable helper.  */
@@ -5473,9 +5483,20 @@ omp_add_variable (struct gimplify_omp_ctx *ctx, tree decl, unsigned int flags)
 	 copy into or out of the context.  */
       if (!(flags & GOVD_LOCAL))
 	{
-	  nflags = flags & GOVD_MAP
-		   ? GOVD_MAP | GOVD_MAP_TO_ONLY | GOVD_EXPLICIT
-		   : flags & GOVD_PRIVATE ? GOVD_PRIVATE : GOVD_FIRSTPRIVATE;
+	  if (flags & GOVD_MAP)
+	    {
+	      nflags = GOVD_MAP | GOVD_MAP_TO_ONLY | GOVD_EXPLICIT;
+#if 0
+	      /* Not sure if this is actually needed; haven't found a case
+		 where this would change anything; TODO.  */
+	      if (flags & GOVD_MAP_FORCE)
+		nflags |= OMP_CLAUSE_MAP_FORCE;
+#endif
+	    }
+	  else if (flags & GOVD_PRIVATE)
+	    nflags = GOVD_PRIVATE;
+	  else
+	    nflags = GOVD_FIRSTPRIVATE;
 	  nflags |= flags & GOVD_SEEN;
 	  t = DECL_VALUE_EXPR (decl);
 	  gcc_assert (TREE_CODE (t) == INDIRECT_REF);
@@ -5544,6 +5565,8 @@ omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
   for (octx = ctx; octx; octx = octx->outer_context)
     if (octx->region_type & ORT_TARGET)
       {
+	gcc_assert (!(octx->region_type & ORT_TARGET_MAP_FORCE));
+
 	n = splay_tree_lookup (octx->variables, (splay_tree_key)decl);
 	if (n == NULL)
 	  {
@@ -5605,19 +5628,45 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
   if (ctx->region_type & ORT_TARGET)
     {
+      unsigned map_force;
+      if (ctx->region_type & ORT_TARGET_MAP_FORCE)
+	map_force = GOVD_MAP_FORCE;
+      else
+	map_force = 0;
       if (n == NULL)
 	{
 	  if (!lang_hooks.types.omp_mappable_type (TREE_TYPE (decl)))
 	    {
 	      error ("%qD referenced in target region does not have "
 		     "a mappable type", decl);
-	      omp_add_variable (ctx, decl, GOVD_MAP | GOVD_EXPLICIT | flags);
+	      omp_add_variable (ctx, decl, GOVD_MAP | map_force | GOVD_EXPLICIT | flags);
 	    }
 	  else
-	    omp_add_variable (ctx, decl, GOVD_MAP | flags);
+	    omp_add_variable (ctx, decl, GOVD_MAP | map_force | flags);
 	}
       else
-	n->value |= flags;
+	{
+#if 0
+	  /* The following fails for:
+
+	     int l = 10;
+	     float c[l];
+	     #pragma acc parallel copy(c[2:4])
+	       {
+	     #pragma acc parallel
+		 {
+		   int t = sizeof c;
+		 }
+	       }
+
+	     ..., which we currently don't have to care about (nesting
+	     disabled), but eventually will have to; TODO.  */
+	  if ((n->value & GOVD_MAP) && !(n->value & GOVD_EXPLICIT))
+	    gcc_assert ((n->value & GOVD_MAP_FORCE) == map_force);
+#endif
+
+	  n->value |= flags;
+	}
       ret = lang_hooks.decls.omp_disregard_value_expr (decl, true);
       goto do_outer;
     }
@@ -5904,6 +5953,19 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	  goto do_add;
 
 	case OMP_CLAUSE_MAP:
+	  switch (OMP_CLAUSE_MAP_KIND (c))
+	    {
+	    case OMP_CLAUSE_MAP_FORCE_PRESENT:
+	    case OMP_CLAUSE_MAP_FORCE_DEALLOC:
+	    case OMP_CLAUSE_MAP_FORCE_DEVICEPTR:
+	      input_location = OMP_CLAUSE_LOCATION (c);
+	      /* TODO.  */
+	      sorry ("data clause not yet implemented");
+	      remove = true;
+	      break;
+	    default:
+	      break;
+	    }
 	  if (OMP_CLAUSE_SIZE (c)
 	      && gimplify_expr (&OMP_CLAUSE_SIZE (c), pre_p,
 				NULL, is_gimple_val, fb_rvalue) == GS_ERROR)
@@ -6205,9 +6267,14 @@ gimplify_adjust_omp_clauses_1 (splay_tree_node n, void *data)
     OMP_CLAUSE_PRIVATE_OUTER_REF (clause) = 1;
   else if (code == OMP_CLAUSE_MAP)
     {
-      OMP_CLAUSE_MAP_KIND (clause) = flags & GOVD_MAP_TO_ONLY
-				     ? OMP_CLAUSE_MAP_TO
-				     : OMP_CLAUSE_MAP_TOFROM;
+      unsigned map_kind;
+      map_kind = (flags & GOVD_MAP_TO_ONLY
+		  ? OMP_CLAUSE_MAP_TO
+		  : OMP_CLAUSE_MAP_TOFROM);
+      if (flags & GOVD_MAP_FORCE)
+	map_kind |= OMP_CLAUSE_MAP_FORCE;
+      OMP_CLAUSE_MAP_KIND (clause) = (enum omp_clause_map_kind) map_kind;
+
       if (DECL_SIZE (decl)
 	  && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST)
 	{
@@ -6459,9 +6526,10 @@ gimplify_oacc_parallel (tree *expr_p, gimple_seq *pre_p)
   tree expr = *expr_p;
   gimple g;
   gimple_seq body = NULL;
+  enum omp_region_type ort =
+    (enum omp_region_type) (ORT_TARGET | ORT_TARGET_MAP_FORCE);
 
-  gimplify_scan_omp_clauses (&OACC_PARALLEL_CLAUSES (expr), pre_p,
-			     ORT_TARGET);
+  gimplify_scan_omp_clauses (&OACC_PARALLEL_CLAUSES (expr), pre_p, ort);
 
   push_gimplify_context ();
 

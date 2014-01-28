@@ -1,5 +1,21 @@
 2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* tree-core.h (omp_clause_map_kind): Add OMP_CLAUSE_MAP_FORCE,
+	OMP_CLAUSE_MAP_FORCE_ALLOC, OMP_CLAUSE_MAP_FORCE_TO,
+	OMP_CLAUSE_MAP_FORCE_FROM, OMP_CLAUSE_MAP_FORCE_TOFROM,
+	OMP_CLAUSE_MAP_FORCE_PRESENT, OMP_CLAUSE_MAP_FORCE_DEALLOC, and
+	OMP_CLAUSE_MAP_FORCE_DEVICEPTR.
+	* tree-pretty-print.c (dump_omp_clause): Handle these.
+	* gimplify.c (gimplify_omp_var_data): Add GOVD_MAP_FORCE.
+	(omp_region_type): Add ORT_TARGET_MAP_FORCE.
+	(omp_add_variable, omp_notice_threadprivate_variable)
+	(omp_notice_variable, gimplify_scan_omp_clauses)
+	(gimplify_adjust_omp_clauses_1): Extend accordingly.
+	(gimplify_oacc_parallel): Add ORT_TARGET_MAP_FORCE to ORT_TARGET
+	usage.
+	* omp-low.c (install_var_field, scan_sharing_clauses)
+	(lower_oacc_parallel, lower_omp_target): Extend accordingly.
+
 	* tree-core.h (omp_clause_map_kind): Make the identifiers' bit
 	patterns more obvious.  Add comments.
 	* omp-low.c (lower_oacc_parallel, lower_omp_target): Test for

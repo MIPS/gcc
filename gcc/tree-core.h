@@ -1130,6 +1130,23 @@ enum omp_clause_map_kind
      array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
      which is implicitly POINTER_SIZE / BITS_PER_UNIT, but the bias.  */
   OMP_CLAUSE_MAP_POINTER = OMP_CLAUSE_MAP_SPECIAL,
+  /* The following are only valid for OpenACC.  */
+  /* Flag to force a specific behavior (or else, a run-time error).  */
+  OMP_CLAUSE_MAP_FORCE = 1 << 3,
+  /* Allocate.  */
+  OMP_CLAUSE_MAP_FORCE_ALLOC = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_ALLOC,
+  /* ..., and copy to device.  */
+  OMP_CLAUSE_MAP_FORCE_TO = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_TO,
+  /* ..., and copy from device.  */
+  OMP_CLAUSE_MAP_FORCE_FROM = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_FROM,
+  /* ..., and copy to and from device.  */
+  OMP_CLAUSE_MAP_FORCE_TOFROM = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_TOFROM,
+  /* Must already be present.  */
+  OMP_CLAUSE_MAP_FORCE_PRESENT = OMP_CLAUSE_MAP_FORCE | OMP_CLAUSE_MAP_SPECIAL,
+  /* Deallocate a mapping, without copying from device.  */
+  OMP_CLAUSE_MAP_FORCE_DEALLOC,
+  /* Is a device pointer.  */
+  OMP_CLAUSE_MAP_FORCE_DEVICEPTR,
 
   /* End marker.  */
   OMP_CLAUSE_MAP_LAST
