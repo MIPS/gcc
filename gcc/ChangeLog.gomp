@@ -1,3 +1,11 @@
+2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimplify.c (gimplify_call_expr, gimplify_modify_expr)
+	(omp_firstprivatize_variable, omp_notice_threadprivate_variable)
+	(omp_notice_variable, gimplify_adjust_omp_clauses)
+	(gimplify_omp_workshare): Treat ORT_TARGET as a flag, not as a
+	value.
+
 2013-12-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (lower_oacc_parallel): Switch kinds array to unsigned
@@ -1138,7 +1146,7 @@
 	BUILT_IN_GOMP_CANCELLATION_POINT): New built-ins.
 	* tree-flow.h (find_omp_clause): Remove prototype.
 
-Copyright (C) 2013 Free Software Foundation, Inc.
+Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

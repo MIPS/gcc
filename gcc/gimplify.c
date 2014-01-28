@@ -2421,7 +2421,7 @@ gimplify_call_expr (tree *expr_p, gimple_seq *pre_p, bool want_value)
 	 during omplower pass instead.  */
       struct gimplify_omp_ctx *ctx;
       for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
-	if (ctx->region_type == ORT_TARGET)
+	if (ctx->region_type & ORT_TARGET)
 	  break;
       if (ctx == NULL)
 	fold_stmt (&gsi);
@@ -4577,7 +4577,7 @@ gimplify_modify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
      during omplower pass instead.  */
   struct gimplify_omp_ctx *ctx;
   for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
-    if (ctx->region_type == ORT_TARGET)
+    if (ctx->region_type & ORT_TARGET)
       break;
   if (ctx == NULL)
     fold_stmt (&gsi);
@@ -5360,7 +5360,7 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 	  else
 	    return;
 	}
-      else if (ctx->region_type == ORT_TARGET)
+      else if (ctx->region_type & ORT_TARGET)
 	omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
       else if (ctx->region_type != ORT_WORKSHARE
 	       && ctx->region_type != ORT_SIMD
@@ -5542,7 +5542,7 @@ omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
   struct gimplify_omp_ctx *octx;
 
   for (octx = ctx; octx; octx = octx->outer_context)
-    if (octx->region_type == ORT_TARGET)
+    if (octx->region_type & ORT_TARGET)
       {
 	n = splay_tree_lookup (octx->variables, (splay_tree_key)decl);
 	if (n == NULL)
@@ -5603,7 +5603,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
     }
 
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-  if (ctx->region_type == ORT_TARGET)
+  if (ctx->region_type & ORT_TARGET)
     {
       if (n == NULL)
 	{
@@ -6355,7 +6355,7 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	  if (!DECL_P (decl))
 	    break;
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
-	  if (ctx->region_type == ORT_TARGET && !(n->value & GOVD_SEEN))
+	  if ((ctx->region_type & ORT_TARGET) && !(n->value & GOVD_SEEN))
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
@@ -6927,7 +6927,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
       gcc_unreachable ();
     }
   gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort);
-  if (ort == ORT_TARGET || ort == ORT_TARGET_DATA)
+  if ((ort & ORT_TARGET) || ort == ORT_TARGET_DATA)
     {
       push_gimplify_context ();
       gimple g = gimplify_and_return_first (OMP_BODY (expr), &body);
