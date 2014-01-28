@@ -1,3 +1,9 @@
+2014-01-28  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h (test_jit): Move the various calls to set up
+	options on the context into...
+	(set_options): ...this new function.
+
 2014-01-27  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-error-call-with-not-enough-args.c: New test case.

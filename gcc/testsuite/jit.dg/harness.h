@@ -91,16 +91,8 @@ void check_string_value (const char *actual, const char *expected)
       pass ("%s: actual: NULL == expected: NULL");
 }
 
-/* Run one iteration of the test.  */
-static void
-test_jit (const char *argv0, void *user_data)
+static void set_options (gcc_jit_context *ctxt, const char *argv0)
 {
-  gcc_jit_context *ctxt;
-  gcc_jit_result *result;
-
-  ctxt = gcc_jit_context_acquire ();
-     /* FIXME: error-handling */
-
   /* Set up options.  */
   gcc_jit_context_set_str_option (
     ctxt,
@@ -130,6 +122,19 @@ test_jit (const char *argv0, void *user_data)
     ctxt,
     GCC_JIT_BOOL_OPTION_DUMP_SUMMARY,
     1);
+}
+
+/* Run one iteration of the test.  */
+static void
+test_jit (const char *argv0, void *user_data)
+{
+  gcc_jit_context *ctxt;
+  gcc_jit_result *result;
+
+  ctxt = gcc_jit_context_acquire ();
+     /* FIXME: error-handling */
+
+  set_options (ctxt, argv0);
 
   create_code (ctxt, user_data);
 
