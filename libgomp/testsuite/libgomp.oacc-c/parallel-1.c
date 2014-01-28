@@ -2,25 +2,155 @@
 
 extern void abort ();
 
-volatile int i;
+int i;
 
 int main(void)
 {
-  volatile int j;
+  int j, v;
 
-  i = -0x42;
-  j = -42;
-#pragma acc parallel
+#if 0
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) copyin (i, j)
   {
-    if (i != -0x42 || j != -42)
+    if (i != -1 || j != -2)
       abort ();
-    i = 42;
-    j = 0x42;
-    if (i != 42 || j != 0x42)
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
       abort ();
+    v = 1;
   }
-  if (i != 42 || j != 0x42)
+  if (v != 1 || i != -1 || j != -2)
     abort ();
+
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) copyout (i, j)
+  {
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != 2 || j != 1)
+    abort ();
+
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) copy (i, j)
+  {
+    if (i != -1 || j != -2)
+      abort ();
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != 2 || j != 1)
+    abort ();
+
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) create (i, j)
+  {
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != -1 || j != -2)
+    abort ();
+#endif
+
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) present_or_copyin (i, j)
+  {
+    if (i != -1 || j != -2)
+      abort ();
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != -1 || j != -2)
+    abort ();
+
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) present_or_copyout (i, j)
+  {
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != 2 || j != 1)
+    abort ();
+
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) present_or_copy (i, j)
+  {
+    if (i != -1 || j != -2)
+      abort ();
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != 2 || j != 1)
+    abort ();
+
+#if 0
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v) present (i, j)
+  {
+    if (i != -1 || j != -2)
+      abort ();
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != 2 || j != 1)
+    abort ();
+#endif
+
+#if 0
+  i = -1;
+  j = -2;
+  v = 0;
+#pragma acc parallel /* copyout */ present_or_copyout (v)
+  {
+    if (i != -1 || j != -2)
+      abort ();
+    i = 2;
+    j = 1;
+    if (i != 2 || j != 1)
+      abort ();
+    v = 1;
+  }
+  if (v != 1 || i != 2 || j != 1)
+    abort ();
+#endif
 
   return 0;
 }

@@ -1,3 +1,8 @@
+2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/data-clause-duplicate-1.c: New file.
+	* c-c++-common/goacc/deviceptr-1.c: New file.
+
 2013-11-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* g++.dg/gomp/declare-simd-1.C (f38): Make sure
@@ -189,7 +194,7 @@
 	* c-c++-common/gomp/atomic-15.c: Remove error test that is now
 	valid in OpenMP 4.0.
 
-Copyright (C) 2013 Free Software Foundation, Inc.
+Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

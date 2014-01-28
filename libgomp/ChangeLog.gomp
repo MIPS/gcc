@@ -1,3 +1,7 @@
+2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* testsuite/libgomp.oacc-c/parallel-1.c: Extend.
+
 2013-12-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp_g.h (GOACC_parallel): Switch kinds array to unsigned
@@ -711,7 +715,7 @@
 	* testsuite/libgomp.c++/atomic-12.C: New test.
 	* testsuite/libgomp.c++/atomic-13.C: New test.
 
-Copyright (C) 2013 Free Software Foundation, Inc.
+Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright
