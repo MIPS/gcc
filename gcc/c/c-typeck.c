@@ -11692,7 +11692,7 @@ c_find_omp_placeholder_r (tree *tp, int *, void *data)
   return NULL_TREE;
 }
 
-/* For all elements of CLAUSES, validate them vs OpenMP constraints.
+/* For all elements of CLAUSES, validate them against their constraints.
    Remove any elements from the list that are invalid.  */
 
 tree
@@ -11700,7 +11700,7 @@ c_finish_omp_clauses (tree clauses)
 {
   bitmap_head generic_head, firstprivate_head, lastprivate_head;
   bitmap_head aligned_head;
-  tree c, t, *pc = &clauses;
+  tree c, t, *pc;
   bool branch_seen = false;
   bool copyprivate_seen = false;
   tree *nowait_clause = NULL;

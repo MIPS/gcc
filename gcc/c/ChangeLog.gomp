@@ -1,3 +1,10 @@
+2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (c_parser_oacc_all_clauses): New function.
+	(c_parser_oacc_parallel): Use it.
+	* c-typeck.c (c_finish_omp_clauses): Update comment.  Remove
+	duplicated variable initialization.
+
 2013-11-21  Jakub Jelinek  <jakub@redhat.com>
 
 	* c-decl.c (c_builtin_function_ext_scope): Don't bind if
@@ -311,7 +318,7 @@
 	* c-parser.c (c_parser_omp_atomic): Adjust comment.
 	Add another argument to c_finish_omp_atomic.
 
-Copyright (C) 2013 Free Software Foundation, Inc.
+Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

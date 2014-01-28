@@ -9570,7 +9570,7 @@ c_parser_pragma_pch_preprocess (c_parser *parser)
     c_common_pch_pragma (parse_in, TREE_STRING_POINTER (name));
 }
 
-/* OpenMP 2.5 / 3.0 / 3.1 / 4.0 parsing routines.  */
+/* OpenACC and OpenMP parsing routines.  */
 
 /* Returns name of the next clause.
    If the clause is not recognized PRAGMA_OMP_CLAUSE_NONE is returned and
@@ -10885,9 +10885,58 @@ c_parser_omp_clause_uniform (c_parser *parser, tree list)
   return list;
 }
 
+/* Parse all OpenACC clauses.  The set clauses allowed by the directive
+   is a bitmask in MASK.  Return the list of clauses found.  */
+
+static tree
+c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
+			   const char *where, bool finish_p = true)
+{
+  tree clauses = NULL;
+  bool first = true;
+
+  while (c_parser_next_token_is_not (parser, CPP_PRAGMA_EOL))
+    {
+      location_t here;
+      pragma_omp_clause c_kind;
+      const char *c_name;
+      tree prev = clauses;
+
+      if (!first && c_parser_next_token_is (parser, CPP_COMMA))
+	c_parser_consume_token (parser);
+
+      here = c_parser_peek_token (parser)->location;
+      c_kind = c_parser_omp_clause_name (parser);
+
+      switch (c_kind)
+	{
+	default:
+	  c_parser_error (parser, "expected clause");
+	  goto saw_error;
+	}
+
+      first = false;
+
+      if (((mask >> c_kind) & 1) == 0 && !parser->error)
+	{
+	  /* Remove the invalid clause(s) from the list to avoid
+	     confusing the rest of the compiler.  */
+	  clauses = prev;
+	  error_at (here, "%qs is not valid for %qs", c_name, where);
+	}
+    }
+
+ saw_error:
+  c_parser_skip_to_pragma_eol (parser);
+
+  if (finish_p)
+    return c_finish_omp_clauses (clauses);
+
+  return clauses;
+}
+
 /* Parse all OpenMP clauses.  The set clauses allowed by the directive
-   is a bitmask in MASK.  Return the list of clauses found; the result
-   of clause default goes in *pdefault.  */
+   is a bitmask in MASK.  Return the list of clauses found.  */
 
 static tree
 c_parser_omp_all_clauses (c_parser *parser, omp_clause_mask mask,
@@ -11145,8 +11194,8 @@ c_parser_oacc_parallel (location_t loc, c_parser *parser)
 {
   tree stmt, clauses, block;
 
-  clauses =  c_parser_omp_all_clauses (parser, OACC_PARALLEL_CLAUSE_MASK,
-				       "#pragma acc parallel");
+  clauses =  c_parser_oacc_all_clauses (parser, OACC_PARALLEL_CLAUSE_MASK,
+					"#pragma acc parallel");
   gcc_assert (clauses == NULL);
 
   block = c_begin_omp_parallel ();
