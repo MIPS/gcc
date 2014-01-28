@@ -8909,13 +8909,16 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		  {
 		    tree avar = create_tmp_var (TREE_TYPE (var), NULL);
 		    mark_addressable (avar);
-		    if (OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_ALLOC
-			&& OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_FROM)
+		    enum omp_clause_map_kind map_kind
+		      = OMP_CLAUSE_MAP_KIND (c);
+		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
+			 && (map_kind & OMP_CLAUSE_MAP_TO))
+			|| map_kind == OMP_CLAUSE_MAP_POINTER)
 		      gimplify_assign (avar, var, &ilist);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
-		    if ((OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_FROM
-			 || OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_TOFROM)
+		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
+			 && (map_kind & OMP_CLAUSE_MAP_FROM))
 			&& !TYPE_READONLY (TREE_TYPE (var)))
 		      {
 			x = build_sender_ref (ovar, ctx);
@@ -10385,13 +10388,16 @@ lower_omp_target (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 		    gcc_assert (kind == GF_OMP_TARGET_KIND_REGION);
 		    tree avar = create_tmp_var (TREE_TYPE (var), NULL);
 		    mark_addressable (avar);
-		    if (OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_ALLOC
-			&& OMP_CLAUSE_MAP_KIND (c) != OMP_CLAUSE_MAP_FROM)
+		    enum omp_clause_map_kind map_kind
+		      = OMP_CLAUSE_MAP_KIND (c);
+		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
+			 && (map_kind & OMP_CLAUSE_MAP_TO))
+			|| map_kind == OMP_CLAUSE_MAP_POINTER)
 		      gimplify_assign (avar, var, &ilist);
 		    avar = build_fold_addr_expr (avar);
 		    gimplify_assign (x, avar, &ilist);
-		    if ((OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_FROM
-			 || OMP_CLAUSE_MAP_KIND (c) == OMP_CLAUSE_MAP_TOFROM)
+		    if ((!(map_kind & OMP_CLAUSE_MAP_SPECIAL)
+			 && (map_kind & OMP_CLAUSE_MAP_FROM))
 			&& !TYPE_READONLY (TREE_TYPE (var)))
 		      {
 			x = build_sender_ref (ovar, ctx);

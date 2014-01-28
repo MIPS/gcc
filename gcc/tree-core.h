@@ -1116,14 +1116,22 @@ enum omp_clause_depend_kind
 
 enum omp_clause_map_kind
 {
-  OMP_CLAUSE_MAP_ALLOC,
-  OMP_CLAUSE_MAP_TO,
-  OMP_CLAUSE_MAP_FROM,
-  OMP_CLAUSE_MAP_TOFROM,
+  /* If not already present, allocate.  */
+  OMP_CLAUSE_MAP_ALLOC = 0,
+  /* ..., and copy to device.  */
+  OMP_CLAUSE_MAP_TO = 1 << 0,
+  /* ..., and copy from device.  */
+  OMP_CLAUSE_MAP_FROM = 1 << 1,
+  /* ..., and copy to and from device.  */
+  OMP_CLAUSE_MAP_TOFROM = OMP_CLAUSE_MAP_TO | OMP_CLAUSE_MAP_FROM,
+  /* Special map kinds.  */
+  OMP_CLAUSE_MAP_SPECIAL = 1 << 2,
   /* The following kind is an internal only map kind, used for pointer based
      array sections.  OMP_CLAUSE_SIZE for these is not the pointer size,
      which is implicitly POINTER_SIZE / BITS_PER_UNIT, but the bias.  */
-  OMP_CLAUSE_MAP_POINTER,
+  OMP_CLAUSE_MAP_POINTER = OMP_CLAUSE_MAP_SPECIAL,
+
+  /* End marker.  */
   OMP_CLAUSE_MAP_LAST
 };
 
