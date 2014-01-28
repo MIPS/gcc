@@ -1,5 +1,8 @@
 2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* tree-core.h (omp_clause_code): Update description for
+	OMP_CLAUSE_MAP.
+
 	* tree-core.h (omp_clause_map_kind): Add OMP_CLAUSE_MAP_FORCE,
 	OMP_CLAUSE_MAP_FORCE_ALLOC, OMP_CLAUSE_MAP_FORCE_TO,
 	OMP_CLAUSE_MAP_FORCE_FROM, OMP_CLAUSE_MAP_FORCE_TOFROM,

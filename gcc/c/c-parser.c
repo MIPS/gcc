@@ -9601,16 +9601,26 @@ c_parser_omp_clause_name (c_parser *parser)
 	case 'c':
 	  if (!strcmp ("collapse", p))
 	    result = PRAGMA_OMP_CLAUSE_COLLAPSE;
+	  else if (!strcmp ("copy", p))
+	    result = PRAGMA_OMP_CLAUSE_COPY;
 	  else if (!strcmp ("copyin", p))
 	    result = PRAGMA_OMP_CLAUSE_COPYIN;
+	  else if (!strcmp ("copyout", p))
+	    result = PRAGMA_OMP_CLAUSE_COPYOUT;
           else if (!strcmp ("copyprivate", p))
 	    result = PRAGMA_OMP_CLAUSE_COPYPRIVATE;
+	  else if (!strcmp ("create", p))
+	    result = PRAGMA_OMP_CLAUSE_CREATE;
 	  break;
 	case 'd':
-	  if (!strcmp ("depend", p))
+	  if (!strcmp ("delete", p))
+	    result = PRAGMA_OMP_CLAUSE_DELETE;
+	  else if (!strcmp ("depend", p))
 	    result = PRAGMA_OMP_CLAUSE_DEPEND;
 	  else if (!strcmp ("device", p))
 	    result = PRAGMA_OMP_CLAUSE_DEVICE;
+	  else if (!strcmp ("deviceptr", p))
+	    result = PRAGMA_OMP_CLAUSE_DEVICEPTR;
 	  else if (!strcmp ("dist_schedule", p))
 	    result = PRAGMA_OMP_CLAUSE_DIST_SCHEDULE;
 	  break;
@@ -9659,6 +9669,16 @@ c_parser_omp_clause_name (c_parser *parser)
 	case 'p':
 	  if (!strcmp ("parallel", p))
 	    result = PRAGMA_OMP_CLAUSE_PARALLEL;
+	  else if (!strcmp ("present", p))
+	    result = PRAGMA_OMP_CLAUSE_PRESENT;
+	  else if (!strcmp ("present_or_copy", p))
+	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY;
+	  else if (!strcmp ("present_or_copyin", p))
+	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN;
+	  else if (!strcmp ("present_or_copyout", p))
+	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYOUT;
+	  else if (!strcmp ("present_or_create", p))
+	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE;
 	  else if (!strcmp ("private", p))
 	    result = PRAGMA_OMP_CLAUSE_PRIVATE;
 	  else if (!strcmp ("proc_bind", p))
@@ -9724,7 +9744,7 @@ check_no_duplicate_clause (tree clauses, enum omp_clause_code code,
       }
 }
 
-/* OpenMP 2.5:
+/* OpenACC 2.0, OpenMP 2.5:
    variable-list:
      identifier
      variable-list , identifier
@@ -9825,7 +9845,7 @@ c_parser_omp_variable_list (c_parser *parser,
 }
 
 /* Similarly, but expect leading and trailing parenthesis.  This is a very
-   common case for omp clauses.  */
+   common case for OpenACC and OpenMP clauses.  */
 
 static tree
 c_parser_omp_var_list_parens (c_parser *parser, enum omp_clause_code kind,
@@ -9839,6 +9859,107 @@ c_parser_omp_var_list_parens (c_parser *parser, enum omp_clause_code kind,
       list = c_parser_omp_variable_list (parser, loc, kind, list);
       c_parser_skip_until_found (parser, CPP_CLOSE_PAREN, "expected %<)%>");
     }
+  return list;
+}
+
+/* OpenACC 2.0:
+   copy ( variable-list )
+   copyin ( variable-list )
+   copyout ( variable-list )
+   create ( variable-list )
+   delete ( variable-list )
+   present ( variable-list )
+   present_or_copy ( variable-list )
+   present_or_copyin ( variable-list )
+   present_or_copyout ( variable-list )
+   present_or_create ( variable-list ) */
+
+static tree
+c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,
+			   tree list)
+{
+  enum omp_clause_map_kind kind;
+  switch (c_kind)
+    {
+    default:
+      gcc_unreachable ();
+    case PRAGMA_OMP_CLAUSE_COPY:
+      kind = OMP_CLAUSE_MAP_FORCE_TOFROM;
+      break;
+    case PRAGMA_OMP_CLAUSE_COPYIN:
+      kind = OMP_CLAUSE_MAP_FORCE_TO;
+      break;
+    case PRAGMA_OMP_CLAUSE_COPYOUT:
+      kind = OMP_CLAUSE_MAP_FORCE_FROM;
+      break;
+    case PRAGMA_OMP_CLAUSE_CREATE:
+      kind = OMP_CLAUSE_MAP_FORCE_ALLOC;
+      break;
+    case PRAGMA_OMP_CLAUSE_DELETE:
+      kind = OMP_CLAUSE_MAP_FORCE_DEALLOC;
+      break;
+    case PRAGMA_OMP_CLAUSE_PRESENT:
+      kind = OMP_CLAUSE_MAP_FORCE_PRESENT;
+      break;
+    case PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY:
+      kind = OMP_CLAUSE_MAP_TOFROM;
+      break;
+    case PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN:
+      kind = OMP_CLAUSE_MAP_TO;
+      break;
+    case PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYOUT:
+      kind = OMP_CLAUSE_MAP_FROM;
+      break;
+    case PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE:
+      kind = OMP_CLAUSE_MAP_ALLOC;
+      break;
+    }
+  tree nl, c;
+  nl = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_MAP, list);
+
+  for (c = nl; c != list; c = OMP_CLAUSE_CHAIN (c))
+    OMP_CLAUSE_MAP_KIND (c) = kind;
+
+  return nl;
+}
+
+/* OpenACC 2.0:
+   deviceptr ( variable-list ) */
+
+static tree
+c_parser_oacc_data_clause_deviceptr (c_parser *parser, tree list)
+{
+  location_t loc = c_parser_peek_token (parser)->location;
+  tree vars, t;
+
+  /* Can't use OMP_CLAUSE_MAP here (that is, can't use the generic
+     c_parser_oacc_data_clause), as for PRAGMA_OMP_CLAUSE_DEVICEPTR,
+     variable-list must only allow for pointer variables.  */
+  vars = c_parser_omp_var_list_parens (parser, OMP_CLAUSE_ERROR, NULL);
+  for (t = vars; t && t; t = TREE_CHAIN (t))
+    {
+      tree v = TREE_PURPOSE (t);
+
+      /* FIXME diagnostics: Ideally we should keep individual
+	 locations for all the variables in the var list to make the
+	 following errors more precise.  Perhaps
+	 c_parser_omp_var_list_parens() should construct a list of
+	 locations to go along with the var list.  */
+
+      if (TREE_CODE (v) != VAR_DECL)
+	error_at (loc, "%qD is not a variable", v);
+      else if (TREE_TYPE (v) == error_mark_node)
+	;
+      else if (!POINTER_TYPE_P (TREE_TYPE (v)))
+	error_at (loc, "%qD is not a pointer variable", v);
+
+      tree u = build_omp_clause (loc, OMP_CLAUSE_MAP);
+      OMP_CLAUSE_MAP_KIND (u) = OMP_CLAUSE_MAP_FORCE_DEVICEPTR;
+      OMP_CLAUSE_DECL (u) = v;
+      OMP_CLAUSE_CHAIN (u) = list;
+      list = u;
+    }
+
   return list;
 }
 
@@ -10910,6 +11031,50 @@ c_parser_oacc_all_clauses (c_parser *parser, omp_clause_mask mask,
 
       switch (c_kind)
 	{
+	case PRAGMA_OMP_CLAUSE_COPY:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "copy";
+	  break;
+	case PRAGMA_OMP_CLAUSE_COPYIN:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "copyin";
+	  break;
+	case PRAGMA_OMP_CLAUSE_COPYOUT:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "copyout";
+	  break;
+	case PRAGMA_OMP_CLAUSE_CREATE:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "create";
+	  break;
+	case PRAGMA_OMP_CLAUSE_DELETE:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "delete";
+	  break;
+	case PRAGMA_OMP_CLAUSE_DEVICEPTR:
+	  clauses = c_parser_oacc_data_clause_deviceptr (parser, clauses);
+	  c_name = "deviceptr";
+	  break;
+	case PRAGMA_OMP_CLAUSE_PRESENT:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "present";
+	  break;
+	case PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "present_or_copy";
+	  break;
+	case PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "present_or_copyin";
+	  break;
+	case PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYOUT:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "present_or_copyout";
+	  break;
+	case PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE:
+	  clauses = c_parser_oacc_data_clause (parser, c_kind, clauses);
+	  c_name = "present_or_create";
+	  break;
 	default:
 	  c_parser_error (parser, "expected clause");
 	  goto saw_error;
