@@ -124,6 +124,7 @@ static void set_options (gcc_jit_context *ctxt, const char *argv0)
     1);
 }
 
+#ifndef TEST_ESCHEWS_TEST_JIT
 /* Run one iteration of the test.  */
 static void
 test_jit (const char *argv0, void *user_data)
@@ -149,6 +150,7 @@ test_jit (const char *argv0, void *user_data)
   /* Once we're done with the code, this unloads the built .so file: */
   gcc_jit_result_release (result);
 }
+#endif /* #ifndef TEST_ESCHEWS_TEST_JIT */
 
 /* We want to prefix all unit test results with the test, but dejagnu.exp's
    host_execute appears to get confused by the leading "./" of argv0,

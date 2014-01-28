@@ -121,6 +121,7 @@ playback_label (label *lab);
 class context
 {
 public:
+  context (context *parent_ctxt);
   ~context ();
 
   void record (memento *m) { m_mementos.safe_push (m); }
@@ -261,6 +262,8 @@ public:
   }
 
 private:
+  context *m_parent_ctxt;
+
   int m_error_count;
   char m_first_error_str[1024];
 

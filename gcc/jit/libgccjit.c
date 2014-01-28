@@ -10,6 +10,9 @@
 
 struct gcc_jit_context : public gcc::jit::recording::context
 {
+  gcc_jit_context (gcc_jit_context *parent_ctxt) :
+    context (parent_ctxt)
+  {}
 };
 
 struct gcc_jit_result : public gcc::jit::result
@@ -127,13 +130,19 @@ jit_error (gcc_jit_context *ctxt, const char *fmt, ...)
 gcc_jit_context *
 gcc_jit_context_acquire (void)
 {
-  return new gcc_jit_context ();
+  return new gcc_jit_context (NULL);
 }
 
 void
 gcc_jit_context_release (gcc_jit_context *ctxt)
 {
   delete ctxt;
+}
+
+gcc_jit_context *
+gcc_jit_context_new_child_context (gcc_jit_context *parent_ctxt)
+{
+  return new gcc_jit_context (parent_ctxt);
 }
 
 /**********************************************************************

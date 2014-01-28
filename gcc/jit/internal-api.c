@@ -57,6 +57,35 @@ recording::playback_label (recording::label *lab)
 
 /* gcc::jit::recording::context:: */
 
+recording::context::context (context *parent_ctxt)
+  : m_parent_ctxt (parent_ctxt),
+    m_error_count (0),
+    m_mementos ()
+{
+  m_first_error_str[0] = '\0';
+
+  if (parent_ctxt)
+    {
+      /* Inherit options from parent.
+         Note that the first memcpy means copying pointers to strings.  */
+      memcpy (m_str_options,
+              parent_ctxt->m_str_options,
+              sizeof (m_str_options));
+      memcpy (m_int_options,
+              parent_ctxt->m_int_options,
+              sizeof (m_int_options));
+      memcpy (m_bool_options,
+              parent_ctxt->m_bool_options,
+              sizeof (m_bool_options));
+    }
+  else
+    {
+      memset (m_str_options, 0, sizeof (m_str_options));
+      memset (m_int_options, 0, sizeof (m_int_options));
+      memset (m_bool_options, 0, sizeof (m_bool_options));
+    }
+}
+
 recording::context::~context ()
 {
   int i;
@@ -72,6 +101,26 @@ recording::context::replay_into (replayer *r)
 {
   int i;
   memento *m;
+
+  /* If we have a parent context, we must replay it.  This will
+     recursively walk backwards up the historical tree, then replay things
+     forwards "in historical order", starting with the ultimate parent
+     context, until we reach the "this" context.
+
+     Note that we fully replay the parent, then fully replay the child,
+     which means that inter-context references can only exist from child
+     to parent, not the other way around.
+
+     All of this replaying is suboptimal - it would be better to do the
+     work for the parent context *once*, rather than replaying the parent
+     every time we replay each child.  However, fixing this requires deep
+     surgery to lifetime-management: we'd need every context family tree
+     to have its own GC heap, and to initialize the GCC code to use that
+     heap (with a mutex on such a heap).  */
+  if (m_parent_ctxt)
+    m_parent_ctxt->replay_into (r);
+
+  /* Replay this context's saved operations into r.  */
   FOR_EACH_VEC_ELT (m_mementos, i, m)
     {
       m->replay_into (r);

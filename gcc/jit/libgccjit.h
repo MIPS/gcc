@@ -753,6 +753,40 @@ extern void
 gcc_jit_loop_end (gcc_jit_loop *loop,
 		  gcc_jit_location *loc);
 
+/**********************************************************************
+ Nested contexts.
+ **********************************************************************/
+
+/* Given an existing JIT context, create a child context.
+
+   The child inherits a copy of all option-settings from the parent.
+
+   The child can reference objects created within the parent, but not
+   vice-versa.
+
+   The lifetime of the child context must be bounded by that of the
+   parent: you should release a child context before releasing the parent
+   context.
+
+   If you use a function from a parent context within a child context,
+   you have to compile the parent context before you can compile the
+   child context, and the gcc_jit_result of the parent context must
+   outlive the gcc_jit_result of the child context.
+
+   This allows caching of shared initializations.  For example, you could
+   create types and declarations of global functions in a parent context
+   once within a process, and then create child contexts whenever a
+   function or loop becomes hot. Each such child context can be used for
+   JIT-compiling just one function or loop, but can reference types
+   and helper functions created within the parent context.
+
+   Contexts can be arbitrarily nested, provided the above rules are
+   followed, but it's probably not worth going above 2 or 3 levels, and
+   there will likely be a performance hit for such nesting.  */
+
+extern gcc_jit_context *
+gcc_jit_context_new_child_context (gcc_jit_context *parent_ctxt);
+
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */

@@ -1,5 +1,14 @@
 2014-01-28  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/harness.h (test_jit): Add the possibility of turning off
+	this function, if the newly-coined "TEST_ESCHEWS_TEST_JIT" is
+	defined, for use by...
+	* jit.dg/test-nested-contexts.c: New test case, adapting
+	test-quadratic.c, but splitting it into a 3-deep arrangement of
+	nested contexts, to test the implementation of child contexts.
+
+2014-01-28  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/harness.h (test_jit): Move the various calls to set up
 	options on the context into...
 	(set_options): ...this new function.
