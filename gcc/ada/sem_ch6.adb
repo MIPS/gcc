@@ -435,7 +435,11 @@ package body Sem_Ch6 is
          --  To prevent premature freeze action, insert the new body at the end
          --  of the current declarations, or at the end of the package spec.
          --  However, resolve usage names now, to prevent spurious visibility
-         --  on later entities.
+         --  on later entities. Note that the function can now be called in
+         --  the current declarative part, which will appear to be prior to
+         --  the presence of the body in the code. There are nevertheless no
+         --  order of elaboration issues because all name resolution has taken
+         --  place at the point of declaration.
 
          declare
             Decls : List_Id            := List_Containing (N);
@@ -2995,9 +2999,23 @@ package body Sem_Ch6 is
 
             Push_Scope (Spec_Id);
 
-            --  Set SPARK_Mode from spec if spec had a SPARK_Mode pragma
+            --  Set SPARK_Mode
 
-            if Present (SPARK_Pragma (Spec_Id)) then
+            --  For internally generated subprogram, always off. But generic
+            --  instances are not generated implicitly, so are never considered
+            --  as internal, even though Comes_From_Source is false.
+
+            if not Comes_From_Source (Spec_Id)
+              and then not Is_Generic_Instance (Spec_Id)
+            then
+               SPARK_Mode := Off;
+               SPARK_Mode_Pragma := Empty;
+
+            --  Inherited from spec
+
+            elsif Present (SPARK_Pragma (Spec_Id))
+              and then not SPARK_Pragma_Inherited (Spec_Id)
+            then
                SPARK_Mode_Pragma := SPARK_Pragma (Spec_Id);
                SPARK_Mode := Get_SPARK_Mode_From_Pragma (SPARK_Mode_Pragma);
                Set_SPARK_Pragma (Body_Id, SPARK_Pragma (Spec_Id));
@@ -3055,7 +3073,20 @@ package body Sem_Ch6 is
             Generate_Reference
               (Body_Id, Body_Id, 'b', Set_Ref => False, Force => True);
             Install_Formals (Body_Id);
+
             Push_Scope (Body_Id);
+
+            --  Set SPARK_Mode from context or OFF for internal routine
+
+            if Comes_From_Source (Body_Id) then
+               Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
+               Set_SPARK_Pragma_Inherited (Body_Id, True);
+            else
+               Set_SPARK_Pragma (Body_Id, Empty);
+               Set_SPARK_Pragma_Inherited (Body_Id, False);
+               SPARK_Mode := Off;
+               SPARK_Mode_Pragma := Empty;
+            end if;
          end if;
 
          --  For stubs and bodies with no previous spec, generate references to
@@ -3601,8 +3632,16 @@ package body Sem_Ch6 is
 
       Generate_Definition (Designator);
 
-      Set_SPARK_Pragma (Designator, SPARK_Mode_Pragma);
-      Set_SPARK_Pragma_Inherited (Designator, True);
+      --  Set SPARK mode, always off for internal routines, otherwise set
+      --  from current context (may be overwritten later with explicit pragma)
+
+      if Comes_From_Source (Designator) then
+         Set_SPARK_Pragma (Designator, SPARK_Mode_Pragma);
+         Set_SPARK_Pragma_Inherited (Designator, True);
+      else
+         Set_SPARK_Pragma (Designator, Empty);
+         Set_SPARK_Pragma_Inherited (Designator, False);
+      end if;
 
       if Debug_Flag_C then
          Write_Str ("==> subprogram spec ");
@@ -11194,17 +11233,26 @@ package body Sem_Ch6 is
             Null_Exclusion_Static_Checks (Param_Spec);
          end if;
 
-         --  A function cannot have a volatile formal parameter. The following
-         --  check is relevant when SPARK_Mode is on as it is not a standard
-         --  Ada legality rule.
+         --  The following checks are relevant when SPARK_Mode is on as these
+         --  are not standard Ada legality rules.
 
          if SPARK_Mode = On
-           and then Is_Volatile_Object (Formal)
            and then Ekind_In (Scope (Formal), E_Function, E_Generic_Function)
          then
-            Error_Msg_N
-              ("function cannot have a volatile formal parameter (SPARK RM "
-               & "7.1.3(6))", Formal);
+            --  A function cannot have a parameter of mode IN OUT or OUT
+
+            if Ekind_In (Formal, E_In_Out_Parameter, E_Out_Parameter) then
+               Error_Msg_N
+                 ("function cannot have parameter of mode `OUT` or `IN OUT` "
+                  & "(SPARK RM 6.1)", Formal);
+
+            --  A function cannot have a volatile formal parameter
+
+            elsif Is_SPARK_Volatile_Object (Formal) then
+               Error_Msg_N
+                 ("function cannot have a volatile formal parameter (SPARK RM "
+                  & "7.1.3(10))", Formal);
+            end if;
          end if;
 
       <<Continue>>
@@ -11442,6 +11490,13 @@ package body Sem_Ch6 is
 
             if Present (First_Stmt) then
                Insert_List_Before_And_Analyze (First_Stmt,
+                 Freeze_Entity (Defining_Identifier (Decl), N));
+
+            --  Ditto if the type has a dynamic predicate, because the
+            --  generated function will mention the actual subtype.
+
+            elsif Has_Dynamic_Predicate_Aspect (T) then
+               Insert_List_Before_And_Analyze (Decl,
                  Freeze_Entity (Defining_Identifier (Decl), N));
             end if;
 

@@ -3869,6 +3869,7 @@ Long_Size                  : Pos; -- Standard.Long_Integer'Size
 Maximum_Alignment          : Pos; -- Maximum permitted alignment
 Max_Unaligned_Field        : Pos; -- Maximum size for unaligned bit field
 Pointer_Size               : Pos; -- System.Address'Size
+Short_Enums                : Nat; -- Short foreign convention enums?
 Short_Size                 : Pos; -- Standard.Short_Integer'Size
 Strict_Alignment           : Nat; -- Strict alignment?
 System_Allocator_Alignment : Nat; -- Alignment for malloc calls
@@ -7430,7 +7431,12 @@ the @option{-gnatR} switch). For @option{-gnatR1} (which is the default,
 so @option{-gnatR} with no parameter has the same effect), size and alignment
 information is listed for declared array and record types. For
 @option{-gnatR2}, size and alignment information is listed for all
-declared types and objects. Finally @option{-gnatR3} includes symbolic
+declared types and objects. The @code{Linker_Section} is also listed for any
+entity for which the @code{Linker_Section} is set explicitly or implicitly (the
+latter case occurs for objects of a type for which a @code{Linker_Section}
+is set).
+
+Finally @option{-gnatR3} includes symbolic
 expressions for values that are computed at run time for
 variant records. These symbolic expressions have a mostly obvious
 format with #n being used to represent the value of the n'th
@@ -14319,9 +14325,23 @@ line indentation is also 1)
 
 @noindent
 These switches control the inclusion of missing end/exit labels, and
-the indentation level in @b{case} statements.
+the indentation level in @b{case} statements, etc.
 
 @table @option
+@item --decimal-grouping=@var{n}
+@cindex @option{--decimal-grouping} @command{gnatpp}
+Put underscores in decimal literals (numeric literals without a base)
+every @var{n} characters. If a literal already has one or more
+underscores, it is not modified. For example, with
+@code{--decimal-grouping=3}, @code{1000000} will be changed to
+@code{1_000_000}.
+
+@item --based-grouping=@var{n}
+@cindex @option{--based-grouping} @command{gnatpp}
+Same as @code{--decimal-grouping}, but for based literals. For
+example, with @code{--based-grouping=4}, @code{16#0001FFFE#} will be
+changed to @code{16#0001_FFFE#}.
+
 @item ^-e^/NO_MISSED_LABELS^
 @cindex @option{^-e^/NO_MISSED_LABELS^} (@command{gnatpp})
 Do not insert missing end/exit labels. An end label is the name of
@@ -14501,6 +14521,16 @@ Display Copyright and version, then exit disregarding all other options.
 @cindex @option{--help} @command{gnatpp}
 Display usage, then exit disregarding all other options.
 
+@item --pp-off=@var{xxx}
+@cindex @option{--pp-off} @command{gnatpp}
+Use @code{--xxx} as the command to turn off pretty printing, instead
+of the default @code{--!pp off}.
+
+@item --pp-on=@var{xxx}
+@cindex @option{--pp-on} @command{gnatpp}
+Use @code{--xxx} as the command to turn pretty printing back on, instead
+of the default @code{--!pp on}.
+
 @item --pp-old
 @cindex @option{--pp-old} @command{gnatpp}
 Use the old formatting algorithms.
@@ -14535,11 +14565,52 @@ comments, program layout, and name casing.
 They provide the detailed descriptions of the switches shown above.
 
 @menu
+* Disabling Pretty Printing::
 * White Space and Empty Lines::
 * Formatting Comments::
 * Construct Layout::
 * Name Casing::
 @end menu
+
+@node Disabling Pretty Printing
+@subsection Disabling Pretty Printing
+
+@noindent
+Pretty printing is highly heuristic in nature, and sometimes doesn't
+do exactly what you want. If you wish to format a certain region of
+code by hand, you can turn off pretty printing in that region by
+surrounding it with special comments that start with @code{--!pp off}
+and @code{--!pp on}. The text in that region will then be reproduced
+verbatim in the output with no formatting.
+
+To disable pretty printing for the whole file, put @code{--!pp off} at
+the top, with no following @code{--!pp on}.
+
+The comments must appear on a line by themselves, with nothing
+preceding except spaces. The initial text of the comment must be
+exactly @code{--!pp off} or @code{--!pp on} (case sensitive), but may
+be followed by arbitrary additional text. For example:
+
+@smallexample @c ada
+@cartouche
+package Interrupts is
+   --!pp off -- turn off pretty printing so "Interrupt_Kind" lines up
+   type Interrupt_Kind is
+     (Asynchronous_Interrupt_Kind,
+       Synchronous_Interrupt_Kind,
+             Green_Interrupt_Kind);
+   --!pp on -- reenable pretty printing
+
+   ...
+@end cartouche
+@end smallexample
+
+You can specify different comment strings using the gnatpp
+@code{--pp-off} and @code{--pp-on} switches. For example, if you say
+@code{gnatpp --pp-off=' pp-' *.ad?} then gnatpp will recognize
+comments of the form @code{-- pp-} instead of @code{--!pp off} for
+disabling pretty printing. Note that the leading @code{--} of the
+comment is not included in the argument to these switches.
 
 @node White Space and Empty Lines
 @subsection White Space and Empty Lines

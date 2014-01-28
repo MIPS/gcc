@@ -1,3 +1,107 @@
+2014-01-27  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/59215
+	* include/bits/shared_ptr_base.h
+	(_Sp_counted_base<_S_atomic>::_M_add_ref_lock()): Use relaxed atomic
+	load.
+
+2014-01-27  Jason Merrill  <jason@redhat.com>
+
+	Core DR 475
+	PR c++/41174
+	PR c++/59224
+	* libsupc++/eh_throw.cc (__cxa_throw): Set uncaughtExceptions.
+	* libsupc++/eh_alloc.cc (__cxa_allocate_dependent_exception)
+	(__cxa_allocate_exception): Don't set it here.
+
+2014-01-26  Jonathan Wakely  <jwakely@redhat.com>
+
+	* include/bits/stl_map.h: Remove anachronistic comment.
+	* include/bits/stl_multimap.h: Add whitespace.
+	* testsuite/23_containers/map/modifiers/emplace/1.cc: Use
+	-std=gnu++11 instead of -std=c++11.
+	* testsuite/23_containers/map/operators/2.cc: Likewise.
+	* testsuite/23_containers/multimap/modifiers/emplace/1.cc: Likewise.
+	* testsuite/23_containers/multiset/modifiers/emplace/1.cc: Likewise.
+	* testsuite/23_containers/set/modifiers/emplace/1.cc: Likewise.
+
+	* acinclude.m4 (GLIBCXX_ENABLE_C99): Fix typo.
+	* configure: Regenerate.
+
+2014-01-24  Ed Smith-Rowland  <3dw4rd@verizon.net>
+
+	PR libstdc++/59531
+	* testsuite/experimental/string_view/operations/copy/char/1.cc: New.
+	* testsuite/experimental/string_view/operations/copy/wchar_t/1.cc: New.
+
+2014-01-24  Ed Smith-Rowland  <3dw4rd@verizon.net>
+	    Peter A. Bigot <pab@pabigot.com>
+
+	PR libstdc++/59531
+	* include/experimental/string_view
+	(copy(_CharT*, size_type, size_type) const): Correct throw string.
+	Correct copy start location.
+
+2014-01-24  Ed Smith-Rowland  <3dw4rd@verizon.net>
+	    Peter A. Bigot <pab@pabigot.com>
+
+	PR libstdc++/59530
+	* include/experimental/string_view (operator[](size_type) const):
+	Fix one-off index error in debug check.
+	* testsuite/experimental/string_view/element_access/char/1.cc: Don't
+	test basic_string_view at size().
+	* testsuite/experimental/string_view/element_access/wchar_t/1.cc: Ditto.
+
+2014-01-24  Ed Smith-Rowland  <3dw4rd@verizon.net>
+	    Peter A. Bigot <pab@pabigot.com>
+
+	PR libstdc++/59529
+	* include/experimental/string_view
+	(basic_string_view(const _CharT*, size_type)): Don't care if len == 0.
+	* testsuite/experimental/string_view/operations/substr/char/1.cc:
+	Comment out catch of out_of_range; No terminating null
+	in basic_string_view.  Check begin == end.
+	* testsuite/experimental/string_view/operations/substr/wchar_t/1.cc:
+	Ditto.
+
+2014-01-24  Jonathan Wakely  <jwakely@redhat.com>
+
+	PR libstdc++/59548
+	* include/debug/safe_base.h (_Safe_sequence_base): Define copy
+	constructor to prevent it being implicitly defined as deleted, but
+	do not copy anything.
+	* include/debug/safe_unordered_base.h (_Safe_unordered_container_base):
+	Define copy and move constructors similar to _Safe_sequence_base's.
+	* testsuite/23_containers/unordered_map/59548.cc: New.
+
+2014-01-23  Bernhard Reutner-Fischer  <aldot@gcc.gnu.org>
+	    Steve Ellcey  <sellcey@mips.com>
+
+	* acinclude.m4 (GLIBCXX_CHECK_TMPNAM): New check for tmpnam
+	function.
+	* configure.ac: Use GLIBCXX_CHECK_TMPNAM.
+	* (configure, config.h.in): Regenerate.
+	* include/c_global/cstdio: Guard ::tmpnam with _GLIBCXX_USE_TMPNAM
+
+2014-01-23  Jonathan Wakely  <jwakely@redhat.com>
+
+	* doc/xml/faq.xml (a-how_to_set_paths): Expand FAQ answer.
+	* doc/xml/manual/abi.xml (abi.versioning.history): Correct symver.
+
+	PR libstdc++/59872
+	* include/bits/stl_map.h (map::operator=(map&&)): Fix comment.
+	* include/bits/stl_multimap.h (multimap::operator=(multimap&&)):
+	Likewise.
+	* include/bits/stl_multiset.h (multiset::operator=(multiset&&)):
+	Likewise.
+	* include/bits/stl_set.h (set::operator=(set&&)): Likewise.
+	* include/bits/stl_tree.h (_Rb_tree::_M_move_data): New overloaded
+	functions to perform moving or copying of elements from rvalue tree.
+	(_Rb_tree::_Rb_tree(_Rb_tree&&)): Use _M_move_data.
+	(_Rb_tree::_Rb_tree(_Rb_tree&&, _Node_allocator&&)): Likewise.
+	* testsuite/23_containers/map/59872.cc: New.
+	* testsuite/23_containers/map/56613.cc: Remove duplicate include.
+
 2014-01-22  Jonathan Wakely  <jwakely@redhat.com>
 
 	* include/bits/stl_deque.h (_Deque_impl): Move comment.
