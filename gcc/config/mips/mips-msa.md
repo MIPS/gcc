@@ -200,6 +200,24 @@
    (V8HI "V8HI")
    (V16QI "V16QI")])
 
+;; The attribute give the integer vector mode with same size
+(define_mode_attr MODE_I
+  [(V2DF "V2DI")
+   (V4SF "V4SI")
+   (V2DI "V2DI")
+   (V4SI "V4SI")
+   (V8HI "V8HI")
+   (V16QI "V16QI")])
+
+;; The attribute give the integer vector mode with same size
+(define_mode_attr mode_i
+  [(V2DF "v2di")
+   (V4SF "v4si")
+   (V2DI "v2di")
+   (V4SI "v4si")
+   (V8HI "v8hi")
+   (V16QI "v16qi")])
+
 ;; This attribute qives suffix gives the mode of the result for "copy_s_b, copy_u_b" etc.
 (define_mode_attr RES
   [(V2DF "DF")
@@ -354,21 +372,56 @@
 	  (match_operator 3 ""
 	    [(match_operand:IMSA 4 "register_operand")
 	     (match_operand:IMSA 5 "register_operand")])
-	     (match_operand:MSA_2 1 "reg_or_m1_operand")
-	     (match_operand:MSA_2 2 "reg_or_0_operand")))]
+	  (match_operand:MSA_2 1 "reg_or_m1_operand")
+	  (match_operand:MSA_2 2 "reg_or_0_operand")))]
   "ISA_HAS_MSA
    && (GET_MODE_NUNITS (<MSA_2:MODE>mode)
        == GET_MODE_NUNITS (<IMSA:MODE>mode))"
 {
-  mips_expand_msa_vcond (operands[0], operands[1], operands[2],
-			 GET_CODE (operands[3]), operands[4], operands[5]);
+  rtx true_val = CONSTM1_RTX (<MSA_2:MODE>mode);
+  rtx false_val = CONST0_RTX (<MSA_2:MODE>mode);
+  if (operands[1] == true_val && operands[2] == false_val)
+    mips_expand_msa_vcond (operands[0], operands[1], operands[2],
+			   GET_CODE (operands[3]), operands[4], operands[5]);
+  else
+    {
+      rtx xtrue_val = CONSTM1_RTX (<MSA_2:MODE_I>mode);
+      rtx xfalse_val = CONST0_RTX (<MSA_2:MODE_I>mode);
+      rtx res = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx temp1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx temp2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx xres = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx xop1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx xop2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      mips_expand_msa_vcond (res, xtrue_val, xfalse_val,
+			     GET_CODE (operands[3]), operands[4], operands[5]);
+      // result is for -1 or 0 for need to convert for operands[1] or
+      // operands[2]
+      emit_move_insn (xres, res);
+      if (operands[1] != true_val)
+	{
+	  emit_move_insn (xop1, operands[1]);
+	  emit_insn (gen_and<MSA_2:mode_i>3 (temp1, xres, xop1));
+	}
+      else
+	emit_move_insn (temp1, xres);
+      emit_move_insn (temp2, xtrue_val);
+      emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
+      if (operands[2] != false_val)
+        {
+	  emit_move_insn (xop2, operands[2]);
+	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
+        }
+      emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
+      emit_move_insn (operands[0], xres);
+    }
   DONE;
 })
 
 (define_expand "vcond<MSA_2:mode><MSA:mode>"
   [(set (match_operand:MSA_2 0 "register_operand")
 	(if_then_else:MSA_2
-	    (match_operator 3 ""
+	  (match_operator 3 ""
 	    [(match_operand:MSA 4 "register_operand")
 	     (match_operand:MSA 5 "register_operand")])
 	  (match_operand:MSA_2 1 "reg_or_m1_operand")
@@ -377,8 +430,43 @@
    && (GET_MODE_NUNITS (<MSA_2:MODE>mode)
        == GET_MODE_NUNITS (<MSA:MODE>mode))"
 {
-  mips_expand_msa_vcond (operands[0], operands[1], operands[2],
-			 GET_CODE (operands[3]), operands[4], operands[5]);
+  rtx true_val = CONSTM1_RTX (<MSA_2:MODE>mode);
+  rtx false_val = CONST0_RTX (<MSA_2:MODE>mode);
+  if (operands[1] == true_val && operands[2] == false_val)
+    mips_expand_msa_vcond (operands[0], operands[1], operands[2],
+			   GET_CODE (operands[3]), operands[4], operands[5]);
+  else
+    {
+      rtx xtrue_val = CONSTM1_RTX (<MSA_2:MODE_I>mode);
+      rtx xfalse_val = CONST0_RTX (<MSA_2:MODE_I>mode);
+      rtx res = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx temp1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx temp2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx xres = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx xop1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx xop2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      mips_expand_msa_vcond (res, xtrue_val, xfalse_val,
+			     GET_CODE (operands[3]), operands[4], operands[5]);
+      // result is for -1 or 0 for need to convert for operands[1] or
+      // operands[2]
+      emit_move_insn (xres, res);
+      if (operands[1] != true_val)
+	{
+	  emit_move_insn (xop1, operands[1]);
+	  emit_insn (gen_and<MSA_2:mode_i>3 (temp1, xres, xop1));
+	}
+      else
+	emit_move_insn (temp1, xres);
+      emit_move_insn (temp2, xtrue_val);
+      emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
+      if (operands[2] != false_val)
+        {
+	  emit_move_insn (xop2, operands[2]);
+	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
+        }
+      emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
+      emit_move_insn (operands[0], xres);
+    }
   DONE;
 })
 
