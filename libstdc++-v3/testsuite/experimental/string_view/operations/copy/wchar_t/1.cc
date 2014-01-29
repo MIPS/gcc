@@ -1,8 +1,6 @@
-// { dg-do compile }
-// { dg-options "-std=c++11" }
-// { dg-require-normal-mode "" }
+// { dg-options "-std=gnu++1y" }
 
-// Copyright (C) 2013-2014 Free Software Foundation, Inc.
+// Copyright (C) 2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,33 +17,35 @@
 // with this library; see the file COPYING3.  If not see
 // <http://www.gnu.org/licenses/>.
 
-// { dg-error "default constructible" "" { target *-*-* } 288 }
+// basic_string_view::copy
 
-#include <unordered_set>
+#include <experimental/string_view>
+#include <stdexcept>
+#include <testsuite_hooks.h>
 
-namespace
-{
-  struct hash
-  {
-    hash(std::size_t seed)
-      : _M_seed(seed)
-    { }
-
-    std::size_t operator() (int val) const noexcept
-    { return val ^ _M_seed; }
-
-  private:
-    std::size_t _M_seed;
-  };
-}
-
-void
+bool
 test01()
 {
-  using traits = std::__detail::_Hashtable_traits<false, true, true>;
-  using hashtable = std::__uset_hashtable<int, hash,
-					  std::equal_to<int>,
-					  std::allocator<int>, traits>;
+  bool test [[gnu::unused]] = true;
 
-  hashtable ht(10, hash(1));
+  typedef std::experimental::wstring_view::size_type csize_type;
+  csize_type csz01;
+
+  const wchar_t str_lit01[] = L"123456789A";
+  const std::experimental::wstring_view str01(str_lit01);
+  wchar_t buffer[4] = { 0 };
+
+  csize_type len = str01.copy(buffer, sizeof(buffer), 8);
+  VERIFY( 2 == len );
+  VERIFY( L'9' == buffer[0] );
+
+  return test;
+}
+
+int
+main()
+{ 
+  test01();
+
+  return 0;
 }

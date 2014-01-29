@@ -5570,7 +5570,7 @@ _mm512_mask_storeu_epi64 (void *__P, __mmask8 __U, __m512i __A)
 
 extern __inline __m512i
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm512_loadu_si512 (void const *__P)
+_mm512_loadu_epi32 (void const *__P)
 {
   return (__m512i) __builtin_ia32_loaddqusi512_mask ((const __v16si *) __P,
 						     (__v16si)
@@ -5599,7 +5599,7 @@ _mm512_maskz_loadu_epi32 (__mmask16 __U, void const *__P)
 
 extern __inline void
 __attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
-_mm512_storeu_si512 (void *__P, __m512i __A)
+_mm512_storeu_epi32 (void *__P, __m512i __A)
 {
   __builtin_ia32_storedqusi512_mask ((__v16si *) __P, (__v16si) __A,
 				     (__mmask16) -1);
@@ -12687,6 +12687,13 @@ _mm_mask_cmp_ss_mask (__mmask8 __M, __m128 __X, __m128 __Y, const int __P)
 					 (__v4sf)(__m128)(Y), (int)(P), \
 					 M,_MM_FROUND_CUR_DIRECTION))
 #endif
+
+extern __inline __mmask16
+__attribute__ ((__gnu_inline__, __always_inline__, __artificial__))
+_mm512_kmov (__mmask16 __A)
+{
+  return __builtin_ia32_kmov16 (__A);
+}
 
 #ifdef __DISABLE_AVX512F__
 #undef __DISABLE_AVX512F__

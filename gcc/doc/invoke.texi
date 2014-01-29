@@ -824,7 +824,7 @@ Objective-C and Objective-C++ Dialects}.
 @gccoptlist{-meb -mel -mno-crt0}
 
 @emph{MSP430 Options}
-@gccoptlist{-msim -masm-hex -mmcu= -mlarge -msmall -mrelax}
+@gccoptlist{-msim -masm-hex -mmcu= -mcpu= -mlarge -msmall -mrelax}
 
 @emph{NDS32 Options}
 @gccoptlist{-mbig-endian -mlittle-endian @gol
@@ -919,6 +919,7 @@ See RS/6000 and PowerPC Options.
 -mpower8-fusion -mno-mpower8-fusion -mpower8-vector -mno-power8-vector @gol
 -mcrypto -mno-crypto -mdirect-move -mno-direct-move @gol
 -mquad-memory -mno-quad-memory @gol
+-mquad-memory-atomic -mno-quad-memory-atomic @gol
 -mcompat-align-parm -mno-compat-align-parm}
 
 @emph{RX Options}
@@ -11379,27 +11380,8 @@ of TLS variables.
 Specify the name of the target architecture, optionally suffixed by one or
 more feature modifiers.  This option has the form
 @option{-march=@var{arch}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-only value for @var{arch} is @samp{armv8-a}.  The possible values for
-@var{feature} are documented in the sub-section below.
-
-Where conflicting feature modifiers are specified, the right-most feature is
-used.
-
-GCC uses this name to determine what kind of instructions it can emit when
-generating assembly code.  This option can be used in conjunction with or
-instead of the @option{-mcpu=} option.
-
-@item -mcpu=@var{name}
-@opindex mcpu
-Specify the name of the target processor, optionally suffixed by one or more
-feature modifiers.  This option has the form
-@option{-mcpu=@var{cpu}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
-possible values for @var{cpu} are @samp{generic}, @samp{cortex-a53},
-@samp{cortex-a57}.  The possible values for @var{feature} are documented
-in the sub-section below.
-
-Additionally, this option can specify that the target is a big.LITTLE system.
-The only possible value is @samp{cortex-a57.cortex-a53}.
+only permissible value for @var{arch} is @samp{armv8-a}.  The permissible
+values for @var{feature} are documented in the sub-section below.
 
 Where conflicting feature modifiers are specified, the right-most feature is
 used.
@@ -11407,18 +11389,47 @@ used.
 GCC uses this name to determine what kind of instructions it can emit when
 generating assembly code.
 
+Where @option{-march} is specified without either of @option{-mtune}
+or @option{-mcpu} also being specified, the code will be tuned to perform
+well across a range of target processors implementing the target
+architecture.
+
 @item -mtune=@var{name}
 @opindex mtune
-Specify the name of the processor to tune the performance for.  The code will
-be tuned as if the target processor were of the type specified in this option,
-but still using instructions compatible with the target processor specified
-by a @option{-mcpu=} option.  Where no @option{-mtune=} option is
-specified, the code will be tuned to perform well on the target processor
-given by @option{-mcpu=} or @option{-march=}.  Where none of
-@option{-mtune=}, @option{-mcpu=} or @option{-march=} are specified,
-the code will be tuned to perform well across a range of target
-processors.  This option cannot be suffixed by feature modifiers.
+Specify the name of the target processor for which GCC should tune the
+performance of the code.  Permissible values for this option are:
+@samp{generic}, @samp{cortex-a53}, @samp{cortex-a57}.
 
+Additionally, this option can specify that GCC should tune the performance
+of the code for a big.LITTLE system.  The only permissible value is
+@samp{cortex-a57.cortex-a53}.
+
+Where none of @option{-mtune=}, @option{-mcpu=} or @option{-march=}
+are specified, the code will be tuned to perform well across a range
+of target processors.
+
+This option cannot be suffixed by feature modifiers.
+
+@item -mcpu=@var{name}
+@opindex mcpu
+Specify the name of the target processor, optionally suffixed by one or more
+feature modifiers.  This option has the form
+@option{-mcpu=@var{cpu}@r{@{}+@r{[}no@r{]}@var{feature}@r{@}*}}, where the
+permissible values for @var{cpu} are the same as those available for
+@option{-mtune}.
+
+The permissible values for @var{feature} are documented in the sub-section
+below.
+
+Where conflicting feature modifiers are specified, the right-most feature is
+used.
+
+GCC uses this name to determine what kind of instructions it can emit when
+generating assembly code (as if by @option{-march}) and to determine
+the target processor for which to tune for performance (as if
+by @option{-mtune}).  Where this option is used in conjunction
+with @option{-march} or @option{-mtune}, those options take precedence
+over the appropriate part of this option.
 @end table
 
 @subsubsection @option{-march} and @option{-mcpu} feature modifiers
@@ -18124,20 +18135,24 @@ testsuite and/or aesthetic purposes.
 
 @item -mmcu=
 @opindex mmcu=
-Select the MCU to target.  If the MCU supports the MSP430X ISA or the
-MSP430Xv2 ISA then gcc will make use of the extra instructions.  A C
-preprocessor symbol will be defined based upon the MCU name, converted
-to upper case and pre- and post- fixed with @code{__}.
+Select the MCU to target.  This is used to create a C preprocessor
+symbol based upon the MCU name, converted to upper case and pre- and
+post- fixed with @code{__}.  This in turn will be used by the
+@code{msp430.h} header file to select an MCU specific supplimentary
+header file.
 
 In addition two scripts will be added to the linker command line:
 @code{memory.ld} and @code{peripherals.ld}, with a search path based
 upon the MCU name.
 
-Note that there are three ``generic'' MCUs: @code{msp430},
-@code{msp430x} and @code{msp430xv2}, which can be used if a specific
-MCU is not being targeted.
-
 This option is also passed on to the assembler.
+
+@item -mcpu=
+@opindex -mcpu=
+Specific the ISA to use.  Accepted values are @code{msp430},
+@code{msp430x} and @code{msp430xv2}.  This option is needed in order
+to ensure that the correct instructions are generated and that the
+correct libraries are linked in.
 
 @item -msim
 @opindex msim
@@ -18839,7 +18854,8 @@ following options:
 -mpopcntb -mpopcntd  -mpowerpc64 @gol
 -mpowerpc-gpopt  -mpowerpc-gfxopt  -msingle-float -mdouble-float @gol
 -msimple-fpu -mstring  -mmulhw  -mdlmzb  -mmfpgpr -mvsx @gol
--mcrypto -mdirect-move -mpower8-fusion -mpower8-vector -mquad-memory}
+-mcrypto -mdirect-move -mpower8-fusion -mpower8-vector @gol
+-mquad-memory -mquad-memory-atomic}
 
 The particular options set for any particular CPU varies between
 compiler versions, depending on what setting seems to produce optimal
@@ -19026,8 +19042,16 @@ the vector instructions.
 @itemx -mno-quad-memory
 @opindex mquad-memory
 @opindex mno-quad-memory
-Generate code that uses (does not use) the quad word memory
+Generate code that uses (does not use) the non-atomic quad word memory
 instructions.  The @option{-mquad-memory} option requires use of
+64-bit mode.
+
+@item -mquad-memory-atomic
+@itemx -mno-quad-memory-atomic
+@opindex mquad-memory-atomic
+@opindex mno-quad-memory-atomic
+Generate code that uses (does not use) the atomic quad word memory
+instructions.  The @option{-mquad-memory-atomic} option requires use of
 64-bit mode.
 
 @item -mfloat-gprs=@var{yes/single/double/no}

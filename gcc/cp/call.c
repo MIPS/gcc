@@ -5714,13 +5714,12 @@ build_op_delete_call (enum tree_code code, tree addr, tree size,
       else
 	{
 	  tree ret;
-	  vec<tree, va_gc> *args;
-	  vec_alloc (args, 2);
+	  vec<tree, va_gc> *args = make_tree_vector ();
 	  args->quick_push (addr);
 	  if (FUNCTION_ARG_CHAIN (fn) != void_list_node)
 	    args->quick_push (size);
 	  ret = cp_build_function_call_vec (fn, &args, complain);
-	  vec_free (args);
+	  release_tree_vector (args);
 	  return ret;
 	}
     }
@@ -6569,7 +6568,7 @@ convert_for_arg_passing (tree type, tree val, tsubst_flags_t complain)
 bool
 magic_varargs_p (tree fn)
 {
-  if (flag_enable_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
+  if (flag_cilkplus && is_cilkplus_reduce_builtin (fn) != BUILT_IN_NONE)
     return true;
 
   if (DECL_BUILT_IN (fn))
@@ -7192,7 +7191,7 @@ build_cxx_call (tree fn, int nargs, tree *argarray,
     /* If it is a built-in array notation function, then the return type of
      the function is the element type of the array passed in as array 
      notation (i.e. the first parameter of the function).  */
-  if (flag_enable_cilkplus && TREE_CODE (fn) == CALL_EXPR) 
+  if (flag_cilkplus && TREE_CODE (fn) == CALL_EXPR) 
     {
       enum built_in_function bif = 
 	is_cilkplus_reduce_builtin (CALL_EXPR_FN (fn));
