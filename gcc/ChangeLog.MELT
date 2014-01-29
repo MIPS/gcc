@@ -2,6 +2,15 @@
 
 2014-01-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (pragma_lex)
+	(c_register_pragma_with_expansion_and_data)
+	(c_register_pragma_with_data): Remove weak redeclaration.
+
+	* melt/warmelt-hooks.melt: Add new cheader with above weak
+	redeclarations and melt_register_pragmas_callback.
+
+2014-01-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-01-29  Basile Starynkevitch  <basile@starynkevitch.net>

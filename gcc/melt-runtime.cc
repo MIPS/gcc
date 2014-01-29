@@ -8782,25 +8782,6 @@ melt_predefined_index_by_name (const char* pname)
 
 
 
-/*** 
-     We declare weak functions because they cannot be linked when we
-     use lto (it loses langage specific informations).  If you use one
-     of those functions you must check them to be not NULL.
-***/
-// Function pragma_lex is declared in c-family/c-pragma.h
-extern enum cpp_ttype pragma_lex (tree *) MELT_WEAK_ON_HOST;
-// Function c_register_pragma_with_expansion_and_data from c-family/c-pragma.h
-extern void
-c_register_pragma_with_expansion_and_data (const char *space,
-					   const char *name,
-					   pragma_handler_2arg handler,
-					   void *data) MELT_WEAK_ON_HOST;
-// Function c_register_pragma_with_data from c-family/c-pragma.h
-extern void
-c_register_pragma_with_data (const char *space, const char *name,
-			     pragma_handler_2arg handler,
-			     void *data) MELT_WEAK_ON_HOST;
-
 
 
 

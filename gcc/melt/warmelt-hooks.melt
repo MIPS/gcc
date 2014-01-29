@@ -167,7 +167,7 @@
 )
 
 (cheader 
- #{
+ #{ /* cheader for override gate in warmelt-hooks.melt */
    static void 
    melt_override_gate_callback (void* gccdata, 
 				void* userdata ATTRIBUTE_UNUSED)
@@ -2275,6 +2275,34 @@ exit, in last place.}#
   (debug "hook_register_pragmas start")
   )
 
+(cheader
+ #{ /* cheader for pragmas in warmelt-hooks.melt */
+/*** 
+     We declare weak functions because they cannot be linked when we
+     use lto (it loses langage specific informations).  If you use one
+     of those functions you must check them to be not NULL.
+***/
+// Function pragma_lex is declared in c-family/c-pragma.h
+extern enum cpp_ttype pragma_lex (tree *) MELT_WEAK_ON_HOST;
+// Function c_register_pragma_with_expansion_and_data from c-family/c-pragma.h
+extern void
+c_register_pragma_with_expansion_and_data (const char *space,
+					   const char *name,
+					   pragma_handler_2arg handler,
+					   void *data) MELT_WEAK_ON_HOST;
+// Function c_register_pragma_with_data from c-family/c-pragma.h
+extern void
+c_register_pragma_with_data (const char *space, const char *name,
+			     pragma_handler_2arg handler,
+			     void *data) MELT_WEAK_ON_HOST;
+
+ static void
+ melt_register_pragmas_callback (void* gccdata ATTRIBUTE_UNUSED,
+			        void* userdata ATTRIBUTE_UNUSED)
+ {
+   melthookproc_HOOK_REGISTER_PRAGMAS ();
+ } /* end of melt_register_pragmas_callback */
+ }#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
