@@ -1,4 +1,9 @@
 
+
+2014-01-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated.
+
 2014-01-29  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-predef.list: Sorted hooks in alphabetical order.

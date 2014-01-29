@@ -39,8 +39,8 @@ MELT_EXTERN const char meltrun_used_md5_melt_f5[] = MELT_RUN_HASHMD5 /* from mel
 
 
 
-class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h16403328; // forward declaration fromline 6566
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h16403328 Melt_InitialFrame;
+class Melt_InitialClassyFrame_WARMELTmiNORMATCH_h671958666; // forward declaration fromline 6566
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h671958666 Melt_InitialFrame;
 /**** no MELT module variables ****/
 
 /*** 3 MELT called hook declarations ***/
@@ -765,7 +765,7 @@ MELT_EXTERN const char melt_module_is_gpl_compatible[];
 
 /*declare opaque initial frame: */
 
-typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h16403328 /*opaqueinitialclassy*/ meltinitial_frame_t;
+typedef Melt_InitialClassyFrame_WARMELTmiNORMATCH_h671958666 /*opaqueinitialclassy*/ meltinitial_frame_t;
 
 
 /* define different names when debugging or not */
@@ -1671,7 +1671,7 @@ meltlab_endgetargs:
             ;
             /*^putpairtail*/
             /*putpairtail*/
-            melt_assertmsg("putpairtail /46a411b checkpair", melt_magic_discr((melt_ptr_t)(/*_.NSETFLAG__V34*/ meltfptr[33]))== MELTOBMAG_PAIR);
+            melt_assertmsg("putpairtail /3fc6bda8 checkpair", melt_magic_discr((melt_ptr_t)(/*_.NSETFLAG__V34*/ meltfptr[33]))== MELTOBMAG_PAIR);
             ((meltpair_ptr_t)(/*_.NSETFLAG__V34*/ meltfptr[33]))->tl = (meltpair_ptr_t) (/*_.NJUMP__V35*/ meltfptr[34]);
             ;
             /*^touch*/
@@ -47400,7 +47400,7 @@ meltlab_endgetargs:
             ;
             /*^putpairtail*/
             /*putpairtail*/
-            melt_assertmsg("putpairtail /25a8c460 checkpair", melt_magic_discr((melt_ptr_t)(/*_.NRESBIND__V213*/ meltfptr[208]))== MELTOBMAG_PAIR);
+            melt_assertmsg("putpairtail /3b13d0e5 checkpair", melt_magic_discr((melt_ptr_t)(/*_.NRESBIND__V213*/ meltfptr[208]))== MELTOBMAG_PAIR);
             ((meltpair_ptr_t)(/*_.NRESBIND__V213*/ meltfptr[208]))->tl = (meltpair_ptr_t) (/*_.CBIND__V214*/ meltfptr[207]);
             ;
             /*^touch*/
