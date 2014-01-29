@@ -5085,8 +5085,6 @@ mips_output_move (rtx dest, rtx src)
 		      else
 			return "ldi.%v0\t%w0,0";
 		    }
-		  else
-		    gcc_unreachable ();
 		}
 
 	      return dbl_p ? "dmtc1\t%z1,%0" : "mtc1\t%z1,%0";
@@ -20717,10 +20715,9 @@ mips_expand_msa_vcond (rtx dest, rtx true_src, rtx false_src,
   if (reversed_p)
     mips_expand_msa_one_cmpl (dest, dest);
 
-  /* Check if we can emit one compare instruction for vectors of -1 or 0.  */
-  if (true_src != CONSTM1_RTX (dest_mode)
-      || false_src != CONST0_RTX (dest_mode))
-    gcc_unreachable ();
+  /* MSA vcond only produces result -1 and 0 for true and false.  */
+  gcc_assert ((true_src == CONSTM1_RTX (dest_mode))
+	      && (false_src == CONST0_RTX (dest_mode)));
 }
 
 /* Implement HARD_REGNO_CALLER_SAVE_MODE.  */
