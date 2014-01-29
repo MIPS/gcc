@@ -50,6 +50,12 @@ extern void fatal_error (const char *, ...);
 
 #define MELT_EXTERN extern "C"
 
+// A function attribute for weak names on the host computer
+// (i.e. inside cc1plus). Ideally it should be configurable....  Don't
+// confuse with TARGET_ATTRIBUTE_WEAK from defaults.h which applies to
+// the target system, not the host one!
+#define MELT_WEAK_ON_HOST __attribute__((weak))
+
 /* MELTGCC_DYNAMIC_OBJSTRUCT is a cute hack to "dynamically" compute field
    positions; this is only used to compile warmelt-*-0.c files notably
    when new fields have been added in warmelt-first.melt. When

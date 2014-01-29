@@ -1,5 +1,20 @@
 
 
+2014-01-29  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Redesigning pragma support thru hooks; first removing old
+	support...}}
+	* melt-runtime.h (MELT_WEAK_ON_HOST): Add macro for weak function
+	attribute on host machine, i.e. inside cc1plus or lto1...
+
+	* melt-runtime.cc (pragma_lex)
+	(c_register_pragma_with_expansion_and_data)
+	(c_register_pragma_with_data): Redeclare external functions using
+	MELT_WEAK_ON_HOST.
+
+	* melt/warmelt-base.melt (register_pragma_handler): Temporarily
+	remove it.
+
 2014-01-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (meltgc_send): Add comment near each
