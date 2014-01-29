@@ -244,7 +244,7 @@ is_builtin_name (const char *name)
     return true;
   if (strncmp (name, "__atomic_", 9) == 0)
     return true;
-  if (flag_enable_cilkplus 
+  if (flag_cilkplus 
       && (!strcmp (name, "__cilkrts_detach")   
 	  || !strcmp (name, "__cilkrts_pop_frame")))
     return true;
@@ -6201,20 +6201,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	     not want to be both on the list of non-local labels and on
 	     the list of forced labels.  */
 	  FORCED_LABEL (label) = 0;
-	  return const0_rtx;
-	}
-      break;
-
-    case BUILT_IN_SETJMP_DISPATCHER:
-       /* __builtin_setjmp_dispatcher is passed the dispatcher label.  */
-      if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
-	{
-	  tree label = TREE_OPERAND (CALL_EXPR_ARG (exp, 0), 0);
-	  rtx label_r = label_rtx (label);
-
-	  /* Remove the dispatcher label from the list of non-local labels
-	     since the receiver labels have been added to it above.  */
-	  remove_node_from_expr_list (label_r, &nonlocal_goto_handler_labels);
 	  return const0_rtx;
 	}
       break;

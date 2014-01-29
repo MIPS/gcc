@@ -106,6 +106,10 @@ package body Exp_Util is
    --  record with task components, or for a dynamically created task that is
    --  assigned to a selected component.
 
+   procedure Evaluate_Slice_Bounds (Slice : Node_Id);
+   --  Force evaluation of bounds of a slice, which may be given by a range
+   --  or by a subtype indication with or without a constraint.
+
    function Make_CW_Equivalent_Type
      (T : Entity_Id;
       E : Node_Id) return Entity_Id;
@@ -1399,6 +1403,12 @@ package body Exp_Util is
                          Low_Bound => Make_Integer_Literal (Loc, 1),
                          High_Bound => New_Occurrence_Of (Len, Loc)))))));
 
+      --  Indicate that the result is an internal temporary, so it does not
+      --  receive a bogus initialization when declaration is expanded. This
+      --  is both efficient, and prevents anomalies in the handling of
+      --  dynamic objects on the secondary stack.
+
+      Set_Is_Internal (Res);
       Pos := Make_Temporary (Loc, 'P');
 
       Append_To (Decls,
@@ -1835,28 +1845,7 @@ package body Exp_Util is
 
       elsif K = N_Slice then
          Evaluate_Name (Prefix (Nam));
-
-         declare
-            DR     : constant Node_Id := Discrete_Range (Nam);
-            Constr : Node_Id;
-            Rexpr  : Node_Id;
-
-         begin
-            if Nkind (DR) = N_Range then
-               Force_Evaluation (Low_Bound (DR));
-               Force_Evaluation (High_Bound (DR));
-
-            elsif Nkind (DR) = N_Subtype_Indication then
-               Constr := Constraint (DR);
-
-               if Nkind (Constr) = N_Range_Constraint then
-                  Rexpr := Range_Expression (Constr);
-
-                  Force_Evaluation (Low_Bound (Rexpr));
-                  Force_Evaluation (High_Bound (Rexpr));
-               end if;
-            end if;
-         end;
+         Evaluate_Slice_Bounds (Nam);
 
       --  For a type conversion, the expression of the conversion must be the
       --  name of an object, and we simply need to evaluate this name.
@@ -1877,6 +1866,32 @@ package body Exp_Util is
          return;
       end if;
    end Evaluate_Name;
+
+   ---------------------------
+   -- Evaluate_Slice_Bounds --
+   ---------------------------
+
+   procedure Evaluate_Slice_Bounds (Slice : Node_Id) is
+      DR     : constant Node_Id := Discrete_Range (Slice);
+      Constr : Node_Id;
+      Rexpr  : Node_Id;
+
+   begin
+      if Nkind (DR) = N_Range then
+         Force_Evaluation (Low_Bound (DR));
+         Force_Evaluation (High_Bound (DR));
+
+      elsif Nkind (DR) = N_Subtype_Indication then
+         Constr := Constraint (DR);
+
+         if Nkind (Constr) = N_Range_Constraint then
+            Rexpr := Range_Expression (Constr);
+
+            Force_Evaluation (Low_Bound (Rexpr));
+            Force_Evaluation (High_Bound (Rexpr));
+         end if;
+      end if;
+   end Evaluate_Slice_Bounds;
 
    ---------------------
    -- Evolve_And_Then --
@@ -2067,8 +2082,7 @@ package body Exp_Util is
             --  we better make sure that if a variable was used as a bound of
             --  of the original slice, its value is frozen.
 
-            Force_Evaluation (Low_Bound (Scalar_Range (Slice_Type)));
-            Force_Evaluation (High_Bound (Scalar_Range (Slice_Type)));
+            Evaluate_Slice_Bounds (Exp);
          end;
 
       elsif Ekind (Exp_Typ) = E_String_Literal_Subtype then
@@ -3829,7 +3843,6 @@ package body Exp_Util is
                N_Single_Protected_Declaration           |
                N_Slice                                  |
                N_String_Literal                         |
-               N_Subprogram_Info                        |
                N_Subtype_Indication                     |
                N_Subunit                                |
                N_Task_Definition                        |
@@ -4678,7 +4691,7 @@ package body Exp_Util is
             --  The following code is historical, it used to be present but it
             --  is too cautious, because the front-end does not know the proper
             --  default alignments for the target. Also, if the alignment is
-            --  not known, the front end can't know in any case! If a copy is
+            --  not known, the front end can't know in any case. If a copy is
             --  needed, the back-end will take care of it. This whole section
             --  including this comment can be removed later ???
 
@@ -5567,11 +5580,12 @@ package body Exp_Util is
       Typ := Etype (Expr);
 
       --  Subtypes may be subject to invariants coming from their respective
-      --  base types.
+      --  base types. The subtype may be fully or partially private.
 
       if Ekind_In (Typ, E_Array_Subtype,
                         E_Private_Subtype,
-                        E_Record_Subtype)
+                        E_Record_Subtype,
+                        E_Record_Subtype_With_Private)
       then
          Typ := Base_Type (Typ);
       end if;
@@ -6211,7 +6225,7 @@ package body Exp_Util is
             end;
 
          --  For a slice, test the prefix, if that is possibly misaligned,
-         --  then for sure the slice is!
+         --  then for sure the slice is.
 
          when N_Slice =>
             return Possible_Bit_Aligned_Component (Prefix (N));
@@ -7944,7 +7958,7 @@ package body Exp_Util is
       --  We need the last guard because we don't want to raise CE for empty
       --  arrays since no out of range values result. (Empty arrays with a
       --  component type of True .. True -- very useful -- even the ACATS
-      --  does not test that marginal case!)
+      --  does not test that marginal case).
 
       Insert_Action (N,
         Make_Raise_Constraint_Error (Loc,
@@ -7995,7 +8009,7 @@ package body Exp_Util is
       --  We need the last guard because we don't want to raise CE for empty
       --  arrays since no out of range values result (Empty arrays with a
       --  component type of True .. True -- very useful -- even the ACATS
-      --  does not test that marginal case!).
+      --  does not test that marginal case).
 
       Insert_Action (N,
         Make_Raise_Constraint_Error (Loc,
@@ -8025,7 +8039,7 @@ package body Exp_Util is
 
    Integer_Sized_Small : Ureal;
    --  Set to 2.0 ** -(Integer'Size - 1) the first time that this function is
-   --  called (we don't want to compute it more than once!)
+   --  called (we don't want to compute it more than once).
 
    Long_Integer_Sized_Small : Ureal;
    --  Set to 2.0 ** -(Long_Integer'Size - 1) the first time that this function

@@ -91,14 +91,15 @@ package body Sem_Ch3 is
    --  abstract interface types implemented by a record type or a derived
    --  record type.
 
-   procedure Analyze_Variable_Contract (Var_Id : Entity_Id);
-   --  Analyze all delayed aspects chained on the contract of variable Var_Id
-   --  as if they appeared at the end of the declarative region. The aspects
-   --  to be considered are:
+   procedure Analyze_Object_Contract (Obj_Id : Entity_Id);
+   --  Analyze all delayed aspects chained on the contract of object Obj_Id as
+   --  if they appeared at the end of the declarative region. The aspects to be
+   --  considered are:
    --    Async_Readers
    --    Async_Writers
    --    Effective_Reads
    --    Effective_Writes
+   --    Part_Of
 
    procedure Build_Derived_Type
      (N             : Node_Id;
@@ -2086,12 +2087,6 @@ package body Sem_Ch3 is
       --  If the states have visible refinement, remove the visibility of each
       --  constituent at the end of the package body declarations.
 
-      function Requires_State_Refinement
-        (Spec_Id : Entity_Id;
-         Body_Id : Entity_Id) return Boolean;
-      --  Determine whether a package denoted by its spec and body entities
-      --  requires refinement of abstract states.
-
       -----------------
       -- Adjust_Decl --
       -----------------
@@ -2185,89 +2180,11 @@ package body Sem_Ch3 is
          end if;
       end Remove_Visible_Refinements;
 
-      -------------------------------
-      -- Requires_State_Refinement --
-      -------------------------------
-
-      function Requires_State_Refinement
-        (Spec_Id : Entity_Id;
-         Body_Id : Entity_Id) return Boolean
-      is
-         function Mode_Is_Off (Prag : Node_Id) return Boolean;
-         --  Given pragma SPARK_Mode, determine whether the mode is Off
-
-         -----------------
-         -- Mode_Is_Off --
-         -----------------
-
-         function Mode_Is_Off (Prag : Node_Id) return Boolean is
-            Mode : Node_Id;
-
-         begin
-            --  The default SPARK mode is On
-
-            if No (Prag) then
-               return False;
-            end if;
-
-            Mode :=
-              Get_Pragma_Arg (First (Pragma_Argument_Associations (Prag)));
-
-            --  Then the pragma lacks an argument, the default mode is On
-
-            if No (Mode) then
-               return False;
-            else
-               return Chars (Mode) = Name_Off;
-            end if;
-         end Mode_Is_Off;
-
-      --  Start of processing for Requires_State_Refinement
-
-      begin
-         --  A package that does not define at least one abstract state cannot
-         --  possibly require refinement.
-
-         if No (Abstract_States (Spec_Id)) then
-            return False;
-
-         --  The package instroduces a single null state which does not merit
-         --  refinement.
-
-         elsif Has_Null_Abstract_State (Spec_Id) then
-            return False;
-
-         --  Check whether the package body is subject to pragma SPARK_Mode. If
-         --  it is and the mode is Off, the package body is considered to be in
-         --  regular Ada and does not require refinement.
-
-         elsif Mode_Is_Off (SPARK_Pragma (Body_Id)) then
-            return False;
-
-         --  The body's SPARK_Mode may be inherited from a similar pragma that
-         --  appears in the private declarations of the spec. The pragma we are
-         --  interested appears as the second entry in SPARK_Pragma.
-
-         elsif Present (SPARK_Pragma (Spec_Id))
-           and then Mode_Is_Off (Next_Pragma (SPARK_Pragma (Spec_Id)))
-         then
-            return False;
-
-         --  The spec defines at least one abstract state and the body has no
-         --  way of circumventing the refinement.
-
-         else
-            return True;
-         end if;
-      end Requires_State_Refinement;
-
       --  Local variables
 
-      Body_Id     : Entity_Id;
       Context     : Node_Id;
       Freeze_From : Entity_Id := Empty;
       Next_Decl   : Node_Id;
-      Prag        : Node_Id;
       Spec_Id     : Entity_Id;
 
       Body_Seen : Boolean := False;
@@ -2333,8 +2250,14 @@ package body Sem_Ch3 is
                   Freeze_From := First_Entity (Current_Scope);
                end if;
 
+               --  There may have been several freezing points previously,
+               --  for example object declarations or subprogram bodies, but
+               --  at the end of a declarative part we check freezing from
+               --  the beginning, even though entities may already be frozen,
+               --  in order to perform visibility checks on delayed aspects.
+
                Adjust_Decl;
-               Freeze_All (Freeze_From, Decl);
+               Freeze_All (First_Entity (Current_Scope), Decl);
                Freeze_From := Last_Entity (Current_Scope);
 
             elsif Scope (Current_Scope) /= Standard_Standard
@@ -2348,7 +2271,7 @@ package body Sem_Ch3 is
                or else Is_Empty_List (Private_Declarations (Parent (L)))
             then
                Adjust_Decl;
-               Freeze_All (Freeze_From, Decl);
+               Freeze_All (First_Entity (Current_Scope), Decl);
                Freeze_From := Last_Entity (Current_Scope);
             end if;
 
@@ -2378,10 +2301,22 @@ package body Sem_Ch3 is
             --  This ensures that the primitive will override its inherited
             --  counterpart before the freeze takes place.
 
+            --  If the declaration we just processed is a body, do not attempt
+            --  to examine Next_Decl as the late primitive idiom can only apply
+            --  to the first encountered body.
+
+            --  The spec of the late primitive is not generated in ASIS mode to
+            --  ensure a consistent list of primitives that indicates the true
+            --  semantic structure of the program (which is not relevant when
+            --  generating executable code.
+
             --  ??? a cleaner approach may be possible and/or this solution
             --  could be extended to general-purpose late primitives, TBD.
 
-            if not Body_Seen and then not Is_Body (Decl) then
+            if not ASIS_Mode
+              and then not Body_Seen
+              and then not Is_Body (Decl)
+            then
                Body_Seen := True;
 
                if Nkind (Next_Decl) = N_Subprogram_Body then
@@ -2397,54 +2332,21 @@ package body Sem_Ch3 is
          Decl := Next_Decl;
       end loop;
 
+      --  Analyze the contracts of packages and their bodies
+
       if Present (L) then
          Context := Parent (L);
-
-         --  Analyze pragmas Initializes and Initial_Condition of a package at
-         --  the end of the visible declarations as the pragmas have visibility
-         --  over the said region.
 
          if Nkind (Context) = N_Package_Specification
            and then L = Visible_Declarations (Context)
          then
-            Spec_Id := Defining_Entity (Parent (Context));
-            Prag    := Get_Pragma (Spec_Id, Pragma_Initializes);
-
-            if Present (Prag) then
-               Analyze_Initializes_In_Decl_Part (Prag);
-            end if;
-
-            Prag := Get_Pragma (Spec_Id, Pragma_Initial_Condition);
-
-            if Present (Prag) then
-               Analyze_Initial_Condition_In_Decl_Part (Prag);
-            end if;
-
-         --  Analyze the state refinements within a package body now, after
-         --  all hidden states have been encountered and freely visible.
-         --  Refinements must be processed before pragmas Refined_Depends and
-         --  Refined_Global because the last two may mention constituents.
+            Analyze_Package_Contract (Defining_Entity (Context));
 
          elsif Nkind (Context) = N_Package_Body then
             In_Package_Body := True;
-
-            Body_Id := Defining_Entity (Context);
             Spec_Id := Corresponding_Spec (Context);
-            Prag    := Get_Pragma (Body_Id, Pragma_Refined_State);
 
-            --  The analysis of pragma Refined_State detects whether the spec
-            --  has abstract states available for refinement.
-
-            if Present (Prag) then
-               Analyze_Refined_State_In_Decl_Part (Prag);
-
-            --  State refinement is required when the package declaration has
-            --  abstract states. Null states are not considered.
-
-            elsif Requires_State_Refinement (Spec_Id, Body_Id) then
-               Error_Msg_NE
-                 ("package & requires state refinement", Context, Spec_Id);
-            end if;
+            Analyze_Package_Body_Contract (Defining_Entity (Context));
          end if;
       end if;
 
@@ -2454,16 +2356,14 @@ package body Sem_Ch3 is
 
       Decl := First (L);
       while Present (Decl) loop
-         if Nkind (Decl) = N_Subprogram_Body then
+         if Nkind (Decl) = N_Object_Declaration then
+            Analyze_Object_Contract (Defining_Entity (Decl));
+
+         elsif Nkind (Decl) = N_Subprogram_Body then
             Analyze_Subprogram_Body_Contract (Defining_Entity (Decl));
 
          elsif Nkind (Decl) = N_Subprogram_Declaration then
             Analyze_Subprogram_Contract (Defining_Entity (Decl));
-
-         elsif Nkind (Decl) = N_Object_Declaration
-           and then Ekind (Defining_Entity (Decl)) = E_Variable
-         then
-            Analyze_Variable_Contract (Defining_Entity (Decl));
          end if;
 
          Next (Decl);
@@ -3052,6 +2952,109 @@ package body Sem_Ch3 is
          Set_Etype (E, Any_Type);
       end if;
    end Analyze_Number_Declaration;
+
+   -----------------------------
+   -- Analyze_Object_Contract --
+   -----------------------------
+
+   procedure Analyze_Object_Contract (Obj_Id : Entity_Id) is
+      AR_Val : Boolean := False;
+      AW_Val : Boolean := False;
+      ER_Val : Boolean := False;
+      EW_Val : Boolean := False;
+      Prag   : Node_Id;
+      Seen   : Boolean := False;
+
+   begin
+      if Ekind (Obj_Id) = E_Constant then
+
+         --  A constant cannot be volatile. This check is only relevant when
+         --  SPARK_Mode is on as it is not standard Ada legality rule. Do not
+         --  flag internally-generated constants that map generic formals to
+         --  actuals in instantiations.
+
+         if SPARK_Mode = On
+           and then Is_SPARK_Volatile_Object (Obj_Id)
+           and then No (Corresponding_Generic_Association (Parent (Obj_Id)))
+         then
+            Error_Msg_N
+              ("constant cannot be volatile (SPARK RM 7.1.3(4))", Obj_Id);
+         end if;
+
+      else pragma Assert (Ekind (Obj_Id) = E_Variable);
+
+         --  The following checks are only relevant when SPARK_Mode is on as
+         --  they are not standard Ada legality rules.
+
+         if SPARK_Mode = On then
+
+            --  A non-volatile object cannot have volatile components
+
+            if not Is_SPARK_Volatile_Object (Obj_Id)
+              and then Has_Volatile_Component (Etype (Obj_Id))
+            then
+               Error_Msg_N
+                 ("non-volatile variable & cannot have volatile components "
+                  & "(SPARK RM 7.1.3(6))", Obj_Id);
+
+            --  The declaration of a volatile object must appear at the library
+            --  level.
+
+            elsif Is_SPARK_Volatile_Object (Obj_Id)
+              and then not Is_Library_Level_Entity (Obj_Id)
+            then
+               Error_Msg_N
+                 ("volatile variable & must be declared at library level "
+                  & "(SPARK RM 7.1.3(5))", Obj_Id);
+            end if;
+         end if;
+
+         --  Analyze all external properties
+
+         Prag := Get_Pragma (Obj_Id, Pragma_Async_Readers);
+
+         if Present (Prag) then
+            Analyze_External_Property_In_Decl_Part (Prag, AR_Val);
+            Seen := True;
+         end if;
+
+         Prag := Get_Pragma (Obj_Id, Pragma_Async_Writers);
+
+         if Present (Prag) then
+            Analyze_External_Property_In_Decl_Part (Prag, AW_Val);
+            Seen := True;
+         end if;
+
+         Prag := Get_Pragma (Obj_Id, Pragma_Effective_Reads);
+
+         if Present (Prag) then
+            Analyze_External_Property_In_Decl_Part (Prag, ER_Val);
+            Seen := True;
+         end if;
+
+         Prag := Get_Pragma (Obj_Id, Pragma_Effective_Writes);
+
+         if Present (Prag) then
+            Analyze_External_Property_In_Decl_Part (Prag, EW_Val);
+            Seen := True;
+         end if;
+
+         --  Verify the mutual interaction of the various external properties
+
+         if Seen then
+            Check_External_Properties (Obj_Id, AR_Val, AW_Val, ER_Val, EW_Val);
+         end if;
+
+         --  Check whether the lack of indicator Part_Of agrees with the
+         --  placement of the variable with respect to the state space.
+
+         Prag := Get_Pragma (Obj_Id, Pragma_Part_Of);
+
+         if No (Prag) then
+            Check_Missing_Part_Of (Obj_Id);
+         end if;
+      end if;
+   end Analyze_Object_Contract;
 
    --------------------------------
    -- Analyze_Object_Declaration --
@@ -3874,7 +3877,7 @@ package body Sem_Ch3 is
 
          --  If not library level entity, then indicate we don't know max
          --  tasks and also check task hierarchy restriction and blocking
-         --  operation (since starting a task is definitely blocking!)
+         --  operation (since starting a task is definitely blocking).
 
          else
             Check_Restriction (Max_Tasks, N);
@@ -4001,7 +4004,7 @@ package body Sem_Ch3 is
       --  common destination for legal and illegal object declarations.
 
       if Ekind (Id) = E_Variable then
-         Set_Refined_State (Id, Empty);
+         Set_Encapsulating_State (Id, Empty);
       end if;
 
       if Has_Aspects (N) then
@@ -4739,7 +4742,7 @@ package body Sem_Ch3 is
       --  record.
 
       elsif Ekind (Scope (Id)) /= E_Protected_Type
-        and then Present (Scope (Scope (Id))) -- error defense!
+        and then Present (Scope (Scope (Id))) -- error defense
         and then Ekind (Scope (Scope (Id))) /= E_Protected_Type
       then
          Conditional_Delay (Id, T);
@@ -4870,73 +4873,6 @@ package body Sem_Ch3 is
          Set_Error_Posted (T);
       end if;
    end Analyze_Subtype_Indication;
-
-   -------------------------------
-   -- Analyze_Variable_Contract --
-   -------------------------------
-
-   procedure Analyze_Variable_Contract (Var_Id : Entity_Id) is
-      Items  : constant Node_Id := Contract (Var_Id);
-      AR_Val : Boolean := False;
-      AW_Val : Boolean := False;
-      ER_Val : Boolean := False;
-      EW_Val : Boolean := False;
-      Nam    : Name_Id;
-      Prag   : Node_Id;
-      Seen   : Boolean := False;
-
-   begin
-      --  The declaration of a volatile variable must appear at the library
-      --  level. The check is only relevant when SPARK_Mode is on as it is not
-      --  standard Ada legality rule.
-
-      if SPARK_Mode = On
-        and then Is_Volatile_Object (Var_Id)
-        and then not Is_Library_Level_Entity (Var_Id)
-      then
-         Error_Msg_N
-           ("volatile variable & must be declared at library level (SPARK RM "
-            & "7.1.3(3))", Var_Id);
-      end if;
-
-      --  Examine the contract
-
-      if Present (Items) then
-
-         --  Analyze classification pragmas
-
-         Prag := Classifications (Items);
-         while Present (Prag) loop
-            Nam := Pragma_Name (Prag);
-
-            if Nam = Name_Async_Readers then
-               Analyze_External_State_In_Decl_Part (Prag, AR_Val);
-               Seen := True;
-
-            elsif Nam = Name_Async_Writers then
-               Analyze_External_State_In_Decl_Part (Prag, AW_Val);
-               Seen := True;
-
-            elsif Nam = Name_Effective_Reads then
-               Analyze_External_State_In_Decl_Part (Prag, ER_Val);
-               Seen := True;
-
-            else pragma Assert (Nam = Name_Effective_Writes);
-               Analyze_External_State_In_Decl_Part (Prag, EW_Val);
-               Seen := True;
-            end if;
-
-            Prag := Next_Pragma (Prag);
-         end loop;
-      end if;
-
-      --  Once all external properties have been processed, verify their mutual
-      --  interaction.
-
-      if Seen then
-         Check_External_Properties (Var_Id, AR_Val, AW_Val, ER_Val, EW_Val);
-      end if;
-   end Analyze_Variable_Contract;
 
    --------------------------
    -- Analyze_Variant_Part --
@@ -9209,8 +9145,8 @@ package body Sem_Ch3 is
       --  be unanalyzed at this point? and if it is, what business do we
       --  have messing around with it? and why is the base type of the
       --  parent type the right type for the resolution. It probably is
-      --  not! It is OK for the new bound we are creating, but not for
-      --  the old one??? Still if it never happens, no problem!
+      --  not. It is OK for the new bound we are creating, but not for
+      --  the old one??? Still if it never happens, no problem.
 
       Analyze_And_Resolve (Bound, Base_Type (Par_T));
 
@@ -9672,18 +9608,17 @@ package body Sem_Ch3 is
                elsif Is_Concurrent_Record_Type (T)
                  and then Present (Interfaces (T))
                then
-                  --  The controlling formal of Subp must be of mode "out",
-                  --  "in out" or an access-to-variable to be overridden.
+                  --  If an inherited subprogram is implemented by a protected
+                  --  procedure or an entry, then the first parameter of the
+                  --  inherited subprogram shall be of mode OUT or IN OUT, or
+                  --  an access-to-variable parameter (RM 9.4(11.9/3))
 
-                  if Ekind (First_Formal (Subp)) = E_In_Parameter
+                  if Is_Protected_Type (Corresponding_Concurrent_Type (T))
+                    and then Ekind (First_Formal (Subp)) = E_In_Parameter
                     and then Ekind (Subp) /= E_Function
+                    and then not Is_Predefined_Dispatching_Operation (Subp)
                   then
-                     if not Is_Predefined_Dispatching_Operation (Subp)
-                       and then Is_Protected_Type
-                                  (Corresponding_Concurrent_Type (T))
-                     then
-                        Error_Msg_PT (T, Subp);
-                     end if;
+                     Error_Msg_PT (T, Subp);
 
                   --  Some other kind of overriding failure
 
@@ -10745,7 +10680,7 @@ package body Sem_Ch3 is
       Set_Is_Itype         (Full);
 
       --  A subtype of a private-type-without-discriminants, whose full-view
-      --  has discriminants with default expressions, is not constrained!
+      --  has discriminants with default expressions, is not constrained.
 
       if not Has_Discriminants (Priv) then
          Set_Is_Constrained (Full, Is_Constrained (Full_Base));
@@ -11087,10 +11022,13 @@ package body Sem_Ch3 is
       --  If previous full declaration or a renaming declaration exists, or if
       --  a homograph is present, let Enter_Name handle it, either with an
       --  error or with the removal of an overridden implicit subprogram.
+      --  The previous one is a full declaration if it has an expression
+      --  (which in the case of an aggregate is indicated by the Init flag).
 
       if Ekind (Prev) /= E_Constant
         or else Nkind (Parent (Prev)) = N_Object_Renaming_Declaration
         or else Present (Expression (Parent (Prev)))
+        or else Has_Init_Expression (Parent (Prev))
         or else Present (Full_View (Prev))
       then
          Enter_Name (Id);
@@ -12128,7 +12066,7 @@ package body Sem_Ch3 is
       procedure Fixup_Bad_Constraint;
       --  This is called after finding a bad constraint, and after having
       --  posted an appropriate error message. The mission is to leave the
-      --  entity T in as reasonable state as possible!
+      --  entity T in as reasonable state as possible.
 
       --------------------------
       -- Fixup_Bad_Constraint --
@@ -12303,7 +12241,7 @@ package body Sem_Ch3 is
 
          --  Check that digits value is in range. Obviously we can do this
          --  at compile time, but it is strictly a runtime check, and of
-         --  course there is an ACVC test that checks this!
+         --  course there is an ACVC test that checks this.
 
          if Digits_Value (Def_Id) > Digits_Value (T) then
             Error_Msg_Uint_1 := Digits_Value (T);
@@ -12530,7 +12468,7 @@ package body Sem_Ch3 is
 
          --  Check that delta value is in range. Obviously we can do this
          --  at compile time, but it is strictly a runtime check, and of
-         --  course there is an ACVC test that checks this!
+         --  course there is an ACVC test that checks this.
 
          if Delta_Value (Def_Id) < Delta_Value (T) then
             Error_Msg_N ("??delta value is too small", D);
@@ -12906,7 +12844,7 @@ package body Sem_Ch3 is
          --  Set the parent so we have a proper link for freezing etc. This is
          --  not a real parent pointer, since of course our parent does not own
          --  up to us and reference us, we are an illegitimate child of the
-         --  original parent!
+         --  original parent.
 
          Set_Parent (New_Compon, Parent (Old_Compon));
 
@@ -17407,7 +17345,7 @@ package body Sem_Ch3 is
 
    begin
       --  If the mod expression is (exactly) 2 * literal, where literal is
-      --  64 or less,then almost certainly the * was meant to be **. Warn!
+      --  64 or less,then almost certainly the * was meant to be **. Warn.
 
       if Warn_On_Suspicious_Modulus_Value
         and then Nkind (Mod_Expr) = N_Op_Multiply
@@ -17453,7 +17391,7 @@ package body Sem_Ch3 is
 
       --  Properly analyze the literals for the range. We do this manually
       --  because we can't go calling Resolve, since we are resolving these
-      --  bounds with the type, and this type is certainly not complete yet!
+      --  bounds with the type, and this type is certainly not complete yet.
 
       Set_Etype (Low_Bound  (Scalar_Range (T)), T);
       Set_Etype (High_Bound (Scalar_Range (T)), T);
@@ -18054,6 +17992,16 @@ package body Sem_Ch3 is
                   Error_Msg_N ("\cannot have defaults", Expression (Discr));
                end if;
             end if;
+         end if;
+
+         --  A discriminant cannot be volatile. This check is only relevant
+         --  when SPARK_Mode is on as it is not standard Ada legality rule.
+
+         if SPARK_Mode = On
+           and then Is_SPARK_Volatile_Object (Defining_Identifier (Discr))
+         then
+            Error_Msg_N
+              ("discriminant cannot be volatile (SPARK RM 7.1.3(6))", Discr);
          end if;
 
          Next (Discr);
