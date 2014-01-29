@@ -2,7 +2,7 @@
 ;; file warmelt-hooks.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2012 - 2013 Free Software Foundation, Inc.
+    Copyright 2012 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -2269,6 +2269,11 @@ exit, in last place.}#
   )
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defhook hook_register_pragmas () () :void
+  :predef HOOK_REGISTER_PRAGMAS
+  (debug "hook_register_pragmas start")
+  )
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -2328,8 +2333,6 @@ exit, in last place.}#
 
 
 (defvar melt_inpchanbuck) ;;contain bucket of longs for input handling
-
-
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 

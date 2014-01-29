@@ -422,9 +422,6 @@ don't instanciate this class!}#
 	   sysdata_stdout		;raw file for stdout
 	   sysdata_stderr		;raw file for stderr
 	   sysdata_dumpfile		;raw file for dump_file
-	   sysdata_meltpragmas		;a list or tuple of pragma
-					;descriptor object of
-					;CLASS_GCC_PRAGMA
 	   ;;
 	   ;; dictionnary to associate to location an interned file path string
 	   sysdata_src_loc_file_dict
@@ -3177,7 +3174,6 @@ accessed or updated but is internally useful to many MELT mechanisms.}#
   :sysdata_stdout ()			;initialized later
   :sysdata_stderr ()			;initialized later
   :sysdata_dumpfile ()			;initialized later
-  :sysdata_meltpragmas ()
   :sysdata_src_loc_file_dict (make_mapstring discr_map_strings 200)
   )
 
