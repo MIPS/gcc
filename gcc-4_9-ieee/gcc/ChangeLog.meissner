@@ -1,3 +1,21 @@
+2014-01-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.opt (-mabi=ieeelongdouble): Remove warning
+	if the option was used.
+	(-mabi=ibmlongdouble): Likewise.
+
+	* config/rs6000/rs6000.c (USE_FP_FOR_ARG_P): Do not use scalar
+	float registers for IEEE 128-bit floating point passed in vector
+	registers.
+	(init_cumulative_args): Record whether this call is a library
+	call.
+	(rs6000_function_arg): Don't pass IEEE 128-bit floating point
+	library functions in both vector registers or the stack.
+	(rs6000_arg_partial_bytes): Likewise.
+
+	* config/rs6000/rs6000.h (CUMULATIVE_ARGS): Add field to denote if
+	this is a library function.
+
 2014-01-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 207203.
