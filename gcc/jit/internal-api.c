@@ -552,22 +552,20 @@ recording::struct_::replay_into (replayer *r)
 
 recording::rvalue *
 recording::rvalue::access_field (recording::location *loc,
-		      const char *fieldname)
+				 field *field)
 {
   recording::rvalue *result =
-    new access_field_rvalue (m_ctxt, loc, this,
-			     new_string (fieldname));
+    new access_field_rvalue (m_ctxt, loc, this, field);
   m_ctxt->record (result);
   return result;
 }
 
 recording::lvalue *
 recording::rvalue::dereference_field (recording::location *loc,
-			   const char *fieldname)
+				      field *field)
 {
   recording::lvalue *result =
-    new dereference_field_rvalue (m_ctxt, loc, this,
-				  new_string (fieldname));
+    new dereference_field_rvalue (m_ctxt, loc, this, field);
   m_ctxt->record (result);
   return result;
 }
@@ -585,11 +583,10 @@ recording::rvalue::dereference (recording::location *loc)
 
 recording::lvalue *
 recording::lvalue::access_field (recording::location *loc,
-		      const char *fieldname)
+				 field *field)
 {
   recording::lvalue *result =
-    new access_field_of_lvalue (m_ctxt, loc, this,
-				new_string (fieldname));
+    new access_field_of_lvalue (m_ctxt, loc, this, field);
   m_ctxt->record (result);
   return result;
 }
@@ -881,7 +878,8 @@ recording::access_field_of_lvalue::replay_into (replayer *)
   set_playback_obj (
     m_lvalue->playback_lvalue ()
       ->access_field (playback_location (m_loc),
-		      m_fieldname->c_str ()));
+		      m_field->playback_field ()));
+
 }
 
 void
@@ -890,7 +888,7 @@ recording::access_field_rvalue::replay_into (replayer *)
   set_playback_obj (
     m_rvalue->playback_rvalue ()
       ->access_field (playback_location (m_loc),
-		      m_fieldname->c_str ()));
+		      m_field->playback_field ()));
 }
 
 void
@@ -899,7 +897,7 @@ recording::dereference_field_rvalue::replay_into (replayer *)
   set_playback_obj (
     m_rvalue->playback_rvalue ()->
       dereference_field (playback_location (m_loc),
-			 m_fieldname->c_str ()));
+			 m_field->playback_field ()));
 }
 
 void
@@ -1673,23 +1671,14 @@ new_array_lookup (location *loc,
     }
 }
 
-static tree
-get_field (tree type, tree component)
-{
-  for (tree field = TYPE_FIELDS (type); field; field = DECL_CHAIN (field))
-    if (DECL_NAME (field) == component)
-      return field;
-  return NULL;
-}
-
 tree
 playback::context::
 new_field_access (location *loc,
 		  tree datum,
-		  const char *fieldname)
+		  field *field)
 {
   gcc_assert (datum);
-  gcc_assert (fieldname);
+  gcc_assert (field);
 
   /* Compare with c/c-typeck.c:lookup_field, build_indirect_ref, and
      build_component_ref. */
@@ -1697,15 +1686,9 @@ new_field_access (location *loc,
   gcc_assert (type);
   gcc_assert (TREE_CODE (type) != POINTER_TYPE);
 
-  tree component = get_identifier (fieldname);
-  tree field = get_field (type, component);
-  if (!field)
-    {
-      add_error ("field not found: \"%s\"", fieldname);
-      return NULL;
-    }
-  tree ref = build3 (COMPONENT_REF, TREE_TYPE (field), datum,
-		     field, NULL_TREE);
+ tree t_field = field->as_tree ();
+ tree ref = build3 (COMPONENT_REF, TREE_TYPE (t_field), datum,
+		     t_field, NULL_TREE);
   if (loc)
     set_tree_location (ref, loc);
   return ref;
@@ -1728,10 +1711,10 @@ new_dereference (tree ptr,
 playback::lvalue *
 playback::lvalue::
 access_field (location *loc,
-	      const char *fieldname)
+	      field *field)
 {
   tree datum = as_tree ();
-  tree ref = get_context ()->new_field_access (loc, datum, fieldname);
+  tree ref = get_context ()->new_field_access (loc, datum, field);
   if (!ref)
     return NULL;
   return new lvalue (get_context (), ref);
@@ -1740,10 +1723,10 @@ access_field (location *loc,
 playback::rvalue *
 playback::rvalue::
 access_field (location *loc,
-	      const char *fieldname)
+	      field *field)
 {
   tree datum = as_tree ();
-  tree ref = get_context ()->new_field_access (loc, datum, fieldname);
+  tree ref = get_context ()->new_field_access (loc, datum, field);
   if (!ref)
     return NULL;
   return new rvalue (get_context (), ref);
@@ -1752,13 +1735,13 @@ access_field (location *loc,
 playback::lvalue *
 playback::rvalue::
 dereference_field (location *loc,
-		   const char *fieldname)
+		   field *field)
 {
   tree ptr = as_tree ();
   tree datum = get_context ()->new_dereference (ptr, loc);
   if (!datum)
     return NULL;
-  tree ref = get_context ()->new_field_access (loc, datum, fieldname);
+  tree ref = get_context ()->new_field_access (loc, datum, field);
   if (!ref)
     return NULL;
   return new lvalue (get_context (), ref);

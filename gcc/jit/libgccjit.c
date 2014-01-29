@@ -447,34 +447,34 @@ gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
 gcc_jit_lvalue *
 gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
 			     gcc_jit_location *loc,
-			     const char *fieldname)
+			     gcc_jit_field *field)
 {
   RETURN_NULL_IF_FAIL (struct_, NULL, "NULL struct");
-  RETURN_NULL_IF_FAIL (fieldname, NULL, "NULL fieldname");
+  RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
 
-  return (gcc_jit_lvalue *)struct_->access_field (loc, fieldname);
+  return (gcc_jit_lvalue *)struct_->access_field (loc, field);
 }
 
 gcc_jit_rvalue *
 gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_,
 			     gcc_jit_location *loc,
-			     const char *fieldname)
+			     gcc_jit_field *field)
 {
   RETURN_NULL_IF_FAIL (struct_, NULL, "NULL struct");
-  RETURN_NULL_IF_FAIL (fieldname, NULL, "NULL fieldname");
+  RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
 
-  return (gcc_jit_rvalue *)struct_->access_field (loc, fieldname);
+  return (gcc_jit_rvalue *)struct_->access_field (loc, field);
 }
 
 gcc_jit_lvalue *
 gcc_jit_rvalue_dereference_field (gcc_jit_rvalue *ptr,
 				  gcc_jit_location *loc,
-				  const char *fieldname)
+				  gcc_jit_field *field)
 {
   RETURN_NULL_IF_FAIL (ptr, NULL, "NULL ptr");
-  RETURN_NULL_IF_FAIL (fieldname, NULL, "NULL fieldname");
+  RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
 
-  return (gcc_jit_lvalue *)ptr->dereference_field (loc, fieldname);
+  return (gcc_jit_lvalue *)ptr->dereference_field (loc, field);
 }
 
 gcc_jit_lvalue *

@@ -67,12 +67,12 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	gcc_jit_rvalue_dereference_field (
 	  gcc_jit_param_as_rvalue (param_f),
 	  NULL,
-	  "x")),
+	  x)),
       gcc_jit_lvalue_as_rvalue (
 	gcc_jit_rvalue_dereference_field (
 	gcc_jit_param_as_rvalue (param_f),
 	NULL,
-	"y")));
+	y)));
 
   /* f->z = ... */
   gcc_jit_function_add_assignment (
@@ -81,7 +81,7 @@ create_code (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_rvalue_dereference_field (
       gcc_jit_param_as_rvalue (param_f),
       NULL,
-      "z"),
+      z),
     sum);
 }
 

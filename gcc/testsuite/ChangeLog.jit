@@ -1,3 +1,15 @@
+2014-01-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-accessing-struct.c (create_code): Update for API change
+	for accessing fields in terms of gcc_jit_field pointers rather than
+	by name.
+	* jit.dg/test-nested-contexts.c (make_calc_discriminant): Likewise.
+	(make_test_quadratic): Likewise.
+	* jit.dg/test-quadratic.c (make_calc_discriminant): Likewise.
+	(make_test_quadratic): Likewise.
+	* jit.dg/test-reading-struct.c (create_code): Likewise.
+	* jit.dg/test-types.c: Likewise.
+
 2014-01-28  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/harness.h (test_jit): Add the possibility of turning off

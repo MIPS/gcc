@@ -1,3 +1,69 @@
+2014-01-29  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (gcc_jit_lvalue_access_field): Require
+	a (gcc_jit_field *) rather than a field name.
+	(gcc_jit_rvalue_access_field): Likewise.
+	(gcc_jit_rvalue_dereference_field): Likewise.
+
+	* libgccjit.c (gcc_jit_lvalue_access_field): Require
+	a (gcc_jit_field *) rather than a field name.
+	(gcc_jit_rvalue_access_field): Likewise.
+	(gcc_jit_rvalue_dereference_field): Likewise.
+
+	* internal-api.c (gcc::jit::recording::rvalue::access_field):
+	Require a field rather than a fieldname string.
+	(gcc::jit::recording::rvalue::dereference_field): Likewise.
+	(gcc::jit::recording::lvalue::access_field): Likewise.
+
+	(gcc::jit::recording::access_field_of_lvalue::replay_into): Update
+	given that this now has a field, rather than a fieldname.
+	(gcc::jit::recording::access_field_rvalue::replay_into): Likewise.
+	(gcc::jit::recording::dereference_field_rvalue::replay_into): Likewise.
+
+	(get_field): Delete, as we no longer need to convert
+	from (struct, identifier) pairs to fields, instead directly using
+	fields.
+
+	(gcc::jit::playback::context::new_field_access): Require a field
+	rather than a fieldname, removing the need to look up the field by
+	name within the struct.
+
+	(gcc::jit::playback::lvalue::access_field): Likewise.
+	(gcc::jit::playback::rvalue::access_field): Likewise.
+	(gcc::jit::playback::rvalue::dereference_field): Likewise.
+
+	* internal-api.h (gcc::jit::recording::rvalue::access_field):
+	Require a field rather than a fieldname string.
+	(gcc::jit::recording::rvalue::dereference_field): Likewise.
+	(gcc::jit::recording::lvalue::access_field): Likewise.
+
+	(gcc::jit::recording::access_field_of_lvalue::access_field_of_lvalue):
+	Likewise.
+	(gcc::jit::recording::access_field_of_lvalue::m_fieldname): Drop
+	string field in favor of...
+	(gcc::jit::recording::access_field_of_lvalue::m_field):
+	..."field" field, as it were.
+
+	(gcc::jit::recording::access_field_of_rvalue::access_field_of_rvalue):
+	Likewise.
+	(gcc::jit::recording::access_field_of_rvalue::m_fieldname): Drop
+	string field in favor of...
+	(gcc::jit::recording::access_field_of_rvalue::m_field):
+	..."field" field.
+
+	(gcc::jit::recording::dereference_field_rvalue::
+	dereference_field_rvalue): Likewise.
+	(gcc::jit::recording::dereference_field_rvalue::m_fieldname): Drop
+	string field in favor of...
+	(gcc::jit::recording::dereference_field_rvalue::m_field):
+	..."field" field.
+
+	(gcc::jit::playback::context::new_field_access): Require a field
+	rather than a fieldname string.
+	(gcc::jit::playback::context::access_field): Likewise.
+	(gcc::jit::playback::context::dereference_field): Likewise.
+	(gcc::jit::playback::rvalue::access_field):
+
 2014-01-28  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_context_new_child_context): New function.

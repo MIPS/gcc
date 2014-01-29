@@ -157,17 +157,17 @@ make_calc_discriminant (struct quadratic_test *testcase)
     gcc_jit_lvalue_as_rvalue (
 	gcc_jit_rvalue_dereference_field (
 	  gcc_jit_param_as_rvalue (param_q),
-	  NULL, "a"));
+	  NULL, testcase->a));
   gcc_jit_rvalue *q_b =
     gcc_jit_lvalue_as_rvalue (
 	gcc_jit_rvalue_dereference_field (
 	  gcc_jit_param_as_rvalue (param_q),
-	  NULL, "b"));
+	  NULL, testcase->b));
   gcc_jit_rvalue *q_c =
     gcc_jit_lvalue_as_rvalue (
 	gcc_jit_rvalue_dereference_field (
 	  gcc_jit_param_as_rvalue (param_q),
-	  NULL, "c"));
+	  NULL, testcase->c));
 
   gcc_jit_function_add_assignment (
     testcase->calc_discriminant, NULL,
@@ -176,7 +176,7 @@ make_calc_discriminant (struct quadratic_test *testcase)
     gcc_jit_rvalue_dereference_field (
       gcc_jit_param_as_rvalue (param_q),
       NULL,
-      "discriminant"),
+      testcase->discriminant),
 
     /* (q->b * q->b) - (4 * q->a * q->c) */
     gcc_jit_context_new_binary_op (
@@ -245,17 +245,17 @@ make_test_quadratic (struct quadratic_test *testcase)
   /* q.a = a; */
   gcc_jit_function_add_assignment (
     test_quadratic, NULL,
-    gcc_jit_lvalue_access_field (q, NULL, "a"),
+    gcc_jit_lvalue_access_field (q, NULL, testcase->a),
     gcc_jit_param_as_rvalue (a));
   /* q.b = b; */
   gcc_jit_function_add_assignment (
     test_quadratic, NULL,
-    gcc_jit_lvalue_access_field (q, NULL, "b"),
+    gcc_jit_lvalue_access_field (q, NULL, testcase->b),
     gcc_jit_param_as_rvalue (b));
   /* q.c = c; */
   gcc_jit_function_add_assignment (
     test_quadratic, NULL,
-    gcc_jit_lvalue_access_field (q, NULL, "c"),
+    gcc_jit_lvalue_access_field (q, NULL, testcase->c),
     gcc_jit_param_as_rvalue (c));
   /* calc_discriminant (&q); */
   gcc_jit_rvalue *address_of_q = gcc_jit_lvalue_get_address (q, NULL);
@@ -293,7 +293,7 @@ make_test_quadratic (struct quadratic_test *testcase)
       gcc_jit_rvalue_access_field (
 	gcc_jit_lvalue_as_rvalue (q),
 	NULL,
-	"discriminant"),
+	testcase->discriminant),
       testcase->zero),
     on_positive_discriminant,
     on_nonpositive_discriminant);
@@ -309,7 +309,7 @@ make_test_quadratic (struct quadratic_test *testcase)
   gcc_jit_rvalue *discriminant_of_q =
     gcc_jit_rvalue_access_field (gcc_jit_lvalue_as_rvalue (q),
 				 NULL,
-				 "discriminant");
+				 testcase->discriminant);
   gcc_jit_function_add_assignment (
     test_quadratic, NULL,
     s,
@@ -404,7 +404,7 @@ make_test_quadratic (struct quadratic_test *testcase)
       gcc_jit_rvalue_access_field (
 	gcc_jit_lvalue_as_rvalue (q),
 	NULL,
-	"discriminant"),
+	testcase->discriminant),
       testcase->zero),
     on_zero_discriminant,
     on_negative_discriminant);

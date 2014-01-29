@@ -472,11 +472,11 @@ public:
   }
   rvalue *
   access_field (location *loc,
-		const char *fieldname);
+		field *field);
 
   lvalue *
   dereference_field (location *loc,
-		     const char *fieldname);
+		     field *field);
 
   lvalue *
   dereference (location *loc);
@@ -501,7 +501,7 @@ public:
 
   lvalue *
   access_field (location *loc,
-		const char *fieldname);
+		field *field);
 
   rvalue *
   get_address (location *loc);
@@ -844,17 +844,17 @@ public:
   access_field_of_lvalue (context *ctxt,
 			  location *loc,
 			  lvalue *val,
-			  string *fieldname)
+			  field *field)
   : lvalue (ctxt, loc),
     m_lvalue (val),
-    m_fieldname (fieldname)
+    m_field (field)
   {}
 
   void replay_into (replayer *r);
 
 private:
   lvalue *m_lvalue;
-  string *m_fieldname;
+  field *m_field;
 };
 
 class access_field_rvalue : public rvalue
@@ -863,16 +863,17 @@ public:
   access_field_rvalue (context *ctxt,
 		       location *loc,
 		       rvalue *val,
-		       string *fieldname)
+		       field *field)
   : rvalue (ctxt, loc),
     m_rvalue (val),
-    m_fieldname (fieldname) {}
+    m_field (field)
+  {}
 
   void replay_into (replayer *r);
 
 private:
   rvalue *m_rvalue;
-  string *m_fieldname;
+  field *m_field;
 };
 
 class dereference_field_rvalue : public lvalue
@@ -881,16 +882,17 @@ public:
   dereference_field_rvalue (context *ctxt,
 			    location *loc,
 			    rvalue *val,
-			    string *fieldname)
+			    field *field)
   : lvalue (ctxt, loc),
     m_rvalue (val),
-    m_fieldname (fieldname) {}
+    m_field (field)
+  {}
 
   void replay_into (replayer *r);
 
 private:
   rvalue *m_rvalue;
-  string *m_fieldname;
+  field *m_field;
 };
 
 class dereference_rvalue : public lvalue
@@ -1306,7 +1308,7 @@ public:
   tree
   new_field_access (location *loc,
 		    tree datum,
-		    const char *fieldname);
+		    field *field);
 
   tree
   new_dereference (tree ptr, location *loc);
@@ -1519,11 +1521,11 @@ public:
 
   rvalue *
   access_field (location *loc,
-		const char *fieldname);
+		field *field);
 
   lvalue *
   dereference_field (location *loc,
-		     const char *fieldname);
+		     field *field);
 
   lvalue *
   dereference (location *loc);
@@ -1545,7 +1547,7 @@ public:
 
   lvalue *
   access_field (location *loc,
-		const char *fieldname);
+		field *field);
 
   rvalue *
   get_address (location *loc);

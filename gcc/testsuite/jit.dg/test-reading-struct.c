@@ -72,12 +72,12 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	gcc_jit_rvalue_dereference_field (
 	  gcc_jit_param_as_rvalue (param_f),
 	  NULL,
-	  "x")),
+	  x)),
       gcc_jit_lvalue_as_rvalue (
 	gcc_jit_rvalue_dereference_field (
 	gcc_jit_param_as_rvalue (param_f),
 	NULL,
-	"y"))));
+	y))));
 
   /* Build "test_writing".  */
   gcc_jit_function *fn_test_writing =
@@ -96,13 +96,13 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   /* tmp.x = 5; */
   gcc_jit_function_add_assignment (
     fn_test_writing, NULL,
-    gcc_jit_lvalue_access_field (local_tmp, NULL, "x"),
+    gcc_jit_lvalue_access_field (local_tmp, NULL, x),
     gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 5));
 
   /* tmp.y = 7; */
   gcc_jit_function_add_assignment (
     fn_test_writing, NULL,
-    gcc_jit_lvalue_access_field (local_tmp, NULL, "y"),
+    gcc_jit_lvalue_access_field (local_tmp, NULL, y),
     gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 7));
 
   /* return test_reading (&tmp); */

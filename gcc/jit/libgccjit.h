@@ -568,7 +568,7 @@ gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
 extern gcc_jit_lvalue *
 gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
 			     gcc_jit_location *loc,
-			     const char *fieldname);
+			     gcc_jit_field *field);
 
 /* Accessing a field of an rvalue of struct type, analogous to:
       (EXPR).field
@@ -576,7 +576,7 @@ gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
 extern gcc_jit_rvalue *
 gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_,
 			     gcc_jit_location *loc,
-			     const char *fieldname);
+			     gcc_jit_field *field);
 
 /* Accessing a field of an rvalue of pointer type, analogous to:
       (EXPR)->field
@@ -584,7 +584,7 @@ gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_,
 extern gcc_jit_lvalue *
 gcc_jit_rvalue_dereference_field (gcc_jit_rvalue *ptr,
 				  gcc_jit_location *loc,
-				  const char *fieldname);
+				  gcc_jit_field *field);
 
 /* Dereferencing a pointer; analogous to:
      *(EXPR)
