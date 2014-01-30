@@ -1,5 +1,27 @@
 2014-01-30  David Malcolm  <dmalcolm@redhat.com>
 
+	* TODO.rst: Label-placement is now checked.
+
+	* internal-api.c (gcc::jit::recording::context::replay_into): Give
+	up if any errors occur during the playback.
+	(gcc::jit::recording::label::replay_into): Issue an error if the
+	label has not yet been placed (at playback time).
+	(gcc::jit::recording::place_label::place_label): Move this here
+	from internal-api.h.  Issue an error if the label has already
+	been placed (at recording time).
+
+	* internal-api.h (gcc::jit::recording::label): Add an
+	m_has_been_placed field, and make class place_label a friend so
+	it can set it.
+	(gcc::jit::recording::label::has_been_placed): New accessor.
+	(gcc::jit::recording::place_label::place_label): Move to
+	internal-api.c.
+
+	(gcc::jit::playback::context::errors_occurred): Make public, for
+	use by gcc::jit::recording::context::replay_into.
+
+2014-01-30  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::recording::type::get_pointer):
 	Ensure that repeated calls yield the same type.
 	(gcc::jit::recording::memento_of_get_pointer::

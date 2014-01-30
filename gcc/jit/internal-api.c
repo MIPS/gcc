@@ -131,6 +131,9 @@ recording::context::replay_into (replayer *r)
   if (m_parent_ctxt)
     m_parent_ctxt->replay_into (r);
 
+  if (r->errors_occurred ())
+    return;
+
   /* Replay this context's saved operations into r.  */
   FOR_EACH_VEC_ELT (m_mementos, i, m)
     {
@@ -145,6 +148,9 @@ recording::context::replay_into (replayer *r)
 		(void *)this, (void *)m, m->get_debug_string ());
 
       m->replay_into (r);
+
+      if (r->errors_occurred ())
+	return;
     }
 }
 
@@ -989,8 +995,13 @@ recording::function::make_debug_string ()
 /* gcc::jit::recording::label:: */
 
 void
-recording::label::replay_into (replayer *)
+recording::label::replay_into (replayer *r)
 {
+  if (!m_has_been_placed)
+    {
+      r->add_error ("unplaced label: %s", get_debug_string ());
+      return;
+    }
   set_playback_obj (m_func->playback_function ()
 		      ->new_forward_label (playback_string (m_name)));
 }
@@ -1456,6 +1467,18 @@ recording::conditional::make_debug_string ()
 				"if (%s) goto %s;",
 				m_boolval->get_debug_string (),
 				m_on_true->get_debug_string ());
+}
+
+recording::place_label::place_label (function *func,
+				     location *loc,
+				     label *lab)
+: statement (func, loc),
+  m_label (lab)
+{
+  if (lab->m_has_been_placed)
+    m_ctxt->add_error ("label %s has already been placed",
+		       lab->get_debug_string ());
+  lab->m_has_been_placed = true;
 }
 
 void

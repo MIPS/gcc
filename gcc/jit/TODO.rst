@@ -127,17 +127,11 @@ Initial Release
 
     * gcc_jit_function_new_local: type must not be void
 
-    * gcc_jit_function_place_forward_label: must not already have been
-      placed
-
     * gcc_jit_function_add_assignment_op: check the types
 
     * gcc_jit_function_add_conditional: boolval must be of numeric type
 
     * gcc_jit_loop_end: verify that loops are validly nested?
-
-    * verify that all used labels have been placed when attempting to
-      compile
 
 Future milestones
 =================

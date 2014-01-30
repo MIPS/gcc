@@ -745,7 +745,8 @@ public:
   label (function *func, string *name)
   : memento (func->m_ctxt),
     m_func (func),
-    m_name (name)
+    m_name (name),
+    m_has_been_placed (false)
   {
   }
 
@@ -757,12 +758,17 @@ public:
     return static_cast <playback::label *> (m_playback_obj);
   }
 
+  bool has_been_placed () { return m_has_been_placed; }
+
 private:
   string * make_debug_string ();
 
 private:
   function *m_func;
   string *m_name;
+  bool m_has_been_placed;
+
+  friend class place_label;
 };
 
 class global : public lvalue
@@ -1230,9 +1236,7 @@ class place_label : public statement
 public:
   place_label (function *func,
 	       location *loc,
-	       label *lab)
-  : statement (func, loc),
-    m_label (lab) {}
+	       label *lab);
 
   void replay_into (replayer *r);
 
@@ -1498,6 +1502,11 @@ public:
   tree
   as_truth_value (tree expr, location *loc);
 
+  bool errors_occurred () const
+  {
+    return m_recording_ctxt->errors_occurred ();
+  }
+
 private:
   void dump_generated_code ();
 
@@ -1505,11 +1514,6 @@ private:
   get_source_file (const char *filename);
 
   void handle_locations ();
-
-  bool errors_occurred () const
-  {
-    return m_recording_ctxt->errors_occurred ();
-  }
 
 private:
   ::gcc::jit::recording::context *m_recording_ctxt;

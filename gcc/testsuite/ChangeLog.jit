@@ -1,5 +1,10 @@
 2014-01-30  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-error-label-already-placed.c: New test case.
+	* jit.dg/test-error-unplaced-label.c: New test case.
+
+2014-01-30  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-error-call-with-mismatching-args.c: New test case.
 
 2014-01-30  David Malcolm  <dmalcolm@redhat.com>
