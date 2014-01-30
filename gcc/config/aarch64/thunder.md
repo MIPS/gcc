@@ -163,14 +163,45 @@
 ;; The rounding conversion inside fp is 4 cycles
 (define_insn_reservation "thunder_frint" 4
   (and (eq_attr "tune" "thunder")
-       (eq_attr "type" "f_rints, f_rintd"))
+       (eq_attr "type" "f_rints,f_rintd"))
   "thunder_pipe1")
 
 ;; Float to integer with a move from int to/from float is 6 cycles
 (define_insn_reservation "thunder_f_cvt" 6
   (and (eq_attr "tune" "thunder")
-       (eq_attr "type" "f_cvt, f_cvtf2i"))
+       (eq_attr "type" "f_cvt,f_cvtf2i,f_cvti2f"))
   "thunder_pipe1")
+
+;; FP/SIMD load/stores happen in pipe 0
+;; 64bit Loads register/pairs are 4 cycles from L1
+(define_insn_reservation "thunder_64simd_fp_load" 4
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "f_loadd,f_loads,neon_load1_2reg"))
+  "thunder_pipe0")
+
+;; 128bit load pair is singled issue and 4 cycles from L1
+(define_insn_reservation "thunder_128simd_pair_load" 4
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "neon_load1_2reg_q"))
+  "thunder_pipe0+thunder_pipe1")
+
+;; FP/SIMD Stores takes one cycle in pipe 0
+(define_insn_reservation "thunder_simd_fp_store" 1
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "f_stored,f_stores"))
+  "thunder_pipe0")
+
+;; 64bit neon store pairs are single issue for one cycle
+(define_insn_reservation "thunder_64neon_storepair" 1
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "neon_store1_2reg"))
+  "thunder_pipe0 + thunder_pipe1")
+
+;; 128bit neon store pair are single issued for two cycles
+(define_insn_reservation "thunder_128neon_storepair" 2
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "neon_store1_2reg_q"))
+  "(thunder_pipe0 + thunder_pipe1)*2")
 
 ;; Assume both pipes are needed for unknown and multiple-instruction
 ;; patterns.

@@ -1,3 +1,12 @@
+2014-01-30  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/thunder.md (thunder_f_cvt): Add f_cvti2f.
+	(thunder_64simd_fp_load): New reserve.
+	(thunder_128simd_pair_load): Likewise.
+	(thunder_simd_fp_store): Likewise.
+	(thunder_64neon_storepair): Likewise.
+	(thunder_128neon_storepair): Likewise.
+
 2014-01-13  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64-cores.def (thunder): Use thunder tuning.
