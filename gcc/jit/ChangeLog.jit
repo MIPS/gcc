@@ -1,3 +1,290 @@
+2014-01-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* TODO.rst: begin a list of error-checking we could do that this
+	commit *doesn't* cover.
+
+	* libgccjit.h (gcc_jit_field): Add note that fields can't be
+	shared between structs.
+	(GCC_JIT_BINARY_OP_MODULO): Fix typo in comment.
+
+	* libgccjit.c: (RETURN_VAL_IF_FAIL_PRINTF2): New.
+	(RETURN_VAL_IF_FAIL_PRINTF3): New.
+	(RETURN_NULL_IF_FAIL_PRINTF2): New.
+	(RETURN_NULL_IF_FAIL_PRINTF3): New.
+	(RETURN_IF_FAIL_PRINTF4): New.
+
+	(jit_error): Take a gcc::jit::recording::context rather than
+	a gcc_jit_context so that we pass in contexts from the inner
+	layer.
+
+	(compatible_types): New, for use in type-checking.
+
+	(gcc_jit_context_new_struct_type): Check each field to ensure that
+	it isn't already in use by another struct.
+
+	(gcc_jit_rvalue_dereference_field): Check that ptr is of a pointer
+	type and that the field is within the correct struct, using new
+	get_debug_string hooks to generate error messages.
+
+	(gcc_jit_rvalue_dereference): Check that rvalue is of a pointer
+	type.
+
+	(gcc_jit_function_add_assignment): Use the function's context when
+	reporting on NULL lvalue or rvalue.  Verify that the lvalue and
+	rvalue have compatible types.
+
+	(gcc_jit_function_add_return): Use the function's context when
+	reporting on NULL rvalue.  Verify that the rvalue is of an
+	appropriate type given the function's return type.
+
+	* internal-api.h (NUM_GCC_JIT_TYPES): New.
+	(gcc::jit::recording::context::record): Move from here to
+	internal-api.c.
+	(gcc::jit::recording::context::get_opaque_FILE_type): New.
+	(gcc::jit::recording::context::m_basic_types): New field.
+	(gcc::jit::recording::context::m_FILE_type): New field.
+
+	(gcc::jit::recording::memento::get_debug_string): New method.
+	(gcc::jit::recording::memento::memento): Initialize new field
+	m_debug_string, and verify context is non-NULL.
+	(gcc::jit::recording::memento::make_debug_string): New
+	pure-virtual function lazily used by get_debug_string.
+	(gcc::jit::recording::memento::m_debug_string): New field, for
+	get_debug_string to use as a cache.
+
+	(gcc::jit::recording::string): Rename field m_copy to m_buffer.
+	(gcc::jit::recording::from_printf): New factory function.
+	(gcc::jit::recording::make_debug_string): New.
+
+	(gcc::jit::recording::location::make_debug_string): New.
+
+	(gcc::jit::recording::type::dereference): New pure-virtual
+	function.
+	(gcc::jit::recording::type::accepts_writes_from): New virtual
+	function.
+	(gcc::jit::recording::type::unqualified): New virtual function.
+
+	(gcc::jit::recording::memento_of_get_type::dereference): New.
+	(gcc::jit::recording::memento_of_get_type::
+	accepts_writes_from): New.
+	(gcc::jit::recording::memento_of_get_type::make_debug_string):
+	New.
+
+	(gcc::jit::recording::memento_of_get_pointer::make_debug_string):
+	New.
+	(gcc::jit::recording::memento_of_get_pointer::dereference): New.
+	New.
+
+	(gcc::jit::recording::memento_of_get_const::make_debug_string):
+	New.
+	(gcc::jit::recording::memento_of_get_const::dereference): New.
+	New.
+	(gcc::jit::recording::memento_of_get_const::accepts_writes_from):
+	New.
+	(gcc::jit::recording::memento_of_get_const::unqualified): New.
+
+	(gcc::jit::recording::field): New field m_container, for the
+	containing struct (or union, if we implement that).
+	(gcc::jit::recording::field::get_type): New.
+	(gcc::jit::recording::field::get_container): New.
+	(gcc::jit::recording::field:set_container): New.
+	(gcc::jit::recording::field::make_debug_string): New.
+
+	(gcc::jit::recording::struct_::struct_): Move ctor implementation
+	from here into internal-api.c.
+	(gcc::jit::recording::struct_::dereference): New.
+	(gcc::jit::recording::struct_::make_debug_string): New.
+
+	(gcc::jit::recording::rvalue::m_type): New field.
+	(gcc::jit::recording::rvalue::rvalue): Require a non-NULL type for
+	new rvalue instances.
+	(gcc::jit::recording::rvalue::get_type): New accessor.
+
+	(gcc::jit::recording::lvalue): Eliminate field m_type in favor of
+	that within the rvalue base class.
+
+	(gcc::jit::recording::param::make_debug_string): New.
+
+	(gcc::jit::recording::function::get_return_type): New accessor.
+	(gcc::jit::recording::function::make_debug_string): New.
+
+	(gcc::jit::recording::label::make_debug_string): New.
+
+	(gcc::jit::recording::global): Eliminate field m_type in favor of
+	that within the rvalue ultimate base class (via lvalue).
+	(gcc::jit::recording::make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_new_rvalue_from_int): Eliminate
+	field m_type in favor of that within the rvalue base class.
+	(gcc::jit::recording::memento_of_new_rvalue_from_int::
+	make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_new_rvalue_from_double): Eliminate
+	field m_type in favor of that within the rvalue base class.
+	(gcc::jit::recording::memento_of_new_rvalue_from_double::
+	make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_new_rvalue_from_ptr): Eliminate
+	field m_type in favor of that within the rvalue base class.
+	(gcc::jit::recording::memento_of_new_rvalue_from_ptr::
+	make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_new_string_literal::
+	memento_of_new_string_literal): Initialize type.
+	(gcc::jit::recording::memento_of_new_string_literal::
+	make_debug_string): New.
+
+	(gcc::jit::recording::unary_op): Eliminate field m_result_type in
+	favor of m_type within the rvalue base class.
+	(gcc::jit::recording::unary_op::make_debug_string): New.
+
+	(gcc::jit::recording::binary_op): Eliminate field m_result_type in
+	favor of m_type within the rvalue base class.
+	(gcc::jit::recording::binary_op::make_debug_string): New.
+
+	(gcc::jit::recording::comparison): Eliminate field m_result_type
+	in favor of m_type within the rvalue base class.
+	(gcc::jit::recording::comparison::make_debug_string): New.
+
+	(gcc::jit::recording::make_debug_string): New.
+
+	(gcc::jit::recording::array_lookup::array_lookup): Initialize type
+	by dereferencing the type of the pointer.
+	(gcc::jit::recording::array_lookup::make_debug_string): New.
+
+	(gcc::jit::recording::access_field_of_lvalue::
+	access_field_of_lvalue): Initialize type from that of the field.
+	(gcc::jit::recording::access_field_of_lvalue::
+	make_debug_string): New.
+
+	(gcc::jit::recording::access_field_rvalue::
+	access_field_of_rvalue): Initialize type from that of the field.
+	(gcc::jit::recording::access_field_rvalue::make_debug_string):
+	New.
+
+	(gcc::jit::recording::dereference_field_rvalue::
+	dereference_field_rvalue): Initialize type from that of the field.
+	(gcc::jit::recording::dereference_field_rvalue::
+	make_debug_string): New.
+
+	(gcc::jit::recording::dereference_rvalue::dereference_rvalue):
+	Initialize type by dereferencing the type of the pointer.
+	(gcc::jit::recording::dereference_rvalue::make_debug_string): New.
+
+	(gcc::jit::recording::get_address_of_lvalue::
+	get_address_of_lvalue):  Initialize type by dereferencing the type
+	of the pointer.
+	(gcc::jit::recording::get_address_of_lvalue::make_debug_string):
+	New.
+
+	(gcc::jit::recording::local): Eliminate field m_type in favor of
+	that within the rvalue ultimate base class (via lvalue).
+	(gcc::jit::recording::make_debug_string): New.
+
+	(gcc::jit::recording::eval::make_debug_string): New.
+	(gcc::jit::recording::assignment::make_debug_string): New.
+	(gcc::jit::recording::assignment_op::make_debug_string): New.
+	(gcc::jit::recording::comment::make_debug_string): New.
+	(gcc::jit::recording::conditional::make_debug_string): New.
+	(gcc::jit::recording::place_label::make_debug_string): New.
+	(gcc::jit::recording::jump::make_debug_string): New.
+	(gcc::jit::recording::return_::make_debug_string): New.
+	(gcc::jit::recording::loop::make_debug_string): New.
+	(gcc::jit::recording::loop_end::make_debug_string): New.
+
+	* internal-api.c (gcc::jit::recording::context::context):
+	Initialize m_FILE_type and m_basic_types.
+	(gcc::jit::recording::context::record): Move here from
+	internal-api.h.
+	(gcc::jit::recording::context::replay_into): Add a disabled way to
+	log everything during a replay, exercising the stringification
+	machinery.
+	(gcc::jit::recording::context::get_type): Cache and reuse the
+	types, so that repeated calls on the context give the same object.
+	(gcc::jit::recording::context::get_opaque_FILE_type): New, for
+	the result of dereferencing (FILE*), mostly so that fuzz-testing
+	that tries this gets something sane back.
+	(gcc::jit::recording::memento::get_debug_string): New method,
+	giving a way to easily get a descriptive (const char *) for
+	an API entity.  Internally, it lazily calls the make_debug_string
+	virtual function, storing the result in m_debug_string.
+
+	(gcc::jit::recording::string::string): Rename field m_copy to m_buffer.
+	(gcc::jit::recording::string::~string): Likewise.
+	(gcc::jit::recording::string::from_printf): New factory function,
+	to make it easy to implement the make_debug_string hooks.
+
+	(gcc::jit::recording::string::make_debug_string): New.
+
+	(gcc::jit::recording::location::make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_get_type::dereference): New.
+
+	(get_type_strings): New table of strings, for use by...
+	(gcc::jit::recording::memento_of_get_type::make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_get_pointer::make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_get_const::make_debug_string): New.
+
+	(gcc::jit::recording::field::make_debug_string): New.
+
+	(gcc::jit::recording::struct_::struct_): Move here from
+	internal-api.h.  Mark all fields as belonging to the new struct.
+
+	(gcc::jit::recording::struct_::dereference): New.
+	(gcc::jit::recording::struct_::make_debug_string): New.
+
+	(gcc::jit::recording::function::make_debug_string): New.
+
+	(gcc::jit::recording::label::make_debug_string): New.
+
+	(gcc::jit::recording::memento_of_new_rvalue_from_int::
+	make_debug_string): New.
+	(gcc::jit::recording::memento_of_new_rvalue_from_double::
+	make_debug_string): New.
+	(gcc::jit::recording::memento_of_new_rvalue_from_ptr::
+	make_debug_string): New.
+	(gcc::jit::recording::memento_of_new_string_literal::
+	make_debug_string): New.
+
+	(gcc::jit::recording::unary_op::replay_into): Use get_type ()
+	rather than the now-defunct m_result_type.
+	(gcc::jit::recording::binary_op::replay_into): Likewise.
+
+	(unary_op_strings): New table of strings for use by...
+	(gcc::jit::recording::unary_op::make_debug_string): New.
+
+	(binary_op_strings): New table of strings for use by...
+	(gcc::jit::recording::binary_op::make_debug_string): New.
+
+	(comparison_strings): New table of strings for use by...
+	(gcc::jit::recording::comparison::make_debug_string): New.
+
+	(gcc::jit::recording::call::call): Initialize the type.
+	(gcc::jit::recording::call::make_debug_string): New.
+
+	(gcc::jit::recording::array_lookup::make_debug_string): New.
+	(gcc::jit::recording::access_field_of_lvalue::
+	make_debug_string): New.
+	(gcc::jit::recording::access_field_rvalue::
+	make_debug_string): New.
+	(gcc::jit::recording::dereference_field_rvalue::
+	make_debug_string): New.
+	(gcc::jit::recording::dereference_rvalue::make_debug_string): New.
+	(gcc::jit::recording::get_address_of_lvalue::
+	make_debug_string): New.
+	(gcc::jit::recording::eval::make_debug_string): New.
+	(gcc::jit::recording::assignment::make_debug_string): New.
+	(gcc::jit::recording::assignment_op::make_debug_string): New.
+	(gcc::jit::recording::comment::make_debug_string): New.
+	(gcc::jit::recording::conditional::make_debug_string): New.
+	(gcc::jit::recording::place_label::make_debug_string): New.
+	(gcc::jit::recording::jump::make_debug_string): New.
+	(gcc::jit::recording::return_::make_debug_string): New.
+	(gcc::jit::recording::loop::make_debug_string): New.
+	(gcc::jit::recording::loop_end::make_debug_string): New.
+
 2014-01-29  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_lvalue_access_field): Require

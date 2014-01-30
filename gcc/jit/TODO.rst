@@ -94,6 +94,52 @@ Initial Release
 
 * are we missing any ops?
 
+* error-checking:
+
+    * gcc_jit_context_new_field: type must not be void
+
+    * gcc_jit_context_new_param: type must not be void
+
+    * gcc_jit_context_new_global: type must not be void
+
+    * gcc_jit_context_new_rvalue_from_int: must be a numeric type
+
+    * gcc_jit_context_zero: must be a numeric type
+
+    * gcc_jit_context_one: must be a numeric type
+
+    * gcc_jit_context_new_rvalue_from_double: must be a numeric type
+
+    * gcc_jit_context_new_rvalue_from_ptr: must be a pointer type
+
+    * gcc_jit_context_new_unary_op: various checks needed
+
+    * gcc_jit_context_new_binary_op: various checks needed
+
+    * gcc_jit_context_new_comparison: must be numeric or pointer types
+
+    * gcc_jit_context_new_call: check the types of the args
+
+    * gcc_jit_context_new_array_lookup: "ptr" must be of pointer type;
+      "index" must be of numeric type.
+
+    * gcc_jit_lvalue_access_field: must be field of correct struct
+
+    * gcc_jit_rvalue_access_field: must be field of correct struct
+
+    * gcc_jit_function_new_local: type must not be void
+
+    * gcc_jit_function_place_forward_label: must not already have been
+      placed
+
+    * gcc_jit_function_add_assignment_op: check the types
+
+    * gcc_jit_function_add_conditional: boolval must be of numeric type
+
+    * gcc_jit_loop_end: verify that loops are validly nested?
+
+    * verify that all used labels have been placed when attempting to
+      compile
 
 Future milestones
 =================

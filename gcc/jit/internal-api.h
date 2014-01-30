@@ -13,6 +13,8 @@
 #endif
 #endif
 
+const int NUM_GCC_JIT_TYPES = GCC_JIT_TYPE_FILE_PTR + 1;
+
 /* In order to allow jit objects to be usable outside of a compile
    whilst working with the existing structure of GCC's code the
    C API is implemented in terms of a gcc::jit::recording::context,
@@ -77,6 +79,7 @@ namespace recording {
   class location;
   class type;
   class field;
+  class struct_;
   class function;
   class label;
   class rvalue;
@@ -124,7 +127,7 @@ public:
   context (context *parent_ctxt);
   ~context ();
 
-  void record (memento *m) { m_mementos.safe_push (m); }
+  void record (memento *m);
   void replay_into (replayer *r);
   void disassociate_from_playback ();
 
@@ -261,6 +264,8 @@ public:
     return m_error_count;
   }
 
+  type *get_opaque_FILE_type ();
+
 private:
   context *m_parent_ctxt;
 
@@ -274,6 +279,8 @@ private:
   /* Recorded API usage.  */
   vec<memento *> m_mementos;
 
+  type *m_basic_types[NUM_GCC_JIT_TYPES];
+  type *m_FILE_type;
 };
 
 
@@ -291,19 +298,32 @@ public:
 
   void set_playback_obj (void *obj) { m_playback_obj = obj; }
 
+  /* Debugging hook, for use in generating error messages etc.  */
+  const char *
+  get_debug_string ();
+
 protected:
   memento (context *ctxt)
   : m_ctxt (ctxt),
-    m_playback_obj (NULL)
-  {}
+    m_playback_obj (NULL),
+    m_debug_string (NULL)
+  {
+    gcc_assert (ctxt);
+  }
 
   string *new_string (const char *text) { return m_ctxt->new_string (text); }
+
+private:
+  virtual string * make_debug_string () = 0;
 
 public:
   context *m_ctxt;
 
 protected:
   void *m_playback_obj;
+
+private:
+  string *m_debug_string;
 };
 
 /* or just use std::string? */
@@ -313,13 +333,19 @@ public:
   string (context *ctxt, const char *text);
   ~string ();
 
-  const char *c_str () { return m_copy; }
+  const char *c_str () { return m_buffer; }
+
+  static string * from_printf (context *ctxt, const char *fmt, ...)
+    GNU_PRINTF(2, 3);
 
   void replay_into (replayer *) {}
 
 private:
+  string * make_debug_string ();
+
+private:
   size_t m_len;
-  char *m_copy;
+  char *m_buffer;
 };
 
 class location : public memento
@@ -341,6 +367,9 @@ public:
   }
 
 private:
+  string * make_debug_string ();
+
+private:
   string *m_filename;
   int m_line;
   int m_column;
@@ -351,6 +380,25 @@ class type : public memento
 public:
   type *get_pointer ();
   type *get_const ();
+
+  /* Get the type obtained when dereferencing this type.
+
+     This will return NULL if it's not valid to dereference this type.
+     The caller is responsible for setting an error.  */
+  virtual type *dereference () = 0;
+
+  /* Is it typesafe to copy to this type from rtype?  */
+  virtual bool accepts_writes_from (type *rtype)
+  {
+    return this == rtype;
+  }
+
+  /* Strip off "const" etc */
+  virtual type *unqualified ()
+  {
+    return this;
+  }
+
 
   playback::type *
   playback_type ()
@@ -373,8 +421,26 @@ public:
   : type (ctxt),
     m_kind (kind) {}
 
+  type *dereference ();
+
+  bool accepts_writes_from (type *rtype)
+  {
+    if (m_kind == GCC_JIT_TYPE_VOID_PTR)
+      if (rtype->dereference ())
+	{
+	  /* LHS (this) is type (void *), and the RHS is a pointer:
+	     accept it:  */
+	  return true;
+	}
+
+    return type::accepts_writes_from (rtype);
+  }
+
 public:
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   enum gcc_jit_types m_kind;
@@ -388,7 +454,12 @@ public:
   : type (other_type->m_ctxt),
     m_other_type (other_type) {}
 
+  type *dereference () { return m_other_type; }
+
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   type *m_other_type;
@@ -402,7 +473,21 @@ public:
   : type (other_type->m_ctxt),
     m_other_type (other_type) {}
 
+  type *dereference () { return m_other_type->dereference (); }
+
+  bool accepts_writes_from (type */*rtype*/)
+  {
+    /* Can't write to a "const".  */
+    return false;
+  }
+
+  /* Strip off the "const", giving the underlying type.  */
+  type *unqualified () { return m_other_type; }
+
   void replay_into (replayer *);
+
+private:
+  string * make_debug_string ();
 
 private:
   type *m_other_type;
@@ -418,8 +503,14 @@ public:
   : memento (ctxt),
     m_loc (loc),
     m_type (type),
-    m_name (name)
+    m_name (name),
+    m_container (NULL)
   {}
+
+  type * get_type () const { return m_type; }
+
+  struct_ * get_container () const { return m_container; }
+  void set_container (struct_ *c) { m_container = c; }
 
   void replay_into (replayer *);
 
@@ -430,9 +521,13 @@ public:
   }
 
 private:
+  string * make_debug_string ();
+
+private:
   location *m_loc;
   type *m_type;
   string *m_name;
+  struct_ *m_container;
 };
 
 class struct_ : public type
@@ -441,14 +536,14 @@ public:
   struct_ (context *ctxt,
 	   location *loc,
 	   string *name,
-	   vec<field *> fields)
-  : type (ctxt),
-    m_loc (loc),
-    m_name (name),
-    m_fields (fields)
-  {}
+	   vec<field *> fields);
+
+  type *dereference ();
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   location *m_loc;
@@ -460,10 +555,16 @@ class rvalue : public memento
 {
 public:
   rvalue (context *ctxt,
-	  location *loc)
+	  location *loc,
+	  type *type_)
   : memento (ctxt),
-    m_loc (loc)
-  {}
+    m_loc (loc),
+    m_type (type_)
+  {
+    gcc_assert (type_);
+  }
+
+  type * get_type () const { return m_type; }
 
   playback::rvalue *
   playback_rvalue () const
@@ -483,14 +584,16 @@ public:
 
 protected:
   location *m_loc;
+  type *m_type;
 };
 
 class lvalue : public rvalue
 {
 public:
   lvalue (context *ctxt,
-	  location *loc)
-    : rvalue (ctxt, loc)
+	  location *loc,
+	  type *type_)
+    : rvalue (ctxt, loc, type_)
     {}
 
   playback::lvalue *
@@ -517,8 +620,7 @@ public:
 	 location *loc,
 	 type *type,
 	 string *name)
-  : lvalue (ctxt, loc),
-    m_type (type),
+    : lvalue (ctxt, loc, type),
     m_name (name) {}
 
   lvalue *
@@ -533,7 +635,9 @@ public:
   }
 
 private:
-  type *m_type;
+  string * make_debug_string () { return m_name; }
+
+private:
   string *m_name;
 };
 
@@ -611,9 +715,13 @@ public:
   new_loop (location *loc,
 	    rvalue *boolval);
 
+  type *get_return_type () const { return m_return_type; }
   string * get_name () const { return m_name; }
   vec<param *> get_params () const { return m_params; }
   bool is_variadic () const { return m_is_variadic; }
+
+private:
+  string * make_debug_string ();
 
 private:
   location *m_loc;
@@ -643,6 +751,9 @@ public:
   }
 
 private:
+  string * make_debug_string ();
+
+private:
   function *m_func;
   string *m_name;
 };
@@ -654,15 +765,16 @@ public:
 	  location *loc,
 	  type *type,
 	  string *name)
-  : lvalue (ctxt, loc),
-    m_type (type),
+  : lvalue (ctxt, loc, type),
     m_name (name)
   {}
 
   void replay_into (replayer *);
 
 private:
-  type *m_type;
+  string * make_debug_string () { return m_name; }
+
+private:
   string *m_name;
 };
 
@@ -671,16 +783,17 @@ class memento_of_new_rvalue_from_int : public rvalue
 public:
   memento_of_new_rvalue_from_int (context *ctxt,
 				  location *loc,
-				  type *type,
+				  type *type_,
 				  int value)
-  : rvalue (ctxt, loc),
-    m_type (type),
+  : rvalue (ctxt, loc, type_),
     m_value (value) {}
 
   void replay_into (replayer *r);
 
 private:
-  type *m_type;
+  string * make_debug_string ();
+
+private:
   int m_value;
 };
 
@@ -689,17 +802,18 @@ class memento_of_new_rvalue_from_double : public rvalue
 public:
   memento_of_new_rvalue_from_double (context *ctxt,
 				     location *loc,
-				     type *type,
+				     type *type_,
 				     double value)
-  : rvalue (ctxt, loc),
-    m_type (type),
+  : rvalue (ctxt, loc, type_),
     m_value (value)
   {}
 
   void replay_into (replayer *);
 
 private:
-  type *m_type;
+  string * make_debug_string ();
+
+private:
   double m_value;
 };
 
@@ -708,17 +822,18 @@ class memento_of_new_rvalue_from_ptr : public rvalue
 public:
   memento_of_new_rvalue_from_ptr (context *ctxt,
 				  location *loc,
-				  type *type,
+				  type *type_,
 				  void *value)
-  : rvalue (ctxt, loc),
-    m_type (type),
+  : rvalue (ctxt, loc, type_),
     m_value (value)
   {}
 
   void replay_into (replayer *);
 
 private:
-  type *m_type;
+  string * make_debug_string ();
+
+private:
   void *m_value;
 };
 
@@ -728,10 +843,13 @@ public:
   memento_of_new_string_literal (context *ctxt,
 				 location *loc,
 				 string *value)
-  : rvalue (ctxt, loc),
+  : rvalue (ctxt, loc, ctxt->get_type (GCC_JIT_TYPE_CONST_CHAR_PTR)),
     m_value (value) {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   string *m_value;
@@ -745,17 +863,18 @@ public:
 	    enum gcc_jit_unary_op op,
 	    type *result_type,
 	    rvalue *a)
-  : rvalue (ctxt, loc),
+  : rvalue (ctxt, loc, result_type),
     m_op (op),
-    m_result_type (result_type),
     m_a (a)
   {}
 
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   enum gcc_jit_unary_op m_op;
-  type *m_result_type;
   rvalue *m_a;
 };
 
@@ -767,17 +886,18 @@ public:
 	     enum gcc_jit_binary_op op,
 	     type *result_type,
 	     rvalue *a, rvalue *b)
-  : rvalue (ctxt, loc),
+  : rvalue (ctxt, loc, result_type),
     m_op (op),
-    m_result_type (result_type),
     m_a (a),
     m_b (b) {}
 
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   enum gcc_jit_binary_op m_op;
-  type *m_result_type;
   rvalue *m_a;
   rvalue *m_b;
 };
@@ -789,13 +909,16 @@ public:
 	      location *loc,
 	      enum gcc_jit_comparison op,
 	      rvalue *a, rvalue *b)
-  : rvalue (ctxt, loc),
+  : rvalue (ctxt, loc, ctxt->get_type (GCC_JIT_TYPE_INT)), /* FIXME: should be bool? */
     m_op (op),
     m_a (a),
     m_b (b)
   {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   enum gcc_jit_comparison m_op;
@@ -815,6 +938,9 @@ public:
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   function *m_func;
   vec<rvalue *> m_args;
 };
@@ -826,12 +952,15 @@ public:
 		location *loc,
 		rvalue *ptr,
 		rvalue *index)
-  : rvalue (ctxt, loc),
+  : rvalue (ctxt, loc, ptr->get_type ()->dereference ()),
     m_ptr (ptr),
     m_index (index)
   {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   rvalue *m_ptr;
@@ -845,12 +974,15 @@ public:
 			  location *loc,
 			  lvalue *val,
 			  field *field)
-  : lvalue (ctxt, loc),
+  : lvalue (ctxt, loc, field->get_type ()),
     m_lvalue (val),
     m_field (field)
   {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   lvalue *m_lvalue;
@@ -864,12 +996,15 @@ public:
 		       location *loc,
 		       rvalue *val,
 		       field *field)
-  : rvalue (ctxt, loc),
+  : rvalue (ctxt, loc, field->get_type ()),
     m_rvalue (val),
     m_field (field)
   {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   rvalue *m_rvalue;
@@ -883,12 +1018,15 @@ public:
 			    location *loc,
 			    rvalue *val,
 			    field *field)
-  : lvalue (ctxt, loc),
+  : lvalue (ctxt, loc, field->get_type ()),
     m_rvalue (val),
     m_field (field)
   {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   rvalue *m_rvalue;
@@ -901,10 +1039,13 @@ public:
   dereference_rvalue (context *ctxt,
 		      location *loc,
 		      rvalue *val)
-  : lvalue (ctxt, loc),
+  : lvalue (ctxt, loc, val->get_type ()->dereference ()),
     m_rvalue (val) {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   rvalue *m_rvalue;
@@ -916,11 +1057,14 @@ public:
   get_address_of_lvalue (context *ctxt,
 			 location *loc,
 			 lvalue *val)
-  : rvalue (ctxt, loc),
+  : rvalue (ctxt, loc, val->get_type ()->get_pointer ()),
     m_lvalue (val)
   {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   lvalue *m_lvalue;
@@ -930,16 +1074,17 @@ class local : public lvalue
 {
 public:
   local (function *func, location *loc, type *type_, string *name)
-  : lvalue (func->m_ctxt, loc),
+    : lvalue (func->m_ctxt, loc, type_),
     m_func (func),
-    m_type (type_),
     m_name (name) {}
 
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string () { return m_name; }
+
+private:
   function *m_func;
-  type *m_type;
   string *m_name;
 };
 
@@ -980,6 +1125,9 @@ public:
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   rvalue *m_rvalue;
 };
 
@@ -995,6 +1143,9 @@ public:
     m_rvalue (rvalue) {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   lvalue *m_lvalue;
@@ -1017,6 +1168,9 @@ public:
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   lvalue *m_lvalue;
   enum gcc_jit_binary_op m_op;
   rvalue *m_rvalue;
@@ -1032,6 +1186,9 @@ public:
     m_text (text) {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   string *m_text;
@@ -1053,6 +1210,9 @@ public:
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   rvalue *m_boolval;
   label *m_on_true;
   label *m_on_false;
@@ -1070,6 +1230,9 @@ public:
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   label *m_label;
 };
 
@@ -1085,6 +1248,9 @@ public:
   void replay_into (replayer *r);
 
 private:
+  string * make_debug_string ();
+
+private:
   label *m_target;
 };
 
@@ -1098,6 +1264,9 @@ public:
     m_rvalue (rvalue) {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   rvalue *m_rvalue;
@@ -1125,6 +1294,9 @@ public:
   }
 
 private:
+  string * make_debug_string ();
+
+private:
   function *m_func;
   location *m_loc;
   rvalue *m_boolval;
@@ -1141,6 +1313,9 @@ public:
   {}
 
   void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
 
 private:
   loop *m_loop;

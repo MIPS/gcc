@@ -60,7 +60,8 @@ recording::playback_label (recording::label *lab)
 recording::context::context (context *parent_ctxt)
   : m_parent_ctxt (parent_ctxt),
     m_error_count (0),
-    m_mementos ()
+    m_mementos (),
+    m_FILE_type (NULL)
 {
   m_first_error_str[0] = '\0';
 
@@ -84,6 +85,8 @@ recording::context::context (context *parent_ctxt)
       memset (m_int_options, 0, sizeof (m_int_options));
       memset (m_bool_options, 0, sizeof (m_bool_options));
     }
+
+  memset (m_basic_types, 0, sizeof (m_basic_types));
 }
 
 recording::context::~context ()
@@ -94,6 +97,14 @@ recording::context::~context ()
     {
       delete m;
     }
+}
+
+void
+recording::context::record (memento *m)
+{
+  gcc_assert (m);
+
+  m_mementos.safe_push (m);
 }
 
 void
@@ -123,6 +134,16 @@ recording::context::replay_into (replayer *r)
   /* Replay this context's saved operations into r.  */
   FOR_EACH_VEC_ELT (m_mementos, i, m)
     {
+      /* Disabled low-level debugging, here if we need it: print what
+	 we're replaying.
+	 Note that the calls to get_debug_string might lead to more
+	 mementos being created for the strings.
+	 This can also be used to exercise the debug_string
+	 machinery.  */
+      if (0)
+	printf ("context %p replaying (%p): %s\n",
+		(void *)this, (void *)m, m->get_debug_string ());
+
       m->replay_into (r);
     }
 }
@@ -175,9 +196,16 @@ recording::context::new_location (const char *filename,
 recording::type *
 recording::context::get_type (enum gcc_jit_types kind)
 {
-  recording::type *result = new memento_of_get_type (this, kind);
-  record (result);
-  return result;
+  /* Cache and reuse the types, so that repeated calls on the context
+     give the same object.  */
+  if (!m_basic_types[kind])
+    {
+      recording::type *result = new memento_of_get_type (this, kind);
+      record (result);
+      m_basic_types[kind] = result;
+    }
+
+  return m_basic_types[kind];
 }
 
 recording::field *
@@ -460,27 +488,101 @@ recording::context::get_first_error () const
     return NULL;
 }
 
+recording::type *
+recording::context::get_opaque_FILE_type ()
+{
+  if (!m_FILE_type)
+    m_FILE_type = new_struct_type (NULL, "FILE", 0, NULL);
+  return m_FILE_type;
+}
+
+/* gcc::jit::recording::memento:: */
+
+const char *
+recording::memento::get_debug_string ()
+{
+  if (!m_debug_string)
+    m_debug_string = make_debug_string ();
+  return m_debug_string->c_str ();
+}
+
 /* gcc::jit::recording::string:: */
 recording::string::string (context *ctxt, const char *text)
   : memento (ctxt)
 {
-  m_len = strlen (text) ;
-  m_copy = new char[m_len + 1];
-  strcpy (m_copy, text);
+  m_len = strlen (text);
+  m_buffer = new char[m_len + 1];
+  strcpy (m_buffer, text);
 }
 
 recording::string::~string ()
 {
-  delete[] m_copy;
+  delete[] m_buffer;
 }
 
+recording::string *
+recording::string::from_printf (context *ctxt, const char *fmt, ...)
+{
+  char buf[4096];
+  va_list ap;
+  va_start (ap, fmt);
 
+  vsnprintf (buf, sizeof (buf), fmt, ap);
+
+  va_end (ap);
+
+  return ctxt->new_string (buf);
+}
+
+recording::string *
+recording::string::make_debug_string ()
+{
+  /* Hack to avoid infinite recursion into strings when logging all
+     mementos: don't re-escape strings:  */
+  if (m_buffer[0] == '"')
+    return this;
+
+  /* Wrap in quotes and do escaping etc */
+
+  size_t sz = (1 /* opening quote */
+	       + (m_len * 2) /* each char might get escaped */
+	       + 1 /* closing quote */
+	       + 1); /* nil termintator */
+  char *tmp = new char[sz];
+  size_t len = 0;
+
+#define APPEND(CH)  do { gcc_assert (len < sz); tmp[len++] = (CH); } while (0)
+  APPEND('"'); /* opening quote */
+  for (size_t i = 0; i < m_len ; i++)
+    {
+      char ch = m_buffer[i];
+      if (ch == '\t' || ch == '\n' || ch == '\\' || ch == '"')
+	APPEND('\\');
+      APPEND(ch);
+    }
+  APPEND('"'); /* closing quote */
+#undef APPEND
+  tmp[len] = '\0'; /* nil termintator */
+
+  string *result = m_ctxt->new_string (tmp);
+
+  delete[] tmp;
+  return result;
+}
 
 /* gcc::jit::recording::location:: */
 void
 recording::location::replay_into (replayer *r)
 {
   m_playback_obj = r->new_location (m_filename->c_str (), m_line, m_column);
+}
+
+recording::string *
+recording::location::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s:%i:%i",
+			      m_filename->c_str (), m_line, m_column);
 }
 
 /* gcc::jit::recording::type:: */
@@ -501,11 +603,92 @@ recording::type::get_const ()
   return result;
 }
 
-/* gcc::jit::recording::memento_of_get_type:: */
+recording::type *
+recording::memento_of_get_type::dereference ()
+{
+  switch (m_kind)
+    {
+    default: gcc_unreachable ();
+
+    case GCC_JIT_TYPE_VOID:
+      return NULL;
+
+    case GCC_JIT_TYPE_VOID_PTR:
+      return m_ctxt->get_type (GCC_JIT_TYPE_VOID);
+
+    case GCC_JIT_TYPE_CHAR:
+    case GCC_JIT_TYPE_SIGNED_CHAR:
+    case GCC_JIT_TYPE_UNSIGNED_CHAR:
+    case GCC_JIT_TYPE_SHORT:
+    case GCC_JIT_TYPE_UNSIGNED_SHORT:
+    case GCC_JIT_TYPE_INT:
+    case GCC_JIT_TYPE_UNSIGNED_INT:
+    case GCC_JIT_TYPE_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG:
+    case GCC_JIT_TYPE_LONG_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG_LONG:
+    case GCC_JIT_TYPE_FLOAT:
+    case GCC_JIT_TYPE_DOUBLE:
+    case GCC_JIT_TYPE_LONG_DOUBLE:
+      /* Not a pointer: */
+      return NULL;
+
+    case GCC_JIT_TYPE_CONST_CHAR_PTR:
+      return m_ctxt->get_type (GCC_JIT_TYPE_CHAR)->get_const ();
+
+    case GCC_JIT_TYPE_SIZE_T:
+      /* Not a pointer: */
+      return NULL;
+
+    case GCC_JIT_TYPE_FILE_PTR:
+      /* Give the client code back an opaque "struct FILE".  */
+      return m_ctxt->get_opaque_FILE_type ();
+    }
+}
+
 void
 recording::memento_of_get_type::replay_into (replayer *r)
 {
   set_playback_obj (r->get_type (m_kind));
+}
+
+/* gcc::jit::recording::memento_of_get_type:: */
+static const char * const get_type_strings[] = {
+  "void",    /* GCC_JIT_TYPE_VOID */
+  "void *",  /* GCC_JIT_TYPE_VOID_PTR */
+
+  "char",           /* GCC_JIT_TYPE_CHAR */
+  "signed char",    /* GCC_JIT_TYPE_SIGNED_CHAR */
+  "unsigned char",  /* GCC_JIT_TYPE_UNSIGNED_CHAR */
+
+  "short",           /* GCC_JIT_TYPE_SHORT */
+  "unsigned short",  /* GCC_JIT_TYPE_UNSIGNED_SHORT */
+
+  "int",           /* GCC_JIT_TYPE_INT */
+  "unsigned int",  /* GCC_JIT_TYPE_UNSIGNED_INT */
+
+  "long",           /* GCC_JIT_TYPE_LONG  */
+  "unsigned long",  /* GCC_JIT_TYPE_UNSIGNED_LONG, */
+
+  "long long",           /* GCC_JIT_TYPE_LONG_LONG */
+  "unsigned long long",  /* GCC_JIT_TYPE_UNSIGNED_LONG_LONG */
+
+  "float",        /* GCC_JIT_TYPE_FLOAT */
+  "double",       /* GCC_JIT_TYPE_DOUBLE */
+  "long double",  /* GCC_JIT_TYPE_LONG_DOUBLE */
+
+  "const char *",  /* GCC_JIT_TYPE_CONST_CHAR_PTR */
+
+  "size_t",  /* GCC_JIT_TYPE_SIZE_T */
+
+  "FILE *"  /* GCC_JIT_TYPE_FILE_PTR */
+
+};
+
+recording::string *
+recording::memento_of_get_type::make_debug_string ()
+{
+  return m_ctxt->new_string (get_type_strings[m_kind]);
 }
 
 /* gcc::jit::recording::memento_of_get_pointer:: */
@@ -515,12 +698,26 @@ recording::memento_of_get_pointer::replay_into (replayer *)
   set_playback_obj (m_other_type->playback_type ()->get_pointer ());
 }
 
+recording::string *
+recording::memento_of_get_pointer::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s *", m_other_type->get_debug_string ());
+}
+
 /* gcc::jit::recording::memento_of_get_const:: */
 
 void
 recording::memento_of_get_const::replay_into (replayer *)
 {
   set_playback_obj (m_other_type->playback_type ()->get_const ());
+}
+
+recording::string *
+recording::memento_of_get_const::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "const %s", m_other_type->get_debug_string ());
 }
 
 /* gcc::jit::recording::field:: */
@@ -532,7 +729,36 @@ recording::field::replay_into (replayer *r)
 				  playback_string (m_name)));
 }
 
+recording::string *
+recording::field::make_debug_string ()
+{
+  return m_name;
+}
+
 /* gcc::jit::recording::struct_:: */
+recording::struct_::struct_ (context *ctxt,
+			     location *loc,
+			     string *name,
+			     vec<field *> fields)
+: type (ctxt),
+  m_loc (loc),
+  m_name (name),
+  m_fields (fields)
+{
+  /* Mark all fields as belonging to the new struct: */
+  for (unsigned i = 0; i < fields.length (); i++)
+    {
+      gcc_assert (m_fields[i]->get_container () == NULL);
+      m_fields[i]->set_container (this);
+    }
+}
+
+recording::type *
+recording::struct_::dereference ()
+{
+  return NULL; /* not a pointer */
+}
+
 void
 recording::struct_::replay_into (replayer *r)
 {
@@ -547,6 +773,12 @@ recording::struct_::replay_into (replayer *r)
 			&playback_fields));
 }
 
+recording::string *
+recording::struct_::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "struct %s", m_name->c_str ());
+}
 
 /* gcc::jit::recording::rvalue:: */
 
@@ -757,6 +989,12 @@ recording::function::new_loop (recording::location *loc,
   return result;
 }
 
+recording::string *
+recording::function::make_debug_string ()
+{
+  return m_name;
+}
+
 /* gcc::jit::recording::label:: */
 
 void
@@ -764,6 +1002,17 @@ recording::label::replay_into (replayer *)
 {
   set_playback_obj (m_func->playback_function ()
 		      ->new_forward_label (playback_string (m_name)));
+}
+
+recording::string *
+recording::label::make_debug_string ()
+{
+  if (m_name)
+    return m_name;
+  else
+    return string::from_printf (m_ctxt,
+				"<UNNAMED LABEL %p>",
+				(void *)this);
 }
 
 /* gcc::jit::recording::global:: */
@@ -783,12 +1032,30 @@ recording::memento_of_new_rvalue_from_int::replay_into (replayer *r)
 					    m_value));
 }
 
+recording::string *
+recording::memento_of_new_rvalue_from_int::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "(%s)%i",
+			      m_type->get_debug_string (),
+			      m_value);
+}
+
 /* gcc::jit::recording::memento_of_new_rvalue_from_double:: */
 void
 recording::memento_of_new_rvalue_from_double::replay_into (replayer *r)
 {
   set_playback_obj (r->new_rvalue_from_double (m_type->playback_type (),
 					       m_value));
+}
+
+recording::string *
+recording::memento_of_new_rvalue_from_double::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "(%s)%f",
+			      m_type->get_debug_string (),
+			      m_value);
 }
 
 /* gcc::jit::recording::memento_of_new_rvalue_from_ptr:: */
@@ -799,11 +1066,31 @@ recording::memento_of_new_rvalue_from_ptr::replay_into (replayer *r)
 					    m_value));
 }
 
+recording::string *
+recording::memento_of_new_rvalue_from_ptr::make_debug_string ()
+{
+  if (m_value != NULL)
+    return string::from_printf (m_ctxt,
+				"(%s)%p",
+				m_type->get_debug_string (), m_value);
+  else
+    return string::from_printf (m_ctxt,
+				"(%s)NULL",
+				m_type->get_debug_string ());
+}
+
 /* gcc::jit::recording::memento_of_new_string_literal:: */
 void
 recording::memento_of_new_string_literal::replay_into (replayer *r)
 {
   set_playback_obj (r->new_string_literal (m_value->c_str ()));
+}
+
+recording::string *
+recording::memento_of_new_string_literal::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      m_value->get_debug_string ());
 }
 
 /* gcc::jit::recording::unary_op:: */
@@ -812,10 +1099,24 @@ recording::unary_op::replay_into (replayer *r)
 {
   set_playback_obj (r->new_unary_op (playback_location (m_loc),
 				     m_op,
-				     m_result_type->playback_type (),
+				     get_type ()->playback_type (),
 				     m_a->playback_rvalue ()));
 }
 
+static const char * const unary_op_strings[] = {
+  "-", /* GCC_JIT_UNARY_OP_MINUS */
+  "~", /* GCC_JIT_UNARY_OP_BITWISE_NEGATE */
+  "!", /* GCC_JIT_UNARY_OP_LOGICAL_NEGATE */
+};
+
+recording::string *
+recording::unary_op::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s(%s)",
+			      unary_op_strings[m_op],
+			      m_a->get_debug_string ());
+}
 
 /* gcc::jit::recording::binary_op:: */
 void
@@ -823,9 +1124,53 @@ recording::binary_op::replay_into (replayer *r)
 {
   set_playback_obj (r->new_binary_op (playback_location (m_loc),
 				      m_op,
-				      m_result_type->playback_type (),
+				      get_type ()->playback_type (),
 				      m_a->playback_rvalue (),
 				      m_b->playback_rvalue ()));
+}
+
+static const char * const binary_op_strings[] = {
+  "+", /* GCC_JIT_BINARY_OP_PLUS */
+  "-", /* GCC_JIT_BINARY_OP_MINUS */
+  "*", /* GCC_JIT_BINARY_OP_MULT */
+  "/", /* GCC_JIT_BINARY_OP_DIVIDE */
+  "%", /* GCC_JIT_BINARY_OP_MODULO */
+  "&", /* GCC_JIT_BINARY_OP_BITWISE_AND */
+  "^", /* GCC_JIT_BINARY_OP_BITWISE_XOR */
+  "|", /* GCC_JIT_BINARY_OP_BITWISE_OR */
+  "&&", /* GCC_JIT_BINARY_OP_LOGICAL_AND */
+  "||" /* GCC_JIT_BINARY_OP_LOGICAL_OR */
+};
+
+recording::string *
+recording::binary_op::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s %s %s",
+			      m_a->get_debug_string (),
+			      binary_op_strings[m_op],
+			      m_b->get_debug_string ());
+}
+
+/* gcc::jit::recording::comparison:: */
+static const char * const comparison_strings[] =
+{
+  "==", /* GCC_JIT_COMPARISON_EQ */
+  "!=", /* GCC_JIT_COMPARISON_NE */
+  "<",  /* GCC_JIT_COMPARISON_LT */
+  "<=", /* GCC_JIT_COMPARISON_LE */
+  ">",  /* GCC_JIT_COMPARISON_GT */
+  ">=", /* GCC_JIT_COMPARISON_GE */
+};
+
+recording::string *
+recording::comparison::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s %s %s",
+			      m_a->get_debug_string (),
+			      comparison_strings[m_op],
+			      m_b->get_debug_string ());
 }
 
 void
@@ -842,7 +1187,7 @@ recording::call::call (recording::context *ctxt,
 		       recording::function *func,
 		       int numargs,
 		       rvalue **args)
-: rvalue (ctxt, loc),
+: rvalue (ctxt, loc, func->get_return_type ()),
   m_func (func),
   m_args ()
 {
@@ -863,6 +1208,45 @@ recording::call::replay_into (replayer *r)
 				 playback_args));
 }
 
+recording::string *
+recording::call::make_debug_string ()
+{
+  /* First, build a buffer for the arguments.  */
+  /* Calculate length of said buffer.  */
+  size_t sz = 1; /* nil terminator */
+  for (unsigned i = 0; i< m_args.length (); i++)
+    {
+      sz += strlen (m_args[i]->get_debug_string ());
+      sz += 2; /* ", " separator */
+    }
+
+  /* Now allocate and populate the buffer.  */
+  char *argbuf = new char[sz];
+  size_t len = 0;
+
+  for (unsigned i = 0; i< m_args.length (); i++)
+    {
+      strcpy (argbuf + len, m_args[i]->get_debug_string ());
+      len += strlen (m_args[i]->get_debug_string ());
+      if (i + 1 < m_args.length ())
+	{
+	  strcpy (argbuf + len, ", ");
+	  len += 2;
+	}
+    }
+  argbuf[len] = '\0';
+
+  /* ...and use it to get the string for the call as a whole.  */
+  string *result = string::from_printf (m_ctxt,
+					"%s (%s)",
+					m_func->get_debug_string (),
+					argbuf);
+
+  delete[] argbuf;
+
+  return result;
+}
+
 void
 recording::array_lookup::replay_into (replayer *r)
 {
@@ -870,6 +1254,15 @@ recording::array_lookup::replay_into (replayer *r)
     r->new_array_lookup (playback_location (m_loc),
 			 m_ptr->playback_rvalue (),
 			 m_index->playback_rvalue ()));
+}
+
+recording::string *
+recording::array_lookup::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s[%s]",
+			      m_ptr->get_debug_string (),
+			      m_index->get_debug_string ());
 }
 
 void
@@ -882,6 +1275,15 @@ recording::access_field_of_lvalue::replay_into (replayer *)
 
 }
 
+recording::string *
+recording::access_field_of_lvalue::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s.%s",
+			      m_lvalue->get_debug_string (),
+			      m_field->get_debug_string ());
+}
+
 void
 recording::access_field_rvalue::replay_into (replayer *)
 {
@@ -889,6 +1291,15 @@ recording::access_field_rvalue::replay_into (replayer *)
     m_rvalue->playback_rvalue ()
       ->access_field (playback_location (m_loc),
 		      m_field->playback_field ()));
+}
+
+recording::string *
+recording::access_field_rvalue::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s.%s",
+			      m_rvalue->get_debug_string (),
+			      m_field->get_debug_string ());
 }
 
 void
@@ -900,6 +1311,15 @@ recording::dereference_field_rvalue::replay_into (replayer *)
 			 m_field->playback_field ()));
 }
 
+recording::string *
+recording::dereference_field_rvalue::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s->%s",
+			      m_rvalue->get_debug_string (),
+			      m_field->get_debug_string ());
+}
+
 void
 recording::dereference_rvalue::replay_into (replayer *)
 {
@@ -908,12 +1328,28 @@ recording::dereference_rvalue::replay_into (replayer *)
       dereference (playback_location (m_loc)));
 }
 
+recording::string *
+recording::dereference_rvalue::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "*%s",
+			      m_rvalue->get_debug_string ());
+}
+
 void
 recording::get_address_of_lvalue::replay_into (replayer *)
 {
   set_playback_obj (
     m_lvalue->playback_lvalue ()->
       get_address (playback_location (m_loc)));
+}
+
+recording::string *
+recording::get_address_of_lvalue::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "&%s",
+			      m_lvalue->get_debug_string ());
 }
 
 void
@@ -934,6 +1370,14 @@ recording::eval::replay_into (replayer *)
 		m_rvalue->playback_rvalue ());
 }
 
+recording::string *
+recording::eval::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "(void)%s;",
+			      m_rvalue->get_debug_string ());
+}
+
 void
 recording::assignment::replay_into (replayer *)
 {
@@ -941,6 +1385,15 @@ recording::assignment::replay_into (replayer *)
     ->add_assignment (playback_location (),
 		      m_lvalue->playback_lvalue (),
 		      m_rvalue->playback_rvalue ());
+}
+
+recording::string *
+recording::assignment::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s = %s;",
+			      m_lvalue->get_debug_string (),
+			      m_rvalue->get_debug_string ());
 }
 
 void
@@ -962,12 +1415,30 @@ recording::assignment_op::replay_into (replayer *r)
 		      binary_op);
 }
 
+recording::string *
+recording::assignment_op::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s %s= %s;",
+			      m_lvalue->get_debug_string (),
+			      binary_op_strings[m_op],
+			      m_rvalue->get_debug_string ());
+}
+
 void
 recording::comment::replay_into (replayer *)
 {
   playback_function ()
     ->add_comment (playback_location (),
 		   m_text->c_str ());
+}
+
+recording::string *
+recording::comment::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "/* %s */",
+			      m_text->c_str ());
 }
 
 void
@@ -980,12 +1451,36 @@ recording::conditional::replay_into (replayer *)
 		       playback_label (m_on_false));
 }
 
+recording::string *
+recording::conditional::make_debug_string ()
+{
+  if (m_on_false)
+    return string::from_printf (m_ctxt,
+				"if (%s) goto %s else goto %s;",
+				m_boolval->get_debug_string (),
+				m_on_true->get_debug_string (),
+				m_on_false->get_debug_string ());
+  else
+    return string::from_printf (m_ctxt,
+				"if (%s) goto %s;",
+				m_boolval->get_debug_string (),
+				m_on_true->get_debug_string ());
+}
+
 void
 recording::place_label::replay_into (replayer *)
 {
   playback_function ()
     ->place_forward_label (playback_location (),
 			   m_label->playback_label ());
+}
+
+recording::string *
+recording::place_label::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s:",
+			      m_label->get_debug_string ());
 }
 
 void
@@ -996,12 +1491,32 @@ recording::jump::replay_into (replayer *)
 		m_target->playback_label ());
 }
 
+recording::string *
+recording::jump::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "goto %s;",
+			      m_target->get_debug_string ());
+}
+
 void
 recording::return_::replay_into (replayer *)
 {
   playback_function ()
     ->add_return (playback_location (),
 		  m_rvalue ? m_rvalue->playback_rvalue () : NULL);
+}
+
+recording::string *
+recording::return_::make_debug_string ()
+{
+  if (m_rvalue)
+    return string::from_printf (m_ctxt,
+				"return %s;",
+				m_rvalue->get_debug_string ());
+  else
+    return string::from_printf (m_ctxt,
+				"return;");
 }
 
 void
@@ -1011,6 +1526,14 @@ recording::loop::replay_into (replayer *)
     m_func->playback_function ()
       ->new_loop (playback_location (m_loc),
 		  m_boolval->playback_rvalue ()));
+}
+
+recording::string *
+recording::loop::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "loop_while (%s)",
+			      m_boolval->get_debug_string ());
 }
 
 void
@@ -1024,6 +1547,13 @@ void
 recording::loop_end::replay_into (replayer *)
 {
   m_loop->playback_loop ()->end (playback_location (m_loc));
+}
+
+recording::string *
+recording::loop_end::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "end_loop (%p)", (void *)m_loop);
 }
 
 /**********************************************************************

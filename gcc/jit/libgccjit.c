@@ -76,14 +76,50 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
       }								\
   JIT_END_STMT
 
+#define RETURN_VAL_IF_FAIL_PRINTF2(TEST_EXPR, RETURN_EXPR, CTXT, ERR_FMT, A0, A1) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0), (A1));				\
+	return (RETURN_EXPR);						\
+      }								\
+  JIT_END_STMT
+
+#define RETURN_VAL_IF_FAIL_PRINTF3(TEST_EXPR, RETURN_EXPR, CTXT, ERR_FMT, A0, A1, A2) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0), (A1), (A2));			\
+	return (RETURN_EXPR);						\
+      }								\
+  JIT_END_STMT
+
 #define RETURN_NULL_IF_FAIL(TEST_EXPR, CTXT, ERR_MSG) \
   RETURN_VAL_IF_FAIL ((TEST_EXPR), NULL, (CTXT), (ERR_MSG))
+
+#define RETURN_NULL_IF_FAIL_PRINTF2(TEST_EXPR, CTXT, ERR_FMT, A0, A1) \
+  RETURN_VAL_IF_FAIL_PRINTF2 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1)
+
+#define RETURN_NULL_IF_FAIL_PRINTF3(TEST_EXPR, CTXT, ERR_FMT, A0, A1, A2) \
+  RETURN_VAL_IF_FAIL_PRINTF3 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1, A2)
 
 #define RETURN_IF_FAIL(TEST_EXPR, CTXT, ERR_MSG)			\
   JIT_BEGIN_STMT							\
     if (!(TEST_EXPR))							\
       {								\
 	jit_error ((CTXT), "%s: %s", __func__, (ERR_MSG));		\
+	return;							\
+      }								\
+  JIT_END_STMT
+
+#define RETURN_IF_FAIL_PRINTF4(TEST_EXPR, CTXT, ERR_FMT, A0, A1, A2, A3) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0), (A1), (A2), (A3));			\
 	return;							\
       }								\
   JIT_END_STMT
@@ -107,11 +143,11 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
   JIT_END_STMT
 
 static void
-jit_error (gcc_jit_context *ctxt, const char *fmt, ...)
+jit_error (gcc::jit::recording::context *ctxt, const char *fmt, ...)
   GNU_PRINTF(2, 3);
 
 static void
-jit_error (gcc_jit_context *ctxt, const char *fmt, ...)
+jit_error (gcc::jit::recording::context *ctxt, const char *fmt, ...)
 {
   va_list ap;
   va_start (ap, fmt);
@@ -125,6 +161,13 @@ jit_error (gcc_jit_context *ctxt, const char *fmt, ...)
     }
 
   va_end (ap);
+}
+
+static bool
+compatible_types (gcc::jit::recording::type *ltype,
+		  gcc::jit::recording::type *rtype)
+{
+  return ltype->accepts_writes_from (rtype);
 }
 
 gcc_jit_context *
@@ -210,7 +253,15 @@ gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
   if (num_fields)
     RETURN_NULL_IF_FAIL (fields, ctxt, "NULL fields ptr");
   for (int i = 0; i < num_fields; i++)
-    RETURN_NULL_IF_FAIL (fields[i], ctxt, "NULL field ptr");
+    {
+      RETURN_NULL_IF_FAIL (fields[i], ctxt, "NULL field ptr");
+      RETURN_NULL_IF_FAIL_PRINTF2 (
+	NULL == fields[i]->get_container (),
+	ctxt,
+	"%s is already a field of %s",
+	fields[i]->get_debug_string (),
+	fields[i]->get_container ()->get_debug_string ());
+    }
 
   return (gcc_jit_type *)ctxt->new_struct_type (loc, name, num_fields,
 						(gcc::jit::recording::field **)fields);
@@ -473,6 +524,21 @@ gcc_jit_rvalue_dereference_field (gcc_jit_rvalue *ptr,
 {
   RETURN_NULL_IF_FAIL (ptr, NULL, "NULL ptr");
   RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
+  gcc::jit::recording::type *underlying_type =
+    ptr->get_type ()->dereference ();
+  RETURN_NULL_IF_FAIL_PRINTF3 (
+    underlying_type, ptr->m_ctxt,
+    "dereference of non-pointer %s (type: %s) when accessing ->%s",
+    ptr->get_debug_string (),
+    ptr->get_type ()->get_debug_string (),
+    field->get_debug_string ());
+  RETURN_NULL_IF_FAIL_PRINTF2 (
+    (field->get_container ()->unqualified ()
+     == underlying_type->unqualified ()),
+    ptr->m_ctxt,
+    "%s is not a field of %s",
+    field->get_debug_string (),
+    underlying_type->get_debug_string ());
 
   return (gcc_jit_lvalue *)ptr->dereference_field (loc, field);
 }
@@ -482,6 +548,15 @@ gcc_jit_rvalue_dereference (gcc_jit_rvalue *rvalue,
 			    gcc_jit_location *loc)
 {
   RETURN_NULL_IF_FAIL (rvalue, NULL, "NULL rvalue");
+
+  gcc::jit::recording::type *underlying_type =
+    rvalue->get_type ()->dereference ();
+
+  RETURN_NULL_IF_FAIL_PRINTF2 (
+    underlying_type, rvalue->m_ctxt,
+    "dereference of non-pointer %s (type: %s)",
+    rvalue->get_debug_string (),
+    rvalue->get_type ()->get_debug_string ());
 
   return (gcc_jit_lvalue *)rvalue->dereference (loc);
 }
@@ -551,8 +626,19 @@ gcc_jit_function_add_assignment (gcc_jit_function *func,
 				 gcc_jit_rvalue *rvalue)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (lvalue, NULL, "NULL lvalue");
-  RETURN_IF_FAIL (rvalue, NULL, "NULL rvalue");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (lvalue, ctxt, "NULL lvalue");
+  RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
+  RETURN_IF_FAIL_PRINTF4 (
+    compatible_types (lvalue->get_type (),
+		      rvalue->get_type ()),
+    ctxt,
+    "mismatching types:"
+    " assignment to %s (type: %s) from %s (type: %s)",
+    lvalue->get_debug_string (),
+    lvalue->get_type ()->get_debug_string (),
+    rvalue->get_debug_string (),
+    rvalue->get_type ()->get_debug_string ());
 
   return func->add_assignment (loc, lvalue, rvalue);
 }
@@ -615,7 +701,19 @@ gcc_jit_function_add_return (gcc_jit_function *func,
 			     gcc_jit_rvalue *rvalue)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (rvalue, NULL, "NULL rvalue");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
+  RETURN_IF_FAIL_PRINTF4 (
+    compatible_types (
+      func->get_return_type (),
+      rvalue->get_type ()),
+    ctxt,
+    "mismatching types:"
+    " return of %s (type: %s) in function %s (return type: %s)",
+    rvalue->get_debug_string (),
+    rvalue->get_type ()->get_debug_string (),
+    func->get_debug_string (),
+    func->get_return_type ()->get_debug_string ());
 
   return func->add_return (loc, rvalue);
 }

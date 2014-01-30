@@ -45,7 +45,8 @@ typedef struct gcc_jit_location gcc_jit_location;
 typedef struct gcc_jit_type gcc_jit_type;
 
 /* A gcc_jit_field encapsulates a field within a struct; it is used
-   when creating a struct type (using gcc_jit_context_new_struct_type).  */
+   when creating a struct type (using gcc_jit_context_new_struct_type).
+   Fields cannot be shared between structs.  */
 typedef struct gcc_jit_field gcc_jit_field;
 
 /* A gcc_jit_function encapsulates a function: either one that you're
@@ -481,7 +482,7 @@ enum gcc_jit_binary_op
   GCC_JIT_BINARY_OP_DIVIDE,
 
   /* Remainder of division of arithmetic values; analogous to:
-       (EXPR_A) / (EXPR_B)
+       (EXPR_A) % (EXPR_B)
      in C.  */
   GCC_JIT_BINARY_OP_MODULO,
 

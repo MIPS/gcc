@@ -1,3 +1,12 @@
+2014-01-30  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-accessing-field-in-other-struct.c: New test
+	case.
+	* jit.dg/test-error-dereference-field-of-non-pointer.c: Likewise.
+	* jit.dg/test-error-dereference-read-of-non-pointer.c: Likewise.
+	* jit.dg/test-error-mismatching-types-in-assignment.c: Likewise.
+	* jit.dg/test-error-return-within-void-function.c: Likewise.
+
 2014-01-29  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-accessing-struct.c (create_code): Update for API change
