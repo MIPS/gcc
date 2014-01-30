@@ -2266,13 +2266,12 @@ exit, in last place.}#
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-(defhook hook_register_pragmas () () :void
-  :predef HOOK_REGISTER_PRAGMAS
-  (debug "hook_register_pragmas start")
-  )
+;;           P R A G M A S
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (cheader
  #{ /* cheader for pragmas in warmelt-hooks.melt */
+ #include "cpplib.h"
 /*** 
      We declare weak functions because they cannot be linked when we
      use lto (it loses langage specific informations).  If you use one
@@ -2300,6 +2299,11 @@ c_register_pragma_with_data (const char *space, const char *name,
    melthookproc_HOOK_REGISTER_PRAGMAS ();
  } /* end of melt_register_pragmas_callback */
  }#)
+
+(defhook hook_register_pragmas () () :void
+  :predef HOOK_REGISTER_PRAGMAS
+  (debug "hook_register_pragmas start")
+  )
 
 (defun check_c_frontend (nam :cstring msg)
   :doc #{utility function to check that we are indeed within a C or
@@ -2335,8 +2339,51 @@ c_register_pragma_with_data (const char *space, const char *name,
 			  $MSG);
 	 }#)))
     ))
-      
-      
+
+
+;; a variable to hold lazily the tuple of symbols for 
+(defvar cpp_ttype_tuple)
+
+(defhook register_cpp_ttype (:long ix :cstring name) () :void
+  (assert_msg "check cpp_ttype_tuple" (is_multiple cpp_ttype_tuple) cpp_ttype_tuple)
+  (multiple_put_nth cpp_ttype_tuple ix
+		    (hook_named_symbol
+		     name
+		     (expr_chunk chk_meltcreate :long
+				 #{/*register_cpp_ttype*/ (long)MELT_CREATE}#)))
+  )
+
+(defun ensure_cpp_ttype_tuple ()
+  (if cpp_ttype_tuple (return))
+  (let ( (:long nbttype (expr_chunk chk_nbttype :long
+				    #{/*ensure_cpp_ttype_tuple*/ (long) N_TTYPES}#))
+	 (newcpptytuple (make_multiple discr_multiple nbttype))
+	 )
+    (setq cpp_ttype_tuple newcpptytuple)
+    (code_chunk
+     cpptypetuple_chk
+     #{ /* ensure_cpp_ttype_tuple $CPPTYPETUPLE_CHK */
+#define MELT_DO_REGISTER_CPP_TTYPE(CppNam) \
+   melthook_REGISTER_CPP_TTYPE($REGISTER_CPP_TTYPE, \
+			       CppNam, #CppNam);
+// macros used by TTYPE_TABLE from cpplib.h
+#ifndef TTYPE_TABLE
+#error TTYPE_TABLE not defined but expected
+#endif
+#define OP(Nam,Str) /*oper*/  MELT_DO_REGISTER_CPP_TTYPE(CPP_##Nam)
+#define TK(Nam,Typ) /*token*/ MELT_DO_REGISTER_CPP_TTYPE(CPP_##Nam)
+// the TTYPE_TABLE below is a long macro
+     TTYPE_TABLE
+#undef MELT_DO_REGISTER_CPP_TTYPE
+     }#)
+    )
+  )
+
+(defun register_expanded_pragma (space name fun)
+  (debug "register_expanded_pragma start space=" space " name=" name " fun=" fun)
+  (ensure_cpp_ttype_tuple)
+  )
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values
