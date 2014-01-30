@@ -1,5 +1,27 @@
 2014-01-30  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::recording::type::get_pointer):
+	Ensure that repeated calls yield the same type.
+	(gcc::jit::recording::memento_of_get_pointer::
+	accepts_writes_from): New.
+	(gcc::jit::recording::context::new_call): Move
+	the existing argument checking to...
+
+	* libgccjit.c (gcc_jit_context_new_call): ...here, and add
+	checking of the types of the arguments against the function.
+	(RETURN_VAL_IF_FAIL_PRINTF6): New.
+	(RETURN_NULL_IF_FAIL_PRINTF6): New.
+
+	* internal-api.h (gcc::jit::recording::type): New field
+	m_pointer_to_this_type, for use by get_pointer method.
+	(gcc::jit::recording::memento_of_get_pointer::
+	accepts_writes_from): New.
+	(gcc::jit::recording::function::get_param): New.
+
+	* TODO.rst (argument checking of gcc_jit_context_new_call): Done.
+
+2014-01-30  David Malcolm  <dmalcolm@redhat.com>
+
 	* TODO.rst: begin a list of error-checking we could do that this
 	commit *doesn't* cover.
 

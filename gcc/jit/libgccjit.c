@@ -96,6 +96,16 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
       }								\
   JIT_END_STMT
 
+#define RETURN_VAL_IF_FAIL_PRINTF6(TEST_EXPR, RETURN_EXPR, CTXT, ERR_FMT, A0, A1, A2, A3, A4, A5) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0), (A1), (A2), (A3), (A4), (A5));	\
+	return (RETURN_EXPR);						\
+      }								\
+  JIT_END_STMT
+
 #define RETURN_NULL_IF_FAIL(TEST_EXPR, CTXT, ERR_MSG) \
   RETURN_VAL_IF_FAIL ((TEST_EXPR), NULL, (CTXT), (ERR_MSG))
 
@@ -104,6 +114,9 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
 
 #define RETURN_NULL_IF_FAIL_PRINTF3(TEST_EXPR, CTXT, ERR_FMT, A0, A1, A2) \
   RETURN_VAL_IF_FAIL_PRINTF3 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1, A2)
+
+#define RETURN_NULL_IF_FAIL_PRINTF6(TEST_EXPR, CTXT, ERR_FMT, A0, A1, A2, A3, A4, A5) \
+  RETURN_VAL_IF_FAIL_PRINTF6 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1, A2, A3, A4, A5)
 
 #define RETURN_IF_FAIL(TEST_EXPR, CTXT, ERR_MSG)			\
   JIT_BEGIN_STMT							\
@@ -475,6 +488,44 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (func, ctxt, "NULL function");
   if (numargs)
     RETURN_NULL_IF_FAIL (args, ctxt, "NULL args");
+
+  int min_num_params = func->get_params ().length ();
+  bool is_variadic = func->is_variadic ();
+
+  RETURN_NULL_IF_FAIL_PRINTF3 (
+    numargs >= min_num_params,
+    ctxt,
+    "not enough arguments to function \"%s\""
+    " (got %i args, expected %i)",
+    func->get_name ()->c_str (),
+    numargs, min_num_params);
+
+  RETURN_NULL_IF_FAIL_PRINTF3 (
+    (numargs == min_num_params || is_variadic),
+    ctxt,
+    "too many arguments to function \"%s\""
+    " (got %i args, expected %i)",
+    func->get_name ()->c_str (),
+    numargs, min_num_params);
+
+  for (int i = 0; i < min_num_params; i++)
+    {
+      gcc::jit::recording::param *param = func->get_param (i);
+      gcc_jit_rvalue *arg = args[i];
+
+      RETURN_NULL_IF_FAIL_PRINTF6 (
+	compatible_types (param->get_type (),
+			  arg->get_type ()),
+	ctxt,
+	"mismatching types for argument %d of function \"%s\":"
+	" assignment to param %s (type: %s) from %s (type: %s)",
+	i + 1,
+	func->get_name ()->c_str (),
+	param->get_debug_string (),
+	param->get_type ()->get_debug_string (),
+	arg->get_debug_string (),
+	arg->get_type ()->get_debug_string ());
+    }
 
   return (gcc_jit_rvalue *)ctxt->new_call (loc,
 					   func,

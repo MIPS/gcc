@@ -408,8 +408,12 @@ public:
 
 protected:
   type (context *ctxt)
-    : memento (ctxt) {}
+    : memento (ctxt),
+    m_pointer_to_this_type (NULL)
+  {}
 
+private:
+  type *m_pointer_to_this_type;
 };
 
 /* Result of "gcc_jit_type_get_type".  */
@@ -455,6 +459,8 @@ public:
     m_other_type (other_type) {}
 
   type *dereference () { return m_other_type; }
+
+  bool accepts_writes_from (type *rtype);
 
   void replay_into (replayer *r);
 
@@ -718,6 +724,7 @@ public:
   type *get_return_type () const { return m_return_type; }
   string * get_name () const { return m_name; }
   vec<param *> get_params () const { return m_params; }
+  param *get_param (int i) const { return m_params[i]; }
   bool is_variadic () const { return m_is_variadic; }
 
 private:

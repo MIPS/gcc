@@ -1,5 +1,9 @@
 2014-01-30  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-error-call-with-mismatching-args.c: New test case.
+
+2014-01-30  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-error-accessing-field-in-other-struct.c: New test
 	case.
 	* jit.dg/test-error-dereference-field-of-non-pointer.c: Likewise.

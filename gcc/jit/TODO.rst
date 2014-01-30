@@ -118,8 +118,6 @@ Initial Release
 
     * gcc_jit_context_new_comparison: must be numeric or pointer types
 
-    * gcc_jit_context_new_call: check the types of the args
-
     * gcc_jit_context_new_array_lookup: "ptr" must be of pointer type;
       "index" must be of numeric type.
 

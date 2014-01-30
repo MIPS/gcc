@@ -355,26 +355,6 @@ recording::context::new_call (recording::location *loc,
 			      function *func,
 			      int numargs , recording::rvalue **args)
 {
-  int min_num_params = func->get_params ().length ();
-  bool is_variadic = func->is_variadic ();
-  if (numargs < min_num_params)
-    {
-      add_error (("gcc_jit_context_new_call: "
-		  "not enough arguments to function \"%s\""
-		  " (got %i args, expected %i)"),
-		 func->get_name ()->c_str (),
-		 numargs, min_num_params);
-      return NULL;
-    }
-  if (numargs > min_num_params && !is_variadic)
-    {
-      add_error (("gcc_jit_context_new_call: "
-		  "too many arguments to function \"%s\""
-		  " (got %i args, expected %i)"),
-		 func->get_name ()->c_str (),
-		 numargs, min_num_params);
-      return NULL;
-    }
   recording::rvalue *result = new call (this, loc, func, numargs, args);
   record (result);
   return result;
@@ -590,9 +570,12 @@ recording::location::make_debug_string ()
 recording::type *
 recording::type::get_pointer ()
 {
-  recording::type *result = new memento_of_get_pointer (this);
-  m_ctxt->record (result);
-  return result;
+  if (!m_pointer_to_this_type)
+    {
+      m_pointer_to_this_type = new memento_of_get_pointer (this);
+      m_ctxt->record (m_pointer_to_this_type);
+    }
+  return m_pointer_to_this_type;
 }
 
 recording::type *
@@ -692,6 +675,14 @@ recording::memento_of_get_type::make_debug_string ()
 }
 
 /* gcc::jit::recording::memento_of_get_pointer:: */
+bool
+recording::memento_of_get_pointer::accepts_writes_from (type *rtype)
+{
+  /* It's OK to assign to a (const T *) from a (T *).  */
+  return m_other_type->unqualified ()
+    ->accepts_writes_from (rtype->dereference ());
+}
+
 void
 recording::memento_of_get_pointer::replay_into (replayer *)
 {
