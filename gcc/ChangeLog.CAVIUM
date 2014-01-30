@@ -1,3 +1,7 @@
+2014-01-29  Andrew Pinski  <apinski@cavium.com>
+
+	* opts.c (default_options_table): Enable unroll-loops at -O3 and above.
+
 2014-01-27  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	Ported the patch by Andrew.
