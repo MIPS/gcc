@@ -1657,6 +1657,21 @@ rs6000_cpu_name_lookup (const char *name)
 }
 
 
+/* Helper function to separate IEEE 128 when it can go in vector registers from
+   normal scalar floating point.  */
+
+static inline bool
+scalar_float_not_vector_p (enum machine_mode mode)
+{
+  if (!SCALAR_FLOAT_MODE_P (mode))
+    return false;
+
+  if (FLOAT128_VECTOR_P (mode))
+    return false;
+
+  return true;
+}
+
 /* Return number of consecutive hard regs needed starting at reg REGNO
    to hold something of mode MODE.
    This is ordinarily the length in words of a value of mode MODE
@@ -1752,7 +1767,7 @@ rs6000_hard_regno_mode_ok (int regno, enum machine_mode mode)
      modes and DImode.  */
   if (FP_REGNO_P (regno))
     {
-      if (SCALAR_FLOAT_MODE_P (mode)
+      if (scalar_float_not_vector_p (mode)
 	  && (mode != TDmode || (regno % 2) == 0)
 	  && FP_REGNO_P (last_regno))
 	return 1;
@@ -6111,11 +6126,13 @@ reg_offset_addressing_ok_p (enum machine_mode mode)
     case V2DFmode:
     case V2DImode:
     case TImode:
+    case TFmode:
     case XFmode:
       /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  While
 	 TImode is not a vector mode, if we want to use the VSX registers to
-	 move it around, we need to restrict ourselves to reg+reg
-	 addressing.  */
+	 move it around, we need to restrict ourselves to reg+reg addressing.
+	 Similarly for IEEE 128-bit floating point that is passed in a single
+	 vector register.  */
       if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
 	return false;
       break;
@@ -8562,7 +8579,7 @@ rs6000_member_type_forces_blk (const_tree field, enum machine_mode mode)
 
 /* Nonzero if we can use a floating-point register to pass this arg.  */
 #define USE_FP_FOR_ARG_P(CUM,MODE)		\
-  (SCALAR_FLOAT_MODE_P (MODE)			\
+  (scalar_float_not_vector_p (MODE)		\
    && (CUM)->fregno <= FP_ARG_MAX_REG		\
    && TARGET_HARD_FLOAT && TARGET_FPRS		\
    && !FLOAT128_VECTOR_P (MODE))
@@ -8591,7 +8608,7 @@ rs6000_aggregate_candidate (const_tree type, enum machine_mode *modep)
     {
     case REAL_TYPE:
       mode = TYPE_MODE (type);
-      if (!SCALAR_FLOAT_MODE_P (mode))
+      if (!scalar_float_not_vector_p (mode))
 	return -1;
 
       if (*modep == VOIDmode)
@@ -8604,7 +8621,7 @@ rs6000_aggregate_candidate (const_tree type, enum machine_mode *modep)
 
     case COMPLEX_TYPE:
       mode = TYPE_MODE (TREE_TYPE (type));
-      if (!SCALAR_FLOAT_MODE_P (mode))
+      if (!scalar_float_not_vector_p (mode))
 	return -1;
 
       if (*modep == VOIDmode)
@@ -8764,7 +8781,7 @@ rs6000_discover_homogeneous_aggregate (enum machine_mode mode, const_tree type,
 
       if (field_count > 0)
 	{
-	  int n_regs = (SCALAR_FLOAT_MODE_P (field_mode)?
+	  int n_regs = (scalar_float_not_vector_p (field_mode) ?
 			(GET_MODE_SIZE (field_mode) + 7) >> 3 : 1);
 
 	  /* The ELFv2 ABI allows homogeneous aggregates to occupy
@@ -9006,7 +9023,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype,
 		      <= 8))
 		rs6000_returns_struct = true;
 	    }
-	  if (SCALAR_FLOAT_MODE_P (return_mode))
+	  if (scalar_float_not_vector_p (return_mode))
 	    rs6000_passes_float = true;
 	  else if (ALTIVEC_OR_VSX_VECTOR_MODE (return_mode)
 		   || SPE_VECTOR_MODE (return_mode))
@@ -9362,7 +9379,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
   if (DEFAULT_ABI == ABI_V4
       && cum->escapes)
     {
-      if (SCALAR_FLOAT_MODE_P (mode))
+      if (scalar_float_not_vector_p (mode))
 	rs6000_passes_float = true;
       else if (named && ALTIVEC_OR_VSX_VECTOR_MODE (mode))
 	rs6000_passes_vector = true;
@@ -9535,7 +9552,7 @@ rs6000_function_arg_advance_1 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
 
       cum->words = align_words + n_words;
 
-      if (SCALAR_FLOAT_MODE_P (elt_mode)
+      if (scalar_float_not_vector_p (elt_mode)
 	  && TARGET_HARD_FLOAT && TARGET_FPRS)
 	{
 	  /* _Decimal128 must be passed in an even/odd float register pair.
@@ -30454,7 +30471,7 @@ rs6000_function_value (const_tree valtype,
       int first_reg, n_regs, i;
       rtx par;
 
-      if (SCALAR_FLOAT_MODE_P (elt_mode))
+      if (scalar_float_not_vector_p (elt_mode))
 	{
 	  /* _Decimal128 must use even/odd register pairs.  */
 	  first_reg = (elt_mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
@@ -30519,7 +30536,7 @@ rs6000_function_value (const_tree valtype,
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (SCALAR_FLOAT_TYPE_P (valtype) && TARGET_HARD_FLOAT && TARGET_FPRS
+  else if (scalar_float_not_vector_p (mode) && TARGET_HARD_FLOAT && TARGET_FPRS
 	   && ((TARGET_SINGLE_FLOAT && (mode == SFmode)) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;
   else if (TREE_CODE (valtype) == COMPLEX_TYPE
@@ -30528,7 +30545,7 @@ rs6000_function_value (const_tree valtype,
   /* VSX is a superset of Altivec and adds V2DImode/V2DFmode.  Since the same
      return register is used in both cases, and we won't see V2DImode/V2DFmode
      for pure altivec, combine the two cases.  */
-  else if (TREE_CODE (valtype) == VECTOR_TYPE
+  else if ((TREE_CODE (valtype) == VECTOR_TYPE || FLOAT128_VECTOR_P (mode))
 	   && TARGET_ALTIVEC && TARGET_ALTIVEC_ABI
 	   && ALTIVEC_OR_VSX_VECTOR_MODE (mode))
     regno = ALTIVEC_ARG_RETURN;
@@ -30566,7 +30583,7 @@ rs6000_libcall_value (enum machine_mode mode)
   if (DECIMAL_FLOAT_MODE_P (mode) && TARGET_HARD_FLOAT && TARGET_FPRS)
     /* _Decimal128 must use an even/odd register pair.  */
     regno = (mode == TDmode) ? FP_ARG_RETURN + 1 : FP_ARG_RETURN;
-  else if (SCALAR_FLOAT_MODE_P (mode)
+  else if (scalar_float_not_vector_p (mode)
 	   && TARGET_HARD_FLOAT && TARGET_FPRS
            && ((TARGET_SINGLE_FLOAT && mode == SFmode) || TARGET_DOUBLE_FLOAT))
     regno = FP_ARG_RETURN;

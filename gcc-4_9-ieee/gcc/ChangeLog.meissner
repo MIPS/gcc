@@ -1,20 +1,46 @@
 2014-01-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
+	predicate to return true if op is a hard GPR register.
+
 	* config/rs6000/rs6000.opt (-mabi=ieeelongdouble): Remove warning
 	if the option was used.
 	(-mabi=ibmlongdouble): Likewise.
 
-	* config/rs6000/rs6000.c (USE_FP_FOR_ARG_P): Do not use scalar
-	float registers for IEEE 128-bit floating point passed in vector
-	registers.
+	* config/rs6000/rs6000.c (scalar_float_not_vector_p): New helper
+	function to differentiate scalar floating point that is passed in
+	the traditional floating point registers from IEEE 128-bit
+	floating point passed in vector registers.
+	(rs6000_hard_regno_mode_ok): Make sure TF/XFmode uses the correct
+	number of registers.
+	(USE_FP_FOR_ARG_P): Do not use scalar float registers for IEEE
+	128-bit floating point passed in vector registers.
+	(rs6000_aggregate_candidate): Do not count IEEE 128-bit that is
+	passed as a vector as a special aggregate.
+	(rs6000_discover_homogeneous_aggregate): Likewise.
 	(init_cumulative_args): Record whether this call is a library
-	call.
-	(rs6000_function_arg): Don't pass IEEE 128-bit floating point
-	library functions in both vector registers or the stack.
+	call.  Distinguish between scalar floating point values passed in
+	traditional FP registers from those passed in vector registers.
+	(rs6000_function_arg_advance_1): Likewise.
+	(rs6000_function_arg): Likewise.
 	(rs6000_arg_partial_bytes): Likewise.
+	(rs6000_function_value): Likewise.
+	(rs6000_libcall_value): Likewise.
 
 	* config/rs6000/rs6000.h (CUMULATIVE_ARGS): Add field to denote if
 	this is a library function.
+
+	* config/rs6000/vsx.md (VSX_L): Add XFmode, TFmode if those types
+	are passed in vector registers.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add XFmode, TFmode if those types
+	are passed in vector registers.
+	(VM2): Likewise.
+
+	* config/rs6000/rs6000.md (mov<mode>_internal, 128-bit FP): Handle
+	spliting IEEE 128-bit floating point if it is in GPRs.
 
 2014-01-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 

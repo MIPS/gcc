@@ -41,12 +41,19 @@
 			     V4SF
 			     V2DF
 			     TI
-			     (XF "FLOAT128_VECTOR_P (XFmode)")
-			     (TF "FLOAT128_VECTOR_P (TFmode)")])
+			     (XF	"FLOAT128_VECTOR_P (XFmode)")
+			     (TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 ;; Iterator for memory move.  Handle TImode specially to allow
 ;; it to use gprs as well as vsx registers.
-(define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF XF])
+(define_mode_iterator VSX_M [V16QI
+			     V8HI
+			     V4SI
+			     V2DI
+			     V4SF
+			     V2DF
+			     (XF	"FLOAT128_VECTOR_P (XFmode)")
+			     (TF	"FLOAT128_VECTOR_P (TFmode)")])
 
 (define_mode_iterator VSX_M2 [V16QI
 			      V8HI
@@ -54,7 +61,8 @@
 			      V2DI
 			      V4SF
 			      V2DF
-			      XF
+			      (XF	"FLOAT128_VECTOR_P (XFmode)")
+			      (TF	"FLOAT128_VECTOR_P (TFmode)")
 			      (TI	"TARGET_VSX_TIMODE")])
 
 ;; Map into the appropriate load/store name based on the type
