@@ -380,23 +380,23 @@
 {
   rtx true_val = CONSTM1_RTX (<MSA_2:MODE>mode);
   rtx false_val = CONST0_RTX (<MSA_2:MODE>mode);
+
   if (operands[1] == true_val && operands[2] == false_val)
     mips_expand_msa_vcond (operands[0], operands[1], operands[2],
 			   GET_CODE (operands[3]), operands[4], operands[5]);
   else
     {
-      rtx xtrue_val = CONSTM1_RTX (<MSA_2:MODE_I>mode);
-      rtx xfalse_val = CONST0_RTX (<MSA_2:MODE_I>mode);
       rtx res = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx temp1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx temp2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx xres = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx xop1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx xop2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      mips_expand_msa_vcond (res, xtrue_val, xfalse_val,
+
+      mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
-      // result is for -1 or 0 for need to convert for operands[1] or
-      // operands[2]
+      // Results in -1 or 0 so need to convert this to correct result for the
+      // correct true/false given by operands[1]/operands[2] repectively.
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
@@ -405,13 +405,14 @@
 	}
       else
 	emit_move_insn (temp1, xres);
-      emit_move_insn (temp2, xtrue_val);
+
+      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:MODE_I>mode));
       emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
       if (operands[2] != false_val)
-        {
+	{
 	  emit_move_insn (xop2, operands[2]);
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
-        }
+	}
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
       emit_move_insn (operands[0], xres);
     }
@@ -432,23 +433,23 @@
 {
   rtx true_val = CONSTM1_RTX (<MSA_2:MODE>mode);
   rtx false_val = CONST0_RTX (<MSA_2:MODE>mode);
+
   if (operands[1] == true_val && operands[2] == false_val)
     mips_expand_msa_vcond (operands[0], operands[1], operands[2],
 			   GET_CODE (operands[3]), operands[4], operands[5]);
   else
     {
-      rtx xtrue_val = CONSTM1_RTX (<MSA_2:MODE_I>mode);
-      rtx xfalse_val = CONST0_RTX (<MSA_2:MODE_I>mode);
       rtx res = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx temp1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx temp2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx xres = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx xop1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
       rtx xop2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      mips_expand_msa_vcond (res, xtrue_val, xfalse_val,
+
+      mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
-      // result is for -1 or 0 for need to convert for operands[1] or
-      // operands[2]
+      // Results in -1 or 0 so need to convert this to correct result for the
+      // correct true/false given by operands[1]/operands[2] repectively.
       emit_move_insn (xres, res);
       if (operands[1] != true_val)
 	{
@@ -457,13 +458,14 @@
 	}
       else
 	emit_move_insn (temp1, xres);
-      emit_move_insn (temp2, xtrue_val);
+
+      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:MODE_I>mode));
       emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
       if (operands[2] != false_val)
-        {
+	{
 	  emit_move_insn (xop2, operands[2]);
 	  emit_insn (gen_and<MSA_2:mode_i>3 (temp2, temp2, xop2));
-        }
+	}
       emit_insn (gen_ior<MSA_2:mode_i>3 (xres, temp1, temp2));
       emit_move_insn (operands[0], xres);
     }
