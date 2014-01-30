@@ -1603,12 +1603,8 @@ bool  melthk_finish_decl_registered_flag;
    #{ /* enable_finish_decl $enablepregen_chk */
    if (!melthk_finish_decl_registered_flag) {
      melthk_finish_decl_registered_flag = true;
-#if MELT_GCC_VERSION < 4007
-   melt_fatal_error ("PLUGIN_FINISH_DECL does not exist in GCC 4.6");
-#else
   register_callback (melt_plugin_name, PLUGIN_FINISH_DECL,
                      melt_finish_decl_hook_callback, NULL);
-#endif 
    }
    }#)
 )
@@ -2284,6 +2280,7 @@ exit, in last place.}#
 ***/
 // Function pragma_lex is declared in c-family/c-pragma.h
 extern enum cpp_ttype pragma_lex (tree *) MELT_WEAK_ON_HOST;
+
 // Function c_register_pragma_with_expansion_and_data from c-family/c-pragma.h
 extern void
 c_register_pragma_with_expansion_and_data (const char *space,
@@ -2304,6 +2301,42 @@ c_register_pragma_with_data (const char *space, const char *name,
  } /* end of melt_register_pragmas_callback */
  }#)
 
+(defun check_c_frontend (nam :cstring msg)
+  :doc #{utility function to check that we are indeed within a C or
+  C++ compiler, outside of @tt{lto1} but inside @tt{cc1} or
+  @tt{cc1plus}.}#
+  (assert_msg "check nam" (is_a nam class_named))
+  (let ( (:long good 0)
+	 )
+    (code_chunk
+     checkc_havepragmas_chk
+     #{ /* start check_c_frontend $CHECKC_HAVEPRAGMAS_CHK */
+#ifdef MELT_WEAK_ON_HOST
+     $GOOD = pragma_lex
+           && c_register_pragma_with_expansion_and_data
+           && c_register_pragma_with_data;
+#else
+#error check_c_frontend need MELT_WEAK_ON_HOST
+#endif
+     /* end check_c_frontend $CHECKC_HAVEPRAGMAS_CHK */
+     }#)
+    (debug "check_c_frontend good=" good " nam=" nam " msg=" msg)
+    (unless good
+      (error_at () "Can't use $1 ($2) outside of a C [cc1] or C++ [cc1plus] compiler -e.g. inside [lto1]"
+		nam msg)
+      (let ( (namstr (get_field :named_name nam))
+	     )
+	(assert_msg "check namstr" (is_string namstr) namstr nam)
+	(code_chunk
+	 checkc_fatalerror_chk
+	 #{ /* check_c_frontend $CHECKC_FATALERROR_CHK */
+	 melt_fatal_error("C or C++ frontend expected in %s (%s)",
+			  melt_string_str($NAMSTR),
+			  $MSG);
+	 }#)))
+    ))
+      
+      
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values
@@ -2317,6 +2350,7 @@ c_register_pragma_with_data (const char *space, const char *name,
  at_melt_attribute_last
  at_start_unit_first
  at_start_unit_last
+ check_c_frontend
  hook_low_debug_value_at
  hook_override_gate
  register_all_ipa_passes_end_first
