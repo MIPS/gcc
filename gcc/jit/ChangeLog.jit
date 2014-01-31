@@ -1,5 +1,12 @@
 2014-01-31  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h: New file - a C++ wrapper for the libgccjit.h API.
+
+	* TODO.rst ("Test Suite"): New section, adding note about C++
+	tests.
+
+2014-01-31  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (gcc_jit_context_new_rvalue_from_int): Give the type
 	parameter a more descriptive name.
 	(gcc_jit_context_zero): Likewise.

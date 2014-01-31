@@ -133,6 +133,10 @@ Initial Release
 
     * gcc_jit_loop_end: verify that loops are validly nested?
 
+Test suite
+==========
+* get DejaGnu to build and run C++ testcases
+
 Future milestones
 =================
 * try porting llvmpipe to gcc

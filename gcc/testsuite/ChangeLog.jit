@@ -1,3 +1,8 @@
+2014-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-quadratic.cc: New file - a translation of
+	test-quadratic.c to the libgccjit++.h C++ API.
+
 2014-01-30  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-error-label-already-placed.c: New test case.
