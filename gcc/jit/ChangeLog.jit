@@ -1,3 +1,29 @@
+2014-01-31  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (gcc_jit_context_new_rvalue_from_int): Give the type
+	parameter a more descriptive name.
+	(gcc_jit_context_zero): Likewise.
+	(gcc_jit_context_one): Likewise.
+	(gcc_jit_context_new_rvalue_from_double): Likewise.
+	(gcc_jit_context_new_rvalue_from_ptr): Likewise.
+
+	* libgccjit.c (gcc_jit_context_new_rvalue_from_int): Likewise.
+	(gcc_jit_context_zero): Likewise.
+	(gcc_jit_context_one): Likewise.
+	(gcc_jit_context_new_rvalue_from_double): Likewise.
+	(gcc_jit_context_new_rvalue_from_ptr): Likewise.
+
+	* internal-api.h (gcc::jit::recording::context::
+	new_rvalue_from_int): Likewise.
+	(gcc::jit::recording::context::
+	new_rvalue_from_double): Likewise.
+	(gcc::jit::recording::memento_of_new_rvalue_from_int::
+	memento_of_new_rvalue_from_int): Likewise.
+	(gcc::jit::recording::memento_of_new_rvalue_from_double::
+	memento_of_new_rvalue_from_double): Likewise.
+	(gcc::jit::recording::memento_of_new_rvalue_from_ptr::
+	memento_of_new_rvalue_from_ptr): Likewise.
+
 2014-01-30  David Malcolm  <dmalcolm@redhat.com>
 
 	* TODO.rst: Label-placement is now checked.

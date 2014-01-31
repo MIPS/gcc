@@ -401,27 +401,27 @@ gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue *lvalue);
 /* Integer constants. */
 extern gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_int (gcc_jit_context *ctxt,
-				     gcc_jit_type *type,
+				     gcc_jit_type *numeric_type,
 				     int value);
 
 extern gcc_jit_rvalue *
 gcc_jit_context_zero (gcc_jit_context *ctxt,
-		      gcc_jit_type *type);
+		      gcc_jit_type *numeric_type);
 
 extern gcc_jit_rvalue *
 gcc_jit_context_one (gcc_jit_context *ctxt,
-		     gcc_jit_type *type);
+		     gcc_jit_type *numeric_type);
 
 /* Floating-point constants.  */
 extern gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_double (gcc_jit_context *ctxt,
-					gcc_jit_type *type,
+					gcc_jit_type *numeric_type,
 					double value);
 
 /* Pointers.  */
 extern gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
-				     gcc_jit_type *type,
+				     gcc_jit_type *pointer_type,
 				     void *value);
 
 /* String literals. */

@@ -174,15 +174,15 @@ public:
 	      const char *name);
 
   rvalue *
-  new_rvalue_from_int (type *type,
+  new_rvalue_from_int (type *numeric_type,
 		       int value);
 
   rvalue *
-  new_rvalue_from_double (type *type,
+  new_rvalue_from_double (type *numeric_type,
 			  double value);
 
   rvalue *
-  new_rvalue_from_ptr (type *type,
+  new_rvalue_from_ptr (type *pointer_type,
 		       void *value);
 
   rvalue *
@@ -796,9 +796,9 @@ class memento_of_new_rvalue_from_int : public rvalue
 public:
   memento_of_new_rvalue_from_int (context *ctxt,
 				  location *loc,
-				  type *type_,
+				  type *numeric_type,
 				  int value)
-  : rvalue (ctxt, loc, type_),
+  : rvalue (ctxt, loc, numeric_type),
     m_value (value) {}
 
   void replay_into (replayer *r);
@@ -815,9 +815,9 @@ class memento_of_new_rvalue_from_double : public rvalue
 public:
   memento_of_new_rvalue_from_double (context *ctxt,
 				     location *loc,
-				     type *type_,
+				     type *numeric_type,
 				     double value)
-  : rvalue (ctxt, loc, type_),
+  : rvalue (ctxt, loc, numeric_type),
     m_value (value)
   {}
 
@@ -835,9 +835,9 @@ class memento_of_new_rvalue_from_ptr : public rvalue
 public:
   memento_of_new_rvalue_from_ptr (context *ctxt,
 				  location *loc,
-				  type *type_,
+				  type *pointer_type,
 				  void *value)
-  : rvalue (ctxt, loc, type_),
+  : rvalue (ctxt, loc, pointer_type),
     m_value (value)
   {}
 

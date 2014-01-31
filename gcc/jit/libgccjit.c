@@ -372,55 +372,55 @@ gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue *lvalue)
 
 gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_int (gcc_jit_context *ctxt,
-				     gcc_jit_type *type,
+				     gcc_jit_type *numeric_type,
 				     int value)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL (numeric_type, ctxt, "NULL type");
 
-  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_int (type, value);
+  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_int (numeric_type, value);
 }
 
 gcc_jit_rvalue *
 gcc_jit_context_zero (gcc_jit_context *ctxt,
-		      gcc_jit_type *type)
+		      gcc_jit_type *numeric_type)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL (numeric_type, ctxt, "NULL type");
 
-  return gcc_jit_context_new_rvalue_from_int (ctxt, type, 0);
+  return gcc_jit_context_new_rvalue_from_int (ctxt, numeric_type, 0);
 }
 
 gcc_jit_rvalue *
 gcc_jit_context_one (gcc_jit_context *ctxt,
-		     gcc_jit_type *type)
+		     gcc_jit_type *numeric_type)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL (numeric_type, ctxt, "NULL type");
 
-  return gcc_jit_context_new_rvalue_from_int (ctxt, type, 1);
+  return gcc_jit_context_new_rvalue_from_int (ctxt, numeric_type, 1);
 }
 
 gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_double (gcc_jit_context *ctxt,
-					gcc_jit_type *type,
+					gcc_jit_type *numeric_type,
 					double value)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL (numeric_type, ctxt, "NULL type");
 
-  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_double (type, value);
+  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_double (numeric_type, value);
 }
 
 gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
-				     gcc_jit_type *type,
+				     gcc_jit_type *pointer_type,
 				     void *value)
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
-  RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL (pointer_type, ctxt, "NULL type");
 
-  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_ptr (type, value);
+  return (gcc_jit_rvalue *)ctxt->new_rvalue_from_ptr (pointer_type, value);
 }
 
 gcc_jit_rvalue *
