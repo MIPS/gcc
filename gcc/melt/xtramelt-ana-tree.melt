@@ -1698,8 +1698,8 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
 
 (defun check_c_frontend (nam :cstring msg)
   :doc #{utility function to check that we are indeed within a C or
-  C++ compiler, outside of @tt{lto1} but inside @tt{cc1} or
-  @tt{cc1plus}.}#
+  C++ compiler, outside of @code{lto1} but inside @code{cc1} or
+  @code{cc1plus}.}#
   (assert_msg "check nam" (is_a nam class_named))
   (let ( (:long good 0)
 	 )
@@ -1771,8 +1771,8 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
   )
 
 (defun pragma_lex ()
-  :doc #{Thin wrapper around @tt{pragma_lex} from
-  @tt{c-family/c-pragma.h}, to be called from pragma handling. Returns
+  :doc #{Thin wrapper around @code{pragma_lex} from
+  @code{c-family/c-pragma.h}, to be called from pragma handling. Returns
   the type, as a symbol, and secondarily the tree.}#
   (let ( (:long trtyperank -1)
 	 (:tree tr (null_tree))

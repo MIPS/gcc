@@ -2,6 +2,12 @@
 
 2014-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{More stable. Can be entirely built.}}
+	* melt/xtramelt-ana-tree.melt (check_c_frontend, pragma_lex):
+	Improve :doc string.
+
+2014-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
