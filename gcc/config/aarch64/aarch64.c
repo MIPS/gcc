@@ -8417,6 +8417,43 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
   return true;
 }
 
+/* Return true if the registers are ok for a pair
+   load/store instruction. */
+bool
+aarch64_registers_ok_for_pair_peep (rtx op0, rtx op1)
+{
+  return REG_P (op0) && REG_P (op1)
+	 && REGNO (op0) != REGNO (op1)
+	 && REGNO_REG_CLASS (REGNO (op0)) == REGNO_REG_CLASS (REGNO (op1));
+}
+
+/* Return true if the memories are ok for a pair
+   load/store instruction. */
+bool
+aarch64_mems_ok_for_pair_peep (rtx op0, rtx op1)
+{
+  rtx addr0, addr1, addr0p;
+  if (!MEM_P (op0) || !MEM_P (op1))
+    return false;
+
+  addr0 = XEXP (op0, 0);
+  addr1 = XEXP (op1, 0);
+  
+  if (!((GET_CODE (addr0) == PLUS
+         && REG_P (XEXP (addr0, 0))
+         && GET_CODE (XEXP (addr0, 1)) == CONST_INT)
+	|| REG_P (addr0)))
+    return false;
+  
+  addr0p = plus_constant (Pmode, addr0,
+			  GET_MODE_SIZE (GET_MODE (op0)));
+  /* Work around that plus_constant can return (plus (x) (0)) */
+  if (GET_CODE (addr0p) == PLUS && XEXP (addr0p, 1) == const0_rtx)
+    addr0p = XEXP (addr0p, 0);
+  return rtx_equal_p (addr1, addr0p);
+}
+
+
 #undef TARGET_ADDRESS_COST
 #define TARGET_ADDRESS_COST aarch64_address_cost
 

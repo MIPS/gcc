@@ -874,12 +874,31 @@
 	(match_operand:GPI 1 "aarch64_mem_pair_operand" "Ump"))
    (set (match_operand:GPI 2 "register_operand" "=r")
         (match_operand:GPI 3 "memory_operand" "m"))]
-  "rtx_equal_p (XEXP (operands[3], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[1], 0),
-			       GET_MODE_SIZE (<MODE>mode)))"
+  "aarch64_mems_ok_for_pair_peep (operands[1], operands[3])"
   "ldp\\t%<w>0, %<w>2, %1"
   [(set_attr "type" "load2")]
+)
+
+(define_peephole2
+  [(set (match_operand:GPI 0 "register_operand")
+	(match_operand:GPI 1 "aarch64_mem_pair_operand"))
+   (set (match_operand:GPI 2 "register_operand")
+	(match_operand:GPI 3 "memory_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[0], operands[2])
+   && aarch64_mems_ok_for_pair_peep (operands[1], operands[3])"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (match_dup 2) (match_dup 3))])]
+)
+
+(define_peephole2
+  [(set (match_operand:GPI 0 "register_operand")
+	(match_operand:GPI 1 "memory_operand"))
+   (set (match_operand:GPI 2 "register_operand")
+	(match_operand:GPI 3 "aarch64_mem_pair_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[2], operands[0])
+   && aarch64_mems_ok_for_pair_peep (operands[3], operands[1])"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])]
 )
 
 ;; Operands 0 and 2 are tied together by the final condition; so we allow
@@ -889,12 +908,31 @@
 	(match_operand:GPI 1 "register_operand" "r"))
    (set (match_operand:GPI 2 "memory_operand" "=m")
         (match_operand:GPI 3 "register_operand" "r"))]
-  "rtx_equal_p (XEXP (operands[2], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[0], 0),
-			       GET_MODE_SIZE (<MODE>mode)))"
+  "aarch64_mems_ok_for_pair_peep (operands[0], operands[2])"
   "stp\\t%<w>1, %<w>3, %0"
   [(set_attr "type" "store2")]
+)
+
+(define_peephole2
+  [(set (match_operand:GPI 0 "aarch64_mem_pair_operand")
+	(match_operand:GPI 1 "register_operand"))
+   (set (match_operand:GPI 2 "memory_operand")
+	(match_operand:GPI 3 "register_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[1], operands[3])
+   && aarch64_mems_ok_for_pair_peep (operands[0], operands[2])"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (match_dup 2) (match_dup 3))])]
+)
+
+(define_peephole2
+  [(set (match_operand:GPI 0 "memory_operand")
+	(match_operand:GPI 1 "register_operand"))
+   (set (match_operand:GPI 2 "aarch64_mem_pair_operand")
+	(match_operand:GPI 3 "register_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[3], operands[1])
+   && aarch64_mems_ok_for_pair_peep (operands[2], operands[0])"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])]
 )
 
 ;; Operands 1 and 3 are tied together by the final condition; so we allow
@@ -904,12 +942,33 @@
 	(match_operand:GPF 1 "aarch64_mem_pair_operand" "Ump"))
    (set (match_operand:GPF 2 "register_operand" "=w")
         (match_operand:GPF 3 "memory_operand" "m"))]
-  "rtx_equal_p (XEXP (operands[3], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[1], 0),
-			       GET_MODE_SIZE (<MODE>mode)))"
+  "aarch64_mems_ok_for_pair_peep (operands[1], operands[3])"
   "ldp\\t%<w>0, %<w>2, %1"
   [(set_attr "type" "neon_load1_2reg<q>")]
+)
+
+(define_peephole2
+  [(set (match_operand:GPF 0 "register_operand")
+	(match_operand:GPF 1 "aarch64_mem_pair_operand"))
+   (set (match_operand:GPF 2 "register_operand")
+	(match_operand:GPF 3 "memory_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[0], operands[2])
+   && REGNO (operands[0]) >= 32 && REGNO (operands[2]) >= 32
+   && aarch64_mems_ok_for_pair_peep (operands[1], operands[3])"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (match_dup 2) (match_dup 3))])]
+)
+
+(define_peephole2
+  [(set (match_operand:GPF 0 "register_operand")
+	(match_operand:GPF 1 "memory_operand"))
+   (set (match_operand:GPF 2 "register_operand")
+	(match_operand:GPF 3 "aarch64_mem_pair_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[2], operands[0])
+   && REGNO (operands[0]) >= 32 && REGNO (operands[2]) >= 32
+   && aarch64_mems_ok_for_pair_peep (operands[3], operands[1])"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])]
 )
 
 ;; Operands 0 and 2 are tied together by the final condition; so we allow
@@ -919,12 +978,34 @@
 	(match_operand:GPF 1 "register_operand" "w"))
    (set (match_operand:GPF 2 "memory_operand" "=m")
         (match_operand:GPF 3 "register_operand" "w"))]
-  "rtx_equal_p (XEXP (operands[2], 0),
-		plus_constant (Pmode,
-			       XEXP (operands[0], 0),
-			       GET_MODE_SIZE (<MODE>mode)))"
+  "aarch64_mems_ok_for_pair_peep (operands[0], operands[2])"
   "stp\\t%<w>1, %<w>3, %0"
   [(set_attr "type" "neon_store1_2reg<q>")]
+)
+
+(define_peephole2
+  [(set (match_operand:GPF 0 "aarch64_mem_pair_operand")
+	(match_operand:GPF 1 "register_operand"))
+   (set (match_operand:GPF 2 "memory_operand")
+	(match_operand:GPF 3 "register_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[1], operands[3])
+   && REGNO (operands[1]) >= 32 && REGNO (operands[3]) >= 32
+   && aarch64_mems_ok_for_pair_peep (operands[0], operands[2])"
+  [(parallel [(set (match_dup 0) (match_dup 1))
+	      (set (match_dup 2) (match_dup 3))])]
+)
+
+
+(define_peephole2
+  [(set (match_operand:GPF 0 "memory_operand")
+	(match_operand:GPF 1 "register_operand"))
+   (set (match_operand:GPF 2 "aarch64_mem_pair_operand")
+	(match_operand:GPF 3 "register_operand"))]
+  "aarch64_registers_ok_for_pair_peep (operands[3], operands[1])
+   && REGNO (operands[1]) >= 32 && REGNO (operands[3]) >= 32
+   && aarch64_mems_ok_for_pair_peep (operands[2], operands[0])"
+  [(parallel [(set (match_dup 2) (match_dup 3))
+	      (set (match_dup 0) (match_dup 1))])]
 )
 
 ;; Load pair with writeback.  This is primarily used in function epilogues
