@@ -2265,128 +2265,98 @@ exit, in last place.}#
   )
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;           P R A G M A S
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;; pragma support is related to trees, so most of it is done in
+;; xtramelt-ana-tree.melt however, the hook is predefined so should
+;; appear here. In fact, it calls a forward reference variable.
 
-(cheader
- #{ /* cheader for pragmas in warmelt-hooks.melt */
- #include "cpplib.h"
-/*** 
-     We declare weak functions because they cannot be linked when we
-     use lto (it loses langage specific informations).  If you use one
-     of those functions you must check them to be not NULL.
-***/
-// Function pragma_lex is declared in c-family/c-pragma.h
-extern enum cpp_ttype pragma_lex (tree *) MELT_WEAK_ON_HOST;
 
-// Function c_register_pragma_with_expansion_and_data from c-family/c-pragma.h
-extern void
-c_register_pragma_with_expansion_and_data (const char *space,
-					   const char *name,
-					   pragma_handler_2arg handler,
-					   void *data) MELT_WEAK_ON_HOST;
-// Function c_register_pragma_with_data from c-family/c-pragma.h
-extern void
-c_register_pragma_with_data (const char *space, const char *name,
-			     pragma_handler_2arg handler,
-			     void *data) MELT_WEAK_ON_HOST;
+(defvar pragma_processor)
 
- static void
- melt_register_pragmas_callback (void* gccdata ATTRIBUTE_UNUSED,
-			        void* userdata ATTRIBUTE_UNUSED)
- {
-   melthookproc_HOOK_REGISTER_PRAGMAS ();
- } /* end of melt_register_pragmas_callback */
- }#)
+(defun register_pragma_processor (pfun)
+  (debug "register_pragma_processor pfun=" pfun " pragma_processor=" pragma_processor)
+  (assert_msg "check no pragma_processor" (null pragma_processor) pragma_processor)
+  (if (is_closure pfun)
+      (setq pragma_processor pfun))
+  )
 
+(defvar pragma_handler_tuple)
+
+(defhook hook_process_pragma (:long lix) () :void
+  :predef HOOK_PROCESS_PRAGMA
+  :doc #{$HOOK_PROCESS_PRAGMA is an internal hook to process a pragma.}#
+  (let ( (ph (multiple_nth pragma_handler_tuple lix))
+	 )
+    (debug "hook_process_pragma lix=" lix " ph=" ph)
+    (assert_msg "check ph" (is_a ph class_gcc_pragma))
+    ((get_field :gccpragma_handler ph) ph)
+    (debug "hook_process_pragma done ph=" ph)))
+
+
+;; we define the hook_register_pragmas here so that it gets built by 'make upgrade-warmelt'
 (defhook hook_register_pragmas () () :void
   :predef HOOK_REGISTER_PRAGMAS
-  (debug "hook_register_pragmas start")
+  (debug "hook_register_pragmas start pragma_processor=" pragma_processor
+	 "pragma_handler_tuple=" pragma_handler_tuple)
+  (if (is_closure pragma_processor)
+      (pragma_processor pragma_handler_tuple))
   )
 
-(defun check_c_frontend (nam :cstring msg)
-  :doc #{utility function to check that we are indeed within a C or
-  C++ compiler, outside of @tt{lto1} but inside @tt{cc1} or
-  @tt{cc1plus}.}#
-  (assert_msg "check nam" (is_a nam class_named))
-  (let ( (:long good 0)
+(defun add_pragma_handler (ph)
+  :doc #{Internal utility to add a pragma handler $PH which should be
+  a $CLASS_GCC_PRAGMA. See also $REGISTER_EXPANDED_PRAGMA and
+  $REGISTER_PLAIN_PRAGMA from @file{xtramelt-ana-tree.melt}.}#
+  (debug "add_pragma_handler start ph=" ph
+	 " pragma_handler_tuple=" pragma_handler_tuple)
+  (assert_msg "check ph" (is_a ph class_gcc_pragma))
+  (if (null pragma_handler_tuple)
+      (setq pragma_handler_tuple (make_multiple discr_multiple 16)))  
+  (let ( (:long lix 0)
+	 (:long nbph (multiple_length pragma_handler_tuple))
 	 )
-    (code_chunk
-     checkc_havepragmas_chk
-     #{ /* start check_c_frontend $CHECKC_HAVEPRAGMAS_CHK */
-#ifdef MELT_WEAK_ON_HOST
-     $GOOD = pragma_lex
-           && c_register_pragma_with_expansion_and_data
-           && c_register_pragma_with_data;
-#else
-#error check_c_frontend need MELT_WEAK_ON_HOST
-#endif
-     /* end check_c_frontend $CHECKC_HAVEPRAGMAS_CHK */
-     }#)
-    (debug "check_c_frontend good=" good " nam=" nam " msg=" msg)
-    (unless good
-      (error_at () "Can't use $1 ($2) outside of a C [cc1] or C++ [cc1plus] compiler -e.g. inside [lto1]"
-		nam msg)
-      (let ( (namstr (get_field :named_name nam))
+    (foreach_in_multiple
+     (pragma_handler_tuple)
+     (comp :long ix)
+     (when ix
+	 (unless comp
+	   (setq lix ix)
+	   (setq ix (+i nbph 1))
+	   (void))))
+    (unless lix
+      (let ( (:long newnbph (+ nbph 16 (* 2 (/i nbph 8))))
+	     (newtup (make_multiple discr_multiple newnbph))
 	     )
-	(assert_msg "check namstr" (is_string namstr) namstr nam)
-	(code_chunk
-	 checkc_fatalerror_chk
-	 #{ /* check_c_frontend $CHECKC_FATALERROR_CHK */
-	 melt_fatal_error("C or C++ frontend expected in %s (%s)",
-			  melt_string_str($NAMSTR),
-			  $MSG);
-	 }#)))
-    ))
+	(foreach_in_multiple
+	 (pragma_handler_tuple)
+	 (comp :long ix)
+	 (if ix (multiple_put_nth newtup ix comp)))
+	(setq pragma_handler_tuple newtup)
+	(setq lix nbph)
+	(setq nbph newnbph)
+	(void)
+	))
+    (put_int ph lix)
+    (multiple_put_nth pragma_handler_tuple lix ph)
+    (debug "add_pragma_handler ph=" ph " lix=" lix)
+    (return ph)
+    ))    
 
 
-;; a variable to hold lazily the tuple of symbols for 
-(defvar cpp_ttype_tuple)
-
-(defhook register_cpp_ttype (:long ix :cstring name) () :void
-  (assert_msg "check cpp_ttype_tuple" (is_multiple cpp_ttype_tuple) cpp_ttype_tuple)
-  (multiple_put_nth cpp_ttype_tuple ix
-		    (hook_named_symbol
-		     name
-		     (expr_chunk chk_meltcreate :long
-				 #{/*register_cpp_ttype*/ (long)MELT_CREATE}#)))
-  )
-
-(defun ensure_cpp_ttype_tuple ()
-  (if cpp_ttype_tuple (return))
-  (let ( (:long nbttype (expr_chunk chk_nbttype :long
-				    #{/*ensure_cpp_ttype_tuple*/ (long) N_TTYPES}#))
-	 (newcpptytuple (make_multiple discr_multiple nbttype))
-	 )
-    (setq cpp_ttype_tuple newcpptytuple)
-    (code_chunk
-     cpptypetuple_chk
-     #{ /* ensure_cpp_ttype_tuple $CPPTYPETUPLE_CHK */
-#define MELT_DO_REGISTER_CPP_TTYPE(CppNam) \
-   melthook_REGISTER_CPP_TTYPE($REGISTER_CPP_TTYPE, \
-			       CppNam, #CppNam);
-// macros used by TTYPE_TABLE from cpplib.h
-#ifndef TTYPE_TABLE
-#error TTYPE_TABLE not defined but expected
-#endif
-#define OP(Nam,Str) /*oper*/  MELT_DO_REGISTER_CPP_TTYPE(CPP_##Nam)
-#define TK(Nam,Typ) /*token*/ MELT_DO_REGISTER_CPP_TTYPE(CPP_##Nam)
-// the TTYPE_TABLE below is a long macro
-     TTYPE_TABLE
-#undef MELT_DO_REGISTER_CPP_TTYPE
-     }#)
-    )
-  )
-
-(defun register_expanded_pragma (space name fun)
-  (debug "register_expanded_pragma start space=" space " name=" name " fun=" fun)
-  (ensure_cpp_ttype_tuple)
+(defun remove_pragma_handler (ph)
+  :doc #{Utility to remove a pragma handler $PH which should be a
+  $CLASS_GCC_PRAGMA or a boxed integer.}#
+  (if (is_integerbox ph)
+      (setq ph (multiple_nth pragma_handler_tuple (get_int ph))))
+  (if (is_a ph class_gcc_pragma)
+      (let ( (:long phrk (get_int ph))
+	     )
+	(if (== (multiple_nth pragma_handler_tuple phrk) ph)
+	    (multiple_put_nth pragma_handler_tuple phrk ()))))
   )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (export_values
+ add_pragma_handler
  at_end_of_this_melt_pass_first
  at_end_of_this_melt_pass_last
  at_exit_first
@@ -2397,9 +2367,10 @@ c_register_pragma_with_data (const char *space, const char *name,
  at_melt_attribute_last
  at_start_unit_first
  at_start_unit_last
- check_c_frontend
  hook_low_debug_value_at
  hook_override_gate
+ hook_process_pragma
+ hook_register_pragmas
  register_all_ipa_passes_end_first
  register_all_ipa_passes_end_last
  register_all_ipa_passes_start_first
@@ -2420,8 +2391,10 @@ c_register_pragma_with_data (const char *space, const char *name,
  register_override_gate_last
  register_pass_execution_first
  register_pass_execution_last
+ register_pragma_processor
  register_pre_genericize_first
  register_pre_genericize_last
+ remove_pragma_handler
  unregister_override_gate_first
  unregister_override_gate_last
  )

@@ -1,5 +1,39 @@
 
 
+2014-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{unstable, since should be boostrapped with make upgrade-warmelt}}
+	* melt-predef.list (HOOK_PROCESS_PRAGMA): New.
+
+	* melt/warmelt-first.melt (class_gcc_pragma): New field
+	gccpragma_data.
+	* melt/warmelt-hooks.melt: Most of pragma support is tree specific
+	so goes into xtramelt-ana-tree.melt...
+	(pragma_lex, c_register_pragma_with_expansion_and_data)
+	(c_register_pragma_with_data, melt_register_pragmas_callback):
+	Remove cheader defining them.
+	(pragma_processor): New variable.
+	(register_pragma_processor): New function.
+	(hook_register_pragmas): Improve.
+	(check_c_frontend): Move to xtramelt-ana-tree.melt.
+	(pragma_handler_tuple): New variable.
+	(hook_process_pragma): New hook.
+	(cpp_ttype_tuple, register_cpp_ttype, ensure_cpp_ttype_tuple)
+	(register_expanded_pragma): Move to xtramelt-ana-tree.melt.
+	(add_pragma_handler): New handler.
+
+	* melt/xtramelt-ana-tree.melt: Move most of pragma support from
+	warmelt-hooks.melt to here.
+	(pragma_lex, c_register_pragma_with_expansion_and_data)
+	(c_register_pragma_with_data)
+	(melt_register_pragmas_callback, melt_pragma_process_callback):
+	Add cheader defining them.
+	(check_c_frontend, cpp_ttype_tuple, register_cpp_ttype)
+	(ensure_cpp_ttype_tuple, pragma_lex): Function & variable & hook
+	moved from warmelt-hooks.melt
+	(register_expanded_pragma, register_plain_pragma)
+	(real_pragma_processor): New functions.
+
 2014-01-30  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (cpp_ttype_tuple): New variable.

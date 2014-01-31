@@ -713,6 +713,7 @@ variables for the result is $LABIND_RES.}# )
   :super class_named
   ;; keep the fields list in sync with melt-runtime.h FGCCPRAGMA_*
   :fields (gccpragma_handler            ;the closure to handle the pragma
+	   gccpragma_space
            gccpragma_data               ;extra data
            )
   :doc #{The $CLASS_GCC_PRAGMA is for objects describing GCC pragmas,
