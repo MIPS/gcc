@@ -214,16 +214,6 @@ rs6000_handle_option (struct gcc_options *opts, struct gcc_options *opts_set,
       opts->x_rs6000_altivec_abi = 0;
       break;
 
-    case OPT_mlong_double_:
-      if (value != 64 && value != 128)
-	{
-	  error_at (loc, "unknown switch -mlong-double-%s", arg);
-	  opts->x_rs6000_long_double_type_size
-	    = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
-	  return false;
-	}
-      break;
-
     case OPT_msingle_float:
       if (!TARGET_SINGLE_FPU) 
 	warning_at (loc, 0,

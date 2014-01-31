@@ -417,13 +417,12 @@ extern const char *host_detect_local_cpu (int argc, const char **argv);
 
 /* Helper macros to say whether a 128-bit floating point type can go in a
    single vector register, or whether it needs paired scalar values.  */
-#define FLOAT128_VECTOR_P(MODE) 					\
-  (TARGET_IEEE128_VECTOR && FLOAT128_IEEE_P (MODE))
+#define FLOAT128_VECTOR_P(MODE) (TARGET_VSX && FLOAT128_IEEE_P (MODE))
 
 #define FLOAT128_PAIRED_P(MODE)						\
   (FLOAT128_IBM_P (MODE)						\
    || ((MODE) == TDmode)						\
-   || (!TARGET_IEEE128_VECTOR && FLOAT128_IEEE_P (MODE)))
+   || (!TARGET_VSX && FLOAT128_IEEE_P (MODE)))
 
 /* Describe the vector unit used for arithmetic operations.  */
 extern enum rs6000_vector rs6000_vector_unit[];
@@ -517,8 +516,6 @@ extern int rs6000_vector_align[];
 #define TARGET_ALIGN_NATURAL 0
 #endif
 
-#define TARGET_LONG_DOUBLE_128 (rs6000_long_double_type_size == 128)
-#define TARGET_IEEEQUAD rs6000_ieeequad
 #define TARGET_ALTIVEC_ABI rs6000_altivec_abi
 #define TARGET_LDBRX (TARGET_POPCNTD || rs6000_cpu == PROCESSOR_CELL)
 
@@ -835,7 +832,7 @@ extern unsigned char rs6000_recip_bits[];
 /* A C expression for the size in bits of the type `long double' on
    the target machine.  If you don't define this, the default is two
    words.  */
-#define LONG_DOUBLE_TYPE_SIZE rs6000_long_double_type_size
+#define LONG_DOUBLE_TYPE_SIZE ((TARGET_LONG_DOUBLE_128) ? 128 : 64)
 
 /* Define this to set long double type size to use in libgcc2.c, which can
    not depend on target_flags.  */

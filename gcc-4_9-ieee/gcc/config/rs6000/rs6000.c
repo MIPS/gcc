@@ -2317,7 +2317,7 @@ rs6000_debug_reg_global (void)
 	   tf[!!rs6000_align_branch_targets]);
   fprintf (stderr, DEBUG_FMT_D, "tls_size", rs6000_tls_size);
   fprintf (stderr, DEBUG_FMT_D, "long_double_size",
-	   rs6000_long_double_type_size);
+	   TARGET_LONG_DOUBLE_128 ? 128 : 64);
   fprintf (stderr, DEBUG_FMT_D, "sched_restricted_insns_priority",
 	   (int)rs6000_sched_restricted_insns_priority);
   fprintf (stderr, DEBUG_FMT_D, "Number of standard builtins",
@@ -2518,9 +2518,9 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   /* XF mode (ieee 128-bit) where we can pass it as a vector.  We do not have
      arithmetic, so only set the memory modes.  */
-  if (TARGET_ALTIVEC && TARGET_IEEE128_VECTOR)
+  if (TARGET_VSX)
     {
-      enum rs6000_vector mem_type = (TARGET_VSX) ? VECTOR_VSX : VECTOR_ALTIVEC;
+      enum rs6000_vector mem_type = VECTOR_VSX;
       rs6000_vector_mem[XFmode] = mem_type;
       rs6000_vector_align[XFmode] = 128;
       if (TARGET_IEEEQUAD)
@@ -3356,13 +3356,6 @@ rs6000_option_override_internal (bool global_init_p)
   else if (TARGET_ALTIVEC)
     rs6000_isa_flags |= (OPTION_MASK_PPC_GFXOPT & ~rs6000_isa_flags_explicit);
 
-  if (TARGET_IEEE128_VECTOR && !TARGET_ALTIVEC)
-    {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_IEEE128_VECTOR)
-	error ("-mieee128-vector requires -maltivec");
-      rs6000_isa_flags &= ~OPTION_MASK_IEEE128_VECTOR;
-    }
-
   if (TARGET_CRYPTO && !TARGET_ALTIVEC)
     {
       if (rs6000_isa_flags_explicit & OPTION_MASK_CRYPTO)
@@ -3506,19 +3499,30 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  if (!global_options_set.x_rs6000_long_double_type_size)
+  /* If the user explicitly set the long double type to either IEEE 128-bit or
+     IBM 128-bit, automatically set the long double type to 128-bits.  */
+  if ((rs6000_isa_flags_explicit & OPTION_MASK_LONG_DOUBLE_128) == 0)
     {
-      if (main_target_opt != NULL
-	  && (main_target_opt->x_rs6000_long_double_type_size
-	      != RS6000_DEFAULT_LONG_DOUBLE_SIZE))
-	error ("target attribute or pragma changes long double size");
+      if ((rs6000_isa_flags_explicit & OPTION_MASK_IEEEQUAD) != 0)
+	rs6000_isa_flags |= OPTION_MASK_LONG_DOUBLE_128;
+      else if (RS6000_DEFAULT_LONG_DOUBLE_SIZE == 64)
+	rs6000_isa_flags &= ~OPTION_MASK_LONG_DOUBLE_128;
       else
-	rs6000_long_double_type_size = RS6000_DEFAULT_LONG_DOUBLE_SIZE;
+	rs6000_isa_flags |= OPTION_MASK_LONG_DOUBLE_128;
     }
 
-#if !defined (POWERPC_LINUX) && !defined (POWERPC_FREEBSD)
-  if (!global_options_set.x_rs6000_ieeequad)
-    rs6000_ieeequad = 1;
+#if defined (POWERPC_LINUX) || defined (POWERPC_FREEBSD)
+  if (!TARGET_VSX && TARGET_IEEEQUAD
+      && ((rs6000_isa_flags_explicit & OPTION_MASK_IEEEQUAD) != 0))
+    {
+      error ("-mlong-double-ieee128 requires -mvsx");
+      rs6000_isa_flags &= ~OPTION_MASK_IEEEQUAD;
+    }
+
+#else
+  if (((rs6000_isa_flags_explict & OPTION_MASK_IEEEQUAD) == 0)
+      && TARGET_LONG_DOUBLE_128)
+    rs6000_isa_flags |= OPTION_MASK_IEEEQUAD;
 #endif
 
   /* Disable VSX and Altivec silently if the user switched cpus to power7 in a
@@ -8892,7 +8896,7 @@ rs6000_return_in_memory (const_tree type, const_tree fntype ATTRIBUTE_UNUSED)
     }
 
   if (DEFAULT_ABI == ABI_V4 && FLOAT128_IEEE_P (TYPE_MODE (type))
-      && !TARGET_IEEE128_VECTOR)
+      && !TARGET_VSX)
     return true;
 
   return false;
@@ -9140,8 +9144,10 @@ rs6000_function_arg_boundary (enum machine_mode mode, const_tree type)
 	      && TARGET_FPRS
 	      && FLOAT128_PAIRED_P (mode))))
     return 64;
-  else if (FLOAT128_IEEE_P (mode))
-    return (TARGET_IEEE128_VECTOR) ? 128 : 64;
+  else if (FLOAT128_VECTOR_P (mode))
+    return 128;
+  else if (FLOAT128_PAIRED_P (mode))
+    return 64;
   else if (SPE_VECTOR_MODE (mode)
 	   || (type && TREE_CODE (type) == VECTOR_TYPE
 	       && int_size_in_bytes (type) >= 8
@@ -13594,22 +13600,26 @@ rs6000_init_builtins (void)
   /* 128-bit floating point support.  XFmode is IEEE 128-bit floating point.
      JFmode is the IBM 128-bit floating point format that uses a pair of
      doubles to represent the extended value.  TFmode will be either XFmode or
-     JFmode, depending on the switches and defaults.  */
+     JFmode, depending on the switches and defaults.  Only enable the
+     __float182 or __ibm128 keywords on VSX systems.  */
   ieee128_mode = (TARGET_IEEEQUAD) ? TFmode : XFmode;
   ieee128_float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (ieee128_float_type_node) = 128;
   layout_type (ieee128_float_type_node);
   SET_TYPE_MODE (ieee128_float_type_node, ieee128_mode);
-  lang_hooks.types.register_builtin_type (ieee128_float_type_node,
-					  "__float128");
+
+  if (TARGET_VSX || TARGET_IEEEQUAD)
+    lang_hooks.types.register_builtin_type (ieee128_float_type_node,
+					    "__float128");
 
   ibm128_mode = (!TARGET_IEEEQUAD) ? TFmode : JFmode;
   ibm128_float_type_node = make_node (REAL_TYPE);
   TYPE_PRECISION (ibm128_float_type_node) = 128;
   layout_type (ibm128_float_type_node);
   SET_TYPE_MODE (ibm128_float_type_node, ibm128_mode);
-  lang_hooks.types.register_builtin_type (ibm128_float_type_node,
-					  "__ibm128");
+  if (TARGET_VSX)
+    lang_hooks.types.register_builtin_type (ibm128_float_type_node,
+					    "__ibm128");
 
   /* Initialize the modes for builtin_function_type, mapping a machine mode to
      tree type node.  */
@@ -14970,7 +14980,7 @@ rs6000_common_init_builtins (void)
     }
 }
 
-/* AIX/Darwin/64-bit Linux quad floating point routines.  */
+/* Set up AIX/Darwin/64-bit Linux quad floating point routines.  */
 static void init_float128_ibm (enum machine_mode mode)
 {
   if (!TARGET_XL_COMPAT)
@@ -15012,35 +15022,53 @@ static void init_float128_ibm (enum machine_mode mode)
     }
 }
 
-/* 32-bit SVR4 quad floating point routines.  Use different names if the
-   arguments can be passed in a vector register.  */
+/* Set up IEEE 128-bit floating point routines.  Use different names if the
+   arguments can be passed in a vector register.  The historical PowerPC
+   implementation of IEEE 128-bit floating point used _q_<op> for the names, so
+   continue to use that if we can't pass IEEE 128-bit in a VSX vector register.
+   Use the traditional __<op>tf<n> names for the new IEEE 128-bit floating
+   point support that uses VSX registers.  If the user used
+   -mlong-double-ieee128, we don't need to map the name for the TFmode type,
+   but we do need to map the names for the XFmode type.  */
 static void init_float128_ieee (enum machine_mode mode)
 {
   if (FLOAT128_VECTOR_P (mode))
     {
-      set_optab_libfunc (add_optab, mode, "_ieee128_add");
-      set_optab_libfunc (sub_optab, mode, "_ieee128_sub");
-      set_optab_libfunc (neg_optab, mode, "_ieee128_neg");
-      set_optab_libfunc (smul_optab, mode, "_ieee128_mul");
-      set_optab_libfunc (sdiv_optab, mode, "_ieee128_div");
-      if (TARGET_PPC_GPOPT)
-	set_optab_libfunc (sqrt_optab, mode, "_ieee128_sqrt");
+      if (mode != TFmode)
+	{
+	  set_optab_libfunc (add_optab, mode, "__addtf3");
+	  set_optab_libfunc (sub_optab, mode, "__subtf3");
+	  set_optab_libfunc (neg_optab, mode, "__negtf2");
+	  set_optab_libfunc (smul_optab, mode, "__multf3");
+	  set_optab_libfunc (sdiv_optab, mode, "__divtf3");
+	  set_optab_libfunc (sqrt_optab, mode, "__sqrttf2");
 
-      set_optab_libfunc (eq_optab, mode, "_ieee128_feq");
-      set_optab_libfunc (ne_optab, mode, "_ieee128_fne");
-      set_optab_libfunc (gt_optab, mode, "_ieee128_fgt");
-      set_optab_libfunc (ge_optab, mode, "_ieee128_fge");
-      set_optab_libfunc (lt_optab, mode, "_ieee128_flt");
-      set_optab_libfunc (le_optab, mode, "_ieee128_fle");
+	  set_optab_libfunc (eq_optab, mode, "__eqtf2");
+	  set_optab_libfunc (ne_optab, mode, "__netf2");
+	  set_optab_libfunc (gt_optab, mode, "__gttf2");
+	  set_optab_libfunc (ge_optab, mode, "__getf2");
+	  set_optab_libfunc (lt_optab, mode, "__lttf2");
+	  set_optab_libfunc (le_optab, mode, "__letf2");
 
-      set_conv_libfunc (sext_optab, mode, SFmode, "_ieee128_stoq");
-      set_conv_libfunc (sext_optab, mode, DFmode, "_ieee128_dtoq");
-      set_conv_libfunc (trunc_optab, SFmode, mode, "_ieee128_qtos");
-      set_conv_libfunc (trunc_optab, DFmode, mode, "_ieee128_qtod");
-      set_conv_libfunc (sfix_optab, SImode, mode, "_ieee128_qtoi");
-      set_conv_libfunc (ufix_optab, SImode, mode, "_ieee128_qtou");
-      set_conv_libfunc (sfloat_optab, mode, SImode, "_ieee128_itoq");
-      set_conv_libfunc (ufloat_optab, mode, SImode, "_ieee128_utoq");
+	  set_conv_libfunc (sext_optab, mode, SFmode, "__extendsftf2");
+	  set_conv_libfunc (sext_optab, mode, DFmode, "__extenddftf2");
+	  set_conv_libfunc (trunc_optab, SFmode, mode, "__trunctfsf2");
+	  set_conv_libfunc (trunc_optab, DFmode, mode, "__trunctfdf2");
+
+	  set_conv_libfunc (sfix_optab, SImode, mode, "__fixtfsi");
+	  set_conv_libfunc (ufix_optab, SImode, mode, "__fixunstfsi");
+	  set_conv_libfunc (sfix_optab, DImode, mode, "__fixtfdi");
+	  set_conv_libfunc (ufix_optab, DImode, mode, "__fixunstfdi");
+	  set_conv_libfunc (sfix_optab, TImode, mode, "__fixtfti");
+	  set_conv_libfunc (ufix_optab, TImode, mode, "__fixunstfti");
+
+	  set_conv_libfunc (sfloat_optab, mode, SImode, "__floatsitf");
+	  set_conv_libfunc (ufloat_optab, mode, SImode, "__floatunssitf");
+	  set_conv_libfunc (sfloat_optab, mode, DImode, "__floatditf");
+	  set_conv_libfunc (ufloat_optab, mode, DImode, "__floatunsditf");
+	  set_conv_libfunc (sfloat_optab, mode, TImode, "__floattitf");
+	  set_conv_libfunc (ufloat_optab, mode, TImode, "__floatunstitf");
+	}
     }
   else
     {
@@ -30902,8 +30930,9 @@ static struct rs6000_opt_mask const rs6000_opt_masks[] =
   { "fprnd",			OPTION_MASK_FPRND,		false, true  },
   { "hard-dfp",			OPTION_MASK_DFP,		false, true  },
   { "htm",			OPTION_MASK_HTM,		false, true  },
-  { "ieee128-vector",		OPTION_MASK_IEEE128_VECTOR,	false, false },
   { "isel",			OPTION_MASK_ISEL,		false, true  },
+  { "long-double-ieee128",	OPTION_MASK_IEEEQUAD,		false, false },
+  { "long-double-128",		OPTION_MASK_LONG_DOUBLE_128,	false, false },
   { "mfcrf",			OPTION_MASK_MFCRF,		false, true  },
   { "mfpgpr",			OPTION_MASK_MFPGPR,		false, true  },
   { "mulhw",			OPTION_MASK_MULHW,		false, true  },

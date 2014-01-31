@@ -1,3 +1,76 @@
+2014-01-31  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (Floating Types): Add documentation for
+	__float128 and __ibm128 on PowerPC systems.
+
+	* doc/invoke.texi (-mlong-double-64): Document the long double
+	size switches.
+	(-mlong-double-128): Likewise.
+	(-mlong-double-ieee128): Document the new switches to control
+	whether long double is IEEE 128-bit or IBM double double.
+
+	* config/rs6000/rs6000-common.c (rs6000_handle_option): Drop
+	-mlong-double-<size> support.
+
+	* config/rs6000/aix53.h (SUBTARGET_OVERRIDE_OPTIONS): Move
+	-mlong-double-<size> to target option bits.
+	* config/rs6000/aix43.h (SUBTARGET_OVERRIDE_OPTIONS): Likewise.
+	* config/rs6000/aix52.h (SUBTARGET_OVERRIDE_OPTIONS): Likewise.
+	* config/rs6000/aix61.h (SUBTARGET_OVERRIDE_OPTIONS): Likewise.
+
+	* config/rs6000/predicates.md (easy_fp_constant): Handle IEEE
+	128-bit constants.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Delete the
+	-mieee128-vector option.  Change -mlong-double-<size> and
+	-mabi=ieeelongdouble/-mabi=ibmlongdouble options to be target
+	option bits.
+	(POWERPC_MASKS): Likewise.
+	(power7 cpu): Likewise.
+
+	* config/rs6000/rs6000.opt (-mabi=ieeelongdouble): Change option
+	to -mlong-double-ieee128.  Delete warning on its use.
+	(-mabi=ibmlongdouble): Change option to -mlong-double-ibm128.
+	(-mlong-double-): Delete -mlong-double-<size>, and replace it with
+	-mlong-double-64, -mlong-double-128, -mlong-double-ieee128,
+	-mlong-double-ibm128 options to control the size and format of the
+	long double type.
+	(-mlong-double-64): Likewise.
+	(-mlong-double-128): Likewise.
+	(-mlong-double-ieee128): Likewise.
+	(-mlong-double-ibm128): Likewise.
+
+	* config/rs6000/rs6000-c.c (rs6000_target_modify_macros): Define
+	__LONG_DOUBLE_IEEE128__ and __LONG_DOUBLE_IBM128__ depending on
+	the long double format.  Delete support for the temporary
+	-mieee128-vector switch.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Change how
+	long double size is printed.
+	(rs6000_init_hard_regno_mode_ok): Delete temporary
+	-mieee128-vector switch.  Replace -mlong-double-<size> and
+	-mabi=<fmt>longdouble with -mlong-double-64, -mlong-double-128,
+	-mlong-double-ieee128, and -mlong-double-ibm128.  Only allow
+	selecting IEEE 128 support if VSX is avaiable.
+	(rs6000_option_override_internal): Likewise.
+	(rs6000_return_in_memory): Drop temporary -mieee128-vector, use
+	-mvsx instead.
+	(rs6000_function_arg_boundary): Rework IEEE 128-bit support.
+	(rs6000_init_builtins): Only enable __float128 and __ibm128 if VSX
+	is available.
+	(init_float128_ibm): Update comment.
+	(init_float128_ieee): If VSX, use the normal __<op>tf<n> names
+	instead of __ieee128....  If not VSX, retain the existing
+	convention of using names of the form _q_<op>.
+	(rs6000_opt_masks): Update the long double options.
+
+	* config/rs6000/rs6000.h (FLOAT128_VECTOR_P): Drop support for the
+	temporary -mieee128-vector switch, just test -mvsx.
+	(FLOAT128_PAIRED_P): Likewise.
+	(TARGET_LONG_DOUBLE_128): Delete, target macro is now defined in
+	rs6000.opt.
+	(TARGET_IEEEQUAD): Likewise.
+
 2014-01-29  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/predicates.md (int_reg_operand_not_pseudo): New
