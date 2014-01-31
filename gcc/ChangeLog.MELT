@@ -2,6 +2,10 @@
 
 2014-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-01-31  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{unstable, since should be boostrapped with make upgrade-warmelt}}
 	* melt-predef.list (HOOK_PROCESS_PRAGMA): New.
 
