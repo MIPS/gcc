@@ -239,7 +239,7 @@ stupid_regalloc (void)
   for (int i = 1; i < 4; i++)
     {
       classes[i].next_avail = 0;
-      classes[i].max_num = 2;
+      classes[i].max_num = 20;
     }
 
   stupid_regalloc_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun), classes);
