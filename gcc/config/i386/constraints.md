@@ -18,7 +18,7 @@
 ;; <http://www.gnu.org/licenses/>.
 
 ;;; Unused letters:
-;;;     B     H
+;;;           H
 ;;;           h j
 
 ;; Integer register constraints.
@@ -90,6 +90,9 @@
 
 (define_register_constraint "x" "TARGET_SSE ? SSE_REGS : NO_REGS"
  "Any SSE register.")
+
+(define_register_constraint "B" "TARGET_MPX ? BND_REGS : NO_REGS"
+ "@internal Any bound register.")
 
 ;; We use the Y prefix to denote any number of conditional register sets:
 ;;  z	First SSE register.
@@ -236,6 +239,8 @@
 ;; T prefix is used for different address constraints
 ;;   v - VSIB address
 ;;   s - address with no segment register
+;;   i - address with no index and no rip
+;;   b - address with no base and no rip
 
 (define_address_constraint "Tv"
   "VSIB address operand"
@@ -244,3 +249,11 @@
 (define_address_constraint "Ts"
   "Address operand without segment register"
   (match_operand 0 "address_no_seg_operand"))
+
+(define_address_constraint "Ti"
+  "MPX address operand without index"
+  (match_operand 0 "address_mpx_no_index_operand"))
+
+(define_address_constraint "Tb"
+  "MPX address operand without base"
+  (match_operand 0 "address_mpx_no_base_operand"))
