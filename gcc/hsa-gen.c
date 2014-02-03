@@ -179,6 +179,7 @@ hsa_deinit_data_for_cfun (void)
   hsa_cfun.local_symbols.dispose ();
   free (hsa_cfun.input_args);
   free (hsa_cfun.output_arg);
+  free (hsa_cfun.name);
   hsa_cfun.spill_symbols.release();
 }
 
@@ -620,6 +621,12 @@ hsa_append_insn (hsa_bb *hbb, hsa_insn_basic *insn)
     hbb->first_insn = insn;
 }
 
+static void gen_hsa_addr_insns (tree val, hsa_op_reg *dest, hsa_bb *hbb,
+				vec <hsa_op_reg_p> ssa_map);
+static hsa_op_base * hsa_reg_or_immed_for_gimple_op (tree op, hsa_bb *hbb,
+						     vec <hsa_op_reg_p> ssa_map,
+						     hsa_insn_basic *new_use);
+
 /* Generate HSA address operand for a given tree memory reference REF.  If
    instructions need to be created to calculate the address, they willbe added
    to the end of HBB, SSA_MAP is an array mapping gimple SSA names to HSA
@@ -672,10 +679,76 @@ gen_hsa_addr (tree ref, hsa_bb *hbb, vec <hsa_op_reg_p> ssa_map)
 
       case ARRAY_REF:
       case ARRAY_RANGE_REF:
-	/* This is just to make hbb used.  Remove later. */
-	gcc_assert (hbb);
-	/* FIXME: Implement! ;-) */
-	gcc_unreachable ();
+        {
+	  tree base, varoffset;
+	  HOST_WIDE_INT bitsize, bitpos;
+	  enum machine_mode mode;
+	  int unsignedp, volatilep;
+	  hsa_op_reg *tmp;
+
+	  /* This is just to make hbb used.  Remove later. */
+	  gcc_assert (hbb);
+	  base = get_inner_reference(ref, &bitsize, &bitpos, &varoffset, &mode,
+				     &unsignedp, &volatilep, false);
+	  gcc_assert ((bitpos % BITS_PER_UNIT) == 0);
+	  tmp = hsa_alloc_reg_op ();
+	  tmp->type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
+	  gen_hsa_addr_insns (base, tmp, hbb, ssa_map);
+	  offset = bitpos / BITS_PER_UNIT;
+	  if (varoffset)
+	    {
+	      hsa_insn_basic *insn;
+	      /* We support only ssa names scaled by constants.  */
+	      if (TREE_CODE (varoffset) == MULT_EXPR)
+		{
+		  hsa_op_reg *tmp2;
+		  hsa_op_base *scale;
+		  tree op1 = TREE_OPERAND (varoffset, 0);
+		  tree op2 = TREE_OPERAND (varoffset, 1);
+		  tmp2 = hsa_alloc_reg_op ();
+		  tmp2->type = hsa_get_segment_addr_type (BRIG_SEGMENT_FLAT);
+		  if (CONVERT_EXPR_P (op1))
+		    {
+		      insn = hsa_alloc_basic_insn ();
+		      insn->opcode = BRIG_OPCODE_CVT;
+		      insn->operands[0] = tmp2;
+		      insn->type = tmp2->type;
+		      op1 = TREE_OPERAND (op1, 0);
+		      insn->operands[1] = hsa_reg_for_gimple_ssa (op1, ssa_map);
+		      hsa_append_insn (hbb, insn);
+		      reg = tmp2;
+		    }
+		  gcc_assert (TREE_CODE (op1) == SSA_NAME);
+		  insn = hsa_alloc_basic_insn ();
+		  scale = hsa_reg_or_immed_for_gimple_op (op2, hbb, ssa_map, insn);
+
+		  gcc_assert (tmp2->type == reg->type);
+		  insn->opcode = BRIG_OPCODE_MUL;
+		  insn->operands[0] = tmp2;
+		  insn->type = reg->type;
+		  insn->operands[2] = scale;
+		  insn->operands[1] = reg;
+		  hsa_append_insn (hbb, insn);
+		  reg = tmp2;
+		}
+	      else
+		{
+		  if (CONVERT_EXPR_P (varoffset))
+		    varoffset = TREE_OPERAND (varoffset, 0);
+		  gcc_assert (TREE_CODE (varoffset) == SSA_NAME);
+		  reg = hsa_reg_for_gimple_ssa (varoffset, ssa_map);
+		}
+	      insn = hsa_alloc_basic_insn ();
+	      insn->opcode = BRIG_OPCODE_ADD;
+	      insn->operands[0] = tmp;
+	      insn->type = tmp->type;
+	      insn->operands[2] = reg;
+	      insn->operands[1] = tmp;
+	      hsa_append_insn (hbb, insn);
+	    }
+	  reg = tmp;
+	  goto done;
+	}
 
       case INTEGER_CST:
 	offset += tree_to_uhwi (ref);
@@ -955,9 +1028,20 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
   switch (gimple_assign_rhs_code (assign))
     {
     CASE_CONVERT:
-      /* FIXME: Implement.  */
-      debug_gimple_stmt (assign);
-      gcc_unreachable ();
+      {
+	/* HSA is a bit unforgiving with CVT, the types must not be
+	   same sized without float/int conversion, otherwise we need
+	   to use MOV.  */
+	tree tl = TREE_TYPE (gimple_assign_lhs (assign));
+	tree tr = TREE_TYPE (gimple_assign_rhs1 (assign));
+	/* We don't need to check for float/float conversion of same size,
+	   as that wouldn't result in a gimple instruction.  */
+	if (INTEGRAL_TYPE_P (tl) && INTEGRAL_TYPE_P (tr)
+	    && TYPE_SIZE (tl) == TYPE_SIZE (tr))
+	  opcode = BRIG_OPCODE_MOV;
+	else
+	  opcode = BRIG_OPCODE_CVT;
+      }
       break;
 
     case PLUS_EXPR:
@@ -984,11 +1068,12 @@ gen_hsa_insns_for_operation_assignment (gimple assign, hsa_bb *hbb,
       gcc_unreachable ();
       break;
     case TRUNC_MOD_EXPR:
+      opcode = BRIG_OPCODE_REM;
+      break;
     case CEIL_MOD_EXPR:
     case FLOOR_MOD_EXPR:
     case ROUND_MOD_EXPR:
-      /* FIXME: Bah, there is no direct HSA equivalent for MOD.  Implement
-	 later.  */
+      /* FIXME: Generate an insn with a modifier here.  */
       gcc_unreachable ();
       break;
     case NEGATE_EXPR:
@@ -1144,6 +1229,85 @@ gen_hsa_insns_for_cond_stmt (gimple cond, hsa_bb *hbb,
   hsa_append_insn (hbb, cbr);
 }
 
+static void
+gen_hsa_insns_for_call (gimple stmt, hsa_bb *hbb,
+			vec <hsa_op_reg_p> ssa_map)
+{
+  tree lhs = gimple_call_lhs (stmt);
+  hsa_op_reg *dest;
+  hsa_insn_basic *insn;
+  int opcode;
+
+  if (!gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
+    {
+      debug_gimple_stmt (stmt);
+      gcc_unreachable ();
+    }
+  switch (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt)))
+    {
+    case BUILT_IN_OMP_GET_THREAD_NUM:
+      opcode = BRIG_OPCODE_WORKITEMABSID;
+      goto specialop;
+
+    case BUILT_IN_OMP_GET_NUM_THREADS:
+      opcode = BRIG_OPCODE_GRIDSIZE;
+      goto specialop;
+
+specialop:
+      {
+	hsa_op_reg *tmp;
+	dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+	/* We're using just one-dimensional kernels, so hardcode
+	   dimension X.  */
+	hsa_op_immed *imm = hsa_alloc_immed_op (build_zero_cst (uint32_type_node));
+	insn = hsa_alloc_basic_insn ();
+	if (dest->type != BRIG_TYPE_U32)
+	  {
+	    tmp = hsa_alloc_reg_op ();
+	    tmp->type = BRIG_TYPE_U32;
+	  }
+	else
+	  tmp = dest;
+	insn->opcode = opcode;
+	insn->operands[0] = tmp;
+	insn->operands[1] = imm;
+	insn->type = tmp->type;
+	hsa_append_insn (hbb, insn);
+	if (dest != tmp)
+	  {
+	    insn = hsa_alloc_basic_insn ();
+	    insn->opcode = dest->type == BRIG_TYPE_S32 ? BRIG_OPCODE_MOV : BRIG_OPCODE_CVT;
+	    insn->operands[0] = dest;
+	    insn->type = dest->type;
+	    insn->operands[1] = tmp;
+	    hsa_append_insn (hbb, insn);
+	  }
+	set_reg_def (dest, insn);
+	break;
+      }
+
+    case BUILT_IN_SQRT:
+    case BUILT_IN_SQRTF:
+      insn = hsa_alloc_basic_insn ();
+      insn->opcode = BRIG_OPCODE_SQRT;
+      dest = hsa_reg_for_gimple_ssa (lhs, ssa_map);
+      insn->operands[0] = dest;
+      set_reg_def (dest, insn);
+      insn->type = dest->type;
+
+      insn->operands[1]
+	= hsa_reg_or_immed_for_gimple_op (gimple_call_arg (stmt, 0),
+					  hbb, ssa_map, insn);
+      hsa_append_insn (hbb, insn);
+      break;
+
+    default:
+      debug_gimple_stmt (stmt);
+      gcc_unreachable ();
+    }
+}
+
+
 /* Generate HSA instrutions for a given gimple statement.  Instructions will be
    appended to HBB.  SSA_MAP maps gimple SSA names to HSA pseudo registers.  */
 
@@ -1168,6 +1332,12 @@ gen_hsa_insns_for_gimple_stmt (gimple stmt, hsa_bb *hbb,
       }
     case GIMPLE_COND:
       gen_hsa_insns_for_cond_stmt (stmt, hbb, ssa_map);
+      break;
+    case GIMPLE_CALL:
+      gen_hsa_insns_for_call (stmt, hbb, ssa_map);
+      break;
+    case GIMPLE_DEBUG:
+      /* ??? HSA supports some debug facilities.  */
       break;
     default:
       debug_gimple_stmt (stmt);
@@ -1207,11 +1377,12 @@ gen_hsa_phi_from_gimple_phi (gimple gphi, hsa_bb *hbb,
       else
 	{
 	  gcc_assert (is_gimple_min_invariant (op));
-	  if (!POINTER_TYPE_P (op))
-	    /* FIXME: Implement.   */
-	    gcc_unreachable ();
-	  else
+	  if (!POINTER_TYPE_P (TREE_TYPE (op)))
 	    hphi->operands[i] = hsa_alloc_immed_op (op);
+	  else
+	    /* FIXME: Implement.  Possibly needs (address-load) instructions
+	       at predecessor.  */
+	    gcc_unreachable ();
 	}
     }
 
@@ -1265,7 +1436,8 @@ gen_body_from_gimple (vec <hsa_op_reg_p> ssa_map)
       hsa_bb *hbb = hsa_bb_for_bb (bb);
 
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-	gen_hsa_phi_from_gimple_phi (gsi_stmt (gsi), hbb, ssa_map);
+	if (!virtual_operand_p (gimple_phi_result (gsi_stmt (gsi))))
+	  gen_hsa_phi_from_gimple_phi (gsi_stmt (gsi), hbb, ssa_map);
     }
 
   if (dump_file)
@@ -1345,6 +1517,14 @@ gen_function_parameters (vec <hsa_op_reg_p> ssa_map)
     hsa_cfun.output_arg = NULL;
 }
 
+static void
+sanitize_hsa_name (char *p)
+{
+  for (; *p; p++)
+    if (*p == '.')
+      *p = '_';
+}
+
 /* Genrate HSAIL reprezentation of the current function and write into a
    special section of the output file.  */
 
@@ -1357,7 +1537,8 @@ generate_hsa (void)
 
   ssa_map.safe_grow_cleared (SSANAMES (cfun)->length ());
   hsa_cfun.name
-    = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl));
+    = xstrdup (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (current_function_decl)));
+  sanitize_hsa_name (hsa_cfun.name);
   gen_function_parameters (ssa_map);
   gen_body_from_gimple (ssa_map);
   ssa_map.release ();
@@ -1445,6 +1626,7 @@ wrap_hsa (void)
 	    int slen = IDENTIFIER_LENGTH (DECL_ASSEMBLER_NAME (fndecl));
 	    if (asprintf (&tmpname, "&%s", IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl))) < 0)
 	      gcc_unreachable ();
+	    sanitize_hsa_name (tmpname + 1);
 
 	    str = build_string_literal (slen + 2, tmpname);
 	    CONSTRUCTOR_APPEND_ELT (v, NULL_TREE, str);

@@ -227,6 +227,14 @@ brig_string_slot_hasher::remove (value_type *ds)
 
 static hash_table<brig_string_slot_hasher> brig_string_htab;
 
+static void
+sanitize_hsa_name (char *p)
+{
+  for (; *p; p++)
+    if (*p == '.')
+      *p = '_';
+}
+
 /* Emit a null terminated string STR to the string section and return its
    offset in it.  */
 
@@ -238,8 +246,12 @@ brig_emit_string (const char *str, char prefix = 0)
   uint32_t hdr_len = htole32 (len);
   brig_string_slot s_slot;
   brig_string_slot **slot;
+  char *str2;
 
-  s_slot.s = str;
+  /* XXX Sanitize the names without all the strdup.  */
+  str2 = xstrdup (str);
+  sanitize_hsa_name (str2);
+  s_slot.s = str2;
   s_slot.len = slen;
   s_slot.prefix = prefix;
   s_slot.offset = 0;
@@ -255,18 +267,21 @@ brig_emit_string (const char *str, char prefix = 0)
       offset = brig_string.add (&hdr_len, sizeof (hdr_len));
       if (prefix)
 	brig_string.add (&prefix, 1);
-      brig_string.add (str, slen);
+      brig_string.add (str2, slen);
       brig_string.round_size_up (4);
 
       /* XXX could use the string we just copied into brig_string->cur_chunk */
-      new_slot->s = xstrdup (str);
+      new_slot->s = str2;
       new_slot->len = slen;
       new_slot->prefix = prefix;
       new_slot->offset = offset;
       *slot = new_slot;
     }
   else
-    offset = (*slot)->offset;
+    {
+      offset = (*slot)->offset;
+      free (str2);
+    }
 
   return offset;
 }
@@ -656,6 +671,7 @@ emit_immediate_operand (hsa_op_immed *imm)
     uint8_t b8;
     uint16_t b16;
     uint32_t b32;
+    uint64_t b64;
   } bytes;
   unsigned len;
 
@@ -684,6 +700,12 @@ emit_immediate_operand (hsa_op_immed *imm)
       len = 4;
       break;
 
+    case BRIG_TYPE_U64:
+    case BRIG_TYPE_S64:
+      bytes.b64 = (uint64_t) int_cst_value (imm->value);
+      len = 8;
+      break;
+
     case BRIG_TYPE_F32:
     case BRIG_TYPE_U8X4:
     case BRIG_TYPE_S8X4:
@@ -692,8 +714,6 @@ emit_immediate_operand (hsa_op_immed *imm)
     case BRIG_TYPE_F16X2:
       gcc_unreachable ();
 
-    case BRIG_TYPE_U64:
-    case BRIG_TYPE_S64:
     case BRIG_TYPE_F64:
     case BRIG_TYPE_U8X8:
     case BRIG_TYPE_S8X8:
@@ -992,6 +1012,54 @@ emit_branch_insn (hsa_insn_br *br)
   brig_insn_count++;
 }
 
+static bool
+float_type_p (BrigType16_t t)
+{
+  switch (t & BRIG_TYPE_BASE_MASK)
+    {
+    case BRIG_TYPE_F16:
+    case BRIG_TYPE_F32:
+    case BRIG_TYPE_F64:
+      return true;
+    default:
+      return false;
+    }
+}
+
+/* Emit a HSA convert instruction and all nececcary directives, schedule
+   necessary operands for writing.  */
+static void
+emit_cvt_insn (hsa_insn_basic *insn)
+{
+  struct BrigInstCvt repr;
+  BrigType16_t srctype;
+
+  repr.size = htole16 (sizeof (repr));
+  repr.kind = htole16 (BRIG_INST_CVT);
+  repr.opcode = htole16 (insn->opcode);
+  repr.type = htole16 (insn->type);
+  for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
+    if (insn->operands[i])
+      repr.operands[i] = htole32 (enqueue_op (insn->operands[i]));
+    else
+      repr.operands[i] = 0;
+  if (is_a <hsa_op_reg> (insn->operands[1]))
+    srctype = as_a <hsa_op_reg> (insn->operands[1])->type;
+  else
+    srctype = as_a <hsa_op_immed> (insn->operands[1])->type;
+  repr.sourceType = htole16 (srctype);
+
+  /* float to smaller float requires a rounding setting (we default
+     to 'near'.  */
+  if (float_type_p (insn->type) && float_type_p (srctype)
+      && (insn->type & BRIG_TYPE_BASE_MASK) < (srctype & BRIG_TYPE_BASE_MASK))
+    repr.modifier = BRIG_ROUND_FLOAT_NEAR_EVEN;
+  else
+    repr.modifier = 0;
+  brig_code.add (&repr, sizeof (repr));
+  brig_insn_count++;
+}
+
 /* Emit a basic HSA instruction and all nececcary directives, schedule
    necessary operands for writing .  */
 
@@ -1000,10 +1068,21 @@ emit_basic_insn (hsa_insn_basic *insn)
 {
   struct BrigInstBasic repr;
 
+  if (insn->opcode == BRIG_OPCODE_CVT)
+    {
+      emit_cvt_insn (insn);
+      return;
+    }
+
   repr.size = htole16 (sizeof (repr));
   repr.kind = htole16 (BRIG_INST_BASIC);
   repr.opcode = htole16 (insn->opcode);
-  repr.type = htole16 (insn->type);
+  /* XXX The spec says mov can take all types.  But the LLVM based
+     simulator cries about "Mov_s32" not being defined.  */
+  if (insn->opcode == BRIG_OPCODE_MOV)
+    repr.type = htole16 (regtype_for_type (insn->type));
+  else
+    repr.type = htole16 (insn->type);
   for (int i = 0; i < HSA_OPERANDS_PER_INSN; i++)
     if (insn->operands[i])
       repr.operands[i] = htole32 (enqueue_op (insn->operands[i]));

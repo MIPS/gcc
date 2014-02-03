@@ -430,7 +430,7 @@ hsa_free_symbol_hasher::equal (const value_type *a, const compare_type *b)
 struct hsa_function_representation
 {
   /* Name of the function.  */
-  const char *name;
+  char *name;
 
   /* Input arguments of the function.  */
   /* FIXME: Normally we'd use a vector, however our C++ vectors seem to have

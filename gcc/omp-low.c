@@ -1881,6 +1881,9 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
       = tree_cons (get_identifier ("omp declare target"),
 		   NULL_TREE, DECL_ATTRIBUTES (decl));
 
+  DECL_ATTRIBUTES (decl) = tree_cons (get_identifier ("hsa"), NULL_TREE,
+				      DECL_ATTRIBUTES (decl));
+
   t = build_decl (DECL_SOURCE_LOCATION (decl),
 		  RESULT_DECL, NULL_TREE, void_type_node);
   DECL_ARTIFICIAL (t) = 1;
@@ -4298,16 +4301,28 @@ expand_parallel_call (struct omp_region *region, basic_block bb,
     t1 = build_fold_addr_expr (t);
   t2 = build_fold_addr_expr (gimple_omp_parallel_child_fn (entry_stmt));
 
-  vec_alloc (args, 4 + vec_safe_length (ws_args));
-  args->quick_push (t2);
-  args->quick_push (t1);
-  args->quick_push (val);
-  if (ws_args)
-    args->splice (*ws_args);
-  args->quick_push (flags);
+  if (1
+      && !ws_args && !cond && start_ix == BUILT_IN_GOMP_PARALLEL)
+    {
+      vec_alloc (args, 1);
+      args->quick_push (t1);
+      t = build_call_expr_loc_vec (UNKNOWN_LOCATION,
+				   gimple_omp_parallel_child_fn (entry_stmt),
+				   args);
+    }
+  else
+    {
+      vec_alloc (args, 4 + vec_safe_length (ws_args));
+      args->quick_push (t2);
+      args->quick_push (t1);
+      args->quick_push (val);
+      if (ws_args)
+	args->splice (*ws_args);
+      args->quick_push (flags);
 
-  t = build_call_expr_loc_vec (UNKNOWN_LOCATION,
-			       builtin_decl_explicit (start_ix), args);
+      t = build_call_expr_loc_vec (UNKNOWN_LOCATION,
+				   builtin_decl_explicit (start_ix), args);
+    }
 
   force_gimple_operand_gsi (&gsi, t, true, NULL_TREE,
 			    false, GSI_CONTINUE_LINKING);
