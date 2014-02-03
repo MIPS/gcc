@@ -1285,6 +1285,12 @@ process_options (void)
 	   "and -ftree-loop-linear)");
 #endif
 
+  if (flag_check_pointer_bounds)
+    {
+      if (targetm.chkp_bound_mode () == VOIDmode)
+	error ("-fcheck-pointer-bounds is not supported for this target");
+    }
+
   /* One region RA really helps to decrease the code size.  */
   if (flag_ira_region == IRA_REGION_AUTODETECT)
     flag_ira_region
