@@ -5,6 +5,7 @@
 
 #include "libgccjit.h"
 
+#include <iostream>
 #include <vector>
 
 /****************************************************************************
@@ -106,43 +107,60 @@ namespace gccjit
     gcc_jit_context *m_inner_ctxt;
   };
 
-  class location
+  class object
+  {
+  public:
+    std::string get_debug_string () const;
+
+  protected:
+    object ();
+    object (gcc_jit_object *obj);
+
+    gcc_jit_object *get_inner_object ();
+
+  private:
+    gcc_jit_object *m_inner_obj;
+  };
+
+  inline std::ostream& operator << (std::ostream& stream, const object &obj);
+
+  class location : public object
   {
   public:
     location ();
     location (gcc_jit_location *loc);
 
-  public:
-    gcc_jit_location *m_inner_loc;
+    gcc_jit_location *get_inner_location ();
    };
 
-  class field
+  class field : public object
   {
   public:
     field ();
     field (gcc_jit_field *inner);
 
- public:
-    gcc_jit_field *m_inner_field;
+    gcc_jit_field *get_inner_field ();
   };
 
-  class type
+  class type : public object
   {
   public:
     type ();
     type (gcc_jit_type *inner);
 
+    gcc_jit_type *get_inner_type ();
+
     type get_pointer ();
 
-  public:
-    gcc_jit_type *m_inner_type;
-  };
+ };
 
-  class function
+  class function : public object
   {
   public:
     function ();
     function (gcc_jit_function *func);
+
+    gcc_jit_function *get_inner_function ();
 
     label new_forward_label (const char *name);
 
@@ -198,25 +216,23 @@ namespace gccjit
 		     rvalue rvalue);
     void add_return (rvalue rvalue);
 
-  public:
-    gcc_jit_function *m_inner_func;
-   };
+  };
 
-  class label
+  class label : public object
   {
   public:
     label ();
     label (gcc_jit_label *inner);
 
-  public:
-    gcc_jit_label *m_inner_label;
+    gcc_jit_label *get_inner_label ();
   };
 
-  class rvalue
+  class rvalue : public object
   {
   public:
     rvalue ();
     rvalue (gcc_jit_rvalue *inner);
+    gcc_jit_rvalue *get_inner_rvalue ();
 
     rvalue access_field (field field);
     rvalue access_field (location loc,
@@ -229,9 +245,7 @@ namespace gccjit
     lvalue dereference ();
     lvalue dereference (location loc);
 
-  public:
-    gcc_jit_rvalue *m_inner_rvalue;
-  };
+ };
 
   class lvalue : public rvalue
   {
@@ -298,8 +312,8 @@ inline field
 context::new_field (location loc, type type_, const char *name)
 {
   return field (gcc_jit_context_new_field (m_inner_ctxt,
-					   loc.m_inner_loc,
-					   type_.m_inner_type,
+					   loc.get_inner_location (),
+					   type_.get_inner_type (),
 					   name));
 }
 
@@ -325,7 +339,7 @@ context::new_struct_type (location loc,
     reinterpret_cast<gcc_jit_field **> (as_array_of_wrappers);
 
   return type (gcc_jit_context_new_struct_type (m_inner_ctxt,
-						loc.m_inner_loc,
+						loc.get_inner_location (),
 						name,
 						fields.size (),
 						as_array_of_ptrs));
@@ -345,8 +359,8 @@ context::new_param (location loc,
 		    const char *name)
 {
   return param (gcc_jit_context_new_param (m_inner_ctxt,
-					   loc.m_inner_loc,
-					   type_.m_inner_type,
+					   loc.get_inner_location (),
+					   type_.get_inner_type (),
 					   name));
 }
 
@@ -381,9 +395,9 @@ context::new_function (location loc,
     reinterpret_cast<gcc_jit_param **> (as_array_of_wrappers);
 
   return function (gcc_jit_context_new_function (m_inner_ctxt,
-						 loc.m_inner_loc,
+						 loc.get_inner_location (),
 						 kind,
-						 return_type.m_inner_type,
+						 return_type.get_inner_type (),
 						 name,
 						 params.size (),
 						 as_array_of_ptrs,
@@ -396,7 +410,7 @@ context::new_rvalue (type numeric_type,
 {
   return rvalue (
     gcc_jit_context_new_rvalue_from_int (m_inner_ctxt,
-					 numeric_type.m_inner_type,
+					 numeric_type.get_inner_type (),
 					 value));
 }
 
@@ -404,14 +418,14 @@ inline rvalue
 context::zero (type numeric_type)
 {
   return rvalue (gcc_jit_context_zero (m_inner_ctxt,
-				       numeric_type.m_inner_type));
+				       numeric_type.get_inner_type ()));
 }
 
 inline rvalue
 context::one (type numeric_type)
 {
   return rvalue (gcc_jit_context_one (m_inner_ctxt,
-				       numeric_type.m_inner_type));
+				       numeric_type.get_inner_type ()));
 }
 
 inline rvalue
@@ -420,7 +434,7 @@ context::new_rvalue (type numeric_type,
 {
   return rvalue (
     gcc_jit_context_new_rvalue_from_double (m_inner_ctxt,
-					    numeric_type.m_inner_type,
+					    numeric_type.get_inner_type (),
 					    value));
 }
 
@@ -430,7 +444,7 @@ context::new_rvalue (type pointer_type,
 {
   return rvalue (
     gcc_jit_context_new_rvalue_from_ptr (m_inner_ctxt,
-					 pointer_type.m_inner_type,
+					 pointer_type.get_inner_type (),
 					 value));
 }
 
@@ -458,10 +472,10 @@ context::new_unary_op (location loc,
 		       rvalue a)
 {
   return rvalue (gcc_jit_context_new_unary_op (m_inner_ctxt,
-					       loc.m_inner_loc,
+					       loc.get_inner_location (),
 					       op,
-					       result_type.m_inner_type,
-					       a.m_inner_rvalue));
+					       result_type.get_inner_type (),
+					       a.get_inner_rvalue ()));
 }
 
 inline rvalue
@@ -481,11 +495,11 @@ context::new_binary_op (location loc,
 			rvalue a, rvalue b)
 {
   return rvalue (gcc_jit_context_new_binary_op (m_inner_ctxt,
-						loc.m_inner_loc,
+						loc.get_inner_location (),
 						op,
-						result_type.m_inner_type,
-						a.m_inner_rvalue,
-						b.m_inner_rvalue));
+						result_type.get_inner_type (),
+						a.get_inner_rvalue (),
+						b.get_inner_rvalue ()));
 }
 
 inline rvalue
@@ -502,10 +516,10 @@ context::new_comparison (location loc,
 			 rvalue a, rvalue b)
 {
   return rvalue (gcc_jit_context_new_comparison (m_inner_ctxt,
-						 loc.m_inner_loc,
+						 loc.get_inner_location (),
 						 op,
-						 a.m_inner_rvalue,
-						 b.m_inner_rvalue));
+						 a.get_inner_rvalue (),
+						 b.get_inner_rvalue ()));
 }
 
 inline rvalue
@@ -530,38 +544,97 @@ context::new_call (location loc,
   gcc_jit_rvalue **as_array_of_ptrs =
     reinterpret_cast<gcc_jit_rvalue **> (as_array_of_wrappers);
   return gcc_jit_context_new_call (m_inner_ctxt,
-				   loc.m_inner_loc,
-				   func.m_inner_func,
+				   loc.get_inner_location (),
+				   func.get_inner_function (),
 				   args.size (),
 				   as_array_of_ptrs);
 }
 
+// class object
+inline std::string
+object::get_debug_string () const
+{
+  return gcc_jit_object_get_debug_string (m_inner_obj);
+}
+
+inline object::object () : m_inner_obj (NULL) {}
+inline object::object (gcc_jit_object *obj) : m_inner_obj (obj) {}
+
+inline gcc_jit_object *
+object::get_inner_object ()
+{
+  return m_inner_obj;
+}
+
+inline std::ostream&
+operator << (std::ostream& stream, const object &obj)
+{
+  return stream << obj.get_debug_string ();
+}
+
 // class location
-inline location::location () : m_inner_loc (NULL) {}
-inline location::location (gcc_jit_location *loc) : m_inner_loc (loc) {}
+inline location::location () : object (NULL) {}
+inline location::location (gcc_jit_location *loc)
+  : object (gcc_jit_location_as_object (loc))
+{}
+
+inline gcc_jit_location *
+location::get_inner_location ()
+{
+  /* Manual downcast: */
+  return reinterpret_cast<gcc_jit_location *> (get_inner_object ());
+}
 
 // class field
-inline field::field () : m_inner_field (NULL) {}
-inline field::field (gcc_jit_field *inner) : m_inner_field (inner) {}
+inline field::field () : object (NULL) {}
+inline field::field (gcc_jit_field *inner)
+  : object (gcc_jit_field_as_object (inner))
+{}
+
+inline gcc_jit_field *
+field::get_inner_field ()
+{
+  /* Manual downcast: */
+  return reinterpret_cast<gcc_jit_field *> (get_inner_object ());
+}
 
 // class type
-inline type::type () : m_inner_type (NULL) {}
-inline type::type (gcc_jit_type *inner) : m_inner_type (inner) {}
+inline type::type () : object (NULL) {}
+inline type::type (gcc_jit_type *inner)
+  : object (gcc_jit_type_as_object (inner))
+{}
+
+inline gcc_jit_type *
+type::get_inner_type ()
+{
+  /* Manual downcast: */
+  return reinterpret_cast<gcc_jit_type *> (get_inner_object ());
+}
 
 inline type
 type::get_pointer ()
 {
-  return type (gcc_jit_type_get_pointer (m_inner_type));
+  return type (gcc_jit_type_get_pointer (get_inner_type ()));
 }
 
 // class function
-inline function::function () : m_inner_func (NULL) {}
-inline function::function (gcc_jit_function *inner) : m_inner_func (inner) {}
+inline function::function () : object (NULL) {}
+inline function::function (gcc_jit_function *inner)
+  : object (gcc_jit_function_as_object (inner))
+{}
+
+inline gcc_jit_function *
+function::get_inner_function ()
+{
+  /* Manual downcast: */
+  return reinterpret_cast<gcc_jit_function *> (get_inner_object ());
+}
 
 inline label
 function::new_forward_label (const char *name)
 {
-  return label (gcc_jit_function_new_forward_label (m_inner_func, name));
+  return label (gcc_jit_function_new_forward_label (get_inner_function (),
+						    name));
 }
 
 inline lvalue
@@ -576,9 +649,9 @@ function::new_local (location loc,
 		     type type_,
 		     const char *name)
 {
-  return lvalue (gcc_jit_function_new_local (m_inner_func,
-					     loc.m_inner_loc,
-					     type_.m_inner_type,
+  return lvalue (gcc_jit_function_new_local (get_inner_function (),
+					     loc.get_inner_location (),
+					     type_.get_inner_type (),
 					     name));
 }
 
@@ -592,9 +665,9 @@ inline void
 function::add_eval (location loc,
 		    rvalue rvalue)
 {
-  gcc_jit_function_add_eval (m_inner_func,
-			     loc.m_inner_loc,
-			     rvalue.m_inner_rvalue);
+  gcc_jit_function_add_eval (get_inner_function (),
+			     loc.get_inner_location (),
+			     rvalue.get_inner_rvalue ());
 }
 
 inline void
@@ -610,10 +683,10 @@ function::add_assignment (location loc,
 			  lvalue lvalue,
 			  rvalue rvalue)
 {
-  gcc_jit_function_add_assignment (m_inner_func,
-				   loc.m_inner_loc,
+  gcc_jit_function_add_assignment (get_inner_function (),
+				   loc.get_inner_location (),
 				   lvalue.get_inner_lvalue (),
-				   rvalue.m_inner_rvalue);
+				   rvalue.get_inner_rvalue ());
 }
 
 inline void
@@ -632,11 +705,11 @@ function::add_assignment_op (location loc,
 			     enum gcc_jit_binary_op op,
 			     rvalue rvalue)
 {
-  gcc_jit_function_add_assignment_op (m_inner_func,
-				      loc.m_inner_loc,
+  gcc_jit_function_add_assignment_op (get_inner_function (),
+				      loc.get_inner_location (),
 				      lvalue.get_inner_lvalue (),
 				      op,
-				      rvalue.m_inner_rvalue);
+				      rvalue.get_inner_rvalue ());
 }
 
 inline void
@@ -648,8 +721,8 @@ inline void
 function::add_comment (location loc,
 		       const char *text)
 {
-  gcc_jit_function_add_comment (m_inner_func,
-				loc.m_inner_loc,
+  gcc_jit_function_add_comment (get_inner_function (),
+				loc.get_inner_location (),
 				text);
 }
 
@@ -666,11 +739,11 @@ function::add_conditional (location loc,
 			   label on_true,
 			   label on_false)
 {
-  gcc_jit_function_add_conditional (m_inner_func,
-				    loc.m_inner_loc,
-				    boolval.m_inner_rvalue,
-				    on_true.m_inner_label,
-				    on_false.m_inner_label);
+  gcc_jit_function_add_conditional (get_inner_function (),
+				    loc.get_inner_location (),
+				    boolval.get_inner_rvalue (),
+				    on_true.get_inner_label (),
+				    on_false.get_inner_label ());
 }
 
 inline label
@@ -682,8 +755,8 @@ inline label
 function::add_label (location loc,
 		     const char *name)
 {
-  return label (gcc_jit_function_add_label (m_inner_func,
-					    loc.m_inner_loc,
+  return label (gcc_jit_function_add_label (get_inner_function (),
+					    loc.get_inner_location (),
 					    name));
 }
 
@@ -696,9 +769,9 @@ inline void
 function::place_forward_label (location loc,
 			       label lab)
 {
-  gcc_jit_function_place_forward_label (m_inner_func,
-					loc.m_inner_loc,
-					lab.m_inner_label);
+  gcc_jit_function_place_forward_label (get_inner_function (),
+					loc.get_inner_location (),
+					lab.get_inner_label ());
 }
 
 inline void
@@ -710,9 +783,9 @@ inline void
 function::add_jump (location loc,
 		    label target)
 {
-  gcc_jit_function_add_jump (m_inner_func,
-			     loc.m_inner_loc,
-			     target.m_inner_label);
+  gcc_jit_function_add_jump (get_inner_function (),
+			     loc.get_inner_location (),
+			     target.get_inner_label ());
 }
 
 inline void
@@ -724,18 +797,37 @@ inline void
 function::add_return (location loc,
 		      rvalue rvalue)
 {
-  gcc_jit_function_add_return (m_inner_func,
-			       loc.m_inner_loc,
-			       rvalue.m_inner_rvalue);
+  gcc_jit_function_add_return (get_inner_function (),
+			       loc.get_inner_location (),
+			       rvalue.get_inner_rvalue ());
 }
 
 // class label
-inline label::label () : m_inner_label (NULL) {}
-inline label::label (gcc_jit_label *inner) : m_inner_label (inner) {}
+inline label::label () : object (NULL) {}
+inline label::label (gcc_jit_label *inner)
+  : object (gcc_jit_label_as_object (inner))
+{}
+
+inline gcc_jit_label *
+label::get_inner_label ()
+{
+  /* Manual downcast: */
+  return reinterpret_cast<gcc_jit_label *> (get_inner_object ());
+}
 
 //  class rvalue
-inline rvalue::rvalue () : m_inner_rvalue (NULL) {}
-inline rvalue::rvalue (gcc_jit_rvalue *inner) : m_inner_rvalue (inner) {}
+inline rvalue::rvalue () : object (NULL) {}
+inline rvalue::rvalue (gcc_jit_rvalue *inner)
+  : object (gcc_jit_rvalue_as_object (inner))
+{}
+
+inline gcc_jit_rvalue *
+rvalue::get_inner_rvalue ()
+{
+  /* Manual downcast: */
+  return reinterpret_cast<gcc_jit_rvalue *> (get_inner_object ());
+}
+
 
 inline rvalue
 rvalue::access_field (field field)
@@ -746,9 +838,9 @@ inline rvalue
 rvalue::access_field (location loc,
 		      field field)
 {
-  return rvalue (gcc_jit_rvalue_access_field (m_inner_rvalue,
-					      loc.m_inner_loc,
-					      field.m_inner_field));
+  return rvalue (gcc_jit_rvalue_access_field (get_inner_rvalue (),
+					      loc.get_inner_location (),
+					      field.get_inner_field ()));
 }
 
 inline lvalue
@@ -762,9 +854,9 @@ inline lvalue
 rvalue::dereference_field (location loc,
 			   field field)
 {
-  return lvalue (gcc_jit_rvalue_dereference_field (m_inner_rvalue,
-						   loc.m_inner_loc,
-						   field.m_inner_field));
+  return lvalue (gcc_jit_rvalue_dereference_field (get_inner_rvalue (),
+						   loc.get_inner_location (),
+						   field.get_inner_field ()));
 }
 
 inline lvalue
@@ -775,8 +867,8 @@ rvalue::dereference ()
 inline lvalue
 rvalue::dereference (location loc)
 {
-  return lvalue (gcc_jit_rvalue_dereference (m_inner_rvalue,
-					     loc.m_inner_loc));
+  return lvalue (gcc_jit_rvalue_dereference (get_inner_rvalue (),
+					     loc.get_inner_location ()));
 }
 
 // class lvalue : public rvalue
@@ -789,7 +881,7 @@ inline gcc_jit_lvalue *
 lvalue::get_inner_lvalue ()
 {
   /* Manual downcast: */
-  return reinterpret_cast<gcc_jit_lvalue *> (m_inner_rvalue);
+  return reinterpret_cast<gcc_jit_lvalue *> (get_inner_object ());
 }
 
 inline lvalue
@@ -802,8 +894,8 @@ lvalue::access_field (location loc,
 		      field field)
 {
   return lvalue (gcc_jit_lvalue_access_field (get_inner_lvalue (),
-					      loc.m_inner_loc,
-					      field.m_inner_field));
+					      loc.get_inner_location (),
+					      field.get_inner_field ()));
 }
 
 inline rvalue
@@ -815,7 +907,7 @@ inline rvalue
 lvalue::get_address (location loc)
 {
   return rvalue (gcc_jit_lvalue_get_address (get_inner_lvalue (),
-					     loc.m_inner_loc));
+					     loc.get_inner_location ()));
 }
 
 // class param : public lvalue

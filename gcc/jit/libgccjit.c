@@ -19,6 +19,10 @@ struct gcc_jit_result : public gcc::jit::result
 {
 };
 
+struct gcc_jit_object : public gcc::jit::recording::memento
+{
+};
+
 struct gcc_jit_location : public gcc::jit::recording::location
 {
 };
@@ -215,6 +219,22 @@ gcc_jit_context_new_location (gcc_jit_context *ctxt,
   return (gcc_jit_location *)ctxt->new_location (filename, line, column);
 }
 
+gcc_jit_object *
+gcc_jit_location_as_object (gcc_jit_location *loc)
+{
+  RETURN_NULL_IF_FAIL (loc, NULL, "NULL location");
+
+  return static_cast <gcc_jit_object *> (loc->as_object ());
+}
+
+gcc_jit_object *
+gcc_jit_type_as_object (gcc_jit_type *type)
+{
+  RETURN_NULL_IF_FAIL (type, NULL, "NULL type");
+
+  return static_cast <gcc_jit_object *> (type->as_object ());
+}
+
 gcc_jit_type *
 gcc_jit_context_get_type (gcc_jit_context *ctxt,
 			  enum gcc_jit_types type)
@@ -252,6 +272,14 @@ gcc_jit_context_new_field (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
 
   return (gcc_jit_field *)ctxt->new_field (loc, type, name);
+}
+
+gcc_jit_object *
+gcc_jit_field_as_object (gcc_jit_field *field)
+{
+  RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
+
+  return static_cast <gcc_jit_object *> (field->as_object ());
 }
 
 gcc_jit_type *
@@ -293,6 +321,14 @@ gcc_jit_context_new_param (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
 
   return (gcc_jit_param *)ctxt->new_param (loc, type, name);
+}
+
+gcc_jit_object *
+gcc_jit_param_as_object (gcc_jit_param *param)
+{
+  RETURN_NULL_IF_FAIL (param, NULL, "NULL param");
+
+  return static_cast <gcc_jit_object *> (param->as_object ());
 }
 
 gcc_jit_lvalue *
@@ -339,6 +375,14 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			is_variadic);
 }
 
+gcc_jit_object *
+gcc_jit_function_as_object (gcc_jit_function *func)
+{
+  RETURN_NULL_IF_FAIL (func, NULL, "NULL function");
+
+  return static_cast <gcc_jit_object *> (func->as_object ());
+}
+
 gcc_jit_label*
 gcc_jit_function_new_forward_label (gcc_jit_function *func,
 				    const char *name)
@@ -347,6 +391,14 @@ gcc_jit_function_new_forward_label (gcc_jit_function *func,
   /* name can be NULL.  */
 
   return (gcc_jit_label *)func->new_forward_label (name);
+}
+
+gcc_jit_object *
+gcc_jit_label_as_object (gcc_jit_label *label)
+{
+  RETURN_NULL_IF_FAIL (label, NULL, "NULL label");
+
+  return static_cast <gcc_jit_object *> (label->as_object ());
 }
 
 gcc_jit_lvalue *
@@ -362,12 +414,28 @@ gcc_jit_context_new_global (gcc_jit_context *ctxt,
   return (gcc_jit_lvalue *)ctxt->new_global (loc, type, name);
 }
 
+gcc_jit_object *
+gcc_jit_lvalue_as_object (gcc_jit_lvalue *lvalue)
+{
+  RETURN_NULL_IF_FAIL (lvalue, NULL, "NULL lvalue");
+
+  return static_cast <gcc_jit_object *> (lvalue->as_object ());
+}
+
 gcc_jit_rvalue *
 gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue *lvalue)
 {
   RETURN_NULL_IF_FAIL (lvalue, NULL, "NULL lvalue");
 
   return (gcc_jit_rvalue *)lvalue->as_rvalue ();
+}
+
+gcc_jit_object *
+gcc_jit_rvalue_as_object (gcc_jit_rvalue *rvalue)
+{
+  RETURN_NULL_IF_FAIL (rvalue, NULL, "NULL rvalue");
+
+  return static_cast <gcc_jit_object *> (rvalue->as_object ());
 }
 
 gcc_jit_rvalue *
@@ -544,6 +612,22 @@ gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (index, ctxt, "NULL index");
 
   return (gcc_jit_rvalue *)ctxt->new_array_lookup (loc, ptr, index);
+}
+
+gcc_jit_context *
+gcc_jit_object_get_context (gcc_jit_object *obj)
+{
+  RETURN_NULL_IF_FAIL (obj, NULL, "NULL object");
+
+  return static_cast <gcc_jit_context *> (obj->get_context ());
+}
+
+const char *
+gcc_jit_object_get_debug_string (gcc_jit_object *obj)
+{
+  RETURN_NULL_IF_FAIL (obj, NULL, "NULL object");
+
+  return obj->get_debug_string ();
 }
 
 gcc_jit_lvalue *
@@ -778,6 +862,14 @@ gcc_jit_function_new_loop (gcc_jit_function *func,
   RETURN_NULL_IF_FAIL (boolval, NULL, "NULL boolval");
 
   return (gcc_jit_loop *)func->new_loop (loc, boolval);
+}
+
+gcc_jit_object *
+gcc_jit_loop_as_object (gcc_jit_loop *loop)
+{
+  RETURN_NULL_IF_FAIL (loop, NULL, "NULL loop");
+
+  return static_cast <gcc_jit_object *> (loop->as_object ());
 }
 
 void

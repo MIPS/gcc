@@ -1,3 +1,131 @@
+2014-02-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (struct gcc_jit_object): New.
+	(gcc_jit_object_get_context): New.
+	(gcc_jit_object_get_debug_string): New.
+	(gcc_jit_location_as_object): New.
+	(gcc_jit_type_as_object): New.
+	(gcc_jit_field_as_object): New.
+	(gcc_jit_param_as_object): New.
+	(gcc_jit_function_as_object): New.
+	(gcc_jit_label_as_object): New.
+	(gcc_jit_lvalue_as_object): New.
+	(gcc_jit_rvalue_as_object): New.
+	(gcc_jit_loop_as_object): New.
+
+	* libgccjit.map (gcc_jit_field_as_object): New.
+	(gcc_jit_function_as_object): New.
+	(gcc_jit_label_as_object): New.
+	(gcc_jit_location_as_object): New.
+	(gcc_jit_loop_as_object): New.
+	(gcc_jit_lvalue_as_object): New.
+	(gcc_jit_object_get_context): New.
+	(gcc_jit_object_get_debug_string): New.
+	(gcc_jit_param_as_object): New.
+	(gcc_jit_rvalue_as_object): New.
+	(gcc_jit_type_as_object): New.
+
+	* libgccjit.c (struct gcc_jit_object): New.
+	(gcc_jit_location_as_object): New.
+	(gcc_jit_type_as_object): New.
+	(gcc_jit_field_as_object): New.
+	(gcc_jit_param_as_object): New.
+	(gcc_jit_function_as_object): New.
+	(gcc_jit_label_as_object): New.
+	(gcc_jit_lvalue_as_object): New.
+	(gcc_jit_rvalue_as_object): New.
+	(gcc_jit_object_get_context): New.
+	(gcc_jit_object_get_debug_string): New.
+	(gcc_jit_loop_as_object): New.
+	* internal-api.h (gcc::jit::recording::memento::get_context): New.
+	(gcc::jit::recording::memento::as_object): New.
+
+	* libgccjit++.h: Require iostream, for std::ostream.
+	(class object): New base class.
+	(operator << (std::ostream& stream, const object &obj)): New.
+	(location): Inherit from the new "object" base class.
+	(location::m_inner_loc): Remove, in favor of...
+	(location::get_inner_location): ...new method.
+	(field): Inherit from the new "object" base class.
+	(field::m_inner_field): Remove, in favor of...
+	(field::get_inner_field): ...new method.
+	(type): Inherit from the new "object" base class.
+	(type::m_inner_type): Remove, in favor of...
+	(type::get_inner_type): ...new method.
+	(function): Inherit from the new "object" base class.
+	(function::m_inner_func): Remove, in favor of...
+	(function::get_inner_function): ...new method.
+	(label): Inherit from the new "object" base class.
+	(label::m_inner_label): Remove, in favor of...
+	(label::get_inner_label): ...new method.
+	(rvalue) Inherit from the new "object" base class.
+	(rvalue::m_inner_rvalue): Remove, in favor of...
+	(rvalue::get_inner_rvalue): ...new method.
+
+	(context::new_field): Update for move of inner pointer to the
+	"object" base class.
+	(context::new_struct_type): Likewise.
+	(context::new_param): Likewise.
+	(context::new_function): Likewise.
+	(context::new_rvalue): Likewise.
+	(context::zero): Likewise.
+	(context::one): Likewise.
+	(context::new_rvalue): Likewise.
+	(context::new_rvalue): Likewise.
+	(context::new_unary_op): Likewise.
+	(context::new_binary_op): Likewise.
+	(context::new_comparison): Likewise.
+	(context::new_call): Likewise.
+
+	(object::get_debug_string): New.
+	(object::object): New.
+	(object::get_inner_object): New.
+	(operator << (std::ostream&, const object &)): New.
+
+	(location::location): Update for move of inner pointer to the
+	"object" base class.
+	(location::get_inner_location): New.
+
+	(field::field): Update for move of inner pointer to the
+	"object" base class.
+	(field::get_inner_field): New.
+
+	(type::type): Update for move of inner pointer to the
+	"object" base class.
+	(type::get_pointer): Likewise.
+	(type::get_inner_type): New.
+
+	(function::function): Update for move of inner pointer to the
+	"object" base class.
+	(function::new_forward_label): Likewise.
+	(function::new_local): Likewise.
+	(function::add_eval): Likewise.
+	(function::add_assignment): Likewise.
+	(function::add_assignment_op): Likewise.
+	(function::add_comment): Likewise.
+	(function::add_conditional): Likewise.
+	(function::add_label): Likewise.
+	(function::place_forward_label): Likewise.
+	(function::add_jump): Likewise.
+	(function::add_return): Likewise.
+	(function::get_inner_function): New.
+
+	(label::label): Update for move of inner pointer to the "object"
+	base class.
+	(label::get_inner_label): New
+
+	(rvalue::rvalue): Update for move of inner pointer to the "object"
+	base class.
+	(rvalue::get_inner_rvalue): New.
+	(rvalue::access_field): Likewise.
+	(rvalue::dereference_field): Likewise.
+	(rvalue::dereference): Likewise.
+
+	(lvalue::get_inner_lvalue): Update for move of inner pointer to
+	the "object" base class.
+	(lvalue::access_field): Likewise.
+	(lvalue::get_address): Likewise.
+
 2014-01-31  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit++.h: New file - a C++ wrapper for the libgccjit.h API.

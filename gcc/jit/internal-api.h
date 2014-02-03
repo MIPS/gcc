@@ -298,6 +298,11 @@ public:
 
   void set_playback_obj (void *obj) { m_playback_obj = obj; }
 
+  context *get_context () { return m_ctxt; }
+
+  memento *
+  as_object () { return this; }
+
   /* Debugging hook, for use in generating error messages etc.  */
   const char *
   get_debug_string ();

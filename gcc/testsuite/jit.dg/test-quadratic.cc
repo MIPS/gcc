@@ -4,6 +4,8 @@
 
 #include "libgccjit++.h"
 
+#include <sstream>
+
 #include "harness.h"
 
 struct quadratic
@@ -98,6 +100,8 @@ make_types (quadratic_test &testcase)
   testcase.c = testcase.ctxt.new_field (testcase.numeric_type, "c");
   testcase.discriminant =
     testcase.ctxt.new_field (testcase.numeric_type, "discriminant");
+  CHECK_STRING_VALUE (testcase.discriminant.get_debug_string ().c_str (),
+                      "discriminant");
   std::vector<gccjit::field> fields (4);
   fields[0] = testcase.a;
   fields[1] = testcase.b;
@@ -227,6 +231,8 @@ make_test_quadratic (quadratic_test &testcase)
 
   gccjit::label on_negative_discriminant
     = test_quadratic.new_forward_label ("negative_discriminant");
+  CHECK_STRING_VALUE (on_zero_discriminant.get_debug_string ().c_str (),
+                      "zero_discriminant");
 
   test_quadratic.add_comment ("if (q.discriminant > 0)");
   test_quadratic.add_conditional (
@@ -258,6 +264,8 @@ make_test_quadratic (quadratic_test &testcase)
       testcase.numeric_type,
       testcase.ctxt.new_rvalue (testcase.numeric_type, 2),
       a);
+  CHECK_STRING_VALUE (two_a.get_debug_string ().c_str (),
+                      "(double)2 * a");
 
   test_quadratic.add_comment ("*r1 = (-b + s) / (2 * a);");
   test_quadratic.add_assignment (
@@ -326,6 +334,11 @@ make_test_quadratic (quadratic_test &testcase)
   /* else return 0; */
   test_quadratic.place_forward_label (on_negative_discriminant);
   test_quadratic.add_return (testcase.ctxt.zero (testcase.int_type));
+
+  /* Verify that output stream operator << works.  */
+  std::ostringstream os;
+  os << "streamed output: " << address_of_q;
+  CHECK_STRING_VALUE (os.str ().c_str (), "streamed output: &q");
 }
 
 void

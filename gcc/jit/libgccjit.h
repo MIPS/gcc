@@ -28,6 +28,24 @@ typedef struct gcc_jit_context gcc_jit_context;
 /* A gcc_jit_result encapsulates the result of a compilation.  */
 typedef struct gcc_jit_result gcc_jit_result;
 
+/* An object created within a context.  Such objects are automatically
+   cleaned up when the context is released.
+
+   The class hierarchy looks like this:
+
+     +- gcc_jit_object
+         +- gcc_jit_location
+         +- gcc_jit_type
+         +- gcc_jit_field
+         +- gcc_jit_function
+         +- gcc_jit_label
+         +- gcc_jit_rvalue
+             +- gcc_jit_lvalue
+                 +- gcc_jit_param
+         +- gcc_jit_loop
+*/
+typedef struct gcc_jit_object gcc_jit_object;
+
 /* A gcc_jit_location encapsulates a source code location, so that
    you can (optionally) associate locations in your language with
    statements in the JIT-compiled code, allowing the debugger to
@@ -238,7 +256,20 @@ gcc_jit_result_release (gcc_jit_result *result);
  managing blocks.   If you have blocks, you can simply create labels
  for the start of each block.  You can even create labels for every
  instruction in your language; unused labels will be optimized away.
+**********************************************************************/
+
+/**********************************************************************
+ The base class of "contextual" object.
  **********************************************************************/
+/* Which context is "obj" within?  */
+extern gcc_jit_context *
+gcc_jit_object_get_context (gcc_jit_object *obj);
+
+/* Get a human-readable description of this object.
+   The string buffer is created the first time this is called on a given
+   object, and persists until the object's context is released.  */
+extern const char *
+gcc_jit_object_get_debug_string (gcc_jit_object *obj);
 
 /**********************************************************************
  Debugging information.
@@ -252,10 +283,18 @@ gcc_jit_context_new_location (gcc_jit_context *ctxt,
 			      int line,
 			      int column);
 
+/* Upcasting from location to object.  */
+extern gcc_jit_object *
+gcc_jit_location_as_object (gcc_jit_location *loc);
+
 
 /**********************************************************************
  Types.
  **********************************************************************/
+
+/* Upcasting from type to object.  */
+extern gcc_jit_object *
+gcc_jit_type_as_object (gcc_jit_type *type);
 
 /* Access to specific types.  */
 enum gcc_jit_types
@@ -327,6 +366,10 @@ gcc_jit_context_new_field (gcc_jit_context *ctxt,
 			   gcc_jit_type *type,
 			   const char *name);
 
+/* Upcasting from field to object.  */
+extern gcc_jit_object *
+gcc_jit_field_as_object (gcc_jit_field *field);
+
 extern gcc_jit_type *
 gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 				 gcc_jit_location *loc,
@@ -342,6 +385,10 @@ gcc_jit_context_new_param (gcc_jit_context *ctxt,
 			   gcc_jit_location *loc,
 			   gcc_jit_type *type,
 			   const char *name);
+
+/* Upcasting from param to object.  */
+extern gcc_jit_object *
+gcc_jit_param_as_object (gcc_jit_param *param);
 
 extern gcc_jit_lvalue *
 gcc_jit_param_as_lvalue (gcc_jit_param *param);
@@ -377,6 +424,10 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			      gcc_jit_param **params,
 			      int is_variadic);
 
+/* Upcasting from function to object.  */
+extern gcc_jit_object *
+gcc_jit_function_as_object (gcc_jit_function *func);
+
 /* Create a label, to be placed later.
 
    The name can be NULL, or you can give it a meaningful name, which
@@ -384,6 +435,10 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 extern gcc_jit_label *
 gcc_jit_function_new_forward_label (gcc_jit_function *func,
 				    const char *name);
+
+/* Upcasting from label to object.  */
+extern gcc_jit_object *
+gcc_jit_label_as_object (gcc_jit_label *label);
 
 /**********************************************************************
  lvalues, rvalues and expressions.
@@ -395,8 +450,15 @@ gcc_jit_context_new_global (gcc_jit_context *ctxt,
 			    gcc_jit_type *type,
 			    const char *name);
 
+/* Upcasting.  */
+extern gcc_jit_object *
+gcc_jit_lvalue_as_object (gcc_jit_lvalue *lvalue);
+
 extern gcc_jit_rvalue *
 gcc_jit_lvalue_as_rvalue (gcc_jit_lvalue *lvalue);
+
+extern gcc_jit_object *
+gcc_jit_rvalue_as_object (gcc_jit_rvalue *rvalue);
 
 /* Integer constants. */
 extern gcc_jit_rvalue *
@@ -749,6 +811,10 @@ extern gcc_jit_loop *
 gcc_jit_function_new_loop (gcc_jit_function *func,
 			   gcc_jit_location *loc,
 			   gcc_jit_rvalue *boolval);
+
+/* Upcasting from loop to object.  */
+extern gcc_jit_object *
+gcc_jit_loop_as_object (gcc_jit_loop *loop);
 
 extern void
 gcc_jit_loop_end (gcc_jit_loop *loop,

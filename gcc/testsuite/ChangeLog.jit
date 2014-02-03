@@ -1,3 +1,23 @@
+2014-02-03  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h (check_string_value): Add a forward declaration,
+	so that we can use CHECK_STRING_VALUE from within tests used by
+	test-combination.c.
+
+	* jit.dg/test-expressions.c (make_test_of_unary_op): Return a debug
+	stringification of the operation so that it be sanity-checked.
+	(make_test_of_binary_op): Likewise.
+	(make_test_of_comparison): Likewise.
+	(make_tests_of_unary_ops): Verify that said stringifications are
+	indeed sane.
+	(make_tests_of_binary_ops): Likewise.
+	(make_tests_of_comparisons): Likewise.
+
+	* jit.dg/test-quadratic.cc (make_types): Verify that the
+	get_debug_string method works.
+	(make_test_quadratic): Likewise, also, verify that the <<
+	operator works.
+
 2014-01-31  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-quadratic.cc: New file - a translation of

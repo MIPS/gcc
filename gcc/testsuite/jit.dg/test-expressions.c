@@ -10,7 +10,7 @@
  Unary ops
  **********************************************************************/
 
-static void
+static const char *
 make_test_of_unary_op (gcc_jit_context *ctxt,
 		       gcc_jit_type *type,
 		       enum gcc_jit_unary_op op,
@@ -21,6 +21,8 @@ make_test_of_unary_op (gcc_jit_context *ctxt,
        {
 	  return OP a;
        }
+     and return a debug dump of the OP so that
+     the caller can sanity-check the debug dump implementation.
   */
   gcc_jit_param *param_a =
     gcc_jit_context_new_param (ctxt, NULL, type, "a");
@@ -31,15 +33,17 @@ make_test_of_unary_op (gcc_jit_context *ctxt,
 				  funcname,
 				  1, &param_a,
 				  0);
-  gcc_jit_function_add_return (
-    test_fn,
+  gcc_jit_rvalue *unary_op = gcc_jit_context_new_unary_op (
+    ctxt,
     NULL,
-    gcc_jit_context_new_unary_op (
-      ctxt,
-      NULL,
-      op,
-      type,
-      gcc_jit_param_as_rvalue (param_a)));
+    op,
+    type,
+    gcc_jit_param_as_rvalue (param_a));
+
+  gcc_jit_function_add_return (test_fn, NULL, unary_op);
+
+  return gcc_jit_object_get_debug_string (
+    gcc_jit_rvalue_as_object (unary_op));
 }
 
 
@@ -49,18 +53,24 @@ make_tests_of_unary_ops (gcc_jit_context *ctxt)
   gcc_jit_type *int_type =
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
 
-  make_test_of_unary_op (ctxt,
-			 int_type,
-			 GCC_JIT_UNARY_OP_MINUS,
-			 "test_UNARY_OP_MINUS_on_int");
-  make_test_of_unary_op (ctxt,
-			 int_type,
-			 GCC_JIT_UNARY_OP_BITWISE_NEGATE,
-			 "test_UNARY_OP_BITWISE_NEGATE_on_int");
-  make_test_of_unary_op (ctxt,
-			 int_type,
-			 GCC_JIT_UNARY_OP_LOGICAL_NEGATE,
-			 "test_UNARY_OP_LOGICAL_NEGATE_on_int");
+  CHECK_STRING_VALUE (
+    make_test_of_unary_op (ctxt,
+			   int_type,
+			   GCC_JIT_UNARY_OP_MINUS,
+			   "test_UNARY_OP_MINUS_on_int"),
+    "-(a)");
+  CHECK_STRING_VALUE (
+    make_test_of_unary_op (ctxt,
+			   int_type,
+			   GCC_JIT_UNARY_OP_BITWISE_NEGATE,
+			   "test_UNARY_OP_BITWISE_NEGATE_on_int"),
+    "~(a)");
+  CHECK_STRING_VALUE (
+    make_test_of_unary_op (ctxt,
+			   int_type,
+			   GCC_JIT_UNARY_OP_LOGICAL_NEGATE,
+			   "test_UNARY_OP_LOGICAL_NEGATE_on_int"),
+    "!(a)");
 }
 
 static void
@@ -98,7 +108,7 @@ verify_unary_ops (gcc_jit_result *result)
  Binary ops
  **********************************************************************/
 
-static void
+static const char *
 make_test_of_binary_op (gcc_jit_context *ctxt,
 			gcc_jit_type *type,
 			enum gcc_jit_binary_op op,
@@ -122,16 +132,19 @@ make_test_of_binary_op (gcc_jit_context *ctxt,
 				  funcname,
 				  2, params,
 				  0);
-  gcc_jit_function_add_return (
-    test_fn,
-    NULL,
+  gcc_jit_rvalue *binary_op =
     gcc_jit_context_new_binary_op (
       ctxt,
       NULL,
       op,
       type,
       gcc_jit_param_as_rvalue (param_a),
-      gcc_jit_param_as_rvalue (param_b)));
+      gcc_jit_param_as_rvalue (param_b));
+
+  gcc_jit_function_add_return (test_fn, NULL, binary_op);
+
+  return gcc_jit_object_get_debug_string (
+    gcc_jit_rvalue_as_object (binary_op));
 }
 
 
@@ -141,48 +154,68 @@ make_tests_of_binary_ops (gcc_jit_context *ctxt)
   gcc_jit_type *int_type =
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
 
- /* Test binary ops.  */
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_PLUS,
-			  "test_BINARY_OP_PLUS_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_MINUS,
-			  "test_BINARY_OP_MINUS_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_MULT,
-			  "test_BINARY_OP_MULT_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_DIVIDE,
-			  "test_BINARY_OP_DIVIDE_on_int");
+  /* Test binary ops.  */
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_PLUS,
+			    "test_BINARY_OP_PLUS_on_int"),
+    "a + b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_MINUS,
+			    "test_BINARY_OP_MINUS_on_int"),
+    "a - b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_MULT,
+			    "test_BINARY_OP_MULT_on_int"),
+    "a * b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_DIVIDE,
+			    "test_BINARY_OP_DIVIDE_on_int"),
+    "a / b");
   /* TODO: test for DIVIDE on float or double */
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_MODULO,
-			  "test_BINARY_OP_MODULO_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_BITWISE_AND,
-			  "test_BINARY_OP_BITWISE_AND_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_BITWISE_XOR,
-			  "test_BINARY_OP_BITWISE_XOR_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_BITWISE_OR,
-			  "test_BINARY_OP_BITWISE_OR_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_LOGICAL_AND,
-			  "test_BINARY_OP_LOGICAL_AND_on_int");
-  make_test_of_binary_op (ctxt,
-			  int_type,
-			  GCC_JIT_BINARY_OP_LOGICAL_OR,
-			  "test_BINARY_OP_LOGICAL_OR_on_int");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_MODULO,
+			    "test_BINARY_OP_MODULO_on_int"),
+    "a % b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_BITWISE_AND,
+			    "test_BINARY_OP_BITWISE_AND_on_int"),
+    "a & b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_BITWISE_XOR,
+			    "test_BINARY_OP_BITWISE_XOR_on_int"),
+    "a ^ b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_BITWISE_OR,
+			    "test_BINARY_OP_BITWISE_OR_on_int"),
+    "a | b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_LOGICAL_AND,
+			    "test_BINARY_OP_LOGICAL_AND_on_int"),
+    "a && b");
+  CHECK_STRING_VALUE (
+    make_test_of_binary_op (ctxt,
+			    int_type,
+			    GCC_JIT_BINARY_OP_LOGICAL_OR,
+			    "test_BINARY_OP_LOGICAL_OR_on_int"),
+    "a || b");
 }
 
 static void
@@ -279,7 +312,7 @@ verify_binary_ops (gcc_jit_result *result)
  Comparisons
  **********************************************************************/
 
-static void
+static const char *
 make_test_of_comparison (gcc_jit_context *ctxt,
 			 gcc_jit_type *type,
 			 enum gcc_jit_comparison op,
@@ -303,15 +336,18 @@ make_test_of_comparison (gcc_jit_context *ctxt,
 				  funcname,
 				  2, params,
 				  0);
-  gcc_jit_function_add_return (
-    test_fn,
-    NULL,
+  gcc_jit_rvalue *comparison =
     gcc_jit_context_new_comparison (
       ctxt,
       NULL,
       op,
       gcc_jit_param_as_rvalue (param_a),
-      gcc_jit_param_as_rvalue (param_b)));
+      gcc_jit_param_as_rvalue (param_b));
+
+  gcc_jit_function_add_return (test_fn, NULL, comparison);
+
+  return gcc_jit_object_get_debug_string (
+    gcc_jit_rvalue_as_object (comparison));
 }
 
 static void
@@ -320,30 +356,42 @@ make_tests_of_comparisons (gcc_jit_context *ctxt)
   gcc_jit_type *int_type =
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
 
-  make_test_of_comparison (ctxt,
-			   int_type,
-			   GCC_JIT_COMPARISON_EQ,
-			   "test_COMPARISON_EQ_on_int");
-  make_test_of_comparison (ctxt,
-			   int_type,
-			   GCC_JIT_COMPARISON_NE,
-			   "test_COMPARISON_NE_on_int");
-  make_test_of_comparison (ctxt,
-			   int_type,
-			   GCC_JIT_COMPARISON_LT,
-			   "test_COMPARISON_LT_on_int");
-  make_test_of_comparison (ctxt,
-			   int_type,
-			   GCC_JIT_COMPARISON_LE,
-			   "test_COMPARISON_LE_on_int");
-  make_test_of_comparison (ctxt,
-			   int_type,
-			   GCC_JIT_COMPARISON_GT,
-			   "test_COMPARISON_GT_on_int");
-  make_test_of_comparison (ctxt,
-			   int_type,
-			   GCC_JIT_COMPARISON_GE,
-			   "test_COMPARISON_GE_on_int");
+  CHECK_STRING_VALUE (
+    make_test_of_comparison (ctxt,
+			     int_type,
+			     GCC_JIT_COMPARISON_EQ,
+			     "test_COMPARISON_EQ_on_int"),
+    "a == b");
+  CHECK_STRING_VALUE (
+    make_test_of_comparison (ctxt,
+			     int_type,
+			     GCC_JIT_COMPARISON_NE,
+			     "test_COMPARISON_NE_on_int"),
+    "a != b");
+  CHECK_STRING_VALUE (
+    make_test_of_comparison (ctxt,
+			     int_type,
+			     GCC_JIT_COMPARISON_LT,
+			     "test_COMPARISON_LT_on_int"),
+    "a < b");
+  CHECK_STRING_VALUE (
+    make_test_of_comparison (ctxt,
+			     int_type,
+			     GCC_JIT_COMPARISON_LE,
+			     "test_COMPARISON_LE_on_int"),
+    "a <= b");
+  CHECK_STRING_VALUE (
+    make_test_of_comparison (ctxt,
+			     int_type,
+			     GCC_JIT_COMPARISON_GT,
+			     "test_COMPARISON_GT_on_int"),
+    "a > b");
+  CHECK_STRING_VALUE (
+    make_test_of_comparison (ctxt,
+			     int_type,
+			     GCC_JIT_COMPARISON_GE,
+			     "test_COMPARISON_GE_on_int"),
+    "a >= b");
 }
 
 static void

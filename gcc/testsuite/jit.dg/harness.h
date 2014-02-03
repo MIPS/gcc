@@ -57,6 +57,8 @@ create_code (gcc_jit_context *ctxt, void * user_data);
 extern void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result);
 
+extern void check_string_value (const char *actual, const char *expected);
+
 /* Implement framework needed for turning the testcase hooks into an
    executable.  test-combination.c combines multiple testcases into one
    testcase, so we have TEST_COMBINATION as a way of temporarily turning
