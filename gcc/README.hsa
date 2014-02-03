@@ -19,7 +19,7 @@ headers installed, then git clone the two repositories:
 % cmake -DCMAKE_BUILD_TYPE=Debug ..
 
 This will also checkout LLVM in the correct version as necessary for
-the simulator.  Build the HSA simulator (which also build libHSAIL):
+the simulator.  Build the HSA simulator (which also builds libHSAIL):
 
 % cd HSAIL-Instruction-Set-Simulator/dev
 % make _DBG=1
@@ -40,7 +40,8 @@ fcos(3.141593e+00) = -1.000000e+00
 Now you'll want to apply two patches, hsail-iss1.diff and
 hsail-tools1.diff, the former adds the creation of libgcchsa.so,
 the latter enables libHSAIL to not check the ELF machine type
-of kernel containers (so it can load normal i386 files).  Both
+of kernel containers (so it can load normal i386 files), so that
+hsailasm can disassemble our .o files.  Both
 patches are included in the gcc tree parallel to this README.hsa.
 
 % cd HSAIL-Instruction-Set-Simulator; patch -p1 < hsail-iss1.diff
@@ -62,13 +63,20 @@ void __attribute__((hsa, noinline)) square (int *ip, int *rp)
   int i = *ip;
   *rp = i * i;
 }
-% ./gcc/xgcc -B./gcc/ -m32 -c hsakernel.c
+% ./gcc/xgcc -B./gcc/ -c hsakernel.c
 
 You should have a hsakernel.o file that contains a BRIG kernel '&square'.
-To verify, disassemble that one:
+To verify, disassemble that one.  There's a caveat: the disassembler
+only knows how to load ELF32 files, so if the above produced an ELF64
+file, you first have to copy around the BRIG sections to a new ELF32 binary:
 
-% ../HSAIL-Instruction-Set-Simulator/dev/HSAIL-Tools/hsailasm -disassemble hsakernel.o
-% less hsakernel.hsail
+% objcopy -O elf32-i386 -j .brig_strtab -j .brig_directives -j .brig_code -j .brig_operands -j .brig_debug hsakernel.o disasmme.o
+
+Note that this is only necessary for the disassembler.  The simulator
+itself is able to deal with ELF64 files just fine.  Now we can disassemble it:
+
+% ../HSAIL-Instruction-Set-Simulator/dev/HSAIL-Tools/hsailasm -disassemble disasmme.o
+% less disasmme.hsail
 
 Now build a program containing a call to that kernel:
 % cat hsacall.c
@@ -97,17 +105,9 @@ int main ()
 }
 
 % ./gcc/xgcc -B./gcc/ -c hsacall.c
+% gcc -o hsacall hsacall.o hsakernel.o ../HSAIL-Instruction-Set-Simulator/dev/build/Debug/lib/libgcchsa.so
 
-Note how hsakernel.c was compiled -m32. That's because currently the
-BRIG loader only accepts ELF32 binaries.  If you're on a 64 bit platform
-the last command above will have produced a 64bit ELF object file which
-you can't link together with hsakernel.o.  So we have a hack that
-tries loading kernels from hsakernel.o when loading from the executable
-fails.  So link the hsacall.o file against the libgcchsa.so library:
-
-% gcc -o hsacall hsacall.o ../HSAIL-Instruction-Set-Simulator/dev/build/Debug/lib/libgcchsa.so
-
-Make sure hsakernel.o is in the current directory, and call it:
+Now we should be able to call it:
 
 % LD_LIBRARY_PATH=../HSAIL-Instruction-Set-Simulator/dev/build/Debug/lib/ \
   ./hsacall
@@ -116,3 +116,20 @@ Square sequence: 1 4 9 16 25 36 49 64 81 100 121 144 169 196 225 256 289 324 361
 You can debug with gdb (try breakpointing on __hsa_launch_kernel).
 
 Now experiment.  You'll find many missing things  :-)
+
+OpenMP
+-------------------------
+
+The HSA branch contains some early support to transform openMP code
+into HSAIL code, for only the openMP parallel pragma is implemented,
+e.g. this loop:
+
+     /* Launch threads to  */
+     #pragma omp parallel for shared(z, target_lat, target_long) private(i, tmp_lat, tmp_long)
+     for( i = 0 ; i < rec_count ; i++ ) {
+             tmp_lat = floatbuf[2*i];
+             tmp_long = floatbuf[2*i+1];
+             z[i] = sqrt(( (tmp_lat-target_lat) * (tmp_lat-target_lat) )+( (tmp_long-target_long) * (tmp_long-target_long) ));
+     } /* omp end parallel */
+
+can be transformed into an HSA kernel.  Just use -fopenmp for compilation.
