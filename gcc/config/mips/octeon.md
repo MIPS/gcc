@@ -47,8 +47,17 @@
 (define_insn_reservation "octeon_condmove_o2" 3
   (and (eq_attr "cpu" "octeon2,octeon3")
        (eq_attr "type" "condmove")
+       (not (eq_attr "condmode" "CC"))
        (not (eq_attr "mode" "SF, DF")))
   "octeon_pipe0 | octeon_pipe1")
+
+;; movt/movf can only issue in pipe1
+(define_insn_reservation "octeon_condmove_o3_int_on_cc" 3
+  (and (eq_attr "cpu" "octeon2,octeon3")
+       (eq_attr "type" "condmove")
+       (eq_attr "condmode" "CC")
+       (not (eq_attr "mode" "SF, DF")))
+  "octeon_pipe1")
 
 (define_insn_reservation "octeon_load_o1" 2
   (and (eq_attr "cpu" "octeon")

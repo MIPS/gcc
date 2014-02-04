@@ -216,6 +216,16 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2014-02-03  Andrew Pinski  <apinski@cavium.com>
+
+	* config/mips/mips.md (condmode): New insn attribute.
+	(*mov<GPR:mode>_on_<MOVECC:mode>): Add condmode.
+	(*mov<GPR:mode>_on_<GPR2:mode>_ne): Likewise.
+	(*mov<SCALARF:mode>_on_<MOVECC:mode>): Likewise.
+	* config/mips/octeon.md (octeon_condmove_o2):
+	Don't match on CC for condmode.
+	(octeon_condmove_o3_int_on_cc): New reserve.
+
 2014-01-21  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #9190

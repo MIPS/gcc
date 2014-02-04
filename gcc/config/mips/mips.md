@@ -233,6 +233,10 @@
 (define_attr "mode" "unknown,none,QI,HI,SI,DI,TI,SF,DF,TF,FPSW"
   (const_string "unknown"))
 
+;; The data type which is used for condition on conditional moves
+(define_attr "condmode" "unknown,CC,DI,SI"
+  (const_string "unknown"))
+
 ;; True if the main data type is twice the size of a word.
 (define_attr "dword_mode" "no,yes"
   (cond [(and (eq_attr "mode" "DI,DF")
@@ -7210,7 +7214,8 @@
     mov%T4\t%0,%z2,%1
     mov%t4\t%0,%z3,%1"
   [(set_attr "type" "condmove")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set_attr "condmode" "<MOVECC:MODE>")])
 
 (define_insn "*mov<GPR:mode>_on_<GPR2:mode>_ne"
   [(set (match_operand:GPR 0 "register_operand" "=d,d")
@@ -7223,7 +7228,8 @@
     movn\t%0,%z2,%1
     movz\t%0,%z3,%1"
   [(set_attr "type" "condmove")
-   (set_attr "mode" "<GPR:MODE>")])
+   (set_attr "mode" "<GPR:MODE>")
+   (set_attr "condmode" "<GPR2:MODE>")])
 
 (define_insn "*mov<SCALARF:mode>_on_<MOVECC:mode>"
   [(set (match_operand:SCALARF 0 "register_operand" "=f,f")
@@ -7238,7 +7244,8 @@
     mov%T4.<fmt>\t%0,%2,%1
     mov%t4.<fmt>\t%0,%3,%1"
   [(set_attr "type" "condmove")
-   (set_attr "mode" "<SCALARF:MODE>")])
+   (set_attr "mode" "<SCALARF:MODE>")
+   (set_attr "condmode" "<MOVECC:MODE>")])
 
 ;; These are the main define_expand's used to make conditional moves.
 
