@@ -1,4 +1,169 @@
+2014-02-03  Marc Glisse  <marc.glisse@inria.fr>
+
+	PR c++/53017
+	PR c++/59211
+	* tree.c (handle_init_priority_attribute): Call default_conversion on
+	the attribute argument.
+
+2014-02-03  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58871
+	* method.c (synthesized_method_walk): If vbases is non-null but
+	is_empty is true, likewise don't worry about the virtual bases.
+
+2014-02-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/51219
+	* typeck2.c (process_init_constructor_record): Just skip unnamed
+	bit-fields.
+
+2014-01-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59469
+	* pt.c (mark_decl_instantiated): Call mark_needed.
+
+	PR c++/58672
+	* decl2.c (handle_tls_init): Handle null init fn.
+
+	PR c++/55800
+	* decl2.c (get_tls_init_fn): Copy DECL_EXTERNAL from the variable.
+
+2014-01-31  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59082
+	* class.c (build_vfield_ref): Early return error_mark_node if
+	TYPE_VFIELD (type) is null.
+	(build_base_path): Check return value of build_vfield_ref.
+
+2014-01-31  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59646
+	* call.c (convert_like_real) [ck_aggr]: Set TARGET_EXPR_LIST_INIT_P.
+	[ck_list]: Check for error_mark_node.
+	(build_aggr_conv): Set LOOKUP_NO_NARROWING and check_narrowing.
+
+	PR c++/57043
+	* pt.c (fn_type_unification): Don't do DEDUCE_EXACT check
+	during partial ordering.
+
+2014-01-31  Marek Polacek  <polacek@redhat.com>
+
+	PR c/59963
+	* typeck.c (build_function_call_vec): Add dummy arg_loc parameter.
+
+2014-01-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/57899
+	* cp-tree.h (struct saved_scope): Add x_local_specializations.
+	(local_specializations): New macro.
+	* pt.c (local_specializations): Remove variable.
+
+2014-01-30  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	PR c++/58708
+	* parser.c (make_string_pack): Use double_int::from_buffer.
+
+2014-01-30  Marek Polacek  <polacek@redhat.com>
+
+	PR c/59940
+	* typeck.c (build_ptrmemfunc1): Call convert_and_check with
+	input_location.
+	* cvt.c (cp_convert_and_check): Call warnings_for_convert_and_check
+	with input_location.
+	* call.c (build_conditional_expr_1): Call unsafe_conversion_p with
+	loc parameter.
+
+2014-01-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58843
+	* typeck.c (lookup_destructor): Check dtor_type for error_mark_node.
+
+2014-01-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58649
+	* pt.c (lookup_template_class_1): Check start_enum return value
+	for error_mark_node.
+
+2014-01-30  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* decl.c (duplicate_decls, typename_hash, typename_compare):
+	Use TYPE_IDENTIFIER.
+	* error.c (dump_type): Likewise.
+	* mangle.c (dump_substitution_candidates): Likewise.
+
+2014-01-30  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59633
+	* decl2.c (attributes_naming_typedef_ok): New.
+	* cp-tree.h: Declare it.
+	* decl.c (grokdeclarator): Check it.
+	* tree.c (no_linkage_check): Handle VECTOR_TYPE.
+
+2014-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59707
+	* call.c (add_builtin_candidate): Catch dependent types.
+
+	PR c++/59989
+	* pt.c (expand_template_argument_pack): Correct
+	non_default_args_count calculation.
+
+	PR c++/58466
+	* pt.c (unify_pack_expansion): Call expand_template_argument_pack.
+
+	PR c++/59956
+	* friend.c (do_friend): Pass the TEMPLATE_DECL to add_friend if we
+	have a friend template in a class template.
+	* pt.c (tsubst_friend_function): Look through it.
+	(push_template_decl_real): A friend member template is
+	primary.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58846
+	* decl.c (get_dso_handle_node): Don't crash if dso_handle_node
+	== error_mark_node.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58674
+	* pt.c (instantiate_template_1): Check for error_mark_node the second
+	argument too.
+
+2014-01-29  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59916
+	* optimize.c (maybe_thunk_body): Build a RETURN_EXPR for
+	cdtor_returns_this case.
+
+	PR c++/59315
+	* decl.c (cxx_maybe_build_cleanup): Call mark_used.
+
+2014-01-29  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58702
+	* semantics.c (finish_omp_reduction_clause): Check type for
+	error_mark_node.
+
 2014-01-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/59791
+	* pt.c (tsubst_decl) [VAR_DECL]: Allow in unevaluated context.
+	(tsubst_copy): Use it if lookup fails.
+
+	PR c++/59818
+	* pt.c (tsubst_function_type): Make sure we keep the same function
+	quals.
+
+	PR c++/58701
+	* semantics.c (build_anon_member_initialization): Stop walking
+	when we run out of COMPONENT_REFs.
+
+	PR c++/58632
+	* decl.c (lookup_and_check_tag): Ignore template parameters if
+	scope == ts_current.
+	* pt.c (check_template_shadow): Don't complain about the injected
+	class name.
 
 	* decl.c (duplicate_decls): Tweak.
 

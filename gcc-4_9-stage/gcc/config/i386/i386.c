@@ -2628,6 +2628,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
   static struct ix86_target_opts flag_opts[] =
   {
     { "-m128bit-long-double",		MASK_128BIT_LONG_DOUBLE },
+    { "-mlong-double-128",		MASK_LONG_DOUBLE_128 },
     { "-mlong-double-64",		MASK_LONG_DOUBLE_64 },
     { "-m80387",			MASK_80387 },
     { "-maccumulate-outgoing-args",	MASK_ACCUMULATE_OUTGOING_ARGS },
@@ -4195,10 +4196,18 @@ ix86_option_override_internal (bool main_args_p,
   else if (opts_set->x_target_flags & MASK_RECIP)
     opts->x_recip_mask &= ~(RECIP_MASK_ALL & ~opts->x_recip_mask_explicit);
 
-  /* Default long double to 64-bit for Bionic.  */
+  /* Default long double to 64-bit for 32-bit Bionic and to __float128
+     for 64-bit Bionic.  */
   if (TARGET_HAS_BIONIC
-      && !(opts_set->x_target_flags & MASK_LONG_DOUBLE_64))
-    opts->x_target_flags |= MASK_LONG_DOUBLE_64;
+      && !(opts_set->x_target_flags
+	   & (MASK_LONG_DOUBLE_64 | MASK_LONG_DOUBLE_128)))
+    opts->x_target_flags |= (TARGET_64BIT
+			     ? MASK_LONG_DOUBLE_128
+			     : MASK_LONG_DOUBLE_64);
+
+  /* Only one of them can be active.  */
+  gcc_assert ((opts->x_target_flags & MASK_LONG_DOUBLE_64) == 0
+	      || (opts->x_target_flags & MASK_LONG_DOUBLE_128) == 0);
 
   /* Save the initial options in case the user does function specific
      options.  */
@@ -6627,25 +6636,28 @@ classify_argument (enum machine_mode mode, const_tree type,
     case CHImode:
     case CQImode:
       {
-	int size = (bit_offset % 64)+ (int) GET_MODE_BITSIZE (mode);
+	int size = bit_offset + (int) GET_MODE_BITSIZE (mode);
 
-	if (size <= 32)
+	/* Analyze last 128 bits only.  */
+	size = (size - 1) & 0x7f;
+
+	if (size < 32)
 	  {
 	    classes[0] = X86_64_INTEGERSI_CLASS;
 	    return 1;
 	  }
-	else if (size <= 64)
+	else if (size < 64)
 	  {
 	    classes[0] = X86_64_INTEGER_CLASS;
 	    return 1;
 	  }
-	else if (size <= 64+32)
+	else if (size < 64+32)
 	  {
 	    classes[0] = X86_64_INTEGER_CLASS;
 	    classes[1] = X86_64_INTEGERSI_CLASS;
 	    return 2;
 	  }
-	else if (size <= 64+64)
+	else if (size < 64+64)
 	  {
 	    classes[0] = classes[1] = X86_64_INTEGER_CLASS;
 	    return 2;
@@ -14706,7 +14718,8 @@ get_some_local_dynamic_name (void)
    F,f -- likewise, but for floating-point.
    O -- if HAVE_AS_IX86_CMOV_SUN_SYNTAX, expand to "w.", "l." or "q.",
 	otherwise nothing
-   R -- print the prefix for register names.
+   R -- print embeded rounding and sae.
+   r -- print only sae.
    z -- print the opcode suffix for the size of the current operand.
    Z -- likewise, with special suffixes for x87 instructions.
    * -- print a star (in certain assembler syntax)
@@ -15156,6 +15169,20 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    fputs ("{z}", file);
 	  return;
 
+	case 'r':
+	  gcc_assert (CONST_INT_P (x));
+	  gcc_assert (INTVAL (x) == ROUND_SAE);
+
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
+	    fputs (", ", file);
+
+	  fputs ("{sae}", file);
+
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
+	    fputs (", ", file);
+
+	  return;
+
 	case 'R':
 	  gcc_assert (CONST_INT_P (x));
 
@@ -15164,20 +15191,17 @@ ix86_print_operand (FILE *file, rtx x, int code)
 
 	  switch (INTVAL (x))
 	    {
-	    case ROUND_NEAREST_INT:
+	    case ROUND_NEAREST_INT | ROUND_SAE:
 	      fputs ("{rn-sae}", file);
 	      break;
-	    case ROUND_NEG_INF:
+	    case ROUND_NEG_INF | ROUND_SAE:
 	      fputs ("{rd-sae}", file);
 	      break;
-	    case ROUND_POS_INF:
+	    case ROUND_POS_INF | ROUND_SAE:
 	      fputs ("{ru-sae}", file);
 	      break;
-	    case ROUND_ZERO:
+	    case ROUND_ZERO | ROUND_SAE:
 	      fputs ("{rz-sae}", file);
-	      break;
-	    case ROUND_SAE:
-	      fputs ("{sae}", file);
 	      break;
 	    default:
 	      gcc_unreachable ();

@@ -825,7 +825,7 @@ package body Exp_Ch6 is
 
       --  We must have a call, since Has_Recursive_Call was set. If not just
       --  ignore (this is only an error check, so if we have a funny situation,
-      --  due to bugs or errors, we do not want to bomb!)
+      --  due to bugs or errors, we do not want to bomb).
 
       elsif Is_Empty_Elmt_List (Call_List) then
          return;
@@ -2043,7 +2043,7 @@ package body Exp_Ch6 is
          procedure Do_Backend_Inline is
          begin
             --  No extra test needed for init subprograms since we know they
-            --  are available to the backend!
+            --  are available to the backend.
 
             if Is_Init_Proc (Subp) then
                Add_Inlined_Body (Subp);
@@ -3108,7 +3108,7 @@ package body Exp_Ch6 is
          --  For an OUT or IN OUT parameter, if the actual is an entity, then
          --  clear current values, since they can be clobbered. We are probably
          --  doing this in more places than we need to, but better safe than
-         --  sorry when it comes to retaining bad current values!
+         --  sorry when it comes to retaining bad current values.
 
          if Ekind (Formal) /= E_In_Parameter
            and then Is_Entity_Name (Actual)
@@ -3122,7 +3122,7 @@ package body Exp_Ch6 is
                --  For an OUT or IN OUT parameter that is an assignable entity,
                --  we do not want to clobber the Last_Assignment field, since
                --  if it is set, it was precisely because it is indeed an OUT
-               --  or IN OUT parameter! We do reset the Is_Known_Valid flag
+               --  or IN OUT parameter. We do reset the Is_Known_Valid flag
                --  since the subprogram could have returned in invalid value.
 
                if Ekind_In (Formal, E_Out_Parameter, E_In_Out_Parameter)
@@ -3746,7 +3746,7 @@ package body Exp_Ch6 is
 
       --  If this is a call to an intrinsic subprogram, then perform the
       --  appropriate expansion to the corresponding tree node and we
-      --  are all done (since after that the call is gone!)
+      --  are all done (since after that the call is gone).
 
       --  In the case where the intrinsic is to be processed by the back end,
       --  the call to Expand_Intrinsic_Call will do nothing, which is fine,
@@ -4056,7 +4056,7 @@ package body Exp_Ch6 is
                begin
                   --  First step, remove all the named parameters from the
                   --  list (they are still chained using First_Named_Actual
-                  --  and Next_Named_Actual, so we have not lost them!)
+                  --  and Next_Named_Actual, so we have not lost them).
 
                   Temp := First (Parameter_Associations (Call_Node));
 
@@ -5665,7 +5665,7 @@ package body Exp_Ch6 is
 
       if Is_Unc_Decl then
 
-         --  No action needed since return statement has been already removed!
+         --  No action needed since return statement has been already removed
 
          null;
 
@@ -7634,7 +7634,7 @@ package body Exp_Ch6 is
    -----------------------------------
 
    --  The "simple" comes from the syntax rule simple_return_statement. The
-   --  semantics are not at all simple!
+   --  semantics are not at all simple.
 
    procedure Expand_Simple_Function_Return (N : Node_Id) is
       Loc : constant Source_Ptr := Sloc (N);
@@ -8697,15 +8697,16 @@ package body Exp_Ch6 is
 
             function Has_Public_Visibility_Of_Subprogram return Boolean is
                Subp_Decl : constant Node_Id := Unit_Declaration_Node (Subp_Id);
-               Vis_Decls : constant List_Id :=
-                             Visible_Declarations (Specification
-                               (Unit_Declaration_Node (Scope (Typ))));
+
             begin
                --  An Initialization procedure must be considered visible even
                --  though it is internally generated.
 
                if Is_Init_Proc (Defining_Entity (Subp_Decl)) then
                   return True;
+
+               elsif Ekind (Scope (Typ)) /= E_Package then
+                  return False;
 
                --  Internally generated code is never publicly visible except
                --  for a subprogram that is the implementation of an expression
@@ -8724,7 +8725,9 @@ package body Exp_Ch6 is
                --  declarations of the package containing the type.
 
                else
-                  return List_Containing (Subp_Decl) = Vis_Decls;
+                  return List_Containing (Subp_Decl) =
+                    Visible_Declarations
+                      (Specification (Unit_Declaration_Node (Scope (Typ))));
                end if;
             end Has_Public_Visibility_Of_Subprogram;
 
@@ -8761,8 +8764,8 @@ package body Exp_Ch6 is
                --  is done because the input type may lack aspect/pragma
                --  predicate and simply inherit those from its ancestor.
 
-               --  Note that predicate pragmas include all three cases of
-               --  predicate aspects (Predicate, Dynamic_Predicate,
+               --  Note that predicate pragmas correspond to all three cases
+               --  of predicate aspects (Predicate, Dynamic_Predicate, and
                --  Static_Predicate), so this routine checks for all three
                --  cases.
 
@@ -8877,7 +8880,7 @@ package body Exp_Ch6 is
          then
             null;
 
-         --  Add the item
+         --  Otherwise, add the item
 
          else
             if No (List) then
@@ -9549,9 +9552,9 @@ package body Exp_Ch6 is
       end if;
 
       --  For now we test whether E denotes a function or access-to-function
-      --  type whose result subtype is inherently limited. Later this test may
-      --  be revised to allow composite nonlimited types. Functions with a
-      --  foreign convention or whose result type has a foreign convention
+      --  type whose result subtype is inherently limited. Later this test
+      --  may be revised to allow composite nonlimited types. Functions with
+      --  a foreign convention or whose result type has a foreign convention
       --  never qualify.
 
       if Ekind_In (E, E_Function, E_Generic_Function)
@@ -9592,13 +9595,13 @@ package body Exp_Ch6 is
       Function_Id : Entity_Id;
 
    begin
-      --  Return False when the expander is inactive, since awareness of
-      --  build-in-place treatment is only relevant during expansion. Note that
-      --  Is_Build_In_Place_Function, which is called as part of this function,
-      --  is also conditioned this way, but we need to check here as well to
-      --  avoid blowing up on processing protected calls when expansion is
-      --  disabled (such as with -gnatc) since those would trip over the raise
-      --  of Program_Error below.
+      --  Return False if the expander is currently inactive, since awareness
+      --  of build-in-place treatment is only relevant during expansion. Note
+      --  that Is_Build_In_Place_Function, which is called as part of this
+      --  function, is also conditioned this way, but we need to check here as
+      --  well to avoid blowing up on processing protected calls when expansion
+      --  is disabled (such as with -gnatc) since those would trip over the
+      --  raise of Program_Error below.
 
       --  In SPARK mode, build-in-place calls are not expanded, so that we
       --  may end up with a call that is neither resolved to an entity, nor
@@ -9775,8 +9778,7 @@ package body Exp_Ch6 is
             --  Handle CPP primitives found in derivations of CPP_Class types.
             --  These primitives must have been inherited from some parent, and
             --  there is no need to register them in the dispatch table because
-            --  Build_Inherit_Prims takes care of the initialization of these
-            --  slots.
+            --  Build_Inherit_Prims takes care of initializing these slots.
 
             elsif Is_Imported (Subp)
                and then (Convention (Subp) = Convention_CPP

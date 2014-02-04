@@ -3847,9 +3847,10 @@ package body Exp_Ch9 is
         Build_Protected_Entry_Specification (Loc, Edef, Empty);
 
       --  Add the following declarations:
+
       --    type poVP is access poV;
       --    _object : poVP := poVP (_O);
-      --
+
       --  where _O is the formal parameter associated with the concurrent
       --  object. These declarations are needed for Complete_Entry_Body.
 
@@ -3861,34 +3862,41 @@ package body Exp_Ch9 is
       Add_Formal_Renamings (Espec, Op_Decls, Ent, Loc);
       Debug_Private_Data_Declarations (Decls);
 
+      --  Put the declarations and the statements from the entry
+
+      Op_Stats :=
+        New_List (
+          Make_Block_Statement (Loc,
+            Declarations => Decls,
+            Handled_Statement_Sequence =>
+              Handled_Statement_Sequence (N)));
+
       case Corresponding_Runtime_Package (Pid) is
          when System_Tasking_Protected_Objects_Entries =>
-            Complete :=
-              New_Reference_To (RTE (RE_Complete_Entry_Body), Loc);
+            Append_To (Op_Stats,
+              Make_Procedure_Call_Statement (End_Loc,
+                Name                   =>
+                  New_Reference_To (RTE (RE_Complete_Entry_Body), Loc),
+                Parameter_Associations => New_List (
+                  Make_Attribute_Reference (End_Loc,
+                    Prefix         =>
+                      Make_Selected_Component (End_Loc,
+                        Prefix        =>
+                          Make_Identifier (End_Loc, Name_uObject),
+                        Selector_Name =>
+                          Make_Identifier (End_Loc, Name_uObject)),
+                    Attribute_Name => Name_Unchecked_Access))));
 
          when System_Tasking_Protected_Objects_Single_Entry =>
-            Complete :=
-              New_Reference_To (RTE (RE_Complete_Single_Entry_Body), Loc);
+
+            --  Historically, a call to Complete_Single_Entry_Body was
+            --  inserted, but it was a null procedure.
+
+            null;
 
          when others =>
             raise Program_Error;
       end case;
-
-      Op_Stats := New_List (
-        Make_Block_Statement (Loc,
-          Declarations => Decls,
-          Handled_Statement_Sequence =>
-            Handled_Statement_Sequence (N)),
-
-        Make_Procedure_Call_Statement (End_Loc,
-          Name => Complete,
-          Parameter_Associations => New_List (
-            Make_Attribute_Reference (End_Loc,
-              Prefix =>
-                Make_Selected_Component (End_Loc,
-                  Prefix        => Make_Identifier (End_Loc, Name_uObject),
-                  Selector_Name => Make_Identifier (End_Loc, Name_uObject)),
-              Attribute_Name => Name_Unchecked_Access))));
 
       --  When exceptions can not be propagated, we never need to call
       --  Exception_Complete_Entry_Body
@@ -4674,12 +4682,10 @@ package body Exp_Ch9 is
          --  family index expressions are evaluated before the entry
          --  parameters.
 
-         if Abort_Allowed
-           or else Restriction_Active (No_Entry_Queue) = False
-           or else not Is_Protected_Type (Conctyp)
-           or else Number_Entries (Conctyp) > 1
-           or else (Has_Attach_Handler (Conctyp)
-                     and then not Restricted_Profile)
+         if not Is_Protected_Type (Conctyp)
+           or else
+             Corresponding_Runtime_Package (Conctyp) =
+               System_Tasking_Protected_Objects_Entries
          then
             X := Make_Defining_Identifier (Loc, Name_uX);
 
@@ -4717,7 +4723,6 @@ package body Exp_Ch9 is
 
             Actual := First_Actual (N);
             Formal := First_Formal (Ent);
-
             while Present (Actual) loop
 
                --  If it is a by_copy_type, copy it to a new variable. The
@@ -4780,7 +4785,7 @@ package body Exp_Ch9 is
                   Append_To (Plist,
                     Make_Attribute_Reference (Loc,
                       Attribute_Name => Name_Unchecked_Access,
-                    Prefix =>
+                    Prefix           =>
                       New_Reference_To (Defining_Identifier (N_Node), Loc)));
 
                else
@@ -4828,9 +4833,9 @@ package body Exp_Ch9 is
             Pdecl :=
               Make_Object_Declaration (Loc,
                 Defining_Identifier => P,
-                Object_Definition =>
+                Object_Definition   =>
                   New_Reference_To (Designated_Type (Ent_Acc), Loc),
-                Expression =>
+                Expression          =>
                   Make_Aggregate (Loc, Expressions => Plist));
 
             Parm3 :=
@@ -4894,8 +4899,7 @@ package body Exp_Ch9 is
                when System_Tasking_Protected_Objects_Single_Entry =>
                   --     Protected_Single_Entry_Call (
                   --       Object => po._object'Access,
-                  --       Uninterpreted_Data => P'Address;
-                  --       Mode => Simple_Call);
+                  --       Uninterpreted_Data => P'Address);
 
                   Call :=
                     Make_Procedure_Call_Statement (Loc,
@@ -4906,8 +4910,7 @@ package body Exp_Ch9 is
                         Make_Attribute_Reference (Loc,
                           Attribute_Name => Name_Unchecked_Access,
                           Prefix         => Parm1),
-                        Parm3,
-                        New_Reference_To (RTE (RE_Simple_Call), Loc)));
+                        Parm3));
 
                when others =>
                   raise Program_Error;
@@ -5060,8 +5063,8 @@ package body Exp_Ch9 is
          else
             if Present (Handled_Statement_Sequence (N)) then
 
-               --  The call goes at the start of the statement sequence
-               --  after the start of exception range label if one is present.
+               --  The call goes at the start of the statement sequence after
+               --  the start of exception range label if one is present.
 
                declare
                   Stm : Node_Id;
@@ -5102,7 +5105,7 @@ package body Exp_Ch9 is
             else
                Set_Handled_Statement_Sequence (N,
                   Make_Handled_Sequence_Of_Statements (Loc,
-                     Statements => New_List (Call)));
+                    Statements => New_List (Call)));
             end if;
          end if;
 
@@ -5147,13 +5150,13 @@ package body Exp_Ch9 is
 
               Statements => New_List (
 
-               --  Init (Args);
+                --  Init (Args);
 
                 Make_Procedure_Call_Statement (Loc,
-                  Name => New_Reference_To (Init, Loc),
+                  Name                   => New_Reference_To (Init, Loc),
                   Parameter_Associations => Args),
 
-               --  Activate_Tasks (_Chain);
+                --  Activate_Tasks (_Chain);
 
                 Make_Procedure_Call_Statement (Loc,
                   Name => New_Reference_To (RTE (RE_Activate_Tasks), Loc),
@@ -5208,7 +5211,7 @@ package body Exp_Ch9 is
 
             Make_Object_Declaration (Loc,
               Defining_Identifier => Chain,
-              Aliased_Present => True,
+              Aliased_Present     => True,
               Object_Definition   =>
                 New_Reference_To (RTE (RE_Activation_Chain), Loc))),
 
@@ -5241,15 +5244,13 @@ package body Exp_Ch9 is
 
       if Comes_From_Source (T) then
          Spec_Id :=
-           Make_Defining_Identifier (Loc,
-             Chars => New_External_Name (Chars (T), "TB"));
+           Make_Defining_Identifier (Loc, New_External_Name (Chars (T), "TB"));
 
       --  Case of anonymous task type, suffix B
 
       else
          Spec_Id :=
-           Make_Defining_Identifier (Loc,
-             Chars => New_External_Name (Chars (T), 'B'));
+           Make_Defining_Identifier (Loc, New_External_Name (Chars (T), 'B'));
       end if;
 
       Set_Is_Internal (Spec_Id);
@@ -5378,7 +5379,7 @@ package body Exp_Ch9 is
 
             Append_To (Cdecls,
               Make_Component_Declaration (Loc,
-                Defining_Identifier =>
+                Defining_Identifier  =>
                   Make_Defining_Identifier (Loc, Chars (Efam)),
 
                 Component_Definition =>
@@ -5389,12 +5390,12 @@ package body Exp_Ch9 is
                         Subtype_Mark =>
                           New_Occurrence_Of (Efam_Type, Loc),
 
-                        Constraint  =>
+                        Constraint   =>
                           Make_Index_Or_Discriminant_Constraint (Loc,
                             Constraints => New_List (
                               New_Occurrence_Of
                                 (Etype (Discrete_Subtype_Definition
-                                  (Parent (Efam))), Loc)))))));
+                                          (Parent (Efam))), Loc)))))));
 
          end if;
 
@@ -5524,9 +5525,7 @@ package body Exp_Ch9 is
             --  assume that it can be called from an inner task, and therefore
             --  cannot treat it as a local reference.
 
-            elsif Is_Overloadable (Scop)
-              and then In_Open_Scopes (T)
-            then
+            elsif Is_Overloadable (Scop) and then In_Open_Scopes (T) then
                return False;
 
             else
@@ -5554,7 +5553,7 @@ package body Exp_Ch9 is
 
          return
            Make_Selected_Component (Loc,
-             Prefix =>
+             Prefix        =>
                Unchecked_Convert_To (Corresponding_Record_Type (Dtyp),
                  Make_Explicit_Dereference (Loc, N)),
              Selector_Name => Make_Identifier (Loc, Sel));
@@ -5693,7 +5692,7 @@ package body Exp_Ch9 is
          --  Mark NULL statement as coming from source so that it is not
          --  eliminated by GIGI.
 
-         --  Another covert channel! If this is a requirement, it must be
+         --  Another covert channel. If this is a requirement, it must be
          --  documented in sinfo/einfo ???
 
          Set_Comes_From_Source (Stmt, True);
@@ -5816,8 +5815,8 @@ package body Exp_Ch9 is
       if Restriction_Active (No_Task_Hierarchy) = False then
          Call := Build_Runtime_Call (Sloc (N), RE_Enter_Master);
 
-         --  The block may have no declarations, and nevertheless be a task
-         --  master, if it contains a call that may return an object that
+         --  The block may have no declarations (and nevertheless be a task
+         --  master) if it contains a call that may return an object that
          --  contains tasks.
 
          if No (Declarations (N)) then
@@ -5989,10 +5988,10 @@ package body Exp_Ch9 is
                   Next (Alt);
                end loop;
 
-               --  If we are the first accept statement, then we have to create
-               --  the Ann variable, as for the stand alone case, except that
-               --  it is inserted before the selective accept. Similarly, a
-               --  label for requeue expansion must be declared.
+               --  If this is the first accept statement, then we have to
+               --  create the Ann variable, as for the stand alone case, except
+               --  that it is inserted before the selective accept. Similarly,
+               --  a label for requeue expansion must be declared.
 
                if N = Accept_Statement (Alt) then
                   Ann := Make_Temporary (Loc, 'A');
@@ -6004,7 +6003,7 @@ package body Exp_Ch9 is
 
                   Insert_Before_And_Analyze (Sel_Acc, Adecl);
 
-               --  If we are not the first accept statement, then find the Ann
+               --  If this is not the first accept statement, then find the Ann
                --  variable allocated by the first accept and use it.
 
                else
@@ -6181,9 +6180,60 @@ package body Exp_Ch9 is
                     Condition (Entry_Body_Formal_Part (N));
       Prot      : constant Entity_Id := Scope (Ent);
       Spec_Decl : constant Node_Id   := Parent (Prot);
-      Func      : Node_Id;
+      Func      : Entity_Id;
       B_F       : Node_Id;
       Body_Decl : Node_Id;
+
+      function Is_Global_Entity (N : Node_Id) return Traverse_Result;
+      --  Check whether entity in Barrier is external to protected type.
+      --  If so, barrier may not be properly synchronized.
+
+      ----------------------
+      -- Is_Global_Entity --
+      ----------------------
+
+      function Is_Global_Entity (N : Node_Id) return Traverse_Result is
+         E : Entity_Id;
+         S : Entity_Id;
+
+      begin
+         if Is_Entity_Name (N) and then Present (Entity (N)) then
+            E := Entity (N);
+            S := Scope  (E);
+
+            if Ekind (E) = E_Variable then
+               if Scope (E) = Func then
+                  null;
+
+               --  A protected call from a barrier to another object is ok
+
+               elsif Ekind (Etype (E)) = E_Protected_Type then
+                  null;
+
+               --  If the variable is within the package body we consider
+               --  this safe. This is a common (if dubious) idiom.
+
+               elsif S = Scope (Prot)
+                 and then Ekind_In (S, E_Package, E_Generic_Package)
+                 and then Nkind (Parent (E)) = N_Object_Declaration
+                 and then Nkind (Parent (Parent (E))) = N_Package_Body
+               then
+                  null;
+
+               else
+                  Error_Msg_N ("potentially unsynchronized barrier?", N);
+                  Error_Msg_N ("\& should be private component of type?", N);
+               end if;
+            end if;
+         end if;
+
+         return OK;
+      end Is_Global_Entity;
+
+      procedure Check_Unprotected_Barrier is
+        new Traverse_Proc (Is_Global_Entity);
+
+   --  Start of processing for Expand_Entry_Barrier
 
    begin
       if No_Run_Time_Mode then
@@ -6223,7 +6273,7 @@ package body Exp_Ch9 is
       --  The Ravenscar profile restricts barriers to simple variables declared
       --  within the protected object. We also allow Boolean constants, since
       --  these appear in several published examples and are also allowed by
-      --  the Aonix compiler.
+      --  other compilers.
 
       --  Note that after analysis variables in this context will be replaced
       --  by the corresponding prival, that is to say a renaming of a selected
@@ -6269,8 +6319,11 @@ package body Exp_Ch9 is
       end if;
 
       --  It is not a boolean variable or literal, so check the restriction
+      --  and otherwise emit warning if barrier contains global entities and
+      --  is thus potentially unsynchronized.
 
       Check_Restriction (Simple_Barriers, Cond);
+      Check_Unprotected_Barrier (Cond);
    end Expand_Entry_Barrier;
 
    ------------------------------
@@ -6296,8 +6349,8 @@ package body Exp_Ch9 is
       while Present (Tasknm) loop
          Count := Count + 1;
 
-         --  A task interface class-wide type object is being aborted.
-         --  Retrieve its _task_id by calling a dispatching routine.
+         --  A task interface class-wide type object is being aborted. Retrieve
+         --  its _task_id by calling a dispatching routine.
 
          if Ada_Version >= Ada_2005
            and then Ekind (Etype (Tasknm)) = E_Class_Wide_Type
@@ -6345,14 +6398,14 @@ package body Exp_Ch9 is
    -- Expand_N_Accept_Statement --
    -------------------------------
 
-   --  This procedure handles expansion of accept statements that stand
-   --  alone, i.e. they are not part of an accept alternative. The expansion
-   --  of accept statement in accept alternatives is handled by the routines
+   --  This procedure handles expansion of accept statements that stand alone,
+   --  i.e. they are not part of an accept alternative. The expansion of
+   --  accept statement in accept alternatives is handled by the routines
    --  Expand_N_Accept_Alternative and Expand_N_Selective_Accept. The
    --  following description applies only to stand alone accept statements.
 
-   --  If there is no handled statement sequence, or only null statements,
-   --  then this is called a trivial accept, and the expansion is:
+   --  If there is no handled statement sequence, or only null statements, then
+   --  this is called a trivial accept, and the expansion is:
 
    --    Accept_Trivial (entry-index)
 
@@ -6395,7 +6448,7 @@ package body Exp_Ch9 is
    --  an accept statement has no declarative part). In particular, if the
    --  expander is active, the first such declaration is the declaration of
    --  the Accept_Params_Ptr entity (see Sem_Ch9.Analyze_Accept_Statement).
-   --
+
    --  The two blocks are merged into a single block if the inner block has
    --  no exception handlers, but otherwise two blocks are required, since
    --  exceptions might be raised in the exception handlers of the inner
@@ -6439,7 +6492,6 @@ package body Exp_Ch9 is
 
          begin
             D := First (Declarations (N));
-
             while Present (D) loop
                Next_D := Next (D);
                if Nkind (D) = N_Object_Renaming_Declaration then
@@ -6802,8 +6854,8 @@ package body Exp_Ch9 is
 
    --  The job is to convert this to the asynchronous form
 
-   --  If the trigger is a delay statement, it will have been expanded into a
-   --  call to one of the GNARL delay procedures. This routine will convert
+   --  If the trigger is a delay statement, it will have been expanded into
+   --  a call to one of the GNARL delay procedures. This routine will convert
    --  this into a protected entry call on a delay object and then continue
    --  processing as for a protected entry call trigger. This requires
    --  declaring a Delay_Block object and adding a pointer to this object to
@@ -8436,7 +8488,6 @@ package body Exp_Ch9 is
       Current_Node : Node_Id;
       Disp_Op_Body : Node_Id;
       New_Op_Body  : Node_Id;
-      Num_Entries  : Natural := 0;
       Op_Body      : Node_Id;
       Op_Id        : Entity_Id;
 
@@ -8625,8 +8676,6 @@ package body Exp_Ch9 is
 
             when N_Entry_Body =>
                Op_Id := Defining_Identifier (Op_Body);
-               Num_Entries := Num_Entries + 1;
-
                New_Op_Body := Build_Protected_Entry (Op_Body, Op_Id, Pid);
 
                Insert_After (Current_Node, New_Op_Body);
@@ -8790,8 +8839,6 @@ package body Exp_Ch9 is
       Comp_Id      : Entity_Id;
       Sub          : Node_Id;
       Current_Node : Node_Id := N;
-      Bdef         : Entity_Id := Empty; -- avoid uninit warning
-      Edef         : Entity_Id := Empty; -- avoid uninit warning
       Entries_Aggr : Node_Id;
       Body_Id      : Entity_Id;
       Body_Arr     : Node_Id;
@@ -8802,6 +8849,10 @@ package body Exp_Ch9 is
       --  If the original operation has a pragma Inline, propagate the flag
       --  to the internal body, for possible inlining later on. The source
       --  operation is invisible to the back-end and is never actually called.
+
+      procedure Expand_Entry_Declaration (Comp : Entity_Id);
+      --  Create the subprograms for the barrier and for the body, and append
+      --  then to Entry_Bodies_Array.
 
       function Static_Component_Size (Comp : Entity_Id) return Boolean;
       --  When compiling under the Ravenscar profile, private components must
@@ -8859,6 +8910,68 @@ package body Exp_Ch9 is
             return True;
          end if;
       end Static_Component_Size;
+
+      ------------------------------
+      -- Expand_Entry_Declaration --
+      ------------------------------
+
+      procedure Expand_Entry_Declaration (Comp : Entity_Id) is
+         Bdef : Entity_Id;
+         Edef : Entity_Id;
+
+      begin
+         E_Count := E_Count + 1;
+         Comp_Id := Defining_Identifier (Comp);
+
+         Edef :=
+           Make_Defining_Identifier (Loc,
+             Chars => Build_Selected_Name (Prot_Typ, Comp_Id, 'E'));
+         Sub :=
+           Make_Subprogram_Declaration (Loc,
+             Specification =>
+               Build_Protected_Entry_Specification (Loc, Edef, Comp_Id));
+
+         Insert_After (Current_Node, Sub);
+         Analyze (Sub);
+
+         --  Build wrapper procedure for pre/postconditions
+
+         Build_PPC_Wrapper (Comp_Id, N);
+
+         Set_Protected_Body_Subprogram
+           (Defining_Identifier (Comp),
+            Defining_Unit_Name (Specification (Sub)));
+
+         Current_Node := Sub;
+
+         Bdef :=
+           Make_Defining_Identifier (Loc,
+             Chars => Build_Selected_Name (Prot_Typ, Comp_Id, 'B'));
+         Sub :=
+           Make_Subprogram_Declaration (Loc,
+             Specification =>
+               Build_Barrier_Function_Specification (Loc, Bdef));
+
+         Insert_After (Current_Node, Sub);
+         Analyze (Sub);
+         Set_Protected_Body_Subprogram (Bdef, Bdef);
+         Set_Barrier_Function (Comp_Id, Bdef);
+         Set_Scope (Bdef, Scope (Comp_Id));
+         Current_Node := Sub;
+
+         --  Collect pointers to the protected subprogram and the barrier
+         --  of the current entry, for insertion into Entry_Bodies_Array.
+
+         Append_To (Expressions (Entries_Aggr),
+           Make_Aggregate (Loc,
+             Expressions => New_List (
+               Make_Attribute_Reference (Loc,
+                 Prefix         => New_Reference_To (Bdef, Loc),
+                 Attribute_Name => Name_Unrestricted_Access),
+               Make_Attribute_Reference (Loc,
+                 Prefix         => New_Reference_To (Edef, Loc),
+                 Attribute_Name => Name_Unrestricted_Access))));
+      end Expand_Entry_Declaration;
 
       ----------------------
       -- Register_Handler --
@@ -9049,7 +9162,7 @@ package body Exp_Ch9 is
          end loop;
       end if;
 
-      --  Except for the lock-free implementation, prepend the _Object field
+      --  Except for the lock-free implementation, append the _Object field
       --  with the right type to the component list. We need to compute the
       --  number of entries, and in some cases the number of Attach_Handler
       --  pragmas.
@@ -9253,57 +9366,9 @@ package body Exp_Ch9 is
             end if;
 
          elsif Nkind (Comp) = N_Entry_Declaration then
-            E_Count := E_Count + 1;
-            Comp_Id := Defining_Identifier (Comp);
 
-            Edef :=
-              Make_Defining_Identifier (Loc,
-                Build_Selected_Name (Prot_Typ, Comp_Id, 'E'));
-            Sub :=
-              Make_Subprogram_Declaration (Loc,
-                Specification =>
-                  Build_Protected_Entry_Specification (Loc, Edef, Comp_Id));
+            Expand_Entry_Declaration (Comp);
 
-            Insert_After (Current_Node, Sub);
-            Analyze (Sub);
-
-            --  Build wrapper procedure for pre/postconditions
-
-            Build_PPC_Wrapper (Comp_Id, N);
-
-            Set_Protected_Body_Subprogram
-              (Defining_Identifier (Comp),
-               Defining_Unit_Name (Specification (Sub)));
-
-            Current_Node := Sub;
-
-            Bdef :=
-              Make_Defining_Identifier (Loc,
-                Chars => Build_Selected_Name (Prot_Typ, Comp_Id, 'B'));
-            Sub :=
-              Make_Subprogram_Declaration (Loc,
-                Specification =>
-                  Build_Barrier_Function_Specification (Loc, Bdef));
-
-            Insert_After (Current_Node, Sub);
-            Analyze (Sub);
-            Set_Protected_Body_Subprogram (Bdef, Bdef);
-            Set_Barrier_Function (Comp_Id, Bdef);
-            Set_Scope (Bdef, Scope (Comp_Id));
-            Current_Node := Sub;
-
-            --  Collect pointers to the protected subprogram and the barrier
-            --  of the current entry, for insertion into Entry_Bodies_Array.
-
-            Append_To (Expressions (Entries_Aggr),
-              Make_Aggregate (Loc,
-                Expressions => New_List (
-                  Make_Attribute_Reference (Loc,
-                    Prefix         => New_Reference_To (Bdef, Loc),
-                    Attribute_Name => Name_Unrestricted_Access),
-                  Make_Attribute_Reference (Loc,
-                    Prefix         => New_Reference_To (Edef, Loc),
-                    Attribute_Name => Name_Unrestricted_Access))));
          end if;
 
          Next (Comp);
@@ -9316,54 +9381,7 @@ package body Exp_Ch9 is
          Comp := First (Private_Declarations (Pdef));
          while Present (Comp) loop
             if Nkind (Comp) = N_Entry_Declaration then
-               E_Count := E_Count + 1;
-               Comp_Id := Defining_Identifier (Comp);
-
-               Edef :=
-                 Make_Defining_Identifier (Loc,
-                  Build_Selected_Name (Prot_Typ, Comp_Id, 'E'));
-               Sub :=
-                 Make_Subprogram_Declaration (Loc,
-                   Specification =>
-                     Build_Protected_Entry_Specification (Loc, Edef, Comp_Id));
-
-               Insert_After (Current_Node, Sub);
-               Analyze (Sub);
-
-               Set_Protected_Body_Subprogram
-                 (Defining_Identifier (Comp),
-                  Defining_Unit_Name (Specification (Sub)));
-
-               Current_Node := Sub;
-
-               Bdef :=
-                 Make_Defining_Identifier (Loc,
-                   Chars => Build_Selected_Name (Prot_Typ, Comp_Id, 'E'));
-
-               Sub :=
-                 Make_Subprogram_Declaration (Loc,
-                   Specification =>
-                     Build_Barrier_Function_Specification (Loc, Bdef));
-
-               Insert_After (Current_Node, Sub);
-               Analyze (Sub);
-               Set_Protected_Body_Subprogram (Bdef, Bdef);
-               Set_Barrier_Function (Comp_Id, Bdef);
-               Set_Scope (Bdef, Scope (Comp_Id));
-               Current_Node := Sub;
-
-               --  Collect pointers to the protected subprogram and the barrier
-               --  of the current entry, for insertion into Entry_Bodies_Array.
-
-               Append_To (Expressions (Entries_Aggr),
-                 Make_Aggregate (Loc,
-                   Expressions => New_List (
-                     Make_Attribute_Reference (Loc,
-                       Prefix => New_Reference_To (Bdef, Loc),
-                       Attribute_Name => Name_Unrestricted_Access),
-                     Make_Attribute_Reference (Loc,
-                       Prefix => New_Reference_To (Edef, Loc),
-                       Attribute_Name => Name_Unrestricted_Access))));
+               Expand_Entry_Declaration (Comp);
             end if;
 
             Next (Comp);
@@ -9401,15 +9419,7 @@ package body Exp_Ch9 is
                  Aliased_Present => True,
                  Object_Definition => New_Reference_To
                                         (RTE (RE_Entry_Body), Loc),
-                 Expression =>
-                   Make_Aggregate (Loc,
-                     Expressions => New_List (
-                       Make_Attribute_Reference (Loc,
-                         Prefix => New_Reference_To (Bdef, Loc),
-                         Attribute_Name => Name_Unrestricted_Access),
-                       Make_Attribute_Reference (Loc,
-                         Prefix => New_Reference_To (Edef, Loc),
-                         Attribute_Name => Name_Unrestricted_Access))));
+                 Expression => Remove_Head (Expressions (Entries_Aggr)));
 
             when others =>
                raise Program_Error;
@@ -11262,7 +11272,7 @@ package body Exp_Ch9 is
    --  Single task declarations should never be present after semantic
    --  analysis, since we expect them to be replaced by a declaration of an
    --  anonymous task type, followed by a declaration of the task object. We
-   --  include this routine to make sure that is happening!
+   --  include this routine to make sure that is happening.
 
    procedure Expand_N_Single_Task_Declaration (N : Node_Id) is
    begin
@@ -12515,24 +12525,6 @@ package body Exp_Ch9 is
                           (RTE (RE_Timed_Protected_Entry_Call), Loc),
                       Parameter_Associations => Params));
 
-               when System_Tasking_Protected_Objects_Single_Entry =>
-                  Param := First (Params);
-                  while Present (Param)
-                    and then not
-                      Is_RTE (Etype (Param), RE_Protected_Entry_Index)
-                  loop
-                     Next (Param);
-                  end loop;
-
-                  Remove (Param);
-
-                  Rewrite (Call,
-                    Make_Procedure_Call_Statement (Loc,
-                      Name =>
-                        New_Reference_To
-                          (RTE (RE_Timed_Protected_Single_Entry_Call), Loc),
-                      Parameter_Associations => Params));
-
                when others =>
                   raise Program_Error;
             end case;
@@ -13428,6 +13420,12 @@ package body Exp_Ch9 is
    --  Start of processing for Is_Exception_Safe
 
    begin
+      --  When exceptions can't be propagated, the subprogram returns normally
+
+      if No_Exception_Handlers_Set then
+         return True;
+      end if;
+
       --  If the checks handled by the back end are not disabled, we cannot
       --  ensure that no exception will be raised.
 

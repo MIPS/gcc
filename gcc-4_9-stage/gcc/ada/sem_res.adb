@@ -2474,7 +2474,7 @@ package body Sem_Res is
             --  If type we are looking for is Void, then this is the procedure
             --  call case, and the error is simply that what we gave is not a
             --  procedure name (we think of procedure calls as expressions with
-            --  types internally, but the user doesn't think of them this way!)
+            --  types internally, but the user doesn't think of them this way).
 
             if Typ = Standard_Void_Type then
 
@@ -2489,7 +2489,7 @@ package body Sem_Res is
                      Name (N), Entity (Name (N)));
 
                --  Otherwise give general message (not clear what cases this
-               --  covers, but no harm in providing for them!)
+               --  covers, but no harm in providing for them).
 
                else
                   Error_Msg_N ("expect procedure name in procedure call", N);
@@ -3236,7 +3236,7 @@ package body Sem_Res is
          else
             --  Note that we do a full New_Copy_Tree, so that any associated
             --  Itypes are properly copied. This may not be needed any more,
-            --  but it does no harm as a safety measure! Defaults of a generic
+            --  but it does no harm as a safety measure. Defaults of a generic
             --  formal may be out of bounds of the corresponding actual (see
             --  cc1311b) and an additional check may be required.
 
@@ -3951,7 +3951,7 @@ package body Sem_Res is
                --  Note: call Warn_On_Useless_Assignment before doing the check
                --  below for Is_OK_Variable_For_Out_Formal so that the setting
                --  of Referenced_As_LHS/Referenced_As_Out_Formal properly
-               --  reflects the last assignment, not this one!
+               --  reflects the last assignment, not this one.
 
                if Ekind (F) = E_Out_Parameter then
                   if Warn_On_Modified_As_Out_Parameter (F)
@@ -6170,7 +6170,7 @@ package body Sem_Res is
          end if;
 
       --  For Standard.Wide_Wide_Character or a type derived from it, we
-      --  know the literal is in range, since the parser checked!
+      --  know the literal is in range, since the parser checked.
 
       elsif Root_Type (B_Typ) = Standard_Wide_Wide_Character then
          return;
@@ -6513,6 +6513,7 @@ package body Sem_Res is
       --  standard Ada legality rules.
 
       if SPARK_Mode = On
+        and then Ekind_In (E, E_Abstract_State, E_Variable)
         and then Is_SPARK_Volatile_Object (E)
         and then
           (Async_Writers_Enabled (E)
@@ -6522,15 +6523,15 @@ package body Sem_Res is
          Prev := N;
          while Present (Par) loop
 
-            --  The variable can appear on either side of an assignment
+            --  The volatile object can appear on either side of an assignment
 
             if Nkind (Par) = N_Assignment_Statement then
                Usage_OK := True;
                exit;
 
-            --  The variable is part of the initialization expression of an
-            --  object. Ensure that the climb of the parent chain came from the
-            --  expression side and not from the name side.
+            --  The volatile object is part of the initialization expression of
+            --  another object. Ensure that the climb of the parent chain came
+            --  from the expression side and not from the name side.
 
             elsif Nkind (Par) = N_Object_Declaration
               and then Present (Expression (Par))
@@ -6539,8 +6540,8 @@ package body Sem_Res is
                Usage_OK := True;
                exit;
 
-            --  The variable appears as an actual parameter in a call to an
-            --  instance of Unchecked_Conversion whose result is renamed.
+            --  The volatile object appears as an actual parameter in a call to
+            --  an instance of Unchecked_Conversion whose result is renamed.
 
             elsif Nkind (Par) = N_Function_Call
               and then Is_Unchecked_Conversion_Instance (Entity (Name (Par)))
@@ -6554,6 +6555,12 @@ package body Sem_Res is
             --  full legality check is done when the actuals are resolved.
 
             elsif Nkind (Par) = N_Procedure_Call_Statement then
+               Usage_OK := True;
+               exit;
+
+            --  Allow references to volatile objects in various checks
+
+            elsif Nkind (Par) in N_Raise_xxx_Error then
                Usage_OK := True;
                exit;
 
@@ -7672,7 +7679,7 @@ package body Sem_Res is
                    or else (Is_Entity_Name (Prefix (N))
                              and then Is_Atomic (Entity (Prefix (N)))))
         and then Is_Bit_Packed_Array (Array_Type)
-        and then Is_LHS (N)
+        and then Is_LHS (N) = Yes
       then
          Error_Msg_N ("??assignment to component of packed atomic array",
                       Prefix (N));
@@ -9169,7 +9176,7 @@ package body Sem_Res is
                    or else (Is_Entity_Name (Prefix (N))
                              and then Is_Atomic (Entity (Prefix (N)))))
         and then Is_Packed (T)
-        and then Is_LHS (N)
+        and then Is_LHS (N) = Yes
       then
          Error_Msg_N
            ("??assignment to component of packed atomic record", Prefix (N));
@@ -9669,7 +9676,7 @@ package body Sem_Res is
                   --  very few places that we place the flag in the middle of
                   --  a token, right under the offending wide character. Not
                   --  quite clear if this is right wrt wide character encoding
-                  --  sequences, but it's only an error message!
+                  --  sequences, but it's only an error message.
 
                   Error_Msg
                     ("literal out of range of type Standard.Character",
@@ -11267,7 +11274,7 @@ package body Sem_Res is
 
       --  Deal with conversion of integer type to address if the pragma
       --  Allow_Integer_Address is in effect. We convert the conversion to
-      --  an unchecked conversion in this case and we are all done!
+      --  an unchecked conversion in this case and we are all done.
 
       if Address_Integer_Convert_OK (Opnd_Type, Target_Type) then
          Rewrite (N, Unchecked_Convert_To (Target_Type, Expression (N)));
