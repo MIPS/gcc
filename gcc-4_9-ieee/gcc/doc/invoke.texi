@@ -674,7 +674,7 @@ Objective-C and Objective-C++ Dialects}.
 -minline-stringops-dynamically -mstringop-strategy=@var{alg} @gol
 -mmemcpy-strategy=@var{strategy} -mmemset-strategy=@var{strategy}
 -mpush-args  -maccumulate-outgoing-args  -m128bit-long-double @gol
--m96bit-long-double -mlong-double-64 -mlong-double-80 @gol
+-m96bit-long-double -mlong-double-64 -mlong-double-80 -mlong-double-128 @gol
 -mregparm=@var{num}  -msseregparm @gol
 -mveclibabi=@var{type} -mvect8-ret-in-mem @gol
 -mpc32 -mpc64 -mpc80 -mstackrealign @gol
@@ -9101,7 +9101,7 @@ from profiling values of expressions for usage in optimizations.
 
 Enabled with @option{-fprofile-generate} and @option{-fprofile-use}.
 
-@item -fprofile-reoder-functions
+@item -fprofile-reorder-functions
 @opindex fprofile-reorder-functions
 Function reordering based on profile instrumentation collects
 first time of execution of a function and orders these functions
@@ -12302,9 +12302,12 @@ of the @option{-mcpu=} option.  Permissible names are: @samp{armv2},
 @samp{armv5}, @samp{armv5t}, @samp{armv5e}, @samp{armv5te},
 @samp{armv6}, @samp{armv6j},
 @samp{armv6t2}, @samp{armv6z}, @samp{armv6zk}, @samp{armv6-m},
-@samp{armv7}, @samp{armv7-a}, @samp{armv7-r}, @samp{armv7-m},
+@samp{armv7}, @samp{armv7-a}, @samp{armv7-r}, @samp{armv7-m}, @samp{armv7ve},
 @samp{armv8-a}, @samp{armv8-a+crc},
 @samp{iwmmxt}, @samp{iwmmxt2}, @samp{ep9312}.
+
+@option{-march=armv7ve} is the armv7-a architecture with virtualization
+extensions.
 
 @option{-march=armv8-a+crc} enables code generation for the ARMv8-A
 architecture together with the optional CRC32 extensions.
@@ -15051,11 +15054,15 @@ with code compiled without that switch.
 
 @item -mlong-double-64
 @itemx -mlong-double-80
+@itemx -mlong-double-128
 @opindex mlong-double-64
 @opindex mlong-double-80
+@opindex mlong-double-128
 These switches control the size of @code{long double} type. A size
 of 64 bits makes the @code{long double} type equivalent to the @code{double}
-type. This is the default for Bionic C library.
+type. This is the default for 32-bit Bionic C library.  A size
+of 128 bits makes the @code{long double} type equivalent to the
+@code{__float128} type. This is the default for 64-bit Bionic C library.
 
 @strong{Warning:} if you override the default value for your target ABI, this
 changes the size of
@@ -22484,6 +22491,10 @@ structure field, it may not be possible to access the field with a single
 read or write that is correctly aligned for the target machine.  In this
 case GCC falls back to generating multiple accesses rather than code that 
 will fault or truncate the result at run time.
+
+Note:  Due to restrictions of the C/C++11 memory model, write accesses are
+not allowed to touch non bit-field members.  It is therefore recommended
+to define all bits of the field's type as bit-field members.
 
 The default value of this option is determined by the application binary
 interface for the target processor.

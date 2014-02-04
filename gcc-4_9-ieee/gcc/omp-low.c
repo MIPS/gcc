@@ -10449,7 +10449,8 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 /* Called from tree-cfg.c::make_edges to create cfg edges for all GIMPLE_OMP
    codes.  */
 bool
-make_gimple_omp_edges (basic_block bb, struct omp_region **region)
+make_gimple_omp_edges (basic_block bb, struct omp_region **region,
+		       int *region_idx)
 {
   gimple last = last_stmt (bb);
   enum gimple_code code = gimple_code (last);
@@ -10556,7 +10557,13 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region)
     }
 
   if (*region != cur_region)
-    *region = cur_region;
+    {
+      *region = cur_region;
+      if (cur_region)
+	*region_idx = cur_region->entry->index;
+      else
+	*region_idx = 0;
+    }
 
   return fallthru;
 }
@@ -10653,7 +10660,8 @@ simd_clone_struct_copy (struct cgraph_simd_clone *to,
 			struct cgraph_simd_clone *from)
 {
   memcpy (to, from, (sizeof (struct cgraph_simd_clone)
-		     + from->nargs * sizeof (struct cgraph_simd_clone_arg)));
+		     + ((from->nargs - from->inbranch)
+			* sizeof (struct cgraph_simd_clone_arg))));
 }
 
 /* Return vector of parameter types of function FNDECL.  This uses
@@ -11686,7 +11694,6 @@ expand_simd_clones (struct cgraph_node *node)
 	  if (i != 0)
 	    {
 	      clone = simd_clone_struct_alloc (clone_info->nargs
-					       - clone_info->inbranch
 					       + ((i & 1) != 0));
 	      simd_clone_struct_copy (clone, clone_info);
 	      /* Undo changes targetm.simd_clone.compute_vecsize_and_simdlen
