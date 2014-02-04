@@ -68,17 +68,20 @@ create_code (gcc_jit_context *ctxt, void *user_data)
     func, NULL,
     result,
     GCC_JIT_BINARY_OP_PLUS,
-    gcc_jit_context_new_binary_op (ctxt, NULL,
+    gcc_jit_context_new_binary_op (
+      ctxt, NULL,
       GCC_JIT_BINARY_OP_MULT,
       val_type,
-      gcc_jit_context_new_array_lookup(
-        ctxt, NULL,
-        gcc_jit_param_as_rvalue (param_a),
-        gcc_jit_lvalue_as_rvalue (i)),
-      gcc_jit_context_new_array_lookup(
-        ctxt, NULL,
-        gcc_jit_param_as_rvalue (param_b),
-        gcc_jit_lvalue_as_rvalue (i))));
+      gcc_jit_lvalue_as_rvalue (
+	gcc_jit_context_new_array_access (
+          ctxt, NULL,
+	  gcc_jit_param_as_rvalue (param_a),
+	  gcc_jit_lvalue_as_rvalue (i))),
+      gcc_jit_lvalue_as_rvalue (
+	gcc_jit_context_new_array_access (
+          ctxt, NULL,
+	  gcc_jit_param_as_rvalue (param_b),
+	  gcc_jit_lvalue_as_rvalue (i)))));
 
   /* Build: "i++" */
   gcc_jit_function_add_assignment_op (

@@ -38,6 +38,9 @@ namespace gccjit
 
     type get_type (enum gcc_jit_types kind);
 
+    type new_array_type (type element_type, int num_elements);
+    type new_array_type (location loc, type element_type, int num_elements);
+
     field new_field (type type_, const char *name);
     field new_field (location loc, type type_, const char *name);
 
@@ -102,6 +105,12 @@ namespace gccjit
     rvalue new_call (location loc,
 		     function func,
 		     std::vector<rvalue> args);
+
+    lvalue new_array_access (rvalue ptr,
+			     rvalue index);
+    lvalue new_array_access (location loc,
+			     rvalue ptr,
+			     rvalue index);
 
   public:
     gcc_jit_context *m_inner_ctxt;
@@ -301,6 +310,22 @@ inline type
 context::get_type (enum gcc_jit_types kind)
 {
   return type (gcc_jit_context_get_type (m_inner_ctxt, kind));
+}
+
+inline type
+context::new_array_type (type element_type, int num_elements)
+{
+  return new_array_type (location (), element_type, num_elements);
+}
+
+inline type
+context::new_array_type (location loc, type element_type, int num_elements)
+{
+  return type (gcc_jit_context_new_array_type (
+		 m_inner_ctxt,
+		 loc.get_inner_location (),
+		 element_type.get_inner_type (),
+		 num_elements));
 }
 
 inline field
@@ -548,6 +573,24 @@ context::new_call (location loc,
 				   func.get_inner_function (),
 				   args.size (),
 				   as_array_of_ptrs);
+}
+
+inline lvalue
+context::new_array_access (rvalue ptr,
+			   rvalue index)
+{
+  return new_array_access (location (), ptr, index);
+}
+
+inline lvalue
+context::new_array_access (location loc,
+			   rvalue ptr,
+			   rvalue index)
+{
+  return lvalue (gcc_jit_context_new_array_access (m_inner_ctxt,
+						   loc.get_inner_location (),
+						   ptr.get_inner_rvalue (),
+						   index.get_inner_rvalue ()));
 }
 
 // class object

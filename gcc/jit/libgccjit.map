@@ -6,7 +6,8 @@
     gcc_jit_context_compile;
     gcc_jit_context_get_first_error;
     gcc_jit_context_get_type;
-    gcc_jit_context_new_array_lookup;
+    gcc_jit_context_new_array_access;
+    gcc_jit_context_new_array_type;
     gcc_jit_context_new_binary_op;
     gcc_jit_context_new_call;
     gcc_jit_context_new_child_context;
@@ -41,6 +42,7 @@
     gcc_jit_function_new_forward_label;
     gcc_jit_function_new_local;
     gcc_jit_function_new_loop;
+    gcc_jit_function_new_loop_over_range;
     gcc_jit_function_place_forward_label;
     gcc_jit_label_as_object;
     gcc_jit_location_as_object;

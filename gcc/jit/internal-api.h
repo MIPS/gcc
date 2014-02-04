@@ -142,6 +142,11 @@ public:
   type *
   get_type (enum gcc_jit_types type);
 
+  type *
+  new_array_type (location *loc,
+		  type *element_type,
+		  int num_elements);
+
   field *
   new_field (location *loc,
 	     type *type,
@@ -210,8 +215,8 @@ public:
 	    function *func,
 	    int numargs, rvalue **args);
 
-  rvalue *
-  new_array_lookup (location *loc,
+  lvalue *
+  new_array_access (location *loc,
 		    rvalue *ptr,
 		    rvalue *index);
 
@@ -504,6 +509,31 @@ private:
   type *m_other_type;
 };
 
+class array_type : public type
+{
+ public:
+  array_type (context *ctxt,
+	      location *loc,
+	      type *element_type,
+	      int num_elements)
+  : type (ctxt),
+    m_loc (loc),
+    m_element_type (element_type),
+    m_num_elements (num_elements)
+  {}
+
+  type *dereference ();
+  void replay_into (replayer *);
+
+ private:
+  string * make_debug_string ();
+
+ private:
+  location *m_loc;
+  type *m_element_type;
+  int m_num_elements;
+};
+
 class field : public memento
 {
 public:
@@ -724,7 +754,8 @@ public:
 
   loop *
   new_loop (location *loc,
-	    rvalue *boolval);
+	    rvalue *boolval,
+	    lvalue *iteration_var, rvalue *step);
 
   type *get_return_type () const { return m_return_type; }
   string * get_name () const { return m_name; }
@@ -963,14 +994,14 @@ private:
   vec<rvalue *> m_args;
 };
 
-class array_lookup : public rvalue
+class array_access : public lvalue
 {
 public:
-  array_lookup (context *ctxt,
+  array_access (context *ctxt,
 		location *loc,
 		rvalue *ptr,
 		rvalue *index)
-  : rvalue (ctxt, loc, ptr->get_type ()->dereference ()),
+  : lvalue (ctxt, loc, ptr->get_type ()->dereference ()),
     m_ptr (ptr),
     m_index (index)
   {}
@@ -1293,11 +1324,15 @@ class loop : public memento
 public:
   loop (function *func,
 	location *loc,
-	rvalue *boolval)
+	rvalue *boolval,
+	lvalue *iteration_var, rvalue *step)
   : memento (func->m_ctxt),
     m_func (func),
     m_loc (loc),
-    m_boolval (boolval) {}
+    m_boolval (boolval),
+    m_iteration_var (iteration_var),
+    m_step (step)
+  {}
 
   void replay_into (replayer *r);
 
@@ -1316,6 +1351,18 @@ private:
   function *m_func;
   location *m_loc;
   rvalue *m_boolval;
+
+  /* The following fields are for handling
+     gcc_jit_function_new_loop_over_range and are NULL for other loops.
+
+     We preserve these from "_over_range" calls so that we can inject a
+     += assignment in the correct place immediately before the loop ends.
+     This is done within the recording::loop::end () method.
+     The corresponding playback::loop class has no special handling for
+     this, with the += operation having become a regular assignment by
+     that time.  */
+  lvalue *m_iteration_var;
+  rvalue *m_step;
 };
 
 class loop_end : public memento
@@ -1378,6 +1425,11 @@ public:
 
   type *
   get_type (enum gcc_jit_types type);
+
+  type *
+  new_array_type (location *loc,
+		  type *element_type,
+		  int num_elements);
 
   field *
   new_field (location *loc,
@@ -1444,8 +1496,8 @@ public:
 	    function *func,
 	    vec<rvalue *> args);
 
-  rvalue *
-  new_array_lookup (location *loc,
+  lvalue *
+  new_array_access (location *loc,
 		    rvalue *ptr,
 		    rvalue *index);
 

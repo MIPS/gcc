@@ -359,6 +359,13 @@ gcc_jit_type_get_pointer (gcc_jit_type *type);
 extern gcc_jit_type *
 gcc_jit_type_get_const (gcc_jit_type *type);
 
+/* Given type "T", get type "T[N]" (for a constant N).  */
+extern gcc_jit_type *
+gcc_jit_context_new_array_type (gcc_jit_context *ctxt,
+				gcc_jit_location *loc,
+				gcc_jit_type *element_type,
+				int num_elements);
+
 /* Struct-handling.  */
 extern gcc_jit_field *
 gcc_jit_context_new_field (gcc_jit_context *ctxt,
@@ -522,7 +529,7 @@ enum gcc_jit_binary_op
   /* Addition of arithmetic values; analogous to:
        (EXPR_A) + (EXPR_B)
      in C.
-     For pointer addition, use gcc_jit_context_new_array_lookup.  */
+     For pointer addition, use gcc_jit_context_new_array_access.  */
   GCC_JIT_BINARY_OP_PLUS,
 
   /* Subtraction of arithmetic values; analogous to:
@@ -617,8 +624,8 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
 			  gcc_jit_function *func,
 			  int numargs , gcc_jit_rvalue **args);
 
-extern gcc_jit_rvalue *
-gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
+extern gcc_jit_lvalue *
+gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
 				  gcc_jit_location *loc,
 				  gcc_jit_rvalue *ptr,
 				  gcc_jit_rvalue *index);
@@ -811,6 +818,26 @@ extern gcc_jit_loop *
 gcc_jit_function_new_loop (gcc_jit_function *func,
 			   gcc_jit_location *loc,
 			   gcc_jit_rvalue *boolval);
+
+/* Helper function for creating a loop of this form:
+      for (i = start_of_range; i < upper_bound_of_range; i += step)
+	{
+	   BODY;
+	}
+
+  Statements will be added to the body of the loop until
+  gcc_jit_loop_end is called.
+
+  "start_of_range" can be NULL, in which case 0 is used.
+  "upper_bound_of_range" must be non-NULL.
+  "step" can be NULL, in which case 1 is used.  */
+extern gcc_jit_loop *
+gcc_jit_function_new_loop_over_range (gcc_jit_function *func,
+				      gcc_jit_location *loc,
+				      gcc_jit_lvalue *iteration_var,
+				      gcc_jit_rvalue *start_of_range,
+				      gcc_jit_rvalue *upper_bound_of_range,
+				      gcc_jit_rvalue *step);
 
 /* Upcasting from loop to object.  */
 extern gcc_jit_object *

@@ -261,6 +261,20 @@ gcc_jit_type_get_const (gcc_jit_type *type)
   return (gcc_jit_type *)type->get_const ();
 }
 
+gcc_jit_type *
+gcc_jit_context_new_array_type (gcc_jit_context *ctxt,
+				gcc_jit_location *loc,
+				gcc_jit_type *element_type,
+				int num_elements)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
+  RETURN_NULL_IF_FAIL (element_type, ctxt, "NULL type");
+
+  return (gcc_jit_type *)ctxt->new_array_type (loc,
+					       element_type,
+					       num_elements);
+}
+
 gcc_jit_field *
 gcc_jit_context_new_field (gcc_jit_context *ctxt,
 			   gcc_jit_location *loc,
@@ -601,8 +615,8 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
 					   (gcc::jit::recording::rvalue **)args);
 }
 
-extern gcc_jit_rvalue *
-gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
+extern gcc_jit_lvalue *
+gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
 				  gcc_jit_location *loc,
 				  gcc_jit_rvalue *ptr,
 				  gcc_jit_rvalue *index)
@@ -611,7 +625,7 @@ gcc_jit_context_new_array_lookup (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (ptr, ctxt, "NULL ptr");
   RETURN_NULL_IF_FAIL (index, ctxt, "NULL index");
 
-  return (gcc_jit_rvalue *)ctxt->new_array_lookup (loc, ptr, index);
+  return (gcc_jit_lvalue *)ctxt->new_array_access (loc, ptr, index);
 }
 
 gcc_jit_context *
@@ -861,7 +875,47 @@ gcc_jit_function_new_loop (gcc_jit_function *func,
   RETURN_NULL_IF_NOT_FUNC_DEFINITION (func);
   RETURN_NULL_IF_FAIL (boolval, NULL, "NULL boolval");
 
-  return (gcc_jit_loop *)func->new_loop (loc, boolval);
+  return (gcc_jit_loop *)func->new_loop (loc, boolval, NULL, NULL);
+}
+
+gcc_jit_loop *
+gcc_jit_function_new_loop_over_range (gcc_jit_function *func,
+				      gcc_jit_location *loc,
+				      gcc_jit_lvalue *iteration_var,
+				      gcc_jit_rvalue *start_of_range,
+				      gcc_jit_rvalue *upper_bound_of_range,
+				      gcc_jit_rvalue *step)
+{
+  RETURN_NULL_IF_NOT_FUNC_DEFINITION (func);
+  gcc_jit_context *ctxt = static_cast <gcc_jit_context *> (func->m_ctxt);
+  RETURN_NULL_IF_FAIL (iteration_var, ctxt, "NULL iteration_var");
+  RETURN_NULL_IF_FAIL (upper_bound_of_range, ctxt,
+		       "NULL upper_bound_of_range");
+  if (!start_of_range)
+    start_of_range =
+      gcc_jit_context_zero (ctxt,
+			    static_cast <gcc_jit_type *> (iteration_var->get_type ()));
+
+  if (!step)
+    step = gcc_jit_context_one (ctxt,
+				static_cast <gcc_jit_type *> (iteration_var->get_type ()));
+
+  /* "iteration_var = start_of_range;" */
+  gcc_jit_function_add_assignment (func,
+				   loc,
+				   iteration_var,
+				   start_of_range);
+
+  /* "(iteration_var < upper_bound_of_range)" */
+  gcc_jit_rvalue *boolval =
+    gcc_jit_context_new_comparison (ctxt,
+				    loc,
+				    GCC_JIT_COMPARISON_LT,
+				    gcc_jit_lvalue_as_rvalue (iteration_var),
+				    upper_bound_of_range);
+
+  /* the += is added when loop_end is called.  */
+  return (gcc_jit_loop *)func->new_loop (loc, boolval, iteration_var, step);
 }
 
 gcc_jit_object *

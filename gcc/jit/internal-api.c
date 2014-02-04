@@ -214,6 +214,17 @@ recording::context::get_type (enum gcc_jit_types kind)
   return m_basic_types[kind];
 }
 
+recording::type *
+recording::context::new_array_type (recording::location *loc,
+				    recording::type *element_type,
+				    int num_elements)
+{
+  recording::type *result =
+    new recording::array_type (this, loc, element_type, num_elements);
+  record (result);
+  return result;
+}
+
 recording::field *
 recording::context::new_field (recording::location *loc,
 			       recording::type *type,
@@ -366,12 +377,12 @@ recording::context::new_call (recording::location *loc,
   return result;
 }
 
-recording::rvalue *
-recording::context::new_array_lookup (recording::location *loc,
+recording::lvalue *
+recording::context::new_array_access (recording::location *loc,
 				      recording::rvalue *ptr,
 				      recording::rvalue *index)
 {
-  recording::rvalue *result = new array_lookup (this, loc, ptr, index);
+  recording::lvalue *result = new array_access (this, loc, ptr, index);
   record (result);
   return result;
 }
@@ -717,6 +728,31 @@ recording::memento_of_get_const::make_debug_string ()
 			      "const %s", m_other_type->get_debug_string ());
 }
 
+/* gcc::jit::recording::array_type */
+
+recording::type *
+recording::array_type::dereference ()
+{
+  return m_element_type;
+}
+
+void
+recording::array_type::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_array_type (playback_location (m_loc),
+				       m_element_type->playback_type (),
+				       m_num_elements));
+}
+
+recording::string *
+recording::array_type::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "%s[%d]",
+			      m_element_type->get_debug_string (),
+			      m_num_elements);
+}
+
 /* gcc::jit::recording::field:: */
 void
 recording::field::replay_into (replayer *r)
@@ -979,9 +1015,12 @@ recording::function::add_return (recording::location *loc,
 
 recording::loop *
 recording::function::new_loop (recording::location *loc,
-			       recording::rvalue *boolval)
+			       recording::rvalue *boolval,
+			       recording::lvalue *iteration_var,
+			       recording::rvalue *step)
 {
-  recording::loop *result = new recording::loop (this, loc, boolval);
+  recording::loop *result = new recording::loop (this, loc, boolval,
+						 iteration_var, step);
   m_ctxt->record (result);
   return result;
 }
@@ -1250,16 +1289,16 @@ recording::call::make_debug_string ()
 }
 
 void
-recording::array_lookup::replay_into (replayer *r)
+recording::array_access::replay_into (replayer *r)
 {
   set_playback_obj (
-    r->new_array_lookup (playback_location (m_loc),
+    r->new_array_access (playback_location (m_loc),
 			 m_ptr->playback_rvalue (),
 			 m_index->playback_rvalue ()));
 }
 
 recording::string *
-recording::array_lookup::make_debug_string ()
+recording::array_access::make_debug_string ()
 {
   return string::from_printf (m_ctxt,
 			      "%s[%s]",
@@ -1553,6 +1592,15 @@ recording::loop::make_debug_string ()
 void
 recording::loop::end (location *loc)
 {
+  if (m_iteration_var)
+    m_func->add_assignment (
+      loc,
+      m_iteration_var,
+      m_ctxt->new_binary_op (loc,
+			     GCC_JIT_BINARY_OP_PLUS,
+			     m_iteration_var->get_type (),
+			     m_iteration_var,
+			     m_step));
   recording::loop_end *m = new loop_end (this, loc);
   m_ctxt->record (m);
 }
@@ -1695,6 +1743,24 @@ get_type (enum gcc_jit_types type_)
     }
 
   return new type (type_node);
+}
+
+playback::type *
+playback::context::
+new_array_type (playback::location *loc,
+		playback::type *element_type,
+		int num_elements)
+{
+  gcc_assert (element_type);
+
+  tree t = build_array_type_nelts (element_type->as_tree (),
+				   num_elements);
+  layout_type (t);
+
+  if (loc)
+    set_tree_location (t, loc);
+
+  return new type (t);
 }
 
 playback::field *
@@ -2166,9 +2232,9 @@ new_call (location *loc,
    */
 }
 
-playback::rvalue *
+playback::lvalue *
 playback::context::
-new_array_lookup (location *loc,
+new_array_access (location *loc,
 		  rvalue *ptr,
 		  rvalue *index)
 {
@@ -2190,7 +2256,7 @@ new_array_lookup (location *loc,
 			      NULL_TREE, NULL_TREE);
       if (loc)
         set_tree_location (t_result, loc);
-      return new rvalue (this, t_result);
+      return new lvalue (this, t_result);
     }
   else
     {
@@ -2211,7 +2277,7 @@ new_array_lookup (location *loc,
           set_tree_location (t_indirection, loc);
         }
 
-      return new rvalue (this, t_indirection);
+      return new lvalue (this, t_indirection);
     }
 }
 
