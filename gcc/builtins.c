@@ -59,6 +59,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "builtins.h"
 #include "ubsan.h"
 #include "cilk.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 
 static tree do_mpc_arg1 (tree, tree, int (*)(mpc_ptr, mpc_srcptr, mpc_rnd_t));
@@ -124,7 +126,7 @@ static rtx builtin_memcpy_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 static rtx expand_builtin_memcpy (tree, rtx);
 static rtx expand_builtin_mempcpy (tree, rtx, enum machine_mode);
 static rtx expand_builtin_mempcpy_args (tree, tree, tree, rtx,
-					enum machine_mode, int);
+					enum machine_mode, int, tree);
 static rtx expand_builtin_strcpy (tree, rtx);
 static rtx expand_builtin_strcpy_args (tree, tree, rtx);
 static rtx expand_builtin_stpcpy (tree, rtx, enum machine_mode);
@@ -3277,7 +3279,8 @@ expand_builtin_mempcpy (tree exp, rtx target, enum machine_mode mode)
       tree src = CALL_EXPR_ARG (exp, 1);
       tree len = CALL_EXPR_ARG (exp, 2);
       return expand_builtin_mempcpy_args (dest, src, len,
-					  target, mode, /*endp=*/ 1);
+					  target, mode, /*endp=*/ 1,
+					  exp);
     }
 }
 
@@ -3289,10 +3292,23 @@ expand_builtin_mempcpy (tree exp, rtx target, enum machine_mode mode)
 
 static rtx
 expand_builtin_mempcpy_args (tree dest, tree src, tree len,
-			     rtx target, enum machine_mode mode, int endp)
+			     rtx target, enum machine_mode mode, int endp,
+			     tree orig_exp)
 {
+  tree fndecl = get_callee_fndecl (orig_exp);
+
     /* If return value is ignored, transform mempcpy into memcpy.  */
-  if (target == const0_rtx && builtin_decl_implicit_p (BUILT_IN_MEMCPY))
+  if (target == const0_rtx
+      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK
+      && builtin_decl_implicit_p (BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK))
+    {
+      tree fn = builtin_decl_implicit (BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK);
+      tree result = build_call_nofold_loc (UNKNOWN_LOCATION, fn, 3,
+					   dest, src, len);
+      return expand_expr (result, target, mode, EXPAND_NORMAL);
+    }
+  else if (target == const0_rtx
+	   && builtin_decl_implicit_p (BUILT_IN_MEMCPY))
     {
       tree fn = builtin_decl_implicit (BUILT_IN_MEMCPY);
       tree result = build_call_nofold_loc (UNKNOWN_LOCATION, fn, 3,
@@ -3477,7 +3493,8 @@ expand_builtin_stpcpy (tree exp, rtx target, enum machine_mode mode)
 
       lenp1 = size_binop_loc (loc, PLUS_EXPR, len, ssize_int (1));
       ret = expand_builtin_mempcpy_args (dst, src, lenp1,
- 					 target, mode, /*endp=*/2);
+					 target, mode, /*endp=*/2,
+					 exp);
 
       if (ret)
 	return ret;
@@ -3771,7 +3788,8 @@ expand_builtin_memset_args (tree dest, tree val, tree len,
  do_libcall:
   fndecl = get_callee_fndecl (orig_exp);
   fcode = DECL_FUNCTION_CODE (fndecl);
-  if (fcode == BUILT_IN_MEMSET)
+  if (fcode == BUILT_IN_MEMSET
+      || fcode == BUILT_IN_CHKP_MEMSET_NOBND_NOCHK)
     fn = build_call_nofold_loc (EXPR_LOCATION (orig_exp), fndecl, 3,
 				dest, val, len);
   else if (fcode == BUILT_IN_BZERO)
@@ -4323,6 +4341,13 @@ std_expand_builtin_va_start (tree valist, rtx nextarg)
 {
   rtx va_r = expand_expr (valist, NULL_RTX, VOIDmode, EXPAND_WRITE);
   convert_move (va_r, nextarg, 0);
+
+  /* We do not have any valid bounds for the pointer, so
+     just store zero bounds for it.  */
+  if (chkp_function_instrumented_p (current_function_decl))
+    chkp_expand_bounds_reset_for_mem (valist,
+				      make_tree (TREE_TYPE (valist),
+						 nextarg));
 }
 
 /* Expand EXP, a call to __builtin_va_start.  */
@@ -6123,60 +6148,113 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
       break;
 
     case BUILT_IN_STRLEN:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_strlen (exp, target, target_mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRCPY:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_strcpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRNCPY:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_strncpy (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STPCPY:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_stpcpy (exp, target, mode);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_MEMCPY:
+    case BUILT_IN_CHKP_MEMCPY_NOBND_NOCHK:
+      if (CALL_WITH_BOUNDS_P (exp)
+	  && fcode == BUILT_IN_MEMCPY)
+	break;
       target = expand_builtin_memcpy (exp, target);
       if (target)
-	return target;
+	{
+	  /* We need to set returned bounds for instrumented
+	     calls.  */
+	  if (CALL_WITH_BOUNDS_P (exp))
+	    {
+	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
+	      target = chkp_join_splitted_slot (target, bnd);
+	    }
+	  return target;
+	}
       break;
 
     case BUILT_IN_MEMPCPY:
+      case BUILT_IN_CHKP_MEMPCPY_NOBND_NOCHK:
+	if (CALL_WITH_BOUNDS_P (exp)
+	    && fcode == BUILT_IN_MEMPCPY)
+	break;
       target = expand_builtin_mempcpy (exp, target, mode);
       if (target)
-	return target;
+	{
+	  /* We need to set returned bounds for instrumented
+	     calls.  */
+	  if (CALL_WITH_BOUNDS_P (exp))
+	    {
+	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
+	      target = chkp_join_splitted_slot (target, bnd);
+	    }
+	  return target;
+	}
       break;
 
     case BUILT_IN_MEMSET:
+    case BUILT_IN_CHKP_MEMSET_NOBND_NOCHK:
+      if (CALL_WITH_BOUNDS_P (exp)
+	  && fcode == BUILT_IN_MEMSET)
+	break;
       target = expand_builtin_memset (exp, target, mode);
       if (target)
-	return target;
+	{
+	  /* We need to set returned bounds for instrumented
+	     calls.  */
+	  if (CALL_WITH_BOUNDS_P (exp))
+	    {
+	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
+	      target = chkp_join_splitted_slot (target, bnd);
+	    }
+	  return target;
+	}
       break;
 
     case BUILT_IN_BZERO:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_bzero (exp);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRCMP:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_strcmp (exp, target);
       if (target)
 	return target;
       break;
 
     case BUILT_IN_STRNCMP:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_strncmp (exp, target, mode);
       if (target)
 	return target;
@@ -6184,6 +6262,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 
     case BUILT_IN_BCMP:
     case BUILT_IN_MEMCMP:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_memcmp (exp, target, mode);
       if (target)
 	return target;
@@ -6796,6 +6876,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_MEMPCPY_CHK:
     case BUILT_IN_MEMMOVE_CHK:
     case BUILT_IN_MEMSET_CHK:
+      if (CALL_WITH_BOUNDS_P (exp))
+	break;
       target = expand_builtin_memory_chk (exp, target, mode, fcode);
       if (target)
 	return target;
@@ -6852,7 +6934,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_CHKP_GET_PTR_UBOUND:
       /* We allow user CHKP builtins if Pointer Bounds
 	 Checker is off.  */
-      if (!flag_check_pointer_bounds)
+      if (!chkp_function_instrumented_p (current_function_decl))
 	{
 	  if (fcode == BUILT_IN_CHKP_SET_PTR_BOUNDS
 	      || fcode == BUILT_IN_CHKP_NARROW_PTR_BOUNDS)
@@ -6877,7 +6959,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_CHKP_NARROW:
     case BUILT_IN_CHKP_EXTRACT_LOWER:
     case BUILT_IN_CHKP_EXTRACT_UPPER:
-      /* Software implementation of pointers checker is NYI.
+      /* Software implementation of Pointer Bounds Checker is NYI.
 	 Target support is required.  */
       error ("Your target platform does not support -fcheck-pointer-bounds");
       break;
