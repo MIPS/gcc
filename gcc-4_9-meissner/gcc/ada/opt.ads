@@ -1292,8 +1292,8 @@ package Opt is
 
    Sprint_Line_Limit : Nat := 72;
    --  GNAT
-   --  Limit values for chopping long lines in Sprint output, can be reset by
-   --  use of NNN parameter with -gnatG or -gnatD switches.
+   --  Limit values for chopping long lines in Cprint/Sprint output, can be
+   --  reset by use of NNN parameter with -gnatG or -gnatD switches.
 
    Stack_Checking_Enabled : Boolean := False;
    --  GNAT
@@ -1729,7 +1729,10 @@ package Opt is
    --  GNAT
    --  Set to True to generate warnings for use of Pragma Warnings (Off, ent),
    --  where either the pragma is never used, or it could be replaced by a
-   --  pragma Unmodified or Unreferenced. Modified by use of -gnatw.w/.W.
+   --  pragma Unmodified or Unreferenced. Also generates warnings for pragma
+   --  Warning (Off, string) which either has no matching pragma Warning On,
+   --  or where no warning has been suppressed by the use of the pragma.
+   --  Modified by use of -gnatw.w/.W.
 
    type Warning_Mode_Type is (Suppress, Normal, Treat_As_Error);
    Warning_Mode : Warning_Mode_Type := Normal;

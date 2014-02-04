@@ -1907,10 +1907,9 @@ package body Sem_Ch6 is
                   if Is_Tagged_Type (Typ) then
                      null;
 
-                  elsif Nkind_In (Parent (Parent (N)),
-                     N_Accept_Statement,
-                     N_Entry_Body,
-                     N_Subprogram_Body)
+                  elsif Nkind (Parent (N)) = N_Subprogram_Body
+                    or else Nkind_In (Parent (Parent (N)), N_Accept_Statement,
+                                                           N_Entry_Body)
                   then
                      Error_Msg_NE
                        ("invalid use of untagged incomplete type&",
@@ -1918,7 +1917,7 @@ package body Sem_Ch6 is
                   end if;
 
                   --  The type must be completed in the current package. This
-                  --  is checked at the end of the package declaraton, when
+                  --  is checked at the end of the package declaration when
                   --  Taft-amendment types are identified. If the return type
                   --  is class-wide, there is no required check, the type can
                   --  be a bona fide TAT.
@@ -2999,34 +2998,10 @@ package body Sem_Ch6 is
 
             Push_Scope (Spec_Id);
 
-            --  Set SPARK_Mode
+            --  Set SPARK_Mode from context
 
-            --  For internally generated subprogram, always off. But generic
-            --  instances are not generated implicitly, so are never considered
-            --  as internal, even though Comes_From_Source is false.
-
-            if not Comes_From_Source (Spec_Id)
-              and then not Is_Generic_Instance (Spec_Id)
-            then
-               SPARK_Mode := Off;
-               SPARK_Mode_Pragma := Empty;
-
-            --  Inherited from spec
-
-            elsif Present (SPARK_Pragma (Spec_Id))
-              and then not SPARK_Pragma_Inherited (Spec_Id)
-            then
-               SPARK_Mode_Pragma := SPARK_Pragma (Spec_Id);
-               SPARK_Mode := Get_SPARK_Mode_From_Pragma (SPARK_Mode_Pragma);
-               Set_SPARK_Pragma (Body_Id, SPARK_Pragma (Spec_Id));
-               Set_SPARK_Pragma_Inherited (Body_Id, True);
-
-            --  Otherwise set from context
-
-            else
-               Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
-               Set_SPARK_Pragma_Inherited (Body_Id, True);
-            end if;
+            Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
+            Set_SPARK_Pragma_Inherited (Body_Id, True);
 
             --  Make sure that the subprogram is immediately visible. For
             --  child units that have no separate spec this is indispensable.
@@ -3076,17 +3051,10 @@ package body Sem_Ch6 is
 
             Push_Scope (Body_Id);
 
-            --  Set SPARK_Mode from context or OFF for internal routine
+            --  Set SPARK_Mode from context
 
-            if Comes_From_Source (Body_Id) then
-               Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
-               Set_SPARK_Pragma_Inherited (Body_Id, True);
-            else
-               Set_SPARK_Pragma (Body_Id, Empty);
-               Set_SPARK_Pragma_Inherited (Body_Id, False);
-               SPARK_Mode := Off;
-               SPARK_Mode_Pragma := Empty;
-            end if;
+            Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
+            Set_SPARK_Pragma_Inherited (Body_Id, True);
          end if;
 
          --  For stubs and bodies with no previous spec, generate references to
@@ -3277,6 +3245,34 @@ package body Sem_Ch6 is
 
       Analyze_Declarations (Declarations (N));
 
+      --  After declarations have been analyzed, the body has been set
+      --  its final value of SPARK_Mode. Check that SPARK_Mode for body
+      --  is consistent with SPARK_Mode for spec.
+
+      if Present (Spec_Id) and then Present (SPARK_Pragma (Body_Id)) then
+         if Present (SPARK_Pragma (Spec_Id)) then
+            if Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Spec_Id)) = Off
+                 and then
+               Get_SPARK_Mode_From_Pragma (SPARK_Pragma (Body_Id)) = On
+            then
+               Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
+               Error_Msg_N ("incorrect application of SPARK_Mode#", N);
+               Error_Msg_Sloc := Sloc (SPARK_Pragma (Spec_Id));
+               Error_Msg_NE
+                 ("\value Off was set for SPARK_Mode on&#", N, Spec_Id);
+            end if;
+
+         elsif Nkind (Parent (Parent (Spec_Id))) = N_Subprogram_Body_Stub then
+            null;
+
+         else
+            Error_Msg_Sloc := Sloc (SPARK_Pragma (Body_Id));
+            Error_Msg_N ("incorrect application of SPARK_Mode#", N);
+            Error_Msg_Sloc := Sloc (Spec_Id);
+            Error_Msg_NE ("\no value was set for SPARK_Mode on&#", N, Spec_Id);
+         end if;
+      end if;
+
       --  Check completion, and analyze the statements
 
       Check_Completion;
@@ -3350,12 +3346,11 @@ package body Sem_Ch6 is
       --  the body of the procedure. But first we deal with a special case
       --  where we want to modify this check. If the body of the subprogram
       --  starts with a raise statement or its equivalent, or if the body
-      --  consists entirely of a null statement, then it is pretty obvious
-      --  that it is OK to not reference the parameters. For example, this
-      --  might be the following common idiom for a stubbed function:
-      --  statement of the procedure raises an exception. In particular this
-      --  deals with the common idiom of a stubbed function, which might
-      --  appear as something like:
+      --  consists entirely of a null statement, then it is pretty obvious that
+      --  it is OK to not reference the parameters. For example, this might be
+      --  the following common idiom for a stubbed function: statement of the
+      --  procedure raises an exception. In particular this deals with the
+      --  common idiom of a stubbed function, which appears something like:
 
       --     function F (A : Integer) return Some_Type;
       --        X : Some_Type;
@@ -3366,7 +3361,7 @@ package body Sem_Ch6 is
 
       --  Here the purpose of X is simply to satisfy the annoying requirement
       --  in Ada that there be at least one return, and we certainly do not
-      --  want to go posting warnings on X that it is not initialized! On
+      --  want to go posting warnings on X that it is not initialized. On
       --  the other hand, if X is entirely unreferenced that should still
       --  get a warning.
 
@@ -3632,16 +3627,11 @@ package body Sem_Ch6 is
 
       Generate_Definition (Designator);
 
-      --  Set SPARK mode, always off for internal routines, otherwise set
-      --  from current context (may be overwritten later with explicit pragma)
+      --  Set SPARK mode from current context (may be overwritten later with
+      --  explicit pragma).
 
-      if Comes_From_Source (Designator) then
-         Set_SPARK_Pragma (Designator, SPARK_Mode_Pragma);
-         Set_SPARK_Pragma_Inherited (Designator, True);
-      else
-         Set_SPARK_Pragma (Designator, Empty);
-         Set_SPARK_Pragma_Inherited (Designator, False);
-      end if;
+      Set_SPARK_Pragma (Designator, SPARK_Mode_Pragma);
+      Set_SPARK_Pragma_Inherited (Designator, True);
 
       if Debug_Flag_C then
          Write_Str ("==> subprogram spec ");
@@ -3656,12 +3646,12 @@ package body Sem_Ch6 is
       New_Overloaded_Entity (Designator);
       Check_Delayed_Subprogram (Designator);
 
-      --  If the type of the first formal of the current subprogram is a
-      --  non-generic tagged private type, mark the subprogram as being a
-      --  private primitive. Ditto if this is a function with controlling
-      --  result, and the return type is currently private. In both cases,
-      --  the type of the controlling argument or result must be in the
-      --  current scope for the operation to be primitive.
+      --  If the type of the first formal of the current subprogram is a non-
+      --  generic tagged private type, mark the subprogram as being a private
+      --  primitive. Ditto if this is a function with controlling result, and
+      --  the return type is currently private. In both cases, the type of the
+      --  controlling argument or result must be in the current scope for the
+      --  operation to be primitive.
 
       if Has_Controlling_Result (Designator)
         and then Is_Private_Type (Etype (Designator))
@@ -4550,7 +4540,7 @@ package body Sem_Ch6 is
 
             --  Emit a warning if this is a call to a runtime subprogram
             --  which is located inside a generic. Previously this call
-            --  was silently skipped!
+            --  was silently skipped.
 
             if Is_Generic_Instance (Subp) then
                declare
@@ -5293,7 +5283,7 @@ package body Sem_Ch6 is
          --  Compiling with optimizations enabled
 
          else
-            --  Procedures are never frontend inlined in this case!
+            --  Procedures are never frontend inlined in this case
 
             if Ekind (Subp) /= E_Function then
                return False;
@@ -5680,7 +5670,7 @@ package body Sem_Ch6 is
          end;
       end if;
 
-      --  Build the body to inline only if really needed!
+      --  Build the body to inline only if really needed
 
       if Check_Body_To_Inline (N, Spec_Id)
         and then Serious_Errors_Detected = 0
@@ -5890,7 +5880,7 @@ package body Sem_Ch6 is
       --  Note: we use the entity information, rather than going directly
       --  to the specification in the tree. This is not only simpler, but
       --  absolutely necessary for some cases of conformance tests between
-      --  operators, where the declaration tree simply does not exist!
+      --  operators, where the declaration tree simply does not exist.
 
       Old_Formal := First_Formal (Old_Id);
       New_Formal := First_Formal (New_Id);
@@ -7239,7 +7229,7 @@ package body Sem_Ch6 is
                --  Note: if both ECA and DCA are missing the return, then we
                --  post only one message, should be enough to fix the bugs.
                --  If not we will get a message next time on the DCA when the
-               --  ECA is fixed!
+               --  ECA is fixed.
 
                elsif No (Statements (DCA)) then
                   Last_Stm := DCA;
@@ -8671,7 +8661,7 @@ package body Sem_Ch6 is
          end if;
 
          --  Compare two lists, skipping rewrite insertions (we want to compare
-         --  the original trees, not the expanded versions!)
+         --  the original trees, not the expanded versions).
 
          loop
             if Is_Rewrite_Insertion (N1) then
@@ -8727,7 +8717,7 @@ package body Sem_Ch6 is
    begin
       --  Non-conformant if paren count does not match. Note: if some idiot
       --  complains that we don't do this right for more than 3 levels of
-      --  parentheses, they will be treated with the respect they deserve!
+      --  parentheses, they will be treated with the respect they deserve.
 
       if Paren_Count (E1) /= Paren_Count (E2) then
          return False;
@@ -11019,9 +11009,15 @@ package body Sem_Ch6 is
                --  Ada 2012: tagged incomplete types are allowed as generic
                --  formal types. They do not introduce dependencies and the
                --  corresponding generic subprogram does not have a delayed
-               --  freeze, because it does not need a freeze node.
+               --  freeze, because it does not need a freeze node. However,
+               --  it is still the case that untagged incomplete types cannot
+               --  be Taft-amendment types and must be completed in private
+               --  part, so the subprogram must appear in the list of private
+               --  dependents of the type.
 
-               if Is_Tagged_Type (Formal_Type) then
+               if Is_Tagged_Type (Formal_Type)
+                 or else Ada_Version >= Ada_2012
+               then
                   if Ekind (Scope (Current_Scope)) = E_Package
                     and then not From_Limited_With (Formal_Type)
                     and then not Is_Generic_Type (Formal_Type)
@@ -11403,7 +11399,7 @@ package body Sem_Ch6 is
             AS_Needed := False;
 
          --  If we have unknown discriminants, then we do not need an actual
-         --  subtype, or more accurately we cannot figure it out! Note that
+         --  subtype, or more accurately we cannot figure it out. Note that
          --  all class-wide types have unknown discriminants.
 
          elsif Has_Unknown_Discriminants (T) then

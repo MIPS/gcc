@@ -23,7 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Warning! Error messages can be generated during Gigi processing by direct
+--  Warning: Error messages can be generated during Gigi processing by direct
 --  calls to error message routines, so it is essential that the processing
 --  in this body be consistent with the requirements for the Gigi processing
 --  environment, and that in particular, no disallowed table expansion is
@@ -185,7 +185,7 @@ package body Erroutc is
             return;
 
          --  Otherwise see if continuations are the same, if not, keep both
-         --  sequences, a curious case, but better to keep everything!
+         --  sequences, a curious case, but better to keep everything.
 
          elsif not Same_Error (N1, N2) then
             return;
@@ -1300,6 +1300,10 @@ package body Erroutc is
 
    procedure Validate_Specific_Warnings (Eproc : Error_Msg_Proc) is
    begin
+      if not Warn_On_Warnings_Off then
+         return;
+      end if;
+
       for J in Specific_Warnings.First .. Specific_Warnings.Last loop
          declare
             SWE : Specific_Warning_Entry renames Specific_Warnings.Table (J);
@@ -1311,7 +1315,7 @@ package body Erroutc is
 
                if SWE.Open then
                   Eproc.all
-                    ("?pragma Warnings Off with no matching Warnings On",
+                    ("?W?pragma Warnings Off with no matching Warnings On",
                      SWE.Start);
 
                --  Warn for ineffective Warnings (Off, ..)
@@ -1325,7 +1329,7 @@ package body Erroutc is
                    (SWE.Msg'Length > 2 and then SWE.Msg (1 .. 2) = "-W")
                then
                   Eproc.all
-                    ("?no warning suppressed by this pragma", SWE.Start);
+                    ("?W?no warning suppressed by this pragma", SWE.Start);
                end if;
             end if;
          end;

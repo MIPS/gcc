@@ -5514,7 +5514,7 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 		      : gen_vsx_xscvdpsp_scalar (freg, sreg));
 
 	  emit_insn (cvt);
-	  emit_insn (gen_vsx_xxspltw_v4sf (target, freg, const0_rtx));
+	  emit_insn (gen_vsx_xxspltw_v4sf_direct (target, freg, const0_rtx));
 	}
       else
 	{
@@ -5540,7 +5540,6 @@ rs6000_expand_vector_init (rtx target, rtx vals)
      of 64-bit items is not supported on Altivec.  */
   if (all_same && GET_MODE_SIZE (inner_mode) <= 4)
     {
-      rtx field;
       mem = assign_stack_temp (mode, GET_MODE_SIZE (inner_mode));
       emit_move_insn (adjust_address_nv (mem, inner_mode, 0),
 		      XVECEXP (vals, 0, 0));
@@ -5551,11 +5550,9 @@ rs6000_expand_vector_init (rtx target, rtx vals)
 					      gen_rtx_SET (VOIDmode,
 							   target, mem),
 					      x)));
-      field = (BYTES_BIG_ENDIAN ? const0_rtx
-	       : GEN_INT (GET_MODE_NUNITS (mode) - 1));
       x = gen_rtx_VEC_SELECT (inner_mode, target,
 			      gen_rtx_PARALLEL (VOIDmode,
-						gen_rtvec (1, field)));
+						gen_rtvec (1, const0_rtx)));
       emit_insn (gen_rtx_SET (VOIDmode, target,
 			      gen_rtx_VEC_DUPLICATE (mode, x)));
       return;
@@ -30416,16 +30413,18 @@ altivec_expand_vec_perm_le (rtx operands[4])
   rtx op1 = operands[2];
   rtx sel = operands[3];
   rtx tmp = target;
+  rtx splatreg = gen_reg_rtx (V16QImode);
+  enum machine_mode mode = GET_MODE (target);
 
   /* Get everything in regs so the pattern matches.  */
   if (!REG_P (op0))
-    op0 = force_reg (V16QImode, op0);
+    op0 = force_reg (mode, op0);
   if (!REG_P (op1))
-    op1 = force_reg (V16QImode, op1);
+    op1 = force_reg (mode, op1);
   if (!REG_P (sel))
     sel = force_reg (V16QImode, sel);
   if (!REG_P (target))
-    tmp = gen_reg_rtx (V16QImode);
+    tmp = gen_reg_rtx (mode);
 
   /* SEL = splat(31) - SEL.  */
   /* We want to subtract from 31, but we can't vspltisb 31 since
@@ -30433,13 +30432,12 @@ altivec_expand_vec_perm_le (rtx operands[4])
      five bits of the permute control vector elements are used.  */
   splat = gen_rtx_VEC_DUPLICATE (V16QImode,
 				 gen_rtx_CONST_INT (QImode, -1));
-  emit_move_insn (tmp, splat);
-  sel = gen_rtx_MINUS (V16QImode, tmp, sel);
-  emit_move_insn (tmp, sel);
+  emit_move_insn (splatreg, splat);
+  sel = gen_rtx_MINUS (V16QImode, splatreg, sel);
+  emit_move_insn (splatreg, sel);
 
   /* Permute with operands reversed and adjusted selector.  */
-  unspec = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, op1, op0, tmp),
-			   UNSPEC_VPERM);
+  unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, splatreg), UNSPEC_VPERM);
 
   /* Copy into target, possibly by way of a register.  */
   if (!REG_P (target))
@@ -30468,22 +30466,28 @@ altivec_expand_vec_perm_const (rtx operands[4])
     { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum,
       {  2,  3,  6,  7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31 } },
     { OPTION_MASK_ALTIVEC, 
-      BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghb : CODE_FOR_altivec_vmrglb,
+      (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghb_direct
+       : CODE_FOR_altivec_vmrglb_direct),
       {  0, 16,  1, 17,  2, 18,  3, 19,  4, 20,  5, 21,  6, 22,  7, 23 } },
     { OPTION_MASK_ALTIVEC,
-      BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghh : CODE_FOR_altivec_vmrglh,
+      (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghh_direct
+       : CODE_FOR_altivec_vmrglh_direct),
       {  0,  1, 16, 17,  2,  3, 18, 19,  4,  5, 20, 21,  6,  7, 22, 23 } },
     { OPTION_MASK_ALTIVEC,
-      BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghw : CODE_FOR_altivec_vmrglw,
+      (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghw_direct
+       : CODE_FOR_altivec_vmrglw_direct),
       {  0,  1,  2,  3, 16, 17, 18, 19,  4,  5,  6,  7, 20, 21, 22, 23 } },
     { OPTION_MASK_ALTIVEC,
-      BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrglb : CODE_FOR_altivec_vmrghb,
+      (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrglb_direct
+       : CODE_FOR_altivec_vmrghb_direct),
       {  8, 24,  9, 25, 10, 26, 11, 27, 12, 28, 13, 29, 14, 30, 15, 31 } },
     { OPTION_MASK_ALTIVEC,
-      BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrglh : CODE_FOR_altivec_vmrghh,
+      (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrglh_direct
+       : CODE_FOR_altivec_vmrghh_direct),
       {  8,  9, 24, 25, 10, 11, 26, 27, 12, 13, 28, 29, 14, 15, 30, 31 } },
     { OPTION_MASK_ALTIVEC,
-      BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrglw : CODE_FOR_altivec_vmrghw,
+      (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrglw_direct
+       : CODE_FOR_altivec_vmrghw_direct),
       {  8,  9, 10, 11, 24, 25, 26, 27, 12, 13, 14, 15, 28, 29, 30, 31 } },
     { OPTION_MASK_P8_VECTOR, CODE_FOR_p8_vmrgew,
       {  0,  1,  2,  3, 16, 17, 18, 19,  8,  9, 10, 11, 24, 25, 26, 27 } },
@@ -30547,7 +30551,7 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	{
           if (!BYTES_BIG_ENDIAN)
             elt = 15 - elt;
-	  emit_insn (gen_altivec_vspltb (target, op0, GEN_INT (elt)));
+	  emit_insn (gen_altivec_vspltb_direct (target, op0, GEN_INT (elt)));
 	  return true;
 	}
 
@@ -30560,8 +30564,8 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	    {
 	      int field = BYTES_BIG_ENDIAN ? elt / 2 : 7 - elt / 2;
 	      x = gen_reg_rtx (V8HImode);
-	      emit_insn (gen_altivec_vsplth (x, gen_lowpart (V8HImode, op0),
-					     GEN_INT (field)));
+	      emit_insn (gen_altivec_vsplth_direct (x, gen_lowpart (V8HImode, op0),
+						    GEN_INT (field)));
 	      emit_move_insn (target, gen_lowpart (V16QImode, x));
 	      return true;
 	    }
@@ -30579,8 +30583,8 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	    {
 	      int field = BYTES_BIG_ENDIAN ? elt / 4 : 3 - elt / 4;
 	      x = gen_reg_rtx (V4SImode);
-	      emit_insn (gen_altivec_vspltw (x, gen_lowpart (V4SImode, op0),
-					     GEN_INT (field)));
+	      emit_insn (gen_altivec_vspltw_direct (x, gen_lowpart (V4SImode, op0),
+						    GEN_INT (field)));
 	      emit_move_insn (target, gen_lowpart (V16QImode, x));
 	      return true;
 	    }

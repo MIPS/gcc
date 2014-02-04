@@ -1647,13 +1647,13 @@ package body Freeze is
          --  where a component type is private and the controlled full type
          --  occurs after the access type is frozen. Cases that don't need a
          --  finalization master are generic formal types (the actual type will
-         --  have it) and types with Java and CIL conventions, since those are
-         --  used for API bindings. (Are there any other cases that should be
-         --  excluded here???)
+         --  have it) and types derived from them,  and types with Java and CIL
+         --  conventions, since those are used for API bindings.
+         --  (Are there any other cases that should be excluded here???)
 
          elsif Is_Access_Type (E)
            and then Comes_From_Source (E)
-           and then not Is_Generic_Type (E)
+           and then not Is_Generic_Type (Root_Type (E))
            and then Needs_Finalization (Designated_Type (E))
          then
             Build_Finalization_Master (E);
@@ -2147,11 +2147,9 @@ package body Freeze is
                      then
                         Error_Msg_Sloc := Sloc (Comp_Size_C);
                         Error_Msg_NE
-                          ("?r?pragma Pack for& ignored!",
-                           Pack_Pragma, Ent);
+                          ("?r?pragma Pack for& ignored!", Pack_Pragma, Ent);
                         Error_Msg_N
-                          ("\?r?explicit component size given#!",
-                           Pack_Pragma);
+                          ("\?r?explicit component size given#!", Pack_Pragma);
                         Set_Is_Packed (Base_Type (Ent), False);
                         Set_Is_Bit_Packed_Array (Base_Type (Ent), False);
                      end if;
@@ -3280,7 +3278,7 @@ package body Freeze is
            and then RM_Size (Rec) < Scalar_Component_Total_Esize
 
            --  And the total RM size cannot be greater than the specified size
-           --  since otherwise packing will not get us where we have to be!
+           --  since otherwise packing will not get us where we have to be.
 
            and then RM_Size (Rec) >= Scalar_Component_Total_RM_Size
 
@@ -3966,7 +3964,7 @@ package body Freeze is
 
                --  However, we don't do that for internal entities. We figure
                --  that if we deliberately set Is_True_Constant for an internal
-               --  entity, e.g. a dispatch table entry, then we mean it!
+               --  entity, e.g. a dispatch table entry, then we mean it.
 
                if (Is_Aliased (E) or else Is_Aliased (Etype (E)))
                  and then not Is_Internal_Name (Chars (E))
@@ -4091,7 +4089,7 @@ package body Freeze is
             then
                --  Make sure we actually have a pragma, and have not merely
                --  inherited the indication from elsewhere (e.g. an address
-               --  clause, which is not good enough in RM terms!)
+               --  clause, which is not good enough in RM terms).
 
                if Has_Rep_Pragma (E, Name_Atomic)
                     or else
@@ -5393,7 +5391,7 @@ package body Freeze is
       --  expression, see section "Handling of Default Expressions" in the
       --  spec of package Sem for further details. Note that we have to make
       --  sure that we actually have a real expression (if we have a subtype
-      --  indication, we can't test Is_Static_Expression!) However, we exclude
+      --  indication, we can't test Is_Static_Expression). However, we exclude
       --  the case of the prefix of an attribute of a static scalar subtype
       --  from this early return, because static subtype attributes should
       --  always cause freezing, even in default expressions, but the attribute
@@ -5740,7 +5738,7 @@ package body Freeze is
          end case;
 
          --  We fall through the case if we did not yet find the proper
-         --  place in the free for inserting the freeze node, so climb!
+         --  place in the free for inserting the freeze node, so climb.
 
          P := Parent_P;
       end loop;
@@ -6516,15 +6514,22 @@ package body Freeze is
       end if;
 
       --  Reset the Pure indication on an imported subprogram unless an
-      --  explicit Pure_Function pragma was present. We do this because
-      --  otherwise it is an insidious error to call a non-pure function from
-      --  pure unit and have calls mysteriously optimized away. What happens
-      --  here is that the Import can bypass the normal check to ensure that
-      --  pure units call only pure subprograms.
+      --  explicit Pure_Function pragma was present or the subprogram is an
+      --  intrinsic. We do this because otherwise it is an insidious error
+      --  to call a non-pure function from pure unit and have calls
+      --  mysteriously optimized away. What happens here is that the Import
+      --  can bypass the normal check to ensure that pure units call only pure
+      --  subprograms.
+
+      --  The reason for the intrinsic exception is that in general, intrinsic
+      --  functions (such as shifts) are pure anyway. The only exceptions are
+      --  the intrinsics in GNAT.Source_Info, and that unit is not marked Pure
+      --  in any case, so no problem arises.
 
       if Is_Imported (E)
         and then Is_Pure (E)
         and then not Has_Pragma_Pure_Function (E)
+        and then not Is_Intrinsic_Subprogram (E)
       then
          Set_Is_Pure (E, False);
       end if;
@@ -6532,7 +6537,7 @@ package body Freeze is
       --  For non-foreign convention subprograms, this is where we create
       --  the extra formals (for accessibility level and constrained bit
       --  information). We delay this till the freeze point precisely so
-      --  that we know the convention!
+      --  that we know the convention.
 
       if not Has_Foreign_Convention (E) then
          Create_Extra_Formals (E);

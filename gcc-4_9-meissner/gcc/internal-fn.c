@@ -820,6 +820,8 @@ expand_MASK_LOAD (gimple stmt)
 
   maskt = gimple_call_arg (stmt, 2);
   lhs = gimple_call_lhs (stmt);
+  if (lhs == NULL_TREE)
+    return;
   type = TREE_TYPE (lhs);
   rhs = fold_build2 (MEM_REF, type, gimple_call_arg (stmt, 0),
 		     gimple_call_arg (stmt, 1));
@@ -855,6 +857,11 @@ expand_MASK_STORE (gimple stmt)
   create_input_operand (&ops[1], reg, TYPE_MODE (type));
   create_input_operand (&ops[2], mask, TYPE_MODE (TREE_TYPE (maskt)));
   expand_insn (optab_handler (maskstore_optab, TYPE_MODE (type)), 3, ops);
+}
+
+static void
+expand_ABNORMAL_DISPATCHER (gimple)
+{
 }
 
 /* Routines to expand each internal function, indexed by function number.

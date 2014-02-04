@@ -1491,7 +1491,7 @@ package Sinfo is
    --    that the reference occurs within a discriminant check. The
    --    significance is that optimizations based on assuming that the
    --    discriminant check has a correct value cannot be performed in this
-   --    case (or the discriminant check may be optimized away!)
+   --    case (or the discriminant check may be optimized away).
 
    --  Is_Machine_Number (Flag11-Sem)
    --    This flag is set in an N_Real_Literal node to indicate that the value
@@ -2655,7 +2655,7 @@ package Sinfo is
       --  appears directly in the tree as an attribute reference.
 
       --  Note: the field name for a reference to a range is Range_Expression
-      --  rather than Range, because range is a reserved keyword in Ada!
+      --  rather than Range, because range is a reserved keyword in Ada.
 
       --  Note: the reason that this node has expression fields is that a
       --  range can appear as an operand of a membership test. The Etype
@@ -4942,7 +4942,7 @@ package Sinfo is
       -------------------------
 
       --  This is an Ada 2012 extension, we put it here for now, to be labeled
-      --  and put in its proper section when we know exactly where that is!
+      --  and put in its proper section when we know exactly where that is.
 
       --  EXPRESSION_FUNCTION ::=
       --    FUNCTION SPECIFICATION IS (EXPRESSION)
@@ -4965,7 +4965,7 @@ package Sinfo is
       --  that it semantically resembles an expression, e.g. overloading is
       --  allowed and a type is concocted for semantic processing purposes.
       --  Certain of these fields, such as Parens are not relevant, but it
-      --  is easier to just supply all of them together!
+      --  is easier to just supply all of them together.
 
       --  N_Procedure_Call_Statement
       --  Sloc points to first token of name or prefix
@@ -7260,6 +7260,7 @@ package Sinfo is
       --    Postcondition
       --    Pre
       --    Precondition
+      --    Refined_Post
       --  The ordering in the list is in LIFO fashion.
 
       --  Note that there might be multiple preconditions or postconditions
@@ -7283,6 +7284,7 @@ package Sinfo is
       --    Global
       --    Initial_Condition
       --    Initializes
+      --    Part_Of
       --    Refined_Depends
       --    Refined_Global
       --    Refined_States
@@ -7353,8 +7355,15 @@ package Sinfo is
       --  Expression (Node3)
       --  plus fields for expression
 
-      --  Note: the actions list is always non-null, since we would never have
-      --  created this node if there weren't some actions.
+      --  Note: In the final generated tree presented to the code generator,
+      --  the actions list is always non-null, since there is no point in this
+      --  node if the actions are Empty. During semantic analysis there are
+      --  cases where it is convenient to temporarily generate an empty actions
+      --  list. This arises in cases where we create such an empty actions
+      --  list, and it may or may not end up being a place where additional
+      --  actions are inserted. The expander removes such empty cases after
+      --  the expression of the node is fully analyzed and expanded, at which
+      --  point it is safe to remove it, since no more actions can be inserted.
 
       --  Note: Expression may be a Null_Statement, in which case the
       --  N_Expression_With_Actions has type Standard_Void_Type. However some
@@ -8231,7 +8240,7 @@ package Sinfo is
       N_Unused_At_End);
 
    for Node_Kind'Size use 8;
-   --  The data structures in Atree assume this!
+   --  The data structures in Atree assume this
 
    ----------------------------
    -- Node Class Definitions --
