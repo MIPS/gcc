@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_build_ssa);
       NEXT_PASS (pass_ubsan);
       NEXT_PASS (pass_early_warn_uninitialized);
+      NEXT_PASS (pass_chkp);
       NEXT_PASS (pass_rebuild_cgraph_edges);
       NEXT_PASS (pass_inline_parameters);
       NEXT_PASS (pass_early_inline);
@@ -148,6 +149,7 @@ along with GCC; see the file COPYING3.  If not see
       NEXT_PASS (pass_copy_prop);
       NEXT_PASS (pass_merge_phi);
       NEXT_PASS (pass_vrp);
+      NEXT_PASS (pass_chkp_opt);
       NEXT_PASS (pass_dce);
       NEXT_PASS (pass_call_cdce);
       NEXT_PASS (pass_cselim);

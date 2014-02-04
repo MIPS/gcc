@@ -1340,6 +1340,7 @@ OBJS = \
 	reload1.o \
 	reorg.o \
 	resource.o \
+	rtl-chkp.o \
 	rtl-error.o \
 	rtl.o \
 	rtlanal.o \
@@ -1396,6 +1397,7 @@ OBJS = \
 	tree-outof-ssa.o \
 	tree-parloops.o \
 	tree-phinodes.o \
+	tree-chkp.o \
 	tree-predcom.o \
 	tree-pretty-print.o \
 	tree-profile.o \
@@ -2257,6 +2259,7 @@ GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(srcdir)/stringpool.c $(srcdir)/tree.c $(srcdir)/varasm.c \
   $(srcdir)/gimple.h \
   $(srcdir)/gimple-ssa.h \
+  $(srcdir)/tree-chkp.c \
   $(srcdir)/tree-ssanames.c $(srcdir)/tree-eh.c $(srcdir)/tree-ssa-address.c \
   $(srcdir)/tree-cfg.c \
   $(srcdir)/tree-dfa.c \

@@ -343,6 +343,8 @@ extern void register_pass (register_pass_info *);
 extern void register_pass (opt_pass* pass, pass_positioning_ops pos,
 			   const char* ref_pass_name, int ref_pass_inst_number);
 
+extern gimple_opt_pass *make_pass_chkp (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_chkp_opt (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_asan (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_asan_O0 (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_tsan (gcc::context *ctxt);
