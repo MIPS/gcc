@@ -57,6 +57,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-streamer.h"
 #include "params.h"
 #include "ipa-utils.h"
+#include "tree-chkp.h"
 
 /* Intermediate information about a parameter that is only useful during the
    run of ipa_analyze_node and is not kept afterwards.  */
@@ -1570,6 +1571,7 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
   struct ipa_node_params *info = IPA_NODE_REF (cs->caller);
   struct ipa_edge_args *args = IPA_EDGE_REF (cs);
   gimple call = cs->call_stmt;
+  tree fndecl = gimple_call_fndecl (call);
   int n, arg_num = gimple_call_num_args (call);
 
   if (arg_num == 0 || args->jump_functions)
@@ -1587,7 +1589,13 @@ ipa_compute_jump_functions_for_edge (struct param_analysis_info *parms_ainfo,
       tree arg = gimple_call_arg (call, n);
       tree param_type = ipa_get_callee_param_type (cs, n);
 
-      if (is_gimple_ip_invariant (arg))
+      /* No optimization for bounded types yet implemented.  */
+      if ((gimple_call_with_bounds_p (call)
+	   || (fndecl && chkp_function_instrumented_p (fndecl)))
+	  && ((param_type && chkp_type_has_pointer (param_type))
+	      || (!param_type && chkp_type_has_pointer (TREE_TYPE (arg)))))
+	continue;
+      else if (is_gimple_ip_invariant (arg))
 	ipa_set_jf_constant (jfunc, arg, cs);
       else if (!is_gimple_reg_type (TREE_TYPE (arg))
 	       && TREE_CODE (arg) == PARM_DECL)
