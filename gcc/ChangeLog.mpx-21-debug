@@ -1,0 +1,6 @@
+2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* dbxout.c (dbxout_type): Ignore POINTER_BOUNDS_TYPE.
+	* dwarf2out.c (gen_subprogram_die): Ignore bound args.
+	(gen_type_die_with_usage): Skip pointer bounds.
+	(dwarf2out_global_decl): Likewise.
