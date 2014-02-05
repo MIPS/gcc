@@ -307,12 +307,12 @@ bitmap_elt_clear_from (bitmap head, bitmap_element *elt)
 /* Clear a bitmap by freeing the linked list.  */
 
 void
-bitmap_clear (bitmap head)
+bitmap_head::clear ()
 {
-  if (head->first)
-    bitmap_elt_clear_from (head, head->first);
+  if (first)
+    bitmap_elt_clear_from (this, first);
 
-  head->first = NULL;
+  first = NULL;
 }
 
 /* Initialize a bitmap obstack.  If BIT_OBSTACK is NULL, initialize
@@ -407,7 +407,7 @@ bitmap_obstack_free (bitmap map)
 {
   if (map)
     {
-      bitmap_clear (map);
+      map->clear ();
       map->first = (bitmap_element *) map->obstack->heads;
 
       if (GATHER_STATISTICS)
@@ -534,7 +534,7 @@ bitmap_copy (bitmap to, const_bitmap from)
   const bitmap_element *from_ptr;
   bitmap_element *to_ptr = 0;
 
-  bitmap_clear (to);
+  to->clear ();
 
   /* Copy elements in forward direction one at a time.  */
   for (from_ptr = from->first; from_ptr; from_ptr = from_ptr->next)
@@ -1053,7 +1053,7 @@ bitmap_and_compl (bitmap dst, const_bitmap a, const_bitmap b)
   if (a == b)
     {
       changed = !dst->is_empty ();
-      bitmap_clear (dst);
+      dst->clear ();
       return changed;
     }
 
@@ -1165,7 +1165,7 @@ bitmap_and_compl_into (bitmap a, const_bitmap b)
 	return false;
       else
 	{
-	  bitmap_clear (a);
+	  a->clear ();
 	  return true;
 	}
     }
@@ -1448,7 +1448,7 @@ bitmap_compl_and_into (bitmap a, const_bitmap b)
     }
   if (b->is_empty ())
     {
-      bitmap_clear (a);
+      a->clear ();
       return;
     }
 
@@ -1657,7 +1657,7 @@ bitmap_xor (bitmap dst, const_bitmap a, const_bitmap b)
   gcc_assert (dst != a && dst != b);
   if (a == b)
     {
-      bitmap_clear (dst);
+      dst->clear ();
       return;
     }
 
@@ -1732,7 +1732,7 @@ bitmap_xor_into (bitmap a, const_bitmap b)
 
   if (a == b)
     {
-      bitmap_clear (a);
+      a->clear ();
       return;
     }
 

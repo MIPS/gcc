@@ -49,7 +49,7 @@ typedef bitmap regset;
 #define INIT_REG_SET(HEAD) bitmap_initialize (HEAD, &reg_obstack)
 
 /* Clear a register set by freeing up the linked list.  */
-#define CLEAR_REG_SET(HEAD) bitmap_clear (HEAD)
+#define CLEAR_REG_SET(HEAD) (HEAD)->clear ()
 
 /* Copy a register set to another register set.  */
 #define COPY_REG_SET(TO, FROM) bitmap_copy (TO, FROM)

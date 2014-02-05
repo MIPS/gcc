@@ -354,7 +354,7 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
 	  bitmap_ior_into (&tab->partition_in_use,
 			   &tab->new_replaceable_dependencies);
 	  /* It is only necessary to add these once.  */
-	  bitmap_clear (&tab->new_replaceable_dependencies);
+	  tab->new_replaceable_dependencies.clear ();
 	}
     }
   else
@@ -702,7 +702,7 @@ find_replaceable_in_bb (temp_expr_table_p tab, basic_block bb)
 	process_replaceable (tab, stmt, cur_call_cnt);
 
       /* Free any unused dependency lists.  */
-      bitmap_clear (&tab->new_replaceable_dependencies);
+      tab->new_replaceable_dependencies.clear ();
 
       /* A V_{MAY,MUST}_DEF kills any expression using a virtual operand,
 	 including the current stmt.  */

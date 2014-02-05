@@ -4208,7 +4208,7 @@ get_computation_cost_at (struct ivopts_data *data,
           get_loop_invariant_expr_id (data, ubase, cbase, ratio, address_p);
       /* Clear depends on.  */
       if (*inv_expr_id != -1 && depends_on && *depends_on)
-        bitmap_clear (*depends_on);
+        (*depends_on)->clear ();
     }
 
   /* If we are after the increment, the value of the candidate is higher by
@@ -4829,7 +4829,7 @@ determine_use_iv_cost_condition (struct ivopts_data *data,
       if (depends_on_elim && depends_on_elim->count_bits () > 1)
 	{
 	  elim_inv_expr_id = get_expr_id (data, bound);
-	  bitmap_clear (depends_on_elim);
+	  depends_on_elim->clear ();
 	}
       /* The bound is a loop invariant, so it will be only computed
 	 once.  */
@@ -5045,7 +5045,7 @@ determine_use_iv_costs (struct ivopts_data *data)
 	  /* Remove the candidates for that the cost is infinite from
 	     the list of related candidates.  */
 	  bitmap_and_compl_into (use->related_cands, &to_clear);
-	  bitmap_clear (&to_clear);
+	  to_clear.clear ();
 	}
     }
 
@@ -6708,8 +6708,8 @@ free_loop_data (struct ivopts_data *data)
       info->preserve_biv = false;
       info->inv_id = 0;
     }
-  bitmap_clear (data->relevant);
-  bitmap_clear (data->important_candidates);
+  data->relevant->clear ();
+  data->important_candidates->clear ();
 
   for (i = 0; i < n_iv_uses (data); i++)
     {

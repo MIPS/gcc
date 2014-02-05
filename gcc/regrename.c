@@ -182,7 +182,7 @@ free_chain_data (void)
   int i;
   du_head_p ptr;
   for (i = 0; id_to_chain.iterate (i, &ptr); i++)
-    bitmap_clear (&ptr->conflicts);
+    ptr->conflicts.clear ();
 
   id_to_chain.release ();
 }
@@ -541,7 +541,7 @@ init_rename_info (struct bb_rename_info *p, basic_block bb)
   bitmap_initialize (&p->incoming_open_chains_set, &bitmap_default_obstack);
 
   open_chains = NULL;
-  bitmap_clear (open_chains_set);
+  open_chains_set->clear ();
 
   CLEAR_HARD_REG_SET (live_in_chains);
   REG_SET_TO_HARD_REG_SET (live_hard_regs, df_get_live_in (bb));
@@ -720,7 +720,7 @@ regrename_analyze (bitmap bb_mask)
 	  bb1->aux = NULL;
 	  id_to_chain.truncate (old_length);
 	  current_id = old_length;
-	  bitmap_clear (&this_info->incoming_open_chains_set);
+	  this_info->incoming_open_chains_set.clear ();
 	  open_chains = NULL;
 	  if (insn_rr.exists ())
 	    {

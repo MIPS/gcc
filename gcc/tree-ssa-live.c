@@ -1149,7 +1149,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
 
   /* live on entry calculations used liveout vectors for defs, clear them.  */
   FOR_EACH_BB_FN (bb, cfun)
-    bitmap_clear (&liveinfo->liveout[bb->index]);
+    liveinfo->liveout[bb->index].clear ();
 
   /* Set all the live-on-exit bits for uses in PHIs.  */
   FOR_EACH_BB_FN (bb, cfun)

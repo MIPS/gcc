@@ -411,7 +411,7 @@ set_value_range_to_undefined (value_range_t *vr)
   vr->type = VR_UNDEFINED;
   vr->min = vr->max = NULL_TREE;
   if (vr->equiv)
-    bitmap_clear (vr->equiv);
+    vr->equiv->clear ();
 }
 
 
@@ -423,7 +423,7 @@ set_value_range_to_varying (value_range_t *vr)
   vr->type = VR_VARYING;
   vr->min = vr->max = NULL_TREE;
   if (vr->equiv)
-    bitmap_clear (vr->equiv);
+    vr->equiv->clear ();
 }
 
 
@@ -477,7 +477,7 @@ set_value_range (value_range_t *vr, enum value_range_type t, tree min,
       if (equiv && !equiv->is_empty ())
 	bitmap_copy (vr->equiv, equiv);
       else
-	bitmap_clear (vr->equiv);
+	vr->equiv->clear ();
     }
 }
 
@@ -8294,7 +8294,7 @@ vrp_meet_1 (value_range_t *vr0, value_range_t *vr1)
 	  /* Since this meet operation did not result from the meeting of
 	     two equivalent names, VR0 cannot have any equivalences.  */
 	  if (vr0->equiv)
-	    bitmap_clear (vr0->equiv);
+	    vr0->equiv->clear ();
 	  return;
 	}
 
@@ -8311,7 +8311,7 @@ vrp_meet_1 (value_range_t *vr0, value_range_t *vr1)
   if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
     bitmap_and_into (vr0->equiv, vr1->equiv);
   else if (vr0->equiv && !vr1->equiv)
-    bitmap_clear (vr0->equiv);
+    vr0->equiv->clear ();
 }
 
 static void

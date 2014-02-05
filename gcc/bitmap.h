@@ -179,9 +179,6 @@ struct GTY((chain_next ("%h.next"), chain_prev ("%h.prev"))) bitmap_element {
 extern bitmap_element bitmap_zero_bits;	/* Zero bitmap element */
 extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
 
-/* Clear a bitmap by freeing up the linked list.  */
-extern void bitmap_clear (bitmap);
-
 static void bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL);
 
 /* Copy a bitmap to another bitmap.  */
@@ -197,7 +194,7 @@ struct GTY(()) bitmap_head {
     bitmap_initialize_stat (this, other.obstack PASS_MEM_STAT);
     bitmap_copy (this, &other);
   }
-  ~bitmap_head () { bitmap_clear (this); }
+  ~bitmap_head () { clear (); }
 
 /* Clear a single bit in a bitmap.  Return true if the bit changed.  */
   bool clear_bit (int);
@@ -206,6 +203,8 @@ struct GTY(()) bitmap_head {
   bool set_bit (int);
   void clear_range (unsigned int, unsigned int);
   void set_range (unsigned int, unsigned int);
+
+  void clear ();
 
   /* Count the number of bits set in the bitmap.  */
   unsigned long count_bits () const;
@@ -724,5 +723,11 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
 				&(BITNUM));				\
        bmp_iter_and_compl (&(ITER), &(BITNUM));				\
        bmp_iter_next (&(ITER), &(BITNUM)))
+
+static inline void
+bitmap_clear (bitmap_head *b)
+{
+  b->clear ();
+}
 
 #endif /* GCC_BITMAP_H */

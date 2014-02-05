@@ -1267,7 +1267,7 @@ init_subregs_of_mode (void)
       if (NONDEBUG_INSN_P (insn))
         find_subregs_of_mode (PATTERN (insn), &subregs_of_mode);
 
-  bitmap_clear (&subregs_of_mode);
+  subregs_of_mode.clear ();
   bitmap_obstack_release (&srom_obstack);
 }
 

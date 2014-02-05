@@ -703,8 +703,8 @@ bitmap_set_copy (bitmap_set_t dest, bitmap_set_t orig)
 static void
 bitmap_set_free (bitmap_set_t set)
 {
-  bitmap_clear (&set->expressions);
-  bitmap_clear (&set->values);
+  set->expressions.clear ();
+  set->values.clear ();
 }
 
 

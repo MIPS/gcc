@@ -916,7 +916,7 @@ propagate_necessity (bool aggressive)
 	      && total_chain > nr_walks * 32)
 	    {
 	      chain_ovfl = true;
-	      bitmap_clear (&visited);
+	      visited.clear ();
 	    }
 	}
     }

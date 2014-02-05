@@ -484,7 +484,7 @@ analyze_function (struct cgraph_node *fn)
     }
 
   if (cgraph_node_cannot_return (fn))
-    bitmap_clear (local->statics_written);
+    local->statics_written->clear ();
 }
 
 

@@ -778,7 +778,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 
   if (uses->is_empty ())
     {
-      bitmap_clear (phis);
+      phis->clear ();
       return;
     }
 
@@ -2209,26 +2209,11 @@ rewrite_blocks (basic_block entry, enum rewrite_mode what)
 class mark_def_dom_walker : public dom_walker
 {
 public:
-  mark_def_dom_walker (cdi_direction direction);
-  ~mark_def_dom_walker ();
+  mark_def_dom_walker (cdi_direction direction) : dom_walker (direction) {}
 
   virtual void before_dom_children (basic_block);
-
-private:
-  /* Notice that this bitmap is indexed using variable UIDs, so it must be
-     large enough to accommodate all the variables referenced in the
-     function, not just the ones we are renaming.  */
-  bitmap_head m_kills;
 };
 
-mark_def_dom_walker::mark_def_dom_walker (cdi_direction direction)
-  : dom_walker (direction)
-{
-}
-
-mark_def_dom_walker::~mark_def_dom_walker ()
-{
-}
 
 /* Block processing routine for mark_def_sites.  Clear the KILLS bitmap
    at the start of each block, and call mark_def_sites for each statement.  */
@@ -2238,9 +2223,12 @@ mark_def_dom_walker::before_dom_children (basic_block bb)
 {
   gimple_stmt_iterator gsi;
 
-  bitmap_clear (&m_kills);
+  /* Notice that this bitmap is indexed using variable UIDs, so it must be
+     large enough to accommodate all the variables referenced in the
+     function, not just the ones we are renaming.  */
+  bitmap_head kills;
   for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
-    mark_def_sites (bb, gsi_stmt (gsi), &m_kills);
+    mark_def_sites (bb, gsi_stmt (gsi), &kills);
 }
 
 /* Initialize internal data needed during renaming.  */
@@ -2292,8 +2280,6 @@ fini_ssa_renamer (void)
 static unsigned int
 rewrite_into_ssa (void)
 {
-  bitmap_head *dfs;
-  basic_block bb;
   unsigned i;
 
   /* Initialize operand data structures.  */
@@ -2309,9 +2295,7 @@ rewrite_into_ssa (void)
   bitmap_clear (interesting_blocks);
 
   /* Initialize dominance frontier.  */
-  dfs = XNEWVEC (bitmap_head, last_basic_block_for_fn (cfun));
-  FOR_EACH_BB_FN (bb, cfun)
-    bitmap_initialize (&dfs[bb->index], &bitmap_default_obstack);
+  bitmap_head *dfs = new bitmap_head [last_basic_block_for_fn (cfun)];
 
   /* 1- Compute dominance frontiers.  */
   calculate_dominance_info (CDI_DOMINATORS);
@@ -2327,9 +2311,7 @@ rewrite_into_ssa (void)
   rewrite_blocks (ENTRY_BLOCK_PTR_FOR_FN (cfun), REWRITE_ALL);
 
   /* Free allocated memory.  */
-  FOR_EACH_BB_FN (bb, cfun)
-    bitmap_clear (&dfs[bb->index]);
-  free (dfs);
+  delete[] dfs;
 
   sbitmap_free (interesting_blocks);
 
@@ -3253,11 +3235,9 @@ update_ssa (unsigned update_flags)
      and for symbols found.  */
   if (insert_phi_p)
     {
-      bitmap_head *dfs;
-
       /* If the caller requested PHI nodes to be added, compute
 	 dominance frontiers.  */
-      dfs = XNEWVEC (bitmap_head, last_basic_block_for_fn (cfun));
+      bitmap_head *dfs = new bitmap_head[last_basic_block_for_fn (cfun)];
       FOR_EACH_BB_FN (bb, cfun)
 	bitmap_initialize (&dfs[bb->index], &bitmap_default_obstack);
       compute_dominance_frontiers (dfs);
@@ -3284,9 +3264,7 @@ update_ssa (unsigned update_flags)
 	insert_updated_phi_nodes_for (sym, dfs, blocks_to_update,
 	                              update_flags);
 
-      FOR_EACH_BB_FN (bb, cfun)
-	bitmap_clear (&dfs[bb->index]);
-      free (dfs);
+      delete[] dfs;
 
       /* Insertion of PHI nodes may have added blocks to the region.
 	 We need to re-compute START_BB to include the newly added

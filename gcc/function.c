@@ -6113,7 +6113,7 @@ thread_prologue_and_epilogue_insns (void)
 	 a prologue to compute the bb_antic_flags bitmap.  Exclude
 	 tail blocks; They can be duplicated to be used on paths not
 	 needing a prologue.  */
-      bitmap_clear (&bb_on_list);
+      bb_on_list.clear ();
       bitmap_and_compl (&bb_antic_flags, &bb_flags, &bb_tail);
       FOR_EACH_BB_FN (bb, cfun)
 	{

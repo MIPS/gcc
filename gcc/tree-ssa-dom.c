@@ -915,7 +915,7 @@ tree_ssa_dominator_optimize (void)
 	}
 
       gimple_purge_all_dead_eh_edges (need_eh_cleanup);
-      bitmap_clear (need_eh_cleanup);
+      need_eh_cleanup->clear ();
     }
 
   statistics_counter_event (cfun, "Redundant expressions eliminated",

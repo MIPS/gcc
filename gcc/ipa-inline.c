@@ -1658,7 +1658,7 @@ inline_small_functions (void)
 	  reset_edge_caches (where);
           update_caller_keys (edge_heap, where,
 			      &updated_nodes, NULL);
-          bitmap_clear (&updated_nodes);
+          updated_nodes.clear ();
 	}
     }
 
@@ -1771,7 +1771,7 @@ inline_small_functions (void)
 	  if (flag_indirect_inlining)
 	    add_new_edges_to_heap (edge_heap, new_indirect_edges);
           update_callee_keys (edge_heap, where, &updated_nodes);
-	  bitmap_clear (&updated_nodes);
+	  updated_nodes.clear ();
 	}
       else
 	{
@@ -1825,7 +1825,7 @@ inline_small_functions (void)
 	 called by function we inlined (since number of it inlinable callers
 	 might change).  */
       update_caller_keys (edge_heap, where, &updated_nodes, NULL);
-      bitmap_clear (&updated_nodes);
+      updated_nodes.clear ();
 
       if (dump_file)
 	{

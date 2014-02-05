@@ -967,7 +967,6 @@ verify_ssa (bool check_modified_stmt)
   ssa_op_iter iter;
   tree op;
   enum dom_state orig_dom_state = dom_info_state (CDI_DOMINATORS);
-  bitmap_head names_defined_in_bb;
 
   gcc_assert (!need_ssa_update_p (cfun));
 
@@ -1018,6 +1017,7 @@ verify_ssa (bool check_modified_stmt)
 	}
 
       /* Verify the arguments for every PHI node in the block.  */
+      bitmap_head names_defined_in_bb;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
 	  phi = gsi_stmt (gsi);
@@ -1075,8 +1075,6 @@ verify_ssa (bool check_modified_stmt)
 	      names_defined_in_bb.set_bit (SSA_NAME_VERSION (op));
 	    }
 	}
-
-      bitmap_clear (&names_defined_in_bb);
     }
 
   free (definition_block);

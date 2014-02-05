@@ -1142,7 +1142,7 @@ thread_across_edge (gimple dummy_cond,
 	bitmap_copy (&dst_map, &dst_map_copy);
      
 	/* Avoid threading to any block we have already visited.  */
-	bitmap_clear (&visited);
+	visited.clear ();
 	visited.set_bit (e->src->index);
 	visited.set_bit (e->dest->index);
 	visited.set_bit (taken_edge->dest->index);

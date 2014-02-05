@@ -612,9 +612,9 @@ same_succ_def::remove (same_succ e)
 static void
 same_succ_reset (same_succ same)
 {
-  bitmap_clear (&same->bbs);
-  bitmap_clear (&same->succs);
-  bitmap_clear (&same->inverse);
+  same->bbs.clear ();
+  same->succs.clear ();
+  same->inverse.clear ();
   same->succ_flags.truncate (0);
 }
 
@@ -858,7 +858,7 @@ update_worklist (void)
   same_succ same;
 
   bitmap_and_compl_into (deleted_bb_preds, deleted_bbs);
-  bitmap_clear (deleted_bbs);
+  deleted_bbs->clear ();
 
   deleted_bb_preds->clear_bit (ENTRY_BLOCK);
   same_succ_flush_bbs (deleted_bb_preds);
@@ -873,7 +873,7 @@ update_worklist (void)
 	same = new same_succ_def;
     }
   same_succ_def::remove (same);
-  bitmap_clear (deleted_bb_preds);
+  deleted_bb_preds->clear ();
 }
 
 /* Prints cluster C to FILE.  */

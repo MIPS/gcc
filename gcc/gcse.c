@@ -1651,8 +1651,8 @@ clear_modify_mem_tables (void)
       modify_mem_list[i].release ();
       canon_modify_mem_list[i].release ();
     }
-  bitmap_clear (modify_mem_list_set);
-  bitmap_clear (blocks_with_calls);
+  modify_mem_list_set->clear ();
+  blocks_with_calls->clear ();
 }
 
 /* Release memory used by modify_mem_list_set.  */
@@ -3397,7 +3397,7 @@ hoist_code (void)
 		}
 
 	      occrs_to_hoist.release ();
-	      bitmap_clear (&from_bbs);
+	      from_bbs.clear ();
 	    }
 	}
       domby.release ();

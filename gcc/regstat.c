@@ -116,7 +116,6 @@ size_t reg_info_p_size;
 
 static void
 regstat_bb_compute_ri (unsigned int bb_index,
-		       bitmap live, bitmap artificial_uses,
 		       bitmap local_live, bitmap local_processed,
 		       int *local_live_last_luid)
 {
@@ -128,12 +127,12 @@ regstat_bb_compute_ri (unsigned int bb_index,
   bitmap_iterator bi;
   unsigned int regno;
 
-  bitmap_copy (live, df_get_live_out (bb));
-  bitmap_clear (artificial_uses);
+  bitmap_head live (*df_get_live_out (bb));
+  bitmap_head artificial_uses (&df_bitmap_obstack);
 
   /* Process the regs live at the end of the block.  Mark them as
      not local to any one basic block.  */
-  EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
+  EXECUTE_IF_SET_IN_BITMAP (&live, 0, regno, bi)
     REG_BASIC_BLOCK (regno) = REG_BLOCK_GLOBAL;
 
   /* Process the artificial defs and uses at the bottom of the block
@@ -142,7 +141,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
     {
       df_ref def = *def_rec;
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	live->clear_bit (DF_REF_REGNO (def));
+	live.clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -151,8 +150,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
 	{
 	  regno = DF_REF_REGNO (use);
-	  live->set_bit (regno);
-	  artificial_uses->set_bit (regno);
+	  live.set_bit (regno);
+	  artificial_uses.set_bit (regno);
 	}
     }
 
@@ -181,7 +180,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 	{
 	  bool can_throw = can_throw_internal (insn);
 	  bool set_jump = (find_reg_note (insn, REG_SETJMP, NULL) != NULL);
-	  EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
+	  EXECUTE_IF_SET_IN_BITMAP (&live, 0, regno, bi)
 	    {
 	      REG_N_CALLS_CROSSED (regno)++;
 	      REG_FREQ_CALLS_CROSSED (regno) += REG_FREQ_FROM_BB (bb);
@@ -218,8 +217,8 @@ regstat_bb_compute_ri (unsigned int bb_index,
 	      unsigned int r;
 
 	      for (r = mws->start_regno; r <= mws->end_regno; r++)
-		if (artificial_uses->bit (r)
-		    || live->bit (r))
+		if (artificial_uses.bit (r)
+		    || live.bit (r))
 		  {
 		    all_dead = false;
 		    break;
@@ -243,7 +242,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 	    {
 	      unsigned int dregno = DF_REF_REGNO (def);
 
-	      if (live->bit (dregno))
+	      if (live.bit (dregno))
 		{
 		  /* If we have seen a use of DREGNO somewhere before (i.e.
 		     later in this basic block), and DEF is not a subreg
@@ -279,10 +278,10 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		     basic block.  This results in poor calculations of
 		     REG_LIVE_LENGTH in large basic blocks.  */
 		  if (!(DF_REF_FLAGS (def) & (DF_REF_PARTIAL | DF_REF_CONDITIONAL)))
-		    live->clear_bit (dregno);
+		    live.clear_bit (dregno);
 		}
 	      else if ((!(DF_REF_FLAGS (def) & DF_REF_MW_HARDREG))
-		       && (!artificial_uses->bit (dregno)))
+		       && (!artificial_uses.bit (dregno)))
 		{
 		  REG_LIVE_LENGTH (dregno)++;
 		}
@@ -318,7 +317,7 @@ regstat_bb_compute_ri (unsigned int bb_index,
 		REG_BASIC_BLOCK (uregno) = REG_BLOCK_GLOBAL;
 	    }
 
-	  if (live->set_bit (uregno))
+	  if (live.set_bit (uregno))
 	    {
 	      /* This register is now live.  Begin to process it locally.
 
@@ -342,12 +341,9 @@ regstat_bb_compute_ri (unsigned int bb_index,
 
   /* Add the length of the block to all of the registers that were not
      referenced, but still live in this block.  */
-  bitmap_and_compl_into (live, local_processed);
-  EXECUTE_IF_SET_IN_BITMAP (live, 0, regno, bi)
+  bitmap_and_compl_into (&live, local_processed);
+  EXECUTE_IF_SET_IN_BITMAP (&live, 0, regno, bi)
     REG_LIVE_LENGTH (regno) += luid;
-
-  bitmap_clear (local_processed);
-  bitmap_clear (local_live);
 }
 
 
@@ -357,9 +353,6 @@ regstat_compute_ri (void)
 {
   basic_block bb;
   bitmap_head live (&df_bitmap_obstack);
-  bitmap_head artificial_uses (&df_bitmap_obstack);
-  bitmap_head local_live (&df_bitmap_obstack);
-  bitmap_head local_processed (&df_bitmap_obstack);
   unsigned int regno;
   bitmap_iterator bi;
   int *local_live_last_luid;
@@ -377,8 +370,9 @@ regstat_compute_ri (void)
 
   FOR_EACH_BB_FN (bb, cfun)
     {
-      regstat_bb_compute_ri (bb->index, &live, &artificial_uses,
-			     &local_live, &local_processed,
+      bitmap_head local_live (&df_bitmap_obstack);
+      bitmap_head local_processed (&df_bitmap_obstack);
+      regstat_bb_compute_ri (bb->index, &local_live, &local_processed,
 			     local_live_last_luid);
     }
 

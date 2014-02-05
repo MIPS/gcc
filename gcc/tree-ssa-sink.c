@@ -140,7 +140,6 @@ all_immediate_uses_same_place (gimple stmt)
 static basic_block
 nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
 {
-  bitmap_head blocks;
   basic_block commondom;
   unsigned int j;
   bitmap_iterator bi;
@@ -149,7 +148,7 @@ nearest_common_dominator_of_uses (gimple stmt, bool *debug_stmts)
   use_operand_p use_p;
   tree var;
 
-  bitmap_clear (&blocks);
+  bitmap_head blocks;
   FOR_EACH_SSA_TREE_OPERAND (var, stmt, op_iter, SSA_OP_ALL_DEFS)
     {
       FOR_EACH_IMM_USE_FAST (use_p, imm_iter, var)

@@ -692,7 +692,7 @@ live_track_add_partition (live_track_p ptr, int partition)
   /* If this base var wasn't live before, it is now.  Clear the element list
      since it was delayed until needed.  */
   if (ptr->live_base_var->set_bit (root))
-    bitmap_clear (ptr->live_base_partitions[root]);
+    ptr->live_base_partitions[root]->clear ();
   ptr->live_base_partitions[root]->set_bit (partition);
 
 }
@@ -798,7 +798,7 @@ live_track_clear_base_vars (live_track_p ptr)
   /* Simply clear the live base list.  Anything marked as live in the element
      lists will be cleared later if/when the base variable ever comes alive
      again.  */
-  bitmap_clear (ptr->live_base_var);
+  ptr->live_base_var->clear ();
 }
 
 

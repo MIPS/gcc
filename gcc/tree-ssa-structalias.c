@@ -6113,7 +6113,7 @@ find_what_var_points_to (varinfo_t orig_vi)
   else
     {
       pt->vars = result;
-      bitmap_clear (finished_solution);
+      finished_solution->clear ();
     }
 
   return *pt;
