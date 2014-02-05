@@ -110,6 +110,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
 #include "cfgloop.h"
+#include "tree-chkp.h"
 
 /* Per basic block info.  */
 
@@ -388,6 +389,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   int incoming_freq = 0;
   tree retval;
   bool back_edge = false;
+  bitmap_iterator bi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_split_point (dump_file, current);
@@ -495,6 +497,28 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
     }
   if (!VOID_TYPE_P (TREE_TYPE (current_function_decl)))
     call_overhead += estimate_move_cost (TREE_TYPE (current_function_decl));
+
+  /* Currently bounds passing and return is not supported for
+     splitted functions.  */
+  EXECUTE_IF_SET_IN_BITMAP (current->ssa_names_to_pass, 0, i, bi)
+    {
+      if (POINTER_BOUNDS_P (ssa_name (i)))
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file,
+		     "  Refused: need to pass bounds\n");
+	  return;
+	}
+    }
+
+  if (chkp_function_instrumented_p (current_function_decl)
+      && chkp_type_has_pointer (TREE_TYPE (current_function_decl)))
+    {
+      if (dump_file && (dump_flags & TDF_DETAILS))
+	fprintf (dump_file,
+		 "  Refused: need to return bounds\n");
+      return;
+    }
 
   if (current->split_size <= call_overhead)
     {
