@@ -132,7 +132,10 @@ opt_pass::opt_pass (const pass_data &data, context *ctxt)
 void
 pass_manager::execute_early_local_passes ()
 {
-  execute_pass_list (pass_early_local_passes_1->sub);
+  execute_pass_list (pass_early_local_passes_1->sub->sub);
+  execute_pass_list (pass_early_local_passes_1->sub->next->sub);
+  execute_pass_list (pass_early_local_passes_1->sub->next->next->next->sub);
+  //execute_pass_list (pass_early_local_passes_1->sub->next->next->sub);
 }
 
 unsigned int
@@ -376,12 +379,99 @@ public:
 
 }; // class pass_early_local_passes
 
+const pass_data pass_data_before_local_optimization_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "pre_opt_local_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  false, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_before_local_optimization_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_before_local_optimization_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_before_local_optimization_passes, ctxt)
+  {}
+}; // class pass_before_local_optimization_passes
+
+const pass_data pass_data_chkp_instrumentation_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  false, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  TODO_remove_functions, /* todo_flags_finish */
+};
+
+class pass_chkp_instrumentation_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_chkp_instrumentation_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_chkp_instrumentation_passes, ctxt)
+  {}
+}; // class pass_chkp_instrumentation_passes
+
+const pass_data pass_data_local_optimization_passes =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "opt_local_passes", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* has_gate */
+  false, /* has_execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0, /* todo_flags_finish */
+};
+
+class pass_local_optimization_passes : public simple_ipa_opt_pass
+{
+public:
+  pass_local_optimization_passes (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_local_optimization_passes, ctxt)
+  {}
+}; // class pass_local_optimization_passes
+
 } // anon namespace
 
 simple_ipa_opt_pass *
 make_pass_early_local_passes (gcc::context *ctxt)
 {
   return new pass_early_local_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_before_local_optimization_passes (gcc::context *ctxt)
+{
+  return new pass_before_local_optimization_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_chkp_instrumentation_passes (gcc::context *ctxt)
+{
+  return new pass_chkp_instrumentation_passes (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_local_optimization_passes (gcc::context *ctxt)
+{
+  return new pass_local_optimization_passes (ctxt);
 }
 
 /* Gate: execute, or not, all of the non-trivial optimizations.  */

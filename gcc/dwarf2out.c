@@ -10251,6 +10251,7 @@ is_base_type (tree type)
     case FIXED_POINT_TYPE:
     case COMPLEX_TYPE:
     case BOOLEAN_TYPE:
+    case POINTER_BOUNDS_TYPE:
       return 1;
 
     case ARRAY_TYPE:
@@ -17541,18 +17542,21 @@ gen_formal_types_die (tree function_or_method_type, dw_die_ref context_die)
 	break;
 
       /* Output a (nameless) DIE to represent the formal parameter itself.  */
-      parm_die = gen_formal_parameter_die (formal_type, NULL,
-					   true /* Emit name attribute.  */,
-					   context_die);
-      if (TREE_CODE (function_or_method_type) == METHOD_TYPE
-	  && link == first_parm_type)
+      if (!POINTER_BOUNDS_TYPE_P (formal_type))
 	{
-	  add_AT_flag (parm_die, DW_AT_artificial, 1);
-	  if (dwarf_version >= 3 || !dwarf_strict)
-	    add_AT_die_ref (context_die, DW_AT_object_pointer, parm_die);
+	  parm_die = gen_formal_parameter_die (formal_type, NULL,
+					       true /* Emit name attribute.  */,
+					       context_die);
+	  if (TREE_CODE (function_or_method_type) == METHOD_TYPE
+	      && link == first_parm_type)
+	    {
+	      add_AT_flag (parm_die, DW_AT_artificial, 1);
+	      if (dwarf_version >= 3 || !dwarf_strict)
+		add_AT_die_ref (context_die, DW_AT_object_pointer, parm_die);
+	    }
+	  else if (arg && DECL_ARTIFICIAL (arg))
+	    add_AT_flag (parm_die, DW_AT_artificial, 1);
 	}
-      else if (arg && DECL_ARTIFICIAL (arg))
-	add_AT_flag (parm_die, DW_AT_artificial, 1);
 
       link = TREE_CHAIN (link);
       if (arg)
@@ -20288,6 +20292,12 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
   tree class_origin = NULL, ultimate_origin;
 
   if (DECL_P (decl_or_origin) && DECL_IGNORED_P (decl_or_origin))
+    return NULL;
+
+  /* Ignore pointer bounds decls.  */
+  if (DECL_P (decl_or_origin)
+      && TREE_TYPE (decl_or_origin)
+      && POINTER_BOUNDS_P (decl_or_origin))
     return NULL;
 
   switch (TREE_CODE (decl_or_origin))

@@ -1817,6 +1817,12 @@ cgraph_remove_node (struct cgraph_node *node)
     }
   cgraph_n_nodes--;
 
+  if (node->instrumented_version)
+    {
+      node->instrumented_version->instrumented_version = NULL;
+      node->instrumented_version = NULL;
+    }
+
   /* Clear out the node to NULL all pointers and add the node to the free
      list.  */
   memset (node, 0, sizeof (*node));
@@ -2059,6 +2065,11 @@ dump_cgraph_node (FILE *f, struct cgraph_node *node)
   if (indirect_calls_count)
     fprintf (f, "  Has %i outgoing edges for indirect calls.\n",
 	     indirect_calls_count);
+
+  if (node->instrumentation_clone)
+    fprintf (f, "  Is instrumented version.\n");
+  else if (node->instrumented_version)
+    fprintf (f, "  Has instrumented version.\n");
 }
 
 
@@ -2403,6 +2414,11 @@ bool
 cgraph_can_remove_if_no_direct_calls_and_refs_p (struct cgraph_node *node)
 {
   gcc_assert (!node->global.inlined_to);
+  /* Instrumentation clones should not be removed before
+     instrumentation.  */
+  if (node->instrumentation_clone
+      && !chkp_function_instrumented_p (node->decl))
+    return false;
   /* Extern inlines can always go, we will use the external definition.  */
   if (DECL_EXTERNAL (node->decl))
     return true;
@@ -2808,7 +2824,9 @@ verify_cgraph_node (struct cgraph_node *node)
 	}
       for (i = 0; ipa_ref_list_reference_iterate (&node->ref_list,
 						  i, ref); i++)
-	if (ref->use != IPA_REF_ALIAS)
+	if (ref->use == IPA_REF_CHKP)
+	  ;
+	else if (ref->use != IPA_REF_ALIAS)
 	  {
 	    error ("Alias has non-alias reference");
 	    error_found = true;
@@ -2826,6 +2844,35 @@ verify_cgraph_node (struct cgraph_node *node)
 	    error_found = true;
 	  }
     }
+
+  /* Check all nodes reference their instrumented versions.  */
+  if (node->analyzed
+      && node->instrumented_version
+      && !node->instrumentation_clone)
+    {
+      bool ref_found = false;
+      int i;
+      struct ipa_ref *ref;
+
+      for (i = 0; ipa_ref_list_reference_iterate (&node->ref_list,
+						  i, ref); i++)
+	if (ref->use == IPA_REF_CHKP)
+	  {
+	    if (ref_found)
+	      {
+		error ("Node has more than one chkp reference");
+		error_found = true;
+	      }
+	    ref_found = true;
+	  }
+
+      if (!ref_found)
+	{
+	  error ("Analyzed node has no reference to instrumented version");
+	  error_found = true;
+	}
+    }
+
   if (node->analyzed && node->thunk.thunk_p)
     {
       if (!node->callees)
@@ -2843,6 +2890,12 @@ verify_cgraph_node (struct cgraph_node *node)
 	  error ("Thunk is not supposed to have body");
           error_found = true;
         }
+      if (node->thunk.add_pointer_bounds_args
+	  && node->callees->callee != node->instrumented_version)
+	{
+	  error ("Instrumentation thunk has wrong edge callee");
+          error_found = true;
+	}
     }
   else if (node->analyzed && gimple_has_body_p (node->decl)
            && !TREE_ASM_WRITTEN (node->decl)

@@ -61,6 +61,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "tree-chkp.h"
 #include "rtl.h" /* For MEM_P.  */
+#include "tree-dfa.h"
+#include <sstream>
 
 /*  Pointer Bounds Checker pass instruments code with memory checks to find
     out-of-bounds memory accesses.  Checks are performed by computing
@@ -477,6 +479,362 @@ chkp_function_instrumented_p (tree fndecl)
     && lookup_attribute ("chkp instrumented", DECL_ATTRIBUTES (fndecl));
 }
 
+/* Build clone of FNDECL with added bound params.  */
+static tree
+chkp_build_instrumented_fndecl (tree fndecl)
+{
+  tree new_decl = copy_node (fndecl);
+  tree new_name;
+  std::string s;
+
+  /* We want called_as_built_in recall instrumented calls
+     to instrumented built-in functions.  Therefore use
+     DECL_NAME for cloning instead of DECL_ASSEMBLER_NAME.
+
+     DECL_ASSEMBLER NAME is the same because instrumented
+     function replaces the original version.  */
+  s = IDENTIFIER_POINTER (DECL_NAME (fndecl));
+  s += ".chkp";
+  DECL_NAME (new_decl) = get_identifier (s.c_str ());
+
+  /* References to the original and to the instrumented version
+     should look the same in the output assembly.  And we cannot
+     use the same assembler name for the instrumented version
+     because it conflicts with decl merging algorithms during LTO.
+     Achieve the result by using transparent alias name for the
+     instrumented version.  */
+  s = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (fndecl));
+  s += ".chkp";
+  new_name = get_identifier (s.c_str ());
+  IDENTIFIER_TRANSPARENT_ALIAS (new_name) = 1;
+  TREE_CHAIN (new_name) = DECL_ASSEMBLER_NAME (fndecl);
+  SET_DECL_ASSEMBLER_NAME (new_decl, new_name);
+
+  /* For functions with body versioning will make a copy of arguments.
+     For functions with no body we need to do it here.  */
+  if (!gimple_has_body_p (fndecl))
+    DECL_ARGUMENTS (new_decl) = copy_list (DECL_ARGUMENTS (fndecl));
+
+  return new_decl;
+}
+
+static tree
+chkp_copy_function_type_adding_bounds (tree orig_type)
+{
+  tree type;
+  tree arg_type, attrs, t;
+  unsigned *indexes = XALLOCAVEC (unsigned,
+				  list_length (TYPE_ARG_TYPES (orig_type)));
+  unsigned idx = 0, new_idx = 0;
+
+  for (arg_type = TYPE_ARG_TYPES (orig_type);
+       arg_type;
+       arg_type = TREE_CHAIN (arg_type))
+    if (TREE_VALUE (arg_type) == void_type_node)
+      continue;
+    else if (BOUNDED_TYPE_P (TREE_VALUE (arg_type))
+	     || pass_by_reference (NULL, TYPE_MODE (TREE_VALUE (arg_type)),
+				   TREE_VALUE (arg_type), true)
+	     || chkp_type_has_pointer (TREE_VALUE (arg_type)))
+      break;
+
+  /* We may use original type if there are no bounds passed.  */
+  if (!arg_type)
+    return orig_type;
+
+  type = copy_node (orig_type);
+  TYPE_ARG_TYPES (type) = copy_list (TYPE_ARG_TYPES (type));
+
+  for (arg_type = TYPE_ARG_TYPES (type);
+       arg_type;
+       arg_type = TREE_CHAIN (arg_type))
+    {
+      indexes[idx++] = new_idx++;
+
+      /* pass_by_reference returns 1 for void type,
+	 so check for it first.  */
+      if (TREE_VALUE (arg_type) == void_type_node)
+	continue;
+      else if (BOUNDED_TYPE_P (TREE_VALUE (arg_type))
+	       || pass_by_reference (NULL, TYPE_MODE (TREE_VALUE (arg_type)),
+				     TREE_VALUE (arg_type), true))
+	{
+	  tree new_type = build_tree_list (NULL_TREE,
+					   pointer_bounds_type_node);
+	  TREE_CHAIN (new_type) = TREE_CHAIN (arg_type);
+	  TREE_CHAIN (arg_type) = new_type;
+
+	  arg_type = TREE_CHAIN (arg_type);
+	  new_idx++;
+	}
+      else if (chkp_type_has_pointer (TREE_VALUE (arg_type)))
+	{
+	  vec<bool> slots = chkp_find_bound_slots (TREE_VALUE (arg_type));
+	  unsigned bnd_no;
+	  for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
+	    if (slots[bnd_no])
+	      {
+		tree new_type = build_tree_list (NULL_TREE,
+						 pointer_bounds_type_node);
+		TREE_CHAIN (new_type) = TREE_CHAIN (arg_type);
+		TREE_CHAIN (arg_type) = new_type;
+
+		arg_type = TREE_CHAIN (arg_type);
+		new_idx++;
+	      }
+	  slots.release ();
+	}
+    }
+
+  /* If function type has nonnull attribute then we have
+     to copy it fixing attribute ops.  Map for fixing is
+     in indexes array.  */
+  attrs = TYPE_ATTRIBUTES (type);
+  if (lookup_attribute ("nonnull", attrs))
+    {
+      attrs = copy_list (TYPE_ATTRIBUTES (type));
+      t = lookup_attribute ("nonnull", attrs);
+      gcc_assert(t);
+      TREE_VALUE (t) = copy_list (TREE_VALUE (t));
+      for (t = TREE_VALUE (t); t; t = TREE_CHAIN (t))
+	{
+	  idx = TREE_INT_CST_LOW (TREE_VALUE (t)) - 1;
+	  new_idx = indexes[idx] + 1;
+	  TREE_VALUE (t) = build_int_cst (TREE_TYPE (TREE_VALUE (t)),
+					  new_idx);
+	}
+      TYPE_ATTRIBUTES (type) = attrs;
+    }
+
+  t = TYPE_MAIN_VARIANT (orig_type);
+  if (orig_type != t)
+    {
+      TYPE_MAIN_VARIANT (type) = t;
+      TYPE_NEXT_VARIANT (type) = TYPE_NEXT_VARIANT (t);
+      TYPE_NEXT_VARIANT (t) = type;
+    }
+  else
+    {
+      TYPE_MAIN_VARIANT (type) = type;
+      TYPE_NEXT_VARIANT (type) = NULL;
+    }
+
+
+  return type;
+}
+
+/* For given function NODE add bounds arguments to arguments
+   list.  */
+static void
+chkp_add_bounds_params_to_function (struct cgraph_node *node)
+{
+  tree arg;
+
+  for (arg = DECL_ARGUMENTS (node->decl); arg; arg = DECL_CHAIN (arg))
+    if (BOUNDED_P (arg))
+      {
+	std::string new_name = CHKP_BOUNDS_OF_SYMBOL_PREFIX;
+	if (DECL_NAME (arg))
+	  new_name += IDENTIFIER_POINTER (DECL_NAME (arg));
+	else
+	  {
+	    char uid[10];
+	    snprintf (uid, 10, "D.%u", DECL_UID (arg));
+	    new_name += uid;
+	  }
+
+	tree new_arg = build_decl (DECL_SOURCE_LOCATION (arg), PARM_DECL,
+				   get_identifier (new_name.c_str ()),
+				   pointer_bounds_type_node);
+	DECL_ARG_TYPE (new_arg) = pointer_bounds_type_node;
+	DECL_CONTEXT (new_arg) = DECL_CONTEXT (arg);
+	DECL_CHAIN (new_arg) = DECL_CHAIN (arg);
+	DECL_CHAIN (arg) = new_arg;
+
+	arg = DECL_CHAIN (arg);
+
+      }
+    else if (chkp_type_has_pointer (TREE_TYPE (arg)))
+      {
+	tree orig_arg = arg;
+	vec<bool> slots = chkp_find_bound_slots (TREE_TYPE (arg));
+	unsigned bnd_no;
+	for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
+	  if (slots[bnd_no])
+	    {
+	      std::ostringstream ss;
+	      ss << CHKP_BOUNDS_OF_SYMBOL_PREFIX;
+	      if (DECL_NAME (orig_arg))
+		ss << IDENTIFIER_POINTER (DECL_NAME (orig_arg));
+	      else
+		ss << "D." << DECL_UID (arg);
+	      ss << "__" << (bnd_no * POINTER_SIZE / BITS_PER_UNIT);
+
+	      tree new_arg = build_decl (DECL_SOURCE_LOCATION (orig_arg),
+					 PARM_DECL,
+					 get_identifier (ss.str ().c_str ()),
+					 pointer_bounds_type_node);
+	      DECL_ARG_TYPE (new_arg) = pointer_bounds_type_node;
+	      DECL_CONTEXT (new_arg) = DECL_CONTEXT (orig_arg);
+	      DECL_CHAIN (new_arg) = DECL_CHAIN (arg);
+	      DECL_CHAIN (arg) = new_arg;
+
+	      arg = DECL_CHAIN (arg);
+	    }
+      }
+
+  TREE_TYPE (node->decl) =
+    chkp_copy_function_type_adding_bounds (TREE_TYPE (node->decl));
+}
+
+/* Return clone created for instrumentation of NODE or NULL.  */
+static struct cgraph_node *
+chkp_maybe_create_instrumentation_clone (tree fndecl)
+{
+  struct cgraph_node *node = cgraph_get_node (fndecl), *clone;
+
+  gcc_assert (!node->instrumentation_clone);
+
+  clone = node->instrumented_version;
+
+  if (!clone)
+    {
+      tree new_decl = chkp_build_instrumented_fndecl (fndecl);
+      struct cgraph_edge *e;
+      struct ipa_ref *ref;
+      int i;
+
+      clone = cgraph_copy_node_for_versioning (node, new_decl, vNULL, NULL); 
+      clone->externally_visible = node->externally_visible;
+      clone->local = node->local;
+      clone->address_taken = node->address_taken;
+      clone->thunk = node->thunk;
+      clone->alias = node->alias;
+      clone->cpp_implicit_alias = node->cpp_implicit_alias;
+
+      if (gimple_has_body_p (fndecl))
+	{
+	  tree_function_versioning (fndecl, new_decl, NULL, false, NULL, false, NULL,
+				    NULL);
+	  clone->lowered = true;
+	}
+
+      /* Clone all aliases.  */
+      for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
+	if (ref->use == IPA_REF_ALIAS)
+	  {
+	    struct cgraph_node *alias = dyn_cast <cgraph_node> (ref->referring);
+	    struct cgraph_node *chkp_alias
+	      = chkp_maybe_create_instrumentation_clone (alias->decl);
+	    ipa_record_reference (chkp_alias, clone, IPA_REF_ALIAS, NULL);
+	  }
+
+      /* Clone all thunks.  */
+      for (e = node->callers; e; e = e->next_caller)
+	if (e->caller->thunk.thunk_p)
+	  {
+	    struct cgraph_node *thunk
+	      = chkp_maybe_create_instrumentation_clone (e->caller->decl);
+	    /* Redirect thunk clone edge to the node clone.  */
+	    cgraph_redirect_edge_callee (thunk->callees, clone);
+	  }
+
+      chkp_add_bounds_params_to_function (clone);
+      clone->instrumented_version = node;
+      clone->orig_decl = fndecl;
+      clone->instrumentation_clone = true;
+      node->instrumented_version = clone;
+
+      /* Clones have the same comdat group as originals.  */
+      if (node->same_comdat_group
+	  || DECL_ONE_ONLY (node->decl))
+	symtab_add_to_same_comdat_group (clone, node);
+
+      /* Thunks have no body to instrument, therefore mark them as
+	 already instrumented.  */
+      if (clone->thunk.thunk_p)
+	DECL_ATTRIBUTES (clone->decl)
+	  = tree_cons (get_identifier ("chkp instrumented"), NULL,
+		       DECL_ATTRIBUTES (clone->decl));
+
+      /* Add IPA reference.  It's main role is to keep instrumented
+	 version reachable while original node is reachable.  */
+      ref = ipa_record_reference (node, clone, IPA_REF_CHKP, NULL);
+
+      cgraph_call_function_insertion_hooks (clone);
+    }
+
+  return clone;
+}
+
+/* Create versions of functions to be instrumented.  */
+static unsigned int
+chkp_versioning (void)
+{
+  struct cgraph_node *node;
+
+  FOR_EACH_DEFINED_FUNCTION (node)
+    {
+      if (!node->instrumentation_clone
+	  && !node->instrumented_version
+	  && !node->alias
+	  && !node->thunk.thunk_p
+	  && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (node->decl)))
+	chkp_maybe_create_instrumentation_clone (node->decl);
+    }
+
+  /* Mark all aliases and thunks of functions with no instrumented
+     version as legacy function.  */
+  FOR_EACH_DEFINED_FUNCTION (node)
+    {
+      if (!node->instrumentation_clone
+	  && !node->instrumented_version
+	  && (node->alias || node->thunk.thunk_p)
+	  && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (node->decl)))
+	DECL_ATTRIBUTES (node->decl)
+	  = tree_cons (get_identifier ("bnd_legacy"), NULL,
+		       DECL_ATTRIBUTES (node->decl));
+    }
+
+
+  return 0;
+}
+
+/* In this pass we remove bodies of functions having
+   instrumented version.  Functions with removed bodies
+   become a special kind of thunks to provide a connection
+   between calls to the original version and instrumented
+   function.  */
+
+static unsigned int
+chkp_produce_thunks (void)
+{
+  struct cgraph_node *node;
+
+  FOR_EACH_DEFINED_FUNCTION (node)
+    {
+      if (!node->instrumentation_clone
+	  && node->instrumented_version
+	  && gimple_has_body_p (node->decl))
+	{
+	  cgraph_release_function_body (node);
+	  cgraph_node_remove_callees (node);
+	  ipa_remove_all_references (&node->ref_list);
+
+	  node->thunk.thunk_p = true;
+	  node->thunk.add_pointer_bounds_args = true;
+	  cgraph_create_edge (node, node->instrumented_version, NULL,
+			      0, CGRAPH_FREQ_BASE);
+	  ipa_record_reference (node, node->instrumented_version,
+				IPA_REF_CHKP, NULL);
+	}
+    }
+
+  symtab_remove_unreachable_nodes (true, dump_file);
+
+  return 0;
+}
+
 /* Mark statement S to not be instrumented.  */
 static void
 chkp_mark_stmt (gimple s)
@@ -884,7 +1242,9 @@ chkp_type_bounds_count (const_tree type)
 {
   unsigned res = 0;
 
-  if (BOUNDED_TYPE_P (type))
+  if (!type)
+    res = 0;
+  else if (BOUNDED_TYPE_P (type))
     res = 1;
   else if (RECORD_OR_UNION_TYPE_P (type))
     {
@@ -892,6 +1252,7 @@ chkp_type_bounds_count (const_tree type)
       for (unsigned bnd_no = 0; bnd_no < have_bound.length (); bnd_no++)
 	if (have_bound[bnd_no])
 	  res++;
+      have_bound.release ();
     }
 
   return res;
@@ -1375,7 +1736,7 @@ chkp_can_be_shared (tree t)
   return false;
 }
 
-/* Helper function for chkp_find_bounds_for_struct.
+/* Helper function for chkp_add_bounds_to_call_stmt.
    Fill ALL_BOUNDS output array with created bounds.
 
    OFFS is used for recursive calls and holds basic
@@ -1516,6 +1877,8 @@ chkp_find_bound_slots (const_tree type)
 tree
 chkp_get_call_arg_bounds (tree arg)
 {
+  return NULL;
+
   gimple bind;
 
   gcc_assert (TREE_CODE (arg) == SSA_NAME);
@@ -1600,9 +1963,17 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   tree first_formal_arg;
   tree arg;
   bool use_fntype = false;
+  tree op;
+  ssa_op_iter iter;
+  gimple new_call;
 
   /* Do nothing if back-end builtin is called.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
+    return;
+
+  /* Donothing for calls to legacy functions.  */
+  if (fndecl
+      && lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl)))
     return;
 
   /* Ignore CHKP_INIT_PTR_BOUNDS, CHKP_NULL_PTR_BOUNDS
@@ -1672,6 +2043,12 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       return;
     }
 
+  /* Do nothing if builtin was called as builtin.  */
+  //if (fndecl
+  //    && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+  //    && called_as_built_in (fndecl))
+  //  return;
+
   /* If function decl is available then use it for
      formal arguments list.  Otherwise use function type.  */
   if (fndecl && DECL_ARGUMENTS (fndecl))
@@ -1682,7 +2059,9 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       use_fntype = true;
     }
 
-  /* Bind bounds to all arguments.  */
+  /* Fill vector of new call args.  */
+  vec<tree> new_args = vNULL;
+  new_args.create (gimple_call_num_args (call));
   arg = first_formal_arg;
   for (arg_no = 0; arg_no < gimple_call_num_args (call); arg_no++)
     {
@@ -1708,19 +2087,77 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
       else
 	type = TREE_TYPE (call_arg);
 
+      new_args.safe_push (call_arg);
+
       if (BOUNDED_TYPE_P (type)
 	  || pass_by_reference (NULL, TYPE_MODE (type), type, true))
-	{
-	  tree bounds = chkp_find_bounds (call_arg, gsi);
-	  tree new_arg = chkp_bind_bounds (gsi, call_arg, bounds);
-	  gimple_call_set_arg (call, arg_no, new_arg);
-	}
+	new_args.safe_push (chkp_find_bounds (call_arg, gsi));
       else if (chkp_type_has_pointer (type))
-	TREE_ADDRESSABLE (call_arg) = 1;
+	{
+	  HOST_WIDE_INT max_bounds
+	    = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
+	  tree *all_bounds = (tree *)xmalloc (sizeof (tree) * max_bounds);
+	  HOST_WIDE_INT bnd_no;
+
+	  memset (all_bounds, 0, sizeof (tree) * max_bounds);
+
+	  chkp_find_bounds_for_elem (call_arg, all_bounds, 0, gsi);
+
+	  for (bnd_no = 0; bnd_no < max_bounds; bnd_no++)
+	    if (all_bounds[bnd_no])
+	      new_args.safe_push (all_bounds[bnd_no]);
+
+           free (all_bounds);
+	}
     }
 
-  update_stmt (call);
-  gimple_call_set_with_bounds (call, true);
+  if (new_args.length () == gimple_call_num_args (call))
+    new_call = call;
+  else
+    {
+      new_call = gimple_build_call_vec (gimple_op (call, 1), new_args);
+      gimple_call_set_lhs (new_call, gimple_call_lhs (call));
+      gimple_call_copy_flags (new_call, call);
+    }
+  new_args.release ();
+
+  /* If we call built-in function and pass no bounds then
+     we do not need to change anything.  */
+  if (new_call == call
+      && fndecl
+      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+      && called_as_built_in (fndecl))
+      return;
+
+  /* For direct calls fndecl is replaced with instrumented version.  */
+  if (fndecl)
+    {
+      tree new_decl = chkp_maybe_create_instrumentation_clone (fndecl)->decl;
+      gimple_call_set_fndecl (new_call, new_decl);
+      gimple_call_set_fntype (new_call, TREE_TYPE (new_decl));
+    }
+  /* For indirect call we should fix function pointer type if
+     pass some bounds.  */
+  else if (new_call != call)
+    {
+      tree type = gimple_call_fntype (call);
+      type = chkp_copy_function_type_adding_bounds (type);
+      gimple_call_set_fntype (new_call, type);
+    }
+
+  /* replace old call statement with the new one.  */
+  if (call != new_call)
+    {
+      FOR_EACH_SSA_TREE_OPERAND (op, call, iter, SSA_OP_ALL_DEFS)
+	{
+	  SSA_NAME_DEF_STMT (op) = new_call;
+	}
+      gsi_replace (gsi, new_call, true);
+    }
+  else
+    update_stmt (new_call);
+
+  gimple_call_set_with_bounds (new_call, true);
 }
 
 /* Return entry block to be used for checker initilization code.
@@ -2060,12 +2497,30 @@ chkp_parm_for_arg_bnd_arg (tree arg)
   return arg;
 }
 
+/* Check the next parameter for the given PARM is bounds
+   and return it's default SSA_NAME (create if required).  */
+static tree
+chkp_get_next_bounds_parm (tree parm)
+{
+  tree bounds = TREE_CHAIN (parm);
+  gcc_assert (POINTER_BOUNDS_P (bounds));
+  bounds = ssa_default_def (cfun, bounds);	
+  if (!bounds)
+    {
+      bounds = make_ssa_name (TREE_CHAIN (parm), gimple_build_nop ());
+      set_ssa_default_def (cfun, TREE_CHAIN (parm), bounds);
+    }
+  return bounds;
+}
+
 /* Return bounds to be used for input argument PARM.  */
 static tree
 chkp_get_bound_for_parm (tree parm)
 {
   tree decl = SSA_NAME_VAR (parm);
   tree bounds;
+
+  gcc_assert (TREE_CODE (decl) == PARM_DECL);
 
   bounds = chkp_get_registered_bounds (parm);
 
@@ -2074,6 +2529,8 @@ chkp_get_bound_for_parm (tree parm)
 
   if (!bounds)
     {
+      tree orig_decl = cgraph_get_node (cfun->decl)->orig_decl;
+
       /* For static chain param we return zero bounds
 	 because currently we do not check dereferences
 	 of this pointer.  */
@@ -2085,10 +2542,13 @@ chkp_get_bound_for_parm (tree parm)
 	 to use zero bounds for input arguments of main
 	 function.  */
       else if (flag_chkp_zero_input_bounds_for_main
-	       && strcmp (IDENTIFIER_POINTER (DECL_NAME (cfun->decl)), "main") == 0)
+	       && strcmp (IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (orig_decl)),
+			  "main") == 0)
 	bounds = chkp_get_zero_bounds ();
       else if (BOUNDED_P (parm))
 	{
+	  bounds = chkp_get_next_bounds_parm (decl);
+#if 0
 	  /* In general case we use checker builtin to
 	     obtain bounds of input arg.  */
 	  gimple_stmt_iterator gsi;
@@ -2109,6 +2569,7 @@ chkp_get_bound_for_parm (tree parm)
 	  gimple_call_set_lhs (stmt, bounds);
 
 	  update_stmt (stmt);
+#endif
 	  chkp_register_bounds (decl, bounds);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -4048,6 +4509,46 @@ chkp_instrument_function (void)
       bb = next;
     }
   while (bb);
+
+  /* Some input params may have bounds and be address taken.  In this case
+     we should store incomping bounds into bounds table.  */
+  tree arg;
+  for (arg = DECL_ARGUMENTS (cfun->decl); arg; arg = DECL_CHAIN (arg))
+    if (TREE_ADDRESSABLE (arg))
+      {
+	if (BOUNDED_P (arg))
+	  {
+	    tree bounds = chkp_get_next_bounds_parm (arg);
+	    tree def_ptr = ssa_default_def (cfun, arg);
+	    gimple_stmt_iterator iter = gsi_start_bb (chkp_get_entry_block ());
+	    chkp_build_bndstx (chkp_build_addr_expr (arg),
+			       def_ptr ? def_ptr : arg,
+			       bounds, &iter);
+
+	    /* Skip bounds arg.  */
+	    arg = TREE_CHAIN (arg);
+	  }
+	else if (chkp_type_has_pointer (TREE_TYPE (arg)))
+	  {
+	    tree orig_arg = arg;
+	    vec<bool> slots = chkp_find_bound_slots (TREE_TYPE (arg));
+	    gimple_stmt_iterator iter = gsi_start_bb (chkp_get_entry_block ());
+	    unsigned bnd_no;
+	    for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
+	      if (slots[bnd_no])
+		{
+		  tree bounds = chkp_get_next_bounds_parm (arg);
+		  HOST_WIDE_INT offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
+		  tree addr = chkp_build_addr_expr (orig_arg);
+		  tree ptr = build2 (MEM_REF, ptr_type_node, addr,
+				     build_int_cst (ptr_type_node, offs));
+		  chkp_build_bndstx (chkp_build_addr_expr (ptr), ptr,
+				     bounds, &iter);
+
+		  arg = DECL_CHAIN (arg);
+		}
+	  }
+      }
 }
 
 /* Initialize pass.  */
@@ -4127,8 +4628,8 @@ chkp_execute (void)
 static bool
 chkp_gate (void)
 {
-  return flag_check_pointer_bounds != 0
-    && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (cfun->decl));
+  return cgraph_get_node (cfun->decl)->instrumentation_clone
+    || lookup_attribute ("chkp ctor", DECL_ATTRIBUTES (cfun->decl));
 }
 
 /* Comparator for pol_item structures I1 and I2 to be used
@@ -5193,7 +5694,8 @@ chkp_optimize_string_function_calls (void)
 
 	  fndecl = gimple_call_fndecl (stmt);
 
-	  if (!fndecl || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
+	  //FIXME: remove '|| 1' and fix call arguments below
+	  if (!fndecl || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL || 1)
 	    continue;
 
 	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMCPY
@@ -5533,7 +6035,7 @@ chkp_opt_execute (void)
 bool
 chkp_opt_gate (void)
 {
-  return flag_check_pointer_bounds != 0
+  return chkp_function_instrumented_p (cfun->decl)
     && (flag_chkp_optimize > 0
 	|| (flag_chkp_optimize == -1 && optimize > 0));
 }
@@ -5572,6 +6074,36 @@ const pass_data pass_data_chkp =
   | TODO_update_ssa /* todo_flags_finish */
 };
 
+const pass_data pass_data_ipa_chkp_versioning =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_versioning", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  true, /* gate */
+  true, /* execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0 /* todo_flags_finish */
+};
+
+const pass_data pass_data_ipa_chkp_produce_thunks =
+{
+  SIMPLE_IPA_PASS, /* type */
+  "chkp_cleanup", /* name */
+  OPTGROUP_NONE, /* optinfo_flags */
+  false, /* gate */
+  true, /* execute */
+  TV_NONE, /* tv_id */
+  0, /* properties_required */
+  0, /* properties_provided */
+  0, /* properties_destroyed */
+  0, /* todo_flags_start */
+  0 /* todo_flags_finish */
+};
+
 class pass_chkp : public gimple_opt_pass
 {
 public:
@@ -5585,6 +6117,33 @@ public:
   unsigned int execute () { return chkp_execute (); }
 
 }; // class pass_chkp
+
+class pass_ipa_chkp_versioning : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_chkp_versioning (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_chkp_versioning, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_ipa_chkp_versioning (m_ctxt); }
+  bool gate () { return flag_check_pointer_bounds; }
+  unsigned int execute () { return chkp_versioning (); }
+
+}; // class pass_ipa_chkp_versioning
+
+class pass_ipa_chkp_produce_thunks : public simple_ipa_opt_pass
+{
+public:
+  pass_ipa_chkp_produce_thunks (gcc::context *ctxt)
+    : simple_ipa_opt_pass (pass_data_ipa_chkp_produce_thunks, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  opt_pass * clone () { return new pass_ipa_chkp_produce_thunks (m_ctxt); }
+  unsigned int execute () { return chkp_produce_thunks (); }
+
+}; // class pass_chkp_produce_thunks
 
 class pass_chkp_opt : public gimple_opt_pass
 {
@@ -5606,6 +6165,18 @@ gimple_opt_pass *
 make_pass_chkp (gcc::context *ctxt)
 {
   return new pass_chkp (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_ipa_chkp_versioning (gcc::context *ctxt)
+{
+  return new pass_ipa_chkp_versioning (ctxt);
+}
+
+simple_ipa_opt_pass *
+make_pass_ipa_chkp_produce_thunks (gcc::context *ctxt)
+{
+  return new pass_ipa_chkp_produce_thunks (ctxt);
 }
 
 gimple_opt_pass *

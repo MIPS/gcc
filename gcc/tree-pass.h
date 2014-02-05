@@ -343,6 +343,8 @@ extern void register_pass (register_pass_info *);
 extern void register_pass (opt_pass* pass, pass_positioning_ops pos,
 			   const char* ref_pass_name, int ref_pass_inst_number);
 
+extern simple_ipa_opt_pass *make_pass_ipa_chkp_versioning (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_ipa_chkp_produce_thunks (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_chkp (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_chkp_opt (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_asan (gcc::context *ctxt);
@@ -463,6 +465,9 @@ extern simple_ipa_opt_pass
 extern simple_ipa_opt_pass *make_pass_ipa_tree_profile (gcc::context *ctxt);
 
 extern simple_ipa_opt_pass *make_pass_early_local_passes (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_before_local_optimization_passes (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_chkp_instrumentation_passes (gcc::context *ctxt);
+extern simple_ipa_opt_pass *make_pass_local_optimization_passes (gcc::context *ctxt);
 
 extern ipa_opt_pass_d *make_pass_ipa_whole_program_visibility (gcc::context
 							       *ctxt);
