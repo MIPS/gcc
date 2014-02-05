@@ -36651,6 +36651,162 @@ static tree ix86_get_builtin (enum ix86_builtins code)
     return NULL_TREE;
 }
 
+/* Return function decl for target specific builtin
+   for given MPX builtin passed i FCODE.  */
+static tree
+ix86_builtin_mpx_function (unsigned fcode)
+{
+  switch (fcode)
+    {
+    case BUILT_IN_CHKP_BNDMK:
+      return ix86_builtins[IX86_BUILTIN_BNDMK];
+
+    case BUILT_IN_CHKP_BNDSTX:
+      return ix86_builtins[IX86_BUILTIN_BNDSTX];
+
+    case BUILT_IN_CHKP_BNDLDX:
+      return ix86_builtins[IX86_BUILTIN_BNDLDX];
+
+    case BUILT_IN_CHKP_BNDCL:
+      return ix86_builtins[IX86_BUILTIN_BNDCL];
+
+    case BUILT_IN_CHKP_BNDCU:
+      return ix86_builtins[IX86_BUILTIN_BNDCU];
+
+    case BUILT_IN_CHKP_BNDRET:
+      return ix86_builtins[IX86_BUILTIN_BNDRET];
+
+    case BUILT_IN_CHKP_INTERSECT:
+      return ix86_builtins[IX86_BUILTIN_BNDINT];
+
+    case BUILT_IN_CHKP_SET_PTR_BOUNDS:
+      return ix86_builtins[IX86_BUILTIN_BNDSET];
+
+    case BUILT_IN_CHKP_NARROW:
+      return ix86_builtins[IX86_BUILTIN_BNDNARROW];
+
+    case BUILT_IN_CHKP_ARG_BND:
+      return ix86_builtins[IX86_BUILTIN_ARG_BND];
+
+    case BUILT_IN_CHKP_SIZEOF:
+      return ix86_builtins[IX86_BUILTIN_SIZEOF];
+
+    case BUILT_IN_CHKP_EXTRACT_LOWER:
+      return ix86_builtins[IX86_BUILTIN_BNDLOWER];
+
+    case BUILT_IN_CHKP_EXTRACT_UPPER:
+      return ix86_builtins[IX86_BUILTIN_BNDUPPER];
+
+    default:
+      return NULL_TREE;
+    }
+
+  gcc_unreachable ();
+}
+
+/* Load bounds PTR pointer value loaded from SLOT.
+   if SLOT is a register then load bounds associated
+   with special address identified by BND.
+
+   Return loaded bounds.  */
+static rtx
+ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
+{
+  rtx addr = NULL;
+  rtx reg;
+
+  if (REG_P (slot))
+    {
+      ptr = slot;
+
+      /* We do not expect non register bounds for register
+	 parameters other than R8 and R9.  */
+      gcc_assert (REGNO (ptr) == R8_REG || REGNO (ptr) == R9_REG);
+      gcc_assert (bnd == const1_rtx || bnd == const2_rtx);
+
+      /* Here we have the case when more than five pointers are
+	 passed on registers.  In this case we are out of bound
+	 registers and have to use bndldx to load bound.  RA and
+	 RA - 8 are used for address translation in bndldx.  */
+      if (bnd == const1_rtx)
+	addr = plus_constant (Pmode, arg_pointer_rtx, -8);
+      else
+	addr = plus_constant (Pmode, arg_pointer_rtx, -16);
+    }
+  else if (MEM_P (slot))
+    {
+      if (!ptr)
+	ptr = copy_to_mode_reg (Pmode, slot);
+      addr = XEXP (slot, 0);
+      addr = force_reg (Pmode, addr);
+    }
+  else
+    gcc_unreachable ();
+
+  ptr = force_reg (Pmode, ptr);
+  /* If ptr was a register originally then it may have
+     mode other than Pmode.  We need to extend in such
+     case because bndldx may work only with Pmode regs.  */
+  if (GET_MODE (ptr) != Pmode)
+    {
+      rtx ext = gen_rtx_ZERO_EXTEND (Pmode, ptr);
+      ptr = gen_reg_rtx (Pmode);
+      emit_move_insn (ptr, ext);
+    }
+
+  reg = gen_reg_rtx (BNDmode);
+  emit_insn (TARGET_64BIT
+	     ? gen_bnd64_ldx (reg, addr, ptr)
+	     : gen_bnd32_ldx (reg, addr, ptr));
+
+  return reg;
+}
+
+/* Store bounds BOUNDS for PTR pointer value stored in
+   specified ADDR.  If ADDR is a register then TO identifies
+   which special address to use for bounds store.  */
+static void
+ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
+{
+  if (REG_P (addr))
+    {
+      /* Non register bounds comes only for parameters in
+	 R8 and R9.  */
+      gcc_assert (REGNO (addr) == R8_REG || REGNO (addr) == R9_REG);
+      gcc_assert (to == const1_rtx || to == const2_rtx);
+
+      if (to == const1_rtx)
+	addr = plus_constant (Pmode, stack_pointer_rtx, -8);
+      else
+	addr = plus_constant (Pmode, stack_pointer_rtx, -16);
+    }
+  else if (MEM_P (addr))
+    addr = XEXP (addr, 0);
+  else
+    gcc_unreachable ();
+
+  /* Should we also ignore integer modes of incorrect size?.  */
+  ptr = force_reg (Pmode, ptr);
+  addr = force_reg (Pmode, addr);
+
+  /* Avoid registers which connot be used as index.  */
+  if (REGNO (ptr) == VIRTUAL_INCOMING_ARGS_REGNUM
+      || REGNO (ptr) == VIRTUAL_STACK_VARS_REGNUM
+      || REGNO (ptr) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+    {
+      rtx temp = gen_reg_rtx (Pmode);
+      emit_move_insn (temp, ptr);
+      ptr = temp;
+    }
+
+  gcc_assert (POINTER_BOUNDS_MODE_P (GET_MODE (bounds)));
+  bounds = force_reg (GET_MODE (bounds), bounds);
+
+  emit_insn (TARGET_64BIT
+	     ? gen_bnd64_stx (addr, ptr, bounds)
+	     : gen_bnd32_stx (addr, ptr, bounds));
+}
+
 /* Returns a function decl for a vectorized version of the builtin function
    with builtin function code FN and the result vector type TYPE, or NULL_TREE
    if it is not available.  */
@@ -45897,6 +46053,22 @@ ix86_fn_abi_va_list (tree fndecl)
     return sysv_va_list_type_node;
 }
 
+/* This function returns size of bounds for the calling abi
+   specific va_list node.  */
+
+static tree
+ix86_fn_abi_va_list_bounds_size (tree fndecl)
+{
+  if (!TARGET_64BIT)
+    return integer_zero_node;
+  gcc_assert (fndecl != NULL_TREE);
+
+  if (ix86_function_abi ((const_tree) fndecl) == MS_ABI)
+    return integer_zero_node;
+  else
+    return TYPE_SIZE (sysv_va_list_type_node);
+}
+
 /* Returns the canonical va_list type specified by TYPE. If there
    is no valid TYPE provided, it return NULL_TREE.  */
 
@@ -47347,6 +47519,21 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 		    atomic_feraiseexcept_call);
 }
 
+static enum machine_mode
+ix86_mpx_bound_mode ()
+{
+  /* Do not support pointer checker if MPX
+     is not enabled.  */
+  if (!TARGET_MPX)
+    {
+      warning (0, "Pointer Checker requires MPX support on this target."
+	       " Use -mmpx options to enable MPX.");
+      return VOIDmode;
+    }
+
+  return BNDmode;
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -47742,6 +47929,21 @@ ix86_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #undef TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P
 #define TARGET_FLOAT_EXCEPTIONS_ROUNDING_SUPPORTED_P \
   ix86_float_exceptions_rounding_supported_p
+
+#undef TARGET_LOAD_BOUNDS_FOR_ARG
+#define TARGET_LOAD_BOUNDS_FOR_ARG ix86_load_bounds
+
+#undef TARGET_STORE_BOUNDS_FOR_ARG
+#define TARGET_STORE_BOUNDS_FOR_ARG ix86_store_bounds
+
+#undef TARGET_CHKP_BOUND_MODE
+#define TARGET_CHKP_BOUND_MODE ix86_mpx_bound_mode
+
+#undef TARGET_BUILTIN_CHKP_FUNCTION
+#define TARGET_BUILTIN_CHKP_FUNCTION ix86_builtin_mpx_function
+
+#undef TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE
+#define TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE ix86_fn_abi_va_list_bounds_size
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
