@@ -51,6 +51,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cfgloop.h"
 #include "common/common-target.h"
 #include "ipa-utils.h"
+#include "tree-chkp.h"
 
 /* The file implements the tail recursion elimination.  It is also used to
    analyze the tail calls in general, passing the results to the rtl level
@@ -147,6 +148,20 @@ suitable_for_tail_opt_p (void)
 {
   if (cfun->stdarg)
     return false;
+
+  /* Tail recursion elimination may cause arg_bnd builtins to be called
+     not for PARM_DECL which is not allowed now.  Avoid optimization
+     in such cases for now.  */
+  if (chkp_function_instrumented_p (current_function_decl))
+    {
+      tree param;
+
+      for (param = DECL_ARGUMENTS (current_function_decl);
+	   param;
+	   param = DECL_CHAIN (param))
+	if (BOUNDED_P (param))
+	  return false;
+    }
 
   return true;
 }
