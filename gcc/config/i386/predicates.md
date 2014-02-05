@@ -119,6 +119,10 @@
        (match_test "TARGET_64BIT")
        (match_test "REGNO (op) > BX_REG")))
 
+;; Return true if VALUE is symbol reference
+(define_predicate "symbol_operand"
+  (match_code "symbol_ref"))
+
 ;; Return true if VALUE can be stored in a sign extended immediate field.
 (define_predicate "x86_64_immediate_operand"
   (match_code "const_int,symbol_ref,label_ref,const")
