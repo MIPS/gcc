@@ -1782,7 +1782,7 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
 				     gimple_htab *visited)
 {
   gimple stmt, clobber_stmt;
-  tree clobber;
+  tree clobber, fndecl;
   imm_use_iterator iter;
   gimple_stmt_iterator i;
   gimple *slot;
@@ -1814,6 +1814,13 @@ insert_clobber_before_stack_restore (tree saved_val, tree var,
     else if (gimple_assign_ssa_name_copy_p (stmt))
       insert_clobber_before_stack_restore (gimple_assign_lhs (stmt), var,
 					   visited);
+    else if (gimple_call_builtin_p (stmt, BUILT_IN_CHKP_BIND_BOUNDS))
+      insert_clobber_before_stack_restore (gimple_call_lhs (stmt), var,
+					   visited);
+    else if (gimple_code (stmt) == GIMPLE_CALL
+	     && (fndecl = targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET))
+	     && gimple_call_fndecl (stmt) == fndecl)
+      continue;
     else
       gcc_assert (is_gimple_debug (stmt));
 }
