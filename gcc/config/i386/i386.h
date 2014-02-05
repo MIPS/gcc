@@ -1635,6 +1635,9 @@ typedef struct ix86_args {
   int float_in_sse;		/* Set to 1 or 2 for 32bit targets if
 				   SFmode/DFmode arguments should be passed
 				   in SSE registers.  Otherwise 0.  */
+  int bnd_nregs;                /* # bnd registers available for passing */
+  int bnd_regno;                /* next available bnd register number */
+  int stdarg;                   /* Set to 1 if function is stdarg.  */
   enum calling_abi call_abi;	/* Set to SYSV_ABI for sysv abi. Otherwise
  				   MS_ABI for ms abi.  */
 } CUMULATIVE_ARGS;

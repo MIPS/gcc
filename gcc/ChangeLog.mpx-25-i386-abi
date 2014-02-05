@@ -1,0 +1,38 @@
+2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/i386.c (x86_64_reg_class): Add
+	X86_64_BOUNDED_INTEGER_CLASS and
+	X86_64_BOUNDED_INTEGERSI_CLASS.
+	(ix86_return_pops_args): Pass function type to
+	aggregate_value_p if function decl is not available.
+	(init_cumulative_args): Initialize bound regs info
+	and stdarg info.
+	(merge_classes): Support X86_64_BOUNDED_INTEGER_CLASS
+	and X86_64_BOUNDED_INTEGERSI_CLASS.
+	(classify_argument): Use bounded classes for bounded
+	types when Pointer Bounds Checker is on.
+	(examine_argument): Support X86_64_BOUNDED_INTEGER_CLASS
+	and X86_64_BOUNDED_INTEGERSI_CLASS.
+	(construct_container): Likewise.
+	(function_arg_advance_32): Support bound regs.
+	(function_arg_advance_64): Likewise.
+	(ix86_function_value_regno_p): Likewise.
+	(function_value_64): Adjust construct_container call.
+	(function_value_32): Add bound register for bounded values.
+	(function_value_ms_64): Likewise.
+	(return_in_memory_32): Adjust examine_argument call.
+	(ix86_gimplify_va_arg): Adjust construct_container and
+	examine_argument calls.
+	(ix86_expand_call): Generate returned bounds.
+	(ix86_bnd_prefixed_insn_p): Check if we have instrumented call
+	or function.
+	* config/i386/i386.h (ix86_args): Add bnd_nregs, bnd_regno
+	and stdarg fields.
+	* config/i386/i386.md (UNSPEC_BNDRET): New.
+	(*call_value): Add returned bounds.
+	(*sibcall_value): Likewise.
+	(*call_value_rex64_ms_sysv): Likewise.
+	(*call_value_pop): Likewise.
+	(*sibcall_value_pop): Likewise.
+	* config/i386/predicates.md (call_rex64_ms_sysv_operation): Adjust
+	to changed call patterns.

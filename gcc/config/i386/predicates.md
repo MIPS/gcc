@@ -597,14 +597,17 @@
   (match_code "parallel")
 {
   unsigned creg_size = ARRAY_SIZE (x86_64_ms_sysv_extra_clobbered_registers);
+  unsigned adop = GET_CODE (XVECEXP (op, 0, 0)) == SET
+                  ? 4
+		  : 2;
   unsigned i;
 
-  if ((unsigned) XVECLEN (op, 0) != creg_size + 2)
+  if ((unsigned) XVECLEN (op, 0) != creg_size + adop)
     return false;
 
   for (i = 0; i < creg_size; i++)
     {
-      rtx elt = XVECEXP (op, 0, i+2);
+      rtx elt = XVECEXP (op, 0, i+adop);
       enum machine_mode mode;
       unsigned regno;
 
