@@ -2336,6 +2336,8 @@ fi
 
 
 
+ENABLE_MPX
+
 # Command-line options.
 # Very limited version of AC_MAINTAINER_MODE.
 # Check whether --enable-maintainer-mode was given.

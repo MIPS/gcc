@@ -1,5 +1,7 @@
 # Process this file with autoreconf to produce a configure script.
 
+sinclude(../config/mpx.m4)
+
 AC_PREREQ(2.64)
 AC_INIT(package-unused, version-unused,, libstdc++)
 AC_CONFIG_SRCDIR(src/shared/hashtable-aux.cc)
@@ -97,11 +99,12 @@ ACX_LT_HOST_FLAGS
 AC_SUBST(enable_shared)
 AC_SUBST(enable_static)
 
+ENABLE_MPX
+
 if test "$enable_vtable_verify" = yes; then
   predep_objects_CXX="${predep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_start.o"
   postdep_objects_CXX="${postdep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_end.o"
 fi
-
 
 # libtool variables for C++ shared and position-independent compiles.
 #

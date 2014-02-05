@@ -14919,11 +14919,12 @@ esac
 
 
 
+ENABLE_MPX
+
 if test "$enable_vtable_verify" = yes; then
   predep_objects_CXX="${predep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_start.o"
   postdep_objects_CXX="${postdep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_end.o"
 fi
-
 
 # libtool variables for C++ shared and position-independent compiles.
 #
@@ -15052,7 +15053,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15055 "configure"
+#line 15056 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15404,7 +15405,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15407 "configure"
+#line 15408 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15439,7 +15440,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15442 "configure"
+#line 15443 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15474,7 +15475,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15477 "configure"
+#line 15478 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15510,7 +15511,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15513 "configure"
+#line 15514 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15589,7 +15590,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15592 "configure"
+#line 15593 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15631,7 +15632,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15634 "configure"
+#line 15635 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15665,7 +15666,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15668 "configure"
+#line 15669 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
