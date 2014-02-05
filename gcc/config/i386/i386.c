@@ -8325,7 +8325,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 {
   rtx save_area, mem;
   alias_set_type set;
-  int i, max;
+  int i, max, bnd_reg;
 
   /* GPR size of varargs save area.  */
   if (cfun->va_list_gpr_size)
@@ -8350,6 +8350,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   if (max > X86_64_REGPARM_MAX)
     max = X86_64_REGPARM_MAX;
 
+  bnd_reg = cum->bnd_regno;
   for (i = cum->regno; i < max; i++)
     {
       mem = gen_rtx_MEM (word_mode,
@@ -8359,6 +8360,37 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       emit_move_insn (mem,
 		      gen_rtx_REG (word_mode,
 				   x86_64_int_parameter_registers[i]));
+
+      /* In instrumented code we need to store bounds for each
+	 stored register.  */
+      if (chkp_function_instrumented_p (current_function_decl))
+	{
+	  rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
+	  rtx ptr = gen_rtx_REG (DImode,
+				 x86_64_int_parameter_registers[i]);
+	  rtx bounds;
+
+	  if (bnd_reg <= LAST_BND_REG)
+	    bounds = gen_rtx_REG (BNDmode, bnd_reg);
+	  else
+	    {
+	      rtx ldx_addr;
+	      if (bnd_reg == LAST_BND_REG + 1)
+		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -8);
+	      else
+		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -16);
+	      bounds = gen_reg_rtx (BNDmode);
+	      emit_insn (TARGET_64BIT
+			 ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
+			 : gen_bnd32_ldx (bounds, ldx_addr, ptr));
+	    }
+
+	  emit_insn (TARGET_64BIT
+		     ? gen_bnd64_stx (addr, ptr, bounds)
+		     : gen_bnd32_stx (addr, ptr, bounds));
+
+	  bnd_reg++;
+	}
     }
 
   if (ix86_varargs_fpr_size)
@@ -8482,7 +8514,7 @@ ix86_va_start (tree valist, rtx nextarg)
 {
   HOST_WIDE_INT words, n_gpr, n_fpr;
   tree f_gpr, f_fpr, f_ovf, f_sav;
-  tree gpr, fpr, ovf, sav, t;
+  tree gpr, fpr, ovf, sav, t, t1;
   tree type;
   rtx ovf_rtx;
 
@@ -8533,6 +8565,13 @@ ix86_va_start (tree valist, rtx nextarg)
 			       crtl->args.arg_offset_rtx,
 			       NULL_RTX, 0, OPTAB_LIB_WIDEN);
 	  convert_move (va_r, next, 0);
+
+	  /* Store zero bounds for va_list.  */
+	  if (chkp_function_instrumented_p (current_function_decl))
+	    chkp_expand_bounds_reset_for_mem (valist,
+					      make_tree (TREE_TYPE (valist),
+							 next));
+
 	}
       return;
     }
@@ -8586,9 +8625,14 @@ ix86_va_start (tree valist, rtx nextarg)
   t = make_tree (type, ovf_rtx);
   if (words != 0)
     t = fold_build_pointer_plus_hwi (t, words * UNITS_PER_WORD);
+  t1 = t;
   t = build2 (MODIFY_EXPR, type, ovf, t);
   TREE_SIDE_EFFECTS (t) = 1;
   expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+  /* Store zero bounds for overflow area pointer.  */
+  if (chkp_function_instrumented_p (current_function_decl))
+    chkp_expand_bounds_reset_for_mem (ovf, t1);
 
   if (ix86_varargs_gpr_size || ix86_varargs_fpr_size)
     {
@@ -8598,9 +8642,14 @@ ix86_va_start (tree valist, rtx nextarg)
       t = make_tree (type, frame_pointer_rtx);
       if (!ix86_varargs_gpr_size)
 	t = fold_build_pointer_plus_hwi (t, -8 * X86_64_REGPARM_MAX);
+      t1 = t;
       t = build2 (MODIFY_EXPR, type, sav, t);
       TREE_SIDE_EFFECTS (t) = 1;
       expand_expr (t, const0_rtx, VOIDmode, EXPAND_NORMAL);
+
+      /* Store zero bounds for save area pointer.  */
+      if (chkp_function_instrumented_p (current_function_decl))
+	chkp_expand_bounds_reset_for_mem (sav, t1);
     }
 }
 
