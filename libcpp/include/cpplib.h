@@ -1,5 +1,5 @@
 /* Definitions for CPP library.
-   Copyright (C) 1995-2013 Free Software Foundation, Inc.
+   Copyright (C) 1995-2014 Free Software Foundation, Inc.
    Written by Per Bothner, 1994-95.
 
 This program is free software; you can redistribute it and/or modify it
@@ -436,6 +436,10 @@ struct cpp_options
   /* Nonzero means interpret imaginary, fixed-point, or other gnu extension
      literal number suffixes as user-defined literal number suffixes.  */
   unsigned char ext_numeric_literals;
+
+  /* Nonzero means extended identifiers allow the characters specified
+     in C11 and C++11.  */
+  unsigned char c11_identifiers;
 
   /* Nonzero for C++ 2014 Standard binary constants.  */
   unsigned char binary_constants;

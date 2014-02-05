@@ -21,6 +21,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
+#include "tree-core.h"
+#include "stor-layout.h"
+#include "varasm.h"
 #include "tree.h"
 #include "target.h"
 #include "tree-iterator.h"
@@ -28,26 +31,35 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "tree-pass.h"
 #include "hashtab.h"
+#include "pointer-set.h"
 #include "diagnostic.h"
 #include "ggc.h"
 #include "output.h"
+#include "internal-fn.h"
+#include "is-a.h"
+#include "predict.h"
+#include "cfgloop.h"
+#include "stringpool.h"
+#include "tree-ssa-alias.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-operands.h"
+#include "tree-ssa-address.h"
+#include "tree-ssa.h"
+#include "ipa-inline.h"
+#include "basic-block.h"
+#include "tree-ssa-loop-niter.h"
+#include "gimple-expr.h"
 #include "gimple.h"
+#include "tree-phinodes.h"
 #include "gimple-ssa.h"
+#include "ssa-iterators.h"
 #include "gimple-pretty-print.h"
 #include "gimple-iterator.h"
 #include "gimplify.h"
 #include "gimplify-me.h"
-#include "cfgloop.h"
-#include "tree-ssanames.h"
-#include "tree-ssa-operands.h"
-#include "tree-ssa-address.h"
-#include "tree-phinodes.h"
-#include "tree-ssa.h"
-#include "ssa-iterators.h"
-#include "ipa-inline.h"
-#include "tree-ssa-loop-niter.h"
+#include "print-tree.h"
+#include "expr.h"
 #include "tree-chkp.h"
-#include "internal-fn.h"
 #include "rtl.h" /* For MEM_P.  */
 
 /*  Pointer Bounds Checker pass instruments code with memory checks to find
@@ -1717,7 +1729,7 @@ static basic_block
 chkp_get_entry_block (void)
 {
   if (!entry_block)
-    entry_block = split_block (ENTRY_BLOCK_PTR, NULL)->dest;
+    entry_block = split_block (ENTRY_BLOCK_PTR_FOR_FN (cfun), NULL)->dest;
 
   return entry_block;
 }
@@ -2463,7 +2475,7 @@ chkp_get_bounds_by_definition (tree node, gimple def_stmt,
 
 	    gcc_assert (TYPE_SIZE (base_type)
 			&& TREE_CODE (TYPE_SIZE (base_type)) == INTEGER_CST
-			&& tree_low_cst (TYPE_SIZE (base_type), 1) != 0);
+			&& tree_to_uhwi (TYPE_SIZE (base_type)) != 0);
 
 	    bounds = chkp_make_bounds (node, TYPE_SIZE_UNIT (base_type),
 				       NULL, false);
@@ -2785,7 +2797,7 @@ chkp_variable_size_type (tree type)
   else
     res = !TYPE_SIZE (type)
       || TREE_CODE (TYPE_SIZE (type)) != INTEGER_CST
-      || tree_low_cst (TYPE_SIZE (type), 1) == 0;
+      || tree_to_uhwi (TYPE_SIZE (type)) == 0;
 
   return res;
 }
@@ -2951,7 +2963,7 @@ static bool
 chkp_may_narrow_to_field (tree field)
 {
   return DECL_SIZE (field) && TREE_CODE (DECL_SIZE (field)) == INTEGER_CST
-    && tree_low_cst (DECL_SIZE (field), 1) != 0
+    && tree_to_uhwi (DECL_SIZE (field)) != 0
     && (!DECL_FIELD_OFFSET (field)
 	|| TREE_CODE (DECL_FIELD_OFFSET (field)) == INTEGER_CST)
     && (!DECL_FIELD_BIT_OFFSET (field)
@@ -2979,8 +2991,8 @@ chkp_narrow_bounds_for_field (tree field, bool always_narrow)
   if (DECL_ARTIFICIAL (field))
     return false;
 
-  offs = tree_low_cst (DECL_FIELD_OFFSET (field), 1);
-  bit_offs = tree_low_cst (DECL_FIELD_BIT_OFFSET (field), 1);
+  offs = tree_to_uhwi (DECL_FIELD_OFFSET (field));
+  bit_offs = tree_to_uhwi (DECL_FIELD_BIT_OFFSET (field));
 
   return (always_narrow || flag_chkp_first_field_has_own_bounds
 	  || offs || bit_offs);
@@ -3562,8 +3574,8 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 		  tree lo_index = TREE_OPERAND (purp, 0);
 		  tree hi_index = TREE_OPERAND (purp, 1);
 
-		  for (cur = (unsigned)tree_low_cst (lo_index, 1);
-		       cur <= (unsigned)tree_low_cst (hi_index, 1);
+		  for (cur = (unsigned)tree_to_uhwi (lo_index);
+		       cur <= (unsigned)tree_to_uhwi (hi_index);
 		       cur++)
 		    {
 		      lhs_elem = chkp_build_array_ref (lhs, etype, esize, cur);
@@ -3575,7 +3587,7 @@ chkp_walk_pointer_assignments (tree lhs, tree rhs, void *arg,
 		  if (purp)
 		    {
 		      gcc_assert (TREE_CODE (purp) == INTEGER_CST);
-		      cur = tree_low_cst (purp, 1);
+		      cur = tree_to_uhwi (purp);
 		    }
 
 		  lhs_elem = chkp_build_array_ref (lhs, etype, esize, cur++);
@@ -3911,7 +3923,7 @@ chkp_fix_cfg ()
      add new edges from the beginning because it may cause new
      phi node creation which may be incorrect due to incomplete
      bound phi nodes.  */
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
       {
 	gimple stmt = gsi_stmt (i);
@@ -3966,7 +3978,7 @@ chkp_instrument_function (void)
   enum gimple_rhs_class grhs_class;
   bool safe = lookup_attribute ("chkp ctor", DECL_ATTRIBUTES (cfun->decl));
 
-  bb = ENTRY_BLOCK_PTR ->next_bb;
+  bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
   do
     {
       next = bb->next_bb;
@@ -4047,7 +4059,7 @@ chkp_init (void)
 
   in_chkp_pass = true;
 
-  for (bb = ENTRY_BLOCK_PTR ->next_bb; bb; bb = bb->next_bb)
+  for (bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb; bb; bb = bb->next_bb)
     for (i = gsi_start_bb (bb); !gsi_end_p (i); gsi_next (&i))
       chkp_unmark_stmt (gsi_stmt (i));
 
@@ -4170,7 +4182,7 @@ tree
 chkp_extend_const (tree cst)
 {
   if (TYPE_PRECISION (TREE_TYPE (cst)) < TYPE_PRECISION (size_type_node))
-    return build_int_cst_type (size_type_node, tree_low_cst (cst, 0));
+    return build_int_cst_type (size_type_node, tree_to_shwi (cst));
 
   return cst;
 }
@@ -4502,8 +4514,8 @@ chkp_init_check_info (void)
 
   chkp_release_check_info ();
 
-  check_infos.create (last_basic_block);
-  for (n = 0; n < last_basic_block; n++)
+  check_infos.create (last_basic_block_for_fn (cfun));
+  for (n = 0; n < last_basic_block_for_fn (cfun); n++)
     {
       check_infos.safe_push (empty_bbc);
       check_infos.last ().checks.create (0);
@@ -4523,8 +4535,7 @@ chkp_gather_checks_info (void)
 
   chkp_init_check_info ();
 
-  bb = ENTRY_BLOCK_PTR ->next_bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       struct bb_checks *bbc = &check_infos[bb->index];
 
@@ -4834,8 +4845,7 @@ chkp_remove_excess_intersections (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Searching for redundant bounds intersections...\n");
 
-  bb = ENTRY_BLOCK_PTR ->next_bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       struct bb_checks *bbc = &check_infos[bb->index];
       unsigned int no;
@@ -4856,8 +4866,7 @@ chkp_remove_constant_checks (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Searching for redundant checks...\n");
 
-  bb = ENTRY_BLOCK_PTR ->next_bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       struct bb_checks *bbc = &check_infos[bb->index];
       unsigned int no;
@@ -5036,8 +5045,7 @@ chkp_remove_redundant_checks (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Searching for redundant checks...\n");
 
-  bb = ENTRY_BLOCK_PTR ->next_bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       struct bb_checks *bbc = &check_infos[bb->index];
       unsigned int no;
@@ -5170,8 +5178,7 @@ chkp_optimize_string_function_calls (void)
   if (dump_file && (dump_flags & TDF_DETAILS))
     fprintf (dump_file, "Searching for replacable string function calls...\n");
 
-  bb = ENTRY_BLOCK_PTR ->next_bb;
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator i;
 
@@ -5327,7 +5334,7 @@ chkp_optimize_string_function_calls (void)
 void
 chkp_reduce_bounds_lifetime (void)
 {
-  basic_block bb = FALLTHRU_EDGE (ENTRY_BLOCK_PTR)->dest;
+  basic_block bb = FALLTHRU_EDGE (ENTRY_BLOCK_PTR_FOR_FN (cfun))->dest;
   gimple_stmt_iterator i;
 
   for (i = gsi_start_bb (bb); !gsi_end_p (i); )

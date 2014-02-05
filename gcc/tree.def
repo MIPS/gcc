@@ -1,6 +1,6 @@
 /* This file contains the definitions and documentation for the
    tree codes used in GCC.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -376,6 +376,16 @@ DEFTREECODE (NAMESPACE_DECL, "namespace_decl", tcc_declaration, 0)
    For a given NODE which code is IMPORTED_DECL,
    IMPORTED_DECL_ASSOCIATED_DECL (NODE) accesses the imported declaration.  */
 DEFTREECODE (IMPORTED_DECL, "imported_decl", tcc_declaration, 0)
+
+/* A namelist declaration.
+   The Fortran FE uses this to represent a namelist statement, e.g.:
+   NAMELIST /namelist-group-name/ namelist-group-object-list.
+   Whenever a declaration import appears in a lexical block, the BLOCK node
+   representing that lexical block in GIMPLE will contain an NAMELIST_DECL
+   node, linked via BLOCK_VARS accessor of the said BLOCK.
+   For a given NODE which code is NAMELIST_DECL,
+   NAMELIST_DECL_ASSOCIATED_DECL (NODE) accesses the imported declaration.  */
+DEFTREECODE (NAMELIST_DECL, "namelist_decl", tcc_declaration, 0)
 
 /* A translation unit.  This is not technically a declaration, since it
    can't be looked up, but it's close enough.  */
@@ -1041,6 +1051,10 @@ DEFTREECODE (OMP_FOR, "omp_for", tcc_statement, 6)
 /* OpenMP - #pragma omp simd [clause1 ... clauseN]
    Operands like for OMP_FOR.  */
 DEFTREECODE (OMP_SIMD, "omp_simd", tcc_statement, 6)
+
+/* Cilk Plus - #pragma simd [clause1 ... clauseN]
+   Operands like for OMP_FOR.  */
+DEFTREECODE (CILK_SIMD, "cilk_simd", tcc_statement, 6)
 
 /* OpenMP - #pragma omp distribute [clause1 ... clauseN]
    Operands like for OMP_FOR.  */

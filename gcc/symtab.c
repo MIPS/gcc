@@ -1,5 +1,5 @@
 /* Symbol table.
-   Copyright (C) 2012-2013 Free Software Foundation, Inc.
+   Copyright (C) 2012-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -22,17 +22,25 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "rtl.h"
 #include "tree.h"
+#include "print-tree.h"
+#include "varasm.h"
+#include "function.h"
+#include "emit-rtl.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "tree-inline.h"
 #include "langhooks.h"
 #include "hashtab.h"
-#include "ggc.h"
 #include "cgraph.h"
 #include "diagnostic.h"
 #include "timevar.h"
 #include "lto-streamer.h"
-#include "rtl.h"
 #include "output.h"
 
 const char * const ld_plugin_symbol_resolution_names[]=
@@ -530,6 +538,10 @@ symtab_dissolve_same_comdat_group_list (symtab_node *node)
     {
       next = n->same_comdat_group;
       n->same_comdat_group = NULL;
+      /* Clear DECL_COMDAT_GROUP for comdat locals, since
+         make_decl_local doesn't.  */
+      if (!TREE_PUBLIC (n->decl))
+	DECL_COMDAT_GROUP (n->decl) = NULL_TREE;
       n = next;
     }
   while (n != node);
@@ -540,19 +552,19 @@ symtab_dissolve_same_comdat_group_list (symtab_node *node)
    is unknown go with identifier name.  */
 
 const char *
-symtab_node_asm_name (symtab_node *node)
+symtab_node::asm_name () const
 {
-  if (!DECL_ASSEMBLER_NAME_SET_P (node->decl))
-    return lang_hooks.decl_printable_name (node->decl, 2);
-  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (node->decl));
+  if (!DECL_ASSEMBLER_NAME_SET_P (decl))
+    return lang_hooks.decl_printable_name (decl, 2);
+  return IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
 }
 
 /* Return printable identifier name.  */
 
 const char *
-symtab_node_name (symtab_node *node)
+symtab_node::name () const
 {
-  return lang_hooks.decl_printable_name (node->decl, 2);
+  return lang_hooks.decl_printable_name (decl, 2);
 }
 
 static const char * const symtab_type_names[] = {"symbol", "function", "variable"};
@@ -567,9 +579,9 @@ dump_symtab_base (FILE *f, symtab_node *node)
   };
 
   fprintf (f, "%s/%i (%s)",
-	   symtab_node_asm_name (node),
+	   node->asm_name (),
 	   node->order,
-	   symtab_node_name (node));
+	   node->name ());
   dump_addr (f, " @", (void *)node);
   fprintf (f, "\n  Type: %s", symtab_type_names[node->type]);
 
@@ -645,7 +657,7 @@ dump_symtab_base (FILE *f, symtab_node *node)
   
   if (node->same_comdat_group)
     fprintf (f, "  Same comdat group as: %s/%i\n",
-	     symtab_node_asm_name (node->same_comdat_group),
+	     node->same_comdat_group->asm_name (),
 	     node->same_comdat_group->order);
   if (node->next_sharing_asm_name)
     fprintf (f, "  next sharing asm name: %i\n",
@@ -836,6 +848,21 @@ verify_symtab_base (symtab_node *node)
 	  n = n->same_comdat_group;
 	}
       while (n != node);
+      if (symtab_comdat_local_p (node))
+	{
+	  struct ipa_ref_list *refs = &node->ref_list;
+	  struct ipa_ref *ref;
+	  for (int i = 0; ipa_ref_list_referring_iterate (refs, i, ref); ++i)
+	    {
+	      if (!symtab_in_same_comdat_p (ref->referring, node))
+		{
+		  error ("comdat-local symbol referred to by %s outside its "
+			 "comdat",
+			 identifier_to_locale (ref->referring->name()));
+		  error_found = true;
+		}
+	    }
+	}
     }
   return error_found;
 }
@@ -902,6 +929,10 @@ void
 symtab_make_decl_local (tree decl)
 {
   rtx rtl, symbol;
+
+  /* Avoid clearing DECL_COMDAT_GROUP on comdat-local decls.  */
+  if (TREE_PUBLIC (decl) == 0)
+    return;
 
   if (TREE_CODE (decl) == VAR_DECL)
     DECL_COMMON (decl) = 0;

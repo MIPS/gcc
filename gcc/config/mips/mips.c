@@ -1,5 +1,5 @@
 /* Subroutines used for MIPS code generation.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
    Contributed by A. Lichnewsky, lich@inria.inria.fr.
    Changes by Michael Meissner, meissner@osf.org.
    64-bit r4000 support by Ian Lance Taylor, ian@cygnus.com, and
@@ -34,6 +34,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "output.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "function.h"
 #include "expr.h"
 #include "optabs.h"
@@ -50,6 +54,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "common/common-target.h"
 #include "langhooks.h"
 #include "sched-int.h"
+#include "pointer-set.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "bitmap.h"
@@ -3621,17 +3634,6 @@ mips_set_reg_reg_cost (enum machine_mode mode)
     }
 }
 
-/* Return the cost of an operand X that can be trucated for free.
-   SPEED says whether we're optimizing for size or speed.  */
-
-static int
-mips_truncated_op_cost (rtx x, bool speed)
-{
-  if (GET_CODE (x) == TRUNCATE)
-    x = XEXP (x, 0);
-  return set_src_cost (x, speed);
-}
-
 /* Implement TARGET_RTX_COSTS.  */
 
 static bool
@@ -3968,7 +3970,7 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case DIV:
       /* Check for a reciprocal.  */
       if (float_mode_p
-	  && ISA_HAS_FP4
+	  && ISA_HAS_FP_RECIP_RSQRT (mode)
 	  && flag_unsafe_math_optimizations
 	  && XEXP (x, 0) == CONST1_RTX (mode))
 	{
@@ -4024,13 +4026,12 @@ mips_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
     case ZERO_EXTEND:
       if (outer_code == SET
 	  && ISA_HAS_BADDU
+	  && (GET_CODE (XEXP (x, 0)) == TRUNCATE
+	      || GET_CODE (XEXP (x, 0)) == SUBREG)
 	  && GET_MODE (XEXP (x, 0)) == QImode
-	  && GET_CODE (XEXP (x, 0)) == PLUS)
+	  && GET_CODE (XEXP (XEXP (x, 0), 0)) == PLUS)
 	{
-	  rtx plus = XEXP (x, 0);
-	  *total = (COSTS_N_INSNS (1)
-		    + mips_truncated_op_cost (XEXP (plus, 0), speed)
-		    + mips_truncated_op_cost (XEXP (plus, 1), speed));
+	  *total = set_src_cost (XEXP (XEXP (x, 0), 0), speed);
 	  return true;
 	}
       *total = mips_zero_extend_cost (mode, XEXP (x, 0));
@@ -5149,7 +5150,7 @@ mips_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
       && type != 0
       && TREE_CODE (type) == RECORD_TYPE
       && TYPE_SIZE_UNIT (type)
-      && host_integerp (TYPE_SIZE_UNIT (type), 1))
+      && tree_fits_uhwi_p (TYPE_SIZE_UNIT (type)))
     {
       tree field;
 
@@ -5158,7 +5159,7 @@ mips_function_arg (cumulative_args_t cum_v, enum machine_mode mode,
 	if (TREE_CODE (field) == FIELD_DECL
 	    && SCALAR_FLOAT_TYPE_P (TREE_TYPE (field))
 	    && TYPE_PRECISION (TREE_TYPE (field)) == BITS_PER_WORD
-	    && host_integerp (bit_position (field), 0)
+	    && tree_fits_shwi_p (bit_position (field))
 	    && int_bit_position (field) % BITS_PER_WORD == 0)
 	  break;
 
@@ -8183,7 +8184,7 @@ mips_print_operand (FILE *file, rtx op, int letter)
     case 't':
       {
 	int truth = (code == NE) == (letter == 'T');
-	fputc ("zfnt"[truth * 2 + (GET_MODE (op) == CCmode)], file);
+	fputc ("zfnt"[truth * 2 + ST_REG_P (REGNO (XEXP (op, 0)))], file);
       }
       break;
 
@@ -11882,6 +11883,7 @@ mips_move_to_gpr_cost (enum machine_mode mode ATTRIBUTE_UNUSED,
 {
   switch (from)
     {
+    case M16_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
@@ -11918,6 +11920,7 @@ mips_move_from_gpr_cost (enum machine_mode mode, reg_class_t to)
 {
   switch (to)
     {
+    case M16_REGS:
     case GENERAL_REGS:
       /* A MIPS16 MOVE instruction, or a non-MIPS16 MOVE macro.  */
       return 2;
@@ -14838,7 +14841,7 @@ r10k_simplify_address (rtx x, rtx insn)
 	      /* Replace the incoming value of $sp with
 		 virtual_incoming_args_rtx.  */
 	      if (x == stack_pointer_rtx
-		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR)
+		  && DF_REF_BB (def) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
 		newx = virtual_incoming_args_rtx;
 	    }
 	  else if (dominated_by_p (CDI_DOMINATORS, DF_REF_BB (use),
@@ -14927,7 +14930,7 @@ r10k_safe_address_p (rtx x, rtx insn)
    a link-time-constant address.  */
 
 static bool
-r10k_safe_mem_expr_p (tree expr, HOST_WIDE_INT offset)
+r10k_safe_mem_expr_p (tree expr, unsigned HOST_WIDE_INT offset)
 {
   HOST_WIDE_INT bitoffset, bitsize;
   tree inner, var_offset;
@@ -14940,7 +14943,7 @@ r10k_safe_mem_expr_p (tree expr, HOST_WIDE_INT offset)
     return false;
 
   offset += bitoffset / BITS_PER_UNIT;
-  return offset >= 0 && offset < tree_low_cst (DECL_SIZE_UNIT (inner), 1);
+  return offset < tree_to_uhwi (DECL_SIZE_UNIT (inner));
 }
 
 /* A for_each_rtx callback for which DATA points to the instruction
@@ -15058,15 +15061,15 @@ r10k_insert_cache_barriers (void)
 
   /* Bit X of PROTECTED_BBS is set if the last operation in basic block
      X is protected by a cache barrier.  */
-  protected_bbs = sbitmap_alloc (last_basic_block);
+  protected_bbs = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (protected_bbs);
 
   /* Iterate over the basic blocks in reverse post-order.  */
-  rev_post_order = XNEWVEC (int, last_basic_block);
+  rev_post_order = XNEWVEC (int, last_basic_block_for_fn (cfun));
   n = pre_and_rev_post_order_compute (NULL, rev_post_order, false);
   for (i = 0; i < n; i++)
     {
-      bb = BASIC_BLOCK (rev_post_order[i]);
+      bb = BASIC_BLOCK_FOR_FN (cfun, rev_post_order[i]);
 
       /* If this block is only reached by unconditional edges, and if the
 	 source of every edge is protected, the beginning of the block is
@@ -15319,7 +15322,7 @@ mips_annotate_pic_calls (void)
   basic_block bb;
   rtx insn;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
     {
       rtx call, reg, symbol, second_call;
@@ -16072,10 +16075,13 @@ mips_reorg_process_insns (void)
   if (crtl->profile)
     cfun->machine->all_noreorder_p = false;
 
-  /* Code compiled with -mfix-vr4120 or -mfix-24k can't be all noreorder
-     because we rely on the assembler to work around some errata.
-     The r5900 too has several bugs.  */
-  if (TARGET_FIX_VR4120 || TARGET_FIX_24K || TARGET_MIPS5900)
+  /* Code compiled with -mfix-vr4120, -mfix-rm7000 or -mfix-24k can't be
+     all noreorder because we rely on the assembler to work around some
+     errata.  The R5900 too has several bugs.  */
+  if (TARGET_FIX_VR4120
+      || TARGET_FIX_RM7000
+      || TARGET_FIX_24K
+      || TARGET_MIPS5900)
     cfun->machine->all_noreorder_p = false;
 
   /* The same is true for -mfix-vr4130 if we might generate MFLO or
@@ -16091,7 +16097,23 @@ mips_reorg_process_insns (void)
   for (insn = get_insns (); insn != 0; insn = NEXT_INSN (insn))
     FOR_EACH_SUBINSN (subinsn, insn)
       if (USEFUL_INSN_P (subinsn))
-	for_each_rtx (&PATTERN (subinsn), mips_record_lo_sum, &htab);
+	{
+	  rtx body = PATTERN (insn);
+	  int noperands = asm_noperands (body);
+	  if (noperands >= 0)
+	    {
+	      rtx *ops = XALLOCAVEC (rtx, noperands);
+	      bool *used = XALLOCAVEC (bool, noperands);
+	      const char *string = decode_asm_operands (body, ops, NULL, NULL,
+							NULL, NULL);
+	      get_referenced_operands (string, used, noperands);
+	      for (int i = 0; i < noperands; ++i)
+		if (used[i])
+		  for_each_rtx (&ops[i], mips_record_lo_sum, &htab);
+	    }
+	  else
+	    for_each_rtx (&PATTERN (subinsn), mips_record_lo_sum, &htab);
+	}
 
   last_insn = 0;
   hilo_delay = 2;
@@ -17062,9 +17084,9 @@ mips_option_override (void)
       mips_r10k_cache_barrier = R10K_CACHE_BARRIER_NONE;
     }
 
-  /* If TARGET_DSPR2, enable MASK_DSP.  */
+  /* If TARGET_DSPR2, enable TARGET_DSP.  */
   if (TARGET_DSPR2)
-    target_flags |= MASK_DSP;
+    TARGET_DSP = true;
 
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler

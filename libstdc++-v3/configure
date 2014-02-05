@@ -722,7 +722,6 @@ GLIBCXX_HOSTED_TRUE
 glibcxx_compiler_shared_flag
 glibcxx_compiler_pic_flag
 glibcxx_lt_pic_flag
-enable_mpx
 enable_static
 enable_shared
 lt_host_flags
@@ -852,7 +851,6 @@ with_pic
 enable_fast_install
 with_gnu_ld
 enable_libtool_lock
-enable_mpx
 enable_hosted_libstdcxx
 enable_libstdcxx_verbose
 enable_sjlj_exceptions
@@ -1528,7 +1526,6 @@ Optional Features:
   --enable-fast-install[=PKGS]
                           optimize for fast installation [default=yes]
   --disable-libtool-lock  avoid locking (might break parallel builds)
-  --enable-mpx            Enable MPX
   --disable-hosted-libstdcxx
                           only build freestanding C++ runtime support
   --disable-libstdcxx-verbose
@@ -11529,7 +11526,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11532 "configure"
+#line 11529 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -11635,7 +11632,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 11638 "configure"
+#line 11635 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -14922,17 +14919,7 @@ esac
 
 
 
-
-  # Check whether --enable-mpx was given.
-if test "${enable_mpx+set}" = set; then :
-  enableval=$enable_mpx; enable_mpx=$enableval
-else
-  enable_mpx=no
-
-fi
-
-
-
+ENABLE_MPX
 
 if test "$enable_vtable_verify" = yes; then
   predep_objects_CXX="${predep_objects_CXX} ${glibcxx_builddir}/../libgcc/vtv_start.o"
@@ -15066,7 +15053,7 @@ fi
     #
     # Fake what AC_TRY_COMPILE does.  XXX Look at redoing this new-style.
     cat > conftest.$ac_ext << EOF
-#line 15069 "configure"
+#line 15056 "configure"
 struct S { ~S(); };
 void bar();
 void foo()
@@ -15418,7 +15405,7 @@ $as_echo "$glibcxx_cv_atomic_long_long" >&6; }
   # Fake what AC_TRY_COMPILE does.
 
     cat > conftest.$ac_ext << EOF
-#line 15421 "configure"
+#line 15408 "configure"
 int main()
 {
   typedef bool atomic_type;
@@ -15453,7 +15440,7 @@ $as_echo "$glibcxx_cv_atomic_bool" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15456 "configure"
+#line 15443 "configure"
 int main()
 {
   typedef short atomic_type;
@@ -15488,7 +15475,7 @@ $as_echo "$glibcxx_cv_atomic_short" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15491 "configure"
+#line 15478 "configure"
 int main()
 {
   // NB: _Atomic_word not necessarily int.
@@ -15524,7 +15511,7 @@ $as_echo "$glibcxx_cv_atomic_int" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15527 "configure"
+#line 15514 "configure"
 int main()
 {
   typedef long long atomic_type;
@@ -15603,7 +15590,7 @@ $as_echo "$as_me: WARNING: Performance of certain classes will degrade as a resu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15606 "configure"
+#line 15593 "configure"
 int main()
 {
   _Decimal32 d1;
@@ -15645,7 +15632,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # unnecessary for this test.
 
     cat > conftest.$ac_ext << EOF
-#line 15648 "configure"
+#line 15635 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -15679,7 +15666,7 @@ $as_echo "$enable_int128" >&6; }
     rm -f conftest*
 
     cat > conftest.$ac_ext << EOF
-#line 15682 "configure"
+#line 15669 "configure"
 template<typename T1, typename T2>
   struct same
   { typedef T2 type; };
@@ -16561,7 +16548,7 @@ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
   # Use -std=c++98 because the default (-std=gnu++98) leaves __STRICT_ANSI__
   # undefined and fake C99 facilities - like pre-standard snprintf - may be
   # spuriously enabled.
-  # Long term, -std=c++0x could be even better, could manage to explicitely
+  # Long term, -std=c++0x could be even better, could manage to explicitly
   # request C99 facilities to the underlying C headers.
   ac_save_CXXFLAGS="$CXXFLAGS"
   CXXFLAGS="$CXXFLAGS -std=c++98"
@@ -20126,6 +20113,81 @@ $as_echo "$ac_has_win32_sleep" >&6; }
 
   CXXFLAGS="$ac_save_CXXFLAGS"
   LIBS="$ac_save_LIBS"
+  ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+# Check for tmpnam which is obsolescent in POSIX.1-2008
+
+  ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+  ac_save_CXXFLAGS="$CXXFLAGS"
+  CXXFLAGS="$CXXFLAGS -fno-exceptions"
+  { $as_echo "$as_me:${as_lineno-$LINENO}: checking for tmpnam" >&5
+$as_echo_n "checking for tmpnam... " >&6; }
+  if test "${glibcxx_cv_TMPNAM+set}" = set; then :
+  $as_echo_n "(cached) " >&6
+else
+      if test x$gcc_no_link = xyes; then
+  cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+char *tmp = tmpnam(NULL);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  glibcxx_cv_TMPNAM=yes
+else
+  glibcxx_cv_TMPNAM=no
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+else
+  if test x$gcc_no_link = xyes; then
+  as_fn_error "Link tests are not allowed after GCC_NO_EXECUTABLES." "$LINENO" 5
+fi
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#include <stdio.h>
+int
+main ()
+{
+char *tmp = tmpnam(NULL);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_link "$LINENO"; then :
+  glibcxx_cv_TMPNAM=yes
+else
+  glibcxx_cv_TMPNAM=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+fi
+
+fi
+
+  if test $glibcxx_cv_TMPNAM = yes; then
+
+$as_echo "#define _GLIBCXX_USE_TMPNAM 1" >>confdefs.h
+
+  fi
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $glibcxx_cv_TMPNAM" >&5
+$as_echo "$glibcxx_cv_TMPNAM" >&6; }
+  CXXFLAGS="$ac_save_CXXFLAGS"
   ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -71724,7 +71786,7 @@ $as_echo "$as_me: WARNING: === Symbol versioning will be disabled." >&2;}
 fi
 
 # For libtool versioning info, format is CURRENT:REVISION:AGE
-libtool_VERSION=6:19:0
+libtool_VERSION=6:20:0
 
 # Everything parsed; figure out what files and settings to use.
 case $enable_symvers in

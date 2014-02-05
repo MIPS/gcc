@@ -1,5 +1,5 @@
 /* Alias analysis for trees.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
 This file is part of GCC.
@@ -27,20 +27,24 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "basic-block.h"
 #include "timevar.h"	/* for TV_ALIAS_STMT_WALK */
-#include "ggc.h"
 #include "langhooks.h"
 #include "flags.h"
 #include "function.h"
 #include "tree-pretty-print.h"
 #include "dumpfile.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "expr.h"
 #include "tree-dfa.h"
 #include "tree-inline.h"
 #include "params.h"
-#include "vec.h"
-#include "pointer-set.h"
 #include "alloc-pool.h"
 #include "tree-ssa-alias.h"
 #include "ipa-reference.h"
@@ -452,8 +456,18 @@ dump_points_to_solution (FILE *file, struct pt_solution *pt)
     {
       fprintf (file, ", points-to vars: ");
       dump_decl_set (file, pt->vars);
-      if (pt->vars_contains_global)
-	fprintf (file, " (includes global vars)");
+      if (pt->vars_contains_nonlocal
+	  && pt->vars_contains_escaped_heap)
+	fprintf (file, " (nonlocal, escaped heap)");
+      else if (pt->vars_contains_nonlocal
+	       && pt->vars_contains_escaped)
+	fprintf (file, " (nonlocal, escaped)");
+      else if (pt->vars_contains_nonlocal)
+	fprintf (file, " (nonlocal)");
+      else if (pt->vars_contains_escaped_heap)
+	fprintf (file, " (escaped heap)");
+      else if (pt->vars_contains_escaped)
+	fprintf (file, " (escaped)");
     }
 }
 
@@ -566,7 +580,7 @@ ao_ref_alias_set (ao_ref *ref)
 void
 ao_ref_init_from_ptr_and_size (ao_ref *ref, tree ptr, tree size)
 {
-  HOST_WIDE_INT t, extra_offset = 0;
+  HOST_WIDE_INT t, size_hwi, extra_offset = 0;
   ref->ref = NULL_TREE;
   if (TREE_CODE (ptr) == SSA_NAME)
     {
@@ -604,10 +618,9 @@ ao_ref_init_from_ptr_and_size (ao_ref *ref, tree ptr, tree size)
     }
   ref->offset += extra_offset;
   if (size
-      && host_integerp (size, 0)
-      && TREE_INT_CST_LOW (size) * BITS_PER_UNIT / BITS_PER_UNIT
-	 == TREE_INT_CST_LOW (size))
-    ref->max_size = ref->size = TREE_INT_CST_LOW (size) * BITS_PER_UNIT;
+      && tree_fits_shwi_p (size)
+      && (size_hwi = tree_to_shwi (size)) <= HOST_WIDE_INT_MAX / BITS_PER_UNIT)
+    ref->max_size = ref->size = size_hwi * BITS_PER_UNIT;
   else
     ref->max_size = ref->size = -1;
   ref->ref_alias_set = 0;
@@ -755,8 +768,8 @@ aliasing_component_refs_p (tree ref1,
 static bool
 nonoverlapping_component_refs_of_decl_p (tree ref1, tree ref2)
 {
-  stack_vec<tree, 16> component_refs1;
-  stack_vec<tree, 16> component_refs2;
+  auto_vec<tree, 16> component_refs1;
+  auto_vec<tree, 16> component_refs2;
 
   /* Create the stack of handled components for REF1.  */
   while (handled_component_p (ref1))
@@ -2098,7 +2111,7 @@ stmt_kills_ref_p_1 (gimple stmt, ao_ref *ref)
 	    {
 	      tree dest = gimple_call_arg (stmt, 0);
 	      tree len = gimple_call_arg (stmt, 2);
-	      if (!host_integerp (len, 0))
+	      if (!tree_fits_shwi_p (len))
 		return false;
 	      tree rbase = ref->base;
 	      double_int roffset = double_int::from_shwi (ref->offset);

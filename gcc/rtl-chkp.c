@@ -25,8 +25,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "expr.h"
 #include "pointer-set.h"
 #include "target.h"
-#include "gimple.h"
+#include "tree-ssa-alias.h"
 #include "internal-fn.h"
+#include "is-a.h"
+#include "predict.h"
+#include "basic-block.h"
+#include "gimple-expr.h"
+#include "gimple.h"
 
 struct pointer_map_t *chkp_rtx_bounds_map;
 

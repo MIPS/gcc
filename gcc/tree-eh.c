@@ -1,5 +1,5 @@
 /* Exception handling semantics and decomposition for trees.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,10 +23,18 @@ along with GCC; see the file COPYING3.  If not see
 #include "hash-table.h"
 #include "tm.h"
 #include "tree.h"
+#include "expr.h"
+#include "calls.h"
 #include "flags.h"
 #include "function.h"
 #include "except.h"
 #include "pointer-set.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
@@ -34,13 +42,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
+#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-ssa.h"
 #include "tree-inline.h"
 #include "tree-pass.h"
 #include "langhooks.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "target.h"
 #include "cfgloop.h"
@@ -2677,7 +2685,7 @@ tree_could_trap_p (tree expr)
 	 LTO partition.  */
       if (DECL_WEAK (expr) && !DECL_COMDAT (expr))
 	{
-	  struct varpool_node *node;
+	  varpool_node *node;
 	  if (!DECL_EXTERNAL (expr))
 	    return false;
 	  node = varpool_variable_node (varpool_get_node (expr), NULL);
@@ -3296,7 +3304,7 @@ execute_lower_resx (void)
 
   mnt_map = pointer_map_create ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple last = last_stmt (bb);
       if (last && is_gimple_resx (last))
@@ -3566,7 +3574,7 @@ lower_eh_dispatch (basic_block src, gimple stmt)
     {
     case ERT_TRY:
       {
-	vec<tree> labels = vNULL;
+	auto_vec<tree> labels;
 	tree default_label = NULL;
 	eh_catch c;
 	edge_iterator ei;
@@ -3654,8 +3662,6 @@ lower_eh_dispatch (basic_block src, gimple stmt)
 
 	    x = gimple_build_switch (filter, default_label, labels);
 	    gsi_insert_before (&gsi, x, GSI_SAME_STMT);
-
-	    labels.release ();
 	  }
 	pointer_set_destroy (seen_values);
       }
@@ -3704,7 +3710,7 @@ execute_lower_eh_dispatch (void)
 
   assign_filter_values ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple last = last_stmt (bb);
       if (last == NULL)
@@ -3804,7 +3810,7 @@ mark_reachable_handlers (sbitmap *r_reachablep, sbitmap *lp_reachablep)
   else
     lp_reachable = NULL;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 

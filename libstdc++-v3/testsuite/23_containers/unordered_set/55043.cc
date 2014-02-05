@@ -1,7 +1,7 @@
 // { dg-options "-std=gnu++0x" }
 // { dg-do compile }
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -29,11 +29,18 @@ struct MoveOnly
   MoveOnly(MoveOnly&&) = default;
 };
 
-struct equal {
-  bool operator()(const MoveOnly&, const MoveOnly) const { return true; }
+struct equal
+{
+  bool
+  operator()(const MoveOnly&, const MoveOnly&) const
+  { return true; }
 };
-struct hash {
-  std::size_t operator()(const MoveOnly&) const { return 0; }
+
+struct hash
+{
+  std::size_t
+  operator()(const MoveOnly&) const
+  { return 0; }
 };
 
 template<typename Alloc>

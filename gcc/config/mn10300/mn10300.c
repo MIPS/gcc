@@ -1,5 +1,5 @@
 /* Subroutines for insn-output.c for Matsushita MN10300 series
-   Copyright (C) 1996-2013 Free Software Foundation, Inc.
+   Copyright (C) 1996-2014 Free Software Foundation, Inc.
    Contributed by Jeff Law (law@cygnus.com).
 
    This file is part of GCC.
@@ -24,6 +24,9 @@
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stor-layout.h"
+#include "varasm.h"
+#include "calls.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -1236,9 +1239,8 @@ mn10300_expand_epilogue (void)
    parallel.  If OP is a multiple store, return a mask indicating which
    registers it saves.  Return 0 otherwise.  */
 
-int
-mn10300_store_multiple_operation (rtx op,
-				  enum machine_mode mode ATTRIBUTE_UNUSED)
+unsigned int
+mn10300_store_multiple_regs (rtx op)
 {
   int count;
   int mask;
@@ -3226,7 +3228,6 @@ mn10300_loop_contains_call_insn (loop_p loop)
 static void
 mn10300_scan_for_setlb_lcc (void)
 {
-  loop_iterator liter;
   loop_p loop;
 
   DUMP ("Looking for loops that can use the SETLB insn", NULL_RTX);
@@ -3241,7 +3242,7 @@ mn10300_scan_for_setlb_lcc (void)
      if an inner loop is not suitable for use with the SETLB/Lcc insns, it may
      be the case that its parent loop is suitable.  Thus we should check all
      loops, but work from the innermost outwards.  */
-  FOR_EACH_LOOP (liter, loop, LI_ONLY_INNERMOST)
+  FOR_EACH_LOOP (loop, LI_ONLY_INNERMOST)
     {
       const char * reason = NULL;
 

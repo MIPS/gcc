@@ -958,7 +958,7 @@ package body Exp_Ch4 is
          --    [Deep_]Adjust (Temp.all);
 
          --  We analyze by hand the new internal allocator to avoid any
-         --  recursion and inappropriate call to Initialize
+         --  recursion and inappropriate call to Initialize.
 
          --  We don't want to remove side effects when the expression must be
          --  built in place. In the case of a build-in-place function call,
@@ -1046,8 +1046,7 @@ package body Exp_Ch4 is
                then
                   Insert_Action (N,
                     Make_Attach_Call (
-                      Obj_Ref =>
-                        New_Reference_To (Temp, Loc),
+                      Obj_Ref => New_Reference_To (Temp, Loc),
                       Ptr_Typ => PtrT));
                end if;
 
@@ -1791,7 +1790,7 @@ package body Exp_Ch4 is
       --  components of the arrays.
       --
       --  The actual way the code works is to return the comparison of
-      --  corresponding components for the N+1 call. That's neater!
+      --  corresponding components for the N+1 call. That's neater.
 
       function Test_Empty_Arrays return Node_Id;
       --  This function constructs the test for both arrays being empty
@@ -3044,6 +3043,16 @@ package body Exp_Ch4 is
 
       --  Local Declarations
 
+      Lib_Level_Target : constant Boolean :=
+        Nkind (Parent (Cnode)) = N_Object_Declaration
+          and then
+            Is_Library_Level_Entity (Defining_Identifier (Parent (Cnode)));
+
+      --  If the concatenation declares a library level entity, we call the
+      --  built-in concatenation routines to prevent code bloat, regardless
+      --  of optimization level. This is space-efficient, and prevent linking
+      --  problems when units are compiled with different optimizations.
+
       Opnd_Typ : Entity_Id;
       Ent      : Entity_Id;
       Len      : Uint;
@@ -3572,8 +3581,10 @@ package body Exp_Ch4 is
 
       if Atyp = Standard_String
         and then NN in 2 .. 9
-        and then (Opt.Optimization_Level = 0 or else Debug_Flag_Dot_CC)
-        and then not Debug_Flag_Dot_C
+        and then (Lib_Level_Target
+          or else
+            ((Opt.Optimization_Level = 0 or else Debug_Flag_Dot_CC)
+               and then not Debug_Flag_Dot_C))
       then
          declare
             RR : constant array (Nat range 2 .. 9) of RE_Id :=
@@ -4408,7 +4419,7 @@ package body Exp_Ch4 is
          Analyze_And_Resolve (N, PtrT);
 
          --  We set the variable as statically allocated, since we don't want
-         --  it going on the stack of the current procedure!
+         --  it going on the stack of the current procedure.
 
          Set_Is_Statically_Allocated (Temp);
          return;
@@ -5716,7 +5727,7 @@ package body Exp_Ch4 is
             --  way we get all the processing above for an explicit range.
 
             --  Don't do this for predicated types, since in this case we
-            --  want to check the predicate!
+            --  want to check the predicate.
 
             elsif Is_Scalar_Type (Typ) then
                if No (Predicate_Function (Typ)) then
@@ -5993,7 +6004,7 @@ package body Exp_Ch4 is
 
       --  If a predicate is present, then we do the predicate test, but we
       --  most certainly want to omit this if we are within the predicate
-      --  function itself, since otherwise we have an infinite recursion!
+      --  function itself, since otherwise we have an infinite recursion.
       --  The check should also not be emitted when testing against a range
       --  (the check is only done when the right operand is a subtype; see
       --  RM12-4.5.2 (28.1/3-30/3)).
@@ -7140,7 +7151,7 @@ package body Exp_Ch4 is
             then
                --  Search for equality operation, checking that the operands
                --  have the same type. Note that we must find a matching entry,
-               --  or something is very wrong!
+               --  or something is very wrong.
 
                Prim := First_Elmt (Collect_Primitive_Operations (A_Typ));
 
@@ -7331,7 +7342,6 @@ package body Exp_Ch4 is
          declare
             Bt : constant Entity_Id := Root_Type (Underlying_Type (Bastyp));
             Et : constant Entity_Id := Root_Type (Underlying_Type (Exptyp));
-
          begin
             Rewrite (N,
               Unchecked_Convert_To (Typ,
@@ -7353,7 +7363,12 @@ package body Exp_Ch4 is
       --  Test for case of known right argument where we can replace the
       --  exponentiation by an equivalent expression using multiplication.
 
-      if Compile_Time_Known_Value (Exp) then
+      --  Note: use CRT_Safe version of Compile_Time_Known_Value because in
+      --  configurable run-time mode, we may not have the exponentiation
+      --  routine available, and we don't want the legality of the program
+      --  to depend on how clever the compiler is in knowing values.
+
+      if CRT_Safe_Compile_Time_Known_Value (Exp) then
          Expv := Expr_Value (Exp);
 
          --  We only fold small non-negative exponents. You might think we
@@ -7454,11 +7469,16 @@ package body Exp_Ch4 is
       --  a non-binary modulus in the multiplication case, since we get a wrong
       --  result if the shift causes an overflow before the modular reduction.
 
+      --  Note: we used to check that Exptyp was an unsigned type. But that is
+      --  an unnecessary check, since if Exp is negative, we have a run-time
+      --  error that is either caught (so we get the right result) or we have
+      --  suppressed the check, in which case the code is erroneous anyway.
+
       if Nkind (Base) = N_Integer_Literal
-        and then Intval (Base) = 2
+        and then CRT_Safe_Compile_Time_Known_Value (Base)
+        and then Expr_Value (Base) = Uint_2
         and then Is_Integer_Type (Root_Type (Exptyp))
         and then Esize (Root_Type (Exptyp)) <= Esize (Standard_Integer)
-        and then Is_Unsigned_Type (Exptyp)
         and then not Ovflo
       then
          --  First the multiply and divide cases
@@ -7605,7 +7625,7 @@ package body Exp_Ch4 is
       then
          Rewrite (N,
            Make_Function_Call (Loc,
-             Name => New_Reference_To (RTE (Rent), Loc),
+             Name                   => New_Reference_To (RTE (Rent), Loc),
              Parameter_Associations => New_List (Base, Exp)));
 
       --  Otherwise we have to introduce conversions (conversions are also
@@ -9107,7 +9127,7 @@ package body Exp_Ch4 is
            and then Is_Constrained (Ptyp)
          then
             --  Do this optimization for discrete types only, and not for
-            --  access types (access discriminants get us into trouble!)
+            --  access types (access discriminants get us into trouble).
 
             if not Is_Discrete_Type (Etype (N)) then
                null;
@@ -9115,7 +9135,7 @@ package body Exp_Ch4 is
             --  Don't do this on the left hand of an assignment statement.
             --  Normally one would think that references like this would not
             --  occur, but they do in generated code, and mean that we really
-            --  do want to assign the discriminant!
+            --  do want to assign the discriminant.
 
             elsif Nkind (Par) = N_Assignment_Statement
               and then Name (Par) = N
@@ -9134,7 +9154,7 @@ package body Exp_Ch4 is
 
             --  Don't do this optimization if we are within the code for a
             --  discriminant check, since the whole point of such a check may
-            --  be to verify the condition on which the code below depends!
+            --  be to verify the condition on which the code below depends.
 
             elsif Is_In_Discriminant_Check (N) then
                null;
@@ -9228,7 +9248,7 @@ package body Exp_Ch4 is
                         return;
 
                      --  Otherwise we can just copy the constraint, but the
-                     --  result is certainly not static! In some cases the
+                     --  result is certainly not static. In some cases the
                      --  discriminant constraint has been analyzed in the
                      --  context of the original subtype indication, but for
                      --  itypes the constraint might not have been analyzed
@@ -9329,10 +9349,8 @@ package body Exp_Ch4 is
    --------------------
 
    procedure Expand_N_Slice (N : Node_Id) is
-      Loc  : constant Source_Ptr := Sloc (N);
-      Typ  : constant Entity_Id  := Etype (N);
-      Pfx  : constant Node_Id    := Prefix (N);
-      Ptp  : Entity_Id           := Etype (Pfx);
+      Loc : constant Source_Ptr := Sloc (N);
+      Typ : constant Entity_Id  := Etype (N);
 
       function Is_Procedure_Actual (N : Node_Id) return Boolean;
       --  Check whether the argument is an actual for a procedure call, in
@@ -9390,8 +9408,8 @@ package body Exp_Ch4 is
       ------------------------------
 
       procedure Make_Temporary_For_Slice is
-         Decl : Node_Id;
          Ent  : constant Entity_Id := Make_Temporary (Loc, 'T', N);
+         Decl : Node_Id;
 
       begin
          Decl :=
@@ -9404,36 +9422,40 @@ package body Exp_Ch4 is
          Insert_Actions (N, New_List (
            Decl,
            Make_Assignment_Statement (Loc,
-             Name => New_Occurrence_Of (Ent, Loc),
+             Name       => New_Occurrence_Of (Ent, Loc),
              Expression => Relocate_Node (N))));
 
          Rewrite (N, New_Occurrence_Of (Ent, Loc));
          Analyze_And_Resolve (N, Typ);
       end Make_Temporary_For_Slice;
 
+      --  Local variables
+
+      Pref     : constant Node_Id := Prefix (N);
+      Pref_Typ : Entity_Id        := Etype (Pref);
+
    --  Start of processing for Expand_N_Slice
 
    begin
       --  Special handling for access types
 
-      if Is_Access_Type (Ptp) then
+      if Is_Access_Type (Pref_Typ) then
+         Pref_Typ := Designated_Type (Pref_Typ);
 
-         Ptp := Designated_Type (Ptp);
-
-         Rewrite (Pfx,
+         Rewrite (Pref,
            Make_Explicit_Dereference (Sloc (N),
-            Prefix => Relocate_Node (Pfx)));
+            Prefix => Relocate_Node (Pref)));
 
-         Analyze_And_Resolve (Pfx, Ptp);
+         Analyze_And_Resolve (Pref, Pref_Typ);
       end if;
 
       --  Ada 2005 (AI-318-02): If the prefix is a call to a build-in-place
       --  function, then additional actuals must be passed.
 
       if Ada_Version >= Ada_2005
-        and then Is_Build_In_Place_Function_Call (Pfx)
+        and then Is_Build_In_Place_Function_Call (Pref)
       then
-         Make_Build_In_Place_Call_In_Anonymous_Context (Pfx);
+         Make_Build_In_Place_Call_In_Anonymous_Context (Pref);
       end if;
 
       --  The remaining case to be handled is packed slices. We can leave
@@ -9652,15 +9674,14 @@ package body Exp_Ch4 is
 
       procedure Raise_Accessibility_Error is
       begin
+         Error_Msg_Warn := SPARK_Mode /= On;
          Rewrite (N,
            Make_Raise_Program_Error (Sloc (N),
              Reason => PE_Accessibility_Check_Failed));
          Set_Etype (N, Target_Type);
 
-         Error_Msg_N
-           ("??accessibility check failure", N);
-         Error_Msg_NE
-           ("\??& will be raised at run time", N, Standard_Program_Error);
+         Error_Msg_N ("<<accessibility check failure", N);
+         Error_Msg_NE ("\<<& [", N, Standard_Program_Error);
       end Raise_Accessibility_Error;
 
       ----------------------
@@ -9940,7 +9961,7 @@ package body Exp_Ch4 is
       --  in Checks.Apply_Arithmetic_Overflow_Check, but we catch more cases in
       --  the processing here. Also we still need the Checks circuit, since we
       --  have to be sure not to generate junk overflow checks in the first
-      --  place, since it would be trick to remove them here!
+      --  place, since it would be trick to remove them here.
 
       if Integer_Promotion_Possible (N) then
 
@@ -12192,7 +12213,8 @@ package body Exp_Ch4 is
 
             --  The topmost case or if expression is now recovered, but it may
             --  still not be the correct place to add generated code. Climb to
-            --  find a parent that is part of a declarative or statement list.
+            --  find a parent that is part of a declarative or statement list,
+            --  and is not a list of actuals in a call.
 
             Par := Top;
             while Present (Par) loop
@@ -12201,6 +12223,11 @@ package body Exp_Ch4 is
                                              N_Discriminant_Association,
                                              N_Parameter_Association,
                                              N_Pragma_Argument_Association)
+                 and then not Nkind_In
+                                (Parent (Par), N_Function_Call,
+                                               N_Procedure_Call_Statement,
+                                               N_Entry_Call_Statement)
+
                then
                   Hook_Context := Par;
                   goto Hook_Context_Found;
@@ -12262,12 +12289,11 @@ package body Exp_Ch4 is
 
             while Present (Par) loop
                if Par = Wrapped_Node
-                    or else
-                  Nkind_In (Par, N_Assignment_Statement,
-                                 N_Object_Declaration,
-                                 N_Pragma,
-                                 N_Procedure_Call_Statement,
-                                 N_Simple_Return_Statement)
+                 or else Nkind_In (Par, N_Assignment_Statement,
+                                        N_Object_Declaration,
+                                        N_Pragma,
+                                        N_Procedure_Call_Statement,
+                                        N_Simple_Return_Statement)
                then
                   Hook_Context := Par;
                   goto Hook_Context_Found;
@@ -12303,13 +12329,14 @@ package body Exp_Ch4 is
 
             Finalize_Always :=
                not (In_Cond_Expr
-                      or else
-                    Nkind_In (Original_Node (N), N_Case_Expression,
-                                                 N_If_Expression));
+                     or else
+                       Nkind_In (Original_Node (N), N_Case_Expression,
+                                                    N_If_Expression));
 
             declare
                Loc  : constant Source_Ptr := Sloc (N);
                Temp : constant Entity_Id := Make_Temporary (Loc, 'E', N);
+
             begin
                Append_To (Actions (N),
                  Make_Object_Declaration (Loc,

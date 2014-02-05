@@ -1,5 +1,5 @@
 /* Target definitions for GNU compiler for PowerPC running System V.4
-   Copyright (C) 1995-2013 Free Software Foundation, Inc.
+   Copyright (C) 1995-2014 Free Software Foundation, Inc.
    Contributed by Cygnus Support.
 
    This file is part of GCC.
@@ -538,12 +538,7 @@ ENDIAN_SELECT(" -mbig", " -mlittle", DEFAULT_ASM_ENDIAN)
 
 #define	CC1_ENDIAN_BIG_SPEC ""
 
-#define	CC1_ENDIAN_LITTLE_SPEC "\
-%{!mstrict-align: %{!mno-strict-align: \
-    %{!mcall-i960-old: \
-	-mstrict-align \
-    } \
-}}"
+#define	CC1_ENDIAN_LITTLE_SPEC ""
 
 #define	CC1_ENDIAN_DEFAULT_SPEC "%(cc1_endian_big)"
 

@@ -208,9 +208,9 @@ runtime_newosproc(M *mp)
 #endif
 
 	sigemptyset(&old);
-	sigprocmask(SIG_BLOCK, &clear, &old);
+	pthread_sigmask(SIG_BLOCK, &clear, &old);
 	ret = pthread_create(&tid, &attr, runtime_mstart, mp);
-	sigprocmask(SIG_SETMASK, &old, nil);
+	pthread_sigmask(SIG_SETMASK, &old, nil);
 
 	if (ret != 0)
 		runtime_throw("pthread_create");
@@ -539,7 +539,9 @@ runtime_main(void* dummy __attribute__((unused)))
 	d.__arg = (void*)-1;
 	d.__panic = g->panic;
 	d.__retaddr = nil;
+	d.__makefunc_can_recover = 0;
 	d.__frame = &frame;
+	d.__free = 0;
 	g->defer = &d;
 
 	if(m != &runtime_m0)
@@ -1983,7 +1985,10 @@ runtime_exitsyscall(void)
 #endif
 	gp->gcnext_sp = nil;
 	runtime_memclr(&gp->gcregs, sizeof gp->gcregs);
-	m->p->syscalltick++;
+
+	// Don't refer to m again, we might be running on a different
+	// thread after returning from runtime_mcall.
+	runtime_m()->p->syscalltick++;
 }
 
 static bool
@@ -2451,6 +2456,15 @@ runtime_sigprof()
 		return;
 	}
 	n = 0;
+
+	if(runtime_atomicload(&runtime_in_callers) > 0) {
+		// If SIGPROF arrived while already fetching runtime
+		// callers we can have trouble on older systems
+		// because the unwind library calls dl_iterate_phdr
+		// which was not recursive in the past.
+		traceback = false;
+	}
+
 	if(traceback) {
 		n = runtime_callers(0, prof.locbuf, nelem(prof.locbuf));
 		for(i = 0; i < n; i++)

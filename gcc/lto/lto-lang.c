@@ -1,5 +1,5 @@
 /* Language-dependent hooks for LTO.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by CodeSourcery, Inc.
 
 This file is part of GCC.
@@ -24,6 +24,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
 #include "target.h"
 #include "langhooks.h"
 #include "langhooks-def.h"
@@ -31,6 +33,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "lto-tree.h"
 #include "lto.h"
 #include "tree-inline.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "diagnostic-core.h"
 #include "toplev.h"
@@ -1176,7 +1183,7 @@ lto_init (void)
 			   build_reference_type (va_list_type_node));
     }
   
-  if (flag_enable_cilkplus)
+  if (flag_cilkplus)
     cilk_init_builtins ();
 
   targetm.init_builtins ();
@@ -1301,6 +1308,5 @@ lto_tree_node_structure (union lang_tree_node *t ATTRIBUTE_UNUSED)
   return TS_LTO_GENERIC;
 }
 
-#include "ggc.h"
 #include "gtype-lto.h"
 #include "gt-lto-lto-lang.h"

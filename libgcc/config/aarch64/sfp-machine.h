@@ -1,5 +1,5 @@
 /* Machine description for AArch64 architecture.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by ARM Ltd.
 
 This file is part of GCC.
@@ -26,7 +26,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define _FP_W_TYPE_SIZE		64
 #define _FP_W_TYPE		unsigned long long
 #define _FP_WS_TYPE		signed long long
-#define _FP_I_TYPE		int
+#define _FP_I_TYPE		long long
 
 typedef int TItype __attribute__ ((mode (TI)));
 typedef unsigned int UTItype __attribute__ ((mode (TI)));

@@ -1,5 +1,5 @@
 ;; Constraint definitions for Synopsys DesignWare ARC.
-;; Copyright (C) 2007-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -338,7 +338,7 @@
   (and (match_code "REG")
        (match_test "TARGET_Rcq
 		    && !arc_ccfsm_cond_exec_p ()
-		    && ((((REGNO (op) & 7) ^ 4) - 4) & 15) == REGNO (op)")))
+		    && IN_RANGE (REGNO (op) ^ 4, 4, 11)")))
 
 ; If we need a reload, we generally want to steer reload to use three-address
 ; alternatives in preference of two-address alternatives, unless the

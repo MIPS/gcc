@@ -1,5 +1,5 @@
 /* Structure for saving state for a nested function.
-   Copyright (C) 1989-2013 Free Software Foundation, Inc.
+   Copyright (C) 1989-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -165,10 +165,10 @@ struct gimple_df;
 struct temp_slot;
 typedef struct temp_slot *temp_slot_p;
 struct call_site_record_d;
-struct dw_fde_struct;
+struct dw_fde_node;
 
-struct ipa_opt_pass_d;
-typedef struct ipa_opt_pass_d *ipa_opt_pass;
+class ipa_opt_pass_d;
+typedef ipa_opt_pass_d *ipa_opt_pass;
 
 
 struct GTY(()) varasm_status {
@@ -572,7 +572,7 @@ struct GTY(()) function {
   /* Dwarf2 Frame Description Entry, containing the Call Frame Instructions
      used for unwinding.  Only set when either dwarf2 unwinding or dwarf2
      debugging is enabled.  */
-  struct dw_fde_struct *fde;
+  struct dw_fde_node *fde;
 
   /* Last statement uid.  */
   int last_stmt_uid;
@@ -824,5 +824,26 @@ extern unsigned int emit_initial_value_sets (void);
 /* In predict.c */
 extern bool optimize_function_for_size_p (struct function *);
 extern bool optimize_function_for_speed_p (struct function *);
+
+/* In function.c */
+extern void expand_function_end (void);
+extern void expand_function_start (tree);
+extern void stack_protect_epilogue (void);
+extern void init_dummy_function_start (void);
+extern void expand_dummy_function_end (void);
+extern void allocate_struct_function (tree, bool);
+extern void push_struct_function (tree fndecl);
+extern void init_function_start (tree);
+extern bool use_register_for_decl (const_tree);
+extern void generate_setjmp_warnings (void);
+extern void init_temp_slots (void);
+extern void free_temp_slots (void);
+extern void pop_temp_slots (void);
+extern void push_temp_slots (void);
+extern void preserve_temp_slots (rtx);
+extern int aggregate_value_p (const_tree, const_tree);
+extern void push_function_context (void);
+extern void pop_function_context (void);
+extern gimple_seq gimplify_parameters (void);
 
 #endif  /* GCC_FUNCTION_H */

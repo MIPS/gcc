@@ -1,5 +1,5 @@
 /* Target hook definitions.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -1521,6 +1521,36 @@ hook_int_uint_mode_1)
 
 HOOK_VECTOR_END (sched)
 
+/* Functions relating to OpenMP and Cilk Plus SIMD clones.  */
+#undef HOOK_PREFIX
+#define HOOK_PREFIX "TARGET_SIMD_CLONE_"
+HOOK_VECTOR (TARGET_SIMD_CLONE, simd_clone)
+
+DEFHOOK
+(compute_vecsize_and_simdlen,
+"This hook should set @var{vecsize_mangle}, @var{vecsize_int}, @var{vecsize_float}\n\
+fields in @var{simd_clone} structure pointed by @var{clone_info} argument and also\n\
+@var{simdlen} field if it was previously 0.\n\
+The hook should return 0 if SIMD clones shouldn't be emitted,\n\
+or number of @var{vecsize_mangle} variants that should be emitted.",
+int, (struct cgraph_node *, struct cgraph_simd_clone *, tree, int), NULL)
+
+DEFHOOK
+(adjust,
+"This hook should add implicit @code{attribute(target(\"...\"))} attribute\n\
+to SIMD clone @var{node} if needed.",
+void, (struct cgraph_node *), NULL)
+
+DEFHOOK
+(usable,
+"This hook should return -1 if SIMD clone @var{node} shouldn't be used\n\
+in vectorized loops in current function, or non-negative number if it is\n\
+usable.  In that case, the smaller the number is, the more desirable it is\n\
+to use it.",
+int, (struct cgraph_node *), NULL)
+
+HOOK_VECTOR_END (simd_clone)
+
 /* Functions relating to vectorization.  */
 #undef HOOK_PREFIX
 #define HOOK_PREFIX "TARGET_VECTORIZE_"
@@ -2887,7 +2917,7 @@ DEFHOOK
   version of this hook assumes the system C library errno location\
   is either a declaration of type int or accessed by dereferencing\
   a pointer to int.",
- bool, (struct ao_ref_s *ref),
+ bool, (struct ao_ref *ref),
  default_ref_may_alias_errno)
 
 /* Support for named address spaces.  */
@@ -5296,6 +5326,17 @@ DEFHOOKPOD
  @code{atomic_test_and_set} is not exactly 1, i.e. the\
  @code{bool} @code{true}.",
  unsigned char, 1)
+
+/* Return an unsigned int representing the alignment (in bits) of the atomic
+   type which maps to machine MODE.  This allows alignment to be overridden
+   as needed.  */
+DEFHOOK
+(atomic_align_for_mode,
+"If defined, this function returns an appropriate alignment in bits for an\
+ atomic object of machine_mode @var{mode}.  If 0 is returned then the\
+ default alignment for the specified mode is used. ",
+ unsigned int, (enum machine_mode mode),
+ hook_uint_mode_0)
 
 DEFHOOK
 (atomic_assign_expand_fenv,

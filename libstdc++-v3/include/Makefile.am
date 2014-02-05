@@ -1,6 +1,6 @@
 ## Makefile for the include subdirectory of the GNU C++ Standard library.
 ##
-## Copyright (C) 2001-2013 Free Software Foundation, Inc.
+## Copyright (C) 2001-2014 Free Software Foundation, Inc.
 ##
 ## This file is part of the libstdc++ version 3 distribution.
 ## Process this file with automake to produce Makefile.in.
@@ -638,7 +638,9 @@ decimal_headers = \
 experimental_srcdir = ${glibcxx_srcdir}/include/experimental
 experimental_builddir = ./experimental
 experimental_headers = \
-	${experimental_srcdir}/optional
+	${experimental_srcdir}/optional \
+	${experimental_srcdir}/string_view \
+	${experimental_srcdir}/string_view.tcc
 
 # This is the common subset of C++ files that all three "C" header models use.
 c_base_srcdir = $(C_INCLUDE_DIR)

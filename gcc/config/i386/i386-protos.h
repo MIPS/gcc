@@ -1,5 +1,5 @@
 /* Definitions of target machine for GCC for IA-32.
-   Copyright (C) 1988-2013 Free Software Foundation, Inc.
+   Copyright (C) 1988-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -58,9 +58,9 @@ extern enum machine_mode ix86_cc_mode (enum rtx_code, rtx, rtx);
 extern int avx_vpermilp_parallel (rtx par, enum machine_mode mode);
 extern int avx_vperm2f128_parallel (rtx par, enum machine_mode mode);
 
-extern bool ix86_expand_movmem (rtx, rtx, rtx, rtx, rtx, rtx);
-extern bool ix86_expand_setmem (rtx, rtx, rtx, rtx, rtx, rtx);
 extern bool ix86_expand_strlen (rtx, rtx, rtx, rtx);
+extern bool ix86_expand_set_or_movmem (rtx, rtx, rtx, rtx, rtx, rtx,
+				       rtx, rtx, rtx, rtx, bool);
 
 extern bool constant_address_p (rtx);
 extern bool legitimate_pic_operand_p (rtx);

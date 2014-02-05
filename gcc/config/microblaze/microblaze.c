@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on Xilinx MicroBlaze.
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
    Contributed by Michael Eager <eager@eagercon.com>.
 
@@ -33,6 +33,9 @@
 #include "insn-attr.h"
 #include "recog.h"
 #include "tree.h"
+#include "varasm.h"
+#include "stor-layout.h"
+#include "calls.h"
 #include "function.h"
 #include "expr.h"
 #include "flags.h"
