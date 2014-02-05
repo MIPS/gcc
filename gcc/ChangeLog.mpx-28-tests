@@ -1,0 +1,3 @@
+2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* config/i386/cpuid.h (bit_MPX): New.
