@@ -81,6 +81,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "target-globals.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 static rtx legitimize_dllimport_symbol (rtx, bool);
 static rtx legitimize_pe_coff_extern_decl (rtx, bool);
@@ -28695,6 +28697,21 @@ enum ix86_builtins
   IX86_BUILTIN_XABORT,
   IX86_BUILTIN_XTEST,
 
+  /* MPX */
+  IX86_BUILTIN_BNDMK,
+  IX86_BUILTIN_BNDSTX,
+  IX86_BUILTIN_BNDLDX,
+  IX86_BUILTIN_BNDCL,
+  IX86_BUILTIN_BNDCU,
+  IX86_BUILTIN_BNDRET,
+  IX86_BUILTIN_BNDSET,
+  IX86_BUILTIN_BNDNARROW,
+  IX86_BUILTIN_BNDINT,
+  IX86_BUILTIN_ARG_BND,
+  IX86_BUILTIN_SIZEOF,
+  IX86_BUILTIN_BNDLOWER,
+  IX86_BUILTIN_BNDUPPER,
+
   /* BMI instructions.  */
   IX86_BUILTIN_BEXTR32,
   IX86_BUILTIN_BEXTR64,
@@ -28768,6 +28785,8 @@ struct builtin_isa {
   enum ix86_builtin_func_type tcode; /* type to use in the declaration */
   HOST_WIDE_INT isa;		/* isa_flags this builtin is defined for */
   bool const_p;			/* true if the declaration is constant */
+  bool leaf_p;			/* true if the declaration has leaf attribute */
+  bool nothrow_p;		/* true if the declaration has nothrow attribute */
   bool set_and_not_built_p;
 };
 
@@ -28819,6 +28838,8 @@ def_builtin (HOST_WIDE_INT mask, const char *name,
 	  ix86_builtins[(int) code] = NULL_TREE;
 	  ix86_builtins_isa[(int) code].tcode = tcode;
 	  ix86_builtins_isa[(int) code].name = name;
+	  ix86_builtins_isa[(int) code].leaf_p = false;
+	  ix86_builtins_isa[(int) code].nothrow_p = false;
 	  ix86_builtins_isa[(int) code].const_p = false;
 	  ix86_builtins_isa[(int) code].set_and_not_built_p = true;
 	}
@@ -28869,6 +28890,11 @@ ix86_add_new_builtins (HOST_WIDE_INT isa)
 	  ix86_builtins[i] = decl;
 	  if (ix86_builtins_isa[i].const_p)
 	    TREE_READONLY (decl) = 1;
+	  if (ix86_builtins_isa[i].leaf_p)
+	    DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
+						      NULL_TREE);
+	  if (ix86_builtins_isa[i].nothrow_p)
+	    TREE_NOTHROW (decl) = 1;
 	}
     }
 }
@@ -30318,6 +30344,29 @@ static const struct builtin_description bdesc_round_args[] =
   { OPTION_MASK_ISA_AVX512ER, CODE_FOR_avx512er_vmrsqrt28v4sf_round, "__builtin_ia32_rsqrt28ss_round", IX86_BUILTIN_RSQRT28SS, UNKNOWN, (int) V4SF_FTYPE_V4SF_V4SF_INT },
 };
 
+/* Bultins for MPX.  */
+static const struct builtin_description bdesc_mpx[] =
+{
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
+};
+
+/* Const builtins for MPX.  */
+static const struct builtin_description bdesc_mpx_const[] =
+{
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndmk", IX86_BUILTIN_BNDMK, UNKNOWN, (int) BND_FTYPE_PCVOID_ULONG },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndldx", IX86_BUILTIN_BNDLDX, UNKNOWN, (int) BND_FTYPE_PCVOID_PCVOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_set_bounds", IX86_BUILTIN_BNDSET, UNKNOWN, (int) PVOID_FTYPE_PVOID_PVOID_ULONG },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_narrow_bounds", IX86_BUILTIN_BNDNARROW, UNKNOWN, (int) PVOID_FTYPE_PCVOID_BND_ULONG },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndint", IX86_BUILTIN_BNDINT, UNKNOWN, (int) BND_FTYPE_BND_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_arg_bnd", IX86_BUILTIN_ARG_BND, UNKNOWN, (int) BND_FTYPE_PCVOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_sizeof", IX86_BUILTIN_SIZEOF, UNKNOWN, (int) ULONG_FTYPE_VOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndlower", IX86_BUILTIN_BNDLOWER, UNKNOWN, (int) PVOID_FTYPE_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndupper", IX86_BUILTIN_BNDUPPER, UNKNOWN, (int) PVOID_FTYPE_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndret", IX86_BUILTIN_BNDRET, UNKNOWN, (int) BND_FTYPE_PCVOID },
+};
+
 /* FMA4 and XOP.  */
 #define MULTI_ARG_4_DF2_DI_I	V2DF_FTYPE_V2DF_V2DF_V2DI_INT
 #define MULTI_ARG_4_DF2_DI_I1	V4DF_FTYPE_V4DF_V4DF_V4DI_INT
@@ -31160,6 +31209,61 @@ ix86_init_mmx_sse_builtins (void)
 
       ftype = (enum ix86_builtin_func_type) d->flag;
       def_builtin_const (d->mask, d->name, ftype, d->code);
+    }
+}
+
+static void
+ix86_init_mpx_builtins ()
+{
+  const struct builtin_description * d;
+  enum ix86_builtin_func_type ftype;
+  tree decl;
+  size_t i;
+
+  for (i = 0, d = bdesc_mpx;
+       i < ARRAY_SIZE (bdesc_mpx);
+       i++, d++)
+    {
+      if (d->name == 0)
+	continue;
+
+      ftype = (enum ix86_builtin_func_type) d->flag;
+      decl = def_builtin (d->mask, d->name, ftype, d->code);
+
+      if (decl)
+	{
+	  DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
+						    NULL_TREE);
+	  TREE_NOTHROW (decl) = 1;
+	}
+      else
+	{
+	  ix86_builtins_isa[(int)d->code].leaf_p = true;
+	  ix86_builtins_isa[(int)d->code].nothrow_p = true;
+	}
+    }
+
+  for (i = 0, d = bdesc_mpx_const;
+       i < ARRAY_SIZE (bdesc_mpx_const);
+       i++, d++)
+    {
+      if (d->name == 0)
+	continue;
+
+      ftype = (enum ix86_builtin_func_type) d->flag;
+      decl = def_builtin_const (d->mask, d->name, ftype, d->code);
+
+      if (decl)
+	{
+	  DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
+						    NULL_TREE);
+	  TREE_NOTHROW (decl) = 1;
+	}
+      else
+	{
+	  ix86_builtins_isa[(int)d->code].leaf_p = true;
+	  ix86_builtins_isa[(int)d->code].nothrow_p = true;
+	}
     }
 }
 
@@ -32701,6 +32805,7 @@ ix86_init_builtins (void)
 
   ix86_init_tm_builtins ();
   ix86_init_mmx_sse_builtins ();
+  ix86_init_mpx_builtins ();
 
   if (TARGET_LP64)
     ix86_init_builtins_va_builtins_abi ();
@@ -35030,6 +35135,401 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 
   switch (fcode)
     {
+    case IX86_BUILTIN_BNDMK:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      /* Builtin arg1 is size of block but instruction op1 should
+	 be (size - 1).  */
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (fold_build2 (PLUS_EXPR, TREE_TYPE (arg1),
+					arg1, integer_minus_one_node));
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_mk (target, op0, op1)
+                 : gen_bnd32_mk (target, op0, op1));
+      return target;
+
+    case IX86_BUILTIN_BNDSTX:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+      arg2 = CALL_EXPR_ARG (exp, 2);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+      op2 = expand_normal (arg2);
+
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+      op2 = force_reg (BNDmode, op2);
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_stx (op0, op1, op2)
+                 : gen_bnd32_stx (op0, op1, op2));
+      return 0;
+
+    case IX86_BUILTIN_BNDLDX:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      /* Avoid registers which connot be used as index.  */
+      if (REGNO (op1) == VIRTUAL_INCOMING_ARGS_REGNUM
+	  || REGNO (op1) == VIRTUAL_STACK_VARS_REGNUM
+	  || REGNO (op1) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+	{
+	  rtx temp = gen_reg_rtx (Pmode);
+	  emit_move_insn (temp, op1);
+	  op1 = temp;
+	}
+
+      /* If op1 was a register originally then it may have
+	 mode other than Pmode.  We need to extend in such
+	 case because bndldx may work only with Pmode regs.  */
+      if (GET_MODE (op1) != Pmode)
+	{
+	  rtx ext = gen_rtx_ZERO_EXTEND (Pmode, op1);
+	  op1 = gen_reg_rtx (Pmode);
+	  emit_move_insn (op1, ext);
+	}
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_ldx (target, op0, op1)
+                 : gen_bnd32_ldx (target, op0, op1));
+      return target;
+
+    case IX86_BUILTIN_BNDCL:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+
+      op0 = force_reg (BNDmode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_cl (op0, op1)
+                 : gen_bnd32_cl (op0, op1));
+      return 0;
+
+    case IX86_BUILTIN_BNDCU:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+
+      op0 = force_reg (BNDmode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      emit_insn (TARGET_64BIT
+                 ? gen_bnd64_cu (op0, op1)
+                 : gen_bnd32_cu (op0, op1));
+      return 0;
+
+    case IX86_BUILTIN_BNDRET:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      gcc_assert (TREE_CODE (arg0) == SSA_NAME);
+      target = chkp_get_rtl_bounds (arg0);
+      /* If no bounds were specified for returned value,
+	 then use INIT bounds.  It usually happens when
+	 some built-in function is expanded.  */
+      if (!target)
+	{
+	  rtx t1 = gen_reg_rtx (Pmode);
+	  rtx t2 = gen_reg_rtx (Pmode);
+	  target = gen_reg_rtx (BNDmode);
+	  emit_move_insn (t1, const0_rtx);
+	  emit_move_insn (t2, constm1_rtx);
+	  emit_insn (TARGET_64BIT
+		     ? gen_bnd64_mk (target, t1, t2)
+		     : gen_bnd32_mk (target, t1, t2));
+	}
+      gcc_assert (target && REG_P (target));
+      return target;
+
+    case IX86_BUILTIN_BNDSET:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg1 = CALL_EXPR_ARG (exp, 1);
+
+      /* Size was passed but we need to use (size - 1) in bndmk.  */
+      arg1 = fold_build2 (PLUS_EXPR, TREE_TYPE (arg1), arg1,
+			  integer_minus_one_node);
+
+      op0 = expand_normal (arg0);
+      op1 = expand_normal (arg1);
+
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (Pmode, op1);
+
+      /* Bounds are bound to return value, so put them into b0.  */
+      op2 = gen_reg_rtx (BNDmode);
+      emit_insn (TARGET_64BIT
+		 ? gen_bnd64_mk (op2, op0, op1)
+		 : gen_bnd32_mk (op2, op0, op1));
+      return chkp_join_splitted_slot (op0, op2);
+
+    case IX86_BUILTIN_BNDNARROW:
+      {
+	enum machine_mode mode = BNDmode;
+	enum machine_mode hmode = Pmode;
+	rtx m1, m1h1, m1h2, lb, ub, t1, t2;
+
+	/* Return value and lb.  */
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	/* Bounds.  */
+	arg1 = CALL_EXPR_ARG (exp, 1);
+	/* Size.  */
+	arg2 = CALL_EXPR_ARG (exp, 2);
+
+	/* Size was passed but we need to use (size - 1) as for bndmk.  */
+	arg2 = fold_build2 (PLUS_EXPR, TREE_TYPE (arg2), arg2,
+			    integer_minus_one_node);
+
+	/* Add LB to size and inverse to get UB.  */
+	arg2 = fold_build2 (PLUS_EXPR, TREE_TYPE (arg2), arg2, arg0);
+	arg2 = fold_build1 (BIT_NOT_EXPR, TREE_TYPE (arg2), arg2);
+
+	op0 = expand_normal (arg0);
+	op1 = expand_normal (arg1);
+	op2 = expand_normal (arg2);
+
+	lb = force_reg (hmode, op0);
+	ub = force_reg (hmode, op2);
+
+	/* We need to move bounds to memory before any computations.  */
+	if (!MEM_P (op1))
+	  {
+	    m1 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_insn (gen_move_insn (m1, op1));
+	  }
+	else
+	  m1 = op1;
+
+	/* Generate mem expression to be used for access to LB and UB.  */
+	m1h1 = gen_rtx_MEM (hmode, XEXP (m1, 0));
+	m1h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m1, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+
+	t1 = gen_reg_rtx (hmode);
+
+	/* Compute LB.  */
+	emit_move_insn (t1, m1h1);
+	if (TARGET_CMOVE)
+	  {
+	    t2 = ix86_expand_compare (LTU, t1, lb);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t2, lb, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, lb, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, lb));
+	    emit_label (nomove);
+	  }
+	emit_move_insn (m1h1, t1);
+
+
+	/* Compute UB.  UB are stored in 1's complement form.  Therefore
+	   we also use LTU here.  */
+	emit_move_insn (t1, m1h2);
+	if (TARGET_CMOVE)
+	  {
+	    t2 = ix86_expand_compare (LTU, t1, ub);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t2, ub, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, ub, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, ub));
+	    emit_label (nomove);
+	  }
+	emit_move_insn (m1h2, t1);
+
+	op2 = gen_reg_rtx (BNDmode);
+	emit_move_insn (op2, m1);
+
+	return chkp_join_splitted_slot (op0, op2);
+      }
+
+    case IX86_BUILTIN_BNDINT:
+      {
+	enum machine_mode mode = BNDmode;
+	enum machine_mode hmode = Pmode;
+	rtx res = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	rtx m1, m2, m1h1, m1h2, m2h1, m2h2, t1, t2, t3, rh1, rh2;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	arg1 = CALL_EXPR_ARG (exp, 1);
+
+	op0 = expand_normal (arg0);
+	op1 = expand_normal (arg1);
+
+	/* We need to move bounds to memory before any computations.  */
+	if (!MEM_P (op0))
+	  {
+	    m1 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_insn (gen_move_insn (m1, op0));
+	  }
+	else
+	  m1 = op0;
+
+	if (!MEM_P (op1))
+	  {
+	    m2 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    emit_move_insn (m2, op1);
+	  }
+	else
+	  m2 = op1;
+
+	/* Generate mem expression to be used for access to LB and UB.  */
+	m1h1 = gen_rtx_MEM (hmode, XEXP (m1, 0));
+	m1h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m1, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+	m2h1 = gen_rtx_MEM (hmode, XEXP (m2, 0));
+	m2h2 = gen_rtx_MEM (hmode,
+			    gen_rtx_PLUS (Pmode, XEXP (m2, 0),
+					  GEN_INT (GET_MODE_SIZE (hmode))));
+	rh1 = gen_rtx_MEM (hmode, XEXP (res, 0));
+	rh2 = gen_rtx_MEM (hmode,
+			   gen_rtx_PLUS (Pmode, XEXP (res, 0),
+					 GEN_INT (GET_MODE_SIZE (hmode))));
+
+	/* Allocate temporaries.  */
+	t1 = gen_reg_rtx (hmode);
+	t2 = gen_reg_rtx (hmode);
+
+	/* Compute LB.  */
+	emit_move_insn (t1, m1h1);
+	emit_move_insn (t2, m2h1);
+	if (TARGET_CMOVE)
+	  {
+	    t3 = ix86_expand_compare (LTU, t1, t2);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, t2, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
+	    emit_label (nomove);
+	  }
+	emit_move_insn (rh1, t1);
+
+	/* Compute UB.  UB are stored in 1's complement form.  Therefore
+	   we also use LTU here.  */
+	emit_move_insn (t1, m1h2);
+	emit_move_insn (t2, m2h2);
+	if (TARGET_CMOVE)
+	  {
+	    t3 = ix86_expand_compare (LTU, t1, t2);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1,
+				    gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
+	  }
+	else
+	  {
+	    rtx nomove = gen_label_rtx ();
+	    emit_cmp_and_jump_insns (t1, t2, GEU, const0_rtx, hmode, 1, nomove);
+	    emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
+	    emit_label (nomove);
+	  }
+	emit_move_insn (rh2, t1);
+
+	return res;
+      }
+
+    case IX86_BUILTIN_ARG_BND:
+      arg0 = CALL_EXPR_ARG (exp, 0);
+      arg0 = chkp_parm_for_arg_bnd_arg (arg0);
+      target = DECL_BOUNDS_RTL (arg0);
+      gcc_assert (target);
+      return target;
+
+    case IX86_BUILTIN_SIZEOF:
+      {
+	enum machine_mode mode = Pmode;
+	rtx t1, t2;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	gcc_assert (TREE_CODE (arg0) == VAR_DECL);
+
+	t1 = gen_reg_rtx (mode);
+	t2 = gen_rtx_SYMBOL_REF (Pmode,
+				 IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (arg0)));
+	t2 = gen_rtx_UNSPEC (mode, gen_rtvec (1, t2), UNSPEC_SIZEOF);
+
+	emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
+
+	return t1;
+      }
+
+    case IX86_BUILTIN_BNDLOWER:
+      {
+	rtx mem, hmem;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	op0 = expand_normal (arg0);
+
+	/* We need to move bounds to memory first.  */
+	if (!MEM_P (op0))
+	  {
+	    mem = assign_stack_local (BNDmode, GET_MODE_SIZE (BNDmode), 0);
+	    emit_insn (gen_move_insn (mem, op0));
+	  }
+	else
+	  mem = op0;
+
+	/* Generate mem expression to access LB and load it.  */
+	hmem = gen_rtx_MEM (Pmode, XEXP (mem, 0));
+	target = gen_reg_rtx (Pmode);
+	emit_move_insn (target, hmem);
+
+	return target;
+      }
+
+    case IX86_BUILTIN_BNDUPPER:
+      {
+	rtx mem, hmem;
+
+	arg0 = CALL_EXPR_ARG (exp, 0);
+	op0 = expand_normal (arg0);
+
+	/* We need to move bounds to memory first.  */
+	if (!MEM_P (op0))
+	  {
+	    mem = assign_stack_local (BNDmode, GET_MODE_SIZE (BNDmode), 0);
+	    emit_insn (gen_move_insn (mem, op0));
+	  }
+	else
+	  mem = op0;
+
+	/* Generate mem expression to access UB and load it.  */
+	hmem = gen_rtx_MEM (Pmode,
+			    gen_rtx_PLUS (Pmode, XEXP (mem, 0),
+					  GEN_INT (GET_MODE_SIZE (Pmode))));
+	target = gen_reg_rtx (Pmode);
+	emit_move_insn (target, hmem);
+
+	/* We need to inverse all bits of UB.  */
+	emit_insn (gen_rtx_SET (Pmode, target, gen_rtx_NOT (Pmode, target)));
+
+	return target;
+      }
+
     case IX86_BUILTIN_MASKMOVQ:
     case IX86_BUILTIN_MASKMOVDQU:
       icode = (fcode == IX86_BUILTIN_MASKMOVQ
