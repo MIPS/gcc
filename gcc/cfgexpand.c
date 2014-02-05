@@ -73,6 +73,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-address.h"
 #include "recog.h"
 #include "output.h"
+#include "tree-chkp.h"
+#include "rtl-chkp.h"
 
 /* Some systems use __main in a way incompatible with its use in gcc, in these
    cases use the macros NAME__MAIN to give a quoted symbol and SYMBOL__MAIN to
@@ -2246,6 +2248,7 @@ expand_call_stmt (gimple stmt)
     CALL_FROM_THUNK_P (exp) = gimple_call_from_thunk_p (stmt);
   CALL_EXPR_VA_ARG_PACK (exp) = gimple_call_va_arg_pack_p (stmt);
   SET_EXPR_LOCATION (exp, gimple_location (stmt));
+  CALL_WITH_BOUNDS_P (exp) = gimple_call_with_bounds_p (stmt);
 
   /* Ensure RTL is created for debug args.  */
   if (decl && DECL_HAS_DEBUG_ARGS_P (decl))
@@ -3055,11 +3058,12 @@ expand_value_return (rtx val)
    from the current function.  */
 
 static void
-expand_return (tree retval)
+expand_return (tree retval, tree bounds)
 {
   rtx result_rtl;
   rtx val = 0;
   tree retval_rhs;
+  rtx bounds_rtl;
 
   /* If function wants no value, give it none.  */
   if (TREE_CODE (TREE_TYPE (TREE_TYPE (current_function_decl))) == VOID_TYPE)
@@ -3084,6 +3088,57 @@ expand_return (tree retval)
     retval_rhs = retval;
 
   result_rtl = DECL_RTL (DECL_RESULT (current_function_decl));
+
+  /* Put returned bounds to the right place.  */
+  bounds_rtl = DECL_BOUNDS_RTL (DECL_RESULT (current_function_decl));
+  if (bounds_rtl)
+    {
+      rtx addr, bnd;
+
+      if (bounds)
+	{
+	  bnd = expand_normal (bounds);
+	  gcc_assert (REG_P (bounds_rtl));
+	  emit_move_insn (bounds_rtl, bnd);
+	}
+      else if (REG_P (bounds_rtl))
+	{
+	  addr = expand_normal (build_fold_addr_expr (retval_rhs));
+	  addr = gen_rtx_MEM (Pmode, addr);
+	  bnd = targetm.calls.load_bounds_for_arg (addr, NULL, NULL);
+	  emit_move_insn (bounds_rtl, bnd);
+	}
+      else
+	{
+	  int n;
+
+	  gcc_assert (GET_CODE (bounds_rtl) == PARALLEL);
+
+	  addr = expand_normal (build_fold_addr_expr (retval_rhs));
+	  addr = gen_rtx_MEM (Pmode, addr);
+
+	  for (n = 0; n < XVECLEN (bounds_rtl, 0); n++)
+	    {
+	      rtx reg = XEXP (XVECEXP (bounds_rtl, 0, n), 0);
+	      rtx offs = XEXP (XVECEXP (bounds_rtl, 0, n), 1);
+	      rtx from = adjust_address (addr, Pmode, INTVAL (offs));
+	      rtx bnd = targetm.calls.load_bounds_for_arg (from, NULL, NULL);
+	      emit_move_insn (reg, bnd);
+	    }
+	}
+    }
+  else if (chkp_function_instrumented_p (current_function_decl)
+	   && !BOUNDED_P (retval_rhs)
+	   && chkp_type_has_pointer (TREE_TYPE (retval_rhs))
+	   && TREE_CODE (retval_rhs) != RESULT_DECL)
+    {
+      rtx addr = expand_normal (build_fold_addr_expr (retval_rhs));
+      addr = gen_rtx_MEM (Pmode, addr);
+
+      gcc_assert (MEM_P (result_rtl));
+
+      chkp_copy_bounds_for_stack_parm (result_rtl, addr, TREE_TYPE (retval_rhs));
+    }
 
   /* If we are returning the RESULT_DECL, then the value has already
      been stored into it, so we don't have to do anything special.  */
@@ -3194,7 +3249,7 @@ expand_gimple_stmt_1 (gimple stmt)
       if (!op0)
 	expand_null_return ();
       else
-	expand_return (op0);
+	expand_return (op0, gimple_return_retbnd (stmt));
       break;
 
     case GIMPLE_ASSIGN:
@@ -5553,6 +5608,9 @@ gimple_expand_cfg (void)
   free_dominance_info (CDI_DOMINATORS);
 
   rtl_profile_for_bb (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+
+  if (chkp_function_instrumented_p (current_function_decl))
+    chkp_reset_rtl_bounds ();
 
   insn_locations_init ();
   if (!DECL_IS_BUILTIN (current_function_decl))
