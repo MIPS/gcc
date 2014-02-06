@@ -1,5 +1,12 @@
 2014-02-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r206541
+	2014-01-10  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-builtin.def: Fix pasto for VPKSDUS.
+
+2014-02-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r206494
 	2014-01-09  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
