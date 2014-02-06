@@ -1191,7 +1191,11 @@ build_accesses_from_assign (gimple stmt)
   lacc = build_access_from_expr_1 (lhs, stmt, true);
 
   if (lacc)
-    lacc->grp_assignment_write = 1;
+    {
+      lacc->grp_assignment_write = 1;
+      if (storage_order_barrier_p (rhs))
+	lacc->grp_unscalarizable_region = 1;
+    }
 
   if (racc)
     {
@@ -1199,6 +1203,8 @@ build_accesses_from_assign (gimple stmt)
       if (should_scalarize_away_bitmap && !gimple_has_volatile_ops (stmt)
 	  && !is_gimple_reg_type (racc->type))
 	bitmap_set_bit (should_scalarize_away_bitmap, DECL_UID (racc->base));
+      if (storage_order_barrier_p (lhs))
+	racc->grp_unscalarizable_region = 1;
     }
 
   if (lacc && racc

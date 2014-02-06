@@ -185,22 +185,21 @@ done:
 static inline bool
 storage_order_barrier_p (const_tree ref)
 {
+  bool op_rso, ref_rso;
   tree op;
 
   if (TREE_CODE (ref) != VIEW_CONVERT_EXPR)
     return false;
 
+  ref_rso = (AGGREGATE_TYPE_P (TREE_TYPE (ref))
+	     && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (ref)));
+
   op = TREE_OPERAND (ref, 0);
 
-  if (!(AGGREGATE_TYPE_P (TREE_TYPE (op))
-        && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (op))))
-    return false;
+  op_rso = (AGGREGATE_TYPE_P (TREE_TYPE (op))
+	    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (op)));
 
-  if (AGGREGATE_TYPE_P (TREE_TYPE (ref))
-      && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (ref)))
-    return false;
-
-  return true;
+  return ref_rso != op_rso;
 }
 
 
