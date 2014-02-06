@@ -1959,13 +1959,19 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   gimple call = gsi_stmt (*gsi);
   unsigned arg_no = 0;
   tree fndecl = gimple_call_fndecl (call);
-  tree fntype = TREE_TYPE (TREE_TYPE (gimple_call_fn (call)));
+  tree fntype;
   tree first_formal_arg;
   tree arg;
   bool use_fntype = false;
   tree op;
   ssa_op_iter iter;
   gimple new_call;
+
+  /* Do nothing for internal functions.  */
+  if (gimple_call_internal_p (call))
+    return;
+
+  fntype = TREE_TYPE (TREE_TYPE (gimple_call_fn (call)));
 
   /* Do nothing if back-end builtin is called.  */
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_MD)
