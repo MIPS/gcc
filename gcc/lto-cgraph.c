@@ -522,6 +522,7 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
   bp_pack_value (&bp, node->thunk.thunk_p && !boundary_p, 1);
   bp_pack_enum (&bp, ld_plugin_symbol_resolution,
 	        LDPR_NUM_KNOWN, node->resolution);
+  bp_pack_value (&bp, node->instrumentation_clone, 1);
   streamer_write_bitpack (&bp);
 
   if (node->thunk.thunk_p && !boundary_p)
@@ -529,11 +530,15 @@ lto_output_node (struct lto_simple_output_block *ob, struct cgraph_node *node,
       streamer_write_uhwi_stream
 	 (ob->main_stream,
 	  1 + (node->thunk.this_adjusting != 0) * 2
-	  + (node->thunk.virtual_offset_p != 0) * 4);
+	  + (node->thunk.virtual_offset_p != 0) * 4
+	  + (node->thunk.add_pointer_bounds_args != 0) * 8);
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.fixed_offset);
       streamer_write_uhwi_stream (ob->main_stream, node->thunk.virtual_value);
     }
   streamer_write_hwi_stream (ob->main_stream, node->profile_id);
+
+  if (node->instrumentation_clone)
+    lto_output_fn_decl_index (ob->decl_state, ob->main_stream, node->orig_decl);
 }
 
 /* Output the varpool NODE to OB. 
@@ -610,7 +615,7 @@ lto_output_ref (struct lto_simple_output_block *ob, struct ipa_ref *ref,
   struct cgraph_node *node;
 
   bp = bitpack_create (ob->main_stream);
-  bp_pack_value (&bp, ref->use, 2);
+  bp_pack_value (&bp, ref->use, 3);
   bp_pack_value (&bp, ref->speculative, 1);
   streamer_write_bitpack (&bp);
   nref = lto_symtab_encoder_lookup (encoder, ref->referred);
@@ -999,6 +1004,7 @@ input_overwrite_node (struct lto_file_decl_data *file_data,
   node->thunk.thunk_p = bp_unpack_value (bp, 1);
   node->resolution = bp_unpack_enum (bp, ld_plugin_symbol_resolution,
 				     LDPR_NUM_KNOWN);
+  node->instrumentation_clone = bp_unpack_value (bp, 1);
 }
 
 /* Return string alias is alias of.  */
@@ -1106,10 +1112,19 @@ input_node (struct lto_file_decl_data *file_data,
       node->thunk.this_adjusting = (type & 2);
       node->thunk.virtual_value = virtual_value;
       node->thunk.virtual_offset_p = (type & 4);
+      node->thunk.add_pointer_bounds_args = (type & 8);
     }
   if (node->alias && !node->analyzed && node->weakref)
     node->alias_target = get_alias_symbol (node->decl);
   node->profile_id = streamer_read_hwi (ib);
+
+  if (node->instrumentation_clone)
+    {
+      decl_index = streamer_read_uhwi (ib);
+      fn_decl = lto_file_decl_data_get_fn_decl (file_data, decl_index);
+      node->orig_decl = fn_decl;
+    }
+
   return node;
 }
 
@@ -1186,7 +1201,7 @@ input_ref (struct lto_input_block *ib,
   struct ipa_ref *ref;
 
   bp = streamer_read_bitpack (ib);
-  use = (enum ipa_ref_use) bp_unpack_value (&bp, 2);
+  use = (enum ipa_ref_use) bp_unpack_value (&bp, 3);
   speculative = (enum ipa_ref_use) bp_unpack_value (&bp, 1);
   node = nodes[streamer_read_hwi (ib)];
   ref = ipa_record_reference (referring_node, node, use, NULL);
@@ -1327,6 +1342,22 @@ input_cgraph_1 (struct lto_file_decl_data *file_data,
 	    cgraph (node)->global.inlined_to = cgraph (nodes[ref]);
 	  else
 	    cnode->global.inlined_to = NULL;
+
+	  /* Compute instrumented_version.  */
+	  if (cnode->instrumentation_clone)
+	    {
+	      gcc_assert (cnode->orig_decl);
+
+	      cnode->instrumented_version = cgraph_get_node (cnode->orig_decl);
+	      if (cnode->instrumented_version)
+		cnode->instrumented_version->instrumented_version = cnode;
+
+	      /* Restore decl names reference.  */
+	      if (IDENTIFIER_TRANSPARENT_ALIAS (DECL_ASSEMBLER_NAME (cnode->decl))
+		  && !TREE_CHAIN (DECL_ASSEMBLER_NAME (cnode->decl)))
+		TREE_CHAIN (DECL_ASSEMBLER_NAME (cnode->decl))
+		  = DECL_ASSEMBLER_NAME (cnode->orig_decl);
+	    }
 	}
 
       ref = (int) (intptr_t) node->same_comdat_group;
