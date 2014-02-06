@@ -1,3 +1,14 @@
+2014-02-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit++.h: Include <ostream> rather than <iostream>, since
+	the former gets us std::ostream, and the latter may introduce
+	startup-time overhead for constructing std::cout et al.
+	(gccjit::context::new_child_context): New.
+	(gccjit::context::release): New.
+	(gccjit::context::compile): New.
+	(gccjit::context::set_int_option): New.
+	(gccjit::context::set_bool_option): New.
+
 2014-02-03  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (struct gcc_jit_object): New.

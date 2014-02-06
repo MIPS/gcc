@@ -5,7 +5,7 @@
 
 #include "libgccjit.h"
 
-#include <iostream>
+#include <ostream>
 #include <vector>
 
 /****************************************************************************
@@ -30,6 +30,18 @@ namespace gccjit
     static context acquire ();
     context ();
     context (gcc_jit_context *ctxt);
+
+    gccjit::context new_child_context ();
+
+    void release ();
+
+    gcc_jit_result *compile ();
+
+    void set_int_option (enum gcc_jit_int_option opt,
+			 int value);
+
+    void set_bool_option (enum gcc_jit_bool_option opt,
+			  int value);
 
     location
     new_location (const char *filename,
@@ -294,6 +306,41 @@ inline context context::acquire ()
 }
 inline context::context () : m_inner_ctxt (NULL) {}
 inline context::context (gcc_jit_context *inner) : m_inner_ctxt (inner) {}
+
+inline gccjit::context
+context::new_child_context ()
+{
+  return context (gcc_jit_context_new_child_context (m_inner_ctxt));
+}
+
+inline void
+context::release ()
+{
+  gcc_jit_context_release (m_inner_ctxt);
+  m_inner_ctxt = NULL;
+}
+
+inline gcc_jit_result *
+context::compile ()
+{
+  return gcc_jit_context_compile (m_inner_ctxt);
+}
+
+inline void
+context::set_int_option (enum gcc_jit_int_option opt,
+			 int value)
+{
+  gcc_jit_context_set_int_option (m_inner_ctxt, opt, value);
+
+}
+
+inline void
+context::set_bool_option (enum gcc_jit_bool_option opt,
+			  int value)
+{
+  gcc_jit_context_set_bool_option (m_inner_ctxt, opt, value);
+
+}
 
 inline location
 context::new_location (const char *filename,
