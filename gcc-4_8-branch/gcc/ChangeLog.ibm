@@ -1,5 +1,15 @@
 2014-02-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r207062
+	2014-01-24  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_expand_vec_perm_const_1): Remove
+	correction for little endian...
+	* config/rs6000/vsx.md (vsx_xxpermdi2_<mode>_1): ...and move it to
+	here.
+
+2014-02-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r206641
 	2014-01-15  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
 
