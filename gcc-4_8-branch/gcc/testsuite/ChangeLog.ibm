@@ -1,3 +1,13 @@
+2014-02-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r206590
+	2014-01-13  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/vmx/insert.c: New.
+	* gcc.dg/vmx/insert-be-order.c: New.
+	* gcc.dg/vmx/extract.c: New.
+	* gcc.dg/vmx/extract-be-order.c: New.
+
 2014-01-23  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Back port from mainline
