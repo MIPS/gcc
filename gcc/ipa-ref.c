@@ -27,7 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "ipa-utils.h"
 
-static const char *ipa_ref_use_name[] = {"read","write","addr","alias"};
+static const char *ipa_ref_use_name[] = {"read","write","addr","alias","chkp"};
 
 /* Return ipa reference from REFERING_NODE or REFERING_VARPOOL_NODE
    to REFERED_NODE or REFERED_VARPOOL_NODE. USE_TYPE specify type
