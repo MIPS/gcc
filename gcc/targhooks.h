@@ -213,5 +213,6 @@ extern tree default_fn_abi_va_list_bounds_size (tree);
 extern tree default_chkp_bound_type (void);
 extern enum machine_mode default_chkp_bound_mode (void);
 extern tree default_builtin_chkp_function (unsigned int);
+extern rtx default_chkp_function_value_bounds (const_tree, const_tree, bool);
 extern bool can_use_doloop_if_innermost (double_int, double_int,
 					 unsigned int, bool);
