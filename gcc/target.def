@@ -4183,6 +4183,15 @@ aggregate data types, because these are returned in another way.  See\n\
  rtx, (const_tree ret_type, const_tree fn_decl_or_type, bool outgoing),
  default_function_value)
 
+/* Return the rtx for bounds of returned pointer.  */
+DEFHOOK
+(chkp_function_value_bounds,
+ "Define this to return an RTX representing the place where a function\n\
+returns bounds for returned pointers.  Arguments meaning is similar to\n\
+@code{TARGET_CHKP_FUNCTION_VALUE}.",
+ rtx, (const_tree ret_type, const_tree fn_decl_or_type, bool outgoing),
+ default_chkp_function_value_bounds)
+
 /* Return the rtx for the result of a libcall of mode MODE,
    calling the function FN_NAME.  */
 DEFHOOK
