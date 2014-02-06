@@ -1723,6 +1723,8 @@ default_chkp_bound_type (void)
 {
   tree res = make_node (POINTER_BOUNDS_TYPE);
   TYPE_PRECISION (res) = TYPE_PRECISION (size_type_node) * 2;
+  TYPE_NAME (res) = get_identifier ("__bounds_type");
+  SET_TYPE_MODE (res, targetm.chkp_bound_mode ());
   layout_type (res);
   return res;
 }
@@ -1737,6 +1739,14 @@ tree
 default_builtin_chkp_function (unsigned int fcode ATTRIBUTE_UNUSED)
 {
   return NULL_TREE;
+}
+
+rtx
+default_chkp_function_value_bounds (const_tree ret_type ATTRIBUTE_UNUSED,
+				    const_tree fn_decl_or_type,
+				    bool outgoing ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
 }
 
 /* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do
