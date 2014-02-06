@@ -1239,7 +1239,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	    args[j].tree_value
 	      = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
 	    expand_expr_real (args[j].tree_value, args[j].value, VOIDmode,
-			      EXPAND_NORMAL, 0);
+			      EXPAND_NORMAL, 0, false);
 	    args[j].pointer_arg = j - inc;
 
 	    j += inc;
@@ -4694,7 +4694,7 @@ store_bounds (struct arg_data *arg, struct arg_data *parm)
 	}
       else if (REG_P (parm->reg))
 	{
-	  int reg_offs = arg->pointer_offset * BITS_PER_UNIT / POINTER_SIZE;
+	  //int reg_offs = arg->pointer_offset * BITS_PER_UNIT / POINTER_SIZE;
 
 	  gcc_assert (arg->special_slot);
 	  slot = arg->special_slot;

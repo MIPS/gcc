@@ -1299,7 +1299,8 @@ make_decl_rtl (tree decl)
 
   id = DECL_ASSEMBLER_NAME (decl);
   if (TREE_CODE (decl) == FUNCTION_DECL
-      && chkp_function_instrumented_p (decl))
+      && cgraph_get_node (decl)
+      && cgraph_get_node (decl)->instrumentation_clone)
     ultimate_transparent_alias_target (&id);
   name = IDENTIFIER_POINTER (id);
 
