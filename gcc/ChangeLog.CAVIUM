@@ -216,6 +216,14 @@
 	that is passed to mips_expand_ins_as_unaligned_store and
 	mips_expand_ext_as_unaligned_load.
 	
+2014-02-05  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/octeon/cvmx/bt-1.c: Fix warnings.
+	* testsuite/gcc.dg/octeon/cvmx/bt-2.c: Fix warnings.
+	* testsuite/gcc.dg/octeon/cvmx/bt-3.c: Fix warnings.
+	* testsuite/gcc.dg/octeon/cvmx/bt-4.c: Fix warnings.
+	* testsuite/gcc.dg/octeon/cvmx/bt-5.c: Fix warnings.
+
 2014-02-03  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.md (condmode): New insn attribute.

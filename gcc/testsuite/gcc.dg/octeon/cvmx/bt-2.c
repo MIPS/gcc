@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <execinfo.h>
+#include <unistd.h>
+#include "cvmx.h"
 
 int *i = 0;
 
@@ -14,6 +16,8 @@ static void handler(uint64_t registers[32])
 {
   void *buffer[10];
   int len, i;
+
+  (void)registers;
 
   len = backtrace (buffer, 10);
   if (!len)
@@ -32,7 +36,7 @@ static void handler(uint64_t registers[32])
   exit (1);
 }
 
-main ()
+int main (void)
 {
   cvmx_user_app_init ();
 

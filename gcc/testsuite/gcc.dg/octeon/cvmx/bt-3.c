@@ -37,9 +37,8 @@ void g (void)
 }
 
 int
-main ()
+main (void )
 {
-  int i;
   cvmx_user_app_init ();
   testbt_setup ();
   pp ();

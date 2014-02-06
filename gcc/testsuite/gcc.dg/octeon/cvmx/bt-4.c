@@ -21,7 +21,7 @@ void f (void)
   puts ("no tail call");
 }
 
-main ()
+int main (void)
 {
   cvmx_user_app_init ();
   testbt_setup ();

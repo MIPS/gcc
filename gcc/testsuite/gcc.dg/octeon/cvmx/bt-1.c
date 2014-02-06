@@ -14,7 +14,7 @@ void f (void)
 
 void (*p) (void) = f;
 
-main ()
+int main (void)
 {
   cvmx_user_app_init ();
   /* Make the default execution test pass but wait a little for the
