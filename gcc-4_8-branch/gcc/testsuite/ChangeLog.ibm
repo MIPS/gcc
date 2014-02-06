@@ -1,5 +1,15 @@
 2014-02-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline r206926
+	2014-01-22  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/vmx/insert-vsx-be-order.c: New.
+	* gcc.dg/vmx/extract-vsx.c: New.
+	* gcc.dg/vmx/extract-vsx-be-order.c: New.
+	* gcc.dg/vmx/insert-vsx.c: New.
+
+2014-02-06  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline r206641
 	2014-01-15  Bill Schmidt  <wschmidt@vnet.linux.ibm.com>
 
