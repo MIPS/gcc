@@ -189,6 +189,7 @@ struct GTY(()) cgraph_thunk_info {
   tree alias;
   bool this_adjusting;
   bool virtual_offset_p;
+  bool add_pointer_bounds_args;
   /* Set to true when alias node is thunk.  */
   bool thunk_p;
 };
@@ -371,6 +372,13 @@ public:
   struct cgraph_node *prev_sibling_clone;
   struct cgraph_node *clones;
   struct cgraph_node *clone_of;
+  /* If instrumentation_clone is 1 then instrumented_version points
+     to the original function used to make instrumented version.
+     Otherwise points to instrumented version of the function.  */
+  struct cgraph_node *instrumented_version;
+  /* If instrumentation_clone is 1 then orig_decl is the original
+     function declaration.  */
+  tree orig_decl;
   /* For functions with many calls sites it holds map from call expression
      to the edge to speed up cgraph_edge function.  */
   htab_t GTY((param_is (struct cgraph_edge))) call_site_hash;
@@ -431,6 +439,9 @@ public:
   /* True if this decl calls a COMDAT-local function.  This is set up in
      compute_inline_parameters and inline_call.  */
   unsigned calls_comdat_local : 1;
+  /* True when function is clone created for Pointer Bounds Checker
+     instrumentation.  */
+  unsigned instrumentation_clone : 1;
 };
 
 
