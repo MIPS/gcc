@@ -11061,6 +11061,11 @@ Return type to be used for bounds
 @deftypefn {Target Hook} {enum machine_mode} TARGET_CHKP_BOUND_MODE (void)
 Return mode to be used for bounds.
 @end deftypefn
+@deftypefn {Target Hook} rtx TARGET_CHKP_FUNCTION_VALUE_BOUNDS (const_tree @var{ret_type}, const_tree @var{fn_decl_or_type}, bool @var{outgoing})
+Define this to return an RTX representing the place where a function
+returns bounds for returned pointers.  Arguments meaning is similar to
+@code{TARGET_CHKP_FUNCTION_VALUE}.
+@end deftypefn
 
 @deftypefn {Target Hook} tree TARGET_RESOLVE_OVERLOADED_BUILTIN (unsigned int @var{loc}, tree @var{fndecl}, void *@var{arglist})
 Select a replacement for a machine specific built-in function that
