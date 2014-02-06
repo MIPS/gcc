@@ -1706,7 +1706,8 @@ assemble_thunks_and_aliases (struct cgraph_node *node)
   struct ipa_ref *ref;
 
   for (e = node->callers; e;)
-    if (e->caller->thunk.thunk_p)
+    if (e->caller->thunk.thunk_p
+	&& !e->caller->thunk.add_pointer_bounds_args)
       {
 	struct cgraph_node *thunk = e->caller;
 
