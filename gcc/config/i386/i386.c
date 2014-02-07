@@ -8350,7 +8350,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   if (max > X86_64_REGPARM_MAX)
     max = X86_64_REGPARM_MAX;
 
-  bnd_reg = cum->bnd_regno;
+  bnd_reg = cum->bnd_regno + cum->force_bnd_pass;
   for (i = cum->regno; i < max; i++)
     {
       mem = gen_rtx_MEM (word_mode,
@@ -8374,11 +8374,8 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 	    bounds = gen_rtx_REG (BNDmode, bnd_reg);
 	  else
 	    {
-	      rtx ldx_addr;
-	      if (bnd_reg == LAST_BND_REG + 1)
-		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -8);
-	      else
-		ldx_addr = plus_constant (Pmode, arg_pointer_rtx, -16);
+	      rtx ldx_addr = plus_constant (Pmode, arg_pointer_rtx,
+					    (LAST_BND_REG - bnd_reg) * 8);
 	      bounds = gen_reg_rtx (BNDmode);
 	      emit_insn (TARGET_64BIT
 			 ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
