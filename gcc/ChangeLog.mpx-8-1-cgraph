@@ -29,3 +29,9 @@
 	IDENTIFIER_TRANSPARENT_ALIAS chains.
 	* lto-streamer.h (LTO_minor_version): Change minor version from
 	0 to 1.
+	* ipa.c (symtab_remove_unreachable_nodes): Consider instrumented
+	clone as address taken if the original one is address taken.
+	(cgraph_externally_visible_p): Mark instrumented 'main' as
+	externally visible.
+	(function_and_variable_visibility): Filter instrumentation
+	thunks.
