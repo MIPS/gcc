@@ -516,8 +516,16 @@ emit_call_1 (rtx funexp, tree fntree ATTRIBUTE_UNUSED, tree fndecl ATTRIBUTE_UNU
 static int
 special_function_p (const_tree fndecl, int flags)
 {
-  if (fndecl && DECL_NAME (fndecl)
-      && IDENTIFIER_LENGTH (DECL_NAME (fndecl)) <= 17
+  tree name_decl = DECL_NAME (fndecl);
+
+  /* For instrumentation clones we want to derive flags
+     from the original name.  */
+  if (cgraph_get_node (fndecl)
+      && cgraph_get_node (fndecl)->instrumentation_clone)
+    name_decl = DECL_NAME (cgraph_get_node (fndecl)->orig_decl);
+
+  if (fndecl && name_decl
+      && IDENTIFIER_LENGTH (name_decl) <= 17
       /* Exclude functions not at the file scope, or not `extern',
 	 since they are not the magic functions we would otherwise
 	 think they are.
@@ -529,16 +537,16 @@ special_function_p (const_tree fndecl, int flags)
 	  || TREE_CODE (DECL_CONTEXT (fndecl)) == TRANSLATION_UNIT_DECL)
       && TREE_PUBLIC (fndecl))
     {
-      const char *name = IDENTIFIER_POINTER (DECL_NAME (fndecl));
+      const char *name = IDENTIFIER_POINTER (name_decl);
       const char *tname = name;
 
       /* We assume that alloca will always be called by name.  It
 	 makes no sense to pass it as a pointer-to-function to
 	 anything that does not understand its behavior.  */
-      if (((IDENTIFIER_LENGTH (DECL_NAME (fndecl)) == 6
+      if (((IDENTIFIER_LENGTH (name_decl) == 6
 	    && name[0] == 'a'
 	    && ! strcmp (name, "alloca"))
-	   || (IDENTIFIER_LENGTH (DECL_NAME (fndecl)) == 16
+	   || (IDENTIFIER_LENGTH (name_decl) == 16
 	       && name[0] == '_'
 	       && ! strcmp (name, "__builtin_alloca"))))
 	flags |= ECF_MAY_BE_ALLOCA;
