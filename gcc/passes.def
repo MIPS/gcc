@@ -49,48 +49,64 @@ along with GCC; see the file COPYING3.  If not see
   INSERT_PASSES_AFTER (all_small_ipa_passes)
   NEXT_PASS (pass_ipa_free_lang_data);
   NEXT_PASS (pass_ipa_function_and_variable_visibility);
+  NEXT_PASS (pass_ipa_chkp_versioning);
   NEXT_PASS (pass_early_local_passes);
   PUSH_INSERT_PASSES_WITHIN (pass_early_local_passes)
-      NEXT_PASS (pass_fixup_cfg);
-      NEXT_PASS (pass_init_datastructures);
-
-      NEXT_PASS (pass_build_ssa);
-      NEXT_PASS (pass_ubsan);
-      NEXT_PASS (pass_early_warn_uninitialized);
-      NEXT_PASS (pass_chkp);
-      NEXT_PASS (pass_rebuild_cgraph_edges);
-      NEXT_PASS (pass_inline_parameters);
-      NEXT_PASS (pass_early_inline);
-      NEXT_PASS (pass_all_early_optimizations);
-      PUSH_INSERT_PASSES_WITHIN (pass_all_early_optimizations)
-	  NEXT_PASS (pass_remove_cgraph_callee_edges);
-	  NEXT_PASS (pass_rename_ssa_copies);
-	  NEXT_PASS (pass_ccp);
-	  /* After CCP we rewrite no longer addressed locals into SSA
-	     form if possible.  */
-	  NEXT_PASS (pass_forwprop);
-	  /* pass_build_ealias is a dummy pass that ensures that we
-	     execute TODO_rebuild_alias at this point.  */
-	  NEXT_PASS (pass_build_ealias);
-	  NEXT_PASS (pass_sra_early);
-	  NEXT_PASS (pass_fre);
-	  NEXT_PASS (pass_copy_prop);
-	  NEXT_PASS (pass_merge_phi);
-	  NEXT_PASS (pass_cd_dce);
-	  NEXT_PASS (pass_early_ipa_sra);
-	  NEXT_PASS (pass_tail_recursion);
-	  NEXT_PASS (pass_convert_switch);
-          NEXT_PASS (pass_cleanup_eh);
-          NEXT_PASS (pass_profile);
-          NEXT_PASS (pass_local_pure_const);
-	  /* Split functions creates parts that are not run through
-	     early optimizations again.  It is thus good idea to do this
-	     late.  */
-          NEXT_PASS (pass_split_functions);
+      NEXT_PASS (pass_before_local_optimization_passes);
+      PUSH_INSERT_PASSES_WITHIN (pass_before_local_optimization_passes)
+          /* After isolating all optimizations into a separate IPA pass
+	     this fixup is not needed anymore?  */
+	  NEXT_PASS (pass_fixup_cfg);
+	  NEXT_PASS (pass_init_datastructures);
+	  NEXT_PASS (pass_build_ssa);
+	  NEXT_PASS (pass_ubsan);
+	  NEXT_PASS (pass_early_warn_uninitialized);
       POP_INSERT_PASSES ()
-      NEXT_PASS (pass_release_ssa_names);
-      NEXT_PASS (pass_rebuild_cgraph_edges);
-      NEXT_PASS (pass_inline_parameters);
+
+      NEXT_PASS (pass_chkp_instrumentation_passes);
+      PUSH_INSERT_PASSES_WITHIN (pass_chkp_instrumentation_passes)
+	  NEXT_PASS (pass_chkp);
+	  NEXT_PASS (pass_rebuild_cgraph_edges);
+      POP_INSERT_PASSES ()
+      NEXT_PASS (pass_ipa_chkp_produce_thunks);
+
+      NEXT_PASS (pass_local_optimization_passes);
+      PUSH_INSERT_PASSES_WITHIN (pass_local_optimization_passes)
+	  NEXT_PASS (pass_fixup_cfg);
+	  NEXT_PASS (pass_rebuild_cgraph_edges);
+	  NEXT_PASS (pass_inline_parameters);
+	  NEXT_PASS (pass_early_inline);
+	  NEXT_PASS (pass_all_early_optimizations);
+	  PUSH_INSERT_PASSES_WITHIN (pass_all_early_optimizations)
+	      NEXT_PASS (pass_remove_cgraph_callee_edges);
+	      NEXT_PASS (pass_rename_ssa_copies);
+	      NEXT_PASS (pass_ccp);
+	      /* After CCP we rewrite no longer addressed locals into SSA
+		 form if possible.  */
+	      NEXT_PASS (pass_forwprop);
+	      /* pass_build_ealias is a dummy pass that ensures that we
+		 execute TODO_rebuild_alias at this point.  */
+	      NEXT_PASS (pass_build_ealias);
+	      NEXT_PASS (pass_sra_early);
+	      NEXT_PASS (pass_fre);
+	      NEXT_PASS (pass_copy_prop);
+	      NEXT_PASS (pass_merge_phi);
+	      NEXT_PASS (pass_cd_dce);
+	      NEXT_PASS (pass_early_ipa_sra);
+	      NEXT_PASS (pass_tail_recursion);
+	      NEXT_PASS (pass_convert_switch);
+              NEXT_PASS (pass_cleanup_eh);
+              NEXT_PASS (pass_profile);
+              NEXT_PASS (pass_local_pure_const);
+	      /* Split functions creates parts that are not run through
+		 early optimizations again.  It is thus good idea to do this
+		 late.  */
+	      NEXT_PASS (pass_split_functions);
+	  POP_INSERT_PASSES ()
+	  NEXT_PASS (pass_release_ssa_names);
+	  NEXT_PASS (pass_rebuild_cgraph_edges);
+	  NEXT_PASS (pass_inline_parameters);
+      POP_INSERT_PASSES ()
   POP_INSERT_PASSES ()
   NEXT_PASS (pass_ipa_free_inline_summary);
   NEXT_PASS (pass_ipa_tree_profile);
@@ -111,6 +127,7 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_pure_const);
   NEXT_PASS (pass_ipa_reference);
+
   TERMINATE_PASS_LIST ()
 
   /* Simple IPA passes executed after the regular passes.  In WHOPR mode the
