@@ -2233,7 +2233,7 @@ int const svr4_dbx_register_map[FIRST_PSEUDO_REGISTER] =
   -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 16-23*/
   -1, -1, -1, -1, -1, -1, -1, -1,       /* AVX-512 registers 24-31*/
   93, 94, 95, 96, 97, 98, 99, 100,      /* Mask registers */
-  -1, -1, -1, -1,                       /* bound registers */
+  101, 102, 103, 104,			/* bound registers */
 };
 
 /* Define parameter passing and return registers.  */
@@ -8023,6 +8023,39 @@ ix86_function_value (const_tree valtype, const_tree fntype_or_decl,
   orig_mode = TYPE_MODE (valtype);
   mode = type_natural_mode (valtype, NULL, true);
   return ix86_function_value_1 (valtype, fntype_or_decl, orig_mode, mode);
+}
+
+static rtx
+ix86_function_value_bounds (const_tree valtype,
+			    const_tree fntype_or_decl ATTRIBUTE_UNUSED,
+			    bool outgoing ATTRIBUTE_UNUSED)
+{
+  rtx res = NULL_RTX;
+
+  if (BOUNDED_TYPE_P (valtype))
+    res = gen_rtx_REG (BNDmode, FIRST_BND_REG);
+  else if (chkp_type_has_pointer (valtype))
+    {
+      vec<bool> slots = chkp_find_bound_slots (valtype);
+      rtx *bounds = XALLOCAVEC(rtx, slots.length ());
+      unsigned i, bnd_no = 0;
+
+      gcc_assert (slots.length () <= 2);
+
+      for (i = 0; i < slots.length (); i++)
+	if (slots[i])
+	  {
+	    rtx reg = gen_rtx_REG (BNDmode, FIRST_BND_REG + bnd_no);
+	    rtx offs = GEN_INT (i * POINTER_SIZE / BITS_PER_UNIT);
+	    bounds[bnd_no++] = gen_rtx_EXPR_LIST (VOIDmode, reg, offs);
+	  }
+
+      res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (bnd_no, bounds));
+    }
+  else
+    res = NULL_RTX;
+
+  return res;
 }
 
 /* Pointer function arguments and return values are promoted to
@@ -36828,28 +36861,27 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
   rtx addr = NULL;
   rtx reg;
 
-  if (REG_P (slot))
+  if (!ptr)
     {
-      ptr = slot;
+      gcc_assert (MEM_P (slot));
+      ptr = copy_to_mode_reg (Pmode, slot);
+    }
 
-      /* We do not expect non register bounds for register
-	 parameters other than R8 and R9.  */
-      gcc_assert (REGNO (ptr) == R8_REG || REGNO (ptr) == R9_REG);
-      gcc_assert (bnd == const1_rtx || bnd == const2_rtx);
+  if (!slot || REG_P (slot))
+    {
+      if (slot)
+	ptr = slot;
 
-      /* Here we have the case when more than five pointers are
-	 passed on registers.  In this case we are out of bound
-	 registers and have to use bndldx to load bound.  RA and
-	 RA - 8 are used for address translation in bndldx.  */
-      if (bnd == const1_rtx)
-	addr = plus_constant (Pmode, arg_pointer_rtx, -8);
-      else
-	addr = plus_constant (Pmode, arg_pointer_rtx, -16);
+      gcc_assert (CONST_INT_P (bnd));
+
+      /* Here we have the case when more than four pointers are
+	 passed in registers.  In this case we are out of bound
+	 registers and have to use bndldx to load bound.  RA,
+	 RA - 8, etc. are used for address translation in bndldx.  */
+      addr = plus_constant (Pmode, arg_pointer_rtx, - INTVAL (bnd) * 8);
     }
   else if (MEM_P (slot))
     {
-      if (!ptr)
-	ptr = copy_to_mode_reg (Pmode, slot);
       addr = XEXP (slot, 0);
       addr = force_reg (Pmode, addr);
     }
@@ -36881,17 +36913,16 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
 static void
 ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
 {
-  if (REG_P (addr))
+  if (!ptr)
     {
-      /* Non register bounds comes only for parameters in
-	 R8 and R9.  */
-      gcc_assert (REGNO (addr) == R8_REG || REGNO (addr) == R9_REG);
-      gcc_assert (to == const1_rtx || to == const2_rtx);
+      gcc_assert (MEM_P (addr));
+      ptr = copy_to_mode_reg (Pmode, addr);
+    }
 
-      if (to == const1_rtx)
-	addr = plus_constant (Pmode, stack_pointer_rtx, -8);
-      else
-	addr = plus_constant (Pmode, stack_pointer_rtx, -16);
+  if (!addr || REG_P (addr))
+    {
+      gcc_assert (CONST_INT_P (to));
+      addr = plus_constant (Pmode, stack_pointer_rtx, - INTVAL (to) * 8);
     }
   else if (MEM_P (addr))
     addr = XEXP (addr, 0);
@@ -47648,8 +47679,9 @@ ix86_mpx_bound_mode ()
      is not enabled.  */
   if (!TARGET_MPX)
     {
-      warning (0, "Pointer Checker requires MPX support on this target."
-	       " Use -mmpx options to enable MPX.");
+      if (flag_check_pointer_bounds)
+	warning (0, "Pointer Checker requires MPX support on this target."
+		 " Use -mmpx options to enable MPX.");
       return VOIDmode;
     }
 
@@ -48066,6 +48098,9 @@ ix86_mpx_bound_mode ()
 
 #undef TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE
 #define TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE ix86_fn_abi_va_list_bounds_size
+
+#undef TARGET_CHKP_FUNCTION_VALUE_BOUNDS
+#define TARGET_CHKP_FUNCTION_VALUE_BOUNDS ix86_function_value_bounds
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
