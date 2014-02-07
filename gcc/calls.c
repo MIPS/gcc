@@ -86,6 +86,15 @@ struct arg_data
   /* If REG is a PARALLEL, this is a copy of VALUE pulled into the correct
      form for emit_group_move.  */
   rtx parallel_value;
+  /* If value is passed in neither reg nor stack, this field holds a number
+     of a special slot to be used.  */
+  rtx special_slot;
+  /* For pointer bounds hold an index of parm bounds are bound to.  -1 if
+     there is no such pointer.  */
+  int pointer_arg;
+  /* If pointer_arg refers a structure, then pointer_offset holds an offset
+     of a pointer in this structure.  */
+  int pointer_offset;
   /* If REG was promoted from the actual mode of the argument expression,
      indicates whether the promotion is sign- or zero-extended.  */
   int unsignedp;
@@ -143,6 +152,7 @@ static void emit_call_1 (rtx, tree, tree, tree, HOST_WIDE_INT, HOST_WIDE_INT,
 			 HOST_WIDE_INT, rtx, rtx, int, rtx, int,
 			 cumulative_args_t);
 static void precompute_register_parameters (int, struct arg_data *, int *);
+static void store_bounds (struct arg_data *, struct arg_data *);
 static int store_one_arg (struct arg_data *, rtx, int, int, int);
 static void store_unaligned_arguments_into_pseudos (struct arg_data *, int);
 static int finalize_must_preallocate (int, int, struct arg_data *,
@@ -1208,36 +1218,83 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
   /* First fill in the actual arguments in the ARGS array, splitting
      complex arguments if necessary.  */
   {
-    int j = i;
+    int j = i, ptr_arg;
     call_expr_arg_iterator iter;
     tree arg;
+    vec<bool> slots = vNULL;
 
     if (struct_value_addr_value)
       {
 	args[j].tree_value = struct_value_addr_value;
 
-	/* If we pass structure address then we need to
-	   create bounds for it.  */
-	if (CALL_WITH_BOUNDS_P (exp))
-	  args[j].bounds_value
-	    = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
-
 	j += inc;
+
+	/* If we pass structure address then we need to
+	   create bounds for it.  Since created bounds is
+	   a call statement, we expand it right here to avoid
+	   fixing all other places where it may be expanded.  */
+	if (CALL_WITH_BOUNDS_P (exp))
+	  {
+	    args[j].value = gen_reg_rtx (targetm.chkp_bound_mode ());
+	    args[j].tree_value
+	      = chkp_make_bounds_for_struct_addr (struct_value_addr_value);
+	    expand_expr_real (args[j].tree_value, args[j].value, VOIDmode,
+			      EXPAND_NORMAL, 0, false);
+	    args[j].pointer_arg = j - inc;
+
+	    j += inc;
+	  }
       }
     FOR_EACH_CALL_EXPR_ARG (arg, iter, exp)
       {
 	tree argtype = TREE_TYPE (arg);
+
+	/* Remember last param with pointer and associate it
+	   with following pointer bounds.  */
+	if (chkp_type_has_pointer (argtype))
+	  {
+	    slots.release ();
+	    ptr_arg = j;
+	    if (!BOUNDED_TYPE_P (argtype))
+	      slots = chkp_find_bound_slots (argtype);
+	  }
+	else if (POINTER_BOUNDS_TYPE_P (argtype))
+	  {
+	    /* For structures look for the next available pointer.  */
+	    if (ptr_arg != -1 && slots.exists ())
+	      {
+		unsigned bnd_no;
+		for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
+		  if (slots[bnd_no])
+		    {
+		      args[j].pointer_offset =
+			bnd_no * POINTER_SIZE / BITS_PER_UNIT;
+		      slots[bnd_no] = false;
+		      break;
+		    }
+		/* Check we have no more pointers in the structure.  */
+		if (bnd_no == slots.length ())
+		  ptr_arg = -1;
+	      }
+	    args[j].pointer_arg = ptr_arg;
+
+	    /* Pointer may have only single bounds.  */
+	    if (!slots.exists ())
+	      ptr_arg = -1;
+	  }
+	else
+	  ptr_arg = -1;
 
 	/* For instrumented calls get all bounds passed for arg.  */
 	if (CALL_WITH_BOUNDS_P (exp))
 	  {
 	    /* For bounded types bounds are passed via
 	       bounds binding calls.  */
-	    if (BOUNDED_TYPE_P (argtype))
+	    if (BOUNDED_TYPE_P (argtype) && 0)
 	      args[j].bounds_value = chkp_get_call_arg_bounds (arg);
 	    /* For structures we create a list holding structure address
 	       and offset of pointer in that structure.  */
-	    else if (chkp_type_has_pointer (argtype))
+	    else if (chkp_type_has_pointer (argtype) && 0)
 	      {
 		tree base_addr = build_fold_addr_expr (arg);
 		vec<bool> struct_bounds = chkp_find_bound_slots (argtype);
@@ -1270,6 +1327,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	  args[j].tree_value = arg;
 	j += inc;
       }
+
+    slots.release ();
   }
 
   /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
@@ -1404,7 +1463,13 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
       args[i].reg = targetm.calls.function_arg (args_so_far, mode, type,
 						argpos < n_named_args);
-      chkp_split_slot (args[i].reg, &args[i].reg, &args[i].bounds_slot);
+
+      if (args[i].reg && CONST_INT_P (args[i].reg))
+	{
+	  args[i].special_slot = args[i].reg;
+	  args[i].reg = NULL;
+	}
+      //chkp_split_slot (args[i].reg, &args[i].reg, &args[i].bounds_slot);
 
       /* If this is a sibling call and the machine has register windows, the
 	 register window has to be unwinded before calling the routine, so
@@ -1439,10 +1504,13 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	  || (args[i].pass_on_stack && args[i].reg != 0))
 	*must_preallocate = 1;
 
+      /* No stack allocation and padding for bounds.  */
+      if (POINTER_BOUNDS_P (args[i].tree_value))
+	;
       /* Compute the stack-size of this argument.  */
-      if (args[i].reg == 0 || args[i].partial != 0
-	  || reg_parm_stack_space > 0
-	  || args[i].pass_on_stack)
+      else if (args[i].reg == 0 || args[i].partial != 0
+	       || reg_parm_stack_space > 0
+	       || args[i].pass_on_stack)
 	locate_and_pad_parm (mode, type,
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
 			     1,
@@ -1590,8 +1658,9 @@ precompute_arguments (int num_actuals, struct arg_data *args)
       type = TREE_TYPE (args[i].tree_value);
       gcc_assert (!TREE_ADDRESSABLE (type));
 
-      args[i].initial_value = args[i].value
-	= expand_normal (args[i].tree_value);
+      if (!args[i].value)
+	args[i].value = expand_normal (args[i].tree_value);
+      args[i].initial_value = args[i].value;
 
       mode = TYPE_MODE (type);
       if (mode != args[i].mode)
@@ -1657,6 +1726,12 @@ finalize_must_preallocate (int must_preallocate, int num_actuals,
 	    partial_seen = 1;
 	  else if (partial_seen && args[i].reg == 0)
 	    must_preallocate = 1;
+	  /* We preallocate in case there are bounds passed
+	     in the bounds table to have precomputed address
+	     for bounds association.  */
+	  else if (POINTER_BOUNDS_P (args[i].tree_value)
+		   && !args[i].reg)
+	    must_preallocate = 1;
 
 	  if (TYPE_MODE (TREE_TYPE (args[i].tree_value)) == BLKmode
 	      && (TREE_CODE (args[i].tree_value) == CALL_EXPR
@@ -1706,6 +1781,10 @@ compute_argument_addresses (struct arg_data *args, rtx argblock, int num_actuals
 	  if (! args[i].pass_on_stack
 	      && args[i].reg != 0
 	      && args[i].partial == 0)
+	    continue;
+
+	  /* Pointer Bounds are never passed on the stack.  */
+	  if (POINTER_BOUNDS_P (args[i].tree_value))
 	    continue;
 
 	  if (CONST_INT_P (offset))
@@ -2024,7 +2103,7 @@ load_register_parameters (struct arg_data *args, int num_actuals,
 	  if (GET_CODE (reg) == PARALLEL)
 	    emit_group_move (reg, args[i].parallel_value);
 
-	  /* If simple case, just do move.  If normal partial, store_one_arg
+	    /* If simple case, just do move.  If normal partial, store_one_arg
 	     has already loaded the register for us.  In all other cases,
 	     load the register(s) from memory.  */
 
@@ -2654,7 +2733,7 @@ expand_call (tree exp, rtx target, int ignore)
 
       structure_value_addr_value =
 	make_tree (build_pointer_type (TREE_TYPE (funtype)), temp);
-      structure_value_addr_parm = 1;
+      structure_value_addr_parm = CALL_WITH_BOUNDS_P (exp) ? 2 : 1;
     }
 
   /* Count the arguments and set NUM_ACTUALS.  */
@@ -3172,19 +3251,33 @@ expand_call (tree exp, rtx target, int ignore)
 
       /* Figure out the register where the value, if any, will come back.  */
       valreg = 0;
+      valbnd = 0;
       if (TYPE_MODE (rettype) != VOIDmode
 	  && ! structure_value_addr)
 	{
 	  if (pcc_struct_value)
-	    valreg = hard_function_value (build_pointer_type (rettype),
-					  fndecl, NULL, (pass == 0));
+	    {
+	      valreg = hard_function_value (build_pointer_type (rettype),
+					    fndecl, NULL, (pass == 0));
+	      if (CALL_WITH_BOUNDS_P (exp))
+		valbnd = targetm.calls.
+		  chkp_function_value_bounds (build_pointer_type (rettype),
+					      fndecl, (pass == 0));
+	    }
 	  else
-	    valreg = hard_function_value (rettype, fndecl, fntype,
-					  (pass == 0));
+	    {
+	      valreg = hard_function_value (rettype, fndecl, fntype,
+					    (pass == 0));
+	      if (CALL_WITH_BOUNDS_P (exp))
+		valbnd = targetm.calls.chkp_function_value_bounds (rettype,
+								   fndecl,
+								   (pass == 0));
+	    }
+	      
 
 	  /* Returned bound registers are handled later.  Slit them right now and
 	     join back before rerurn.  */
-	  chkp_split_slot (valreg, &valreg, &valbnd);
+	  //chkp_split_slot (valreg, &valreg, &valbnd);
 
 	  /* If VALREG is a PARALLEL whose first member has a zero
 	     offset, use that.  This is for targets such as m68k that
@@ -3225,7 +3318,10 @@ expand_call (tree exp, rtx target, int ignore)
 
       for (i = 0; i < num_actuals; i++)
 	{
-	  if (args[i].reg == 0 || args[i].pass_on_stack)
+	  /* Delay bounds until all other args are stored.  */
+	  if (POINTER_BOUNDS_P (args[i].tree_value))
+	    continue;
+	  else if (args[i].reg == 0 || args[i].pass_on_stack)
 	    {
 	      rtx before_arg = get_last_insn ();
 
@@ -3277,6 +3373,17 @@ expand_call (tree exp, rtx target, int ignore)
 							 &args[i], 1)))
 		sibcall_failure = 1;
 	    }
+
+      /* Store all bounds not passed in registers.  */
+      for (i = 0; i < num_actuals; i++)
+	{
+	  if (POINTER_BOUNDS_P (args[i].tree_value)
+	      && !args[i].reg)
+	    store_bounds (&args[i],
+			  args[i].pointer_arg == -1
+			  ? NULL
+			  : &args[args[i].pointer_arg]);
+	}
 
       /* If we pushed args in forward order, perform stack alignment
 	 after pushing the last arg.  */
@@ -4560,6 +4667,77 @@ emit_library_call_value (rtx orgfun, rtx value,
   return result;
 }
 
+
+/* Store pointer bounds argument ARG  into Bounds Table entry
+   associated with PARM.  */
+static void
+store_bounds (struct arg_data *arg, struct arg_data *parm)
+{
+  rtx slot = NULL, ptr = NULL, addr = NULL;
+
+  /* We may pass bounds not associated with any pointer.  */
+  if (!parm)
+    {
+      gcc_assert (arg->special_slot);
+      slot = arg->special_slot;
+      ptr = const0_rtx;
+    }
+  /* Find pointer associated with bounds and where it is
+     passed.  */
+  else
+    {
+      if (!parm->reg)
+	{
+	  gcc_assert (!arg->special_slot);
+
+	  addr = adjust_address (parm->stack, Pmode, arg->pointer_offset);
+	}
+      else if (REG_P (parm->reg))
+	{
+	  //int reg_offs = arg->pointer_offset * BITS_PER_UNIT / POINTER_SIZE;
+
+	  gcc_assert (arg->special_slot);
+	  slot = arg->special_slot;
+
+	  //gcc_assert (GET_MODE_SIZE (GET_MODE (parm->reg)) > arg->pointer_offset);
+	  //ptr = gen_rtx_REG (Pmode, REGNO (parm->reg) + reg_offs);
+
+	  if (MEM_P (parm->value))
+	    addr = adjust_address (parm->value, Pmode, arg->pointer_offset);
+	  else if (REG_P (parm->value))
+	    ptr = gen_rtx_SUBREG (Pmode, parm->value, arg->pointer_offset);
+	  else
+	    {
+	      gcc_assert (!arg->pointer_offset);
+	      ptr = parm->value;
+	    }
+	}
+      else
+	{
+	  gcc_assert (GET_CODE (parm->reg) == PARALLEL);
+
+	  gcc_assert (arg->special_slot);
+	  slot = arg->special_slot;
+
+	  if (parm->parallel_value)
+	    ptr = chkp_get_value_with_offs (parm->parallel_value,
+					    GEN_INT (arg->pointer_offset));
+	  //else if (MEM_P (parm->value))
+	  //addr = adjust_address (parm->value, Pmode, arg->pointer_offset);
+	  //else if (REG_P (parm->value))
+	  //ptr = gen_rtx_SUBREG (Pmode, parm->value, arg->pointer_offset);
+	  else
+	    gcc_unreachable ();
+	}
+    }
+
+  /* Expand bounds.  */
+  if (!arg->value)
+    arg->value = expand_normal (arg->tree_value);
+
+  targetm.calls.store_bounds_for_arg (ptr, addr, arg->value, slot);
+}
+
 /* Store a single argument for a function call
    into the register or memory area where it must be passed.
    *ARG describes the argument value and where to pass it.
