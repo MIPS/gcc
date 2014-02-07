@@ -42,6 +42,7 @@ decimal_float = @decimal_float@
 enable_vtable_verify = @enable_vtable_verify@
 enable_decimal_float = @enable_decimal_float@
 fixed_point = @fixed_point@
+enable_mpx = @enable_mpx@
 
 host_noncanonical = @host_noncanonical@
 target_noncanonical = @target_noncanonical@
@@ -230,6 +231,10 @@ LIBGCC2_CFLAGS = -O2 $(LIBGCC2_INCLUDES) $(GCC_CFLAGS) $(HOST_LIBGCC2_CFLAGS) \
 		 $(LIBGCC2_DEBUG_CFLAGS) -DIN_LIBGCC2 \
 		 -fbuilding-libgcc -fno-stack-protector \
 		 $(INHIBIT_LIBC_CFLAGS)
+
+ifeq ($(enable_mpx),yes)
+LIBGCC2_CFLAGS += -fcheck-pointer-bounds -mmpx -fno-chkp-use-static-bounds -fno-chkp-check-incomplete-type
+endif
 
 # Additional options to use when compiling libgcc2.a.
 # Some targets override this to -isystem include
