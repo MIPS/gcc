@@ -2788,7 +2788,6 @@ read_cgraph_and_symbols (unsigned nfiles, const char **fnames)
   struct lto_file_decl_data **decl_data;
   void **res;
   symtab_node *snode;
-  cgraph_node *cnode;
 
   init_cgraph ();
 

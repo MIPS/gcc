@@ -123,24 +123,6 @@ enqueue_node (symtab_node *node, symtab_node **first,
   *first = node;
 }
 
-/* Return 1 if referred node is reachable.  */
-
-static bool
-referred_node_is_reachable_p (struct symtab_node *node,
-			      bool before_inlining_p)
-{
-  return (node->definition && !node->in_other_partition
-	  && ((!DECL_EXTERNAL (node->decl) || node->alias)
-	      || (before_inlining_p
-		  /* We use variable constructors during late complation for
-		     constant folding.  Keep references alive so partitioning
-		     knows about potential references.  */
-		  || (TREE_CODE (node->decl) == VAR_DECL
-		      && flag_wpa
-		      && ctor_for_folding (node->decl)
-		      != error_mark_node))));
-}
-
 /* Process references.  */
 
 static void
@@ -154,12 +136,19 @@ process_references (struct ipa_ref_list *list,
   for (i = 0; ipa_ref_list_reference_iterate (list, i, ref); i++)
     {
       symtab_node *node = ref->referred;
-      if (referred_node_is_reachable_p (node, before_inlining_p))
+
+      if (node->definition && !node->in_other_partition
+	  && ((!DECL_EXTERNAL (node->decl) || node->alias)
+	      || (before_inlining_p
+		  /* We use variable constructors during late complation for
+		     constant folding.  Keep references alive so partitioning
+		     knows about potential references.  */
+		  || (TREE_CODE (node->decl) == VAR_DECL
+		      && flag_wpa
+		      && ctor_for_folding (node->decl)
+		         != error_mark_node))))
 	pointer_set_insert (reachable, node);
       enqueue_node (node, first, reachable);
-
-      /* Count all references to the original cgraph node as
-	 references to the instrumented version too.  */
     }
 }
 
@@ -455,7 +444,6 @@ symtab_remove_unreachable_nodes (bool before_inlining_p, FILE *file)
 		  enqueue_node (next, &first, reachable);
 	    }
 	}
-
       /* When we see constructor of external variable, keep referred nodes in the
 	boundary.  This will also hold initializers of the external vars NODE
 	refers to.  */
