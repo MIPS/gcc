@@ -2088,7 +2088,9 @@ use_register_for_decl (const_tree decl)
     return false;
 
   /* Decl is implicitly addressible by bound stores and loads
-     if it is an aggregate holding bounds.  */
+     if it is an aggregate holding bounds.
+     FIXME: currently in all such cases we should have
+     TREE_ADDRESSABLE be set and do not need this check anymore.  */
   if (chkp_function_instrumented_p (current_function_decl)
       && TREE_TYPE (decl)
       && !BOUNDED_P (decl)
@@ -2326,6 +2328,23 @@ assign_parms_augmented_arg_list (struct assign_parm_data_all *all)
       fnargs.safe_insert (0, decl);
 
       all->function_result_decl = decl;
+
+      /* If function is instrumented then bounds of the
+	 passed structure address is the second argument.  */
+      if (chkp_function_instrumented_p (fndecl))
+	{
+	  decl = build_decl (DECL_SOURCE_LOCATION (fndecl),
+			     PARM_DECL, get_identifier (".result_bnd"),
+			     pointer_bounds_type_node);
+	  DECL_ARG_TYPE (decl) = pointer_bounds_type_node;
+	  DECL_ARTIFICIAL (decl) = 1;
+	  DECL_NAMELESS (decl) = 1;
+	  TREE_CONSTANT (decl) = 1;
+
+	  DECL_CHAIN (decl) = DECL_CHAIN (all->orig_fnargs);
+	  DECL_CHAIN (all->orig_fnargs) = decl;
+	  fnargs.safe_insert (1, decl);
+	}
     }
 
   /* If the target wants to split complex arguments into scalars, do so.  */
@@ -2452,7 +2471,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
 						    data->promoted_mode,
 						    data->passed_type,
 						    data->named_arg);
-  chkp_split_slot (entry_parm, &entry_parm, &bound_parm);
+  //chkp_split_slot (entry_parm, &entry_parm, &bound_parm);
 
   if (entry_parm == 0)
     data->promoted_mode = data->passed_mode;
@@ -2467,7 +2486,7 @@ assign_parm_find_entry_rtl (struct assign_parm_data_all *all,
      it came in a register so that REG_PARM_STACK_SPACE isn't skipped.
      In this case, we call FUNCTION_ARG with NAMED set to 1 instead of 0
      as it was the previous time.  */
-  in_regs = entry_parm != 0;
+  in_regs = (entry_parm != 0) || POINTER_BOUNDS_TYPE_P (data->passed_type);
 #ifdef STACK_PARMS_IN_REG_PARM_AREA
   in_regs = true;
 #endif
@@ -2557,8 +2576,12 @@ static bool
 assign_parm_is_stack_parm (struct assign_parm_data_all *all,
 			   struct assign_parm_data_one *data)
 {
+  /* Bounds are never passed on the stack to keep compatibility
+     with not instrumented code.  */
+  if (POINTER_BOUNDS_TYPE_P (data->passed_type))
+    return false;
   /* Trivially true if we've no incoming register.  */
-  if (data->entry_parm == NULL)
+  else if (data->entry_parm == NULL)
     ;
   /* Also true if we're partially in registers and partially not,
      since we've arranged to drop the entire argument on the stack.  */
@@ -3364,6 +3387,55 @@ assign_parms_unsplit_complex (struct assign_parm_data_all *all,
     }
 }
 
+/* Load bounds PARM from bounds table.  */
+static void
+assign_parm_load_bounds (struct assign_parm_data_one *data,
+			 tree parm,
+			 rtx entry,
+			 unsigned bound_no)
+{
+  vec<bool> slots = chkp_find_bound_slots (TREE_TYPE (parm));
+  unsigned i, offs = 0;
+  rtx slot = NULL, ptr = NULL;
+
+  for (i = 0; i < slots.length (); i++)
+    if (slots[i])
+      {
+	if (bound_no)
+	  bound_no--;
+	else
+	  break;
+      }
+  /* We may have bounds not associated with any pointer.  */
+  if (i == slots.length ())
+    i = -1;
+  else
+    offs = i * POINTER_SIZE / BITS_PER_UNIT;
+  slots.release ();
+
+  /* Find associated pointer.  */
+  if (i == (unsigned)-1)
+    {
+      /* If bounds are not associated with any bounds,
+	 then it is passed in a register or special slot.  */
+      gcc_assert (data->entry_parm);
+      ptr = const0_rtx;
+    }
+  else if (MEM_P (entry))
+    slot = adjust_address (entry, Pmode, offs);
+  else if (REG_P (entry))
+    {
+      gcc_assert (GET_MODE_SIZE (GET_MODE (entry)) > offs);
+      ptr = gen_rtx_REG (Pmode, REGNO (entry) + i);
+    }
+  else if (GET_CODE (entry) == PARALLEL)
+    ptr = chkp_get_value_with_offs (entry, GEN_INT (offs));
+  else
+    gcc_unreachable ();
+  data->entry_parm = targetm.calls.load_bounds_for_arg (slot, ptr,
+							data->entry_parm);
+}
+
 /* Assign RTL expressions to the function's parameters.  This may involve
    copying them into registers and using those registers as the DECL_RTL.  */
 
@@ -3373,7 +3445,9 @@ assign_parms (tree fndecl)
   struct assign_parm_data_all all;
   tree parm;
   vec<tree> fnargs;
-  unsigned i;
+  unsigned i, bound_no = 0;
+  tree last_arg;
+  rtx last_arg_entry;
 
   crtl->args.internal_arg_pointer
     = targetm.calls.internal_arg_pointer ();
@@ -3418,7 +3492,6 @@ assign_parms (tree fndecl)
       if (cfun->stdarg && !DECL_CHAIN (parm))
 	assign_parms_setup_varargs (&all, &data, false);
 
-      /* Find out where the parameter arrives in this function.  */
       assign_parm_find_entry_rtl (&all, &data);
 
       /* Find out where stack space for this parameter might be.  */
@@ -3428,8 +3501,27 @@ assign_parms (tree fndecl)
 	  assign_parm_adjust_entry_rtl (&data);
 	}
 
+      if (POINTER_BOUNDS_TYPE_P (data.passed_type))
+	{
+	  /* Load pointer bounds if not passed in a register.  */
+	  if (!data.entry_parm
+	      || GET_CODE (data.entry_parm) != REG)
+	    assign_parm_load_bounds (&data, last_arg, last_arg_entry,
+				     bound_no++);
+	}
+      else
+	{
+	  /* Remember where last non bounds arg was passed in case
+	     we have to load associated bounds for it from Bounds
+	     Table.  */
+	  last_arg = parm;
+	  last_arg_entry = data.entry_parm;
+	  bound_no = 0;
+	}
+
       /* Find out where bounds for parameter are.
 	 Load them if required and associate them with parm.  */
+      /*
       if (chkp_function_instrumented_p (fndecl)
 	  && (data.bound_parm || BOUNDED_TYPE_P (data.passed_type)))
 	{
@@ -3479,7 +3571,7 @@ assign_parms (tree fndecl)
 	      data.bound_parm = stack;
 	    }
 	}
-      SET_DECL_BOUNDS_RTL (parm, data.bound_parm);
+	SET_DECL_BOUNDS_RTL (parm, data.bound_parm);*/
 
       /* Record permanently how this parm was passed.  */
       if (data.passed_pointer)
@@ -3507,6 +3599,7 @@ assign_parms (tree fndecl)
 
       /* If parm decl is addressable then we have to store its
 	 bounds.  */
+      /*
       if (chkp_function_instrumented_p (fndecl)
 	  && TREE_ADDRESSABLE (parm)
 	  && data.bound_parm)
@@ -3540,6 +3633,7 @@ assign_parms (tree fndecl)
 						  data.bound_parm, NULL);
 	    }
 	}
+      */
     }
 
   if (targetm.calls.split_complex_arg)
@@ -3662,7 +3756,11 @@ assign_parms (tree fndecl)
 
 	  real_decl_rtl = targetm.calls.function_value (TREE_TYPE (decl_result),
 							fndecl, true);
-	  chkp_split_slot (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
+	  if (chkp_function_instrumented_p (fndecl))
+	    crtl->return_bnd
+	      = targetm.calls.chkp_function_value_bounds (TREE_TYPE (decl_result),
+							  fndecl, true);
+	  //chkp_split_slot (real_decl_rtl, &real_decl_rtl, &crtl->return_bnd);
 	  REG_FUNCTION_VALUE_P (real_decl_rtl) = 1;
 	  /* The delay slot scheduler assumes that crtl->return_rtx
 	     holds the hard register containing the return value, not a
@@ -4882,12 +4980,19 @@ expand_function_start (tree subr)
 	      gcc_assert (GET_CODE (hard_reg) == PARALLEL);
 	      SET_DECL_RTL (DECL_RESULT (subr), gen_group_rtx (hard_reg));
 	    }
-	  SET_DECL_BOUNDS_RTL (DECL_RESULT (subr), bounds);
 	}
 
       /* Set DECL_REGISTER flag so that expand_function_end will copy the
 	 result to the real return register(s).  */
       DECL_REGISTER (DECL_RESULT (subr)) = 1;
+
+      if (chkp_function_instrumented_p (current_function_decl))
+	{
+	  tree return_type = TREE_TYPE (DECL_RESULT (subr));
+	  rtx bounds = targetm.calls.chkp_function_value_bounds (return_type,
+								 subr, 1);
+	  SET_DECL_BOUNDS_RTL (DECL_RESULT (subr), bounds);
+	}
     }
 
   /* Initialize rtx for parameters and local variables.
@@ -5257,7 +5362,13 @@ expand_function_end (void)
 
       outgoing = targetm.calls.function_value (build_pointer_type (type),
 					       current_function_decl, true);
-      chkp_split_slot (outgoing, &outgoing, &crtl->return_bnd);
+      /* 
+      if (chkp_function_instrumented_p (current_function_decl))
+	crtl->return_bnd
+	  = targetm.calls.chkp_function_value_bounds (build_pointer_type (type),
+						      current_function_decl,
+						      true);*/
+      //chkp_split_slot (outgoing, &outgoing, &crtl->return_bnd);
 
       if (chkp_function_instrumented_p (current_function_decl)
 	  && GET_CODE (outgoing) == PARALLEL)
