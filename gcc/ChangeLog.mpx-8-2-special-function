@@ -1,0 +1,4 @@
+2013-11-19  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* calls.c (special_function_p): Use original decl name
+	when analyzing instrumentation clone.
