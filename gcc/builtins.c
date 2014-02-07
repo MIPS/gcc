@@ -289,7 +289,7 @@ no_c99_libc_has_function (enum function_class fn_class ATTRIBUTE_UNUSED)
    of the optimization level.  This means whenever a function is invoked with
    its "internal" name, which normally contains the prefix "__builtin".  */
 
-static bool
+bool
 called_as_built_in (tree node)
 {
   /* Note that we must use DECL_NAME, not DECL_ASSEMBLER_NAME_SET_P since
