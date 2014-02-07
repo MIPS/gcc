@@ -26,3 +26,5 @@
 	(compile_file): Add chkp_finish_file call.
 	* tree-pass.h (make_pass_chkp): New.
 	(make_pass_chkp_opt): New.
+	* tree.h (called_as_built_in): New.
+	* builtins.c (called_as_built_in): Not static anymore.
