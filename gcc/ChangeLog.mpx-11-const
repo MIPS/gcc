@@ -5,3 +5,4 @@
 	* explow.c (trunc_int_for_mode): Likewise.
 	* varpool.c (ctor_for_folding): Do not fold constant
 	bounds vars.
+	* varasm.c (output_constant_pool_2): Support MODE_POINTER_BOUNDS.
