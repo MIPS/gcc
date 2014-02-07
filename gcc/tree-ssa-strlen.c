@@ -1847,7 +1847,9 @@ strlen_optimize_stmt (gimple_stmt_iterator *gsi)
 {
   gimple stmt = gsi_stmt (*gsi);
 
-  if (is_gimple_call (stmt))
+  if (is_gimple_call (stmt)
+      /* No instrumented calls support yet.  */
+      && !gimple_call_with_bounds_p (stmt))
     {
       tree callee = gimple_call_fndecl (stmt);
       if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
