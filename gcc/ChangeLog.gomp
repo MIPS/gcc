@@ -1,3 +1,8 @@
+2014-02-07  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* ipa-inline-analysis.c (inline_free_summary): Always remove
+	hooks.
+
 2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-core.h (omp_clause_code): Update description for
