@@ -3,3 +3,8 @@
 	* tree-tailcall.c: Include tree-chkp.h.
 	(suitable_for_tail_opt_p): Disable tail
 	recursion for instrumented functions with bounded args.
+	* tree-ssa-dce.c: Include target.h.
+	(propagate_necessity): For free call fed by alloc check
+	bounds are also provided by the same alloc.
+	(eliminate_unnecessary_stmts): Handle BUILT_IN_CHKP_BNDRET
+	used by free calls.
