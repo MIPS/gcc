@@ -4566,6 +4566,7 @@ extern tree c_strlen (tree, int);
 extern tree build_string_literal (int, const char *);
 extern rtx builtin_memset_read_str (void *, HOST_WIDE_INT, enum machine_mode);
 extern bool is_builtin_fn (tree);
+extern bool called_as_built_in (tree);
 extern bool get_object_alignment_1 (tree, unsigned int *,
 				    unsigned HOST_WIDE_INT *);
 extern unsigned int get_object_alignment (tree);
