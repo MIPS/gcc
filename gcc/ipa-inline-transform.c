@@ -110,6 +110,11 @@ can_remove_node_now_p (struct cgraph_node *node, struct cgraph_edge *e)
   if (!can_remove_node_now_p_1 (node))
     return false;
 
+  if (node->instrumented_version
+      && node->instrumentation_clone
+      && !can_remove_node_now_p (node->instrumented_version, NULL))
+    return false;
+
   /* When we see same comdat group, we need to be sure that all
      items can be removed.  */
   if (!node->same_comdat_group)
