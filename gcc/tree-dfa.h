@@ -180,26 +180,30 @@ done:
 }
 
 /* Return true if REF is a storage order barrier, i.e. a VIEW_CONVERT_EXPR
-   which converts between objects with different storage orders.  */
+   that can modify the storage order of objects.  Note that, even if the
+   TYPE_REVERSE_STORAGE_ORDER flag is set on both the inner type and the
+   outer type, a VIEW_CONVERT_EXPR can modify the storage order because
+   it can change the partition of the aggregate object into scalars.  */
 
 static inline bool
 storage_order_barrier_p (const_tree ref)
 {
-  bool op_rso, ref_rso;
   tree op;
 
   if (TREE_CODE (ref) != VIEW_CONVERT_EXPR)
     return false;
 
-  ref_rso = (AGGREGATE_TYPE_P (TREE_TYPE (ref))
-	     && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (ref)));
+  if (AGGREGATE_TYPE_P (TREE_TYPE (ref))
+      && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (ref)))
+    return true;
 
   op = TREE_OPERAND (ref, 0);
 
-  op_rso = (AGGREGATE_TYPE_P (TREE_TYPE (op))
-	    && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (op)));
+  if (AGGREGATE_TYPE_P (TREE_TYPE (op))
+      && TYPE_REVERSE_STORAGE_ORDER (TREE_TYPE (op)))
+    return true;
 
-  return ref_rso != op_rso;
+  return false;
 }
 
 
