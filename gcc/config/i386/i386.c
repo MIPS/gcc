@@ -12584,8 +12584,12 @@ darwin_local_data_pic (rtx disp)
    satisfies CONSTANT_P.  */
 
 static bool
-ix86_legitimate_constant_p (enum machine_mode mode ATTRIBUTE_UNUSED, rtx x)
+ix86_legitimate_constant_p (enum machine_mode mode, rtx x)
 {
+  /* Pointer bounds constants are not valid.  */
+  if (POINTER_BOUNDS_MODE_P (mode))
+    return false;
+
   switch (GET_CODE (x))
     {
     case CONST:
