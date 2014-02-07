@@ -1,0 +1,9 @@
+2013-10-23  Ilya Enkovich  <ilya.enkovich@intel.com>
+
+	* unwind-dw2-fde.h (get_cie): Fix resulting pointer bounds.
+	* unwind-dw2.c (_Unwind_GetGR): Init bounds of the returned
+	value.
+	(_Unwind_GetPtr): Likewise.
+	(_Unwind_GetGRPtr): Likewise.
+	(_Unwind_GetIP): Likewise.
+	(_Unwind_GetIPInfo): Likewise.
