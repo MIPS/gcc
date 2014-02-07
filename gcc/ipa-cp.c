@@ -696,7 +696,10 @@ initialize_node_lattices (struct cgraph_node *node)
   int i;
 
   gcc_checking_assert (cgraph_function_with_gimple_body_p (node));
-  if (!node->local.local)
+  if (!node->local.local
+      || (node->instrumentation_clone
+	  && node->instrumented_version
+	  && !node->instrumented_version->local.local))
     {
       /* When cloning is allowed, we can assume that externally visible
 	 functions are not called.  We will compensate this by cloning
@@ -1432,7 +1435,8 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
   alias_or_thunk = cs->callee;
   while (alias_or_thunk->alias)
     alias_or_thunk = cgraph_alias_target (alias_or_thunk);
-  if (alias_or_thunk->thunk.thunk_p)
+  if (alias_or_thunk->thunk.thunk_p
+      && !alias_or_thunk->thunk.add_pointer_bounds_args)
     {
       ret |= set_all_contains_variable (ipa_get_parm_lattices (callee_info,
 							       0));
@@ -1440,6 +1444,18 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
     }
   else
     i = 0;
+
+  /* No propagation through instrumentation thunks is available yet.
+     TODO: Should be possible with proper mapping of call args and
+     instrumented callee params in the propagation loop below.  */
+  if (!alias_or_thunk->instrumentation_clone
+      && callee->instrumentation_clone)
+    {
+      for (; i < parms_count; i++)
+	ret |= set_all_contains_variable (ipa_get_parm_lattices (callee_info,
+								 i));
+      return ret;
+    }
 
   for (; (i < args_count) && (i < parms_count); i++)
     {
