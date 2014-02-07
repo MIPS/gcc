@@ -1,6 +1,7 @@
 2013-10-04  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* config/i386/i386.c (ix86_builtin_mpx_function): New.
+	* config/i386/i386.c (ix86_function_value_bounds): New.
+	(ix86_builtin_mpx_function): New.
 	(ix86_load_bounds): New.
 	(ix86_store_bounds): New.
 	(ix86_fn_abi_va_list_bounds_size): New.
@@ -10,3 +11,4 @@
 	(TARGET_CHKP_BOUND_MODE): New.
 	(TARGET_BUILTIN_CHKP_FUNCTION): New.
 	(TARGET_FN_ABI_VA_LIST_BOUNDS_SIZE): New.
+	(TARGET_CHKP_FUNCTION_VALUE_BOUNDS): New.

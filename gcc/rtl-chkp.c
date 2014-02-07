@@ -245,7 +245,7 @@ chkp_emit_bounds_store (rtx bounds, rtx value, rtx mem)
       int i;
 
       gcc_assert (GET_CODE (bounds) == PARALLEL);
-      gcc_assert (GET_CODE (value) == PARALLEL || MEM_P (value));
+      gcc_assert (GET_CODE (value) == PARALLEL || MEM_P (value) || REG_P (value));
 
       for (i = 0; i < XVECLEN (bounds, 0); i++)
 	{
@@ -256,12 +256,14 @@ chkp_emit_bounds_store (rtx bounds, rtx value, rtx mem)
 
 	  if (GET_CODE (value) == PARALLEL)
 	    ptr = chkp_get_value_with_offs (value, offs);
-	  else
+	  else if (MEM_P (value))
 	    {
 	      rtx tmp = adjust_address (value, Pmode, INTVAL (offs));
 	      ptr = gen_reg_rtx (Pmode);
 	      emit_move_insn (ptr, tmp);
 	    }
+	  else
+	    ptr = gen_rtx_SUBREG (Pmode, value, INTVAL (offs));
 
 	  targetm.calls.store_bounds_for_arg (ptr, slot, reg, NULL);
 	}
