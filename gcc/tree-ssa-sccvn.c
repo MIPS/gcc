@@ -1336,6 +1336,21 @@ fully_constant_vn_reference_p (vn_reference_t ref)
   return NULL_TREE;
 }
 
+/* Return true if OPS contain a storage order barrier.  */
+
+static bool
+contains_storage_order_barrier_p (vec<vn_reference_op_s> ops)
+{
+  vn_reference_op_t op;
+  unsigned i;
+
+  FOR_EACH_VEC_ELT (ops, i, op)
+    if (op->opcode == VIEW_CONVERT_EXPR && op->reverse)
+      return true;
+
+  return false;
+}
+
 /* Transform any SSA_NAME's in a vector of vn_reference_op_s
    structures into their value numbers.  This is done in-place, and
    the vector passed in is returned.  *VALUEIZED_ANYTHING will specify
@@ -1667,6 +1682,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	   && maxsize % BITS_PER_UNIT == 0
 	   && offset % BITS_PER_UNIT == 0
 	   && is_gimple_reg_type (vr->type)
+	   && !contains_storage_order_barrier_p (vr->operands)
 	   && gimple_assign_single_p (def_stmt)
 	   && is_gimple_min_invariant (gimple_assign_rhs1 (def_stmt)))
     {
@@ -1688,7 +1704,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	  int len;
 
 	  len = native_encode_expr (gimple_assign_rhs1 (def_stmt),
-				    buffer, sizeof (buffer), reverse);
+				    buffer, sizeof (buffer), false);
 	  if (len > 0)
 	    {
 	      tree val = native_interpret_expr (vr->type,
@@ -1707,6 +1723,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
      to access pieces from.  */
   else if (ref->size == maxsize
 	   && is_gimple_reg_type (vr->type)
+	   && !contains_storage_order_barrier_p (vr->operands)
 	   && gimple_assign_single_p (def_stmt)
 	   && TREE_CODE (gimple_assign_rhs1 (def_stmt)) == SSA_NAME)
     {
@@ -1773,7 +1790,7 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
     {
       tree base2;
       HOST_WIDE_INT offset2, size2, maxsize2;
-      int i, j;
+      int i, j, k;
       auto_vec<vn_reference_op_s> rhs;
       vn_reference_op_t vro;
       ao_ref r;
@@ -1821,6 +1838,14 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
 	 try handling outermost VIEW_CONVERT_EXPRs.  */
       if (j != -1)
 	return (void *)-1;
+
+      /* Punt if the additional ops contain a storage order barrier.  */
+      for (k = i; k >= 0; k--)
+	{
+	  vro = &vr->operands[k];
+	  if (vro->opcode == VIEW_CONVERT_EXPR && vro->reverse)
+	    return (void *)-1;
+	}
 
       /* Now re-write REF to be based on the rhs of the assignment.  */
       copy_reference_ops_from_ref (gimple_assign_rhs1 (def_stmt), &rhs);
@@ -1874,7 +1899,6 @@ vn_reference_lookup_3 (ao_ref *ref, tree vuse, void *vr_)
       HOST_WIDE_INT rhs_offset, copy_size, lhs_offset;
       vn_reference_op_s op;
       HOST_WIDE_INT at;
-
 
       /* Only handle non-variable, addressable refs.  */
       if (ref->size != maxsize
@@ -2867,7 +2891,9 @@ visit_reference_op_load (tree lhs, tree op, gimple stmt)
 
   /* If we have a VCE, try looking up its operand as it might be stored in
      a different type.  */
-  if (!result && TREE_CODE (op) == VIEW_CONVERT_EXPR)
+  if (!result
+      && TREE_CODE (op) == VIEW_CONVERT_EXPR
+      && !storage_order_barrier_p (op))
     result = vn_reference_lookup (TREE_OPERAND (op, 0), gimple_vuse (stmt),
     				  default_vn_walk_kind, NULL);
 
