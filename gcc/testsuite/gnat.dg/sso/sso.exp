@@ -15,36 +15,26 @@
 # <http://www.gnu.org/licenses/>.
 
 # Load support procs.
-load_lib gnat.exp
+load_lib gnat-dg.exp
+load_lib torture-options.exp
 
-# The default option list can be overridden by
-# TORTURE_OPTIONS="{ { list1 } ... { listN } }"
+# Initialize `dg'.
+torture-init
+dg-init
 
-if ![info exists TORTURE_OPTIONS] {
-    set TORTURE_OPTIONS [list \
+set SSO_TORTURE_OPTIONS [list \
 	{ -O0 } \
 	{ -O1 -fno-inline } \
 	{ -O2 } \
 	{ -O3 -finline-functions } \
 	{ -Os } \
 	{ -Og -g } ]
-}
 
-catch { lsort [glob -nocomplain ${srcdir}/${subdir}/*.out] } outfiles
-verbose "outfiles are $outfiles"
+set-torture-options $SSO_TORTURE_OPTIONS
 
-foreach outfile $outfiles {
-    global runtests
+# Main loop.
+gcc-dg-runtest [lsort [glob -nocomplain $srcdir/$subdir/*.adb]] ""
 
-    regsub "\\.out$" $outfile "" testcase
-
-    # If we're only testing specific files and this isn't one of them, skip it.
-    if ![runtest_file_p $runtests $outfile] {
-	continue
-    }
-
-    verbose "Testing ${subdir}/[file tail $outfile]"
-    foreach option $TORTURE_OPTIONS {
-	gnat_test $testcase $option $outfile
-    }
-}
+# All done.
+dg-finish
+torture-finish

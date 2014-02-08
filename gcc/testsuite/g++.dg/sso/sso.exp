@@ -15,7 +15,7 @@
 # <http://www.gnu.org/licenses/>.
 
 # Load support procs.
-load_lib gcc-dg.exp
+load_lib g++-dg.exp
 load_lib torture-options.exp
 
 # Initialize `dg'.

@@ -1,3 +1,5 @@
+-- { dg-do run }
+
 with Init3; use Init3;
 with Text_IO; use Text_IO;
 with Dump;
@@ -38,10 +40,12 @@ begin
   Put ("A1 :");
   Dump (A1'Address, R1'Max_Size_In_Storage_Elements);
   New_Line;
+  --  { dg-output "A1 : e2 59 d1 48 b4 aa d9 bb\n" }
 
   Put ("A2 :");
   Dump (A2'Address, R1'Max_Size_In_Storage_Elements);
   New_Line;
+  -- { dg-output "A2 : 84 8d 15 9e 15 5b 35 df\n" }
 
   if Get_Elem (A1) /= 16#12345678# then
     raise Program_Error;

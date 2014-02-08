@@ -1,3 +1,5 @@
+-- { dg-do compile }
+
 package body T1 is
 
   function Compare1 (X, Y : R1) return Boolean is

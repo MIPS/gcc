@@ -1,8 +1,0 @@
-My_R1    : db 0f 49 40
-My_R2    : 40 49 0f db
-Local_R1 : db 0f 49 40
-Local_R2 : 40 49 0f db
-Local_R1 : db 0f 49 40
-Local_R2 : 40 49 0f db
-Local_R1 : db 0f 49 40
-Local_R2 : 40 49 0f db

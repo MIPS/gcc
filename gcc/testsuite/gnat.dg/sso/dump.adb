@@ -1,3 +1,5 @@
+-- { dg-do compile }
+
 with Text_IO; use Text_IO;
 
 procedure Dump (A : System.Address; Len : Storage_Offset) is
