@@ -16,6 +16,10 @@
 #include <execinfo.h>
 #include <stdlib.h>
 #include <stdint.h>
+#ifdef OCTEON_TARGET
+#include "cvmx.h"
+#include "cvmx-interrupt.h"
+#endif
 
 #define STR1(X) #X
 #define STR(X) STR1(X)
@@ -61,8 +65,8 @@ static void
 check_backtrace (void)
 {
   void *buffer[10];
-  int len, i;
-  int f_idx, g_idx, main_idx;
+  unsigned len, i;
+  int f_idx; 
 
   len = backtrace (buffer, 10);
   if (!len)

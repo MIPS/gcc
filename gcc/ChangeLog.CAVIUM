@@ -468,6 +468,11 @@
 
 2012-08-29  Andrew Pinski  <apinski@cavium.com>
 
+	* testsuite/gcc.dg/octeon/cvmx/bt-2.c: Fix warnings.
+	* testsuite/gcc.dg/octeon/test-backtrace.h: Fix warnings.
+
+2014-02-07  Andrew Pinski  <apinski@cavium.com>
+
 	* simplify-rtx.c (simplify_subreg): Simplify
 	(subreg (and/ior (a) (b))) to (and/ior (subreg (a)) (subreg (b)))
 	iff either (subreg (a)) or (subreg (b)) simplifies and either

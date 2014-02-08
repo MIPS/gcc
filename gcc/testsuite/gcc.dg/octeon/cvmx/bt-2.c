@@ -7,6 +7,7 @@
 #include <execinfo.h>
 #include <unistd.h>
 #include "cvmx.h"
+#include "cvmx-interrupt.h"
 
 int *i = 0;
 
