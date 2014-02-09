@@ -111,7 +111,7 @@ package body Debug is
    --  d.r  Enable OK_To_Reorder_Components in non-variant records
    --  d.s  Disable expansion of slice move, use memmove
    --  d.t  Disable static allocation of library level dispatch tables
-   --  d.u
+   --  d.u  Enable Modify_Tree_For_C (update tree for c)
    --  d.v  Enable OK_To_Reorder_Components in variant records
    --  d.w  Do not check for infinite loops
    --  d.x  No exception handlers
@@ -575,6 +575,9 @@ package body Debug is
    --       previous dynamic construction of tables. It is there as a possible
    --       work around if we run into trouble with the new implementation.
 
+   --  d.u  Sets Modify_Tree_For_C mode in which tree is modified to make it
+   --       easier to generate code using a C compiler.
+
    --  d.v  Forces the flag OK_To_Reorder_Components to be set in all record
    --       base types that have at least one discriminant (v = variant).
 
@@ -596,7 +599,16 @@ package body Debug is
 
    --  d.E  Turn selected errors into warnings. This debug switch causes a
    --       specific set of error messages into warnings. Setting this switch
-   --       causes Opt.Error_To_Warning to be set to True.
+   --       causes Opt.Error_To_Warning to be set to True. The intention is
+   --       that this be used for messages representing upwards incompatible
+   --       changes to Ada 2012 that cause previously correct programs to be
+   --       treated as illegal now. The following cases are affected:
+   --
+   --          Errors relating to overlapping subprogram parameters for cases
+   --          other than IN OUT parameters to functions.
+   --
+   --          Errors relating to the new rules about not defining equality
+   --          too late so that composition of equality can be assured.
 
    --  d.F  Sets GNATprove_Mode to True. This allows debugging the frontend in
    --       the special mode used by GNATprove.

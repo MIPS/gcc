@@ -1388,9 +1388,6 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   x = gimple_seq_last_stmt (finally);
   finally_loc = x ? gimple_location (x) : tf_loc;
 
-  /* Lower the finally block itself.  */
-  lower_eh_constructs_1 (state, &finally);
-
   /* Prepare for switch statement generation.  */
   nlabels = tf->dest_array.length ();
   return_index = nlabels;
@@ -1476,6 +1473,7 @@ lower_try_finally_switch (struct leh_state *state, struct leh_tf_state *tf)
   x = gimple_build_label (finally_label);
   gimple_seq_add_stmt (&tf->top_p_seq, x);
 
+  lower_eh_constructs_1 (state, &finally);
   gimple_seq_add_seq (&tf->top_p_seq, finally);
 
   /* Redirect each incoming goto edge.  */
@@ -4398,8 +4396,11 @@ cleanup_empty_eh (eh_landing_pad lp)
   /* If the block is totally empty, look for more unsplitting cases.  */
   if (gsi_end_p (gsi))
     {
-      /* For the degenerate case of an infinite loop bail out.  */
-      if (infinite_empty_loop_p (e_out))
+      /* For the degenerate case of an infinite loop bail out.
+	 If bb has no successors and is totally empty, which can happen e.g.
+	 because of incorrect noreturn attribute, bail out too.  */
+      if (e_out == NULL
+	  || infinite_empty_loop_p (e_out))
 	return ret;
 
       return ret | cleanup_empty_eh_unsplit (bb, e_out, lp);

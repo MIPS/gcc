@@ -244,7 +244,7 @@ is_builtin_name (const char *name)
     return true;
   if (strncmp (name, "__atomic_", 9) == 0)
     return true;
-  if (flag_enable_cilkplus 
+  if (flag_cilkplus 
       && (!strcmp (name, "__cilkrts_detach")   
 	  || !strcmp (name, "__cilkrts_pop_frame")))
     return true;
@@ -6205,20 +6205,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	}
       break;
 
-    case BUILT_IN_SETJMP_DISPATCHER:
-       /* __builtin_setjmp_dispatcher is passed the dispatcher label.  */
-      if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
-	{
-	  tree label = TREE_OPERAND (CALL_EXPR_ARG (exp, 0), 0);
-	  rtx label_r = label_rtx (label);
-
-	  /* Remove the dispatcher label from the list of non-local labels
-	     since the receiver labels have been added to it above.  */
-	  remove_node_from_expr_list (label_r, &nonlocal_goto_handler_labels);
-	  return const0_rtx;
-	}
-      break;
-
     case BUILT_IN_SETJMP_RECEIVER:
        /* __builtin_setjmp_receiver is passed the receiver label.  */
       if (validate_arglist (exp, POINTER_TYPE, VOID_TYPE))
@@ -8866,6 +8852,12 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
       if (!POINTER_TYPE_P (TREE_TYPE (src))
 	  || !POINTER_TYPE_P (TREE_TYPE (dest)))
 	return NULL_TREE;
+      /* In the following try to find a type that is most natural to be
+	 used for the memcpy source and destination and that allows
+	 the most optimization when memcpy is turned into a plain assignment
+	 using that type.  In theory we could always use a char[len] type
+	 but that only gains us that the destination and source possibly
+	 no longer will have their address taken.  */
       /* As we fold (void *)(p + CST) to (void *)p + CST undo this here.  */
       if (TREE_CODE (src) == POINTER_PLUS_EXPR)
 	{
@@ -8901,6 +8893,41 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
 	  || TREE_ADDRESSABLE (desttype))
 	return NULL_TREE;
 
+      /* Make sure we are not copying using a floating-point mode or
+         a type whose size possibly does not match its precision.  */
+      if (FLOAT_MODE_P (TYPE_MODE (desttype))
+	  || TREE_CODE (desttype) == BOOLEAN_TYPE
+	  || TREE_CODE (desttype) == ENUMERAL_TYPE)
+	{
+	  /* A more suitable int_mode_for_mode would return a vector
+	     integer mode for a vector float mode or a integer complex
+	     mode for a float complex mode if there isn't a regular
+	     integer mode covering the mode of desttype.  */
+	  enum machine_mode mode = int_mode_for_mode (TYPE_MODE (desttype));
+	  if (mode == BLKmode)
+	    desttype = NULL_TREE;
+	  else
+	    desttype = build_nonstandard_integer_type (GET_MODE_BITSIZE (mode),
+						       1);
+	}
+      if (FLOAT_MODE_P (TYPE_MODE (srctype))
+	  || TREE_CODE (srctype) == BOOLEAN_TYPE
+	  || TREE_CODE (srctype) == ENUMERAL_TYPE)
+	{
+	  enum machine_mode mode = int_mode_for_mode (TYPE_MODE (srctype));
+	  if (mode == BLKmode)
+	    srctype = NULL_TREE;
+	  else
+	    srctype = build_nonstandard_integer_type (GET_MODE_BITSIZE (mode),
+						      1);
+	}
+      if (!srctype)
+	srctype = desttype;
+      if (!desttype)
+	desttype = srctype;
+      if (!srctype)
+	return NULL_TREE;
+
       src_align = get_pointer_alignment (src);
       dest_align = get_pointer_alignment (dest);
       if (dest_align < TYPE_ALIGN (desttype)
@@ -8913,29 +8940,6 @@ fold_builtin_memory_op (location_t loc, tree dest, tree src,
       /* Build accesses at offset zero with a ref-all character type.  */
       off0 = build_int_cst (build_pointer_type_for_mode (char_type_node,
 							 ptr_mode, true), 0);
-
-      /* For -fsanitize={bool,enum} make sure the load isn't performed in
-	 the bool or enum type.  */
-      if (((flag_sanitize & SANITIZE_BOOL)
-	   && TREE_CODE (desttype) == BOOLEAN_TYPE)
-	  || ((flag_sanitize & SANITIZE_ENUM)
-	      && TREE_CODE (desttype) == ENUMERAL_TYPE))
-	{
-	  tree destitype
-	    = lang_hooks.types.type_for_mode (TYPE_MODE (desttype),
-					      TYPE_UNSIGNED (desttype));
-	  desttype = build_aligned_type (destitype, TYPE_ALIGN (desttype));
-	}
-      if (((flag_sanitize & SANITIZE_BOOL)
-	   && TREE_CODE (srctype) == BOOLEAN_TYPE)
-	  || ((flag_sanitize & SANITIZE_ENUM)
-	      && TREE_CODE (srctype) == ENUMERAL_TYPE))
-	{
-	  tree srcitype
-	    = lang_hooks.types.type_for_mode (TYPE_MODE (srctype),
-					      TYPE_UNSIGNED (srctype));
-	  srctype = build_aligned_type (srcitype, TYPE_ALIGN (srctype));
-	}
 
       destvar = dest;
       STRIP_NOPS (destvar);

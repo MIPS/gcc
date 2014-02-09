@@ -1164,8 +1164,8 @@ package body Exp_Aggr is
             elsif Is_Access_Type (Ctype) then
                Append_To (L,
                   Make_Assignment_Statement (Loc,
-                     Name => Indexed_Comp,
-                     Expression => Make_Null (Loc)));
+                    Name       => Indexed_Comp,
+                    Expression => Make_Null (Loc)));
             end if;
 
             if Needs_Finalization (Ctype) then
@@ -1176,47 +1176,51 @@ package body Exp_Aggr is
             end if;
 
          else
-            --  Now generate the assignment with no associated controlled
-            --  actions since the target of the assignment may not have been
-            --  initialized, it is not possible to Finalize it as expected by
-            --  normal controlled assignment. The rest of the controlled
-            --  actions are done manually with the proper finalization list
-            --  coming from the context.
-
             A :=
               Make_OK_Assignment_Statement (Loc,
                 Name       => Indexed_Comp,
                 Expression => New_Copy_Tree (Expr));
 
-            if Present (Comp_Type) and then Needs_Finalization (Comp_Type) then
-               Set_No_Ctrl_Actions (A);
+            --  The target of the assignment may not have been initialized,
+            --  so it is not possible to call Finalize as expected in normal
+            --  controlled assignments. We must also avoid using the primitive
+            --  _assign (which depends on a valid target, and may for example
+            --  perform discriminant checks on it).
 
-               --  If this is an aggregate for an array of arrays, each
-               --  sub-aggregate will be expanded as well, and even with
-               --  No_Ctrl_Actions the assignments of inner components will
-               --  require attachment in their assignments to temporaries.
-               --  These temporaries must be finalized for each subaggregate,
-               --  to prevent multiple attachments of the same temporary
-               --  location to same finalization chain (and consequently
-               --  circular lists). To ensure that finalization takes place
-               --  for each subaggregate we wrap the assignment in a block.
+            --  Both Finalize and usage of _assign are disabled by setting
+            --  No_Ctrl_Actions on the assignment. The rest of the controlled
+            --  actions are done manually with the proper finalization list
+            --  coming from the context.
 
-               if Is_Array_Type (Comp_Type)
-                 and then Nkind (Expr) = N_Aggregate
-               then
-                  A :=
-                    Make_Block_Statement (Loc,
-                      Handled_Statement_Sequence =>
-                        Make_Handled_Sequence_Of_Statements (Loc,
-                           Statements => New_List (A)));
-               end if;
+            Set_No_Ctrl_Actions (A);
+
+            --  If this is an aggregate for an array of arrays, each
+            --  sub-aggregate will be expanded as well, and even with
+            --  No_Ctrl_Actions the assignments of inner components will
+            --  require attachment in their assignments to temporaries. These
+            --  temporaries must be finalized for each subaggregate, to prevent
+            --  multiple attachments of the same temporary location to same
+            --  finalization chain (and consequently circular lists). To ensure
+            --  that finalization takes place for each subaggregate we wrap the
+            --  assignment in a block.
+
+            if Present (Comp_Type)
+              and then Needs_Finalization (Comp_Type)
+              and then Is_Array_Type (Comp_Type)
+              and then Present (Expr)
+            then
+               A :=
+                 Make_Block_Statement (Loc,
+                   Handled_Statement_Sequence =>
+                     Make_Handled_Sequence_Of_Statements (Loc,
+                       Statements => New_List (A)));
             end if;
 
             Append_To (L, A);
 
             --  Adjust the tag if tagged (because of possible view
-            --  conversions), unless compiling for a VM where
-            --  tags are implicit.
+            --  conversions), unless compiling for a VM where tags
+            --  are implicit.
 
             if Present (Comp_Type)
               and then Is_Tagged_Type (Comp_Type)
@@ -1228,9 +1232,9 @@ package body Exp_Aggr is
                begin
                   A :=
                     Make_OK_Assignment_Statement (Loc,
-                      Name =>
+                      Name       =>
                         Make_Selected_Component (Loc,
-                          Prefix =>  New_Copy_Tree (Indexed_Comp),
+                          Prefix        =>  New_Copy_Tree (Indexed_Comp),
                           Selector_Name =>
                             New_Reference_To
                               (First_Tag_Component (Full_Typ), Loc)),
@@ -2465,9 +2469,9 @@ package body Exp_Aggr is
                Ref := Convert_To (Init_Typ, New_Copy_Tree (Target));
                Set_Assignment_OK (Ref);
 
-               --  Make the assignment without usual controlled actions since
-               --  we only want the post adjust but not the pre finalize here
-               --  Add manual adjust when necessary.
+               --  Make the assignment without usual controlled actions, since
+               --  we only want to Adjust afterwards, but not to Finalize
+               --  beforehand. Add manual Adjust when necessary.
 
                Assign := New_List (
                  Make_OK_Assignment_Statement (Loc,
@@ -2530,10 +2534,10 @@ package body Exp_Aggr is
             end if;
          end;
 
-         --  Generate assignments of hidden assignments. If the base type is an
-         --  unchecked union, the discriminants are unknown to the back-end and
-         --  absent from a value of the type, so assignments for them are not
-         --  emitted.
+         --  Generate assignments of hidden discriminants. If the base type is
+         --  an unchecked union, the discriminants are unknown to the back-end
+         --  and absent from a value of the type, so assignments for them are
+         --  not emitted.
 
          if Has_Discriminants (Typ)
            and then not Is_Unchecked_Union (Base_Type (Typ))
@@ -3186,7 +3190,7 @@ package body Exp_Aggr is
             Insert_Action (N,
               Make_Raise_Constraint_Error (Loc,
                 Condition => Cond,
-                Reason => CE_Discriminant_Check_Failed));
+                Reason    => CE_Discriminant_Check_Failed));
          end if;
 
          return True;
@@ -3276,6 +3280,7 @@ package body Exp_Aggr is
       T    : Entity_Id;
       Temp : Entity_Id;
 
+      Aggr_Code   : List_Id;
       Instr       : Node_Id;
       Target_Expr : Node_Id;
       Parent_Kind : Node_Kind;
@@ -3357,9 +3362,7 @@ package body Exp_Aggr is
       end if;
 
       if Requires_Transient_Scope (Typ) then
-         Establish_Transient_Scope
-           (N, Sec_Stack =>
-                 Is_Controlled (Typ) or else Has_Controlled_Component (Typ));
+         Establish_Transient_Scope (N, Sec_Stack => Needs_Finalization (Typ));
       end if;
 
       --  If the aggregate is non-limited, create a temporary. If it is limited
@@ -3397,8 +3400,20 @@ package body Exp_Aggr is
          Set_No_Initialization (Instr);
          Insert_Action (N, Instr);
          Initialize_Discriminants (Instr, T);
+
          Target_Expr := New_Occurrence_Of (Temp, Loc);
-         Insert_Actions (N, Build_Record_Aggr_Code (N, T, Target_Expr));
+         Aggr_Code   := Build_Record_Aggr_Code (N, T, Target_Expr);
+
+         --  Save the last assignment statement associated with the aggregate
+         --  when building a controlled object. This reference is utilized by
+         --  the finalization machinery when marking an object as successfully
+         --  initialized.
+
+         if Needs_Finalization (T) then
+            Set_Last_Aggregate_Assignment (Temp, Last (Aggr_Code));
+         end if;
+
+         Insert_Actions (N, Aggr_Code);
          Rewrite (N, New_Occurrence_Of (Temp, Loc));
          Analyze_And_Resolve (N, T);
       end if;
@@ -4137,7 +4152,7 @@ package body Exp_Aggr is
             Insert_Action (N,
               Make_Raise_Constraint_Error (Loc,
                 Condition => Cond,
-                Reason    => CE_Length_Check_Failed));
+                Reason    => CE_Range_Check_Failed));
          end if;
       end Check_Bounds;
 
@@ -4929,7 +4944,7 @@ package body Exp_Aggr is
       --  Here we test for is packed array aggregate that we can handle at
       --  compile time. If so, return with transformation done. Note that we do
       --  this even if the aggregate is nested, because once we have done this
-      --  processing, there is no more nested aggregate!
+      --  processing, there is no more nested aggregate.
 
       if Packed_Array_Aggregate_Handled (N) then
          return;
@@ -5275,7 +5290,7 @@ package body Exp_Aggr is
          --  form (others => 'x'), with a single choice and no expressions,
          --  and N is less than 80 (an arbitrary limit for now), then replace
          --  the aggregate by the equivalent string literal (but do not mark
-         --  it as static since it is not!)
+         --  it as static since it is not).
 
          --  Note: this entire circuit is redundant with respect to code in
          --  Expand_Array_Aggregate that collapses others choices to positional
@@ -5299,7 +5314,7 @@ package body Exp_Aggr is
 
          --       But it succeeds (DH looks static to pragma Export)
 
-         --    To be sorted out! ???
+         --    To be sorted out ???
 
          if Present (Component_Associations (N)) then
             declare
@@ -5698,17 +5713,15 @@ package body Exp_Aggr is
       then
          Convert_To_Assignments (N, Typ);
 
-      --  Temporaries for controlled aggregates need to be attached to a final
-      --  chain in order to be properly finalized, so it has to be created in
-      --  the front-end
+      --  An aggregate used to initialize a controlled object must be turned
+      --  into component assignments as the components themselves may require
+      --  finalization actions such as adjustment.
 
-      elsif Is_Controlled (Typ)
-        or else Has_Controlled_Component (Base_Type (Typ))
-      then
+      elsif Needs_Finalization (Typ) then
          Convert_To_Assignments (N, Typ);
 
-         --  Ada 2005 (AI-287): In case of default initialized components we
-         --  convert the aggregate into assignments.
+      --  Ada 2005 (AI-287): In case of default initialized components we
+      --  convert the aggregate into assignments.
 
       elsif Has_Default_Init_Comps (N) then
          Convert_To_Assignments (N, Typ);
@@ -6184,9 +6197,26 @@ package body Exp_Aggr is
       Typ    : Entity_Id;
       Target : Node_Id) return List_Id
    is
+      Aggr_Code : List_Id;
+
    begin
       if Is_Record_Type (Etype (N)) then
-         return Build_Record_Aggr_Code (N, Typ, Target);
+         Aggr_Code := Build_Record_Aggr_Code (N, Typ, Target);
+
+         --  Save the last assignment statement associated with the aggregate
+         --  when building a controlled object. This reference is utilized by
+         --  the finalization machinery when marking an object as successfully
+         --  initialized.
+
+         if Needs_Finalization (Typ)
+           and then Is_Entity_Name (Target)
+           and then Present (Entity (Target))
+           and then Ekind (Entity (Target)) = E_Variable
+         then
+            Set_Last_Aggregate_Assignment (Entity (Target), Last (Aggr_Code));
+         end if;
+
+         return Aggr_Code;
 
       else pragma Assert (Is_Array_Type (Etype (N)));
          return

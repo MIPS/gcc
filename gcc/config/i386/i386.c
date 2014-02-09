@@ -2628,6 +2628,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
   static struct ix86_target_opts flag_opts[] =
   {
     { "-m128bit-long-double",		MASK_128BIT_LONG_DOUBLE },
+    { "-mlong-double-128",		MASK_LONG_DOUBLE_128 },
     { "-mlong-double-64",		MASK_LONG_DOUBLE_64 },
     { "-m80387",			MASK_80387 },
     { "-maccumulate-outgoing-args",	MASK_ACCUMULATE_OUTGOING_ARGS },
@@ -3342,6 +3343,10 @@ ix86_option_override_internal (bool main_args_p,
       opts->x_ix86_isa_flags |= OPTION_MASK_ISA_64BIT;
       opts->x_ix86_isa_flags &= ~OPTION_MASK_ABI_64;
     }
+  else if (TARGET_16BIT_P (opts->x_ix86_isa_flags))
+    opts->x_ix86_isa_flags &= ~(OPTION_MASK_ISA_64BIT
+				| OPTION_MASK_ABI_X32
+				| OPTION_MASK_ABI_64);
   else if (TARGET_LP64_P (opts->x_ix86_isa_flags))
     {
       /* Always turn on OPTION_MASK_ISA_64BIT and turn off
@@ -4191,10 +4196,18 @@ ix86_option_override_internal (bool main_args_p,
   else if (opts_set->x_target_flags & MASK_RECIP)
     opts->x_recip_mask &= ~(RECIP_MASK_ALL & ~opts->x_recip_mask_explicit);
 
-  /* Default long double to 64-bit for Bionic.  */
+  /* Default long double to 64-bit for 32-bit Bionic and to __float128
+     for 64-bit Bionic.  */
   if (TARGET_HAS_BIONIC
-      && !(opts_set->x_target_flags & MASK_LONG_DOUBLE_64))
-    opts->x_target_flags |= MASK_LONG_DOUBLE_64;
+      && !(opts_set->x_target_flags
+	   & (MASK_LONG_DOUBLE_64 | MASK_LONG_DOUBLE_128)))
+    opts->x_target_flags |= (TARGET_64BIT
+			     ? MASK_LONG_DOUBLE_128
+			     : MASK_LONG_DOUBLE_64);
+
+  /* Only one of them can be active.  */
+  gcc_assert ((opts->x_target_flags & MASK_LONG_DOUBLE_64) == 0
+	      || (opts->x_target_flags & MASK_LONG_DOUBLE_128) == 0);
 
   /* Save the initial options in case the user does function specific
      options.  */
@@ -5595,7 +5608,12 @@ ix86_function_regparm (const_tree type, const_tree decl)
   /* Use register calling convention for local functions when possible.  */
   if (decl
       && TREE_CODE (decl) == FUNCTION_DECL
-      && optimize
+      /* Caller and callee must agree on the calling convention, so
+	 checking here just optimize means that with
+	 __attribute__((optimize (...))) caller could use regparm convention
+	 and callee not, or vice versa.  Instead look at whether the callee
+	 is optimized or not.  */
+      && opt_for_fn (decl, optimize)
       && !(profile_flag && !flag_fentry))
     {
       /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
@@ -6623,25 +6641,28 @@ classify_argument (enum machine_mode mode, const_tree type,
     case CHImode:
     case CQImode:
       {
-	int size = (bit_offset % 64)+ (int) GET_MODE_BITSIZE (mode);
+	int size = bit_offset + (int) GET_MODE_BITSIZE (mode);
 
-	if (size <= 32)
+	/* Analyze last 128 bits only.  */
+	size = (size - 1) & 0x7f;
+
+	if (size < 32)
 	  {
 	    classes[0] = X86_64_INTEGERSI_CLASS;
 	    return 1;
 	  }
-	else if (size <= 64)
+	else if (size < 64)
 	  {
 	    classes[0] = X86_64_INTEGER_CLASS;
 	    return 1;
 	  }
-	else if (size <= 64+32)
+	else if (size < 64+32)
 	  {
 	    classes[0] = X86_64_INTEGER_CLASS;
 	    classes[1] = X86_64_INTEGERSI_CLASS;
 	    return 2;
 	  }
-	else if (size <= 64+64)
+	else if (size < 64+64)
 	  {
 	    classes[0] = classes[1] = X86_64_INTEGER_CLASS;
 	    return 2;
@@ -14702,7 +14723,8 @@ get_some_local_dynamic_name (void)
    F,f -- likewise, but for floating-point.
    O -- if HAVE_AS_IX86_CMOV_SUN_SYNTAX, expand to "w.", "l." or "q.",
 	otherwise nothing
-   R -- print the prefix for register names.
+   R -- print embeded rounding and sae.
+   r -- print only sae.
    z -- print the opcode suffix for the size of the current operand.
    Z -- likewise, with special suffixes for x87 instructions.
    * -- print a star (in certain assembler syntax)
@@ -15152,6 +15174,20 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    fputs ("{z}", file);
 	  return;
 
+	case 'r':
+	  gcc_assert (CONST_INT_P (x));
+	  gcc_assert (INTVAL (x) == ROUND_SAE);
+
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
+	    fputs (", ", file);
+
+	  fputs ("{sae}", file);
+
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
+	    fputs (", ", file);
+
+	  return;
+
 	case 'R':
 	  gcc_assert (CONST_INT_P (x));
 
@@ -15160,20 +15196,17 @@ ix86_print_operand (FILE *file, rtx x, int code)
 
 	  switch (INTVAL (x))
 	    {
-	    case ROUND_NEAREST_INT:
+	    case ROUND_NEAREST_INT | ROUND_SAE:
 	      fputs ("{rn-sae}", file);
 	      break;
-	    case ROUND_NEG_INF:
+	    case ROUND_NEG_INF | ROUND_SAE:
 	      fputs ("{rd-sae}", file);
 	      break;
-	    case ROUND_POS_INF:
+	    case ROUND_POS_INF | ROUND_SAE:
 	      fputs ("{ru-sae}", file);
 	      break;
-	    case ROUND_ZERO:
+	    case ROUND_ZERO | ROUND_SAE:
 	      fputs ("{rz-sae}", file);
-	      break;
-	    case ROUND_SAE:
-	      fputs ("{sae}", file);
 	      break;
 	    default:
 	      gcc_unreachable ();
@@ -16795,6 +16828,9 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
   rtx op0 = operands[0], op1 = operands[1];
   unsigned int align = GET_MODE_ALIGNMENT (mode);
 
+  if (push_operand (op0, VOIDmode))
+    op0 = emit_move_resolve_push (mode, op0);
+
   /* Force constants other than zero into memory.  We do not know how
      the instructions used to build constants modify the upper 64 bits
      of the register, once we have that information we may be able
@@ -17220,30 +17256,6 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
     }
   else
     gcc_unreachable ();
-}
-
-/* Expand a push in MODE.  This is some mode for which we do not support
-   proper push instructions, at least from the registers that we expect
-   the value to live in.  */
-
-void
-ix86_expand_push (enum machine_mode mode, rtx x)
-{
-  rtx tmp;
-
-  tmp = expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
-			     GEN_INT (-GET_MODE_SIZE (mode)),
-			     stack_pointer_rtx, 1, OPTAB_DIRECT);
-  if (tmp != stack_pointer_rtx)
-    emit_move_insn (stack_pointer_rtx, tmp);
-
-  tmp = gen_rtx_MEM (mode, stack_pointer_rtx);
-
-  /* When we push an operand onto stack, it has to be aligned at least
-     at the function argument boundary.  However since we don't have
-     the argument type, we can't determine the actual argument
-     boundary.  */
-  emit_move_insn (tmp, x);
 }
 
 /* Helper function of ix86_fixup_binary_operands to canonicalize
@@ -23397,16 +23409,24 @@ expand_small_movmem_or_setmem (rtx destmem, rtx srcmem,
     }
 
   destmem = offset_address (destmem, count, 1);
-  destmem = offset_address (destmem, GEN_INT (-size - GET_MODE_SIZE (mode)),
+  destmem = offset_address (destmem, GEN_INT (-2 * size),
 			    GET_MODE_SIZE (mode));
-  if (issetmem)
-    emit_move_insn (destmem, gen_lowpart (mode, value));
-  else
+  if (!issetmem)
     {
       srcmem = offset_address (srcmem, count, 1);
-      srcmem = offset_address (srcmem, GEN_INT (-size - GET_MODE_SIZE (mode)),
+      srcmem = offset_address (srcmem, GEN_INT (-2 * size),
 			       GET_MODE_SIZE (mode));
-      emit_move_insn (destmem, srcmem);
+    }
+  for (n = 0; n * GET_MODE_SIZE (mode) < size; n++)
+    {
+      if (issetmem)
+	emit_move_insn (destmem, gen_lowpart (mode, value));
+      else
+	{
+	  emit_move_insn (destmem, srcmem);
+	  srcmem = offset_address (srcmem, modesize, GET_MODE_SIZE (mode));
+	}
+      destmem = offset_address (destmem, modesize, GET_MODE_SIZE (mode));
     }
   emit_jump_insn (gen_jump (done_label));
   emit_barrier ();
@@ -28068,10 +28088,12 @@ enum ix86_builtins
   IX86_BUILTIN_DIVPS512,
   IX86_BUILTIN_DIVSD_ROUND,
   IX86_BUILTIN_DIVSS_ROUND,
+  IX86_BUILTIN_EXPANDPD512_NOMASK,
   IX86_BUILTIN_EXPANDPD512,
   IX86_BUILTIN_EXPANDPD512Z,
   IX86_BUILTIN_EXPANDPDLOAD512,
   IX86_BUILTIN_EXPANDPDLOAD512Z,
+  IX86_BUILTIN_EXPANDPS512_NOMASK,
   IX86_BUILTIN_EXPANDPS512,
   IX86_BUILTIN_EXPANDPS512Z,
   IX86_BUILTIN_EXPANDPSLOAD512,
@@ -28173,25 +28195,40 @@ enum ix86_builtins
   IX86_BUILTIN_PMINUD512,
   IX86_BUILTIN_PMINUQ512,
   IX86_BUILTIN_PMOVDB512,
+  IX86_BUILTIN_PMOVDB512_MEM,
   IX86_BUILTIN_PMOVDW512,
+  IX86_BUILTIN_PMOVDW512_MEM,
   IX86_BUILTIN_PMOVQB512,
+  IX86_BUILTIN_PMOVQB512_MEM,
   IX86_BUILTIN_PMOVQD512,
+  IX86_BUILTIN_PMOVQD512_MEM,
   IX86_BUILTIN_PMOVQW512,
+  IX86_BUILTIN_PMOVQW512_MEM,
   IX86_BUILTIN_PMOVSDB512,
+  IX86_BUILTIN_PMOVSDB512_MEM,
   IX86_BUILTIN_PMOVSDW512,
+  IX86_BUILTIN_PMOVSDW512_MEM,
   IX86_BUILTIN_PMOVSQB512,
+  IX86_BUILTIN_PMOVSQB512_MEM,
   IX86_BUILTIN_PMOVSQD512,
+  IX86_BUILTIN_PMOVSQD512_MEM,
   IX86_BUILTIN_PMOVSQW512,
+  IX86_BUILTIN_PMOVSQW512_MEM,
   IX86_BUILTIN_PMOVSXBD512,
   IX86_BUILTIN_PMOVSXBQ512,
   IX86_BUILTIN_PMOVSXDQ512,
   IX86_BUILTIN_PMOVSXWD512,
   IX86_BUILTIN_PMOVSXWQ512,
   IX86_BUILTIN_PMOVUSDB512,
+  IX86_BUILTIN_PMOVUSDB512_MEM,
   IX86_BUILTIN_PMOVUSDW512,
+  IX86_BUILTIN_PMOVUSDW512_MEM,
   IX86_BUILTIN_PMOVUSQB512,
+  IX86_BUILTIN_PMOVUSQB512_MEM,
   IX86_BUILTIN_PMOVUSQD512,
+  IX86_BUILTIN_PMOVUSQD512_MEM,
   IX86_BUILTIN_PMOVUSQW512,
+  IX86_BUILTIN_PMOVUSQW512_MEM,
   IX86_BUILTIN_PMOVZXBD512,
   IX86_BUILTIN_PMOVZXBQ512,
   IX86_BUILTIN_PMOVZXDQ512,
@@ -28368,6 +28405,7 @@ enum ix86_builtins
   IX86_BUILTIN_KUNPCKBW,
   IX86_BUILTIN_KXNOR16,
   IX86_BUILTIN_KXOR16,
+  IX86_BUILTIN_KMOV16,
 
   /* Alternate 4 and 8 element gather/scatter for the vectorizer
      where all operands are 32-byte or 64-byte wide respectively.  */
@@ -28397,9 +28435,13 @@ enum ix86_builtins
   IX86_BUILTIN_SCATTERSIV8DI,
 
   /* AVX512PF */
+  IX86_BUILTIN_GATHERPFQPD,
   IX86_BUILTIN_GATHERPFDPS,
+  IX86_BUILTIN_GATHERPFDPD,
   IX86_BUILTIN_GATHERPFQPS,
+  IX86_BUILTIN_SCATTERPFDPD,
   IX86_BUILTIN_SCATTERPFDPS,
+  IX86_BUILTIN_SCATTERPFQPD,
   IX86_BUILTIN_SCATTERPFQPS,
 
   /* AVX-512ER */
@@ -29005,6 +29047,21 @@ static const struct builtin_description bdesc_special_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_storedquv16si_mask, "__builtin_ia32_storedqusi512_mask", IX86_BUILTIN_STOREDQUSI512, UNKNOWN, (int) VOID_FTYPE_PV16SI_V16SI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_storedquv8di_mask, "__builtin_ia32_storedqudi512_mask", IX86_BUILTIN_STOREDQUDI512, UNKNOWN, (int) VOID_FTYPE_PV8DI_V8DI_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_storeupd512_mask, "__builtin_ia32_storeupd512_mask", IX86_BUILTIN_STOREUPD512, UNKNOWN, (int) VOID_FTYPE_PV8DF_V8DF_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_us_truncatev8div8si2_mask_store, "__builtin_ia32_pmovusqd512mem_mask", IX86_BUILTIN_PMOVUSQD512_MEM, UNKNOWN, (int) VOID_FTYPE_PV8SI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ss_truncatev8div8si2_mask_store, "__builtin_ia32_pmovsqd512mem_mask", IX86_BUILTIN_PMOVSQD512_MEM, UNKNOWN, (int) VOID_FTYPE_PV8SI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_truncatev8div8si2_mask_store, "__builtin_ia32_pmovqd512mem_mask", IX86_BUILTIN_PMOVQD512_MEM, UNKNOWN, (int) VOID_FTYPE_PV8SI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_us_truncatev8div8hi2_mask_store, "__builtin_ia32_pmovusqw512mem_mask", IX86_BUILTIN_PMOVUSQW512_MEM, UNKNOWN, (int) VOID_FTYPE_PV8HI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ss_truncatev8div8hi2_mask_store, "__builtin_ia32_pmovsqw512mem_mask", IX86_BUILTIN_PMOVSQW512_MEM, UNKNOWN, (int) VOID_FTYPE_PV8HI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_truncatev8div8hi2_mask_store, "__builtin_ia32_pmovqw512mem_mask", IX86_BUILTIN_PMOVQW512_MEM, UNKNOWN, (int) VOID_FTYPE_PV8HI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_us_truncatev16siv16hi2_mask_store, "__builtin_ia32_pmovusdw512mem_mask", IX86_BUILTIN_PMOVUSDW512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16HI_V16SI_HI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ss_truncatev16siv16hi2_mask_store, "__builtin_ia32_pmovsdw512mem_mask", IX86_BUILTIN_PMOVSDW512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16HI_V16SI_HI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_truncatev16siv16hi2_mask_store, "__builtin_ia32_pmovdw512mem_mask", IX86_BUILTIN_PMOVDW512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16HI_V16SI_HI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_truncatev8div16qi2_mask_store, "__builtin_ia32_pmovqb512mem_mask", IX86_BUILTIN_PMOVQB512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16QI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_us_truncatev8div16qi2_mask_store, "__builtin_ia32_pmovusqb512mem_mask", IX86_BUILTIN_PMOVUSQB512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16QI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ss_truncatev8div16qi2_mask_store, "__builtin_ia32_pmovsqb512mem_mask", IX86_BUILTIN_PMOVSQB512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16QI_V8DI_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_us_truncatev16siv16qi2_mask_store, "__builtin_ia32_pmovusdb512mem_mask", IX86_BUILTIN_PMOVUSDB512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16QI_V16SI_HI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_ss_truncatev16siv16qi2_mask_store, "__builtin_ia32_pmovsdb512mem_mask", IX86_BUILTIN_PMOVSDB512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16QI_V16SI_HI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_truncatev16siv16qi2_mask_store, "__builtin_ia32_pmovdb512mem_mask", IX86_BUILTIN_PMOVDB512_MEM, UNKNOWN, (int) VOID_FTYPE_PV16QI_V16SI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_storeups512_mask, "__builtin_ia32_storeups512_mask", IX86_BUILTIN_STOREUPS512, UNKNOWN, (int) VOID_FTYPE_PV16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_storev16sf_mask, "__builtin_ia32_storeaps512_mask", IX86_BUILTIN_STOREAPS512, UNKNOWN, (int) VOID_FTYPE_PV16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_storev16si_mask, "__builtin_ia32_movdqa32store512_mask", IX86_BUILTIN_MOVDQA32STORE512, UNKNOWN, (int) VOID_FTYPE_PV16SI_V16SI_HI },
@@ -29884,8 +29941,10 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vcvtps2ph512_mask,  "__builtin_ia32_vcvtps2ph512_mask", IX86_BUILTIN_CVTPS2PH512, UNKNOWN, (int) V16HI_FTYPE_V16SF_INT_V16HI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufloatv8siv8df_mask, "__builtin_ia32_cvtudq2pd512_mask", IX86_BUILTIN_CVTUDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_cvtusi2sd32, "__builtin_ia32_cvtusi2sd32", IX86_BUILTIN_CVTUSI2SD32, UNKNOWN, (int) V2DF_FTYPE_V2DF_UINT },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df, "__builtin_ia32_expanddf512", IX86_BUILTIN_EXPANDPD512_NOMASK, UNKNOWN, (int) V8DF_FTYPE_V8DF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_mask, "__builtin_ia32_expanddf512_mask", IX86_BUILTIN_EXPANDPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_maskz, "__builtin_ia32_expanddf512_maskz", IX86_BUILTIN_EXPANDPD512Z, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf, "__builtin_ia32_expandsf512", IX86_BUILTIN_EXPANDPS512_NOMASK, UNKNOWN, (int) V16SF_FTYPE_V16SF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf_mask, "__builtin_ia32_expandsf512_mask", IX86_BUILTIN_EXPANDPS512, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf_maskz, "__builtin_ia32_expandsf512_maskz", IX86_BUILTIN_EXPANDPS512Z, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vextractf32x4_mask, "__builtin_ia32_extractf32x4_mask", IX86_BUILTIN_EXTRACTF32X4, UNKNOWN, (int) V4SF_FTYPE_V16SF_INT_V4SF_QI },
@@ -30075,6 +30134,7 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_kunpckhi, "__builtin_ia32_kunpckhi", IX86_BUILTIN_KUNPCKBW, UNKNOWN, (int) HI_FTYPE_HI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_kxnorhi, "__builtin_ia32_kxnorhi", IX86_BUILTIN_KXNOR16, UNKNOWN, (int) HI_FTYPE_HI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_xorhi3, "__builtin_ia32_kxorhi", IX86_BUILTIN_KXOR16, UNKNOWN, (int) HI_FTYPE_HI_HI },
+  { OPTION_MASK_ISA_AVX512F, CODE_FOR_kmovw, "__builtin_ia32_kmov16", IX86_BUILTIN_KMOV16, UNKNOWN, (int) HI_FTYPE_HI },
 
   /* SHA */
   { OPTION_MASK_ISA_SSE2, CODE_FOR_sha1msg1, 0, IX86_BUILTIN_SHA1MSG1, UNKNOWN, (int) V4SI_FTYPE_V4SI_V4SI },
@@ -30929,15 +30989,27 @@ ix86_init_mmx_sse_builtins (void)
 	       IX86_BUILTIN_SCATTERDIV8DI);
 
   /* AVX512PF */
+  def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_gatherpfdpd",
+	       VOID_FTYPE_QI_V8SI_PCINT64_INT_INT,
+	       IX86_BUILTIN_GATHERPFDPD);
   def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_gatherpfdps",
 	       VOID_FTYPE_HI_V16SI_PCINT_INT_INT,
 	       IX86_BUILTIN_GATHERPFDPS);
+  def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_gatherpfqpd",
+	       VOID_FTYPE_QI_V8DI_PCINT64_INT_INT,
+	       IX86_BUILTIN_GATHERPFQPD);
   def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_gatherpfqps",
 	       VOID_FTYPE_QI_V8DI_PCINT_INT_INT,
 	       IX86_BUILTIN_GATHERPFQPS);
+  def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_scatterpfdpd",
+	       VOID_FTYPE_QI_V8SI_PCINT64_INT_INT,
+	       IX86_BUILTIN_SCATTERPFDPD);
   def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_scatterpfdps",
 	       VOID_FTYPE_HI_V16SI_PCINT_INT_INT,
 	       IX86_BUILTIN_SCATTERPFDPS);
+  def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_scatterpfqpd",
+	       VOID_FTYPE_QI_V8DI_PCINT64_INT_INT,
+	       IX86_BUILTIN_SCATTERPFQPD);
   def_builtin (OPTION_MASK_ISA_AVX512PF, "__builtin_ia32_scatterpfqps",
 	       VOID_FTYPE_QI_V8DI_PCINT_INT_INT,
 	       IX86_BUILTIN_SCATTERPFQPS);
@@ -31288,18 +31360,27 @@ get_builtin_code_for_version (tree decl, tree *predicate_list)
 	      priority = P_PROC_SSSE3;
 	      break;
 	    case PROCESSOR_NEHALEM:
-	      /* We translate "arch=corei7" and "arch=nehelam" to
-		 "corei7" so that it will be mapped to M_INTEL_COREI7
-		 as cpu type to cover all M_INTEL_COREI7_XXXs.  */
-	      arg_str = "corei7";
+	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_AES)
+		arg_str = "westmere";
+	      else
+		/* We translate "arch=corei7" and "arch=nehalem" to
+		   "corei7" so that it will be mapped to M_INTEL_COREI7
+		   as cpu type to cover all M_INTEL_COREI7_XXXs.  */
+		arg_str = "corei7";
 	      priority = P_PROC_SSE4_2;
 	      break;
 	    case PROCESSOR_SANDYBRIDGE:
-	      arg_str = "sandybridge";
+	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_F16C)
+		arg_str = "ivybridge";
+	      else
+		arg_str = "sandybridge";
 	      priority = P_PROC_AVX;
 	      break;
 	    case PROCESSOR_HASWELL:
-	      arg_str = "haswell";
+	      if (new_target->x_ix86_isa_flags & OPTION_MASK_ISA_ADX)
+		arg_str = "broadwell";
+	      else
+		arg_str = "haswell";
 	      priority = P_PROC_AVX2;
 	      break;
 	    case PROCESSOR_BONNELL:
@@ -34558,6 +34639,11 @@ ix86_expand_special_args_builtin (const struct builtin_description *d,
     case VOID_FTYPE_PV2DI_V2DI_V2DI:
     case VOID_FTYPE_PDOUBLE_V2DF_QI:
     case VOID_FTYPE_PFLOAT_V4SF_QI:
+    case VOID_FTYPE_PV8SI_V8DI_QI:
+    case VOID_FTYPE_PV8HI_V8DI_QI:
+    case VOID_FTYPE_PV16HI_V16SI_HI:
+    case VOID_FTYPE_PV16QI_V8DI_QI:
+    case VOID_FTYPE_PV16QI_V16SI_HI:
       nargs = 2;
       klass = store;
       /* Reserve memory operand for target.  */
@@ -35583,17 +35669,30 @@ addcarryx:
     case IX86_BUILTIN_SCATTERDIV8DI:
       icode = CODE_FOR_avx512f_scatterdiv8di;
       goto scatter_gen;
+
+    case IX86_BUILTIN_GATHERPFDPD:
+      icode = CODE_FOR_avx512pf_gatherpfv8sidf;
+      goto vec_prefetch_gen;
     case IX86_BUILTIN_GATHERPFDPS:
-      icode = CODE_FOR_avx512pf_gatherpfv16si;
+      icode = CODE_FOR_avx512pf_gatherpfv16sisf;
+      goto vec_prefetch_gen;
+    case IX86_BUILTIN_GATHERPFQPD:
+      icode = CODE_FOR_avx512pf_gatherpfv8didf;
       goto vec_prefetch_gen;
     case IX86_BUILTIN_GATHERPFQPS:
-      icode = CODE_FOR_avx512pf_gatherpfv8di;
+      icode = CODE_FOR_avx512pf_gatherpfv8disf;
+      goto vec_prefetch_gen;
+    case IX86_BUILTIN_SCATTERPFDPD:
+      icode = CODE_FOR_avx512pf_scatterpfv8sidf;
       goto vec_prefetch_gen;
     case IX86_BUILTIN_SCATTERPFDPS:
-      icode = CODE_FOR_avx512pf_scatterpfv16si;
+      icode = CODE_FOR_avx512pf_scatterpfv16sisf;
+      goto vec_prefetch_gen;
+    case IX86_BUILTIN_SCATTERPFQPD:
+      icode = CODE_FOR_avx512pf_scatterpfv8didf;
       goto vec_prefetch_gen;
     case IX86_BUILTIN_SCATTERPFQPS:
-      icode = CODE_FOR_avx512pf_scatterpfv8di;
+      icode = CODE_FOR_avx512pf_scatterpfv8disf;
       goto vec_prefetch_gen;
 
     gather_gen:
@@ -38805,6 +38904,8 @@ static void
 x86_file_start (void)
 {
   default_file_start ();
+  if (TARGET_16BIT)
+    fputs ("\t.code16gcc\n", asm_out_file);
 #if TARGET_MACHO
   darwin_file_start ();
 #endif
