@@ -870,12 +870,14 @@
 ;; Operands 1 and 3 are tied together by the final condition; so we allow
 ;; fairly lax checking on the second memory operation.
 (define_insn "load_pair<mode>"
-  [(set (match_operand:GPI 0 "register_operand" "=r")
-	(match_operand:GPI 1 "aarch64_mem_pair_operand" "Ump"))
-   (set (match_operand:GPI 2 "register_operand" "=r")
-        (match_operand:GPI 3 "memory_operand" "m"))]
+  [(set (match_operand:GPI 0 "register_operand" "=r, w")
+	(match_operand:GPI 1 "aarch64_mem_pair_operand" "Ump, Ump"))
+   (set (match_operand:GPI 2 "register_operand" "=r, w")
+        (match_operand:GPI 3 "memory_operand" "m, m"))]
   "aarch64_mems_ok_for_pair_peep (operands[1], operands[3])"
-  "ldp\\t%<w>0, %<w>2, %1"
+  "@
+   ldp\\t%<w>0, %<w>2, %1
+   ldp\\t%<v>0, %<v>2, %1"
   [(set_attr "type" "load2")]
 )
 
@@ -904,12 +906,14 @@
 ;; Operands 0 and 2 are tied together by the final condition; so we allow
 ;; fairly lax checking on the second memory operation.
 (define_insn "store_pair<mode>"
-  [(set (match_operand:GPI 0 "aarch64_mem_pair_operand" "=Ump")
-	(match_operand:GPI 1 "register_operand" "r"))
-   (set (match_operand:GPI 2 "memory_operand" "=m")
-        (match_operand:GPI 3 "register_operand" "r"))]
+  [(set (match_operand:GPI 0 "aarch64_mem_pair_operand" "=Ump, Ump")
+	(match_operand:GPI 1 "register_operand" "r, w"))
+   (set (match_operand:GPI 2 "memory_operand" "=m, m")
+        (match_operand:GPI 3 "register_operand" "r, w"))]
   "aarch64_mems_ok_for_pair_peep (operands[0], operands[2])"
-  "stp\\t%<w>1, %<w>3, %0"
+  "@
+   stp\\t%<w>1, %<w>3, %0
+   stp\\t%<v>1, %<v>3, %0"
   [(set_attr "type" "store2")]
 )
 

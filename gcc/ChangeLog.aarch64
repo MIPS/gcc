@@ -1,10 +1,17 @@
 2014-02-10  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.md (load_pair<mode>): Modify to
+	generate ldp instruction in int mode for vec registers.
+	(store_pair<mode>): Modify to generate stp instruction in
+	int mode for vec registers.
+
+2014-02-10  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 	
 	* config/aarch64/aarch64.md (*csinc2<mode>_insn): Use generic
 	mode for cc_register.
-	* <csinc3<mode>_insn> Likewise.
-	* <*csinv3<mode>_insn> Likewise.
-	* <*csneg3<mode>_insn> Likewise.
+	* (csinc3<mode>_insn) Likewise.
+	* (*csinv3<mode>_insn) Likewise.
+	* (*csneg3<mode>_insn) Likewise.
 
 2014-01-30  Andrew Pinski  <apinski@cavium.com>
 	    Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
