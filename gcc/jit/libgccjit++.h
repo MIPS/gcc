@@ -112,22 +112,112 @@ namespace gccjit
 		       void *value);
     rvalue new_rvalue (const std::string &value);
 
+    /* Generic unary operations...  */
     rvalue new_unary_op (enum gcc_jit_unary_op op,
 			 type result_type,
 			 rvalue a,
 			 location loc = location ());
 
+    /* ...and shorter ways to spell the various specific kinds of
+       unary op.  */
+    rvalue new_minus (type result_type,
+		      rvalue a,
+		      location loc = location ());
+    rvalue new_bitwise_negate (type result_type,
+			       rvalue a,
+			       location loc = location ());
+    rvalue new_logical_negate (type result_type,
+			       rvalue a,
+			       location loc = location ());
+
+    /* Generic binary operations...  */
     rvalue new_binary_op (enum gcc_jit_binary_op op,
 			  type result_type,
 			  rvalue a, rvalue b,
 			  location loc = location ());
 
-    rvalue new_comparison (enum gcc_jit_comparison op,
+    /* ...and shorter ways to spell the various specific kinds of
+       binary op.  */
+    rvalue new_plus (type result_type,
+		     rvalue a, rvalue b,
+		     location loc = location ());
+    rvalue new_minus (type result_type,
+		      rvalue a, rvalue b,
+		      location loc = location ());
+    rvalue new_mult (type result_type,
+		     rvalue a, rvalue b,
+		     location loc = location ());
+    rvalue new_divide (type result_type,
+		       rvalue a, rvalue b,
+		       location loc = location ());
+    rvalue new_modulo (type result_type,
+		       rvalue a, rvalue b,
+		       location loc = location ());
+    rvalue new_bitwise_and (type result_type,
+			    rvalue a, rvalue b,
+			    location loc = location ());
+    rvalue new_bitwise_xor (type result_type,
+			    rvalue a, rvalue b,
+			    location loc = location ());
+    rvalue new_bitwise_or (type result_type,
+			   rvalue a, rvalue b,
+			   location loc = location ());
+    rvalue new_logical_and (type result_type,
+			    rvalue a, rvalue b,
+			    location loc = location ());
+    rvalue new_logical_or (type result_type,
 			   rvalue a, rvalue b,
 			   location loc = location ());
 
+    /* Generic comparisons...  */
+    rvalue new_comparison (enum gcc_jit_comparison op,
+			   rvalue a, rvalue b,
+			   location loc = location ());
+    /* ...and shorter ways to spell the various specific kinds of
+       comparison.  */
+    rvalue new_eq (rvalue a, rvalue b,
+		   location loc = location ());
+    rvalue new_ne (rvalue a, rvalue b,
+		   location loc = location ());
+    rvalue new_lt (rvalue a, rvalue b,
+		   location loc = location ());
+    rvalue new_le (rvalue a, rvalue b,
+		   location loc = location ());
+    rvalue new_gt (rvalue a, rvalue b,
+		   location loc = location ());
+    rvalue new_ge (rvalue a, rvalue b,
+		   location loc = location ());
+
+    /* The most general way of creating a function call.  */
     rvalue new_call (function func,
 		     std::vector<rvalue> &args,
+		     location loc = location ());
+
+    /* In addition, we provide a series of overloaded "new_call" methods
+       for specific numbers of args (from 0 - 6), to avoid the need for
+       client code to manually build a vector.  */
+    rvalue new_call (function func,
+		     location loc = location ());
+    rvalue new_call (function func,
+		     rvalue arg0,
+		     location loc = location ());
+    rvalue new_call (function func,
+		     rvalue arg0, rvalue arg1,
+		     location loc = location ());
+    rvalue new_call (function func,
+		     rvalue arg0, rvalue arg1, rvalue arg2,
+		     location loc = location ());
+    rvalue new_call (function func,
+		     rvalue arg0, rvalue arg1, rvalue arg2,
+		     rvalue arg3,
+		     location loc = location ());
+    rvalue new_call (function func,
+		     rvalue arg0, rvalue arg1, rvalue arg2,
+		     rvalue arg3, rvalue arg4,
+		     location loc = location ());
+    rvalue new_call (function func,
+		     rvalue arg0, rvalue arg1, rvalue arg2,
+		     rvalue arg3, rvalue arg4, rvalue arg5,
 		     location loc = location ());
 
     lvalue new_array_access (rvalue ptr,
@@ -461,6 +551,30 @@ context::new_unary_op (enum gcc_jit_unary_op op,
 					       result_type.get_inner_type (),
 					       a.get_inner_rvalue ()));
 }
+inline rvalue
+context::new_minus (type result_type,
+		    rvalue a,
+		    location loc)
+{
+  return rvalue (new_unary_op (GCC_JIT_UNARY_OP_MINUS,
+			       result_type, a, loc));
+}
+inline rvalue
+context::new_bitwise_negate (type result_type,
+			     rvalue a,
+			     location loc)
+{
+  return rvalue (new_unary_op (GCC_JIT_UNARY_OP_BITWISE_NEGATE,
+			       result_type, a, loc));
+}
+inline rvalue
+context::new_logical_negate (type result_type,
+			     rvalue a,
+			     location loc)
+{
+  return rvalue (new_unary_op (GCC_JIT_UNARY_OP_LOGICAL_NEGATE,
+			       result_type, a, loc));
+}
 
 inline rvalue
 context::new_binary_op (enum gcc_jit_binary_op op,
@@ -475,6 +589,86 @@ context::new_binary_op (enum gcc_jit_binary_op op,
 						a.get_inner_rvalue (),
 						b.get_inner_rvalue ()));
 }
+inline rvalue
+context::new_plus (type result_type,
+		   rvalue a, rvalue b,
+		   location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_PLUS,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_minus (type result_type,
+		    rvalue a, rvalue b,
+		    location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_MINUS,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_mult (type result_type,
+		   rvalue a, rvalue b,
+		   location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_MULT,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_divide (type result_type,
+		     rvalue a, rvalue b,
+		     location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_DIVIDE,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_modulo (type result_type,
+		     rvalue a, rvalue b,
+		     location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_MODULO,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_bitwise_and (type result_type,
+			  rvalue a, rvalue b,
+			  location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_BITWISE_AND,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_bitwise_xor (type result_type,
+			  rvalue a, rvalue b,
+			  location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_BITWISE_XOR,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_bitwise_or (type result_type,
+			 rvalue a, rvalue b,
+			 location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_BITWISE_OR,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_logical_and (type result_type,
+			  rvalue a, rvalue b,
+			  location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_LOGICAL_AND,
+			result_type, a, b, loc);
+}
+inline rvalue
+context::new_logical_or (type result_type,
+			 rvalue a, rvalue b,
+			 location loc)
+{
+  return new_binary_op (GCC_JIT_BINARY_OP_LOGICAL_OR,
+			result_type, a, b, loc);
+}
 
 inline rvalue
 context::new_comparison (enum gcc_jit_comparison op,
@@ -486,6 +680,48 @@ context::new_comparison (enum gcc_jit_comparison op,
 						 op,
 						 a.get_inner_rvalue (),
 						 b.get_inner_rvalue ()));
+}
+inline rvalue
+context::new_eq (rvalue a, rvalue b,
+		 location loc)
+{
+  return new_comparison (GCC_JIT_COMPARISON_EQ,
+			 a, b, loc);
+}
+inline rvalue
+context::new_ne (rvalue a, rvalue b,
+		 location loc)
+{
+  return new_comparison (GCC_JIT_COMPARISON_NE,
+			 a, b, loc);
+}
+inline rvalue
+context::new_lt (rvalue a, rvalue b,
+		 location loc)
+{
+  return new_comparison (GCC_JIT_COMPARISON_LT,
+			 a, b, loc);
+}
+inline rvalue
+context::new_le (rvalue a, rvalue b,
+		 location loc)
+{
+  return new_comparison (GCC_JIT_COMPARISON_LE,
+			 a, b, loc);
+}
+inline rvalue
+context::new_gt (rvalue a, rvalue b,
+		 location loc)
+{
+  return new_comparison (GCC_JIT_COMPARISON_GT,
+			 a, b, loc);
+}
+inline rvalue
+context::new_ge (rvalue a, rvalue b,
+		 location loc)
+{
+  return new_comparison (GCC_JIT_COMPARISON_GE,
+			 a, b, loc);
 }
 
 inline rvalue
@@ -505,6 +741,86 @@ context::new_call (function func,
 				   func.get_inner_function (),
 				   args.size (),
 				   as_array_of_ptrs);
+}
+inline rvalue
+context::new_call (function func,
+		   location loc)
+{
+  std::vector<rvalue> args;
+  return new_call (func, args, loc);
+}
+
+inline rvalue
+context::new_call (function func,
+		   rvalue arg0,
+		   location loc)
+{
+  std::vector<rvalue> args(1);
+  args[0] = arg0;
+  return new_call (func, args, loc);
+}
+inline rvalue
+context::new_call (function func,
+		   rvalue arg0, rvalue arg1,
+		   location loc)
+{
+  std::vector<rvalue> args(2);
+  args[0] = arg0;
+  args[1] = arg1;
+  return new_call (func, args, loc);
+}
+inline rvalue
+context::new_call (function func,
+		   rvalue arg0, rvalue arg1, rvalue arg2,
+		   location loc)
+{
+  std::vector<rvalue> args(3);
+  args[0] = arg0;
+  args[1] = arg1;
+  args[2] = arg2;
+  return new_call (func, args, loc);
+}
+inline rvalue
+context::new_call (function func,
+		   rvalue arg0, rvalue arg1, rvalue arg2,
+		   rvalue arg3,
+		   location loc)
+{
+  std::vector<rvalue> args(4);
+  args[0] = arg0;
+  args[1] = arg1;
+  args[2] = arg2;
+  args[3] = arg3;
+  return new_call (func, args, loc);
+}
+inline rvalue
+context::new_call (function func,
+		   rvalue arg0, rvalue arg1, rvalue arg2,
+		   rvalue arg3, rvalue arg4,
+		   location loc)
+{
+  std::vector<rvalue> args(5);
+  args[0] = arg0;
+  args[1] = arg1;
+  args[2] = arg2;
+  args[3] = arg3;
+  args[4] = arg4;
+  return new_call (func, args, loc);
+}
+inline rvalue
+context::new_call (function func,
+		   rvalue arg0, rvalue arg1, rvalue arg2,
+		   rvalue arg3, rvalue arg4, rvalue arg5,
+		   location loc)
+{
+  std::vector<rvalue> args(6);
+  args[0] = arg0;
+  args[1] = arg1;
+  args[2] = arg2;
+  args[3] = arg3;
+  args[4] = arg4;
+  args[5] = arg5;
+  return new_call (func, args, loc);
 }
 
 inline lvalue

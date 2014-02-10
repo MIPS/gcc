@@ -151,29 +151,24 @@ make_calc_discriminant (quadratic_test &testcase)
   testcase.calc_discriminant.add_assignment (
     /* q->discriminant =...  */
     param_q.dereference_field (testcase.discriminant),
-
     /* (q->b * q->b) - (4 * q->a * q->c) */
-    testcase.ctxt.new_binary_op (
-      GCC_JIT_BINARY_OP_MINUS,
+    testcase.ctxt.new_minus (
       testcase.numeric_type,
 
       /* (q->b * q->b) */
-      testcase.ctxt.new_binary_op (
-	GCC_JIT_BINARY_OP_MULT,
+      testcase.ctxt.new_mult (
 	testcase.numeric_type,
 	q_b, q_b),
 
       /* (4 * (q->a * q->c)) */
-      testcase.ctxt.new_binary_op (
-	GCC_JIT_BINARY_OP_MULT,
+      testcase.ctxt.new_mult (
 	testcase.numeric_type,
 	/* 4.0 */
 	testcase.ctxt.new_rvalue (
 	  testcase.numeric_type,
 	  4),
 	/* (q->a * q->c) */
-	testcase.ctxt.new_binary_op (
-	  GCC_JIT_BINARY_OP_MULT,
+	testcase.ctxt.new_mult (
 	  testcase.numeric_type,
 	  q_a, q_c)))); /* end of add_assignment call.	*/
 }
@@ -213,12 +208,8 @@ make_test_quadratic (quadratic_test &testcase)
   test_quadratic.add_assignment (q.access_field (testcase.c), c);
   /* calc_discriminant (&q); */
   gccjit::rvalue address_of_q = q.get_address ();
-  std::vector<gccjit::rvalue> args (1);
-  args[0] = address_of_q;
   test_quadratic.add_eval (
-    testcase.ctxt.new_call (
-      testcase.calc_discriminant,
-      args));
+    testcase.ctxt.new_call (testcase.calc_discriminant, address_of_q));
 
   gccjit::label on_positive_discriminant
     = test_quadratic.new_forward_label ("positive_discriminant");
@@ -236,8 +227,7 @@ make_test_quadratic (quadratic_test &testcase)
 
   test_quadratic.add_comment ("if (q.discriminant > 0)");
   test_quadratic.add_conditional (
-    testcase.ctxt.new_comparison (
-      GCC_JIT_COMPARISON_GT,
+    testcase.ctxt.new_gt (
       q.access_field (testcase.discriminant),
       testcase.zero),
     on_positive_discriminant,
@@ -247,21 +237,16 @@ make_test_quadratic (quadratic_test &testcase)
   /* double s = sqrt (q.discriminant); */
   gccjit::lvalue s = test_quadratic.new_local (testcase.numeric_type, "s");
   gccjit::rvalue discriminant_of_q = q.access_field (testcase.discriminant);
-  std::vector<gccjit::rvalue> args_to_sqrt_call (1, discriminant_of_q);
   test_quadratic.add_assignment (
     s,
-    testcase.ctxt.new_call (
-      testcase.sqrt,
-      args_to_sqrt_call));
+    testcase.ctxt.new_call (testcase.sqrt, discriminant_of_q));
 
   gccjit::rvalue minus_b =
-    testcase.ctxt.new_unary_op (
-      GCC_JIT_UNARY_OP_MINUS,
+    testcase.ctxt.new_minus (
       testcase.numeric_type,
       b);
   gccjit::rvalue two_a =
-    testcase.ctxt.new_binary_op (
-      GCC_JIT_BINARY_OP_MULT,
+    testcase.ctxt.new_mult (
       testcase.numeric_type,
       testcase.ctxt.new_rvalue (testcase.numeric_type, 2),
       a);
@@ -274,11 +259,9 @@ make_test_quadratic (quadratic_test &testcase)
     r1.dereference (),
 
     /* (-b + s) / (2 * a) */
-    testcase.ctxt.new_binary_op (
-      GCC_JIT_BINARY_OP_DIVIDE,
+    testcase.ctxt.new_divide (
       testcase.numeric_type,
-      testcase.ctxt.new_binary_op (
-	GCC_JIT_BINARY_OP_PLUS,
+      testcase.ctxt.new_plus (
 	testcase.numeric_type,
 	minus_b,
 	s),
@@ -290,11 +273,9 @@ make_test_quadratic (quadratic_test &testcase)
     r2.dereference (),
 
     /* (-b - s) / (2 * a) */
-    testcase.ctxt.new_binary_op (
-      GCC_JIT_BINARY_OP_DIVIDE,
+    testcase.ctxt.new_divide (
       testcase.numeric_type,
-      testcase.ctxt.new_binary_op (
-	GCC_JIT_BINARY_OP_MINUS,
+      testcase.ctxt.new_minus (
 	testcase.numeric_type,
 	minus_b,
 	s),
@@ -307,8 +288,7 @@ make_test_quadratic (quadratic_test &testcase)
   test_quadratic.place_forward_label (on_nonpositive_discriminant);
   test_quadratic.add_comment ("else if (q.discriminant == 0)");
   test_quadratic.add_conditional (
-    testcase.ctxt.new_comparison (
-      GCC_JIT_COMPARISON_EQ,
+    testcase.ctxt.new_eq (
       q.access_field (testcase.discriminant),
       testcase.zero),
     on_zero_discriminant,
@@ -323,8 +303,7 @@ make_test_quadratic (quadratic_test &testcase)
     r1.dereference (),
 
     /* -b / (2 * a) */
-    testcase.ctxt.new_binary_op (
-      GCC_JIT_BINARY_OP_DIVIDE,
+    testcase.ctxt.new_divide (
       testcase.numeric_type,
       minus_b,
       two_a));

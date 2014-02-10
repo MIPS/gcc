@@ -1,5 +1,11 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-quadratic.cc (make_calc_discriminant): Make use of
+	new methods of the C++ wrapper API to shorten the example code.
+	(make_test_quadratic): Likewise.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-quadratic.cc (make_test_quadratic): Update for
 	change to gccjit::context::new_call to pass args by reference
 	rather than by value.

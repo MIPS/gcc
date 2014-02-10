@@ -1,5 +1,34 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::context::new_minus): New method,
+	providing a way to do a specific unary op with less typing.
+	(gccjit::context::new_bitwise_negate): Likewise.
+	(gccjit::context::new_logical_negate): Likewise.
+
+	(gccjit::context::new_plus): Likewise, for binary op.
+	(gccjit::context::new_minus): Likewise.
+	(gccjit::context::new_mult): Likewise.
+	(gccjit::context::new_divide): Likewise.
+	(gccjit::context::new_modulo): Likewise.
+	(gccjit::context::new_bitwise_and): Likewise.
+	(gccjit::context::new_bitwise_xor): Likewise.
+	(gccjit::context::new_bitwise_or): Likewise.
+	(gccjit::context::new_logical_and): Likewise.
+	(gccjit::context::new_logical_or): Likewise.
+
+	(gccjit::context::new_eq): Likewise, for comparison.
+	(gccjit::context::new_ne): Likewise.
+	(gccjit::context::new_lt): Likewise.
+	(gccjit::context::new_le): Likewise.
+	(gccjit::context::gccjit::context::new_gt): Likewise.
+	(gccjit::context::gccjit::context::new_ge): Likewise.
+
+	(gccjit::context::new_call): Add a series of overloaded methods
+	for specific numbers of args (from 0 - 6), to avoid the need for
+	client code to manually build a std::vector (or requiring C++11).
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::context::new_struct_type): Pass std::vector
 	"fields" argument by reference rather than by value.
 	(gccjit::context::new_function): Likewise, for "params" arg.
