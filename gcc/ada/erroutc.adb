@@ -1300,6 +1300,10 @@ package body Erroutc is
 
    procedure Validate_Specific_Warnings (Eproc : Error_Msg_Proc) is
    begin
+      if not Warn_On_Warnings_Off then
+         return;
+      end if;
+
       for J in Specific_Warnings.First .. Specific_Warnings.Last loop
          declare
             SWE : Specific_Warning_Entry renames Specific_Warnings.Table (J);
@@ -1311,7 +1315,7 @@ package body Erroutc is
 
                if SWE.Open then
                   Eproc.all
-                    ("?pragma Warnings Off with no matching Warnings On",
+                    ("?W?pragma Warnings Off with no matching Warnings On",
                      SWE.Start);
 
                --  Warn for ineffective Warnings (Off, ..)
@@ -1325,7 +1329,7 @@ package body Erroutc is
                    (SWE.Msg'Length > 2 and then SWE.Msg (1 .. 2) = "-W")
                then
                   Eproc.all
-                    ("?no warning suppressed by this pragma", SWE.Start);
+                    ("?W?no warning suppressed by this pragma", SWE.Start);
                end if;
             end if;
          end;
@@ -1343,6 +1347,7 @@ package body Erroutc is
       function Matches (S : String; P : String) return Boolean;
       --  Returns true if the String S patches the pattern P, which can contain
       --  wild card chars (*). The entire pattern must match the entire string.
+      --  Case is ignored in the comparison (so X matches x).
 
       -------------
       -- Matches --
@@ -1394,7 +1399,7 @@ package body Erroutc is
 
             --  Dealt with end of string and *, advance if we have a match
 
-            elsif S (SPtr) = P (PPtr) then
+            elsif Fold_Lower (S (SPtr)) = Fold_Lower (P (PPtr)) then
                SPtr := SPtr + 1;
                PPtr := PPtr + 1;
 

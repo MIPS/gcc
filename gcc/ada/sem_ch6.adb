@@ -1193,6 +1193,8 @@ package body Sem_Ch6 is
             end loop;
          end;
 
+         Check_SPARK_Mode_In_Generic (N);
+
          Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
          Set_SPARK_Pragma_Inherited (Body_Id, True);
 
@@ -1253,7 +1255,7 @@ package body Sem_Ch6 is
       Null_Body :=
         Make_Subprogram_Body (Loc,
           Specification => New_Copy_Tree (Spec),
-          Declarations => New_List,
+          Declarations  => New_List,
           Handled_Statement_Sequence =>
             Make_Handled_Sequence_Of_Statements (Loc,
               Statements => New_List (Make_Null_Statement (Loc))));
@@ -1907,10 +1909,9 @@ package body Sem_Ch6 is
                   if Is_Tagged_Type (Typ) then
                      null;
 
-                  elsif Nkind_In (Parent (Parent (N)),
-                     N_Accept_Statement,
-                     N_Entry_Body,
-                     N_Subprogram_Body)
+                  elsif Nkind (Parent (N)) = N_Subprogram_Body
+                    or else Nkind_In (Parent (Parent (N)), N_Accept_Statement,
+                                                           N_Entry_Body)
                   then
                      Error_Msg_NE
                        ("invalid use of untagged incomplete type&",
@@ -1918,7 +1919,7 @@ package body Sem_Ch6 is
                   end if;
 
                   --  The type must be completed in the current package. This
-                  --  is checked at the end of the package declaraton, when
+                  --  is checked at the end of the package declaration when
                   --  Taft-amendment types are identified. If the return type
                   --  is class-wide, there is no required check, the type can
                   --  be a bona fide TAT.
@@ -2999,11 +3000,6 @@ package body Sem_Ch6 is
 
             Push_Scope (Spec_Id);
 
-            --  Set SPARK_Mode from context
-
-            Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
-            Set_SPARK_Pragma_Inherited (Body_Id, True);
-
             --  Make sure that the subprogram is immediately visible. For
             --  child units that have no separate spec this is indispensable.
             --  Otherwise it is safe albeit redundant.
@@ -3051,11 +3047,6 @@ package body Sem_Ch6 is
             Install_Formals (Body_Id);
 
             Push_Scope (Body_Id);
-
-            --  Set SPARK_Mode from context
-
-            Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
-            Set_SPARK_Pragma_Inherited (Body_Id, True);
          end if;
 
          --  For stubs and bodies with no previous spec, generate references to
@@ -3063,6 +3054,11 @@ package body Sem_Ch6 is
 
          Generate_Reference_To_Formals (Body_Id);
       end if;
+
+      --  Set SPARK_Mode from context
+
+      Set_SPARK_Pragma (Body_Id, SPARK_Mode_Pragma);
+      Set_SPARK_Pragma_Inherited (Body_Id, True);
 
       --  If the return type is an anonymous access type whose designated type
       --  is the limited view of a class-wide type and the non-limited view is
@@ -11010,9 +11006,15 @@ package body Sem_Ch6 is
                --  Ada 2012: tagged incomplete types are allowed as generic
                --  formal types. They do not introduce dependencies and the
                --  corresponding generic subprogram does not have a delayed
-               --  freeze, because it does not need a freeze node.
+               --  freeze, because it does not need a freeze node. However,
+               --  it is still the case that untagged incomplete types cannot
+               --  be Taft-amendment types and must be completed in private
+               --  part, so the subprogram must appear in the list of private
+               --  dependents of the type.
 
-               if Is_Tagged_Type (Formal_Type) then
+               if Is_Tagged_Type (Formal_Type)
+                 or else Ada_Version >= Ada_2012
+               then
                   if Ekind (Scope (Current_Scope)) = E_Package
                     and then not From_Limited_With (Formal_Type)
                     and then not Is_Generic_Type (Formal_Type)
@@ -11241,8 +11243,8 @@ package body Sem_Ch6 is
 
             elsif Is_SPARK_Volatile_Object (Formal) then
                Error_Msg_N
-                 ("function cannot have a volatile formal parameter (SPARK RM "
-                  & "7.1.3(10))", Formal);
+                 ("function cannot have a volatile formal parameter "
+                  & "(SPARK RM 7.1.3(10))", Formal);
             end if;
          end if;
 

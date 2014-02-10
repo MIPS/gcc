@@ -3118,6 +3118,8 @@ package body Sem_Ch12 is
       Set_Parent_Spec (New_N, Save_Parent);
       Rewrite (N, New_N);
 
+      Check_SPARK_Mode_In_Generic (N);
+
       --  The aspect specifications are not attached to the tree, and must
       --  be copied and attached to the generic copy explicitly.
 
@@ -3251,7 +3253,9 @@ package body Sem_Ch12 is
          begin
             Aspect := First (Aspect_Specifications (N));
             while Present (Aspect) loop
-               if Get_Aspect_Id (Aspect) /= Aspect_Warnings then
+               if Get_Aspect_Id (Aspect) /= Aspect_Warnings
+                 and then Present (Expression (Aspect))
+               then
                   Analyze (Expression (Aspect));
                end if;
 
@@ -3260,7 +3264,10 @@ package body Sem_Ch12 is
 
             Aspect := First (Aspect_Specifications (Original_Node (N)));
             while Present (Aspect) loop
-               Save_Global_References (Expression (Aspect));
+               if Present (Expression (Aspect)) then
+                  Save_Global_References (Expression (Aspect));
+               end if;
+
                Next (Aspect);
             end loop;
          end;
@@ -13729,16 +13736,19 @@ package body Sem_Ch12 is
          end if;
 
          --  If a node has aspects, references within their expressions must
-         --  be saved separately, given that they are not directly in the
-         --  tree.
+         --  be saved separately, given they are not directly in the tree.
 
          if Has_Aspects (N) then
             declare
                Aspect : Node_Id;
+
             begin
                Aspect := First (Aspect_Specifications (N));
                while Present (Aspect) loop
-                  Save_Global_References (Expression (Aspect));
+                  if Present (Expression (Aspect)) then
+                     Save_Global_References (Expression (Aspect));
+                  end if;
+
                   Next (Aspect);
                end loop;
             end;
