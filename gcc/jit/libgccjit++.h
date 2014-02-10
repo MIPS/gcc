@@ -35,7 +35,7 @@ namespace gccjit
     object ();
     object (gcc_jit_object *obj);
 
-    gcc_jit_object *get_inner_object ();
+    gcc_jit_object *get_inner_object () const;
 
   private:
     gcc_jit_object *m_inner_obj;
@@ -54,7 +54,7 @@ namespace gccjit
     location ();
     location (gcc_jit_location *loc);
 
-    gcc_jit_location *get_inner_location ();
+    gcc_jit_location *get_inner_location () const;
   };
 
   class context
@@ -236,7 +236,7 @@ namespace gccjit
     field ();
     field (gcc_jit_field *inner);
 
-    gcc_jit_field *get_inner_field ();
+    gcc_jit_field *get_inner_field () const;
   };
 
   class type : public object
@@ -245,7 +245,7 @@ namespace gccjit
     type ();
     type (gcc_jit_type *inner);
 
-    gcc_jit_type *get_inner_type ();
+    gcc_jit_type *get_inner_type () const;
 
     type get_pointer ();
 
@@ -257,7 +257,7 @@ namespace gccjit
     function ();
     function (gcc_jit_function *func);
 
-    gcc_jit_function *get_inner_function ();
+    gcc_jit_function *get_inner_function () const;
 
     label new_forward_label ();
     label new_forward_label (const std::string &name);
@@ -316,7 +316,7 @@ namespace gccjit
     label ();
     label (gcc_jit_label *inner);
 
-    gcc_jit_label *get_inner_label ();
+    gcc_jit_label *get_inner_label () const;
   };
 
   class rvalue : public object
@@ -324,7 +324,7 @@ namespace gccjit
   public:
     rvalue ();
     rvalue (gcc_jit_rvalue *inner);
-    gcc_jit_rvalue *get_inner_rvalue ();
+    gcc_jit_rvalue *get_inner_rvalue () const;
 
     type get_type ();
 
@@ -343,7 +343,7 @@ namespace gccjit
     lvalue ();
     lvalue (gcc_jit_lvalue *inner);
 
-    gcc_jit_lvalue *get_inner_lvalue ();
+    gcc_jit_lvalue *get_inner_lvalue () const;
 
     lvalue access_field (field field,
 			 location loc = location ());
@@ -357,7 +357,7 @@ namespace gccjit
     param ();
     param (gcc_jit_param *inner);
 
-    gcc_jit_param *get_inner_param ();
+    gcc_jit_param *get_inner_param () const;
   };
 
 
@@ -901,7 +901,7 @@ inline object::object () : m_inner_obj (NULL) {}
 inline object::object (gcc_jit_object *obj) : m_inner_obj (obj) {}
 
 inline gcc_jit_object *
-object::get_inner_object ()
+object::get_inner_object () const
 {
   return m_inner_obj;
 }
@@ -919,7 +919,7 @@ inline location::location (gcc_jit_location *loc)
 {}
 
 inline gcc_jit_location *
-location::get_inner_location ()
+location::get_inner_location () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_location *> (get_inner_object ());
@@ -932,7 +932,7 @@ inline field::field (gcc_jit_field *inner)
 {}
 
 inline gcc_jit_field *
-field::get_inner_field ()
+field::get_inner_field () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_field *> (get_inner_object ());
@@ -945,7 +945,7 @@ inline type::type (gcc_jit_type *inner)
 {}
 
 inline gcc_jit_type *
-type::get_inner_type ()
+type::get_inner_type () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_type *> (get_inner_object ());
@@ -964,7 +964,7 @@ inline function::function (gcc_jit_function *inner)
 {}
 
 inline gcc_jit_function *
-function::get_inner_function ()
+function::get_inner_function () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_function *> (get_inner_object ());
@@ -1123,7 +1123,7 @@ inline label::label (gcc_jit_label *inner)
 {}
 
 inline gcc_jit_label *
-label::get_inner_label ()
+label::get_inner_label () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_label *> (get_inner_object ());
@@ -1136,7 +1136,7 @@ inline rvalue::rvalue (gcc_jit_rvalue *inner)
 {}
 
 inline gcc_jit_rvalue *
-rvalue::get_inner_rvalue ()
+rvalue::get_inner_rvalue () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_rvalue *> (get_inner_object ());
@@ -1180,7 +1180,7 @@ inline lvalue::lvalue (gcc_jit_lvalue *inner)
 {}
 
 inline gcc_jit_lvalue *
-lvalue::get_inner_lvalue ()
+lvalue::get_inner_lvalue () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_lvalue *> (get_inner_object ());

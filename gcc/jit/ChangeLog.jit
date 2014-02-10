@@ -1,5 +1,17 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::object::get_inner_object): Make const.
+	(gccjit::location::get_inner_location): Likewise.
+	(gccjit::field::get_inner_field): Likewise.
+	(gccjit::type::get_inner_type): Likewise.
+	(gccjit::function::get_inner_function): Likewise.
+	(gccjit::label::get_inner_label): Likewise.
+	(gccjit::rvalue::get_inner_rvalue): Likewise.
+	(gccjit::lvalue::get_inner_lvalue): Likewise.
+	(gccjit::param::get_inner_param): Likewise.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::object::get_context): New method.
 	(gccjit::function): Add overloaded operator () for various
 	numbers of arguments as a very terse way of creating function calls.
