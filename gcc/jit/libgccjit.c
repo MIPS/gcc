@@ -397,6 +397,23 @@ gcc_jit_function_as_object (gcc_jit_function *func)
   return static_cast <gcc_jit_object *> (func->as_object ());
 }
 
+gcc_jit_param *
+gcc_jit_function_get_param (gcc_jit_function *func, int index)
+{
+  RETURN_NULL_IF_FAIL (func, NULL, "NULL function");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_NULL_IF_FAIL (index >= 0, ctxt, "negative index");
+  int num_params = func->get_params ().length ();
+  RETURN_NULL_IF_FAIL_PRINTF3 (index < num_params,
+			       ctxt,
+			       "index of %d is too large (%s has %d params)",
+			       index,
+			       func->get_debug_string (),
+			       num_params);
+
+  return static_cast <gcc_jit_param *> (func->get_param (index));
+}
+
 gcc_jit_label*
 gcc_jit_function_new_forward_label (gcc_jit_function *func,
 				    const char *name)

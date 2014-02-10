@@ -435,6 +435,9 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 extern gcc_jit_object *
 gcc_jit_function_as_object (gcc_jit_function *func);
 
+extern gcc_jit_param *
+gcc_jit_function_get_param (gcc_jit_function *func, int index);
+
 /* Create a label, to be placed later.
 
    The name can be NULL, or you can give it a meaningful name, which

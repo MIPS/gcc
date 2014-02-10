@@ -259,6 +259,8 @@ namespace gccjit
 
     gcc_jit_function *get_inner_function () const;
 
+    param get_param (int index);
+
     label new_forward_label ();
     label new_forward_label (const std::string &name);
 
@@ -968,6 +970,13 @@ function::get_inner_function () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_function *> (get_inner_object ());
+}
+
+inline param
+function::get_param (int index)
+{
+  return param (gcc_jit_function_get_param (get_inner_function (),
+					    index));
 }
 
 inline label

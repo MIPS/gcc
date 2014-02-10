@@ -1,5 +1,12 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (gcc_jit_function_get_param): New.
+	* libgccjit.map (gcc_jit_function_get_param): New.
+	* libgccjit.c (gcc_jit_function_get_param): New.
+	* libgccjit++.h (gccjit::function::get_param): New.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::object::get_inner_object): Make const.
 	(gccjit::location::get_inner_location): Likewise.
 	(gccjit::field::get_inner_field): Likewise.
