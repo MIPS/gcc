@@ -1430,6 +1430,9 @@ gimple_ic (gimple icall_stmt, struct cgraph_node *direct_call,
 			   duplicate_ssa_name (result, dcall_stmt));
       add_phi_arg (phi, gimple_call_lhs (dcall_stmt), e_dj, UNKNOWN_LOCATION);
 
+      /* If indirect call has following BUILT_IN_CHKP_BNDRET
+	 call then we need to make it's copy for the direct
+	 call.  */
       if (iretbnd_stmt)
 	{
 	  if (gimple_call_lhs (iretbnd_stmt))
