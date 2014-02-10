@@ -1,5 +1,20 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::context::new_location): Update filename
+	arg from a const char * to a const std::string &.
+	(gccjit::context::new_field): Likewise for "name" arg.
+	(gccjit::context::new_struct_type): Likewise.
+	(gccjit::context::new_param): Likewise.
+	(gccjit::context::new_function): Likewise.
+	(gccjit::function::new_local): Likewise.
+	(gccjit::context::new_rvalue): Likewise for "value" arg.
+	(gccjit::function::add_comment): Likewise for "text" arg.
+	(gccjit::function::new_forward_label): Likewise for "name" arg; add
+	variant taking no args for anonymous labels.
+	(gccjit::function::add_label): Likewise.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::object, gccjit::location): Move
 	these declarations to before that of gccjit::context so that
 	the various methods of context taking a location can have a

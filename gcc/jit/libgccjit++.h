@@ -75,7 +75,7 @@ namespace gccjit
 			  int value);
 
     location
-    new_location (const char *filename,
+    new_location (const std::string &filename,
 		  int line,
 		  int column);
 
@@ -84,20 +84,20 @@ namespace gccjit
     type new_array_type (type element_type, int num_elements,
 			 location loc = location ());
 
-    field new_field (type type_, const char *name,
+    field new_field (type type_, const std::string &name,
 		     location loc = location ());
 
-    type new_struct_type (const char *name,
+    type new_struct_type (const std::string &name,
 			  std::vector<field> fields,
 			  location loc = location ());
 
     param new_param (type type_,
-		     const char *name,
+		     const std::string &name,
 		     location loc = location ());
 
     function new_function (enum gcc_jit_function_kind kind,
 			   type return_type,
-			   const char *name,
+			   const std::string &name,
 			   std::vector<param> params,
 			   int is_variadic,
 			   location loc = location ());
@@ -110,7 +110,7 @@ namespace gccjit
 		       double value);
     rvalue new_rvalue (type pointer_type,
 		       void *value);
-    rvalue new_rvalue (const char *value);
+    rvalue new_rvalue (const std::string &value);
 
     rvalue new_unary_op (enum gcc_jit_unary_op op,
 			 type result_type,
@@ -167,10 +167,11 @@ namespace gccjit
 
     gcc_jit_function *get_inner_function ();
 
-    label new_forward_label (const char *name);
+    label new_forward_label ();
+    label new_forward_label (const std::string &name);
 
     lvalue new_local (type type_,
-		      const char *name,
+		      const std::string &name,
 		      location loc = location ());
 
     void add_eval (rvalue rvalue,
@@ -185,7 +186,7 @@ namespace gccjit
 			    rvalue rvalue,
 			    location loc = location ());
 
-    void add_comment (const char *text,
+    void add_comment (const std::string &text,
 		      location loc = location ());
 
     void add_conditional (rvalue boolval,
@@ -193,8 +194,9 @@ namespace gccjit
 			  label on_false,
 			  location loc = location ());
 
-    label add_label (const char *name,
+    label add_label (const std::string &name,
 		     location loc = location ());
+    label add_label (location loc = location ());
 
     void place_forward_label (label lab,
 			      location loc = location ());
@@ -304,12 +306,12 @@ context::set_bool_option (enum gcc_jit_bool_option opt,
 }
 
 inline location
-context::new_location (const char *filename,
+context::new_location (const std::string &filename,
 		       int line,
 		       int column)
 {
   return location (gcc_jit_context_new_location (m_inner_ctxt,
-						 filename,
+						 filename.c_str (),
 						 line,
 						 column));
 }
@@ -331,16 +333,16 @@ context::new_array_type (type element_type, int num_elements, location loc)
 }
 
 inline field
-context::new_field (type type_, const char *name, location loc)
+context::new_field (type type_, const std::string &name, location loc)
 {
   return field (gcc_jit_context_new_field (m_inner_ctxt,
 					   loc.get_inner_location (),
 					   type_.get_inner_type (),
-					   name));
+					   name.c_str ()));
 }
 
 inline type
-context::new_struct_type (const char *name,
+context::new_struct_type (const std::string &name,
 			  std::vector<field> fields,
 			  location loc)
 {
@@ -354,26 +356,26 @@ context::new_struct_type (const char *name,
 
   return type (gcc_jit_context_new_struct_type (m_inner_ctxt,
 						loc.get_inner_location (),
-						name,
+						name.c_str (),
 						fields.size (),
 						as_array_of_ptrs));
 }
 
 inline param
 context::new_param (type type_,
-		    const char *name,
+		    const std::string &name,
 		    location loc)
 {
   return param (gcc_jit_context_new_param (m_inner_ctxt,
 					   loc.get_inner_location (),
 					   type_.get_inner_type (),
-					   name));
+					   name.c_str ()));
 }
 
 inline function
 context::new_function (enum gcc_jit_function_kind kind,
 		       type return_type,
-		       const char *name,
+		       const std::string &name,
 		       std::vector<param> params,
 		       int is_variadic,
 		       location loc)
@@ -390,7 +392,7 @@ context::new_function (enum gcc_jit_function_kind kind,
 						 loc.get_inner_location (),
 						 kind,
 						 return_type.get_inner_type (),
-						 name,
+						 name.c_str (),
 						 params.size (),
 						 as_array_of_ptrs,
 						 is_variadic));
@@ -441,10 +443,10 @@ context::new_rvalue (type pointer_type,
 }
 
 inline rvalue
-context::new_rvalue (const char *value)
+context::new_rvalue (const std::string &value)
 {
   return rvalue (
-    gcc_jit_context_new_string_literal (m_inner_ctxt, value));
+    gcc_jit_context_new_string_literal (m_inner_ctxt, value.c_str ()));
 }
 
 inline rvalue
@@ -597,21 +599,28 @@ function::get_inner_function ()
 }
 
 inline label
-function::new_forward_label (const char *name)
+function::new_forward_label ()
 {
   return label (gcc_jit_function_new_forward_label (get_inner_function (),
-						    name));
+						    NULL));
+}
+
+inline label
+function::new_forward_label (const std::string &name)
+{
+  return label (gcc_jit_function_new_forward_label (get_inner_function (),
+						    name.c_str ()));
 }
 
 inline lvalue
 function::new_local (type type_,
-		     const char *name,
+		     const std::string &name,
 		     location loc)
 {
   return lvalue (gcc_jit_function_new_local (get_inner_function (),
 					     loc.get_inner_location (),
 					     type_.get_inner_type (),
-					     name));
+					     name.c_str ()));
 }
 
 inline void
@@ -648,12 +657,12 @@ function::add_assignment_op (lvalue lvalue,
 }
 
 inline void
-function::add_comment (const char *text,
+function::add_comment (const std::string &text,
 		       location loc)
 {
   gcc_jit_function_add_comment (get_inner_function (),
 				loc.get_inner_location (),
-				text);
+				text.c_str ());
 }
 
 inline void
@@ -670,12 +679,20 @@ function::add_conditional (rvalue boolval,
 }
 
 inline label
-function::add_label (const char *name,
+function::add_label (const std::string &name,
 		     location loc)
 {
   return label (gcc_jit_function_add_label (get_inner_function (),
 					    loc.get_inner_location (),
-					    name));
+					    name.c_str ()));
+}
+
+inline label
+function::add_label (location loc)
+{
+  return label (gcc_jit_function_add_label (get_inner_function (),
+					    loc.get_inner_location (),
+					    NULL));
 }
 
 inline void
