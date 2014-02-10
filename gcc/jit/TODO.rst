@@ -18,9 +18,27 @@ Initial Release
   * more types:
     * unions
     * function ptrs
+    * explicitly opaque structs, perhaps:
 
-* how do you encode "x[5]=y;"?  should gcc_jit_context_new_array_lookup()
-  return an lvalue rather than an rvalue?
+        extern gcc_jit_type *
+        gcc_jit_context_new_opaque_struct (gcc_jit_context *ctxt,
+                                           const char *name);
+
+    * ability to create self-referential structs, or cycles in the graph:
+
+         struct foo { struct bar *m_bar; }
+         struct bar { struct foo *m_foo; }
+
+    * get int type with given number of either bits or bytes:
+
+        extern gcc_jit_type *
+        gcc_jit_context_get_int_type (gcc_jit_context *ctxt,
+                                      int num_bytes,
+                                      int is_signed);
+
+  * ability to bind a pre-existing global variable
+
+* expose the statements in the API? (mostly so they can be stringified?)
 
 * explicit casts::
 
@@ -53,13 +71,6 @@ Initial Release
 
   and, indeed, clarify all of the other operations.
 
-* array types, in case they're needed for structs::
-
-    extern gcc_jit_type *
-    gcc_jit_context_new_array_type (gcc_jit_context *ctxt,
-                                    gcc_jit_type *type,
-                                    int num_elements);
-
 * expressing branch probabilies (like __builtin_expect)::
 
     extern gcc_jit_rvalue *
@@ -74,21 +85,15 @@ Initial Release
 
   be better?  (for expressing how hot the current location is)
 
+* ability to give contexts names, for ease of debugging?
+
 * can we call into GCC builtins?  What might people need?
 
 * docs
 
-* fixing all the state issues
-
-* make the dirty dirty hacks less egregious...
-
-* pkgconfig .pc file
-
 * add a SONAME to the library (and potentially version the symbols?)
 
 * add myself as maintainer
-
-* valgrind; fix memory leaks
 
 * do we need alternative forms of division (floor vs rounding)?
 
@@ -104,7 +109,10 @@ Initial Release
 
     * gcc_jit_context_new_rvalue_from_int: must be a numeric type
 
-    * gcc_jit_context_zero: must be a numeric type
+    * gcc_jit_context_zero: must be a numeric type.  If we do this should
+      we introduce a gcc_jit_context_null for pointer types?  (you can do
+      this via gcc_jit_context_new_rvalue_from_ptr, but having an explicit
+      hook is friendlier).
 
     * gcc_jit_context_one: must be a numeric type
 
@@ -133,9 +141,34 @@ Initial Release
 
     * gcc_jit_loop_end: verify that loops are validly nested?
 
+Bugs
+====
+* INTERNAL functions don't seem to work (see e.g. test-quadratic, on trying
+  to make calc_disc be internal leads to:
+        /tmp/libgccjit-4FZm6B/fake.so: undefined symbol: calc_discriminant
+  works at -O3 (because it inlines away the call); fails at -O0
+
+* fixing all the state issues: make it work repeatedly with optimization
+  turned up to full.
+
+* make the dirty dirty hacks less egregious...
+
+* pkgconfig .pc file
+
+* test under valgrind; fix memory leaks
+
+* re-architect gcc so we don't have to reinitialize everything every time
+  a context is compiled
+
 Test suite
 ==========
 * get DejaGnu to build and run C++ testcases
+
+* add a multi-threaded test (perhaps based on test-combination.c, with a
+  thread pool working through multiple instances of the various underlying
+  tests, each thread having a separate gcc_jit_context)
+
+* verify that nested loops work OK
 
 Future milestones
 =================
