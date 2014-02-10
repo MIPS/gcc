@@ -1,5 +1,41 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::object::get_context): New method.
+	(gccjit::function): Add overloaded operator () for various
+	numbers of arguments as a very terse way of creating function calls.
+	(gccjit::rvalue::get_type): New method.
+
+	(operator-): New overloaded unary op for rvalues.
+	(operator~): Likewise.
+	(operator!): Likewise.
+
+	(operator+): New overloaded binary op for rvalues.
+	(operator-): Likewise.
+	(operator*): Likewise.
+	(operator/): Likewise.
+	(operator%): Likewise.
+	(operator&): Likewise.
+	(operator^): Likewise.
+	(operator|): Likewise.
+	(operator&&): Likewise.
+	(operator||): Likewise.
+
+	(operator==): New overloaded comparison for rvalues.
+	(operator!=): Likewise.
+	(operator<): Likewise.
+	(operator<=): Likewise.
+	(operator>): Likewise.
+	(operator>=): Likewise.
+
+	(operator*): New overloaded operator for dereferencing an
+	rvalue representing a pointer.
+
+	* libgccjit.c (gcc_jit_rvalue_get_type): New.
+	* libgccjit.h (gcc_jit_rvalue_get_type): New.
+	* libgccjit.map (gcc_jit_rvalue_get_type): New.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::context::new_minus): New method,
 	providing a way to do a specific unary op with less typing.
 	(gccjit::context::new_bitwise_negate): Likewise.

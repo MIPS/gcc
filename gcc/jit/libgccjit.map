@@ -63,6 +63,7 @@
     gcc_jit_rvalue_as_object;
     gcc_jit_rvalue_dereference;
     gcc_jit_rvalue_dereference_field;
+    gcc_jit_rvalue_get_type;
     gcc_jit_type_as_object;
     gcc_jit_type_get_const;
     gcc_jit_type_get_pointer;

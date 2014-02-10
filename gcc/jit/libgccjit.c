@@ -452,6 +452,14 @@ gcc_jit_rvalue_as_object (gcc_jit_rvalue *rvalue)
   return static_cast <gcc_jit_object *> (rvalue->as_object ());
 }
 
+gcc_jit_type *
+gcc_jit_rvalue_get_type (gcc_jit_rvalue *rvalue)
+{
+  RETURN_NULL_IF_FAIL (rvalue, NULL, "NULL rvalue");
+
+  return static_cast <gcc_jit_type *> (rvalue->get_type ());
+}
+
 gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_int (gcc_jit_context *ctxt,
 				     gcc_jit_type *numeric_type,

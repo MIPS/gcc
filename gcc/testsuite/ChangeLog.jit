@@ -1,5 +1,10 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-operator-overloading.cc: New testcase, a
+	rewrite of test-quadratic.cc to use operator overloading.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-quadratic.cc (make_calc_discriminant): Make use of
 	new methods of the C++ wrapper API to shorten the example code.
 	(make_test_quadratic): Likewise.

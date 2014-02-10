@@ -27,6 +27,8 @@ namespace gccjit
   class object
   {
   public:
+    context get_context () const;
+
     std::string get_debug_string () const;
 
   protected:
@@ -296,6 +298,16 @@ namespace gccjit
 
     void add_return (rvalue rvalue,
 		     location loc = location ());
+
+    /* A series of overloaded operator () with various numbers of arguments
+       for a very terse way of creating a call to this function.  The call
+       is created within the same context as the function itself, which may
+       not be what you want.  */
+    rvalue operator() (location loc = location ());
+    rvalue operator() (rvalue arg0,
+		       location loc = location ());
+    rvalue operator() (rvalue arg0, rvalue arg1,
+		       location loc = location ());
   };
 
   class label : public object
@@ -313,6 +325,8 @@ namespace gccjit
     rvalue ();
     rvalue (gcc_jit_rvalue *inner);
     gcc_jit_rvalue *get_inner_rvalue ();
+
+    type get_type ();
 
     rvalue access_field (field field,
 			 location loc = location ());
@@ -345,6 +359,42 @@ namespace gccjit
 
     gcc_jit_param *get_inner_param ();
   };
+
+
+  /* Overloaded operators, for those who want the most terse API
+     (at the possible risk of being a little too magical).
+
+     In each case, the first parameter is used to determine which context
+     owns the resulting expression, and, where appropriate,  what the
+     latter's type is. */
+
+  /* Unary operators.  */
+  rvalue operator- (rvalue a); // unary minus
+  rvalue operator~ (rvalue a); // unary bitwise negate
+  rvalue operator! (rvalue a); // unary logical negate
+
+  /* Binary operators.  */
+  rvalue operator+ (rvalue a, rvalue b);
+  rvalue operator- (rvalue a, rvalue b);
+  rvalue operator* (rvalue a, rvalue b);
+  rvalue operator/ (rvalue a, rvalue b);
+  rvalue operator% (rvalue a, rvalue b);
+  rvalue operator& (rvalue a, rvalue b); //  bitwise and
+  rvalue operator^ (rvalue a, rvalue b); // bitwise_xor
+  rvalue operator| (rvalue a, rvalue b); // bitwise_or
+  rvalue operator&& (rvalue a, rvalue b); // logical_and
+  rvalue operator|| (rvalue a, rvalue b); // logical_or
+
+  /* Comparisons.  */
+  rvalue operator== (rvalue a, rvalue b);
+  rvalue operator!= (rvalue a, rvalue b);
+  rvalue operator< (rvalue a, rvalue b);
+  rvalue operator<= (rvalue a, rvalue b);
+  rvalue operator> (rvalue a, rvalue b);
+  rvalue operator>= (rvalue a, rvalue b);
+
+  /* Dereferencing. */
+  lvalue operator* (rvalue ptr);
 }
 
 /****************************************************************************
@@ -835,6 +885,12 @@ context::new_array_access (rvalue ptr,
 }
 
 // class object
+inline context
+object::get_context () const
+{
+  return context (gcc_jit_object_get_context (m_inner_obj));
+}
+
 inline std::string
 object::get_debug_string () const
 {
@@ -1038,6 +1094,28 @@ function::add_return (rvalue rvalue,
 			       rvalue.get_inner_rvalue ());
 }
 
+inline rvalue
+function::operator() (location loc)
+{
+  return get_context ().new_call (*this, loc);
+}
+inline rvalue
+function::operator() (rvalue arg0,
+		      location loc)
+{
+  return get_context ().new_call (*this,
+				  arg0,
+				  loc);
+}
+inline rvalue
+function::operator() (rvalue arg0, rvalue arg1,
+		      location loc)
+{
+  return get_context ().new_call (*this,
+				  arg0, arg1,
+				  loc);
+}
+
 // class label
 inline label::label () : object (NULL) {}
 inline label::label (gcc_jit_label *inner)
@@ -1062,6 +1140,12 @@ rvalue::get_inner_rvalue ()
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_rvalue *> (get_inner_object ());
+}
+
+inline type
+rvalue::get_type ()
+{
+  return type (gcc_jit_rvalue_get_type (get_inner_rvalue ()));
 }
 
 inline rvalue
@@ -1122,6 +1206,95 @@ inline param::param () : lvalue () {}
 inline param::param (gcc_jit_param *inner)
   : lvalue (gcc_jit_param_as_lvalue (inner))
 {}
+
+/* Overloaded operators.  */
+// Unary operators
+inline rvalue operator- (rvalue a)
+{
+  return a.get_context ().new_minus (a.get_type (), a);
+}
+inline rvalue operator~ (rvalue a)
+{
+  return a.get_context ().new_bitwise_negate (a.get_type (), a);
+}
+inline rvalue operator! (rvalue a)
+{
+  return a.get_context ().new_logical_negate (a.get_type (), a);
+}
+
+// Binary operators
+inline rvalue operator+ (rvalue a, rvalue b)
+{
+  return a.get_context ().new_plus (a.get_type (), a, b);
+}
+inline rvalue operator- (rvalue a, rvalue b)
+{
+  return a.get_context ().new_minus (a.get_type (), a, b);
+}
+inline rvalue operator* (rvalue a, rvalue b)
+{
+  return a.get_context ().new_mult (a.get_type (), a, b);
+}
+inline rvalue operator/ (rvalue a, rvalue b)
+{
+  return a.get_context ().new_divide (a.get_type (), a, b);
+}
+inline rvalue operator% (rvalue a, rvalue b)
+{
+  return a.get_context ().new_modulo (a.get_type (), a, b);
+}
+inline rvalue operator& (rvalue a, rvalue b)
+{
+  return a.get_context ().new_bitwise_and (a.get_type (), a, b);
+}
+inline rvalue operator^ (rvalue a, rvalue b)
+{
+  return a.get_context ().new_bitwise_xor (a.get_type (), a, b);
+}
+inline rvalue operator| (rvalue a, rvalue b)
+{
+  return a.get_context ().new_bitwise_or (a.get_type (), a, b);
+}
+inline rvalue operator&& (rvalue a, rvalue b)
+{
+  return a.get_context ().new_logical_and (a.get_type (), a, b);
+}
+inline rvalue operator|| (rvalue a, rvalue b)
+{
+  return a.get_context ().new_logical_or (a.get_type (), a, b);
+}
+
+/* Comparisons.  */
+inline rvalue operator== (rvalue a, rvalue b)
+{
+  return a.get_context ().new_eq (a, b);
+}
+inline rvalue operator!= (rvalue a, rvalue b)
+{
+  return a.get_context ().new_ne (a, b);
+}
+inline rvalue operator< (rvalue a, rvalue b)
+{
+  return a.get_context ().new_lt (a, b);
+}
+inline rvalue operator<= (rvalue a, rvalue b)
+{
+  return a.get_context ().new_le (a, b);
+}
+inline rvalue operator> (rvalue a, rvalue b)
+{
+  return a.get_context ().new_gt (a, b);
+}
+inline rvalue operator>= (rvalue a, rvalue b)
+{
+  return a.get_context ().new_ge (a, b);
+}
+
+/* Dereferencing. */
+inline lvalue operator* (rvalue ptr)
+{
+  return ptr.dereference ();
+}
 
 } // namespace gccjit
 
