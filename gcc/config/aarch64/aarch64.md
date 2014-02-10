@@ -2436,7 +2436,7 @@
 (define_insn "*csinc2<mode>_insn"
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (plus:GPI (match_operator:GPI 2 "aarch64_comparison_operator"
-		  [(match_operand:CC 3 "cc_register" "") (const_int 0)])
+		  [(match_operand 3 "cc_register" "") (const_int 0)])
 		 (match_operand:GPI 1 "register_operand" "r")))]
   ""
   "csinc\\t%<w>0, %<w>1, %<w>1, %M2"
@@ -2447,7 +2447,7 @@
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (if_then_else:GPI
 	  (match_operator:GPI 1 "aarch64_comparison_operator"
-	   [(match_operand:CC 2 "cc_register" "") (const_int 0)])
+	   [(match_operand 2 "cc_register" "") (const_int 0)])
 	  (plus:GPI (match_operand:GPI 3 "register_operand" "r")
 		    (const_int 1))
 	  (match_operand:GPI 4 "aarch64_reg_or_zero" "rZ")))]
@@ -2460,7 +2460,7 @@
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (if_then_else:GPI
 	  (match_operator:GPI 1 "aarch64_comparison_operator"
-	   [(match_operand:CC 2 "cc_register" "") (const_int 0)])
+	   [(match_operand 2 "cc_register" "") (const_int 0)])
 	  (not:GPI (match_operand:GPI 3 "register_operand" "r"))
 	  (match_operand:GPI 4 "aarch64_reg_or_zero" "rZ")))]
   ""
@@ -2472,7 +2472,7 @@
   [(set (match_operand:GPI 0 "register_operand" "=r")
         (if_then_else:GPI
 	  (match_operator:GPI 1 "aarch64_comparison_operator"
-	   [(match_operand:CC 2 "cc_register" "") (const_int 0)])
+	   [(match_operand 2 "cc_register" "") (const_int 0)])
 	  (neg:GPI (match_operand:GPI 3 "register_operand" "r"))
 	  (match_operand:GPI 4 "aarch64_reg_or_zero" "rZ")))]
   ""
