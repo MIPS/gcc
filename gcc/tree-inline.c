@@ -1592,37 +1592,6 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
   else
     walk_gimple_op (copy, remap_gimple_op_r, &wi);
 
-  /* When inlining happens we need to raplace all calls
-     to __chkp_arg_bnd or target equivalent with assign
-     statement using DECL_BOUNDS of inlined argument.
-     If DECL_BOUNDS is NULL, it means call is not
-     instrumented.  */
-  if (gimple_code (copy) == GIMPLE_CALL
-      && gimple_call_fndecl (copy)
-      && id->transform_parameter)
-    {
-      tree r = targetm.builtin_chkp_function (BUILT_IN_CHKP_ARG_BND);
-      tree fndecl = gimple_call_fndecl (copy);
-
-      if (fndecl && fndecl == r)
-	{
-	  tree orig_arg = gimple_call_arg (stmt, 0);
-	  tree bnd = NULL, *n;
-
-	  orig_arg = chkp_parm_for_arg_bnd_arg (orig_arg);
-
-	  n = (tree *) pointer_map_contains (id->decl_map, orig_arg);
-	  if (n)
-	    bnd = DECL_BOUNDS (*n);
-
-	  if (bnd)
-	    copy = gimple_build_assign (gimple_call_lhs (copy), bnd);
-	  else
-	    copy = gimple_build_assign (gimple_call_lhs (copy),
-					chkp_get_zero_bounds_var ());
-	}
-    }
-
   /* Clear the copied virtual operands.  We are not remapping them here
      but are going to recreate them from scratch.  */
   if (gimple_has_mem_ops (copy))
@@ -3103,25 +3072,9 @@ initialize_inlined_parameters (copy_body_data *id, gimple stmt,
      equivalent VAR_DECL, appropriately initialized.  */
   for (p = parms, i = 0; p; p = DECL_CHAIN (p), i++)
     {
-      tree val, bounds = NULL;
-      gimple init_stmt;
-
+      tree val;
       val = i < gimple_call_num_args (stmt) ? gimple_call_arg (stmt, i) : NULL;
-
-      init_stmt = setup_one_parameter (id, p, val, fn, bb, &vars);
-
-      /* For instrumented calls we associate bounds passed
-	 for argument with created var or store them in BT.  */
-      if (gimple_call_with_bounds_p (stmt) && 0)
-	{
-	  if (BOUNDED_P (p))
-	    {
-	      bounds = chkp_get_call_arg_bounds (gimple_call_arg (stmt, i));
-	      SET_DECL_BOUNDS (vars, bounds);
-	    }
-	  else if (chkp_type_has_pointer (TREE_TYPE (p)) && init_stmt)
-	    id->assign_stmts.safe_push (init_stmt);
-	}
+      setup_one_parameter (id, p, val, fn, bb, &vars);
     }
   /* After remapping parameters remap their types.  This has to be done
      in a second loop over all parameters to appropriately remap
@@ -4794,7 +4747,6 @@ optimize_inline_calls (tree fn)
   number_blocks (fn);
 
   delete_unreachable_blocks_update_callgraph (&id);
-
 #ifdef ENABLE_CHECKING
   verify_cgraph_node (id.dst_node);
 #endif
