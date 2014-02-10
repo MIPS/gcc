@@ -17150,7 +17150,7 @@ rest_of_handle_shrink_offsets (void)
 
 #if 1
   offset_table.create (10);
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       {
 	set = single_set (insn);
@@ -17166,13 +17166,13 @@ rest_of_handle_shrink_offsets (void)
 #if 0
   dump_modified_offsets (&offset_table);
 #endif
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       split_extended_insn (insn, bb, &offset_table);
   offset_table.dispose ();
 #endif
 #if 0
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       offset_table.create (10);
       FOR_BB_INSNS (bb, insn)
