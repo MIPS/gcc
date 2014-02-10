@@ -1,5 +1,40 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::object, gccjit::location): Move
+	these declarations to before that of gccjit::context so that
+	the various methods of context taking a location can have a
+	default location value.
+	(gccjit::context::new_array_type): Consolidate two methods,
+	one accepting a gccjit::location, the other without, by
+	providing a default argument (which thus has to be moved to the
+	end of the argument list).
+	(gccjit::context::new_field): Likewise.
+	(gccjit::context::new_struct_type): Likewise.
+	(gccjit::context::new_param): Likewise.
+	(gccjit::context::new_function): Likewise.
+	(gccjit::context::new_unary_op): Likewise.
+	(gccjit::context::new_binary_op): Likewise.
+	(gccjit::context::new_comparison): Likewise.
+	(gccjit::context::new_call): Likewise.
+	(gccjit::context::new_array_access): Likewise.
+	(gccjit::function::new_local): Likewise.
+	(gccjit::function::add_eval): Likewise.
+	(gccjit::function::add_assignment): Likewise.
+	(gccjit::function::add_assignment_op): Likewise.
+	(gccjit::function::add_comment): Likewise.
+	(gccjit::function::add_conditional): Likewise.
+	(gccjit::function::add_label): Likewise.
+	(gccjit::function::place_forward_label): Likewise.
+	(gccjit::function::add_jump): Likewise.
+	(gccjit::function::add_return): Likewise.
+	(gccjit::rvalue::access_field): Likewise.
+	(gccjit::rvalue::dereference_field): Likewise.
+	(gccjit::rvalue::dereference): Likewise.
+	(gccjit::lvalue::access_field): Likewise.
+	(gccjit::lvalue::get_address): Likewise.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* TODO.rst: Update.
 
 2014-02-06  David Malcolm  <dmalcolm@redhat.com>

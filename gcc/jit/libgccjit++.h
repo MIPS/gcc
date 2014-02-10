@@ -24,6 +24,37 @@ namespace gccjit
   class rvalue;
   class lvalue;
 
+  class object
+  {
+  public:
+    std::string get_debug_string () const;
+
+  protected:
+    object ();
+    object (gcc_jit_object *obj);
+
+    gcc_jit_object *get_inner_object ();
+
+  private:
+    gcc_jit_object *m_inner_obj;
+  };
+
+  inline std::ostream& operator << (std::ostream& stream, const object &obj);
+
+  /* Some client code will want to supply source code locations, others
+     won't.  To avoid doubling the number of entrypoints, everything
+     accepting a location also has a default argument.  To do this, the
+     other classes need to see that "location" has a default constructor,
+     hence we need to declare it first.  */
+  class location : public object
+  {
+  public:
+    location ();
+    location (gcc_jit_location *loc);
+
+    gcc_jit_location *get_inner_location ();
+  };
+
   class context
   {
   public:
@@ -50,35 +81,26 @@ namespace gccjit
 
     type get_type (enum gcc_jit_types kind);
 
-    type new_array_type (type element_type, int num_elements);
-    type new_array_type (location loc, type element_type, int num_elements);
+    type new_array_type (type element_type, int num_elements,
+			 location loc = location ());
 
-    field new_field (type type_, const char *name);
-    field new_field (location loc, type type_, const char *name);
+    field new_field (type type_, const char *name,
+		     location loc = location ());
 
     type new_struct_type (const char *name,
-			  std::vector<field> fields);
-    type new_struct_type (location loc,
-			  const char *name,
-			  std::vector<field> fields);
+			  std::vector<field> fields,
+			  location loc = location ());
 
     param new_param (type type_,
-		     const char *name);
-    param new_param (location loc,
-		     type type_,
-		     const char *name);
+		     const char *name,
+		     location loc = location ());
 
     function new_function (enum gcc_jit_function_kind kind,
 			   type return_type,
 			   const char *name,
 			   std::vector<param> params,
-			   int is_variadic);
-    function new_function (location loc,
-			   enum gcc_jit_function_kind kind,
-			   type return_type,
-			   const char *name,
-			   std::vector<param> params,
-			   int is_variadic);
+			   int is_variadic,
+			   location loc = location ());
 
     rvalue new_rvalue (type numeric_type,
 		       int value);
@@ -92,67 +114,29 @@ namespace gccjit
 
     rvalue new_unary_op (enum gcc_jit_unary_op op,
 			 type result_type,
-			 rvalue a);
-    rvalue new_unary_op (location loc,
-			 enum gcc_jit_unary_op op,
-			 type result_type,
-			 rvalue a);
+			 rvalue a,
+			 location loc = location ());
 
     rvalue new_binary_op (enum gcc_jit_binary_op op,
 			  type result_type,
-			  rvalue a, rvalue b);
-    rvalue new_binary_op (location loc,
-			  enum gcc_jit_binary_op op,
-			  type result_type,
-			  rvalue a, rvalue b);
+			  rvalue a, rvalue b,
+			  location loc = location ());
 
     rvalue new_comparison (enum gcc_jit_comparison op,
-			   rvalue a, rvalue b);
-    rvalue new_comparison (location loc,
-			   enum gcc_jit_comparison op,
-			   rvalue a, rvalue b);
+			   rvalue a, rvalue b,
+			   location loc = location ());
 
     rvalue new_call (function func,
-		     std::vector<rvalue> args);
-    rvalue new_call (location loc,
-		     function func,
-		     std::vector<rvalue> args);
+		     std::vector<rvalue> args,
+		     location loc = location ());
 
     lvalue new_array_access (rvalue ptr,
-			     rvalue index);
-    lvalue new_array_access (location loc,
-			     rvalue ptr,
-			     rvalue index);
+			     rvalue index,
+			     location loc = location ());
 
   public:
     gcc_jit_context *m_inner_ctxt;
   };
-
-  class object
-  {
-  public:
-    std::string get_debug_string () const;
-
-  protected:
-    object ();
-    object (gcc_jit_object *obj);
-
-    gcc_jit_object *get_inner_object ();
-
-  private:
-    gcc_jit_object *m_inner_obj;
-  };
-
-  inline std::ostream& operator << (std::ostream& stream, const object &obj);
-
-  class location : public object
-  {
-  public:
-    location ();
-    location (gcc_jit_location *loc);
-
-    gcc_jit_location *get_inner_location ();
-   };
 
   class field : public object
   {
@@ -186,57 +170,40 @@ namespace gccjit
     label new_forward_label (const char *name);
 
     lvalue new_local (type type_,
-		      const char *name);
-    lvalue new_local (location loc,
-		      type type_,
-		      const char *name);
+		      const char *name,
+		      location loc = location ());
 
-    void add_eval (rvalue rvalue);
-    void add_eval (location loc,
-		   rvalue rvalue);
+    void add_eval (rvalue rvalue,
+		   location loc = location ());
 
     void add_assignment (lvalue lvalue,
-			 rvalue rvalue);
-    void add_assignment (location loc,
-			 lvalue lvalue,
-			 rvalue rvalue);
+			 rvalue rvalue,
+			 location loc = location ());
 
     void add_assignment_op (lvalue lvalue,
 			    enum gcc_jit_binary_op op,
-			    rvalue rvalue);
-    void add_assignment_op (location loc,
-			    lvalue lvalue,
-			    enum gcc_jit_binary_op op,
-			    rvalue rvalue);
+			    rvalue rvalue,
+			    location loc = location ());
 
-    void add_comment (location loc,
-		      const char *text);
-    void add_comment (const char *text);
+    void add_comment (const char *text,
+		      location loc = location ());
 
-    void add_conditional (location loc,
-			  rvalue boolval,
-			  label on_true,
-			  label on_false);
     void add_conditional (rvalue boolval,
 			  label on_true,
-			  label on_false);
+			  label on_false,
+			  location loc = location ());
 
-    label add_label (location loc,
-		     const char *name);
-    label add_label (const char *name);
+    label add_label (const char *name,
+		     location loc = location ());
 
-    void place_forward_label (location loc,
-			      label lab);
-    void place_forward_label (label lab);
+    void place_forward_label (label lab,
+			      location loc = location ());
 
-    void add_jump (location loc,
-		   label target);
-    void add_jump (label target);
+    void add_jump (label target,
+		   location loc = location ());
 
-    void add_return (location loc,
-		     rvalue rvalue);
-    void add_return (rvalue rvalue);
-
+    void add_return (rvalue rvalue,
+		     location loc = location ());
   };
 
   class label : public object
@@ -255,17 +222,13 @@ namespace gccjit
     rvalue (gcc_jit_rvalue *inner);
     gcc_jit_rvalue *get_inner_rvalue ();
 
-    rvalue access_field (field field);
-    rvalue access_field (location loc,
-			 field field);
+    rvalue access_field (field field,
+			 location loc = location ());
 
-    lvalue dereference_field (field field);
-    lvalue dereference_field (location loc,
-			      field field);
+    lvalue dereference_field (field field,
+			      location loc = location ());
 
-    lvalue dereference ();
-    lvalue dereference (location loc);
-
+    lvalue dereference (location loc = location ());
  };
 
   class lvalue : public rvalue
@@ -276,12 +239,10 @@ namespace gccjit
 
     gcc_jit_lvalue *get_inner_lvalue ();
 
-    lvalue access_field (field field);
-    lvalue access_field (location loc,
-			 field field);
+    lvalue access_field (field field,
+			 location loc = location ());
 
-    rvalue get_address ();
-    rvalue get_address (location loc);
+    rvalue get_address (location loc = location ());
   };
 
   class param : public lvalue
@@ -360,13 +321,7 @@ context::get_type (enum gcc_jit_types kind)
 }
 
 inline type
-context::new_array_type (type element_type, int num_elements)
-{
-  return new_array_type (location (), element_type, num_elements);
-}
-
-inline type
-context::new_array_type (location loc, type element_type, int num_elements)
+context::new_array_type (type element_type, int num_elements, location loc)
 {
   return type (gcc_jit_context_new_array_type (
 		 m_inner_ctxt,
@@ -376,12 +331,7 @@ context::new_array_type (location loc, type element_type, int num_elements)
 }
 
 inline field
-context::new_field (type type_, const char *name)
-{
-  return new_field (location (), type_, name);
-}
-inline field
-context::new_field (location loc, type type_, const char *name)
+context::new_field (type type_, const char *name, location loc)
 {
   return field (gcc_jit_context_new_field (m_inner_ctxt,
 					   loc.get_inner_location (),
@@ -391,16 +341,8 @@ context::new_field (location loc, type type_, const char *name)
 
 inline type
 context::new_struct_type (const char *name,
-			  std::vector<field> fields)
-{
-  return new_struct_type (location (),
-			  name,
-			  fields);
-}
-inline type
-context::new_struct_type (location loc,
-			  const char *name,
-			  std::vector<field> fields)
+			  std::vector<field> fields,
+			  location loc)
 {
   /* Treat std::vector as an array, relying on it not being resized: */
   field *as_array_of_wrappers = &fields[0];
@@ -419,16 +361,8 @@ context::new_struct_type (location loc,
 
 inline param
 context::new_param (type type_,
-		    const char *name)
-{
-  return new_param (location (),
-		    type_,
-		    name);
-}
-inline param
-context::new_param (location loc,
-		    type type_,
-		    const char *name)
+		    const char *name,
+		    location loc)
 {
   return param (gcc_jit_context_new_param (m_inner_ctxt,
 					   loc.get_inner_location (),
@@ -441,22 +375,8 @@ context::new_function (enum gcc_jit_function_kind kind,
 		       type return_type,
 		       const char *name,
 		       std::vector<param> params,
-		       int is_variadic)
-{
-  return new_function (location (),
-		       kind,
-		       return_type,
-		       name,
-		       params,
-		       is_variadic);
-}
-inline function
-context::new_function (location loc,
-		       enum gcc_jit_function_kind kind,
-		       type return_type,
-		       const char *name,
-		       std::vector<param> params,
-		       int is_variadic)
+		       int is_variadic,
+		       location loc)
 {
   /* Treat std::vector as an array, relying on it not being resized: */
   param *as_array_of_wrappers = &params[0];
@@ -530,18 +450,8 @@ context::new_rvalue (const char *value)
 inline rvalue
 context::new_unary_op (enum gcc_jit_unary_op op,
 		       type result_type,
-		       rvalue a)
-{
-  return new_unary_op (location (),
-		       op,
-		       result_type,
-		       a);
-}
-inline rvalue
-context::new_unary_op (location loc,
-		       enum gcc_jit_unary_op op,
-		       type result_type,
-		       rvalue a)
+		       rvalue a,
+		       location loc)
 {
   return rvalue (gcc_jit_context_new_unary_op (m_inner_ctxt,
 					       loc.get_inner_location (),
@@ -553,18 +463,8 @@ context::new_unary_op (location loc,
 inline rvalue
 context::new_binary_op (enum gcc_jit_binary_op op,
 			type result_type,
-			rvalue a, rvalue b)
-{
-  return new_binary_op (location (),
-			op,
-			result_type,
-			a, b);
-}
-inline rvalue
-context::new_binary_op (location loc,
-			enum gcc_jit_binary_op op,
-			type result_type,
-			rvalue a, rvalue b)
+			rvalue a, rvalue b,
+			location loc)
 {
   return rvalue (gcc_jit_context_new_binary_op (m_inner_ctxt,
 						loc.get_inner_location (),
@@ -576,16 +476,8 @@ context::new_binary_op (location loc,
 
 inline rvalue
 context::new_comparison (enum gcc_jit_comparison op,
-			 rvalue a, rvalue b)
-{
-  return new_comparison (location (),
-			 op,
-			 a, b);
-}
-inline rvalue
-context::new_comparison (location loc,
-			 enum gcc_jit_comparison op,
-			 rvalue a, rvalue b)
+			 rvalue a, rvalue b,
+			 location loc)
 {
   return rvalue (gcc_jit_context_new_comparison (m_inner_ctxt,
 						 loc.get_inner_location (),
@@ -596,17 +488,8 @@ context::new_comparison (location loc,
 
 inline rvalue
 context::new_call (function func,
-		   std::vector<rvalue> args)
-{
-  return new_call (location (),
-		   func,
-		   args);
-}
-
-inline rvalue
-context::new_call (location loc,
-		   function func,
-		   std::vector<rvalue> args)
+		   std::vector<rvalue> args,
+		   location loc)
 {
   /* Treat std::vector as an array, relying on it not being resized: */
   rvalue *as_array_of_wrappers = &args[0];
@@ -624,15 +507,8 @@ context::new_call (location loc,
 
 inline lvalue
 context::new_array_access (rvalue ptr,
-			   rvalue index)
-{
-  return new_array_access (location (), ptr, index);
-}
-
-inline lvalue
-context::new_array_access (location loc,
-			   rvalue ptr,
-			   rvalue index)
+			   rvalue index,
+			   location loc)
 {
   return lvalue (gcc_jit_context_new_array_access (m_inner_ctxt,
 						   loc.get_inner_location (),
@@ -729,15 +605,8 @@ function::new_forward_label (const char *name)
 
 inline lvalue
 function::new_local (type type_,
-		     const char *name)
-{
-  return new_local (location (), type_, name);
-}
-
-inline lvalue
-function::new_local (location loc,
-		     type type_,
-		     const char *name)
+		     const char *name,
+		     location loc)
 {
   return lvalue (gcc_jit_function_new_local (get_inner_function (),
 					     loc.get_inner_location (),
@@ -746,14 +615,8 @@ function::new_local (location loc,
 }
 
 inline void
-function::add_eval (rvalue rvalue)
-{
-  add_eval (location (),
-	    rvalue);
-}
-inline void
-function::add_eval (location loc,
-		    rvalue rvalue)
+function::add_eval (rvalue rvalue,
+		    location loc)
 {
   gcc_jit_function_add_eval (get_inner_function (),
 			     loc.get_inner_location (),
@@ -762,16 +625,8 @@ function::add_eval (location loc,
 
 inline void
 function::add_assignment (lvalue lvalue,
-			  rvalue rvalue)
-{
-  add_assignment (location (),
-		  lvalue,
-		  rvalue);
-}
-inline void
-function::add_assignment (location loc,
-			  lvalue lvalue,
-			  rvalue rvalue)
+			  rvalue rvalue,
+			  location loc)
 {
   gcc_jit_function_add_assignment (get_inner_function (),
 				   loc.get_inner_location (),
@@ -782,18 +637,8 @@ function::add_assignment (location loc,
 inline void
 function::add_assignment_op (lvalue lvalue,
 			     enum gcc_jit_binary_op op,
-			     rvalue rvalue)
-{
-  add_assignment_op (location (),
-		     lvalue,
-		     op,
-		     rvalue);
-}
-inline void
-function::add_assignment_op (location loc,
-			     lvalue lvalue,
-			     enum gcc_jit_binary_op op,
-			     rvalue rvalue)
+			     rvalue rvalue,
+			     location loc)
 {
   gcc_jit_function_add_assignment_op (get_inner_function (),
 				      loc.get_inner_location (),
@@ -803,13 +648,8 @@ function::add_assignment_op (location loc,
 }
 
 inline void
-function::add_comment (const char *text)
-{
-  add_comment (location (), text);
-}
-inline void
-function::add_comment (location loc,
-		       const char *text)
+function::add_comment (const char *text,
+		       location loc)
 {
   gcc_jit_function_add_comment (get_inner_function (),
 				loc.get_inner_location (),
@@ -819,15 +659,8 @@ function::add_comment (location loc,
 inline void
 function::add_conditional (rvalue boolval,
 			   label on_true,
-			   label on_false)
-{
-  return add_conditional (location (), boolval, on_true, on_false);
-}
-inline void
-function::add_conditional (location loc,
-			   rvalue boolval,
-			   label on_true,
-			   label on_false)
+			   label on_false,
+			   location loc)
 {
   gcc_jit_function_add_conditional (get_inner_function (),
 				    loc.get_inner_location (),
@@ -837,13 +670,8 @@ function::add_conditional (location loc,
 }
 
 inline label
-function::add_label (const char *name)
-{
-  return add_label (location (), name);
-}
-inline label
-function::add_label (location loc,
-		     const char *name)
+function::add_label (const char *name,
+		     location loc)
 {
   return label (gcc_jit_function_add_label (get_inner_function (),
 					    loc.get_inner_location (),
@@ -851,13 +679,8 @@ function::add_label (location loc,
 }
 
 inline void
-function::place_forward_label (label lab)
-{
-  return place_forward_label (location (), lab);
-}
-inline void
-function::place_forward_label (location loc,
-			       label lab)
+function::place_forward_label (label lab,
+			       location loc)
 {
   gcc_jit_function_place_forward_label (get_inner_function (),
 					loc.get_inner_location (),
@@ -865,13 +688,8 @@ function::place_forward_label (location loc,
 }
 
 inline void
-function::add_jump (label target)
-{
-  add_jump (location (), target);
-}
-inline void
-function::add_jump (location loc,
-		    label target)
+function::add_jump (label target,
+		    location loc)
 {
   gcc_jit_function_add_jump (get_inner_function (),
 			     loc.get_inner_location (),
@@ -879,13 +697,8 @@ function::add_jump (location loc,
 }
 
 inline void
-function::add_return (rvalue rvalue)
-{
-  add_return (location (), rvalue);
-}
-inline void
-function::add_return (location loc,
-		      rvalue rvalue)
+function::add_return (rvalue rvalue,
+		      location loc)
 {
   gcc_jit_function_add_return (get_inner_function (),
 			       loc.get_inner_location (),
@@ -918,15 +731,9 @@ rvalue::get_inner_rvalue ()
   return reinterpret_cast<gcc_jit_rvalue *> (get_inner_object ());
 }
 
-
 inline rvalue
-rvalue::access_field (field field)
-{
-  return access_field (location (), field);
-}
-inline rvalue
-rvalue::access_field (location loc,
-		      field field)
+rvalue::access_field (field field,
+		      location loc)
 {
   return rvalue (gcc_jit_rvalue_access_field (get_inner_rvalue (),
 					      loc.get_inner_location (),
@@ -934,26 +741,14 @@ rvalue::access_field (location loc,
 }
 
 inline lvalue
-rvalue::dereference_field (field field)
-{
-  return dereference_field (location (),
-			    field);
-}
-
-inline lvalue
-rvalue::dereference_field (location loc,
-			   field field)
+rvalue::dereference_field (field field,
+			   location loc)
 {
   return lvalue (gcc_jit_rvalue_dereference_field (get_inner_rvalue (),
 						   loc.get_inner_location (),
 						   field.get_inner_field ()));
 }
 
-inline lvalue
-rvalue::dereference ()
-{
-  return dereference (location ());
-}
 inline lvalue
 rvalue::dereference (location loc)
 {
@@ -975,24 +770,13 @@ lvalue::get_inner_lvalue ()
 }
 
 inline lvalue
-lvalue::access_field (field field)
-{
-  return access_field (location (), field);
-}
-inline lvalue
-lvalue::access_field (location loc,
-		      field field)
+lvalue::access_field (field field, location loc)
 {
   return lvalue (gcc_jit_lvalue_access_field (get_inner_lvalue (),
 					      loc.get_inner_location (),
 					      field.get_inner_field ()));
 }
 
-inline rvalue
-lvalue::get_address ()
-{
-  return get_address (location ());
-}
 inline rvalue
 lvalue::get_address (location loc)
 {
