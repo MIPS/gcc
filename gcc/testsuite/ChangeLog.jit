@@ -1,5 +1,16 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-types.c (struct zoo): Add field m_sized_int_type,
+	to be populated by...
+	(create_code): Use gcc_jit_context_get_int_type.
+	(verify_code): Verify that type from gcc_jit_context_get_int_type
+	works properly.
+	* jit.dg/test-operator-overloading.cc (make_types): Use the
+	template form of get_int_type.
+	* jit.dg/test-quadratic.cc (make_types): Likewise.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-operator-overloading.cc: New testcase, a
 	rewrite of test-quadratic.cc to use operator overloading.
 

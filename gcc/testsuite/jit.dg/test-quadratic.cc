@@ -93,7 +93,7 @@ make_types (quadratic_test &testcase)
   testcase.numeric_type_ptr = testcase.numeric_type.get_pointer ();
   testcase.zero = testcase.ctxt.zero (testcase.numeric_type);
 
-  testcase.int_type = testcase.ctxt.get_type (GCC_JIT_TYPE_INT);
+  testcase.int_type = testcase.ctxt.get_int_type <int> ();
 
   testcase.a = testcase.ctxt.new_field (testcase.numeric_type, "a");
   testcase.b = testcase.ctxt.new_field (testcase.numeric_type, "b");

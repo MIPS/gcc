@@ -143,6 +143,9 @@ public:
   get_type (enum gcc_jit_types type);
 
   type *
+  get_int_type (int num_bytes, int is_signed);
+
+  type *
   new_array_type (location *loc,
 		  type *element_type,
 		  int num_elements);

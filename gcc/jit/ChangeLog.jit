@@ -1,5 +1,19 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (gcc_jit_context_get_int_type): New.
+	* libgccjit.map (gcc_jit_context_get_int_type): New.
+	* libgccjit.c (gcc_jit_context_get_int_type): New.
+
+	* internal-api.h (gcc::jit::recording::context::get_int_type): New.
+	(gcc::jit::recording::context::get_int_type<T>): New template.
+	* internal-api.c (gcc::jit::recording::context::get_int_type): New.
+
+	* libgccjit++.h: Include <limits> so we can use std::numeric_limits.
+	(gccjit::context::get_int_type): New.
+	(gccjit::context::get_int_type<T>): New.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (gcc_jit_function_get_param): New.
 	* libgccjit.map (gcc_jit_function_get_param): New.
 	* libgccjit.c (gcc_jit_function_get_param): New.

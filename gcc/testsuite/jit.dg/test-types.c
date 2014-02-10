@@ -26,6 +26,8 @@ struct zoo
   long long m_long_long;
   unsigned long long m_unsigned_long_long;
 
+  int m_sized_int_type;
+
   float m_float;
   double m_double;
   long double m_long_double;
@@ -93,6 +95,13 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_field *field_m_unsigned_long_long =
     CREATE_FIELD (GCC_JIT_TYPE_UNSIGNED_LONG_LONG, "m_unsigned_long_long");
 
+  /* Signed int type with sizeof (int): */
+  gcc_jit_type *sized_int_type =
+    gcc_jit_context_get_int_type (ctxt, sizeof (int), 1);
+  gcc_jit_field *field_m_sized_int_type =
+    gcc_jit_context_new_field (
+      ctxt, NULL, sized_int_type, "m_sized_int_type");
+
   gcc_jit_field *field_m_float =
     CREATE_FIELD (GCC_JIT_TYPE_FLOAT, "m_float");
   gcc_jit_field *field_m_double =
@@ -129,6 +138,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 
     field_m_long_long,
     field_m_unsigned_long_long,
+
+    field_m_sized_int_type,
 
     field_m_float,
     field_m_double,
@@ -240,6 +251,11 @@ create_code (gcc_jit_context *ctxt, void *user_data)
       gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_UNSIGNED_LONG_LONG),
       123456789))
 
+  ASSIGN(field_m_sized_int_type,
+    gcc_jit_context_new_rvalue_from_int (
+      ctxt,
+      sized_int_type, 500))
+
   ASSIGN(field_m_float,
     gcc_jit_context_new_rvalue_from_double (
       ctxt,
@@ -311,6 +327,8 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 
   CHECK_VALUE (z.m_long_long, -42);
   CHECK_VALUE (z.m_unsigned_long_long, 123456789);
+
+  CHECK_VALUE (z.m_sized_int_type, 500);
 
   CHECK_VALUE (z.m_float, 3.141f);
   CHECK_VALUE (z.m_double, 3.141);

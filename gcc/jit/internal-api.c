@@ -215,6 +215,43 @@ recording::context::get_type (enum gcc_jit_types kind)
 }
 
 recording::type *
+recording::context::get_int_type (int num_bytes, int is_signed)
+{
+  /* We can't use a switch here since some of the values are macros affected
+     by options; e.g. i386.h has
+       #define LONG_TYPE_SIZE (TARGET_X32 ? 32 : BITS_PER_WORD)
+     Compare with tree.c's make_or_reuse_type.  Note that the _SIZE macros
+     are in bits, rather than bytes.
+  */
+  const int num_bits = num_bytes * 8;
+  if (num_bits == INT_TYPE_SIZE)
+    return get_type (is_signed
+		     ? GCC_JIT_TYPE_INT
+		     : GCC_JIT_TYPE_UNSIGNED_INT);
+  if (num_bits == CHAR_TYPE_SIZE)
+    return get_type (is_signed
+		     ? GCC_JIT_TYPE_SIGNED_CHAR
+		     : GCC_JIT_TYPE_UNSIGNED_CHAR);
+  if (num_bits == SHORT_TYPE_SIZE)
+    return get_type (is_signed
+		     ? GCC_JIT_TYPE_SHORT
+		     : GCC_JIT_TYPE_UNSIGNED_SHORT);
+  if (num_bits == LONG_TYPE_SIZE)
+    return get_type (is_signed
+		     ? GCC_JIT_TYPE_LONG
+		     : GCC_JIT_TYPE_UNSIGNED_LONG);
+  if (num_bits == LONG_LONG_TYPE_SIZE)
+    return get_type (is_signed
+		     ? GCC_JIT_TYPE_LONG_LONG
+		     : GCC_JIT_TYPE_UNSIGNED_LONG_LONG);
+
+  /* Some other size, not corresponding to the C int types.  */
+  /* To be written: support arbitrary other sizes, sharing by
+     memoizing at the recording::context level?  */
+  gcc_unreachable ();
+}
+
+recording::type *
 recording::context::new_array_type (recording::location *loc,
 				    recording::type *element_type,
 				    int num_elements)

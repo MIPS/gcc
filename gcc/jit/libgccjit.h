@@ -349,6 +349,10 @@ extern gcc_jit_type *
 gcc_jit_context_get_type (gcc_jit_context *ctxt,
 			  enum gcc_jit_types type_);
 
+extern gcc_jit_type *
+gcc_jit_context_get_int_type (gcc_jit_context *ctxt,
+			      int num_bytes, int is_signed);
+
 /* Constructing new types. */
 
 /* Given type "T", get type "T*".  */

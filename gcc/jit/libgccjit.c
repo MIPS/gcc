@@ -246,6 +246,16 @@ gcc_jit_context_get_type (gcc_jit_context *ctxt,
 }
 
 gcc_jit_type *
+gcc_jit_context_get_int_type (gcc_jit_context *ctxt,
+			      int num_bytes, int is_signed)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
+  RETURN_NULL_IF_FAIL (num_bytes >= 0, ctxt, "negative size");
+
+  return (gcc_jit_type *)ctxt->get_int_type (num_bytes, is_signed);
+}
+
+gcc_jit_type *
 gcc_jit_type_get_pointer (gcc_jit_type *type)
 {
   RETURN_NULL_IF_FAIL (type, NULL, "NULL type");

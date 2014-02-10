@@ -5,6 +5,7 @@
 
 #include "libgccjit.h"
 
+#include <limits>
 #include <ostream>
 #include <vector>
 
@@ -82,6 +83,13 @@ namespace gccjit
 		  int column);
 
     type get_type (enum gcc_jit_types kind);
+    type get_int_type (size_t num_bytes, int is_signed);
+
+    /* A way to map a specific int type, using the compiler to
+       get the details automatically e.g.:
+	  gccjit::type type = get_int_type <my_int_type_t> ();  */
+    template <typename T>
+    type get_int_type ();
 
     type new_array_type (type element_type, int num_elements,
 			 location loc = location ());
@@ -462,6 +470,21 @@ inline type
 context::get_type (enum gcc_jit_types kind)
 {
   return type (gcc_jit_context_get_type (m_inner_ctxt, kind));
+}
+
+inline type
+context::get_int_type (size_t num_bytes, int is_signed)
+{
+  return type (gcc_jit_context_get_int_type (m_inner_ctxt,
+					     num_bytes,
+					     is_signed));
+}
+
+template <typename T>
+inline type
+context::get_int_type ()
+{
+  return get_int_type (sizeof (T), std::numeric_limits<T>::is_signed);
 }
 
 inline type
