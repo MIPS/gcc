@@ -88,7 +88,7 @@ namespace gccjit
 		     location loc = location ());
 
     type new_struct_type (const std::string &name,
-			  std::vector<field> fields,
+			  std::vector<field> &fields,
 			  location loc = location ());
 
     param new_param (type type_,
@@ -98,7 +98,7 @@ namespace gccjit
     function new_function (enum gcc_jit_function_kind kind,
 			   type return_type,
 			   const std::string &name,
-			   std::vector<param> params,
+			   std::vector<param> &params,
 			   int is_variadic,
 			   location loc = location ());
 
@@ -127,7 +127,7 @@ namespace gccjit
 			   location loc = location ());
 
     rvalue new_call (function func,
-		     std::vector<rvalue> args,
+		     std::vector<rvalue> &args,
 		     location loc = location ());
 
     lvalue new_array_access (rvalue ptr,
@@ -343,7 +343,7 @@ context::new_field (type type_, const std::string &name, location loc)
 
 inline type
 context::new_struct_type (const std::string &name,
-			  std::vector<field> fields,
+			  std::vector<field> &fields,
 			  location loc)
 {
   /* Treat std::vector as an array, relying on it not being resized: */
@@ -376,7 +376,7 @@ inline function
 context::new_function (enum gcc_jit_function_kind kind,
 		       type return_type,
 		       const std::string &name,
-		       std::vector<param> params,
+		       std::vector<param> &params,
 		       int is_variadic,
 		       location loc)
 {
@@ -490,7 +490,7 @@ context::new_comparison (enum gcc_jit_comparison op,
 
 inline rvalue
 context::new_call (function func,
-		   std::vector<rvalue> args,
+		   std::vector<rvalue> &args,
 		   location loc)
 {
   /* Treat std::vector as an array, relying on it not being resized: */

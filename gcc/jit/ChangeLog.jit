@@ -1,5 +1,12 @@
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::context::new_struct_type): Pass std::vector
+	"fields" argument by reference rather than by value.
+	(gccjit::context::new_function): Likewise, for "params" arg.
+	(gccjit::context::new_call): Likewise, for "args" arg.
+
+2014-02-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::context::new_location): Update filename
 	arg from a const char * to a const std::string &.
 	(gccjit::context::new_field): Likewise for "name" arg.

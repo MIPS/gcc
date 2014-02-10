@@ -247,11 +247,12 @@ make_test_quadratic (quadratic_test &testcase)
   /* double s = sqrt (q.discriminant); */
   gccjit::lvalue s = test_quadratic.new_local (testcase.numeric_type, "s");
   gccjit::rvalue discriminant_of_q = q.access_field (testcase.discriminant);
+  std::vector<gccjit::rvalue> args_to_sqrt_call (1, discriminant_of_q);
   test_quadratic.add_assignment (
     s,
     testcase.ctxt.new_call (
       testcase.sqrt,
-      std::vector<gccjit::rvalue> (1, discriminant_of_q)));
+      args_to_sqrt_call));
 
   gccjit::rvalue minus_b =
     testcase.ctxt.new_unary_op (
