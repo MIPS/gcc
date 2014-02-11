@@ -961,7 +961,7 @@ public:
 	      location *loc,
 	      enum gcc_jit_comparison op,
 	      rvalue *a, rvalue *b)
-  : rvalue (ctxt, loc, ctxt->get_type (GCC_JIT_TYPE_INT)), /* FIXME: should be bool? */
+  : rvalue (ctxt, loc, ctxt->get_type (GCC_JIT_TYPE_BOOL)),
     m_op (op),
     m_a (a),
     m_b (b)

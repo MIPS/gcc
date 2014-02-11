@@ -305,6 +305,10 @@ enum gcc_jit_types
   /* "void *".  */
   GCC_JIT_TYPE_VOID_PTR,
 
+  /* C++'s bool type; also C99's "_Bool" type, aka "bool" if using
+     stdbool.h.  */
+  GCC_JIT_TYPE_BOOL,
+
   /* Various integer types.  */
 
   /* C's "char" (of some signedness) and the variants where the

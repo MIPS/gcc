@@ -657,6 +657,7 @@ recording::memento_of_get_type::dereference ()
     case GCC_JIT_TYPE_VOID_PTR:
       return m_ctxt->get_type (GCC_JIT_TYPE_VOID);
 
+    case GCC_JIT_TYPE_BOOL:
     case GCC_JIT_TYPE_CHAR:
     case GCC_JIT_TYPE_SIGNED_CHAR:
     case GCC_JIT_TYPE_UNSIGNED_CHAR:
@@ -697,6 +698,8 @@ recording::memento_of_get_type::replay_into (replayer *r)
 static const char * const get_type_strings[] = {
   "void",    /* GCC_JIT_TYPE_VOID */
   "void *",  /* GCC_JIT_TYPE_VOID_PTR */
+
+  "bool",  /* GCC_JIT_TYPE_BOOL */
 
   "char",           /* GCC_JIT_TYPE_CHAR */
   "signed char",    /* GCC_JIT_TYPE_SIGNED_CHAR */
@@ -1722,6 +1725,9 @@ get_tree_node_for_type (enum gcc_jit_types type_)
 
     case GCC_JIT_TYPE_VOID_PTR:
       return ptr_type_node;
+
+    case GCC_JIT_TYPE_BOOL:
+      return boolean_type_node;
 
     case GCC_JIT_TYPE_CHAR:
       return char_type_node;

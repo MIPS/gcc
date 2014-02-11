@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "libgccjit.h"
 
@@ -9,6 +10,8 @@
 struct zoo
 {
   void *m_void_ptr;
+
+  bool m_bool;
 
   char m_char;
   signed char m_signed_char;
@@ -68,6 +71,9 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_field *field_m_void_ptr =
     CREATE_FIELD (GCC_JIT_TYPE_VOID_PTR, "m_void_ptr");
 
+  gcc_jit_field *field_m_bool =
+    CREATE_FIELD (GCC_JIT_TYPE_BOOL, "m_bool");
+
   gcc_jit_field *field_m_char =
     CREATE_FIELD (GCC_JIT_TYPE_CHAR, "m_char");
   gcc_jit_field *field_m_signed_char =
@@ -122,6 +128,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 
   gcc_jit_field *zoo_fields[] = {
     field_m_void_ptr,
+
+    field_m_bool,
 
     field_m_char,
     field_m_signed_char,
@@ -190,6 +198,11 @@ create_code (gcc_jit_context *ctxt, void *user_data)
       ctxt,
       gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID_PTR),
       test_ptr))
+
+  ASSIGN(field_m_bool,
+    gcc_jit_context_new_rvalue_from_int (
+      ctxt,
+      gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_BOOL), 1))
 
   ASSIGN(field_m_char,
     gcc_jit_context_new_rvalue_from_int (
@@ -311,6 +324,8 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 
   /* Verify that it correctly wrote to the various fields.  */
   CHECK_VALUE (z.m_void_ptr, test_ptr);
+
+  CHECK_VALUE (z.m_bool, true);
 
   CHECK_VALUE (z.m_char, 'V');
   CHECK_VALUE (z.m_signed_char, -37);

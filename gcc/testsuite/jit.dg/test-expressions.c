@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <stdbool.h>
 
 #include "libgccjit.h"
 
@@ -319,7 +320,7 @@ make_test_of_comparison (gcc_jit_context *ctxt,
 			 const char *funcname)
 {
   /* Make a test function of the form:
-       T test_comparison_op (T a, T b)
+       bool test_comparison_op (T a, T b)
        {
 	  return a OP b;
        }
@@ -329,10 +330,12 @@ make_test_of_comparison (gcc_jit_context *ctxt,
   gcc_jit_param *param_b =
     gcc_jit_context_new_param (ctxt, NULL, type, "b");
   gcc_jit_param *params[] = {param_a, param_b};
+  gcc_jit_type *bool_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_BOOL);
   gcc_jit_function *test_fn =
     gcc_jit_context_new_function (ctxt, NULL,
 				  GCC_JIT_FUNCTION_EXPORTED,
-				  type,
+				  bool_type,
 				  funcname,
 				  2, params,
 				  0);
@@ -397,7 +400,7 @@ make_tests_of_comparisons (gcc_jit_context *ctxt)
 static void
 verify_comparisons (gcc_jit_result *result)
 {
-  typedef int (*test_fn) (int, int);
+  typedef bool (*test_fn) (int, int);
 
   test_fn test_COMPARISON_EQ_on_int =
     (test_fn)gcc_jit_result_get_code (result,

@@ -1,5 +1,18 @@
 2014-02-11  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (enum gcc_jit_types): Add GCC_JIT_TYPE_BOOL.
+
+	* internal-api.h (gcc::jit::recording::comparison::comparison): Use
+	GCC_JIT_TYPE_BOOL as the types of comparisons, rather than
+	GCC_JIT_TYPE_INT.
+
+	* internal-api.c (gcc::jit::recording::memento_of_get_type::
+	dereference): Handle GCC_JIT_TYPE_BOOL (with an error).
+	(get_type_strings): Add GCC_JIT_TYPE_BOOL.
+	(get_tree_node_for_type): Handle GCC_JIT_TYPE_BOOL.
+
+2014-02-11  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::recording::context::add_error_va): If
 	GCC_JIT_STR_OPTION_PROGNAME is NULL, use "libgccjit.so", as per
 	the comment in libgccjit.h
