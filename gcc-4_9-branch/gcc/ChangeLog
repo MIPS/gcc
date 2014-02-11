@@ -1,3 +1,490 @@
+2014-02-11  Jeff Law  <law@redhat.com>
+
+	PR middle-end/54041
+	* expr.c (expand_expr_addr_expr_1): Handle expand_expr returning an
+	object with an undesirable mode.
+
+2014-02-11  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
+
+	PR libgomp/60107
+	* config/i386/sol2-9.h: New file.
+	* config.gcc (i[34567]86-*-solaris2* | x86_64-*-solaris2.1[0-9]*,
+	*-*-solaris2.9*): Use it.
+
+2014-02-10  Nagaraju Mekala <nagaraju.mekala@xilinx.com>
+
+	* config/microblaze/microblaze.md: Add movsi4_rev insn pattern.
+	* config/microblaze/predicates.md: Add reg_or_mem_operand predicate.
+
+2014-02-10  Nagaraju Mekala <nagaraju.mekala@xilinx.com>
+
+	* config/microblaze/microblaze.c: Extend mcpu version format
+
+2014-02-10  David Holsgrove <david.holsgrove@xilinx.com>
+
+	* config/microblaze/microblaze.h: Define SIZE_TYPE and PTRDIFF_TYPE.
+
+2014-02-10  Richard Henderson <rth@redhat.com>
+
+	PR target/59927
+	* calls.c (expand_call): Don't double-push for reg_parm_stack_space.
+	* config/i386/i386.c (init_cumulative_args): Remove sorry for 64-bit
+	ms-abi vs -mno-accumulate-outgoing-args.
+	(ix86_expand_prologue): Unconditionally call ix86_eax_live_at_start_p.
+	* config/i386/i386.h (ACCUMULATE_OUTGOING_ARGS): Fix comment with
+	respect to ms-abi.
+
+2014-02-10  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	PR middle-end/60080
+	* cfgexpand.c (expand_asm_operands): Attach source location to
+	ASM_INPUT rtx objects.
+	* print-rtl.c (print_rtx): Check for UNKNOWN_LOCATION.
+
+2014-02-10  Nick Clifton  <nickc@redhat.com>
+
+	* config/mn10300/mn10300.c (popcount): New function.
+	(mn10300_expand_prologue): Include saved registers in stack usage
+	count.
+
+2014-02-10  Jeff Law  <law@redhat.com>
+
+	PR middle-end/52306
+	* reload1.c (emit_input_reload_insns): Do not create invalid RTL
+	when changing the SET_DEST of a prior insn to avoid an input
+	reload.
+
+2014-02-10  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
+
+	* config/rs6000/sysv4.h (ENDIAN_SELECT): Do not attempt to enforce
+	big-endian mode for -mcall-aixdesc, -mcall-freebsd, -mcall-netbsd,
+	-mcall-openbsd, or -mcall-linux.
+	(CC1_ENDIAN_BIG_SPEC): Remove.
+	(CC1_ENDIAN_LITTLE_SPEC): Remove.
+	(CC1_ENDIAN_DEFAULT_SPEC): Remove.
+	(CC1_SPEC): Remove (always empty) %cc1_endian_... spec.
+	(SUBTARGET_EXTRA_SPECS): Remove %cc1_endian_big, %cc1_endian_little,
+	and %cc1_endian_default.
+	* config/rs6000/sysv4le.h (CC1_ENDIAN_DEFAULT_SPEC): Remove.
+
+2014-02-10  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60115
+	* tree-eh.c (tree_could_trap_p): Unify TARGET_MEM_REF and
+	MEM_REF handling.  Properly verify that the accesses are not
+	out of the objects bound.
+
+2014-02-10  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_override_options): Fix typo from
+	coretex to cortex.
+
+2014-02-10  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* ipa-devirt.c (get_polymorphic_call_info_from_invariant): Return
+	proper constants and fix formatting.
+	(possible_polymorphic_call_targets): Fix formatting.
+
+2014-02-10  Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+
+	* config/i386/avx512fintrin.h (_mm512_storeu_epi64): Removed.
+	(_mm512_loadu_epi32): Renamed into...
+	(_mm512_loadu_si512): This.
+	(_mm512_storeu_epi32): Renamed into...
+	(_mm512_storeu_si512): This.
+	(_mm512_maskz_ceil_ps): Removed.
+	(_mm512_maskz_ceil_pd): Ditto.
+	(_mm512_maskz_floor_ps): Ditto.
+	(_mm512_maskz_floor_pd): Ditto.
+	(_mm512_floor_round_ps): Ditto.
+	(_mm512_floor_round_pd): Ditto.
+	(_mm512_ceil_round_ps): Ditto.
+	(_mm512_ceil_round_pd): Ditto.
+	(_mm512_mask_floor_round_ps): Ditto.
+	(_mm512_mask_floor_round_pd): Ditto.
+	(_mm512_mask_ceil_round_ps): Ditto.
+	(_mm512_mask_ceil_round_pd): Ditto.
+	(_mm512_maskz_floor_round_ps): Ditto.
+	(_mm512_maskz_floor_round_pd): Ditto.
+	(_mm512_maskz_ceil_round_ps): Ditto.
+	(_mm512_maskz_ceil_round_pd): Ditto.
+	(_mm512_expand_pd): Ditto.
+	(_mm512_expand_ps): Ditto.
+	* config/i386/i386.c (ix86_builtins): Remove
+	IX86_BUILTIN_EXPANDPD512_NOMASK, IX86_BUILTIN_EXPANDPS512_NOMASK.
+	(bdesc_args): Ditto.
+	* config/i386/predicates.md (const1256_operand): New.
+	(const_1_to_2_operand): Ditto.
+	* config/i386/sse.md (avx512pf_gatherpf<mode>sf): Change hint value.
+	(*avx512pf_gatherpf<mode>sf_mask): Ditto.
+	(*avx512pf_gatherpf<mode>sf): Ditto.
+	(avx512pf_gatherpf<mode>df): Ditto.
+	(*avx512pf_gatherpf<mode>df_mask): Ditto.
+	(*avx512pf_gatherpf<mode>df): Ditto.
+	(avx512pf_scatterpf<mode>sf): Ditto.
+	(*avx512pf_scatterpf<mode>sf_mask): Ditto.
+	(*avx512pf_scatterpf<mode>sf): Ditto.
+	(avx512pf_scatterpf<mode>df): Ditto.
+	(*avx512pf_scatterpf<mode>df_mask): Ditto.
+	(*avx512pf_scatterpf<mode>df): Ditto.
+	(avx512f_expand<mode>): Removed.
+	(<shift_insn><mode>3<mask_name>): Change predicate type.
+
+2014-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* tree-vect-data-refs.c (vect_analyze_data_refs): For clobbers
+	not at the end of datarefs vector use ordered_remove to avoid
+	reordering datarefs vector.
+
+	PR c/59984
+	* gimplify.c (gimplify_bind_expr): In ORT_SIMD region
+	mark local addressable non-static vars as GOVD_PRIVATE
+	instead of GOVD_LOCAL.
+	* omp-low.c (lower_omp_for): Move gimple_bind_vars
+	and BLOCK_VARS of gimple_bind_block to new_stmt rather
+	than copying them.
+
+	PR middle-end/60092
+	* tree-ssa-ccp.c (surely_varying_stmt_p): Don't return true
+	if TYPE_ATTRIBUTES (gimple_call_fntype ()) contain
+	assume_aligned or alloc_align attributes.
+	(bit_value_assume_aligned): Add ATTR, PTRVAL and ALLOC_ALIGN
+	arguments.  Handle also assume_aligned and alloc_align attributes.
+	(evaluate_stmt): Adjust bit_value_assume_aligned caller.
+	Handle calls to functions with assume_aligned or alloc_align
+	attributes.
+	* doc/extend.texi: Document assume_aligned and alloc_align
+	attributes.
+
+2014-02-08  Terry Guo  <terry.guo@arm.com>
+
+	* doc/invoke.texi: Document ARM -march=armv7e-m.
+
+2014-02-08  Jakub Jelinek  <jakub@redhat.com>
+
+	* cilk-common.c (cilk_init_builtins): Clear TREE_NOTHROW
+	flag on __cilkrts_rethrow builtin.
+
+	PR ipa/60026
+	* ipa-cp.c (determine_versionability): Fail at -O0
+	or __attribute__((optimize (0))) or -fno-ipa-cp functions.
+	* tree-sra.c (ipa_sra_preliminary_function_checks): Similarly.
+
+	Revert:
+	2014-02-04  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/60026
+	* tree-inline.c (copy_forbidden): Fail for
+	__attribute__((optimize (0))) functions.
+
+2014-02-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* varpool.c: Include pointer-set.h.
+	(varpool_remove_unreferenced_decls): Variables in other partitions
+	will not be output; be however careful to not lose information
+	about partitioning.
+
+2014-02-07  Jan Hubicka  <hubicka@ucw.cz>
+
+	* gimple-fold.c (gimple_get_virt_method_for_vtable): Do O(1)
+	lookup in the vtable constructor.
+
+2014-02-07  Jeff Law  <law@redhat.com>
+
+	PR target/40977
+	* config/m68k/m68k.md (ashldi_extsi): Turn into a
+	define_insn_and_split.
+
+	* ipa-inline.c (inline_small_functions): Fix typos.
+
+2014-02-07  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* config/s390/s390-protos.h (s390_can_use_simple_return_insn)
+	(s390_can_use_return_insn): Declare.
+	* config/s390/s390.h (EPILOGUE_USES): Define.
+	* config/s390/s390.c (s390_mainpool_start): Allow two main_pool
+	instructions.
+	(s390_chunkify_start): Handle return JUMP_LABELs.
+	(s390_early_mach): Emit a main_pool instruction on the entry edge.
+	(s300_set_up_by_prologue, s390_can_use_simple_return_insn)
+	(s390_can_use_return_insn): New functions.
+	(s390_fix_long_loop_prediction): Handle conditional returns.
+	(TARGET_SET_UP_BY_PROLOGUE): Define.
+	* config/s390/s390.md (ANY_RETURN): New code iterator.
+	(*creturn, *csimple_return, return, simple_return): New patterns.
+
+2014-02-07  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* config/s390/s390.c (s390_restore_gprs_from_fprs): Add REG_CFA_RESTORE
+	notes to each restore.  Also add REG_CFA_DEF_CFA when restoring %r15.
+	(s390_optimize_prologue): Don't clear RTX_FRAME_RELATED_P.  Update the
+	REG_CFA_RESTORE list when deciding not to restore a register.
+
+2014-02-07  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* config/s390/s390.c: Include tree-pass.h and context.h.
+	(s390_early_mach): New function, split out from...
+	(s390_emit_prologue): ...here.
+	(pass_data_s390_early_mach): New pass structure.
+	(pass_s390_early_mach): New class.
+	(s390_option_override): Create and register early_mach pass.
+	Move to end of file.
+
+2014-02-07  Richard Sandiford  <rsandifo@linux.vnet.ibm.com>
+
+	* var-tracking.c (vt_stack_adjustments): Don't require stack_adjusts
+	to match for the exit block.
+
+2014-02-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* config/s390/s390.md ("atomic_load<mode>", "atomic_store<mode>")
+	("atomic_compare_and_swap<mode>", "atomic_fetch_<atomic><mode>"):
+	Reject misaligned operands.
+
+2014-02-07  Andreas Krebbel  <Andreas.Krebbel@de.ibm.com>
+
+	* optabs.c (expand_atomic_compare_and_swap): Allow expander to
+	fail.
+
+2014-02-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60092
+	* gimple-low.c (lower_builtin_posix_memalign): New function.
+	(lower_stmt): Call it to lower posix_memalign in a way
+	to make alignment info accessible.
+
+2014-02-07  Jakub Jelinek  <jakub@redhat.com>
+
+	PR c++/60082
+	* tree.c (build_common_builtin_nodes): Set ECF_LEAF for
+	__builtin_setjmp_receiver.
+
+2014-02-07  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60092
+	* builtin-types.def (BT_FN_INT_PTRPTR_SIZE_SIZE): Add.
+	* builtins.def (BUILT_IN_POSIX_MEMALIGN): Likewise.
+	* tree-ssa-structalias.c (find_func_aliases_for_builtin_call):
+	Handle BUILT_IN_POSIX_MEMALIGN.
+	(find_func_clobbers): Likewise.
+	* tree-ssa-alias.c (ref_maybe_used_by_call_p_1): Likewise.
+	(call_may_clobber_ref_p_1): Likewise.
+
+2014-02-06  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/59918
+	* ipa-devirt.c (record_target_from_binfo): Remove overactive sanity check.
+
+2014-02-06  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR ipa/59469
+	* lto-cgraph.c (lto_output_node): Use
+	symtab_get_symbol_partitioning_class.
+	(lto_output_varpool_node): likewise.
+	(symtab_get_symbol_partitioning_class): Move here from
+	lto/lto-partition.c
+	* cgraph.h (symbol_partitioning_class): Likewise.
+	(symtab_get_symbol_partitioning_class): Declare.
+
+2014-02-06  Jan Hubicka  <hubicka@ucw.cz>
+
+	* ggc.h (ggc_internal_cleared_alloc): New macro.
+	* vec.h (vec_safe_copy): Handle memory stats.
+	* omp-low.c (simd_clone_struct_alloc): Use ggc_internal_cleared_alloc.
+	* target-globals.c (save_target_globals): Likewise.
+
+2014-02-06  Jan Hubicka  <hubicka@ucw.cz>
+
+	PR target/60077
+	* expr.c (emit_move_resolve_push): Export; be bit more selective
+	on when to clear alias set.
+	* expr.h (emit_move_resolve_push): Declare.
+	* function.h (struct function): Add tail_call_marked.
+	* tree-tailcall.c (optimize_tail_call): Set tail_call_marked.
+	* config/i386/i386-protos.h (ix86_expand_push): Remove.
+	* config/i386/i386.md (TImode move expander): De not call
+	ix86_expand_push.
+	(FP push expanders): Preserve memory attributes.
+	* config/i386/sse.md (push<mode>1): Remove.
+	* config/i386/i386.c (ix86_expand_vector_move): Handle push
+	operation.
+	(ix86_expand_push): Remove.
+	* config/i386/mmx.md (push<mode>1): Remove.
+
+2014-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR rtl-optimization/60030
+	* internal-fn.c (ubsan_expand_si_overflow_mul_check): Surround
+	lopart with paradoxical subreg before shifting it up by hprec.
+
+2014-02-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/arm/aarch-cost-tables.h (cortexa57_extra_costs): New table.
+	Remove extra newline at end of file.
+	* config/arm/arm.c (arm_cortex_a57_tune): New tuning struct.
+	(arm_issue_rate): Handle cortexa57.
+	* config/arm/arm-cores.def (cortex-a57): Use cortex_a57 tuning.
+	(cortex-a57.cortex-a53): Likewise.
+
+2014-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/59575
+	* config/arm/arm.c (emit_multi_reg_push): Add dwarf_regs_mask argument,
+	don't record in REG_FRAME_RELATED_EXPR registers not set in that
+	bitmask.
+	(arm_expand_prologue): Adjust all callers.
+	(arm_unwind_emit_sequence): Allow saved, but not important for unwind
+	info, registers also at the lowest numbered registers side.  Use
+	gcc_assert instead of abort, and SET_SRC/SET_DEST macros instead of
+	XEXP.
+
+	PR debug/59992
+	* var-tracking.c (adjust_mems): Before adding a SET
+	to amd->side_effects, adjust it's SET_SRC using
+	simplify_replace_fn_rtx.
+
+2014-02-06  Alan Modra  <amodra@gmail.com>
+
+	PR target/60032
+	* config/rs6000/rs6000.c (rs6000_secondary_memory_needed_mode): Only
+	change SDmode to DDmode when lra_in_progress.
+
+2014-02-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/59150
+	* tree-vect-data-refs.c (vect_analyze_data_refs): For clobbers, call
+	free_data_ref on the dr first, and before goto again also set dr
+	to the next dr.  For simd_lane_access, free old datarefs[i] before
+	overwriting it.  For get_vectype_for_scalar_type failure, don't
+	free_data_ref if simd_lane_access.
+
+	* Makefile.in (prefix.o, cppbuiltin.o): Depend on $(BASEVER).
+
+	PR target/60062
+	* tree.h (opts_for_fn): New inline function.
+	(opt_for_fn): Define.
+	* config/i386/i386.c (ix86_function_regparm): Use
+	opt_for_fn (decl, optimize) instead of optimize.
+
+2014-02-06  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* config/aarch64/aarch64.c (aarch64_classify_symbol): Fix logic
+	for SYMBOL_REF in large memory model.
+
+2014-02-06  Kyrylo Tkachov  <kyrylo.tkachov@arm.com>
+
+	* config/aarch64/aarch64-cores.def (cortex-a53): Specify CRC32
+	and crypto support.
+	(cortex-a57): Likewise.
+	(cortex-a57.cortex-a53): Likewise.
+
+2014-02-06  Yury Gribov  <y.gribov@samsung.com>
+	    Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* config/arm/arm.c (arm_vector_alignment_reachable): Check
+	unaligned_access.
+	* config/arm/arm.c (arm_builtin_support_vector_misalignment): Likewise.
+
+2014-02-06  Richard Biener  <rguenther@suse.de>
+
+	* tree-cfg.c (gimple_duplicate_sese_region): Fix ordering of
+	set_loop_copy and initialize_original_copy_tables.
+
+2014-02-06  Alex Velenko  <Alex.Velenko@arm.com>
+
+	* config/aarch64/aarch64-simd.md
+	(aarch64_ashr_simddi): Change QI to SI.
+
+2014-02-05  Jan Hubicka  <hubicka@ucw.cz>
+	    Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/60013
+	* ipa-inline-analysis.c (compute_bb_predicates): Ensure monotonicity
+	of the dataflow.
+
+2014-02-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (altivec_expand_vec_perm_const): Change
+	CODE_FOR_altivec_vpku[hw]um to
+	CODE_FOR_altivec_vpku[hw]um_direct.
+	* config/rs6000/altivec.md (vec_unpacks_hi_<VP_small_lc>): Change
+	UNSPEC_VUNPACK_HI_SIGN to UNSPEC_VUNPACK_HI_SIGN_DIRECT.
+	(vec_unpacks_lo_<VP_small_lc>): Change UNSPEC_VUNPACK_LO_SIGN to
+	UNSPEC_VUNPACK_LO_SIGN_DIRECT.
+
+2014-02-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (altivec_vsum2sws): Adjust code
+	generation for -maltivec=be.
+	(altivec_vsumsws): Simplify redundant test.
+
+2014-02-05  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* altivec.md (UNSPEC_VPACK_UNS_UNS_MOD_DIRECT): New unspec.
+	(UNSPEC_VUNPACK_HI_SIGN_DIRECT): Likewise.
+	(UNSPEC_VUNPACK_LO_SIGN_DIRECT): Likewise.
+	(mulv8hi3): Use gen_altivec_vpkuwum_direct instead of
+	gen_altivec_vpkuwum.
+	(altivec_vpkpx): Test for VECTOR_ELT_ORDER_BIG instead of for
+	BYTES_BIG_ENDIAN.
+	(altivec_vpks<VI_char>ss): Likewise.
+	(altivec_vpks<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>us): Likewise.
+	(altivec_vpku<VI_char>um): Likewise.
+	(altivec_vpku<VI_char>um_direct): New (copy of
+	altivec_vpku<VI_char>um that still relies on BYTES_BIG_ENDIAN, for
+	internal use).
+	(altivec_vupkhs<VU_char>): Emit vupkls* instead of vupkhs* when
+	target is little endian and -maltivec=be is not specified.
+	(*altivec_vupkhs<VU_char>_direct): New (copy of
+	altivec_vupkhs<VU_char> that always emits vupkhs*, for internal
+	use).
+	(altivec_vupkls<VU_char>): Emit vupkhs* instead of vupkls* when
+	target is little endian and -maltivec=be is not specified.
+	(*altivec_vupkls<VU_char>_direct): New (copy of
+	altivec_vupkls<VU_char> that always emits vupkls*, for internal
+	use).
+	(altivec_vupkhpx): Emit vupklpx instead of vupkhpx when target is
+	little endian and -maltivec=be is not specified.
+	(altivec_vupklpx): Emit vupkhpx instead of vupklpx when target is
+	little endian and -maltivec=be is not specified.
+
+2014-02-05  Richard Henderson <rth@redhat.com>
+
+	PR debug/52727
+	* combine-stack-adj.c: Revert r206943.
+	* sched-int.h (struct deps_desc): Add last_args_size.
+	* sched-deps.c (init_deps): Initialize it.
+	(sched_analyze_insn): Add OUTPUT dependencies between insns that
+	contain REG_ARGS_SIZE notes.
+
+2014-02-05  Jan Hubicka  <hubicka@ucw.cz>
+
+	* lto-cgraph.c (asm_nodes_output): Make global.
+	* lto-wrapper.c (run_gcc): Pass down paralelizm to WPA.
+	* gcc.c (AS_NEEDS_DASH_FOR_PIPED_INPUT): Allow WPA
+	parameter
+	(driver_handle_option): Handle OPT_fwpa.
+
+2014-02-05  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/59947
+	* ipa-devirt.c (possible_polymorphic_call_targets): Fix
+	a comment typo and formatting issue.  If odr_hash hasn't been
+	created, return vNULL and set *completep to false.
+
+	PR middle-end/57499
+	* tree-eh.c (cleanup_empty_eh): Bail out on totally empty
+	bb with no successors.
+
+2014-02-05  James Greenhalgh  <james.greenhalgh@arm.com>
+
+	PR target/59718
+	* doc/invoke.texi (-march): Clarify documentation for ARM.
+	(-mtune): Likewise.
+	(-mcpu): Likewise.
+
 2010-06-30  Jakub Jelinek  <jakub@redhat.com>
 
 	* config/rs6000/rs6000.c (rs6000_elf_end_indicate_exec_stack): New.
@@ -90,7 +577,7 @@
 
 2014-02-04  Bernd Edlinger  <bernd.edlinger@hotmail.de>
 
-	* gcc/config/host-linux.c (linux_gt_pch_use_address): Don't
+	* config/host-linux.c (linux_gt_pch_use_address): Don't
 	use SSIZE_MAX because it is not always defined. 
 
 2014-02-04  Vladimir Makarov  <vmakarov@redhat.com>

@@ -5244,7 +5244,7 @@ aarch64_override_options (void)
 
   /* If the user did not specify a processor, choose the default
      one for them.  This will be the CPU set during configuration using
-     --with-cpu, otherwise it is "coretex-a53".  */
+     --with-cpu, otherwise it is "cortex-a53".  */
   if (!selected_cpu)
     {
       selected_cpu = &all_cores[TARGET_CPU_DEFAULT & 0x3f];
@@ -5400,9 +5400,8 @@ aarch64_classify_symbol (rtx x,
 
   if (GET_CODE (x) == SYMBOL_REF)
     {
-      if (aarch64_cmodel == AARCH64_CMODEL_LARGE
-	  || CONSTANT_POOL_ADDRESS_P (x))
-	return SYMBOL_FORCE_TO_MEM;
+      if (aarch64_cmodel == AARCH64_CMODEL_LARGE)
+	  return SYMBOL_FORCE_TO_MEM;
 
       if (aarch64_tls_symbol_p (x))
 	return aarch64_classify_tls_symbol (x);
