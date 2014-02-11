@@ -44,7 +44,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "ggc.h"
 #include "basic-block.h"
 #include "target.h"
-#include "rtl-chkp.h"
 
 struct target_optabs default_target_optabs;
 struct target_libfuncs default_target_libfuncs;
@@ -3260,14 +3259,9 @@ expand_unop (enum machine_mode mode, optab unoptab, rtx op0, rtx target,
       if (unoptab == ffs_optab || unoptab == clz_optab || unoptab == ctz_optab
 	  || unoptab == clrsb_optab || unoptab == popcount_optab
 	  || unoptab == parity_optab)
-	{
-	  rtx bnd, val;
-
-	  val = hard_libcall_value (TYPE_MODE (integer_type_node),
-				    optab_libfunc (unoptab, mode));
-	  chkp_split_slot (val, &val, &bnd);
-	  outmode = GET_MODE (val);
-	}
+	outmode
+	  = GET_MODE (hard_libcall_value (TYPE_MODE (integer_type_node),
+					  optab_libfunc (unoptab, mode)));
 
       start_sequence ();
 
