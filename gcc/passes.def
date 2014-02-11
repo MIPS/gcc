@@ -54,8 +54,6 @@ along with GCC; see the file COPYING3.  If not see
   PUSH_INSERT_PASSES_WITHIN (pass_early_local_passes)
       NEXT_PASS (pass_before_local_optimization_passes);
       PUSH_INSERT_PASSES_WITHIN (pass_before_local_optimization_passes)
-          /* After isolating all optimizations into a separate IPA pass
-	     this fixup is not needed anymore?  */
 	  NEXT_PASS (pass_fixup_cfg);
 	  NEXT_PASS (pass_init_datastructures);
 	  NEXT_PASS (pass_build_ssa);
@@ -127,7 +125,6 @@ along with GCC; see the file COPYING3.  If not see
   NEXT_PASS (pass_ipa_inline);
   NEXT_PASS (pass_ipa_pure_const);
   NEXT_PASS (pass_ipa_reference);
-
   TERMINATE_PASS_LIST ()
 
   /* Simple IPA passes executed after the regular passes.  In WHOPR mode the
