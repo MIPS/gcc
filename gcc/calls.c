@@ -1568,9 +1568,8 @@ precompute_arguments (int num_actuals, struct arg_data *args)
       type = TREE_TYPE (args[i].tree_value);
       gcc_assert (!TREE_ADDRESSABLE (type));
 
-      if (!args[i].value)
-	args[i].value = expand_normal (args[i].tree_value);
-      args[i].initial_value = args[i].value;
+      args[i].initial_value = args[i].value
+	= expand_normal (args[i].tree_value);
 
       mode = TYPE_MODE (type);
       if (mode != args[i].mode)
@@ -3748,7 +3747,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   rtx call_fusage = 0;
   rtx mem_value = 0;
   rtx valreg;
-  rtx valbnd;
   int pcc_struct_value = 0;
   int struct_value_size = 0;
   int flags;
@@ -4386,9 +4384,6 @@ emit_library_call_value_1 (int retval, rtx orgfun, rtx value,
   OK_DEFER_POP;
 
   pop_temp_slots ();
-
-  /* Returned bound registers are handled later.  */
-  chkp_split_slot (valreg, &valreg, &valbnd);
 
   /* Copy the value to the right place.  */
   if (outmode != VOIDmode && retval)
