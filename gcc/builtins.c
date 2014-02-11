@@ -6877,7 +6877,7 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_CHKP_NARROW:
     case BUILT_IN_CHKP_EXTRACT_LOWER:
     case BUILT_IN_CHKP_EXTRACT_UPPER:
-      /* Software implementation of pointers checker is NYI.
+      /* Software implementation of Pointer Bounds Checker is NYI.
 	 Target support is required.  */
       error ("Your target platform does not support -fcheck-pointer-bounds");
       break;
