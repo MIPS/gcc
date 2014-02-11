@@ -7,7 +7,6 @@
 	(BT_FN_VOID_PTRPTR_CONST_PTR): New.
 	(BT_FN_VOID_CONST_PTR_SIZE): New.
 	(BT_FN_PTR_CONST_PTR_CONST_PTR_SIZE): New.
-	(BT_FN_PTR_CONST_PTR_VAR): New.
 	* chkp-builtins.def: New.
 	* builtins.def: include chkp-builtins.def.
 	(DEF_CHKP_BUILTIN): New.
@@ -21,8 +20,6 @@
 	BUILT_IN_CHKP_BNDCU, BUILT_IN_CHKP_BNDLDX, BUILT_IN_CHKP_BNDRET,
 	BUILT_IN_CHKP_INTERSECT, BUILT_IN_CHKP_ARG_BND, BUILT_IN_CHKP_NARROW,
 	BUILT_IN_CHKP_EXTRACT_LOWER, BUILT_IN_CHKP_EXTRACT_UPPER.
-	* cfgexpand.c (expand_call_stmt): Expand BUILT_IN_CHKP_BIND_BOUNDS
-	calls as assignments.
 	* c-family/c.opt (fcheck-pointer-bounds): New.
 	* toplev.c (process_options): Check Pointer Bounds Checker is supported.
 	* doc/extend.texi: Document Pointer Bounds Checker built-in functions.
