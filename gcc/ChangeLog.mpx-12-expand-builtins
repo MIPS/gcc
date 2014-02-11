@@ -8,5 +8,3 @@
 	(expand_builtin_memset_args): Support BUILT_IN_CHKP_MEMSET_NOBND_NOCHK.
 	(std_expand_builtin_va_start): Initialize bounds for va_list.
 	(expand_builtin): Support instrumented calls.
-	* optabs.c: Include rtl-chkp.h.
-	(expand_unop): Handle bounds in libcall return value.
