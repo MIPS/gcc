@@ -135,7 +135,6 @@ pass_manager::execute_early_local_passes ()
   execute_pass_list (pass_early_local_passes_1->sub->sub);
   execute_pass_list (pass_early_local_passes_1->sub->next->sub);
   execute_pass_list (pass_early_local_passes_1->sub->next->next->next->sub);
-  //execute_pass_list (pass_early_local_passes_1->sub->next->next->sub);
 }
 
 unsigned int
