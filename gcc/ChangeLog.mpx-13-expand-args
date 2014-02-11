@@ -7,13 +7,11 @@
 	(emit_call_1): Propagate instrumentation flag for CALL.
 	(initialize_argument_information): Compute pointer_arg,
 	pointer_offset and special_slot for pointer bounds arguments.
-???	(precompute_arguments): Check value is not computed already.
 	(finalize_must_preallocate): Preallocate when storing bounds
 	in bounds table.
 	(compute_argument_addresses): Skip pointer bounds.
 	(expand_call): Store bounds into tables separately.  Return
 	result joined with resulting bounds.
-???	(emit_library_call_value_1): Split bounds.
 	* cfgexpand.c: Include tree-chkp.h, rtl-chkp.h.
 	(expand_call_stmt): Propagate bounds flag for CALL_EXPR.
 	(expand_return): Add returned bounds arg.  Handle returned bounds.
