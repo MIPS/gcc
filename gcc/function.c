@@ -3484,6 +3484,7 @@ assign_parms (tree fndecl)
       if (cfun->stdarg && !DECL_CHAIN (parm))
 	assign_parms_setup_varargs (&all, &data, false);
 
+      /* Find out where the parameter arrives in this function.  */
       assign_parm_find_entry_rtl (&all, &data);
 
       /* Find out where stack space for this parameter might be.  */
