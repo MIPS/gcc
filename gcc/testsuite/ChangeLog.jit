@@ -1,3 +1,9 @@
+2014-02-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-unplaced-label.c (verify_code): Update
+	expected error message to reflect commit
+	6cd4f82c5237cc328aea229cdaaa428ff09d6e98.
+
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-types.c (struct zoo): Add field m_sized_int_type,
