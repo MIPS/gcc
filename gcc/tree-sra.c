@@ -112,7 +112,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "ipa-inline.h"
 #include "ipa-utils.h"
-#include "tree-chkp.h"
 
 /* Enumeration of all aggregate reductions we can do.  */
 enum sra_mode { SRA_MODE_EARLY_IPA,   /* early call regularization */
@@ -3677,9 +3676,7 @@ find_param_candidates (void)
 
       if (TREE_THIS_VOLATILE (parm)
 	  || TREE_ADDRESSABLE (parm)
-	  || (!is_gimple_reg_type (type) && is_va_list_type (type))
-	  || (chkp_function_instrumented_p (current_function_decl)
-	      && chkp_type_has_pointer (type)))
+	  || (!is_gimple_reg_type (type) && is_va_list_type (type)))
 	continue;
 
       if (is_unused_scalar_param (parm))
