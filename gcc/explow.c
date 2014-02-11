@@ -41,7 +41,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "output.h"
-#include "rtl-chkp.h"
 
 static rtx break_out_memory_refs (rtx);
 
@@ -1873,13 +1872,9 @@ rtx
 hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 		     int outgoing ATTRIBUTE_UNUSED)
 {
-  rtx val, bnd;
+  rtx val;
 
   val = targetm.calls.function_value (valtype, func ? func : fntype, outgoing);
-
-  /* Split bound registers to process non-bound values separately.
-     Join back after processing.  */
-  chkp_split_slot (val, &val, &bnd);
 
   if (REG_P (val)
       && GET_MODE (val) == BLKmode)
@@ -1905,7 +1900,7 @@ hard_function_value (const_tree valtype, const_tree func, const_tree fntype,
 
       PUT_MODE (val, tmpmode);
     }
-  return chkp_join_splitted_slot (val, bnd);
+  return val;
 }
 
 /* Return an rtx representing the register or memory location
