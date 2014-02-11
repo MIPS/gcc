@@ -1877,76 +1877,7 @@ chkp_find_bound_slots (const_tree type)
 tree
 chkp_get_call_arg_bounds (tree arg)
 {
-  return NULL;
-
-  gimple bind;
-
-  gcc_assert (TREE_CODE (arg) == SSA_NAME);
-
-  bind = SSA_NAME_DEF_STMT (arg);
-
-  while (bind && gimple_code (bind) != GIMPLE_CALL)
-    {
-      if (gimple_assign_ssa_name_copy_p (bind))
-	bind = SSA_NAME_DEF_STMT (gimple_assign_rhs1 (bind));
-      else if (gimple_code (bind) == GIMPLE_PHI
-	       && gimple_phi_num_args (bind) == 1
-	       && TREE_CODE (gimple_phi_arg_def (bind, 0)) == SSA_NAME)
-	bind = SSA_NAME_DEF_STMT (gimple_phi_arg_def (bind, 0));
-      else
-	return NULL_TREE;
-    }
-
-  if (bind)
-    {
-      tree decl = gimple_call_fndecl (bind);
-      if (decl
-	  && DECL_BUILT_IN_CLASS (decl) == BUILT_IN_NORMAL
-	  && DECL_FUNCTION_CODE (decl) == BUILT_IN_CHKP_BIND_BOUNDS)
-	return gimple_call_arg (bind, 1);
-    }
-
   return NULL_TREE;
-}
-
-/* Generate CHKP_BIND_BOUNDS call to bind argument ARG for call pointed
-   by by GSI with BOUNDS.
-   Binded argument to be used in call statement is returned.  */
-static tree
-chkp_bind_bounds (gimple_stmt_iterator *gsi, tree arg, tree bounds)
-{
-  tree fndecl = builtin_decl_implicit (BUILT_IN_CHKP_BIND_BOUNDS);
-  tree new_arg;
-  gimple bind;
-
-  bind = gimple_build_call (fndecl, 2, arg, bounds);
-
-  if (!useless_type_conversion_p (TREE_TYPE (arg), ptr_type_node) && 0)
-    {
-      gimple assign;
-      tree tmp;
-
-      tmp = make_temp_ssa_name (ptr_type_node, bind, "");
-      gimple_call_set_lhs (bind, tmp);
-      gsi_insert_before (gsi, bind, GSI_SAME_STMT);
-
-      new_arg = make_temp_ssa_name (TREE_TYPE (arg), gimple_build_nop (), "");
-      assign = gimple_build_assign (new_arg,
-				    build1 (NOP_EXPR, TREE_TYPE (arg), tmp));
-      gsi_insert_before (gsi, assign, GSI_SAME_STMT);
-    }
-  else
-    {
-      //new_arg = make_temp_ssa_name (TREE_TYPE (arg), bind, "");
-      new_arg = make_temp_ssa_name (ptr_type_node, bind, "");
-      gimple_call_set_lhs (bind, new_arg);
-      gsi_insert_before (gsi, bind, GSI_SAME_STMT);
-    }
-
-  /* No instrumentation for bind calls.  */
-  chkp_mark_stmt (bind);
-
-  return gimple_call_lhs (bind);
 }
 
 /* Add bound arguments to call statement pointed by GSI.
