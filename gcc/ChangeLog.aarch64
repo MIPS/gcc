@@ -1,3 +1,7 @@
+2014-02-10  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.target/aarch64/vdiv_f.c: Disable unroll-loops.
+
 2014-02-10  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* config/aarch64/aarch64.md (load_pair<mode>): Modify to

@@ -1,6 +1,6 @@
 /* Test vdiv works correctly.  */
 /* { dg-do run } */
-/* { dg-options "-O3 --save-temps" } */
+/* { dg-options "-O3 --save-temps -fno-unroll-loops" } */
 
 #include <arm_neon.h>
 
