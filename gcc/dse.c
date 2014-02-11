@@ -2921,7 +2921,7 @@ dse_step2_nospill (void)
 
       memset (group->offset_map_n, 0, sizeof (int) * group->offset_map_size_n);
       memset (group->offset_map_p, 0, sizeof (int) * group->offset_map_size_p);
-      bitmap_clear (group->group_kill);
+      group->group_kill->clear ();
 
       EXECUTE_IF_SET_IN_BITMAP (group->store2_n, 0, j, bi)
 	{
@@ -3197,7 +3197,7 @@ dse_step3_scan (bool for_spills, basic_block bb)
   if (insn_info == bb_info->last_insn)
     {
       if (bb_info->kill)
-	bitmap_clear (bb_info->kill);
+	bb_info->kill->clear ();
       else
 	bb_info->kill = BITMAP_ALLOC (&dse_bitmap_obstack);
     }
@@ -3289,7 +3289,7 @@ dse_step3 (bool for_spills)
     {
       bb_info_t bb_info = bb_table[bb->index];
       if (bb_info->gen)
-	bitmap_clear (bb_info->gen);
+	bb_info->gen->clear ();
       else
 	bb_info->gen = BITMAP_ALLOC (&dse_bitmap_obstack);
 
@@ -3575,7 +3575,7 @@ dse_step5_nospill (void)
 		{
 		  if (dump_file && (dump_flags & TDF_DETAILS))
 		    fprintf (dump_file, "wild read\n");
-		  bitmap_clear (v);
+		  v->clear ();
 		}
 	      else if (insn_info->read_rec
                        || insn_info->non_frame_wild_read)

@@ -421,7 +421,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
   gimple_stmt_iterator gsi;
   walk_stmt_load_store_addr_fn visit;
 
-  bitmap_clear (work);
+  work->clear ();
   FOR_EACH_EDGE (e, ei, bb->preds)
     bitmap_ior_into (work, (bitmap)e->src->aux);
 
@@ -592,7 +592,7 @@ stack_var_cmp (const void *a, const void *b)
 static void
 add_partitioned_vars_to_ptset (struct pt_solution *pt,
 			       struct pointer_map_t *decls_to_partitions,
-			       struct pointer_set_t *visited, bitmap temp)
+			       struct pointer_set_t *visited)
 {
   bitmap_iterator bi;
   unsigned i;
@@ -605,18 +605,16 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
       || pointer_set_insert (visited, pt->vars))
     return;
 
-  bitmap_clear (temp);
-
   /* By using a temporary bitmap to store all members of the partitions
      we have to add we make sure to visit each of the partitions only
      once.  */
+  bitmap_head temp;
   EXECUTE_IF_SET_IN_BITMAP (pt->vars, 0, i, bi)
-    if ((!temp
-	 || !temp->bit (i))
+    if (!temp.bit (i)
 	&& (part = (bitmap *) pointer_map_contains (decls_to_partitions,
 						    (void *)(size_t) i)))
-      bitmap_ior_into (temp, *part);
-  bitmap_ior_into (pt->vars, temp);
+      bitmap_ior_into (&temp, *part);
+  bitmap_ior_into (pt->vars, &temp);
 }
 
 /* Update points-to sets based on partition info, so we can use them on RTL.
@@ -682,7 +680,6 @@ update_alias_info_with_stack_vars (void)
     {
       unsigned i;
       struct pointer_set_t *visited = pointer_set_create ();
-      bitmap_head temp;
 
       for (i = 1; i < num_ssa_names; i++)
 	{
@@ -693,11 +690,11 @@ update_alias_info_with_stack_vars (void)
 	      && POINTER_TYPE_P (TREE_TYPE (name))
 	      && ((pi = SSA_NAME_PTR_INFO (name)) != NULL))
 	    add_partitioned_vars_to_ptset (&pi->pt, decls_to_partitions,
-					   visited, &temp);
+					   visited);
 	}
 
       add_partitioned_vars_to_ptset (&cfun->gimple_df->escaped,
-				     decls_to_partitions, visited, &temp);
+				     decls_to_partitions, visited);
 
       pointer_set_destroy (visited);
       pointer_map_destroy (decls_to_partitions);

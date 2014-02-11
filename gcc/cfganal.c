@@ -365,7 +365,7 @@ control_dependences::set_control_dependence_map_bit (basic_block bb,
 void
 control_dependences::clear_control_dependence_bitmap (basic_block bb)
 {
-  bitmap_clear (control_dependence_map[bb->index]);
+  control_dependence_map[bb->index]->clear ();
 }
 
 /* Find the immediate postdominator PDOM of the specified basic block BLOCK.

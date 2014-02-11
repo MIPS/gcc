@@ -49,7 +49,6 @@ static void
 initialize_uninitialized_regs (void)
 {
   basic_block bb;
-  bitmap_head already_genned;
 
   if (optimize == 1)
     {
@@ -64,7 +63,7 @@ initialize_uninitialized_regs (void)
       rtx insn;
       bitmap lr = DF_LR_IN (bb);
       bitmap ur = DF_LIVE_IN (bb);
-      bitmap_clear (&already_genned);
+      bitmap_head already_genned;
 
       FOR_BB_INSNS (bb, insn)
 	{

@@ -262,7 +262,6 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
   struct comparison *last_cmp;
   rtx insn, next, last_clobber;
   bool last_cmp_valid;
-  bitmap_head killed;
 
 
   /* The last comparison that was made.  Will be reset to NULL
@@ -295,7 +294,7 @@ find_comparison_dom_walker::before_dom_children (basic_block bb)
 	continue;
 
       /* Compute the set of registers modified by this instruction.  */
-      bitmap_clear (&killed);
+      bitmap_head killed;
       df_simulate_find_defs (insn, &killed);
 
       src = conforming_compare (insn);
