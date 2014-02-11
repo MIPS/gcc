@@ -500,8 +500,12 @@ recording::context::add_error_va (const char *fmt, va_list ap)
   char buf[1024];
   vsnprintf (buf, sizeof (buf) - 1, fmt, ap);
 
+  const char *progname = get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
+  if (!progname)
+    progname = "libgccjit.so";
+
   fprintf (stderr, "%s: %s\n",
-	   get_str_option (GCC_JIT_STR_OPTION_PROGNAME),
+	   progname,
 	   buf);
 
   if (!m_error_count)
@@ -1075,7 +1079,9 @@ recording::label::replay_into (replayer *r)
 {
   if (!m_has_been_placed)
     {
-      r->add_error ("unplaced label: %s", get_debug_string ());
+      r->add_error ("unplaced label within %s: %s",
+		    m_func->get_debug_string (),
+		    get_debug_string ());
       return;
     }
   set_playback_obj (m_func->playback_function ()

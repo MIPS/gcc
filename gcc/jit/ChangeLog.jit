@@ -1,3 +1,21 @@
+2014-02-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::recording::context::add_error_va): If
+	GCC_JIT_STR_OPTION_PROGNAME is NULL, use "libgccjit.so", as per
+	the comment in libgccjit.h
+	(gcc::jit::recording::label::replay_into): When reporting on an
+	unplaced label, include the name of the containing function in
+	the error message.
+	* libgccjit.c: Remove comment about "Functions for use within the
+	code factory", as this distinction went away in commit
+	96b218c9a1d5f39fb649e02c0e77586b180e8516.
+	(RETURN_VAL_IF_FAIL_PRINTF4): New.
+	(RETURN_NULL_IF_FAIL_PRINTF4): New.
+	(jit_error): Invoke vfprintf with the correct format string in
+	the NULL context case.
+	(gcc_jit_context_new_call): Check for NULL entries within the
+	array of arguments.
+
 2014-02-10  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_context_get_int_type): New.

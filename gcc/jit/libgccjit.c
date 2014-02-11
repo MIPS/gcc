@@ -100,6 +100,16 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
       }								\
   JIT_END_STMT
 
+#define RETURN_VAL_IF_FAIL_PRINTF4(TEST_EXPR, RETURN_EXPR, CTXT, ERR_FMT, A0, A1, A2, A3) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0), (A1), (A2), (A3));			\
+	return (RETURN_EXPR);						\
+      }								\
+  JIT_END_STMT
+
 #define RETURN_VAL_IF_FAIL_PRINTF6(TEST_EXPR, RETURN_EXPR, CTXT, ERR_FMT, A0, A1, A2, A3, A4, A5) \
   JIT_BEGIN_STMT							\
     if (!(TEST_EXPR))							\
@@ -118,6 +128,9 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
 
 #define RETURN_NULL_IF_FAIL_PRINTF3(TEST_EXPR, CTXT, ERR_FMT, A0, A1, A2) \
   RETURN_VAL_IF_FAIL_PRINTF3 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1, A2)
+
+#define RETURN_NULL_IF_FAIL_PRINTF4(TEST_EXPR, CTXT, ERR_FMT, A0, A1, A2, A3) \
+  RETURN_VAL_IF_FAIL_PRINTF4 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1, A2, A3)
 
 #define RETURN_NULL_IF_FAIL_PRINTF6(TEST_EXPR, CTXT, ERR_FMT, A0, A1, A2, A3, A4, A5) \
   RETURN_VAL_IF_FAIL_PRINTF6 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1, A2, A3, A4, A5)
@@ -174,7 +187,8 @@ jit_error (gcc::jit::recording::context *ctxt, const char *fmt, ...)
   else
     {
       /* No context?  Send to stderr.  */
-      vfprintf (stderr, "%s\n", ap);
+      vfprintf (stderr, fmt, ap);
+      fprintf (stderr, "\n");
     }
 
   va_end (ap);
@@ -205,9 +219,6 @@ gcc_jit_context_new_child_context (gcc_jit_context *parent_ctxt)
   return new gcc_jit_context (parent_ctxt);
 }
 
-/**********************************************************************
- Functions for use within the code factory.
- **********************************************************************/
 gcc_jit_location *
 gcc_jit_context_new_location (gcc_jit_context *ctxt,
 			      const char *filename,
@@ -629,6 +640,16 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
     {
       gcc::jit::recording::param *param = func->get_param (i);
       gcc_jit_rvalue *arg = args[i];
+
+      RETURN_NULL_IF_FAIL_PRINTF4 (
+	arg,
+	ctxt,
+	"NULL argument %i to function \"%s\":"
+	" param %s (type: %s)",
+	i + 1,
+	func->get_name ()->c_str (),
+	param->get_debug_string (),
+	param->get_type ()->get_debug_string ());
 
       RETURN_NULL_IF_FAIL_PRINTF6 (
 	compatible_types (param->get_type (),
