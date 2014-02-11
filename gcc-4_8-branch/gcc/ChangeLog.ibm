@@ -1,3 +1,12 @@
+2014-02-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	Backport from mainline r207699.
+	2014-02-11  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60137
+	* config/rs6000/rs6000.md (128-bit GPR splitter): Add a splitter
+	for VSX/Altivec vectors that land in GPR registers.
+
 2014-02-06  Ulrich Weigand  <Ulrich.Weigand@de.ibm.com>
 
 	Backport from mainline r207658
