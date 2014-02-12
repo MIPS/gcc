@@ -1446,8 +1446,10 @@ propagate_constants_accross_call (struct cgraph_edge *cs)
     i = 0;
 
   /* No propagation through instrumentation thunks is available yet.
-     TODO: Should be possible with proper mapping of call args and
-     instrumented callee params in the propagation loop below.  */
+     It should be possible with proper mapping of call args and
+     instrumented callee params in the propagation loop below.  But
+     this case mostly occurs when legacy code calls instrumented code
+     and it is not a primary target for optimizations.  */
   if (!alias_or_thunk->instrumentation_clone
       && callee->instrumentation_clone)
     {
