@@ -31234,6 +31234,12 @@ ix86_init_mpx_builtins ()
       ftype = (enum ix86_builtin_func_type) d->flag;
       decl = def_builtin (d->mask, d->name, ftype, d->code);
 
+      /* With no leaf and nothrow flags for MPX builtins
+	 abnormal edges may follow its call when setjmp
+	 presents in the function.  Since we may have a lot
+	 of MPX builtins calls it causes lots of useless
+	 edges and enormous PHI nodes.  To avoid this we mark
+	 MPX builtins as leaf and nothrow.  */
       if (decl)
 	{
 	  DECL_ATTRIBUTES (decl) = build_tree_list (get_identifier ("leaf"),
@@ -35074,6 +35080,29 @@ ix86_expand_vec_set_builtin (tree exp)
   return target;
 }
 
+/* Choose max of DST and SRC and put it to DST.  */
+static void
+ix86_emit_move_max (rtx dst, rtx src)
+{
+  rtx t;
+
+  if (TARGET_CMOVE)
+    {
+      t = ix86_expand_compare (LTU, dst, src);
+      emit_insn (gen_rtx_SET (VOIDmode, dst,
+			      gen_rtx_IF_THEN_ELSE (GET_MODE (dst), t,
+						    src, dst)));
+    }
+  else
+    {
+      rtx nomove = gen_label_rtx ();
+      emit_cmp_and_jump_insns (dst, src, GEU, const0_rtx,
+			       GET_MODE (dst), 1, nomove);
+      emit_insn (gen_rtx_SET (VOIDmode, dst, src));
+      emit_label (nomove);
+    }
+}
+
 /* Expand an expression EXP that calls a built-in function,
    with result going to TARGET if that's convenient
    (and in mode MODE if that's convenient).
@@ -35185,9 +35214,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       op1 = force_reg (Pmode, op1);
 
       /* Avoid registers which connot be used as index.  */
-      if (REGNO (op1) == VIRTUAL_INCOMING_ARGS_REGNUM
-	  || REGNO (op1) == VIRTUAL_STACK_VARS_REGNUM
-	  || REGNO (op1) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+      if (!index_register_operand (op1, Pmode))
 	{
 	  rtx temp = gen_reg_rtx (Pmode);
 	  emit_move_insn (temp, op1);
@@ -35198,11 +35225,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	 mode other than Pmode.  We need to extend in such
 	 case because bndldx may work only with Pmode regs.  */
       if (GET_MODE (op1) != Pmode)
-	{
-	  rtx ext = gen_rtx_ZERO_EXTEND (Pmode, op1);
-	  op1 = gen_reg_rtx (Pmode);
-	  emit_move_insn (op1, ext);
-	}
+	op1 = ix86_zero_extend_to_Pmode (op1);
 
       emit_insn (TARGET_64BIT
                  ? gen_bnd64_ldx (target, op0, op1)
@@ -35283,9 +35306,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 
     case IX86_BUILTIN_BNDNARROW:
       {
-	enum machine_mode mode = BNDmode;
-	enum machine_mode hmode = Pmode;
-	rtx m1, m1h1, m1h2, lb, ub, t1, t2;
+	rtx m1, m1h1, m1h2, lb, ub, t1;
 
 	/* Return value and lb.  */
 	arg0 = CALL_EXPR_ARG (exp, 0);
@@ -35306,60 +35327,35 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	op1 = expand_normal (arg1);
 	op2 = expand_normal (arg2);
 
-	lb = force_reg (hmode, op0);
-	ub = force_reg (hmode, op2);
+	lb = force_reg (Pmode, op0);
+	ub = force_reg (Pmode, op2);
 
 	/* We need to move bounds to memory before any computations.  */
 	if (!MEM_P (op1))
 	  {
-	    m1 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    m1 = assign_stack_local (BNDmode, GET_MODE_SIZE (BNDmode), 0);
 	    emit_insn (gen_move_insn (m1, op1));
 	  }
 	else
 	  m1 = op1;
 
 	/* Generate mem expression to be used for access to LB and UB.  */
-	m1h1 = gen_rtx_MEM (hmode, XEXP (m1, 0));
-	m1h2 = gen_rtx_MEM (hmode,
-			    gen_rtx_PLUS (Pmode, XEXP (m1, 0),
-					  GEN_INT (GET_MODE_SIZE (hmode))));
+	m1h1 = gen_rtx_MEM (Pmode, XEXP (m1, 0));
+	m1h2 = gen_rtx_MEM (Pmode, plus_constant (Pmode, XEXP (m1, 0),
+						  GET_MODE_SIZE (Pmode)));
 
-	t1 = gen_reg_rtx (hmode);
+	t1 = gen_reg_rtx (Pmode);
 
 	/* Compute LB.  */
 	emit_move_insn (t1, m1h1);
-	if (TARGET_CMOVE)
-	  {
-	    t2 = ix86_expand_compare (LTU, t1, lb);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1,
-				    gen_rtx_IF_THEN_ELSE (hmode, t2, lb, t1)));
-	  }
-	else
-	  {
-	    rtx nomove = gen_label_rtx ();
-	    emit_cmp_and_jump_insns (t1, lb, GEU, const0_rtx, hmode, 1, nomove);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1, lb));
-	    emit_label (nomove);
-	  }
+	ix86_emit_move_max (t1, lb);
 	emit_move_insn (m1h1, t1);
 
 
 	/* Compute UB.  UB are stored in 1's complement form.  Therefore
-	   we also use LTU here.  */
+	   we also use max here.  */
 	emit_move_insn (t1, m1h2);
-	if (TARGET_CMOVE)
-	  {
-	    t2 = ix86_expand_compare (LTU, t1, ub);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1,
-				    gen_rtx_IF_THEN_ELSE (hmode, t2, ub, t1)));
-	  }
-	else
-	  {
-	    rtx nomove = gen_label_rtx ();
-	    emit_cmp_and_jump_insns (t1, ub, GEU, const0_rtx, hmode, 1, nomove);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1, ub));
-	    emit_label (nomove);
-	  }
+	ix86_emit_move_max (t1, ub);
 	emit_move_insn (m1h2, t1);
 
 	op2 = gen_reg_rtx (BNDmode);
@@ -35370,9 +35366,9 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 
     case IX86_BUILTIN_BNDINT:
       {
-	enum machine_mode mode = BNDmode;
-	enum machine_mode hmode = Pmode;
-	rtx res = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	unsigned bndsize = GET_MODE_SIZE (BNDmode);
+	unsigned psize = GET_MODE_SIZE (Pmode);
+	rtx res = assign_stack_local (BNDmode, bndsize, 0);
 	rtx m1, m2, m1h1, m1h2, m2h1, m2h2, t1, t2, t3, rh1, rh2;
 
 	arg0 = CALL_EXPR_ARG (exp, 0);
@@ -35384,7 +35380,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	/* We need to move bounds to memory before any computations.  */
 	if (!MEM_P (op0))
 	  {
-	    m1 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    m1 = assign_stack_local (BNDmode, bndsize, 0);
 	    emit_insn (gen_move_insn (m1, op0));
 	  }
 	else
@@ -35392,65 +35388,35 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 
 	if (!MEM_P (op1))
 	  {
-	    m2 = assign_stack_local (mode, GET_MODE_SIZE (mode), 0);
+	    m2 = assign_stack_local (BNDmode, bndsize, 0);
 	    emit_move_insn (m2, op1);
 	  }
 	else
 	  m2 = op1;
 
 	/* Generate mem expression to be used for access to LB and UB.  */
-	m1h1 = gen_rtx_MEM (hmode, XEXP (m1, 0));
-	m1h2 = gen_rtx_MEM (hmode,
-			    gen_rtx_PLUS (Pmode, XEXP (m1, 0),
-					  GEN_INT (GET_MODE_SIZE (hmode))));
-	m2h1 = gen_rtx_MEM (hmode, XEXP (m2, 0));
-	m2h2 = gen_rtx_MEM (hmode,
-			    gen_rtx_PLUS (Pmode, XEXP (m2, 0),
-					  GEN_INT (GET_MODE_SIZE (hmode))));
-	rh1 = gen_rtx_MEM (hmode, XEXP (res, 0));
-	rh2 = gen_rtx_MEM (hmode,
-			   gen_rtx_PLUS (Pmode, XEXP (res, 0),
-					 GEN_INT (GET_MODE_SIZE (hmode))));
+	m1h1 = gen_rtx_MEM (Pmode, XEXP (m1, 0));
+	m1h2 = gen_rtx_MEM (Pmode, plus_constant (Pmode, XEXP (m1, 0), psize));
+	m2h1 = gen_rtx_MEM (Pmode, XEXP (m2, 0));
+	m2h2 = gen_rtx_MEM (Pmode, plus_constant (Pmode, XEXP (m2, 0), psize));
+	rh1 = gen_rtx_MEM (Pmode, XEXP (res, 0));
+	rh2 = gen_rtx_MEM (Pmode, plus_constant (Pmode, XEXP (res, 0), psize));
 
 	/* Allocate temporaries.  */
-	t1 = gen_reg_rtx (hmode);
-	t2 = gen_reg_rtx (hmode);
+	t1 = gen_reg_rtx (Pmode);
+	t2 = gen_reg_rtx (Pmode);
 
 	/* Compute LB.  */
 	emit_move_insn (t1, m1h1);
 	emit_move_insn (t2, m2h1);
-	if (TARGET_CMOVE)
-	  {
-	    t3 = ix86_expand_compare (LTU, t1, t2);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1,
-				    gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
-	  }
-	else
-	  {
-	    rtx nomove = gen_label_rtx ();
-	    emit_cmp_and_jump_insns (t1, t2, GEU, const0_rtx, hmode, 1, nomove);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
-	    emit_label (nomove);
-	  }
+	ix86_emit_move_max (t1, t2);
 	emit_move_insn (rh1, t1);
 
 	/* Compute UB.  UB are stored in 1's complement form.  Therefore
-	   we also use LTU here.  */
+	   we also use max here.  */
 	emit_move_insn (t1, m1h2);
 	emit_move_insn (t2, m2h2);
-	if (TARGET_CMOVE)
-	  {
-	    t3 = ix86_expand_compare (LTU, t1, t2);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1,
-				    gen_rtx_IF_THEN_ELSE (hmode, t3, t2, t1)));
-	  }
-	else
-	  {
-	    rtx nomove = gen_label_rtx ();
-	    emit_cmp_and_jump_insns (t1, t2, GEU, const0_rtx, hmode, 1, nomove);
-	    emit_insn (gen_rtx_SET (VOIDmode, t1, t2));
-	    emit_label (nomove);
-	  }
+	ix86_emit_move_max (t1, t2);
 	emit_move_insn (rh2, t1);
 
 	return res;
