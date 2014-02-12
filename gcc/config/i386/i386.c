@@ -36791,9 +36791,7 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
   addr = force_reg (Pmode, addr);
 
   /* Avoid registers which connot be used as index.  */
-  if (REGNO (ptr) == VIRTUAL_INCOMING_ARGS_REGNUM
-      || REGNO (ptr) == VIRTUAL_STACK_VARS_REGNUM
-      || REGNO (ptr) == VIRTUAL_OUTGOING_ARGS_REGNUM)
+  if (!index_register_operand (ptr, Pmode))
     {
       rtx temp = gen_reg_rtx (Pmode);
       emit_move_insn (temp, ptr);
