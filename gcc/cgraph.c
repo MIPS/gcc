@@ -1396,6 +1396,9 @@ cgraph_redirect_edge_call_stmt_to_callee (struct cgraph_edge *e)
 	  e->speculative = false;
 	  cgraph_set_call_stmt_including_clones (e->caller, e->call_stmt,
 						 new_stmt, false);
+
+	  /* Fix edges for BUILT_IN_CHKP_BNDRET calls attached to the
+	     processed call stmt.  */
 	  if (gimple_call_with_bounds_p (new_stmt)
 	      && gimple_call_lhs (new_stmt)
 	      && chkp_retbnd_call_by_val (gimple_call_lhs (e2->call_stmt)))

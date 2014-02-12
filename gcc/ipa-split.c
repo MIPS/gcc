@@ -498,21 +498,12 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   if (!VOID_TYPE_P (TREE_TYPE (current_function_decl)))
     call_overhead += estimate_move_cost (TREE_TYPE (current_function_decl));
 
-  /* Currently bounds passing and return is not supported for
-     splitted functions.  */
-  EXECUTE_IF_SET_IN_BITMAP (current->ssa_names_to_pass, 0, i, bi)
-    {
-      if (POINTER_BOUNDS_P (ssa_name (i)))
-	{
-	  if (dump_file && (dump_flags & TDF_DETAILS))
-	    fprintf (dump_file,
-		     "  Refused: need to pass bounds\n");
-	  return;
-	}
-    }
-
+  /* Currently returned value is processed but returned bounds
+     are not processed.  It results in bounds in return statement
+     with no definition.  Forbid split until returned bounds are
+     supported.  */
   if (chkp_function_instrumented_p (current_function_decl)
-      && chkp_type_has_pointer (TREE_TYPE (current_function_decl)))
+      && chkp_type_has_pointer (TREE_TYPE (TREE_TYPE (current_function_decl))))
     {
       if (dump_file && (dump_flags & TDF_DETAILS))
 	fprintf (dump_file,

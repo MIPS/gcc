@@ -1,41 +1,44 @@
 2013-11-15  Ilya Enkovich  <ilya.enkovich@intel.com>
 
 	* calls.c: Include tree-chkp.h, rtl-chkp.h.
-	(arg_data): Add fields for bounds information
-	and to store value pushed to the stack.
+	(arg_data): Add fields special_slot, pointer_arg and
+	pointer_offset.
+	(store_bounds): New.
 	(emit_call_1): Propagate instrumentation flag for CALL.
-	(precompute_register_parameters): Expand bounds of the arg.
-	(initialize_argument_information): Fill bounds information.
-	(load_register_parameters): Load passed bounds.
-	(expand_call): Handle passed and returned bounds.
-	(emit_library_call_value_1): Filter out returned bounds.
-	(store_one_arg): Store bounds of arg.
+	(initialize_argument_information): Compute pointer_arg,
+	pointer_offset and special_slot for pointer bounds arguments.
+	(finalize_must_preallocate): Preallocate when storing bounds
+	in bounds table.
+	(compute_argument_addresses): Skip pointer bounds.
+	(expand_call): Store bounds into tables separately.  Return
+	result joined with resulting bounds.
 	* cfgexpand.c: Include tree-chkp.h, rtl-chkp.h.
-	(expand_call_stmt): Propagate instrumentation flag for CALL_EXPR.
-	(expand_return): Handle returned bounds.
+	(expand_call_stmt): Propagate bounds flag for CALL_EXPR.
+	(expand_return): Add returned bounds arg.  Handle returned bounds.
 	(expand_gimple_stmt_1): Adjust to new expand_return signature.
 	(gimple_expand_cfg): Reset rtx bounds map.
-	* explow.c: Include rtl-chkp.h.
-	(hard_function_value): Handle returned bounds.
 	* expr.h (store_expr): Add param for bounds target.
 	* expr.c: Include tree-chkp.h, rtl-chkp.h.
 	(expand_assignment): Handle returned bounds.
-	(store_expr): Likewise.
+	(store_expr): Add bounds target argument.  Handle
+	bounds returned by calls.
 	(store_constructor): Adjust to new store_expr signature.
 	(store_field): Likewise.
 	(expand_expr_real_2): Likewise.
 	(expand_expr_real_1): Likewise.
-	* tree-outof-ssa.c (insert_value_copy_on_edge): Adjust to new
-	store_expr signature.
 	* function.c: Include tree-chkp.h, rtl-chkp.h.
-	(aggregate_value_p): Handle returned bounds.
 	(use_register_for_decl): Do not registerize decls used for bounds
 	stores and loads.
-	(assign_parm_data_one): Add field for bounds.
-	(assign_parm_find_entry_rtl): Fill bounds info.
-	(assign_parms): Initialize input bounds for args.
-	(expand_function_start): Handle returned bounds.
+	(assign_parms_augmented_arg_list): Add bounds of the result
+	structure pointer as the second argument.
+	(assign_parm_find_entry_rtl): Mark bounds are never passed on
+	the stack.
+	(assign_parm_is_stack_parm): Likewise.
+	(assign_parm_load_bounds): New.
+	(assign_parms): Load bounds and determine a location for
+	returned bounds.
 	(diddle_return_value_1): New.
 	(diddle_return_value): Handle returned bounds.
-	(expand_function_end): Likewise.
 	* function.h (rtl_data): Add field for returned bounds.
+	* tree-outof-ssa.c (insert_value_copy_on_edge): Adjust to new
+	store_expr signature.
