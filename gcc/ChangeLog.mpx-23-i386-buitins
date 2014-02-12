@@ -29,7 +29,8 @@
 	(bdesc_mpx_const): New.
 	(ix86_init_mpx_builtins): New.
 	(ix86_init_builtins): Call ix86_init_mpx_builtins.
-	(ix86_expand_builtin): expand IX86_BUILTIN_BNDMK,
+	(ix86_emit_move_max): New.
+	(ix86_expand_builtin): Expand IX86_BUILTIN_BNDMK,
 	IX86_BUILTIN_BNDSTX, IX86_BUILTIN_BNDLDX,
 	IX86_BUILTIN_BNDCL, IX86_BUILTIN_BNDCU,
 	IX86_BUILTIN_BNDRET, IX86_BUILTIN_BNDSET,
