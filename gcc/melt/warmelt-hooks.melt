@@ -2152,6 +2152,39 @@ bool  melthk_pass_execution_registered_flag;
 
 
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(defhook hook_melt_do_initial_mode
+  (:value modata  :cstring modstr)
+  ()
+  :void
+  :predef HOOK_MELT_DO_INITIAL_MODE
+  (let ( (modict (get_field :sysdata_mode_dict initial_system_data))
+	 (modlist (expr_chunk modlist_chk :value
+			      #{ /*hook_melt_do_initial_mode $MODLIST_CHK*/
+			      (meltgc_new_split_string ($MODSTR, ',' (melt_ptr_t) $DISCR_STRING)) }#))
+			      
+	 )
+    (assert_msg "check modict" (is_mapstring modict) modict initial_system_data)
+    (assert_msg "check modlist" (is_list modlist) modlist)
+    (foreach_pair_component_in_list
+     (modlist)
+     (curpair curmodstr)
+     (debug "hook_melt_do_initial_mode curmodstr=" curmodstr)
+     (let ( (curmod (mapstring_getstr modict curmodstr))
+	    )
+       (debug "hook_melt_do_initial_mode curmod=" curmod)
+       (when curmod
+	 (assert_msg "check curmod" (is_a curmod class_melt_mode) curmod class_melt_mode)
+	 (let ( (curmodfun (get_field :meltmode_fun curmod))
+		)
+	   (assert_msg "check curmodfun" (is_closure curmodfun) curmodfun curmod)
+	   (let ( (curmodres (curmodfun curmod modata))
+		  )
+	     (debug "hook_melt_do_initial_mode curmodres=" curmodres " for curmod=" curmod)
+	     ;;; incomplete, should push into the vector of done modes
+	 )))
+    ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; attribute definer hook

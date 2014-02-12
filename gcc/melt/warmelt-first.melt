@@ -4247,7 +4247,9 @@ $MELT_MAKE_FRESH_ENVIRONMENT_REFERENCE primitive. For gurus and MELT itself.}#
   :doc #{$THE_MELTCALLCOUNT is obsolete for $MELT_CALLCOUNT}#)
 
 (export_synonym foreach_in_list foreach_pair_component_in_list
-  :doc #{$FOREACH_IN_LIST is obsolete for $FOREACH_PAIR_COMPONENT_IN_LIST}#)
+		:doc #{$FOREACH_IN_LIST is obsolete for $FOREACH_PAIR_COMPONENT_IN_LIST}#)
+
+
 ;; we predefine :true as the TRUE. Currently no handcoded C function
 ;; uses it, but perhaps that could change!!
 
