@@ -7,3 +7,5 @@
 	(is_base_type): Support POINTER_BOUNDS_TYPE.
 	(gen_formal_types_die): Skip pointer bounds.
 	(gen_decl_die): Likewise.
+	* var-tracking.c (vt_add_function_parameters): Skip
+	bounds parameters.
