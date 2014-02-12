@@ -38,7 +38,7 @@ extern tree chkp_get_zero_bounds_var (void);
 extern bool chkp_variable_size_type (tree type);
 extern tree chkp_build_make_bounds_call (tree lb, tree size);
 extern tree chkp_build_bndstx_call (tree addr, tree ptr, tree bounds);
-extern vec<bool> chkp_find_bound_slots (const_tree type);
+extern bitmap chkp_find_bound_slots (const_tree type);
 extern void chkp_build_bndstx (tree addr, tree ptr, tree bounds,
 			       gimple_stmt_iterator *gsi);
 extern tree chkp_parm_for_arg_bnd_arg (tree arg);
