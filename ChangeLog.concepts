@@ -1,4 +1,12 @@
 2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/cp/parser.c (synthesize_implicit_template_parm): Allow concepts
+	to declare implicit template parameters. Only synthesize new parameters
+	if the concept name is new.
+	(finish_concept_name): Moving into parser.c for the time being. Needs
+	to be rewritten to remove duplicate code between parser.c and
+	constraint.cc.
+
+2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/pt.c (tsubst_copy): Expand pack expansions as conjunctions.
 
 2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>

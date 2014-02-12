@@ -101,8 +101,6 @@ conjoin_requirements (tree t)
 // matched declaration, and whose purpose contains the coerced template
 // arguments that can be substituted into the call.
 
-namespace {
-
 // Given an overload set, try to find a unique definition that can be
 // instantiated by the template arguments.
 //
@@ -194,8 +192,6 @@ resolve_constraint_check (tree call)
   return resolve_constraint_check (ovl, args);
 }
   
-} // end namespace
-
 
 // -------------------------------------------------------------------------- //
 // Requirement Reduction
@@ -805,7 +801,6 @@ check_constrained_friend (tree fn, tree reqs)
     }
 }
 
-namespace {
 // Given an overload set, OVL, and a template argument or placeholder, ARG,
 // synthesize a call expression that resolves to a concept check of
 // the expression the form OVL<ARG>().
@@ -844,7 +839,6 @@ describe_template_parm (tree proto, tree fn)
   DECL_SIZE_UNIT (decl) = fn;   // Constraining function declaration
   return decl;
 }
-} // namespace
 
 // If the result is a TYPE_DECL, its DECL_NAME is the name of the
 // concept (without arguments), its TREE_TYPE refers to the type of the

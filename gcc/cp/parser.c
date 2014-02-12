@@ -2126,7 +2126,7 @@ static tree cp_parser_late_parsing_omp_declare_simd
   (cp_parser *, tree);
 
 static tree synthesize_implicit_template_parm
-  (cp_parser *);
+  (cp_parser *, tree);
 static tree finish_fully_implicit_template
   (cp_parser *, tree);
 
@@ -14652,7 +14652,7 @@ cp_parser_simple_type_specifier (cp_parser* parser,
       maybe_warn_cpp0x (CPP0X_AUTO);
       if (parser->auto_is_implicit_function_template_parm_p)
 	{
-	  type = synthesize_implicit_template_parm (parser);
+	  type = synthesize_implicit_template_parm (parser, NULL_TREE);
 
 	  if (current_class_type && LAMBDA_TYPE_P (current_class_type))
 	    {
@@ -14947,6 +14947,63 @@ cp_parser_type_name (cp_parser* parser)
   return type_decl;
 }
 
+// If the result is a TYPE_DECL, its DECL_NAME is the name of the
+// concept (without arguments), its TREE_TYPE refers to the type of the
+// first template parameter of concept definition (the prototype parameter),
+// its DECL_INITIAL is the declaration of the prototype parameter, and
+// its DECL_SIZE_UNIT is the constraining concept declaration.
+//
+// TODO: A variable template may refer to a concept. The concept-name
+// could introduce a constrained placeholder type in the terse template
+// syntax.
+//
+// FIXME: This shouldn't be here... or the synthesize_implicit_template_parm
+// should be more accessible.
+static tree
+finish_concept_name (cp_parser* parser, tree decl)
+{
+  gcc_assert (TREE_CODE (decl) == OVERLOAD);
+
+  // Try to build a call expression that evaluates the concept. This
+  // can fail if the overload set refers only to non-templates.
+  tree call = build_concept_check (decl, build_nt(PLACEHOLDER_EXPR));
+  if (call == error_mark_node)
+    return NULL_TREE;
+  
+  // Resolve the constraint check to deduce the declared parameter.
+  tree check = resolve_constraint_check (call);
+  if (!check)
+    return NULL_TREE;
+
+  // Get function and argument from the resolved check expression. If 
+  // the argument was a pack expansion, then get the first element 
+  // of that pack.
+  tree fn = TREE_VALUE (check);
+  tree arg = TREE_VEC_ELT (TREE_PURPOSE (check), 0);
+  if (ARGUMENT_PACK_P (arg))
+    arg = TREE_VEC_ELT (ARGUMENT_PACK_ARGS (arg), 0);
+
+  // Get the protyping parameter bound to the placeholder.
+  tree proto = TREE_TYPE (arg);
+
+  // How we process the constrained declaration depends on the scope.
+  // In template scope, we return a "description" that will later be
+  // transformed into a real template parameter by process_template_parm.
+  if (template_parm_scope_p ())
+    return describe_template_parm (proto, fn);
+
+  // If we can synthesize a template paramter, we should do that here.
+  if (parser->auto_is_implicit_function_template_parm_p)
+    {
+      tree x = describe_template_parm (proto, fn);
+      tree r = synthesize_implicit_template_parm (parser, x);
+      return r;
+    }
+
+  return NULL_TREE;
+}
+
+
 /* Parse a non-class type-name, that is, either an enum-name, a typedef-name,
    or a concept-name.
 
@@ -14982,7 +15039,7 @@ cp_parser_nonclass_name (cp_parser* parser)
   if (TREE_CODE (type_decl) == OVERLOAD)
   {
     // Determine whether the overload refers to a concept.
-    if (tree decl = finish_concept_name (type_decl))
+    if (tree decl = finish_concept_name (parser, type_decl))
       return decl;
   }
 
@@ -17149,6 +17206,7 @@ cp_parser_declarator (cp_parser* parser,
 
   if (gnu_attributes && declarator && declarator != cp_error_declarator)
     declarator->attributes = gnu_attributes;
+
   return declarator;
 }
 
@@ -23260,8 +23318,13 @@ cp_parser_function_definition_after_declarator (cp_parser* parser,
   parser->implicit_template_scope
     = implicit_template_scope;
 
-  if (parser->fully_implicit_function_template_p)
+  if (parser->fully_implicit_function_template_p) {
+    // Attach implicit constraints to the function template.
+    tree constr = get_shorthand_requirements (current_template_parms);
+    tree cinfo = finish_template_requirements (constr);
+    DECL_CONSTRAINTS (DECL_TI_TEMPLATE (fn)) = cinfo;
     finish_fully_implicit_template (parser, /*member_decl_opt=*/0);
+  }
 
   return fn;
 }
@@ -32194,14 +32257,49 @@ tree_type_is_auto_or_concept (const_tree t)
   return TREE_TYPE (t) && is_auto_or_concept (TREE_TYPE (t));
 }
 
+// Return the template decl being called or evaluated as part of the
+// constraint check.
+//
+// TODO: This is a bit of a hack. When we finish the template parameter
+// the constraint is just a call expression, but we don't have the full
+// context that we used to build that call expression. Since we're going
+// to be comparing declarations, it would helpful to have that. This
+// means we'll have to make the TREE_TYPE of the parameter node a pair
+// containing the context (the TYPE_DECL) and the constraint.
+static tree
+get_concept_from_constraint (tree t)
+{
+  gcc_assert (TREE_CODE (t) == CALL_EXPR);
+  tree fn = CALL_EXPR_FN (t);
+  tree ovl = TREE_OPERAND (fn, 0);
+  tree tmpl = OVL_FUNCTION (ovl);
+  return DECL_TEMPLATE_RESULT (tmpl);
+}
+
 /* Add an implicit template type parameter to the CURRENT_TEMPLATE_PARMS
    (creating a new template parameter list if necessary).  Returns the newly
    created template type parm.  */
 
 tree
-synthesize_implicit_template_parm  (cp_parser *parser)
+synthesize_implicit_template_parm  (cp_parser *parser, tree constr)
 {
   gcc_assert (current_binding_level->kind == sk_function_parms);
+
+  // Before committing to modifying any scope, if we're in an implicit
+  // template scope, and we're trying to synthesize a constrained
+  // parameter, try to find a previous parameter with the same name.
+  if (parser->implicit_template_scope && constr)
+    {
+      tree t = parser->implicit_template_parms;
+      while (t)
+        {
+          tree c = get_concept_from_constraint (TREE_TYPE (t));
+          if (c == DECL_SIZE_UNIT (constr))
+            return TREE_VALUE (t);
+          t = TREE_CHAIN (t);
+        }
+    }
+
 
   /* We are either continuing a function template that already contains implicit
      template parameters, creating a new fully-implicit function template, or
@@ -32280,10 +32378,15 @@ synthesize_implicit_template_parm  (cp_parser *parser)
   tree synth_id = make_generic_type_name ();
   tree synth_tmpl_parm = finish_template_type_parm (class_type_node,
 						    synth_id);
+
+  // Attach the constraint to the parm before processing.
+  tree node = build_tree_list (NULL_TREE, synth_tmpl_parm);
+  TREE_TYPE (node) = constr;
+  
   tree new_parm
     = process_template_parm (parser->implicit_template_parms,
 			     input_location,
-			     build_tree_list (NULL_TREE, synth_tmpl_parm),
+			     node,
 			     /*non_type=*/false,
 			     /*param_pack=*/false);
 
