@@ -241,7 +241,6 @@
 ;;   s - address with no segment register
 ;;   i - address with no index and no rip
 ;;   b - address with no base and no rip
-;;   S - symbol reference
 
 (define_address_constraint "Tv"
   "VSIB address operand"
