@@ -1602,8 +1602,7 @@ free_loop_data (struct loop *loop)
   if (!data)
     return;
 
-  bitmap_clear (&LOOP_DATA (loop)->regs_ref);
-  bitmap_clear (&LOOP_DATA (loop)->regs_live);
+  data->~loop_data ();
   free (data);
   loop->aux = NULL;
 }
@@ -1867,7 +1866,7 @@ calculate_loop_reg_pressure (void)
 	    }
 	}
     }
-  bitmap_clear (&curr_regs_live);
+  curr_regs_live.clear ();
   if (flag_ira_region == IRA_REGION_MIXED
       || flag_ira_region == IRA_REGION_ALL)
     FOR_EACH_LOOP (loop, 0)

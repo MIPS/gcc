@@ -3301,7 +3301,7 @@ find_used_regs (insn_t insn, av_set_t orig_ops, regset used_regs,
   struct cmpd_local_params lparams;
 
   /* We haven't visited any blocks yet.  */
-  bitmap_clear (code_motion_visited_blocks);
+  code_motion_visited_blocks->clear ();
 
   /* Init parameters for code_motion_path_driver.  */
   sparams.crosses_call = false;
@@ -5296,8 +5296,8 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
      at before BND_TO (BND).  */
   n_bookkeeping_copies_before_moveop = stat_bookkeeping_copies;
   max_uid_before_move_op = get_max_uid ();
-  bitmap_clear (current_copies);
-  bitmap_clear (current_originators);
+  current_copies->clear ();
+  current_originators->clear ();
 
   b = move_op (BND_TO (bnd), expr_seq, expr_vliw,
                get_dest_from_orig_ops (expr_seq), c_expr, &should_move);
@@ -6779,7 +6779,7 @@ move_op (insn_t insn, av_set_t orig_ops, expr_t expr_vliw,
   lparams.e1 = NULL;
 
   /* We haven't visited any blocks yet.  */
-  bitmap_clear (code_motion_visited_blocks);
+  code_motion_visited_blocks->clear ();
 
   /* Set appropriate hooks and data.  */
   code_motion_path_driver_info = &move_op_hooks;
@@ -7020,7 +7020,7 @@ sel_region_init (int rgn)
   memset (reg_rename_tick, 0, sizeof reg_rename_tick);
   reg_rename_this_tick = 0;
 
-  bitmap_clear (&forced_ebb_heads);
+  forced_ebb_heads.clear ();
 
   setup_nop_vinsn ();
   current_copies = BITMAP_ALLOC (NULL);
@@ -7360,7 +7360,7 @@ sel_region_finish (bool reset_sched_cycles_p)
 
   sel_finish_global_and_expr ();
 
-  bitmap_clear (&forced_ebb_heads);
+  forced_ebb_heads.clear ();
 
   free_nop_vinsn ();
 

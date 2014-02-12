@@ -936,7 +936,7 @@ static bitmap region_ref_regs;
 void
 sched_init_region_reg_pressure_info (void)
 {
-  bitmap_clear (region_ref_regs);
+  region_ref_regs->clear ();
 }
 
 /* PRESSURE[CL] describes the pressure on register class CL.  Update it
@@ -996,7 +996,7 @@ initiate_reg_pressure_info (bitmap live)
 
   for (i = 0; i < ira_pressure_classes_num; i++)
     curr_reg_pressure[ira_pressure_classes[i]] = 0;
-  bitmap_clear (curr_reg_live);
+  curr_reg_live->clear ();
   EXECUTE_IF_SET_IN_BITMAP (live, 0, j, bi)
     if (sched_pressure == SCHED_PRESSURE_MODEL
 	|| current_nr_blocks == 1

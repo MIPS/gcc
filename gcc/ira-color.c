@@ -3623,10 +3623,6 @@ conflict_by_live_ranges_p (int regno1, int regno2)
    next_coalesced_allocno containing more one allocno.  */
 static bool allocno_coalesced_p;
 
-/* Bitmap used to prevent a repeated allocno processing because of
-   coalescing.  */
-static bitmap processed_coalesced_allocno_bitmap;
-
 /* See below.  */
 typedef struct coalesce_data *coalesce_data_t;
 
@@ -3683,17 +3679,6 @@ coalesced_allocno_conflict_p (ira_allocno_t a1, ira_allocno_t a2)
 {
   ira_allocno_t a, conflict_a;
 
-  if (allocno_coalesced_p)
-    {
-      bitmap_clear (processed_coalesced_allocno_bitmap);
-      for (a = ALLOCNO_COALESCE_DATA (a1)->next;;
-	   a = ALLOCNO_COALESCE_DATA (a)->next)
-	{
-	  processed_coalesced_allocno_bitmap->set_bit (ALLOCNO_NUM (a));
-	  if (a == a1)
-	    break;
-	}
-    }
   for (a = ALLOCNO_COALESCE_DATA (a2)->next;;
        a = ALLOCNO_COALESCE_DATA (a)->next)
     {
@@ -4076,7 +4061,6 @@ ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
 	coloring_allocno_bitmap->set_bit (ALLOCNO_NUM (allocno));
     }
   allocno_coalesced_p = false;
-  processed_coalesced_allocno_bitmap = ira_allocate_bitmap ();
   allocno_coalesce_data
     = (coalesce_data_t) ira_allocate (sizeof (struct coalesce_data)
 				      * ira_allocnos_num);
@@ -4114,7 +4098,6 @@ ira_sort_regnos_for_alter_reg (int *pseudo_regnos, int n,
       num = collect_spilled_coalesced_allocnos (pseudo_regnos, n,
 						spilled_coalesced_allocnos);
     }
-  ira_free_bitmap (processed_coalesced_allocno_bitmap);
   allocno_coalesced_p = false;
   /* Assign stack slot numbers to spilled allocno sets, use smaller
      numbers for most frequently used coalesced allocnos.  -1 is

@@ -215,7 +215,7 @@ dead_debug_global_init (struct dead_debug_global *debug, bitmap used)
 {
   debug->used = used;
   if (used)
-    bitmap_clear (used);
+    used->clear ();
 }
 
 /* Initialize DEBUG to an empty list, and clear USED, if given.  Link
@@ -238,7 +238,7 @@ dead_debug_local_init (struct dead_debug_local *debug, bitmap used,
       if (global && global->used)
 	bitmap_copy (used, global->used);
       else
-	bitmap_clear (used);
+	used->clear ();
     }
 }
 

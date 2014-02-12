@@ -271,7 +271,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
   if (!do_mark)
     {
       gcc_assert (arg_stores);
-      bitmap_clear (arg_stores);
+      arg_stores->clear ();
     }
 
   min_sp_off = INTTYPE_MAXIMUM (HOST_WIDE_INT);
@@ -482,7 +482,7 @@ find_call_stack_args (rtx call_insn, bool do_mark, bool fast,
     }
 
   if (!ret && arg_stores)
-    bitmap_clear (arg_stores);
+    arg_stores->clear ();
 
   return ret;
 }
@@ -638,7 +638,7 @@ prescan_insns_for_dce (bool fast)
       /* find_call_stack_args only looks at argument stores in the
 	 same bb.  */
       if (arg_stores)
-	bitmap_clear (arg_stores);
+	arg_stores->clear ();
     }
 
   if (arg_stores)
@@ -849,7 +849,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
       edge e;
       edge_iterator ei;
       df_confluence_function_n con_fun_n = df_word_lr->problem->con_fun_n;
-      bitmap_clear (DF_WORD_LR_OUT (bb));
+      DF_WORD_LR_OUT (bb)->clear ();
       FOR_EACH_EDGE (e, ei, bb->succs)
 	(*con_fun_n) (e);
     }
@@ -946,7 +946,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
       edge e;
       edge_iterator ei;
       df_confluence_function_n con_fun_n = df_lr->problem->con_fun_n;
-      bitmap_clear (DF_LR_OUT (bb));
+      DF_LR_OUT (bb)->clear ();
       FOR_EACH_EDGE (e, ei, bb->succs)
 	(*con_fun_n) (e);
     }
@@ -1105,8 +1105,8 @@ fast_dce (bool word_level)
 	     the cheap.  */
 	  delete_unmarked_insns ();
 	  bitmap_clear (marked);
-	  bitmap_clear (&processed);
-	  bitmap_clear (&redo_out);
+	  processed.clear ();
+	  redo_out.clear ();
 
 	  /* We do not need to rescan any instructions.  We only need
 	     to redo the dataflow equations for the blocks that had a

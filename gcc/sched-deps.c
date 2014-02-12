@@ -4098,13 +4098,13 @@ sched_deps_finish (void)
 
       for (i = 0; i < cache_size; i++)
 	{
-	  bitmap_clear (&true_dependency_cache[i]);
-	  bitmap_clear (&output_dependency_cache[i]);
-	  bitmap_clear (&anti_dependency_cache[i]);
-	  bitmap_clear (&control_dependency_cache[i]);
+	  true_dependency_cache[i].clear ();
+	  output_dependency_cache[i].clear ();
+	  anti_dependency_cache[i].clear ();
+	  control_dependency_cache[i].clear ();
 
           if (sched_deps_info->generate_spec_deps)
-            bitmap_clear (&spec_dependency_cache[i]);
+            spec_dependency_cache[i].clear ();
 	}
       free (true_dependency_cache);
       true_dependency_cache = NULL;

@@ -2685,11 +2685,6 @@ update_bad_spill_attribute (void)
 	    }
 	}
     }
-  for (i = 0; i < ira_allocno_classes_num; i++)
-    {
-      aclass = ira_allocno_classes[i];
-      bitmap_clear (&dead_points[aclass]);
-    }
 }
 
 
