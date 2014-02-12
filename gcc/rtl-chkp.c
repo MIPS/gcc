@@ -32,6 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-expr.h"
 #include "gimple.h"
+#include "bitmap.h"
 
 struct pointer_map_t *chkp_rtx_bounds_map;
 
@@ -275,7 +276,8 @@ chkp_emit_bounds_store (rtx bounds, rtx value, rtx mem)
 void
 chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
 {
-  vec<bool> have_bound = chkp_find_bound_slots (type);
+  bitmap have_bound = chkp_find_bound_slots (type);
+  bitmap_iterator bi;
   unsigned i;
   rtx tmp = NULL, bnd;
 
@@ -284,21 +286,20 @@ chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type)
   gcc_assert (MEM_P (slot));
   gcc_assert (RECORD_OR_UNION_TYPE_P (type));
 
-  for (i = 0; i < have_bound.length (); i++)
-    if (have_bound[i])
-      {
-	rtx ptr = adjust_address (value, Pmode, i * POINTER_SIZE / 8);
-	rtx to = adjust_address (slot, Pmode, i * POINTER_SIZE / 8);
+  EXECUTE_IF_SET_IN_BITMAP (have_bound, 0, i, bi)
+    {
+      rtx ptr = adjust_address (value, Pmode, i * POINTER_SIZE / 8);
+      rtx to = adjust_address (slot, Pmode, i * POINTER_SIZE / 8);
 
-	if (!tmp)
-	  tmp = gen_reg_rtx (Pmode);
+      if (!tmp)
+	tmp = gen_reg_rtx (Pmode);
 
-	emit_move_insn (tmp, ptr);
-	bnd = targetm.calls.load_bounds_for_arg (ptr, tmp, NULL);
-	targetm.calls.store_bounds_for_arg (tmp, to, bnd, NULL);
-      }
+      emit_move_insn (tmp, ptr);
+      bnd = targetm.calls.load_bounds_for_arg (ptr, tmp, NULL);
+      targetm.calls.store_bounds_for_arg (tmp, to, bnd, NULL);
+    }
 
-  have_bound.release ();
+  BITMAP_FREE (have_bound);
 }
 
 /* Emit code to store zero bounds for PTR located at MEM.  */
