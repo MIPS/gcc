@@ -569,20 +569,21 @@ chkp_copy_function_type_adding_bounds (tree orig_type)
 	}
       else if (chkp_type_has_pointer (TREE_VALUE (arg_type)))
 	{
-	  vec<bool> slots = chkp_find_bound_slots (TREE_VALUE (arg_type));
+	  bitmap slots = chkp_find_bound_slots (TREE_VALUE (arg_type));
+	  bitmap_iterator bi;
 	  unsigned bnd_no;
-	  for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
-	    if (slots[bnd_no])
-	      {
-		tree new_type = build_tree_list (NULL_TREE,
-						 pointer_bounds_type_node);
-		TREE_CHAIN (new_type) = TREE_CHAIN (arg_type);
-		TREE_CHAIN (arg_type) = new_type;
 
-		arg_type = TREE_CHAIN (arg_type);
-		new_idx++;
-	      }
-	  slots.release ();
+	  EXECUTE_IF_SET_IN_BITMAP (slots, 0, bnd_no, bi)
+	    {
+	      tree new_type = build_tree_list (NULL_TREE,
+					       pointer_bounds_type_node);
+	      TREE_CHAIN (new_type) = TREE_CHAIN (arg_type);
+	      TREE_CHAIN (arg_type) = new_type;
+
+	      arg_type = TREE_CHAIN (arg_type);
+	      new_idx++;
+	    }
+	  BITMAP_FREE (slots);
 	}
     }
 
@@ -657,30 +658,32 @@ chkp_add_bounds_params_to_function (struct cgraph_node *node)
     else if (chkp_type_has_pointer (TREE_TYPE (arg)))
       {
 	tree orig_arg = arg;
-	vec<bool> slots = chkp_find_bound_slots (TREE_TYPE (arg));
+	bitmap slots = chkp_find_bound_slots (TREE_TYPE (arg));
+	bitmap_iterator bi;
 	unsigned bnd_no;
-	for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
-	  if (slots[bnd_no])
-	    {
-	      std::ostringstream ss;
-	      ss << CHKP_BOUNDS_OF_SYMBOL_PREFIX;
-	      if (DECL_NAME (orig_arg))
-		ss << IDENTIFIER_POINTER (DECL_NAME (orig_arg));
-	      else
-		ss << "D." << DECL_UID (arg);
-	      ss << "__" << (bnd_no * POINTER_SIZE / BITS_PER_UNIT);
 
-	      tree new_arg = build_decl (DECL_SOURCE_LOCATION (orig_arg),
-					 PARM_DECL,
-					 get_identifier (ss.str ().c_str ()),
-					 pointer_bounds_type_node);
-	      DECL_ARG_TYPE (new_arg) = pointer_bounds_type_node;
-	      DECL_CONTEXT (new_arg) = DECL_CONTEXT (orig_arg);
-	      DECL_CHAIN (new_arg) = DECL_CHAIN (arg);
-	      DECL_CHAIN (arg) = new_arg;
+	EXECUTE_IF_SET_IN_BITMAP (slots, 0, bnd_no, bi)
+	  {
+	    std::ostringstream ss;
+	    ss << CHKP_BOUNDS_OF_SYMBOL_PREFIX;
+	    if (DECL_NAME (orig_arg))
+	      ss << IDENTIFIER_POINTER (DECL_NAME (orig_arg));
+	    else
+	      ss << "D." << DECL_UID (arg);
+	    ss << "__" << (bnd_no * POINTER_SIZE / BITS_PER_UNIT);
 
-	      arg = DECL_CHAIN (arg);
-	    }
+	    tree new_arg = build_decl (DECL_SOURCE_LOCATION (orig_arg),
+				       PARM_DECL,
+				       get_identifier (ss.str ().c_str ()),
+				       pointer_bounds_type_node);
+	    DECL_ARG_TYPE (new_arg) = pointer_bounds_type_node;
+	    DECL_CONTEXT (new_arg) = DECL_CONTEXT (orig_arg);
+	    DECL_CHAIN (new_arg) = DECL_CHAIN (arg);
+	    DECL_CHAIN (arg) = new_arg;
+
+	    arg = DECL_CHAIN (arg);
+	  }
+	BITMAP_FREE (slots);
       }
 
   TREE_TYPE (node->decl) =
@@ -1248,11 +1251,9 @@ chkp_type_bounds_count (const_tree type)
     res = 1;
   else if (RECORD_OR_UNION_TYPE_P (type))
     {
-      vec<bool> have_bound = chkp_find_bound_slots (type);
-      for (unsigned bnd_no = 0; bnd_no < have_bound.length (); bnd_no++)
-	if (have_bound[bnd_no])
-	  res++;
-      have_bound.release ();
+      bitmap have_bound = chkp_find_bound_slots (type);
+      res = bitmap_count_bits (have_bound);
+      BITMAP_FREE (have_bound);
     }
 
   return res;
@@ -1819,11 +1820,11 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
    in TYPE which has pointer type and offset
    equal to i * POINTER_SIZE - OFFS in bits.  */
 void
-chkp_find_bound_slots_1 (const_tree type, vec<bool> &have_bound,
+chkp_find_bound_slots_1 (const_tree type, bitmap have_bound,
 			 HOST_WIDE_INT offs)
 {
   if (BOUNDED_TYPE_P (type))
-    have_bound[offs / POINTER_SIZE] = true;
+    bitmap_set_bit (have_bound, offs / POINTER_SIZE);
   else if (RECORD_OR_UNION_TYPE_P (type))
     {
       tree field;
@@ -1857,17 +1858,13 @@ chkp_find_bound_slots_1 (const_tree type, vec<bool> &have_bound,
 
    Caller is responsible for deallocation of returned
    buffer.  */
-vec<bool>
+bitmap
 chkp_find_bound_slots (const_tree type)
 {
   HOST_WIDE_INT max_bounds
     = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
-  vec<bool> res = vNULL;
-
-  res.create (max_bounds);
-  for (HOST_WIDE_INT i = 0; i < max_bounds; i++)
-    res.safe_push (false);
-
+  bitmap res = BITMAP_ALLOC (NULL);
+  
   chkp_find_bound_slots_1 (type, res, 0);
 
   return res;
@@ -4468,22 +4465,24 @@ chkp_instrument_function (void)
 	else if (chkp_type_has_pointer (TREE_TYPE (arg)))
 	  {
 	    tree orig_arg = arg;
-	    vec<bool> slots = chkp_find_bound_slots (TREE_TYPE (arg));
+	    bitmap slots = chkp_find_bound_slots (TREE_TYPE (arg));
 	    gimple_stmt_iterator iter = gsi_start_bb (chkp_get_entry_block ());
+	    bitmap_iterator bi;
 	    unsigned bnd_no;
-	    for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
-	      if (slots[bnd_no])
-		{
-		  tree bounds = chkp_get_next_bounds_parm (arg);
-		  HOST_WIDE_INT offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
-		  tree addr = chkp_build_addr_expr (orig_arg);
-		  tree ptr = build2 (MEM_REF, ptr_type_node, addr,
-				     build_int_cst (ptr_type_node, offs));
-		  chkp_build_bndstx (chkp_build_addr_expr (ptr), ptr,
-				     bounds, &iter);
 
-		  arg = DECL_CHAIN (arg);
-		}
+	    EXECUTE_IF_SET_IN_BITMAP (slots, 0, bnd_no, bi)
+	      {
+		tree bounds = chkp_get_next_bounds_parm (arg);
+		HOST_WIDE_INT offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
+		tree addr = chkp_build_addr_expr (orig_arg);
+		tree ptr = build2 (MEM_REF, ptr_type_node, addr,
+				   build_int_cst (ptr_type_node, offs));
+		chkp_build_bndstx (chkp_build_addr_expr (ptr), ptr,
+				   bounds, &iter);
+
+		arg = DECL_CHAIN (arg);
+	      }
+	    BITMAP_FREE (slots);
 	  }
       }
 }
