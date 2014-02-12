@@ -1,5 +1,11 @@
 2014-02-12  Andrew Pinski  <apinski@cavium.com>
 
+	* optabs.c (emit_conditional_move): Fix bug with the
+	previous change, need to check both modes of the
+	compare and not just the original mode.
+
+2014-02-12  Andrew Pinski  <apinski@cavium.com>
+
 	Bug #9436
 	* optabs.c (emit_conditional_move): Only
 	try using the same registers for the constant

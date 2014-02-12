@@ -4617,7 +4617,8 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
 	 try using those operands for op2 and op3 so
 	 same constants that were forced to a register
 	 use the same register.  */
-      if (GET_CODE (comparison) == code && orig_cmode == mode)
+      if (GET_CODE (comparison) == code
+	  && orig_cmode == mode && cmode == mode)
 	{
 	  if (rtx_equal_p (op0, op2))
 	    op2 = XEXP (comparison, 0);
