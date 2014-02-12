@@ -2162,7 +2162,8 @@ bool  melthk_pass_execution_registered_flag;
   (let ( (modict (get_field :sysdata_mode_dict initial_system_data))
 	 (modlist (expr_chunk modlist_chk :value
 			      #{ /*hook_melt_do_initial_mode $MODLIST_CHK*/
-			      (meltgc_new_split_string ($MODSTR, ',' (melt_ptr_t) $DISCR_STRING)) }#))
+			      (meltgc_new_split_string ($MODSTR, ',',
+							(melt_ptr_t) $DISCR_STRING)) }#))
 			      
 	 )
     (assert_msg "check modict" (is_mapstring modict) modict initial_system_data)

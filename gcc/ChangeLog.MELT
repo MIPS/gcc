@@ -2,6 +2,11 @@
 
 2014-02-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-hooks.melt (hook_melt_do_initial_mode): Typo in
+	expr_chunk.
+
+2014-02-12  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-predef.list (HOOK_MELT_DO_INITIAL_MODE): New.
 
 	* melt/warmelt-first.melt: Better indent after foreach_in_list obsolete
