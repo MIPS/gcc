@@ -44,6 +44,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "timevar.h"
 #include "sbitmap.h"
+#include "bitmap.h"
 #include "langhooks.h"
 #include "target.h"
 #include "cgraph.h"
@@ -1160,7 +1161,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
     int j = i, ptr_arg;
     call_expr_arg_iterator iter;
     tree arg;
-    vec<bool> slots = vNULL;
+    bitmap slots = NULL;
 
     if (struct_value_addr_value)
       {
@@ -1192,7 +1193,11 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	   with following pointer bounds.  */
 	if (chkp_type_has_pointer (argtype))
 	  {
-	    slots.release ();
+	    if (slots)
+	      {
+		BITMAP_FREE (slots);
+		slots = NULL;
+	      }
 	    ptr_arg = j;
 	    if (!BOUNDED_TYPE_P (argtype))
 	      slots = chkp_find_bound_slots (argtype);
@@ -1200,25 +1205,26 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	else if (POINTER_BOUNDS_TYPE_P (argtype))
 	  {
 	    /* For structures look for the next available pointer.  */
-	    if (ptr_arg != -1 && slots.exists ())
+	    if (ptr_arg != -1 && slots)
 	      {
-		unsigned bnd_no;
-		for (bnd_no = 0; bnd_no < slots.length (); bnd_no++)
-		  if (slots[bnd_no])
-		    {
-		      args[j].pointer_offset =
-			bnd_no * POINTER_SIZE / BITS_PER_UNIT;
-		      slots[bnd_no] = false;
-		      break;
-		    }
+		unsigned bnd_no = bitmap_first_set_bit (slots);
+		args[j].pointer_offset =
+		  bnd_no * POINTER_SIZE / BITS_PER_UNIT;
+
+		bitmap_clear_bit (slots, bnd_no);
+
 		/* Check we have no more pointers in the structure.  */
-		if (bnd_no == slots.length ())
-		  ptr_arg = -1;
+		if (bitmap_empty_p (slots))
+		  {
+		    BITMAP_FREE (slots);
+		    slots = NULL;
+		  }
 	      }
 	    args[j].pointer_arg = ptr_arg;
 
-	    /* Pointer may have only single bounds.  */
-	    if (!slots.exists ())
+	    /* Check we covered all pointers in the previous
+	       non bounds arg.  */
+	    if (!slots)
 	      ptr_arg = -1;
 	  }
 	else
@@ -1239,7 +1245,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	j += inc;
       }
 
-    slots.release ();
+    if (slots)
+      BITMAP_FREE (slots);
   }
 
   /* I counts args in order (to be) pushed; ARGPOS counts in order written.  */
