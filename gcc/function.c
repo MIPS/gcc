@@ -3386,27 +3386,29 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
 			 rtx entry,
 			 unsigned bound_no)
 {
-  vec<bool> slots = chkp_find_bound_slots (TREE_TYPE (parm));
-  unsigned i, offs = 0;
+  bitmap slots = chkp_find_bound_slots (TREE_TYPE (parm));
+  bitmap_iterator bi;
+  unsigned i, offs = 0, bnd_no = -1;
   rtx slot = NULL, ptr = NULL;
 
-  for (i = 0; i < slots.length (); i++)
-    if (slots[i])
-      {
-	if (bound_no)
-	  bound_no--;
-	else
+  EXECUTE_IF_SET_IN_BITMAP (slots, 0, i, bi)
+    {
+      if (bound_no)
+	bound_no--;
+      else
+	{
+	  bnd_no = i;
 	  break;
-      }
+	}
+    }
+  BITMAP_FREE (slots);
+
   /* We may have bounds not associated with any pointer.  */
-  if (i == slots.length ())
-    i = -1;
-  else
-    offs = i * POINTER_SIZE / BITS_PER_UNIT;
-  slots.release ();
+  if (bnd_no != -1)
+    offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
 
   /* Find associated pointer.  */
-  if (i == (unsigned)-1)
+  if (bnd_no == (unsigned)-1)
     {
       /* If bounds are not associated with any bounds,
 	 then it is passed in a register or special slot.  */
@@ -3418,7 +3420,7 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
   else if (REG_P (entry))
     {
       gcc_assert (GET_MODE_SIZE (GET_MODE (entry)) > offs);
-      ptr = gen_rtx_REG (Pmode, REGNO (entry) + i);
+      ptr = gen_rtx_REG (Pmode, REGNO (entry) + bnd_no);
     }
   else if (GET_CODE (entry) == PARALLEL)
     ptr = chkp_get_value_with_offs (entry, GEN_INT (offs));
