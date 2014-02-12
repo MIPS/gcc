@@ -109,6 +109,7 @@ can_remove_node_now_p (struct cgraph_node *node, struct cgraph_edge *e)
   struct cgraph_node *next;
   if (!can_remove_node_now_p_1 (node))
     return false;
+
   /* When we see same comdat group, we need to be sure that all
      items can be removed.  */
   if (!node->same_comdat_group)
