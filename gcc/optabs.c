@@ -4513,6 +4513,7 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
   rtx tem, comparison, last;
   enum insn_code icode;
   enum rtx_code reversed;
+  enum machine_mode orig_cmode = cmode;
 
   /* If one operand is constant, make it the second one.  Only do this
      if the other operand is not constant as well.  */
@@ -4615,8 +4616,8 @@ emit_conditional_move (rtx target, enum rtx_code code, rtx op0, rtx op1,
       /* If the comparison is the same as the original,
 	 try using those operands for op2 and op3 so
 	 same constants that were forced to a register
-	 use the same register. */
-      if (GET_CODE (comparison) == code && cmode == mode)
+	 use the same register.  */
+      if (GET_CODE (comparison) == code && orig_cmode == mode)
 	{
 	  if (rtx_equal_p (op0, op2))
 	    op2 = XEXP (comparison, 0);
