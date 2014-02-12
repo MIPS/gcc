@@ -23,6 +23,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
+with Aspects;  use Aspects;
 with Atree;    use Atree;
 with Casing;   use Casing;
 with Checks;   use Checks;
@@ -115,10 +116,10 @@ package body Sem_Util is
 
    function Has_Enabled_Property
      (State_Id : Node_Id;
-      Prop_Nam : Name_Id) return Boolean;
+      Property : Name_Id) return Boolean;
    --  Subsidiary to routines Async_xxx_Enabled and Effective_xxx_Enabled.
    --  Determine whether an abstract state denoted by its entity State_Id has
-   --  enabled property Prop_Name.
+   --  enabled property Property.
 
    function Has_Null_Extension (T : Entity_Id) return Boolean;
    --  T is a derived tagged type. Check whether the type extension is null.
@@ -667,6 +668,22 @@ package body Sem_Util is
          end if;
       end if;
    end Bad_Predicated_Subtype_Use;
+
+   ----------------------------------------
+   -- Bad_Unordered_Enumeration_Reference --
+   ----------------------------------------
+
+   function Bad_Unordered_Enumeration_Reference
+     (N : Node_Id;
+      T : Entity_Id) return Boolean
+   is
+   begin
+      return Is_Enumeration_Type (T)
+        and then Comes_From_Source (N)
+        and then Warn_On_Unordered_Enumeration_Type
+        and then not Has_Pragma_Ordered (T)
+        and then not In_Same_Extended_Unit (N, T);
+   end Bad_Unordered_Enumeration_Reference;
 
    --------------------------
    -- Build_Actual_Subtype --
@@ -2698,6 +2715,31 @@ package body Sem_Util is
          Check_Expression (Expr);
       end if;
    end Check_Result_And_Post_State;
+
+   ---------------------------------
+   -- Check_SPARK_Mode_In_Generic --
+   ---------------------------------
+
+   procedure Check_SPARK_Mode_In_Generic (N : Node_Id) is
+      Aspect : Node_Id;
+
+   begin
+      --  Try to find aspect SPARK_Mode and flag it as illegal
+
+      if Has_Aspects (N) then
+         Aspect := First (Aspect_Specifications (N));
+         while Present (Aspect) loop
+            if Get_Aspect_Id (Aspect) = Aspect_SPARK_Mode then
+               Error_Msg_Name_1 := Name_SPARK_Mode;
+               Error_Msg_N
+                 ("incorrect placement of aspect % on a generic", Aspect);
+               exit;
+            end if;
+
+            Next (Aspect);
+         end loop;
+      end if;
+   end Check_SPARK_Mode_In_Generic;
 
    ------------------------------
    -- Check_Unprotected_Access --
@@ -5587,7 +5629,8 @@ package body Sem_Util is
       --  we exclude overloaded calls, since we don't know enough to be sure
       --  of giving the right answer in this case.
 
-      if Is_Entity_Name (Name (Call))
+      if Nkind_In (Call, N_Function_Call, N_Procedure_Call_Statement)
+        and then Is_Entity_Name (Name (Call))
         and then Present (Entity (Name (Call)))
         and then Is_Overloadable (Entity (Name (Call)))
         and then not Is_Overloaded (Name (Call))
@@ -7254,13 +7297,14 @@ package body Sem_Util is
 
    function Has_Enabled_Property
      (State_Id : Node_Id;
-      Prop_Nam : Name_Id) return Boolean
+      Property : Name_Id) return Boolean
    is
-      Decl    : constant Node_Id := Parent (State_Id);
-      Opt     : Node_Id;
-      Opt_Nam : Node_Id;
-      Prop    : Node_Id;
-      Props   : Node_Id;
+      Decl     : constant Node_Id := Parent (State_Id);
+      Opt      : Node_Id;
+      Opt_Nam  : Node_Id;
+      Prop     : Node_Id;
+      Prop_Nam : Node_Id;
+      Props    : Node_Id;
 
    begin
       --  The declaration of an external abstract state appears as an extension
@@ -7304,7 +7348,7 @@ package body Sem_Util is
 
                Prop := First (Expressions (Props));
                while Present (Prop) loop
-                  if Chars (Prop) = Prop_Nam then
+                  if Chars (Prop) = Property then
                      return True;
                   end if;
 
@@ -7315,7 +7359,9 @@ package body Sem_Util is
 
                Prop := First (Component_Associations (Props));
                while Present (Prop) loop
-                  if Chars (Prop) = Prop_Nam then
+                  Prop_Nam := First (Choices (Prop));
+
+                  if Chars (Prop_Nam) = Property then
                      return Is_True (Expr_Value (Expression (Prop)));
                   end if;
 
@@ -7325,7 +7371,7 @@ package body Sem_Util is
             --  Single property
 
             else
-               return Chars (Props) = Prop_Nam;
+               return Chars (Props) = Property;
             end if;
          end if;
 
@@ -9982,14 +10028,18 @@ package body Sem_Util is
    --  We seem to have a lot of overlapping functions that do similar things
    --  (testing for left hand sides or lvalues???).
 
-   function Is_LHS (N : Node_Id) return Boolean is
+   function Is_LHS (N : Node_Id) return Is_LHS_Result is
       P : constant Node_Id := Parent (N);
 
    begin
       --  Return True if we are the left hand side of an assignment statement
 
       if Nkind (P) = N_Assignment_Statement then
-         return Name (P) = N;
+         if Name (P) = N then
+            return Yes;
+         else
+            return No;
+         end if;
 
       --  Case of prefix of indexed or selected component or slice
 
@@ -10002,23 +10052,16 @@ package body Sem_Util is
          --  what we really have is N.all.Q (or N.all(Q .. R)). In either
          --  case this makes N.all a left hand side but not N itself.
 
-         --  Here follows a worrisome kludge. If Etype (N) is not set, which
-         --  for sure happens in the call from Find_Direct_Name, that means we
-         --  don't know if N is of an access type, so we can't give an accurate
-         --  answer. For now, we assume we do not have an access type, which
-         --  means for example that P.Q.R := X will look like a modification
-         --  of P, even if P.Q eventually turns out to be an access type. The
-         --  consequence is at least that in some cases we incorrectly identify
-         --  a reference as a modification. It is not clear if there are any
-         --  other bad consequences. ???
+         --  If we don't know the type yet, this is the case where we return
+         --  Unknown, since the answer depends on the type which is unknown.
 
          if No (Etype (N)) then
-            return False;
+            return Unknown;
 
          --  We have an Etype set, so we can check it
 
          elsif Is_Access_Type (Etype (N)) then
-            return False;
+            return No;
 
          --  OK, not access type case, so just test whole expression
 
@@ -10029,7 +10072,7 @@ package body Sem_Util is
       --  All other cases are not left hand sides
 
       else
-         return False;
+         return No;
       end if;
    end Is_LHS;
 

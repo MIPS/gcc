@@ -15740,8 +15740,11 @@ fn_type_unification (tree fn,
 
   /* If we're looking for an exact match, check that what we got
      is indeed an exact match.  It might not be if some template
-     parameters are used in non-deduced contexts.  */
-  if (strict == DEDUCE_EXACT)
+     parameters are used in non-deduced contexts.  But don't check
+     for an exact match if we have dependent template arguments;
+     in that case we're doing partial ordering, and we already know
+     that we have two candidates that will provide the actual type.  */
+  if (strict == DEDUCE_EXACT && !any_dependent_template_arguments_p (targs))
     {
       tree substed = TREE_TYPE (decl);
       unsigned int i;
@@ -17964,6 +17967,7 @@ mark_decl_instantiated (tree result, int extern_p)
   else
     {
       mark_definable (result);
+      mark_needed (result);
       /* Always make artificials weak.  */
       if (DECL_ARTIFICIAL (result) && flag_weak)
 	comdat_linkage (result);

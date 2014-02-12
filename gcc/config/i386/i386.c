@@ -2628,6 +2628,7 @@ ix86_target_string (HOST_WIDE_INT isa, int flags, const char *arch,
   static struct ix86_target_opts flag_opts[] =
   {
     { "-m128bit-long-double",		MASK_128BIT_LONG_DOUBLE },
+    { "-mlong-double-128",		MASK_LONG_DOUBLE_128 },
     { "-mlong-double-64",		MASK_LONG_DOUBLE_64 },
     { "-m80387",			MASK_80387 },
     { "-maccumulate-outgoing-args",	MASK_ACCUMULATE_OUTGOING_ARGS },
@@ -4195,10 +4196,18 @@ ix86_option_override_internal (bool main_args_p,
   else if (opts_set->x_target_flags & MASK_RECIP)
     opts->x_recip_mask &= ~(RECIP_MASK_ALL & ~opts->x_recip_mask_explicit);
 
-  /* Default long double to 64-bit for Bionic.  */
+  /* Default long double to 64-bit for 32-bit Bionic and to __float128
+     for 64-bit Bionic.  */
   if (TARGET_HAS_BIONIC
-      && !(opts_set->x_target_flags & MASK_LONG_DOUBLE_64))
-    opts->x_target_flags |= MASK_LONG_DOUBLE_64;
+      && !(opts_set->x_target_flags
+	   & (MASK_LONG_DOUBLE_64 | MASK_LONG_DOUBLE_128)))
+    opts->x_target_flags |= (TARGET_64BIT
+			     ? MASK_LONG_DOUBLE_128
+			     : MASK_LONG_DOUBLE_64);
+
+  /* Only one of them can be active.  */
+  gcc_assert ((opts->x_target_flags & MASK_LONG_DOUBLE_64) == 0
+	      || (opts->x_target_flags & MASK_LONG_DOUBLE_128) == 0);
 
   /* Save the initial options in case the user does function specific
      options.  */
@@ -5599,7 +5608,12 @@ ix86_function_regparm (const_tree type, const_tree decl)
   /* Use register calling convention for local functions when possible.  */
   if (decl
       && TREE_CODE (decl) == FUNCTION_DECL
-      && optimize
+      /* Caller and callee must agree on the calling convention, so
+	 checking here just optimize means that with
+	 __attribute__((optimize (...))) caller could use regparm convention
+	 and callee not, or vice versa.  Instead look at whether the callee
+	 is optimized or not.  */
+      && opt_for_fn (decl, optimize)
       && !(profile_flag && !flag_fentry))
     {
       /* FIXME: remove this CONST_CAST when cgraph.[ch] is constified.  */
@@ -6096,10 +6110,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
   cum->caller = caller;
 
   /* Set up the number of registers to use for passing arguments.  */
-
-  if (TARGET_64BIT && cum->call_abi == MS_ABI && !ACCUMULATE_OUTGOING_ARGS)
-    sorry ("ms_abi attribute requires -maccumulate-outgoing-args "
-	   "or subtarget optimization implying it");
   cum->nregs = ix86_regparm;
   if (TARGET_64BIT)
     {
@@ -6627,25 +6637,28 @@ classify_argument (enum machine_mode mode, const_tree type,
     case CHImode:
     case CQImode:
       {
-	int size = (bit_offset % 64)+ (int) GET_MODE_BITSIZE (mode);
+	int size = bit_offset + (int) GET_MODE_BITSIZE (mode);
 
-	if (size <= 32)
+	/* Analyze last 128 bits only.  */
+	size = (size - 1) & 0x7f;
+
+	if (size < 32)
 	  {
 	    classes[0] = X86_64_INTEGERSI_CLASS;
 	    return 1;
 	  }
-	else if (size <= 64)
+	else if (size < 64)
 	  {
 	    classes[0] = X86_64_INTEGER_CLASS;
 	    return 1;
 	  }
-	else if (size <= 64+32)
+	else if (size < 64+32)
 	  {
 	    classes[0] = X86_64_INTEGER_CLASS;
 	    classes[1] = X86_64_INTEGERSI_CLASS;
 	    return 2;
 	  }
-	else if (size <= 64+64)
+	else if (size < 64+64)
 	  {
 	    classes[0] = classes[1] = X86_64_INTEGER_CLASS;
 	    return 2;
@@ -11015,15 +11028,14 @@ ix86_expand_prologue (void)
 
       if (TARGET_64BIT)
         r10_live = (DECL_STATIC_CHAIN (current_function_decl) != 0);
-      if (!TARGET_64BIT_MS_ABI)
-        eax_live = ix86_eax_live_at_start_p ();
 
-      /* Note that SEH directives need to continue tracking the stack
-	 pointer even after the frame pointer has been set up.  */
+      eax_live = ix86_eax_live_at_start_p ();
       if (eax_live)
 	{
 	  insn = emit_insn (gen_push (eax));
 	  allocate -= UNITS_PER_WORD;
+	  /* Note that SEH directives need to continue tracking the stack
+	     pointer even after the frame pointer has been set up.  */
 	  if (sp_is_cfa_reg || TARGET_SEH)
 	    {
 	      if (sp_is_cfa_reg)
@@ -14706,7 +14718,8 @@ get_some_local_dynamic_name (void)
    F,f -- likewise, but for floating-point.
    O -- if HAVE_AS_IX86_CMOV_SUN_SYNTAX, expand to "w.", "l." or "q.",
 	otherwise nothing
-   R -- print the prefix for register names.
+   R -- print embeded rounding and sae.
+   r -- print only sae.
    z -- print the opcode suffix for the size of the current operand.
    Z -- likewise, with special suffixes for x87 instructions.
    * -- print a star (in certain assembler syntax)
@@ -15156,6 +15169,20 @@ ix86_print_operand (FILE *file, rtx x, int code)
 	    fputs ("{z}", file);
 	  return;
 
+	case 'r':
+	  gcc_assert (CONST_INT_P (x));
+	  gcc_assert (INTVAL (x) == ROUND_SAE);
+
+	  if (ASSEMBLER_DIALECT == ASM_INTEL)
+	    fputs (", ", file);
+
+	  fputs ("{sae}", file);
+
+	  if (ASSEMBLER_DIALECT == ASM_ATT)
+	    fputs (", ", file);
+
+	  return;
+
 	case 'R':
 	  gcc_assert (CONST_INT_P (x));
 
@@ -15164,20 +15191,17 @@ ix86_print_operand (FILE *file, rtx x, int code)
 
 	  switch (INTVAL (x))
 	    {
-	    case ROUND_NEAREST_INT:
+	    case ROUND_NEAREST_INT | ROUND_SAE:
 	      fputs ("{rn-sae}", file);
 	      break;
-	    case ROUND_NEG_INF:
+	    case ROUND_NEG_INF | ROUND_SAE:
 	      fputs ("{rd-sae}", file);
 	      break;
-	    case ROUND_POS_INF:
+	    case ROUND_POS_INF | ROUND_SAE:
 	      fputs ("{ru-sae}", file);
 	      break;
-	    case ROUND_ZERO:
+	    case ROUND_ZERO | ROUND_SAE:
 	      fputs ("{rz-sae}", file);
-	      break;
-	    case ROUND_SAE:
-	      fputs ("{sae}", file);
 	      break;
 	    default:
 	      gcc_unreachable ();
@@ -16799,6 +16823,9 @@ ix86_expand_vector_move (enum machine_mode mode, rtx operands[])
   rtx op0 = operands[0], op1 = operands[1];
   unsigned int align = GET_MODE_ALIGNMENT (mode);
 
+  if (push_operand (op0, VOIDmode))
+    op0 = emit_move_resolve_push (mode, op0);
+
   /* Force constants other than zero into memory.  We do not know how
      the instructions used to build constants modify the upper 64 bits
      of the register, once we have that information we may be able
@@ -17224,30 +17251,6 @@ ix86_expand_vector_move_misalign (enum machine_mode mode, rtx operands[])
     }
   else
     gcc_unreachable ();
-}
-
-/* Expand a push in MODE.  This is some mode for which we do not support
-   proper push instructions, at least from the registers that we expect
-   the value to live in.  */
-
-void
-ix86_expand_push (enum machine_mode mode, rtx x)
-{
-  rtx tmp;
-
-  tmp = expand_simple_binop (Pmode, PLUS, stack_pointer_rtx,
-			     GEN_INT (-GET_MODE_SIZE (mode)),
-			     stack_pointer_rtx, 1, OPTAB_DIRECT);
-  if (tmp != stack_pointer_rtx)
-    emit_move_insn (stack_pointer_rtx, tmp);
-
-  tmp = gen_rtx_MEM (mode, stack_pointer_rtx);
-
-  /* When we push an operand onto stack, it has to be aligned at least
-     at the function argument boundary.  However since we don't have
-     the argument type, we can't determine the actual argument
-     boundary.  */
-  emit_move_insn (tmp, x);
 }
 
 /* Helper function of ix86_fixup_binary_operands to canonicalize
@@ -28080,12 +28083,10 @@ enum ix86_builtins
   IX86_BUILTIN_DIVPS512,
   IX86_BUILTIN_DIVSD_ROUND,
   IX86_BUILTIN_DIVSS_ROUND,
-  IX86_BUILTIN_EXPANDPD512_NOMASK,
   IX86_BUILTIN_EXPANDPD512,
   IX86_BUILTIN_EXPANDPD512Z,
   IX86_BUILTIN_EXPANDPDLOAD512,
   IX86_BUILTIN_EXPANDPDLOAD512Z,
-  IX86_BUILTIN_EXPANDPS512_NOMASK,
   IX86_BUILTIN_EXPANDPS512,
   IX86_BUILTIN_EXPANDPS512Z,
   IX86_BUILTIN_EXPANDPSLOAD512,
@@ -29933,10 +29934,8 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vcvtps2ph512_mask,  "__builtin_ia32_vcvtps2ph512_mask", IX86_BUILTIN_CVTPS2PH512, UNKNOWN, (int) V16HI_FTYPE_V16SF_INT_V16HI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufloatv8siv8df_mask, "__builtin_ia32_cvtudq2pd512_mask", IX86_BUILTIN_CVTUDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_cvtusi2sd32, "__builtin_ia32_cvtusi2sd32", IX86_BUILTIN_CVTUSI2SD32, UNKNOWN, (int) V2DF_FTYPE_V2DF_UINT },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df, "__builtin_ia32_expanddf512", IX86_BUILTIN_EXPANDPD512_NOMASK, UNKNOWN, (int) V8DF_FTYPE_V8DF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_mask, "__builtin_ia32_expanddf512_mask", IX86_BUILTIN_EXPANDPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_maskz, "__builtin_ia32_expanddf512_maskz", IX86_BUILTIN_EXPANDPD512Z, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf, "__builtin_ia32_expandsf512", IX86_BUILTIN_EXPANDPS512_NOMASK, UNKNOWN, (int) V16SF_FTYPE_V16SF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf_mask, "__builtin_ia32_expandsf512_mask", IX86_BUILTIN_EXPANDPS512, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf_maskz, "__builtin_ia32_expandsf512_maskz", IX86_BUILTIN_EXPANDPS512Z, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vextractf32x4_mask, "__builtin_ia32_extractf32x4_mask", IX86_BUILTIN_EXTRACTF32X4, UNKNOWN, (int) V4SF_FTYPE_V16SF_INT_V4SF_QI },

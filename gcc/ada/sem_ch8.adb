@@ -1193,7 +1193,14 @@ package body Sem_Ch8 is
          end;
       end if;
 
-      Set_Ekind (Id, E_Variable);
+      --  Set the Ekind of the entity, unless it has been set already, as is
+      --  the case for the iteration object over a container with no variable
+      --  indexing. In that case it's been marked as a constant, and we do not
+      --  want to change it to a variable.
+
+      if Ekind (Id) /= E_Constant then
+         Set_Ekind (Id, E_Variable);
+      end if;
 
       --  Initialize the object size and alignment. Note that we used to call
       --  Init_Size_Align here, but that's wrong for objects which have only
@@ -2385,6 +2392,11 @@ package body Sem_Ch8 is
       if Current_Scope /= Standard_Standard then
          Set_Is_Pure (New_S, Is_Pure (Current_Scope));
       end if;
+
+      --  Set SPARK mode from current context
+
+      Set_SPARK_Pragma (New_S, SPARK_Mode_Pragma);
+      Set_SPARK_Pragma_Inherited (New_S, True);
 
       Rename_Spec := Find_Corresponding_Spec (N);
 
@@ -5152,29 +5164,29 @@ package body Sem_Ch8 is
 
             --  Normal case, not a label: generate reference
 
-            --    ??? It is too early to generate a reference here even if the
-            --    entity is unambiguous, because the tree is not sufficiently
-            --    typed at this point for Generate_Reference to determine
-            --    whether this reference modifies the denoted object (because
-            --    implicit dereferences cannot be identified prior to full type
-            --    resolution).
-
-            --    The Is_Actual_Parameter routine takes care of one of these
-            --    cases but there are others probably ???
-
-            --    If the entity is the LHS of an assignment, and is a variable
-            --    (rather than a package prefix), we can mark it as a
-            --    modification right away, to avoid duplicate references.
-
             else
                if not Is_Actual_Parameter then
-                  if Is_LHS (N)
-                    and then Ekind (E) /= E_Package
-                    and then Ekind (E) /= E_Generic_Package
-                  then
-                     Generate_Reference (E, N, 'm');
+
+                  --  Package or generic package is always a simple reference
+
+                  if Ekind_In (E, E_Package, E_Generic_Package) then
+                     Generate_Reference (E, N, 'r');
+
+                  --  Else see if we have a left hand side
+
                   else
-                     Generate_Reference (E, N);
+                     case Is_LHS (N) is
+                        when Yes =>
+                           Generate_Reference (E, N, 'm');
+
+                        when No =>
+                           Generate_Reference (E, N, 'r');
+
+                        --  If we don't know now, generate reference later
+
+                     when Unknown =>
+                        Deferred_References.Append ((E, N));
+                     end case;
                   end if;
                end if;
 
@@ -5655,26 +5667,32 @@ package body Sem_Ch8 is
 
       Change_Selected_Component_To_Expanded_Name (N);
 
+      --  Set appropriate type
+
+      if Is_Type (Id) then
+         Set_Etype (N, Id);
+      else
+         Set_Etype (N, Get_Full_View (Etype (Id)));
+      end if;
+
       --  Do style check and generate reference, but skip both steps if this
       --  entity has homonyms, since we may not have the right homonym set yet.
       --  The proper homonym will be set during the resolve phase.
 
       if Has_Homonym (Id) then
          Set_Entity (N, Id);
+
       else
          Set_Entity_Or_Discriminal (N, Id);
 
-         if Is_LHS (N) then
-            Generate_Reference (Id, N, 'm');
-         else
-            Generate_Reference (Id, N);
-         end if;
-      end if;
-
-      if Is_Type (Id) then
-         Set_Etype (N, Id);
-      else
-         Set_Etype (N, Get_Full_View (Etype (Id)));
+         case Is_LHS (N) is
+            when Yes =>
+               Generate_Reference (Id, N, 'm');
+            when No =>
+               Generate_Reference (Id, N, 'r');
+            when Unknown =>
+               Deferred_References.Append ((Id, N));
+         end case;
       end if;
 
       --  Check for violation of No_Wide_Characters

@@ -2660,7 +2660,6 @@ import_export_decl (tree decl)
 		  comdat_p = (targetm.cxx.class_data_always_comdat ()
 			      || (CLASSTYPE_KEY_METHOD (type)
 				  && DECL_DECLARED_INLINE_P (CLASSTYPE_KEY_METHOD (type))));
-		  mark_needed (decl);
 		  if (!flag_weak)
 		    {
 		      comdat_p = false;
@@ -2949,7 +2948,7 @@ get_tls_init_fn (tree var)
       TREE_PUBLIC (fn) = TREE_PUBLIC (var);
       DECL_ARTIFICIAL (fn) = true;
       DECL_COMDAT (fn) = DECL_COMDAT (var);
-      DECL_EXTERNAL (fn) = true;
+      DECL_EXTERNAL (fn) = DECL_EXTERNAL (var);
       if (DECL_ONE_ONLY (var))
 	make_decl_one_only (fn, cxx_comdat_group (fn));
       if (TREE_PUBLIC (var))
@@ -4036,6 +4035,8 @@ handle_tls_init (void)
       if (TREE_PUBLIC (var))
 	{
           tree single_init_fn = get_tls_init_fn (var);
+	  if (single_init_fn == NULL_TREE)
+	    continue;
 	  cgraph_node *alias
 	    = cgraph_same_body_alias (cgraph_get_create_node (fn),
 				      single_init_fn, fn);

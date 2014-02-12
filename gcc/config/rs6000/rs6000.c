@@ -15581,7 +15581,7 @@ rs6000_secondary_memory_needed_rtx (enum machine_mode mode)
 enum machine_mode
 rs6000_secondary_memory_needed_mode (enum machine_mode mode)
 {
-  if (mode == SDmode)
+  if (lra_in_progress && mode == SDmode)
     return DDmode;
   return mode;
 }
@@ -29840,16 +29840,18 @@ altivec_expand_vec_perm_le (rtx operands[4])
   rtx op1 = operands[2];
   rtx sel = operands[3];
   rtx tmp = target;
+  rtx splatreg = gen_reg_rtx (V16QImode);
+  enum machine_mode mode = GET_MODE (target);
 
   /* Get everything in regs so the pattern matches.  */
   if (!REG_P (op0))
-    op0 = force_reg (V16QImode, op0);
+    op0 = force_reg (mode, op0);
   if (!REG_P (op1))
-    op1 = force_reg (V16QImode, op1);
+    op1 = force_reg (mode, op1);
   if (!REG_P (sel))
     sel = force_reg (V16QImode, sel);
   if (!REG_P (target))
-    tmp = gen_reg_rtx (V16QImode);
+    tmp = gen_reg_rtx (mode);
 
   /* SEL = splat(31) - SEL.  */
   /* We want to subtract from 31, but we can't vspltisb 31 since
@@ -29857,13 +29859,12 @@ altivec_expand_vec_perm_le (rtx operands[4])
      five bits of the permute control vector elements are used.  */
   splat = gen_rtx_VEC_DUPLICATE (V16QImode,
 				 gen_rtx_CONST_INT (QImode, -1));
-  emit_move_insn (tmp, splat);
-  sel = gen_rtx_MINUS (V16QImode, tmp, sel);
-  emit_move_insn (tmp, sel);
+  emit_move_insn (splatreg, splat);
+  sel = gen_rtx_MINUS (V16QImode, splatreg, sel);
+  emit_move_insn (splatreg, sel);
 
   /* Permute with operands reversed and adjusted selector.  */
-  unspec = gen_rtx_UNSPEC (V16QImode, gen_rtvec (3, op1, op0, tmp),
-			   UNSPEC_VPERM);
+  unspec = gen_rtx_UNSPEC (mode, gen_rtvec (3, op1, op0, splatreg), UNSPEC_VPERM);
 
   /* Copy into target, possibly by way of a register.  */
   if (!REG_P (target))
@@ -29887,9 +29888,9 @@ altivec_expand_vec_perm_const (rtx operands[4])
     unsigned char perm[16];
   };
   static const struct altivec_perm_insn patterns[] = {
-    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuhum_direct,
       {  1,  3,  5,  7,  9, 11, 13, 15, 17, 19, 21, 23, 25, 27, 29, 31 } },
-    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum,
+    { OPTION_MASK_ALTIVEC, CODE_FOR_altivec_vpkuwum_direct,
       {  2,  3,  6,  7, 10, 11, 14, 15, 18, 19, 22, 23, 26, 27, 30, 31 } },
     { OPTION_MASK_ALTIVEC, 
       (BYTES_BIG_ENDIAN ? CODE_FOR_altivec_vmrghb_direct
@@ -30054,14 +30055,14 @@ altivec_expand_vec_perm_const (rtx operands[4])
 	     halfwords (BE numbering) when the even halfwords (LE
 	     numbering) are what we need.  */
 	  if (!BYTES_BIG_ENDIAN
-	      && icode == CODE_FOR_altivec_vpkuwum
+	      && icode == CODE_FOR_altivec_vpkuwum_direct
 	      && ((GET_CODE (op0) == REG
 		   && GET_MODE (op0) != V4SImode)
 		  || (GET_CODE (op0) == SUBREG
 		      && GET_MODE (XEXP (op0, 0)) != V4SImode)))
 	    continue;
 	  if (!BYTES_BIG_ENDIAN
-	      && icode == CODE_FOR_altivec_vpkuhum
+	      && icode == CODE_FOR_altivec_vpkuhum_direct
 	      && ((GET_CODE (op0) == REG
 		   && GET_MODE (op0) != V8HImode)
 		  || (GET_CODE (op0) == SUBREG
