@@ -2548,7 +2548,8 @@ copy_cfg_body (copy_body_data * id, gcov_type count, int frequency_scale,
 
   /* If the loop tree in the source function needed fixup, mark the
      destination loop tree for fixup, too.  */
-  if (loops_for_fn (src_cfun)->state & LOOPS_NEED_FIXUP)
+  if (loops_for_fn (src_cfun)
+      && loops_for_fn (src_cfun)->state & LOOPS_NEED_FIXUP)
     loops_state_set (LOOPS_NEED_FIXUP);
 
   if (gimple_in_ssa_p (cfun))
@@ -5348,8 +5349,9 @@ tree_function_versioning (tree old_decl, tree new_decl,
   DECL_ARGUMENTS (new_decl) = DECL_ARGUMENTS (old_decl);
   initialize_cfun (new_decl, old_decl,
 		   old_entry_block->count);
-  DECL_STRUCT_FUNCTION (new_decl)->gimple_df->ipa_pta
-    = id.src_cfun->gimple_df->ipa_pta;
+  if (DECL_STRUCT_FUNCTION (new_decl)->gimple_df)
+    DECL_STRUCT_FUNCTION (new_decl)->gimple_df->ipa_pta
+      = id.src_cfun->gimple_df->ipa_pta;
 
   /* Copy the function's static chain.  */
   p = DECL_STRUCT_FUNCTION (old_decl)->static_chain_decl;
