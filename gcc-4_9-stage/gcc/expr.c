@@ -3221,7 +3221,7 @@ emit_move_via_integer (enum machine_mode mode, rtx x, rtx y, bool force)
 /* A subroutine of emit_move_insn_1.  X is a push_operand in MODE.
    Return an equivalent MEM that does not use an auto-increment.  */
 
-static rtx
+rtx
 emit_move_resolve_push (enum machine_mode mode, rtx x)
 {
   enum rtx_code code = GET_CODE (XEXP (x, 0));
@@ -4070,7 +4070,7 @@ emit_single_push_insn_1 (enum machine_mode mode, rtx x, tree type)
     {
       set_mem_attributes (dest, type, 1);
 
-      if (flag_optimize_sibling_calls)
+      if (cfun->tail_call_marked)
 	/* Function incoming arguments may overlap with sibling call
 	   outgoing arguments and we cannot allow reordering of reads
 	   from function arguments with stores to outgoing arguments
@@ -7708,6 +7708,11 @@ expand_expr_addr_expr_1 (tree exp, rtx target, enum machine_mode tmode,
 			 modifier == EXPAND_INITIALIZER
 			  ? EXPAND_INITIALIZER : EXPAND_NORMAL);
 
+      /* expand_expr is allowed to return an object in a mode other
+	 than TMODE.  If it did, we need to convert.  */
+      if (GET_MODE (tmp) != VOIDmode && tmode != GET_MODE (tmp))
+	tmp = convert_modes (tmode, GET_MODE (tmp),
+			     tmp, TYPE_UNSIGNED (TREE_TYPE (offset)));
       result = convert_memory_address_addr_space (tmode, result, as);
       tmp = convert_memory_address_addr_space (tmode, tmp, as);
 
