@@ -1,4 +1,0 @@
-2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
-
-	* ipa-prop.c: Include tree-chkp.h.
-	(ipa_compute_jump_functions_for_edge): Do not propagate bounded args.
