@@ -1,4 +1,0 @@
-2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
-
-	* var-tracking.c (vt_add_function_parameters): Skip
-	bounds parameters.
