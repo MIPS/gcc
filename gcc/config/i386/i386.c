@@ -2377,9 +2377,6 @@ tree x86_mfence;
    of SSESF, SSEDF classes, that are basically SSE class, just gcc will
    use SF or DFmode move instead of DImode to avoid reformatting penalties.
 
-   X86_64_BOUNDED* classes are similar to integer classes but additionally
-   mean bounds should be passed for the argument.
-
    Similarly we play games with INTEGERSI_CLASS to use cheaper SImode moves
    whenever possible (upper half does contain padding).  */
 enum x86_64_reg_class
@@ -5784,7 +5781,7 @@ ix86_return_pops_args (tree fundecl, tree funtype, int size)
     return size;
 
   /* Lose any fake structure return argument if it is passed on the stack.  */
-  if (aggregate_value_p (TREE_TYPE (funtype), fundecl ? fundecl : funtype)
+  if (aggregate_value_p (TREE_TYPE (funtype), fundecl)
       && !ix86_keep_aggregate_return_pointer (funtype))
     {
       int nregs = ix86_function_regparm (funtype, fundecl);
@@ -7958,11 +7955,8 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
 		      const_tree valtype)
 {
   unsigned int regno = AX_REG;
-  rtx res;
 
-  if (mode == BND64mode)
-    regno = FIRST_BND_REG;
-  else if (TARGET_SSE)
+  if (TARGET_SSE)
     {
       switch (GET_MODE_SIZE (mode))
 	{
@@ -7986,10 +7980,7 @@ function_value_ms_64 (enum machine_mode orig_mode, enum machine_mode mode,
 	  break;
         }
     }
-
-  res = gen_rtx_REG (orig_mode, regno);
-
-  return res;
+  return gen_rtx_REG (orig_mode, regno);
 }
 
 static rtx
@@ -8632,7 +8623,7 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
   int size, rsize;
   tree lab_false, lab_over = NULL_TREE;
   tree addr, t2;
-  rtx container, bndcontainer = NULL;
+  rtx container;
   int indirect_p = 0;
   tree ptrtype;
   enum machine_mode nat_mode;
@@ -8687,7 +8678,6 @@ ix86_gimplify_va_arg (tree valist, tree type, gimple_seq *pre_p,
 				       type, 0, X86_64_REGPARM_MAX,
 				       X86_64_SSE_REGPARM_MAX, intreg,
 				       0);
-      chkp_split_slot (container, &container, &bndcontainer);
       break;
     }
 
@@ -24104,6 +24094,7 @@ decide_alg (HOST_WIDE_INT count, HOST_WIDE_INT expected_size,
 	  || !alg_usable_p (algs->unknown_size, memset)))
     {
       enum stringop_alg alg;
+
       /* If there aren't any usable algorithms, then recursing on
          smaller sizes isn't going to find anything.  Just return the
          simple byte-at-a-time copy loop.  */
