@@ -1,5 +1,13 @@
 2014-02-11  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.c (IS_ASCII_ALPHA): New macro.
+	(IS_ASCII_DIGIT): New macro.
+	(IS_ASCII_ALNUM): New macro.
+	(gcc_jit_context_new_function): Require that function names be valid
+	C identifiers for now, to avoid later problems in the assembler.
+
+2014-02-11  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (enum gcc_jit_types): Add GCC_JIT_TYPE_BOOL.
 
 	* internal-api.h (gcc::jit::recording::comparison::comparison): Use
