@@ -1,6 +1,3 @@
 2013-11-13  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* tree-ssa-strlen.c: Include tree-chkp.h.
-	(handle_builtin_strchr): Remove retbnd call
-	when strchr call is removed.
-	(strlen_optimize_stmt): Skip calls with bounds.
+	* tree-ssa-strlen.c (strlen_optimize_stmt): Skip calls with bounds.
