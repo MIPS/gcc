@@ -37,6 +37,5 @@ extern void chkp_copy_bounds_for_stack_parm (rtx slot, rtx value, tree type);
 extern void chkp_emit_bounds_store (rtx bounds, rtx value, rtx mem);
 extern void chkp_put_regs_to_expr_list (rtx par);
 extern void chkp_expand_bounds_reset_for_mem (tree mem, tree ptr);
-extern rtx chkp_expand_arg_bounds (tree arg);
 
 #endif /* GCC_RTL_CHKP_H */
