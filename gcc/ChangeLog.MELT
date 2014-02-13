@@ -1,4 +1,7 @@
 
+2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated.
 
 2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{removing sysdata_debugmsg field}}
