@@ -6994,7 +6994,6 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
     case BUILT_IN_CHKP_BNDLDX:
     case BUILT_IN_CHKP_BNDRET:
     case BUILT_IN_CHKP_INTERSECT:
-    case BUILT_IN_CHKP_ARG_BND:
     case BUILT_IN_CHKP_NARROW:
     case BUILT_IN_CHKP_EXTRACT_LOWER:
     case BUILT_IN_CHKP_EXTRACT_UPPER:
