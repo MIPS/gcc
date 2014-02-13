@@ -28744,7 +28744,6 @@ enum ix86_builtins
   IX86_BUILTIN_BNDSET,
   IX86_BUILTIN_BNDNARROW,
   IX86_BUILTIN_BNDINT,
-  IX86_BUILTIN_ARG_BND,
   IX86_BUILTIN_SIZEOF,
   IX86_BUILTIN_BNDLOWER,
   IX86_BUILTIN_BNDUPPER,
@@ -30397,7 +30396,6 @@ static const struct builtin_description bdesc_mpx_const[] =
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_set_bounds", IX86_BUILTIN_BNDSET, UNKNOWN, (int) PVOID_FTYPE_PVOID_PVOID_ULONG },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_narrow_bounds", IX86_BUILTIN_BNDNARROW, UNKNOWN, (int) PVOID_FTYPE_PCVOID_BND_ULONG },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndint", IX86_BUILTIN_BNDINT, UNKNOWN, (int) BND_FTYPE_BND_BND },
-  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_arg_bnd", IX86_BUILTIN_ARG_BND, UNKNOWN, (int) BND_FTYPE_PCVOID },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_sizeof", IX86_BUILTIN_SIZEOF, UNKNOWN, (int) ULONG_FTYPE_VOID },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndlower", IX86_BUILTIN_BNDLOWER, UNKNOWN, (int) PVOID_FTYPE_BND },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndupper", IX86_BUILTIN_BNDUPPER, UNKNOWN, (int) PVOID_FTYPE_BND },
@@ -35454,13 +35452,6 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 
 	return res;
       }
-
-    case IX86_BUILTIN_ARG_BND:
-      arg0 = CALL_EXPR_ARG (exp, 0);
-      arg0 = chkp_parm_for_arg_bnd_arg (arg0);
-      target = DECL_BOUNDS_RTL (arg0);
-      gcc_assert (target);
-      return target;
 
     case IX86_BUILTIN_SIZEOF:
       {
