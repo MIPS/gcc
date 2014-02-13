@@ -2,6 +2,10 @@
 
 2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h: Add inclusion of <string> and <vector> C++ headers.
 	(melt_done_modes_vector): Declare this external variable.
 
