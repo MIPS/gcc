@@ -11014,13 +11014,6 @@ by Pointer Bounds Checker to obtain bounds returned by call statement.
 @var{ptr} passed to buil-in is @code{SSA_NAME} returned by call.
 @end deftypefn
 
-@deftypefn {Built-in Function} bnd __chkp_arg_bnd (void *@var{arg})
-Function code - @code{BUILT_IN_CHKP_ARG_BND}.   This built-in function is
-used by Pointer Bounds Checker to obtain bounds passed for input argument.
-@var{arg} is default @code{SSA_NAME} of the @code{PARM_DECL} whose
-bounds we want to obtain.
-@end deftypefn
-
 @deftypefn {Built-in Function} bnd __chkp_intersect (bnd @var{b1}, bnd @var{b2})
 Function code - @code{BUILT_IN_CHKP_INTERSECT}.  This built-in function
 returns intersection of bounds @var{b1} and @var{b2}.
