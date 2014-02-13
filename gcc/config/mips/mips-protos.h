@@ -229,14 +229,15 @@ extern bool mips_cfun_has_cprestore_slot_p (void);
 extern bool mips_cprestore_address_p (rtx, bool);
 extern void mips_save_gp_to_cprestore_slot (rtx, rtx, rtx, rtx);
 extern void mips_restore_gp_from_cprestore_slot (rtx);
-#ifdef RTX_CODE
 extern void mips_expand_scc (rtx *);
 extern void mips_expand_conditional_branch (rtx *);
+#ifdef RTX_CODE
 extern void mips_expand_vcondv2sf (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
 extern void mips_expand_msa_vcond (rtx, rtx, rtx, enum rtx_code, rtx, rtx);
+#endif
 extern void mips_expand_conditional_move (rtx *);
 extern void mips_expand_conditional_trap (rtx);
-#endif
+extern void mips_expand_msa_branch (rtx *operands, rtx (*gen_fn)(rtx, rtx, rtx));
 extern bool mips_use_pic_fn_addr_reg_p (const_rtx);
 extern rtx mips_expand_call (enum mips_call_type, rtx, rtx, rtx, rtx, bool);
 extern void mips_split_call (rtx, rtx);

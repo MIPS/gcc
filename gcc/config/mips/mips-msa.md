@@ -150,6 +150,10 @@
   UNSPEC_MSA_SUBSUU_S
   UNSPEC_MSA_SUBSUS_U
   UNSPEC_MSA_SUBVI
+  UNSPEC_MSA_TSTNZ_V
+  UNSPEC_MSA_TSTZ_V
+  UNSPEC_MSA_TSTNZ
+  UNSPEC_MSA_TSTZ
   UNSPEC_MSA_VSHF
   UNSPEC_MSA_XORI_B
   UNSPEC_MSA_CAST_TO_SCALAR
@@ -2536,45 +2540,111 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bnz_v_<msafmt3>"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
-		   UNSPEC_MSA_BNZ_V))]
-  "ISA_HAS_MSA"
-  "%(bnz.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
-  [(set_attr "type"	"arith")
-   (set_attr "length"	"12")
-   (set_attr "mode"	"TI")])
+(define_insn "msa_branch_nz_v_<msafmt3>" 
+ [(set (pc) (if_then_else
+	      (ne (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+			      UNSPEC_MSA_BNZ_V)
+		  (match_operand:SI 2 "const_0_operand"))
+		  (label_ref (match_operand 0))
+		  (pc)))]
+ "ISA_HAS_MSA"
+ {
+   return mips_output_conditional_branch (insn, operands,
+					  MIPS_BRANCH ("bnz.v", "%w1,%0"),
+					  MIPS_BRANCH ("bz.v", "%w1,%0"));
+ }
+ [(set_attr "type"	"branch")
+  (set_attr "mode"	"TI")])
 
-(define_insn "msa_bz_v_<msafmt3>"
+(define_expand "msa_bnz_v_<msafmt3>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
-		   UNSPEC_MSA_BZ_V))]
+		   UNSPEC_MSA_TSTNZ_V))]
   "ISA_HAS_MSA"
-  "%(bz.v\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
-  [(set_attr "type"	"arith")
-   (set_attr "length"	"12")
-   (set_attr "mode"	"TI")])
+  {
+    mips_expand_msa_branch (operands, gen_msa_branch_nz_v_<MSA:msafmt3>);
+    DONE;
+  })
 
-(define_insn "msa_bnz_<msafmt3>"
-  [(set (match_operand:SI 0 "register_operand" "=d")
-	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
-		   UNSPEC_MSA_BNZ))]
-  "ISA_HAS_MSA"
-  "%(bnz.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
-  [(set_attr "type"	"arith")
-   (set_attr "length"	"12")
-   (set_attr "mode"	"TI")])
+(define_insn "msa_branchz_v_<msafmt3>"
+ [(set (pc) (if_then_else
+	      (eq (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+			      UNSPEC_MSA_BZ_V)
+		  (match_operand:SI 2 "const_0_operand"))
+		  (label_ref (match_operand 0))
+		  (pc)))]
+ "ISA_HAS_MSA"
+ {
+   return mips_output_conditional_branch (insn, operands,
+					  MIPS_BRANCH ("bz.v", "%w1,%0"),
+					  MIPS_BRANCH ("bnz.v", "%w1,%0"));
+ }
+ [(set_attr "type"	"branch")
+  (set_attr "mode"	"TI")])
 
-(define_insn "msa_bz_<msafmt3>"
+(define_expand "msa_bz_v_<msafmt3>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
-		   UNSPEC_MSA_BZ))]
+		   UNSPEC_MSA_TSTZ_V))]
   "ISA_HAS_MSA"
-  "%(bz.<msafmt>\t%w1,1f; li\t%0,1; li\t%0,0%)\n1:"
-  [(set_attr "type"	"arith")
-   (set_attr "length"	"12")
-   (set_attr "mode"	"TI")])
+  {
+    mips_expand_msa_branch (operands, gen_msa_branchz_v_<MSA:msafmt3>);
+    DONE;
+  })
+
+(define_insn "msa_branchnz_<msafmt3>"
+ [(set (pc) (if_then_else
+	      (ne (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+			      UNSPEC_MSA_BNZ)
+		  (match_operand:SI 2 "const_0_operand"))
+		  (label_ref (match_operand 0))
+		  (pc)))]
+ "ISA_HAS_MSA"
+ {
+   return mips_output_conditional_branch (insn, operands,
+					  MIPS_BRANCH ("bnz.<msafmt>", "%w1,%0"),
+					  MIPS_BRANCH ("bz.<msafmt>", "%w1,%0"));
+ 
+ }
+
+ [(set_attr "type"	"branch")
+  (set_attr "mode"	"TI")])
+
+(define_expand "msa_bnz_<msafmt3>"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+		   UNSPEC_MSA_TSTNZ))]
+  "ISA_HAS_MSA"
+  {
+    mips_expand_msa_branch (operands, gen_msa_branchnz_<MSA:msafmt3>);
+    DONE;
+  })
+
+(define_insn "msa_branchz_<msafmt3>"
+ [(set (pc) (if_then_else
+	      (eq (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+			      UNSPEC_MSA_BZ)
+		   (match_operand:MSA 2 "const_0_operand"))
+		  (label_ref (match_operand 0))
+		  (pc)))]
+ "ISA_HAS_MSA"
+ {
+   return mips_output_conditional_branch (insn, operands,
+					  MIPS_BRANCH ("bz.<msafmt>", "%w1,%0"),
+					  MIPS_BRANCH ("bnz.<msafmt>","%w1,%0"));
+ }
+ [(set_attr "type"	"arith")
+  (set_attr "mode"	"TI")])
+
+(define_expand "msa_bz_<msafmt3>"
+  [(set (match_operand:SI 0 "register_operand" "=d")
+	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
+		   UNSPEC_MSA_TSTZ))]
+  "ISA_HAS_MSA"
+  {
+    mips_expand_msa_branch (operands, gen_msa_branchz_<MSA:msafmt3>);
+    DONE;
+  })
 
 ;; Note that this instruction treats scalar as vector registers freely.
 (define_insn "msa_cast_to_vector_<msafmt3>"
