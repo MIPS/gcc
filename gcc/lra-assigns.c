@@ -730,13 +730,6 @@ lra_setup_reg_renumber (int regno, int hard_regno, bool print_p)
     }
 }
 
-/* Pseudos which occur in insns containing a particular pseudo.  */
-static bitmap_head insn_conflict_pseudos;
-
-/* Bitmaps used to contain spill pseudos for given pseudo hard regno
-   and best spill pseudos for given pseudo (and best hard regno).  */
-static bitmap_head spill_pseudos_bitmap, best_spill_pseudos_bitmap;
-
 /* Current pseudo check for validity of elements in
    TRY_HARD_REG_PSEUDOS.  */
 static int curr_pseudo_check;
@@ -773,7 +766,7 @@ setup_try_hard_regno_pseudos (int p, enum reg_class rclass)
 		{
 		  try_hard_reg_pseudos_check[hard_regno + i]
 		    = curr_pseudo_check;
-		  bitmap_clear (try_hard_reg_pseudos[hard_regno + i]);
+		  try_hard_reg_pseudos[hard_regno + i]->clear ();
 		}
 	      try_hard_reg_pseudos[hard_regno + i]->set_bit (spill_regno);
 	    }
@@ -829,8 +822,9 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 
   rclass = regno_allocno_class_array[regno];
   lra_assert (reg_renumber[regno] < 0 && rclass != NO_REGS);
-  bitmap_clear (&insn_conflict_pseudos);
-  bitmap_clear (&best_spill_pseudos_bitmap);
+
+  /* Pseudos which occur in insns containing a particular pseudo.  */
+  bitmap_head insn_conflict_pseudos (&reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&lra_reg_info[regno].insn_bitmap, 0, uid, bi)
     {
       struct lra_insn_reg *ir;
@@ -849,10 +843,12 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
   for (r = lra_reg_info[regno].live_ranges; r != NULL; r = r->next)
     for (p = r->start; p <= r->finish; p++)
       setup_try_hard_regno_pseudos (p, rclass);
+
+  bitmap_head best_spill_pseudos_bitmap (&reg_obstack);
   for (i = 0; i < rclass_size; i++)
     {
       hard_regno = ira_class_hard_regs[rclass][i];
-      bitmap_clear (&spill_pseudos_bitmap);
+      bitmap_head spill_pseudos_bitmap (&reg_obstack);
       for (j = hard_regno_nregs[hard_regno][mode] - 1; j >= 0; j--)
 	{
 	  if (try_hard_reg_pseudos_check[hard_regno + j] != curr_pseudo_check)
@@ -981,7 +977,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 		 lra_reg_info[spill_regno].freq, regno);
       update_lives (spill_regno, true);
       lra_setup_reg_renumber (spill_regno, -1, false);
-    }
+    } 
   bitmap_ior_into (spilled_pseudo_bitmap, &best_spill_pseudos_bitmap);
   return best_hard_regno;
 }
@@ -1169,7 +1165,8 @@ assign_by_spills (void)
   int i, n, nfails, iter, regno, hard_regno, cost, restore_regno;
   rtx insn;
   basic_block bb;
-  bitmap_head changed_insns, do_not_assign_nonreload_pseudos;
+  bitmap_head changed_insns (&reg_obstack);
+ bitmap_head do_not_assign_nonreload_pseudos (&reg_obstack);
   unsigned int u;
   bitmap_iterator bi;
   bool reload_p;
@@ -1179,16 +1176,12 @@ assign_by_spills (void)
     if (reg_renumber[i] < 0 && lra_reg_info[i].nrefs != 0
 	&& regno_allocno_class_array[i] != NO_REGS)
       sorted_pseudos[n++] = i;
-  bitmap_initialize (&insn_conflict_pseudos, &reg_obstack);
-  bitmap_initialize (&spill_pseudos_bitmap, &reg_obstack);
-  bitmap_initialize (&best_spill_pseudos_bitmap, &reg_obstack);
   update_hard_regno_preference_check = XCNEWVEC (int, max_regno);
   curr_update_hard_regno_preference_check = 0;
   memset (try_hard_reg_pseudos_check, 0, sizeof (try_hard_reg_pseudos_check));
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     try_hard_reg_pseudos[i] = BITMAP_ALLOC (&reg_obstack);
   curr_pseudo_check = 0;
-  bitmap_initialize (&changed_insns, &reg_obstack);
   bitmap_initialize (&non_reload_pseudos, &reg_obstack);
   bitmap_ior (&non_reload_pseudos, &lra_inheritance_pseudos, &lra_split_regs);
   bitmap_ior_into (&non_reload_pseudos, &lra_subreg_reload_pseudos);
@@ -1340,8 +1333,7 @@ assign_by_spills (void)
       n = nfails;
     }
   improve_inheritance (&changed_pseudo_bitmap);
-  bitmap_clear (&non_reload_pseudos);
-  bitmap_clear (&changed_insns);
+  non_reload_pseudos.clear ();
   if (! lra_simple_p)
     {
       /* We should not assign to original pseudos of inheritance
@@ -1349,7 +1341,6 @@ assign_by_spills (void)
 	 not get hard register or any its split pseudo was not split
 	 because undo inheritance/split pass will extend live range of
 	 such inheritance or split pseudos.  */
-      bitmap_initialize (&do_not_assign_nonreload_pseudos, &reg_obstack);
       EXECUTE_IF_SET_IN_BITMAP (&lra_inheritance_pseudos, 0, u, bi)
 	if ((restore_regno = lra_reg_info[u].restore_regno) >= 0
 	    && reg_renumber[u] < 0
@@ -1371,7 +1362,7 @@ assign_by_spills (void)
 	    && reg_renumber[i] < 0 && lra_reg_info[i].nrefs != 0
 	    && regno_allocno_class_array[i] != NO_REGS)
 	  sorted_pseudos[n++] = i;
-      bitmap_clear (&do_not_assign_nonreload_pseudos);
+      do_not_assign_nonreload_pseudos.clear ();
       if (n != 0 && lra_dump_file != NULL)
 	fprintf (lra_dump_file, "  Reassigning non-reload pseudos\n");
       qsort (sorted_pseudos, n, sizeof (int), pseudo_compare_func);
@@ -1390,9 +1381,6 @@ assign_by_spills (void)
 	}
     }
   free (update_hard_regno_preference_check);
-  bitmap_clear (&best_spill_pseudos_bitmap);
-  bitmap_clear (&spill_pseudos_bitmap);
-  bitmap_clear (&insn_conflict_pseudos);
 }
 
 
@@ -1411,7 +1399,7 @@ lra_assign (void)
   int i;
   unsigned int u;
   bitmap_iterator bi;
-  bitmap_head insns_to_process;
+  bitmap_head insns_to_process (&reg_obstack);
   bool no_spills_p;
   int max_regno = max_reg_num ();
 
@@ -1450,18 +1438,16 @@ lra_assign (void)
 	break;
       }
   finish_live_range_start_chains ();
-  bitmap_clear (&all_spilled_pseudos);
-  bitmap_initialize (&insns_to_process, &reg_obstack);
+  all_spilled_pseudos.clear ();
   EXECUTE_IF_SET_IN_BITMAP (&changed_pseudo_bitmap, 0, u, bi)
     bitmap_ior_into (&insns_to_process, &lra_reg_info[u].insn_bitmap);
-  bitmap_clear (&changed_pseudo_bitmap);
+  changed_pseudo_bitmap.clear ();
   EXECUTE_IF_SET_IN_BITMAP (&insns_to_process, 0, u, bi)
     {
       lra_push_insn_by_uid (u);
       /* Invalidate alternatives for insn should be processed.	*/
       lra_set_used_insn_alternative_by_uid (u, -1);
     }
-  bitmap_clear (&insns_to_process);
   finish_regno_assign_info ();
   free (regno_allocno_class_array);
   free (sorted_pseudos);

@@ -1033,7 +1033,6 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 {
   enum df_flow_dir dir = dataflow->problem->dir;
   int dcount = 0;
-  bitmap worklist = BITMAP_ALLOC (&df_bitmap_obstack);
   int age = 0;
   bool changed;
   vec<int> last_visit_age = vNULL;
@@ -1051,11 +1050,10 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
       unsigned int index;
 
       /* Swap pending and worklist. */
-      bitmap temp = worklist;
-      worklist = pending;
-      pending = temp;
+      bitmap_head worklist (&df_bitmap_obstack);
+      worklist.swap (pending);
 
-      EXECUTE_IF_SET_IN_BITMAP (worklist, 0, index, bi)
+      EXECUTE_IF_SET_IN_BITMAP (&worklist, 0, index, bi)
 	{
 	  unsigned bb_index;
 	  dcount++;
@@ -1078,12 +1076,10 @@ df_worklist_dataflow_doublequeue (struct dataflow *dataflow,
 	  if (changed)
 	    bb->aux = (void *)(ptrdiff_t)age;
 	}
-      bitmap_clear (worklist);
     }
   for (i = 0; i < n_blocks; i++)
     BASIC_BLOCK_FOR_FN (cfun, blocks_in_postorder[i])->aux = NULL;
 
-  BITMAP_FREE (worklist);
   BITMAP_FREE (pending);
   last_visit_age.release ();
 
@@ -1691,7 +1687,7 @@ df_compact_blocks (void)
       if (dflow->out_of_date_transfer_functions)
 	{
 	  bitmap_copy (&tmp, dflow->out_of_date_transfer_functions);
-	  bitmap_clear (dflow->out_of_date_transfer_functions);
+	  dflow->out_of_date_transfer_functions->clear ();
 	  if (tmp.bit (ENTRY_BLOCK))
 	    dflow->out_of_date_transfer_functions->set_bit (ENTRY_BLOCK);
 	  if (tmp.bit (EXIT_BLOCK))
@@ -1743,7 +1739,7 @@ df_compact_blocks (void)
       if (tmp.bit (EXIT_BLOCK))
 	df->blocks_to_analyze->set_bit (EXIT_BLOCK);
       bitmap_copy (&tmp, df->blocks_to_analyze);
-      bitmap_clear (df->blocks_to_analyze);
+      df->blocks_to_analyze->clear ();
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB_FN (bb, cfun)
 	{

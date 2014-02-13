@@ -5016,7 +5016,7 @@ get_live_on_other_edges (basic_block from, basic_block to, bitmap res)
   edge_iterator ei;
 
   lra_assert (to != NULL);
-  bitmap_clear (res);
+  lra_assert (res->is_empty ());
   FOR_EACH_EDGE (e, ei, from->succs)
     if (e->dest != to)
       bitmap_ior_into (res, df_get_live_in (e->dest));
@@ -5063,7 +5063,6 @@ inherit_in_ebb (rtx head, rtx tail)
   struct lra_insn_reg *reg;
   basic_block last_processed_bb, curr_bb = NULL;
   HARD_REG_SET potential_reload_hard_regs, live_hard_regs;
-  bitmap to_process;
   unsigned int j;
   bitmap_iterator bi;
   bool head_p, after_p;
@@ -5071,7 +5070,7 @@ inherit_in_ebb (rtx head, rtx tail)
   change_p = false;
   curr_usage_insns_check++;
   reloads_num = calls_num = 0;
-  bitmap_clear (&check_only_regs);
+  check_only_regs.clear ();
   last_processed_bb = NULL;
   CLEAR_HARD_REG_SET (potential_reload_hard_regs);
   COPY_HARD_REG_SET (live_hard_regs, eliminable_regset);
@@ -5086,13 +5085,14 @@ inherit_in_ebb (rtx head, rtx tail)
 	{
 	  /* We are at the end of BB.  Add qualified living
 	     pseudos for potential splitting.  */
-	  to_process = df_get_live_out (curr_bb);
+	  bitmap to_process = df_get_live_out (curr_bb);
+	  bitmap_head temp (&reg_obstack);
 	  if (last_processed_bb != NULL)
 	    {
 	      /* We are somewhere in the middle of EBB.	 */
 	      get_live_on_other_edges (curr_bb, last_processed_bb,
-				       &temp_bitmap);
-	      to_process = &temp_bitmap;
+				       &temp);
+	      to_process = &temp;
 	    }
 	  last_processed_bb = curr_bb;
 	  last_insn = get_last_insertion_point (curr_bb);
@@ -5396,13 +5396,14 @@ inherit_in_ebb (rtx head, rtx tail)
 	{
 	  /* We reached the beginning of the current block -- do
 	     rest of spliting in the current BB.  */
-	  to_process = df_get_live_in (curr_bb);
+	  bitmap to_process = df_get_live_in (curr_bb);
+	  bitmap_head temp (&reg_obstack);
 	  if (BLOCK_FOR_INSN (head) != curr_bb)
 	    {
 	      /* We are somewhere in the middle of EBB.	 */
 	      get_live_on_other_edges (EDGE_PRED (curr_bb, 0)->src,
-				       curr_bb, &temp_bitmap);
-	      to_process = &temp_bitmap;
+				       curr_bb, &temp);
+	      to_process = &temp;
 	    }
 	  head_p = true;
 	  EXECUTE_IF_SET_IN_BITMAP (to_process, 0, j, bi)
@@ -5462,7 +5463,6 @@ lra_inheritance (void)
     usage_insns[i].check = 0;
   bitmap_initialize (&check_only_regs, &reg_obstack);
   bitmap_initialize (&live_regs, &reg_obstack);
-  bitmap_initialize (&temp_bitmap, &reg_obstack);
   bitmap_initialize (&ebb_global_regs, &reg_obstack);
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -5470,7 +5470,7 @@ lra_inheritance (void)
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "EBB");
       /* Form a EBB starting with BB.  */
-      bitmap_clear (&ebb_global_regs);
+      ebb_global_regs.clear ();
       bitmap_ior_into (&ebb_global_regs, df_get_live_in (bb));
       for (;;)
 	{
@@ -5494,10 +5494,9 @@ lra_inheritance (void)
 	   inherit_in_ebb.  */
 	update_ebb_live_info (BB_HEAD (start_bb), BB_END (bb));
     }
-  bitmap_clear (&ebb_global_regs);
-  bitmap_clear (&temp_bitmap);
-  bitmap_clear (&live_regs);
-  bitmap_clear (&check_only_regs);
+  ebb_global_regs.clear ();
+  live_regs.clear ();
+  check_only_regs.clear ();
   free (usage_insns);
 
   timevar_pop (TV_LRA_INHERITANCE);

@@ -172,11 +172,11 @@ df_rd_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_rd_bb_info *bb_info = (struct df_rd_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->kill);
-      bitmap_clear (&bb_info->sparse_kill);
-      bitmap_clear (&bb_info->gen);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->kill.clear ();
+      bb_info->sparse_kill.clear ();
+      bb_info->gen.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -194,8 +194,8 @@ df_rd_alloc (bitmap all_blocks)
   if (df_rd->problem_data)
     {
       problem_data = (struct df_rd_problem_data *) df_rd->problem_data;
-      bitmap_clear (&problem_data->sparse_invalidated_by_call);
-      bitmap_clear (&problem_data->dense_invalidated_by_call);
+      problem_data->sparse_invalidated_by_call.clear ();
+      problem_data->dense_invalidated_by_call.clear ();
     }
   else
     {
@@ -221,9 +221,9 @@ df_rd_alloc (bitmap all_blocks)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->kill.obstack)
 	{
-	  bitmap_clear (&bb_info->kill);
-	  bitmap_clear (&bb_info->sparse_kill);
-	  bitmap_clear (&bb_info->gen);
+	  bb_info->kill.clear ();
+	  bb_info->sparse_kill.clear ();
+	  bb_info->gen.clear ();
 	}
       else
 	{
@@ -355,8 +355,8 @@ df_rd_bb_local_compute (unsigned int bb_index)
   struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
   rtx insn;
 
-  bitmap_clear (&seen_in_block);
-  bitmap_clear (&seen_in_insn);
+  seen_in_block.clear ();
+  seen_in_insn.clear ();
 
   /* Artificials are only hard regs.  */
   if (!(df->changeable_flags & DF_NO_HARD_REGS))
@@ -381,7 +381,7 @@ df_rd_bb_local_compute (unsigned int bb_index)
 	 is used and the clobber goes first, the result will be
 	 lost.  */
       bitmap_ior_into (&seen_in_block, &seen_in_insn);
-      bitmap_clear (&seen_in_insn);
+      seen_in_insn.clear ();
     }
 
   /* Process the artificial defs at the top of the block last since we
@@ -431,8 +431,8 @@ df_rd_local_compute (bitmap all_blocks)
 	}
     }
 
-  bitmap_clear (&seen_in_block);
-  bitmap_clear (&seen_in_insn);
+  seen_in_block.clear ();
+  seen_in_insn.clear ();
 }
 
 
@@ -449,7 +449,7 @@ df_rd_init_solution (bitmap all_blocks)
       struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
 
       bitmap_copy (&bb_info->out, &bb_info->gen);
-      bitmap_clear (&bb_info->in);
+      bb_info->in.clear ();
     }
 }
 
@@ -525,12 +525,7 @@ df_rd_transfer_function (int bb_index)
       bitmap_ior_into (&tmp, gen);
       changed = tmp != *out;
       if (changed)
-	{
-	  bitmap_clear (out);
-	  tmp.swap (&bb_info->out);
-	}
-      else
-	bitmap_clear (&tmp);
+	tmp.swap (&bb_info->out);
     }
 
   if (df->changeable_flags & DF_RD_PRUNE_DEAD_DEFS)
@@ -607,7 +602,6 @@ df_rd_start_dump (FILE *file)
 static void
 df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
 {
-  bitmap_head tmp (&df_bitmap_obstack);
   unsigned int regno;
   unsigned int m = DF_REG_SIZE (df);
   bool first_reg = true;
@@ -619,6 +613,7 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
       if (HARD_REGISTER_NUM_P (regno)
 	  && (df->changeable_flags & DF_NO_HARD_REGS))
 	continue;
+      bitmap_head tmp (&df_bitmap_obstack);
       tmp.set_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
       bitmap_and_into (&tmp, defs_set);
       if (! tmp.is_empty ())
@@ -639,7 +634,6 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
 	    }
 	  fprintf (file, "]");
 	}
-      bitmap_clear (&tmp);
     }
 
   fprintf (file, "\n");
@@ -743,10 +737,10 @@ df_lr_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_lr_bb_info *bb_info = (struct df_lr_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->use);
-      bitmap_clear (&bb_info->def);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->use.clear ();
+      bb_info->def.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -781,8 +775,8 @@ df_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->use.obstack)
 	{
-	  bitmap_clear (&bb_info->def);
-	  bitmap_clear (&bb_info->use);
+	  bb_info->def.clear ();
+	  bb_info->use.clear ();
 	}
       else
 	{
@@ -809,8 +803,8 @@ df_lr_reset (bitmap all_blocks)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -917,7 +911,7 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
   unsigned int bb_index, i;
   bitmap_iterator bi;
 
-  bitmap_clear (&df->hardware_regs_used);
+  df->hardware_regs_used.clear ();
 
   /* The all-important stack pointer must always be live.  */
   df->hardware_regs_used.set_bit (STACK_POINTER_REGNUM);
@@ -964,7 +958,7 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 	df_lr_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (df_lr->out_of_date_transfer_functions);
+  df_lr->out_of_date_transfer_functions->clear ();
 }
 
 
@@ -980,7 +974,7 @@ df_lr_init (bitmap all_blocks)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb_index);
       bitmap_copy (&bb_info->in, &bb_info->use);
-      bitmap_clear (&bb_info->out);
+      bb_info->out.clear ();
     }
 }
 
@@ -1204,8 +1198,8 @@ df_lr_verify_solution_end (void)
      if the comparison fails.  */
   FOR_ALL_BB_FN (bb, cfun)
     {
-      bitmap_clear (&problem_data->in[bb->index]);
-      bitmap_clear (&problem_data->out[bb->index]);
+      problem_data->in[bb->index].clear ();
+      problem_data->out[bb->index].clear ();
     }
 
   free (problem_data->in);
@@ -1341,11 +1335,6 @@ struct df_live_problem_data
   bitmap_obstack live_bitmaps;
 };
 
-/* Scratch var used by transfer functions.  This is used to implement
-   an optimization to reduce the amount of space used to compute the
-   combined lr and live analysis.  */
-static bitmap_head df_live_scratch;
-
 
 /* Free basic block info.  */
 
@@ -1356,10 +1345,10 @@ df_live_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_live_bb_info *bb_info = (struct df_live_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->gen);
-      bitmap_clear (&bb_info->kill);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->gen.clear ();
+      bb_info->kill.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -1384,7 +1373,6 @@ df_live_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       problem_data->out = NULL;
       problem_data->in = NULL;
       bitmap_obstack_initialize (&problem_data->live_bitmaps);
-      bitmap_initialize (&df_live_scratch, &problem_data->live_bitmaps);
     }
 
   df_grow_bb_info (df_live);
@@ -1396,8 +1384,8 @@ df_live_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->kill.obstack)
 	{
-	  bitmap_clear (&bb_info->kill);
-	  bitmap_clear (&bb_info->gen);
+	  bb_info->kill.clear ();
+	  bb_info->gen.clear ();
 	}
       else
 	{
@@ -1423,8 +1411,8 @@ df_live_reset (bitmap all_blocks)
     {
       struct df_live_bb_info *bb_info = df_live_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -1501,7 +1489,7 @@ df_live_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
       df_live_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (df_live->out_of_date_transfer_functions);
+  df_live->out_of_date_transfer_functions->clear ();
 }
 
 
@@ -1521,7 +1509,7 @@ df_live_init (bitmap all_blocks)
       /* No register may reach a location where it is not used.  Thus
 	 we trim the rr result to the places where it is used.  */
       bitmap_and (&bb_info->out, &bb_info->gen, &bb_lr_info->out);
-      bitmap_clear (&bb_info->in);
+      bb_info->in.clear ();
     }
 }
 
@@ -1555,12 +1543,13 @@ df_live_transfer_function (int bb_index)
   /* We need to use a scratch set here so that the value returned from this
      function invocation properly reflects whether the sets changed in a
      significant way; i.e. not just because the lr set was anded in.  */
-  bitmap_and (&df_live_scratch, gen, &bb_lr_info->out);
+  bitmap_head temp;
+  bitmap_and (&temp, gen, &bb_lr_info->out);
   /* No register may reach a location where it is not used.  Thus
      we trim the rr result to the places where it is used.  */
   bitmap_and_into (in, &bb_lr_info->in);
 
-  return bitmap_ior_and_compl (out, &df_live_scratch, in, kill);
+  return bitmap_ior_and_compl (out, &temp, in, kill);
 }
 
 
@@ -1603,7 +1592,6 @@ df_live_free (void)
       df_live->block_info_size = 0;
       free (df_live->block_info);
       df_live->block_info = NULL;
-      bitmap_clear (&df_live_scratch);
       bitmap_obstack_release (&problem_data->live_bitmaps);
       free (problem_data);
       df_live->problem_data = NULL;
@@ -1722,8 +1710,8 @@ df_live_verify_solution_end (void)
      if the comparison fails.  */
   FOR_ALL_BB_FN (bb, cfun)
     {
-      bitmap_clear (&problem_data->in[bb->index]);
-      bitmap_clear (&problem_data->out[bb->index]);
+      problem_data->in[bb->index].clear ();
+      problem_data->out[bb->index].clear ();
     }
 
   free (problem_data->in);
@@ -1976,7 +1964,7 @@ df_chain_remove_problem (void)
 	}
     }
 
-  bitmap_clear (df_chain->out_of_date_transfer_functions);
+  df_chain->out_of_date_transfer_functions->clear ();
   df_chain->block_pool = NULL;
 }
 
@@ -2351,10 +2339,10 @@ df_word_lr_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_word_lr_bb_info *bb_info = (struct df_word_lr_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->use);
-      bitmap_clear (&bb_info->def);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->use.clear ();
+      bb_info->def.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -2396,8 +2384,8 @@ df_word_lr_alloc (bitmap all_blocks ATTRIBUTE_UNUSED)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->use.obstack)
 	{
-	  bitmap_clear (&bb_info->def);
-	  bitmap_clear (&bb_info->use);
+	  bb_info->def.clear ();
+	  bb_info->use.clear ();
 	}
       else
 	{
@@ -2424,8 +2412,8 @@ df_word_lr_reset (bitmap all_blocks)
     {
       struct df_word_lr_bb_info *bb_info = df_word_lr_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -2554,7 +2542,7 @@ df_word_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 	df_word_lr_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (df_word_lr->out_of_date_transfer_functions);
+  df_word_lr->out_of_date_transfer_functions->clear ();
 }
 
 
@@ -2570,7 +2558,7 @@ df_word_lr_init (bitmap all_blocks)
     {
       struct df_word_lr_bb_info *bb_info = df_word_lr_get_bb_info (bb_index);
       bitmap_copy (&bb_info->in, &bb_info->use);
-      bitmap_clear (&bb_info->out);
+      bb_info->out.clear ();
     }
 }
 
@@ -3108,7 +3096,7 @@ df_create_unused_note (rtx insn, df_ref def,
 
 static void
 df_note_bb_compute (unsigned int bb_index,
-		    bitmap live, bitmap do_not_gen, bitmap artificial_uses)
+		    bitmap live)
 {
   basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
   rtx insn;
@@ -3119,7 +3107,7 @@ df_note_bb_compute (unsigned int bb_index,
   dead_debug_local_init (&debug, NULL, NULL);
 
   bitmap_copy (live, df_get_live_out (bb));
-  bitmap_clear (artificial_uses);
+  bitmap_head artificial_uses (&df_bitmap_obstack);
 
   if (REG_DEAD_DEBUGGING && dump_file)
     {
@@ -3150,7 +3138,7 @@ df_note_bb_compute (unsigned int bb_index,
 
 	  /* Notes are not generated for any of the artificial registers
 	     at the bottom of the block.  */
-	  artificial_uses->set_bit (regno);
+	  artificial_uses.set_bit (regno);
 	}
     }
 
@@ -3171,7 +3159,7 @@ df_note_bb_compute (unsigned int bb_index,
 
       debug_insn = DEBUG_INSN_P (insn);
 
-      bitmap_clear (do_not_gen);
+      bitmap_head do_not_gen (&df_bitmap_obstack);
       df_remove_dead_and_unused_notes (insn);
 
       /* Process the defs.  */
@@ -3192,8 +3180,8 @@ df_note_bb_compute (unsigned int bb_index,
 	      if ((DF_MWS_REG_DEF_P (mws))
 		  && !df_ignore_stack_reg (mws->start_regno))
 	      df_set_unused_notes_for_mw (insn,
-					  mws, live, do_not_gen,
-					  artificial_uses, &debug);
+					  mws, live, &do_not_gen,
+					  &artificial_uses, &debug);
 	      mws_rec++;
 	    }
 
@@ -3206,8 +3194,8 @@ df_note_bb_compute (unsigned int bb_index,
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER))
 		{
 		  df_create_unused_note (insn,
-					 def, live, artificial_uses, &debug);
-		  do_not_gen->set_bit (dregno);
+					 def, live, &artificial_uses, &debug);
+		  do_not_gen.set_bit (dregno);
 		}
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
@@ -3223,8 +3211,8 @@ df_note_bb_compute (unsigned int bb_index,
 	      struct df_mw_hardreg *mws = *mws_rec;
 	      if (DF_MWS_REG_DEF_P (mws))
 		df_set_unused_notes_for_mw (insn,
-					    mws, live, do_not_gen,
-					    artificial_uses, &debug);
+					    mws, live, &do_not_gen,
+					    &artificial_uses, &debug);
 	      mws_rec++;
 	    }
 
@@ -3233,10 +3221,10 @@ df_note_bb_compute (unsigned int bb_index,
 	      df_ref def = *def_rec;
 	      unsigned int dregno = DF_REF_REGNO (def);
 	      df_create_unused_note (insn,
-				     def, live, artificial_uses, &debug);
+				     def, live, &artificial_uses, &debug);
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER))
-		do_not_gen->set_bit (dregno);
+		do_not_gen.set_bit (dregno);
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
 		live->clear_bit (dregno);
@@ -3254,8 +3242,8 @@ df_note_bb_compute (unsigned int bb_index,
 	      bool really_add_notes = debug_insn != 0;
 
 	      df_set_dead_notes_for_mw (insn,
-					mws, live, do_not_gen,
-					artificial_uses,
+					mws, live, &do_not_gen,
+					&artificial_uses,
 					&really_add_notes);
 
 	      if (really_add_notes)
@@ -3284,7 +3272,7 @@ df_note_bb_compute (unsigned int bb_index,
 		      /* We won't add REG_UNUSED or REG_DEAD notes for
 			 these, so we don't have to mess with them in
 			 debug insns either.  */
-		      if (!artificial_uses->bit (uregno)
+		      if (!artificial_uses.bit (uregno)
 			  && !df_ignore_stack_reg (uregno))
 			dead_debug_add (&debug, use, uregno);
 		      continue;
@@ -3297,8 +3285,8 @@ df_note_bb_compute (unsigned int bb_index,
 
 	      if ( (!(DF_REF_FLAGS (use)
 		      & (DF_REF_MW_HARDREG | DF_REF_READ_WRITE)))
-		   && (!do_not_gen->bit (uregno))
-		   && (!artificial_uses->bit (uregno))
+		   && (!do_not_gen.bit (uregno))
+		   && (!artificial_uses.bit (uregno))
 		   && (!df_ignore_stack_reg (uregno)))
 		{
 		  rtx reg = (DF_REF_LOC (use))
@@ -3334,7 +3322,7 @@ df_note_compute (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
-  bitmap_head live (&df_bitmap_obstack), do_not_gen (&df_bitmap_obstack), artificial_uses (&df_bitmap_obstack);
+  bitmap_head live (&df_bitmap_obstack);
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
   {
     /* ??? Unlike fast DCE, we don't use global_debug for uses of dead
@@ -3342,7 +3330,7 @@ df_note_compute (bitmap all_blocks)
        with death points after visiting dead uses.  Even changing this
        loop to postorder would still leave room for visiting a death
        point before visiting a subsequent debug use.  */
-    df_note_bb_compute (bb_index, &live, &do_not_gen, &artificial_uses);
+    df_note_bb_compute (bb_index, &live);
   }
 }
 
@@ -4059,11 +4047,11 @@ df_md_free_bb_info (basic_block bb ATTRIBUTE_UNUSED,
   struct df_md_bb_info *bb_info = (struct df_md_bb_info *) vbb_info;
   if (bb_info)
     {
-      bitmap_clear (&bb_info->kill);
-      bitmap_clear (&bb_info->gen);
-      bitmap_clear (&bb_info->init);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->kill.clear ();
+      bb_info->gen.clear ();
+      bb_info->init.clear ();
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -4095,11 +4083,11 @@ df_md_alloc (bitmap all_blocks)
       /* When bitmaps are already initialized, just clear them.  */
       if (bb_info->init.obstack)
         {
-          bitmap_clear (&bb_info->init);
-          bitmap_clear (&bb_info->gen);
-          bitmap_clear (&bb_info->kill);
-          bitmap_clear (&bb_info->in);
-          bitmap_clear (&bb_info->out);
+          bb_info->init.clear ();
+          bb_info->gen.clear ();
+          bb_info->kill.clear ();
+          bb_info->in.clear ();
+          bb_info->out.clear ();
         }
       else
         {
@@ -4170,7 +4158,7 @@ df_md_bb_local_compute_process_def (struct df_md_bb_info *bb_info,
                                     int top_flag)
 {
   df_ref def;
-  bitmap_clear (&seen_in_insn);
+  seen_in_insn.clear ();
 
   while ((def = *def_rec++) != NULL)
     {
@@ -4246,7 +4234,7 @@ df_md_local_compute (bitmap all_blocks)
       df_md_bb_local_compute (bb_index);
     }
 
-  bitmap_clear (&seen_in_insn);
+  seen_in_insn.clear ();
 
   bitmap_head *frontiers = new bitmap_head[last_basic_block_for_fn (cfun)];
   compute_dominance_frontiers (frontiers);
@@ -4280,8 +4268,8 @@ df_md_reset (bitmap all_blocks)
     {
       struct df_md_bb_info *bb_info = df_md_get_bb_info (bb_index);
       gcc_assert (bb_info);
-      bitmap_clear (&bb_info->in);
-      bitmap_clear (&bb_info->out);
+      bb_info->in.clear ();
+      bb_info->out.clear ();
     }
 }
 
@@ -4357,7 +4345,7 @@ df_md_free (void)
   struct df_md_problem_data *problem_data
     = (struct df_md_problem_data *) df_md->problem_data;
 
-  bitmap_clear(&df_md_scratch);
+  df_md_scratch.clear ();
   bitmap_obstack_release (&problem_data->md_bitmaps);
   free (problem_data);
   df_md->problem_data = NULL;

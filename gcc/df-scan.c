@@ -251,14 +251,14 @@ df_scan_free_internal (void)
   df_scan->block_info = NULL;
   df_scan->block_info_size = 0;
 
-  bitmap_clear (&df->hardware_regs_used);
-  bitmap_clear (&df->regular_block_artificial_uses);
-  bitmap_clear (&df->eh_block_artificial_uses);
+  df->hardware_regs_used.clear ();
+  df->regular_block_artificial_uses.clear ();
+  df->eh_block_artificial_uses.clear ();
   BITMAP_FREE (df->entry_block_defs);
   BITMAP_FREE (df->exit_block_uses);
-  bitmap_clear (&df->insns_to_delete);
-  bitmap_clear (&df->insns_to_rescan);
-  bitmap_clear (&df->insns_to_notes_rescan);
+  df->insns_to_delete.clear ();
+  df->insns_to_rescan.clear ();
+  df->insns_to_notes_rescan.clear ();
 
   free_alloc_pool (problem_data->ref_base_pool);
   free_alloc_pool (problem_data->ref_artificial_pool);
@@ -1407,9 +1407,9 @@ df_insn_rescan_all (void)
 	df_insn_info_delete (uid);
     }
 
-  bitmap_clear (&df->insns_to_delete);
-  bitmap_clear (&df->insns_to_rescan);
-  bitmap_clear (&df->insns_to_notes_rescan);
+  df->insns_to_delete.clear ();
+  df->insns_to_rescan.clear ();
+  df->insns_to_notes_rescan.clear ();
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -1479,9 +1479,9 @@ df_process_deferred_rescans (void)
   if (dump_file)
     fprintf (dump_file, "ending the processing of deferred insns\n");
 
-  bitmap_clear (&df->insns_to_delete);
-  bitmap_clear (&df->insns_to_rescan);
-  bitmap_clear (&df->insns_to_notes_rescan);
+  df->insns_to_delete.clear ();
+  df->insns_to_rescan.clear ();
+  df->insns_to_notes_rescan.clear ();
 
   if (no_insn_rescan)
     df_set_flags (DF_NO_INSN_RESCAN);
@@ -3657,7 +3657,7 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
   unsigned int i;
 #endif
 
-  bitmap_clear (regular_block_artificial_uses);
+  regular_block_artificial_uses->clear ();
 
   if (reload_completed)
     {
@@ -3716,7 +3716,7 @@ df_get_regular_block_artificial_uses (bitmap regular_block_artificial_uses)
 static void
 df_get_eh_block_artificial_uses (bitmap eh_block_artificial_uses)
 {
-  bitmap_clear (eh_block_artificial_uses);
+  eh_block_artificial_uses->clear ();
 
   /* The following code (down through the arg_pointer setting APPEARS
      to be necessary because there is nothing that actually
@@ -3774,7 +3774,7 @@ df_get_entry_block_def_set (bitmap entry_block_defs)
   rtx r;
   int i;
 
-  bitmap_clear (entry_block_defs);
+  entry_block_defs->clear ();
 
   for (i = 0; i < FIRST_PSEUDO_REGISTER; i++)
     {
@@ -3937,7 +3937,7 @@ df_get_exit_block_use_set (bitmap exit_block_uses)
   unsigned int i;
   unsigned int picreg = PIC_OFFSET_TABLE_REGNUM;
 
-  bitmap_clear (exit_block_uses);
+  exit_block_uses->clear ();
 
   /* Stack pointer is always live at the exit.  */
   exit_block_uses->set_bit (STACK_POINTER_REGNUM);

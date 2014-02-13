@@ -259,7 +259,6 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
   rtx insn, set;
   basic_block bb;
   HARD_REG_SET conflict_hard_regs;
-  bitmap_head ok_insn_bitmap;
   bitmap setjump_crosses = regstat_get_setjmp_crosses ();
   /* Hard registers which can not be used for any purpose at given
      program point because they are unallocatable or already allocated
@@ -279,7 +278,7 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
 	for (p = r->start; p <= r->finish; p++)
 	  add_to_hard_reg_set (&reserved_hard_regs[p],
 			       lra_reg_info[i].biggest_mode, hard_regno);
-  bitmap_initialize (&ok_insn_bitmap, &reg_obstack);
+  bitmap_head ok_insn_bitmap (&reg_obstack);
   FOR_EACH_BB_FN (bb, cfun)
     FOR_BB_INSNS (bb, insn)
       if (DEBUG_INSN_P (insn)
@@ -336,7 +335,6 @@ assign_spill_hard_regs (int *pseudo_regnos, int n)
 	/* Just loop.  */
 	df_set_regs_ever_live (hard_regno + nr, true);
     }
-  bitmap_clear (&ok_insn_bitmap);
   free (reserved_hard_regs);
   return res;
 }
@@ -527,8 +525,6 @@ spill_pseudos (void)
       bitmap_and_compl_into (df_get_live_in (bb), &spilled_pseudos);
       bitmap_and_compl_into (df_get_live_out (bb), &spilled_pseudos);
     }
-  bitmap_clear (&spilled_pseudos);
-  bitmap_clear (&changed_insns);
 }
 
 /* Return true if we need to change some pseudos into memory.  */

@@ -179,9 +179,6 @@ mem_move_p (int regno1, int regno2)
   return reg_renumber[regno1] < 0 && reg_renumber[regno2] < 0;
 }
 
-/* Pseudos used instead of the coalesced pseudos.  */
-static bitmap_head used_pseudos_bitmap;
-
 /* Set up USED_PSEUDOS_BITMAP, and update LR_BITMAP (a BB live info
    bitmap).  */
 static void
@@ -190,7 +187,8 @@ update_live_info (bitmap lr_bitmap)
   unsigned int j;
   bitmap_iterator bi;
 
-  bitmap_clear (&used_pseudos_bitmap);
+  /* Pseudos used instead of the coalesced pseudos.  */
+  bitmap_head used_pseudos_bitmap (&reg_obstack);
   EXECUTE_IF_AND_IN_BITMAP (&coalesced_pseudos_bitmap, lr_bitmap,
 			    FIRST_PSEUDO_REGISTER, j, bi)
     used_pseudos_bitmap.set_bit (first_coalesced_pseudo[j]);
@@ -224,8 +222,7 @@ lra_coalesce (void)
   unsigned int regno;
   int coalesced_moves;
   int max_regno = max_reg_num ();
-  bitmap_head involved_insns_bitmap;
-  bitmap_head result_pseudo_vals_bitmap;
+  bitmap_head involved_insns_bitmap (&reg_obstack);
   bitmap_iterator bi;
 
   timevar_push (TV_LRA_COALESCE);
@@ -261,7 +258,6 @@ lra_coalesce (void)
   qsort (sorted_moves, mv_num, sizeof (rtx), move_freq_compare_func);
   /* Coalesced copies, most frequently executed first.	*/
   bitmap_initialize (&coalesced_pseudos_bitmap, &reg_obstack);
-  bitmap_initialize (&involved_insns_bitmap, &reg_obstack);
   for (i = 0; i < mv_num; i++)
     {
       mv = sorted_moves[i];
@@ -299,7 +295,6 @@ lra_coalesce (void)
 	  merge_pseudos (sregno, dregno);
 	}
     }
-  bitmap_initialize (&used_pseudos_bitmap, &reg_obstack);
   FOR_EACH_BB_FN (bb, cfun)
     {
       update_live_info (df_get_live_in (bb));
@@ -337,7 +332,7 @@ lra_coalesce (void)
      should have different values, otherwise they can get the same
      hard reg and this is wrong for insn using p2 before coalescing.
      So invalidate such inheritance pseudo values.  */
-  bitmap_initialize (&result_pseudo_vals_bitmap, &reg_obstack);
+  bitmap_head result_pseudo_vals_bitmap (&reg_obstack);
   EXECUTE_IF_SET_IN_BITMAP (&coalesced_pseudos_bitmap, 0, regno, bi)
     result_pseudo_vals_bitmap.set_bit
 		    (lra_reg_info[first_coalesced_pseudo[regno]].val);
@@ -349,10 +344,7 @@ lra_coalesce (void)
 	  fprintf (lra_dump_file,
 		   "	 Make unique value for inheritance r%d\n", regno);
       }
-  bitmap_clear (&result_pseudo_vals_bitmap);
-  bitmap_clear (&used_pseudos_bitmap);
-  bitmap_clear (&involved_insns_bitmap);
-  bitmap_clear (&coalesced_pseudos_bitmap);
+  coalesced_pseudos_bitmap.clear ();
   if (lra_dump_file != NULL && coalesced_moves != 0)
     fprintf (lra_dump_file, "Coalesced Moves = %d\n", coalesced_moves);
   free (sorted_moves);

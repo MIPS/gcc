@@ -1973,7 +1973,6 @@ bitmap_ior_and_compl_into (bitmap a, const_bitmap from1, const_bitmap from2)
   bitmap_initialize (&tmp, &bitmap_default_obstack);
   bitmap_and_compl (&tmp, from1, from2);
   changed = bitmap_ior_into (a, &tmp);
-  bitmap_clear (&tmp);
 
   return changed;
 }

@@ -1472,7 +1472,7 @@ finish_reg_info (void)
   int i;
 
   for (i = 0; i < reg_info_size; i++)
-    bitmap_clear (&lra_reg_info[i].insn_bitmap);
+    lra_reg_info[i].~lra_reg ();
   free (lra_reg_info);
   reg_info_size = 0;
   free_alloc_pool (copy_pool);
@@ -2039,8 +2039,8 @@ restore_scratches (void)
   for (i = 0; scratches.iterate (i, &loc); i++)
     free (loc);
   scratches.release ();
-  bitmap_clear (&scratch_bitmap);
-  bitmap_clear (&scratch_operand_bitmap);
+  scratch_bitmap.clear ();
+  scratch_operand_bitmap.clear ();
 }
 
 
@@ -2386,10 +2386,10 @@ lra (FILE *f)
 	}
       /* Don't clear optional reloads bitmap until all constraints are
 	 satisfied as we need to differ them from regular reloads.  */
-      bitmap_clear (&lra_optional_reload_pseudos);
-      bitmap_clear (&lra_subreg_reload_pseudos);
-      bitmap_clear (&lra_inheritance_pseudos);
-      bitmap_clear (&lra_split_regs);
+      lra_optional_reload_pseudos.clear ();
+      lra_subreg_reload_pseudos.clear ();
+      lra_inheritance_pseudos.clear ();
+      lra_split_regs.clear ();
       if (! lra_need_for_spills_p ())
 	break;
       if (! live_p)

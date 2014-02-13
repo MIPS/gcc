@@ -724,10 +724,4 @@ bmp_iter_and_compl (bitmap_iterator *bi, unsigned *bit_no)
        bmp_iter_and_compl (&(ITER), &(BITNUM));				\
        bmp_iter_next (&(ITER), &(BITNUM)))
 
-static inline void
-bitmap_clear (bitmap_head *b)
-{
-  b->clear ();
-}
-
 #endif /* GCC_BITMAP_H */
