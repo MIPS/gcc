@@ -5630,8 +5630,7 @@ chkp_optimize_string_function_calls (void)
 
 	  fndecl = gimple_call_fndecl (stmt);
 
-	  //FIXME: remove '|| 1' and fix call arguments below
-	  if (!fndecl || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL || 1)
+	  if (!fndecl || DECL_BUILT_IN_CLASS (fndecl) != BUILT_IN_NORMAL)
 	    continue;
 
 	  if (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMCPY
@@ -5640,9 +5639,9 @@ chkp_optimize_string_function_calls (void)
 	      || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMSET)
 	    {
 	      tree dst = gimple_call_arg (stmt, 0);
-	      tree dst_bnd = chkp_get_call_arg_bounds (dst);
+	      tree dst_bnd = gimple_call_arg (stmt, 1);
 	      bool is_memset = DECL_FUNCTION_CODE (fndecl) == BUILT_IN_MEMSET;
-	      tree size = gimple_call_arg (stmt, 2);
+	      tree size = gimple_call_arg (stmt, is_memset ? 3 : 4);
 	      tree fndecl_nochk;
 	      gimple_stmt_iterator j;
 	      basic_block check_bb;
@@ -5747,17 +5746,17 @@ chkp_optimize_string_function_calls (void)
 	      size = size_binop (MINUS_EXPR, size, size_one_node);
 	      if (!is_memset)
 		{
-		  tree src = gimple_call_arg (stmt, 1);
-		  tree src_bnd = chkp_get_call_arg_bounds (src);
+		  tree src = gimple_call_arg (stmt, 2);
+		  tree src_bnd = gimple_call_arg (stmt, 3);
 
 		  chkp_check_mem_access (src, fold_build_pointer_plus (src, size),
-					src_bnd, j, gimple_location (stmt),
-					integer_zero_node);
+					 src_bnd, j, gimple_location (stmt),
+					 integer_zero_node);
 		}
 
 	      chkp_check_mem_access (dst, fold_build_pointer_plus (dst, size),
-				    dst_bnd, j, gimple_location (stmt),
-				    integer_one_node);
+				     dst_bnd, j, gimple_location (stmt),
+				     integer_one_node);
 
 	    }
 	}
