@@ -20,6 +20,7 @@
 #include <pthread.h>
 
 #include "internal-api.h"
+#include "jit-builtins.h"
 
 namespace gcc {
 namespace jit {
@@ -61,7 +62,8 @@ recording::context::context (context *parent_ctxt)
   : m_parent_ctxt (parent_ctxt),
     m_error_count (0),
     m_mementos (),
-    m_FILE_type (NULL)
+    m_FILE_type (NULL),
+    m_builtins_manager(NULL)
 {
   m_first_error_str[0] = '\0';
 
@@ -97,6 +99,9 @@ recording::context::~context ()
     {
       delete m;
     }
+
+  if (m_builtins_manager)
+    delete m_builtins_manager;
 }
 
 void
@@ -307,15 +312,25 @@ recording::context::new_function (recording::location *loc,
 				  const char *name,
 				  int num_params,
 				  recording::param **params,
-				  int is_variadic)
+				  int is_variadic,
+				  enum built_in_function builtin_id)
 {
   recording::function *result =
     new recording::function (this,
 			     loc, kind, return_type,
 			     new_string (name),
-			     num_params, params, is_variadic);
+			     num_params, params, is_variadic,
+			     builtin_id);
   record (result);
   return result;
+}
+
+recording::function *
+recording::context::get_builtin_function (const char *name)
+{
+  if (!m_builtins_manager)
+    m_builtins_manager = new builtins_manager (this);
+  return m_builtins_manager->get_builtin_function (name);
 }
 
 recording::lvalue *
@@ -797,6 +812,94 @@ recording::array_type::make_debug_string ()
 			      m_num_elements);
 }
 
+/* gcc::jit::recording::function_type */
+recording::function_type::function_type (context *ctxt,
+					 type *return_type,
+					 int num_params,
+					 type **param_types,
+					 int is_variadic)
+: type (ctxt),
+  m_return_type (return_type),
+  m_param_types (),
+  m_is_variadic (is_variadic)
+{
+  for (int i = 0; i< num_params; i++)
+    m_param_types.safe_push (param_types[i]);
+}
+
+recording::type *
+recording::function_type::dereference ()
+{
+  return NULL;
+}
+
+void
+recording::function_type::replay_into (replayer *r)
+{
+  /* Convert m_param_types to a vec of playback type.  */
+  vec <playback::type *> param_types;
+  int i;
+  recording::type *type;
+  param_types.create (m_param_types.length ());
+  FOR_EACH_VEC_ELT (m_param_types, i, type)
+    param_types.safe_push (type->playback_type ());
+
+  set_playback_obj (r->new_function_type (m_return_type->playback_type (),
+					  &param_types,
+					  m_is_variadic));
+}
+
+recording::string *
+recording::function_type::make_debug_string ()
+{
+  /* First, build a buffer for the arguments.  */
+  /* Calculate length of said buffer.  */
+  size_t sz = 1; /* nil terminator */
+  for (unsigned i = 0; i< m_param_types.length (); i++)
+    {
+      sz += strlen (m_param_types[i]->get_debug_string ());
+      sz += 2; /* ", " separator */
+    }
+  if (m_is_variadic)
+    sz += 5; /* ", ..." separator and ellipsis */
+
+  /* Now allocate and populate the buffer.  */
+  char *argbuf = new char[sz];
+  size_t len = 0;
+
+  for (unsigned i = 0; i< m_param_types.length (); i++)
+    {
+      strcpy (argbuf + len, m_param_types[i]->get_debug_string ());
+      len += strlen (m_param_types[i]->get_debug_string ());
+      if (i + 1 < m_param_types.length ())
+	{
+	  strcpy (argbuf + len, ", ");
+	  len += 2;
+	}
+    }
+  if (m_is_variadic)
+    {
+      if (m_param_types.length ())
+	{
+	  strcpy (argbuf + len, ", ");
+	  len += 2;
+	}
+      strcpy (argbuf + len, "...");
+      len += 3;
+    }
+  argbuf[len] = '\0';
+
+  /* ...and use it to get the string for the call as a whole.  */
+  string *result = string::from_printf (m_ctxt,
+					"%s (%s)",
+					m_return_type->get_debug_string (),
+					argbuf);
+
+  delete[] argbuf;
+
+  return result;
+}
+
 /* gcc::jit::recording::field:: */
 void
 recording::field::replay_into (replayer *r)
@@ -928,14 +1031,16 @@ recording::function::function (context *ctxt,
 			       recording::string *name,
 			       int num_params,
 			       recording::param **params,
-			       int is_variadic)
+			       int is_variadic,
+			       enum built_in_function builtin_id)
 : memento (ctxt),
   m_loc (loc),
   m_kind (kind),
   m_return_type (return_type),
   m_name (name),
   m_params (),
-  m_is_variadic (is_variadic)
+  m_is_variadic (is_variadic),
+  m_builtin_id (builtin_id)
 {
   for (int i = 0; i< num_params; i++)
     m_params.safe_push (params[i]);
@@ -957,7 +1062,8 @@ recording::function::replay_into (replayer *r)
 				     m_return_type->playback_type (),
 				     m_name->c_str (),
 				     &params,
-				     m_is_variadic));
+				     m_is_variadic,
+				     m_builtin_id));
 }
 
 recording::lvalue *
@@ -1864,6 +1970,34 @@ new_struct_type (location *loc,
   return new type (t);
 }
 
+playback::type *
+playback::context::
+new_function_type (type *return_type,
+		   vec<type *> *param_types,
+		   int is_variadic)
+{
+  int i;
+  type *param_type;
+
+  tree *arg_types = (tree *)xcalloc(param_types->length (), sizeof(tree*));
+
+  FOR_EACH_VEC_ELT (*param_types, i, param_type)
+    arg_types[i] = param_type->as_tree ();
+
+  tree fn_type;
+  if (is_variadic)
+    fn_type =
+      build_varargs_function_type_array (return_type->as_tree (),
+					 param_types->length (),
+					 arg_types);
+  else
+    fn_type = build_function_type_array (return_type->as_tree (),
+					 param_types->length (),
+					 arg_types);
+  free (arg_types);
+
+  return new type (fn_type);
+}
 
 playback::param *
 playback::context::
@@ -1888,7 +2022,8 @@ new_function (location *loc,
 	      type *return_type,
 	      const char *name,
 	      vec<param *> *params,
-	      int is_variadic)
+	      int is_variadic,
+	      enum built_in_function builtin_id)
 {
   int i;
   param *param;
@@ -1920,6 +2055,14 @@ new_function (location *loc,
   DECL_ARTIFICIAL (resdecl) = 1;
   DECL_IGNORED_P (resdecl) = 1;
   DECL_RESULT (fndecl) = resdecl;
+
+  if (builtin_id)
+    {
+      DECL_BUILT_IN_CLASS (fndecl) = BUILT_IN_NORMAL;
+      DECL_FUNCTION_CODE (fndecl) = builtin_id;
+      gcc_assert (loc == NULL);
+      DECL_SOURCE_LOCATION (fndecl) = BUILTINS_LOCATION;
+    }
 
   if (kind != GCC_JIT_FUNCTION_IMPORTED)
     {

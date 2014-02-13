@@ -439,6 +439,10 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
 			      gcc_jit_param **params,
 			      int is_variadic);
 
+extern gcc_jit_function *
+gcc_jit_context_get_builtin_function (gcc_jit_context *ctxt,
+				      const char *name);
+
 /* Upcasting from function to object.  */
 extern gcc_jit_object *
 gcc_jit_function_as_object (gcc_jit_function *func);

@@ -1,3 +1,51 @@
+2014-02-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (gcc_jit_context_get_builtin_function): New.
+	* libgccjit.map (gcc_jit_context_get_builtin_function): New.
+	* libgccjit++.h (gccjit::context::get_builtin_function): New method.
+
+	* Make-lang.in (jit_OBJS): Add jit/jit-builtins.o
+	* jit-builtins.c: New source file, for managing builtin functions
+	and their types.
+	* jit-builtins.h: Likewise.
+
+	* libgccjit.c (gcc_jit_context_new_function): Pass BUILT_IN_NONE for
+	the new argument of new_function
+	(gcc_jit_context_get_builtin_function): New.
+
+	* internal-api.h: Add idempotency guards.
+	(gcc::jit::recording::context::new_function): Add parameter
+	for builtin functions.
+	(gcc::jit::recording::context::get_builtin_function): New method.
+	(gcc::jit::recording::context::m_builtins_manager): New field.
+	(gcc::jit::recording::type::as_a_function_type): New virtual function.
+	(gcc::jit::recording::function_type): New subclass of type.
+	(gcc::jit::recording::function::function): Add parameter for
+	builtin functions.
+	(gcc::jit::recording::function::m_builtin_id): New field.
+	(gcc::jit::recording::function::new_function_type): New method.
+	(gcc::jit::playback::function::function):  Add parameter for
+	builtin functions.
+	* internal-api.c (gcc::jit::recording::context::context):
+	NULL-initialize new field m_builtins_manager.
+	(gcc::jit::recording::context::~context): Clean up the builtins
+	manager, if one has been created.
+	(gcc::jit::recording::context::new_function): Add parameter
+	(gcc::jit::recording::context::get_builtin_function): New method.
+	(gcc::jit::recording::function_type::function_type): Implement
+	constructor for new subclass.
+	(gcc::jit::recording::function_type::dereference): Implement
+	method for new subclass.
+	(gcc::jit::recording::function_type::replay_into): Likewise.
+	(gcc::jit::recording::function_type::make_debug_string): Likewise.
+	(gcc::jit::recording::function::function): Add parameter for
+	builtin functions.
+	(gcc::jit::recording::function::replay_into): Likewise for
+	creation of playback object.
+	(gcc::jit::recording::function::new_function_type): New method.
+	(gcc::jit::playback::function::new_function):  Add parameter for
+	builtin functions, using it to set up the fndecl accordingly.
+
 2014-02-11  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.c (IS_ASCII_ALPHA): New macro.

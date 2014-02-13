@@ -112,6 +112,8 @@ namespace gccjit
 			   int is_variadic,
 			   location loc = location ());
 
+    function get_builtin_function (const std::string &name);
+
     rvalue new_rvalue (type numeric_type,
 		       int value);
     rvalue zero (type numeric_type);
@@ -561,6 +563,13 @@ context::new_function (enum gcc_jit_function_kind kind,
 						 params.size (),
 						 as_array_of_ptrs,
 						 is_variadic));
+}
+
+inline function
+context::get_builtin_function (const std::string &name)
+{
+  return function (gcc_jit_context_get_builtin_function (m_inner_ctxt,
+							 name.c_str ()));
 }
 
 inline rvalue

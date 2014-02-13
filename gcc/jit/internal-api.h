@@ -1,3 +1,6 @@
+#ifndef INTERNAL_API_H
+#define INTERNAL_API_H
+
 #include "libgccjit.h"
 
 #include "tree.h"
@@ -74,10 +77,12 @@ class result;
 
 namespace recording {
   class context;
+  class builtins_manager; // declared within jit-builtins.h
   class memento;
   class string;
   class location;
   class type;
+  class function_type;
   class field;
   class struct_;
   class function;
@@ -174,7 +179,11 @@ public:
 		const char *name,
 		int num_params,
 		param **params,
-		int is_variadic);
+		int is_variadic,
+		enum built_in_function builtin_id);
+
+  function *
+  get_builtin_function (const char *name);
 
   lvalue *
   new_global (location *loc,
@@ -289,6 +298,8 @@ private:
 
   type *m_basic_types[NUM_GCC_JIT_TYPES];
   type *m_FILE_type;
+
+  builtins_manager *m_builtins_manager; // lazily created
 };
 
 
@@ -399,6 +410,9 @@ public:
      This will return NULL if it's not valid to dereference this type.
      The caller is responsible for setting an error.  */
   virtual type *dereference () = 0;
+
+  /* Dynamic cast.  */
+  virtual function_type *as_a_function_type() { gcc_unreachable (); return NULL; }
 
   /* Is it typesafe to copy to this type from rtype?  */
   virtual bool accepts_writes_from (type *rtype)
@@ -535,6 +549,32 @@ class array_type : public type
   location *m_loc;
   type *m_element_type;
   int m_num_elements;
+};
+
+class function_type : public type
+{
+public:
+  function_type (context *ctxt,
+		 type *return_type,
+		 int num_params,
+		 type **param_types,
+		 int is_variadic);
+
+  type *dereference ();
+  function_type *as_a_function_type () { return this; }
+  void replay_into (replayer *);
+
+  type * get_return_type () const { return m_return_type; }
+  vec<type *> get_param_types () const { return m_param_types; }
+  int is_variadic () const { return m_is_variadic; }
+
+ private:
+  string * make_debug_string ();
+
+private:
+  type *m_return_type;
+  vec<type *> m_param_types;
+  int m_is_variadic;
 };
 
 class field : public memento
@@ -695,7 +735,8 @@ public:
 	    string *name,
 	    int num_params,
 	    param **params,
-	    int is_variadic);
+	    int is_variadic,
+	    enum built_in_function builtin_id);
 
   void replay_into (replayer *r);
 
@@ -776,6 +817,7 @@ private:
   string *m_name;
   vec<param *> m_params;
   int m_is_variadic;
+  enum built_in_function m_builtin_id;
 };
 
 class label : public memento
@@ -1444,6 +1486,11 @@ public:
 		   const char *name,
 		   vec<field *> *fields);
 
+  type *
+  new_function_type (type *return_type,
+		     vec<type *> *param_types,
+		     int is_variadic);
+
   param *
   new_param (location *loc,
 	     type *type,
@@ -1455,7 +1502,8 @@ public:
 		type *return_type,
 		const char *name,
 		vec<param *> *params,
-		int is_variadic);
+		int is_variadic,
+		enum built_in_function builtin_id);
 
   lvalue *
   new_global (location *loc,
@@ -1895,3 +1943,4 @@ extern playback::context *active_playback_ctxt;
 
 } // namespace gcc
 
+#endif /* INTERNAL_API_H */

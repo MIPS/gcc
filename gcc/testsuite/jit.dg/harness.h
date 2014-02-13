@@ -47,8 +47,37 @@ static char test[1024];
     }                                        \
   } while (0)
 
+#define CHECK_DOUBLE_VALUE(ACTUAL, EXPECTED) \
+  do {                                       \
+    double expected = (EXPECTED);	     \
+    double actual = (ACTUAL);		     \
+    if (abs (actual - expected) < 0.00001)   \
+      {                                      \
+	pass ("%s: actual: %s == expected: %s", test, #ACTUAL, #EXPECTED); \
+      }                                      \
+    else                                     \
+      {                                      \
+	fail ("%s: actual: %s != expected: %s", test, #ACTUAL, #EXPECTED); \
+	fprintf (stderr, "incorrect value: %f\n", actual); \
+	abort ();                            \
+    }                                        \
+  } while (0)
+
 #define CHECK_STRING_VALUE(ACTUAL, EXPECTED) \
   check_string_value ((ACTUAL), (EXPECTED));
+
+#define CHECK(COND) \
+  do {					\
+    if (COND)				\
+      {				\
+	pass ("%s: %s", test, #COND);	\
+      }				\
+    else				\
+      {				\
+	fail ("%s: %s", test, #COND);	\
+	abort ();			\
+      }				\
+  } while (0)
 
 /* Hooks that testcases should provide.  */
 extern void

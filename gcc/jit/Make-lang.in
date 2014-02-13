@@ -45,7 +45,8 @@ jit: libgccjit.so
 # Tell GNU make to ignore these if they exist.
 .PHONY: jit
 
-jit_OBJS = attribs.o jit/dummy-frontend.o jit/libgccjit.o jit/internal-api.o
+jit_OBJS = attribs.o jit/dummy-frontend.o jit/libgccjit.o jit/internal-api.o \
+	jit/jit-builtins.o
 
 # Use strict warnings for this front end.
 jit-warn = $(STRICT_WARN)

@@ -52,6 +52,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-functions.c */
+#define create_code create_code_functions
+#define verify_code verify_code_functions
+#include "test-functions.c"
+#undef create_code
+#undef verify_code
+
 /* test-hello-world.c */
 #define create_code create_code_hello_world
 #define verify_code verify_code_hello_world
@@ -118,6 +125,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
   create_code_expressions (ctxt, user_data);
   create_code_factorial (ctxt, user_data);
   create_code_fibonacci (ctxt, user_data);
+  create_code_functions (ctxt, user_data);
   create_code_hello_world (ctxt, user_data);
   create_code_string_literal (ctxt, user_data);
   create_code_sum_of_squares (ctxt, user_data);
@@ -134,6 +142,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_code_expressions (ctxt, result);
   verify_code_factorial (ctxt, result);
   verify_code_fibonacci (ctxt, result);
+  verify_code_functions (ctxt, result);
   verify_code_hello_world (ctxt, result);
   verify_code_string_literal (ctxt, result);
   verify_code_sum_of_squares (ctxt, result);

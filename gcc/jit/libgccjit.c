@@ -441,7 +441,18 @@ gcc_jit_context_new_function (gcc_jit_context *ctxt,
     ctxt->new_function (loc, kind, return_type, name,
 			num_params,
 			(gcc::jit::recording::param **)params,
-			is_variadic);
+			is_variadic,
+			BUILT_IN_NONE);
+}
+
+gcc_jit_function *
+gcc_jit_context_get_builtin_function (gcc_jit_context *ctxt,
+				      const char *name)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
+  RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
+
+  return static_cast <gcc_jit_function *> (ctxt->get_builtin_function (name));
 }
 
 gcc_jit_object *

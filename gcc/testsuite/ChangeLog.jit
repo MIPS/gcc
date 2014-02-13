@@ -1,3 +1,12 @@
+2014-02-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h (CHECK_DOUBLE_VALUE): New macro.
+	(CHECK): New macro.
+	* jit.dg/test-functions.c: New testcase, exercising
+	gcc_jit_context_get_builtin_function.
+	* jit.dg/test-combination.c: Add test-functions.c to the combined
+	test.
+
 2014-02-11  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-types.c: Add test coverage for getting type
