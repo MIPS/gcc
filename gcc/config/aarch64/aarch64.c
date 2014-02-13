@@ -329,7 +329,8 @@ static const struct tune_params generic_tunings =
   &generic_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 2)
+  NAMED_PARAM (issue_rate, 2),
+  NAMED_PARAM (align, 8)
 };
 
 static const struct tune_params cortexa53_tunings =
@@ -339,7 +340,8 @@ static const struct tune_params cortexa53_tunings =
   &generic_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 2)
+  NAMED_PARAM (issue_rate, 2),
+  NAMED_PARAM (align, 8)
 };
 
 
@@ -354,7 +356,8 @@ static const struct tune_params thunder_tunings =
   &thunder_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 3),
-  NAMED_PARAM (issue_rate, 2)
+  NAMED_PARAM (issue_rate, 2),
+  NAMED_PARAM (align, 8)
 };
 
 /* A processor implementing AArch64.  */
@@ -5382,6 +5385,18 @@ aarch64_override_options (void)
   aarch64_tune_flags = selected_tune->flags;
   aarch64_tune = selected_tune->core;
   aarch64_tune_params = selected_tune->tune;
+
+  /* If not opzimizing for size, set the default
+     alignment to what the target wants */
+  if (!optimize_size)
+    {
+      if (align_loops <= 0)
+	align_loops = aarch64_tune_params->align;
+      if (align_jumps <= 0)
+	align_jumps = aarch64_tune_params->align;
+      if (align_functions <= 0)
+	align_functions = aarch64_tune_params->align;
+    }
 
   aarch64_override_options_after_change ();
 }

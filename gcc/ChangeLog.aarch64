@@ -1,3 +1,12 @@
+2014-02-13  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64-protos.h (tune_params): Add align field.
+	* config/aarch64/aarch64.c (generic_tunings): Set the align field.
+	(cortexa53_tunings): Likewise.
+	(thunder_tunings): Likewise.
+	(aarch64_override_options): Use the align field of aarch64_tune_params
+	to set the loop, jump and function alignment.
+
 2014-02-10  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.target/aarch64/vdiv_f.c: Disable unroll-loops.
