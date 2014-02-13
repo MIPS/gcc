@@ -1,5 +1,9 @@
 
 2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	* melt/warmelt-first.melt (class_initial_system_data)
+	Remove field sysdata_debugmsg.
+
+2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
 
