@@ -1,6 +1,17 @@
 
 
 2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{removing sysdata_debugmsg field}}
+	* melt-runtime.cc (meltgc_debugmsgval): Obsolete function, to be
+	removed and replaced by some hook...
+
+	* melt/warmelt-first.melt (class_initial_system_data)
+	(initial_system_data): sysdata_debugmsg is obsolete.
+
+	* melt/warmelt-debug.melg (debug_msg_fun): Comment function and
+	don't put it in the initial_system_data.
+
+2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (meltgc_do_initial_mode): Remove.
 	(meltgc_load_modules_and_do_mode): Call

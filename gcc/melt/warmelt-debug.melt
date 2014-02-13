@@ -2,7 +2,7 @@
 ;; file warmelt-debug.melt
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (comment "***
-    Copyright 2009 - 2013 Free Software Foundation, Inc.
+    Copyright 2009 - 2014  Free Software Foundation, Inc.
     Contributed by Basile Starynkevitch <basile@starynkevitch.net>
 
     This file is part of GCC.
@@ -80,6 +80,9 @@ See $MELT_NEED_DBGLIM.}#
 #{( /*MELT_REALLY_NEED_DBGLIM*/ melt_need_debug_limit ((int) $DEPTH, (int) $LIMIT))}#)
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; debug_msg_fun is obsolete
+#|
 ;;; debug_msg support is done by calling this debug_msg_fun 
 (defun debug_msg_fun (val :cstring msgstr :long count :cstring filenam :long lineno)
   :doc #{Internal function called by $DEBUG_MSG macro to output for
@@ -164,6 +167,7 @@ See $MELT_NEED_DBGLIM.}#
 			}#)
 	    )
 	  ))))
+|#
 
 ;;; selector to output for debugging
 ;;; receiver: any object or value
@@ -1650,7 +1654,6 @@ $TORANK}#
  debug_depth
  debug_less
  debug_more
- debug_msg_fun
  discr_debug_closure
  display_debug_message  
  melt_debug_fun
@@ -1666,6 +1669,4 @@ $TORANK}#
 )
 
 
-(put_fields initial_system_data
-	    :sysdata_debugmsg debug_msg_fun)
 ;; eof warmelt-debug.melt
