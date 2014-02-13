@@ -1870,13 +1870,6 @@ chkp_find_bound_slots (const_tree type)
   return res;
 }
 
-/* Return bounds bounded to call argument ARG.  */
-tree
-chkp_get_call_arg_bounds (tree arg)
-{
-  return NULL_TREE;
-}
-
 /* Add bound arguments to call statement pointed by GSI.
    Also performs a replacement of user checker builtins calls
    with internal ones.  */
