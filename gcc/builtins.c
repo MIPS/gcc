@@ -6227,7 +6227,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	     calls.  */
 	  if (CALL_WITH_BOUNDS_P (orig_exp))
 	    {
-	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
+	      rtx bnd = force_reg (BNDmode,
+				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
 	      target = chkp_join_splitted_slot (target, bnd);
 	    }
 	  return target;
@@ -6246,7 +6247,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	     calls.  */
 	  if (CALL_WITH_BOUNDS_P (orig_exp))
 	    {
-	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
+	      rtx bnd = force_reg (BNDmode,
+				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
 	      target = chkp_join_splitted_slot (target, bnd);
 	    }
 	  return target;
@@ -6265,7 +6267,8 @@ expand_builtin (tree exp, rtx target, rtx subtarget, enum machine_mode mode,
 	     calls.  */
 	  if (CALL_WITH_BOUNDS_P (orig_exp))
 	    {
-	      rtx bnd = chkp_expand_arg_bounds (CALL_EXPR_ARG (exp, 0));
+	      rtx bnd = force_reg (BNDmode,
+				   expand_normal (CALL_EXPR_ARG (orig_exp, 1)));
 	      target = chkp_join_splitted_slot (target, bnd);
 	    }
 	  return target;
