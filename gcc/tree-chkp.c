@@ -64,12 +64,58 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-dfa.h"
 #include <sstream>
 
-/*  Pointer Bounds Checker pass instruments code with memory checks to find
+/*  Pointer Bounds Checker instruments code with memory checks to find
     out-of-bounds memory accesses.  Checks are performed by computing
     bounds for each pointer and then comparing address of accessed
     memory before pointer dereferencing.
 
-    1. Instrumentation.
+    1. Function clones.
+
+    In instrumented code each pointer is provided with bounds.  For input
+    pointer parameters it means we also have bounds passed.  For calls it
+    means we have additional bounds arguments for pointer arguments.
+
+    To have all IPA optimizations working correctly we have to express
+    dataflow between passed and received bounds explicitly via additional
+    entries in function declaration arguments list and in function type.
+    Since we may have both instrumented and not instrumented code at the
+    same time, we cannot replace all original functions with their
+    instrumented variants.  Therefore we create clones (versions) instead.
+
+    Instrumentation clones creation is a separate IPA pass which is a part
+    of early local passes.  Clones are created after SSA is built (because
+    instrumentation pass works on SSA) and before any transformations
+    which may change pointer flow and therefore lead to incorrect code
+    instrumentation (possibly causing false bounds check failures).
+
+    Instrumentation clones have pointer bounds arguments added rigth after
+    pointer arguments.  Clones have assembler name of the original
+    function with suffix added.  New assembler name is in transparent
+    alias chain with the original name.  Thus we expect all calls to the
+    original and instrumented functions look similar in assembler.
+
+    During instrumentation versioning pass we create instrumented versions
+    of all function with body and also for all their aliases and thunks.
+    Clones for functions with no body are created on demand (usually
+    during call instrumentation).
+
+    Original and instrumented function nodes are connected with IPA
+    reference IPA_REF_CHKP.  It is mostly done to have reachability
+    analysis working correctly.  We may have no references to the
+    instrumented function in the code but it still should be counted
+    as reachable if the original function is reachable.
+
+    When original function bodies are not needed anymore we release
+    them and transform functions into a special kind of thunks.  Each
+    thunk has a call edge to the instrumented version.  These thunks
+    help to keep externally visible instrumented functions visible
+    when linker reolution files are used.  Linker has no info about
+    connection between original and instrumented function and
+    therefore we may wrongly decide (due to difference in assember
+    names) that instrumented function version is local and can be
+    removed.
+
+    2. Instrumentation.
 
     There are few things to instrument:
 
@@ -134,15 +180,11 @@ along with GCC; see the file COPYING3.  If not see
     d) Calls.
 
     For each call in the code we should add additional arguments to pass
-    bounds for pointer arguments.  In call expression each bound argument
-    goes right after pointer argument it is added for. We determine type
-    of call arguments using arguments list from function declaration; if
-    function declaration is not available we use function type; otherwise
-    (e.g. for unnamed arguments) we use type of passed value.
-
-    Checker instrumentation assumes binary compatibility with non-instrumented
-    codes.  Expand pass is responsible for handling added bounds arguments
-    correctly identifying them by type.
+    bounds for pointer arguments.  We determine type of call arguments
+    using arguments list from function declaration; if function
+    declaration is not available we use function type; otherwise
+    (e.g. for unnamed arguments) we use type of passed value. Function
+    declaration/type is replaced with the instrumented one.
 
     Example:
 
@@ -150,8 +192,8 @@ along with GCC; see the file COPYING3.  If not see
 
       is translated into:
 
-      val_1 = foo (&buf1, __bound_tmp.1_2, &buf2, __bound_tmp.1_3,
-                   &buf1, __bound_tmp.1_2, 0);
+      val_1 = foo.chkp (&buf1, __bound_tmp.1_2, &buf2, __bound_tmp.1_3,
+                        &buf1, __bound_tmp.1_2, 0);
 
     e) Returns.
 
@@ -166,7 +208,7 @@ along with GCC; see the file COPYING3.  If not see
 
       return &_buf1, __bound_tmp.1_1;
 
-    2. Bounds computation.
+    3. Bounds computation.
 
     Compiler is fully responsible for computing bounds to be used for each
     memory access.  The first step for bounds computation is to find the
@@ -190,25 +232,7 @@ along with GCC; see the file COPYING3.  If not see
       __bound_tmp.1_3 = __builtin___chkp_bndret (buf_1);
       foo (buf_1, __bound_tmp.1_3);
 
-    b) Pointer is an input argument.
-
-    In this case we use corresponding checker builtin method to obtatin bounds
-    passed for the argument.
-
-    Example:
-
-      foo (int * p)
-      {
-        <unnamed type> __bound_tmp.3;
-
-	<bb 3>:
-	__bound_tmp.3_3 = __builtin___chkp_arg_bnd (p_1(D));
-
-	<bb 2>:
-	return p_1(D), __bound_tmp.3_3;
-      }
-
-    c) Pointer is an address of an object.
+    b) Pointer is an address of an object.
 
     In this case compiler tries to compute objects size and create corresponding
     bounds.  If object has incomplete type then special checker builtin is used to
@@ -246,7 +270,7 @@ along with GCC; see the file COPYING3.  If not see
 	return &buf, __bound_tmp.4_3;
       }
 
-    d) Pointer is the result of object narrowing.
+    c) Pointer is the result of object narrowing.
 
     It happens when we use pointer to an object to compute pointer to a part
     of an object.  E.g. we take pointer to a field of a structure. In this
@@ -308,11 +332,11 @@ along with GCC; see the file COPYING3.  If not see
       }
 
 
-    e) Pointer is the result of pointer arithmetic or type cast.
+    d) Pointer is the result of pointer arithmetic or type cast.
 
     In this case bounds of the base pointer are used.
 
-    f) Pointer is loaded from the memory.
+    e) Pointer is loaded from the memory.
 
     In this case we just need to load bounds from the bounds table.
 
@@ -329,6 +353,7 @@ along with GCC; see the file COPYING3.  If not see
 	__bound_tmp.3_4 = __builtin___chkp_bndldx (&buf, _2);
 	return _2, __bound_tmp.3_4;
       }
+
 */
 
 typedef void (*assign_handler)(tree, tree, void *);
@@ -401,8 +426,6 @@ static void chkp_parse_array_and_component_ref (tree node, tree *ptr,
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_NARROW))
 #define chkp_set_bounds_fndecl \
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_SET_PTR_BOUNDS))
-#define chkp_arg_bnd_fndecl \
-  (targetm.builtin_chkp_function (BUILT_IN_CHKP_ARG_BND))
 #define chkp_sizeof_fndecl \
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_SIZEOF))
 #define chkp_extract_lower_fndecl \
@@ -2507,28 +2530,6 @@ chkp_get_bound_for_parm (tree parm)
       else if (BOUNDED_P (parm))
 	{
 	  bounds = chkp_get_next_bounds_parm (decl);
-#if 0
-	  /* In general case we use checker builtin to
-	     obtain bounds of input arg.  */
-	  gimple_stmt_iterator gsi;
-	  gimple stmt;
-
-	  stmt = gimple_build_call (chkp_arg_bnd_fndecl, 1, parm);
-	  /* We do not want arg of arg_bnd call to be replaces by
-	     some optimization.  Use SSA_NAME_OCCURS_IN_ABNORMAL_PHI
-	     to avoid that.  */
-	  SSA_NAME_OCCURS_IN_ABNORMAL_PHI (parm) = 1;
-
-	  chkp_mark_stmt (stmt);
-
-	  gsi = gsi_start_bb (chkp_get_entry_block ());
-	  gsi_insert_before (&gsi, stmt, GSI_SAME_STMT);
-
-	  bounds = chkp_get_tmp_reg (stmt);
-	  gimple_call_set_lhs (stmt, bounds);
-
-	  update_stmt (stmt);
-#endif
 	  chkp_register_bounds (decl, bounds);
 
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -5811,8 +5812,7 @@ chkp_reduce_bounds_lifetime (void)
       bool deps = false;
 
       if (gimple_code (stmt) == GIMPLE_CALL
-	  && (gimple_call_fndecl (stmt) == chkp_bndmk_fndecl
-	      || (gimple_call_fndecl (stmt) == chkp_arg_bnd_fndecl)))
+	  && gimple_call_fndecl (stmt) == chkp_bndmk_fndecl)
 	want_move = true;
 
       if (gimple_code (stmt) == GIMPLE_ASSIGN
