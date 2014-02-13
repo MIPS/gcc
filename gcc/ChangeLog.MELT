@@ -2,6 +2,13 @@
 
 2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_do_initial_mode): Remove.
+	(meltgc_load_modules_and_do_mode): Call
+	melthookproc_HOOK_MELT_DO_INITIAL_MODE instead of
+	meltgc_do_initial_mode.
+
+2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
