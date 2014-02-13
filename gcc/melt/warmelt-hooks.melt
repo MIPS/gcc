@@ -2178,14 +2178,32 @@ bool  melthk_pass_execution_registered_flag;
        (when curmod
 	 (assert_msg "check curmod" (is_a curmod class_melt_mode) curmod class_melt_mode)
 	 (let ( (curmodfun (get_field :meltmode_fun curmod))
+		(curmodname (get_field :named_name curmod))
 		)
 	   (assert_msg "check curmodfun" (is_closure curmodfun) curmodfun curmod)
+	   (assert_msg "check curmodname" (is_string curmodname) curmodname curmod)
 	   (let ( (curmodres (curmodfun curmod modata))
 		  )
 	     (debug "hook_melt_do_initial_mode curmodres=" curmodres " for curmod=" curmod)
-	     ;;; incomplete, should push into the vector of done modes
-	 )))
-    ))))
+	     (cond
+	      (curmodres
+	       (code_chunk
+		donewellmode_chk
+		#{ /* hook_melt_do_initial_mode $DONEWELLMODE_CHK */
+		std::string curmodstr(melt_string_str($CURMODNAME)) ;
+		melt_done_modes_vector.push_back(curmodstr)	    ;
+		}#)
+	       )
+	      (:else
+	       (code_chunk
+		failedmode_chk
+		#{ /* hook_melt_do_initial_mode $FAILEDMODE_CHK */
+		warning(0, "MELT mode %s failed, so compilation disabled",
+			   melt_string_str($CURMODNAME)) ;
+		exit_after_options = TRUE		 ;
+		}#)
+	       )))))
+       ))))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; attribute definer hook

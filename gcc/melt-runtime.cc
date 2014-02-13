@@ -174,7 +174,7 @@ const int melt_gcc_version = MELT_GCC_VERSION;
 
 
 ////// the actually done modes
-static std::vector<std::string> melt_done_modes_vector;
+std::vector<std::string> melt_done_modes_vector;
 
 ////// builtin MELT parameter settings
 

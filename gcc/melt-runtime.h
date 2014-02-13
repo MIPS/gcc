@@ -76,7 +76,10 @@ extern void fatal_error (const char *, ...);
        closure routine with a magic incantation, i.e. with the
        xargdescr_ set to (char*)-1
 
- *****/
+*****/
+
+#include <vector>
+#include <string>
 
 #include "gcc-plugin.h"
 
@@ -90,6 +93,9 @@ extern void fatal_error (const char *, ...);
 MELT_EXTERN const char* melt_plugin_name;
 
 MELT_EXTERN const char melt_runtime_build_date[];
+
+/* The vector of successfully done modes names */
+MELT_EXTERN std::vector<std::string> melt_done_modes_vector;
 
 MELT_EXTERN void melt_fatal_info (const char*filename, int lineno);
 

@@ -1,5 +1,16 @@
 
 
+2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h: Add inclusion of <string> and <vector> C++ headers.
+	(melt_done_modes_vector): Declare this external variable.
+
+	* melt-runtime.cc (melt_done_modes_vector): Define as global
+	variable, not as static one.
+
+	* melt/warmelt-hooks.melt (hook_melt_do_initial_mode): Update
+	melt_done_modes_vector for successful modes.
+
 2014-02-12  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/warmelt-hooks.melt (hook_melt_do_initial_mode): Typo in
