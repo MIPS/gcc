@@ -50,7 +50,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-pretty-print.h"
 #include "params.h"
 #include "expr.h"
-#include "tree-chkp.h"
 
 /* A vector indexed by SSA_NAME_VERSION.  0 means unknown, positive value
    is an index into strinfo vector, negative value stands for
@@ -971,8 +970,6 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
   tree src;
   gimple stmt = gsi_stmt (*gsi);
   tree lhs = gimple_call_lhs (stmt);
-  gimple retbnd_stmt = NULL;
-  tree retbnd = NULL;
 
   if (lhs == NULL_TREE)
     return;
@@ -1021,14 +1018,6 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
 					      TREE_TYPE (rhs)))
 		rhs = fold_convert_loc (loc, TREE_TYPE (lhs), rhs);
 	    }
-
-	  /* Remember passed and returned bounds if any.  */
-	  if (gimple_call_with_bounds_p (stmt))
-	    {
-	      retbnd = chkp_get_call_arg_bounds (gimple_call_arg (stmt, 0));
-	      retbnd_stmt = chkp_retbnd_call_by_val (lhs);
-	    }
-
 	  if (!update_call_from_tree (gsi, rhs))
 	    gimplify_and_update_call_from_tree (gsi, rhs);
 	  stmt = gsi_stmt (*gsi);
@@ -1038,18 +1027,6 @@ handle_builtin_strchr (gimple_stmt_iterator *gsi)
 	      fprintf (dump_file, "into: ");
 	      print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
 	    }
-
-	  /* Replace retbnd call with assignment.  */
-	  if (retbnd_stmt)
-	    {
-	      gimple_stmt_iterator ret_gsi = gsi_for_stmt (retbnd_stmt);
-
-	      if (!update_call_from_tree (&ret_gsi, retbnd))
-		gimplify_and_update_call_from_tree (&ret_gsi, retbnd);
-              retbnd_stmt = gsi_stmt (ret_gsi);
-              update_stmt (retbnd_stmt);
-            }
-
 	  if (si != NULL
 	      && si->endptr == NULL_TREE
 	      && !SSA_NAME_OCCURS_IN_ABNORMAL_PHI (lhs))
