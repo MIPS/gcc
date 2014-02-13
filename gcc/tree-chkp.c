@@ -518,13 +518,53 @@ chkp_build_instrumented_fndecl (tree fndecl)
   return new_decl;
 }
 
+
+/* Fix operands of attribute from ATTRS list named ATTR_NAME.
+   Integer operands are replaced with values according to
+   INDEXES map having LEN elements.  For operands out og len
+   we just add DELTA.  */
+
+static void
+chkp_map_attr_arg_indexes (tree attrs, const char *attr_name,
+			   unsigned *indexes, int len, int delta)
+{
+  tree attr = lookup_attribute (attr_name, attrs);
+  tree op;
+
+  if (!attr)
+    return;
+
+  TREE_VALUE (attr) = copy_list (TREE_VALUE (attr));
+  for (op = TREE_VALUE (attr); op; op = TREE_CHAIN (op))
+    {
+      int idx;
+
+      if (TREE_CODE (TREE_VALUE (op)) != INTEGER_CST)
+	continue;
+
+      idx = TREE_INT_CST_LOW (TREE_VALUE (op));
+
+      /* If idx exceeds indexes length then we just
+	 keep it at the same distance from the last
+	 known arg.  */
+      if (idx > len)
+	idx += delta;
+      else
+	idx = indexes[idx - 1] + 1;
+      TREE_VALUE (op) = build_int_cst (TREE_TYPE (TREE_VALUE (op)), idx);
+    }
+}
+
+/* Make a copy of function type ORIG_TYPE adding pointer
+   bounds as additional arguments.  */
+
 static tree
 chkp_copy_function_type_adding_bounds (tree orig_type)
 {
   tree type;
   tree arg_type, attrs, t;
-  unsigned *indexes = XALLOCAVEC (unsigned,
-				  list_length (TYPE_ARG_TYPES (orig_type)));
+  unsigned len = list_length (TYPE_ARG_TYPES (orig_type));
+  unsigned *indexes = XALLOCAVEC (unsigned, len);
   unsigned idx = 0, new_idx = 0;
 
   for (arg_type = TYPE_ARG_TYPES (orig_type);
@@ -587,23 +627,19 @@ chkp_copy_function_type_adding_bounds (tree orig_type)
 	}
     }
 
-  /* If function type has nonnull attribute then we have
-     to copy it fixing attribute ops.  Map for fixing is
-     in indexes array.  */
+  /* If function type has attribute with arg indexes then
+     we have  to copy it fixing attribute ops.  Map for
+     fixing is in indexes array.  */
   attrs = TYPE_ATTRIBUTES (type);
-  if (lookup_attribute ("nonnull", attrs))
+  if (lookup_attribute ("nonnull", attrs)
+      || lookup_attribute ("format", attrs)
+      || lookup_attribute ("format_arg", attrs))
     {
+      int delta = new_idx - len;
       attrs = copy_list (TYPE_ATTRIBUTES (type));
-      t = lookup_attribute ("nonnull", attrs);
-      gcc_assert(t);
-      TREE_VALUE (t) = copy_list (TREE_VALUE (t));
-      for (t = TREE_VALUE (t); t; t = TREE_CHAIN (t))
-	{
-	  idx = TREE_INT_CST_LOW (TREE_VALUE (t)) - 1;
-	  new_idx = indexes[idx] + 1;
-	  TREE_VALUE (t) = build_int_cst (TREE_TYPE (TREE_VALUE (t)),
-					  new_idx);
-	}
+      chkp_map_attr_arg_indexes (attrs, "nonnull", indexes, len, delta);
+      chkp_map_attr_arg_indexes (attrs, "format", indexes, len, delta);
+      chkp_map_attr_arg_indexes (attrs, "format_arg", indexes, len, delta);
       TYPE_ATTRIBUTES (type) = attrs;
     }
 
@@ -1810,7 +1846,7 @@ chkp_find_bounds_for_elem (tree elem, tree *all_bounds,
     }
 }
 
-/* Fill HAVE_BOUND output array with information about
+/* Fill HAVE_BOUND output bitmap with information about
    bounds requred for object of type TYPE.
 
    OFFS is used for recursive calls and holds basic
@@ -1852,21 +1888,17 @@ chkp_find_bound_slots_1 (const_tree type, bitmap have_bound,
     }
 }
 
-/* Return vector holding information about
-   bounds for type TYPE.  See chkp_find_bound_slots_1
-   for more details.
+/* Return bitmap holding information about bounds for
+   type TYPE.  See chkp_find_bound_slots_1 for more
+   details.
 
    Caller is responsible for deallocation of returned
-   buffer.  */
+   bitmap.  */
 bitmap
 chkp_find_bound_slots (const_tree type)
 {
-  HOST_WIDE_INT max_bounds
-    = TREE_INT_CST_LOW (TYPE_SIZE (type)) / POINTER_SIZE;
   bitmap res = BITMAP_ALLOC (NULL);
-  
   chkp_find_bound_slots_1 (type, res, 0);
-
   return res;
 }
 
