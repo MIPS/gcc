@@ -5580,6 +5580,30 @@ mips_expand_conditional_branch (rtx *operands)
   emit_jump_insn (gen_condjump (condition, operands[3]));
 }
 
+/* Generate RTL to test OPERAND[1] the test is specified by GEN_FUN
+ * then set OPERANDS[0] to 1 or 0 if test is true/false repectiveltyi
+ * according to GEN_FN.  */
+
+void
+mips_expand_msa_branch (rtx *operands, rtx (*gen_fn)(rtx, rtx, rtx))
+{
+  rtx labelT = gen_label_rtx ();
+  rtx labelE = gen_label_rtx ();
+  rtx tmp = gen_fn (labelT, operands[1], const0_rtx);
+
+  tmp = emit_jump_insn (tmp);
+  JUMP_LABEL (tmp) = labelT;
+  emit_move_insn (operands[0], const0_rtx);
+  tmp = emit_jump_insn (gen_jump (labelE));
+  emit_barrier ();
+  JUMP_LABEL (tmp) = labelE;
+  emit_label (labelT);
+  LABEL_NUSES (labelT) = 1;
+  emit_move_insn (operands[0], const1_rtx);
+  emit_label (labelE);
+  LABEL_NUSES (labelE) = 1;
+}
+
 /* Implement:
 
    (set temp (COND:CCV2 CMP_OP0 CMP_OP1))
