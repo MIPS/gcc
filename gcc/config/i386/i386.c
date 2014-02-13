@@ -36679,9 +36679,6 @@ ix86_builtin_mpx_function (unsigned fcode)
     case BUILT_IN_CHKP_NARROW:
       return ix86_builtins[IX86_BUILTIN_BNDNARROW];
 
-    case BUILT_IN_CHKP_ARG_BND:
-      return ix86_builtins[IX86_BUILTIN_ARG_BND];
-
     case BUILT_IN_CHKP_SIZEOF:
       return ix86_builtins[IX86_BUILTIN_SIZEOF];
 
