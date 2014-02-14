@@ -1,6 +1,10 @@
 
 2014-02-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (meltgc_debugmsgval): Remove.
+
+2014-02-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.h (debugmsgval_at): Use the count argument.
 
 2014-02-14  Basile Starynkevitch  <basile@starynkevitch.net>

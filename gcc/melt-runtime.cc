@@ -11533,26 +11533,6 @@ melt_dbgeprint (void *p)
 }
 
 
-void meltgc_debugmsgval(void* val_p, const char*msg, long count)
-{
-  melt_fatal_error("unexpected debugmsgval val@%p msg:%s count:%ld", val_p, msg, count);
-///---   MELT_ENTERFRAME(2,NULL);
-///--- #define valv   meltfram__.mcfr_varptr[0]
-///--- #define dbgfv  meltfram__.mcfr_varptr[1]
-///---   valv = (melt_ptr_t) val_p;
-///---   dbgfv = melt_get_inisysdata (MELTFIELD_SYSDATA_DEBUGMSG);
-///---   {
-///---     union meltparam_un argtab[2];
-///---     memset(argtab, 0, sizeof(argtab));
-///---     argtab[0].meltbp_cstring = msg;
-///---     argtab[1].meltbp_long = count;
-///---     (void) melt_apply ((meltclosure_ptr_t) dbgfv, (melt_ptr_t)valv, // debugmsg
-///---                        MELTBPARSTR_CSTRING MELTBPARSTR_LONG, argtab, "", NULL);
-///---   }
-///---   MELT_EXITFRAME();
-///--- #undef valv
-///--- #undef dbgfv
-}
 
 static void
 melt_errprint_dladdr(void*ad)
