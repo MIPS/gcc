@@ -3393,8 +3393,7 @@ debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count)
 {
   if (melt_flag_debug)
     {
-      if (melt_dbgcounter++ > melt_debugskipcount)
-	melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, melt_dbgcounter);
+	melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, count);
     }
 }
 
