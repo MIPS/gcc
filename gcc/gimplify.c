@@ -4333,6 +4333,15 @@ is_gimple_stmt (tree t)
     case ASM_EXPR:
     case STATEMENT_LIST:
     case OACC_PARALLEL:
+    case OACC_KERNELS:
+    case OACC_DATA:
+    case OACC_HOST_DATA:
+    case OACC_DECLARE:
+    case OACC_UPDATE:
+    case OACC_ENTER_DATA:
+    case OACC_EXIT_DATA:
+    case OACC_WAIT:
+    case OACC_CACHE:
     case OMP_PARALLEL:
     case OMP_FOR:
     case OMP_SIMD:
@@ -6157,6 +6166,23 @@ gimplify_scan_omp_clauses (tree *list_p, gimple_seq *pre_p,
 	    remove = true;
 	  break;
 
+	case OMP_CLAUSE_HOST:
+	case OMP_CLAUSE_OACC_DEVICE:
+	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WAIT:
+	case OMP_NO_CLAUSE_CACHE:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	  remove = true;
+	  break;
+
 	case OMP_CLAUSE_NOWAIT:
 	case OMP_CLAUSE_ORDERED:
 	case OMP_CLAUSE_UNTIED:
@@ -6498,6 +6524,20 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	case OMP_CLAUSE_DEPEND:
 	  break;
 
+	case OMP_CLAUSE_HOST:
+	case OMP_CLAUSE_OACC_DEVICE:
+	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WAIT:
+	case OMP_NO_CLAUSE_CACHE:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
 	default:
 	  gcc_unreachable ();
 	}
@@ -7988,6 +8028,19 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
+	case OACC_KERNELS:
+	case OACC_DATA:
+	case OACC_HOST_DATA:
+	case OACC_DECLARE:
+	case OACC_UPDATE:
+	case OACC_ENTER_DATA:
+	case OACC_EXIT_DATA:
+	case OACC_WAIT:
+	case OACC_CACHE:
+	  sorry ("directive not yet implemented");
+	  ret = GS_ALL_DONE;
+	  break;
+
 	case OMP_PARALLEL:
 	  gimplify_omp_parallel (expr_p, pre_p);
 	  ret = GS_ALL_DONE;
@@ -8396,6 +8449,15 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != SWITCH_EXPR
 		  && code != TRY_FINALLY_EXPR
 		  && code != OACC_PARALLEL
+		  && code != OACC_KERNELS
+		  && code != OACC_DATA
+		  && code != OACC_HOST_DATA
+		  && code != OACC_DECLARE
+		  && code != OACC_UPDATE
+		  && code != OACC_ENTER_DATA
+		  && code != OACC_EXIT_DATA
+		  && code != OACC_WAIT
+		  && code != OACC_CACHE
 		  && code != OMP_CRITICAL
 		  && code != OMP_FOR
 		  && code != OMP_MASTER

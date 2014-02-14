@@ -326,6 +326,21 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
     case OMP_CLAUSE__LOOPTEMP_:
       name = "_looptemp_";
       goto print_remap;
+    case OMP_CLAUSE_HOST:
+      name = "host";
+      goto print_remap;
+    case OMP_CLAUSE_OACC_DEVICE:
+      name = "device";
+      goto print_remap;
+    case OMP_CLAUSE_DEVICE_RESIDENT:
+      name = "device_resident";
+      goto print_remap;
+    case OMP_CLAUSE_USE_DEVICE:
+      name = "use_device";
+      goto print_remap;
+    case OMP_NO_CLAUSE_CACHE:
+      name = "_cache_";
+      goto print_remap;
   print_remap:
       pp_string (buffer, name);
       pp_left_paren (buffer);
@@ -634,6 +649,62 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       pp_right_paren (buffer);
       break;
 
+    case OMP_CLAUSE_GANG:
+      pp_string (buffer, "gang(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause), spc, flags, false);
+      pp_character(buffer, ')');
+      break;
+
+    case OMP_CLAUSE_WAIT:
+      pp_string (buffer, "wait(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause), spc, flags, false);
+      pp_character(buffer, ')');
+      break;
+
+    case OMP_CLAUSE_ASYNC:
+      pp_string (buffer, "async");
+      if (OMP_CLAUSE_DECL (clause))
+        {
+          pp_character(buffer, '(');
+          dump_generic_node (buffer, OMP_CLAUSE_DECL (clause), 
+                             spc, flags, false);
+          pp_character(buffer, ')');
+        }
+      break;
+
+    case OMP_CLAUSE_WORKER:
+      pp_string (buffer, "worker(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause), spc, flags, false);
+      pp_character(buffer, ')');
+      break;
+
+    case OMP_CLAUSE_VECTOR:
+      pp_string (buffer, "vector(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause), spc, flags, false);
+      pp_character(buffer, ')');
+      break;
+
+    case OMP_CLAUSE_NUM_GANGS:
+      pp_string (buffer, "num_gangs(");
+      dump_generic_node (buffer, OMP_CLAUSE_NUM_GANGS_EXPR (clause),
+                         spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_CLAUSE_NUM_WORKERS:
+      pp_string (buffer, "num_workers(");
+      dump_generic_node (buffer, OMP_CLAUSE_NUM_WORKERS_EXPR (clause),
+                         spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
+    case OMP_CLAUSE_VECTOR_LENGTH:
+      pp_string (buffer, "vector_length(");
+      dump_generic_node (buffer, OMP_CLAUSE_VECTOR_LENGTH_EXPR (clause),
+                         spc, flags, false);
+      pp_character (buffer, ')');
+      break;
+
     case OMP_CLAUSE_INBRANCH:
       pp_string (buffer, "inbranch");
       break;
@@ -651,6 +722,9 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       break;
     case OMP_CLAUSE_TASKGROUP:
       pp_string (buffer, "taskgroup");
+      break;
+    case OMP_CLAUSE_INDEPENDENT:
+      pp_string (buffer, "independent");
       break;
 
     default:
@@ -2383,6 +2457,51 @@ dump_generic_node (pretty_printer *buffer, tree node, int spc, int flags,
       pp_string (buffer, "#pragma acc parallel");
       dump_omp_clauses (buffer, OACC_PARALLEL_CLAUSES (node), spc, flags);
       goto dump_omp_body;
+
+    case OACC_KERNELS:
+      pp_string (buffer, "#pragma acc kernels");
+      dump_omp_clauses (buffer, OACC_KERNELS_CLAUSES (node), spc, flags);
+      goto dump_omp_body;
+
+    case OACC_DATA:
+      pp_string (buffer, "#pragma acc data");
+      dump_omp_clauses (buffer, OACC_DATA_CLAUSES (node), spc, flags);
+      goto dump_omp_body;
+
+    case OACC_HOST_DATA:
+      pp_string (buffer, "#pragma acc host_data");
+      dump_omp_clauses (buffer, OACC_HOST_DATA_CLAUSES (node), spc, flags);
+      goto dump_omp_body;
+
+    case OACC_DECLARE:
+      pp_string (buffer, "#pragma acc declare");
+      dump_omp_clauses (buffer, OACC_DECLARE_CLAUSES (node), spc, flags);
+      break;
+
+    case OACC_UPDATE:
+      pp_string (buffer, "#pragma acc update");
+      dump_omp_clauses (buffer, OACC_UPDATE_CLAUSES (node), spc, flags);
+      break;
+
+    case OACC_ENTER_DATA:
+      pp_string (buffer, "#pragma acc enter data");
+      dump_omp_clauses (buffer, OACC_ENTER_DATA_CLAUSES (node), spc, flags);
+      break;
+
+    case OACC_EXIT_DATA:
+      pp_string (buffer, "#pragma acc exit data");
+      dump_omp_clauses (buffer, OACC_EXIT_DATA_CLAUSES (node), spc, flags);
+      break;
+
+    case OACC_WAIT:
+      pp_string (buffer, "#pragma acc wait");
+      dump_omp_clauses (buffer, OACC_WAIT_CLAUSES (node), spc, flags);
+      break;
+
+    case OACC_CACHE:
+      pp_string (buffer, "#pragma acc cache");
+      dump_omp_clauses (buffer, OACC_CACHE_CLAUSES(node), spc, flags);
+      break;
 
     case OMP_PARALLEL:
       pp_string (buffer, "#pragma omp parallel");

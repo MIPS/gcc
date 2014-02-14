@@ -1,3 +1,41 @@
+2014-02-14  Ilmir Usmanov  <i.usmanov@samsung.com>
+	    Dmitry Bocharnikov  <dmitry.b@samsung.com>
+	    Evgeny Gavrin  <e.gavrin@samsung.com>
+
+	Add OpenACC 1.0 support to GENERIC, except loop directive and subarrays.
+
+	gcc/
+	* gimplify.c (is_gimple_stmt, gimplify_scan_omp_clauses,
+	implify_adjust_omp_clauses, gimplify_expr): Stub OpenACC directives
+	and clauses.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	(gimple_code_is_oacc): New helper function.
+	(scan_sharing_clauses): Use it.
+	* tree-core.h (enum omp_clause_code): Add OMP_CLAUSE_HOST,
+	OMP_CLAUSE_OACC_DEVICE, OMP_CLAUSE_DEVICE_RESIDENT,
+	OMP_CLAUSE_USE_DEVICE, OMP_CLAUSE_GANG, OMP_CLAUSE_WAIT,
+	OMP_NO_CLAUSE_CACHE, OMP_CLAUSE_INDEPENDENT, OMP_CLAUSE_ASYNC,
+	OMP_CLAUSE_WORKER, OMP_CLAUSE_VECTOR, OMP_CLAUSE_NUM_GANGS,
+	OMP_CLAUSE_NUM_WORKERS and OMP_CLAUSE_VECTOR_LENGTH clauses.
+	* tree-pretty-print.c (dump_omp_clause): Print OpenACC clause.
+	(dump_generic_node): Print OpenACC directives and its clauses.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name,
+	walk_tree_1): Add OpenACC clauses.
+	* tree.def (OACC_KERNELS, OACC_DATA, OACC_HOST_DATA, OACC_DECLARE,
+	OACC_UPDATE, OACC_ENTER_DATA, OACC_EXIT_DATA, OACC_WAIT,
+	OACC_CACHE): New tree node.
+	* tree.h (OACC_KERNELS_BODY, OACC_KERNELS_CLAUSES,
+	OACC_CLAUSE_NUM_GANGS_EXPR, OMP_CLAUSE_NUM_WORKERS_EXPR,
+	OMP_CLAUSE_VECTOR_LENGTH_EXPR, OMP_CLAUSE_VECTOR_EXPR,
+	OMP_CLAUSE_WORKER_EXPR, OMP_CLAUSE_GANG_EXPR, OMP_CLAUSE_ASYNC_EXPR,
+	OMP_WAIT_EXPR, OACC_DATA_BODY, OACC_DATA_CLAUSES, OACC_DECLARE_CLAUSES,
+	OACC_UPDATE_CLAUSES, OACC_WAIT_CLAUSES, OACC_CACHE_CLAUSES,
+	OACC_HOST_DATA_BODY, OACC_HOST_DATA_CLAUSES): New macros.
+	gcc/doc/
+	* generic.texi: Document OACC_KERNELS, OACC_DATA, OACC_HOST_DATA,
+	OACC_DECLARE, OACC_UPDATE, OACC_ENTER_DATA, OACC_EXIT_DATA, OACC_WAIT,
+	OACC_CACHE.
+
 2014-02-07  Ilya Tocar  <ilya.tocar@intel.com>
 
 	* ipa-inline-analysis.c (inline_free_summary): Always remove

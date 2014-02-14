@@ -213,19 +213,19 @@ enum omp_clause_code {
      (c_parser_omp_variable_list).  */
   OMP_CLAUSE_ERROR = 0,
 
-  /* OpenMP clause: private (variable_list).  */
+  /* OpenMP/OpenACC clause: private (variable_list).  */
   OMP_CLAUSE_PRIVATE,
 
   /* OpenMP clause: shared (variable_list).  */
   OMP_CLAUSE_SHARED,
 
-  /* OpenMP clause: firstprivate (variable_list).  */
+  /* OpenMP/OpenACC clause: firstprivate (variable_list).  */
   OMP_CLAUSE_FIRSTPRIVATE,
 
   /* OpenMP clause: lastprivate (variable_list).  */
   OMP_CLAUSE_LASTPRIVATE,
 
-  /* OpenMP clause: reduction (operator:variable_list).
+  /* OpenMP/OpenACC clause: reduction (operator:variable_list).
      OMP_CLAUSE_REDUCTION_CODE: The tree_code of the operator.
      Operand 1: OMP_CLAUSE_REDUCTION_INIT: Stmt-list to initialize the var.
      Operand 2: OMP_CLAUSE_REDUCTION_MERGE: Stmt-list to merge private var
@@ -265,10 +265,37 @@ enum omp_clause_code {
      OpenMP clause: map ({alloc:,to:,from:,tofrom:,}variable-list).  */
   OMP_CLAUSE_MAP,
 
+  /* OpenACC clause: host (variable_list).  */
+  OMP_CLAUSE_HOST,
+
+  /* OpenACC clause: device (variable_list).  */
+  OMP_CLAUSE_OACC_DEVICE,
+
+  /* OpenACC clause: device_resident (variable_list).  */
+  OMP_CLAUSE_DEVICE_RESIDENT,
+
+  /* OpenACC clause: use_device (variable_list).  */
+  OMP_CLAUSE_USE_DEVICE,
+
+  /* OpenACC clause: gang [(gang-argument-list)]. 
+     Where 
+      gang-argument-list: [gang-argument-list, ] gang-argument 
+      gang-argument: [num:] integer-expression
+                   | static: size-expression
+      size-expression: * | integer-expression.  */
+  OMP_CLAUSE_GANG,
+
+  /* OpenACC clause/directive: wait [(integer-expression-list)].  */
+  OMP_CLAUSE_WAIT,
+
+  /* Internal structure to hold OpenACC cache directive's variable-list.
+     #pragma acc cache (variable-list).  */
+  OMP_NO_CLAUSE_CACHE,
+
   /* Internal clause: temporary for combined loops expansion.  */
   OMP_CLAUSE__LOOPTEMP_,
 
-  /* OpenMP clause: if (scalar-expression).  */
+  /* OpenMP/OpenACC clause: if (scalar-expression).  */
   OMP_CLAUSE_IF,
 
   /* OpenMP clause: num_threads (integer-expression).  */
@@ -281,12 +308,13 @@ enum omp_clause_code {
   OMP_CLAUSE_NOWAIT,
 
   /* OpenMP clause: ordered.  */
+  /* OpenACC clause: seq.  */
   OMP_CLAUSE_ORDERED,
 
   /* OpenMP clause: default.  */
   OMP_CLAUSE_DEFAULT,
 
-  /* OpenMP clause: collapse (constant-integer-expression).  */
+  /* OpenMP/OpenACC clause: collapse (constant-integer-expression).  */
   OMP_CLAUSE_COLLAPSE,
 
   /* OpenMP clause: untied.  */
@@ -338,7 +366,28 @@ enum omp_clause_code {
   OMP_CLAUSE_TASKGROUP,
 
   /* Internally used only clause, holding SIMD uid.  */
-  OMP_CLAUSE__SIMDUID_
+  OMP_CLAUSE__SIMDUID_,
+
+  /* OpenACC clause: independent.  */
+  OMP_CLAUSE_INDEPENDENT,
+
+  /* OpenACC clause: async [(integer-expression)].  */
+  OMP_CLAUSE_ASYNC,
+
+  /* OpenACC clause: worker [( [num:] integer-expression)].  */
+  OMP_CLAUSE_WORKER,
+
+  /* OpenACC clause: vector [( [length:] integer-expression)].  */
+  OMP_CLAUSE_VECTOR,
+
+  /* OpenACC clause: num_gangs (integer-expression).  */
+  OMP_CLAUSE_NUM_GANGS,
+
+  /* OpenACC clause: num_workers (integer-expression).  */
+  OMP_CLAUSE_NUM_WORKERS,
+
+  /* OpenACC clause: vector_length (integer-expression).  */
+  OMP_CLAUSE_VECTOR_LENGTH
 };
 
 #undef DEFTREESTRUCT

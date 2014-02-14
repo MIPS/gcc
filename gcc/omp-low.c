@@ -1491,6 +1491,18 @@ fixup_child_record_type (omp_context *ctx)
   TREE_TYPE (ctx->receiver_decl) = build_pointer_type (type);
 }
 
+static bool
+gimple_code_is_oacc (const_gimple g)
+{
+  switch (gimple_code (g))
+    {
+    case GIMPLE_OACC_PARALLEL:
+      return true;
+    default:
+      return false;
+    }
+}
+
 /* Instantiate decls as necessary in CTX to satisfy the data sharing
    specified by CLAUSES.  */
 
@@ -1552,8 +1564,13 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
+	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	    {
+	      sorry ("clause not supported yet");
+	      break;
+	    }
 	case OMP_CLAUSE_LINEAR:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	do_private:
 	  if (is_variable_sized (decl))
@@ -1591,7 +1608,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_COPYIN:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  by_ref = use_pointer_for_field (decl, NULL);
 	  install_var_field (decl, by_ref, 3, ctx);
@@ -1602,8 +1619,13 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  ctx->default_kind = OMP_CLAUSE_DEFAULT_KIND (c);
 	  break;
 
-	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_IF:
+	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	    {
+	      sorry ("clause not supported yet");
+	      break;
+	    }
+	case OMP_CLAUSE_FINAL:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
@@ -1611,14 +1633,14 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEPEND:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_OPERAND (c, 0), ctx->outer);
 	  break;
 
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+    gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	case OMP_CLAUSE_MAP:
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_SIZE (c), ctx->outer);
@@ -1641,7 +1663,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      /* Ignore OMP_CLAUSE_MAP_POINTER kind for arrays in
 		 #pragma omp target data, there is nothing to map for
 		 those.  */
-	      if (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL
+	      if (!gimple_code_is_oacc (ctx->stmt)
 		  && gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_DATA
 		  && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		break;
@@ -1710,15 +1732,32 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_global_var (decl)
 	      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
 	    install_var_local (decl, ctx);
+	  break;
+
+	case OMP_CLAUSE_HOST:
+	case OMP_CLAUSE_OACC_DEVICE:
+	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WAIT:
+	case OMP_NO_CLAUSE_CACHE:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	  sorry ("Clause not supported yet");
 	  break;
 
 	default:
@@ -1731,7 +1770,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_LASTPRIVATE:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  /* Let the corresponding firstprivate clause create
 	     the variable.  */
 	  if (OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c))
@@ -1743,8 +1782,13 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
+	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	    {
+	      sorry ("clause not supported yet");
+	      break;
+	    }
 	case OMP_CLAUSE_LINEAR:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);
@@ -1757,7 +1801,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_SHARED:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	  /* Ignore shared directives in teams construct.  */
 	  if (gimple_code (ctx->stmt) == GIMPLE_OMP_TEAMS)
 	    break;
@@ -1767,7 +1811,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_MAP:
-	  if (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL
+	  if (!gimple_code_is_oacc (ctx->stmt)
 	      && gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_DATA)
 	    break;
 	  decl = OMP_CLAUSE_DECL (c);
@@ -1776,7 +1820,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      && lookup_attribute ("omp declare target",
 				   DECL_ATTRIBUTES (decl)))
 	    {
-	      gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	      gcc_assert (!gimple_code_is_oacc (ctx->stmt));
 	    break;
 	    }
 	  if (DECL_P (decl))
@@ -1804,10 +1848,15 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	    }
 	  break;
 
+	case OMP_CLAUSE_IF:
+	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	    {
+	      sorry ("clause not supported yet");
+	      break;
+	    }
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_COPYIN:
 	case OMP_CLAUSE_DEFAULT:
-	case OMP_CLAUSE_IF:
 	case OMP_CLAUSE_NUM_THREADS:
 	case OMP_CLAUSE_NUM_TEAMS:
 	case OMP_CLAUSE_THREAD_LIMIT:
@@ -1827,7 +1876,24 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  break;
+
+	case OMP_CLAUSE_HOST:
+	case OMP_CLAUSE_OACC_DEVICE:
+	case OMP_CLAUSE_DEVICE_RESIDENT:
+	case OMP_CLAUSE_USE_DEVICE:
+	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_WAIT:
+	case OMP_NO_CLAUSE_CACHE:
+	case OMP_CLAUSE_INDEPENDENT:
+	case OMP_CLAUSE_ASYNC:
+	case OMP_CLAUSE_WORKER:
+	case OMP_CLAUSE_VECTOR:
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
+	  sorry ("Clause not supported yet");
 	  break;
 
 	default:

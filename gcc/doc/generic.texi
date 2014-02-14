@@ -2052,6 +2052,15 @@ edge.  Rethrowing the exception is represented using @code{RESX_EXPR}.
 @node OpenMP
 @subsection OpenMP
 @tindex OACC_PARALLEL
+@tindex OACC_KERNELS
+@tindex OACC_DATA
+@tindex OACC_HOST_DATA
+@tindex OACC_DECLARE
+@tindex OACC_UPDATE
+@tindex OACC_ENTER_DATA
+@tindex OACC_EXIT_DATA
+@tindex OACC_WAIT
+@tindex OACC_CACHE
 @tindex OMP_PARALLEL
 @tindex OMP_FOR
 @tindex OMP_SECTIONS
@@ -2072,6 +2081,42 @@ clauses used by the OpenMP API @w{@uref{http://www.openmp.org/}}.
 @item OACC_PARALLEL
 
 Represents @code{#pragma acc parallel [clause1 @dots{} clauseN]}.
+
+@item OACC_KERNELS
+
+Represents @code{#pragma acc kernels [clause1 @dots{} clauseN]}.
+
+@item OACC_DATA
+
+Represents @code{#pragma acc data [clause1 @dots{} clauseN]}.
+
+@item OACC_HOST_DATA
+
+Represents @code{#pragma acc host_data [clause1 @dots{} clauseN]}.
+
+@item OACC_DECLARE
+
+Represents @code{#pragma acc declare [clause1 @dots{} clauseN]}.
+
+@item OACC_UPDATE
+
+Represents @code{#pragma acc update [clause1 @dots{} clauseN]}.
+
+@item OACC_ENTER_DATA
+
+Represents @code{#pragma acc enter data [clause1 @dots{} clauseN]}.
+
+@item OACC_EXIT_DATA
+
+Represents @code{#pragma acc exit data [clause1 @dots{} clauseN]}.
+
+@item OACC_WAIT
+
+Represents @code{#pragma acc wait [(num @dots{})]}.
+
+@item OACC_CACHE
+
+Represents @code{#pragma acc cache (var @dots{})}.
 
 @item OMP_PARALLEL
 

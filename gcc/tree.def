@@ -1017,6 +1017,24 @@ DEFTREECODE (MEM_REF, "mem_ref", tcc_reference, 2)
 
 DEFTREECODE (OACC_PARALLEL, "oacc_parallel", tcc_statement, 2)
 
+/* OpenACC - #pragma acc kernels [clause1 ... clauseN]
+   Operand 0: OACC_KERNELS_BODY: Sequence of kernels.
+   Operand 1: OACC_KERNELS_CLAUSES: List of clauses.  */
+
+DEFTREECODE (OACC_KERNELS, "oacc_kernels", tcc_statement, 2)
+
+/* OpenACC - #pragma acc data [clause1 ... clauseN]
+   Operand 0: OACC_DATA_BODY: Data construct body.
+   Operand 1: OACC_DATA_CLAUSES: List of clauses.  */
+
+DEFTREECODE (OACC_DATA, "oacc_data", tcc_statement, 2)
+
+/* OpenACC - #pragma acc host_data [clause1 ... clauseN]
+   Operand 0: OACC_HOST_DATA_BODY: Host_data construct body.
+   Operand 1: OACC_HOST_DATA_CLAUSES: List of clauses.  */
+
+DEFTREECODE (OACC_HOST_DATA, "oacc_host_data", tcc_statement, 2)
+
 /* OpenMP - #pragma omp parallel [clause1 ... clauseN]
    Operand 0: OMP_PARALLEL_BODY: Code to be executed by all threads.
    Operand 1: OMP_PARALLEL_CLAUSES: List of clauses.  */
@@ -1107,6 +1125,30 @@ DEFTREECODE (OMP_ORDERED, "omp_ordered", tcc_statement, 1)
    Operand 0: OMP_CRITICAL_BODY: Critical section body.
    Operand 1: OMP_CRITICAL_NAME: Identifier for critical section.  */
 DEFTREECODE (OMP_CRITICAL, "omp_critical", tcc_statement, 2)
+
+/* OpenACC - #pragma acc declare [clause1 ... clauseN]
+   Operand 0: OACC_DECLARE_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_DECLARE, "oacc_declare", tcc_statement, 1)
+
+/* OpenACC - #pragma acc update [clause1 ... clauseN]
+   Operand 0: OACC_UPDATE_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_UPDATE, "oacc_update", tcc_statement, 1)
+
+/* OpenACC - #pragma acc enter data [clause1 ... clauseN]
+   Operand 0: OACC_ENTER_DATA_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_ENTER_DATA, "oacc_enter_data", tcc_statement, 1)
+
+/* OpenACC - #pragma acc exit data [clause1 ... clauseN]
+   Operand 0: OACC_EXIT_DATA_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_EXIT_DATA, "oacc_exit_data", tcc_statement, 1)
+
+/* OpenACC - #pragma acc wait [clause1 ... clauseN]
+   Operand 0: OACC_WAIT_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_WAIT, "oacc_wait", tcc_statement, 1)
+
+/* OpenACC - #pragma acc cache [clause1 ... clauseN]
+   Operand 0: OACC_CACHE_CLAUSES: List of clauses.  */
+DEFTREECODE (OACC_CACHE, "oacc_cache", tcc_statement, 1)
 
 /* OpenMP - #pragma omp target update [clause1 ... clauseN]
    Operand 0: OMP_TARGET_UPDATE_CLAUSES: List of clauses.  */
