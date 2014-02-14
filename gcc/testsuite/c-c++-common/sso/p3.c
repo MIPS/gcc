@@ -32,9 +32,9 @@ int main (void)
   new_line ();
   /* { dg-output "Local_R2 : 09 e2 af 37 bd 24 d2 b4\n" } */
 
-  Local_R1.S1 = 2;
-  Local_R1.I  = 0x78ABCDEF;
-  Local_R1.S2 = 1;
+  Local_R1.S1   = 2;
+  Local_R1.I    = 0x78ABCDEF;
+  Local_R1.S2   = 1;
   Local_R1.N.C1 = 0x12;
   Local_R1.N.C2 = 0x34;
   Local_R1.N.C3 = 0x56;
@@ -45,13 +45,13 @@ int main (void)
   new_line ();
   /* { dg-output "Local_R1 : c2 7b f3 2a 5e 12 9a 95\n" } */
 
-  Local_R2.S1 = 2;
-  Local_R2.I  = 0x78ABCDEF;
-  Local_R2.S2 = 1;
+  Local_R2.S1   = 2;
+  Local_R2.I    = 0x78ABCDEF;
+  Local_R2.S2   = 1;
   Local_R2.N.C1 = 0x12;
   Local_R2.N.C2 = 0x34;
   Local_R2.N.C3 = 0x56;
-  Local_R1.N.B  = 4;
+  Local_R2.N.B  = 4;
 
   put ("Local_R2 :");
   dump (&Local_R2, sizeof (struct R2));

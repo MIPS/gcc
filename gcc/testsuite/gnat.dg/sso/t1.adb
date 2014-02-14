@@ -1,25 +1,55 @@
--- { dg-do compile }
+-- { dg-do run }
 
-package body T1 is
+with Init1; use Init1;
+with Text_IO; use Text_IO;
+with Dump;
 
-  function Compare1 (X, Y : R1) return Boolean is
-  begin
-    return X.I = Y.I;
-  end;
+procedure T1 is
 
-  function Is_Special1 (X : R1) return Boolean is
-  begin
-    return X.I = 16#12345678#;
-  end;
+  Local_R1 : R1;
+  Local_R2 : R2;
 
-  function Compare2 (X, Y : R2) return Boolean is
-  begin
-    return X.I = Y.I;
-  end;
+begin
+  Local_R1.I := My_R1.I + 1;
 
-  function Is_Special2 (X : R2) return Boolean is
-  begin
-    return X.I = 16#12345678#;
-  end;
+  Put ("Local_R1 :");
+  Dump (Local_R1'Address, R1'Max_Size_In_Storage_Elements);
+  New_Line;
+  -- { dg-output "Local_R1 : 79 56 34 12\n" }
 
-end T1;
+  Local_R2.I := My_R2.I + 1;
+
+  Put ("Local_R2 :");
+  Dump (Local_R2'Address, R2'Max_Size_In_Storage_Elements);
+  New_Line;
+  -- { dg-output "Local_R2 : 12 34 56 79\n" }
+
+  Local_R1.I := 16#12345678#;
+
+  Put ("Local_R1 :");
+  Dump (Local_R1'Address, R1'Max_Size_In_Storage_Elements);
+  New_Line;
+  -- { dg-output "Local_R1 : 78 56 34 12\n" }
+
+  Local_R2.I := 16#12345678#;
+
+  Put ("Local_R2 :");
+  Dump (Local_R2'Address, R2'Max_Size_In_Storage_Elements);
+  New_Line;
+  -- { dg-output "Local_R2 : 12 34 56 78\n" }
+
+  Local_R1.I := Local_R1.I + 1;
+
+  Put ("Local_R1 :");
+  Dump (Local_R1'Address, R1'Max_Size_In_Storage_Elements);
+  New_Line;
+  -- { dg-output "Local_R1 : 79 56 34 12\n" }
+
+  Local_R2.I := Local_R2.I + 1;
+
+  Put ("Local_R2 :");
+  Dump (Local_R2'Address, R2'Max_Size_In_Storage_Elements);
+  New_Line;
+  -- { dg-output "Local_R2 : 12 34 56 79\n" }
+
+end;

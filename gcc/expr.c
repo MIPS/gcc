@@ -5338,9 +5338,9 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal,
       rtx tmp_target;
 
   normal_expr:
-      /* If we want to use a nontemporal store, force the value to
-	 register first.  */
-      tmp_target = nontemporal ? NULL_RTX : target;
+      /* If we want to use a nontemporal or a reverse order store, force the
+	 value into a register first.  */
+      tmp_target = nontemporal || reverse ? NULL_RTX : target;
       temp = expand_expr_real (exp, tmp_target, GET_MODE (target),
 			       (call_param_p
 				? EXPAND_STACK_PARM : EXPAND_NORMAL),
