@@ -1,6 +1,11 @@
 2015-02-15  H.J. Lu  <hongjiu.lu@intel.com>
 
 	Backport from mainline:
+	2014-02-14  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/60131
+	* g++.dg/torture/pr60131.C: New test.
+
 	2014-01-15  Jeff Law  <law@redhat.com>
 
 	PR tree-optimization/59747
