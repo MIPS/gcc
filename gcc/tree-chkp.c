@@ -59,6 +59,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimplify-me.h"
 #include "print-tree.h"
 #include "expr.h"
+#include "tree-ssa-propagate.h"
+#include "gimple-fold.h"
 #include "tree-chkp.h"
 #include "rtl.h" /* For MEM_P.  */
 #include "tree-dfa.h"
@@ -4513,6 +4515,49 @@ chkp_instrument_function (void)
       }
 }
 
+/* Find init/null/copy_ptr_bounds calls and replace them
+   with assignments.  It should allow better code
+   optimization.  */
+
+static void
+chkp_remove_useless_builtins ()
+{
+  basic_block bb, next;
+  gimple_stmt_iterator gsi;
+  enum gimple_rhs_class grhs_class;
+
+  bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
+  do
+    {
+      next = bb->next_bb;
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+        {
+          gimple stmt = gsi_stmt (gsi);
+	  tree fndecl;
+	  enum built_in_function fcode;
+
+	  /* Find builtins returning first arg and replace
+	     them with assignments.  */
+	  if (gimple_code (stmt) == GIMPLE_CALL
+	      && (fndecl = gimple_call_fndecl (stmt))
+	      && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	      && (fcode = DECL_FUNCTION_CODE (fndecl))
+	      && (fcode == BUILT_IN_CHKP_INIT_PTR_BOUNDS
+		  || fcode == BUILT_IN_CHKP_NULL_PTR_BOUNDS
+		  || fcode == BUILT_IN_CHKP_COPY_PTR_BOUNDS))
+	    {
+	      tree res = gimple_call_arg (stmt, 0);
+	      if (!update_call_from_tree (&gsi, res))
+		gimplify_and_update_call_from_tree (&gsi, res);
+	      stmt = gsi_stmt (gsi);
+	      update_stmt (stmt);
+	    }
+        }
+      bb = next;
+    }
+  while (bb);
+}
+
 /* Initialize pass.  */
 static void
 chkp_init (void)
@@ -4574,6 +4619,8 @@ chkp_execute (void)
   chkp_init ();
 
   chkp_instrument_function ();
+
+  chkp_remove_useless_builtins ();
 
   DECL_ATTRIBUTES (cfun->decl)
     = tree_cons (get_identifier ("chkp instrumented"), NULL,
