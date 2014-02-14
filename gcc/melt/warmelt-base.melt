@@ -768,9 +768,6 @@ an integer $I if $I is lower than $N.}#
   :doc #{Debug output with message $msg number $i}#
   #{debugnum(($msg), ($i))}#)
 
-(defprimitive messageval_dbg (:cstring msg :value val) :void
-  :doc #{Debug output with message $msg value $val}#
-  #{debugvalue(($msg), ((void*)($val)))}#)
 
 (defprimitive longbacktrace_dbg (:cstring msg :long maxdepth) :void
   :doc #{Detailed debug backtrace with message $MSG up to $MAXDEPTH.}#
@@ -3588,7 +3585,6 @@ given object map $MAPO}#
  melt_make_fresh_environment_reference
  message_dbg
  messagenum_dbg 
- messageval_dbg
  mini
  minor_garbcoll
  mixbigint_val

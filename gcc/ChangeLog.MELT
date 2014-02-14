@@ -1,4 +1,16 @@
 
+2014-02-14  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.h (debugvalue_at, debugmsgval_at): Use
+	melthookproc_HOOK_LOW_DEBUG_VALUE_AT.
+
+	* melt/warmelt-base.melt (messageval_dbg): Remove.
+
+	* melt/warmelt-debug.melt (debug_msg_fun): Remove entirely.
+
+	* melt/warmelt-macro.melt (macroexpand_toplevel_list): Don't
+	mention messageval_dbg even in a comment.
+
 2014-02-13  Basile Starynkevitch  <basile@starynkevitch.net>
 	* melt/warmelt-first.melt (class_initial_system_data)
 	Remove field sysdata_debugmsg.

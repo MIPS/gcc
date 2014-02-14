@@ -3379,28 +3379,26 @@ debugvalue_at (const char *fil, int lin, const char *msg, void *val)
 {
   if (melt_flag_debug)
     {
-      fprintf (stderr, "!@%s:%d:\n@! %s @%p/%d= ",
-               basename (fil), lin, (msg), val, melt_magic_discr ((melt_ptr_t)val));
-      melt_dbgeprint (val);
+      if (melt_dbgcounter++ > melt_debugskipcount)
+	melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, melt_dbgcounter);
       fflush (stderr);
     }
 }
-
+// deprecated macro
 #define debugvalue(Msg,Val) debugvalue_at(__FILE__, __LINE__, (Msg), (Val))
 
-void meltgc_debugmsgval(void* val, const char*msg, long count);
 
 static inline void
 debugmsgval_at (const char*fil, int lin, const char* msg, void*val, long count)
 {
   if (melt_flag_debug)
     {
-      fprintf (stderr, "!@%s:%d:\n",
-               basename (fil), lin);
-      meltgc_debugmsgval(val, msg, count);
+      if (melt_dbgcounter++ > melt_debugskipcount)
+	melthookproc_HOOK_LOW_DEBUG_VALUE_AT((melt_ptr_t)val, fil, lin, msg, melt_dbgcounter);
     }
 }
 
+// deprecated macro
 #define debugmsgval(Msg,Val,Count) do {					\
     debugmsgval_at(__FILE__,__LINE__,(Msg),(Val),(Count)); } while(0)
 

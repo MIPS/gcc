@@ -2475,11 +2475,9 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 ;; expressions... In particular, this allows a (load "filename")
 ;; macro.
 (defun macroexpand_toplevel_list (slist env mexpander modctx)
-  ;; (messageval_dbg "macroexpand_toplevel_list Env" env)
   (debug "macroexpand_toplevel_list slist=" slist 
 	 "\n* mexpander=" mexpander
-	 "\n* modctx=" modctx) 
-  (debug "macroexpand_toplevel_list mexpander=" mexpander)
+	 "\n* modctx=" modctx)
   (if (null mexpander) (setq mexpander macroexpand_1))
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check slist" (is_list slist) slist)
