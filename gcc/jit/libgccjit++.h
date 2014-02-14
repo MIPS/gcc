@@ -259,6 +259,9 @@ namespace gccjit
 
     type get_pointer ();
 
+    // Shortcuts for getting values of numeric types:
+    rvalue zero ();
+    rvalue one ();
  };
 
   class function : public object
@@ -309,6 +312,20 @@ namespace gccjit
 		   location loc = location ());
 
     void add_return (rvalue rvalue,
+		     location loc = location ());
+
+    /* A way to add a function call to the body of a function being
+       defined, with various numbers of args.  */
+    rvalue add_call (function other,
+		     location loc = location ());
+    rvalue add_call (function other,
+		     rvalue arg0,
+		     location loc = location ());
+    rvalue add_call (function other,
+		     rvalue arg0, rvalue arg1,
+		     location loc = location ());
+    rvalue add_call (function other,
+		     rvalue arg0, rvalue arg1, rvalue arg2,
 		     location loc = location ());
 
     /* A series of overloaded operator () with various numbers of arguments
@@ -991,6 +1008,18 @@ type::get_pointer ()
   return type (gcc_jit_type_get_pointer (get_inner_type ()));
 }
 
+inline rvalue
+type::zero ()
+{
+  return get_context ().new_rvalue (*this, 0);
+}
+
+inline rvalue
+type::one ()
+{
+  return get_context ().new_rvalue (*this, 1);
+}
+
 // class function
 inline function::function () : object (NULL) {}
 inline function::function (gcc_jit_function *inner)
@@ -1133,6 +1162,42 @@ function::add_return (rvalue rvalue,
   gcc_jit_function_add_return (get_inner_function (),
 			       loc.get_inner_location (),
 			       rvalue.get_inner_rvalue ());
+}
+
+inline rvalue
+function::add_call (function other,
+		    location loc)
+{
+  rvalue c = get_context ().new_call (other, loc);
+  add_eval (c);
+  return c;
+}
+inline rvalue
+function::add_call (function other,
+		    rvalue arg0,
+		    location loc)
+{
+  rvalue c = get_context ().new_call (other, arg0, loc);
+  add_eval (c);
+  return c;
+}
+inline rvalue
+function::add_call (function other,
+		    rvalue arg0, rvalue arg1,
+		    location loc)
+{
+  rvalue c = get_context ().new_call (other, arg0, arg1, loc);
+  add_eval (c);
+  return c;
+}
+inline rvalue
+function::add_call (function other,
+		    rvalue arg0, rvalue arg1, rvalue arg2,
+		    location loc)
+{
+  rvalue c = get_context ().new_call (other, arg0, arg1, arg2, loc);
+  add_eval (c);
+  return c;
 }
 
 inline rvalue

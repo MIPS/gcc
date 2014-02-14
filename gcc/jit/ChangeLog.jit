@@ -1,3 +1,9 @@
+2014-02-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit++.h (gccjit::type::zero): New method.
+	(gccjit::type::one): New method.
+	(gccjit::function::add_call): New family of overloaded methods.
+
 2014-02-13  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_context_get_builtin_function): New.

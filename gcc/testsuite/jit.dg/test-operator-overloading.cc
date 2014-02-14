@@ -253,11 +253,11 @@ make_test_quadratic (quadratic_test &testcase)
   test_quadratic.add_assignment (*r1, minus_b / two_a);
 
   /* "return 1;" */
-  test_quadratic.add_return (testcase.ctxt.one (testcase.int_type));
+  test_quadratic.add_return (testcase.int_type.one ());
 
   /* else return 0; */
   test_quadratic.place_forward_label (on_negative_discriminant);
-  test_quadratic.add_return (testcase.ctxt.zero (testcase.int_type));
+  test_quadratic.add_return (testcase.int_type.zero ());
 
   /* Verify that output stream operator << works.  */
   std::ostringstream os;

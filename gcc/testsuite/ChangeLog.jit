@@ -1,3 +1,10 @@
+2014-02-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-operator-overloading.cc (make_test_quadratic): Use
+	the new "zero" and "one" methods of gccjit::type.
+	* jit.dg/test-quadratic.cc (make_test_quadratic): Use the new
+	"add_call" method of gccjit::function.
+
 2014-02-13  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/harness.h (CHECK_DOUBLE_VALUE): New macro.

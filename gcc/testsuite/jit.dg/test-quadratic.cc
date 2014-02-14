@@ -208,8 +208,7 @@ make_test_quadratic (quadratic_test &testcase)
   test_quadratic.add_assignment (q.access_field (testcase.c), c);
   /* calc_discriminant (&q); */
   gccjit::rvalue address_of_q = q.get_address ();
-  test_quadratic.add_eval (
-    testcase.ctxt.new_call (testcase.calc_discriminant, address_of_q));
+  test_quadratic.add_call (testcase.calc_discriminant, address_of_q);
 
   gccjit::label on_positive_discriminant
     = test_quadratic.new_forward_label ("positive_discriminant");
