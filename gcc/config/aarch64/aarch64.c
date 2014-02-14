@@ -5031,6 +5031,32 @@ aarch64_sched_issue_rate (void)
   return aarch64_tune_params->issue_rate;
 }
 
+/* Return true if the target can do macro fusion of compare and branch. */
+static bool
+aarch64_macro_fusion_p (void)
+{
+  return aarch64_tune == thunder;
+}
+
+/* Return is the pair of instructions are macro fusion pairs. */
+static bool
+aarch64_macro_fusion_pair (rtx condgen, rtx condjmp)
+{
+  if (aarch64_tune != thunder)
+    return false;
+
+  /* This misses some of them due to easy shift
+     is not checked. */
+  if (get_attr_type (condgen) == TYPE_ALUS_REG
+      || get_attr_type (condgen) == TYPE_ALUS_IMM
+      || get_attr_type (condgen) == TYPE_LOGICS_REG
+      || get_attr_type (condgen) == TYPE_LOGICS_IMM)
+    return true;
+
+  return false;
+}
+
+
 /* Vectorizer cost model target hooks.  */
 
 /* Implement targetm.vectorize.builtin_vectorization_cost.  */
@@ -8703,6 +8729,12 @@ aarch64_mems_ok_for_pair_peep (rtx op0, rtx op1)
 
 #undef TARGET_FIXED_CONDITION_CODE_REGS
 #define TARGET_FIXED_CONDITION_CODE_REGS aarch64_fixed_condition_code_regs
+
+#undef TARGET_SCHED_MACRO_FUSION_P
+#define TARGET_SCHED_MACRO_FUSION_P aarch64_macro_fusion_p
+
+#undef TARGET_SCHED_MACRO_FUSION_PAIR_P
+#define TARGET_SCHED_MACRO_FUSION_PAIR_P aarch64_macro_fusion_pair
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 

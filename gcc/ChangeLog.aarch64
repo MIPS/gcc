@@ -1,3 +1,10 @@
+2014-02-14  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/aarch64.c (aarch64_macro_fusion_p): New function.
+	(aarch64_macro_fusion_pair): New function.
+	(TARGET_SCHED_MACRO_FUSION_P): Define.
+	(TARGET_SCHED_MACRO_FUSION_PAIR_P): Define.
+
 2014-02-13  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64-protos.h (tune_params): Add align field.
