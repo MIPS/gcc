@@ -1,0 +1,13 @@
+2012-07-19  Andrew Pinski  <apinski@cavium.com>
+            Adam Nemet  <anemet@caviumnetworks.com>
+
+	* config/mips/octeon-elf-unwind.h: New file.
+	* config.host (mips64*-*-linux* | mipsisa64*-*-linux*): Merge into
+	(mips*-*-linux*): This one.
+	(mipsisa64-octeon-elf*): New target.
+	* config/mips/t-crtstuff (CRTSTUFF_T_CFLAGS): Add
+	-fno-asynchronous-unwind-tables.
+	* libgcov-driver-system.c (allocate_filename_struct): Use 
+	GCOV_TARGET_SUFFIX_LENGTH when allocating buffer for the filename.
+	(gcov_exit_open_gcda_file): Use ADD_GCOV_TARGET_SUFFIX if defined 
+	to change the filename.

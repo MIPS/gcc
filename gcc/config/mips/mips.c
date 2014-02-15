@@ -697,6 +697,25 @@ const enum reg_class mips_regno_to_class[FIRST_PSEUDO_REGISTER] = {
   ALL_REGS,	ALL_REGS,	ALL_REGS,	ALL_REGS
 };
 
+/* Accept only Variable decls.  */
+
+static tree
+accept_var_decls_only (tree *node, tree name, 
+		       tree args ATTRIBUTE_UNUSED, 
+		       int flags ATTRIBUTE_UNUSED, 
+		       bool *no_add_attrs)
+{
+  if (TREE_CODE (*node) != VAR_DECL)
+    {
+      warning (OPT_Wattributes, "%qs attribute only applies to variables",
+              IDENTIFIER_POINTER (name));
+      *no_add_attrs = true;
+    }
+
+  return NULL_TREE;
+}
+
+
 /* The value of TARGET_ATTRIBUTE_TABLE.  */
 static const struct attribute_spec mips_attribute_table[] = {
   /* { name, min_len, max_len, decl_req, type_req, fn_type_req, handler,
@@ -710,6 +729,8 @@ static const struct attribute_spec mips_attribute_table[] = {
      code generation but don't carry other semantics.  */
   { "mips16", 	   0, 0, true,  false, false, NULL, false },
   { "nomips16",    0, 0, true,  false, false, NULL, false },
+  { "cvmx_shared", 0, 0, true, false, false, accept_var_decls_only, false },
+  { "cvmx_noshared", 0, 0, true, false, false, accept_var_decls_only, false },
   { "micromips",   0, 0, true,  false, false, NULL, false },
   { "nomicromips", 0, 0, true,  false, false, NULL, false },
   { "nocompression", 0, 0, true,  false, false, NULL, false },
@@ -1454,6 +1475,8 @@ mips_insert_attributes (tree decl, tree *attributes)
 static tree
 mips_merge_decl_attributes (tree olddecl, tree newdecl)
 {
+  bool old_has;
+  bool new_has;
   unsigned int diff;
 
   diff = (mips_get_compress_on_flags (DECL_ATTRIBUTES (olddecl))
@@ -1468,6 +1491,18 @@ mips_merge_decl_attributes (tree olddecl, tree newdecl)
     error ("%qE redeclared with conflicting %qs attributes",
 	   DECL_NAME (newdecl), mips_get_compress_off_name (diff));
 
+  old_has = mips_cvmx_shared_decl_p (olddecl);
+  new_has = mips_cvmx_shared_decl_p (newdecl);
+  if (old_has && !new_has)
+    {
+      if (warning (OPT_Wattributes, "%q+D is not declared as being CVMX_SHARED while previous was", newdecl))
+        inform (input_location, "previous declaration of %q+D was here", olddecl);
+    }
+  if (!old_has && new_has)
+    {
+      if (warning (OPT_Wattributes, "%q+D is declared as being CVMX_SHARED while previous was not", newdecl))
+        inform (input_location, "previous declaration of %q+D was here", olddecl);
+    }
   return merge_attributes (DECL_ATTRIBUTES (olddecl),
 			   DECL_ATTRIBUTES (newdecl));
 }
@@ -7660,6 +7695,15 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
   if (!mips_get_unaligned_mem (src, width, bitpos, &left, &right))
     return false;
 
+  if (ISA_HAS_UL_US)
+    {
+      if (GET_MODE (dest) == DImode)
+        emit_insn (gen_mov_uld (dest, src, left));
+      else
+        emit_insn (gen_mov_ulw (dest, src, left));
+      return true;
+    }
+
   temp = gen_reg_rtx (GET_MODE (dest));
   if (GET_MODE (dest) == DImode)
     {
@@ -7704,6 +7748,16 @@ mips_expand_ins_as_unaligned_store (rtx dest, rtx src, HOST_WIDE_INT width,
 
   mode = mode_for_size (width, MODE_INT, 0);
   src = gen_lowpart (mode, src);
+
+  if (ISA_HAS_UL_US)
+    {
+      if (mode == DImode)
+	emit_insn (gen_mov_usd (dest, src, left));
+      else
+	emit_insn (gen_mov_usw (dest, src, left));
+      return true;
+    }
+
   if (mode == DImode)
     {
       emit_insn (gen_mov_sdl (dest, src, left));
@@ -8482,6 +8536,23 @@ mips_function_rodata_section (tree decl)
   return data_section;
 }
 
+bool
+mips_cvmx_shared_decl_p (const_tree decl)
+{
+  if (!TARGET_OCTEON)
+    return false;
+  if (!decl)
+    return false;
+  if (TREE_CODE (decl) != VAR_DECL)
+    return false;
+  if (TARGET_SHARED_VARIABLES && !lookup_attribute ("cvmx_noshared", DECL_ATTRIBUTES (decl)))
+    return true;
+  if (lookup_attribute ("cvmx_shared", DECL_ATTRIBUTES (decl)))
+    return true;
+  return false;
+}
+
+
 /* Implement TARGET_IN_SMALL_DATA_P.  */
 
 static bool
@@ -8496,6 +8567,10 @@ mips_in_small_data_p (const_tree decl)
      or VxWorks RTP code.  See the related -G handling in
      mips_option_override.  */
   if (TARGET_ABICALLS || TARGET_VXWORKS_RTP)
+    return false;
+
+  /* cvmx_shared is in a separate program header from data.  */
+  if (mips_cvmx_shared_decl_p (decl))
     return false;
 
   if (TREE_CODE (decl) == VAR_DECL && DECL_SECTION_NAME (decl) != 0)
@@ -17228,6 +17303,11 @@ mips_option_override (void)
   if (TARGET_DSPR2)
     TARGET_DSP = true;
 
+  /* Our glibc does not save and restore floating-point state upon
+     setjmp/longjmp, etc.  */
+  if (TARGET_OCTEON && TARGET_HARD_FLOAT)
+    error ("-mhard-float is not allowed with Octeon.");
+
   /* .eh_frame addresses should be the same width as a C pointer.
      Most MIPS ABIs support only one pointer size, so the assembler
      will usually know exactly how big an .eh_frame address is.
@@ -17307,6 +17387,12 @@ mips_option_override (void)
   if ((target_flags_explicit & MASK_FIX_R4400) == 0
       && strcmp (mips_arch_info->name, "r4400") == 0)
     target_flags |= MASK_FIX_R4400;
+
+  /* Enable TLS acceleration for Octeon but not for Octeon II.  On Octeon II
+     $29 is a real HW register dedicated to the thread pointer.  */
+  if ((target_flags_explicit & MASK_TLS_ACCEL) == 0
+      && strcmp (mips_arch_info->name, "octeon") == 0)
+    target_flags |= MASK_TLS_ACCEL;
 
   /* Default to working around R10000 errata only if the processor
      was selected explicitly.  */
@@ -17604,6 +17690,133 @@ mips_final_postscan_insn (FILE *file ATTRIBUTE_UNUSED, rtx insn,
 {
   if (mips_need_noat_wrapper_p (insn, opvec, noperands))
     mips_pop_asm_switch (&mips_noat);
+}
+
+static void octeon_unique_section (tree, int) ATTRIBUTE_UNUSED;
+static section * octeon_select_section (tree, int, unsigned HOST_WIDE_INT)
+  ATTRIBUTE_UNUSED;
+
+/* Switch to the appropriate section for output of DECL.
+   DECL is either a `VAR_DECL' node or a constant of some sort.
+   RELOC indicates whether forming the initial value of DECL requires
+   link-time relocations.  */
+
+static section *
+octeon_select_section (tree decl, int reloc, unsigned HOST_WIDE_INT align)
+{
+  if (mips_cvmx_shared_decl_p (decl))
+    {
+      const char *sname = NULL;
+      unsigned int flags = SECTION_WRITE;
+
+      switch (categorize_decl_for_section (decl, reloc))
+        {
+	case SECCAT_DATA:
+	case SECCAT_SDATA:
+	case SECCAT_RODATA:
+	case SECCAT_SRODATA:
+	case SECCAT_RODATA_MERGE_STR:
+	case SECCAT_RODATA_MERGE_STR_INIT:
+	case SECCAT_RODATA_MERGE_CONST:
+	case SECCAT_DATA_REL:
+	case SECCAT_DATA_REL_LOCAL:
+	case SECCAT_DATA_REL_RO:
+	case SECCAT_DATA_REL_RO_LOCAL:
+	  sname = ".cvmx_shared";
+	  break;
+	case SECCAT_BSS:
+	case SECCAT_SBSS:
+	  sname = ".cvmx_shared_bss";
+	  flags |= SECTION_BSS;
+	  break;
+	case SECCAT_TEXT:
+	case SECCAT_TDATA:
+	case SECCAT_TBSS:
+	  break;
+	default:
+	  gcc_unreachable ();
+        }
+      if (sname)
+	return get_section (sname, flags, decl);
+    }
+
+  return default_elf_select_section (decl, reloc, align);
+}
+
+/* Build up a unique section name, expressed as a STRING_CST node, and assign
+   it to DECL_SECTION_NAME (decl).  RELOC indicates whether the initial value
+   of EXP requires link-time relocations.  */
+
+static void 
+octeon_unique_section (tree decl, int reloc)
+{
+  if (mips_cvmx_shared_decl_p (decl))
+    {
+      const char *sname = NULL;
+
+      if (! DECL_ONE_ONLY (decl))
+	{
+	  octeon_select_section (decl, reloc, DECL_ALIGN (decl));
+	  return;
+	}
+
+      switch (categorize_decl_for_section (decl, reloc))
+        {
+	  case SECCAT_BSS:
+	  case SECCAT_SBSS:
+	    sname = ".cvmx_shared_bss.linkonce."; 
+	    break;
+	  case SECCAT_SDATA:
+	  case SECCAT_DATA:
+	  case SECCAT_DATA_REL:
+	  case SECCAT_DATA_REL_LOCAL:
+	  case SECCAT_DATA_REL_RO:
+	  case SECCAT_DATA_REL_RO_LOCAL:
+	  case SECCAT_RODATA:
+	  case SECCAT_SRODATA:
+	  case SECCAT_RODATA_MERGE_STR:
+	  case SECCAT_RODATA_MERGE_STR_INIT:
+	  case SECCAT_RODATA_MERGE_CONST:
+	    sname = ".cvmx_shared.linkonce.";
+	    break;
+	  case SECCAT_TEXT:
+	  case SECCAT_TDATA:
+	  case SECCAT_TBSS:
+	    break; 
+	}
+      if (sname)
+        {
+	  const char *name;
+	  size_t plen, nlen;
+	  char *string;
+	  plen = strlen (sname);
+
+	  name = IDENTIFIER_POINTER (DECL_ASSEMBLER_NAME (decl));
+	  name = targetm.strip_name_encoding (name);
+	  nlen = strlen (name);
+
+	  string = XALLOCAVAR (char, plen + nlen + 1);
+	  memcpy (string, sname, plen);
+	  memcpy (string + plen, name, nlen + 1);
+	  DECL_SECTION_NAME (decl) = build_string (nlen + plen, string);
+	  return;
+        }
+    }
+  default_unique_section (decl, reloc);
+}
+
+/* Emit an uninitialized cvmx_shared variable.  */
+void
+octeon_output_shared_variable (FILE *stream, tree decl, const char *name,
+                               unsigned HOST_WIDE_INT size, int align)
+{
+  section *s;
+
+  s = get_section (".cvmx_shared_bss", CVMX_SHARED_BSS_FLAGS, NULL_TREE);
+  switch_to_section (s);
+  ASM_OUTPUT_ALIGN (stream, floor_log2 (align / BITS_PER_UNIT));
+  ASM_DECLARE_OBJECT_NAME (stream, name, decl);
+  ASM_OUTPUT_SKIP (stream, size != 0 ? size : 1);
 }
 
 /* Return the function that is used to expand the <u>mulsidi3 pattern.

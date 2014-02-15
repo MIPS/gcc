@@ -142,6 +142,10 @@
   ;; indirect calls where it contains args_size and the function symbol.
   UNSPEC_CALL_ATTR
 
+  ;; Octeon unaligned load/store instructions
+  UNSPEC_UNALIGNED_LOAD
+  UNSPEC_UNALIGNED_STORE
+
   ;; MIPS16 casesi jump table dispatch.
   UNSPEC_CASESI_DISPATCH
 
@@ -4030,7 +4034,7 @@
 	(unspec:GPR [(match_operand:BLK 1 "memory_operand" "m")
 		     (match_operand:QI 2 "memory_operand" "ZC")]
 		    UNSPEC_LOAD_LEFT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
+  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[1]) && !ISA_HAS_UL_US"
   "<load>l\t%0,%2"
   [(set_attr "move_type" "load")
    (set_attr "mode" "<MODE>")])
@@ -4041,7 +4045,7 @@
 		     (match_operand:QI 2 "memory_operand" "ZC")
 		     (match_operand:GPR 3 "register_operand" "0")]
 		    UNSPEC_LOAD_RIGHT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
+  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[1]) && !ISA_HAS_UL_US"
   "<load>r\t%0,%2"
   [(set_attr "move_type" "load")
    (set_attr "mode" "<MODE>")])
@@ -4051,7 +4055,7 @@
 	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
 		     (match_operand:QI 2 "memory_operand" "ZC")]
 		    UNSPEC_STORE_LEFT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
+  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[0]) && !ISA_HAS_UL_US"
   "<store>l\t%z1,%2"
   [(set_attr "move_type" "store")
    (set_attr "mode" "<MODE>")])
@@ -4062,9 +4066,31 @@
 		     (match_operand:QI 2 "memory_operand" "ZC")
 		     (match_dup 0)]
 		    UNSPEC_STORE_RIGHT))]
-  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
+  "!TARGET_MIPS16 && mips_mem_fits_mode_p (<MODE>mode, operands[0]) && !ISA_HAS_UL_US"
   "<store>r\t%z1,%2"
   [(set_attr "move_type" "store")
+   (set_attr "mode" "<MODE>")])
+
+;; Unaligned load and store for Octeon.
+
+(define_insn "mov_u<load>"
+  [(set (match_operand:GPR 0 "register_operand" "=d")
+	(unspec:GPR [(match_operand:BLK 1 "memory_operand" "m")
+		    (match_operand:QI 2 "memory_operand" "m")]
+		   UNSPEC_UNALIGNED_LOAD))]
+  "ISA_HAS_UL_US && mips_mem_fits_mode_p (<MODE>mode, operands[1])"
+  "u<load>\t%0,%2"
+  [(set_attr "type" "load")
+   (set_attr "mode" "<MODE>")])
+
+(define_insn "mov_u<store>"
+  [(set (match_operand:BLK 0 "memory_operand" "=m")
+	(unspec:BLK [(match_operand:GPR 1 "reg_or_0_operand" "dJ")
+		     (match_operand:QI 2 "memory_operand" "m")]
+		    UNSPEC_UNALIGNED_STORE))]
+  "ISA_HAS_UL_US && mips_mem_fits_mode_p (<MODE>mode, operands[0])"
+  "u<store>\t%z1,%2"
+  [(set_attr "type" "store")
    (set_attr "mode" "<MODE>")])
 
 ;; An instruction to calculate the high part of a 64-bit SYMBOL_ABSOLUTE.
@@ -7026,8 +7052,17 @@
 	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))
    (clobber (reg:P TLS_GET_TP_REGNUM))]
   "HAVE_AS_TLS && !TARGET_MIPS16"
-  "#"
-  "&& reload_completed"
+{
+  /* The Kernel stores the value of "rdhwr v1,$29" in k0 ($26) register. And 
+     it is the Kernel's responsibility to always have the correct value of k0. 
+     Move k0 in v1 register instead of using rdhwr instruction as this
+     instruction needs to be emulated by the Kernel.  */
+  if (TARGET_TLS_ACCEL)
+    return "move\t%0,$26";
+  else
+    return "#";
+}
+  "&& reload_completed && !TARGET_TLS_ACCEL"
   [(set (reg:P TLS_GET_TP_REGNUM)
 	(unspec:P [(const_int 0)] UNSPEC_TLS_GET_TP))
    (set (match_dup 0) (reg:P TLS_GET_TP_REGNUM))]
@@ -7044,7 +7079,10 @@
   [(set_attr "type" "unknown")
    ; Since rdhwr always generates a trap for now, putting it in a delay
    ; slot would make the kernel's emulation of it much slower.
-   (set_attr "can_delay" "no")
+   (set (attr "can_delay")
+       (if_then_else (ne (symbol_ref "TARGET_TLS_ACCEL") (const_int 0))
+                     (const_string "yes")
+                     (const_string "no")))
    (set_attr "mode" "<MODE>")])
 
 ;; In MIPS16 mode, the TLS base pointer is accessed by a

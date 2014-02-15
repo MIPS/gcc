@@ -785,7 +785,7 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	    # instructions that are not supported on r5900.
 	    ;;
 	  *)
-	    tmake_file="${tmake_file} mips/t-mips16 t-slibgcc-libgcc"
+	    tmake_file="${tmake_file} mips/t-crtstuff mips/t-mips16 mips/t-tpbit t-slibgcc-libgcc"
 	    ;;
 	esac
 	md_unwind_header=mips/linux-unwind.h
@@ -802,6 +802,11 @@ mips*-sde-elf*)
 	    ;;
 	esac
 	extra_parts="$extra_parts crti.o crtn.o"
+	;;
+mipsisa64-octeon-elf*)
+	tmake_file="$tmake_file mips/t-elf mips/t-crtstuff mips/t-mips16 mips/t-tpbit"
+	extra_parts="$extra_parts crti.o crtn.o"
+	md_unwind_header=mips/octeon-elf-unwind.h
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf* | \
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf* | \

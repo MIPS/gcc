@@ -1,0 +1,5 @@
+MULTILIB_OPTIONS = mabi=n32/mabi=eabi/mabi=64 mfix-cn63xxp1 march=octeon2 
+MULTILIB_DIRNAMES = n32 eabi n64 fix-cn63xxp1 octeon2
+MULTILIB_MATCHES =
+
+

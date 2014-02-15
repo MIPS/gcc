@@ -124,7 +124,8 @@ allocate_filename_struct (struct gcov_filename_aux *gf)
       prefix_length = 1;
     }
   /* Allocate and initialize the filename scratch space plus one.  */
-  gi_filename = (char *) xmalloc (prefix_length + gcov_max_filename + 2);
+  gi_filename = (char *) xmalloc (prefix_length + gcov_max_filename + 2
+				  + GCOV_TARGET_SUFFIX_LENGTH);
   if (prefix_length)
     memcpy (gi_filename, gcov_prefix, prefix_length);
   gi_filename_up = gi_filename + prefix_length;
@@ -183,6 +184,10 @@ gcov_exit_open_gcda_file (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf
   else
     strcpy (gi_filename_up, fname);
 
+#ifdef ADD_GCOV_TARGET_SUFFIX
+      /* Give a chance to target to change the name.  */
+      ADD_GCOV_TARGET_SUFFIX (gi_filename_up);
+#endif
   if (!gcov_open (gi_filename))
     {
       /* Open failed likely due to missed directory.

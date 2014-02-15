@@ -54,6 +54,10 @@ mabicalls
 Target Report Mask(ABICALLS)
 Generate code that can be used in SVR4-style dynamic objects
 
+mtls-accel
+Target Report Mask(TLS_ACCEL)
+Use accelerated method to access the thread pointer
+
 mmad
 Target Report Var(TARGET_MAD)
 Use PMC-style 'mad' instructions
@@ -327,6 +331,10 @@ mno-mips3d
 Target Report RejectNegative Var(TARGET_MIPS3D, 0)
 Do not use MIPS-3D instructions
 
+mocteon-useun
+Target Report Mask(OCTEON_UNALIGNED)
+Use Octeon-specific unaligned loads/stores for 32/64-bit data access
+
 mpaired-single
 Target Report Mask(PAIRED_SINGLE_FLOAT)
 Use paired-single floating-point instructions
@@ -399,6 +407,10 @@ Lift restrictions on GOT size
 mfix-cn63xxp1
 Target Report
 Replace bad prefetch with 'PREF 28'
+
+mshared-variables
+Target Report Var(TARGET_SHARED_VARIABLES)
+Put all non-automatic variables in the shared address space
 
 noasmopt
 Driver

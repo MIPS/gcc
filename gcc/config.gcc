@@ -1958,13 +1958,24 @@ mips64*-*-linux* | mipsisa64*-*-linux*)
 	tm_file="dbxelf.h elfos.h gnu-user.h linux.h linux-android.h glibc-stdint.h ${tm_file} mips/gnu-user.h mips/gnu-user64.h mips/linux64.h mips/linux-common.h"
 	extra_options="${extra_options} linux-android.opt"
 	tmake_file="${tmake_file} mips/t-linux64"
-	tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+	case ${target} in
+		#Octeon does not support MIPS16 or o32 ABI
+		mips64*-octeon-linux*)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_64"
+			tm_file="${tm_file} mips/octeon.h mips/octeon-linux.h"
+			tmake_file="${tmake_file} mips/t-octeon-linux"
+			;;
+		*-*-*)
+			tm_defines="${tm_defines} MIPS_ABI_DEFAULT=ABI_N32"
+			tmake_file="${tmake_file} mips/t-libgcc-mips16"
+			;;
+	esac
 	case ${target} in
 		mips64el-st-linux-gnu)
 			tm_file="${tm_file} mips/st.h"
 			tmake_file="${tmake_file} mips/t-st"
 			;;
-		mips64octeon*-*-linux*)
+		mips64octeon*-*-linux* | mips64*-octeon-linux*)
 			tm_defines="${tm_defines} MIPS_CPU_STRING_DEFAULT=\\\"octeon\\\""
 			target_cpu_default=MASK_SOFT_FLOAT_ABI
 			;;
@@ -2029,6 +2040,12 @@ mips*-sde-elf*)
 	    tm_defines="MIPS_ISA_DEFAULT=64 MIPS_ABI_DEFAULT=ABI_N32"
 	    ;;
 	esac
+	;;
+mipsisa64-octeon-elf*)
+	tm_file="elfos.h newlib-stdint.h  ${tm_file} mips/elf.h mips/octeon.h mips/octeon-elf.h"
+	tmake_file="mips/t-isa3264 mips/t-octeon-elf"
+	tm_defines="MIPS_ABI_DEFAULT=ABI_EABI MIPS_CPU_STRING_DEFAULT=\\\"octeon\\\""
+	use_fixproto=yes
 	;;
 mipsisa32-*-elf* | mipsisa32el-*-elf* | \
 mipsisa32r2-*-elf* | mipsisa32r2el-*-elf* | \

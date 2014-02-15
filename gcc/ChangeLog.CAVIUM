@@ -1,5 +1,98 @@
 2014-02-15  Manjunath Matti  <mmatti@caviumnetworks.com>
 
+	Ported the patch to support Octeon.
+	2012-07-19  Andrew Pinski  <apinski@cavium.com>
+		Adam Nemet  <anemet@caviumnetworks.com>
+		Chandrakala Chavva  <cchavva@caviumnetworks.com>
+
+	* config.gcc (mips64*-*-linux* | mipsisa64*-*-linux*): Handle
+	mips64*-octeon-linux* as defaulting to n64.
+	Also handle mips64*-octeon-linux* like mips64octeon*-*-linux*.
+	(mipsisa64-octeon-elf*): New target.
+	* config/mips/mips-protos.h (mips_cvmx_shared_decl_p): New prototype.
+	(octeon_output_shared_variable): New prototype.
+	(mips_output_aligned_bss): New prototype.
+	* config/mips/mips.c (accept_var_decls_only): New function.
+	(mips_attribute_table): Add cvmx_shared and cvmx_noshared.
+	(mips_merge_decl_attributes): Warn about when cvmx_shared are
+	different between the two decls.
+	(mips_expand_ext_as_unaligned_load): Handle the ISA_HAS_UL_US case.
+	(mips_expand_ins_as_unaligned_store): Likewise.
+	(mips_cvmx_shared_decl_p): New function.
+	(mips_in_small_data_p): Check for cvmx_shared.
+	(mips_option_override): Error out if the target is octeon* and
+	hardfloat was enabled.
+	Enable k0 optimization for TLS for Octeon1.
+	(octeon_select_section): New function.
+	(octeon_unique_section): New function.
+	(octeon_output_shared_variable): New function.
+	* config/mips/mips.h (ISA_HAS_UL_US): New macro.
+	* config/mips/mips.md (UNSPEC_UNALIGNED_LOAD,
+	UNSPEC_UNALIGNED_STORE): New unspecs.
+	(mov_<load>l, mov_<load>r, mov_<store>l, mov_<store>r): Disable if
+	ISA_HAS_UL_US.
+	(mov_u<load>, mov_u<store>): New patterns.
+	(tls_get_tp_<mode>): Emit "move $v1,$k0"
+	instead of "rdhwr $v1,$29" when TARGET_TLS_ACCEL is true.
+	Set can_delay to yes when TARGET_TLS_ACCEL is true.
+	* config/mips/mips.opt (mtls-accel): New option.
+	(mocteon-useun): New option.
+	(mshared-variables): New option.
+	* defaults.h (GCOV_TARGET_SUFFIX_LENGTH): Define if not already defined.
+	* config/mips/octeon-elf.h: New file.
+	* config/mips/octeon-linux.h: New file.
+	* config/mips/octeon.h: New file.
+	* config/mips/t-octeon-elf: New file.
+	* config/mips/t-octeon-linux: New file.
+	* testsuite/gcc.dg/octeon/pipeline-1.c: New file.
+	* testsuite/gcc.dg/octeon/pipeline-2.c: New file.
+	* testsuite/gcc.dg/octeon/pop-1.c: New file.
+	* testsuite/gcc.dg/octeon/pop-2.c: New file.
+	* testsuite/gcc.dg/octeon/saa-1.c: New file.
+	* testsuite/gcc.dg/octeon/saa-2.c: New file.
+	* testsuite/gcc.dg/octeon/saa-3.c: New file.
+	* testsuite/gcc.dg/octeon/saa-4.c: New file.
+	* testsuite/gcc.dg/octeon/seq-1.c: New file.
+	* testsuite/gcc.dg/octeon/seq-10.c: New file.
+	* testsuite/gcc.dg/octeon/seq-11.c: New file.
+	* testsuite/gcc.dg/octeon/seq-12.c: New file.
+	* testsuite/gcc.dg/octeon/seq-13.c: New file.
+	* testsuite/gcc.dg/octeon/seq-2.c: New file.
+	* testsuite/gcc.dg/octeon/seq-3.c: New file.
+	* testsuite/gcc.dg/octeon/seq-4.c: New file.
+	* testsuite/gcc.dg/octeon/seq-5.c: New file.
+	* testsuite/gcc.dg/octeon/seq-6.c: New file.
+	* testsuite/gcc.dg/octeon/seq-7.c: New file.
+	* testsuite/gcc.dg/octeon/seq-8.c: New file.
+	* testsuite/gcc.dg/octeon/seq-9.c: New file.
+	* testsuite/gcc.dg/octeon/siginfo-1.c: New file.
+	* testsuite/gcc.dg/octeon/tls-1.c: New file.
+	* testsuite/gcc.dg/octeon/tls-2.c: New file.
+	* testsuite/gcc.dg/octeon/tls-3.c: New file.
+	* testsuite/gcc.dg/octeon/tls-4.c: New file.
+	* testsuite/gcc.dg/octeon/unaligned-1.c: New file.
+	* testsuite/gcc.dg/octeon/unaligned-2.c: New file.
+	* testsuite/gcc.dg/octeon/unaligned-3.c: New file.
+	* testsuite/gcc.dg/octeon/unaligned-4.c: New file.
+	* testsuite/gcc.dg/octeon/unaligned-5.c: New file.
+	* testsuite/gcc.dg/octeon/unaligned-6.c: New file.
+	* testsuite/gcc.dg/octeon/vrp-1.c: New file.
+	* testsuite/gcc.dg/octeon/vrp-2.c: New file.
+	* testsuite/gcc.dg/octeon/vrp-3.c: New file.
+	* testsuite/gcc.dg/octeon/vrp-4.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-10.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-11.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-2.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-3.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-4.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-5.cc: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-6.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-7.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-8.c: New file.
+	* testsuite/gcc.dg/octeon/cvmx-shared-9.c: New file.
+
+2014-02-15  Manjunath Matti  <mmatti@caviumnetworks.com>
+
 	Ported the support for mfix-cn63xxp1
 	2012-07-13  Andrew Pinski  <apinski@cavium.com>
 	    Chandrakala Chavva  <cchavva@caviumnetworks.com>

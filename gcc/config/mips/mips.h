@@ -1133,6 +1133,11 @@ struct mips_cpu_info {
 
 /* The CACHE instruction is available.  */
 #define ISA_HAS_CACHE (TARGET_CACHE_BUILTIN && !TARGET_MIPS16)
+
+/* ISA has single-instruction unaligned load/store support.  */
+#define ISA_HAS_UL_US		(TARGET_OCTEON			\
+				 && !TARGET_MIPS16		\
+				 && TARGET_OCTEON_UNALIGNED)
 
 /* Tell collect what flags to pass to nm.  */
 #ifndef NM_FLAGS

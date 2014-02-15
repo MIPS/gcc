@@ -1,0 +1,3 @@
+MULTILIB_OPTIONS = mabi=64/mabi=n32 march=octeon2
+MULTILIB_DIRNAMES = 64 n32 octeon2
+MULTILIB_OSDIRNAMES = ../lib64 ../lib32 octeon2

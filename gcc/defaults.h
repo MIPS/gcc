@@ -1162,6 +1162,12 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define OUTGOING_REG_PARM_STACK_SPACE(FNTYPE) 0
 #endif
 
+/* Length of the suffix that can be added to the GCOV filename by the
+   target.  */
+#ifndef GCOV_TARGET_SUFFIX_LENGTH
+#define GCOV_TARGET_SUFFIX_LENGTH 0
+#endif
+
 /* MAX_STACK_ALIGNMENT is the maximum stack alignment guaranteed by
    the backend.  MAX_SUPPORTED_STACK_ALIGNMENT is the maximum best
    effort stack alignment supported by the backend.  If the backend
