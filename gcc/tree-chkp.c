@@ -2607,7 +2607,7 @@ chkp_build_bndstx_call (tree addr, tree ptr, tree bounds)
 		      build_pointer_type (TREE_TYPE (chkp_bndstx_fndecl)),
 		      chkp_bndstx_fndecl);
   return build_call_nary (TREE_TYPE (TREE_TYPE (chkp_bndstx_fndecl)),
-			  call, 3, addr, ptr, bounds);
+			  call, 3, ptr, bounds, addr);
 }
 
 /* Insert code to store BOUNDS for PTR stored by ADDR.
@@ -2625,7 +2625,7 @@ chkp_build_bndstx (tree addr, tree ptr, tree bounds,
   addr = chkp_force_gimple_call_op (addr, &seq);
   ptr = chkp_force_gimple_call_op (ptr, &seq);
 
-  stmt = gimple_build_call (chkp_bndstx_fndecl, 3, addr, ptr, bounds);
+  stmt = gimple_build_call (chkp_bndstx_fndecl, 3, ptr, bounds, addr);
   chkp_mark_stmt (stmt);
 
   gimple_seq_add_stmt (&seq, stmt);
