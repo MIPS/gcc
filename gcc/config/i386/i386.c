@@ -30533,7 +30533,7 @@ static const struct builtin_description bdesc_round_args[] =
 /* Bultins for MPX.  */
 static const struct builtin_description bdesc_mpx[] =
 {
-  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_BND_PCVOID },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_PCVOID_BND },
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_PCVOID_BND },
 };
@@ -35376,12 +35376,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       op2 = expand_normal (arg2);
 
       op0 = force_reg (Pmode, op0);
-      op1 = force_reg (Pmode, op1);
-      op2 = force_reg (BNDmode, op2);
+      op1 = force_reg (BNDmode, op1);
+      op2 = force_reg (Pmode, op2);
 
       emit_insn (TARGET_64BIT
-                 ? gen_bnd64_stx (op0, op1, op2)
-                 : gen_bnd32_stx (op0, op1, op2));
+                 ? gen_bnd64_stx (op2, op0, op1)
+                 : gen_bnd32_stx (op2, op0, op1));
       return 0;
 
     case IX86_BUILTIN_BNDLDX:
