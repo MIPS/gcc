@@ -921,7 +921,7 @@ prune_unused_phi_nodes (bitmap phis, bitmap kills, bitmap uses)
 	}
     }
 
-  bitmap_copy (phis, &live_phis);
+  live_phis.swap (phis);
   free (defs);
 }
 
@@ -3002,7 +3002,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 	{
 	  /* Otherwise, do not prune the IDF for VAR.  */
 	  gcc_checking_assert (update_flags == TODO_update_ssa_full_phi);
-	  bitmap_copy (&pruned_idf, idf);
+	  pruned_idf = *idf;
 	}
     }
   else
@@ -3010,7 +3010,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
       /* Otherwise, VAR is a symbol that needs to be put into SSA form
 	 for the first time, so we need to compute the full IDF for
 	 it.  */
-      bitmap_copy (&pruned_idf, idf);
+      pruned_idf = *idf;
     }
 
   if (!pruned_idf.is_empty ())

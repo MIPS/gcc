@@ -2529,7 +2529,7 @@ analyze_all_variable_accesses (void)
 
   propagate_all_subaccesses ();
 
-  bitmap_copy (&tmp, candidate_bitmap);
+  tmp = *candidate_bitmap;
   EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, i, bi)
     {
       tree var = candidate (i);

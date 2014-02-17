@@ -5318,8 +5318,7 @@ move_exprs_to_boundary (bnd_t bnd, expr_t expr_vliw,
       if (! INSN_ORIGINATORS_BY_UID (book_uid))
         INSN_ORIGINATORS_BY_UID (book_uid) = BITMAP_ALLOC (NULL);
 
-      bitmap_copy (INSN_ORIGINATORS_BY_UID (book_uid),
-                   current_originators);
+      *INSN_ORIGINATORS_BY_UID (book_uid) = *current_originators;
 
       /* Transitively add all originators' originators.  */
       EXECUTE_IF_SET_IN_BITMAP (current_originators, 0, uid, bi)

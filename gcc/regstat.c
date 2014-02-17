@@ -435,7 +435,7 @@ regstat_bb_compute_calls_crossed (unsigned int bb_index, bitmap live)
   df_ref *def_rec;
   df_ref *use_rec;
 
-  bitmap_copy (live, df_get_live_out (bb));
+  *live = *df_get_live_out (bb);
 
   /* Process the artificial defs and uses at the bottom of the block
      to begin processing.  */

@@ -694,8 +694,8 @@ bitmap_insert_into_set (bitmap_set_t set, pre_expr expr)
 static void
 bitmap_set_copy (bitmap_set_t dest, bitmap_set_t orig)
 {
-  bitmap_copy (&dest->expressions, &orig->expressions);
-  bitmap_copy (&dest->values, &orig->values);
+  dest->expressions = orig->expressions;
+  dest->values = orig->values;
 }
 
 
@@ -756,7 +756,7 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
       bitmap_head temp (&grand_bitmap_obstack);
 
       bitmap_and_into (&dest->values, &orig->values);
-      bitmap_copy (&temp, &dest->expressions);
+      temp = dest->expressions;
       EXECUTE_IF_SET_IN_BITMAP (&temp, 0, i, bi)
 	{
 	  pre_expr expr = expression_for_id (i);
@@ -798,7 +798,7 @@ bitmap_set_subtract_values (bitmap_set_t a, bitmap_set_t b)
   bitmap_iterator bi;
   bitmap_head temp (&grand_bitmap_obstack);
 
-  bitmap_copy (&temp, &a->expressions);
+  temp = a->expressions;
   EXECUTE_IF_SET_IN_BITMAP (&temp, 0, i, bi)
     {
       pre_expr expr = expression_for_id (i);

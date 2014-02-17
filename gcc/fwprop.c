@@ -156,8 +156,8 @@ single_def_use_dom_walker::before_dom_children (basic_block bb)
   struct df_lr_bb_info *lr_bb_info = df_lr_get_bb_info (bb_index);
   rtx insn;
 
-  bitmap_copy (&local_md, &md_bb_info->in);
-  bitmap_copy (&local_lr, &lr_bb_info->in);
+  local_md = md_bb_info->in;
+  local_lr = lr_bb_info->in;
 
   /* Push a marker for the leave_block callback.  */
   reg_defs_stack.safe_push (NULL);

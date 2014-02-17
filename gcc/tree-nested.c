@@ -1066,7 +1066,7 @@ convert_nonlocal_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
   bitmap new_suppress;
 
   new_suppress = BITMAP_GGC_ALLOC ();
-  bitmap_copy (new_suppress, info->suppress_expansion);
+  *new_suppress = *info->suppress_expansion;
 
   for (clause = *pclauses; clause ; clause = OMP_CLAUSE_CHAIN (clause))
     {
@@ -1589,7 +1589,7 @@ convert_local_omp_clauses (tree *pclauses, struct walk_stmt_info *wi)
   bitmap new_suppress;
 
   new_suppress = BITMAP_GGC_ALLOC ();
-  bitmap_copy (new_suppress, info->suppress_expansion);
+  *new_suppress = *info->suppress_expansion;
 
   for (clause = *pclauses; clause ; clause = OMP_CLAUSE_CHAIN (clause))
     {

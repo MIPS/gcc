@@ -235,7 +235,7 @@ create_new_chain (unsigned this_regno, unsigned this_nregs, rtx *loc,
   head->id = current_id++;
 
   bitmap_initialize (&head->conflicts, &bitmap_default_obstack);
-  bitmap_copy (&head->conflicts, open_chains_set);
+  head->conflicts = *open_chains_set;
   mark_conflict (open_chains, head->id);
 
   /* Since we're tracking this as a chain now, remove it from the
@@ -736,7 +736,7 @@ regrename_analyze (bitmap bb_mask)
 
       if (dump_file)
 	dump_def_use_chain (old_length);
-      bitmap_copy (&this_info->open_chains_set, open_chains_set);
+      this_info->open_chains_set = *open_chains_set;
 
       /* Add successor blocks to the worklist if necessary, and record
 	 data about our own open chains at the end of this block, which

@@ -1822,7 +1822,7 @@ calculate_loop_reg_pressure (void)
 	   loop = loop_outer (loop))
 	bitmap_ior_into (&LOOP_DATA (loop)->regs_live, DF_LR_IN (bb));
 
-      bitmap_copy (&curr_regs_live, DF_LR_IN (bb));
+      curr_regs_live = *DF_LR_IN (bb);
       for (i = 0; i < ira_pressure_classes_num; i++)
 	curr_reg_pressure[ira_pressure_classes[i]] = 0;
       EXECUTE_IF_SET_IN_BITMAP (&curr_regs_live, 0, j, bi)

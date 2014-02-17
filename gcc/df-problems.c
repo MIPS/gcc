@@ -21,6 +21,7 @@ You should have received a copy of the GNU General Public License
 along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
+#include <new>
 #include "config.h"
 #include "system.h"
 #include "coretypes.h"
@@ -448,7 +449,7 @@ df_rd_init_solution (bitmap all_blocks)
     {
       struct df_rd_bb_info *bb_info = df_rd_get_bb_info (bb_index);
 
-      bitmap_copy (&bb_info->out, &bb_info->gen);
+      bb_info->out = bb_info->gen;
       bb_info->in.clear ();
     }
 }
@@ -475,7 +476,7 @@ df_rd_confluence_n (edge e)
       unsigned int regno;
       bitmap_head tmp (&df_bitmap_obstack);
 
-      bitmap_copy (&tmp, op2);
+      tmp = *op2;
       bitmap_and_compl_into (&tmp, dense_invalidated);
 
       EXECUTE_IF_SET_IN_BITMAP (sparse_invalidated, 0, regno, bi)
@@ -516,7 +517,7 @@ df_rd_transfer_function (int bb_index)
       problem_data = (struct df_rd_problem_data *) df_rd->problem_data;
       bitmap_head tmp (&problem_data->rd_bitmaps);
 
-      bitmap_copy (&tmp, in);
+      tmp = *in;
       EXECUTE_IF_SET_IN_BITMAP (sparse_kill, 0, regno, bi)
 	{
 	  tmp.clear_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
@@ -952,7 +953,7 @@ df_lr_local_compute (bitmap all_blocks ATTRIBUTE_UNUSED)
 	  /* The exit block is special for this problem and its bits are
 	     computed from thin air.  */
 	  struct df_lr_bb_info *bb_info = df_lr_get_bb_info (EXIT_BLOCK);
-	  bitmap_copy (&bb_info->use, df->exit_block_uses);
+	  bb_info->use = *df->exit_block_uses;
 	}
       else
 	df_lr_bb_local_compute (bb_index);
@@ -973,7 +974,7 @@ df_lr_init (bitmap all_blocks)
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
       struct df_lr_bb_info *bb_info = df_lr_get_bb_info (bb_index);
-      bitmap_copy (&bb_info->in, &bb_info->use);
+      bb_info->in = bb_info->use;
       bb_info->out.clear ();
     }
 }
@@ -987,7 +988,7 @@ df_lr_confluence_0 (basic_block bb)
 {
   bitmap op1 = &df_lr_get_bb_info (bb->index)->out;
   if (bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
-    bitmap_copy (op1, &df->hardware_regs_used);
+    *op1 = df->hardware_regs_used;
 }
 
 
@@ -1157,10 +1158,8 @@ df_lr_verify_solution_start (void)
 
   FOR_ALL_BB_FN (bb, cfun)
     {
-      bitmap_initialize (&problem_data->in[bb->index], &problem_data->lr_bitmaps);
-      bitmap_initialize (&problem_data->out[bb->index], &problem_data->lr_bitmaps);
-      bitmap_copy (&problem_data->in[bb->index], DF_LR_IN (bb));
-      bitmap_copy (&problem_data->out[bb->index], DF_LR_OUT (bb));
+      new (&problem_data->in[bb->index]) bitmap_head (*DF_LR_IN (bb));
+      new (&problem_data->out[bb->index]) bitmap_head (*DF_LR_OUT (bb));
     }
 }
 
@@ -1675,10 +1674,8 @@ df_live_verify_solution_start (void)
 
   FOR_ALL_BB_FN (bb, cfun)
     {
-      bitmap_initialize (&problem_data->in[bb->index], &problem_data->live_bitmaps);
-      bitmap_initialize (&problem_data->out[bb->index], &problem_data->live_bitmaps);
-      bitmap_copy (&problem_data->in[bb->index], DF_LIVE_IN (bb));
-      bitmap_copy (&problem_data->out[bb->index], DF_LIVE_OUT (bb));
+      new (&problem_data->in[bb->index]) bitmap_head (*DF_LIVE_IN (bb));
+      new (&problem_data->out[bb->index]) bitmap_head (*DF_LIVE_OUT (bb));
     }
 }
 
@@ -2557,7 +2554,7 @@ df_word_lr_init (bitmap all_blocks)
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
     {
       struct df_word_lr_bb_info *bb_info = df_word_lr_get_bb_info (bb_index);
-      bitmap_copy (&bb_info->in, &bb_info->use);
+      bb_info->in = bb_info->use;
       bb_info->out.clear ();
     }
 }
@@ -3095,8 +3092,7 @@ df_create_unused_note (rtx insn, df_ref def,
    BB.  The three bitvectors are scratch regs used here.  */
 
 static void
-df_note_bb_compute (unsigned int bb_index,
-		    bitmap live)
+df_note_bb_compute (unsigned int bb_index)
 {
   basic_block bb = BASIC_BLOCK_FOR_FN (cfun, bb_index);
   rtx insn;
@@ -3106,13 +3102,13 @@ df_note_bb_compute (unsigned int bb_index,
 
   dead_debug_local_init (&debug, NULL, NULL);
 
-  bitmap_copy (live, df_get_live_out (bb));
+  bitmap_head live (*df_get_live_out (bb));
   bitmap_head artificial_uses (&df_bitmap_obstack);
 
   if (REG_DEAD_DEBUGGING && dump_file)
     {
       fprintf (dump_file, "live at bottom ");
-      df_print_regset (dump_file, live);
+      df_print_regset (dump_file, &live);
     }
 
   /* Process the artificial defs and uses at the bottom of the block
@@ -3125,7 +3121,7 @@ df_note_bb_compute (unsigned int bb_index,
 	fprintf (dump_file, "artificial def %d\n", DF_REF_REGNO (def));
 
       if ((DF_REF_FLAGS (def) & DF_REF_AT_TOP) == 0)
-	live->clear_bit (DF_REF_REGNO (def));
+	live.clear_bit (DF_REF_REGNO (def));
     }
 
   for (use_rec = df_get_artificial_uses (bb_index); *use_rec; use_rec++)
@@ -3134,7 +3130,7 @@ df_note_bb_compute (unsigned int bb_index,
       if ((DF_REF_FLAGS (use) & DF_REF_AT_TOP) == 0)
 	{
 	  unsigned int regno = DF_REF_REGNO (use);
-	  live->set_bit (regno);
+	  live.set_bit (regno);
 
 	  /* Notes are not generated for any of the artificial registers
 	     at the bottom of the block.  */
@@ -3145,7 +3141,7 @@ df_note_bb_compute (unsigned int bb_index,
   if (REG_DEAD_DEBUGGING && dump_file)
     {
       fprintf (dump_file, "live before artificials out ");
-      df_print_regset (dump_file, live);
+      df_print_regset (dump_file, &live);
     }
 
   FOR_BB_INSNS_REVERSE (bb, insn)
@@ -3168,7 +3164,7 @@ df_note_bb_compute (unsigned int bb_index,
 	  if (REG_DEAD_DEBUGGING && dump_file)
 	    {
 	      fprintf (dump_file, "processing call %d\n  live =", INSN_UID (insn));
-	      df_print_regset (dump_file, live);
+	      df_print_regset (dump_file, &live);
 	    }
 
 	  /* We only care about real sets for calls.  Clobbers cannot
@@ -3180,7 +3176,7 @@ df_note_bb_compute (unsigned int bb_index,
 	      if ((DF_MWS_REG_DEF_P (mws))
 		  && !df_ignore_stack_reg (mws->start_regno))
 	      df_set_unused_notes_for_mw (insn,
-					  mws, live, &do_not_gen,
+					  mws, &live, &do_not_gen,
 					  &artificial_uses, &debug);
 	      mws_rec++;
 	    }
@@ -3194,12 +3190,12 @@ df_note_bb_compute (unsigned int bb_index,
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER))
 		{
 		  df_create_unused_note (insn,
-					 def, live, &artificial_uses, &debug);
+					 def, &live, &artificial_uses, &debug);
 		  do_not_gen.set_bit (dregno);
 		}
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
-		live->clear_bit (dregno);
+		live.clear_bit (dregno);
 	    }
 	}
       else
@@ -3211,7 +3207,7 @@ df_note_bb_compute (unsigned int bb_index,
 	      struct df_mw_hardreg *mws = *mws_rec;
 	      if (DF_MWS_REG_DEF_P (mws))
 		df_set_unused_notes_for_mw (insn,
-					    mws, live, &do_not_gen,
+					    mws, &live, &do_not_gen,
 					    &artificial_uses, &debug);
 	      mws_rec++;
 	    }
@@ -3221,13 +3217,13 @@ df_note_bb_compute (unsigned int bb_index,
 	      df_ref def = *def_rec;
 	      unsigned int dregno = DF_REF_REGNO (def);
 	      df_create_unused_note (insn,
-				     def, live, &artificial_uses, &debug);
+				     def, &live, &artificial_uses, &debug);
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_MUST_CLOBBER | DF_REF_MAY_CLOBBER))
 		do_not_gen.set_bit (dregno);
 
 	      if (!DF_REF_FLAGS_IS_SET (def, DF_REF_PARTIAL | DF_REF_CONDITIONAL))
-		live->clear_bit (dregno);
+		live.clear_bit (dregno);
 	    }
 	}
 
@@ -3242,7 +3238,7 @@ df_note_bb_compute (unsigned int bb_index,
 	      bool really_add_notes = debug_insn != 0;
 
 	      df_set_dead_notes_for_mw (insn,
-					mws, live, &do_not_gen,
+					mws, &live, &do_not_gen,
 					&artificial_uses,
 					&really_add_notes);
 
@@ -3263,7 +3259,7 @@ df_note_bb_compute (unsigned int bb_index,
 	      df_ref_debug (use, dump_file);
 	    }
 
-	  if (!live->bit (uregno))
+	  if (!live.bit (uregno))
 	    {
 	      if (debug_insn)
 		{
@@ -3297,11 +3293,11 @@ df_note_bb_compute (unsigned int bb_index,
 		    df_print_note ("adding 4: ", insn, REG_NOTES (insn));
 		}
 	      /* This register is now live.  */
-	      live->set_bit (uregno);
+	      live.set_bit (uregno);
 	    }
 	}
 
-      df_remove_dead_eq_notes (insn, live);
+      df_remove_dead_eq_notes (insn, &live);
 
       if (debug_insn == -1)
 	{
@@ -3322,7 +3318,6 @@ df_note_compute (bitmap all_blocks)
 {
   unsigned int bb_index;
   bitmap_iterator bi;
-  bitmap_head live (&df_bitmap_obstack);
   EXECUTE_IF_SET_IN_BITMAP (all_blocks, 0, bb_index, bi)
   {
     /* ??? Unlike fast DCE, we don't use global_debug for uses of dead
@@ -3330,7 +3325,7 @@ df_note_compute (bitmap all_blocks)
        with death points after visiting dead uses.  Even changing this
        loop to postorder would still leave room for visiting a death
        point before visiting a subsequent debug use.  */
-    df_note_bb_compute (bb_index, &live);
+    df_note_bb_compute (bb_index);
   }
 }
 
@@ -3722,7 +3717,7 @@ void
 simulate_backwards_to_point (basic_block bb, regset live, rtx point)
 {
   rtx insn;
-  bitmap_copy (live, df_get_live_out (bb));
+  *live = *df_get_live_out (bb);
   df_simulate_initialize_backwards (bb, live);
 
   /* Scan and update life information until we reach the point we're
@@ -3816,13 +3811,12 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 
   bitmap_head merge_set (&reg_obstack);
   bitmap_head merge_use (&reg_obstack);
-  bitmap_head local_merge_live (&reg_obstack);
   bitmap_head test_set (&reg_obstack);
   bitmap_head test_use (&reg_obstack);
 
   /* Compute the set of registers set and used in the ACROSS range.  */
   if (other_branch_live != NULL)
-    bitmap_copy (&test_use, other_branch_live);
+    test_use = *other_branch_live;
   df_simulate_initialize_backwards (merge_bb, &test_use);
   for (insn = across_to; ; insn = next)
     {
@@ -3925,7 +3919,7 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 
      MERGE_LIVE is provided by the caller and holds live registers after
      TO.  */
-  bitmap_copy (&local_merge_live, merge_live);
+  bitmap_head local_merge_live (*merge_live);
   for (insn = to; insn != max_to; insn = PREV_INSN (insn))
     df_simulate_one_insn_backwards (merge_bb, insn, &local_merge_live);
 
@@ -4307,7 +4301,7 @@ df_md_init (bitmap all_blocks)
     {
       struct df_md_bb_info *bb_info = df_md_get_bb_info (bb_index);
 
-      bitmap_copy (&bb_info->in, &bb_info->init);
+      bb_info->in = bb_info->init;
       df_md_transfer_function (bb_index);
     }
 }
@@ -4316,7 +4310,7 @@ static void
 df_md_confluence_0 (basic_block bb)
 {
   struct df_md_bb_info *bb_info = df_md_get_bb_info (bb->index);
-  bitmap_copy (&bb_info->in, &bb_info->init);
+  bb_info->in = bb_info->init;
 }
 
 /* In of target gets or of out of source.  */

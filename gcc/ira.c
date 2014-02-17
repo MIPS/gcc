@@ -4253,7 +4253,7 @@ build_insn_chain (void)
 		  }
 
 	      bitmap_and_compl_into (&live_relevant_regs, &elim_regset);
-	      bitmap_copy (&c->live_throughout, &live_relevant_regs);
+	      c->live_throughout = live_relevant_regs;
 
 	      if (NONDEBUG_INSN_P (insn))
 		for (use_rec = DF_INSN_UID_USES (uid); *use_rec; use_rec++)
@@ -4353,7 +4353,7 @@ build_insn_chain (void)
 		 code did.  */
 	      c->block = bb->index;
 	      c->insn = insn;
-	      bitmap_copy (&c->live_throughout, &live_relevant_regs);
+	      c->live_throughout = live_relevant_regs;
 	    }
 	  insn = PREV_INSN (insn);
 	}

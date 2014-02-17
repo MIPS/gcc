@@ -52,7 +52,7 @@ typedef bitmap regset;
 #define CLEAR_REG_SET(HEAD) (HEAD)->clear ()
 
 /* Copy a register set to another register set.  */
-#define COPY_REG_SET(TO, FROM) bitmap_copy (TO, FROM)
+#define COPY_REG_SET(TO, FROM) *(TO) = *(FROM)
 
 /* Compare two register sets.  */
 #define REG_SET_EQUAL_P(A, B) bitmap_equal_p (A, B)

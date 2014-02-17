@@ -946,7 +946,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	      best_insn_pseudos_num = insn_pseudos_num;
 	      best_cost = cost;
 	      best_hard_regno = hard_regno;
-	      bitmap_copy (&best_spill_pseudos_bitmap, &spill_pseudos_bitmap);
+	      best_spill_pseudos_bitmap = spill_pseudos_bitmap;
 	      if (lra_dump_file != NULL)
 		fprintf (lra_dump_file, "	 Now best %d(cost=%d)\n",
 			 hard_regno, cost);

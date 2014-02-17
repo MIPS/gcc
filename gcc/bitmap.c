@@ -528,18 +528,18 @@ bitmap_elt_insert_after (bitmap head, bitmap_element *elt, unsigned int indx)
 
 /* Copy a bitmap to another bitmap.  */
 
-void
-bitmap_copy (bitmap to, const_bitmap from)
+bitmap_head &
+bitmap_head::operator= (const bitmap_head &from)
 {
   const bitmap_element *from_ptr;
   bitmap_element *to_ptr = 0;
 
-  to->clear ();
+  clear ();
 
   /* Copy elements in forward direction one at a time.  */
-  for (from_ptr = from->first; from_ptr; from_ptr = from_ptr->next)
+  for (from_ptr = from.first; from_ptr; from_ptr = from_ptr->next)
     {
-      bitmap_element *to_elt = bitmap_element_allocate (to);
+      bitmap_element *to_elt = bitmap_element_allocate (this);
 
       to_elt->indx = from_ptr->indx;
       memcpy (to_elt->bits, from_ptr->bits, sizeof (to_elt->bits));
@@ -548,8 +548,8 @@ bitmap_copy (bitmap to, const_bitmap from)
 	 where we know the links are being entered in sequence.  */
       if (to_ptr == 0)
 	{
-	  to->first = to->current = to_elt;
-	  to->indx = from_ptr->indx;
+	  first = current = to_elt;
+	  indx = from_ptr->indx;
 	  to_elt->next = to_elt->prev = 0;
 	}
       else
@@ -561,6 +561,8 @@ bitmap_copy (bitmap to, const_bitmap from)
 
       to_ptr = to_elt;
     }
+
+  return *this;
 }
 
 /* Find a bitmap element that would hold a bitmap's bit.
@@ -900,7 +902,7 @@ bitmap_and (bitmap dst, const_bitmap a, const_bitmap b)
 
   if (a == b)
     {
-      bitmap_copy (dst, a);
+      *dst = *a;
       return;
     }
 
@@ -1443,7 +1445,7 @@ bitmap_compl_and_into (bitmap a, const_bitmap b)
 
   if (a->is_empty ())
     {
-      bitmap_copy (a, b);
+      *a = *b;
       return;
     }
   if (b->is_empty ())
@@ -1879,7 +1881,7 @@ bitmap_ior_and_compl (bitmap dst, const_bitmap a, const_bitmap b, const_bitmap k
     {
       changed = *dst != *a;
       if (changed)
-	bitmap_copy (dst, a);
+	*dst = *a;
       return changed;
     }
   if (kill->is_empty ())

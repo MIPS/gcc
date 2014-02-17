@@ -1075,7 +1075,6 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	     target registers live over the merged range.  */
 	  int btr;
 	  HARD_REG_SET combined_btrs_live;
-	  bitmap_head combined_live_range;
 	  btr_user user;
 
 	  if (other_def->live_range == NULL)
@@ -1084,7 +1083,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 	      btr_def_live_range (other_def, &dummy_btrs_live_in_range);
 	    }
 	  COPY_HARD_REG_SET (combined_btrs_live, *btrs_live_in_range);
-	  bitmap_copy (&combined_live_range, def->live_range);
+	  bitmap_head combined_live_range (*def->live_range);
 
 	  for (user = other_def->uses; user != NULL; user = user->next)
 	    augment_live_range (&combined_live_range, &combined_btrs_live,
@@ -1124,7 +1123,7 @@ combine_btr_defs (btr_def def, HARD_REG_SET *btrs_live_in_range)
 					      REGNO (user->use)));
 	      clear_btr_from_live_range (other_def);
 	      other_def->uses = NULL;
-	      bitmap_copy (def->live_range, &combined_live_range);
+	      *def->live_range = combined_live_range;
 	      if (other_def->btr == btr && other_def->other_btr_uses_after_use)
 		def->other_btr_uses_after_use = 1;
 	      COPY_HARD_REG_SET (*btrs_live_in_range, combined_btrs_live);
@@ -1171,7 +1170,7 @@ move_btr_def (basic_block new_def_bb, int btr, btr_def def, bitmap live_range,
   def->bb = new_def_bb;
   def->luid = 0;
   def->cost = basic_block_freq (new_def_bb);
-  bitmap_copy (def->live_range, live_range);
+  *def->live_range = *live_range;
   combine_btr_defs (def, btrs_live_in_range);
   btr = def->btr;
   def->other_btr_uses_before_def
@@ -1364,7 +1363,7 @@ migrate_btr_def (btr_def def, int min_cost)
 	  if (btr != -1)
 	    {
 	      move_btr_def (attempt, btr, def, &live_range, &btrs_live_in_range);
-	      bitmap_copy (&live_range, def->live_range);
+	      live_range = *def->live_range;
 	      btr_used_near_def = 0;
 	      def_moved = 1;
 	      def_basic_block_freq = basic_block_freq (def->bb);

@@ -1209,10 +1209,10 @@ add_ranges_and_copies (void)
 	 destination block) to use for searching allocnos by their
 	 regnos because of subsequent IR flattening.  */
       node = IRA_BB_NODE (bb)->parent;
-      bitmap_copy (live_through, df_get_live_in (bb));
+      *live_through = *df_get_live_in (bb);
       add_range_and_copies_from_move_list
 	(at_bb_start[bb->index], node, live_through, REG_FREQ_FROM_BB (bb));
-      bitmap_copy (live_through, df_get_live_out (bb));
+      *live_through = *df_get_live_out (bb);
       add_range_and_copies_from_move_list
 	(at_bb_end[bb->index], node, live_through, REG_FREQ_FROM_BB (bb));
       FOR_EACH_EDGE (e, ei, bb->succs)

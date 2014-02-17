@@ -542,7 +542,6 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 	     increased or all object sizes are computed.  */
 	  if (! osi.reexamine.is_empty ())
 	    {
-	      bitmap_head reexamine;
 
 	      /* If looking for minimum instead of maximum object size,
 		 detect cases where a pointer is increased in a loop.
@@ -558,7 +557,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		  osi.pass = 1;
 		  /* collect_object_sizes_for is changing
 		     osi.reexamine bitmap, so iterate over a copy.  */
-		  bitmap_copy (&reexamine, &osi.reexamine);
+		  bitmap_head reexamine (osi.reexamine);
 		  EXECUTE_IF_SET_IN_BITMAP (&reexamine, 0, i, bi)
 		    if (osi.reexamine.bit (i))
 		      check_for_plus_in_loops (&osi, ssa_name (i));
@@ -576,7 +575,7 @@ compute_builtin_object_size (tree ptr, int object_size_type)
 		  osi.changed = false;
 		  /* collect_object_sizes_for is changing
 		     osi.reexamine bitmap, so iterate over a copy.  */
-		  bitmap_copy (&reexamine, &osi.reexamine);
+		  bitmap_head reexamine (osi.reexamine);
 		  EXECUTE_IF_SET_IN_BITMAP (&reexamine, 0, i, bi)
 		    if (osi.reexamine.bit (i))
 		      {

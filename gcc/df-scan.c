@@ -1460,7 +1460,7 @@ df_process_deferred_rescans (void)
 	df_insn_info_delete (uid);
     }
 
-  bitmap_copy (&tmp, &df->insns_to_rescan);
+  tmp = df->insns_to_rescan;
   EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, uid, bi)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
@@ -1468,7 +1468,7 @@ df_process_deferred_rescans (void)
 	df_insn_rescan (insn_info->insn);
     }
 
-  bitmap_copy (&tmp, &df->insns_to_notes_rescan);
+  tmp = df->insns_to_notes_rescan;
   EXECUTE_IF_SET_IN_BITMAP (&tmp, 0, uid, bi)
     {
       struct df_insn_info *insn_info = DF_INSN_UID_SAFE_GET (uid);
@@ -3896,7 +3896,9 @@ df_record_entry_block_defs (bitmap entry_block_defs)
 void
 df_update_entry_block_defs (void)
 {
-  bitmap_head refs (&df_bitmap_obstack);
+  struct df_scan_problem_data *problem_data
+    = (struct df_scan_problem_data *) df_scan->problem_data;
+  bitmap_head refs (&problem_data->reg_bitmaps);
   bool changed = false;
 
   df_get_entry_block_def_set (&refs);
@@ -3913,8 +3915,6 @@ df_update_entry_block_defs (void)
     }
   else
     {
-      struct df_scan_problem_data *problem_data
-	= (struct df_scan_problem_data *) df_scan->problem_data;
 	gcc_unreachable ();
       df->entry_block_defs = BITMAP_ALLOC (&problem_data->reg_bitmaps);
       changed = true;
@@ -3923,7 +3923,7 @@ df_update_entry_block_defs (void)
   if (changed)
     {
       df_record_entry_block_defs (&refs);
-      bitmap_copy (df->entry_block_defs, &refs);
+      refs.swap (df->entry_block_defs);
       df_set_bb_dirty (BASIC_BLOCK_FOR_FN (cfun, ENTRY_BLOCK));
     }
 }
@@ -4067,7 +4067,9 @@ df_record_exit_block_uses (bitmap exit_block_uses)
 void
 df_update_exit_block_uses (void)
 {
-  bitmap_head refs (&df_bitmap_obstack);
+  struct df_scan_problem_data *problem_data
+    = (struct df_scan_problem_data *) df_scan->problem_data;
+  bitmap_head refs (&problem_data->reg_bitmaps);
   bool changed = false;
 
   df_get_exit_block_use_set (&refs);
@@ -4084,8 +4086,6 @@ df_update_exit_block_uses (void)
     }
   else
     {
-      struct df_scan_problem_data *problem_data
-	= (struct df_scan_problem_data *) df_scan->problem_data;
 	gcc_unreachable ();
       df->exit_block_uses = BITMAP_ALLOC (&problem_data->reg_bitmaps);
       changed = true;
@@ -4094,7 +4094,7 @@ df_update_exit_block_uses (void)
   if (changed)
     {
       df_record_exit_block_uses (&refs);
-      bitmap_copy (df->exit_block_uses,& refs);
+      refs.swap (df->exit_block_uses);
       df_set_bb_dirty (BASIC_BLOCK_FOR_FN (cfun, EXIT_BLOCK));
     }
 }

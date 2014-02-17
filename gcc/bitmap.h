@@ -181,9 +181,6 @@ extern bitmap_obstack bitmap_default_obstack;   /* Default bitmap obstack */
 
 static void bitmap_initialize_stat (bitmap head, bitmap_obstack *obstack MEM_STAT_DECL);
 
-/* Copy a bitmap to another bitmap.  */
-extern void bitmap_copy (bitmap, const_bitmap);
-
 /* Head of bitmap linked list.  The 'current' member points to something
    already pointed to by the chain started by first, so GTY((skip)) it.  */
 struct GTY(()) bitmap_head {
@@ -192,9 +189,11 @@ struct GTY(()) bitmap_head {
   explicit bitmap_head (const bitmap_head &other MEM_STAT_DECL)
   {
     bitmap_initialize_stat (this, other.obstack PASS_MEM_STAT);
-    bitmap_copy (this, &other);
+    operator= (other);
   }
   ~bitmap_head () { clear (); }
+
+  bitmap_head &operator= (const bitmap_head &other);
 
 /* Clear a single bit in a bitmap.  Return true if the bit changed.  */
   bool clear_bit (int);

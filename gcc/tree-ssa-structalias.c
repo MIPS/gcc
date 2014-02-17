@@ -2151,7 +2151,7 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 	{
 	  graph->points_to[n] = BITMAP_ALLOC (&predbitmap_obstack);
 	  if (first_pred != -1U)
-	    bitmap_copy (graph->points_to[n], graph->points_to[first_pred]);
+	    *graph->points_to[n] = *graph->points_to[first_pred];
 	}
       graph->points_to[n]->set_bit (FIRST_REF_NODE + n);
       graph->pointer_label[n] = pointer_equiv_class++;
@@ -2694,12 +2694,12 @@ solve_graph (constraint_graph_t graph)
 		  if (vi->oldsolution
 		      && vi->oldsolution->bit (anything_id))
 		    continue;
-		  bitmap_copy (&pts, get_varinfo (find (anything_id))->solution);
+		  pts = *get_varinfo (find (anything_id))->solution;
 		}
 	      else if (vi->oldsolution)
 		bitmap_and_compl (&pts, vi->solution, vi->oldsolution);
 	      else
-		bitmap_copy (&pts, vi->solution);
+		pts = *vi->solution;
 
 	      if (pts.is_empty ())
 		continue;
@@ -2709,7 +2709,7 @@ solve_graph (constraint_graph_t graph)
 	      else
 		{
 		  vi->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
-		  bitmap_copy (vi->oldsolution, &pts);
+		  *vi->oldsolution = pts;
 		}
 
 	      solution = vi->solution;

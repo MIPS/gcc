@@ -2994,7 +2994,7 @@ should_hoist_expr_to_dom (basic_block expr_bb, struct expr *expr,
       if (!hoisted_bbs->bit (bb->index))
 	{
 	  struct bb_data *data = BB_DATA (bb);
-	  bitmap_copy (data->backup, data->live_in);
+	  *data->backup = *data->live_in;
 	  data->old_pressure = data->max_reg_pressure[pressure_class];
 	}
       decreased_pressure = update_bb_reg_pressure (bb, from);
@@ -3350,7 +3350,7 @@ hoist_code (void)
 		  EXECUTE_IF_SET_IN_BITMAP (&hoisted_bbs, 0, k, bi)
 		    {
 		      data = BB_DATA (BASIC_BLOCK_FOR_FN (cfun, k));
-		      bitmap_copy (data->live_in, data->backup);
+		      *data->live_in = *data->backup;
 		      data->max_reg_pressure[pressure_class]
 			  = data->old_pressure;
 		    }
@@ -3508,7 +3508,7 @@ calculate_bb_reg_pressure (void)
       curr_bb = bb;
       BB_DATA (bb)->live_in = BITMAP_ALLOC (NULL);
       BB_DATA (bb)->backup = BITMAP_ALLOC (NULL);
-      bitmap_copy (BB_DATA (bb)->live_in, df_get_live_in (bb));
+      *BB_DATA (bb)->live_in = *df_get_live_in (bb);
       bitmap_head curr_regs_live (*df_get_live_out (bb));
       for (i = 0; i < ira_pressure_classes_num; i++)
 	curr_reg_pressure[ira_pressure_classes[i]] = 0;

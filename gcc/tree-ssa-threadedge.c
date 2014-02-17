@@ -1138,8 +1138,8 @@ thread_across_edge (gimple dummy_cond,
 	/* Push a fresh marker so we can unwind the equivalences created
 	   for each of E->dest's successors.  */
 	stack->safe_push (NULL_TREE);
-	bitmap_copy (&src_map, &src_map_copy);
-	bitmap_copy (&dst_map, &dst_map_copy);
+	src_map = src_map_copy;
+	dst_map = dst_map_copy;
      
 	/* Avoid threading to any block we have already visited.  */
 	visited.clear ();

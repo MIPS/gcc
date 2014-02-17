@@ -1510,7 +1510,7 @@ mark_threaded_blocks (bitmap threaded_blocks)
 	}
     }
   else
-    bitmap_copy (threaded_blocks, &tmp);
+    *threaded_blocks = tmp;
 
   /* Look for jump threading paths which cross multiple loop headers.
 

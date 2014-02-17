@@ -3506,8 +3506,8 @@ tm_memopt_compute_avin (basic_block bb)
 	  transaction, so ignore it.  */
       if (e->src->aux && BB_VISITED_P (e->src))
 	{
-	  bitmap_copy (STORE_AVAIL_IN (bb), STORE_AVAIL_OUT (e->src));
-	  bitmap_copy (READ_AVAIL_IN (bb), READ_AVAIL_OUT (e->src));
+	  *STORE_AVAIL_IN (bb) = *STORE_AVAIL_OUT (e->src);
+	  *READ_AVAIL_IN (bb) = *READ_AVAIL_OUT (e->src);
 	  break;
 	}
     }
@@ -3541,7 +3541,7 @@ tm_memopt_compute_antin (basic_block bb)
 	 initialized.  */
       if (BB_VISITED_P (e->dest))
 	{
-	  bitmap_copy (STORE_ANTIC_IN (bb), STORE_ANTIC_OUT (e->dest));
+	  *STORE_ANTIC_IN (bb) = *STORE_ANTIC_OUT (e->dest);
 	  break;
 	}
     }

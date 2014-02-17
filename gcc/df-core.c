@@ -557,7 +557,7 @@ df_set_blocks (bitmap blocks)
 
 	  df->blocks_to_analyze = BITMAP_ALLOC (&df_bitmap_obstack);
 	}
-      bitmap_copy (df->blocks_to_analyze, blocks);
+      *df->blocks_to_analyze = *blocks;
       df->analyze_subset = true;
     }
   else
@@ -1686,7 +1686,7 @@ df_compact_blocks (void)
 	 dflow problem.  */
       if (dflow->out_of_date_transfer_functions)
 	{
-	  bitmap_copy (&tmp, dflow->out_of_date_transfer_functions);
+	  tmp = *dflow->out_of_date_transfer_functions;
 	  dflow->out_of_date_transfer_functions->clear ();
 	  if (tmp.bit (ENTRY_BLOCK))
 	    dflow->out_of_date_transfer_functions->set_bit (ENTRY_BLOCK);
@@ -1738,7 +1738,7 @@ df_compact_blocks (void)
 	df->blocks_to_analyze->set_bit (ENTRY_BLOCK);
       if (tmp.bit (EXIT_BLOCK))
 	df->blocks_to_analyze->set_bit (EXIT_BLOCK);
-      bitmap_copy (&tmp, df->blocks_to_analyze);
+      tmp.swap (df->blocks_to_analyze);
       df->blocks_to_analyze->clear ();
       i = NUM_FIXED_BLOCKS;
       FOR_EACH_BB_FN (bb, cfun)

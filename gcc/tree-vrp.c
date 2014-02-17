@@ -475,7 +475,7 @@ set_value_range (value_range_t *vr, enum value_range_type t, tree min,
   if (equiv != vr->equiv)
     {
       if (equiv && !equiv->is_empty ())
-	bitmap_copy (vr->equiv, equiv);
+	*vr->equiv = *equiv;
       else
 	vr->equiv->clear ();
     }
@@ -8214,7 +8214,7 @@ vrp_intersect_ranges_1 (value_range_t *vr0, value_range_t *vr1)
   if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
     bitmap_ior_into (vr0->equiv, vr1->equiv);
   else if (vr1->equiv && !vr0->equiv)
-    bitmap_copy (vr0->equiv, vr1->equiv);
+    *vr0->equiv = *vr1->equiv;
 }
 
 static void

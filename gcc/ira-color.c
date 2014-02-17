@@ -3147,8 +3147,8 @@ color_pass (ira_loop_tree_node_t loop_tree_node)
   if (internal_flag_ira_verbose > 1 && ira_dump_file != NULL)
     print_loop_title (loop_tree_node);
 
-  bitmap_copy (coloring_allocno_bitmap, loop_tree_node->all_allocnos);
-  bitmap_copy (consideration_allocno_bitmap, coloring_allocno_bitmap);
+  *coloring_allocno_bitmap = *loop_tree_node->all_allocnos;
+  *consideration_allocno_bitmap = *coloring_allocno_bitmap;
   n = 0;
   EXECUTE_IF_SET_IN_BITMAP (consideration_allocno_bitmap, 0, j, bi)
     {

@@ -2714,7 +2714,7 @@ dse_step1 (void)
       all_blocks->set_bit (bb->index);
       bb_info->regs_live = &regs_live;
 
-      bitmap_copy (&regs_live, DF_LR_IN (bb));
+      regs_live = *DF_LR_IN (bb);
       df_simulate_initialize_forwards (bb, &regs_live);
 
       bb_table[bb->index] = bb_info;
@@ -3327,7 +3327,7 @@ dse_step3 (bool for_spills)
 	  if (!bb_info->out)
 	    {
 	      bb_info->out = BITMAP_ALLOC (&dse_bitmap_obstack);
-	      bitmap_copy (bb_info->out, &all_ones);
+	      *bb_info->out = all_ones;
 	    }
 	}
     }
@@ -3361,7 +3361,7 @@ dse_confluence_0 (basic_block bb)
   if (!bb_info->out)
     {
       bb_info->out = BITMAP_ALLOC (&dse_bitmap_obstack);
-      bitmap_copy (bb_info->out, bb_table[EXIT_BLOCK]->gen);
+      *bb_info->out = *bb_table[EXIT_BLOCK]->gen;
     }
 }
 
@@ -3382,7 +3382,7 @@ dse_confluence_n (edge e)
       else
 	{
 	  src_info->out = BITMAP_ALLOC (&dse_bitmap_obstack);
-	  bitmap_copy (src_info->out, dest_info->in);
+	  *src_info->out = *dest_info->in;
 	}
     }
   return true;
@@ -3439,7 +3439,7 @@ dse_transfer_function (int bb_index)
       else
 	{
 	  bb_info->in = BITMAP_ALLOC (&dse_bitmap_obstack);
-	  bitmap_copy (bb_info->in, bb_info->gen);
+	  *bb_info->in = *bb_info->gen;
 	  return true;
 	}
     }

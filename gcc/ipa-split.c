@@ -625,10 +625,9 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 	}
       best_split_point = *current;
       best_split_point.ssa_names_to_pass = BITMAP_ALLOC (NULL);
-      bitmap_copy (best_split_point.ssa_names_to_pass,
-		   current->ssa_names_to_pass);
+      *best_split_point.ssa_names_to_pass = *current->ssa_names_to_pass;
       best_split_point.split_bbs = BITMAP_ALLOC (NULL);
-      bitmap_copy (best_split_point.split_bbs, current->split_bbs);
+      *best_split_point.split_bbs = *current->split_bbs;
     }
 }
 

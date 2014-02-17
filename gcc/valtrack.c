@@ -236,7 +236,7 @@ dead_debug_local_init (struct dead_debug_local *debug, bitmap used,
   if (used)
     {
       if (global && global->used)
-	bitmap_copy (used, global->used);
+	*used = *global->used;
       else
 	used->clear ();
     }

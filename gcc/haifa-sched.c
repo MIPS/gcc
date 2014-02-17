@@ -1070,7 +1070,7 @@ save_reg_pressure (void)
   for (i = 0; i < ira_pressure_classes_num; i++)
     saved_reg_pressure[ira_pressure_classes[i]]
       = curr_reg_pressure[ira_pressure_classes[i]];
-  bitmap_copy (saved_reg_live, curr_reg_live);
+  *saved_reg_live = *curr_reg_live;
 }
 
 /* Restore saved register pressure related info.  */
@@ -1082,7 +1082,7 @@ restore_reg_pressure (void)
   for (i = 0; i < ira_pressure_classes_num; i++)
     curr_reg_pressure[ira_pressure_classes[i]]
       = saved_reg_pressure[ira_pressure_classes[i]];
-  bitmap_copy (curr_reg_live, saved_reg_live);
+  *curr_reg_live = *saved_reg_live;
 }
 
 /* Return TRUE if the register is dying after its USE.  */

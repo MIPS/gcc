@@ -916,7 +916,7 @@ word_dce_process_block (basic_block bb, bool redo_out,
 
   block_changed = local_live != *DF_WORD_LR_IN (bb);
   if (block_changed)
-    bitmap_copy (DF_WORD_LR_IN (bb), &local_live);
+    local_live.swap (DF_WORD_LR_IN (bb));
 
   dead_debug_local_finish (&debug, NULL);
   return block_changed;
@@ -1012,7 +1012,7 @@ dce_process_block (basic_block bb, bool redo_out, bitmap au,
 
   block_changed = local_live != *DF_LR_IN (bb);
   if (block_changed)
-    bitmap_copy (DF_LR_IN (bb), &local_live);
+    local_live.swap (DF_LR_IN (bb));
 
   return block_changed;
 }
