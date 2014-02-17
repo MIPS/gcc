@@ -1,3 +1,12 @@
+2014-02-16  Bill Schmidt  <wschmidt@Linux.vnet.ibm.com>
+
+	Backport from mainline r207815.
+	2014-02-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* config/rs6000/altivec.md (p8_vmrgew): Handle little endian
+	targets.
+	(p8_vmrgow): Likewise.
+
 2014-02-16  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline r207814.
