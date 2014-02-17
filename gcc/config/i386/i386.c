@@ -30488,8 +30488,8 @@ static const struct builtin_description bdesc_round_args[] =
 static const struct builtin_description bdesc_mpx[] =
 {
   { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndstx", IX86_BUILTIN_BNDSTX, UNKNOWN, (int) VOID_FTYPE_PCVOID_PCVOID_BND },
-  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
-  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_BND_PCVOID },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcl", IX86_BUILTIN_BNDCL, UNKNOWN, (int) VOID_FTYPE_PCVOID_BND },
+  { OPTION_MASK_ISA_MPX, (enum insn_code)0, "__builtin_ia32_bndcu", IX86_BUILTIN_BNDCU, UNKNOWN, (int) VOID_FTYPE_PCVOID_BND },
 };
 
 /* Const builtins for MPX.  */
@@ -35374,12 +35374,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
 
-      op0 = force_reg (BNDmode, op0);
-      op1 = force_reg (Pmode, op1);
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (BNDmode, op1);
 
       emit_insn (TARGET_64BIT
-                 ? gen_bnd64_cl (op0, op1)
-                 : gen_bnd32_cl (op0, op1));
+                 ? gen_bnd64_cl (op1, op0)
+                 : gen_bnd32_cl (op1, op0));
       return 0;
 
     case IX86_BUILTIN_BNDCU:
@@ -35389,12 +35389,12 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       op0 = expand_normal (arg0);
       op1 = expand_normal (arg1);
 
-      op0 = force_reg (BNDmode, op0);
-      op1 = force_reg (Pmode, op1);
+      op0 = force_reg (Pmode, op0);
+      op1 = force_reg (BNDmode, op1);
 
       emit_insn (TARGET_64BIT
-                 ? gen_bnd64_cu (op0, op1)
-                 : gen_bnd32_cu (op0, op1));
+                 ? gen_bnd64_cu (op1, op0)
+                 : gen_bnd32_cu (op1, op0));
       return 0;
 
     case IX86_BUILTIN_BNDRET:
@@ -35504,7 +35504,7 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
 	unsigned bndsize = GET_MODE_SIZE (BNDmode);
 	unsigned psize = GET_MODE_SIZE (Pmode);
 	rtx res = assign_stack_local (BNDmode, bndsize, 0);
-	rtx m1, m2, m1h1, m1h2, m2h1, m2h2, t1, t2, t3, rh1, rh2;
+	rtx m1, m2, m1h1, m1h2, m2h1, m2h2, t1, t2, rh1, rh2;
 
 	arg0 = CALL_EXPR_ARG (exp, 0);
 	arg1 = CALL_EXPR_ARG (exp, 1);
