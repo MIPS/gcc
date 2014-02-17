@@ -1158,7 +1158,7 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
   /* First fill in the actual arguments in the ARGS array, splitting
      complex arguments if necessary.  */
   {
-    int j = i, ptr_arg;
+    int j = i, ptr_arg = -1;
     call_expr_arg_iterator iter;
     tree arg;
     bitmap slots = NULL;
