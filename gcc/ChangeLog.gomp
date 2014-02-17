@@ -1,3 +1,8 @@
+2014-02-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* tree-core.h (omp_clause_code) <map>: Mention pcopy, pcopyin,
+	pcopyout, pcreate OpenACC clauses.
+
 2014-02-14  Ilmir Usmanov  <i.usmanov@samsung.com>
 	    Dmitry Bocharnikov  <dmitry.b@samsung.com>
 	    Evgeny Gavrin  <e.gavrin@samsung.com>

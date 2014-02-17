@@ -9671,13 +9671,17 @@ c_parser_omp_clause_name (c_parser *parser)
 	    result = PRAGMA_OMP_CLAUSE_PARALLEL;
 	  else if (!strcmp ("present", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT;
-	  else if (!strcmp ("present_or_copy", p))
+	  else if (!strcmp ("present_or_copy", p)
+		   || !strcmp ("pcopy", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY;
-	  else if (!strcmp ("present_or_copyin", p))
+	  else if (!strcmp ("present_or_copyin", p)
+		   || !strcmp ("pcopyin", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN;
-	  else if (!strcmp ("present_or_copyout", p))
+	  else if (!strcmp ("present_or_copyout", p)
+		   || !strcmp ("pcopyout", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYOUT;
-	  else if (!strcmp ("present_or_create", p))
+	  else if (!strcmp ("present_or_create", p)
+		   || !strcmp ("pcreate", p))
 	    result = PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE;
 	  else if (!strcmp ("private", p))
 	    result = PRAGMA_OMP_CLAUSE_PRIVATE;
@@ -9870,9 +9874,13 @@ c_parser_omp_var_list_parens (c_parser *parser, enum omp_clause_code kind,
    delete ( variable-list )
    present ( variable-list )
    present_or_copy ( variable-list )
+     pcopy ( variable-list )
    present_or_copyin ( variable-list )
+     pcopyin ( variable-list )
    present_or_copyout ( variable-list )
-   present_or_create ( variable-list ) */
+     pcopyout ( variable-list )
+   present_or_create ( variable-list )
+     pcreate ( variable-list ) */
 
 static tree
 c_parser_oacc_data_clause (c_parser *parser, pragma_omp_clause c_kind,

@@ -1,3 +1,10 @@
+2014-02-17  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/pcopy.c: New file.
+	* c-c++-common/goacc/pcopyin.c: Likewise.
+	* c-c++-common/goacc/pcopyout.c: Likewise.
+	* c-c++-common/goacc/pcreate.c: Likewise.
+
 2014-01-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/data-clause-duplicate-1.c: New file.
