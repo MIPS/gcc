@@ -389,7 +389,6 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
   int incoming_freq = 0;
   tree retval;
   bool back_edge = false;
-  bitmap_iterator bi;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     dump_split_point (dump_file, current);
