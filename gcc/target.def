@@ -2091,7 +2091,7 @@ by Pointer Bounds Checker to create bound values.  @var{lb} holds low\n\
 bound of the resulting bounds.  @var{size} holds size of created bounds.\n\
 @end deftypefn\n\
 \n\
-@deftypefn {Built-in Function} void __chkp_bndstx (const void **@var{loc}, const void *@var{ptr}, bnd @var{b})\n\
+@deftypefn {Built-in Function} void __chkp_bndstx (const void *@var{ptr}, bnd @var{b}, const void **@var{loc})\n\
 Function code - @code{BUILT_IN_CHKP_BNDSTX}.  This built-in function is used\n\
 by Pointer Bounds Checker to store bounds @var{b} for pointer @var{ptr}\n\
 stored by address @var{loc}.\n\
@@ -2103,13 +2103,13 @@ by Pointer Bounds Checker to get bounds of pointer @var{ptr} loaded by\n\
 address @var{loc}.\n\
 @end deftypefn\n\
 \n\
-@deftypefn {Built-in Function} void __chkp_bndcl (bnd @var{b}, const void *@var{ptr})\n\
+@deftypefn {Built-in Function} void __chkp_bndcl (const void *@var{ptr}, bnd @var{b})\n\
 Function code - @code{BUILT_IN_CHKP_BNDCL}.  This built-in function is used\n\
 by Pointer Bounds Checker to perform check for pointer @var{ptr} against\n\
 lower bound of bounds @var{b}.\n\
 @end deftypefn\n\
 \n\
-@deftypefn {Built-in Function} void __chkp_bndcu (bnd @var{b}, const void *@var{ptr})\n\
+@deftypefn {Built-in Function} void __chkp_bndcu (const void *@var{ptr}, bnd @var{b})\n\
 Function code - @code{BUILT_IN_CHKP_BNDCU}.  This built-in function is used\n\
 by Pointer Bounds Checker to perform check for pointer @var{ptr} against\n\
 upper bound of bounds @var{b}.\n\
