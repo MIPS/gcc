@@ -1588,7 +1588,7 @@ chkp_check_lower (tree addr, tree bounds,
 
   node = chkp_force_gimple_call_op (addr, &seq);
 
-  check = gimple_build_call (chkp_checkl_fndecl, 2, bounds, node);
+  check = gimple_build_call (chkp_checkl_fndecl, 2, node, bounds);
   chkp_mark_stmt (check);
   gimple_seq_add_stmt (&seq, check);
 
@@ -1632,7 +1632,7 @@ chkp_check_upper (tree addr, tree bounds,
 
   node = chkp_force_gimple_call_op (addr, &seq);
 
-  check = gimple_build_call (chkp_checku_fndecl, 2, bounds, node);
+  check = gimple_build_call (chkp_checku_fndecl, 2, node, bounds);
   chkp_mark_stmt (check);
   gimple_seq_add_stmt (&seq, check);
 
@@ -4524,7 +4524,6 @@ chkp_remove_useless_builtins ()
 {
   basic_block bb, next;
   gimple_stmt_iterator gsi;
-  enum gimple_rhs_class grhs_class;
 
   bb = ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb;
   do
