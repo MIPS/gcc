@@ -3388,7 +3388,8 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
 {
   bitmap slots = chkp_find_bound_slots (TREE_TYPE (parm));
   bitmap_iterator bi;
-  unsigned i, offs = 0, bnd_no = -1;
+  unsigned i, offs = 0;
+  int bnd_no = -1;
   rtx slot = NULL, ptr = NULL;
 
   EXECUTE_IF_SET_IN_BITMAP (slots, 0, i, bi)
@@ -3408,7 +3409,7 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
     offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
 
   /* Find associated pointer.  */
-  if (bnd_no == (unsigned)-1)
+  if (bnd_no == -1)
     {
       /* If bounds are not associated with any bounds,
 	 then it is passed in a register or special slot.  */
@@ -3440,8 +3441,8 @@ assign_parms (tree fndecl)
   tree parm;
   vec<tree> fnargs;
   unsigned i, bound_no = 0;
-  tree last_arg;
-  rtx last_arg_entry;
+  tree last_arg = NULL;
+  rtx last_arg_entry = NULL;
 
   crtl->args.internal_arg_pointer
     = targetm.calls.internal_arg_pointer ();
