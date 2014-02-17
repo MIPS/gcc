@@ -1743,7 +1743,7 @@ default_builtin_chkp_function (unsigned int fcode ATTRIBUTE_UNUSED)
 
 rtx
 default_chkp_function_value_bounds (const_tree ret_type ATTRIBUTE_UNUSED,
-				    const_tree fn_decl_or_type,
+				    const_tree fn_decl_or_type ATTRIBUTE_UNUSED,
 				    bool outgoing ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
