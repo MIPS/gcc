@@ -106,7 +106,8 @@ class Expression
     EXPRESSION_INTERFACE_INFO,
     EXPRESSION_STRUCT_FIELD_OFFSET,
     EXPRESSION_MAP_DESCRIPTOR,
-    EXPRESSION_LABEL_ADDR
+    EXPRESSION_LABEL_ADDR,
+    EXPRESSION_CONDITIONAL
   };
 
   Expression(Expression_classification, Location);
@@ -388,6 +389,10 @@ class Expression
   static Expression*
   make_label_addr(Label*, Location);
 
+  // Make a conditional expression.
+  static Expression*
+  make_conditional(Expression*, Expression*, Expression*, Location);
+
   // Return the expression classification.
   Expression_classification
   classification() const
@@ -402,6 +407,11 @@ class Expression
   bool
   is_constant() const
   { return this->do_is_constant(); }
+
+  // Return whether this is an immutable expression.
+  bool
+  is_immutable() const
+  { return this->do_is_immutable(); }
 
   // If this is not a numeric constant, return false.  If it is one,
   // return true, and set VAL to hold the value.
@@ -756,6 +766,11 @@ class Expression
   // Return whether this is a constant expression.
   virtual bool
   do_is_constant() const
+  { return false; }
+
+  // Return whether this is an immutable expression.
+  virtual bool
+  do_is_immutable() const
   { return false; }
 
   // Return whether this is a constant expression of numeric type, and
@@ -1193,6 +1208,10 @@ class String_expression : public Expression
  protected:
   bool
   do_is_constant() const
+  { return true; }
+
+  bool
+  do_is_immutable() const
   { return true; }
 
   bool

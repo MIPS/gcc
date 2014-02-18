@@ -996,6 +996,13 @@ package Opt is
    --  GNATMAKE
    --  Set to True if minimal recompilation mode requested
 
+   Modify_Tree_For_C : Boolean := False;
+   --  GNAT
+   --  If this switch is set True (currently it is set only by -gnatd.V), then
+   --  certain meaning-preserving transformations are applied to the tree to
+   --  make it easier to interface with back ends that implement C semantics.
+   --  There is a section in Sinfo which describes the transformations made.
+
    Multiple_Unit_Index : Int := 0;
    --  GNAT
    --  This is set non-zero if the current unit is being compiled in multiple
@@ -1064,6 +1071,7 @@ package Opt is
    --  object directory, if project files are used.
 
    type Operating_Mode_Type is (Check_Syntax, Check_Semantics, Generate_Code);
+   pragma Ordered (Operating_Mode_Type);
    Operating_Mode : Operating_Mode_Type := Generate_Code;
    --  GNAT
    --  Indicates the operating mode of the compiler. The default is generate
@@ -1072,7 +1080,8 @@ package Opt is
    --  only mode. Operating_Mode can also be modified as a result of detecting
    --  errors during the compilation process. In particular if any serious
    --  error is detected then this flag is reset from Generate_Code to
-   --  Check_Semantics after generating an error message.
+   --  Check_Semantics after generating an error message. This is an ordered
+   --  type with the semantics that each value does more than the previous one.
 
    Optimize_Alignment : Character := 'O';
    --  Setting of Optimize_Alignment, set to T/S/O for time/space/off. Can
@@ -1264,9 +1273,9 @@ package Opt is
    --  GNAT
    --  Set True if a pragma Short_Descriptors applies to the current unit.
 
-   type SPARK_Mode_Type is (None, Off, Auto, On);
-   pragma Ordered (SPARK_Mode_Type);
-   --  Possible legal modes that can be set by aspect/pragma SPARK_Mode
+   type SPARK_Mode_Type is (None, Off, On);
+   --  Possible legal modes that can be set by aspect/pragma SPARK_Mode, as
+   --  well as the value None, which indicates no such pragma/aspect applies.
 
    SPARK_Mode : SPARK_Mode_Type := None;
    --  GNAT
@@ -1290,17 +1299,14 @@ package Opt is
 
    Sprint_Line_Limit : Nat := 72;
    --  GNAT
-   --  Limit values for chopping long lines in Sprint output, can be reset
-   --  by use of NNN parameter with -gnatG or -gnatD switches.
+   --  Limit values for chopping long lines in Cprint/Sprint output, can be
+   --  reset by use of NNN parameter with -gnatG or -gnatD switches.
 
-   Stack_Checking_Enabled : Boolean;
+   Stack_Checking_Enabled : Boolean := False;
    --  GNAT
-   --  Set to indicate if -fstack-check switch is set for the compilation. True
-   --  means that the switch is set, so that stack checking is enabled. False
-   --  means that the switch is not set (no stack checking). This value is
-   --  obtained from the external imported value flag_stack_check in the gcc
-   --  backend (see Frontend) and may be referenced throughout the compilation
-   --  phases.
+   --  Set to indicate if stack checking is enabled for the compilation. This
+   --  is set directly from the value in the gcc back end in the body of the
+   --  gcc version of back_end.adb.
 
    Style_Check : Boolean := False;
    --  GNAT
@@ -1730,7 +1736,10 @@ package Opt is
    --  GNAT
    --  Set to True to generate warnings for use of Pragma Warnings (Off, ent),
    --  where either the pragma is never used, or it could be replaced by a
-   --  pragma Unmodified or Unreferenced. Modified by use of -gnatw.w/.W.
+   --  pragma Unmodified or Unreferenced. Also generates warnings for pragma
+   --  Warning (Off, string) which either has no matching pragma Warning On,
+   --  or where no warning has been suppressed by the use of the pragma.
+   --  Modified by use of -gnatw.w/.W.
 
    type Warning_Mode_Type is (Suppress, Normal, Treat_As_Error);
    Warning_Mode : Warning_Mode_Type := Normal;
@@ -1956,7 +1965,7 @@ package Opt is
 
    procedure Restore_Opt_Config_Switches (Save : Config_Switches_Type);
    --  This procedure restores a set of switch values previously saved by a
-   --  call to Save_Opt_Switches.
+   --  call to Save_Opt_Config_Switches (Save).
 
    procedure Register_Opt_Config_Switches;
    --  This procedure is called after processing the gnat.adc file and other

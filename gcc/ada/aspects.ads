@@ -103,9 +103,11 @@ package Aspects is
       Aspect_Invariant,                     -- GNAT
       Aspect_Iterator_Element,
       Aspect_Link_Name,
+      Aspect_Linker_Section,                -- GNAT
       Aspect_Machine_Radix,
       Aspect_Object_Size,                   -- GNAT
       Aspect_Output,
+      Aspect_Part_Of,                       -- GNAT
       Aspect_Post,
       Aspect_Postcondition,
       Aspect_Pre,
@@ -325,9 +327,11 @@ package Aspects is
       Aspect_Invariant               => Expression,
       Aspect_Iterator_Element        => Name,
       Aspect_Link_Name               => Expression,
+      Aspect_Linker_Section          => Expression,
       Aspect_Machine_Radix           => Expression,
       Aspect_Object_Size             => Expression,
       Aspect_Output                  => Name,
+      Aspect_Part_Of                 => Expression,
       Aspect_Post                    => Expression,
       Aspect_Postcondition           => Expression,
       Aspect_Pre                     => Expression,
@@ -420,12 +424,14 @@ package Aspects is
       Aspect_Invariant                    => Name_Invariant,
       Aspect_Iterator_Element             => Name_Iterator_Element,
       Aspect_Link_Name                    => Name_Link_Name,
+      Aspect_Linker_Section               => Name_Linker_Section,
       Aspect_Lock_Free                    => Name_Lock_Free,
       Aspect_Machine_Radix                => Name_Machine_Radix,
       Aspect_No_Return                    => Name_No_Return,
       Aspect_Object_Size                  => Name_Object_Size,
       Aspect_Output                       => Name_Output,
       Aspect_Pack                         => Name_Pack,
+      Aspect_Part_Of                      => Name_Part_Of,
       Aspect_Persistent_BSS               => Name_Persistent_BSS,
       Aspect_Post                         => Name_Post,
       Aspect_Postcondition                => Name_Postcondition,
@@ -553,7 +559,7 @@ package Aspects is
       --  identifier, and there is no issue of evaluating it and thus no
       --  issue of delaying the evaluation. The second case is implementation
       --  defined aspects where we have decided that we don't want to allow
-      --  delays (and for our own aspects we can do what we like!).
+      --  delays (and for our own aspects we can do what we like).
 
       Rep_Aspect);
       --  These are the cases of representation aspects that are in general
@@ -624,6 +630,7 @@ package Aspects is
       Aspect_Invariant                    => Always_Delay,
       Aspect_Iterator_Element             => Always_Delay,
       Aspect_Link_Name                    => Always_Delay,
+      Aspect_Linker_Section               => Always_Delay,
       Aspect_Lock_Free                    => Always_Delay,
       Aspect_No_Return                    => Always_Delay,
       Aspect_Output                       => Always_Delay,
@@ -675,6 +682,7 @@ package Aspects is
       Aspect_Convention                   => Never_Delay,
       Aspect_Dimension                    => Never_Delay,
       Aspect_Dimension_System             => Never_Delay,
+      Aspect_Part_Of                      => Never_Delay,
       Aspect_Refined_Post                 => Never_Delay,
       Aspect_SPARK_Mode                   => Never_Delay,
       Aspect_Synchronization              => Never_Delay,

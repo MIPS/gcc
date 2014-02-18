@@ -293,11 +293,8 @@ add_file_to_cache_tab (const char *file_path)
 {
 
   FILE *fp = fopen (file_path, "r");
-  if (ferror (fp))
-    {
-      fclose (fp);
-      return NULL;
-    }
+  if (fp == NULL)
+    return NULL;
 
   unsigned highest_use_count = 0;
   fcache *r = evicted_cache_tab_entry (&highest_use_count);
@@ -701,7 +698,13 @@ location_get_source_line (expanded_location xloc,
   static char *buffer;
   static ssize_t len;
 
-  fcache * c = lookup_or_add_file_to_cache_tab (xloc.file);
+  if (xloc.line == 0)
+    return NULL;
+
+  fcache *c = lookup_or_add_file_to_cache_tab (xloc.file);
+  if (c == NULL)
+    return NULL;
+
   bool read = read_line_num (c, xloc.line, &buffer, &len);
 
   if (read && line_len)

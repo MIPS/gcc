@@ -1741,7 +1741,6 @@ ifeq ($(strip $(filter-out cygwin% mingw32% pe,$(target_os))),)
 	s-win32.o s-winext.o g-regist.o g-sse.o g-ssvety.o
     EXTRA_GNATRTL_TASKING_OBJS = a-exetim.o
     EXTRA_LIBGNAT_SRCS+=mingw32.h
-
     MISCLIB = -lws2_32
 
     # ??? This will be replaced by gnatlib-shared-dual-win32 when GNAT

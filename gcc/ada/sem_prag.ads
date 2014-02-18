@@ -60,7 +60,7 @@ package Sem_Prag is
    --  Perform full analysis of delayed pragma Depends. This routine is also
    --  capable of performing basic analysis of pragma Refined_Depends.
 
-   procedure Analyze_External_State_In_Decl_Part
+   procedure Analyze_External_Property_In_Decl_Part
      (N        : Node_Id;
       Expr_Val : out Boolean);
    --  Perform full analysis of delayed pragmas Async_Readers, Async_Writers,
@@ -138,6 +138,11 @@ package Sem_Prag is
    --  Async_Readers, Async_Writers, Effective_Reads and Effective_Writes. Item
    --  is the related variable or state. Ensure legality of the combination and
    --  issue an error for an illegal combination.
+
+   procedure Check_Missing_Part_Of (Item_Id : Entity_Id);
+   --  Determine whether the placement within the state space of an abstract
+   --  state, variable or package instantiation denoted by Item_Id requires the
+   --  use of indicator/option Part_Of. If this is the case, emit an error.
 
    function Delay_Config_Pragma_Analyze (N : Node_Id) return Boolean;
    --  N is a pragma appearing in a configuration pragma file. Most such

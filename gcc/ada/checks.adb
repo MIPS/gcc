@@ -32,7 +32,6 @@ with Exp_Ch2;  use Exp_Ch2;
 with Exp_Ch4;  use Exp_Ch4;
 with Exp_Ch11; use Exp_Ch11;
 with Exp_Pakd; use Exp_Pakd;
-with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Elists;   use Elists;
 with Expander; use Expander;
@@ -2574,15 +2573,15 @@ package body Checks is
    begin
       if Present (Predicate_Function (Typ)) then
 
-         --  A predicate check does not apply within internally generated
-         --  subprograms, such as TSS functions.
-
          S := Current_Scope;
          while Present (S) and then not Is_Subprogram (S) loop
             S := Scope (S);
          end loop;
 
-         if Present (S) and then Get_TSS_Name (S) /= TSS_Null then
+         --  A predicate check does not apply within internally generated
+         --  subprograms, such as TSS functions.
+
+         if Within_Internal_Subprogram then
             return;
 
          --  If the check appears within the predicate function itself, it
@@ -2590,7 +2589,7 @@ package body Checks is
          --  predicated subtype itself, rather than some covering type. This
          --  is likely to be a common error, and thus deserves a warning.
 
-         elsif S = Predicate_Function (Typ) then
+         elsif Present (S) and then S = Predicate_Function (Typ) then
             Error_Msg_N
               ("predicate check includes a function call that "
                & "requires a predicate check??", Parent (N));
@@ -2780,7 +2779,7 @@ package body Checks is
       end if;
 
       --  Do not set range checks for any values from System.Scalar_Values
-      --  since the whole idea of such values is to avoid checking them!
+      --  since the whole idea of such values is to avoid checking them.
 
       if Is_Entity_Name (Expr)
         and then Is_RTU (Scope (Entity (Expr)), System_Scalar_Values)
@@ -3208,6 +3207,13 @@ package body Checks is
       elsif Serious_Errors_Detected > 0 then
          return;
 
+      --  Never generate discriminant checks for Unchecked_Union types
+
+      elsif Present (Expr_Type)
+        and then Is_Unchecked_Union (Expr_Type)
+      then
+         return;
+
       --  Scalar type conversions of the form Target_Type (Expr) require a
       --  range check if we cannot be sure that Expr is in the base type of
       --  Target_Typ and also that Expr is in the range of Target_Typ. These
@@ -3218,8 +3224,8 @@ package body Checks is
          declare
             Conv_OK  : constant Boolean := Conversion_OK (N);
             --  If the Conversion_OK flag on the type conversion is set and no
-            --  floating point type is involved in the type conversion then
-            --  fixed point values must be read as integral values.
+            --  floating-point type is involved in the type conversion then
+            --  fixed-point values must be read as integral values.
 
             Float_To_Int : constant Boolean :=
               Is_Floating_Point_Type (Expr_Type)
@@ -3245,9 +3251,9 @@ package body Checks is
                     (Expr, Target_Type, Fixed_Int => Conv_OK);
 
                   --  If the target type has predicates, we need to indicate
-                  --  the need for a check, even if Determine_Range finds
-                  --  that the value is within bounds. This may be the case
-                  --  e.g for a division with a constant denominator.
+                  --  the need for a check, even if Determine_Range finds that
+                  --  the value is within bounds. This may be the case e.g for
+                  --  a division with a constant denominator.
 
                   if Has_Predicates (Target_Type) then
                      Enable_Range_Check (Expr);
@@ -3267,9 +3273,9 @@ package body Checks is
          --  An unconstrained derived type may have inherited discriminant.
          --  Build an actual discriminant constraint list using the stored
          --  constraint, to verify that the expression of the parent type
-         --  satisfies the constraints imposed by the (unconstrained!)
-         --  derived type. This applies to value conversions, not to view
-         --  conversions of tagged types.
+         --  satisfies the constraints imposed by the (unconstrained) derived
+         --  type. This applies to value conversions, not to view conversions
+         --  of tagged types.
 
          declare
             Loc         : constant Source_Ptr := Sloc (N);
@@ -3618,7 +3624,7 @@ package body Checks is
          --  such as itype declarations in this context, to keep the loop going
          --  since we may well have generated such stuff in complex situations.
          --  Also done if no parent (probably an error condition, but no point
-         --  in behaving nasty if we find it!)
+         --  in behaving nasty if we find it).
 
          if No (P)
            or else (K not in N_Subexpr and then Comes_From_Source (P))
@@ -3758,7 +3764,7 @@ package body Checks is
       --  Only do this check for expressions that come from source. We assume
       --  that expander generated assignments explicitly include any necessary
       --  checks. Note that this is not just an optimization, it avoids
-      --  infinite recursions!
+      --  infinite recursions.
 
       elsif not Comes_From_Source (Expr) then
          return;
@@ -3794,11 +3800,11 @@ package body Checks is
 
    begin
       pragma Assert
-        (K = N_Component_Declaration
-           or else K = N_Discriminant_Specification
-           or else K = N_Function_Specification
-           or else K = N_Object_Declaration
-           or else K = N_Parameter_Specification);
+        (Nkind_In (K, N_Component_Declaration,
+                      N_Discriminant_Specification,
+                      N_Function_Specification,
+                      N_Object_Declaration,
+                      N_Parameter_Specification));
 
       if K = N_Function_Specification then
          Typ := Etype (Defining_Entity (N));
@@ -4022,7 +4028,7 @@ package body Checks is
 
    Cache_Size : constant := 2 ** 10;
    type Cache_Index is range 0 .. Cache_Size - 1;
-   --  Determine size of below cache (power of 2 is more efficient!)
+   --  Determine size of below cache (power of 2 is more efficient)
 
    Determine_Range_Cache_N  : array (Cache_Index) of Node_Id;
    Determine_Range_Cache_V  : array (Cache_Index) of Boolean;
@@ -4144,7 +4150,7 @@ package body Checks is
       OK := True;
 
       --  If value is compile time known, then the possible range is the one
-      --  value that we know this expression definitely has!
+      --  value that we know this expression definitely has.
 
       if Compile_Time_Known_Value (N) then
          Lo := Expr_Value (N);
@@ -4705,7 +4711,7 @@ package body Checks is
       --  is not worth the effort to eliminate checks for other than discrete
       --  types. In addition, we take this same path if we have stored the
       --  maximum number of checks possible already (a very unlikely situation,
-      --  but we do not want to blow up!)
+      --  but we do not want to blow up).
 
       if Optimization_Level = 0
         or else not Is_Discrete_Type (Etype (N))
@@ -4810,7 +4816,7 @@ package body Checks is
 
    begin
       --  Return if unchecked type conversion with range check killed. In this
-      --  case we never set the flag (that's what Kill_Range_Check is about!)
+      --  case we never set the flag (that's what Kill_Range_Check is about).
 
       if Nkind (N) = N_Unchecked_Type_Conversion
         and then Kill_Range_Check (N)
@@ -4874,7 +4880,7 @@ package body Checks is
       --  is not worth the effort to eliminate checks for other than discrete
       --  types. In addition, we take this same path if we have stored the
       --  maximum number of checks possible already (a very unlikely situation,
-      --  but we do not want to blow up!)
+      --  but we do not want to blow up).
 
       if Optimization_Level = 0
         or else No (Etype (N))
@@ -5061,7 +5067,7 @@ package body Checks is
 
       --  No check required if expression is from the expander, we assume the
       --  expander will generate whatever checks are needed. Note that this is
-      --  not just an optimization, it avoids infinite recursions!
+      --  not just an optimization, it avoids infinite recursions.
 
       --  Unchecked conversions must be checked, unless they are initialized
       --  scalar values, as in a component assignment in an init proc.
@@ -5308,22 +5314,26 @@ package body Checks is
       elsif Nkind_In (Expr, N_Type_Conversion, N_Qualified_Expression) then
          return Expr_Known_Valid (Expression (Expr));
 
-      --  The result of any operator is always considered valid, since we
-      --  assume the necessary checks are done by the operator. For operators
-      --  on floating-point operations, we must also check when the operation
-      --  is the right-hand side of an assignment, or is an actual in a call.
+      --  Case of expression is a non-floating-point operator. In this case we
+      --  can assume the result is valid the generated code for the operator
+      --  will include whatever checks are needed (e.g. range checks) to ensure
+      --  validity. This assumption does not hold for the floating-point case,
+      --  since floating-point operators can generate Infinite or NaN results
+      --  which are considered invalid.
 
-      elsif Nkind (Expr) in N_Op then
-         if Is_Floating_Point_Type (Typ)
-            and then Validity_Check_Floating_Point
-            and then (Nkind_In (Parent (Expr), N_Assignment_Statement,
-                                               N_Function_Call,
-                                               N_Parameter_Association))
-         then
-            return False;
-         else
-            return True;
-         end if;
+      --  Historical note: in older versions, the exemption of floating-point
+      --  types from this assumption was done only in cases where the parent
+      --  was an assignment, function call or parameter association. Presumably
+      --  the idea was that in other contexts, the result would be checked
+      --  elsewhere, but this list of cases was missing tests (at least the
+      --  N_Object_Declaration case, as shown by a reported missing validity
+      --  check), and it is not clear why function calls but not procedure
+      --  calls were tested for. It really seems more accurate and much
+      --  safer to recognize that expressions which are the result of a
+      --  floating-point operator can never be assumed to be valid.
+
+      elsif Nkind (Expr) in N_Op and then not Is_Floating_Point_Type (Typ) then
+         return True;
 
       --  The result of a membership test is always valid, since it is true or
       --  false, there are no other possibilities.
@@ -5839,7 +5849,7 @@ package body Checks is
       --  First special case, if the source type is already within the range
       --  of the target type, then no check is needed (probably we should have
       --  stopped Do_Range_Check from being set in the first place, but better
-      --  late than never in preventing junk code!
+      --  late than never in preventing junk code.
 
       if In_Subrange_Of (Source_Type, Target_Type)
 
@@ -6015,7 +6025,7 @@ package body Checks is
             --  With these two checks out of the way, we can do the check
             --  using the source type safely
 
-            --  This is definitely the most annoying case!
+            --  This is definitely the most annoying case.
 
             --    [constraint_error
             --       when (Target_Type'First >= 0
@@ -6450,7 +6460,7 @@ package body Checks is
 
          --  Insert the validity check. Note that we do this with validity
          --  checks turned off, to avoid recursion, we do not want validity
-         --  checks on the validity checking code itself!
+         --  checks on the validity checking code itself.
 
          Insert_Action (Expr, CE, Suppress => Validity_Check);
 
@@ -6484,7 +6494,7 @@ package body Checks is
          --  when a range check is present, but that's not the case, because
          --  the back end is allowed to assume for the range check that the
          --  operand is within its declared range (an assumption that validity
-         --  checking is all about NOT assuming!)
+         --  checking is all about NOT assuming).
 
          --  Note: no need to worry about Possible_Local_Raise here, it will
          --  already have been called if original node has Do_Range_Check set.
@@ -6641,7 +6651,7 @@ package body Checks is
          if Is_Entity_Name (N) then
 
             --  For sure, we want to clear an indication that this is known to
-            --  be null, since if we get past this check, it definitely is not!
+            --  be null, since if we get past this check, it definitely is not.
 
             Set_Is_Known_Null (Entity (N), False);
 
@@ -6668,7 +6678,7 @@ package body Checks is
    begin
       pragma Assert (Is_Access_Type (Typ));
 
-      --  No check inside a generic (why not???)
+      --  No check inside a generic, check will be emitted in instance
 
       if Inside_A_Generic then
          return;
@@ -6686,11 +6696,21 @@ package body Checks is
 
          --  Avoid generating warning message inside init procs. In SPARK mode
          --  we can go ahead and call Apply_Compile_Time_Constraint_Error
-         --  since it will be truned into an error in any case.
+         --  since it will be turned into an error in any case.
 
-         if not Inside_Init_Proc or else SPARK_Mode = On then
+         if (not Inside_Init_Proc or else SPARK_Mode = On)
+
+           --  Do not emit the warning within a conditional expression,
+           --  where the expression might not be evaluated, and the warning
+           --  appear as extraneous noise.
+
+           and then not Within_Case_Or_If_Expression (N)
+         then
             Apply_Compile_Time_Constraint_Error
               (N, "null value not allowed here??", CE_Access_Check_Failed);
+
+         --  Remaining cases, where we silently insert the raise
+
          else
             Insert_Action (N,
               Make_Raise_Constraint_Error (Loc,
@@ -7009,7 +7029,7 @@ package body Checks is
       --  This is called when we have modified the node and we therefore need
       --  to reanalyze it. It is important that we reset the mode to STRICT for
       --  this reanalysis, since if we leave it in MINIMIZED or ELIMINATED mode
-      --  we would reenter this routine recursively which would not be good!
+      --  we would reenter this routine recursively which would not be good.
       --  The argument Suppress is set True if we also want to suppress
       --  overflow checking for the reexpansion (this is set when we know
       --  overflow is not possible). Typ is the type for the reanalysis.
@@ -7140,7 +7160,7 @@ package body Checks is
          --  Use the normal Determine_Range routine to get the range. We
          --  don't require operands to be valid, invalid values may result in
          --  rubbish results where the result has not been properly checked for
-         --  overflow, that's fine!
+         --  overflow, that's fine.
 
          Determine_Range (N, OK, Lo, Hi, Assume_Valid => False);
 
@@ -7190,7 +7210,7 @@ package body Checks is
             --  If at least one of our operands is now Bignum, we must rebuild
             --  the if expression to use Bignum operands. We will analyze the
             --  rebuilt if expression with overflow checks off, since once we
-            --  are in bignum mode, we are all done with overflow checks!
+            --  are in bignum mode, we are all done with overflow checks.
 
             if Bignum_Operands then
                Rewrite (N,
@@ -7667,7 +7687,7 @@ package body Checks is
          --  here because it will cause recursion into the whole MINIMIZED/
          --  ELIMINATED overflow processing which is not what we want. Here
          --  we are at the top level, and we need a check against the result
-         --  mode (i.e. we want to use STRICT mode). So do exactly that!
+         --  mode (i.e. we want to use STRICT mode). So do exactly that.
          --  Also, we have not modified the node, so this is a case where
          --  we need to reexpand, but not reanalyze.
 
@@ -7807,7 +7827,7 @@ package body Checks is
 
       --  Here we will do the operation in Long_Long_Integer. We do this even
       --  if we know an overflow check is required, better to do this in long
-      --  long integer mode, since we are less likely to overflow!
+      --  long integer mode, since we are less likely to overflow.
 
       --  Convert right or only operand to Long_Long_Integer, except that
       --  we do not touch the exponentiation right operand.
@@ -7835,7 +7855,7 @@ package body Checks is
       --  setting of the Do_Division_Check flag).
 
       --  We do this reanalysis in STRICT mode to avoid recursion into the
-      --  MINIMIZED/ELIMINATED handling, since we are now done with that!
+      --  MINIMIZED/ELIMINATED handling, since we are now done with that.
 
       declare
          SG : constant Overflow_Mode_Type :=

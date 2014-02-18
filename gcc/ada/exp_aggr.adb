@@ -3280,6 +3280,7 @@ package body Exp_Aggr is
       T    : Entity_Id;
       Temp : Entity_Id;
 
+      Aggr_Code   : List_Id;
       Instr       : Node_Id;
       Target_Expr : Node_Id;
       Parent_Kind : Node_Kind;
@@ -3361,9 +3362,7 @@ package body Exp_Aggr is
       end if;
 
       if Requires_Transient_Scope (Typ) then
-         Establish_Transient_Scope
-           (N, Sec_Stack =>
-                 Is_Controlled (Typ) or else Has_Controlled_Component (Typ));
+         Establish_Transient_Scope (N, Sec_Stack => Needs_Finalization (Typ));
       end if;
 
       --  If the aggregate is non-limited, create a temporary. If it is limited
@@ -3401,8 +3400,20 @@ package body Exp_Aggr is
          Set_No_Initialization (Instr);
          Insert_Action (N, Instr);
          Initialize_Discriminants (Instr, T);
+
          Target_Expr := New_Occurrence_Of (Temp, Loc);
-         Insert_Actions (N, Build_Record_Aggr_Code (N, T, Target_Expr));
+         Aggr_Code   := Build_Record_Aggr_Code (N, T, Target_Expr);
+
+         --  Save the last assignment statement associated with the aggregate
+         --  when building a controlled object. This reference is utilized by
+         --  the finalization machinery when marking an object as successfully
+         --  initialized.
+
+         if Needs_Finalization (T) then
+            Set_Last_Aggregate_Assignment (Temp, Last (Aggr_Code));
+         end if;
+
+         Insert_Actions (N, Aggr_Code);
          Rewrite (N, New_Occurrence_Of (Temp, Loc));
          Analyze_And_Resolve (N, T);
       end if;
@@ -4141,7 +4152,7 @@ package body Exp_Aggr is
             Insert_Action (N,
               Make_Raise_Constraint_Error (Loc,
                 Condition => Cond,
-                Reason    => CE_Length_Check_Failed));
+                Reason    => CE_Range_Check_Failed));
          end if;
       end Check_Bounds;
 
@@ -4933,7 +4944,7 @@ package body Exp_Aggr is
       --  Here we test for is packed array aggregate that we can handle at
       --  compile time. If so, return with transformation done. Note that we do
       --  this even if the aggregate is nested, because once we have done this
-      --  processing, there is no more nested aggregate!
+      --  processing, there is no more nested aggregate.
 
       if Packed_Array_Aggregate_Handled (N) then
          return;
@@ -5279,7 +5290,7 @@ package body Exp_Aggr is
          --  form (others => 'x'), with a single choice and no expressions,
          --  and N is less than 80 (an arbitrary limit for now), then replace
          --  the aggregate by the equivalent string literal (but do not mark
-         --  it as static since it is not!)
+         --  it as static since it is not).
 
          --  Note: this entire circuit is redundant with respect to code in
          --  Expand_Array_Aggregate that collapses others choices to positional
@@ -5303,7 +5314,7 @@ package body Exp_Aggr is
 
          --       But it succeeds (DH looks static to pragma Export)
 
-         --    To be sorted out! ???
+         --    To be sorted out ???
 
          if Present (Component_Associations (N)) then
             declare
@@ -5702,17 +5713,15 @@ package body Exp_Aggr is
       then
          Convert_To_Assignments (N, Typ);
 
-      --  Temporaries for controlled aggregates need to be attached to a final
-      --  chain in order to be properly finalized, so it has to be created in
-      --  the front-end
+      --  An aggregate used to initialize a controlled object must be turned
+      --  into component assignments as the components themselves may require
+      --  finalization actions such as adjustment.
 
-      elsif Is_Controlled (Typ)
-        or else Has_Controlled_Component (Base_Type (Typ))
-      then
+      elsif Needs_Finalization (Typ) then
          Convert_To_Assignments (N, Typ);
 
-         --  Ada 2005 (AI-287): In case of default initialized components we
-         --  convert the aggregate into assignments.
+      --  Ada 2005 (AI-287): In case of default initialized components we
+      --  convert the aggregate into assignments.
 
       elsif Has_Default_Init_Comps (N) then
          Convert_To_Assignments (N, Typ);
@@ -6188,9 +6197,26 @@ package body Exp_Aggr is
       Typ    : Entity_Id;
       Target : Node_Id) return List_Id
    is
+      Aggr_Code : List_Id;
+
    begin
       if Is_Record_Type (Etype (N)) then
-         return Build_Record_Aggr_Code (N, Typ, Target);
+         Aggr_Code := Build_Record_Aggr_Code (N, Typ, Target);
+
+         --  Save the last assignment statement associated with the aggregate
+         --  when building a controlled object. This reference is utilized by
+         --  the finalization machinery when marking an object as successfully
+         --  initialized.
+
+         if Needs_Finalization (Typ)
+           and then Is_Entity_Name (Target)
+           and then Present (Entity (Target))
+           and then Ekind (Entity (Target)) = E_Variable
+         then
+            Set_Last_Aggregate_Assignment (Entity (Target), Last (Aggr_Code));
+         end if;
+
+         return Aggr_Code;
 
       else pragma Assert (Is_Array_Type (Etype (N)));
          return

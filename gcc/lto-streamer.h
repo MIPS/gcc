@@ -145,8 +145,8 @@ along with GCC; see the file COPYING3.  If not see
    stuff, or LTO_SECTION_NAME_PREFIX for lto case.  */
 extern const char  *section_name_prefix;
 
-#define LTO_major_version 2
-#define LTO_minor_version 2
+#define LTO_major_version 3
+#define LTO_minor_version 0
 
 typedef unsigned char	lto_decl_flags_t;
 
@@ -878,6 +878,7 @@ void lto_output_location (struct output_block *, struct bitpack_d *, location_t)
 
 
 /* In lto-cgraph.c  */
+extern bool asm_nodes_output;
 lto_symtab_encoder_t lto_symtab_encoder_new (bool);
 int lto_symtab_encoder_encode (lto_symtab_encoder_t, symtab_node *);
 void lto_symtab_encoder_delete (lto_symtab_encoder_t);
