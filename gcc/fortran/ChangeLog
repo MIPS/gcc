@@ -1,3 +1,42 @@
+2014-02-08  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/57033
+	* primary.c (gfc_convert_to_structure_constructor): Avoid null pointer
+	dereference.
+
+2014-02-08  Paul Thomas  <pault@gcc.gnu.org>
+
+	PR fortran/59906
+	* trans-array.c (gfc_add_loop_ss_code): In the case of character
+	SS_REFERENCE, use gfc_conv_string_parameter to ensure that a
+	pointer to the string is stored.
+	* trans-expr.c (gfc_conv_expr_reference): Likewise, use
+	gfc_conv_string_parameter to ensure that a pointer to is passed
+	to the elemental function.
+
+2014-02-03  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/59941
+	* expr.c (replace_comp): Check for isym to avoid ICE.
+
+2014-01-27  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/58007
+	* module.c (skip_list): Don't use default argument value.
+	(load_derived_extensions, read_module): Update callers.
+
+2014-01-26  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/58007
+	* module.c (fp2, find_pointer2): Remove.
+	(mio_component_ref): Don't forcedfully set the containing derived type
+	symbol for loading.  Remove unused argument.
+	(mio_ref): Update caller
+	(skip_list): New argument nest_level.  Initialize level with the new
+	argument.
+	(read_module): Add forced pointer components association for derived
+	type symbols.
+
 2014-01-11  Janus Weil  <janus@gcc.gnu.org>
 
 	Backport from mainline
