@@ -45,7 +45,7 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                int_type,
                                "y");
   gcc_jit_field *foo_fields[] = {x, y};
-  gcc_jit_type *struct_foo =
+  gcc_jit_struct *struct_foo =
     gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 2, foo_fields);
 
   /* Map "struct bar".  */
@@ -62,11 +62,12 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   /* We don't actually need a gcc_jit_type for "struct bar" for the test.  */
 #if 0
   gcc_jit_field *bar_fields[] = {p, q};
-  gcc_jit_type *struct_bar =
+  gcc_jit_struct *struct_bar =
     gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 2, bar_fields);
 #endif
 
-  gcc_jit_type *foo_ptr = gcc_jit_type_get_pointer (struct_foo);
+  gcc_jit_type *foo_ptr =
+    gcc_jit_type_get_pointer (gcc_jit_struct_as_type (struct_foo));
 
   /* Build the test function.  */
   gcc_jit_param *param_f =

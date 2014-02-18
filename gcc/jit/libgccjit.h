@@ -36,6 +36,7 @@ typedef struct gcc_jit_result gcc_jit_result;
      +- gcc_jit_object
          +- gcc_jit_location
          +- gcc_jit_type
+	    +- gcc_jit_struct
          +- gcc_jit_field
          +- gcc_jit_function
          +- gcc_jit_label
@@ -66,6 +67,10 @@ typedef struct gcc_jit_type gcc_jit_type;
    when creating a struct type (using gcc_jit_context_new_struct_type).
    Fields cannot be shared between structs.  */
 typedef struct gcc_jit_field gcc_jit_field;
+
+/* A gcc_jit_struct encapsulates a struct type, either one that we have
+   the layout for, or an opaque type.  */
+typedef struct gcc_jit_struct gcc_jit_struct;
 
 /* A gcc_jit_function encapsulates a function: either one that you're
    creating yourself, or a reference to one that you're dynamically
@@ -385,12 +390,28 @@ gcc_jit_context_new_field (gcc_jit_context *ctxt,
 extern gcc_jit_object *
 gcc_jit_field_as_object (gcc_jit_field *field);
 
-extern gcc_jit_type *
+extern gcc_jit_struct *
 gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 				 gcc_jit_location *loc,
 				 const char *name,
 				 int num_fields,
 				 gcc_jit_field **fields);
+
+extern gcc_jit_struct *
+gcc_jit_context_new_opaque_struct (gcc_jit_context *ctxt,
+				   gcc_jit_location *loc,
+				   const char *name);
+
+extern gcc_jit_type *
+gcc_jit_struct_as_type (gcc_jit_struct *struct_type);
+
+/* Populating the fields of a formerly-opaque struct type.
+   This can only be called once on a given struct type.  */
+extern void
+gcc_jit_struct_set_fields (gcc_jit_struct *struct_type,
+			   gcc_jit_location *loc,
+			   int num_fields,
+			   gcc_jit_field **fields);
 
 /**********************************************************************
  Constructing functions.
@@ -510,6 +531,10 @@ extern gcc_jit_rvalue *
 gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
 				     gcc_jit_type *pointer_type,
 				     void *value);
+
+extern gcc_jit_rvalue *
+gcc_jit_context_null (gcc_jit_context *ctxt,
+		      gcc_jit_type *pointer_type);
 
 /* String literals. */
 extern gcc_jit_rvalue *

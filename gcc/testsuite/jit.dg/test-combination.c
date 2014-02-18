@@ -66,6 +66,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-linked-list.c */
+#define create_code create_code_linked_list
+#define verify_code verify_code_linked_list
+#include "test-linked-list.c"
+#undef create_code
+#undef verify_code
+
 /* test-quadratic.c */
 #define create_code create_code_quadratic
 #define verify_code verify_code_quadratic
@@ -127,6 +134,7 @@ create_code (gcc_jit_context *ctxt, void * user_data)
   create_code_fibonacci (ctxt, user_data);
   create_code_functions (ctxt, user_data);
   create_code_hello_world (ctxt, user_data);
+  create_code_linked_list (ctxt, user_data);
   create_code_string_literal (ctxt, user_data);
   create_code_sum_of_squares (ctxt, user_data);
   create_code_types (ctxt, user_data);
@@ -144,6 +152,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_code_fibonacci (ctxt, result);
   verify_code_functions (ctxt, result);
   verify_code_hello_world (ctxt, result);
+  verify_code_linked_list (ctxt, result);
   verify_code_string_literal (ctxt, result);
   verify_code_sum_of_squares (ctxt, result);
   verify_code_types (ctxt, result);

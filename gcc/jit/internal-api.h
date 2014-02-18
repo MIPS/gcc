@@ -85,6 +85,7 @@ namespace recording {
   class function_type;
   class field;
   class struct_;
+  class fields;
   class function;
   class label;
   class rvalue;
@@ -98,6 +99,7 @@ namespace playback {
   class location;
   class type;
   class field;
+  class struct_;
   class function;
   class label;
   class rvalue;
@@ -160,12 +162,9 @@ public:
 	     type *type,
 	     const char *name);
 
-  type *
+  struct_ *
   new_struct_type (location *loc,
-		   const char *name,
-		   int num_fields,
-		   field **fields);
-
+		   const char *name);
 
   param *
   new_param (location *loc,
@@ -619,12 +618,27 @@ class struct_ : public type
 public:
   struct_ (context *ctxt,
 	   location *loc,
-	   string *name,
-	   vec<field *> fields);
+	   string *name);
+
+  type *
+  as_type () { return this; }
+
+  fields * get_fields () { return m_fields; }
+
+  void
+  set_fields (location *loc,
+	      int num_fields,
+	      field **fields);
 
   type *dereference ();
 
   void replay_into (replayer *r);
+
+  playback::struct_ *
+  playback_struct ()
+  {
+    return static_cast <playback::struct_ *> (m_playback_obj);
+  }
 
 private:
   string * make_debug_string ();
@@ -632,6 +646,24 @@ private:
 private:
   location *m_loc;
   string *m_name;
+  fields *m_fields;
+};
+
+// memento of struct_::set_fields
+class fields : public memento
+{
+public:
+  fields (struct_ *struct_,
+	  int num_fields,
+	  field **fields);
+
+  void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
+
+private:
+  struct_ *m_struct;
   vec<field *> m_fields;
 };
 
@@ -1481,10 +1513,9 @@ public:
 	     type *type,
 	     const char *name);
 
-  type *
+  struct_ *
   new_struct_type (location *loc,
-		   const char *name,
-		   vec<field *> *fields);
+		   const char *name);
 
   type *
   new_function_type (type *return_type,
@@ -1680,6 +1711,16 @@ public:
 
 private:
   tree m_inner;
+};
+
+class struct_ : public type
+{
+public:
+  struct_ (tree inner)
+    : type (inner)
+  {}
+
+  void set_fields (const vec<field *> &fields);
 };
 
 class field : public wrapper

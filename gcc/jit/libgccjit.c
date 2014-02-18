@@ -44,6 +44,10 @@ struct gcc_jit_type : public gcc::jit::recording::type
 {
 };
 
+struct gcc_jit_struct : public gcc::jit::recording::struct_
+{
+};
+
 struct gcc_jit_field : public gcc::jit::recording::field
 {
 };
@@ -93,6 +97,16 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
       }								\
   JIT_END_STMT
 
+#define RETURN_VAL_IF_FAIL_PRINTF1(TEST_EXPR, RETURN_EXPR, CTXT, ERR_FMT, A0) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0));				\
+	return (RETURN_EXPR);						\
+      }								\
+  JIT_END_STMT
+
 #define RETURN_VAL_IF_FAIL_PRINTF2(TEST_EXPR, RETURN_EXPR, CTXT, ERR_FMT, A0, A1) \
   JIT_BEGIN_STMT							\
     if (!(TEST_EXPR))							\
@@ -136,6 +150,9 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
 #define RETURN_NULL_IF_FAIL(TEST_EXPR, CTXT, ERR_MSG) \
   RETURN_VAL_IF_FAIL ((TEST_EXPR), NULL, (CTXT), (ERR_MSG))
 
+#define RETURN_NULL_IF_FAIL_PRINTF1(TEST_EXPR, CTXT, ERR_FMT, A0) \
+  RETURN_VAL_IF_FAIL_PRINTF1 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0)
+
 #define RETURN_NULL_IF_FAIL_PRINTF2(TEST_EXPR, CTXT, ERR_FMT, A0, A1) \
   RETURN_VAL_IF_FAIL_PRINTF2 (TEST_EXPR, NULL, CTXT, ERR_FMT, A0, A1)
 
@@ -153,6 +170,26 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
     if (!(TEST_EXPR))							\
       {								\
 	jit_error ((CTXT), "%s: %s", __func__, (ERR_MSG));		\
+	return;							\
+      }								\
+  JIT_END_STMT
+
+#define RETURN_IF_FAIL_PRINTF1(TEST_EXPR, CTXT, ERR_FMT, A0) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0));					\
+	return;							\
+      }								\
+  JIT_END_STMT
+
+#define RETURN_IF_FAIL_PRINTF2(TEST_EXPR, CTXT, ERR_FMT, A0, A1) \
+  JIT_BEGIN_STMT							\
+    if (!(TEST_EXPR))							\
+      {								\
+	jit_error ((CTXT), "%s: " ERR_FMT,				\
+		   __func__, (A0), (A1));				\
 	return;							\
       }								\
   JIT_END_STMT
@@ -330,7 +367,7 @@ gcc_jit_field_as_object (gcc_jit_field *field)
   return static_cast <gcc_jit_object *> (field->as_object ());
 }
 
-gcc_jit_type *
+gcc_jit_struct *
 gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 				 gcc_jit_location *loc,
 				 const char *name,
@@ -352,10 +389,61 @@ gcc_jit_context_new_struct_type (gcc_jit_context *ctxt,
 	fields[i]->get_container ()->get_debug_string ());
     }
 
-  return (gcc_jit_type *)ctxt->new_struct_type (loc, name, num_fields,
-						(gcc::jit::recording::field **)fields);
+  gcc::jit::recording::struct_ *result =
+    ctxt->new_struct_type (loc, name);
+  result->set_fields (loc,
+		      num_fields,
+		      (gcc::jit::recording::field **)fields);
+  return static_cast<gcc_jit_struct *> (result);
 }
 
+gcc_jit_struct *
+gcc_jit_context_new_opaque_struct (gcc_jit_context *ctxt,
+				   gcc_jit_location *loc,
+				   const char *name)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
+  RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
+
+  return (gcc_jit_struct *)ctxt->new_struct_type (loc, name);
+}
+
+gcc_jit_type *
+gcc_jit_struct_as_type (gcc_jit_struct *struct_type)
+{
+  RETURN_NULL_IF_FAIL (struct_type, NULL, "NULL struct_type");
+
+  return static_cast <gcc_jit_type *> (struct_type->as_type ());
+}
+
+void
+gcc_jit_struct_set_fields (gcc_jit_struct *struct_type,
+			   gcc_jit_location *loc,
+			   int num_fields,
+			   gcc_jit_field **fields)
+{
+  RETURN_IF_FAIL (struct_type, NULL, "NULL struct_type");
+  gcc::jit::recording::context *ctxt = struct_type->m_ctxt;
+  RETURN_IF_FAIL_PRINTF1 (
+    NULL == struct_type->get_fields (), ctxt,
+    "%s already has had fields set",
+    struct_type->get_debug_string ());
+  if (num_fields)
+    RETURN_IF_FAIL (fields, ctxt, "NULL fields ptr");
+  for (int i = 0; i < num_fields; i++)
+    {
+      RETURN_IF_FAIL (fields[i], ctxt, "NULL field ptr");
+      RETURN_IF_FAIL_PRINTF2 (
+	NULL == fields[i]->get_container (),
+	ctxt,
+	"%s is already a field of %s",
+	fields[i]->get_debug_string (),
+	fields[i]->get_container ()->get_debug_string ());
+    }
+
+  struct_type->set_fields (loc, num_fields,
+			   (gcc::jit::recording::field **)fields);
+}
 
 /* Constructing functions.  */
 gcc_jit_param *
@@ -597,6 +685,16 @@ gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
 }
 
 gcc_jit_rvalue *
+gcc_jit_context_null (gcc_jit_context *ctxt,
+		      gcc_jit_type *pointer_type)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
+  RETURN_NULL_IF_FAIL (pointer_type, ctxt, "NULL type");
+
+  return gcc_jit_context_new_rvalue_from_ptr (ctxt, pointer_type, NULL);
+}
+
+gcc_jit_rvalue *
 gcc_jit_context_new_string_literal (gcc_jit_context *ctxt,
 				    const char *value)
 {
@@ -751,7 +849,11 @@ gcc_jit_lvalue_access_field (gcc_jit_lvalue *struct_,
 			     gcc_jit_field *field)
 {
   RETURN_NULL_IF_FAIL (struct_, NULL, "NULL struct");
-  RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
+  gcc::jit::recording::context *ctxt = struct_->m_ctxt;
+  RETURN_NULL_IF_FAIL (field, ctxt, "NULL field");
+  RETURN_NULL_IF_FAIL_PRINTF1 (field->get_container (), field->m_ctxt,
+			       "field %s has not been placed in a struct",
+			       field->get_debug_string ());
 
   return (gcc_jit_lvalue *)struct_->access_field (loc, field);
 }
@@ -762,7 +864,11 @@ gcc_jit_rvalue_access_field (gcc_jit_rvalue *struct_,
 			     gcc_jit_field *field)
 {
   RETURN_NULL_IF_FAIL (struct_, NULL, "NULL struct");
-  RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
+  gcc::jit::recording::context *ctxt = struct_->m_ctxt;
+  RETURN_NULL_IF_FAIL (field, ctxt, "NULL field");
+  RETURN_NULL_IF_FAIL_PRINTF1 (field->get_container (), field->m_ctxt,
+			       "field %s has not been placed in a struct",
+			       field->get_debug_string ());
 
   return (gcc_jit_rvalue *)struct_->access_field (loc, field);
 }
@@ -912,6 +1018,15 @@ gcc_jit_function_add_assignment_op (gcc_jit_function *func,
   return func->add_assignment_op (loc, lvalue, op, rvalue);
 }
 
+static bool
+is_bool (gcc_jit_rvalue *boolval)
+{
+  gcc::jit::recording::type *actual_type = boolval->get_type ();
+  gcc::jit::recording::type *bool_type =
+    boolval->m_ctxt->get_type (GCC_JIT_TYPE_BOOL);
+  return actual_type == bool_type;
+}
+
 void
 gcc_jit_function_add_conditional (gcc_jit_function *func,
 				  gcc_jit_location *loc,
@@ -920,8 +1035,14 @@ gcc_jit_function_add_conditional (gcc_jit_function *func,
 				  gcc_jit_label *on_false)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (boolval, NULL, "NULL boolval");
-  RETURN_IF_FAIL (on_true, NULL, "NULL on_true");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (boolval, ctxt, "NULL boolval");
+  RETURN_IF_FAIL_PRINTF2 (
+   is_bool (boolval), ctxt,
+   "%s (type: %s) is not of boolean type ",
+   boolval->get_debug_string (),
+   boolval->get_type ()->get_debug_string ());
+  RETURN_IF_FAIL (on_true, ctxt, "NULL on_true");
   /* on_false can be NULL */
 
   return func->add_conditional (loc, boolval, on_true, on_false);
@@ -980,7 +1101,13 @@ gcc_jit_function_new_loop (gcc_jit_function *func,
 			   gcc_jit_rvalue *boolval)
 {
   RETURN_NULL_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_NULL_IF_FAIL (boolval, NULL, "NULL boolval");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_NULL_IF_FAIL (boolval, ctxt, "NULL boolval");
+  RETURN_NULL_IF_FAIL_PRINTF2 (
+   is_bool (boolval), ctxt,
+   "%s (type: %s) is not of boolean type ",
+   boolval->get_debug_string (),
+   boolval->get_type ()->get_debug_string ());
 
   return (gcc_jit_loop *)func->new_loop (loc, boolval, NULL, NULL);
 }

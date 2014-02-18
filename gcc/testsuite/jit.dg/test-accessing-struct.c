@@ -42,9 +42,10 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                int_type,
                                "z");
   gcc_jit_field *fields[] = {x, y, z};
-  gcc_jit_type *struct_type =
+  gcc_jit_struct *struct_type =
     gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 3, fields);
-  gcc_jit_type *ptr_type = gcc_jit_type_get_pointer (struct_type);
+  gcc_jit_type *ptr_type =
+    gcc_jit_type_get_pointer (gcc_jit_struct_as_type (struct_type));
 
   /* Build the test function.  */
   gcc_jit_param *param_f =

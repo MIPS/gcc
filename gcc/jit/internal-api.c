@@ -211,9 +211,15 @@ recording::context::get_type (enum gcc_jit_types kind)
      give the same object.  */
   if (!m_basic_types[kind])
     {
-      recording::type *result = new memento_of_get_type (this, kind);
-      record (result);
-      m_basic_types[kind] = result;
+      /* For basic types, use them from the parent ctxt.  */
+      if (m_parent_ctxt)
+	m_basic_types[kind] = m_parent_ctxt->get_type (kind);
+      else
+	{
+	  recording::type *result = new memento_of_get_type (this, kind);
+	  record (result);
+	  m_basic_types[kind] = result;
+	}
     }
 
   return m_basic_types[kind];
@@ -278,18 +284,11 @@ recording::context::new_field (recording::location *loc,
   return result;
 }
 
-recording::type *
+recording::struct_ *
 recording::context::new_struct_type (recording::location *loc,
-				     const char *name,
-				     int num_fields,
-				     field **fields)
+				     const char *name)
 {
-  vec<field *> vec_fields;
-  vec_fields.create (num_fields);
-  for (int i = 0; i < num_fields; i++)
-    vec_fields.safe_push (fields[i]);
-  recording::type *result = new struct_ (this, loc, new_string (name),
-			      vec_fields);
+  recording::struct_ *result = new struct_ (this, loc, new_string (name));
   record (result);
   return result;
 }
@@ -545,7 +544,7 @@ recording::type *
 recording::context::get_opaque_FILE_type ()
 {
   if (!m_FILE_type)
-    m_FILE_type = new_struct_type (NULL, "FILE", 0, NULL);
+    m_FILE_type = new_struct_type (NULL, "FILE");
   return m_FILE_type;
 }
 
@@ -918,19 +917,24 @@ recording::field::make_debug_string ()
 /* gcc::jit::recording::struct_:: */
 recording::struct_::struct_ (context *ctxt,
 			     location *loc,
-			     string *name,
-			     vec<field *> fields)
+			     string *name)
 : type (ctxt),
   m_loc (loc),
   m_name (name),
-  m_fields (fields)
+  m_fields (NULL)
 {
-  /* Mark all fields as belonging to the new struct: */
-  for (unsigned i = 0; i < fields.length (); i++)
-    {
-      gcc_assert (m_fields[i]->get_container () == NULL);
-      m_fields[i]->set_container (this);
-    }
+}
+
+void
+recording::struct_::set_fields (location *loc,
+				int num_fields,
+				field **field_array)
+{
+  m_loc = loc;
+  gcc_assert (NULL == m_fields);
+
+  m_fields = new fields (this, num_fields, field_array);
+  m_ctxt->record (m_fields);
 }
 
 recording::type *
@@ -942,15 +946,9 @@ recording::struct_::dereference ()
 void
 recording::struct_::replay_into (replayer *r)
 {
-  vec<playback::field *> playback_fields;
-  playback_fields.create (m_fields.length ());
-  for (unsigned i = 0; i < m_fields.length (); i++)
-    playback_fields.safe_push (m_fields[i]->playback_field ());
-
   set_playback_obj (
     r->new_struct_type (playback_location (m_loc),
-			m_name->c_str (),
-			&playback_fields));
+			m_name->c_str ()));
 }
 
 recording::string *
@@ -958,6 +956,39 @@ recording::struct_::make_debug_string ()
 {
   return string::from_printf (m_ctxt,
 			      "struct %s", m_name->c_str ());
+}
+
+/* gcc::jit::recording::fields:: */
+recording::fields::fields (struct_ *struct_,
+			   int num_fields,
+			   field **fields)
+: memento (struct_->m_ctxt),
+  m_struct (struct_),
+  m_fields ()
+{
+  for (int i = 0; i < num_fields; i++)
+    {
+      gcc_assert (fields[i]->get_container () == NULL);
+      fields[i]->set_container (m_struct);
+      m_fields.safe_push (fields[i]);
+    }
+}
+
+void
+recording::fields::replay_into (replayer *)
+{
+  vec<playback::field *> playback_fields;
+  playback_fields.create (m_fields.length ());
+  for (unsigned i = 0; i < m_fields.length (); i++)
+    playback_fields.safe_push (m_fields[i]->playback_field ());
+  m_struct->playback_struct ()->set_fields (playback_fields);
+}
+
+recording::string *
+recording::fields::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "fields");
 }
 
 /* gcc::jit::recording::rvalue:: */
@@ -1937,25 +1968,35 @@ new_field (location *loc,
   return new field (decl);
 }
 
-playback::type *
+playback::struct_ *
 playback::context::
 new_struct_type (location *loc,
-		 const char *name,
-		 vec<field *> *fields)
+		 const char *name)
 {
   gcc_assert (name);
-  gcc_assert (fields);
 
-  /* Compare with c/c-decl.c: start_struct and finish_struct. */
+  /* Compare with c/c-decl.c: start_struct. */
 
   tree t = make_node (RECORD_TYPE);
   TYPE_NAME (t) = get_identifier (name);
   TYPE_SIZE (t) = 0;
 
+  if (loc)
+    set_tree_location (t, loc);
+
+  return new struct_ (t);
+}
+
+void
+playback::struct_::set_fields (const vec<playback::field *> &fields)
+{
+  /* Compare with c/c-decl.c: finish_struct. */
+  tree t = as_tree ();
+
   tree fieldlist = NULL;
-  for (unsigned i = 0; i < fields->length (); i++)
+  for (unsigned i = 0; i < fields.length (); i++)
     {
-      field *f = (*fields)[i];
+      field *f = fields[i];
       DECL_CONTEXT (f->as_tree ()) = t;
       fieldlist = chainon (f->as_tree (), fieldlist);
     }
@@ -1963,11 +2004,6 @@ new_struct_type (location *loc,
   TYPE_FIELDS (t) = fieldlist;
 
   layout_type (t);
-
-  if (loc)
-    set_tree_location (t, loc);
-
-  return new type (t);
 }
 
 playback::type *

@@ -1,5 +1,87 @@
 2014-02-18  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (gcc_jit_struct): New.
+	(gcc_jit_context_new_struct_type): Change return type from gcc_jit_type
+	to gcc_jit_struct.
+	(gcc_jit_context_new_opaque_struct): New.
+	(gcc_jit_struct_as_type): New.
+	(gcc_jit_struct_set_fields): New.
+	(gcc_jit_context_null): New.
+
+	* libgccjit.map (gcc_jit_context_new_opaque_struct): New.
+	(gcc_jit_context_null): New.
+	(gcc_jit_struct_as_type): New.
+	(gcc_jit_struct_set_fields): New.
+
+	* libgccjit++.h (gccjit::context::new_struct_type): Return a
+	struct_ rather than a type.
+	(gccjit::context::new_opaque_struct_type): New.
+	(gccjit::struct_): New subclass of type.
+
+	* libgccjit.c (gcc_jit_struct): New.
+	(RETURN_VAL_IF_FAIL_PRINTF1): New.
+	(RETURN_VAL_IF_FAIL_PRINTF2): New.
+	(RETURN_NULL_IF_FAIL_PRINTF1): New.
+	(RETURN_IF_FAIL_PRINTF1): New.
+	(RETURN_IF_FAIL_PRINTF2): New.
+	(gcc_jit_context_new_struct_type): Return a gcc_jit_struct rather
+	than a gcc_jit_type; implement by creating the struct, then
+	setting the fields in it.
+	(gcc_jit_context_new_opaque_struct): New.
+	(gcc_jit_struct_as_type): New.
+	(gcc_jit_struct_set_fields): New.
+	(gcc_jit_context_null): New.
+	(gcc_jit_lvalue_access_field): Use the struct's context when
+	reporting on a NULL field; verify that the field has been placed
+	in a struct.
+	(gcc_jit_rvalue_access_field): Likewise.
+	(is_bool): New.
+	(gcc_jit_function_add_conditional): Use the function's context
+	when reporting errors; verify that boolval's type is indeed
+	boolean.
+	(gcc_jit_function_new_loop): Likewise.
+
+	* internal-api.h (gcc::jit::recording::context::new_struct_type):
+	Don't accept fields, and return a struct_ rather than a type_, so
+	that fields can be set later.
+	(gcc::jit::recording::struct_::struct_): Store a (fields *) rather
+	than a vec of fields.
+	(gcc::jit::recording::struct_::as_type): New.
+	(gcc::jit::recording::struct_::get_fields): New.
+	(gcc::jit::recording::struct_::set_fields): New.
+	(gcc::jit::recording::struct_::playback_struct): New.
+	(gcc::jit::recording::fields): New class.
+	(gcc::jit::playback::context::new_struct_type): Don't accept
+	fields, and return a struct_ rather than a type_, so that fields
+	can be set later.
+	(gcc::jit::playback::struct_): New subclass of type.
+
+	* internal-api.c (gcc::jit::recording::context::get_type): With
+	nested contexts, create basic types within the ultimate parent
+	context, allowing for a fast check for the boolean type using
+	pointer equality.
+	(gcc::jit::recording::context::new_struct_type): Don't accept
+	fields, and return a struct_ rather than a type_, so that fields
+	can be set later.
+	(gcc::jit::recording::context::get_opaque_FILE_type): Update for
+	struct-creation changes.
+	(gcc::jit::recording::struct_::struct_): Store a (fields *) rather
+	than a vec of fields.
+	(gcc::jit::recording::struct_::set_fields): New.
+	(gcc::jit::recording::struct_::replay_into): Don't playback the
+	fields, as this is now done by a fields instance.
+	(gcc::jit::recording::fields::fields): New.
+	(gcc::jit::recording::fields::replay_into): New.
+	(gcc::jit::recording::fields::make_debug_string): New.
+	(gcc::jit:: playback::context::new_struct_type): Don't accept
+	fields, and return a struct_ rather than a type_, so that fields
+	can be set later.
+	(gcc::jit::playback::struct_::set_fields): New.
+
+	* TODO.rst: Update.
+
+2014-02-18  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.c (gcc_jit_function_new_local): Use the context of the
 	function when reporting errors.
 	(gcc_jit_function_place_forward_label): Likewise.

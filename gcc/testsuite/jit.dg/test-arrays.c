@@ -53,7 +53,7 @@ create_code (gcc_jit_context *ctxt, void *user_data)
     field_m_after,
   };
 
-  gcc_jit_type *struct_type =
+  gcc_jit_struct *struct_type =
     gcc_jit_context_new_struct_type (
       ctxt,
       NULL,
@@ -61,7 +61,7 @@ create_code (gcc_jit_context *ctxt, void *user_data)
       3, fields);
 
   gcc_jit_type *struct_ptr_type =
-    gcc_jit_type_get_pointer (struct_type);
+    gcc_jit_type_get_pointer (gcc_jit_struct_as_type (struct_type));
 
   /* Build the test_fn.  */
   gcc_jit_param *param_ah =

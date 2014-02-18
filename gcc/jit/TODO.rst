@@ -18,23 +18,6 @@ Initial Release
   * more types:
     * unions
     * function ptrs
-    * explicitly opaque structs, perhaps:
-
-        extern gcc_jit_type *
-        gcc_jit_context_new_opaque_struct (gcc_jit_context *ctxt,
-                                           const char *name);
-
-    * ability to create self-referential structs, or cycles in the graph:
-
-         struct foo { struct bar *m_bar; }
-         struct bar { struct foo *m_foo; }
-
-    * get int type with given number of either bits or bytes:
-
-        extern gcc_jit_type *
-        gcc_jit_context_get_int_type (gcc_jit_context *ctxt,
-                                      int num_bytes,
-                                      int is_signed);
 
   * ability to bind a pre-existing global variable
 
@@ -109,12 +92,11 @@ Initial Release
 
     * gcc_jit_context_new_rvalue_from_int: must be a numeric type
 
-    * gcc_jit_context_zero: must be a numeric type.  If we do this should
-      we introduce a gcc_jit_context_null for pointer types?  (you can do
-      this via gcc_jit_context_new_rvalue_from_ptr, but having an explicit
-      hook is friendlier).
+    * gcc_jit_context_zero: must be a numeric type
 
     * gcc_jit_context_one: must be a numeric type
+
+    * gcc_jit_context_null: must be a pointer type
 
     * gcc_jit_context_new_rvalue_from_double: must be a numeric type
 

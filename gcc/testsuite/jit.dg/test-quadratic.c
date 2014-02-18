@@ -115,8 +115,9 @@ make_types (struct quadratic_test *testcase)
 			     testcase->c,
 			     testcase->discriminant};
   testcase->quadratic =
-    gcc_jit_context_new_struct_type (testcase->ctxt, NULL,
-				     "quadratic", 4, fields);
+    gcc_jit_struct_as_type (
+      gcc_jit_context_new_struct_type (testcase->ctxt, NULL,
+				       "quadratic", 4, fields));
   testcase->quadratic_ptr = gcc_jit_type_get_pointer (testcase->quadratic);
 }
 

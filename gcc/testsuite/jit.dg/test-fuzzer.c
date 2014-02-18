@@ -212,14 +212,14 @@ make_random_type (fuzzer *f)
 	  }
 	char struct_name[256];
 	sprintf (struct_name, "s%i", f->num_types);
-	gcc_jit_type *struct_ = \
+	gcc_jit_struct *struct_ = \
 	  gcc_jit_context_new_struct_type (f->ctxt,
 					   get_random_location (f),
 					   struct_name,
 					   num_fields,
 					   fields);
 	free (fields);
-	return struct_;
+	return gcc_jit_struct_as_type (struct_);
       }
     }
 }

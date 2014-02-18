@@ -1,3 +1,23 @@
+2014-02-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-accessing-struct.c (create_code): Update for change to
+	return type of gcc_jit_context_new_struct_type.
+	* jit.dg/test-arrays.c (create_code): Likewise.
+	* jit.dg/test-error-accessing-field-in-other-struct.c (create_code):
+	Likewise.
+	* jit.dg/test-error-dereference-field-of-non-pointer.c (create_code):
+	Likewise.
+	* jit.dg/test-fuzzer.c (make_random_type): Likewise.
+	* jit.dg/test-nested-contexts.c (make_types): Likewise.
+	* jit.dg/test-quadratic.c (make_types): Likewise.
+	* jit.dg/test-reading-struct.c (create_code): Likewise.
+	* jit.dg/test-types.c (create_code): Likewise.
+
+	* jit.dg/test-linked-list.c: New selftest, exercising
+	gcc_jit_context_new_opaque_struct, gcc_jit_type_get_pointer, and
+	gcc_jit_context_null.
+	* jit.dg/test-combination.c: Add test-linked-list.c
+
 2014-02-14  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-operator-overloading.cc (make_test_quadratic): Use

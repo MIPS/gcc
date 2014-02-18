@@ -18,6 +18,7 @@
     gcc_jit_context_new_function;
     gcc_jit_context_new_global;
     gcc_jit_context_new_location;
+    gcc_jit_context_new_opaque_struct;
     gcc_jit_context_new_param;
     gcc_jit_context_new_rvalue_from_double;
     gcc_jit_context_new_rvalue_from_int;
@@ -25,6 +26,7 @@
     gcc_jit_context_new_string_literal;
     gcc_jit_context_new_struct_type;
     gcc_jit_context_new_unary_op;
+    gcc_jit_context_null;
     gcc_jit_context_one;
     gcc_jit_context_release;
     gcc_jit_context_set_bool_option;
@@ -67,6 +69,8 @@
     gcc_jit_rvalue_dereference;
     gcc_jit_rvalue_dereference_field;
     gcc_jit_rvalue_get_type;
+    gcc_jit_struct_as_type;
+    gcc_jit_struct_set_fields;
     gcc_jit_type_as_object;
     gcc_jit_type_get_const;
     gcc_jit_type_get_pointer;

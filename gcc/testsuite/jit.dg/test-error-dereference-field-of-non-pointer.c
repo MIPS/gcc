@@ -40,7 +40,7 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                int_type,
                                "y");
   gcc_jit_field *foo_fields[] = {x, y};
-  gcc_jit_type *struct_foo =
+  gcc_jit_struct *struct_foo =
     gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 2, foo_fields);
 
   /* Build the test function.  */
@@ -52,7 +52,9 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                   0, NULL,
                                   0);
   gcc_jit_lvalue *tmp =
-    gcc_jit_function_new_local (test_fn, NULL, struct_foo, "tmp");
+    gcc_jit_function_new_local (test_fn, NULL,
+				gcc_jit_struct_as_type (struct_foo),
+				"tmp");
 
   /* Erroneous: tmp->x = ... */
   gcc_jit_lvalue *lvalue =

@@ -136,8 +136,9 @@ make_types (struct top_level *top_level)
 			     top_level->c,
 			     top_level->discriminant};
   top_level->struct_quadratic =
-    gcc_jit_context_new_struct_type (top_level->ctxt, NULL,
-				     "quadratic", 4, fields);
+    gcc_jit_struct_as_type (
+      gcc_jit_context_new_struct_type (top_level->ctxt, NULL,
+				       "quadratic", 4, fields));
   top_level->quadratic_ptr =
     gcc_jit_type_get_pointer (top_level->struct_quadratic);
 }

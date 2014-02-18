@@ -19,6 +19,7 @@ namespace gccjit
   class location;
   class field;
   class type;
+  class struct_;
   class param;
   class function;
   class label;
@@ -97,9 +98,12 @@ namespace gccjit
     field new_field (type type_, const std::string &name,
 		     location loc = location ());
 
-    type new_struct_type (const std::string &name,
-			  std::vector<field> &fields,
-			  location loc = location ());
+    struct_ new_struct_type (const std::string &name,
+			     std::vector<field> &fields,
+			     location loc = location ());
+
+    struct_ new_opaque_struct_type (const std::string &name,
+				    location loc = location ());
 
     param new_param (type type_,
 		     const std::string &name,
@@ -263,6 +267,15 @@ namespace gccjit
     rvalue zero ();
     rvalue one ();
  };
+
+  class struct_ : public type
+  {
+  public:
+    struct_ ();
+    struct_ (gcc_jit_struct *inner);
+
+    gcc_jit_struct *get_inner_struct () const;
+  };
 
   class function : public object
   {
@@ -525,7 +538,7 @@ context::new_field (type type_, const std::string &name, location loc)
 					   name.c_str ()));
 }
 
-inline type
+inline struct_
 context::new_struct_type (const std::string &name,
 			  std::vector<field> &fields,
 			  location loc)
@@ -538,11 +551,21 @@ context::new_struct_type (const std::string &name,
   gcc_jit_field **as_array_of_ptrs =
     reinterpret_cast<gcc_jit_field **> (as_array_of_wrappers);
 
-  return type (gcc_jit_context_new_struct_type (m_inner_ctxt,
-						loc.get_inner_location (),
-						name.c_str (),
-						fields.size (),
-						as_array_of_ptrs));
+  return struct_ (gcc_jit_context_new_struct_type (m_inner_ctxt,
+						   loc.get_inner_location (),
+						   name.c_str (),
+						   fields.size (),
+						   as_array_of_ptrs));
+}
+
+inline struct_
+context::new_opaque_struct_type (const std::string &name,
+				 location loc)
+{
+  return struct_ (gcc_jit_context_new_opaque_struct (
+		    m_inner_ctxt,
+		    loc.get_inner_location (),
+		    name.c_str ()));
 }
 
 inline param
@@ -1018,6 +1041,20 @@ inline rvalue
 type::one ()
 {
   return get_context ().new_rvalue (*this, 1);
+}
+
+// class struct_
+inline struct_::struct_ () : type (NULL) {}
+inline struct_::struct_ (gcc_jit_struct *inner) :
+  type (gcc_jit_struct_as_type (inner))
+{
+}
+
+inline gcc_jit_struct *
+struct_::get_inner_struct () const
+{
+  /* Manual downcast: */
+  return reinterpret_cast<gcc_jit_struct *> (get_inner_object ());
 }
 
 // class function

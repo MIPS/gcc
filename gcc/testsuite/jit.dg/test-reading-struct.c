@@ -45,7 +45,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                "y");
   gcc_jit_field *fields[] = {x, y};
   gcc_jit_type *struct_type =
-    gcc_jit_context_new_struct_type (ctxt, NULL, "bar", 2, fields);
+    gcc_jit_struct_as_type (
+      gcc_jit_context_new_struct_type (ctxt, NULL, "bar", 2, fields));
   gcc_jit_type *const_struct_type = gcc_jit_type_get_const (struct_type);
   gcc_jit_type *ptr_type = gcc_jit_type_get_pointer (const_struct_type);
 

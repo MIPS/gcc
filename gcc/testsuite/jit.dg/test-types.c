@@ -161,12 +161,13 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   };
 
   gcc_jit_type *zoo_type =
-    gcc_jit_context_new_struct_type (
-      ctxt,
-      NULL,
-      "zoo",
-      sizeof (zoo_fields) / sizeof (zoo_fields[0]),
-      zoo_fields);
+    gcc_jit_struct_as_type (
+      gcc_jit_context_new_struct_type (
+        ctxt,
+	NULL,
+	"zoo",
+	sizeof (zoo_fields) / sizeof (zoo_fields[0]),
+	zoo_fields));
 
   gcc_jit_type *zoo_ptr_type =
     gcc_jit_type_get_pointer (zoo_type);
