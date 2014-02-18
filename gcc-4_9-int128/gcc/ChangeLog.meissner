@@ -1,3 +1,58 @@
+2014-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_L): Add V1TImode for 'vector
+	__int128_t' to implement RFC 2247, 128-bit integer arithmetic.
+	This provides for moves, logical operations, and reload support
+	functions.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(VEC_R): Likewise.
+	(VEC_base): Likewise.
+
+	* config/rs6000/rs6000-modes.def (V1TImode): Define vector
+	versions of TImode.
+	(V2TImode): Likewise.
+
+	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Re-enable
+	-mvsx-timode for power7 and above.
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): If
+	-mdebug=reg, add debug support for V1TImode and V2TImode.
+	(rs6000_init_hard_regno_mode_ok): Set up to allow V1TImode in VSX
+	registers, and add basic reload support.
+	(rs6000_preferred_simd_mode): Add support for V1TImode.
+	(const_vector_elt_as_int): Likewise.
+	(vsplitis_constant): Likewise.
+	(easy_altivec_constant): Likewise.
+	(output_vec_const_move): Likewise.
+	(rs6000_const_vec): Likewise.
+	(rs6000_emit_move): Likewise.
+
+	* config/rs6000/vsx.md (VSX_L): Add V1TImode to basic VSX type
+	mode iterators.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSm): Likewise.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSv): Likewise.
+	(VS_scalar): Likewise.
+	(VS_double): Likewise.
+
+	* config/rs6000/altivec.md (VM): Add V1TImode to basic Altivec
+	type mode iterators.
+	(VM2): Likewise.
+	(VI_unit): Likewise.
+
+	* config/rs6000/rs6000.md (FMOVE128_GPR): Add V1TImode to 128-bit
+	vector mode iterator.
+	(BOOL_128): Add V1TImode.
+	(BOOL_REGS_OUTPUT): Likewise.
+	(BOOL_REGS_OP1): Likewise.
+	(BOOL_REGS_OP2): Likewise.
+	(BOOL_REGS_UNARY): Likewise.
+	(BOOL_REGS_AND_CR0): Likewise.
+
 2014-02-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 207735.

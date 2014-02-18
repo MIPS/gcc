@@ -38,13 +38,12 @@
 
   /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
      altivec is a win so enable it.  */
-  /* OPTION_MASK_VSX_TIMODE should be set, but disable it for now until
-     PR 58587 is fixed.  */
 #define ISA_2_6_MASKS_EMBEDDED	(ISA_2_5_MASKS_EMBEDDED | OPTION_MASK_POPCNTD)
 #define ISA_2_6_MASKS_SERVER	(ISA_2_5_MASKS_SERVER			\
 				 | OPTION_MASK_POPCNTD			\
 				 | OPTION_MASK_ALTIVEC			\
-				 | OPTION_MASK_VSX)
+				 | OPTION_MASK_VSX			\
+				 | OPTION_MASK_VSX_TIMODE)
 
 /* For now, don't provide an embedded version of ISA 2.07.  */
 #define ISA_2_7_MASKS_SERVER	(ISA_2_6_MASKS_SERVER			\

@@ -34,11 +34,11 @@
 (define_mode_iterator VSX_F [V4SF V2DF])
 
 ;; Iterator for logical types supported by VSX
-(define_mode_iterator VSX_L [V16QI V8HI V4SI V2DI V4SF V2DF TI])
+(define_mode_iterator VSX_L [V16QI V8HI V4SI V2DI V4SF V2DF V1TI TI])
 
 ;; Iterator for memory move.  Handle TImode specially to allow
 ;; it to use gprs as well as vsx registers.
-(define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF])
+(define_mode_iterator VSX_M [V16QI V8HI V4SI V2DI V4SF V2DF V1TI])
 
 (define_mode_iterator VSX_M2 [V16QI
 			      V8HI
@@ -46,6 +46,7 @@
 			      V2DI
 			      V4SF
 			      V2DF
+			      V1TI
 			      (TI	"TARGET_VSX_TIMODE")])
 
 ;; Map into the appropriate load/store name based on the type
@@ -56,6 +57,7 @@
 			(V2DF  "vd2")
 			(V2DI  "vd2")
 			(DF    "d")
+			(V1TI  "vd2")
 			(TI    "vd2")])
 
 ;; Map into the appropriate suffix based on the type
@@ -67,6 +69,7 @@
 			 (V2DI  "dp")
 			 (DF    "dp")
 			 (SF	"sp")
+			 (V1TI  "dp")
 			 (TI    "dp")])
 
 ;; Map the register class used
@@ -78,6 +81,7 @@
 			 (V2DF  "wd")
 			 (DF    "ws")
 			 (SF	"d")
+			 (V1TI  "v")
 			 (TI    "wt")])
 
 ;; Map the register class used for float<->int conversions
@@ -123,6 +127,7 @@
 			 (V4SF  "v")
 			 (V2DI  "v")
 			 (V2DF  "v")
+			 (V1TI  "v")
 			 (DF    "s")])
 
 ;; Appropriate type for add ops (and other simple FP ops)
@@ -180,7 +185,8 @@
 				(V2DF	"vecdouble")])
 
 ;; Map the scalar mode for a vector type
-(define_mode_attr VS_scalar [(V2DF	"DF")
+(define_mode_attr VS_scalar [(V1TI	"TI")
+			     (V2DF	"DF")
 			     (V2DI	"DI")
 			     (V4SF	"SF")
 			     (V4SI	"SI")
@@ -191,7 +197,8 @@
 (define_mode_attr VS_double [(V4SI	"V8SI")
 			     (V4SF	"V8SF")
 			     (V2DI	"V4DI")
-			     (V2DF	"V4DF")])
+			     (V2DF	"V4DF")
+			     (V1TI	"V2TI")])
 
 ;; Constants for creating unspecs
 (define_c_enum "unspec"
