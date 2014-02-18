@@ -827,11 +827,12 @@ gcc_jit_function_new_local (gcc_jit_function *func,
 			    const char *name)
 {
   RETURN_NULL_IF_FAIL (func, NULL, "NULL function");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
   RETURN_NULL_IF_FAIL (func->get_kind () != GCC_JIT_FUNCTION_IMPORTED,
-		       NULL,
+		       ctxt,
 		       "Cannot add locals to an imported function");
-  RETURN_NULL_IF_FAIL (type, NULL, "NULL type");
-  RETURN_NULL_IF_FAIL (name, NULL, "NULL name");
+  RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL (name, ctxt, "NULL name");
 
   return (gcc_jit_lvalue *)func->new_local (loc, type, name);
 }
@@ -853,7 +854,8 @@ gcc_jit_function_place_forward_label (gcc_jit_function *func,
 				      gcc_jit_label *lab)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (lab, NULL, "NULL label");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (lab, ctxt, "NULL label");
 
   func->place_forward_label (loc, lab);
 }
@@ -864,7 +866,8 @@ gcc_jit_function_add_eval (gcc_jit_function *func,
 			   gcc_jit_rvalue *rvalue)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (rvalue, NULL, "NULL rvalue");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
 
   return func->add_eval (loc, rvalue);
 }
@@ -901,9 +904,10 @@ gcc_jit_function_add_assignment_op (gcc_jit_function *func,
 				    gcc_jit_rvalue *rvalue)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (lvalue, NULL, "NULL lvalue");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (lvalue, ctxt, "NULL lvalue");
   /* FIXME: op is checked by new_binary_op */
-  RETURN_IF_FAIL (rvalue, NULL, "NULL rvalue");
+  RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
 
   return func->add_assignment_op (loc, lvalue, op, rvalue);
 }
@@ -929,7 +933,8 @@ gcc_jit_function_add_comment (gcc_jit_function *func,
 			      const char *text)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (text, NULL, "NULL text");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (text, ctxt, "NULL text");
 
   func->add_comment (loc, text);
 }
@@ -940,7 +945,8 @@ gcc_jit_function_add_jump (gcc_jit_function *func,
 			gcc_jit_label *target)
 {
   RETURN_IF_NOT_FUNC_DEFINITION (func);
-  RETURN_IF_FAIL (target, NULL, "NULL target");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (target, ctxt, "NULL target");
 
   func->add_jump (loc, target);
 }

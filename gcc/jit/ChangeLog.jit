@@ -1,3 +1,13 @@
+2014-02-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.c (gcc_jit_function_new_local): Use the context of the
+	function when reporting errors.
+	(gcc_jit_function_place_forward_label): Likewise.
+	(gcc_jit_function_add_eval): Likewise.
+	(gcc_jit_function_add_assignment_op): Likewise.
+	(gcc_jit_function_add_comment): Likewise.
+	(gcc_jit_function_add_jump): Likewise.
+
 2014-02-14  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit++.h (gccjit::type::zero): New method.
