@@ -10974,6 +10974,23 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
   if (label_ctx == branch_ctx)
     return false;
 
+  const char* kind = NULL;
+
+  if (flag_cilkplus)
+    {
+      if ((branch_ctx
+	   && gimple_code (branch_ctx) == GIMPLE_OMP_FOR
+	   && gimple_omp_for_kind (branch_ctx) == GF_OMP_FOR_KIND_CILKSIMD)
+	  || (label_ctx
+	      && gimple_code (label_ctx) == GIMPLE_OMP_FOR
+	      && gimple_omp_for_kind (label_ctx) == GF_OMP_FOR_KIND_CILKSIMD))
+	kind = "Cilk Plus";
+    }
+  if (kind == NULL)
+    {
+      gcc_assert (flag_openmp);
+      kind = "OpenMP";
+    }
 
   /*
      Previously we kept track of the label's entire context in diagnose_sb_[12]
@@ -11006,38 +11023,18 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
     }
 
   if (exit_p)
-    error ("invalid exit from OpenMP structured block");
+    error ("invalid exit from %s structured block", kind);
   else
-    error ("invalid entry to OpenMP structured block");
+    error ("invalid entry to %s structured block", kind);
 #endif
-
-  bool cilkplus_block = false;
-  if (flag_cilkplus)
-    {
-      if ((branch_ctx
-	   && gimple_code (branch_ctx) == GIMPLE_OMP_FOR
-	   && gimple_omp_for_kind (branch_ctx) == GF_OMP_FOR_KIND_CILKSIMD)
-	  || (label_ctx
-	      && gimple_code (label_ctx) == GIMPLE_OMP_FOR
-	      && gimple_omp_for_kind (label_ctx) == GF_OMP_FOR_KIND_CILKSIMD))
-	cilkplus_block = true;
-    }
 
   /* If it's obvious we have an invalid entry, be specific about the error.  */
   if (branch_ctx == NULL)
-    {
-      if (cilkplus_block)
-	error ("invalid entry to Cilk Plus structured block");
-      else
-	error ("invalid entry to OpenMP structured block");
-    }
+    error ("invalid entry to %s structured block", kind);
   else
     {
       /* Otherwise, be vague and lazy, but efficient.  */
-      if (cilkplus_block)
-	error ("invalid branch to/from a Cilk Plus structured block");
-      else
-	error ("invalid branch to/from an OpenMP structured block");
+      error ("invalid branch to/from %s structured block", kind);
     }
 
   gsi_replace (gsi_p, gimple_build_nop (), false);

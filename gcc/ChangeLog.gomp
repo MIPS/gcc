@@ -1,3 +1,8 @@
+2014-02-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (diagnose_sb_0): Generalize detection which kind of
+	structured block we're in.
+
 2014-02-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree-core.h (omp_clause_code) <map>: Mention pcopy, pcopyin,

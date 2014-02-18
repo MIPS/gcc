@@ -1,3 +1,31 @@
+2014-02-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* g++.dg/gomp/block-1.C: Adjust to changed error message and/or
+	tighten matching rules.
+	* g++.dg/gomp/block-2.C: Likewise.
+	* g++.dg/gomp/block-3.C: Likewise.
+	* g++.dg/gomp/block-5.C: Likewise.
+	* g++.dg/gomp/target-1.C: Likewise.
+	* g++.dg/gomp/target-2.C: Likewise.
+	* g++.dg/gomp/taskgroup-1.C: Likewise.
+	* g++.dg/gomp/teams-1.C: Likewise.
+	* gcc.dg/cilk-plus/jump-openmp.c: Likewise.
+	* gcc.dg/cilk-plus/jump.c: Likewise.
+	* gcc.dg/gomp/block-1.c: Likewise.
+	* gcc.dg/gomp/block-10.c: Likewise.
+	* gcc.dg/gomp/block-2.c: Likewise.
+	* gcc.dg/gomp/block-3.c: Likewise.
+	* gcc.dg/gomp/block-4.c: Likewise.
+	* gcc.dg/gomp/block-5.c: Likewise.
+	* gcc.dg/gomp/block-6.c: Likewise.
+	* gcc.dg/gomp/block-7.c: Likewise.
+	* gcc.dg/gomp/block-8.c: Likewise.
+	* gcc.dg/gomp/block-9.c: Likewise.
+	* gcc.dg/gomp/target-1.c: Likewise.
+	* gcc.dg/gomp/target-2.c: Likewise.
+	* gcc.dg/gomp/taskgroup-1.c: Likewise.
+	* gcc.dg/gomp/teams-1.c: Likewise.
+
 2014-02-17  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc/pcopy.c: New file.
