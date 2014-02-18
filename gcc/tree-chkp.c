@@ -4983,8 +4983,8 @@ void
 chkp_fill_check_info (gimple stmt, struct check_info *ci)
 {
   ci->addr.pol.create (0);
-  ci->bounds = gimple_call_arg (stmt, 0);
-  chkp_collect_value (gimple_call_arg (stmt, 1), ci->addr);
+  ci->bounds = gimple_call_arg (stmt, 1);
+  chkp_collect_value (gimple_call_arg (stmt, 0), ci->addr);
   ci->type = (gimple_call_fndecl (stmt) == chkp_checkl_fndecl
 	     ? CHECK_LOWER_BOUND
 	     : CHECK_UPPER_BOUND);
@@ -5337,7 +5337,7 @@ chkp_use_outer_bounds_if_possible (struct check_info *ci)
 	}
 
       ci->bounds = bnd_res;
-      gimple_call_set_arg (ci->stmt, 0, bnd_res);
+      gimple_call_set_arg (ci->stmt, 1, bnd_res);
       update_stmt (ci->stmt);
     }
 }
@@ -5459,7 +5459,7 @@ chkp_compare_checks (struct check_info *ci1,
 	    {
 	      gimple_stmt_iterator i = gsi_for_stmt (ci2->stmt);
 	      gimple_seq seq = NULL;
-	      tree addr = gimple_call_arg (ci1->stmt, 1);
+	      tree addr = gimple_call_arg (ci1->stmt, 0);
 	      unsigned int n;
 
 	      if (dump_file && (dump_flags & TDF_DETAILS))
@@ -5511,7 +5511,7 @@ chkp_compare_checks (struct check_info *ci1,
 
 	      i = gsi_for_stmt (ci1->stmt);
 	      gsi_insert_seq_before (&i, seq, GSI_CONTINUE_LINKING);
-	      gimple_call_set_arg (ci1->stmt, 1, addr);
+	      gimple_call_set_arg (ci1->stmt, 0, addr);
 	      update_stmt (ci1->stmt);
 
 	      ci1->addr.pol.release ();
