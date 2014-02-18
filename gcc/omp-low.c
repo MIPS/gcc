@@ -10958,7 +10958,7 @@ make_pass_lower_omp (gcc::context *ctxt)
   return new pass_lower_omp (ctxt);
 }
 
-/* The following is a utility to diagnose OpenMP structured block violations.
+/* The following is a utility to diagnose structured block violations.
    It is not part of the "omplower" pass, as that's invoked too late.  It
    should be invoked by the respective front ends after gimplification.  */
 
@@ -10985,6 +10985,15 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
 	      && gimple_code (label_ctx) == GIMPLE_OMP_FOR
 	      && gimple_omp_for_kind (label_ctx) == GF_OMP_FOR_KIND_CILKSIMD))
 	kind = "Cilk Plus";
+    }
+  if (flag_openacc)
+    {
+      if ((branch_ctx && gimple_code (branch_ctx) == GIMPLE_OACC_PARALLEL)
+	  || (label_ctx && gimple_code (label_ctx) == GIMPLE_OACC_PARALLEL))
+	{
+	  gcc_assert (kind == NULL);
+	  kind = "OpenACC";
+	}
     }
   if (kind == NULL)
     {
@@ -11041,7 +11050,7 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
   return true;
 }
 
-/* Pass 1: Create a minimal tree of OpenMP structured blocks, and record
+/* Pass 1: Create a minimal tree of structured blocks, and record
    where each label is found.  */
 
 static tree
@@ -11054,10 +11063,11 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
 
   *handled_ops_p = true;
 
- switch (gimple_code (stmt))
+  switch (gimple_code (stmt))
     {
     WALK_SUBSTMTS;
 
+    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
@@ -11069,7 +11079,7 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     case GIMPLE_OMP_TARGET:
     case GIMPLE_OMP_TEAMS:
     case GIMPLE_OMP_TASKGROUP:
-      /* The minimal context here is just the current OMP construct.  */
+      /* The minimal context here is just the current construct.  */
       inner_context = stmt;
       wi->info = inner_context;
       walk_gimple_seq (gimple_omp_body (stmt), diagnose_sb_1, NULL, wi);
@@ -11116,6 +11126,7 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     {
     WALK_SUBSTMTS;
 
+    case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
     case GIMPLE_OMP_SECTIONS:
@@ -11198,8 +11209,8 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
   return NULL_TREE;
 }
 
-/* Called from tree-cfg.c::make_edges to create cfg edges for all GIMPLE_OMP
-   codes.  */
+/* Called from tree-cfg.c::make_edges to create cfg edges for all relevant
+   GIMPLE codes.  */
 bool
 make_gimple_omp_edges (basic_block bb, struct omp_region **region,
 		       int *region_idx)

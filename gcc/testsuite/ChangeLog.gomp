@@ -1,5 +1,8 @@
 2014-02-18  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gcc.dg/goacc/parallel-sb-1.c: New file.
+	* gcc.dg/goacc/parallel-sb-2.c: Likewise.
+
 	* g++.dg/gomp/block-1.C: Adjust to changed error message and/or
 	tighten matching rules.
 	* g++.dg/gomp/block-2.C: Likewise.

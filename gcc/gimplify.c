@@ -1505,9 +1505,10 @@ gimplify_case_label_expr (tree *expr_p, gimple_seq *pre_p)
   struct gimplify_ctx *ctxp;
   gimple gimple_label;
 
-  /* Invalid OpenMP programs can play Duff's Device type games with
+  /* Invalid programs can play Duff's Device type games with, for example,
      #pragma omp parallel.  At least in the C front end, we don't
-     detect such invalid branches until after gimplification.  */
+     detect such invalid branches until after gimplification, in the
+     diagnose_omp_blocks pass.  */
   for (ctxp = gimplify_ctxp; ; ctxp = ctxp->prev_context)
     if (ctxp->case_labels.exists ())
       break;

@@ -11363,6 +11363,7 @@ c_parser_omp_structured_block (c_parser *parser)
 
 /* OpenACC 2.0:
    # pragma acc parallel oacc-parallel-clause[optseq] new-line
+     structured-block
 
    LOC is the location of the #pragma token.
 */

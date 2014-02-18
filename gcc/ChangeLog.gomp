@@ -1,5 +1,9 @@
 2014-02-18  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (diagnose_sb_0, diagnose_sb_1, diagnose_sb_2): Handle
+	GIMPLE_OACC_PARALLEL.
+	* gimplify.c (gimplify_case_label_expr): Update comment.
+
 	* omp-low.c (diagnose_sb_0): Generalize detection which kind of
 	structured block we're in.
 
