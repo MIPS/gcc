@@ -2562,7 +2562,7 @@ get_tm_region_blocks (basic_block entry_block,
   while (i < bbs.length ());
 
   if (all_region_blocks)
-    bitmap_ior_into (all_region_blocks, &visited_blocks);
+    *all_region_blocks |= visited_blocks;
 
   return bbs;
 }
@@ -3591,8 +3591,8 @@ tm_memopt_compute_available (struct tm_region *region,
   for (i = 0; blocks.iterate (i, &bb); ++i)
     {
       /* Seed AVAIL_OUT with the LOCAL set.  */
-      bitmap_ior_into (STORE_AVAIL_OUT (bb), STORE_LOCAL (bb));
-      bitmap_ior_into (READ_AVAIL_OUT (bb), READ_LOCAL (bb));
+      *STORE_AVAIL_OUT (bb) |= *STORE_LOCAL (bb);
+      *READ_AVAIL_OUT (bb) |= *READ_LOCAL (bb);
 
       AVAIL_IN_WORKLIST_P (bb) = true;
       /* No need to insert the entry block, since it has an AVIN of
@@ -3623,8 +3623,8 @@ tm_memopt_compute_available (struct tm_region *region,
 
       /* Note: We do not add the LOCAL sets here because we already
 	 seeded the AVAIL_OUT sets with them.  */
-      changed  = bitmap_ior_into (STORE_AVAIL_OUT (bb), STORE_AVAIL_IN (bb));
-      changed |= bitmap_ior_into (READ_AVAIL_OUT (bb), READ_AVAIL_IN (bb));
+      changed  = STORE_AVAIL_OUT (bb)->bit_or (*STORE_AVAIL_IN (bb));
+      changed |= READ_AVAIL_OUT (bb)->bit_or (*READ_AVAIL_IN (bb));
       if (changed
 	  && (region->exit_blocks == NULL
 	      || !region->exit_blocks->bit (bb->index)))
@@ -3679,7 +3679,7 @@ tm_memopt_compute_antic (struct tm_region *region,
       bb = blocks[i];
 
       /* Seed ANTIC_OUT with the LOCAL set.  */
-      bitmap_ior_into (STORE_ANTIC_OUT (bb), STORE_LOCAL (bb));
+      *STORE_ANTIC_OUT (bb) |= *STORE_LOCAL (bb);
 
       /* Put every block in the region on the worklist.  */
       AVAIL_IN_WORKLIST_P (bb) = true;
@@ -3721,7 +3721,7 @@ tm_memopt_compute_antic (struct tm_region *region,
 
       /* Note: We do not add the LOCAL sets here because we already
 	 seeded the ANTIC_OUT sets with them.  */
-      if (bitmap_ior_into (STORE_ANTIC_OUT (bb), STORE_ANTIC_IN (bb))
+      if (STORE_ANTIC_OUT (bb)->bit_or (*STORE_ANTIC_IN (bb))
 	  && bb != region->entry_block)
 	/* If the out state of this block changed, then we need to add
 	   its predecessors to the worklist if they are not already in.  */
@@ -4572,7 +4572,7 @@ ipa_tm_scan_irr_function (struct cgraph_node *node, bool for_clone)
 
       if (old_irr)
 	{
-	  bitmap_ior_into (old_irr, new_irr);
+	  *old_irr |= *new_irr;
 	  BITMAP_FREE (new_irr);
 	}
       else if (for_clone)

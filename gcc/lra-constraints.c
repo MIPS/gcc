@@ -4046,7 +4046,7 @@ lra_constraints (bool first_p)
 	    if (contains_reg_p (x, false, true))
 	      ira_reg_equiv[i].profitable_p = false;
 	    if (get_equiv (reg) != reg)
-	      bitmap_ior_into (&equiv_insn_bitmap, &lra_reg_info[i].insn_bitmap);
+	      equiv_insn_bitmap |= lra_reg_info[i].insn_bitmap;
 	  }
       }
   for (i = FIRST_PSEUDO_REGISTER; i < new_regno_start; i++)
@@ -5019,7 +5019,7 @@ get_live_on_other_edges (basic_block from, basic_block to, bitmap res)
   lra_assert (res->is_empty ());
   FOR_EACH_EDGE (e, ei, from->succs)
     if (e->dest != to)
-      bitmap_ior_into (res, df_get_live_in (e->dest));
+      *res |= *df_get_live_in (e->dest);
   last = get_last_insertion_point (from);
   if (! JUMP_P (last))
     return;
@@ -5471,7 +5471,7 @@ lra_inheritance (void)
 	fprintf (lra_dump_file, "EBB");
       /* Form a EBB starting with BB.  */
       ebb_global_regs.clear ();
-      bitmap_ior_into (&ebb_global_regs, df_get_live_in (bb));
+      ebb_global_regs |= *df_get_live_in (bb);
       for (;;)
 	{
 	  if (lra_dump_file != NULL)
@@ -5486,7 +5486,7 @@ lra_inheritance (void)
 	    break;
 	  bb = bb->next_bb;
 	}
-      bitmap_ior_into (&ebb_global_regs, df_get_live_out (bb));
+      ebb_global_regs |= *df_get_live_out (bb);
       if (lra_dump_file != NULL)
 	fprintf (lra_dump_file, "\n");
       if (inherit_in_ebb (BB_HEAD (start_bb), BB_END (bb)))

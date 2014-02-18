@@ -427,7 +427,7 @@ propagate_pseudo_copies (void)
 	}
 
       bitmap_and_compl (&queue, &propagate, decomposable_context);
-      bitmap_ior_into (decomposable_context, &propagate);
+      *decomposable_context |= propagate;
     }
   while (!queue.is_empty ());
 }

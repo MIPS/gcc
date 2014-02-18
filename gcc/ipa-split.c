@@ -1046,10 +1046,10 @@ find_split_points (int overall_time, int overall_size)
 	  prev->can_split &= entry->can_split;
 	  if (prev->set_ssa_names)
 	    {
-	      bitmap_ior_into (prev->set_ssa_names, entry->set_ssa_names);
-	      bitmap_ior_into (prev->used_ssa_names, entry->used_ssa_names);
-	      bitmap_ior_into (prev->bbs_visited, entry->bbs_visited);
-	      bitmap_ior_into (prev->non_ssa_vars, entry->non_ssa_vars);
+	      *prev->set_ssa_names |= *entry->set_ssa_names;
+	      *prev->used_ssa_names |= *entry->used_ssa_names;
+	      *prev->bbs_visited |= *entry->bbs_visited;
+	      *prev->non_ssa_vars |= *entry->non_ssa_vars;
 	    }
 	  if (prev->earliest > entry->earliest)
 	    prev->earliest = entry->earliest;

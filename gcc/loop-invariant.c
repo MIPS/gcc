@@ -1820,7 +1820,7 @@ calculate_loop_reg_pressure (void)
       for (loop = curr_loop;
 	   loop != current_loops->tree_root;
 	   loop = loop_outer (loop))
-	bitmap_ior_into (&LOOP_DATA (loop)->regs_live, DF_LR_IN (bb));
+	LOOP_DATA (loop)->regs_live |= *DF_LR_IN (bb);
 
       curr_regs_live = *DF_LR_IN (bb);
       for (i = 0; i < ira_pressure_classes_num; i++)

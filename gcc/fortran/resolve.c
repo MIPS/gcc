@@ -8372,8 +8372,7 @@ find_reachable_labels (gfc_code *block)
   if (cs_base->prev)
     {
       gcc_assert (cs_base->prev->reachable_labels);
-      bitmap_ior_into (cs_base->reachable_labels,
-		       cs_base->prev->reachable_labels);
+      *cs_base->reachable_labels |= *cs_base->prev->reachable_labels;
     }
 }
 

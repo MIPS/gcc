@@ -1586,8 +1586,8 @@ analyze_memory_references (void)
   FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
     {
       /* Finalize the overall touched references (including subloops).  */
-      bitmap_ior_into (&memory_accesses.all_refs_stored_in_loop[loop->num],
-		       &memory_accesses.refs_stored_in_loop[loop->num]);
+      memory_accesses.all_refs_stored_in_loop[loop->num]
+		       |= memory_accesses.refs_stored_in_loop[loop->num];
 
       /* Propagate the information about accessed memory references up
 	 the loop hierarchy.  */
@@ -1595,8 +1595,8 @@ analyze_memory_references (void)
       if (outer == current_loops->tree_root)
 	continue;
 
-      bitmap_ior_into (&memory_accesses.all_refs_stored_in_loop[outer->num],
-		       &memory_accesses.all_refs_stored_in_loop[loop->num]);
+      memory_accesses.all_refs_stored_in_loop[outer->num]
+		       |= memory_accesses.all_refs_stored_in_loop[loop->num];
     }
 }
 
@@ -2287,7 +2287,7 @@ store_motion_loop (struct loop *loop, bitmap sm_executed)
     }
   exits.release ();
 
-  bitmap_ior_into (sm_executed, &sm_in_loop);
+  *sm_executed |= sm_in_loop;
   for (subloop = loop->inner; subloop != NULL; subloop = subloop->next)
     store_motion_loop (subloop, sm_executed);
   bitmap_and_compl_into (sm_executed, &sm_in_loop);

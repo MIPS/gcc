@@ -265,7 +265,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
   for (struct loop *loop = def_loop;
        loop != current_loops->tree_root;
        loop = loop_outer (loop))
-    bitmap_ior_into (&def_loop_exits, loop_exits[loop->num]);
+    def_loop_exits |= *loop_exits[loop->num];
   bitmap_and_into (live_exits, &def_loop_exits);
 }
 

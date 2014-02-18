@@ -194,6 +194,11 @@ struct GTY(()) bitmap_head {
   ~bitmap_head () { clear (); }
 
   bitmap_head &operator= (const bitmap_head &other);
+  bitmap_head &operator|= (const bitmap_head &other)
+    {
+      bit_or (other);
+      return *this;
+    }
 
 /* Clear a single bit in a bitmap.  Return true if the bit changed.  */
   bool clear_bit (int);
@@ -222,6 +227,8 @@ struct GTY(()) bitmap_head {
 
   /* Return true if a register is set in a register set.  */
   bool bit (int) const;
+
+  bool bit_or (const bitmap_head &other);
 
 /* True if two bitmaps are identical.  */
   bool operator== (const bitmap_head &) const;
@@ -267,7 +274,6 @@ extern bool bitmap_and_compl_into (bitmap, const_bitmap);
 #define bitmap_compl_and(DST, A, B) bitmap_and_compl (DST, B, A)
 extern void bitmap_compl_and_into (bitmap, const_bitmap);
 extern bool bitmap_ior (bitmap, const_bitmap, const_bitmap);
-extern bool bitmap_ior_into (bitmap, const_bitmap);
 extern void bitmap_xor (bitmap, const_bitmap, const_bitmap);
 extern void bitmap_xor_into (bitmap, const_bitmap);
 

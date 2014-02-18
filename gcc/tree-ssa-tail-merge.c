@@ -988,8 +988,8 @@ delete_cluster_vectors (void)
 static void
 merge_clusters (bb_cluster c1, bb_cluster c2)
 {
-  bitmap_ior_into (&c1->bbs, &c2->bbs);
-  bitmap_ior_into (&c1->preds, &c2->preds);
+  c1->bbs |= c2->bbs;
+  c1->preds |= c2->preds;
 }
 
 /* Register equivalence of BB1 and BB2 (members of cluster C).  Store c in

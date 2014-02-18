@@ -661,8 +661,7 @@ df_scan_blocks (void)
   df_get_regular_block_artificial_uses (&df->regular_block_artificial_uses);
   df_get_eh_block_artificial_uses (&df->eh_block_artificial_uses);
 
-  bitmap_ior_into (&df->eh_block_artificial_uses,
-		   &df->regular_block_artificial_uses);
+  df->eh_block_artificial_uses |= df->regular_block_artificial_uses;
 
   /* ENTRY and EXIT blocks have special defs/uses.  */
   df_get_entry_block_def_set (df->entry_block_defs);
@@ -4526,8 +4525,7 @@ df_scan_verify (void)
   df_get_regular_block_artificial_uses (&regular_block_artificial_uses);
   df_get_eh_block_artificial_uses (&eh_block_artificial_uses);
 
-  bitmap_ior_into (&eh_block_artificial_uses,
-		   &regular_block_artificial_uses);
+  eh_block_artificial_uses |= regular_block_artificial_uses;
 
   /* Check artificial_uses bitmaps didn't change. */
   gcc_assert (regular_block_artificial_uses ==

@@ -269,7 +269,7 @@ ebb_compute_jump_reg_dependencies (rtx insn, regset used)
 
   FOR_EACH_EDGE (e, ei, b->succs)
     if ((e->flags & EDGE_FALLTHRU) == 0)
-      bitmap_ior_into (used, df_get_live_in (e->dest));
+      *used |= *df_get_live_in (e->dest);
 }
 
 /* Used in schedule_insns to initialize current_sched_info for scheduling

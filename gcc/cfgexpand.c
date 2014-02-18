@@ -423,7 +423,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 
   work->clear ();
   FOR_EACH_EDGE (e, ei, bb->preds)
-    bitmap_ior_into (work, (bitmap)e->src->aux);
+    *work |= *(bitmap)e->src->aux;
 
   visit = visit_op;
 
@@ -467,7 +467,7 @@ add_scope_conflicts_1 (basic_block bb, bitmap work, bool for_conflict)
 		  struct stack_var *a = &stack_vars[i];
 		  if (!a->conflicts)
 		    a->conflicts = BITMAP_ALLOC (&stack_var_bitmap_obstack);
-		  bitmap_ior_into (a->conflicts, work);
+		  *a->conflicts |= *work;
 		}
 	      visit = visit_conflict;
 	    }
@@ -515,7 +515,7 @@ add_scope_conflicts (void)
 	  bb = BASIC_BLOCK_FOR_FN (cfun, rpo[i]);
 	  active = (bitmap)bb->aux;
 	  add_scope_conflicts_1 (bb, &work, false);
-	  if (bitmap_ior_into (active, &work))
+	  if (active->bit_or (work))
 	    changed = true;
 	}
     }
@@ -613,8 +613,8 @@ add_partitioned_vars_to_ptset (struct pt_solution *pt,
     if (!temp.bit (i)
 	&& (part = (bitmap *) pointer_map_contains (decls_to_partitions,
 						    (void *)(size_t) i)))
-      bitmap_ior_into (&temp, *part);
-  bitmap_ior_into (pt->vars, &temp);
+      temp |= **part;
+  *pt->vars |= temp;
 }
 
 /* Update points-to sets based on partition info, so we can use them on RTL.

@@ -2005,8 +2005,7 @@ propagate_modified_regnos (ira_loop_tree_node_t loop_tree_node)
   if (loop_tree_node == ira_loop_tree_root)
     return;
   ira_assert (loop_tree_node->bb == NULL);
-  bitmap_ior_into (loop_tree_node->parent->modified_regnos,
-		   loop_tree_node->modified_regnos);
+  *loop_tree_node->parent->modified_regnos |= *loop_tree_node->modified_regnos;
 }
 
 /* Propagate new info about allocno A (see comments about accumulated

@@ -578,7 +578,7 @@ ssa_conflicts_merge (ssa_conflicts_p ptr, unsigned x, unsigned y)
   if (bx)
     {
       /* If X has conflicts, add Y's to X.  */
-      bitmap_ior_into (bx, by);
+      *bx |= *by;
       BITMAP_FREE (by);
       ptr->conflicts[y] = NULL;
     }

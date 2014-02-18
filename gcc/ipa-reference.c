@@ -294,7 +294,7 @@ union_static_var_sets (bitmap &x, bitmap y)
 	  BITMAP_FREE (x);
 	  x = all_module_statics;
 	}
-      else if (bitmap_ior_into (x, y))
+      else if (x->bit_or (*y))
 	{
 	  /* The union may have reduced X to the maximum set.
 	     In that case, we want to make that visible explicitly.

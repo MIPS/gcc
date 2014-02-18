@@ -195,7 +195,7 @@ update_live_info (bitmap lr_bitmap)
   if (! used_pseudos_bitmap.is_empty ())
     {
       bitmap_and_compl_into (lr_bitmap, &coalesced_pseudos_bitmap);
-      bitmap_ior_into (lr_bitmap, &used_pseudos_bitmap);
+      *lr_bitmap |= used_pseudos_bitmap;
     }
 }
 
@@ -288,10 +288,8 @@ lra_coalesce (void)
 	       INSN_UID (mv), sregno, ORIGINAL_REGNO (SET_SRC (set)),
 	       dregno, ORIGINAL_REGNO (SET_DEST (set)),
 	       REG_FREQ_FROM_BB (BLOCK_FOR_INSN (mv)));
-	  bitmap_ior_into (&involved_insns_bitmap,
-			   &lra_reg_info[sregno].insn_bitmap);
-	  bitmap_ior_into (&involved_insns_bitmap,
-			   &lra_reg_info[dregno].insn_bitmap);
+	  involved_insns_bitmap |= lra_reg_info[sregno].insn_bitmap;
+	  involved_insns_bitmap |= lra_reg_info[dregno].insn_bitmap;
 	  merge_pseudos (sregno, dregno);
 	}
     }

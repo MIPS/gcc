@@ -1097,7 +1097,7 @@ spill_pseudos (HARD_REG_SET set)
 	  fprintf (lra_dump_file, "	 Spilling r%d(%d)\n",
 		   i, reg_renumber[i]);
 	reg_renumber[i] = -1;
-	bitmap_ior_into (&to_process, &lra_reg_info[i].insn_bitmap);
+	to_process |= lra_reg_info[i].insn_bitmap;
       }
   IOR_HARD_REG_SET (lra_no_alloc_regs, set);
   for (insn = get_insns (); insn != NULL_RTX; insn = NEXT_INSN (insn))
@@ -1176,8 +1176,8 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 			 ep->from);
 	      self_elim_offsets[ep->from] = -ep->offset;
 	      if (ep->offset != 0)
-		bitmap_ior_into (insns_with_changed_offsets,
-				 &lra_reg_info[ep->from].insn_bitmap);
+		*insns_with_changed_offsets
+				 |= lra_reg_info[ep->from].insn_bitmap;
 	    }
 	}
 
@@ -1201,8 +1201,7 @@ update_reg_eliminate (bitmap insns_with_changed_offsets)
 	  SET_HARD_REG_BIT (temp_hard_reg_set, ep->to);
 	if (ep->previous_offset != ep->offset)
 	  {
-	    bitmap_ior_into (insns_with_changed_offsets,
-			     &lra_reg_info[ep->from].insn_bitmap);
+	    *insns_with_changed_offsets |= lra_reg_info[ep->from].insn_bitmap;
 
 	    /* Update offset when the eliminate offset have been
 	       changed.  */
@@ -1378,8 +1377,7 @@ lra_eliminate (bool final_p, bool first_p)
 	 register.  */
       for (ep = reg_eliminate; ep < &reg_eliminate[NUM_ELIMINABLE_REGS]; ep++)
 	if (elimination_map[ep->from] != NULL)
-	  bitmap_ior_into (&insns_with_changed_offsets,
-			   &lra_reg_info[ep->from].insn_bitmap);
+	  insns_with_changed_offsets |= lra_reg_info[ep->from].insn_bitmap;
     }
   else if (! update_reg_eliminate (&insns_with_changed_offsets))
     goto lra_eliminate_done;

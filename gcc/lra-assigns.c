@@ -854,8 +854,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	  if (try_hard_reg_pseudos_check[hard_regno + j] != curr_pseudo_check)
 	    continue;
 	  lra_assert (!try_hard_reg_pseudos[hard_regno + j]->is_empty ());
-	  bitmap_ior_into (&spill_pseudos_bitmap,
-			   try_hard_reg_pseudos[hard_regno + j]);
+	  spill_pseudos_bitmap |= *try_hard_reg_pseudos[hard_regno + j];
 	}
       /* Spill pseudos.	 */
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
@@ -978,7 +977,7 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
       update_lives (spill_regno, true);
       lra_setup_reg_renumber (spill_regno, -1, false);
     } 
-  bitmap_ior_into (spilled_pseudo_bitmap, &best_spill_pseudos_bitmap);
+  *spilled_pseudo_bitmap |= best_spill_pseudos_bitmap;
   return best_hard_regno;
 }
 
@@ -1184,8 +1183,8 @@ assign_by_spills (void)
   curr_pseudo_check = 0;
   bitmap_initialize (&non_reload_pseudos, &reg_obstack);
   bitmap_ior (&non_reload_pseudos, &lra_inheritance_pseudos, &lra_split_regs);
-  bitmap_ior_into (&non_reload_pseudos, &lra_subreg_reload_pseudos);
-  bitmap_ior_into (&non_reload_pseudos, &lra_optional_reload_pseudos);
+  non_reload_pseudos |= lra_subreg_reload_pseudos;
+  non_reload_pseudos |= lra_optional_reload_pseudos;
   for (iter = 0; iter <= 1; iter++)
     {
       qsort (sorted_pseudos, n, sizeof (int), reload_pseudo_compare_func);
@@ -1236,8 +1235,7 @@ assign_by_spills (void)
 	  for (i = 0; i < nfails; i++)
 	    {
 	      regno = sorted_pseudos[i];
-	      bitmap_ior_into (&failed_reload_insns,
-			       &lra_reg_info[regno].insn_bitmap);
+	      failed_reload_insns |= lra_reg_info[regno].insn_bitmap;
 	      /* Assign an arbitrary hard register of regno class to
 		 avoid further trouble with the asm insns.  */
 	      all_spilled_pseudos.clear_bit (regno);
@@ -1290,8 +1288,7 @@ assign_by_spills (void)
 	  if (lra_dump_file != NULL)
 	    fprintf (lra_dump_file, "	 Reload r%d assignment failure\n",
 		     sorted_pseudos[i]);
-	  bitmap_ior_into (&changed_insns,
-			   &lra_reg_info[sorted_pseudos[i]].insn_bitmap);
+	  changed_insns |= lra_reg_info[sorted_pseudos[i]].insn_bitmap;
 	}
 
       /* FIXME: Look up the changed insns in the cached LRA insn data using
@@ -1427,7 +1424,7 @@ lra_assign (void)
   init_live_reload_and_inheritance_pseudos ();
   assign_by_spills ();
   finish_live_reload_and_inheritance_pseudos ();
-  bitmap_ior_into (&changed_pseudo_bitmap, &all_spilled_pseudos);
+  changed_pseudo_bitmap |= all_spilled_pseudos;
   no_spills_p = true;
   EXECUTE_IF_SET_IN_BITMAP (&all_spilled_pseudos, 0, u, bi)
     /* We ignore spilled pseudos created on last inheritance pass
@@ -1440,7 +1437,7 @@ lra_assign (void)
   finish_live_range_start_chains ();
   all_spilled_pseudos.clear ();
   EXECUTE_IF_SET_IN_BITMAP (&changed_pseudo_bitmap, 0, u, bi)
-    bitmap_ior_into (&insns_to_process, &lra_reg_info[u].insn_bitmap);
+    insns_to_process |= lra_reg_info[u].insn_bitmap;
   changed_pseudo_bitmap.clear ();
   EXECUTE_IF_SET_IN_BITMAP (&insns_to_process, 0, u, bi)
     {

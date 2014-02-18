@@ -473,7 +473,7 @@ spill_pseudos (void)
 	  && ! lra_former_scratch_p (i))
 	{
 	  spilled_pseudos.set_bit (i);
-	  bitmap_ior_into (&changed_insns, &lra_reg_info[i].insn_bitmap);
+	  changed_insns |= lra_reg_info[i].insn_bitmap;
 	}
     }
   FOR_EACH_BB_FN (bb, cfun)

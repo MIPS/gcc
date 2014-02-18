@@ -381,7 +381,7 @@ df_rd_bb_local_compute (unsigned int bb_index)
 	 result and another def for the clobber.  If only one vector
 	 is used and the clobber goes first, the result will be
 	 lost.  */
-      bitmap_ior_into (&seen_in_block, &seen_in_insn);
+      seen_in_block |= seen_in_insn;
       seen_in_insn.clear ();
     }
 
@@ -483,11 +483,11 @@ df_rd_confluence_n (edge e)
  	{
  	  tmp.clear_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
 	}
-      changed |= bitmap_ior_into (op1, &tmp);
+      changed |= op1->bit_or (tmp);
       return changed;
     }
   else
-    return bitmap_ior_into (op1, op2);
+    return op1->bit_or (*op2);
 }
 
 
@@ -523,7 +523,7 @@ df_rd_transfer_function (int bb_index)
 	  tmp.clear_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
 	}
       bitmap_and_compl_into (&tmp, kill);
-      bitmap_ior_into (&tmp, gen);
+      tmp |= *gen;
       changed = tmp != *out;
       if (changed)
 	tmp.swap (&bb_info->out);
@@ -1007,9 +1007,9 @@ df_lr_confluence_n (edge e)
   if (e->flags & EDGE_EH)
     changed = bitmap_ior_and_compl_into (op1, op2, regs_invalidated_by_call_regset);
   else
-    changed = bitmap_ior_into (op1, op2);
+    changed = op1->bit_or (*op2);
 
-  changed |= bitmap_ior_into (op1, &df->hardware_regs_used);
+  changed |= op1->bit_or (df->hardware_regs_used);
   return changed;
 }
 
@@ -1523,7 +1523,7 @@ df_live_confluence_n (edge e)
   if (e->flags & EDGE_FAKE)
     return false;
 
-  return bitmap_ior_into (op1, op2);
+  return op1->bit_or (*op2);
 }
 
 
@@ -2568,7 +2568,7 @@ df_word_lr_confluence_n (edge e)
   bitmap op1 = &df_word_lr_get_bb_info (e->src->index)->out;
   bitmap op2 = &df_word_lr_get_bb_info (e->dest->index)->in;
 
-  return bitmap_ior_into (op1, op2);
+  return op1->bit_or (*op2);
 }
 
 
@@ -3504,9 +3504,9 @@ df_simulate_fixup_sets (basic_block bb, bitmap live)
   /* These regs are considered always live so if they end up dying
      because of some def, we need to bring the back again.  */
   if (bb_has_eh_pred (bb))
-    bitmap_ior_into (live, &df->eh_block_artificial_uses);
+    *live |= df->eh_block_artificial_uses;
   else
-    bitmap_ior_into (live, &df->regular_block_artificial_uses);
+    *live |= df->regular_block_artificial_uses;
 }
 
 
@@ -4328,7 +4328,7 @@ df_md_confluence_n (edge e)
     return bitmap_ior_and_compl_into (op1, op2,
 				      regs_invalidated_by_call_regset);
   else
-    return bitmap_ior_into (op1, op2);
+    return op1->bit_or (*op2);
 }
 
 /* Free all storage associated with the problem.  */

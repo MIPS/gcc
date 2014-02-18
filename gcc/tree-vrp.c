@@ -864,7 +864,7 @@ add_equivalence (bitmap *equiv, const_tree var)
     *equiv = BITMAP_ALLOC (NULL);
   (*equiv)->set_bit (ver);
   if (vr && vr->equiv)
-    bitmap_ior_into (*equiv, vr->equiv);
+    **equiv |= *vr->equiv;
 }
 
 
@@ -8212,7 +8212,7 @@ vrp_intersect_ranges_1 (value_range_t *vr0, value_range_t *vr1)
   /* The resulting set of equivalences for range intersection is the union of
      the two sets.  */
   if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
-    bitmap_ior_into (vr0->equiv, vr1->equiv);
+    *vr0->equiv |= *vr1->equiv;
   else if (vr1->equiv && !vr0->equiv)
     *vr0->equiv = *vr1->equiv;
 }

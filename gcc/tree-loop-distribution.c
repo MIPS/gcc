@@ -534,7 +534,7 @@ static void
 partition_merge_into (partition_t dest, partition_t partition)
 {
   dest->kind = PKIND_NORMAL;
-  bitmap_ior_into (dest->stmts, partition->stmts);
+  *dest->stmts |= *partition->stmts;
   if (partition_reduction_p (partition))
     dest->reduction_p = true;
 }
@@ -1230,7 +1230,7 @@ rdg_build_partitions (struct graph *rdg,
 	continue;
 
       partition_t partition = build_rdg_partition_for_vertex (rdg, v);
-      bitmap_ior_into (&processed, partition->stmts);
+      processed |= *partition->stmts;
 
       if (dump_file && (dump_flags & TDF_DETAILS))
 	{

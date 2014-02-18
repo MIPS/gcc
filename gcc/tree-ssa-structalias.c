@@ -950,7 +950,7 @@ solution_set_expand (bitmap set, bitmap *expanded)
     }
 
   /* And finally set the rest of the bits from SET.  */
-  bitmap_ior_into (*expanded, set);
+  **expanded |= *set;
 
   return *expanded;
 }
@@ -976,7 +976,7 @@ set_union_with_increment  (bitmap to, bitmap delta, HOST_WIDE_INT inc,
   if (inc == UNKNOWN_OFFSET)
     {
       delta = solution_set_expand (delta, expanded_delta);
-      changed |= bitmap_ior_into (to, delta);
+      changed |= to->bit_or (*delta);
       return changed;
     }
 
@@ -1101,8 +1101,7 @@ merge_graph_nodes (constraint_graph_t graph, unsigned int to,
     {
       if (!graph->succs[to])
 	graph->succs[to] = BITMAP_ALLOC (&pta_obstack);
-      bitmap_ior_into (graph->succs[to],
-		       graph->succs[from]);
+      *graph->succs[to] |= *graph->succs[from];
     }
 
   clear_edges_for_node (graph, from);
@@ -1501,7 +1500,7 @@ unify_nodes (constraint_graph_t graph, unsigned int to, unsigned int from,
       /* If the solution changes because of the merging, we need to mark
 	 the variable as changed.  */
       varinfo_t tovi = get_varinfo (to);
-      if (bitmap_ior_into (tovi->solution, fromvi->solution))
+      if (tovi->solution->bit_or (*fromvi->solution))
 	{
 	  if (update_changed)
 	    changed->set_bit (to);
@@ -1635,14 +1634,14 @@ do_sd_constraint (constraint_graph_t graph, constraint_t c,
 	  /* Adding edges from the special vars is pointless.
 	     They don't have sets that can change.  */
 	  if (get_varinfo (t)->is_special_var)
-	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
+	    flag |= sol->bit_or (*get_varinfo (t)->solution);
 	  /* Merging the solution from ESCAPED needlessly increases
 	     the set.  Use ESCAPED as representative instead.  */
 	  else if (v->id == escaped_id)
 	    flag |= sol->set_bit (escaped_id);
 	  else if (v->may_have_pointers
 		   && add_graph_edge (graph, lhs, t))
-	    flag |= bitmap_ior_into (sol, get_varinfo (t)->solution);
+	    flag |= sol->bit_or (*get_varinfo (t)->solution);
 
 	  /* If the variable is not exactly at the requested offset
 	     we have to include the next one.  */
@@ -1694,7 +1693,7 @@ do_ds_constraint (constraint_t c, bitmap delta, bitmap *expanded_delta)
       unsigned t = find (storedanything_id);
       if (add_graph_edge (graph, t, rhs))
 	{
-	  if (bitmap_ior_into (get_varinfo (t)->solution, sol))
+	  if (get_varinfo (t)->solution->bit_or (*sol))
 	    changed->set_bit (t);
 	}
       return;
@@ -1735,7 +1734,7 @@ do_ds_constraint (constraint_t c, bitmap delta, bitmap *expanded_delta)
 		{
 		  t = find (escaped_id);
 		  if (add_graph_edge (graph, t, rhs)
-		      && bitmap_ior_into (get_varinfo (t)->solution, sol))
+		      && get_varinfo (t)->solution->bit_or (*sol))
 		    changed->set_bit (t);
 		  /* Enough to let rhs escape once.  */
 		  escaped_p = true;
@@ -1746,7 +1745,7 @@ do_ds_constraint (constraint_t c, bitmap delta, bitmap *expanded_delta)
 
 	      t = find (v->id);
 	      if (add_graph_edge (graph, t, rhs)
-		  && bitmap_ior_into (get_varinfo (t)->solution, sol))
+		  && get_varinfo (t)->solution->bit_or (*sol))
 		changed->set_bit (t);
 	    }
 
@@ -2063,21 +2062,19 @@ condense_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 	    {
 	      if (!graph->preds[n])
 		graph->preds[n] = BITMAP_ALLOC (&predbitmap_obstack);
-	      bitmap_ior_into (graph->preds[n], graph->preds[w]);
+	      *graph->preds[n] |= *graph->preds[w];
 	    }
 	  if (graph->implicit_preds[w])
 	    {
 	      if (!graph->implicit_preds[n])
 		graph->implicit_preds[n] = BITMAP_ALLOC (&predbitmap_obstack);
-	      bitmap_ior_into (graph->implicit_preds[n],
-			       graph->implicit_preds[w]);
+	      *graph->implicit_preds[n] |= *graph->implicit_preds[w];
 	    }
 	  if (graph->points_to[w])
 	    {
 	      if (!graph->points_to[n])
 		graph->points_to[n] = BITMAP_ALLOC (&predbitmap_obstack);
-	      bitmap_ior_into (graph->points_to[n],
-			       graph->points_to[w]);
+	      *graph->points_to[n] |= *graph->points_to[w];
 	    }
 	}
       bitmap_set_bit (si->deleted, n);
@@ -2140,7 +2137,7 @@ label_visit (constraint_graph_t graph, struct scc_info *si, unsigned int n)
 		}
 	    }
 	  else
-	    bitmap_ior_into (graph->points_to[n], graph->points_to[w]);
+	    *graph->points_to[n] |= *graph->points_to[w];
 	}
     }
 
@@ -2705,7 +2702,7 @@ solve_graph (constraint_graph_t graph)
 		continue;
 
 	      if (vi->oldsolution)
-		bitmap_ior_into (vi->oldsolution, &pts);
+		*vi->oldsolution |= pts;
 	      else
 		{
 		  vi->oldsolution = BITMAP_ALLOC (&oldpta_obstack);
@@ -2762,7 +2759,7 @@ solve_graph (constraint_graph_t graph)
 		      if (i == eff_escaped_id)
 			flag = tmp->set_bit (escaped_id);
 		      else
-			flag = bitmap_ior_into (tmp, &pts);
+			flag = tmp->bit_or (pts);
 
 		      if (flag)
 			changed->set_bit (to);
@@ -6242,7 +6239,7 @@ pt_solution_ior_into (struct pt_solution *dest, struct pt_solution *src)
 
   if (!dest->vars)
     dest->vars = BITMAP_GGC_ALLOC ();
-  bitmap_ior_into (dest->vars, src->vars);
+  *dest->vars |= *src->vars;
 }
 
 /* Return true if the points-to solution *PT is empty.  */

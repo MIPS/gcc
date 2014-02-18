@@ -6065,7 +6065,7 @@ thread_prologue_and_epilogue_insns (void)
 	}
 
       /* Blocks that really need a prologue, or are too big for tails.  */
-      bitmap_ior_into (&bb_on_list, &bb_flags);
+      bb_on_list |= bb_flags;
 
       /* For every basic block that needs a prologue, mark all blocks
 	 reachable from it, so as to ensure they are also seen as

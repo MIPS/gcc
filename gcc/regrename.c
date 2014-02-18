@@ -651,7 +651,7 @@ merge_chains (du_head_p c1, du_head_p c2)
   c2->id = c1->id;
 
   IOR_HARD_REG_SET (c1->hard_conflicts, c2->hard_conflicts);
-  bitmap_ior_into (&c1->conflicts, &c2->conflicts);
+  c1->conflicts |= c2->conflicts;
 
   c1->need_caller_save_reg |= c2->need_caller_save_reg;
   c1->cannot_rename |= c2->cannot_rename;

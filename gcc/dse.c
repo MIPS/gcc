@@ -2876,8 +2876,8 @@ dse_step2_init (void)
 
       if (stores_off_frame_dead_at_return && group->frame_related)
 	{
-	  bitmap_ior_into (group->store2_n, group->store1_n);
-	  bitmap_ior_into (group->store2_p, group->store1_p);
+	  *group->store2_n |= *group->store1_n;
+	  *group->store2_p |= *group->store1_p;
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file, "group %d is frame related ", i);
 	}
@@ -3042,7 +3042,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 	if (group->process_globally && group->frame_related)
 	  {
 	    if (kill)
-	      bitmap_ior_into (kill, group->group_kill);
+	      *kill |= *group->group_kill;
 	    bitmap_and_compl_into (gen, group->group_kill);
 	  }
     }
@@ -3051,13 +3051,13 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
       /* Kill all non-frame related stores.  Kill all stores of variables that
          escape.  */
       if (kill)
-        bitmap_ior_into (kill, kill_on_calls);
+        *kill |= *kill_on_calls;
       bitmap_and_compl_into (gen, kill_on_calls);
       FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
 	if (group->process_globally && !group->frame_related)
 	  {
 	    if (kill)
-	      bitmap_ior_into (kill, group->group_kill);
+	      *kill |= *group->group_kill;
 	    bitmap_and_compl_into (gen, group->group_kill);
 	  }
     }
@@ -3073,7 +3073,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 		    {
 		      /* Begin > end for block mode reads.  */
 		      if (kill)
-			bitmap_ior_into (kill, group->group_kill);
+			*kill |= *group->group_kill;
 		      bitmap_and_compl_into (gen, group->group_kill);
 		    }
 		  else
@@ -3108,7 +3108,7 @@ scan_reads_nospill (insn_info_t insn_info, bitmap gen, bitmap kill)
 						read_info->mem, NULL_RTX))
 		    {
 		      if (kill)
-			bitmap_ior_into (kill, group->group_kill);
+			*kill |= *group->group_kill;
 		      bitmap_and_compl_into (gen, group->group_kill);
 		    }
 		}
@@ -3246,7 +3246,7 @@ dse_step3_exit_block_scan (bb_info_t bb_info)
       FOR_EACH_VEC_ELT (rtx_group_vec, i, group)
 	{
 	  if (group->process_globally && group->frame_related)
-	    bitmap_ior_into (bb_info->gen, group->group_kill);
+	    *bb_info->gen |= *group->group_kill;
 	}
     }
 }
@@ -3314,7 +3314,7 @@ dse_step3 (bool for_spills)
     group_info_t group;
     bitmap_head all_ones (&dse_bitmap_obstack);
     FOR_EACH_VEC_ELT (rtx_group_vec, j, group)
-      bitmap_ior_into (&all_ones, group->group_kill);
+      all_ones |= *group->group_kill;
 
   /* For any block in an infinite loop, we must initialize the out set
      to all ones.  This could be expensive, but almost never occurs in

@@ -7708,7 +7708,7 @@ remove_edge_and_dominated_blocks (edge e)
     {
       /* Record the set of the altered basic blocks.  */
       cfgcleanup_altered_bbs->set_bit (e->src->index);
-      bitmap_ior_into (cfgcleanup_altered_bbs, &df);
+      *cfgcleanup_altered_bbs |= df;
     }
 
   /* Remove E and the cancelled blocks.  */

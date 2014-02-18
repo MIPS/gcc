@@ -2638,8 +2638,7 @@ record_important_candidates (struct ivopts_data *data)
     {
       /* Add important candidates to the related_cands bitmaps.  */
       for (i = 0; i < n_iv_uses (data); i++)
-	bitmap_ior_into (iv_use (data, i)->related_cands,
-			 data->important_candidates);
+	*iv_use (data, i)->related_cands |= *data->important_candidates;
     }
 }
 

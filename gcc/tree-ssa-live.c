@@ -1025,7 +1025,7 @@ loe_visit_block (tree_live_info_p live, basic_block bb, sbitmap visited,
       /* Add these bits to live-on-entry for the pred. if there are any
 	 changes, and pred_bb has been visited already, add it to the
 	 revisit stack.  */
-      change = bitmap_ior_into (live_on_entry (live, pred_bb), tmp);
+      change = live_on_entry (live, pred_bb)->bit_or (*tmp);
       if (bitmap_bit_p (visited, pred_bb->index) && change)
 	{
 	  bitmap_clear_bit (visited, pred_bb->index);
@@ -1181,8 +1181,7 @@ calculate_live_on_exit (tree_live_info_p liveinfo)
       /* Add each successors live on entry to this bock live on exit.  */
       FOR_EACH_EDGE (e, ei, bb->succs)
 	if (e->dest != EXIT_BLOCK_PTR_FOR_FN (cfun))
-	  bitmap_ior_into (&liveinfo->liveout[bb->index],
-			   live_on_entry (liveinfo, e->dest));
+	  liveinfo->liveout[bb->index] |= *live_on_entry (liveinfo, e->dest);
     }
 }
 

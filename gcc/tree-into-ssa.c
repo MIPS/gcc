@@ -640,7 +640,7 @@ add_new_name_mapping (tree new_tree, tree old)
   /* If OLD had already been registered as a new name, then all the
      names that OLD replaces should also be replaced by NEW_TREE.  */
   if (is_new_name (old))
-    bitmap_ior_into (names_replaced_by (new_tree), names_replaced_by (old));
+    *names_replaced_by (new_tree) |= *names_replaced_by (old);
 
   /* Register NEW_TREE and OLD in NEW_SSA_NAMES and OLD_SSA_NAMES,
      respectively.  */
@@ -3022,7 +3022,7 @@ insert_updated_phi_nodes_for (tree var, bitmap_head *dfs, bitmap blocks,
 
       /* FIXME, this is not needed if we are updating symbols.  We are
 	 already starting at the ENTRY block anyway.  */
-      bitmap_ior_into (blocks, &pruned_idf);
+      *blocks |= pruned_idf;
       EXECUTE_IF_SET_IN_BITMAP (&pruned_idf, 0, i, bi)
 	{
 	  edge e;

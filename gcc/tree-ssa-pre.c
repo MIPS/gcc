@@ -2389,8 +2389,8 @@ compute_partial_antic_aux (basic_block block,
 
   /* For partial antic, we want to put back in the phi results, since
      we will properly avoid making them partially antic over backedges.  */
-  bitmap_ior_into (&PA_IN (block)->values, &PHI_GEN (block)->values);
-  bitmap_ior_into (&PA_IN (block)->expressions, &PHI_GEN (block)->expressions);
+  PA_IN (block)->values |= PHI_GEN (block)->values;
+  PA_IN (block)->expressions |= PHI_GEN (block)->expressions;
 
   /* PA_IN[block] = PA_IN[block] - ANTIC_IN[block] */
   bitmap_set_subtract_values (PA_IN (block), ANTIC_IN (block));

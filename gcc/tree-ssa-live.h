@@ -310,7 +310,7 @@ static inline void
 live_merge_and_clear (tree_live_info_p live, int p1, int p2)
 {
   gcc_checking_assert (&live->livein[p1] && &live->livein[p2]);
-  bitmap_ior_into (&live->livein[p1], &live->livein[p2]);
+  live->livein[p1] |= live->livein[p2];
   live->livein[p2].clear ();
 }
 

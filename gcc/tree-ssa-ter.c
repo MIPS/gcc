@@ -349,10 +349,9 @@ add_dependence (temp_expr_table_p tab, int version, tree var)
 	  if (!tab->partition_dependencies[version])
 	    tab->partition_dependencies[version] =
 	      BITMAP_ALLOC (&ter_bitmap_obstack);
-	  bitmap_ior_into (tab->partition_dependencies[version],
-			   &tab->new_replaceable_dependencies);
-	  bitmap_ior_into (&tab->partition_in_use,
-			   &tab->new_replaceable_dependencies);
+	  *tab->partition_dependencies[version]
+			   |= tab->new_replaceable_dependencies;
+	  tab->partition_in_use |= tab->new_replaceable_dependencies;
 	  /* It is only necessary to add these once.  */
 	  tab->new_replaceable_dependencies.clear ();
 	}
@@ -482,7 +481,7 @@ process_replaceable (temp_expr_table_p tab, gimple stmt, int call_cnt)
       add_dependence (tab, version, var);
       if (use_vars)
         {
-	  bitmap_ior_into (def_vars, use_vars);
+	  *def_vars |= *use_vars;
 	  BITMAP_FREE (tab->expr_decl_uids[var_version]);
 	}
       else if (SSA_NAME_VAR (var))
@@ -542,8 +541,7 @@ mark_replaceable (temp_expr_table_p tab, tree var, bool more_replacing)
 
   /* Move the dependence list to the pending listpending.  */
   if (more_replacing && tab->partition_dependencies[version])
-    bitmap_ior_into (&tab->new_replaceable_dependencies,
-		     tab->partition_dependencies[version]);
+    tab->new_replaceable_dependencies |= *tab->partition_dependencies[version];
 
   finished_with_expr (tab, version, !more_replacing);
 

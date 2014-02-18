@@ -1610,15 +1610,15 @@ bitmap_ior (bitmap dst, const_bitmap a, const_bitmap b)
 /* A |= B.  Return true if A changes.  */
 
 bool
-bitmap_ior_into (bitmap a, const_bitmap b)
+bitmap_head::bit_or (const bitmap_head &with)
 {
-  bitmap_element *a_elt = a->first;
-  const bitmap_element *b_elt = b->first;
+  bitmap_element *a_elt = first;
+  const bitmap_element *b_elt = with.first;
   bitmap_element *a_prev = NULL;
-  bitmap_element **a_prev_pnext = &a->first;
+  bitmap_element **a_prev_pnext = &first;
   bool changed = false;
 
-  if (a == b)
+  if (this == &with)
     return false;
 
   while (b_elt)
@@ -1626,12 +1626,12 @@ bitmap_ior_into (bitmap a, const_bitmap b)
       /* If A lags behind B, just advance it.  */
       if (!a_elt || a_elt->indx == b_elt->indx)
 	{
-	  changed = bitmap_elt_ior (a, a_elt, a_prev, a_elt, b_elt, changed);
+	  changed = bitmap_elt_ior (this, a_elt, a_prev, a_elt, b_elt, changed);
 	  b_elt = b_elt->next;
 	}
       else if (a_elt->indx > b_elt->indx)
 	{
-          changed = bitmap_elt_copy (a, NULL, a_prev, b_elt, changed);
+          changed = bitmap_elt_copy (this, NULL, a_prev, b_elt, changed);
 	  b_elt = b_elt->next;
 	}
 
@@ -1640,9 +1640,9 @@ bitmap_ior_into (bitmap a, const_bitmap b)
       a_elt = *a_prev_pnext;
     }
 
-  gcc_checking_assert (!a->current == !a->first);
-  if (a->current)
-    a->indx = a->current->indx;
+  gcc_checking_assert (!current == !first);
+  if (current)
+    indx = current->indx;
   return changed;
 }
 
@@ -1970,13 +1970,10 @@ bool
 bitmap_ior_and_compl_into (bitmap a, const_bitmap from1, const_bitmap from2)
 {
   bitmap_head tmp;
-  bool changed;
 
-  bitmap_initialize (&tmp, &bitmap_default_obstack);
   bitmap_and_compl (&tmp, from1, from2);
-  changed = bitmap_ior_into (a, &tmp);
 
-  return changed;
+  return a->bit_or (tmp);
 }
 
 /* A |= (B & C).  Return true if A changes.  */
@@ -1994,7 +1991,7 @@ bitmap_ior_and_into (bitmap a, const_bitmap b, const_bitmap c)
   unsigned ix;
 
   if (b == c)
-    return bitmap_ior_into (a, b);
+    return a->bit_or (*b);
   if (b->is_empty () || c->is_empty ())
     return false;
 
