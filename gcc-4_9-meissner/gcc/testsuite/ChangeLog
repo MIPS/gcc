@@ -1,3 +1,131 @@
+2014-02-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60225
+	* g++.dg/cpp0x/constexpr-ice10.C: New.
+
+2014-02-18  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60215
+	* g++.dg/cpp0x/pr60215.C: New.
+
+2014-02-18  Tobias Burnus  <burnus@net-b.de>
+
+	PR fortran/49397
+	* gfortran.dg/proc_ptr_45.f90: New.
+	* gfortran.dg/proc_ptr_46.f90: New.
+
+2014-02-18  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/60190
+	* g++.dg/cpp1y/pr60190.C: New testcase.
+
+	PR c++/60064
+	* g++.dg/cpp1y/pr60064.C: New testcase.
+
+2014-02-18  Uros Bizjak  <ubizjak@gmail.com>
+
+	PR target/60205
+	* gcc.target/i386/pr60205-1.c: New test.
+	* gcc.target/i386/pr60205-2.c: Ditto.
+
+2014-02-18  Kai Tietz  <ktietz@redhat.com>
+
+	PR target/60193
+	* gcc.target/i386/nest-1.c: New testcase.
+
+2014-02-18  Eric Botcazou  <ebotcazou@adacore.com>
+
+	* gnat.dg/opt32.adb: New test.
+
+2014-02-18  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/60231
+	* gfortran.dg/typebound_generic_15.f90: New.
+
+2014-02-17  Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/55907
+	* gfortran.dg/init_flag_12.f90: New.
+
+2014-02-17  Kirill Yukhin  <kirill.yukhin@intel.com>
+	    Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gcc.target/i386/avx512f-vpermd-2.c: Fix reference calculations.
+	* gcc.target/i386/avx512f-vpermpd-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpermps-2.c: Ditto.
+	* gcc.target/i386/avx512f-vpermq-var-2.c: Ditto.
+
+2014-02-16  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* lib/target-supports.exp
+	(check_effective_target_logical_op_short_circuit): New procedure.
+	* gcc.dg/binop-xor1.c: XFAIL for logical_op_short_circuit.
+	* gcc.dg/tree-ssa/forwprop-28.c: Use logical_op_short_circuit
+	instead of mips*-*-*, arc*-*-*, avr*-*-* and arm_cortex_m tests.
+	* gcc.dg/tree-ssa/vrp47.c: Likewise.
+	* gcc.dg/tree-ssa/vrp87.c: Likewise.
+	* gcc.dg/tree-ssa/ssa-dom-thread-4.c: Likewise.  Also use
+	logical_op_short_circuit for the alternative test, extending
+	it to arm_cortex_m.
+
+2014-02-15  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	PR target/60203
+	* gcc.target/powerpc/pr60203.c: New testsuite.
+
+2014-02-15  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/59599
+	* gfortran.dg/ichar_3.f90: New test.
+
+2014-02-15  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60183
+	* gcc.dg/torture/pr60183.c: New testcase.
+
+2014-02-14  Jeff Law  <law@redhat.com>
+
+	PR rtl-optimization/60131
+	* g++.dg/torture/pr60131.C: New test.
+
+2014-02-14  Ian Bolton  <ian.bolton@arm.com>
+
+	* gcc.target/arm/pr59858.c: Skip if -mfloat-abi=hard specified
+	on command-line.
+
+2014-02-14  Bernd Edlinger  <bernd.edlinger@hotmail.de>
+
+	* c-c++-common/ubsan/overflow-negate-2.c (main): Use signed char.
+
+2014-02-14  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.c-torture/compile/20140213.c: New test.
+
+2014-02-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/43546
+	* gcc.target/i386/pr43546.c: New test.
+
+2014-02-13  Dominik Vogt  <vogt@linux.vnet.ibm.com>
+
+	* gcc.target/s390/hotpatch-compile-8.c: New test.
+
+2014-02-13  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/pr59605.c: Convert to a compile test.  Protect MAX_COPY
+	definition with an ifndef.
+	* gcc.dg/pr59605-2.c: New test.
+
+2014-02-13  Richard Sandiford  <rdsandiford@googlemail.com>
+
+	* gcc.dg/gomp/simd-clones-5.c: Update comment for new warning message.
+
+2014-02-12  Joseph Myers  <joseph@codesourcery.com>
+
+	* gcc.dg/torture/float128-mul-underflow.c,
+	gcc.dg/torture/float128-truncdf-underflow.c,
+	gcc.dg/torture/float128-truncsf-underflow.c: New tests.
+
 2014-02-12  Jakub Jelinek  <jakub@redhat.com>
 
 	PR middle-end/59737
