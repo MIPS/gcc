@@ -6110,10 +6110,6 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
   cum->caller = caller;
 
   /* Set up the number of registers to use for passing arguments.  */
-
-  if (TARGET_64BIT && cum->call_abi == MS_ABI && !ACCUMULATE_OUTGOING_ARGS)
-    sorry ("ms_abi attribute requires -maccumulate-outgoing-args "
-	   "or subtarget optimization implying it");
   cum->nregs = ix86_regparm;
   if (TARGET_64BIT)
     {
@@ -6133,6 +6129,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
     }
   if (TARGET_MMX)
     cum->mmx_nregs = MMX_REGPARM_MAX;
+  cum->warn_avx512f = true;
   cum->warn_avx = true;
   cum->warn_sse = true;
   cum->warn_mmx = true;
@@ -6158,6 +6155,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	  cum->nregs = 0;
 	  cum->sse_nregs = 0;
 	  cum->mmx_nregs = 0;
+	  cum->warn_avx512f = 0;
 	  cum->warn_avx = 0;
 	  cum->warn_sse = 0;
 	  cum->warn_mmx = 0;
@@ -6215,7 +6213,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
   if (TREE_CODE (type) == VECTOR_TYPE && !VECTOR_MODE_P (mode))
     {
       HOST_WIDE_INT size = int_size_in_bytes (type);
-      if ((size == 8 || size == 16 || size == 32)
+      if ((size == 8 || size == 16 || size == 32 || size == 64)
 	  /* ??? Generic code allows us to create width 1 vectors.  Ignore.  */
 	  && TYPE_VECTOR_SUBPARTS (type) > 1)
 	{
@@ -6231,7 +6229,29 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 	    if (GET_MODE_NUNITS (mode) == TYPE_VECTOR_SUBPARTS (type)
 		&& GET_MODE_INNER (mode) == innermode)
 	      {
-		if (size == 32 && !TARGET_AVX)
+		if (size == 64 && !TARGET_AVX512F)
+		  {
+		    static bool warnedavx512f;
+		    static bool warnedavx512f_ret;
+
+		    if (cum
+			&& !warnedavx512f
+			&& cum->warn_avx512f)
+		      {
+			warnedavx512f = true;
+			warning (0, "AVX512F vector argument without AVX512F "
+				 "enabled changes the ABI");
+		      }
+		    else if (in_return & !warnedavx512f_ret)
+		      {
+			warnedavx512f_ret = true;
+			warning (0, "AVX512F vector return without AVX512F "
+				 "enabled changes the ABI");
+		      }
+
+		    return TYPE_MODE (type);
+		  }
+		else if (size == 32 && !TARGET_AVX)
 		  {
 		    static bool warnedavx;
 		    static bool warnedavx_ret;
@@ -11027,20 +11047,18 @@ ix86_expand_prologue (void)
       rtx r10 = NULL;
       rtx (*adjust_stack_insn)(rtx, rtx, rtx);
       const bool sp_is_cfa_reg = (m->fs.cfa_reg == stack_pointer_rtx);
-      bool eax_live = false;
+      bool eax_live = ix86_eax_live_at_start_p ();
       bool r10_live = false;
 
       if (TARGET_64BIT)
         r10_live = (DECL_STATIC_CHAIN (current_function_decl) != 0);
-      if (!TARGET_64BIT_MS_ABI)
-        eax_live = ix86_eax_live_at_start_p ();
 
-      /* Note that SEH directives need to continue tracking the stack
-	 pointer even after the frame pointer has been set up.  */
       if (eax_live)
 	{
 	  insn = emit_insn (gen_push (eax));
 	  allocate -= UNITS_PER_WORD;
+	  /* Note that SEH directives need to continue tracking the stack
+	     pointer even after the frame pointer has been set up.  */
 	  if (sp_is_cfa_reg || TARGET_SEH)
 	    {
 	      if (sp_is_cfa_reg)
@@ -11089,17 +11107,16 @@ ix86_expand_prologue (void)
 	 works for realigned stack, too.  */
       if (r10_live && eax_live)
         {
-	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
+	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, eax);
 	  emit_move_insn (gen_rtx_REG (word_mode, R10_REG),
 			  gen_frame_mem (word_mode, t));
-	  t = plus_constant (Pmode, stack_pointer_rtx,
-			     allocate - UNITS_PER_WORD);
+	  t = plus_constant (Pmode, t, UNITS_PER_WORD);
 	  emit_move_insn (gen_rtx_REG (word_mode, AX_REG),
 			  gen_frame_mem (word_mode, t));
 	}
       else if (eax_live || r10_live)
 	{
-	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
+	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, eax);
 	  emit_move_insn (gen_rtx_REG (word_mode,
 				       (eax_live ? AX_REG : R10_REG)),
 			  gen_frame_mem (word_mode, t));
@@ -28088,12 +28105,10 @@ enum ix86_builtins
   IX86_BUILTIN_DIVPS512,
   IX86_BUILTIN_DIVSD_ROUND,
   IX86_BUILTIN_DIVSS_ROUND,
-  IX86_BUILTIN_EXPANDPD512_NOMASK,
   IX86_BUILTIN_EXPANDPD512,
   IX86_BUILTIN_EXPANDPD512Z,
   IX86_BUILTIN_EXPANDPDLOAD512,
   IX86_BUILTIN_EXPANDPDLOAD512Z,
-  IX86_BUILTIN_EXPANDPS512_NOMASK,
   IX86_BUILTIN_EXPANDPS512,
   IX86_BUILTIN_EXPANDPS512Z,
   IX86_BUILTIN_EXPANDPSLOAD512,
@@ -29941,10 +29956,8 @@ static const struct builtin_description bdesc_args[] =
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vcvtps2ph512_mask,  "__builtin_ia32_vcvtps2ph512_mask", IX86_BUILTIN_CVTPS2PH512, UNKNOWN, (int) V16HI_FTYPE_V16SF_INT_V16HI_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_ufloatv8siv8df_mask, "__builtin_ia32_cvtudq2pd512_mask", IX86_BUILTIN_CVTUDQ2PD512, UNKNOWN, (int) V8DF_FTYPE_V8SI_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_cvtusi2sd32, "__builtin_ia32_cvtusi2sd32", IX86_BUILTIN_CVTUSI2SD32, UNKNOWN, (int) V2DF_FTYPE_V2DF_UINT },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df, "__builtin_ia32_expanddf512", IX86_BUILTIN_EXPANDPD512_NOMASK, UNKNOWN, (int) V8DF_FTYPE_V8DF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_mask, "__builtin_ia32_expanddf512_mask", IX86_BUILTIN_EXPANDPD512, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv8df_maskz, "__builtin_ia32_expanddf512_maskz", IX86_BUILTIN_EXPANDPD512Z, UNKNOWN, (int) V8DF_FTYPE_V8DF_V8DF_QI },
-  { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf, "__builtin_ia32_expandsf512", IX86_BUILTIN_EXPANDPS512_NOMASK, UNKNOWN, (int) V16SF_FTYPE_V16SF },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf_mask, "__builtin_ia32_expandsf512_mask", IX86_BUILTIN_EXPANDPS512, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_expandv16sf_maskz, "__builtin_ia32_expandsf512_maskz", IX86_BUILTIN_EXPANDPS512Z, UNKNOWN, (int) V16SF_FTYPE_V16SF_V16SF_HI },
   { OPTION_MASK_ISA_AVX512F, CODE_FOR_avx512f_vextractf32x4_mask, "__builtin_ia32_extractf32x4_mask", IX86_BUILTIN_EXTRACTF32X4, UNKNOWN, (int) V4SF_FTYPE_V16SF_INT_V4SF_QI },

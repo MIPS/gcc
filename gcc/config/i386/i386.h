@@ -1537,12 +1537,12 @@ enum reg_class
    mode the difference is less drastic but visible.  
 
    FIXME: Unlike earlier implementations, the size of unwind info seems to
-   actually grouw with accumulation.  Is that because accumulated args
+   actually grow with accumulation.  Is that because accumulated args
    unwind info became unnecesarily bloated?
-   
-   64-bit MS ABI seem to require 16 byte alignment everywhere except for
-   function prologue and epilogue.  This is not possible without
-   ACCUMULATE_OUTGOING_ARGS.  
+
+   With the 64-bit MS ABI, we can generate correct code with or without
+   accumulated args, but because of OUTGOING_REG_PARM_STACK_SPACE the code
+   generated without accumulated args is terrible.
 
    If stack probes are required, the space used for large function
    arguments on the stack must also be probed, so enable
@@ -1606,6 +1606,8 @@ typedef struct ix86_args {
 				   is used */
   int sse_words;		/* # sse words passed so far */
   int sse_nregs;		/* # sse registers available for passing */
+  int warn_avx512f;		/* True when we want to warn
+				   about AVX512F ABI.  */
   int warn_avx;			/* True when we want to warn about AVX ABI.  */
   int warn_sse;			/* True when we want to warn about SSE ABI.  */
   int warn_mmx;			/* True when we want to warn about MMX ABI.  */
