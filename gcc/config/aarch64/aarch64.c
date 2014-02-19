@@ -367,7 +367,8 @@ static const struct tune_params cortexa57_tunings =
   &generic_regmove_cost,
   &generic_vector_cost,
   NAMED_PARAM (memmov_cost, 4),
-  NAMED_PARAM (issue_rate, 3)
+  NAMED_PARAM (issue_rate, 3),
+  NAMED_PARAM (align, 8)
 };
 
 /* A processor implementing AArch64.  */
@@ -5050,7 +5051,7 @@ aarch64_macro_fusion_p (void)
 
 /* Return is the pair of instructions are macro fusion pairs. */
 static bool
-aarch64_macro_fusion_pair (rtx condgen, rtx condjmp)
+aarch64_macro_fusion_pair (rtx condgen, rtx)
 {
   if (aarch64_tune != thunder)
     return false;
