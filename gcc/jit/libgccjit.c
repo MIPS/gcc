@@ -680,6 +680,10 @@ gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (pointer_type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL_PRINTF1 (
+    pointer_type->dereference (), ctxt,
+    "not a pointer type (type: %s)",
+    pointer_type->get_debug_string ());
 
   return (gcc_jit_rvalue *)ctxt->new_rvalue_from_ptr (pointer_type, value);
 }
@@ -690,6 +694,10 @@ gcc_jit_context_null (gcc_jit_context *ctxt,
 {
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (pointer_type, ctxt, "NULL type");
+  RETURN_NULL_IF_FAIL_PRINTF1 (
+    pointer_type->dereference (), ctxt,
+    "not a pointer type (type: %s)",
+    pointer_type->get_debug_string ());
 
   return gcc_jit_context_new_rvalue_from_ptr (ctxt, pointer_type, NULL);
 }
@@ -823,6 +831,11 @@ gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (ptr, ctxt, "NULL ptr");
   RETURN_NULL_IF_FAIL (index, ctxt, "NULL index");
+  RETURN_NULL_IF_FAIL_PRINTF2 (
+    ptr->get_type ()->dereference (), ctxt,
+    "%s (type: %s) is not a pointer",
+    ptr->get_debug_string (),
+    ptr->get_type ()->get_debug_string ());
 
   return (gcc_jit_lvalue *)ctxt->new_array_access (loc, ptr, index);
 }

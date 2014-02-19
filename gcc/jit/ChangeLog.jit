@@ -1,3 +1,13 @@
+2014-02-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.c (gcc_jit_context_new_rvalue_from_ptr): Verify that
+	pointer_type is indeed a pointer type.
+	(gcc_jit_context_null): Likewise.
+	(gcc_jit_context_new_array_access): Verify that ptr is indeed a
+	pointer.
+
+	* TODO.rst: Update
+
 2014-02-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_struct): New.
