@@ -9127,15 +9127,15 @@ cp_parser_lambda_declarator_opt (cp_parser* parser, tree lambda_expr)
 	DECL_ARTIFICIAL (fco) = 1;
 	/* Give the object parameter a different name.  */
 	DECL_NAME (DECL_ARGUMENTS (fco)) = get_identifier ("__closure");
-	if (template_param_list)
-	  {
-	    fco = finish_member_template_decl (fco);
-	    finish_template_decl (template_param_list);
-	    --parser->num_template_parameter_lists;
-	  }
-	else if (parser->fully_implicit_function_template_p)
-	  fco = finish_fully_implicit_template (parser, fco);
       }
+    if (template_param_list)
+      {
+	fco = finish_member_template_decl (fco);
+	finish_template_decl (template_param_list);
+	--parser->num_template_parameter_lists;
+      }
+    else if (parser->fully_implicit_function_template_p)
+      fco = finish_fully_implicit_template (parser, fco);
 
     finish_member_declaration (fco);
 
@@ -20406,13 +20406,11 @@ cp_parser_member_declaration (cp_parser* parser)
 							      &decl_specifiers,
 							      declarator,
 							      attributes);
+		  if (parser->fully_implicit_function_template_p)
+		    decl = finish_fully_implicit_template (parser, decl);
 		  /* If the member was not a friend, declare it here.  */
 		  if (!friend_p)
-		    {
-		      if (parser->fully_implicit_function_template_p)
-			decl = finish_fully_implicit_template (parser, decl);
-		      finish_member_declaration (decl);
-		    }
+		    finish_member_declaration (decl);
 		  /* Peek at the next token.  */
 		  token = cp_lexer_peek_token (parser->lexer);
 		  /* If the next token is a semicolon, consume it.  */
