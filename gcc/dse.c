@@ -2015,7 +2015,7 @@ replace_read (store_info_t store_info, insn_info_t store_insn,
       for (this_insn = insns; this_insn != NULL_RTX; this_insn = NEXT_INSN (this_insn))
 	note_stores (PATTERN (this_insn), look_for_hardregs, &regs_set);
 
-      bitmap_and_into (&regs_set, regs_live);
+      regs_set &= *regs_live;
       if (!regs_set.is_empty ())
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
@@ -3378,7 +3378,7 @@ dse_confluence_n (edge e)
   if (dest_info->in)
     {
       if (src_info->out)
-	bitmap_and_into (src_info->out, dest_info->in);
+	*src_info->out &= *dest_info->in;
       else
 	{
 	  src_info->out = BITMAP_ALLOC (&dse_bitmap_obstack);

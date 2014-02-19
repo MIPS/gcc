@@ -3517,8 +3517,8 @@ tm_memopt_compute_avin (basic_block bb)
       e = EDGE_PRED (bb, ix);
       if (e->src->aux && BB_VISITED_P (e->src))
 	{
-	  bitmap_and_into (STORE_AVAIL_IN (bb), STORE_AVAIL_OUT (e->src));
-	  bitmap_and_into (READ_AVAIL_IN (bb), READ_AVAIL_OUT (e->src));
+	  *STORE_AVAIL_IN (bb) &= *STORE_AVAIL_OUT (e->src);
+	  *READ_AVAIL_IN (bb) &= *READ_AVAIL_OUT (e->src);
 	}
     }
 
@@ -3550,7 +3550,7 @@ tm_memopt_compute_antin (basic_block bb)
     {
       e = EDGE_SUCC (bb, ix);
       if (BB_VISITED_P  (e->dest))
-	bitmap_and_into (STORE_ANTIC_IN (bb), STORE_ANTIC_OUT (e->dest));
+	*STORE_ANTIC_IN (bb) &= *STORE_ANTIC_OUT (e->dest);
     }
 
   BB_VISITED_P (bb) = true;

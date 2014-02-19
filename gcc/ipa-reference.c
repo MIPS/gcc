@@ -320,7 +320,7 @@ intersect_static_var_sets (bitmap &x, bitmap y)
 {
   if (x != all_module_statics)
     {
-      bitmap_and_into (x, y);
+      *x &= *y;
       /* As with union_static_var_sets, reducing to the maximum
 	 set as early as possible is an overall win.  */
       if (*x == *all_module_statics)

@@ -200,6 +200,12 @@ struct GTY(()) bitmap_head {
       return *this;
     }
 
+  bitmap_head &operator&= (const bitmap_head &other)
+    {
+      bit_and (other);
+      return *this;
+    }
+
 /* Clear a single bit in a bitmap.  Return true if the bit changed.  */
   bool clear_bit (int);
 
@@ -229,6 +235,7 @@ struct GTY(()) bitmap_head {
   bool bit (int) const;
 
   bool bit_or (const bitmap_head &other);
+  bool bit_and (const bitmap_head &);
 
 /* True if two bitmaps are identical.  */
   bool operator== (const bitmap_head &) const;
@@ -268,7 +275,6 @@ extern bool bitmap_intersect_compl_p (const_bitmap, const_bitmap);
    are three operand versions that to not destroy the source bitmaps.
    The operations supported are &, & ~, |, ^.  */
 extern void bitmap_and (bitmap, const_bitmap, const_bitmap);
-extern bool bitmap_and_into (bitmap, const_bitmap);
 extern bool bitmap_and_compl (bitmap, const_bitmap, const_bitmap);
 extern bool bitmap_and_compl_into (bitmap, const_bitmap);
 #define bitmap_compl_and(DST, A, B) bitmap_and_compl (DST, B, A)

@@ -543,7 +543,7 @@ df_rd_transfer_function (int bb_index)
       bitmap_head live_defs (&df_bitmap_obstack);
       EXECUTE_IF_SET_IN_BITMAP (regs_live_out, 0, regno, bi)
 	live_defs.set_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
-      changed |= bitmap_and_into (&bb_info->out, &live_defs);
+      changed |= bb_info->out.bit_and (live_defs);
     }
 
   return changed;
@@ -616,7 +616,7 @@ df_rd_dump_defs_set (bitmap defs_set, const char *prefix, FILE *file)
 	continue;
       bitmap_head tmp (&df_bitmap_obstack);
       tmp.set_range (DF_DEFS_BEGIN (regno), DF_DEFS_COUNT (regno));
-      bitmap_and_into (&tmp, defs_set);
+      tmp &= *defs_set;
       if (! tmp.is_empty ())
 	{
 	  bitmap_iterator bi;
@@ -1546,7 +1546,7 @@ df_live_transfer_function (int bb_index)
   bitmap_and (&temp, gen, &bb_lr_info->out);
   /* No register may reach a location where it is not used.  Thus
      we trim the rr result to the places where it is used.  */
-  bitmap_and_into (in, &bb_lr_info->in);
+  *in &= bb_lr_info->in;
 
   return bitmap_ior_and_compl (out, &temp, in, kill);
 }
@@ -1570,8 +1570,8 @@ df_live_finalize (bitmap all_blocks)
 
 	  /* No register may reach a location where it is not used.  Thus
 	     we trim the rr result to the places where it is used.  */
-	  bitmap_and_into (&bb_live_info->in, &bb_lr_info->in);
-	  bitmap_and_into (&bb_live_info->out, &bb_lr_info->out);
+	  bb_live_info->in &= bb_lr_info->in;
+	  bb_live_info->out &= bb_lr_info->out;
 	}
 
       df_live->solutions_dirty = false;
@@ -3925,7 +3925,7 @@ can_move_insns_across (rtx from, rtx to, rtx across_from, rtx across_to,
 
   /* We're not interested in registers that aren't set in the moved
      region at all.  */
-  bitmap_and_into (&local_merge_live, &merge_set);
+  local_merge_live &= merge_set;
   for (;;)
     {
       if (NONDEBUG_INSN_P (insn))
@@ -4284,7 +4284,7 @@ df_md_transfer_function (int bb_index)
 
   /* Multiple definitions of a register are not relevant if it is not
      live.  Thus we trim the result to the places where it is live.  */
-  bitmap_and_into (in, df_get_live_in (bb));
+  *in &= *df_get_live_in (bb);
 
   return bitmap_ior_and_compl (out, &df_md_scratch, in, kill);
 }

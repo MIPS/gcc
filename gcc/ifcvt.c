@@ -4246,10 +4246,8 @@ dead_or_predicable (basic_block test_bb, basic_block merge_bb,
 		&& targetm.calls.function_value_regno_p (i))
 	      return_regs.set_bit (INCOMING_REGNO (i));
 
-	  bitmap_and_into (&return_regs,
-			   df_get_live_out (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
-	  bitmap_and_into (&return_regs,
-			   df_get_live_in (EXIT_BLOCK_PTR_FOR_FN (cfun)));
+	  return_regs &= *df_get_live_out (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+	  return_regs &= *df_get_live_in (EXIT_BLOCK_PTR_FOR_FN (cfun));
 	  if (!return_regs.is_empty ())
 	    {
 	      FOR_BB_INSNS_REVERSE (new_dest, insn)

@@ -266,7 +266,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
        loop != current_loops->tree_root;
        loop = loop_outer (loop))
     def_loop_exits |= *loop_exits[loop->num];
-  bitmap_and_into (live_exits, &def_loop_exits);
+  *live_exits &= def_loop_exits;
 }
 
 /* Add a loop-closing PHI for VAR in basic block EXIT.  */

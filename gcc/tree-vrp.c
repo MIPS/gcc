@@ -8309,7 +8309,7 @@ vrp_meet_1 (value_range_t *vr0, value_range_t *vr1)
   /* The resulting set of equivalences is always the intersection of
      the two sets.  */
   if (vr0->equiv && vr1->equiv && vr0->equiv != vr1->equiv)
-    bitmap_and_into (vr0->equiv, vr1->equiv);
+    *vr0->equiv &= *vr1->equiv;
   else if (vr0->equiv && !vr1->equiv)
     vr0->equiv->clear ();
 }

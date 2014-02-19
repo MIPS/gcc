@@ -755,7 +755,7 @@ bitmap_set_and (bitmap_set_t dest, bitmap_set_t orig)
     {
       bitmap_head temp (&grand_bitmap_obstack);
 
-      bitmap_and_into (&dest->values, &orig->values);
+      dest->values &= orig->values;
       temp = dest->expressions;
       EXECUTE_IF_SET_IN_BITMAP (&temp, 0, i, bi)
 	{

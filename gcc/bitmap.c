@@ -949,14 +949,14 @@ bitmap_and (bitmap dst, const_bitmap a, const_bitmap b)
 /* A &= B.  Return true if A changed.  */
 
 bool
-bitmap_and_into (bitmap a, const_bitmap b)
+bitmap_head::bit_and (const bitmap_head &other)
 {
-  bitmap_element *a_elt = a->first;
-  const bitmap_element *b_elt = b->first;
+  bitmap_element *a_elt = first;
+  const bitmap_element *b_elt = other.first;
   bitmap_element *next;
   bool changed = false;
 
-  if (a == b)
+  if (this == &other)
     return false;
 
   while (a_elt && b_elt)
@@ -964,7 +964,7 @@ bitmap_and_into (bitmap a, const_bitmap b)
       if (a_elt->indx < b_elt->indx)
 	{
 	  next = a_elt->next;
-	  bitmap_element_free (a, a_elt);
+	  bitmap_element_free (this, a_elt);
 	  a_elt = next;
 	  changed = true;
 	}
@@ -986,7 +986,7 @@ bitmap_and_into (bitmap a, const_bitmap b)
 	    }
 	  next = a_elt->next;
 	  if (!ior)
-	    bitmap_element_free (a, a_elt);
+	    bitmap_element_free (this, a_elt);
 	  a_elt = next;
 	  b_elt = b_elt->next;
 	}
@@ -995,11 +995,11 @@ bitmap_and_into (bitmap a, const_bitmap b)
   if (a_elt)
     {
       changed = true;
-      bitmap_elt_clear_from (a, a_elt);
+      bitmap_elt_clear_from (this, a_elt);
     }
 
-  gcc_checking_assert (((a->current && a->first) || !a->current)
-		       && (!a->current || a->indx == a->current->indx));
+  gcc_checking_assert (((current && first) || !current)
+		       && (!current || indx == current->indx));
 
   return changed;
 }

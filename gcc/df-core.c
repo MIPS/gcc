@@ -1298,7 +1298,7 @@ df_analyze (void)
      sets.  */
   if (df->analyze_subset)
     {
-      bitmap_and_into (df->blocks_to_analyze, current_all_blocks);
+      df->blocks_to_analyze->bit_and (*current_all_blocks);
       df->n_blocks = df_prune_to_subcfg (df->postorder,
 					 df->n_blocks, df->blocks_to_analyze);
       df->n_blocks_inverted = df_prune_to_subcfg (df->postorder_inverted,
