@@ -161,6 +161,12 @@
     (match_operand 0 "short_cint_operand")
     (match_operand 0 "gpc_reg_operand")))
 
+;; Return 1 if op is a register or 0
+(define_predicate "reg_or_zero_operand"
+  (if_then_else (match_code "const_int")
+    (match_test "INTVAL (op) == 0")
+    (match_operand 0 "gpc_reg_operand")))
+
 ;; Return 1 if op is a constant integer valid whose negation is valid for
 ;; D field or non-special register register.
 ;; Do not allow a constant zero because all patterns that call this
@@ -917,19 +923,78 @@
 ;; it must be a positive comparison.
 (define_predicate "scc_comparison_operator"
   (and (match_operand 0 "branch_comparison_operator")
-       (match_code "eq,lt,gt,ltu,gtu,unordered")))
+       (ior (match_code "eq,lt,gt,ltu,gtu")
+	    (and (match_test "GET_MODE (XEXP (op, 0)) == CCFPmode")
+		 (match_code "unordered")))))
 
 ;; Return 1 if OP is a comparison operation whose inverse would be valid for
-;; an SCC insn.
+;; an SCC insn
 (define_predicate "scc_rev_comparison_operator"
   (and (match_operand 0 "branch_comparison_operator")
-       (match_code "ne,le,ge,leu,geu,ordered")))
+       (if_then_else (match_test "GET_MODE (XEXP (op, 0)) != CCFPmode")
+		     (match_code "ne,le,ge,leu,geu")
+		     (match_code "uneq,unlt,ungt,ordered"))))
 
 ;; Return 1 if OP is a comparison operation that is valid for a branch
 ;; insn, which is true if the corresponding bit in the CC register is set.
 (define_predicate "branch_positive_comparison_operator"
   (and (match_operand 0 "branch_comparison_operator")
        (match_code "eq,lt,gt,ltu,gtu,unordered")))
+
+;; Return 1 if OP is an unsigned integer comparison
+(define_predicate "unsigned_comparison_operator"
+  (match_code "ltu,leu,gtu,geu"))
+
+;; Return 1 if OP is a signed integer comparison
+(define_predicate "signed_comparison_operator"
+  (match_code "eq,ne,lt,le,gt,ge"))
+
+;; Return 1 if OP is a comparison operation that is valid for a branch insn for
+;; integer comparisons used in merging the comparison and branch conditional +
+;; 8 into a single insn.
+(define_predicate "bcp8_comparison_operator"
+  (ior (match_operand 0 "signed_comparison_operator")
+       (match_operand 0 "unsigned_comparison_operator"))
+{
+  rtx op0 = XEXP (op, 0);
+  rtx op1 = XEXP (op, 1);
+  enum machine_mode op0_mode = GET_MODE (op0);
+  enum machine_mode op1_mode = GET_MODE (op1);
+
+  if (op0_mode != SImode && (!TARGET_POWERPC64 || op0_mode != DImode))
+    return 0;
+
+  if (!gpc_reg_operand (op0, op0_mode))
+    return 0;
+
+  if (op0_mode == op1_mode)
+    return gpc_reg_operand (op1, op1_mode);
+
+  if (op1_mode != VOIDmode || GET_CODE (op1) != CONST_INT)
+    return 0;
+
+  switch (GET_CODE (op))
+    {
+    case EQ:
+    case NE:
+    case LT:
+    case LE:
+    case GT:
+    case GE:
+      return satisfies_constraint_I (op1);
+
+    case LTU:
+    case LEU:
+    case GTU:
+    case GEU:
+      return satisfies_constraint_K (op1);
+
+    default:
+      break;
+    }
+
+  return 0;
+})
 
 ;; Return 1 if OP is a load multiple operation, known to be a PARALLEL.
 (define_predicate "load_multiple_operation"

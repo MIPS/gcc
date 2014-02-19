@@ -68,6 +68,10 @@
 (define_register_constraint "wa" "rs6000_constraints[RS6000_CONSTRAINT_wa]"
   "@internal")
 
+;; Any CR register that is not a saved/fixed register (i.e. CR0, CR1, CR6, CR7)
+(define_register_constraint "wc" "CR0167_REGS"
+  "@internal")
+
 ;; Altivec style load/store that ignores the bottom bits of the address
 (define_memory_constraint "wZ"
   "Indexed or indirect memory operand, ignoring the bottom 4 bits"

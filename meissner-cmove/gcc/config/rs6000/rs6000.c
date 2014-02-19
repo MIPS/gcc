@@ -307,9 +307,43 @@ struct processor_costs {
   const int l2_cache_size;	/* size of l2 cache, in kilobytes.  */
   const int simultaneous_prefetches; /* number of parallel prefetch
 					operations.  */
+  const int clz_cost;		/* cost of count leading zero */
+  const int cmp_cost;		/* cost of a compare instruction.  */
+  const int adjacent_cmp_cost;	/* cost of a adjacent compare instruction.  */
+  const int isel_cost;		/* cost of an ISEL instruction.  */
+  const int bcp8_cost;		/* cost of branch conditional + 8.  */
+  const int mfcr_cost;		/* cost of moving from a CR register.  */
+  const int crlogical_cost;	/* cost of a CR logical operation.  */
+
+  const bool prefer_bcp8;	/* prefer BC+8 over ISEL.  */
+  const bool prefer_abs_cntlz;	/* prefer CNTLZ for abs.  */
 };
 
 const struct processor_costs *rs6000_cost;
+
+/* Default costs for set count leading zero, isel, branch conditional + 8.  */
+#define DEFAULT_COSTS2(CLZ, CMP, ACMP, ISEL, BCP8, MFCR, CRL, PB, PC)	\
+  COSTS_N_INSNS (CLZ),		/* count leading zero cost.  */		\
+  COSTS_N_INSNS (CMP),		/* compare cost.  */			\
+  COSTS_N_INSNS (ACMP),		/* adjacent compare cost.  */		\
+  COSTS_N_INSNS (ISEL),		/* isel cost.  */			\
+  COSTS_N_INSNS (BCP8),		/* branch conditional + 8 cost.  */	\
+  COSTS_N_INSNS (MFCR),		/* move from CR cost.  */		\
+  COSTS_N_INSNS (CRL),		/* CR register logical op. cost */	\
+  PB,				/* prefer BC+8 over ISEL.  */		\
+  PC				/* prefer CNTLZ for abs.  */
+
+#define DEFAULT_COSTS() \
+  DEFAULT_COSTS2 (1, 3, 3, 1, 0, 3, 2, false, true)
+
+#define DEFAULT_COSTS_POWER6() \
+  DEFAULT_COSTS2 (2, 3, 3, 1, 0, 3, 2, false, true)
+
+#define DEFAULT_COSTS_POWER7() \
+  DEFAULT_COSTS2 (2, 3, 1, 2, 2, 3, 2, true, true)
+
+#define DEFAULT_COSTS_ISEL(S) \
+  DEFAULT_COSTS2 (1, 3, 3, S, 0, 3, 2, false, false)
 
 /* Processor costs (relative to an add) */
 
@@ -326,10 +360,11 @@ struct processor_costs size32_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
-  32,
-  0,
-  0,
-  0,
+  32,			/* cache line size */
+  0,			/* l1 cache */
+  0,			/* l2 cache */
+  0,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction size costs on 64bit processors.  */
@@ -345,10 +380,11 @@ struct processor_costs size64_cost = {
   COSTS_N_INSNS (1),    /* dmul */
   COSTS_N_INSNS (1),    /* sdiv */
   COSTS_N_INSNS (1),    /* ddiv */
-  128,
-  0,
-  0,
-  0,
+  128,			/* cache line size */
+  0,			/* l1 cache */
+  0,			/* l2 cache */
+  0,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on RS64A processors.  */
@@ -368,6 +404,7 @@ struct processor_costs rs64a_cost = {
   128,			/* l1 cache */
   2048,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on MPCCORE processors.  */
@@ -387,6 +424,7 @@ struct processor_costs mpccore_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC403 processors.  */
@@ -406,6 +444,7 @@ struct processor_costs ppc403_cost = {
   4,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC405 processors.  */
@@ -425,6 +464,7 @@ struct processor_costs ppc405_cost = {
   16,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC440 processors.  */
@@ -444,6 +484,7 @@ struct processor_costs ppc440_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC476 processors.  */
@@ -463,6 +504,7 @@ struct processor_costs ppc476_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC601 processors.  */
@@ -482,6 +524,7 @@ struct processor_costs ppc601_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC603 processors.  */
@@ -501,6 +544,7 @@ struct processor_costs ppc603_cost = {
   8,			/* l1 cache */
   64,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC604 processors.  */
@@ -520,6 +564,7 @@ struct processor_costs ppc604_cost = {
   16,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC604e processors.  */
@@ -539,6 +584,7 @@ struct processor_costs ppc604e_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC620 processors.  */
@@ -558,6 +604,7 @@ struct processor_costs ppc620_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC630 processors.  */
@@ -577,6 +624,7 @@ struct processor_costs ppc630_cost = {
   64,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on Cell processor.  */
@@ -597,6 +645,7 @@ struct processor_costs ppccell_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   6,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC750 and PPC7400 processors.  */
@@ -616,6 +665,7 @@ struct processor_costs ppc750_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC7450 processors.  */
@@ -635,6 +685,7 @@ struct processor_costs ppc7450_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   1,			/* streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPC8540 processors.  */
@@ -654,6 +705,7 @@ struct processor_costs ppc8540_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   1,			/* prefetch streams /*/
+  DEFAULT_COSTS_ISEL (1), /* additional costs.  */
 };
 
 /* Instruction costs on E300C2 and E300C3 cores.  */
@@ -673,6 +725,7 @@ struct processor_costs ppce300c2c3_cost = {
   16,			/* l1 cache */
   16,			/* l2 cache */
   1,			/* prefetch streams /*/
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on PPCE500MC processors.  */
@@ -692,6 +745,7 @@ struct processor_costs ppce500mc_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  DEFAULT_COSTS_ISEL (1), /* additional costs.  */
 };
 
 /* Instruction costs on PPCE500MC64 processors.  */
@@ -711,6 +765,7 @@ struct processor_costs ppce500mc64_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  DEFAULT_COSTS_ISEL (1), /* additional costs.  */
 };
 
 /* Instruction costs on PPCE5500 processors.  */
@@ -730,6 +785,7 @@ struct processor_costs ppce5500_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  DEFAULT_COSTS_ISEL (1), /* additional costs.  */
 };
 
 /* Instruction costs on PPCE6500 processors.  */
@@ -749,6 +805,7 @@ struct processor_costs ppce6500_cost = {
   32,			/* l1 cache */
   128,			/* l2 cache */
   1,			/* prefetch streams /*/
+  DEFAULT_COSTS_ISEL (1), /* additional costs.  */
 };
 
 /* Instruction costs on AppliedMicro Titan processors.  */
@@ -768,6 +825,7 @@ struct processor_costs titan_cost = {
   32,			/* l1 cache */
   512,			/* l2 cache */
   1,			/* prefetch streams /*/
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on POWER4 and POWER5 processors.  */
@@ -787,6 +845,7 @@ struct processor_costs power4_cost = {
   32,			/* l1 cache */
   1024,			/* l2 cache */
   8,			/* prefetch streams /*/
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 /* Instruction costs on POWER6 processors.  */
@@ -806,6 +865,7 @@ struct processor_costs power6_cost = {
   64,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
+  DEFAULT_COSTS_POWER6 (), /* additional costs.  */
 };
 
 /* Instruction costs on POWER7 processors.  */
@@ -825,6 +885,7 @@ struct processor_costs power7_cost = {
   32,			/* l1 cache */
   256,			/* l2 cache */
   12,			/* prefetch streams */
+  DEFAULT_COSTS_POWER7 (), /* additional costs.  */
 };
 
 /* Instruction costs on POWER A2 processors.  */
@@ -840,10 +901,11 @@ struct processor_costs ppca2_cost = {
   COSTS_N_INSNS (3),    /* dmul */
   COSTS_N_INSNS (59),   /* sdiv */
   COSTS_N_INSNS (72),   /* ddiv */
-  64,
+  64,			/* cache line size */
   16,			/* l1 cache */
   2048,			/* l2 cache */
   16,			/* prefetch streams */
+  DEFAULT_COSTS (),	/* additional costs.  */
 };
 
 
@@ -948,7 +1010,7 @@ static rtx paired_expand_predicate_builtin (enum insn_code, tree, rtx);
 static void spe_init_builtins (void);
 static rtx spe_expand_predicate_builtin (enum insn_code, tree, rtx);
 static rtx spe_expand_evsel_builtin (enum insn_code, tree, rtx);
-static int rs6000_emit_int_cmove (rtx, rtx, rtx, rtx);
+static bool rs6000_emit_int_cmove (rtx, rtx, rtx, rtx);
 static rs6000_stack_t *rs6000_stack_info (void);
 static void is_altivec_return_reg (rtx, void *);
 int easy_vector_constant (rtx, enum machine_mode);
@@ -987,6 +1049,7 @@ static bool rs6000_debug_cannot_change_mode_class (enum machine_mode,
 						   enum machine_mode,
 						   enum reg_class);
 static bool rs6000_save_toc_in_prologue_p (void);
+static bool rs6000_small_register_classes_for_mode_p (enum machine_mode);
 
 rtx (*rs6000_legitimize_reload_address_ptr) (rtx, enum machine_mode, int, int,
 					     int, int *)
@@ -1451,6 +1514,11 @@ static const struct attribute_spec rs6000_attribute_table[] =
 
 #undef TARGET_VECTORIZE_VEC_PERM_CONST_OK
 #define TARGET_VECTORIZE_VEC_PERM_CONST_OK rs6000_vectorize_vec_perm_const_ok
+
+#undef TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P
+#define TARGET_SMALL_REGISTER_CLASSES_FOR_MODE_P \
+  rs6000_small_register_classes_for_mode_p
+
 
 
 /* Simplifications for entries below.  */
@@ -1526,6 +1594,94 @@ rs6000_cpu_name_lookup (const char *name)
     }
 
   return -1;
+}
+
+
+/* Return the cost of a count leading zeros instruction.  */
+
+static inline int
+rs6000_clz_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  else
+    return rs6000_cost->clz_cost;
+}
+
+/* Return the cost of a compare instruction that isn't adjacent to the isel or
+   branch.  */
+
+static inline int
+rs6000_cmp_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  else
+    return rs6000_cost->cmp_cost;
+}
+
+/* Return the cost of a compare instruction that isn't adjacent to the isel or
+   branch.  */
+
+static inline int
+rs6000_adjacent_cmp_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  else
+    return rs6000_cost->adjacent_cmp_cost;
+}
+
+/* Return cost of an ISEL instruction.  */
+
+static inline int
+rs6000_isel_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  else
+    return rs6000_cost->isel_cost;
+}
+
+/* Return cost of a branch conditional + 8 instruction.  */
+
+static inline int
+rs6000_bcp8_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (2);
+
+  else if (rs6000_cost->bcp8_cost != 0)
+    return rs6000_cost->bcp8_cost;
+
+  else
+    return COSTS_N_INSNS (BRANCH_COST(speed, 0) + 1);
+}
+
+/* Return cost of moving a value from a CR register to a GPR.  */
+
+static inline int
+rs6000_mfcr_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  return rs6000_cost->mfcr_cost;
+}
+
+/* Return cost of doing a logical operation on a CR register.  */
+
+static inline int
+rs6000_crlogical_cost (bool speed)
+{
+  if (!speed)
+    return COSTS_N_INSNS (1);
+
+  return rs6000_cost->crlogical_cost;
 }
 
 
@@ -1944,6 +2100,24 @@ rs6000_debug_reg_global (void)
   fprintf (stderr, DEBUG_FMT_D, "Number of rs6000 builtins",
 	   (int)RS6000_BUILTIN_COUNT);
   fprintf (stderr, DEBUG_FMT_X, "Builtin mask", rs6000_builtin_mask);
+
+  if (TARGET_BCP8)
+    fprintf (stderr, DEBUG_FMT_S, "bcp8", "true");
+
+  if (TARGET_BCP8_NOP)
+    fprintf (stderr, DEBUG_FMT_S, "bcp8-nop", "true");
+
+  if (TARGET_ISEL)
+    fprintf (stderr, DEBUG_FMT_S, "isel", "true");
+
+  if (TARGET_VSX)
+    fprintf (stderr, DEBUG_FMT_S, "vsx", "true");
+
+  if (TARGET_ALTIVEC)
+    fprintf (stderr, DEBUG_FMT_S, "altivec", "true");
+
+  if (TARGET_ABS_CNTLZ)
+    fprintf (stderr, DEBUG_FMT_S, "abs-cntlz", "true");
 }
 
 /* Initialize the various global tables that are based on register size.  */
@@ -1969,8 +2143,13 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
     rs6000_regno_regclass[r] = ALTIVEC_REGS;
 
   rs6000_regno_regclass[CR0_REGNO] = CR0_REGS;
-  for (r = CR1_REGNO; r <= CR7_REGNO; ++r)
-    rs6000_regno_regclass[r] = CR_REGS;
+  rs6000_regno_regclass[CR1_REGNO] = CR0167_REGS;
+  rs6000_regno_regclass[CR2_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR3_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR4_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR5_REGNO] = CR_REGS;
+  rs6000_regno_regclass[CR6_REGNO] = CR0167_REGS;
+  rs6000_regno_regclass[CR7_REGNO] = CR0167_REGS;
 
   rs6000_regno_regclass[LR_REGNO] = LINK_REGS;
   rs6000_regno_regclass[CTR_REGNO] = CTR_REGS;
@@ -2252,6 +2431,8 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 
   if (global_init_p || TARGET_DEBUG_TARGET)
     {
+      bool speed = (optimize && !optimize_size);
+
       if (TARGET_DEBUG_REG)
 	rs6000_debug_reg_global ();
 
@@ -2271,6 +2452,15 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 		 "l1 cache size                   = %d\n"
 		 "l2 cache size                   = %d\n"
 		 "simultaneous prefetches         = %d\n"
+		 "count leading zero cost         = %d\n"
+		 "compare cost                    = %d\n"
+		 "adjacent compare cost           = %d\n"
+		 "isel cost                       = %d\n"
+		 "branch conditional + 8 cost     = %d\n"
+		 "mfcr cost                       = %d\n"
+		 "CR logical cost                 = %d\n"
+		 "prefer bc+8                     = %s\n"
+		 "prefer abs cntlz                = %s\n"
 		 "\n",
 		 rs6000_cost->mulsi,
 		 rs6000_cost->mulsi_const,
@@ -2285,7 +2475,16 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 		 rs6000_cost->cache_line_size,
 		 rs6000_cost->l1_cache_size,
 		 rs6000_cost->l2_cache_size,
-		 rs6000_cost->simultaneous_prefetches);
+		 rs6000_cost->simultaneous_prefetches,
+		 rs6000_clz_cost (speed),
+		 rs6000_cmp_cost (speed),
+		 rs6000_adjacent_cmp_cost (speed),
+		 rs6000_isel_cost (speed),
+		 rs6000_bcp8_cost (speed),
+		 rs6000_mfcr_cost (speed),
+		 rs6000_crlogical_cost (speed),
+		 rs6000_cost->prefer_bcp8 ? "true" : "false",
+		 rs6000_cost->prefer_abs_cntlz ? "true" : "false");
     }
 }
 
@@ -3156,6 +3355,50 @@ rs6000_option_override_internal (bool global_init_p)
 	    rs6000_recip_control |= mask;
 	}
     }
+
+  /* Determine if we should optimize for branch conditional + 8.  Determine
+     whether to use ISEL or branch conditional + 8 if both are set or
+     preferred.  Honor an explicit switch from the user.  If we are optimizing
+     for space, prefer ISEL over branch conditional + 8.  */
+  if (TARGET_BCP8 < 0)
+    TARGET_BCP8 = rs6000_cost->prefer_bcp8;
+
+  if (TARGET_ISEL && TARGET_BCP8)
+    {
+      bool explicit_isel = ((target_flags_explicit & MASK_ISEL) != 0);
+      bool explicit_bcp8 = (global_options_set.x_TARGET_BCP8 != 0);
+      bool want_bcp8;
+
+      if (explicit_isel && !explicit_bcp8)
+	want_bcp8 = false;
+
+      else if (explicit_bcp8 && !explicit_isel)
+	want_bcp8 = true;
+
+      else
+	want_bcp8 = !optimize_size && rs6000_cost->prefer_bcp8;
+
+      if (want_bcp8)
+	target_flags &= ~MASK_ISEL;
+      else
+	TARGET_BCP8 = TARGET_BCP8_NOP = 0;
+    }
+
+  if (TARGET_BCP8_NOP < 0)
+    TARGET_BCP8_NOP = (TARGET_BCP8 && (optimize >= 3));
+
+  /* Determine whether to use CNTLZ for integer absolute value, or perhaps use
+     ISEL or branch conditional + 8 if either is available.  */
+  if (TARGET_ABS_CNTLZ < 0)
+    TARGET_ABS_CNTLZ = ((!TARGET_ISEL && !TARGET_BCP8)
+			|| rs6000_cost->prefer_abs_cntlz);
+
+  /* See if we should enable the mfcrf extra options.  */
+  if (TARGET_MFCRF_PROLOG < 0)
+    TARGET_MFCRF_PROLOG = (TARGET_MFCRF != 0);
+
+  if (TARGET_MFCRF_SPLIT < 0)
+    TARGET_MFCRF_SPLIT = (TARGET_MFCRF != 0);
 
   /* Set the builtin mask of the various options used that could affect which
      builtins were used.  In the past we used target_flags, but we've run out
@@ -14054,6 +14297,10 @@ rs6000_preferred_reload_class (rtx x, enum reg_class rclass)
   if (GET_MODE_CLASS (mode) == MODE_INT && rclass == NON_SPECIAL_REGS)
     return GENERAL_REGS;
 
+  /* Prefer not to use the saved CR registers for reloading.  */
+  if (rclass == CR_REGS || rclass == CR0167_REGS)
+    return CR0167_REGS;
+
   /* For VSX, prefer the traditional registers for 64-bit values because we can
      use the non-VSX loads.  Prefer the Altivec registers if Altivec is
      handling the vector operations (i.e. V16QI, V8HI, and V4SI), or if we
@@ -14227,7 +14474,7 @@ rs6000_secondary_reload_class (enum reg_class rclass, enum machine_mode mode,
     return NO_REGS;
 
   /* We can copy among the CR registers.  */
-  if ((rclass == CR_REGS || rclass == CR0_REGS)
+  if ((rclass == CR_REGS || rclass == CR0_REGS || rclass == CR0167_REGS)
       && regno >= 0 && CR_REGNO_P (regno))
     return NO_REGS;
 
@@ -14311,6 +14558,20 @@ rs6000_debug_cannot_change_mode_class (enum machine_mode from,
 
   return ret;
 }
+
+/* True for MODE if the target expects that registers in this mode will be
+   allocated to registers in a small register class.  The compiler is allowed
+   to use registers explicitly used in the rtl as spill registers but it should
+   prevent extending the lifetime of these registers.
+
+   On the rs6000, make the CR registers a small register class.  */
+
+static bool
+rs6000_small_register_classes_for_mode_p (enum machine_mode mode)
+{
+  return (GET_MODE_CLASS (mode) == MODE_CC);
+}
+
 
 /* Given a comparison operation, return the bit number in CCR to test.  We
    know this is a valid comparison.
@@ -14546,6 +14807,98 @@ rs6000_output_function_entry (FILE *file, const char *fname)
   RS6000_OUTPUT_BASENAME (file, fname);
 }
 
+/* Helper function for print_operand that returns the correct number for the
+   various shifts to extract CR fields.  The mfcr split functions in rs6000.md
+   also use this.  */
+
+int
+print_operand_cr_bits (rtx x, int code)
+{
+  int ret = -1;
+
+  switch (code)
+    {
+    default:
+      gcc_unreachable ();
+
+    case 'c':
+      /* X is a CR register.  Print the number of the GT bit of the CR.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO) + 1;
+      break;
+
+    case 'D':
+      /* Like 'J' but get to the GT bit only.  */
+      /* Bit 1 is GT bit.  Add one for shift count in rlinm for scc.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO) + 2;
+      break;
+
+    case 'E':
+      /* X is a CR register.  Print the number of the EQ bit of the CR */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO) + 2;
+      break;
+
+    case 'f':
+      /* X is a CR register.  Print the shift count needed to move it
+	 to the high-order four bits.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 4 * (REGNO (x) - CR0_REGNO);
+      break;
+
+    case 'F':
+      /* Similar, but print the count for the rotate in the opposite
+	 direction.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 32 - 4 * (REGNO (x) - CR0_REGNO);
+      break;
+
+    case 'j':
+      /* Write the bit number in CCR for jump.  */
+      ret = ccr_bit (x, 0);
+      break;
+
+    case 'J':
+      /* Similar, but add one for shift count in rlinm for scc and pass
+	 scc flag to `ccr_bit'.  */
+      ret = ccr_bit (x, 1);
+      if (ret == 31)
+	ret = 0;
+      else if (ret >= 0)
+	ret++;
+      break;
+
+    case 'Q':
+    case 'R':
+      /* X is a CR register.  Print the mask for `mtcrf'.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	ret = 128 >> (REGNO (x) - CR0_REGNO);
+      break;
+
+    case 't':
+      /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
+      if (GET_CODE (x) == REG && CR_REGNO_P (REGNO (x)))
+	{
+	  /* Bit 3 is OV bit.  */
+	  ret = 4 * (REGNO (x) - CR0_REGNO) + 3;
+
+	  /* If we want bit 31, write a shift count of zero, not 32.  */
+	  ret = (ret == 31) ? 0 : ret + 1;
+	}
+      break;
+    }
+
+  if (ret < 0)
+    {
+      char lossage[30];
+      sprintf (lossage, "invalid %%%%%c value", code);
+      output_operand_lossage (lossage);
+    }
+
+  return ret;
+}
+
 /* Print an operand.  Recognize special options, documented below.  */
 
 #if TARGET_ELF
@@ -14603,47 +14956,26 @@ print_operand (FILE *file, rtx x, int code)
 
     case 'c':
       /* X is a CR register.  Print the number of the GT bit of the CR.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%c value");
-      else
-	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 1);
-      return;
-
     case 'D':
       /* Like 'J' but get to the GT bit only.  */
-      gcc_assert (REG_P (x));
-
-      /* Bit 1 is GT bit.  */
-      i = 4 * (REGNO (x) - CR0_REGNO) + 1;
-
-      /* Add one for shift count in rlinm for scc.  */
-      fprintf (file, "%d", i + 1);
-      return;
-
     case 'E':
       /* X is a CR register.  Print the number of the EQ bit of the CR */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%E value");
-      else
-	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO) + 2);
-      return;
-
     case 'f':
       /* X is a CR register.  Print the shift count needed to move it
 	 to the high-order four bits.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%f value");
-      else
-	fprintf (file, "%d", 4 * (REGNO (x) - CR0_REGNO));
-      return;
-
     case 'F':
       /* Similar, but print the count for the rotate in the opposite
 	 direction.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%F value");
-      else
-	fprintf (file, "%d", 32 - 4 * (REGNO (x) - CR0_REGNO));
+    case 'j':
+      /* Write the bit number in CCR for jump.  */
+    case 'J':
+      /* Similar, but add one for shift count in rlinm for scc and pass
+	 scc flag to `ccr_bit'.  */
+    case 'R':
+      /* X is a CR register.  Print the mask for `mtcrf'.  */
+    case 't':
+      /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
+      fprintf (file, "%d", print_operand_cr_bits (x, code));
       return;
 
     case 'G':
@@ -14679,26 +15011,6 @@ print_operand (FILE *file, rtx x, int code)
       /* Print `i' if this is a constant, else nothing.  */
       if (INT_P (x))
 	putc ('i', file);
-      return;
-
-    case 'j':
-      /* Write the bit number in CCR for jump.  */
-      i = ccr_bit (x, 0);
-      if (i == -1)
-	output_operand_lossage ("invalid %%j code");
-      else
-	fprintf (file, "%d", i);
-      return;
-
-    case 'J':
-      /* Similar, but add one for shift count in rlinm for scc and pass
-	 scc flag to `ccr_bit'.  */
-      i = ccr_bit (x, 1);
-      if (i == -1)
-	output_operand_lossage ("invalid %%J code");
-      else
-	/* If we want bit 31, write a shift count of zero, not 32.  */
-	fprintf (file, "%d", i == 31 ? 0 : i + 1);
       return;
 
     case 'k':
@@ -14848,18 +15160,9 @@ print_operand (FILE *file, rtx x, int code)
       return;
 
     case 'Q':
+      /* X is a CR register.  Print the mask for `mtcrf' including comma.  */
       if (TARGET_MFCRF)
-	fputc (',', file);
-        /* FALLTHRU */
-      else
-	return;
-
-    case 'R':
-      /* X is a CR register.  Print the mask for `mtcrf'.  */
-      if (GET_CODE (x) != REG || ! CR_REGNO_P (REGNO (x)))
-	output_operand_lossage ("invalid %%R value");
-      else
-	fprintf (file, "%d", 128 >> (REGNO (x) - CR0_REGNO));
+	fprintf (file, ",%d", print_operand_cr_bits (x, code));
       return;
 
     case 's':
@@ -14898,17 +15201,6 @@ print_operand (FILE *file, rtx x, int code)
 	--i, uval >>= 1;
       gcc_assert (i >= 0);
       fprintf (file, "%d", i);
-      return;
-
-    case 't':
-      /* Like 'J' but get to the OVERFLOW/UNORDERED bit.  */
-      gcc_assert (REG_P (x) && GET_MODE (x) == CCmode);
-
-      /* Bit 3 is OV bit.  */
-      i = 4 * (REGNO (x) - CR0_REGNO) + 3;
-
-      /* If we want bit 31, write a shift count of zero, not 32.  */
-      fprintf (file, "%d", i == 31 ? 0 : i + 1);
       return;
 
     case 'T':
@@ -15706,13 +15998,8 @@ rs6000_generate_compare (rtx cmp, enum machine_mode mode)
 }
 
 
-/* Emit the RTL for an sISEL pattern.  */
-
-void
-rs6000_emit_sISEL (enum machine_mode mode ATTRIBUTE_UNUSED, rtx operands[])
-{
-  rs6000_emit_int_cmove (operands[0], operands[1], const1_rtx, const0_rtx);
-}
+/* Emit the RTL for an setting a register to true/false based on a
+   condition.  */
 
 void
 rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
@@ -15722,9 +16009,10 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
   enum rtx_code cond_code;
   rtx result = operands[0];
 
-  if (TARGET_ISEL && (mode == SImode || mode == DImode))
+  if ((TARGET_ISEL || TARGET_BCP8)
+      && (mode == SImode || mode == DImode))
     {
-      rs6000_emit_sISEL (mode, operands);
+      rs6000_emit_int_cmove (operands[0], operands[1], const1_rtx, const0_rtx);
       return;
     }
 
@@ -15782,6 +16070,26 @@ rs6000_emit_sCOND (enum machine_mode mode, rtx operands[])
     }
 }
 
+/* A C expression to modify the code described by the conditional if
+   information CE_INFO with the new PATTERN in INSN.  If PATTERN is a null
+   pointer after the IFCVT_MODIFY_INSN macro executes, it is assumed that that
+   insn cannot be converted to be executed conditionally.
+
+   On the powerpc, only allow 1 insn to be converted to be conditionally
+   executed.   */
+
+rtx
+rs6000_ifcvt_modify_insn (ce_if_block_t *ce_info, rtx pattern, rtx insn)
+{
+  if (!ce_info || !pattern || !insn)
+    return NULL_RTX;
+
+  if ((ce_info->num_then_insns + ce_info->num_else_insns) != 1)
+    return NULL_RTX;
+
+  return pattern;
+}
+
 /* Emit a branch of kind CODE to location LOC.  */
 
 void
@@ -15806,17 +16114,24 @@ rs6000_emit_cbranch (enum machine_mode mode, rtx operands[])
 
    REVERSED is nonzero if we should reverse the sense of the comparison.
 
-   INSN is the insn.  */
+   INSN is the insn.
+
+   MAYBE_LONGBRANCH is true if possibly this branch is a branch around a
+   branch.  */
 
 char *
-output_cbranch (rtx op, const char *label, int reversed, rtx insn)
+output_cbranch (rtx op, const char *label, int reversed, rtx insn,
+		bool maybe_longbranch)
 {
   static char string[64];
   enum rtx_code code = GET_CODE (op);
   rtx cc_reg = XEXP (op, 0);
   enum machine_mode mode = GET_MODE (cc_reg);
-  int cc_regno = REGNO (cc_reg) - CR0_REGNO;
-  int need_longbranch = label != NULL && get_attr_length (insn) == 8;
+  int cc_regno = 
+    (REGNO ((GET_CODE (cc_reg) == SUBREG) ? SUBREG_REG (cc_reg) : cc_reg)
+     - CR0_REGNO);
+  int need_longbranch = (maybe_longbranch && label != NULL
+			 && get_attr_length (insn) == 8);
   int really_reversed = reversed ^ need_longbranch;
   char *s = string;
   const char *ccode;
@@ -16198,7 +16513,7 @@ rs6000_emit_vector_cond_expr (rtx dest, rtx op_true, rtx op_false,
    operands of the last comparison is nonzero/true, FALSE_COND if it
    is zero/false.  Return 0 if the hardware has no such operation.  */
 
-int
+bool
 rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
   enum rtx_code code = GET_CODE (op);
@@ -16210,33 +16525,25 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   rtx temp;
   bool is_against_zero;
 
-  /* These modes should always match.  */
-  if (GET_MODE (op1) != compare_mode
-      /* In the isel case however, we can use a compare immediate, so
-	 op1 may be a small constant.  */
-      && (!TARGET_ISEL || !short_cint_operand (op1, VOIDmode)))
-    return 0;
+  if (GET_MODE_CLASS (result_mode) == MODE_INT)
+    return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
+
+  if (!FLOAT_MODE_P (result_mode))
+    return false;
+
+  /* These modes should always match for floating point cmoves.  */
+  if (result_mode != compare_mode)
+    return false;
+  if (GET_MODE (op1) != compare_mode)
+    return false;
   if (GET_MODE (true_cond) != result_mode)
-    return 0;
+    return false;
   if (GET_MODE (false_cond) != result_mode)
-    return 0;
+    return false;
 
-  /* Don't allow using floating point comparisons for integer results for
-     now.  */
-  if (FLOAT_MODE_P (compare_mode) && !FLOAT_MODE_P (result_mode))
-    return 0;
-
-  /* First, work out if the hardware can do this at all, or
-     if it's too slow....  */
-  if (!FLOAT_MODE_P (compare_mode))
-    {
-      if (TARGET_ISEL)
-	return rs6000_emit_int_cmove (dest, op, true_cond, false_cond);
-      return 0;
-    }
-  else if (TARGET_HARD_FLOAT && !TARGET_FPRS
-	   && SCALAR_FLOAT_MODE_P (compare_mode))
-    return 0;
+  if (TARGET_HARD_FLOAT && !TARGET_FPRS
+      && SCALAR_FLOAT_MODE_P (compare_mode))
+    return false;
 
   is_against_zero = op1 == CONST0_RTX (compare_mode);
 
@@ -16247,7 +16554,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
      generated.  */
   if (SCALAR_FLOAT_MODE_P (compare_mode)
       && flag_trapping_math && ! is_against_zero)
-    return 0;
+    return false;
 
   /* Eliminate half of the comparisons by switching operands, this
      makes the remaining code simpler.  */
@@ -16263,7 +16570,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
   /* UNEQ and LTGT take four instructions for a comparison with zero,
      it'll probably be faster to use a branch here too.  */
   if (code == UNEQ && HONOR_NANS (compare_mode))
-    return 0;
+    return false;
 
   if (GET_CODE (op1) == CONST_DOUBLE)
     REAL_VALUE_FROM_CONST_DOUBLE (c1, op1);
@@ -16280,7 +16587,7 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
       && ((! rtx_equal_p (op0, false_cond) && ! rtx_equal_p (op1, false_cond))
 	  || (! rtx_equal_p (op0, true_cond)
 	      && ! rtx_equal_p (op1, true_cond))))
-    return 0;
+    return false;
 
   /* At this point we know we can use fsel.  */
 
@@ -16382,59 +16689,49 @@ rs6000_emit_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 						gen_rtx_GE (VOIDmode,
 							    op0, op1),
 						true_cond, false_cond)));
-  return 1;
+  return true;
 }
 
-/* Same as above, but for ints (isel).  */
+/* Integer conditional move support.  */
 
-static int
+static bool
 rs6000_emit_int_cmove (rtx dest, rtx op, rtx true_cond, rtx false_cond)
 {
-  rtx condition_rtx, cr;
+  rtx cond_rtx, cr;
   enum machine_mode mode = GET_MODE (dest);
-  enum rtx_code cond_code;
-  rtx (*isel_func) (rtx, rtx, rtx, rtx, rtx);
-  bool signedp;
+  enum machine_mode cond_mode = GET_MODE (XEXP (op, 0));
+  rtx insn;
 
   if (mode != SImode && (!TARGET_POWERPC64 || mode != DImode))
-    return 0;
+    return false;
 
-  /* We still have to do the compare, because isel doesn't do a
-     compare, it just looks at the CRx bits set by a previous compare
-     instruction.  */
-  condition_rtx = rs6000_generate_compare (op, mode);
-  cond_code = GET_CODE (condition_rtx);
-  cr = XEXP (condition_rtx, 0);
-  signedp = GET_MODE (cr) == CCmode;
+  if (!TARGET_ISEL && !TARGET_BCP8)
+    return false;
 
-  isel_func = (mode == SImode
-	       ? (signedp ? gen_isel_signed_si : gen_isel_unsigned_si)
-	       : (signedp ? gen_isel_signed_di : gen_isel_unsigned_di));
-
-  switch (cond_code)
+  if (cond_mode == VOIDmode)
     {
-    case LT: case GT: case LTU: case GTU: case EQ:
-      /* isel handles these directly.  */
-      break;
-
-    default:
-      /* We need to swap the sense of the comparison.  */
-      {
-	rtx t = true_cond;
-	true_cond = false_cond;
-	false_cond = t;
-	PUT_CODE (condition_rtx, reverse_condition (cond_code));
-      }
-      break;
+      cond_mode = GET_MODE (XEXP (op, 1));
+      if (cond_mode == VOIDmode)
+	return false;
     }
 
-  false_cond = force_reg (mode, false_cond);
-  if (true_cond != const0_rtx)
-    true_cond = force_reg (mode, true_cond);
+  /* Do the compare, because isel/branch conditional + 8 don't do a compare, it
+     just looks at the CRx bits set by a previous compare instruction.  */
+  cond_rtx = rs6000_generate_compare (op, cond_mode);
+  cr = XEXP (cond_rtx, 0);
 
-  emit_insn (isel_func (dest, condition_rtx, true_cond, false_cond, cr));
+  if (mode == SImode)
+    insn = gen_movsicc_internal (dest, cond_rtx, true_cond, false_cond, cr);
+  else
+    insn = gen_movdicc_internal (dest, cond_rtx, true_cond, false_cond, cr);
 
-  return 1;
+  if (insn)
+    {
+      emit_insn (insn);
+      return true;
+    }
+  else
+    return false;
 }
 
 const char *
@@ -16447,12 +16744,110 @@ output_isel (rtx *operands)
   if (code == GE || code == GEU || code == LE || code == LEU || code == NE)
     {
       gcc_assert (GET_CODE (operands[2]) == REG
-		  && GET_CODE (operands[3]) == REG);
+		  && (GET_CODE (operands[3]) == REG
+		      || operands[3] == const0_rtx));
       PUT_CODE (operands[1], reverse_condition (code));
       return "isel %0,%3,%2,%j1";
     }
 
   return "isel %0,%2,%3,%j1";
+}
+
+/* Expand integer absolute value or negative integer absolute value to either
+   ISEL/branch conditional + 8 or a sequence using count leading zero.  */
+
+bool
+rs6000_expand_int_abs (rtx dest, rtx src, bool neg_abs_p)
+{
+  enum machine_mode mode = GET_MODE (dest);
+
+  if (!can_create_pseudo_p ())
+    return false;
+
+  if (mode != SImode && (!TARGET_POWERPC64 || mode != DImode))
+    return false;
+
+  /* Use ISEL or branch conditional + 8.  */
+  if ((TARGET_ISEL || TARGET_BCP8) && !TARGET_ABS_CNTLZ)
+    {
+      rtx cond = gen_rtx_fmt_ee (LT, mode, src, const0_rtx);
+      rtx tmp1 = gen_reg_rtx (mode);
+      rtx (*neg_func) (rtx, rtx) = (mode == SImode) ? gen_negsi2 : gen_negdi2;
+
+      emit_insn (neg_func (tmp1, src));
+
+      if (neg_abs_p)
+	return rs6000_emit_int_cmove (dest, cond, src, tmp1);
+      else
+	return rs6000_emit_int_cmove (dest, cond, tmp1, src);
+    }
+
+  /* Use count leading zero instruction.  */
+  else
+    {
+      rtx tmp1 = gen_reg_rtx (mode);
+      rtx tmp2 = gen_reg_rtx (mode);
+      rtx shift;
+      rtx (*ashr_func) (rtx, rtx, rtx);
+      rtx (*xor_func) (rtx, rtx, rtx);
+      rtx (*sub_func) (rtx, rtx, rtx);
+
+      if (mode == SImode)
+	{
+	  shift = GEN_INT (31);
+	  ashr_func = gen_ashrsi3;
+	  xor_func = gen_xorsi3;
+	  sub_func = gen_subsi3;
+	}
+      else
+	{
+	  shift = GEN_INT (63);
+	  ashr_func = gen_ashrdi3;
+	  xor_func = gen_xordi3;
+	  sub_func = gen_subdi3;
+	}
+
+      emit_insn (ashr_func (tmp1, src, shift));
+      emit_insn (xor_func (tmp2, tmp1, src));
+
+      if (neg_abs_p)
+	emit_insn (sub_func (dest, tmp1, tmp2));
+      else
+	emit_insn (sub_func (dest, tmp2, tmp1));
+
+      return true;
+    }
+}
+
+/* Expand integer minimum/maximum during the split phase into the actual
+   instructions.  Return true if we can do the expansion  */
+
+bool
+rs6000_expand_int_minmax (rtx dest, enum rtx_code code, rtx op0, rtx op1)
+{
+  enum machine_mode mode = GET_MODE (dest);
+  rtx cond;
+
+  if (!can_create_pseudo_p ())
+    return false;
+
+  if (!TARGET_ISEL && !TARGET_BCP8)
+    return false;
+
+  if (!gpc_reg_operand (op0, mode))
+    op0 = force_reg (mode, op0);
+
+  if (!gpc_reg_operand (op1, mode)
+      && (TARGET_ISEL
+	  || GET_CODE (op1) != CONST_INT
+	  || ((code == LT || code == GT)
+	      && !satisfies_constraint_I (op1))
+	  || ((code == LTU || code == GTU)
+	      && !satisfies_constraint_K (op1))))
+    op1 = force_reg (mode, op1);
+
+  cond = gen_rtx_fmt_ee (code, mode, op0, op1);
+  return rs6000_emit_int_cmove (dest, cond, op0, op1);
 }
 
 void
@@ -25648,6 +26043,43 @@ rs6000_xcoff_file_end (void)
 }
 #endif /* TARGET_XCOFF */
 
+/* Helper function for rs6000_rtx_costs that calculates the common costs for
+   comparison.  */
+
+static bool
+rs6000_rtx_costs_comparison (int outer_code, int *total, bool speed, bool crnot)
+{
+  if (outer_code == SET)
+    {
+      int costs = rs6000_cmp_cost (speed);
+      if (TARGET_BCP8)
+	/* cmp; li <ret>,0; bc+8; li <ret>,1.  */
+	costs += rs6000_bcp8_cost (speed) + COSTS_N_INSNS (1);
+      else if (TARGET_ISEL)
+	/* cmp; li <tmp>,1; isel <ret>,r0,<tmp>.  */
+	costs += rs6000_isel_cost (speed) + COSTS_N_INSNS (1);
+      else
+	{
+	  /* cmp; mfcr; rlwinm.  */
+	  costs += rs6000_mfcr_cost (speed) + COSTS_N_INSNS (1);
+
+	  /* Account for crnot if we need to reverse the sense of the test.  */
+	  if (crnot)
+	    costs += rs6000_crlogical_cost (speed);
+	}
+
+      *total = costs;
+      return true;
+    }
+  else if (outer_code == COMPARE)
+    {
+      *total = 0;
+      return true;
+    }
+
+  return false;
+}
+
 /* Compute a (partial) cost for rtx X.  Return true if the complete
    cost has been computed, and false if subexpressions should be
    scanned.  In either case, *TOTAL contains the cost result.  */
@@ -25789,11 +26221,13 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       return false;
 
     case FMA:
-      if (mode == SFmode)
+      if (outer_code == NEG)
+	*total = 0;
+      else if (mode == SFmode)
 	*total = rs6000_cost->fp;
       else
 	*total = rs6000_cost->dmul;
-      break;
+      return false;
 
     case DIV:
     case MOD:
@@ -25829,9 +26263,13 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	*total += COSTS_N_INSNS (2);
       return false;
 
+    case CLZ:
+      *total = rs6000_clz_cost (speed);
+      return false;
+
     case CTZ:
     case FFS:
-      *total = COSTS_N_INSNS (4);
+      *total = COSTS_N_INSNS (3) + rs6000_clz_cost (speed);
       return false;
 
     case POPCOUNT:
@@ -25851,7 +26289,6 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       /* FALLTHRU */
 
     case AND:
-    case CLZ:
     case IOR:
     case XOR:
     case ZERO_EXTRACT:
@@ -25887,9 +26324,58 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	*total = COSTS_N_INSNS (1);
       return false;
 
+    case LO_SUM:
+    case TRUNCATE:
+      *total = 0;
+      return false;
+
+    case ABS:
+      if (FLOAT_MODE_P (mode))
+	{
+	  *total = rs6000_cost->fp;
+	  return true;
+	}
+      else if (TARGET_ISEL && !TARGET_ABS_CNTLZ)
+	{
+	  *total = rs6000_cmp_cost (speed) + rs6000_isel_cost (speed);
+	  return true;
+	}
+      else if (TARGET_BCP8 && !TARGET_ABS_CNTLZ)
+	{
+	  *total = rs6000_cmp_cost (speed) + rs6000_bcp8_cost (speed);
+	  return true;
+	}
+      else
+	{
+	  *total = COSTS_N_INSNS (2) + rs6000_clz_cost (speed);
+	  return true;
+	}
+
+    case SMIN:
+    case SMAX:
+    case UMIN:
+    case UMAX:
+      if (FLOAT_MODE_P (mode))
+	{
+	  *total = rs6000_cost->fp;
+	  return true;
+	}
+      else if (TARGET_ISEL)
+	{
+	  *total = (rs6000_cmp_cost (speed) + rs6000_isel_cost (speed));
+	  return true;
+	}
+      else if (TARGET_BCP8)
+	{
+	  *total = (rs6000_cmp_cost (speed) + COSTS_N_INSNS (1)
+		    + rs6000_bcp8_cost (speed));
+	  return true;
+	}
+      else
+	break;
+
     case COMPARE:
     case NEG:
-    case ABS:
       if (!FLOAT_MODE_P (mode))
 	{
 	  *total = COSTS_N_INSNS (1);
@@ -25925,10 +26411,14 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
       break;
 
     case CALL:
+      break;
+
     case IF_THEN_ELSE:
-      if (!speed)
+      /* Is it a conditional jump?  */
+      if ((GET_CODE (XEXP (x, 1)) == LABEL_REF || XEXP (x, 1) == pc_rtx)
+	  || (GET_CODE (XEXP (x, 2)) == LABEL_REF || XEXP (x, 2) == pc_rtx))
 	{
-	  *total = COSTS_N_INSNS (1);
+	  *total = 0;
 	  return true;
 	}
       else if (FLOAT_MODE_P (mode)
@@ -25937,58 +26427,180 @@ rs6000_rtx_costs (rtx x, int code, int outer_code, int opno ATTRIBUTE_UNUSED,
 	  *total = rs6000_cost->fp;
 	  return false;
 	}
+      else if (INTEGRAL_MODE_P (mode)
+	       && XEXP (x, 1) != pc_rtx
+	       && GET_CODE (XEXP (x, 1)) != LABEL_REF
+	       && XEXP (x, 2) != pc_rtx
+	       && GET_CODE (XEXP (x, 2)) != LABEL_REF
+	       && (TARGET_ISEL || TARGET_BCP8))
+	{
+	  rtx cmp = XEXP (x, 0);
+
+	  /* If this is a merged bc+8, add in the costs of the comparison.  */
+	  int costs
+	    = ((COMPARISON_P (cmp)
+		&& GET_MODE_CLASS (GET_MODE (XEXP (cmp, 0))) != MODE_CC)
+	       ? rs6000_cmp_cost (speed) : 0);
+
+	  if (TARGET_ISEL)
+	    costs += rs6000_isel_cost (speed);
+	  else
+	    costs += rs6000_bcp8_cost (speed);
+
+	  *total = costs;
+	  return true;
+	}
+      break;
+
+    case NE:
+      if (outer_code == SET && (mode == SImode || mode == DImode))
+	{
+	  /* Add xor if not comparing against 0.  */
+	  int costs = ((XEXP (x, 1) == const0_rtx) ? 0 : COSTS_N_INSNS (1));
+
+	  /* cntlzw; srwi;  xori.  */
+	  costs += rs6000_clz_cost (speed) + COSTS_N_INSNS (2);
+
+	  *total = costs;
+	  return true;
+	}
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
       break;
 
     case EQ:
-    case GTU:
-    case LTU:
+      if (outer_code == SET && (mode == SImode || mode == DImode))
+	{
+	  /* Add xor if not comparing against 0.  */
+	  int costs = ((XEXP (x, 1) == const0_rtx) ? 0 : COSTS_N_INSNS (1));
+
+	  /* cntlzw; srwi.  */
+	  costs += rs6000_clz_cost (speed) + COSTS_N_INSNS (1);
+
+	  *total = costs;
+	  return true;
+	}
       /* Carry bit requires mode == Pmode.
 	 NEG or PLUS already counted so only add one.  */
+      else if (mode == Pmode
+	       && (outer_code == NEG || outer_code == PLUS))
+	{
+	  /* Optional xor; subfic; addze.  */
+	  *total = COSTS_N_INSNS ((XEXP (x, 1) == const0_rtx) ? 1 : 2);
+	  return true;
+	}
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
+      break;
+
+    case GTU:
+      if (outer_code == SET && XEXP (x, 1) == const0_rtx)
+	{
+	  /* cntlzw; srwi; xori.  */
+	  *total = rs6000_clz_cost (speed) + COSTS_N_INSNS (2);
+	  return false;
+	}
+      /* fall through.  */
+
+    case LTU:
+      /* Carry bit requires mode == Pmode.
+	 NEG or PLUS already counted so only add 1.  */
       if (mode == Pmode
 	  && (outer_code == NEG || outer_code == PLUS))
 	{
+	  /* subfc; addze.  */
 	  *total = COSTS_N_INSNS (1);
 	  return true;
 	}
-      if (outer_code == SET)
+      else if (outer_code == SET && mode == Pmode)
 	{
-	  if (XEXP (x, 1) == const0_rtx)
-	    {
-	      if (TARGET_ISEL && !TARGET_MFCRF)
-		*total = COSTS_N_INSNS (8);
-	      else
-		*total = COSTS_N_INSNS (2);
-	      return true;
-	    }
-	  else if (mode == Pmode)
-	    {
-	      *total = COSTS_N_INSNS (3);
-	      return false;
-	    }
+	  /* subfc; subfe; neg.  */
+	  *total = COSTS_N_INSNS (3);
+	  return false;
 	}
-      /* FALLTHRU */
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
+      break;
 
     case GT:
+      if (XEXP (x, 1) == const0_rtx)
+	/* srawi; subf; srwi.  */
+	return COSTS_N_INSNS (3);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
+      break;
+
+    case GE:
+      if (XEXP (x, 1) == const0_rtx)
+	/* nor; srwi.  */
+	return COSTS_N_INSNS (2);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
     case LT:
+      if (XEXP (x, 1) == const0_rtx)
+	/* srwi.  */
+	return COSTS_N_INSNS (1);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
+      break;
+
+    case LE:
+      if (XEXP (x, 1) == const0_rtx)
+	/* addi; or; srwi.  */
+	return COSTS_N_INSNS (3);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
+    case GEU:
+      if (XEXP (x, 1) == const0_rtx)
+	/* srawi; subf; srwi.  */
+	return COSTS_N_INSNS (3);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
+    case LEU:
+      if (XEXP (x, 1) == const0_rtx)
+	/* cntlzw; srwi.  */
+	return rs6000_clz_cost (speed) + COSTS_N_INSNS (1);
+      else if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
     case UNORDERED:
-      if (outer_code == SET && (XEXP (x, 1) == const0_rtx))
-	{
-	  if (TARGET_ISEL && !TARGET_MFCRF)
-	    *total = COSTS_N_INSNS (8);
-	  else
-	    *total = COSTS_N_INSNS (2);
-	  return true;
-	}
-      /* CC COMPARE.  */
-      if (outer_code == COMPARE)
-	{
-	  *total = 0;
-	  return true;
-	}
+      if (rs6000_rtx_costs_comparison (outer_code, total, speed, true))
+	return true;
+      break;
+
+    case ORDERED:
+      if (rs6000_rtx_costs_comparison (outer_code, total, speed, false))
+	return true;
       break;
 
     default:
       break;
+    }
+
+  if (TARGET_DEBUG_COST
+      && !((code == PC)
+	   || (code == CALL)
+	   || (code == USE)
+	   || (code == CLOBBER)
+	   || (code == SET && (outer_code == INSN || outer_code == PARALLEL))))
+    {
+      fprintf (stderr,
+	       "rs6000_rtx_costs unhandled insn, code = %s, outer_code = %s, "
+	       "opno = %d, total = %d, speed = %s, x:\n",
+	       GET_RTX_NAME (code),
+	       GET_RTX_NAME (outer_code),
+	       opno,
+	       *total,
+	       speed ? "true" : "false");
+
+      debug_rtx (x);
     }
 
   return false;
@@ -26059,7 +26671,7 @@ rs6000_register_move_cost (enum machine_mode mode,
 
       /* It's more expensive to move CR_REGS than CR0_REGS because of the
 	 shift.  */
-      else if (rclass == CR_REGS)
+      else if (rclass == CR_REGS || rclass == CR0167_REGS)
 	ret = 4;
 
       /* For those processors that have slow LR/CTR moves, make them more
@@ -28247,6 +28859,153 @@ rs6000_set_up_by_prologue (struct hard_reg_set_container *set)
       && TARGET_MINIMAL_TOC
       && get_pool_size () != 0)
     add_to_hard_reg_set (&set->set, Pmode, RS6000_PIC_OFFSET_TABLE_REGNUM);
+}
+
+
+/* Look back on the insn chain and see if the previous insn set the condtion
+   code.  This is to enable putting a group ending NOP if a branch conditional
+   + 8 would be in the last word in a cache block.  INSN is the current insn,
+   and CC_REG is the condition code register that is used in the current
+   instruction.  */
+
+bool
+rs6000_previous_compare_p (rtx insn, rtx cc_reg)
+{
+  rtx prev_insn = prev_nonnote_insn_bb (insn);
+
+  if (prev_insn && GET_CODE (prev_insn) == INSN)
+    {
+      rtx pattern = single_set (prev_insn);
+
+      if (pattern && GET_CODE (SET_SRC (pattern)) == COMPARE
+	  && rtx_equal_p (SET_DEST (pattern), cc_reg))
+	return true;
+
+      else
+	{
+	  pattern = PATTERN (prev_insn);
+
+	  if (GET_CODE (pattern) == PARALLEL)
+	    {
+	      int i;
+
+	      for (i = 0; i < XVECLEN (pattern, 0); i++)
+		{
+		  rtx sub = XVECEXP (pattern, 0, i);
+		  switch (GET_CODE (sub))
+		    {
+		    case USE:
+		    case CLOBBER:
+		      break;
+
+		    case SET:
+		      if (GET_CODE (SET_SRC (sub)) == COMPARE
+			  && rtx_equal_p (SET_DEST (sub), cc_reg))
+			return true;
+
+		    default:
+		      return false;
+		    }
+		}
+	    }
+	}
+    }
+
+  return false;
+}
+
+/* Output a branch conditional + 8 (bc+8) sequence to set DEST based on the
+   comparison COND to either TRUE_VALUE or FALSE_VALUE.
+
+   Power7 has a performance problem if the comparison and bc+8 are back to
+   back, and the bc+8 is at the end of a cache block.  If bc+8 nops are
+   enabled, we tell the assembler to insert a group ending nop using .p2alignl
+   and the nop is only inserted if the jump would be in the last word of a
+   32-byte block.
+
+   INSN is the insn for the instruction.
+
+   If REVERSE_P is true, reverse the sense of the jump.
+
+   If EMIT_NOP_P is true, emit the group ending nop unless -mno-bcp8-nop.  */
+
+const char *
+rs6000_output_bcp8 (rtx dest,
+		    rtx cond,
+		    rtx true_value,
+		    rtx false_value,
+		    rtx insn,
+		    bool reverse_p,
+		    bool emit_nop_p)
+{
+  rtx operands[3];
+  rtx op, op1;
+
+  operands[0] = dest;
+  operands[1] = op = (reverse_p) ? true_value : false_value;
+
+  /* Possibly emit the group ending nop.  */
+  if (TARGET_BCP8_NOP && emit_nop_p)
+    fprintf (asm_out_file,
+	     "\t.p2alignl 5,0x60420000,4\t\t%s ori r2,r2,0\n",
+	     ASM_COMMENT_START);
+
+  /* Emit the branch.  */
+  output_asm_insn (output_cbranch (cond, "1f", reverse_p, insn, false),
+		   operands);
+
+  /* Now emit the single instruction to set the destination.  */
+  switch (GET_CODE (op))
+    {
+    case REG:
+    case SUBREG:
+      gcc_assert (gpc_reg_operand (op, GET_MODE (op)));
+      output_asm_insn ("mr %0,%1", operands);
+      break;
+
+    case CONST_INT:
+      if (satisfies_constraint_I (op))
+	output_asm_insn ("{lil|li} %0,%1", operands);
+      else if (satisfies_constraint_L (op))
+	output_asm_insn ("{liu|lis} %0,%v1", operands);
+      else
+	gcc_unreachable ();
+      break;
+
+    case AND:
+    case IOR:
+    case XOR:
+      gcc_assert (rtx_equal_p (dest, XEXP (op, 0)));
+      op1 = XEXP (op, 1);
+      gcc_assert (gpc_reg_operand (op1, GET_MODE (op1)));
+      operands[2] = op1;
+
+      output_asm_insn ("%q1 %0,%2", operands);
+      break;
+
+    case PLUS:
+      gcc_assert (rtx_equal_p (dest, XEXP (op, 0)));
+      op1 = XEXP (op, 1);
+      operands[2] = op1;
+
+      if (gpc_reg_operand (op1, GET_MODE (op1)))
+	output_asm_insn ("{cax|add} %0,%0,%2", operands);
+      else if (GET_CODE (op1) != CONST_INT)
+	gcc_unreachable ();
+      else if (satisfies_constraint_I (op1))
+	output_asm_insn ("{cal %0,%2(%0)|addi %0,%0,%2}", operands);
+      else if (satisfies_constraint_L (op1))
+	output_asm_insn ("{cau|addis} %0,%0,%v2", operands);
+      else
+	gcc_unreachable ();
+      break;
+
+    default:
+      gcc_unreachable ();
+    }
+
+  fputs ("1:\n", asm_out_file);
+  return "";
 }
 
 struct gcc_target targetm = TARGET_INITIALIZER;

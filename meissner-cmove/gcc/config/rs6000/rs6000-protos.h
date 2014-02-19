@@ -95,18 +95,20 @@ extern int extract_MB (rtx);
 extern int extract_ME (rtx);
 extern void rs6000_output_function_entry (FILE *, const char *);
 extern void print_operand (FILE *, rtx, int);
+extern int print_operand_cr_bits (rtx, int);
 extern void print_operand_address (FILE *, rtx);
 extern enum rtx_code rs6000_reverse_condition (enum machine_mode,
 					       enum rtx_code);
-extern void rs6000_emit_sISEL (enum machine_mode, rtx[]);
 extern void rs6000_emit_sCOND (enum machine_mode, rtx[]);
 extern void rs6000_emit_cbranch (enum machine_mode, rtx[]);
-extern char * output_cbranch (rtx, const char *, int, rtx);
+extern char * output_cbranch (rtx, const char *, int, rtx, bool);
 extern char * output_e500_flip_gt_bit (rtx, rtx);
 extern const char * output_probe_stack_range (rtx, rtx);
 extern rtx rs6000_emit_set_const (rtx, enum machine_mode, rtx, int);
-extern int rs6000_emit_cmove (rtx, rtx, rtx, rtx);
+extern bool rs6000_emit_cmove (rtx, rtx, rtx, rtx);
 extern int rs6000_emit_vector_cond_expr (rtx, rtx, rtx, rtx, rtx, rtx);
+extern bool rs6000_expand_int_abs (rtx, rtx, bool);
+extern bool rs6000_expand_int_minmax (rtx, enum rtx_code, rtx, rtx);
 extern void rs6000_emit_minmax (rtx, enum rtx_code, rtx, rtx);
 extern void rs6000_expand_atomic_compare_and_swap (rtx op[]);
 extern void rs6000_expand_atomic_exchange (rtx op[]);
@@ -137,6 +139,8 @@ extern rtx rs6000_address_for_fpconvert (rtx);
 extern rtx rs6000_address_for_altivec (rtx);
 extern rtx rs6000_allocate_stack_temp (enum machine_mode, bool, bool);
 extern int rs6000_loop_align (rtx);
+extern bool rs6000_previous_compare_p (rtx, rtx);
+extern const char *rs6000_output_bcp8 (rtx, rtx, rtx, rtx, rtx, bool, bool);
 #endif /* RTX_CODE */
 
 #ifdef TREE_CODE
@@ -177,6 +181,10 @@ extern void rs6000_aix_asm_output_dwarf_table_ref (char *);
 extern void get_ppc476_thunk_name (char name[32]);
 extern bool rs6000_overloaded_builtin_p (enum rs6000_builtins);
 extern unsigned rs6000_builtin_mask_calculate (void);
+
+#ifdef BB_HEAD
+extern rtx rs6000_ifcvt_modify_insn (ce_if_block_t *, rtx, rtx);
+#endif
 
 /* Declare functions in rs6000-c.c */
 

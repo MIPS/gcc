@@ -451,6 +451,13 @@ extern int rs6000_vector_align[];
 #define TARGET_E500_DOUBLE 0
 #define CHECK_E500_OPTIONS do { } while (0)
 
+/* A C expression to modify the code described by the conditional if
+   information CE_INFO with the new PATTERN in INSN.  If PATTERN is a null
+   pointer after the IFCVT_MODIFY_INSN macro executes, it is assumed that that
+   insn cannot be converted to be executed conditionally.  */
+#define IFCVT_MODIFY_INSN(CE_INFO, PATTERN, INSN) \
+  (PATTERN) = rs6000_ifcvt_modify_insn (CE_INFO, PATTERN, INSN)
+
 /* ISA 2.01 allowed FCFID to be done in 32-bit, previously it was 64-bit only.
    Enable 32-bit fcfid's on any of the switches for newer ISA machines or
    XILINX.  */
@@ -470,6 +477,7 @@ extern int rs6000_vector_align[];
 #define TARGET_FCFIDUS	TARGET_POPCNTD
 #define TARGET_FCTIDUZ	TARGET_POPCNTD
 #define TARGET_FCTIWUZ	TARGET_POPCNTD
+#define TARGET_INT_MINMAX (TARGET_ISEL || TARGET_BCP8)
 
 /* For power systems, we want to enable Altivec and VSX builtins even if the
    user did not use -maltivec or -mvsx to allow the builtins to be used inside
@@ -1018,13 +1026,18 @@ extern unsigned rs6000_pointer_size;
 #define HARD_REGNO_NREGS(REGNO, MODE) rs6000_hard_regno_nregs[(MODE)][(REGNO)]
 
 /* When setting up caller-save slots (MODE == VOIDmode) ensure we allocate
-   enough space to account for vectors in FP regs. */
+   enough space to account for vectors in FP regs.  Due to the cost of saving
+   and restoring the CR's, don't use caller save on them.  Ditto for the LR and
+   CTR registers.  */
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
   (TARGET_VSX								\
    && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
-   && FP_REGNO_P (REGNO)				\
-   ? V2DFmode						\
-   : choose_hard_reg_mode ((REGNO), (NREGS), false))
+   && FP_REGNO_P (REGNO)						\
+   ? V2DFmode								\
+   : (((CR_REGNO_P (REGNO) || ((REGNO) == LR_REGNO)			\
+       || ((REGNO) == CTR_REGNO)))					\
+      ? VOIDmode							\
+      : choose_hard_reg_mode ((REGNO), (NREGS), false)))
 
 #define HARD_REGNO_CALL_PART_CLOBBERED(REGNO, MODE)			\
   (((TARGET_32BIT && TARGET_POWERPC64					\
@@ -1186,6 +1199,7 @@ enum reg_class
   SPECIAL_REGS,
   SPEC_OR_GEN_REGS,
   CR0_REGS,
+  CR0167_REGS,
   CR_REGS,
   NON_FLOAT_REGS,
   CA_REGS,
@@ -1216,6 +1230,7 @@ enum reg_class
   "SPECIAL_REGS",							\
   "SPEC_OR_GEN_REGS",							\
   "CR0_REGS",								\
+  "CR0167_REGS",							\
   "CR_REGS",								\
   "NON_FLOAT_REGS",							\
   "CA_REGS",								\
@@ -1245,6 +1260,7 @@ enum reg_class
   { 0x00000000, 0x00000000, 0x00000006, 0x00002000 }, /* SPECIAL_REGS */     \
   { 0xffffffff, 0x00000000, 0x0000000e, 0x00022000 }, /* SPEC_OR_GEN_REGS */ \
   { 0x00000000, 0x00000000, 0x00000010, 0x00000000 }, /* CR0_REGS */	     \
+  { 0x00000000, 0x00000000, 0x00000c30, 0x00000000 }, /* CR0167_REGS */	     \
   { 0x00000000, 0x00000000, 0x00000ff0, 0x00000000 }, /* CR_REGS */	     \
   { 0xffffffff, 0x00000000, 0x00000ffe, 0x00020000 }, /* NON_FLOAT_REGS */   \
   { 0x00000000, 0x00000000, 0x00001000, 0x00000000 }, /* CA_REGS */	     \
