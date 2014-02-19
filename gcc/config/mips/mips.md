@@ -2981,7 +2981,7 @@
     case 7:
     case 8:
       return "and\t%0,%1,%2";
-    case 7:
+    case 9:
       if (REGNO (operands[0]) != REGNO (operands[1]))
 	return "#";
       pos = mips_bitmask (~ INTVAL (operands[2]), &len, <MODE>mode);
@@ -2993,7 +2993,7 @@
     }
 }
   [(set_attr "move_type" "load,load,load,andi,andi,ext_ins,shift_shift,logical,logical,ext_ins")
-   (set_attr "compression" "*,*,*,micromips,*,*,*,micromips,*")
+   (set_attr "compression" "*,*,*,micromips,*,*,*,micromips,*,*")
    (set_attr "mode" "<MODE>")])
 
 (define_split
