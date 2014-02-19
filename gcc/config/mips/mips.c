@@ -9794,7 +9794,7 @@ mips_must_initialize_gp_p (void)
 static bool
 mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
 {
-  if (MD_REG_P (regno))
+  if (ISA_HAS_MULT && MD_REG_P (regno))
     return true;
 
   if (ISA_HAS_DSP && DSP_ACC_REG_P (regno))
@@ -10008,8 +10008,6 @@ mips_compute_frame_info (void)
       if (!ISA_MIPS32R2 && !ISA_MIPS32R6)
 	error ("the %<interrupt%> attribute requires a MIPS32r2 or "
                "MIPS32r6 processor");
-      else if (TARGET_HARD_FLOAT)
-	error ("the %<interrupt%> attribute requires %<-msoft-float%>");
       else if (TARGET_MIPS16)
 	error ("interrupt handlers cannot be MIPS16 functions");
       else
@@ -11227,6 +11225,14 @@ mips_expand_prologue (void)
 		emit_insn (gen_insvsi (gen_rtx_REG (SImode, K1_REG_NUM),
 				       GEN_INT (5),
 				       GEN_INT (SR_IE),
+				       gen_rtx_REG (SImode, GP_REG_FIRST)));
+
+              if (TARGET_HARD_FLOAT)
+                /* Disable COP1 for hard-float. This will lead to an exception
+                   if floating point code is executed in an ISR */
+		emit_insn (gen_insvsi (gen_rtx_REG (SImode, K1_REG_NUM),
+				       GEN_INT (1),
+				       GEN_INT (SR_COP1),
 				       gen_rtx_REG (SImode, GP_REG_FIRST)));
 	    }
 	  else
