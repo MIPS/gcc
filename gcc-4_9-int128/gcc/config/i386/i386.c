@@ -6129,6 +6129,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
     }
   if (TARGET_MMX)
     cum->mmx_nregs = MMX_REGPARM_MAX;
+  cum->warn_avx512f = true;
   cum->warn_avx = true;
   cum->warn_sse = true;
   cum->warn_mmx = true;
@@ -6154,6 +6155,7 @@ init_cumulative_args (CUMULATIVE_ARGS *cum,  /* Argument info to initialize */
 	  cum->nregs = 0;
 	  cum->sse_nregs = 0;
 	  cum->mmx_nregs = 0;
+	  cum->warn_avx512f = 0;
 	  cum->warn_avx = 0;
 	  cum->warn_sse = 0;
 	  cum->warn_mmx = 0;
@@ -6211,7 +6213,7 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
   if (TREE_CODE (type) == VECTOR_TYPE && !VECTOR_MODE_P (mode))
     {
       HOST_WIDE_INT size = int_size_in_bytes (type);
-      if ((size == 8 || size == 16 || size == 32)
+      if ((size == 8 || size == 16 || size == 32 || size == 64)
 	  /* ??? Generic code allows us to create width 1 vectors.  Ignore.  */
 	  && TYPE_VECTOR_SUBPARTS (type) > 1)
 	{
@@ -6227,7 +6229,29 @@ type_natural_mode (const_tree type, const CUMULATIVE_ARGS *cum,
 	    if (GET_MODE_NUNITS (mode) == TYPE_VECTOR_SUBPARTS (type)
 		&& GET_MODE_INNER (mode) == innermode)
 	      {
-		if (size == 32 && !TARGET_AVX)
+		if (size == 64 && !TARGET_AVX512F)
+		  {
+		    static bool warnedavx512f;
+		    static bool warnedavx512f_ret;
+
+		    if (cum
+			&& !warnedavx512f
+			&& cum->warn_avx512f)
+		      {
+			warnedavx512f = true;
+			warning (0, "AVX512F vector argument without AVX512F "
+				 "enabled changes the ABI");
+		      }
+		    else if (in_return & !warnedavx512f_ret)
+		      {
+			warnedavx512f_ret = true;
+			warning (0, "AVX512F vector return without AVX512F "
+				 "enabled changes the ABI");
+		      }
+
+		    return TYPE_MODE (type);
+		  }
+		else if (size == 32 && !TARGET_AVX)
 		  {
 		    static bool warnedavx;
 		    static bool warnedavx_ret;
@@ -11023,13 +11047,12 @@ ix86_expand_prologue (void)
       rtx r10 = NULL;
       rtx (*adjust_stack_insn)(rtx, rtx, rtx);
       const bool sp_is_cfa_reg = (m->fs.cfa_reg == stack_pointer_rtx);
-      bool eax_live = false;
+      bool eax_live = ix86_eax_live_at_start_p ();
       bool r10_live = false;
 
       if (TARGET_64BIT)
         r10_live = (DECL_STATIC_CHAIN (current_function_decl) != 0);
 
-      eax_live = ix86_eax_live_at_start_p ();
       if (eax_live)
 	{
 	  insn = emit_insn (gen_push (eax));
@@ -11084,17 +11107,16 @@ ix86_expand_prologue (void)
 	 works for realigned stack, too.  */
       if (r10_live && eax_live)
         {
-	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
+	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, eax);
 	  emit_move_insn (gen_rtx_REG (word_mode, R10_REG),
 			  gen_frame_mem (word_mode, t));
-	  t = plus_constant (Pmode, stack_pointer_rtx,
-			     allocate - UNITS_PER_WORD);
+	  t = plus_constant (Pmode, t, UNITS_PER_WORD);
 	  emit_move_insn (gen_rtx_REG (word_mode, AX_REG),
 			  gen_frame_mem (word_mode, t));
 	}
       else if (eax_live || r10_live)
 	{
-	  t = plus_constant (Pmode, stack_pointer_rtx, allocate);
+	  t = gen_rtx_PLUS (Pmode, stack_pointer_rtx, eax);
 	  emit_move_insn (gen_rtx_REG (word_mode,
 				       (eax_live ? AX_REG : R10_REG)),
 			  gen_frame_mem (word_mode, t));
