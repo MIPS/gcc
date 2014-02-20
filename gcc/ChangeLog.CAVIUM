@@ -1,5 +1,10 @@
 2014-02-19  Andrew Pinski  <apinski@cavium.com>
 
+	* config/mips/mips.c (mips_expand_ins_as_unaligned_store):
+	Fix ISA_HAS_UL_US case.
+
+2014-02-19  Andrew Pinski  <apinski@cavium.com>
+
 	* config/mips/mips.md (*and<mode>3): Correct the last patch.
 
 2012-07-25  Andrew Pinski  <apinski@cavium.com>

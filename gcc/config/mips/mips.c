@@ -7751,6 +7751,7 @@ mips_expand_ins_as_unaligned_store (rtx dest, rtx src, HOST_WIDE_INT width,
 
   if (ISA_HAS_UL_US)
     {
+      dest = adjust_address (dest, BLKmode, 0);
       if (mode == DImode)
 	emit_insn (gen_mov_usd (dest, src, left));
       else
