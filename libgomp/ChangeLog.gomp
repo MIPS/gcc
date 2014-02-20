@@ -1,3 +1,15 @@
+2014-02-20  Thomas Schwinge  <thomas@codesourcery.com>
+	    James Norris  <jnorris@codesourcery.com>
+
+	* plugin-host.c: New file.
+	* target.c (struct gomp_device_descr): Add device_alloc_func,
+	device_free_func, device_dev2host_func, device_host2dev_func
+	members.
+	(gomp_load_plugin_for_device): Load these.
+	(gomp_map_vars, gomp_unmap_tgt, gomp_unmap_vars, gomp_update): Use
+	these.
+	(resolve_device, gomp_find_available_plugins): Remove ID 257 hack.
+
 2014-02-17  Ilya Verbin  <ilya.verbin@intel.com>
 
 	* target.c (gomp_map_vars_existing): Don't update copy_from for the
