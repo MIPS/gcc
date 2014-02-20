@@ -4406,7 +4406,7 @@ DEFHOOK
   given is not considered profitable.\
   \
   The default version of this hook always returns true",
- bool, (struct ira_reg_equiv *),
+ bool, (struct ira_reg_equiv_s *),
  default_reg_equiv_profitable_p)
 
 DEFHOOK

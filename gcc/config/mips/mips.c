@@ -73,6 +73,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "hash-table.h"
 #include "dumpfile.h"
+#include "ira.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -19274,7 +19275,7 @@ mips_fixed_condition_code_regs (unsigned int *p1, unsigned int *p2)
 }
 
 static bool
-mips_reg_equiv_profitable_p (struct ira_reg_equiv * equiv)
+mips_reg_equiv_profitable_p (struct ira_reg_equiv_s * equiv)
 {
   if (TARGET_MIPS16
       && optimize_size
