@@ -1,4 +1,9 @@
 2014-02-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* target.c (gomp_load_plugin_for_device): Don't call dlcose if
+	dlopen failed.
+
+2014-02-20  Thomas Schwinge  <thomas@codesourcery.com>
 	    James Norris  <jnorris@codesourcery.com>
 
 	* plugin-host.c: New file.

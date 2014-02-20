@@ -647,7 +647,8 @@ gomp_load_plugin_for_device (struct gomp_device_descr *device,
   if (err != NULL)
     {
       gomp_error ("while loading %s: %s", plugin_name, err);
-      dlclose (device->plugin_handle);
+      if (device->plugin_handle)
+	dlclose (device->plugin_handle);
     }
   return err == NULL;
 }
