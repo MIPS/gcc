@@ -19278,6 +19278,7 @@ static bool
 mips_reg_equiv_profitable_p (struct ira_reg_equiv_s * equiv)
 {
   if (TARGET_MIPS16
+      && FIXES_IRA_REG_EQUIV_PROFITABLE 
       && optimize_size
       && equiv->argument_p
       && abs(frame_offset) > 1000)

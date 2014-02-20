@@ -404,5 +404,9 @@ mshrink-offsets
 Target Report Mask(SHRINK_OFFSETS)
 Shrink offsets in MIPS16 code to avoid extended loads and stores
 
+mfixes-ira-reg-equiv
+Target Report Var(FIXES_IRA_REG_EQUIV_PROFITABLE)
+testing fixes
+
 noasmopt
 Driver
