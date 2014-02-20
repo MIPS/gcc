@@ -72,6 +72,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pass.h"
 #include "context.h"
 #include "hash-table.h"
+#include "dumpfile.h"
 
 /* True if X is an UNSPEC wrapper around a SYMBOL_REF or LABEL_REF.  */
 #define UNSPEC_ADDRESS_P(X)					\
@@ -16967,13 +16968,13 @@ calculate_modified_offsets (offset_entry **slot, FILE *stderr)
 
   info->offsets.qsort (offset_cmp);
 
-#if 0
-  fprintf(stderr,"REGNO = %d offsets are: ", info->base_regno);
-  for (i = 0; info->offsets.iterate (i, &m); i++)
-    fprintf(stderr,"%d ", m->offset);
-  fprintf(stderr,"\n");
-#endif
-
+  if (dump_file)
+  {
+    fprintf(dump_file,"REGNO = %d offsets are: ", info->base_regno);
+    for (i = 0; info->offsets.iterate (i, &m); i++)
+      fprintf(dump_file,"%d [%d] ", m->offset, m->bb->index);
+    fprintf(dump_file,"\n");
+  }
   base = 0;
   for (i = 0; info->offsets.iterate (i, &m); i++)
     {
@@ -17071,15 +17072,24 @@ get_modified_offset (basic_block bb, HOST_WIDE_INT regno, HOST_WIDE_INT offset, 
       if ((m->modified_offset == j) && (m->bb == bb)) bb_uses++;
     }
 
-  //if ((uses < 10) && (other_uses > 0) /* && (other_bbs > 0) */ ) return 0;
-  if ((uses < 3) /* && (other_bbs > 0) */ ) return 0;
-#endif
-
-  /* if (use < 4) j = 0; */
-
+  if (dump_file)
+  {
+    fprintf(dump_file, "In get_modified_offset, returning %d for offset %d (REG %d)\n", j, offset, regno);
+    fprintf(dump_file, "  bb_%d (uses=%d other_uses=%d bb_uses=%d other_bbs=%d bb_freq=%d)\n", 
+                        bb->index, uses, other_uses, bb_uses, other_bbs, bb->frequency);
+  }
+  
 #if 0
-  fprintf(stderr, "In get_modified_offset, returning %d for offset %d (REG %d)\n", j, offset, regno);
+  if (other_uses < 20  && bb->frequency < 100)
+  {
+    if (dump_file)
+      fprintf(dump_file, "  Rejected shrinking: low bb frequency(<100) and other_uses(<20)\n");
+    return 0;
+  }
 #endif
+#endif
+
+
   return j;
 }
 
@@ -17097,13 +17107,14 @@ can_shrink_mem (rtx insn, basic_block bb, rtx mem, hash_table <offset_entry> * o
       modified_offset = get_modified_offset (bb, REGNO (base), offset, offset_table);
       if ((modified_offset > 0) && (offset >= modified_offset))
 	{
-#if 0
-	  fprintf(stderr, "Shrinking offset from %d to %d on register %d\n", offset, modified_offset, REGNO (base));
-#endif
 	  mode = GET_MODE (base);
 	  new_reg = gen_reg_rtx (mode);
 	  new_insn = gen_rtx_SET (VOIDmode, new_reg, gen_rtx_PLUS (mode, base, GEN_INT (modified_offset)));
 	  emit_insn_before(new_insn, insn);
+
+          if (dump_file)
+	    fprintf(dump_file, "  Shrinking offset from %d to %d on register %d to new register %d\n", offset, modified_offset, REGNO (base), REGNO (new_reg));
+
 	  if (offset == modified_offset)
 	    return (new_reg);
 	  else
@@ -17148,6 +17159,11 @@ rest_of_handle_shrink_offsets (void)
   rtx insn, set;
   int i;
 
+#if 0
+  if (dump_file)
+    print_loops(dump_file, 2);
+#endif     
+      
 #if 1
   offset_table.create (10);
   FOR_EACH_BB_FN (bb, cfun)
@@ -17183,7 +17199,7 @@ rest_of_handle_shrink_offsets (void)
 	      if (MEM_P (SET_SRC (set)))
 	        mark_mem (SET_SRC (set), bb, &offset_table);
 	      if (MEM_P (SET_DEST (set)))
-	        mark_mem (SET_DEST (set), &offset_table);
+	        mark_mem (SET_DEST (set), bb, &offset_table);
 	    }
 	}
       offset_table.traverse <FILE *, calculate_modified_offsets> (stderr);
