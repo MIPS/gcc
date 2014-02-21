@@ -1,3 +1,10 @@
+2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (gimple_code_is_oacc): Move to...
+	* gimple.h (is_gimple_omp_oacc_specifically): ... here.  Update
+	users, and also use it in more places where currently we've only
+	been checking for GIMPLE_OACC_PARALLEL.
+
 2014-02-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (diagnose_sb_0, diagnose_sb_1, diagnose_sb_2): Handle

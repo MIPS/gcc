@@ -5670,6 +5670,25 @@ is_gimple_omp (const_gimple stmt)
     }
 }
 
+/* Return true if STMT is any of the OpenACC types specifically.
+
+   TODO: This function should go away eventually, once all its callers have
+   either been fixed, changed into more specific checks, or verified to not
+   need any special handling for OpenACC.  */
+
+static inline bool
+is_gimple_omp_oacc_specifically (const_gimple stmt)
+{
+  gcc_assert (is_gimple_omp (stmt));
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_OACC_PARALLEL:
+      return true;
+    default:
+      return false;
+    }
+}
+
 
 /* Returns TRUE if statement G is a GIMPLE_NOP.  */
 

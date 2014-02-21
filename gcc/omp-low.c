@@ -863,7 +863,7 @@ use_pointer_for_field (tree decl, omp_context *shared_ctx)
      when we know the value is not accessible from an outer scope.  */
   if (shared_ctx)
     {
-      gcc_assert (gimple_code (shared_ctx->stmt) != GIMPLE_OACC_PARALLEL);
+      gcc_assert (!is_gimple_omp_oacc_specifically (shared_ctx->stmt));
 
       /* ??? Trivially accessible from anywhere.  But why would we even
 	 be passing an address in this case?  Should we simply assert
@@ -1006,7 +1006,7 @@ build_receiver_ref (tree var, bool by_ref, omp_context *ctx)
 static tree
 build_outer_var_ref (tree var, omp_context *ctx)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   tree x;
 
@@ -1072,7 +1072,7 @@ install_var_field (tree var, bool by_ref, int mask, omp_context *ctx)
   gcc_assert ((mask & 2) == 0 || !ctx->sfield_map
 	      || !splay_tree_lookup (ctx->sfield_map, (splay_tree_key) var));
   gcc_assert ((mask & 3) == 3
-	      || gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	      || !is_gimple_omp_oacc_specifically (ctx->stmt));
 
   type = TREE_TYPE (var);
   if (mask & 4)
@@ -1491,18 +1491,6 @@ fixup_child_record_type (omp_context *ctx)
   TREE_TYPE (ctx->receiver_decl) = build_pointer_type (type);
 }
 
-static bool
-gimple_code_is_oacc (const_gimple g)
-{
-  switch (gimple_code (g))
-    {
-    case GIMPLE_OACC_PARALLEL:
-      return true;
-    default:
-      return false;
-    }
-}
-
 /* Instantiate decls as necessary in CTX to satisfy the data sharing
    specified by CLAUSES.  */
 
@@ -1519,7 +1507,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_PRIVATE:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (OMP_CLAUSE_PRIVATE_OUTER_REF (c))
 	    goto do_private;
@@ -1528,7 +1516,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_SHARED:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  /* Ignore shared directives in teams construct.  */
 	  if (gimple_code (ctx->stmt) == GIMPLE_OMP_TEAMS)
 	    break;
@@ -1555,7 +1543,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  goto do_private;
 
 	case OMP_CLAUSE_LASTPRIVATE:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  /* Let the corresponding firstprivate clause create
 	     the variable.  */
 	  if (OMP_CLAUSE_LASTPRIVATE_FIRSTPRIVATE (c))
@@ -1564,13 +1552,13 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
-	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
 	    {
 	      sorry ("clause not supported yet");
 	      break;
 	    }
 	case OMP_CLAUSE_LINEAR:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	do_private:
 	  if (is_variable_sized (decl))
@@ -1599,7 +1587,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE__LOOPTEMP_:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  gcc_assert (is_parallel_ctx (ctx));
 	  decl = OMP_CLAUSE_DECL (c);
 	  install_var_field (decl, false, 3, ctx);
@@ -1608,19 +1596,19 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
 	case OMP_CLAUSE_COPYPRIVATE:
 	case OMP_CLAUSE_COPYIN:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  by_ref = use_pointer_for_field (decl, NULL);
 	  install_var_field (decl, by_ref, 3, ctx);
 	  break;
 
 	case OMP_CLAUSE_DEFAULT:
-	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  ctx->default_kind = OMP_CLAUSE_DEFAULT_KIND (c);
 	  break;
 
 	case OMP_CLAUSE_IF:
-	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
 	    {
 	      sorry ("clause not supported yet");
 	      break;
@@ -1633,14 +1621,14 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_SCHEDULE:
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEPEND:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_OPERAND (c, 0), ctx->outer);
 	  break;
 
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
-    gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	case OMP_CLAUSE_MAP:
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_SIZE (c), ctx->outer);
@@ -1654,7 +1642,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      && lookup_attribute ("omp declare target",
 				   DECL_ATTRIBUTES (decl)))
 	    {
-	      gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+	      gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	    break;
 	    }
 	  if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_MAP
@@ -1732,11 +1720,11 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_MERGEABLE:
 	case OMP_CLAUSE_PROC_BIND:
 	case OMP_CLAUSE_SAFELEN:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  break;
 
 	case OMP_CLAUSE_ALIGNED:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_global_var (decl)
 	      && TREE_CODE (TREE_TYPE (decl)) == ARRAY_TYPE)
@@ -1770,7 +1758,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
       switch (OMP_CLAUSE_CODE (c))
 	{
 	case OMP_CLAUSE_LASTPRIVATE:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  /* Let the corresponding firstprivate clause create
 	     the variable.  */
 	  if (OMP_CLAUSE_LASTPRIVATE_GIMPLE_SEQ (c))
@@ -1782,13 +1770,13 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_PRIVATE:
 	case OMP_CLAUSE_FIRSTPRIVATE:
 	case OMP_CLAUSE_REDUCTION:
-	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
 	    {
 	      sorry ("clause not supported yet");
 	      break;
 	    }
 	case OMP_CLAUSE_LINEAR:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (is_variable_sized (decl))
 	    install_var_local (decl, ctx);
@@ -1801,7 +1789,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_SHARED:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  /* Ignore shared directives in teams construct.  */
 	  if (gimple_code (ctx->stmt) == GIMPLE_OMP_TEAMS)
 	    break;
@@ -1820,7 +1808,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      && lookup_attribute ("omp declare target",
 				   DECL_ATTRIBUTES (decl)))
 	    {
-	      gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	      gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	    break;
 	    }
 	  if (DECL_P (decl))
@@ -1849,7 +1837,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_IF:
-	  if (gimple_code (ctx->stmt) == GIMPLE_OACC_PARALLEL)
+	  if (is_gimple_omp_oacc_specifically (ctx->stmt))
 	    {
 	      sorry ("clause not supported yet");
 	      break;
@@ -1876,7 +1864,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE__LOOPTEMP_:
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
-	  gcc_assert (!gimple_code_is_oacc (ctx->stmt));
+	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	  break;
 
 	case OMP_CLAUSE_HOST:
@@ -1903,7 +1891,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 
   if (scan_array_reductions)
     {
-      gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+      gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
     for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
       if (OMP_CLAUSE_CODE (c) == OMP_CLAUSE_REDUCTION
 	  && OMP_CLAUSE_REDUCTION_PLACEHOLDER (c))
@@ -1944,7 +1932,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
   decl = build_decl (gimple_location (ctx->stmt),
 		     FUNCTION_DECL, name, type);
 
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt)
 	      || !task_copy);
   if (!task_copy)
     ctx->cb.dst_fn = decl;
@@ -1977,7 +1965,7 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
 	    break;
 	  }
     }
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt)
 	      || !target_p);
   if (target_p)
     DECL_ATTRIBUTES (decl)
@@ -2396,19 +2384,17 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
   /* No nesting of STMT (which is an OpenACC or OpenMP one, or a GOMP builtin)
      inside any OpenACC CTX.  */
   for (ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
-    switch (gimple_code (ctx_->stmt))
+    if (is_gimple_omp (ctx_->stmt)
+	&& is_gimple_omp_oacc_specifically (ctx_->stmt))
       {
-      case GIMPLE_OACC_PARALLEL:
 	error_at (gimple_location (stmt),
 		  "may not be nested");
 	return false;
-      default:
-	break;
       }
   /* No nesting of OpenACC STMT inside any OpenACC or OpenMP CTX.  */
-  switch (gimple_code (stmt))
+  if (is_gimple_omp (stmt)
+      && is_gimple_omp_oacc_specifically (stmt))
     {
-    case GIMPLE_OACC_PARALLEL:
       for (ctx_ = ctx; ctx_ != NULL; ctx_ = ctx_->outer)
 	if (is_gimple_omp (ctx_->stmt))
 	  {
@@ -2416,9 +2402,6 @@ check_omp_nesting_restrictions (gimple stmt, omp_context *ctx)
 		      "may not be nested");
 	    return false;
 	  }
-      break;
-    default:
-      break;
     }
 
   if (ctx != NULL)
@@ -3138,7 +3121,7 @@ static bool
 lower_rec_simd_input_clauses (tree new_var, omp_context *ctx, int &max_vf,
 			      tree &idx, tree &lane, tree &ivar, tree &lvar)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   if (max_vf == 0)
     {
@@ -3189,7 +3172,7 @@ static void
 lower_rec_input_clauses (tree clauses, gimple_seq *ilist, gimple_seq *dlist,
 			 omp_context *ctx, struct omp_for_data *fd)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   tree c, dtor, copyin_seq, x, ptr;
   bool copyin_by_ref = false;
@@ -3892,7 +3875,7 @@ static void
 lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 			   omp_context *ctx)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   tree x, c, label = NULL, orig_clauses = clauses;
   bool par_clauses = false;
@@ -4029,7 +4012,7 @@ lower_lastprivate_clauses (tree clauses, tree predicate, gimple_seq *stmt_list,
 static void
 lower_reduction_clauses (tree clauses, gimple_seq *stmt_seqp, omp_context *ctx)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   gimple_seq sub_seq = NULL;
   gimple stmt;
@@ -4132,7 +4115,7 @@ static void
 lower_copyprivate_clauses (tree clauses, gimple_seq *slist, gimple_seq *rlist,
 			    omp_context *ctx)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   tree c;
 
@@ -4184,7 +4167,7 @@ static void
 lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
     		    omp_context *ctx)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   tree c;
 
@@ -4277,7 +4260,7 @@ lower_send_clauses (tree clauses, gimple_seq *ilist, gimple_seq *olist,
 static void
 lower_send_shared_vars (gimple_seq *ilist, gimple_seq *olist, omp_context *ctx)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   tree var, ovar, nvar, f, x, record_type;
 
@@ -9091,7 +9074,7 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 static void
 maybe_add_implicit_barrier_cancel (omp_context *ctx, gimple_seq *body)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   gimple omp_return = gimple_seq_last_stmt (*body);
   gcc_assert (gimple_code (omp_return) == GIMPLE_OMP_RETURN);
@@ -9858,7 +9841,7 @@ task_copyfn_remap_type (struct omp_taskcopy_context *tcctx, tree orig_type)
 static void
 create_task_copyfn (gimple task_stmt, omp_context *ctx)
 {
-  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OACC_PARALLEL);
+  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 
   struct function *child_cfun;
   tree child_fn, t, c, src, dst, f, sf, arg, sarg, decl;
