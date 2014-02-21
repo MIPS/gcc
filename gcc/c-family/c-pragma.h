@@ -27,6 +27,7 @@ along with GCC; see the file COPYING3.  If not see
 typedef enum pragma_kind {
   PRAGMA_NONE = 0,
 
+  PRAGMA_OACC_DATA,
   PRAGMA_OACC_PARALLEL,
   PRAGMA_OMP_ATOMIC,
   PRAGMA_OMP_BARRIER,

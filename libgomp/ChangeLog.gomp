@@ -1,5 +1,7 @@
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c/data-1.c: New file.
+
 	* libgomp.map (GOACC_2.0): Add GOACC_data_end, GOACC_data_start.
 	* libgomp_g.h (GOACC_data_start, GOACC_data_end): New prototypes.
 	* oacc-parallel.c (GOACC_data_start, GOACC_data_end): New

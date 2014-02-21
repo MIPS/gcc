@@ -1,3 +1,13 @@
+2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Extend for OpenACC
+	data construct.
+	* c-c++-common/goacc/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/parallel-fail-1.c: Rename to...
+	* c-c++-common/goacc/clauses-fail.c: ... this new file.  Extend
+	for OpenACC data construct.
+	* c-c++-common/goacc/data-1.c: New file.
+
 2014-02-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gcc.dg/goacc/parallel-sb-1.c: New file.

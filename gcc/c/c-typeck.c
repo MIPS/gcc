@@ -11122,6 +11122,25 @@ c_finish_oacc_parallel (location_t loc, tree clauses, tree block)
   return add_stmt (stmt);
 }
 
+/* Generate OACC_DATA, with CLAUSES and BLOCK as its compound
+   statement.  LOC is the location of the OACC_DATA.  */
+
+tree
+c_finish_oacc_data (location_t loc, tree clauses, tree block)
+{
+  tree stmt;
+
+  block = c_end_compound_stmt (loc, block, true);
+
+  stmt = make_node (OACC_DATA);
+  TREE_TYPE (stmt) = void_type_node;
+  OACC_DATA_CLAUSES (stmt) = clauses;
+  OACC_DATA_BODY (stmt) = block;
+  SET_EXPR_LOCATION (stmt, loc);
+
+  return add_stmt (stmt);
+}
+
 /* Like c_begin_compound_stmt, except force the retention of the BLOCK.  */
 
 tree

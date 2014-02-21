@@ -1,11 +1,27 @@
 /* TODO: While the OpenACC specification does allow for certain kinds of
    nesting, we don't support that yet.  */
 void
-f1 (void)
+f_acc_parallel (void)
 {
 #pragma acc parallel
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
+    ;
+#pragma acc data	/* { dg-error "may not be nested" } */
+    ;
+  }
+}
+
+/* TODO: While the OpenACC specification does allow for certain kinds of
+   nesting, we don't support that yet.  */
+void
+f_acc_data (void)
+{
+#pragma acc data
+  {
+#pragma acc parallel	/* { dg-error "may not be nested" } */
+    ;
+#pragma acc data	/* { dg-error "may not be nested" } */
     ;
   }
 }
