@@ -7023,9 +7023,7 @@ gimplify_omp_for (tree *expr_p, gimple_seq *pre_p)
   return GS_ALL_DONE;
 }
 
-/* Gimplify the gross structure of other OpenMP constructs.
-   In particular, OMP_SECTIONS, OMP_SINGLE, OMP_TARGET, OMP_TARGET_DATA
-   and OMP_TEAMS.  */
+/* Gimplify the gross structure of several OpenACC or OpenMP constructs.  */
 
 static void
 gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
@@ -7033,12 +7031,17 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
   tree expr = *expr_p;
   gimple stmt;
   gimple_seq body = NULL;
-  enum omp_region_type ort = ORT_WORKSHARE;
+  enum omp_region_type ort;
 
   switch (TREE_CODE (expr))
     {
+    case OACC_DATA:
+      ort = (enum omp_region_type) (ORT_TARGET
+				    | ORT_TARGET_MAP_FORCE);
+      break;
     case OMP_SECTIONS:
     case OMP_SINGLE:
+      ort = ORT_WORKSHARE;
       break;
     case OMP_TARGET:
       ort = (enum omp_region_type) (ORT_TARGET | ORT_TARGET_OFFLOAD);
@@ -7063,9 +7066,21 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 	pop_gimplify_context (NULL);
       if (!(ort & ORT_TARGET_OFFLOAD))
 	{
-	  gimple_seq cleanup = NULL;
-	  tree fn = builtin_decl_explicit (BUILT_IN_GOMP_TARGET_END_DATA);
+	  enum built_in_function end_ix;
+	  switch (TREE_CODE (expr))
+	    {
+	    case OACC_DATA:
+	      end_ix = BUILT_IN_GOACC_DATA_END;
+	      break;
+	    case OMP_TARGET_DATA:
+	      end_ix = BUILT_IN_GOMP_TARGET_END_DATA;
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
+	  tree fn = builtin_decl_explicit (end_ix);
 	  g = gimple_build_call (fn, 0);
+	  gimple_seq cleanup = NULL;
 	  gimple_seq_add_stmt (&cleanup, g);
 	  g = gimple_build_try (body, cleanup, GIMPLE_TRY_FINALLY);
 	  body = NULL;
@@ -7078,6 +7093,10 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 
   switch (TREE_CODE (expr))
     {
+    case OACC_DATA:
+      stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_DATA,
+				      OACC_DATA_CLAUSES (expr));
+      break;
     case OMP_SECTIONS:
       stmt = gimple_build_omp_sections (body, OMP_CLAUSES (expr));
       break;
@@ -8047,7 +8066,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case OACC_KERNELS:
-	case OACC_DATA:
 	case OACC_HOST_DATA:
 	case OACC_DECLARE:
 	case OACC_UPDATE:
@@ -8076,6 +8094,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = gimplify_omp_for (expr_p, pre_p);
 	  break;
 
+	case OACC_DATA:
 	case OMP_SECTIONS:
 	case OMP_SINGLE:
 	case OMP_TARGET:

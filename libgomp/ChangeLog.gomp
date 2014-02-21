@@ -1,3 +1,10 @@
+2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp.map (GOACC_2.0): Add GOACC_data_end, GOACC_data_start.
+	* libgomp_g.h (GOACC_data_start, GOACC_data_end): New prototypes.
+	* oacc-parallel.c (GOACC_data_start, GOACC_data_end): New
+	functions.
+
 2014-02-20  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* target.c (gomp_load_plugin_for_device): Don't call dlcose if

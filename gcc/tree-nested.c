@@ -1307,6 +1307,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
+      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       save_suppress = info->suppress_expansion;
       convert_nonlocal_omp_clauses (gimple_omp_target_clauses_ptr (stmt), wi);
       walk_body (convert_nonlocal_reference_stmt, convert_nonlocal_reference_op,
@@ -1769,6 +1770,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
       break;
 
     case GIMPLE_OMP_TARGET:
+      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       save_suppress = info->suppress_expansion;
       convert_local_omp_clauses (gimple_omp_target_clauses_ptr (stmt), wi);
       walk_body (convert_local_reference_stmt, convert_local_reference_op,
@@ -2184,6 +2186,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
     case GIMPLE_OMP_TASKGROUP:
     case GIMPLE_OMP_ORDERED:
     case GIMPLE_OMP_CRITICAL:
+      gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
       walk_body (convert_gimple_call, NULL, info, gimple_omp_body_ptr (stmt));
       break;
 

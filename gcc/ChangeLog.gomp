@@ -1,5 +1,20 @@
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimple.h (enum gf_mask): Add GF_OMP_TARGET_KIND_OACC_DATA.
+	(is_gimple_omp_oacc_specifically): Handle it.
+	* gimple-pretty-print.c (dump_gimple_omp_target): Likewise.
+	* gimplify.c (gimplify_omp_workshare, gimplify_expr): Likewise.
+	* omp-low.c (scan_sharing_clauses, scan_omp_target)
+	(expand_omp_target, lower_omp_target, lower_omp_1): Likewise.
+	* gimple.def (GIMPLE_OMP_TARGET): Update comment.
+	* gimple.c (gimple_build_omp_target): Likewise.
+	(gimple_copy): Catch unimplemented case.
+	* tree-inline.c (remap_gimple_stmt): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt)
+	(convert_local_reference_stmt, convert_gimple_call): Likewise.
+	* oacc-builtins.def (BUILT_IN_GOACC_DATA_START)
+	(BUILT_IN_GOACC_DATA_END): New builtins.
+
 	* omp-low.c (scan_sharing_clauses): Catch unexpected occurrences
 	of OMP_CLAUSE_TO, OMP_CLAUSE_FROM, OMP_CLAUSE_MAP.
 

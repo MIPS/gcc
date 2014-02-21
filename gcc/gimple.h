@@ -102,6 +102,7 @@ enum gf_mask {
     GF_OMP_TARGET_KIND_REGION	= 0 << 0,
     GF_OMP_TARGET_KIND_DATA	= 1 << 0,
     GF_OMP_TARGET_KIND_UPDATE	= 2 << 0,
+    GF_OMP_TARGET_KIND_OACC_DATA = 3 << 0,
 
     /* True on an GIMPLE_OMP_RETURN statement if the return does not require
        a thread synchronization via some sort of barrier.  The exact barrier
@@ -5684,6 +5685,14 @@ is_gimple_omp_oacc_specifically (const_gimple stmt)
     {
     case GIMPLE_OACC_PARALLEL:
       return true;
+    case GIMPLE_OMP_TARGET:
+      switch (gimple_omp_target_kind (stmt))
+	{
+	case GF_OMP_TARGET_KIND_OACC_DATA:
+	  return true;
+	default:
+	  return false;
+	}
     default:
       return false;
     }

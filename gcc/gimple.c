@@ -1051,7 +1051,8 @@ gimple_build_omp_single (gimple_seq body, tree clauses)
 /* Build a GIMPLE_OMP_TARGET statement.
 
    BODY is the sequence of statements that will be executed.
-   CLAUSES are any of the OMP target construct's clauses.  */
+   KIND is the kind of target region.
+   CLAUSES are any of the construct's clauses.  */
 
 gimple
 gimple_build_omp_target (gimple_seq body, int kind, tree clauses)
@@ -1747,6 +1748,7 @@ gimple_copy (gimple stmt)
 	case GIMPLE_OMP_TASKGROUP:
 	case GIMPLE_OMP_ORDERED:
 	copy_omp_body:
+	  gcc_assert (!is_gimple_omp_oacc_specifically (stmt));
 	  new_seq = gimple_seq_copy (gimple_omp_body (stmt));
 	  gimple_omp_set_body (copy, new_seq);
 	  break;
