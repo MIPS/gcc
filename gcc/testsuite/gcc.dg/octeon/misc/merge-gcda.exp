@@ -14,6 +14,9 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
 
+unsupported "Does not work currently"
+return
+
 load_lib scangcda.exp
 set tp $subdir/merge-gcda.exp:
 

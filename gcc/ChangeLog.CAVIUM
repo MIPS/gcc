@@ -1,3 +1,7 @@
+2014-02-21  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/octeon/misc/merge-gcda.exp: Disable for now.
+
 2014-02-19  Andrew Pinski  <apinski@cavium.com>
 
 	* config/mips/mips.c (mips_expand_ins_as_unaligned_store):
