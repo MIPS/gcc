@@ -1,5 +1,9 @@
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimplify.c (enum omp_region_type): Make ORT_TARGET_OFFLOAD a
+	flag for ORT_TARGET, in its negation replacing ORT_TARGET_DATA.
+	Update all users.
+
 	* omp-low.c (gimple_code_is_oacc): Move to...
 	* gimple.h (is_gimple_omp_oacc_specifically): ... here.  Update
 	users, and also use it in more places where currently we've only

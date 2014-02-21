@@ -100,10 +100,11 @@ enum omp_region_type
   ORT_TASK = 4,
   ORT_UNTIED_TASK = 5,
   ORT_TEAMS = 8,
-  ORT_TARGET_DATA = 16,
-  ORT_TARGET = 32,
+  ORT_TARGET = 16,
 
   /* Flags for ORT_TARGET.  */
+  /* Prepare this region for offloading.  */
+  ORT_TARGET_OFFLOAD = 32,
   /* Default to GOVD_MAP_FORCE for implicit mappings in this region.  */
   ORT_TARGET_MAP_FORCE = 64
 };
@@ -2202,7 +2203,7 @@ gimplify_arg (tree *arg_p, gimple_seq *pre_p, location_t call_location)
   return gimplify_expr (arg_p, pre_p, NULL, test, fb);
 }
 
-/* Don't fold STMT inside ORT_TARGET, because it can break code by adding decl
+/* Don't fold inside offloading regsion: it can break code by adding decl
    references that weren't in the source.  We'll do it during omplower pass
    instead.  */
 
@@ -2211,7 +2212,8 @@ maybe_fold_stmt (gimple_stmt_iterator *gsi)
 {
   struct gimplify_omp_ctx *ctx;
   for (ctx = gimplify_omp_ctxp; ctx; ctx = ctx->outer_context)
-    if (ctx->region_type & ORT_TARGET)
+    if (ctx->region_type & ORT_TARGET
+	&& ctx->region_type & ORT_TARGET_OFFLOAD)
       return false;
   return fold_stmt (gsi);
 }
@@ -5388,10 +5390,12 @@ omp_firstprivatize_variable (struct gimplify_omp_ctx *ctx, tree decl)
 	    return;
 	}
       else if (ctx->region_type & ORT_TARGET)
-	omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
+	{
+	  if (ctx->region_type & ORT_TARGET_OFFLOAD)
+	    omp_add_variable (ctx, decl, GOVD_MAP | GOVD_MAP_TO_ONLY);
+	}
       else if (ctx->region_type != ORT_WORKSHARE
-	       && ctx->region_type != ORT_SIMD
-	       && ctx->region_type != ORT_TARGET_DATA)
+	       && ctx->region_type != ORT_SIMD)
 	omp_add_variable (ctx, decl, GOVD_FIRSTPRIVATE);
 
       ctx = ctx->outer_context;
@@ -5580,7 +5584,8 @@ omp_notice_threadprivate_variable (struct gimplify_omp_ctx *ctx, tree decl,
   struct gimplify_omp_ctx *octx;
 
   for (octx = ctx; octx; octx = octx->outer_context)
-    if (octx->region_type & ORT_TARGET)
+    if ((octx->region_type & ORT_TARGET)
+	&& (octx->region_type & ORT_TARGET_OFFLOAD))
       {
 	gcc_assert (!(octx->region_type & ORT_TARGET_MAP_FORCE));
 
@@ -5643,7 +5648,8 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
     }
 
   n = splay_tree_lookup (ctx->variables, (splay_tree_key)decl);
-  if (ctx->region_type & ORT_TARGET)
+  if ((ctx->region_type & ORT_TARGET)
+      && (ctx->region_type & ORT_TARGET_OFFLOAD))
     {
       unsigned map_force;
       if (ctx->region_type & ORT_TARGET_MAP_FORCE)
@@ -5695,7 +5701,8 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 
       if (ctx->region_type == ORT_WORKSHARE
 	  || ctx->region_type == ORT_SIMD
-	  || ctx->region_type == ORT_TARGET_DATA)
+	  || ((ctx->region_type & ORT_TARGET)
+	      && !(ctx->region_type & ORT_TARGET_OFFLOAD)))
 	goto do_outer;
 
       /* ??? Some compiler-generated variables (like SAVE_EXPRs) could be
@@ -5746,7 +5753,7 @@ omp_notice_variable (struct gimplify_omp_ctx *ctx, tree decl, bool in_code)
 	    {
 	      splay_tree_node n2;
 
-	      if ((octx->region_type & (ORT_TARGET_DATA | ORT_TARGET)) != 0)
+	      if (octx->region_type & ORT_TARGET)
 		continue;
 	      n2 = splay_tree_lookup (octx->variables, (splay_tree_key) decl);
 	      if (n2 && (n2->value & GOVD_DATA_SHARE_CLASS) != GOVD_SHARED)
@@ -5899,7 +5906,7 @@ omp_check_private (struct gimplify_omp_ctx *ctx, tree decl, bool copyprivate)
 		 || (!copyprivate
 		     && lang_hooks.decls.omp_privatize_by_reference (decl)));
 
-      if ((ctx->region_type & (ORT_TARGET | ORT_TARGET_DATA)) != 0)
+      if (ctx->region_type & ORT_TARGET)
 	continue;
 
       n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
@@ -6456,7 +6463,9 @@ gimplify_adjust_omp_clauses (tree *list_p)
 	  if (!DECL_P (decl))
 	    break;
 	  n = splay_tree_lookup (ctx->variables, (splay_tree_key) decl);
-	  if ((ctx->region_type & ORT_TARGET) && !(n->value & GOVD_SEEN))
+	  if ((ctx->region_type & ORT_TARGET)
+	      && (ctx->region_type & ORT_TARGET_OFFLOAD)
+	      && !(n->value & GOVD_SEEN))
 	    remove = true;
 	  else if (DECL_SIZE (decl)
 		   && TREE_CODE (DECL_SIZE (decl)) != INTEGER_CST
@@ -6574,8 +6583,9 @@ gimplify_oacc_parallel (tree *expr_p, gimple_seq *pre_p)
   tree expr = *expr_p;
   gimple g;
   gimple_seq body = NULL;
-  enum omp_region_type ort =
-    (enum omp_region_type) (ORT_TARGET | ORT_TARGET_MAP_FORCE);
+  enum omp_region_type ort = (enum omp_region_type) (ORT_TARGET
+						     | ORT_TARGET_OFFLOAD
+						     | ORT_TARGET_MAP_FORCE);
 
   gimplify_scan_omp_clauses (&OACC_PARALLEL_CLAUSES (expr), pre_p, ort);
 
@@ -7031,10 +7041,10 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     case OMP_SINGLE:
       break;
     case OMP_TARGET:
-      ort = ORT_TARGET;
+      ort = (enum omp_region_type) (ORT_TARGET | ORT_TARGET_OFFLOAD);
       break;
     case OMP_TARGET_DATA:
-      ort = ORT_TARGET_DATA;
+      ort = ORT_TARGET;
       break;
     case OMP_TEAMS:
       ort = ORT_TEAMS;
@@ -7043,7 +7053,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
       gcc_unreachable ();
     }
   gimplify_scan_omp_clauses (&OMP_CLAUSES (expr), pre_p, ort);
-  if ((ort & ORT_TARGET) || ort == ORT_TARGET_DATA)
+  if (ort & ORT_TARGET)
     {
       push_gimplify_context ();
       gimple g = gimplify_and_return_first (OMP_BODY (expr), &body);
@@ -7051,7 +7061,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
 	pop_gimplify_context (g);
       else
 	pop_gimplify_context (NULL);
-      if (ort == ORT_TARGET_DATA)
+      if (!(ort & ORT_TARGET_OFFLOAD))
 	{
 	  gimple_seq cleanup = NULL;
 	  tree fn = builtin_decl_explicit (BUILT_IN_GOMP_TARGET_END_DATA);
@@ -8697,7 +8707,9 @@ gimplify_body (tree fndecl, bool do_parms)
     {
       gcc_assert (gimplify_omp_ctxp == NULL);
       if (lookup_attribute ("omp declare target", DECL_ATTRIBUTES (fndecl)))
-	gimplify_omp_ctxp = new_omp_context (ORT_TARGET);
+	gimplify_omp_ctxp
+	  = new_omp_context ((enum omp_region_type) (ORT_TARGET
+						     | ORT_TARGET_OFFLOAD));
     }
 
   /* Unshare most shared trees in the body and in that of any nested functions.
