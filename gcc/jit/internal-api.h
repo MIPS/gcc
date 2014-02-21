@@ -74,6 +74,7 @@ namespace gcc {
 namespace jit {
 
 class result;
+class dump;
 
 namespace recording {
   class context;
@@ -90,6 +91,7 @@ namespace recording {
   class label;
   class rvalue;
   class lvalue;
+  class local;
   class param;
   class loop;
 }
@@ -112,6 +114,31 @@ namespace playback {
 
 typedef playback::context replayer;
 
+class dump
+{
+public:
+  dump (recording::context &ctxt,
+	const char *filename,
+	bool update_locations);
+  ~dump ();
+
+  void write (const char *fmt, ...)
+    GNU_PRINTF(2, 3);
+
+  bool update_locations () const { return m_update_locations; }
+
+  recording::location *
+  make_location () const;
+
+private:
+  recording::context &m_ctxt;
+  const char *m_filename;
+  bool m_update_locations;
+  int m_line;
+  int m_column;
+  FILE *m_file;
+};
+
 /**********************************************************************
  Recording.
  **********************************************************************/
@@ -119,7 +146,7 @@ typedef playback::context replayer;
 namespace recording {
 
 playback::location *
-playback_location (location *loc);
+playback_location (replayer *r, location *loc);
 
 const char *
 playback_string (string *str);
@@ -282,6 +309,8 @@ public:
 
   type *get_opaque_FILE_type ();
 
+  void dump_to_file (const char *path, bool update_locations);
+
 private:
   context *m_parent_ctxt;
 
@@ -294,6 +323,10 @@ private:
 
   /* Recorded API usage.  */
   vec<memento *> m_mementos;
+
+  /* Specific recordings, for use by dump_to_file.  */
+  vec<struct_ *> m_structs;
+  vec<function *> m_functions;
 
   type *m_basic_types[NUM_GCC_JIT_TYPES];
   type *m_FILE_type;
@@ -324,6 +357,8 @@ public:
   /* Debugging hook, for use in generating error messages etc.  */
   const char *
   get_debug_string ();
+
+  virtual void write_to_dump (dump &d);
 
 protected:
   memento (context *ctxt)
@@ -384,8 +419,29 @@ public:
   void replay_into (replayer *r);
 
   playback::location *
-  playback_location () const
+  playback_location (replayer *r)
   {
+    /* Normally during playback, we can walk forwards through the list of
+       recording objects, playing them back.  The ordering of recording
+       ensures that everything that a recording object refers to has
+       already been played back, so we can simply look up the relevant
+       m_playback_obj.
+
+       Locations are an exception, due to the "write_to_dump" method of
+       recording::statement.  This method can set a new location on a
+       statement after the statement is created, and thus the location
+       appears in the context's memento list *after* the statement that
+       refers to it.
+
+       In such circumstances, the statement is replayed *before* the location,
+       when the latter doesn't yet have a playback object.
+
+       Hence we need to ensure that locations have playback objects.  */
+    if (!m_playback_obj)
+      {
+	replay_into (r);
+      }
+    gcc_assert (m_playback_obj);
     return static_cast <playback::location *> (m_playback_obj);
   }
 
@@ -597,6 +653,8 @@ public:
 
   void replay_into (replayer *);
 
+  void write_to_dump (dump &d);
+
   playback::field *
   playback_field () const
   {
@@ -658,6 +716,8 @@ public:
 	  field **fields);
 
   void replay_into (replayer *r);
+
+  void write_to_dump (dump &d);
 
 private:
   string * make_debug_string ();
@@ -839,6 +899,8 @@ public:
   param *get_param (int i) const { return m_params[i]; }
   bool is_variadic () const { return m_is_variadic; }
 
+  void write_to_dump (dump &d);
+
 private:
   string * make_debug_string ();
 
@@ -850,6 +912,9 @@ private:
   vec<param *> m_params;
   int m_is_variadic;
   enum built_in_function m_builtin_id;
+  /* Additional vectors to help when dumping.  */
+  vec<local *> m_locals;
+  vec<memento *> m_activity; // statements and labels
 };
 
 class label : public memento
@@ -1206,6 +1271,8 @@ public:
 
   void replay_into (replayer *r);
 
+  void write_to_dump (dump &d);
+
 private:
   string * make_debug_string () { return m_name; }
 
@@ -1229,10 +1296,13 @@ protected:
   }
 
   playback::location *
-  playback_location () const
+  playback_location (replayer *r) const
   {
-    return ::gcc::jit::recording::playback_location (m_loc);
+    return ::gcc::jit::recording::playback_location (r, m_loc);
   }
+
+private:
+  void write_to_dump (dump &d);
 
 private:
   function *m_func;
@@ -1355,6 +1425,8 @@ public:
 
 private:
   string * make_debug_string ();
+
+  void write_to_dump (dump &d);
 
 private:
   label *m_label;

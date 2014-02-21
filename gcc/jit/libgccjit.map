@@ -4,6 +4,7 @@
     # Keep this list sorted alphabetically:
     gcc_jit_context_acquire;
     gcc_jit_context_compile;
+    gcc_jit_context_dump_to_file;
     gcc_jit_context_get_builtin_function;
     gcc_jit_context_get_first_error;
     gcc_jit_context_get_type;

@@ -218,6 +218,19 @@ gcc_jit_context_set_bool_option (gcc_jit_context *ctxt,
 extern gcc_jit_result *
 gcc_jit_context_compile (gcc_jit_context *ctxt);
 
+/* To help with debugging: dump a C-like representation to the given path,
+   describing what's been set up on the context.
+
+   If "update_locations" is true, then also set up gcc_jit_location
+   information throughout the context, pointing at the dump file as if it
+   were a source file.  This may be of use in conjunction with
+   GCC_JIT_BOOL_OPTION_DEBUGINFO to allow stepping through the code in a
+   debugger.  */
+extern void
+gcc_jit_context_dump_to_file (gcc_jit_context *ctxt,
+			      const char *path,
+			      int update_locations);
+
 /* To be called after a compile, this gives the first error message
    that occurred on the context.
 

@@ -1228,6 +1228,16 @@ gcc_jit_context_compile (gcc_jit_context *ctxt)
   return (gcc_jit_result *)ctxt->compile ();
 }
 
+void
+gcc_jit_context_dump_to_file (gcc_jit_context *ctxt,
+			      const char *path,
+			      int update_locations)
+{
+  RETURN_IF_FAIL (ctxt, NULL, "NULL context");
+  RETURN_IF_FAIL (path, ctxt, "NULL path");
+  ctxt->dump_to_file (path, update_locations);
+}
+
 const char *
 gcc_jit_context_get_first_error (gcc_jit_context *ctxt)
 {

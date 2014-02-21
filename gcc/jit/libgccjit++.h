@@ -72,6 +72,9 @@ namespace gccjit
 
     gcc_jit_result *compile ();
 
+    void dump_to_file (const std::string &path,
+		       bool update_locations);
+
     void set_int_option (enum gcc_jit_int_option opt,
 			 int value);
 
@@ -469,6 +472,15 @@ inline gcc_jit_result *
 context::compile ()
 {
   return gcc_jit_context_compile (m_inner_ctxt);
+}
+
+inline void
+context::dump_to_file (const std::string &path,
+		       bool update_locations)
+{
+  gcc_jit_context_dump_to_file (m_inner_ctxt,
+				path.c_str (),
+				update_locations);
 }
 
 inline void

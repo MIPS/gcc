@@ -25,15 +25,65 @@
 namespace gcc {
 namespace jit {
 
+// class dump
+
+dump::dump (recording::context &ctxt,
+	    const char *filename,
+	    bool update_locations)
+: m_ctxt (ctxt),
+  m_filename (filename),
+  m_update_locations (update_locations),
+  m_line (0),
+  m_column (0)
+{
+  m_file  = fopen (filename, "w");
+}
+
+dump::~dump ()
+{
+  if (m_file)
+    fclose (m_file);
+}
+
+void
+dump::write (const char *fmt, ...)
+{
+  char buf[4096];
+  va_list ap;
+  va_start (ap, fmt);
+  vsnprintf (buf, sizeof (buf), fmt, ap);
+  va_end (ap);
+
+  fwrite (buf, strlen (buf), 1, m_file);
+
+  /* Update line/column: */
+  for (const char *ptr = buf; *ptr; ptr++)
+    {
+      if ('\n' == *ptr)
+	{
+	  m_line++;
+	  m_column = 0;
+	}
+      else
+	m_column++;
+    }
+}
+
+recording::location *
+dump::make_location () const
+{
+  return m_ctxt.new_location (m_filename, m_line, m_column);
+}
+
 /**********************************************************************
  Recording.
  **********************************************************************/
 
 playback::location *
-recording::playback_location (recording::location *loc)
+recording::playback_location (replayer *r, recording::location *loc)
 {
   if (loc)
-    return loc->playback_location ();
+    return loc->playback_location (r);
   else
     return NULL;
 }
@@ -62,6 +112,8 @@ recording::context::context (context *parent_ctxt)
   : m_parent_ctxt (parent_ctxt),
     m_error_count (0),
     m_mementos (),
+    m_structs (),
+    m_functions (),
     m_FILE_type (NULL),
     m_builtins_manager(NULL)
 {
@@ -290,6 +342,7 @@ recording::context::new_struct_type (recording::location *loc,
 {
   recording::struct_ *result = new struct_ (this, loc, new_string (name));
   record (result);
+  m_structs.safe_push (result);
   return result;
 }
 
@@ -321,6 +374,8 @@ recording::context::new_function (recording::location *loc,
 			     num_params, params, is_variadic,
 			     builtin_id);
   record (result);
+  m_functions.safe_push (result);
+
   return result;
 }
 
@@ -548,6 +603,34 @@ recording::context::get_opaque_FILE_type ()
   return m_FILE_type;
 }
 
+void
+recording::context::dump_to_file (const char *path, bool update_locations)
+{
+  int i;
+  dump d (*this, path, update_locations);
+
+  /* Forward declaration of structs.  */
+  struct_ *st;
+  FOR_EACH_VEC_ELT (m_structs, i, st)
+    {
+      d.write ("%s;\n\n", st->get_debug_string ());
+    }
+
+  /* Content of structs, where set.  */
+  FOR_EACH_VEC_ELT (m_structs, i, st)
+    if (st->get_fields ())
+      {
+	st->get_fields ()->write_to_dump (d);
+	d.write ("\n");
+      }
+
+  function *fn;
+  FOR_EACH_VEC_ELT (m_functions, i, fn)
+    {
+      fn->write_to_dump (d);
+    }
+}
+
 /* gcc::jit::recording::memento:: */
 
 const char *
@@ -556,6 +639,12 @@ recording::memento::get_debug_string ()
   if (!m_debug_string)
     m_debug_string = make_debug_string ();
   return m_debug_string->c_str ();
+}
+
+void
+recording::memento::write_to_dump (dump &d)
+{
+  d.write("  %s\n", get_debug_string ());
 }
 
 /* gcc::jit::recording::string:: */
@@ -797,7 +886,7 @@ recording::array_type::dereference ()
 void
 recording::array_type::replay_into (replayer *r)
 {
-  set_playback_obj (r->new_array_type (playback_location (m_loc),
+  set_playback_obj (r->new_array_type (playback_location (r, m_loc),
 				       m_element_type->playback_type (),
 				       m_num_elements));
 }
@@ -903,9 +992,17 @@ recording::function_type::make_debug_string ()
 void
 recording::field::replay_into (replayer *r)
 {
-  set_playback_obj (r->new_field (playback_location (m_loc),
+  set_playback_obj (r->new_field (playback_location (r, m_loc),
 				  m_type->playback_type (),
 				  playback_string (m_name)));
+}
+
+void
+recording::field::write_to_dump (dump &d)
+{
+  d.write ("  %s %s;\n",
+	   m_type->get_debug_string (),
+	   m_name->c_str ());
 }
 
 recording::string *
@@ -947,7 +1044,7 @@ void
 recording::struct_::replay_into (replayer *r)
 {
   set_playback_obj (
-    r->new_struct_type (playback_location (m_loc),
+    r->new_struct_type (playback_location (r, m_loc),
 			m_name->c_str ()));
 }
 
@@ -982,6 +1079,18 @@ recording::fields::replay_into (replayer *)
   for (unsigned i = 0; i < m_fields.length (); i++)
     playback_fields.safe_push (m_fields[i]->playback_field ());
   m_struct->playback_struct ()->set_fields (playback_fields);
+}
+
+void
+recording::fields::write_to_dump (dump &d)
+{
+  int i;
+  field *f;
+
+  d.write ("%s\n{\n", m_struct->get_debug_string ());
+  FOR_EACH_VEC_ELT (m_fields, i, f)
+    f->write_to_dump (d);
+  d.write ("};\n");
 }
 
 recording::string *
@@ -1047,7 +1156,7 @@ recording::lvalue::get_address (recording::location *loc)
 void
 recording::param::replay_into (replayer *r)
 {
-  set_playback_obj (r->new_param (playback_location (m_loc),
+  set_playback_obj (r->new_param (playback_location (r, m_loc),
 				  m_type->playback_type (),
 				  m_name->c_str ()));
 }
@@ -1071,7 +1180,9 @@ recording::function::function (context *ctxt,
   m_name (name),
   m_params (),
   m_is_variadic (is_variadic),
-  m_builtin_id (builtin_id)
+  m_builtin_id (builtin_id),
+  m_locals (),
+  m_activity ()
 {
   for (int i = 0; i< num_params; i++)
     m_params.safe_push (params[i]);
@@ -1088,7 +1199,7 @@ recording::function::replay_into (replayer *r)
   FOR_EACH_VEC_ELT (m_params, i, param)
     params.safe_push (param->playback_param ());
 
-  set_playback_obj (r->new_function (playback_location (m_loc),
+  set_playback_obj (r->new_function (playback_location (r, m_loc),
 				     m_kind,
 				     m_return_type->playback_type (),
 				     m_name->c_str (),
@@ -1104,6 +1215,7 @@ recording::function::new_local (recording::location *loc,
 {
   local *result = new local (this, loc, type, new_string (name));
   m_ctxt->record (result);
+  m_locals.safe_push (result);
   return result;
 }
 
@@ -1122,6 +1234,7 @@ recording::function::add_eval (recording::location *loc,
 {
   statement *result = new eval (this, loc, rvalue);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 void
@@ -1131,6 +1244,7 @@ recording::function::add_assignment (recording::location *loc,
 {
   statement *result = new assignment (this, loc, lvalue, rvalue);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 void
@@ -1141,6 +1255,7 @@ recording::function::add_assignment_op (recording::location *loc,
 {
   statement *result = new assignment_op (this, loc, lvalue, op, rvalue);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 void
@@ -1149,6 +1264,7 @@ recording::function::add_comment (recording::location *loc,
 {
   statement *result = new comment (this, loc, new_string (text));
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 void
@@ -1159,6 +1275,7 @@ recording::function::add_conditional (recording::location *loc,
 {
   statement *result = new conditional (this, loc, boolval, on_true, on_false);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 recording::label *
@@ -1176,6 +1293,7 @@ recording::function::place_forward_label (recording::location *loc,
 {
   statement *result = new place_label (this, loc, lab);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 void
@@ -1184,6 +1302,7 @@ recording::function::add_jump (recording::location *loc,
 {
   statement *result = new jump (this, loc, target);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 void
@@ -1192,6 +1311,7 @@ recording::function::add_return (recording::location *loc,
 {
   statement *result = new return_ (this, loc, rvalue);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
 }
 
 recording::loop *
@@ -1203,7 +1323,65 @@ recording::function::new_loop (recording::location *loc,
   recording::loop *result = new recording::loop (this, loc, boolval,
 						 iteration_var, step);
   m_ctxt->record (result);
+  m_activity.safe_push (result);
   return result;
+}
+
+void
+recording::function::write_to_dump (dump &d)
+{
+  switch (m_kind)
+    {
+    default: gcc_unreachable ();
+    case GCC_JIT_FUNCTION_EXPORTED:
+    case GCC_JIT_FUNCTION_IMPORTED:
+      d.write ("extern ");
+      break;
+    case GCC_JIT_FUNCTION_INTERNAL:
+      d.write ("static ");
+      break;
+     }
+  d.write ("%s\n", m_return_type->get_debug_string ());
+
+  if (d.update_locations ())
+    m_loc = d.make_location ();
+
+  d.write ("%s (", get_debug_string ());
+
+  int i;
+  recording::param *param;
+  FOR_EACH_VEC_ELT (m_params, i, param)
+    {
+      if (i > 0)
+	d.write (", ");
+      d.write ("%s %s",
+	       param->get_type ()->get_debug_string (),
+	       param->get_debug_string ());
+    }
+  d.write (")");
+  if (m_kind == GCC_JIT_FUNCTION_IMPORTED)
+    {
+      d.write ("; /* (imported) */\n\n");
+    }
+  else
+    {
+      int i;
+      local *var = NULL;
+      memento *m;
+      d.write ("\n{\n");
+
+      /* Write locals: */
+      FOR_EACH_VEC_ELT (m_locals, i, var)
+	var->write_to_dump (d);
+      if (m_locals.length ())
+	d.write ("\n");
+
+      /* Write statements and labels: */
+      FOR_EACH_VEC_ELT (m_activity, i, m)
+	m->write_to_dump (d);
+
+      d.write ("}\n\n");
+    }
 }
 
 recording::string *
@@ -1243,7 +1421,7 @@ recording::label::make_debug_string ()
 void
 recording::global::replay_into (replayer *r)
 {
-  set_playback_obj (r->new_global (playback_location (m_loc),
+  set_playback_obj (r->new_global (playback_location (r, m_loc),
 				   m_type->playback_type (),
 				   playback_string (m_name)));
 }
@@ -1321,7 +1499,7 @@ recording::memento_of_new_string_literal::make_debug_string ()
 void
 recording::unary_op::replay_into (replayer *r)
 {
-  set_playback_obj (r->new_unary_op (playback_location (m_loc),
+  set_playback_obj (r->new_unary_op (playback_location (r, m_loc),
 				     m_op,
 				     get_type ()->playback_type (),
 				     m_a->playback_rvalue ()));
@@ -1346,7 +1524,7 @@ recording::unary_op::make_debug_string ()
 void
 recording::binary_op::replay_into (replayer *r)
 {
-  set_playback_obj (r->new_binary_op (playback_location (m_loc),
+  set_playback_obj (r->new_binary_op (playback_location (r, m_loc),
 				      m_op,
 				      get_type ()->playback_type (),
 				      m_a->playback_rvalue (),
@@ -1400,7 +1578,7 @@ recording::comparison::make_debug_string ()
 void
 recording::comparison::replay_into (replayer *r)
 {
-  set_playback_obj (r->new_comparison (playback_location (m_loc),
+  set_playback_obj (r->new_comparison (playback_location (r, m_loc),
 				       m_op,
 				       m_a->playback_rvalue (),
 				       m_b->playback_rvalue ()));
@@ -1427,7 +1605,7 @@ recording::call::replay_into (replayer *r)
   for (unsigned i = 0; i< m_args.length (); i++)
     playback_args.safe_push (m_args[i]->playback_rvalue ());
 
-  set_playback_obj (r->new_call (playback_location (m_loc),
+  set_playback_obj (r->new_call (playback_location (r, m_loc),
 				 m_func->playback_function (),
 				 playback_args));
 }
@@ -1475,7 +1653,7 @@ void
 recording::array_access::replay_into (replayer *r)
 {
   set_playback_obj (
-    r->new_array_access (playback_location (m_loc),
+    r->new_array_access (playback_location (r, m_loc),
 			 m_ptr->playback_rvalue (),
 			 m_index->playback_rvalue ()));
 }
@@ -1490,11 +1668,11 @@ recording::array_access::make_debug_string ()
 }
 
 void
-recording::access_field_of_lvalue::replay_into (replayer *)
+recording::access_field_of_lvalue::replay_into (replayer *r)
 {
   set_playback_obj (
     m_lvalue->playback_lvalue ()
-      ->access_field (playback_location (m_loc),
+      ->access_field (playback_location (r, m_loc),
 		      m_field->playback_field ()));
 
 }
@@ -1509,11 +1687,11 @@ recording::access_field_of_lvalue::make_debug_string ()
 }
 
 void
-recording::access_field_rvalue::replay_into (replayer *)
+recording::access_field_rvalue::replay_into (replayer *r)
 {
   set_playback_obj (
     m_rvalue->playback_rvalue ()
-      ->access_field (playback_location (m_loc),
+      ->access_field (playback_location (r, m_loc),
 		      m_field->playback_field ()));
 }
 
@@ -1527,11 +1705,11 @@ recording::access_field_rvalue::make_debug_string ()
 }
 
 void
-recording::dereference_field_rvalue::replay_into (replayer *)
+recording::dereference_field_rvalue::replay_into (replayer *r)
 {
   set_playback_obj (
     m_rvalue->playback_rvalue ()->
-      dereference_field (playback_location (m_loc),
+      dereference_field (playback_location (r, m_loc),
 			 m_field->playback_field ()));
 }
 
@@ -1545,11 +1723,11 @@ recording::dereference_field_rvalue::make_debug_string ()
 }
 
 void
-recording::dereference_rvalue::replay_into (replayer *)
+recording::dereference_rvalue::replay_into (replayer *r)
 {
   set_playback_obj (
     m_rvalue->playback_rvalue ()->
-      dereference (playback_location (m_loc)));
+      dereference (playback_location (r, m_loc)));
 }
 
 recording::string *
@@ -1561,11 +1739,11 @@ recording::dereference_rvalue::make_debug_string ()
 }
 
 void
-recording::get_address_of_lvalue::replay_into (replayer *)
+recording::get_address_of_lvalue::replay_into (replayer *r)
 {
   set_playback_obj (
     m_lvalue->playback_lvalue ()->
-      get_address (playback_location (m_loc)));
+      get_address (playback_location (r, m_loc)));
 }
 
 recording::string *
@@ -1577,20 +1755,40 @@ recording::get_address_of_lvalue::make_debug_string ()
 }
 
 void
-recording::local::replay_into (replayer *)
+recording::local::replay_into (replayer *r)
 {
   set_playback_obj (
     m_func->playback_function ()
-      ->new_local (playback_location (m_loc),
+      ->new_local (playback_location (r, m_loc),
 		   m_type->playback_type (),
 		   playback_string (m_name)));
 }
 
 void
-recording::eval::replay_into (replayer *)
+recording::local::write_to_dump (dump &d)
+{
+  if (d.update_locations ())
+    m_loc = d.make_location ();
+  d.write("  %s %s;\n",
+	  m_type->get_debug_string (),
+	  get_debug_string ());
+}
+
+// gcc::jit::recording::statement
+
+void
+recording::statement::write_to_dump (dump &d)
+{
+  memento::write_to_dump (d);
+  if (d.update_locations ())
+    m_loc = d.make_location ();
+}
+
+void
+recording::eval::replay_into (replayer *r)
 {
   playback_function ()
-    ->add_eval (playback_location (),
+    ->add_eval (playback_location (r),
 		m_rvalue->playback_rvalue ());
 }
 
@@ -1603,10 +1801,10 @@ recording::eval::make_debug_string ()
 }
 
 void
-recording::assignment::replay_into (replayer *)
+recording::assignment::replay_into (replayer *r)
 {
   playback_function ()
-    ->add_assignment (playback_location (),
+    ->add_assignment (playback_location (r),
 		      m_lvalue->playback_lvalue (),
 		      m_rvalue->playback_rvalue ());
 }
@@ -1627,14 +1825,14 @@ recording::assignment_op::replay_into (replayer *r)
     m_lvalue->playback_lvalue ()->get_type ();
 
   playback::rvalue *binary_op =
-    r->new_binary_op (playback_location (),
+    r->new_binary_op (playback_location (r),
 		      m_op,
 		      result_type,
 		      m_lvalue->playback_rvalue (),
 		      m_rvalue->playback_rvalue ());
 
   playback_function ()
-    ->add_assignment (playback_location (),
+    ->add_assignment (playback_location (r),
 		      m_lvalue->playback_lvalue (),
 		      binary_op);
 }
@@ -1650,10 +1848,10 @@ recording::assignment_op::make_debug_string ()
 }
 
 void
-recording::comment::replay_into (replayer *)
+recording::comment::replay_into (replayer *r)
 {
   playback_function ()
-    ->add_comment (playback_location (),
+    ->add_comment (playback_location (r),
 		   m_text->c_str ());
 }
 
@@ -1666,10 +1864,10 @@ recording::comment::make_debug_string ()
 }
 
 void
-recording::conditional::replay_into (replayer *)
+recording::conditional::replay_into (replayer *r)
 {
   playback_function ()
-    ->add_conditional (playback_location (),
+    ->add_conditional (playback_location (r),
 		       m_boolval->playback_rvalue (),
 		       playback_label (m_on_true),
 		       playback_label (m_on_false));
@@ -1680,7 +1878,7 @@ recording::conditional::make_debug_string ()
 {
   if (m_on_false)
     return string::from_printf (m_ctxt,
-				"if (%s) goto %s else goto %s;",
+				"if (%s) goto %s; else goto %s;",
 				m_boolval->get_debug_string (),
 				m_on_true->get_debug_string (),
 				m_on_false->get_debug_string ());
@@ -1704,10 +1902,10 @@ recording::place_label::place_label (function *func,
 }
 
 void
-recording::place_label::replay_into (replayer *)
+recording::place_label::replay_into (replayer *r)
 {
   playback_function ()
-    ->place_forward_label (playback_location (),
+    ->place_forward_label (playback_location (r),
 			   m_label->playback_label ());
 }
 
@@ -1720,10 +1918,16 @@ recording::place_label::make_debug_string ()
 }
 
 void
-recording::jump::replay_into (replayer *)
+recording::place_label::write_to_dump (dump &d)
+{
+  d.write ("\n%s\n", get_debug_string ());
+}
+
+void
+recording::jump::replay_into (replayer *r)
 {
   playback_function ()
-    ->add_jump (playback_location (),
+    ->add_jump (playback_location (r),
 		m_target->playback_label ());
 }
 
@@ -1736,10 +1940,10 @@ recording::jump::make_debug_string ()
 }
 
 void
-recording::return_::replay_into (replayer *)
+recording::return_::replay_into (replayer *r)
 {
   playback_function ()
-    ->add_return (playback_location (),
+    ->add_return (playback_location (r),
 		  m_rvalue ? m_rvalue->playback_rvalue () : NULL);
 }
 
@@ -1756,11 +1960,11 @@ recording::return_::make_debug_string ()
 }
 
 void
-recording::loop::replay_into (replayer *)
+recording::loop::replay_into (replayer *r)
 {
   set_playback_obj (
     m_func->playback_function ()
-      ->new_loop (playback_location (m_loc),
+      ->new_loop (playback_location (r, m_loc),
 		  m_boolval->playback_rvalue ()));
 }
 
@@ -1789,9 +1993,9 @@ recording::loop::end (location *loc)
 }
 
 void
-recording::loop_end::replay_into (replayer *)
+recording::loop_end::replay_into (replayer *r)
 {
-  m_loop->playback_loop ()->end (playback_location (m_loc));
+  m_loop->playback_loop ()->end (playback_location (r, m_loc));
 }
 
 recording::string *

@@ -1,3 +1,98 @@
+2014-02-21  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (gcc_jit_context_dump_to_file): New.
+	* libgccjit.map (gcc_jit_context_dump_to_file): New.
+	* libgccjit.c (gcc_jit_context_dump_to_file): New.
+	* libgccjit++.h (gccjit::context::dump_to_file): New.
+
+	* internal-api.h (gcc::jit::dump): New class.
+	(gcc::jit::recording::playback_location): Add a replayer argument,
+	so that playback locations can be created before playback statements.
+	(gcc::jit::recording::location::playback_location): Likewise.
+	(gcc::jit::recording::statement::playback_location): Likewise.
+	(gcc::jit::recording::context::dump_to_file): New.
+	(gcc::jit::recording::context::m_structs): New field, for use by
+	dump_to_file.
+	(gcc::jit::recording::context::m_functions): Likewise.
+	(gcc::jit::recording::memento::write_to_dump): New virtual function.
+	(gcc::jit::recording::field::write_to_dump): New.
+	(gcc::jit::recording::fields::write_to_dump): New.
+	(gcc::jit::recording::function::write_to_dump): New.
+	(gcc::jit::recording::function::m_locals): New field for use by
+	write_to_dump.
+	(gcc::jit::recording::function::m_activity): Likewise.
+	(gcc::jit::recording::local::write_to_dump): New.
+	(gcc::jit::recording::statement::write_to_dump): New.
+	(gcc::jit::recording::place_label::write_to_dump): New.
+
+	* internal-api.c (gcc::jit::dump::dump): New.
+	(gcc::jit::dump::~dump): New.
+	(gcc::jit::dump::write): New.
+	(gcc::jit::dump::make_location): New.
+	(gcc::jit::recording::playback_location): Add a replayer argument,
+	so that playback locations can be created before playback statements.
+
+	(gcc::jit::recording::context::context): Initialize new fields.
+	(gcc::jit::recording::function::function): Likewise.
+
+	(gcc::jit::recording::context::new_struct_type): Add struct to the
+	context's m_structs vector.
+	(gcc::jit::recording::context::new_function): Add function to the
+	context's m_functions vector.
+	(gcc::jit::recording::context::dump_to_file): New.
+	(gcc::jit::recording::memento::write_to_dump): New.
+	(gcc::jit::recording::field::write_to_dump): New.
+	(gcc::jit::recording::fields::write_to_dump): New.
+	(gcc::jit::recording::function::write_to_dump): New.
+	(gcc::jit::recording::local::write_to_dump): New.
+	(gcc::jit::recording::statement::write_to_dump): New.
+	(gcc::jit::recording::place_label::write_to_dump): New.
+
+	(gcc::jit::recording::array_type::replay_into): Pass on replayer
+	to call to playback_location.
+	(gcc::jit::recording::field::replay_into): Likewise.
+	(gcc::jit::recording::struct_::replay_into): Likewise.
+	(gcc::jit::recording::param::replay_into): Likewise.
+	(gcc::jit::recording::function::replay_into): Likewise.
+	(gcc::jit::recording::global::replay_into): Likewise.
+	(gcc::jit::recording::unary_op::replay_into): Likewise.
+	(gcc::jit::recording::binary_op::replay_into): Likewise.
+	(gcc::jit::recording::comparison::replay_into): Likewise.
+	(gcc::jit::recording::call::replay_into): Likewise.
+	(gcc::jit::recording::array_access::replay_into): Likewise.
+	(gcc::jit::recording::access_field_of_lvalue::replay_into): Likewise.
+	(gcc::jit::recording::access_field_rvalue::replay_into): Likewise.
+	(gcc::jit::recording::dereference_field_rvalue::replay_into): Likewise.
+	(gcc::jit::recording::dereference_rvalue::replay_into): Likewise.
+	(gcc::jit::recording::get_address_of_lvalue::replay_into): Likewise.
+	(gcc::jit::recording::local::replay_into): Likewise.
+	(gcc::jit::recording::eval::replay_into): Likewise.
+	(gcc::jit::recording::assignment::replay_into): Likewise.
+	(gcc::jit::recording::assignment_op::replay_into): Likewise.
+	(gcc::jit::recording::comment::replay_into): Likewise.
+	(gcc::jit::recording::conditional::replay_into): Likewise.
+	(gcc::jit::recording::place_label::replay_into): Likewise.
+	(gcc::jit::recording::jump::replay_into): Likewise.
+	(gcc::jit::recording::return_::replay_into): Likewise.
+	(gcc::jit::recording::loop::replay_into): Likewise.
+	(gcc::jit::recording::loop_end::replay_into): Likewise.
+
+	(gcc::jit::recording::function::new_local): Add to the function's
+	vector of locals.
+	(gcc::jit::recording::function::add_eval): Add to the function's
+	m_activity field.
+	(gcc::jit::recording::function::add_assignment): Likewise.
+	(gcc::jit::recording::function::add_assignment_op): Likewise.
+	(gcc::jit::recording::function::add_comment): Likewise.
+	(gcc::jit::recording::function::add_conditional): Likewise.
+	(gcc::jit::recording::function::place_forward_label): Likewise.
+	(gcc::jit::recording::function::add_jump): Likewise.
+	(gcc::jit::recording::function::add_return): Likewise.
+	(gcc::jit::recording::function::new_loop): Likewise.
+
+	(gcc::jit::recording::conditional::make_debug_string): Add missing
+	semicolon.
+
 2014-02-19  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.c (gcc_jit_context_new_rvalue_from_ptr): Verify that
