@@ -1630,6 +1630,26 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_FROM:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
 	case OMP_CLAUSE_MAP:
+	  switch (OMP_CLAUSE_CODE (c))
+	    {
+	    case OMP_CLAUSE_TO:
+	    case OMP_CLAUSE_FROM:
+	      /* The to and from clauses are only ever seen with OpenMP target
+		 update constructs.  */
+	      gcc_assert (gimple_code (ctx->stmt) == GIMPLE_OMP_TARGET
+			  && (gimple_omp_target_kind (ctx->stmt)
+			      == GF_OMP_TARGET_KIND_UPDATE));
+	      break;
+	    case OMP_CLAUSE_MAP:
+	      /* The map clause is never seen with OpenMP target update
+		 constructs.  */
+	      gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET
+			  || (gimple_omp_target_kind (ctx->stmt)
+			      != GF_OMP_TARGET_KIND_UPDATE));
+	      break;
+	    default:
+	      gcc_unreachable ();
+	    }
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_SIZE (c), ctx->outer);
 	  decl = OMP_CLAUSE_DECL (c);
@@ -1799,6 +1819,11 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  break;
 
 	case OMP_CLAUSE_MAP:
+	  /* The map clause is never seen with OpenMP target update
+	     constructs.  */
+	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET
+		      || (gimple_omp_target_kind (ctx->stmt)
+			  != GF_OMP_TARGET_KIND_UPDATE));
 	  if (!gimple_code_is_oacc (ctx->stmt)
 	      && gimple_omp_target_kind (ctx->stmt) == GF_OMP_TARGET_KIND_DATA)
 	    break;

@@ -1,5 +1,8 @@
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* omp-low.c (scan_sharing_clauses): Catch unexpected occurrences
+	of OMP_CLAUSE_TO, OMP_CLAUSE_FROM, OMP_CLAUSE_MAP.
+
 	* gimplify.c (enum omp_region_type): Make ORT_TARGET_OFFLOAD a
 	flag for ORT_TARGET, in its negation replacing ORT_TARGET_DATA.
 	Update all users.
