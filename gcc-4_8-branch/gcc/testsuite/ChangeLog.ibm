@@ -1,5 +1,13 @@
 2014-02-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
+	Backport from mainline 208021
+	2014-02-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* gcc.dg/vmx/vsums.c: Check entire result vector.
+	* gcc.dg/vmx/vsums-be-order.c: Likewise.
+
+2014-02-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
 	Backport from mainline 208019
 	2014-02-21  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
