@@ -58,7 +58,7 @@ extern bool s390_match_ccmode (rtx, enum machine_mode);
 extern enum machine_mode s390_tm_ccmode (rtx, rtx, bool);
 extern enum machine_mode s390_select_ccmode (enum rtx_code, rtx, rtx);
 extern rtx s390_emit_compare (enum rtx_code, rtx, rtx);
-extern void s390_emit_jump (rtx, rtx);
+extern rtx s390_emit_jump (rtx, rtx);
 extern bool symbolic_reference_mentioned_p (rtx);
 extern bool tls_symbolic_reference_mentioned_p (rtx);
 extern bool legitimate_la_operand_p (rtx);
@@ -87,6 +87,7 @@ extern void s390_expand_cs_hqi (enum machine_mode, rtx, rtx, rtx,
 				rtx, rtx, bool);
 extern void s390_expand_atomic (enum machine_mode, enum rtx_code,
 				rtx, rtx, rtx, bool);
+extern void s390_expand_tbegin (rtx, rtx, rtx, bool);
 extern rtx s390_return_addr_rtx (int, rtx);
 extern rtx s390_back_chain_rtx (void);
 extern rtx s390_emit_call (rtx, rtx, rtx, rtx);
@@ -109,5 +110,6 @@ extern bool s390_decompose_shift_count (rtx, rtx *, HOST_WIDE_INT *);
 extern int s390_branch_condition_mask (rtx);
 extern int s390_compare_and_branch_condition_mask (rtx);
 extern bool s390_extzv_shift_ok (int, int, unsigned HOST_WIDE_INT);
+extern void s390_asm_output_function_label (FILE *, const char *, tree);
 
 #endif /* RTX_CODE */

@@ -9997,6 +9997,26 @@ generate_component_assignments (gfc_code **code, gfc_namespace *ns)
 		  temp_code = build_assignment (EXEC_ASSIGN,
 						t1, (*code)->expr1,
 				NULL, NULL, (*code)->loc);
+
+		  /* For allocatable LHS, check whether it is allocated.  Note
+		     that allocatable components with defined assignment are
+		     not yet support.  See PR 57696.  */
+		  if ((*code)->expr1->symtree->n.sym->attr.allocatable)
+		    {
+		      gfc_code *block;
+		      gfc_expr *e =
+			gfc_lval_expr_from_sym ((*code)->expr1->symtree->n.sym);
+		      block = gfc_get_code ();
+		      block->op = EXEC_IF;
+		      block->block = gfc_get_code ();
+		      block->block->op = EXEC_IF;
+		      block->block->expr1
+			  = gfc_build_intrinsic_call (ns,
+				    GFC_ISYM_ALLOCATED, "allocated",
+				    (*code)->loc, 1, e);
+		      block->block->next = temp_code;
+		      temp_code = block;
+		    }
 		  add_code_to_chain (&temp_code, &tmp_head, &tmp_tail);
 		}
 
@@ -10005,8 +10025,37 @@ generate_component_assignments (gfc_code **code, gfc_namespace *ns)
 	      gfc_free_expr (this_code->ext.actual->expr);
 	      this_code->ext.actual->expr = gfc_copy_expr (t1);
 	      add_comp_ref (this_code->ext.actual->expr, comp1);
+
+	      /* If the LHS variable is allocatable and wasn't allocated and
+                 the temporary is allocatable, pointer assign the address of
+                 the freshly allocated LHS to the temporary.  */
+	      if ((*code)->expr1->symtree->n.sym->attr.allocatable
+		  && gfc_expr_attr ((*code)->expr1).allocatable)
+		{
+		  gfc_code *block;
+		  gfc_expr *cond;
+
+		  cond = gfc_get_expr ();
+		  cond->ts.type = BT_LOGICAL;
+		  cond->ts.kind = gfc_default_logical_kind;
+		  cond->expr_type = EXPR_OP;
+		  cond->where = (*code)->loc;
+		  cond->value.op.op = INTRINSIC_NOT;
+		  cond->value.op.op1 = gfc_build_intrinsic_call (ns,
+					  GFC_ISYM_ALLOCATED, "allocated",
+					  (*code)->loc, 1, gfc_copy_expr (t1));
+		  block = gfc_get_code ();
+		  block->op = EXEC_IF;
+		  block->block = gfc_get_code ();
+		  block->block->op = EXEC_IF;
+		  block->block->expr1 = cond;
+		  block->block->next = build_assignment (EXEC_POINTER_ASSIGN,
+					t1, (*code)->expr1,
+					NULL, NULL, (*code)->loc);
+		  add_code_to_chain (&block, &head, &tail);
+		}
 	    }
-	  }
+	}
       else if (this_code->op == EXEC_ASSIGN && !this_code->next)
 	{
 	  /* Don't add intrinsic assignments since they are already
@@ -10028,19 +10077,36 @@ generate_component_assignments (gfc_code **code, gfc_namespace *ns)
 	}
     }
 
-  /* This is probably not necessary.  */
-  if (this_code)
-    {
-      gfc_free_statements (this_code);
-      this_code = NULL;
-    }
-
   /* Put the temporary assignments at the top of the generated code.  */
   if (tmp_head && component_assignment_level == 1)
     {
       gfc_append_code (tmp_head, head);
       head = tmp_head;
       tmp_head = tmp_tail = NULL;
+    }
+
+  // If we did a pointer assignment - thus, we need to ensure that the LHS is
+  // not accidentally deallocated. Hence, nullify t1.
+  if (t1 && (*code)->expr1->symtree->n.sym->attr.allocatable
+      && gfc_expr_attr ((*code)->expr1).allocatable)
+    {
+      gfc_code *block;
+      gfc_expr *cond;
+      gfc_expr *e;
+
+      e = gfc_lval_expr_from_sym ((*code)->expr1->symtree->n.sym);
+      cond = gfc_build_intrinsic_call (ns, GFC_ISYM_ASSOCIATED, "associated",
+				       (*code)->loc, 2, gfc_copy_expr (t1), e);
+      block = gfc_get_code ();
+      block->op = EXEC_IF;
+      block->block = gfc_get_code ();
+      block->block->op = EXEC_IF;
+      block->block->expr1 = cond;
+      block->block->next = build_assignment (EXEC_POINTER_ASSIGN,
+					t1, gfc_get_null_expr (&(*code)->loc),
+					NULL, NULL, (*code)->loc);
+      gfc_append_code (tail, block);
+      tail = block;
     }
 
   /* Now attach the remaining code chain to the input code.  Step on
@@ -10052,7 +10118,8 @@ generate_component_assignments (gfc_code **code, gfc_namespace *ns)
   gfc_free_expr ((*code)->expr1);
   gfc_free_expr ((*code)->expr2);
   **code = *head;
-  free (head);
+  if (head != tail)
+    free (head);
   *code = tail;
 
   component_assignment_level--;
@@ -12358,9 +12425,6 @@ resolve_typebound_procedures (gfc_symbol* derived)
   resolve_bindings_derived = derived;
   resolve_bindings_result = SUCCESS;
 
-  /* Make sure the vtab has been generated.  */
-  gfc_find_derived_vtab (derived);
-
   if (derived->f2k_derived->tb_sym_root)
     gfc_traverse_symtree (derived->f2k_derived->tb_sym_root,
 			  &resolve_typebound_procedure);
@@ -13189,7 +13253,8 @@ resolve_symbol (gfc_symbol *sym)
   if (sym->attr.flavor == FL_UNKNOWN
       || (sym->attr.flavor == FL_PROCEDURE && !sym->attr.intrinsic
 	  && !sym->attr.generic && !sym->attr.external
-	  && sym->attr.if_source == IFSRC_UNKNOWN))
+	  && sym->attr.if_source == IFSRC_UNKNOWN
+	  && sym->ts.type == BT_UNKNOWN))
     {
 
     /* If we find that a flavorless symbol is an interface in one of the
