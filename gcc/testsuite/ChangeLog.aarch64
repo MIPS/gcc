@@ -1,3 +1,7 @@
+2014-02-21  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* gcc.target/aarch64/ldp_stp.c: New testcase.
+
 2014-02-10  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* gcc.target/aarch64/inc_inv_neg.c: New testcase.

@@ -1,3 +1,20 @@
+2014-02-21  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64-protos.h
+	(aarch64_registers_ok_for_pair_peep): Remove prototype.
+	(aarch64_registers_ok_for_load_pair_peep): New prototype.
+	(aarch64_registers_ok_for_store_pair_peep): New prototype.
+	* config/aarch64/aarch64.c
+	(aarch64_registers_ok_for_pair_peep): Remove .
+	(aarch64_registers_ok_for_load_pair_peep): New function.
+	(aarch64_registers_ok_for_store_pair_peep): New function.
+	* config/aarch64/aarch64.md:
+	(peephole2s to generate stp instruction for 2 consecutive
+	stores to memory in integer mode): Allow use of same registers
+	data to be stored into memory.
+	(peephole2s to generate stp instruction for 2 consecutive
+	stores to memory in floating point mode): Likewise.
+
 2014-02-14  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.c (aarch64_macro_fusion_p): New function.

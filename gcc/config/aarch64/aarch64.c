@@ -8468,13 +8468,20 @@ aarch64_cannot_change_mode_class (enum machine_mode from,
   return true;
 }
 
-/* Return true if the registers are ok for a pair
-   load/store instruction. */
+/* Return true if the registers are ok for a pair load instruction. */
 bool
-aarch64_registers_ok_for_pair_peep (rtx op0, rtx op1)
+aarch64_registers_ok_for_load_pair_peep (rtx op0, rtx op1)
 {
   return REG_P (op0) && REG_P (op1)
 	 && REGNO (op0) != REGNO (op1)
+	 && REGNO_REG_CLASS (REGNO (op0)) == REGNO_REG_CLASS (REGNO (op1));
+}
+
+/* Return true if the registers are ok for a pair store instruction. */
+bool
+aarch64_registers_ok_for_store_pair_peep (rtx op0, rtx op1)
+{
+  return REG_P (op0) && REG_P (op1)
 	 && REGNO_REG_CLASS (REGNO (op0)) == REGNO_REG_CLASS (REGNO (op1));
 }
 
