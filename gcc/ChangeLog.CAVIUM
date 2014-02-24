@@ -1,3 +1,7 @@
+2014-02-23  Andrew Pinski  <apinski@cavium.com>
+
+	* testsuite/gcc.dg/octeon/misc/serial-profopt.exp: Disable for now.
+
 2014-02-21  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/octeon/misc/merge-gcda.exp: Disable for now.
