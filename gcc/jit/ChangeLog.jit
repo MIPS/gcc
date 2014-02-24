@@ -1,3 +1,7 @@
+2014-02-24  Philip Herron <redbrain@gcc.gnu.org>
+
+	* Make-lang.in (jit.install-common): Implement.
+
 2014-02-21  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_context_dump_to_file): New.

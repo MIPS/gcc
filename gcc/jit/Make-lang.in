@@ -86,7 +86,9 @@ jit.srcman:
 
 #
 # Install hooks:
-jit.install-common:
+jit.install-common: installdirs
+	$(INSTALL_PROGRAM) libgccjit.so $(DESTDIR)/$(libdir)/libgccjit.so
+	$(INSTALL_PROGRAM) $(srcdir)/jit/libgccjit.h $(DESTDIR)/$(includedir)/libgccjit.h
 
 jit.install-man:
 
