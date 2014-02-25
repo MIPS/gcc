@@ -12221,12 +12221,8 @@ mips_secondary_reload_class (enum reg_class rclass,
 	/* In this case we can use mov.fmt.  */
 	return NO_REGS;
 
-      /* Otherwise, we need to reload through an integer register
-         but only when the classic reload is in use. */
-      if (!targetm.lra_p())
-        return GR_REGS;
-      else
-        return NO_REGS;
+      /* Otherwise, we need to reload through an integer register.  */
+      return GR_REGS;
     }
   if (FP_REG_P (regno))
     return reg_class_subset_p (rclass, GR_REGS) ? NO_REGS : GR_REGS;
