@@ -1,5 +1,12 @@
 
 
+2014-02-25  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{merge using svnmerge.py with trunk GCC 4.9 svn
+	rev.208153. Notice that svn 1.8.8 crashes while doing this, so
+	merged with svn 1.7.14... All is well compiled.}}
+
+
+
 2014-02-12  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{merge using svnmerge.py with trunk GCC 4.9 svn rev.207716. All
 	is well compiled.}}
