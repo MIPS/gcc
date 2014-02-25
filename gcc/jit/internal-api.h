@@ -1887,6 +1887,7 @@ private:
 
 private:
   tree m_inner_fndecl;
+  tree m_inner_block;
   tree m_inner_bind_expr;
   enum gcc_jit_function_kind m_kind;
   tree m_stmt_list;

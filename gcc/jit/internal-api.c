@@ -2832,11 +2832,13 @@ function (context *ctxt,
       /* Create a BIND_EXPR, and within it, a statement list.  */
       m_stmt_list = alloc_stmt_list ();
       m_stmt_iter = tsi_start (m_stmt_list);
+      m_inner_block = make_node (BLOCK);
       m_inner_bind_expr =
-	build3 (BIND_EXPR, void_type_node, NULL, m_stmt_list, NULL);
+	build3 (BIND_EXPR, void_type_node, NULL, m_stmt_list, m_inner_block);
     }
   else
     {
+      m_inner_block = NULL;
       m_stmt_list = NULL;
     }
 }
@@ -2848,6 +2850,7 @@ gt_ggc_mx ()
   gt_ggc_m_9tree_node (m_inner_fndecl);
   gt_ggc_m_9tree_node (m_inner_bind_expr);
   gt_ggc_m_9tree_node (m_stmt_list);
+  gt_ggc_m_9tree_node (m_inner_block);
 }
 
 tree
@@ -2904,11 +2907,16 @@ postprocess ()
   if (m_kind != GCC_JIT_FUNCTION_IMPORTED)
     {
       /* Seem to need this in gimple-low.c: */
-      DECL_INITIAL (m_inner_fndecl) = make_node (BLOCK);
+      gcc_assert (m_inner_block);
+      DECL_INITIAL (m_inner_fndecl) = m_inner_block;
 
       /* how to add to function? the following appears to be how to
 	 set the body of a m_inner_fndecl: */
       DECL_SAVED_TREE(m_inner_fndecl) = m_inner_bind_expr;
+
+      /* Ensure that locals appear in the debuginfo.  */
+      BLOCK_VARS (m_inner_block) = BIND_EXPR_VARS (m_inner_bind_expr);
+
       //debug_tree (m_inner_fndecl);
 
       /* Convert to gimple: */

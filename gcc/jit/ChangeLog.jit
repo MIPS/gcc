@@ -1,3 +1,14 @@
+2014-02-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.h (gcc::jit::playback::function): Add field
+	m_inner_block.
+
+	* internal-api.c (gcc::jit::playback::function::function):
+	Create BLOCK here and link it to the BIND_EXPR.
+	(gcc::jit::playback::function::gt_ggc_mx): Walk m_inner_block.
+	(gcc::jit::playback::function::postprocess): Set up BLOCK_VARS on
+	the block, so that the local variables make it into the debuginfo.
+
 2014-02-24  Philip Herron <redbrain@gcc.gnu.org>
 
 	* Make-lang.in (jit.install-common): Implement.
