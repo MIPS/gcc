@@ -862,6 +862,17 @@ gcc_jit_function_add_return (gcc_jit_function *func,
 			     gcc_jit_location *loc,
 			     gcc_jit_rvalue *rvalue);
 
+/* Add a valueless return, for use within a function with
+   "void" return type.
+
+   This is equivalent to this C code:
+
+      return;
+*/
+extern void
+gcc_jit_function_add_void_return (gcc_jit_function *func,
+				  gcc_jit_location *loc);
+
 /* Helper function for creating a loop:
       while (boolval)
 	{

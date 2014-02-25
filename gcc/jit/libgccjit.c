@@ -1108,6 +1108,23 @@ gcc_jit_function_add_return (gcc_jit_function *func,
   return func->add_return (loc, rvalue);
 }
 
+void
+gcc_jit_function_add_void_return (gcc_jit_function *func,
+				  gcc_jit_location *loc)
+{
+  RETURN_IF_NOT_FUNC_DEFINITION (func);
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL_PRINTF2 (
+    func->get_return_type () == ctxt->get_type (GCC_JIT_TYPE_VOID),
+    ctxt,
+    "mismatching types:"
+    " void return in function %s (return type: %s)",
+    func->get_debug_string (),
+    func->get_return_type ()->get_debug_string ());
+
+  return func->add_return (loc, NULL);
+}
+
 gcc_jit_loop *
 gcc_jit_function_new_loop (gcc_jit_function *func,
 			   gcc_jit_location *loc,

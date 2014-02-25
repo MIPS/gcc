@@ -329,6 +329,7 @@ namespace gccjit
 
     void add_return (rvalue rvalue,
 		     location loc = location ());
+    void add_return (location loc = location ());
 
     /* A way to add a function call to the body of a function being
        defined, with various numbers of args.  */
@@ -1211,6 +1212,13 @@ function::add_return (rvalue rvalue,
   gcc_jit_function_add_return (get_inner_function (),
 			       loc.get_inner_location (),
 			       rvalue.get_inner_rvalue ());
+}
+
+inline void
+function::add_return (location loc)
+{
+  gcc_jit_function_add_void_return (get_inner_function (),
+				    loc.get_inner_location ());
 }
 
 inline rvalue

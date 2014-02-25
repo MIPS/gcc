@@ -1,3 +1,11 @@
+2014-02-25  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-functions.c (create_use_of_void_return): New, to add
+	test coverage for gcc_jit_function_add_void_return.
+	(verify_void_return): Likewise.
+	(create_code): Add call to create_use_of_void_return.
+	(verify_code): Add call to verify_void_return.
+
 2014-02-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-accessing-struct.c (create_code): Update for change to

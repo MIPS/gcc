@@ -1,5 +1,18 @@
 2014-02-25  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (gcc_jit_function_add_void_return): New.
+	* libgccjit.map (gcc_jit_function_add_void_return): New.
+	* libgccjit.c (gcc_jit_function_add_void_return): New.
+	* libgccjit++.h (add_return): Add overloaded variant with no
+	rvalue, calling gcc_jit_function_add_void_return.
+
+	* internal-api.c (gcc::jit::recording::function::add_return): Add
+	comment that rvalue could be NULL.
+	(gcc::jit::playback::function::add_return): Support rvalue being
+	NULL.
+
+2014-02-25  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.h (gcc::jit::playback::function): Add field
 	m_inner_block.
 

@@ -43,6 +43,7 @@
     gcc_jit_function_add_jump;
     gcc_jit_function_add_label;
     gcc_jit_function_add_return;
+    gcc_jit_function_add_void_return;
     gcc_jit_function_as_object;
     gcc_jit_function_get_param;
     gcc_jit_function_new_forward_label;

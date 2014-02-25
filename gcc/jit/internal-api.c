@@ -1309,6 +1309,9 @@ void
 recording::function::add_return (recording::location *loc,
 				 recording::rvalue *rvalue)
 {
+  /* This is used by both gcc_jit_function_add_return and
+     gcc_jit_function_add_void_return; rvalue will be non-NULL for
+     the former and NULL for the latter.  */
   statement *result = new return_ (this, loc, rvalue);
   m_ctxt->record (result);
   m_activity.safe_push (result);
@@ -3114,22 +3117,26 @@ add_return (location *loc,
 {
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
+  tree modify_retval = NULL;
   tree return_type = TREE_TYPE (TREE_TYPE (m_inner_fndecl));
-  tree t_lvalue = DECL_RESULT (m_inner_fndecl);
-  tree t_rvalue = rvalue->as_tree ();
-  if (TREE_TYPE (t_rvalue) != TREE_TYPE (t_lvalue))
-    t_rvalue = build1 (CONVERT_EXPR,
-		       TREE_TYPE (t_lvalue),
-		       t_rvalue);
-  tree modify_retval = build2 (MODIFY_EXPR, return_type,
-			       t_lvalue, t_rvalue);
+  if (rvalue)
+    {
+      tree t_lvalue = DECL_RESULT (m_inner_fndecl);
+      tree t_rvalue = rvalue->as_tree ();
+      if (TREE_TYPE (t_rvalue) != TREE_TYPE (t_lvalue))
+	t_rvalue = build1 (CONVERT_EXPR,
+			   TREE_TYPE (t_lvalue),
+			   t_rvalue);
+      modify_retval = build2 (MODIFY_EXPR, return_type,
+			      t_lvalue, t_rvalue);
+      if (loc)
+	set_tree_location (modify_retval, loc);
+    }
   tree return_stmt = build1 (RETURN_EXPR, return_type,
 			     modify_retval);
   if (loc)
-    {
-      set_tree_location (modify_retval, loc);
-      set_tree_location (return_stmt, loc);
-    }
+    set_tree_location (return_stmt, loc);
+
   add_stmt (return_stmt);
 }
 
