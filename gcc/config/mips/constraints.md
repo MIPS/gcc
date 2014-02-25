@@ -101,7 +101,7 @@
 (define_constraint "ks"
   "@internal"
   (and (match_code "reg")
-       (match_test "REGNO (op) == STACK_POINTER_REGNUM || REGNO (op) == FRAME_POINTER_REGNUM")))
+       (match_test "REGNO (op) == STACK_POINTER_REGNUM")))
 
 ;; Integer constraints
 
