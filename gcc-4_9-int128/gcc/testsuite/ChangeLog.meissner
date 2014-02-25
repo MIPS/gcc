@@ -1,3 +1,8 @@
+2014-02-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-int128-1.c: New file to test for the
+	128-bit integer arithmetic builtins added for ISA 2.07.
+
 2014-02-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch from subversion id 207735.

@@ -1971,7 +1971,6 @@ rs6000_debug_reg_global (void)
     V8HImode,
     V4SImode,
     V2DImode,
-    V1TImode,
     V32QImode,
     V16HImode,
     V8SImode,
@@ -2555,11 +2554,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
       rs6000_vector_unit[V2DImode]
 	= (TARGET_P8_VECTOR) ? VECTOR_P8_VECTOR : VECTOR_NONE;
       rs6000_vector_align[V2DImode] = align64;
-
-      rs6000_vector_mem[V1TImode] = VECTOR_VSX;
-      rs6000_vector_unit[V1TImode]
-	= (TARGET_P8_VECTOR) ? VECTOR_P8_VECTOR : VECTOR_NONE;
-      rs6000_vector_align[V1TImode] = 128;
     }
 
   /* DFmode, see if we want to use the VSX unit.  */
@@ -2683,8 +2677,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SImode].reload_load   = CODE_FOR_reload_v4si_di_load;
 	  reg_addr[V2DImode].reload_store  = CODE_FOR_reload_v2di_di_store;
 	  reg_addr[V2DImode].reload_load   = CODE_FOR_reload_v2di_di_load;
-	  reg_addr[V1TImode].reload_store  = CODE_FOR_reload_v1ti_di_store;
-	  reg_addr[V1TImode].reload_load   = CODE_FOR_reload_v1ti_di_load;
 	  reg_addr[V4SFmode].reload_store  = CODE_FOR_reload_v4sf_di_store;
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_di_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_di_store;
@@ -2713,7 +2705,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	      if (TARGET_POWERPC64)
 		{
 		  reg_addr[TImode].reload_gpr_vsx    = CODE_FOR_reload_gpr_from_vsxti;
-		  reg_addr[V1TImode].reload_gpr_vsx  = CODE_FOR_reload_gpr_from_vsxv1ti;
 		  reg_addr[V2DFmode].reload_gpr_vsx  = CODE_FOR_reload_gpr_from_vsxv2df;
 		  reg_addr[V2DImode].reload_gpr_vsx  = CODE_FOR_reload_gpr_from_vsxv2di;
 		  reg_addr[V4SFmode].reload_gpr_vsx  = CODE_FOR_reload_gpr_from_vsxv4sf;
@@ -2723,7 +2714,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 		  reg_addr[SFmode].reload_gpr_vsx    = CODE_FOR_reload_gpr_from_vsxsf;
 
 		  reg_addr[TImode].reload_vsx_gpr    = CODE_FOR_reload_vsx_from_gprti;
-		  reg_addr[V1TImode].reload_vsx_gpr  = CODE_FOR_reload_vsx_from_gprv1ti;
 		  reg_addr[V2DFmode].reload_vsx_gpr  = CODE_FOR_reload_vsx_from_gprv2df;
 		  reg_addr[V2DImode].reload_vsx_gpr  = CODE_FOR_reload_vsx_from_gprv2di;
 		  reg_addr[V4SFmode].reload_vsx_gpr  = CODE_FOR_reload_vsx_from_gprv4sf;
@@ -2750,8 +2740,6 @@ rs6000_init_hard_regno_mode_ok (bool global_init_p)
 	  reg_addr[V4SImode].reload_load   = CODE_FOR_reload_v4si_si_load;
 	  reg_addr[V2DImode].reload_store  = CODE_FOR_reload_v2di_si_store;
 	  reg_addr[V2DImode].reload_load   = CODE_FOR_reload_v2di_si_load;
-	  reg_addr[V1TImode].reload_store  = CODE_FOR_reload_v1ti_si_store;
-	  reg_addr[V1TImode].reload_load   = CODE_FOR_reload_v1ti_si_load;
 	  reg_addr[V4SFmode].reload_store  = CODE_FOR_reload_v4sf_si_store;
 	  reg_addr[V4SFmode].reload_load   = CODE_FOR_reload_v4sf_si_load;
 	  reg_addr[V2DFmode].reload_store  = CODE_FOR_reload_v2df_si_store;
@@ -4263,8 +4251,6 @@ rs6000_preferred_simd_mode (enum machine_mode mode)
       {
       case SFmode:
 	return V4SFmode;
-      case TImode:
-	return V1TImode;
       case DImode:
 	return V2DImode;
       case SImode:
@@ -4994,9 +4980,7 @@ const_vector_elt_as_int (rtx op, unsigned int elt)
   rtx tmp;
 
   /* We can't handle V2DImode and V2DFmode vector constants here yet.  */
-  gcc_assert (GET_MODE (op) != V2DImode
-	      && GET_MODE (op) != V2DFmode
-	      && GET_MODE (op) != V1TImode);
+  gcc_assert (GET_MODE (op) != V2DImode && GET_MODE (op) != V2DFmode);
 
   tmp = CONST_VECTOR_ELT (op, elt);
   if (GET_MODE (op) == V4SFmode
@@ -5027,7 +5011,7 @@ vspltis_constant (rtx op, unsigned step, unsigned copies)
   HOST_WIDE_INT splat_val;
   HOST_WIDE_INT msb_val;
 
-  if (mode == V2DImode || mode == V2DFmode || mode == V1TImode)
+  if (mode == V2DImode || mode == V2DFmode)
     return false;
 
   nunits = GET_MODE_NUNITS (mode);
@@ -5106,7 +5090,7 @@ easy_altivec_constant (rtx op, enum machine_mode mode)
   if (mode == V2DFmode)
     return zero_constant (op, mode);
 
-  if (mode == V2DImode || mode == V1TImode)
+  if (mode == V2DImode)
     {
       /* In case the compiler is built 32-bit, CONST_DOUBLE constants are not
 	 easy.  */
@@ -5205,7 +5189,7 @@ output_vec_const_move (rtx *operands)
       if (zero_constant (vec, mode))
 	return "xxlxor %x0,%x0,%x0";
 
-      if ((mode == V2DImode || mode == V1TImode)
+      if (mode == V2DImode
 	  && INTVAL (CONST_VECTOR_ELT (vec, 0)) == -1
 	  && INTVAL (CONST_VECTOR_ELT (vec, 1)) == -1)
 	return "vspltisw %0,-1";
@@ -6092,7 +6076,6 @@ reg_offset_addressing_ok_p (enum machine_mode mode)
     case V4SImode:
     case V2DFmode:
     case V2DImode:
-    case V1TImode:
     case TImode:
       /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  While
 	 TImode is not a vector mode, if we want to use the VSX registers to
@@ -7977,9 +7960,6 @@ rs6000_const_vec (enum machine_mode mode)
 
   switch (mode)
     {
-    case V1TImode:
-      subparts = 1;
-      break;
     case V2DFmode:
     case V2DImode:
       subparts = 2;
@@ -8338,7 +8318,6 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
     case V1DImode:
     case V2DFmode:
     case V2DImode:
-    case V1TImode:
       if (CONSTANT_P (operands[1])
 	  && !easy_vector_constant (operands[1], mode))
 	operands[1] = force_const_mem (mode, operands[1]);
@@ -13535,6 +13514,8 @@ rs6000_init_builtins (void)
   uintSI_type_internal_node = unsigned_intSI_type_node;
   intDI_type_internal_node = intDI_type_node;
   uintDI_type_internal_node = unsigned_intDI_type_node;
+  intTI_type_internal_node = intTI_type_node;
+  uintTI_type_internal_node = unsigned_intTI_type_node;
   float_type_internal_node = float_type_node;
   double_type_internal_node = double_type_node;
   void_type_internal_node = void_type_node;
@@ -13547,6 +13528,8 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[SImode][1] = unsigned_intSI_type_node;
   builtin_mode_to_type[DImode][0] = intDI_type_node;
   builtin_mode_to_type[DImode][1] = unsigned_intDI_type_node;
+  builtin_mode_to_type[TImode][0] = intTI_type_node;
+  builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
   builtin_mode_to_type[V2SImode][0] = V2SI_type_node;

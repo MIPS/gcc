@@ -1,3 +1,108 @@
+2014-02-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/vector.md (VEC_L): Undo 2014-02-18 changes on
+	branch, delete V1TImode type.
+	(VEC_M): Likewise.
+	(VEC_N): Likewise.
+	(VEC_R): Likewise.
+	(VEC_base): Likewise.
+	* config/rs6000/rs6000-modes.def (V1TImode): Likewise.
+	(V2TImode): Likewise.
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Likewise.
+	(rs6000_init_hard_regno_mode_ok): Likewise.
+	(rs6000_preferred_simd_mode): Likewise.
+	(const_vector_elt_as_int): Likewise.
+	(vspltis_constant): Likewise.
+	(easy_altivec_constant): Likewise.
+	(output_vec_const_move): Likewise.
+	(reg_offset_addressing_ok_p): Likewise.
+	(rs6000_const_vec): Likewise.
+	(rs6000_emit_move): Likewise.
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document new 128-bit arithmetic builtins for ISA 2.07.
+
+	* config/rs6000/rs6000-builtin.def (BU_P8V_AV_3): New macros for
+	3 argument ISA 2.07 builtin functions.  Add both the normal
+	__builtin_altivec_ builtin and the overloaded __builtin_vec_
+	name.
+	(BU_P8V_OVERLOAD_3): Likewise.
+	(VADDCUQ): Add 128-bit integer arithmetic builtins for ISA 2.07.
+	(VADDUQM): Likewise.
+	(VSUBCUQ): Likewise.
+	(VSUBUQM): Likewise.
+	(VADDEUQM): Likewise.
+	(VADDECUQ): Likewise.
+	(VSUBEUQM): Likewise.
+	(VSUBECUQ): Likewise.
+	* config/rs6000/vsx.md (VSX_L): Likewise.
+	(VSX_M): Likewise.
+	(VSX_M2): Likewise.
+	(VSm): Likewise.
+	(VSs): Likewise.
+	(VSr): Likewise.
+	(VSv): Likewise.
+	(VS_scalar): Likewise.
+	(VS_double): Likewise.
+	* config/rs6000/altivec.md (VM): Likewise.
+	(VM2): Likewise.
+	(VI_char): Likewise.
+	(VI_unit): Likewise.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add in
+	overloaded 128-bit integer builtin functions for both signed and
+	unsigned 128-bit integer support.  Add in vector bit permute
+	instruction.
+
+	* config/rs6000/rs6000.c (rs6000_init_builtins): Initialize rs6000
+	data structures for 128-bit integer types.
+
+	* config/rs6000/rs6000.h (TARGET_VADDUQM): New macro to say
+	whether we can do the 128-bit integer arithmetic instructions.
+	(enum rs6000_builtin_type_index): Add fields for 128-bit signed
+	and unsigned integer types.
+	(intTI_type_internal_node): Likewise.
+	(uintTI_type_internal_node): Likewise.
+	* config/rs6000/rs6000.md (FMOVE128_GPR): Likewise.
+	(BOOL_128): Likewise.
+	(BOOL_REGS_OUTPUT): Likewise.
+	(BOOL_REGS_OP1): Likewise.
+	(BOOL_REGS_OP2): Likewise.
+	(BOOL_REGS_UNARY): Likewise.
+	(BOOL_REGS_AND_CR0): Likewise.
+
+	* config/rs6000/altivec.md (UNSPEC_VADDUQM): New unspec's for
+	128-bit integer arithmetic instructions.
+	(UNSPEC_VADDCUQ): Likewise.
+	(UNSPEC_VADDEUQM): Likewise.
+	(UNSPEC_VADDECUQ): Likewise.
+	(UNSPEC_VSUBUQM): Likewise.
+	(UNSPEC_VSUBCUQ): Likewise.
+	(UNSPEC_VSUBEUQM): Likewise.
+	(UNSPEC_VSUBECUQ): Likewise.
+	(UNSPEC_VBPERMQ): Likewise.
+	(altivec_vadduqm): New insns for support of 128-bit integer
+	arithmetic instructions.
+	(altivec_vaddcuq): Likewise.
+	(altivec_vaddeuqm): Likewise.
+	(altivec_vaddecuq): Likewise.
+	(altivec_vsubuqm): Likewise.
+	(altivec_vsubcuq): Likewise.
+	(altivec_vsubeuqm): Likewise.
+	(altivec_vsubecuq): Likewise.
+	(altivec_vbpermq): Likewise.
+
+	* config/rs6000/altivec.h (vec_vaddcuq): Define user names for the
+	128-bit integer arithmetic builtins.
+	(vec_vadduqm): Likewise.
+	(vec_vaddecuq): Likewise.
+	(vec_vaddeuqm): Likewise.
+	(vec_vbpermq): Likewise.
+	(vec_vsubecuq): Likewise.
+	(vec_vsubeuqm): Likewise.
+	(vec_vsubcuq): Likewise.
+	(vec_vsubuqm): Likewise.
+
 2014-02-18  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Merge up to 207860.
