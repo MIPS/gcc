@@ -1,4 +1,8 @@
 
+2014-02-25  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated.
+
 2014-02-14  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt-runtime.cc (meltgc_debugmsgval): Remove.
