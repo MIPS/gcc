@@ -1,3 +1,46 @@
+2014-02-26  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* common/config/i386/predicates.md (const1256_operand): Remove.
+	(const2356_operand): New.
+	(const_1_to_2_operand): Remove.
+	* config/i386/sse.md (avx512pf_gatherpf<mode>sf): Change hint value.
+	(*avx512pf_gatherpf<mode>sf_mask): Ditto.
+	(*avx512pf_gatherpf<mode>sf): Ditto.
+	(avx512pf_gatherpf<mode>df): Ditto.
+	(*avx512pf_gatherpf<mode>df_mask): Ditto.
+	(*avx512pf_gatherpf<mode>df): Ditto.
+	(avx512pf_scatterpf<mode>sf): Ditto.
+	(*avx512pf_scatterpf<mode>sf_mask): Ditto.
+	(*avx512pf_scatterpf<mode>sf): Ditto.
+	(avx512pf_scatterpf<mode>df): Ditto.
+	(*avx512pf_scatterpf<mode>df_mask): Ditto.
+	(*avx512pf_scatterpf<mode>df): Ditto.
+	* common/config/i386/xmmintrin.h (_mm_hint): Add _MM_HINT_ET0.
+
+2014-02-26  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* gcc.target/i386/avx512cd-vptestnmd-1.c: Change into ...
+	* gcc.target/i386/avx512f-vptestnmd-1.c: This.
+	* gcc.target/i386/avx512cd-vptestnmq-1.c: Change into ...
+	* gcc.target/i386/avx512f-vptestnmq-1.c: This.
+	* gcc.target/i386/avx512cd-vptestnmd-2.c: Change into ...
+	* gcc.target/i386/avx512f-vptestnmd-2.c: This.
+	* gcc.target/i386/avx512cd-vptestnmq-2.c: Change into ...
+	* gcc.target/i386/avx512f-vptestnmq-2.c: This.
+
+2014-02-26  Bin Cheng  <bin.cheng@arm.com>
+
+	PR target/60280
+	* gnat.dg/renaming5.adb: Change to two expected gotos.
+	* gcc.dg/tree-ssa/pr21559.c: Change back to three expected
+	jump threads.
+	* gcc.dg/tree-prof/update-loopch.c: Check two "Invalid sum"
+	messages for removed basic block.
+	* gcc.dg/tree-ssa/ivopt_1.c: Fix unreliable scanning string.
+	* gcc.dg/tree-ssa/ivopt_2.c: Ditto.
+	* gcc.dg/tree-ssa/ivopt_3.c: Ditto.
+	* gcc.dg/tree-ssa/ivopt_4.c: Ditto.
+
 2014-02-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* gcc.dg/vmx/ld-vsx.c: Don't use vec_all_eq.

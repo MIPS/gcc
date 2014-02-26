@@ -1,3 +1,68 @@
+2014-02-26  Richard Biener  <rguenther@suse.de>
+
+	PR bootstrap/60343
+	* lra-assigns.c (spill_for): Avoid mixed-sign comparison.
+
+2014-02-25  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* common/config/i386/predicates.md (const1256_operand): Remove.
+	(const2356_operand): New.
+	(const_1_to_2_operand): Remove.
+	* config/i386/sse.md (avx512pf_gatherpf<mode>sf): Change hint value.
+	(*avx512pf_gatherpf<mode>sf_mask): Ditto.
+	(*avx512pf_gatherpf<mode>sf): Ditto.
+	(avx512pf_gatherpf<mode>df): Ditto.
+	(*avx512pf_gatherpf<mode>df_mask): Ditto.
+	(*avx512pf_gatherpf<mode>df): Ditto.
+	(avx512pf_scatterpf<mode>sf): Ditto.
+	(*avx512pf_scatterpf<mode>sf_mask): Ditto.
+	(*avx512pf_scatterpf<mode>sf): Ditto.
+	(avx512pf_scatterpf<mode>df): Ditto.
+	(*avx512pf_scatterpf<mode>df_mask): Ditto.
+	(*avx512pf_scatterpf<mode>df): Ditto.
+	* common/config/i386/xmmintrin.h (_mm_hint): Add _MM_HINT_ET0.
+
+2014-02-26  Ilya Tocar  <ilya.tocar@intel.com>
+
+	* config/i386/avx512fintrin.h (_mm512_testn_epi32_mask),
+	(_mm512_mask_testn_epi32_mask), (_mm512_testn_epi64_mask),
+	(_mm512_mask_testn_epi64_mask): Move to ...
+	* config/i386/avx512cdintrin.h: Here.
+	* config/i386/i386.c (bdesc_args): Change MASK_ISA for testnm.
+	* config/i386/sse.md (avx512f_vmscalef<mode><round_name>): Remove %.
+	(avx512f_scalef<mode><mask_name><round_name>): Ditto.
+	(avx512f_testnm<mode>3<mask_scalar_merge_name>): Change conditon to
+	TARGET_AVX512F from TARGET_AVX512CD.
+
+2014-02-26  Richard Biener  <rguenther@suse.de>
+
+	PR ipa/60327
+	* ipa.c (walk_polymorphic_call_targets): Properly guard
+	call to inline_update_overall_summary.
+
+2014-02-26  Bin Cheng  <bin.cheng@arm.com>
+
+	PR target/60280
+	* tree-cfgcleanup.c (tree_forwarder_block_p): Protect loop
+	preheaders and latches only if requested.  Fix latch if it
+	is removed.
+	* tree-ssa-dom.c (tree_ssa_dominator_optimize): Set
+	LOOPS_HAVE_PREHEADERS.
+
+2014-02-25  Andrew Pinski  <apinski@cavium.com>
+
+	* builtins.c (expand_builtin_thread_pointer): Create a new target
+	when the target is NULL.
+
+2014-02-25  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/60317
+	* params.def (PARAM_LRA_MAX_CONSIDERED_RELOAD_PSEUDOS): New.
+	* params.h (LRA_MAX_CONSIDERED_RELOAD_PSEUDOS): New.
+	* lra-assigns.c: Include params.h.
+	(spill_for): Use LRA_MAX_CONSIDERED_RELOAD_PSEUDOS as guard for
+	other reload pseudos considerations.
+
 2014-02-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (*vector_unordered<mode>): Change split

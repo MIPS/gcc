@@ -1,5 +1,28 @@
 2014-02-25  Jason Merrill  <jason@redhat.com>
 
+	DR 1571
+	* call.c (reference_binding): Recurse on user-defined conversion.
+	(convert_like_real) [ck_ref_bind]: Explain cv-qual mismatch.
+
+	* call.c (print_conversion_rejection): Handle n_arg of -2.
+	(build_user_type_conversion_1): Pass it.
+
+	PR c++/55877
+	* decl2.c (no_linkage_error): Handle C++98 semantics.
+	(reset_type_linkage): Move from decl.c.
+	(reset_type_linkage_1, reset_type_linkage_2, bt_reset_linkage_1)
+	(bt_reset_linkage_2, reset_decl_linkage): New.
+	(tentative_decl_linkage): Factor out of expand_or_defer_fn_1.
+	(cp_write_global_declarations): Move condition into no_linkage_error.
+	* decl.c (grokfndecl, grokvardecl): Use no_linkage_error.
+	* semantics.c (expand_or_defer_fn_1): Factor out
+	tentative_decl_linkage.
+	* cp-tree.h: Adjust.
+
+	* decl2.c (finish_static_data_member_decl): Diagnose static data
+	member in unnamed class.
+	* class.c (finish_struct_anon_r): Avoid redundant diagnostic.
+
 	PR lto/53808
 	* class.c (clone_function_decl): Call note_vague_linkage_fn for
 	defaulted virtual dtor.
