@@ -2599,19 +2599,17 @@ base_to_reg (struct address_info *ad)
 		       get_index_code (ad));
   new_reg = lra_create_new_reg (GET_MODE (*ad->base_term), NULL_RTX,
 				cl, "base");
-  if (ad->disp_term != NULL)
+  new_inner = simplify_gen_binary (PLUS, GET_MODE (new_reg), new_reg, 
+				   ad->disp_term == NULL 
+ 				   ? gen_int_mode(0, ad->mode) : *ad->disp_term);
+  if (! valid_address_p (ad->mode, new_inner, ad->as))
+    return NULL_RTX;
+  insn = emit_insn (gen_rtx_SET (ad->mode, new_reg, *ad->base_term));
+  code = recog_memoized (insn);
+  if (code < 0)
     {
-      new_inner = simplify_gen_binary (PLUS, GET_MODE (new_reg),
-				     new_reg, *ad->disp_term);
-      if (! valid_address_p (ad->mode, new_inner, ad->as))
-        return NULL_RTX;
-      insn = emit_insn (gen_rtx_SET (ad->mode, new_reg, *ad->base_term));
-      code = recog_memoized (insn);
-      if (code < 0)
-        {
-          delete_insns_since (last_insn);
-          return NULL_RTX;
-        }
+      delete_insns_since (last_insn);
+      return NULL_RTX;
     }
   
   return new_inner;
@@ -2629,10 +2627,7 @@ base_plus_disp_to_reg (struct address_info *ad)
 		       get_index_code (ad));
   new_reg = lra_create_new_reg (GET_MODE (*ad->base_term), NULL_RTX,
 				cl, "base + disp");
-  if (ad->disp_term != NULL)
-    lra_emit_add (new_reg, *ad->base_term, *ad->disp_term);
-  else
-    lra_emit_move (new_reg, *ad->base_term);
+  lra_emit_add (new_reg, *ad->base_term, *ad->disp_term);
   return new_reg;
 }
 
