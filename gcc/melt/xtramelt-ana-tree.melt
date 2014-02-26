@@ -32,21 +32,6 @@
 (module_is_gpl_compatible "GPLv3+")
 
 
-(defprimitive walk_use_def_chain_depth_first (:value clos val :tree trvar) :void
-  :doc #{Walk in a depth first order the use-def chaine of SSA
-variable $TRVAR; apply the $CLOS closure to the $VAL value and to the
-current :tree and :gimple. Stop walking if the closure gives null.}#
-  #{ /* walk_use_def_chain_depth_first */  meltgc_walk_use_def_chain (((melt_ptr_t)($CLOS)),
-     ((melt_ptr_t)($VAL)), $TRVAR, /*depth first*/TRUE); }#
-)
-
-(defprimitive walk_use_def_chain_breadth_first (:value clos val :tree trvar) :void
-  :doc #{Walk in a breadth first order the use-def chaine of SSA
-variable $TRVAR; apply the $CLOS closure to the $VAL value and to the
-current :tree and :gimple. Stop walking if the closure gives null.}#
-  #{ /* walk_use_def_chain_breadth_first */ meltgc_walk_use_def_chain (((melt_ptr_t)($CLOS)), 
-    ((melt_ptr_t)($VAL)), $TRVAR, /*depth first*/FALSE); }#
-)
 
 
 
@@ -2089,8 +2074,6 @@ melt_pragma_process_callback(struct cpp_reader* ATTRIBUTE_UNUSED, void* data)
  tree_vec
  tree_void_type
  tree_void_type_node 
- walk_use_def_chain_breadth_first 
- walk_use_def_chain_depth_first 
  warning_at_tree
  warning_at_tree_decl_with_number
 )

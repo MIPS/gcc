@@ -3511,14 +3511,6 @@ melt_get_inisysdata(int off)
 }
 
 
-/*** MELT interface to walk_use_def_chains;
-     walk from trvar if it is an SSA-name
-     and apply clos to val and the current tree & gimple
-     stop when then clos returns NULL
-****/
-void meltgc_walk_use_def_chain (melt_ptr_t clos_p, melt_ptr_t val_p, tree trvar, bool depthfirstflag);
-
-
 
 FILE* meltgc_set_dump_file (FILE* dumpf);
 void meltgc_restore_dump_file (FILE* oldf);

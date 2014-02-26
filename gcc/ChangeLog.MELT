@@ -1,4 +1,16 @@
 
+2014-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{temporarily removing meltgc_walk_use_def_chain; should become a
+	hook...}
+	* melt-runtime.h (meltgc_walk_use_def_chain): Remove declaration.
+
+	* melt-runtime.cc (meltgc_usedef_internalfun)
+	(meltgc_walk_use_def_chain): Remove functions.
+
+	* melt/xtramelt-ana-tree.melt (walk_use_def_chain_depth_first)
+	(walk_use_def_chain_breadth_first): Remove primitives.
+
 2014-02-25  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
