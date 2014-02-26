@@ -229,6 +229,9 @@ void aarch64_init_expanders (void);
 void aarch64_print_operand (FILE *, rtx, char);
 void aarch64_print_operand_address (FILE *, rtx);
 
+bool aarch64_uimm5 (HOST_WIDE_INT);
+const char* aarch64_output_ccmp (rtx *, bool, int);
+
 /* Initialize builtins for SIMD intrinsics.  */
 void init_aarch64_simd_builtins (void);
 

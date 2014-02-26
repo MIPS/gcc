@@ -217,6 +217,52 @@
   "
 )
 
+(define_expand "cbranchcc4"
+  [(set (pc) (if_then_else
+	      (match_operator 0 "aarch64_comparison_operator"
+	       [(match_operand 1 "cc_register" "")
+	        (const_int 0)])
+	      (label_ref (match_operand 3 "" ""))
+	      (pc)))]
+  ""
+  " ")
+
+(define_insn "*ccmp_and"
+  [(set (match_operand 6 "ccmp_cc_register" "")
+	(compare
+	 (and:SI
+	  (match_operator 4 "aarch64_comparison_operator"
+	   [(match_operand 0 "ccmp_cc_register" "")
+	    (match_operand 1 "aarch64_plus_operand" "")])
+	  (match_operator 5 "aarch64_comparison_operator"
+	   [(match_operand:GPI 2 "register_operand" "r,r,r")
+	    (match_operand:GPI 3 "aarch64_ccmp_operand" "r,Uss,Usn")]))
+	 (const_int 0)))]
+  ""
+  {
+    return aarch64_output_ccmp (operands, true, which_alternative);
+  }
+  [(set_attr "type" "alus_reg,alus_imm,alus_imm")]
+)
+
+(define_insn "*ccmp_ior"
+  [(set (match_operand 6 "ccmp_cc_register" "")
+	(compare
+	 (ior:SI
+	  (match_operator 4 "aarch64_comparison_operator"
+	   [(match_operand 0 "ccmp_cc_register" "")
+	    (match_operand 1 "aarch64_plus_operand" "")])
+	  (match_operator 5 "aarch64_comparison_operator"
+	   [(match_operand:GPI 2 "register_operand" "r,r,r")
+	    (match_operand:GPI 3 "aarch64_ccmp_operand" "r,Uss,Usn")]))
+	 (const_int 0)))]
+  ""
+  {
+    return aarch64_output_ccmp (operands, false, which_alternative);
+  }
+  [(set_attr "type" "alus_reg,alus_imm,alus_imm")]
+)
+
 (define_insn "*condjump"
   [(set (pc) (if_then_else (match_operator 0 "aarch64_comparison_operator"
 			    [(match_operand 1 "cc_register" "") (const_int 0)])
