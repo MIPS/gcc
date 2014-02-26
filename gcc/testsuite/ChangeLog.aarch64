@@ -1,3 +1,70 @@
+2014-02-24	Zhenqiang Chen	<zhenqiang.chen@linaro.org>
+
+	* gcc.dg/ccmp-s-ne.c: New testcase.
+	* gcc.dg/ccmp-s-eq.c: New testcase.
+	* gcc.dg/ccmp-s-le.c: New testcase.
+	* gcc.dg/ccmp-s-lt.c: New testcase.
+	* gcc.dg/ccmp-s-ge.c: New testcase.
+	* gcc.dg/ccmp-s-gt.c: New testcase.
+	* gcc.dg/ccmp-w-ne.c: New testcase.
+	* gcc.dg/ccmp-w-eq.c: New testcase.
+	* gcc.dg/ccmp-w-le.c: New testcase.
+	* gcc.dg/ccmp-w-lt.c: New testcase.
+	* gcc.dg/ccmp-w-ge.c: New testcase.
+	* gcc.dg/ccmp-w-gt.c: New testcase.
+	* gcc.dg/ccmp-l-ne.c: New testcase.
+	* gcc.dg/ccmp-l-eq.c: New testcase.
+	* gcc.dg/ccmp-l-le.c: New testcase.
+	* gcc.dg/ccmp-l-lt.c: New testcase.
+	* gcc.dg/ccmp-l-ge.c: New testcase.
+	* gcc.dg/ccmp-l-gt.c: New testcase.
+	* gcc.dg/ccmp-us-ne.c: New testcase.
+	* gcc.dg/ccmp-us-eq.c: New testcase.
+	* gcc.dg/ccmp-us-le.c: New testcase.
+	* gcc.dg/ccmp-us-lt.c: New testcase.
+	* gcc.dg/ccmp-us-ge.c: New testcase.
+	* gcc.dg/ccmp-us-gt.c: New testcase.
+	* gcc.dg/ccmp-uw-ne.c: New testcase.
+	* gcc.dg/ccmp-uw-eq.c: New testcase.
+	* gcc.dg/ccmp-uw-le.c: New testcase.
+	* gcc.dg/ccmp-uw-lt.c: New testcase.
+	* gcc.dg/ccmp-uw-ge.c: New testcase.
+	* gcc.dg/ccmp-uw-gt.c: New testcase.
+	* gcc.dg/ccmp-s-ne-1.c: New testcase.
+	* gcc.dg/ccmp-s-eq-1.c: New testcase.
+	* gcc.dg/ccmp-s-le-1.c: New testcase.
+	* gcc.dg/ccmp-s-lt-1.c: New testcase.
+	* gcc.dg/ccmp-s-ge-1.c: New testcase.
+	* gcc.dg/ccmp-s-gt-1.c: New testcase.
+	* gcc.dg/ccmp-w-ne-1.c: New testcase.
+	* gcc.dg/ccmp-w-eq-1.c: New testcase.
+	* gcc.dg/ccmp-w-le-1.c: New testcase.
+	* gcc.dg/ccmp-w-lt-1.c: New testcase.
+	* gcc.dg/ccmp-w-ge-1.c: New testcase.
+	* gcc.dg/ccmp-w-gt-1.c: New testcase.
+	* gcc.dg/ccmp-l-ne-1.c: New testcase.
+	* gcc.dg/ccmp-l-eq-1.c: New testcase.
+	* gcc.dg/ccmp-l-le-1.c: New testcase.
+	* gcc.dg/ccmp-l-lt-1.c: New testcase.
+	* gcc.dg/ccmp-l-ge-1.c: New testcase.
+	* gcc.dg/ccmp-l-gt-1.c: New testcase.
+	* gcc.dg/ccmp-us-ne-1.c: New testcase.
+	* gcc.dg/ccmp-us-eq-1.c: New testcase.
+	* gcc.dg/ccmp-us-le-1.c: New testcase.
+	* gcc.dg/ccmp-us-lt-1.c: New testcase.
+	* gcc.dg/ccmp-us-ge-1.c: New testcase.
+	* gcc.dg/ccmp-us-gt-1.c: New testcase.
+	* gcc.dg/ccmp-uw-ne-1.c: New testcase.
+	* gcc.dg/ccmp-uw-eq-1.c: New testcase.
+	* gcc.dg/ccmp-uw-le-1.c: New testcase.
+	* gcc.dg/ccmp-uw-lt-1.c: New testcase.
+	* gcc.dg/ccmp-uw-ge-1.c: New testcase.
+	* gcc.dg/ccmp-uw-gt-1.c: New testcase.
+	* gcc.dg/ccmn-w-eq.c: New testcase.
+	* gcc.dg/ccmn-w-eq-1.c: New testcase.
+	* gcc.target/aarch64/ccmn-assember.c: New testcase.
+	* gcc.target/aarch64/ccmp-assember.c: New testcase.
+
 2014-02-21  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
 
 	* gcc.target/aarch64/ldp_stp.c: New testcase.
