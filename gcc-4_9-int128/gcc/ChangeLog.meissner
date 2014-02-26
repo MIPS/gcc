@@ -1,3 +1,18 @@
+2014-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Delete debug
+	tracing for V2DI.
+	(rs6000_init_hard_regno_mode_ok): Fix inadvertent typo.
+	(const_vector_elt_as_int): Restore original code.
+	(reg_offset_addressing_ok_p): Remove code that restricted TImode
+	from using reg+offset addressing if -mvsx-timode.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_emit_move): Likewise.
+
+	* configure/rs6000/vsx.md (vsx_movti_ppc64): Drop PTImode
+	support.  Rename back to vsx_movti_ppc64.
+
 2014-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_move_128bit_ok_p): Add

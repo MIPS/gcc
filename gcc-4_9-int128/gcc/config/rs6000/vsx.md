@@ -584,10 +584,10 @@
 
 ;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
 ;; use of TImode is for unions.
-(define_insn "*mov<mode>_ppc64"
-  [(set (match_operand:TI2 0 "nonimmediate_operand" "=wQ,Y, r,r,r,r,wt,wt, Z,*wt")
-	(match_operand:TI2 1 "input_operand"          "r,r,wQ,Y,r,n,wt, Z,wt,  j"))]
-  "(TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
+(define_insn "*movti_ppc64"
+  [(set (match_operand:TI 0 "nonimmediate_operand" "=wQ,Y, r,r,r,r,wt,wt,Z,*wt")
+	(match_operand:TI 1 "input_operand"          "r,r,wQ,Y,r,n,wt, Z,wt, j"))]
+  "(TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
    && rs6000_move_128bit_ok_p (operands))"
 {
   return rs6000_output_move_128bit (operands);
