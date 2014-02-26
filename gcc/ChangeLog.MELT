@@ -1,6 +1,17 @@
 
 2014-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-tree.melt: Improve comment.
+
+	* melt/xtramelt-ana-gimple.melt: Handle use-def walking
+	differently for GCC 4.8 & 4.9.
+	(melt_4dot8_walk_hook_use_def_wrapper): New internal C++ wrapper.
+	(melt_4dot8_walk_use_def_hook): New hook.
+	(melt_walk_use_def_chains): New function, incomplete for the 4.9
+	version of GCC.
+
+2014-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{temporarily removing meltgc_walk_use_def_chain; should become a
 	hook...}
 	* melt-runtime.h (meltgc_walk_use_def_chain): Remove declaration.

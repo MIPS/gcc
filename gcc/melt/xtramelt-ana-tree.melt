@@ -8,7 +8,7 @@
                 and Pierre Vittet  <piervit@pvittet.com>
                 and Romain Geissler  <romain.geissler@gmail.com>
 
-    This file xtramelt-ana-tree.{melt,c} is part of GCC.
+    This file xtramelt-ana-tree.{melt,cc} is part of GCC.
 
     GCC is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -1581,6 +1581,7 @@ pointer type node.}#
    $TRVAL = (melt_ptr_t) NULL;
    }#
   )
+
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

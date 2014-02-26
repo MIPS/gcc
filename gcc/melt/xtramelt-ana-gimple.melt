@@ -2600,6 +2600,146 @@ $TREECLOS, TRUE) }#)
 (register_diag_gimple_seq diag_gimpleseq)
 
 
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;; USE-DEF tree walking; handled differently in 4.8 & 4.9
+;;;
+
+
+
+(gccif "4.8."
+;;; GCC 4.8 has the walk_use_def_chains function
+       ;;
+       (cheader
+	#{ /* GCC 4.8 walk_use_def_hook utilities declaration */
+#define MELTWALKHOOKDATA_MAGIC 0x5833fae1 /*1479801569*/
+struct meltwalkhookdata_st {
+  unsigned mwh_magic; // always MELTWALKHOOKDATA_MAGIC
+  melt_ptr_t *mwh_hook_ad;
+  melt_ptr_t *mwh_wclos_ad;
+  melt_ptr_t *mwh_val_ad;
+  melt_ptr_t *mwh_visitedtree_ad;
+}; // end struct meltwalkhookdata_st
+MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
+        /* end GCC 4.8 walk_use_def_hook utilities */
+	}#)
+       ;;
+       (defhook melt_4dot8_walk_use_def_hook (:tree tr :gimple g :value wclos val trhash)
+	 ()
+	 :long
+	 (debug "melt_4dot8_walk_use_def_hook tr=" tr "\n* gimple=" g "\n* wclos=" debug_less wclos
+		"\n* val=" val "\n* trhash=" debug_less trhash)
+	 (assert_msg "melt_4dot8_walk_use_def_hook check wclos" (is_closure wclos) wclos)
+	 (assert_msg "melt_4dot8_walk_use_def_hook check trhash" (is_maptree trhash) trhash)
+	 (let ( (visited (maptree_get trhash tr))
+		)
+	   (if visited (return 0)))
+	 (maptree_put trhash tr :true)
+	 (let ( (res (wclos val tr g))
+		)
+	   (debug "melt_4dot8_walk_use_def_hook res=" res)
+	   (return (if res 1 0))
+	   )
+	 )				;end melt_4dot8_walk_use_def_hook 
+       ;;
+       (cimplement
+	#{
+	/* GCC 4.8 walk_use_def_hook utilities implementation */
+	bool melt_4dot8_walk_hook_use_def_wrapper(tree tr, gimple g, void *ad) {
+  	  struct meltwalkhookdata_st* mwad = (struct meltwalkhookdata_st*)ad;
+	  if (!mwad || mwad->mwh_magic != MELTWALKHOOKDATA_MAGIC)
+	    melt_fatal_error("corrupted meltwalkhookdata_st @%p", ad);
+	  return melthook_MELT_4DOT8_WALK_USE_DEF_HOOK (*(mwad->mwh_hook_ad),
+							tr, g,
+							*(mwad->mwh_wclos_ad),
+							*(mwad->mwh_val_ad),
+							*(mwad->mwh_visitedtree_ad)
+							);
+	}
+        /* end GCC 4.8 walk_use_def_hook utilities implementation */
+	}#)
+       ;;
+       
+       (defun melt_walk_use_def_chains (:value clos val :tree trvar)
+	 :doc #{Walk in an unspecified order the use-def chain of SSA
+	 variable $TRVAR; apply the $CLOS closure to the $VAL value and to the
+	 current :tree and :gimple. Stop walking if the closure gives null.}#
+	 (debug "melt_walk_use_def_chains clos=" clos "\n..val=" val "\n..trvar=" trvar)
+	 (match
+	  trvar
+	  (?(tree_simple_ssa_name ?_ ?_)
+	    (void))
+	  (?_
+	    (debug "melt_walk_use_def_chains not-ssa trvar=" trvar)
+	    (return))
+	  )
+	 (if (is_closure clos)
+	     (let ( (trmap (make_maptree discr_map_trees 43))
+		    (whook walk_use_def_hook)
+		    )
+	       (code_chunk
+		walkusedef_chk
+		#{ /* melt_walk_use_def_chains $WALKUSEDEF_CHK start */
+		struct meltwalkhookdata_st mwhdata_$WALKUSEDEF_CHK;
+		memset (&mwhdata_$WALKUSEDEF_CHK, 0, sizeof(struct meltwalkhookdata_st ));
+		mwhdata_$WALKUSEDEF_CHK.mwh_hook_ad = (& $WHOOK);
+		mwhdata_$WALKUSEDEF_CHK.mwh_wclos_ad = (& $CLOS);
+		mwhdata_$WALKUSEDEF_CHK.mwh_val_ad = (& $VAL);
+		mwhdata_$WALKUSEDEF_CHK.mwh_visitedtree_ad = (& $TRMAP);
+		mwhdata_$WALKUSEDEF_CHK.mwh_magic = MELTWALKHOOKDATA_MAGIC;
+		walk_use_def_chains ($TRVAR, melt_4dot8_walk_hook_use_def_wrapper,
+				     (void*)&mwhdata_$WALKUSEDEF_CHK,
+				     true);	     
+		/* melt_walk_use_def_chains $WALKUSEDEF_CHK end */
+		}#
+		)
+	       )
+	   )
+	 )
+       ) ;; end defun melt_walk_use_def_chains 
+					;end GCC 4.8 walk use def
+
+(gccif "4.9."
+       ;;; GCC 4.9 don't the walk_use_def_chains function but has the
+       ;;; FOREACH_SSA_TREE* macros
+       (defun melt_walk_use_def_chains (:value clos val :tree trvar)
+	 :doc #{Walk in an unspecified order the use-def chain of SSA
+	 variable $TRVAR; apply the $CLOS closure to the $VAL value and to the
+	 current :tree and :gimple. Stop walking if the closure gives null.}#
+	 (debug "melt_walk_use_def_chains clos=" clos "\n..val=" val "\n..trvar=" trvar)
+	 (match
+	  trvar
+	  (?(tree_simple_ssa_name ?_ ?_)
+	    (void))
+	  (?_
+	    (debug "melt_walk_use_def_chains not-ssa trvar=" trvar)
+	    (return))
+	  )
+	 (if (is_closure clos)
+	     (let ( (trmap (make_maptree discr_map_trees 43))
+		    )
+	       (letrec ( (internalwalker
+			  (lambda (val :tree tr)
+			    (debug "melt_walk_use_def_chains internalwalker val=" val "\n tr=" tr)
+			    (if (maptree_get trmap tr)
+				(return))
+			    (maptree_put trmap tr :true)
+			    (assert_msg "@$@incomplete internalwalker" ())
+			    (code_chunk
+			     walkeruse_chk
+			     #{ /* melt_walk_use_def_chains $WALKERUSE_CHK start */
+			     /* melt_walk_use_def_chains $WALKERUSE_CHK end */
+			     }#)
+			    )
+			  )
+			 )
+		 (debug "melt_walk_use_def_chains trmap=" trmap)
+		 ))
+	   )
+	 )				;end melt_walk_use_def_chains
+       )				;end GCC 4.9 walk use def
+
+  
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 (export_values
  ;; alphanumerical order
@@ -2749,6 +2889,7 @@ $TREECLOS, TRUE) }#)
  reveach_in_gimpleseq
  walk_gimple_seq
  walk_gimple_seq_unique_tree
+ melt_walk_use_def_chains
  warning_at_gimple
  warning_at_gimple_strbuf
  )
