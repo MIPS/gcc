@@ -91,7 +91,7 @@ extern rtx expand_widen_pattern_expr (sepops ops, rtx op0, rtx op1, rtx wide_op,
 extern rtx expand_ternary_op (enum machine_mode mode, optab ternary_optab,
 			      rtx op0, rtx op1, rtx op2, rtx target,
 			      int unsignedp);
-
+extern enum rtx_code get_rtx_code (enum tree_code tcode, bool unsignedp);
 /* Expand a binary operation given optab and rtx operands.  */
 extern rtx expand_binop (enum machine_mode, optab, rtx, rtx, rtx, int,
 			 enum optab_methods);
@@ -555,5 +555,10 @@ extern void gen_satfractuns_conv_libfunc (convert_optab, const char *,
 					  enum machine_mode,
 					  enum machine_mode);
 extern void init_tree_optimization_optabs (tree);
+
+extern rtx emit_cstore (rtx target, enum insn_code icode, enum rtx_code code,
+			enum machine_mode mode, enum machine_mode compare_mode,
+			int unsignedp, rtx x, rtx y, int normalizep,
+			enum machine_mode target_mode);
 
 #endif /* GCC_OPTABS_H */

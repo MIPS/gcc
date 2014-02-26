@@ -5160,7 +5160,7 @@ expand_and (enum machine_mode mode, rtx op0, rtx op1, rtx target)
 }
 
 /* Helper function for emit_store_flag.  */
-static rtx
+rtx
 emit_cstore (rtx target, enum insn_code icode, enum rtx_code code,
 	     enum machine_mode mode, enum machine_mode compare_mode,
 	     int unsignedp, rtx x, rtx y, int normalizep,

@@ -1,3 +1,28 @@
+2014-02-24  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
+
+	* cfgexpand.c (expand_gimple_cond): Check ccmp support.
+	* doc/md.texi (ccmp): New index.
+	* doc/tm.texi (TARGET_SELECT_CCMP_CMP_ORDER, TARGET_GEN_CCMP_FIRST,
+	TARGET_GEN_CCMP_NEXT): New hooks.
+	* doc/tm.texi (TARGET_SELECT_CCMP_CMP_ORDER, TARGET_GEN_CCMP_FIRST,
+	TARGET_GEN_CCMP_NEXT): New hooks.
+	* doc/tm.texi.in (TARGET_SELECT_CCMP_CMP_ORDER, TARGET_GEN_CCMP_FIRST,
+	TARGET_GEN_CCMP_NEXT): New hooks.
+	* expmed.c (emit_cstore): Make it global.
+	* expr.c: Include tree-phinodes.h and ssa-iterators.h.
+	(ccmp_candidate_p, used_in_cond_stmt_p, check_clobber_cc, clobber_cc_p,
+	gen_ccmp_next, expand_ccmp_expr_1, expand_ccmp_expr): New functions.
+	(expand_expr_real_1): Handle conditional compare.
+	* optabs.c (get_rtx_code): Make it global and handle BIT_AND_EXPR and
+	BIT_IOR_EXPR.
+	* optabs.h (get_rtx_code, emit_cstore): New prototypes.
+	* recog.c (ccmp_insn_p): New function.
+	(simplify_while_replacing): Do not swap ccmp insn.
+	* target.def (select_ccmp_cmp_order, gen_ccmp_first, gen_ccmp_next):
+	Define hooks.
+	* targhooks.c (default_select_ccmp_cmp_order): New function.
+	* targhooks.h (default_select_ccmp_cmp_order): New prototypes.
+
 2014-02-18  Eric Botcazou  <ebotcazou@adacore.com>
 
 	PR tree-optimization/60174

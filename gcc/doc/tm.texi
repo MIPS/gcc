@@ -11180,6 +11180,32 @@ This target hook is required only when the target has several different
 modes and they have different conditional execution capability, such as ARM.
 @end deftypefn
 
+@deftypefn {Target Hook} int TARGET_SELECT_CCMP_CMP_ORDER (int @var{code1}, int @var{code2})
+For some target (like ARM), the order of two compares is sensitive for
+conditional compare.  cmp0-cmp1 might be an invalid combination.  But when
+swapping the order, cmp1-cmp0 is valid.  The function will return
+   1: Keep current order.
+  -1: Swap the two compares.
+   0: Invalid combination.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_FIRST (int @var{code}, rtx @var{op0}, rtx @var{op1})
+This function emits a comparison insn for the first of a sequence of
+ conditional comparisions.  It returns a comparison expression appropriate
+ for passing to @code{gen_ccmp_next} or to @code{cbranch_optab}.
+ @code{unsignedp} is used when converting @code{op0} and @code{op1}'s mode.
+@end deftypefn
+
+@deftypefn {Target Hook} rtx TARGET_GEN_CCMP_NEXT (rtx @var{prev}, int @var{cmp_code}, rtx @var{op0}, rtx @var{op1}, int @var{bit_code})
+This function emits a conditional comparison within a sequence of
+ conditional comparisons.  The @code{prev} expression is the result of a
+ prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It may return
+ @code{NULL} if the combination of @code{prev} and this comparison is
+ not supported, otherwise the result must be appropriate for passing to
+ @code{gen_ccmp_next} or @code{cbranch_optab}.  @code{bit_code}
+ is AND or IOR, which is the op on the two compares.
+@end deftypefn
+
 @deftypefn {Target Hook} unsigned TARGET_LOOP_UNROLL_ADJUST (unsigned @var{nunroll}, struct loop *@var{loop})
 This target hook returns a new value for the number of times @var{loop}
 should be unrolled. The parameter @var{nunroll} is the number of times

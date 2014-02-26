@@ -2334,6 +2334,38 @@ modes and they have different conditional execution capability, such as ARM.",
  bool, (void),
  default_have_conditional_execution)
 
+DEFHOOK
+(select_ccmp_cmp_order,
+ "For some target (like ARM), the order of two compares is sensitive for\n\
+conditional compare.  cmp0-cmp1 might be an invalid combination.  But when\n\
+swapping the order, cmp1-cmp0 is valid.  The function will return\n\
+   1: Keep current order.\n\
+  -1: Swap the two compares.\n\
+   0: Invalid combination.",
+ int, (int code1, int code2),
+ default_select_ccmp_cmp_order)
+
+DEFHOOK
+(gen_ccmp_first,
+ "This function emits a comparison insn for the first of a sequence of\n\
+ conditional comparisions.  It returns a comparison expression appropriate\n\
+ for passing to @code{gen_ccmp_next} or to @code{cbranch_optab}.\n\
+ @code{unsignedp} is used when converting @code{op0} and @code{op1}'s mode.",
+ rtx, (int code, rtx op0, rtx op1),
+ NULL)
+
+DEFHOOK
+(gen_ccmp_next,
+ "This function emits a conditional comparison within a sequence of\n\
+ conditional comparisons.  The @code{prev} expression is the result of a\n\
+ prior call to @code{gen_ccmp_first} or @code{gen_ccmp_next}.  It may return\n\
+ @code{NULL} if the combination of @code{prev} and this comparison is\n\
+ not supported, otherwise the result must be appropriate for passing to\n\
+ @code{gen_ccmp_next} or @code{cbranch_optab}.  @code{bit_code}\n\
+ is AND or IOR, which is the op on the two compares.",
+ rtx, (rtx prev, int cmp_code, rtx op0, rtx op1, int bit_code),
+ NULL)
+
 /* Return a new value for loop unroll size.  */
 DEFHOOK
 (loop_unroll_adjust,

@@ -6206,6 +6206,42 @@ A typical @code{ctrap} pattern looks like
   "@dots{}")
 @end smallexample
 
+@cindex @code{ccmp} instruction pattern
+@item @samp{ccmp}
+Conditional compare instruction.  Operand 2 and 5 are RTLs which perform
+two comparisons.  Operand 1 is AND or IOR, which operates on the result of
+Operand 2 and 5.  Operand 0 is the result of operand 1.
+It uses recursive method to support more than two compares.  e.g.
+
+  CC0 = CMP (a, b);
+  CC1 = CCMP (NE (CC0, 0), CMP (e, f));
+  ...
+  CCn = CCMP (NE (CCn-1, 0), CMP (...));
+
+Two target hooks are used to generate conditional compares.  GEN_CCMP_FISRT
+is used to generate the first CMP.  And GEN_CCMP_NEXT is used to generate the
+following CCMPs.  Operand 1 is AND or IOR.  Operand 3 is the result of
+GEN_CCMP_FISRT or a previous GEN_CCMP_NEXT.  Operand 2 is NE.
+Operand 4, 5 and 6 is another compare expression.
+
+A typical CCMP pattern looks like
+
+@smallexample
+(define_insn "*ccmp_and_ior"
+  [(set (match_operand 6 "dominant_cc_register" "")
+        (compare
+         (match_operator 1
+          (match_operator 2 "comparison_operator"
+           [(match_operand 3 "dominant_cc_register")
+            (const_int 0)])
+          (match_operator 4 "comparison_operator"
+           [(match_operand 5 "register_operand")
+            (match_operand 6 "compare_operand"]))
+         (const_int 0)))]
+  ""
+  "@dots{}")
+@end smallexample
+
 @cindex @code{prefetch} instruction pattern
 @item @samp{prefetch}
 

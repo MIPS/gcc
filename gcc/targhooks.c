@@ -76,6 +76,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssanames.h"
 #include "insn-codes.h"
 
+/* Default return 1 to keep current order.  */
+int
+default_select_ccmp_cmp_order (int, int)
+{
+  return 1;
+}
 
 bool
 default_legitimate_address_p (enum machine_mode mode ATTRIBUTE_UNUSED,
