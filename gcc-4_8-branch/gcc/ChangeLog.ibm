@@ -1,3 +1,11 @@
+2014-02-26  Alan Modra  <amodra@gmail.com>
+
+	Apply mainline r207798
+	PR target/58675
+	PR target/57935
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_inner): Use
+	find_replacement on parts of insn rtl that might be reloaded.
+
 2014-02-25  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (*vector_unordered<mode>): Change split
