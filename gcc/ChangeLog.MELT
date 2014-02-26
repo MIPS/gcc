@@ -1,6 +1,10 @@
 
 2014-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/xtramelt-ana-tree.melt: Improve comment.
 
 	* melt/xtramelt-ana-gimple.melt: Handle use-def walking
