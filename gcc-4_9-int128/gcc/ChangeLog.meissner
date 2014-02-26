@@ -1,3 +1,26 @@
+2014-02-25  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_move_128bit_ok_p): Add
+	declaration.
+	(rs6000_split_128bit_ok_p): Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_move_128bit_ok_p): New functions
+	to specify whether a 128-bit move is valid, and whether a 128-bit
+	move needs to be split.
+	(rs6000_split_128bit_ok_p): Likewise.
+
+	* config/rs6000/vsx.md (vsx_movti_64bit): Rework pattern, cloning
+	it from the non-VSX version, and adding specific constraints for
+	TImode in VSX registers.
+
+	* config/rs6000/rs6000.md (mov<mode>_ppc64, TI/PTImode): Use
+	rs6000_move_128bit_ok_p to access whether a TI/PTImode move is
+	valid.
+	(movti/movpti splitters): Use rs6000_split_128bit_ok_p to
+	determine if it is ok to split a 128-bit move.  Remove direct_move
+	test, since 128-bit direct moves need an extra register, and won't
+	use this splitter.
+
 2014-02-24  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/vector.md (VEC_L): Undo 2014-02-18 changes on

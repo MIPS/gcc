@@ -583,26 +583,23 @@
    (set_attr "length" "4,4,4,4,4,4,12,12,12,12,16,4,4,*,16,4,4")])
 
 ;; Unlike other VSX moves, allow the GPRs even for reloading, since a normal
-;; use of TImode is for unions.  However for plain data movement, slightly
-;; favor the vector loads
-(define_insn "*vsx_movti_64bit"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v,v,wZ,wQ,&r,Y,r,r,?r")
-	(match_operand:TI 1 "input_operand" "wa,Z,wa,O,W,wZ,v,r,wQ,r,Y,r,n"))]
-  "TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
-   && (register_operand (operands[0], TImode) 
-       || register_operand (operands[1], TImode))"
+;; use of TImode is for unions.
+(define_insn "*mov<mode>_ppc64"
+  [(set (match_operand:TI2 0 "nonimmediate_operand" "=wQ,Y, r,r,r,r,wt,wt, Z,*wt")
+	(match_operand:TI2 1 "input_operand"          "r,r,wQ,Y,r,n,wt, Z,wt,  j"))]
+  "(TARGET_POWERPC64 && VECTOR_MEM_VSX_P (<MODE>mode)
+   && rs6000_move_128bit_ok_p (operands))"
 {
   return rs6000_output_move_128bit (operands);
 }
-  [(set_attr "type" "vecstore,vecload,vecsimple,vecsimple,vecsimple,vecstore,vecload,store,load,store,load,*,*")
-   (set_attr "length" "4,4,4,4,16,4,4,8,8,8,8,8,8")])
+  [(set_attr "type" "store,store,load,load,*,*,vecsimple,vecload,vecstore,vecsimple")
+   (set_attr "length" "8,8,8,8,8,16,4,4,4,4")])
 
 (define_insn "*vsx_movti_32bit"
   [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,wa,wa,wa,v, v,wZ,Q,Y,????r,????r,????r,r")
 	(match_operand:TI 1 "input_operand"        "wa, Z,wa, O,W,wZ, v,r,r,    Q,    Y,    r,n"))]
   "! TARGET_POWERPC64 && VECTOR_MEM_VSX_P (TImode)
-   && (register_operand (operands[0], TImode)
-       || register_operand (operands[1], TImode))"
+   && rs6000_move_128bit_ok_p (operands)"
 {
   switch (which_alternative)
     {
