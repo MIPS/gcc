@@ -1,5 +1,19 @@
 2014-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000.c (rs6000_option_override_internal): Make
+	-mvsx-timode 64-bit only.
+	(reg_offset_addressing_ok_p): Undo previoius changes allowing
+	reg+offset addressing for TImode if TImode is allowed in VSX
+	registers.
+	(rs6000_legitimize_reload_address): Likewise.
+	(rs6000_legitimate_address_p): Likewise.
+	(rs6000_emit_move): Likewise.
+
+	* config/rs6000/vsx.md (vsx_movti_32bit): Delete, no longer used.
+	* config/rs6000/altivec.md (altivec_movti): Likewise.
+
+2014-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
 	* config/rs6000/rs6000.c (rs6000_debug_reg_global): Delete debug
 	tracing for V2TI.
 	(rs6000_init_hard_regno_mode_ok): Fix inadvertent typo.

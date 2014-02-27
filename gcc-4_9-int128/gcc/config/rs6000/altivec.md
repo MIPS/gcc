@@ -212,31 +212,6 @@
 }
   [(set_attr "type" "vecstore,vecload,vecsimple,store,load,*,vecsimple,*")])
 
-;; Unlike other altivec moves, allow the GPRs, since a normal use of TImode
-;; is for unions.  However for plain data movement, slightly favor the vector
-;; loads
-(define_insn "*altivec_movti"
-  [(set (match_operand:TI 0 "nonimmediate_operand" "=Z,v,v,?Y,?r,?r,v,v")
-	(match_operand:TI 1 "input_operand" "v,Z,v,r,Y,r,j,W"))]
-  "VECTOR_MEM_ALTIVEC_P (TImode)
-   && (register_operand (operands[0], TImode) 
-       || register_operand (operands[1], TImode))"
-{
-  switch (which_alternative)
-    {
-    case 0: return "stvx %1,%y0";
-    case 1: return "lvx %0,%y1";
-    case 2: return "vor %0,%1,%1";
-    case 3: return "#";
-    case 4: return "#";
-    case 5: return "#";
-    case 6: return "vxor %0,%0,%0";
-    case 7: return output_vec_const_move (operands);
-    default: gcc_unreachable ();
-    }
-}
-  [(set_attr "type" "vecstore,vecload,vecsimple,store,load,*,vecsimple,*")])
-
 ;; Load up a vector with the most significant bit set by loading up -1 and
 ;; doing a shift left
 (define_split

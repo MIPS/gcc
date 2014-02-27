@@ -3348,11 +3348,26 @@ rs6000_option_override_internal (bool global_init_p)
       rs6000_isa_flags &= ~OPTION_MASK_P8_VECTOR;
     }
 
-  if (TARGET_VSX_TIMODE && !TARGET_VSX)
+  if (TARGET_VSX_TIMODE)
     {
-      if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
-	error ("-mvsx-timode requires -mvsx");
-      rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+      if (!TARGET_VSX)
+	{
+	  if (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE)
+	    error ("-mvsx-timode requires -mvsx");
+	  rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+	}
+
+      /* Turn off -mvsx-timode in 32-bit silently.  It is desirable to support
+	 TImode in VSX registers to use the 128-bit arithmetic added in ISA
+	 2.07.  That support only works for 64-bit, since the __int128_t type
+	 is not created for 32-bit.  */
+      else if (!TARGET_POWERPC64)
+	{
+	  if ((rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) != 0)
+	    warning (0, N_("-mvsx-timode requires 64-bit mode"));
+
+	  rs6000_isa_flags &= ~OPTION_MASK_VSX_TIMODE;
+	}
     }
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
@@ -6076,7 +6091,11 @@ reg_offset_addressing_ok_p (enum machine_mode mode)
     case V4SImode:
     case V2DFmode:
     case V2DImode:
-      /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  */
+    case TImode:
+      /* AltiVec/VSX vector modes.  Only reg+reg addressing is valid.  While
+	 TImode is not a vector mode, if we want to use the VSX registers to
+	 move it around, we need to restrict ourselves to reg+reg
+	 addressing.  */
       if (VECTOR_MEM_ALTIVEC_OR_VSX_P (mode))
 	return false;
       break;
@@ -7340,7 +7359,7 @@ rs6000_legitimize_reload_address (rtx x, enum machine_mode mode,
 	 mem is sufficiently aligned.  */
       && mode != TFmode
       && mode != TDmode
-      && mode != TImode
+      && (mode != TImode || !TARGET_VSX_TIMODE)
       && mode != PTImode
       && (mode != DImode || TARGET_POWERPC64)
       && ((mode != DFmode && mode != DDmode) || TARGET_POWERPC64
@@ -7475,6 +7494,13 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
       && legitimate_constant_pool_address_p (x, mode,
 					     reg_ok_strict || lra_in_progress))
     return 1;
+  /* For TImode, if we have load/store quad and TImode in VSX registers, only
+     allow register indirect addresses.  This will allow the values to go in
+     either GPRs or VSX registers without reloading.  The vector types would
+     tend to go into VSX registers, so we allow REG+REG, while TImode seems
+     somewhat split, in that some uses are GPR based, and some VSX based.  */
+  if (mode == TImode && TARGET_QUAD_MEMORY && TARGET_VSX_TIMODE)
+    return 0;
   /* If not REG_OK_STRICT (before reload) let pass any stack offset.  */
   if (! reg_ok_strict
       && reg_offset_p
@@ -7493,7 +7519,7 @@ rs6000_legitimate_address_p (enum machine_mode mode, rtx x, bool reg_ok_strict)
 	  || (mode != DFmode && mode != DDmode)
 	  || (TARGET_E500_DOUBLE && mode != DDmode))
       && (TARGET_POWERPC64 || mode != DImode)
-      && mode != TImode
+      && (mode != TImode || VECTOR_MEM_VSX_P (TImode))
       && mode != PTImode
       && !avoiding_indexed_address_p (mode)
       && legitimate_indexed_address_p (x, reg_ok_strict))
@@ -8465,6 +8491,10 @@ rs6000_emit_move (rtx dest, rtx source, enum machine_mode mode)
       break;
 
     case TImode:
+      if (!VECTOR_MEM_VSX_P (TImode))
+	rs6000_eliminate_indexed_memrefs (operands);
+      break;
+
     case PTImode:
       rs6000_eliminate_indexed_memrefs (operands);
       break;
