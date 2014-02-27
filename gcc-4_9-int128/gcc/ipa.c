@@ -223,10 +223,10 @@ walk_polymorphic_call_targets (pointer_set_t *reachable_call_targets,
 		     edge->caller->order,
 		     target->name (), target->order);
 	  edge = cgraph_make_edge_direct (edge, target);
-	  if (!inline_summary_vec && edge->call_stmt)
-	    cgraph_redirect_edge_call_stmt_to_callee (edge);
-	  else
+	  if (inline_summary_vec)
 	    inline_update_overall_summary (node);
+	  else if (edge->call_stmt)
+	    cgraph_redirect_edge_call_stmt_to_callee (edge);
 	}
     }
 }
@@ -1027,7 +1027,10 @@ function_and_variable_visibility (bool whole_program)
 	        for (next = node->same_comdat_group;
 		     next != node;
 		     next = next->same_comdat_group)
+		{
 		  DECL_COMDAT_GROUP (next->decl) = NULL;
+		  DECL_WEAK (next->decl) = false;
+		}
 	      DECL_COMDAT_GROUP (node->decl) = NULL;
 	      symtab_dissolve_same_comdat_group_list (node);
 	    }

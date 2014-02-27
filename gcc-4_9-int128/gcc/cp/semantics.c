@@ -2630,7 +2630,8 @@ finish_fname (tree id)
   tree decl;
 
   decl = fname_decl (input_location, C_RID_CODE (id), id);
-  if (processing_template_decl && current_function_decl)
+  if (processing_template_decl && current_function_decl
+      && decl != error_mark_node)
     decl = DECL_NAME (decl);
   return decl;
 }
@@ -3976,25 +3977,7 @@ expand_or_defer_fn_1 (tree fn)
 	/* We've already made a decision as to how this function will
 	   be handled.  */;
       else if (!at_eof)
-	{
-	  DECL_EXTERNAL (fn) = 1;
-	  DECL_NOT_REALLY_EXTERN (fn) = 1;
-	  note_vague_linkage_fn (fn);
-	  /* A non-template inline function with external linkage will
-	     always be COMDAT.  As we must eventually determine the
-	     linkage of all functions, and as that causes writes to
-	     the data mapped in from the PCH file, it's advantageous
-	     to mark the functions at this point.  */
-	  if (!DECL_IMPLICIT_INSTANTIATION (fn))
-	    {
-	      /* This function must have external linkage, as
-		 otherwise DECL_INTERFACE_KNOWN would have been
-		 set.  */
-	      gcc_assert (TREE_PUBLIC (fn));
-	      comdat_linkage (fn);
-	      DECL_INTERFACE_KNOWN (fn) = 1;
-	    }
-	}
+	tentative_decl_linkage (fn);
       else
 	import_export_decl (fn);
 
