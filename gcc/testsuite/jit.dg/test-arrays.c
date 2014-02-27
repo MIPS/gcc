@@ -74,27 +74,40 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 				  1, &param_ah,
 				  0);
 
+  gcc_jit_block *initial = gcc_jit_function_new_block (func, "initial");
+  gcc_jit_block *loop_test = gcc_jit_function_new_block (func, "loop_test");
+  gcc_jit_block *loop_body = gcc_jit_function_new_block (func, "loop_body");
+  gcc_jit_block *final = gcc_jit_function_new_block (func, "final");
+
   /* "ah->m_before = 4.0f;" */
-  gcc_jit_function_add_assignment (
-    func, NULL,
+  gcc_jit_block_add_assignment (
+    initial, NULL,
     gcc_jit_rvalue_dereference_field (
       gcc_jit_param_as_rvalue (param_ah), NULL, field_m_before),
     gcc_jit_context_new_rvalue_from_int (ctxt, float_type, 4));
 
-  gcc_jit_function_add_comment (func, NULL,
-				"for i in 0 to (ARRAY_SIZE - 1):");
+  gcc_jit_block_add_comment (initial, NULL,
+			     "for i in 0 to (ARRAY_SIZE - 1):");
   gcc_jit_lvalue *i =
     gcc_jit_function_new_local (func, NULL, int_type, "i");
-  gcc_jit_loop *loop =
-    gcc_jit_function_new_loop_over_range (
-      func, NULL, i,
-      NULL,
-      gcc_jit_context_new_rvalue_from_int (ctxt, int_type, ARRAY_SIZE),
-      NULL);
+  gcc_jit_block_add_assignment (initial, NULL,
+      i,
+      gcc_jit_context_zero (ctxt, int_type));
 
-  gcc_jit_function_add_comment (func, NULL, "ah->m_ints[i] = (i * i);");
-  gcc_jit_function_add_assignment (
-    func, NULL,
+  gcc_jit_block_end_with_jump (initial, NULL, loop_test);
+
+  gcc_jit_block_end_with_conditional (loop_test, NULL,
+    gcc_jit_context_new_comparison (
+      ctxt, NULL,
+      GCC_JIT_COMPARISON_LT,
+      gcc_jit_lvalue_as_rvalue (i),
+      gcc_jit_context_new_rvalue_from_int (ctxt, int_type, ARRAY_SIZE)),
+    loop_body,
+    final);
+
+  gcc_jit_block_add_comment (loop_body, NULL, "ah->m_ints[i] = (i * i);");
+  gcc_jit_block_add_assignment (
+    loop_body, NULL,
     gcc_jit_context_new_array_access (
       ctxt, NULL,
       gcc_jit_lvalue_as_rvalue (gcc_jit_rvalue_dereference_field (
@@ -109,14 +122,22 @@ create_code (gcc_jit_context *ctxt, void *user_data)
       gcc_jit_lvalue_as_rvalue (i),
       gcc_jit_lvalue_as_rvalue (i)));
 
-  gcc_jit_loop_end (loop, NULL);
+  /* "i++" */
+  gcc_jit_block_add_assignment_op (
+    loop_body, NULL,
+    i,
+    GCC_JIT_BINARY_OP_PLUS,
+    gcc_jit_context_one (ctxt, int_type));
+
+  gcc_jit_block_end_with_jump (loop_body, NULL, loop_test);
 
  /* ah->m_after = 2.0f; */
-  gcc_jit_function_add_assignment (
-    func, NULL,
+  gcc_jit_block_add_assignment (
+    final, NULL,
     gcc_jit_rvalue_dereference_field (
       gcc_jit_param_as_rvalue (param_ah), NULL, field_m_after),
     gcc_jit_context_new_rvalue_from_int (ctxt, float_type, 2));
+  gcc_jit_block_end_with_void_return (final, NULL);
 
 }
 

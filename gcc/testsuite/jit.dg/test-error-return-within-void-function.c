@@ -30,9 +30,11 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                   "test_fn",
                                   0, NULL,
                                   0);
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
+
   /* "return 42;"  (i.e. non-void) */
-  gcc_jit_function_add_return (
-    test_fn, NULL,
+  gcc_jit_block_end_with_return (
+    block, NULL,
     gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 42));
 }
 
@@ -45,7 +47,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 
   /* Verify that the correct error message was emitted.  */
   CHECK_STRING_VALUE (gcc_jit_context_get_first_error (ctxt),
-		      "gcc_jit_function_add_return:"
+		      "gcc_jit_block_end_with_return:"
 		      " mismatching types: return of (int)42 (type: int)"
 		      " in function test_fn (return type: void)");
 }

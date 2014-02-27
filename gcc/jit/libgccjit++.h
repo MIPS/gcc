@@ -22,7 +22,7 @@ namespace gccjit
   class struct_;
   class param;
   class function;
-  class label;
+  class block;
   class rvalue;
   class lvalue;
 
@@ -290,12 +290,31 @@ namespace gccjit
 
     param get_param (int index);
 
-    label new_forward_label ();
-    label new_forward_label (const std::string &name);
+    block new_block ();
+    block new_block (const std::string &name);
 
     lvalue new_local (type type_,
 		      const std::string &name,
 		      location loc = location ());
+
+    /* A series of overloaded operator () with various numbers of arguments
+       for a very terse way of creating a call to this function.  The call
+       is created within the same context as the function itself, which may
+       not be what you want.  */
+    rvalue operator() (location loc = location ());
+    rvalue operator() (rvalue arg0,
+		       location loc = location ());
+    rvalue operator() (rvalue arg0, rvalue arg1,
+		       location loc = location ());
+  };
+
+  class block : public object
+  {
+  public:
+    block ();
+    block (gcc_jit_block *inner);
+
+    gcc_jit_block *get_inner_block () const;
 
     void add_eval (rvalue rvalue,
 		   location loc = location ());
@@ -308,28 +327,6 @@ namespace gccjit
 			    enum gcc_jit_binary_op op,
 			    rvalue rvalue,
 			    location loc = location ());
-
-    void add_comment (const std::string &text,
-		      location loc = location ());
-
-    void add_conditional (rvalue boolval,
-			  label on_true,
-			  label on_false,
-			  location loc = location ());
-
-    label add_label (const std::string &name,
-		     location loc = location ());
-    label add_label (location loc = location ());
-
-    void place_forward_label (label lab,
-			      location loc = location ());
-
-    void add_jump (label target,
-		   location loc = location ());
-
-    void add_return (rvalue rvalue,
-		     location loc = location ());
-    void add_return (location loc = location ());
 
     /* A way to add a function call to the body of a function being
        defined, with various numbers of args.  */
@@ -345,24 +342,21 @@ namespace gccjit
 		     rvalue arg0, rvalue arg1, rvalue arg2,
 		     location loc = location ());
 
-    /* A series of overloaded operator () with various numbers of arguments
-       for a very terse way of creating a call to this function.  The call
-       is created within the same context as the function itself, which may
-       not be what you want.  */
-    rvalue operator() (location loc = location ());
-    rvalue operator() (rvalue arg0,
-		       location loc = location ());
-    rvalue operator() (rvalue arg0, rvalue arg1,
-		       location loc = location ());
-  };
+    void add_comment (const std::string &text,
+		      location loc = location ());
 
-  class label : public object
-  {
-  public:
-    label ();
-    label (gcc_jit_label *inner);
+    void end_with_conditional (rvalue boolval,
+			       block on_true,
+			       block on_false,
+			       location loc = location ());
 
-    gcc_jit_label *get_inner_label () const;
+    void end_with_jump (block target,
+			location loc = location ());
+
+    void end_with_return (rvalue rvalue,
+			  location loc = location ());
+    void end_with_return (location loc = location ());
+
   };
 
   class rvalue : public object
@@ -1090,18 +1084,18 @@ function::get_param (int index)
 					    index));
 }
 
-inline label
-function::new_forward_label ()
+inline block
+function::new_block ()
 {
-  return label (gcc_jit_function_new_forward_label (get_inner_function (),
-						    NULL));
+  return block (gcc_jit_function_new_block (get_inner_function (),
+					    NULL));
 }
 
-inline label
-function::new_forward_label (const std::string &name)
+inline block
+function::new_block (const std::string &name)
 {
-  return label (gcc_jit_function_new_forward_label (get_inner_function (),
-						    name.c_str ()));
+  return block (gcc_jit_function_new_block (get_inner_function (),
+					    name.c_str ()));
 }
 
 inline lvalue
@@ -1116,141 +1110,115 @@ function::new_local (type type_,
 }
 
 inline void
-function::add_eval (rvalue rvalue,
-		    location loc)
+block::add_eval (rvalue rvalue,
+		 location loc)
 {
-  gcc_jit_function_add_eval (get_inner_function (),
-			     loc.get_inner_location (),
-			     rvalue.get_inner_rvalue ());
+  gcc_jit_block_add_eval (get_inner_block (),
+			  loc.get_inner_location (),
+			  rvalue.get_inner_rvalue ());
 }
 
 inline void
-function::add_assignment (lvalue lvalue,
+block::add_assignment (lvalue lvalue,
+		       rvalue rvalue,
+		       location loc)
+{
+  gcc_jit_block_add_assignment (get_inner_block (),
+				loc.get_inner_location (),
+				lvalue.get_inner_lvalue (),
+				rvalue.get_inner_rvalue ());
+}
+
+inline void
+block::add_assignment_op (lvalue lvalue,
+			  enum gcc_jit_binary_op op,
 			  rvalue rvalue,
 			  location loc)
 {
-  gcc_jit_function_add_assignment (get_inner_function (),
+  gcc_jit_block_add_assignment_op (get_inner_block (),
 				   loc.get_inner_location (),
 				   lvalue.get_inner_lvalue (),
+				   op,
 				   rvalue.get_inner_rvalue ());
 }
 
 inline void
-function::add_assignment_op (lvalue lvalue,
-			     enum gcc_jit_binary_op op,
-			     rvalue rvalue,
-			     location loc)
-{
-  gcc_jit_function_add_assignment_op (get_inner_function (),
-				      loc.get_inner_location (),
-				      lvalue.get_inner_lvalue (),
-				      op,
-				      rvalue.get_inner_rvalue ());
-}
-
-inline void
-function::add_comment (const std::string &text,
-		       location loc)
-{
-  gcc_jit_function_add_comment (get_inner_function (),
-				loc.get_inner_location (),
-				text.c_str ());
-}
-
-inline void
-function::add_conditional (rvalue boolval,
-			   label on_true,
-			   label on_false,
-			   location loc)
-{
-  gcc_jit_function_add_conditional (get_inner_function (),
-				    loc.get_inner_location (),
-				    boolval.get_inner_rvalue (),
-				    on_true.get_inner_label (),
-				    on_false.get_inner_label ());
-}
-
-inline label
-function::add_label (const std::string &name,
-		     location loc)
-{
-  return label (gcc_jit_function_add_label (get_inner_function (),
-					    loc.get_inner_location (),
-					    name.c_str ()));
-}
-
-inline label
-function::add_label (location loc)
-{
-  return label (gcc_jit_function_add_label (get_inner_function (),
-					    loc.get_inner_location (),
-					    NULL));
-}
-
-inline void
-function::place_forward_label (label lab,
-			       location loc)
-{
-  gcc_jit_function_place_forward_label (get_inner_function (),
-					loc.get_inner_location (),
-					lab.get_inner_label ());
-}
-
-inline void
-function::add_jump (label target,
+block::add_comment (const std::string &text,
 		    location loc)
 {
-  gcc_jit_function_add_jump (get_inner_function (),
+  gcc_jit_block_add_comment (get_inner_block (),
 			     loc.get_inner_location (),
-			     target.get_inner_label ());
+			     text.c_str ());
 }
 
 inline void
-function::add_return (rvalue rvalue,
+block::end_with_conditional (rvalue boolval,
+			     block on_true,
+			     block on_false,
+			     location loc)
+{
+  gcc_jit_block_end_with_conditional (get_inner_block (),
+				      loc.get_inner_location (),
+				      boolval.get_inner_rvalue (),
+				      on_true.get_inner_block (),
+				      on_false.get_inner_block ());
+}
+
+inline void
+block::end_with_jump (block target,
 		      location loc)
 {
-  gcc_jit_function_add_return (get_inner_function (),
+  gcc_jit_block_end_with_jump (get_inner_block (),
 			       loc.get_inner_location (),
-			       rvalue.get_inner_rvalue ());
+			       target.get_inner_block ());
 }
 
 inline void
-function::add_return (location loc)
+block::end_with_return (rvalue rvalue,
+			location loc)
 {
-  gcc_jit_function_add_void_return (get_inner_function (),
-				    loc.get_inner_location ());
+  gcc_jit_block_end_with_return (get_inner_block (),
+				 loc.get_inner_location (),
+				 rvalue.get_inner_rvalue ());
+}
+
+inline void
+block::end_with_return (location loc)
+{
+  gcc_jit_block_end_with_void_return (get_inner_block (),
+				      loc.get_inner_location ());
 }
 
 inline rvalue
-function::add_call (function other,
-		    location loc)
+block::add_call (function other,
+		 location loc)
 {
   rvalue c = get_context ().new_call (other, loc);
   add_eval (c);
   return c;
 }
 inline rvalue
-function::add_call (function other,
-		    rvalue arg0,
-		    location loc)
+block::add_call (function other,
+		 rvalue arg0,
+		 location loc)
 {
   rvalue c = get_context ().new_call (other, arg0, loc);
   add_eval (c);
   return c;
 }
 inline rvalue
-function::add_call (function other,
-		    rvalue arg0, rvalue arg1,
-		    location loc)
+block::add_call (function other,
+		 rvalue arg0, rvalue arg1,
+		 location loc)
 {
   rvalue c = get_context ().new_call (other, arg0, arg1, loc);
   add_eval (c);
   return c;
 }
 inline rvalue
-function::add_call (function other,
-		    rvalue arg0, rvalue arg1, rvalue arg2,
-		    location loc)
+block::add_call (function other,
+		 rvalue arg0, rvalue arg1, rvalue arg2,
+		 location loc)
 {
   rvalue c = get_context ().new_call (other, arg0, arg1, arg2, loc);
   add_eval (c);
@@ -1279,17 +1247,17 @@ function::operator() (rvalue arg0, rvalue arg1,
 				  loc);
 }
 
-// class label
-inline label::label () : object (NULL) {}
-inline label::label (gcc_jit_label *inner)
-  : object (gcc_jit_label_as_object (inner))
+// class block
+inline block::block () : object (NULL) {}
+inline block::block (gcc_jit_block *inner)
+  : object (gcc_jit_block_as_object (inner))
 {}
 
-inline gcc_jit_label *
-label::get_inner_label () const
+inline gcc_jit_block *
+block::get_inner_block () const
 {
   /* Manual downcast: */
-  return reinterpret_cast<gcc_jit_label *> (get_inner_object ());
+  return reinterpret_cast<gcc_jit_block *> (get_inner_object ());
 }
 
 //  class rvalue

@@ -60,13 +60,15 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_rvalue *arg =
     gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 42);
 
-  gcc_jit_function_add_eval (
-    test_fn, NULL,
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
+  gcc_jit_block_add_eval (
+    block, NULL,
     gcc_jit_context_new_call (ctxt,
                               NULL,
                               called_fn,
                               1, &arg));
   /* the above has the wrong type for argument 1.  */
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 void

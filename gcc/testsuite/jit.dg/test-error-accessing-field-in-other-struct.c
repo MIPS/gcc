@@ -60,11 +60,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                int_type,
                                "q");
   /* We don't actually need a gcc_jit_type for "struct bar" for the test.  */
-#if 0
   gcc_jit_field *bar_fields[] = {p, q};
-  gcc_jit_struct *struct_bar =
-    gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 2, bar_fields);
-#endif
+  (void)gcc_jit_context_new_struct_type (ctxt, NULL, "foo", 2, bar_fields);
 
   gcc_jit_type *foo_ptr =
     gcc_jit_type_get_pointer (gcc_jit_struct_as_type (struct_foo));
@@ -95,10 +92,13 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	NULL,
 	q));
 
-  gcc_jit_function_add_assignment (
-    test_fn,
+  gcc_jit_block *block =
+    gcc_jit_function_new_block (test_fn, NULL);
+  gcc_jit_block_add_assignment (
+    block,
     NULL,
     lvalue, rvalue);
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 void

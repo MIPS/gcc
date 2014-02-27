@@ -36,11 +36,14 @@ create_code (gcc_jit_context *ctxt, void *user_data)
     gcc_jit_function_new_local (
       test_fn, NULL, int_type, "i");
 
-  gcc_jit_function_add_assignment (
-    test_fn, NULL,
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
+
+  gcc_jit_block_add_assignment (
+    block, NULL,
     i, /* of type int */
     gcc_jit_context_new_string_literal (
       ctxt, "this is not an int"));
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 void
@@ -50,7 +53,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 
   /* Verify that the correct error message was emitted.  */
   CHECK_STRING_VALUE (gcc_jit_context_get_first_error (ctxt),
-		      "gcc_jit_function_add_assignment:"
+		      "gcc_jit_block_add_assignment:"
 		      " mismatching types:"
 		      " assignment to i (type: int)"
 		      " from \"this is not an int\" (type: const char *)");

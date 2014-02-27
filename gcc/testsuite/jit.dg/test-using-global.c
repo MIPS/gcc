@@ -40,12 +40,14 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 				  "test_using_global",
 				  0, NULL,
 				  0);
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
 
-  gcc_jit_function_add_assignment_op (
-    test_fn, NULL,
+  gcc_jit_block_add_assignment_op (
+    block, NULL,
     gcc_jit_context_new_global (ctxt, NULL, int_type, "the_global"),
     GCC_JIT_BINARY_OP_PLUS,
     gcc_jit_context_one (ctxt, int_type));
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 int the_global;

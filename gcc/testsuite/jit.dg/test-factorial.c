@@ -36,16 +36,16 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 				  "my_factorial",
 				  1, params, 0);
 
- /* Create forward labels: */
-  gcc_jit_label *label_true =
-    gcc_jit_function_new_forward_label (func, NULL);
-
-  gcc_jit_label *label_false =
-    gcc_jit_function_new_forward_label (func, NULL);
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (func, "initial");
+  gcc_jit_block *on_true =
+    gcc_jit_function_new_block (func, "on_true");
+  gcc_jit_block *on_false =
+    gcc_jit_function_new_block (func, "on_false");
 
  /* if (x < 2) */
-  gcc_jit_function_add_conditional (
-    func, NULL,
+  gcc_jit_block_end_with_conditional (
+    initial, NULL,
     gcc_jit_context_new_comparison (
       ctxt, NULL,
       GCC_JIT_COMPARISON_LT,
@@ -54,19 +54,17 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	ctxt,
 	the_type,
 	2)),
-    label_true,
-    label_false);
+    on_true,
+    on_false);
 
   /* true branch: */
-  gcc_jit_function_place_forward_label (func, NULL, label_true);
   /* return x */
-  gcc_jit_function_add_return (
-    func,
+  gcc_jit_block_end_with_return (
+    on_true,
     NULL,
     gcc_jit_param_as_rvalue (x));
 
   /* false branch: */
-  gcc_jit_function_place_forward_label (func, NULL, label_false);
   gcc_jit_rvalue *x_minus_1 =
     gcc_jit_context_new_binary_op (
       ctxt, NULL,
@@ -76,8 +74,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	ctxt,
 	the_type,
 	1));
-  gcc_jit_function_add_return (
-    func,
+  gcc_jit_block_end_with_return (
+    on_false,
     NULL,
     gcc_jit_context_new_binary_op (
       ctxt, NULL,

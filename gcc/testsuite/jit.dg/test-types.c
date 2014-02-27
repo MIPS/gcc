@@ -182,11 +182,12 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 				  "test_types",
 				  1, &param_z,
 				  0);
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
 
   /* Write to the various fields of param "z".	*/
 #define ASSIGN(FIELD, EXPR) \
-  gcc_jit_function_add_assignment (		\
-    test_fn, NULL,				\
+  gcc_jit_block_add_assignment (		\
+    block, NULL,				\
     gcc_jit_rvalue_dereference_field (		\
       gcc_jit_param_as_rvalue (param_z),	\
       NULL,					\
@@ -305,6 +306,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
       stderr))
 
 #undef ASSIGN
+
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 void

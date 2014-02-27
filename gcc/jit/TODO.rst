@@ -63,8 +63,8 @@ Initial Release
   though would:
 
     extern void
-    gcc_jit_function_set_likelihood (gcc_jit_function *func,
-                                     int hotness);
+    gcc_jit_block_set_likelihood (gcc_jit_block *block,
+                                  int hotness);
 
   be better?  (for expressing how hot the current location is)
 
@@ -112,9 +112,12 @@ Initial Release
 
     * gcc_jit_function_new_local: type must not be void
 
-    * gcc_jit_function_add_assignment_op: check the types
+    * gcc_jit_block_add_assignment_op: check the types
 
-    * gcc_jit_loop_end: verify that loops are validly nested?
+* Currently each function has a single stmt_list, which is built in
+  postprocessing by walking the list of blocks.  Presumably we could
+  have each block have its own stmt_list, avoiding the need for this
+  traversal, and having the block structure show up within tree dumps.
 
 Bugs
 ====
@@ -142,8 +145,6 @@ Test suite
 * add a multi-threaded test (perhaps based on test-combination.c, with a
   thread pool working through multiple instances of the various underlying
   tests, each thread having a separate gcc_jit_context)
-
-* verify that nested loops work OK
 
 Future milestones
 =================

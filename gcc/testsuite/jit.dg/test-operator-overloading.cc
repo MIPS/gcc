@@ -70,6 +70,7 @@ struct quadratic_test
   gccjit::rvalue zero;
 
   gccjit::type int_type;
+  gccjit::type void_type;
 
   /* "struct quadratic" */
   gccjit::type quadratic;
@@ -95,6 +96,7 @@ make_types (quadratic_test &testcase)
   testcase.zero = testcase.ctxt.zero (testcase.numeric_type);
 
   testcase.int_type = testcase.ctxt.get_int_type <int> ();
+  testcase.void_type = testcase.ctxt.get_type (GCC_JIT_TYPE_VOID);
 
   testcase.a = testcase.ctxt.new_field (testcase.numeric_type, "a");
   testcase.b = testcase.ctxt.new_field (testcase.numeric_type, "b");
@@ -139,11 +141,12 @@ make_calc_discriminant (quadratic_test &testcase)
   params[0] = param_q;
   testcase.calc_discriminant =
     testcase.ctxt.new_function (GCC_JIT_FUNCTION_EXPORTED,
-				testcase.numeric_type,
+				testcase.void_type,
 				"calc_discriminant",
 				params,
 				0);
-  testcase.calc_discriminant.add_comment ("(b^2 - 4ac)");
+  gccjit::block block = testcase.calc_discriminant.new_block ();
+  block.add_comment ("(b^2 - 4ac)");
 
   gccjit::rvalue q_a = param_q.dereference_field (testcase.a);
   gccjit::rvalue q_b = param_q.dereference_field (testcase.b);
@@ -152,11 +155,12 @@ make_calc_discriminant (quadratic_test &testcase)
   gccjit::rvalue four =
     testcase.ctxt.new_rvalue (testcase.numeric_type, 4);
 
-  testcase.calc_discriminant.add_assignment (
+  block.add_assignment (
     /* q->discriminant =...  */
     param_q.dereference_field (testcase.discriminant),
     /* (q->b * q->b) - (4 * q->a * q->c) */
     (q_b * q_b) - (four * q_a * q_c));
+  block.end_with_return ();
 }
 
 static void
@@ -186,41 +190,41 @@ make_test_quadratic (quadratic_test &testcase)
 
   /* struct quadratic q; */
   gccjit::lvalue q = test_quadratic.new_local (testcase.quadratic, "q");
-  /* q.a = a; */
-  test_quadratic.add_assignment (q.access_field (testcase.a), a);
-  /* q.b = b; */
-  test_quadratic.add_assignment (q.access_field (testcase.b), b);
-  /* q.c = c; */
-  test_quadratic.add_assignment (q.access_field (testcase.c), c);
-  /* calc_discriminant (&q); */
-  gccjit::rvalue address_of_q = q.get_address ();
-  test_quadratic.add_eval (testcase.calc_discriminant (address_of_q));
 
-  gccjit::label on_positive_discriminant
-    = test_quadratic.new_forward_label ("positive_discriminant");
+  gccjit::block initial = test_quadratic.new_block ("initial");
+  gccjit::block on_positive_discriminant
+    = test_quadratic.new_block ("positive_discriminant");
+  gccjit::block on_nonpositive_discriminant
+    = test_quadratic.new_block ("nonpositive_discriminant");
+  gccjit::block on_zero_discriminant
+    = test_quadratic.new_block ("zero_discriminant");
+  gccjit::block on_negative_discriminant
+    = test_quadratic.new_block ("negative_discriminant");
 
-  gccjit::label on_nonpositive_discriminant
-    = test_quadratic.new_forward_label ("nonpositive_discriminant");
-
-  gccjit::label on_zero_discriminant
-    = test_quadratic.new_forward_label ("zero_discriminant");
-
-  gccjit::label on_negative_discriminant
-    = test_quadratic.new_forward_label ("negative_discriminant");
   CHECK_STRING_VALUE (on_zero_discriminant.get_debug_string ().c_str (),
                       "zero_discriminant");
 
-  test_quadratic.add_comment ("if (q.discriminant > 0)");
-  test_quadratic.add_conditional (
+  /* q.a = a; */
+  initial.add_assignment (q.access_field (testcase.a), a);
+  /* q.b = b; */
+  initial.add_assignment (q.access_field (testcase.b), b);
+  /* q.c = c; */
+  initial.add_assignment (q.access_field (testcase.c), c);
+  /* calc_discriminant (&q); */
+  gccjit::rvalue address_of_q = q.get_address ();
+  initial.add_eval (testcase.calc_discriminant (address_of_q));
+
+  initial.add_comment ("if (q.discriminant > 0)");
+  initial.end_with_conditional (
     q.access_field (testcase.discriminant) > testcase.zero,
     on_positive_discriminant,
     on_nonpositive_discriminant);
 
-  test_quadratic.place_forward_label (on_positive_discriminant);
+  /* Block: "on_positive_discriminant" */
   /* double s = sqrt (q.discriminant); */
   gccjit::lvalue s = test_quadratic.new_local (testcase.numeric_type, "s");
   gccjit::rvalue discriminant_of_q = q.access_field (testcase.discriminant);
-  test_quadratic.add_assignment (s, testcase.sqrt (discriminant_of_q));
+  on_positive_discriminant.add_assignment (s, testcase.sqrt (discriminant_of_q));
 
   gccjit::rvalue minus_b = -b;
   gccjit::rvalue two =
@@ -229,35 +233,35 @@ make_test_quadratic (quadratic_test &testcase)
   CHECK_STRING_VALUE (two_a.get_debug_string ().c_str (),
                       "(double)2 * a");
 
-  test_quadratic.add_comment ("*r1 = (-b + s) / (2 * a);");
-  test_quadratic.add_assignment (*r1, (minus_b + s) / two_a);
+  on_positive_discriminant.add_comment ("*r1 = (-b + s) / (2 * a);");
+  on_positive_discriminant.add_assignment (*r1, (minus_b + s) / two_a);
 
-  test_quadratic.add_comment ("*r2 = (-b - s) / (2 * a)");
-  test_quadratic.add_assignment (*r2, (minus_b - s) / two_a);
+  on_positive_discriminant.add_comment ("*r2 = (-b - s) / (2 * a)");
+  on_positive_discriminant.add_assignment (*r2, (minus_b - s) / two_a);
 
   /* "return 2;" */
-  test_quadratic.add_return (testcase.ctxt.new_rvalue (testcase.int_type, 2));
+  on_positive_discriminant.end_with_return (
+    testcase.ctxt.new_rvalue (testcase.int_type, 2));
 
+  /* Block: "on_nonpositive_discriminant" */
   /* "else if (q.discriminant == 0)" */
-  test_quadratic.place_forward_label (on_nonpositive_discriminant);
-  test_quadratic.add_comment ("else if (q.discriminant == 0)");
-  test_quadratic.add_conditional (
+  on_nonpositive_discriminant.add_comment ("else if (q.discriminant == 0)");
+  on_nonpositive_discriminant.end_with_conditional (
     q.access_field (testcase.discriminant) == testcase.zero,
     on_zero_discriminant,
     on_negative_discriminant);
 
+  /* Block: "on_zero_discriminant" */
   /* if (q.discriminant == 0) */
-  test_quadratic.place_forward_label (on_zero_discriminant);
-
-  test_quadratic.add_comment ("*r1 = -b / (2 * a);");
-  test_quadratic.add_assignment (*r1, minus_b / two_a);
+  on_zero_discriminant.add_comment ("*r1 = -b / (2 * a);");
+  on_zero_discriminant.add_assignment (*r1, minus_b / two_a);
 
   /* "return 1;" */
-  test_quadratic.add_return (testcase.int_type.one ());
+  on_zero_discriminant.end_with_return (testcase.int_type.one ());
 
+  /* Block: "on_negative_discriminant" */
   /* else return 0; */
-  test_quadratic.place_forward_label (on_negative_discriminant);
-  test_quadratic.add_return (testcase.int_type.zero ());
+  on_negative_discriminant.end_with_return (testcase.int_type.zero ());
 
   /* Verify that output stream operator << works.  */
   std::ostringstream os;

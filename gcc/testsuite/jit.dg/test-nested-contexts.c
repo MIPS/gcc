@@ -73,6 +73,7 @@ struct top_level
   gcc_jit_rvalue *zero;
 
   gcc_jit_type *int_type;
+  gcc_jit_type *void_type;
 
   /* "struct quadratic" */
   gcc_jit_type *struct_quadratic;
@@ -110,6 +111,8 @@ make_types (struct top_level *top_level)
 
   top_level->int_type =
     gcc_jit_context_get_type (top_level->ctxt, GCC_JIT_TYPE_INT);
+  top_level->void_type =
+    gcc_jit_context_get_type (top_level->ctxt, GCC_JIT_TYPE_VOID);
 
   top_level->a =
     gcc_jit_context_new_field (top_level->ctxt,
@@ -169,12 +172,14 @@ make_calc_discriminant (struct top_level *top_level,
   middle_level->calc_discriminant =
     gcc_jit_context_new_function (middle_level->ctxt, NULL,
 				  GCC_JIT_FUNCTION_EXPORTED,
-				  top_level->numeric_type,
+				  top_level->void_type,
 				  "calc_discriminant",
 				  1, &param_q,
 				  0);
-  gcc_jit_function_add_comment (
-    middle_level->calc_discriminant, NULL,
+  gcc_jit_block *blk =
+    gcc_jit_function_new_block (middle_level->calc_discriminant, NULL);
+  gcc_jit_block_add_comment (
+    blk, NULL,
     "(b^2 - 4ac)");
 
   gcc_jit_rvalue *q_a =
@@ -193,8 +198,8 @@ make_calc_discriminant (struct top_level *top_level,
 	  gcc_jit_param_as_rvalue (param_q),
 	  NULL, top_level->c));
 
-  gcc_jit_function_add_assignment (
-    middle_level->calc_discriminant, NULL,
+  gcc_jit_block_add_assignment (
+    blk, NULL,
 
     /* q->discriminant =...  */
     gcc_jit_rvalue_dereference_field (
@@ -231,6 +236,8 @@ make_calc_discriminant (struct top_level *top_level,
 	  GCC_JIT_BINARY_OP_MULT,
 	  top_level->numeric_type,
 	  q_a, q_c)))); /* end of gcc_jit_function_add_assignment call.  */
+
+  gcc_jit_block_end_with_void_return (blk, NULL);
 }
 
 static void
@@ -268,51 +275,56 @@ make_test_quadratic (struct top_level *top_level,
       test_quadratic, NULL,
       top_level->struct_quadratic,
       "q");
+
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (test_quadratic,
+				"initial");
+  gcc_jit_block *on_positive_discriminant
+    = gcc_jit_function_new_block (test_quadratic,
+				  "positive_discriminant");
+
+  gcc_jit_block *on_nonpositive_discriminant
+    = gcc_jit_function_new_block (test_quadratic,
+				  "nonpositive_discriminant");
+
+  gcc_jit_block *on_zero_discriminant
+    = gcc_jit_function_new_block (test_quadratic,
+				  "zero_discriminant");
+
+  gcc_jit_block *on_negative_discriminant
+    = gcc_jit_function_new_block (test_quadratic,
+				  "negative_discriminant");
+
+  /* Initial block.  */
   /* q.a = a; */
-  gcc_jit_function_add_assignment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_assignment (
+    initial, NULL,
     gcc_jit_lvalue_access_field (q, NULL, top_level->a),
     gcc_jit_param_as_rvalue (a));
   /* q.b = b; */
-  gcc_jit_function_add_assignment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_assignment (
+    initial, NULL,
     gcc_jit_lvalue_access_field (q, NULL, top_level->b),
     gcc_jit_param_as_rvalue (b));
   /* q.c = c; */
-  gcc_jit_function_add_assignment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_assignment (
+    initial, NULL,
     gcc_jit_lvalue_access_field (q, NULL, top_level->c),
     gcc_jit_param_as_rvalue (c));
   /* calc_discriminant (&q); */
   gcc_jit_rvalue *address_of_q = gcc_jit_lvalue_get_address (q, NULL);
-  gcc_jit_function_add_eval (
-    test_quadratic, NULL,
+  gcc_jit_block_add_eval (
+    initial, NULL,
     gcc_jit_context_new_call (
       bottom_level->ctxt, NULL,
       middle_level->calc_discriminant,
       1, &address_of_q));
 
-  gcc_jit_label *on_positive_discriminant
-    = gcc_jit_function_new_forward_label (test_quadratic,
-					  "positive_discriminant");
-
-  gcc_jit_label *on_nonpositive_discriminant
-    = gcc_jit_function_new_forward_label (test_quadratic,
-					  "nonpositive_discriminant");
-
-  gcc_jit_label *on_zero_discriminant
-    = gcc_jit_function_new_forward_label (test_quadratic,
-					  "zero_discriminant");
-
-  gcc_jit_label *on_negative_discriminant
-    = gcc_jit_function_new_forward_label (test_quadratic,
-					  "negative_discriminant");
-
-  gcc_jit_function_add_comment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_comment (
+    initial, NULL,
     "if (q.discriminant > 0)");
-  gcc_jit_function_add_conditional (
-    test_quadratic, NULL,
+  gcc_jit_block_end_with_conditional (
+    initial, NULL,
     gcc_jit_context_new_comparison (
       bottom_level->ctxt, NULL,
       GCC_JIT_COMPARISON_GT,
@@ -324,9 +336,7 @@ make_test_quadratic (struct top_level *top_level,
     on_positive_discriminant,
     on_nonpositive_discriminant);
 
-  gcc_jit_function_place_forward_label (
-    test_quadratic, NULL,
-    on_positive_discriminant);
+  /* Block: "on_positive_discriminant" */
   /* double s = sqrt (q.discriminant); */
   gcc_jit_lvalue *s = gcc_jit_function_new_local (
     test_quadratic, NULL,
@@ -336,8 +346,8 @@ make_test_quadratic (struct top_level *top_level,
     gcc_jit_rvalue_access_field (gcc_jit_lvalue_as_rvalue (q),
 				 NULL,
 				 top_level->discriminant);
-  gcc_jit_function_add_assignment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_assignment (
+    on_positive_discriminant, NULL,
     s,
     gcc_jit_context_new_call (
       bottom_level->ctxt, NULL,
@@ -361,11 +371,11 @@ make_test_quadratic (struct top_level *top_level,
 	2),
       gcc_jit_param_as_rvalue (a));
 
-  gcc_jit_function_add_comment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_comment (
+    on_positive_discriminant, NULL,
     "*r1 = (-b + s) / (2 * a);");
-  gcc_jit_function_add_assignment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_assignment (
+    on_positive_discriminant, NULL,
 
     /* "*r1 = ..." */
     gcc_jit_rvalue_dereference (
@@ -384,11 +394,11 @@ make_test_quadratic (struct top_level *top_level,
 	gcc_jit_lvalue_as_rvalue (s)),
       two_a));
 
-  gcc_jit_function_add_comment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_comment (
+    on_positive_discriminant, NULL,
     "*r2 = (-b - s) / (2 * a)");
-  gcc_jit_function_add_assignment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_assignment (
+    on_positive_discriminant, NULL,
 
     /* "*r2 = ..." */
     gcc_jit_rvalue_dereference (
@@ -408,22 +418,19 @@ make_test_quadratic (struct top_level *top_level,
       two_a));
 
   /* "return 2;" */
-  gcc_jit_function_add_return (
-    test_quadratic, NULL,
+  gcc_jit_block_end_with_return (
+    on_positive_discriminant, NULL,
     gcc_jit_context_new_rvalue_from_int (
       bottom_level->ctxt,
       top_level->int_type,
       2));
 
-  /* "else if (q.discriminant == 0)" */
-  gcc_jit_function_place_forward_label (
-    test_quadratic, NULL,
-    on_nonpositive_discriminant);
-  gcc_jit_function_add_comment (
-    test_quadratic, NULL,
+  /* Block: "on_nonpositive_discriminant" */
+  gcc_jit_block_add_comment (
+    on_nonpositive_discriminant, NULL,
     "else if (q.discriminant == 0)");
-  gcc_jit_function_add_conditional (
-    test_quadratic, NULL,
+  gcc_jit_block_end_with_conditional (
+    on_nonpositive_discriminant, NULL,
     gcc_jit_context_new_comparison (
       bottom_level->ctxt, NULL,
       GCC_JIT_COMPARISON_EQ,
@@ -435,16 +442,12 @@ make_test_quadratic (struct top_level *top_level,
     on_zero_discriminant,
     on_negative_discriminant);
 
-  /* if (q.discriminant == 0) */
-  gcc_jit_function_place_forward_label (
-    test_quadratic, NULL,
-    on_zero_discriminant);
-
-  gcc_jit_function_add_comment (
-    test_quadratic, NULL,
+  /* Block: "on_zero_discriminant" */
+  gcc_jit_block_add_comment (
+    on_zero_discriminant, NULL,
     "*r1 = -b / (2 * a);");
-  gcc_jit_function_add_assignment (
-    test_quadratic, NULL,
+  gcc_jit_block_add_assignment (
+    on_zero_discriminant, NULL,
 
     /* "*r1 = ..." */
     gcc_jit_rvalue_dereference (
@@ -459,16 +462,14 @@ make_test_quadratic (struct top_level *top_level,
       two_a));
 
   /* "return 1;" */
-  gcc_jit_function_add_return (
-    test_quadratic, NULL,
+  gcc_jit_block_end_with_return (
+    on_zero_discriminant, NULL,
       gcc_jit_context_one (bottom_level->ctxt, top_level->int_type));
 
-  /* else return 0; */
-  gcc_jit_function_place_forward_label (
-    test_quadratic, NULL,
-    on_negative_discriminant);
-  gcc_jit_function_add_return (
-    test_quadratic, NULL,
+  /* Block: "on_negative_discriminant" */
+  gcc_jit_block_end_with_return (
+    /* else return 0; */
+    on_negative_discriminant, NULL,
     gcc_jit_context_zero (bottom_level->ctxt, top_level->int_type));
 }
 

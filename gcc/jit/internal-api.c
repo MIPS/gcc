@@ -97,11 +97,11 @@ recording::playback_string (recording::string *str)
     return NULL;
 }
 
-playback::label *
-recording::playback_label (recording::label *lab)
+playback::block *
+recording::playback_block (recording::block *b)
 {
-  if (lab)
-    return lab->playback_label ();
+  if (b)
+    return b->playback_block ();
   else
     return NULL;
 }
@@ -534,6 +534,8 @@ static pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 result *
 recording::context::compile ()
 {
+  validate ();
+
   if (errors_occurred ())
     return NULL;
 
@@ -629,6 +631,18 @@ recording::context::dump_to_file (const char *path, bool update_locations)
     {
       fn->write_to_dump (d);
     }
+}
+
+void
+recording::context::validate ()
+{
+  if (m_parent_ctxt)
+    m_parent_ctxt->validate ();
+
+  int i;
+  function *fn;
+  FOR_EACH_VEC_ELT (m_functions, i, fn)
+    fn->validate ();
 }
 
 /* gcc::jit::recording::memento:: */
@@ -1182,7 +1196,7 @@ recording::function::function (context *ctxt,
   m_is_variadic (is_variadic),
   m_builtin_id (builtin_id),
   m_locals (),
-  m_activity ()
+  m_blocks ()
 {
   for (int i = 0; i< num_params; i++)
     m_params.safe_push (params[i]);
@@ -1219,114 +1233,15 @@ recording::function::new_local (recording::location *loc,
   return result;
 }
 
-recording::label*
-recording::function::new_forward_label (const char *name)
+recording::block*
+recording::function::new_block (const char *name)
 {
-  recording::label *result =
-    new recording::label (this, new_string (name));
-  m_ctxt->record (result);
-  return result;
-}
+  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
-void
-recording::function::add_eval (recording::location *loc,
-			       recording::rvalue *rvalue)
-{
-  statement *result = new eval (this, loc, rvalue);
+  recording::block *result =
+    new recording::block (this, new_string (name));
   m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-void
-recording::function::add_assignment (recording::location *loc,
-				     recording::lvalue *lvalue,
-				     recording::rvalue *rvalue)
-{
-  statement *result = new assignment (this, loc, lvalue, rvalue);
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-void
-recording::function::add_assignment_op (recording::location *loc,
-					recording::lvalue *lvalue,
-					enum gcc_jit_binary_op op,
-					recording::rvalue *rvalue)
-{
-  statement *result = new assignment_op (this, loc, lvalue, op, rvalue);
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-void
-recording::function::add_comment (recording::location *loc,
-				  const char *text)
-{
-  statement *result = new comment (this, loc, new_string (text));
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-void
-recording::function::add_conditional (recording::location *loc,
-				      recording::rvalue *boolval,
-				      recording::label *on_true,
-				      recording::label *on_false)
-{
-  statement *result = new conditional (this, loc, boolval, on_true, on_false);
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-recording::label *
-recording::function::add_label (recording::location *loc,
-				const char *name)
-{
-  recording::label *lab = new_forward_label (name);
-  place_forward_label (loc, lab);
-  return lab;
-}
-
-void
-recording::function::place_forward_label (recording::location *loc,
-					  recording::label *lab)
-{
-  statement *result = new place_label (this, loc, lab);
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-void
-recording::function::add_jump (recording::location *loc,
-			       recording::label *target)
-{
-  statement *result = new jump (this, loc, target);
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-void
-recording::function::add_return (recording::location *loc,
-				 recording::rvalue *rvalue)
-{
-  /* This is used by both gcc_jit_function_add_return and
-     gcc_jit_function_add_void_return; rvalue will be non-NULL for
-     the former and NULL for the latter.  */
-  statement *result = new return_ (this, loc, rvalue);
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
-}
-
-recording::loop *
-recording::function::new_loop (recording::location *loc,
-			       recording::rvalue *boolval,
-			       recording::lvalue *iteration_var,
-			       recording::rvalue *step)
-{
-  recording::loop *result = new recording::loop (this, loc, boolval,
-						 iteration_var, step);
-  m_ctxt->record (result);
-  m_activity.safe_push (result);
+  m_blocks.safe_push (result);
   return result;
 }
 
@@ -1370,7 +1285,7 @@ recording::function::write_to_dump (dump &d)
     {
       int i;
       local *var = NULL;
-      memento *m;
+      block *b;
       d.write ("\n{\n");
 
       /* Write locals: */
@@ -1379,11 +1294,84 @@ recording::function::write_to_dump (dump &d)
       if (m_locals.length ())
 	d.write ("\n");
 
-      /* Write statements and labels: */
-      FOR_EACH_VEC_ELT (m_activity, i, m)
-	m->write_to_dump (d);
+      /* Write each block: */
+      FOR_EACH_VEC_ELT (m_blocks, i, b)
+	{
+	  if (i > 0)
+	    d.write ("\n");
+	  b->write_to_dump (d);
+	}
 
       d.write ("}\n\n");
+    }
+}
+
+void
+recording::function::validate ()
+{
+  /* Complain about empty functions with non-void return type.  */
+  if (m_kind != GCC_JIT_FUNCTION_IMPORTED
+      && m_return_type != m_ctxt->get_type (GCC_JIT_TYPE_VOID))
+    if (0 == m_blocks.length ())
+      m_ctxt->add_error ("function %s returns non-void (type: %s)"
+			 " but has no blocks",
+			 get_debug_string (),
+			 m_return_type->get_debug_string ());
+
+  /* Check that all blocks are terminated.  */
+  int num_invalid_blocks = 0;
+  {
+    int i;
+    block *b;
+
+    FOR_EACH_VEC_ELT (m_blocks, i, b)
+      if (!b->validate ())
+	num_invalid_blocks++;
+  }
+
+  /* Check that all blocks are reachable.  */
+  if (m_blocks.length () > 0 && 0 == num_invalid_blocks)
+    {
+      /* Iteratively walk the graph of blocks, marking their "m_is_reachable"
+	 flag, starting at the initial block.  */
+      vec<block *> worklist;
+      worklist.create (m_blocks.length ());
+      worklist.safe_push (m_blocks[0]);
+      while (worklist.length () > 0)
+	{
+	  block *b = worklist.pop ();
+	  b->m_is_reachable = true;
+
+	  /* Add successor blocks that aren't yet marked to the worklist.  */
+	  /* We checked that each block has a terminating statement above .  */
+	  block *next1, *next2;
+	  int n = b->get_successor_blocks (&next1, &next2);
+	  switch (n)
+	    {
+	    default:
+	      gcc_unreachable ();
+	    case 2:
+	      if (!next2->m_is_reachable)
+		worklist.safe_push (next2);
+	      /* fallthrough */
+	    case 1:
+	      if (!next1->m_is_reachable)
+		worklist.safe_push (next1);
+	      break;
+	    case 0:
+	      break;
+	    }
+	}
+
+      /* Now complain about any blocks that haven't been marked.  */
+      {
+	int i;
+	block *b;
+	FOR_EACH_VEC_ELT (m_blocks, i, b)
+	  if (!b->m_is_reachable)
+	    m_ctxt->add_error ("unreachable block: %s",
+			       b->get_debug_string ());
+      }
     }
 }
 
@@ -1393,30 +1381,140 @@ recording::function::make_debug_string ()
   return m_name;
 }
 
-/* gcc::jit::recording::label:: */
+/* gcc::jit::recording::block:: */
 
 void
-recording::label::replay_into (replayer *r)
+recording::block::add_eval (recording::location *loc,
+			    recording::rvalue *rvalue)
 {
-  if (!m_has_been_placed)
+  statement *result = new eval (this, loc, rvalue);
+  m_ctxt->record (result);
+  m_statements.safe_push (result);
+}
+
+void
+recording::block::add_assignment (recording::location *loc,
+				  recording::lvalue *lvalue,
+				  recording::rvalue *rvalue)
+{
+  statement *result = new assignment (this, loc, lvalue, rvalue);
+  m_ctxt->record (result);
+  m_statements.safe_push (result);
+}
+
+void
+recording::block::add_assignment_op (recording::location *loc,
+				     recording::lvalue *lvalue,
+				     enum gcc_jit_binary_op op,
+				     recording::rvalue *rvalue)
+{
+  statement *result = new assignment_op (this, loc, lvalue, op, rvalue);
+  m_ctxt->record (result);
+  m_statements.safe_push (result);
+}
+
+void
+recording::block::add_comment (recording::location *loc,
+			       const char *text)
+{
+  statement *result = new comment (this, loc, new_string (text));
+  m_ctxt->record (result);
+  m_statements.safe_push (result);
+}
+
+void
+recording::block::end_with_conditional (recording::location *loc,
+					recording::rvalue *boolval,
+					recording::block *on_true,
+					recording::block *on_false)
+{
+  statement *result = new conditional (this, loc, boolval, on_true, on_false);
+  m_ctxt->record (result);
+  m_statements.safe_push (result);
+  m_has_been_terminated = true;
+}
+
+void
+recording::block::end_with_jump (recording::location *loc,
+				 recording::block *target)
+{
+  statement *result = new jump (this, loc, target);
+  m_ctxt->record (result);
+  m_statements.safe_push (result);
+  m_has_been_terminated = true;
+}
+
+void
+recording::block::end_with_return (recording::location *loc,
+				   recording::rvalue *rvalue)
+{
+  /* This is used by both gcc_jit_function_add_return and
+     gcc_jit_function_add_void_return; rvalue will be non-NULL for
+     the former and NULL for the latter.  */
+  statement *result = new return_ (this, loc, rvalue);
+  m_ctxt->record (result);
+  m_statements.safe_push (result);
+  m_has_been_terminated = true;
+}
+
+void
+recording::block::write_to_dump (dump &d)
+{
+  d.write ("%s:\n", get_debug_string ());
+
+  int i;
+  statement *s;
+  FOR_EACH_VEC_ELT (m_statements, i, s)
+    s->write_to_dump (d);
+}
+
+bool
+recording::block::validate ()
+{
+  if (!has_been_terminated ())
     {
-      r->add_error ("unplaced label within %s: %s",
-		    m_func->get_debug_string (),
-		    get_debug_string ());
-      return;
+      m_func->get_context ()->add_error ("unterminated block in %s: %s",
+					 m_func->get_debug_string (),
+					 get_debug_string ());
+      return false;
     }
+
+  return true;
+}
+
+recording::statement *
+recording::block::get_last_statement () const
+{
+  if (m_statements.length ())
+    return m_statements[m_statements.length () - 1];
+  else
+    return NULL;
+}
+
+int
+recording::block::get_successor_blocks (block **next1, block **next2) const
+{
+  gcc_assert (m_has_been_terminated);
+  statement *last_statement = get_last_statement ();
+  gcc_assert (last_statement);
+  return last_statement->get_successor_blocks (next1, next2);
+}
+
+void
+recording::block::replay_into (replayer *)
+{
   set_playback_obj (m_func->playback_function ()
-		      ->new_forward_label (playback_string (m_name)));
+		      ->new_block (playback_string (m_name)));
 }
 
 recording::string *
-recording::label::make_debug_string ()
+recording::block::make_debug_string ()
 {
   if (m_name)
     return m_name;
   else
     return string::from_printf (m_ctxt,
-				"<UNNAMED LABEL %p>",
+				"<UNNAMED BLOCK %p>",
 				(void *)this);
 }
 
@@ -1779,6 +1877,16 @@ recording::local::write_to_dump (dump &d)
 
 // gcc::jit::recording::statement
 
+int
+recording::statement::get_successor_blocks (block **/*out_next1*/,
+					    block **/*out_next2*/) const
+{
+  /* The base class implementation is for non-terminating statements,
+     and thus should never be called.  */
+  gcc_unreachable ();
+  return 0;
+}
+
 void
 recording::statement::write_to_dump (dump &d)
 {
@@ -1790,7 +1898,7 @@ recording::statement::write_to_dump (dump &d)
 void
 recording::eval::replay_into (replayer *r)
 {
-  playback_function ()
+  playback_block (get_block ())
     ->add_eval (playback_location (r),
 		m_rvalue->playback_rvalue ());
 }
@@ -1806,7 +1914,7 @@ recording::eval::make_debug_string ()
 void
 recording::assignment::replay_into (replayer *r)
 {
-  playback_function ()
+  playback_block (get_block ())
     ->add_assignment (playback_location (r),
 		      m_lvalue->playback_lvalue (),
 		      m_rvalue->playback_rvalue ());
@@ -1834,7 +1942,7 @@ recording::assignment_op::replay_into (replayer *r)
 		      m_lvalue->playback_rvalue (),
 		      m_rvalue->playback_rvalue ());
 
-  playback_function ()
+  playback_block (get_block ())
     ->add_assignment (playback_location (r),
 		      m_lvalue->playback_lvalue (),
 		      binary_op);
@@ -1853,7 +1961,7 @@ recording::assignment_op::make_debug_string ()
 void
 recording::comment::replay_into (replayer *r)
 {
-  playback_function ()
+  playback_block (get_block ())
     ->add_comment (playback_location (r),
 		   m_text->c_str ());
 }
@@ -1869,11 +1977,20 @@ recording::comment::make_debug_string ()
 void
 recording::conditional::replay_into (replayer *r)
 {
-  playback_function ()
+  playback_block (get_block ())
     ->add_conditional (playback_location (r),
 		       m_boolval->playback_rvalue (),
-		       playback_label (m_on_true),
-		       playback_label (m_on_false));
+		       playback_block (m_on_true),
+		       playback_block (m_on_false));
+}
+
+int
+recording::conditional::get_successor_blocks (block **out_next1,
+					      block **out_next2) const
+{
+  *out_next1 = m_on_true;
+  *out_next2 = m_on_false;
+  return 2;
 }
 
 recording::string *
@@ -1892,46 +2009,20 @@ recording::conditional::make_debug_string ()
 				m_on_true->get_debug_string ());
 }
 
-recording::place_label::place_label (function *func,
-				     location *loc,
-				     label *lab)
-: statement (func, loc),
-  m_label (lab)
-{
-  if (lab->m_has_been_placed)
-    m_ctxt->add_error ("label %s has already been placed",
-		       lab->get_debug_string ());
-  lab->m_has_been_placed = true;
-}
-
-void
-recording::place_label::replay_into (replayer *r)
-{
-  playback_function ()
-    ->place_forward_label (playback_location (r),
-			   m_label->playback_label ());
-}
-
-recording::string *
-recording::place_label::make_debug_string ()
-{
-  return string::from_printf (m_ctxt,
-			      "%s:",
-			      m_label->get_debug_string ());
-}
-
-void
-recording::place_label::write_to_dump (dump &d)
-{
-  d.write ("\n%s\n", get_debug_string ());
-}
-
 void
 recording::jump::replay_into (replayer *r)
 {
-  playback_function ()
+  playback_block (get_block ())
     ->add_jump (playback_location (r),
-		m_target->playback_label ());
+		m_target->playback_block ());
+}
+
+int
+recording::jump::get_successor_blocks (block **out_next1,
+				       block **/*out_next2*/) const
+{
+  *out_next1 = m_target;
+  return 1;
 }
 
 recording::string *
@@ -1945,9 +2036,16 @@ recording::jump::make_debug_string ()
 void
 recording::return_::replay_into (replayer *r)
 {
-  playback_function ()
+  playback_block (get_block ())
     ->add_return (playback_location (r),
 		  m_rvalue ? m_rvalue->playback_rvalue () : NULL);
+}
+
+int
+recording::return_::get_successor_blocks (block **/*out_next1*/,
+					  block **/*out_next2*/) const
+{
+  return 0;
 }
 
 recording::string *
@@ -1960,52 +2058,6 @@ recording::return_::make_debug_string ()
   else
     return string::from_printf (m_ctxt,
 				"return;");
-}
-
-void
-recording::loop::replay_into (replayer *r)
-{
-  set_playback_obj (
-    m_func->playback_function ()
-      ->new_loop (playback_location (r, m_loc),
-		  m_boolval->playback_rvalue ()));
-}
-
-recording::string *
-recording::loop::make_debug_string ()
-{
-  return string::from_printf (m_ctxt,
-			      "loop_while (%s)",
-			      m_boolval->get_debug_string ());
-}
-
-void
-recording::loop::end (location *loc)
-{
-  if (m_iteration_var)
-    m_func->add_assignment (
-      loc,
-      m_iteration_var,
-      m_ctxt->new_binary_op (loc,
-			     GCC_JIT_BINARY_OP_PLUS,
-			     m_iteration_var->get_type (),
-			     m_iteration_var,
-			     m_step));
-  recording::loop_end *m = new loop_end (this, loc);
-  m_ctxt->record (m);
-}
-
-void
-recording::loop_end::replay_into (replayer *r)
-{
-  m_loop->playback_loop ()->end (playback_location (r, m_loc));
-}
-
-recording::string *
-recording::loop_end::make_debug_string ()
-{
-  return string::from_printf (m_ctxt,
-			      "end_loop (%p)", (void *)m_loop);
 }
 
 /**********************************************************************
@@ -2885,12 +2937,37 @@ new_local (location *loc,
   return new lvalue (m_ctxt, inner);
 }
 
-playback::label *
+playback::block *
 playback::function::
-new_forward_label (const char *name)
+new_block (const char *name)
 {
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
-  return new playback::label (this, name);
+
+  block *result = new playback::block (this, name);
+  m_blocks.safe_push (result);
+  return result;
+}
+
+void
+playback::function::
+build_stmt_list ()
+{
+  int i;
+  block *b;
+
+  FOR_EACH_VEC_ELT (m_blocks, i, b)
+    {
+      int j;
+      tree stmt;
+
+      b->m_label_expr = build1 (LABEL_EXPR,
+				void_type_node,
+				b->as_label_decl ());
+      tsi_link_after (&m_stmt_iter, b->m_label_expr, TSI_CONTINUE_LINKING);
+
+      FOR_EACH_VEC_ELT (b->m_stmts, j, stmt)
+	tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
+    }
 }
 
 void
@@ -2943,12 +3020,11 @@ postprocess ()
 }
 
 void
-playback::function::
+playback::block::
 add_eval (location *loc,
 	  rvalue *rvalue)
 {
   gcc_assert (rvalue);
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
   if (loc)
     set_tree_location (rvalue->as_tree (), loc);
@@ -2957,14 +3033,13 @@ add_eval (location *loc,
 }
 
 void
-playback::function::
+playback::block::
 add_assignment (location *loc,
 		lvalue *lvalue,
 		rvalue *rvalue)
 {
   gcc_assert (lvalue);
   gcc_assert (rvalue);
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
   tree t_lvalue = lvalue->as_tree ();
   tree t_rvalue = rvalue->as_tree ();
@@ -2986,12 +3061,10 @@ add_assignment (location *loc,
 }
 
 void
-playback::function::
+playback::block::
 add_comment (location *loc,
 	     const char *text)
 {
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
-
   /* Wrap the text in C-style comment delimiters.  */
   size_t sz =
     (3 /* opening delim */
@@ -3003,20 +3076,27 @@ add_comment (location *loc,
 
   /* For now we simply implement this by adding a dummy label with a name
      containing the given text.  */
-  add_label (loc, wrapped);
+  tree identifier = get_identifier (wrapped);
+  tree label_decl = build_decl (UNKNOWN_LOCATION, LABEL_DECL,
+				identifier, void_type_node);
+  DECL_CONTEXT (label_decl) = m_func->as_fndecl ();
+
+  tree label_expr = build1 (LABEL_EXPR, void_type_node, label_decl);
+  if (loc)
+    set_tree_location (label_expr, loc);
+  add_stmt (label_expr);
 }
 
 void
-playback::function::
+playback::block::
 add_conditional (location *loc,
 		 rvalue *boolval,
-		 label *on_true,
-		 label *on_false)
+		 block *on_true,
+		 block *on_false)
 {
   gcc_assert (boolval);
   gcc_assert (on_true);
-  /* on_false can be NULL */
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
+  gcc_assert (on_false);
 
   /* COND_EXPR wants statement lists for the true/false operands, but we
      want labels.
@@ -3025,16 +3105,11 @@ add_conditional (location *loc,
 			   on_true->as_label_decl ());
   if (loc)
     set_tree_location (true_jump, loc);
-  tree false_jump;
-  if (on_false)
-    {
-      false_jump = build1 (GOTO_EXPR, void_type_node,
-			   on_false->as_label_decl ());
-      if (loc)
-        set_tree_location (false_jump, loc);
-    }
-  else
-    false_jump = NULL;
+
+  tree false_jump = build1 (GOTO_EXPR, void_type_node,
+			    on_false->as_label_decl ());
+  if (loc)
+    set_tree_location (false_jump, loc);
 
   tree stmt =
     build3 (COND_EXPR, void_type_node, boolval->as_tree (),
@@ -3044,41 +3119,12 @@ add_conditional (location *loc,
   add_stmt (stmt);
 }
 
-playback::label *
-playback::function::
-add_label (location *loc,
-	   const char *name)
-{
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
-
-  label *lab = new label (this, name);
-  place_forward_label (loc, lab);
-  return lab;
-}
-
 void
-playback::function::
-place_forward_label (location *loc, label *lab)
-{
-  gcc_assert (lab);
-  gcc_assert (NULL == lab->m_label_expr); // must not have already been placed
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
-
-  lab->m_label_expr = build1 (LABEL_EXPR,
-			     void_type_node,
-			     lab->as_label_decl ());
-  if (loc)
-    set_tree_location (lab->m_label_expr, loc);
-  add_stmt (lab->m_label_expr);
-}
-
-void
-playback::function::
+playback::block::
 add_jump (location *loc,
-	  label *target)
+	  block *target)
 {
   gcc_assert (target);
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
   // see c_finish_loop
   //tree top = build1 (LABEL_EXPR, void_type_node, NULL_TREE);
@@ -3111,17 +3157,15 @@ c_finish_goto_label (location_t loc, tree label)
 }
 
 void
-playback::function::
+playback::block::
 add_return (location *loc,
 	    rvalue *rvalue)
 {
-  gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
-
   tree modify_retval = NULL;
-  tree return_type = TREE_TYPE (TREE_TYPE (m_inner_fndecl));
+  tree return_type = m_func->get_return_type_as_tree ();
   if (rvalue)
     {
-      tree t_lvalue = DECL_RESULT (m_inner_fndecl);
+      tree t_lvalue = DECL_RESULT (m_func->as_fndecl ());
       tree t_rvalue = rvalue->as_tree ();
       if (TREE_TYPE (t_rvalue) != TREE_TYPE (t_lvalue))
 	t_rvalue = build1 (CONVERT_EXPR,
@@ -3140,17 +3184,11 @@ add_return (location *loc,
   add_stmt (return_stmt);
 }
 
-playback::loop *
-playback::function::
-new_loop (location *loc,
-	  rvalue *boolval)
-{
-  return new loop (this, loc, boolval);
-}
-
-playback::label::
-label (function *func,
+playback::block::
+block (function *func,
        const char *name)
+: m_func (func),
+  m_stmts ()
 {
   tree identifier;
 
@@ -3164,26 +3202,6 @@ label (function *func,
 			    identifier, void_type_node);
   DECL_CONTEXT (m_label_decl) = func->as_fndecl ();
   m_label_expr = NULL;
-}
-
-
-playback::loop::
-loop (function *func, location *loc, rvalue *boolval) :
-  m_func(func)
-{
-  m_label_cond = func->add_label (loc, "loop_cond");
-  m_label_body = func->new_forward_label ("loop_body");
-  m_label_end = func->new_forward_label ("loop_end");
-  func->add_conditional (loc, boolval, m_label_body, m_label_end);
-  func->place_forward_label (loc, m_label_body);
-}
-
-void
-playback::loop::
-end (location *loc)
-{
-  m_func->add_jump (loc, m_label_cond);
-  m_func->place_forward_label (loc, m_label_end);
 }
 
 result *
@@ -3395,6 +3413,14 @@ replay ()
 
       /* No GC can happen yet; process the cached source locations.  */
       handle_locations ();
+
+      /* We've now created tree nodes for the stmts in the various blocks
+	 in each function, but we haven't built each function's single stmt
+	 list yet.  Do so now.  */
+      FOR_EACH_VEC_ELT (m_functions, i, func)
+	func->build_stmt_list ();
+
+      /* No GC can have happened yet.  */
 
       /* Postprocess the functions.  This could trigger GC.  */
       FOR_EACH_VEC_ELT (m_functions, i, func)

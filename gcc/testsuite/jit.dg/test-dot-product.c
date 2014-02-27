@@ -42,30 +42,42 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 				  "my_dot_product",
 				  3, params, 0);
 
+  gcc_jit_block *initial = gcc_jit_function_new_block (func, "initial");
+  gcc_jit_block *loop_test = gcc_jit_function_new_block (func, "loop_test");
+  gcc_jit_block *loop_body = gcc_jit_function_new_block (func, "loop_body");
+  gcc_jit_block *final = gcc_jit_function_new_block (func, "final");
+
   /* Build: "double result = 0.;" */
   gcc_jit_lvalue *result =
     gcc_jit_function_new_local (func, NULL, val_type, "result");
 
-  gcc_jit_function_add_assignment (func, NULL,
-    result,
-    gcc_jit_context_zero (ctxt, val_type));
+  gcc_jit_block_add_assignment (initial, NULL,
+    result, gcc_jit_context_zero (ctxt, val_type));
 
   /* Build: "for (int i = 0; i < n; i++)" */
   gcc_jit_lvalue *i =
     gcc_jit_function_new_local (func, NULL, int_type, "i");
-  gcc_jit_function_add_assignment (func, NULL,
+  gcc_jit_block_add_assignment (initial, NULL,
     i, gcc_jit_context_zero (ctxt, int_type));
-  gcc_jit_loop *loop = gcc_jit_function_new_loop (func, NULL,
+
+  gcc_jit_block_end_with_jump (initial, NULL, loop_test);
+
+  gcc_jit_block_end_with_conditional (
+    loop_test, NULL,
+
     /* (i < n) */
     gcc_jit_context_new_comparison (
       ctxt, NULL,
       GCC_JIT_COMPARISON_LT,
       gcc_jit_lvalue_as_rvalue (i),
-      gcc_jit_param_as_rvalue (param_n)));
+      gcc_jit_param_as_rvalue (param_n)),
+
+    loop_body,
+    final);
 
   /* Build: "result += a[i] * b[i];" */
-  gcc_jit_function_add_assignment_op (
-    func, NULL,
+  gcc_jit_block_add_assignment_op (
+    loop_body, NULL,
     result,
     GCC_JIT_BINARY_OP_PLUS,
     gcc_jit_context_new_binary_op (
@@ -84,17 +96,17 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	  gcc_jit_lvalue_as_rvalue (i)))));
 
   /* Build: "i++" */
-  gcc_jit_function_add_assignment_op (
-    func, NULL,
+  gcc_jit_block_add_assignment_op (
+    loop_body, NULL,
     i,
     GCC_JIT_BINARY_OP_PLUS,
     gcc_jit_context_one (ctxt, int_type));
 
-  gcc_jit_loop_end (loop, NULL);
+  gcc_jit_block_end_with_jump (loop_body, NULL, loop_test);
 
   /* Build: "return result;" */
-  gcc_jit_function_add_return (
-    func,
+  gcc_jit_block_end_with_return (
+    final,
     NULL,
     gcc_jit_lvalue_as_rvalue (result));
 }

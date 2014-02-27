@@ -61,6 +61,8 @@ typedef struct function_fuzzer
   int num_locals;
   gcc_jit_lvalue **locals;
 
+  gcc_jit_block *block;
+
 } function_fuzzer;
 
 static void
@@ -274,6 +276,7 @@ make_random_function (fuzzer *f)
       ff->num_params,
       ff->params,
       fuzzer_randrange (f, 0, 1));
+  ff->block = gcc_jit_function_new_block (ff->fn, NULL);
 
   /* Create locals.  */
   if (kind != GCC_JIT_FUNCTION_IMPORTED)
@@ -301,6 +304,9 @@ make_random_function (fuzzer *f)
 	function_fuzzer_add_stmt (ff);
     }
 
+  gcc_jit_block_end_with_return (ff->block, NULL, get_random_rvalue (ff, 3));
+
+
   gcc_jit_function *result = ff->fn;
 
   free (ff->params);
@@ -313,13 +319,13 @@ make_random_function (fuzzer *f)
 
 static void function_fuzzer_add_stmt (function_fuzzer *ff)
 {
-  gcc_jit_function_add_eval (ff->fn,
-			     get_random_location (ff->f),
-			     get_random_rvalue (ff, 4));
-  gcc_jit_function_add_assignment (ff->fn,
-				   get_random_location (ff->f),
-				   get_random_lvalue (ff, 4),
-				   get_random_rvalue (ff, 4));
+  gcc_jit_block_add_eval (ff->block,
+			  get_random_location (ff->f),
+			  get_random_rvalue (ff, 4));
+  gcc_jit_block_add_assignment (ff->block,
+				get_random_location (ff->f),
+				get_random_lvalue (ff, 4),
+				get_random_rvalue (ff, 4));
   /* TODO: place more kinds of statement */
   /* TODO: labels  */
 }

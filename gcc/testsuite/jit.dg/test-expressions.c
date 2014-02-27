@@ -41,7 +41,8 @@ make_test_of_unary_op (gcc_jit_context *ctxt,
     type,
     gcc_jit_param_as_rvalue (param_a));
 
-  gcc_jit_function_add_return (test_fn, NULL, unary_op);
+  gcc_jit_block *initial = gcc_jit_function_new_block (test_fn, "initial");
+  gcc_jit_block_end_with_return (initial, NULL, unary_op);
 
   return gcc_jit_object_get_debug_string (
     gcc_jit_rvalue_as_object (unary_op));
@@ -142,7 +143,8 @@ make_test_of_binary_op (gcc_jit_context *ctxt,
       gcc_jit_param_as_rvalue (param_a),
       gcc_jit_param_as_rvalue (param_b));
 
-  gcc_jit_function_add_return (test_fn, NULL, binary_op);
+  gcc_jit_block *initial = gcc_jit_function_new_block (test_fn, "initial");
+  gcc_jit_block_end_with_return (initial, NULL, binary_op);
 
   return gcc_jit_object_get_debug_string (
     gcc_jit_rvalue_as_object (binary_op));
@@ -347,7 +349,8 @@ make_test_of_comparison (gcc_jit_context *ctxt,
       gcc_jit_param_as_rvalue (param_a),
       gcc_jit_param_as_rvalue (param_b));
 
-  gcc_jit_function_add_return (test_fn, NULL, comparison);
+  gcc_jit_block *initial = gcc_jit_function_new_block (test_fn, "initial");
+  gcc_jit_block_end_with_return (initial, NULL, comparison);
 
   return gcc_jit_object_get_debug_string (
     gcc_jit_rvalue_as_object (comparison));
@@ -483,8 +486,10 @@ make_tests_of_dereferences (gcc_jit_context *ctxt)
 				    "test_dereference_read",
 				    1, &param_ptr,
 				    0);
-    gcc_jit_function_add_return (
-      test_dereference_read,
+    gcc_jit_block *initial =
+      gcc_jit_function_new_block (test_dereference_read, "initial");
+    gcc_jit_block_end_with_return (
+      initial,
       NULL,
       gcc_jit_lvalue_as_rvalue (
 	gcc_jit_rvalue_dereference (
@@ -505,13 +510,16 @@ make_tests_of_dereferences (gcc_jit_context *ctxt)
 				    "test_dereference_write",
 				    2, params,
 				    0);
-    gcc_jit_function_add_assignment (
-      test_dereference_write,
+    gcc_jit_block *initial =
+      gcc_jit_function_new_block (test_dereference_write, "initial");
+    gcc_jit_block_add_assignment (
+      initial,
       NULL,
       gcc_jit_rvalue_dereference (
 	gcc_jit_param_as_rvalue (param_ptr),
 	NULL),
       gcc_jit_param_as_rvalue (param_i));
+    gcc_jit_block_end_with_void_return (initial, NULL);
   }
 }
 
@@ -578,8 +586,10 @@ make_test_of_get_address (gcc_jit_context *ctxt)
 				  "test_get_address",
 				  0, NULL,
 				  0);
-  gcc_jit_function_add_return (
-    test_get_address,
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (test_get_address, "initial");
+  gcc_jit_block_end_with_return (
+    initial,
     NULL,
     gcc_jit_lvalue_get_address (
       test_global,

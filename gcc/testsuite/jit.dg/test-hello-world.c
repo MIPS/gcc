@@ -44,16 +44,19 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   args[0] = gcc_jit_context_new_string_literal (ctxt, "hello %s\n");
   args[1] = gcc_jit_param_as_rvalue (param_name);
 
-  gcc_jit_function_add_comment (
-    func, NULL,
+  gcc_jit_block *block = gcc_jit_function_new_block (func, NULL);
+
+  gcc_jit_block_add_comment (
+    block, NULL,
     "a test comment");
 
-  gcc_jit_function_add_eval (
-    func, NULL,
+  gcc_jit_block_add_eval (
+    block, NULL,
     gcc_jit_context_new_call (ctxt,
                               NULL,
                               printf_func,
                               2, args));
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 extern void

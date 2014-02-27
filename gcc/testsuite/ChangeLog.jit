@@ -1,3 +1,50 @@
+2014-02-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-accessing-struct.c (create_code): Port to
+	block-based API.
+	* jit.dg/test-calling-external-function.c (create_code): Likewise.
+	* jit.dg/test-error-accessing-field-in-other-struct.c (create_code):
+	Likewise.
+	* jit.dg/test-error-call-with-mismatching-args.c (create_code):
+	Likewise.
+	* jit.dg/test-error-call-with-not-enough-args.c (create_code):
+	Likewise.
+	* jit.dg/test-error-call-with-too-many-args.c (create_code):
+	Likewise.
+	* jit.dg/test-error-dereference-field-of-non-pointer.c (create_code):
+	Likewise.
+	* jit.dg/test-error-dereference-read: Likewise.
+	* jit.dg/test-error-mismatching-types-in-assignment.c: Likewise.
+	* jit.dg/test-error-return-within-void-function.c: Likewise.
+	* jit.dg/test-expressions.c: Likewise.
+	* jit.dg/test-factorial.c: Likewise.
+	* jit.dg/test-functions.c: Likewise.
+	* jit.dg/test-fuzzer.c: Likewise.
+	* jit.dg/test-hello-world.c (create_code): Likewise.
+	* jit.dg/test-nested-contexts.c: Likewise.
+	* jit.dg/test-operator-overloading.cc: Likewise.
+	* jit.dg/test-quadratic.c: Likewise.
+	* jit.dg/test-quadratic.cc: Likewise.
+	* jit.dg/test-reading-struct.c (create_code): Likewise.
+	* jit.dg/test-string-literal.c (create_code): Likewise.
+	* jit.dg/test-sum-of-squares.c (create_code): Likewise.
+	* jit.dg/test-types.c (create_code): Likewise.
+	* jit.dg/test-using-global.c (create_code): Likewise.
+
+	* jit.dg/test-arrays.c (create_code): Likewise, eliminating use of
+	loop API.
+	* jit.dg/test-dot-product.c (create_code): Likewise.
+	* jit.dg/test-linked-list.c (create_code): Likewise.
+
+	* jit.dg/test-error-adding-to-terminated-block.c: New testcase.
+	* jit.dg/test-error-block-in-wrong-function.c: Likewise.
+	* jit.dg/test-error-missing-return.c: Likewise.
+	* jit.dg/test-error-unreachable-block.c: Likewise.
+	* jit.dg/test-error-unterminated-block.c: Likewise.
+
+	* jit.dg/test-error-label-already-placed.c: Delete obsolete testcase.
+	* jit.dg/test-error-unplaced-label.c: Likewise.
+
 2014-02-25  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-functions.c (create_use_of_void_return): New, to add

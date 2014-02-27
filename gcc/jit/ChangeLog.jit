@@ -1,3 +1,302 @@
+2014-02-27  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (gcc_jit_label): Delete in favor of...
+	(gcc_jit_block): New type.
+	(gcc_jit_loop): Delete.
+
+	(gcc_jit_function_new_forward_label): Delete in favor of...
+	(gcc_jit_function_new_block): New.
+
+	(gcc_jit_label_as_object): Delete in favor of...
+	(gcc_jit_block_as_object): New.
+
+	(gcc_jit_function_add_eval): Delete in favor of...
+	(gcc_jit_block_add_eval): New.
+
+	(gcc_jit_function_add_assignment): Delete in favor of...
+	(gcc_jit_block_add_assignment): New.
+
+	(gcc_jit_function_add_assignment_op): Delete in favor of...
+	(gcc_jit_block_add_assignment_op): New.
+
+	(gcc_jit_function_add_comment): Delete in favor of...
+	(gcc_jit_block_add_comment): New.
+
+	(gcc_jit_label_as_object): Delete in favor of...
+	(gcc_jit_block_as_object): New.
+
+	(gcc_jit_function_add_conditional): Delete in favor of...
+	(gcc_jit_block_end_with_conditional): New.
+
+	(gcc_jit_function_add_jump): Delete in favor of...
+	(gcc_jit_block_end_with_jump): New.
+
+	(gcc_jit_function_add_return): Delete in favor of...
+	(gcc_jit_block_end_with_return): New.
+
+	(gcc_jit_function_add_void_return): Delete in favor of...
+	(gcc_jit_block_end_with_void_return): New.
+
+	(gcc_jit_function_new_loop): Delete.
+	(gcc_jit_function_new_loop_over_range): Delete.
+	(gcc_jit_loop_as_object): Delete.
+	(gcc_jit_loop_end): Delete.
+
+	* libgccjit.map (gcc_jit_function_add_assignment): Delete in favor of...
+	(gcc_jit_block_add_assignment): New.
+
+	(gcc_jit_function_add_assignment_op): Delete in favor of...
+	(gcc_jit_block_add_assignment_op): New.
+
+	(gcc_jit_function_add_comment): Delete in favor of...
+	(gcc_jit_block_add_comment): New.
+
+	(gcc_jit_function_add_eval): Delete in favor of...
+	(gcc_jit_block_add_eval): New.
+
+	(gcc_jit_label_as_object): Delete in favor of...
+	(gcc_jit_block_as_object): New.
+
+	(gcc_jit_function_add_conditional): Delete in favor of...
+	(gcc_jit_block_end_with_conditional): New.
+
+	(gcc_jit_function_add_jump): Delete in favor of...
+	(gcc_jit_block_end_with_jump): New.
+
+	(gcc_jit_function_add_return): Delete in favor of...
+	(gcc_jit_block_end_with_return): New.
+
+	(gcc_jit_function_add_void_return): Delete in favor of...
+	(gcc_jit_block_end_with_void_return): New.
+
+	(gcc_jit_function_add_label): Delete in favor of...
+	(gcc_jit_function_new_block): New.
+	(gcc_jit_function_new_forward_label): Delete.
+	(gcc_jit_function_place_forward_label): Delete.
+
+	(gcc_jit_function_new_loop): Delete.
+	(gcc_jit_function_new_loop_over_range): Delete.
+	(gcc_jit_loop_as_object): Delete.
+	(gcc_jit_loop_end): Delete.
+
+	* libgccjit.c (gcc_jit_label): Delete in favor of...
+	(gcc_jit_block): New type.
+	(gcc_jit_loop): Delete.
+
+	(RETURN_IF_NOT_FUNC_DEFINITION): Delete in favor of...
+	(RETURN_IF_NOT_VALID_BLOCK): New macro.
+	(RETURN_NULL_IF_NOT_FUNC_DEFINITION): Delete in favor of...
+	(RETURN_NULL_IF_NOT_VALID_BLOCK): New macro.
+
+	(gcc_jit_function_new_forward_label): Delete in favor of...
+	(gcc_jit_function_new_block): New.
+
+	(gcc_jit_label_as_object): Delete in favor of...
+	(gcc_jit_block_as_object): New.
+
+	(gcc_jit_rvalue_dereference_field): Ensure that field has been
+	placed.
+
+	(gcc_jit_function_add_label): Delete
+	(gcc_jit_function_place_forward_label): Delete.
+
+	(gcc_jit_function_add_eval): Delete in favor of...
+	(gcc_jit_block_add_eval): New.
+
+	(gcc_jit_function_add_assignment): Delete in favor of...
+	(gcc_jit_block_add_assignment): New.
+
+	(gcc_jit_function_add_assignment_op): Delete in favor of...
+	(gcc_jit_block_add_assignment_op): New.
+
+	(gcc_jit_function_add_conditional): Delete in favor of...
+	(gcc_jit_block_end_with_conditional): New.
+
+	(gcc_jit_function_add_comment): Delete in favor of...
+	(gcc_jit_block_add_comment): New.
+
+	(gcc_jit_function_add_jump): Delete in favor of...
+	(gcc_jit_block_end_with_jump): New.
+
+	(gcc_jit_function_add_return): Delete in favor of...
+	(gcc_jit_block_end_with_return): New.
+
+	(gcc_jit_function_add_void_return): Delete in favor of...
+	(gcc_jit_block_end_with_void_return): New.
+
+	(gcc_jit_function_new_loop): Delete.
+	(gcc_jit_function_new_loop_over_range): Delete.
+	(gcc_jit_loop_as_object): Delete.
+	(gcc_jit_loop_end): Delete.
+
+	* internal-api.h (gcc::jit::recording::label): Delete class in
+	favor of...
+	(gcc::jit::recording::block): New class.
+	(gcc::jit::recording::loop): Delete class.
+	(gcc::jit::recording::loop_end): Delete class.
+
+	(gcc::jit::playback::label): Delete class in favor of...
+	(gcc::jit::playback::block): New class.
+
+	(gcc::jit::playback::loop): Delete class.
+
+	(gcc::jit::recording::playback_label): Delete function in favor of...
+	(gcc::jit::recording::playback_block): New function.
+
+	(gcc::jit::recording::context::validate): New.
+
+	(gcc::jit::recording::function::new_forward_label): Delete method.
+	(gcc::jit::recording::function::add_eval): Delete method in favor
+	of method of new gcc::jit::recording::block class.
+	(gcc::jit::recording::function::add_assignment): Likewise.
+	(gcc::jit::recording::function::add_assignment_op): Likewise.
+	(gcc::jit::recording::function::add_comment): Likewise.
+	(gcc::jit::recording::function::add_conditional): Likewise.
+	(gcc::jit::recording::function::place_forward_label): Likewise.
+	(gcc::jit::recording::function::add_jump): Likewise.
+	(gcc::jit::recording::function::add_return): Likewise.
+
+	(gcc::jit::recording::function::add_label): Delete method in favor of...
+	(gcc::jit::recording::function::new_block): New method.
+
+	(gcc::jit::recording::function::new_loop): Delete method.
+
+	(gcc::jit::recording::function::validate): New method.
+	(gcc::jit::recording::function::m_activity): Delete field in favor of...
+	(gcc::jit::recording::function::m_blocks): New field.
+
+	(gcc::jit::recording::statement::get_successor_blocks): New method.
+	(gcc::jit::recording::statement::write_to_dump): Make public.
+	(gcc::jit::recording::statement::statement): Accept a block rather
+	than a function.
+	(gcc::jit::recording::statement::playback_function): Delete.
+	(gcc::jit::recording::statement::get_block): New.
+	(gcc::jit::recording::statement::m_func): Delete in favor of...
+	(gcc::jit::recording::statement::m_block): ...this.
+
+	(gcc::jit::recording::eval::eval): Accept a block rather than a
+	function.
+	(gcc::jit::recording::assignment::assignment): Likewise.
+	(gcc::jit::recording::assignment_op::assignment_op): Likewise.
+	(gcc::jit::recording::comment::comment): Likewise.
+	(gcc::jit::recording::return::return): Likewise.
+	(gcc::jit::recording::conditional::conditional): Likewise; accept
+	blocks rather than labels.
+	(gcc::jit::recording::jump::jump): Likewise.
+	(gcc::jit::recording::conditional::get_successor_blocks): New.
+	(gcc::jit::recording::jump::get_successor_blocks): New.
+
+	(gcc::jit::playback::function::new_forward_label): Delete method
+	in favor of...
+	(gcc::jit::playback::function::new_block): New method.
+	(gcc::jit::playback::function::build_stmt_list): New method.
+	(gcc::jit::playback::function::m_blocks): New field.
+
+	* libgccjit++.h (gccjit::label): Delete class in favor of...
+	(gccjit::block): New class.
+	(gccjit::function::new_forward_label): Delete methods in favor of...
+	(gccjit::function::new_block): New methods.
+	(gccjit::function::add_comment): Delete methods in favor of methods
+	of new class gccjit::block.
+	(gccjit::function::add_conditional): Likewise.
+	(gccjit::function::add_label): Likewise.
+	(gccjit::function::place_forward_label): Likewise.
+	(gccjit::function::add_jump): Likewise.
+	(gccjit::function::add_return): Likewise.
+	(gccjit::function::add_call): Likewise.
+
+	* internal-api.c (gcc::jit::recording::playback_label): Delete in
+	favor of...
+	(gcc::jit::recording::playback_block): New.
+	(gcc::jit::recording::context::compile): Validate.
+	(gcc::jit::recording::context::validate): New.
+	(gcc::jit::recording::function::function): Update.
+	(gcc::jit::recording::function::new_forward_label): Delete.
+	(gcc::jit::recording::function::add_eval): Delete.
+	(gcc::jit::recording::function::add_assignment): Delete.
+	(gcc::jit::recording::function::add_assignment_op): Delete.
+	(gcc::jit::recording::function::new_block): New.
+	(gcc::jit::recording::function::add_comment): Delete.
+	(gcc::jit::ecording::function::add_conditional): Delete.
+	(gcc::jit::recording::function::add_label): Delete.
+	(gcc::jit::recording::function::place_forward_label): Delete.
+	(gcc::jit::recording::function::add_jump): Delete.
+	(gcc::jit::recording::function::add_return): Delete.
+	(gcc::jit::recording::function::new_loop): Delete.
+	(gcc::jit::recording::function::write_to_dump): Port to block-based
+	representation.
+	(gcc::jit::recording::function::validate): New.
+	(gcc::jit::recording::block::add_eval): New.
+	(gcc::jit::recording::block::add_assignment): New.
+	(gcc::jit::recording::label::replay_into): Delete.
+	(gcc::jit::recording::block::add_assignment_op): New.
+	(gcc::jit::recording::block::add_comment): New.
+	(gcc::jit::recording::block::end_with_conditional): New.
+	(gcc::jit::recording::block::end_with_jump): New.
+	(gcc::jit::recording::block::end_with_return): New.
+	(gcc::jit::recording::block::write_to_dump): New.
+	(gcc::jit::recording::block::validate): New.
+	(gcc::jit::recording::block::get_last_statement): New.
+	(gcc::jit::recording::block::get_successor_blocks): New.
+	(gcc::jit::recording::block::replay_into): New.
+	(gcc::jit::recording::label::make_debug_string): Delete.
+	(gcc::jit::recording::block::make_debug_string): New.
+	(gcc::jit::recording::statement::get_successor_blocks): New.
+	(gcc::jit::recording::eval::replay_into): Port to block-based
+	representation.
+	(gcc::jit::recording::assignment::replay_into): Likewise.
+	(gcc::jit::recording::assignment_op::replay_into): Likewise.
+	(gcc::jit::recording::comment::replay_into): Likewise.
+	(gcc::jit::recording::conditional::replay_into): Likewise.
+	(gcc::jit::recording::jump::replay_into): Likewise.
+	(gcc::jit::recording::return_::replay_into): Likewise.
+
+	(gcc::jit::recording::conditional::get_successor_blocks): New.
+	(gcc::jit::recording::place_label::place_label): Delete.
+	(gcc::jit::recording::place_label::replay_into): Delete.
+	(gcc::jit::recording::place_label::make_debug_string): Delete.
+	(gcc::jit::recording::place_label::write_to_dump): Delete.
+
+	(gcc::jit::recording::jump::get_successor_blocks): New.
+	(gcc::jit::recording::return_::get_successor_blocks): New.
+
+	(gcc::jit::recording::loop::replay_into): Delete.
+	(gcc::jit::recording::loop::make_debug_string): Delete.
+	(gcc::jit::recording::loop::end): Delete.
+	(gcc::jit::recording::loop_end::replay_into): Delete.
+	(gcc::jit::recording::loop_end::make_debug_string): Delete.
+
+	(gcc::jit::playback::function::new_forward_label): Delete.
+	(gcc::jit::playback::function::new_block): New.
+	(gcc::jit::playback::function::build_stmt_list): New.
+	(gcc::jit::playback::function::add_eval): Replace with...
+	(gcc::jit::playback::block::add_eval): New.
+	(gcc::jit::playback::function::add_assignment): Replace with...
+	(gcc::jit::playback::block::add_assignment): New.
+	(gcc::jit::playback::function::add_comment): Replace with...
+	(gcc::jit::playback::block::add_comment): New, reimplementing,
+	given that we no longer have labels.
+	(gcc::jit::playback::function::add_conditional): Replace with...
+	(gcc::jit::playback::block::add_conditional): New, reworking,
+	given that on_false can no longer be NULL.
+	(gcc::jit::playback::function::add_label): Delete.
+	(gcc::jit::playback::function::place_forward_label): Delete.
+	(gcc::jit::playback::function::add_jump): Replace with...
+	(gcc::jit::playback::block::add_jump): New.
+	(gcc::jit::playback::function::add_return): Replace with...
+	(gcc::jit::playback::block::add_return): New.
+	(gcc::jit::playback::function::new_loop): Delete.
+	(gcc::jit::playback::label::label): Replace with...
+	(gcc::jit::playback::block::block): ...this.
+
+	(gcc::jit::playback::loop::loop): Delete.
+	(gcc::jit::playback::loop::end): Delete.
+
+	(gcc::jit::playback::context::replay): Call each function's
+	build_stmt_list.
+
+	* TODO.rst: Update
+
 2014-02-25  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_function_add_void_return): New.

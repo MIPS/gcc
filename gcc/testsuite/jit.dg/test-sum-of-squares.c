@@ -42,41 +42,43 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   gcc_jit_lvalue *sum =
     gcc_jit_function_new_local (func, NULL, the_type, "sum");
 
-  /* Create forward label: */
-  gcc_jit_label *label_after_loop =
-    gcc_jit_function_new_forward_label (func, "after_loop");
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (func, "initial");
+  gcc_jit_block *loop_cond =
+    gcc_jit_function_new_block (func, "loop_cond");
+  gcc_jit_block *loop_body =
+    gcc_jit_function_new_block (func, "loop_body");
+  gcc_jit_block *after_loop =
+    gcc_jit_function_new_block (func, "after_loop");
 
   /* sum = 0; */
-  gcc_jit_function_add_assignment (
-    func, NULL,
+  gcc_jit_block_add_assignment (
+    initial, NULL,
     sum,
     gcc_jit_context_new_rvalue_from_int (ctxt, the_type, 0));
 
   /* i = 0; */
-  gcc_jit_function_add_assignment (
-    func, NULL,
+  gcc_jit_block_add_assignment (
+    initial, NULL,
     i,
     gcc_jit_context_new_rvalue_from_int (ctxt, the_type, 0));
 
-
-  /* label "cond:" */
-  gcc_jit_label *label_cond =
-    gcc_jit_function_add_label (func, NULL, "cond");
+  gcc_jit_block_end_with_jump (initial, NULL, loop_cond);
 
   /* if (i >= n) */
-  gcc_jit_function_add_conditional (
-    func, NULL,
+  gcc_jit_block_end_with_conditional (
+    loop_cond, NULL,
     gcc_jit_context_new_comparison (
        ctxt, NULL,
        GCC_JIT_COMPARISON_GE,
        gcc_jit_lvalue_as_rvalue (i),
        gcc_jit_param_as_rvalue (n)),
-    label_after_loop,
-    NULL);
+    after_loop,
+    loop_body);
 
   /* sum += i * i */
-  gcc_jit_function_add_assignment (
-    func, NULL,
+  gcc_jit_block_add_assignment (
+    loop_body, NULL,
     sum,
     gcc_jit_context_new_binary_op (
       ctxt, NULL,
@@ -89,8 +91,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	 gcc_jit_lvalue_as_rvalue (i))));
 
   /* i++ */
-  gcc_jit_function_add_assignment (
-    func, NULL,
+  gcc_jit_block_add_assignment (
+    loop_body, NULL,
     i,
     gcc_jit_context_new_binary_op (
       ctxt, NULL,
@@ -101,17 +103,11 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	the_type,
 	1)));
 
-  /* goto label_cond; */
-  gcc_jit_function_add_jump (
-    func, NULL,
-    label_cond);
-
-  /* label "after_loop:" */
-  gcc_jit_function_place_forward_label (func, NULL, label_after_loop);
+  gcc_jit_block_end_with_jump (loop_body, NULL, loop_cond);
 
   /* return sum */
-  gcc_jit_function_add_return (
-    func,
+  gcc_jit_block_end_with_return (
+    after_loop,
     NULL,
     gcc_jit_lvalue_as_rvalue (sum));
 }

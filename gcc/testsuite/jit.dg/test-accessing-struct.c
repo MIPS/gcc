@@ -76,14 +76,16 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	y)));
 
   /* f->z = ... */
-  gcc_jit_function_add_assignment (
-    test_fn,
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
+  gcc_jit_block_add_assignment (
+    block,
     NULL,
     gcc_jit_rvalue_dereference_field (
       gcc_jit_param_as_rvalue (param_f),
       NULL,
       z),
     sum);
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 void

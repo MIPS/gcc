@@ -56,6 +56,8 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 				gcc_jit_struct_as_type (struct_foo),
 				"tmp");
 
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
+
   /* Erroneous: tmp->x = ... */
   gcc_jit_lvalue *lvalue =
     gcc_jit_rvalue_dereference_field (
@@ -71,10 +73,12 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 	NULL,
 	y));
 
-  gcc_jit_function_add_assignment (
-    test_fn,
+  gcc_jit_block_add_assignment (
+    block,
     NULL,
     lvalue, rvalue);
+
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 void

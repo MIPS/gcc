@@ -88,12 +88,12 @@ namespace recording {
   class struct_;
   class fields;
   class function;
-  class label;
+  class block;
   class rvalue;
   class lvalue;
   class local;
   class param;
-  class loop;
+  class statement;
 }
 
 namespace playback {
@@ -103,11 +103,10 @@ namespace playback {
   class field;
   class struct_;
   class function;
-  class label;
+  class block;
   class rvalue;
   class lvalue;
   class param;
-  class loop;
   class source_file;
   class source_line;
 }
@@ -151,8 +150,8 @@ playback_location (replayer *r, location *loc);
 const char *
 playback_string (string *str);
 
-playback::label *
-playback_label (label *lab);
+playback::block *
+playback_block (block *b);
 
 /* A JIT-compilation context.  */
 class context
@@ -310,6 +309,9 @@ public:
   type *get_opaque_FILE_type ();
 
   void dump_to_file (const char *path, bool update_locations);
+
+private:
+  void validate ();
 
 private:
   context *m_parent_ctxt;
@@ -845,8 +847,51 @@ public:
 	     type *type,
 	     const char *name);
 
-  label*
-  new_forward_label (const char *name);
+  block*
+  new_block (const char *name);
+
+  type *get_return_type () const { return m_return_type; }
+  string * get_name () const { return m_name; }
+  vec<param *> get_params () const { return m_params; }
+  param *get_param (int i) const { return m_params[i]; }
+  bool is_variadic () const { return m_is_variadic; }
+
+  void write_to_dump (dump &d);
+
+  void validate ();
+
+private:
+  string * make_debug_string ();
+
+private:
+  location *m_loc;
+  enum gcc_jit_function_kind m_kind;
+  type *m_return_type;
+  string *m_name;
+  vec<param *> m_params;
+  int m_is_variadic;
+  enum built_in_function m_builtin_id;
+  vec<local *> m_locals;
+  vec<block *> m_blocks;
+};
+
+class block : public memento
+{
+public:
+  block (function *func, string *name)
+  : memento (func->m_ctxt),
+    m_func (func),
+    m_name (name),
+    m_statements (),
+    m_has_been_terminated (false),
+    m_is_reachable (false)
+  {
+  }
+
+  function *get_function () { return m_func; }
+
+  bool has_been_terminated () { return m_has_been_terminated; }
+  bool is_reachable () { return m_is_reachable; }
 
   void
   add_eval (location *loc,
@@ -868,85 +913,46 @@ public:
 	       const char *text);
 
   void
-  add_conditional (location *loc,
-		   rvalue *boolval,
-		   label *on_true,
-		   label *on_false);
-
-  label *
-  add_label (location *loc,
-	     const char *name);
+  end_with_conditional (location *loc,
+			rvalue *boolval,
+			block *on_true,
+			block *on_false);
 
   void
-  place_forward_label (location *loc, label *lab);
+  end_with_jump (location *loc,
+		 block *target);
 
   void
-  add_jump (location *loc,
-	    label *target);
+  end_with_return (location *loc,
+		   rvalue *rvalue);
 
-  void
-  add_return (location *loc,
-	      rvalue *rvalue);
-
-  loop *
-  new_loop (location *loc,
-	    rvalue *boolval,
-	    lvalue *iteration_var, rvalue *step);
-
-  type *get_return_type () const { return m_return_type; }
-  string * get_name () const { return m_name; }
-  vec<param *> get_params () const { return m_params; }
-  param *get_param (int i) const { return m_params[i]; }
-  bool is_variadic () const { return m_is_variadic; }
+  playback::block *
+  playback_block () const
+  {
+    return static_cast <playback::block *> (m_playback_obj);
+  }
 
   void write_to_dump (dump &d);
 
+  bool validate ();
+
+  statement *get_last_statement () const;
+
+  int get_successor_blocks (block **next1, block **next2) const;
+
 private:
   string * make_debug_string ();
-
-private:
-  location *m_loc;
-  enum gcc_jit_function_kind m_kind;
-  type *m_return_type;
-  string *m_name;
-  vec<param *> m_params;
-  int m_is_variadic;
-  enum built_in_function m_builtin_id;
-  /* Additional vectors to help when dumping.  */
-  vec<local *> m_locals;
-  vec<memento *> m_activity; // statements and labels
-};
-
-class label : public memento
-{
-public:
-  label (function *func, string *name)
-  : memento (func->m_ctxt),
-    m_func (func),
-    m_name (name),
-    m_has_been_placed (false)
-  {
-  }
 
   void replay_into (replayer *r);
-
-  playback::label *
-  playback_label () const
-  {
-    return static_cast <playback::label *> (m_playback_obj);
-  }
-
-  bool has_been_placed () { return m_has_been_placed; }
-
-private:
-  string * make_debug_string ();
 
 private:
   function *m_func;
   string *m_name;
-  bool m_has_been_placed;
+  vec<statement *> m_statements;
+  bool m_has_been_terminated;
+  bool m_is_reachable;
 
-  friend class place_label;
+  friend class function;
 };
 
 class global : public lvalue
@@ -1283,17 +1289,19 @@ private:
 
 class statement : public memento
 {
+public:
+  virtual int get_successor_blocks (block **out_next1,
+				    block **out_next2) const;
+
+  void write_to_dump (dump &d);
+
 protected:
-  statement (function *func, location *loc)
-  : memento (func->m_ctxt),
-    m_func (func),
+  statement (block *b, location *loc)
+  : memento (b->m_ctxt),
+    m_block (b),
     m_loc (loc) {}
 
-  playback::function *
-  playback_function () const
-  {
-    return m_func->playback_function ();
-  }
+  block *get_block () const { return m_block; }
 
   playback::location *
   playback_location (replayer *r) const
@@ -1302,20 +1310,17 @@ protected:
   }
 
 private:
-  void write_to_dump (dump &d);
-
-private:
-  function *m_func;
+  block *m_block;
   location *m_loc;
 };
 
 class eval : public statement
 {
 public:
-  eval (function *func,
+  eval (block *b,
 	location *loc,
 	rvalue *rvalue)
-  : statement (func, loc),
+  : statement (b, loc),
     m_rvalue (rvalue) {}
 
   void replay_into (replayer *r);
@@ -1330,11 +1335,11 @@ private:
 class assignment : public statement
 {
 public:
-  assignment (function *func,
+  assignment (block *b,
 	      location *loc,
 	      lvalue *lvalue,
 	      rvalue *rvalue)
-  : statement (func, loc),
+  : statement (b, loc),
     m_lvalue (lvalue),
     m_rvalue (rvalue) {}
 
@@ -1351,12 +1356,12 @@ private:
 class assignment_op : public statement
 {
 public:
-  assignment_op (function *func,
+  assignment_op (block *b,
 		 location *loc,
 		 lvalue *lvalue,
 		 enum gcc_jit_binary_op op,
 		 rvalue *rvalue)
-  : statement (func, loc),
+  : statement (b, loc),
     m_lvalue (lvalue),
     m_op (op),
     m_rvalue (rvalue) {}
@@ -1375,10 +1380,10 @@ private:
 class comment : public statement
 {
 public:
-  comment (function *func,
+  comment (block *b,
 	   location *loc,
 	   string *text)
-  : statement (func, loc),
+  : statement (b, loc),
     m_text (text) {}
 
   void replay_into (replayer *r);
@@ -1393,145 +1398,70 @@ private:
 class conditional : public statement
 {
 public:
-  conditional (function *func,
+  conditional (block *b,
 	       location *loc,
 	       rvalue *boolval,
-	       label *on_true,
-	       label *on_false)
-  : statement (func, loc),
+	       block *on_true,
+	       block *on_false)
+  : statement (b, loc),
     m_boolval (boolval),
     m_on_true (on_true),
     m_on_false (on_false) {}
 
   void replay_into (replayer *r);
 
+  int get_successor_blocks (block **out_next1,
+			    block **out_next2) const;
+
 private:
   string * make_debug_string ();
 
 private:
   rvalue *m_boolval;
-  label *m_on_true;
-  label *m_on_false;
-};
-
-class place_label : public statement
-{
-public:
-  place_label (function *func,
-	       location *loc,
-	       label *lab);
-
-  void replay_into (replayer *r);
-
-private:
-  string * make_debug_string ();
-
-  void write_to_dump (dump &d);
-
-private:
-  label *m_label;
+  block *m_on_true;
+  block *m_on_false;
 };
 
 class jump : public statement
 {
 public:
-  jump (function *func,
+  jump (block *b,
 	location *loc,
-	label *target)
-  : statement (func, loc),
+	block *target)
+  : statement (b, loc),
     m_target (target) {}
 
   void replay_into (replayer *r);
+
+  int get_successor_blocks (block **out_next1,
+			    block **out_next2) const;
 
 private:
   string * make_debug_string ();
 
 private:
-  label *m_target;
+  block *m_target;
 };
 
 class return_ : public statement
 {
 public:
-  return_ (function *func,
+  return_ (block *b,
 	   location *loc,
 	   rvalue *rvalue)
-  : statement (func, loc),
+  : statement (b, loc),
     m_rvalue (rvalue) {}
 
   void replay_into (replayer *r);
+
+  int get_successor_blocks (block **out_next1,
+			    block **out_next2) const;
 
 private:
   string * make_debug_string ();
 
 private:
   rvalue *m_rvalue;
-};
-
-class loop : public memento
-{
-public:
-  loop (function *func,
-	location *loc,
-	rvalue *boolval,
-	lvalue *iteration_var, rvalue *step)
-  : memento (func->m_ctxt),
-    m_func (func),
-    m_loc (loc),
-    m_boolval (boolval),
-    m_iteration_var (iteration_var),
-    m_step (step)
-  {}
-
-  void replay_into (replayer *r);
-
-  void end (location *loc);
-
-  playback::loop *
-  playback_loop ()
-  {
-    return static_cast <playback::loop *> (m_playback_obj);
-  }
-
-private:
-  string * make_debug_string ();
-
-private:
-  function *m_func;
-  location *m_loc;
-  rvalue *m_boolval;
-
-  /* The following fields are for handling
-     gcc_jit_function_new_loop_over_range and are NULL for other loops.
-
-     We preserve these from "_over_range" calls so that we can inject a
-     += assignment in the correct place immediately before the loop ends.
-     This is done within the recording::loop::end () method.
-     The corresponding playback::loop class has no special handling for
-     this, with the += operation having become a regular assignment by
-     that time.  */
-  lvalue *m_iteration_var;
-  rvalue *m_step;
-};
-
-class loop_end : public memento
-{
-public:
-  loop_end (loop *loop,
-	    location *loc)
-  : memento (loop->m_ctxt),
-    m_loop (loop),
-    m_loc (loc)
-  {}
-
-  void replay_into (replayer *r);
-
-private:
-  string * make_debug_string ();
-
-private:
-  loop *m_loop;
-  location *m_loc;
 };
 
 } // namespace gcc::jit::recording
@@ -1826,8 +1756,42 @@ public:
 	     type *type,
 	     const char *name);
 
-  label*
-  new_forward_label (const char *name);
+  block*
+  new_block (const char *name);
+
+  void
+  build_stmt_list ();
+
+  void
+  postprocess ();
+
+public:
+  context *m_ctxt;
+
+public:
+  void
+  set_tree_location (tree t, location *loc)
+  {
+    m_ctxt->set_tree_location (t, loc);
+  }
+
+private:
+  tree m_inner_fndecl;
+  tree m_inner_block;
+  tree m_inner_bind_expr;
+  enum gcc_jit_function_kind m_kind;
+  tree m_stmt_list;
+  tree_stmt_iterator m_stmt_iter;
+  vec<block *> m_blocks;
+};
+
+class block : public wrapper
+{
+public:
+  block (function *func,
+	 const char *name);
+
+  tree as_label_decl () const { return m_label_decl; }
 
   void
   add_eval (location *loc,
@@ -1845,68 +1809,43 @@ public:
   void
   add_conditional (location *loc,
 		   rvalue *boolval,
-		   label *on_true,
-		   label *on_false);
+		   block *on_true,
+		   block *on_false);
 
-  label *
-  add_label (location *loc,
+  block *
+  add_block (location *loc,
 	     const char *name);
 
   void
-  place_forward_label (location *loc, label *lab);
-
-  void
   add_jump (location *loc,
-	    label *target);
+	    block *target);
 
   void
   add_return (location *loc,
 	      rvalue *rvalue);
 
-  loop *
-  new_loop (location *loc,
-	    rvalue *boolval);
-
-  void
-  postprocess ();
-
-public:
-  context *m_ctxt;
-
 private:
-  void add_stmt (tree stmt)
-  {
-    tsi_link_after (&m_stmt_iter, stmt, TSI_CONTINUE_LINKING);
-  }
-
   void
   set_tree_location (tree t, location *loc)
   {
-    m_ctxt->set_tree_location (t, loc);
+    m_func->set_tree_location (t, loc);
+  }
+
+  void add_stmt (tree stmt)
+  {
+    /* TODO: use one stmt_list per block.  */
+    m_stmts.safe_push (stmt);
   }
 
 private:
-  tree m_inner_fndecl;
-  tree m_inner_block;
-  tree m_inner_bind_expr;
-  enum gcc_jit_function_kind m_kind;
-  tree m_stmt_list;
-  tree_stmt_iterator m_stmt_iter;
-};
-
-class label : public wrapper
-{
-public:
-  label (function *func,
-	 const char *name);
-
-  tree as_label_decl () const { return m_label_decl; }
-
-private:
+  function *m_func;
   tree m_label_decl;
+  vec<tree> m_stmts;
 
 public: // for now
   tree m_label_expr;
+
+  friend class function;
 };
 
 class rvalue : public wrapper
@@ -1968,20 +1907,6 @@ public:
   param (context *ctxt, tree inner)
     : lvalue(ctxt, inner)
   {}
-};
-
-class loop : public wrapper
-{
-public:
-  loop (function *func, location *loc, rvalue *boolval);
-
-  void end (location *loc);
-
-private:
-  function *m_func;
-  label *m_label_cond;
-  label *m_label_body;
-  label *m_label_end;
 };
 
 /* Dealing with the linemap API.

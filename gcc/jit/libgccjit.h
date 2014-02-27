@@ -39,11 +39,10 @@ typedef struct gcc_jit_result gcc_jit_result;
 	    +- gcc_jit_struct
          +- gcc_jit_field
          +- gcc_jit_function
-         +- gcc_jit_label
+         +- gcc_jit_block
          +- gcc_jit_rvalue
              +- gcc_jit_lvalue
                  +- gcc_jit_param
-         +- gcc_jit_loop
 */
 typedef struct gcc_jit_object gcc_jit_object;
 
@@ -77,8 +76,23 @@ typedef struct gcc_jit_struct gcc_jit_struct;
    linking to within the rest of the process.  */
 typedef struct gcc_jit_function gcc_jit_function;
 
-/* A gcc_jit_label is a jump target within a function, for control flow.  */
-typedef struct gcc_jit_label gcc_jit_label;
+/* A gcc_jit_block encapsulates a "basic block" of statements within a
+   function (i.e. with one entry point and one exit point).
+
+   Every block within a function must be terminated with a conditional,
+   a branch, or a return.
+
+   The blocks within a function form a directed graph.
+
+   The entrypoint to the function is the first block created within
+   it.
+
+   All of the blocks in a function must be reachable via some path from
+   the first block.
+
+   It's OK to have more than one "return" from a function (i.e. multiple
+   blocks that terminate by returning).  */
+typedef struct gcc_jit_block gcc_jit_block;
 
 /* A gcc_jit_rvalue is an expression within your code, with some type.  */
 typedef struct gcc_jit_rvalue gcc_jit_rvalue;
@@ -92,10 +106,6 @@ typedef struct gcc_jit_lvalue gcc_jit_lvalue;
    gcc_jit_function.  It is also a gcc_jit_lvalue (and thus also an
    rvalue); use gcc_jit_param_as_lvalue to convert.  */
 typedef struct gcc_jit_param gcc_jit_param;
-
-/* A gcc_jit_loop is a pre-canned way of creating loops without needing
-   to manually manage gcc_jit_label instances.  */
-typedef struct gcc_jit_loop gcc_jit_loop;
 
 /*
    Acquire a JIT-compilation context.
@@ -269,11 +279,7 @@ gcc_jit_result_release (gcc_jit_result *result);
  copied, so you don't need to keep them around.  Note that this *isn't*
  the case for other parts of the API.
 
- You create code by adding a sequence of statements to a function.
- Control flow is expressed using labels, rather than by explicitly
- managing blocks.   If you have blocks, you can simply create labels
- for the start of each block.  You can even create labels for every
- instruction in your language; unused labels will be optimized away.
+ You create code by adding a sequence of statements to blocks.
 **********************************************************************/
 
 /**********************************************************************
@@ -484,17 +490,18 @@ gcc_jit_function_as_object (gcc_jit_function *func);
 extern gcc_jit_param *
 gcc_jit_function_get_param (gcc_jit_function *func, int index);
 
-/* Create a label, to be placed later.
+/* Create a block.
 
    The name can be NULL, or you can give it a meaningful name, which
-   may show up in dumps of the internal representation.  */
-extern gcc_jit_label *
-gcc_jit_function_new_forward_label (gcc_jit_function *func,
-				    const char *name);
+   may show up in dumps of the internal representation, and in error
+   messages.  */
+extern gcc_jit_block *
+gcc_jit_function_new_block (gcc_jit_function *func,
+			    const char *name);
 
-/* Upcasting from label to object.  */
+/* Upcasting from block to object.  */
 extern gcc_jit_object *
-gcc_jit_label_as_object (gcc_jit_label *label);
+gcc_jit_block_as_object (gcc_jit_block *block);
 
 /**********************************************************************
  lvalues, rvalues and expressions.
@@ -744,9 +751,9 @@ gcc_jit_function_new_local (gcc_jit_function *func,
      (void)expression;
 */
 extern void
-gcc_jit_function_add_eval (gcc_jit_function *func,
-			   gcc_jit_location *loc,
-			   gcc_jit_rvalue *rvalue);
+gcc_jit_block_add_eval (gcc_jit_block *block,
+			gcc_jit_location *loc,
+			gcc_jit_rvalue *rvalue);
 
 /* Add evaluation of an rvalue, assigning the result to the given
    lvalue.
@@ -756,10 +763,10 @@ gcc_jit_function_add_eval (gcc_jit_function *func,
      lvalue = rvalue;
 */
 extern void
-gcc_jit_function_add_assignment (gcc_jit_function *func,
-				 gcc_jit_location *loc,
-				 gcc_jit_lvalue *lvalue,
-				 gcc_jit_rvalue *rvalue);
+gcc_jit_block_add_assignment (gcc_jit_block *block,
+			      gcc_jit_location *loc,
+			      gcc_jit_lvalue *lvalue,
+			      gcc_jit_rvalue *rvalue);
 
 /* Add evaluation of an rvalue, using the result to modify an
    lvalue.
@@ -771,11 +778,11 @@ gcc_jit_function_add_assignment (gcc_jit_function *func,
      lvalue /= rvalue;
    etc  */
 extern void
-gcc_jit_function_add_assignment_op (gcc_jit_function *func,
-				    gcc_jit_location *loc,
-				    gcc_jit_lvalue *lvalue,
-				    enum gcc_jit_binary_op op,
-				    gcc_jit_rvalue *rvalue);
+gcc_jit_block_add_assignment_op (gcc_jit_block *block,
+				 gcc_jit_location *loc,
+				 gcc_jit_lvalue *lvalue,
+				 enum gcc_jit_binary_op op,
+				 gcc_jit_rvalue *rvalue);
 
 /* Add a no-op textual comment to the internal representation of the
    code.  It will be optimized away, but will be visible in the dumps
@@ -786,12 +793,12 @@ gcc_jit_function_add_assignment_op (gcc_jit_function *func,
    and thus may be of use when debugging how your project's internal
    representation gets converted to the libgccjit IR.  */
 extern void
-gcc_jit_function_add_comment (gcc_jit_function *func,
-			      gcc_jit_location *loc,
-			      const char *text);
+gcc_jit_block_add_comment (gcc_jit_block *block,
+			   gcc_jit_location *loc,
+			   const char *text);
 
-/* Add evaluation of an rvalue, branching on the result to the
-   appropriate label.
+/* Terminate a block by adding evaluation of an rvalue, branching on the
+   result to the appropriate successor block.
 
    This is roughly equivalent to this C code:
 
@@ -800,119 +807,46 @@ gcc_jit_function_add_comment (gcc_jit_function *func,
      else
        goto on_false;
 
-   on_true must be non-NULL.
-
-   on_false may be NULL, in which case this is roughly equivalent to:
-
-     if (boolval)
-       goto on_true;
-*/
+   block, boolval, on_true, and on_false must be non-NULL.  */
 extern void
-gcc_jit_function_add_conditional (gcc_jit_function *func,
-				  gcc_jit_location *loc,
-				  gcc_jit_rvalue *boolval,
-				  gcc_jit_label *on_true,
-				  gcc_jit_label *on_false);
+gcc_jit_block_end_with_conditional (gcc_jit_block *block,
+				    gcc_jit_location *loc,
+				    gcc_jit_rvalue *boolval,
+				    gcc_jit_block *on_true,
+				    gcc_jit_block *on_false);
 
-/* Add a label at the current location in the function.
-
-   This is roughly equivalent to this C code:
-
-      name:
-
-   The name can be NULL, or you can give it a meaningful name, which
-   may show up in dumps of the internal representation.  */
-extern gcc_jit_label *
-gcc_jit_function_add_label (gcc_jit_function *func,
-			    gcc_jit_location *loc,
-			    const char *name);
-
-/* Place a pre-existing label at the current location in the function.
-
-   This is roughly equivalent to this C code:
-
-      name:
-
-   The label must not have already been placed.  */
-extern void
-gcc_jit_function_place_forward_label (gcc_jit_function *func,
-				      gcc_jit_location *loc,
-				      gcc_jit_label *lab);
-
-/* Add a jump from the current location in the function to the given
-   label.
+/* Terminate a block by adding a jump to the given target block.
 
    This is roughly equivalent to this C code:
 
       goto target;
 */
 extern void
-gcc_jit_function_add_jump (gcc_jit_function *func,
-			   gcc_jit_location *loc,
-			   gcc_jit_label *target);
+gcc_jit_block_end_with_jump (gcc_jit_block *block,
+			     gcc_jit_location *loc,
+			     gcc_jit_block *target);
 
-/* Add evaluation of an rvalue, returning the value.
+/* Terminate a block by adding evaluation of an rvalue, returning the value.
 
    This is roughly equivalent to this C code:
 
       return expression;
 */
 extern void
-gcc_jit_function_add_return (gcc_jit_function *func,
-			     gcc_jit_location *loc,
-			     gcc_jit_rvalue *rvalue);
+gcc_jit_block_end_with_return (gcc_jit_block *block,
+			       gcc_jit_location *loc,
+			       gcc_jit_rvalue *rvalue);
 
-/* Add a valueless return, for use within a function with
-   "void" return type.
+/* Terminate a block by adding a valueless return, for use within a function
+   with "void" return type.
 
    This is equivalent to this C code:
 
       return;
 */
 extern void
-gcc_jit_function_add_void_return (gcc_jit_function *func,
-				  gcc_jit_location *loc);
-
-/* Helper function for creating a loop:
-      while (boolval)
-	{
-	   BODY;
-	}
-
-  Statements will be added to the body of the loop until
-  gcc_jit_loop_end is called.  */
-extern gcc_jit_loop *
-gcc_jit_function_new_loop (gcc_jit_function *func,
-			   gcc_jit_location *loc,
-			   gcc_jit_rvalue *boolval);
-
-/* Helper function for creating a loop of this form:
-      for (i = start_of_range; i < upper_bound_of_range; i += step)
-	{
-	   BODY;
-	}
-
-  Statements will be added to the body of the loop until
-  gcc_jit_loop_end is called.
-
-  "start_of_range" can be NULL, in which case 0 is used.
-  "upper_bound_of_range" must be non-NULL.
-  "step" can be NULL, in which case 1 is used.  */
-extern gcc_jit_loop *
-gcc_jit_function_new_loop_over_range (gcc_jit_function *func,
-				      gcc_jit_location *loc,
-				      gcc_jit_lvalue *iteration_var,
-				      gcc_jit_rvalue *start_of_range,
-				      gcc_jit_rvalue *upper_bound_of_range,
-				      gcc_jit_rvalue *step);
-
-/* Upcasting from loop to object.  */
-extern gcc_jit_object *
-gcc_jit_loop_as_object (gcc_jit_loop *loop);
-
-extern void
-gcc_jit_loop_end (gcc_jit_loop *loop,
-		  gcc_jit_location *loc);
+gcc_jit_block_end_with_void_return (gcc_jit_block *block,
+				    gcc_jit_location *loc);
 
 /**********************************************************************
  Nested contexts.

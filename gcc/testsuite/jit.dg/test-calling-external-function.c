@@ -73,13 +73,14 @@ create_code (gcc_jit_context *ctxt, void *user_data)
           ctxt,
           int_type,
           (i + 3) ));
-
-  gcc_jit_function_add_eval (
-    test_fn, NULL,
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
+  gcc_jit_block_add_eval (
+    block, NULL,
     gcc_jit_context_new_call (ctxt,
                               NULL,
                               called_fn,
                               3, args));
+  gcc_jit_block_end_with_void_return (block, NULL);
 }
 
 static int called_with[3];

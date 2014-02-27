@@ -62,8 +62,9 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                   0);
 
   /* return f->x * f->y; */
-  gcc_jit_function_add_return (
-    fn_test_reading,
+  gcc_jit_block *reading_block = gcc_jit_function_new_block (fn_test_reading, NULL);
+  gcc_jit_block_end_with_return (
+    reading_block,
     NULL,
     gcc_jit_context_new_binary_op (
       ctxt, NULL,
@@ -95,21 +96,22 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 				struct_type,
 				"tmp");
   /* tmp.x = 5; */
-  gcc_jit_function_add_assignment (
-    fn_test_writing, NULL,
+  gcc_jit_block *writing_block = gcc_jit_function_new_block (fn_test_writing, NULL);
+  gcc_jit_block_add_assignment (
+    writing_block, NULL,
     gcc_jit_lvalue_access_field (local_tmp, NULL, x),
     gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 5));
 
   /* tmp.y = 7; */
-  gcc_jit_function_add_assignment (
-    fn_test_writing, NULL,
+  gcc_jit_block_add_assignment (
+    writing_block, NULL,
     gcc_jit_lvalue_access_field (local_tmp, NULL, y),
     gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 7));
 
   /* return test_reading (&tmp); */
   gcc_jit_rvalue *arg = gcc_jit_lvalue_get_address (local_tmp, NULL);
-  gcc_jit_function_add_return (
-    fn_test_writing,
+  gcc_jit_block_end_with_return (
+    writing_block,
     NULL,
     gcc_jit_context_new_call (
       ctxt, NULL,

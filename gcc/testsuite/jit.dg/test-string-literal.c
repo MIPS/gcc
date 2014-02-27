@@ -28,9 +28,10 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                   "test_string_literal",
                                   0, NULL,
                                   0);
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
 
-  gcc_jit_function_add_return (
-    test_fn, NULL,
+  gcc_jit_block_end_with_return (
+    block, NULL,
     gcc_jit_context_new_string_literal (ctxt, "hello world"));
 }
 

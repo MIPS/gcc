@@ -56,7 +56,7 @@ struct gcc_jit_function : public gcc::jit::recording::function
 {
 };
 
-struct gcc_jit_label : public gcc::jit::recording::label
+struct gcc_jit_block : public gcc::jit::recording::block
 {
 };
 
@@ -69,10 +69,6 @@ struct gcc_jit_lvalue : public gcc::jit::recording::lvalue
 };
 
 struct gcc_jit_param : public gcc::jit::recording::param
-{
-};
-
-struct gcc_jit_loop : public gcc::jit::recording::loop
 {
 };
 
@@ -204,22 +200,28 @@ struct gcc_jit_loop : public gcc::jit::recording::loop
       }								\
   JIT_END_STMT
 
-/* Check that FUNC is non-NULL, and that it's OK to add statements to
+/* Check that BLOCK is non-NULL, and that it's OK to add statements to
    it.  */
-#define RETURN_IF_NOT_FUNC_DEFINITION(FUNC) \
+#define RETURN_IF_NOT_VALID_BLOCK(BLOCK) \
   JIT_BEGIN_STMT							\
-    RETURN_IF_FAIL ((FUNC), NULL, "NULL function");			\
-    RETURN_IF_FAIL ((FUNC)->get_kind () != GCC_JIT_FUNCTION_IMPORTED,	\
-		    NULL,						\
-		    "Cannot add code to an imported function");	\
+    RETURN_IF_FAIL ((BLOCK), NULL, "NULL block");			\
+    RETURN_IF_FAIL_PRINTF2 (						\
+      !(BLOCK)->has_been_terminated (),				\
+      (BLOCK)->get_context (),						\
+      "adding to terminated block: %s (already terminated by: %s)",	\
+      (BLOCK)->get_debug_string (),					\
+      (BLOCK)->get_last_statement ()->get_debug_string ());		\
   JIT_END_STMT
 
-#define RETURN_NULL_IF_NOT_FUNC_DEFINITION(FUNC) \
+#define RETURN_NULL_IF_NOT_VALID_BLOCK(BLOCK) \
   JIT_BEGIN_STMT							\
-    RETURN_NULL_IF_FAIL ((FUNC), NULL, "NULL function");		\
-    RETURN_NULL_IF_FAIL ((FUNC)->get_kind () != GCC_JIT_FUNCTION_IMPORTED,\
-			 NULL,						\
-			 "Cannot add code to an imported function");	\
+    RETURN_NULL_IF_FAIL ((BLOCK), NULL, "NULL block");			\
+    RETURN_NULL_IF_FAIL_PRINTF2 (					\
+      !(BLOCK)->has_been_terminated (),				\
+      (BLOCK)->get_context (),						\
+      "adding to terminated block: %s (already terminated by: %s)",	\
+      (BLOCK)->get_debug_string (),					\
+      (BLOCK)->get_last_statement ()->get_debug_string ());		\
   JIT_END_STMT
 
 static void
@@ -568,22 +570,25 @@ gcc_jit_function_get_param (gcc_jit_function *func, int index)
   return static_cast <gcc_jit_param *> (func->get_param (index));
 }
 
-gcc_jit_label*
-gcc_jit_function_new_forward_label (gcc_jit_function *func,
-				    const char *name)
+gcc_jit_block*
+gcc_jit_function_new_block (gcc_jit_function *func,
+			    const char *name)
 {
   RETURN_NULL_IF_FAIL (func, NULL, "NULL function");
+  RETURN_NULL_IF_FAIL (func->get_kind () != GCC_JIT_FUNCTION_IMPORTED,
+		       func->get_context (),
+		       "cannot add block to an imported function");
   /* name can be NULL.  */
 
-  return (gcc_jit_label *)func->new_forward_label (name);
+  return (gcc_jit_block *)func->new_block (name);
 }
 
 gcc_jit_object *
-gcc_jit_label_as_object (gcc_jit_label *label)
+gcc_jit_block_as_object (gcc_jit_block *block)
 {
-  RETURN_NULL_IF_FAIL (label, NULL, "NULL label");
+  RETURN_NULL_IF_FAIL (block, NULL, "NULL block");
 
-  return static_cast <gcc_jit_object *> (label->as_object ());
+  return static_cast <gcc_jit_object *> (block->as_object ());
 }
 
 gcc_jit_lvalue *
@@ -895,6 +900,9 @@ gcc_jit_rvalue_dereference_field (gcc_jit_rvalue *ptr,
   RETURN_NULL_IF_FAIL (field, NULL, "NULL field");
   gcc::jit::recording::type *underlying_type =
     ptr->get_type ()->dereference ();
+  RETURN_NULL_IF_FAIL_PRINTF1 (field->get_container (), field->m_ctxt,
+			       "field %s has not been placed in a struct",
+			       field->get_debug_string ());
   RETURN_NULL_IF_FAIL_PRINTF3 (
     underlying_type, ptr->m_ctxt,
     "dereference of non-pointer %s (type: %s) when accessing ->%s",
@@ -956,49 +964,26 @@ gcc_jit_function_new_local (gcc_jit_function *func,
   return (gcc_jit_lvalue *)func->new_local (loc, type, name);
 }
 
-gcc_jit_label *
-gcc_jit_function_add_label (gcc_jit_function *func,
-			    gcc_jit_location *loc,
-			    const char *name)
-{
-  RETURN_NULL_IF_NOT_FUNC_DEFINITION (func);
-  /* loc and name can be NULL.  */
-
-  return (gcc_jit_label *)func->add_label (loc, name);
-}
-
 void
-gcc_jit_function_place_forward_label (gcc_jit_function *func,
-				      gcc_jit_location *loc,
-				      gcc_jit_label *lab)
+gcc_jit_block_add_eval (gcc_jit_block *block,
+			gcc_jit_location *loc,
+			gcc_jit_rvalue *rvalue)
 {
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
-  RETURN_IF_FAIL (lab, ctxt, "NULL label");
-
-  func->place_forward_label (loc, lab);
-}
-
-void
-gcc_jit_function_add_eval (gcc_jit_function *func,
-			   gcc_jit_location *loc,
-			   gcc_jit_rvalue *rvalue)
-{
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
   RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
 
-  return func->add_eval (loc, rvalue);
+  return block->add_eval (loc, rvalue);
 }
 
 void
-gcc_jit_function_add_assignment (gcc_jit_function *func,
-				 gcc_jit_location *loc,
-				 gcc_jit_lvalue *lvalue,
-				 gcc_jit_rvalue *rvalue)
+gcc_jit_block_add_assignment (gcc_jit_block *block,
+			      gcc_jit_location *loc,
+			      gcc_jit_lvalue *lvalue,
+			      gcc_jit_rvalue *rvalue)
 {
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
   RETURN_IF_FAIL (lvalue, ctxt, "NULL lvalue");
   RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
   RETURN_IF_FAIL_PRINTF4 (
@@ -1012,23 +997,23 @@ gcc_jit_function_add_assignment (gcc_jit_function *func,
     rvalue->get_debug_string (),
     rvalue->get_type ()->get_debug_string ());
 
-  return func->add_assignment (loc, lvalue, rvalue);
+  return block->add_assignment (loc, lvalue, rvalue);
 }
 
 void
-gcc_jit_function_add_assignment_op (gcc_jit_function *func,
-				    gcc_jit_location *loc,
-				    gcc_jit_lvalue *lvalue,
-				    enum gcc_jit_binary_op op,
-				    gcc_jit_rvalue *rvalue)
+gcc_jit_block_add_assignment_op (gcc_jit_block *block,
+				 gcc_jit_location *loc,
+				 gcc_jit_lvalue *lvalue,
+				 enum gcc_jit_binary_op op,
+				 gcc_jit_rvalue *rvalue)
 {
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
   RETURN_IF_FAIL (lvalue, ctxt, "NULL lvalue");
   /* FIXME: op is checked by new_binary_op */
   RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
 
-  return func->add_assignment_op (loc, lvalue, op, rvalue);
+  return block->add_assignment_op (loc, lvalue, op, rvalue);
 }
 
 static bool
@@ -1041,14 +1026,14 @@ is_bool (gcc_jit_rvalue *boolval)
 }
 
 void
-gcc_jit_function_add_conditional (gcc_jit_function *func,
-				  gcc_jit_location *loc,
-				  gcc_jit_rvalue *boolval,
-				  gcc_jit_label *on_true,
-				  gcc_jit_label *on_false)
+gcc_jit_block_end_with_conditional (gcc_jit_block *block,
+				    gcc_jit_location *loc,
+				    gcc_jit_rvalue *boolval,
+				    gcc_jit_block *on_true,
+				    gcc_jit_block *on_false)
 {
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
   RETURN_IF_FAIL (boolval, ctxt, "NULL boolval");
   RETURN_IF_FAIL_PRINTF2 (
    is_bool (boolval), ctxt,
@@ -1056,42 +1041,73 @@ gcc_jit_function_add_conditional (gcc_jit_function *func,
    boolval->get_debug_string (),
    boolval->get_type ()->get_debug_string ());
   RETURN_IF_FAIL (on_true, ctxt, "NULL on_true");
-  /* on_false can be NULL */
+  RETURN_IF_FAIL (on_true, ctxt, "NULL on_false");
+  RETURN_IF_FAIL_PRINTF4 (
+    block->get_function () == on_true->get_function (),
+    ctxt,
+    "\"on_true\" block is not in same function:"
+    " source block %s is in function %s"
+    " whereas target block %s is in function %s",
+    block->get_debug_string (),
+    block->get_function ()->get_debug_string (),
+    on_true->get_debug_string (),
+    on_true->get_function ()->get_debug_string ());
+  RETURN_IF_FAIL_PRINTF4 (
+    block->get_function () == on_false->get_function (),
+    ctxt,
+    "\"on_false\" block is not in same function:"
+    " source block %s is in function %s"
+    " whereas target block %s is in function %s",
+    block->get_debug_string (),
+    block->get_function ()->get_debug_string (),
+    on_false->get_debug_string (),
+    on_false->get_function ()->get_debug_string ());
 
-  return func->add_conditional (loc, boolval, on_true, on_false);
+  return block->end_with_conditional (loc, boolval, on_true, on_false);
 }
 
 void
-gcc_jit_function_add_comment (gcc_jit_function *func,
-			      gcc_jit_location *loc,
-			      const char *text)
+gcc_jit_block_add_comment (gcc_jit_block *block,
+			   gcc_jit_location *loc,
+			   const char *text)
 {
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
   RETURN_IF_FAIL (text, ctxt, "NULL text");
 
-  func->add_comment (loc, text);
+  block->add_comment (loc, text);
 }
 
 void
-gcc_jit_function_add_jump (gcc_jit_function *func,
-			gcc_jit_location *loc,
-			gcc_jit_label *target)
-{
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
-  RETURN_IF_FAIL (target, ctxt, "NULL target");
-
-  func->add_jump (loc, target);
-}
-
-void
-gcc_jit_function_add_return (gcc_jit_function *func,
+gcc_jit_block_end_with_jump (gcc_jit_block *block,
 			     gcc_jit_location *loc,
-			     gcc_jit_rvalue *rvalue)
+			     gcc_jit_block *target)
 {
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
+  RETURN_IF_FAIL (target, ctxt, "NULL target");
+  RETURN_IF_FAIL_PRINTF4 (
+    block->get_function () == target->get_function (),
+    ctxt,
+    "target block is not in same function:"
+    " source block %s is in function %s"
+    " whereas target block %s is in function %s",
+    block->get_debug_string (),
+    block->get_function ()->get_debug_string (),
+    target->get_debug_string (),
+    target->get_function ()->get_debug_string ());
+
+  block->end_with_jump (loc, target);
+}
+
+void
+gcc_jit_block_end_with_return (gcc_jit_block *block,
+			       gcc_jit_location *loc,
+			       gcc_jit_rvalue *rvalue)
+{
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
+  gcc::jit::recording::function *func = block->get_function ();
   RETURN_IF_FAIL (rvalue, ctxt, "NULL rvalue");
   RETURN_IF_FAIL_PRINTF4 (
     compatible_types (
@@ -1105,15 +1121,16 @@ gcc_jit_function_add_return (gcc_jit_function *func,
     func->get_debug_string (),
     func->get_return_type ()->get_debug_string ());
 
-  return func->add_return (loc, rvalue);
+  return block->end_with_return (loc, rvalue);
 }
 
 void
-gcc_jit_function_add_void_return (gcc_jit_function *func,
-				  gcc_jit_location *loc)
+gcc_jit_block_end_with_void_return (gcc_jit_block *block,
+				    gcc_jit_location *loc)
 {
-  RETURN_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_NOT_VALID_BLOCK (block);
+  gcc::jit::recording::context *ctxt = block->get_context ();
+  gcc::jit::recording::function *func = block->get_function ();
   RETURN_IF_FAIL_PRINTF2 (
     func->get_return_type () == ctxt->get_type (GCC_JIT_TYPE_VOID),
     ctxt,
@@ -1122,81 +1139,7 @@ gcc_jit_function_add_void_return (gcc_jit_function *func,
     func->get_debug_string (),
     func->get_return_type ()->get_debug_string ());
 
-  return func->add_return (loc, NULL);
-}
-
-gcc_jit_loop *
-gcc_jit_function_new_loop (gcc_jit_function *func,
-			   gcc_jit_location *loc,
-			   gcc_jit_rvalue *boolval)
-{
-  RETURN_NULL_IF_NOT_FUNC_DEFINITION (func);
-  gcc::jit::recording::context *ctxt = func->m_ctxt;
-  RETURN_NULL_IF_FAIL (boolval, ctxt, "NULL boolval");
-  RETURN_NULL_IF_FAIL_PRINTF2 (
-   is_bool (boolval), ctxt,
-   "%s (type: %s) is not of boolean type ",
-   boolval->get_debug_string (),
-   boolval->get_type ()->get_debug_string ());
-
-  return (gcc_jit_loop *)func->new_loop (loc, boolval, NULL, NULL);
-}
-
-gcc_jit_loop *
-gcc_jit_function_new_loop_over_range (gcc_jit_function *func,
-				      gcc_jit_location *loc,
-				      gcc_jit_lvalue *iteration_var,
-				      gcc_jit_rvalue *start_of_range,
-				      gcc_jit_rvalue *upper_bound_of_range,
-				      gcc_jit_rvalue *step)
-{
-  RETURN_NULL_IF_NOT_FUNC_DEFINITION (func);
-  gcc_jit_context *ctxt = static_cast <gcc_jit_context *> (func->m_ctxt);
-  RETURN_NULL_IF_FAIL (iteration_var, ctxt, "NULL iteration_var");
-  RETURN_NULL_IF_FAIL (upper_bound_of_range, ctxt,
-		       "NULL upper_bound_of_range");
-  if (!start_of_range)
-    start_of_range =
-      gcc_jit_context_zero (ctxt,
-			    static_cast <gcc_jit_type *> (iteration_var->get_type ()));
-
-  if (!step)
-    step = gcc_jit_context_one (ctxt,
-				static_cast <gcc_jit_type *> (iteration_var->get_type ()));
-
-  /* "iteration_var = start_of_range;" */
-  gcc_jit_function_add_assignment (func,
-				   loc,
-				   iteration_var,
-				   start_of_range);
-
-  /* "(iteration_var < upper_bound_of_range)" */
-  gcc_jit_rvalue *boolval =
-    gcc_jit_context_new_comparison (ctxt,
-				    loc,
-				    GCC_JIT_COMPARISON_LT,
-				    gcc_jit_lvalue_as_rvalue (iteration_var),
-				    upper_bound_of_range);
-
-  /* the += is added when loop_end is called.  */
-  return (gcc_jit_loop *)func->new_loop (loc, boolval, iteration_var, step);
-}
-
-gcc_jit_object *
-gcc_jit_loop_as_object (gcc_jit_loop *loop)
-{
-  RETURN_NULL_IF_FAIL (loop, NULL, "NULL loop");
-
-  return static_cast <gcc_jit_object *> (loop->as_object ());
-}
-
-void
-gcc_jit_loop_end (gcc_jit_loop *loop,
-		  gcc_jit_location *loc)
-{
-  RETURN_IF_FAIL (loop, NULL, "NULL loop");
-
-  loop->end (loc);
+  return block->end_with_return (loc, NULL);
 }
 
 /**********************************************************************

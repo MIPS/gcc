@@ -53,7 +53,9 @@ create_test_of_builtin_strcmp (gcc_jit_context *ctxt)
     gcc_jit_object_get_debug_string (gcc_jit_rvalue_as_object (call)),
     "strcmp (a, b)");
 
-  gcc_jit_function_add_return (test_fn, NULL, call);
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (test_fn, "initial");
+  gcc_jit_block_end_with_return (initial, NULL, call);
 }
 
 static void
@@ -109,7 +111,9 @@ create_test_of_builtin_trig (gcc_jit_context *ctxt)
     gcc_jit_object_get_debug_string (gcc_jit_rvalue_as_object (ret)),
     "(double)2 * sin (theta) * cos (theta)");
 
-  gcc_jit_function_add_return (test_fn, NULL, ret);
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (test_fn, "initial");
+  gcc_jit_block_end_with_return (initial, NULL, ret);
 }
 
 static void
@@ -128,9 +132,7 @@ create_use_of_void_return (gcc_jit_context *ctxt)
        {
          *out = 1;
 	 return;
-	 *out = 2;
        }
-     where the second assignment is unreachable.
   */
   gcc_jit_type *void_t =
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID);
@@ -149,19 +151,16 @@ create_use_of_void_return (gcc_jit_context *ctxt)
                                   "test_of_void_return",
                                   1, &param_out,
                                   0);
-  gcc_jit_function_add_assignment (
-    test_fn, NULL,
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (test_fn, "initial");
+
+  gcc_jit_block_add_assignment (
+    initial, NULL,
     /* "*out = ..." */
     gcc_jit_rvalue_dereference (gcc_jit_param_as_rvalue (param_out),
 				NULL),
     gcc_jit_context_one (ctxt, int_t));
-  gcc_jit_function_add_void_return (test_fn, NULL);
-  gcc_jit_function_add_assignment (
-    test_fn, NULL,
-    /* "*out = ..." */
-    gcc_jit_rvalue_dereference (gcc_jit_param_as_rvalue (param_out),
-				NULL),
-    gcc_jit_context_new_rvalue_from_int (ctxt, int_t, 2));
+  gcc_jit_block_end_with_void_return (initial, NULL);
 }
 
 void

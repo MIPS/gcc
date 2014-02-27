@@ -50,16 +50,16 @@ FIRST_LINE + 7: }
 				  "my_fibonacci",
 				  1, params, 0);
 
- /* Create forward labels: */
-  gcc_jit_label *label_true =
-    gcc_jit_function_new_forward_label (func, NULL);
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (func, "initial");
+  gcc_jit_block *on_true =
+    gcc_jit_function_new_block (func, "on_true");
+  gcc_jit_block *on_false =
+    gcc_jit_function_new_block (func, "on_false");
 
-  gcc_jit_label *label_false =
-    gcc_jit_function_new_forward_label (func, NULL);
-
- /* if (x < 2) */
-  gcc_jit_function_add_conditional (
-    func,
+  /* if (x < 2) */
+  gcc_jit_block_end_with_conditional (
+    initial,
     gcc_jit_context_new_location (ctxt, __FILE__, FIRST_LINE + 3, 19),
     gcc_jit_context_new_comparison (
       ctxt,
@@ -70,25 +70,17 @@ FIRST_LINE + 7: }
 	ctxt,
 	the_type,
 	2)),
-    label_true,
-    label_false);
+    on_true,
+    on_false);
 
   /* true branch: */
-  gcc_jit_function_place_forward_label (
-    func,
-    gcc_jit_context_new_location (ctxt, __FILE__, FIRST_LINE + 4, 21),
-    label_true);
   /* return x */
-  gcc_jit_function_add_return (
-    func,
+  gcc_jit_block_end_with_return (
+    on_true,
     gcc_jit_context_new_location (ctxt, __FILE__, FIRST_LINE + 4, 21),
     gcc_jit_param_as_rvalue (x));
 
   /* false branch: */
-  gcc_jit_function_place_forward_label (
-    func,
-    gcc_jit_context_new_location (ctxt, __FILE__, FIRST_LINE + 6, 21),
-    label_false);
   gcc_jit_rvalue *x_minus_1 =
     gcc_jit_context_new_binary_op (
       ctxt,
@@ -109,8 +101,8 @@ FIRST_LINE + 7: }
 	ctxt,
 	the_type,
 	2));
-  gcc_jit_function_add_return (
-    func,
+  gcc_jit_block_end_with_return (
+    on_false,
     gcc_jit_context_new_location (ctxt, __FILE__, FIRST_LINE + 6, 21),
     gcc_jit_context_new_binary_op (
       ctxt,

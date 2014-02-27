@@ -31,9 +31,10 @@ create_code (gcc_jit_context *ctxt, void *user_data)
                                   "test_bogus_dereference_read",
                                   1, &param_i,
                                   0);
+  gcc_jit_block *block = gcc_jit_function_new_block (test_fn, NULL);
   /* Erroneous: "return *i;" */
-  gcc_jit_function_add_return (
-    test_fn,
+  gcc_jit_block_end_with_return (
+    block,
     NULL,
     gcc_jit_lvalue_as_rvalue (
       gcc_jit_rvalue_dereference (

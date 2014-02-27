@@ -2,6 +2,15 @@
 {
   global:
     # Keep this list sorted alphabetically:
+    gcc_jit_block_add_assignment;
+    gcc_jit_block_add_assignment_op;
+    gcc_jit_block_add_comment;
+    gcc_jit_block_add_eval;
+    gcc_jit_block_as_object;
+    gcc_jit_block_end_with_conditional;
+    gcc_jit_block_end_with_jump;
+    gcc_jit_block_end_with_return;
+    gcc_jit_block_end_with_void_return;
     gcc_jit_context_acquire;
     gcc_jit_context_compile;
     gcc_jit_context_dump_to_file;
@@ -35,26 +44,11 @@
     gcc_jit_context_set_str_option;
     gcc_jit_context_zero;
     gcc_jit_field_as_object;
-    gcc_jit_function_add_assignment;
-    gcc_jit_function_add_assignment_op;
-    gcc_jit_function_add_comment;
-    gcc_jit_function_add_conditional;
-    gcc_jit_function_add_eval;
-    gcc_jit_function_add_jump;
-    gcc_jit_function_add_label;
-    gcc_jit_function_add_return;
-    gcc_jit_function_add_void_return;
     gcc_jit_function_as_object;
     gcc_jit_function_get_param;
-    gcc_jit_function_new_forward_label;
+    gcc_jit_function_new_block;
     gcc_jit_function_new_local;
-    gcc_jit_function_new_loop;
-    gcc_jit_function_new_loop_over_range;
-    gcc_jit_function_place_forward_label;
-    gcc_jit_label_as_object;
     gcc_jit_location_as_object;
-    gcc_jit_loop_as_object;
-    gcc_jit_loop_end;
     gcc_jit_lvalue_as_object;
     gcc_jit_lvalue_as_rvalue;
     gcc_jit_lvalue_access_field;
