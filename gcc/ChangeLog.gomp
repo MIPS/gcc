@@ -1,3 +1,8 @@
+2014-02-27  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimplify.c (gimplify_oacc_parallel): Merge into
+	gimplify_omp_workshare.  Update all callers.
+
 2014-02-27  Ilmir Usmanov  <i.usmanov@samsung.com>
 
 	Fix OpenACC ASYNC clause: it cannot contain integer-expression-list.
