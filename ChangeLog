@@ -1,3 +1,17 @@
+2014-02-24  Walter Lee  <walt@tilera.com>
+
+	* configure.ac (tilepro-*-*) Change to tilepro*-*-*.
+	(tilegx-*-*): Change to tilegx*-*-*.
+	* configure: Regenerate.
+
+2014-02-17  Loren J. Rittle  <ljrittle@acm.org>
+
+	* MAINTAINERS (Various Maintainers: c++ runtime libs): Remove myself.
+
+2014-02-17  Kugan Vivekanandarajah  <kuganv@linaro.org>
+
+	* MAINTAINERS (Write After Approval): Add myself.
+
 2014-02-04  Rainer Orth  <ro@CeBiTec.Uni-Bielefeld.DE>
 
 	PR target/59788
