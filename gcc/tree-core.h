@@ -286,6 +286,9 @@ enum omp_clause_code {
       size-expression: * | integer-expression.  */
   OMP_CLAUSE_GANG,
 
+  /* OpenACC clause: async [(integer-expression)].  */
+  OMP_CLAUSE_ASYNC,
+
   /* OpenACC clause/directive: wait [(integer-expression-list)].  */
   OMP_CLAUSE_WAIT,
 
@@ -371,9 +374,6 @@ enum omp_clause_code {
 
   /* OpenACC clause: independent.  */
   OMP_CLAUSE_INDEPENDENT,
-
-  /* OpenACC clause: async [(integer-expression)].  */
-  OMP_CLAUSE_ASYNC,
 
   /* OpenACC clause: worker [( [num:] integer-expression)].  */
   OMP_CLAUSE_WORKER,

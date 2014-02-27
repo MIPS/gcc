@@ -264,6 +264,7 @@ unsigned const char omp_clause_num_ops[] =
   1, /* OMP_CLAUSE_DEVICE_RESIDENT  */
   1, /* OMP_CLAUSE_USE_DEVICE  */
   1, /* OMP_CLAUSE_GANG  */
+  1, /* OMP_CLAUSE_ASYNC  */
   1, /* OMP_CLAUSE_WAIT  */
   1, /* OMP_NO_CLAUSE_CACHE  */
   1, /* OMP_CLAUSE__LOOPTEMP_  */
@@ -292,7 +293,6 @@ unsigned const char omp_clause_num_ops[] =
   0, /* OMP_CLAUSE_TASKGROUP  */
   1, /* OMP_CLAUSE__SIMDUID_  */
   0, /* OMP_CLAUSE_INDEPENDENT  */
-  1, /* OMP_CLAUSE_ASYNC  */
   1, /* OMP_CLAUSE_WORKER  */
   1, /* OMP_CLAUSE_VECTOR  */
   1, /* OMP_CLAUSE_NUM_GANGS  */
@@ -322,6 +322,7 @@ const char * const omp_clause_code_name[] =
   "device_resident",
   "use_device",
   "gang",
+  "async",
   "wait",
   "_cache_",
   "_looptemp_",
@@ -350,7 +351,6 @@ const char * const omp_clause_code_name[] =
   "taskgroup",
   "_simduid_",
   "independent",
-  "async",
   "worker",
   "vector",
   "num_gangs",
@@ -11062,9 +11062,9 @@ walk_tree_1 (tree *tp, walk_tree_fn func, void *data,
 	case OMP_CLAUSE_DEVICE_RESIDENT:
 	case OMP_CLAUSE_USE_DEVICE:
 	case OMP_CLAUSE_GANG:
+	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WAIT:
 	case OMP_NO_CLAUSE_CACHE:
-	case OMP_CLAUSE_ASYNC:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
 	case OMP_CLAUSE_NUM_GANGS:

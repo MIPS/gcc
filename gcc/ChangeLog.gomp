@@ -1,3 +1,14 @@
+2014-02-27  Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	Fix OpenACC ASYNC clause: it cannot contain integer-expression-list.
+
+	gcc/
+	* tree.h (OMP_CLAUSE_ASYNC_EXPR): Reorder.
+	* tree.c (omp_clause_num_ops, omp_clause_code_name): Reorder clauses.
+	* tree-core.h (enum omp_clause_code): Likewise.
+	* omp-low.c (scan_sharing_clauses): Likewise.
+	* gimplify.c (gimplify_scan_omp_clauses): Likewise.
+
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimple.h (enum gf_mask): Add GF_OMP_TARGET_KIND_OACC_DATA.

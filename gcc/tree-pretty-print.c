@@ -655,12 +655,6 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
       pp_character(buffer, ')');
       break;
 
-    case OMP_CLAUSE_WAIT:
-      pp_string (buffer, "wait(");
-      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause), spc, flags, false);
-      pp_character(buffer, ')');
-      break;
-
     case OMP_CLAUSE_ASYNC:
       pp_string (buffer, "async");
       if (OMP_CLAUSE_DECL (clause))
@@ -670,6 +664,12 @@ dump_omp_clause (pretty_printer *buffer, tree clause, int spc, int flags)
                              spc, flags, false);
           pp_character(buffer, ')');
         }
+      break;
+
+    case OMP_CLAUSE_WAIT:
+      pp_string (buffer, "wait(");
+      dump_generic_node (buffer, OMP_CLAUSE_DECL (clause), spc, flags, false);
+      pp_character(buffer, ')');
       break;
 
     case OMP_CLAUSE_WORKER:
