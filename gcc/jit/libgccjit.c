@@ -835,6 +835,19 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
 					   (gcc::jit::recording::rvalue **)args);
 }
 
+gcc_jit_rvalue *
+gcc_jit_context_new_cast (gcc_jit_context *ctxt,
+			  gcc_jit_location *loc,
+			  gcc_jit_rvalue *rvalue,
+			  gcc_jit_type *type)
+{
+  RETURN_NULL_IF_FAIL (ctxt, NULL, "NULL context");
+  RETURN_NULL_IF_FAIL (rvalue, ctxt, "NULL rvalue");
+  RETURN_NULL_IF_FAIL (type, ctxt, "NULL type");
+
+  return static_cast <gcc_jit_rvalue *> (ctxt->new_cast (loc, rvalue, type));
+}
+
 extern gcc_jit_lvalue *
 gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
 				  gcc_jit_location *loc,

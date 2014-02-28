@@ -252,6 +252,11 @@ public:
 	    function *func,
 	    int numargs, rvalue **args);
 
+  rvalue *
+  new_cast (location *loc,
+	    rvalue *expr,
+	    type *type_);
+
   lvalue *
   new_array_access (location *loc,
 		    rvalue *ptr,
@@ -1123,6 +1128,26 @@ private:
   rvalue *m_b;
 };
 
+class cast : public rvalue
+{
+public:
+  cast (context *ctxt,
+	location *loc,
+	rvalue *a,
+	type *type_)
+  : rvalue (ctxt, loc, type_),
+    m_rvalue (a)
+  {}
+
+  void replay_into (replayer *r);
+
+private:
+  string * make_debug_string ();
+
+private:
+  rvalue *m_rvalue;
+};
+
 class call : public rvalue
 {
 public:
@@ -1580,6 +1605,11 @@ public:
 	    function *func,
 	    vec<rvalue *> args);
 
+  rvalue *
+  new_cast (location *loc,
+	    rvalue *expr,
+	    type *type_);
+
   lvalue *
   new_array_access (location *loc,
 		    rvalue *ptr,
@@ -1650,6 +1680,9 @@ public:
 
 private:
   void dump_generated_code ();
+
+  tree
+  build_cast (tree expr, tree dst_type);
 
   source_file *
   get_source_file (const char *filename);

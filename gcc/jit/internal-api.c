@@ -16,11 +16,28 @@
 #include "diagnostic-core.h"
 #include "dumpfile.h"
 #include "tree-cfg.h"
+#include "target.h"
+#include "convert.h"
 
 #include <pthread.h>
 
 #include "internal-api.h"
 #include "jit-builtins.h"
+
+/* gcc::jit::playback::context::build_cast uses the convert.h API,
+   which in turn requires the frontend to provide a "convert"
+   function, apparently as a fallback.
+
+   Hence we provide this dummy one, with the requirement that any casts
+   are handled before reaching this.  */
+extern tree convert (tree type, tree expr);
+
+tree
+convert (tree /*type*/, tree /*expr*/)
+{
+  error ("unhandled conversion");
+  return error_mark_node;
+}
 
 namespace gcc {
 namespace jit {
@@ -469,6 +486,16 @@ recording::context::new_comparison (recording::location *loc,
 				    recording::rvalue *b)
 {
   recording::rvalue *result = new comparison (this, loc, op, a, b);
+  record (result);
+  return result;
+}
+
+recording::rvalue *
+recording::context::new_cast (recording::location *loc,
+			      recording::rvalue *expr,
+			      recording::type *type_)
+{
+  recording::rvalue *result = new cast (this, loc, expr, type_);
   record (result);
   return result;
 }
@@ -1685,6 +1712,23 @@ recording::comparison::replay_into (replayer *r)
 				       m_b->playback_rvalue ()));
 }
 
+void
+recording::cast::replay_into (replayer *r)
+{
+  set_playback_obj (r->new_cast (playback_location (r, m_loc),
+				 m_rvalue->playback_rvalue (),
+				 get_type ()->playback_type ()));
+}
+
+recording::string *
+recording::cast::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "(%s)%s",
+			      get_type ()->get_debug_string (),
+			      m_rvalue->get_debug_string ());
+}
+
 recording::call::call (recording::context *ctxt,
 		       recording::location *loc,
 		       recording::function *func,
@@ -2717,6 +2761,64 @@ new_call (location *loc,
     which is in tree.c
     (see also build_call_vec)
    */
+}
+
+tree
+playback::context::build_cast (tree expr, tree dst_type)
+{
+  /* For comparison, see:
+     - c/c-typeck.c:build_c_cast
+     - c/c-convert.c: convert
+     - convert.h
+
+     Only some kinds of cast are currently supported here.  */
+  tree ret = NULL;
+  ret = targetm.convert_to_type (dst_type, expr);
+  if (ret)
+      return ret;
+  enum tree_code dst_code = TREE_CODE (dst_type);
+  switch (dst_code)
+    {
+    case INTEGER_TYPE:
+    case ENUMERAL_TYPE:
+      ret = convert_to_integer (dst_type, expr);
+      goto maybe_fold;
+
+    case BOOLEAN_TYPE:
+      /* Compare with c_objc_common_truthvalue_conversion and
+	 c_common_truthvalue_conversion. */
+      /* For now, convert to: (expr != 0)  */
+      ret = build2 (NE_EXPR, dst_type,
+		    expr, integer_zero_node);
+      goto maybe_fold;
+
+    case REAL_TYPE:
+      ret = convert_to_real (dst_type, expr);
+      goto maybe_fold;
+
+    default:
+      add_error ("can't handle cast");
+      return error_mark_node;
+
+    maybe_fold:
+      if (TREE_CODE (ret) != C_MAYBE_CONST_EXPR)
+	ret = fold (ret);
+      return ret;
+    }
+}
+
+playback::rvalue *
+playback::context::
+new_cast (playback::location *loc,
+	  playback::rvalue *expr,
+	  playback::type *type_)
+{
+
+  tree t_cast = build_cast (expr->as_tree (),
+			    type_->as_tree ());
+  if (loc)
+    set_tree_location (t_cast, loc);
+  return new rvalue (this, t_cast);
 }
 
 playback::lvalue *

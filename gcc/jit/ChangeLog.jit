@@ -1,5 +1,26 @@
 2014-02-28  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (gcc_jit_context_new_cast): New.
+	* libgccjit.map (gcc_jit_context_new_cast): New.
+	* libgccjit++.h (gccjit::context::new_cast): New method.
+	* libgccjit.c (gcc_jit_context_new_cast): New.
+
+	* internal-api.h (gcc::jit::recording::context::new_cast): New method.
+	(gcc::jit::recording::cast): New subclass of rvalue.
+	(gcc::jit::playback::context::new_cast): New method.
+	(gcc::jit::playback::context::build_cast): New method.
+
+	* internal-api.c (convert): New.
+	(gcc::jit::recording::context::new_cast): New.
+	(gcc::jit::recording::cast::replay_into): New.
+	(gcc::jit::recording::cast::make_debug_string): New.
+	(gcc::jit::playback::context::build_cast): New.
+	(gcc::jit::playback::context::new_cast): New.
+
+	* TODO.rst: Update.
+
+2014-02-28  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (gcc_jit_block_get_function): New.
 	* libgccjit.map (gcc_jit_block_get_function): New.
 	* libgccjit++.h (gccjit::block::get_function): New method.

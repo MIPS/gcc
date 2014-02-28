@@ -239,6 +239,10 @@ namespace gccjit
 		     rvalue arg3, rvalue arg4, rvalue arg5,
 		     location loc = location ());
 
+    rvalue new_cast (rvalue expr,
+		     type type_,
+		     location loc = location ());
+
     lvalue new_array_access (rvalue ptr,
 			     rvalue index,
 			     location loc = location ());
@@ -954,6 +958,17 @@ context::new_call (function func,
   args[4] = arg4;
   args[5] = arg5;
   return new_call (func, args, loc);
+}
+
+inline rvalue
+context::new_cast (rvalue expr,
+		   type type_,
+		   location loc)
+{
+  return rvalue (gcc_jit_context_new_cast (m_inner_ctxt,
+					   loc.get_inner_location (),
+					   expr.get_inner_rvalue (),
+					   type_.get_inner_type ()));
 }
 
 inline lvalue

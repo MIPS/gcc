@@ -454,6 +454,130 @@ verify_comparisons (gcc_jit_result *result)
 }
 
 /**********************************************************************
+ Casts
+ **********************************************************************/
+
+static const char*
+make_test_of_cast (gcc_jit_context *ctxt,
+		   gcc_jit_type *input_type,
+		   gcc_jit_type *output_type,
+		   const char *funcname)
+{
+  /* Make a test function of the form:
+       OUTPUT_TYPE test_cast_* (INPUT_TYPE a)
+       {
+          return (OUTPUT_TYPE)a;
+       }
+  */
+  gcc_jit_param *param_a =
+    gcc_jit_context_new_param (ctxt, NULL, input_type, "a");
+  gcc_jit_param *params[] = {param_a};
+  gcc_jit_function *test_fn =
+    gcc_jit_context_new_function (ctxt, NULL,
+				  GCC_JIT_FUNCTION_EXPORTED,
+				  output_type,
+				  funcname,
+				  1, params,
+				  0);
+  gcc_jit_rvalue *cast =
+    gcc_jit_context_new_cast (
+      ctxt,
+      NULL,
+      gcc_jit_param_as_rvalue (param_a),
+      output_type);
+  gcc_jit_block *initial = gcc_jit_function_new_block (test_fn, "initial");
+  gcc_jit_block_end_with_return (initial, NULL, cast);
+
+  return gcc_jit_object_get_debug_string (
+    gcc_jit_rvalue_as_object (cast));
+}
+
+static void
+make_tests_of_casts (gcc_jit_context *ctxt)
+{
+  gcc_jit_type *int_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
+  gcc_jit_type *float_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_FLOAT);
+  gcc_jit_type *bool_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_BOOL);
+
+  /* float/int conversions */
+  CHECK_STRING_VALUE (
+    make_test_of_cast (ctxt,
+		       float_type,
+		       int_type,
+		       "test_cast_from_float_to_int"),
+    "(int)a");
+  CHECK_STRING_VALUE (
+    make_test_of_cast (ctxt,
+		       int_type,
+		       float_type,
+		       "test_cast_from_int_to_float"),
+    "(float)a");
+
+  /* bool/int conversions */
+  CHECK_STRING_VALUE (
+    make_test_of_cast (ctxt,
+		       bool_type,
+		       int_type,
+		       "test_cast_from_bool_to_int"),
+    "(int)a");
+  CHECK_STRING_VALUE (
+    make_test_of_cast (ctxt,
+		       int_type,
+		       bool_type,
+		       "test_cast_from_int_to_bool"),
+    "(bool)a");
+}
+
+static void
+verify_casts (gcc_jit_result *result)
+{
+  /* float to int */
+  {
+    typedef int (*fn_type) (float);
+    fn_type test_cast_from_float_to_int =
+      (fn_type)gcc_jit_result_get_code (result,
+					"test_cast_from_float_to_int");
+    CHECK_NON_NULL (test_cast_from_float_to_int);
+    CHECK_VALUE (test_cast_from_float_to_int (4.2), 4);
+  }
+
+  /* int to float */
+  {
+    typedef float (*fn_type) (int);
+    fn_type test_cast_from_int_to_float =
+      (fn_type)gcc_jit_result_get_code (result,
+					"test_cast_from_int_to_float");
+    CHECK_NON_NULL (test_cast_from_int_to_float);
+    CHECK_VALUE (test_cast_from_int_to_float (4), 4.0);
+  }
+
+  /* bool to int */
+  {
+    typedef int (*fn_type) (bool);
+    fn_type test_cast_from_bool_to_int =
+      (fn_type)gcc_jit_result_get_code (result,
+					"test_cast_from_bool_to_int");
+    CHECK_NON_NULL (test_cast_from_bool_to_int);
+    CHECK_VALUE (test_cast_from_bool_to_int (0), 0);
+    CHECK_VALUE (test_cast_from_bool_to_int (1), 1);
+  }
+
+  /* int to bool */
+  {
+    typedef bool (*fn_type) (int);
+    fn_type test_cast_from_int_to_bool =
+      (fn_type)gcc_jit_result_get_code (result,
+					"test_cast_from_int_to_bool");
+    CHECK_NON_NULL (test_cast_from_int_to_bool);
+    CHECK_VALUE (test_cast_from_int_to_bool (0), 0);
+    CHECK_VALUE (test_cast_from_int_to_bool (1), 1);
+  }
+}
+
+/**********************************************************************
  Dereferences
  **********************************************************************/
 
@@ -617,6 +741,7 @@ create_code (gcc_jit_context *ctxt, void *user_data)
   make_tests_of_unary_ops (ctxt);
   make_tests_of_binary_ops (ctxt);
   make_tests_of_comparisons (ctxt);
+  make_tests_of_casts (ctxt);
   make_tests_of_dereferences (ctxt);
   make_test_of_get_address (ctxt);
 }
@@ -629,6 +754,7 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_unary_ops (result);
   verify_binary_ops (result);
   verify_comparisons (result);
+  verify_casts (result);
   verify_dereferences (result);
   verify_get_address (result);
 }

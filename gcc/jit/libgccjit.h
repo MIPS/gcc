@@ -691,6 +691,17 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
 			  gcc_jit_function *func,
 			  int numargs , gcc_jit_rvalue **args);
 
+/* Type-coercion.
+
+   Currently only a limited set of conversions are possible:
+     int <-> float
+     int <-> bool  */
+extern gcc_jit_rvalue *
+gcc_jit_context_new_cast (gcc_jit_context *ctxt,
+			  gcc_jit_location *loc,
+			  gcc_jit_rvalue *rvalue,
+			  gcc_jit_type *type);
+
 extern gcc_jit_lvalue *
 gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
 				  gcc_jit_location *loc,

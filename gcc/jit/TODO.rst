@@ -23,13 +23,6 @@ Initial Release
 
 * expose the statements in the API? (mostly so they can be stringified?)
 
-* explicit casts::
-
-    extern gcc_jit_rvalue *
-    gcc_jit_rvalue_cast (gcc_jit_rvalue *, gcc_jit_type *);
-
-  e.g. (void*) to (struct foo*)
-
 * support more arithmetic ops and comparison modes
 
 * access to a function by address::
@@ -118,6 +111,8 @@ Initial Release
   postprocessing by walking the list of blocks.  Presumably we could
   have each block have its own stmt_list, avoiding the need for this
   traversal, and having the block structure show up within tree dumps.
+
+* Implement more kinds of casts e.g. pointers
 
 Bugs
 ====
