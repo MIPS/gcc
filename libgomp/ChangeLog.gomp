@@ -1,5 +1,9 @@
 2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* testsuite/libgomp.oacc-c/goacc_kernels.c: New file.
+	* testsuite/libgomp.oacc-c/kernels-1.c: Likewise.
+	* testsuite/libgomp.oacc-c/parallel-1.c: Add one missing test.
+
 	* libgomp.map (GOACC_2.0): Add GOACC_kernels.
 	* libgomp_g.h (GOACC_kernels): New prototype.
 	* oacc-parallel.c (GOACC_kernels): New function.

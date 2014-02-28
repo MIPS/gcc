@@ -4776,10 +4776,14 @@ c_parser_label (c_parser *parser)
 
    openacc-construct:
      parallel-construct
+     kernels-construct
      data-construct
 
    parallel-construct:
      parallel-directive structured-block
+
+   kernels-construct:
+     kernels-directive structured-block
 
    data-construct:
      data-directive structured-block
@@ -11401,6 +11405,41 @@ c_parser_oacc_data (location_t loc, c_parser *parser)
 }
 
 /* OpenACC 2.0:
+   # pragma acc kernels oacc-kernels-clause[optseq] new-line
+     structured-block
+
+   LOC is the location of the #pragma token.
+*/
+
+#define OACC_KERNELS_CLAUSE_MASK					\
+	( (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPY)			\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPYIN)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_COPYOUT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_CREATE)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_DEVICEPTR)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT)		\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPY)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYIN)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_COPYOUT)	\
+	| (OMP_CLAUSE_MASK_1 << PRAGMA_OMP_CLAUSE_PRESENT_OR_CREATE) )
+
+static tree
+c_parser_oacc_kernels (location_t loc, c_parser *parser)
+{
+  tree stmt, clauses, block;
+
+  clauses =  c_parser_oacc_all_clauses (parser, OACC_KERNELS_CLAUSE_MASK,
+					"#pragma acc kernels");
+
+  block = c_begin_omp_parallel ();
+  add_stmt (c_parser_omp_structured_block (parser));
+
+  stmt = c_finish_oacc_kernels (loc, clauses, block);
+
+  return stmt;
+}
+
+/* OpenACC 2.0:
    # pragma acc parallel oacc-parallel-clause[optseq] new-line
      structured-block
 
@@ -13716,6 +13755,9 @@ c_parser_omp_construct (c_parser *parser)
     {
     case PRAGMA_OACC_DATA:
       stmt = c_parser_oacc_data (loc, parser);
+      break;
+    case PRAGMA_OACC_KERNELS:
+      stmt = c_parser_oacc_kernels (loc, parser);
       break;
     case PRAGMA_OACC_PARALLEL:
       stmt = c_parser_oacc_parallel (loc, parser);

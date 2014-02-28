@@ -1,3 +1,8 @@
+2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-pragma.c (oacc_pragmas): Add "kernels".
+	* c-pragma.h (enum pragma_kind): Add PRAGMA_OACC_KERNELS.
+
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-pragma.c (oacc_pragmas): Add "data".

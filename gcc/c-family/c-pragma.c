@@ -1170,6 +1170,7 @@ static vec<pragma_ns_name> registered_pp_pragmas;
 struct omp_pragma_def { const char *name; unsigned int id; };
 static const struct omp_pragma_def oacc_pragmas[] = {
   { "data", PRAGMA_OACC_DATA },
+  { "kernels", PRAGMA_OACC_KERNELS },
   { "parallel", PRAGMA_OACC_PARALLEL },
 };
 static const struct omp_pragma_def omp_pragmas[] = {

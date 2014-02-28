@@ -1,3 +1,11 @@
+2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-parser.c (OACC_KERNELS_CLAUSE_MASK): New macro definition.
+	(c_parser_oacc_kernels): New function.
+	(c_parser_omp_construct): Handle PRAGMA_OACC_KERNELS.
+	* c-tree.h (c_finish_oacc_kernels): New prototype.
+	* c-typeck.c (c_finish_oacc_kernels): New function.
+
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c (OACC_DATA_CLAUSE_MASK): New macro definition.

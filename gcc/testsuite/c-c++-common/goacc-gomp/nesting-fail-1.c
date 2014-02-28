@@ -9,6 +9,8 @@ f_omp (void)
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
     ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
+    ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
   }
@@ -17,6 +19,8 @@ f_omp (void)
   for (i = 0; i < 3; i++)
     {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
+      ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
       ;
 #pragma acc data	/* { dg-error "may not be nested" } */
       ;
@@ -30,6 +34,11 @@ f_omp (void)
     }
 #pragma omp section
     {
+#pragma acc kernels	/* { dg-error "may not be nested" } */
+      ;
+    }
+#pragma omp section
+    {
 #pragma acc data	/* { dg-error "may not be nested" } */
       ;
     }
@@ -39,6 +48,8 @@ f_omp (void)
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
     ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
+    ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
   }
@@ -46,6 +57,8 @@ f_omp (void)
 #pragma omp task
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
+    ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
     ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
@@ -55,6 +68,8 @@ f_omp (void)
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
     ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
+    ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
   }
@@ -63,6 +78,8 @@ f_omp (void)
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
     ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
+    ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
   }
@@ -70,6 +87,8 @@ f_omp (void)
 #pragma omp ordered
   {
 #pragma acc parallel	/* { dg-error "may not be nested" } */
+    ;
+#pragma acc kernels	/* { dg-error "may not be nested" } */
     ;
 #pragma acc data	/* { dg-error "may not be nested" } */
     ;
@@ -135,6 +154,71 @@ f_acc_parallel (void)
   }
 
 #pragma acc parallel
+  {
+#pragma omp ordered	/* { dg-error "may not be nested" } */
+    ;
+  }
+}
+
+/* TODO: Some of these should either be allowed or fail with a more sensible
+   error message.  */
+void
+f_acc_kernels (void)
+{
+#pragma acc kernels
+  {
+#pragma omp parallel	/* { dg-error "may not be nested" } */
+    ;
+  }
+
+#pragma acc kernels
+  {
+    int i;
+#pragma omp for		/* { dg-error "may not be nested" } */
+    for (i = 0; i < 3; i++)
+      ;
+  }
+
+#pragma acc kernels
+  {
+#pragma omp sections	/* { dg-error "may not be nested" } */
+    {
+      ;
+    }
+  }
+
+#pragma acc kernels
+  {
+#pragma omp single	/* { dg-error "may not be nested" } */
+    ;
+  }
+
+#pragma acc kernels
+  {
+#pragma omp task	/* { dg-error "may not be nested" } */
+    ;
+  }
+
+#pragma acc kernels
+  {
+#pragma omp master	/* { dg-error "may not be nested" } */
+    ;
+  }
+
+#pragma acc kernels
+  {
+#pragma omp critical	/* { dg-error "may not be nested" } */
+    ;
+  }
+
+#pragma acc kernels
+  {
+    int i;
+#pragma omp atomic write
+    i = 0;		/* { dg-error "may not be nested" } */
+  }
+
+#pragma acc kernels
   {
 #pragma omp ordered	/* { dg-error "may not be nested" } */
     ;

@@ -1,3 +1,19 @@
+2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc-gomp/nesting-fail-1.c: Extend for OpenACC
+	kernels construct.
+	* c-c++-common/goacc/clauses-fail.c: Likewise.
+	* c-c++-common/goacc/data-clause-duplicate-1.c: Likewise.
+	* c-c++-common/goacc/deviceptr-1.c: Likewise.
+	* c-c++-common/goacc/nesting-fail-1.c: Likewise.
+	* c-c++-common/goacc/kernels-1.c: New file.
+	* gcc.dg/goacc/parallel-sb-1.c: Rename to...
+	* gcc.dg/goacc/sb-1.c: ... this new file, and extend for OpenACC
+	kernels and data constructs.
+	* gcc.dg/goacc/parallel-sb-2.c: Rename to...
+	* gcc.dg/goacc/sb-2.c: ... this new file, and extend for OpenACC
+	kernels and data constructs.
+
 2014-02-21  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc-gomp/nesting-fail-1.c: Extend for OpenACC
