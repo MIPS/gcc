@@ -1,3 +1,8 @@
+2014-02-28  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	* config/mips/mips.c (mips_expand_ext_as_unaligned_load):
+	Fix ISA_HAS_UL_US case.
+
 2014-02-23  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.dg/octeon/misc/serial-profopt.exp: Disable for now.

@@ -7697,6 +7697,7 @@ mips_expand_ext_as_unaligned_load (rtx dest, rtx src, HOST_WIDE_INT width,
 
   if (ISA_HAS_UL_US)
     {
+      src = adjust_address (src, BLKmode, 0);
       if (GET_MODE (dest) == DImode)
         emit_insn (gen_mov_uld (dest, src, left));
       else
