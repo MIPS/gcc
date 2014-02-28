@@ -22,8 +22,8 @@
 # A multilib for mips64r6+LE
 # A multilib for mips32r6+LE+magic+softfloat
 
-MULTILIB_OPTIONS = mips64r6 EL magic=7 msoft-float
-MULTILIB_DIRNAMES = mips64r6 el magic7 sof
+MULTILIB_OPTIONS = mips64r6 EL magic=7 msoft-float msingle-float fshort-double
+MULTILIB_DIRNAMES = mips64r6 el magic7 sof sgl short
 MULTILIB_MATCHES = EL=mel EB=meb
 
 # Don't build magic without soft float
@@ -33,7 +33,17 @@ MULTILIB_EXCEPTIONS += magic=7*
 
 # Don't build 64r6 with magic or soft float
 MULTILIB_EXCEPTIONS += mips64r6/*m*
+MULTILIB_EXCEPTIONS += mips64r6/*f*
 
 # Don't build soft-float 32r6
-MULTILIB_EXCEPTIONS += msoft-float
-MULTILIB_EXCEPTIONS += EL/msoft-float
+MULTILIB_EXCEPTIONS += msoft-float*
+MULTILIB_EXCEPTIONS += EL/msoft-float*
+
+MULTILIB_EXCEPTIONS += msingle-float*
+MULTILIB_EXCEPTIONS += *msingle-float
+MULTILIB_EXCEPTIONS += fshort-double
+MULTILIB_EXCEPTIONS += EL/fshort-double
+MULTILIB_EXCEPTIONS += EL/magic=7/*msingle-float*
+MULTILIB_EXCEPTIONS += EL/magic=7/*fshort-double
+
+MULTILIB_EXCEPTIONS += EL/*/msingle-float
