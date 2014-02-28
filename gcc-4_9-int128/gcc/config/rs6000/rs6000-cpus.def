@@ -42,8 +42,7 @@
 #define ISA_2_6_MASKS_SERVER	(ISA_2_5_MASKS_SERVER			\
 				 | OPTION_MASK_POPCNTD			\
 				 | OPTION_MASK_ALTIVEC			\
-				 | OPTION_MASK_VSX			\
-				 | OPTION_MASK_VSX_TIMODE)
+				 | OPTION_MASK_VSX)
 
 /* For now, don't provide an embedded version of ISA 2.07.  */
 #define ISA_2_7_MASKS_SERVER	(ISA_2_6_MASKS_SERVER			\
