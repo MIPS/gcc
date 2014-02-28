@@ -1248,6 +1248,7 @@ convert_nonlocal_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	}
       break;
 
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
       gcc_unreachable ();
 
@@ -1712,6 +1713,7 @@ convert_local_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
   switch (gimple_code (stmt))
     {
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
       gcc_unreachable ();
 
@@ -2075,6 +2077,7 @@ convert_tramp_reference_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	break;
       }
 
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
       gcc_unreachable ();
 
@@ -2138,6 +2141,7 @@ convert_gimple_call (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 	}
       break;
 
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
       gcc_unreachable ();
 

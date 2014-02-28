@@ -1,3 +1,39 @@
+2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* gimple.def (GIMPLE_OACC_KERNELS): New code.
+	* doc/gimple.texi: Document it.
+	* gimple.h (gimple_has_substatements, CASE_GIMPLE_OMP)
+	(is_gimple_omp_oacc_specifically): Handle it.
+	(gimple_statement_oacc_kernels): New struct.
+	(gimple_build_oacc_kernels): New prototype.
+	(gimple_oacc_kernels_clauses, gimple_oacc_kernels_clauses_ptr)
+	(gimple_oacc_kernels_set_clauses, gimple_oacc_kernels_child_fn)
+	(gimple_oacc_kernels_child_fn_ptr)
+	(gimple_oacc_kernels_set_child_fn, gimple_oacc_kernels_data_arg)
+	(gimple_oacc_kernels_data_arg_ptr)
+	(gimple_oacc_kernels_set_data_arg): New inline functions.
+	* gimple.c (gimple_build_oacc_kernels): New function.
+	(gimple_copy): Handle GIMPLE_OACC_KERNELS.
+	* gimple-low.c (lower_stmt): Likewise.
+	* gimple-walk.c (walk_gimple_op, walk_gimple_stmt): Likewise.
+	* gimple-pretty-print.c (pp_gimple_stmt_1): Likewise.
+	(dump_gimple_oacc_parallel): Rename to dump_gimple_oacc_offload.
+	Also handle GIMPLE_OACC_KERNELS.  Update all callers.
+	* gimplify.c (gimplify_omp_workshare, gimplify_expr): Handle
+	OACC_KERNELS.
+	* oacc-builtins.def (BUILT_IN_GOACC_KERNELS): New builtin.
+	* omp-low.c (scan_oacc_parallel, expand_oacc_parallel)
+	(lower_oacc_parallel): Rename to scan_oacc_offload,
+	expand_oacc_offload, and lower_oacc_offload.  Also handle
+	GIMPLE_OACC_KERNELS.  Update all callers.
+	(scan_sharing_clauses, scan_omp_1_stmt, expand_omp, lower_omp_1)
+	(diagnose_sb_0, diagnose_sb_1, diagnose_sb_2)
+	(make_gimple_omp_edges): Handle GIMPLE_OACC_KERNELS.
+	* tree-inline.c (remap_gimple_stmt, estimate_num_insns): Likewise.
+	* tree-nested.c (convert_nonlocal_reference_stmt)
+	(convert_local_reference_stmt, convert_tramp_reference_stmt)
+	(convert_gimple_call): Likewise.
+
 2014-02-27  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimplify.c (gimplify_oacc_parallel): Merge into

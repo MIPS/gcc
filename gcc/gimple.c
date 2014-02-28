@@ -799,6 +799,23 @@ gimple_build_debug_source_bind_stat (tree var, tree value,
 }
 
 
+/* Build a GIMPLE_OACC_KERNELS statement.
+
+   BODY is sequence of statements which are executed as kernels.
+   CLAUSES are the OpenACC kernels construct's clauses.  */
+
+gimple
+gimple_build_oacc_kernels (gimple_seq body, tree clauses)
+{
+  gimple p = gimple_alloc (GIMPLE_OACC_KERNELS, 0);
+  if (body)
+    gimple_omp_set_body (p, body);
+  gimple_oacc_kernels_set_clauses (p, clauses);
+
+  return p;
+}
+
+
 /* Build a GIMPLE_OACC_PARALLEL statement.
 
    BODY is sequence of statements which are executed in parallel.
@@ -1672,6 +1689,7 @@ gimple_copy (gimple stmt)
 	  gimple_try_set_cleanup (copy, new_seq);
 	  break;
 
+	case GIMPLE_OACC_KERNELS:
 	case GIMPLE_OACC_PARALLEL:
           gcc_unreachable ();
 

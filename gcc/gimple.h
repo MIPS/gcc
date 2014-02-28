@@ -549,8 +549,8 @@ struct GTY((tag("GSS_OMP_FOR")))
 };
 
 
-/* GIMPLE_OACC_PARALLEL, GIMPLE_OMP_PARALLEL, GIMPLE_OMP_TARGET,
-   GIMPLE_OMP_TASK */
+/* GIMPLE_OACC_KERNELS, GIMPLE_OACC_PARALLEL, GIMPLE_OMP_PARALLEL,
+   GIMPLE_OMP_TARGET, GIMPLE_OMP_TASK */
 struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
   gimple_statement_omp_parallel_layout : public gimple_statement_omp
 {
@@ -567,6 +567,14 @@ struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
   /* [ WORD 10 ]
      Shared data argument.  */
   tree data_arg;
+};
+
+/* GIMPLE_OACC_KERNELS */
+struct GTY((tag("GSS_OMP_PARALLEL_LAYOUT")))
+  gimple_statement_oacc_kernels : public gimple_statement_omp_parallel_layout
+{
+    /* No extra fields; adds invariant:
+         stmt->code == GIMPLE_OACC_KERNELS.  */
 };
 
 /* GIMPLE_OACC_PARALLEL */
@@ -894,6 +902,14 @@ is_a_helper <gimple_statement_omp_for>::test (gimple gs)
 template <>
 template <>
 inline bool
+is_a_helper <gimple_statement_oacc_kernels>::test (gimple gs)
+{
+  return gs->code == GIMPLE_OACC_KERNELS;
+}
+
+template <>
+template <>
+inline bool
 is_a_helper <gimple_statement_oacc_parallel>::test (gimple gs)
 {
   return gs->code == GIMPLE_OACC_PARALLEL;
@@ -1094,6 +1110,14 @@ is_a_helper <const gimple_statement_omp_for>::test (const_gimple gs)
 template <>
 template <>
 inline bool
+is_a_helper <const gimple_statement_oacc_kernels>::test (const_gimple gs)
+{
+  return gs->code == GIMPLE_OACC_KERNELS;
+}
+
+template <>
+template <>
+inline bool
 is_a_helper <const gimple_statement_oacc_parallel>::test (const_gimple gs)
 {
   return gs->code == GIMPLE_OACC_PARALLEL;
@@ -1225,6 +1249,7 @@ gimple gimple_build_debug_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 gimple gimple_build_debug_source_bind_stat (tree, tree, gimple MEM_STAT_DECL);
 #define gimple_build_debug_source_bind(var,val,stmt)			\
   gimple_build_debug_source_bind_stat ((var), (val), (stmt) MEM_STAT_INFO)
+gimple gimple_build_oacc_kernels (gimple_seq, tree);
 gimple gimple_build_oacc_parallel (gimple_seq, tree);
 gimple gimple_build_omp_critical (gimple_seq, tree);
 gimple gimple_build_omp_for (gimple_seq, int, tree, size_t, gimple_seq);
@@ -1462,6 +1487,7 @@ gimple_has_substatements (gimple g)
     case GIMPLE_EH_FILTER:
     case GIMPLE_EH_ELSE:
     case GIMPLE_TRY:
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_FOR:
     case GIMPLE_OMP_MASTER:
@@ -4266,6 +4292,101 @@ gimple_omp_set_body (gimple gs, gimple_seq body)
 }
 
 
+/* Return the clauses associated with OACC_KERNELS statement GS.  */
+
+static inline tree
+gimple_oacc_kernels_clauses (const_gimple gs)
+{
+  const gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <const gimple_statement_oacc_kernels> (gs);
+  return oacc_kernels_stmt->clauses;
+}
+
+/* Return a pointer to the clauses associated with OACC_KERNELS statement GS.  */
+
+static inline tree *
+gimple_oacc_kernels_clauses_ptr (gimple gs)
+{
+  gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <gimple_statement_oacc_kernels> (gs);
+  return &oacc_kernels_stmt->clauses;
+}
+
+/* Set CLAUSES to be the list of clauses associated with OACC_KERNELS statement
+   GS.  */
+
+static inline void
+gimple_oacc_kernels_set_clauses (gimple gs, tree clauses)
+{
+  gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <gimple_statement_oacc_kernels> (gs);
+  oacc_kernels_stmt->clauses = clauses;
+}
+
+/* Return the child function used to hold the body of OACC_KERNELS statement
+   GS.  */
+
+static inline tree
+gimple_oacc_kernels_child_fn (const_gimple gs)
+{
+  const gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <const gimple_statement_oacc_kernels> (gs);
+  return oacc_kernels_stmt->child_fn;
+}
+
+/* Return a pointer to the child function used to hold the body of OACC_KERNELS
+   statement GS.  */
+
+static inline tree *
+gimple_oacc_kernels_child_fn_ptr (gimple gs)
+{
+  gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <gimple_statement_oacc_kernels> (gs);
+  return &oacc_kernels_stmt->child_fn;
+}
+
+/* Set CHILD_FN to be the child function for OACC_KERNELS statement GS.  */
+
+static inline void
+gimple_oacc_kernels_set_child_fn (gimple gs, tree child_fn)
+{
+  gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <gimple_statement_oacc_kernels> (gs);
+  oacc_kernels_stmt->child_fn = child_fn;
+}
+
+/* Return the artificial argument used to send variables and values
+   from the parent to the children threads in OACC_KERNELS statement GS.  */
+
+static inline tree
+gimple_oacc_kernels_data_arg (const_gimple gs)
+{
+  const gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <const gimple_statement_oacc_kernels> (gs);
+  return oacc_kernels_stmt->data_arg;
+}
+
+/* Return a pointer to the data argument for OACC_KERNELS statement GS.  */
+
+static inline tree *
+gimple_oacc_kernels_data_arg_ptr (gimple gs)
+{
+  gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <gimple_statement_oacc_kernels> (gs);
+  return &oacc_kernels_stmt->data_arg;
+}
+
+/* Set DATA_ARG to be the data argument for OACC_KERNELS statement GS.  */
+
+static inline void
+gimple_oacc_kernels_set_data_arg (gimple gs, tree data_arg)
+{
+  gimple_statement_oacc_kernels *oacc_kernels_stmt =
+    as_a <gimple_statement_oacc_kernels> (gs);
+  oacc_kernels_stmt->data_arg = data_arg;
+}
+
+
 /* Return the clauses associated with OACC_PARALLEL statement GS.  */
 
 static inline tree
@@ -4330,7 +4451,8 @@ gimple_oacc_parallel_set_child_fn (gimple gs, tree child_fn)
   oacc_parallel_stmt->child_fn = child_fn;
 }
 
-/* Return the data argument for OACC_PARALLEL statement GS.  */
+/* Return the artificial argument used to send variables and values
+   from the parent to the children threads in OACC_PARALLEL statement GS.  */
 
 static inline tree
 gimple_oacc_parallel_data_arg (const_gimple gs)
@@ -5640,6 +5762,7 @@ gimple_return_set_retval (gimple gs, tree retval)
 /* Returns true when the gimple statement STMT is any of the OpenMP types.  */
 
 #define CASE_GIMPLE_OMP				\
+    case GIMPLE_OACC_KERNELS:			\
     case GIMPLE_OACC_PARALLEL:			\
     case GIMPLE_OMP_PARALLEL:			\
     case GIMPLE_OMP_TASK:			\
@@ -5683,6 +5806,7 @@ is_gimple_omp_oacc_specifically (const_gimple stmt)
   gcc_assert (is_gimple_omp (stmt));
   switch (gimple_code (stmt))
     {
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
       return true;
     case GIMPLE_OMP_TARGET:

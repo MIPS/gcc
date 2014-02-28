@@ -1843,36 +1843,57 @@ dump_gimple_phi (pretty_printer *buffer, gimple phi, int spc, bool comment,
 }
 
 
-/* Dump a GIMPLE_OACC_PARALLEL tuple on the pretty_printer BUFFER, SPC spaces
+/* Dump an OpenACC offload tuple on the pretty_printer BUFFER, SPC spaces
    of indent.  FLAGS specifies details to show in the dump (see TDF_* in
    dumpfile.h).  */
 
 static void
-dump_gimple_oacc_parallel (pretty_printer *buffer, gimple gs, int spc,
-                          int flags)
+dump_gimple_oacc_offload (pretty_printer *buffer, gimple gs, int spc,
+			  int flags)
 {
+  tree (*gimple_omp_clauses) (const_gimple);
+  tree (*gimple_omp_child_fn) (const_gimple);
+  tree (*gimple_omp_data_arg) (const_gimple);
+  const char *kind;
+  switch (gimple_code (gs))
+    {
+    case GIMPLE_OACC_KERNELS:
+      gimple_omp_clauses = gimple_oacc_kernels_clauses;
+      gimple_omp_child_fn = gimple_oacc_kernels_child_fn;
+      gimple_omp_data_arg = gimple_oacc_kernels_data_arg;
+      kind = "kernels";
+      break;
+    case GIMPLE_OACC_PARALLEL:
+      gimple_omp_clauses = gimple_oacc_parallel_clauses;
+      gimple_omp_child_fn = gimple_oacc_parallel_child_fn;
+      gimple_omp_data_arg = gimple_oacc_parallel_data_arg;
+      kind = "parallel";
+      break;
+    default:
+      gcc_unreachable ();
+    }
   if (flags & TDF_RAW)
     {
       dump_gimple_fmt (buffer, spc, flags, "%G <%+BODY <%S>%nCLAUSES <", gs,
                        gimple_omp_body (gs));
-      dump_omp_clauses (buffer, gimple_oacc_parallel_clauses (gs), spc, flags);
+      dump_omp_clauses (buffer, gimple_omp_clauses (gs), spc, flags);
       dump_gimple_fmt (buffer, spc, flags, " >, %T, %T%n>",
-                       gimple_oacc_parallel_child_fn (gs),
-                       gimple_oacc_parallel_data_arg (gs));
+                       gimple_omp_child_fn (gs), gimple_omp_data_arg (gs));
     }
   else
     {
       gimple_seq body;
-      pp_string (buffer, "#pragma acc parallel");
-      dump_omp_clauses (buffer, gimple_oacc_parallel_clauses (gs), spc, flags);
-      if (gimple_oacc_parallel_child_fn (gs))
+      pp_string (buffer, "#pragma acc ");
+      pp_string (buffer, kind);
+      dump_omp_clauses (buffer, gimple_omp_clauses (gs), spc, flags);
+      if (gimple_omp_child_fn (gs))
 	{
 	  pp_string (buffer, " [child fn: ");
-	  dump_generic_node (buffer, gimple_oacc_parallel_child_fn (gs),
+	  dump_generic_node (buffer, gimple_omp_child_fn (gs),
 			     spc, flags, false);
 	  pp_string (buffer, " (");
-	  if (gimple_oacc_parallel_data_arg (gs))
-	    dump_generic_node (buffer, gimple_oacc_parallel_data_arg (gs),
+	  if (gimple_omp_data_arg (gs))
+	    dump_generic_node (buffer, gimple_omp_data_arg (gs),
 			       spc, flags, false);
 	  else
 	    pp_string (buffer, "???");
@@ -2193,8 +2214,9 @@ pp_gimple_stmt_1 (pretty_printer *buffer, gimple gs, int spc, int flags)
       dump_gimple_phi (buffer, gs, spc, false, flags);
       break;
 
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
-      dump_gimple_oacc_parallel (buffer, gs, spc, flags);
+      dump_gimple_oacc_offload (buffer, gs, spc, flags);
       break;
 
     case GIMPLE_OMP_PARALLEL:

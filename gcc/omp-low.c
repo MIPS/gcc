@@ -1502,6 +1502,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
   bool offloaded;
   switch (gimple_code (ctx->stmt))
     {
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
       offloaded = true;
       break;
@@ -2085,13 +2086,28 @@ find_combined_for (gimple_stmt_iterator *gsi_p,
   return NULL;
 }
 
-/* Scan an OpenACC parallel directive.  */
+/* Scan an OpenACC offload directive.  */
 
 static void
-scan_oacc_parallel (gimple stmt, omp_context *outer_ctx)
+scan_oacc_offload (gimple stmt, omp_context *outer_ctx)
 {
   omp_context *ctx;
   tree name;
+  void (*gimple_omp_set_child_fn) (gimple, tree);
+  tree (*gimple_omp_clauses) (const_gimple);
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_OACC_KERNELS:
+      gimple_omp_set_child_fn = gimple_oacc_kernels_set_child_fn;
+      gimple_omp_clauses = gimple_oacc_kernels_clauses;
+      break;
+    case GIMPLE_OACC_PARALLEL:
+      gimple_omp_set_child_fn = gimple_oacc_parallel_set_child_fn;
+      gimple_omp_clauses = gimple_oacc_parallel_clauses;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   gcc_assert (taskreg_nesting_level == 0);
   gcc_assert (target_nesting_level == 0);
@@ -2107,9 +2123,10 @@ scan_oacc_parallel (gimple stmt, omp_context *outer_ctx)
   DECL_NAMELESS (name) = 1;
   TYPE_NAME (ctx->record_type) = name;
   create_omp_child_function (ctx, false);
-  gimple_oacc_parallel_set_child_fn (stmt, ctx->cb.dst_fn);
 
-  scan_sharing_clauses (gimple_oacc_parallel_clauses (stmt), ctx);
+  gimple_omp_set_child_fn (stmt, ctx->cb.dst_fn);
+
+  scan_sharing_clauses (gimple_omp_clauses (stmt), ctx);
   scan_omp (gimple_omp_body_ptr (stmt), ctx);
 
   if (TYPE_FIELDS (ctx->record_type) == NULL)
@@ -2841,8 +2858,9 @@ scan_omp_1_stmt (gimple_stmt_iterator *gsi, bool *handled_ops_p,
 
   switch (gimple_code (stmt))
     {
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
-      scan_oacc_parallel (stmt, ctx);
+      scan_oacc_offload (stmt, ctx);
       break;
 
     case GIMPLE_OMP_PARALLEL:
@@ -4860,10 +4878,10 @@ expand_omp_build_assign (gimple_stmt_iterator *gsi_p, tree to, tree from)
     }
 }
 
-/* Expand the OpenACC parallel directive starting at REGION.  */
+/* Expand the OpenACC offload directive starting at REGION.  */
 
 static void
-expand_oacc_parallel (struct omp_region *region)
+expand_oacc_offload (struct omp_region *region)
 {
   basic_block entry_bb, exit_bb, new_bb;
   struct function *child_cfun;
@@ -4871,9 +4889,24 @@ expand_oacc_parallel (struct omp_region *region)
   gimple_stmt_iterator gsi;
   gimple entry_stmt, stmt;
   edge e;
+  tree (*gimple_omp_child_fn) (const_gimple);
+  tree (*gimple_omp_data_arg) (const_gimple);
+  switch (region->type)
+    {
+    case GIMPLE_OACC_KERNELS:
+      gimple_omp_child_fn = gimple_oacc_kernels_child_fn;
+      gimple_omp_data_arg = gimple_oacc_kernels_data_arg;
+      break;
+    case GIMPLE_OACC_PARALLEL:
+      gimple_omp_child_fn = gimple_oacc_parallel_child_fn;
+      gimple_omp_data_arg = gimple_oacc_parallel_data_arg;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
   entry_stmt = last_stmt (region->entry);
-  child_fn = gimple_oacc_parallel_child_fn (entry_stmt);
+  child_fn = gimple_omp_child_fn (entry_stmt);
   child_cfun = DECL_STRUCT_FUNCTION (child_fn);
 
   /* Supported by expand_omp_taskreg, but not here.  */
@@ -4901,14 +4934,13 @@ expand_oacc_parallel (struct omp_region *region)
 	 a function call that has been inlined, the original PARM_DECL
 	 .OMP_DATA_I may have been converted into a different local
 	 variable.  In which case, we need to keep the assignment.  */
-      if (gimple_oacc_parallel_data_arg (entry_stmt))
+      if (gimple_omp_data_arg (entry_stmt))
 	{
 	  basic_block entry_succ_bb = single_succ (entry_bb);
 	  gimple_stmt_iterator gsi;
 	  tree arg;
 	  gimple parcopy_stmt = NULL;
-	  tree sender
-	    = TREE_VEC_ELT (gimple_oacc_parallel_data_arg (entry_stmt), 0);
+	  tree sender = TREE_VEC_ELT (gimple_omp_data_arg (entry_stmt), 0);
 
 	  for (gsi = gsi_start_bb (entry_succ_bb); ; gsi_next (&gsi))
 	    {
@@ -4964,7 +4996,8 @@ expand_oacc_parallel (struct omp_region *region)
 	 so that it can be moved to the child function.  */
       gsi = gsi_last_bb (entry_bb);
       stmt = gsi_stmt (gsi);
-      gcc_assert (stmt && (gimple_code (stmt) == GIMPLE_OACC_PARALLEL));
+      gcc_assert (stmt && (gimple_code (stmt) == GIMPLE_OACC_KERNELS
+			   || gimple_code (stmt) == GIMPLE_OACC_PARALLEL));
       gsi_remove (&gsi, true);
       e = split_block (entry_bb, stmt);
       entry_bb = e->dest;
@@ -5037,10 +5070,22 @@ expand_oacc_parallel (struct omp_region *region)
   tree t1, t2, t3, t4, device, c, clauses;
   enum built_in_function start_ix;
   location_t clause_loc;
+  tree (*gimple_omp_clauses) (const_gimple);
+  switch (region->type)
+    {
+    case GIMPLE_OACC_KERNELS:
+      gimple_omp_clauses = gimple_oacc_kernels_clauses;
+      start_ix = BUILT_IN_GOACC_KERNELS;
+      break;
+    case GIMPLE_OACC_PARALLEL:
+      gimple_omp_clauses = gimple_oacc_parallel_clauses;
+      start_ix = BUILT_IN_GOACC_PARALLEL;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
-  clauses = gimple_oacc_parallel_clauses (entry_stmt);
-
-  start_ix = BUILT_IN_GOACC_PARALLEL;
+  clauses = gimple_omp_clauses (entry_stmt);
 
   /* By default, the value of DEVICE is -1 (let runtime library choose).  */
   device = build_int_cst (integer_type_node, -1);
@@ -5059,7 +5104,7 @@ expand_oacc_parallel (struct omp_region *region)
   device = fold_convert_loc (clause_loc, integer_type_node, device);
 
   gsi = gsi_last_bb (new_bb);
-  t = gimple_oacc_parallel_data_arg (entry_stmt);
+  t = gimple_omp_data_arg (entry_stmt);
   if (t == NULL)
     {
       t1 = size_zero_node;
@@ -8606,8 +8651,9 @@ expand_omp (struct omp_region *region)
 
       switch (region->type)
 	{
+	case GIMPLE_OACC_KERNELS:
 	case GIMPLE_OACC_PARALLEL:
-	  expand_oacc_parallel (region);
+	  expand_oacc_offload (region);
 	  break;
 
 	case GIMPLE_OMP_PARALLEL:
@@ -8851,11 +8897,11 @@ make_pass_expand_omp (gcc::context *ctxt)
 
 /* Routines to lower OpenMP directives into OMP-GIMPLE.  */
 
-/* Lower the OpenACC parallel directive in the current statement
+/* Lower the OpenACC offload directive in the current statement
    in GSI_P.  CTX holds context information for the directive.  */
 
 static void
-lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
+lower_oacc_offload (gimple_stmt_iterator *gsi_p, omp_context *ctx)
 {
   tree clauses;
   tree child_fn, t, c;
@@ -8864,8 +8910,23 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
   gimple_seq par_body, olist, ilist, new_body;
   location_t loc = gimple_location (stmt);
   unsigned int map_cnt = 0;
+  tree (*gimple_omp_clauses) (const_gimple);
+  void (*gimple_omp_set_data_arg) (gimple, tree);
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_OACC_KERNELS:
+      gimple_omp_clauses = gimple_oacc_kernels_clauses;
+      gimple_omp_set_data_arg = gimple_oacc_kernels_set_data_arg;
+      break;
+    case GIMPLE_OACC_PARALLEL:
+      gimple_omp_clauses = gimple_oacc_parallel_clauses;
+      gimple_omp_set_data_arg = gimple_oacc_parallel_set_data_arg;
+      break;
+    default:
+      gcc_unreachable ();
+    }
 
-  clauses = gimple_oacc_parallel_clauses (stmt);
+  clauses = gimple_omp_clauses (stmt);
   par_bind = gimple_seq_first_stmt (gimple_omp_body (stmt));
   par_body = gimple_bind_body (par_bind);
   child_fn = ctx->cb.dst_fn;
@@ -8950,7 +9011,7 @@ lower_oacc_parallel (gimple_stmt_iterator *gsi_p, omp_context *ctx)
       DECL_NAMELESS (TREE_VEC_ELT (t, 2)) = 1;
       TREE_ADDRESSABLE (TREE_VEC_ELT (t, 2)) = 1;
       TREE_STATIC (TREE_VEC_ELT (t, 2)) = 1;
-      gimple_oacc_parallel_set_data_arg (stmt, t);
+      gimple_omp_set_data_arg (stmt, t);
 
       vec<constructor_elt, va_gc> *vsize;
       vec<constructor_elt, va_gc> *vkind;
@@ -10820,11 +10881,12 @@ lower_omp_1 (gimple_stmt_iterator *gsi_p, omp_context *ctx)
     case GIMPLE_BIND:
       lower_omp (gimple_bind_body_ptr (stmt), ctx);
       break;
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
       ctx = maybe_lookup_ctx (stmt);
       gcc_assert (ctx);
       gcc_assert (!ctx->cancellable);
-      lower_oacc_parallel (gsi_p, ctx);
+      lower_oacc_offload (gsi_p, ctx);
       break;
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
@@ -11053,6 +11115,9 @@ static bool
 diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
     	       gimple branch_ctx, gimple label_ctx)
 {
+  gcc_assert (!branch_ctx || is_gimple_omp (branch_ctx));
+  gcc_assert (!label_ctx || is_gimple_omp (label_ctx));
+
   if (label_ctx == branch_ctx)
     return false;
 
@@ -11070,8 +11135,8 @@ diagnose_sb_0 (gimple_stmt_iterator *gsi_p,
     }
   if (flag_openacc)
     {
-      if ((branch_ctx && gimple_code (branch_ctx) == GIMPLE_OACC_PARALLEL)
-	  || (label_ctx && gimple_code (label_ctx) == GIMPLE_OACC_PARALLEL))
+      if ((branch_ctx && is_gimple_omp_oacc_specifically (branch_ctx))
+	  || (label_ctx && is_gimple_omp_oacc_specifically (label_ctx)))
 	{
 	  gcc_assert (kind == NULL);
 	  kind = "OpenACC";
@@ -11149,6 +11214,7 @@ diagnose_sb_1 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     {
     WALK_SUBSTMTS;
 
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
@@ -11208,6 +11274,7 @@ diagnose_sb_2 (gimple_stmt_iterator *gsi_p, bool *handled_ops_p,
     {
     WALK_SUBSTMTS;
 
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:
@@ -11304,6 +11371,7 @@ make_gimple_omp_edges (basic_block bb, struct omp_region **region,
 
   switch (code)
     {
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:

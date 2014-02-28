@@ -7007,6 +7007,7 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
       ort = (enum omp_region_type) (ORT_TARGET
 				    | ORT_TARGET_MAP_FORCE);
       break;
+    case OACC_KERNELS:
     case OACC_PARALLEL:
       ort = (enum omp_region_type) (ORT_TARGET
 				    | ORT_TARGET_OFFLOAD
@@ -7069,6 +7070,9 @@ gimplify_omp_workshare (tree *expr_p, gimple_seq *pre_p)
     case OACC_DATA:
       stmt = gimple_build_omp_target (body, GF_OMP_TARGET_KIND_OACC_DATA,
 				      OACC_DATA_CLAUSES (expr));
+      break;
+    case OACC_KERNELS:
+      stmt = gimple_build_oacc_kernels (body, OACC_KERNELS_CLAUSES (expr));
       break;
     case OACC_PARALLEL:
       stmt = gimple_build_oacc_parallel (body, OACC_PARALLEL_CLAUSES (expr));
@@ -8036,7 +8040,6 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = GS_ALL_DONE;
 	  break;
 
-	case OACC_KERNELS:
 	case OACC_HOST_DATA:
 	case OACC_DECLARE:
 	case OACC_UPDATE:
@@ -8066,6 +8069,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  break;
 
 	case OACC_DATA:
+	case OACC_KERNELS:
 	case OACC_PARALLEL:
 	case OMP_SECTIONS:
 	case OMP_SINGLE:

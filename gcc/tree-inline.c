@@ -1316,6 +1316,7 @@ remap_gimple_stmt (gimple stmt, copy_body_data *id)
 	  copy = gimple_build_wce (s1);
 	  break;
 
+	case GIMPLE_OACC_KERNELS:
 	case GIMPLE_OACC_PARALLEL:
           gcc_unreachable ();
 
@@ -3940,6 +3941,7 @@ estimate_num_insns (gimple stmt, eni_weights *weights)
               + estimate_num_insns_seq (gimple_omp_body (stmt), weights)
               + estimate_num_insns_seq (gimple_omp_for_pre_body (stmt), weights));
 
+    case GIMPLE_OACC_KERNELS:
     case GIMPLE_OACC_PARALLEL:
     case GIMPLE_OMP_PARALLEL:
     case GIMPLE_OMP_TASK:

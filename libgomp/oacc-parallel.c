@@ -23,7 +23,7 @@
    see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
    <http://www.gnu.org/licenses/>.  */
 
-/* This file handles the OpenACC data and parallel constructs.  */
+/* This file handles OpenACC constructs.  */
 
 #include "libgomp.h"
 #include "libgomp_g.h"
@@ -80,4 +80,14 @@ void
 GOACC_data_end (void)
 {
   GOMP_target_end_data ();
+}
+
+
+void
+GOACC_kernels (int device, void (*fn) (void *), const void *openmp_target,
+	       size_t mapnum, void **hostaddrs, size_t *sizes,
+	       unsigned short *kinds)
+{
+  /* TODO.  */
+  GOACC_parallel (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds);
 }
