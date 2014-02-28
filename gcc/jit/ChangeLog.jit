@@ -1,5 +1,11 @@
 2014-02-28  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.c (gcc_jit_context_new_binary_op): Check that the
+	operands have the same type.
+	(gcc_jit_context_new_comparison): Likewise.
+
+2014-02-28  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit.h (gcc_jit_context_new_cast): New.
 	* libgccjit.map (gcc_jit_context_new_cast): New.
 	* libgccjit++.h (gccjit::context::new_cast): New method.

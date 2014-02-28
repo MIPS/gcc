@@ -752,6 +752,15 @@ gcc_jit_context_new_binary_op (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (result_type, ctxt, "NULL result_type");
   RETURN_NULL_IF_FAIL (a, ctxt, "NULL a");
   RETURN_NULL_IF_FAIL (b, ctxt, "NULL b");
+  RETURN_NULL_IF_FAIL_PRINTF4 (
+    a->get_type () == b->get_type (),
+    ctxt,
+    "mismatching types for binary op:"
+    " a: %s (type: %s) b: %s (type: %s)",
+    a->get_debug_string (),
+    a->get_type ()->get_debug_string (),
+    b->get_debug_string (),
+    b->get_type ()->get_debug_string ());
 
   return (gcc_jit_rvalue *)ctxt->new_binary_op (loc, op, result_type, a, b);
 }
@@ -766,6 +775,15 @@ gcc_jit_context_new_comparison (gcc_jit_context *ctxt,
   /* op is checked by the inner function.  */
   RETURN_NULL_IF_FAIL (a, ctxt, "NULL a");
   RETURN_NULL_IF_FAIL (b, ctxt, "NULL b");
+  RETURN_NULL_IF_FAIL_PRINTF4 (
+    a->get_type () == b->get_type (),
+    ctxt,
+    "mismatching types for comparison:"
+    " a: %s (type: %s) b: %s (type: %s)",
+    a->get_debug_string (),
+    a->get_type ()->get_debug_string (),
+    b->get_debug_string (),
+    b->get_type ()->get_debug_string ());
 
   return (gcc_jit_rvalue *)ctxt->new_comparison (loc, op, a, b);
 }
