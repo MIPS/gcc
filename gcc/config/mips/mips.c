@@ -9794,7 +9794,8 @@ mips_must_initialize_gp_p (void)
 static bool
 mips_interrupt_extra_call_saved_reg_p (unsigned int regno)
 {
-  if (ISA_HAS_MULT && MD_REG_P (regno))
+  if ((ISA_HAS_MULT || ISA_HAS_DSP)
+      && MD_REG_P (regno))
     return true;
 
   if (ISA_HAS_DSP && DSP_ACC_REG_P (regno))
