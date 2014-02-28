@@ -1,3 +1,10 @@
+2014-02-28  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (gcc_jit_block_get_function): New.
+	* libgccjit.map (gcc_jit_block_get_function): New.
+	* libgccjit++.h (gccjit::block::get_function): New method.
+	* libgccjit.c (gcc_jit_block_get_function): New.
+
 2014-02-27  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_label): Delete in favor of...

@@ -11,6 +11,7 @@
     gcc_jit_block_end_with_jump;
     gcc_jit_block_end_with_return;
     gcc_jit_block_end_with_void_return;
+    gcc_jit_block_get_function;
     gcc_jit_context_acquire;
     gcc_jit_context_compile;
     gcc_jit_context_dump_to_file;

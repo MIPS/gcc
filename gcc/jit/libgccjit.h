@@ -503,6 +503,10 @@ gcc_jit_function_new_block (gcc_jit_function *func,
 extern gcc_jit_object *
 gcc_jit_block_as_object (gcc_jit_block *block);
 
+/* Which function is this block within?  */
+extern gcc_jit_function *
+gcc_jit_block_get_function (gcc_jit_block *block);
+
 /**********************************************************************
  lvalues, rvalues and expressions.
  **********************************************************************/

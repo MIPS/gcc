@@ -591,6 +591,14 @@ gcc_jit_block_as_object (gcc_jit_block *block)
   return static_cast <gcc_jit_object *> (block->as_object ());
 }
 
+gcc_jit_function *
+gcc_jit_block_get_function (gcc_jit_block *block)
+{
+  RETURN_NULL_IF_FAIL (block, NULL, "NULL block");
+
+  return static_cast <gcc_jit_function *> (block->get_function ());
+}
+
 gcc_jit_lvalue *
 gcc_jit_context_new_global (gcc_jit_context *ctxt,
 			    gcc_jit_location *loc,

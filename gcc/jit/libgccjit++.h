@@ -316,6 +316,8 @@ namespace gccjit
 
     gcc_jit_block *get_inner_block () const;
 
+    function get_function () const;
+
     void add_eval (rvalue rvalue,
 		   location loc = location ());
 
@@ -1107,6 +1109,12 @@ function::new_local (type type_,
 					     loc.get_inner_location (),
 					     type_.get_inner_type (),
 					     name.c_str ()));
+}
+
+inline function
+block::get_function () const
+{
+  return function (gcc_jit_block_get_function ( get_inner_block ()));
 }
 
 inline void
