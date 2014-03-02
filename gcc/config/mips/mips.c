@@ -16982,7 +16982,8 @@ mips_option_override (void)
       /* -msingle-float selects 32-bit float registers.  Otherwise the
 	 float registers should be the same size as the integer ones.
          MIPS R6 has 64-bit float registers regardless. */
-      if (ISA_MIPS32R6 || ISA_MIPS64R6)
+      if ((ISA_MIPS32R6 || ISA_MIPS64R6)
+          && TARGET_DOUBLE_FLOAT)
 	target_flags |= MASK_FLOAT64;
       else if (TARGET_64BIT && TARGET_DOUBLE_FLOAT)
 	target_flags |= MASK_FLOAT64;
