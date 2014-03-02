@@ -1,6 +1,6 @@
 // { dg-options "-std=gnu++1y" }
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -55,6 +55,10 @@ test02()
   VERIFY( old.value == 1 );
 }
 
+int f(int) { return 0; }
+
+double f(double) { return 0; }
+
 // Deduce type of overloaded function
 void
 test03()
@@ -62,8 +66,6 @@ test03()
   bool test __attribute__((unused)) = true;
 
   int (*fp)(int);
-  int f(int);
-  double f(double);
   std::exchange(fp, &f);
   VERIFY( fp != nullptr );
 }

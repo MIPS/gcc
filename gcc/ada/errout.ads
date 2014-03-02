@@ -64,7 +64,6 @@ package Errout is
    --  are active (see errout.ads for details). If this switch is False, then
    --  these sequences are ignored (i.e. simply equivalent to a single ?). The
    --  -gnatw.d switch sets this flag True, -gnatw.D sets this flag False.
-   --  Note: always ignored in VMS mode where we do not provide this feature.
 
    -----------------------------------
    -- Suppression of Error Messages --
@@ -253,7 +252,8 @@ package Errout is
    --      avoided. This is currently used by the Compile_Time_Warning pragma
    --      to ensure the message for a with'ed unit is output, and for warnings
    --      on ineffective back-end inlining, which is detected in units that
-   --      contain subprograms to be inlined in the main program.
+   --      contain subprograms to be inlined in the main program. It is also
+   --      used by the Compiler_Unit_Warning pragma for similar reasons.
 
    --    Insertion character ? (Question: warning message)
    --      The character ? appearing anywhere in a message makes the message
@@ -305,14 +305,22 @@ package Errout is
    --    Insertion character < (Less Than: conditional warning message)
    --      The character < appearing anywhere in a message is used for a
    --      conditional error message. If Error_Msg_Warn is True, then the
-   --      effect is the same as ? described above. If Error_Msg_Warn is
-   --      False, then there is no effect.
+   --      effect is the same as ? described above, and in particular << and
+   --      <X< have the effect of ?? and ?X? respectively. If Error_Msg_Warn
+   --      is False, then the < << or <X< sequence is ignored and the message
+   --      is treated as a error rather than a warning.
 
    --    Insertion character A-Z (Upper case letter: Ada reserved word)
    --      If two or more upper case letters appear in the message, they are
    --      taken as an Ada reserved word, and are converted to the default
    --      case for reserved words (see Scans package spec). Surrounding
    --      quotes are added unless manual quotation mode is currently set.
+   --      RM and SPARK are special exceptions, they are never treated as
+   --      keywords, and just appear verbatim, with no surrounding quotes.
+   --      As a special case, 'R'M is used instead of RM (which is not treated
+   --      as a keyword) to indicate when the reference to the RM is possibly
+   --      not useful anymore, and could possibly be replaced by a comment
+   --      in the source.
 
    --    Insertion character ` (Backquote: set manual quotation mode)
    --      The backquote character always appears in pairs. Each backquote of
@@ -324,7 +332,7 @@ package Errout is
    --    Insertion character ' (Quote: literal character)
    --      Precedes a character which is placed literally into the message.
    --      Used to insert characters into messages that are one of the
-   --      insertion characters defined here. Also used when insertion
+   --      insertion characters defined here. Also used for insertion of
    --      upper case letter sequences not to be treated as keywords.
 
    --    Insertion character \ (Backslash: continuation message)
@@ -351,6 +359,31 @@ package Errout is
    --      Indicates that Error_Msg_String (1 .. Error_Msg_Strlen) is to be
    --      inserted to replace the ~ character. The string is inserted in the
    --      literal form it appears, without any action on special characters.
+
+   --    Insertion character [ (Left bracket: will/would be raised at run time)
+   --      This is used in messages about exceptions being raised at run-time.
+   --      If the current message is a warning message, then if the code is
+   --      executed, the exception will be raised, and [ inserts:
+   --
+   --        will be raised at run time
+   --
+   --      If the current message is an error message, then it is an error
+   --      because the exception would have been raised and [ inserts:
+   --
+   --        would have been raised at run time
+   --
+   --      Typically the message contains a < insertion which means that the
+   --      message is a warning or error depending on Error_Msg_Warn. This is
+   --      most typically used in the context of messages which are normally
+   --      warnings, but are errors in GNATprove mode, corresponding to the
+   --      permission in the definition of SPARK that allows an implementation
+   --      to reject a program as illegal if a situation arises in which the
+   --      compiler can determine that it is certain that a run-time check
+   --      would have fail if the statement was executed.
+
+   --    Insertion character ] (Right bracket: may/might be raised at run time)
+   --      This is like [ except that the insertion messages say may/might,
+   --      instead of will/would.
 
    ----------------------------------------
    -- Specialization of Messages for VMS --
@@ -778,10 +811,11 @@ package Errout is
    --  ignored. A call with To=False restores the default treatment in which
    --  error calls are treated as usual (and as described in this spec).
 
-   procedure Set_Warnings_Mode_Off (Loc : Source_Ptr)
+   procedure Set_Warnings_Mode_Off (Loc : Source_Ptr; Reason : String_Id)
      renames Erroutc.Set_Warnings_Mode_Off;
    --  Called in response to a pragma Warnings (Off) to record the source
-   --  location from which warnings are to be turned off.
+   --  location from which warnings are to be turned off. Reason is the
+   --  Reason from the pragma, or the null string if none is given.
 
    procedure Set_Warnings_Mode_On (Loc : Source_Ptr)
      renames Erroutc.Set_Warnings_Mode_On;
@@ -791,14 +825,20 @@ package Errout is
    procedure Set_Specific_Warning_Off
      (Loc    : Source_Ptr;
       Msg    : String;
+      Reason : String_Id;
       Config : Boolean;
       Used   : Boolean := False)
      renames Erroutc.Set_Specific_Warning_Off;
    --  This is called in response to the two argument form of pragma Warnings
-   --  where the first argument is OFF, and the second argument is the prefix
-   --  of a specific warning to be suppressed. The first argument is the start
-   --  of the suppression range, and the second argument is the string from
-   --  the pragma.
+   --  where the first argument is OFF, and the second argument is a string
+   --  which identifies a specific warning to be suppressed. The first argument
+   --  is the start of the suppression range, and the second argument is the
+   --  string from the pragma. Loc is the location of the pragma (which is the
+   --  start of the range to suppress). Reason is the reason string from the
+   --  pragma, or the null string if no reason is given. Config is True for the
+   --  configuration pragma case (where there is no requirement for a matching
+   --  OFF pragma). Used is set True to disable the check that the warning
+   --  actually has has the effect of suppressing a warning.
 
    procedure Set_Specific_Warning_On
      (Loc : Source_Ptr;
@@ -813,9 +853,11 @@ package Errout is
    --  matching Warnings Off pragma preceding this one.
 
    function Compilation_Errors return Boolean;
-   --  Returns true if errors have been detected, or warnings in -gnatwe
-   --  (treat warnings as errors) mode. Note that it is mandatory to call
-   --  Finalize before calling this routine.
+   --  Returns True if errors have been detected, or warnings in -gnatwe (treat
+   --  warnings as errors) mode. Note that it is mandatory to call Finalize
+   --  before calling this routine. Always returns False in formal verification
+   --  mode, because errors issued when analyzing code are not compilation
+   --  errors, and should not result in exiting with an error status.
 
    procedure Error_Msg_CRT (Feature : String; N : Node_Id);
    --  Posts a non-fatal message on node N saying that the feature identified

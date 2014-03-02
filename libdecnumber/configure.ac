@@ -1,7 +1,7 @@
 # configure.ac for libdecnumber			-*- Autoconf -*-
 # Process this file with autoconf to generate a configuration script.
 
-# Copyright (C) 2005-2013 Free Software Foundation, Inc.
+# Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 # This file is part of GCC.
 
@@ -94,6 +94,13 @@ AC_SUBST(enable_decimal_float)
 AC_SUBST(ADDITIONAL_OBJS)
 
 AC_C_BIGENDIAN
+
+# Enable --enable-host-shared.
+AC_ARG_ENABLE(host-shared,
+[AS_HELP_STRING([--enable-host-shared],
+		[build host code as shared libraries])],
+[PICFLAG=-fPIC], [PICFLAG=])
+AC_SUBST(PICFLAG)
 
 # Output.
 

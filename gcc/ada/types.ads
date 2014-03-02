@@ -43,7 +43,7 @@
 --  Note: the declarations in this package reflect an expectation that the host
 --  machine has an efficient integer base type with a range at least 32 bits
 --  2s-complement. If there are any machines for which this is not a correct
---  assumption, a significant number of changes will be required!
+--  assumption, a significant number of changes will be required.
 
 with System;
 with Unchecked_Conversion;
@@ -172,7 +172,7 @@ package Types is
    for Physical_Line_Number'Size use 32;
    --  Line number type, used for storing physical line numbers (i.e. line
    --  numbers in the physical file being compiled, unaffected by the presence
-   --  of source reference pragmas.
+   --  of source reference pragmas).
 
    type Column_Number is range 0 .. 32767;
    for Column_Number'Size use 16;
@@ -183,11 +183,17 @@ package Types is
    No_Column_Number : constant Column_Number := 0;
    --  Special value used to indicate no column number
 
+   Source_Align : constant := 2 ** 12;
+   --  Alignment requirement for source buffers (by keeping source buffers
+   --  aligned, we can optimize the implementation of Get_Source_File_Index.
+   --  See this routine in Sinput for details.
+
    subtype Source_Buffer is Text_Buffer;
    --  Type used to store text of a source file. The buffer for the main
    --  source (the source specified on the command line) has a lower bound
    --  starting at zero. Subsequent subsidiary sources have lower bounds
-   --  which are one greater than the previous upper bound.
+   --  which are one greater than the previous upper bound, rounded up to
+   --  a multiple of Source_Align.
 
    subtype Big_Source_Buffer is Text_Buffer (0 .. Text_Ptr'Last);
    --  This is a virtual type used as the designated type of the access type
@@ -875,13 +881,5 @@ package Types is
    subtype RT_SE_Exceptions is RT_Exception_Code range
      SE_Empty_Storage_Pool ..
      SE_Object_Too_Large;
-
-   ----------------------------------------
-   -- Types Used for SPARK Mode Handling --
-   ----------------------------------------
-
-   type SPARK_Mode_Id is (None, SPARK_Off, SPARK_Auto, SPARK_On);
-   --  Type used to represent all legal modes that can be set by aspect/pragma
-   --  SPARK_Mode.
 
 end Types;

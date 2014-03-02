@@ -1,5 +1,5 @@
 /* Initialization of uninitialized regs.
-   Copyright (C) 2007-2013 Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -59,7 +59,7 @@ initialize_uninitialized_regs (void)
 
   df_analyze ();
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       rtx insn;
       bitmap lr = DF_LR_IN (bb);
@@ -158,8 +158,8 @@ const pass_data pass_data_initialize_regs =
 class pass_initialize_regs : public rtl_opt_pass
 {
 public:
-  pass_initialize_regs(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_initialize_regs, ctxt)
+  pass_initialize_regs (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_initialize_regs, ctxt)
   {}
 
   /* opt_pass methods: */

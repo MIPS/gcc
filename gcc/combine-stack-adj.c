@@ -1,5 +1,5 @@
 /* Combine stack adjustments.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -95,7 +95,7 @@ combine_stack_adjustments (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     combine_stack_adjustments_for_block (bb);
 }
 
@@ -663,8 +663,8 @@ const pass_data pass_data_stack_adjustments =
 class pass_stack_adjustments : public rtl_opt_pass
 {
 public:
-  pass_stack_adjustments(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_stack_adjustments, ctxt)
+  pass_stack_adjustments (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_stack_adjustments, ctxt)
   {}
 
   /* opt_pass methods: */

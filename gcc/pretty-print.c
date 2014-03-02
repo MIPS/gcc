@@ -1,5 +1,5 @@
 /* Various declarations for language-independent pretty-print subroutines.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -50,8 +50,8 @@ output_buffer::output_buffer ()
 
 output_buffer::~output_buffer ()
 {
-  obstack_free (&chunk_obstack, obstack_finish (&chunk_obstack));
-  obstack_free (&formatted_obstack, obstack_finish (&formatted_obstack));
+  obstack_free (&chunk_obstack, NULL);
+  obstack_free (&formatted_obstack, NULL);
 }
 
 /* A pointer to the formatted diagnostic message.  */
@@ -773,7 +773,7 @@ pretty_printer::pretty_printer (const char *p, int l)
     format_decoder (),
     emitted_prefix (),
     need_newline (),
-    translate_identifiers(true),
+    translate_identifiers (true),
     show_color ()
 {
   pp_line_cutoff (this) = l;

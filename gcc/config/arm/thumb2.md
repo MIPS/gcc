@@ -1,5 +1,5 @@
 ;; ARM Thumb-2 Machine Description
-;; Copyright (C) 2007-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2007-2014 Free Software Foundation, Inc.
 ;; Written by CodeSourcery, LLC.
 ;;
 ;; This file is part of GCC.
@@ -317,20 +317,24 @@
 ;; Thumb-2 always has load/store halfword instructions, so we can avoid a lot
 ;; of the messiness associated with the ARM patterns.
 (define_insn "*thumb2_movhi_insn"
-  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,m,r")
-	(match_operand:HI 1 "general_operand"      "rI,n,r,m"))]
+  [(set (match_operand:HI 0 "nonimmediate_operand" "=r,r,l,r,m,r")
+	(match_operand:HI 1 "general_operand"      "r,I,Py,n,r,m"))]
   "TARGET_THUMB2
   && (register_operand (operands[0], HImode)
      || register_operand (operands[1], HImode))"
   "@
    mov%?\\t%0, %1\\t%@ movhi
+   mov%?\\t%0, %1\\t%@ movhi
+   mov%?\\t%0, %1\\t%@ movhi
    movw%?\\t%0, %L1\\t%@ movhi
    str%(h%)\\t%1, %0\\t%@ movhi
    ldr%(h%)\\t%0, %1\\t%@ movhi"
-  [(set_attr "type" "mov_imm,mov_reg,store1,load1")
+  [(set_attr "type" "mov_reg,mov_imm,mov_imm,mov_reg,store1,load1")
    (set_attr "predicable" "yes")
-   (set_attr "pool_range" "*,*,*,4094")
-   (set_attr "neg_pool_range" "*,*,*,250")]
+   (set_attr "predicable_short_it" "yes,no,yes,no,no,no")
+   (set_attr "length" "2,4,2,4,4,4")
+   (set_attr "pool_range" "*,*,*,*,*,4094")
+   (set_attr "neg_pool_range" "*,*,*,*,*,250")]
 )
 
 (define_insn "*thumb2_storewb_pairsi"
@@ -1449,11 +1453,7 @@
 ;; knows what to generate.
 (define_expand "doloop_end"
   [(use (match_operand 0 "" ""))      ; loop pseudo
-   (use (match_operand 1 "" ""))      ; iterations; zero if unknown
-   (use (match_operand 2 "" ""))      ; max iterations
-   (use (match_operand 3 "" ""))      ; loop level
-   (use (match_operand 4 "" ""))      ; label
-   (use (match_operand 5 "" ""))]     ; flag: 1 if loop entered at top, else 0
+   (use (match_operand 1 "" ""))]     ; label
   "TARGET_32BIT"
   "
  {
@@ -1472,10 +1472,6 @@
      rtx insn;
      rtx cmp;
 
-     /* Only use this on innermost loops.  */
-     if (INTVAL (operands[3]) > 1)
-       FAIL;
-
      if (GET_MODE (operands[0]) != SImode)
        FAIL;
 
@@ -1488,7 +1484,7 @@
      cmp = XVECEXP (PATTERN (insn), 0, 0);
      cc_reg = SET_DEST (cmp);
      bcomp = gen_rtx_NE (VOIDmode, cc_reg, const0_rtx);
-     loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands [4]);
+     loc_ref = gen_rtx_LABEL_REF (VOIDmode, operands [1]);
      emit_jump_insn (gen_rtx_SET (VOIDmode, pc_rtx,
                                   gen_rtx_IF_THEN_ELSE (VOIDmode, bcomp,
                                                         loc_ref, pc_rtx)));

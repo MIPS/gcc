@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -41,6 +41,7 @@ with Exp_Disp; use Exp_Disp;
 with Exp_Dist; use Exp_Dist;
 with Exp_Intr; use Exp_Intr;
 with Exp_Pakd; use Exp_Pakd;
+with Exp_Prag; use Exp_Prag;
 with Exp_Tss;  use Exp_Tss;
 with Exp_Util; use Exp_Util;
 with Exp_VFpt; use Exp_VFpt;
@@ -407,7 +408,7 @@ package body Exp_Ch6 is
                Actual :=
                  Make_Attribute_Reference (Loc,
                    Prefix =>
-                     New_Reference_To (Finalization_Master (Ptr_Typ), Loc),
+                     New_Occurrence_Of (Finalization_Master (Ptr_Typ), Loc),
                    Attribute_Name => Name_Unrestricted_Access);
 
             --  Tagged types
@@ -514,7 +515,7 @@ package body Exp_Ch6 is
       --  the actual is an entity and requires an explicit reference.
 
       elsif Nkind (Actual) = N_Defining_Identifier then
-         Actual := New_Reference_To (Actual, Loc);
+         Actual := New_Occurrence_Of (Actual, Loc);
       end if;
 
       --  Locate the implicit master parameter in the called function
@@ -825,7 +826,7 @@ package body Exp_Ch6 is
 
       --  We must have a call, since Has_Recursive_Call was set. If not just
       --  ignore (this is only an error check, so if we have a funny situation,
-      --  due to bugs or errors, we do not want to bomb!)
+      --  due to bugs or errors, we do not want to bomb).
 
       elsif Is_Empty_Elmt_List (Call_List) then
          return;
@@ -1153,7 +1154,7 @@ package body Exp_Ch6 is
          --  For IN parameter, all we do is to replace the actual
 
          if Ekind (Formal) = E_In_Parameter then
-            Rewrite (Actual, New_Reference_To (Temp, Loc));
+            Rewrite (Actual, New_Occurrence_Of (Temp, Loc));
             Analyze (Actual);
 
          --  Processing for OUT or IN OUT parameter
@@ -1177,7 +1178,7 @@ package body Exp_Ch6 is
                Expr := New_Occurrence_Of (Temp, Loc);
             end if;
 
-            Rewrite (Actual, New_Reference_To (Temp, Loc));
+            Rewrite (Actual, New_Occurrence_Of (Temp, Loc));
             Analyze (Actual);
 
             --  If the actual is a conversion of a packed reference, it may
@@ -1808,7 +1809,7 @@ package body Exp_Ch6 is
                if In_Open_Scopes (Entity (Actual)) then
                   Rewrite (Actual,
                     (Make_Function_Call (Loc,
-                     Name => New_Reference_To (RTE (RE_Self), Loc))));
+                     Name => New_Occurrence_Of (RTE (RE_Self), Loc))));
                   Analyze (Actual);
 
                --  A task type cannot otherwise appear as an actual
@@ -2043,7 +2044,7 @@ package body Exp_Ch6 is
          procedure Do_Backend_Inline is
          begin
             --  No extra test needed for init subprograms since we know they
-            --  are available to the backend!
+            --  are available to the backend.
 
             if Is_Init_Proc (Subp) then
                Add_Inlined_Body (Subp);
@@ -2554,7 +2555,7 @@ package body Exp_Ch6 is
             Rewrite (N,
               Make_Procedure_Call_Statement (Loc,
                 Name =>
-                  New_Reference_To (Deep_Fin, Loc),
+                  New_Occurrence_Of (Deep_Fin, Loc),
                 Parameter_Associations =>
                   New_Copy_List_Tree (Parameter_Associations (N))));
 
@@ -3108,7 +3109,7 @@ package body Exp_Ch6 is
          --  For an OUT or IN OUT parameter, if the actual is an entity, then
          --  clear current values, since they can be clobbered. We are probably
          --  doing this in more places than we need to, but better safe than
-         --  sorry when it comes to retaining bad current values!
+         --  sorry when it comes to retaining bad current values.
 
          if Ekind (Formal) /= E_In_Parameter
            and then Is_Entity_Name (Actual)
@@ -3122,7 +3123,7 @@ package body Exp_Ch6 is
                --  For an OUT or IN OUT parameter that is an assignable entity,
                --  we do not want to clobber the Last_Assignment field, since
                --  if it is set, it was precisely because it is indeed an OUT
-               --  or IN OUT parameter! We do reset the Is_Known_Valid flag
+               --  or IN OUT parameter. We do reset the Is_Known_Valid flag
                --  since the subprogram could have returned in invalid value.
 
                if Ekind_In (Formal, E_Out_Parameter, E_In_Out_Parameter)
@@ -3252,9 +3253,8 @@ package body Exp_Ch6 is
                                (Return_Applies_To
                                  (Return_Statement_Entity (Ancestor))))
                   then
-                     --  Pass along value that was passed in if the routine
-                     --  we are returning from also has an
-                     --  Accessibility_Of_Result formal.
+                     --  Pass along value that was passed in if the returned
+                     --  routine also has an Accessibility_Of_Result formal.
 
                      Level :=
                        New_Occurrence_Of
@@ -3417,8 +3417,8 @@ package body Exp_Ch6 is
                                Make_Selected_Component (Loc,
                                  Prefix        => New_Value (Param),
                                  Selector_Name =>
-                                   New_Reference_To (First_Tag_Component (Typ),
-                                                     Loc)),
+                                   New_Occurrence_Of
+                                     (First_Tag_Component (Typ), Loc)),
 
                              Right_Opnd =>
                                Make_Selected_Component (Loc,
@@ -3426,7 +3426,7 @@ package body Exp_Ch6 is
                                    Unchecked_Convert_To (Typ,
                                      New_Value (Next_Actual (Param))),
                                  Selector_Name =>
-                                   New_Reference_To
+                                   New_Occurrence_Of
                                      (First_Tag_Component (Typ), Loc))),
                       Right_Opnd => Prev_Call);
 
@@ -3641,28 +3641,6 @@ package body Exp_Ch6 is
          Subp := Parent_Subp;
       end if;
 
-      --  Check for violation of No_Abort_Statements
-
-      if Restriction_Check_Required (No_Abort_Statements)
-        and then Is_RTE (Subp, RE_Abort_Task)
-      then
-         Check_Restriction (No_Abort_Statements, Call_Node);
-
-      --  Check for violation of No_Dynamic_Attachment
-
-      elsif Restriction_Check_Required (No_Dynamic_Attachment)
-        and then RTU_Loaded (Ada_Interrupts)
-        and then (Is_RTE (Subp, RE_Is_Reserved)      or else
-                  Is_RTE (Subp, RE_Is_Attached)      or else
-                  Is_RTE (Subp, RE_Current_Handler)  or else
-                  Is_RTE (Subp, RE_Attach_Handler)   or else
-                  Is_RTE (Subp, RE_Exchange_Handler) or else
-                  Is_RTE (Subp, RE_Detach_Handler)   or else
-                  Is_RTE (Subp, RE_Reference))
-      then
-         Check_Restriction (No_Dynamic_Attachment, Call_Node);
-      end if;
-
       --  Deal with case where call is an explicit dereference
 
       if Nkind (Name (Call_Node)) = N_Explicit_Dereference then
@@ -3746,7 +3724,7 @@ package body Exp_Ch6 is
 
       --  If this is a call to an intrinsic subprogram, then perform the
       --  appropriate expansion to the corresponding tree node and we
-      --  are all done (since after that the call is gone!)
+      --  are all done (since after that the call is gone).
 
       --  In the case where the intrinsic is to be processed by the back end,
       --  the call to Expand_Intrinsic_Call will do nothing, which is fine,
@@ -3947,7 +3925,7 @@ package body Exp_Ch6 is
       --  result from the secondary stack.
 
       if Needs_Finalization (Etype (Subp)) then
-         if not Is_Immutably_Limited_Type (Etype (Subp))
+         if not Is_Limited_View (Etype (Subp))
            and then
              (No (First_Formal (Subp))
                 or else
@@ -4056,7 +4034,7 @@ package body Exp_Ch6 is
                begin
                   --  First step, remove all the named parameters from the
                   --  list (they are still chained using First_Named_Actual
-                  --  and Next_Named_Actual, so we have not lost them!)
+                  --  and Next_Named_Actual, so we have not lost them).
 
                   Temp := First (Parameter_Associations (Call_Node));
 
@@ -4117,476 +4095,6 @@ package body Exp_Ch6 is
          end;
       end if;
    end Expand_Call;
-
-   ---------------------------
-   -- Expand_Contract_Cases --
-   ---------------------------
-
-   --  Pragma Contract_Cases is expanded in the following manner:
-
-   --    subprogram S is
-   --       Flag_1   : Boolean := False;
-   --       . . .
-   --       Flag_N   : Boolean := False;
-   --       Flag_N+1 : Boolean := False;  --  when "others" present
-   --       Count    : Natural := 0;
-
-   --       <preconditions (if any)>
-
-   --       if Case_Guard_1 then
-   --          Flag_1 := True;
-   --          Count  := Count + 1;
-   --       end if;
-   --       . . .
-   --       if Case_Guard_N then
-   --          Flag_N := True;
-   --          Count  := Count + 1;
-   --       end if;
-
-   --       if Count = 0 then
-   --          raise Assertion_Error with "xxx contract cases incomplete";
-   --            <or>
-   --          Flag_N+1 := True;  --  when "others" present
-
-   --       elsif Count > 1 then
-   --          declare
-   --             Str0 : constant String :=
-   --                      "contract cases overlap for subprogram ABC";
-   --             Str1 : constant String :=
-   --                      (if Flag_1 then
-   --                         Str0 & "case guard at xxx evaluates to True"
-   --                       else Str0);
-   --             StrN : constant String :=
-   --                      (if Flag_N then
-   --                         StrN-1 & "case guard at xxx evaluates to True"
-   --                       else StrN-1);
-   --          begin
-   --             raise Assertion_Error with StrN;
-   --          end;
-   --       end if;
-
-   --       procedure _Postconditions is
-   --       begin
-   --          <postconditions (if any)>
-
-   --          if Flag_1 and then not Consequence_1 then
-   --             raise Assertion_Error with "failed contract case at xxx";
-   --          end if;
-   --          . . .
-   --          if Flag_N[+1] and then not Consequence_N[+1] then
-   --             raise Assertion_Error with "failed contract case at xxx";
-   --          end if;
-   --       end _Postconditions;
-   --    begin
-   --       . . .
-   --    end S;
-
-   procedure Expand_Contract_Cases
-     (CCs     : Node_Id;
-      Subp_Id : Entity_Id;
-      Decls   : List_Id;
-      Stmts   : in out List_Id)
-   is
-      Loc : constant Source_Ptr := Sloc (CCs);
-
-      procedure Case_Guard_Error
-        (Decls     : List_Id;
-         Flag      : Entity_Id;
-         Error_Loc : Source_Ptr;
-         Msg       : in out Entity_Id);
-      --  Given a declarative list Decls, status flag Flag, the location of the
-      --  error and a string Msg, construct the following check:
-      --    Msg : constant String :=
-      --            (if Flag then
-      --                Msg & "case guard at Error_Loc evaluates to True"
-      --             else Msg);
-      --  The resulting code is added to Decls
-
-      procedure Consequence_Error
-        (Checks : in out Node_Id;
-         Flag   : Entity_Id;
-         Conseq : Node_Id);
-      --  Given an if statement Checks, status flag Flag and a consequence
-      --  Conseq, construct the following check:
-      --    [els]if Flag and then not Conseq then
-      --       raise Assertion_Error
-      --         with "failed contract case at Sloc (Conseq)";
-      --    [end if;]
-      --  The resulting code is added to Checks
-
-      function Declaration_Of (Id : Entity_Id) return Node_Id;
-      --  Given the entity Id of a boolean flag, generate:
-      --    Id : Boolean := False;
-
-      function Increment (Id : Entity_Id) return Node_Id;
-      --  Given the entity Id of a numerical variable, generate:
-      --    Id := Id + 1;
-
-      function Set (Id : Entity_Id) return Node_Id;
-      --  Given the entity Id of a boolean variable, generate:
-      --    Id := True;
-
-      ----------------------
-      -- Case_Guard_Error --
-      ----------------------
-
-      procedure Case_Guard_Error
-        (Decls     : List_Id;
-         Flag      : Entity_Id;
-         Error_Loc : Source_Ptr;
-         Msg       : in out Entity_Id)
-      is
-         New_Line : constant Character := Character'Val (10);
-         New_Msg  : constant Entity_Id := Make_Temporary (Loc, 'S');
-
-      begin
-         Start_String;
-         Store_String_Char  (New_Line);
-         Store_String_Chars ("  case guard at ");
-         Store_String_Chars (Build_Location_String (Error_Loc));
-         Store_String_Chars (" evaluates to True");
-
-         --  Generate:
-         --    New_Msg : constant String :=
-         --      (if Flag then
-         --          Msg & "case guard at Error_Loc evaluates to True"
-         --       else Msg);
-
-         Append_To (Decls,
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => New_Msg,
-             Constant_Present    => True,
-             Object_Definition   => New_Reference_To (Standard_String, Loc),
-             Expression          =>
-               Make_If_Expression (Loc,
-                 Expressions => New_List (
-                   New_Reference_To (Flag, Loc),
-
-                   Make_Op_Concat (Loc,
-                     Left_Opnd  => New_Reference_To (Msg, Loc),
-                     Right_Opnd => Make_String_Literal (Loc, End_String)),
-
-                   New_Reference_To (Msg, Loc)))));
-
-         Msg := New_Msg;
-      end Case_Guard_Error;
-
-      -----------------------
-      -- Consequence_Error --
-      -----------------------
-
-      procedure Consequence_Error
-        (Checks : in out Node_Id;
-         Flag   : Entity_Id;
-         Conseq : Node_Id)
-      is
-         Cond  : Node_Id;
-         Error : Node_Id;
-
-      begin
-         --  Generate:
-         --    Flag and then not Conseq
-
-         Cond :=
-           Make_And_Then (Loc,
-             Left_Opnd  => New_Reference_To (Flag, Loc),
-             Right_Opnd =>
-               Make_Op_Not (Loc,
-                 Right_Opnd => Relocate_Node (Conseq)));
-
-         --  Generate:
-         --    raise Assertion_Error
-         --      with "failed contract case at Sloc (Conseq)";
-
-         Start_String;
-         Store_String_Chars ("failed contract case at ");
-         Store_String_Chars (Build_Location_String (Sloc (Conseq)));
-
-         Error :=
-           Make_Procedure_Call_Statement (Loc,
-             Name                   =>
-               New_Reference_To (RTE (RE_Raise_Assert_Failure), Loc),
-             Parameter_Associations => New_List (
-               Make_String_Literal (Loc, End_String)));
-
-         if No (Checks) then
-            Checks :=
-              Make_If_Statement (Loc,
-                Condition       => Cond,
-                Then_Statements => New_List (Error));
-
-         else
-            if No (Elsif_Parts (Checks)) then
-               Set_Elsif_Parts (Checks, New_List);
-            end if;
-
-            Append_To (Elsif_Parts (Checks),
-              Make_Elsif_Part (Loc,
-                Condition       => Cond,
-                Then_Statements => New_List (Error)));
-         end if;
-      end Consequence_Error;
-
-      --------------------
-      -- Declaration_Of --
-      --------------------
-
-      function Declaration_Of (Id : Entity_Id) return Node_Id is
-      begin
-         return
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Id,
-             Object_Definition   => New_Reference_To (Standard_Boolean, Loc),
-             Expression          => New_Reference_To (Standard_False, Loc));
-      end Declaration_Of;
-
-      ---------------
-      -- Increment --
-      ---------------
-
-      function Increment (Id : Entity_Id) return Node_Id is
-      begin
-         return
-           Make_Assignment_Statement (Loc,
-             Name       => New_Reference_To (Id, Loc),
-             Expression =>
-               Make_Op_Add (Loc,
-                 Left_Opnd  => New_Reference_To (Id, Loc),
-                 Right_Opnd => Make_Integer_Literal (Loc, 1)));
-      end Increment;
-
-      ---------
-      -- Set --
-      ---------
-
-      function Set (Id : Entity_Id) return Node_Id is
-      begin
-         return
-           Make_Assignment_Statement (Loc,
-             Name       => New_Reference_To (Id, Loc),
-             Expression => New_Reference_To (Standard_True, Loc));
-      end Set;
-
-      --  Local variables
-
-      Aggr          : constant Node_Id :=
-                        Expression (First
-                          (Pragma_Argument_Associations (CCs)));
-      Case_Guard    : Node_Id;
-      CG_Checks     : Node_Id;
-      CG_Stmts      : List_Id;
-      Conseq        : Node_Id;
-      Conseq_Checks : Node_Id := Empty;
-      Count         : Entity_Id;
-      Error_Decls   : List_Id;
-      Flag          : Entity_Id;
-      Msg_Str       : Entity_Id;
-      Multiple_PCs  : Boolean;
-      Others_Flag   : Entity_Id := Empty;
-      Post_Case     : Node_Id;
-
-   --  Start of processing for Expand_Contract_Cases
-
-   begin
-      --  Do nothing if pragma is not enabled. If pragma is disabled, it has
-      --  already been rewritten as a Null statement.
-
-      if Is_Ignored (CCs) then
-         return;
-
-      --  Guard against malformed contract cases
-
-      elsif Nkind (Aggr) /= N_Aggregate then
-         return;
-      end if;
-
-      Multiple_PCs := List_Length (Component_Associations (Aggr)) > 1;
-
-      --  Create the counter which tracks the number of case guards that
-      --  evaluate to True.
-
-      --    Count : Natural := 0;
-
-      Count := Make_Temporary (Loc, 'C');
-
-      Prepend_To (Decls,
-        Make_Object_Declaration (Loc,
-          Defining_Identifier => Count,
-          Object_Definition   => New_Reference_To (Standard_Natural, Loc),
-          Expression          => Make_Integer_Literal (Loc, 0)));
-
-      --  Create the base error message for multiple overlapping case guards
-
-      --    Msg_Str : constant String :=
-      --                "contract cases overlap for subprogram Subp_Id";
-
-      if Multiple_PCs then
-         Msg_Str := Make_Temporary (Loc, 'S');
-
-         Start_String;
-         Store_String_Chars ("contract cases overlap for subprogram ");
-         Store_String_Chars (Get_Name_String (Chars (Subp_Id)));
-
-         Error_Decls := New_List (
-           Make_Object_Declaration (Loc,
-             Defining_Identifier => Msg_Str,
-             Constant_Present    => True,
-             Object_Definition   => New_Reference_To (Standard_String, Loc),
-             Expression          => Make_String_Literal (Loc, End_String)));
-      end if;
-
-      --  Process individual post cases
-
-      Post_Case := First (Component_Associations (Aggr));
-      while Present (Post_Case) loop
-         Case_Guard := First (Choices (Post_Case));
-         Conseq     := Expression (Post_Case);
-
-         --  The "others" choice requires special processing
-
-         if Nkind (Case_Guard) = N_Others_Choice then
-            Others_Flag := Make_Temporary (Loc, 'F');
-            Prepend_To (Decls, Declaration_Of (Others_Flag));
-
-            --  Check possible overlap between a case guard and "others"
-
-            if Multiple_PCs and Exception_Extra_Info then
-               Case_Guard_Error
-                 (Decls     => Error_Decls,
-                  Flag      => Others_Flag,
-                  Error_Loc => Sloc (Case_Guard),
-                  Msg       => Msg_Str);
-            end if;
-
-            --  Check the corresponding consequence of "others"
-
-            Consequence_Error
-              (Checks => Conseq_Checks,
-               Flag   => Others_Flag,
-               Conseq => Conseq);
-
-         --  Regular post case
-
-         else
-            --  Create the flag which tracks the state of its associated case
-            --  guard.
-
-            Flag := Make_Temporary (Loc, 'F');
-            Prepend_To (Decls, Declaration_Of (Flag));
-
-            --  The flag is set when the case guard is evaluated to True
-            --    if Case_Guard then
-            --       Flag  := True;
-            --       Count := Count + 1;
-            --    end if;
-
-            Append_To (Decls,
-              Make_If_Statement (Loc,
-                Condition       => Relocate_Node (Case_Guard),
-                Then_Statements => New_List (
-                  Set (Flag),
-                  Increment (Count))));
-
-            --  Check whether this case guard overlaps with another one
-
-            if Multiple_PCs and Exception_Extra_Info then
-               Case_Guard_Error
-                 (Decls     => Error_Decls,
-                  Flag      => Flag,
-                  Error_Loc => Sloc (Case_Guard),
-                  Msg       => Msg_Str);
-            end if;
-
-            --  The corresponding consequence of the case guard which evaluated
-            --  to True must hold on exit from the subprogram.
-
-            Consequence_Error
-              (Checks => Conseq_Checks,
-               Flag   => Flag,
-               Conseq => Conseq);
-         end if;
-
-         Next (Post_Case);
-      end loop;
-
-      --  Raise Assertion_Error when none of the case guards evaluate to True.
-      --  The only exception is when we have "others", in which case there is
-      --  no error because "others" acts as a default True.
-
-      --  Generate:
-      --    Flag := True;
-
-      if Present (Others_Flag) then
-         CG_Stmts := New_List (Set (Others_Flag));
-
-      --  Generate:
-      --    raise Assertion_Error with "xxx contract cases incomplete";
-
-      else
-         Start_String;
-         Store_String_Chars (Build_Location_String (Loc));
-         Store_String_Chars (" contract cases incomplete");
-
-         CG_Stmts := New_List (
-           Make_Procedure_Call_Statement (Loc,
-             Name                   =>
-               New_Reference_To (RTE (RE_Raise_Assert_Failure), Loc),
-             Parameter_Associations => New_List (
-               Make_String_Literal (Loc, End_String))));
-      end if;
-
-      CG_Checks :=
-        Make_If_Statement (Loc,
-          Condition       =>
-            Make_Op_Eq (Loc,
-              Left_Opnd  => New_Reference_To (Count, Loc),
-              Right_Opnd => Make_Integer_Literal (Loc, 0)),
-          Then_Statements => CG_Stmts);
-
-      --  Detect a possible failure due to several case guards evaluating to
-      --  True.
-
-      --  Generate:
-      --    elsif Count > 0 then
-      --       declare
-      --          <Error_Decls>
-      --       begin
-      --          raise Assertion_Error with <Msg_Str>;
-      --    end if;
-
-      if Multiple_PCs then
-         Set_Elsif_Parts (CG_Checks, New_List (
-           Make_Elsif_Part (Loc,
-             Condition       =>
-               Make_Op_Gt (Loc,
-                 Left_Opnd  => New_Reference_To (Count, Loc),
-                 Right_Opnd => Make_Integer_Literal (Loc, 1)),
-
-             Then_Statements => New_List (
-               Make_Block_Statement (Loc,
-                 Declarations               => Error_Decls,
-                 Handled_Statement_Sequence =>
-                   Make_Handled_Sequence_Of_Statements (Loc,
-                     Statements => New_List (
-                       Make_Procedure_Call_Statement (Loc,
-                         Name                   =>
-                           New_Reference_To
-                             (RTE (RE_Raise_Assert_Failure), Loc),
-                         Parameter_Associations => New_List (
-                           New_Reference_To (Msg_Str, Loc))))))))));
-      end if;
-
-      Append_To (Decls, CG_Checks);
-
-      --  Raise Assertion_Error when the corresponding consequence of a case
-      --  guard that evaluated to True fails.
-
-      if No (Stmts) then
-         Stmts := New_List;
-      end if;
-
-      Append_To (Stmts, Conseq_Checks);
-   end Expand_Contract_Cases;
 
    -------------------------------
    -- Expand_Ctrl_Function_Call --
@@ -4717,7 +4225,7 @@ package body Exp_Ch6 is
       begin
          if No (Exit_Lab) then
             Lab_Ent := Make_Temporary (Loc, 'L');
-            Lab_Id  := New_Reference_To (Lab_Ent, Loc);
+            Lab_Id  := New_Occurrence_Of (Lab_Ent, Loc);
             Exit_Lab := Make_Label (Loc, Lab_Id);
             Lab_Decl :=
               Make_Implicit_Label_Declaration (Loc,
@@ -5641,7 +5149,7 @@ package body Exp_Ch6 is
 
             Remove (First (Parameter_Associations (Blk_Call_Stmt)));
             Prepend_To (Parameter_Associations (Blk_Call_Stmt),
-              New_Reference_To (Targ, Loc));
+              New_Occurrence_Of (Targ, Loc));
          end;
 
          --  Remove the return statement
@@ -5665,7 +5173,7 @@ package body Exp_Ch6 is
 
       if Is_Unc_Decl then
 
-         --  No action needed since return statement has been already removed!
+         --  No action needed since return statement has been already removed
 
          null;
 
@@ -5901,17 +5409,17 @@ package body Exp_Ch6 is
                  Make_Object_Renaming_Declaration (Loc,
                    Defining_Identifier => Pool_Id,
                    Subtype_Mark        =>
-                     New_Reference_To (RTE (RE_Root_Storage_Pool), Loc),
+                     New_Occurrence_Of (RTE (RE_Root_Storage_Pool), Loc),
                    Name                =>
                      Make_Explicit_Dereference (Loc,
                        Prefix =>
                          Make_Function_Call (Loc,
                            Name                   =>
-                             New_Reference_To (RTE (RE_Base_Pool), Loc),
+                             New_Occurrence_Of (RTE (RE_Base_Pool), Loc),
                            Parameter_Associations => New_List (
                              Make_Explicit_Dereference (Loc,
                                Prefix =>
-                                 New_Reference_To (Fin_Mas_Id, Loc)))))));
+                                 New_Occurrence_Of (Fin_Mas_Id, Loc)))))));
 
                --  Create an access type which uses the storage pool of the
                --  caller's master. This additional type is necessary because
@@ -5941,7 +5449,7 @@ package body Exp_Ch6 is
                    Type_Definition     =>
                      Make_Access_To_Object_Definition (Loc,
                        Subtype_Indication =>
-                         New_Reference_To (Desig_Typ, Loc))));
+                         New_Occurrence_Of (Desig_Typ, Loc))));
 
                --  Perform minor decoration in order to set the master and the
                --  storage pool attributes.
@@ -5959,14 +5467,14 @@ package body Exp_Ch6 is
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Local_Id,
                    Object_Definition   =>
-                     New_Reference_To (Ptr_Typ, Loc)));
+                     New_Occurrence_Of (Ptr_Typ, Loc)));
 
                --  Allocate the object, generate:
                --    Local_Id := <Alloc_Expr>;
 
                Append_To (Stmts,
                  Make_Assignment_Statement (Loc,
-                   Name       => New_Reference_To (Local_Id, Loc),
+                   Name       => New_Occurrence_Of (Local_Id, Loc),
                    Expression => Alloc_Expr));
 
                --  Generate:
@@ -5974,10 +5482,10 @@ package body Exp_Ch6 is
 
                Append_To (Stmts,
                  Make_Assignment_Statement (Loc,
-                   Name       => New_Reference_To (Temp_Id, Loc),
+                   Name       => New_Occurrence_Of (Temp_Id, Loc),
                    Expression =>
                      Unchecked_Convert_To (Temp_Typ,
-                       New_Reference_To (Local_Id, Loc))));
+                       New_Occurrence_Of (Local_Id, Loc))));
 
                --  Wrap the allocation in a block. This is further conditioned
                --  by checking the caller finalization master at runtime. A
@@ -5997,7 +5505,7 @@ package body Exp_Ch6 is
                  Make_If_Statement (Loc,
                    Condition       =>
                      Make_Op_Ne (Loc,
-                       Left_Opnd  => New_Reference_To (Fin_Mas_Id, Loc),
+                       Left_Opnd  => New_Occurrence_Of (Fin_Mas_Id, Loc),
                        Right_Opnd => Make_Null (Loc)),
 
                    Then_Statements => New_List (
@@ -6014,7 +5522,7 @@ package body Exp_Ch6 is
          else
             return
               Make_Assignment_Statement (Loc,
-                Name       => New_Reference_To (Temp_Id, Loc),
+                Name       => New_Occurrence_Of (Temp_Id, Loc),
                 Expression => Alloc_Expr);
          end if;
       end Build_Heap_Allocator;
@@ -6028,7 +5536,7 @@ package body Exp_Ch6 is
          return
            Make_Procedure_Call_Statement (Loc,
              Name                   =>
-               New_Reference_To (RTE (RE_Move_Activation_Chain), Loc),
+               New_Occurrence_Of (RTE (RE_Move_Activation_Chain), Loc),
 
              Parameter_Associations => New_List (
 
@@ -6040,12 +5548,12 @@ package body Exp_Ch6 is
 
                --  Destination chain
 
-               New_Reference_To
+               New_Occurrence_Of
                  (Build_In_Place_Formal (Par_Func, BIP_Activation_Chain), Loc),
 
                --  New master
 
-               New_Reference_To
+               New_Occurrence_Of
                  (Build_In_Place_Formal (Par_Func, BIP_Task_Master), Loc)));
       end Move_Activation_Chain;
 
@@ -6102,8 +5610,9 @@ package body Exp_Ch6 is
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Flag_Id,
                   Object_Definition =>
-                    New_Reference_To (Standard_Boolean, Loc),
-                  Expression        => New_Reference_To (Standard_False, Loc));
+                    New_Occurrence_Of (Standard_Boolean, Loc),
+                  Expression        =>
+                    New_Occurrence_Of (Standard_False, Loc));
 
             Prepend_To (Declarations (Func_Bod), Flag_Decl);
             Analyze (Flag_Decl);
@@ -6179,8 +5688,8 @@ package body Exp_Ch6 is
 
                Append_To (Stmts,
                  Make_Assignment_Statement (Loc,
-                   Name       => New_Reference_To (Flag_Id, Loc),
-                   Expression => New_Reference_To (Standard_True, Loc)));
+                   Name       => New_Occurrence_Of (Flag_Id, Loc),
+                   Expression => New_Occurrence_Of (Standard_True, Loc)));
             end;
          end if;
 
@@ -6298,7 +5807,7 @@ package body Exp_Ch6 is
                then
                   Init_Assignment :=
                     Make_Assignment_Statement (Loc,
-                      Name       => New_Reference_To (Return_Obj_Id, Loc),
+                      Name       => New_Occurrence_Of (Return_Obj_Id, Loc),
                       Expression => Relocate_Node (Return_Obj_Expr));
 
                   Set_Etype (Name (Init_Assignment), Etype (Return_Obj_Id));
@@ -6393,7 +5902,7 @@ package body Exp_Ch6 is
                            Make_Access_To_Object_Definition (Loc,
                              All_Present        => True,
                              Subtype_Indication =>
-                               New_Reference_To (Return_Obj_Typ, Loc)));
+                               New_Occurrence_Of (Return_Obj_Typ, Loc)));
 
                      Insert_Before (Ret_Obj_Decl, Ptr_Type_Decl);
 
@@ -6409,7 +5918,7 @@ package body Exp_Ch6 is
                        Make_Object_Declaration (Loc,
                          Defining_Identifier => Alloc_Obj_Id,
                          Object_Definition   =>
-                           New_Reference_To (Ref_Type, Loc));
+                           New_Occurrence_Of (Ref_Type, Loc));
 
                      Insert_Before (Ret_Obj_Decl, Alloc_Obj_Decl);
 
@@ -6433,7 +5942,7 @@ package body Exp_Ch6 is
                             Expression =>
                               Make_Qualified_Expression (Loc,
                                 Subtype_Mark =>
-                                  New_Reference_To
+                                  New_Occurrence_Of
                                     (Etype (Return_Obj_Expr), Loc),
                                 Expression   =>
                                   New_Copy_Tree (Return_Obj_Expr)));
@@ -6448,13 +5957,13 @@ package body Exp_Ch6 is
                            Heap_Allocator :=
                              Make_Allocator (Loc,
                                Expression =>
-                                 New_Reference_To
+                                 New_Occurrence_Of
                                    (Etype (Return_Obj_Expr), Loc));
                         else
                            Heap_Allocator :=
                              Make_Allocator (Loc,
                                Expression =>
-                                 New_Reference_To (Return_Obj_Typ, Loc));
+                                 New_Occurrence_Of (Return_Obj_Typ, Loc));
                         end if;
 
                         --  If the object requires default initialization then
@@ -6482,11 +5991,11 @@ package body Exp_Ch6 is
                           Make_Object_Renaming_Declaration (Loc,
                             Defining_Identifier => Pool_Id,
                             Subtype_Mark        =>
-                              New_Reference_To
+                              New_Occurrence_Of
                                 (RTE (RE_Root_Storage_Pool), Loc),
                             Name                =>
                               Make_Explicit_Dereference (Loc,
-                                New_Reference_To
+                                New_Occurrence_Of
                                   (Build_In_Place_Formal
                                      (Par_Func, BIP_Storage_Pool), Loc)));
                         Set_Storage_Pool (Pool_Allocator, Pool_Id);
@@ -6573,7 +6082,7 @@ package body Exp_Ch6 is
                          Condition =>
                            Make_Op_Eq (Loc,
                              Left_Opnd  =>
-                               New_Reference_To (Obj_Alloc_Formal, Loc),
+                               New_Occurrence_Of (Obj_Alloc_Formal, Loc),
                              Right_Opnd =>
                                Make_Integer_Literal (Loc,
                                  UI_From_Int (BIP_Allocation_Form'Pos
@@ -6582,20 +6091,20 @@ package body Exp_Ch6 is
                          Then_Statements => New_List (
                            Make_Assignment_Statement (Loc,
                              Name       =>
-                               New_Reference_To (Alloc_Obj_Id, Loc),
+                               New_Occurrence_Of (Alloc_Obj_Id, Loc),
                              Expression =>
                                Make_Unchecked_Type_Conversion (Loc,
                                  Subtype_Mark =>
-                                   New_Reference_To (Ref_Type, Loc),
+                                   New_Occurrence_Of (Ref_Type, Loc),
                                  Expression   =>
-                                   New_Reference_To (Object_Access, Loc)))),
+                                   New_Occurrence_Of (Object_Access, Loc)))),
 
                          Elsif_Parts => New_List (
                            Make_Elsif_Part (Loc,
                              Condition =>
                                Make_Op_Eq (Loc,
                                  Left_Opnd  =>
-                                   New_Reference_To (Obj_Alloc_Formal, Loc),
+                                   New_Occurrence_Of (Obj_Alloc_Formal, Loc),
                                  Right_Opnd =>
                                    Make_Integer_Literal (Loc,
                                      UI_From_Int (BIP_Allocation_Form'Pos
@@ -6604,14 +6113,14 @@ package body Exp_Ch6 is
                              Then_Statements => New_List (
                                Make_Assignment_Statement (Loc,
                                  Name       =>
-                                   New_Reference_To (Alloc_Obj_Id, Loc),
+                                   New_Occurrence_Of (Alloc_Obj_Id, Loc),
                                  Expression => SS_Allocator))),
 
                            Make_Elsif_Part (Loc,
                              Condition =>
                                Make_Op_Eq (Loc,
                                  Left_Opnd  =>
-                                   New_Reference_To (Obj_Alloc_Formal, Loc),
+                                   New_Occurrence_Of (Obj_Alloc_Formal, Loc),
                                  Right_Opnd =>
                                    Make_Integer_Literal (Loc,
                                      UI_From_Int (BIP_Allocation_Form'Pos
@@ -6645,7 +6154,7 @@ package body Exp_Ch6 is
                      if Present (Init_Assignment) then
                         Rewrite (Name (Init_Assignment),
                           Make_Explicit_Dereference (Loc,
-                            Prefix => New_Reference_To (Alloc_Obj_Id, Loc)));
+                            Prefix => New_Occurrence_Of (Alloc_Obj_Id, Loc)));
 
                         Set_Etype
                           (Name (Init_Assignment), Etype (Return_Obj_Id));
@@ -6669,7 +6178,7 @@ package body Exp_Ch6 is
 
                Obj_Acc_Deref :=
                  Make_Explicit_Dereference (Loc,
-                   Prefix => New_Reference_To (Object_Access, Loc));
+                   Prefix => New_Occurrence_Of (Object_Access, Loc));
 
                Rewrite (Ret_Obj_Decl,
                  Make_Object_Renaming_Declaration (Loc,
@@ -6889,7 +6398,8 @@ package body Exp_Ch6 is
                   Insert_Action (Rtn,
                     Make_Procedure_Call_Statement (Loc,
                       Name =>
-                        New_Reference_To (Postcondition_Proc (Spec_Id), Loc)));
+                        New_Occurrence_Of
+                          (Postcondition_Proc (Spec_Id), Loc)));
                end if;
             end;
          end if;
@@ -7100,7 +6610,7 @@ package body Exp_Ch6 is
          then
             null;
 
-         elsif Is_Immutably_Limited_Type (Typ) then
+         elsif Is_Limited_View (Typ) then
             Set_Returns_By_Ref (Spec_Id);
 
          elsif Present (Utyp) and then CW_Or_Has_Controlled_Part (Utyp) then
@@ -7351,7 +6861,7 @@ package body Exp_Ch6 is
          pragma Assert (Present (Postcondition_Proc (Scope_Id)));
          Insert_Action (N,
            Make_Procedure_Call_Statement (Loc,
-             Name => New_Reference_To (Postcondition_Proc (Scope_Id), Loc)));
+             Name => New_Occurrence_Of (Postcondition_Proc (Scope_Id), Loc)));
       end if;
 
       --  If it is a return from a procedure do no extra steps
@@ -7393,7 +6903,7 @@ package body Exp_Ch6 is
 
          Call :=
            Make_Procedure_Call_Statement (Loc,
-             Name => New_Reference_To (RTE (RE_Complete_Rendezvous), Loc));
+             Name => New_Occurrence_Of (RTE (RE_Complete_Rendezvous), Loc));
          Insert_Before (N, Call);
          --  why not insert actions here???
          Analyze (Call);
@@ -7422,11 +6932,11 @@ package body Exp_Ch6 is
          Call :=
            Make_Procedure_Call_Statement (Loc,
              Name =>
-               New_Reference_To (RTE (RE_Complete_Entry_Body), Loc),
+               New_Occurrence_Of (RTE (RE_Complete_Entry_Body), Loc),
              Parameter_Associations => New_List (
                Make_Attribute_Reference (Loc,
                  Prefix         =>
-                   New_Reference_To
+                   New_Occurrence_Of
                      (Find_Protection_Object (Current_Scope), Loc),
                  Attribute_Name => Name_Unchecked_Access)));
 
@@ -7512,7 +7022,7 @@ package body Exp_Ch6 is
                   Type_Definition   =>
                      Make_Access_To_Object_Definition (Loc,
                        Subtype_Indication =>
-                         New_Reference_To
+                         New_Occurrence_Of
                            (Corresponding_Record_Type (Scop), Loc))));
 
             Insert_Actions (N, Decls);
@@ -7634,7 +7144,7 @@ package body Exp_Ch6 is
    -----------------------------------
 
    --  The "simple" comes from the syntax rule simple_return_statement. The
-   --  semantics are not at all simple!
+   --  semantics are not at all simple.
 
    procedure Expand_Simple_Function_Return (N : Node_Id) is
       Loc : constant Source_Ptr := Sloc (N);
@@ -7702,7 +7212,7 @@ package body Exp_Ch6 is
       --  the type of the expression may be.
 
       if not Comes_From_Extended_Return_Statement (N)
-        and then Is_Immutably_Limited_Type (Etype (Expression (N)))
+        and then Is_Limited_View (Etype (Expression (N)))
         and then Ada_Version >= Ada_2005
         and then not Debug_Flag_Dot_L
 
@@ -7781,7 +7291,7 @@ package body Exp_Ch6 is
       --  type that requires special processing (indicated by the fact that
       --  it requires a cleanup scope for the secondary stack case).
 
-      if Is_Immutably_Limited_Type (Exptyp)
+      if Is_Limited_View (Exptyp)
         or else Is_Limited_Interface (Exptyp)
       then
          null;
@@ -7834,6 +7344,13 @@ package body Exp_Ch6 is
                Set_Sec_Stack_Needed_For_Return (S, True);
                S := Enclosing_Dynamic_Scope (S);
             end loop;
+
+            --  The enclosing function itself must be marked as well, to
+            --  prevent premature secondary stack cleanup.
+
+            if Ekind (S) = E_Function then
+               Set_Sec_Stack_Needed_For_Return (Scope_Id);
+            end if;
          end;
 
          --  Optimize the case where the result is a function call. In this
@@ -7894,7 +7411,7 @@ package body Exp_Ch6 is
                  Make_Allocator (Loc,
                    Expression =>
                      Make_Qualified_Expression (Loc,
-                       Subtype_Mark => New_Reference_To (Etype (Exp), Loc),
+                       Subtype_Mark => New_Occurrence_Of (Etype (Exp), Loc),
                        Expression   => Relocate_Node (Exp)));
 
                --  We do not want discriminant checks on the declaration,
@@ -7913,12 +7430,12 @@ package body Exp_Ch6 is
 
                  Make_Object_Declaration (Loc,
                    Defining_Identifier => Temp,
-                   Object_Definition   => New_Reference_To (Acc_Typ, Loc),
+                   Object_Definition   => New_Occurrence_Of (Acc_Typ, Loc),
                    Expression          => Alloc_Node)));
 
                Rewrite (Exp,
                  Make_Explicit_Dereference (Loc,
-                 Prefix => New_Reference_To (Temp, Loc)));
+                 Prefix => New_Occurrence_Of (Temp, Loc)));
 
                --  Ada 2005 (AI-251): If the type of the returned object is
                --  an interface then add an implicit type conversion to force
@@ -7994,12 +7511,12 @@ package body Exp_Ch6 is
                Result_Id  : constant Entity_Id :=
                               Make_Temporary (Loc, 'R', ExpR);
                Result_Exp : constant Node_Id   :=
-                              New_Reference_To (Result_Id, Loc);
+                              New_Occurrence_Of (Result_Id, Loc);
                Result_Obj : constant Node_Id   :=
                               Make_Object_Declaration (Loc,
                                 Defining_Identifier => Result_Id,
                                 Object_Definition   =>
-                                  New_Reference_To (R_Type, Loc),
+                                  New_Occurrence_Of (R_Type, Loc),
                                 Constant_Present    => True,
                                 Expression          => ExpR);
 
@@ -8059,7 +7576,7 @@ package body Exp_Ch6 is
                      Unchecked_Convert_To (RTE (RE_Tag_Ptr),
                        Make_Function_Call (Loc,
                          Name                   =>
-                           New_Reference_To (RTE (RE_Base_Address), Loc),
+                           New_Occurrence_Of (RTE (RE_Base_Address), Loc),
                          Parameter_Associations => New_List (
                            Unchecked_Convert_To (RTE (RE_Address),
                              Duplicate_Subexpr (Prefix (Exp)))))));
@@ -8084,8 +7601,9 @@ package body Exp_Ch6 is
       --  AI05-0073: If function has a controlling access result, check that
       --  the tag of the return value, if it is not null, matches designated
       --  type of return type.
-      --  The return expression is referenced twice in the code below, so
-      --  it must be made free of side effects. Given that different compilers
+
+      --  The return expression is referenced twice in the code below, so it
+      --  must be made free of side effects. Given that different compilers
       --  may evaluate these parameters in different order, both occurrences
       --  perform a copy.
 
@@ -8489,6 +8007,1184 @@ package body Exp_Ch6 is
    end Expand_Simple_Function_Return;
 
    --------------------------------
+   -- Expand_Subprogram_Contract --
+   --------------------------------
+
+   procedure Expand_Subprogram_Contract
+     (N       : Node_Id;
+      Spec_Id : Entity_Id;
+      Body_Id : Entity_Id)
+   is
+      procedure Add_Invariant_And_Predicate_Checks
+        (Subp_Id : Entity_Id;
+         Stmts   : in out List_Id;
+         Result  : out Node_Id);
+      --  Process the result of function Subp_Id (if applicable) and all its
+      --  formals. Add invariant and predicate checks where applicable. The
+      --  routine appends all the checks to list Stmts. If Subp_Id denotes a
+      --  function, Result contains the entity of parameter _Result, to be
+      --  used in the creation of procedure _Postconditions.
+
+      procedure Append_Enabled_Item (Item : Node_Id; List : in out List_Id);
+      --  Append a node to a list. If there is no list, create a new one. When
+      --  the item denotes a pragma, it is added to the list only when it is
+      --  enabled.
+
+      procedure Build_Postconditions_Procedure
+        (Subp_Id : Entity_Id;
+         Stmts   : List_Id;
+         Result  : Entity_Id);
+      --  Create the body of procedure _Postconditions which handles various
+      --  assertion actions on exit from subprogram Subp_Id. Stmts is the list
+      --  of statements to be checked on exit. Parameter Result is the entity
+      --  of parameter _Result when Subp_Id denotes a function.
+
+      function Build_Pragma_Check_Equivalent
+        (Prag     : Node_Id;
+         Subp_Id  : Entity_Id := Empty;
+         Inher_Id : Entity_Id := Empty) return Node_Id;
+      --  Transform a [refined] pre- or postcondition denoted by Prag into an
+      --  equivalent pragma Check. When the pre- or postcondition is inherited,
+      --  the routine corrects the references of all formals of Inher_Id to
+      --  point to the formals of Subp_Id.
+
+      procedure Collect_Body_Postconditions (Stmts : in out List_Id);
+      --  Process all postconditions found in the declarations of the body. The
+      --  routine appends the pragma Check equivalents to list Stmts.
+
+      procedure Collect_Spec_Postconditions
+        (Subp_Id : Entity_Id;
+         Stmts   : in out List_Id);
+      --  Process all [inherited] postconditions of subprogram spec Subp_Id.
+      --  The routine appends the pragma Check equivalents to list Stmts.
+
+      procedure Collect_Spec_Preconditions (Subp_Id : Entity_Id);
+      --  Process all [inherited] preconditions of subprogram spec Subp_Id. The
+      --  routine prepends the pragma Check equivalents to the declarations of
+      --  the body.
+
+      procedure Prepend_To_Declarations (Item : Node_Id);
+      --  Prepend a single item to the declarations of the subprogram body
+
+      procedure Process_Contract_Cases
+        (Subp_Id : Entity_Id;
+         Stmts   : in out List_Id);
+      --  Process pragma Contract_Cases of subprogram spec Subp_Id. The routine
+      --  appends the expanded code to list Stmts.
+
+      ----------------------------------------
+      -- Add_Invariant_And_Predicate_Checks --
+      ----------------------------------------
+
+      procedure Add_Invariant_And_Predicate_Checks
+        (Subp_Id : Entity_Id;
+         Stmts   : in out List_Id;
+         Result  : out Node_Id)
+      is
+         procedure Add_Invariant_Access_Checks (Id : Entity_Id);
+         --  Id denotes the return value of a function or a formal parameter.
+         --  Add an invariant check if the type of Id is access to a type with
+         --  invariants. The routine appends the generated code to Stmts.
+
+         function Invariant_Checks_OK (Typ : Entity_Id) return Boolean;
+         --  Determine whether type Typ can benefit from invariant checks. To
+         --  qualify, the type must have a non-null invariant procedure and
+         --  subprogram Subp_Id must appear visible from the point of view of
+         --  the type.
+
+         function Predicate_Checks_OK (Typ : Entity_Id) return Boolean;
+         --  Determine whether type Typ can benefit from predicate checks. To
+         --  qualify, the type must have at least one checked predicate.
+
+         ---------------------------------
+         -- Add_Invariant_Access_Checks --
+         ---------------------------------
+
+         procedure Add_Invariant_Access_Checks (Id : Entity_Id) is
+            Loc : constant Source_Ptr := Sloc (N);
+            Ref : Node_Id;
+            Typ : Entity_Id;
+
+         begin
+            Typ := Etype (Id);
+
+            if Is_Access_Type (Typ) and then not Is_Access_Constant (Typ) then
+               Typ := Designated_Type (Typ);
+
+               if Invariant_Checks_OK (Typ) then
+                  Ref :=
+                    Make_Explicit_Dereference (Loc,
+                      Prefix => New_Occurrence_Of (Id, Loc));
+                  Set_Etype (Ref, Typ);
+
+                  --  Generate:
+                  --    if <Id> /= null then
+                  --       <invariant_call (<Ref>)>
+                  --    end if;
+
+                  Append_Enabled_Item
+                    (Item =>
+                       Make_If_Statement (Loc,
+                         Condition =>
+                           Make_Op_Ne (Loc,
+                             Left_Opnd  => New_Occurrence_Of (Id, Loc),
+                             Right_Opnd => Make_Null (Loc)),
+                         Then_Statements => New_List (
+                           Make_Invariant_Call (Ref))),
+                     List => Stmts);
+               end if;
+            end if;
+         end Add_Invariant_Access_Checks;
+
+         -------------------------
+         -- Invariant_Checks_OK --
+         -------------------------
+
+         function Invariant_Checks_OK (Typ : Entity_Id) return Boolean is
+            function Has_Null_Body (Proc_Id : Entity_Id) return Boolean;
+            --  Determine whether the body of procedure Proc_Id contains a sole
+            --  null statement, possibly followed by an optional return.
+
+            function Has_Public_Visibility_Of_Subprogram return Boolean;
+            --  Determine whether type Typ has public visibility of subprogram
+            --  Subp_Id.
+
+            -------------------
+            -- Has_Null_Body --
+            -------------------
+
+            function Has_Null_Body (Proc_Id : Entity_Id) return Boolean is
+               Body_Id : Entity_Id;
+               Decl    : Node_Id;
+               Spec    : Node_Id;
+               Stmt1   : Node_Id;
+               Stmt2   : Node_Id;
+
+            begin
+               Spec := Parent (Proc_Id);
+               Decl := Parent (Spec);
+
+               --  Retrieve the entity of the invariant procedure body
+
+               if Nkind (Spec) = N_Procedure_Specification
+                 and then Nkind (Decl) = N_Subprogram_Declaration
+               then
+                  Body_Id := Corresponding_Body (Decl);
+
+               --  The body acts as a spec
+
+               else
+                  Body_Id := Proc_Id;
+               end if;
+
+               --  The body will be generated later
+
+               if No (Body_Id) then
+                  return False;
+               end if;
+
+               Spec := Parent (Body_Id);
+               Decl := Parent (Spec);
+
+               pragma Assert
+                 (Nkind (Spec) = N_Procedure_Specification
+                   and then Nkind (Decl) = N_Subprogram_Body);
+
+               Stmt1 := First (Statements (Handled_Statement_Sequence (Decl)));
+
+               --  Look for a null statement followed by an optional return
+               --  statement.
+
+               if Nkind (Stmt1) = N_Null_Statement then
+                  Stmt2 := Next (Stmt1);
+
+                  if Present (Stmt2) then
+                     return Nkind (Stmt2) = N_Simple_Return_Statement;
+                  else
+                     return True;
+                  end if;
+               end if;
+
+               return False;
+            end Has_Null_Body;
+
+            -----------------------------------------
+            -- Has_Public_Visibility_Of_Subprogram --
+            -----------------------------------------
+
+            function Has_Public_Visibility_Of_Subprogram return Boolean is
+               Subp_Decl : constant Node_Id := Unit_Declaration_Node (Subp_Id);
+
+            begin
+               --  An Initialization procedure must be considered visible even
+               --  though it is internally generated.
+
+               if Is_Init_Proc (Defining_Entity (Subp_Decl)) then
+                  return True;
+
+               elsif Ekind (Scope (Typ)) /= E_Package then
+                  return False;
+
+               --  Internally generated code is never publicly visible except
+               --  for a subprogram that is the implementation of an expression
+               --  function. In that case the visibility is determined by the
+               --  last check.
+
+               elsif not Comes_From_Source (Subp_Decl)
+                 and then
+                   (Nkind (Original_Node (Subp_Decl)) /= N_Expression_Function
+                      or else not
+                        Comes_From_Source (Defining_Entity (Subp_Decl)))
+               then
+                  return False;
+
+               --  Determine whether the subprogram is declared in the visible
+               --  declarations of the package containing the type.
+
+               else
+                  return List_Containing (Subp_Decl) =
+                    Visible_Declarations
+                      (Specification (Unit_Declaration_Node (Scope (Typ))));
+               end if;
+            end Has_Public_Visibility_Of_Subprogram;
+
+         --  Start of processing for Invariant_Checks_OK
+
+         begin
+            return
+              Has_Invariants (Typ)
+                and then Present (Invariant_Procedure (Typ))
+                and then not Has_Null_Body (Invariant_Procedure (Typ))
+                and then Has_Public_Visibility_Of_Subprogram;
+         end Invariant_Checks_OK;
+
+         -------------------------
+         -- Predicate_Checks_OK --
+         -------------------------
+
+         function Predicate_Checks_OK (Typ : Entity_Id) return Boolean is
+            function Has_Checked_Predicate return Boolean;
+            --  Determine whether type Typ has or inherits at least one
+            --  predicate aspect or pragma, for which the applicable policy is
+            --  Checked.
+
+            ---------------------------
+            -- Has_Checked_Predicate --
+            ---------------------------
+
+            function Has_Checked_Predicate return Boolean is
+               Anc  : Entity_Id;
+               Pred : Node_Id;
+
+            begin
+               --  Climb the ancestor type chain staring from the input. This
+               --  is done because the input type may lack aspect/pragma
+               --  predicate and simply inherit those from its ancestor.
+
+               --  Note that predicate pragmas correspond to all three cases
+               --  of predicate aspects (Predicate, Dynamic_Predicate, and
+               --  Static_Predicate), so this routine checks for all three
+               --  cases.
+
+               Anc := Typ;
+               while Present (Anc) loop
+                  Pred := Get_Pragma (Anc, Pragma_Predicate);
+
+                  if Present (Pred) and then not Is_Ignored (Pred) then
+                     return True;
+                  end if;
+
+                  Anc := Nearest_Ancestor (Anc);
+               end loop;
+
+               return False;
+            end Has_Checked_Predicate;
+
+         --  Start of processing for Predicate_Checks_OK
+
+         begin
+            return
+              Has_Predicates (Typ)
+                and then Present (Predicate_Function (Typ))
+                and then Has_Checked_Predicate;
+         end Predicate_Checks_OK;
+
+         --  Local variables
+
+         Loc    : constant Source_Ptr := Sloc (N);
+         Formal : Entity_Id;
+         Typ    : Entity_Id;
+
+      --  Start of processing for Add_Invariant_And_Predicate_Checks
+
+      begin
+         Result := Empty;
+
+         --  Do not generate any checks if no code is being generated
+
+         if not Expander_Active then
+            return;
+         end if;
+
+         --  Process the result of a function
+
+         if Ekind_In (Subp_Id, E_Function, E_Generic_Function) then
+            Typ := Etype (Subp_Id);
+
+            --  Generate _Result which is used in procedure _Postconditions to
+            --  verify the return value.
+
+            Result := Make_Defining_Identifier (Loc, Name_uResult);
+            Set_Etype (Result, Typ);
+
+            --  Add an invariant check when the return type has invariants and
+            --  the related function is visible to the outside.
+
+            if Invariant_Checks_OK (Typ) then
+               Append_Enabled_Item
+                 (Item =>
+                    Make_Invariant_Call (New_Occurrence_Of (Result, Loc)),
+                  List => Stmts);
+            end if;
+
+            --  Add an invariant check when the return type is an access to a
+            --  type with invariants.
+
+            Add_Invariant_Access_Checks (Result);
+         end if;
+
+         --  Add invariant and predicates for all formals that qualify
+
+         Formal := First_Formal (Subp_Id);
+         while Present (Formal) loop
+            Typ := Etype (Formal);
+
+            if Ekind (Formal) /= E_In_Parameter
+              or else Is_Access_Type (Typ)
+            then
+               if Invariant_Checks_OK (Typ) then
+                  Append_Enabled_Item
+                    (Item =>
+                       Make_Invariant_Call (New_Occurrence_Of (Formal, Loc)),
+                     List => Stmts);
+               end if;
+
+               Add_Invariant_Access_Checks (Formal);
+
+               if Predicate_Checks_OK (Typ) then
+                  Append_Enabled_Item
+                    (Item =>
+                       Make_Predicate_Check
+                         (Typ, New_Occurrence_Of (Formal, Loc)),
+                     List => Stmts);
+               end if;
+            end if;
+
+            Next_Formal (Formal);
+         end loop;
+      end Add_Invariant_And_Predicate_Checks;
+
+      -------------------------
+      -- Append_Enabled_Item --
+      -------------------------
+
+      procedure Append_Enabled_Item (Item : Node_Id; List : in out List_Id) is
+      begin
+         --  Do not chain ignored or disabled pragmas
+
+         if Nkind (Item) = N_Pragma
+           and then (Is_Ignored (Item) or else Is_Disabled (Item))
+         then
+            null;
+
+         --  Otherwise, add the item
+
+         else
+            if No (List) then
+               List := New_List;
+            end if;
+
+            --  If the pragma is a conjunct in a composite postcondition, it
+            --  has been processed in reverse order. In the postcondition body
+            --  if must appear before the others.
+
+            if Nkind (Item) = N_Pragma
+              and then From_Aspect_Specification (Item)
+              and then Split_PPC (Item)
+            then
+               Prepend (Item, List);
+            else
+               Append (Item, List);
+            end if;
+         end if;
+      end Append_Enabled_Item;
+
+      ------------------------------------
+      -- Build_Postconditions_Procedure --
+      ------------------------------------
+
+      procedure Build_Postconditions_Procedure
+        (Subp_Id : Entity_Id;
+         Stmts   : List_Id;
+         Result  : Entity_Id)
+      is
+         procedure Insert_Before_First_Source_Declaration (Stmt : Node_Id);
+         --  Insert node Stmt before the first source declaration of the
+         --  related subprogram's body. If no such declaration exists, Stmt
+         --  becomes the last declaration.
+
+         --------------------------------------------
+         -- Insert_Before_First_Source_Declaration --
+         --------------------------------------------
+
+         procedure Insert_Before_First_Source_Declaration (Stmt : Node_Id) is
+            Decls : constant List_Id := Declarations (N);
+            Decl  : Node_Id;
+
+         begin
+            --  Inspect the declarations of the related subprogram body looking
+            --  for the first source declaration.
+
+            if Present (Decls) then
+               Decl := First (Decls);
+               while Present (Decl) loop
+                  if Comes_From_Source (Decl) then
+                     Insert_Before (Decl, Stmt);
+                     return;
+                  end if;
+
+                  Next (Decl);
+               end loop;
+
+               --  If we get there, then the subprogram body lacks any source
+               --  declarations. The body of _Postconditions now acts as the
+               --  last declaration.
+
+               Append (Stmt, Decls);
+
+            --  Ensure that the body has a declaration list
+
+            else
+               Set_Declarations (N, New_List (Stmt));
+            end if;
+         end Insert_Before_First_Source_Declaration;
+
+         --  Local variables
+
+         Loc     : constant Source_Ptr := Sloc (N);
+         Params  : List_Id := No_List;
+         Proc_Id : Entity_Id;
+
+      --  Start of processing for Build_Postconditions_Procedure
+
+      begin
+         --  Do not create the routine if no code is being generated
+
+         if not Expander_Active then
+            return;
+
+         --  Nothing to do if there are no actions to check on exit
+
+         elsif No (Stmts) then
+            return;
+         end if;
+
+         Proc_Id := Make_Defining_Identifier (Loc, Name_uPostconditions);
+
+         --  The related subprogram is a function, create the specification of
+         --  parameter _Result.
+
+         if Present (Result) then
+            Params := New_List (
+              Make_Parameter_Specification (Loc,
+                Defining_Identifier => Result,
+                Parameter_Type      =>
+                  New_Occurrence_Of (Etype (Result), Loc)));
+         end if;
+
+         --  Insert _Postconditions before the first source declaration of the
+         --  body. This ensures that the body will not cause any premature
+         --  freezing as it may mention types:
+
+         --    procedure Proc (Obj : Array_Typ) is
+         --       procedure _postconditions is
+         --       begin
+         --          ... Obj ...
+         --       end _postconditions;
+
+         --       subtype T is Array_Typ (Obj'First (1) .. Obj'Last (1));
+         --    begin
+
+         --  In the example above, Obj is of type T but the incorrect placement
+         --  of _Postconditions will cause a crash in gigi due to an out of
+         --  order reference. The body of _Postconditions must be placed after
+         --  the declaration of Temp to preserve correct visibility.
+
+         Insert_Before_First_Source_Declaration (
+           Make_Subprogram_Body (Loc,
+             Specification              =>
+               Make_Procedure_Specification (Loc,
+                 Defining_Unit_Name       => Proc_Id,
+                 Parameter_Specifications => Params),
+
+             Declarations               => Empty_List,
+             Handled_Statement_Sequence =>
+               Make_Handled_Sequence_Of_Statements (Loc, Stmts)));
+
+         --  Set the attributes of the related subprogram to capture the
+         --  generated procedure.
+
+         if Ekind_In (Subp_Id, E_Generic_Procedure, E_Procedure) then
+            Set_Postcondition_Proc (Subp_Id, Proc_Id);
+         end if;
+
+         Set_Has_Postconditions (Subp_Id);
+      end Build_Postconditions_Procedure;
+
+      -----------------------------------
+      -- Build_Pragma_Check_Equivalent --
+      -----------------------------------
+
+      function Build_Pragma_Check_Equivalent
+        (Prag     : Node_Id;
+         Subp_Id  : Entity_Id := Empty;
+         Inher_Id : Entity_Id := Empty) return Node_Id
+      is
+         Loc          : constant Source_Ptr := Sloc (Prag);
+         Prag_Nam     : constant Name_Id    := Pragma_Name (Prag);
+         Check_Prag   : Node_Id;
+         Formals_Map  : Elist_Id;
+         Inher_Formal : Entity_Id;
+         Msg_Arg      : Node_Id;
+         Nam          : Name_Id;
+         Subp_Formal  : Entity_Id;
+
+      begin
+         Formals_Map := No_Elist;
+
+         --  When the pre- or postcondition is inherited, map the formals of
+         --  the inherited subprogram to those of the current subprogram.
+
+         if Present (Inher_Id) then
+            pragma Assert (Present (Subp_Id));
+
+            Formals_Map := New_Elmt_List;
+
+            --  Create a relation <inherited formal> => <subprogram formal>
+
+            Inher_Formal := First_Formal (Inher_Id);
+            Subp_Formal  := First_Formal (Subp_Id);
+            while Present (Inher_Formal) and then Present (Subp_Formal) loop
+               Append_Elmt (Inher_Formal, Formals_Map);
+               Append_Elmt (Subp_Formal, Formals_Map);
+
+               Next_Formal (Inher_Formal);
+               Next_Formal (Subp_Formal);
+            end loop;
+         end if;
+
+         --  Copy the original pragma while performing substitutions (if
+         --  applicable).
+
+         Check_Prag :=
+           New_Copy_Tree
+             (Source    => Prag,
+              Map       => Formals_Map,
+              New_Scope => Current_Scope);
+
+         --  Mark the pragma as being internally generated and reset the
+         --  Analyzed flag.
+
+         Set_Comes_From_Source (Check_Prag, False);
+         Set_Analyzed          (Check_Prag, False);
+
+         --  For a postcondition pragma within a generic, preserve the pragma
+         --  for later expansion. This is also used when an error was detected,
+         --  thus setting Expander_Active to False.
+
+         if Prag_Nam = Name_Postcondition and then not Expander_Active then
+            return Check_Prag;
+         end if;
+
+         if Present (Corresponding_Aspect (Prag)) then
+            Nam := Chars (Identifier (Corresponding_Aspect (Prag)));
+         else
+            Nam := Prag_Nam;
+         end if;
+
+         --  Convert the copy into pragma Check by correcting the name and
+         --  adding a check_kind argument.
+
+         Set_Pragma_Identifier
+           (Check_Prag, Make_Identifier (Loc, Name_Check));
+
+         Prepend_To (Pragma_Argument_Associations (Check_Prag),
+           Make_Pragma_Argument_Association (Loc,
+             Expression => Make_Identifier (Loc, Nam)));
+
+         --  Update the error message when the pragma is inherited
+
+         if Present (Inher_Id) then
+            Msg_Arg := Last (Pragma_Argument_Associations (Check_Prag));
+
+            if Chars (Msg_Arg) = Name_Message then
+               String_To_Name_Buffer (Strval (Expression (Msg_Arg)));
+
+               --  Insert "inherited" to improve the error message
+
+               if Name_Buffer (1 .. 8) = "failed p" then
+                  Insert_Str_In_Name_Buffer ("inherited ", 8);
+                  Set_Strval (Expression (Msg_Arg), String_From_Name_Buffer);
+               end if;
+            end if;
+         end if;
+
+         return Check_Prag;
+      end Build_Pragma_Check_Equivalent;
+
+      ---------------------------------
+      -- Collect_Body_Postconditions --
+      ---------------------------------
+
+      procedure Collect_Body_Postconditions (Stmts : in out List_Id) is
+         procedure Collect_Body_Postconditions_Of_Kind (Post_Nam : Name_Id);
+         --  Process all postconditions of the kind denoted by Post_Nam
+
+         -----------------------------------------
+         -- Collect_Body_Postconditions_Of_Kind --
+         -----------------------------------------
+
+         procedure Collect_Body_Postconditions_Of_Kind (Post_Nam : Name_Id) is
+            procedure Collect_Body_Postconditions_In_Decls
+              (First_Decl : Node_Id);
+            --  Process all postconditions found in a declarative list starting
+            --  with declaration First_Decl.
+
+            ------------------------------------------
+            -- Collect_Body_Postconditions_In_Decls --
+            ------------------------------------------
+
+            procedure Collect_Body_Postconditions_In_Decls
+              (First_Decl : Node_Id)
+            is
+               Check_Prag : Node_Id;
+               Decl       : Node_Id;
+
+            begin
+               --  Inspect the declarative list looking for a pragma that
+               --  matches the desired name.
+
+               Decl := First_Decl;
+               while Present (Decl) loop
+
+                  --  Note that non-matching pragmas are skipped
+
+                  if Nkind (Decl) = N_Pragma then
+                     if Pragma_Name (Decl) = Post_Nam then
+                        if not Analyzed (Decl) then
+                           Analyze (Decl);
+                        end if;
+
+                        Check_Prag := Build_Pragma_Check_Equivalent (Decl);
+
+                        if Expander_Active then
+                           Append_Enabled_Item
+                             (Item => Check_Prag,
+                              List => Stmts);
+
+                        --  If analyzing a generic unit, save pragma for later
+
+                        else
+                           Prepend_To_Declarations (Check_Prag);
+                        end if;
+                     end if;
+
+                  --  Skip internally generated code
+
+                  elsif not Comes_From_Source (Decl) then
+                     null;
+
+                  --  Postcondition pragmas are usually grouped together. There
+                  --  is no need to inspect the whole declarative list.
+
+                  else
+                     exit;
+                  end if;
+
+                  Next (Decl);
+               end loop;
+            end Collect_Body_Postconditions_In_Decls;
+
+            --  Local variables
+
+            Unit_Decl : constant Node_Id := Parent (N);
+
+         --  Start of processing for Collect_Body_Postconditions_Of_Kind
+
+         begin
+            pragma Assert (Nam_In (Post_Nam, Name_Postcondition,
+                                             Name_Refined_Post));
+
+            --  Inspect the declarations of the subprogram body looking for a
+            --  pragma that matches the desired name.
+
+            Collect_Body_Postconditions_In_Decls
+              (First_Decl => First (Declarations (N)));
+
+            --  The subprogram body being processed is actually the proper body
+            --  of a stub with a corresponding spec. The subprogram stub may
+            --  carry a postcondition pragma in which case it must be taken
+            --  into account. The pragma appears after the stub.
+
+            if Present (Spec_Id) and then Nkind (Unit_Decl) = N_Subunit then
+               Collect_Body_Postconditions_In_Decls
+                 (First_Decl => Next (Corresponding_Stub (Unit_Decl)));
+            end if;
+         end Collect_Body_Postconditions_Of_Kind;
+
+      --  Start of processing for Collect_Body_Postconditions
+
+      begin
+         Collect_Body_Postconditions_Of_Kind (Name_Refined_Post);
+         Collect_Body_Postconditions_Of_Kind (Name_Postcondition);
+      end Collect_Body_Postconditions;
+
+      ---------------------------------
+      -- Collect_Spec_Postconditions --
+      ---------------------------------
+
+      procedure Collect_Spec_Postconditions
+        (Subp_Id : Entity_Id;
+         Stmts   : in out List_Id)
+      is
+         Inher_Subps   : constant Subprogram_List :=
+                           Inherited_Subprograms (Subp_Id);
+         Check_Prag    : Node_Id;
+         Prag          : Node_Id;
+         Inher_Subp_Id : Entity_Id;
+
+      begin
+         --  Process the contract of the spec
+
+         Prag := Pre_Post_Conditions (Contract (Subp_Id));
+         while Present (Prag) loop
+            if Pragma_Name (Prag) = Name_Postcondition then
+               Check_Prag := Build_Pragma_Check_Equivalent (Prag);
+
+               if Expander_Active then
+                  Append_Enabled_Item
+                    (Item => Check_Prag,
+                     List => Stmts);
+
+               --  When analyzing a generic unit, save the pragma for later
+
+               else
+                  Prepend_To_Declarations (Check_Prag);
+               end if;
+            end if;
+
+            Prag := Next_Pragma (Prag);
+         end loop;
+
+         --  Process the contracts of all inherited subprograms, looking for
+         --  class-wide postconditions.
+
+         for Index in Inher_Subps'Range loop
+            Inher_Subp_Id := Inher_Subps (Index);
+
+            Prag := Pre_Post_Conditions (Contract (Inher_Subp_Id));
+            while Present (Prag) loop
+               if Pragma_Name (Prag) = Name_Postcondition
+                 and then Class_Present (Prag)
+               then
+                  Check_Prag :=
+                    Build_Pragma_Check_Equivalent
+                      (Prag     => Prag,
+                       Subp_Id  => Subp_Id,
+                       Inher_Id => Inher_Subp_Id);
+
+                  if Expander_Active then
+                     Append_Enabled_Item
+                       (Item => Check_Prag,
+                        List => Stmts);
+
+                  --  When analyzing a generic unit, save the pragma for later
+
+                  else
+                     Prepend_To_Declarations (Check_Prag);
+                  end if;
+               end if;
+
+               Prag := Next_Pragma (Prag);
+            end loop;
+         end loop;
+      end Collect_Spec_Postconditions;
+
+      --------------------------------
+      -- Collect_Spec_Preconditions --
+      --------------------------------
+
+      procedure Collect_Spec_Preconditions (Subp_Id : Entity_Id) is
+         Class_Pre : Node_Id := Empty;
+         --  The sole class-wide precondition pragma that applies to the
+         --  subprogram.
+
+         procedure Add_Or_Save_Precondition (Prag : Node_Id);
+         --  Save a class-wide precondition or add a regulat precondition to
+         --  the declarative list of the body.
+
+         procedure Merge_Preconditions (From : Node_Id; Into : Node_Id);
+         --  Merge two class-wide preconditions by "or else"-ing them. The
+         --  changes are accumulated in parameter Into. Update the error
+         --  message of Into.
+
+         ------------------------------
+         -- Add_Or_Save_Precondition --
+         ------------------------------
+
+         procedure Add_Or_Save_Precondition (Prag : Node_Id) is
+            Check_Prag : Node_Id;
+
+         begin
+            Check_Prag := Build_Pragma_Check_Equivalent (Prag);
+
+            --  Save the sole class-wide precondition (if any) for the next
+            --  step where it will be merged with inherited preconditions.
+
+            if Class_Present (Prag) then
+               pragma Assert (No (Class_Pre));
+               Class_Pre := Check_Prag;
+
+            --  Accumulate the corresponding Check pragmas to the top of the
+            --  declarations. Prepending the items ensures that they will be
+            --  evaluated in their original order.
+
+            else
+               Prepend_To_Declarations (Check_Prag);
+            end if;
+         end Add_Or_Save_Precondition;
+
+         -------------------------
+         -- Merge_Preconditions --
+         -------------------------
+
+         procedure Merge_Preconditions (From : Node_Id; Into : Node_Id) is
+            function Expression_Arg (Prag : Node_Id) return Node_Id;
+            --  Return the boolean expression argument of a precondition while
+            --  updating its parenteses count for the subsequent merge.
+
+            function Message_Arg (Prag : Node_Id) return Node_Id;
+            --  Return the message argument of a precondition
+
+            --------------------
+            -- Expression_Arg --
+            --------------------
+
+            function Expression_Arg (Prag : Node_Id) return Node_Id is
+               Args : constant List_Id := Pragma_Argument_Associations (Prag);
+               Arg  : constant Node_Id := Get_Pragma_Arg (Next (First (Args)));
+
+            begin
+               if Paren_Count (Arg) = 0 then
+                  Set_Paren_Count (Arg, 1);
+               end if;
+
+               return Arg;
+            end Expression_Arg;
+
+            -----------------
+            -- Message_Arg --
+            -----------------
+
+            function Message_Arg (Prag : Node_Id) return Node_Id is
+               Args : constant List_Id := Pragma_Argument_Associations (Prag);
+            begin
+               return Get_Pragma_Arg (Last (Args));
+            end Message_Arg;
+
+            --  Local variables
+
+            From_Expr : constant Node_Id := Expression_Arg (From);
+            From_Msg  : constant Node_Id := Message_Arg    (From);
+            Into_Expr : constant Node_Id := Expression_Arg (Into);
+            Into_Msg  : constant Node_Id := Message_Arg    (Into);
+            Loc       : constant Source_Ptr := Sloc (Into);
+
+         --  Start of processing for Merge_Preconditions
+
+         begin
+            --  Merge the two preconditions by "or else"-ing them
+
+            Rewrite (Into_Expr,
+              Make_Or_Else (Loc,
+                Right_Opnd => Relocate_Node (Into_Expr),
+                Left_Opnd  => From_Expr));
+
+            --  Merge the two error messages to produce a single message of the
+            --  form:
+
+            --    failed precondition from ...
+            --      also failed inherited precondition from ...
+
+            if not Exception_Locations_Suppressed then
+               Start_String (Strval (Into_Msg));
+               Store_String_Char (ASCII.LF);
+               Store_String_Chars ("  also ");
+               Store_String_Chars (Strval (From_Msg));
+
+               Set_Strval (Into_Msg, End_String);
+            end if;
+         end Merge_Preconditions;
+
+         --  Local variables
+
+         Inher_Subps   : constant Subprogram_List :=
+                           Inherited_Subprograms (Subp_Id);
+         Subp_Decl     : constant Node_Id := Parent (Parent (Subp_Id));
+         Check_Prag    : Node_Id;
+         Decl          : Node_Id;
+         Inher_Subp_Id : Entity_Id;
+         Prag          : Node_Id;
+
+      --  Start of processing for Collect_Spec_Preconditions
+
+      begin
+         --  Process the contract of the spec
+
+         Prag := Pre_Post_Conditions (Contract (Subp_Id));
+         while Present (Prag) loop
+            if Pragma_Name (Prag) = Name_Precondition then
+               Add_Or_Save_Precondition (Prag);
+            end if;
+
+            Prag := Next_Pragma (Prag);
+         end loop;
+
+         --  The subprogram declaration being processed is actually a body
+         --  stub. The stub may carry a precondition pragma in which case it
+         --  must be taken into account. The pragma appears after the stub.
+
+         if Nkind (Subp_Decl) = N_Subprogram_Body_Stub then
+
+            --  Inspect the declarations following the body stub
+
+            Decl := Next (Subp_Decl);
+            while Present (Decl) loop
+
+               --  Note that non-matching pragmas are skipped
+
+               if Nkind (Decl) = N_Pragma then
+                  if Pragma_Name (Decl) = Name_Precondition then
+                     if not Analyzed (Decl) then
+                        Analyze (Decl);
+                     end if;
+
+                     Add_Or_Save_Precondition (Decl);
+                  end if;
+
+               --  Skip internally generated code
+
+               elsif not Comes_From_Source (Decl) then
+                  null;
+
+               --  Preconditions are usually grouped together. There is no need
+               --  to inspect the whole declarative list.
+
+               else
+                  exit;
+               end if;
+
+               Next (Decl);
+            end loop;
+         end if;
+
+         --  Process the contracts of all inherited subprograms, looking for
+         --  class-wide preconditions.
+
+         for Index in Inher_Subps'Range loop
+            Inher_Subp_Id := Inher_Subps (Index);
+
+            Prag := Pre_Post_Conditions (Contract (Inher_Subp_Id));
+            while Present (Prag) loop
+               if Pragma_Name (Prag) = Name_Precondition
+                 and then Class_Present (Prag)
+               then
+                  Check_Prag :=
+                    Build_Pragma_Check_Equivalent
+                      (Prag     => Prag,
+                       Subp_Id  => Subp_Id,
+                       Inher_Id => Inher_Subp_Id);
+
+                  --  The spec or an inherited subprogram already yielded a
+                  --  class-wide precondition. Merge the existing precondition
+                  --  with the current one using "or else".
+
+                  if Present (Class_Pre) then
+                     Merge_Preconditions (Check_Prag, Class_Pre);
+                  else
+                     Class_Pre := Check_Prag;
+                  end if;
+               end if;
+
+               Prag := Next_Pragma (Prag);
+            end loop;
+         end loop;
+
+         --  Add the merged class-wide preconditions (if any)
+
+         if Present (Class_Pre) then
+            Prepend_To_Declarations (Class_Pre);
+         end if;
+      end Collect_Spec_Preconditions;
+
+      -----------------------------
+      -- Prepend_To_Declarations --
+      -----------------------------
+
+      procedure Prepend_To_Declarations (Item : Node_Id) is
+         Decls : List_Id := Declarations (N);
+
+      begin
+         --  Ensure that the body has a declarative list
+
+         if No (Decls) then
+            Decls := New_List;
+            Set_Declarations (N, Decls);
+         end if;
+
+         Prepend_To (Decls, Item);
+      end Prepend_To_Declarations;
+
+      ----------------------------
+      -- Process_Contract_Cases --
+      ----------------------------
+
+      procedure Process_Contract_Cases
+        (Subp_Id : Entity_Id;
+         Stmts   : in out List_Id)
+      is
+         Prag : Node_Id;
+
+      begin
+         --  Do not build the Contract_Cases circuitry if no code is being
+         --  generated.
+
+         if not Expander_Active then
+            return;
+         end if;
+
+         Prag := Contract_Test_Cases (Contract (Subp_Id));
+         while Present (Prag) loop
+            if Pragma_Name (Prag) = Name_Contract_Cases then
+               Expand_Contract_Cases
+                 (CCs     => Prag,
+                  Subp_Id => Subp_Id,
+                  Decls   => Declarations (N),
+                  Stmts   => Stmts);
+            end if;
+
+            Prag := Next_Pragma (Prag);
+         end loop;
+      end Process_Contract_Cases;
+
+      --  Local variables
+
+      Post_Stmts : List_Id := No_List;
+      Result     : Entity_Id;
+      Subp_Id    : Entity_Id;
+
+   --  Start of processing for Expand_Subprogram_Contract
+
+   begin
+      if Present (Spec_Id) then
+         Subp_Id := Spec_Id;
+      else
+         Subp_Id := Body_Id;
+      end if;
+
+      --  Do not process a predicate function as its body will end up with a
+      --  recursive call to itself and blow up the stack.
+
+      if Ekind (Subp_Id) = E_Function
+        and then Is_Predicate_Function (Subp_Id)
+      then
+         return;
+
+      --  Do not process TSS subprograms
+
+      elsif Get_TSS_Name (Subp_Id) /= TSS_Null then
+         return;
+      end if;
+
+      --  The expansion of a subprogram contract involves the relocation of
+      --  various contract assertions to the declarations of the body in a
+      --  particular order. The order is as follows:
+
+      --    function Example (...) return ... is
+      --       procedure _Postconditions (...) is
+      --       begin
+      --          <refined postconditions from body>
+      --          <postconditions from body>
+      --          <postconditions from spec>
+      --          <inherited postconditions>
+      --          <contract case consequences>
+      --          <invariant check of function result (if applicable)>
+      --          <invariant and predicate checks of parameters>
+      --       end _Postconditions;
+
+      --       <inherited preconditions>
+      --       <preconditions from spec>
+      --       <preconditions from body>
+      --       <refined preconditions from body>
+      --       <contract case conditions>
+
+      --       <source declarations>
+      --    begin
+      --       <source statements>
+
+      --       _Preconditions (Result);
+      --       return Result;
+      --    end Example;
+
+      --  Routine _Postconditions holds all contract assertions that must be
+      --  verified on exit from the related routine.
+
+      --  Collect all [inherited] preconditions from the spec, transform them
+      --  into Check pragmas and add them to the declarations of the body in
+      --  the order outlined above.
+
+      if Present (Spec_Id) then
+         Collect_Spec_Preconditions (Spec_Id);
+      end if;
+
+      --  Transform all [refined] postconditions of the body into Check
+      --  pragmas. The resulting pragmas are accumulated in list Post_Stmts.
+
+      Collect_Body_Postconditions (Post_Stmts);
+
+      --  Transform all [inherited] postconditions from the spec into Check
+      --  pragmas. The resulting pragmas are accumulated in list Post_Stmts.
+
+      if Present (Spec_Id) then
+         Collect_Spec_Postconditions (Spec_Id, Post_Stmts);
+
+         --  Transform pragma Contract_Cases from the spec into its circuitry
+
+         Process_Contract_Cases (Spec_Id, Post_Stmts);
+      end if;
+
+      --  Apply invariant and predicate checks on the result of a function (if
+      --  applicable) and all formals. The resulting checks are accumulated in
+      --  list Post_Stmts.
+
+      Add_Invariant_And_Predicate_Checks (Subp_Id, Post_Stmts, Result);
+
+      --  Construct procedure _Postconditions
+
+      Build_Postconditions_Procedure (Subp_Id, Post_Stmts, Result);
+   end Expand_Subprogram_Contract;
+
+   --------------------------------
    -- Is_Build_In_Place_Function --
    --------------------------------
 
@@ -8503,22 +9199,22 @@ package body Exp_Ch6 is
       end if;
 
       --  For now we test whether E denotes a function or access-to-function
-      --  type whose result subtype is inherently limited. Later this test may
-      --  be revised to allow composite nonlimited types. Functions with a
-      --  foreign convention or whose result type has a foreign convention
+      --  type whose result subtype is inherently limited. Later this test
+      --  may be revised to allow composite nonlimited types. Functions with
+      --  a foreign convention or whose result type has a foreign convention
       --  never qualify.
 
       if Ekind_In (E, E_Function, E_Generic_Function)
         or else (Ekind (E) = E_Subprogram_Type
                   and then Etype (E) /= Standard_Void_Type)
       then
-         --  Note: If you have Convention (C) on an inherently limited type,
-         --  you're on your own. That is, the C code will have to be carefully
-         --  written to know about the Ada conventions.
+         --  Note: If the function has a foreign convention, it cannot build
+         --  its result in place, so you're on your own. On the other hand,
+         --  if only the return type has a foreign convention, its layout is
+         --  intended to be compatible with the other language, but the build-
+         --  in place machinery can ensure that the object is not copied.
 
-         if Has_Foreign_Convention (E)
-           or else Has_Foreign_Convention (Etype (E))
-         then
+         if Has_Foreign_Convention (E) then
             return False;
 
          --  In Ada 2005 all functions with an inherently limited return type
@@ -8527,7 +9223,7 @@ package body Exp_Ch6 is
          --  may return objects of nonlimited descendants.
 
          else
-            return Is_Immutably_Limited_Type (Etype (E))
+            return Is_Limited_View (Etype (E))
               and then Ada_Version >= Ada_2005
               and then not Debug_Flag_Dot_L;
          end if;
@@ -8546,13 +9242,17 @@ package body Exp_Ch6 is
       Function_Id : Entity_Id;
 
    begin
-      --  Return False when the expander is inactive, since awareness of
-      --  build-in-place treatment is only relevant during expansion. Note that
-      --  Is_Build_In_Place_Function, which is called as part of this function,
-      --  is also conditioned this way, but we need to check here as well to
-      --  avoid blowing up on processing protected calls when expansion is
-      --  disabled (such as with -gnatc) since those would trip over the raise
-      --  of Program_Error below.
+      --  Return False if the expander is currently inactive, since awareness
+      --  of build-in-place treatment is only relevant during expansion. Note
+      --  that Is_Build_In_Place_Function, which is called as part of this
+      --  function, is also conditioned this way, but we need to check here as
+      --  well to avoid blowing up on processing protected calls when expansion
+      --  is disabled (such as with -gnatc) since those would trip over the
+      --  raise of Program_Error below.
+
+      --  In SPARK mode, build-in-place calls are not expanded, so that we
+      --  may end up with a call that is neither resolved to an entity, nor
+      --  an indirect call.
 
       if not Expander_Active then
          return False;
@@ -8571,14 +9271,7 @@ package body Exp_Ch6 is
          return False;
 
       else
-         --  In SPARK mode, build-in-place calls are not expanded, so that we
-         --  may end up with a call that is neither resolved to an entity, nor
-         --  an indirect call.
-
-         if SPARK_Mode then
-            return False;
-
-         elsif Is_Entity_Name (Name (Exp_Node)) then
+         if Is_Entity_Name (Name (Exp_Node)) then
             Function_Id := Entity (Name (Exp_Node));
 
          --  In the case of an explicitly dereferenced call, use the subprogram
@@ -8653,24 +9346,24 @@ package body Exp_Ch6 is
 
                  Build_Set_Predefined_Prim_Op_Address (Loc,
                    Tag_Node     =>
-                     New_Reference_To (Node (Next_Elmt (Iface_DT_Ptr)), Loc),
+                     New_Occurrence_Of (Node (Next_Elmt (Iface_DT_Ptr)), Loc),
                    Position     => DT_Position (Prim),
                    Address_Node =>
                      Unchecked_Convert_To (RTE (RE_Prim_Ptr),
                        Make_Attribute_Reference (Loc,
-                         Prefix         => New_Reference_To (Thunk_Id, Loc),
+                         Prefix         => New_Occurrence_Of (Thunk_Id, Loc),
                          Attribute_Name => Name_Unrestricted_Access))),
 
                  Build_Set_Predefined_Prim_Op_Address (Loc,
                    Tag_Node     =>
-                     New_Reference_To
+                     New_Occurrence_Of
                       (Node (Next_Elmt (Next_Elmt (Next_Elmt (Iface_DT_Ptr)))),
                        Loc),
                    Position     => DT_Position (Prim),
                    Address_Node =>
                      Unchecked_Convert_To (RTE (RE_Prim_Ptr),
                        Make_Attribute_Reference (Loc,
-                         Prefix         => New_Reference_To (Prim, Loc),
+                         Prefix         => New_Occurrence_Of (Prim, Loc),
                          Attribute_Name => Name_Unrestricted_Access)))));
             end if;
 
@@ -8732,8 +9425,7 @@ package body Exp_Ch6 is
             --  Handle CPP primitives found in derivations of CPP_Class types.
             --  These primitives must have been inherited from some parent, and
             --  there is no need to register them in the dispatch table because
-            --  Build_Inherit_Prims takes care of the initialization of these
-            --  slots.
+            --  Build_Inherit_Prims takes care of initializing these slots.
 
             elsif Is_Imported (Subp)
                and then (Convention (Subp) = Convention_CPP
@@ -8771,7 +9463,7 @@ package body Exp_Ch6 is
          Typ  : constant Entity_Id := Etype (Subp);
          Utyp : constant Entity_Id := Underlying_Type (Typ);
       begin
-         if Is_Immutably_Limited_Type (Typ) then
+         if Is_Limited_View (Typ) then
             Set_Returns_By_Ref (Subp);
          elsif Present (Utyp) and then CW_Or_Has_Controlled_Part (Utyp) then
             Set_Returns_By_Ref (Subp);
@@ -8928,7 +9620,7 @@ package body Exp_Ch6 is
 
          New_Allocator :=
            Make_Allocator (Loc,
-             Expression => New_Reference_To (Result_Subt, Loc));
+             Expression => New_Occurrence_Of (Result_Subt, Loc));
          Set_No_Initialization (New_Allocator);
 
          --  Copy attributes to new allocator. Note that the new allocator
@@ -8953,7 +9645,7 @@ package body Exp_Ch6 is
          Insert_Action (Allocator,
            Make_Object_Declaration (Loc,
              Defining_Identifier => Return_Obj_Access,
-             Object_Definition   => New_Reference_To (Acc_Type, Loc),
+             Object_Definition   => New_Occurrence_Of (Acc_Type, Loc),
              Expression          => Relocate_Node (Allocator)));
 
          --  When the function has a controlling result, an allocation-form
@@ -8980,10 +9672,10 @@ package body Exp_Ch6 is
            (Func_Call,
             Function_Id,
             Make_Unchecked_Type_Conversion (Loc,
-              Subtype_Mark => New_Reference_To (Result_Subt, Loc),
+              Subtype_Mark => New_Occurrence_Of (Result_Subt, Loc),
               Expression   =>
                 Make_Explicit_Dereference (Loc,
-                  Prefix => New_Reference_To (Return_Obj_Access, Loc))));
+                  Prefix => New_Occurrence_Of (Return_Obj_Access, Loc))));
 
       --  When the result subtype is unconstrained, the function itself must
       --  perform the allocation of the return object, so we pass parameters
@@ -9006,7 +9698,7 @@ package body Exp_Ch6 is
                Pool_Actual =>
                  Make_Attribute_Reference (Loc,
                    Prefix         =>
-                     New_Reference_To
+                     New_Occurrence_Of
                        (Associated_Storage_Pool (Acc_Type), Loc),
                    Attribute_Name => Name_Unrestricted_Access));
 
@@ -9047,14 +9739,10 @@ package body Exp_Ch6 is
          then
             null;
 
-         --  Do not generate the call to Set_Finalize_Address in SPARK mode
-         --  because it is not necessary and results in unwanted expansion.
-         --  This expansion is also not carried out in CodePeer mode because
-         --  Finalize_Address is never built.
+         --  Do not generate the call to Set_Finalize_Address in CodePeer mode
+         --  because Finalize_Address is never built.
 
-         elsif not SPARK_Mode
-           and then not CodePeer_Mode
-         then
+         elsif not CodePeer_Mode then
             Insert_Action (Allocator,
               Make_Set_Finalize_Address_Call (Loc,
                 Typ     => Etype (Function_Id),
@@ -9158,13 +9846,13 @@ package body Exp_Ch6 is
               Make_Object_Declaration (Loc,
                 Defining_Identifier => Temp_Id,
                 Object_Definition =>
-                  New_Reference_To (Result_Subt, Loc),
+                  New_Occurrence_Of (Result_Subt, Loc),
                 Expression =>
                   New_Copy_Tree (Function_Call));
 
             Insert_Action (Function_Call, Temp_Decl);
 
-            Rewrite (Function_Call, New_Reference_To (Temp_Id, Loc));
+            Rewrite (Function_Call, New_Occurrence_Of (Temp_Id, Loc));
             Analyze (Function_Call);
          end;
 
@@ -9182,7 +9870,7 @@ package body Exp_Ch6 is
            Make_Object_Declaration (Loc,
              Defining_Identifier => Return_Obj_Id,
              Aliased_Present     => True,
-             Object_Definition   => New_Reference_To (Result_Subt, Loc));
+             Object_Definition   => New_Occurrence_Of (Result_Subt, Loc));
 
          Set_No_Initialization (Return_Obj_Decl);
 
@@ -9207,7 +9895,7 @@ package body Exp_Ch6 is
          --  to the caller's return object.
 
          Add_Access_Actual_To_Build_In_Place_Call
-           (Func_Call, Function_Id, New_Reference_To (Return_Obj_Id, Loc));
+           (Func_Call, Function_Id, New_Occurrence_Of (Return_Obj_Id, Loc));
 
       --  When the result subtype is unconstrained, the function must allocate
       --  the return object in the secondary stack, so appropriate implicit
@@ -9313,7 +10001,7 @@ package body Exp_Ch6 is
         (Func_Call,
          Func_Id,
          Make_Unchecked_Type_Conversion (Loc,
-           Subtype_Mark => New_Reference_To (Result_Subt, Loc),
+           Subtype_Mark => New_Occurrence_Of (Result_Subt, Loc),
            Expression   => Relocate_Node (Lhs)));
 
       --  Create an access type designating the function's result subtype
@@ -9327,7 +10015,7 @@ package body Exp_Ch6 is
             Make_Access_To_Object_Definition (Loc,
               All_Present        => True,
               Subtype_Indication =>
-                New_Reference_To (Result_Subt, Loc)));
+                New_Occurrence_Of (Result_Subt, Loc)));
       Insert_After_And_Analyze (Assign, Ptr_Typ_Decl);
 
       --  Finally, create an access object initialized to a reference to the
@@ -9343,7 +10031,7 @@ package body Exp_Ch6 is
       Obj_Decl :=
         Make_Object_Declaration (Loc,
           Defining_Identifier => Obj_Id,
-          Object_Definition   => New_Reference_To (Ptr_Typ, Loc),
+          Object_Definition   => New_Occurrence_Of (Ptr_Typ, Loc),
           Expression          => New_Expr);
       Insert_After_And_Analyze (Ptr_Typ_Decl, Obj_Decl);
 
@@ -9394,6 +10082,7 @@ package body Exp_Ch6 is
       Pass_Caller_Acc : Boolean := False;
       New_Expr        : Node_Id;
       Ref_Type        : Entity_Id;
+      Res_Decl        : Node_Id;
       Result_Subt     : Entity_Id;
 
    begin
@@ -9454,7 +10143,7 @@ package body Exp_Ch6 is
               RTE_Available (RE_Root_Storage_Pool_Ptr)
             then
                Pool_Actual :=
-                 New_Reference_To (Build_In_Place_Formal
+                 New_Occurrence_Of (Build_In_Place_Formal
                    (Enclosing_Func, BIP_Storage_Pool), Loc);
 
             --  The build-in-place pool formal is not built on .NET/JVM
@@ -9467,7 +10156,7 @@ package body Exp_Ch6 is
               (Func_Call,
                Function_Id,
                Alloc_Form_Exp =>
-                 New_Reference_To
+                 New_Occurrence_Of
                    (Build_In_Place_Formal (Enclosing_Func, BIP_Alloc_Form),
                     Loc),
                Pool_Actual => Pool_Actual);
@@ -9482,7 +10171,7 @@ package body Exp_Ch6 is
 
          if Needs_BIP_Finalization_Master (Enclosing_Func) then
             Fmaster_Actual :=
-              New_Reference_To
+              New_Occurrence_Of
                 (Build_In_Place_Formal
                    (Enclosing_Func, BIP_Finalization_Master), Loc);
          end if;
@@ -9493,12 +10182,12 @@ package body Exp_Ch6 is
          Caller_Object :=
             Make_Unchecked_Type_Conversion (Loc,
               Subtype_Mark =>
-                New_Reference_To
+                New_Occurrence_Of
                   (Etype
                      (Build_In_Place_Formal (Function_Id, BIP_Object_Access)),
                    Loc),
               Expression   =>
-                New_Reference_To
+                New_Occurrence_Of
                   (Build_In_Place_Formal (Enclosing_Func, BIP_Object_Access),
                    Loc));
 
@@ -9510,8 +10199,8 @@ package body Exp_Ch6 is
       elsif Is_Constrained (Underlying_Type (Result_Subt)) then
          Caller_Object :=
             Make_Unchecked_Type_Conversion (Loc,
-              Subtype_Mark => New_Reference_To (Result_Subt, Loc),
-              Expression   => New_Reference_To (Obj_Def_Id, Loc));
+              Subtype_Mark => New_Occurrence_Of (Result_Subt, Loc),
+              Expression   => New_Occurrence_Of (Obj_Def_Id, Loc));
 
          --  When the function has a controlling result, an allocation-form
          --  parameter must be passed indicating that the caller is allocating
@@ -9553,7 +10242,7 @@ package body Exp_Ch6 is
          Add_Task_Actuals_To_Build_In_Place_Call
            (Func_Call, Function_Id,
             Master_Actual =>
-              New_Reference_To (Build_In_Place_Formal
+              New_Occurrence_Of (Build_In_Place_Formal
                 (Enclosing_Func, BIP_Task_Master), Loc));
 
       else
@@ -9578,7 +10267,7 @@ package body Exp_Ch6 is
             Make_Access_To_Object_Definition (Loc,
               All_Present        => True,
               Subtype_Indication =>
-                New_Reference_To (Etype (Function_Call), Loc)));
+                New_Occurrence_Of (Etype (Function_Call), Loc)));
 
       --  The access type and its accompanying object must be inserted after
       --  the object declaration in the constrained case, so that the function
@@ -9606,11 +10295,12 @@ package body Exp_Ch6 is
       Set_Etype (Def_Id, Ref_Type);
       Set_Is_Known_Non_Null (Def_Id);
 
-      Insert_After_And_Analyze (Ptr_Typ_Decl,
+      Res_Decl :=
         Make_Object_Declaration (Loc,
           Defining_Identifier => Def_Id,
-          Object_Definition   => New_Reference_To (Ref_Type, Loc),
-          Expression          => New_Expr));
+          Object_Definition   => New_Occurrence_Of (Ref_Type, Loc),
+          Expression          => New_Expr);
+      Insert_After_And_Analyze (Ptr_Typ_Decl, Res_Decl);
 
       --  If the result subtype of the called function is constrained and
       --  is not itself the return expression of an enclosing BIP function,
@@ -9619,6 +10309,24 @@ package body Exp_Ch6 is
       if Is_Constrained (Underlying_Type (Result_Subt))
         and then not Is_Return_Object (Defining_Identifier (Object_Decl))
       then
+         --  The related object declaration is encased in a transient block
+         --  because the build-in-place function call contains at least one
+         --  nested function call that produces a controlled transient
+         --  temporary:
+
+         --    Obj : ... := BIP_Func_Call (Ctrl_Func_Call);
+
+         --  Since the build-in-place expansion decouples the call from the
+         --  object declaration, the finalization machinery lacks the context
+         --  which prompted the generation of the transient block. To resolve
+         --  this scenario, store the build-in-place call.
+
+         if Scope_Is_Transient
+           and then Node_To_Be_Wrapped = Object_Decl
+         then
+            Set_BIP_Initialization_Call (Obj_Def_Id, Res_Decl);
+         end if;
+
          Set_Expression (Object_Decl, Empty);
          Set_No_Initialization (Object_Decl);
 
@@ -9632,7 +10340,7 @@ package body Exp_Ch6 is
       else
          Call_Deref :=
            Make_Explicit_Dereference (Loc,
-             Prefix => New_Reference_To (Def_Id, Loc));
+             Prefix => New_Occurrence_Of (Def_Id, Loc));
 
          Loc := Sloc (Object_Decl);
          Rewrite (Object_Decl,
@@ -9718,9 +10426,9 @@ package body Exp_Ch6 is
 
    begin
       pragma Assert (Nkind (Allocator) = N_Allocator
-                       and then Nkind (Function_Call) = N_Function_Call);
+                      and then Nkind (Function_Call) = N_Function_Call);
       pragma Assert (Convention (Function_Id) = Convention_CPP
-                       and then Is_Constructor (Function_Id));
+                      and then Is_Constructor (Function_Id));
       pragma Assert (Is_Constrained (Underlying_Type (Result_Subt)));
 
       --  Replace the initialized allocator of form "new T'(Func (...))" with
@@ -9730,7 +10438,7 @@ package body Exp_Ch6 is
 
       New_Allocator :=
         Make_Allocator (Loc,
-          Expression => New_Reference_To (Result_Subt, Loc));
+          Expression => New_Occurrence_Of (Result_Subt, Loc));
       Set_No_Initialization (New_Allocator);
 
       --  Copy attributes to new allocator. Note that the new allocator
@@ -9760,7 +10468,7 @@ package body Exp_Ch6 is
         Make_Object_Declaration (Loc,
           Defining_Identifier => Return_Obj_Access,
           Constant_Present    => True,
-          Object_Definition   => New_Reference_To (Acc_Type, Loc),
+          Object_Definition   => New_Occurrence_Of (Acc_Type, Loc),
           Expression          => Relocate_Node (Allocator));
       Insert_Action (Allocator, Tmp_Obj);
 
@@ -9768,7 +10476,7 @@ package body Exp_Ch6 is
         Build_Initialization_Call (Loc,
           Id_Ref =>
             Make_Explicit_Dereference (Loc,
-              Prefix => New_Reference_To (Return_Obj_Access, Loc)),
+              Prefix => New_Occurrence_Of (Return_Obj_Access, Loc)),
           Typ => Etype (Function_Id),
           Constructor_Ref => Function_Call));
 
@@ -9776,7 +10484,7 @@ package body Exp_Ch6 is
       --  the function call itself (which will effectively be an access to the
       --  object created by the allocator).
 
-      Rewrite (Allocator, New_Reference_To (Return_Obj_Access, Loc));
+      Rewrite (Allocator, New_Occurrence_Of (Return_Obj_Access, Loc));
 
       --  Ada 2005 (AI-251): If the type of the allocator is an interface then
       --  generate an implicit conversion to force displacement of the "this"

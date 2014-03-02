@@ -1,6 +1,6 @@
 // Components for compile-time parsing of numbers -*- C++ -*-
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +32,7 @@
 
 #pragma GCC system_header
 
-// From n3642.pdf except I added binary literals and digit separator '`'.
+// From n3642.pdf except I added binary literals and digit separator '\''.
 
 #if __cplusplus > 201103L
 
@@ -221,7 +221,7 @@ namespace __parse_int {
 
   //  Digit separator
   template<unsigned _Base>
-    struct _Digit<_Base, '`'>
+    struct _Digit<_Base, '\''>
     {
       static constexpr bool valid{false};
       static constexpr unsigned value{0};

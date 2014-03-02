@@ -1469,12 +1469,16 @@ package Prj.Tree is
          Node : Project_Node_Id;
          --  Node of the project in table Project_Nodes
 
-         Canonical_Path : Path_Name_Type;
+         Resolved_Path : Path_Name_Type;
          --  Resolved and canonical path of a real project file.
          --  No_Name in case of virtual projects.
 
          Extended : Boolean;
          --  True when the project is being extended by another project
+
+         From_Extended : Boolean;
+         --  True when the project is only imported by projects that are
+         --  extended.
 
          Proj_Qualifier : Project_Qualifier;
          --  The project qualifier of the project, if any
@@ -1484,8 +1488,9 @@ package Prj.Tree is
         (Name           => No_Name,
          Display_Name   => No_Name,
          Node           => Empty_Node,
-         Canonical_Path => No_Path,
+         Resolved_Path  => No_Path,
          Extended       => True,
+         From_Extended  => False,
          Proj_Qualifier => Unspecified);
 
       package Projects_Htable is new GNAT.Dynamic_HTables.Simple_HTable

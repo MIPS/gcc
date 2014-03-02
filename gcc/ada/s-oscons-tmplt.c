@@ -7,7 +7,7 @@
 --                                                                          --
 --                                 S p e c                                  --
 --                                                                          --
---          Copyright (C) 2000-2012, Free Software Foundation, Inc.         --
+--          Copyright (C) 2000-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -113,11 +113,14 @@ pragma Style_Checks ("M32766");
 
 /**
  ** For VxWorks, always include vxWorks.h (gsocket.h provides it only for
- ** the case of runtime libraries that support sockets).
+ ** the case of runtime libraries that support sockets). Note: this must
+ ** be done before including adaint.h.
  **/
 
 # include <vxWorks.h>
 #endif
+
+#include "adaint.h"
 
 #ifdef DUMMY
 
@@ -309,6 +312,16 @@ CND(SIZEOF_unsigned_int, "Size of unsigned int")
 # define IOV_MAX INT_MAX
 #endif
 CND(IOV_MAX, "Maximum writev iovcnt")
+
+#ifndef NAME_MAX
+# define NAME_MAX 255
+#endif
+CND(NAME_MAX, "Maximum file name length")
+
+#ifndef PATH_MAX
+# define PATH_MAX 1024
+#endif
+CND(FILENAME_MAX, "Maximum file path length")
 
 /*
 
@@ -1319,18 +1332,18 @@ CND(SIZEOF_sockaddr_in, "struct sockaddr_in")
 CND(SIZEOF_sockaddr_in6, "struct sockaddr_in6")
 
 #define SIZEOF_fd_set (sizeof (fd_set))
-CND(SIZEOF_fd_set, "fd_set");
-CND(FD_SETSIZE, "Max fd value");
+CND(SIZEOF_fd_set, "fd_set")
+CND(FD_SETSIZE, "Max fd value")
 
 #define SIZEOF_struct_hostent (sizeof (struct hostent))
-CND(SIZEOF_struct_hostent, "struct hostent");
+CND(SIZEOF_struct_hostent, "struct hostent")
 
 #define SIZEOF_struct_servent (sizeof (struct servent))
-CND(SIZEOF_struct_servent, "struct servent");
+CND(SIZEOF_struct_servent, "struct servent")
 
 #if defined (__linux__)
 #define SIZEOF_sigset (sizeof (sigset_t))
-CND(SIZEOF_sigset, "sigset");
+CND(SIZEOF_sigset, "sigset")
 #endif
 
 /*
@@ -1389,13 +1402,10 @@ CST(Inet_Pton_Linkname, "")
 
 /* Note: On HP-UX, CLOCK_REALTIME is an enum, not a macro. */
 
-#if defined(CLOCK_REALTIME) || defined (__hpux__)
-# define HAVE_CLOCK_REALTIME
+#if !(defined(CLOCK_REALTIME) || defined (__hpux__))
+# define CLOCK_REALTIME (-1)
 #endif
-
-#ifdef HAVE_CLOCK_REALTIME
 CND(CLOCK_REALTIME, "System realtime clock")
-#endif
 
 #ifdef CLOCK_MONOTONIC
 CND(CLOCK_MONOTONIC, "System monotonic clock")
@@ -1410,19 +1420,19 @@ CND(CLOCK_FASTEST, "Fastest clock")
 #endif
 CND(CLOCK_THREAD_CPUTIME_ID, "Thread CPU clock")
 
-#if defined(__APPLE__)
-/* There's no clock_gettime or clock_id's on Darwin, generate a dummy value */
-# define CLOCK_RT_Ada "-1"
-
-#elif defined(__FreeBSD__) || defined(_AIX)
+#if defined(__FreeBSD__) || (defined(_AIX) && defined(_AIXVERSION_530))
 /** On these platforms use system provided monotonic clock instead of
  ** the default CLOCK_REALTIME. We then need to set up cond var attributes
  ** appropriately (see thread.c).
+ **
+ ** Note that AIX 5.2 does not support CLOCK_MONOTONIC timestamps for
+ ** pthread_cond_timedwait (and does not have pthread_condattr_setclock),
+ ** hence the conditionalization on AIX version above). _AIXVERSION_530
+ ** is defined in AIX 5.3 and more recent versions.
  **/
 # define CLOCK_RT_Ada "CLOCK_MONOTONIC"
-# define NEED_PTHREAD_CONDATTR_SETCLOCK
 
-#elif defined(HAVE_CLOCK_REALTIME)
+#else
 /* By default use CLOCK_REALTIME */
 # define CLOCK_RT_Ada "CLOCK_REALTIME"
 #endif
@@ -1435,13 +1445,11 @@ CNS(CLOCK_RT_Ada, "")
 /*
 
    --  Sizes of pthread data types
-
 */
 
 #if defined (__APPLE__) || defined (DUMMY)
 /*
    --  (on Darwin, these are just placeholders)
-
 */
 #define PTHREAD_SIZE            __PTHREAD_SIZE__
 #define PTHREAD_ATTR_SIZE       __PTHREAD_ATTR_SIZE__
@@ -1463,7 +1471,9 @@ CNS(CLOCK_RT_Ada, "")
 #define PTHREAD_RWLOCK_SIZE     (sizeof (pthread_rwlock_t))
 #define PTHREAD_ONCE_SIZE       (sizeof (pthread_once_t))
 #endif
+/*
 
+*/
 CND(PTHREAD_SIZE,            "pthread_t")
 CND(PTHREAD_ATTR_SIZE,       "pthread_attr_t")
 CND(PTHREAD_MUTEXATTR_SIZE,  "pthread_mutexattr_t")
@@ -1475,6 +1485,38 @@ CND(PTHREAD_RWLOCK_SIZE,     "pthread_rwlock_t")
 CND(PTHREAD_ONCE_SIZE,       "pthread_once_t")
 
 #endif /* __APPLE__ || __linux__ */
+
+/*
+
+   --------------------------------
+   -- File and directory support --
+   --------------------------------
+
+*/
+
+/**
+ ** Note: this constant can be used in the GNAT runtime library. In compiler
+ ** units on the other hand, System.OS_Constants is not available, so we
+ ** declare an Ada constant (Osint.File_Attributes_Size) independently, which
+ ** is at least as large as sizeof (struct file_attributes), and we have an
+ ** assertion at initialization of Osint checking that the size is indeed at
+ ** least sufficient.
+ **/
+#define SIZEOF_struct_file_attributes (sizeof (struct file_attributes))
+CND(SIZEOF_struct_file_attributes, "struct file_attributes")
+
+/**
+ ** Maximal size of buffer for struct dirent. Note: Since POSIX.1 does not
+ ** specify the size of the d_name field, and other nonstandard fields may
+ ** precede that field within the dirent structure, we must make a conservative
+ ** computation.
+ **/
+{
+  struct dirent dent;
+#define SIZEOF_struct_dirent_alloc \
+  ((char*) &dent.d_name - (char*) &dent) + NAME_MAX + 1
+CND(SIZEOF_struct_dirent_alloc, "struct dirent allocation")
+}
 
 /**
  **  System-specific constants follow

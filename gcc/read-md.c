@@ -1,5 +1,5 @@
 /* MD reader for GCC.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -672,7 +672,7 @@ scan_comma_elt (const char **pstr)
 
   if (*p == ',')
     p++;
-  while (ISSPACE(*p))
+  while (ISSPACE (*p))
     p++;
 
   if (*p == '\0')

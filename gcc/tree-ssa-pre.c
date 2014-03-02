@@ -1,5 +1,5 @@
 /* SSA-PRE for trees.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Daniel Berlin <dan@dberlin.org> and Steven Bosscher
    <stevenb@suse.de>
 
@@ -27,15 +27,33 @@ along with GCC; see the file COPYING3.  If not see
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "tree-inline.h"
-#include "tree-ssa.h"
-#include "gimple.h"
 #include "hash-table.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop.h"
+#include "tree-into-ssa.h"
+#include "expr.h"
+#include "tree-dfa.h"
+#include "tree-ssa.h"
 #include "tree-iterator.h"
 #include "alloc-pool.h"
 #include "obstack.h"
 #include "tree-pass.h"
 #include "flags.h"
-#include "bitmap.h"
 #include "langhooks.h"
 #include "cfgloop.h"
 #include "tree-ssa-sccvn.h"
@@ -44,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dbgcnt.h"
 #include "domwalk.h"
 #include "ipa-prop.h"
+#include "tree-ssa-propagate.h"
 
 /* TODO:
 
@@ -360,10 +379,10 @@ typedef struct bitmap_set
 } *bitmap_set_t;
 
 #define FOR_EACH_EXPR_ID_IN_SET(set, id, bi)		\
-  EXECUTE_IF_SET_IN_BITMAP(&(set)->expressions, 0, (id), (bi))
+  EXECUTE_IF_SET_IN_BITMAP (&(set)->expressions, 0, (id), (bi))
 
 #define FOR_EACH_VALUE_ID_IN_SET(set, id, bi)		\
-  EXECUTE_IF_SET_IN_BITMAP(&(set)->values, 0, (id), (bi))
+  EXECUTE_IF_SET_IN_BITMAP (&(set)->values, 0, (id), (bi))
 
 /* Mapping from value id to expressions with that value_id.  */
 static vec<bitmap> value_expressions;
@@ -910,7 +929,7 @@ print_pre_expr (FILE *outfile, const pre_expr expr)
       {
 	unsigned int i;
 	vn_nary_op_t nary = PRE_EXPR_NARY (expr);
-	fprintf (outfile, "{%s,", tree_code_name [nary->opcode]);
+	fprintf (outfile, "{%s,", get_tree_code_name (nary->opcode));
 	for (i = 0; i < nary->length; i++)
 	  {
 	    print_generic_expr (outfile, nary->op[i], 0);
@@ -935,7 +954,7 @@ print_pre_expr (FILE *outfile, const pre_expr expr)
 	    if (vro->opcode != SSA_NAME
 		&& TREE_CODE_CLASS (vro->opcode) != tcc_declaration)
 	      {
-		fprintf (outfile, "%s", tree_code_name [vro->opcode]);
+		fprintf (outfile, "%s", get_tree_code_name (vro->opcode));
 		if (vro->op0)
 		  {
 		    fprintf (outfile, "<");
@@ -1344,7 +1363,7 @@ get_expr_type (const pre_expr e)
     case NARY:
       return PRE_EXPR_NARY (e)->type;
     }
-  gcc_unreachable();
+  gcc_unreachable ();
 }
 
 /* Get a representative SSA_NAME for a given expression.
@@ -1488,7 +1507,7 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 	    else
 	      {
 		new_val_id = get_next_value_id ();
-		value_expressions.safe_grow_cleared (get_max_value_id() + 1);
+		value_expressions.safe_grow_cleared (get_max_value_id () + 1);
 		nary = vn_nary_op_insert_pieces (newnary->length,
 						 newnary->opcode,
 						 newnary->type,
@@ -1673,7 +1692,8 @@ phi_translate_1 (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
 		if (changed || !same_valid)
 		  {
 		    new_val_id = get_next_value_id ();
-		    value_expressions.safe_grow_cleared(get_max_value_id() + 1);
+		    value_expressions.safe_grow_cleared
+		      (get_max_value_id () + 1);
 		  }
 		else
 		  new_val_id = ref->value_id;
@@ -1756,7 +1776,14 @@ phi_translate (pre_expr expr, bitmap_set_t set1, bitmap_set_t set2,
   phitrans = phi_translate_1 (expr, set1, set2, pred, phiblock);
 
   if (slot)
-    slot->v = phitrans;
+    {
+      if (phitrans)
+	slot->v = phitrans;
+      else
+	/* Remove failed translations again, they cause insert
+	   iteration to not pick up new opportunities reliably.  */
+	phi_translate_table.remove_elt_with_hash (slot, slot->hashcode);
+    }
 
   return phitrans;
 }
@@ -2161,11 +2188,10 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
      phis to translate through.  */
   else
     {
-      vec<basic_block> worklist;
       size_t i;
       basic_block bprime, first = NULL;
 
-      worklist.create (EDGE_COUNT (block->succs));
+      auto_vec<basic_block> worklist (EDGE_COUNT (block->succs));
       FOR_EACH_EDGE (e, ei, block->succs)
 	{
 	  if (!first
@@ -2182,7 +2208,6 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 	  BB_VISITED (block) = 0;
 	  BB_DEFERRED (block) = 1;
 	  changed = true;
-	  worklist.release ();
 	  goto maybe_dump_sets;
 	}
 
@@ -2203,7 +2228,6 @@ compute_antic_aux (basic_block block, bool block_has_abnormal_pred_edge)
 	  else
 	    bitmap_set_and (ANTIC_OUT, ANTIC_IN (bprime));
 	}
-      worklist.release ();
     }
 
   /* Prune expressions that are clobbered in block and thus become
@@ -2325,11 +2349,10 @@ compute_partial_antic_aux (basic_block block,
      them.  */
   else
     {
-      vec<basic_block> worklist;
       size_t i;
       basic_block bprime;
 
-      worklist.create (EDGE_COUNT (block->succs));
+      auto_vec<basic_block> worklist (EDGE_COUNT (block->succs));
       FOR_EACH_EDGE (e, ei, block->succs)
 	{
 	  if (e->flags & EDGE_DFS_BACK)
@@ -2361,7 +2384,6 @@ compute_partial_antic_aux (basic_block block,
 						expression_for_id (i));
 	    }
 	}
-      worklist.release ();
     }
 
   /* Prune expressions that are clobbered in block and thus become
@@ -2419,10 +2441,10 @@ compute_antic (void)
 
   /* If any predecessor edges are abnormal, we punt, so antic_in is empty.
      We pre-build the map of blocks with incoming abnormal edges here.  */
-  has_abnormal_preds = sbitmap_alloc (last_basic_block);
+  has_abnormal_preds = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (has_abnormal_preds);
 
-  FOR_ALL_BB (block)
+  FOR_ALL_BB_FN (block, cfun)
     {
       edge_iterator ei;
       edge e;
@@ -2446,9 +2468,9 @@ compute_antic (void)
     }
 
   /* At the exit block we anticipate nothing.  */
-  BB_VISITED (EXIT_BLOCK_PTR) = 1;
+  BB_VISITED (EXIT_BLOCK_PTR_FOR_FN (cfun)) = 1;
 
-  changed_blocks = sbitmap_alloc (last_basic_block + 1);
+  changed_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun) + 1);
   bitmap_ones (changed_blocks);
   while (changed)
     {
@@ -2464,7 +2486,7 @@ compute_antic (void)
 	{
 	  if (bitmap_bit_p (changed_blocks, postorder[i]))
 	    {
-	      basic_block block = BASIC_BLOCK (postorder[i]);
+	      basic_block block = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
 	      changed |= compute_antic_aux (block,
 					    bitmap_bit_p (has_abnormal_preds,
 						      block->index));
@@ -2493,7 +2515,7 @@ compute_antic (void)
 	    {
 	      if (bitmap_bit_p (changed_blocks, postorder[i]))
 		{
-		  basic_block block = BASIC_BLOCK (postorder[i]);
+		  basic_block block = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
 		  changed
 		    |= compute_partial_antic_aux (block,
 						  bitmap_bit_p (has_abnormal_preds,
@@ -3441,7 +3463,6 @@ do_regular_insertion (basic_block block, basic_block dom)
     }
 
   exprs.release ();
-  avail.release ();
   return new_stuff;
 }
 
@@ -3459,7 +3480,7 @@ do_partial_partial_insertion (basic_block block, basic_block dom)
   bool new_stuff = false;
   vec<pre_expr> exprs;
   pre_expr expr;
-  vec<pre_expr> avail = vNULL;
+  auto_vec<pre_expr> avail;
   int i;
 
   exprs = sorted_array_from_bitmap_set (PA_IN (block));
@@ -3580,7 +3601,6 @@ do_partial_partial_insertion (basic_block block, basic_block dom)
     }
 
   exprs.release ();
-  avail.release ();
   return new_stuff;
 }
 
@@ -3639,7 +3659,7 @@ insert (void)
   basic_block bb;
   int num_iterations = 0;
 
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     NEW_SETS (bb) = bitmap_set_new ();
 
   while (new_stuff)
@@ -3647,12 +3667,12 @@ insert (void)
       num_iterations++;
       if (dump_file && dump_flags & TDF_DETAILS)
 	fprintf (dump_file, "Starting insert iteration %d\n", num_iterations);
-      new_stuff = insert_aux (ENTRY_BLOCK_PTR);
+      new_stuff = insert_aux (ENTRY_BLOCK_PTR_FOR_FN (cfun));
 
       /* Clear the NEW sets before the next iteration.  We have already
          fully propagated its contents.  */
       if (new_stuff)
-	FOR_ALL_BB (bb)
+	FOR_ALL_BB_FN (bb, cfun)
 	  bitmap_set_free (NEW_SETS (bb));
     }
   statistics_histogram_event (cfun, "insert iterations", num_iterations);
@@ -3692,24 +3712,25 @@ compute_avail (void)
 
       e = get_or_alloc_expr_for_name (name);
       add_to_value (get_expr_value_id (e), e);
-      bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR), e);
-      bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR), e);
+      bitmap_insert_into_set (TMP_GEN (ENTRY_BLOCK_PTR_FOR_FN (cfun)), e);
+      bitmap_value_insert_into_set (AVAIL_OUT (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
+				    e);
     }
 
   if (dump_file && (dump_flags & TDF_DETAILS))
     {
-      print_bitmap_set (dump_file, TMP_GEN (ENTRY_BLOCK_PTR),
+      print_bitmap_set (dump_file, TMP_GEN (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
 			"tmp_gen", ENTRY_BLOCK);
-      print_bitmap_set (dump_file, AVAIL_OUT (ENTRY_BLOCK_PTR),
+      print_bitmap_set (dump_file, AVAIL_OUT (ENTRY_BLOCK_PTR_FOR_FN (cfun)),
 			"avail_out", ENTRY_BLOCK);
     }
 
   /* Allocate the worklist.  */
-  worklist = XNEWVEC (basic_block, n_basic_blocks);
+  worklist = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
 
   /* Seed the algorithm by putting the dominator children of the entry
      block on the worklist.  */
-  for (son = first_dom_son (CDI_DOMINATORS, ENTRY_BLOCK_PTR);
+  for (son = first_dom_son (CDI_DOMINATORS, ENTRY_BLOCK_PTR_FOR_FN (cfun));
        son;
        son = next_dom_son (CDI_DOMINATORS, son))
     worklist[sp++] = son;
@@ -3804,7 +3825,7 @@ compute_avail (void)
 	      {
 		vn_reference_t ref;
 		pre_expr result = NULL;
-		vec<vn_reference_op_s> ops = vNULL;
+		auto_vec<vn_reference_op_s> ops;
 
 		/* We can value number only calls to real functions.  */
 		if (gimple_call_internal_p (stmt))
@@ -3814,7 +3835,6 @@ compute_avail (void)
 		vn_reference_lookup_pieces (gimple_vuse (stmt), 0,
 					    gimple_expr_type (stmt),
 					    ops, &ref, VN_NOWALK);
-		ops.release ();
 		if (!ref)
 		  continue;
 
@@ -4100,7 +4120,6 @@ eliminate_dom_walker::before_dom_children (basic_block b)
       if (!useless_type_conversion_p (TREE_TYPE (res), TREE_TYPE (sprime)))
 	sprime = fold_convert (TREE_TYPE (res), sprime);
       stmt = gimple_build_assign (res, sprime);
-      SSA_NAME_DEF_STMT (res) = stmt;
       gimple_set_plf (stmt, NECESSARY, gimple_plf (phi, NECESSARY));
 
       gsi2 = gsi_after_labels (b);
@@ -4629,7 +4648,7 @@ init_pre (void)
   expressions.create (0);
   expressions.safe_push (NULL);
   value_expressions.create (get_max_value_id () + 1);
-  value_expressions.safe_grow_cleared (get_max_value_id() + 1);
+  value_expressions.safe_grow_cleared (get_max_value_id () + 1);
   name_to_id.create (0);
 
   inserted_exprs = BITMAP_ALLOC (NULL);
@@ -4637,7 +4656,7 @@ init_pre (void)
   connect_infinite_loops_to_exit ();
   memset (&pre_stats, 0, sizeof (pre_stats));
 
-  postorder = XNEWVEC (int, n_basic_blocks);
+  postorder = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
   postorder_num = inverted_post_order_compute (postorder);
 
   alloc_aux_for_blocks (sizeof (struct bb_bitmap_sets));
@@ -4652,7 +4671,7 @@ init_pre (void)
 				       sizeof (struct bitmap_set), 30);
   pre_expr_pool = create_alloc_pool ("pre_expr nodes",
 				     sizeof (struct pre_expr_d), 30);
-  FOR_ALL_BB (bb)
+  FOR_ALL_BB_FN (bb, cfun)
     {
       EXP_GEN (bb) = bitmap_set_new ();
       PHI_GEN (bb) = bitmap_set_new ();
@@ -4713,7 +4732,7 @@ do_pre (void)
      fixed, don't run it when he have an incredibly large number of
      bb's.  If we aren't going to run insert, there is no point in
      computing ANTIC, either, even though it's plenty fast.  */
-  if (n_basic_blocks < 4000)
+  if (n_basic_blocks_for_fn (cfun) < 4000)
     {
       compute_antic ();
       insert ();
@@ -4779,9 +4798,11 @@ const pass_data pass_data_pre =
   true, /* has_gate */
   true, /* has_execute */
   TV_TREE_PRE, /* tv_id */
+  /* PROP_no_crit_edges is ensured by placing pass_split_crit_edges before
+     pass_pre.  */
   ( PROP_no_crit_edges | PROP_cfg | PROP_ssa ), /* properties_required */
   0, /* properties_provided */
-  0, /* properties_destroyed */
+  PROP_no_crit_edges, /* properties_destroyed */
   TODO_rebuild_alias, /* todo_flags_start */
   TODO_verify_ssa, /* todo_flags_finish */
 };
@@ -4789,8 +4810,8 @@ const pass_data pass_data_pre =
 class pass_pre : public gimple_opt_pass
 {
 public:
-  pass_pre(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_pre, ctxt)
+  pass_pre (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_pre, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4859,12 +4880,12 @@ const pass_data pass_data_fre =
 class pass_fre : public gimple_opt_pass
 {
 public:
-  pass_fre(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_fre, ctxt)
+  pass_fre (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_fre, ctxt)
   {}
 
   /* opt_pass methods: */
-  opt_pass * clone () { return new pass_fre (ctxt_); }
+  opt_pass * clone () { return new pass_fre (m_ctxt); }
   bool gate () { return gate_fre (); }
   unsigned int execute () { return execute_fre (); }
 

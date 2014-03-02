@@ -171,7 +171,7 @@ package body Restrict is
    procedure Check_Compiler_Unit (N : Node_Id) is
    begin
       if Is_Compiler_Unit (Get_Source_Unit (N)) then
-         Error_Msg_N ("use of construct not allowed in compiler", N);
+         Error_Msg_N ("use of construct not allowed in compiler!!??", N);
       end if;
    end Check_Compiler_Unit;
 
@@ -538,7 +538,9 @@ package body Restrict is
       --  set in gnat1drv.adb so that we have consistency between each
       --  compilation.
 
-      if CodePeer_Mode or SPARK_Mode then
+      --  Just checking, SPARK does not allow restrictions to be set ???
+
+      if CodePeer_Mode or GNATprove_Mode then
          return;
       end if;
 
@@ -623,8 +625,12 @@ package body Restrict is
    begin
       --  Ignore call if node U is not in the main source unit. This avoids
       --  cascaded errors, e.g. when Ada.Containers units with other units.
+      --  However, allow Standard_Location here, since this catches some cases
+      --  of constructs that get converted to run-time calls.
 
-      if not In_Extended_Main_Source_Unit (U) then
+      if not In_Extended_Main_Source_Unit (U)
+        and then Sloc (U) /= Standard_Location
+      then
          return;
       end if;
 
@@ -1406,9 +1412,30 @@ package body Restrict is
    is
       Msg_Issued          : Boolean;
       Save_Error_Msg_Sloc : Source_Ptr;
+      Onode               : constant Node_Id := Original_Node (N);
 
    begin
-      if Force or else Comes_From_Source (Original_Node (N)) then
+      --  Output message if Force set
+
+      if Force
+
+        --  Or if this node comes from source
+
+        or else Comes_From_Source (N)
+
+        --  Or if this is a range node which rewrites a range attribute and
+        --  the range attribute comes from source.
+
+        or else (Nkind (N) = N_Range
+                  and then Nkind (Onode) = N_Attribute_Reference
+                  and then Attribute_Name (Onode) = Name_Range
+                  and then Comes_From_Source (Onode))
+
+        --  Or this is an expression that does not come from source, which is
+        --  a rewriting of an expression that does come from source.
+
+        or else (Nkind (N) in N_Subexpr and then Comes_From_Source (Onode))
+      then
          if Restriction_Check_Required (SPARK_05)
            and then Is_In_Hidden_Part_In_SPARK (Sloc (N))
          then

@@ -1,5 +1,5 @@
 /* Implementation of subroutines for the GNU C++ pretty-printer.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Gabriel Dos Reis <gdr@integrable-solutions.net>
 
 This file is part of GCC.
@@ -971,7 +971,7 @@ pp_cxx_assignment_operator (cxx_pretty_printer *pp, tree t)
       break;
 
     default:
-      op = tree_code_name[TREE_CODE (t)];
+      op = get_tree_code_name (TREE_CODE (t));
       break;
     }
 

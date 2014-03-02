@@ -1,5 +1,5 @@
 /* Discover if the stack pointer is modified in a function.
-   Copyright (C) 2007-2013 Free Software Foundation, Inc.
+   Copyright (C) 2007-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -58,7 +58,7 @@ notice_stack_pointer_modification (void)
      been used.  */
   crtl->sp_is_unchanging = !cfun->calls_alloca;
   if (crtl->sp_is_unchanging)
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, cfun)
       FOR_BB_INSNS (bb, insn)
         {
 	  if (INSN_P (insn))
@@ -110,8 +110,8 @@ const pass_data pass_data_stack_ptr_mod =
 class pass_stack_ptr_mod : public rtl_opt_pass
 {
 public:
-  pass_stack_ptr_mod(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_stack_ptr_mod, ctxt)
+  pass_stack_ptr_mod (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_stack_ptr_mod, ctxt)
   {}
 
   /* opt_pass methods: */

@@ -3,7 +3,7 @@
 //
 // 2013-09-02  Tim Shen <timshen91@gmail.com>
 //
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -25,7 +25,9 @@
 
 #include <regex>
 #include <testsuite_hooks.h>
+#include <testsuite_regex.h>
 
+using namespace __gnu_test;
 using namespace std;
 
 void

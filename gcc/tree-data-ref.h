@@ -1,5 +1,5 @@
 /* Data references and dependences detectors.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr>
 
 This file is part of GCC.
@@ -144,7 +144,7 @@ struct access_matrix
 #define AM_NB_INDUCTION_VARS(M) (M)->nb_induction_vars
 #define AM_PARAMETERS(M) (M)->parameters
 #define AM_MATRIX(M) (M)->matrix
-#define AM_NB_PARAMETERS(M) (AM_PARAMETERS(M)).length ()
+#define AM_NB_PARAMETERS(M) (AM_PARAMETERS (M)).length ()
 #define AM_CONST_COLUMN_INDEX(M) (AM_NB_INDUCTION_VARS (M) + AM_NB_PARAMETERS (M))
 #define AM_NB_COLUMNS(M) (AM_NB_INDUCTION_VARS (M) + AM_NB_PARAMETERS (M) + 1)
 #define AM_GET_SUBSCRIPT_ACCESS_VECTOR(M, I) AM_MATRIX (M)[I]
@@ -162,7 +162,7 @@ am_vector_index_for_loop (struct access_matrix *access_matrix, int loop_num)
     if (l->num == loop_num)
       return i;
 
-  gcc_unreachable();
+  gcc_unreachable ();
 }
 
 struct data_reference
@@ -239,11 +239,11 @@ enum data_dependence_direction {
 
 typedef vec<tree> affine_fn;
 
-typedef struct
+struct conflict_function
 {
   unsigned n;
   affine_fn fns[MAX_DIM];
-} conflict_function;
+};
 
 /* What is a subscript?  Given two array accesses a subscript is the
    tuple composed of the access functions for a given dimension.
@@ -406,6 +406,7 @@ extern bool dr_may_alias_p (const struct data_reference *,
 			    const struct data_reference *, bool);
 extern bool dr_equal_offsets_p (struct data_reference *,
                                 struct data_reference *);
+extern void tree_check_data_deps (void);
 
 
 /* Return true when the base objects of data references A and B are
@@ -454,32 +455,6 @@ same_access_functions (const struct data_dependence_relation *ddr)
       return false;
 
   return true;
-}
-
-/* Return true when DDR is an anti-dependence relation.  */
-
-static inline bool
-ddr_is_anti_dependent (ddr_p ddr)
-{
-  return (DDR_ARE_DEPENDENT (ddr) == NULL_TREE
-	  && DR_IS_READ (DDR_A (ddr))
-	  && DR_IS_WRITE (DDR_B (ddr))
-	  && !same_access_functions (ddr));
-}
-
-/* Return true when DEPENDENCE_RELATIONS contains an anti-dependence.  */
-
-static inline bool
-ddrs_have_anti_deps (vec<ddr_p> dependence_relations)
-{
-  unsigned i;
-  ddr_p ddr;
-
-  for (i = 0; dependence_relations.iterate (i, &ddr); i++)
-    if (ddr_is_anti_dependent (ddr))
-      return true;
-
-  return false;
 }
 
 /* Returns true when all the dependences are computable.  */

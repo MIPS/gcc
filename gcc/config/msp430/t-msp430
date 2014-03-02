@@ -1,5 +1,5 @@
 # Makefile fragment for building GCC for the TI MSP430 target.
-# Copyright (C) 2012-2013 Free Software Foundation, Inc.
+# Copyright (C) 2012-2014 Free Software Foundation, Inc.
 # Contributed by Red Hat.
 #
 # This file is part of GCC.
@@ -20,20 +20,24 @@
 
 # Enable multilibs:
 
-MULTILIB_OPTIONS    = mmcu=msp430x mlarge
+MULTILIB_OPTIONS    = mcpu=msp430x mlarge
 MULTILIB_DIRNAMES   = 430x large
 
-# Match msp430X with msp430x.
-MULTILIB_MATCHES    = mmcu?msp430x=mmcu?msp430X
+# Match msp430X, msp430xv2 and msp430Xv2 with msp430x.
+MULTILIB_MATCHES    = mcpu?msp430x=mcpu?msp430X
+MULTILIB_MATCHES   += mcpu?msp430x=mcpu?msp430xv2
+MULTILIB_MATCHES   += mcpu?msp430x=mcpu?msp430Xv2
+MULTILIB_MATCHES   += mcpu?msp430x=mmcu?msp430x
+MULTILIB_MATCHES   += mcpu?msp430x=mmcu?msp430X
+MULTILIB_MATCHES   += mcpu?msp430x=mmcu?msp430xv2
+MULTILIB_MATCHES   += mcpu?msp430x=mmcu?msp430Xv2
+MULTILIB_MATCHES   += mcpu?msp430x=mcpu?430x
+MULTILIB_MATCHES   += mcpu?msp430x=mcpu?430X
+MULTILIB_MATCHES   += mcpu?msp430x=mcpu?430xv2
+MULTILIB_MATCHES   += mcpu?msp430x=mcpu?430Xv2
 
-# each supported MCU needs a line like this:
-# MULTILIB_MATCHES  += mmcu?msp430x123=mmcu?msp430x
-
-# The only way I figured this out was to hack the script to SHOW me
-# what it's doing.  It's non-obvious, but it matches the directory
-# structure of the multilib tree, but using the options, not the
-# directory names.  A shell CASE statement is generated from these, so
-# the usual CASE wildcards are supported.
+# Add additional MCU matches like this:
+# MULTILIB_MATCHES += mcpu?msp430x=mmcu?xxxxxxxxxx
 
 MULTILIB_EXCEPTIONS = mlarge
 

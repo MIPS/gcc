@@ -1,5 +1,5 @@
 /* Miscellaneous SSA utility functions.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,23 +22,38 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stor-layout.h"
 #include "flags.h"
 #include "tm_p.h"
 #include "target.h"
-#include "ggc.h"
 #include "langhooks.h"
 #include "basic-block.h"
 #include "function.h"
 #include "gimple-pretty-print.h"
-#include "bitmap.h"
 #include "pointer-set.h"
-#include "tree-ssa.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
+#include "gimplify.h"
+#include "gimple-iterator.h"
+#include "gimple-walk.h"
+#include "gimple-ssa.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "tree-ssa-loop-manip.h"
+#include "tree-into-ssa.h"
+#include "tree-ssa.h"
 #include "tree-inline.h"
 #include "hashtab.h"
 #include "tree-pass.h"
 #include "diagnostic-core.h"
 #include "cfgloop.h"
+#include "cfgexpand.h"
 
 /* Pointer map of variable mappings, keyed by edge.  */
 static struct pointer_map_t *edge_var_maps;
@@ -230,6 +245,41 @@ flush_pending_stmts (edge e)
 
   redirect_edge_var_map_clear (e);
 }
+
+/* Replace the LHS of STMT, an assignment, either a GIMPLE_ASSIGN or a
+   GIMPLE_CALL, with NLHS, in preparation for modifying the RHS to an
+   expression with a different value.
+
+   This will update any annotations (say debug bind stmts) referring
+   to the original LHS, so that they use the RHS instead.  This is
+   done even if NLHS and LHS are the same, for it is understood that
+   the RHS will be modified afterwards, and NLHS will not be assigned
+   an equivalent value.
+
+   Adjusting any non-annotation uses of the LHS, if needed, is a
+   responsibility of the caller.
+
+   The effect of this call should be pretty much the same as that of
+   inserting a copy of STMT before STMT, and then removing the
+   original stmt, at which time gsi_remove() would have update
+   annotations, but using this function saves all the inserting,
+   copying and removing.  */
+
+void
+gimple_replace_ssa_lhs (gimple stmt, tree nlhs)
+{
+  if (MAY_HAVE_DEBUG_STMTS)
+    {
+      tree lhs = gimple_get_lhs (stmt);
+
+      gcc_assert (SSA_NAME_DEF_STMT (lhs) == stmt);
+
+      insert_debug_temp_for_var_def (NULL, lhs);
+    }
+
+  gimple_set_lhs (stmt, nlhs);
+}
+
 
 /* Given a tree for an expression for which we might want to emit
    locations or values in debug information (generally a variable, but
@@ -938,9 +988,9 @@ verify_ssa (bool check_modified_stmt)
 	  if (!gimple_nop_p (stmt))
 	    {
 	      basic_block bb = gimple_bb (stmt);
-	      verify_def (bb, definition_block,
-			  name, stmt, virtual_operand_p (name));
-
+	      if (verify_def (bb, definition_block,
+			      name, stmt, virtual_operand_p (name)))
+		goto err;
 	    }
 	}
     }
@@ -949,7 +999,7 @@ verify_ssa (bool check_modified_stmt)
 
   /* Now verify all the uses and make sure they agree with the definitions
      found in the previous pass.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       edge e;
       gimple phi;
@@ -992,7 +1042,7 @@ verify_ssa (bool check_modified_stmt)
 	      goto err;
 	    }
 
-	  if (verify_ssa_operands (stmt))
+	  if (verify_ssa_operands (cfun, stmt))
 	    {
 	      print_gimple_stmt (stderr, stmt, 0, TDF_VOPS);
 	      goto err;
@@ -1118,8 +1168,8 @@ const pass_data pass_data_init_datastructures =
 class pass_init_datastructures : public gimple_opt_pass
 {
 public:
-  pass_init_datastructures(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_init_datastructures, ctxt)
+  pass_init_datastructures (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_init_datastructures, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1145,7 +1195,7 @@ delete_tree_ssa (void)
 
   /* We no longer maintain the SSA operand cache at this point.  */
   if (ssa_operands_active (cfun))
-    fini_ssa_operands ();
+    fini_ssa_operands (cfun);
 
   htab_delete (cfun->gimple_df->default_defs);
   cfun->gimple_df->default_defs = NULL;
@@ -1215,115 +1265,6 @@ ssa_undefined_value_p (tree t)
 
   /* The value is undefined iff its definition statement is empty.  */
   return gimple_nop_p (SSA_NAME_DEF_STMT (t));
-}
-
-
-/* Internal helper for walk_use_def_chains.  VAR, FN and DATA are as
-   described in walk_use_def_chains.
-
-   VISITED is a pointer set used to mark visited SSA_NAMEs to avoid
-      infinite loops.  We used to have a bitmap for this to just mark
-      SSA versions we had visited.  But non-sparse bitmaps are way too
-      expensive, while sparse bitmaps may cause quadratic behavior.
-
-   IS_DFS is true if the caller wants to perform a depth-first search
-      when visiting PHI nodes.  A DFS will visit each PHI argument and
-      call FN after each one.  Otherwise, all the arguments are
-      visited first and then FN is called with each of the visited
-      arguments in a separate pass.  */
-
-static bool
-walk_use_def_chains_1 (tree var, walk_use_def_chains_fn fn, void *data,
-		       struct pointer_set_t *visited, bool is_dfs)
-{
-  gimple def_stmt;
-
-  if (pointer_set_insert (visited, var))
-    return false;
-
-  def_stmt = SSA_NAME_DEF_STMT (var);
-
-  if (gimple_code (def_stmt) != GIMPLE_PHI)
-    {
-      /* If we reached the end of the use-def chain, call FN.  */
-      return fn (var, def_stmt, data);
-    }
-  else
-    {
-      size_t i;
-
-      /* When doing a breadth-first search, call FN before following the
-	 use-def links for each argument.  */
-      if (!is_dfs)
-	for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
-	  if (fn (gimple_phi_arg_def (def_stmt, i), def_stmt, data))
-	    return true;
-
-      /* Follow use-def links out of each PHI argument.  */
-      for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
-	{
-	  tree arg = gimple_phi_arg_def (def_stmt, i);
-
-	  /* ARG may be NULL for newly introduced PHI nodes.  */
-	  if (arg
-	      && TREE_CODE (arg) == SSA_NAME
-	      && walk_use_def_chains_1 (arg, fn, data, visited, is_dfs))
-	    return true;
-	}
-
-      /* When doing a depth-first search, call FN after following the
-	 use-def links for each argument.  */
-      if (is_dfs)
-	for (i = 0; i < gimple_phi_num_args (def_stmt); i++)
-	  if (fn (gimple_phi_arg_def (def_stmt, i), def_stmt, data))
-	    return true;
-    }
-
-  return false;
-}
-
-
-
-/* Walk use-def chains starting at the SSA variable VAR.  Call
-   function FN at each reaching definition found.  FN takes three
-   arguments: VAR, its defining statement (DEF_STMT) and a generic
-   pointer to whatever state information that FN may want to maintain
-   (DATA).  FN is able to stop the walk by returning true, otherwise
-   in order to continue the walk, FN should return false.
-
-   Note, that if DEF_STMT is a PHI node, the semantics are slightly
-   different.  The first argument to FN is no longer the original
-   variable VAR, but the PHI argument currently being examined.  If FN
-   wants to get at VAR, it should call PHI_RESULT (PHI).
-
-   If IS_DFS is true, this function will:
-
-	1- walk the use-def chains for all the PHI arguments, and,
-	2- call (*FN) (ARG, PHI, DATA) on all the PHI arguments.
-
-   If IS_DFS is false, the two steps above are done in reverse order
-   (i.e., a breadth-first search).  */
-
-void
-walk_use_def_chains (tree var, walk_use_def_chains_fn fn, void *data,
-                     bool is_dfs)
-{
-  gimple def_stmt;
-
-  gcc_assert (TREE_CODE (var) == SSA_NAME);
-
-  def_stmt = SSA_NAME_DEF_STMT (var);
-
-  /* We only need to recurse if the reaching definition comes from a PHI
-     node.  */
-  if (gimple_code (def_stmt) != GIMPLE_PHI)
-    (*fn) (var, def_stmt, data);
-  else
-    {
-      struct pointer_set_t *visited = pointer_set_create ();
-      walk_use_def_chains_1 (var, fn, data, visited, is_dfs);
-      pointer_set_destroy (visited);
-    }
 }
 
 
@@ -1515,7 +1456,7 @@ execute_update_addresses_taken (void)
 
   /* Collect into ADDRESSES_TAKEN all variables whose address is taken within
      the function body.  */
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -1617,7 +1558,7 @@ execute_update_addresses_taken (void)
      variables and operands need to be rewritten to expose bare symbols.  */
   if (!bitmap_empty_p (suitable_for_renaming))
     {
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi);)
 	  {
 	    gimple stmt = gsi_stmt (gsi);
@@ -1758,8 +1699,8 @@ const pass_data pass_data_update_address_taken =
 class pass_update_address_taken : public gimple_opt_pass
 {
 public:
-  pass_update_address_taken(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_update_address_taken, ctxt)
+  pass_update_address_taken (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_update_address_taken, ctxt)
   {}
 
   /* opt_pass methods: */

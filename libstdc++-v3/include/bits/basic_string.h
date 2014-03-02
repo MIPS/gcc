@@ -1,6 +1,6 @@
 // Components for manipulating sequences of characters -*- C++ -*-
 
-// Copyright (C) 1997-2013 Free Software Foundation, Inc.
+// Copyright (C) 1997-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -509,7 +509,10 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  The newly-created string contains the exact contents of @a __str.
        *  @a __str is a valid, but unspecified string.
        **/
-      basic_string(basic_string&& __str) noexcept
+      basic_string(basic_string&& __str)
+#if _GLIBCXX_FULLY_DYNAMIC_STRING == 0
+      noexcept // FIXME C++11: should always be noexcept.
+#endif
       : _M_dataplus(__str._M_dataplus)
       {
 #if _GLIBCXX_FULLY_DYNAMIC_STRING == 0
@@ -581,6 +584,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  The contents of @a str are moved into this string (without copying).
        *  @a str is a valid, but unspecified string.
        **/
+      // PR 58265, this should be noexcept.
       basic_string&
       operator=(basic_string&& __str)
       {
@@ -607,7 +611,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  the %string.  Unshares the string.
        */
       iterator
-      begin() _GLIBCXX_NOEXCEPT
+      begin() // FIXME C++11: should be noexcept.
       {
 	_M_leak();
 	return iterator(_M_data());
@@ -626,7 +630,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  character in the %string.  Unshares the string.
        */
       iterator
-      end() _GLIBCXX_NOEXCEPT
+      end() // FIXME C++11: should be noexcept.
       {
 	_M_leak();
 	return iterator(_M_data() + this->size());
@@ -646,7 +650,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  order.  Unshares the string.
        */
       reverse_iterator
-      rbegin() _GLIBCXX_NOEXCEPT
+      rbegin() // FIXME C++11: should be noexcept.
       { return reverse_iterator(this->end()); }
 
       /**
@@ -664,7 +668,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  element order.  Unshares the string.
        */
       reverse_iterator
-      rend() _GLIBCXX_NOEXCEPT
+      rend() // FIXME C++11: should be noexcept.
       { return reverse_iterator(this->begin()); }
 
       /**
@@ -806,7 +810,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        */
       // PR 56166: this should not throw.
       void
-      clear() _GLIBCXX_NOEXCEPT
+      clear()
       { _M_mutate(0, this->size(), 0); }
 
       /**
@@ -1088,6 +1092,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  This function sets this string to the exact contents of @a __str.
        *  @a __str is a valid, but unspecified string.
        */
+      // PR 58265, this should be noexcept.
       basic_string&
       assign(basic_string&& __str)
       {
@@ -1417,7 +1422,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
        *  The string must be non-empty.
        */
       void
-      pop_back()
+      pop_back() // FIXME C++11: should be noexcept.
       { erase(size()-1, 1); }
 #endif // C++11
 
@@ -3125,22 +3130,22 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   {
 
     inline basic_string<char>
-    operator"" s(const char* __str, size_t __len)
+    operator""s(const char* __str, size_t __len)
     { return basic_string<char>{__str, __len}; }
 
 #ifdef _GLIBCXX_USE_WCHAR_T
     inline basic_string<wchar_t>
-    operator"" s(const wchar_t* __str, size_t __len)
+    operator""s(const wchar_t* __str, size_t __len)
     { return basic_string<wchar_t>{__str, __len}; }
 #endif
 
 #ifdef _GLIBCXX_USE_C99_STDINT_TR1
     inline basic_string<char16_t>
-    operator"" s(const char16_t* __str, size_t __len)
+    operator""s(const char16_t* __str, size_t __len)
     { return basic_string<char16_t>{__str, __len}; }
 
     inline basic_string<char32_t>
-    operator"" s(const char32_t* __str, size_t __len)
+    operator""s(const char32_t* __str, size_t __len)
     { return basic_string<char32_t>{__str, __len}; }
 #endif
 

@@ -1,5 +1,5 @@
 /* Subroutines used by or related to instruction recognition.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,6 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
+#include "tree.h"
 #include "rtl-error.h"
 #include "tm_p.h"
 #include "insn-config.h"
@@ -313,7 +314,8 @@ insn_invalid_p (rtx insn, bool in_group)
      clobbers.  */
   int icode = recog (pat, insn,
 		     (GET_CODE (pat) == SET
-		      && ! reload_completed && ! reload_in_progress)
+		      && ! reload_completed 
+                      && ! reload_in_progress)
 		     ? &num_clobbers : 0);
   int is_asm = icode < 0 && asm_noperands (PATTERN (insn)) >= 0;
 
@@ -563,7 +565,7 @@ simplify_while_replacing (rtx *loc, rtx to, rtx object,
 {
   rtx x = *loc;
   enum rtx_code code = GET_CODE (x);
-  rtx new_rtx;
+  rtx new_rtx = NULL_RTX;
 
   if (SWAPPABLE_OPERANDS_P (x)
       && swap_commutative_operands_p (XEXP (x, 0), XEXP (x, 1)))
@@ -575,6 +577,35 @@ simplify_while_replacing (rtx *loc, rtx to, rtx object,
 					       XEXP (x, 0)), 1);
       x = *loc;
       code = GET_CODE (x);
+    }
+
+  /* Canonicalize arithmetics with all constant operands.  */
+  switch (GET_RTX_CLASS (code))
+    {
+    case RTX_UNARY:
+      if (CONSTANT_P (XEXP (x, 0)))
+	new_rtx = simplify_unary_operation (code, GET_MODE (x), XEXP (x, 0),
+					    op0_mode);
+      break;
+    case RTX_COMM_ARITH:
+    case RTX_BIN_ARITH:
+      if (CONSTANT_P (XEXP (x, 0)) && CONSTANT_P (XEXP (x, 1)))
+	new_rtx = simplify_binary_operation (code, GET_MODE (x), XEXP (x, 0),
+					     XEXP (x, 1));
+      break;
+    case RTX_COMPARE:
+    case RTX_COMM_COMPARE:
+      if (CONSTANT_P (XEXP (x, 0)) && CONSTANT_P (XEXP (x, 1)))
+	new_rtx = simplify_relational_operation (code, GET_MODE (x), op0_mode,
+						 XEXP (x, 0), XEXP (x, 1));
+      break;
+    default:
+      break;
+    }
+  if (new_rtx)
+    {
+      validate_change (object, loc, new_rtx, 1);
+      return;
     }
 
   switch (code)
@@ -725,7 +756,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object,
   /* Call ourself recursively to perform the replacements.
      We must not replace inside already replaced expression, otherwise we
      get infinite recursion for replacements like (reg X)->(subreg (reg X))
-     done by regmove, so we must special case shared ASM_OPERANDS.  */
+     so we must special case shared ASM_OPERANDS.  */
 
   if (GET_CODE (x) == PARALLEL)
     {
@@ -761,6 +792,7 @@ validate_replace_rtx_1 (rtx *loc, rtx from, rtx to, rtx object,
   if (num_changes == prev_changes)
     return;
 
+  /* ??? The regmove is no more, so is this aberration still necessary?  */
   /* Allow substituted expression to have different mode.  This is used by
      regmove to change mode of pseudo register.  */
   if (fmt[0] == 'e' && GET_MODE (XEXP (x, 0)) != VOIDmode)
@@ -1018,8 +1050,12 @@ general_operand (rtx op, enum machine_mode mode)
       if (! volatile_ok && MEM_VOLATILE_P (op))
 	return 0;
 
-      /* Use the mem's mode, since it will be reloaded thus.  */
-      if (memory_address_addr_space_p (GET_MODE (op), y, MEM_ADDR_SPACE (op)))
+      /* Use the mem's mode, since it will be reloaded thus.  LRA can
+	 generate move insn with invalid addresses which is made valid
+	 and efficiently calculated by LRA through further numerous
+	 transformations.  */
+      if (lra_in_progress
+	  || memory_address_addr_space_p (GET_MODE (op), y, MEM_ADDR_SPACE (op)))
 	return 1;
     }
 
@@ -1611,6 +1647,50 @@ decode_asm_operands (rtx body, rtx *operands, rtx **operand_locs,
     *loc = ASM_OPERANDS_SOURCE_LOCATION (asmop);
 
   return ASM_OPERANDS_TEMPLATE (asmop);
+}
+
+/* Parse inline assembly string STRING and determine which operands are
+   referenced by % markers.  For the first NOPERANDS operands, set USED[I]
+   to true if operand I is referenced.
+
+   This is intended to distinguish barrier-like asms such as:
+
+      asm ("" : "=m" (...));
+
+   from real references such as:
+
+      asm ("sw\t$0, %0" : "=m" (...));  */
+
+void
+get_referenced_operands (const char *string, bool *used,
+			 unsigned int noperands)
+{
+  memset (used, 0, sizeof (bool) * noperands);
+  const char *p = string;
+  while (*p)
+    switch (*p)
+      {
+      case '%':
+	p += 1;
+	/* A letter followed by a digit indicates an operand number.  */
+	if (ISALPHA (p[0]) && ISDIGIT (p[1]))
+	  p += 1;
+	if (ISDIGIT (*p))
+	  {
+	    char *endptr;
+	    unsigned long opnum = strtoul (p, &endptr, 10);
+	    if (endptr != p && opnum < noperands)
+	      used[opnum] = true;
+	    p = endptr;
+	  }
+	else
+	  p += 1;
+	break;
+
+      default:
+	p++;
+	break;
+      }
 }
 
 /* Check if an asm_operand matches its constraints.
@@ -2895,11 +2975,11 @@ split_all_insns (void)
   bool changed;
   basic_block bb;
 
-  blocks = sbitmap_alloc (last_basic_block);
+  blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
   bitmap_clear (blocks);
   changed = false;
 
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       rtx insn, next;
       bool finish = false;
@@ -3068,6 +3148,9 @@ peep2_reg_dead_p (int ofs, rtx reg)
   return 1;
 }
 
+/* Regno offset to be used in the register search.  */
+static int search_ofs;
+
 /* Try to find a hard register of mode MODE, matching the register class in
    CLASS_STR, which is available at the beginning of insn CURRENT_INSN and
    remains available until the end of LAST_INSN.  LAST_INSN may be NULL_RTX,
@@ -3083,7 +3166,6 @@ rtx
 peep2_find_free_register (int from, int to, const char *class_str,
 			  enum machine_mode mode, HARD_REG_SET *reg_set)
 {
-  static int search_ofs;
   enum reg_class cl;
   HARD_REG_SET live;
   df_ref *def_rec;
@@ -3548,9 +3630,10 @@ peephole2_optimize (void)
   /* Initialize the regsets we're going to use.  */
   for (i = 0; i < MAX_INSNS_PER_PEEP2 + 1; ++i)
     peep2_insn_data[i].live_before = BITMAP_ALLOC (&reg_obstack);
+  search_ofs = 0;
   live = BITMAP_ALLOC (&reg_obstack);
 
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       bool past_end = false;
       int pos;
@@ -3801,14 +3884,14 @@ const pass_data pass_data_peephole2 =
 class pass_peephole2 : public rtl_opt_pass
 {
 public:
-  pass_peephole2(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_peephole2, ctxt)
+  pass_peephole2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_peephole2, ctxt)
   {}
 
   /* opt_pass methods: */
   /* The epiphany backend creates a second instance of this pass, so we need
      a clone method.  */
-  opt_pass * clone () { return new pass_peephole2 (ctxt_); }
+  opt_pass * clone () { return new pass_peephole2 (m_ctxt); }
   bool gate () { return gate_handle_peephole2 (); }
   unsigned int execute () { return rest_of_handle_peephole2 (); }
 
@@ -3849,14 +3932,14 @@ const pass_data pass_data_split_all_insns =
 class pass_split_all_insns : public rtl_opt_pass
 {
 public:
-  pass_split_all_insns(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_split_all_insns, ctxt)
+  pass_split_all_insns (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_split_all_insns, ctxt)
   {}
 
   /* opt_pass methods: */
   /* The epiphany backend creates a second instance of this pass, so
      we need a clone method.  */
-  opt_pass * clone () { return new pass_split_all_insns (ctxt_); }
+  opt_pass * clone () { return new pass_split_all_insns (m_ctxt); }
   unsigned int execute () { return rest_of_handle_split_all_insns (); }
 
 }; // class pass_split_all_insns
@@ -3900,8 +3983,8 @@ const pass_data pass_data_split_after_reload =
 class pass_split_after_reload : public rtl_opt_pass
 {
 public:
-  pass_split_after_reload(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_split_after_reload, ctxt)
+  pass_split_after_reload (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_split_after_reload, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -3962,8 +4045,8 @@ const pass_data pass_data_split_before_regstack =
 class pass_split_before_regstack : public rtl_opt_pass
 {
 public:
-  pass_split_before_regstack(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_split_before_regstack, ctxt)
+  pass_split_before_regstack (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_split_before_regstack, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4021,8 +4104,8 @@ const pass_data pass_data_split_before_sched2 =
 class pass_split_before_sched2 : public rtl_opt_pass
 {
 public:
-  pass_split_before_sched2(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_split_before_sched2, ctxt)
+  pass_split_before_sched2 (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_split_before_sched2, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -4071,8 +4154,8 @@ const pass_data pass_data_split_for_shorten_branches =
 class pass_split_for_shorten_branches : public rtl_opt_pass
 {
 public:
-  pass_split_for_shorten_branches(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_split_for_shorten_branches, ctxt)
+  pass_split_for_shorten_branches (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_split_for_shorten_branches, ctxt)
   {}
 
   /* opt_pass methods: */

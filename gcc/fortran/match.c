@@ -1,5 +1,5 @@
 /* Matching subroutines in all sizes, shapes and colors.
-   Copyright (C) 2000-2013 Free Software Foundation, Inc.
+   Copyright (C) 2000-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -26,6 +26,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "match.h"
 #include "parse.h"
 #include "tree.h"
+#include "stringpool.h"
 
 int gfc_matching_ptr_assignment = 0;
 int gfc_matching_procptr_assignment = 0;
@@ -5147,8 +5148,7 @@ copy_ts_from_selector_to_associate (gfc_expr *associate, gfc_expr *selector)
       assoc_sym->ts.type = BT_CLASS;
       assoc_sym->ts.u.derived = CLASS_DATA (selector)->ts.u.derived;
       assoc_sym->attr.pointer = 1;
-      gfc_build_class_symbol (&assoc_sym->ts, &assoc_sym->attr,
-			      &assoc_sym->as, false);
+      gfc_build_class_symbol (&assoc_sym->ts, &assoc_sym->attr, &assoc_sym->as);
     }
 }
 
@@ -5272,7 +5272,7 @@ select_type_set_tmp (gfc_typespec *ts)
 
   if (ts->type == BT_CLASS)
     gfc_build_class_symbol (&tmp->n.sym->ts, &tmp->n.sym->attr,
-			    &tmp->n.sym->as, false);
+			    &tmp->n.sym->as);
     }
 
   /* Add an association for it, so the rest of the parser knows it is

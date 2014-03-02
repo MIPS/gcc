@@ -37,6 +37,7 @@ with Namet;    use Namet;
 with Nmake;    use Nmake;
 with Nlists;   use Nlists;
 with Opt;      use Opt;
+with Par_SCO;  use Par_SCO;
 with Rtsfind;  use Rtsfind;
 with Sem;      use Sem;
 with Sem_Aux;  use Sem_Aux;
@@ -227,13 +228,17 @@ package body Sem_Eval is
    --    Is_Static_Expression flag from the operands.
 
    procedure Test_Expression_Is_Foldable
-     (N    : Node_Id;
-      Op1  : Node_Id;
-      Op2  : Node_Id;
-      Stat : out Boolean;
-      Fold : out Boolean);
+     (N        : Node_Id;
+      Op1      : Node_Id;
+      Op2      : Node_Id;
+      Stat     : out Boolean;
+      Fold     : out Boolean;
+      CRT_Safe : Boolean := False);
    --  Same processing, except applies to an expression N with two operands
-   --  Op1 and Op2. The result is static only if both operands are static.
+   --  Op1 and Op2. The result is static only if both operands are static. If
+   --  CRT_Safe is set True, then CRT_Safe_Compile_Time_Known_Value is used
+   --  for the tests that the two operands are known at compile time. See
+   --  spec of this routine for further details.
 
    function Test_In_Range
      (N            : Node_Id;
@@ -369,7 +374,7 @@ package body Sem_Eval is
            Intval (N) > Expr_Value (Type_High_Bound (Universal_Integer)))
       then
          Apply_Compile_Time_Constraint_Error
-           (N, "non-static universal integer value out of range??",
+           (N, "non-static universal integer value out of range<<",
             CE_Range_Check_Failed);
 
       --  Check out of range of base type
@@ -390,7 +395,7 @@ package body Sem_Eval is
 
          elsif Is_Out_Of_Range (N, T, Assume_Valid => True) then
             Apply_Compile_Time_Constraint_Error
-              (N, "value not in range of}??", CE_Range_Check_Failed);
+              (N, "value not in range of}<<", CE_Range_Check_Failed);
 
          elsif Checks_On then
             Enable_Range_Check (N);
@@ -754,7 +759,7 @@ package body Sem_Eval is
       end if;
 
       --  If either operand could raise constraint error, then we cannot
-      --  know the result at compile time (since CE may be raised!)
+      --  know the result at compile time (since CE may be raised).
 
       if not (Cannot_Raise_Constraint_Error (L)
                 and then
@@ -1255,7 +1260,7 @@ package body Sem_Eval is
       Typ  : Entity_Id;
 
    begin
-      if not Is_Array_Type (T) then
+      if T = Any_Composite or else not Is_Array_Type (T) then
          return False;
       end if;
 
@@ -1306,32 +1311,6 @@ package body Sem_Eval is
          return False;
       end if;
 
-      --  If this is not a static expression or a null literal, and we are in
-      --  configurable run-time mode, then we consider it not known at compile
-      --  time. This avoids anomalies where whether something is allowed with a
-      --  given configurable run-time library depends on how good the compiler
-      --  is at optimizing and knowing that things are constant when they are
-      --  nonstatic.
-
-      if Configurable_Run_Time_Mode
-        and then K /= N_Null
-        and then not Is_Static_Expression (Op)
-      then
-         --  We make an exception for expressions that evaluate to True/False,
-         --  to suppress spurious checks in ZFP mode. So far we have not seen
-         --  any negative consequences of this exception.
-
-         if Is_Entity_Name (Op)
-           and then Ekind (Entity (Op)) = E_Enumeration_Literal
-           and then Etype (Entity (Op)) = Standard_Boolean
-         then
-            null;
-
-         else
-            return False;
-         end if;
-      end if;
-
       --  If we have an entity name, then see if it is the name of a constant
       --  and if so, test the corresponding constant value, or the name of
       --  an enumeration literal, which is always a constant.
@@ -1353,16 +1332,7 @@ package body Sem_Eval is
             if Ekind (E) = E_Enumeration_Literal then
                return True;
 
-            --  In SPARK mode, the value of deferred constants should be
-            --  ignored outside the scope of their full view. This allows
-            --  parameterized formal verification, in which a deferred constant
-            --  value if not known from client units.
-
-            elsif Ekind (E) = E_Constant
-              and then not (SPARK_Mode
-                             and then Present (Full_View (E))
-                             and then not In_Open_Scopes (Scope (E)))
-            then
+            elsif Ekind (E) = E_Constant then
                V := Constant_Value (E);
                return Present (V) and then Compile_Time_Known_Value (V);
             end if;
@@ -1494,6 +1464,21 @@ package body Sem_Eval is
       end if;
    end Compile_Time_Known_Value_Or_Aggr;
 
+   ---------------------------------------
+   -- CRT_Safe_Compile_Time_Known_Value --
+   ---------------------------------------
+
+   function CRT_Safe_Compile_Time_Known_Value (Op : Node_Id) return Boolean is
+   begin
+      if (Configurable_Run_Time_Mode or No_Run_Time_Mode)
+        and then not Is_OK_Static_Expression (Op)
+      then
+         return False;
+      else
+         return Compile_Time_Known_Value (Op);
+      end if;
+   end CRT_Safe_Compile_Time_Known_Value;
+
    -----------------
    -- Eval_Actual --
    -----------------
@@ -1548,6 +1533,8 @@ package body Sem_Eval is
       if not Fold then
          return;
       end if;
+
+      --  Otherwise attempt to fold
 
       if Is_Universal_Numeric_Type (Etype (Left))
            and then
@@ -1721,7 +1708,7 @@ package body Sem_Eval is
    -- Eval_Character_Literal --
    ----------------------------
 
-   --  Nothing to be done!
+   --  Nothing to be done
 
    procedure Eval_Character_Literal (N : Node_Id) is
       pragma Warnings (Off, N);
@@ -1969,8 +1956,8 @@ package body Sem_Eval is
 
       elsif Ekind (Def_Id) = E_Constant then
 
-         --  Deferred constants must always be treated as nonstatic
-         --  outside the scope of their full view.
+         --  Deferred constants must always be treated as nonstatic outside the
+         --  scope of their full view.
 
          if Present (Full_View (Def_Id))
            and then not In_Open_Scopes (Scope (Def_Id))
@@ -1990,6 +1977,16 @@ package body Sem_Eval is
               and then not Is_Generic_Type (Etype (N))
             then
                Validate_Static_Object_Name (N);
+            end if;
+
+            --  Mark constant condition in SCOs
+
+            if Generate_SCO
+              and then Comes_From_Source (N)
+              and then Is_Boolean_Type (Etype (Def_Id))
+              and then Compile_Time_Known_Value (N)
+            then
+               Set_SCO_Condition (N, Expr_Value_E (N) = Standard_True);
             end if;
 
             return;
@@ -2544,9 +2541,16 @@ package body Sem_Eval is
    begin
       --  If not foldable we are done
 
-      Test_Expression_Is_Foldable (N, Left, Right, Stat, Fold);
+      Test_Expression_Is_Foldable
+        (N, Left, Right, Stat, Fold, CRT_Safe => True);
+
+      --  Return if not foldable
 
       if not Fold then
+         return;
+      end if;
+
+      if Configurable_Run_Time_Mode and not Stat then
          return;
       end if;
 
@@ -2798,7 +2802,7 @@ package body Sem_Eval is
       --  will be false because the lengths of one or more index subtypes are
       --  compile time known and different, then we can replace the entire
       --  result by False. We only do this for one dimensional arrays, because
-      --  the case of multi-dimensional arrays is rare and too much trouble! If
+      --  the case of multi-dimensional arrays is rare and too much trouble. If
       --  one of the operands is an illegal aggregate, its type might still be
       --  an arbitrary composite type, so nothing to do.
 
@@ -3432,7 +3436,7 @@ package body Sem_Eval is
             --  string literal is not marked as static (happens in some cases
             --  of folding strings known at compile time, but not static).
             --  Furthermore in such cases, we reword the message, since there
-            --  is no string literal in the source program!
+            --  is no string literal in the source program.
 
             if Is_Static_Expression (N) then
                Apply_Compile_Time_Constraint_Error
@@ -4682,6 +4686,48 @@ package body Sem_Eval is
       end if;
    end Out_Of_Range;
 
+   ----------------------
+   -- Predicates_Match --
+   ----------------------
+
+   function Predicates_Match (T1, T2 : Entity_Id) return Boolean is
+      Pred1 : Node_Id;
+      Pred2 : Node_Id;
+
+   begin
+      if Ada_Version < Ada_2012 then
+         return True;
+
+         --  Both types must have predicates or lack them
+
+      elsif Has_Predicates (T1) /= Has_Predicates (T2) then
+         return False;
+
+         --  Check matching predicates
+
+      else
+         Pred1 :=
+           Get_Rep_Item
+             (T1, Name_Static_Predicate, Check_Parents => False);
+         Pred2 :=
+           Get_Rep_Item
+             (T2, Name_Static_Predicate, Check_Parents => False);
+
+         --  Subtypes statically match if the predicate comes from the
+         --  same declaration, which can only happen if one is a subtype
+         --  of the other and has no explicit predicate.
+
+         --  Suppress warnings on order of actuals, which is otherwise
+         --  triggered by one of the two calls below.
+
+         pragma Warnings (Off);
+         return Pred1 = Pred2
+           or else (No (Pred1) and then Is_Subtype_Of (T1, T2))
+           or else (No (Pred2) and then Is_Subtype_Of (T2, T1));
+         pragma Warnings (On);
+      end if;
+   end Predicates_Match;
+
    -------------------------
    -- Rewrite_In_Raise_CE --
    -------------------------
@@ -4740,8 +4786,9 @@ package body Sem_Eval is
    ------------------------------------
 
    function Subtypes_Statically_Compatible
-     (T1 : Entity_Id;
-      T2 : Entity_Id) return Boolean
+     (T1                      : Entity_Id;
+      T2                      : Entity_Id;
+      Formal_Derived_Matching : Boolean := False) return Boolean
    is
    begin
       --  Scalar types
@@ -4756,7 +4803,8 @@ package body Sem_Eval is
          --  If either subtype is nonstatic then they're not compatible
 
          elsif not Is_Static_Subtype (T1)
-           or else not Is_Static_Subtype (T2)
+                 or else
+               not Is_Static_Subtype (T2)
          then
             return False;
 
@@ -4817,7 +4865,7 @@ package body Sem_Eval is
 
       else
          return (Is_Composite_Type (T1) and then not Is_Constrained (T2))
-           or else Subtypes_Statically_Match (T1, T2);
+           or else Subtypes_Statically_Match (T1, T2, Formal_Derived_Matching);
       end if;
    end Subtypes_Statically_Compatible;
 
@@ -4830,57 +4878,38 @@ package body Sem_Eval is
    --  they are the same identical constraint, or if they are static and the
    --  values match (RM 4.9.1(1)).
 
-   function Subtypes_Statically_Match (T1, T2 : Entity_Id) return Boolean is
+   --  In addition, in GNAT, the object size (Esize) values of the types must
+   --  match if they are set (unless checking an actual for a formal derived
+   --  type). The use of 'Object_Size can cause this to be false even if the
+   --  types would otherwise match in the RM sense.
 
-      function Predicates_Match return Boolean;
-      --  In Ada 2012, subtypes statically match if their static predicates
-      --  match as well.
-
-      ----------------------
-      -- Predicates_Match --
-      ----------------------
-
-      function Predicates_Match return Boolean is
-         Pred1 : Node_Id;
-         Pred2 : Node_Id;
-
-      begin
-         if Ada_Version < Ada_2012 then
-            return True;
-
-         elsif Has_Predicates (T1) /= Has_Predicates (T2) then
-            return False;
-
-         else
-            Pred1 :=
-              Get_Rep_Item
-                (T1, Name_Static_Predicate, Check_Parents => False);
-            Pred2 :=
-              Get_Rep_Item
-                (T2, Name_Static_Predicate, Check_Parents => False);
-
-            --  Subtypes statically match if the predicate comes from the
-            --  same declaration, which can only happen if one is a subtype
-            --  of the other and has no explicit predicate.
-
-            --  Suppress warnings on order of actuals, which is otherwise
-            --  triggered by one of the two calls below.
-
-            pragma Warnings (Off);
-            return Pred1 = Pred2
-              or else (No (Pred1) and then Is_Subtype_Of (T1, T2))
-              or else (No (Pred2) and then Is_Subtype_Of (T2, T1));
-            pragma Warnings (On);
-         end if;
-      end Predicates_Match;
-
-   --  Start of processing for Subtypes_Statically_Match
-
+   function Subtypes_Statically_Match
+     (T1                      : Entity_Id;
+      T2                      : Entity_Id;
+      Formal_Derived_Matching : Boolean := False) return Boolean
+   is
    begin
       --  A type always statically matches itself
 
       if T1 = T2 then
          return True;
+
+      --  No match if sizes different (from use of 'Object_Size). This test
+      --  is excluded if Formal_Derived_Matching is True, as the base types
+      --  can be different in that case and typically have different sizes
+      --  (and Esizes can be set when Frontend_Layout_On_Target is True).
+
+      elsif not Formal_Derived_Matching
+        and then Known_Static_Esize (T1)
+        and then Known_Static_Esize (T2)
+        and then Esize (T1) /= Esize (T2)
+      then
+         return False;
+
+      --  No match if predicates do not match
+
+      elsif not Predicates_Match (T1, T2) then
+         return False;
 
       --  Scalar types
 
@@ -4936,7 +4965,7 @@ package body Sem_Eval is
             return True;
          end if;
 
-         --  Otherwise both types have bound that can be compared
+         --  Otherwise both types have bounds that can be compared
 
          declare
             LB1 : constant Node_Id := Type_Low_Bound  (T1);
@@ -4945,11 +4974,10 @@ package body Sem_Eval is
             HB2 : constant Node_Id := Type_High_Bound (T2);
 
          begin
-            --  If the bounds are the same tree node, then match if and only
-            --  if any predicates present also match.
+            --  If the bounds are the same tree node, then match (common case)
 
             if LB1 = LB2 and then HB1 = HB2 then
-               return Predicates_Match;
+               return True;
 
             --  Otherwise bounds must be static and identical value
 
@@ -5221,11 +5249,12 @@ package body Sem_Eval is
    --  Two operand case
 
    procedure Test_Expression_Is_Foldable
-     (N    : Node_Id;
-      Op1  : Node_Id;
-      Op2  : Node_Id;
-      Stat : out Boolean;
-      Fold : out Boolean)
+     (N        : Node_Id;
+      Op1      : Node_Id;
+      Op2      : Node_Id;
+      Stat     : out Boolean;
+      Fold     : out Boolean;
+      CRT_Safe : Boolean := False)
    is
       Rstat : constant Boolean := Is_Static_Expression (Op1)
                                     and then Is_Static_Expression (Op2);
@@ -5233,6 +5262,8 @@ package body Sem_Eval is
    begin
       Stat := False;
       Fold := False;
+
+      --  Inhibit folding if -gnatd.f flag set
 
       if Debug_Flag_Dot_F and then In_Extended_Main_Source_Unit (N) then
          return;
@@ -5286,8 +5317,15 @@ package body Sem_Eval is
       elsif not Rstat then
          Check_Non_Static_Context (Op1);
          Check_Non_Static_Context (Op2);
-         Fold := Compile_Time_Known_Value (Op1)
-                   and then Compile_Time_Known_Value (Op2);
+
+         if CRT_Safe then
+            Fold := CRT_Safe_Compile_Time_Known_Value (Op1)
+                      and then CRT_Safe_Compile_Time_Known_Value (Op2);
+         else
+            Fold := Compile_Time_Known_Value (Op1)
+                      and then Compile_Time_Known_Value (Op2);
+         end if;
+
          return;
 
       --  Else result is static and foldable. Both operands are static, and
@@ -5328,7 +5366,7 @@ package body Sem_Eval is
          return In_Range;
 
       --  Never known if not scalar type. Don't know if this can actually
-      --  happen, but our spec allows it, so we must check!
+      --  happen, but our spec allows it, so we must check.
 
       elsif not Is_Scalar_Type (Typ) then
          return Unknown;
@@ -5578,7 +5616,7 @@ package body Sem_Eval is
                   then
                      Error_Msg_N ("\aggregate (#) is never static", N);
 
-                  elsif not Is_Static_Expression (CV) then
+                  elsif No (CV) or else not Is_Static_Expression (CV) then
                      Error_Msg_NE
                        ("\& is not a static constant (RM 4.9(5))", N, E);
                   end if;

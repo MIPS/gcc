@@ -1,7 +1,7 @@
 // -*- C++ -*-
 // Iterator Wrappers for the C++ library testsuite. 
 //
-// Copyright (C) 2004-2013 Free Software Foundation, Inc.
+// Copyright (C) 2004-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -538,6 +538,10 @@ namespace __gnu_test
       ITERATOR_VERIFY(pos >= bounds.first && pos <= bounds.last);
       return ItType<T>(pos, &bounds);
     }
+
+    const T&
+    val(int pos)
+    { return (bounds.first)[pos]; }
 
     ItType<T>
     begin()

@@ -1,5 +1,5 @@
 /* RTL-based forward propagation pass for GNU compiler.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
    Contributed by Paolo Bonzini and Steven Bosscher.
 
 This file is part of GCC.
@@ -289,7 +289,7 @@ build_single_def_use_links (void)
   reg_defs.create (max_reg_num ());
   reg_defs.safe_grow_cleared (max_reg_num ());
 
-  reg_defs_stack.create (n_basic_blocks * 10);
+  reg_defs_stack.create (n_basic_blocks_for_fn (cfun) * 10);
   local_md = BITMAP_ALLOC (NULL);
   local_lr = BITMAP_ALLOC (NULL);
 
@@ -1504,8 +1504,8 @@ const pass_data pass_data_rtl_fwprop =
 class pass_rtl_fwprop : public rtl_opt_pass
 {
 public:
-  pass_rtl_fwprop(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_fwprop, ctxt)
+  pass_rtl_fwprop (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_fwprop, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1570,8 +1570,8 @@ const pass_data pass_data_rtl_fwprop_addr =
 class pass_rtl_fwprop_addr : public rtl_opt_pass
 {
 public:
-  pass_rtl_fwprop_addr(gcc::context *ctxt)
-    : rtl_opt_pass(pass_data_rtl_fwprop_addr, ctxt)
+  pass_rtl_fwprop_addr (gcc::context *ctxt)
+    : rtl_opt_pass (pass_data_rtl_fwprop_addr, ctxt)
   {}
 
   /* opt_pass methods: */

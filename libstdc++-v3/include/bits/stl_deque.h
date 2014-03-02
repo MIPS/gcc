@@ -1,6 +1,6 @@
 // Deque implementation -*- C++ -*-
 
-// Copyright (C) 2001-2013 Free Software Foundation, Inc.
+// Copyright (C) 2001-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -467,7 +467,7 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
 
       _Deque_base(const allocator_type& __a)
       : _M_impl(__a)
-      { _M_initialize_map(0); }
+      { }
 
 #if __cplusplus >= 201103L
       _Deque_base(_Deque_base&& __x)
@@ -487,13 +487,13 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
       ~_Deque_base() _GLIBCXX_NOEXCEPT;
 
     protected:
-      //This struct encapsulates the implementation of the std::deque
-      //standard container and at the same time makes use of the EBO
-      //for empty allocators.
       typedef typename _Alloc::template rebind<_Tp*>::other _Map_alloc_type;
 
       typedef typename _Alloc::template rebind<_Tp>::other  _Tp_alloc_type;
 
+      //This struct encapsulates the implementation of the std::deque
+      //standard container and at the same time makes use of the EBO
+      //for empty allocators.
       struct _Deque_impl
       : public _Tp_alloc_type
       {
@@ -781,13 +781,19 @@ _GLIBCXX_BEGIN_NAMESPACE_CONTAINER
     public:
       // [23.2.1.1] construct/copy/destroy
       // (assign() and get_allocator() are also listed in this section)
+
+      /**
+       *  @brief  Creates a %deque with no elements.
+       */
+      deque() : _Base() { }
+
       /**
        *  @brief  Creates a %deque with no elements.
        *  @param  __a  An allocator object.
        */
       explicit
-      deque(const allocator_type& __a = allocator_type())
-      : _Base(__a) { }
+      deque(const allocator_type& __a)
+      : _Base(__a, 0) { }
 
 #if __cplusplus >= 201103L
       /**

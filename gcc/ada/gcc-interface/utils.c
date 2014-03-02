@@ -6,7 +6,7 @@
  *                                                                          *
  *                          C Implementation File                           *
  *                                                                          *
- *          Copyright (C) 1992-2013, Free Software Foundation, Inc.         *
+ *          Copyright (C) 1992-2014, Free Software Foundation, Inc.         *
  *                                                                          *
  * GNAT is free software;  you can  redistribute it  and/or modify it under *
  * terms of the  GNU General Public License as published  by the Free Soft- *
@@ -28,6 +28,10 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "attribs.h"
+#include "varasm.h"
 #include "flags.h"
 #include "toplev.h"
 #include "diagnostic-core.h"
@@ -232,6 +236,7 @@ static tree compute_related_constant (tree, tree);
 static tree split_plus (tree, tree *);
 static tree float_type_for_precision (int, enum machine_mode);
 static tree convert_to_fat_pointer (tree, tree);
+static unsigned int scale_by_factor_of (tree, unsigned int);
 static bool potential_alignment_gap (tree, tree, tree);
 
 /* Initialize data structures of the utils.c module.  */
@@ -531,6 +536,22 @@ gnat_zaplevel (void)
   free_binding_level = level;
 }
 
+/* Set the context of TYPE and its parallel types (if any) to CONTEXT.  */
+
+static void
+gnat_set_type_context (tree type, tree context)
+{
+  tree decl = TYPE_STUB_DECL (type);
+
+  TYPE_CONTEXT (type) = context;
+
+  while (decl && DECL_PARALLEL_TYPE (decl))
+    {
+      TYPE_CONTEXT (DECL_PARALLEL_TYPE (decl)) = context;
+      decl = TYPE_STUB_DECL (DECL_PARALLEL_TYPE (decl));
+    }
+}
+
 /* Record DECL as belonging to the current lexical scope and use GNAT_NODE
    for location information and flag propagation.  */
 
@@ -612,7 +633,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	      if (TREE_CODE (t) == POINTER_TYPE)
 		TYPE_NEXT_PTR_TO (t) = tt;
 	      TYPE_NAME (tt) = DECL_NAME (decl);
-	      TYPE_CONTEXT (tt) = DECL_CONTEXT (decl);
+	      gnat_set_type_context (tt, DECL_CONTEXT (decl));
 	      TYPE_STUB_DECL (tt) = TYPE_STUB_DECL (t);
 	      DECL_ORIGINAL_TYPE (decl) = tt;
 	    }
@@ -622,7 +643,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	  /* We need a variant for the placeholder machinery to work.  */
 	  tree tt = build_variant_type_copy (t);
 	  TYPE_NAME (tt) = decl;
-	  TYPE_CONTEXT (tt) = DECL_CONTEXT (decl);
+	  gnat_set_type_context (tt, DECL_CONTEXT (decl));
 	  TREE_USED (tt) = TREE_USED (t);
 	  TREE_TYPE (decl) = tt;
 	  if (DECL_ORIGINAL_TYPE (TYPE_NAME (t)))
@@ -644,7 +665,7 @@ gnat_pushdecl (tree decl, Node_Id gnat_node)
 	  if (!(TYPE_NAME (t) && TREE_CODE (TYPE_NAME (t)) == TYPE_DECL))
 	    {
 	      TYPE_NAME (t) = decl;
-	      TYPE_CONTEXT (t) = DECL_CONTEXT (decl);
+	      gnat_set_type_context (t, DECL_CONTEXT (decl));
 	    }
     }
 }
@@ -754,7 +775,7 @@ make_aligning_type (tree type, unsigned int align, tree size,
 tree
 make_packable_type (tree type, bool in_record)
 {
-  unsigned HOST_WIDE_INT size = tree_low_cst (TYPE_SIZE (type), 1);
+  unsigned HOST_WIDE_INT size = tree_to_uhwi (TYPE_SIZE (type));
   unsigned HOST_WIDE_INT new_size;
   tree new_type, old_field, field_list = NULL_TREE;
   unsigned int align;
@@ -789,12 +810,12 @@ make_packable_type (tree type, bool in_record)
 
       /* Do not try to shrink the size if the RM size is not constant.  */
       if (TYPE_CONTAINS_TEMPLATE_P (type)
-	  || !host_integerp (TYPE_ADA_SIZE (type), 1))
+	  || !tree_fits_uhwi_p (TYPE_ADA_SIZE (type)))
 	return type;
 
       /* Round the RM size up to a unit boundary to get the minimal size
 	 for a BLKmode record.  Give up if it's already the size.  */
-      new_size = TREE_INT_CST_LOW (TYPE_ADA_SIZE (type));
+      new_size = tree_to_uhwi (TYPE_ADA_SIZE (type));
       new_size = (new_size + BITS_PER_UNIT - 1) & -BITS_PER_UNIT;
       if (new_size == size)
 	return type;
@@ -815,7 +836,7 @@ make_packable_type (tree type, bool in_record)
 
       if (RECORD_OR_UNION_TYPE_P (new_field_type)
 	  && !TYPE_FAT_POINTER_P (new_field_type)
-	  && host_integerp (TYPE_SIZE (new_field_type), 1))
+	  && tree_fits_uhwi_p (TYPE_SIZE (new_field_type)))
 	new_field_type = make_packable_type (new_field_type, true);
 
       /* However, for the last field in a not already packed record type
@@ -848,8 +869,9 @@ make_packable_type (tree type, bool in_record)
 
   finish_record_type (new_type, nreverse (field_list), 2, false);
   relate_alias_sets (new_type, type, ALIAS_SET_COPY);
-  SET_DECL_PARALLEL_TYPE (TYPE_STUB_DECL (new_type),
-			  DECL_PARALLEL_TYPE (TYPE_STUB_DECL (type)));
+  if (TYPE_STUB_DECL (type))
+    SET_DECL_PARALLEL_TYPE (TYPE_STUB_DECL (new_type),
+			    DECL_PARALLEL_TYPE (TYPE_STUB_DECL (type)));
 
   /* If this is a padding record, we never want to make the size smaller
      than what was specified.  For QUAL_UNION_TYPE, also copy the size.  */
@@ -898,10 +920,10 @@ make_type_from_size (tree type, tree size_tree, bool for_biased)
 
   /* If size indicates an error, just return TYPE to avoid propagating
      the error.  Likewise if it's too large to represent.  */
-  if (!size_tree || !host_integerp (size_tree, 1))
+  if (!size_tree || !tree_fits_uhwi_p (size_tree))
     return type;
 
-  size = tree_low_cst (size_tree, 1);
+  size = tree_to_uhwi (size_tree);
 
   switch (TREE_CODE (type))
     {
@@ -1028,6 +1050,7 @@ maybe_pad_type (tree type, tree size, unsigned int align,
 		bool is_user_type, bool definition, bool set_rm_size)
 {
   tree orig_size = TYPE_SIZE (type);
+  unsigned int orig_align = TYPE_ALIGN (type);
   tree record, field;
 
   /* If TYPE is a padded type, see if it agrees with any size and alignment
@@ -1038,21 +1061,18 @@ maybe_pad_type (tree type, tree size, unsigned int align,
   if (TYPE_IS_PADDING_P (type))
     {
       if ((!size
-	   || operand_equal_p (round_up (size,
-					 MAX (align, TYPE_ALIGN (type))),
-			       round_up (TYPE_SIZE (type),
-					 MAX (align, TYPE_ALIGN (type))),
-			       0))
-	  && (align == 0 || align == TYPE_ALIGN (type)))
+	   || operand_equal_p (round_up (size, orig_align), orig_size, 0))
+	  && (align == 0 || align == orig_align))
 	return type;
 
       if (!size)
-	size = TYPE_SIZE (type);
+	size = orig_size;
       if (align == 0)
-	align = TYPE_ALIGN (type);
+	align = orig_align;
 
       type = TREE_TYPE (TYPE_FIELDS (type));
       orig_size = TYPE_SIZE (type);
+      orig_align = TYPE_ALIGN (type);
     }
 
   /* If the size is either not being changed or is being made smaller (which
@@ -1065,7 +1085,7 @@ maybe_pad_type (tree type, tree size, unsigned int align,
 	      && tree_int_cst_lt (size, orig_size))))
     size = NULL_TREE;
 
-  if (align == TYPE_ALIGN (type))
+  if (align == orig_align)
     align = 0;
 
   if (align == 0 && !size)
@@ -1089,7 +1109,7 @@ maybe_pad_type (tree type, tree size, unsigned int align,
   if (Present (gnat_entity))
     TYPE_NAME (record) = create_concat_name (gnat_entity, "PAD");
 
-  TYPE_ALIGN (record) = align;
+  TYPE_ALIGN (record) = align ? align : orig_align;
   TYPE_SIZE (record) = size ? size : orig_size;
   TYPE_SIZE_UNIT (record)
     = convert (sizetype,
@@ -1692,93 +1712,74 @@ rest_of_record_type_compilation (tree record_type)
       TYPE_SIZE_UNIT (new_record_type)
 	= size_int (TYPE_ALIGN (record_type) / BITS_PER_UNIT);
 
-      /* Now scan all the fields, replacing each field with a new
-	 field corresponding to the new encoding.  */
+      /* Now scan all the fields, replacing each field with a new field
+	 corresponding to the new encoding.  */
       for (old_field = TYPE_FIELDS (record_type); old_field;
 	   old_field = DECL_CHAIN (old_field))
 	{
 	  tree field_type = TREE_TYPE (old_field);
 	  tree field_name = DECL_NAME (old_field);
-	  tree new_field;
 	  tree curpos = bit_position (old_field);
+	  tree pos, new_field;
 	  bool var = false;
 	  unsigned int align = 0;
-	  tree pos;
+
+	  /* We're going to do some pattern matching below so remove as many
+	     conversions as possible.  */
+	  curpos = remove_conversions (curpos, true);
 
 	  /* See how the position was modified from the last position.
 
-	  There are two basic cases we support: a value was added
-	  to the last position or the last position was rounded to
-	  a boundary and they something was added.  Check for the
-	  first case first.  If not, see if there is any evidence
-	  of rounding.  If so, round the last position and try
-	  again.
+	     There are two basic cases we support: a value was added
+	     to the last position or the last position was rounded to
+	     a boundary and they something was added.  Check for the
+	     first case first.  If not, see if there is any evidence
+	     of rounding.  If so, round the last position and retry.
 
-	  If this is a union, the position can be taken as zero. */
-
-	  /* Some computations depend on the shape of the position expression,
-	     so strip conversions to make sure it's exposed.  */
-	  curpos = remove_conversions (curpos, true);
-
+	     If this is a union, the position can be taken as zero.  */
 	  if (TREE_CODE (new_record_type) == UNION_TYPE)
-	    pos = bitsize_zero_node, align = 0;
+	    pos = bitsize_zero_node;
 	  else
 	    pos = compute_related_constant (curpos, last_pos);
 
-	  if (!pos && TREE_CODE (curpos) == MULT_EXPR
-	      && host_integerp (TREE_OPERAND (curpos, 1), 1))
+	  if (!pos
+	      && TREE_CODE (curpos) == MULT_EXPR
+	      && tree_fits_uhwi_p (TREE_OPERAND (curpos, 1)))
 	    {
 	      tree offset = TREE_OPERAND (curpos, 0);
-	      align = tree_low_cst (TREE_OPERAND (curpos, 1), 1);
-
-	      /* An offset which is a bitwise AND with a mask increases the
-		 alignment according to the number of trailing zeros.  */
-	      offset = remove_conversions (offset, true);
-	      if (TREE_CODE (offset) == BIT_AND_EXPR
-		  && TREE_CODE (TREE_OPERAND (offset, 1)) == INTEGER_CST)
-		{
-		  unsigned HOST_WIDE_INT mask
-		    = TREE_INT_CST_LOW (TREE_OPERAND (offset, 1));
-		  unsigned int i;
-
-		  for (i = 0; i < HOST_BITS_PER_WIDE_INT; i++)
-		    {
-		      if (mask & 1)
-			break;
-		      mask >>= 1;
-		      align *= 2;
-		    }
-		}
-
-	      pos = compute_related_constant (curpos,
-					      round_up (last_pos, align));
+	      align = tree_to_uhwi (TREE_OPERAND (curpos, 1));
+	      align = scale_by_factor_of (offset, align);
+	      last_pos = round_up (last_pos, align);
+	      pos = compute_related_constant (curpos, last_pos);
 	    }
-	  else if (!pos && TREE_CODE (curpos) == PLUS_EXPR
-		   && TREE_CODE (TREE_OPERAND (curpos, 1)) == INTEGER_CST
+	  else if (!pos
+		   && TREE_CODE (curpos) == PLUS_EXPR
+		   && tree_fits_uhwi_p (TREE_OPERAND (curpos, 1))
 		   && TREE_CODE (TREE_OPERAND (curpos, 0)) == MULT_EXPR
-		   && host_integerp (TREE_OPERAND
-				     (TREE_OPERAND (curpos, 0), 1),
-				     1))
+		   && tree_fits_uhwi_p
+		      (TREE_OPERAND (TREE_OPERAND (curpos, 0), 1)))
 	    {
+	      tree offset = TREE_OPERAND (TREE_OPERAND (curpos, 0), 0);
+	      unsigned HOST_WIDE_INT addend
+	        = tree_to_uhwi (TREE_OPERAND (curpos, 1));
 	      align
-		= tree_low_cst
-		(TREE_OPERAND (TREE_OPERAND (curpos, 0), 1), 1);
-	      pos = compute_related_constant (curpos,
-					      round_up (last_pos, align));
+		= tree_to_uhwi (TREE_OPERAND (TREE_OPERAND (curpos, 0), 1));
+	      align = scale_by_factor_of (offset, align);
+	      align = MIN (align, addend & -addend);
+	      last_pos = round_up (last_pos, align);
+	      pos = compute_related_constant (curpos, last_pos);
 	    }
-	  else if (potential_alignment_gap (prev_old_field, old_field,
-					    pos))
+	  else if (potential_alignment_gap (prev_old_field, old_field, pos))
 	    {
 	      align = TYPE_ALIGN (field_type);
-	      pos = compute_related_constant (curpos,
-					      round_up (last_pos, align));
+	      last_pos = round_up (last_pos, align);
+	      pos = compute_related_constant (curpos, last_pos);
 	    }
 
 	  /* If we can't compute a position, set it to zero.
 
-	  ??? We really should abort here, but it's too much work
-	  to get this correct for all cases.  */
-
+	     ??? We really should abort here, but it's too much work
+	     to get this correct for all cases.  */
 	  if (!pos)
 	    pos = bitsize_zero_node;
 
@@ -2061,8 +2062,7 @@ create_type_stub_decl (tree type_name, tree type)
   /* Using a named TYPE_DECL ensures that a type name marker is emitted in
      STABS while setting DECL_ARTIFICIAL ensures that no DW_TAG_typedef is
      emitted in DWARF.  */
-  tree type_decl = build_decl (input_location,
-			       TYPE_DECL, type_name, type);
+  tree type_decl = build_decl (input_location, TYPE_DECL, type_name, type);
   DECL_ARTIFICIAL (type_decl) = 1;
   TYPE_ARTIFICIAL (type) = 1;
   return type_decl;
@@ -2379,8 +2379,8 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
 	 that an alignment of 0 is taken as infinite.  */
       unsigned int known_align;
 
-      if (host_integerp (pos, 1))
-	known_align = tree_low_cst (pos, 1) & - tree_low_cst (pos, 1);
+      if (tree_fits_uhwi_p (pos))
+	known_align = tree_to_uhwi (pos) & - tree_to_uhwi (pos);
       else
 	known_align = BITS_PER_UNIT;
 
@@ -2390,7 +2390,7 @@ create_field_decl (tree field_name, tree field_type, tree record_type,
 
       layout_decl (field_decl, known_align);
       SET_DECL_OFFSET_ALIGN (field_decl,
-			     host_integerp (pos, 1) ? BIGGEST_ALIGNMENT
+			     tree_fits_uhwi_p (pos) ? BIGGEST_ALIGNMENT
 			     : BITS_PER_UNIT);
       pos_from_bit (&DECL_FIELD_OFFSET (field_decl),
 		    &DECL_FIELD_BIT_OFFSET (field_decl),
@@ -2550,14 +2550,40 @@ invalidate_global_renaming_pointers (void)
 bool
 value_factor_p (tree value, HOST_WIDE_INT factor)
 {
-  if (host_integerp (value, 1))
-    return tree_low_cst (value, 1) % factor == 0;
+  if (tree_fits_uhwi_p (value))
+    return tree_to_uhwi (value) % factor == 0;
 
   if (TREE_CODE (value) == MULT_EXPR)
     return (value_factor_p (TREE_OPERAND (value, 0), factor)
             || value_factor_p (TREE_OPERAND (value, 1), factor));
 
   return false;
+}
+
+/* Return VALUE scaled by the biggest power-of-2 factor of EXPR.  */
+
+static unsigned int
+scale_by_factor_of (tree expr, unsigned int value)
+{
+  expr = remove_conversions (expr, true);
+
+  /* An expression which is a bitwise AND with a mask has a power-of-2 factor
+     corresponding to the number of trailing zeros of the mask.  */
+  if (TREE_CODE (expr) == BIT_AND_EXPR
+      && TREE_CODE (TREE_OPERAND (expr, 1)) == INTEGER_CST)
+    {
+      unsigned HOST_WIDE_INT mask = TREE_INT_CST_LOW (TREE_OPERAND (expr, 1));
+      unsigned int i = 0;
+
+      while ((mask & 1) == 0 && i < HOST_BITS_PER_WIDE_INT)
+	{
+	  mask >>= 1;
+	  value *= 2;
+	  i++;
+	}
+    }
+
+  return value;
 }
 
 /* Given two consecutive field decls PREV_FIELD and CURR_FIELD, return true
@@ -2584,16 +2610,16 @@ potential_alignment_gap (tree prev_field, tree curr_field, tree offset)
   /* If the distance between the end of prev_field and the beginning of
      curr_field is constant, then there is a gap if the value of this
      constant is not null. */
-  if (offset && host_integerp (offset, 1))
+  if (offset && tree_fits_uhwi_p (offset))
     return !integer_zerop (offset);
 
   /* If the size and position of the previous field are constant,
      then check the sum of this size and position. There will be a gap
      iff it is not multiple of the current field alignment. */
-  if (host_integerp (DECL_SIZE (prev_field), 1)
-      && host_integerp (bit_position (prev_field), 1))
-    return ((tree_low_cst (bit_position (prev_field), 1)
-	     + tree_low_cst (DECL_SIZE (prev_field), 1))
+  if (tree_fits_uhwi_p (DECL_SIZE (prev_field))
+      && tree_fits_uhwi_p (bit_position (prev_field)))
+    return ((tree_to_uhwi (bit_position (prev_field))
+	     + tree_to_uhwi (DECL_SIZE (prev_field)))
 	    % DECL_ALIGN (curr_field) != 0);
 
   /* If both the position and size of the previous field are multiples
@@ -3250,7 +3276,7 @@ build_vms_descriptor32 (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
       if (TYPE_VAX_FLOATING_POINT_P (type))
-	switch (tree_low_cst (TYPE_DIGITS_VALUE (type), 1))
+	switch (tree_to_uhwi (TYPE_DIGITS_VALUE (type)))
 	  {
 	  case 6:
 	    dtype = 10;
@@ -3290,7 +3316,7 @@ build_vms_descriptor32 (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
     case COMPLEX_TYPE:
       if (TREE_CODE (TREE_TYPE (type)) == INTEGER_TYPE
 	  && TYPE_VAX_FLOATING_POINT_P (type))
-	switch (tree_low_cst (TYPE_DIGITS_VALUE (type), 1))
+	switch (tree_to_uhwi (TYPE_DIGITS_VALUE (type)))
 	  {
 	  case 6:
 	    dtype = 12;
@@ -3551,7 +3577,7 @@ build_vms_descriptor (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
     case ENUMERAL_TYPE:
     case BOOLEAN_TYPE:
       if (TYPE_VAX_FLOATING_POINT_P (type))
-	switch (tree_low_cst (TYPE_DIGITS_VALUE (type), 1))
+	switch (tree_to_uhwi (TYPE_DIGITS_VALUE (type)))
 	  {
 	  case 6:
 	    dtype = 10;
@@ -3591,7 +3617,7 @@ build_vms_descriptor (tree type, Mechanism_Type mech, Entity_Id gnat_entity)
     case COMPLEX_TYPE:
       if (TREE_CODE (TREE_TYPE (type)) == INTEGER_TYPE
 	  && TYPE_VAX_FLOATING_POINT_P (type))
-	switch (tree_low_cst (TYPE_DIGITS_VALUE (type), 1))
+	switch (tree_to_uhwi (TYPE_DIGITS_VALUE (type)))
 	  {
 	  case 6:
 	    dtype = 12;
@@ -4326,7 +4352,7 @@ convert_to_fat_pointer (tree type, tree expr)
   tree template_type = TREE_TYPE (TREE_TYPE (DECL_CHAIN (TYPE_FIELDS (type))));
   tree p_array_type = TREE_TYPE (TYPE_FIELDS (type));
   tree etype = TREE_TYPE (expr);
-  tree template_tree;
+  tree template_addr;
   vec<constructor_elt, va_gc> *v;
   vec_alloc (v, 2);
 
@@ -4369,31 +4395,43 @@ convert_to_fat_pointer (tree type, tree expr)
       tree field = TYPE_FIELDS (TREE_TYPE (etype));
 
       expr = gnat_protect_expr (expr);
-      if (TREE_CODE (expr) == ADDR_EXPR)
-	expr = TREE_OPERAND (expr, 0);
-      else
+
+      /* If we have a TYPE_UNCONSTRAINED_ARRAY attached to the RECORD_TYPE,
+	 the thin pointer value has been shifted so we shift it back to get
+	 the template address.  */
+      if (TYPE_UNCONSTRAINED_ARRAY (TREE_TYPE (etype)))
 	{
-	  /* If we have a TYPE_UNCONSTRAINED_ARRAY attached to the RECORD_TYPE,
-	     the thin pointer value has been shifted so we first need to shift
-	     it back to get the template address.  */
-	  if (TYPE_UNCONSTRAINED_ARRAY (TREE_TYPE (etype)))
-	    expr
-	      = build_binary_op (POINTER_PLUS_EXPR, etype, expr,
-				 fold_build1 (NEGATE_EXPR, sizetype,
-					      byte_position
-					      (DECL_CHAIN (field))));
-	  expr = build1 (INDIRECT_REF, TREE_TYPE (etype), expr);
+	  template_addr
+	    = build_binary_op (POINTER_PLUS_EXPR, etype, expr,
+			       fold_build1 (NEGATE_EXPR, sizetype,
+					    byte_position
+					    (DECL_CHAIN (field))));
+	  template_addr
+	    = fold_convert (TREE_TYPE (DECL_CHAIN (TYPE_FIELDS (type))),
+			    template_addr);
 	}
 
-      template_tree = build_component_ref (expr, NULL_TREE, field, false);
-      expr = build_unary_op (ADDR_EXPR, NULL_TREE,
-			     build_component_ref (expr, NULL_TREE,
-						  DECL_CHAIN (field), false));
+      /* Otherwise we explicitly take the address of the fields.  */
+      else
+	{
+	  expr = build_unary_op (INDIRECT_REF, NULL_TREE, expr);
+	  template_addr
+	    = build_unary_op (ADDR_EXPR, NULL_TREE,
+			      build_component_ref (expr, NULL_TREE, field,
+						   false));
+	  expr = build_unary_op (ADDR_EXPR, NULL_TREE,
+				 build_component_ref (expr, NULL_TREE,
+						      DECL_CHAIN (field),
+						      false));
+	}
     }
 
   /* Otherwise, build the constructor for the template.  */
   else
-    template_tree = build_template (template_type, TREE_TYPE (etype), expr);
+    template_addr
+      = build_unary_op (ADDR_EXPR, NULL_TREE,
+			build_template (template_type, TREE_TYPE (etype),
+					expr));
 
   /* The final result is a constructor for the fat pointer.
 
@@ -4407,11 +4445,8 @@ convert_to_fat_pointer (tree type, tree expr)
 
      Note that the call to "build_template" above is still fine because it
      will only refer to the provided TEMPLATE_TYPE in this case.  */
-  CONSTRUCTOR_APPEND_ELT (v, TYPE_FIELDS (type),
-			  convert (p_array_type, expr));
-  CONSTRUCTOR_APPEND_ELT (v, DECL_CHAIN (TYPE_FIELDS (type)),
-			  build_unary_op (ADDR_EXPR, NULL_TREE,
-					  template_tree));
+  CONSTRUCTOR_APPEND_ELT (v, TYPE_FIELDS (type), convert (p_array_type, expr));
+  CONSTRUCTOR_APPEND_ELT (v, DECL_CHAIN (TYPE_FIELDS (type)), template_addr);
   return gnat_build_constructor (type, v);
 }
 
@@ -4598,7 +4633,7 @@ convert (tree type, tree expr)
       break;
 
     case VECTOR_CST:
-      /* If we are converting a VECTOR_CST to a mere variant type, just make
+      /* If we are converting a VECTOR_CST to a mere type variant, just make
 	 a new one in the proper type.  */
       if (code == ecode && gnat_types_compatible_p (type, etype))
 	{
@@ -4608,9 +4643,15 @@ convert (tree type, tree expr)
 	}
 
     case CONSTRUCTOR:
-      /* If we are converting a CONSTRUCTOR to a mere variant type, just make
-	 a new one in the proper type.  */
-      if (code == ecode && gnat_types_compatible_p (type, etype))
+      /* If we are converting a CONSTRUCTOR to a mere type variant, or to
+	 another padding type around the same type, just make a new one in
+	 the proper type.  */
+      if (code == ecode
+	  && (gnat_types_compatible_p (type, etype)
+	      || (code == RECORD_TYPE
+		  && TYPE_PADDING_P (type) && TYPE_PADDING_P (etype)
+		  && TREE_TYPE (TYPE_FIELDS (type))
+		     == TREE_TYPE (TYPE_FIELDS (etype)))))
 	{
 	  expr = copy_node (expr);
 	  TREE_TYPE (expr) = type;
@@ -4641,13 +4682,17 @@ convert (tree type, tree expr)
 
 	  FOR_EACH_CONSTRUCTOR_ELT(e, idx, index, value)
 	    {
-	      /* We expect only simple constructors.  */
-	      if (!SAME_FIELD_P (index, efield))
-		break;
+	      /* Skip the missing fields in the CONSTRUCTOR.  */
+	      while (efield && field && !SAME_FIELD_P (efield, index))
+	        {
+		  efield = DECL_CHAIN (efield);
+		  field = DECL_CHAIN (field);
+		}
 	      /* The field must be the same.  */
-	      if (!SAME_FIELD_P (efield, field))
+	      if (!(efield && field && SAME_FIELD_P (efield, field)))
 		break;
-	      constructor_elt elt = {field, convert (TREE_TYPE (field), value)};
+	      constructor_elt elt
+	        = {field, convert (TREE_TYPE (field), value)};
 	      v->quick_push (elt);
 
 	      /* If packing has made this field a bitfield and the input
@@ -5293,10 +5338,9 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       SET_TYPE_RM_SIZE (field_type, TYPE_RM_SIZE (type));
 
       field = create_field_decl (get_identifier ("OBJ"), field_type, rec_type,
-				 NULL_TREE, NULL_TREE, 1, 0);
+				 NULL_TREE, bitsize_zero_node, 1, 0);
 
-      TYPE_FIELDS (rec_type) = field;
-      layout_type (rec_type);
+      finish_record_type (rec_type, field, 1, false);
 
       expr = unchecked_convert (rec_type, expr, notrunc_p);
       expr = build_component_ref (expr, NULL_TREE, field, false);
@@ -5324,10 +5368,9 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
       SET_TYPE_RM_SIZE (field_type, TYPE_RM_SIZE (etype));
 
       field = create_field_decl (get_identifier ("OBJ"), field_type, rec_type,
-				 NULL_TREE, NULL_TREE, 1, 0);
+				 NULL_TREE, bitsize_zero_node, 1, 0);
 
-      TYPE_FIELDS (rec_type) = field;
-      layout_type (rec_type);
+      finish_record_type (rec_type, field, 1, false);
 
       expr = fold_build1 (NOP_EXPR, field_type, expr);
       CONSTRUCTOR_APPEND_ELT (v, field, expr);
@@ -5384,6 +5427,19 @@ unchecked_convert (tree type, tree expr, bool notrunc_p)
 				       etype))
     expr = convert (type, expr);
 
+  /* If we are converting a CONSTRUCTOR to a more aligned RECORD_TYPE, bump
+     the alignment of the CONSTRUCTOR to speed up the copy operation.  */
+  else if (TREE_CODE (expr) == CONSTRUCTOR
+	   && code == RECORD_TYPE
+	   && TYPE_ALIGN (etype) < TYPE_ALIGN (type))
+    {
+      expr = convert (maybe_pad_type (etype, NULL_TREE, TYPE_ALIGN (type),
+				      Empty, false, false, false, true),
+		      expr);
+      return unchecked_convert (type, expr, notrunc_p);
+    }
+
+  /* Otherwise, just build a VIEW_CONVERT_EXPR of the expression.  */
   else
     {
       expr = maybe_unconstrained_array (expr);
@@ -5609,7 +5665,7 @@ gnat_write_global_declarations (void)
       TREE_STATIC (dummy_global) = 1;
       TREE_ASM_WRITTEN (dummy_global) = 1;
       node = varpool_node_for_decl (dummy_global);
-      node->symbol.force_output = 1;
+      node->force_output = 1;
 
       while (!types_used_by_cur_var_decl->is_empty ())
 	{
@@ -5765,6 +5821,7 @@ enum c_builtin_type
 #define DEF_FUNCTION_TYPE_5(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5) NAME,
 #define DEF_FUNCTION_TYPE_6(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6) NAME,
 #define DEF_FUNCTION_TYPE_7(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7) NAME,
+#define DEF_FUNCTION_TYPE_8(NAME, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7, ARG8) NAME,
 #define DEF_FUNCTION_TYPE_VAR_0(NAME, RETURN) NAME,
 #define DEF_FUNCTION_TYPE_VAR_1(NAME, RETURN, ARG1) NAME,
 #define DEF_FUNCTION_TYPE_VAR_2(NAME, RETURN, ARG1, ARG2) NAME,
@@ -5783,6 +5840,7 @@ enum c_builtin_type
 #undef DEF_FUNCTION_TYPE_5
 #undef DEF_FUNCTION_TYPE_6
 #undef DEF_FUNCTION_TYPE_7
+#undef DEF_FUNCTION_TYPE_8
 #undef DEF_FUNCTION_TYPE_VAR_0
 #undef DEF_FUNCTION_TYPE_VAR_1
 #undef DEF_FUNCTION_TYPE_VAR_2
@@ -5878,6 +5936,10 @@ install_builtin_function_types (void)
 #define DEF_FUNCTION_TYPE_7(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
 			    ARG6, ARG7)					\
   def_fn_type (ENUM, RETURN, 0, 7, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6, ARG7);
+#define DEF_FUNCTION_TYPE_8(ENUM, RETURN, ARG1, ARG2, ARG3, ARG4, ARG5, \
+			    ARG6, ARG7, ARG8)				\
+  def_fn_type (ENUM, RETURN, 0, 8, ARG1, ARG2, ARG3, ARG4, ARG5, ARG6,	\
+	       ARG7, ARG8);
 #define DEF_FUNCTION_TYPE_VAR_0(ENUM, RETURN) \
   def_fn_type (ENUM, RETURN, 1, 0);
 #define DEF_FUNCTION_TYPE_VAR_1(ENUM, RETURN, ARG1) \
@@ -6272,7 +6334,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
 
   size = TREE_VALUE (args);
 
-  if (!host_integerp (size, 1))
+  if (!tree_fits_uhwi_p (size))
     {
       warning (OPT_Wattributes, "%qs attribute ignored",
 	       IDENTIFIER_POINTER (name));
@@ -6280,7 +6342,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
     }
 
   /* Get the vector size (in bytes).  */
-  vecsize = tree_low_cst (size, 1);
+  vecsize = tree_to_uhwi (size);
 
   /* We need to provide for vector pointers, vector arrays, and
      functions returning vectors.  For example:
@@ -6304,7 +6366,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
       || (!SCALAR_FLOAT_MODE_P (orig_mode)
 	  && GET_MODE_CLASS (orig_mode) != MODE_INT
 	  && !ALL_SCALAR_FIXED_POINT_MODE_P (orig_mode))
-      || !host_integerp (TYPE_SIZE_UNIT (type), 1)
+      || !tree_fits_uhwi_p (TYPE_SIZE_UNIT (type))
       || TREE_CODE (type) == BOOLEAN_TYPE)
     {
       error ("invalid vector type for attribute %qs",
@@ -6312,7 +6374,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
       return NULL_TREE;
     }
 
-  if (vecsize % tree_low_cst (TYPE_SIZE_UNIT (type), 1))
+  if (vecsize % tree_to_uhwi (TYPE_SIZE_UNIT (type)))
     {
       error ("vector size not an integral multiple of component size");
       return NULL;
@@ -6325,7 +6387,7 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
     }
 
   /* Calculate how many units fit in the vector.  */
-  nunits = vecsize / tree_low_cst (TYPE_SIZE_UNIT (type), 1);
+  nunits = vecsize / tree_to_uhwi (TYPE_SIZE_UNIT (type));
   if (nunits & (nunits - 1))
     {
       error ("number of components of the vector not a power of two");
@@ -6373,7 +6435,7 @@ handle_vector_type_attribute (tree *node, tree name, tree ARG_UNUSED (args),
      bases, and this attribute is for binding implementors, not end-users, so
      we should never get there from legitimate explicit uses.  */
 
-  if (!host_integerp (rep_size, 1))
+  if (!tree_fits_uhwi_p (rep_size))
     return NULL_TREE;
 
   /* Get the element type/mode and check this is something we know
@@ -6388,7 +6450,7 @@ handle_vector_type_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       || (!SCALAR_FLOAT_MODE_P (elem_mode)
 	  && GET_MODE_CLASS (elem_mode) != MODE_INT
 	  && !ALL_SCALAR_FIXED_POINT_MODE_P (elem_mode))
-      || !host_integerp (TYPE_SIZE_UNIT (elem_type), 1))
+      || !tree_fits_uhwi_p (TYPE_SIZE_UNIT (elem_type)))
     {
       error ("invalid element type for attribute %qs",
 	     IDENTIFIER_POINTER (name));
@@ -6397,9 +6459,9 @@ handle_vector_type_attribute (tree *node, tree name, tree ARG_UNUSED (args),
 
   /* Sanity check the vector size and element type consistency.  */
 
-  vec_bytes = tree_low_cst (rep_size, 1);
+  vec_bytes = tree_to_uhwi (rep_size);
 
-  if (vec_bytes % tree_low_cst (TYPE_SIZE_UNIT (elem_type), 1))
+  if (vec_bytes % tree_to_uhwi (TYPE_SIZE_UNIT (elem_type)))
     {
       error ("vector size not an integral multiple of component size");
       return NULL;
@@ -6411,7 +6473,7 @@ handle_vector_type_attribute (tree *node, tree name, tree ARG_UNUSED (args),
       return NULL;
     }
 
-  vec_units = vec_bytes / tree_low_cst (TYPE_SIZE_UNIT (elem_type), 1);
+  vec_units = vec_bytes / tree_to_uhwi (TYPE_SIZE_UNIT (elem_type));
   if (vec_units & (vec_units - 1))
     {
       error ("number of components of the vector not a power of two");

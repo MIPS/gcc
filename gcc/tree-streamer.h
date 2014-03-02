@@ -1,6 +1,6 @@
 /* Data structures and functions for streaming trees.
 
-   Copyright (C) 2011-2013 Free Software Foundation, Inc.
+   Copyright (C) 2011-2014 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@google.com>
 
 This file is part of GCC.
@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #ifndef GCC_TREE_STREAMER_H
 #define GCC_TREE_STREAMER_H
 
-#include "tree.h"
 #include "streamer-hooks.h"
 #include "lto-streamer.h"
 

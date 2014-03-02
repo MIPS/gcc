@@ -225,6 +225,12 @@ case "${enable_shared}" in
   "") shared=no ;;
   *) shared=yes ;;
 esac
+
+# ...unless --enable-host-shared was passed from top-level config:
+if [[ "${enable_host_shared}" = "yes" ]]; then
+  shared=yes
+fi
+
 if [[ "${shared}" != "yes" ]]; then
   PICFLAG=
 fi
@@ -405,7 +411,6 @@ fi
 
 setobjs=
 CHECK=
-target_header_dir=
 if test -n "${with_target_subdir}"; then
 
   # We are being configured as a target library.  AC_REPLACE_FUNCS

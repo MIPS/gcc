@@ -26,10 +26,51 @@
 --  Pragma handling is isolated in a separate package
 --  (logically this processing belongs in chapter 4)
 
-with Namet; use Namet;
-with Types; use Types;
+with Namet;  use Namet;
+with Opt;    use Opt;
+with Snames; use Snames;
+with Types;  use Types;
 
 package Sem_Prag is
+
+   --  The following table lists all pragmas that act as an assertion
+   --  expression.
+
+   Assertion_Expression_Pragma : constant array (Pragma_Id) of Boolean :=
+     (Pragma_Assert               => True,
+      Pragma_Assert_And_Cut       => True,
+      Pragma_Assume               => True,
+      Pragma_Check                => True,
+      Pragma_Contract_Cases       => True,
+      Pragma_Initial_Condition    => True,
+      Pragma_Invariant            => True,
+      Pragma_Loop_Invariant       => True,
+      Pragma_Loop_Variant         => True,
+      Pragma_Post                 => True,
+      Pragma_Post_Class           => True,
+      Pragma_Postcondition        => True,
+      Pragma_Pre                  => True,
+      Pragma_Pre_Class            => True,
+      Pragma_Precondition         => True,
+      Pragma_Predicate            => True,
+      Pragma_Refined_Post         => True,
+      Pragma_Test_Case            => True,
+      Pragma_Type_Invariant       => True,
+      Pragma_Type_Invariant_Class => True,
+      others                      => False);
+
+   --  The following table lists all the implementation-defined pragmas that
+   --  may apply to a body stub (no language defined pragmas apply). The table
+   --  should be synchronized with Aspect_On_Body_Or_Stub_OK in unit Aspects if
+   --  the pragmas below implement an aspect.
+
+   Pragma_On_Body_Or_Stub_OK : constant array (Pragma_Id) of Boolean :=
+     (Pragma_Refined_Depends => True,
+      Pragma_Refined_Global  => True,
+      Pragma_Refined_Post    => True,
+      Pragma_SPARK_Mode      => True,
+      Pragma_Warnings        => True,
+      others                 => False);
 
    -----------------
    -- Subprograms --
@@ -42,26 +83,54 @@ package Sem_Prag is
    --  Perform full analysis and expansion of delayed pragma Contract_Cases
 
    procedure Analyze_Depends_In_Decl_Part (N : Node_Id);
-   --  Perform full analysis of delayed pragma Depends
+   --  Perform full analysis of delayed pragma Depends. This routine is also
+   --  capable of performing basic analysis of pragma Refined_Depends.
+
+   procedure Analyze_External_Property_In_Decl_Part
+     (N        : Node_Id;
+      Expr_Val : out Boolean);
+   --  Perform full analysis of delayed pragmas Async_Readers, Async_Writers,
+   --  Effective_Reads and Effective_Writes. Flag Expr_Val contains the Boolean
+   --  argument of the pragma or a default True if no argument is present.
 
    procedure Analyze_Global_In_Decl_Part (N : Node_Id);
-   --  Perform full analysis of delayed pragma Global
+   --  Perform full analysis of delayed pragma Global. This routine is also
+   --  capable of performing basic analysis of pragma Refind_Global.
 
-   procedure Analyze_PPC_In_Decl_Part (N : Node_Id; S : Entity_Id);
-   --  Special analyze routine for precondition/postcondition pragma that
-   --  appears within a declarative part where the pragma is associated
-   --  with a subprogram specification. N is the pragma node, and S is the
-   --  entity for the related subprogram. This procedure does a preanalysis
-   --  of the expressions in the pragma as "spec expressions" (see section
-   --  in Sem "Handling of Default and Per-Object Expressions...").
+   procedure Analyze_Initial_Condition_In_Decl_Part (N : Node_Id);
+   --  Perform full analysis of delayed pragma Initial_Condition
+
+   procedure Analyze_Initializes_In_Decl_Part (N : Node_Id);
+   --  Perform full analysis of delayed pragma Initializes
+
+   procedure Analyze_Pre_Post_Condition_In_Decl_Part
+     (Prag    : Node_Id;
+      Subp_Id : Entity_Id);
+   --  Perform preanalysis of a [refined] precondition or postcondition that
+   --  appears on a subprogram declaration or body [stub]. Prag denotes the
+   --  pragma, Subp_Id is the entity of the related subprogram. The preanalysis
+   --  of the expression is done as "spec expression" (see section "Handling
+   --  of Default and Per-Object Expressions in Sem).
+
+   procedure Analyze_Refined_Depends_In_Decl_Part (N : Node_Id);
+   --  Preform full analysis of delayed pragma Refined_Depends. This routine
+   --  uses Analyze_Depends_In_Decl_Part as a starting point, then performs
+   --  various consistency checks between Depends and Refined_Depends.
+
+   procedure Analyze_Refined_Global_In_Decl_Part (N : Node_Id);
+   --  Perform full analysis of delayed pragma Refined_Global. This routine
+   --  uses Analyze_Global_In_Decl_Part as a starting point, then performs
+   --  various consistency checks between Global and Refined_Global.
+
+   procedure Analyze_Refined_State_In_Decl_Part (N : Node_Id);
+   --  Perform full analysis of delayed pragma Refined_State
 
    procedure Analyze_Test_Case_In_Decl_Part (N : Node_Id; S : Entity_Id);
-   --  Special analyze routine for contract-case and test-case pragmas that
-   --  appears within a declarative part where the pragma is associated with
-   --  a subprogram specification. N is the pragma node, and S is the entity
-   --  for the related subprogram. This procedure does a preanalysis of the
-   --  expressions in the pragma as "spec expressions" (see section in Sem
-   --  "Handling of Default and Per-Object Expressions...").
+   --  Perform preanalysis of pragma Test_Case that applies to a subprogram
+   --  declaration. Parameter N denotes the pragma, S is the entity of the
+   --  related subprogram. The preanalysis of the expression is done as "spec
+   --  expression" (see section "Handling of Default and Per-Object Expressions
+   --  in Sem).
 
    procedure Check_Applicable_Policy (N : Node_Id);
    --  N is either an N_Aspect or an N_Pragma node. There are two cases. If
@@ -85,6 +154,22 @@ package Sem_Prag is
    --  whether -gnata was used, if so, then the call has no effect, otherwise
    --  Is_Ignored (but not Is_Disabled) is set True.
 
+   procedure Check_External_Properties
+     (Item : Node_Id;
+      AR   : Boolean;
+      AW   : Boolean;
+      ER   : Boolean;
+      EW   : Boolean);
+   --  Flags AR, AW, ER and EW denote the static values of external properties
+   --  Async_Readers, Async_Writers, Effective_Reads and Effective_Writes. Item
+   --  is the related variable or state. Ensure legality of the combination and
+   --  issue an error for an illegal combination.
+
+   procedure Check_Missing_Part_Of (Item_Id : Entity_Id);
+   --  Determine whether the placement within the state space of an abstract
+   --  state, variable or package instantiation denoted by Item_Id requires the
+   --  use of indicator/option Part_Of. If this is the case, emit an error.
+
    function Delay_Config_Pragma_Analyze (N : Node_Id) return Boolean;
    --  N is a pragma appearing in a configuration pragma file. Most such
    --  pragmas are analyzed when the file is read, before parsing and analyzing
@@ -95,8 +180,8 @@ package Sem_Prag is
    --  True have their analysis delayed until after the main program is parsed
    --  and analyzed.
 
-   function Get_SPARK_Mode_Id (N : Node_Id) return SPARK_Mode_Id;
-   --  Given a pragma SPARK_Mode node, return the corresponding mode id
+   function Get_SPARK_Mode_From_Pragma (N : Node_Id) return SPARK_Mode_Type;
+   --  Given a pragma SPARK_Mode node, return corresponding mode id
 
    procedure Initialize;
    --  Initializes data structures used for pragma processing. Must be called
@@ -154,6 +239,15 @@ package Sem_Prag is
    --  special issues regarding pragmas. In particular, we have to deal with
    --  Suppress_All at this stage, since it can appear after the unit instead
    --  of before (actually we allow it to appear anywhere).
+
+   procedure Relocate_Pragmas_To_Body
+     (Subp_Body   : Node_Id;
+      Target_Body : Node_Id := Empty);
+   --  Resocate all pragmas that follow and apply to subprogram body Subp_Body
+   --  to its own declaration list. Candidate pragmas are classified in table
+   --  Pragma_On_Body_Or_Stub_OK. If Target_Body is set, the pragma are moved
+   --  to the declarations of Target_Body. This formal should be set when
+   --  dealing with subprogram body stubs or expression functions.
 
    procedure Set_Encoded_Interface_Name (E : Entity_Id; S : Node_Id);
    --  This routine is used to set an encoded interface name. The node S is an

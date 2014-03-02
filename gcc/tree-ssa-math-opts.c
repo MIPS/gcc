@@ -1,5 +1,5 @@
 /* Global, SSA-based optimizations using mathematical identities.
-   Copyright (C) 2005-2013 Free Software Foundation, Inc.
+   Copyright (C) 2005-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -90,10 +90,27 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "flags.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "gimple-expr.h"
+#include "is-a.h"
+#include "gimple.h"
+#include "gimple-iterator.h"
+#include "gimplify-me.h"
+#include "stor-layout.h"
+#include "gimple-ssa.h"
+#include "tree-cfg.h"
+#include "tree-phinodes.h"
+#include "ssa-iterators.h"
+#include "stringpool.h"
+#include "tree-ssanames.h"
+#include "expr.h"
+#include "tree-dfa.h"
 #include "tree-ssa.h"
 #include "tree-pass.h"
 #include "alloc-pool.h"
-#include "basic-block.h"
 #include "target.h"
 #include "gimple-pretty-print.h"
 
@@ -276,7 +293,7 @@ register_division_in (basic_block bb)
   if (!occ)
     {
       occ = occ_new (bb, NULL);
-      insert_bb (occ, ENTRY_BLOCK_PTR, &occ_head);
+      insert_bb (occ, ENTRY_BLOCK_PTR_FOR_FN (cfun), &occ_head);
     }
 
   occ->bb_has_division = true;
@@ -503,14 +520,14 @@ execute_cse_reciprocals (void)
 
   occ_pool = create_alloc_pool ("dominators for recip",
 				sizeof (struct occurrence),
-				n_basic_blocks / 3 + 1);
+				n_basic_blocks_for_fn (cfun) / 3 + 1);
 
   memset (&reciprocal_stats, 0, sizeof (reciprocal_stats));
   calculate_dominance_info (CDI_DOMINATORS);
   calculate_dominance_info (CDI_POST_DOMINATORS);
 
 #ifdef ENABLE_CHECKING
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     gcc_assert (!bb->aux);
 #endif
 
@@ -523,7 +540,7 @@ execute_cse_reciprocals (void)
 	  execute_cse_reciprocals_1 (NULL, name);
       }
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       gimple phi;
@@ -608,7 +625,7 @@ execute_cse_reciprocals (void)
 		  if (fail)
 		    continue;
 
-		  gimple_replace_lhs (stmt1, arg1);
+		  gimple_replace_ssa_lhs (stmt1, arg1);
 		  gimple_call_set_fndecl (stmt1, fndecl);
 		  update_stmt (stmt1);
 		  reciprocal_stats.rfuncs_inserted++;
@@ -657,8 +674,8 @@ const pass_data pass_data_cse_reciprocals =
 class pass_cse_reciprocals : public gimple_opt_pass
 {
 public:
-  pass_cse_reciprocals(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_cse_reciprocals, ctxt)
+  pass_cse_reciprocals (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cse_reciprocals, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1402,7 +1419,7 @@ execute_cse_sincos (void)
   calculate_dominance_info (CDI_DOMINATORS);
   memset (&sincos_stats, 0, sizeof (sincos_stats));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
       bool cleanup_eh = false;
@@ -1493,10 +1510,10 @@ execute_cse_sincos (void)
 		    }
 		  else
 		    {
-		      if (!host_integerp (arg1, 0))
+		      if (!tree_fits_shwi_p (arg1))
 			break;
 
-		      n = TREE_INT_CST_LOW (arg1);
+		      n = tree_to_shwi (arg1);
 		      result = gimple_expand_builtin_powi (&gsi, loc, arg0, n);
 		    }
 
@@ -1575,8 +1592,8 @@ const pass_data pass_data_cse_sincos =
 class pass_cse_sincos : public gimple_opt_pass
 {
 public:
-  pass_cse_sincos(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_cse_sincos, ctxt)
+  pass_cse_sincos (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_cse_sincos, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -1922,7 +1939,7 @@ execute_optimize_bswap (void)
 
   memset (&bswap_stats, 0, sizeof (bswap_stats));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -2065,8 +2082,8 @@ const pass_data pass_data_optimize_bswap =
 class pass_optimize_bswap : public gimple_opt_pass
 {
 public:
-  pass_optimize_bswap(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_optimize_bswap, ctxt)
+  pass_optimize_bswap (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_optimize_bswap, ctxt)
   {}
 
   /* opt_pass methods: */
@@ -2425,20 +2442,25 @@ convert_plusminus_to_widen (gimple_stmt_iterator *gsi, gimple stmt,
 
      It might also appear that it would be sufficient to use the existing
      operands of the widening multiply, but that would limit the choice of
-     multiply-and-accumulate instructions.  */
+     multiply-and-accumulate instructions.
+
+     If the widened-multiplication result has more than one uses, it is
+     probably wiser not to do the conversion.  */
   if (code == PLUS_EXPR
       && (rhs1_code == MULT_EXPR || rhs1_code == WIDEN_MULT_EXPR))
     {
-      if (!is_widening_mult_p (rhs1_stmt, &type1, &mult_rhs1,
-			       &type2, &mult_rhs2))
+      if (!has_single_use (rhs1)
+	  || !is_widening_mult_p (rhs1_stmt, &type1, &mult_rhs1,
+				  &type2, &mult_rhs2))
 	return false;
       add_rhs = rhs2;
       conv_stmt = conv1_stmt;
     }
   else if (rhs2_code == MULT_EXPR || rhs2_code == WIDEN_MULT_EXPR)
     {
-      if (!is_widening_mult_p (rhs2_stmt, &type1, &mult_rhs1,
-			       &type2, &mult_rhs2))
+      if (!has_single_use (rhs2)
+	  || !is_widening_mult_p (rhs2_stmt, &type1, &mult_rhs1,
+				  &type2, &mult_rhs2))
 	return false;
       add_rhs = rhs1;
       conv_stmt = conv2_stmt;
@@ -2763,7 +2785,7 @@ execute_optimize_widening_mul (void)
 
   memset (&widen_mul_stats, 0, sizeof (widen_mul_stats));
 
-  FOR_EACH_BB (bb)
+  FOR_EACH_BB_FN (bb, cfun)
     {
       gimple_stmt_iterator gsi;
 
@@ -2871,8 +2893,8 @@ const pass_data pass_data_optimize_widening_mul =
 class pass_optimize_widening_mul : public gimple_opt_pass
 {
 public:
-  pass_optimize_widening_mul(gcc::context *ctxt)
-    : gimple_opt_pass(pass_data_optimize_widening_mul, ctxt)
+  pass_optimize_widening_mul (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_optimize_widening_mul, ctxt)
   {}
 
   /* opt_pass methods: */
