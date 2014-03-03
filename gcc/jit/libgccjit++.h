@@ -310,6 +310,8 @@ namespace gccjit
 		       location loc = location ());
     rvalue operator() (rvalue arg0, rvalue arg1,
 		       location loc = location ());
+    rvalue operator() (rvalue arg0, rvalue arg1, rvalue arg2,
+		       location loc = location ());
   };
 
   class block : public object
@@ -347,6 +349,9 @@ namespace gccjit
     rvalue add_call (function other,
 		     rvalue arg0, rvalue arg1, rvalue arg2,
 		     location loc = location ());
+    rvalue add_call (function other,
+		     rvalue arg0, rvalue arg1, rvalue arg2, rvalue arg3,
+		     location loc = location ());
 
     void add_comment (const std::string &text,
 		      location loc = location ());
@@ -381,7 +386,14 @@ namespace gccjit
 			      location loc = location ());
 
     lvalue dereference (location loc = location ());
- };
+
+    rvalue cast_to (type type_,
+		    location loc = location ());
+
+    /* Array access.  */
+    lvalue operator[] (rvalue index);
+    lvalue operator[] (int index);
+  };
 
   class lvalue : public rvalue
   {
@@ -1249,6 +1261,16 @@ block::add_call (function other,
 }
 
 inline rvalue
+block::add_call (function other,
+		 rvalue arg0, rvalue arg1, rvalue arg2, rvalue arg3,
+		 location loc)
+{
+  rvalue c = get_context ().new_call (other, arg0, arg1, arg2, arg3, loc);
+  add_eval (c);
+  return c;
+}
+
+inline rvalue
 function::operator() (location loc)
 {
   return get_context ().new_call (*this, loc);
@@ -1267,6 +1289,14 @@ function::operator() (rvalue arg0, rvalue arg1,
 {
   return get_context ().new_call (*this,
 				  arg0, arg1,
+				  loc);
+}
+inline rvalue
+function::operator() (rvalue arg0, rvalue arg1, rvalue arg2,
+		      location loc)
+{
+  return get_context ().new_call (*this,
+				  arg0, arg1, arg2,
 				  loc);
 }
 
@@ -1325,6 +1355,29 @@ rvalue::dereference (location loc)
 {
   return lvalue (gcc_jit_rvalue_dereference (get_inner_rvalue (),
 					     loc.get_inner_location ()));
+}
+
+inline rvalue
+rvalue::cast_to (type type_,
+		 location loc)
+{
+  return get_context ().new_cast (*this, type_, loc);
+}
+
+inline lvalue
+rvalue::operator[] (rvalue index)
+{
+  return get_context ().new_array_access (*this, index);
+}
+
+inline lvalue
+rvalue::operator[] (int index)
+{
+  context ctxt = get_context ();
+  type int_t = ctxt.get_int_type <int> ();
+  return ctxt.new_array_access (*this,
+				ctxt.new_rvalue (int_t,
+						 index));
 }
 
 // class lvalue : public rvalue
