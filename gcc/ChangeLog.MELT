@@ -1,6 +1,10 @@
 
 2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-run.proto.h (MELT_GCC_VERSION): Include very early
 	<cstdlib>, as suggested in
 	http://gcc.gnu.org/ml/gcc/2012-08/msg00277.html message. Use

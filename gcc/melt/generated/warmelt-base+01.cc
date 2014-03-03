@@ -442,8 +442,8 @@ meltrout_9_WARMELTmiBASE_ADD2OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t meltfi
             /*:gimple marker*/
             gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o2);
             /*marking gimple_seq*/
-            /*:gimple_seq marker*/
-            gt_ggc_mx_gimple_seq_d (loc_GIMPLE_SEQ__o3);
+            /*:gimple_seq marker, really gimple marker*/
+            gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o3);
             /*marking edge*/
             /*:edge marker*/
             gt_ggc_mx_edge_def (loc_EDGE__o4);
@@ -1675,8 +1675,8 @@ meltrout_10_WARMELTmiBASE_STRING4OUT(meltclosure_ptr_t meltclosp_, melt_ptr_t me
             /*:gimple marker*/
             gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o2);
             /*marking gimple_seq*/
-            /*:gimple_seq marker*/
-            gt_ggc_mx_gimple_seq_d (loc_GIMPLE_SEQ__o3);
+            /*:gimple_seq marker, really gimple marker*/
+            gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o3);
             /*marking edge*/
             /*:edge marker*/
             gt_ggc_mx_edge_def (loc_EDGE__o4);

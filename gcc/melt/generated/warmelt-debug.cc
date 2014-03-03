@@ -1993,8 +1993,8 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
             /*:gimple marker*/
             gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o3);
             /*marking gimple_seq*/
-            /*:gimple_seq marker*/
-            gt_ggc_mx_gimple_seq_d (loc_GIMPLE_SEQ__o4);
+            /*:gimple_seq marker, really gimple marker*/
+            gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o4);
             /*marking edge*/
             /*:edge marker*/
             gt_ggc_mx_edge_def (loc_EDGE__o5);
@@ -2008,8 +2008,8 @@ meltrout_7_WARMELTmiDEBUG_MELT_DEBUG_FUN(meltclosure_ptr_t meltclosp_, melt_ptr_
             /*:gimple marker*/
             gt_ggc_mx_gimple_statement_d (loc_GIMPLE__o8);
             /*marking gimple_seq*/
-            /*:gimple_seq marker*/
-            gt_ggc_mx_gimple_seq_d (loc_GIMPLE_SEQ__o9);
+            /*:gimple_seq marker, really gimple marker*/
+            gt_ggc_mx_gimple_statement_d (loc_GIMPLE_SEQ__o9);
             /*marking edge*/
             /*:edge marker*/
             gt_ggc_mx_edge_def (loc_EDGE__o10);
