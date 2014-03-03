@@ -1,6 +1,10 @@
 
 2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/warmelt-base.melt: Add module_is_gpl_compatible.
 
 	* melt/warmelt-debug.melt: Likewise.
