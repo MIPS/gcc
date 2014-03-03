@@ -3315,7 +3315,7 @@ typedef struct melthook_st *melthook_ptr_t;
   closure $CMP does not define an order the behavior is undefined.
   The $CMP function can be simple or complex, perhaps even [recursively] calling
   $MULTIPLE_SORT itself (but that is probably unusual). The sorting is stable.}#
-  (melt_low_debug "multiple_sort start mul==" mul)
+  ;(melt_low_debug "multiple_sort start mul==" mul)
   (if (is_multiple mul)
       (void)
     (return ()))
@@ -3382,7 +3382,7 @@ typedef struct melthook_st *melthook_ptr_t;
 	  /* multiple_sort $SORTRES_CHK end */
 	  }#)
       (assert_msg "check res" (is_multiple res) res)
-      (melt_low_debug "multiple_sort end result res==" res)
+      ;(melt_low_debug "multiple_sort end result res==" res)
       (return res))))
 
 ;;;;;
