@@ -612,21 +612,22 @@ unsigned int melthk_rtl_execute(void)
 
 ;; the FOR_EACH_LOOP has changed in GCC 4.9
 (gccif 
- ("4.7."  "4.8.")
+ ("4.8.")
+ (compile_warning "each_loop for 4.8")
  (defciterator each_loop
    ()
    eachloop
    (:loop curloop :long loopix)
    :doc #{Iterate on all loops $CURLOOP of index $LOOPIX.}#
    ;; before expansion
-   #{ /* each_loop GCC 4.7 or 4.8 $EACHLOOP +*/ {
+   #{ /* each_loop GCC 4.8 $EACHLOOP +*/ {
    loop_iterator $EACHLOOP#_li		;
 
    FOR_EACH_LOOP($EACHLOOP#_li, $CURLOOP, 0) {
    $LOOPIX = $CURLOOP->num		;
    }#
    ;;after expansion
-   #{ } /*each_loop GCC 4.7 or 4.8 $EACHLOOP -*/ }
+   #{ } /*each_loop GCC 4.8 $EACHLOOP -*/ }
    }#
    )
  )
@@ -1390,38 +1391,6 @@ unsigned int melthk_rtl_execute(void)
    }
   }#
 )
-
-;;;;;;;;;;;;;;;;
-;;;; iterate on every cgraph_node which is a declaration; don't exist
-;;;; in 4.8 or 4.9
-(gccif 
- ("4.7.")
-(defciterator each_cgraph_decl
-  ()
-  eachcgrdcl
-  (:tree decl)
-  :doc #{$EACH_CGRAPH_DECL iterates on every cgraph_node which is a declaration $DECL; 
-  only for GCC  4.7. }#
-  ;;before expansion
-#{ /*  each_cgraph_decl $EACHCGRDCL */ {
-   struct cgraph_node *$EACHCGRDCL#_nd = NULL; 
-   /* each_cgraph_decl $EACHCGRDCL loop */
-   for ($EACHCGRDCL#_nd = cgraph_nodes; 
-        $EACHCGRDCL#_nd != NULL; 
-        $EACHCGRDCL#_nd = $EACHCGRDCL#_nd->next) 
-   {
-     tree  $EACHCGRDCL#_dcl = NULL;
-     $EACHCGRDCL#_dcl = $EACHCGRDCL#_nd->decl;
-     $DECL = (tree) NULL;
-     if (!$EACHCGRDCL#_dcl) continue;
-     $DECL = $EACHCGRDCL#_dcl;
-   }#
-   ;; after expansion
-#{ /* end  each_cgraph_decl $EACHCGRDCL */ $DECL = (tree)NULL; }
- } }#
-)
-(export_values each_cgraph_decl)
-)					;end gccif 4.6 & 4.7
 
 
 ;; iterator to get the current cfun decl

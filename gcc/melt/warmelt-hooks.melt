@@ -25,6 +25,9 @@
 ;; the copyright notice above apply both to warmelt-hooks.melt and 
 ;; to the generated files  warmelt-hooks*.c
 
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
+
 
 ;;;====================================================================
 ;;;******************* low level debug at routine *********************

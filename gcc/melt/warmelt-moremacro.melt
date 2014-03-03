@@ -140,7 +140,7 @@
 	(curif (pair_head curpair)) 
 	(restpair (pair_tail curpair))
 	)
-    (debug "mexpand_gccif restpair=" restpair)
+    (debug "mexpand_gccif restpair=" restpair "\n.. first curif=" curif)
     (if (is_a curif class_sexpr)
 	(let ( (xcurif (get_field :sexp_contents curif))
 	       )

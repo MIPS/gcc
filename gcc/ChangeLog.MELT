@@ -1,6 +1,21 @@
 
 2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/warmelt-base.melt: Add module_is_gpl_compatible.
+
+	* melt/warmelt-debug.melt: Likewise.
+
+	* melt/warmelt-moremacro.melt (mexpand_gccif): More debug.
+
+	* melt/warmelt-hooks.melt: Add module_is_gpl_compatible.
+
+	* melt/xtramelt-ana-base.melt (each_cgraph_decl): Removed, since
+	obsolete in GCC 4.8...
+
+	* testsuite/melt/tgccif.melt: Improve.
+
+2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>

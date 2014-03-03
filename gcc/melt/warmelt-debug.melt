@@ -29,6 +29,9 @@
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
+
 
 ;;    This file is part of a bootstrapping compiler for the
 ;;    MELT lisp dialect, compiler which should be able to

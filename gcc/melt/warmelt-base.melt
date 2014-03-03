@@ -34,6 +34,9 @@
 ;;    ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 
+;; This MELT module is GPL compatible since it is GPLv3+ licensed.
+(module_is_gpl_compatible "GPLv3+")
+
 ;; CAVEAT: We cannot have defmacro or backquote in this warmelt-base
 ;; file, because make_sexpr is not yet available, so diagnostic
 ;; support has to be in warmelt-macro.melt file...
