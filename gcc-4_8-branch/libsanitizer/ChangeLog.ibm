@@ -1,0 +1,7 @@
+2014-03-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	Backport from mainline r208290
+	2014-03-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
+
+	* configure.tgt: Unsupported for little endian PowerPC for now.
+
