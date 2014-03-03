@@ -2742,7 +2742,7 @@ list.}#
 ;; the C type for gcc gimple_seq-s
 (definstance ctype_gimple_seq class_ctype_gty
   :doc #{The $CTYPE_GIMPLE_SEQ is the c-type of raw GCC gimple_seq stuff. See also $DISCR_GIMPLE_SEQ. 
-Keyword is :gimple_seq.}#
+Keyword is :gimple_seq. Notice that @code{gimple_seq} is a typedef for @code{gimple}.}#
   :predef CTYPE_GIMPLE_SEQ
   :named_name  '"CTYPE_GIMPLE_SEQ"
   :ctype_keyword ':gimple_seq
@@ -2752,7 +2752,7 @@ Keyword is :gimple_seq.}#
   :ctype_parstring '"MELTBPARSTR_GIMPLESEQ"
   :ctype_argfield '"meltbp_gimpleseq"
   :ctype_resfield '"meltbp_gimpleseqptr"
-  :ctype_marker '"/*:gimple_seq marker*/ gt_ggc_mx_gimple_seq_d"
+  :ctype_marker '"/*:gimple_seq marker, really gimple marker*/ gt_ggc_mx_gimple_statement_d"
   :ctype_autoboxdiscr discr_gimple_seq
   :ctype_autoconstboxdiscr discr_constant_gimple_seq
 ;; GTY ctype

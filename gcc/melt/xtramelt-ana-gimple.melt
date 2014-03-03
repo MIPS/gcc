@@ -2689,7 +2689,8 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 		mwhdata_$WALKUSEDEF_CHK.mwh_magic = MELTWALKHOOKDATA_MAGIC;
 		walk_use_def_chains ($TRVAR, melt_4dot8_walk_hook_use_def_wrapper,
 				     (void*)&mwhdata_$WALKUSEDEF_CHK,
-				     true);	     
+				     true);
+		memset (&mwhdata_$WALKUSEDEF_CHK, 0, sizeof(struct meltwalkhookdata_st ));	     
 		/* melt_walk_use_def_chains $WALKUSEDEF_CHK end */
 		}#
 		)

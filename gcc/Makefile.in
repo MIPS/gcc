@@ -2082,7 +2082,7 @@ melt-run-md5.h melt-run.h:  $(srcdir)/melt-run.proto.h \
 	melt_run_md5=`$(COMPILER) -C -E -DMELT_GCC_VERSION=$(MELT_GCC_VERSION_NUM) $(ALL_CFLAGS) $(ALL_CPPFLAGS) $(srcdir)/melt-run.proto.h | grep -v '^#' | md5sum | cut -c 1-32`; \
    ( echo  "const char melt_run_preprocessed_md5[]=\"$$melt_run_md5\";" > melt-run-md5.h-tmp ; \
    sed -e "s,#define *MELT_RUN_HASHMD5 *XX,#define MELT_RUN_HASHMD5 \"$$melt_run_md5\"," \
-       -e "s,#define *MELT_GCC_VERSION *YY,#define MELT_GCC_VERSION $(MELT_GCC_VERSION_NUM)," \
+       -e "s,#define *MELT_GCC_VERSION *GCCPLUGIN_VERSION,#define MELT_GCC_VERSION $(MELT_GCC_VERSION_NUM)," \
            <  $(srcdir)/melt-run.proto.h > melt-run.h-tmp )
 	$(SHELL) $(srcdir)/../move-if-change melt-run-md5.h-tmp melt-run-md5.h
 	$(SHELL) $(srcdir)/../move-if-change melt-run.h-tmp melt-run.h

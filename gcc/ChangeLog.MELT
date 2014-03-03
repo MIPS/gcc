@@ -1,4 +1,20 @@
 
+2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-run.proto.h (MELT_GCC_VERSION): Include very early
+	<cstdlib>, as suggested in
+	http://gcc.gnu.org/ml/gcc/2012-08/msg00277.html message. Use
+	GCCPLUGIN_VERSION by default.
+
+	* Makefile.in (melt-run.h): Substitute GCCPLUGIN_VERSION by the
+	actual number for MELT_GCC_VERSION.
+
+	* melt/warmelt-first.melt (ctype_gimple_seq): Since gimple_seq is
+	synonym of gimple, use the gimple marker routine.
+
+	* melt/xtramelt-ana-gimple.melt (melt_walk_use_def_chains): Clear
+	the local meltwalkhookdata_st structure after the walk.
+
 2014-02-26  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
