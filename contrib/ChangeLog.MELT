@@ -1,4 +1,10 @@
 
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	* MELT-Plugin-Makefile: Update copyright year.
+	(melt-run.h): Emit good MELT_GCC_VERSION define.
+	(melt-translator, melt-applications): Add dependencies to avoid
+	too much parrallelism with make -j.
+
 2013-11-22  Basile Starynkevitch  <basile@starynkevitch.net>
 	* MELT-Plugin-Makefile (melt-run.h): Use the MELT version number.
 
