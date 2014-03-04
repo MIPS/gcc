@@ -15,7 +15,7 @@
   (gccif ("4.8.")
 	 (debug "test_gccif with only GCC 4.8 foo=" foo))
   (gccif ("4.9.")
-	 (debug "test_gccif with only GCC 4.8 foo=" foo))
+	 (debug "test_gccif with only GCC 4.9 foo=" foo))
   (debug "test_gccif end foo=" foo)
   (return :true))
 

@@ -1,6 +1,25 @@
 
 2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (plugin_init): gccversionstr don't mention
+	gcc_version->devphase if it is empty. Typo corrected in plugin
+	info help message.
+
+	* melt/warmelt-moremacro.melt (filtergccversion): Ensure that the
+	version string match the prefix followed by a space.
+	(gccif): Improve documentation of the string.
+
+	* melt/xtramelt-ana-base.melt: Correct gccif usage e.g. "4.8"
+	instead of "4.8.".
+
+	* melt/xtramelt-ana-gimple.melt: Likewise.
+
+	* melt/xtramelt-probe.melt: Likewise.
+
+	* testsuite/melt/tgccif.melt: Likewise.
+
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{adding a new test for use-def walking}}
 	* testsuite/melt/tusedef-ana1.melt: New file.
 	* testsuite/melt/tusedef-code1.c: New file.

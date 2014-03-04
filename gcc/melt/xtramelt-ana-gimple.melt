@@ -1866,7 +1866,7 @@ arguments $ARG0 & $ARG1 & $ARG2 & $ARG3 & $ARG4 & $ARG5 & $ARG6 and number of ar
 
 
 (gccif 
- ("4.7." "4.8." "4.9.")
+ ("4.7" "4.8" "4.9")
 ;;; match a transaction - only in GCC 4.7 or 4.8 or 4.9
  (defcmatcher gimple_transaction
    (:gimple gr)
@@ -2607,7 +2607,7 @@ $TREECLOS, TRUE) }#)
 
 
 
-(gccif "4.8."
+(gccif "4.8"
 ;;; GCC 4.8 has the walk_use_def_chains function
        ;;
        (cheader
@@ -2697,10 +2697,11 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 	       )
 	   )
 	 )
+       (export_values melt_walk_use_def_chains)
        ) ;; end defun melt_walk_use_def_chains 
 					;end GCC 4.8 walk use def
 
-(gccif "4.9."
+(gccif "4.9"
        ;;; GCC 4.9 don't the walk_use_def_chains function but has the
        ;;; FOREACH_SSA_TREE* macros
        (defun melt_walk_use_def_chains (:value clos val :tree trvar)
@@ -2738,6 +2739,7 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 		 ))
 	   )
 	 )				;end melt_walk_use_def_chains
+       (export_values melt_walk_use_def_chains)
        )				;end GCC 4.9 walk use def
 
   
@@ -2890,7 +2892,6 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
  reveach_in_gimpleseq
  walk_gimple_seq
  walk_gimple_seq_unique_tree
- melt_walk_use_def_chains
  warning_at_gimple
  warning_at_gimple_strbuf
  )

@@ -898,7 +898,7 @@
 ;;;;;;;;;;;;;;;; mode to start the probe
 (defun probe_docmd (cmd moduldata)
   (debug "probe_docmd cmd=" cmd " moduldata=" moduldata)
-  (gccif "4.9."
+  (gccif "4.9"
 	 (error_at () "the MELT probe is not usable with GCC 4.9 because walk_gimple_seq does not really exist any more"))
   (start_probe)
   (install_scanprobe_pass)

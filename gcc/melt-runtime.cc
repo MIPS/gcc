@@ -11033,10 +11033,15 @@ plugin_init (struct plugin_name_args* plugin_info,
   gcc_assert (gcc_version != NULL);
   melt_plugin_argc = plugin_info->argc;
   melt_plugin_argv = plugin_info->argv;
-  gccversionstr = concat (gcc_version->basever, " ",
-                          gcc_version->datestamp, " (",
-                          gcc_version->devphase, ") [MELT plugin]",
-                          NULL);
+  if (gcc_version->devphase && gcc_version->devphase[0])
+    gccversionstr = concat (gcc_version->basever, " ",
+			    gcc_version->datestamp, " (",
+			    gcc_version->devphase, ") [MELT plugin]",
+			    NULL);
+  else
+    gccversionstr = concat (gcc_version->basever, " ",
+			    gcc_version->datestamp, ":[MELT plugin]",
+			    NULL);
   if (!plugin_info->version)
     {
       /* this string is never freed */
@@ -11044,7 +11049,7 @@ plugin_init (struct plugin_name_args* plugin_info,
     };
   if (!plugin_info->help)
     plugin_info->help =
-      "MELT is a meta plugin providing a high-level \
+      "MELT is a meta-plugin providing a high-level \
 lispy domain specific language to extend GCC.  See http://gcc-melt.org/";
   melt_really_initialize (plugin_info->base_name, gccversionstr);
   free (gccversionstr);

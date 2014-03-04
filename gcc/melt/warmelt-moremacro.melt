@@ -117,15 +117,23 @@
   (assert_msg "check versionstr" (is_string versionstr) versionstr )
   (let ( (:long versionlen (string_length versionstr))
 	 (res ())
+	 (:cstring gccverstr "?")
 	 )
+    ;;; versionstr should be e.g. "4.9" or "4.8"
+    ;;; melt_gccversionstr starts with e.g. "4.8 20140217"
     (code_chunk 
      filtergcc
-     #{ if ($VERSIONLEN>0 /*$FILTERGCC*/
+     #{ /* filtergccversion $FILTERGCC*/
+        $GCCVERSTR = melt_gccversionstr;
+        if ($VERSIONLEN>0
 	    && !strncmp (melt_string_str((melt_ptr_t)$VERSIONSTR),
 			 melt_gccversionstr,
-			 $VERSIONLEN))
+			 $VERSIONLEN)
+	    && ISSPACE (melt_gccversionstr[$VERSIONLEN]))
         $RES = $VERSIONSTR; 
 	}#)
+    (debug "filtergccversion versionstr=" versionstr
+	   " gccverstr='" gccverstr "'\n.. res=" res)
     (return res)))
 
 ;;;;
@@ -150,17 +158,19 @@
     (cond 
      ((is_string curif)
       (debug "mexpand_gccif string curif=" curif)
-      (if (filtergccversion curif)
-	  (let ( (exprestlist (expand_pairlist_as_list restpair env mexpander modctx))
-		 )
-	    (debug "mexpand_gccif stringy exprestlist=" exprestlist)
+      (cond ((filtergccversion curif)
+	     (debug "mexpand_gccif filtered curif=" curif)
+	     (let ( (exprestlist (expand_pairlist_as_list restpair env mexpander modctx))
+		    )
+	       (debug "mexpand_gccif stringy exprestlist=" exprestlist)
 	    (let ( (expfirst (list_first_element exprestlist))
 		   (exptail (list_popfirst exprestlist))
 		   )
 	      (debug "mexpand_gccif stringy return expfirst=" expfirst " exptail=" exptail)
 	      (return expfirst exptail)))
-	(progn
-	  (debug "mexpand_gccif sexpr gcc version mismatched" sexpr)
+	     )
+	(:else
+	  (debug "mexpand_gccif gcc version mismatched curif=" curif)
 	  (return))))
      ((is_list curif)
       (debug "mexpand_gccif list curif=" curif)
@@ -199,7 +209,7 @@
  :doc #{The $GCCIF macro expands the rest of the expression if the
 version string of the GCC translating this MELT expression matches
 the condition. Syntax is ($GCCIF condition expr...), where the
-condition is a constant string such as "4.7." or a list of such strings.}#)
+condition is a constant string such as "4.7" or a list of such strings.}#)
 
 ;;;;;;;;;;;;;;;;
 ;;;; obsolete CONTAINER same as REFERENCE

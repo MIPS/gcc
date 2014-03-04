@@ -611,8 +611,7 @@ unsigned int melthk_rtl_execute(void)
 ;; iterator on all the loops
 
 ;; the FOR_EACH_LOOP has changed in GCC 4.9
-(gccif 
- ("4.8.")
+(gccif "4.8"
  (compile_warning "each_loop for 4.8")
  (defciterator each_loop
    ()
@@ -630,24 +629,25 @@ unsigned int melthk_rtl_execute(void)
    #{ } /*each_loop GCC 4.8 $EACHLOOP -*/ }
    }#
    )
+ (export_values each_loop)
  )
 
-(gccif
- ("4.9.")
+(gccif "4.9"
  (defciterator each_loop
-  ()
-  eachloop
-  (:loop curloop :long loopix)
-  :doc #{Iterate on all loops $CURLOOP of index $LOOPIX.}#
-  ;; before expansion
-  #{ /* each_loop GCC 4.9 $EACHLOOP +*/ {
+   ()
+   eachloop
+   (:loop curloop :long loopix)
+   :doc #{Iterate on all loops $CURLOOP of index $LOOPIX.}#
+   ;; before expansion
+   #{ /* each_loop GCC 4.9 $EACHLOOP +*/ {
    FOR_EACH_LOOP($CURLOOP, 0) {
-     $LOOPIX = $CURLOOP->num;
-  }#
-  ;;after expansion
+   $LOOPIX = $CURLOOP->num		;
+   }#
+   ;;after expansion
    #{ } /*each_loop GCC 4.9 $EACHLOOP -*/ }
    }#
-)
+   )
+ (export_values each_loop)
 )
  
 
@@ -2061,7 +2061,6 @@ current function and gives its declaration in $CFUNDECL}#
  each_cgraph_fun_call_flow_graph
  each_cgraph_fun_entryblock 
  each_local_decl_cfun
- each_loop
  each_param_in_fundecl
  eachgimple_in_basicblock
  eachgimplephi_in_basicblock
