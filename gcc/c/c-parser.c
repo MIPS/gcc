@@ -2223,7 +2223,7 @@ c_parser_declspecs (c_parser *parser, struct c_declspecs *specs,
 	  attrs_ok = true;
 	  if (kind == C_ID_ID)
 	    {
-	      error ("unknown type name %qE", value);
+	      error_at (loc, "unknown type name %qE", value);
 	      t.kind = ctsk_typedef;
 	      t.spec = error_mark_node;
 	    }
@@ -3608,7 +3608,7 @@ c_parser_parameter_declaration (c_parser *parser, tree attrs)
       c_parser_set_source_position_from_token (token);
       if (c_parser_next_tokens_start_typename (parser, cla_prefer_type))
 	{
-	  error ("unknown type name %qE", token->value);
+	  error_at (token->location, "unknown type name %qE", token->value);
 	  parser->error = true;
 	}
       /* ??? In some Objective-C cases '...' isn't applicable so there
@@ -6659,12 +6659,12 @@ c_parser_get_builtin_args (c_parser *parser, const char *bname,
   force_folding_builtin_constant_p
     = saved_force_folding_builtin_constant_p;
   vec_alloc (cexpr_list, 1);
-  C_EXPR_APPEND (cexpr_list, expr);
+  vec_safe_push (cexpr_list, expr);
   while (c_parser_next_token_is (parser, CPP_COMMA))
     {
       c_parser_consume_token (parser);
       expr = c_parser_expr_no_commas (parser, NULL);
-      C_EXPR_APPEND (cexpr_list, expr);
+      vec_safe_push (cexpr_list, expr);
     }
 
   if (!c_parser_require (parser, CPP_CLOSE_PAREN, "expected %<)%>"))
