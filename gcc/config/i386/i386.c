@@ -35276,9 +35276,18 @@ ix86_expand_builtin (tree exp, rtx target, rtx subtarget,
       if (GET_MODE (op1) != Pmode)
 	op1 = ix86_zero_extend_to_Pmode (op1);
 
-      emit_insn (TARGET_64BIT
-                 ? gen_bnd64_ldx (target, op0, op1)
-                 : gen_bnd32_ldx (target, op0, op1));
+      if (REG_P (target))
+	emit_insn (TARGET_64BIT
+		   ? gen_bnd64_ldx (target, op0, op1)
+		   : gen_bnd32_ldx (target, op0, op1));
+      else
+	{
+	  rtx temp = gen_reg_rtx (BNDmode);
+	  emit_insn (TARGET_64BIT
+		     ? gen_bnd64_ldx (temp, op0, op1)
+		     : gen_bnd32_ldx (temp, op0, op1));
+	  emit_move_insn (target, temp);
+	}
       return target;
 
     case IX86_BUILTIN_BNDCL:
