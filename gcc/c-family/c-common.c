@@ -366,6 +366,8 @@ static tree handle_warn_unused_result_attribute (tree *, tree, tree, int,
 static tree handle_sentinel_attribute (tree *, tree, tree, int, bool *);
 static tree handle_type_generic_attribute (tree *, tree, tree, int, bool *);
 static tree handle_alloc_size_attribute (tree *, tree, tree, int, bool *);
+static tree handle_alloc_align_attribute (tree *, tree, tree, int, bool *);
+static tree handle_assume_aligned_attribute (tree *, tree, tree, int, bool *);
 static tree handle_target_attribute (tree *, tree, tree, int, bool *);
 static tree handle_optimize_attribute (tree *, tree, tree, int, bool *);
 static tree ignore_attribute (tree *, tree, tree, int, bool *);
@@ -766,6 +768,10 @@ const struct attribute_spec c_common_attribute_table[] =
 			      handle_omp_declare_simd_attribute, false },
   { "omp declare target",     0, 0, true, false, false,
 			      handle_omp_declare_target_attribute, false },
+  { "alloc_align",	      1, 1, false, true, true,
+			      handle_alloc_align_attribute, false },
+  { "assume_aligned",	      1, 2, false, true, true,
+			      handle_assume_aligned_attribute, false },
   { NULL,                     0, 0, false, false, false, NULL, false }
 };
 
@@ -2714,6 +2720,14 @@ conversion_warning (location_t loc, tree type, tree expr)
   if (!warn_conversion && !warn_sign_conversion && !warn_float_conversion)
     return;
 
+  /* This may happen, because for LHS op= RHS we preevaluate
+     RHS and create C_MAYBE_CONST_EXPR <SAVE_EXPR <RHS>>, which
+     means we could no longer see the code of the EXPR.  */
+  if (TREE_CODE (expr) == C_MAYBE_CONST_EXPR)
+    expr = C_MAYBE_CONST_EXPR_EXPR (expr);
+  if (TREE_CODE (expr) == SAVE_EXPR)
+    expr = TREE_OPERAND (expr, 0);
+
   switch (TREE_CODE (expr))
     {
     case EQ_EXPR:
@@ -2962,7 +2976,7 @@ merge_tlist (struct tlist **to, struct tlist *add, int copy)
 	  }
       if (!found)
 	{
-	  *end = copy ? add : new_tlist (NULL, add->expr, add->writer);
+	  *end = copy ? new_tlist (NULL, add->expr, add->writer) : add;
 	  end = &(*end)->next;
 	  *end = 0;
 	}
@@ -3120,7 +3134,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
       verify_tree (TREE_OPERAND (x, 0), &tmp_before, &tmp_list2, NULL_TREE);
       warn_for_collisions (tmp_list2);
       merge_tlist (pbefore_sp, tmp_before, 0);
-      merge_tlist (pbefore_sp, tmp_list2, 1);
+      merge_tlist (pbefore_sp, tmp_list2, 0);
 
       tmp_list3 = tmp_nosp = 0;
       verify_tree (TREE_OPERAND (x, 1), &tmp_list3, &tmp_nosp, NULL_TREE);
@@ -3224,12 +3238,7 @@ verify_tree (tree x, struct tlist **pbefore_sp, struct tlist **pno_sp,
 	    warn_for_collisions (tmp_nosp);
 
 	    tmp_list3 = 0;
-	    while (tmp_nosp)
-	      {
-		struct tlist *t = tmp_nosp;
-		tmp_nosp = t->next;
-		merge_tlist (&tmp_list3, t, 0);
-	      }
+	    merge_tlist (&tmp_list3, tmp_nosp, 0);
 	    t->cache_before_sp = tmp_before;
 	    t->cache_after_sp = tmp_list3;
 	  }
@@ -4209,8 +4218,7 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	  type = c_common_unsigned_type (type);
 	}
 
-      if (TREE_CODE (primop0) != INTEGER_CST
-	  && c_inhibit_evaluation_warnings == 0)
+      if (TREE_CODE (primop0) != INTEGER_CST)
 	{
 	  if (val == truthvalue_false_node)
 	    warning_at (loc, OPT_Wtype_limits,
@@ -4290,7 +4298,6 @@ shorten_compare (location_t loc, tree *op0_ptr, tree *op1_ptr,
 	     warning.  */
 	  bool warn = 
 	    warn_type_limits && !in_system_header_at (loc)
-	    && c_inhibit_evaluation_warnings == 0
 	    && !(TREE_CODE (primop0) == INTEGER_CST
 		 && !TREE_OVERFLOW (convert (c_common_signed_type (type),
 					     primop0)))
@@ -5601,13 +5608,13 @@ c_common_nodes_and_builtins (void)
     uint8_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT8_TYPE)));
   if (UINT16_TYPE)
-    c_uint16_type_node =
+    c_uint16_type_node = uint16_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT16_TYPE)));
   if (UINT32_TYPE)
-    c_uint32_type_node =
+    c_uint32_type_node = uint32_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT32_TYPE)));
   if (UINT64_TYPE)
-    c_uint64_type_node =
+    c_uint64_type_node = uint64_type_node =
       TREE_TYPE (identifier_global_value (c_get_ident (UINT64_TYPE)));
   if (INT_LEAST8_TYPE)
     int_least8_type_node =
@@ -7526,9 +7533,17 @@ handle_aligned_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   tree decl = NULL_TREE;
   tree *type = NULL;
   int is_type = 0;
-  tree align_expr = (args ? TREE_VALUE (args)
-		     : size_int (ATTRIBUTE_ALIGNED_VALUE / BITS_PER_UNIT));
+  tree align_expr;
   int i;
+
+  if (args)
+    {
+      align_expr = TREE_VALUE (args);
+      if (align_expr && TREE_CODE (align_expr) != IDENTIFIER_NODE)
+	align_expr = default_conversion (align_expr);
+    }
+  else
+    align_expr = size_int (ATTRIBUTE_ALIGNED_VALUE / BITS_PER_UNIT);
 
   if (DECL_P (*node))
     {
@@ -8023,14 +8038,65 @@ handle_alloc_size_attribute (tree *node, tree ARG_UNUSED (name), tree args,
   for (; args; args = TREE_CHAIN (args))
     {
       tree position = TREE_VALUE (args);
+      if (position && TREE_CODE (position) != IDENTIFIER_NODE
+	  && TREE_CODE (position) != FUNCTION_DECL)
+	position = default_conversion (position);
 
-      if (TREE_CODE (position) != INTEGER_CST
-	  || TREE_INT_CST_HIGH (position)
-	  || TREE_INT_CST_LOW (position) < 1
-	  || TREE_INT_CST_LOW (position) > arg_count )
+      if (!tree_fits_uhwi_p (position)
+	  || !arg_count
+	  || !IN_RANGE (tree_to_uhwi (position), 1, arg_count))
 	{
 	  warning (OPT_Wattributes,
 	           "alloc_size parameter outside range");
+	  *no_add_attrs = true;
+	  return NULL_TREE;
+	}
+    }
+  return NULL_TREE;
+}
+
+/* Handle a "alloc_align" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_alloc_align_attribute (tree *node, tree, tree args, int,
+			      bool *no_add_attrs)
+{
+  unsigned arg_count = type_num_arguments (*node);
+  tree position = TREE_VALUE (args);
+  if (position && TREE_CODE (position) != IDENTIFIER_NODE)
+    position = default_conversion (position);
+
+  if (!tree_fits_uhwi_p (position)
+      || !arg_count
+      || !IN_RANGE (tree_to_uhwi (position), 1, arg_count))
+    {
+      warning (OPT_Wattributes,
+	       "alloc_align parameter outside range");
+      *no_add_attrs = true;
+      return NULL_TREE;
+    }
+  return NULL_TREE;
+}
+
+/* Handle a "assume_aligned" attribute; arguments as in
+   struct attribute_spec.handler.  */
+
+static tree
+handle_assume_aligned_attribute (tree *, tree, tree args, int,
+				 bool *no_add_attrs)
+{
+  for (; args; args = TREE_CHAIN (args))
+    {
+      tree position = TREE_VALUE (args);
+      if (position && TREE_CODE (position) != IDENTIFIER_NODE
+	  && TREE_CODE (position) != FUNCTION_DECL)
+	position = default_conversion (position);
+
+      if (TREE_CODE (position) != INTEGER_CST)
+	{
+	  warning (OPT_Wattributes,
+		   "assume_aligned parameter not integer constant");
 	  *no_add_attrs = true;
 	  return NULL_TREE;
 	}
@@ -8467,6 +8533,8 @@ handle_vector_size_attribute (tree *node, tree name, tree args,
   *no_add_attrs = true;
 
   size = TREE_VALUE (args);
+  if (size && TREE_CODE (size) != IDENTIFIER_NODE)
+    size = default_conversion (size);
 
   if (!tree_fits_uhwi_p (size))
     {
@@ -8560,11 +8628,16 @@ handle_nonnull_attribute (tree *node, tree ARG_UNUSED (name),
 
   /* Argument list specified.  Verify that each argument number references
      a pointer argument.  */
-  for (attr_arg_num = 1; args; args = TREE_CHAIN (args))
+  for (attr_arg_num = 1; args; attr_arg_num++, args = TREE_CHAIN (args))
     {
       unsigned HOST_WIDE_INT arg_num = 0, ck_num;
 
-      if (!get_nonnull_operand (TREE_VALUE (args), &arg_num))
+      tree arg = TREE_VALUE (args);
+      if (arg && TREE_CODE (arg) != IDENTIFIER_NODE
+	  && TREE_CODE (arg) != FUNCTION_DECL)
+	arg = default_conversion (arg);
+
+      if (!get_nonnull_operand (arg, &arg_num))
 	{
 	  error ("nonnull argument has invalid operand number (argument %lu)",
 		 (unsigned long) attr_arg_num);
@@ -11259,8 +11332,8 @@ warn_for_sign_compare (location_t location,
               if ((mask & constant) != mask)
 		{
 		  if (constant == 0)
-		    warning (OPT_Wsign_compare,
-			     "promoted ~unsigned is always non-zero");
+		    warning_at (location, OPT_Wsign_compare,
+				"promoted ~unsigned is always non-zero");
 		  else
 		    warning_at (location, OPT_Wsign_compare,
 				"comparison of promoted ~unsigned with constant");
