@@ -529,8 +529,7 @@ extern int rs6000_vector_align[];
 
 #define TARGET_XSCVDPSPN	(TARGET_DIRECT_MOVE || TARGET_P8_VECTOR)
 #define TARGET_XSCVSPDPN	(TARGET_DIRECT_MOVE || TARGET_P8_VECTOR)
-#define TARGET_VADDUQM		(TARGET_P8_VECTOR && TARGET_POWERPC64	\
-				 && TARGET_VSX_TIMODE)
+#define TARGET_VADDUQM		(TARGET_P8_VECTOR && TARGET_POWERPC64)
 
 /* Byte/char syncs were added as phased in for ISA 2.06B, but are not present
    in power7, so conditionalize them on p8 features.  TImode syncs need quad

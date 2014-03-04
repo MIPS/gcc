@@ -17248,6 +17248,42 @@ rs6000_split_128bit_ok_p (rtx operands[])
 }
 
 
+/* Fix up builtins taking TImode arguments that operate on vsx registers to
+   convert the types to VSX types before issuing the builtin.  The arguments
+   are in OPERANDS, number of arguments is N_ARGS, the mode to use for
+   converted types is MODE, and the unspec value to use for building the insn
+   is BUILTIN_UNSPEC.  */
+void
+rs6000_int128_builtin_fixup (rtx operands[],
+			     int n_args,
+			     enum machine_mode mode,
+			     enum unspec builtin_unspec)
+{
+  rtx dest_new = gen_lowpart (mode, operands[0]);
+  rtx args_new[3];
+  rtx arg;
+  rtx unspec;
+  int i;
+  rtvec p;
+
+  gcc_assert (IN_RANGE (n_args, 2, 4));
+
+  /* Make copies as vector arguments for each of the arguments.  */
+  for (i = 1; i < n_args; i++)
+    {
+      args_new[i-1] = arg = gen_reg_rtx (mode);
+      emit_move_insn (arg, gen_lowpart (mode, operands[i]));
+    }
+
+  /* Generate the UNSPEC.  */
+  p = gen_rtvec_v (n_args-1, args_new);
+  unspec = gen_rtx_UNSPEC (mode, p, (int)builtin_unspec);
+
+  emit_insn (gen_rtx_SET (VOIDmode, dest_new, unspec));
+  return;
+}
+
+
 /* Given a comparison operation, return the bit number in CCR to test.  We
    know this is a valid comparison.
 

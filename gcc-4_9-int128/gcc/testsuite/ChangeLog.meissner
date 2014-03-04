@@ -1,3 +1,8 @@
+2014-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-int128-2.c: New file to test whether
+	vadduqm returns the same bits as __uint128_t adds.
+
 2014-02-26  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* gcc.target/powerpc/timode_off.c: Run test at -mcpu=power5 to

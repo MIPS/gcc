@@ -36,8 +36,8 @@
 
 #define ISA_2_5_MASKS_SERVER	(ISA_2_5_MASKS_EMBEDDED | OPTION_MASK_DFP)
 
-  /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but
-     altivec is a win so enable it.  */
+  /* For ISA 2.06, don't add ISEL, since in general it isn't a win, but altivec
+     is a win so enable it.  */
 #define ISA_2_6_MASKS_EMBEDDED	(ISA_2_5_MASKS_EMBEDDED | OPTION_MASK_POPCNTD)
 #define ISA_2_6_MASKS_SERVER	(ISA_2_5_MASKS_SERVER			\
 				 | OPTION_MASK_POPCNTD			\

@@ -1,3 +1,43 @@
+2014-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000-protos.h (rs6000_int128_builtin_fixup): Add
+	declaration.
+
+	* config/rs0600/rs6000-builtin.def (VADDCUQ_V2DI): Add V2DImode
+	versions of the int128 binary builtin support in case
+	-mno-vsx-timode is in effect.
+	(VADDUQM_V2DI): Likewise.
+	(VBPERMQ_V2DI): Likewise.
+	(VSUBCUQ_V2DI): Likewise.
+	(VSUBUQM_V2DI): Likewise.
+	(VADDEUQM_V2DI): Likewise.
+	(VADDECUQ_V2DI): Likewise.
+	(VSUBEUQM_V2DI): Likewise.
+	(VSUBECUQ_V2DI): Likewise.
+
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins): Add
+	V2DImode versions of int128 builtin functions.
+
+	* config/rs6000/rs6000.c (rs6000_int128_builtin_fixup): New fixup
+	function to convert types of int128 builtin functions to V2DI if
+	-mno-vsx-timode is in effect.
+
+	* config/rs6000/rs6000.h (TARGET_VADDUQM): Don't key off of
+	-mvsx-timode.
+
+	* config/rs6000/altivec.md (VINT128): Add V2DImode versions of the
+	int128 bit builtins to be created.  If -mno-vsx-timode, convert
+	the arguments from TImode to V2DImode.
+	(altivec_vadduqm): Likewise.
+	(altivec_vaddcuq): Likewise.
+	(altivec_vbpermq): Likewise.
+	(altivec_vaddeuqm): Likewise.
+	(altivec_vaddecuq): Likewise.
+	(altivec_vsubeuqm): Likewise.
+	(altivec_vsubecuq): Likewise.
+	(altivec_vsubuqm): Likewise.
+	(altivec_vsubcuq): Likewise.
+
 2014-02-28  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-cpus.def (ISA_2_6_MASKS_SERVER): Turn off
