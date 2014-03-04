@@ -3370,6 +3370,12 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
+  /* Turn on -mvsx-timode by default for power7 64-bit.  */
+  else if (TARGET_VSX && TARGET_POWERPC64
+	   && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
+    rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
+
+
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
      silently turn off quad memory mode.  */
   if ((TARGET_QUAD_MEMORY || TARGET_QUAD_MEMORY_ATOMIC) && !TARGET_POWERPC64)
