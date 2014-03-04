@@ -1,4 +1,10 @@
 
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{adding a new test for use-def walking}}
+	* testsuite/melt/tusedef-ana1.melt: New file.
+	* testsuite/melt/tusedef-code1.c: New file.
+
 2014-03-03  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.

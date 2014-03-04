@@ -1,0 +1,57 @@
+;; file tusedef-ana1.melt -*- lisp -*-
+;; this sample code is in the public domain
+#| run in buildir/gcc
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-ana1.melt
+ ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-code1.c
+
+ ./cc1plus -fmelt-mode=runfile @meltbuild-common.args \
+    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tusedef-ana1.melt \
+     tusedef-code1.c
+
+or in a MELT module
+
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
+    -fplugin-arg-melt-init=@warmelt.quicklybuilt -fplugin-arg-melt-arg=tusedef-ana1.melt \
+     -c tusedef-code1.c -o /dev/null
+|#
+(module_is_gpl_compatible "public domain")
+(defclass class_usedef_data
+  :super class_proped
+  :fields (usedef_visited_ssaname
+	   )
+  )
+
+(defun usedef_exec (pass)
+  (debug "usedef_exec pass=" pass " cfundecl=" (cfun_decl))
+  (let ( (udata (get_field :gccpass_data pass))
+	 (udmap (get_field :usedef_visited_ssaname udata))
+	 )
+    (assert_msg "check udata" (is_a udata class_usedef_data))
+    (assert_msg "check udmap" (is_maptree udmap) udmap)
+  ))
+
+(defun usedef_docmd (cmd moduldata)
+  (let ( (udata (instance class_usedef_data
+			  :usedef_visited_ssaname (make_maptree discr_map_trees
+								17)))
+	(usedefpass
+	  (instance class_gcc_gimple_pass
+		    :named_name '"melt_usedef_pass"
+		    :gccpass_gate ()
+		    :gccpass_exec usedef_exec
+		    :gccpass_data udata))
+	)
+    (debug "usedef_docmd usedefpass=" usedefpass)
+    (install_melt_pass_in_gcc usedef :after '"phiopt" 0) 
+    ))
+    
+	   
+
+(definstance usedef_mode
+  class_melt_mode
+  :named_name '"usedef"
+  :meltmode_help '"test for walk usedef"
+  :meltmode_fun usedef_docmd
+)
+(install_melt_mode usedef_mode)
+;; eof tusedef-ana1.melt
