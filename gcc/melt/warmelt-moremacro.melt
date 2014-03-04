@@ -132,7 +132,7 @@
 	    && ISSPACE (melt_gccversionstr[$VERSIONLEN]))
         $RES = $VERSIONSTR; 
 	}#)
-    (debug "filtergccversion versionstr=" versionstr
+    (debug "filtergccversion versionlen=" versionlen " versionstr=" versionstr
 	   " gccverstr='" gccverstr "'\n.. res=" res)
     (return res)))
 

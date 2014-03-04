@@ -1,6 +1,11 @@
 
 2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{tgccif.melt fails on MELT branch svn 208269}}
+	* melt/warmelt-moremacro.melt (filtergccversion): More debug.
+
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tgccif.melt: Test that a defun can appear inside
 	a gccif...
 
