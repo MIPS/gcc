@@ -1127,6 +1127,7 @@ dump_gimple_omp_for (pretty_printer *buffer, gimple gs, int spc, int flags)
 	  break;
 	case GF_OMP_FOR_KIND_CILKSIMD:
 	  kind = " cilksimd";
+	  break;
 	case GF_OMP_FOR_KIND_DISTRIBUTE:
 	  kind = " distribute";
 	  break;
