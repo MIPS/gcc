@@ -1,6 +1,12 @@
 
 2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tusedef-ana1.melt: Improve. Add gate function.
+
+	* testsuite/melt/tusedef-code1.c: Improve. Add main function.
+
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_inform_str): Remove useless mixmag
 	local variable.
 

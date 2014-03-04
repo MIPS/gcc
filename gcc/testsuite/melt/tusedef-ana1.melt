@@ -4,45 +4,77 @@
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-ana1.melt
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-code1.c
 
- ./cc1plus -fmelt-mode=runfile @meltbuild-common.args \
+ ./cc1plus -fmelt-mode=runfile,usedef @meltbuild-common.args \
     -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tusedef-ana1.melt \
      tusedef-code1.c
 
 or in a MELT module
 
-gcc -fplugin=melt -fplugin-arg-melt-mode=runfile @meltbuild-common.args \
-    -fplugin-arg-melt-init=@warmelt.quicklybuilt -fplugin-arg-melt-arg=tusedef-ana1.melt \
+gcc -fplugin=melt -fplugin-arg-melt-mode=runfile,usedef @meltbuild-common.args \
+    -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tusedef-ana1.melt \
      -c tusedef-code1.c -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
 (defclass class_usedef_data
   :super class_proped
-  :fields (usedef_visited_ssaname
+  :fields (usedef_seen_cfun
+	   usedef_visited_ssaname	   
 	   )
   )
 
+
+(defvar usedef_count)
+
+(setq usedef_count (box 0))
+
+(defun usedef_gate (pass)
+  (debug "usedef_gate usedef_count=" usedef_count)
+  (let ( (udata (get_field :gccpass_data pass))
+	 (useenf (get_field :usedef_seen_cfun udata))
+	 )
+    (assert_msg "check udata" (is_a udata class_usedef_data))
+    (assert_msg "check useenf" (is_maptree useenf) useenf)
+    (with_cfun_decl
+     ()
+     (:tree cfundecl)
+     (debug "usedef_gate cfundecl=" cfundecl " useenf=" useenf)
+     (when (maptree_get useenf cfundecl)
+       (return ()))
+     (let ( (:long cnt (get_int usedef_count))
+	    )
+       (put_int usedef_count (+i cnt 1))
+       (maptree_put useenf cfundecl (constant_box cnt))
+       (debug "usedef_gate updated useenf=" useenf)
+       (return :true)
+     ))))
+
 (defun usedef_exec (pass)
   (debug "usedef_exec pass=" pass " cfundecl=" (cfun_decl))
+  (shortbacktrace_dbg "usedef_exec" 15)
   (let ( (udata (get_field :gccpass_data pass))
 	 (udmap (get_field :usedef_visited_ssaname udata))
 	 )
     (assert_msg "check udata" (is_a udata class_usedef_data))
     (assert_msg "check udmap" (is_maptree udmap) udmap)
+    (debug "end usedef_exec pass=" pass " cfundecl=" (cfun_decl))
+    (return :true)
   ))
 
 (defun usedef_docmd (cmd moduldata)
   (let ( (udata (instance class_usedef_data
+			  :usedef_seen_cfun (make_maptree discr_map_trees 11)
 			  :usedef_visited_ssaname (make_maptree discr_map_trees
-								17)))
+								19)))
 	(usedefpass
 	  (instance class_gcc_gimple_pass
 		    :named_name '"melt_usedef_pass"
-		    :gccpass_gate ()
+		    :gccpass_gate usedef_gate
 		    :gccpass_exec usedef_exec
 		    :gccpass_data udata))
 	)
     (debug "usedef_docmd usedefpass=" usedefpass)
-    (install_melt_pass_in_gcc usedef :after '"phiopt" 0) 
+    (install_melt_pass_in_gcc usedefpass :after '"phiopt" 0)
+    (return :true)
     ))
     
 	   
