@@ -1,3 +1,13 @@
+2014-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* config/rs6000/rs6000.h (ALTIVEC_OR_VSX_128BIT_MODE_P): New macro
+	to return true if the mode is 128-bit and can go in a single VSX
+	register.
+	(HARD_REGNO_CALLER_SAVE_MODE): Use ALTIVEC_OR_VSX_128BIT_MODE_P
+	instead of ALTIVEC_OR_VSX_VECTOR_MODE, to catch TImode when
+	-mvsx-timode is enabled.
+	(MODES_TIEABLE_P): Likewise.
+
 2014-03-03  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	* config/rs6000/rs6000-protos.h (rs6000_int128_builtin_fixup): Add
