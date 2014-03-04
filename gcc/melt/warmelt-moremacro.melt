@@ -120,7 +120,8 @@
 	 (:cstring gccverstr "?")
 	 )
     ;;; versionstr should be e.g. "4.9" or "4.8"
-    ;;; melt_gccversionstr starts with e.g. "4.8 20140217"
+    ;;; melt_gccversionstr starts with e.g. "4.8 20140217" for a plugin
+    ;;; or "4.9.0 20140226" for a MELT branch
     (code_chunk 
      filtergcc
      #{ /* filtergccversion $FILTERGCC*/
@@ -129,7 +130,7 @@
 	    && !strncmp (melt_string_str((melt_ptr_t)$VERSIONSTR),
 			 melt_gccversionstr,
 			 $VERSIONLEN)
-	    && ISSPACE (melt_gccversionstr[$VERSIONLEN]))
+	    && !ISDIGIT (melt_gccversionstr[$VERSIONLEN]))
         $RES = $VERSIONSTR; 
 	}#)
     (debug "filtergccversion versionlen=" versionlen " versionstr=" versionstr

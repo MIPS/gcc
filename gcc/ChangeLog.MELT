@@ -1,5 +1,10 @@
 
 2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tgccif.melt works on MELT branch but fails for 4.8 plugin}}
+	* melt/warmelt-moremacro.melt (filtergccversion): Improve the
+	version test, but not yet working.
+
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{tgccif.melt fails on MELT branch svn 208269}}
 	* melt/warmelt-moremacro.melt (filtergccversion): More debug.
