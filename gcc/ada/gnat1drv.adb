@@ -117,6 +117,12 @@ procedure Gnat1drv is
          Relaxed_RM_Semantics := True;
       end if;
 
+      --  -gnatd.V or -gnatd.u enables special C expansion mode
+
+      if Debug_Flag_Dot_VV or Debug_Flag_Dot_U then
+         Modify_Tree_For_C := True;
+      end if;
+
       --  -gnatd.E sets Error_To_Warning mode, causing selected error messages
       --  to be treated as warnings instead of errors.
 
@@ -377,6 +383,12 @@ procedure Gnat1drv is
          --  formal verification.
 
          Assertions_Enabled := True;
+
+         --  Disable validity checks, since it generates code raising
+         --  exceptions for invalid data, which confuses GNATprove. Invalid
+         --  data is directly detected by GNATprove's flow analysis.
+
+         Validity_Checks_On := False;
 
          --  Turn off style check options since we are not interested in any
          --  front-end warnings when we are getting SPARK output.
