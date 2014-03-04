@@ -458,11 +458,6 @@ extern enum rs6000_vector rs6000_vector_mem[];
 	     (int)VECTOR_ALTIVEC,			\
 	     (int)VECTOR_P8_VECTOR))
 
-/* Altivec/VSX type that takes a single 128-bit vector register.  This will
-   include TImode if -mvsx-timode is in effect.  */
-#define ALTIVEC_OR_VSX_128BIT_MODE_P(MODE)		\
-  (VECTOR_MEM_ALTIVEC_OR_VSX_P (MODE) && GET_MODE_SIZE (MODE) == 16)
-
 /* Return the alignment of a given vector type, which is set based on the
    vector unit use.  VSX for instance can load 32 or 64 bit aligned words
    without problems, while Altivec requires 128-bit aligned vectors.  */
@@ -1171,9 +1166,11 @@ enum data_align { align_abi, align_opt, align_both };
    should not use VSX instructions to do a caller save. */
 #define HARD_REGNO_CALLER_SAVE_MODE(REGNO, NREGS, MODE)			\
   (TARGET_VSX								\
+   && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_VECTOR_MODE (MODE))		\
    && FP_REGNO_P (REGNO)						\
-   && ((MODE) == VOIDmode || ALTIVEC_OR_VSX_128BIT_MODE_P (MODE))	\
    ? V2DFmode								\
+   : (TARGET_VSX && TARGET_VSX_TIMODE && (MODE) == TImode)		\
+   ? V2DImode								\
    : ((MODE) == TFmode && FP_REGNO_P (REGNO))				\
    ? DFmode								\
    : ((MODE) == TDmode && FP_REGNO_P (REGNO))				\
@@ -1184,6 +1181,8 @@ enum data_align { align_abi, align_opt, align_both };
   (((TARGET_32BIT && TARGET_POWERPC64					\
      && (GET_MODE_SIZE (MODE) > 4)					\
      && INT_REGNO_P (REGNO)) ? 1 : 0)					\
+   || (TARGET_VSX && TARGET_VSX_TIMODE && (MODE) == TImode		\
+       && FP_REGNO_P (REGNO))						\
    || (TARGET_VSX && FP_REGNO_P (REGNO)					\
        && GET_MODE_SIZE (MODE) > 8 && ((MODE) != TDmode) 		\
        && ((MODE) != TFmode)))
@@ -1241,9 +1240,9 @@ enum data_align { align_abi, align_opt, align_both };
    ? SPE_VECTOR_MODE (MODE2)			\
    : SPE_VECTOR_MODE (MODE2)			\
    ? 0						\
-   : ALTIVEC_OR_VSX_128BIT_MODE_P (MODE1)	\
-   ? ALTIVEC_OR_VSX_128BIT_MODE_P (MODE2)	\
-   : ALTIVEC_OR_VSX_128BIT_MODE_P (MODE2)	\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE1)		\
+   ? ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
+   : ALTIVEC_OR_VSX_VECTOR_MODE (MODE2)		\
    ? 0						\
    : 1)
 

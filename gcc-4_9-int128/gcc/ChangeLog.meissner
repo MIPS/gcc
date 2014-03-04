@@ -1,5 +1,28 @@
 2014-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	* config/rs6000/rs6000-builtin.def (VADDCUQ): Delete support for
+	using V2DImode on 128-bit integer builtins.
+	(VADDUQM): Likewise.
+	(VSUBCUQ): Likewise.
+	(VSUBUQM): Likewise.
+	(VADDEUQM): Likewise.
+	(VADDECUQ): Likewise.
+	(VSUBEUQM): Likewise.
+	(VSUBECUQ): Likewise.
+	* config/rs6000/rs6000-c.c (altivec_overloaded_builtins):
+	Likewise.
+
+	* config/rs6000/rs6000.c (rs6000_secondary_reload_inner): Add
+	-mvsx-timode support.
+
+	* config/rs6000/rs6000.h (HARD_REGNO_CALLER_SAVE_MODE): Add
+	support for -mvsx-timode.
+	(HARD_REGNO_CALL_PART_CLOBBERED): Likewise
+
+	* config/rs6000/rs6000.c: Undo 2014-03-04 changes.
+	* config/rs6000/rs6000.h: Undo 2014-03-04 changes.
+
+	<note these changes have been removed>.
 	* config/rs6000/rs6000.c (rs6000_option_override_internal): Turn
 	on -mvsx-timode by default for power7 64-bit.
 

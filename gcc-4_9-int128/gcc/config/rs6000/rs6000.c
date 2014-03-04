@@ -3370,11 +3370,6 @@ rs6000_option_override_internal (bool global_init_p)
 	}
     }
 
-  /* Turn on -mvsx-timode by default for power7 64-bit.  */
-  else if (TARGET_VSX && TARGET_POWERPC64
-	   && (rs6000_isa_flags_explicit & OPTION_MASK_VSX_TIMODE) == 0)
-    rs6000_isa_flags |= OPTION_MASK_VSX_TIMODE;
-
 
   /* The quad memory instructions only works in 64-bit mode. In 32-bit mode,
      silently turn off quad memory mode.  */
@@ -16504,7 +16499,8 @@ rs6000_secondary_reload_inner (rtx reg, rtx mem, rtx scratch, bool store_p)
       /* If we aren't using a VSX load, save the PRE_MODIFY register and use it
 	 as the address later.  */
       if (GET_CODE (addr) == PRE_MODIFY
-	  && ((ALTIVEC_OR_VSX_VECTOR_MODE (mode)
+	  && (((ALTIVEC_OR_VSX_VECTOR_MODE (mode)
+		|| (mode == TImode && TARGET_VSX_TIMODE))
 	       && (rclass != FLOAT_REGS
 		   || (GET_MODE_SIZE (mode) != 4 && GET_MODE_SIZE (mode) != 8)))
 	      || and_op2 != NULL_RTX
