@@ -269,6 +269,7 @@ namespace gccjit
     gcc_jit_type *get_inner_type () const;
 
     type get_pointer ();
+    type get_volatile ();
 
     // Shortcuts for getting values of numeric types:
     rvalue zero ();
@@ -1065,6 +1066,12 @@ inline type
 type::get_pointer ()
 {
   return type (gcc_jit_type_get_pointer (get_inner_type ()));
+}
+
+inline type
+type::get_volatile ()
+{
+  return type (gcc_jit_type_get_volatile (get_inner_type ()));
 }
 
 inline rvalue

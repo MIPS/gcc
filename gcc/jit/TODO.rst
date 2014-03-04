@@ -19,8 +19,6 @@ Initial Release
     * unions
     * function ptrs
 
-  * ability to bind a pre-existing global variable
-
 * expose the statements in the API? (mostly so they can be stringified?)
 
 * support more arithmetic ops and comparison modes

@@ -466,6 +466,7 @@ class type : public memento
 public:
   type *get_pointer ();
   type *get_const ();
+  type *get_volatile ();
 
   /* Get the type obtained when dereferencing this type.
 
@@ -479,7 +480,7 @@ public:
   /* Is it typesafe to copy to this type from rtype?  */
   virtual bool accepts_writes_from (type *rtype)
   {
-    return this == rtype;
+    return this == rtype->unqualified ();
   }
 
   /* Strip off "const" etc */
@@ -577,6 +578,28 @@ public:
   }
 
   /* Strip off the "const", giving the underlying type.  */
+  type *unqualified () { return m_other_type; }
+
+  void replay_into (replayer *);
+
+private:
+  string * make_debug_string ();
+
+private:
+  type *m_other_type;
+};
+
+/* Result of "gcc_jit_type_get_volatile".  */
+class memento_of_get_volatile : public type
+{
+public:
+  memento_of_get_volatile (type *other_type)
+  : type (other_type->m_ctxt),
+    m_other_type (other_type) {}
+
+  type *dereference () { return m_other_type->dereference (); }
+
+  /* Strip off the "volatile", giving the underlying type.  */
   type *unqualified () { return m_other_type; }
 
   void replay_into (replayer *);
@@ -1742,6 +1765,11 @@ public:
   type *get_const () const
   {
     return new type (build_qualified_type (m_inner, TYPE_QUAL_CONST));
+  }
+
+  type *get_volatile () const
+  {
+    return new type (build_qualified_type (m_inner, TYPE_QUAL_VOLATILE));
   }
 
 private:

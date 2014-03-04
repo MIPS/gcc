@@ -1,3 +1,9 @@
+2014-03-04  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-volatile.c: New testcase, to exercise
+	gcc_jit_type_get_volatile, and show a way to work with pre-existing
+	global variables.
+
 2014-02-28  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-expressions.c (make_test_of_cast): New, to test new

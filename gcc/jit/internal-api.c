@@ -789,6 +789,14 @@ recording::type::get_const ()
 }
 
 recording::type *
+recording::type::get_volatile ()
+{
+  recording::type *result = new memento_of_get_volatile (this);
+  m_ctxt->record (result);
+  return result;
+}
+
+recording::type *
 recording::memento_of_get_type::dereference ()
 {
   switch (m_kind)
@@ -914,6 +922,21 @@ recording::memento_of_get_const::make_debug_string ()
 {
   return string::from_printf (m_ctxt,
 			      "const %s", m_other_type->get_debug_string ());
+}
+
+/* gcc::jit::recording::memento_of_get_volatile:: */
+
+void
+recording::memento_of_get_volatile::replay_into (replayer *)
+{
+  set_playback_obj (m_other_type->playback_type ()->get_volatile ());
+}
+
+recording::string *
+recording::memento_of_get_volatile::make_debug_string ()
+{
+  return string::from_printf (m_ctxt,
+			      "volatile %s", m_other_type->get_debug_string ());
 }
 
 /* gcc::jit::recording::array_type */

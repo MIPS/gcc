@@ -335,6 +335,14 @@ gcc_jit_type_get_const (gcc_jit_type *type)
 }
 
 gcc_jit_type *
+gcc_jit_type_get_volatile (gcc_jit_type *type)
+{
+  RETURN_NULL_IF_FAIL (type, NULL, "NULL type");
+
+  return (gcc_jit_type *)type->get_volatile ();
+}
+
+gcc_jit_type *
 gcc_jit_context_new_array_type (gcc_jit_context *ctxt,
 				gcc_jit_location *loc,
 				gcc_jit_type *element_type,
