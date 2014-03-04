@@ -1,3 +1,10 @@
+2014-03-04  Peter Bergner  <bergner@vnet.ibm.com>
+
+	Merge up to 208295.
+	* REVISION: Update subversion id.
+
+	Picks up LIBITM fixes for libitm.c/reentrant.c.
+
 2014-03-03  Bill Schmidt  <wschmidt@linux.vnet.ibm.com>
 
 	Backport from mainline r208287
