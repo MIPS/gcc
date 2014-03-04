@@ -98,6 +98,7 @@ const (
 	flagIndir
 	flagAddr
 	flagMethod
+	flagMethodFn         // gccgo: first fn parameter is always pointer
 	flagKindShift        = iota
 	flagKindWidth        = 5 // there are 27 kinds
 	flagKindMask    flag = 1<<flagKindWidth - 1
@@ -433,10 +434,7 @@ func (v Value) call(op string, in []Value) []Value {
 	if v.flag&flagMethod != 0 {
 		nin++
 	}
-	firstPointer := len(in) > 0 && Kind(t.In(0).(*rtype).kind) != Ptr && v.flag&flagMethod == 0 && isMethod(v.typ)
-	if v.flag&flagMethod == 0 && !firstPointer {
-		nin++
-	}
+	firstPointer := len(in) > 0 && t.In(0).Kind() != Ptr && v.flag&flagMethodFn != 0
 	params := make([]unsafe.Pointer, nin)
 	off := 0
 	if v.flag&flagMethod != 0 {
@@ -464,10 +462,6 @@ func (v Value) call(op string, in []Value) []Value {
 		}
 		off++
 	}
-	if v.flag&flagMethod == 0 && !firstPointer {
-		// Closure argument.
-		params[off] = unsafe.Pointer(&fn)
-	}
 
 	ret := make([]Value, nout)
 	results := make([]unsafe.Pointer, nout)
@@ -489,100 +483,6 @@ func (v Value) call(op string, in []Value) []Value {
 	call(t, fn, v.flag&flagMethod != 0, firstPointer, pp, pr)
 
 	return ret
-}
-
-// gccgo specific test to see if typ is a method.  We can tell by
-// looking at the string to see if there is a receiver.  We need this
-// because for gccgo all methods take pointer receivers.
-func isMethod(t *rtype) bool {
-	if Kind(t.kind) != Func {
-		return false
-	}
-	s := *t.string
-	parens := 0
-	params := 0
-	sawRet := false
-	for i, c := range s {
-		if c == '(' {
-			parens++
-			params++
-		} else if c == ')' {
-			parens--
-		} else if parens == 0 && c == ' ' && s[i+1] != '(' && !sawRet {
-			params++
-			sawRet = true
-		}
-	}
-	return params > 2
-}
-
-// callReflect is the call implementation used by a function
-// returned by MakeFunc. In many ways it is the opposite of the
-// method Value.call above. The method above converts a call using Values
-// into a call of a function with a concrete argument frame, while
-// callReflect converts a call of a function with a concrete argument
-// frame into a call using Values.
-// It is in this file so that it can be next to the call method above.
-// The remainder of the MakeFunc implementation is in makefunc.go.
-func callReflect(ctxt *makeFuncImpl, frame unsafe.Pointer) {
-	ftyp := ctxt.typ
-	f := ctxt.fn
-
-	// Copy argument frame into Values.
-	ptr := frame
-	off := uintptr(0)
-	in := make([]Value, 0, len(ftyp.in))
-	for _, arg := range ftyp.in {
-		typ := arg
-		off += -off & uintptr(typ.align-1)
-		v := Value{typ, nil, flag(typ.Kind()) << flagKindShift}
-		if typ.size <= ptrSize {
-			// value fits in word.
-			v.val = unsafe.Pointer(loadIword(unsafe.Pointer(uintptr(ptr)+off), typ.size))
-		} else {
-			// value does not fit in word.
-			// Must make a copy, because f might keep a reference to it,
-			// and we cannot let f keep a reference to the stack frame
-			// after this function returns, not even a read-only reference.
-			v.val = unsafe_New(typ)
-			memmove(v.val, unsafe.Pointer(uintptr(ptr)+off), typ.size)
-			v.flag |= flagIndir
-		}
-		in = append(in, v)
-		off += typ.size
-	}
-
-	// Call underlying function.
-	out := f(in)
-	if len(out) != len(ftyp.out) {
-		panic("reflect: wrong return count from function created by MakeFunc")
-	}
-
-	// Copy results back into argument frame.
-	if len(ftyp.out) > 0 {
-		off += -off & (ptrSize - 1)
-		for i, arg := range ftyp.out {
-			typ := arg
-			v := out[i]
-			if v.typ != typ {
-				panic("reflect: function created by MakeFunc using " + funcName(f) +
-					" returned wrong type: have " +
-					out[i].typ.String() + " for " + typ.String())
-			}
-			if v.flag&flagRO != 0 {
-				panic("reflect: function created by MakeFunc using " + funcName(f) +
-					" returned value obtained from unexported field")
-			}
-			off += -off & uintptr(typ.align-1)
-			addr := unsafe.Pointer(uintptr(ptr) + off)
-			if v.flag&flagIndir == 0 {
-				storeIword(addr, iword(v.val), typ.size)
-			} else {
-				memmove(addr, v.val, typ.size)
-			}
-			off += typ.size
-		}
-	}
 }
 
 // methodReceiver returns information about the receiver
@@ -618,7 +518,13 @@ func methodReceiver(op string, v Value, methodIndex int) (t *rtype, fn unsafe.Po
 		}
 		fn = unsafe.Pointer(&m.tfn)
 		t = m.mtyp
-		rcvr = v.iword()
+		// Can't call iword here, because it checks v.kind,
+		// and that is always Func.
+		if v.flag&flagIndir != 0 && (v.typ.Kind() == Ptr || v.typ.Kind() == UnsafePointer) {
+			rcvr = loadIword(v.val, v.typ.size)
+		} else {
+			rcvr = iword(v.val)
+		}
 	}
 	return
 }
@@ -985,6 +891,16 @@ func valueInterface(v Value, safe bool) interface{} {
 		v = makeMethodValue("Interface", v)
 	}
 
+	if v.flag&flagMethodFn != 0 {
+		if v.typ.Kind() != Func {
+			panic("reflect: MethodFn of non-Func")
+		}
+		ft := (*funcType)(unsafe.Pointer(v.typ))
+		if ft.in[0].Kind() != Ptr {
+			v = makeValueMethod(v)
+		}
+	}
+
 	k := v.kind()
 	if k == Interface {
 		// Special case: return the element inside the interface.
@@ -1298,8 +1214,7 @@ func (v Value) Pointer() uintptr {
 			// created via reflect have the same underlying code pointer,
 			// so their Pointers are equal. The function used here must
 			// match the one used in makeMethodValue.
-			// This is not properly implemented for gccgo.
-			f := Zero
+			f := makeFuncStub
 			return **(**uintptr)(unsafe.Pointer(&f))
 		}
 		p := v.val

@@ -1430,11 +1430,53 @@ func TestFunc(t *testing.T) {
 	}
 }
 
-/*
+type emptyStruct struct{}
 
-Not yet implemented for gccgo.
+type nonEmptyStruct struct {
+	member int
+}
+
+func returnEmpty() emptyStruct {
+	return emptyStruct{}
+}
+
+func takesEmpty(e emptyStruct) {
+}
+
+func returnNonEmpty(i int) nonEmptyStruct {
+	return nonEmptyStruct{member: i}
+}
+
+func takesNonEmpty(n nonEmptyStruct) int {
+	return n.member
+}
+
+func TestCallWithStruct(t *testing.T) {
+	r := ValueOf(returnEmpty).Call([]Value{})
+	if len(r) != 1 || r[0].Type() != TypeOf(emptyStruct{}) {
+		t.Errorf("returning empty struct returned %s instead", r)
+	}
+	r = ValueOf(takesEmpty).Call([]Value{ValueOf(emptyStruct{})})
+	if len(r) != 0 {
+		t.Errorf("takesEmpty returned values: %s", r)
+	}
+	r = ValueOf(returnNonEmpty).Call([]Value{ValueOf(42)})
+	if len(r) != 1 || r[0].Type() != TypeOf(nonEmptyStruct{}) || r[0].Field(0).Int() != 42 {
+		t.Errorf("returnNonEmpty returned %s", r)
+	}
+	r = ValueOf(takesNonEmpty).Call([]Value{ValueOf(nonEmptyStruct{member: 42})})
+	if len(r) != 1 || r[0].Type() != TypeOf(1) || r[0].Int() != 42 {
+		t.Errorf("takesNonEmpty returned %s", r)
+	}
+}
 
 func TestMakeFunc(t *testing.T) {
+	switch runtime.GOARCH {
+	case "amd64", "386":
+	default:
+		t.Skip("MakeFunc not implemented for " + runtime.GOARCH)
+	}
+
 	f := dummy
 	fv := MakeFunc(TypeOf(f), func(in []Value) []Value { return in })
 	ValueOf(&f).Elem().Set(fv)
@@ -1452,7 +1494,29 @@ func TestMakeFunc(t *testing.T) {
 	}
 }
 
-*/
+func TestMakeFuncInterface(t *testing.T) {
+	switch runtime.GOARCH {
+	case "amd64", "386":
+	default:
+		t.Skip("MakeFunc not implemented for " + runtime.GOARCH)
+	}
+
+	fn := func(i int) int { return i }
+	incr := func(in []Value) []Value {
+		return []Value{ValueOf(int(in[0].Int() + 1))}
+	}
+	fv := MakeFunc(TypeOf(fn), incr)
+	ValueOf(&fn).Elem().Set(fv)
+	if r := fn(2); r != 3 {
+		t.Errorf("Call returned %d, want 3", r)
+	}
+	if r := fv.Call([]Value{ValueOf(14)})[0].Int(); r != 15 {
+		t.Errorf("Call returned %d, want 15", r)
+	}
+	if r := fv.Interface().(func(int) int)(26); r != 27 {
+		t.Errorf("Call returned %d, want 27", r)
+	}
+}
 
 type Point struct {
 	x, y int
@@ -1563,9 +1627,13 @@ func TestMethod(t *testing.T) {
 	}
 }
 
-/* Not yet implemented for gccgo
-
 func TestMethodValue(t *testing.T) {
+	switch runtime.GOARCH {
+	case "amd64", "386":
+	default:
+		t.Skip("reflect method values not implemented for " + runtime.GOARCH)
+	}
+
 	p := Point{3, 4}
 	var i int64
 
@@ -1633,8 +1701,6 @@ func TestMethodValue(t *testing.T) {
 		t.Errorf("Interface MethodByName returned %d; want 375", i)
 	}
 }
-
-*/
 
 // Reflect version of $GOROOT/test/method5.go
 
@@ -1720,14 +1786,18 @@ type Tm4 struct {
 func (t4 Tm4) M(x int, b byte) (byte, int) { return b, x + 40 }
 
 func TestMethod5(t *testing.T) {
-	/* Not yet used for gccgo
+	switch runtime.GOARCH {
+	case "amd64", "386":
+	default:
+		t.Skip("reflect method values not implemented for " + runtime.GOARCH)
+	}
+
 	CheckF := func(name string, f func(int, byte) (byte, int), inc int) {
 		b, x := f(1000, 99)
 		if b != 99 || x != 1000+inc {
 			t.Errorf("%s(1000, 99) = %v, %v, want 99, %v", name, b, x, 1000+inc)
 		}
 	}
-	*/
 
 	CheckV := func(name string, i Value, inc int) {
 		bx := i.Method(0).Call([]Value{ValueOf(1000), ValueOf(byte(99))})
@@ -1737,9 +1807,7 @@ func TestMethod5(t *testing.T) {
 			t.Errorf("direct %s.M(1000, 99) = %v, %v, want 99, %v", name, b, x, 1000+inc)
 		}
 
-		/* Not yet implemented for gccgo
 		CheckF(name+".M", i.Method(0).Interface().(func(int, byte) (byte, int)), inc)
-		*/
 	}
 
 	var TinterType = TypeOf(new(Tinter)).Elem()
@@ -2403,6 +2471,15 @@ func TestVariadic(t *testing.T) {
 	V(fmt.Fprintf).CallSlice([]Value{V(&b), V("%s, %d world"), V([]interface{}{"hello", 42})})
 	if b.String() != "hello, 42 world" {
 		t.Errorf("after Fprintf CallSlice: %q != %q", b.String(), "hello 42 world")
+	}
+}
+
+func TestFuncArg(t *testing.T) {
+	f1 := func(i int, f func(int) int) int { return f(i) }
+	f2 := func(i int) int { return i + 1 }
+	r := ValueOf(f1).Call([]Value{ValueOf(100), ValueOf(f2)})
+	if r[0].Int() != 101 {
+		t.Errorf("function returned %d, want 101", r[0].Int())
 	}
 }
 

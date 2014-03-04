@@ -174,7 +174,7 @@ static struct {
 	Obj	*roots;
 	uint32	nroot;
 	uint32	rootcap;
-} work;
+} work __attribute__((aligned(8)));
 
 enum {
 	GC_DEFAULT_PTR = GC_NUM_INSTR,
@@ -239,8 +239,7 @@ markonly(void *obj)
 	// (Manually inlined copy of MHeap_LookupMaybe.)
 	k = (uintptr)obj>>PageShift;
 	x = k;
-	if(sizeof(void*) == 8)
-		x -= (uintptr)runtime_mheap->arena_start>>PageShift;
+	x -= (uintptr)runtime_mheap->arena_start>>PageShift;
 	s = runtime_mheap->map[x];
 	if(s == nil || k < s->start || k - s->start >= s->npages || s->state != MSpanInUse)
 		return false;
@@ -418,8 +417,7 @@ flushptrbuf(PtrTarget *ptrbuf, PtrTarget **ptrbufpos, Obj **_wp, Workbuf **_wbuf
 			// (Manually inlined copy of MHeap_LookupMaybe.)
 			k = (uintptr)obj>>PageShift;
 			x = k;
-			if(sizeof(void*) == 8)
-				x -= (uintptr)arena_start>>PageShift;
+			x -= (uintptr)arena_start>>PageShift;
 			s = runtime_mheap->map[x];
 			if(s == nil || k < s->start || k - s->start >= s->npages || s->state != MSpanInUse)
 				continue;
@@ -466,8 +464,7 @@ flushptrbuf(PtrTarget *ptrbuf, PtrTarget **ptrbufpos, Obj **_wp, Workbuf **_wbuf
 			// Ask span about size class.
 			// (Manually inlined copy of MHeap_Lookup.)
 			x = (uintptr)obj >> PageShift;
-			if(sizeof(void*) == 8)
-				x -= (uintptr)arena_start>>PageShift;
+			x -= (uintptr)arena_start>>PageShift;
 			s = runtime_mheap->map[x];
 
 			PREFETCH(obj);
@@ -585,8 +582,7 @@ checkptr(void *obj, uintptr objti)
 	if(t == nil)
 		return;
 	x = (uintptr)obj >> PageShift;
-	if(sizeof(void*) == 8)
-		x -= (uintptr)(runtime_mheap->arena_start)>>PageShift;
+	x -= (uintptr)(runtime_mheap->arena_start)>>PageShift;
 	s = runtime_mheap->map[x];
 	objstart = (byte*)((uintptr)s->start<<PageShift);
 	if(s->sizeclass != 0) {
@@ -2263,12 +2259,11 @@ runfinq(void* dummy __attribute__ ((unused)))
 		for(; fb; fb=next) {
 			next = fb->next;
 			for(i=0; i<(uint32)fb->cnt; i++) {
-				void *params[2];
+				void *param;
 
 				f = &fb->fin[i];
-				params[0] = &f->arg;
-				params[1] = f;
-				reflect_call(f->ft, f->fn, 0, 0, params, nil);
+				param = &f->arg;
+				reflect_call(f->ft, f->fn, 0, 0, &param, nil);
 				f->fn = nil;
 				f->arg = nil;
 			}

@@ -166,20 +166,21 @@ runtime_sighandler (int sig, Siginfo *info,
   int i;
 
   m = runtime_m ();
+
+#ifdef SIGPROF
+  if (sig == SIGPROF)
+    {
+      if (m != NULL && gp != m->g0 && gp != m->gsignal)
+	runtime_sigprof ();
+      return;
+    }
+#endif
+
   if (m == NULL)
     {
       runtime_badsignal (sig);
       return;
     }
-
-#ifdef SIGPROF
-  if (sig == SIGPROF)
-    {
-      if (gp != runtime_m ()->g0 && gp != runtime_m ()->gsignal)
-	runtime_sigprof ();
-      return;
-    }
-#endif
 
   for (i = 0; runtime_sigtab[i].sig != -1; ++i)
     {
@@ -233,7 +234,7 @@ runtime_sighandler (int sig, Siginfo *info,
 	  G *g;
 
 	  g = runtime_g ();
-	  runtime_traceback (g);
+	  runtime_traceback ();
 	  runtime_tracebackothers (g);
 
 	  /* The gc library calls runtime_dumpregs here, and provides
@@ -398,6 +399,9 @@ sig_tramp_info (int sig, Siginfo *info, void *context)
 {
   G *gp;
   M *mp;
+#ifdef USING_SPLIT_STACK
+  void *stack_context[10];
+#endif
 
   /* We are now running on the stack registered via sigaltstack.
      (Actually there is a small span of time between runtime_siginit
@@ -408,7 +412,7 @@ sig_tramp_info (int sig, Siginfo *info, void *context)
   if (gp != NULL)
     {
 #ifdef USING_SPLIT_STACK
-      __splitstack_getcontext (&gp->stack_context[0]);
+      __splitstack_getcontext (&stack_context[0]);
 #endif
     }
 
@@ -431,7 +435,7 @@ sig_tramp_info (int sig, Siginfo *info, void *context)
   if (gp != NULL)
     {
 #ifdef USING_SPLIT_STACK
-      __splitstack_setcontext (&gp->stack_context[0]);
+      __splitstack_setcontext (&stack_context[0]);
 #endif
     }
 }

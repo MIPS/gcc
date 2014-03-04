@@ -25,7 +25,7 @@ type RawSockaddrAny struct {
 	Pad  [96]int8
 }
 
-const SizeofSockaddrAny = 0x1c
+const SizeofSockaddrAny = 0x6c
 
 type SockaddrInet4 struct {
 	Port int
@@ -92,11 +92,7 @@ func (sa *SockaddrUnix) sockaddr() (*RawSockaddrAny, Socklen_t, error) {
 	if n > 0 {
 		sl += Socklen_t(n) + 1
 	}
-	if sa.raw.Path[0] == '@' {
-		sa.raw.Path[0] = 0
-		// Don't count trailing NUL for abstract address.
-		sl--
-	}
+	sl = sa.raw.adjustAbstract(sl)
 
 	// length is family (uint16), name, NUL.
 	return (*RawSockaddrAny)(unsafe.Pointer(&sa.raw)), sl, nil

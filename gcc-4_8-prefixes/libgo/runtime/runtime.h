@@ -190,6 +190,7 @@ struct	Location
 
 struct	G
 {
+	void*	closure;	// Closure value.
 	Defer*	defer;
 	Panic*	panic;
 	void*	exception;	// current exception being thrown
@@ -273,6 +274,7 @@ struct	M
 	GCStats	gcstats;
 	bool	racecall;
 	bool	needextram;
+	bool	dropextram;	// for gccgo: drop after call is done.
 	void*	racepc;
 	void	(*waitunlockf)(Lock*);
 	void*	waitlock;
@@ -438,7 +440,7 @@ enum {
 };
 void	runtime_hashinit(void);
 
-void	runtime_traceback();
+void	runtime_traceback(void);
 void	runtime_tracebackothers(G*);
 
 /*
@@ -450,6 +452,7 @@ extern	G*	runtime_lastg;
 extern	M*	runtime_allm;
 extern	P**	runtime_allp;
 extern	int32	runtime_gomaxprocs;
+extern	uint32	runtime_needextram;
 extern	bool	runtime_singleproc;
 extern	uint32	runtime_panicking;
 extern	uint32	runtime_gcwaiting;		// gc is waiting to run
@@ -518,6 +521,8 @@ G*	runtime_malg(int32, byte**, size_t*);
 void	runtime_mpreinit(M*);
 void	runtime_minit(void);
 void	runtime_unminit(void);
+void	runtime_needm(void);
+void	runtime_dropm(void);
 void	runtime_signalstack(byte*, int32);
 MCache*	runtime_allocmcache(void);
 void	runtime_freemcache(MCache*);
@@ -751,7 +756,11 @@ extern struct backtrace_state *__go_get_backtrace_state(void);
 extern _Bool __go_file_line(uintptr, String*, String*, intgo *);
 extern byte* runtime_progname();
 extern void runtime_main(void*);
+extern uint32 runtime_in_callers;
 
 int32 getproccount(void);
 
 #define PREFETCH(p) __builtin_prefetch(p)
+
+void	__go_set_closure(void*);
+void*	__go_get_closure(void);
