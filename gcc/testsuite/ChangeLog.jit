@@ -1,5 +1,11 @@
 2014-03-04  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-error-mismatching-types-in-call.c: New test case,
+	to ensure that a (struct foo *) vs (struct foo) type error is
+	gracefully handled.
+
+2014-03-04  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-volatile.c: New testcase, to exercise
 	gcc_jit_type_get_volatile, and show a way to work with pre-existing
 	global variables.

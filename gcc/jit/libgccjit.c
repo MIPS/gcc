@@ -784,7 +784,7 @@ gcc_jit_context_new_comparison (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (a, ctxt, "NULL a");
   RETURN_NULL_IF_FAIL (b, ctxt, "NULL b");
   RETURN_NULL_IF_FAIL_PRINTF4 (
-    a->get_type () == b->get_type (),
+    a->get_type ()->unqualified () == b->get_type ()->unqualified (),
     ctxt,
     "mismatching types for comparison:"
     " a: %s (type: %s) b: %s (type: %s)",

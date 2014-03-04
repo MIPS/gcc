@@ -891,9 +891,14 @@ recording::memento_of_get_type::make_debug_string ()
 bool
 recording::memento_of_get_pointer::accepts_writes_from (type *rtype)
 {
+  /* Must be a pointer type: */
+  type *rtype_points_to = rtype->dereference ();
+  if (!rtype_points_to)
+    return false;
+
   /* It's OK to assign to a (const T *) from a (T *).  */
   return m_other_type->unqualified ()
-    ->accepts_writes_from (rtype->dereference ());
+    ->accepts_writes_from (rtype_points_to);
 }
 
 void

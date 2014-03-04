@@ -480,6 +480,7 @@ public:
   /* Is it typesafe to copy to this type from rtype?  */
   virtual bool accepts_writes_from (type *rtype)
   {
+    gcc_assert (rtype);
     return this == rtype->unqualified ();
   }
 
