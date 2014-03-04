@@ -2941,7 +2941,7 @@
 	{
 	  rtx tmp = gen_reg_rtx (<MODE>mode);
 
-	  emit_insn (gen_extzv (tmp, operands[1], GEN_INT (len), GEN_INT (pos)));
+	  emit_insn (gen_extzv<mode> (tmp, operands[1], GEN_INT (len), GEN_INT (pos)));
 	  emit_insn (gen_ashl<mode>3 (operands[0], tmp, GEN_INT (pos)));
 
 	  DONE;
@@ -3089,7 +3089,7 @@
 	     the use clause of m1 which prevents some optimizations.  */
 	  emit_move_insn (m1, constm1_rtx);
 	  emit_move_insn (operands[0], operands[1]);
-	  emit_insn (gen_insv (operands[0], GEN_INT (len), GEN_INT (pos), m1));
+	  emit_insn (gen_insv<mode> (operands[0], GEN_INT (len), GEN_INT (pos), m1));
 	  DONE;
 	}
     }

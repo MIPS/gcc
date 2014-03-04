@@ -1,3 +1,8 @@
+2014-03-04  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	* config/mips/mips.md (and<mode>3): Correct the last patch.
+	(ior<mode>3): Likewise.
+
 2012-07-26  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #2854
