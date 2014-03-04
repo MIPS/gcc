@@ -8322,7 +8322,6 @@ void
 melt_inform_str (melt_ptr_t mixloc_p, const char *msg,
                  melt_ptr_t str_p)
 {
-  int mixmag = 0;
   int lineno = 0;
   location_t loc = 0;
   MELT_ENTERFRAME (3, NULL);

@@ -701,13 +701,8 @@ unsigned int melthk_rtl_execute(void)
    unsigned $EACHSUPERLOOP#_ix = 0;
    loop_p $EACHSUPERLOOP#_loop = NULL;
    if ($LO) { 
-#if GCCPLUGIN_VERSION >= 4008 || MELT_GCC_VERSION >= 4008
      FOR_EACH_VEC_SAFE_ELT ($LO->superloops, $EACHSUPERLOOP#_ix, 
 		       $EACHSUPERLOOP#_loop) 
-#else
-     FOR_EACH_VEC_ELT (loop_p, $LO->superloops, $EACHSUPERLOOP#_ix,  
-		       $EACHSUPERLOOP#_loop) 
-#endif
        {
        $LOOPIX = $EACHSUPERLOOP#_ix;
        $CURLOOP = $EACHSUPERLOOP#_loop;
@@ -973,24 +968,14 @@ unsigned int melthk_rtl_execute(void)
   #{
     /* foreach_dominated_unsafe $EBBDOMD before+ */
 
-#if GCCPLUGIN_VERSION >= 4008 || MELT_GCC_VERSION >= 4008
     vec<basic_block> $EBBDOMD#_bbvec;
-#else
-    VEC (basic_block, heap)*  $EBBDOMD#_bbvec = 0;
-#endif /* GCC 4.8 */
     unsigned int $EBBDOMD#_ix = 0;
     basic_block $EBBDOMD#_bb = 0;
 
     if($DOMINATOR_BB) {
       $EBBDOMD#_bbvec = get_dominated_by (CDI_DOMINATORS, $DOMINATOR_BB);
-#if GCCPLUGIN_VERSION >= 4008 || MELT_GCC_VERSION >= 4008
         FOR_EACH_VEC_ELT ($EBBDOMD#_bbvec, 
           $EBBDOMD#_ix, $EBBDOMD#_bb) 
-#else
-        if ($EBBDOMD#_bbvec) 
-          FOR_EACH_VEC_ELT (basic_block, $EBBDOMD#_bbvec, 
-            $EBBDOMD#_ix, $EBBDOMD#_bb) 
-#endif /* GCC 4.8 */
         {
           if (!$EBBDOMD#_ix)
             continue;
@@ -1000,12 +985,7 @@ unsigned int melthk_rtl_execute(void)
   #{/* foreach_dominated_unsafe $EBBDOMD after+ */
         }
       }
-#if GCCPLUGIN_VERSION >= 4008 || MELT_GCC_VERSION >= 4008
    /* foreach_dominated_unsafe dont need to free $EBBDOMD#_bbvec */
-#else
-    VEC_free (basic_block, heap, $EBBDOMD#_bbvec);
-    $EBBDOMD#_bbvec = 0;
-#endif /* GCC 4.8 */
     $EBBDOMD#_bb = 0;
     /* $EBBDOMD after- */}#
 )
@@ -1217,20 +1197,14 @@ unsigned int melthk_rtl_execute(void)
   #{ /*  each_cgraph_fun_body $EACHCGRFUN + */
    struct cgraph_node *$EACHCGRFUN#_nd = NULL; 
    /* each_cgraph_fun_body $EACHCGRFUN; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
-#ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRFUN#_nd)
-#else /* for GCC 4.7 without FOR_EACH_DEFINED_FUNCTION */
-   for ($EACHCGRFUN#_nd = cgraph_nodes; 
-	$EACHCGRFUN#_nd != NULL; 
-	$EACHCGRFUN#_nd = $EACHCGRFUN#_nd->next) 
-#endif /* FOR_EACH_DEFINED_FUNCTION $EACHCGRFUN */
      {  /* each_cgraph_fun_body $EACHCGRFUN inside for */
        tree $EACHCGRFUN#_dcl = NULL;
        gimple_seq  $EACHCGRFUN#_bdy = NULL;
    /* in each_cgraph_fun_body $EACHCGRFUN */
 #if MELT_GCC_VERSION == 4008
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->symbol.decl;
-#else /* GCC 4.7 or GCC 4.9 but not 4.8! */
+#else /*  GCC 4.9 but not 4.8! */
        $EACHCGRFUN#_dcl =  $EACHCGRFUN#_nd->decl;
 #endif /* variant GCC 4.8 */
        if (!$EACHCGRFUN#_dcl) continue;
@@ -1254,13 +1228,7 @@ unsigned int melthk_rtl_execute(void)
   #{ /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO + */
    struct cgraph_node *$EACHCGRAFUNENTRBLO#_nd = NULL; 
    /* each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO; GCC 4.8 has FOR_EACH_DEFINED_FUNCTION */
-#ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNENTRBLO#_nd)
-#else /* for GCC 4.7 without FOR_EACH_DEFINED_FUNCTION */
-   for ($EACHCGRAFUNENTRBLO#_nd = cgraph_nodes; 
-        $EACHCGRAFUNENTRBLO#_nd != NULL; 
-        $EACHCGRAFUNENTRBLO#_nd = $EACHCGRAFUNENTRBLO#_nd->next) 
-#endif /* FOR_EACH_DEFINED_FUNCTION $EACHCGRAFUNENTRBLO */
    {
    tree  $EACHCGRAFUNENTRBLO#_dcl = NULL;
    basic_block  $EACHCGRAFUNENTRBLO#_entrybb = NULL;
@@ -1269,7 +1237,7 @@ unsigned int melthk_rtl_execute(void)
    /* in each_cgraph_fun_entryblock $EACHCGRAFUNENTRBLO */
 #if MELT_GCC_VERSION == 4008
    $EACHCGRAFUNENTRBLO#_dcl = $EACHCGRAFUNENTRBLO#_nd->symbol.decl;
-#else /* GCC 4.7 or 4.9 but not 4.8 */
+#else /* GCC 4.9 but not 4.8 */
    $EACHCGRAFUNENTRBLO#_dcl = $EACHCGRAFUNENTRBLO#_nd->decl;
 #endif /* GCC 4.8 or not */
    if (! $EACHCGRAFUNENTRBLO#_dcl) continue;
@@ -1320,13 +1288,7 @@ unsigned int melthk_rtl_execute(void)
    struct cgraph_node *$EACHCGRAFUNCFG#_nd = NULL; 
    /* each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG;
     * GCC 4.8 has  FOR_EACH_DEFINED_FUNCTION...  */
-#ifdef FOR_EACH_DEFINED_FUNCTION
    FOR_EACH_DEFINED_FUNCTION($EACHCGRAFUNCFG#_nd)
-#else /* for GCC 4.7 without FOR_EACH_DEFINED_FUNCTION */
-   for ($EACHCGRAFUNCFG#_nd = cgraph_nodes; 
-        $EACHCGRAFUNCFG#_nd != NULL; 
-        $EACHCGRAFUNCFG#_nd = $EACHCGRAFUNCFG#_nd->next) 
-#endif /* FOR_EACH_DEFINED_FUNCTION  each_cgraph_fun_call_flow_graph $EACHCGRAFUNCFG */
     {
       tree  $EACHCGRAFUNCFG#_dcl = NULL;
       basic_block $EACHCGRAFUNCFG#_curbb = NULL;
@@ -1336,7 +1298,7 @@ unsigned int melthk_rtl_execute(void)
       /* inside  each_cgraph_fun_call_flow_graph loop  $EACHCGRAFUNCFG */
 #if MELT_GCC_VERSION == 4008
       $EACHCGRAFUNCFG#_dcl = $EACHCGRAFUNCFG#_nd->symbol.decl;
-#else /* GCC 4.7 or 4.9 but not 4.8 */
+#else /* GCC  4.9 but not 4.8 */
       $EACHCGRAFUNCFG#_dcl = $EACHCGRAFUNCFG#_nd->decl;
 #endif /* older than GCC 4.8 */
       if (! $EACHCGRAFUNCFG#_dcl) 
@@ -1681,24 +1643,13 @@ current function and gives its declaration in $CFUNDECL}#
   (:edge ed :long ix)			;local formals
   ;; before expansion
   #{ /* $EACHLOOPEXITEDGE before+ */
-#if GCCPLUGIN_VERSION >= 4008 || MELT_GCC_VERSION >= 4008
   vec<edge> $EACHLOOPEXITEDGE#_edgevec;
-#else
-  VEC (edge, heap)* $EACHLOOPEXITEDGE#_edgevec = 0;
-#endif /* GCC 4.8 */
   unsigned $EACHLOOPEXITEDGE#_ix = 0;
   edge $EACHLOOPEXITEDGE#_edge = 0;
   if ($LO) 
     $EACHLOOPEXITEDGE#_edgevec = get_loop_exit_edges ($LO);
-
-#if GCCPLUGIN_VERSION >= 4008 || MELT_GCC_VERSION >= 4008
       FOR_EACH_VEC_ELT ($EACHLOOPEXITEDGE#_edgevec, 
 		      $EACHLOOPEXITEDGE#_ix, $EACHLOOPEXITEDGE#_edge) 
-#else
-    if ($EACHLOOPEXITEDGE#_edgevec)
-      FOR_EACH_VEC_ELT (edge, $EACHLOOPEXITEDGE#_edgevec, 
- 			      $EACHLOOPEXITEDGE#_ix, $EACHLOOPEXITEDGE#_edge) 
-#endif /* GCC 4.8 */
     {
       if (!$EACHLOOPEXITEDGE#_edge) 
         continue;
@@ -1708,12 +1659,7 @@ current function and gives its declaration in $CFUNDECL}#
   ;; after expansion
   #{ /* $EACHLOOPEXITEDGE after+ */
   } /* end FOR_EACH_VEC_ELT  $EACHLOOPEXITEDGE*/
-#if GCCPLUGIN_VERSION >= 4008 || MELT_GCC_VERSION >= 4008
   /* no need to free $EACHLOOPEXITEDGE#_edgevec */
-#else
-  VEC_free (edge, heap, $EACHLOOPEXITEDGE#_edgevec);
-  $EACHLOOPEXITEDGE#_edgevec = 0;
-#endif /* GCC 4.8 */
   $EACHLOOPEXITEDGE#_edge = 0;
 /* $EACHLOOPEXITEDGE after- */}#
 )
