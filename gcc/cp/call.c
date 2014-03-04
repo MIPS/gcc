@@ -886,6 +886,8 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
   if (ctor == error_mark_node)
     return NULL;
 
+  flags |= LOOKUP_NO_NARROWING;
+
   for (; field; field = next_initializable_field (DECL_CHAIN (field)))
     {
       tree ftype = TREE_TYPE (field);
@@ -926,6 +928,7 @@ build_aggr_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
   c->type = type;
   c->rank = cr_exact;
   c->user_conv_p = true;
+  c->check_narrowing = true;
   c->u.next = NULL;
   return c;
 }
@@ -945,7 +948,8 @@ build_array_conv (tree type, tree ctor, int flags, tsubst_flags_t complain)
   bool user = false;
   enum conversion_rank rank = cr_exact;
 
-  if (TYPE_DOMAIN (type))
+  if (TYPE_DOMAIN (type)
+      && !variably_modified_type_p (TYPE_DOMAIN (type), NULL_TREE))
     {
       unsigned HOST_WIDE_INT alen = tree_to_uhwi (array_type_nelts_top (type));
       if (alen < len)
@@ -3176,6 +3180,10 @@ print_conversion_rejection (location_t loc, struct conversion_info *info)
     inform (loc, "  no known conversion for implicit "
 	    "%<this%> parameter from %qT to %qT",
 	    info->from_type, info->to_type);
+  else if (info->n_arg == -2)
+    /* Conversion of conversion function return value failed.  */
+    inform (loc, "  no known conversion from %qT to %qT",
+	    info->from_type, info->to_type);
   else
     inform (loc, "  no known conversion for argument %d from %qT to %qT",
 	    info->n_arg+1, info->from_type, info->to_type);
@@ -3229,7 +3237,7 @@ print_z_candidate (location_t loc, const char *msgstr,
     inform (cloc, "%s%T <conversion>", msg, candidate->fn);
   else if (candidate->viable == -1)
     inform (cloc, "%s%#D <near match>", msg, candidate->fn);
-  else if (DECL_DELETED_FN (STRIP_TEMPLATE (candidate->fn)))
+  else if (DECL_DELETED_FN (candidate->fn))
     inform (cloc, "%s%#D <deleted>", msg, candidate->fn);
   else
     inform (cloc, "%s%#D", msg, candidate->fn);
@@ -3600,7 +3608,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
 	  if (!ics)
 	    {
 	      cand->viable = 0;
-	      cand->reason = arg_conversion_rejection (NULL_TREE, -1,
+	      cand->reason = arg_conversion_rejection (NULL_TREE, -2,
 						       rettype, totype);
 	    }
 	  else if (DECL_NONCONVERTING_P (cand->fn)
@@ -3620,7 +3628,7 @@ build_user_type_conversion_1 (tree totype, tree expr, int flags,
 	    {
 	      cand->viable = -1;
 	      cand->reason
-		= bad_arg_conversion_rejection (NULL_TREE, -1,
+		= bad_arg_conversion_rejection (NULL_TREE, -2,
 						rettype, totype);
 	    }
 	  else if (primary_template_instantiation_p (cand->fn)
@@ -6111,6 +6119,8 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	   to avoid the error about taking the address of a temporary.  */
 	array = cp_build_addr_expr (array, complain);
 	array = cp_convert (build_pointer_type (elttype), array, complain);
+	if (array == error_mark_node)
+	  return error_mark_node;
 
 	/* Build up the initializer_list object.  */
 	totype = complete_type (totype);
@@ -6135,8 +6145,11 @@ convert_like_real (conversion *convs, tree expr, tree fn, int argnum,
 	  return fold_if_not_in_template (expr);
 	}
       expr = reshape_init (totype, expr, complain);
-      return get_target_expr_sfinae (digest_init (totype, expr, complain),
+      expr = get_target_expr_sfinae (digest_init (totype, expr, complain),
 				     complain);
+      if (expr != error_mark_node)
+	TARGET_EXPR_LIST_INIT_P (expr) = true;
+      return expr;
 
     default:
       break;
@@ -6398,8 +6411,7 @@ convert_arg_to_ellipsis (tree arg, tsubst_flags_t complain)
 	  if (complain & tf_error)
 	    error_at (loc, "cannot pass objects of non-trivially-copyable "
 		      "type %q#T through %<...%>", arg_type);
-	  else
-	    return error_mark_node;
+	  return error_mark_node;
 	}
     }
 
