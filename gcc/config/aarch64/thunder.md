@@ -25,12 +25,13 @@
 ;; pipe0 and a subset on pipe1.
 
 
-(define_automaton "thunder_main, thunder_mult, thunder_divide")
+(define_automaton "thunder_main, thunder_mult, thunder_divide, thunder_simd")
 
 (define_cpu_unit "thunder_pipe0" "thunder_main")
 (define_cpu_unit "thunder_pipe1" "thunder_main")
 (define_cpu_unit "thunder_mult" "thunder_mult")
 (define_cpu_unit "thunder_divide" "thunder_divide")
+(define_cpu_unit "thunder_simd" "thunder_simd")
 
 (define_insn_reservation "thunder_add" 1
   (and (eq_attr "tune" "thunder")
@@ -176,7 +177,8 @@
 ;; 64bit Loads register/pairs are 4 cycles from L1
 (define_insn_reservation "thunder_64simd_fp_load" 4
   (and (eq_attr "tune" "thunder")
-       (eq_attr "type" "f_loadd,f_loads,neon_load1_2reg"))
+       (eq_attr "type" "f_loadd,f_loads,neon_load1_1reg,\
+			neon_load1_1reg_q,neon_load1_2reg"))
   "thunder_pipe0")
 
 ;; 128bit load pair is singled issue and 4 cycles from L1
@@ -188,7 +190,7 @@
 ;; FP/SIMD Stores takes one cycle in pipe 0
 (define_insn_reservation "thunder_simd_fp_store" 1
   (and (eq_attr "tune" "thunder")
-       (eq_attr "type" "f_stored,f_stores"))
+       (eq_attr "type" "f_stored,f_stores,neon_store1_1reg,neon_store1_1reg_q"))
   "thunder_pipe0")
 
 ;; 64bit neon store pairs are single issue for one cycle
@@ -202,6 +204,53 @@
   (and (eq_attr "tune" "thunder")
        (eq_attr "type" "neon_store1_2reg_q"))
   "(thunder_pipe0 + thunder_pipe1)*2")
+
+
+;; SIMD/NEON (q forms take an extra cycle)
+
+;; Thunder simd move instruction types - 2/3 cycles
+(define_insn_reservation "thunder_neon_move" 2
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "neon_logic, neon_bsl, neon_fp_compare_s, \
+			neon_fp_compare_d, neon_move"))
+  "thunder_pipe1 + thunder_simd")
+
+(define_insn_reservation "thunder_neon_move_q" 3
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "neon_logic_q, neon_bsl_q, neon_fp_compare_s_q, \
+			neon_fp_compare_d_q, neon_move_q"))
+  "thunder_pipe1 + thunder_simd, thunder_simd")
+
+
+;; Thunder simd simple/add instruction types - 4/5 cycles
+
+(define_insn_reservation "thunder_neon_add" 4
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "neon_reduc_add, neon_reduc_minmax, neon_fp_reduc_add_s, \
+			neon_fp_reduc_add_d, neon_fp_to_int_s, neon_fp_to_int_d, \
+			neon_add_halve, neon_sub_halve, neon_qadd, neon_compare, \
+			neon_compare_zero, neon_minmax, neon_abd, neon_add, neon_sub, \
+			neon_fp_minmax_s, neon_fp_minmax_d, neon_reduc_add, neon_cls, \
+			neon_qabs, neon_qneg, neon_fp_addsub_s, neon_fp_addsub_d"))
+  "thunder_pipe1 + thunder_simd")
+
+;; BIG NOTE: neon_add_long/neon_sub_long don't have a q form which is incorrect
+
+(define_insn_reservation "thunder_neon_add_q" 5
+  (and (eq_attr "tune" "thunder")
+       (eq_attr "type" "neon_reduc_add_q, neon_reduc_minmax_q, neon_fp_reduc_add_s_q, \
+			neon_fp_reduc_add_d_q, neon_fp_to_int_s_q, neon_fp_to_int_d_q, \
+			neon_add_halve_q, neon_sub_halve_q, neon_qadd_q, neon_compare_q, \
+			neon_compare_zero_q, neon_minmax_q, neon_abd_q, neon_add_q, neon_sub_q, \
+			neon_fp_minmax_s_q, neon_fp_minmax_d_q, neon_reduc_add_q, neon_cls_q, \
+			neon_qabs_q, neon_qneg_q, neon_fp_addsub_s_q, neon_fp_addsub_d_q, \
+			neon_add_long, neon_sub_long"))
+  "thunder_pipe1 + thunder_simd, thunder_simd")
+
+
+;; Thunder 128bit SIMD reads the upper halve in cycle 2 and writes in the last cycle
+(define_bypass 2 "thunder_neon_move_q" "thunder_neon_move_q, thunder_neon_add_q")
+(define_bypass 4 "thunder_neon_add_q" "thunder_neon_move_q, thunder_neon_add_q")
 
 ;; Assume both pipes are needed for unknown and multiple-instruction
 ;; patterns.

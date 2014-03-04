@@ -1,3 +1,7 @@
+2014-03-03  Andrew Pinski  <apinski@cavium.com>
+
+	* config/aarch64/thunder.md: Add the start of the neon scheduling.
+
 2014-02-24  Zhenqiang Chen  <zhenqiang.chen@linaro.org>
 
 	* config/aarch64/aarch64-modes.def (CC_DNE, CC_DEQ, CC_DLE, CC_DLT,
