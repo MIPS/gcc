@@ -48,6 +48,22 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile,usedef @meltbuild-common.args \
        (return :true)
      ))))
 
+
+(defun usedef_walker (data :tree tr :gimple g)
+  (debug "usedef_walker data=" data " tr=" tr " g=" g)
+  (return :true))
+
+(defun usedef_process_set (data :basic_block bb :gimple g :tree lhs)
+  (debug "usedef_process_set data=" data " bb=" bb " g=" g " lhs=" lhs)
+  (assert_msg "check udata" (is_a data class_usedef_data))
+  (let ( (udmap (get_field :usedef_visited_ssaname data))
+	 )
+    (assert_msg "check udmap" (is_maptree udmap) udmap)
+    (melt_walk_use_def_chains usedef_walker data lhs)
+    (debug "usedef_process_set end lhs=" lhs " g=" g)
+    )
+  )
+
 (defun usedef_exec (pass)
   (debug "usedef_exec pass=" pass " cfundecl=" (cfun_decl))
   (shortbacktrace_dbg "usedef_exec" 15)
@@ -56,28 +72,58 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile,usedef @meltbuild-common.args \
 	 )
     (assert_msg "check udata" (is_a udata class_usedef_data))
     (assert_msg "check udmap" (is_maptree udmap) udmap)
-    (debug "end usedef_exec pass=" pass " cfundecl=" (cfun_decl))
-    (return :true)
-  ))
+    (with_cfun_decl
+     ()
+     (:tree cfundecl)
+     (debug "usedef_exec cfundecl=" cfundecl)
+     (each_bb_current_fun
+      ()
+      (:basic_block bb)
+      (debug "usedef_exec bb=" bb)
+      (eachgimple_in_basicblock
+       (bb)
+       (:gimple g)
+       (debug "usedef_exec g=" g)
+       (match g
+	      (?(gimple_call ?lhs ?fn ?nbargs)
+		(debug "usedef_exec gimple_call lhs=" lhs " fn=" fn " nbargs=" nbargs)
+		(usedef_process_set udata bb g lhs)
+		(void)
+		)
+	      (?(gimple_assign_to ?lhs)
+		(debug "usedef_exec gimple_assign_to lhs=" lhs)
+		(usedef_process_set udata bb g lhs)
+		)
+	      (?_
+	       (debug "usedef_exec other g=" g)
+	       )
+	      )
+       )
+      )
+     (debug "end usedef_exec pass=" pass " cfundecl=" cfundecl)
+     (return :true)
+     )))
+
 
 (defun usedef_docmd (cmd moduldata)
   (let ( (udata (instance class_usedef_data
 			  :usedef_seen_cfun (make_maptree discr_map_trees 11)
 			  :usedef_visited_ssaname (make_maptree discr_map_trees
 								19)))
-	(usedefpass
+	 (usedefpass
 	  (instance class_gcc_gimple_pass
 		    :named_name '"melt_usedef_pass"
 		    :gccpass_gate usedef_gate
 		    :gccpass_exec usedef_exec
 		    :gccpass_data udata))
-	)
+	 )
     (debug "usedef_docmd usedefpass=" usedefpass)
     (install_melt_pass_in_gcc usedefpass :after '"phiopt" 0)
     (return :true)
     ))
     
-	   
+
+
 
 (definstance usedef_mode
   class_melt_mode

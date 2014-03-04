@@ -1,6 +1,14 @@
 
 2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* testsuite/melt/tgccif.melt: Test that a defun can appear inside
+	a gccif...
+
+	* testsuite/melt/tusedef-ana1.melt: More code, using
+	melt_walk_use_def_chains... Don't seem to work yet.
+
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* testsuite/melt/tusedef-ana1.melt: Improve. Add gate function.
 
 	* testsuite/melt/tusedef-code1.c: Improve. Add main function.
