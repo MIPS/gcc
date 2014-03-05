@@ -2,6 +2,21 @@
 
 2014-03-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{With GCC 4.8 the MELT module is emitting twice the struct
+	meltwalkhookdata_st header in xtramelt-ana-gimple.cc}}
+	* melt/warmelt-normal.melt (normexp_cheader): Add check that the
+	header is unique.
+
+	* melt/warmelt-outobj.melt (translate_macroexpanded_list): Emit
+	hashcode of header.
+
+	* melt/xtramelt-ana-gimple.melt (output_gimple): Move definition
+	before dbgout_mapgimple_method...
+
+	* testsuite/melt/tusedef-code1.c: Improve comment.
+
+2014-03-05  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/generated/*: Regenerated.
 
 2014-03-05  Basile Starynkevitch  <basile@starynkevitch.net>

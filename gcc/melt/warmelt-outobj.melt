@@ -6709,13 +6709,15 @@ if (1) return;
 			  )
 		      (add2sbuf_indentnl declbuf 0)
 		      (add2sbuf_indentnl declbuf 0)
-		      (add2out declbuf "/** MELT extra c-header " (+i hdix 1) " : **/\n")
+		      (add2out declbuf "/** MELT extra c-header " (+i hdix 1) " : h" (obj_hash curheader) " **/\n")
 		      (output_raw_location hloc declbuf 0 "xtracheader")
 		      (add2sbuf_string declbuf hstr)
 		      (add2sbuf_indentnl declbuf 0)
+		      (add2sbuf_indentnl declbuf 0)
 		      )
+		    )
 		    (add2out declbuf "/*** end of " nbheaders " extra MELT c-headers ***/\n")
-		    ))
+		    )
 	       (add2out declbuf "/*** no extra MELT c-headers ***/\n"))
 	     ;;
 	     ;;

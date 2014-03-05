@@ -1,4 +1,5 @@
-// file tusedef1.c
+// file tusedef-code1.c
+// see file tusedef-ana1.melt 
 #include <string.h>
 #include <stdio.h>
 
