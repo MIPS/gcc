@@ -136,6 +136,14 @@
    UNSPEC_VMRGL_DIRECT
    UNSPEC_VSPLT_DIRECT
    UNSPEC_VSUMSWS_DIRECT
+   UNSPEC_VADDUQM
+   UNSPEC_VADDCUQ
+   UNSPEC_VADDEUQM
+   UNSPEC_VADDECUQ
+   UNSPEC_VSUBUQM
+   UNSPEC_VSUBCUQ
+   UNSPEC_VSUBEUQM
+   UNSPEC_VSUBECUQ
 ])
 
 (define_c_enum "unspecv"
@@ -175,6 +183,11 @@
 (define_mode_attr VP_small [(V2DI "V4SI") (V4SI "V8HI") (V8HI "V16QI")])
 (define_mode_attr VP_small_lc [(V2DI "v4si") (V4SI "v8hi") (V8HI "v16qi")])
 (define_mode_attr VU_char [(V2DI "w") (V4SI "h") (V8HI "b")])
+
+;; Iterator for 128-bit integer types.  TImode might not be allowed in Altivec
+;; registers, so we also define the operators for V2DImode and use that as a
+;; proxy.
+(define_mode_iterator VINT128 [TI V2DI])
 
 ;; Vector move instructions.
 (define_insn "*altivec_mov<mode>"
@@ -3226,3 +3239,209 @@
   "vgbbd %0,%1"
   [(set_attr "length" "4")
    (set_attr "type" "vecsimple")])
+
+;; 128-bit binary integer arithmetic
+;; Use unspec to force things to use the Altivec/VMX registers
+;; If TImode can't go in Altivec registers, we need to convert
+;; the type to V2DImode to use the instruction.
+
+(define_expand "altivec_vadduqm"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")]
+		   UNSPEC_VADDUQM))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 3, V2DImode, UNSPEC_VADDUQM);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vadduqm_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")]
+			UNSPEC_VADDUQM))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vadduqm %0,%1,%2"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+
+(define_expand "altivec_vaddcuq"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")]
+		   UNSPEC_VADDCUQ))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 3, V2DImode, UNSPEC_VADDCUQ);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vaddcuq_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")]
+			UNSPEC_VADDCUQ))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vaddcuq %0,%1,%2"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+
+(define_expand "altivec_vsubuqm"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")]
+		   UNSPEC_VSUBUQM))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 3, V2DImode, UNSPEC_VSUBUQM);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vsubuqm_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")]
+			UNSPEC_VSUBUQM))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vsubuqm %0,%1,%2"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+
+(define_expand "altivec_vsubcuq"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")]
+		   UNSPEC_VSUBCUQ))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 3, V2DImode, UNSPEC_VSUBCUQ);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vsubcuq_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")]
+			UNSPEC_VSUBCUQ))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vsubcuq %0,%1,%2"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+
+(define_expand "altivec_vaddeuqm"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")
+		    (match_operand:TI 3 "register_operand" "v")]
+		   UNSPEC_VADDEUQM))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 4, V2DImode, UNSPEC_VADDEUQM);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vaddeuqm_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")
+			 (match_operand:VINT128 3 "register_operand" "v")]
+			UNSPEC_VADDEUQM))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vaddeuqm %0,%1,%2,%3"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+
+(define_expand "altivec_vaddecuq"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")
+		    (match_operand:TI 3 "register_operand" "v")]
+		   UNSPEC_VADDECUQ))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 4, V2DImode, UNSPEC_VADDECUQ);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vaddecuq_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")
+			 (match_operand:VINT128 3 "register_operand" "v")]
+			UNSPEC_VADDECUQ))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vaddecuq %0,%1,%2,%3"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+
+(define_expand "altivec_vsubeuqm"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")
+		    (match_operand:TI 3 "register_operand" "v")]
+		   UNSPEC_VSUBEUQM))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 4, V2DImode, UNSPEC_VSUBEUQM);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vsubeuqm_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")
+			 (match_operand:VINT128 3 "register_operand" "v")]
+			UNSPEC_VSUBEUQM))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vsubeuqm %0,%1,%2,%3"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+
+(define_expand "altivec_vsubecuq"
+  [(set (match_operand:TI 0 "register_operand" "")
+	(unspec:TI [(match_operand:TI 1 "register_operand" "v")
+		    (match_operand:TI 2 "register_operand" "v")
+		    (match_operand:TI 3 "register_operand" "v")]
+		   UNSPEC_VSUBECUQ))]
+  "TARGET_VADDUQM"
+{
+  if (!TARGET_VSX_TIMODE)
+    {
+      rs6000_int128_builtin_fixup (operands, 4, V2DImode, UNSPEC_VSUBECUQ);
+      DONE;
+    }
+})
+
+(define_insn "altivec_vsubecuq_<mode>"
+  [(set (match_operand:VINT128 0 "register_operand" "=v")
+	(unspec:VINT128 [(match_operand:VINT128 1 "register_operand" "v")
+			 (match_operand:VINT128 2 "register_operand" "v")
+			 (match_operand:VINT128 3 "register_operand" "v")]
+			UNSPEC_VSUBECUQ))]
+  "TARGET_VADDUQM && VECTOR_MEM_ALTIVEC_OR_VSX_P (<MODE>mode)"
+  "vsubecuq %0,%1,%2,%3"
+  [(set_attr "length" "4")
+   (set_attr "type" "vecsimple")])
+

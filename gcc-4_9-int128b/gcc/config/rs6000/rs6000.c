@@ -13662,6 +13662,8 @@ rs6000_init_builtins (void)
   uintSI_type_internal_node = unsigned_intSI_type_node;
   intDI_type_internal_node = intDI_type_node;
   uintDI_type_internal_node = unsigned_intDI_type_node;
+  intTI_type_internal_node = intTI_type_node;
+  uintTI_type_internal_node = unsigned_intTI_type_node;
   float_type_internal_node = float_type_node;
   double_type_internal_node = double_type_node;
   void_type_internal_node = void_type_node;
@@ -13674,6 +13676,8 @@ rs6000_init_builtins (void)
   builtin_mode_to_type[SImode][1] = unsigned_intSI_type_node;
   builtin_mode_to_type[DImode][0] = intDI_type_node;
   builtin_mode_to_type[DImode][1] = unsigned_intDI_type_node;
+  builtin_mode_to_type[TImode][0] = intTI_type_node;
+  builtin_mode_to_type[TImode][1] = unsigned_intTI_type_node;
   builtin_mode_to_type[SFmode][0] = float_type_node;
   builtin_mode_to_type[DFmode][0] = double_type_node;
   builtin_mode_to_type[V2SImode][0] = V2SI_type_node;
@@ -17207,6 +17211,67 @@ rs6000_output_move_128bit (rtx operands[])
     }
 
   gcc_unreachable ();
+}
+
+/* Validate a 128-bit move.  */
+bool
+rs6000_move_128bit_ok_p (rtx operands[])
+{
+  enum machine_mode mode = GET_MODE (operands[0]);
+  return (gpc_reg_operand (operands[0], mode)
+	  || gpc_reg_operand (operands[1], mode));
+}
+
+/* Return true if a 128-bit move needs to be split.  */
+bool
+rs6000_split_128bit_ok_p (rtx operands[])
+{
+  if (!reload_completed)
+    return false;
+
+  if (!gpr_or_gpr_p (operands[0], operands[1]))
+    return false;
+
+  if (quad_load_store_p (operands[0], operands[1]))
+    return false;
+
+  return true;
+}
+
+
+/* Fix up builtins taking TImode arguments that operate on vsx registers to
+   convert the types to VSX types before issuing the builtin.  The arguments
+   are in OPERANDS, number of arguments is N_ARGS, the mode to use for
+   converted types is MODE, and the unspec value to use for building the insn
+   is BUILTIN_UNSPEC.  */
+void
+rs6000_int128_builtin_fixup (rtx operands[],
+			     int n_args,
+			     enum machine_mode mode,
+			     enum unspec builtin_unspec)
+{
+  rtx dest_new = gen_lowpart (mode, operands[0]);
+  rtx args_new[3];
+  rtx arg;
+  rtx unspec;
+  int i;
+  rtvec p;
+
+  gcc_assert (IN_RANGE (n_args, 2, 4));
+
+  /* Make copies as vector arguments for each of the arguments.  */
+  for (i = 1; i < n_args; i++)
+    {
+      args_new[i-1] = arg = gen_reg_rtx (mode);
+      emit_move_insn (arg, gen_lowpart (mode, operands[i]));
+    }
+
+  /* Generate the UNSPEC.  */
+  p = gen_rtvec_v (n_args-1, args_new);
+  unspec = gen_rtx_UNSPEC (mode, p, (int)builtin_unspec);
+
+  emit_insn (gen_rtx_SET (VOIDmode, dest_new, unspec));
+  return;
 }
 
 

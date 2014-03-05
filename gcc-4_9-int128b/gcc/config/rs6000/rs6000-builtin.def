@@ -325,6 +325,14 @@
 		     | RS6000_BTC_BINARY),				\
 		    CODE_FOR_ ## ICODE)			/* ICODE */
 
+#define BU_P8V_AV_3(ENUM, NAME, ATTR, ICODE)				\
+  RS6000_BUILTIN_3 (P8V_BUILTIN_ ## ENUM,		/* ENUM */	\
+		    "__builtin_altivec_" NAME,		/* NAME */	\
+		    RS6000_BTM_P8_VECTOR,		/* MASK */	\
+		    (RS6000_BTC_ ## ATTR		/* ATTR */	\
+		     | RS6000_BTC_TERNARY),				\
+		    CODE_FOR_ ## ICODE)			/* ICODE */
+
 #define BU_P8V_AV_P(ENUM, NAME, ATTR, ICODE)				\
   RS6000_BUILTIN_P (P8V_BUILTIN_ ## ENUM,		/* ENUM */	\
 		    "__builtin_altivec_" NAME,		/* NAME */	\
@@ -357,6 +365,14 @@
 		    RS6000_BTM_P8_VECTOR,		/* MASK */	\
 		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
 		     | RS6000_BTC_BINARY),				\
+		    CODE_FOR_nothing)			/* ICODE */
+
+#define BU_P8V_OVERLOAD_3(ENUM, NAME)					\
+  RS6000_BUILTIN_3 (P8V_BUILTIN_VEC_ ## ENUM,		/* ENUM */	\
+		    "__builtin_vec_" NAME,		/* NAME */	\
+		    RS6000_BTM_P8_VECTOR,		/* MASK */	\
+		    (RS6000_BTC_OVERLOADED		/* ATTR */	\
+		     | RS6000_BTC_TERNARY),				\
 		    CODE_FOR_nothing)			/* ICODE */
 
 /* Crypto convenience macros.  */
@@ -1332,7 +1348,9 @@ BU_P8V_AV_1 (VPOPCNTD,	      "vpopcntd",	CONST,  popcountv2di2)
 BU_P8V_AV_1 (VGBBD,	      "vgbbd",		CONST,  p8v_vgbbd)
 
 /* 2 argument altivec instructions added in ISA 2.07.  */
+BU_P8V_AV_2 (VADDCUQ,		"vaddcuq",	CONST,	altivec_vaddcuq)
 BU_P8V_AV_2 (VADDUDM,		"vaddudm",	CONST,	addv2di3)
+BU_P8V_AV_2 (VADDUQM,		"vadduqm",	CONST,	altivec_vadduqm)
 BU_P8V_AV_2 (VMINSD,		"vminsd",	CONST,	sminv2di3)
 BU_P8V_AV_2 (VMAXSD,		"vmaxsd",	CONST,	smaxv2di3)
 BU_P8V_AV_2 (VMINUD,		"vminud",	CONST,	uminv2di3)
@@ -1347,7 +1365,9 @@ BU_P8V_AV_2 (VRLD,		"vrld",		CONST,	vrotlv2di3)
 BU_P8V_AV_2 (VSLD,		"vsld",		CONST,	vashlv2di3)
 BU_P8V_AV_2 (VSRD,		"vsrd",		CONST,	vlshrv2di3)
 BU_P8V_AV_2 (VSRAD,		"vsrad",	CONST,	vashrv2di3)
+BU_P8V_AV_2 (VSUBCUQ,		"vsubcuq",	CONST,	altivec_vsubcuq)
 BU_P8V_AV_2 (VSUBUDM,		"vsubudm",	CONST,	subv2di3)
+BU_P8V_AV_2 (VSUBUQM,		"vsubuqm",	CONST,	altivec_vsubuqm)
 
 BU_P8V_AV_2 (EQV_V16QI,		"eqv_v16qi",	CONST,	eqvv16qi3)
 BU_P8V_AV_2 (EQV_V8HI,		"eqv_v8hi",	CONST,	eqvv8hi3)
@@ -1369,6 +1389,12 @@ BU_P8V_AV_2 (ORC_V4SI,		"orc_v4si",	CONST,	orcv4si3)
 BU_P8V_AV_2 (ORC_V2DI,		"orc_v2di",	CONST,	orcv2di3)
 BU_P8V_AV_2 (ORC_V4SF,		"orc_v4sf",	CONST,	orcv4sf3)
 BU_P8V_AV_2 (ORC_V2DF,		"orc_v2df",	CONST,	orcv2df3)
+
+/* 3 argument altivec instructions added in ISA 2.07.  */
+BU_P8V_AV_3 (VADDEUQM,		"vaddeuqm",	 CONST,	altivec_vaddeuqm)
+BU_P8V_AV_3 (VADDECUQ,		"vaddecuq",	 CONST,	altivec_vaddecuq)
+BU_P8V_AV_3 (VSUBEUQM,		"vsubeuqm",	 CONST,	altivec_vsubeuqm)
+BU_P8V_AV_3 (VSUBECUQ,		"vsubecuq",	 CONST,	altivec_vsubecuq)
 
 /* Vector comparison instructions added in ISA 2.07.  */
 BU_P8V_AV_2 (VCMPEQUD,		"vcmpequd",	CONST,	vector_eqv2di)
@@ -1399,7 +1425,9 @@ BU_P8V_OVERLOAD_1 (VGBBD,	"vgbbd")
 BU_P8V_OVERLOAD_2 (EQV,		"eqv")
 BU_P8V_OVERLOAD_2 (NAND,	"nand")
 BU_P8V_OVERLOAD_2 (ORC,		"orc")
+BU_P8V_OVERLOAD_2 (VADDCUQ,	"vaddcuq")
 BU_P8V_OVERLOAD_2 (VADDUDM,	"vaddudm")
+BU_P8V_OVERLOAD_2 (VADDUQM,	"vadduqm")
 BU_P8V_OVERLOAD_2 (VMAXSD,	"vmaxsd")
 BU_P8V_OVERLOAD_2 (VMAXUD,	"vmaxud")
 BU_P8V_OVERLOAD_2 (VMINSD,	"vminsd")
@@ -1414,7 +1442,15 @@ BU_P8V_OVERLOAD_2 (VRLD,	"vrld")
 BU_P8V_OVERLOAD_2 (VSLD,	"vsld")
 BU_P8V_OVERLOAD_2 (VSRAD,	"vsrad")
 BU_P8V_OVERLOAD_2 (VSRD,	"vsrd")
+BU_P8V_OVERLOAD_2 (VSUBCUQ,	"vsubcuq")
 BU_P8V_OVERLOAD_2 (VSUBUDM,	"vsubudm")
+BU_P8V_OVERLOAD_2 (VSUBUQM,	"vsubuqm")
+
+/* ISA 2.07 vector overloaded 3 argument functions.  */
+BU_P8V_OVERLOAD_3 (VADDECUQ,	"vaddecuq")
+BU_P8V_OVERLOAD_3 (VADDEUQM,	"vaddeuqm")
+BU_P8V_OVERLOAD_3 (VSUBECUQ,	"vsubecuq")
+BU_P8V_OVERLOAD_3 (VSUBEUQM,	"vsubeuqm")
 
 
 /* 1 argument crypto functions.  */

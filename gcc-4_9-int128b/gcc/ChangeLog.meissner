@@ -1,3 +1,88 @@
+2014-03-05  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* doc/extend.texi (PowerPC AltiVec/VSX Built-in Functions):
+	Document vec_vaddcuq, vec_vadduqm, vec_vaddecuq, vec_vaddeuqm,
+	vec_subecuq, vec_subeuqm, vec_vsubcuq, vec_vsubeqm builtins adding
+	128-bit integer add/subtract to ISA 2.07.
+
+	* config/rs6000/rs6000-protos.h (rs6000_move_128bit_ok_p): Add new
+	declaration.
+	(rs6000_split_128bit_ok_p): Likewise.
+	(rs6000_int128_builtin_fixup): Likewise.
+
+	* gcc/config/rs6000/rs6000-builtin.def (BU_P8V_AV_3): Add new
+	macros to support adding ISA 2.07 3 argument builtins.
+	(BU_P8V_OVERLOAD_3): Likewise.
+	(VADDCUQ): Add ISA 2.07 builtins to support 128-bit integer
+	add/subtract instructions, both as a normal builtin, and as an
+	overloaded builtin.
+	(VADDUQM): Likewise.
+	(VSUBCUQ): Likewise.
+	(VSUBUQM): Likewise.
+	(VADDECUQ): Likewise.
+	(VADDECUQ): Likewise.
+	(VSUBECUQ): Likewise.
+	(VSUBEUQM): Likewise.
+
+	* gcc/config/rs6000-c.c (altivec_overloaded_builtins): Add support
+	for ISA 2.07 overloaded builtins to do 128-bit add and subtract.
+
+	* gcc/config/rs6000.c (rs6000_init_builtins): Initialize state
+	variables for using __int128_t and __uint128_t as arguments to
+	builtins.
+	(rs6000_move_128bit_ok_p): New function to validate TImode/PTImode
+	moves.
+	(rs6000_split_128bit_ok_p): New function to say when it is ok to
+	split TImode/PTImove moves.
+	(rs6000_int128_builtin_fixup): New function to convert int 128-bit
+	add/subtract from using TImode to using V2DImode to allow use of
+	the ISA 2.07 builtins when TImode is not allowed in VSX
+	registers.
+
+	* gcc/config/rs6000/rs6000.h (enum rs6000_builtin_type_index): Add
+	support to allow __int128_t and __uint128_t types as builtin
+	arguments.
+	(intTI_type_internal_node): Likewise.
+	(uintTI_type_internal_node): Likewise.
+
+	* gcc/config/rs6000/altivec.md (UNSPEC_VADDUQM): New unspec
+	literals to allow addition of the ISA 2.07 128-bit add/subtract
+	builtin functions.
+	(UNSPEC_VADDCUQ): Likewise.
+	(UNSPEC_VADDEUQM): Likewise.
+	(UNSPEC_VADDECUQ): Likewise.
+	(UNSPEC_VSUBUQM): Likewise.
+	(UNSPEC_VSUBCUQ): Likewise.
+	(UNSPEC_VSUBEUQM): Likewise.
+	(UNSPEC_VSUBECUQ): Likewise.
+	(VINT128): New iterator for 128-bit add/subtract builtins.
+	(altivec_vadduqm): New ISA 2.07 128-bit add/subtract builtins.
+	(altivec_vadduqm_<mode>): Likewise.
+	(altivec_vaddcuq): Likewise.
+	(altivec_vaddcuq_<mode>): Likewise.
+	(altivec_vaddeuqm): Likewise.
+	(altivec_vaddeuqm_<mode>): Likewise.
+	(altivec_vaddecuq): Likewise.
+	(altivec_vaddecuq_<mode>): Likewise.
+	(altivec_vsubuqm): Likewise.
+	(altivec_vsubuqm_<mode>): Likewise.
+	(altivec_vsubcuq): Likewise.
+	(altivec_vsubcuq_<mode>): Likewise.
+	(altivec_vsubeuqm): Likewise.
+	(altivec_vsubeuqm_<mode>): Likewise.
+	(altivec_vsubecuq): Likewise.
+	(altivec_vsubecuq_<mode>): Likewise.
+
+	* gcc/config/rs6000/altivec.h (vec_vadduqm): If ISA 2.07, add
+	support for 128-bit add/subtract builtins.
+	(vec_vaddcuq): Likewise.
+	(vec_vaddeuqm): Likewise.
+	(vec_vaddecuq): Likewise.
+	(vec_vsubuqm): Likewise.
+	(vec_vsubcuq): Likewise.
+	(vec_vsubeuqm): Likewise.
+	(vec_vsubecuq): Likewise.
+
 2014-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
 	Clone branch, subversion id 208334.
