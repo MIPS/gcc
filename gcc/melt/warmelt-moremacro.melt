@@ -118,6 +118,7 @@
   (let ( (:long versionlen (string_length versionstr))
 	 (res ())
 	 (:cstring gccverstr "?")
+	 (:cstring gccverest "-?-")
 	 )
     ;;; versionstr should be e.g. "4.9" or "4.8"
     ;;; melt_gccversionstr starts with e.g. "4.8 20140217" for a plugin
@@ -126,6 +127,7 @@
      filtergcc
      #{ /* filtergccversion $FILTERGCC*/
         $GCCVERSTR = melt_gccversionstr;
+        $GCCVEREST = melt_gccversionstr+$VERSIONLEN;
         if ($VERSIONLEN>0
 	    && !strncmp (melt_string_str((melt_ptr_t)$VERSIONSTR),
 			 melt_gccversionstr,
@@ -134,7 +136,7 @@
         $RES = $VERSIONSTR; 
 	}#)
     (debug "filtergccversion versionlen=" versionlen " versionstr=" versionstr
-	   " gccverstr='" gccverstr "'\n.. res=" res)
+	   " gccverstr='" gccverstr "'; gccverest='" gccverest "'\n.. res=" res)
     (return res)))
 
 ;;;;
@@ -153,12 +155,12 @@
     (if (is_a curif class_sexpr)
 	(let ( (xcurif (get_field :sexp_contents curif))
 	       )
-	  (debug "mexpand_gccif xcurif=" xcurif)
+	  (debug "mexpand_gccif xcurif=" xcurif " sloc=" debug_less sloc)
 	  (setq curif xcurif)
 	  ))
     (cond 
      ((is_string curif)
-      (debug "mexpand_gccif string curif=" curif)
+      (debug "mexpand_gccif string curif=" curif " sloc=" debug_less sloc)
       (cond ((filtergccversion curif)
 	     (debug "mexpand_gccif filtered curif=" curif)
 	     (let ( (exprestlist (expand_pairlist_as_list restpair env mexpander modctx))
@@ -171,10 +173,10 @@
 	      (return expfirst exptail)))
 	     )
 	(:else
-	  (debug "mexpand_gccif gcc version mismatched curif=" curif)
+	  (debug "mexpand_gccif gcc version mismatched curif=" curif " sloc=" debug_less sloc)
 	  (return))))
      ((is_list curif)
-      (debug "mexpand_gccif list curif=" curif)
+      (debug "mexpand_gccif list curif=" curif " sloc=" debug_less sloc)
       (let ( (ok ())
 	     )
 	(foreach_pair_component_in_list 
@@ -185,15 +187,19 @@
 	 (if (filtergccversion curstr)
 	     (setq ok :true))
 	 )
-	(debug "mexpand_gccif ok=" ok)
+	(debug "mexpand_gccif ok=" ok " sloc=" debug_less sloc)
 	(if ok
 	    (let ( (exprestlist (expand_pairlist_as_list restpair env mexpander modctx))
 		   )
-	      (debug "mexpand_gccif  multicond exprestlist=" exprestlist)
+	      (debug "mexpand_gccif multicond exprestlist=" exprestlist
+		     " sloc=" debug_less sloc)
 	      (let ( (expfirst (list_first_element exprestlist))
-		     (exptail (list_popfirst exprestlist))
+		     (exptail (progn (list_popfirst exprestlist)
+				     exprestlist))
 		     )
-		(debug "mexpand_gccif multicond  return expfirst=" expfirst " exptail=" exptail)
+		(debug "mexpand_gccif multicond  return expfirst=" expfirst
+		       "\n.. exptail=" exptail)
+		(shortbacktrace_dbg "mexpand_gccif multicond" 8)
 		(return expfirst exptail))
 	      )
 	  (progn

@@ -1,6 +1,18 @@
 
 2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
-	{{tgccif.melt works on MELT branch but fails for 4.8 plugin}}
+	{{tgccif.melt works for GCC 4.8 plugin}}
+	* melt/warmelt-macro.melt (expand_restlist_as_list)
+	(expand_pairlist_as_list, macroexpand_toplevel_list): Handle the
+	case when mexpander gives a list or tuple primary result and/or a
+	secondary result - possibly a list or tuple...
+
+	* melt/warmelt-moremacro.melt (filtergccversion): More debug.
+	(mexpand_gccif): Correctly handle the case of many stuff under
+	gccif...
+
+
+2014-03-04  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{tgccif.melt works on MELT branch but fails for GCC 4.8 plugin}}
 	* melt/warmelt-moremacro.melt (filtergccversion): Improve the
 	version test, but not yet working.
 

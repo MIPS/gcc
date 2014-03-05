@@ -1457,7 +1457,17 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	 (multicall 
 	  (curexp xtraexp)
 	  (mexpander curarg env mexpander modctx)
-	  (list_append expreslist curexp)
+	  (cond ( (is_object curexp)
+		  (list_append expreslist curexp))
+		( (is_list curexp)
+		  (list_append2list expreslist curexp))
+		( (is_multiple curexp)
+		  (foreach_in_multiple
+		   (curexp)
+		   (curcomp :long cix)
+		   (list_append expreslist curcomp)))
+		(:else
+		 (list_append expreslist curexp)))
 	  (cond 
 	   ((is_multiple xtraexp)
 	    (foreach_in_multiple
@@ -1511,7 +1521,22 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 	       (multicall 
 		(curexp xtraexp)
 		(mexpander curarg env mexpander modctx)
-		(list_append expreslist curexp)
+		(cond ( (is_multiple curexp)
+			(foreach_in_multiple
+			 (curexp)
+			 (curcomp :long cix)
+			 (list_append expreslist curcomp))
+			(void)
+			)
+		      ( (is_list curexp)
+			(foreach_pair_component_in_list
+			 (curexp)
+			 (curpair curcomp)
+			 (list_append expreslist curcomp)
+			 )
+			(void))
+		      (:else
+		       (list_append expreslist curexp)))
 		(cond 
 		 ((is_multiple xtraexp)
 		  (foreach_in_multiple
@@ -1933,7 +1958,7 @@ $SPAC_OUTARGS are the output sub-patterns.}#
 		       (when (null mexp)
 			 (error_at sloc "macro $1 cannot be expanded since not yet defined"_ opname)
 			 (return () ()))
-		       (debug "macroexpand_1 mexp=" mexp "\n.. sexpr=" sexpr "\n.. env=" env)
+		       (debug "macroexpand_1 mexp=" mexp "\n.. sexpr=" sexpr "\n.. env=" debug_less env)
 		       (assert_msg "check mexp" (is_closure mexp) mexp)
 		       (multicall 
 			(resm otherm)
@@ -2471,7 +2496,7 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;; we add an additional hack in toplevel macro-expansion. If an s-expr
-;; macroexpands to a tuple, that tuple is handled as several source
+;; macroexpands to a tuple or a list, that tuple is handled as several source
 ;; expressions... In particular, this allows a (load "filename")
 ;; macro.
 (defun macroexpand_toplevel_list (slist env mexpander modctx)
@@ -2504,24 +2529,44 @@ the object-map for pattern variables. $PCTX_MODCTX is the module context.}#
      (debug "macroexpand_toplevel_list prevloc=" debug_less prevloc "; sexp=" sexp 
 	    "\n... env=" env "\n")
      ;;
-     (let ( (mex (mexpander sexp env mexpander modctx)) 
-	    (sexploc (get_field :loca_location sexp))
+     (let ( (sexploc (get_field :loca_location sexp))
 	    )
-       (debug "macroexpand_toplevel_list sexploc=" debug_less sexploc "; mex=" mex)
-       (cond
-	( (null mex)
-	    (if sexploc 
-		(warning_plain sexploc
-			       "null expansion for toplevel MELT s-expression"))
-	  )
-	( (is_multiple mex)
-	  (foreach_in_multiple
-	   (mex)
-	   (curm :long curix)
-	   (list_append reslist curm))
-	  )
-	(:else (list_append reslist mex)
-	       ))))
+       (multicall
+	(mex mxtra)
+	(mexpander sexp env mexpander modctx)
+	(debug "macroexpand_toplevel_list sexploc=" debug_less sexploc "; mex=" mex "\n.. mxtra=" mxtra)
+	(cond
+	 ( (null mex)
+	   (if sexploc 
+	       (warning_plain sexploc
+			      "null expansion for toplevel MELT s-expression"))
+	   )
+	 ( (is_multiple mex)
+	   (foreach_in_multiple
+	    (mex)
+	    (curm :long curix)
+	    (list_append reslist curm))
+	   )
+	 ( (is_list mex)
+	   (list_append2list reslist mex))
+	 (:else (list_append reslist mex)
+		))
+	(cond
+	 ( (null mxtra)
+	   (void))
+	 ( (is_multiple mxtra)
+	   (foreach_in_multiple
+	    (mxtra)
+	    (curm :long curix)
+	    (list_append reslist curm))
+	   )
+	 ( (is_list mxtra)
+	   (list_append2list reslist mxtra)
+	   )
+	 (:else
+	  (list_append reslist mxtra)))
+	))
+     )				   ;end foreach_pair_component_in_list
     (debug "macroexpand_toplevel_list reslist=" reslist)
     (let ( (:long reslistlen (list_length reslist))
 	   )
