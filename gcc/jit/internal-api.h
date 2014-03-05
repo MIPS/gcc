@@ -889,6 +889,8 @@ public:
 
   void validate ();
 
+  void dump_to_dot (const char *path);
+
 private:
   string * make_debug_string ();
 
@@ -907,9 +909,10 @@ private:
 class block : public memento
 {
 public:
-  block (function *func, string *name)
+  block (function *func, int index, string *name)
   : memento (func->m_ctxt),
     m_func (func),
+    m_index (index),
     m_name (name),
     m_statements (),
     m_has_been_terminated (false),
@@ -974,8 +977,12 @@ private:
 
   void replay_into (replayer *r);
 
+  void dump_to_dot (pretty_printer *pp);
+  void dump_edges_to_dot (pretty_printer *pp);
+
 private:
   function *m_func;
+  int m_index;
   string *m_name;
   vec<statement *> m_statements;
   bool m_has_been_terminated;

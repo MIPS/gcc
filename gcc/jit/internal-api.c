@@ -1294,7 +1294,7 @@ recording::function::new_block (const char *name)
   gcc_assert (m_kind != GCC_JIT_FUNCTION_IMPORTED);
 
   recording::block *result =
-    new recording::block (this, new_string (name));
+    new recording::block (this, m_blocks.length (), new_string (name));
   m_ctxt->record (result);
   m_blocks.safe_push (result);
   return result;
@@ -1428,6 +1428,42 @@ recording::function::validate ()
 			       b->get_debug_string ());
       }
     }
+}
+
+void
+recording::function::dump_to_dot (const char *path)
+{
+  FILE *fp  = fopen (path, "w");
+  if (!fp)
+    return;
+
+  pretty_printer the_pp;
+  the_pp.buffer->stream = fp;
+
+  pretty_printer *pp = &the_pp;
+
+  pp_printf (pp,
+	     "digraph %s {\n", get_debug_string ());
+
+  /* Blocks: */
+  {
+    int i;
+    block *b;
+    FOR_EACH_VEC_ELT (m_blocks, i, b)
+      b->dump_to_dot (pp);
+  }
+
+  /* Edges: */
+  {
+    int i;
+    block *b;
+    FOR_EACH_VEC_ELT (m_blocks, i, b)
+      b->dump_edges_to_dot (pp);
+  }
+
+  pp_printf (pp, "}\n");
+  pp_flush (pp);
+  fclose (fp);
 }
 
 recording::string *
@@ -1571,6 +1607,47 @@ recording::block::make_debug_string ()
     return string::from_printf (m_ctxt,
 				"<UNNAMED BLOCK %p>",
 				(void *)this);
+}
+
+void
+recording::block::dump_to_dot (pretty_printer *pp)
+{
+  pp_printf (pp,
+	     ("\tblock_%d "
+	      "[shape=record,style=filled,fillcolor=white,label=\"{"),
+	     m_index);
+  pp_write_text_to_stream (pp);
+  if (m_name)
+    {
+      pp_string (pp, m_name->c_str ());
+      pp_string (pp, ":");
+      pp_newline (pp);
+      pp_write_text_as_dot_label_to_stream (pp, true /*for_record*/);
+    }
+
+  int i;
+  statement *s;
+  FOR_EACH_VEC_ELT (m_statements, i, s)
+    {
+      pp_string (pp, s->get_debug_string ());
+      pp_newline (pp);
+      pp_write_text_as_dot_label_to_stream (pp, true /*for_record*/);
+    }
+
+  pp_printf (pp,
+	     "}\"];\n\n");
+  pp_flush (pp);
+}
+
+void
+recording::block::dump_edges_to_dot (pretty_printer *pp)
+{
+  block *next[2];
+  int num_succs = get_successor_blocks (&next[0], &next[1]);
+  for (int i = 0; i < num_succs; i++)
+    pp_printf (pp,
+	       "\tblock_%d:s -> block_%d:n;\n",
+	       m_index, next[i]->m_index);
 }
 
 /* gcc::jit::recording::global:: */

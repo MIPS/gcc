@@ -578,6 +578,17 @@ gcc_jit_function_get_param (gcc_jit_function *func, int index)
   return static_cast <gcc_jit_param *> (func->get_param (index));
 }
 
+void
+gcc_jit_function_dump_to_dot (gcc_jit_function *func,
+			      const char *path)
+{
+  RETURN_IF_FAIL (func, NULL, "NULL function");
+  gcc::jit::recording::context *ctxt = func->m_ctxt;
+  RETURN_IF_FAIL (path, ctxt, "NULL path");
+
+  func->dump_to_dot (path);
+}
+
 gcc_jit_block*
 gcc_jit_function_new_block (gcc_jit_function *func,
 			    const char *name)

@@ -1,3 +1,19 @@
+2014-03-05  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.h (gcc_jit_function_dump_to_dot): New.
+	* libgccjit.map (gcc_jit_function_dump_to_dot): New.
+	* libgccjit++.h (gccjit::function::dump_to_dot): New.
+	* libgccjit.c (gcc_jit_function_dump_to_dot): New.
+	* internal-api.h (gcc::jit::recording::function::dump_to_dot): New.
+	(gcc::jit::recording::block::block): Add m_index member.
+	(gcc::jit::recording::block::dump_to_dot): New.
+	(gcc::jit::recording::block::dump_edges_to_dot): New.
+	* internal-api.c (gcc::jit::recording::function::new_block): Give
+	each block an index.
+	(gcc::jit::recording::function::dump_to_dot): New.
+	(gcc::jit::recording::block::dump_to_dot): New.
+	(gcc::jit::recording::block::dump_edges_to_dot): New.
+
 2014-03-04  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::recording::memento_of_get_pointer::

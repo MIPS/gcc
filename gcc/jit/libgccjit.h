@@ -494,6 +494,11 @@ gcc_jit_function_as_object (gcc_jit_function *func);
 extern gcc_jit_param *
 gcc_jit_function_get_param (gcc_jit_function *func, int index);
 
+/* Emit the function in graphviz format.  */
+extern void
+gcc_jit_function_dump_to_dot (gcc_jit_function *func,
+			      const char *path);
+
 /* Create a block.
 
    The name can be NULL, or you can give it a meaningful name, which

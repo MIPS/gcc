@@ -47,6 +47,7 @@
     gcc_jit_context_zero;
     gcc_jit_field_as_object;
     gcc_jit_function_as_object;
+    gcc_jit_function_dump_to_dot;
     gcc_jit_function_get_param;
     gcc_jit_function_new_block;
     gcc_jit_function_new_local;

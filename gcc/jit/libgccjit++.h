@@ -293,6 +293,8 @@ namespace gccjit
 
     gcc_jit_function *get_inner_function () const;
 
+    void dump_to_dot (const std::string &path);
+
     param get_param (int index);
 
     block new_block ();
@@ -1111,6 +1113,13 @@ function::get_inner_function () const
 {
   /* Manual downcast: */
   return reinterpret_cast<gcc_jit_function *> (get_inner_object ());
+}
+
+inline void
+function::dump_to_dot (const std::string &path)
+{
+  gcc_jit_function_dump_to_dot (get_inner_function (),
+				path.c_str ());
 }
 
 inline param
