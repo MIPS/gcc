@@ -60,17 +60,17 @@ MELT_EXTERN void melthook_HOOK_VALUE_EXPORTER (melt_ptr_t melthookdatap, melt_pt
 /*** 2 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 1 : **/
+/** MELT extra c-header 1 : h985484573 **/
 
 
 /* C++ standard headers for multiple_sort */
 #include <vector>
 #include <algorithm>
 
-/*** end of 2 extra MELT c-headers ***/
 
 
-/** MELT extra c-header 2 : **/
+
+/** MELT extra c-header 2 : h1070413106 **/
 
 
 /* A compare structure used in multiple_sort for std::stable_sort;
@@ -99,6 +99,7 @@ public:
                        *meltcmp_ad);
     };
 }; /* end class Melt_Sort_Compare_Index */
+
 
 /*** end of 2 extra MELT c-headers ***/
 
