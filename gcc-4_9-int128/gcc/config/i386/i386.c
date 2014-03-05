@@ -3874,8 +3874,9 @@ ix86_option_override_internal (bool main_args_p,
       || (TARGET_PRFCHW && !TARGET_3DNOW_P (opts->x_ix86_isa_flags)))
     x86_prefetch_sse = true;
 
-  /* Enable prefetch{,w} instructions for -m3dnow.  */
-  if (TARGET_3DNOW_P (opts->x_ix86_isa_flags))
+  /* Enable prefetch{,w} instructions for -m3dnow and -mprefetchwt1.  */
+  if (TARGET_3DNOW_P (opts->x_ix86_isa_flags)
+      || TARGET_PREFETCHWT1_P (opts->x_ix86_isa_flags))
     opts->x_ix86_isa_flags
       |= OPTION_MASK_ISA_PRFCHW & ~opts->x_ix86_isa_flags_explicit;
 
@@ -36021,7 +36022,7 @@ addcarryx:
 
       if (!insn_data[icode].operand[4].predicate (op4, mode4))
 	{
-	  error ("the last argument must be hint 0 or 1");
+	  error ("incorrect hint operand");
 	  return const0_rtx;
 	}
 

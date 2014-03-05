@@ -1,5 +1,8 @@
 2014-03-04  Michael Meissner  <meissner@linux.vnet.ibm.com>
 
+	Merge up to 208333.
+	* REVISION: Update subversion id.
+
 	* config/rs6000/rs6000-builtin.def (VADDCUQ): Delete support for
 	using V2DImode on 128-bit integer builtins.
 	(VADDUQM): Likewise.

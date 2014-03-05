@@ -1,3 +1,57 @@
+2014-03-04  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60417
+	* typeck2.c (process_init_constructor_record): Set
+	CONSTRUCTOR_IS_DIRECT_INIT on {} for omitted initializers.
+
+	PR c++/60415
+	PR c++/54359
+	* parser.c (cp_parser_direct_declarator): Set declarator to
+	cp_error_declarator on invalid qualified-id.
+
+2014-03-04  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60376
+	* parser.c (cp_parser_using_declaration): Early return when
+	cp_parser_nested_name_specifier errors out.
+
+2014-03-01  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/60377
+	* parser.c (cp_parser_parameter_declaration_clause): Unwind generic
+	function scope on parse error in function parameter list.
+
+2014-03-01  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	* method.c (implicitly_declare_fn): Remove redundant
+	DECL_TEMPLATE_RESULT and STRIP_TEMPLATE uses.
+	* semantics.c (is_instantiation_of_constexpr): Likewise.
+	* error.c (dump_function_decl): Likewise.
+
+2014-03-01  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60379
+	* semantics.c (begin_maybe_infinite_loop): Use
+	fold_non_dependent_expr_sfinae.
+
+2014-02-28  Jason Merrill  <jason@redhat.com>
+
+	PR c++/58845
+	* typeck.c (cp_build_binary_op): Sorry on vector&&vector.
+
+2014-02-28  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58610
+	* cp-tree.h (DECL_DELETED_FN): Use LANG_DECL_FN_CHECK.
+	* call.c (print_z_candidate): Remove STRIP_TEMPLATE use.
+	* lambda.c (maybe_add_lambda_conv_op): Likewise.
+
+2014-02-27  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60253
+	* call.c (convert_arg_to_ellipsis): Return error_mark_node after
+	error_at.
+
 2014-02-27  Jason Merrill  <jason@redhat.com>
 
 	PR c++/60353

@@ -15932,10 +15932,17 @@ cp_parser_using_declaration (cp_parser* parser,
   /* If we saw `typename', or didn't see `::', then there must be a
      nested-name-specifier present.  */
   if (typename_p || !global_scope_p)
-    qscope = cp_parser_nested_name_specifier (parser, typename_p,
-					      /*check_dependency_p=*/true,
-					      /*type_p=*/false,
-					      /*is_declaration=*/true);
+    {
+      qscope = cp_parser_nested_name_specifier (parser, typename_p,
+						/*check_dependency_p=*/true,
+						/*type_p=*/false,
+						/*is_declaration=*/true);
+      if (!qscope && !cp_parser_uncommitted_to_tentative_parse_p (parser))
+	{
+	  cp_parser_skip_to_end_of_block_or_statement (parser);
+	  return false;
+	}
+    }
   /* Otherwise, we could be in either of the two productions.  In that
      case, treat the nested-name-specifier as optional.  */
   else
@@ -17449,6 +17456,7 @@ cp_parser_direct_declarator (cp_parser* parser,
 		  /* But declarations with qualified-ids can't appear in a
 		     function.  */
 		  cp_parser_error (parser, "qualified-id in declaration");
+		  declarator = cp_error_declarator;
 		  break;
 		}
 	      pushed_scope = push_scope (scope);
@@ -18208,7 +18216,12 @@ cp_parser_parameter_declaration_clause (cp_parser* parser)
      parameter-declaration-list, then the entire
      parameter-declaration-clause is erroneous.  */
   if (is_error)
-    return NULL;
+    {
+      /* Unwind generic function template scope if necessary.  */
+      if (parser->fully_implicit_function_template_p)
+	finish_fully_implicit_template (parser, /*member_decl_opt=*/0);
+      return NULL;
+    }
 
   /* Peek at the next token.  */
   token = cp_lexer_peek_token (parser->lexer);

@@ -503,7 +503,7 @@ begin_maybe_infinite_loop (tree cond)
   bool maybe_infinite = true;
   if (cond)
     {
-      cond = fold_non_dependent_expr (cond);
+      cond = fold_non_dependent_expr_sfinae (cond, tf_none);
       cond = maybe_constant_value (cond);
       maybe_infinite = integer_nonzerop (cond);
     }
@@ -3941,8 +3941,7 @@ static inline bool
 is_instantiation_of_constexpr (tree fun)
 {
   return (DECL_TEMPLOID_INSTANTIATION (fun)
-	  && DECL_DECLARED_CONSTEXPR_P (DECL_TEMPLATE_RESULT
-					(DECL_TI_TEMPLATE (fun))));
+	  && DECL_DECLARED_CONSTEXPR_P (DECL_TI_TEMPLATE (fun)));
 }
 
 /* Generate RTL for FN.  */
