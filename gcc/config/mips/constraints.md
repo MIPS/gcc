@@ -310,31 +310,34 @@
 
 (define_constraint "YC"
   "@internal
-   A constant vector with each element is a unsigned bitimm-bit integer with only one bit set"
+   A replicated vector const in which the replicated value has a single
+   bit set"
   (and (match_code "const_vector")
        (match_test "mips_const_vector_bitimm_set_p (op, mode)")))
 
 (define_constraint "YZ"
   "@internal
-   A constant vector with each element is a unsigned bitimm-bit integer with only one bit clear"
+   A replicated vector const in which the replicated value has a single
+   bit clear"
   (and (match_code "const_vector")
        (match_test "mips_const_vector_bitimm_clr_p (op, mode)")))
 
-(define_constraint "Y5"
+(define_constraint "Usv6"
   "@internal
-   A constant vector with each element is a signed 6-bit integer"
+   A replicated vector const in which the replicated value is a signed
+   6-bit integer number"
   (and (match_code "const_vector")
        (match_test "mips_const_vector_any_int_p (op, mode, -32, 31)")))
 
-(define_constraint "Y6"
+(define_constraint "Uuv6"
   "@internal
    A constant vector with each element a unsigned 6-bit integer"
   (and (match_code "const_vector")
-       (match_test "mips_const_vector_any_int_p (op, mode, 0, 31)")))
+       (match_test "mips_const_vector_any_int_p (op, mode, 0, 63)")))
 
-(define_constraint "Y8"
+(define_constraint "Uuv8"
   "@internal
-   A constant vector with each element a unsigned 0-bit integer"
+   A constant vector with each element a unsigned 8-bit integer"
   (and (match_code "const_vector")
        (match_test "mips_const_vector_any_int_p (op, mode, 0, 255)")))
 
