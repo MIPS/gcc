@@ -2905,10 +2905,10 @@
 
 ;; Logical left shift using SISD or Integer instruction
 (define_insn "*aarch64_ashl_sisd_or_int_<mode>3"
-  [(set (match_operand:GPI 0 "register_operand" "=w,w,r")
+  [(set (match_operand:GPI 0 "register_operand" "=?w,?w,r")
         (ashift:GPI
-          (match_operand:GPI 1 "register_operand" "w,w,r")
-          (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "Us<cmode>,w,rUs<cmode>")))]
+          (match_operand:GPI 1 "register_operand" "?w,?w,r")
+          (match_operand:QI 2 "aarch64_reg_or_shift_imm_<mode>" "?Us<cmode>,?w,rUs<cmode>")))]
   ""
   "@
    shl\t%<rtn>0<vas>, %<rtn>1<vas>, %2
