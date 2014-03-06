@@ -1,5 +1,11 @@
 
 
+2014-03-06  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	{{Trigger an error on the MELT branch also; instable!}}
+	* melt/xtramelt-ana-gimple.melt: For 4.9 also add a cheader for
+	walk_use_def.... which is wrongly emitted twice.
+
 2014-03-05  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
