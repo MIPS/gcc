@@ -4634,6 +4634,7 @@
 {
   if (MEM_P (operands[0]))
     {
+      operands[0] = adjust_address (operands[0], BLKmode, 0);
       operands[1] = force_reg (<MODE>mode, operands[1]);
       if (!mips_expand_ins_as_unaligned_store (operands[0],
 					       operands[1],
@@ -4642,6 +4643,7 @@
     }
   else if (MEM_P (operands[1]))
    {
+      operands[1] = adjust_address (operands[1], BLKmode, 0);
       if (!mips_expand_ext_as_unaligned_load (operands[0],
 					      operands[1],
 					      GET_MODE_BITSIZE (<MODE>mode), 0, 0))
