@@ -1372,7 +1372,7 @@
   })
 
 (define_insn "msa_bmnzi_b"
- [(set (match_operand:V16QI 0 "register_operand" "=f")
+  [(set (match_operand:V16QI 0 "register_operand" "=f")
 	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "0")
 		       (match_operand:V16QI 2 "register_operand" "f")
 		       (match_operand 3 "const_uimm8_operand" "")]
