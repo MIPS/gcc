@@ -1818,27 +1818,9 @@ mips_const_vector_bitimm_set_p (rtx op, enum machine_mode mode)
 
       if (vlog2 != -1)
 	{
-	  switch (mode)
-	    {
-	    case V16QImode:
-	      if (!(0 <= vlog2 && vlog2 <= 7))
-		return false;
-	      break;	
-	    case V8HImode:
-	      if (!(0 <= vlog2 && vlog2 <= 15))
-		return false;
-	      break;
-	    case V4SImode:
-	      if (!(0 <= vlog2 && vlog2 <= 31))
-		return false;
-	      break;
-	    case V2DImode:
-	      if (!(0 <= vlog2 && vlog2 <= 63))
-		return false;
-	      break;
-	    default:
-	      gcc_unreachable ();
-	    }
+	  gcc_assert (GET_MODE_CLASS (mode) == MODE_VECTOR_INT);
+	  if (!(0 <= vlog2 && vlog2 <= GET_MODE_UNIT_SIZE (mode) - 1))
+	    return false;
 
 	  return mips_const_vector_same_int_p (op, mode, 0, val);
 	}
@@ -1858,27 +1840,9 @@ mips_const_vector_bitimm_clr_p (rtx op, enum machine_mode mode)
 
       if (vlog2 != -1)
 	{
-	  switch (mode)
-	    {
-	    case V16QImode:
-	      if (!(0 <= vlog2 && vlog2 <= 7))
-		return false;
-	      break;
-	    case V8HImode:
-	      if (!(0 <= vlog2 && vlog2 <= 15))
-		return false;
-	      break;
-	    case V4SImode:
-	      if (!(0 <= vlog2 && vlog2 <= 31))
-		return false;
-	      break;
-	    case V2DImode:
-	      if (!(0 <= vlog2 && vlog2 <= 63))
-		return false;
-	      break;
-	    default:
-	      gcc_unreachable ();
-	    }
+	  gcc_assert (GET_MODE_CLASS (mode) == MODE_VECTOR_INT);
+	  if (!(0 <= vlog2 && vlog2 <= GET_MODE_UNIT_SIZE (mode) - 1))
+	    return false;
 
 	  return mips_const_vector_same_val_p (op, mode);
 	}
@@ -1888,32 +1852,21 @@ mips_const_vector_bitimm_clr_p (rtx op, enum machine_mode mode)
 }
 
 /* Return true if OP is a constant vector with the number of units in MODE,
-   and each unit has the same integer value. */
+   and each unit has the same value. */
 
 bool
 mips_const_vector_same_val_p (rtx op, enum machine_mode mode)
 {
-  HOST_WIDE_INT prev_value;
   int i, nunits = GET_MODE_NUNITS (mode);
-  rtx elem;
+  rtx first;
 
-  if (GET_CODE (op) != CONST_VECTOR || CONST_VECTOR_NUNITS (op) != nunits)
+  if (GET_CODE (op) != CONST_VECTOR || GET_MODE (op) != mode)
     return false;
 
-  elem =  CONST_VECTOR_ELT (op, 0);
-  if (!CONST_INT_P (elem))
-    return false;
-
-  prev_value = INTVAL (elem);
+  first = CONST_VECTOR_ELT (op, 0);
   for (i = 1; i < nunits; i++)
-    {
-      elem = CONST_VECTOR_ELT (op, i);
-      if (!CONST_INT_P (elem))
-	return false;
-
-      if (INTVAL (elem) != prev_value)
-	return false;
-    }
+    if (!rtx_equal_p (first, CONST_VECTOR_ELT (op, i)))
+      return false;
 
   return true;
 }
@@ -1925,34 +1878,18 @@ bool
 mips_const_vector_same_int_p (rtx op, enum machine_mode mode, HOST_WIDE_INT low,
 			      HOST_WIDE_INT high)
 {
-  HOST_WIDE_INT value, prev_value;
-  int i, nunits = GET_MODE_NUNITS (mode);
-  rtx elem;
- 
-  if (GET_CODE (op) != CONST_VECTOR || CONST_VECTOR_NUNITS (op) != nunits)
+  HOST_WIDE_INT value;
+  rtx elem0;
+
+  if (!mips_const_vector_same_val_p (op, mode))
     return false;
 
-  elem =  CONST_VECTOR_ELT (op, 0);
-  if (!CONST_INT_P (elem))
+  elem0 = CONST_VECTOR_ELT (op, 0);
+  if (!CONST_INT_P (elem0))
     return false;
 
-  value = INTVAL (elem);
-  if (value < low || value > high)
-    return false;
-
-  prev_value = value;
-  for (i = 1; i < nunits; i++)
-    {
-      elem = CONST_VECTOR_ELT (op, i);
-      if (!CONST_INT_P (elem))
-	return false;
-
-      value = INTVAL (elem);
-      if (value != prev_value || value < low || value > high)
-	return false;
-    }
-
-  return true;
+  value = INTVAL (elem0);
+  return (value >= low && value <= high);
 }
 
 /* Return true if OP is a constant vector with the number of units in MODE,
@@ -2496,8 +2433,9 @@ mips_valid_offset_p (rtx x, enum machine_mode mode)
     return false;
 
   /* MSA LD.* and ST.* supports 10-bit signed offsets.  */
-  if (MSA_SUPPORTED_MODE_P (mode)
-      && !mips_signed_immediate_p (INTVAL (x), 10, 0))
+  if (MSA_SUPPORTED_VECTOR_MODE_P (mode)
+      && !mips_signed_immediate_p (INTVAL (x), 10,
+				   mips_ldst_scaled_shift (mode)))
     return false;
 
   return true;
@@ -2716,7 +2654,9 @@ mips_address_insns (rtx x, enum machine_mode mode, bool might_split_p)
 	if (msa_p)
 	  {
 	    /* MSA LD.* and ST.* supports 10-bit signed offsets.  */
-	    if (mips_signed_immediate_p (INTVAL (addr.offset), 10, 0))
+	    if (MSA_SUPPORTED_VECTOR_MODE_P (mode)
+		&& mips_signed_immediate_p (INTVAL (addr.offset), 10,
+					    mips_ldst_scaled_shift (mode)))
 	      return 1;
 	    else
 	      return 0;
@@ -2756,6 +2696,19 @@ mips_signed_immediate_p (unsigned HOST_WIDE_INT x, int bits, int shift = 0)
 {
   x += 1 << (bits + shift - 1);
   return mips_unsigned_immediate_p (x, bits, shift);
+}
+
+/* Return the scale shift that applied to MSA LD/ST address offset  */
+
+int
+mips_ldst_scaled_shift (enum machine_mode mode)
+{
+  int shift = exact_log2 (GET_MODE_UNIT_SIZE (mode));
+
+  if (shift < 0 || shift > 8)
+    gcc_unreachable ();
+
+  return shift;
 }
 
 /* Return true if X is legitimate for accessing values of mode MODE,
@@ -4792,7 +4745,7 @@ mips_split_128bit_move_p (rtx dest, rtx src)
     return false;
 
   /* Check for MSA set to 0  */
-  if (FP_REG_RTX_P (dest) && src == CONST0_RTX (GET_MODE (src)))
+  if (FP_REG_RTX_P (dest) && mips_const_vector_same_int_p (src, GET_MODE (src), -512, 511))
     return false;
 
   return true;
@@ -4926,10 +4879,12 @@ mips_split_128bit_move (rtx dest, rtx src)
     }
 }
 
-/* Split copy_s.d.  */
+/* Split a COPY_S.D with operands  DEST, SRC and INDEX. GEN is a function
+ * used to generate subregs.  */
 
 void
-mips_split_msa_copy_d (rtx dest, rtx src, rtx index, rtx (*gen_fn)(rtx, rtx, rtx))
+mips_split_msa_copy_d (rtx dest, rtx src, rtx index,
+		       rtx (*gen_fn)(rtx, rtx, rtx))
 {
   gcc_assert ((GET_MODE (src) == V2DImode && GET_MODE (dest) == DImode)
 	      || (GET_MODE (src) == V2DFmode && GET_MODE (dest) == DFmode));
@@ -4940,11 +4895,11 @@ mips_split_msa_copy_d (rtx dest, rtx src, rtx index, rtx (*gen_fn)(rtx, rtx, rtx
   rtx high = mips_subword (dest, true);
   rtx new_src = simplify_gen_subreg (V4SImode, src, GET_MODE (src), 0);
 
-  emit_insn ((gen_fn)(low, new_src, GEN_INT (INTVAL (index) * 2)));
-  emit_insn ((gen_fn)(high, new_src, GEN_INT (INTVAL (index) * 2 + 1)));
+  emit_insn (gen_fn (low, new_src, GEN_INT (INTVAL (index) * 2)));
+  emit_insn (gen_fn (high, new_src, GEN_INT (INTVAL (index) * 2 + 1)));
 }
 
-/* Split insert.d.  */
+/* Split a  INSERT.D with operand DEST, SRC1.INDEX and SRC2.  */
 
 void
 mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
@@ -4956,18 +4911,8 @@ mips_split_msa_insert_d (rtx dest, rtx src1, rtx index, rtx src2)
 
   /* Note that low is always from the lower index, and high is always
      from the higher index.  */
-  rtx low, high;
-  if (src2 == const0_rtx)
-    {
-      low = src2;
-      high = src2;
-    }
-  else
-    {
-      low = mips_subword (src2, false);
-      high = mips_subword (src2, true);
-    }
-
+  rtx low = mips_subword (src2, false);
+  rtx high = mips_subword (src2, true);
   rtx new_dest = simplify_gen_subreg (V4SImode, dest, GET_MODE (dest), 0);
   rtx new_src1 = simplify_gen_subreg (V4SImode, src1, GET_MODE (src1), 0);
   emit_insn (gen_msa_insert_w (new_dest, new_src1,
@@ -5701,8 +5646,8 @@ mips_init_cumulative_args (CUMULATIVE_ARGS *cum, tree fntype)
 {
   memset (cum, 0, sizeof (*cum));
   cum->prototype = (fntype && prototype_p (fntype));
-  cum->gp_reg_found = (cum->prototype && stdarg_p (fntype));
   cum->stdarg_p = (cum->prototype && stdarg_p (fntype));
+  cum->gp_reg_found = cum->stdarg_p;
 }
 
 /* Fill INFO with information about a single argument.  CUM is the
