@@ -73,9 +73,21 @@
   (ior (match_operand 0 "const_imm10_operand")
        (match_operand 0 "register_operand")))
 
-(define_predicate "aq10_operand"
+(define_predicate "aq10b_operand"
   (and (match_code "const_int")
        (match_test "mips_signed_immediate_p (INTVAL (op), 10, 0)")))
+
+(define_predicate "aq10h_operand"
+  (and (match_code "const_int")
+       (match_test "mips_signed_immediate_p (INTVAL (op), 10, 1)")))
+
+(define_predicate "aq10w_operand"
+  (and (match_code "const_int")
+       (match_test "mips_signed_immediate_p (INTVAL (op), 10, 2)")))
+
+(define_predicate "aq10d_operand"
+  (and (match_code "const_int")
+       (match_test "mips_signed_immediate_p (INTVAL (op), 10, 3)")))
 
 (define_predicate "sle_operand"
   (and (match_code "const_int")

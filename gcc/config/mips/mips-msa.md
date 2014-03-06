@@ -165,11 +165,9 @@
 (define_mode_iterator MSA     [V2DF V4SF V2DI V4SI V8HI V16QI])
 
 ;; Same as MODE128.  Used by vcond to iterate two modes.
-(define_mode_iterator MODE128_2 [V2DF V4SF V2DI V4SI V8HI V16QI])
 (define_mode_iterator MSA_2     [V2DF V4SF V2DI V4SI V8HI V16QI])
 
 ;; Only integer modes.
-(define_mode_iterator IMODE128 [V2DI V4SI V8HI V16QI])
 (define_mode_iterator IMSA     [V2DI V4SI V8HI V16QI])
 
 ;; As IMSA but excludeds V16QI
@@ -194,9 +192,8 @@
    (V2DI "V4SI")
    (V2DF "V4SF")])
 
-;; This attribute gives the integer mode for selection mask in vec_perm.
-;; vcond also uses MSA_I for operand 0, 1, and 2.
-(define_mode_attr MSA_I
+;; The attribute give the integer vector mode with same size.
+(define_mode_attr VIMODE
   [(V2DF "V2DI")
    (V4SF "V4SI")
    (V2DI "V2DI")
@@ -204,16 +201,7 @@
    (V8HI "V8HI")
    (V16QI "V16QI")])
 
-;; The attribute give the integer vector mode with same size
-(define_mode_attr MODE_I
-  [(V2DF "V2DI")
-   (V4SF "V4SI")
-   (V2DI "V2DI")
-   (V4SI "V4SI")
-   (V8HI "V8HI")
-   (V16QI "V16QI")])
-
-;; The attribute give the integer vector mode with same size
+;; This attribute gives the integer vector mode with same size.
 (define_mode_attr mode_i
   [(V2DF "v2di")
    (V4SF "v4si")
@@ -222,7 +210,7 @@
    (V8HI "v8hi")
    (V16QI "v16qi")])
 
-;; This attribute qives suffix gives the mode of the result for "copy_s_b, copy_u_b" etc.
+;; This attribute gives the mode of the result for "copy_s_b, copy_u_b" etc.
 (define_mode_attr RES
   [(V2DF "DF")
    (V4SF "SF")
@@ -241,28 +229,19 @@
    (V16QI "b")])
 
 ;; This is used in msa_cast* to output mov.s or mov.d.
-(define_mode_attr msafmt2
+(define_mode_attr unitfmt
   [(V2DF "d")
    (V4SF "s")])
 
 ;; This attribute qives define_insn suffix for MSA instructions 
 ;; with need distinction between integer and floating point.
-(define_mode_attr msafmt3
+(define_mode_attr msafmt_f
   [(V2DF "d_f")
    (V4SF "w_f")
    (V2DI "d")
    (V4SI "w")
    (V8HI "h")
    (V16QI "b")])
-
-;; The maximum index inside a vector.
-(define_mode_attr max_elem_index
-  [(V2DF "1")
-   (V4SF "3")
-   (V2DI "1")
-   (V4SI "3")
-   (V8HI "7")
-   (V16QI "15")])
 
 ;; The mask for shift amounts.
 (define_mode_attr shift_mask
@@ -272,8 +251,8 @@
    (V16QI "7")])
 
 ;; This is used to form an immediate operand constraint 
-;; using "const_<imm>_operand".
-(define_mode_attr imm
+;; using "const_<indeximm>_operand".
+(define_mode_attr indeximm
   [(V2DF "0_or_1")
    (V4SF "0_to_3")
    (V2DI "0_or_1")
@@ -315,11 +294,14 @@
    (match_operand 2 "const_int_operand")]
   "ISA_HAS_MSA"
 {
-  gcc_assert (UINTVAL (operands[2]) <= <max_elem_index>);
-  enum machine_mode mode0 = GET_MODE (operands[0]);
-  if (mode0 == QImode || mode0 == HImode)
-    emit_move_insn (operands[0],
-		    gen_lowpart (mode0, gen_reg_rtx (SImode)));
+  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
+  if (<UNITMODE>mode == QImode || <UNITMODE>mode == HImode)
+    {
+      rtx dest1 = gen_reg_rtx (SImode);
+      emit_insn (gen_msa_copy_s_<msafmt> (dest1, operands[1], operands[2]));
+      emit_move_insn (operands[0],
+		      gen_lowpart (<UNITMODE>mode, dest1));
+    }
   else
     emit_insn (gen_msa_copy_s_<msafmt> (operands[0], operands[1], operands[2]));
   DONE;
@@ -332,17 +314,32 @@
   "ISA_HAS_MSA"
 {
   rtx temp;
-  gcc_assert (UINTVAL (operands[2]) <= <max_elem_index>);
+  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
 
   if (INTVAL (operands[2]) == 0)
     temp = operands[1];
   else
     {
-      temp = gen_reg_rtx (<MODE>mode);
-      emit_insn (gen_msa_sldi_<msafmt3> (temp, operands[1], operands[1],
-					 operands[2]));
+      /* We need to do the SLDI operation in V16QImode and adjust
+       * operand[2] accordingly.  */
+      if (<MODE>mode == V16QImode)
+	{
+	  rtx tempb = gen_reg_rtx (V16QImode);
+	  rtx op1b  = gen_reg_rtx (V16QImode);
+	  rtx op2b  = GEN_INT (UINTVAL (operands[2]) * GET_MODE_SIZE (<MODE>mode));
+	  gcc_assert (UINTVAL (op2b) < GET_MODE_NUNITS (V16QImode));
+	  emit_move_insn (op1b, operands[1]);
+	  emit_insn (gen_msa_sldi_b (tempb, op1b, op1b, op2b));
+	  temp = gen_reg_rtx (<MODE>mode);
+	  emit_move_insn (temp, tempb);
+	}
+      else
+	{
+	  temp = gen_reg_rtx (<MODE>mode);
+	  emit_insn (gen_msa_sldi_b (temp, operands[1], operands[1], operands[2]));
+	}
     }
-  emit_insn (gen_msa_cast_to_scalar_<msafmt3> (operands[0], temp));
+  emit_insn (gen_msa_cast_to_scalar_<msafmt_f> (operands[0], temp));
   DONE;
 })
 
@@ -352,7 +349,7 @@
    (match_operand 2 "const_int_operand")]
   "ISA_HAS_MSA"
 {
-  gcc_assert (UINTVAL (operands[2]) <= <max_elem_index>);
+  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
   emit_insn (gen_msa_insert_<msafmt> (operands[0], operands[0], operands[2],
 				      operands[1]));
   DONE;
@@ -364,9 +361,9 @@
    (match_operand 2 "const_int_operand")]
   "ISA_HAS_MSA"
 {
-  gcc_assert (UINTVAL (operands[2]) <= <max_elem_index>);
-  emit_insn (gen_msa_insve_<msafmt3>_s (operands[0], operands[0], operands[2],
-					operands[1]));
+  gcc_assert (UINTVAL (operands[2]) < GET_MODE_NUNITS (<MODE>mode));
+  emit_insn (gen_msa_insve_<msafmt_f>_s (operands[0], operands[0], operands[2],
+					 operands[1]));
   DONE;
 })
 
@@ -390,12 +387,12 @@
 			   GET_CODE (operands[3]), operands[4], operands[5]);
   else
     {
-      rtx res = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx temp1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx temp2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx xres = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx xop1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx xop2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx res = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx temp1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx temp2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx xres = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
 
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
@@ -410,7 +407,7 @@
       else
 	emit_move_insn (temp1, xres);
 
-      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:MODE_I>mode));
+      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:VIMODE>mode));
       emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
       if (operands[2] != false_val)
 	{
@@ -443,12 +440,12 @@
 			   GET_CODE (operands[3]), operands[4], operands[5]);
   else
     {
-      rtx res = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx temp1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx temp2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx xres = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx xop1 = gen_reg_rtx (<MSA_2:MODE_I>mode);
-      rtx xop2 = gen_reg_rtx (<MSA_2:MODE_I>mode);
+      rtx res = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx temp1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx temp2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx xres = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx xop1 = gen_reg_rtx (<MSA_2:VIMODE>mode);
+      rtx xop2 = gen_reg_rtx (<MSA_2:VIMODE>mode);
 
       mips_expand_msa_vcond (res, true_val, false_val,
 			     GET_CODE (operands[3]), operands[4], operands[5]);
@@ -463,7 +460,7 @@
       else
 	emit_move_insn (temp1, xres);
 
-      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:MODE_I>mode));
+      emit_move_insn (temp2, CONSTM1_RTX (<MSA_2:VIMODE>mode));
       emit_insn (gen_xor<MSA_2:mode_i>3 (temp2, xres, temp2));
       if (operands[2] != false_val)
 	{
@@ -479,7 +476,7 @@
 (define_insn "msa_insert_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
 	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<imm>_operand" "")
+			(match_operand 2 "const_<indeximm>_operand" "")
 			(match_operand:<REGOR0> 3 "reg_or_0_operand" "dJ")]
 		       UNSPEC_MSA_INSERT))]
   "ISA_HAS_MSA"
@@ -488,10 +485,10 @@
    (set_attr "mode"	"TI")])
 
 ; Similar to msa_insert_<msafmt> but with <UNITMODE>mode for operand 3.
-(define_insn "*msa_insert_<msafmt3>"
+(define_insn "*msa_insert_<msafmt_f>"
   [(set (match_operand:MSA_3 0 "register_operand" "=f")
 	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<imm>_operand" "")
+			(match_operand 2 "const_<indeximm>_operand" "")
 			(match_operand:<UNITMODE> 3 "reg_or_0_operand" "dJ")]
 		       UNSPEC_MSA_INSERT))]
   "ISA_HAS_MSA"
@@ -527,10 +524,10 @@
   DONE;
 })
 
-(define_insn "msa_insve_<msafmt3>"
+(define_insn "msa_insve_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
 	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<imm>_operand" "")
+			(match_operand 2 "const_<indeximm>_operand" "")
 			(match_operand:<MODE> 3 "register_operand" "f")]
 		       UNSPEC_MSA_INSVE))]
   "ISA_HAS_MSA"
@@ -542,7 +539,7 @@
 (define_insn "msa_insve_<msafmt>_f_s"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
 	(unspec:<MODE> [(match_operand:<MODE> 1 "register_operand" "0")
-			(match_operand 2 "const_<imm>_operand" "")
+			(match_operand 2 "const_<indeximm>_operand" "")
 			(match_operand:<UNITMODE> 3 "register_operand" "f")]
 		       UNSPEC_MSA_INSVE))]
   "ISA_HAS_MSA"
@@ -550,10 +547,10 @@
   [(set_attr "type"     "arith")
    (set_attr "mode"     "TI")])
 
-(define_insn "msa_copy_s_<msafmt3>"
+(define_insn "msa_copy_s_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
 	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
-		       (match_operand 2 "const_<imm>_operand" "")]
+		       (match_operand 2 "const_<indeximm>_operand" "")]
 		      UNSPEC_MSA_COPY_S))]
   "ISA_HAS_MSA"
   "copy_s.<msafmt>\t%0,%w1[%2]"
@@ -587,10 +584,10 @@
   DONE;
 })
 
-(define_insn "msa_copy_u_<msafmt3>"
+(define_insn "msa_copy_u_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
 	(unspec:<RES> [(match_operand:MSA 1 "register_operand" "f")
-		       (match_operand 2 "const_<imm>_operand" "")]
+		       (match_operand 2 "const_<indeximm>_operand" "")]
 		      UNSPEC_MSA_COPY_U))]
   "ISA_HAS_MSA"
   "copy_u.<msafmt>\t%0,%w1[%2]"
@@ -628,7 +625,7 @@
   [(match_operand:MSA 0 "register_operand")
    (match_operand:MSA 1 "register_operand")
    (match_operand:MSA 2 "register_operand")
-   (match_operand:<MSA_I> 3 "register_operand")]
+   (match_operand:<VIMODE> 3 "register_operand")]
   "ISA_HAS_MSA"
 {
   /* Note that GCC always uses memory order (as big-endian) in indexing,
@@ -665,7 +662,7 @@
 (define_insn "msa_lsa"
  [(set (match_operand:SI 0 "register_operand" "=f")
        (plus:SI (match_operand:SI 1 "register_operand" "f")
- 		(ashiftrt:SI (match_operand:SI 2 "register_operand" "f")
+		(ashiftrt:SI (match_operand:SI 2 "register_operand" "f")
 			     (match_operand    3 "const_immlsa_operand" ""))))]
  "ISA_HAS_MSA"
  "lsa\t%0,%1,%2,%m3"
@@ -674,7 +671,7 @@
 
 (define_insn "msa_vshf<mode>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
-	(unspec:MSA [(match_operand:<MSA_I> 1 "register_operand" "0")
+	(unspec:MSA [(match_operand:<VIMODE> 1 "register_operand" "0")
 		     (match_operand:MSA 2 "register_operand" "f")
 		     (match_operand:MSA 3 "register_operand" "f")]
 		    UNSPEC_MSA_VSHF))]
@@ -766,10 +763,10 @@
 })
 
 ;; Offset load
-(define_expand "msa_ld_<MSA:msafmt3>"
+(define_expand "msa_ld_<msafmt_f>"
   [(match_operand:MSA 0 "register_operand")
    (match_operand 1 "pmode_register_operand")
-   (match_operand 2 "aq10_operand")]
+   (match_operand 2 "aq10<msafmt>_operand")]
   "ISA_HAS_MSA"
 {
   rtx addr = plus_constant (GET_MODE (operands[1]), operands[1],
@@ -779,10 +776,10 @@
 })
 
 ;; Offset store
-(define_expand "msa_st_<msafmt3>"
+(define_expand "msa_st_<msafmt_f>"
   [(match_operand:MSA 0 "register_operand")
    (match_operand 1 "pmode_register_operand")
-   (match_operand 2 "aq10_operand")]
+   (match_operand 2 "aq10<msafmt>_operand")]
   "ISA_HAS_MSA"
 {
   rtx addr = plus_constant (GET_MODE (operands[1]), operands[1],
@@ -795,7 +792,7 @@
 (define_insn "add<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
 	(plus:IMSA (match_operand:IMSA 1 "register_operand" "f,f")
-		   (match_operand:IMSA 2 "reg_or_vector_any_simm5_operand" "f,Y5")))]
+		   (match_operand:IMSA 2 "reg_or_vector_any_simm5_operand" "f,Usv6")))]
   "ISA_HAS_MSA"
   {
     if (which_alternative == 0)
@@ -897,7 +894,7 @@
 (define_insn "xorv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
 	(xor:V16QI (match_operand:V16QI 1 "register_operand" "f,f")
-		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Y8")))]
+		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Uuv8")))]
   "ISA_HAS_MSA"
   {
     if (which_alternative == 1)
@@ -919,7 +916,7 @@
   {
     if (which_alternative == 1)
       {
-	HOST_WIDE_INT val = INTVAL(CONST_VECTOR_ELT (operands[2], 0));
+	HOST_WIDE_INT val = INTVAL (CONST_VECTOR_ELT (operands[2], 0));
 	int vlog2 = exact_log2 (val);
 	gcc_assert (vlog2 != -1);
 	operands[2] = GEN_INT (vlog2);
@@ -934,7 +931,7 @@
 (define_insn "iorv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
 	(ior:V16QI (match_operand:V16QI 1 "register_operand" "f,f")
-		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Y8")))]
+		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Uuv8")))]
   "ISA_HAS_MSA"
   {
     if (which_alternative == 1)
@@ -956,7 +953,7 @@
   {
     if (which_alternative == 1)
       {
-	HOST_WIDE_INT val = INTVAL(CONST_VECTOR_ELT (operands[2], 0));
+	HOST_WIDE_INT val = INTVAL (CONST_VECTOR_ELT (operands[2], 0));
 	int vlog2 = exact_log2 (val);
 	gcc_assert (vlog2 != -1);
 	operands[2] = GEN_INT (vlog2);
@@ -971,7 +968,7 @@
 (define_insn "andv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
 	(and:V16QI (match_operand:V16QI 1 "register_operand" "f,f")
-		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Y8")))]
+		   (match_operand:V16QI 2 "reg_or_vector_same_uimm8_operand" "f,Uuv8")))]
   "ISA_HAS_MSA"
   {
      if (which_alternative == 1)
@@ -993,7 +990,7 @@
   {
     if (which_alternative == 1)
       {
-	HOST_WIDE_INT val = INTVAL(CONST_VECTOR_ELT (operands[2], 0));
+	HOST_WIDE_INT val = INTVAL (CONST_VECTOR_ELT (operands[2], 0));
 	int vlog2 = exact_log2 (~val);
 	gcc_assert (vlog2 != -1);
 	operands[2] = GEN_INT (vlog2);
@@ -1024,7 +1021,7 @@
 (define_insn "vlshr<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
 	(lshiftrt:<MODE> (match_operand:<MODE> 1 "register_operand" "f,f")
-			 (match_operand:<MODE> 2 "reg_or_vector_same_uimm6_operand" "f,Y6")))]
+			 (match_operand:<MODE> 2 "reg_or_vector_same_uimm6_operand" "f,Uuv6")))]
   "ISA_HAS_MSA"
 {
   if (which_alternative == 0)
@@ -1040,7 +1037,7 @@
 (define_insn "vashr<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
 	(ashiftrt:IMSA (match_operand:IMSA 1 "register_operand" "f,f")
-		       (match_operand:IMSA 2 "reg_or_vector_same_uimm6_operand" "f,Y6")))]
+		       (match_operand:IMSA 2 "reg_or_vector_same_uimm6_operand" "f,Uuv6")))]
   "ISA_HAS_MSA"
 {
   if (which_alternative == 0)
@@ -1056,7 +1053,7 @@
 (define_insn "vashl<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
 	(ashift:IMSA (match_operand:IMSA 1 "register_operand" "f,f")
-		     (match_operand:IMSA 2 "reg_or_vector_same_uimm6_operand" "f,Y6")))]
+		     (match_operand:IMSA 2 "reg_or_vector_same_uimm6_operand" "f,Uuv6")))]
   "ISA_HAS_MSA"
 {
   if (which_alternative == 0)
@@ -1315,19 +1312,67 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bmnz_v_<msafmt>"
+(define_insn "msa_bsel_v_insn_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
-		      (match_operand:IMSA 2 "register_operand" "f")
-		      (match_operand:IMSA 3 "register_operand" "f")]
-		     UNSPEC_MSA_BMNZ_V))]
+	(ior:IMSA (and:IMSA (match_operand:IMSA 1 "register_operand" "f")
+			    (xor:IMSA (match_dup 0)
+				      (match_operand:IMSA 2 "const_m1_operand" "")))
+		  (and:IMSA (match_dup 0)
+			    (match_operand:IMSA 3 "register_operand" "f"))))]
   "ISA_HAS_MSA"
-  "bmnz.v\t%w0,%w2,%w3"
+  "bsel.v\t%w0,%w1,%w3";
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
+(define_insn "msa_bmnz_v_insn_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+	(ior:IMSA (and:IMSA (match_dup 0)
+			    (xor:IMSA (match_operand:IMSA 1 "register_operand" "f")
+				      (match_operand:IMSA 2 "const_m1_operand" "")))
+		  (and:IMSA (match_dup 1)
+			    (match_operand:IMSA 3 "register_operand" "f"))))]
+  "ISA_HAS_MSA"
+  "bmnz.v\t%w0,%w1,%w3";
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"TI")])
+
+(define_insn "msa_bmz_v_insn_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand" "=f")
+    (ior:IMSA (and:IMSA (match_operand:IMSA 1 "register_operand" "f")
+			    (xor:IMSA (match_operand:IMSA 2 "register_operand" "f")
+				      (match_operand:IMSA 3 "const_m1_operand" "")))
+		  (and:IMSA (match_dup 1)
+			    (match_dup 0))))]
+  "ISA_HAS_MSA"
+  "bmz.v\t%w0,%w1,%w2";
+  [(set_attr "type"	"arith")
+   (set_attr "mode"	"TI")])
+
+;; bmnz D,S,T
+;; D=operand 0
+;; S=operand 2
+;; T=operand 3
+;; D <- (D & (T ^ -1)) | (S & T)
+(define_expand "msa_bmnz_v_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand")
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
+		      (match_operand:IMSA 2 "register_operand")
+		      (match_operand:IMSA 3 "register_operand")]
+		     UNSPEC_MSA_BMNZ_V))]
+  "ISA_HAS_MSA"
+  {
+    rtx m1 = CONSTM1_RTX (<MODE>mode);
+    if (REGNO (operands[0]) != REGNO (operands[1]))
+      emit_move_insn (operands[0], operands[1]);
+    emit_insn (gen_msa_bmnz_v_insn_<msafmt> (operands[0],
+					     operands[3],
+					     m1,
+					     operands[2]));
+    DONE;
+  })
+
 (define_insn "msa_bmnzi_b"
-  [(set (match_operand:V16QI 0 "register_operand" "=f")
+ [(set (match_operand:V16QI 0 "register_operand" "=f")
 	(unspec:V16QI [(match_operand:V16QI 1 "register_operand" "0")
 		       (match_operand:V16QI 2 "register_operand" "f")
 		       (match_operand 3 "const_uimm8_operand" "")]
@@ -1337,16 +1382,28 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bmz_v_<msafmt>"
+;; bmz D,S,T
+;; D=operand 0
+;; S=operand 2
+;; T=operand 3
+;; D <- (S & (T ^ -1)) | (T & D)
+(define_expand "msa_bmz_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
-		      (match_operand:IMSA 2 "register_operand" "f")
-		      (match_operand:IMSA 3 "register_operand" "f")]
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
+		      (match_operand:IMSA 2 "register_operand")
+		      (match_operand:IMSA 3 "register_operand")]
 		     UNSPEC_MSA_BMZ_V))]
   "ISA_HAS_MSA"
-  "bmz.v\t%w0,%w2,%w3"
-  [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+  {
+    rtx m1 = CONSTM1_RTX (<MODE>mode);
+    if (REGNO (operands[0]) != REGNO (operands[1]))
+      emit_move_insn (operands[0], operands[1]);
+    emit_insn (gen_msa_bmz_v_insn_<msafmt> (operands[0],
+					    operands[2],
+					    operands[3],
+					    m1));
+    DONE;
+  })
 
 (define_insn "msa_bmzi_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -1379,16 +1436,28 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_bsel_v_<msafmt>"
-  [(set (match_operand:IMSA 0 "register_operand" "=f")
-	(unspec:IMSA [(match_operand:IMSA 1 "register_operand" "0")
-		      (match_operand:IMSA 2 "register_operand" "f")
-		      (match_operand:IMSA 3 "register_operand" "f")]
+;; bsel D,S,T
+;; D=operand 0
+;; S=operand 2
+;; T=operand 3
+;; D <- (S & (D ^ -1)) | (D & T)
+(define_expand "msa_bsel_v_<msafmt>"
+  [(set (match_operand:IMSA 0 "register_operand")
+	(unspec:IMSA [(match_operand:IMSA 1 "register_operand")
+		      (match_operand:IMSA 2 "register_operand")
+		      (match_operand:IMSA 3 "register_operand")]
 		     UNSPEC_MSA_BSEL_V))]
   "ISA_HAS_MSA"
-  "bsel.v\t%w0,%w2,%w3"
-  [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+  {
+    rtx m1 = CONSTM1_RTX (<MODE>mode);
+    if (REGNO (operands[0]) != REGNO (operands[1]))
+      emit_move_insn (operands[0], operands[1]);
+    emit_insn (gen_msa_bsel_v_insn_<msafmt> (operands[0],
+					     operands[2],
+					     m1,
+					     operands[3]));
+    DONE;
+  })
 
 (define_insn "msa_bseli_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -1521,29 +1590,29 @@
    (set_attr "mode"	"TI")])
 
 (define_insn "msa_fclass_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")]
-			UNSPEC_MSA_FCLASS))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")]
+			 UNSPEC_MSA_FCLASS))]
   "ISA_HAS_MSA"
   "fclass.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fcaf_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FCAF))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FCAF))]
   "ISA_HAS_MSA"
   "fcaf.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fcune_<FMSA:msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FCUNE))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FCUNE))]
   "ISA_HAS_MSA"
   "fcune.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
@@ -1563,119 +1632,119 @@
      (lt        "fclt")])
 
 (define_insn "msa_<FCC:fcc>_<FMSA:msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(FCC:<MSA_I> (match_operand:FMSA 1 "register_operand" "f")
-		     (match_operand:FMSA 2 "register_operand" "f")))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(FCC:<VIMODE> (match_operand:FMSA 1 "register_operand" "f")
+		      (match_operand:FMSA 2 "register_operand" "f")))]
   "ISA_HAS_MSA"
   "<FCC:fcc>.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsaf_<FMSA:msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSAF))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSAF))]
   "ISA_HAS_MSA"
   "fsaf.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsor_<FMSA:msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSOR))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSOR))]
   "ISA_HAS_MSA"
   "fsor.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsun_<FMSA:msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSUN))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSUN))]
   "ISA_HAS_MSA"
   "fsun.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsune_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSUNE))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSUNE))]
   "ISA_HAS_MSA"
   "fsune.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsueq_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSUEQ))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSUEQ))]
   "ISA_HAS_MSA"
   "fsueq.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fseq_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSEQ))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSEQ))]
   "ISA_HAS_MSA"
   "fseq.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsne_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSNE))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSNE))]
   "ISA_HAS_MSA"
   "fsne.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fslt_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSLT))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSLT))]
   "ISA_HAS_MSA"
   "fslt.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsult_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSULT))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSULT))]
   "ISA_HAS_MSA"
   "fsult.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsle_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSLE))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSLE))]
   "ISA_HAS_MSA"
   "fsle.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
    (set_attr "mode"	"<UNITMODE>")])
 
 (define_insn "msa_fsule_<msafmt>"
-  [(set (match_operand:<MSA_I> 0 "register_operand" "=f")
-	(unspec:<MSA_I> [(match_operand:FMSA 1 "register_operand" "f")
-			 (match_operand:FMSA 2 "register_operand" "f")]
-			UNSPEC_MSA_FSULE))]
+  [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
+	(unspec:<VIMODE> [(match_operand:FMSA 1 "register_operand" "f")
+			  (match_operand:FMSA 2 "register_operand" "f")]
+			 UNSPEC_MSA_FSULE))]
   "ISA_HAS_MSA"
   "fsule.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
@@ -1684,7 +1753,7 @@
 (define_insn "msa_fexp2_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
 	(unspec:FMSA [(match_operand:FMSA 1 "register_operand" "f")
-		      (match_operand:<MSA_I> 2 "register_operand" "f")]
+		      (match_operand:<VIMODE> 2 "register_operand" "f")]
 		     UNSPEC_MSA_FEXP2))]
   "ISA_HAS_MSA"
   "fexp2.<msafmt>\t%w0,%w1,%w2"
@@ -1749,7 +1818,7 @@
    (set_attr "cnv_mode"	"<FINTCNV>")
    (set_attr "mode"	"<UNITMODE>")])
 
-(define_insn "msa_fill_<msafmt3>"
+(define_insn "msa_fill_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
 	(unspec:<MODE> [(match_operand:<REGOR0> 1 "reg_or_0_operand" "dJ")]
 		       UNSPEC_MSA_FILL))]
@@ -2413,7 +2482,7 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_sld_<msafmt3>"
+(define_insn "msa_sld_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
 	(unspec:MSA [(match_operand:MSA 1 "register_operand" "0")
 		     (match_operand:MSA 2 "register_operand" "f")
@@ -2424,18 +2493,18 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_sldi_<msafmt3>"
+(define_insn "msa_sldi_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
 	(unspec:MSA [(match_operand:MSA 1 "register_operand" "0")
 		     (match_operand:MSA 2 "register_operand" "f")
-		     (match_operand 3 "const_<imm>_operand" "")]
+		     (match_operand 3 "const_<indeximm>_operand" "")]
 		    UNSPEC_MSA_SLDI))]
   "ISA_HAS_MSA"
   "sldi.<msafmt>\t%w0,%w2[%3]"
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_splat_<msafmt3>"
+(define_insn "msa_splat_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
 	(unspec:MSA [(match_operand:MSA 1 "register_operand" "f")
 		     (match_operand:SI 2 "reg_or_0_operand" "dJ")]
@@ -2445,10 +2514,10 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_splati_<msafmt3>"
+(define_insn "msa_splati_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
 	(unspec:MSA [(match_operand:MSA 1 "register_operand" "f")
-		     (match_operand 2 "const_<imm>_operand" "")]
+		     (match_operand 2 "const_<indeximm>_operand" "")]
 		    UNSPEC_MSA_SPLATI))]
   "ISA_HAS_MSA"
   "splati.<msafmt>\t%w0,%w1[%2]"
@@ -2456,10 +2525,10 @@
    (set_attr "mode"	"TI")])
 
 ;; operand 1 is a scalar
-(define_insn "msa_splati_<msafmt3>_s"
+(define_insn "msa_splati_<msafmt_f>_s"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
 	(unspec:<MODE> [(match_operand:<UNITMODE> 1 "register_operand" "f")
-			(match_operand 2 "const_<imm>_operand" "")]
+			(match_operand 2 "const_<indeximm>_operand" "")]
 		       UNSPEC_MSA_SPLATI))]
   "ISA_HAS_MSA"
   "splati.<msafmt>\t%w0,%w1[%2]"
@@ -2540,10 +2609,10 @@
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
-(define_insn "msa_branch_nz_v_<msafmt3>" 
+(define_insn "msa_branch_nz_v_<msafmt_f>" 
  [(set (pc) (if_then_else
 	      (ne (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
-			      UNSPEC_MSA_BNZ_V)
+			     UNSPEC_MSA_BNZ_V)
 		  (match_operand:SI 2 "const_0_operand"))
 		  (label_ref (match_operand 0))
 		  (pc)))]
@@ -2556,20 +2625,20 @@
  [(set_attr "type"	"branch")
   (set_attr "mode"	"TI")])
 
-(define_expand "msa_bnz_v_<msafmt3>"
+(define_expand "msa_bnz_v_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
 		   UNSPEC_MSA_TSTNZ_V))]
   "ISA_HAS_MSA"
   {
-    mips_expand_msa_branch (operands, gen_msa_branch_nz_v_<MSA:msafmt3>);
+    mips_expand_msa_branch (operands, gen_msa_branch_nz_v_<MSA:msafmt_f>);
     DONE;
   })
 
-(define_insn "msa_branchz_v_<msafmt3>"
+(define_insn "msa_branchz_v_<msafmt_f>"
  [(set (pc) (if_then_else
 	      (eq (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
-			      UNSPEC_MSA_BZ_V)
+			     UNSPEC_MSA_BZ_V)
 		  (match_operand:SI 2 "const_0_operand"))
 		  (label_ref (match_operand 0))
 		  (pc)))]
@@ -2582,20 +2651,20 @@
  [(set_attr "type"	"branch")
   (set_attr "mode"	"TI")])
 
-(define_expand "msa_bz_v_<msafmt3>"
+(define_expand "msa_bz_v_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
 		   UNSPEC_MSA_TSTZ_V))]
   "ISA_HAS_MSA"
   {
-    mips_expand_msa_branch (operands, gen_msa_branchz_v_<MSA:msafmt3>);
+    mips_expand_msa_branch (operands, gen_msa_branchz_v_<MSA:msafmt_f>);
     DONE;
   })
 
-(define_insn "msa_branchnz_<msafmt3>"
+(define_insn "msa_branchnz_<msafmt_f>"
  [(set (pc) (if_then_else
 	      (ne (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
-			      UNSPEC_MSA_BNZ)
+			     UNSPEC_MSA_BNZ)
 		  (match_operand:SI 2 "const_0_operand"))
 		  (label_ref (match_operand 0))
 		  (pc)))]
@@ -2610,17 +2679,17 @@
  [(set_attr "type"	"branch")
   (set_attr "mode"	"TI")])
 
-(define_expand "msa_bnz_<msafmt3>"
+(define_expand "msa_bnz_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
 		   UNSPEC_MSA_TSTNZ))]
   "ISA_HAS_MSA"
   {
-    mips_expand_msa_branch (operands, gen_msa_branchnz_<MSA:msafmt3>);
+    mips_expand_msa_branch (operands, gen_msa_branchnz_<MSA:msafmt_f>);
     DONE;
   })
 
-(define_insn "msa_branchz_<msafmt3>"
+(define_insn "msa_branchz_<msafmt_f>"
  [(set (pc) (if_then_else
 	      (eq (unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
 			      UNSPEC_MSA_BZ)
@@ -2636,18 +2705,18 @@
  [(set_attr "type"	"arith")
   (set_attr "mode"	"TI")])
 
-(define_expand "msa_bz_<msafmt3>"
+(define_expand "msa_bz_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
 	(unspec:SI [(match_operand:MSA 1 "register_operand" "f")]
 		   UNSPEC_MSA_TSTZ))]
   "ISA_HAS_MSA"
   {
-    mips_expand_msa_branch (operands, gen_msa_branchz_<MSA:msafmt3>);
+    mips_expand_msa_branch (operands, gen_msa_branchz_<MSA:msafmt_f>);
     DONE;
   })
 
 ;; Note that this instruction treats scalar as vector registers freely.
-(define_insn "msa_cast_to_vector_<msafmt3>"
+(define_insn "msa_cast_to_vector_<msafmt_f>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
 	(unspec:FMSA [(match_operand:<UNITMODE> 1 "register_operand" "f")]
 		     UNSPEC_MSA_CAST_TO_VECTOR))]
@@ -2656,13 +2725,13 @@
   if (REGNO (operands[0]) == REGNO (operands[1]))
     return "nop\t# Cast %1 to %w0";
   else
-    return "mov.<msafmt2>\t%0,%1\t# Cast %1 to %w0";
+    return "mov.<unitfmt>\t%0,%1\t# Cast %1 to %w0";
 }
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
 
 ;; Note that this instruction treats vector as scalar registers freely.
-(define_insn "msa_cast_to_scalar_<msafmt3>"
+(define_insn "msa_cast_to_scalar_<msafmt_f>"
   [(set (match_operand:<UNITMODE> 0 "register_operand" "=f")
 	(unspec:<UNITMODE> [(match_operand:FMSA 1 "register_operand" "f")]
 			   UNSPEC_MSA_CAST_TO_SCALAR))]
@@ -2671,7 +2740,7 @@
   if (REGNO (operands[0]) == REGNO (operands[1]))
     return "nop\t# Cast %w1 to %0";
   else
-    return "mov.<msafmt2>\t%0,%1\t# Cast %w1 to %0";
+    return "mov.<unitfmt>\t%0,%1\t# Cast %w1 to %0";
 }
   [(set_attr "type"	"arith")
    (set_attr "mode"	"TI")])
