@@ -434,9 +434,12 @@
   (const_string "none"))
 
 (define_attr "enabled" "no,yes"
-  (if_then_else (ior (eq_attr "compression" "all,none")
-		     (and (eq_attr "compression" "micromips")
-	                  (match_test "TARGET_MICROMIPS")))
+  (if_then_else (and (not (and (eq_attr "move_type" "mtc,mfc")
+			       (match_test "TARGET_FLOATXX && !ISA_HAS_MXHC1")
+			       (eq_attr "dword_mode" "yes")))
+		     (ior (eq_attr "compression" "all,none")
+			  (and (eq_attr "compression" "micromips")
+			       (match_test "TARGET_MICROMIPS"))))
 	        (const_string "yes")
 	        (const_string "no")))
 
@@ -5108,7 +5111,7 @@
       rtx low = mips_subword (operands[1], 0);
       rtx high = mips_subword (operands[1], 1);
       emit_insn (gen_load_low<mode> (operands[0], low));
-      if (TARGET_FLOAT64 && !TARGET_64BIT)
+      if (ISA_HAS_MXHC1 && !TARGET_64BIT)
       	emit_insn (gen_mthc1<mode> (operands[0], high, operands[0]));
       else
 	emit_insn (gen_load_high<mode> (operands[0], high, operands[0]));
@@ -5118,7 +5121,7 @@
       rtx low = mips_subword (operands[0], 0);
       rtx high = mips_subword (operands[0], 1);
       emit_insn (gen_store_word<mode> (low, operands[1], const0_rtx));
-      if (TARGET_FLOAT64 && !TARGET_64BIT)
+      if (ISA_HAS_MXHC1 && !TARGET_64BIT)
 	emit_insn (gen_mfhc1<mode> (high, operands[1]));
       else
 	emit_insn (gen_store_word<mode> (high, operands[1], const1_rtx));
