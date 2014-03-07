@@ -6,6 +6,10 @@
 
 #include "harness.h"
 
+/**********************************************************************
+ Builtin functions
+ **********************************************************************/
+
 static void
 create_test_of_builtin_strcmp (gcc_jit_context *ctxt)
 {
@@ -124,53 +128,6 @@ create_use_of_builtins (gcc_jit_context *ctxt)
 }
 
 static void
-create_use_of_void_return (gcc_jit_context *ctxt)
-{
-  /* Let's try to inject the equivalent of:
-       void
-       test_of_void_return (int *out)
-       {
-         *out = 1;
-	 return;
-       }
-  */
-  gcc_jit_type *void_t =
-    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID);
-  gcc_jit_type *int_t =
-    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
-  gcc_jit_type *int_ptr_t =
-    gcc_jit_type_get_pointer (int_t);
-
-  /* Build the test_fn.  */
-  gcc_jit_param *param_out =
-    gcc_jit_context_new_param (ctxt, NULL, int_ptr_t, "out");
-  gcc_jit_function *test_fn =
-    gcc_jit_context_new_function (ctxt, NULL,
-                                  GCC_JIT_FUNCTION_EXPORTED,
-                                  void_t,
-                                  "test_of_void_return",
-                                  1, &param_out,
-                                  0);
-  gcc_jit_block *initial =
-    gcc_jit_function_new_block (test_fn, "initial");
-
-  gcc_jit_block_add_assignment (
-    initial, NULL,
-    /* "*out = ..." */
-    gcc_jit_rvalue_dereference (gcc_jit_param_as_rvalue (param_out),
-				NULL),
-    gcc_jit_context_one (ctxt, int_t));
-  gcc_jit_block_end_with_void_return (initial, NULL);
-}
-
-void
-create_code (gcc_jit_context *ctxt, void *user_data)
-{
-  create_use_of_builtins (ctxt);
-  create_use_of_void_return (ctxt);
-}
-
-static void
 verify_test_of_builtin_strcmp (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   typedef int (*fn_type) (const char *, const char *);
@@ -213,6 +170,50 @@ verify_use_of_builtins (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_test_of_builtin_trig (ctxt, result);
 }
 
+/**********************************************************************
+ "void" return
+ **********************************************************************/
+
+static void
+create_use_of_void_return (gcc_jit_context *ctxt)
+{
+  /* Let's try to inject the equivalent of:
+       void
+       test_of_void_return (int *out)
+       {
+         *out = 1;
+	 return;
+       }
+  */
+  gcc_jit_type *void_t =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_VOID);
+  gcc_jit_type *int_t =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_INT);
+  gcc_jit_type *int_ptr_t =
+    gcc_jit_type_get_pointer (int_t);
+
+  /* Build the test_fn.  */
+  gcc_jit_param *param_out =
+    gcc_jit_context_new_param (ctxt, NULL, int_ptr_t, "out");
+  gcc_jit_function *test_fn =
+    gcc_jit_context_new_function (ctxt, NULL,
+                                  GCC_JIT_FUNCTION_EXPORTED,
+                                  void_t,
+                                  "test_of_void_return",
+                                  1, &param_out,
+                                  0);
+  gcc_jit_block *initial =
+    gcc_jit_function_new_block (test_fn, "initial");
+
+  gcc_jit_block_add_assignment (
+    initial, NULL,
+    /* "*out = ..." */
+    gcc_jit_rvalue_dereference (gcc_jit_param_as_rvalue (param_out),
+				NULL),
+    gcc_jit_context_one (ctxt, int_t));
+  gcc_jit_block_end_with_void_return (initial, NULL);
+}
+
 static void
 verify_void_return (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
@@ -227,6 +228,18 @@ verify_void_return (gcc_jit_context *ctxt, gcc_jit_result *result)
   test_of_void_return (&i);
   CHECK_VALUE (i, 1); /* ensure correct value was written back */
 }
+
+/**********************************************************************
+ Code for harness
+ **********************************************************************/
+
+void
+create_code (gcc_jit_context *ctxt, void *user_data)
+{
+  create_use_of_builtins (ctxt);
+  create_use_of_void_return (ctxt);
+}
+
 
 void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)

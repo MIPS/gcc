@@ -1,3 +1,8 @@
+2014-03-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-functions.c: Reorder function definitions, grouping
+	them by subject-matter rather than by create-vs-verify phase.
+
 2014-03-06  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-nested-contexts.c (main): Dump the contexts to
