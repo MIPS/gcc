@@ -36677,9 +36677,6 @@ ix86_builtin_mpx_function (unsigned fcode)
     case BUILT_IN_CHKP_INTERSECT:
       return ix86_builtins[IX86_BUILTIN_BNDINT];
 
-    case BUILT_IN_CHKP_SET_PTR_BOUNDS:
-      return ix86_builtins[IX86_BUILTIN_BNDSET];
-
     case BUILT_IN_CHKP_NARROW:
       return ix86_builtins[IX86_BUILTIN_BNDNARROW];
 
