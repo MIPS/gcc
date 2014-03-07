@@ -1,5 +1,18 @@
 2014-03-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.h (enum gcc_jit_function_kind): Add
+	GCC_JIT_FUNCTION_ALWAYS_INLINE.
+	* internal-api.c (gcc::jit::recording::function::write_to_dump):
+	Handle GCC_JIT_FUNCTION_ALWAYS_INLINE.
+	(gcc::jit::playback::context::new_function): Likewise.
+	(gcc::jit::playback::context::postprocess): Handle
+	GCC_JIT_FUNCTION_INTERNAL and GCC_JIT_FUNCTION_ALWAYS_INLINE by
+	clearing DECL_EXTERNAL and TREE_PUBLIC.  Doing so fixes the
+	"undefined symbol" bug seen with GCC_JIT_FUNCTION_INTERNAL.
+	* TODO.rst: Update.
+
+2014-03-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::context::new_global): New.
 
 2014-03-07  David Malcolm  <dmalcolm@redhat.com>

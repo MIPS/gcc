@@ -17,7 +17,7 @@ struct quadratic
 
      extern double sqrt (double);
 
-     void
+     static void
      calc_discriminant (struct quadratic *q)
      {
        // (b^2 - 4ac)
@@ -149,7 +149,7 @@ make_calc_discriminant (struct quadratic_test *testcase)
 			       testcase->quadratic_ptr, "q");
   testcase->calc_discriminant =
     gcc_jit_context_new_function (testcase->ctxt, NULL,
-				  GCC_JIT_FUNCTION_EXPORTED,
+				  GCC_JIT_FUNCTION_INTERNAL,
 				  testcase->void_type,
 				  "calc_discriminant",
 				  1, &param_q,

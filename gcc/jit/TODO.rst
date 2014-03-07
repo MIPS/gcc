@@ -114,11 +114,6 @@ Initial Release
 
 Bugs
 ====
-* INTERNAL functions don't seem to work (see e.g. test-quadratic, on trying
-  to make calc_disc be internal leads to:
-        /tmp/libgccjit-4FZm6B/fake.so: undefined symbol: calc_discriminant
-  works at -O3 (because it inlines away the call); fails at -O0
-
 * fixing all the state issues: make it work repeatedly with optimization
   turned up to full.
 

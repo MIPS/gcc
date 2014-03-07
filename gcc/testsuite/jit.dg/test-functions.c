@@ -7,6 +7,111 @@
 #include "harness.h"
 
 /**********************************************************************
+ GCC_JIT_FUNCTION_ALWAYS_INLINE and GCC_JIT_FUNCTION_INTERNAL
+ **********************************************************************/
+static void
+create_test_of_hidden_function (gcc_jit_context *ctxt,
+				enum gcc_jit_function_kind hidden_kind,
+				const char *hidden_func_name,
+				const char *visible_func_name)
+{
+  /* Let's try to inject the equivalent of:
+     static double hidden_mult (double a, double b)
+     {
+       return x * x;
+     }
+     double my_square (double x)
+     {
+       return my_mult (x, x);
+     }
+
+     where hidden_mult can potentially be
+       inline  __attribute__((always_inline)).  */
+  gcc_jit_type *double_type =
+    gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_DOUBLE);
+
+  /* Create "my_mult" */
+  gcc_jit_param *param_a =
+    gcc_jit_context_new_param (ctxt, NULL, double_type, "a");
+  gcc_jit_param *param_b =
+    gcc_jit_context_new_param (ctxt, NULL, double_type, "b");
+  gcc_jit_param *params[2] = {param_a, param_b};
+  gcc_jit_function *my_mult =
+    gcc_jit_context_new_function (ctxt, NULL,
+				  hidden_kind,
+                                  double_type,
+                                  hidden_func_name,
+                                  2, params,
+                                  0);
+  gcc_jit_block *body_of_my_mult =
+    gcc_jit_function_new_block (my_mult, NULL);
+  gcc_jit_block_end_with_return (
+    body_of_my_mult, NULL,
+    gcc_jit_context_new_binary_op (
+      ctxt, NULL,
+      GCC_JIT_BINARY_OP_MULT,
+      double_type,
+      gcc_jit_param_as_rvalue (param_a),
+      gcc_jit_param_as_rvalue (param_b)));
+
+  /* Create "my_square" */
+  gcc_jit_param *param_x =
+    gcc_jit_context_new_param (ctxt, NULL, double_type, "x");
+  gcc_jit_function *my_square =
+    gcc_jit_context_new_function (ctxt, NULL,
+                                  GCC_JIT_FUNCTION_EXPORTED,
+                                  double_type,
+                                  visible_func_name,
+                                  1, &param_x,
+                                  0);
+  gcc_jit_block *body_of_my_square =
+    gcc_jit_function_new_block (my_square, NULL);
+  gcc_jit_rvalue *args[2] = {gcc_jit_param_as_rvalue (param_x),
+			     gcc_jit_param_as_rvalue (param_x)};
+  gcc_jit_block_end_with_return (
+    body_of_my_square, NULL,
+    gcc_jit_context_new_call (
+      ctxt, NULL,
+      my_mult,
+      2, args));
+}
+
+static void
+create_tests_of_hidden_functions (gcc_jit_context *ctxt)
+{
+  create_test_of_hidden_function (ctxt,
+				  GCC_JIT_FUNCTION_INTERNAL,
+				  "my_internal_mult",
+				  "my_square_with_internal");
+  create_test_of_hidden_function (ctxt,
+				  GCC_JIT_FUNCTION_ALWAYS_INLINE,
+				  "my_always_inline_mult",
+				  "my_square_with_always_inline");
+}
+
+static void
+verify_hidden_functions (gcc_jit_context *ctxt, gcc_jit_result *result)
+{
+  CHECK_NON_NULL (result);
+
+  /* GCC_JIT_FUNCTION_INTERNAL and GCC_JIT_FUNCTION_ALWAYS_INLINE
+     functions should not be accessible in the result.  */
+  CHECK_VALUE (NULL, gcc_jit_result_get_code (result, "my_internal_mult"));
+  CHECK_VALUE (NULL, gcc_jit_result_get_code (result, "my_always_inline_mult"));
+
+  typedef double (*fn_type) (double);
+  fn_type my_square_with_internal =
+    (fn_type)gcc_jit_result_get_code (result, "my_square_with_internal");
+  CHECK_NON_NULL (my_square_with_internal);
+  CHECK_VALUE (my_square_with_internal (5.0), 25.0);
+
+  fn_type my_square_with_always_inline =
+    (fn_type)gcc_jit_result_get_code (result, "my_square_with_always_inline");
+  CHECK_NON_NULL (my_square_with_always_inline);
+  CHECK_VALUE (my_square_with_always_inline (5.0), 25.0);
+}
+
+/**********************************************************************
  Builtin functions
  **********************************************************************/
 
@@ -236,6 +341,7 @@ verify_void_return (gcc_jit_context *ctxt, gcc_jit_result *result)
 void
 create_code (gcc_jit_context *ctxt, void *user_data)
 {
+  create_tests_of_hidden_functions (ctxt);
   create_use_of_builtins (ctxt);
   create_use_of_void_return (ctxt);
 }
@@ -244,6 +350,7 @@ create_code (gcc_jit_context *ctxt, void *user_data)
 void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
+  verify_hidden_functions (ctxt, result);
   verify_use_of_builtins (ctxt, result);
   verify_void_return (ctxt, result);
 }

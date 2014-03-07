@@ -1317,6 +1317,9 @@ recording::function::write_to_dump (dump &d)
     case GCC_JIT_FUNCTION_INTERNAL:
       d.write ("static ");
       break;
+    case GCC_JIT_FUNCTION_ALWAYS_INLINE:
+      d.write ("static inline ");
+      break;
      }
   d.write ("%s\n", m_return_type->get_debug_string ());
 
@@ -2534,6 +2537,17 @@ new_function (location *loc,
       DECL_ARGUMENTS(fndecl) = param_decl_list;
     }
 
+  if (kind == GCC_JIT_FUNCTION_ALWAYS_INLINE)
+    {
+      DECL_DECLARED_INLINE_P (fndecl) = 1;
+
+      /* Add attribute "always_inline": */
+      DECL_ATTRIBUTES (fndecl) =
+	tree_cons (get_identifier ("always_inline"),
+		   NULL,
+		   DECL_ATTRIBUTES (fndecl));
+    }
+
   function *func = new function (this, fndecl, kind);
   m_functions.safe_push (func);
   return func;
@@ -3193,6 +3207,13 @@ postprocess ()
     {
       DECL_EXTERNAL (m_inner_fndecl) = 0;
       DECL_PRESERVE_P (m_inner_fndecl) = 1;
+    }
+
+  if (m_kind == GCC_JIT_FUNCTION_INTERNAL
+      ||m_kind == GCC_JIT_FUNCTION_ALWAYS_INLINE)
+    {
+      DECL_EXTERNAL (m_inner_fndecl) = 0;
+      TREE_PUBLIC (m_inner_fndecl) = 0;
     }
 
   if (m_kind != GCC_JIT_FUNCTION_IMPORTED)

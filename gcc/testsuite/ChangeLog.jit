@@ -1,5 +1,17 @@
 2014-03-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* jit.dg/test-functions.c (create_test_of_hidden_function): New,
+	adding test coverage for GCC_JIT_FUNCTION_ALWAYS_INLINE and
+	GCC_JIT_FUNCTION_INTERNAL.
+	(create_tests_of_hidden_functions): Likewise.
+	(verify_hidden_functions): Likewise.
+	(create_code): Add call to create_tests_of_hidden_functions.
+	(verify_code): Add call to verify_hidden_functions.
+	* jit.dg/test-quadratic.c (make_calc_discriminant): Convert
+	from GCC_JIT_FUNCTION_EXPORTED to GCC_JIT_FUNCTION_INTERNAL.
+
+2014-03-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* jit.dg/test-functions.c: Reorder function definitions, grouping
 	them by subject-matter rather than by create-vs-verify phase.
 

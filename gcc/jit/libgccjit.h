@@ -468,8 +468,18 @@ enum gcc_jit_function_kind
   /* Function is not defined by the client code; we're merely
      referring to it.  Analogous to using an "extern" function from a
      header file.  */
-  GCC_JIT_FUNCTION_IMPORTED
+  GCC_JIT_FUNCTION_IMPORTED,
 
+  /* Function is only ever inlined into other functions, and is
+     invisible outside of the JIT.
+
+     Analogous to prefixing with "inline" and adding
+     __attribute__((always_inline)).
+
+     Inlining will only occur when the optimization level is
+     above 0; when optimization is off, this is essentially the
+     same as GCC_JIT_FUNCTION_INTERNAL.  */
+  GCC_JIT_FUNCTION_ALWAYS_INLINE
 };
 
 
