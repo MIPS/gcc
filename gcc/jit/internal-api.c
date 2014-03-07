@@ -243,6 +243,10 @@ recording::context::disassociate_from_playback ()
 {
   int i;
   memento *m;
+
+  if (m_parent_ctxt)
+    m_parent_ctxt->disassociate_from_playback ();
+
   FOR_EACH_VEC_ELT (m_mementos, i, m)
     {
       m->set_playback_obj (NULL);

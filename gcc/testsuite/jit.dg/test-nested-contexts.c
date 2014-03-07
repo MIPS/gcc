@@ -552,6 +552,10 @@ main (int argc, char **argv)
       /* No errors should have occurred.  */
       CHECK_VALUE (gcc_jit_context_get_first_error (top_level.ctxt), NULL);
 
+      gcc_jit_context_dump_to_file (top_level.ctxt,
+				    "dump-of-test-nested-contexts-top.c",
+				    1);
+
       for (j = 1; j <= NUM_MIDDLE_ITERATIONS; j++)
 	{
 	  /* Create and populate the middle-level context, using
@@ -574,6 +578,10 @@ main (int argc, char **argv)
 	  /* No errors should have occurred.  */
 	  CHECK_VALUE (gcc_jit_context_get_first_error (middle_level.ctxt),
 		       NULL);
+
+	  gcc_jit_context_dump_to_file (middle_level.ctxt,
+					"dump-of-test-nested-contexts-middle.c",
+					1);
 
 	  gcc_jit_result *middle_result =
 	    gcc_jit_context_compile (middle_level.ctxt);
@@ -606,6 +614,10 @@ main (int argc, char **argv)
 	      /* No errors should have occurred.  */
 	      CHECK_VALUE (gcc_jit_context_get_first_error (bottom_level.ctxt),
 			   NULL);
+
+	      gcc_jit_context_dump_to_file (bottom_level.ctxt,
+					    "dump-of-test-nested-contexts-bottom.c",
+					    1);
 
 	      gcc_jit_result *bottom_result =
 		gcc_jit_context_compile (bottom_level.ctxt);

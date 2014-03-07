@@ -1,3 +1,8 @@
+2014-03-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::recording::context::
+	disassociate_from_playback): Recursively visit parent contexts.
+
 2014-03-05  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (gcc_jit_function_dump_to_dot): New.

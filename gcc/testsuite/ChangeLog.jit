@@ -1,3 +1,9 @@
+2014-03-06  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-nested-contexts.c (main): Dump the contexts to
+	files, setting up source locations, and adding test coverage for
+	gcc_jit_context_dump_to_file.
+
 2014-03-04  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-error-mismatching-types-in-call.c: New test case,
