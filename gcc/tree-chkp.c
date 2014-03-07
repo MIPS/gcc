@@ -426,8 +426,6 @@ static void chkp_parse_array_and_component_ref (tree node, tree *ptr,
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_INTERSECT))
 #define chkp_narrow_bounds_fndecl \
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_NARROW))
-#define chkp_set_bounds_fndecl \
-  (targetm.builtin_chkp_function (BUILT_IN_CHKP_SET_PTR_BOUNDS))
 #define chkp_sizeof_fndecl \
   (targetm.builtin_chkp_function (BUILT_IN_CHKP_SIZEOF))
 #define chkp_extract_lower_fndecl \
@@ -755,7 +753,7 @@ chkp_add_bounds_params_to_function (struct cgraph_node *node)
 static struct cgraph_node *
 chkp_maybe_create_instrumentation_clone (tree fndecl)
 {
-  struct cgraph_node *node = cgraph_get_node (fndecl), *clone;
+  struct cgraph_node *node = cgraph_get_create_node (fndecl), *clone;
 
   gcc_assert (!node->instrumentation_clone);
 
@@ -778,9 +776,22 @@ chkp_maybe_create_instrumentation_clone (tree fndecl)
 
       if (gimple_has_body_p (fndecl))
 	{
-	  tree_function_versioning (fndecl, new_decl, NULL, false, NULL, false, NULL,
-				    NULL);
-	  clone->lowered = true;
+	  /* If function will not be instrumented, then it's instrumented
+	     version is a thunk for the original.  */
+	  if (lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (fndecl))
+	      || (flag_chkp_instrument_marked_only
+		  && !lookup_attribute ("bnd_instrument", DECL_ATTRIBUTES (fndecl))))
+	    {
+	      clone->thunk.thunk_p = true;
+	      clone->thunk.add_pointer_bounds_args = true;
+	      cgraph_create_edge (clone, node, NULL, 0, CGRAPH_FREQ_BASE);
+	    }
+	  else
+	    {
+	      tree_function_versioning (fndecl, new_decl, NULL, false,
+					NULL, false, NULL, NULL);
+	      clone->lowered = true;
+	    }
 	}
 
       /* Clone all aliases.  */
@@ -843,7 +854,10 @@ chkp_versioning (void)
 	  && !node->instrumented_version
 	  && !node->alias
 	  && !node->thunk.thunk_p
-	  && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (node->decl)))
+	  && !lookup_attribute ("bnd_legacy", DECL_ATTRIBUTES (node->decl))
+	  && (!flag_chkp_instrument_marked_only
+	      || lookup_attribute ("bnd_instrument",
+				   DECL_ATTRIBUTES (node->decl))))
 	chkp_maybe_create_instrumentation_clone (node->decl);
     }
 
@@ -879,7 +893,8 @@ chkp_produce_thunks (void)
     {
       if (!node->instrumentation_clone
 	  && node->instrumented_version
-	  && gimple_has_body_p (node->decl))
+	  && gimple_has_body_p (node->decl)
+	  && gimple_has_body_p (node->instrumented_version->decl))
 	{
 	  cgraph_release_function_body (node);
 	  cgraph_node_remove_callees (node);
@@ -1590,6 +1605,7 @@ chkp_check_lower (tree addr, tree bounds,
 
   check = gimple_build_call (chkp_checkl_fndecl, 2, node, bounds);
   chkp_mark_stmt (check);
+  gimple_call_set_with_bounds (check, true);
   gimple_seq_add_stmt (&seq, check);
 
   gsi_insert_seq_before (&iter, seq, GSI_SAME_STMT);
@@ -1634,6 +1650,7 @@ chkp_check_upper (tree addr, tree bounds,
 
   check = gimple_build_call (chkp_checku_fndecl, 2, node, bounds);
   chkp_mark_stmt (check);
+  gimple_call_set_with_bounds (check, true);
   gimple_seq_add_stmt (&seq, check);
 
   gsi_insert_seq_before (&iter, seq, GSI_SAME_STMT);
@@ -1965,7 +1982,8 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
       && (DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_INIT_PTR_BOUNDS
 	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_NULL_PTR_BOUNDS
-	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_COPY_PTR_BOUNDS))
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_COPY_PTR_BOUNDS
+	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_SET_PTR_BOUNDS))
     return;
 
   /* Check user builtins are replaced with checks.  */
@@ -1984,15 +2002,6 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 	  || DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_GET_PTR_UBOUND))
     {
       chkp_replace_extract_builtin (gsi);
-      return;
-    }
-
-  /* BUILT_IN_CHKP_SET_PTR_BOUNDS call does not require bound args.
-     Just replace fndecl with target specific one.  */
-  if (fndecl && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
-      && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_SET_PTR_BOUNDS)
-    {
-      gimple_call_set_fndecl (call, chkp_set_bounds_fndecl);
       return;
     }
 
@@ -2026,6 +2035,9 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
 
       return;
     }
+
+  if (!flag_chkp_instrument_calls)
+    return;
 
   /* Do nothing if builtin was called as builtin.  */
   //if (fndecl
@@ -4076,7 +4088,7 @@ chkp_finish_file (void)
 	if (stmts.avail <= 0)
 	  {
 	    cgraph_build_static_cdtor ('P', stmts.stmts,
-				       MAX_RESERVED_INIT_PRIORITY + 2);
+				       MAX_RESERVED_INIT_PRIORITY + 3);
 	    stmts.avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
 	    stmts.stmts = NULL;
 	  }
@@ -4084,7 +4096,7 @@ chkp_finish_file (void)
 
   if (stmts.stmts)
     cgraph_build_static_cdtor ('P', stmts.stmts,
-			       MAX_RESERVED_INIT_PRIORITY + 2);
+			       MAX_RESERVED_INIT_PRIORITY + 3);
 
   /* Iterate through varpool and generate bounds initialization
      constructors for all static bounds vars.  */
@@ -4106,7 +4118,7 @@ chkp_finish_file (void)
 
   if (stmts.stmts)
     cgraph_build_static_cdtor ('B', stmts.stmts,
-			       MAX_RESERVED_INIT_PRIORITY + 1);
+			       MAX_RESERVED_INIT_PRIORITY + 2);
 
   if (chkp_size_decls)
     htab_delete (chkp_size_decls);
@@ -4283,7 +4295,9 @@ chkp_process_stmt (gimple_stmt_iterator *iter, tree node,
     }
 
   /* We need to store bounds in case pointer is stored.  */
-  if (dirflag == integer_one_node && chkp_type_has_pointer (node_type))
+  if (dirflag == integer_one_node
+      && chkp_type_has_pointer (node_type)
+      && flag_chkp_store_bounds)
     {
       gimple stmt = gsi_stmt (*iter);
       tree rhs1 = gimple_assign_rhs1 (stmt);
@@ -4308,6 +4322,10 @@ chkp_copy_bounds_for_assign (gimple assign, struct cgraph_edge *edge)
   tree lhs = gimple_assign_lhs (assign);
   tree rhs = gimple_assign_rhs1 (assign);
   gimple_stmt_iterator iter = gsi_for_stmt (assign);
+
+  if (!flag_chkp_store_bounds)
+    return;
+
   chkp_walk_pointer_assignments (lhs, rhs, &iter, chkp_copy_bounds_for_elem);
 
   /* We should create edges for all created calls to bndldx and bndstx.  */
@@ -4321,7 +4339,8 @@ chkp_copy_bounds_for_assign (gimple assign, struct cgraph_edge *edge)
 	  struct cgraph_edge *new_edge;
 
 	  gcc_assert (fndecl == chkp_bndstx_fndecl
-		      || fndecl == chkp_bndldx_fndecl);
+		      || fndecl == chkp_bndldx_fndecl
+		      || fndecl == chkp_ret_bnd_fndecl);
 
 	  new_edge = cgraph_create_edge (edge->caller, callee, stmt,
 					 edge->count, edge->frequency);
@@ -4475,44 +4494,47 @@ chkp_instrument_function (void)
   /* Some input params may have bounds and be address taken.  In this case
      we should store incomping bounds into bounds table.  */
   tree arg;
-  for (arg = DECL_ARGUMENTS (cfun->decl); arg; arg = DECL_CHAIN (arg))
-    if (TREE_ADDRESSABLE (arg))
-      {
-	if (BOUNDED_P (arg))
-	  {
-	    tree bounds = chkp_get_next_bounds_parm (arg);
-	    tree def_ptr = ssa_default_def (cfun, arg);
-	    gimple_stmt_iterator iter = gsi_start_bb (chkp_get_entry_block ());
-	    chkp_build_bndstx (chkp_build_addr_expr (arg),
-			       def_ptr ? def_ptr : arg,
-			       bounds, &iter);
+  if (flag_chkp_store_bounds)
+    for (arg = DECL_ARGUMENTS (cfun->decl); arg; arg = DECL_CHAIN (arg))
+      if (TREE_ADDRESSABLE (arg))
+	{
+	  if (BOUNDED_P (arg))
+	    {
+	      tree bounds = chkp_get_next_bounds_parm (arg);
+	      tree def_ptr = ssa_default_def (cfun, arg);
+	      gimple_stmt_iterator iter
+		= gsi_start_bb (chkp_get_entry_block ());
+	      chkp_build_bndstx (chkp_build_addr_expr (arg),
+				 def_ptr ? def_ptr : arg,
+				 bounds, &iter);
 
-	    /* Skip bounds arg.  */
-	    arg = TREE_CHAIN (arg);
-	  }
-	else if (chkp_type_has_pointer (TREE_TYPE (arg)))
-	  {
-	    tree orig_arg = arg;
-	    bitmap slots = chkp_find_bound_slots (TREE_TYPE (arg));
-	    gimple_stmt_iterator iter = gsi_start_bb (chkp_get_entry_block ());
-	    bitmap_iterator bi;
-	    unsigned bnd_no;
+	      /* Skip bounds arg.  */
+	      arg = TREE_CHAIN (arg);
+	    }
+	  else if (chkp_type_has_pointer (TREE_TYPE (arg)))
+	    {
+	      tree orig_arg = arg;
+	      bitmap slots = chkp_find_bound_slots (TREE_TYPE (arg));
+	      gimple_stmt_iterator iter
+		= gsi_start_bb (chkp_get_entry_block ());
+	      bitmap_iterator bi;
+	      unsigned bnd_no;
 
-	    EXECUTE_IF_SET_IN_BITMAP (slots, 0, bnd_no, bi)
-	      {
-		tree bounds = chkp_get_next_bounds_parm (arg);
-		HOST_WIDE_INT offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
-		tree addr = chkp_build_addr_expr (orig_arg);
-		tree ptr = build2 (MEM_REF, ptr_type_node, addr,
-				   build_int_cst (ptr_type_node, offs));
-		chkp_build_bndstx (chkp_build_addr_expr (ptr), ptr,
-				   bounds, &iter);
+	      EXECUTE_IF_SET_IN_BITMAP (slots, 0, bnd_no, bi)
+		{
+		  tree bounds = chkp_get_next_bounds_parm (arg);
+		  HOST_WIDE_INT offs = bnd_no * POINTER_SIZE / BITS_PER_UNIT;
+		  tree addr = chkp_build_addr_expr (orig_arg);
+		  tree ptr = build2 (MEM_REF, ptr_type_node, addr,
+				     build_int_cst (ptr_type_node, offs));
+		  chkp_build_bndstx (chkp_build_addr_expr (ptr), ptr,
+				     bounds, &iter);
 
-		arg = DECL_CHAIN (arg);
-	      }
-	    BITMAP_FREE (slots);
-	  }
-      }
+		  arg = DECL_CHAIN (arg);
+		}
+	      BITMAP_FREE (slots);
+	    }
+	}
 }
 
 /* Find init/null/copy_ptr_bounds calls and replace them
@@ -4543,7 +4565,8 @@ chkp_remove_useless_builtins ()
 	      && (fcode = DECL_FUNCTION_CODE (fndecl))
 	      && (fcode == BUILT_IN_CHKP_INIT_PTR_BOUNDS
 		  || fcode == BUILT_IN_CHKP_NULL_PTR_BOUNDS
-		  || fcode == BUILT_IN_CHKP_COPY_PTR_BOUNDS))
+		  || fcode == BUILT_IN_CHKP_COPY_PTR_BOUNDS
+		  || fcode == BUILT_IN_CHKP_SET_PTR_BOUNDS))
 	    {
 	      tree res = gimple_call_arg (stmt, 0);
 	      if (!update_call_from_tree (&gsi, res))
