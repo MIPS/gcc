@@ -18,6 +18,9 @@
 	(fchkp-treat-zero-dynamic-size-as-infinite): New.
 	(fchkp-check-read): New.
 	(fchkp-check-write): New.
+	(fchkp-store-bounds): New.
+	(fchkp-instrument-calls): New.
+	(fchkp-instrument-marked-only): New.
 	* cppbuiltin.c (define_builtin_macros_for_compilation_flags): Add
 	__CHKP__ macro when Pointer Bounds Checker is on.
 	* passes.def (pass_chkp): New.
