@@ -1429,10 +1429,7 @@ chkp_output_static_bounds (tree bnd_var, tree var,
   /* FIXME: Move bounds initialization code generation
      into target hook.  */
 
-  tree size_ptr = build_pointer_type (size_type_node);
-  tree bnd_p = build1 (CONVERT_EXPR, size_ptr,
-		       chkp_build_addr_expr (bnd_var));
-  tree lb, ub, lhs, modify, size;
+  tree lb, ub, size;
 
   if (TREE_CODE (var) == STRING_CST)
     {
@@ -1471,24 +1468,12 @@ chkp_output_static_bounds (tree bnd_var, tree var,
     }
 
   ub = size_binop (PLUS_EXPR, lb, size);
-  ub = build1 (BIT_NOT_EXPR, size_type_node, ub);
-
-  lhs = build1 (INDIRECT_REF, size_type_node, bnd_p);
-  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, lb);
-  append_to_statement_list (modify, &stmts->stmts);
-  stmts->avail--;
-
-  lhs = build1 (INDIRECT_REF, size_type_node,
-		build2 (POINTER_PLUS_EXPR, size_ptr, bnd_p,
-			TYPE_SIZE_UNIT (size_type_node)));
-  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, ub);
-  append_to_statement_list (modify, &stmts->stmts);
-  stmts->avail--;
-
+  stmts->avail -= targetm.chkp_initialize_bounds (bnd_var, lb, ub,
+						  &stmts->stmts);
   if (stmts->avail <= 0)
     {
       cgraph_build_static_cdtor ('B', stmts->stmts,
-				 MAX_RESERVED_INIT_PRIORITY + 1);
+				 MAX_RESERVED_INIT_PRIORITY + 2);
       stmts->avail = MAX_STMTS_IN_STATIC_CHKP_CTOR;
       stmts->stmts = NULL;
     }
@@ -2173,7 +2158,7 @@ static tree
 chkp_find_const_bounds_var (HOST_WIDE_INT lb,
 			    HOST_WIDE_INT ub)
 {
-  double_int val = double_int::from_pair (lb, ~ub);
+  tree val = targetm.chkp_make_bounds_constant (lb, ub);
   struct varpool_node *node;
 
   FOR_EACH_VARIABLE (node)
@@ -2181,7 +2166,7 @@ chkp_find_const_bounds_var (HOST_WIDE_INT lb,
 	&& TREE_READONLY (node->decl)
 	&& DECL_INITIAL (node->decl)
 	&& TREE_CODE (DECL_INITIAL (node->decl)) == INTEGER_CST
-	&& TREE_INT_CST (DECL_INITIAL (node->decl)) == val)
+	&& TREE_INT_CST (DECL_INITIAL (node->decl)) == TREE_INT_CST (val))
       return node->decl;
 
   return NULL;
@@ -2212,11 +2197,10 @@ chkp_make_static_const_bounds (HOST_WIDE_INT lb,
   TREE_STATIC (var) = 1;
   TREE_ADDRESSABLE (var) = 0;
   DECL_ARTIFICIAL (var) = 1;
-  DECL_COMMON (var) = 1;
   DECL_COMDAT (var) = 1;
   DECL_COMDAT_GROUP (var) = DECL_ASSEMBLER_NAME (var);
   DECL_READ_P (var) = 1;
-  DECL_INITIAL (var) = build_int_cst_wide (pointer_bounds_type_node, lb, ~ub);
+  DECL_INITIAL (var) = targetm.chkp_make_bounds_constant (lb, ub);
   /* We may use this symbol during ctors generation in chkp_finish_file
      when all symbols are emitted.  Force output to avoid undefined
      symbols in ctors.
@@ -2397,6 +2381,16 @@ chkp_build_returned_bound (gimple call)
       gimple_stmt_iterator iter = gsi_for_stmt (call);
       bounds = chkp_make_bounds (lb, size, &iter, true);
     }
+  /* We know bounds returned by set_bounds builtin call.  */
+  else if (fndecl
+	   && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
+	   && DECL_FUNCTION_CODE (fndecl) == BUILT_IN_CHKP_SET_PTR_BOUNDS)
+    {
+      tree lb = gimple_call_arg (call, 0);
+      tree size = gimple_call_arg (call, 1);
+      gimple_stmt_iterator iter = gsi_for_stmt (call);
+      bounds = chkp_make_bounds (lb, size, &iter, true);
+    }
   /* Similarly handle next_arg builtin.  */
   else if (fndecl
 	   && DECL_BUILT_IN_CLASS (fndecl) == BUILT_IN_NORMAL
@@ -2573,6 +2567,18 @@ chkp_get_bound_for_parm (tree parm)
     }
 
   return bounds;
+}
+
+/* Build and return CALL_EXPR for bndstx builtin with specified
+   arguments.  */
+tree
+chkp_build_bndldx_call (tree addr, tree ptr)
+{
+  tree call = build1 (ADDR_EXPR,
+		      build_pointer_type (TREE_TYPE (chkp_bndldx_fndecl)),
+		      chkp_bndldx_fndecl);
+  return build_call_nary (TREE_TYPE (TREE_TYPE (chkp_bndldx_fndecl)),
+			  call, 2, addr, ptr);
 }
 
 /* Insert code to load bounds for PTR located by ADDR.
