@@ -2169,6 +2169,21 @@ DEFHOOK
  enum machine_mode, (void),
  default_chkp_bound_mode)
 
+DEFHOOK
+(chkp_make_bounds_constant,
+ "Return constant used to statically initialize constant bounds\n\
+with specified lower bound @var{lb} and upper bounds @var{ub}.",
+ tree, (HOST_WIDE_INT lb, HOST_WIDE_INT ub),
+ default_chkp_make_bounds_constant)
+
+DEFHOOK
+(chkp_initialize_bounds,
+ "Generate a list of statements @var{stmts} to initialize pointer\n\
+bounds variable @var{var} with bounds @var{lb} and @var{ub}.  Return\n\
+the number of generated statements.",
+ int, (tree var, tree lb, tree ub, tree *stmts),
+ default_chkp_initialize_bounds)
+
 /* Select a replacement for a target-specific builtin.  This is done
    *before* regular type checking, and so allows the target to
    implement a crude form of function overloading.  The result is a
@@ -3898,6 +3913,21 @@ constant holding number of the target dependent special slot which\n\
 should be used to store @var{bounds}.",
  void, (rtx arg, rtx slot, rtx bounds, rtx slot_no),
  default_store_bounds_for_arg)
+
+DEFHOOK
+(load_returned_bounds,
+ "This hook is used by expand pass to emit insn to load bounds\n\
+returned by function call in @var{slot}.  Hook returns RTX holding\n\
+loaded bounds.",
+ rtx, (rtx slot),
+ default_load_returned_bounds)
+
+DEFHOOK
+(store_returned_bounds,
+ "This hook is used by expand pass to emit insn to store @var{bounds}\n\
+returned by function call into @var{slot}.",
+ void, (rtx slot, rtx bounds),
+ default_store_returned_bounds)
 
 DEFHOOK
 (strict_argument_naming,
