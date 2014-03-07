@@ -1,5 +1,9 @@
 2014-03-07  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::context::new_global): New.
+
+2014-03-07  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::playback::context::handle_locations):
 	Add a disabled call to line_table_dump, in case it's handy for
 	debugging in the future.

@@ -121,6 +121,10 @@ namespace gccjit
 
     function get_builtin_function (const std::string &name);
 
+    lvalue new_global (type type_,
+		       const std::string &name,
+		       location loc = location ());
+
     rvalue new_rvalue (type numeric_type,
 		       int value);
     rvalue zero (type numeric_type);
@@ -638,6 +642,17 @@ context::get_builtin_function (const std::string &name)
 {
   return function (gcc_jit_context_get_builtin_function (m_inner_ctxt,
 							 name.c_str ()));
+}
+
+inline lvalue
+context::new_global (type type_,
+		     const std::string &name,
+		     location loc)
+{
+  return lvalue (gcc_jit_context_new_global (m_inner_ctxt,
+					     loc.get_inner_location (),
+					     type_.get_inner_type (),
+					     name.c_str ()));
 }
 
 inline rvalue
