@@ -5058,8 +5058,6 @@ expand_assignment (tree to, tree from, bool nontemporal)
 	  && (BOUNDED_P (to) || chkp_type_has_pointer (TREE_TYPE (to))))
 	{
 	  gcc_assert (MEM_P (to_rtx));
-	  gcc_assert (!CONST_INT_P (bounds));
-
 	  chkp_emit_bounds_store (bounds, value, to_rtx);
 	}
 
@@ -5284,9 +5282,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal,
 	  if (bounds && btarget)
 	    {
 	      gcc_assert (TREE_CODE (btarget) == SSA_NAME);
-	      gcc_assert (REG_P (bounds));
-	      rtx tmp = gen_reg_rtx (targetm.chkp_bound_mode ());
-	      emit_move_insn (tmp, bounds);
+	      rtx tmp = targetm.calls.load_returned_bounds (bounds);
 	      chkp_set_rtl_bounds (btarget, tmp);
 	    }
 	}
@@ -5381,9 +5377,7 @@ store_expr (tree exp, rtx target, int call_param_p, bool nontemporal,
 	  if (bounds && btarget)
 	    {
 	      gcc_assert (TREE_CODE (btarget) == SSA_NAME);
-	      gcc_assert (REG_P (bounds));
-	      rtx tmp = gen_reg_rtx (targetm.chkp_bound_mode ());
-	      emit_move_insn (tmp, bounds);
+	      rtx tmp = targetm.calls.load_returned_bounds (bounds);
 	      chkp_set_rtl_bounds (btarget, tmp);
 	    }
 	}
