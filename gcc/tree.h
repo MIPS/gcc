@@ -3238,6 +3238,8 @@ tree_operand_check_code (const_tree __t, enum tree_code __code, int __i,
 #define complex_double_type_node	global_trees[TI_COMPLEX_DOUBLE_TYPE]
 #define complex_long_double_type_node	global_trees[TI_COMPLEX_LONG_DOUBLE_TYPE]
 
+#define pointer_bounds_type_node        global_trees[TI_POINTER_BOUNDS_TYPE]
+
 #define void_type_node			global_trees[TI_VOID_TYPE]
 /* The C type `void *'.  */
 #define ptr_type_node			global_trees[TI_PTR_TYPE]
