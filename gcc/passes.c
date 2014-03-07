@@ -413,7 +413,7 @@ const pass_data pass_data_chkp_instrumentation_passes =
   0, /* properties_provided */
   0, /* properties_destroyed */
   0, /* todo_flags_start */
-  TODO_remove_functions, /* todo_flags_finish */
+  0, /* todo_flags_finish */
 };
 
 class pass_chkp_instrumentation_passes : public simple_ipa_opt_pass
