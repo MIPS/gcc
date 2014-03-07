@@ -1,3 +1,15 @@
+2014-03-07  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::playback::context::handle_locations):
+	Add a disabled call to line_table_dump, in case it's handy for
+	debugging in the future.
+	(gcc::jit::playback::context::set_tree_location): Assert that
+	the location is non-NULL.
+	(gcc::jit::playback::location::location): Initialize m_src_loc
+	to UNKNOWN_LOCATION.  This field should always be overwritten by
+	handle_locations before use, but given recent issues with bogus
+	locations it seems safer to initialize it.
+
 2014-03-06  David Malcolm  <dmalcolm@redhat.com>
 
 	* internal-api.c (gcc::jit::recording::context::

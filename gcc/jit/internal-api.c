@@ -3723,6 +3723,15 @@ handle_locations ()
       linemap_add (line_table, LC_LEAVE, false, NULL, 0);
     }
 
+  /* line_table should now be populated; every playback::location should
+     now have an m_srcloc.  */
+
+  if (0)
+    line_table_dump (stderr,
+		     line_table,
+		     LINEMAPS_ORDINARY_USED (line_table),
+		     LINEMAPS_MACRO_USED (line_table));
+
   /* Now assign them to tree nodes as appropriate.  */
   std::pair<tree, location *> *cached_location;
 
@@ -3822,6 +3831,7 @@ void
 playback::context::
 set_tree_location (tree t, location *loc)
 {
+  gcc_assert (loc);
   m_cached_locations.safe_push (std::make_pair (t, loc));
 }
 
@@ -3899,6 +3909,7 @@ get_location (int column_num)
 }
 
 playback::location::location (source_line *line, int column_num) :
+  m_srcloc (UNKNOWN_LOCATION),
   m_line (line),
   m_column_num(column_num)
 {
