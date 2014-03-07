@@ -2689,8 +2689,8 @@
 
   if (ISA_HAS_<D>DIV)
     {
-      gen_divmod<mode>4_classic (operands[0], operands[1],
-                                 operands[2], operands[3]);
+      emit_insn (gen_divmod<mode>4_classic (operands[0], operands[1],
+                                            operands[2], operands[3]));
       DONE;
     }
   /* Allow R6 <D>DIV to be expanded using the template */
@@ -2729,8 +2729,8 @@
 {
   if (ISA_HAS_<D>DIV)
     {
-      gen_udivmod<mode>4_classic (operands[0], operands[1],
-                                  operands[2], operands[3]);
+      emit_insn (gen_udivmod<mode>4_classic (operands[0], operands[1],
+                                             operands[2], operands[3]));
       DONE;
     }
 
