@@ -1573,6 +1573,7 @@ default_member_type_forces_blk (const_tree, enum machine_mode)
 {
   return false;
 }
+
 rtx
 default_load_bounds_for_arg (rtx addr ATTRIBUTE_UNUSED,
 			     rtx ptr ATTRIBUTE_UNUSED,
@@ -1586,6 +1587,19 @@ default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
 			      rtx addr ATTRIBUTE_UNUSED,
 			      rtx bounds ATTRIBUTE_UNUSED,
 			      rtx to ATTRIBUTE_UNUSED)
+{
+  gcc_unreachable ();
+}
+
+rtx
+default_load_returned_bounds (rtx slot)
+{
+  gcc_unreachable ();
+}
+
+void
+default_store_returned_bounds (rtx slot ATTRIBUTE_UNUSED,
+			       rtx bounds ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -1749,6 +1763,20 @@ default_chkp_function_value_bounds (const_tree ret_type ATTRIBUTE_UNUSED,
 				    bool outgoing ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
+}
+
+tree
+default_chkp_make_bounds_constant (HOST_WIDE_INT lb ATTRIBUTE_UNUSED,
+				   HOST_WIDE_INT ub ATTRIBUTE_UNUSED)
+{
+  return NULL_TREE;
+}
+
+int
+default_chkp_initialize_bounds (tree var, tree lb, tree ub,
+				tree *stmts)
+{
+  return 0;
 }
 
 /* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do
