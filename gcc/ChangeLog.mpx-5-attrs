@@ -2,6 +2,8 @@
 
 	* c-family/c-common.c (handle_bnd_variable_size_attribute): New.
 	(handle_bnd_legacy): New.
-	(c_common_attribute_table): Add bnd_variable_size and bnd_legacy.
-	* doc/extend.texi: Document bnd_variable_size and bnd_legacy
-	attributes.
+	(handle_bnd_instrument): New.
+	(c_common_attribute_table): Add bnd_variable_size, bnd_legacy
+	and bnd_instrument.
+	* doc/extend.texi: Document bnd_variable_size, bnd_legacy and
+	bnd_instrument attributes.
