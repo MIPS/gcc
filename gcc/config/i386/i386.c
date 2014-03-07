@@ -7579,7 +7579,7 @@ ix86_function_arg (cumulative_args_t cum_v, enum machine_mode omode,
       else if (cum->bnd_regno <= LAST_BND_REG)
 	arg = gen_rtx_REG (BNDmode, cum->bnd_regno);
       else
-	arg = GEN_INT (cum->bnd_regno - LAST_BND_REG);
+	arg = GEN_INT (cum->bnd_regno - LAST_BND_REG - 1);
     }
   else
     {
