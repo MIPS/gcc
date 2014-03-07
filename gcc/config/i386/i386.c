@@ -7982,21 +7982,21 @@ ix86_function_value_bounds (const_tree valtype,
     res = gen_rtx_REG (BNDmode, FIRST_BND_REG);
   else if (chkp_type_has_pointer (valtype))
     {
-      vec<bool> slots = chkp_find_bound_slots (valtype);
-      rtx *bounds = XALLOCAVEC(rtx, slots.length ());
+      bitmap slots = chkp_find_bound_slots (valtype);
+      rtx bounds[2];
+      bitmap_iterator bi;
       unsigned i, bnd_no = 0;
 
-      gcc_assert (slots.length () <= 2);
-
-      for (i = 0; i < slots.length (); i++)
-	if (slots[i])
-	  {
-	    rtx reg = gen_rtx_REG (BNDmode, FIRST_BND_REG + bnd_no);
-	    rtx offs = GEN_INT (i * POINTER_SIZE / BITS_PER_UNIT);
-	    bounds[bnd_no++] = gen_rtx_EXPR_LIST (VOIDmode, reg, offs);
-	  }
+      EXECUTE_IF_SET_IN_BITMAP (slots, 0, i, bi)
+	{
+	  rtx reg = gen_rtx_REG (BNDmode, FIRST_BND_REG + bnd_no);
+	  rtx offs = GEN_INT (i * POINTER_SIZE / BITS_PER_UNIT);
+	  gcc_assert (bnd_no < 2);
+	  bounds[bnd_no++] = gen_rtx_EXPR_LIST (VOIDmode, reg, offs);
+	}
 
       res = gen_rtx_PARALLEL (VOIDmode, gen_rtvec_v (bnd_no, bounds));
+      BITMAP_FREE (slots);
     }
   else
     res = NULL_RTX;
