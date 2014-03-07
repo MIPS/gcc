@@ -923,6 +923,18 @@ fchkp-check-write
 C ObjC C++ ObjC++ LTO Report Var(flag_chkp_check_write) Init(1)
 Generate checks for all write accesses to memory.
 
+fchkp-store-bounds
+C ObjC C++ ObjC++ LTO Report Var(flag_chkp_store_bounds) Init(1)
+Generate bounds stores for pointer writes.
+
+fchkp-instrument-calls
+C ObjC C++ ObjC++ LTO Report Var(flag_chkp_instrument_calls) Init(1)
+Generate bounds passing for calls.
+
+fchkp-instrument-marked-only
+C ObjC C++ ObjC++ LTO Report Var(flag_chkp_instrument_marked_only) Init(0)
+Instrument only funtions marked with bnd_instrument attribute.
+
 fcilkplus
 C ObjC C++ ObjC++ LTO Report Var(flag_cilkplus) Init(0)
 Enable Cilk Plus
