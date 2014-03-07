@@ -7457,7 +7457,7 @@ remain.}#)
 ;;;;;;;;;;;;;;;;
 ;;;;;;;; for CHEADER
 (defun mexpand_cheader  (sexpr env mexpander modctx)
-  (debug "mexpand_cheader sexpr=" sexpr)
+  (debug "mexpand_cheader sexpr=" sexpr "\n.. modctx=" debug_less modctx)
   (assert_msg "check sexpr" (is_a sexpr class_sexpr) sexpr)
   (assert_msg "check env" (is_a env class_environment) env)
   (assert_msg "check modctx" (is_object modctx) modctx)
@@ -7468,7 +7468,7 @@ remain.}#)
 	 )
     (if (pair_tail curpair)
 	(warning_plain loc "CHEADER should have only one argument"))
-    (debug "mexpand_cheader chead=" chead)
+    (debug "mexpand_cheader chead=" chead "\n.. loc=" loc)
     (cond
      ((is_string chead)
       (void)
@@ -7491,11 +7491,12 @@ remain.}#)
       (return)
       )
      )
+    (shortbacktrace_dbg "mexpand_cheader" 8)
     (let ( (sch (instance class_source_cheader
 			  :loca_location loc
 			  :sc_codestring chead)) )
       (debug "mexpand_cheader gives sch=" sch)
-      (return sch)
+      (return sch ())
       )))
 (install_initial_macro 'cheader mexpand_cheader)
 (export_macro cheader mexpand_cheader

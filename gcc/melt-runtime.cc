@@ -11008,6 +11008,8 @@ melt_do_finalize (void)
 	  };
 	  fputs (".\n", stderr);
 	}
+      if (melt_dbgcounter > 0)
+	fprintf (stderr, "MELT final debug counter %ld\n", melt_dbgcounter);
       fflush (stderr);
     }
  end:

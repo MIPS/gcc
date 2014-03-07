@@ -8772,14 +8772,17 @@ source location.}#
 	(modctx (get_field :nctx_modulcontext ncx))
 	(mcheadlist (get_field :mocx_cheaderlist modctx))
 	)
-    (debug "normexp_cheader modctx=" modctx "\n mcheadlist=" mcheadlist)
+    (debug "normexp_cheader modctx=" modctx "\n.. mcheadlist=" mcheadlist
+	   "\n.. recv=" recv)
+    (shortbacktrace_dbg "normexp_cheader" 12)
     (assert_msg "check modctx" (is_a modctx class_any_module_context) modctx)
     (assert_msg "check mcheadlist" (is_list mcheadlist) mcheadlist)
     (cppif MELT_HAVE_DEBUG
 	   (foreach_pair_component_in_list
 	    (mcheadlist)
 	    (curpair curhead)
-	    (assert_msg "check curhead != recv" (!= curhead recv) curhead mcheadlist ncx))
+	    (assert_msg "check curhead != recv" (!= curhead recv) curhead
+			mcheadlist modctx))
 	   )
     (list_append mcheadlist recv)
     (debug "normexp_cheader updated mcheadlist=" mcheadlist "\n modctx=" modctx "\n")

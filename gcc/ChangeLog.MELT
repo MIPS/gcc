@@ -1,5 +1,18 @@
 
 
+2014-03-07  Basile Starynkevitch  <basile@starynkevitch.net>
+	{{Bug about cheader emitted twice solved. MELT branch is stable
+	again...}}
+	* melt-runtime.cc (melt_do_finalize): Display melt_dbgcounter when
+	no quiet_flag.
+
+	* melt/warmelt-macro.melt (mexpand_cheader): More debug.
+
+	* melt/warmelt-moremacro.melt (mexpand_gccif): Compute correctly
+	the exptail...
+
+	* melt/warmelt-normal.melt (normexp_cheader): More debug.
+
 2014-03-06  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	{{Trigger an error on the MELT branch also; instable!}}

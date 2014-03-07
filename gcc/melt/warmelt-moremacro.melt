@@ -167,7 +167,7 @@
 		    )
 	       (debug "mexpand_gccif stringy exprestlist=" exprestlist)
 	    (let ( (expfirst (list_first_element exprestlist))
-		   (exptail (list_popfirst exprestlist))
+		   (exptail (progn (list_popfirst exprestlist) exprestlist))
 		   )
 	      (debug "mexpand_gccif stringy return expfirst=" expfirst " exptail=" exptail)
 	      (return expfirst exptail)))
