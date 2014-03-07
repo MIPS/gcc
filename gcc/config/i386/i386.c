@@ -81,6 +81,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "target-globals.h"
+#include "tree-iterator.h"
 #include "tree-chkp.h"
 #include "rtl-chkp.h"
 
@@ -36945,6 +36946,27 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
 	     : gen_bnd32_stx (addr, ptr, bounds));
 }
 
+/* Load and return bounds returned by function in SLOT.  */
+static rtx
+ix86_load_returned_bounds (rtx slot)
+{
+  rtx res;
+
+  gcc_assert (REG_P (slot));
+  res = gen_reg_rtx (BNDmode);
+  emit_move_insn (res, slot);
+
+  return res;
+}
+
+/* Store BOUNDS returned by function into SLOT.  */
+static void
+ix86_store_returned_bounds (rtx slot, rtx bounds)
+{
+  gcc_assert (REG_P (slot));
+  emit_move_insn (slot, bounds);
+}
+
 /* Returns a function decl for a vectorized version of the builtin function
    with builtin function code FN and the result vector type TYPE, or NULL_TREE
    if it is not available.  */
@@ -47710,6 +47732,35 @@ ix86_mpx_bound_mode ()
   return BNDmode;
 }
 
+static tree
+ix86_make_bounds_constant (HOST_WIDE_INT lb, HOST_WIDE_INT ub)
+{
+  return build_int_cst_wide (pointer_bounds_type_node, lb, ~ub);
+}
+
+static int
+ix86_initialize_bounds (tree var, tree lb, tree ub, tree *stmts)
+{
+  tree size_ptr = build_pointer_type (size_type_node);
+  tree lhs, modify, var_p;
+
+  ub = build1 (BIT_NOT_EXPR, size_type_node, ub);
+  var_p = build1 (CONVERT_EXPR, size_ptr,
+		  build_fold_addr_expr (var));
+
+  lhs = build1 (INDIRECT_REF, size_type_node, var_p);
+  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, lb);
+  append_to_statement_list (modify, stmts);
+
+  lhs = build1 (INDIRECT_REF, size_type_node,
+		build2 (POINTER_PLUS_EXPR, size_ptr, var_p,
+			TYPE_SIZE_UNIT (size_type_node)));
+  modify = build2 (MODIFY_EXPR, TREE_TYPE (lhs), lhs, ub);
+  append_to_statement_list (modify, stmts);
+
+  return 2;
+}
+
 /* Initialize the GCC target structure.  */
 #undef TARGET_RETURN_IN_MEMORY
 #define TARGET_RETURN_IN_MEMORY ix86_return_in_memory
@@ -48112,6 +48163,12 @@ ix86_mpx_bound_mode ()
 #undef TARGET_STORE_BOUNDS_FOR_ARG
 #define TARGET_STORE_BOUNDS_FOR_ARG ix86_store_bounds
 
+#undef TARGET_LOAD_RETURNED_BOUNDS
+#define TARGET_LOAD_RETURNED_BOUNDS ix86_load_returned_bounds
+
+#undef TARGET_STORE_RETURNED_BOUNDS
+#define TARGET_STORE_RETURNED_BOUNDS ix86_store_returned_bounds
+
 #undef TARGET_CHKP_BOUND_MODE
 #define TARGET_CHKP_BOUND_MODE ix86_mpx_bound_mode
 
@@ -48123,6 +48180,12 @@ ix86_mpx_bound_mode ()
 
 #undef TARGET_CHKP_FUNCTION_VALUE_BOUNDS
 #define TARGET_CHKP_FUNCTION_VALUE_BOUNDS ix86_function_value_bounds
+
+#undef TARGET_CHKP_MAKE_BOUNDS_CONSTANT
+#define TARGET_CHKP_MAKE_BOUNDS_CONSTANT ix86_make_bounds_constant
+
+#undef TARGET_CHKP_INITIALIZE_BOUNDS
+#define TARGET_CHKP_INITIALIZE_BOUNDS ix86_initialize_bounds
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
