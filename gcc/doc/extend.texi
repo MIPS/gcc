@@ -2167,7 +2167,7 @@ attributes are currently defined for functions on all targets:
 @code{returns_nonnull}, @code{gnu_inline},
 @code{externally_visible}, @code{hot}, @code{cold}, @code{artificial},
 @code{no_sanitize_address}, @code{no_address_safety_analysis},
-@code{no_sanitize_undefined}, @code{bnd_legacy},
+@code{no_sanitize_undefined}, @code{bnd_legacy}, @code{bnd_instrument},
 @code{error} and @code{warning}.
 Several other attributes are defined for functions on particular
 target systems.  Other attributes, including @code{section} are
@@ -3673,7 +3673,13 @@ in the function when compiling with the @option{-fsanitize=undefined} option.
 @cindex @code{bnd_legacy} function attribute
 The @code{bnd_legacy} attribute on functions is used to inform
 compiler that function should not be instrumented when compiled
-with @option{-fcheck-pointers} option.
+with @option{-fcheck-pointer-bounds} option.
+
+@item bnd_instrument
+@cindex @code{bnd_instrument} function attribute
+The @code{bnd_instrument} attribute on functions is used to inform
+compiler that function should be instrumented when compiled
+with @option{-fchkp-instrument-marked-only} option.
 
 @item regparm (@var{number})
 @cindex @code{regparm} attribute
