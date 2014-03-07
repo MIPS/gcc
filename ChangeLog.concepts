@@ -1,4 +1,7 @@
-2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2013-13-04  Andrew Sutton  <andrew.n.sutton@gmail.com>
+	* gcc/testsuite/g++.dg/concepts/concepts.exp: New.
+
+2013-11-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/parser.c (synthesize_implicit_template_parm): Allow concepts
 	to declare implicit template parameters. Only synthesize new parameters
 	if the concept name is new.
@@ -6,14 +9,14 @@
 	to be rewritten to remove duplicate code between parser.c and
 	constraint.cc.
 
-2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2013-11-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/pt.c (tsubst_copy): Expand pack expansions as conjunctions.
 
-2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2013-11-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/pt.c (tsubst_pack_conjunction): Don't try to conjoin
 	dependent expressions.
 
-2013-11-012  Andrew Sutton  <andrew.n.sutton@gmail.com>
+2013-11-12  Andrew Sutton  <andrew.n.sutton@gmail.com>
 	* gcc/cp/semantics.c (fixup_template_type): Compare primary template
 	types to specializations using structural types so we don't run into
 	canonical type errors with constrained specializations.

@@ -1,5 +1,5 @@
 /* Backend support for Fortran 95 basic types and derived types.
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -34,6 +34,8 @@ along with GCC; see the file COPYING3.  If not see
 			   FLOAT_TYPE_SIZE, DOUBLE_TYPE_SIZE,
 			   LONG_DOUBLE_TYPE_SIZE and LIBGCC2_HAS_TF_MODE.  */
 #include "tree.h"
+#include "stor-layout.h"
+#include "stringpool.h"
 #include "langhooks.h"	/* For iso-c-bindings.def.  */
 #include "target.h"
 #include "ggc.h"
@@ -2484,12 +2486,15 @@ gfc_get_derived_type (gfc_symbol * derived)
         field_type = c->ts.u.derived->backend_decl;
       else
 	{
-	  if (c->ts.type == BT_CHARACTER)
+	  if (c->ts.type == BT_CHARACTER && !c->ts.deferred)
 	    {
 	      /* Evaluate the string length.  */
 	      gfc_conv_const_charlen (c->ts.u.cl);
 	      gcc_assert (c->ts.u.cl->backend_decl);
 	    }
+	  else if (c->ts.type == BT_CHARACTER)
+	    c->ts.u.cl->backend_decl
+			= build_int_cst (gfc_charlen_type_node, 0);
 
 	  field_type = gfc_typenode_for_spec (&c->ts);
 	}

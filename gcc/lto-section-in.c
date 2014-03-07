@@ -1,6 +1,6 @@
 /* Input functions for reading LTO sections.
 
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
    Contributed by Kenneth Zadeck <zadeck@naturalbridge.com>
 
 This file is part of GCC.
@@ -24,22 +24,23 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "expr.h"
 #include "flags.h"
 #include "params.h"
 #include "input.h"
 #include "hashtab.h"
-#include "basic-block.h"
 #include "function.h"
-#include "ggc.h"
 #include "diagnostic-core.h"
 #include "except.h"
-#include "vec.h"
 #include "timevar.h"
 #include "lto-streamer.h"
 #include "lto-compress.h"
-#include "ggc.h"
 
 /* Section names.  These must correspond to the values of
    enum lto_section_type.  */
@@ -152,26 +153,30 @@ lto_get_section_data (struct lto_file_decl_data *file_data,
 
   /* FIXME lto: WPA mode does not write compressed sections, so for now
      suppress uncompression if flag_ltrans.  */
-  if (flag_ltrans)
-    return data;
+  if (!flag_ltrans)
+    {
+      /* Create a mapping header containing the underlying data and length,
+	 and prepend this to the uncompression buffer.  The uncompressed data
+	 then follows, and a pointer to the start of the uncompressed data is
+	 returned.  */
+      header = (struct lto_data_header *) xmalloc (header_length);
+      header->data = data;
+      header->len = *len;
 
-  /* Create a mapping header containing the underlying data and length,
-     and prepend this to the uncompression buffer.  The uncompressed data
-     then follows, and a pointer to the start of the uncompressed data is
-     returned.  */
-  header = (struct lto_data_header *) xmalloc (header_length);
-  header->data = data;
-  header->len = *len;
+      buffer.data = (char *) header;
+      buffer.length = header_length;
 
-  buffer.data = (char *) header;
-  buffer.length = header_length;
+      stream = lto_start_uncompression (lto_append_data, &buffer);
+      lto_uncompress_block (stream, data, *len);
+      lto_end_uncompression (stream);
 
-  stream = lto_start_uncompression (lto_append_data, &buffer);
-  lto_uncompress_block (stream, data, *len);
-  lto_end_uncompression (stream);
+      *len = buffer.length - header_length;
+      data = buffer.data + header_length;
+    }
 
-  *len = buffer.length - header_length;
-  return buffer.data + header_length;
+  lto_check_version (((const lto_header *)data)->major_version,
+		     ((const lto_header *)data)->minor_version);
+  return data;
 }
 
 

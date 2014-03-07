@@ -1,5 +1,5 @@
 /* Check functions
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Andy Vaught & Katherine Holcomb
 
 This file is part of GCC.
@@ -2858,12 +2858,7 @@ gfc_check_move_alloc (gfc_expr *from, gfc_expr *to)
 
   /* CLASS arguments: Make sure the vtab of from is present.  */
   if (to->ts.type == BT_CLASS && !UNLIMITED_POLY (from))
-    {
-      if (from->ts.type == BT_CLASS || from->ts.type == BT_DERIVED)
-	gfc_find_derived_vtab (from->ts.u.derived);
-      else
-	gfc_find_intrinsic_vtab (&from->ts);
-    }
+    gfc_find_vtab (&from->ts);
 
   return true;
 }
@@ -3949,16 +3944,17 @@ gfc_check_c_f_pointer (gfc_expr *cptr, gfc_expr *fptr, gfc_expr *shape)
   if (shape)
     {
       mpz_t size;
-
-      if (gfc_array_size (shape, &size)
-	  && mpz_cmp_ui (size, fptr->rank) != 0)
+      if (gfc_array_size (shape, &size))
 	{
+	  if (mpz_cmp_ui (size, fptr->rank) != 0)
+	    {
+	      mpz_clear (size);
+	      gfc_error ("SHAPE argument at %L to C_F_POINTER must have the same "
+			"size as the RANK of FPTR", &shape->where);
+	      return false;
+	    }
 	  mpz_clear (size);
-	  gfc_error ("SHAPE argument at %L to C_F_POINTER must have the same "
-		     "size as the RANK of FPTR", &shape->where);
-	  return false;
 	}
-      mpz_clear (size);
     }
 
   if (fptr->ts.type == BT_CLASS)

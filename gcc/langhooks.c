@@ -1,5 +1,5 @@
 /* Default language-specific hooks.
-   Copyright (C) 2001-2013 Free Software Foundation, Inc.
+   Copyright (C) 2001-2014 Free Software Foundation, Inc.
    Contributed by Alexandre Oliva  <aoliva@redhat.com>
 
 This file is part of GCC.
@@ -25,8 +25,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "toplev.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "attribs.h"
 #include "tree-inline.h"
-#include "gimple.h"
 #include "gimplify.h"
 #include "rtl.h"
 #include "insn-config.h"
@@ -34,7 +35,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "langhooks.h"
 #include "target.h"
 #include "langhooks-def.h"
-#include "ggc.h"
 #include "diagnostic.h"
 #include "tree-diagnostic.h"
 #include "cgraph.h"
@@ -524,13 +524,15 @@ lhd_omp_firstprivatize_type_sizes (struct gimplify_omp_ctx *c ATTRIBUTE_UNUSED,
 {
 }
 
-/* Return true if TYPE is an OpenMP mappable type.  By default return true
-   if type is complete.  */
+/* Return true if TYPE is an OpenMP mappable type.  */
 
 bool
 lhd_omp_mappable_type (tree type)
 {
-  return COMPLETE_TYPE_P (type);
+  /* Mappable type has to be complete.  */
+  if (type == error_mark_node || !COMPLETE_TYPE_P (type))
+    return false;
+  return true;
 }
 
 /* Common function for add_builtin_function and
@@ -675,19 +677,4 @@ lhd_end_section (void)
       switch_to_section (saved_section);
       saved_section = NULL;
     }
-}
-
-/* Empty function that is replaced with appropriate language dependent
-   frame cleanup function for _Cilk_spawn.  */
-
-void
-lhd_install_body_with_frame_cleanup (tree, tree)
-{
-}
-
-/* Empty function to handle cilk_valid_spawn.  */
-bool
-lhd_cilk_detect_spawn (tree *)
-{
-  return false;
 }

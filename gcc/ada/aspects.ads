@@ -102,10 +102,13 @@ package Aspects is
       Aspect_Interrupt_Priority,
       Aspect_Invariant,                     -- GNAT
       Aspect_Iterator_Element,
+      Aspect_Iterable,                      -- GNAT
       Aspect_Link_Name,
+      Aspect_Linker_Section,                -- GNAT
       Aspect_Machine_Radix,
       Aspect_Object_Size,                   -- GNAT
       Aspect_Output,
+      Aspect_Part_Of,                       -- GNAT
       Aspect_Post,
       Aspect_Postcondition,
       Aspect_Pre,
@@ -140,13 +143,9 @@ package Aspects is
       --  The following aspects correspond to library unit pragmas
 
       Aspect_All_Calls_Remote,
-      Aspect_Compiler_Unit,                 -- GNAT
       Aspect_Elaborate_Body,
       Aspect_Preelaborate,
-      Aspect_Preelaborate_05,               -- GNAT
       Aspect_Pure,
-      Aspect_Pure_05,                       -- GNAT
-      Aspect_Pure_12,                       -- GNAT
       Aspect_Remote_Call_Interface,
       Aspect_Remote_Types,
       Aspect_Shared_Passive,
@@ -159,12 +158,14 @@ package Aspects is
       --  the aspect value is inherited from the parent, in which case, we do
       --  not allow False if we inherit a True value from the parent.
 
-      Aspect_Ada_2005,                      -- GNAT
-      Aspect_Ada_2012,                      -- GNAT
+      Aspect_Async_Readers,                 -- GNAT
+      Aspect_Async_Writers,                 -- GNAT
       Aspect_Asynchronous,
       Aspect_Atomic,
       Aspect_Atomic_Components,
       Aspect_Discard_Names,
+      Aspect_Effective_Reads,               -- GNAT
+      Aspect_Effective_Writes,              -- GNAT
       Aspect_Export,
       Aspect_Favor_Top_Level,               -- GNAT
       Aspect_Independent,
@@ -213,13 +214,14 @@ package Aspects is
 
    Implementation_Defined_Aspect : constant array (Aspect_Id) of Boolean :=
      (Aspect_Abstract_State           => True,
-      Aspect_Ada_2005                 => True,
-      Aspect_Ada_2012                 => True,
-      Aspect_Compiler_Unit            => True,
+      Aspect_Async_Readers            => True,
+      Aspect_Async_Writers            => True,
       Aspect_Contract_Cases           => True,
       Aspect_Depends                  => True,
       Aspect_Dimension                => True,
       Aspect_Dimension_System         => True,
+      Aspect_Effective_Reads          => True,
+      Aspect_Effective_Writes         => True,
       Aspect_Favor_Top_Level          => True,
       Aspect_Global                   => True,
       Aspect_Inline_Always            => True,
@@ -228,9 +230,6 @@ package Aspects is
       Aspect_Object_Size              => True,
       Aspect_Persistent_BSS           => True,
       Aspect_Predicate                => True,
-      Aspect_Preelaborate_05          => True,
-      Aspect_Pure_05                  => True,
-      Aspect_Pure_12                  => True,
       Aspect_Pure_Function            => True,
       Aspect_Remote_Access_Type       => True,
       Aspect_Scalar_Storage_Order     => True,
@@ -271,7 +270,7 @@ package Aspects is
    --  aspect is enabled. If it is False, the aspect is disabled.
 
    subtype Boolean_Aspects is
-     Aspect_Id range Aspect_Ada_2005 .. Aspect_Id'Last;
+     Aspect_Id range Aspect_Async_Readers .. Aspect_Id'Last;
 
    subtype Pre_Post_Aspects is
      Aspect_Id range Aspect_Post .. Aspect_Precondition;
@@ -315,11 +314,14 @@ package Aspects is
       Aspect_Input                   => Name,
       Aspect_Interrupt_Priority      => Expression,
       Aspect_Invariant               => Expression,
+      Aspect_Iterable                => Expression,
       Aspect_Iterator_Element        => Name,
       Aspect_Link_Name               => Expression,
+      Aspect_Linker_Section          => Expression,
       Aspect_Machine_Radix           => Expression,
       Aspect_Object_Size             => Expression,
       Aspect_Output                  => Name,
+      Aspect_Part_Of                 => Expression,
       Aspect_Post                    => Expression,
       Aspect_Postcondition           => Expression,
       Aspect_Pre                     => Expression,
@@ -363,17 +365,16 @@ package Aspects is
    Aspect_Names : constant array (Aspect_Id) of Name_Id :=
      (No_Aspect                           => No_Name,
       Aspect_Abstract_State               => Name_Abstract_State,
-      Aspect_Ada_2005                     => Name_Ada_2005,
-      Aspect_Ada_2012                     => Name_Ada_2012,
       Aspect_Address                      => Name_Address,
       Aspect_Alignment                    => Name_Alignment,
       Aspect_All_Calls_Remote             => Name_All_Calls_Remote,
+      Aspect_Async_Readers                => Name_Async_Readers,
+      Aspect_Async_Writers                => Name_Async_Writers,
       Aspect_Asynchronous                 => Name_Asynchronous,
       Aspect_Atomic                       => Name_Atomic,
       Aspect_Atomic_Components            => Name_Atomic_Components,
       Aspect_Attach_Handler               => Name_Attach_Handler,
       Aspect_Bit_Order                    => Name_Bit_Order,
-      Aspect_Compiler_Unit                => Name_Compiler_Unit,
       Aspect_Component_Size               => Name_Component_Size,
       Aspect_Constant_Indexing            => Name_Constant_Indexing,
       Aspect_Contract_Cases               => Name_Contract_Cases,
@@ -388,6 +389,8 @@ package Aspects is
       Aspect_Discard_Names                => Name_Discard_Names,
       Aspect_Dispatching_Domain           => Name_Dispatching_Domain,
       Aspect_Dynamic_Predicate            => Name_Dynamic_Predicate,
+      Aspect_Effective_Reads              => Name_Effective_Reads,
+      Aspect_Effective_Writes             => Name_Effective_Writes,
       Aspect_Elaborate_Body               => Name_Elaborate_Body,
       Aspect_External_Name                => Name_External_Name,
       Aspect_External_Tag                 => Name_External_Tag,
@@ -407,13 +410,16 @@ package Aspects is
       Aspect_Interrupt_Priority           => Name_Interrupt_Priority,
       Aspect_Invariant                    => Name_Invariant,
       Aspect_Iterator_Element             => Name_Iterator_Element,
+      Aspect_Iterable                     => Name_Iterable,
       Aspect_Link_Name                    => Name_Link_Name,
+      Aspect_Linker_Section               => Name_Linker_Section,
       Aspect_Lock_Free                    => Name_Lock_Free,
       Aspect_Machine_Radix                => Name_Machine_Radix,
       Aspect_No_Return                    => Name_No_Return,
       Aspect_Object_Size                  => Name_Object_Size,
       Aspect_Output                       => Name_Output,
       Aspect_Pack                         => Name_Pack,
+      Aspect_Part_Of                      => Name_Part_Of,
       Aspect_Persistent_BSS               => Name_Persistent_BSS,
       Aspect_Post                         => Name_Post,
       Aspect_Postcondition                => Name_Postcondition,
@@ -422,11 +428,8 @@ package Aspects is
       Aspect_Predicate                    => Name_Predicate,
       Aspect_Preelaborable_Initialization => Name_Preelaborable_Initialization,
       Aspect_Preelaborate                 => Name_Preelaborate,
-      Aspect_Preelaborate_05              => Name_Preelaborate_05,
       Aspect_Priority                     => Name_Priority,
       Aspect_Pure                         => Name_Pure,
-      Aspect_Pure_05                      => Name_Pure_05,
-      Aspect_Pure_12                      => Name_Pure_12,
       Aspect_Pure_Function                => Name_Pure_Function,
       Aspect_Read                         => Name_Read,
       Aspect_Refined_Depends              => Name_Refined_Depends,
@@ -541,7 +544,7 @@ package Aspects is
       --  identifier, and there is no issue of evaluating it and thus no
       --  issue of delaying the evaluation. The second case is implementation
       --  defined aspects where we have decided that we don't want to allow
-      --  delays (and for our own aspects we can do what we like!).
+      --  delays (and for our own aspects we can do what we like).
 
       Rep_Aspect);
       --  These are the cases of representation aspects that are in general
@@ -575,9 +578,10 @@ package Aspects is
      (No_Aspect                           => Always_Delay,
       Aspect_Address                      => Always_Delay,
       Aspect_All_Calls_Remote             => Always_Delay,
+      Aspect_Async_Readers                => Always_Delay,
+      Aspect_Async_Writers                => Always_Delay,
       Aspect_Asynchronous                 => Always_Delay,
       Aspect_Attach_Handler               => Always_Delay,
-      Aspect_Compiler_Unit                => Always_Delay,
       Aspect_Constant_Indexing            => Always_Delay,
       Aspect_Contract_Cases               => Always_Delay,
       Aspect_CPU                          => Always_Delay,
@@ -588,6 +592,8 @@ package Aspects is
       Aspect_Discard_Names                => Always_Delay,
       Aspect_Dispatching_Domain           => Always_Delay,
       Aspect_Dynamic_Predicate            => Always_Delay,
+      Aspect_Effective_Reads              => Always_Delay,
+      Aspect_Effective_Writes             => Always_Delay,
       Aspect_Elaborate_Body               => Always_Delay,
       Aspect_External_Name                => Always_Delay,
       Aspect_External_Tag                 => Always_Delay,
@@ -606,8 +612,10 @@ package Aspects is
       Aspect_Interrupt_Handler            => Always_Delay,
       Aspect_Interrupt_Priority           => Always_Delay,
       Aspect_Invariant                    => Always_Delay,
+      Aspect_Iterable                     => Always_Delay,
       Aspect_Iterator_Element             => Always_Delay,
       Aspect_Link_Name                    => Always_Delay,
+      Aspect_Linker_Section               => Always_Delay,
       Aspect_Lock_Free                    => Always_Delay,
       Aspect_No_Return                    => Always_Delay,
       Aspect_Output                       => Always_Delay,
@@ -619,11 +627,8 @@ package Aspects is
       Aspect_Predicate                    => Always_Delay,
       Aspect_Preelaborable_Initialization => Always_Delay,
       Aspect_Preelaborate                 => Always_Delay,
-      Aspect_Preelaborate_05              => Always_Delay,
       Aspect_Priority                     => Always_Delay,
       Aspect_Pure                         => Always_Delay,
-      Aspect_Pure_05                      => Always_Delay,
-      Aspect_Pure_12                      => Always_Delay,
       Aspect_Pure_Function                => Always_Delay,
       Aspect_Read                         => Always_Delay,
       Aspect_Refined_Depends              => Always_Delay,
@@ -654,11 +659,10 @@ package Aspects is
       Aspect_Write                        => Always_Delay,
 
       Aspect_Abstract_State               => Never_Delay,
-      Aspect_Ada_2005                     => Never_Delay,
-      Aspect_Ada_2012                     => Never_Delay,
       Aspect_Convention                   => Never_Delay,
       Aspect_Dimension                    => Never_Delay,
       Aspect_Dimension_System             => Never_Delay,
+      Aspect_Part_Of                      => Never_Delay,
       Aspect_Refined_Post                 => Never_Delay,
       Aspect_SPARK_Mode                   => Never_Delay,
       Aspect_Synchronization              => Never_Delay,
@@ -758,6 +762,11 @@ package Aspects is
    --  N denotes a body [stub] with aspects. Determine whether all aspects of N
    --  are allowed to appear on a body [stub].
 
+   procedure Exchange_Aspects (N1 : Node_Id; N2 : Node_Id);
+   --  Exchange the aspect specifications of two nodes. If either node lacks an
+   --  aspect specification list, the routine has no effect. It is assumed that
+   --  both nodes can support aspects.
+
    function Find_Aspect (Id : Entity_Id; A : Aspect_Id) return Node_Id;
    --  Find the aspect specification of aspect A associated with entity I.
    --  Return Empty if Id does not have the requested aspect.
@@ -779,7 +788,9 @@ package Aspects is
    procedure Move_Or_Merge_Aspects (From : Node_Id; To : Node_Id);
    --  Relocate the aspect specifications of node From to node To. If To has
    --  aspects, the aspects of From are added to the aspects of To. If From has
-   --  no aspects, the routine has no effect.
+   --  no aspects, the routine has no effect. When From denotes a subprogram
+   --  body stub that also acts as a spec, the only aspects relocated to node
+   --  To are those from table Aspect_On_Body_Or_Stub_OK and preconditions.
 
    function Permits_Aspect_Specifications (N : Node_Id) return Boolean;
    --  Returns True if the node N is a declaration node that permits aspect
