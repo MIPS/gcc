@@ -1,12 +1,23 @@
 2013-10-29  Ilya Enkovich  <ilya.enkovich@intel.com>
 
-	* builtin-types.def (BT_FN_PTR_CONST_PTR): New.
+	* tree-core.h (tree_index): Add TI_POINTER_BOUNDS_TYPE.
+	* tree.h (pointer_bounds_type_node): New.
+	* tree.c (build_common_tree_nodes): Initialize
+	pointer_bounds_type_node.
+	* builtin-types.def (BT_BND): New.
+	(BT_FN_PTR_CONST_PTR): New.
 	(BT_FN_CONST_PTR_CONST_PTR): New.
+	(BT_FN_BND_CONST_PTR): New.
+	(BT_FN_CONST_PTR_BND): New.
 	(BT_FN_PTR_CONST_PTR_SIZE): New.
 	(BT_FN_PTR_CONST_PTR_CONST_PTR): New.
 	(BT_FN_VOID_PTRPTR_CONST_PTR): New.
 	(BT_FN_VOID_CONST_PTR_SIZE): New.
+	(BT_FN_VOID_PTR_BND): New.
+	(BT_FN_CONST_PTR_CONST_PTR_CONST_PTR): New.
+	(BT_FN_BND_CONST_PTR_SIZE): New.
 	(BT_FN_PTR_CONST_PTR_CONST_PTR_SIZE): New.
+	(BT_FN_VOID_CONST_PTR_BND_CONST_PTR): New.
 	* chkp-builtins.def: New.
 	* builtins.def: include chkp-builtins.def.
 	(DEF_CHKP_BUILTIN): New.
