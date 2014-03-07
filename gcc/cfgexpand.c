@@ -3089,15 +3089,14 @@ expand_return (tree retval, tree bounds)
       if (bounds)
 	{
 	  bnd = expand_normal (bounds);
-	  gcc_assert (REG_P (bounds_rtl));
-	  emit_move_insn (bounds_rtl, bnd);
+	  targetm.calls.store_returned_bounds (bounds_rtl, bnd);
 	}
       else if (REG_P (bounds_rtl))
 	{
 	  addr = expand_normal (build_fold_addr_expr (retval_rhs));
 	  addr = gen_rtx_MEM (Pmode, addr);
 	  bnd = targetm.calls.load_bounds_for_arg (addr, NULL, NULL);
-	  emit_move_insn (bounds_rtl, bnd);
+	  targetm.calls.store_returned_bounds (bounds_rtl, bnd);
 	}
       else
 	{
@@ -3110,11 +3109,11 @@ expand_return (tree retval, tree bounds)
 
 	  for (n = 0; n < XVECLEN (bounds_rtl, 0); n++)
 	    {
-	      rtx reg = XEXP (XVECEXP (bounds_rtl, 0, n), 0);
 	      rtx offs = XEXP (XVECEXP (bounds_rtl, 0, n), 1);
+	      rtx slot = XEXP (XVECEXP (bounds_rtl, 0, n), 0);
 	      rtx from = adjust_address (addr, Pmode, INTVAL (offs));
 	      rtx bnd = targetm.calls.load_bounds_for_arg (from, NULL, NULL);
-	      emit_move_insn (reg, bnd);
+	      targetm.calls.store_returned_bounds (slot, bnd);
 	    }
 	}
     }
