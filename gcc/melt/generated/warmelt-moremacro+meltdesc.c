@@ -20,7 +20,7 @@
 	     #endif /*__cplusplus */
 	     
 /* version of the GCC compiler & MELT runtime generating this */
-const char melt_genversionstr[]="4.9.0 20140226 (experimental) [melt-branch revision 208342] MELT_1\
+const char melt_genversionstr[]="4.9.0 20140226 (experimental) [melt-branch revision 208393] MELT_1\
 .1-pre"
 
 	     #ifdef __cplusplus
@@ -30,7 +30,7 @@ const char melt_genversionstr[]="4.9.0 20140226 (experimental) [melt-branch revi
 	     #endif
 					;
 	     
-const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_208342]";
+const char melt_versionmeltstr[]="1.1-pre [melt-branch_revision_208393]";
 
 /* source name & real path of the module */
 /*MELTMODULENAME meltbuild-sources/warmelt-moremacro */
@@ -41,25 +41,25 @@ const char melt_modulerealpath[]="/usr/local/libexec/gcc/x86_64-unknown-linux-gn
 /* hash of preprocessed melt-run.h generating this */
 const char melt_prepromd5meltrun[]="d6d75158384addb2ba23321d01cd2bc3";
 /* hexmd5checksum of primary C++ file */
-const char melt_primaryhexmd5[]="4f796f120f4391090980cb5a3acaa46a";
+const char melt_primaryhexmd5[]="d0c7694d87671a137af483a8574aff7b";
 
 /* hexmd5checksum of secondary C++ files */
 const char* const melt_secondaryhexmd5tab[]={
  /*nosecfile*/ (const char*)0,
- /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "37d93468fc3c1c1d52ea67cb480b9be6",
+ /*sechexmd5checksum meltbuild-sources/warmelt-moremacro+01.cc #1 */ "6e1fe4b5e2c79f88368b0f959f8899b4",
  (const char*)0 };
 
 /* last index of secondary files */
 const int melt_lastsecfileindex=1;
 
 /* cumulated checksum of primary & secondary files */
-const char melt_cumulated_hexmd5[]="46aadad824d30554dbbf1c264711273d" ;
+const char melt_cumulated_hexmd5[]="09a78eb6f4d55cabe023844ce140c104" ;
 
 /* number of module variables */
 const int melt_module_nb_module_vars= 0;
 
 /* include the timestamp file */
-#define meltmod_WARMELTmiMOREMACRO_mds__46AADAD824D30554DBBF1C264711273D 1
+#define meltmod_WARMELTmiMOREMACRO_mds__09A78EB6F4D55CABE023844CE140C104 1
 #include "warmelt-moremacro+melttime.h"
 	 
 

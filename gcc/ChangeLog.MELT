@@ -1,4 +1,7 @@
 
+2014-03-07  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt/generated/*: Regenerated.
 
 2014-03-07  Basile Starynkevitch  <basile@starynkevitch.net>
 	{{Bug about cheader emitted twice solved. MELT branch is stable
