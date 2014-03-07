@@ -7579,7 +7579,7 @@ ix86_function_arg (cumulative_args_t cum_v, enum machine_mode omode,
       else if (cum->bnd_regno <= LAST_BND_REG)
 	arg = gen_rtx_REG (BNDmode, cum->bnd_regno);
       else
-	arg = GEN_INT (cum->bnd_regno - LAST_BND_REG);
+	arg = GEN_INT (cum->bnd_regno - LAST_BND_REG - 1);
     }
   else
     {
@@ -36875,7 +36875,7 @@ ix86_load_bounds (rtx slot, rtx ptr, rtx bnd)
 	 passed in registers.  In this case we are out of bound
 	 registers and have to use bndldx to load bound.  RA,
 	 RA - 8, etc. are used for address translation in bndldx.  */
-      addr = plus_constant (Pmode, arg_pointer_rtx, - INTVAL (bnd) * 8);
+      addr = plus_constant (Pmode, arg_pointer_rtx, -(INTVAL (bnd) + 1) * 8);
     }
   else if (MEM_P (slot))
     {
@@ -36919,7 +36919,7 @@ ix86_store_bounds (rtx ptr, rtx addr, rtx bounds, rtx to)
   if (!addr || REG_P (addr))
     {
       gcc_assert (CONST_INT_P (to));
-      addr = plus_constant (Pmode, stack_pointer_rtx, - INTVAL (to) * 8);
+      addr = plus_constant (Pmode, stack_pointer_rtx, -(INTVAL (to) + 1) * 8);
     }
   else if (MEM_P (addr))
     addr = XEXP (addr, 0);
