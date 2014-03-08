@@ -1,0 +1,11 @@
+2014-03-08  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (_gfortran_caf_this_image, _gfortran_caf_num_images):
+	New prototypes.
+	(_gfortran_caf_init): Change prototype.
+	* caf/mpi.c (_gfortran_caf_this_image, _gfortran_caf_num_images):
+	New functions.
+	(_gfortran_caf_init): Update.
+	* caf/single.c (_gfortran_caf_this_image, _gfortran_caf_num_images):
+	New functions.
+	(_gfortran_caf_init): Update.

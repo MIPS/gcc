@@ -1,0 +1,20 @@
+2014-03-08  Tobias Burnus  <burnus@net-b.de>
+
+	* gfortran.h (gfc_init_coarray_decl): Remove.
+	* parse.c (translate_all_program_units): Remove call to it.
+	(gfc_parse_file): Update call.
+	* trans.h (gfor_fndecl_caf_this_image,
+	gfor_fndecl_caf_num_images): Add.
+	(gfort_gvar_caf_num_images,
+	gfort_gvar_caf_this_image): Remove.
+	* trans-decl.c (gfor_fndecl_caf_this_image,
+	gfor_fndecl_caf_num_images): Add.
+	(gfort_gvar_caf_num_images,
+	gfort_gvar_caf_this_image): Remove.
+	(gfc_build_builtin_function_decls): Init new decl.
+	(gfc_init_coarray_dec): Remove.
+	(create_main_function): Change calls.
+	* trans-intrinsic.c (trans_this_image, trans_image_index,
+	conv_intrinsic_cobound): Generate call to new library function
+	instead of to a static variable.
+	* trans-stmt.c (gfc_trans_sync): Ditto.

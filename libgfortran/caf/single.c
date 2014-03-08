@@ -57,11 +57,8 @@ caf_runtime_error (const char *message, ...)
 
 void
 _gfortran_caf_init (int *argc __attribute__ ((unused)),
-		    char ***argv __attribute__ ((unused)),
-		    int *this_image, int *num_images)
+		    char ***argv __attribute__ ((unused)))
 {
-  *this_image = 1;
-  *num_images = 1;
 }
 
 
@@ -79,8 +76,23 @@ _gfortran_caf_finalize (void)
 }
 
 
+int
+_gfortran_caf_this_image (int distance __attribute__ ((unused)))
+{
+  return 1;
+}
+
+
+int
+_gfortran_caf_num_images (int distance __attribute__ ((unused)),
+			  int failed __attribute__ ((unused)))
+{
+  return 1;
+}
+
+
 void *
-_gfortran_caf_register (ptrdiff_t size, caf_register_t type, void ***token,
+_gfortran_caf_register (size_t size, caf_register_t type, void ***token,
 			int *stat, char *errmsg, int errmsg_len)
 {
   void *local;

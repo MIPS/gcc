@@ -87,11 +87,6 @@ _gfortran_caf_init (int *argc, char ***argv, int *this_image, int *num_images)
       MPI_Comm_rank (MPI_COMM_WORLD, &caf_this_image);
       caf_this_image++;
     }
-
-  if (this_image)
-    *this_image = caf_this_image;
-  if (num_images)
-    *num_images = caf_num_images;
 }
 
 
@@ -117,8 +112,23 @@ _gfortran_caf_finalize (void)
 }
 
 
+int
+_gfortran_caf_this_image (int distance __attribute__ ((unused)))
+{
+  return caf_this_image;
+}
+
+
+int
+_gfortran_caf_num_images (int distance __attribute__ ((unused)),
+			  int failed __attribute__ ((unused)))
+{
+  return caf_num_images;
+}
+
+
 void *
-_gfortran_caf_register (ptrdiff_t size, caf_register_t type, void ***token,
+_gfortran_caf_register (size_t size, caf_register_t type, void ***token,
 			int *stat, char *errmsg, int errmsg_len)
 {
   void *local;

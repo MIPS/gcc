@@ -27,7 +27,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 #define LIBCAF_H
 
 #include <stdint.h>	/* For int32_t.  */
-#include <stddef.h>	/* For ptrdiff_t.  */
+#include <stddef.h>	/* For size_t.  */
 
 #ifndef __GNUC__
 #define __attribute__(x)
@@ -63,10 +63,13 @@ typedef struct caf_static_t {
 caf_static_t;
 
 
-void _gfortran_caf_init (int *, char ***, int *, int *);
+void _gfortran_caf_init (int *, char ***);
 void _gfortran_caf_finalize (void);
 
-void * _gfortran_caf_register (ptrdiff_t, caf_register_t, void ***, int *,
+int _gfortran_caf_this_image (int);
+int _gfortran_caf_num_images (int, int);
+
+void * _gfortran_caf_register (size_t, caf_register_t, void ***, int *,
 			       char *, int);
 void _gfortran_caf_deregister (void ***, int *, char *, int);
 
