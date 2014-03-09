@@ -1,5 +1,5 @@
 /* Assign reload pseudos.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Vladimir Makarov <vmakarov@redhat.com>.
 
 This file is part of GCC.
@@ -94,7 +94,6 @@ along with GCC; see the file COPYING3.	If not see
 #include "df.h"
 #include "ira.h"
 #include "sparseset.h"
-#include "params.h"
 #include "lra-int.h"
 
 /* Array containing corresponding values of function
@@ -613,9 +612,7 @@ find_hard_regno_for (int regno, int *cost, int try_only_hard_regno)
 		&& ! df_regs_ever_live_p (hard_regno + j))
 	      /* It needs save restore.	 */
 	      hard_regno_costs[hard_regno]
-		+= (2
-		    * REG_FREQ_FROM_BB (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb)
-		    + 1);
+		+= 2 * ENTRY_BLOCK_PTR->next_bb->frequency + 1;
 	  priority = targetm.register_priority (hard_regno);
 	  if (best_hard_regno < 0 || hard_regno_costs[hard_regno] < best_cost
 	      || (hard_regno_costs[hard_regno] == best_cost
@@ -897,16 +894,14 @@ spill_for (int regno, bitmap spilled_pseudo_bitmap)
 	    }
 	}
       n = 0;
-      if (sparseset_cardinality (live_range_reload_inheritance_pseudos)
-	  <= (unsigned)LRA_MAX_CONSIDERED_RELOAD_PSEUDOS)
-	EXECUTE_IF_SET_IN_SPARSESET (live_range_reload_inheritance_pseudos,
-				     reload_regno)
-	  if ((int) reload_regno != regno
-	      && (ira_reg_classes_intersect_p
-		  [rclass][regno_allocno_class_array[reload_regno]])
-	      && live_pseudos_reg_renumber[reload_regno] < 0
-	      && find_hard_regno_for (reload_regno, &cost, -1) < 0)
-	    sorted_reload_pseudos[n++] = reload_regno;
+      EXECUTE_IF_SET_IN_SPARSESET (live_range_reload_inheritance_pseudos,
+				   reload_regno)
+	if ((int) reload_regno != regno
+	    && (ira_reg_classes_intersect_p
+		[rclass][regno_allocno_class_array[reload_regno]])
+	    && live_pseudos_reg_renumber[reload_regno] < 0
+	    && find_hard_regno_for (reload_regno, &cost, -1) < 0)
+	  sorted_reload_pseudos[n++] = reload_regno;
       EXECUTE_IF_SET_IN_BITMAP (&spill_pseudos_bitmap, 0, spill_regno, bi)
 	{
 	  update_lives (spill_regno, true);
@@ -1307,7 +1302,7 @@ assign_by_spills (void)
 
       /* FIXME: Look up the changed insns in the cached LRA insn data using
 	 an EXECUTE_IF_SET_IN_BITMAP over changed_insns.  */
-      FOR_EACH_BB_FN (bb, cfun)
+      FOR_EACH_BB (bb)
 	FOR_BB_INSNS (bb, insn)
 	if (bitmap_bit_p (&changed_insns, INSN_UID (insn)))
 	  {

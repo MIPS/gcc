@@ -1,9 +1,7 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
-
+// { dg-options "-std=gnu++0x" }
 // 2007-06-02  Paolo Carlini  <pcarlini@suse.de>
 //
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2007-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,21 +19,28 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <type_traits>
+#include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using std::is_reference;
   using namespace __gnu_test;
 
-  static_assert(test_category<is_reference, int&>(true), "");
-  static_assert(test_category<is_reference, ClassType&>(true), "");
-  static_assert(test_category<is_reference, int(&)(int)>(true), "");
-  static_assert(test_category<is_reference, int&&>(true), "");
-  static_assert(test_category<is_reference, ClassType&&>(true), "");
-  static_assert(test_category<is_reference, int(&&)(int)>(true), "");
+  VERIFY( (test_category<is_reference, int&>(true)) );
+  VERIFY( (test_category<is_reference, ClassType&>(true)) );
+  VERIFY( (test_category<is_reference, int(&)(int)>(true)) );
+  VERIFY( (test_category<is_reference, int&&>(true)) );
+  VERIFY( (test_category<is_reference, ClassType&&>(true)) );
+  VERIFY( (test_category<is_reference, int(&&)(int)>(true)) );
 
   // Sanity check.
-  static_assert(test_category<is_reference, ClassType>(false), "");
+  VERIFY( (test_category<is_reference, ClassType>(false)) );
 }
 
+int main()
+{
+  test01();
+  return 0;
+}

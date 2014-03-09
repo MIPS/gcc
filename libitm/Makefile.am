@@ -67,12 +67,10 @@ libitm_la_SOURCES += hwcap.cc
 endif
 if ARCH_X86
 libitm_la_SOURCES += x86_sse.cc x86_avx.cc
-# Make sure -msse is appended at the end.
-x86_sse.lo : override CXXFLAGS += -msse
+x86_sse.lo : XCFLAGS += -msse
 endif
 if ARCH_X86_AVX
-# Make sure -mavx is appended at the end.
-x86_avx.lo : override CXXFLAGS += -mavx
+x86_avx.lo : XCFLAGS += -mavx
 endif
 
 if ARCH_FUTEX

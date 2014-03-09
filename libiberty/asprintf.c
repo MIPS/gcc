@@ -1,6 +1,6 @@
 /* Like sprintf but provides a pointer to malloc'd storage, which must
    be freed by the caller.
-   Copyright (C) 1997, 2003, 2013 Free Software Foundation, Inc.
+   Copyright (C) 1997, 2003 Free Software Foundation, Inc.
    Contributed by Cygnus Solutions.
 
 This file is part of the libiberty library.
@@ -47,9 +47,10 @@ int
 asprintf (char **buf, const char *fmt, ...)
 {
   int status;
-  va_list ap;
-  va_start (ap, fmt);
+  VA_OPEN (ap, fmt);
+  VA_FIXEDARG (ap, char **, buf);
+  VA_FIXEDARG (ap, const char *, fmt);
   status = vasprintf (buf, fmt, ap);
-  va_end (ap);
+  VA_CLOSE (ap);
   return status;
 }

@@ -27,8 +27,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
-	"unicode"
 )
 
 var (
@@ -115,39 +113,28 @@ func main() {
 	failed := false
 	resCount := map[string]int{}
 	for _, test := range tests {
-		<-test.donec		
-		status := "ok  "
-		errStr := ""
-		if _, isSkip := test.err.(skipError); isSkip {
-			status = "skip"
-			test.err = nil
-			if !skipOkay[path.Join(test.dir, test.gofile)] {
-				errStr = "unexpected skip for " + path.Join(test.dir, test.gofile) + ": " + errStr
-				status = "FAIL"
+		<-test.donec
+		_, isSkip := test.err.(skipError)
+		errStr := "pass"
+		if test.err != nil {
+			errStr = test.err.Error()
+			if !isSkip {
+				failed = true
 			}
 		}
-		if test.err != nil {
-			status = "FAIL"
-			errStr = test.err.Error()
-		}
-		if status == "FAIL" {
+		if isSkip && !skipOkay[path.Join(test.dir, test.gofile)] {
+			errStr = "unexpected skip for " + path.Join(test.dir, test.gofile) + ": " + errStr
+			isSkip = false
 			failed = true
 		}
-		resCount[status]++
-		if status == "skip" && !*verbose && !*showSkips {
+		resCount[errStr]++
+		if isSkip && !*verbose && !*showSkips {
 			continue
 		}
-		dt := fmt.Sprintf("%.3fs", test.dt.Seconds())
-		if status == "FAIL" {
-			fmt.Printf("# go run run.go -- %s\n%s\nFAIL\t%s\t%s\n",
-				path.Join(test.dir, test.gofile),
-				errStr, test.goFileName(), dt)
+		if !*verbose && test.err == nil {
 			continue
 		}
-		if !*verbose {
-			continue
-		}
-		fmt.Printf("%s\t%s\t%s\n", status, test.goFileName(), dt)
+		fmt.Printf("%-20s %-20s: %s\n", test.action, test.goFileName(), errStr)
 	}
 
 	if *summary {
@@ -219,8 +206,7 @@ func check(err error) {
 type test struct {
 	dir, gofile string
 	donec       chan bool // closed when done
-	dt time.Duration
-	
+
 	src    string
 	action string // "compile", "build", etc.
 
@@ -313,17 +299,14 @@ func goDirPackages(longdir string) ([][]string, error) {
 	return pkgs, nil
 }
 
-type context struct {
-	GOOS   string
-	GOARCH string
-}
-
 // shouldTest looks for build tags in a source file and returns
 // whether the file should be used according to the tags.
 func shouldTest(src string, goos, goarch string) (ok bool, whyNot string) {
 	if idx := strings.Index(src, "\npackage"); idx >= 0 {
 		src = src[:idx]
 	}
+	notgoos := "!" + goos
+	notgoarch := "!" + goarch
 	for _, line := range strings.Split(src, "\n") {
 		line = strings.TrimSpace(line)
 		if strings.HasPrefix(line, "//") {
@@ -335,68 +318,34 @@ func shouldTest(src string, goos, goarch string) (ok bool, whyNot string) {
 		if len(line) == 0 || line[0] != '+' {
 			continue
 		}
-		ctxt := &context{
-			GOOS:   goos,
-			GOARCH: goarch,
-		}
 		words := strings.Fields(line)
 		if words[0] == "+build" {
-			ok := false
-			for _, word := range words[1:] {
-				if ctxt.match(word) {
-					ok = true
-					break
+			for _, word := range words {
+				switch word {
+				case goos, goarch:
+					return true, ""
+				case notgoos, notgoarch:
+					continue
+				default:
+					if word[0] == '!' {
+						// NOT something-else
+						return true, ""
+					}
 				}
 			}
-			if !ok {
-				// no matching tag found.
-				return false, line
-			}
+			// no matching tag found.
+			return false, line
 		}
 	}
-	// no build tags
+	// no build tags.
 	return true, ""
-}
-
-func (ctxt *context) match(name string) bool {
-	if name == "" {
-		return false
-	}
-	if i := strings.Index(name, ","); i >= 0 {
-		// comma-separated list
-		return ctxt.match(name[:i]) && ctxt.match(name[i+1:])
-	}
-	if strings.HasPrefix(name, "!!") { // bad syntax, reject always
-		return false
-	}
-	if strings.HasPrefix(name, "!") { // negation
-		return len(name) > 1 && !ctxt.match(name[1:])
-	}
-
-	// Tags must be letters, digits, underscores or dots.
-	// Unlike in Go identifiers, all digits are fine (e.g., "386").
-	for _, c := range name {
-		if !unicode.IsLetter(c) && !unicode.IsDigit(c) && c != '_' && c != '.' {
-			return false
-		}
-	}
-
-	if name == ctxt.GOOS || name == ctxt.GOARCH {
-		return true
-	}
-
-	return false
 }
 
 func init() { checkShouldTest() }
 
 // run runs a test.
 func (t *test) run() {
-	start := time.Now()
-	defer func() {
-		t.dt = time.Since(start)
-		close(t.donec)
-	}()
+	defer close(t.donec)
 
 	srcBytes, err := ioutil.ReadFile(t.goFileName())
 	if err != nil {
@@ -866,7 +815,7 @@ func defaultRunOutputLimit() int {
 	return cpu
 }
 
-// checkShouldTest runs sanity checks on the shouldTest function.
+// checkShouldTest runs canity checks on the shouldTest function.
 func checkShouldTest() {
 	assert := func(ok bool, _ string) {
 		if !ok {
@@ -874,28 +823,11 @@ func checkShouldTest() {
 		}
 	}
 	assertNot := func(ok bool, _ string) { assert(!ok, "") }
-
-	// Simple tests.
 	assert(shouldTest("// +build linux", "linux", "arm"))
 	assert(shouldTest("// +build !windows", "linux", "arm"))
 	assertNot(shouldTest("// +build !windows", "windows", "amd64"))
-
-	// A file with no build tags will always be tested.
-	assert(shouldTest("// This is a test.", "os", "arch"))
-
-	// Build tags separated by a space are OR-ed together.
 	assertNot(shouldTest("// +build arm 386", "linux", "amd64"))
-
-	// Build tags seperated by a comma are AND-ed together.
-	assertNot(shouldTest("// +build !windows,!plan9", "windows", "amd64"))
-	assertNot(shouldTest("// +build !windows,!plan9", "plan9", "386"))
-
-	// Build tags on multiple lines are AND-ed together.
-	assert(shouldTest("// +build !windows\n// +build amd64", "linux", "amd64"))
-	assertNot(shouldTest("// +build !windows\n// +build amd64", "windows", "amd64"))
-
-	// Test that (!a OR !b) matches anything.
-	assert(shouldTest("// +build !windows !plan9", "windows", "amd64"))
+	assert(shouldTest("// This is a test.", "os", "arch"))
 }
 
 // envForDir returns a copy of the environment

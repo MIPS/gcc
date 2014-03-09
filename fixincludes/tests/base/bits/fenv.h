@@ -9,16 +9,6 @@
 
 
 
-#if defined( FERAISEEXCEPT_NOSSE_DIVBYZERO_CHECK )
-# ifdef __SSE_MATH__
-  __asm__ __volatile__ ("divss %1, %0" : : "x" (__f), "x" (__g));
-# else
-  __asm__ __volatile__ ("fdivp %%st, %%st(1); fwait"
-  			: "=t" (__f) : "0" (__f), "u" (__g) : "st(1)");
-# endif
-#endif  /* FERAISEEXCEPT_NOSSE_DIVBYZERO_CHECK */
-
-
 #if defined( FERAISEEXCEPT_NOSSE_INVALID_CHECK )
 # ifdef __SSE_MATH__
   __asm__ __volatile__ ("divss %0, %0" : : "x" (__f));
@@ -27,3 +17,13 @@
   			: "=t" (__f) : "0" (__f));
 # endif
 #endif  /* FERAISEEXCEPT_NOSSE_INVALID_CHECK */
+
+
+#if defined( FERAISEEXCEPT_NOSSE_DIVBYZERO_CHECK )
+# ifdef __SSE_MATH__
+  __asm__ __volatile__ ("divss %1, %0" : : "x" (__f), "x" (__g));
+# else
+  __asm__ __volatile__ ("fdivp %%st, %%st(1); fwait"
+  			: "=t" (__f) : "0" (__f), "u" (__g) : "st(1)");
+# endif
+#endif  /* FERAISEEXCEPT_NOSSE_DIVBYZERO_CHECK */

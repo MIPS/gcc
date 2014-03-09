@@ -57,7 +57,7 @@ package body Expander is
    --  The following table is used to save values of the Expander_Active flag
    --  when they are saved by Expander_Mode_Save_And_Set. We use an extendible
    --  table (which is a bit of overkill) because it is easier than figuring
-   --  out a maximum value or bothering with range checks.
+   --  out a maximum value or bothering with range checks!
 
    package Expander_Flags is new Table.Table (
      Table_Component_Type => Boolean,
@@ -84,18 +84,13 @@ package body Expander is
           and then not (Inside_A_Generic and then Expander_Active));
 
       --  There are three reasons for the Expander_Active flag to be false
-
+      --
       --  The first is when are not generating code. In this mode the
       --  Full_Analysis flag indicates whether we are performing a complete
       --  analysis, in which case Full_Analysis = True or a pre-analysis in
-      --  which case Full_Analysis = False. See the spec of Sem for more info
-      --  on this.
-
-      --  Additionally, the GNATprove_Mode flag indicates that a light
-      --  expansion for formal verification should be used. This expansion is
-      --  never done inside generics, because otherwise, this breaks the name
-      --  resolution mechanism for generic instances
-
+      --  which case Full_Analysis = False. See the spec of Sem for more
+      --  info on this.
+      --
       --  The second reason for the Expander_Active flag to be False is that
       --  we are performing a pre-analysis. During pre-analysis all expansion
       --  activity is turned off to make sure nodes are semantically decorated
@@ -112,12 +107,12 @@ package body Expander is
       --  given that the expansion actions that would normally process it will
       --  not take place. This prevents cascaded errors due to stack mismatch.
 
-      if not Expander_Active
-        and (Inside_A_Generic or not Full_Analysis or not GNATprove_Mode)
-      then
+      if not Expander_Active then
          Set_Analyzed (N, Full_Analysis);
 
-         if Serious_Errors_Detected > 0 and then Scope_Is_Transient then
+         if Serious_Errors_Detected > 0
+           and then Scope_Is_Transient
+         then
             Scope_Stack.Table
              (Scope_Stack.Last).Actions_To_Be_Wrapped_Before := No_List;
             Scope_Stack.Table
@@ -132,20 +127,11 @@ package body Expander is
          Debug_A_Entry ("expanding  ", N);
 
          begin
-            --  In GNATprove mode we only need a very limited subset of
-            --  the usual expansions. This limited subset is implemented
-            --  in Expand_SPARK.
+            --  In SPARK mode we only need a very limited subset of the usual
+            --  expansions. This limited subset is implemented in Expand_SPARK.
 
-            if GNATprove_Mode then
+            if SPARK_Mode then
                Expand_SPARK (N);
-               Set_Analyzed (N);
-
-               --  Regular expansion is normally followed by special handling
-               --  for transient scopes for unconstrained results, etc. but
-               --  this is not needed, and in general cannot be done correctly,
-               --  in this mode, so we are all done.
-
-               return;
 
             --  Here for normal non-SPARK mode
 
@@ -447,6 +433,9 @@ package body Expander is
                   when N_Subprogram_Declaration =>
                      Expand_N_Subprogram_Declaration (N);
 
+                  when N_Subprogram_Info =>
+                     Expand_N_Subprogram_Info (N);
+
                   when N_Task_Body =>
                      Expand_N_Task_Body (N);
 
@@ -514,10 +503,10 @@ package body Expander is
 
    procedure Expander_Mode_Restore is
    begin
-      --  Not active (has no effect) in ASIS and GNATprove modes (see comments
-      --  in spec of Expander_Mode_Save_And_Set).
+      --  Not active (has no effect) in ASIS mode (see comments in spec of
+      --  Expander_Mode_Save_And_Set).
 
-      if ASIS_Mode or GNATprove_Mode then
+      if ASIS_Mode then
          return;
       end if;
 
@@ -541,10 +530,10 @@ package body Expander is
 
    procedure Expander_Mode_Save_And_Set (Status : Boolean) is
    begin
-      --  Not active (has no effect) in ASIS and GNATprove modes (see comments
-      --  in spec of Expander_Mode_Save_And_Set).
+      --  Not active (has no effect) in ASIS mode (see comments in spec of
+      --  Expander_Mode_Save_And_Set).
 
-      if ASIS_Mode or GNATprove_Mode then
+      if ASIS_Mode then
          return;
       end if;
 

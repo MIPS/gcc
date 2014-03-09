@@ -180,7 +180,7 @@ static struct {
 	Obj	*roots;
 	uint32	nroot;
 	uint32	rootcap;
-} work __attribute__((aligned(8)));
+} work;
 
 enum {
 	GC_DEFAULT_PTR = GC_NUM_INSTR,
@@ -269,7 +269,8 @@ markonly(void *obj)
 	// (Manually inlined copy of MHeap_LookupMaybe.)
 	k = (uintptr)obj>>PageShift;
 	x = k;
-	x -= (uintptr)runtime_mheap.arena_start>>PageShift;
+	if(sizeof(void*) == 8)
+		x -= (uintptr)runtime_mheap.arena_start>>PageShift;
 	s = runtime_mheap.spans[x];
 	if(s == nil || k < s->start || (byte*)obj >= s->limit || s->state != MSpanInUse)
 		return false;
@@ -452,7 +453,8 @@ flushptrbuf(PtrTarget *ptrbuf, PtrTarget **ptrbufpos, Obj **_wp, Workbuf **_wbuf
 			// (Manually inlined copy of MHeap_LookupMaybe.)
 			k = (uintptr)obj>>PageShift;
 			x = k;
-			x -= (uintptr)arena_start>>PageShift;
+			if(sizeof(void*) == 8)
+				x -= (uintptr)arena_start>>PageShift;
 			s = runtime_mheap.spans[x];
 			if(s == nil || k < s->start || obj >= s->limit || s->state != MSpanInUse)
 				continue;
@@ -499,7 +501,8 @@ flushptrbuf(PtrTarget *ptrbuf, PtrTarget **ptrbufpos, Obj **_wp, Workbuf **_wbuf
 			// Ask span about size class.
 			// (Manually inlined copy of MHeap_Lookup.)
 			x = (uintptr)obj >> PageShift;
-			x -= (uintptr)arena_start>>PageShift;
+			if(sizeof(void*) == 8)
+				x -= (uintptr)arena_start>>PageShift;
 			s = runtime_mheap.spans[x];
 
 			PREFETCH(obj);
@@ -614,7 +617,8 @@ checkptr(void *obj, uintptr objti)
 	if(t == nil)
 		return;
 	x = (uintptr)obj >> PageShift;
-	x -= (uintptr)(runtime_mheap.arena_start)>>PageShift;
+	if(sizeof(void*) == 8)
+		x -= (uintptr)(runtime_mheap.arena_start)>>PageShift;
 	s = runtime_mheap.spans[x];
 	objstart = (byte*)((uintptr)s->start<<PageShift);
 	if(s->sizeclass != 0) {
@@ -1770,8 +1774,6 @@ runtime_memorydump(void)
 void
 runtime_gchelper(void)
 {
-	uint32 nproc;
-
 	gchelperstart();
 
 	// parallel mark for over gc roots
@@ -1788,8 +1790,7 @@ runtime_gchelper(void)
 
 	runtime_parfordo(work.sweepfor);
 	bufferList[runtime_m()->helpgc].busy = 0;
-	nproc = work.nproc;  // work.nproc can change right after we increment work.ndone
-	if(runtime_xadd(&work.ndone, +1) == nproc-1)
+	if(runtime_xadd(&work.ndone, +1) == work.nproc-1)
 		runtime_notewakeup(&work.alldone);
 }
 

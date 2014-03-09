@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist transfer functions contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -2490,18 +2490,14 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
   if ((cf & IOPARM_DT_HAS_NAMELIST_NAME) != 0 && dtp->u.p.ionml != NULL)
      {
 	if ((cf & IOPARM_DT_HAS_FORMAT) != 0)
-	  {
-	    generate_error (&dtp->common, LIBERROR_OPTION_CONFLICT,
-			"A format cannot be specified with a namelist");
-	    return;
-	  }
+	   generate_error (&dtp->common, LIBERROR_OPTION_CONFLICT,
+		    "A format cannot be specified with a namelist");
      }
   else if (dtp->u.p.current_unit->flags.form == FORM_FORMATTED &&
 	   !(cf & (IOPARM_DT_HAS_FORMAT | IOPARM_DT_LIST_FORMAT)))
     {
       generate_error (&dtp->common, LIBERROR_OPTION_CONFLICT,
 		      "Missing format for FORMATTED data transfer");
-      return;
     }
 
   if (is_internal_unit (dtp)
@@ -2670,21 +2666,16 @@ data_transfer_init (st_parameter_dt *dtp, int read_flag)
 	= !(cf & IOPARM_DT_HAS_DELIM) ? DELIM_UNSPECIFIED :
 	  find_option (&dtp->common, dtp->delim, dtp->delim_len,
 	  delim_opt, "Bad DELIM parameter in data transfer statement");
-
+  
   if (dtp->u.p.current_unit->delim_status == DELIM_UNSPECIFIED)
-    {
-      if (ionml && dtp->u.p.current_unit->flags.delim == DELIM_UNSPECIFIED)
-	dtp->u.p.current_unit->delim_status = DELIM_QUOTE;
-      else
-	dtp->u.p.current_unit->delim_status = dtp->u.p.current_unit->flags.delim;
-    }
+    dtp->u.p.current_unit->delim_status = dtp->u.p.current_unit->flags.delim;
 
   /* Check the pad mode.  */
   dtp->u.p.current_unit->pad_status
 	= !(cf & IOPARM_DT_HAS_PAD) ? PAD_UNSPECIFIED :
 	  find_option (&dtp->common, dtp->pad, dtp->pad_len, pad_opt,
 			"Bad PAD parameter in data transfer statement");
-
+  
   if (dtp->u.p.current_unit->pad_status == PAD_UNSPECIFIED)
 	dtp->u.p.current_unit->pad_status = dtp->u.p.current_unit->flags.pad;
 

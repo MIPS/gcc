@@ -1,6 +1,6 @@
 // Internal policy header for unordered_set and unordered_map -*- C++ -*-
 
-// Copyright (C) 2010-2014 Free Software Foundation, Inc.
+// Copyright (C) 2010-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -161,8 +161,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       __hashtable_alloc& _M_h;
     };
 
-  // Functor similar to the previous one but without any pool of nodes to
-  // recycle.
+  // Functor similar to the previous one but without any pool of node to recycle.
   template<typename _NodeAlloc>
     struct _AllocNode
     {
@@ -1089,8 +1088,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 
       std::size_t
       _M_bucket_index(const __node_type* __p, std::size_t __n) const
-	noexcept( noexcept(declval<const _Hash&>()(declval<const _Key&>(),
-						   (std::size_t)0)) )
+	noexcept( noexcept(declval<const _Hash&>()(declval<const _Key&>(), (std::size_t)0)) )
       { return _M_ranged_hash()(_M_extract()(__p->_M_v()), __n); }
 
       void
@@ -1147,10 +1145,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       using __ebo_h1 = _Hashtable_ebo_helper<1, _H1>;
       using __ebo_h2 = _Hashtable_ebo_helper<2, _H2>;
 
-      // Gives the local iterator implementation access to _M_bucket_index().
-      friend struct _Local_iterator_base<_Key, _Value, _ExtractKey, _H1, _H2,
-					 _Default_ranged_hash, false>;
-
     public:
       typedef _H1 					hasher;
 
@@ -1181,8 +1175,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       std::size_t
       _M_bucket_index(const __node_type* __p, std::size_t __n) const
 	noexcept( noexcept(declval<const _H1&>()(declval<const _Key&>()))
-		  && noexcept(declval<const _H2&>()((__hash_code)0,
-						    (std::size_t)0)) )
+		  && noexcept(declval<const _H2&>()((__hash_code)0, (std::size_t)0)) )
       { return _M_h2()(_M_h1()(_M_extract()(__p->_M_v())), __n); }
 
       void
@@ -1232,7 +1225,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       private _Hashtable_ebo_helper<2, _H2>
     {
     private:
-      // Gives the local iterator implementation access to _M_h2().
+      // Gives access to _M_h2() to the local iterator implementation.
       friend struct _Local_iterator_base<_Key, _Value, _ExtractKey, _H1, _H2,
 					 _Default_ranged_hash, true>;
 
@@ -1338,7 +1331,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
   };
 
 
-  /// Partial specialization used when nodes contain a cached hash code.
+  /// Specialization.
   template<typename _Key, typename _Value, typename _ExtractKey,
 	   typename _H1, typename _H2, typename _Hash>
     struct _Local_iterator_base<_Key, _Value, _ExtractKey,
@@ -1350,6 +1343,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       using __hash_code_base = _Hash_code_base<_Key, _Value, _ExtractKey,
 					       _H1, _H2, _Hash, true>;
 
+    public:
       _Local_iterator_base() = default;
       _Local_iterator_base(const __hash_code_base& __base,
 			   _Hash_node<_Value, true>* __p,
@@ -1374,97 +1368,27 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Hash_node<_Value, true>*  _M_cur;
       std::size_t _M_bucket;
       std::size_t _M_bucket_count;
-
-    public:
-      const void*
-      _M_curr() const { return _M_cur; }  // for equality ops
-
-      std::size_t
-      _M_get_bucket() const { return _M_bucket; }  // for debug mode
     };
 
-  // Uninitialized storage for a _Hash_code_base.
-  // This type is DefaultConstructible and Assignable even if the
-  // _Hash_code_base type isn't, so that _Local_iterator_base<..., false>
-  // can be DefaultConstructible and Assignable.
-  template<typename _Tp, bool _IsEmpty = std::is_empty<_Tp>::value>
-    struct _Hash_code_storage
-    {
-      __gnu_cxx::__aligned_buffer<_Tp> _M_storage;
-
-      _Tp*
-      _M_h() { return _M_storage._M_ptr(); }
-
-      const _Tp*
-      _M_h() const { return _M_storage._M_ptr(); }
-    };
-
-  // Empty partial specialization for empty _Hash_code_base types.
-  template<typename _Tp>
-    struct _Hash_code_storage<_Tp, true>
-    {
-      static_assert( std::is_empty<_Tp>::value, "Type must be empty" );
-
-      // As _Tp is an empty type there will be no bytes written/read through
-      // the cast pointer, so no strict-aliasing violation.
-      _Tp*
-      _M_h() { return reinterpret_cast<_Tp*>(this); }
-
-      const _Tp*
-      _M_h() const { return reinterpret_cast<const _Tp*>(this); }
-    };
-
-  template<typename _Key, typename _Value, typename _ExtractKey,
-	   typename _H1, typename _H2, typename _Hash>
-    using __hash_code_for_local_iter
-      = _Hash_code_storage<_Hash_code_base<_Key, _Value, _ExtractKey,
-					   _H1, _H2, _Hash, false>>;
-
-  // Partial specialization used when hash codes are not cached
+  /// Specialization.
   template<typename _Key, typename _Value, typename _ExtractKey,
 	   typename _H1, typename _H2, typename _Hash>
     struct _Local_iterator_base<_Key, _Value, _ExtractKey,
 				_H1, _H2, _Hash, false>
-    : __hash_code_for_local_iter<_Key, _Value, _ExtractKey, _H1, _H2, _Hash>
+    : private _Hash_code_base<_Key, _Value, _ExtractKey,
+			      _H1, _H2, _Hash, false>
     {
     protected:
       using __hash_code_base = _Hash_code_base<_Key, _Value, _ExtractKey,
 					       _H1, _H2, _Hash, false>;
 
-      _Local_iterator_base() : _M_bucket_count(-1) { }
-
+    public:
+      _Local_iterator_base() = default;
       _Local_iterator_base(const __hash_code_base& __base,
 			   _Hash_node<_Value, false>* __p,
 			   std::size_t __bkt, std::size_t __bkt_count)
-      : _M_cur(__p), _M_bucket(__bkt), _M_bucket_count(__bkt_count)
-      { _M_init(__base); }
-
-      ~_Local_iterator_base()
-      {
-	if (_M_bucket_count != -1)
-	  _M_destroy();
-      }
-
-      _Local_iterator_base(const _Local_iterator_base& __iter)
-      : _M_cur(__iter._M_cur), _M_bucket(__iter._M_bucket),
-        _M_bucket_count(__iter._M_bucket_count)
-      {
-	if (_M_bucket_count != -1)
-	  _M_init(*__iter._M_h());
-      }
-
-      _Local_iterator_base&
-      operator=(const _Local_iterator_base& __iter)
-      {
-	if (_M_bucket_count != -1)
-	  _M_destroy();
-	_M_cur = __iter._M_cur;
-	_M_bucket = __iter._M_bucket;
-	_M_bucket_count = __iter._M_bucket_count;
-	if (_M_bucket_count != -1)
-	  _M_init(*__iter._M_h());
-	return *this;
-      }
+	: __hash_code_base(__base),
+	  _M_cur(__p), _M_bucket(__bkt), _M_bucket_count(__bkt_count) { }
 
       void
       _M_incr()
@@ -1472,8 +1396,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 	_M_cur = _M_cur->_M_next();
 	if (_M_cur)
 	  {
-	    std::size_t __bkt = this->_M_h()->_M_bucket_index(_M_cur,
-							      _M_bucket_count);
+	    std::size_t __bkt = this->_M_bucket_index(_M_cur, _M_bucket_count);
 	    if (__bkt != _M_bucket)
 	      _M_cur = nullptr;
 	  }
@@ -1482,20 +1405,6 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
       _Hash_node<_Value, false>*  _M_cur;
       std::size_t _M_bucket;
       std::size_t _M_bucket_count;
-
-      void
-      _M_init(const __hash_code_base& __base)
-      { ::new(this->_M_h()) __hash_code_base(__base); }
-
-      void
-      _M_destroy() { this->_M_h()->~__hash_code_base(); }
-
-    public:
-      const void*
-      _M_curr() const { return _M_cur; }  // for equality ops and debug mode
-
-      std::size_t
-      _M_get_bucket() const { return _M_bucket; }  // for debug mode
     };
 
   template<typename _Key, typename _Value, typename _ExtractKey,
@@ -1505,7 +1414,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 					  _H1, _H2, _Hash, __cache>& __x,
 	       const _Local_iterator_base<_Key, _Value, _ExtractKey,
 					  _H1, _H2, _Hash, __cache>& __y)
-    { return __x._M_curr() == __y._M_curr(); }
+    { return __x._M_cur == __y._M_cur; }
 
   template<typename _Key, typename _Value, typename _ExtractKey,
 	   typename _H1, typename _H2, typename _Hash, bool __cache>
@@ -1514,7 +1423,7 @@ _GLIBCXX_BEGIN_NAMESPACE_VERSION
 					  _H1, _H2, _Hash, __cache>& __x,
 	       const _Local_iterator_base<_Key, _Value, _ExtractKey,
 					  _H1, _H2, _Hash, __cache>& __y)
-    { return __x._M_curr() != __y._M_curr(); }
+    { return __x._M_cur != __y._M_cur; }
 
   /// local iterators
   template<typename _Key, typename _Value, typename _ExtractKey,

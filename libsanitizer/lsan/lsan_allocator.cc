@@ -18,8 +18,6 @@
 #include "sanitizer_common/sanitizer_stacktrace.h"
 #include "lsan_common.h"
 
-extern "C" void *memset(void *ptr, int value, uptr num);
-
 namespace __lsan {
 
 static const uptr kMaxAllowedMallocSize = 8UL << 30;
@@ -34,7 +32,7 @@ struct ChunkMetadata {
 };
 
 typedef SizeClassAllocator64<kAllocatorSpace, kAllocatorSize,
-        sizeof(ChunkMetadata), DefaultSizeClassMap> PrimaryAllocator;
+        sizeof(ChunkMetadata), CompactSizeClassMap> PrimaryAllocator;
 typedef SizeClassAllocatorLocalCache<PrimaryAllocator> AllocatorCache;
 typedef LargeMmapAllocator<> SecondaryAllocator;
 typedef CombinedAllocator<PrimaryAllocator, AllocatorCache,
@@ -80,10 +78,7 @@ void *Allocate(const StackTrace &stack, uptr size, uptr alignment,
     Report("WARNING: LeakSanitizer failed to allocate %zu bytes\n", size);
     return 0;
   }
-  void *p = allocator.Allocate(&cache, size, alignment, false);
-  // Do not rely on the allocator to clear the memory (it's slow).
-  if (cleared && allocator.FromPrimary(p))
-    memset(p, 0, size);
+  void *p = allocator.Allocate(&cache, size, alignment, cleared);
   RegisterAllocation(stack, p, size);
   return p;
 }

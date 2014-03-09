@@ -42,6 +42,10 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
 
    procedure Allocate
      (Container : in out List;
+      New_Node  : out Count_Type);
+
+   procedure Allocate
+     (Container : in out List;
       Stream    : not null access Root_Stream_Type'Class;
       New_Node  : out Count_Type);
 
@@ -210,6 +214,26 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
          --  container state.
 
          Element_Type'Read (Stream, N (New_Node).Element);
+         Container.Free := Container.Free - 1;
+      end if;
+   end Allocate;
+
+   procedure Allocate
+     (Container : in out List;
+      New_Node  : out Count_Type)
+   is
+      N : Node_Array renames Container.Nodes;
+
+   begin
+      if Container.Free >= 0 then
+         New_Node := Container.Free;
+         Container.Free := N (New_Node).Next;
+
+      else
+         --  As explained above, a negative free store value means that the
+         --  links for the nodes in the free store have not been initialized.
+
+         New_Node := abs Container.Free;
          Container.Free := Container.Free - 1;
       end if;
    end Allocate;
@@ -1085,7 +1109,7 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       end if;
 
       if Container.Length > Container.Capacity - Count then
-         raise Capacity_Error with "capacity exceeded";
+         raise Constraint_Error with "new length exceeds capacity";
       end if;
 
       if Container.Busy > 0 then
@@ -1121,18 +1145,40 @@ package body Ada.Containers.Bounded_Doubly_Linked_Lists is
       Position  : out Cursor;
       Count     : Count_Type := 1)
    is
-      New_Item : Element_Type;
-      pragma Unmodified (New_Item);
-      --  OK to reference, see below
+      New_Node : Count_Type;
 
    begin
-      --  There is no explicit element provided, but in an instance the element
-      --  type may be a scalar with a Default_Value aspect, or a composite
-      --  type with such a scalar component, or components with default
-      --  initialization, so insert the specified number of possibly
-      --  initialized elements at the given position.
+      if Before.Container /= null then
+         if Before.Container /= Container'Unrestricted_Access then
+            raise Program_Error with
+              "Before cursor designates wrong list";
+         end if;
 
-      Insert (Container, Before, New_Item, Position, Count);
+         pragma Assert (Vet (Before), "bad cursor in Insert");
+      end if;
+
+      if Count = 0 then
+         Position := Before;
+         return;
+      end if;
+
+      if Container.Length > Container.Capacity - Count then
+         raise Constraint_Error with "new length exceeds capacity";
+      end if;
+
+      if Container.Busy > 0 then
+         raise Program_Error with
+           "attempt to tamper with cursors (list is busy)";
+      end if;
+
+      Allocate (Container, New_Node => New_Node);
+      Insert_Internal (Container, Before.Node, New_Node);
+      Position := Cursor'(Container'Unchecked_Access, New_Node);
+
+      for Index in Count_Type'(2) .. Count loop
+         Allocate (Container, New_Node => New_Node);
+         Insert_Internal (Container, Before.Node, New_Node);
+      end loop;
    end Insert;
 
    ---------------------

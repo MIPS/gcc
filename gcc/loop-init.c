@@ -1,5 +1,5 @@
 /* Loop optimizer initialization routines and RTL loop optimization passes.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -135,6 +135,7 @@ loop_optimizer_init (unsigned flags)
 void
 loop_optimizer_finalize (void)
 {
+  loop_iterator li;
   struct loop *loop;
   basic_block bb;
 
@@ -161,15 +162,17 @@ loop_optimizer_finalize (void)
 
   gcc_assert (current_loops != NULL);
 
-  FOR_EACH_LOOP (loop, 0)
-    free_simple_loop_desc (loop);
+  FOR_EACH_LOOP (li, loop, 0)
+    {
+      free_simple_loop_desc (loop);
+    }
 
   /* Clean up.  */
   flow_loops_free (current_loops);
   ggc_free (current_loops);
   current_loops = NULL;
 
-  FOR_ALL_BB_FN (bb, cfun)
+  FOR_ALL_BB (bb)
     {
       bb->loop_father = NULL;
     }
@@ -196,6 +199,7 @@ fix_loop_structure (bitmap changed_bbs)
 {
   basic_block bb;
   int record_exits = 0;
+  loop_iterator li;
   struct loop *loop;
   unsigned old_nloops, i;
 
@@ -213,14 +217,14 @@ fix_loop_structure (bitmap changed_bbs)
   /* Remember the depth of the blocks in the loop hierarchy, so that we can
      recognize blocks whose loop nesting relationship has changed.  */
   if (changed_bbs)
-    FOR_EACH_BB_FN (bb, cfun)
+    FOR_EACH_BB (bb)
       bb->aux = (void *) (size_t) loop_depth (bb->loop_father);
 
   /* Remove the dead loops from structures.  We start from the innermost
      loops, so that when we remove the loops, we know that the loops inside
      are preserved, and do not waste time relinking loops that will be
      removed later.  */
-  FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
+  FOR_EACH_LOOP (li, loop, LI_FROM_INNERMOST)
     {
       /* Detect the case that the loop is no longer present even though
          it wasn't marked for removal.
@@ -256,7 +260,7 @@ fix_loop_structure (bitmap changed_bbs)
   /* Mark the blocks whose loop has changed.  */
   if (changed_bbs)
     {
-      FOR_EACH_BB_FN (bb, cfun)
+      FOR_EACH_BB (bb)
 	{
 	  if ((void *) (size_t) loop_depth (bb->loop_father) != bb->aux)
 	    bitmap_set_bit (changed_bbs, bb->index);

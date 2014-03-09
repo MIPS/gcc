@@ -274,7 +274,7 @@ package body Ada.Containers.Ordered_Maps is
       end if;
 
       Target.Clear;
-      Insert_Items (Source.Tree);
+      Insert_Items (Target.Tree);
    end Assign;
 
    -------------

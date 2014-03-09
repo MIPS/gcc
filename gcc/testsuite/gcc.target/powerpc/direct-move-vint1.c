@@ -3,12 +3,11 @@
 /* { dg-skip-if "" { powerpc*-*-*spe* } { "*" } { "" } } */
 /* { dg-require-effective-target powerpc_p8vector_ok } */
 /* { dg-options "-mcpu=power8 -O2" } */
-/* { dg-final { scan-assembler "mtvsrd" } } */
-/* { dg-final { scan-assembler "mfvsrd" } } */
+/* { dg-final { scan-assembler-times "mtvsrd" 4 } } */
+/* { dg-final { scan-assembler-times "mfvsrd" 4 } } */
 
-/* Check code generation for direct move for vector types.  */
+/* Check code generation for direct move for long types.  */
 
 #define TYPE vector int
-#define VSX_REG_ATTR "wa"
 
 #include "direct-move.h"

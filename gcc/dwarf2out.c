@@ -1,5 +1,5 @@
 /* Output Dwarf2 format symbol table information from GCC.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2013 Free Software Foundation, Inc.
    Contributed by Gary Funck (gary@intrepid.com).
    Derived from DWARF 1 implementation of Ron Guilmette (rfg@monkeys.com).
    Extensively modified by Jason Merrill (jason@cygnus.com).
@@ -59,16 +59,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tm.h"
-#include "rtl.h"
 #include "tree.h"
-#include "stringpool.h"
-#include "stor-layout.h"
-#include "varasm.h"
-#include "function.h"
-#include "emit-rtl.h"
-#include "hash-table.h"
 #include "version.h"
 #include "flags.h"
+#include "rtl.h"
 #include "hard-reg-set.h"
 #include "regs.h"
 #include "insn-config.h"
@@ -81,6 +75,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "dwarf2out.h"
 #include "dwarf2asm.h"
 #include "toplev.h"
+#include "ggc.h"
 #include "md5.h"
 #include "tm_p.h"
 #include "diagnostic.h"
@@ -89,6 +84,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "target.h"
 #include "common/common-target.h"
 #include "langhooks.h"
+#include "hash-table.h"
 #include "cgraph.h"
 #include "input.h"
 #include "ira.h"
@@ -246,12 +242,6 @@ static GTY(()) bool cold_text_section_used = false;
 
 /* The default cold text section.  */
 static GTY(()) section *cold_text_section;
-
-/* The DIE for C++1y 'auto' in a function return type.  */
-static GTY(()) dw_die_ref auto_die;
-
-/* The DIE for C++1y 'decltype(auto)' in a function return type.  */
-static GTY(()) dw_die_ref decltype_auto_die;
 
 /* Forward declarations for functions defined in this file.  */
 
@@ -2314,10 +2304,10 @@ output_loc_sequence_raw (dw_loc_descr_ref loc)
    dw_cfa_location, adding the given OFFSET to the result of the
    expression.  */
 
-struct dw_loc_descr_node *
+struct dw_loc_descr_struct *
 build_cfa_loc (dw_cfa_location *cfa, HOST_WIDE_INT offset)
 {
-  struct dw_loc_descr_node *head, *tmp;
+  struct dw_loc_descr_struct *head, *tmp;
 
   offset += cfa->offset;
 
@@ -2344,11 +2334,11 @@ build_cfa_loc (dw_cfa_location *cfa, HOST_WIDE_INT offset)
    the address at OFFSET from the CFA when stack is aligned to
    ALIGNMENT byte.  */
 
-struct dw_loc_descr_node *
+struct dw_loc_descr_struct *
 build_cfa_aligned_loc (dw_cfa_location *cfa,
 		       HOST_WIDE_INT offset, HOST_WIDE_INT alignment)
 {
-  struct dw_loc_descr_node *head;
+  struct dw_loc_descr_struct *head;
   unsigned int dwarf_fp
     = DWARF_FRAME_REGNUM (HARD_FRAME_POINTER_REGNUM);
 
@@ -3191,7 +3181,6 @@ static inline int is_redundant_typedef (const_tree);
 static bool is_naming_typedef_decl (const_tree);
 static inline dw_die_ref get_context_die (tree);
 static void gen_namespace_die (tree, dw_die_ref);
-static dw_die_ref gen_namelist_decl (tree, dw_die_ref, tree);
 static dw_die_ref gen_decl_die (tree, tree, dw_die_ref);
 static dw_die_ref force_decl_die (tree);
 static dw_die_ref force_type_die (tree);
@@ -8854,8 +8843,6 @@ output_comp_unit (dw_die_ref die, int output_if_empty)
 static inline bool
 want_pubnames (void)
 {
-  if (debug_info_level <= DINFO_LEVEL_TERSE)
-    return false;
   if (debug_generate_pub_sections != -1)
     return debug_generate_pub_sections;
   return targetm.want_debug_pub_sections;
@@ -9300,7 +9287,7 @@ output_pubnames (vec<pubname_entry, va_gc> *names)
 	      if (type_node != NULL)
 	        die_offset = (type_node->skeleton_die != NULL
 			      ? type_node->skeleton_die->die_offset
-			      : comp_unit_die ()->die_offset);
+			      : 0);
 	    }
 
           output_pubname (die_offset, pub);
@@ -10222,24 +10209,6 @@ base_type_die (tree type)
   return base_type_result;
 }
 
-/* A C++ function with deduced return type can have a TEMPLATE_TYPE_PARM
-   named 'auto' in its type: return true for it, false otherwise.  */
-
-static inline bool
-is_cxx_auto (tree type)
-{
-  if (is_cxx ())
-    {
-      tree name = TYPE_NAME (type);
-      if (TREE_CODE (name) == TYPE_DECL)
-	name = DECL_NAME (name);
-      if (name == get_identifier ("auto")
-	  || name == get_identifier ("decltype(auto)"))
-	return true;
-    }
-  return false;
-}
-
 /* Given a pointer to an arbitrary ..._TYPE tree node, return nonzero if the
    given input type is a Dwarf "fundamental" type.  Otherwise return null.  */
 
@@ -10273,8 +10242,6 @@ is_base_type (tree type)
       return 0;
 
     default:
-      if (is_cxx_auto (type))
-	return 0;
       gcc_unreachable ();
     }
 
@@ -10294,8 +10261,8 @@ simple_type_size_in_bits (const_tree type)
     return BITS_PER_WORD;
   else if (TYPE_SIZE (type) == NULL_TREE)
     return 0;
-  else if (tree_fits_uhwi_p (TYPE_SIZE (type)))
-    return tree_to_uhwi (TYPE_SIZE (type));
+  else if (host_integerp (TYPE_SIZE (type), 1))
+    return tree_low_cst (TYPE_SIZE (type), 1);
   else
     return TYPE_ALIGN (type);
 }
@@ -13573,10 +13540,10 @@ dw_sra_loc_expr (tree decl, rtx loc)
   enum var_init_status initialized;
 
   if (DECL_SIZE (decl) == NULL
-      || !tree_fits_uhwi_p (DECL_SIZE (decl)))
+      || !host_integerp (DECL_SIZE (decl), 1))
     return NULL;
 
-  decl_size = tree_to_uhwi (DECL_SIZE (decl));
+  decl_size = tree_low_cst (DECL_SIZE (decl), 1);
   descr = NULL;
   descr_tail = &descr;
 
@@ -14279,17 +14246,17 @@ loc_list_from_tree (tree loc, int want_address)
       }
 
     case INTEGER_CST:
-      if ((want_address || !tree_fits_shwi_p (loc))
+      if ((want_address || !host_integerp (loc, 0))
 	  && (ret = cst_pool_loc_descr (loc)))
 	have_address = 1;
       else if (want_address == 2
-	       && tree_fits_shwi_p (loc)
+	       && host_integerp (loc, 0)
 	       && (ret = address_of_int_loc_descriptor
 	       		   (int_size_in_bytes (TREE_TYPE (loc)),
-	       		    tree_to_shwi (loc))))
+	       		    tree_low_cst (loc, 0))))
 	have_address = 1;
-      else if (tree_fits_shwi_p (loc))
-	ret = int_loc_descriptor (tree_to_shwi (loc));
+      else if (host_integerp (loc, 0))
+	ret = int_loc_descriptor (tree_low_cst (loc, 0));
       else
 	{
 	  expansion_failed (loc, NULL_RTX,
@@ -14378,13 +14345,13 @@ loc_list_from_tree (tree loc, int want_address)
 
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
-      if (tree_fits_shwi_p (TREE_OPERAND (loc, 1)))
+      if (host_integerp (TREE_OPERAND (loc, 1), 0))
 	{
 	  list_ret = loc_list_from_tree (TREE_OPERAND (loc, 0), 0);
 	  if (list_ret == 0)
 	    return 0;
 
-	  loc_list_plus_const (list_ret, tree_to_shwi (TREE_OPERAND (loc, 1)));
+	  loc_list_plus_const (list_ret, tree_low_cst (TREE_OPERAND (loc, 1), 0));
 	  break;
 	}
 
@@ -14888,7 +14855,7 @@ add_data_member_location_attribute (dw_die_ref die, tree decl)
 	  add_loc_descr (&loc_descr, tmp);
 
 	  /* Calculate the address of the offset.  */
-	  offset = tree_to_shwi (BINFO_VPTR_FIELD (decl));
+	  offset = tree_low_cst (BINFO_VPTR_FIELD (decl), 0);
 	  gcc_assert (offset < 0);
 
 	  tmp = int_loc_descriptor (-offset);
@@ -14905,7 +14872,7 @@ add_data_member_location_attribute (dw_die_ref die, tree decl)
 	  add_loc_descr (&loc_descr, tmp);
 	}
       else
-	offset = tree_to_shwi (BINFO_OFFSET (decl));
+	offset = tree_low_cst (BINFO_OFFSET (decl), 0);
     }
   else
     offset = field_byte_offset (decl);
@@ -15174,7 +15141,7 @@ reference_to_unused (tree * tp, int * walk_subtrees,
     return *tp;
   else if (TREE_CODE (*tp) == VAR_DECL)
     {
-      varpool_node *node = varpool_get_node (*tp);
+      struct varpool_node *node = varpool_get_node (*tp);
       if (!node || !node->definition)
 	return *tp;
     }
@@ -15559,9 +15526,9 @@ fortran_common (tree decl, HOST_WIDE_INT *value)
   *value = 0;
   if (offset != NULL)
     {
-      if (!tree_fits_shwi_p (offset))
+      if (!host_integerp (offset, 0))
 	return NULL_TREE;
-      *value = tree_to_shwi (offset);
+      *value = tree_low_cst (offset, 0);
     }
   if (bitpos != 0)
     *value += bitpos / BITS_PER_UNIT;
@@ -15727,14 +15694,14 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	  constructor_elt *ce;
 
 	  if (TYPE_DOMAIN (type) == NULL_TREE
-	      || !tree_fits_shwi_p (TYPE_MIN_VALUE (TYPE_DOMAIN (type))))
+	      || !host_integerp (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0))
 	    return false;
 
 	  fieldsize = int_size_in_bytes (TREE_TYPE (type));
 	  if (fieldsize <= 0)
 	    return false;
 
-	  min_index = tree_to_shwi (TYPE_MIN_VALUE (TYPE_DOMAIN (type)));
+	  min_index = tree_low_cst (TYPE_MIN_VALUE (TYPE_DOMAIN (type)), 0);
 	  memset (array, '\0', size);
 	  FOR_EACH_VEC_SAFE_ELT (CONSTRUCTOR_ELTS (init), cnt, ce)
 	    {
@@ -15742,10 +15709,10 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	      tree index = ce->index;
 	      int pos = curpos;
 	      if (index && TREE_CODE (index) == RANGE_EXPR)
-		pos = (tree_to_shwi (TREE_OPERAND (index, 0)) - min_index)
+		pos = (tree_low_cst (TREE_OPERAND (index, 0), 0) - min_index)
 		      * fieldsize;
 	      else if (index)
-		pos = (tree_to_shwi (index) - min_index) * fieldsize;
+		pos = (tree_low_cst (index, 0) - min_index) * fieldsize;
 
 	      if (val)
 		{
@@ -15756,8 +15723,8 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 	      curpos = pos + fieldsize;
 	      if (index && TREE_CODE (index) == RANGE_EXPR)
 		{
-		  int count = tree_to_shwi (TREE_OPERAND (index, 1))
-			      - tree_to_shwi (TREE_OPERAND (index, 0));
+		  int count = tree_low_cst (TREE_OPERAND (index, 1), 0)
+			      - tree_low_cst (TREE_OPERAND (index, 0), 0);
 		  while (count-- > 0)
 		    {
 		      if (val)
@@ -15801,9 +15768,9 @@ native_encode_initializer (tree init, unsigned char *array, int size)
 		  && ! TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (field))))
 		return false;
 	      else if (DECL_SIZE_UNIT (field) == NULL_TREE
-		       || !tree_fits_shwi_p (DECL_SIZE_UNIT (field)))
+		       || !host_integerp (DECL_SIZE_UNIT (field), 0))
 		return false;
-	      fieldsize = tree_to_shwi (DECL_SIZE_UNIT (field));
+	      fieldsize = tree_low_cst (DECL_SIZE_UNIT (field), 0);
 	      pos = int_byte_position (field);
 	      gcc_assert (pos + fieldsize <= size);
 	      if (val
@@ -16193,9 +16160,9 @@ add_bound_info (dw_die_ref subrange_die, enum dwarf_attribute bound_attr, tree b
 
 	/* Use the default if possible.  */
 	if (bound_attr == DW_AT_lower_bound
-	    && tree_fits_shwi_p (bound)
+	    && host_integerp (bound, 0)
 	    && (dflt = lower_bound_default ()) != -1
-	    && tree_to_shwi (bound) == dflt)
+	    && tree_low_cst (bound, 0) == dflt)
 	  ;
 
 	/* Otherwise represent the bound as an unsigned value with the
@@ -16427,8 +16394,8 @@ add_bit_offset_attribute (dw_die_ref die, tree decl)
   /* We can't yet handle bit-fields whose offsets are variable, so if we
      encounter such things, just return without generating any attribute
      whatsoever.  Likewise for variable or too large size.  */
-  if (! tree_fits_shwi_p (bit_position (decl))
-      || ! tree_fits_uhwi_p (DECL_SIZE (decl)))
+  if (! host_integerp (bit_position (decl), 0)
+      || ! host_integerp (DECL_SIZE (decl), 1))
     return;
 
   bitpos_int = int_bit_position (decl);
@@ -16443,7 +16410,7 @@ add_bit_offset_attribute (dw_die_ref die, tree decl)
 
   if (! BYTES_BIG_ENDIAN)
     {
-      highest_order_field_bit_offset += tree_to_shwi (DECL_SIZE (decl));
+      highest_order_field_bit_offset += tree_low_cst (DECL_SIZE (decl), 0);
       highest_order_object_bit_offset += simple_type_size_in_bits (type);
     }
 
@@ -16468,8 +16435,8 @@ add_bit_size_attribute (dw_die_ref die, tree decl)
   gcc_assert (TREE_CODE (decl) == FIELD_DECL
 	      && DECL_BIT_FIELD_TYPE (decl));
 
-  if (tree_fits_uhwi_p (DECL_SIZE (decl)))
-    add_AT_unsigned (die, DW_AT_bit_size, tree_to_uhwi (DECL_SIZE (decl)));
+  if (host_integerp (DECL_SIZE (decl), 1))
+    add_AT_unsigned (die, DW_AT_bit_size, tree_low_cst (DECL_SIZE (decl), 1));
 }
 
 /* If the compiled language is ANSI C, then add a 'prototyped'
@@ -16538,10 +16505,10 @@ add_pure_or_virtual_attribute (dw_die_ref die, tree func_decl)
     {
       add_AT_unsigned (die, DW_AT_virtuality, DW_VIRTUALITY_virtual);
 
-      if (tree_fits_shwi_p (DECL_VINDEX (func_decl)))
+      if (host_integerp (DECL_VINDEX (func_decl), 0))
 	add_AT_loc (die, DW_AT_vtable_elem_location,
 		    new_loc_descr (DW_OP_constu,
-				   tree_to_shwi (DECL_VINDEX (func_decl)),
+				   tree_low_cst (DECL_VINDEX (func_decl), 0),
 				   0));
 
       /* GNU extension: Record what type this method came from originally.  */
@@ -16590,12 +16557,11 @@ add_src_coords_attributes (dw_die_ref die, tree decl)
 static void
 add_linkage_name (dw_die_ref die, tree decl)
 {
-  if (debug_info_level > DINFO_LEVEL_TERSE
-      && (TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
-      && TREE_PUBLIC (decl)
-      && !DECL_ABSTRACT (decl)
-      && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
-      && die->die_tag != DW_TAG_member)
+  if ((TREE_CODE (decl) == FUNCTION_DECL || TREE_CODE (decl) == VAR_DECL)
+       && TREE_PUBLIC (decl)
+       && !DECL_ABSTRACT (decl)
+       && !(TREE_CODE (decl) == VAR_DECL && DECL_REGISTER (decl))
+       && die->die_tag != DW_TAG_member)
     {
       /* Defer until we have an assembler name set.  */
       if (!DECL_ASSEMBLER_NAME_SET_P (decl))
@@ -17089,8 +17055,8 @@ descr_info_loc (tree val, tree base_decl)
     case VAR_DECL:
       return loc_descriptor_from_tree (val, 0);
     case INTEGER_CST:
-      if (tree_fits_shwi_p (val))
-	return int_loc_descriptor (tree_to_shwi (val));
+      if (host_integerp (val, 0))
+	return int_loc_descriptor (tree_low_cst (val, 0));
       break;
     case INDIRECT_REF:
       size = int_size_in_bytes (TREE_TYPE (val));
@@ -17106,13 +17072,14 @@ descr_info_loc (tree val, tree base_decl)
       return loc;
     case POINTER_PLUS_EXPR:
     case PLUS_EXPR:
-      if (tree_fits_uhwi_p (TREE_OPERAND (val, 1))
-	  && tree_to_uhwi (TREE_OPERAND (val, 1)) < 16384)
+      if (host_integerp (TREE_OPERAND (val, 1), 1)
+	  && (unsigned HOST_WIDE_INT) tree_low_cst (TREE_OPERAND (val, 1), 1)
+	     < 16384)
 	{
 	  loc = descr_info_loc (TREE_OPERAND (val, 0), base_decl);
 	  if (!loc)
 	    break;
-	  loc_descr_plus_const (&loc, tree_to_shwi (TREE_OPERAND (val, 1)));
+	  loc_descr_plus_const (&loc, tree_low_cst (TREE_OPERAND (val, 1), 0));
 	}
       else
 	{
@@ -17152,9 +17119,9 @@ add_descr_info_field (dw_die_ref die, enum dwarf_attribute attr,
 {
   dw_loc_descr_ref loc;
 
-  if (tree_fits_shwi_p (val))
+  if (host_integerp (val, 0))
     {
-      add_AT_unsigned (die, attr, tree_to_shwi (val));
+      add_AT_unsigned (die, attr, tree_low_cst (val, 0));
       return;
     }
 
@@ -17205,9 +17172,9 @@ gen_descr_array_type_die (tree type, struct array_descr_info *info,
 	  /* If it is the default value, omit it.  */
 	  int dflt;
 
-	  if (tree_fits_shwi_p (info->dimen[dim].lower_bound)
+	  if (host_integerp (info->dimen[dim].lower_bound, 0)
 	      && (dflt = lower_bound_default ()) != -1
-	      && tree_to_shwi (info->dimen[dim].lower_bound) == dflt)
+	      && tree_low_cst (info->dimen[dim].lower_bound, 0) == dflt)
 	    ;
 	  else
 	    add_descr_info_field (subrange_die, DW_AT_lower_bound,
@@ -17355,7 +17322,7 @@ gen_enumeration_type_die (tree type, dw_die_ref context_die)
 	    value = DECL_INITIAL (value);
 
 	  if (simple_type_size_in_bits (TREE_TYPE (value))
-	      <= HOST_BITS_PER_WIDE_INT || tree_fits_shwi_p (value))
+	      <= HOST_BITS_PER_WIDE_INT || host_integerp (value, 0))
 	    /* DWARF2 does not provide a way of indicating whether or
 	       not enumeration constants are signed or unsigned.  GDB
 	       always assumes the values are signed, so we output all
@@ -17854,7 +17821,7 @@ premark_types_used_by_global_vars_helper (void **slot,
     {
       /* Ask cgraph if the global variable really is to be emitted.
          If yes, then we'll keep the DIE of ENTRY->TYPE.  */
-      varpool_node *node = varpool_get_node (entry->var_decl);
+      struct varpool_node *node = varpool_get_node (entry->var_decl);
       if (node && node->definition)
 	{
 	  die->die_perennial_p = 1;
@@ -18025,16 +17992,6 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
 	    add_AT_file (subr_die, DW_AT_decl_file, file_index);
 	  if (get_AT_unsigned (old_die, DW_AT_decl_line) != (unsigned) s.line)
 	    add_AT_unsigned (subr_die, DW_AT_decl_line, s.line);
-
-	  /* If the prototype had an 'auto' or 'decltype(auto)' return type,
-	     emit the real type on the definition die.  */
-	  if (is_cxx() && debug_info_level > DINFO_LEVEL_TERSE)
-	    {
-	      dw_die_ref die = get_AT_ref (old_die, DW_AT_type);
-	      if (die == auto_die || die == decltype_auto_die)
-		add_type_attribute (subr_die, TREE_TYPE (TREE_TYPE (decl)),
-				    0, 0, context_die);
-	    }
 	}
     }
   else
@@ -18538,10 +18495,9 @@ gen_subprogram_die (tree decl, dw_die_ref context_die)
       call_site_count = -1;
       tail_call_site_count = -1;
     }
+  /* Add the calling convention attribute if requested.  */
+  add_calling_convention_attribute (subr_die, decl);
 
-  if (subr_die != old_die)
-    /* Add the calling convention attribute if requested.  */
-    add_calling_convention_attribute (subr_die, decl);
 }
 
 /* Returns a hash value for X (which really is a die_struct).  */
@@ -19145,7 +19101,7 @@ static char *
 gen_producer_string (void)
 {
   size_t j;
-  auto_vec<dchar_p> switches;
+  vec<dchar_p> switches = vNULL;
   const char *language_string = lang_hooks.name;
   char *producer, *tail;
   const char *p;
@@ -19226,6 +19182,7 @@ gen_producer_string (void)
     }
 
   *tail = '\0';
+  switches.release ();
   return producer;
 }
 
@@ -19857,22 +19814,6 @@ gen_type_die_with_usage (tree type, dw_die_ref context_die,
       break;
 
     default:
-      if (is_cxx_auto (type))
-	{
-	  tree name = TYPE_NAME (type);
-	  if (TREE_CODE (name) == TYPE_DECL)
-	    name = DECL_NAME (name);
-	  dw_die_ref *die = (name == get_identifier ("auto")
-			     ? &auto_die : &decltype_auto_die);
-	  if (!*die)
-	    {
-	      *die = new_die (DW_TAG_unspecified_type,
-			      comp_unit_die (), NULL_TREE);
-	      add_name_attribute (*die, IDENTIFIER_POINTER (name));
-	    }
-	  equate_type_number_to_die (type, *die);
-	  break;
-	}
       gcc_unreachable ();
     }
 
@@ -20014,19 +19955,16 @@ decls_for_scope (tree stmt, dw_die_ref context_die, int depth)
   /* Output the DIEs to represent all of the data objects and typedefs
      declared directly within this block but not within any nested
      sub-blocks.  Also, nested function and tag DIEs have been
-     generated with a parent of NULL; fix that up now.  We don't
-     have to do this if we're at -g1.  */
-  if (debug_info_level > DINFO_LEVEL_TERSE)
-    {
-      for (decl = BLOCK_VARS (stmt); decl != NULL; decl = DECL_CHAIN (decl))
-	process_scope_var (stmt, decl, NULL_TREE, context_die);
-      for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (stmt); i++)
-	process_scope_var (stmt, NULL, BLOCK_NONLOCALIZED_VAR (stmt, i),
-			   context_die);
-    }
+     generated with a parent of NULL; fix that up now.  */
+  for (decl = BLOCK_VARS (stmt); decl != NULL; decl = DECL_CHAIN (decl))
+    process_scope_var (stmt, decl, NULL_TREE, context_die);
+  for (i = 0; i < BLOCK_NUM_NONLOCALIZED_VARS (stmt); i++)
+    process_scope_var (stmt, NULL, BLOCK_NONLOCALIZED_VAR (stmt, i),
+    		       context_die);
 
-  /* Even if we're at -g1, we need to process the subblocks in order to get
-     inlined call information.  */
+  /* If we're at -g1, we're not interested in subblocks.  */
+  if (debug_info_level <= DINFO_LEVEL_TERSE)
+    return;
 
   /* Output the DIEs to represent all sub-blocks (and the items declared
      therein) of this block.  */
@@ -20483,11 +20421,6 @@ gen_decl_die (tree decl, tree origin, dw_die_ref context_die)
 	gen_namespace_die (decl, context_die);
       break;
 
-    case NAMELIST_DECL:
-      gen_namelist_decl (DECL_NAME (decl), context_die,
-			 NAMELIST_DECL_ASSOCIATED_DECL (decl));
-      break;
-
     default:
       /* Probably some frontend-internal decl.  Assume we don't care.  */
       gcc_assert ((int)TREE_CODE (decl) > NUM_TREE_CODES);
@@ -20577,12 +20510,7 @@ dwarf2out_imported_module_or_decl_1 (tree decl,
 	      gen_type_die_for_member (type, decl,
 				       get_context_die (TYPE_CONTEXT (type)));
 	    }
-	  if (TREE_CODE (decl) == NAMELIST_DECL)
-	    at_import_die = gen_namelist_decl (DECL_NAME (decl),
-					 get_context_die (DECL_CONTEXT (decl)),
-					 NULL_TREE);
-	  else
-	    at_import_die = force_decl_die (decl);
+	  at_import_die = force_decl_die (decl);
 	}
     }
 
@@ -20653,43 +20581,6 @@ dwarf2out_imported_module_or_decl (tree decl, tree name, tree context,
   dwarf2out_imported_module_or_decl_1 (decl, name, context, scope_die);
 
 }
-
-/* Output debug information for namelists.   */
-
-static dw_die_ref
-gen_namelist_decl (tree name, dw_die_ref scope_die, tree item_decls)
-{
-  dw_die_ref nml_die, nml_item_die, nml_item_ref_die;
-  tree value;
-  unsigned i;
-
-  if (debug_info_level <= DINFO_LEVEL_TERSE)
-    return NULL;
-
-  gcc_assert (scope_die != NULL);
-  nml_die = new_die (DW_TAG_namelist, scope_die, NULL);
-  add_AT_string (nml_die, DW_AT_name, IDENTIFIER_POINTER (name));
-
-  /* If there are no item_decls, we have a nondefining namelist, e.g.
-     with USE association; hence, set DW_AT_declaration.  */
-  if (item_decls == NULL_TREE)
-    {
-      add_AT_flag (nml_die, DW_AT_declaration, 1);
-      return nml_die;
-    }
-
-  FOR_EACH_CONSTRUCTOR_VALUE (CONSTRUCTOR_ELTS (item_decls), i, value)
-    {
-      nml_item_ref_die = lookup_decl_die (value);
-      if (!nml_item_ref_die)
-	nml_item_ref_die = force_decl_die (value);
-
-      nml_item_die = new_die (DW_TAG_namelist_item, nml_die, NULL);
-      add_AT_die_ref (nml_item_die, DW_AT_namelist_items, nml_item_ref_die);
-    }
-  return nml_die;
-}
-
 
 /* Write the debugging output for DECL.  */
 
@@ -20809,9 +20700,6 @@ dwarf2out_decl (tree decl)
       if (decl_function_context (decl))
 	context_die = NULL;
 
-      break;
-
-    case NAMELIST_DECL:
       break;
 
     default:
@@ -21484,7 +21372,7 @@ dwarf2out_source_line (unsigned int line, const char *filename,
   unsigned int file_num;
   dw_line_info_table *table;
 
-  if (debug_info_level < DINFO_LEVEL_TERSE || line == 0)
+  if (debug_info_level < DINFO_LEVEL_NORMAL || line == 0)
     return;
 
   /* The discriminator column was added in dwarf4.  Simplify the below
@@ -23224,9 +23112,9 @@ optimize_location_into_implicit_ptr (dw_die_ref die, tree decl)
      we can add DW_OP_GNU_implicit_pointer.  */
   STRIP_NOPS (init);
   if (TREE_CODE (init) == POINTER_PLUS_EXPR
-      && tree_fits_shwi_p (TREE_OPERAND (init, 1)))
+      && host_integerp (TREE_OPERAND (init, 1), 0))
     {
-      offset = tree_to_shwi (TREE_OPERAND (init, 1));
+      offset = tree_low_cst (TREE_OPERAND (init, 1), 0);
       init = TREE_OPERAND (init, 0);
       STRIP_NOPS (init);
     }
@@ -24176,7 +24064,7 @@ dwarf2out_finish (const char *filename)
 	}
     }
 
-  if (debug_info_level >= DINFO_LEVEL_TERSE)
+  if (debug_info_level >= DINFO_LEVEL_NORMAL)
     add_AT_lineptr (main_comp_unit_die, DW_AT_stmt_list,
 		    debug_line_section_label);
 
@@ -24233,7 +24121,7 @@ dwarf2out_finish (const char *filename)
       /* Add a pointer to the line table for the main compilation unit
          so that the debugger can make sense of DW_AT_decl_file
          attributes.  */
-      if (debug_info_level >= DINFO_LEVEL_TERSE)
+      if (debug_info_level >= DINFO_LEVEL_NORMAL)
         add_AT_lineptr (ctnode->root_die, DW_AT_stmt_list,
                         (!dwarf_split_debug_info
                          ? debug_line_section_label

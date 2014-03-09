@@ -13,7 +13,7 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
-pragma Compiler_Unit_Warning;
+pragma Compiler_Unit;
 
 with Ada.Containers;
 

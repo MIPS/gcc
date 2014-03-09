@@ -1,7 +1,6 @@
 /* { dg-do compile } */
 /* { dg-require-effective-target ia32 } */
-/* { dg-prune-output "ABI for passing parameters" } */
-/* { dg-options "-Winline -O2 -mno-sse" } */
+/* { dg-options "-Winline -Wno-psabi -O2 -mno-sse" } */
 
 typedef double v2df __attribute__ ((vector_size (16)));
 v2df p;

@@ -2190,19 +2190,6 @@ package body Osint is
       return GNAT_Time;
    end OS_Time_To_GNAT_Time;
 
-   -----------------
-   -- Prep_Suffix --
-   -----------------
-
-   function Prep_Suffix return String is
-   begin
-      if Hostparm.OpenVMS then
-         return "_prep";
-      else
-         return ".prep";
-      end if;
-   end Prep_Suffix;
-
    ------------------
    -- Program_Name --
    ------------------
@@ -2443,8 +2430,7 @@ package body Osint is
 
       Len : Integer;
       --  Length of source file text (ALI). If it doesn't fit in an integer
-      --  we're probably stuck anyway (>2 gigs of source seems a lot, and
-      --  there are other places in the compiler that make this assumption).
+      --  we're probably stuck anyway (>2 gigs of source seems a lot!)
 
       Text : Text_Buffer_Ptr;
       --  Allocated text buffer
@@ -2599,7 +2585,7 @@ package body Osint is
       --  indicates failure to open the specified source file.
 
       Len : Integer;
-      --  Length of file, assume no more than 2 gigabytes of source
+      --  Length of file. Assume no more than 2 gigabytes of source!
 
       Actual_Len : Integer;
 

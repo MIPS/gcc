@@ -1,5 +1,5 @@
 /* { dg-do run } */
-/* { dg-options "-fcilkplus -Wno-overflow" } */
+/* { dg-options "-fcilkplus" } */
 
 #include <cstdlib>
 #include <string.h>

@@ -1,5 +1,4 @@
 /* { dg-do compile } */
-/* { dg-require-effective-target vect_int } */
 
 #define OUTER 32
 #define INNER 40

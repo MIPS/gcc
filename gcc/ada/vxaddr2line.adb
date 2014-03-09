@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2002-2013, AdaCore                     --
+--                     Copyright (C) 2002-2011, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -425,7 +425,7 @@ begin
       Usage;
    end if;
 
-   --  Enforce HARD LIMIT There should be at most 501 arguments. Why 501???
+   --  ??? HARD LIMIT! There should be at most 501 arguments
 
    if Argument_Count > 501 then
       Error ("Too many backtrace frames");

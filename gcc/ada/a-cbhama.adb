@@ -208,8 +208,7 @@ package body Ada.Containers.Bounded_Hashed_Maps is
      (Container : aliased Map;
       Key       : Key_Type) return Constant_Reference_Type
    is
-      Node : constant Count_Type :=
-               Key_Ops.Find (Container'Unrestricted_Access.all, Key);
+      Node : constant Count_Type := Key_Ops.Find (Container, Key);
 
    begin
       if Node = 0 then
@@ -322,8 +321,7 @@ package body Ada.Containers.Bounded_Hashed_Maps is
    -------------
 
    function Element (Container : Map; Key : Key_Type) return Element_Type is
-      Node : constant Count_Type :=
-               Key_Ops.Find (Container'Unrestricted_Access.all, Key);
+      Node : constant Count_Type := Key_Ops.Find (Container, Key);
 
    begin
       if Node = 0 then
@@ -451,8 +449,7 @@ package body Ada.Containers.Bounded_Hashed_Maps is
    ----------
 
    function Find (Container : Map; Key : Key_Type) return Cursor is
-      Node : constant Count_Type :=
-               Key_Ops.Find (Container'Unrestricted_Access.all, Key);
+      Node : constant Count_Type := Key_Ops.Find (Container, Key);
    begin
       if Node = 0 then
          return No_Element;
@@ -556,20 +553,15 @@ package body Ada.Containers.Bounded_Hashed_Maps is
       -----------------
 
       procedure Assign_Key (Node : in out Node_Type) is
-         New_Item : Element_Type;
-         pragma Unmodified (New_Item);
-         --  Default-initialized element (ok to reference, see below)
-
       begin
          Node.Key := Key;
 
-         --  There is no explicit element provided, but in an instance the
-         --  element type may be a scalar with a Default_Value aspect, or a
-         --  composite type with such a scalar component, or components with
-         --  default initialization, so insert a possibly initialized element
-         --  under the given key.
+         --  Note that we do not also assign the element component of the node
+         --  here, because this version of Insert does not accept an element
+         --  parameter.
 
-         Node.Element := New_Item;
+         --  Node.Element := New_Item;
+         --  What is this deleted code about???
       end Assign_Key;
 
       --------------
@@ -1168,8 +1160,7 @@ package body Ada.Containers.Bounded_Hashed_Maps is
             return False;
          end if;
 
-         X := M.Buckets (Key_Ops.Checked_Index
-                          (M, M.Nodes (Position.Node).Key));
+         X := M.Buckets (Key_Ops.Index (M, M.Nodes (Position.Node).Key));
 
          for J in 1 .. M.Length loop
             if X = Position.Node then

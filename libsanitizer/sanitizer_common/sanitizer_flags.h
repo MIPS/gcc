@@ -23,8 +23,7 @@ void ParseFlag(const char *env, const char **flag, const char *name);
 struct CommonFlags {
   // If set, use the online symbolizer from common sanitizer runtime.
   bool symbolize;
-  // Path to external symbolizer. If it is NULL, symbolizer will be looked for
-  // in PATH. If it is empty, external symbolizer will not be started.
+  // Path to external symbolizer.
   const char *external_symbolizer_path;
   // Strips this prefix from file paths in error reports.
   const char *strip_path_prefix;
@@ -36,12 +35,8 @@ struct CommonFlags {
   bool handle_ioctl;
   // Max number of stack frames kept for each allocation/deallocation.
   int malloc_context_size;
-  // Write logs to "log_path.pid".
-  // The special values are "stdout" and "stderr".
-  // The default is "stderr".
+  // Write logs to "log_path.pid" instead of stderr.
   const char *log_path;
-  // Verbosity level (0 - silent, 1 - a bit of output, 2+ - more output).
-  int  verbosity;
   // Enable memory leak detection.
   bool detect_leaks;
   // Invoke leak checking in an atexit handler. Has no effect if
@@ -50,17 +45,15 @@ struct CommonFlags {
   bool leak_check_at_exit;
   // If false, the allocator will crash instead of returning 0 on out-of-memory.
   bool allocator_may_return_null;
-  // If false, disable printing error summaries in addition to error reports.
-  bool print_summary;
 };
 
+extern CommonFlags common_flags_dont_use_directly;
+
 inline CommonFlags *common_flags() {
-  static CommonFlags f;
-  return &f;
+  return &common_flags_dont_use_directly;
 }
 
-void SetCommonFlagsDefaults(CommonFlags *f);
-void ParseCommonFlagsFromString(CommonFlags *f, const char *str);
+void ParseCommonFlagsFromString(const char *str);
 
 }  // namespace __sanitizer
 

@@ -39,7 +39,6 @@ with Prj.Tree; use Prj.Tree;
 with Prj.Util; use Prj.Util;
 with Sdefault;
 with Snames;
-with Stringt;
 with Switch;   use Switch;
 with Table;
 with Targparm; use Targparm;
@@ -1417,12 +1416,6 @@ package body Clean is
 
          if Main_Project = No_Project then
             Fail ("""" & Project_File_Name.all & """ processing failed");
-
-         elsif Main_Project.Qualifier = Aggregate then
-            Fail ("aggregate projects are not supported");
-
-         elsif Aggregate_Libraries_In (Project_Tree) then
-            Fail ("aggregate library projects are not supported");
          end if;
 
          if Opt.Verbose_Mode then
@@ -1560,7 +1553,6 @@ package body Clean is
 
          Csets.Initialize;
          Snames.Initialize;
-         Stringt.Initialize;
 
          Prj.Tree.Initialize (Root_Environment, Gnatmake_Flags);
 

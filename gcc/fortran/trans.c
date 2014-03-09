@@ -1,5 +1,5 @@
 /* Code translation -- generate GCC trees from gfc_code.
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -23,7 +23,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tree.h"
 #include "gimple-expr.h"	/* For create_tmp_var_raw.  */
-#include "stringpool.h"
 #include "tree-iterator.h"
 #include "diagnostic-core.h"  /* For internal_error.  */
 #include "flags.h"
@@ -423,7 +422,7 @@ trans_runtime_error_vararg (bool error, locus* where, const char* msgid,
     }
   else
     asprintf (&message, "In file '%s', around line %d",
-	      gfc_source_file, LOCATION_LINE (input_location) + 1);
+	      gfc_source_file, input_line + 1);
 
   arg = gfc_build_addr_expr (pchar_type_node,
 			     gfc_build_localized_cstring_const (message));
@@ -2043,22 +2042,4 @@ gfc_likely (tree cond)
 			      2, cond, tmp);
   cond = fold_convert (boolean_type_node, cond);
   return cond;
-}
-
-
-/* Get the string length for a deferred character length component.  */
-
-bool
-gfc_deferred_strlen (gfc_component *c, tree *decl)
-{
-  char name[GFC_MAX_SYMBOL_LEN+9];
-  gfc_component *strlen;
-  if (!(c->ts.type == BT_CHARACTER && c->ts.deferred))
-    return false;
-  sprintf (name, "_%s_length", c->name);
-  for (strlen = c; strlen; strlen = strlen->next)
-    if (strcmp (strlen->name, name) == 0)
-      break;
-  *decl = strlen ? strlen->backend_decl : NULL_TREE;
-  return strlen != NULL;
 }

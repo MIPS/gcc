@@ -14,10 +14,8 @@ import "unsafe"
 // registers that might hold result values.
 type i386Regs struct {
 	esp uint32
-	eax uint32  // Value to return in %eax.
-	st0 float64 // Value to return in %st(0).
-	sr  bool    // Set to true if hidden struct pointer.
-	sf  bool    // Set to true if returning float
+	eax uint32 // Value to return in %eax.
+	st0 uint64 // Value to return in %st(0).
 }
 
 // MakeFuncStubGo implements the 386 calling convention for MakeFunc.
@@ -58,13 +56,10 @@ func MakeFuncStubGo(regs *i386Regs, c *makeFuncImpl) {
 	in := make([]Value, 0, len(ftyp.in))
 	ap := uintptr(regs.esp)
 
-	regs.sr = false
-	regs.sf = false
 	var retPtr unsafe.Pointer
 	if retStruct {
 		retPtr = *(*unsafe.Pointer)(unsafe.Pointer(ap))
 		ap += ptrSize
-		regs.sr = true
 	}
 
 	for _, rt := range ftyp.in {
@@ -82,7 +77,7 @@ func MakeFuncStubGo(regs *i386Regs, c *makeFuncImpl) {
 
 	// Call the real function.
 
-	out := c.call(in)
+	out := c.fn(in)
 
 	if len(out) != len(ftyp.out) {
 		panic("reflect: wrong return count from function created by MakeFunc")
@@ -128,16 +123,13 @@ func MakeFuncStubGo(regs *i386Regs, c *makeFuncImpl) {
 
 	v := out[0]
 	w := v.iword()
+	if v.Kind() != Ptr && v.Kind() != UnsafePointer {
+		w = loadIword(unsafe.Pointer(w), v.typ.size)
+	}
 	switch v.Kind() {
-	case Ptr, UnsafePointer:
-		regs.eax = uint32(uintptr(w))
-	case Float32:
-		regs.st0 = float64(*(*float32)(unsafe.Pointer(w)))
-		regs.sf = true
-	case Float64:
-		regs.st0 = *(*float64)(unsafe.Pointer(w))
-		regs.sf = true
+	case Float32, Float64:
+		regs.st0 = uint64(uintptr(w))
 	default:
-		regs.eax = uint32(uintptr(loadIword(unsafe.Pointer(w), v.typ.size)))
+		regs.eax = uint32(uintptr(w))
 	}
 }

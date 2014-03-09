@@ -28,8 +28,7 @@ rundefer(void)
 		d->__pfn = nil;
 		if (pfn != nil)
 			(*pfn)(d->__arg);
-		if (d->__free)
-		  runtime_free(d);
+		runtime_free(d);
 	}
 }
 

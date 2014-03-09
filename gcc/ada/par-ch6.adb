@@ -1146,7 +1146,7 @@ package body Ch6 is
 
          --  On exit from the loop, Ident_Node is the last identifier scanned,
          --  i.e. the defining identifier, and Prefix_Node is a node for the
-         --  entire name, structured (incorrectly) as a selected component.
+         --  entire name, structured (incorrectly!) as a selected component.
 
          Name_Node := Prefix (Prefix_Node);
          Change_Node (Prefix_Node, N_Designator);
@@ -1252,7 +1252,7 @@ package body Ch6 is
 
          --  On exit from the loop, Ident_Node is the last identifier scanned,
          --  i.e. the defining identifier, and Prefix_Node is a node for the
-         --  entire name, structured (incorrectly) as a selected component.
+         --  entire name, structured (incorrectly!) as a selected component.
 
          Name_Node := Prefix (Prefix_Node);
          Change_Node (Prefix_Node, N_Defining_Program_Unit_Name);
@@ -1399,7 +1399,7 @@ package body Ch6 is
 
                      --  If we run into a semicolon, then assume that a
                      --  colon was missing, e.g.  Parms (X Y; ...). Also
-                     --  assume missing colon on EOF (a real disaster)
+                     --  assume missing colon on EOF (a real disaster!)
                      --  and on a right paren, e.g. Parms (X Y), and also
                      --  on an assignment symbol, e.g. Parms (X Y := ..)
 
@@ -1828,9 +1828,9 @@ package body Ch6 is
       --  The caller has checked that the initial token is RETURN
 
       function Is_Simple return Boolean;
-      --  Scan state is just after RETURN (and is left that way). Determine
-      --  whether this is a simple or extended return statement by looking
-      --  ahead for "identifier :", which implies extended.
+      --  Scan state is just after RETURN (and is left that way).
+      --  Determine whether this is a simple or extended return statement
+      --  by looking ahead for "identifier :", which implies extended.
 
       ---------------
       -- Is_Simple --
@@ -1855,9 +1855,8 @@ package body Ch6 is
          return Result;
       end Is_Simple;
 
-      Ret_Sloc : constant Source_Ptr := Token_Ptr;
-      Ret_Strt : constant Column_Number := Start_Column;
-      Ret_Node : Node_Id;
+      Return_Sloc : constant Source_Ptr := Token_Ptr;
+      Return_Node : Node_Id;
 
    --  Start of processing for P_Return_Statement
 
@@ -1869,7 +1868,7 @@ package body Ch6 is
 
       if Token = Tok_Semicolon then
          Scan; -- past ;
-         Ret_Node := New_Node (N_Simple_Return_Statement, Ret_Sloc);
+         Return_Node := New_Node (N_Simple_Return_Statement, Return_Sloc);
 
       --  Non-trivial case
 
@@ -1881,10 +1880,10 @@ package body Ch6 is
          --  message is probably that we have a missing semicolon.
 
          if Is_Simple then
-            Ret_Node := New_Node (N_Simple_Return_Statement, Ret_Sloc);
+            Return_Node := New_Node (N_Simple_Return_Statement, Return_Sloc);
 
             if Token not in Token_Class_Eterm then
-               Set_Expression (Ret_Node, P_Expression_No_Right_Paren);
+               Set_Expression (Return_Node, P_Expression_No_Right_Paren);
             end if;
 
          --  Extended_return_statement (Ada 2005 only -- AI-318):
@@ -1896,19 +1895,19 @@ package body Ch6 is
                Error_Msg_SP ("\unit must be compiled with -gnat05 switch");
             end if;
 
-            Ret_Node := New_Node (N_Extended_Return_Statement, Ret_Sloc);
+            Return_Node := New_Node (N_Extended_Return_Statement, Return_Sloc);
             Set_Return_Object_Declarations
-              (Ret_Node, New_List (P_Return_Object_Declaration));
+              (Return_Node, New_List (P_Return_Object_Declaration));
 
             if Token = Tok_Do then
                Push_Scope_Stack;
                Scope.Table (Scope.Last).Etyp := E_Return;
-               Scope.Table (Scope.Last).Ecol := Ret_Strt;
-               Scope.Table (Scope.Last).Sloc := Ret_Sloc;
+               Scope.Table (Scope.Last).Ecol := Start_Column;
+               Scope.Table (Scope.Last).Sloc := Return_Sloc;
 
                Scan; -- past DO
                Set_Handled_Statement_Sequence
-                 (Ret_Node, P_Handled_Sequence_Of_Statements);
+                 (Return_Node, P_Handled_Sequence_Of_Statements);
                End_Statements;
 
                --  Do we need to handle Error_Resync here???
@@ -1918,7 +1917,7 @@ package body Ch6 is
          TF_Semicolon;
       end if;
 
-      return Ret_Node;
+      return Return_Node;
    end P_Return_Statement;
 
 end Ch6;

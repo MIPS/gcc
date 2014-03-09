@@ -1,7 +1,6 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
+// { dg-options "-std=gnu++0x" }
 
-// Copyright (C) 2011-2014 Free Software Foundation, Inc.
+// Copyright (C) 2011-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,35 +18,37 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <type_traits>
+#include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using std::is_member_object_pointer;
   using namespace __gnu_test;
 
   // Positive tests.
-  static_assert(test_category<is_member_object_pointer,
-		int (ClassType::*)>(true), "");
-  static_assert(test_category<is_member_object_pointer,
-		const int (ClassType::*)>(true), "");
-  static_assert(test_category<is_member_object_pointer,
-		ClassType (ClassType::*)>(true), "");
+  VERIFY( (test_category<is_member_object_pointer,
+	   int (ClassType::*)>(true)) );
+  VERIFY( (test_category<is_member_object_pointer,
+	   const int (ClassType::*)>(true)) );
+  VERIFY( (test_category<is_member_object_pointer,
+	   ClassType (ClassType::*)>(true)) );
 
   // Negative tests.
-  static_assert(test_category<is_member_object_pointer,
-		int (ClassType::*) (int)>(false), "");
-  static_assert(test_category<is_member_object_pointer,
-		int (ClassType::*) (int) const>(false), "");
-  static_assert(test_category<is_member_object_pointer,
-		int (ClassType::*) (float, ...)>(false), "");
-  static_assert(test_category<is_member_object_pointer,
-		ClassType (ClassType::*) (ClassType)>(false), "");
-  static_assert(test_category<is_member_object_pointer,
-		float (ClassType::*) (int, float, int[], int&)>(false), "");
+  VERIFY( (test_category<is_member_object_pointer,
+	   int (ClassType::*) (int)>(false)) );
+  VERIFY( (test_category<is_member_object_pointer,
+	   int (ClassType::*) (int) const>(false)) );
+  VERIFY( (test_category<is_member_object_pointer,
+	   int (ClassType::*) (float, ...)>(false)) );
+  VERIFY( (test_category<is_member_object_pointer,
+	   ClassType (ClassType::*) (ClassType)>(false)) );
+  VERIFY( (test_category<is_member_object_pointer,
+	   float (ClassType::*) (int, float, int[], int&)>(false)) );
 
   // Sanity check.
-  static_assert(test_category<is_member_object_pointer, ClassType>(false), "");
+  VERIFY( (test_category<is_member_object_pointer, ClassType>(false)) );
 }
 
 int main()

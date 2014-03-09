@@ -16,12 +16,12 @@ struct B2
 
 struct B3
 {
-  virtual auto f() -> final void; // { dg-error "type" }
+  virtual auto f() -> final void; // { dg-error "expected type-specifier" }
 };
 
 struct B4
 {
-  virtual auto f() -> final void {} // { dg-error "type" }
+  virtual auto f() -> final void {} // { dg-error "expected type-specifier" }
 };
 
 struct D : B
@@ -36,10 +36,10 @@ struct D2 : B
 
 struct D3 : B
 {
-  virtual auto g() -> override void; // { dg-error "type" }
+  virtual auto g() -> override void; // { dg-error "expected type-specifier" }
 };
 
 struct D4 : B
 {
-  virtual auto g() -> override void {} // { dg-error "type" }
+  virtual auto g() -> override void {} // { dg-error "expected type-specifier" }
 };

@@ -1,5 +1,5 @@
 /* Vector API for GNU compiler.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Nathan Sidwell <nathan@codesourcery.com>
    Re-implemented in C++ by Diego Novillo <dnovillo@google.com>
 
@@ -171,27 +171,46 @@ vec_prefix::release_overhead (void)
 
 
 /* Calculate the number of slots to reserve a vector, making sure that
-   it is of at least DESIRED size by growing ALLOC exponentially.  */
+   RESERVE slots are free.  If EXACT grow exactly, otherwise grow
+   exponentially.  PFX is the control data for the vector.  */
 
 unsigned
-vec_prefix::calculate_allocation_1 (unsigned alloc, unsigned desired)
+vec_prefix::calculate_allocation (vec_prefix *pfx, unsigned reserve,
+				  bool exact)
 {
+  unsigned alloc = 0;
+  unsigned num = 0;
+
+  if (pfx)
+    {
+      alloc = pfx->m_alloc;
+      num = pfx->m_num;
+    }
+  else if (!reserve)
+    gcc_unreachable ();
+
   /* We must have run out of room.  */
-  gcc_assert (alloc < desired);
+  gcc_assert (alloc - num < reserve);
 
-  /* Exponential growth. */
-  if (!alloc)
-    alloc = 4;
-  else if (alloc < 16)
-    /* Double when small.  */
-    alloc = alloc * 2;
+  if (exact)
+    /* Exact size.  */
+    alloc = num + reserve;
   else
-    /* Grow slower when large.  */
-    alloc = (alloc * 3 / 2);
+    {
+      /* Exponential growth. */
+      if (!alloc)
+	alloc = 4;
+      else if (alloc < 16)
+	/* Double when small.  */
+	alloc = alloc * 2;
+      else
+	/* Grow slower when large.  */
+	alloc = (alloc * 3 / 2);
 
-  /* If this is still too small, set it to the right size. */
-  if (alloc < desired)
-    alloc = desired;
+      /* If this is still too small, set it to the right size. */
+      if (alloc < num + reserve)
+	alloc = num + reserve;
+    }
   return alloc;
 }
 

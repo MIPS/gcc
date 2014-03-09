@@ -1,5 +1,5 @@
 /* Subroutines used for macro/preprocessor support on the ia-32.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -141,40 +141,29 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
       def_or_undef (parse_in, "__core2");
       def_or_undef (parse_in, "__core2__");
       break;
-    case PROCESSOR_NEHALEM:
+    case PROCESSOR_COREI7:
       def_or_undef (parse_in, "__corei7");
       def_or_undef (parse_in, "__corei7__");
-      def_or_undef (parse_in, "__nehalem");
-      def_or_undef (parse_in, "__nehalem__");
       break;
-    case PROCESSOR_SANDYBRIDGE:
+    case PROCESSOR_COREI7_AVX:
       def_or_undef (parse_in, "__corei7_avx");
       def_or_undef (parse_in, "__corei7_avx__");
-      def_or_undef (parse_in, "__sandybridge");
-      def_or_undef (parse_in, "__sandybridge__");
       break;
     case PROCESSOR_HASWELL:
       def_or_undef (parse_in, "__core_avx2");
       def_or_undef (parse_in, "__core_avx2__");
-      def_or_undef (parse_in, "__haswell");
-      def_or_undef (parse_in, "__haswell__");
       break;
-    case PROCESSOR_BONNELL:
+    case PROCESSOR_ATOM:
       def_or_undef (parse_in, "__atom");
       def_or_undef (parse_in, "__atom__");
-      def_or_undef (parse_in, "__bonnell");
-      def_or_undef (parse_in, "__bonnell__");
       break;
-    case PROCESSOR_SILVERMONT:
+    case PROCESSOR_SLM:
       def_or_undef (parse_in, "__slm");
       def_or_undef (parse_in, "__slm__");
-      def_or_undef (parse_in, "__silvermont");
-      def_or_undef (parse_in, "__silvermont__");
       break;
     /* use PROCESSOR_max to not set/unset the arch macro.  */
     case PROCESSOR_max:
       break;
-    case PROCESSOR_INTEL:
     case PROCESSOR_GENERIC:
       gcc_unreachable ();
     }
@@ -257,27 +246,21 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     case PROCESSOR_CORE2:
       def_or_undef (parse_in, "__tune_core2__");
       break;
-    case PROCESSOR_NEHALEM:
+    case PROCESSOR_COREI7:
       def_or_undef (parse_in, "__tune_corei7__");
-      def_or_undef (parse_in, "__tune_nehalem__");
       break;
-    case PROCESSOR_SANDYBRIDGE:
+    case PROCESSOR_COREI7_AVX:
       def_or_undef (parse_in, "__tune_corei7_avx__");
-      def_or_undef (parse_in, "__tune_sandybridge__");
       break;
     case PROCESSOR_HASWELL:
       def_or_undef (parse_in, "__tune_core_avx2__");
-      def_or_undef (parse_in, "__tune_haswell__");
       break;
-    case PROCESSOR_BONNELL:
+    case PROCESSOR_ATOM:
       def_or_undef (parse_in, "__tune_atom__");
-      def_or_undef (parse_in, "__tune_bonnell__");
       break;
-    case PROCESSOR_SILVERMONT:
+    case PROCESSOR_SLM:
       def_or_undef (parse_in, "__tune_slm__");
-      def_or_undef (parse_in, "__tune_silvermont__");
       break;
-    case PROCESSOR_INTEL:
     case PROCESSOR_GENERIC:
       break;
     /* use PROCESSOR_max to not set/unset the tune macro.  */
@@ -329,8 +312,6 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__SSE4_2__");
   if (isa_flag & OPTION_MASK_ISA_AES)
     def_or_undef (parse_in, "__AES__");
-  if (isa_flag & OPTION_MASK_ISA_SHA)
-    def_or_undef (parse_in, "__SHA__");
   if (isa_flag & OPTION_MASK_ISA_PCLMUL)
     def_or_undef (parse_in, "__PCLMUL__");
   if (isa_flag & OPTION_MASK_ISA_AVX)
@@ -387,12 +368,12 @@ ix86_target_macros_internal (HOST_WIDE_INT isa_flag,
     def_or_undef (parse_in, "__XSAVE__");
   if (isa_flag & OPTION_MASK_ISA_XSAVEOPT)
     def_or_undef (parse_in, "__XSAVEOPT__");
-  if (isa_flag & OPTION_MASK_ISA_PREFETCHWT1)
-    def_or_undef (parse_in, "__PREFETCHWT1__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE))
     def_or_undef (parse_in, "__SSE_MATH__");
   if ((fpmath & FPMATH_SSE) && (isa_flag & OPTION_MASK_ISA_SSE2))
     def_or_undef (parse_in, "__SSE2_MATH__");
+  if (isa_flag & OPTION_MASK_ISA_MPX)
+    def_or_undef (parse_in, "__MPX__");
 }
 
 
@@ -462,21 +443,12 @@ ix86_pragma_target_parse (tree args, tree pop_target)
 			       (enum fpmath_unit) prev_opt->x_ix86_fpmath,
 			       cpp_undef);
 
-  /* For the definitions, ensure all newly defined macros are considered
-     as used for -Wunused-macros.  There is no point warning about the
-     compiler predefined macros.  */
-  cpp_options *cpp_opts = cpp_get_options (parse_in);
-  unsigned char saved_warn_unused_macros = cpp_opts->warn_unused_macros;
-  cpp_opts->warn_unused_macros = 0;
-
   /* Define all of the macros for new options that were just turned on.  */
   ix86_target_macros_internal (cur_isa & diff_isa,
 			       cur_arch,
 			       cur_tune,
 			       (enum fpmath_unit) cur_opt->x_ix86_fpmath,
 			       cpp_define);
-
-  cpp_opts->warn_unused_macros = saved_warn_unused_macros;
 
   return true;
 }
@@ -514,9 +486,6 @@ ix86_target_macros (void)
 
   if (TARGET_LONG_DOUBLE_64)
     cpp_define (parse_in, "__LONG_DOUBLE_64__");
-
-  if (TARGET_LONG_DOUBLE_128)
-    cpp_define (parse_in, "__LONG_DOUBLE_128__");
 
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_ACQUIRE=%d", IX86_HLE_ACQUIRE);
   cpp_define_formatted (parse_in, "__ATOMIC_HLE_RELEASE=%d", IX86_HLE_RELEASE);

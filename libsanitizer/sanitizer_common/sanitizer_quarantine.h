@@ -24,14 +24,12 @@ namespace __sanitizer {
 template<typename Node> class QuarantineCache;
 
 struct QuarantineBatch {
-  static const uptr kSize = 1021;
+  static const uptr kSize = 1024;
   QuarantineBatch *next;
   uptr size;
   uptr count;
   void *batch[kSize];
 };
-
-COMPILER_CHECK(sizeof(QuarantineBatch) <= (1 << 13));  // 8Kb.
 
 // The callback interface is:
 // void Callback::Recycle(Node *ptr);
@@ -123,10 +121,8 @@ class QuarantineCache {
   }
 
   void Enqueue(Callback cb, void *ptr, uptr size) {
-    if (list_.empty() || list_.back()->count == QuarantineBatch::kSize) {
+    if (list_.empty() || list_.back()->count == QuarantineBatch::kSize)
       AllocBatch(cb);
-      size += sizeof(QuarantineBatch);  // Count the batch in Quarantine size.
-    }
     QuarantineBatch *b = list_.back();
     b->batch[b->count++] = ptr;
     b->size += size;
@@ -149,7 +145,9 @@ class QuarantineCache {
       return 0;
     QuarantineBatch *b = list_.front();
     list_.pop_front();
-    SizeSub(b->size);
+    // FIXME: should probably add SizeSub method?
+    // See https://code.google.com/p/thread-sanitizer/issues/detail?id=20
+    SizeAdd(0 - b->size);
     return b;
   }
 
@@ -159,9 +157,6 @@ class QuarantineCache {
 
   void SizeAdd(uptr add) {
     atomic_store(&size_, Size() + add, memory_order_relaxed);
-  }
-  void SizeSub(uptr sub) {
-    atomic_store(&size_, Size() - sub, memory_order_relaxed);
   }
 
   NOINLINE QuarantineBatch* AllocBatch(Callback cb) {

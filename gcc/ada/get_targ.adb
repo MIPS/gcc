@@ -23,8 +23,6 @@
 --                                                                          --
 ------------------------------------------------------------------------------
 
---  Version for use with gcc
-
 package body Get_Targ is
 
    --  Functions returning individual runtime. For the standard (GCC) back
@@ -233,17 +231,6 @@ package body Get_Targ is
    begin
       return C_Get_Bits_BE;
    end Get_Bits_BE;
-
-   ---------------------
-   -- Get_Short_Enums --
-   ---------------------
-
-   function Get_Short_Enums return Int is
-      flag_short_enums : Int;
-      pragma Import (C, flag_short_enums);
-   begin
-      return flag_short_enums;
-   end Get_Short_Enums;
 
    --------------------------
    -- Get_Strict_Alignment --

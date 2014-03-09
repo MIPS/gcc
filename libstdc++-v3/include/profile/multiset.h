@@ -1,6 +1,6 @@
 // Profiling multiset implementation -*- C++ -*-
 
-// Copyright (C) 2009-2014 Free Software Foundation, Inc.
+// Copyright (C) 2009-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -43,10 +43,6 @@ namespace __profile
     {
       typedef _GLIBCXX_STD_C::multiset<_Key, _Compare, _Allocator> _Base;
 
-#if __cplusplus >= 201103L
-      typedef __gnu_cxx::__alloc_traits<_Allocator> _Alloc_traits;
-#endif
-
     public:
       // types:
       typedef _Key				     key_type;
@@ -68,11 +64,7 @@ namespace __profile
       typedef typename _Base::const_pointer          const_pointer;
 
       // 23.3.3.1 construct/copy/destroy:
-
-      multiset()
-      : _Base() { }
-
-      explicit multiset(const _Compare& __comp,
+      explicit multiset(const _Compare& __comp = _Compare(),
 			const _Allocator& __a = _Allocator())
       : _Base(__comp, __a) { }
 
@@ -87,62 +79,49 @@ namespace __profile
 		 const _Allocator& __a = _Allocator())
 	: _Base(__first, __last, __comp, __a) { }
 
-#if __cplusplus < 201103L
       multiset(const multiset& __x)
       : _Base(__x) { }
-#else
-      multiset(const multiset&) = default;
-      multiset(multiset&&) = default;
+
+      multiset(const _Base& __x)
+      : _Base(__x) { }
+
+#if __cplusplus >= 201103L
+      multiset(multiset&& __x)
+      noexcept(is_nothrow_copy_constructible<_Compare>::value)
+      : _Base(std::move(__x))
+      { }
 
       multiset(initializer_list<value_type> __l,
 	       const _Compare& __comp = _Compare(),
 	       const allocator_type& __a = allocator_type())
       : _Base(__l, __comp, __a) { }
-
-      explicit
-      multiset(const allocator_type& __a)
-	: _Base(__a) { }
-
-      multiset(const multiset& __x, const allocator_type& __a)
-      : _Base(__x, __a) { }
-
-      multiset(multiset&& __x, const allocator_type& __a)
-      noexcept(is_nothrow_copy_constructible<_Compare>::value
-	       && _Alloc_traits::_S_always_equal())
-      : _Base(std::move(__x), __a) { }
-
-      multiset(initializer_list<value_type> __l, const allocator_type& __a)
-      : _Base(__l, __a) { }
-
-      template<typename _InputIterator>
-        multiset(_InputIterator __first, _InputIterator __last,
-	    const allocator_type& __a)
-	  : _Base(__first, __last, __a) { }
 #endif
-
-      multiset(const _Base& __x)
-      : _Base(__x) { }
 
       ~multiset() _GLIBCXX_NOEXCEPT { }
 
-#if __cplusplus < 201103L
       multiset&
       operator=(const multiset& __x)
       {
-	_M_base() = __x;
+	*static_cast<_Base*>(this) = __x;
 	return *this;
       }
-#else
-      multiset&
-      operator=(const multiset&) = default;
 
+#if __cplusplus >= 201103L
       multiset&
-      operator=(multiset&&) = default;
+      operator=(multiset&& __x)
+      {
+	// NB: DR 1204.
+	// NB: DR 675.
+	this->clear();
+	this->swap(__x);
+	return *this;
+      }
 
       multiset&
       operator=(initializer_list<value_type> __l)
       {
-	_M_base() = __l;
+	this->clear();
+	this->insert(__l);
 	return *this;
       }
 #endif
@@ -293,9 +272,6 @@ namespace __profile
 
       void
       swap(multiset& __x)
-#if __cplusplus >= 201103L
-      noexcept(_Alloc_traits::_S_nothrow_swap())
-#endif
       { _Base::swap(__x); }
 
       void

@@ -75,17 +75,6 @@ package body Output is
       return Pos (Next_Col);
    end Column;
 
-   ----------------------
-   -- Delete_Last_Char --
-   ----------------------
-
-   procedure Delete_Last_Char is
-   begin
-      if Next_Col /= 1 then
-         Next_Col := Next_Col - 1;
-      end if;
-   end Delete_Last_Char;
-
    ------------------
    -- Flush_Buffer --
    ------------------
@@ -191,19 +180,6 @@ package body Output is
       Cur_Indentation :=
         (Cur_Indentation + Indentation_Amount) mod Indentation_Limit;
    end Indent;
-
-   ---------------
-   -- Last_Char --
-   ---------------
-
-   function Last_Char return Character is
-   begin
-      if Next_Col /= 1 then
-         return Buffer (Next_Col - 1);
-      else
-         return ASCII.NUL;
-      end if;
-   end Last_Char;
 
    -------------
    -- Outdent --

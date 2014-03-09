@@ -222,11 +222,11 @@ static int
 checkit (const char* format, ...)
 {
   int result;
-  va_list args;
-  va_start (args, format);
+  VA_OPEN (args, format);
+  VA_FIXEDARG (args, char *, format);
 
   result = _doprnt (format, args, stdout);
-  va_end (args);
+  VA_CLOSE (args);
 
   return result;
 }

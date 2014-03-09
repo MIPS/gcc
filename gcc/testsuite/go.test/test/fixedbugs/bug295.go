@@ -6,9 +6,7 @@
 
 package main
 
-import . "testing"  // defines file-level T
-
-type _ B // make use of package "testing" (but don't refer to T)
+import . "testing"  // defines top-level T
 
 type S struct {
 	T int

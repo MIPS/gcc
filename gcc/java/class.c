@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1996-2014 Free Software Foundation, Inc.
+   Copyright (C) 1996-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -27,9 +27,6 @@ The Free Software Foundation is independent of Sun Microsystems, Inc.  */
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "stringpool.h"
-#include "stor-layout.h"
-#include "varasm.h"
 #include "flags.h"
 #include "java-tree.h"
 #include "jcf.h"
@@ -920,7 +917,7 @@ hashUtf8String (const char *str, int len)
 {
   const unsigned char* ptr = (const unsigned char*) str;
   const unsigned char *limit = ptr + len;
-  uint32 hash = 0;
+  int32 hash = 0;
   for (; ptr < limit;)
     {
       int ch = UTF8_GET (ptr, limit);
@@ -1579,14 +1576,14 @@ get_dispatch_vector (tree type)
       HOST_WIDE_INT i;
       tree method;
       tree super = CLASSTYPE_SUPER (type);
-      HOST_WIDE_INT nvirtuals = tree_to_shwi (TYPE_NVIRTUALS (type));
+      HOST_WIDE_INT nvirtuals = tree_low_cst (TYPE_NVIRTUALS (type), 0);
       vtable = make_tree_vec (nvirtuals);
       TYPE_VTABLE (type) = vtable;
       if (super != NULL_TREE)
 	{
 	  tree super_vtable = get_dispatch_vector (super);
 
-	  for (i = tree_to_shwi (TYPE_NVIRTUALS (super)); --i >= 0; )
+	  for (i = tree_low_cst (TYPE_NVIRTUALS (super), 0); --i >= 0; )
 	    TREE_VEC_ELT (vtable, i) = TREE_VEC_ELT (super_vtable, i);
 	}
 
@@ -1595,8 +1592,8 @@ get_dispatch_vector (tree type)
 	{
 	  tree method_index = get_method_index (method);
 	  if (method_index != NULL_TREE
-	      && tree_fits_shwi_p (method_index))
-	    TREE_VEC_ELT (vtable, tree_to_shwi (method_index)) = method;
+	      && host_integerp (method_index, 0))
+	    TREE_VEC_ELT (vtable, tree_low_cst (method_index, 0)) = method;
 	}
     }
 
@@ -2415,7 +2412,7 @@ maybe_layout_super_class (tree super_class, tree this_class ATTRIBUTE_UNUSED)
 }
 
 /* safe_layout_class just makes sure that we can load a class without
-   disrupting the current_class, input_location, etc, information
+   disrupting the current_class, input_file, input_line, etc, information
    about the class processed currently.  */
 
 void

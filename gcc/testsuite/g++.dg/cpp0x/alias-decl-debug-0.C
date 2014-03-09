@@ -1,5 +1,5 @@
 // Origin: PR c++/51032
-// { dg-skip-if "No stabs" { aarch64*-*-* mmix-*-* *-*-aix* alpha*-*-* hppa*64*-*-* ia64-*-* *-*-vxworks* nios2-*-* } { "*" } { "" } }
+// { dg-skip-if "No stabs" { aarch64*-*-* mmix-*-* *-*-aix* alpha*-*-* hppa*64*-*-* ia64-*-* *-*-vxworks* } { "*" } { "" } }
 // { dg-options "-std=c++11 -gstabs+" }
 
 template <class C>

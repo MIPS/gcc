@@ -1,5 +1,5 @@
 /* Subroutines used for code generation on the Tilera TILEPro.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
    Contributed by Walter Lee (walt@tilera.com)
 
    This file is part of GCC.
@@ -41,22 +41,7 @@
 #include "dwarf2.h"
 #include "timevar.h"
 #include "tree.h"
-#include "pointer-set.h"
-#include "hash-table.h"
-#include "vec.h"
-#include "ggc.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "stringpool.h"
-#include "stor-layout.h"
-#include "varasm.h"
-#include "calls.h"
 #include "gimplify.h"
 #include "cfgloop.h"
 #include "tilepro-builtins.h"
@@ -3184,12 +3169,6 @@ tilepro_expand_builtin (tree exp,
     }
   if (!pat)
     return NULL_RTX;
-
-  /* If we are generating a prefetch, tell the scheduler not to move
-     it around.  */
-  if (GET_CODE (pat) == PREFETCH)
-    PREFETCH_SCHEDULE_BARRIER_P (pat) = true;
-
   emit_insn (pat);
 
   if (nonvoid)
@@ -3994,7 +3973,7 @@ static void
 tilepro_gen_bundles (void)
 {
   basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
   {
     rtx insn, next;
     rtx end = NEXT_INSN (BB_END (bb));
@@ -4265,7 +4244,7 @@ static void
 reorder_var_tracking_notes (void)
 {
   basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
   {
     rtx insn, next;
     rtx queue = NULL_RTX;

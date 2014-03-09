@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler, for IBM RS/6000.
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Richard Kenner (kenner@vlsi1.ultra.nyu.edu)
 
    This file is part of GCC.
@@ -58,9 +58,6 @@ extern void rs6000_expand_vector_extract (rtx, rtx, int);
 extern bool altivec_expand_vec_perm_const (rtx op[4]);
 extern void altivec_expand_vec_perm_le (rtx op[4]);
 extern bool rs6000_expand_vec_perm_const (rtx op[4]);
-extern void altivec_expand_lvx_be (rtx, rtx, enum machine_mode, unsigned);
-extern void altivec_expand_stvx_be (rtx, rtx, enum machine_mode, unsigned);
-extern void altivec_expand_stvex_be (rtx, rtx, enum machine_mode, unsigned);
 extern void rs6000_expand_extract_even (rtx, rtx, rtx);
 extern void rs6000_expand_interleave (rtx, rtx, rtx, bool);
 extern void build_mask64_2_operands (rtx, rtx *);

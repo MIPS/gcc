@@ -1,18 +1,18 @@
-/* { dg-do compile { target { { x86_64-*-* && lp64 } || { powerpc*-*-* && lp64 } } } } */
+/* { dg-do compile { target { x86_64-*-* && lp64 } } } */
 /* { dg-options "-O3 -fdump-rtl-ira -fdump-rtl-pro_and_epilogue"  } */
 
-long __attribute__((noinline, noclone))
-foo (long a)
+int __attribute__((noinline, noclone))
+foo (int a)
 {
   return a + 5;
 }
 
-static long g;
+static int g;
 
-long __attribute__((noinline, noclone))
-bar (long a)
+int __attribute__((noinline, noclone))
+bar (int a)
 {
-  long r;
+  int r;
 
   if (a)
     {

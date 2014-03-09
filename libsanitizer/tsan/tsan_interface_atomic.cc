@@ -249,10 +249,11 @@ static T AtomicLoad(ThreadState *thr, uptr pc, const volatile T *a,
   // Assume the access is atomic.
   if (!IsAcquireOrder(mo) && sizeof(T) <= sizeof(a)) {
     MemoryReadAtomic(thr, pc, (uptr)a, SizeLog<T>());
-    return *a;  // as if atomic
+    return *a;
   }
   SyncVar *s = CTX()->synctab.GetOrCreateAndLock(thr, pc, (uptr)a, false);
-  AcquireImpl(thr, pc, &s->clock);
+  thr->clock.set(thr->tid, thr->fast_state.epoch());
+  thr->clock.acquire(&s->clock);
   T v = *a;
   s->mtx.ReadUnlock();
   __sync_synchronize();
@@ -270,15 +271,13 @@ static void AtomicStore(ThreadState *thr, uptr pc, volatile T *a, T v,
   // Strictly saying even relaxed store cuts off release sequence,
   // so must reset the clock.
   if (!IsReleaseOrder(mo) && sizeof(T) <= sizeof(a)) {
-    *a = v;  // as if atomic
+    *a = v;
     return;
   }
   __sync_synchronize();
   SyncVar *s = CTX()->synctab.GetOrCreateAndLock(thr, pc, (uptr)a, true);
-  thr->fast_state.IncrementEpoch();
-  // Can't increment epoch w/o writing to the trace as well.
-  TraceAddEvent(thr, thr->fast_state, EventTypeMop, 0);
-  ReleaseImpl(thr, pc, &s->clock);
+  thr->clock.set(thr->tid, thr->fast_state.epoch());
+  thr->clock.ReleaseStore(&s->clock);
   *a = v;
   s->mtx.Unlock();
   // Trainling memory barrier to provide sequential consistency
@@ -292,15 +291,13 @@ static T AtomicRMW(ThreadState *thr, uptr pc, volatile T *a, T v, morder mo) {
   SyncVar *s = 0;
   if (mo != mo_relaxed) {
     s = CTX()->synctab.GetOrCreateAndLock(thr, pc, (uptr)a, true);
-    thr->fast_state.IncrementEpoch();
-    // Can't increment epoch w/o writing to the trace as well.
-    TraceAddEvent(thr, thr->fast_state, EventTypeMop, 0);
+    thr->clock.set(thr->tid, thr->fast_state.epoch());
     if (IsAcqRelOrder(mo))
-      AcquireReleaseImpl(thr, pc, &s->clock);
+      thr->clock.acq_rel(&s->clock);
     else if (IsReleaseOrder(mo))
-      ReleaseImpl(thr, pc, &s->clock);
+      thr->clock.release(&s->clock);
     else if (IsAcquireOrder(mo))
-      AcquireImpl(thr, pc, &s->clock);
+      thr->clock.acquire(&s->clock);
   }
   v = F(a, v);
   if (s)
@@ -358,15 +355,13 @@ static bool AtomicCAS(ThreadState *thr, uptr pc,
   SyncVar *s = 0;
   if (mo != mo_relaxed) {
     s = CTX()->synctab.GetOrCreateAndLock(thr, pc, (uptr)a, true);
-    thr->fast_state.IncrementEpoch();
-    // Can't increment epoch w/o writing to the trace as well.
-    TraceAddEvent(thr, thr->fast_state, EventTypeMop, 0);
+    thr->clock.set(thr->tid, thr->fast_state.epoch());
     if (IsAcqRelOrder(mo))
-      AcquireReleaseImpl(thr, pc, &s->clock);
+      thr->clock.acq_rel(&s->clock);
     else if (IsReleaseOrder(mo))
-      ReleaseImpl(thr, pc, &s->clock);
+      thr->clock.release(&s->clock);
     else if (IsAcquireOrder(mo))
-      AcquireImpl(thr, pc, &s->clock);
+      thr->clock.acquire(&s->clock);
   }
   T cc = *c;
   T pr = func_cas(a, cc, v);

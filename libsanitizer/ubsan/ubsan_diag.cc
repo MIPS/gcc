@@ -24,20 +24,11 @@ Location __ubsan::getCallerLocation(uptr CallerLoc) {
     return Location();
 
   uptr Loc = StackTrace::GetPreviousInstructionPc(CallerLoc);
-  return getFunctionLocation(Loc, 0);
-}
-
-Location __ubsan::getFunctionLocation(uptr Loc, const char **FName) {
-  if (!Loc)
-    return Location();
 
   AddressInfo Info;
-  if (!Symbolizer::GetOrInit()->SymbolizeCode(Loc, &Info, 1) ||
+  if (!getSymbolizer()->SymbolizeCode(Loc, &Info, 1) ||
       !Info.module || !*Info.module)
     return Location(Loc);
-
-  if (FName && Info.function)
-    *FName = Info.function;
 
   if (!Info.file)
     return ModuleLocation(Info.module, Info.module_offset);
@@ -75,29 +66,29 @@ static void PrintHex(UIntMax Val) {
 }
 
 static void renderLocation(Location Loc) {
-  InternalScopedString LocBuffer(1024);
   switch (Loc.getKind()) {
   case Location::LK_Source: {
     SourceLocation SLoc = Loc.getSourceLocation();
     if (SLoc.isInvalid())
-      LocBuffer.append("<unknown>");
-    else
-      PrintSourceLocation(&LocBuffer, SLoc.getFilename(), SLoc.getLine(),
-                          SLoc.getColumn());
+      Printf("<unknown>:");
+    else {
+      Printf("%s:%d:", SLoc.getFilename(), SLoc.getLine());
+      if (SLoc.getColumn())
+        Printf("%d:", SLoc.getColumn());
+    }
     break;
   }
   case Location::LK_Module:
-    PrintModuleAndOffset(&LocBuffer, Loc.getModuleLocation().getModuleName(),
-                         Loc.getModuleLocation().getOffset());
+    Printf("%s:0x%zx:", Loc.getModuleLocation().getModuleName(),
+           Loc.getModuleLocation().getOffset());
     break;
   case Location::LK_Memory:
-    LocBuffer.append("%p", Loc.getMemoryLocation());
+    Printf("%p:", Loc.getMemoryLocation());
     break;
   case Location::LK_Null:
-    LocBuffer.append("<unknown>");
+    Printf("<unknown>:");
     break;
   }
-  Printf("%s:", LocBuffer.data());
 }
 
 static void renderText(const char *Message, const Diag::Arg *Args) {
@@ -117,7 +108,7 @@ static void renderText(const char *Message, const Diag::Arg *Args) {
         Printf("%s", A.String);
         break;
       case Diag::AK_Mangled: {
-        Printf("'%s'", Symbolizer::GetOrInit()->Demangle(A.String));
+        Printf("'%s'", getSymbolizer()->Demangle(A.String));
         break;
       }
       case Diag::AK_SInt:

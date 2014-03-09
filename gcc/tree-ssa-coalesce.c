@@ -1,5 +1,5 @@
 /* Coalesce SSA_NAMES together for the out-of-ssa pass.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Andrew MacLeod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -27,19 +27,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-pretty-print.h"
 #include "bitmap.h"
 #include "dumpfile.h"
-#include "hash-table.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
+#include "hash-table.h"
 #include "tree-ssa-live.h"
 #include "tree-ssa-coalesce.h"
 #include "diagnostic-core.h"
@@ -821,7 +815,7 @@ build_ssa_conflict_graph (tree_live_info_p liveinfo)
 
   live = new_live_track (map);
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator gsi;
 
@@ -929,7 +923,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 
   map = init_var_map (num_ssa_names);
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       tree arg;
 
@@ -1083,7 +1077,7 @@ create_outofssa_var_map (coalesce_list_p cl, bitmap used_in_copy)
 		  v2 = SSA_NAME_VERSION (var);
 		  bitmap_set_bit (used_in_copy, v1);
 		  bitmap_set_bit (used_in_copy, v2);
-		  cost = coalesce_cost_bb (EXIT_BLOCK_PTR_FOR_FN (cfun));
+		  cost = coalesce_cost_bb (EXIT_BLOCK_PTR);
 		  add_coalesce (cl, v1, v2, cost);
 		}
 	    }
@@ -1183,7 +1177,7 @@ coalesce_partitions (var_map map, ssa_conflicts_p graph, coalesce_list_p cl,
      in the coalesce list because they do not need to be sorted, and simply
      consume extra memory/compilation time in large programs.  */
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (e->flags & EDGE_ABNORMAL)
@@ -1289,12 +1283,9 @@ coalesce_ssa_name (void)
 		     _require_ that all the names originating from it be
 		     coalesced, because there must be a single partition
 		     containing all the names so that it can be assigned
-		     the canonical RTL location of the DECL safely.
-		     If in_lto_p, a function could have been compiled
-		     originally with optimizations and only the link
-		     performed at -O0, so we can't actually require it.  */
+		     the canonical RTL location of the DECL safely.  */
 		  const int cost
-		    = (TREE_CODE (SSA_NAME_VAR (a)) == VAR_DECL || in_lto_p)
+		    = TREE_CODE (SSA_NAME_VAR (a)) == VAR_DECL
 		      ? MUST_COALESCE_COST - 1 : MUST_COALESCE_COST;
 		  add_coalesce (cl, SSA_NAME_VERSION (a),
 				SSA_NAME_VERSION (*slot), cost);

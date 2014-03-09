@@ -1,7 +1,6 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
+// { dg-options "-std=gnu++0x" }
 
-// Copyright (C) 2011-2014 Free Software Foundation, Inc.
+// Copyright (C) 2011-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,23 +18,30 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <type_traits>
+#include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using std::is_object;
   using namespace __gnu_test;
   
-  static_assert(test_category<is_object, int (int)>(false), "");
-  static_assert(test_category<is_object, ClassType (ClassType)>(false), "");
-  static_assert(test_category<is_object,
-		float (int, float, int[], int&)>(false), "");
-  static_assert(test_category<is_object, int&>(false), "");
-  static_assert(test_category<is_object, ClassType&>(false), "");
-  static_assert(test_category<is_object, int(&)(int)>(false), "");
-  static_assert(test_category<is_object, void>(false), "");
-  static_assert(test_category<is_object, const void>(false), "");
+  VERIFY( (test_category<is_object, int (int)>(false)) );
+  VERIFY( (test_category<is_object, ClassType (ClassType)>(false)) );
+  VERIFY( (test_category<is_object, float (int, float, int[], int&)>(false)) );
+  VERIFY( (test_category<is_object, int&>(false)) );
+  VERIFY( (test_category<is_object, ClassType&>(false)) );
+  VERIFY( (test_category<is_object, int(&)(int)>(false)) );
+  VERIFY( (test_category<is_object, void>(false)) );
+  VERIFY( (test_category<is_object, const void>(false)) );
 
   // Sanity check.
-  static_assert(test_category<is_object, ClassType>(true), "");
+  VERIFY( (test_category<is_object, ClassType>(true)) );
+}
+
+int main()
+{
+  test01();
+  return 0;
 }

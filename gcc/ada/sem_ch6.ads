@@ -28,7 +28,8 @@ package Sem_Ch6 is
 
    type Conformance_Type is
      (Type_Conformant, Mode_Conformant, Subtype_Conformant, Fully_Conformant);
-   pragma Ordered (Conformance_Type);
+   --  pragma Ordered (Conformance_Type);
+   --  Why is above line commented out ???
    --  Conformance type used in conformance checks between specs and bodies,
    --  and for overriding. The literals match the RM definitions of the
    --  corresponding terms. This is an ordered type, since each conformance

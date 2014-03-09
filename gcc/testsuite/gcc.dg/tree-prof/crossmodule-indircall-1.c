@@ -16,6 +16,4 @@ main()
     p[i%2](2);
   if (a != 1000)
     abort ();
-
-  return 0;
 }

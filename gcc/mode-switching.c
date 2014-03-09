@@ -1,5 +1,5 @@
 /* CPU mode switching
-   Copyright (C) 1998-2014 Free Software Foundation, Inc.
+   Copyright (C) 1998-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -211,7 +211,7 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
      fallthrough edge; there can be at most one, but there could be
      none at all, e.g. when exit is called.  */
   pre_exit = 0;
-  FOR_EACH_EDGE (eg, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
+  FOR_EACH_EDGE (eg, ei, EXIT_BLOCK_PTR->preds)
     if (eg->flags & EDGE_FALLTHRU)
       {
 	basic_block src_bb = eg->src;
@@ -221,7 +221,7 @@ create_pre_exit (int n_entities, int *entity_map, const int *num_modes)
 	/* If this function returns a value at the end, we have to
 	   insert the final mode switch before the return value copy
 	   to its hard register.  */
-	if (EDGE_COUNT (EXIT_BLOCK_PTR_FOR_FN (cfun)->preds) == 1
+	if (EDGE_COUNT (EXIT_BLOCK_PTR->preds) == 1
 	    && NONJUMP_INSN_P ((last_insn = BB_END (src_bb)))
 	    && GET_CODE (PATTERN (last_insn)) == USE
 	    && GET_CODE ((ret_reg = XEXP (PATTERN (last_insn), 0))) == REG)
@@ -480,8 +480,7 @@ optimize_mode_switching (void)
 	entry_exit_extra = 3;
 #endif
 	bb_info[n_entities]
-	  = XCNEWVEC (struct bb_info,
-		      last_basic_block_for_fn (cfun) + entry_exit_extra);
+	  = XCNEWVEC (struct bb_info, last_basic_block + entry_exit_extra);
 	entity_map[n_entities++] = e;
 	if (num_modes[e] > max_num_modes)
 	  max_num_modes = num_modes[e];
@@ -493,7 +492,7 @@ optimize_mode_switching (void)
 #if defined (MODE_ENTRY) && defined (MODE_EXIT)
   /* Split the edge from the entry block, so that we can note that
      there NORMAL_MODE is supplied.  */
-  post_entry = split_edge (single_succ_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
+  post_entry = split_edge (single_succ_edge (ENTRY_BLOCK_PTR));
   pre_exit = create_pre_exit (n_entities, entity_map, num_modes);
 #endif
 
@@ -501,11 +500,11 @@ optimize_mode_switching (void)
 
   /* Create the bitmap vectors.  */
 
-  antic = sbitmap_vector_alloc (last_basic_block_for_fn (cfun), n_entities);
-  transp = sbitmap_vector_alloc (last_basic_block_for_fn (cfun), n_entities);
-  comp = sbitmap_vector_alloc (last_basic_block_for_fn (cfun), n_entities);
+  antic = sbitmap_vector_alloc (last_basic_block, n_entities);
+  transp = sbitmap_vector_alloc (last_basic_block, n_entities);
+  comp = sbitmap_vector_alloc (last_basic_block, n_entities);
 
-  bitmap_vector_ones (transp, last_basic_block_for_fn (cfun));
+  bitmap_vector_ones (transp, last_basic_block);
 
   for (j = n_entities - 1; j >= 0; j--)
     {
@@ -516,7 +515,7 @@ optimize_mode_switching (void)
       /* Determine what the first use (if any) need for a mode of entity E is.
 	 This will be the mode that is anticipatable for this block.
 	 Also compute the initial transparency settings.  */
-      FOR_EACH_BB_FN (bb, cfun)
+      FOR_EACH_BB (bb)
 	{
 	  struct seginfo *ptr;
 	  int last_mode = no_mode;
@@ -609,7 +608,7 @@ optimize_mode_switching (void)
 #endif /* NORMAL_MODE */
     }
 
-  kill = sbitmap_vector_alloc (last_basic_block_for_fn (cfun), n_entities);
+  kill = sbitmap_vector_alloc (last_basic_block, n_entities);
   for (i = 0; i < max_num_modes; i++)
     {
       int current_mode[N_ENTITIES];
@@ -617,14 +616,14 @@ optimize_mode_switching (void)
       sbitmap *insert;
 
       /* Set the anticipatable and computing arrays.  */
-      bitmap_vector_clear (antic, last_basic_block_for_fn (cfun));
-      bitmap_vector_clear (comp, last_basic_block_for_fn (cfun));
+      bitmap_vector_clear (antic, last_basic_block);
+      bitmap_vector_clear (comp, last_basic_block);
       for (j = n_entities - 1; j >= 0; j--)
 	{
 	  int m = current_mode[j] = MODE_PRIORITY_TO_MODE (entity_map[j], i);
 	  struct bb_info *info = bb_info[j];
 
-	  FOR_EACH_BB_FN (bb, cfun)
+	  FOR_EACH_BB (bb)
 	    {
 	      if (info[bb->index].seginfo->mode == m)
 		bitmap_set_bit (antic[bb->index], j);
@@ -637,7 +636,7 @@ optimize_mode_switching (void)
       /* Calculate the optimal locations for the
 	 placement mode switches to modes with priority I.  */
 
-      FOR_EACH_BB_FN (bb, cfun)
+      FOR_EACH_BB (bb)
 	bitmap_not (kill[bb->index], transp[bb->index]);
       edge_list = pre_edge_lcm (n_entities, transp, comp, antic,
 				kill, &insert, &del);
@@ -692,7 +691,7 @@ optimize_mode_switching (void)
 	      insert_insn_on_edge (mode_set, eg);
 	    }
 
-	  FOR_EACH_BB_REVERSE_FN (bb, cfun)
+	  FOR_EACH_BB_REVERSE (bb)
 	    if (bitmap_bit_p (del[bb->index], j))
 	      {
 		make_preds_opaque (bb, j);
@@ -712,7 +711,7 @@ optimize_mode_switching (void)
     {
       int no_mode = num_modes[entity_map[j]];
 
-      FOR_EACH_BB_REVERSE_FN (bb, cfun)
+      FOR_EACH_BB_REVERSE (bb)
 	{
 	  struct seginfo *ptr, *next;
 	  for (ptr = bb_info[j][bb->index].seginfo; ptr; ptr = next)

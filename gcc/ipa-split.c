@@ -1,5 +1,5 @@
 /* Function splitting pass
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Jan Hubicka  <jh@suse.cz>
 
 This file is part of GCC.
@@ -78,15 +78,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
-#include "stringpool.h"
-#include "expr.h"
-#include "calls.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
@@ -97,7 +89,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-into-ssa.h"
 #include "tree-dfa.h"
@@ -156,7 +147,7 @@ static tree find_retval (basic_block return_bb);
    variable, check it if it is present in bitmap passed via DATA.  */
 
 static bool
-test_nonssa_use (gimple, tree t, tree, void *data)
+test_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t, void *data)
 {
   t = get_base_address (t);
 
@@ -215,7 +206,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
   bool ok = true;
 
   FOR_EACH_EDGE (e, ei, current->entry_bb->preds)
-    if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
+    if (e->src != ENTRY_BLOCK_PTR
 	&& !bitmap_bit_p (current->split_bbs, e->src->index))
       {
         worklist.safe_push (e->src);
@@ -228,7 +219,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
       basic_block bb = worklist.pop ();
 
       FOR_EACH_EDGE (e, ei, bb->preds)
-	if (e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun)
+	if (e->src != ENTRY_BLOCK_PTR
 	    && bitmap_set_bit (seen, e->src->index))
 	  {
 	    gcc_checking_assert (!bitmap_bit_p (current->split_bbs,
@@ -249,7 +240,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	    }
 	  if (gimple_code (stmt) == GIMPLE_LABEL
 	      && test_nonssa_use (stmt, gimple_label_label (stmt),
-				  NULL_TREE, non_ssa_vars))
+				  non_ssa_vars))
 	  {
 	    ok = false;
 	    goto done;
@@ -278,7 +269,7 @@ verify_non_ssa_vars (struct split_point *current, bitmap non_ssa_vars,
 	      if (virtual_operand_p (gimple_phi_result (stmt)))
 		continue;
 	      if (TREE_CODE (op) != SSA_NAME
-		  && test_nonssa_use (stmt, op, op, non_ssa_vars))
+		  && test_nonssa_use (stmt, op, non_ssa_vars))
 		{
 		  ok = false;
 		  goto done;
@@ -362,8 +353,7 @@ dominated_by_forbidden (basic_block bb)
 
   EXECUTE_IF_SET_IN_BITMAP (forbidden_dominators, 1, dom_bb, bi)
     {
-      if (dominated_by_p (CDI_DOMINATORS, bb,
-			  BASIC_BLOCK_FOR_FN (cfun, dom_bb)))
+      if (dominated_by_p (CDI_DOMINATORS, bb, BASIC_BLOCK (dom_bb)))
 	return true;
     }
 
@@ -402,7 +392,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 
   /* Do not split when we would end up calling function anyway.  */
   if (incoming_freq
-      >= (ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency
+      >= (ENTRY_BLOCK_PTR->frequency
 	  * PARAM_VALUE (PARAM_PARTIAL_INLINING_ENTRY_PROBABILITY) / 100))
     {
       /* When profile is guessed, we can not expect it to give us
@@ -411,14 +401,14 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 	 a loop, enable splitting since inlining code skipping the loop
 	 is likely noticeable win.  */
       if (back_edge
-	  && profile_status_for_fn (cfun) != PROFILE_READ
-	  && incoming_freq < ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency)
+	  && profile_status != PROFILE_READ
+	  && incoming_freq < ENTRY_BLOCK_PTR->frequency)
 	{
 	  if (dump_file && (dump_flags & TDF_DETAILS))
 	    fprintf (dump_file,
 		     "  Split before loop, accepting despite low frequencies %i %i.\n",
 		     incoming_freq,
-		     ENTRY_BLOCK_PTR_FOR_FN (cfun)->frequency);
+		     ENTRY_BLOCK_PTR->frequency);
 	}
       else
 	{
@@ -589,7 +579,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
 
   /* split_function fixes up at most one PHI non-virtual PHI node in return_bb,
      for the return value.  If there are other PHIs, give up.  */
-  if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
+  if (return_bb != EXIT_BLOCK_PTR)
     {
       gimple_stmt_iterator psi;
 
@@ -641,7 +631,7 @@ consider_split (struct split_point *current, bitmap non_ssa_vars,
    <retval> = tmp_var;
    return <retval>
    but return_bb can not be more complex than this.
-   If nothing is found, return the exit block.
+   If nothing is found, return EXIT_BLOCK_PTR.
 
    When there are multiple RETURN statement, chose one with return value,
    since that one is more likely shared by multiple code paths.
@@ -656,15 +646,15 @@ static basic_block
 find_return_bb (void)
 {
   edge e;
-  basic_block return_bb = EXIT_BLOCK_PTR_FOR_FN (cfun);
+  basic_block return_bb = EXIT_BLOCK_PTR;
   gimple_stmt_iterator bsi;
   bool found_return = false;
   tree retval = NULL_TREE;
 
-  if (!single_pred_p (EXIT_BLOCK_PTR_FOR_FN (cfun)))
+  if (!single_pred_p (EXIT_BLOCK_PTR))
     return return_bb;
 
-  e = single_pred_edge (EXIT_BLOCK_PTR_FOR_FN (cfun));
+  e = single_pred_edge (EXIT_BLOCK_PTR);
   for (bsi = gsi_last_bb (e->src); !gsi_end_p (bsi); gsi_prev (&bsi))
     {
       gimple stmt = gsi_stmt (bsi);
@@ -714,7 +704,7 @@ find_retval (basic_block return_bb)
    Return true when access to T prevents splitting the function.  */
 
 static bool
-mark_nonssa_use (gimple, tree t, tree, void *data)
+mark_nonssa_use (gimple stmt ATTRIBUTE_UNUSED, tree t, void *data)
 {
   t = get_base_address (t);
 
@@ -874,7 +864,7 @@ visit_bb (basic_block bb, basic_block return_bb,
 	    if (TREE_CODE (op) == SSA_NAME)
 	      bitmap_set_bit (used_ssa_names, SSA_NAME_VERSION (op));
 	    else
-	      can_split &= !mark_nonssa_use (stmt, op, op, non_ssa_vars);
+	      can_split &= !mark_nonssa_use (stmt, op, non_ssa_vars);
 	  }
       }
   return can_split;
@@ -943,18 +933,16 @@ find_split_points (int overall_time, int overall_size)
   current.split_size = 0;
   current.ssa_names_to_pass = BITMAP_ALLOC (NULL);
 
-  first.bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  first.bb = ENTRY_BLOCK_PTR;
   first.edge_num = 0;
   first.overall_time = 0;
   first.overall_size = 0;
   first.earliest = INT_MAX;
   first.set_ssa_names = 0;
   first.used_ssa_names = 0;
-  first.non_ssa_vars = 0;
   first.bbs_visited = 0;
-  first.can_split = false;
   stack.safe_push (first);
-  ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux = (void *)(intptr_t)-1;
+  ENTRY_BLOCK_PTR->aux = (void *)(intptr_t)-1;
 
   while (!stack.is_empty ())
     {
@@ -965,7 +953,7 @@ find_split_points (int overall_time, int overall_size)
          articulation, we want to have processed everything reachable
 	 from articulation but nothing that reaches into it.  */
       if (entry->edge_num == EDGE_COUNT (entry->bb->succs)
-	  && entry->bb != ENTRY_BLOCK_PTR_FOR_FN (cfun))
+	  && entry->bb != ENTRY_BLOCK_PTR)
 	{
 	  int pos = stack.length ();
 	  entry->can_split &= visit_bb (entry->bb, return_bb,
@@ -1017,7 +1005,7 @@ find_split_points (int overall_time, int overall_size)
 	  entry->edge_num++;
 
 	  /* New BB to visit, push it to the stack.  */
-	  if (dest != return_bb && dest != EXIT_BLOCK_PTR_FOR_FN (cfun)
+	  if (dest != return_bb && dest != EXIT_BLOCK_PTR
 	      && !dest->aux)
 	    {
 	      stack_entry new_entry;
@@ -1045,7 +1033,7 @@ find_split_points (int overall_time, int overall_size)
 	}
       /* We are done with examining the edges.  Pop off the value from stack
 	 and merge stuff we accumulate during the walk.  */
-      else if (entry->bb != ENTRY_BLOCK_PTR_FOR_FN (cfun))
+      else if (entry->bb != ENTRY_BLOCK_PTR)
 	{
 	  stack_entry *prev = &stack[stack.length () - 2];
 
@@ -1071,8 +1059,8 @@ find_split_points (int overall_time, int overall_size)
       else
         stack.pop ();
     }
-  ENTRY_BLOCK_PTR_FOR_FN (cfun)->aux = NULL;
-  FOR_EACH_BB_FN (bb, cfun)
+  ENTRY_BLOCK_PTR->aux = NULL;
+  FOR_EACH_BB (bb)
     bb->aux = NULL;
   stack.release ();
   BITMAP_FREE (current.ssa_names_to_pass);
@@ -1147,7 +1135,7 @@ split_function (struct split_point *split_point)
   if (!split_part_return_p)
     ;
   /* We have no return block, so nothing is needed.  */
-  else if (return_bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
+  else if (return_bb == EXIT_BLOCK_PTR)
     ;
   /* When we do not want to return value, we need to construct
      new return block with empty return statement.
@@ -1174,7 +1162,7 @@ split_function (struct split_point *split_point)
 		break;
 	      }
 	}
-      e = make_edge (new_return_bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
+      e = make_edge (new_return_bb, EXIT_BLOCK_PTR, 0);
       e->probability = REG_BR_PROB_BASE;
       e->count = new_return_bb->count;
       if (current_loops)
@@ -1191,7 +1179,7 @@ split_function (struct split_point *split_point)
 
      Note this can happen whether or not we have a return value.  If we have
      a return value, then RETURN_BB may have PHIs for real operands too.  */
-  if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
+  if (return_bb != EXIT_BLOCK_PTR)
     {
       bool phi_p = false;
       for (gsi = gsi_start_phis (return_bb); !gsi_end_p (gsi);)
@@ -1236,10 +1224,6 @@ split_function (struct split_point *split_point)
 				     !split_part_return_p,
 				     split_point->split_bbs,
 				     split_point->entry_bb, "part");
-
-  /* Let's take a time profile for splitted function.  */
-  node->tp_first_run = cur_node->tp_first_run + 1;
-
   /* For usual cloning it is enough to clear builtin only when signature
      changes.  For partial inlining we however can not expect the part
      of builtin implementation to have same semantic as the whole.  */
@@ -1337,7 +1321,7 @@ split_function (struct split_point *split_point)
       push_cfun (DECL_STRUCT_FUNCTION (node->decl));
       var = BLOCK_VARS (DECL_INITIAL (node->decl));
       i = vec_safe_length (*debug_args);
-      cgsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun)));
+      cgsi = gsi_after_labels (single_succ (ENTRY_BLOCK_PTR));
       do
 	{
 	  i -= 2;
@@ -1378,14 +1362,13 @@ split_function (struct split_point *split_point)
   else
     {
       e = make_edge (call_bb, return_bb,
-		     return_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
-		     ? 0 : EDGE_FALLTHRU);
+		     return_bb == EXIT_BLOCK_PTR ? 0 : EDGE_FALLTHRU);
       e->count = call_bb->count;
       e->probability = REG_BR_PROB_BASE;
 
       /* If there is return basic block, see what value we need to store
          return value into and put call just before it.  */
-      if (return_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
+      if (return_bb != EXIT_BLOCK_PTR)
 	{
 	  real_retval = retval = find_retval (return_bb);
 
@@ -1591,7 +1574,7 @@ execute_split_functions (void)
 
   /* We enforce splitting after loop headers when profile info is not
      available.  */
-  if (profile_status_for_fn (cfun) != PROFILE_READ)
+  if (profile_status != PROFILE_READ)
     mark_dfs_back_edges ();
 
   /* Initialize bitmap to track forbidden calls.  */
@@ -1599,9 +1582,9 @@ execute_split_functions (void)
   calculate_dominance_info (CDI_DOMINATORS);
 
   /* Compute local info about basic blocks and determine function size/time.  */
-  bb_info_vec.safe_grow_cleared (last_basic_block_for_fn (cfun) + 1);
+  bb_info_vec.safe_grow_cleared (last_basic_block + 1);
   memset (&best_split_point, 0, sizeof (best_split_point));
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       int time = 0;
       int size = 0;

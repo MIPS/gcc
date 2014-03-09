@@ -1,5 +1,5 @@
 /* Register to Stack convert for GNU compiler.
-   Copyright (C) 1992-2014 Free Software Foundation, Inc.
+   Copyright (C) 1992-2013 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -154,7 +154,6 @@
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "varasm.h"
 #include "rtl-error.h"
 #include "tm_p.h"
 #include "function.h"
@@ -2649,7 +2648,7 @@ convert_regs_entry (void)
      Note that we are inserting converted code here.  This code is
      never seen by the convert_regs pass.  */
 
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     {
       basic_block block = e->dest;
       block_info bi = BLOCK_INFO (block);
@@ -2693,7 +2692,7 @@ convert_regs_exit (void)
       value_reg_high = END_HARD_REGNO (retvalue) - 1;
     }
 
-  output_stack = &BLOCK_INFO (EXIT_BLOCK_PTR_FOR_FN (cfun))->stack_in;
+  output_stack = &BLOCK_INFO (EXIT_BLOCK_PTR)->stack_in;
   if (value_reg_low == -1)
     output_stack->top = -1;
   else
@@ -2846,8 +2845,8 @@ compensate_edges (void)
 
   starting_stack_p = false;
 
-  FOR_EACH_BB_FN (bb, cfun)
-    if (bb != ENTRY_BLOCK_PTR_FOR_FN (cfun))
+  FOR_EACH_BB (bb)
+    if (bb != ENTRY_BLOCK_PTR)
       {
         edge e;
         edge_iterator ei;
@@ -3081,7 +3080,7 @@ convert_regs_2 (basic_block block)
      is only processed after all its predecessors.  The number of predecessors
      of every block has already been computed.  */
 
-  stack = XNEWVEC (basic_block, n_basic_blocks_for_fn (cfun));
+  stack = XNEWVEC (basic_block, n_basic_blocks);
   sp = stack;
 
   *sp++ = block;
@@ -3141,19 +3140,19 @@ convert_regs (void)
 
   /* Construct the desired stack for function exit.  */
   convert_regs_exit ();
-  BLOCK_INFO (EXIT_BLOCK_PTR_FOR_FN (cfun))->done = 1;
+  BLOCK_INFO (EXIT_BLOCK_PTR)->done = 1;
 
   /* ??? Future: process inner loops first, and give them arbitrary
      initial stacks which emit_swap_insn can modify.  This ought to
      prevent double fxch that often appears at the head of a loop.  */
 
   /* Process all blocks reachable from all entry points.  */
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     cfg_altered |= convert_regs_2 (e->dest);
 
   /* ??? Process all unreachable blocks.  Though there's no excuse
      for keeping these even when not optimizing.  */
-  FOR_EACH_BB_FN (b, cfun)
+  FOR_EACH_BB (b)
     {
       block_info bi = BLOCK_INFO (b);
 
@@ -3212,7 +3211,7 @@ reg_to_stack (void)
 
   /* Set up block info for each basic block.  */
   alloc_aux_for_blocks (sizeof (struct block_info_def));
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       block_info bi = BLOCK_INFO (bb);
       edge_iterator ei;
@@ -3221,7 +3220,7 @@ reg_to_stack (void)
 
       FOR_EACH_EDGE (e, ei, bb->preds)
 	if (!(e->flags & EDGE_DFS_BACK)
-	    && e->src != ENTRY_BLOCK_PTR_FOR_FN (cfun))
+	    && e->src != ENTRY_BLOCK_PTR)
 	  bi->predecessors++;
 
       /* Set current register status at last instruction `uninitialized'.  */

@@ -1544,16 +1544,11 @@ package body Par_SCO is
                Set_Statement_Entry;
                Traverse_Package_Body (N);
 
-            --  Subprogram declaration or subprogram body stub
+            --  Subprogram declaration
 
             when N_Subprogram_Declaration | N_Subprogram_Body_Stub =>
                Process_Decisions_Defer
                  (Parameter_Specifications (Specification (N)), 'X');
-
-            --  Entry declaration
-
-            when N_Entry_Declaration =>
-               Process_Decisions_Defer (Parameter_Specifications (N), 'X');
 
             --  Generic subprogram declaration
 
@@ -1605,7 +1600,7 @@ package body Par_SCO is
             --  any decisions in the exit statement expression.
 
             when N_Exit_Statement =>
-               Extend_Statement_Sequence (N, 'E');
+               Extend_Statement_Sequence (N, ' ');
                Process_Decisions_Defer (Condition (N), 'E');
                Set_Statement_Entry;
 
@@ -2007,7 +2002,7 @@ package body Par_SCO is
             --  want one entry in the SCOs, so we take the first, for which
             --  Prev_Ids is False.
 
-            when N_Object_Declaration | N_Number_Declaration =>
+            when N_Object_Declaration =>
                if not Prev_Ids (N) then
                   Extend_Statement_Sequence (N, 'o');
 
@@ -2038,11 +2033,10 @@ package body Par_SCO is
                --  no SCO should be generated for this node.
 
                declare
-                  NK  : constant Node_Kind := Nkind (N);
                   Typ : Character;
 
                begin
-                  case NK is
+                  case Nkind (N) is
                      when N_Full_Type_Declaration         |
                           N_Incomplete_Type_Declaration   |
                           N_Private_Type_Declaration      |
@@ -2066,15 +2060,8 @@ package body Par_SCO is
                           N_Protected_Body_Stub           =>
                         Typ := ASCII.NUL;
 
-                     when N_Procedure_Call_Statement =>
-                        Typ := ' ';
-
                      when others                          =>
-                        if NK in N_Statement_Other_Than_Procedure_Call then
-                           Typ := ' ';
-                        else
-                           Typ := 'd';
-                        end if;
+                        Typ := ' ';
                   end case;
 
                   if Typ /= ASCII.NUL then

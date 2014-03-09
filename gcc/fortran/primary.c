@@ -1,5 +1,5 @@
 /* Primary expression subroutines
-   Copyright (C) 2000-2014 Free Software Foundation, Inc.
+   Copyright (C) 2000-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -2039,8 +2039,9 @@ gfc_match_varspec (gfc_expr *primary, int equiv_flag, bool sub_flag,
 	  if (m != MATCH_YES)
 	    return m;
 	}
-      else if (component->ts.type == BT_CLASS && component->attr.class_ok
-	       && CLASS_DATA (component)->as && !component->attr.proc_pointer)
+      else if (component->ts.type == BT_CLASS
+	       && CLASS_DATA (component)->as != NULL
+	       && !component->attr.proc_pointer)
 	{
 	  tail = extend_ref (primary, tail);
 	  tail->type = REF_ARRAY;
@@ -2355,7 +2356,7 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 	}
 
       /* If it was not found, try the default initializer if there's any;
-	 otherwise, it's an error unless this is a deferred parameter.  */
+	 otherwise, it's an error.  */
       if (!comp_iter)
 	{
 	  if (comp->initializer)
@@ -2365,7 +2366,7 @@ build_actual_constructor (gfc_structure_ctor_component **comp_head,
 		return false;
 	      value = gfc_copy_expr (comp->initializer);
 	    }
-	  else if (!comp->attr.deferred_parameter)
+	  else
 	    {
 	      gfc_error ("No initializer for component '%s' given in the"
 			 " structure constructor at %C!", comp->name);
@@ -2447,7 +2448,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
 	{
 	  /* Components without name are not allowed after the first named
 	     component initializer!  */
-	  if (!comp || comp->attr.deferred_parameter)
+	  if (!comp)
 	    {
 	      if (last_name)
 		gfc_error ("Component initializer without name after component"
@@ -2544,8 +2545,7 @@ gfc_convert_to_structure_constructor (gfc_expr *e, gfc_symbol *sym, gfc_expr **c
       if (parent && !comp)
 	break;
 
-      if (actual)
-	actual = actual->next;
+      actual = actual->next;
     }
 
   if (!build_actual_constructor (&comp_head, &ctor_head, sym))

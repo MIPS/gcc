@@ -1,5 +1,5 @@
 # Makefile.am -- Backtrace Makefile.
-# Copyright (C) 2012-2014 Free Software Foundation, Inc.
+# Copyright (C) 2012-2013 Free Software Foundation, Inc.
 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are
@@ -40,13 +40,11 @@ noinst_LTLIBRARIES = libbacktrace.la
 
 libbacktrace_la_SOURCES = \
 	backtrace.h \
-	atomic.c \
 	dwarf.c \
 	fileline.c \
 	internal.h \
 	posix.c \
 	print.c \
-	sort.c \
 	state.c
 
 BACKTRACE_FILES = \
@@ -93,11 +91,6 @@ btest_CFLAGS = $(AM_CFLAGS) -g -O
 btest_LDADD = libbacktrace.la
 
 check_PROGRAMS += btest
-
-stest_SOURCES = stest.c
-stest_LDADD = libbacktrace.la
-
-check_PROGRAMS += stest
 
 endif NATIVE
 

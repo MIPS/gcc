@@ -1,9 +1,10 @@
+// { dg-do compile }
 // { dg-options "-std=c++0x" }
 
 //
 // 2010-06-09  Stephen M. Webb <stephen.webb@bregmasoft.ca>
 //
-// Copyright (C) 2010-2014 Free Software Foundation, Inc.
+// Copyright (C) 2010-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -45,9 +46,4 @@ test01()
 
 	VERIFY( sm1.length() == test_len );
 	VERIFY( sm2.length() == 0 );
-}
-
-int main()
-{
-  test01();
 }

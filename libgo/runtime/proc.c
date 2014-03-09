@@ -208,9 +208,9 @@ runtime_newosproc(M *mp)
 #endif
 
 	sigemptyset(&old);
-	pthread_sigmask(SIG_BLOCK, &clear, &old);
+	sigprocmask(SIG_BLOCK, &clear, &old);
 	ret = pthread_create(&tid, &attr, runtime_mstart, mp);
-	pthread_sigmask(SIG_SETMASK, &old, nil);
+	sigprocmask(SIG_SETMASK, &old, nil);
 
 	if (ret != 0)
 		runtime_throw("pthread_create");
@@ -539,9 +539,7 @@ runtime_main(void* dummy __attribute__((unused)))
 	d.__arg = (void*)-1;
 	d.__panic = g->panic;
 	d.__retaddr = nil;
-	d.__makefunc_can_recover = 0;
 	d.__frame = &frame;
-	d.__free = 0;
 	g->defer = &d;
 
 	if(m != &runtime_m0)
@@ -1857,29 +1855,9 @@ goexit0(G *gp)
 // entersyscall is going to return immediately after.
 
 void runtime_entersyscall(void) __attribute__ ((no_split_stack));
-static void doentersyscall(void) __attribute__ ((no_split_stack, noinline));
 
 void
 runtime_entersyscall()
-{
-	// Save the registers in the g structure so that any pointers
-	// held in registers will be seen by the garbage collector.
-	getcontext(&g->gcregs);
-
-	// Do the work in a separate function, so that this function
-	// doesn't save any registers on its own stack.  If this
-	// function does save any registers, we might store the wrong
-	// value in the call to getcontext.
-	//
-	// FIXME: This assumes that we do not need to save any
-	// callee-saved registers to access the TLS variable g.  We
-	// don't want to put the ucontext_t on the stack because it is
-	// large and we can not split the stack here.
-	doentersyscall();
-}
-
-static void
-doentersyscall()
 {
 	// Disable preemption because during this function g is in Gsyscall status,
 	// but can have inconsistent g->sched, do not let GC observe it.
@@ -1897,6 +1875,10 @@ doentersyscall()
 		g->gcnext_sp = (byte *) &v;
 	}
 #endif
+
+	// Save the registers in the g structure so that any pointers
+	// held in registers will be seen by the garbage collector.
+	getcontext(&g->gcregs);
 
 	g->status = Gsyscall;
 
@@ -2472,15 +2454,6 @@ runtime_sigprof()
 		return;
 	}
 	n = 0;
-
-	if(runtime_atomicload(&runtime_in_callers) > 0) {
-		// If SIGPROF arrived while already fetching runtime
-		// callers we can have trouble on older systems
-		// because the unwind library calls dl_iterate_phdr
-		// which was not recursive in the past.
-		traceback = false;
-	}
-
 	if(traceback) {
 		n = runtime_callers(0, prof.locbuf, nelem(prof.locbuf));
 		for(i = 0; i < n; i++)

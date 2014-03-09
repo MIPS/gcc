@@ -17,7 +17,6 @@
 #include "asan_fake_stack.h"
 #include "asan_stack.h"
 #include "asan_stats.h"
-#include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_libc.h"
 #include "sanitizer_common/sanitizer_thread_registry.h"
 
@@ -35,13 +34,11 @@ class AsanThreadContext : public ThreadContextBase {
   explicit AsanThreadContext(int tid)
       : ThreadContextBase(tid),
         announced(false),
-        destructor_iterations(kPthreadDestructorIterations),
-        stack_id(0),
         thread(0) {
+    internal_memset(&stack, 0, sizeof(stack));
   }
   bool announced;
-  u8 destructor_iterations;
-  u32 stack_id;
+  StackTrace stack;
   AsanThread *thread;
 
   void OnCreated(void *arg);
@@ -49,7 +46,7 @@ class AsanThreadContext : public ThreadContextBase {
 };
 
 // AsanThreadContext objects are never freed, so we need many of them.
-COMPILER_CHECK(sizeof(AsanThreadContext) <= 256);
+COMPILER_CHECK(sizeof(AsanThreadContext) <= 4096);
 
 // AsanThread are stored in TSD and destroyed when the thread dies.
 class AsanThread {
@@ -99,15 +96,14 @@ class AsanThread {
   // True is this thread is currently unwinding stack (i.e. collecting a stack
   // trace). Used to prevent deadlocks on platforms where libc unwinder calls
   // malloc internally. See PR17116 for more details.
-  bool isUnwinding() const { return unwinding_; }
-  void setUnwinding(bool b) { unwinding_ = b; }
+  bool isUnwinding() const { return unwinding; }
+  void setUnwinding(bool b) { unwinding = b; }
 
   AsanThreadLocalMallocStorage &malloc_storage() { return malloc_storage_; }
   AsanStats &stats() { return stats_; }
 
  private:
-  // NOTE: There is no AsanThread constructor. It is allocated
-  // via mmap() and *must* be valid in zero-initialized state.
+  AsanThread() : unwinding(false) {}
   void SetThreadStackAndTls();
   void ClearShadowForThreadStackAndTLS();
   FakeStack *AsyncSignalSafeLazyInitFakeStack();
@@ -115,18 +111,18 @@ class AsanThread {
   AsanThreadContext *context_;
   thread_callback_t start_routine_;
   void *arg_;
-  uptr stack_top_;
-  uptr stack_bottom_;
+  uptr  stack_top_;
+  uptr  stack_bottom_;
   // stack_size_ == stack_top_ - stack_bottom_;
   // It needs to be set in a async-signal-safe manner.
-  uptr stack_size_;
+  uptr  stack_size_;
   uptr tls_begin_;
   uptr tls_end_;
 
   FakeStack *fake_stack_;
   AsanThreadLocalMallocStorage malloc_storage_;
   AsanStats stats_;
-  bool unwinding_;
+  bool unwinding;
 };
 
 // ScopedUnwinding is a scope for stacktracing member of a context

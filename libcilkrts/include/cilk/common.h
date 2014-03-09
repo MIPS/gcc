@@ -101,7 +101,7 @@ namespace cilk {
 #   define CILK_EXPORT      /* nothing */
 #   define CILK_EXPORT_DATA /* nothing */
 #else /* Unix/gcc */
-#   if defined(IN_CILK_RUNTIME) && defined(HAVE_ATTRIBUTE_VISIBILITY)
+#   ifdef IN_CILK_RUNTIME
 #       define CILK_EXPORT      __attribute__((visibility("protected")))
 #       define CILK_EXPORT_DATA __attribute__((visibility("protected")))
 #   else
@@ -317,12 +317,13 @@ namespace cilk {
 #ifndef __CILKRTS_ABI_VERSION
 #   ifdef IN_CILK_RUNTIME
 #       define __CILKRTS_ABI_VERSION 1
-#   elif defined(__INTEL_COMPILER) && (__INTEL_COMPILER <= 1200)
-        // Intel compilers prior to version 12.1 support only ABI 0
-#       define __CILKRTS_ABI_VERSION 0
-#   else
-        // Non-Intel compiler or Intel compiler after version 12.0.
+#   elif __INTEL_COMPILER > 1200
+        // Intel compiler version >= 12.1
 #       define __CILKRTS_ABI_VERSION 1
+#   else
+        // Compiler does not support ABI version 1
+        // (Non-Intel compiler or Intel compiler prior to version 12.1).
+#       define __CILKRTS_ABI_VERSION 0
 #   endif
 #endif
 

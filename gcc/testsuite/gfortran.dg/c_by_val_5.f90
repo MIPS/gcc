@@ -23,7 +23,7 @@ module x
  ! "external" only.
  interface
    subroutine bmp_write(nx)
-     integer, value :: nx
+     integer :: nx
    end subroutine bmp_write
  end interface
 contains

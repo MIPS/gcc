@@ -930,10 +930,8 @@ package body Sinfo is
       (N : Node_Id) return Boolean is
    begin
       pragma Assert (False
-        or else NT (N).Nkind = N_Assignment_Statement
-        or else NT (N).Nkind = N_Selected_Component
-        or else NT (N).Nkind = N_Type_Conversion);
-      return Flag1 (N);
+        or else NT (N).Nkind = N_Selected_Component);
+      return Flag13 (N);
    end Do_Discriminant_Check;
 
    function Do_Division_Check
@@ -1399,14 +1397,6 @@ package body Sinfo is
       return Flag6 (N);
    end From_Default;
 
-   function Generalized_Indexing
-      (N : Node_Id) return Node_Id is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Indexed_Component);
-      return Node4 (N);
-   end Generalized_Indexing;
-
    function Generic_Associations
       (N : Node_Id) return List_Id is
    begin
@@ -1635,7 +1625,8 @@ package body Sinfo is
         or else NT (N).Nkind = N_Enumeration_Representation_Clause
         or else NT (N).Nkind = N_Label
         or else NT (N).Nkind = N_Loop_Statement
-        or else NT (N).Nkind = N_Record_Representation_Clause);
+        or else NT (N).Nkind = N_Record_Representation_Clause
+        or else NT (N).Nkind = N_Subprogram_Info);
       return Node1 (N);
    end Identifier;
 
@@ -1686,6 +1677,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Pragma);
       return Flag16 (N);
    end Import_Interface_Present;
+
+   function In_Assertion_Expression
+      (N : Node_Id) return Boolean is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Function_Call);
+      return Flag4 (N);
+   end In_Assertion_Expression;
 
    function In_Present
       (N : Node_Id) return Boolean is
@@ -4079,10 +4078,8 @@ package body Sinfo is
       (N : Node_Id; Val : Boolean := True) is
    begin
       pragma Assert (False
-        or else NT (N).Nkind = N_Assignment_Statement
-        or else NT (N).Nkind = N_Selected_Component
-        or else NT (N).Nkind = N_Type_Conversion);
-      Set_Flag1 (N, Val);
+        or else NT (N).Nkind = N_Selected_Component);
+      Set_Flag13 (N, Val);
    end Set_Do_Discriminant_Check;
 
    procedure Set_Do_Division_Check
@@ -4539,14 +4536,6 @@ package body Sinfo is
       Set_Flag6 (N, Val);
    end Set_From_Default;
 
-   procedure Set_Generalized_Indexing
-      (N : Node_Id; Val : Node_Id) is
-   begin
-      pragma Assert (False
-        or else NT (N).Nkind = N_Indexed_Component);
-      Set_Node4 (N, Val);
-   end Set_Generalized_Indexing;
-
    procedure Set_Generic_Associations
       (N : Node_Id; Val : List_Id) is
    begin
@@ -4775,7 +4764,8 @@ package body Sinfo is
         or else NT (N).Nkind = N_Enumeration_Representation_Clause
         or else NT (N).Nkind = N_Label
         or else NT (N).Nkind = N_Loop_Statement
-        or else NT (N).Nkind = N_Record_Representation_Clause);
+        or else NT (N).Nkind = N_Record_Representation_Clause
+        or else NT (N).Nkind = N_Subprogram_Info);
       Set_Node1_With_Parent (N, Val);
    end Set_Identifier;
 
@@ -4826,6 +4816,14 @@ package body Sinfo is
         or else NT (N).Nkind = N_Pragma);
       Set_Flag16 (N, Val);
    end Set_Import_Interface_Present;
+
+   procedure Set_In_Assertion_Expression
+      (N : Node_Id; Val : Boolean := True) is
+   begin
+      pragma Assert (False
+        or else NT (N).Nkind = N_Function_Call);
+      Set_Flag4 (N, Val);
+   end Set_In_Assertion_Expression;
 
    procedure Set_In_Present
       (N : Node_Id; Val : Boolean := True) is

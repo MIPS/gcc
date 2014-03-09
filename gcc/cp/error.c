@@ -1,6 +1,6 @@
 /* Call-backs for C++ error reporting.
    This code is non-reentrant.
-   Copyright (C) 1993-2014 Free Software Foundation, Inc.
+   Copyright (C) 1993-2013 Free Software Foundation, Inc.
    This file is part of GCC.
 
 GCC is free software; you can redistribute it and/or modify
@@ -22,7 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "stringpool.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "diagnostic.h"
@@ -513,7 +512,7 @@ dump_type (cxx_pretty_printer *pp, tree t, int flags)
 	  pp_cxx_colon_colon (pp);
 	}
       pp_cxx_ws_string (pp, "template");
-      dump_type (pp, TYPE_IDENTIFIER (t), flags);
+      dump_type (pp, DECL_NAME (TYPE_NAME (t)), flags);
       break;
 
     case TYPEOF_TYPE:
@@ -853,8 +852,8 @@ dump_type_suffix (cxx_pretty_printer *pp, tree t, int flags)
 	  tree max = TYPE_MAX_VALUE (dtype);
 	  if (integer_all_onesp (max))
 	    pp_character (pp, '0');
-	  else if (tree_fits_shwi_p (max))
-	    pp_wide_integer (pp, tree_to_shwi (max) + 1);
+	  else if (host_integerp (max, 0))
+	    pp_wide_integer (pp, tree_low_cst (max, 0) + 1);
 	  else
 	    {
 	      STRIP_NOPS (max);
@@ -925,7 +924,7 @@ dump_global_iord (cxx_pretty_printer *pp, tree t)
   else
     gcc_unreachable ();
 
-  pp_printf (pp, p, LOCATION_FILE (input_location));
+  pp_printf (pp, p, input_filename);
 }
 
 static void
@@ -1466,7 +1465,7 @@ dump_function_decl (cxx_pretty_printer *pp, tree t, int flags)
       else if (DECL_VIRTUAL_P (t))
 	pp_cxx_ws_string (pp, "virtual");
 
-      if (DECL_DECLARED_CONSTEXPR_P (t))
+      if (DECL_DECLARED_CONSTEXPR_P (STRIP_TEMPLATE (t)))
 	pp_cxx_ws_string (pp, "constexpr");
     }
 
@@ -1855,7 +1854,7 @@ static tree
 resolve_virtual_fun_from_obj_type_ref (tree ref)
 {
   tree obj_type = TREE_TYPE (OBJ_TYPE_REF_OBJECT (ref));
-  HOST_WIDE_INT index = tree_to_uhwi (OBJ_TYPE_REF_TOKEN (ref));
+  HOST_WIDE_INT index = tree_low_cst (OBJ_TYPE_REF_TOKEN (ref), 1);
   tree fun = BINFO_VIRTUALS (TYPE_BINFO (TREE_TYPE (obj_type)));
   while (index)
     {
@@ -2287,7 +2286,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      pp_cxx_right_paren (pp);
 	      break;
 	    }
-	  else if (tree_fits_shwi_p (idx))
+	  else if (host_integerp (idx, 0))
 	    {
 	      tree virtuals;
 	      unsigned HOST_WIDE_INT n;
@@ -2296,7 +2295,7 @@ dump_expr (cxx_pretty_printer *pp, tree t, int flags)
 	      t = TYPE_METHOD_BASETYPE (t);
 	      virtuals = BINFO_VIRTUALS (TYPE_BINFO (TYPE_MAIN_VARIANT (t)));
 
-	      n = tree_to_shwi (idx);
+	      n = tree_low_cst (idx, 0);
 
 	      /* Map vtable index back one, to allow for the null pointer to
 		 member.  */
@@ -2832,7 +2831,7 @@ location_of (tree t)
 
   if (DECL_P (t))
     return DECL_SOURCE_LOCATION (t);
-  return EXPR_LOC_OR_LOC (t, input_location);
+  return EXPR_LOC_OR_HERE (t);
 }
 
 /* Now the interfaces from error et al to dump_type et al. Each takes an
@@ -3506,7 +3505,7 @@ cp_printer (pretty_printer *pp, text_info *text, const char *spec,
 void
 maybe_warn_cpp0x (cpp0x_warn_str str)
 {
-  if ((cxx_dialect == cxx98) && !in_system_header_at (input_location))
+  if ((cxx_dialect == cxx98) && !in_system_header)
     /* We really want to suppress this warning in system headers,
        because libstdc++ uses variadic templates even when we aren't
        in C++0x mode. */

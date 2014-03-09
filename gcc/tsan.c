@@ -1,5 +1,5 @@
 /* GCC instrumentation plugin for ThreadSanitizer.
-   Copyright (C) 2011-2014 Free Software Foundation, Inc.
+   Copyright (C) 2011-2013 Free Software Foundation, Inc.
    Contributed by Dmitry Vyukov <dvyukov@google.com>
 
 This file is part of GCC.
@@ -23,14 +23,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "expr.h"
 #include "intl.h"
 #include "tm.h"
 #include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -38,7 +33,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "gimple-ssa.h"
 #include "cgraph.h"
 #include "tree-cfg.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "tree-iterator.h"
@@ -453,8 +447,9 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	  case check_last:
 	  case fetch_op:
 	    last_arg = gimple_call_arg (stmt, num - 1);
-	    if (!tree_fits_uhwi_p (last_arg)
-		|| tree_to_uhwi (last_arg) > MEMMODEL_SEQ_CST)
+	    if (!host_integerp (last_arg, 1)
+		|| (unsigned HOST_WIDE_INT) tree_low_cst (last_arg, 1)
+		   > MEMMODEL_SEQ_CST)
 	      return;
 	    gimple_call_set_fndecl (stmt, decl);
 	    update_stmt (stmt);
@@ -524,11 +519,13 @@ instrument_builtin_call (gimple_stmt_iterator *gsi)
 	    gcc_assert (num == 6);
 	    for (j = 0; j < 6; j++)
 	      args[j] = gimple_call_arg (stmt, j);
-	    if (!tree_fits_uhwi_p (args[4])
-		|| tree_to_uhwi (args[4]) > MEMMODEL_SEQ_CST)
+	    if (!host_integerp (args[4], 1)
+		|| (unsigned HOST_WIDE_INT) tree_low_cst (args[4], 1)
+		   > MEMMODEL_SEQ_CST)
 	      return;
-	    if (!tree_fits_uhwi_p (args[5])
-		|| tree_to_uhwi (args[5]) > MEMMODEL_SEQ_CST)
+	    if (!host_integerp (args[5], 1)
+		|| (unsigned HOST_WIDE_INT) tree_low_cst (args[5], 1)
+		   > MEMMODEL_SEQ_CST)
 	      return;
 	    update_gimple_call (gsi, decl, 5, args[0], args[1], args[2],
 				args[4], args[5]);
@@ -609,7 +606,7 @@ instrument_gimple (gimple_stmt_iterator *gsi)
       && (gimple_call_fndecl (stmt)
 	  != builtin_decl_implicit (BUILT_IN_TSAN_INIT)))
     {
-      if (gimple_call_builtin_p (stmt, BUILT_IN_NORMAL))
+      if (is_gimple_builtin_call (stmt))
 	instrument_builtin_call (gsi);
       return true;
     }
@@ -640,7 +637,7 @@ instrument_memory_accesses (void)
   gimple_stmt_iterator gsi;
   bool fentry_exit_instrument = false;
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       fentry_exit_instrument |= instrument_gimple (&gsi);
   return fentry_exit_instrument;
@@ -656,7 +653,7 @@ instrument_func_entry (void)
   tree ret_addr, builtin_decl;
   gimple g;
 
-  succ_bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+  succ_bb = single_succ (ENTRY_BLOCK_PTR);
   gsi = gsi_after_labels (succ_bb);
 
   builtin_decl = builtin_decl_implicit (BUILT_IN_RETURN_ADDRESS);
@@ -686,7 +683,7 @@ instrument_func_exit (void)
   edge_iterator ei;
 
   /* Find all function exits.  */
-  exit_bb = EXIT_BLOCK_PTR_FOR_FN (cfun);
+  exit_bb = EXIT_BLOCK_PTR;
   FOR_EACH_EDGE (e, ei, exit_bb->preds)
     {
       gsi = gsi_last_bb (e->src);

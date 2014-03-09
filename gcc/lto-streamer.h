@@ -1,7 +1,7 @@
 /* Data structures and declarations used for reading and writing
    GIMPLE to a file stream.
 
-   Copyright (C) 2009-2014 Free Software Foundation, Inc.
+   Copyright (C) 2009-2013 Free Software Foundation, Inc.
    Contributed by Doug Kwan <dougkwan@google.com>
 
 This file is part of GCC.
@@ -140,8 +140,8 @@ along with GCC; see the file COPYING3.  If not see
    sections a '.' and the section type are appended.  */
 #define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
 
-#define LTO_major_version 3
-#define LTO_minor_version 0
+#define LTO_major_version 2
+#define LTO_minor_version 2
 
 typedef unsigned char	lto_decl_flags_t;
 
@@ -222,8 +222,7 @@ enum LTO_tags
   LTO_const_decl_ref,
   LTO_imported_decl_ref,
   LTO_translation_unit_decl_ref,
-  LTO_global_decl_ref,
-  LTO_namelist_decl_ref,		/* Do not change.  */
+  LTO_global_decl_ref,			/* Do not change.  */
 
   /* This tag must always be last.  */
   LTO_NUM_TAGS
@@ -257,7 +256,7 @@ enum lto_section_type
 };
 
 /* Indices to the various function, type and symbol streams. */
-enum lto_decl_stream_e_t
+typedef enum
 {
   LTO_DECL_STREAM_TYPE = 0,		/* Must be first. */
   LTO_DECL_STREAM_FIELD_DECL,
@@ -267,7 +266,7 @@ enum lto_decl_stream_e_t
   LTO_DECL_STREAM_NAMESPACE_DECL,
   LTO_DECL_STREAM_LABEL_DECL,
   LTO_N_DECL_STREAMS
-};
+} lto_decl_stream_e_t;
 
 typedef enum ld_plugin_symbol_resolution ld_plugin_symbol_resolution_t;
 
@@ -429,7 +428,7 @@ struct lto_stats_d
 };
 
 /* Entry of LTO symtab encoder.  */
-struct lto_encoder_entry
+typedef struct
 {
   symtab_node *node;
   /* Is the node in this partition (i.e. ltrans of this partition will
@@ -441,7 +440,7 @@ struct lto_encoder_entry
      For example the readonly variable initializers are encoded to aid
      constant folding even if they are not in the partition.  */
   unsigned int initializer:1;
-};
+} lto_encoder_entry;
 
 
 /* Encoder data structure used to stream callgraph nodes.  */
@@ -454,11 +453,11 @@ struct lto_symtab_encoder_d
 typedef struct lto_symtab_encoder_d *lto_symtab_encoder_t;
 
 /* Iterator structure for cgraph node sets.  */
-struct lto_symtab_encoder_iterator
+typedef struct
 {
   lto_symtab_encoder_t encoder;
   unsigned index;
-};
+} lto_symtab_encoder_iterator;
 
 
 
@@ -523,6 +522,7 @@ struct res_pair
   ld_plugin_symbol_resolution_t res;
   unsigned index;
 };
+typedef struct res_pair res_pair;
 
 
 /* One of these is allocated for each object file that being compiled
@@ -862,8 +862,6 @@ extern void destroy_output_block (struct output_block *);
 extern void lto_output_tree (struct output_block *, tree, bool, bool);
 extern void lto_output_toplevel_asms (void);
 extern void produce_asm (struct output_block *ob, tree fn);
-extern void lto_output ();
-extern void produce_asm_for_decls ();
 void lto_output_decl_state_streams (struct output_block *,
 				    struct lto_out_decl_state *);
 void lto_output_decl_state_refs (struct output_block *,
@@ -873,7 +871,6 @@ void lto_output_location (struct output_block *, struct bitpack_d *, location_t)
 
 
 /* In lto-cgraph.c  */
-extern bool asm_nodes_output;
 lto_symtab_encoder_t lto_symtab_encoder_new (bool);
 int lto_symtab_encoder_encode (lto_symtab_encoder_t, symtab_node *);
 void lto_symtab_encoder_delete (lto_symtab_encoder_t);
@@ -886,7 +883,7 @@ void lto_set_symtab_encoder_in_partition (lto_symtab_encoder_t,
 					  symtab_node *);
 
 bool lto_symtab_encoder_encode_initializer_p (lto_symtab_encoder_t,
-					      varpool_node *);
+					      struct varpool_node *);
 void output_symtab (void);
 void input_symtab (void);
 bool referenced_from_other_partition_p (struct ipa_ref_list *,
@@ -1081,7 +1078,7 @@ lsei_cgraph_node (lto_symtab_encoder_iterator lsei)
 }
 
 /* Return the node pointed to by LSI.  */
-static inline varpool_node *
+static inline struct varpool_node *
 lsei_varpool_node (lto_symtab_encoder_iterator lsei)
 {
   return varpool (lsei.encoder->nodes[lsei.index].node);

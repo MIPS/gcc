@@ -70,12 +70,6 @@ package body Stand is
       Tree_Read_Int (Int (Standard_Integer_16));
       Tree_Read_Int (Int (Standard_Integer_32));
       Tree_Read_Int (Int (Standard_Integer_64));
-      Tree_Read_Int (Int (Standard_Unsigned_64));
-      Tree_Read_Int (Int (Standard_Short_Short_Unsigned));
-      Tree_Read_Int (Int (Standard_Short_Unsigned));
-      Tree_Read_Int (Int (Standard_Unsigned));
-      Tree_Read_Int (Int (Standard_Long_Unsigned));
-      Tree_Read_Int (Int (Standard_Long_Long_Unsigned));
       Tree_Read_Int (Int (Abort_Signal));
       Tree_Read_Int (Int (Standard_Op_Rotate_Left));
       Tree_Read_Int (Int (Standard_Op_Rotate_Right));
@@ -120,12 +114,6 @@ package body Stand is
       Tree_Write_Int (Int (Standard_Integer_16));
       Tree_Write_Int (Int (Standard_Integer_32));
       Tree_Write_Int (Int (Standard_Integer_64));
-      Tree_Write_Int (Int (Standard_Unsigned_64));
-      Tree_Write_Int (Int (Standard_Short_Short_Unsigned));
-      Tree_Write_Int (Int (Standard_Short_Unsigned));
-      Tree_Write_Int (Int (Standard_Unsigned));
-      Tree_Write_Int (Int (Standard_Long_Unsigned));
-      Tree_Write_Int (Int (Standard_Long_Long_Unsigned));
       Tree_Write_Int (Int (Abort_Signal));
       Tree_Write_Int (Int (Standard_Op_Rotate_Left));
       Tree_Write_Int (Int (Standard_Op_Rotate_Right));

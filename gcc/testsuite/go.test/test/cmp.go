@@ -43,8 +43,8 @@ func main() {
 	var d string = "hel" // try to get different pointer
 	d = d + "lo"
 
-	// go.tools/ssa/interp can't handle unsafe.Pointer.
-	if os.Getenv("GOSSAINTERP") == "" {
+	// exp/ssa/interp can't handle unsafe.Pointer.
+	if os.Getenv("GOSSAINTERP") != "" {
 		if stringptr(c) == stringptr(d) {
 			panic("compiler too smart -- got same string")
 		}
@@ -296,7 +296,7 @@ func main() {
 	{
 		var x = struct {
 			x int
-			_ string
+			_ []int
 			y float64
 			_ float64
 			z int

@@ -1,5 +1,5 @@
 /* Declaration statement matcher
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "flags.h"
 #include "constructor.h"
 #include "tree.h"
-#include "stringpool.h"
 
 /* Macros to access allocate memory for gfc_data_variable,
    gfc_data_value and gfc_data.  */
@@ -1199,7 +1198,7 @@ build_sym (const char *name, gfc_charlen *cl, bool cl_deferred,
   sym->attr.implied_index = 0;
 
   if (sym->ts.type == BT_CLASS)
-    return gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as);
+    return gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as, false);
 
   return true;
 }
@@ -1656,7 +1655,10 @@ build_struct (const char *name, gfc_charlen *cl, gfc_expr **init,
 scalar:
   if (c->ts.type == BT_CLASS)
     {
-      bool t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as);
+      bool delayed = (gfc_state_stack->sym == c->ts.u.derived)
+		     || (!c->ts.u.derived->components
+			 && !c->ts.u.derived->attr.zero_comp);
+      bool t2 = gfc_build_class_symbol (&c->ts, &c->attr, &c->as, delayed);
 
       if (t)
 	t = t2;
@@ -4284,10 +4286,12 @@ gfc_match_data_decl (void)
 	      || current_ts.u.derived->attr.zero_comp))
 	goto ok;
 
-      gfc_error ("Derived type at %C has not been previously defined "
-		 "and so cannot appear in a derived type definition");
-      m = MATCH_ERROR;
-      goto cleanup;
+      /* Now we have an error, which we signal, and then fix up
+	 because the knock-on is plain and simple confusing.  */
+      gfc_error_now ("Derived type at %C has not been previously defined "
+		     "and so cannot appear in a derived type definition");
+      current_attr.pointer = 1;
+      goto ok;
     }
 
 ok:
@@ -6337,7 +6341,7 @@ attr_decl1 (void)
     }
 
   if (sym->ts.type == BT_CLASS
-      && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as))
+      && !gfc_build_class_symbol (&sym->ts, &sym->attr, &sym->as, false))
     {
       m = MATCH_ERROR;
       goto cleanup;

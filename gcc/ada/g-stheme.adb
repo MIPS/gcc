@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2007-2013, AdaCore                     --
+--                     Copyright (C) 2007-2010, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -36,19 +36,38 @@
 separate (GNAT.Sockets.Thin)
 package body Host_Error_Messages is
 
-   function Host_Error_Message (H_Errno : Integer) return String is
+   package Messages is
+      HOST_NOT_FOUND : aliased char_array := "Host not found" & nul;
+      TRY_AGAIN      : aliased char_array := "Try again"      & nul;
+      NO_RECOVERY    : aliased char_array := "No recovery"    & nul;
+      NO_DATA        : aliased char_array := "No address"     & nul;
+      Unknown_Error  : aliased char_array := "Unknown error"  & nul;
+   end Messages;
+
+   function Host_Error_Message (H_Errno : Integer) return C.Strings.chars_ptr
+   is
+      use Interfaces.C.Strings;
+      function TCP
+        (P : char_array_access; Nul_Check : Boolean := False) return chars_ptr
+         renames To_Chars_Ptr;
+
    begin
       case H_Errno is
          when SOSC.HOST_NOT_FOUND =>
-            return "Host not found";
+            return TCP (Messages.HOST_NOT_FOUND'Access);
+
          when SOSC.TRY_AGAIN      =>
-            return "Try again";
+            return TCP (Messages.TRY_AGAIN'Access);
+
          when SOSC.NO_RECOVERY    =>
-            return "No recovery";
+            return TCP (Messages.NO_RECOVERY'Access);
+
          when SOSC.NO_DATA        =>
-            return "No address";
+            return TCP (Messages.NO_DATA'Access);
+
          when others              =>
-            return "Unknown error";
+            return TCP (Messages.Unknown_Error'Access);
+
       end case;
    end Host_Error_Message;
 

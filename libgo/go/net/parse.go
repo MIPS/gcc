@@ -54,7 +54,7 @@ func (f *file) readLine() (s string, ok bool) {
 		if n >= 0 {
 			f.data = f.data[0 : ln+n]
 		}
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
+		if err == io.EOF {
 			f.atEOF = true
 		}
 	}

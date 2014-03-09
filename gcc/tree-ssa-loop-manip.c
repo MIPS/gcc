@@ -1,5 +1,5 @@
 /* High-level loop manipulation functions.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,10 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree.h"
 #include "tm_p.h"
 #include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -36,7 +32,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
@@ -191,6 +186,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 {
   unsigned i;
   bitmap_iterator bi;
+  vec<basic_block> worklist;
   struct loop *def_loop = def_bb->loop_father;
   unsigned def_loop_depth = loop_depth (def_loop);
   bitmap def_loop_exits;
@@ -198,11 +194,11 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
   /* Normally the work list size is bounded by the number of basic
      blocks in the largest loop.  We don't know this number, but we
      can be fairly sure that it will be relatively small.  */
-  auto_vec<basic_block> worklist (MAX (8, n_basic_blocks_for_fn (cfun) / 128));
+  worklist.create (MAX (8, n_basic_blocks / 128));
 
   EXECUTE_IF_SET_IN_BITMAP (use_blocks, 0, i, bi)
     {
-      basic_block use_bb = BASIC_BLOCK_FOR_FN (cfun, i);
+      basic_block use_bb = BASIC_BLOCK (i);
       struct loop *use_loop = use_bb->loop_father;
       gcc_checking_assert (def_loop != use_loop
 			   && ! flow_loop_nested_p (def_loop, use_loop));
@@ -234,7 +230,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 	  bool pred_visited;
 
 	  /* We should have met DEF_BB along the way.  */
-	  gcc_assert (pred != ENTRY_BLOCK_PTR_FOR_FN (cfun));
+	  gcc_assert (pred != ENTRY_BLOCK_PTR);
 
 	  if (pred_loop_depth >= def_loop_depth)
 	    {
@@ -261,6 +257,7 @@ compute_live_loop_exits (bitmap live_exits, bitmap use_blocks,
 	  worklist.quick_push (pred);
 	}
     }
+  worklist.release ();
 
   def_loop_exits = BITMAP_ALLOC (&loop_renamer_obstack);
   for (struct loop *loop = def_loop;
@@ -325,7 +322,7 @@ add_exit_phis_var (tree var, bitmap use_blocks, bitmap *loop_exits)
 
   EXECUTE_IF_SET_IN_BITMAP (live_exits, 0, index, bi)
     {
-      add_exit_phi (BASIC_BLOCK_FOR_FN (cfun, index), var);
+      add_exit_phi (BASIC_BLOCK (index), var);
     }
 
   BITMAP_FREE (live_exits);
@@ -352,11 +349,12 @@ add_exit_phis (bitmap names_to_rename, bitmap *use_blocks, bitmap *loop_exits)
 static void
 get_loops_exits (bitmap *loop_exits)
 {
+  loop_iterator li;
   struct loop *loop;
   unsigned j;
   edge e;
 
-  FOR_EACH_LOOP (loop, 0)
+  FOR_EACH_LOOP (li, loop, 0)
     {
       vec<edge> exit_edges = get_loop_exit_edges (loop);
       loop_exits[loop->num] = BITMAP_ALLOC (&loop_renamer_obstack);
@@ -461,9 +459,9 @@ find_uses_to_rename (bitmap changed_bbs, bitmap *use_blocks, bitmap need_phis)
 
   if (changed_bbs)
     EXECUTE_IF_SET_IN_BITMAP (changed_bbs, 0, index, bi)
-      find_uses_to_rename_bb (BASIC_BLOCK_FOR_FN (cfun, index), use_blocks, need_phis);
+      find_uses_to_rename_bb (BASIC_BLOCK (index), use_blocks, need_phis);
   else
-    FOR_EACH_BB_FN (bb, cfun)
+    FOR_EACH_BB (bb)
       find_uses_to_rename_bb (bb, use_blocks, need_phis);
 }
 
@@ -602,7 +600,7 @@ verify_loop_closed_ssa (bool verify_ssa_p)
 
   timevar_push (TV_VERIFY_LOOP_CLOSED);
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       for (bsi = gsi_start_phis (bb); !gsi_end_p (bsi); gsi_next (&bsi))
 	{
@@ -728,14 +726,14 @@ copy_phi_node_args (unsigned first_new_block)
 {
   unsigned i;
 
-  for (i = first_new_block; i < (unsigned) last_basic_block_for_fn (cfun); i++)
-    BASIC_BLOCK_FOR_FN (cfun, i)->flags |= BB_DUPLICATED;
+  for (i = first_new_block; i < (unsigned) last_basic_block; i++)
+    BASIC_BLOCK (i)->flags |= BB_DUPLICATED;
 
-  for (i = first_new_block; i < (unsigned) last_basic_block_for_fn (cfun); i++)
-    add_phi_args_after_copy_bb (BASIC_BLOCK_FOR_FN (cfun, i));
+  for (i = first_new_block; i < (unsigned) last_basic_block; i++)
+    add_phi_args_after_copy_bb (BASIC_BLOCK (i));
 
-  for (i = first_new_block; i < (unsigned) last_basic_block_for_fn (cfun); i++)
-    BASIC_BLOCK_FOR_FN (cfun, i)->flags &= ~BB_DUPLICATED;
+  for (i = first_new_block; i < (unsigned) last_basic_block; i++)
+    BASIC_BLOCK (i)->flags &= ~BB_DUPLICATED;
 }
 
 
@@ -772,7 +770,7 @@ gimple_duplicate_loop_to_header_edge (struct loop *loop, edge e,
     verify_loop_closed_ssa (true);
 #endif
 
-  first_new_block = last_basic_block_for_fn (cfun);
+  first_new_block = last_basic_block;
   if (!duplicate_loop_to_header_edge (loop, e, ndupl, wont_exit,
 				      orig, to_remove, flags))
     return false;
@@ -1048,7 +1046,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
   unsigned new_est_niter, i, prob;
   unsigned irr = loop_preheader_edge (loop)->flags & EDGE_IRREDUCIBLE_LOOP;
   sbitmap wont_exit;
-  auto_vec<edge> to_remove;
+  vec<edge> to_remove = vNULL;
 
   est_niter = expected_loop_iterations (loop);
   determine_exit_conditions (loop, desc, factor,
@@ -1196,6 +1194,7 @@ tree_transform_and_unroll_loop (struct loop *loop, unsigned factor,
       ok = remove_path (e);
       gcc_assert (ok);
     }
+  to_remove.release ();
   update_ssa (TODO_update_ssa);
 
   /* Ensure that the frequencies in the loop match the new estimated

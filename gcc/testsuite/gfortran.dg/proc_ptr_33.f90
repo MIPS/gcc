@@ -22,7 +22,7 @@ end module
 program start
    use funcs
    implicit none
-   procedure(fun), pointer :: f ! { dg-error "Procedure pointer 'f' at .1. shall not be elemental" }
+   procedure(fun), pointer :: f
    real x(3)
    x = [1,2,3]
    f => my_dcos     ! { dg-error "Mismatch in PURE attribute" }

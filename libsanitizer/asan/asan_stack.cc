@@ -22,12 +22,9 @@ static bool MaybeCallAsanSymbolize(const void *pc, char *out_buffer,
                              : false;
 }
 
-void PrintStack(const uptr *trace, uptr size) {
-  StackTrace::PrintStack(trace, size, MaybeCallAsanSymbolize);
-}
-
 void PrintStack(StackTrace *stack) {
-  PrintStack(stack->trace, stack->size);
+  stack->PrintStack(stack->trace, stack->size, common_flags()->symbolize,
+                    common_flags()->strip_path_prefix, MaybeCallAsanSymbolize);
 }
 
 }  // namespace __asan
@@ -43,11 +40,3 @@ bool __asan_symbolize(const void *pc, char *out_buffer, int out_size) {
   return false;
 }
 #endif
-
-extern "C" {
-SANITIZER_INTERFACE_ATTRIBUTE
-void __sanitizer_print_stack_trace() {
-  using namespace __asan;
-  PRINT_CURRENT_STACK();
-}
-}  // extern "C"

@@ -18,7 +18,6 @@
 #include "sanitizer_common/sanitizer_common.h"
 #include "sanitizer_common/sanitizer_flags.h"
 #include "sanitizer_common/sanitizer_report_decorator.h"
-#include "sanitizer_common/sanitizer_stackdepot.h"
 #include "sanitizer_common/sanitizer_symbolizer.h"
 
 namespace __asan {
@@ -72,7 +71,6 @@ class Decorator: private __sanitizer::AnsiColorDecorator {
       case kAsanInitializationOrderMagic:
         return Cyan();
       case kAsanUserPoisonedMemoryMagic:
-      case kAsanContiguousContainerOOBMagic:
         return Blue();
       case kAsanStackUseAfterScopeMagic:
         return Magenta();
@@ -119,21 +117,19 @@ static void PrintLegend() {
   for (u8 i = 1; i < SHADOW_GRANULARITY; i++)
     PrintShadowByte("", i, " ");
   Printf("\n");
-  PrintShadowByte("  Heap left redzone:       ", kAsanHeapLeftRedzoneMagic);
-  PrintShadowByte("  Heap right redzone:      ", kAsanHeapRightRedzoneMagic);
-  PrintShadowByte("  Freed heap region:       ", kAsanHeapFreeMagic);
-  PrintShadowByte("  Stack left redzone:      ", kAsanStackLeftRedzoneMagic);
-  PrintShadowByte("  Stack mid redzone:       ", kAsanStackMidRedzoneMagic);
-  PrintShadowByte("  Stack right redzone:     ", kAsanStackRightRedzoneMagic);
-  PrintShadowByte("  Stack partial redzone:   ", kAsanStackPartialRedzoneMagic);
-  PrintShadowByte("  Stack after return:      ", kAsanStackAfterReturnMagic);
-  PrintShadowByte("  Stack use after scope:   ", kAsanStackUseAfterScopeMagic);
-  PrintShadowByte("  Global redzone:          ", kAsanGlobalRedzoneMagic);
-  PrintShadowByte("  Global init order:       ", kAsanInitializationOrderMagic);
-  PrintShadowByte("  Poisoned by user:        ", kAsanUserPoisonedMemoryMagic);
-  PrintShadowByte("  Contiguous container OOB:",
-                  kAsanContiguousContainerOOBMagic);
-  PrintShadowByte("  ASan internal:           ", kAsanInternalHeapMagic);
+  PrintShadowByte("  Heap left redzone:     ", kAsanHeapLeftRedzoneMagic);
+  PrintShadowByte("  Heap right redzone:    ", kAsanHeapRightRedzoneMagic);
+  PrintShadowByte("  Freed heap region:     ", kAsanHeapFreeMagic);
+  PrintShadowByte("  Stack left redzone:    ", kAsanStackLeftRedzoneMagic);
+  PrintShadowByte("  Stack mid redzone:     ", kAsanStackMidRedzoneMagic);
+  PrintShadowByte("  Stack right redzone:   ", kAsanStackRightRedzoneMagic);
+  PrintShadowByte("  Stack partial redzone: ", kAsanStackPartialRedzoneMagic);
+  PrintShadowByte("  Stack after return:    ", kAsanStackAfterReturnMagic);
+  PrintShadowByte("  Stack use after scope: ", kAsanStackUseAfterScopeMagic);
+  PrintShadowByte("  Global redzone:        ", kAsanGlobalRedzoneMagic);
+  PrintShadowByte("  Global init order:     ", kAsanInitializationOrderMagic);
+  PrintShadowByte("  Poisoned by user:      ", kAsanUserPoisonedMemoryMagic);
+  PrintShadowByte("  ASan internal:         ", kAsanInternalHeapMagic);
 }
 
 static void PrintShadowMemoryForAddress(uptr addr) {
@@ -182,8 +178,8 @@ static bool IsASCII(unsigned char c) {
 static const char *MaybeDemangleGlobalName(const char *name) {
   // We can spoil names of globals with C linkage, so use an heuristic
   // approach to check if the name should be demangled.
-  return (name[0] == '_' && name[1] == 'Z')
-             ? Symbolizer::Get()->Demangle(name)
+  return (name[0] == '_' && name[1] == 'Z' && &getSymbolizer)
+             ? getSymbolizer()->Demangle(name)
              : name;
 }
 
@@ -416,11 +412,7 @@ static void DescribeAccessToHeapChunk(AsanChunkView chunk, uptr addr,
 
 void DescribeHeapAddress(uptr addr, uptr access_size) {
   AsanChunkView chunk = FindHeapChunkByAddress(addr);
-  if (!chunk.IsValid()) {
-    Printf("AddressSanitizer can not describe address in more detail "
-           "(wild memory access suspected).\n");
-    return;
-  }
+  if (!chunk.IsValid()) return;
   DescribeAccessToHeapChunk(chunk, addr, access_size);
   CHECK(chunk.AllocTid() != kInvalidTid);
   asanThreadRegistry().CheckLocked();
@@ -487,9 +479,7 @@ void DescribeThread(AsanThreadContext *context) {
          context->parent_tid,
          ThreadNameWithParenthesis(context->parent_tid,
                                    tname, sizeof(tname)));
-  uptr stack_size;
-  const uptr *stack_trace = StackDepotGet(context->stack_id, &stack_size);
-  PrintStack(stack_trace, stack_size);
+  PrintStack(&context->stack);
   // Recursively described parent thread if needed.
   if (flags()->print_full_thread_history) {
     AsanThreadContext *parent_context =
@@ -550,6 +540,22 @@ class ScopedInErrorReport {
   }
 };
 
+static void ReportSummary(const char *error_type, StackTrace *stack) {
+  if (!stack->size) return;
+  if (&getSymbolizer && getSymbolizer()->IsAvailable()) {
+    AddressInfo ai;
+    // Currently, we include the first stack frame into the report summary.
+    // Maybe sometimes we need to choose another frame (e.g. skip memcpy/etc).
+    uptr pc = StackTrace::GetPreviousInstructionPc(stack->trace[0]);
+    getSymbolizer()->SymbolizeCode(pc, &ai, 1);
+    ReportErrorSummary(error_type,
+                       StripPathPrefix(ai.file,
+                                       common_flags()->strip_path_prefix),
+                       ai.line, ai.function);
+  }
+  // FIXME: do we need to print anything at all if there is no symbolizer?
+}
+
 void ReportSIGSEGV(uptr pc, uptr sp, uptr bp, uptr addr) {
   ScopedInErrorReport in_report;
   Decorator d;
@@ -559,13 +565,13 @@ void ReportSIGSEGV(uptr pc, uptr sp, uptr bp, uptr addr) {
              (void*)addr, (void*)pc, (void*)sp, (void*)bp,
              GetCurrentTidOrInvalid());
   Printf("%s", d.EndWarning());
+  Printf("AddressSanitizer can not provide additional info.\n");
   GET_STACK_TRACE_FATAL(pc, bp);
   PrintStack(&stack);
-  Printf("AddressSanitizer can not provide additional info.\n");
-  ReportErrorSummary("SEGV", &stack);
+  ReportSummary("SEGV", &stack);
 }
 
-void ReportDoubleFree(uptr addr, StackTrace *free_stack) {
+void ReportDoubleFree(uptr addr, StackTrace *stack) {
   ScopedInErrorReport in_report;
   Decorator d;
   Printf("%s", d.Warning());
@@ -575,15 +581,14 @@ void ReportDoubleFree(uptr addr, StackTrace *free_stack) {
          "thread T%d%s:\n",
          addr, curr_tid,
          ThreadNameWithParenthesis(curr_tid, tname, sizeof(tname)));
+
   Printf("%s", d.EndWarning());
-  CHECK_GT(free_stack->size, 0);
-  GET_STACK_TRACE_FATAL(free_stack->trace[0], free_stack->top_frame_bp);
-  PrintStack(&stack);
+  PrintStack(stack);
   DescribeHeapAddress(addr, 1);
-  ReportErrorSummary("double-free", &stack);
+  ReportSummary("double-free", stack);
 }
 
-void ReportFreeNotMalloced(uptr addr, StackTrace *free_stack) {
+void ReportFreeNotMalloced(uptr addr, StackTrace *stack) {
   ScopedInErrorReport in_report;
   Decorator d;
   Printf("%s", d.Warning());
@@ -593,14 +598,12 @@ void ReportFreeNotMalloced(uptr addr, StackTrace *free_stack) {
              "which was not malloc()-ed: %p in thread T%d%s\n", addr,
          curr_tid, ThreadNameWithParenthesis(curr_tid, tname, sizeof(tname)));
   Printf("%s", d.EndWarning());
-  CHECK_GT(free_stack->size, 0);
-  GET_STACK_TRACE_FATAL(free_stack->trace[0], free_stack->top_frame_bp);
-  PrintStack(&stack);
+  PrintStack(stack);
   DescribeHeapAddress(addr, 1);
-  ReportErrorSummary("bad-free", &stack);
+  ReportSummary("bad-free", stack);
 }
 
-void ReportAllocTypeMismatch(uptr addr, StackTrace *free_stack,
+void ReportAllocTypeMismatch(uptr addr, StackTrace *stack,
                              AllocType alloc_type,
                              AllocType dealloc_type) {
   static const char *alloc_names[] =
@@ -614,11 +617,9 @@ void ReportAllocTypeMismatch(uptr addr, StackTrace *free_stack,
   Report("ERROR: AddressSanitizer: alloc-dealloc-mismatch (%s vs %s) on %p\n",
         alloc_names[alloc_type], dealloc_names[dealloc_type], addr);
   Printf("%s", d.EndWarning());
-  CHECK_GT(free_stack->size, 0);
-  GET_STACK_TRACE_FATAL(free_stack->trace[0], free_stack->top_frame_bp);
-  PrintStack(&stack);
+  PrintStack(stack);
   DescribeHeapAddress(addr, 1);
-  ReportErrorSummary("alloc-dealloc-mismatch", &stack);
+  ReportSummary("alloc-dealloc-mismatch", stack);
   Report("HINT: if you don't care about these warnings you may set "
          "ASAN_OPTIONS=alloc_dealloc_mismatch=0\n");
 }
@@ -633,7 +634,7 @@ void ReportMallocUsableSizeNotOwned(uptr addr, StackTrace *stack) {
   Printf("%s", d.EndWarning());
   PrintStack(stack);
   DescribeHeapAddress(addr, 1);
-  ReportErrorSummary("bad-malloc_usable_size", stack);
+  ReportSummary("bad-malloc_usable_size", stack);
 }
 
 void ReportAsanGetAllocatedSizeNotOwned(uptr addr, StackTrace *stack) {
@@ -646,7 +647,7 @@ void ReportAsanGetAllocatedSizeNotOwned(uptr addr, StackTrace *stack) {
   Printf("%s", d.EndWarning());
   PrintStack(stack);
   DescribeHeapAddress(addr, 1);
-  ReportErrorSummary("bad-__asan_get_allocated_size", stack);
+  ReportSummary("bad-__asan_get_allocated_size", stack);
 }
 
 void ReportStringFunctionMemoryRangesOverlap(
@@ -664,7 +665,7 @@ void ReportStringFunctionMemoryRangesOverlap(
   PrintStack(stack);
   DescribeAddress((uptr)offset1, length1);
   DescribeAddress((uptr)offset2, length2);
-  ReportErrorSummary(bug_type, stack);
+  ReportSummary(bug_type, stack);
 }
 
 // ----------------------- Mac-specific reports ----------------- {{{1
@@ -746,9 +747,6 @@ void __asan_report_error(uptr pc, uptr bp, uptr sp,
       case kAsanUserPoisonedMemoryMagic:
         bug_descr = "use-after-poison";
         break;
-      case kAsanContiguousContainerOOBMagic:
-        bug_descr = "container-overflow";
-        break;
       case kAsanStackUseAfterScopeMagic:
         bug_descr = "stack-use-after-scope";
         break;
@@ -777,7 +775,7 @@ void __asan_report_error(uptr pc, uptr bp, uptr sp,
   PrintStack(&stack);
 
   DescribeAddress(addr, access_size);
-  ReportErrorSummary(bug_descr, &stack);
+  ReportSummary(bug_descr, &stack);
   PrintShadowMemoryForAddress(addr);
 }
 

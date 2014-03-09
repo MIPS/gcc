@@ -587,7 +587,6 @@ package body Targparm is
                      when EXS => Exit_Status_Supported_On_Target     := Result;
                      when FEL => Frontend_Layout_On_Target           := Result;
                      when FFO => Fractional_Fixed_Ops_On_Target      := Result;
-
                      when JVM =>
                         if Result then
                            VM_Target := JVM_Target;

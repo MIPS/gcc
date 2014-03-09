@@ -1,5 +1,5 @@
 /* Generic SSA value propagation engine.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Diego Novillo <dnovillo@redhat.com>
 
    This file is part of GCC.
@@ -30,12 +30,6 @@
 #include "gimple-pretty-print.h"
 #include "dumpfile.h"
 #include "sbitmap.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -43,11 +37,11 @@
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa.h"
 #include "tree-ssa-propagate.h"
 #include "langhooks.h"
+#include "vec.h"
 #include "value-prof.h"
 
 /* This file implements a generic value propagation engine based on
@@ -189,8 +183,7 @@ cfg_blocks_add (basic_block bb)
 {
   bool head = false;
 
-  gcc_assert (bb != ENTRY_BLOCK_PTR_FOR_FN (cfun)
-	      && bb != EXIT_BLOCK_PTR_FOR_FN (cfun));
+  gcc_assert (bb != ENTRY_BLOCK_PTR && bb != EXIT_BLOCK_PTR);
   gcc_assert (!bitmap_bit_p (bb_in_list, bb->index));
 
   if (cfg_blocks_empty_p ())
@@ -285,7 +278,7 @@ static void
 add_control_edge (edge e)
 {
   basic_block bb = e->dest;
-  if (bb == EXIT_BLOCK_PTR_FOR_FN (cfun))
+  if (bb == EXIT_BLOCK_PTR)
     return;
 
   /* If the edge had already been executed, skip it.  */
@@ -414,7 +407,7 @@ simulate_block (basic_block block)
   gimple_stmt_iterator gsi;
 
   /* There is nothing to do for the exit block.  */
-  if (block == EXIT_BLOCK_PTR_FOR_FN (cfun))
+  if (block == EXIT_BLOCK_PTR)
     return;
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -495,10 +488,10 @@ ssa_prop_init (void)
   vec_alloc (interesting_ssa_edges, 20);
   vec_alloc (varying_ssa_edges, 20);
 
-  executable_blocks = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  executable_blocks = sbitmap_alloc (last_basic_block);
   bitmap_clear (executable_blocks);
 
-  bb_in_list = sbitmap_alloc (last_basic_block_for_fn (cfun));
+  bb_in_list = sbitmap_alloc (last_basic_block);
   bitmap_clear (bb_in_list);
 
   if (dump_file && (dump_flags & TDF_DETAILS))
@@ -508,8 +501,8 @@ ssa_prop_init (void)
   cfg_blocks.safe_grow_cleared (20);
 
   /* Initially assume that every edge in the CFG is not executable.
-     (including the edges coming out of the entry block).  */
-  FOR_ALL_BB_FN (bb, cfun)
+     (including the edges coming out of ENTRY_BLOCK_PTR).  */
+  FOR_ALL_BB (bb)
     {
       gimple_stmt_iterator si;
 
@@ -525,7 +518,7 @@ ssa_prop_init (void)
 
   /* Seed the algorithm by adding the successors of the entry block to the
      edge worklist.  */
-  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR_FOR_FN (cfun)->succs)
+  FOR_EACH_EDGE (e, ei, ENTRY_BLOCK_PTR->succs)
     add_control_edge (e);
 }
 
@@ -667,7 +660,7 @@ valid_gimple_call_p (tree expr)
   for (i = 0; i < nargs; i++)
     {
       tree arg = CALL_EXPR_ARG (expr, i);
-      if (is_gimple_reg_type (TREE_TYPE (arg)))
+      if (is_gimple_reg_type (arg))
 	{
 	  if (!is_gimple_val (arg))
 	    return false;
@@ -1097,7 +1090,7 @@ substitute_and_fold (ssa_prop_get_value_fn get_value_fn,
       }
 
   /* Propagate into all uses and fold.  */
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator i;
 

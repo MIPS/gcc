@@ -1,5 +1,5 @@
 /* Transformations based on profile information for values.
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,8 +22,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "tree-nested.h"
-#include "calls.h"
 #include "rtl.h"
 #include "expr.h"
 #include "hard-reg-set.h"
@@ -34,11 +32,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "recog.h"
 #include "optabs.h"
 #include "regs.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
+#include "ggc.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -46,7 +40,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "diagnostic.h"
 #include "gimple-pretty-print.h"
@@ -55,6 +48,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "gcov-io.h"
 #include "timevar.h"
 #include "dumpfile.h"
+#include "pointer-set.h"
 #include "profile.h"
 #include "data-streamer.h"
 #include "builtins.h"
@@ -542,7 +536,7 @@ verify_histograms (void)
 
   error_found = false;
   visited_hists = pointer_set_create ();
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       {
 	gimple stmt = gsi_stmt (gsi);
@@ -648,7 +642,7 @@ gimple_value_profile_transformations (void)
   gimple_stmt_iterator gsi;
   bool changed = false;
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
 	{
@@ -1944,7 +1938,7 @@ gimple_find_values_to_profile (histogram_values *values)
   histogram_value hist = NULL;
   values->create (0);
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
       gimple_values_to_profile (gsi_stmt (gsi), values);
 

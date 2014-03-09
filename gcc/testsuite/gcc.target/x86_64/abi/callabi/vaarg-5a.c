@@ -1,5 +1,5 @@
 /* Test for cross x86_64<->w64 abi va_list calls.  */
-/* { dg-do run } */
+/* { dg-do run { target i?86-*-linux* x86_64-*-linux* } } */
 /* { dg-options "-O2 -mabi=ms -std=gnu99 -fno-builtin" } */
 /* { dg-additional-sources "vaarg-5b.c" } */
 

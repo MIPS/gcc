@@ -1,6 +1,7 @@
 /* Test __atomic routines for existence and proper execution on 2 byte 
    values with each valid memory model.  */
 /* { dg-do run } */
+/* { dg-require-effective-target sync_char_short } */
 
 /* Test the execution of the __atomic_compare_exchange_n builtin for a short.  */
 
@@ -15,7 +16,6 @@ short zero = 0;
 #define STRONG 0
 #define WEAK 1
 
-int
 main ()
 {
 

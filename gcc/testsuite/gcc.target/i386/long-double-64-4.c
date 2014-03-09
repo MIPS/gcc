@@ -8,4 +8,3 @@ foo (long double x)
 }
 
 /* { dg-final { scan-assembler-not "fldt" } } */
-/* { dg-final { scan-assembler-not "call\[\\t \]*_?__multf3" } } */

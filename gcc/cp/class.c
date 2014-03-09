@@ -1,5 +1,5 @@
 /* Functions related to building classes and their related objects.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -26,11 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "stringpool.h"
-#include "stor-layout.h"
-#include "attribs.h"
-#include "pointer-set.h"
-#include "hash-table.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "toplev.h"
@@ -39,6 +34,9 @@ along with GCC; see the file COPYING3.  If not see
 #include "cgraph.h"
 #include "dumpfile.h"
 #include "splay-tree.h"
+#include "pointer-set.h"
+#include "hash-table.h"
+#include "gimple.h"
 #include "gimplify.h"
 
 /* The number of nested classes being processed.  If we are not in the
@@ -431,9 +429,6 @@ build_base_path (enum tree_code code,
 	v_offset = build_vfield_ref (cp_build_indirect_ref (expr, RO_NULL,
                                                             complain),
 				     TREE_TYPE (TREE_TYPE (expr)));
-      
-      if (v_offset == error_mark_node)
-	return error_mark_node;
 
       v_offset = fold_build_pointer_plus (v_offset, BINFO_VPTR_FIELD (v_binfo));
       v_offset = build1 (NOP_EXPR,
@@ -628,9 +623,7 @@ build_vfield_ref (tree datum, tree type)
 {
   tree vfield, vcontext;
 
-  if (datum == error_mark_node
-      /* Can happen in case of duplicate base types (c++/59082).  */
-      || !TYPE_VFIELD (type))
+  if (datum == error_mark_node)
     return error_mark_node;
 
   /* First, convert to the requested type.  */
@@ -1379,19 +1372,13 @@ struct abi_tag_data
 {
   tree t;
   tree subob;
-  // error_mark_node to get diagnostics; otherwise collect missing tags here
-  tree tags;
 };
 
 static tree
-find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
+find_abi_tags_r (tree *tp, int */*walk_subtrees*/, void *data)
 {
   if (!OVERLOAD_TYPE_P (*tp))
     return NULL_TREE;
-
-  /* walk_tree shouldn't be walking into any subtrees of a RECORD_TYPE
-     anyway, but let's make sure of it.  */
-  *walk_subtrees = false;
 
   if (tree attributes = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (*tp)))
     {
@@ -1403,20 +1390,7 @@ find_abi_tags_r (tree *tp, int *walk_subtrees, void *data)
 	  tree id = get_identifier (TREE_STRING_POINTER (tag));
 	  if (!IDENTIFIER_MARKED (id))
 	    {
-	      if (p->tags != error_mark_node)
-		{
-		  /* We're collecting tags from template arguments.  */
-		  tree str = build_string (IDENTIFIER_LENGTH (id),
-					   IDENTIFIER_POINTER (id));
-		  p->tags = tree_cons (NULL_TREE, str, p->tags);
-		  ABI_TAG_IMPLICIT (p->tags) = true;
-
-		  /* Don't inherit this tag multiple times.  */
-		  IDENTIFIER_MARKED (id) = true;
-		}
-
-	      /* Otherwise we're diagnosing missing tags.  */
-	      else if (TYPE_P (p->subob))
+	      if (TYPE_P (p->subob))
 		{
 		  warning (OPT_Wabi_tag, "%qT does not have the %E abi tag "
 			   "that base %qT has", p->t, tag, p->subob);
@@ -1455,6 +1429,22 @@ mark_type_abi_tags (tree t, bool val)
 	  IDENTIFIER_MARKED (id) = val;
 	}
     }
+
+  /* Also mark ABI tags from template arguments.  */
+  if (CLASSTYPE_TEMPLATE_INFO (t))
+    {
+      tree args = CLASSTYPE_TI_ARGS (t);
+      for (int i = 0; i < TMPL_ARGS_DEPTH (args); ++i)
+	{
+	  tree level = TMPL_ARGS_LEVEL (args, i+1);
+	  for (int j = 0; j < TREE_VEC_LENGTH (level); ++j)
+	    {
+	      tree arg = TREE_VEC_ELT (level, j);
+	      if (CLASS_TYPE_P (arg))
+		mark_type_abi_tags (arg, val);
+	    }
+	}
+    }
 }
 
 /* Check that class T has all the abi tags that subobject SUBOB has, or
@@ -1466,46 +1456,9 @@ check_abi_tags (tree t, tree subob)
   mark_type_abi_tags (t, true);
 
   tree subtype = TYPE_P (subob) ? subob : TREE_TYPE (subob);
-  struct abi_tag_data data = { t, subob, error_mark_node };
+  struct abi_tag_data data = { t, subob };
 
   cp_walk_tree_without_duplicates (&subtype, find_abi_tags_r, &data);
-
-  mark_type_abi_tags (t, false);
-}
-
-void
-inherit_targ_abi_tags (tree t)
-{
-  if (CLASSTYPE_TEMPLATE_INFO (t) == NULL_TREE)
-    return;
-
-  mark_type_abi_tags (t, true);
-
-  tree args = CLASSTYPE_TI_ARGS (t);
-  struct abi_tag_data data = { t, NULL_TREE, NULL_TREE };
-  for (int i = 0; i < TMPL_ARGS_DEPTH (args); ++i)
-    {
-      tree level = TMPL_ARGS_LEVEL (args, i+1);
-      for (int j = 0; j < TREE_VEC_LENGTH (level); ++j)
-	{
-	  tree arg = TREE_VEC_ELT (level, j);
-	  data.subob = arg;
-	  cp_walk_tree_without_duplicates (&arg, find_abi_tags_r, &data);
-	}
-    }
-
-  // If we found some tags on our template arguments, add them to our
-  // abi_tag attribute.
-  if (data.tags)
-    {
-      tree attr = lookup_attribute ("abi_tag", TYPE_ATTRIBUTES (t));
-      if (attr)
-	TREE_VALUE (attr) = chainon (data.tags, TREE_VALUE (attr));
-      else
-	TYPE_ATTRIBUTES (t)
-	  = tree_cons (get_identifier ("abi_tag"), data.tags,
-		       TYPE_ATTRIBUTES (t));
-    }
 
   mark_type_abi_tags (t, false);
 }
@@ -2885,9 +2838,7 @@ finish_struct_anon_r (tree field, bool complain)
 
       if (TREE_CODE (elt) != FIELD_DECL)
 	{
-	  /* We already complained about static data members in
-	     finish_static_data_member_decl.  */
-	  if (complain && TREE_CODE (elt) != VAR_DECL)
+	  if (complain)
 	    {
 	      if (is_union)
 		permerror (input_location,
@@ -5512,9 +5463,6 @@ check_bases_and_members (tree t)
   bool saved_nontrivial_dtor;
   tree fn;
 
-  /* Pick up any abi_tags from our template arguments before checking.  */
-  inherit_targ_abi_tags (t);
-
   /* By default, we use const reference arguments and generate default
      constructors.  */
   cant_have_const_ctor = 0;
@@ -6255,7 +6203,7 @@ layout_class_type (tree t, tree *virtuals_p)
 	{
 	  unsigned HOST_WIDE_INT width;
 	  tree ftype = TREE_TYPE (field);
-	  width = tree_to_uhwi (DECL_SIZE (field));
+	  width = tree_low_cst (DECL_SIZE (field), /*unsignedp=*/1);
 	  if (width != TYPE_PRECISION (ftype))
 	    {
 	      TREE_TYPE (field)
@@ -7559,6 +7507,8 @@ resolve_address_of_overloaded_function (tree target_type,
 	  /* See if there's a match.  */
 	  if (same_type_p (target_fn_type, static_fn_type (instantiation)))
 	    matches = tree_cons (instantiation, fn, matches);
+
+	  ggc_free (targs);
 	}
 
       /* Now, remove all but the most specialized of the matches.  */
@@ -8125,7 +8075,7 @@ dump_class_hierarchy_r (FILE *stream,
   igo = TREE_CHAIN (binfo);
 
   fprintf (stream, HOST_WIDE_INT_PRINT_DEC,
-	   tree_to_shwi (BINFO_OFFSET (binfo)));
+	   tree_low_cst (BINFO_OFFSET (binfo), 0));
   if (is_empty_class (BINFO_TYPE (binfo)))
     fprintf (stream, " empty");
   else if (CLASSTYPE_NEARLY_EMPTY_P (BINFO_TYPE (binfo)))
@@ -8201,10 +8151,10 @@ dump_class_hierarchy_1 (FILE *stream, int flags, tree t)
 {
   fprintf (stream, "Class %s\n", type_as_string (t, TFF_PLAIN_IDENTIFIER));
   fprintf (stream, "   size=%lu align=%lu\n",
-	   (unsigned long)(tree_to_shwi (TYPE_SIZE (t)) / BITS_PER_UNIT),
+	   (unsigned long)(tree_low_cst (TYPE_SIZE (t), 0) / BITS_PER_UNIT),
 	   (unsigned long)(TYPE_ALIGN (t) / BITS_PER_UNIT));
   fprintf (stream, "   base size=%lu base align=%lu\n",
-	   (unsigned long)(tree_to_shwi (TYPE_SIZE (CLASSTYPE_AS_BASE (t)))
+	   (unsigned long)(tree_low_cst (TYPE_SIZE (CLASSTYPE_AS_BASE (t)), 0)
 			   / BITS_PER_UNIT),
 	   (unsigned long)(TYPE_ALIGN (CLASSTYPE_AS_BASE (t))
 			   / BITS_PER_UNIT));
@@ -8241,7 +8191,7 @@ dump_array (FILE * stream, tree decl)
   HOST_WIDE_INT elt;
   tree size = TYPE_MAX_VALUE (TYPE_DOMAIN (TREE_TYPE (decl)));
 
-  elt = (tree_to_shwi (TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl))))
+  elt = (tree_low_cst (TYPE_SIZE (TREE_TYPE (TREE_TYPE (decl))), 0)
 	 / BITS_PER_UNIT);
   fprintf (stream, "%s:", decl_as_string (decl, TFF_PLAIN_IDENTIFIER));
   fprintf (stream, " %s entries",
@@ -8330,10 +8280,10 @@ dump_thunk (FILE *stream, int indent, tree thunk)
 	/*NOP*/;
       else if (DECL_THIS_THUNK_P (thunk))
 	fprintf (stream, " vcall="  HOST_WIDE_INT_PRINT_DEC,
-		 tree_to_shwi (virtual_adjust));
+		 tree_low_cst (virtual_adjust, 0));
       else
 	fprintf (stream, " vbase=" HOST_WIDE_INT_PRINT_DEC "(%s)",
-		 tree_to_shwi (BINFO_VPTR_FIELD (virtual_adjust)),
+		 tree_low_cst (BINFO_VPTR_FIELD (virtual_adjust), 0),
 		 type_as_string (BINFO_TYPE (virtual_adjust), TFF_SCOPE));
       if (THUNK_ALIAS (thunk))
 	fprintf (stream, " alias to %p", (void *)THUNK_ALIAS (thunk));

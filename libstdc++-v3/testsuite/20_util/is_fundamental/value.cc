@@ -1,7 +1,6 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
+// { dg-options "-std=gnu++0x" }
 //
-// Copyright (C) 2011-2014 Free Software Foundation, Inc.
+// Copyright (C) 2011-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -19,35 +18,43 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <type_traits>
+#include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using std::is_fundamental;
   using namespace __gnu_test;
   
-  static_assert(test_category<is_fundamental, void>(true), "");
-  static_assert(test_category<is_fundamental, char>(true), "");
-  static_assert(test_category<is_fundamental, signed char>(true), "");
-  static_assert(test_category<is_fundamental, unsigned char>(true), "");
+  VERIFY( (test_category<is_fundamental, void>(true)) );
+  VERIFY( (test_category<is_fundamental, char>(true)) );
+  VERIFY( (test_category<is_fundamental, signed char>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned char>(true)) );
 #ifdef _GLIBCXX_USE_WCHAR_T
-  static_assert(test_category<is_fundamental, wchar_t>(true), "");
+  VERIFY( (test_category<is_fundamental, wchar_t>(true)) );
 #endif
-  static_assert(test_category<is_fundamental, short>(true), "");
-  static_assert(test_category<is_fundamental, unsigned short>(true), "");
-  static_assert(test_category<is_fundamental, int>(true), "");
-  static_assert(test_category<is_fundamental, unsigned int>(true), "");
-  static_assert(test_category<is_fundamental, long>(true), "");
-  static_assert(test_category<is_fundamental, unsigned long>(true), "");
-  static_assert(test_category<is_fundamental, long long>(true), "");
-  static_assert(test_category<is_fundamental, unsigned long long>(true), "");
-  static_assert(test_category<is_fundamental, float>(true), "");
-  static_assert(test_category<is_fundamental, double>(true), "");
-  static_assert(test_category<is_fundamental, long double>(true), "");
+  VERIFY( (test_category<is_fundamental, short>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned short>(true)) );
+  VERIFY( (test_category<is_fundamental, int>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned int>(true)) );
+  VERIFY( (test_category<is_fundamental, long>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned long>(true)) );
+  VERIFY( (test_category<is_fundamental, long long>(true)) );
+  VERIFY( (test_category<is_fundamental, unsigned long long>(true)) );
+  VERIFY( (test_category<is_fundamental, float>(true)) );
+  VERIFY( (test_category<is_fundamental, double>(true)) );
+  VERIFY( (test_category<is_fundamental, long double>(true)) );
 
   // libstdc++/56609
-  static_assert(test_category<is_fundamental, std::nullptr_t>(true), "");
+  VERIFY( (test_category<is_fundamental, std::nullptr_t>(true)) );
 
   // Sanity check.
-  static_assert(test_category<is_fundamental, ClassType>(false), "");
+  VERIFY( (test_category<is_fundamental, ClassType>(false)) );
+}
+
+int main()
+{
+  test01();
+  return 0;
 }

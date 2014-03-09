@@ -1,5 +1,5 @@
 /* The Blackfin code generation auxiliary output file.
-   Copyright (C) 2005-2014 Free Software Foundation, Inc.
+   Copyright (C) 2005-2013 Free Software Foundation, Inc.
    Contributed by Analog Devices.
 
    This file is part of GCC.
@@ -32,8 +32,6 @@
 #include "output.h"
 #include "insn-attr.h"
 #include "tree.h"
-#include "varasm.h"
-#include "calls.h"
 #include "flags.h"
 #include "except.h"
 #include "function.h"
@@ -105,7 +103,7 @@ output_file_start (void)
   FILE *file = asm_out_file;
   int i;
 
-  fprintf (file, ".file \"%s\";\n", LOCATION_FILE (input_location));
+  fprintf (file, ".file \"%s\";\n", input_filename);
   
   for (i = 0; arg_regs[i] >= 0; i++)
     ;
@@ -2992,7 +2990,7 @@ static int first_preg_to_save, first_dreg_to_save;
 static int n_regs_to_save;
 
 int
-analyze_push_multiple_operation (rtx op)
+push_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   int lastdreg = 8, lastpreg = 6;
   int i, group;
@@ -3063,7 +3061,7 @@ analyze_push_multiple_operation (rtx op)
 }
 
 int
-analyze_pop_multiple_operation (rtx op)
+pop_multiple_operation (rtx op, enum machine_mode mode ATTRIBUTE_UNUSED)
 {
   int lastdreg = 8, lastpreg = 6;
   int i, group;
@@ -3132,7 +3130,7 @@ output_push_multiple (rtx insn, rtx *operands)
   int ok;
   
   /* Validate the insn again, and compute first_[dp]reg_to_save. */
-  ok = analyze_push_multiple_operation (PATTERN (insn));
+  ok = push_multiple_operation (PATTERN (insn), VOIDmode);
   gcc_assert (ok);
   
   if (first_dreg_to_save == 8)
@@ -3156,7 +3154,7 @@ output_pop_multiple (rtx insn, rtx *operands)
   int ok;
   
   /* Validate the insn again, and compute first_[dp]reg_to_save. */
-  ok = analyze_pop_multiple_operation (PATTERN (insn));
+  ok = pop_multiple_operation (PATTERN (insn), VOIDmode);
   gcc_assert (ok);
 
   if (first_dreg_to_save == 8)
@@ -3600,7 +3598,7 @@ hwloop_optimize (hwloop_info loop)
 
       if (single_pred_p (bb)
 	  && single_pred_edge (bb)->flags & EDGE_FALLTHRU
-	  && single_pred (bb) != ENTRY_BLOCK_PTR_FOR_FN (cfun))
+	  && single_pred (bb) != ENTRY_BLOCK_PTR)
 	{
 	  bb = single_pred (bb);
 	  last_insn = BB_END (bb);
@@ -3957,7 +3955,7 @@ static void
 bfin_gen_bundles (void)
 {
   basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       rtx insn, next;
       rtx slot[3];
@@ -4036,7 +4034,7 @@ static void
 reorder_var_tracking_notes (void)
 {
   basic_block bb;
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       rtx insn, next;
       rtx queue = NULL_RTX;
@@ -4136,8 +4134,8 @@ workaround_rts_anomaly (void)
 
 	  if (GET_CODE (pat) == PARALLEL)
 	    {
-	      if (analyze_push_multiple_operation (pat)
-		  || analyze_pop_multiple_operation (pat))
+	      if (push_multiple_operation (pat, VOIDmode)
+		  || pop_multiple_operation (pat, VOIDmode))
 		this_cycles = n_regs_to_save;
 	    }
 	  else

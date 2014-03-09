@@ -1,5 +1,5 @@
 /* Loop autoparallelization.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
    Contributed by Sebastian Pop <pop@cri.ensmp.fr> 
    Zdenek Dvorak <dvorakz@suse.cz> and Razya Ladelsky <razya@il.ibm.com>.
 
@@ -23,23 +23,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
 #include "gimple-walk.h"
-#include "stor-layout.h"
-#include "tree-nested.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-ssa-loop-ivopts.h"
 #include "tree-ssa-loop-manip.h"
@@ -424,7 +416,7 @@ loop_parallel_p (struct loop *loop, struct obstack * parloop_obstack)
 
   /* Check for problems with dependences.  If the loop can be reversed,
      the iterations are independent.  */
-  auto_vec<loop_p, 3> loop_nest;
+  stack_vec<loop_p, 3> loop_nest;
   datarefs.create (10);
   dependence_relations.create (100);
   if (! compute_data_dependences_for_loop (loop, true, &loop_nest, &datarefs,
@@ -752,7 +744,7 @@ static void
 eliminate_local_variables (edge entry, edge exit)
 {
   basic_block bb;
-  auto_vec<basic_block, 3> body;
+  stack_vec<basic_block, 3> body;
   unsigned i;
   gimple_stmt_iterator gsi;
   bool has_debug_stmt = false;
@@ -1303,7 +1295,7 @@ separate_decls_in_region (edge entry, edge exit,
   tree type, type_name, nvar;
   gimple_stmt_iterator gsi;
   struct clsn_data clsn_data;
-  auto_vec<basic_block, 3> body;
+  stack_vec<basic_block, 3> body;
   basic_block bb;
   basic_block entry_bb = bb1;
   basic_block exit_bb = exit->dest;
@@ -1752,6 +1744,7 @@ static void
 gen_parallel_loop (struct loop *loop, reduction_info_table_type reduction_list,
 		   unsigned n_threads, struct tree_niter_desc *niter)
 {
+  loop_iterator li;
   tree many_iterations_cond, type, nit;
   tree arg_struct, new_arg_struct;
   gimple_seq stmts;
@@ -1906,7 +1899,7 @@ gen_parallel_loop (struct loop *loop, reduction_info_table_type reduction_list,
 
   /* Free loop bound estimations that could contain references to
      removed statements.  */
-  FOR_EACH_LOOP (loop, 0)
+  FOR_EACH_LOOP (li, loop, 0)
     free_numbers_of_iterations_estimates_loop (loop);
 
   /* Expand the parallel constructs.  We do it directly here instead of running
@@ -2147,10 +2140,11 @@ parallelize_loops (void)
   bool changed = false;
   struct loop *loop;
   struct tree_niter_desc niter_desc;
+  loop_iterator li;
   reduction_info_table_type reduction_list;
   struct obstack parloop_obstack;
   HOST_WIDE_INT estimated;
-  source_location loop_loc;
+  LOC loop_loc;
 
   /* Do not parallelize loops in the functions created by parallelization.  */
   if (parallelized_function_p (cfun->decl))
@@ -2162,7 +2156,7 @@ parallelize_loops (void)
   reduction_list.create (10);
   init_stmt_vec_info_vec ();
 
-  FOR_EACH_LOOP (loop, 0)
+  FOR_EACH_LOOP (li, loop, 0)
     {
       reduction_list.empty ();
       if (dump_file && (dump_flags & TDF_DETAILS))
@@ -2230,9 +2224,9 @@ parallelize_loops (void)
 	else
 	  fprintf (dump_file, "parallelizing inner loop %d\n",loop->header->index);
 	loop_loc = find_loop_location (loop);
-	if (loop_loc != UNKNOWN_LOCATION)
+	if (loop_loc != UNKNOWN_LOC)
 	  fprintf (dump_file, "\nloop at %s:%d: ",
-		   LOCATION_FILE (loop_loc), LOCATION_LINE (loop_loc));
+		   LOC_FILE (loop_loc), LOC_LINE (loop_loc));
       }
       gen_parallel_loop (loop, reduction_list,
 			 n_threads, &niter_desc);

@@ -1,6 +1,6 @@
 /* Lower GIMPLE_SWITCH expressions to something more efficient than
    a jump table.
-   Copyright (C) 2006-2014 Free Software Foundation, Inc.
+   Copyright (C) 2006-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -30,13 +30,7 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "params.h"
 #include "flags.h"
 #include "tree.h"
-#include "varasm.h"
-#include "stor-layout.h"
 #include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -45,7 +39,6 @@ Software Foundation, 51 Franklin Street, Fifth Floor, Boston, MA
 #include "cgraph.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "tree-pass.h"
 #include "gimple-pretty-print.h"
@@ -361,13 +354,15 @@ emit_case_bit_tests (gimple swtch, tree index_expr,
       else
         test[k].bits++;
 
-      lo = tree_to_uhwi (int_const_binop (MINUS_EXPR,
-					  CASE_LOW (cs), minval));
+      lo = tree_low_cst (int_const_binop (MINUS_EXPR,
+					  CASE_LOW (cs), minval),
+			 1);
       if (CASE_HIGH (cs) == NULL_TREE)
 	hi = lo;
       else
-	hi = tree_to_uhwi (int_const_binop (MINUS_EXPR,
-					    CASE_HIGH (cs), minval));
+	hi = tree_low_cst (int_const_binop (MINUS_EXPR, 
+					    CASE_HIGH (cs), minval),
+			   1);
 
       for (j = lo; j <= hi; j++)
         if (j >= HOST_BITS_PER_WIDE_INT)
@@ -702,13 +697,13 @@ static bool
 check_range (struct switch_conv_info *info)
 {
   gcc_assert (info->range_size);
-  if (!tree_fits_uhwi_p (info->range_size))
+  if (!host_integerp (info->range_size, 1))
     {
       info->reason = "index range way too large or otherwise unusable";
       return false;
     }
 
-  if (tree_to_uhwi (info->range_size)
+  if ((unsigned HOST_WIDE_INT) tree_low_cst (info->range_size, 1)
       > ((unsigned) info->count * SWITCH_CONVERSION_BRANCH_RATIO))
     {
       info->reason = "the maximum range-branch ratio exceeded";
@@ -810,7 +805,7 @@ create_temp_arrays (struct switch_conv_info *info)
   info->target_inbound_names = info->default_values + info->phi_count;
   info->target_outbound_names = info->target_inbound_names + info->phi_count;
   for (i = 0; i < info->phi_count; i++)
-    vec_alloc (info->constructors[i], tree_to_uhwi (info->range_size) + 1);
+    vec_alloc (info->constructors[i], tree_low_cst (info->range_size, 1) + 1);
 }
 
 /* Free the arrays created by create_temp_arrays().  The vectors that are
@@ -1420,7 +1415,7 @@ do_switchconv (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
   {
     const char *failure_reason;
     gimple stmt = last_stmt (bb);

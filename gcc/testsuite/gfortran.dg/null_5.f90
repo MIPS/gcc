@@ -34,7 +34,7 @@ subroutine test_PR34547_1 ()
 end subroutine test_PR34547_1
 
 subroutine test_PR34547_2 ()
-  print *, null () ! { dg-error "Invalid context" }
+  print *, null () ! { dg-error "in data transfer statement requires MOLD" }
 end subroutine test_PR34547_2
 
 subroutine test_PR34547_3 ()

@@ -1,5 +1,5 @@
 /* Header file for gimple iterators.
-   Copyright (C) 2013-2014 Free Software Foundation, Inc.
+   Copyright (C) 2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -22,7 +22,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Iterator object for GIMPLE statement sequences.  */
 
-struct gimple_stmt_iterator
+typedef struct gimple_stmt_iterator_d
 {
   /* Sequence node holding the current statement.  */
   gimple_seq_node ptr;
@@ -33,7 +33,7 @@ struct gimple_stmt_iterator
      block/sequence is removed.  */
   gimple_seq *seq;
   basic_block bb;
-};
+} gimple_stmt_iterator;
  
 enum gsi_iterator_update
 {
@@ -168,7 +168,7 @@ gsi_end_p (gimple_stmt_iterator i)
 static inline bool
 gsi_one_before_end_p (gimple_stmt_iterator i)
 {
-  return i.ptr != NULL && i.ptr->next == NULL;
+  return i.ptr != NULL && i.ptr->gsbase.next == NULL;
 }
 
 /* Advance the iterator to the next gimple statement.  */
@@ -176,7 +176,7 @@ gsi_one_before_end_p (gimple_stmt_iterator i)
 static inline void
 gsi_next (gimple_stmt_iterator *i)
 {
-  i->ptr = i->ptr->next;
+  i->ptr = i->ptr->gsbase.next;
 }
 
 /* Advance the iterator to the previous gimple statement.  */
@@ -184,8 +184,8 @@ gsi_next (gimple_stmt_iterator *i)
 static inline void
 gsi_prev (gimple_stmt_iterator *i)
 {
-  gimple prev = i->ptr->prev;
-  if (prev->next)
+  gimple prev = i->ptr->gsbase.prev;
+  if (prev->gsbase.next)
     i->ptr = prev;
   else
     i->ptr = NULL;

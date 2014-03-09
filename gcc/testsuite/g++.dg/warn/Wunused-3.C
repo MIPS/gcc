@@ -1,5 +1,5 @@
 // { dg-do compile }
-// { dg-options "-Wunused -O -fno-use-cxa-atexit" }
+// { dg-options "-Wunused -O" }
 
 void do_cleanups();
 

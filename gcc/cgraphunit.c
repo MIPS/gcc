@@ -1,5 +1,5 @@
 /* Driver of optimization process
-   Copyright (C) 2003-2014 Free Software Foundation, Inc.
+   Copyright (C) 2003-2013 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -162,17 +162,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "varasm.h"
-#include "stor-layout.h"
-#include "stringpool.h"
 #include "output.h"
 #include "rtl.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-fold.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "gimple-iterator.h"
@@ -183,8 +174,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa.h"
 #include "tree-inline.h"
 #include "langhooks.h"
+#include "pointer-set.h"
 #include "toplev.h"
 #include "flags.h"
+#include "ggc.h"
 #include "debug.h"
 #include "target.h"
 #include "diagnostic.h"
@@ -209,7 +202,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "context.h"
 #include "pass_manager.h"
 #include "tree-nested.h"
-#include "gimplify.h"
 
 /* Queue of cgraph nodes scheduled to be added into cgraph.  This is a
    secondary queue used during optimization to accommodate passes that
@@ -273,13 +265,11 @@ decide_is_symbol_needed (symtab_node *node)
   return false;
 }
 
-/* Head and terminator of the queue of nodes to be processed while building
-   callgraph.  */
+/* Head of the queue of nodes to be processed while building callgraph */
 
-static symtab_node symtab_terminator;
-static symtab_node *queued_nodes = &symtab_terminator;
+static symtab_node *first = (symtab_node *)(void *)1;
 
-/* Add NODE to queue starting at QUEUED_NODES. 
+/* Add NODE to queue starting at FIRST. 
    The queue is linked via AUX pointers and terminated by pointer to 1.  */
 
 static void
@@ -287,24 +277,25 @@ enqueue_node (symtab_node *node)
 {
   if (node->aux)
     return;
-  gcc_checking_assert (queued_nodes);
-  node->aux = queued_nodes;
-  queued_nodes = node;
+  gcc_checking_assert (first);
+  node->aux = first;
+  first = node;
 }
 
 /* Process CGRAPH_NEW_FUNCTIONS and perform actions necessary to add these
    functions into callgraph in a way so they look like ordinary reachable
    functions inserted into callgraph already at construction time.  */
 
-void
+bool
 cgraph_process_new_functions (void)
 {
+  bool output = false;
   tree fndecl;
   struct cgraph_node *node;
   cgraph_node_set_iterator csi;
 
   if (!cgraph_new_nodes)
-    return;
+    return false;
   handle_alias_pairs ();
   /*  Note that this queue may grow as its being processed, as the new
       functions may generate new ones.  */
@@ -319,6 +310,7 @@ cgraph_process_new_functions (void)
 	     it into reachable functions list.  */
 
 	  cgraph_finalize_function (fndecl, false);
+	  output = true;
           cgraph_call_function_insertion_hooks (node);
 	  enqueue_node (node);
 	  break;
@@ -359,6 +351,7 @@ cgraph_process_new_functions (void)
     }
   free_cgraph_node_set (cgraph_new_nodes);
   cgraph_new_nodes = NULL;
+  return output;
 }
 
 /* As an GCC extension we allow redefinition of the function.  The
@@ -737,10 +730,10 @@ process_common_attributes (tree decl)
 
 static void
 process_function_and_variable_attributes (struct cgraph_node *first,
-                                          varpool_node *first_var)
+                                          struct varpool_node *first_var)
 {
   struct cgraph_node *node;
-  varpool_node *vnode;
+  struct varpool_node *vnode;
 
   for (node = cgraph_first_function (); node != first;
        node = cgraph_next_function (node))
@@ -813,7 +806,7 @@ process_function_and_variable_attributes (struct cgraph_node *first,
 void
 varpool_finalize_decl (tree decl)
 {
-  varpool_node *node = varpool_node_for_decl (decl);
+  struct varpool_node *node = varpool_node_for_decl (decl);
 
   gcc_assert (TREE_STATIC (decl) || DECL_EXTERNAL (decl));
 
@@ -836,8 +829,7 @@ varpool_finalize_decl (tree decl)
     varpool_analyze_node (node);
   /* Some frontends produce various interface variables after compilation
      finished.  */
-  if (cgraph_state == CGRAPH_STATE_FINISHED
-      || (!flag_toplevel_reorder && cgraph_state == CGRAPH_STATE_EXPANSION))
+  if (cgraph_state == CGRAPH_STATE_FINISHED)
     varpool_assemble_decl (node);
 }
 
@@ -928,8 +920,8 @@ analyze_functions (void)
      intermodule optimization.  */
   static struct cgraph_node *first_analyzed;
   struct cgraph_node *first_handled = first_analyzed;
-  static varpool_node *first_analyzed_var;
-  varpool_node *first_handled_var = first_analyzed_var;
+  static struct varpool_node *first_analyzed_var;
+  struct varpool_node *first_handled_var = first_analyzed_var;
   struct pointer_set_t *reachable_call_targets = pointer_set_create ();
 
   symtab_node *node;
@@ -989,11 +981,11 @@ analyze_functions (void)
 
       /* Lower representation, build callgraph edges and references for all trivially
          needed symbols and all symbols referred by them.  */
-      while (queued_nodes != &symtab_terminator)
+      while (first != (symtab_node *)(void *)1)
 	{
 	  changed = true;
-	  node = queued_nodes;
-	  queued_nodes = (symtab_node *)queued_nodes->aux;
+	  node = first;
+	  first = (symtab_node *)first->aux;
 	  cgraph_node *cnode = dyn_cast <cgraph_node> (node);
 	  if (cnode && cnode->definition)
 	    {
@@ -1244,8 +1236,7 @@ mark_functions_to_output (void)
 	      for (next = cgraph (node->same_comdat_group);
 		   next != node;
 		   next = cgraph (next->same_comdat_group))
-		if (!next->thunk.thunk_p && !next->alias
-		    && !symtab_comdat_local_p (next))
+		if (!next->thunk.thunk_p && !next->alias)
 		  next->process = 1;
 	    }
 	}
@@ -1342,10 +1333,10 @@ init_lowered_empty_function (tree decl, bool in_ssa)
   loops_for_fn (cfun)->state |= LOOPS_MAY_HAVE_MULTIPLE_LATCHES;
 
   /* Create BB for body of the function and connect it properly.  */
-  bb = create_basic_block (NULL, (void *) 0, ENTRY_BLOCK_PTR_FOR_FN (cfun));
-  make_edge (ENTRY_BLOCK_PTR_FOR_FN (cfun), bb, EDGE_FALLTHRU);
-  make_edge (bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
-  add_bb_to_loop (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->loop_father);
+  bb = create_basic_block (NULL, (void *) 0, ENTRY_BLOCK_PTR);
+  make_edge (ENTRY_BLOCK_PTR, bb, EDGE_FALLTHRU);
+  make_edge (bb, EXIT_BLOCK_PTR, 0);
+  add_bb_to_loop (bb, ENTRY_BLOCK_PTR->loop_father);
 
   return bb;
 }
@@ -1530,6 +1521,7 @@ expand_thunk (struct cgraph_node *node, bool output_asm_thunks)
       int i;
       tree resdecl;
       tree restmp = NULL;
+      vec<tree> vargs;
 
       gimple call;
       gimple ret;
@@ -1583,7 +1575,7 @@ expand_thunk (struct cgraph_node *node, bool output_asm_thunks)
 
       for (arg = a; arg; arg = DECL_CHAIN (arg))
         nargs++;
-      auto_vec<tree> vargs (nargs);
+      vargs.create (nargs);
       if (this_adjusting)
         vargs.quick_push (thunk_adjust (&bsi, a, 1, fixed_offset,
 					virtual_offset));
@@ -1592,19 +1584,10 @@ expand_thunk (struct cgraph_node *node, bool output_asm_thunks)
 
       if (nargs)
         for (i = 1, arg = DECL_CHAIN (a); i < nargs; i++, arg = DECL_CHAIN (arg))
-	  {
-	    tree tmp = arg;
-	    if (!is_gimple_val (arg))
-	      {
-		tmp = create_tmp_reg (TYPE_MAIN_VARIANT
-				      (TREE_TYPE (arg)), "arg");
-		gimple stmt = gimple_build_assign (tmp, arg);
-		gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
-	      }
-	    vargs.quick_push (tmp);
-	  }
+	  vargs.quick_push (arg);
       call = gimple_build_call_vec (build_fold_addr_expr_loc (0, alias), vargs);
       node->callees->call_stmt = call;
+      vargs.release ();
       gimple_call_set_from_thunk (call, true);
       if (restmp)
 	{
@@ -1641,7 +1624,7 @@ expand_thunk (struct cgraph_node *node, bool output_asm_thunks)
 		  gsi_insert_after (&bsi, stmt, GSI_NEW_STMT);
 		  make_edge (bb, then_bb, EDGE_TRUE_VALUE);
 		  make_edge (bb, else_bb, EDGE_FALSE_VALUE);
-		  make_edge (return_bb, EXIT_BLOCK_PTR_FOR_FN (cfun), 0);
+		  make_edge (return_bb, EXIT_BLOCK_PTR, 0);
 		  make_edge (then_bb, return_bb, EDGE_FALLTHRU);
 		  make_edge (else_bb, return_bb, EDGE_FALLTHRU);
 		  bsi = gsi_last_bb (then_bb);
@@ -1842,23 +1825,6 @@ expand_function (struct cgraph_node *node)
   ipa_remove_all_references (&node->ref_list);
 }
 
-/* Node comparer that is responsible for the order that corresponds
-   to time when a function was launched for the first time.  */
-
-static int
-node_cmp (const void *pa, const void *pb)
-{
-  const struct cgraph_node *a = *(const struct cgraph_node * const *) pa;
-  const struct cgraph_node *b = *(const struct cgraph_node * const *) pb;
-
-  /* Functions with time profile must be before these without profile.  */
-  if (!a->tp_first_run || !b->tp_first_run)
-    return a->tp_first_run - b->tp_first_run;
-
-  return a->tp_first_run != b->tp_first_run
-	 ? b->tp_first_run - a->tp_first_run
-	 : b->order - a->order;
-}
 
 /* Expand all functions that must be output.
 
@@ -1875,7 +1841,6 @@ expand_all_functions (void)
 {
   struct cgraph_node *node;
   struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
-  unsigned int expanded_func_count = 0, profiled_func_count = 0;
   int order_pos, new_order_pos = 0;
   int i;
 
@@ -1888,39 +1853,19 @@ expand_all_functions (void)
     if (order[i]->process)
       order[new_order_pos++] = order[i];
 
-  if (flag_profile_reorder_functions)
-    qsort (order, new_order_pos, sizeof (struct cgraph_node *), node_cmp);
-
   for (i = new_order_pos - 1; i >= 0; i--)
     {
       node = order[i];
-
       if (node->process)
 	{
-     expanded_func_count++;
-     if(node->tp_first_run)
-       profiled_func_count++;
-
-    if (cgraph_dump_file)
-      fprintf (cgraph_dump_file, "Time profile order in expand_all_functions:%s:%d\n", node->asm_name (), node->tp_first_run);
-
 	  node->process = 0;
 	  expand_function (node);
 	}
     }
-
-    if (dump_file)
-      fprintf (dump_file, "Expanded functions with time profile (%s):%u/%u\n",
-               main_input_filename, profiled_func_count, expanded_func_count);
-
-  if (cgraph_dump_file && flag_profile_reorder_functions)
-    fprintf (cgraph_dump_file, "Expanded functions with time profile:%u/%u\n",
-             profiled_func_count, expanded_func_count);
-
   cgraph_process_new_functions ();
-  free_gimplify_stack ();
 
   free (order);
+
 }
 
 /* This is used to sort the node types by the cgraph order number.  */
@@ -1939,7 +1884,7 @@ struct cgraph_order_sort
   union
   {
     struct cgraph_node *f;
-    varpool_node *v;
+    struct varpool_node *v;
     struct asm_node *a;
   } u;
 };
@@ -1957,7 +1902,7 @@ output_in_order (void)
   struct cgraph_order_sort *nodes;
   int i;
   struct cgraph_node *pf;
-  varpool_node *pv;
+  struct varpool_node *pv;
   struct asm_node *pa;
 
   max = symtab_order;
@@ -2067,12 +2012,15 @@ ipa_passes (void)
       cgraph_process_new_functions ();
 
       execute_ipa_summary_passes
-	((ipa_opt_pass_d *) passes->all_regular_ipa_passes);
+	((struct ipa_opt_pass_d *) passes->all_regular_ipa_passes);
     }
 
   /* Some targets need to handle LTO assembler output specially.  */
   if (flag_generate_lto)
     targetm.asm_out.lto_start ();
+
+  execute_ipa_summary_passes ((struct ipa_opt_pass_d *)
+			      passes->all_lto_gen_passes);
 
   if (!in_lto_p)
     ipa_write_summaries ();
@@ -2242,7 +2190,6 @@ compile (void)
 #endif
 
   cgraph_state = CGRAPH_STATE_EXPANSION;
-
   if (!flag_toplevel_reorder)
     output_in_order ();
   else

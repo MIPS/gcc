@@ -1,4 +1,4 @@
-/* Copyright (C) 2012-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2012-2013 Free Software Foundation, Inc.
    Contributed by Richard Henderson <rth@redhat.com>.
 
    This file is part of the GNU Atomic Library (libatomic).
@@ -51,9 +51,10 @@ SIZE(libat_compare_exchange) (UTYPE *mptr, UTYPE *eptr, UTYPE newval,
 #if !DONE && N <= WORDSIZE && defined(atomic_compare_exchange_w)
 bool
 SIZE(libat_compare_exchange) (UTYPE *mptr, UTYPE *eptr, UTYPE newval,
-			      int smodel, int fmodel)
+			      int smodel, int fmodel UNUSED)
 {
   UWORD mask, shift, weval, woldval, wnewval, t, *wptr;
+  bool ret = false;
 
   pre_barrier (smodel);
 
@@ -81,13 +82,12 @@ SIZE(libat_compare_exchange) (UTYPE *mptr, UTYPE *eptr, UTYPE newval,
     }
   while (!atomic_compare_exchange_w (wptr, &woldval, t, true,
 				     __ATOMIC_RELAXED, __ATOMIC_RELAXED));
-  post_barrier (smodel);
-  return true;
-
+  ret = true;
  failure:
   *eptr = woldval >> shift;
-  post_barrier (fmodel);
-  return false;
+
+  post_barrier (smodel);
+  return ret;
 }
 
 #define DONE 1
@@ -102,17 +102,18 @@ SIZE(libat_compare_exchange) (UTYPE *mptr, UTYPE *eptr, UTYPE newval,
 {
   UTYPE oldval;
   UWORD magic;
-  bool ret;
+  bool ret = false;
 
   pre_seq_barrier (smodel);
   magic = protect_start (mptr);
 
   oldval = *mptr;
-  ret = (oldval == *eptr);
-  if (ret)
-    *mptr = newval;
-  else
-    *eptr = oldval;
+  if (oldval == *eptr)
+    {
+      *mptr = newval;
+      ret = true;
+    }
+  *eptr = oldval;
 
   protect_end (mptr, magic);
   post_seq_barrier (smodel);

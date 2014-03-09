@@ -1,6 +1,6 @@
 // Pointer Traits -*- C++ -*-
 
-// Copyright (C) 2011-2014 Free Software Foundation, Inc.
+// Copyright (C) 2011-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -73,19 +73,24 @@ _GLIBCXX_HAS_NESTED_TYPE(difference_type)
     class __ptrtr_rebind_helper
     {
       template<typename _Ptr2, typename _Up2>
-	static constexpr true_type
-	_S_chk(typename _Ptr2::template rebind<_Up2>*);
+	static constexpr bool
+       	_S_chk(typename _Ptr2::template rebind<_Up2>*)
+       	{ return true; }
 
       template<typename, typename>
-	static constexpr false_type
-	_S_chk(...);
+        static constexpr bool
+       	_S_chk(...)
+       	{ return false; }
 
     public:
-      using __type = decltype(_S_chk<_Ptr, _Up>(nullptr));
+      static const bool __value = _S_chk<_Ptr, _Up>(nullptr);
     };
 
+  template<typename _Ptr, typename _Up>
+    const bool __ptrtr_rebind_helper<_Ptr, _Up>::__value;
+
   template<typename _Tp, typename _Up,
-           bool = __ptrtr_rebind_helper<_Tp, _Up>::__type::value>
+           bool = __ptrtr_rebind_helper<_Tp, _Up>::__value>
     struct __ptrtr_rebind;
 
   template<typename _Tp, typename _Up>

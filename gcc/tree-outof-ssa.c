@@ -1,5 +1,5 @@
 /* Convert a program in SSA form into Normal form.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
    Contributed by Andrew Macleod <amacleod@redhat.com>
 
 This file is part of GCC.
@@ -23,23 +23,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
-#include "stor-layout.h"
+#include "ggc.h"
 #include "basic-block.h"
 #include "gimple-pretty-print.h"
 #include "bitmap.h"
 #include "sbitmap.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "tree-eh.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimple-ssa.h"
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "dumpfile.h"
 #include "diagnostic-core.h"
@@ -835,7 +829,7 @@ eliminate_useless_phis (void)
   gimple_stmt_iterator gsi;
   tree result;
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); )
         {
@@ -893,7 +887,7 @@ rewrite_trees (var_map map ATTRIBUTE_UNUSED)
   /* Search for PHIs where the destination has no partition, but one
      or more arguments has a partition.  This should not happen and can
      create incorrect code.  */
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       gimple_stmt_iterator gsi;
       for (gsi = gsi_start_phis (bb); !gsi_end_p (gsi); gsi_next (&gsi))
@@ -935,8 +929,7 @@ expand_phi_nodes (struct ssaexpand *sa)
   elim_graph g = new_elim_graph (sa->map->num_partitions);
   g->map = sa->map;
 
-  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb,
-		  EXIT_BLOCK_PTR_FOR_FN (cfun), next_bb)
+  FOR_BB_BETWEEN (bb, ENTRY_BLOCK_PTR->next_bb, EXIT_BLOCK_PTR, next_bb)
     if (!gimple_seq_empty_p (phi_nodes (bb)))
       {
 	edge e;
@@ -1101,7 +1094,7 @@ insert_backedge_copies (void)
 
   mark_dfs_back_edges ();
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       /* Mark block as possibly needing calculation of UIDs.  */
       bb->aux = &bb->aux;

@@ -1,6 +1,5 @@
 /* { dg-do compile } */
 /* { dg-options "-O2 -fdump-tree-ccp1" } */
-/* { dg-prune-output "changes the ABI" } */
 
 typedef long vec __attribute__ ((vector_size (2 * sizeof (long))));
 

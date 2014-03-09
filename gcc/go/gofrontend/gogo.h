@@ -487,14 +487,6 @@ class Gogo
   void
   lower_constant(Named_object*);
 
-  // Flatten all the statements in a block.
-  void
-  flatten_block(Named_object* function, Block*);
-
-  // Flatten an expression.
-  void
-  flatten_expression(Named_object* function, Statement_inserter*, Expression**);
-
   // Create all necessary function descriptors.
   void
   create_function_descriptors();
@@ -538,10 +530,6 @@ class Gogo
   // Use temporary variables to force order of evaluation.
   void
   order_evaluations();
-
-  // Flatten parse tree.
-  void
-  flatten();
 
   // Build thunks for functions which call recover.
   void
@@ -588,7 +576,7 @@ class Gogo
 	       tree rettype, ...);
 
   // Build a call to the runtime error function.
-  Expression*
+  tree
   runtime_error(int code, Location);
 
   // Build a builtin struct with a list of fields.
@@ -1459,10 +1447,6 @@ class Variable
   void
   lower_init_expression(Gogo*, Named_object*, Statement_inserter*);
 
-  // Flatten the initialization expression after ordering evaluations.
-  void
-  flatten_init_expression(Gogo*, Named_object*, Statement_inserter*);
-
   // A special case: the init value is used only to determine the
   // type.  This is used if the variable is defined using := with the
   // comma-ok form of a map index or a receive expression.  The init
@@ -1596,8 +1580,6 @@ class Variable
   bool seen_ : 1;
   // True if we have lowered the initialization expression.
   bool init_is_lowered_ : 1;
-  // True if we have flattened the initialization expression.
-  bool init_is_flattened_ : 1;
   // True if init is a tuple used to set the type.
   bool type_from_init_tuple_ : 1;
   // True if init is a range clause and the type is the index type.

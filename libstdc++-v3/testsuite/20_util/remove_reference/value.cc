@@ -1,9 +1,7 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
-
+// { dg-options "-std=gnu++0x" }
 // 2007-06-02  Paolo Carlini  <pcarlini@suse.de>
 //
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2007-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,34 +19,34 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <type_traits>
+#include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using std::remove_reference;
   using std::is_same;
   using namespace __gnu_test;
 
-  static_assert(is_same<remove_reference<int&>::type, int>::value, "");
-  static_assert(is_same<remove_reference<int>::type, int>::value, "");
-  static_assert(is_same<remove_reference<const int&>::type,
-		const int>::value, "");
-  static_assert(is_same<remove_reference<int*&>::type, int*>::value, "");
-  static_assert(is_same<remove_reference<ClassType&>::type,
-		ClassType>::value, "");
-  static_assert(is_same<remove_reference<ClassType>::type,
-		ClassType>::value, "");
-  static_assert(is_same<remove_reference<int(&)(int)>::type,
-		int(int)>::value, "");
-  static_assert(is_same<remove_reference<int&&>::type, int>::value, "");
-  static_assert(is_same<remove_reference<int>::type, int>::value, "");
-  static_assert(is_same<remove_reference<const int&&>::type,
-		const int>::value, "");
-  static_assert(is_same<remove_reference<int*&&>::type, int*>::value, "");
-  static_assert(is_same<remove_reference<ClassType&&>::type,
-		ClassType>::value, "");
-  static_assert(is_same<remove_reference<ClassType>::type,
-		ClassType>::value, "");
-  static_assert(is_same<remove_reference<int(&&)(int)>::type,
-		int(int)>::value, "");
+  VERIFY( (is_same<remove_reference<int&>::type, int>::value) );
+  VERIFY( (is_same<remove_reference<int>::type, int>::value) );
+  VERIFY( (is_same<remove_reference<const int&>::type, const int>::value) );
+  VERIFY( (is_same<remove_reference<int*&>::type, int*>::value) );
+  VERIFY( (is_same<remove_reference<ClassType&>::type, ClassType>::value) );
+  VERIFY( (is_same<remove_reference<ClassType>::type, ClassType>::value) );
+  VERIFY( (is_same<remove_reference<int(&)(int)>::type, int(int)>::value) );
+  VERIFY( (is_same<remove_reference<int&&>::type, int>::value) );
+  VERIFY( (is_same<remove_reference<int>::type, int>::value) );
+  VERIFY( (is_same<remove_reference<const int&&>::type, const int>::value) );
+  VERIFY( (is_same<remove_reference<int*&&>::type, int*>::value) );
+  VERIFY( (is_same<remove_reference<ClassType&&>::type, ClassType>::value) );
+  VERIFY( (is_same<remove_reference<ClassType>::type, ClassType>::value) );
+  VERIFY( (is_same<remove_reference<int(&&)(int)>::type, int(int)>::value) );
+}
+
+int main()
+{
+  test01();
+  return 0;
 }

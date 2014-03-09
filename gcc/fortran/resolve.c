@@ -1,5 +1,5 @@
 /* Perform type resolution on the various structures.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
 
 This file is part of GCC.
@@ -1679,9 +1679,6 @@ gfc_resolve_intrinsic (gfc_symbol *sym, locus *loc)
 
   gfc_copy_formal_args_intr (sym, isym);
 
-  sym->attr.pure = isym->pure;
-  sym->attr.elemental = isym->elemental;
-
   /* Check it is actually available in the standard settings.  */
   if (!gfc_check_intrinsic_standard (isym, &symstd, false, sym->declared_at))
     {
@@ -2317,7 +2314,7 @@ gfc_explicit_interface_required (gfc_symbol *sym, char *errmsg, int err_len)
 	}
     }
 
-  if (sym->attr.elemental && !sym->attr.intrinsic)  /* (4)  */
+  if (sym->attr.elemental)  /* (4)  */
     {
       strncpy (errmsg, _("elemental procedure"), err_len);
       return true;
@@ -2351,7 +2348,6 @@ resolve_global_procedure (gfc_symbol *sym, locus *where,
   if ((sym->attr.if_source == IFSRC_UNKNOWN
        || sym->attr.if_source == IFSRC_IFBODY)
       && gsym->type != GSYM_UNKNOWN
-      && !gsym->binding_label
       && gsym->ns
       && gsym->ns->resolved != -1
       && gsym->ns->proc_name
@@ -2620,9 +2616,7 @@ found:
     expr->ts = sym->ts;
   expr->value.function.name = sym->name;
   expr->value.function.esym = sym;
-  if (sym->ts.type == BT_CLASS && CLASS_DATA (sym)->as)
-    expr->rank = CLASS_DATA (sym)->as->rank;
-  else if (sym->as != NULL)
+  if (sym->as != NULL)
     expr->rank = sym->as->rank;
 
   return MATCH_YES;
@@ -6598,8 +6592,7 @@ conformable_arrays (gfc_expr *e1, gfc_expr *e2)
   for (tail = e2->ref; tail && tail->next; tail = tail->next);
 
   /* First compare rank.  */
-  if ((tail && e1->rank != tail->u.ar.as->rank)
-      || (!tail && e1->rank != e2->rank))
+  if (tail && e1->rank != tail->u.ar.as->rank)
     {
       gfc_error ("Source-expr at %L must be scalar or have the "
 		 "same rank as the allocate-object at %L",
@@ -6796,7 +6789,8 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 	}
 
       /* Check F03:C632 and restriction following Note 6.18.  */
-      if (code->expr3->rank > 0 && !conformable_arrays (code->expr3, e))
+      if (code->expr3->rank > 0 && !unlimited
+	  && !conformable_arrays (code->expr3, e))
 	goto failure;
 
       /* Check F03:C633.  */
@@ -6931,7 +6925,10 @@ resolve_allocate_expr (gfc_expr *e, gfc_code *code)
 
       gcc_assert (ts);
 
-      gfc_find_vtab (ts);
+      if (ts->type == BT_CLASS || ts->type == BT_DERIVED)
+        gfc_find_derived_vtab (ts->u.derived);
+      else
+        gfc_find_intrinsic_vtab (ts);
 
       if (dimension)
 	e = gfc_expr_to_initialize (e);
@@ -7820,8 +7817,6 @@ resolve_assoc_var (gfc_symbol* sym, bool resolve_target)
 
       sym->attr.target = tsym->attr.target
 			 || gfc_expr_attr (target).pointer;
-      if (is_subref_array (target))
-	sym->attr.subref_array_pointer = 1;
     }
 
   /* Get type if this was not already set.  Note that it can be
@@ -8054,7 +8049,7 @@ resolve_select_type (gfc_code *code, gfc_namespace *old_ns)
 	  gfc_symbol *ivtab;
 	  gfc_expr *e;
 
-	  ivtab = gfc_find_vtab (&c->ts);
+	  ivtab = gfc_find_intrinsic_vtab (&c->ts);
 	  gcc_assert (ivtab && CLASS_DATA (ivtab)->initializer);
 	  e = CLASS_DATA (ivtab)->initializer;
 	  c->low = c->high = gfc_copy_expr (e);
@@ -8252,11 +8247,10 @@ resolve_transfer (gfc_code *code)
 	 && exp->value.op.op == INTRINSIC_PARENTHESES)
     exp = exp->value.op.op1;
 
-  if (exp && exp->expr_type == EXPR_NULL
-      && code->ext.dt)
+  if (exp && exp->expr_type == EXPR_NULL && exp->ts.type == BT_UNKNOWN)
     {
-      gfc_error ("Invalid context for NULL () intrinsic at %L",
-		 &exp->where);
+      gfc_error ("NULL intrinsic at %L in data transfer statement requires "
+		 "MOLD=", &exp->where);
       return;
     }
 
@@ -9220,7 +9214,7 @@ resolve_ordinary_assign (gfc_code *code, gfc_namespace *ns)
   /* F2008, Section 7.2.1.2.  */
   if (gfc_is_coindexed (lhs) && gfc_has_ultimate_allocatable (lhs))
     {
-      gfc_error ("Coindexed variable must not have an allocatable ultimate "
+      gfc_error ("Coindexed variable must not be have an allocatable ultimate "
 		 "component in assignment at %L", &lhs->where);
       return false;
     }
@@ -10166,6 +10160,7 @@ gfc_verify_binding_labels (gfc_symbol *sym)
       gsym->where = sym->declared_at;
       gsym->sym_name = sym->name;
       gsym->binding_label = sym->binding_label;
+      gsym->binding_label = sym->binding_label;
       gsym->ns = sym->ns;
       gsym->mod_name = module;
       if (sym->attr.function)
@@ -10202,11 +10197,11 @@ gfc_verify_binding_labels (gfc_symbol *sym)
 	   && ((gsym->type != GSYM_SUBROUTINE && gsym->type != GSYM_FUNCTION)
 	       || (gsym->defined && sym->attr.if_source != IFSRC_IFBODY))
 	   && sym != gsym->ns->proc_name
-	   && (module != gsym->mod_name
-	       || strcmp (gsym->sym_name, sym->name) != 0
+	   && (strcmp (gsym->sym_name, sym->name) != 0
+	       || module != gsym->mod_name
 	       || (module && strcmp (module, gsym->mod_name) != 0)))
     {
-      /* Print an error if the procedure is defined multiple times; we have to
+      /* Print an error if the procdure is defined multiple times; we have to
 	 exclude references to the same procedure via module association or
 	 multiple checks for the same procedure.  */
       gfc_error ("Procedure %s with binding label %s at %L uses the same "
@@ -10530,7 +10525,7 @@ build_default_init_expr (gfc_symbol *sym)
 	  init_expr = NULL;
 	}
       if (!init_expr && gfc_option.flag_init_character == GFC_INIT_CHARACTER_ON
-	  && sym->ts.u.cl->length && gfc_option.flag_max_stack_var_size != 0)
+	  && sym->ts.u.cl->length)
 	{
 	  gfc_actual_arglist *arg;
 	  init_expr = gfc_get_expr ();
@@ -11096,23 +11091,6 @@ resolve_fl_procedure (gfc_symbol *sym, int mp_flag)
 			sym->name, &sym->declared_at);
     }
 
-  /* F2008, C1218.  */
-  if (sym->attr.elemental)
-    {
-      if (sym->attr.proc_pointer)
-	{
-	  gfc_error ("Procedure pointer '%s' at %L shall not be elemental",
-		     sym->name, &sym->declared_at);
-	  return false;
-	}
-      if (sym->attr.dummy)
-	{
-	  gfc_error ("Dummy procedure '%s' at %L shall not be elemental",
-		     sym->name, &sym->declared_at);
-	  return false;
-	}
-    }
-
   if (sym->attr.is_bind_c && sym->attr.is_c_interop != 1)
     {
       gfc_formal_arglist *curr_arg;
@@ -11362,7 +11340,6 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
 {
   gfc_symbol *sym1, *sym2;
   const char *pass1, *pass2;
-  gfc_formal_arglist *dummy_args;
 
   gcc_assert (t1->specific && t2->specific);
   gcc_assert (!t1->specific->is_generic);
@@ -11385,33 +11362,19 @@ check_generic_tbp_ambiguity (gfc_tbp_generic* t1, gfc_tbp_generic* t2,
       return false;
     }
 
-  /* Determine PASS arguments.  */
+  /* Compare the interfaces.  */
   if (t1->specific->nopass)
     pass1 = NULL;
   else if (t1->specific->pass_arg)
     pass1 = t1->specific->pass_arg;
   else
-    {
-      dummy_args = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym);
-      if (dummy_args)
-	pass1 = dummy_args->sym->name;
-      else
-	pass1 = NULL;
-    }
+    pass1 = gfc_sym_get_dummy_args (t1->specific->u.specific->n.sym)->sym->name;
   if (t2->specific->nopass)
     pass2 = NULL;
   else if (t2->specific->pass_arg)
     pass2 = t2->specific->pass_arg;
   else
-    {
-      dummy_args = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym);
-      if (dummy_args)
-	pass2 = dummy_args->sym->name;
-      else
-	pass2 = NULL;
-    }
-
-  /* Compare the interfaces.  */
+    pass2 = gfc_sym_get_dummy_args (t2->specific->u.specific->n.sym)->sym->name;
   if (gfc_compare_interfaces (sym1, sym2, sym2->name, !t1->is_operator, 0,
 			      NULL, 0, pass1, pass2))
     {
@@ -11920,6 +11883,9 @@ resolve_typebound_procedures (gfc_symbol* derived)
   resolve_bindings_derived = derived;
   resolve_bindings_result = true;
 
+  /* Make sure the vtab has been generated.  */
+  gfc_find_derived_vtab (derived);
+
   if (derived->f2k_derived->tb_sym_root)
     gfc_traverse_symtree (derived->f2k_derived->tb_sym_root,
 			  &resolve_typebound_procedure);
@@ -12104,6 +12070,14 @@ resolve_fl_derived0 (gfc_symbol *sym)
     {
       if (c->attr.artificial)
 	continue;
+
+      /* See PRs 51550, 47545, 48654, 49050, 51075 - and 45170.  */
+      if (c->ts.type == BT_CHARACTER && c->ts.deferred && !c->attr.function)
+	{
+	  gfc_error ("Deferred-length character component '%s' at %L is not "
+		     "yet supported", c->name, &c->loc);
+	  return false;
+	}
 
       /* F2008, C442.  */
       if ((!sym->attr.is_class || c != sym->components)
@@ -12356,25 +12330,6 @@ resolve_fl_derived0 (gfc_symbol *sym)
 	  return false;
 	}
 
-      /* Add the hidden deferred length field.  */
-      if (c->ts.type == BT_CHARACTER && c->ts.deferred && !c->attr.function
-	  && !sym->attr.is_class)
-	{
-	  char name[GFC_MAX_SYMBOL_LEN+9];
-	  gfc_component *strlen;
-	  sprintf (name, "_%s_length", c->name);
-	  strlen = gfc_find_component (sym, name, true, true);
-	  if (strlen == NULL)
-	    {
-	      if (!gfc_add_component (sym, name, &strlen))
-		return false;
-	      strlen->ts.type = BT_INTEGER;
-	      strlen->ts.kind = gfc_charlen_int_kind;
-	      strlen->attr.access = ACCESS_PRIVATE;
-	      strlen->attr.deferred_parameter = 1;
-	    }
-	}
-
       if (c->ts.type == BT_DERIVED
 	  && sym->component_access != ACCESS_PRIVATE
 	  && gfc_check_symbol_access (sym)
@@ -12482,6 +12437,10 @@ resolve_fl_derived0 (gfc_symbol *sym)
 
   /* Add derived type to the derived type list.  */
   add_dt_to_dt_list (sym);
+
+  /* Check if the type is finalizable. This is done in order to ensure that the
+     finalization wrapper is generated early enough.  */
+  gfc_is_finalizable (sym, NULL);
 
   return true;
 }
@@ -12753,8 +12712,7 @@ resolve_symbol (gfc_symbol *sym)
   if (sym->attr.flavor == FL_UNKNOWN
       || (sym->attr.flavor == FL_PROCEDURE && !sym->attr.intrinsic
 	  && !sym->attr.generic && !sym->attr.external
-	  && sym->attr.if_source == IFSRC_UNKNOWN
-	  && sym->ts.type == BT_UNKNOWN))
+	  && sym->attr.if_source == IFSRC_UNKNOWN))
     {
 
     /* If we find that a flavorless symbol is an interface in one of the

@@ -1,8 +1,9 @@
+// { dg-do compile }
 // { dg-options "-std=c++0x" }
 
 // 2007-03-12  Stephen M. Webb  <stephen.webb@bregmasoft.com>
 //
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2007-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -32,7 +33,7 @@ test01()
   std::regex re("(wee|week)(knights|night)", std::regex::extended);
   
   VERIFY( re.flags() == std::regex::extended );
-  VERIFY( re.mark_count() == 2 );
+  VERIFY( re.mark_count() == 0 );
 }
 
 int main()

@@ -12,11 +12,16 @@
 
 #include "sanitizer_platform.h"
 #if SANITIZER_WINDOWS
+#include "sanitizer_internal_defs.h"
 #include "sanitizer_symbolizer.h"
 
 namespace __sanitizer {
 
-Symbolizer *Symbolizer::PlatformInit(const char *path_to_external) { return 0; }
+static SymbolizerInterface win_symbolizer;  // Linker initialized.
+
+SymbolizerInterface *getSymbolizer() {
+  return &win_symbolizer;
+}
 
 }  // namespace __sanitizer
 

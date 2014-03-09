@@ -6,23 +6,16 @@
 /* { dg-final { scan-assembler-not "jmp" } } */
 /* { dg-final { scan-assembler-times "cmp/str" 1 } } */
 
-/* Test that cmp/str is not used for small lengths.  */
-test01(const char *s1)
+/* Test that the cmp/str loop is optimized out.  */
+test01(const char *s1, const char *s2, int n)
 {
   return __builtin_strncmp (s1, "abcde", 3);
 }
 
 /* Test that the cmp/str loop is used.  */
-test02(const char *s1)
+test02(const char *s1, const char *s2, int n)
 {
   return __builtin_strncmp (s1, "abcdefghi", 8);
 }
-
-/* Test that no call is generated  */
-test03(const char *s1, int n)
-{
-  return __builtin_strncmp (s1, "abcde", n);
-}
-
 
 

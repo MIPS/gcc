@@ -311,10 +311,6 @@ static pid_t linux_gettid(void)
  */
 static int linux_get_affinity_count (int tid) 
 {
-#if !defined HAVE_PTHREAD_AFFINITY_NP
-  return 0;
-#else
-
     cpu_set_t process_mask;
 
     // Extract the thread affinity mask
@@ -341,7 +337,6 @@ static int linux_get_affinity_count (int tid)
     }
 
     return available_procs;
-#endif
 }
 #endif
 

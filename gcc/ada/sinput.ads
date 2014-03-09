@@ -693,13 +693,8 @@ package Sinput is
    --  as the locations of the first and last token in the node construct
    --  because parentheses at the outer level do not have a recorded Sloc.
    --
-   --  Note: At each step of the tree traversal, we make sure to go back to
-   --  the Original_Node, since this function is concerned about original
-   --  (source) locations.
-   --
    --  Note: if the tree for the expression contains no "real" Sloc values,
-   --  i.e. values > No_Location, then both Min and Max are set to
-   --  Sloc (Original_Node (N)).
+   --  i.e. values > No_Location, then both Min and Max are set to Sloc (Expr).
 
    function Source_Offset (S : Source_Ptr) return Nat;
    --  Returns the zero-origin offset of the given source location from the

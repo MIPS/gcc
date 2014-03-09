@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2012, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -25,6 +25,7 @@
 
 with Atree;    use Atree;
 with Csets;    use Csets;
+with Hostparm; use Hostparm;
 with Namet;    use Namet;
 with Opt;      use Opt;
 with Restrict; use Restrict;
@@ -43,10 +44,31 @@ package body Scn is
    --  make sure that we only post an error message for incorrect use of a
    --  keyword as an identifier once for a given keyword).
 
+   procedure Check_End_Of_Line;
+   --  Called when end of line encountered. Checks that line is not too long,
+   --  and that other style checks for the end of line are met.
+
    function Determine_License return License_Type;
    --  Scan header of file and check that it has an appropriate GNAT-style
    --  header with a proper license statement. Returns GPL, Unrestricted,
    --  or Modified_GPL depending on header. If none of these, returns Unknown.
+
+   procedure Error_Long_Line;
+   --  Signal error of excessively long line
+
+   -----------------------
+   -- Check_End_Of_Line --
+   -----------------------
+
+   procedure Check_End_Of_Line is
+      Len : constant Int := Int (Scan_Ptr) - Int (Current_Line_Start);
+   begin
+      if Style_Check then
+         Style.Check_Line_Terminator (Len);
+      elsif Len > Max_Line_Length then
+         Error_Long_Line;
+      end if;
+   end Check_End_Of_Line;
 
    -----------------------
    -- Determine_License --
@@ -160,7 +182,7 @@ package body Scn is
 
          Skip_EOL;
 
-         Scanner.Check_End_Of_Line;
+         Check_End_Of_Line;
 
          if Source (Scan_Ptr) /= EOF then
 
@@ -196,6 +218,17 @@ package body Scn is
    begin
       return Scanner.Determine_Token_Casing;
    end Determine_Token_Casing;
+
+   ---------------------
+   -- Error_Long_Line --
+   ---------------------
+
+   procedure Error_Long_Line is
+   begin
+      Error_Msg
+        ("this line is too long",
+         Current_Line_Start + Source_Ptr (Max_Line_Length));
+   end Error_Long_Line;
 
    ------------------------
    -- Initialize_Scanner --

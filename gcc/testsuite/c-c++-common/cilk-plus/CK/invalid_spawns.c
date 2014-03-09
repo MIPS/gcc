@@ -1,5 +1,3 @@
-/* { dg-options "-fcilkplus" } */
-
 extern int foo ();
 int bar = _Cilk_spawn foo (); /* { dg-error "may only be used inside a function" } */
 

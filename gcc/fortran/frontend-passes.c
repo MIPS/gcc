@@ -1,5 +1,5 @@
 /* Pass manager for Fortran front end.
-   Copyright (C) 2010-2014 Free Software Foundation, Inc.
+   Copyright (C) 2010-2013 Free Software Foundation, Inc.
    Contributed by Thomas König.
 
 This file is part of GCC.
@@ -1391,9 +1391,7 @@ optimize_comparison (gfc_expr *e, gfc_intrinsic_op op)
 	  /* Replace A // B < A // C with B < C, and A // B < C // B
 	     with A < C.  */
 	  if (op1->ts.type == BT_CHARACTER && op2->ts.type == BT_CHARACTER
-	      && op1->expr_type == EXPR_OP
 	      && op1->value.op.op == INTRINSIC_CONCAT
-	      && op2->expr_type == EXPR_OP
 	      && op2->value.op.op == INTRINSIC_CONCAT)
 	    {
 	      gfc_expr *op1_left = op1->value.op.op1;

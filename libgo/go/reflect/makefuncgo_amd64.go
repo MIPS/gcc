@@ -319,7 +319,7 @@ argloop:
 	// All the real arguments have been found and turned into
 	// Value's.  Call the real function.
 
-	out := c.call(in)
+	out := c.fn(in)
 
 	if len(out) != len(ftyp.out) {
 		panic("reflect: wrong return count from function created by MakeFunc")

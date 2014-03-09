@@ -65,7 +65,6 @@ dnl The -no-testsuite modules omit the test subdir.
 AM_CONDITIONAL(TESTSUBDIR, test -d $srcdir/testsuite)
 
 TARGETDIR="unknown"
-HAVE_LONG_DOUBLE_VARIANT=0
 case "$host" in
   aarch64*-*-*)
 	TARGET=AARCH64; TARGETDIR=aarch64
@@ -163,7 +162,6 @@ case "$host" in
 
   powerpc*-*-linux* | powerpc-*-sysv*)
 	TARGET=POWERPC; TARGETDIR=powerpc
-	HAVE_LONG_DOUBLE_VARIANT=1
 	;;
   powerpc-*-amigaos*)
 	TARGET=POWERPC; TARGETDIR=powerpc
@@ -179,7 +177,6 @@ case "$host" in
 	;;
   powerpc-*-freebsd* | powerpc-*-openbsd*)
 	TARGET=POWERPC_FREEBSD; TARGETDIR=powerpc
-	HAVE_LONG_DOUBLE_VARIANT=1
 	;;
   powerpc64-*-freebsd*)
 	TARGET=POWERPC; TARGETDIR=powerpc
@@ -276,20 +273,14 @@ AC_CHECK_SIZEOF(long double)
 # Also AC_SUBST this variable for ffi.h.
 if test -z "$HAVE_LONG_DOUBLE"; then
   HAVE_LONG_DOUBLE=0
-  if test $ac_cv_sizeof_long_double != 0; then
-    if test $HAVE_LONG_DOUBLE_VARIANT != 0; then
-      AC_DEFINE(HAVE_LONG_DOUBLE_VARIANT, 1, [Define if you support more than one size of the long double type])
+  if test $ac_cv_sizeof_double != $ac_cv_sizeof_long_double; then
+    if test $ac_cv_sizeof_long_double != 0; then
       HAVE_LONG_DOUBLE=1
-    else
-      if test $ac_cv_sizeof_double != $ac_cv_sizeof_long_double; then
-        HAVE_LONG_DOUBLE=1
-        AC_DEFINE(HAVE_LONG_DOUBLE, 1, [Define if you have the long double type and it is bigger than a double])
-      fi
+      AC_DEFINE(HAVE_LONG_DOUBLE, 1, [Define if you have the long double type and it is bigger than a double])
     fi
   fi
 fi
 AC_SUBST(HAVE_LONG_DOUBLE)
-AC_SUBST(HAVE_LONG_DOUBLE_VARIANT)
 
 AC_C_BIGENDIAN
 

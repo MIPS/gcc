@@ -1,5 +1,5 @@
 /* Intrinsic translation
-   Copyright (C) 2002-2014 Free Software Foundation, Inc.
+   Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -26,9 +26,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"		/* For UNITS_PER_WORD.  */
 #include "tree.h"
-#include "stringpool.h"
-#include "tree-nested.h"
-#include "stor-layout.h"
 #include "ggc.h"
 #include "diagnostic-core.h"	/* For internal_error.  */
 #include "toplev.h"	/* For rest_of_decl_compilation.  */
@@ -4689,10 +4686,8 @@ static void
 gfc_conv_intrinsic_ichar (gfc_se * se, gfc_expr * expr)
 {
   tree args[2], type, pchartype;
-  int nargs;
 
-  nargs = gfc_intrinsic_argument_list_length (expr);
-  gfc_conv_intrinsic_function_args (se, expr, args, nargs);
+  gfc_conv_intrinsic_function_args (se, expr, args, 2);
   gcc_assert (POINTER_TYPE_P (TREE_TYPE (args[1])));
   pchartype = gfc_get_pchar_type (expr->value.function.actual->expr->ts.kind);
   args[1] = fold_build1_loc (input_location, NOP_EXPR, pchartype, args[1]);
@@ -5166,7 +5161,7 @@ gfc_conv_intrinsic_size (gfc_se * se, gfc_expr * expr)
    excluding the terminating null characters.  The result has
    gfc_array_index_type type.  */
 
-tree
+static tree
 size_of_string_in_bytes (int kind, tree string_length)
 {
   tree bytesize;
@@ -7659,7 +7654,10 @@ conv_intrinsic_move_alloc (gfc_code *code)
 	    }
 	  else
 	    {
-	      vtab = gfc_find_vtab (&from_expr->ts);
+	      if (from_expr->ts.type != BT_DERIVED)
+		vtab = gfc_find_intrinsic_vtab (&from_expr->ts);
+	      else
+		vtab = gfc_find_derived_vtab (from_expr->ts.u.derived);
 	      gcc_assert (vtab);
 	      tmp = gfc_build_addr_expr (NULL_TREE, gfc_get_symbol_decl (vtab));
 	      gfc_add_modify_loc (input_location, &block, to_se.expr,
@@ -7713,7 +7711,10 @@ conv_intrinsic_move_alloc (gfc_code *code)
 	}
       else
 	{
-	  vtab = gfc_find_vtab (&from_expr->ts);
+	  if (from_expr->ts.type != BT_DERIVED)
+	    vtab = gfc_find_intrinsic_vtab (&from_expr->ts);
+	  else
+	    vtab = gfc_find_derived_vtab (from_expr->ts.u.derived);
 	  gcc_assert (vtab);
 	  tmp = gfc_build_addr_expr (NULL_TREE, gfc_get_symbol_decl (vtab));
 	  gfc_add_modify_loc (input_location, &block, to_se.expr,

@@ -80,7 +80,6 @@ __go_check_defer (_Bool *frame)
 	{
 	  struct __go_defer_stack *d;
 	  void (*pfn) (void *);
-	  M *m;
 
 	  d = g->defer;
 	  if (d == NULL || d->__frame != frame || d->__pfn == NULL)
@@ -91,9 +90,7 @@ __go_check_defer (_Bool *frame)
 
 	  (*pfn) (d->__arg);
 
-	  m = runtime_m ();
-	  if (m != NULL && m->mcache != NULL && d->__free)
-	    __go_free (d);
+	  __go_free (d);
 
 	  if (n->__was_recovered)
 	    {
@@ -122,17 +119,13 @@ __go_check_defer (_Bool *frame)
 	   && g->defer->__frame == frame)
     {
       struct __go_defer_stack *d;
-      M *m;
 
       /* This is the defer function which called recover.  Simply
 	 return to stop the stack unwind, and let the Go code continue
 	 to execute.  */
       d = g->defer;
       g->defer = d->__next;
-
-      m = runtime_m ();
-      if (m != NULL && m->mcache != NULL && d->__free)
-	__go_free (d);
+      __go_free (d);
 
       /* We are returning from this function.  */
       *frame = 1;

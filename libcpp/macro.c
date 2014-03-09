@@ -1,5 +1,5 @@
 /* Part of CPP library.  (Macro and #define handling.)
-   Copyright (C) 1986-2014 Free Software Foundation, Inc.
+   Copyright (C) 1986-2013 Free Software Foundation, Inc.
    Written by Per Bothner, 1994.
    Based on CCCP program by Paul Rubin, June 1986
    Adapted to ANSI C, Richard Stallman, Jan 1987
@@ -1115,22 +1115,21 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node,
 
       if (macro->paramc == 0)
 	{
-	  unsigned tokens_count = macro_real_token_count (macro);
 	  if (CPP_OPTION (pfile, track_macro_expansion))
 	    {
-	      unsigned int i;
+	      unsigned int i, count = macro->count;
 	      const cpp_token *src = macro->exp.tokens;
 	      const struct line_map *map;
 	      source_location *virt_locs = NULL;
-	      _cpp_buff *macro_tokens
-		= tokens_buff_new (pfile, tokens_count, &virt_locs);
+	      _cpp_buff *macro_tokens =
+		tokens_buff_new (pfile, count, &virt_locs);
 
 	      /* Create a macro map to record the locations of the
 		 tokens that are involved in the expansion. LOCATION
 		 is the location of the macro expansion point.  */
-	      map = linemap_enter_macro (pfile->line_table,
-					 node, location, tokens_count);
-	      for (i = 0; i < tokens_count; ++i)
+	      map  = linemap_enter_macro (pfile->line_table,
+					  node, location, count);
+	      for (i = 0; i < count; ++i)
 		{
 		  tokens_buff_add_token (macro_tokens, virt_locs,
 					 src, src->src_loc,
@@ -1142,12 +1141,16 @@ enter_macro_context (cpp_reader *pfile, cpp_hashnode *node,
 					    virt_locs,
 					    (const cpp_token **)
 					    macro_tokens->base,
-					    tokens_count);
+					    count);
+	      num_macro_tokens_counter += count;
 	    }
 	  else
-	    _cpp_push_token_context (pfile, node, macro->exp.tokens,
-				     tokens_count);
-	  num_macro_tokens_counter += tokens_count;
+	    {
+	      unsigned tokens_count = macro_real_token_count (macro);
+	      _cpp_push_token_context (pfile, node, macro->exp.tokens,
+				       tokens_count);
+	      num_macro_tokens_counter += tokens_count;
+	    }
 	}
 
       if (pragma_buff)

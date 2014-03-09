@@ -3,7 +3,7 @@
 typedef int FIC(int) const;
 typedef int FI(int);
 
-FIC f; // { dg-error "cv-qualifier" }
+FIC f; // { dg-error "qualified" }
 struct S {
   FIC f; // OK
 

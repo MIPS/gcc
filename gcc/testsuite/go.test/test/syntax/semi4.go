@@ -8,7 +8,7 @@ package main
 
 func main() {
 	for x		// GCCGO_ERROR "undefined"
-	{		// ERROR "missing .*{.* after for clause"
+	{		// ERROR "unexpected semicolon or newline before .?{.?"
 		z	// GCCGO_ERROR "undefined"
 
 

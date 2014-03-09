@@ -1,7 +1,8 @@
 /* Test __atomic routines for existence and proper execution on 16 byte 
    values with each valid memory model.  */
 /* { dg-do run } */
-/* { dg-require-effective-target int128 } */
+/* { dg-require-effective-target sync_int_128_runtime } */
+/* { dg-options "-mcx16" { target { i?86-*-* x86_64-*-* } } } */
 
 /* Test the execution of the __atomic_store_n builtin for a 16 byte value.  */
 
@@ -9,7 +10,6 @@ extern void abort(void);
 
 __int128_t v, count;
 
-int
 main ()
 {
   v = 0;

@@ -1,6 +1,6 @@
 /* { dg-do compile } */
 /* { dg-options "-O2" } */
-/* { dg-options "-O2 -mabi=64" { target { mips*-*-linux* && mips64 } } } */
+/* { dg-options "-O2 -mabi=64" { target mips-*-linux-* } } */
 
 struct offset_v1 {
     int k_uniqueness;

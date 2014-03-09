@@ -1,5 +1,5 @@
 /* Output Go language descriptions of types.
-   Copyright (C) 2008-2014 Free Software Foundation, Inc.
+   Copyright (C) 2008-2013 Free Software Foundation, Inc.
    Written by Ian Lance Taylor <iant@google.com>.
 
 This file is part of GCC.
@@ -728,12 +728,12 @@ go_format_type (struct godump_container *container, tree type,
 	  && tree_int_cst_sgn (TYPE_MIN_VALUE (TYPE_DOMAIN (type))) == 0
 	  && TYPE_MAX_VALUE (TYPE_DOMAIN (type)) != NULL_TREE
 	  && TREE_CODE (TYPE_MAX_VALUE (TYPE_DOMAIN (type))) == INTEGER_CST
-	  && tree_fits_shwi_p (TYPE_MAX_VALUE (TYPE_DOMAIN (type))))
+	  && host_integerp (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0))
 	{
 	  char buf[100];
 
 	  snprintf (buf, sizeof buf, HOST_WIDE_INT_PRINT_DEC "+1",
-		    tree_to_shwi (TYPE_MAX_VALUE (TYPE_DOMAIN (type))));
+		    tree_low_cst (TYPE_MAX_VALUE (TYPE_DOMAIN (type)), 0));
 	  obstack_grow (ob, buf, strlen (buf));
 	}
       obstack_1grow (ob, ']');
@@ -981,12 +981,13 @@ go_output_typedef (struct godump_container *container, tree decl)
 	  if (*slot != NULL)
 	    macro_hash_del (*slot);
 
-	  if (tree_fits_shwi_p (TREE_VALUE (element)))
+	  if (host_integerp (TREE_VALUE (element), 0))
 	    snprintf (buf, sizeof buf, HOST_WIDE_INT_PRINT_DEC,
-		     tree_to_shwi (TREE_VALUE (element)));
-	  else if (tree_fits_uhwi_p (TREE_VALUE (element)))
+		     tree_low_cst (TREE_VALUE (element), 0));
+	  else if (host_integerp (TREE_VALUE (element), 1))
 	    snprintf (buf, sizeof buf, HOST_WIDE_INT_PRINT_UNSIGNED,
-		      tree_to_uhwi (TREE_VALUE (element)));
+		     ((unsigned HOST_WIDE_INT)
+		      tree_low_cst (TREE_VALUE (element), 1)));
 	  else
 	    snprintf (buf, sizeof buf, HOST_WIDE_INT_PRINT_DOUBLE_HEX,
 		     ((unsigned HOST_WIDE_INT)

@@ -1,5 +1,5 @@
 /* Common subexpression elimination for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -18,7 +18,7 @@ along with GCC; see the file COPYING3.  If not see
 <http://www.gnu.org/licenses/>.  */
 
 /* Describe a value.  */
-struct cselib_val {
+typedef struct cselib_val_struct {
   /* The hash value.  */
   unsigned int hash;
 
@@ -36,8 +36,8 @@ struct cselib_val {
      use it as an address in a MEM.  */
   struct elt_list *addr_list;
 
-  struct cselib_val *next_containing_mem;
-};
+  struct cselib_val_struct *next_containing_mem;
+} cselib_val;
 
 /* A list of rtl expressions that hold the same value.  */
 struct elt_loc_list {

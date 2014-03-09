@@ -1,5 +1,5 @@
 /* elf.c -- Get debug data from an ELF file for backtraces.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2013 Free Software Foundation, Inc.
    Written by Ian Lance Taylor, Google.
 
 Redistribution and use in source and binary forms, with or without
@@ -96,10 +96,8 @@ dl_iterate_phdr (int (*callback) (struct dl_phdr_info *,
 #undef ELFDATA2LSB
 #undef ELFDATA2MSB
 #undef EV_CURRENT
-#undef ET_DYN
 #undef SHN_LORESERVE
 #undef SHN_XINDEX
-#undef SHN_UNDEF
 #undef SHT_SYMTAB
 #undef SHT_STRTAB
 #undef SHT_DYNSYM
@@ -172,8 +170,6 @@ typedef struct {
 
 #define EV_CURRENT 1
 
-#define ET_DYN 3
-
 typedef struct {
   b_elf_word	sh_name;		/* Section name, index in string tbl */
   b_elf_word	sh_type;		/* Type of section */
@@ -187,7 +183,6 @@ typedef struct {
   b_elf_wxword	sh_entsize;		/* Entry size if section holds table */
 } b_elf_shdr;  /* Elf_Shdr.  */
 
-#define SHN_UNDEF	0x0000		/* Undefined section */
 #define SHN_LORESERVE	0xFF00		/* Begin range of reserved indices */
 #define SHN_XINDEX	0xFFFF		/* Section index is held elsewhere */
 
@@ -347,7 +342,6 @@ elf_symbol_search (const void *vkey, const void *ventry)
 
 static int
 elf_initialize_syminfo (struct backtrace_state *state,
-			uintptr_t base_address,
 			const unsigned char *symtab_data, size_t symtab_size,
 			const unsigned char *strtab, size_t strtab_size,
 			backtrace_error_callback error_callback,
@@ -371,8 +365,7 @@ elf_initialize_syminfo (struct backtrace_state *state,
       int info;
 
       info = sym->st_info & 0xf;
-      if ((info == STT_FUNC || info == STT_OBJECT)
-	  && sym->st_shndx != SHN_UNDEF)
+      if (info == STT_FUNC || info == STT_OBJECT)
 	++elf_symbol_count;
     }
 
@@ -392,8 +385,6 @@ elf_initialize_syminfo (struct backtrace_state *state,
       info = sym->st_info & 0xf;
       if (info != STT_FUNC && info != STT_OBJECT)
 	continue;
-      if (sym->st_shndx == SHN_UNDEF)
-	continue;
       if (sym->st_name >= strtab_size)
 	{
 	  error_callback (data, "symbol string index out of range", 0);
@@ -402,13 +393,13 @@ elf_initialize_syminfo (struct backtrace_state *state,
 	  return 0;
 	}
       elf_symbols[j].name = (const char *) strtab + sym->st_name;
-      elf_symbols[j].address = sym->st_value + base_address;
+      elf_symbols[j].address = sym->st_value;
       elf_symbols[j].size = sym->st_size;
       ++j;
     }
 
-  backtrace_qsort (elf_symbols, elf_symbol_count, sizeof (struct elf_symbol),
-		   elf_symbol_compare);
+  qsort (elf_symbols, elf_symbol_count, sizeof (struct elf_symbol),
+	 elf_symbol_compare);
 
   sdata->next = NULL;
   sdata->symbols = elf_symbols;
@@ -445,7 +436,10 @@ elf_add_syminfo_data (struct backtrace_state *state,
 	    {
 	      struct elf_syminfo_data *p;
 
-	      p = backtrace_atomic_load_pointer (pp);
+	      /* Atomic load.  */
+	      p = *pp;
+	      while (!__sync_bool_compare_and_swap (pp, p, p))
+		p = *pp;
 
 	      if (p == NULL)
 		break;
@@ -490,7 +484,11 @@ elf_syminfo (struct backtrace_state *state, uintptr_t addr,
       pp = (struct elf_syminfo_data **) (void *) &state->syminfo_data;
       while (1)
 	{
-	  edata = backtrace_atomic_load_pointer (pp);
+	  edata = *pp;
+	  /* Atomic load.  */
+	  while (!__sync_bool_compare_and_swap (pp, edata, edata))
+	    edata = *pp;
+
 	  if (edata == NULL)
 	    break;
 
@@ -505,21 +503,17 @@ elf_syminfo (struct backtrace_state *state, uintptr_t addr,
     }
 
   if (sym == NULL)
-    callback (data, addr, NULL, 0, 0);
+    callback (data, addr, NULL, 0);
   else
-    callback (data, addr, sym->name, sym->address, sym->size);
+    callback (data, addr, sym->name, sym->address);
 }
 
-/* Add the backtrace data for one ELF file.  Returns 1 on success,
-   0 on failure (in both cases descriptor is closed) or -1 if exe
-   is non-zero and the ELF file is ET_DYN, which tells the caller that
-   elf_add will need to be called on the descriptor again after
-   base_address is determined.  */
+/* Add the backtrace data for one ELF file.  */
 
 static int
 elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
 	 backtrace_error_callback error_callback, void *data,
-	 fileline *fileline_fn, int *found_sym, int *found_dwarf, int exe)
+	 fileline *fileline_fn, int *found_sym, int *found_dwarf)
 {
   struct backtrace_view ehdr_view;
   b_elf_ehdr ehdr;
@@ -597,12 +591,6 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
       error_callback (data, "executable file has unknown endianness", 0);
       goto fail;
     }
-
-  /* If the executable is ET_DYN, it is either a PIE, or we are running
-     directly a shared library with .interp.  We need to wait for
-     dl_iterate_phdr in that case to determine the actual base_address.  */
-  if (exe && ehdr.e_type == ET_DYN)
-    return -1;
 
   shoff = ehdr.e_shoff;
   shnum = ehdr.e_shnum;
@@ -745,7 +733,7 @@ elf_add (struct backtrace_state *state, int descriptor, uintptr_t base_address,
       if (sdata == NULL)
 	goto fail;
 
-      if (!elf_initialize_syminfo (state, base_address,
+      if (!elf_initialize_syminfo (state,
 				   symtab_view.data, symtab_shdr->sh_size,
 				   strtab_view.data, strtab_shdr->sh_size,
 				   error_callback, data, sdata))
@@ -860,7 +848,6 @@ struct phdr_data
   fileline *fileline_fn;
   int *found_sym;
   int *found_dwarf;
-  int exe_descriptor;
 };
 
 /* Callback passed to dl_iterate_phdr.  Load debug info from shared
@@ -876,32 +863,21 @@ phdr_callback (struct dl_phdr_info *info, size_t size ATTRIBUTE_UNUSED,
   fileline elf_fileline_fn;
   int found_dwarf;
 
-  /* There is not much we can do if we don't have the module name,
-     unless executable is ET_DYN, where we expect the very first
-     phdr_callback to be for the PIE.  */
-  if (info->dlpi_name == NULL || info->dlpi_name[0] == '\0')
-    {
-      if (pd->exe_descriptor == -1)
-	return 0;
-      descriptor = pd->exe_descriptor;
-      pd->exe_descriptor = -1;
-    }
-  else
-    {
-      if (pd->exe_descriptor != -1)
-	{
-	  backtrace_close (pd->exe_descriptor, pd->error_callback, pd->data);
-	  pd->exe_descriptor = -1;
-	}
+  /* There is not much we can do if we don't have the module name.  If
+     the base address is 0, this is probably the executable, which we
+     already loaded.  */
+  if (info->dlpi_name == NULL
+      || info->dlpi_name[0] == '\0'
+      || info->dlpi_addr == 0)
+    return 0;
 
-      descriptor = backtrace_open (info->dlpi_name, pd->error_callback,
-				   pd->data, &does_not_exist);
-      if (descriptor < 0)
-	return 0;
-    }
+  descriptor = backtrace_open (info->dlpi_name, pd->error_callback, pd->data,
+			       &does_not_exist);
+  if (descriptor < 0)
+    return 0;
 
   if (elf_add (pd->state, descriptor, info->dlpi_addr, pd->error_callback,
-	       pd->data, &elf_fileline_fn, pd->found_sym, &found_dwarf, 0))
+	       pd->data, &elf_fileline_fn, pd->found_sym, &found_dwarf))
     {
       if (found_dwarf)
 	{
@@ -922,15 +898,14 @@ backtrace_initialize (struct backtrace_state *state, int descriptor,
 		      backtrace_error_callback error_callback,
 		      void *data, fileline *fileline_fn)
 {
-  int ret;
   int found_sym;
   int found_dwarf;
+  syminfo elf_syminfo_fn;
   fileline elf_fileline_fn;
   struct phdr_data pd;
 
-  ret = elf_add (state, descriptor, 0, error_callback, data, &elf_fileline_fn,
-		 &found_sym, &found_dwarf, 1);
-  if (!ret)
+  if (!elf_add (state, descriptor, 0, error_callback, data, &elf_fileline_fn,
+		&found_sym, &found_dwarf))
     return 0;
 
   pd.state = state;
@@ -939,23 +914,21 @@ backtrace_initialize (struct backtrace_state *state, int descriptor,
   pd.fileline_fn = &elf_fileline_fn;
   pd.found_sym = &found_sym;
   pd.found_dwarf = &found_dwarf;
-  pd.exe_descriptor = ret < 0 ? descriptor : -1;
 
   dl_iterate_phdr (phdr_callback, (void *) &pd);
 
+  elf_syminfo_fn = found_sym ? elf_syminfo : elf_nosyms;
   if (!state->threaded)
     {
-      if (found_sym)
-	state->syminfo_fn = elf_syminfo;
-      else if (state->syminfo_fn == NULL)
-	state->syminfo_fn = elf_nosyms;
+      if (state->syminfo_fn == NULL || found_sym)
+	state->syminfo_fn = elf_syminfo_fn;
     }
   else
     {
+      __sync_bool_compare_and_swap (&state->syminfo_fn, NULL, elf_syminfo_fn);
       if (found_sym)
-	backtrace_atomic_store_pointer (&state->syminfo_fn, elf_syminfo);
-      else
-	__sync_bool_compare_and_swap (&state->syminfo_fn, NULL, elf_nosyms);
+	__sync_bool_compare_and_swap (&state->syminfo_fn, elf_nosyms,
+				      elf_syminfo_fn);
     }
 
   if (!state->threaded)
@@ -967,7 +940,11 @@ backtrace_initialize (struct backtrace_state *state, int descriptor,
     {
       fileline current_fn;
 
-      current_fn = backtrace_atomic_load_pointer (&state->fileline_fn);
+      /* Atomic load.  */
+      current_fn = state->fileline_fn;
+      while (!__sync_bool_compare_and_swap (&state->fileline_fn, current_fn,
+					    current_fn))
+	current_fn = state->fileline_fn;
       if (current_fn == NULL || current_fn == elf_nodebug)
 	*fileline_fn = elf_fileline_fn;
     }

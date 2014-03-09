@@ -206,7 +206,7 @@ func FDZero(set *FdSet) {
 //fchown(fd _C_int, uid Uid_t, gid Gid_t) _C_int
 
 //sys	fcntl(fd int, cmd int, arg int) (val int, err error)
-//__go_fcntl(fd _C_int, cmd _C_int, arg _C_int) _C_int
+//fcntl(fd _C_int, cmd _C_int, arg _C_int) _C_int
 
 //sys	Fdatasync(fd int) (err error)
 //fdatasync(fd _C_int) _C_int

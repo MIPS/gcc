@@ -1,4 +1,4 @@
-/* { dg-options "-ftree-vectorize" } */
+/* { dg-options "-O1 -ftree-vectorize" } */
 int *bar (void);
 
 void

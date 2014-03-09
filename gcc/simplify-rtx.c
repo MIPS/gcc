@@ -1,5 +1,5 @@
 /* RTL simplification functions for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -24,7 +24,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
-#include "varasm.h"
 #include "tm_p.h"
 #include "regs.h"
 #include "hard-reg-set.h"
@@ -299,13 +298,13 @@ delegitimize_mem_from_attrs (rtx x)
 					&mode, &unsignedp, &volatilep, false);
 	    if (bitsize != GET_MODE_BITSIZE (mode)
 		|| (bitpos % BITS_PER_UNIT)
-		|| (toffset && !tree_fits_shwi_p (toffset)))
+		|| (toffset && !host_integerp (toffset, 0)))
 	      decl = NULL;
 	    else
 	      {
 		offset += bitpos / BITS_PER_UNIT;
 		if (toffset)
-		  offset += tree_to_shwi (toffset);
+		  offset += TREE_INT_CST_LOW (toffset);
 	      }
 	    break;
 	  }
@@ -640,16 +639,11 @@ simplify_truncation (enum machine_mode mode, rtx op,
 				   XEXP (op, 0), origmode);
     }
 
-  /* If the machine can perform operations in the truncated mode, distribute
-     the truncation, i.e. simplify (truncate:QI (op:SI (x:SI) (y:SI))) into
-     (op:QI (truncate:QI (x:SI)) (truncate:QI (y:SI))).  */
-  if (1
-#ifdef WORD_REGISTER_OPERATIONS
-      && precision >= BITS_PER_WORD
-#endif
-      && (GET_CODE (op) == PLUS
-	  || GET_CODE (op) == MINUS
-	  || GET_CODE (op) == MULT))
+  /* Simplify (truncate:SI (op:DI (x:DI) (y:DI)))
+     to (op:SI (truncate:SI (x:DI)) (truncate:SI (x:DI))).  */
+  if (GET_CODE (op) == PLUS
+      || GET_CODE (op) == MINUS
+      || GET_CODE (op) == MULT)
     {
       rtx op0 = simplify_gen_unary (TRUNCATE, mode, XEXP (op, 0), op_mode);
       if (op0)
@@ -1647,7 +1641,7 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	  break;
 
 	case NEG:
-	  val = - (unsigned HOST_WIDE_INT) arg0;
+	  val = - arg0;
 	  break;
 
 	case ABS:
@@ -1936,13 +1930,17 @@ simplify_const_unary_operation (enum rtx_code code, enum machine_mode mode,
 	   && SCALAR_FLOAT_MODE_P (mode)
 	   && SCALAR_FLOAT_MODE_P (GET_MODE (op)))
     {
-      REAL_VALUE_TYPE d;
+      REAL_VALUE_TYPE d, t;
       REAL_VALUE_FROM_CONST_DOUBLE (d, op);
 
       switch (code)
 	{
 	case SQRT:
-	  return 0;
+	  if (HONOR_SNANS (mode) && real_isnan (&d))
+	    return 0;
+	  real_sqrt (&t, mode, &d);
+	  d = t;
+	  break;
 	case ABS:
 	  d = real_value_abs (&d);
 	  break;
@@ -4117,15 +4115,15 @@ simplify_const_binary_operation (enum rtx_code code, enum machine_mode mode,
       switch (code)
 	{
 	case PLUS:
-	  val = (unsigned HOST_WIDE_INT) arg0s + arg1s;
+	  val = arg0s + arg1s;
 	  break;
 
 	case MINUS:
-	  val = (unsigned HOST_WIDE_INT) arg0s - arg1s;
+	  val = arg0s - arg1s;
 	  break;
 
 	case MULT:
-	  val = (unsigned HOST_WIDE_INT) arg0s * arg1s;
+	  val = arg0s * arg1s;
 	  break;
 
 	case DIV:

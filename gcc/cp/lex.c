@@ -1,5 +1,5 @@
 /* Separate lexical analyzer for GNU C++.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
    Hacked by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -27,7 +27,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "input.h"
 #include "tree.h"
-#include "stringpool.h"
 #include "cp-tree.h"
 #include "cpplib.h"
 #include "flags.h"
@@ -354,18 +353,18 @@ handle_pragma_interface (cpp_reader* /*dfile*/)
   if (fname == error_mark_node)
     return;
   else if (fname == 0)
-    filename = lbasename (LOCATION_FILE (input_location));
+    filename = lbasename (input_filename);
   else
     filename = TREE_STRING_POINTER (fname);
 
-  finfo = get_fileinfo (LOCATION_FILE (input_location));
+  finfo = get_fileinfo (input_filename);
 
   if (impl_file_chain == 0)
     {
       /* If this is zero at this point, then we are
 	 auto-implementing.  */
       if (main_input_filename == 0)
-	main_input_filename = LOCATION_FILE (input_location);
+	main_input_filename = input_filename;
     }
 
   finfo->interface_only = interface_strcmp (filename);
@@ -399,7 +398,7 @@ handle_pragma_implementation (cpp_reader* /*dfile*/)
       if (main_input_filename)
 	filename = main_input_filename;
       else
-	filename = LOCATION_FILE (input_location);
+	filename = input_filename;
       filename = lbasename (filename);
     }
   else
@@ -685,8 +684,7 @@ cxx_make_type (enum tree_code code)
   /* Set up some flags that give proper default behavior.  */
   if (RECORD_OR_UNION_CODE_P (code))
     {
-      struct c_fileinfo *finfo = \
-	get_fileinfo (LOCATION_FILE (input_location));
+      struct c_fileinfo *finfo = get_fileinfo (input_filename);
       SET_CLASSTYPE_INTERFACE_UNKNOWN_X (t, finfo->interface_unknown);
       CLASSTYPE_INTERFACE_ONLY (t) = finfo->interface_only;
     }
@@ -714,5 +712,5 @@ in_main_input_context (void)
     return filename_cmp (main_input_filename,
 			 LOCATION_FILE (tl->locus)) == 0;
   else
-    return filename_cmp (main_input_filename, LOCATION_FILE (input_location)) == 0;
+    return filename_cmp (main_input_filename, input_filename) == 0;
 }

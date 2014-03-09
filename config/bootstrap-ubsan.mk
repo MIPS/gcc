@@ -2,7 +2,6 @@
 
 STAGE2_CFLAGS += -fsanitize=undefined
 STAGE3_CFLAGS += -fsanitize=undefined
-POSTSTAGE1_LDFLAGS += -fsanitize=undefined -static-libubsan \
-		      -B$$r/prev-$(TARGET_SUBDIR)/libsanitizer/ \
+POSTSTAGE1_LDFLAGS += -fsanitize=undefined -static-libubsan -lpthread \
 		      -B$$r/prev-$(TARGET_SUBDIR)/libsanitizer/ubsan/ \
 		      -B$$r/prev-$(TARGET_SUBDIR)/libsanitizer/ubsan/.libs

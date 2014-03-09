@@ -5,9 +5,9 @@
 
 class A {
 public:
-  friend A f(A &a);// { dg-message "old declaration" }
+  friend A f(A &a);// { dg-error "ambiguates" }
 };
 
-A &f(A &a) {// { dg-error "new declaration" }
+A &f(A &a) {// { dg-error "new decl" }
   std::cout << "Blah\n";
 } // { dg-warning "no return statement" }

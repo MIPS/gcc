@@ -15,6 +15,8 @@
 
 #include <math.h>
 
+extern float floorf (float);
+
 #define NUM 64
 
 static void
@@ -51,10 +53,10 @@ TEST (void)
   init_src (a);
 
   for (i = 0; i < NUM; i++)
-    r[i] = (int) __builtin_floorf (a[i]);
+    r[i] = (int) floorf (a[i]);
 
   /* check results:  */
   for (i = 0; i < NUM; i++)
-    if (r[i] != (int) __builtin_floorf (a[i]))
+    if (r[i] != (int) floorf (a[i]))
       abort();
 }

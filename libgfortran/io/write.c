@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    Namelist output contributed by Paul Thomas
    F2003 I/O support contributed by Jerry DeLisle
@@ -1312,32 +1312,24 @@ write_integer (st_parameter_dt *dtp, const char *source, int length)
 /* Write a list-directed string.  We have to worry about delimiting
    the strings if the file has been opened in that mode.  */
 
-#define DELIM 1
-#define NODELIM 0
-
 static void
-write_character (st_parameter_dt *dtp, const char *source, int kind, int length, int mode)
+write_character (st_parameter_dt *dtp, const char *source, int kind, int length)
 {
   int i, extra;
   char *p, d;
 
-  if (mode == DELIM)
+  switch (dtp->u.p.current_unit->delim_status)
     {
-      switch (dtp->u.p.current_unit->delim_status)
-	{
-	case DELIM_APOSTROPHE:
-	  d = '\'';
-	  break;
-	case DELIM_QUOTE:
-	  d = '"';
-	  break;
-	default:
-	  d = ' ';
-	  break;
-	}
+    case DELIM_APOSTROPHE:
+      d = '\'';
+      break;
+    case DELIM_QUOTE:
+      d = '"';
+      break;
+    default:
+      d = ' ';
+      break;
     }
-  else
-    d = ' ';
 
   if (kind == 1)
     {
@@ -1559,8 +1551,7 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
   else
     {
       if (type != BT_CHARACTER || !dtp->u.p.char_flag ||
-	  (dtp->u.p.current_unit->delim_status != DELIM_NONE
-	   && dtp->u.p.current_unit->delim_status != DELIM_UNSPECIFIED))
+	dtp->u.p.current_unit->delim_status != DELIM_NONE)
       write_separator (dtp);
     }
 
@@ -1573,7 +1564,7 @@ list_formatted_write_scalar (st_parameter_dt *dtp, bt type, void *p, int kind,
       write_logical (dtp, p, kind);
       break;
     case BT_CHARACTER:
-      write_character (dtp, p, kind, size, DELIM);
+      write_character (dtp, p, kind, size);
       break;
     case BT_REAL:
       write_real (dtp, p, kind);
@@ -1637,9 +1628,9 @@ namelist_write_newline (st_parameter_dt *dtp)
   if (!is_internal_unit (dtp))
     {
 #ifdef HAVE_CRLF
-      write_character (dtp, "\r\n", 1, 2, NODELIM);
+      write_character (dtp, "\r\n", 1, 2);
 #else
-      write_character (dtp, "\n", 1, 1, NODELIM);
+      write_character (dtp, "\n", 1, 1);
 #endif
       return;
     }
@@ -1684,7 +1675,7 @@ namelist_write_newline (st_parameter_dt *dtp)
 	}
     }
   else
-    write_character (dtp, " ", 1, 1, NODELIM);
+    write_character (dtp, " ", 1, 1);
 }
 
 
@@ -1713,6 +1704,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   size_t base_name_len;
   size_t base_var_name_len;
   size_t tot_len;
+  unit_delim tmp_delim;
   
   /* Set the character to be used to separate values
      to a comma or semi-colon.  */
@@ -1726,7 +1718,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
   if (obj->type != BT_DERIVED)
     {
       namelist_write_newline (dtp);
-      write_character (dtp, " ", 1, 1, NODELIM);
+      write_character (dtp, " ", 1, 1);
 
       len = 0;
       if (base)
@@ -1736,16 +1728,16 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	  for (dim_i = 0; dim_i < base_name_len; dim_i++)
             {
 	      cup = toupper ((int) base_name[dim_i]);
-	      write_character (dtp, &cup, 1, 1, NODELIM);
+	      write_character (dtp, &cup, 1, 1);
             }
 	}
       clen = strlen (obj->var_name);
       for (dim_i = len; dim_i < clen; dim_i++)
 	{
 	  cup = toupper ((int) obj->var_name[dim_i]);
-	  write_character (dtp, &cup, 1, 1, NODELIM);
+	  write_character (dtp, &cup, 1, 1);
 	}
-      write_character (dtp, "=", 1, 1, NODELIM);
+      write_character (dtp, "=", 1, 1);
     }
 
   /* Counts the number of data output on a line, including names.  */
@@ -1815,7 +1807,7 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	  if (rep_ctr > 1)
 	    {
 	      snprintf(rep_buff, NML_DIGITS, " %d*", rep_ctr);
-	      write_character (dtp, rep_buff, 1, strlen (rep_buff), NODELIM);
+	      write_character (dtp, rep_buff, 1, strlen (rep_buff));
 	      dtp->u.p.no_leading_blank = 1;
 	    }
 	  num++;
@@ -1835,7 +1827,13 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
               break;
 
 	    case BT_CHARACTER:
-	      write_character (dtp, p, 1, obj->string_length, DELIM);
+	      tmp_delim = dtp->u.p.current_unit->delim_status;
+	      if (dtp->u.p.nml_delim == '"')
+		dtp->u.p.current_unit->delim_status = DELIM_QUOTE;
+	      if (dtp->u.p.nml_delim == '\'')
+		dtp->u.p.current_unit->delim_status = DELIM_APOSTROPHE;
+	      write_character (dtp, p, 1, obj->string_length);
+		dtp->u.p.current_unit->delim_status = tmp_delim;
               break;
 
 	    case BT_REAL:
@@ -1923,20 +1921,12 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 	     to column 2. Reset the repeat counter.  */
 
 	  dtp->u.p.no_leading_blank = 0;
-	  if (obj->type == BT_CHARACTER)
-	    {
-	      if (dtp->u.p.nml_delim != '\0')
-		write_character (dtp, &semi_comma, 1, 1, NODELIM);
-	    }
-	  else
-	    write_character (dtp, &semi_comma, 1, 1, NODELIM);
+	  write_character (dtp, &semi_comma, 1, 1);
 	  if (num > 5)
 	    {
 	      num = 0;
-	      if (dtp->u.p.nml_delim == '\0')
-		write_character (dtp, &semi_comma, 1, 1, NODELIM);
 	      namelist_write_newline (dtp);
-	      write_character (dtp, " ", 1, 1, NODELIM);
+	      write_character (dtp, " ", 1, 1);
 	    }
 	  rep_ctr = 1;
 	}
@@ -1945,17 +1935,17 @@ nml_write_obj (st_parameter_dt *dtp, namelist_info * obj, index_type offset,
 
 obj_loop:
 
-      nml_carry = 1;
-      for (dim_i = 0; nml_carry && (dim_i < (size_t) obj->var_rank); dim_i++)
-	{
-	  obj->ls[dim_i].idx += nml_carry ;
-	  nml_carry = 0;
-	  if (obj->ls[dim_i].idx  > GFC_DESCRIPTOR_UBOUND(obj,dim_i))
-	    {
-	      obj->ls[dim_i].idx = GFC_DESCRIPTOR_LBOUND(obj,dim_i);
-	      nml_carry = 1;
-	    }
-	 }
+    nml_carry = 1;
+    for (dim_i = 0; nml_carry && (dim_i < (size_t) obj->var_rank); dim_i++)
+      {
+	obj->ls[dim_i].idx += nml_carry ;
+	nml_carry = 0;
+ 	if (obj->ls[dim_i].idx  > GFC_DESCRIPTOR_UBOUND(obj,dim_i))
+	  {
+ 	    obj->ls[dim_i].idx = GFC_DESCRIPTOR_LBOUND(obj,dim_i);
+	    nml_carry = 1;
+	  }
+       }
     }
 
   /* Return a pointer beyond the furthest object accessed.  */
@@ -1977,28 +1967,23 @@ namelist_write (st_parameter_dt *dtp)
   index_type dummy_offset = 0;
   char c;
   char * dummy_name = NULL;
+  unit_delim tmp_delim = DELIM_UNSPECIFIED;
 
   /* Set the delimiter for namelist output.  */
-  switch (dtp->u.p.current_unit->delim_status)
-    {
-      case DELIM_APOSTROPHE:
-        dtp->u.p.nml_delim = '\'';
-	break;
-      case DELIM_QUOTE:
-      case DELIM_UNSPECIFIED:
-	dtp->u.p.nml_delim = '"';
-	break;
-      default:
-	dtp->u.p.nml_delim = '\0';
-    }
+  tmp_delim = dtp->u.p.current_unit->delim_status;
 
-  write_character (dtp, "&", 1, 1, NODELIM);
+  dtp->u.p.nml_delim = tmp_delim == DELIM_APOSTROPHE ? '\'' : '"';
+
+  /* Temporarily disable namelist delimters.  */
+  dtp->u.p.current_unit->delim_status = DELIM_NONE;
+
+  write_character (dtp, "&", 1, 1);
 
   /* Write namelist name in upper case - f95 std.  */
   for (i = 0 ;i < dtp->namelist_name_len ;i++ )
     {
       c = toupper ((int) dtp->namelist_name[i]);
-      write_character (dtp, &c, 1 ,1, NODELIM);
+      write_character (dtp, &c, 1 ,1);
     }
 
   if (dtp->u.p.ionml != NULL)
@@ -2012,7 +1997,9 @@ namelist_write (st_parameter_dt *dtp)
     }
 
   namelist_write_newline (dtp);
-  write_character (dtp, " /", 1, 2, NODELIM);
+  write_character (dtp, " /", 1, 2);
+  /* Restore the original delimiter.  */
+  dtp->u.p.current_unit->delim_status = tmp_delim;
 }
 
 #undef NML_DIGITS

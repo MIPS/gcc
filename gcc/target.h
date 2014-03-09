@@ -1,5 +1,5 @@
 /* Data structure definitions for a generic GCC target.
-   Copyright (C) 2001-2014 Free Software Foundation, Inc.
+   Copyright (C) 2001-2013 Free Software Foundation, Inc.
 
    This program is free software; you can redistribute it and/or modify it
    under the terms of the GNU General Public License as published by the
@@ -54,7 +54,7 @@
 
 #ifdef ENABLE_CHECKING
 
-struct cumulative_args_t { void *magic; void *p; };
+typedef struct { void *magic; void *p; } cumulative_args_t;
 
 #else /* !ENABLE_CHECKING */
 
@@ -64,19 +64,20 @@ struct cumulative_args_t { void *magic; void *p; };
    efficient way of argument passing otherwise.  However, that would come
    at the cost of less type-safe !ENABLE_CHECKING compilation.  */
 
-union cumulative_args_t { void *p; };
+typedef union { void *p; } cumulative_args_t;
 
 #endif /* !ENABLE_CHECKING */
 
 /* Types used by the record_gcc_switches() target function.  */
-enum print_switch_type
+typedef enum
 {
   SWITCH_TYPE_PASSED,		/* A switch passed on the command line.  */
   SWITCH_TYPE_ENABLED,		/* An option that is currently enabled.  */
   SWITCH_TYPE_DESCRIPTIVE,	/* Descriptive text, not a switch or option.  */
   SWITCH_TYPE_LINE_START,	/* Please emit any necessary text at the start of a line.  */
   SWITCH_TYPE_LINE_END		/* Please emit a line terminator.  */
-};
+}
+print_switch_type;
 
 typedef int (* print_switch_fn_type) (print_switch_type, const char *);
 
@@ -92,11 +93,9 @@ extern bool target_default_pointer_address_modes_p (void);
 struct stdarg_info;
 struct spec_info_def;
 struct hard_reg_set_container;
-struct cgraph_node;
-struct cgraph_simd_clone;
 
 /* The struct used by the secondary_reload target hook.  */
-struct secondary_reload_info
+typedef struct secondary_reload_info
 {
   /* icode is actually an enum insn_code, but we don't want to force every
      file that includes target.h to include optabs.h .  */
@@ -107,7 +106,7 @@ struct secondary_reload_info
      compatibility hook.  */
   struct secondary_reload_info *prev_sri;
   int t_icode; /* Actually an enum insn_code - see above.  */
-};
+} secondary_reload_info;
 
 /* This is defined in sched-int.h .  */
 struct _dep;
@@ -119,7 +118,7 @@ struct ddg;
 struct loop;
 
 /* This is defined in tree-ssa-alias.h.  */
-struct ao_ref;
+struct ao_ref_s;
 
 /* This is defined in tree-vectorizer.h.  */
 struct _stmt_vec_info;

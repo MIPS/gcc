@@ -1,5 +1,5 @@
 ;; ARM NEON coprocessor Machine Description
-;; Copyright (C) 2006-2014 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2013 Free Software Foundation, Inc.
 ;; Written by CodeSourcery.
 ;;
 ;; This file is part of GCC.
@@ -245,23 +245,12 @@
 		     UNSPEC_MISALIGNED_ACCESS))]
   "TARGET_NEON && !BYTES_BIG_ENDIAN && unaligned_access"
 {
-  rtx adjust_mem;
   /* This pattern is not permitted to fail during expansion: if both arguments
      are non-registers (e.g. memory := constant, which can be created by the
      auto-vectorizer), force operand 1 into a register.  */
   if (!s_register_operand (operands[0], <MODE>mode)
       && !s_register_operand (operands[1], <MODE>mode))
     operands[1] = force_reg (<MODE>mode, operands[1]);
-
-  if (s_register_operand (operands[0], <MODE>mode))
-    adjust_mem = operands[1];
-  else
-    adjust_mem = operands[0];
-
-  /* Legitimize address.  */
-  if (!neon_vector_mem_operand (adjust_mem, 2, true))
-    XEXP (adjust_mem, 0) = force_reg (Pmode, XEXP (adjust_mem, 0));
-
 })
 
 (define_insn "*movmisalign<mode>_neon_store"
@@ -4270,19 +4259,9 @@
   DONE;
 })
 
-(define_expand "neon_vreinterpretti<mode>"
-  [(match_operand:TI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
-  "TARGET_NEON"
-{
-  neon_reinterpret (operands[0], operands[1]);
-  DONE;
-})
-
-
 (define_expand "neon_vreinterpretv16qi<mode>"
   [(match_operand:V16QI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
+   (match_operand:VQX 1 "s_register_operand" "")]
   "TARGET_NEON"
 {
   neon_reinterpret (operands[0], operands[1]);
@@ -4291,7 +4270,7 @@
 
 (define_expand "neon_vreinterpretv8hi<mode>"
   [(match_operand:V8HI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
+   (match_operand:VQX 1 "s_register_operand" "")]
   "TARGET_NEON"
 {
   neon_reinterpret (operands[0], operands[1]);
@@ -4300,7 +4279,7 @@
 
 (define_expand "neon_vreinterpretv4si<mode>"
   [(match_operand:V4SI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
+   (match_operand:VQX 1 "s_register_operand" "")]
   "TARGET_NEON"
 {
   neon_reinterpret (operands[0], operands[1]);
@@ -4309,7 +4288,7 @@
 
 (define_expand "neon_vreinterpretv4sf<mode>"
   [(match_operand:V4SF 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
+   (match_operand:VQX 1 "s_register_operand" "")]
   "TARGET_NEON"
 {
   neon_reinterpret (operands[0], operands[1]);
@@ -4318,7 +4297,7 @@
 
 (define_expand "neon_vreinterpretv2di<mode>"
   [(match_operand:V2DI 0 "s_register_operand" "")
-   (match_operand:VQXMOV 1 "s_register_operand" "")]
+   (match_operand:VQX 1 "s_register_operand" "")]
   "TARGET_NEON"
 {
   neon_reinterpret (operands[0], operands[1]);

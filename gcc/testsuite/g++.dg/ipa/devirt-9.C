@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 -fdump-ipa-whole-program"  } */
+/* { dg-options "-O2 -fdump-ipa-inline"  } */
 double foo ();
 struct B
 {
@@ -27,7 +27,5 @@ bar ()
   static C c;
   c.c1 (60, (int) foo ());
 }
-/* We optimize out this call just after early passes.  Unfortunately
-   this unreachable removal is not logged in dump file.  */
-/* { dg-final { scan-ipa-dump-not "OBJ_TYPE_REF" "whole-program" } } */
-/* { dg-final { cleanup-ipa-dump "whole-program" } } */
+/* { dg-final { scan-ipa-dump "Discovered a virtual call to a known target"  "inline"  } } */
+/* { dg-final { cleanup-ipa-dump "inline" } } */

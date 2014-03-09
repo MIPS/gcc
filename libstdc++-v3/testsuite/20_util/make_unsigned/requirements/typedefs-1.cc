@@ -1,9 +1,8 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
+// { dg-options "-std=gnu++0x" }
 
 // 2007-05-03  Benjamin Kosnik  <bkoz@redhat.com>
 //
-// Copyright (C) 2007-2014 Free Software Foundation, Inc.
+// Copyright (C) 2007-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,49 +20,56 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <type_traits>
+#include <testsuite_hooks.h>
 
 enum test_enum { first_selection };
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using std::make_unsigned;
   using std::is_same;
   using std::is_unsigned;
 
   // Positive tests.
   typedef make_unsigned<const unsigned int>::type  	test2_type;
-  static_assert(is_same<test2_type, const unsigned int>::value, "");
+  VERIFY( (is_same<test2_type, const unsigned int>::value) );
 
   typedef make_unsigned<const signed int>::type  	test21c_type;
-  static_assert(is_same<test21c_type, const unsigned int>::value, "");
+  VERIFY( (is_same<test21c_type, const unsigned int>::value) );
 
   typedef make_unsigned<volatile signed int>::type  	test21v_type;
-  static_assert(is_same<test21v_type, volatile unsigned int>::value, "");
+  VERIFY( (is_same<test21v_type, volatile unsigned int>::value) );
 
   typedef make_unsigned<const volatile signed int>::type  	test21cv_type;
-  static_assert(is_same<test21cv_type,
-		const volatile unsigned int>::value, "");
+  VERIFY( (is_same<test21cv_type, const volatile unsigned int>::value) );
 
   typedef make_unsigned<const char>::type  	test22_type;
-  static_assert(is_same<test22_type, const unsigned char>::value, "");
+  VERIFY( (is_same<test22_type, const unsigned char>::value) );
 
 #ifdef _GLIBCXX_USE_WCHAR_T
   typedef make_unsigned<volatile wchar_t>::type  	test23_type;
-  static_assert(is_same<test23_type, volatile wchar_t>::value, "");
+  VERIFY( (is_same<test23_type, volatile wchar_t>::value) );
 #endif
 
   // Chapter 48, chapter 20. Smallest rank such that new unsigned type
   // same size.
   typedef make_unsigned<test_enum>::type  	 test24_type;
-  static_assert(is_unsigned<test24_type>::value, "");
-  static_assert(sizeof(test24_type) == sizeof(test_enum), "");
+  VERIFY( is_unsigned<test24_type>::value );
+  VERIFY( sizeof(test24_type) == sizeof(test_enum) );
 
   // GNU Extensions.
 #ifdef _GLIBCXX_USE_INT128
   typedef make_unsigned<unsigned __int128>::type test25_type;
-  static_assert(is_same<test25_type, unsigned __int128>::value, "");
+  VERIFY( (is_same<test25_type, unsigned __int128>::value) );
 
   typedef make_unsigned<__int128>::type  	 test26_type;
-  static_assert(is_same<test26_type, unsigned __int128>::value, "");
+  VERIFY( (is_same<test26_type, unsigned __int128>::value) );
 #endif
+}
+
+int main()
+{
+  test01();
+  return 0;
 }

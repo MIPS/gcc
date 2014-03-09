@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---                     Copyright (C) 2007-2013, AdaCore                     --
+--                     Copyright (C) 2007-2009, AdaCore                     --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -34,6 +34,8 @@
 --  since on that platform socket errno values are distinct from the system
 --  ones: there is a specific variant of this function in g-socthi-mingw.adb.
 
+with System.CRTL.Runtime;
+
 separate (GNAT.Sockets.Thin)
 
 --------------------------
@@ -41,8 +43,16 @@ separate (GNAT.Sockets.Thin)
 --------------------------
 
 function Socket_Error_Message
-  (Errno : Integer) return String
+  (Errno : Integer) return C.Strings.chars_ptr
 is
+   use type Interfaces.C.Strings.chars_ptr;
+   C_Msg : constant C.Strings.chars_ptr :=
+             System.CRTL.Runtime.strerror (Errno);
+
 begin
-   return Errno_Message (Errno, Default => "Unknown system error");
+   if C_Msg = C.Strings.Null_Ptr then
+      return Unknown_System_Error;
+   else
+      return C_Msg;
+   end if;
 end Socket_Error_Message;

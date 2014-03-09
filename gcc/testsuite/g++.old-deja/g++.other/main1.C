@@ -1,12 +1,12 @@
 // { dg-do compile }
 
-int main()  // { dg-message "previous declaration" }
+int main()  // { dg-error "previous declaration" }
 {
   return 0;
 }
 
 
-int main(int, const char**) // { dg-error "conflicting" }
+int main(int, const char**) // { dg-error "conflicts" }
 {
   return 0;
 }

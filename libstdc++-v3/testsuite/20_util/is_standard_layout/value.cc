@@ -1,9 +1,7 @@
-// { dg-options "-std=gnu++11" }
-// { dg-do compile }
-
+// { dg-options "-std=gnu++0x" }
 // 2010-03-23  Paolo Carlini  <paolo.carlini@oracle.com>
 //
-// Copyright (C) 2010-2014 Free Software Foundation, Inc.
+// Copyright (C) 2010-2013 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -21,16 +19,24 @@
 // <http://www.gnu.org/licenses/>.
 
 #include <type_traits>
+#include <testsuite_hooks.h>
 #include <testsuite_tr1.h>
 
 void test01()
 {
+  bool test __attribute__((unused)) = true;
   using std::is_standard_layout;
   using namespace __gnu_test;
 
-  static_assert(test_category<is_standard_layout, SLType>(true), "");
-  static_assert(test_category<is_standard_layout, PODType>(true), "");
+  VERIFY( (test_category<is_standard_layout, SLType>(true)) );
+  VERIFY( (test_category<is_standard_layout, PODType>(true)) );
 
-  static_assert(test_category<is_standard_layout, NType>(false), "");
-  static_assert(test_category<is_standard_layout, TType>(false), "");
+  VERIFY( (test_category<is_standard_layout, NType>(false)) );
+  VERIFY( (test_category<is_standard_layout, TType>(false)) );
+}
+
+int main()
+{
+  test01();
+  return 0;
 }

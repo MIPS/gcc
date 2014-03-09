@@ -1,5 +1,5 @@
 /* Optimize by combining instructions for GNU compiler.
-   Copyright (C) 1987-2014 Free Software Foundation, Inc.
+   Copyright (C) 1987-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -81,7 +81,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
-#include "stor-layout.h"
 #include "tm_p.h"
 #include "flags.h"
 #include "regs.h"
@@ -960,7 +959,7 @@ delete_noop_moves (void)
   rtx insn, next;
   basic_block bb;
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       for (insn = BB_HEAD (bb); insn != NEXT_INSN (BB_END (bb)); insn = next)
 	{
@@ -997,7 +996,7 @@ create_log_links (void)
      usage -- these are taken from original flow.c did. Don't ask me why it is
      done this way; I don't know and if it works, I don't want to know.  */
 
-  FOR_EACH_BB_FN (bb, cfun)
+  FOR_EACH_BB (bb)
     {
       FOR_BB_INSNS_REVERSE (bb, insn)
         {
@@ -1157,10 +1156,10 @@ combine_instructions (rtx f, unsigned int nregs)
   setup_incoming_promotions (first);
   /* Allow the entry block and the first block to fall into the same EBB.
      Conceptually the incoming promotions are assigned to the entry block.  */
-  last_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  last_bb = ENTRY_BLOCK_PTR;
 
   create_log_links ();
-  FOR_EACH_BB_FN (this_basic_block, cfun)
+  FOR_EACH_BB (this_basic_block)
     {
       optimize_this_for_speed_p = optimize_bb_for_speed_p (this_basic_block);
       last_call_luid = 0;
@@ -1209,9 +1208,9 @@ combine_instructions (rtx f, unsigned int nregs)
   label_tick = label_tick_ebb_start = 1;
   init_reg_last ();
   setup_incoming_promotions (first);
-  last_bb = ENTRY_BLOCK_PTR_FOR_FN (cfun);
+  last_bb = ENTRY_BLOCK_PTR;
 
-  FOR_EACH_BB_FN (this_basic_block, cfun)
+  FOR_EACH_BB (this_basic_block)
     {
       rtx last_combined_insn = NULL_RTX;
       optimize_this_for_speed_p = optimize_bb_for_speed_p (this_basic_block);
@@ -1592,7 +1591,7 @@ set_nonzero_bits_and_sign_copies (rtx x, const_rtx set, void *data)
       /* If this register is undefined at the start of the file, we can't
 	 say what its contents were.  */
       && ! REGNO_REG_SET_P
-	   (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb), REGNO (x))
+           (DF_LR_IN (ENTRY_BLOCK_PTR->next_bb), REGNO (x))
       && HWI_COMPUTABLE_MODE_P (GET_MODE (x)))
     {
       reg_stat_type *rsp = &reg_stat[REGNO (x)];
@@ -3712,9 +3711,6 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 #ifdef HAVE_cc0
 	  && !reg_referenced_p (cc0_rtx, set0)
 #endif
-	  /* If I3 is a jump, ensure that set0 is a jump so that
-	     we do not create invalid RTL.  */
-	  && (!JUMP_P (i3) || SET_DEST (set0) == pc_rtx)
 	 )
 	{
 	  newi2pat = set1;
@@ -3729,9 +3725,6 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 #ifdef HAVE_cc0
 	       && !reg_referenced_p (cc0_rtx, set1)
 #endif
-	       /* If I3 is a jump, ensure that set1 is a jump so that
-		  we do not create invalid RTL.  */
-	       && (!JUMP_P (i3) || SET_DEST (set1) == pc_rtx)
 	      )
 	{
 	  newi2pat = set0;
@@ -3900,19 +3893,15 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 
       PATTERN (undobuf.other_insn) = other_pat;
 
-      /* If any of the notes in OTHER_INSN were REG_DEAD or REG_UNUSED,
-	 ensure that they are still valid.  Then add any non-duplicate
-	 notes added by recog_for_combine.  */
+      /* If any of the notes in OTHER_INSN were REG_UNUSED, ensure that they
+	 are still valid.  Then add any non-duplicate notes added by
+	 recog_for_combine.  */
       for (note = REG_NOTES (undobuf.other_insn); note; note = next)
 	{
 	  next = XEXP (note, 1);
 
-	  if ((REG_NOTE_KIND (note) == REG_DEAD
-	       && !reg_referenced_p (XEXP (note, 0),
-				     PATTERN (undobuf.other_insn)))
-	      ||(REG_NOTE_KIND (note) == REG_UNUSED
-		 && !reg_set_p (XEXP (note, 0),
-				PATTERN (undobuf.other_insn))))
+	  if (REG_NOTE_KIND (note) == REG_UNUSED
+	      && ! reg_set_p (XEXP (note, 0), PATTERN (undobuf.other_insn)))
 	    remove_note (undobuf.other_insn, note);
 	}
 
@@ -3948,7 +3937,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	ni2dest = SET_DEST (newi2pat);
 
       for (insn = NEXT_INSN (i3);
-	   insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
+	   insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
 		    || insn != BB_HEAD (this_basic_block->next_bb));
 	   insn = NEXT_INSN (insn))
 	{
@@ -4064,8 +4053,7 @@ try_combine (rtx i3, rtx i2, rtx i1, rtx i0, int *new_direct_jump_p,
 	      && ! find_reg_note (i2, REG_UNUSED,
 				  SET_DEST (XVECEXP (PATTERN (i2), 0, i))))
 	    for (temp = NEXT_INSN (i2);
-		 temp
-		 && (this_basic_block->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
+		 temp && (this_basic_block->next_bb == EXIT_BLOCK_PTR
 			  || BB_HEAD (this_basic_block) != temp);
 		 temp = NEXT_INSN (temp))
 	      if (temp != i3 && INSN_P (temp))
@@ -8039,7 +8027,7 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
   if (code == CALL || code == ASM_OPERANDS || code == CLOBBER)
     return x;
 
-  /* We want to perform the operation in its present mode unless we know
+  /* We want to perform the operation is its present mode unless we know
      that the operation is valid in MODE, in which case we do the operation
      in MODE.  */
   op_mode = ((GET_MODE_CLASS (mode) == GET_MODE_CLASS (GET_MODE (x))
@@ -8210,7 +8198,9 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
       /* If X is (minus C Y) where C's least set bit is larger than any bit
 	 in the mask, then we may replace with (neg Y).  */
       if (CONST_INT_P (XEXP (x, 0))
-	  && ((UINTVAL (XEXP (x, 0)) & -UINTVAL (XEXP (x, 0))) > mask))
+	  && (((unsigned HOST_WIDE_INT) (INTVAL (XEXP (x, 0))
+					& -INTVAL (XEXP (x, 0))))
+	      > mask))
 	{
 	  x = simplify_gen_unary (NEG, GET_MODE (x), XEXP (x, 1),
 				  GET_MODE (x));
@@ -8468,10 +8458,9 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
 					    gen_int_mode (mask, GET_MODE (x)),
 					    XEXP (x, 1));
 	  if (temp && CONST_INT_P (temp))
-	    x = simplify_gen_binary (code, GET_MODE (x),
-				     force_to_mode (XEXP (x, 0), GET_MODE (x),
-						    INTVAL (temp), next_select),
-				     XEXP (x, 1));
+	    SUBST (XEXP (x, 0),
+		   force_to_mode (XEXP (x, 0), GET_MODE (x),
+				  INTVAL (temp), next_select));
 	}
       break;
 
@@ -8539,16 +8528,14 @@ force_to_mode (rtx x, enum machine_mode mode, unsigned HOST_WIDE_INT mask,
       /* We have no way of knowing if the IF_THEN_ELSE can itself be
 	 written in a narrower mode.  We play it safe and do not do so.  */
 
-      op0 = gen_lowpart_or_truncate (GET_MODE (x),
-				     force_to_mode (XEXP (x, 1), mode,
-						    mask, next_select));
-      op1 = gen_lowpart_or_truncate (GET_MODE (x),
-				     force_to_mode (XEXP (x, 2), mode,
-						    mask, next_select));
-      if (op0 != XEXP (x, 1) || op1 != XEXP (x, 2))
-	x = simplify_gen_ternary (IF_THEN_ELSE, GET_MODE (x),
-				  GET_MODE (XEXP (x, 0)), XEXP (x, 0),
-				  op0, op1);
+      SUBST (XEXP (x, 1),
+	     gen_lowpart_or_truncate (GET_MODE (x),
+				      force_to_mode (XEXP (x, 1), mode,
+						     mask, next_select)));
+      SUBST (XEXP (x, 2),
+	     gen_lowpart_or_truncate (GET_MODE (x),
+				      force_to_mode (XEXP (x, 2), mode,
+						     mask, next_select)));
       break;
 
     default:
@@ -9480,16 +9467,9 @@ reg_nonzero_bits_for_combine (const_rtx x, enum machine_mode mode,
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && !REGNO_REG_SET_P
-		  (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb),
-		   REGNO (x)))))
+	          (DF_LR_IN (ENTRY_BLOCK_PTR->next_bb), REGNO (x)))))
     {
-      unsigned HOST_WIDE_INT mask = rsp->last_set_nonzero_bits;
-
-      if (GET_MODE_PRECISION (rsp->last_set_mode) < GET_MODE_PRECISION (mode))
-	/* We don't know anything about the upper bits.  */
-	mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (rsp->last_set_mode);
-
-      *nonzero &= mask;
+      *nonzero &= rsp->last_set_nonzero_bits;
       return NULL;
     }
 
@@ -9522,7 +9502,6 @@ reg_nonzero_bits_for_combine (const_rtx x, enum machine_mode mode,
       if (GET_MODE_PRECISION (GET_MODE (x)) < GET_MODE_PRECISION (mode))
 	/* We don't know anything about the upper bits.  */
 	mask |= GET_MODE_MASK (mode) ^ GET_MODE_MASK (GET_MODE (x));
-
       *nonzero &= mask;
     }
 
@@ -9555,8 +9534,7 @@ reg_num_sign_bit_copies_for_combine (const_rtx x, enum machine_mode mode,
 	  || (REGNO (x) >= FIRST_PSEUDO_REGISTER
 	      && REG_N_SETS (REGNO (x)) == 1
 	      && !REGNO_REG_SET_P
-		  (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb),
-		   REGNO (x)))))
+	          (DF_LR_IN (ENTRY_BLOCK_PTR->next_bb), REGNO (x)))))
     {
       *result = rsp->last_set_sign_bit_copies;
       return NULL;
@@ -12585,8 +12563,7 @@ get_last_value_validate (rtx *loc, rtx insn, int tick, int replace)
 	      || (! (regno >= FIRST_PSEUDO_REGISTER
 		     && REG_N_SETS (regno) == 1
 		     && (!REGNO_REG_SET_P
-			 (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb),
-			  regno)))
+			 (DF_LR_IN (ENTRY_BLOCK_PTR->next_bb), regno)))
 		  && rsp->last_set_label > tick))
 	  {
 	    if (replace)
@@ -12701,7 +12678,7 @@ get_last_value (const_rtx x)
 	  && (regno < FIRST_PSEUDO_REGISTER
 	      || REG_N_SETS (regno) != 1
 	      || REGNO_REG_SET_P
-		 (DF_LR_IN (ENTRY_BLOCK_PTR_FOR_FN (cfun)->next_bb), regno))))
+		 (DF_LR_IN (ENTRY_BLOCK_PTR->next_bb), regno))))
     return 0;
 
   /* If the value was set in a later insn than the ones we are processing,
@@ -13762,7 +13739,7 @@ distribute_links (struct insn_link *links)
 	 since most links don't point very far away.  */
 
       for (insn = NEXT_INSN (link->insn);
-	   (insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR_FOR_FN (cfun)
+	   (insn && (this_basic_block->next_bb == EXIT_BLOCK_PTR
 		     || BB_HEAD (this_basic_block->next_bb) != insn));
 	   insn = NEXT_INSN (insn))
 	if (DEBUG_INSN_P (insn))

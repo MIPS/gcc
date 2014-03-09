@@ -6,7 +6,7 @@
 --                                                                          --
 --                                 B o d y                                  --
 --                                                                          --
---          Copyright (C) 1992-2014, Free Software Foundation, Inc.         --
+--          Copyright (C) 1992-2013, Free Software Foundation, Inc.         --
 --                                                                          --
 -- GNAT is free software;  you can  redistribute it  and/or modify it under --
 -- terms of the  GNU General Public License as published  by the Free Soft- --
@@ -53,6 +53,7 @@ with Sem_Ch3;  use Sem_Ch3;
 with Sem_Ch6;  use Sem_Ch6;
 with Sem_Ch7;  use Sem_Ch7;
 with Sem_Ch8;  use Sem_Ch8;
+with Sem_Ch13; use Sem_Ch13;
 with Sem_Dist; use Sem_Dist;
 with Sem_Prag; use Sem_Prag;
 with Sem_Util; use Sem_Util;
@@ -103,11 +104,6 @@ package body Sem_Ch10 is
    --  is mentioned in the with_clause, and not on the package it renames.
    --  N is the compilation unit whose list of context items receives the
    --  implicit with_clauses.
-
-   procedure Generate_Parent_References (N : Node_Id; P_Id : Entity_Id);
-   --  Generate cross-reference information for the parents of child units
-   --  and of subunits. N is a defining_program_unit_name, and P_Id is the
-   --  immediate parent scope.
 
    function Get_Parent_Entity (Unit : Node_Id) return Entity_Id;
    --  Get defining entity of parent unit of a child unit. In most cases this
@@ -264,6 +260,10 @@ package body Sem_Ch10 is
       --  clauses, set Context_Items to the context list of the body and
       --  Spec_Context_Items to that of the spec. Parent packages are not
       --  examined for documentation purposes.
+
+      procedure Generate_Parent_References (N : Node_Id; P_Id : Entity_Id);
+      --  Generate cross-reference information for the parents of child units.
+      --  N is a defining_program_unit_name, and P_Id is the immediate parent.
 
       ---------------------------
       -- Check_Redundant_Withs --
@@ -598,6 +598,45 @@ package body Sem_Ch10 is
          end loop;
       end Check_Redundant_Withs;
 
+      --------------------------------
+      -- Generate_Parent_References --
+      --------------------------------
+
+      procedure Generate_Parent_References (N : Node_Id; P_Id : Entity_Id) is
+         Pref   : Node_Id;
+         P_Name : Entity_Id := P_Id;
+
+      begin
+         Pref := Name (Parent (Defining_Entity (N)));
+
+         if Nkind (Pref) = N_Expanded_Name then
+
+            --  Done already, if the unit has been compiled indirectly as
+            --  part of the closure of its context because of inlining.
+
+            return;
+         end if;
+
+         while Nkind (Pref) = N_Selected_Component loop
+            Change_Selected_Component_To_Expanded_Name (Pref);
+            Set_Entity (Pref, P_Name);
+            Set_Etype (Pref, Etype (P_Name));
+            Generate_Reference (P_Name, Pref, 'r');
+            Pref   := Prefix (Pref);
+            P_Name := Scope (P_Name);
+         end loop;
+
+         --  The guard here on P_Name is to handle the error condition where
+         --  the parent unit is missing because the file was not found.
+
+         if Present (P_Name) then
+            Set_Entity (Pref, P_Name);
+            Set_Etype (Pref, Etype (P_Name));
+            Generate_Reference (P_Name, Pref, 'r');
+            Style.Check_Identifier (Pref, P_Name);
+         end if;
+      end Generate_Parent_References;
+
    --  Start of processing for Analyze_Compilation_Unit
 
    begin
@@ -826,9 +865,9 @@ package body Sem_Ch10 is
          if Nkind (Defining_Unit_Name (Specification (Unit_Node))) =
                                              N_Defining_Program_Unit_Name
          then
-            Generate_Parent_References
-              (Specification (Unit_Node),
-               Scope (Defining_Entity (Unit (Lib_Unit))));
+            Generate_Parent_References (
+              Specification (Unit_Node),
+                Scope (Defining_Entity (Unit (Lib_Unit))));
          end if;
       end if;
 
@@ -867,8 +906,8 @@ package body Sem_Ch10 is
 
          --  Set the entities of all parents in the program_unit_name
 
-         Generate_Parent_References
-           (Unit_Node, Get_Parent_Entity (Unit (Parent_Spec (Unit_Node))));
+         Generate_Parent_References (
+           Unit_Node, Get_Parent_Entity (Unit (Parent_Spec (Unit_Node))));
       end if;
 
       --  All components of the context: with-clauses, library unit, ancestors
@@ -1109,8 +1148,8 @@ package body Sem_Ch10 is
          end;
       end if;
 
-      --  Deal with creating elaboration counter if needed. We create an
-      --  elaboration counter only for units that come from source since
+      --  Deal with creating elaboration Boolean if needed. We create an
+      --  elaboration boolean only for units that come from source since
       --  units manufactured by the compiler never need elab checks.
 
       if Comes_From_Source (N)
@@ -1170,7 +1209,7 @@ package body Sem_Ch10 is
                Set_Elaboration_Entity_Required (Spec_Id, False);
 
             --  Case of elaboration entity is required for access before
-            --  elaboration checking (so certainly we must build it).
+            --  elaboration checking (so certainly we must build it!)
 
             else
                Set_Elaboration_Entity_Required (Spec_Id, True);
@@ -1512,9 +1551,8 @@ package body Sem_Ch10 is
    -------------------------------
 
    procedure Analyze_Package_Body_Stub (N : Node_Id) is
-      Id   : constant Entity_Id := Defining_Identifier (N);
-      Nam  : Entity_Id;
-      Opts : Config_Switches_Type;
+      Id  : constant Entity_Id := Defining_Identifier (N);
+      Nam : Entity_Id;
 
    begin
       --  The package declaration must be in the current declarative part
@@ -1531,11 +1569,6 @@ package body Sem_Ch10 is
          Error_Msg_N ("duplicate or redundant stub for package", N);
 
       else
-         --  Retain and restore the configuration options of the enclosing
-         --  context as the proper body may introduce a set of its own.
-
-         Save_Opt_Config_Switches (Opts);
-
          --  Indicate that the body of the package exists. If we are doing
          --  only semantic analysis, the stub stands for the body. If we are
          --  generating code, the existence of the body will be confirmed
@@ -1546,8 +1579,6 @@ package body Sem_Ch10 is
          Set_Corresponding_Spec_Of_Stub (N, Nam);
          Generate_Reference (Nam, Id, 'b');
          Analyze_Proper_Body (N, Nam);
-
-         Restore_Opt_Config_Switches (Opts);
       end if;
    end Analyze_Package_Body_Stub;
 
@@ -1557,13 +1588,13 @@ package body Sem_Ch10 is
 
    procedure Analyze_Proper_Body (N : Node_Id; Nam : Entity_Id) is
       Subunit_Name : constant Unit_Name_Type := Get_Unit_Name (N);
+      Unum         : Unit_Number_Type;
 
       procedure Optional_Subunit;
       --  This procedure is called when the main unit is a stub, or when we
       --  are not generating code. In such a case, we analyze the subunit if
-      --  present, which is user-friendly and in fact required for ASIS, but we
-      --  don't complain if the subunit is missing. In GNATprove_Mode, we issue
-      --  an error to avoid formal verification of a partial unit.
+      --  present, which is user-friendly and in fact required for ASIS, but
+      --  we don't complain if the subunit is missing.
 
       ----------------------
       -- Optional_Subunit --
@@ -1571,7 +1602,6 @@ package body Sem_Ch10 is
 
       procedure Optional_Subunit is
          Comp_Unit : Node_Id;
-         Unum      : Unit_Number_Type;
 
       begin
          --  Try to load subunit, but ignore any errors that occur during the
@@ -1579,18 +1609,18 @@ package body Sem_Ch10 is
          --  ignore all errors. Note that Fatal_Error will still be set, so we
          --  will be able to check for this case below.
 
-         if not (ASIS_Mode or GNATprove_Mode) then
+         if not ASIS_Mode then
             Ignore_Errors_Enable := Ignore_Errors_Enable + 1;
          end if;
 
          Unum :=
            Load_Unit
              (Load_Name  => Subunit_Name,
-              Required   => GNATprove_Mode,
+              Required   => False,
               Subunit    => True,
               Error_Node => N);
 
-         if not (ASIS_Mode or GNATprove_Mode) then
+         if not ASIS_Mode then
             Ignore_Errors_Enable := Ignore_Errors_Enable - 1;
          end if;
 
@@ -1632,8 +1662,7 @@ package body Sem_Ch10 is
 
       --  Local variables
 
-      Comp_Unit : Node_Id;
-      Unum      : Unit_Number_Type;
+      Stub_Id : Entity_Id;
 
    --  Start of processing for Analyze_Proper_Body
 
@@ -1787,45 +1816,86 @@ package body Sem_Ch10 is
                   Write_Eol;
                end if;
 
-               Comp_Unit := Cunit (Unum);
+               declare
+                  Comp_Unit : constant Node_Id := Cunit (Unum);
+                  Prop_Body : Node_Id;
 
-               --  Check for child unit instead of subunit
+               begin
+                  --  Check for child unit instead of subunit
 
-               if Nkind (Unit (Comp_Unit)) /= N_Subunit then
-                  Error_Msg_N
-                    ("expected SEPARATE subunit, found child unit",
-                     Cunit_Entity (Unum));
+                  if Nkind (Unit (Comp_Unit)) /= N_Subunit then
+                     Error_Msg_N
+                       ("expected SEPARATE subunit, found child unit",
+                        Cunit_Entity (Unum));
 
-               --  OK, we have a subunit
+                  --  OK, we have a subunit
 
-               else
-                  Set_Corresponding_Stub (Unit (Comp_Unit), N);
-                  Set_Library_Unit (N, Comp_Unit);
+                  else
+                     Prop_Body := Proper_Body (Unit (Comp_Unit));
 
-                  --  We update the version. Although we are not technically
-                  --  semantically dependent on the subunit, given our approach
-                  --  of macro substitution of subunits, it makes sense to
-                  --  include it in the version identification.
+                     --  Set corresponding stub (even if errors)
 
-                  Version_Update (Cunit (Main_Unit), Comp_Unit);
+                     Set_Corresponding_Stub (Unit (Comp_Unit), N);
 
-                  --  Collect SCO information for loaded subunit if we are in
-                  --  the main unit.
+                     --  Collect SCO information for loaded subunit if we are
+                     --  in the main unit.
 
-                  if Generate_SCO
-                    and then
-                      In_Extended_Main_Source_Unit
-                        (Cunit_Entity (Current_Sem_Unit))
-                  then
-                     SCO_Record (Unum);
+                     if Generate_SCO
+                       and then
+                         In_Extended_Main_Source_Unit
+                           (Cunit_Entity (Current_Sem_Unit))
+                     then
+                        SCO_Record (Unum);
+                     end if;
+
+                     --  Propagate all aspect specifications associated with
+                     --  the stub to the proper body.
+
+                     Move_Or_Merge_Aspects (From => N, To => Prop_Body);
+
+                     --  Move all source pragmas that follow the body stub and
+                     --  apply to it to the declarations of the proper body.
+
+                     if Nkind (N) = N_Subprogram_Body_Stub then
+                        Relocate_Pragmas_To_Body (N, Target_Body => Prop_Body);
+                     end if;
+
+                     --  Analyze the unit if semantics active
+
+                     if not Fatal_Error (Unum) or else Try_Semantics then
+                        Analyze_Subunit (Comp_Unit);
+                     end if;
+
+                     --  Set the library unit pointer in any case
+
+                     Set_Library_Unit (N, Comp_Unit);
+
+                     --  We update the version. Although we are not technically
+                     --  semantically dependent on the subunit, given our
+                     --  approach of macro substitution of subunits, it makes
+                     --  sense to include it in the version identification.
+
+                     Version_Update (Cunit (Main_Unit), Comp_Unit);
                   end if;
+               end;
 
-                  --  Analyze the unit if semantics active
+            --  The unit which should contain the proper subprogram body does
+            --  not exist. Analyze the aspect specifications of the stub (if
+            --  any).
 
-                  if not Fatal_Error (Unum) or else Try_Semantics then
-                     Analyze_Subunit (Comp_Unit);
-                  end if;
-               end if;
+            elsif Nkind (N) = N_Subprogram_Body_Stub
+              and then Has_Aspects (N)
+            then
+               Stub_Id := Defining_Unit_Name (Specification (N));
+
+               --  Restore the proper visibility of the stub and its formals
+
+               Push_Scope (Stub_Id);
+               Install_Formals (Stub_Id);
+
+               Analyze_Aspect_Specifications (N, Stub_Id);
+
+               Pop_Scope;
             end if;
          end if;
 
@@ -1860,17 +1930,6 @@ package body Sem_Ch10 is
          Error_Msg_N ("missing specification for Protected body", N);
 
       else
-         --  Currently there are no language-defined aspects that can apply to
-         --  a protected body stub. Issue an error and remove the aspects to
-         --  prevent cascaded errors.
-
-         if Has_Aspects (N) then
-            Error_Msg_N
-              ("aspects on protected bodies are not allowed",
-               First (Aspect_Specifications (N)));
-            Remove_Aspects (N);
-         end if;
-
          Set_Scope (Defining_Entity (N), Current_Scope);
          Set_Has_Completion (Etype (Nam));
          Set_Corresponding_Spec_Of_Stub (N, Nam);
@@ -1892,7 +1951,6 @@ package body Sem_Ch10 is
 
    procedure Analyze_Subprogram_Body_Stub (N : Node_Id) is
       Decl : Node_Id;
-      Opts : Config_Switches_Type;
 
    begin
       Check_Stub_Level (N);
@@ -1917,18 +1975,11 @@ package body Sem_Ch10 is
          end loop;
       end if;
 
-      --  Retain and restore the configuration options of the enclosing context
-      --  as the proper body may introduce a set of its own.
-
-      Save_Opt_Config_Switches (Opts);
-
       --  Treat stub as a body, which checks conformance if there is a previous
       --  declaration, or else introduces entity and its signature.
 
       Analyze_Subprogram_Body (N);
       Analyze_Proper_Body (N, Empty);
-
-      Restore_Opt_Config_Switches (Opts);
    end Analyze_Subprogram_Body_Stub;
 
    ---------------------
@@ -2275,7 +2326,6 @@ package body Sem_Ch10 is
          end if;
       end if;
 
-      Generate_Parent_References (Unit (N), Par_Unit);
       Analyze (Proper_Body (Unit (N)));
       Remove_Context (N);
 
@@ -2321,19 +2371,7 @@ package body Sem_Ch10 is
 
       if No (Nam) or else not Is_Task_Type (Etype (Nam)) then
          Error_Msg_N ("missing specification for task body", N);
-
       else
-         --  Currently there are no language-defined aspects that can apply to
-         --  a task body stub. Issue an error and remove the aspects to prevent
-         --  cascaded errors.
-
-         if Has_Aspects (N) then
-            Error_Msg_N
-              ("aspects on task bodies are not allowed",
-               First (Aspect_Specifications (N)));
-            Remove_Aspects (N);
-         end if;
-
          Set_Scope (Defining_Entity (N), Current_Scope);
          Generate_Reference (Nam, Defining_Identifier (N), 'b');
          Set_Corresponding_Spec_Of_Stub (N, Nam);
@@ -2355,13 +2393,13 @@ package body Sem_Ch10 is
          --  expansion is active, because the context may be generic and the
          --  flag not defined yet.
 
-         if Expander_Active then
+         if Full_Expander_Active then
             Insert_After (N,
               Make_Assignment_Statement (Loc,
                 Name =>
                   Make_Identifier (Loc,
                     Chars => New_External_Name (Chars (Etype (Nam)), 'E')),
-                 Expression => New_Occurrence_Of (Standard_True, Loc)));
+                 Expression => New_Reference_To (Standard_True, Loc)));
          end if;
       end if;
    end Analyze_Task_Body_Stub;
@@ -2632,7 +2670,7 @@ package body Sem_Ch10 is
       --  to consider the unit as unreferenced if this is the only reference
       --  that occurs.
 
-      Set_Entity_With_Checks (Name (N), E_Name);
+      Set_Entity_With_Style_Check (Name (N), E_Name);
       Generate_Reference (E_Name, Name (N), 'w', Set_Ref => False);
 
       --  Generate references and check No_Dependence restriction for parents
@@ -2657,7 +2695,7 @@ package body Sem_Ch10 is
                exit;
             end if;
 
-            Set_Entity_With_Checks (Pref, Par_Name);
+            Set_Entity_With_Style_Check (Pref, Par_Name);
 
             Generate_Reference (Par_Name, Pref);
             Check_Restriction_No_Dependence (Pref, N);
@@ -2697,7 +2735,7 @@ package body Sem_Ch10 is
          --  Guard against missing or misspelled child units
 
          if Present (Par_Name) then
-            Set_Entity_With_Checks (Pref, Par_Name);
+            Set_Entity_With_Style_Check (Pref, Par_Name);
             Generate_Reference (Par_Name, Pref);
 
          else
@@ -3007,59 +3045,10 @@ package body Sem_Ch10 is
       Mark_Rewrite_Insertion (Withn);
       Install_Withed_Unit (Withn);
 
-      --  If we have "with X.Y;", we want to recurse on "X", except in the
-      --  unusual case where X.Y is a renaming of X. In that case, the scope
-      --  of X will be null.
-
-      if Nkind (Nam) = N_Expanded_Name
-        and then Present (Scope (Entity (Prefix (Nam))))
-      then
+      if Nkind (Nam) = N_Expanded_Name then
          Expand_With_Clause (Item, Prefix (Nam), N);
       end if;
    end Expand_With_Clause;
-
-   --------------------------------
-   -- Generate_Parent_References --
-   --------------------------------
-
-   procedure Generate_Parent_References (N : Node_Id; P_Id : Entity_Id) is
-      Pref   : Node_Id;
-      P_Name : Entity_Id := P_Id;
-
-   begin
-      if Nkind (N) = N_Subunit then
-         Pref := Name (N);
-      else
-         Pref := Name (Parent (Defining_Entity (N)));
-      end if;
-
-      if Nkind (Pref) = N_Expanded_Name then
-
-         --  Done already, if the unit has been compiled indirectly as
-         --  part of the closure of its context because of inlining.
-
-         return;
-      end if;
-
-      while Nkind (Pref) = N_Selected_Component loop
-         Change_Selected_Component_To_Expanded_Name (Pref);
-         Set_Entity (Pref, P_Name);
-         Set_Etype (Pref, Etype (P_Name));
-         Generate_Reference (P_Name, Pref, 'r');
-         Pref   := Prefix (Pref);
-         P_Name := Scope (P_Name);
-      end loop;
-
-      --  The guard here on P_Name is to handle the error condition where
-      --  the parent unit is missing because the file was not found.
-
-      if Present (P_Name) then
-         Set_Entity (Pref, P_Name);
-         Set_Etype (Pref, Etype (P_Name));
-         Generate_Reference (P_Name, Pref, 'r');
-         Style.Check_Identifier (Pref, P_Name);
-      end if;
-   end Generate_Parent_References;
 
    -----------------------
    -- Get_Parent_Entity --
@@ -3071,7 +3060,7 @@ package body Sem_Ch10 is
         and then Nkind (Original_Node (Unit)) = N_Package_Instantiation
       then
          return Defining_Entity
-                  (Specification (Instance_Spec (Original_Node (Unit))));
+                 (Specification (Instance_Spec (Original_Node (Unit))));
       elsif Nkind (Unit) = N_Package_Instantiation then
          return Defining_Entity (Specification (Instance_Spec (Unit)));
       else
@@ -3152,7 +3141,7 @@ package body Sem_Ch10 is
 
       function Build_Ancestor_Name (P : Node_Id) return Node_Id is
          P_Ref  : constant Node_Id :=
-                   New_Occurrence_Of (Defining_Entity (P), Loc);
+                   New_Reference_To (Defining_Entity (P), Loc);
          P_Spec : Node_Id := P;
 
       begin
@@ -3184,14 +3173,14 @@ package body Sem_Ch10 is
 
       begin
          if No (Parent_Spec (P_Unit)) then
-            return New_Occurrence_Of (P_Name, Loc);
+            return New_Reference_To (P_Name, Loc);
 
          else
             Result :=
               Make_Expanded_Name (Loc,
                 Chars  => Chars (P_Name),
                 Prefix => Build_Ancestor_Name (Unit (Parent_Spec (P_Unit))),
-                Selector_Name => New_Occurrence_Of (P_Name, Loc));
+                Selector_Name => New_Reference_To (P_Name, Loc));
             Set_Entity (Result, P_Name);
             return Result;
          end if;
@@ -3927,7 +3916,7 @@ package body Sem_Ch10 is
                      --  a parent unit that has limited with-clauses.
 
                      Set_Subtype_Indication (Decl,
-                       New_Occurrence_Of (Non_Lim_View, Sloc (Def_Id)));
+                       New_Reference_To (Non_Lim_View, Sloc (Def_Id)));
                      Set_Etype (Def_Id, Non_Lim_View);
                      Set_Ekind (Def_Id, Subtype_Kind (Ekind (Non_Lim_View)));
                      Set_Analyzed (Decl, False);
@@ -5161,14 +5150,6 @@ package body Sem_Ch10 is
 
             Set_Is_Visible_Lib_Unit (Uname);
 
-            --  If the unit is a wrapper package for a compilation unit that is
-            --  a subprogrm instance, indicate that the instance itself is a
-            --  visible unit. This is necessary if the instance is inlined.
-
-            if Is_Wrapper_Package (Uname) then
-               Set_Is_Visible_Lib_Unit (Related_Instance (Uname));
-            end if;
-
             --  If the child unit appears in the context of its parent, it is
             --  immediately visible.
 
@@ -5398,35 +5379,30 @@ package body Sem_Ch10 is
    -------------------------
 
    procedure Build_Limited_Views (N : Node_Id) is
-      Unum        : constant Unit_Number_Type :=
-                      Get_Source_Unit (Library_Unit (N));
-      Is_Analyzed : constant Boolean := Analyzed (Cunit (Unum));
+      Nam  : constant Node_Id          := Name (N);
+      Unum : constant Unit_Number_Type := Get_Source_Unit (Library_Unit (N));
+      Pack : constant Entity_Id        := Cunit_Entity (Unum);
 
       Shadow_Pack : Entity_Id;
       --  The corresponding shadow entity of the withed package. This entity
-      --  offers incomplete views of packages and types as well as abstract
-      --  views of states and variables declared within.
+      --  offers incomplete views of all types and visible packages declared
+      --  within.
 
       Last_Shadow : Entity_Id := Empty;
       --  The last shadow entity created by routine Build_Shadow_Entity
 
-      procedure Build_Shadow_Entity
+      function Build_Shadow_Entity
         (Ent       : Entity_Id;
          Scop      : Entity_Id;
-         Shadow    : out Entity_Id;
-         Is_Tagged : Boolean := False);
-      --  Create a shadow entity that hides Ent and offers an abstract or
-      --  incomplete view of Ent. Scop is the proper scope. Flag Is_Tagged
-      --  should be set when Ent is a tagged type. The generated entity is
-      --  added to Lim_Header. This routine updates the value of Last_Shadow.
+         Is_Tagged : Boolean := False) return Entity_Id;
+      --  Create a shadow entity that hides Ent and offers an incomplete view
+      --  of Ent. Scop is the proper scope. Flag Is_Tagged should be set when
+      --  Ent is a tagged type. The generated entity is added to Lim_Header.
+      --  This routine updates the value of Last_Shadow.
 
       procedure Decorate_Package (Ent : Entity_Id; Scop : Entity_Id);
       --  Perform minimal decoration of a package or its corresponding shadow
       --  entity denoted by Ent. Scop is the proper scope.
-
-      procedure Decorate_State (Ent : Entity_Id; Scop : Entity_Id);
-      --  Perform full decoration of an abstract state or its corresponding
-      --  shadow entity denoted by Ent. Scop is the proper scope.
 
       procedure Decorate_Type
         (Ent         : Entity_Id;
@@ -5439,47 +5415,28 @@ package body Sem_Ch10 is
       --  set when Ent is a tagged type and its class-wide type needs to appear
       --  in the tree.
 
-      procedure Decorate_Variable (Ent : Entity_Id; Scop : Entity_Id);
-      --  Perform minimal decoration of a variable denoted by Ent. Scop is the
-      --  proper scope.
-
-      procedure Process_Declarations_And_States
-        (Pack  : Entity_Id;
-         Decls : List_Id;
-         Scop  : Entity_Id;
-         Create_Abstract_Views : Boolean);
-      --  Inspect the states of package Pack and declarative list Decls. Create
-      --  shadow entities for all nested packages, states, types and variables
-      --  encountered. Scop is the proper scope. Create_Abstract_Views should
-      --  be set when the abstract states and variables need to be processed.
+      procedure Process_Declarations (Decls : List_Id; Scop : Entity_Id);
+      --  Inspect declarative list Decls and create shadow entities for all
+      --  types and packages encountered. Scop is the proper scope.
 
       -------------------------
       -- Build_Shadow_Entity --
       -------------------------
 
-      procedure Build_Shadow_Entity
+      function Build_Shadow_Entity
         (Ent       : Entity_Id;
          Scop      : Entity_Id;
-         Shadow    : out Entity_Id;
-         Is_Tagged : Boolean := False)
+         Is_Tagged : Boolean := False) return Entity_Id
       is
-      begin
-         Shadow := Make_Temporary (Sloc (Ent), 'Z');
+         Shadow : constant Entity_Id := Make_Temporary (Sloc (Ent), 'Z');
 
+      begin
          --  The shadow entity must share the same name and parent as the
          --  entity it hides.
 
-         Set_Chars  (Shadow, Chars (Ent));
-         Set_Parent (Shadow, Parent (Ent));
-
-         --  The abstract view of a variable is a state, not another variable
-
-         if Ekind (Ent) = E_Variable then
-            Set_Ekind (Shadow, E_Abstract_State);
-         else
-            Set_Ekind (Shadow, Ekind (Ent));
-         end if;
-
+         Set_Chars             (Shadow, Chars (Ent));
+         Set_Parent            (Shadow, Parent (Ent));
+         Set_Ekind             (Shadow, Ekind (Ent));
          Set_Is_Internal       (Shadow);
          Set_From_Limited_With (Shadow);
 
@@ -5488,27 +5445,20 @@ package body Sem_Ch10 is
          Last_Shadow := Shadow;
          Append_Entity (Shadow, Shadow_Pack);
 
-         --  Perform context-specific decoration of the shadow entity
-
-         if Ekind (Ent) = E_Abstract_State then
-            Decorate_State       (Shadow, Scop);
-            Set_Non_Limited_View (Shadow, Ent);
-
-         elsif Ekind (Ent) = E_Package then
-            Decorate_Package (Shadow, Scop);
-
-         elsif Is_Type (Ent) then
-            Decorate_Type        (Shadow, Scop, Is_Tagged);
-            Set_Non_Limited_View (Shadow, Ent);
+         if Is_Type (Ent) then
+            Decorate_Type (Shadow, Scop, Is_Tagged);
 
             if Is_Incomplete_Or_Private_Type (Ent) then
                Set_Private_Dependents (Shadow, New_Elmt_List);
             end if;
 
-         elsif Ekind (Ent) = E_Variable then
-            Decorate_State       (Shadow, Scop);
             Set_Non_Limited_View (Shadow, Ent);
+
+         elsif Ekind (Ent) = E_Package then
+            Decorate_Package (Shadow, Scop);
          end if;
+
+         return Shadow;
       end Build_Shadow_Entity;
 
       ----------------------
@@ -5521,20 +5471,6 @@ package body Sem_Ch10 is
          Set_Etype (Ent, Standard_Void_Type);
          Set_Scope (Ent, Scop);
       end Decorate_Package;
-
-      --------------------
-      -- Decorate_State --
-      --------------------
-
-      procedure Decorate_State (Ent : Entity_Id; Scop : Entity_Id) is
-      begin
-         Set_Ekind                   (Ent, E_Abstract_State);
-         Set_Etype                   (Ent, Standard_Void_Type);
-         Set_Scope                   (Ent, Scop);
-         Set_Encapsulating_State     (Ent, Empty);
-         Set_Refinement_Constituents (Ent, New_Elmt_List);
-         Set_Part_Of_Constituents    (Ent, New_Elmt_List);
-      end Decorate_State;
 
       -------------------
       -- Decorate_Type --
@@ -5598,229 +5534,36 @@ package body Sem_Ch10 is
          end if;
       end Decorate_Type;
 
-      -----------------------
-      -- Decorate_Variable --
-      -----------------------
+      --------------------------
+      -- Process_Declarations --
+      --------------------------
 
-      procedure Decorate_Variable (Ent : Entity_Id; Scop : Entity_Id) is
-      begin
-         Set_Ekind (Ent, E_Variable);
-         Set_Etype (Ent, Standard_Void_Type);
-         Set_Scope (Ent, Scop);
-      end Decorate_Variable;
-
-      -------------------------------------
-      -- Process_Declarations_And_States --
-      -------------------------------------
-
-      procedure Process_Declarations_And_States
-        (Pack  : Entity_Id;
-         Decls : List_Id;
-         Scop  : Entity_Id;
-         Create_Abstract_Views : Boolean)
-      is
-         procedure Find_And_Process_States;
-         --  Determine whether package Pack defines abstract state either by
-         --  using an aspect or a pragma. If this is the case, build shadow
-         --  entities for all abstract states of Pack.
-
-         procedure Process_States (States : Elist_Id);
-         --  Generate shadow entities for all abstract states in list States
-
-         -----------------------------
-         -- Find_And_Process_States --
-         -----------------------------
-
-         procedure Find_And_Process_States is
-            procedure Process_State (State : Node_Id);
-            --  Generate shadow entities for a single abstract state or
-            --  multiple states expressed as an aggregate.
-
-            -------------------
-            -- Process_State --
-            -------------------
-
-            procedure Process_State (State : Node_Id) is
-               Loc  : constant Source_Ptr := Sloc (State);
-               Elmt : Node_Id;
-               Id   : Entity_Id;
-               Name : Name_Id;
-
-               Dummy : Entity_Id;
-               pragma Unreferenced (Dummy);
-
-            begin
-               --  Multiple abstract states appear as an aggregate
-
-               if Nkind (State) = N_Aggregate then
-                  Elmt := First (Expressions (State));
-                  while Present (Elmt) loop
-                     Process_State (Elmt);
-
-                     Next (Elmt);
-                  end loop;
-                  return;
-
-               --  A null state has no abstract view
-
-               elsif Nkind (State) = N_Null then
-                  return;
-
-               --  State declaration with various options appears as an
-               --  extension aggregate.
-
-               elsif Nkind (State) = N_Extension_Aggregate then
-                  Name := Chars (Ancestor_Part (State));
-
-               --  Simple state declaration
-
-               elsif Nkind (State) = N_Identifier then
-                  Name := Chars (State);
-
-               --  Possibly an illegal state declaration
-
-               else
-                  return;
-               end if;
-
-               --  Construct a dummy state for the purposes of establishing a
-               --  non-limited => limited view relation. Note that the dummy
-               --  state is not added to list Abstract_States to avoid multiple
-               --  definitions.
-
-               Id := Make_Defining_Identifier (Loc, New_External_Name (Name));
-               Set_Parent     (Id, State);
-               Decorate_State (Id, Scop);
-
-               Build_Shadow_Entity (Id, Scop, Dummy);
-            end Process_State;
-
-            --  Local variables
-
-            Pack_Decl : constant Node_Id := Unit_Declaration_Node (Pack);
-            Asp       : Node_Id;
-            Decl      : Node_Id;
-
-         --  Start of processing for Find_And_Process_States
-
-         begin
-            --  Find aspect Abstract_State
-
-            Asp := First (Aspect_Specifications (Pack_Decl));
-            while Present (Asp) loop
-               if Chars (Identifier (Asp)) = Name_Abstract_State then
-                  Process_State (Expression (Asp));
-
-                  return;
-               end if;
-
-               Next (Asp);
-            end loop;
-
-            --  Find pragma Abstract_State by inspecting the declarations
-
-            Decl := First (Decls);
-            while Present (Decl) and then Nkind (Decl) = N_Pragma loop
-               if Pragma_Name (Decl) = Name_Abstract_State then
-                  Process_State
-                    (Get_Pragma_Arg
-                       (First (Pragma_Argument_Associations (Decl))));
-
-                  return;
-               end if;
-
-               Next (Decl);
-            end loop;
-         end Find_And_Process_States;
-
-         --------------------
-         -- Process_States --
-         --------------------
-
-         procedure Process_States (States : Elist_Id) is
-            Dummy : Entity_Id;
-            Elmt  : Elmt_Id;
-
-         begin
-            Elmt := First_Elmt (States);
-            while Present (Elmt) loop
-               Build_Shadow_Entity (Node (Elmt), Scop, Dummy);
-
-               Next_Elmt (Elmt);
-            end loop;
-         end Process_States;
-
-         --  Local variables
-
-         Is_Tagged : Boolean;
-         Decl      : Node_Id;
-         Def       : Node_Id;
-         Def_Id    : Entity_Id;
-         Shadow    : Entity_Id;
-
-      --  Start of processing for Process_Declarations_And_States
+      procedure Process_Declarations (Decls : List_Id; Scop : Entity_Id) is
+         Is_Analyzed : constant Boolean := Analyzed (Cunit (Unum));
+         Is_Tagged   : Boolean;
+         Decl        : Node_Id;
+         Def         : Node_Id;
+         Pack        : Entity_Id;
+         Shadow      : Entity_Id;
+         Typ         : Entity_Id;
 
       begin
-         --  Build abstract views for all states defined in the package
-
-         if Create_Abstract_Views then
-
-            --  When a package has been analyzed, all states are stored in list
-            --  Abstract_States. Generate the shadow entities directly.
-
-            if Is_Analyzed then
-               if Present (Abstract_States (Pack)) then
-                  Process_States (Abstract_States (Pack));
-               end if;
-
-            --  The package may declare abstract states by using an aspect or a
-            --  pragma. Attempt to locate one of these construct and if found,
-            --  build the shadow entities.
-
-            else
-               Find_And_Process_States;
-            end if;
-         end if;
-
-         --  Inspect the declarative list, looking for nested packages, types
-         --  and variable declarations.
+         --  Inspect the declarative list, looking for type declarations and
+         --  nested packages.
 
          Decl := First (Decls);
          while Present (Decl) loop
 
-            --  Packages
-
-            if Nkind (Decl) = N_Package_Declaration then
-               Def_Id := Defining_Entity (Decl);
-
-               --  Perform minor decoration when the withed package has not
-               --  been analyzed.
-
-               if not Is_Analyzed then
-                  Decorate_Package (Def_Id, Scop);
-               end if;
-
-               --  Create a shadow entity that offers a limited view of all
-               --  visible types declared within.
-
-               Build_Shadow_Entity (Def_Id, Scop, Shadow);
-
-               Process_Declarations_And_States
-                 (Pack  => Def_Id,
-                  Decls => Visible_Declarations (Specification (Decl)),
-                  Scop  => Shadow,
-                  Create_Abstract_Views => Create_Abstract_Views);
-
             --  Types
 
-            elsif Nkind_In (Decl, N_Full_Type_Declaration,
-                                  N_Incomplete_Type_Declaration,
-                                  N_Private_Extension_Declaration,
-                                  N_Private_Type_Declaration,
-                                  N_Protected_Type_Declaration,
-                                  N_Task_Type_Declaration)
+            if Nkind_In (Decl, N_Full_Type_Declaration,
+                               N_Incomplete_Type_Declaration,
+                               N_Private_Extension_Declaration,
+                               N_Private_Type_Declaration,
+                               N_Protected_Type_Declaration,
+                               N_Task_Type_Declaration)
             then
-               Def_Id := Defining_Entity (Decl);
+               Typ := Defining_Entity (Decl);
 
                --  Determine whether the type is tagged. Note that packages
                --  included via a limited with clause are not always analyzed,
@@ -5853,43 +5596,41 @@ package body Sem_Ch10 is
                --  been analyzed.
 
                if not Is_Analyzed then
-                  Decorate_Type (Def_Id, Scop, Is_Tagged, True);
+                  Decorate_Type (Typ, Scop, Is_Tagged, True);
                end if;
 
                --  Create a shadow entity that hides the type and offers an
                --  incomplete view of the said type.
 
-               Build_Shadow_Entity (Def_Id, Scop, Shadow, Is_Tagged);
+               Shadow := Build_Shadow_Entity (Typ, Scop, Is_Tagged);
 
-            --  Variables
+            --  Packages
 
-            elsif Create_Abstract_Views
-              and then Nkind (Decl) = N_Object_Declaration
-              and then not Constant_Present (Decl)
-            then
-               Def_Id := Defining_Entity (Decl);
+            elsif Nkind (Decl) = N_Package_Declaration then
+               Pack := Defining_Entity (Decl);
 
                --  Perform minor decoration when the withed package has not
                --  been analyzed.
 
                if not Is_Analyzed then
-                  Decorate_Variable (Def_Id, Scop);
+                  Decorate_Package (Pack, Scop);
                end if;
 
-               --  Create a shadow entity that hides the variable and offers an
-               --  abstract view of the said variable.
+               --  Create a shadow entity that offers a limited view of all
+               --  visible types declared within.
 
-               Build_Shadow_Entity (Def_Id, Scop, Shadow);
+               Shadow := Build_Shadow_Entity (Pack, Scop);
+
+               Process_Declarations
+                 (Decls => Visible_Declarations (Specification (Decl)),
+                  Scop  => Shadow);
             end if;
 
             Next (Decl);
          end loop;
-      end Process_Declarations_And_States;
+      end Process_Declarations;
 
       --  Local variables
-
-      Nam  : constant Node_Id   := Name (N);
-      Pack : constant Entity_Id := Cunit_Entity (Unum);
 
       Last_Public_Shadow : Entity_Id := Empty;
       Private_Shadow     : Entity_Id;
@@ -5972,26 +5713,21 @@ package body Sem_Ch10 is
       Set_Is_Internal  (Shadow_Pack);
       Set_Limited_View (Pack, Shadow_Pack);
 
-      --  Inspect the abstract states and visible declarations of the withed
-      --  unit and create shadow entities that hide existing packages, states,
-      --  variables and types.
+      --  Inspect the visible declarations of the withed unit and create shadow
+      --  entities that hide existing types and packages.
 
-      Process_Declarations_And_States
-        (Pack  => Pack,
-         Decls => Visible_Declarations (Spec),
-         Scop  => Pack,
-         Create_Abstract_Views => True);
+      Process_Declarations
+        (Decls => Visible_Declarations (Spec),
+         Scop  => Pack);
 
       Last_Public_Shadow := Last_Shadow;
 
       --  Ada 2005 (AI-262): Build the limited view of the private declarations
       --  to accomodate limited private with clauses.
 
-      Process_Declarations_And_States
-        (Pack  => Pack,
-         Decls => Private_Declarations (Spec),
-         Scop  => Pack,
-         Create_Abstract_Views => False);
+      Process_Declarations
+        (Decls => Private_Declarations (Spec),
+         Scop  => Pack);
 
       if Present (Last_Public_Shadow) then
          Private_Shadow := Next_Entity (Last_Public_Shadow);
@@ -6461,7 +6197,6 @@ package body Sem_Ch10 is
 
       --  If the unit is a wrapper package, the subprogram instance is
       --  what must be removed from visibility.
-      --  Should we use Related_Instance instead???
 
       if Is_Wrapper_Package (Unit_Name) then
          Set_Is_Immediately_Visible (Current_Entity (Unit_Name), False);

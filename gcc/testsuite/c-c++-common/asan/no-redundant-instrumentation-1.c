@@ -6,7 +6,7 @@
 /* { dg-do compile } */
 /* { dg-skip-if "" { *-*-* } { "*" } { "-O0" } } */
 
-extern char tab[4];
+static char tab[4] = {0};
 
 static int
 test0 ()
@@ -27,14 +27,12 @@ test0 ()
   return t0 + t1;
 }
 
-__attribute__((noinline, noclone)) static int
-test1 (int i)
+static int
+test1 ()
 {
-  char foo[4] = {};
-  
   /*__builtin___asan_report_store1 called 1 time here to instrument
     the initialization.  */
-  foo[i] = 1;
+  char foo[4] = {1}; 
 
   /*__builtin___asan_report_store1 called 2 times here to instrument
     the store to the memory region of tab.  */
@@ -47,7 +45,7 @@ test1 (int i)
   /* There are 2 calls to __builtin___asan_report_store1 and 2 calls
      to __builtin___asan_report_load1 to instrument the store to
      (subset of) the memory region of tab.  */
-  __builtin_memcpy (&tab[1], foo + i, 3);
+  __builtin_memcpy (&tab[1], foo, 3);
 
   /* This should not generate a __builtin___asan_report_load1 because
      the reference to tab[1] has been already instrumented above.  */
@@ -60,7 +58,7 @@ test1 (int i)
 int
 main ()
 {
-  return test0 () && test1 (0);
+  return test0 () && test1 ();
 }
 
 /* { dg-final { scan-tree-dump-times "__builtin___asan_report_store1" 7 "asan0" } } */

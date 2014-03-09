@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught
    F2003 I/O support contributed by Jerry DeLisle
 
@@ -1150,9 +1150,7 @@ done:
 	  exponent = - exponent;
 	}
 
-      if (exponent >= 10000)
-	goto bad_float;
-
+      assert (exponent < 10000);
       for (dig = 3; dig >= 0; --dig)
 	{
 	  out[dig] = (char) ('0' + exponent % 10);

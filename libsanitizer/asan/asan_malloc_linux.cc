@@ -103,9 +103,8 @@ INTERCEPTOR(void*, __libc_memalign, uptr align, uptr s)
   ALIAS("memalign");
 
 INTERCEPTOR(uptr, malloc_usable_size, void *ptr) {
-  GET_CURRENT_PC_BP_SP;
-  (void)sp;
-  return asan_malloc_usable_size(ptr, pc, bp);
+  GET_STACK_TRACE_MALLOC;
+  return asan_malloc_usable_size(ptr, &stack);
 }
 
 // We avoid including malloc.h for portability reasons.

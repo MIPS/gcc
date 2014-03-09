@@ -1,5 +1,5 @@
 /* Rtl-level induction variable analysis.
-   Copyright (C) 2004-2014 Free Software Foundation, Inc.
+   Copyright (C) 2004-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -278,6 +278,10 @@ clear_iv_info (void)
 void
 iv_analysis_loop_init (struct loop *loop)
 {
+  basic_block *body = get_loop_body_in_dom_order (loop), bb;
+  bitmap blocks = BITMAP_ALLOC (NULL);
+  unsigned i;
+
   current_loop = loop;
 
   /* Clear the information from the analysis of the previous loop.  */
@@ -290,6 +294,11 @@ iv_analysis_loop_init (struct loop *loop)
   else
     clear_iv_info ();
 
+  for (i = 0; i < loop->num_nodes; i++)
+    {
+      bb = body[i];
+      bitmap_set_bit (blocks, bb->index);
+    }
   /* Get rid of the ud chains before processing the rescans.  Then add
      the problem back.  */
   df_remove_problem (df_chain);
@@ -297,11 +306,14 @@ iv_analysis_loop_init (struct loop *loop)
   df_set_flags (DF_RD_PRUNE_DEAD_DEFS);
   df_chain_add_problem (DF_UD_CHAIN);
   df_note_add_problem ();
-  df_analyze_loop (loop);
+  df_set_blocks (blocks);
+  df_analyze ();
   if (dump_file)
     df_dump_region (dump_file);
 
   check_iv_ref_table_size ();
+  BITMAP_FREE (blocks);
+  free (body);
 }
 
 /* Finds the definition of REG that dominates loop latch and stores
@@ -1925,7 +1937,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
     return;
 
   e = loop_preheader_edge (loop);
-  if (e->src == ENTRY_BLOCK_PTR_FOR_FN (cfun))
+  if (e->src == ENTRY_BLOCK_PTR)
     return;
 
   altered = ALLOC_REG_SET (&reg_obstack);
@@ -2056,7 +2068,7 @@ simplify_using_initial_values (struct loop *loop, enum rtx_code op, rtx *expr)
 	}
 
       if (!single_pred_p (e->src)
-	  || single_pred (e->src) == ENTRY_BLOCK_PTR_FOR_FN (cfun))
+	  || single_pred (e->src) == ENTRY_BLOCK_PTR)
 	break;
       e = single_pred_edge (e->src);
     }

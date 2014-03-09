@@ -1078,16 +1078,13 @@ package body System.Task_Primitives.Operations is
 
    procedure Abort_Task (T : Task_Id) is
       Result : Interfaces.C.int;
-      ESRCH  : constant := 3; -- No such process
-      --  It can happen that T has already vanished, in which case pthread_kill
-      --  returns ESRCH, so we don't consider that to be an error.
    begin
       if Abort_Handler_Installed then
          Result :=
            pthread_kill
              (T.Common.LL.Thread,
               Signal (System.Interrupt_Management.Abort_Task_Interrupt));
-         pragma Assert (Result = 0 or else Result = ESRCH);
+         pragma Assert (Result = 0);
       end if;
    end Abort_Task;
 

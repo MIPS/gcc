@@ -99,18 +99,6 @@ static void StackStripMain(ReportStack *stack) {
 #endif
 }
 
-#ifndef TSAN_GO
-ReportStack *SymbolizeStackId(u32 stack_id) {
-  uptr ssz = 0;
-  const uptr *stack = StackDepotGet(stack_id, &ssz);
-  if (stack == 0)
-    return 0;
-  StackTrace trace;
-  trace.Init(stack, ssz);
-  return SymbolizeStack(trace);
-}
-#endif
-
 static ReportStack *SymbolizeStack(const StackTrace& trace) {
   if (trace.IsEmpty())
     return 0;
@@ -213,7 +201,13 @@ void ScopedReport::AddThread(const ThreadContext *tctx) {
 #ifdef TSAN_GO
   rt->stack = SymbolizeStack(tctx->creation_stack);
 #else
-  rt->stack = SymbolizeStackId(tctx->creation_stack_id);
+  uptr ssz = 0;
+  const uptr *stack = StackDepotGet(tctx->creation_stack_id, &ssz);
+  if (stack) {
+    StackTrace trace;
+    trace.Init(stack, ssz);
+    rt->stack = SymbolizeStack(trace);
+  }
 #endif
 }
 
@@ -276,7 +270,13 @@ void ScopedReport::AddMutex(const SyncVar *s) {
   rm->destroyed = false;
   rm->stack = 0;
 #ifndef TSAN_GO
-  rm->stack = SymbolizeStackId(s->creation_stack_id);
+  uptr ssz = 0;
+  const uptr *stack = StackDepotGet(s->creation_stack_id, &ssz);
+  if (stack) {
+    StackTrace trace;
+    trace.Init(stack, ssz);
+    rm->stack = SymbolizeStack(trace);
+  }
 #endif
 }
 
@@ -308,7 +308,13 @@ void ScopedReport::AddLocation(uptr addr, uptr size) {
     loc->type = ReportLocationFD;
     loc->fd = fd;
     loc->tid = creat_tid;
-    loc->stack = SymbolizeStackId(creat_stack);
+    uptr ssz = 0;
+    const uptr *stack = StackDepotGet(creat_stack, &ssz);
+    if (stack) {
+      StackTrace trace;
+      trace.Init(stack, ssz);
+      loc->stack = SymbolizeStack(trace);
+    }
     ThreadContext *tctx = FindThreadByUidLocked(creat_tid);
     if (tctx)
       AddThread(tctx);
@@ -329,7 +335,13 @@ void ScopedReport::AddLocation(uptr addr, uptr size) {
     loc->file = 0;
     loc->line = 0;
     loc->stack = 0;
-    loc->stack = SymbolizeStackId(b->StackId());
+    uptr ssz = 0;
+    const uptr *stack = StackDepotGet(b->StackId(), &ssz);
+    if (stack) {
+      StackTrace trace;
+      trace.Init(stack, ssz);
+      loc->stack = SymbolizeStack(trace);
+    }
     if (tctx)
       AddThread(tctx);
     return;
@@ -353,7 +365,13 @@ void ScopedReport::AddLocation(uptr addr, uptr size) {
 
 #ifndef TSAN_GO
 void ScopedReport::AddSleep(u32 stack_id) {
-  rep_->sleep = SymbolizeStackId(stack_id);
+  uptr ssz = 0;
+  const uptr *stack = StackDepotGet(stack_id, &ssz);
+  if (stack) {
+    StackTrace trace;
+    trace.Init(stack, ssz);
+    rep_->sleep = SymbolizeStack(trace);
+  }
 }
 #endif
 
@@ -390,7 +408,7 @@ void RestoreStack(int tid, const u64 epoch, StackTrace *stk, MutexSet *mset) {
   const u64 ebegin = RoundDown(eend, kTracePartSize);
   DPrintf("#%d: RestoreStack epoch=%zu ebegin=%zu eend=%zu partidx=%d\n",
           tid, (uptr)epoch, (uptr)ebegin, (uptr)eend, partidx);
-  InternalScopedBuffer<uptr> stack(kShadowStackSize);
+  InternalScopedBuffer<uptr> stack(1024);  // FIXME: de-hardcode 1024
   for (uptr i = 0; i < hdr->stack0.Size(); i++) {
     stack[i] = hdr->stack0.Get(i);
     DPrintf2("  #%02lu: pc=%zx\n", i, stack[i]);
@@ -706,8 +724,8 @@ void PrintCurrentStackSlow() {
 #ifndef TSAN_GO
   __sanitizer::StackTrace *ptrace = new(internal_alloc(MBlockStackTrace,
       sizeof(__sanitizer::StackTrace))) __sanitizer::StackTrace;
-  ptrace->Unwind(kStackTraceMax, __sanitizer::StackTrace::GetCurrentPc(),
-                 0, 0, 0, false);
+  ptrace->SlowUnwindStack(__sanitizer::StackTrace::GetCurrentPc(),
+      kStackTraceMax);
   for (uptr i = 0; i < ptrace->size / 2; i++) {
     uptr tmp = ptrace->trace[i];
     ptrace->trace[i] = ptrace->trace[ptrace->size - i - 1];

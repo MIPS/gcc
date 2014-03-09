@@ -1,6 +1,6 @@
 /* Routines required for instrumenting a program.  */
 /* Compile this one with gcc.  */
-/* Copyright (C) 1989-2014 Free Software Foundation, Inc.
+/* Copyright (C) 1989-2013 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -23,7 +23,21 @@ a copy of the GCC Runtime Library Exception along with this program;
 see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 <http://www.gnu.org/licenses/>.  */
 
-#include "libgcov.h"
+#include "tconfig.h"
+#include "tsystem.h"
+#include "coretypes.h"
+#include "tm.h"
+#include "libgcc_tm.h"
+
+#if defined(inhibit_libc)
+#define IN_LIBGCOV (-1)
+#else
+#define IN_LIBGCOV 1
+#if defined(L_gcov)
+#define GCOV_LINKAGE /* nothing */
+#endif
+#endif
+#include "gcov-io.h"
 
 #if defined(inhibit_libc)
 /* If libc and its header files are not available, provide dummy functions.  */
@@ -82,7 +96,7 @@ static size_t gcov_max_filename = 0;
 /* Flag when the profile has already been dumped via __gcov_dump().  */
 static int gcov_dump_complete;
 
-/* A global function that get the vaule of gcov_dump_complete.  */
+/* A global functino that get the vaule of gcov_dump_complete.  */
 
 int
 get_gcov_dump_complete (void)
@@ -142,7 +156,7 @@ buffer_fn_data (const char *filename, const struct gcov_info *gi_ptr,
       n_ctrs++;
 
   len = sizeof (*fn_buffer) + sizeof (fn_buffer->info.ctrs[0]) * n_ctrs;
-  fn_buffer = (struct gcov_fn_buffer *) xmalloc (len);
+  fn_buffer = (struct gcov_fn_buffer *)malloc (len);
 
   if (!fn_buffer)
     goto fail;
@@ -169,7 +183,7 @@ buffer_fn_data (const char *filename, const struct gcov_info *gi_ptr,
 
       length = GCOV_TAG_COUNTER_NUM (gcov_read_unsigned ());
       len = length * sizeof (gcov_type);
-      values = (gcov_type *) xmalloc (len);
+      values = (gcov_type *)malloc (len);
       if (!values)
         goto fail;
 
@@ -303,22 +317,27 @@ gcov_compute_histogram (struct gcov_summary *sum)
     }
 }
 
+/* summary for program.  */
+static struct gcov_summary this_prg;
+#if !GCOV_LOCKED
+/* summary for all instances of program.  */
+static struct gcov_summary all_prg;
+#endif
+/* crc32 for this program.  */
+static gcov_unsigned_t crc32;
 /* gcda filename.  */
 static char *gi_filename;
 /* buffer for the fn_data from another program.  */
 static struct gcov_fn_buffer *fn_buffer;
 /* buffer for summary from other programs to be written out. */
 static struct gcov_summary_buffer *sum_buffer;
-/* If application calls fork or exec multiple times, we end up storing
-   profile repeadely.  We should not account this as multiple runs or
-   functions executed once may mistakely become cold.  */
-static int run_accounted = 0;
 
 /* This funtions computes the program level summary and the histo-gram.
-   It computes and returns CRC32 and stored summary in THIS_PRG.  */
+   It initializes ALL_PRG, computes CRC32, and stores the summary in
+   THIS_PRG. All these three variables are file statics.  */
 
-static gcov_unsigned_t
-gcov_exit_compute_summary (struct gcov_summary *this_prg)
+static void
+gcov_exit_compute_summary (void)
 {
   struct gcov_info *gi_ptr;
   const struct gcov_fn_info *gfi_ptr;
@@ -327,10 +346,12 @@ gcov_exit_compute_summary (struct gcov_summary *this_prg)
   int f_ix;
   unsigned t_ix;
   gcov_unsigned_t c_num;
-  gcov_unsigned_t crc32 = 0;
 
+#if !GCOV_LOCKED
+  memset (&all_prg, 0, sizeof (all_prg));
+#endif
   /* Find the totals for this execution.  */
-  memset (this_prg, 0, sizeof (*this_prg));
+  memset (&this_prg, 0, sizeof (this_prg));
   for (gi_ptr = gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
     {
       crc32 = crc32_unsigned (crc32, gi_ptr->stamp);
@@ -355,7 +376,7 @@ gcov_exit_compute_summary (struct gcov_summary *this_prg)
               if (!gi_ptr->merge[t_ix])
                 continue;
 
-              cs_ptr = &(this_prg->ctrs[t_ix]);
+              cs_ptr = &this_prg.ctrs[t_ix];
               cs_ptr->num += ci_ptr->num;
               crc32 = crc32_unsigned (crc32, ci_ptr->num);
 
@@ -369,8 +390,7 @@ gcov_exit_compute_summary (struct gcov_summary *this_prg)
             }
         }
     }
-  gcov_compute_histogram (this_prg);
-  return crc32;
+  gcov_compute_histogram (&this_prg);
 }
 
 /* A struct that bundles all the related information about the
@@ -391,10 +411,8 @@ struct gcov_filename_aux{
 static int
 gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
                       struct gcov_summary *prg_p,
-                      struct gcov_summary *this_prg,
                       gcov_position_t *summary_pos_p,
-                      gcov_position_t *eof_pos_p,
-		      gcov_unsigned_t crc32)
+                      gcov_position_t *eof_pos_p)
 {
   gcov_unsigned_t tag, length;
   unsigned t_ix;
@@ -435,7 +453,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
              histogram entries that will be emitted, and thus the
              size of the merged summary.  */
           (*sum_tail) = (struct gcov_summary_buffer *)
-              xmalloc (sizeof(struct gcov_summary_buffer));
+              malloc (sizeof(struct gcov_summary_buffer));
           (*sum_tail)->summary = tmp;
           (*sum_tail)->next = 0;
           sum_tail = &((*sum_tail)->next);
@@ -445,7 +463,7 @@ gcov_exit_merge_gcda (struct gcov_info *gi_ptr,
         goto next_summary;
 
       for (t_ix = 0; t_ix != GCOV_COUNTERS_SUMMABLE; t_ix++)
-        if (tmp.ctrs[t_ix].num != this_prg->ctrs[t_ix].num)
+        if (tmp.ctrs[t_ix].num != this_prg.ctrs[t_ix].num)
           goto next_summary;
       *prg_p = tmp;
       *summary_pos_p = *eof_pos_p;
@@ -634,36 +652,29 @@ gcov_exit_write_gcda (const struct gcov_info *gi_ptr,
    Return -1 on error. Return 0 on success.  */
 
 static int
-gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *prg,
-                         struct gcov_summary *this_prg, gcov_unsigned_t crc32,
-			 struct gcov_summary *all_prg __attribute__ ((unused)))
+gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *prg)
 {
   struct gcov_ctr_summary *cs_prg, *cs_tprg;
-  unsigned t_ix;
-#if !GCOV_LOCKED 
-  /* summary for all instances of program.  */ 
+#if !GCOV_LOCKED
   struct gcov_ctr_summary *cs_all;
-#endif 
+#endif
+  unsigned t_ix;
 
   /* Merge the summaries.  */
   for (t_ix = 0; t_ix < GCOV_COUNTERS_SUMMABLE; t_ix++)
     {
       cs_prg = &(prg->ctrs[t_ix]);
-      cs_tprg = &(this_prg->ctrs[t_ix]);
+      cs_tprg = &this_prg.ctrs[t_ix];
 
       if (gi_ptr->merge[t_ix])
         {
-	  int first = !cs_prg->runs;
-
-	  if (!run_accounted)
-	    cs_prg->runs++;
-          if (first)
+          if (!cs_prg->runs++)
             cs_prg->num = cs_tprg->num;
           cs_prg->sum_all += cs_tprg->sum_all;
           if (cs_prg->run_max < cs_tprg->run_max)
             cs_prg->run_max = cs_tprg->run_max;
           cs_prg->sum_max += cs_tprg->run_max;
-          if (first)
+          if (cs_prg->runs == 1)
             memcpy (cs_prg->histogram, cs_tprg->histogram,
                    sizeof (gcov_bucket_type) * GCOV_HISTOGRAM_SIZE);
           else
@@ -675,8 +686,9 @@ gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *pr
                       gi_filename);
           return -1;
         }
+
 #if !GCOV_LOCKED
-      cs_all = &all_prg->ctrs[t_ix];
+      cs_all = &all_prg.ctrs[t_ix];
       if (!cs_all->runs && cs_prg->runs)
         {
           cs_all->num = cs_prg->num;
@@ -685,7 +697,7 @@ gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *pr
           cs_all->run_max = cs_prg->run_max;
           cs_all->sum_max = cs_prg->sum_max;
         }
-      else if (!all_prg->checksum
+      else if (!all_prg.checksum
                /* Don't compare the histograms, which may have slight
                   variations depending on the order they were updated
                   due to the truncating integer divides used in the
@@ -699,11 +711,11 @@ gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *pr
                gcov_error ("profiling:%s:Data file mismatch - some "
                            "data files may have been concurrently "
                            "updated without locking support\n", gi_filename);
-               all_prg->checksum = ~0u;
+               all_prg.checksum = ~0u;
              }
 #endif
     }
-  
+
   prg->checksum = crc32;
 
   return 0;
@@ -717,9 +729,7 @@ gcov_exit_merge_summary (const struct gcov_info *gi_ptr, struct gcov_summary *pr
    summaries separate.  */
 
 static void
-gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
-		     gcov_unsigned_t crc32, struct gcov_summary *all_prg,
-                     struct gcov_summary *this_prg)
+gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf)
 {
   struct gcov_summary prg; /* summary for this object over all program.  */
   int error;
@@ -743,8 +753,7 @@ gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
           gcov_error ("profiling:%s:Not a gcov data file\n", gi_filename);
           goto read_fatal;
         }
-      error = gcov_exit_merge_gcda (gi_ptr, &prg, this_prg, &summary_pos, &eof_pos,
-				    crc32);
+      error = gcov_exit_merge_gcda (gi_ptr, &prg, &summary_pos, &eof_pos);
       if (error == -1)
         goto read_fatal;
     }
@@ -757,7 +766,7 @@ gcov_exit_dump_gcov (struct gcov_info *gi_ptr, struct gcov_filename_aux *gf,
       summary_pos = eof_pos;
     }
 
-  error = gcov_exit_merge_summary (gi_ptr, &prg, this_prg, crc32, all_prg);
+  error = gcov_exit_merge_summary (gi_ptr, &prg);
   if (error == -1)
     goto read_fatal;
 
@@ -785,26 +794,19 @@ gcov_exit (void)
 {
   struct gcov_info *gi_ptr;
   struct gcov_filename_aux gf;
-  gcov_unsigned_t crc32;
-  struct gcov_summary all_prg;
-  struct gcov_summary this_prg;
 
   /* Prevent the counters from being dumped a second time on exit when the
      application already wrote out the profile using __gcov_dump().  */
   if (gcov_dump_complete)
     return;
 
-  crc32 = gcov_exit_compute_summary (&this_prg);
+  gcov_exit_compute_summary ();
 
   allocate_filename_struct (&gf);
-#if !GCOV_LOCKED
-  memset (&all_prg, 0, sizeof (all_prg));
-#endif
 
   /* Now merge each file.  */
   for (gi_ptr = gcov_list; gi_ptr; gi_ptr = gi_ptr->next)
-    gcov_exit_dump_gcov (gi_ptr, &gf, crc32, &all_prg, &this_prg);
-  run_accounted = 1;
+    gcov_exit_dump_gcov (gi_ptr, &gf);
 
   if (gi_filename)
     free (gi_filename);

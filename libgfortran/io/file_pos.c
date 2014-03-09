@@ -1,4 +1,4 @@
-/* Copyright (C) 2002-2014 Free Software Foundation, Inc.
+/* Copyright (C) 2002-2013 Free Software Foundation, Inc.
    Contributed by Andy Vaught and Janne Blomqvist
 
 This file is part of the GNU Fortran runtime library (libgfortran).
@@ -410,11 +410,7 @@ st_rewind (st_parameter_filepos *fpp)
 	  u->last_record = 0;
 
 	  if (sseek (u->s, 0, SEEK_SET) < 0)
-	    {
-	      generate_error (&fpp->common, LIBERROR_OS, NULL);
-	      library_end ();
-	      return;
-	    }
+	    generate_error (&fpp->common, LIBERROR_OS, NULL);
 
 	  /* Set this for compatibilty with g77 for /dev/null.  */
 	  if (ssize (u->s) == 0)

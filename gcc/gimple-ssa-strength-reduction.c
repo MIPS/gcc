@@ -1,5 +1,5 @@
 /* Straight-line strength reduction.
-   Copyright (C) 2012-2014 Free Software Foundation, Inc.
+   Copyright (C) 2012-2013 Free Software Foundation, Inc.
    Contributed by Bill Schmidt, IBM <wschmidt@linux.ibm.com>
 
 This file is part of GCC.
@@ -37,18 +37,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
-#include "pointer-set.h"
-#include "hash-table.h"
-#include "basic-block.h"
-#include "tree-ssa-alias.h"
-#include "internal-fn.h"
-#include "gimple-expr.h"
-#include "is-a.h"
 #include "gimple.h"
 #include "gimple-iterator.h"
 #include "gimplify-me.h"
-#include "stor-layout.h"
-#include "expr.h"
+#include "basic-block.h"
 #include "tree-pass.h"
 #include "cfgloop.h"
 #include "gimple-pretty-print.h"
@@ -56,13 +48,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-cfg.h"
 #include "tree-phinodes.h"
 #include "ssa-iterators.h"
-#include "stringpool.h"
 #include "tree-ssanames.h"
 #include "domwalk.h"
+#include "pointer-set.h"
 #include "expmed.h"
 #include "params.h"
+#include "hash-table.h"
 #include "tree-ssa-address.h"
-#include "tree-affine.h"
 
 /* Information about a strength reduction candidate.  Each statement
    in the candidate table represents an expression of one of the
@@ -430,45 +422,6 @@ cand_chain_hasher::equal (const value_type *chain1, const compare_type *chain2)
 /* Hash table embodying a mapping from base exprs to chains of candidates.  */
 static hash_table <cand_chain_hasher> base_cand_map;
 
-/* Pointer map used by tree_to_aff_combination_expand.  */
-static struct pointer_map_t *name_expansions;
-/* Pointer map embodying a mapping from bases to alternative bases.  */
-static struct pointer_map_t *alt_base_map;
-
-/* Given BASE, use the tree affine combiniation facilities to
-   find the underlying tree expression for BASE, with any
-   immediate offset excluded.
-
-   N.B. we should eliminate this backtracking with better forward
-   analysis in a future release.  */
-
-static tree
-get_alternative_base (tree base)
-{
-  tree *result = (tree *) pointer_map_contains (alt_base_map, base);
-
-  if (result == NULL)
-    {
-      tree expr;
-      aff_tree aff;
-
-      tree_to_aff_combination_expand (base, TREE_TYPE (base),
-				      &aff, &name_expansions);
-      aff.offset = tree_to_double_int (integer_zero_node);
-      expr = aff_combination_to_tree (&aff);
-
-      result = (tree *) pointer_map_insert (alt_base_map, base);
-      gcc_assert (!*result);
-
-      if (expr == base)
-	*result = NULL;
-      else
-	*result = expr;
-    }
-
-  return *result;
-}
-
 /* Look in the candidate table for a CAND_PHI that defines BASE and
    return it if found; otherwise return NULL.  */
 
@@ -489,9 +442,8 @@ find_phi_def (tree base)
 }
 
 /* Helper routine for find_basis_for_candidate.  May be called twice:
-   once for the candidate's base expr, and optionally again either for
-   the candidate's phi definition or for a CAND_REF's alternative base
-   expression.  */
+   once for the candidate's base expr, and optionally again for the
+   candidate's phi definition.  */
 
 static slsr_cand_t
 find_basis_for_base_expr (slsr_cand_t c, tree base_expr)
@@ -568,13 +520,6 @@ find_basis_for_candidate (slsr_cand_t c)
 	}
     }
 
-  if (flag_expensive_optimizations && !basis && c->kind == CAND_REF)
-    {
-      tree alt_base_expr = get_alternative_base (c->base_expr);
-      if (alt_base_expr)
-	basis = find_basis_for_base_expr (c, alt_base_expr);
-    }
-
   if (basis)
     {
       c->sibling = basis->dependent;
@@ -585,21 +530,17 @@ find_basis_for_candidate (slsr_cand_t c)
   return 0;
 }
 
-/* Record a mapping from BASE to C, indicating that C may potentially serve
-   as a basis using that base expression.  BASE may be the same as
-   C->BASE_EXPR; alternatively BASE can be a different tree that share the
-   underlining expression of C->BASE_EXPR.  */
+/* Record a mapping from the base expression of C to C itself, indicating that
+   C may potentially serve as a basis using that base expression.  */
 
 static void
-record_potential_basis (slsr_cand_t c, tree base)
+record_potential_basis (slsr_cand_t c)
 {
   cand_chain_t node;
   cand_chain **slot;
 
-  gcc_assert (base);
-
   node = (cand_chain_t) obstack_alloc (&chain_obstack, sizeof (cand_chain));
-  node->base_expr = base;
+  node->base_expr = c->base_expr;
   node->cand = c;
   node->next = NULL;
   slot = base_cand_map.find_slot (node, INSERT);
@@ -615,18 +556,10 @@ record_potential_basis (slsr_cand_t c, tree base)
 }
 
 /* Allocate storage for a new candidate and initialize its fields.
-   Attempt to find a basis for the candidate.
-
-   For CAND_REF, an alternative base may also be recorded and used
-   to find a basis.  This helps cases where the expression hidden
-   behind BASE (which is usually an SSA_NAME) has immediate offset,
-   e.g.
-
-     a2[i][j] = 1;
-     a2[i + 20][j] = 2;  */
+   Attempt to find a basis for the candidate.  */
 
 static slsr_cand_t
-alloc_cand_and_find_basis (enum cand_kind kind, gimple gs, tree base,
+alloc_cand_and_find_basis (enum cand_kind kind, gimple gs, tree base, 
 			   double_int index, tree stride, tree ctype,
 			   unsigned savings)
 {
@@ -652,13 +585,7 @@ alloc_cand_and_find_basis (enum cand_kind kind, gimple gs, tree base,
   else
     c->basis = find_basis_for_candidate (c);
 
-  record_potential_basis (c, base);
-  if (flag_expensive_optimizations && kind == CAND_REF)
-    {
-      tree alt_base = get_alternative_base (base);
-      if (alt_base)
-	record_potential_basis (c, alt_base);
-    }
+  record_potential_basis (c);
 
   return c;
 }
@@ -682,8 +609,8 @@ stmt_cost (gimple gs, bool speed)
     case MULT_EXPR:
       rhs2 = gimple_assign_rhs2 (gs);
 
-      if (tree_fits_shwi_p (rhs2))
-	return mult_by_coeff_cost (tree_to_shwi (rhs2), lhs_mode, speed);
+      if (host_integerp (rhs2, 0))
+	return mult_by_coeff_cost (TREE_INT_CST_LOW (rhs2), lhs_mode, speed);
 
       gcc_assert (TREE_CODE (rhs1) != INTEGER_CST);
       return mul_cost (speed, lhs_mode);
@@ -805,7 +732,7 @@ slsr_process_phi (gimple phi, bool speed)
 	  derived_base_name = arg;
 
 	  if (SSA_NAME_IS_DEFAULT_DEF (arg))
-	    arg_bb = single_succ (ENTRY_BLOCK_PTR_FOR_FN (cfun));
+	    arg_bb = single_succ (ENTRY_BLOCK_PTR);
 	  else
 	    gimple_bb (SSA_NAME_DEF_STMT (arg));
 	}
@@ -1918,12 +1845,6 @@ replace_ref (tree *expr, slsr_cand_t c)
 static void
 replace_refs (slsr_cand_t c)
 {
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fputs ("Replacing reference: ", dump_file);
-      print_gimple_stmt (dump_file, c->cand_stmt, 0, 0);
-    }
-
   if (gimple_vdef (c->cand_stmt))
     {
       tree *lhs = gimple_assign_lhs_ptr (c->cand_stmt);
@@ -1933,13 +1854,6 @@ replace_refs (slsr_cand_t c)
     {
       tree *rhs = gimple_assign_rhs1_ptr (c->cand_stmt);
       replace_ref (rhs, c);
-    }
-
-  if (dump_file && (dump_flags & TDF_DETAILS))
-    {
-      fputs ("With: ", dump_file);
-      print_gimple_stmt (dump_file, c->cand_stmt, 0, 0);
-      fputs ("\n", dump_file);
     }
 
   if (c->sibling)
@@ -3612,9 +3526,6 @@ execute_strength_reduction (void)
   /* Allocate the mapping from base expressions to candidate chains.  */
   base_cand_map.create (500);
 
-  /* Allocate the mapping from bases to alternative bases.  */
-  alt_base_map = pointer_map_create ();
-
   /* Initialize the loop optimizer.  We need to detect flow across
      back edges, and this gives us dominator information as well.  */
   loop_optimizer_init (AVOID_CFG_MODIFICATIONS);
@@ -3629,9 +3540,6 @@ execute_strength_reduction (void)
       dump_cand_vec ();
       dump_cand_chains ();
     }
-
-  pointer_map_destroy (alt_base_map);
-  free_affine_expand_cache (&name_expansions);
 
   /* Analyze costs and make appropriate replacements.  */
   analyze_candidates_and_replace ();

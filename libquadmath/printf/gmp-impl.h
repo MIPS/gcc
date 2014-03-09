@@ -60,7 +60,7 @@ typedef unsigned int UHWtype;
 #define attribute_hidden
 #endif
 
-#include "longlong.h"
+#include "../../libgcc/longlong.h"
 
 /* Copy NLIMBS *limbs* from SRC to DST.  */
 #define MPN_COPY_INCR(DST, SRC, NLIMBS) \
