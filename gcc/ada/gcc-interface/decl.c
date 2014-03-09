@@ -7242,6 +7242,8 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 		     position at this level.  */
 		  tree gnu_rep_type = make_node (RECORD_TYPE);
 		  tree gnu_rep_part;
+		  TYPE_REVERSE_STORAGE_ORDER (gnu_rep_type)
+		    = TYPE_REVERSE_STORAGE_ORDER (gnu_variant_type);
 		  finish_record_type (gnu_rep_type, NULL_TREE, 0, debug_info);
 		  gnu_rep_part
 		    = create_rep_part (gnu_rep_type, gnu_variant_type,
@@ -7449,6 +7451,8 @@ components_to_record (tree gnu_record_type, Node_Id gnat_component_list,
 	gnu_field_list = gnu_rep_list;
       else
 	{
+	  TYPE_REVERSE_STORAGE_ORDER (gnu_rep_type)
+	    = TYPE_REVERSE_STORAGE_ORDER (gnu_record_type);
 	  finish_record_type (gnu_rep_type, gnu_rep_list, 1, debug_info);
 
 	  /* If FIRST_FREE_POS is nonzero, we need to ensure that the fields
