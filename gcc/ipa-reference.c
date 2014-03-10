@@ -403,17 +403,17 @@ propagate_bits (ipa_reference_global_vars_info_t x_global, struct cgraph_node *x
     }
 }
 
+static bool ipa_init_p = false;
+
 /* The init routine for analyzing global static variable usage.  See
    comments at top for description.  */
 static void
 ipa_init (void)
 {
-  static bool init_p = false;
-
-  if (init_p)
+  if (ipa_init_p)
     return;
 
-  init_p = true;
+  ipa_init_p = true;
 
   if (dump_file)
     reference_vars_to_consider = splay_tree_new (splay_tree_compare_ints, 0, 0);
@@ -1198,4 +1198,9 @@ ipa_opt_pass_d *
 make_pass_ipa_reference (gcc::context *ctxt)
 {
   return new pass_ipa_reference (ctxt);
+}
+
+void ipa_reference_c_finalize (void)
+{
+  ipa_init_p = false;
 }

@@ -1,3 +1,14 @@
+2014-03-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* ipa-reference.c (ipa_init): Move static bool init_p from here
+	to...
+	(ipa_init_p): New file-scope variable, so that it can be reset
+	when repeatedly invoking the compiler within one process by...
+	(ipa_reference_c_finalize): New function.
+	* ipa-reference.h (ipa_reference_c_finalize): New.
+	* toplev.c (toplev_finalize): Invoke new function
+	ipa_reference_c_finalize.
+
 2014-01-24  David Malcolm  <dmalcolm@redhat.com>
 
 	* timevar.def: Replace TV_CLIENT_CALLBACK with TV_JIT_REPLAY.
