@@ -133,14 +133,14 @@ namespace gccjit
 		       location loc = location ());
 
     rvalue new_rvalue (type numeric_type,
-		       int value);
-    rvalue zero (type numeric_type);
-    rvalue one (type numeric_type);
+		       int value) const;
+    rvalue zero (type numeric_type) const;
+    rvalue one (type numeric_type) const;
     rvalue new_rvalue (type numeric_type,
-		       double value);
+		       double value) const;
     rvalue new_rvalue (type pointer_type,
-		       void *value);
-    rvalue new_rvalue (const std::string &value);
+		       void *value) const;
+    rvalue new_rvalue (const std::string &value) const;
 
     /* Generic unary operations...  */
     rvalue new_unary_op (enum gcc_jit_unary_op op,
@@ -306,7 +306,7 @@ namespace gccjit
 
     void dump_to_dot (const std::string &path);
 
-    param get_param (int index);
+    param get_param (int index) const;
 
     block new_block ();
     block new_block (const std::string &name);
@@ -671,7 +671,7 @@ context::new_global (type type_,
 
 inline rvalue
 context::new_rvalue (type numeric_type,
-		     int value)
+		     int value) const
 {
   return rvalue (
     gcc_jit_context_new_rvalue_from_int (m_inner_ctxt,
@@ -680,14 +680,14 @@ context::new_rvalue (type numeric_type,
 }
 
 inline rvalue
-context::zero (type numeric_type)
+context::zero (type numeric_type) const
 {
   return rvalue (gcc_jit_context_zero (m_inner_ctxt,
 				       numeric_type.get_inner_type ()));
 }
 
 inline rvalue
-context::one (type numeric_type)
+context::one (type numeric_type) const
 {
   return rvalue (gcc_jit_context_one (m_inner_ctxt,
 				       numeric_type.get_inner_type ()));
@@ -695,7 +695,7 @@ context::one (type numeric_type)
 
 inline rvalue
 context::new_rvalue (type numeric_type,
-		     double value)
+		     double value) const
 {
   return rvalue (
     gcc_jit_context_new_rvalue_from_double (m_inner_ctxt,
@@ -705,7 +705,7 @@ context::new_rvalue (type numeric_type,
 
 inline rvalue
 context::new_rvalue (type pointer_type,
-		     void *value)
+		     void *value) const
 {
   return rvalue (
     gcc_jit_context_new_rvalue_from_ptr (m_inner_ctxt,
@@ -714,7 +714,7 @@ context::new_rvalue (type pointer_type,
 }
 
 inline rvalue
-context::new_rvalue (const std::string &value)
+context::new_rvalue (const std::string &value) const
 {
   return rvalue (
     gcc_jit_context_new_string_literal (m_inner_ctxt, value.c_str ()));
@@ -1156,7 +1156,7 @@ function::dump_to_dot (const std::string &path)
 }
 
 inline param
-function::get_param (int index)
+function::get_param (int index) const
 {
   return param (gcc_jit_function_get_param (get_inner_function (),
 					    index));
