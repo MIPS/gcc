@@ -1,6 +1,10 @@
 
 2014-03-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/generated/*: Regenerated.
+
+2014-03-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	{{See http://gcc.gnu.org/ml/gcc/2014-03/msg00141.html so a workaround here}}
 	* melt-runtime.h: Include tree-pass.h header.
 	(melt_current_pass_ptr): New variable declaration.
