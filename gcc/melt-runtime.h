@@ -89,6 +89,8 @@ extern void fatal_error (const char *, ...);
 /* We need hwint.h for  HOST_WIDE_INT */
 #include "hwint.h"
 
+#include "tree-pass.h"
+
 /* the MELT plugin name, useful for register_callback. */
 MELT_EXTERN const char* melt_plugin_name;
 
@@ -3255,6 +3257,8 @@ unsigned long melt_val2passflag(melt_ptr_t val_p);
 
 MELT_EXTERN long melt_pass_instance_counter;
 MELT_EXTERN long melt_current_pass_index_var;
+// current_pass is not always enough. See http://gcc.gnu.org/ml/gcc/2014-03/msg00141.html
+MELT_EXTERN opt_pass *melt_current_pass_ptr;
 
 /* ====== safer output routines ===== */
 

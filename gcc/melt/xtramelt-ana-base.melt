@@ -68,17 +68,23 @@ public:
   bool gate () { 
     bool fla;
     long oldindex = melt_current_pass_index_var;
+    opt_pass* oldpassptr = melt_current_pass_ptr;
     melt_current_pass_index_var = index ();
+    melt_current_pass_ptr = this;
     fla = melthk_gimple_gate(); 
     melt_current_pass_index_var = oldindex;
+    melt_current_pass_ptr = oldpassptr;
     return fla;
  };
   unsigned execute () { 
     unsigned r = 0;
     long oldindex = melt_current_pass_index_var;
+    opt_pass* oldpassptr = melt_current_pass_ptr;
     melt_current_pass_index_var = index ();
+    melt_current_pass_ptr = this;
     r = melthk_gimple_execute(); 
     melt_current_pass_index_var = oldindex;
+    melt_current_pass_ptr = oldpassptr;
     return r;
   };
   opt_pass* clone () { 
@@ -99,9 +105,12 @@ public:
     {
       unsigned r = 0;
       long oldindex = melt_current_pass_index_var;
+      opt_pass* oldpassptr = melt_current_pass_ptr;
       melt_current_pass_index_var = index ();
+      melt_current_pass_ptr = this;
       r = melthk_simple_ipa_execute(); 
       melt_current_pass_index_var = oldindex;
+      melt_current_pass_ptr = oldpassptr;
       return r;
     };
   opt_pass* clone () { 
@@ -1794,6 +1803,14 @@ current function and gives its declaration in $CFUNDECL}#
 (define dbg_tree_briefly 
   (clone_with_discriminant dbgfun_tree_briefly discr_debug_closure))
 
+(defun dbgfun_tree_more (dbgi :tree tr)
+  (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
+  (output_tree (get_field :dbgi_out dbgi) tr)
+  )
+
+(define dbg_tree_more 
+  (clone_with_discriminant dbgfun_tree_more discr_debug_closure))
+
 ;;;;;;;;;;;;;;;;
 (defun debugfun_basicblock (dbgi :basic_block bb)
   (assert_msg "check dbgi" (is_a dbgi class_debug_information) dbgi)
@@ -1996,6 +2013,7 @@ current function and gives its declaration in $CFUNDECL}#
  cfun_nonlocal_goto_save_area
  cfun_static_chain_decl
  dbg_tree_briefly
+ dbg_tree_more
  debug_dominance_info
  debug_post_dominance_info
  dominated_by_bb_iterator

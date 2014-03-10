@@ -4,7 +4,7 @@
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-ana1.melt
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-code1.c
 
- ./cc1plus -fmelt-mode=runfile,usedef @meltbuild-common.args -Iinclude/ \
+ ./cc1 -fmelt-mode=runfile,usedef @meltbuild-common.args -Iinclude/ \
     -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tusedef-ana1.melt \
      tusedef-code1.c
 
@@ -51,6 +51,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile,usedef @meltbuild-common.args \
 
 (defun usedef_walker (data :tree tr :gimple g)
   (debug "usedef_walker data=" data " tr=" tr " g=" g)
+  (inform_at (box g) "usedef tree $1 gimple $2" tr g)
   (return :true))
 
 (defun usedef_process_set (data :basic_block bb :gimple g :tree lhs)
@@ -59,6 +60,7 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile,usedef @meltbuild-common.args \
   (let ( (udmap (get_field :usedef_visited_ssaname data))
 	 )
     (assert_msg "check udmap" (is_maptree udmap) udmap)
+    (inform_at (box g) "usedef processing gimple $1" g)
     (melt_walk_use_def_chains usedef_walker data lhs)
     (debug "usedef_process_set end lhs=" lhs " g=" g)
     )

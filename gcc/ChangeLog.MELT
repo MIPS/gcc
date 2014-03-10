@@ -1,6 +1,22 @@
 
 2014-03-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	{{See http://gcc.gnu.org/ml/gcc/2014-03/msg00141.html so a workaround here}}
+	* melt-runtime.h: Include tree-pass.h header.
+	(melt_current_pass_ptr): New variable declaration.
+
+	* melt-runtime.cc (melt_current_pass_ptr): New variable definition.
+
+	* melt/warmelt-hooks.melt (hook_gimple_gate): Set and restore melt_current_pass_ptr.
+
+	* melt/xtramelt-ana-base.melt (melt_gimple_pass)
+	(melt_simple_ipa_pass): Likewise.
+
+	* testsuite/melt/tusedef-ana1.melt: Improve comment.
+	(usedef_walker, usedef_process_set): Inform user.
+
+2014-03-10  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_really_initialize): Improbe handling of debugging...
 	(melt_do_finalize): Improve printing of number of successful
 	modes.

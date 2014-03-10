@@ -1857,53 +1857,65 @@ bool  melthk_pass_execution_registered_flag;
 		static const char* $GETHASMODE_CHK#modstr ;
 		if (!$GETHASMODE_CHK#modstr) 
 		$GETHASMODE_CHK#modstr = melt_argument("mode") ;
-		$HASMODEFLAG = $GETHASMODE_CHK#modstr != NULL && $GETHASMODE_CHK#modstr[0] != (char)0;
+		$HASMODEFLAG = $GETHASMODE_CHK#modstr != NULL && $GETHASMODE_CHK#modstr[0] != (char)0 ;
 		}#)
     (if (not hasmodeflag)
 	(return 0))
     (debug "hook_gimple_gate passdict=" passdict "\n initial_system_data=" initial_system_data)
-    (code_chunk 
-     getmypass_chk
-     #{ /* hook_gimple_gate $GETMYPASS_CHK */		
-     gcc_assert(current_pass != NULL) ;
-     gcc_assert(current_pass->name != NULL) ;
-     debugeprintf ("hook_gimple_gate current_pass %p named %s",
-		   (void*) current_pass->name, current_pass->name);
-     gcc_assert(current_pass->type == GIMPLE_PASS) ;
-     $MYPASS = melt_get_mapstrings ((struct meltmapstrings_st*) $PASSDICT, 
-				    current_pass->name)	;
-     $PASSNUM = current_pass->static_pass_number ;
-     }#)
-    (debug "hook_gimple_gate mypass=" mypass "\n.. passnum=" passnum)
-    (debug "hook_gimple_gate class_gcc_gimple_pass=" class_gcc_gimple_pass)
-    (if (is_a mypass class_gcc_gimple_pass)
-	(let ( (gatefun (get_field :gccpass_gate mypass))
-	       (:cstring curpassname (the_null_cstring))
-	       )
-	  (debug "hook_gimple_gate gatefun=" gatefun)
-	  (if (is_closure gatefun)
-	      (code_chunk 
-	       dogatefun_chk
-	       #{ /* hook_gimple_gate $DOGATEFUN_CHK */
-	       FILE* oldf = meltgc_set_dump_file (dump_file) ;
-	       $CURPASSNAME = current_pass->name ;
-	       $(progn
-		  (debug "hook_gimple_gate curpassname=" curpassname " mypass=" mypass)
-		  (if (gatefun mypass)
-		      (setq okres 1))
-		  (debug "hook_gimple_gate after call okres=" okres)
-		  (void)
-		  )
-	       meltgc_restore_dump_file (oldf) ;
-	       oldf = NULL ;
-	       }#)
-	    (setq okres 1)		;no closure
-	    ))
-      (debug "hook_gimple_gate strange mypass=" mypass "\n.. of discrim=" (discrim mypass))
-      )
+    (code_chunk
+     thispass_chk
+     #{ /* hook_gimple_gate $THISPASS_CHK */
+     opt_pass* this_pass = NULL ;
+     this_pass = melt_current_pass_ptr ;
+     if (!this_pass) this_pass = current_pass ;
+     //
+     $(code_chunk 
+       getmypass_chk
+       #{ /* hook_gimple_gate $GETMYPASS_CHK */
+       gcc_assert(this_pass != NULL)	 ;
+       gcc_assert(this_pass->name != NULL) ;
+       debugeprintf ("hook_gimple_gate this_pass %p named %s",
+		     (void*) this_pass->name, this_pass->name) ;
+       gcc_assert(this_pass->type == GIMPLE_PASS)	       ;
+       $MYPASS = melt_get_mapstrings ((struct meltmapstrings_st*) $PASSDICT, 
+				      this_pass->name) ;
+       $PASSNUM = this_pass->static_pass_number	       ;
+       }#)
+     $(debug "hook_gimple_gate mypass=" mypass "\n.. passnum=" passnum)
+     $(debug "hook_gimple_gate class_gcc_gimple_pass=" class_gcc_gimple_pass)
+     $(if (is_a mypass class_gcc_gimple_pass)
+	  (let ( (gatefun (get_field :gccpass_gate mypass))
+		 (:cstring curpassname (the_null_cstring))
+		 )
+	    (debug "hook_gimple_gate gatefun=" gatefun)
+	    (if (is_closure gatefun)
+		(code_chunk 
+		 dogatefun_chk
+		 #{ /* hook_gimple_gate $DOGATEFUN_CHK */
+		 FILE* oldf = meltgc_set_dump_file (dump_file) ;
+		 $CURPASSNAME = this_pass->name ;
+		 $(progn
+		    (debug "hook_gimple_gate curpassname=" curpassname " mypass=" mypass)
+		    (if (gatefun mypass)
+			(setq okres 1))
+		    (debug "hook_gimple_gate after call okres=" okres)
+		    (void)
+		    )
+		 meltgc_restore_dump_file (oldf) ;
+		 oldf = NULL ;
+		 }#)
+	      (setq okres 1)		;no closure
+	      )
+	    (void)
+	    )
+	(debug "hook_gimple_gate strange mypass=" mypass "\n.. of discrim=" (discrim mypass))
+	)
+     /* end hook_gimple_gate $THISPASS_CHK */ }#
+     )
     (debug "hook_gimple_gate final okres=" okres)
     (return okres)
-    ))
+    )
+  )
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; execute hook for gimple passes
