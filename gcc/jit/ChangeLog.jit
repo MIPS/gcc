@@ -1,3 +1,26 @@
+2014-03-10  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit++.h (gccjit::error): New class, for exceptions.
+	(gccjit::context::get_inner_context): New accessor, so that we
+	can...
+	(gccjit::context::m_inner_ctxt): Make private.
+	(gccjit::context::context): Throw a gccjit::error if a NULL
+	context is passed in.
+	(gccjit::context::compile): Throw a gccjit::error if a NULL
+	result is returned from the C API, which indicates an error.
+	(gccjit::object::object): Throw a gccjit::error if a NULL
+	object is passed in, since that indicates that an error has
+	occurred.
+	(gccjit::location::location): In the default ctor, call the
+	base class default ctor rather than passing in a NULL to the
+	single-argument ctor, since the latter now indicates an error
+	has occurred at the C API level.
+	(gccjit::field::field): Likewise.
+	(gccjit::type::type): Likewise.
+	(gccjit::function::function): Likewise.
+	(gccjit::block::block): Likewise.
+	(gccjit::rvalue::rvalue): Likewise.
+
 2014-03-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.h (enum gcc_jit_function_kind): Add

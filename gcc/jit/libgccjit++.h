@@ -26,6 +26,11 @@ namespace gccjit
   class rvalue;
   class lvalue;
 
+  /* Errors within the API become C++ exceptions of this class.  */
+  class error
+  {
+  };
+
   class object
   {
   public:
@@ -67,6 +72,8 @@ namespace gccjit
     context (gcc_jit_context *ctxt);
 
     gccjit::context new_child_context ();
+
+    gcc_jit_context *get_inner_context () { return m_inner_ctxt; }
 
     void release ();
 
@@ -251,7 +258,7 @@ namespace gccjit
 			     rvalue index,
 			     location loc = location ());
 
-  public:
+  private:
     gcc_jit_context *m_inner_ctxt;
   };
 
@@ -473,7 +480,11 @@ inline context context::acquire ()
   return context (gcc_jit_context_acquire ());
 }
 inline context::context () : m_inner_ctxt (NULL) {}
-inline context::context (gcc_jit_context *inner) : m_inner_ctxt (inner) {}
+inline context::context (gcc_jit_context *inner) : m_inner_ctxt (inner)
+{
+  if (!inner)
+    throw error ();
+}
 
 inline gccjit::context
 context::new_child_context ()
@@ -491,7 +502,10 @@ context::release ()
 inline gcc_jit_result *
 context::compile ()
 {
-  return gcc_jit_context_compile (m_inner_ctxt);
+  gcc_jit_result *result = gcc_jit_context_compile (m_inner_ctxt);
+  if (!result)
+    throw error ();
+  return result;
 }
 
 inline void
@@ -1026,7 +1040,11 @@ object::get_debug_string () const
 }
 
 inline object::object () : m_inner_obj (NULL) {}
-inline object::object (gcc_jit_object *obj) : m_inner_obj (obj) {}
+inline object::object (gcc_jit_object *obj) : m_inner_obj (obj)
+{
+  if (!obj)
+    throw error ();
+}
 
 inline gcc_jit_object *
 object::get_inner_object () const
@@ -1041,7 +1059,7 @@ operator << (std::ostream& stream, const object &obj)
 }
 
 // class location
-inline location::location () : object (NULL) {}
+inline location::location () : object () {}
 inline location::location (gcc_jit_location *loc)
   : object (gcc_jit_location_as_object (loc))
 {}
@@ -1054,7 +1072,7 @@ location::get_inner_location () const
 }
 
 // class field
-inline field::field () : object (NULL) {}
+inline field::field () : object () {}
 inline field::field (gcc_jit_field *inner)
   : object (gcc_jit_field_as_object (inner))
 {}
@@ -1067,7 +1085,7 @@ field::get_inner_field () const
 }
 
 // class type
-inline type::type () : object (NULL) {}
+inline type::type () : object () {}
 inline type::type (gcc_jit_type *inner)
   : object (gcc_jit_type_as_object (inner))
 {}
@@ -1118,7 +1136,7 @@ struct_::get_inner_struct () const
 }
 
 // class function
-inline function::function () : object (NULL) {}
+inline function::function () : object () {}
 inline function::function (gcc_jit_function *inner)
   : object (gcc_jit_function_as_object (inner))
 {}
@@ -1332,7 +1350,7 @@ function::operator() (rvalue arg0, rvalue arg1, rvalue arg2,
 }
 
 // class block
-inline block::block () : object (NULL) {}
+inline block::block () : object () {}
 inline block::block (gcc_jit_block *inner)
   : object (gcc_jit_block_as_object (inner))
 {}
@@ -1345,7 +1363,7 @@ block::get_inner_block () const
 }
 
 //  class rvalue
-inline rvalue::rvalue () : object (NULL) {}
+inline rvalue::rvalue () : object () {}
 inline rvalue::rvalue (gcc_jit_rvalue *inner)
   : object (gcc_jit_rvalue_as_object (inner))
 {}
