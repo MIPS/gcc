@@ -19,7 +19,7 @@
 
 ;; Register constraints
 
-(define_register_constraint "d" "BASE_REG_CLASS"
+(define_register_constraint "d" "ADDR_REG_CLASS"
   "An address register.  This is equivalent to @code{r} unless
    generating MIPS16 code.")
 

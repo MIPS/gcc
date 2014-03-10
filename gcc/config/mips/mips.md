@@ -1661,7 +1661,26 @@
 		 (match_operand:SI 3 "register_operand" "0,d")))
    (clobber (match_scratch:SI 4 "=X,l"))
    (clobber (match_scratch:SI 5 "=X,&d"))]
-  "GENERATE_MADD_MSUB && !TARGET_MIPS16"
+  "TARGET_RELOAD && GENERATE_MADD_MSUB && !TARGET_MIPS16"
+  "@
+    madd\t%1,%2
+    #"
+  [(set_attr "type"	"imadd")
+   (set_attr "accum_in"	"3")
+   (set_attr "mode"	"SI")
+   (set_attr "insn_count" "1,2")])
+
+;; LRA simulates reload but the cost of reloading scratches is lower
+;; than of the classic reload. For the time being, removing the counterweight
+;; is more profitable.
+(define_insn "*mul_acc_si"
+  [(set (match_operand:SI 0 "register_operand" "=l,d?")
+	(plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d,d")
+			  (match_operand:SI 2 "register_operand" "d,d"))
+		 (match_operand:SI 3 "register_operand" "0,d")))
+   (clobber (match_scratch:SI 4 "=X,l"))
+   (clobber (match_scratch:SI 5 "=X,&d"))]
+  "!TARGET_RELOAD && GENERATE_MADD_MSUB && !TARGET_MIPS16"
   "@
     madd\t%1,%2
     #"
@@ -1679,7 +1698,25 @@
 		 (match_operand:SI 3 "register_operand" "0,l,d")))
    (clobber (match_scratch:SI 4 "=X,3,l"))
    (clobber (match_scratch:SI 5 "=X,X,&d"))]
-  "TARGET_MIPS3900 && !TARGET_MIPS16"
+  "TARGET_RELOAD && TARGET_MIPS3900 && !TARGET_MIPS16"
+  "@
+    madd\t%1,%2
+    madd\t%0,%1,%2
+    #"
+  [(set_attr "type"	"imadd")
+   (set_attr "accum_in"	"3")
+   (set_attr "mode"	"SI")
+   (set_attr "insn_count" "1,1,2")])
+
+;; As above
+(define_insn "*mul_acc_si_r3900"
+  [(set (match_operand:SI 0 "register_operand" "=l,d,d?")
+	(plus:SI (mult:SI (match_operand:SI 1 "register_operand" "d,d,d")
+			  (match_operand:SI 2 "register_operand" "d,d,d"))
+		 (match_operand:SI 3 "register_operand" "0,l,d")))
+   (clobber (match_scratch:SI 4 "=X,3,l"))
+   (clobber (match_scratch:SI 5 "=X,X,&d"))]
+  "!TARGET_RELOAD && TARGET_MIPS3900 && !TARGET_MIPS16"
   "@
     madd\t%1,%2
     madd\t%0,%1,%2
@@ -1897,7 +1934,24 @@
                            (match_operand:SI 3 "register_operand" "d,d"))))
    (clobber (match_scratch:SI 4 "=X,l"))
    (clobber (match_scratch:SI 5 "=X,&d"))]
-  "GENERATE_MADD_MSUB"
+  "TARGET_RELOAD && GENERATE_MADD_MSUB"
+  "@
+   msub\t%2,%3
+   #"
+  [(set_attr "type"     "imadd")
+   (set_attr "accum_in"	"1")
+   (set_attr "mode"     "SI")
+   (set_attr "insn_count" "1,2")])
+
+;; See the comment above for *mul_add_si and LRA
+(define_insn "*mul_sub_si"
+  [(set (match_operand:SI 0 "register_operand" "=l,d?")
+        (minus:SI (match_operand:SI 1 "register_operand" "0,d")
+                  (mult:SI (match_operand:SI 2 "register_operand" "d,d")
+                           (match_operand:SI 3 "register_operand" "d,d"))))
+   (clobber (match_scratch:SI 4 "=X,l"))
+   (clobber (match_scratch:SI 5 "=X,&d"))]
+  "!TARGET_RELOAD && GENERATE_MADD_MSUB"
   "@
    msub\t%2,%3
    #"
@@ -3133,31 +3187,22 @@
    (set_attr "mode" "<MODE>")])
 
 (define_insn "*and<mode>3_mips16"
-  [(set (match_operand:GPR 0 "register_operand" "=d,d,d,d,d")
-	(and:GPR (match_operand:GPR 1 "nonimmediate_operand" "%W,W,W,d,0")
-		 (match_operand:GPR 2 "and_operand" "Yb,Yh,Yw,Yw,d")))]
+  [(set (match_operand:GPR 0 "register_operand" "=d,d")
+	(and:GPR (match_operand:GPR 1 "register_operand" "%d,0")
+		 (match_operand:GPR 2 "and_operand" "Yw,d")))]
   "TARGET_MIPS16 && and_operands_ok (<MODE>mode, operands[1], operands[2])"
 {
   switch (which_alternative)
     {
     case 0:
-      operands[1] = gen_lowpart (QImode, operands[1]);
-      return "lbu\t%0,%1";
-    case 1:
-      operands[1] = gen_lowpart (HImode, operands[1]);
-      return "lhu\t%0,%1";
-    case 2:
-      operands[1] = gen_lowpart (SImode, operands[1]);
-      return "lwu\t%0,%1";
-    case 3:
       return "#";
-    case 4:
+    case 1:
       return "and\t%0,%2";
     default:
       gcc_unreachable ();
     }
 }
-  [(set_attr "move_type" "load,load,load,shift_shift,logical")
+  [(set_attr "move_type" "shift_shift,logical")
    (set_attr "mode" "<MODE>")])
 
 (define_expand "ior<mode>3"
@@ -4286,7 +4331,7 @@
   [(set (match_operand:DI 0 "register_operand" "=d")
 	(match_operand:DI 1 "absolute_symbolic_operand" ""))
    (clobber (match_scratch:DI 2 "=&d"))]
-  "TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS && cse_not_expected"
+  "!TARGET_MIPS16 && TARGET_EXPLICIT_RELOCS && ABI_HAS_64BIT_SYMBOLS && cse_not_expected"
   "#"
   "&& reload_completed"
   [(set (match_dup 0) (high:DI (match_dup 3)))

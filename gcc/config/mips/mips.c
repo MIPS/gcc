@@ -2284,7 +2284,7 @@ mips_regno_mode_ok_for_base_p (int regno, enum machine_mode mode,
      All in all, it seems more consistent to only enforce this restriction
      during and after reload.  */
   if (TARGET_MIPS16 && regno == STACK_POINTER_REGNUM)
-    return !strict_p || GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
+    return  GET_MODE_SIZE (mode) == 4 || GET_MODE_SIZE (mode) == 8;
 
   return TARGET_MIPS16 ? M16_REG_P (regno) : GP_REG_P (regno);
 }
@@ -12237,6 +12237,31 @@ mips_register_move_cost (enum machine_mode mode,
   return 0;
 }
 
+/* Return a register priority for hard reg REGNO.  */
+
+static int
+mips_register_priority (int hard_regno)
+{
+  if (TARGET_MIPS16)
+   {
+     /* Treat MIPS16 registers with higher priority than other regs */
+     switch (hard_regno)
+       {
+       case 2:
+       case 3:
+       case 4:
+       case 5:
+       case 6:
+       case 7:
+       case 16:
+       case 17:
+         return 1;
+       default:
+         return 0;
+       }
+   }
+}
+
 /* Implement TARGET_MEMORY_MOVE_COST.  */
 
 static int
@@ -19072,6 +19097,21 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
   *update = build2 (COMPOUND_EXPR, void_type_node, *update,
 		    atomic_feraiseexcept_call);
 }
+
+static reg_class_t
+mips_spill_class (reg_class_t rclass, enum machine_mode mode)
+{
+  if (TARGET_MIPS16)
+   return SPILL_REGS;
+  return NO_REGS;
+}
+
+static bool
+mips_lra_p (void)
+{
+  return !TARGET_RELOAD;
+}
+
 
 /* Initialize the GCC target structure.  */
 #undef TARGET_ASM_ALIGNED_HI_OP
@@ -19135,6 +19175,8 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 #define TARGET_VALID_POINTER_MODE mips_valid_pointer_mode
 #undef TARGET_REGISTER_MOVE_COST
 #define TARGET_REGISTER_MOVE_COST mips_register_move_cost
+#undef TARGET_REGISTER_PRIORITY
+#define TARGET_REGISTER_PRIORITY mips_register_priority
 #undef TARGET_MEMORY_MOVE_COST
 #define TARGET_MEMORY_MOVE_COST mips_memory_move_cost
 #undef TARGET_RTX_COSTS
@@ -19308,6 +19350,15 @@ mips_atomic_assign_expand_fenv (tree *hold, tree *clear, tree *update)
 
 #undef TARGET_ATOMIC_ASSIGN_EXPAND_FENV
 #define TARGET_ATOMIC_ASSIGN_EXPAND_FENV mips_atomic_assign_expand_fenv
+
+#undef TARGET_SPILL_CLASS
+#define TARGET_SPILL_CLASS mips_spill_class
+
+#undef TARGET_LRA_P
+#define TARGET_LRA_P mips_lra_p
+
+#undef TARGET_DIFFERENT_ADDR_DISPLACEMENT_P
+#define TARGET_DIFFERENT_ADDR_DISPLACEMENT_P hook_bool_void_true
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
