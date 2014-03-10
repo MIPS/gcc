@@ -10488,7 +10488,8 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
                 "MELT plugin will give debugging messages after mode processing"
                 " with obsolete -fplugin-arg-melt-debug. Use -fplugin-arg-melt-debugging=mode instead.");
       }
-    if (debuggingstr && *debuggingstr &&  !strrchr("Nn0", debuggingstr[0]))
+    if (debuggingstr && debuggingstr[0]
+	&& debuggingstr[0] != '0' && debuggingstr[0] != 'N' && debuggingstr[0] != 'n')
       {
         if (!strcmp (debuggingstr, "all"))
           {
@@ -10998,7 +10999,7 @@ melt_do_finalize (void)
       else 
 	{
 	  unsigned nbmodes = melt_done_modes_vector.size();
-	  fprintf (stderr, "MELT did run %ud modes successfully:", nbmodes);
+	  fprintf (stderr, "MELT did run %d modes successfully:", (int) nbmodes);
 	  for (unsigned ix=0; ix<nbmodes; ix++) {
 	    if (ix>0) 
 	      fputs (", ", stderr);

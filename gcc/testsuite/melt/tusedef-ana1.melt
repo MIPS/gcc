@@ -4,8 +4,8 @@
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-ana1.melt
  ln -s $GCCMELT_SOURCE/gcc/testsuite/melt/tusedef-code1.c
 
- ./cc1plus -fmelt-mode=runfile,usedef @meltbuild-common.args \
-    -fmelt-init=@warmelt.quicklybuilt -fmelt-arg=tusedef-ana1.melt \
+ ./cc1plus -fmelt-mode=runfile,usedef @meltbuild-common.args -Iinclude/ \
+    -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tusedef-ana1.melt \
      tusedef-code1.c
 
 or in a MELT module

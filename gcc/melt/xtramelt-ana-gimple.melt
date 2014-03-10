@@ -2675,8 +2675,9 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 	  )
 	 (if (is_closure clos)
 	     (let ( (trmap (make_maptree discr_map_trees 43))
-		    (whook walk_use_def_hook)
+		    (whook melt_4dot8_walk_use_def_hook)
 		    )
+	       (debug "melt_walk_use_def_chains trmap=" trmap "\n.. whook=" whook "\n.. clos=" clos)
 	       (code_chunk
 		walkusedef_chk
 		#{ /* melt_walk_use_def_chains $WALKUSEDEF_CHK start */
@@ -2703,7 +2704,7 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 
 (gccif "4.9"
        ;;; GCC 4.9 don't the walk_use_def_chains function but has the
-       ;;; FOREACH_SSA_TREE* macros
+       ;;; FOR_EACH_SSA_TREE* macros from ssa-iterators.h
        ;;
        ;; the cheader below should be emitted once. If emitted twice,
        ;; trigger an error...
@@ -2713,6 +2714,15 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 	#error got  MELT_WITHOUT_WALK_USE_DEF_CHAINS
 	#endif
 	#define MELT_WITHOUT_WALK_USE_DEF_CHAINS
+
+	// header tree-ssa-operands.h defines USE_STMT
+	#include "tree-ssa-operands.h"
+	// header tree-phinodes.h defines gimple_vuse_op
+	#include "tree-phinodes.h"
+	// header gimple-ssa.h defines gimple_vuse_op
+	#include "gimple-ssa.h"
+	// header ssa-iterators.h defines FOR_EACH_SSA_TREE_OPERAND
+	#include "ssa-iterators.h"
 	}#)
        ;;
        (defun melt_walk_use_def_chains (:value clos val :tree trvar)
@@ -2730,23 +2740,55 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 	  )
 	 (if (is_closure clos)
 	     (let ( (trmap (make_maptree discr_map_trees 43))
+		    (:gimple gdef (expr_chunk gdefstmt_chk :gimple
+					      #{ /*melt_walk_use_def_chains $GDEFSTMT_CHK */
+					      SSA_NAME_DEF_STMT ($TRVAR) }#))
 		    )
+	       (debug "melt_walk_use_def_chains gdef=" gdef)
 	       (letrec ( (internalwalker
-			  (lambda (val :tree tr)
-			    (debug "melt_walk_use_def_chains internalwalker val=" val "\n tr=" tr)
+			  (lambda (val :tree tr :gimple g)
+			    (debug "melt_walk_use_def_chains/internalwalker val=" val
+				   "\n.. tr=" tr "\n.. g=" g)
+			    (assert_msg "melt_walk_use_def_chains/internalwalker tr" tr)
+			    (assert_msg "melt_walk_use_def_chains/internalwalker g" g)
 			    (if (maptree_get trmap tr)
 				(return))
 			    (maptree_put trmap tr :true)
-			    (assert_msg "@$@incomplete internalwalker" ())
+			    (debug "melt_walk_use_def_chains/internalwalker before call val=" val
+				   "\n.. tr=" tr "\n.. g=" g)
+			    (let ( (res (clos val tr g))
+				   (:tree trwalked (null_tree))
+				   )
+			    (debug "melt_walk_use_def_chains/internalwalker after call res=" res
+				   "\n.. tr=" tr "\n.. g=" g)
+			    (when (null res)
+				(return))
 			    (code_chunk
 			     walkeruse_chk
 			     #{ /* melt_walk_use_def_chains $WALKERUSE_CHK start */
+			     tree tr_$WALKERUSE_CHK = NULL_TREE;
+			     gimple gstmt_$WALKERUSE_CHK = (gimple)NULL;
+			     ssa_op_iter sit_$WALKERUSE_CHK;
+			     memset (& sit_$WALKERUSE_CHK, 0, sizeof(ssa_op_iter));
+			     FOR_EACH_SSA_TREE_OPERAND (tr_$WALKERUSE_CHK, $G,
+							sit_$WALKERUSE_CHK, SSA_OP_ALL_OPERANDS)
+			       {
+			         $TRWALKED = tr_$WALKERUSE_CHK;
+			         $(debug "melt_walk_use_def_chains/internalwalker trwalked=" trwalked)
+			         if ($TRWALKED) {
+	#warning melt_walk_use_def_chains/internalwalker $WALKERUSE_CHK incomplete
+				 }
+                               }
 			     /* melt_walk_use_def_chains $WALKERUSE_CHK end */
 			     }#)
 			    )
+			    )
 			  )
 			 )
-		 (debug "melt_walk_use_def_chains trmap=" trmap)
+		 (debug "melt_walk_use_def_chains recurring walker internalwalker=" internalwalker
+			"\n.. on val=" val
+			"\n.. trvar=" trvar "\n.. gdef=" gdef)
+		 (internalwalker val trvar gdef)
 		 ))
 	   )
 	 )				;end melt_walk_use_def_chains

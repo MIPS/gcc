@@ -77,9 +77,12 @@ int main(int argc, char**argv)
   else {
     static const char sample1[]="To be or not to be, that is the question.";
     static const char sample2[]="To not be or to be, that is not the question!";
-    printf("argv0 %s: hash=%ux\n", argv[0], hash_cstring(argv[0], -1));
-    printf("sample1 %s: hash=%ux\n", sample1, hash_cstring(sample1, -1));
-    printf("sample2 %s: hash=%ux\n", sample2, hash_cstring(sample2, -1));
+    printf("argv0 %s: hash=%ux\n", argv[0],
+	   hash_cstring(argv[0], -1));
+    printf("sample1 %s: hash=%ux\n", sample1,
+	   hash_cstring(sample1, sizeof(sample1)-1));
+    printf("sample2 %s: hash=%ux\n", sample2,
+	   hash_cstring(sample2, strlen(sample2)));
   }
   return 0;
 }
