@@ -1,5 +1,5 @@
 # libgcc host-specific configuration file.
-# Copyright (C) 1997-2013 Free Software Foundation, Inc.
+# Copyright (C) 1997-2014 Free Software Foundation, Inc.
 
 #This file is part of GCC.
 
@@ -140,11 +140,27 @@ microblaze*-*-*)
 	cpu_type=microblaze
 	;;
 mips*-*-*)
+	# All MIPS targets provide a full set of FP routines.
 	cpu_type=mips
-	tmake_file=mips/t-mips
+	tmake_file="mips/t-mips"
+	if test "${libgcc_cv_mips_hard_float}" = yes; then
+		tmake_file="${tmake_file} t-hardfp-sfdf t-hardfp"
+	else
+		tmake_file="${tmake_file} t-softfp-sfdf"
+	fi
+	if test "${ac_cv_sizeof_long_double}" = 16; then
+		tmake_file="${tmake_file} mips/t-softfp-tf"
+	fi
+	if test "${host_address}" = 64; then
+		tmake_file="${tmake_file} mips/t-mips64"
+	fi
+	tmake_file="${tmake_file} t-softfp"
 	;;
 nds32*-*)
 	cpu_type=nds32
+	;;
+nios2*-*-*)
+	cpu_type=nios2
 	;;
 powerpc*-*-*)
 	cpu_type=rs6000
@@ -169,6 +185,12 @@ s390*-*-*)
 # Note the 'l'; we need to be able to match e.g. "shle" or "shl".
 sh[123456789lbe]*-*-*)
 	cpu_type=sh
+	;;
+tilegx*-*-*)
+	cpu_type=tilegx
+	;;
+tilepro*-*-*)
+	cpu_type=tilepro
 	;;
 v850*-*-*)
 	cpu_type=v850
@@ -206,7 +228,10 @@ case ${host} in
   ;;
 *-*-linux* | frv-*-*linux* | *-*-kfreebsd*-gnu | *-*-knetbsd*-gnu | *-*-gnu* | *-*-kopensolaris*-gnu)
   tmake_file="$tmake_file t-crtstuff-pic t-libgcc-pic t-eh-dw2-dip t-slibgcc t-slibgcc-gld t-slibgcc-elf-ver t-linux"
-  extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o vtv_start.o vtv_end.o vtv_start_preinit.o vtv_end_preinit.o"
+  extra_parts="crtbegin.o crtbeginS.o crtbeginT.o crtend.o crtendS.o"
+  if test x$enable_vtable_verify = xyes; then
+    extra_parts="$extra_parts vtv_start.o vtv_end.o vtv_start_preinit.o vtv_end_preinit.o"
+  fi
   ;;
 *-*-lynxos*)
   tmake_file="$tmake_file t-lynx $cpu_type/t-crtstuff t-crtstuff-pic t-libgcc-pic"
@@ -348,10 +373,10 @@ arm*-*-linux*)			# ARM GNU/Linux with ELF
 	;;
 arm*-*-uclinux*)		# ARM ucLinux
 	tmake_file="${tmake_file} t-fixedpoint-gnu-prefix"
+	tmake_file="$tmake_file arm/t-arm arm/t-elf t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
 	tmake_file="${tmake_file} arm/t-bpabi"
 	tm_file="$tm_file arm/bpabi-lib.h"
 	unwind_header=config/arm/unwind-arm.h
-	tmake_file="$tmake_file arm/t-arm arm/t-elf t-softfp-sfdf t-softfp-excl arm/t-softfp t-softfp"
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
 arm*-*-eabi* | arm*-*-symbianelf* | arm*-*-rtems*)
@@ -754,6 +779,10 @@ microblaze*-*-elf)
 	tmake_file="${tmake_file} microblaze/t-microblaze t-fdpbit"
 	extra_parts="$extra_parts crtbeginS.o crtendS.o crtbeginT.o crti.o crtn.o"
 	;;
+microblaze*-*-rtems*)
+	tmake_file="${tmake_file} microblaze/t-microblaze t-fdpbit"
+	extra_parts="$extra_parts crtbeginS.o crtendS.o crtbeginT.o crti.o crtn.o"
+	;;
 mips*-*-netbsd*)			# NetBSD/mips, either endian.
 	;;
 mips*-*-linux*)				# Linux MIPS, either endian.
@@ -769,9 +798,6 @@ mips*-*-linux*)				# Linux MIPS, either endian.
 	    ;;
 	esac
 	md_unwind_header=mips/linux-unwind.h
-	if test "${ac_cv_sizeof_long_double}" = 16; then
-		tmake_file="${tmake_file} mips/t-tpbit"
-	fi
 	;;
 mips*-sde-elf*)
 	tmake_file="$tmake_file mips/t-crtstuff mips/t-mips16"
@@ -875,6 +901,15 @@ nds32*-elf*)
 		exit 1
 		;;
 	esac
+	;;
+nios2-*-linux*)
+	tmake_file="$tmake_file nios2/t-nios2 nios2/t-linux t-libgcc-pic t-slibgcc-libgcc"
+	extra_parts="$extra_parts crti.o crtn.o"
+	md_unwind_header=nios2/linux-unwind.h
+	;;
+nios2-*-*)
+	tmake_file="$tmake_file nios2/t-nios2 t-softfp-sfdf t-softfp-excl t-softfp"
+	extra_parts="$extra_parts crti.o crtn.o"
 	;;
 pdp11-*-*)
 	tmake_file="pdp11/t-pdp11 t-fdpbit"
@@ -992,7 +1027,7 @@ s390-*-linux*)
 	md_unwind_header=s390/linux-unwind.h
 	;;
 s390x-*-linux*)
-	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux"
+	tmake_file="${tmake_file} s390/t-crtstuff s390/t-linux s390/32/t-floattodi"
 	md_unwind_header=s390/linux-unwind.h
 	;;
 s390x-ibm-tpf*)
@@ -1151,11 +1186,11 @@ tic6x-*-elf)
 	extra_parts="$extra_parts crtbeginS.o crtendS.o crti.o crtn.o"
 	unwind_header=config/c6x/unwind-c6x.h
 	;;
-tilegx-*-linux*)
+tilegx*-*-linux*)
 	tmake_file="${tmake_file} tilegx/t-crtstuff t-softfp-sfdf tilegx/t-softfp t-softfp tilegx/t-tilegx"
 	md_unwind_header=tilepro/linux-unwind.h
         ;;
-tilepro-*-linux*)
+tilepro*-*-linux*)
 	tmake_file="${tmake_file} tilepro/t-crtstuff t-softfp-sfdf t-softfp tilepro/t-tilepro"
 	md_unwind_header=tilepro/linux-unwind.h
         ;;
@@ -1177,7 +1212,7 @@ xtensa*-*-elf*)
 	extra_parts="$extra_parts crti.o crtn.o"
 	;;
 xtensa*-*-linux*)
-	tmake_file="$tmake_file xtensa/t-xtensa xtensa/t-linux"
+	tmake_file="$tmake_file xtensa/t-xtensa xtensa/t-linux t-slibgcc-libgcc"
 	md_unwind_header=xtensa/linux-unwind.h
 	;;
 am33_2.0-*-linux*)

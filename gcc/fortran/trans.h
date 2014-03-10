@@ -1,5 +1,5 @@
 /* Header for code translation functions
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook
 
 This file is part of GCC.
@@ -422,6 +422,8 @@ tree gfc_evaluate_now (tree, stmtblock_t *);
 /* Find the appropriate variant of a math intrinsic.  */
 tree gfc_builtin_decl_for_float_kind (enum built_in_function, int);
 
+tree size_of_string_in_bytes (int, tree);
+
 /* Intrinsic procedure handling.  */
 tree gfc_conv_intrinsic_subroutine (gfc_code *);
 void gfc_conv_intrinsic_function (gfc_se *, gfc_expr *);
@@ -580,6 +582,9 @@ bool get_array_ctor_strlen (stmtblock_t *, gfc_constructor_base, tree *);
 /* Mark a condition as likely or unlikely.  */
 tree gfc_likely (tree);
 tree gfc_unlikely (tree);
+
+/* Return the string length of a deferred character length component.  */
+bool gfc_deferred_strlen (gfc_component *, tree *);
 
 /* Generate a runtime error call.  */
 tree gfc_trans_runtime_error (bool, locus*, const char*, ...);

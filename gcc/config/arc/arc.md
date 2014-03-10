@@ -1,6 +1,5 @@
 ;; Machine description of the Synopsys DesignWare ARC cpu for GNU C compiler
-;; Copyright (C) 1994, 1997, 1999, 2006-2013
-;; Free Software Foundation, Inc.
+;; Copyright (C) 1994-2014 Free Software Foundation, Inc.
 
 ;; Sources derived from work done by Sankhya Technologies (www.sankhya.com) on
 ;; behalf of Synopsys Inc.
@@ -3612,7 +3611,11 @@
       (const_string "false")])
    (set_attr_alternative "length"
      [(cond
-	[(eq_attr "iscompact" "false") (const_int 4)]
+	[(eq_attr "iscompact" "false") (const_int 4)
+	; We have to mention (match_dup 3) to convince genattrtab.c that this
+	; is a varying length insn.
+	 (eq (symbol_ref "1+1") (const_int 2)) (const_int 2)
+	 (gt (minus (match_dup 3) (pc)) (const_int 42)) (const_int 4)]
 	(const_int 2))
       (const_int 4)
       (const_int 8)])])

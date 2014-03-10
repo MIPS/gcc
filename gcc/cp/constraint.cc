@@ -36,7 +36,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "vec.h"
 #include "target.h"
-#include "gimple.h"
 #include "bitmap.h"
 
 
@@ -424,8 +423,8 @@ reduce_template_id (tree t)
 {
   vec<tree, va_gc>* args = NULL;
   tree c = finish_call_expr (t, &args, true, false, 0);
-  error_at (EXPR_LOC_OR_HERE (t), "invalid requirement");
-  inform (EXPR_LOC_OR_HERE (t), "did you mean %qE", c);
+  error_at (EXPR_LOCATION (t), "invalid requirement");
+  inform (EXPR_LOCATION (t), "did you mean %qE", c);
   return c;
 }
 

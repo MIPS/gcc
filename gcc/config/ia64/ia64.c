@@ -1,5 +1,5 @@
 /* Definitions of target machine for GNU compiler.
-   Copyright (C) 1999-2013 Free Software Foundation, Inc.
+   Copyright (C) 1999-2014 Free Software Foundation, Inc.
    Contributed by James E. Wilson <wilson@cygnus.com> and
 		  David Mosberger <davidm@hpl.hp.com>.
 
@@ -25,6 +25,10 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm.h"
 #include "rtl.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "stor-layout.h"
+#include "calls.h"
+#include "varasm.h"
 #include "regs.h"
 #include "hard-reg-set.h"
 #include "insn-config.h"
@@ -49,6 +53,15 @@ along with GCC; see the file COPYING3.  If not see
 #include "tm_p.h"
 #include "hash-table.h"
 #include "langhooks.h"
+#include "pointer-set.h"
+#include "vec.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-fold.h"
+#include "tree-eh.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimplify.h"
 #include "intl.h"
@@ -3488,7 +3501,7 @@ ia64_expand_prologue (void)
       edge e;
       edge_iterator ei;
 
-      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR->preds)
+      FOR_EACH_EDGE (e, ei, EXIT_BLOCK_PTR_FOR_FN (cfun)->preds)
 	if ((e->flags & EDGE_FAKE) == 0
 	    && (e->flags & EDGE_FALLTHRU) != 0)
 	  break;
@@ -7146,7 +7159,9 @@ ia64_single_set (rtx insn)
   switch (recog_memoized (insn))
     {
     case CODE_FOR_prologue_allocate_stack:
+    case CODE_FOR_prologue_allocate_stack_pr:
     case CODE_FOR_epilogue_deallocate_stack:
+    case CODE_FOR_epilogue_deallocate_stack_pr:
       ret = XVECEXP (x, 0, 0);
       break;
 
@@ -9598,7 +9613,7 @@ emit_predicate_relation_info (void)
 {
   basic_block bb;
 
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       int r;
       rtx head = BB_HEAD (bb);
@@ -9626,7 +9641,7 @@ emit_predicate_relation_info (void)
      relations around them.  Otherwise the assembler will assume the call
      returns, and complain about uses of call-clobbered predicates after
      the call.  */
-  FOR_EACH_BB_REVERSE (bb)
+  FOR_EACH_BB_REVERSE_FN (bb, cfun)
     {
       rtx insn = BB_HEAD (bb);
 
@@ -9673,7 +9688,7 @@ ia64_reorg (void)
 
       /* We can't let modulo-sched prevent us from scheduling any bbs,
 	 since we need the final schedule to produce bundle information.  */
-      FOR_EACH_BB (bb)
+      FOR_EACH_BB_FN (bb, cfun)
 	bb->flags &= ~BB_DISABLE_SCHEDULE;
 
       initiate_bundle_states ();
@@ -10183,7 +10198,8 @@ ia64_asm_unwind_emit (FILE *asm_out_file, rtx insn)
 
   if (NOTE_INSN_BASIC_BLOCK_P (insn))
     {
-      last_block = NOTE_BASIC_BLOCK (insn)->next_bb == EXIT_BLOCK_PTR;
+      last_block = NOTE_BASIC_BLOCK (insn)->next_bb
+     == EXIT_BLOCK_PTR_FOR_FN (cfun);
 
       /* Restore unwind state from immediately before the epilogue.  */
       if (need_copy_state)

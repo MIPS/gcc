@@ -1,7 +1,7 @@
 // PR c++/58533
-// { dg-options "-std=gnu++1y" }
+// { dg-do compile { target c++1y } }
 
 void foo()
 {
-  void (*fp)(auto); // { dg-error "template" }
+  void (*fp)(auto); // { dg-error "auto|not permitted" }
 }

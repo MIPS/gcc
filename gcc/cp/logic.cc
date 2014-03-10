@@ -38,7 +38,6 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-iterator.h"
 #include "vec.h"
 #include "target.h"
-#include "gimple.h"
 #include "bitmap.h"
 
 #include <list>

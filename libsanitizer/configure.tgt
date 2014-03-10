@@ -23,7 +23,11 @@ case "${target}" in
   x86_64-*-linux* | i?86-*-linux*)
 	if test x$ac_cv_sizeof_void_p = x8; then
 		TSAN_SUPPORTED=yes
+		LSAN_SUPPORTED=yes
 	fi
+	;;
+  powerpc*le-*-linux*)
+	UNSUPPORTED=1
 	;;
   powerpc*-*-linux*)
 	;;

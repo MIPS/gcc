@@ -1,7 +1,7 @@
 /* Subroutines used for code generation on the Lattice Mico32 architecture.
    Contributed by Jon Beniston <jon@beniston.com>
 
-   Copyright (C) 2009-2013 Free Software Foundation, Inc.
+   Copyright (C) 2009-2014 Free Software Foundation, Inc.
 
    This file is part of GCC.
 
@@ -35,6 +35,7 @@
 #include "recog.h"
 #include "output.h"
 #include "tree.h"
+#include "calls.h"
 #include "expr.h"
 #include "flags.h"
 #include "reload.h"
@@ -81,7 +82,6 @@ static rtx lm32_function_arg (cumulative_args_t cum,
 static void lm32_function_arg_advance (cumulative_args_t cum,
 				       enum machine_mode mode,
 				       const_tree type, bool named);
-static bool lm32_legitimate_constant_p (enum machine_mode, rtx);
 
 #undef TARGET_OPTION_OVERRIDE
 #define TARGET_OPTION_OVERRIDE lm32_option_override
@@ -109,8 +109,6 @@ static bool lm32_legitimate_constant_p (enum machine_mode, rtx);
 #define TARGET_CAN_ELIMINATE lm32_can_eliminate
 #undef TARGET_LEGITIMATE_ADDRESS_P
 #define TARGET_LEGITIMATE_ADDRESS_P lm32_legitimate_address_p
-#undef TARGET_LEGITIMATE_CONSTANT_P
-#define TARGET_LEGITIMATE_CONSTANT_P lm32_legitimate_constant_p
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
@@ -1225,17 +1223,5 @@ bool
 lm32_move_ok (enum machine_mode mode, rtx operands[2]) {
   if (memory_operand (operands[0], mode))
     return register_or_zero_operand (operands[1], mode);
-  return true;
-}
-
-/* Implement TARGET_LEGITIMATE_CONSTANT_P.  */
-
-static bool
-lm32_legitimate_constant_p (enum machine_mode mode, rtx x)
-{
-  /* 32-bit addresses require multiple instructions.  */  
-  if (!flag_pic && reloc_operand (x, mode))
-    return false; 
-  
   return true;
 }

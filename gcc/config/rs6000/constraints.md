@@ -1,5 +1,5 @@
 ;; Constraint definitions for RS6000
-;; Copyright (C) 2006-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2006-2014 Free Software Foundation, Inc.
 ;;
 ;; This file is part of GCC.
 ;;
@@ -55,6 +55,9 @@
 ;; any VSX register
 (define_register_constraint "wa" "rs6000_constraints[RS6000_CONSTRAINT_wa]"
   "Any VSX register if the -mvsx option was used or NO_REGS.")
+
+;; NOTE: For compatibility, "wc" is reserved to represent individual CR bits.
+;; It is currently used for that purpose in LLVM.
 
 (define_register_constraint "wd" "rs6000_constraints[RS6000_CONSTRAINT_wd]"
   "VSX vector register to hold vector double data or NO_REGS.")

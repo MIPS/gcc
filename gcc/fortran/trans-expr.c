@@ -1,5 +1,5 @@
 /* Expression translation
-   Copyright (C) 2002-2013 Free Software Foundation, Inc.
+   Copyright (C) 2002-2014 Free Software Foundation, Inc.
    Contributed by Paul Brook <paul@nowt.org>
    and Steven Bosscher <s.bosscher@student.tudelft.nl>
 
@@ -25,6 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 #include "tree.h"
+#include "stringpool.h"
 #include "diagnostic-core.h"	/* For fatal_error.  */
 #include "langhooks.h"
 #include "flags.h"
@@ -38,7 +39,6 @@ along with GCC; see the file COPYING3.  If not see
 /* Only for gfc_trans_assign and gfc_trans_pointer_assign.  */
 #include "trans-stmt.h"
 #include "dependency.h"
-#include "gimple.h"
 #include "gimplify.h"
 
 
@@ -558,7 +558,7 @@ gfc_conv_intrinsic_to_class (gfc_se *parmse, gfc_expr *e,
   /* Set the vptr.  */
   ctree =  gfc_class_vptr_get (var);
 
-  vtab = gfc_find_intrinsic_vtab (&e->ts);
+  vtab = gfc_find_vtab (&e->ts);
   gcc_assert (vtab);
   tmp = gfc_build_addr_expr (NULL_TREE, gfc_get_symbol_decl (vtab));
   gfc_add_modify (&parmse->pre, ctree,
@@ -1015,12 +1015,10 @@ gfc_trans_class_assign (gfc_expr *expr1, gfc_expr *expr2, gfc_exec_op op)
  	  goto assign_vptr;
 	}
 
-      if (expr2->ts.type == BT_DERIVED)
-	vtab = gfc_find_derived_vtab (expr2->ts.u.derived);
-      else if (expr2->expr_type == EXPR_NULL)
-	vtab = gfc_find_derived_vtab (expr1->ts.u.derived);
+      if (expr2->expr_type == EXPR_NULL)
+	vtab = gfc_find_vtab (&expr1->ts);
       else
-	vtab = gfc_find_intrinsic_vtab (&expr2->ts);
+	vtab = gfc_find_vtab (&expr2->ts);
       gcc_assert (vtab);
 
       rhs = gfc_get_expr ();
@@ -1688,6 +1686,14 @@ gfc_conv_component_ref (gfc_se * se, gfc_ref * ref)
       tmp = c->ts.u.cl->backend_decl;
       /* Components must always be constant length.  */
       gcc_assert (tmp && INTEGER_CST_P (tmp));
+      se->string_length = tmp;
+    }
+
+  if (gfc_deferred_strlen (c, &field))
+    {
+      tmp = fold_build3_loc (input_location, COMPONENT_REF,
+			     TREE_TYPE (field),
+			     decl, field, NULL_TREE);
       se->string_length = tmp;
     }
 
@@ -4049,7 +4055,11 @@ gfc_conv_procedure_call (gfc_se * se, gfc_symbol * sym,
 	  gfc_init_se (&parmse, se);
 	  parm_kind = ELEMENTAL;
 
-	  gfc_conv_expr_reference (&parmse, e);
+	  if (fsym && fsym->attr.value)
+	    gfc_conv_expr (&parmse, e);
+	  else
+	    gfc_conv_expr_reference (&parmse, e);
+
 	  if (e->ts.type == BT_CHARACTER && !e->rank
 	      && e->expr_type == EXPR_FUNCTION)
 	    parmse.expr = build_fold_indirect_ref_loc (input_location,
@@ -6041,9 +6051,42 @@ gfc_trans_subcomponent_assign (tree dest, gfc_component * cm, gfc_expr * expr)
 	  gfc_add_expr_to_block (&block, tmp);
 	}
     }
-  else
+  else if (gfc_deferred_strlen (cm, &tmp))
     {
-      /* Scalar component.  */
+      tree strlen;
+      strlen = tmp;
+      gcc_assert (strlen);
+      strlen = fold_build3_loc (input_location, COMPONENT_REF,
+				TREE_TYPE (strlen),
+				TREE_OPERAND (dest, 0),
+				strlen, NULL_TREE);
+
+      if (expr->expr_type == EXPR_NULL)
+	{
+	  tmp = build_int_cst (TREE_TYPE (cm->backend_decl), 0);
+	  gfc_add_modify (&block, dest, tmp);
+	  tmp = build_int_cst (TREE_TYPE (strlen), 0);
+	  gfc_add_modify (&block, strlen, tmp);
+	}
+      else
+	{
+	  tree size;
+	  gfc_init_se (&se, NULL);
+	  gfc_conv_expr (&se, expr);
+	  size = size_of_string_in_bytes (cm->ts.kind, se.string_length);
+	  tmp = build_call_expr_loc (input_location,
+				     builtin_decl_explicit (BUILT_IN_MALLOC),
+				     1, size);
+	  gfc_add_modify (&block, dest,
+			  fold_convert (TREE_TYPE (dest), tmp));
+	  gfc_add_modify (&block, strlen, se.string_length);
+	  tmp = gfc_build_memcpy_call (dest, se.expr, size);
+	  gfc_add_expr_to_block (&block, tmp);
+	}
+    }
+  else if (!cm->attr.deferred_parameter)
+    {
+      /* Scalar component (excluding deferred parameters).  */
       gfc_init_se (&se, NULL);
       gfc_init_se (&lse, NULL);
 
@@ -6352,7 +6395,13 @@ gfc_conv_expr_reference (gfc_se * se, gfc_expr * expr)
       /* Returns a reference to the scalar evaluated outside the loop
 	 for this case.  */
       gfc_conv_expr (se, expr);
-      se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
+
+      if (expr->ts.type == BT_CHARACTER
+	  && expr->expr_type != EXPR_FUNCTION)
+	gfc_conv_string_parameter (se);
+      else
+	se->expr = gfc_build_addr_expr (NULL_TREE, se->expr);
+
       return;
     }
 
@@ -7739,7 +7788,10 @@ alloc_scalar_allocatable_for_assignment (stmtblock_t *block,
 
       /* Update the lhs character length.  */
       size = string_length;
-      gfc_add_modify (block, expr1->ts.u.cl->backend_decl, size);
+      if (TREE_CODE (expr1->ts.u.cl->backend_decl) == VAR_DECL)
+	gfc_add_modify (block, expr1->ts.u.cl->backend_decl, size);
+      else
+	gfc_add_modify (block, lse.string_length, size);
     }
 }
 

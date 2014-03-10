@@ -1,5 +1,5 @@
 ;; Machine description for Tilera TILE-Gx chip for GCC.
-;; Copyright (C) 2011-2013 Free Software Foundation, Inc.
+;; Copyright (C) 2011-2014 Free Software Foundation, Inc.
 ;; Contributed by Walter Lee (walt@tilera.com)
 ;;
 ;; This file is part of GCC.
@@ -824,6 +824,12 @@
       bit_width = INTVAL (operands[2]);
       bit_offset = INTVAL (operands[3]);
 
+      /* NOTE: bit_offset is relative to the mode of operand
+         1 (QImode).  It will be negative in big-endian mode
+         here.  Convert that back to the real offset.  */
+      if (BYTES_BIG_ENDIAN)
+        bit_offset = GET_MODE_BITSIZE (QImode) - bit_width - bit_offset;
+
       /* Reject bitfields that can be done with a normal load.  */
       if (MEM_ALIGN (operands[1]) >= bit_offset + bit_width)
         FAIL;
@@ -860,6 +866,12 @@
       if (GET_MODE (operands[1]) != QImode)
         FAIL;
 
+      /* NOTE: bit_offset is relative to the mode of operand
+         1 (QImode).  It will be negative in big-endian mode
+         here. */
+      if (BYTES_BIG_ENDIAN)
+        bit_offset = GET_MODE_BITSIZE (QImode) - bit_width - bit_offset;
+ 
       /* Reject bitfields that can be done with a normal load.  */
       if (MEM_ALIGN (operands[1]) >= bit_offset + bit_width)
         FAIL;
@@ -3284,9 +3296,9 @@
   "")
 
 (define_insn "insn_ld_add<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (mem:DI (match_dup 3)))]
   ""
@@ -3302,9 +3314,9 @@
   [(set_attr "type" "X1_2cycle")])
 
 (define_insn "insn_ldna_add<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (mem:DI (and:DI (match_dup 3) (const_int -8))))]
   ""
@@ -3318,9 +3330,9 @@
   "")
 
 (define_insn "insn_ld<I124MODE:n><s>_add<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (any_extend:DI (mem:I124MODE (match_dup 3))))]
   ""
@@ -3338,9 +3350,9 @@
   [(set_attr "type" "X1_2cycle")])
 
 (define_insn "insn_ldnt_add<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (unspec:DI [(mem:DI (match_dup 3))]
                    UNSPEC_NON_TEMPORAL))]
@@ -3359,9 +3371,9 @@
   [(set_attr "type" "X1_2cycle")])
 
 (define_insn "insn_ldnt<I124MODE:n><s>_add<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (any_extend:DI (unspec:I124MODE [(mem:I124MODE (match_dup 3))]
 					UNSPEC_NON_TEMPORAL)))]
@@ -3380,9 +3392,9 @@
   [(set_attr "type" "Y2_L2")])
 
 (define_insn "insn_ld_add_L2<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (unspec:DI [(mem:DI (match_dup 3))]
 		   UNSPEC_LATENCY_L2))]
@@ -3400,9 +3412,9 @@
   [(set_attr "type" "X1_L2")])
 
 (define_insn "insn_ldna_add_L2<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (unspec:DI [(mem:DI (and:DI (match_dup 3) (const_int -8)))]
 		   UNSPEC_LATENCY_L2))]
@@ -3421,9 +3433,9 @@
   [(set_attr "type" "Y2_L2")])
 
 (define_insn "insn_ld<I124MODE:n><s>_add_L2<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (any_extend:DI (unspec:I124MODE [(mem:I124MODE (match_dup 3))]
 					UNSPEC_LATENCY_L2)))]
@@ -3444,9 +3456,9 @@
   [(set_attr "type" "X1_L2")])
 
 (define_insn "insn_ldnt_add_L2<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (unspec:DI [(unspec:DI
                      [(mem:DI (match_dup 3))]
@@ -3469,9 +3481,9 @@
   [(set_attr "type" "X1_L2")])
 
 (define_insn "insn_ldnt<I124MODE:n><s>_add_L2<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (any_extend:DI
 	 (unspec:I124MODE [(unspec:I124MODE
@@ -3493,9 +3505,9 @@
   [(set_attr "type" "Y2_miss")])
 
 (define_insn "insn_ld_add_miss<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (unspec:DI [(mem:DI (match_dup 3))]
 		   UNSPEC_LATENCY_MISS))]
@@ -3513,9 +3525,9 @@
   [(set_attr "type" "X1_miss")])
 
 (define_insn "insn_ldna_add_miss<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (unspec:DI [(mem:DI (and:DI (match_dup 3) (const_int -8)))]
 		   UNSPEC_LATENCY_MISS))]
@@ -3534,9 +3546,9 @@
   [(set_attr "type" "Y2_miss")])
 
 (define_insn "insn_ld<I124MODE:n><s>_add_miss<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (any_extend:DI (unspec:I124MODE [(mem:I124MODE (match_dup 3))]
 					UNSPEC_LATENCY_MISS)))]
@@ -3557,9 +3569,9 @@
   [(set_attr "type" "X1_miss")])
 
 (define_insn "insn_ldnt_add_miss<bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (unspec:DI [(unspec:DI
                      [(mem:DI (match_dup 3))]
@@ -3582,9 +3594,9 @@
   [(set_attr "type" "X1_miss")])
 
 (define_insn "insn_ldnt<I124MODE:n><s>_add_miss<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 1 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "1")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 1 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "1")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (match_operand:DI 0 "register_operand" "=r")
         (any_extend:DI
 	 (unspec:I124MODE [(unspec:I124MODE
@@ -3969,9 +3981,9 @@
   "")
 
 (define_insn "insn_st_add<bitsuffix>"
-  [(set (match_operand:I48MODE 0 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "0")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 0 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "0")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (mem:DI (match_dup 3))
         (match_operand:DI 1 "reg_or_0_operand" "rO"))]
   ""
@@ -3983,26 +3995,30 @@
         (match_operand:DI 1 "reg_or_0_operand" ""))]
   ""
 {
-  operands[1] = simplify_gen_subreg (<MODE>mode, operands[1], DImode, 0);
+  operands[1] = simplify_gen_subreg (<MODE>mode, operands[1], DImode,
+                                     BYTES_BIG_ENDIAN
+				     ? UNITS_PER_WORD - <n>  : 0);
 })
 
 (define_expand "insn_st<I124MODE:n>_add<I48MODE:bitsuffix>"
   [(parallel
-    [(set (match_operand:I48MODE 0 "pointer_operand" "")
-	  (plus:I48MODE (match_operand 3 "pointer_operand" "")
-			(match_operand 2 "s8bit_cint_operand" "")))
+    [(set (match_operand:I48MODE 0 "register_operand" "")
+	  (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "")
+			(match_operand:I48MODE 2 "s8bit_cint_operand" "")))
      (set (mem:I124MODE (match_dup 3))
 	  (match_operand:DI 1 "reg_or_0_operand" ""))])]
   ""
 {
   operands[1] = simplify_gen_subreg (<I124MODE:MODE>mode, operands[1],
-				     DImode, 0);
+				     DImode,
+				     BYTES_BIG_ENDIAN
+				     ? UNITS_PER_WORD - <I124MODE:n> : 0);
 })
 
 (define_insn "*insn_st<I124MODE:n>_add<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 0 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "0")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 0 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "0")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (mem:I124MODE (match_dup 3))
         (match_operand:I124MODE 1 "reg_or_0_operand" "rO"))]
   ""
@@ -4020,9 +4036,9 @@
   [(set_attr "type" "X1")])
 
 (define_insn "insn_stnt_add<bitsuffix>"
-  [(set (match_operand:I48MODE 0 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "0")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 0 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "0")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (mem:DI (unspec:I48MODE [(match_dup 3)] UNSPEC_NON_TEMPORAL))
         (match_operand:DI 1 "reg_or_0_operand" "rO"))]
   ""
@@ -4035,7 +4051,9 @@
         (match_operand:DI 1 "reg_or_0_operand" ""))]
   ""
 {
-  operands[1] = simplify_gen_subreg (<MODE>mode, operands[1], DImode, 0);
+  operands[1] = simplify_gen_subreg (<MODE>mode, operands[1], DImode,
+                                     BYTES_BIG_ENDIAN
+				     ? UNITS_PER_WORD - <n> : 0);
 })
 
 (define_insn "*insn_stnt<n>"
@@ -4048,21 +4066,23 @@
 
 (define_expand "insn_stnt<I124MODE:n>_add<I48MODE:bitsuffix>"
   [(parallel
-    [(set (match_operand:I48MODE 0 "pointer_operand" "")
-	  (plus:I48MODE (match_operand 3 "pointer_operand" "")
-			(match_operand 2 "s8bit_cint_operand" "")))
+    [(set (match_operand:I48MODE 0 "register_operand" "")
+	  (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "")
+			(match_operand:I48MODE 2 "s8bit_cint_operand" "")))
      (set (mem:I124MODE (unspec:I48MODE [(match_dup 3)] UNSPEC_NON_TEMPORAL))
 	  (match_operand:DI 1 "reg_or_0_operand" "rO"))])]
   ""
 {
   operands[1] = simplify_gen_subreg (<I124MODE:MODE>mode, operands[1],
-				     DImode, 0);
+				     DImode,
+				     BYTES_BIG_ENDIAN
+				     ? UNITS_PER_WORD - <n> : 0);
 })
 
 (define_insn "*insn_stnt<I124MODE:n>_add<I48MODE:bitsuffix>"
-  [(set (match_operand:I48MODE 0 "pointer_operand" "=r")
-        (plus:I48MODE (match_operand 3 "pointer_operand" "0")
-		      (match_operand 2 "s8bit_cint_operand" "i")))
+  [(set (match_operand:I48MODE 0 "register_operand" "=r")
+        (plus:I48MODE (match_operand:I48MODE 3 "register_operand" "0")
+		      (match_operand:I48MODE 2 "s8bit_cint_operand" "i")))
    (set (mem:I124MODE (unspec:I48MODE [(match_dup 3)] UNSPEC_NON_TEMPORAL))
         (match_operand:I124MODE 1 "reg_or_0_operand" "rO"))]
   ""
@@ -4412,11 +4432,46 @@
   DONE;
 })
 
+;; Byte ordering of these vectors is endian dependent.  gcc concats
+;; right-to-left for little endian, and left-to-right for big endian.
+;; So we need different patterns that depend on endianness.  Our
+;; instructions concat and interleave the way a big-endian target would
+;; work in gcc, so for little endian, we need to reverse the source
+;; operands.
+
 ;; insn_v1int_h
 ;;    {B7,B6,B5,B4,B3,B2,B1,B0} {A7,A6,A5,A4,A3,A2,A1,A0}
 ;; => {A7,A6,A5,A4,A3,A2,A1,A0,B7,B6,B5,B4,B3,B2,B1,B0}
 ;; => {A7,B7,A6,B6,A5,B5,A4,B4}
-(define_insn "vec_interleave_highv8qi"
+(define_expand "vec_interleave_highv8qi"
+  [(match_operand:V8QI 0 "register_operand" "")
+   (match_operand:V8QI 1 "reg_or_0_operand" "")
+   (match_operand:V8QI 2 "reg_or_0_operand" "")]
+  ""
+{
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen_vec_interleave_highv8qi_be (operands[0], operands[1],
+					       operands[2]));
+  else
+    emit_insn (gen_vec_interleave_highv8qi_le (operands[0], operands[1],
+					       operands[2]));
+  DONE;
+})
+
+(define_insn "vec_interleave_highv8qi_be"
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
+	(vec_select:V8QI
+	 (vec_concat:V16QI (match_operand:V8QI 1 "reg_or_0_operand" "rO")
+			   (match_operand:V8QI 2 "reg_or_0_operand" "rO"))
+	 (parallel [(const_int 0) (const_int 8)
+		    (const_int 1) (const_int 9)
+		    (const_int 2) (const_int 10)
+		    (const_int 3) (const_int 11)])))]
+  "BYTES_BIG_ENDIAN"
+  "v1int_h\t%0, %r1, %r2"
+  [(set_attr "type" "X01")])
+
+(define_insn "vec_interleave_highv8qi_le"
   [(set (match_operand:V8QI 0 "register_operand" "=r")
 	(vec_select:V8QI
 	 (vec_concat:V16QI (match_operand:V8QI 1 "reg_or_0_operand" "rO")
@@ -4425,7 +4480,7 @@
 		    (const_int 5) (const_int 13) 
 		    (const_int 6) (const_int 14) 
 		    (const_int 7) (const_int 15)])))]
-  ""
+  "!BYTES_BIG_ENDIAN"
   "v1int_h\t%0, %r2, %r1"
   [(set_attr "type" "X01")])
 
@@ -4435,11 +4490,14 @@
    (match_operand:DI 2 "reg_or_0_operand" "")]
   ""
 {
-  /* Our instruction interleaves opposite of the way vec_interleave
-     works, so we need to reverse the source operands.  */
+  /* For little endian, our instruction interleaves opposite of the
+     way vec_interleave works, so we need to reverse the source
+     operands.  */
+  rtx opnd1 = BYTES_BIG_ENDIAN ? operands[1] : operands[2];
+  rtx opnd2 = BYTES_BIG_ENDIAN ? operands[2] : operands[1];
   tilegx_expand_builtin_vector_binop (gen_vec_interleave_highv8qi, V8QImode,
-				      operands[0], V8QImode, operands[2],
-				      operands[1], true);
+				      operands[0], V8QImode, opnd1, opnd2,
+				      true);
   DONE;
 })
 
@@ -4447,7 +4505,35 @@
 ;;    {B7,B6,B5,B4,B3,B2,B1,B0} {A7,A6,A5,A4,A3,A2,A1,A0}
 ;; => {A7,A6,A5,A4,A3,A2,A1,A0,B7,B6,B5,B4,B3,B2,B1,B0}
 ;; => {A3,B3,A2,B2,A1,B1,A0,B0}
-(define_insn "vec_interleave_lowv8qi"
+(define_expand "vec_interleave_lowv8qi"
+  [(match_operand:V8QI 0 "register_operand" "")
+   (match_operand:V8QI 1 "reg_or_0_operand" "")
+   (match_operand:V8QI 2 "reg_or_0_operand" "")]
+  ""
+{
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen_vec_interleave_lowv8qi_be (operands[0], operands[1],
+					      operands[2]));
+  else
+    emit_insn (gen_vec_interleave_lowv8qi_le (operands[0], operands[1],
+					      operands[2]));
+  DONE;
+})
+
+(define_insn "vec_interleave_lowv8qi_be"
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
+	(vec_select:V8QI
+	 (vec_concat:V16QI (match_operand:V8QI 1 "reg_or_0_operand" "rO")
+			   (match_operand:V8QI 2 "reg_or_0_operand" "rO"))
+	 (parallel [(const_int 4) (const_int 12)
+		    (const_int 5) (const_int 13)
+		    (const_int 6) (const_int 14)
+		    (const_int 7) (const_int 15)])))]
+  "BYTES_BIG_ENDIAN"
+  "v1int_l\t%0, %r1, %r2"
+  [(set_attr "type" "X01")])
+
+(define_insn "vec_interleave_lowv8qi_le"
   [(set (match_operand:V8QI 0 "register_operand" "=r")
 	(vec_select:V8QI
 	 (vec_concat:V16QI (match_operand:V8QI 1 "reg_or_0_operand" "rO")
@@ -4456,7 +4542,7 @@
 		    (const_int 1) (const_int 9)
 		    (const_int 2) (const_int 10)
 		    (const_int 3) (const_int 11)])))]
-  ""
+  "!BYTES_BIG_ENDIAN"
   "v1int_l\t%0, %r2, %r1"
   [(set_attr "type" "X01")])
 
@@ -4466,11 +4552,14 @@
    (match_operand:DI 2 "reg_or_0_operand" "")]
   ""
 {
-  /* Our instruction interleaves opposite of the way vec_interleave
-     works, so we need to reverse the source operands.  */
+  /* For little endian, our instruction interleaves opposite of the
+     way vec_interleave works, so we need to reverse the source
+     operands.  */
+  rtx opnd1 = BYTES_BIG_ENDIAN ? operands[1] : operands[2];
+  rtx opnd2 = BYTES_BIG_ENDIAN ? operands[2] : operands[1];
   tilegx_expand_builtin_vector_binop (gen_vec_interleave_lowv8qi, V8QImode,
-				      operands[0], V8QImode, operands[2],
-				      operands[1], true);
+				      operands[0], V8QImode, opnd1, opnd2,
+				      true);
   DONE;
 })
 
@@ -4478,14 +4567,40 @@
 ;;    {B3,B2,B1,B0} {A3,A2,A1,A0}
 ;; => {A3,A2,A1,A0,B3,B2,B1,B0}
 ;; => {A3,B3,A2,B2}
-(define_insn "vec_interleave_highv4hi"
+(define_expand "vec_interleave_highv4hi"
+  [(match_operand:V4HI 0 "register_operand" "")
+   (match_operand:V4HI 1 "reg_or_0_operand" "")
+   (match_operand:V4HI 2 "reg_or_0_operand" "")]
+  ""
+{
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen_vec_interleave_highv4hi_be (operands[0], operands[1],
+					       operands[2]));
+  else
+    emit_insn (gen_vec_interleave_highv4hi_le (operands[0], operands[1],
+					       operands[2]));
+  DONE;
+})
+
+(define_insn "vec_interleave_highv4hi_be"
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
+	(vec_select:V4HI
+	 (vec_concat:V8HI (match_operand:V4HI 1 "reg_or_0_operand" "rO")
+			  (match_operand:V4HI 2 "reg_or_0_operand" "rO"))
+	 (parallel [(const_int 0) (const_int 4)
+		    (const_int 1) (const_int 5)])))]
+  "BYTES_BIG_ENDIAN"
+  "v2int_h\t%0, %r1, %r2"
+  [(set_attr "type" "X01")])
+
+(define_insn "vec_interleave_highv4hi_le"
   [(set (match_operand:V4HI 0 "register_operand" "=r")
 	(vec_select:V4HI
 	 (vec_concat:V8HI (match_operand:V4HI 1 "reg_or_0_operand" "rO")
 			  (match_operand:V4HI 2 "reg_or_0_operand" "rO"))
 	 (parallel [(const_int 2) (const_int 6)
 		    (const_int 3) (const_int 7)])))]
-  ""
+  "!BYTES_BIG_ENDIAN"
   "v2int_h\t%0, %r2, %r1"
   [(set_attr "type" "X01")])
 
@@ -4495,11 +4610,14 @@
    (match_operand:DI 2 "reg_or_0_operand" "")]
   ""
 {
-  /* Our instruction interleaves opposite of the way vec_interleave
-     works, so we need to reverse the source operands.  */
+  /* For little endian, our instruction interleaves opposite of the
+     way vec_interleave works, so we need to reverse the source
+     operands.  */
+  rtx opnd1 = BYTES_BIG_ENDIAN ? operands[1] : operands[2];
+  rtx opnd2 = BYTES_BIG_ENDIAN ? operands[2] : operands[1];
   tilegx_expand_builtin_vector_binop (gen_vec_interleave_highv4hi, V4HImode,
-                                      operands[0], V4HImode, operands[2],
-				      operands[1], true);
+                                      operands[0], V4HImode, opnd1, opnd2,
+				      true);
   DONE;
 })
 
@@ -4507,14 +4625,40 @@
 ;;    {B3,B2,B1,B0} {A3,A2,A1,A0}
 ;; => {A3,A2,A1,A0,B3,B2,B1,B0}
 ;; => {A1,B1,A0,B0}
-(define_insn "vec_interleave_lowv4hi"
+(define_expand "vec_interleave_lowv4hi"
+  [(match_operand:V4HI 0 "register_operand" "")
+   (match_operand:V4HI 1 "reg_or_0_operand" "")
+   (match_operand:V4HI 2 "reg_or_0_operand" "")]
+  ""
+{
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen_vec_interleave_lowv4hi_be (operands[0], operands[1],
+					      operands[2]));
+  else
+    emit_insn (gen_vec_interleave_lowv4hi_le (operands[0], operands[1],
+					      operands[2]));
+  DONE;
+})
+
+(define_insn "vec_interleave_lowv4hi_be"
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
+	(vec_select:V4HI
+	 (vec_concat:V8HI (match_operand:V4HI 1 "reg_or_0_operand" "rO")
+			  (match_operand:V4HI 2 "reg_or_0_operand" "rO"))
+	 (parallel [(const_int 2) (const_int 6)
+		    (const_int 3) (const_int 7)])))]
+  "BYTES_BIG_ENDIAN"
+  "v2int_l\t%0, %r1, %r2"
+  [(set_attr "type" "X01")])
+
+(define_insn "vec_interleave_lowv4hi_le"
   [(set (match_operand:V4HI 0 "register_operand" "=r")
 	(vec_select:V4HI
 	 (vec_concat:V8HI (match_operand:V4HI 1 "reg_or_0_operand" "rO")
 			  (match_operand:V4HI 2 "reg_or_0_operand" "rO"))
 	 (parallel [(const_int 0) (const_int 4)
 		    (const_int 1) (const_int 5)])))]
-  ""
+  "!BYTES_BIG_ENDIAN"
   "v2int_l\t%0, %r2, %r1"
   [(set_attr "type" "X01")])
 
@@ -4524,9 +4668,14 @@
    (match_operand:DI 2 "reg_or_0_operand" "")]
   ""
 {
+  /* For little endian, our instruction interleaves opposite of the
+     way vec_interleave works, so we need to reverse the source
+     operands.  */
+  rtx opnd1 = BYTES_BIG_ENDIAN ? operands[1] : operands[2];
+  rtx opnd2 = BYTES_BIG_ENDIAN ? operands[2] : operands[1];
   tilegx_expand_builtin_vector_binop (gen_vec_interleave_lowv4hi, V4HImode,
-                                      operands[0], V4HImode, operands[2],
-				      operands[1], true);
+                                      operands[0], V4HImode, opnd1, opnd2,
+				      true);
   DONE;
 })
 
@@ -4534,13 +4683,38 @@
 ;;    {B1,B0} {A1,A0}
 ;; => {A1,A0,B1,B0}
 ;; => {A1,B1}
-(define_insn "vec_interleave_highv2si"
+(define_expand "vec_interleave_highv2si"
+  [(match_operand:V2SI 0 "register_operand" "")
+   (match_operand:V2SI 1 "reg_or_0_operand" "")
+   (match_operand:V2SI 2 "reg_or_0_operand" "")]
+  ""
+{
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen_vec_interleave_highv2si_be (operands[0], operands[1],
+					       operands[2]));
+  else
+    emit_insn (gen_vec_interleave_highv2si_le (operands[0], operands[1],
+					       operands[2]));
+  DONE;
+})
+
+(define_insn "vec_interleave_highv2si_be"
+  [(set (match_operand:V2SI 0 "register_operand" "=r")
+	(vec_select:V2SI
+	 (vec_concat:V4SI (match_operand:V2SI 1 "reg_or_0_operand" "rO")
+			  (match_operand:V2SI 2 "reg_or_0_operand" "rO"))
+	 (parallel [(const_int 0) (const_int 2)])))]
+  "BYTES_BIG_ENDIAN"
+  "v4int_h\t%0, %r1, %r2"
+  [(set_attr "type" "X01")])
+
+(define_insn "vec_interleave_highv2si_le"
   [(set (match_operand:V2SI 0 "register_operand" "=r")
 	(vec_select:V2SI
 	 (vec_concat:V4SI (match_operand:V2SI 1 "reg_or_0_operand" "rO")
 			  (match_operand:V2SI 2 "reg_or_0_operand" "rO"))
 	 (parallel [(const_int 1) (const_int 3)])))]
-  ""
+  "!BYTES_BIG_ENDIAN"
   "v4int_h\t%0, %r2, %r1"
   [(set_attr "type" "X01")])
 
@@ -4550,11 +4724,14 @@
    (match_operand:DI 2 "reg_or_0_operand" "")]
   ""
 {
-  /* Our instruction interleaves opposite of the way vec_interleave
-     works, so we need to reverse the source operands.  */
+  /* For little endian, our instruction interleaves opposite of the
+     way vec_interleave works, so we need to reverse the source
+     operands.  */
+  rtx opnd1 = BYTES_BIG_ENDIAN ? operands[1] : operands[2];
+  rtx opnd2 = BYTES_BIG_ENDIAN ? operands[2] : operands[1];
   tilegx_expand_builtin_vector_binop (gen_vec_interleave_highv2si, V2SImode,
-                                      operands[0], V2SImode, operands[2],
-				      operands[1], true);
+                                      operands[0], V2SImode, opnd1, opnd2,
+				      true);
   DONE;
 })
 
@@ -4562,13 +4739,38 @@
 ;;    {B1,B0} {A1,A0}
 ;; => {A1,A0,B1,B0}
 ;; => {A0,B0}
-(define_insn "vec_interleave_lowv2si"
+(define_expand "vec_interleave_lowv2si"
+  [(match_operand:V2SI 0 "register_operand" "")
+   (match_operand:V2SI 1 "reg_or_0_operand" "")
+   (match_operand:V2SI 2 "reg_or_0_operand" "")]
+  ""
+{
+  if (BYTES_BIG_ENDIAN)
+    emit_insn (gen_vec_interleave_lowv2si_be (operands[0], operands[1],
+					      operands[2]));
+  else
+    emit_insn (gen_vec_interleave_lowv2si_le (operands[0], operands[1],
+					      operands[2]));
+  DONE;
+})
+
+(define_insn "vec_interleave_lowv2si_be"
+  [(set (match_operand:V2SI 0 "register_operand" "=r")
+	(vec_select:V2SI
+	 (vec_concat:V4SI (match_operand:V2SI 1 "reg_or_0_operand" "rO")
+			  (match_operand:V2SI 2 "reg_or_0_operand" "rO"))
+	 (parallel [(const_int 1) (const_int 3)])))]
+  "BYTES_BIG_ENDIAN"
+  "v4int_l\t%0, %r1, %r2"
+  [(set_attr "type" "X01")])
+
+(define_insn "vec_interleave_lowv2si_le"
   [(set (match_operand:V2SI 0 "register_operand" "=r")
 	(vec_select:V2SI
 	 (vec_concat:V4SI (match_operand:V2SI 1 "reg_or_0_operand" "rO")
 			  (match_operand:V2SI 2 "reg_or_0_operand" "rO"))
 	 (parallel [(const_int 0) (const_int 2)])))]
-  ""
+  "!BYTES_BIG_ENDIAN"
   "v4int_l\t%0, %r2, %r1"
   [(set_attr "type" "X01")])
 
@@ -4578,11 +4780,14 @@
    (match_operand:DI 2 "reg_or_0_operand" "")]
   ""
 {
-  /* Our instruction interleaves opposite of the way vec_interleave
-     works, so we need to reverse the source operands.  */
+  /* For little endian, our instruction interleaves opposite of the
+     way vec_interleave works, so we need to reverse the source
+     operands.  */
+  rtx opnd1 = BYTES_BIG_ENDIAN ? operands[1] : operands[2];
+  rtx opnd2 = BYTES_BIG_ENDIAN ? operands[2] : operands[1];
   tilegx_expand_builtin_vector_binop (gen_vec_interleave_lowv2si, V2SImode,
-                                      operands[0], V2SImode, operands[2],
-				      operands[1], true);
+                                      operands[0], V2SImode, opnd1, opnd2,
+				      true);
   DONE;
 })
 
@@ -4828,7 +5033,7 @@
 ;;    {B3,B2,B1,B0} {A3,A2,A1,A0}
 ;; => {A3,A2,A1,A0,B3,B2,B1,B0}
 (define_insn "vec_pack_<pack_optab>_v4hi"
-  [(set (match_operand:V8QI 0 "reg_or_0_operand" "=r")
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
 	(vec_concat:V8QI
 	 (v2pack:V4QI (match_operand:V4HI 1 "reg_or_0_operand" "rO"))
 	 (v2pack:V4QI (match_operand:V4HI 2 "reg_or_0_operand" "rO"))))]
@@ -4837,7 +5042,7 @@
   [(set_attr "type" "X01")])
 
 (define_expand "insn_v2<pack_insn>"
-  [(set (match_operand:DI 0 "reg_or_0_operand" "")
+  [(set (match_operand:DI 0 "register_operand" "")
 	(vec_concat:V8QI
 	 (v2pack:V4QI (match_operand:DI 2 "reg_or_0_operand" ""))
 	 (v2pack:V4QI (match_operand:DI 1 "reg_or_0_operand" ""))))]
@@ -4855,7 +5060,7 @@
 ;;    {B3,B2,B1,B0} {A3,A2,A1,A0}
 ;; => {A3_hi,A2_hi,A1_hi,A0_hi,B3_hi,B2_hi,B1_hi,B0_hi}
 (define_insn "vec_pack_hipart_v4hi"
-  [(set (match_operand:V8QI 0 "reg_or_0_operand" "=r")
+  [(set (match_operand:V8QI 0 "register_operand" "=r")
 	(vec_concat:V8QI
 	 (truncate:V4QI
 	  (ashiftrt:V4HI (match_operand:V4HI 1 "reg_or_0_operand" "rO")
@@ -4868,7 +5073,7 @@
   [(set_attr "type" "X01")])
 
 (define_expand "insn_v2packh"
-  [(set (match_operand:DI 0 "reg_or_0_operand" "")
+  [(set (match_operand:DI 0 "register_operand" "")
 	(vec_concat:V8QI
 	 (truncate:V4QI
 	  (ashiftrt:V4HI (match_operand:DI 2 "reg_or_0_operand" "")
@@ -4890,7 +5095,7 @@
 ;;    {B1,B0} {A1,A0}
 ;; => {A1,A0,B1,B0}
 (define_insn "vec_pack_ssat_v2si"
-  [(set (match_operand:V4HI 0 "reg_or_0_operand" "=r")
+  [(set (match_operand:V4HI 0 "register_operand" "=r")
 	(vec_concat:V4HI
 	 (us_truncate:V2HI (match_operand:V2SI 1 "reg_or_0_operand" "rO"))
 	 (us_truncate:V2HI (match_operand:V2SI 2 "reg_or_0_operand" "rO"))))]
@@ -4899,7 +5104,7 @@
   [(set_attr "type" "X01")])
 
 (define_expand "insn_v4packsc"
-  [(set (match_operand:DI 0 "reg_or_0_operand" "")
+  [(set (match_operand:DI 0 "register_operand" "")
 	(vec_concat:V4HI
 	 (us_truncate:V2HI (match_operand:DI 2 "reg_or_0_operand" ""))
 	 (us_truncate:V2HI (match_operand:DI 1 "reg_or_0_operand" ""))))]
@@ -5171,10 +5376,8 @@
 
 ;; Network intrinsics
 
-;; Note the "pseudo" text is handled specially by the
-;; asm_output_opcode routine.  If the output is an empty string, the
-;; instruction would bypass the asm_output_opcode routine, bypassing
-;; the bundle handling code.
+;; Note the this barrier is of type "nothing," which is deleted after
+;; the final scheduling pass so that nothing is emitted for it.
 (define_insn "tilegx_network_barrier"
   [(unspec_volatile:SI [(const_int 0)] UNSPEC_NETWORK_BARRIER)]
   ""

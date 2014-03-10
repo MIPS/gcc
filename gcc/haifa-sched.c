@@ -1,5 +1,5 @@
 /* Instruction scheduling pass.
-   Copyright (C) 1992-2013 Free Software Foundation, Inc.
+   Copyright (C) 1992-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com) Enhanced by,
    and currently maintained by, Jim Wilson (wilson@cygnus.com)
 
@@ -1615,7 +1615,7 @@ priority (rtx insn)
 
           /* Selective scheduling does not define RECOVERY_BLOCK macro.  */
 	  rec = sel_sched_p () ? NULL : RECOVERY_BLOCK (insn);
-	  if (!rec || rec == EXIT_BLOCK_PTR)
+	  if (!rec || rec == EXIT_BLOCK_PTR_FOR_FN (cfun))
 	    {
 	      prev_first = PREV_INSN (insn);
 	      twin = insn;
@@ -4223,7 +4223,7 @@ undo_replacements_for_backtrack (struct haifa_saved_data *save)
 static void
 unschedule_insns_until (rtx insn)
 {
-  vec<rtx> recompute_vec = vNULL;
+  auto_vec<rtx> recompute_vec;
 
   /* Make two passes over the insns to be unscheduled.  First, we clear out
      dependencies and other trivial bookkeeping.  */
@@ -4281,7 +4281,6 @@ unschedule_insns_until (rtx insn)
       else if (QUEUE_INDEX (con) != QUEUE_SCHEDULED)
 	TODO_SPEC (con) = recompute_todo_spec (con, true);
     }
-  recompute_vec.release ();
 }
 
 /* Restore scheduler state from the topmost entry on the backtracking queue.
@@ -6554,48 +6553,52 @@ setup_sched_dump (void)
 		? stderr : dump_file);
 }
 
-/* Try to group comparison and the following conditional jump INSN if
-   they're already adjacent. This is to prevent scheduler from scheduling
-   them apart.  */
-
+/* Allocate data for register pressure sensitive scheduling.  */
 static void
-try_group_insn (rtx insn)
+alloc_global_sched_pressure_data (void)
 {
-  unsigned int condreg1, condreg2;
-  rtx cc_reg_1;
-  rtx prev;
+  if (sched_pressure != SCHED_PRESSURE_NONE)
+    {
+      int i, max_regno = max_reg_num ();
 
-  if (!any_condjump_p (insn))
-    return;
-
-  targetm.fixed_condition_code_regs (&condreg1, &condreg2);
-  cc_reg_1 = gen_rtx_REG (CCmode, condreg1);
-  prev = prev_nonnote_nondebug_insn (insn);
-  if (!reg_referenced_p (cc_reg_1, PATTERN (insn))
-      || !prev
-      || !modified_in_p (cc_reg_1, prev))
-    return;
-
-  /* Different microarchitectures support macro fusions for different
-     combinations of insn pairs.  */
-  if (!targetm.sched.macro_fusion_pair_p
-      || !targetm.sched.macro_fusion_pair_p (prev, insn))
-    return;
-
-  SCHED_GROUP_P (insn) = 1;
+      if (sched_dump != NULL)
+	/* We need info about pseudos for rtl dumps about pseudo
+	   classes and costs.  */
+	regstat_init_n_sets_and_refs ();
+      ira_set_pseudo_classes (true, sched_verbose ? sched_dump : NULL);
+      sched_regno_pressure_class
+	= (enum reg_class *) xmalloc (max_regno * sizeof (enum reg_class));
+      for (i = 0; i < max_regno; i++)
+	sched_regno_pressure_class[i]
+	  = (i < FIRST_PSEUDO_REGISTER
+	     ? ira_pressure_class_translate[REGNO_REG_CLASS (i)]
+	     : ira_pressure_class_translate[reg_allocno_class (i)]);
+      curr_reg_live = BITMAP_ALLOC (NULL);
+      if (sched_pressure == SCHED_PRESSURE_WEIGHTED)
+	{
+	  saved_reg_live = BITMAP_ALLOC (NULL);
+	  region_ref_regs = BITMAP_ALLOC (NULL);
+	}
+    }
 }
 
-/* If the last cond jump and the cond register defining insn are consecutive
-   before scheduling, we want them to be in a schedule group. This is good
-   for performance on microarchitectures supporting macro-fusion.  */
-
-static void
-group_insns_for_macro_fusion ()
+/*  Free data for register pressure sensitive scheduling.  Also called
+    from schedule_region when stopping sched-pressure early.  */
+void
+free_global_sched_pressure_data (void)
 {
-  basic_block bb;
-
-  FOR_EACH_BB (bb)
-    try_group_insn (BB_END (bb));
+  if (sched_pressure != SCHED_PRESSURE_NONE)
+    {
+      if (regstat_n_sets_and_refs != NULL)
+	regstat_free_n_sets_and_refs ();
+      if (sched_pressure == SCHED_PRESSURE_WEIGHTED)
+	{
+	  BITMAP_FREE (region_ref_regs);
+	  BITMAP_FREE (saved_reg_live);
+	}
+      BITMAP_FREE (curr_reg_live);
+      free (sched_regno_pressure_class);
+    }
 }
 
 /* Initialize some global state for the scheduler.  This function works
@@ -6624,7 +6627,7 @@ sched_init (void)
     sched_pressure = SCHED_PRESSURE_NONE;
 
   if (sched_pressure != SCHED_PRESSURE_NONE)
-    ira_setup_eliminable_regset (false);
+    ira_setup_eliminable_regset ();
 
   /* Initialize SPEC_INFO.  */
   if (targetm.sched.set_sched_flags)
@@ -6701,36 +6704,9 @@ sched_init (void)
   if (targetm.sched.init_global)
     targetm.sched.init_global (sched_dump, sched_verbose, get_max_uid () + 1);
 
-  if (sched_pressure != SCHED_PRESSURE_NONE)
-    {
-      int i, max_regno = max_reg_num ();
-
-      if (sched_dump != NULL)
-	/* We need info about pseudos for rtl dumps about pseudo
-	   classes and costs.  */
-	regstat_init_n_sets_and_refs ();
-      ira_set_pseudo_classes (true, sched_verbose ? sched_dump : NULL);
-      sched_regno_pressure_class
-	= (enum reg_class *) xmalloc (max_regno * sizeof (enum reg_class));
-      for (i = 0; i < max_regno; i++)
-	sched_regno_pressure_class[i]
-	  = (i < FIRST_PSEUDO_REGISTER
-	     ? ira_pressure_class_translate[REGNO_REG_CLASS (i)]
-	     : ira_pressure_class_translate[reg_allocno_class (i)]);
-      curr_reg_live = BITMAP_ALLOC (NULL);
-      if (sched_pressure == SCHED_PRESSURE_WEIGHTED)
-	{
-	  saved_reg_live = BITMAP_ALLOC (NULL);
-	  region_ref_regs = BITMAP_ALLOC (NULL);
-	}
-    }
+  alloc_global_sched_pressure_data ();
 
   curr_state = xmalloc (dfa_state_size);
-
-  /* Group compare and branch insns for macro-fusion.  */
-  if (targetm.sched.macro_fusion_p
-      && targetm.sched.macro_fusion_p ())
-    group_insns_for_macro_fusion ();
 }
 
 static void haifa_init_only_bb (basic_block, basic_block);
@@ -6754,12 +6730,12 @@ haifa_sched_init (void)
      whole function.  */
   {
     bb_vec_t bbs;
-    bbs.create (n_basic_blocks);
+    bbs.create (n_basic_blocks_for_fn (cfun));
     basic_block bb;
 
     sched_init_bbs ();
 
-    FOR_EACH_BB (bb)
+    FOR_EACH_BB_FN (bb, cfun)
       bbs.quick_push (bb);
     sched_init_luids (bbs);
     sched_deps_init (true);
@@ -6827,18 +6803,7 @@ void
 sched_finish (void)
 {
   haifa_finish_h_i_d ();
-  if (sched_pressure != SCHED_PRESSURE_NONE)
-    {
-      if (regstat_n_sets_and_refs != NULL)
-	regstat_free_n_sets_and_refs ();
-      if (sched_pressure == SCHED_PRESSURE_WEIGHTED)
-	{
-	  BITMAP_FREE (region_ref_regs);
-	  BITMAP_FREE (saved_reg_live);
-	}
-      BITMAP_FREE (curr_reg_live);
-      free (sched_regno_pressure_class);
-    }
+  free_global_sched_pressure_data ();
   free (curr_state);
 
   if (targetm.sched.finish_global)
@@ -7522,7 +7487,7 @@ static void
 sched_extend_bb (void)
 {
   /* The following is done to keep current_sched_info->next_tail non null.  */
-  rtx end = BB_END (EXIT_BLOCK_PTR->prev_bb);
+  rtx end = BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb);
   rtx insn = DEBUG_INSN_P (end) ? prev_nondebug_insn (end) : end;
   if (NEXT_INSN (end) == 0
       || (!NOTE_P (insn)
@@ -7533,7 +7498,7 @@ sched_extend_bb (void)
       rtx note = emit_note_after (NOTE_INSN_DELETED, end);
       /* Make note appear outside BB.  */
       set_block_for_insn (note, NULL);
-      BB_END (EXIT_BLOCK_PTR->prev_bb) = end;
+      BB_END (EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb) = end;
     }
 }
 
@@ -7551,7 +7516,7 @@ init_before_recovery (basic_block *before_recovery_ptr)
   basic_block last;
   edge e;
 
-  last = EXIT_BLOCK_PTR->prev_bb;
+  last = EXIT_BLOCK_PTR_FOR_FN (cfun)->prev_bb;
   e = find_fallthru_edge_from (last);
 
   if (e)
@@ -7591,7 +7556,8 @@ init_before_recovery (basic_block *before_recovery_ptr)
 
       redirect_edge_succ (e, single);
       make_single_succ_edge (single, empty, 0);
-      make_single_succ_edge (empty, EXIT_BLOCK_PTR, EDGE_FALLTHRU);
+      make_single_succ_edge (empty, EXIT_BLOCK_PTR_FOR_FN (cfun),
+			     EDGE_FALLTHRU);
 
       label = block_label (empty);
       x = emit_jump_insn_after (gen_jump (label), BB_END (single));
@@ -7734,14 +7700,14 @@ create_check_block_twin (rtx insn, bool mutate_p)
     }
   else
     {
-      rec = EXIT_BLOCK_PTR;
+      rec = EXIT_BLOCK_PTR_FOR_FN (cfun);
       label = NULL_RTX;
     }
 
   /* Emit CHECK.  */
   check = targetm.sched.gen_spec_check (insn, label, todo_spec);
 
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       /* To have mem_reg alive at the beginning of second_bb,
 	 we emit check BEFORE insn, so insn after splitting
@@ -7774,7 +7740,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
 
   /* Initialize TWIN (twin is a duplicate of original instruction
      in the recovery block).  */
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       sd_iterator_def sd_it;
       dep_t dep;
@@ -7811,7 +7777,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
      provide correct value for INSN_TICK (TWIN).  */
   sd_copy_back_deps (twin, insn, true);
 
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     /* In case of branchy check, fix CFG.  */
     {
       basic_block first_bb, second_bb;
@@ -7823,7 +7789,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       sched_create_recovery_edges (first_bb, rec, second_bb);
 
       sched_init_only_bb (second_bb, first_bb);
-      sched_init_only_bb (rec, EXIT_BLOCK_PTR);
+      sched_init_only_bb (rec, EXIT_BLOCK_PTR_FOR_FN (cfun));
 
       jump = BB_END (rec);
       haifa_init_insn (jump);
@@ -7864,7 +7830,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
       init_dep_1 (new_dep, pro, check, DEP_TYPE (dep), ds);
       sd_add_dep (new_dep, false);
 
-      if (rec != EXIT_BLOCK_PTR)
+      if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
 	{
 	  DEP_CON (new_dep) = twin;
 	  sd_add_dep (new_dep, false);
@@ -7913,7 +7879,7 @@ create_check_block_twin (rtx insn, bool mutate_p)
   /* Future speculations: call the helper.  */
   process_insn_forw_deps_be_in_spec (insn, twin, fs);
 
-  if (rec != EXIT_BLOCK_PTR)
+  if (rec != EXIT_BLOCK_PTR_FOR_FN (cfun))
     {
       /* Which types of dependencies should we use here is,
 	 generally, machine-dependent question...  But, for now,
@@ -8124,10 +8090,10 @@ unlink_bb_notes (basic_block first, basic_block last)
   if (first == last)
     return;
 
-  bb_header = XNEWVEC (rtx, last_basic_block);
+  bb_header = XNEWVEC (rtx, last_basic_block_for_fn (cfun));
 
   /* Make a sentinel.  */
-  if (last->next_bb != EXIT_BLOCK_PTR)
+  if (last->next_bb != EXIT_BLOCK_PTR_FOR_FN (cfun))
     bb_header[last->next_bb->index] = 0;
 
   first = first->next_bb;
@@ -8171,7 +8137,7 @@ restore_bb_notes (basic_block first)
   first = first->next_bb;
   /* Remember: FIRST is actually a second basic block in the ebb.  */
 
-  while (first != EXIT_BLOCK_PTR
+  while (first != EXIT_BLOCK_PTR_FOR_FN (cfun)
 	 && bb_header[first->index])
     {
       rtx prev, label, note, next;

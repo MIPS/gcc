@@ -174,6 +174,31 @@ package body Aspects is
       return True;
    end Aspects_On_Body_Or_Stub_OK;
 
+   ----------------------
+   -- Exchange_Aspects --
+   ----------------------
+
+   procedure Exchange_Aspects (N1 : Node_Id; N2 : Node_Id) is
+   begin
+      pragma Assert
+        (Permits_Aspect_Specifications (N1)
+           and then Permits_Aspect_Specifications (N2));
+
+      --  Perform the exchange only when both nodes have lists to be swapped
+
+      if Has_Aspects (N1) and then Has_Aspects (N2) then
+         declare
+            L1 : constant List_Id := Aspect_Specifications (N1);
+            L2 : constant List_Id := Aspect_Specifications (N2);
+         begin
+            Set_Parent (L1, N2);
+            Set_Parent (L2, N1);
+            Aspect_Specifications_Hash_Table.Set (N1, L2);
+            Aspect_Specifications_Hash_Table.Set (N2, L1);
+         end;
+      end if;
+   end Exchange_Aspects;
+
    -----------------
    -- Find_Aspect --
    -----------------
@@ -310,22 +335,86 @@ package body Aspects is
    ---------------------------
 
    procedure Move_Or_Merge_Aspects (From : Node_Id; To : Node_Id) is
-   begin
-      if Has_Aspects (From) then
+      procedure Relocate_Aspect (Asp : Node_Id);
+      --  Asp denotes an aspect specification of node From. Relocate the Asp to
+      --  the aspect specifications of node To (if any).
 
-         --  Merge the aspects of From into To. Make sure that From has no
-         --  aspects after the merge takes place.
+      ---------------------
+      -- Relocate_Aspect --
+      ---------------------
 
+      procedure Relocate_Aspect (Asp : Node_Id) is
+         Asps : List_Id;
+
+      begin
          if Has_Aspects (To) then
-            Append_List
-              (List => Aspect_Specifications (From),
-               To   => Aspect_Specifications (To));
-            Remove_Aspects (From);
+            Asps := Aspect_Specifications (To);
 
-         --  Otherwise simply move the aspects
+         --  Create a new aspect specification list for node To
 
          else
-            Move_Aspects (From => From, To => To);
+            Asps := New_List;
+            Set_Aspect_Specifications (To, Asps);
+            Set_Has_Aspects (To);
+         end if;
+
+         --  Remove the aspect from node From's aspect specifications and
+         --  append it to node To.
+
+         Remove (Asp);
+         Append (Asp, Asps);
+      end Relocate_Aspect;
+
+      --  Local variables
+
+      Asp      : Node_Id;
+      Asp_Id   : Aspect_Id;
+      Next_Asp : Node_Id;
+
+   --  Start of processing for Move_Or_Merge_Aspects
+
+   begin
+      if Has_Aspects (From) then
+         Asp := First (Aspect_Specifications (From));
+         while Present (Asp) loop
+
+            --  Store the next aspect now as a potential relocation will alter
+            --  the contents of the list.
+
+            Next_Asp := Next (Asp);
+
+            --  When moving or merging aspects from a subprogram body stub that
+            --  also acts as a spec, relocate only those aspects that may apply
+            --  to a body [stub]. Note that a precondition must also be moved
+            --  to the proper body as the pre/post machinery expects it to be
+            --  there.
+
+            if Nkind (From) = N_Subprogram_Body_Stub
+              and then No (Corresponding_Spec_Of_Stub (From))
+            then
+               Asp_Id := Get_Aspect_Id (Asp);
+
+               if Aspect_On_Body_Or_Stub_OK (Asp_Id)
+                 or else Asp_Id = Aspect_Pre
+                 or else Asp_Id = Aspect_Precondition
+               then
+                  Relocate_Aspect (Asp);
+               end if;
+
+            --  Default case - relocate the aspect to its new owner
+
+            else
+               Relocate_Aspect (Asp);
+            end if;
+
+            Asp := Next_Asp;
+         end loop;
+
+         --  The relocations may have left node From's aspect specifications
+         --  list empty. If this is the case, simply remove the aspects.
+
+         if Is_Empty_List (Aspect_Specifications (From)) then
+            Remove_Aspects (From);
          end if;
       end if;
    end Move_Or_Merge_Aspects;
@@ -403,17 +492,16 @@ package body Aspects is
    Canonical_Aspect : constant array (Aspect_Id) of Aspect_Id :=
    (No_Aspect                           => No_Aspect,
     Aspect_Abstract_State               => Aspect_Abstract_State,
-    Aspect_Ada_2005                     => Aspect_Ada_2005,
-    Aspect_Ada_2012                     => Aspect_Ada_2005,
     Aspect_Address                      => Aspect_Address,
     Aspect_Alignment                    => Aspect_Alignment,
     Aspect_All_Calls_Remote             => Aspect_All_Calls_Remote,
+    Aspect_Async_Readers                => Aspect_Async_Readers,
+    Aspect_Async_Writers                => Aspect_Async_Writers,
     Aspect_Asynchronous                 => Aspect_Asynchronous,
     Aspect_Atomic                       => Aspect_Atomic,
     Aspect_Atomic_Components            => Aspect_Atomic_Components,
     Aspect_Attach_Handler               => Aspect_Attach_Handler,
     Aspect_Bit_Order                    => Aspect_Bit_Order,
-    Aspect_Compiler_Unit                => Aspect_Compiler_Unit,
     Aspect_Component_Size               => Aspect_Component_Size,
     Aspect_Constant_Indexing            => Aspect_Constant_Indexing,
     Aspect_Contract_Cases               => Aspect_Contract_Cases,
@@ -428,6 +516,8 @@ package body Aspects is
     Aspect_Discard_Names                => Aspect_Discard_Names,
     Aspect_Dispatching_Domain           => Aspect_Dispatching_Domain,
     Aspect_Dynamic_Predicate            => Aspect_Predicate,
+    Aspect_Effective_Reads              => Aspect_Effective_Reads,
+    Aspect_Effective_Writes             => Aspect_Effective_Writes,
     Aspect_Elaborate_Body               => Aspect_Elaborate_Body,
     Aspect_Export                       => Aspect_Export,
     Aspect_External_Name                => Aspect_External_Name,
@@ -446,14 +536,17 @@ package body Aspects is
     Aspect_Interrupt_Handler            => Aspect_Interrupt_Handler,
     Aspect_Interrupt_Priority           => Aspect_Priority,
     Aspect_Invariant                    => Aspect_Invariant,
+    Aspect_Iterable                     => Aspect_Iterable,
     Aspect_Iterator_Element             => Aspect_Iterator_Element,
     Aspect_Link_Name                    => Aspect_Link_Name,
+    Aspect_Linker_Section               => Aspect_Linker_Section,
     Aspect_Lock_Free                    => Aspect_Lock_Free,
     Aspect_Machine_Radix                => Aspect_Machine_Radix,
     Aspect_No_Return                    => Aspect_No_Return,
     Aspect_Object_Size                  => Aspect_Object_Size,
     Aspect_Output                       => Aspect_Output,
     Aspect_Pack                         => Aspect_Pack,
+    Aspect_Part_Of                      => Aspect_Part_Of,
     Aspect_Persistent_BSS               => Aspect_Persistent_BSS,
     Aspect_Post                         => Aspect_Post,
     Aspect_Postcondition                => Aspect_Post,
@@ -461,12 +554,9 @@ package body Aspects is
     Aspect_Precondition                 => Aspect_Pre,
     Aspect_Predicate                    => Aspect_Predicate,
     Aspect_Preelaborate                 => Aspect_Preelaborate,
-    Aspect_Preelaborate_05              => Aspect_Preelaborate_05,
     Aspect_Preelaborable_Initialization => Aspect_Preelaborable_Initialization,
     Aspect_Priority                     => Aspect_Priority,
     Aspect_Pure                         => Aspect_Pure,
-    Aspect_Pure_05                      => Aspect_Pure_05,
-    Aspect_Pure_12                      => Aspect_Pure_12,
     Aspect_Pure_Function                => Aspect_Pure_Function,
     Aspect_Refined_Depends              => Aspect_Refined_Depends,
     Aspect_Refined_Global               => Aspect_Refined_Global,

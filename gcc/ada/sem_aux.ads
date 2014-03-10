@@ -90,12 +90,10 @@ package Sem_Aux is
    --  subtype then it returns the subtype or type from which the subtype was
    --  obtained, otherwise it returns Empty.
 
-   function Available_View (Typ : Entity_Id) return Entity_Id;
-   --  Typ is typically a type that has the With_Type flag set. Returns the
-   --  non-limited view of the type, if available, otherwise the type itself.
-   --  For class-wide types, there is no direct link in the tree, so we have
-   --  to retrieve the class-wide type of the non-limited view of the Etype.
-   --  Returns the argument unchanged if it is not one of these cases.
+   function Available_View (Ent : Entity_Id) return Entity_Id;
+   --  Ent denotes an abstract state or a type that may come from a limited
+   --  with clause. Return the non-limited view of Ent if there is one or Ent
+   --  if this is not the case.
 
    function Constant_Value (Ent : Entity_Id) return Node_Id;
    --  Ent is a variable, constant, named integer, or named real entity. This
@@ -104,6 +102,11 @@ package Sem_Aux is
    --  in some other cases of internal entities, which cannot be treated as
    --  constants from the point of view of constant folding. Empty is also
    --  returned for variables with no initialization expression.
+
+   function Corresponding_Unsigned_Type (Typ : Entity_Id) return Entity_Id;
+   --  Typ is a signed integer subtype. This routine returns the standard
+   --  unsigned type with the same Esize as the implementation base type of
+   --  Typ, e.g. Long_Integer => Long_Unsigned.
 
    function Enclosing_Dynamic_Scope (Ent : Entity_Id) return Entity_Id;
    --  For any entity, Ent, returns the closest dynamic scope in which the
@@ -248,6 +251,10 @@ package Sem_Aux is
    --  the given names then True is returned, otherwise False indicates that no
    --  matching entry was found.
 
+   function Has_Unconstrained_Elements (T : Entity_Id) return Boolean;
+   --  True if T has discriminants and is unconstrained, or is an array type
+   --  whose element type Has_Unconstrained_Elements.
+
    function In_Generic_Body (Id : Entity_Id) return Boolean;
    --  Determine whether entity Id appears inside a generic body
 
@@ -256,6 +263,9 @@ package Sem_Aux is
    --  Returns True if initialization should be suppressed for the given type
    --  or subtype. This is true if Suppress_Initialization is set either for
    --  the subtype itself, or for the corresponding base type.
+
+   function Is_Body (N : Node_Id) return Boolean;
+   --  Determine whether an arbitrary node denotes a body
 
    function Is_By_Copy_Type (Ent : Entity_Id) return Boolean;
    --  Ent is any entity. Returns True if Ent is a type entity where the type
@@ -272,7 +282,7 @@ package Sem_Aux is
    function Is_Generic_Formal (E : Entity_Id) return Boolean;
    --  Determine whether E is a generic formal parameter. In particular this is
    --  used to set the visibility of generic formals of a generic package
-   --  declared with a box or with partial parametrization.
+   --  declared with a box or with partial parameterization.
 
    function Is_Indefinite_Subtype (Ent : Entity_Id) return Boolean;
    --  Ent is any entity. Determines if given entity is an unconstrained array

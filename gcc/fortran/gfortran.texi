@@ -1,7 +1,7 @@
 \input texinfo  @c -*-texinfo-*-
 @c %**start of header
 @setfilename gfortran.info
-@set copyrights-gfortran 1999-2013
+@set copyrights-gfortran 1999-2014
 
 @include gcc-common.texi
 
@@ -811,9 +811,10 @@ operators bound to a type.
 @item Abstract interfaces and type extension with the possibility to
 override type-bound procedures or to have deferred binding.
 
-@item Polymorphic entities (``@code{CLASS}'') for derived types -- including
-@code{SAME_TYPE_AS}, @code{EXTENDS_TYPE_OF} and @code{SELECT TYPE} for
-scalars and arrays, including unlimited polymorphism.
+@item Polymorphic entities (``@code{CLASS}'') for derived types and unlimited
+polymorphism (``@code{CLASS(*)}'') -- including @code{SAME_TYPE_AS},
+@code{EXTENDS_TYPE_OF} and @code{SELECT TYPE} for scalars and arrays and
+finalization.
 
 @item Generic interface names, which have the same name as derived types,
 are now supported. This allows one to write constructor functions.  Note
@@ -838,6 +839,10 @@ used, an allocatable variable on the left-hand side is automatically allocated
 (if unallocated) or reallocated (if the shape is different). Currently, scalar
 deferred character length left-hand sides are correctly handled but arrays
 are not yet fully implemented.
+
+@item Deferred-length character variables and scalar deferred-length character
+components of derived types are supported. (Note that array-valued compoents
+are not yet implemented.)
 
 @item Transferring of allocations via @code{MOVE_ALLOC}.
 
@@ -919,9 +924,10 @@ allowing I/O without any record structure.
 @item
 Namelist input/output for internal files.
 
-@item Further I/O extensions: Rounding during formatted output, using of
+@item Minor I/O features: Rounding during formatted output, using of
 a decimal comma instead of a decimal point, setting whether a plus sign
-should appear for positive numbers.
+should appear for positive numbers. On system where @code{strtod} honours
+the rounding mode, the rounding mode is also supported for input.
 
 @item
 @cindex @code{PROTECTED} statement
@@ -1035,7 +1041,8 @@ flag.
 @item The @code{BLOCK} construct is supported.
 
 @item The @code{STOP} and the new @code{ERROR STOP} statements now
-support all constant expressions.
+support all constant expressions. Both show the signals which were signaling
+at termination.
 
 @item Support for the @code{CONTIGUOUS} attribute.
 
@@ -1134,16 +1141,19 @@ data types are:
 @table @code
 
 @item INTEGER
-1, 2, 4, 8*, 16*, default: 4 (1)
+1, 2, 4, 8*, 16*, default: 4**
 
 @item LOGICAL
-1, 2, 4, 8*, 16*, default: 4 (1)
+1, 2, 4, 8*, 16*, default: 4**
 
 @item REAL
-4, 8, 10*, 16*, default: 4 (2)
+4, 8, 10*, 16*, default: 4***
 
 @item COMPLEX
-4, 8, 10*, 16*, default: 4 (2)
+4, 8, 10*, 16*, default: 4***
+
+@item DOUBLE PRECISION
+4, 8, 10*, 16*, default: 8***
 
 @item CHARACTER
 1, 4, default: 1
@@ -1151,23 +1161,22 @@ data types are:
 @end table
 
 @noindent
-* = not available on all systems @*
-(1) Unless -fdefault-integer-8 is used @*
-(2) Unless -fdefault-real-8 is used
+* not available on all systems @*
+** unless @option{-fdefault-integer-8} is used @*
+*** unless @option{-fdefault-real-8} is used (see @ref{Fortran Dialect Options})
 
 @noindent
 The @code{KIND} value matches the storage size in bytes, except for
 @code{COMPLEX} where the storage size is twice as much (or both real and
 imaginary part are a real value of the given size).  It is recommended to use
-the @code{SELECTED_CHAR_KIND}, @code{SELECTED_INT_KIND} and
-@code{SELECTED_REAL_KIND} intrinsics or the @code{INT8}, @code{INT16},
+the @ref{SELECTED_CHAR_KIND}, @ref{SELECTED_INT_KIND} and
+@ref{SELECTED_REAL_KIND} intrinsics or the @code{INT8}, @code{INT16},
 @code{INT32}, @code{INT64}, @code{REAL32}, @code{REAL64}, and @code{REAL128}
 parameters of the @code{ISO_FORTRAN_ENV} module instead of the concrete values.
 The available kind parameters can be found in the constant arrays
 @code{CHARACTER_KINDS}, @code{INTEGER_KINDS}, @code{LOGICAL_KINDS} and
-@code{REAL_KINDS} in the @code{ISO_FORTRAN_ENV} module
-(see @ref{ISO_FORTRAN_ENV}).  For C interoperability, the kind parameters of
-the @code{ISO_C_BINDING} module should be used (see @ref{ISO_C_BINDING}).
+@code{REAL_KINDS} in the @ref{ISO_FORTRAN_ENV} module.  For C interoperability,
+the kind parameters of the @ref{ISO_C_BINDING} module should be used.
 
 
 @node Internal representation of LOGICAL variables

@@ -1,5 +1,5 @@
 /* Handle initialization things in C++.
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
    Contributed by Michael Tiemann (tiemann@cygnus.com)
 
 This file is part of GCC.
@@ -25,10 +25,11 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "stringpool.h"
+#include "varasm.h"
 #include "cp-tree.h"
 #include "flags.h"
 #include "target.h"
-#include "gimple.h"
 #include "gimplify.h"
 
 static bool begin_init_stmts (tree *, tree *);
@@ -381,7 +382,8 @@ build_value_init_noctor (tree type, tsubst_flags_t complain)
      SFINAE-enabled.  */
   if (CLASS_TYPE_P (type))
     {
-      gcc_assert (!TYPE_HAS_COMPLEX_DFLT (type));
+      gcc_assert (!TYPE_HAS_COMPLEX_DFLT (type)
+		  || errorcount != 0);
 	
       if (TREE_CODE (type) != UNION_TYPE)
 	{
@@ -397,6 +399,9 @@ build_value_init_noctor (tree type, tsubst_flags_t complain)
 		continue;
 
 	      ftype = TREE_TYPE (field);
+
+	      if (ftype == error_mark_node)
+		continue;
 
 	      /* We could skip vfields and fields of types with
 		 user-defined constructors, but I think that won't improve
@@ -1118,7 +1123,13 @@ build_vtbl_address (tree binfo)
   /* Figure out what vtable BINFO's vtable is based on, and mark it as
      used.  */
   vtbl = get_vtbl_decl_for_binfo (binfo_for);
-  TREE_USED (vtbl) = 1;
+  if (tree dtor = CLASSTYPE_DESTRUCTORS (DECL_CONTEXT (vtbl)))
+    if (!TREE_USED (vtbl) && DECL_VIRTUAL_P (dtor) && DECL_DEFAULTED_FN (dtor))
+      /* Make sure the destructor gets synthesized so that it can be
+	 inlined after devirtualization even if the vtable is never
+	 emitted.  */
+      note_vague_linkage_fn (dtor);
+  TREE_USED (vtbl) = true;
 
   /* Now compute the address to use when initializing the vptr.  */
   vtbl = unshare_expr (BINFO_VTABLE (binfo_for));
@@ -1506,7 +1517,8 @@ build_aggr_init (tree exp, tree init, int flags, tsubst_flags_t complain)
       TREE_READONLY (exp) = was_const;
       TREE_THIS_VOLATILE (exp) = was_volatile;
       TREE_TYPE (exp) = type;
-      if (init)
+      /* Restore the type of init unless it was used directly.  */
+      if (init && TREE_CODE (stmt_expr) != INIT_EXPR)
 	TREE_TYPE (init) = itype;
       return stmt_expr;
     }
@@ -2273,6 +2285,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
      is therefore reusable.  */
   tree data_addr;
   tree init_preeval_expr = NULL_TREE;
+  tree orig_type = type;
 
   if (nelts)
     {
@@ -2317,8 +2330,8 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	{
 	  if (complain & tf_error)
 	    {
-	      error_at (EXPR_LOC_OR_HERE (inner_nelts),
-			"array size in operator new must be constant");
+	      error_at (EXPR_LOC_OR_LOC (inner_nelts, input_location),
+			"array size in new-expression must be constant");
 	      cxx_constant_value(inner_nelts);
 	    }
 	  nelts = error_mark_node;
@@ -2332,7 +2345,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 
   if (variably_modified_type_p (elt_type, NULL_TREE) && (complain & tf_error))
     {
-      error ("variably modified type not allowed in operator new");
+      error ("variably modified type not allowed in new-expression");
       return error_mark_node;
     }
 
@@ -2345,8 +2358,17 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
       && !TREE_CONSTANT (maybe_constant_value (outer_nelts)))
     {
       if (complain & tf_warning_or_error)
-	pedwarn(EXPR_LOC_OR_HERE (outer_nelts), OPT_Wvla,
-		"ISO C++ does not support variable-length array types");
+	{
+	  const char *msg;
+	  if (typedef_variant_p (orig_type))
+	    msg = ("non-constant array new length must be specified "
+		   "directly, not by typedef");
+	  else
+	    msg = ("non-constant array new length must be specified "
+		   "without parentheses around the type-id");
+	  pedwarn (EXPR_LOC_OR_LOC (outer_nelts, input_location),
+		   OPT_Wvla, msg);
+	}
       else
 	return error_mark_node;
     }
@@ -2527,7 +2549,7 @@ build_new_1 (vec<tree, va_gc> **placement, tree type, tree nelts,
 	    }
 	  /* Perform the overflow check.  */
 	  tree errval = TYPE_MAX_VALUE (sizetype);
-	  if (cxx_dialect >= cxx11)
+	  if (cxx_dialect >= cxx11 && flag_exceptions)
 	    errval = throw_bad_array_new_length ();
 	  if (outer_nelts_check != NULL_TREE)
             size = fold_build3 (COND_EXPR, sizetype, outer_nelts_check,
@@ -3397,7 +3419,8 @@ build_vec_init (tree base, tree maxindex, tree init,
      is big enough for all the initializers.  */
   if (init && TREE_CODE (init) == CONSTRUCTOR
       && CONSTRUCTOR_NELTS (init) > 0
-      && !TREE_CONSTANT (maxindex))
+      && !TREE_CONSTANT (maxindex)
+      && flag_exceptions)
     length_check = fold_build2 (LT_EXPR, boolean_type_node, maxindex,
 				size_int (CONSTRUCTOR_NELTS (init) - 1));
 
@@ -3419,6 +3442,8 @@ build_vec_init (tree base, tree maxindex, tree init,
 	 brace-enclosed initializers.  In this case, digest_init and
 	 store_constructor will handle the semantics for us.  */
 
+      if (BRACE_ENCLOSED_INITIALIZER_P (init))
+	init = digest_init (atype, init, complain);
       stmt_expr = build2 (INIT_EXPR, atype, base, init);
       if (length_check)
 	stmt_expr = build3 (COND_EXPR, atype, length_check,
@@ -3662,9 +3687,9 @@ build_vec_init (tree base, tree maxindex, tree init,
 
   if (from_array
       || ((type_build_ctor_call (type) || init || explicit_value_init_p)
-	  && ! (host_integerp (maxindex, 0)
+	  && ! (tree_fits_shwi_p (maxindex)
 		&& (num_initialized_elts
-		    == tree_low_cst (maxindex, 0) + 1))))
+		    == tree_to_shwi (maxindex) + 1))))
     {
       /* If the ITERATOR is equal to -1, then we don't have to loop;
 	 we've already initialized all the elements.  */

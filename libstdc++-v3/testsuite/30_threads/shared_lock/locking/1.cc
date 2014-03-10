@@ -5,7 +5,7 @@
 // { dg-require-cstdint "" }
 // { dg-require-gthreads "" }
 
-// Copyright (C) 2013 Free Software Foundation, Inc.
+// Copyright (C) 2013-2014 Free Software Foundation, Inc.
 //
 // This file is part of the GNU ISO C++ Library.  This library is free
 // software; you can redistribute it and/or modify it under the
@@ -30,7 +30,7 @@
 int main()
 {
   bool test __attribute__((unused)) = true;
-  typedef std::shared_mutex mutex_type;
+  typedef std::shared_timed_mutex mutex_type;
   typedef std::shared_lock<mutex_type> lock_type;
 
   try

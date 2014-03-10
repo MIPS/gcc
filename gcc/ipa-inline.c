@@ -1,5 +1,5 @@
 /* Inlining decision heuristics.
-   Copyright (C) 2003-2013 Free Software Foundation, Inc.
+   Copyright (C) 2003-2014 Free Software Foundation, Inc.
    Contributed by Jan Hubicka
 
 This file is part of GCC.
@@ -94,6 +94,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "coretypes.h"
 #include "tm.h"
 #include "tree.h"
+#include "trans-mem.h"
+#include "calls.h"
 #include "tree-inline.h"
 #include "langhooks.h"
 #include "flags.h"
@@ -104,9 +106,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "intl.h"
 #include "tree-pass.h"
 #include "coverage.h"
-#include "ggc.h"
 #include "rtl.h"
 #include "bitmap.h"
+#include "basic-block.h"
+#include "tree-ssa-alias.h"
+#include "internal-fn.h"
+#include "gimple-expr.h"
+#include "is-a.h"
 #include "gimple.h"
 #include "gimple-ssa.h"
 #include "ipa-prop.h"
@@ -228,14 +234,32 @@ report_inline_failed_reason (struct cgraph_edge *e)
     }
 }
 
-/* Decide if we can inline the edge and possibly update
+ /* Decide whether sanitizer-related attributes allow inlining. */
+
+static bool
+sanitize_attrs_match_for_inline_p (const_tree caller, const_tree callee)
+{
+  /* Don't care if sanitizer is disabled */
+  if (!(flag_sanitize & SANITIZE_ADDRESS))
+    return true;
+
+  if (!caller || !callee)
+    return true;
+
+  return !!lookup_attribute ("no_sanitize_address",
+      DECL_ATTRIBUTES (caller)) == 
+      !!lookup_attribute ("no_sanitize_address",
+      DECL_ATTRIBUTES (callee));
+}
+
+ /* Decide if we can inline the edge and possibly update
    inline_failed reason.  
    We check whether inlining is possible at all and whether
    caller growth limits allow doing so.  
 
    if REPORT is true, output reason to the dump file.  
 
-   if DISREGARD_LIMITES is true, ignore size limits.*/
+   if DISREGARD_LIMITS is true, ignore size limits.*/
 
 static bool
 can_inline_edge_p (struct cgraph_edge *e, bool report,
@@ -263,6 +287,11 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
   if (!callee || !callee->definition)
     {
       e->inline_failed = CIF_BODY_NOT_AVAILABLE;
+      inlinable = false;
+    }
+  else if (callee->calls_comdat_local)
+    {
+      e->inline_failed = CIF_USES_COMDAT_LOCAL;
       inlinable = false;
     }
   else if (!inline_summary (callee)->inlinable 
@@ -314,6 +343,12 @@ can_inline_edge_p (struct cgraph_edge *e, bool report,
 						callee->decl))
     {
       e->inline_failed = CIF_TARGET_OPTION_MISMATCH;
+      inlinable = false;
+    }
+  /* Don't inline a function with mismatched sanitization attributes. */
+  else if (!sanitize_attrs_match_for_inline_p (e->caller->decl, callee->decl))
+    {
+      e->inline_failed = CIF_ATTRIBUTE_MISMATCH;
       inlinable = false;
     }
   /* Check if caller growth allows the inlining.  */
@@ -673,6 +708,12 @@ want_inline_self_recursive_call_p (struct cgraph_edge *edge,
   if (outer_node->global.inlined_to)
     caller_freq = outer_node->callers->frequency;
 
+  if (!caller_freq)
+    {
+      reason = "function is inlined and unlikely";
+      want_inline = false;
+    }
+
   if (!want_inline)
     ;
   /* Inlining of self recursive function into copy of itself within other function
@@ -756,7 +797,7 @@ check_callers (struct cgraph_node *node, void *has_hot_call)
      {
        if (!can_inline_edge_p (e, true))
          return true;
-       if (!has_hot_call && cgraph_maybe_hot_edge_p (e))
+       if (!(*(bool *)has_hot_call) && cgraph_maybe_hot_edge_p (e))
 	 *(bool *)has_hot_call = true;
      }
   return false;
@@ -1350,7 +1391,7 @@ recursive_inlining (struct cgraph_edge *edge,
 					    false, vNULL, true, NULL);
 	  for (e = master_clone->callees; e; e = e->next_callee)
 	    if (!e->inline_failed)
-	      clone_inlined_nodes (e, true, false, NULL);
+	      clone_inlined_nodes (e, true, false, NULL, CGRAPH_FREQ_BASE);
           cgraph_redirect_edge_callee (curr, master_clone);
           reset_edge_growth_cache (curr);
 	}
@@ -1522,7 +1563,7 @@ inline_small_functions (void)
   fibheap_t edge_heap = fibheap_new ();
   bitmap updated_nodes = BITMAP_ALLOC (NULL);
   int min_size, max_size;
-  vec<cgraph_edge_p> new_indirect_edges = vNULL;
+  auto_vec<cgraph_edge_p> new_indirect_edges;
   int initial_size = 0;
   struct cgraph_node **order = XCNEWVEC (struct cgraph_node *, cgraph_n_nodes);
   struct cgraph_edge_hook_list *edge_removal_hook_holder;
@@ -1586,7 +1627,7 @@ inline_small_functions (void)
   max_size = compute_max_insns (overall_size);
   min_size = overall_size;
 
-  /* Populate the heeap with all edges we might inline.  */
+  /* Populate the heap with all edges we might inline.  */
 
   FOR_EACH_DEFINED_FUNCTION (node)
     {
@@ -1714,9 +1755,9 @@ inline_small_functions (void)
 	  continue;
 	}
 
-      /* Heuristics for inlining small functions works poorly for
-	 recursive calls where we do efect similar to loop unrolling.
-	 When inliing such edge seems profitable, leave decision on
+      /* Heuristics for inlining small functions work poorly for
+	 recursive calls where we do effects similar to loop unrolling.
+	 When inlining such edge seems profitable, leave decision on
 	 specific inliner.  */
       if (cgraph_edge_recursive_p (edge))
 	{
@@ -1744,10 +1785,11 @@ inline_small_functions (void)
 	  struct cgraph_node *outer_node = NULL;
 	  int depth = 0;
 
-	  /* Consider the case where self recursive function A is inlined into B.
-	     This is desired optimization in some cases, since it leads to effect
-	     similar of loop peeling and we might completely optimize out the
-	     recursive call.  However we must be extra selective.  */
+	  /* Consider the case where self recursive function A is inlined
+	     into B.  This is desired optimization in some cases, since it
+	     leads to effect similar of loop peeling and we might completely
+	     optimize out the recursive call.  However we must be extra
+	     selective.  */
 
 	  where = edge->caller;
 	  while (where->global.inlined_to)
@@ -1813,7 +1855,6 @@ inline_small_functions (void)
     }
 
   free_growth_caches ();
-  new_indirect_edges.release ();
   fibheap_delete (edge_heap);
   if (dump_file)
     fprintf (dump_file,
@@ -2334,19 +2375,6 @@ make_pass_early_inline (gcc::context *ctxt)
   return new pass_early_inline (ctxt);
 }
 
-
-/* When to run IPA inlining.  Inlining of always-inline functions
-   happens during early inlining.
-
-   Enable inlining unconditoinally, because callgraph redirection
-   happens here.   */
-
-static bool
-gate_ipa_inline (void)
-{
-  return true;
-}
-
 namespace {
 
 const pass_data pass_data_ipa_inline =
@@ -2354,7 +2382,7 @@ const pass_data pass_data_ipa_inline =
   IPA_PASS, /* type */
   "inline", /* name */
   OPTGROUP_INLINE, /* optinfo_flags */
-  true, /* has_gate */
+  false, /* has_gate */
   true, /* has_execute */
   TV_IPA_INLINING, /* tv_id */
   0, /* properties_required */
@@ -2381,7 +2409,6 @@ public:
   {}
 
   /* opt_pass methods: */
-  bool gate () { return gate_ipa_inline (); }
   unsigned int execute () { return ipa_inline (); }
 
 }; // class pass_ipa_inline
