@@ -1,5 +1,13 @@
 2014-03-10  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit++.h (gccjit::context::new_rvalue): Make these
+	methods const.
+	(gccjit::context::zero): Likewise.
+	(gccjit::context::one): Likewise.
+	(gccjit::function::get_param): Likewise.
+
+2014-03-10  David Malcolm  <dmalcolm@redhat.com>
+
 	* libgccjit++.h (gccjit::error): New class, for exceptions.
 	(gccjit::context::get_inner_context): New accessor, so that we
 	can...
