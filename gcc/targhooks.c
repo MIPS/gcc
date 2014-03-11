@@ -1592,7 +1592,7 @@ default_store_bounds_for_arg (rtx val ATTRIBUTE_UNUSED,
 }
 
 rtx
-default_load_returned_bounds (rtx slot)
+default_load_returned_bounds (rtx slot ATTRIBUTE_UNUSED)
 {
   gcc_unreachable ();
 }
@@ -1773,8 +1773,10 @@ default_chkp_make_bounds_constant (HOST_WIDE_INT lb ATTRIBUTE_UNUSED,
 }
 
 int
-default_chkp_initialize_bounds (tree var, tree lb, tree ub,
-				tree *stmts)
+default_chkp_initialize_bounds (tree var ATTRIBUTE_UNUSED,
+				tree lb ATTRIBUTE_UNUSED,
+				tree ub ATTRIBUTE_UNUSED,
+				tree *stmts ATTRIBUTE_UNUSED)
 {
   return 0;
 }
