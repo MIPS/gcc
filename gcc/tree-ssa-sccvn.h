@@ -170,8 +170,6 @@ typedef struct vn_ssa_aux
   unsigned visited : 1;
   unsigned on_sccstack : 1;
 
-  /* Whether the representative expression contains constants.  */
-  unsigned has_constants : 1;
   /* Whether the SSA_NAME has been value numbered already.  This is
      only saying whether visit_use has been called on it at least
      once.  It cannot be used to avoid visitation for SSA_NAME's
