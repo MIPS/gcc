@@ -1779,6 +1779,15 @@ default_chkp_initialize_bounds (tree var, tree lb, tree ub,
   return 0;
 }
 
+void
+default_setup_incoming_vararg_bounds (cumulative_args_t ca ATTRIBUTE_UNUSED,
+				      enum machine_mode mode ATTRIBUTE_UNUSED,
+				      tree type ATTRIBUTE_UNUSED,
+				      int *pretend_arg_size ATTRIBUTE_UNUSED,
+				      int second_time ATTRIBUTE_UNUSED)
+{
+}
+
 /* An implementation of TARGET_CAN_USE_DOLOOP_P for targets that do
    not support nested low-overhead loops.  */
 
