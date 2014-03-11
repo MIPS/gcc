@@ -3637,13 +3637,6 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum tree_code code, tree type, tree op0,
 	      tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (op0))
-    {
-      tree res =  fold_unary_to_constant (code, type, op0);
-      if (res != NULL_TREE)
-	return res;
-    }
-
   tree res = gimple_match_and_simplify (code, type, op0, seq, valueize);
   if (!res)
     {
@@ -3674,25 +3667,6 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum tree_code code, tree type, tree op0, tree op1,
 	      tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (op0) && CONSTANT_CLASS_P (op1))
-    {
-      tree res = fold_binary_to_constant (code, type, op0, op1);
-      /* ???  We can't assert that we fold this to a constant as
-         for example we can't fold things like 1 / 0.  */
-      if (res != NULL_TREE)
-	return res;
-    }
-
-  /* Canonicalize operand order both for matching and fallback stmt
-     generation.  */
-  if (commutative_tree_code (code)
-      && tree_swap_operands_p (op0, op1, false))
-    {
-      tree tem = op0;
-      op0 = op1;
-      op1 = tem;
-    }
-
   tree res = gimple_match_and_simplify (code, type, op0, op1, seq, valueize);
   if (!res)
     {
@@ -3716,25 +3690,6 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum tree_code code, tree type, tree op0, tree op1, tree op2,
 	      tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (op0) && CONSTANT_CLASS_P (op1)
-      && CONSTANT_CLASS_P (op2))
-    {
-      tree res = fold_ternary/*_to_constant */ (code, type, op0, op1, op2);
-      if (res != NULL_TREE
-	  && CONSTANT_CLASS_P (res))
-	return res;
-    }
-
-  /* Canonicalize operand order both for matching and fallback stmt
-     generation.  */
-  if (commutative_ternary_tree_code (code)
-      && tree_swap_operands_p (op0, op1, false))
-    {
-      tree tem = op0;
-      op0 = op1;
-      op1 = tem;
-    }
-
   tree res = gimple_match_and_simplify (code, type, op0, op1, op2,
 					seq, valueize);
   if (!res)
@@ -3765,15 +3720,6 @@ gimple_build (gimple_seq *seq, location_t loc,
 	      enum built_in_function fn, tree type, tree arg0,
 	      tree (*valueize)(tree))
 {
-  if (CONSTANT_CLASS_P (arg0))
-    {
-      tree decl = builtin_decl_implicit (fn);
-      tree res = fold_builtin_n (loc, decl, &arg0, 1, false);
-      gcc_assert (res != NULL_TREE
-		  && CONSTANT_CLASS_P (res));
-      return res;
-    }
-
   tree res = gimple_match_and_simplify (fn, type, arg0, seq, valueize);
   if (!res)
     {
