@@ -6,13 +6,13 @@
 
  ./cc1 -fmelt-mode=runfile,usedef @meltbuild-common.args -Iinclude/ \
     -fmelt-init=@melt-default-modules.quicklybuilt -fmelt-arg=tusedef-ana1.melt \
-     tusedef-code1.c
+     -O tusedef-code1.c
 
 or in a MELT module
 
 gcc -fplugin=melt -fplugin-arg-melt-mode=runfile,usedef @meltbuild-common.args \
     -fplugin-arg-melt-init=@melt-default-modules.quicklybuilt -fplugin-arg-melt-arg=tusedef-ana1.melt \
-     -c tusedef-code1.c -o /dev/null
+     -c -O tusedef-code1.c -o /dev/null
 |#
 (module_is_gpl_compatible "public domain")
 (defclass class_usedef_data
@@ -51,7 +51,13 @@ gcc -fplugin=melt -fplugin-arg-melt-mode=runfile,usedef @meltbuild-common.args \
 
 (defun usedef_walker (data :tree tr :gimple g)
   (debug "usedef_walker data=" data " tr=" tr " g=" g)
-  (inform_at (box g) "usedef tree $1 gimple $2" tr g)
+  (match
+   tr
+   (?(tree_simple_ssa_name ?tvar ?vers)
+     (inform_at (box g) "usedef tree ssa $1 tvar $2 version $3 gimple $4"
+		tr tvar vers g))
+   (?_
+    (inform_at (box g) "usedef tree $1 gimple $2" tr g)))
   (return :true))
 
 (defun usedef_process_set (data :basic_block bb :gimple g :tree lhs)

@@ -10849,6 +10849,10 @@ melt_really_initialize (const char* pluginame, const char*versionstr)
   meltgc_load_modules_and_do_mode ();
   /* force a minor GC */
   melt_garbcoll (0, MELT_ONLY_MINOR);
+  if (melt_debugging_after_mode) {
+    melt_flag_debug = 1;
+    debugeprintf ("melt_really_initialize is debugging after mode=%s", modstr);
+  };
   debugeprintf ("melt_really_initialize ended init=%s mode=%s",
                 inistr, modstr);
   if (!quiet_flag)

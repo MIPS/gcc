@@ -1,4 +1,13 @@
 
+2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
+	* melt-runtime.cc (melt_really_initialize): Sets melt_flag_debug
+	when melt_debugging_after_mode.
+
+	* testsuite/melt/tusedef-ana1.melt: Comments for command-line
+	should suggest -O.
+	(usedef_walker): More verbose inform for SSA names.
+
 2014-03-10  Basile Starynkevitch  <basile@starynkevitch.net>
 
 	* melt/generated/*: Regenerated.
