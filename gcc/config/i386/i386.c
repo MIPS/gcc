@@ -8321,7 +8321,7 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
 {
   rtx save_area, mem;
   alias_set_type set;
-  int i, max, bnd_reg;
+  int i, max;
 
   /* GPR size of varargs save area.  */
   if (cfun->va_list_gpr_size)
@@ -8346,7 +8346,6 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
   if (max > X86_64_REGPARM_MAX)
     max = X86_64_REGPARM_MAX;
 
-  bnd_reg = cum->bnd_regno + cum->force_bnd_pass;
   for (i = cum->regno; i < max; i++)
     {
       mem = gen_rtx_MEM (word_mode,
@@ -8356,34 +8355,6 @@ setup_incoming_varargs_64 (CUMULATIVE_ARGS *cum)
       emit_move_insn (mem,
 		      gen_rtx_REG (word_mode,
 				   x86_64_int_parameter_registers[i]));
-
-      /* In instrumented code we need to store bounds for each
-	 stored register.  */
-      if (chkp_function_instrumented_p (current_function_decl))
-	{
-	  rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
-	  rtx ptr = gen_rtx_REG (DImode,
-				 x86_64_int_parameter_registers[i]);
-	  rtx bounds;
-
-	  if (bnd_reg <= LAST_BND_REG)
-	    bounds = gen_rtx_REG (BNDmode, bnd_reg);
-	  else
-	    {
-	      rtx ldx_addr = plus_constant (Pmode, arg_pointer_rtx,
-					    (LAST_BND_REG - bnd_reg) * 8);
-	      bounds = gen_reg_rtx (BNDmode);
-	      emit_insn (TARGET_64BIT
-			 ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
-			 : gen_bnd32_ldx (bounds, ldx_addr, ptr));
-	    }
-
-	  emit_insn (TARGET_64BIT
-		     ? gen_bnd64_stx (addr, ptr, bounds)
-		     : gen_bnd32_stx (addr, ptr, bounds));
-
-	  bnd_reg++;
-	}
     }
 
   if (ix86_varargs_fpr_size)
@@ -8484,6 +8455,92 @@ ix86_setup_incoming_varargs (cumulative_args_t cum_v, enum machine_mode mode,
   else
     setup_incoming_varargs_64 (&next_cum);
 }
+
+static void
+ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
+				   enum machine_mode mode,
+				   tree type,
+				   int *pretend_size ATTRIBUTE_UNUSED,
+				   int no_rtl)
+{
+  CUMULATIVE_ARGS *cum = get_cumulative_args (cum_v);
+  CUMULATIVE_ARGS next_cum;
+  tree fntype;
+  rtx save_area;
+  int bnd_reg, i, max;
+
+  gcc_assert (!no_rtl);
+
+  if (!TARGET_64BIT)
+    return;
+
+  fntype = TREE_TYPE (current_function_decl);
+
+  /* For varargs, we do not want to skip the dummy va_dcl argument.
+     For stdargs, we do want to skip the last named argument.  */
+  next_cum = *cum;
+  if (stdarg_p (fntype))
+    ix86_function_arg_advance (pack_cumulative_args (&next_cum), mode, type,
+			       true);
+  if (cum->call_abi == MS_ABI)
+    return;
+
+  save_area = frame_pointer_rtx;
+
+  max = cum->regno + cfun->va_list_gpr_size / UNITS_PER_WORD;
+  if (max > X86_64_REGPARM_MAX)
+    max = X86_64_REGPARM_MAX;
+
+  bnd_reg = cum->bnd_regno + cum->force_bnd_pass;
+  if (chkp_function_instrumented_p (current_function_decl))
+    for (i = cum->regno; i < max; i++)
+      {
+	rtx addr = plus_constant (Pmode, save_area, i * UNITS_PER_WORD);
+	rtx reg = gen_rtx_REG (DImode,
+			       x86_64_int_parameter_registers[i]);
+	rtx ptr = reg;
+	rtx bounds;
+	rtx mem;
+
+	/* With no MPX we have to perform calls and therefore cannot use
+	   values in registers and have to use stored ones.  */
+	if (!TARGET_MPX)
+	  {
+	    mem = gen_rtx_MEM (Pmode, addr);
+	    ptr = force_reg (Pmode, mem);
+	  }
+
+	if (bnd_reg <= LAST_BND_REG)
+	  bounds = gen_rtx_REG (BNDmode, bnd_reg);
+	else
+	  {
+	    if (TARGET_MPX)
+	      {
+		rtx ldx_addr = plus_constant (Pmode, arg_pointer_rtx,
+					      (LAST_BND_REG - bnd_reg) * 8);
+		bounds = gen_reg_rtx (BNDmode);
+		emit_insn (TARGET_64BIT
+			   ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
+			   : gen_bnd32_ldx (bounds, ldx_addr, ptr));
+	      }
+	    else
+	      {
+		rtx bnd_slot = GEN_INT (bnd_reg - LAST_BND_REG - 1);
+		bounds = chkp_default_load_bounds_for_arg (reg, ptr, bnd_slot);
+	      }
+	  }
+
+	if (TARGET_MPX)
+	  emit_insn (TARGET_64BIT
+		     ? gen_bnd64_stx (addr, ptr, bounds)
+		     : gen_bnd32_stx (addr, ptr, bounds));
+	else
+	  chkp_default_store_bounds_for_arg (ptr, mem, bounds, NULL);
+
+	bnd_reg++;
+      }
+}
+
 
 /* Checks if TYPE is of kind va_list char *.  */
 
@@ -48186,6 +48243,9 @@ ix86_initialize_bounds (tree var, tree lb, tree ub, tree *stmts)
 
 #undef TARGET_CHKP_INITIALIZE_BOUNDS
 #define TARGET_CHKP_INITIALIZE_BOUNDS ix86_initialize_bounds
+
+#undef TARGET_SETUP_INCOMING_VARARG_BOUNDS
+#define TARGET_SETUP_INCOMING_VARARG_BOUNDS ix86_setup_incoming_vararg_bounds
 
 struct gcc_target targetm = TARGET_INITIALIZER;
 
