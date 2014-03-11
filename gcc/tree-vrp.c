@@ -1121,6 +1121,20 @@ vrp_stmt_computes_nonzero (gimple stmt, bool *strict_overflow_p)
 	}
     }
 
+  /* With some builtins, we can infer if the pointer return value
+     will be non null.  */
+  if (flag_delete_null_pointer_checks
+      && is_gimple_call (stmt) && gimple_call_fndecl (stmt)
+      && DECL_BUILT_IN_CLASS (gimple_call_fndecl (stmt)) == BUILT_IN_NORMAL)
+    {
+      switch (DECL_FUNCTION_CODE (gimple_call_fndecl (stmt)))
+       {
+         case BUILT_IN_MEMCPY:
+         case BUILT_IN_MEMMOVE:
+           return true;
+       }
+    }
+
   return false;
 }
 
@@ -4555,6 +4569,32 @@ infer_value_range (gimple stmt, tree op, enum tree_code *comp_code_p, tree *val_
       *val_p = build_int_cst (TREE_TYPE (op), 0);
       *comp_code_p = NE_EXPR;
       return true;
+    }
+
+  /* With some builtins, we can infer if the pointer argument
+     will be non null.  */
+  if (flag_delete_null_pointer_checks
+      && is_gimple_call (stmt) && gimple_call_fndecl (stmt))
+    {
+      tree callee = gimple_call_fndecl (stmt);
+      if (DECL_BUILT_IN_CLASS (callee) == BUILT_IN_NORMAL)
+       {
+         switch (DECL_FUNCTION_CODE (callee))
+           {
+             case BUILT_IN_MEMCPY:
+             case BUILT_IN_MEMMOVE:
+             case BUILT_IN_STRCMP:
+             case BUILT_IN_MEMCMP:
+               /* The first and second arguments of memcpy and memmove will be non null after the call. */
+               if (gimple_call_arg (stmt, 0) == op
+                   || gimple_call_arg (stmt, 1) == op)
+                 {
+                   *val_p = build_int_cst (TREE_TYPE (op), 0);
+                   *comp_code_p = NE_EXPR;
+                   return true;
+                 }
+           }
+       }
     }
 
   return false;

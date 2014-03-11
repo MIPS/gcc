@@ -1,3 +1,14 @@
+2014-03-11  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	2012-07-15  Andrew Pinski  <apinski@cavium.com>
+
+	Bug #4290
+	* tree-vrp.c (vrp_stmt_computes_nonzero): Return true for some
+	builtins (memcpy and memmove).
+	(infer_value_range): Infer the nonzero for some arguments to
+	some builtins (memcpy, memmove, strcmp and memcmp).
+	* testsuite/gcc.dg/tree-ssa/vrp-builtins1.c: New testcase.
+
 2014-03-05  Andrew Pinski  <apinski@cavium.com>
 
 	Bug #9685
