@@ -12733,6 +12733,9 @@ melt_fatal_info (const char*filename, int lineno)
             "MELT got fatal failure from current_pass %p #%d named %s",
             (void*) current_pass,
             current_pass->static_pass_number, current_pass->name);
+  if (melt_tempdir[0])
+    warning (0, "MELT temporary directory %s may be dirty on fatal failure; please remove it manually",
+	     melt_tempdir);
   fflush (NULL);
   debugeprintf ("ending melt_fatal_info filename=%s lineno=%d\n", filename, lineno);
   return;
