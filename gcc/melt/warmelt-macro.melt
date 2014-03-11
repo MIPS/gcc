@@ -373,6 +373,31 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
     )))					;end ERROR_AT
 
 
+(defun fatal_error_at (loc :cstring fmt :rest) 
+  :doc #{Variadic $FATAL_ERROR_AT function to emit a fatal error message for source location $LOC. The $FMT format
+  string may contain @code{$$1} ... @code{$$9} to refer to the first,
+  ... nineth argument (after $FMT).}#
+  (debug "fatal_error_at start loc=" loc " fmt=" fmt)
+  (let ( (vect (make_multiple discr_multiple 9))
+	 (:long nbargs 0)
+	 (diagstate (diagnostic_args_macro nbargs vect))
+	 )
+    (debug "fatal_error_at diagstate=" diagstate)
+    (let ( (diagmsg (diagnostic_expand_message diagstate fmt))
+	   )
+      (debug "fatal_error_at diagmsg=" diagmsg)
+      (assert_msg "check diagmsg" (is_string diagmsg) diagmsg)
+      (code_chunk error_chk
+		  #{ /* start fatal_error_at $ERROR_CHK */
+		  if ($LOC)
+		     melt_error_str (($LOC), "MELT fatal error", NULL);
+		  melt_fatal_error ("fatal error: %s",
+				    melt_string_str ($DIAGMSG));
+		  /* end fatal_error_at $ERROR_CHK */ }#)
+      (assert_msg "bootstrapping error" (not (melt_is_bootstrapping)))
+    )))					;end ERROR_AT
+
+
 (defun warning_at (loc :cstring fmt :rest) 
   :doc #{Variadic $WARNING_AT function to emit an warning message for source location $LOC. The $FMT format
   string may contain @code{$$1} ... @code{$$9} to refer to the first,
@@ -415,7 +440,7 @@ parse variadic arguments in diagnostic functions like $ERROR or $WARNING or $INF
 		  /* end inform_at $INFORM_CHK */ }#)
     )))					;end INFORM_AT
 
-(export_values error_at warning_at inform_at)
+(export_values error_at fatal_error_at warning_at inform_at)
 
 ;;****************************************************************
 

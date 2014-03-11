@@ -1,6 +1,17 @@
 
 2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc: Don't use <setjmp.h> but C++
+	exceptions. Include <stdexcept>.
+	(class melt_read_error): New runtime exception class.
+	(melt_read_got_error_at): Is throwing melt_read_error.
+	(meltgc_read_file, meltgc_read_from_rawstring)
+	(meltgc_read_from_val): Is catching melt_read_error.
+
+	* melt/warmelt-macro.melt (fatal_error_at): New function.
+
+2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt/xtramelt-ana-gimple.melt (melt_walk_use_def_chains): Done
 	for GCC 4.9...
 

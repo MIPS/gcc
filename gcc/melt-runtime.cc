@@ -42,6 +42,7 @@ const int melt_is_plugin = 0;
 #include <string.h>
 #include <string>
 #include <vector>
+#include <stdexcept>
 #include <map>
 
 #include "bversion.h"
@@ -59,8 +60,7 @@ const int melt_is_plugin = 0;
 #include <dirent.h>
 #include <dlfcn.h>
 #include <poll.h>
-/* meltgc_sort_multiple needs setjmp */
-#include <setjmp.h>
+
 /* melt_start_probe needs wordexp */
 #include <wordexp.h>
 
@@ -1372,7 +1372,7 @@ meltgc_make_specialdata (melt_ptr_t discr_p)
   spda_specv->meltspec_next = melt_newspecdatalist;
   melt_newspecdatalist = (struct meltspecialdata_st*)specv;
   melt_debuggc_eprintf ("make_specialdata %p discr %p magic %d %s",
-                        specv, discrv, magic, melt_obmag_string(magic));
+                        (void*)specv, (void*)discrv, magic, melt_obmag_string(magic));
 #if ENABLE_CHECKING
   if (melt_alptr_1 && (void*)melt_alptr_1 == specv)
     {
@@ -1834,7 +1834,7 @@ melt_garbcoll (size_t wanted, enum melt_gckind_en gckd)
                         melt_forwarded_copy_byte_count);
   if (!needfullreason && gckd > MELT_ONLY_MINOR
       && (long) melt_forwarded_copy_byte_count
-         > (long) 5*melt_minorsizekilow*(1024*sizeof(void*)))
+      > (long) (5*melt_minorsizekilow*(1024*sizeof(void*))))
     {
       melt_kilowords_forwarded
 	+= melt_forwarded_copy_byte_count/(1024*sizeof(void*));
@@ -6682,8 +6682,41 @@ struct melt_reading_st
   source_location rsrcloc;  /* current source location */
   melt_ptr_t *rpfilnam;         /* pointer to location of file name string */
   bool rhas_file_location;  /* true iff the string comes from a file */
-  jmp_buf readjmpbuf; /* for setjmp on read errors */
 };
+
+class melt_read_error
+: public std::runtime_error {
+  struct melt_reading_st* _md;
+  std::string _srcfile;
+  int _srclineno;
+  mutable char _whatbuf[128];
+public:
+  melt_read_error(struct melt_reading_st*md,std::string file,int lineno)
+    : std::runtime_error("MELT read error") {
+    gcc_assert (md != NULL && md->readmagic == MELT_READING_MAGIC);
+    _md = md;
+    _srcfile = file;
+    _srclineno = lineno;
+    memset (_whatbuf, 0, sizeof(_whatbuf));
+  };
+  ~melt_read_error() throw() {
+    _md = NULL;
+    _srcfile.clear();
+    _srclineno = 0;
+  }
+  virtual const char* what() const throw() {
+    const char* bnam = melt_basename (const_cast<const char*>(_srcfile.c_str()));
+    snprintf (_whatbuf, sizeof(_whatbuf),
+              "MELT read error from %s:%d",
+              bnam, _srclineno);
+    return const_cast<const char*>(_whatbuf);
+  };
+  const struct melt_reading_st*md() const { return _md; };
+  const std::string srcfile() const { return _srcfile; };
+  int srclineno() const { return _srclineno; };
+};
+
+
 
 
 #if MELT_HAVE_DEBUG
@@ -6717,7 +6750,8 @@ static struct obstack melt_bstring_obstack;
 
 static void melt_linemap_compute_current_location (struct melt_reading_st *rd);
 
-static void melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line) ATTRIBUTE_NORETURN;
+static void melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line)
+  throw (melt_read_error);
 
 #define MELT_READ_ERROR(Fmt,...)    do {			\
    melt_linemap_compute_current_location (rd);			\
@@ -6764,6 +6798,7 @@ melt_linemap_compute_current_location (struct melt_reading_st* rd)
 
 static void
 melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line)
+  throw (melt_read_error)
 {
   gcc_assert (rd && rd->readmagic == MELT_READING_MAGIC);
   error ("MELT read error from %s:%d [MELT built %s, version %s]",
@@ -6775,7 +6810,7 @@ melt_read_got_error_at (struct melt_reading_st*rd, const char* file, int line)
 #if MELT_HAVE_DEBUG
   melt_dbgshortbacktrace ("MELT read error", 100);
 #endif
-  longjmp (rd->readjmpbuf, 1);
+  throw melt_read_error(rd,std::string(file),line);
 }
 
 static melt_ptr_t meltgc_readstring (struct melt_reading_st *rd);
@@ -8503,13 +8538,7 @@ meltgc_read_file (const char *filnam, const char *locnam)
   rds.rpfilnam = (melt_ptr_t *) & locnamv;
   rds.rhas_file_location = true;
   rds.readmagic = MELT_READING_MAGIC;
-  if (setjmp (rds.readjmpbuf))
-    {
-      warning (0, "MELT reading of file %s failed",
-               filnamdup);
-      seqv = NULL;
-      goto end;
-    }
+  try {
   rd = &rds;
   seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
   while (!rdeof ())
@@ -8535,6 +8564,13 @@ meltgc_read_file (const char *filnam, const char *locnam)
     fclose (rds.rfil);
   linemap_add (line_table, LC_LEAVE, false, NULL, 0);
   memset (&rds, 0, sizeof(rds));
+  }
+  catch (melt_read_error readerr) {
+    warning (0, "MELT reading of file %s failed line %d col %d - %s",
+	     filnamdup, rds.rlineno, rds.rcol, readerr.what());
+    seqv = NULL;
+    goto end;
+  }
   rd = 0;
 end:
   melt_dbgread_value("read_file seqv=", seqv);
@@ -8597,14 +8633,8 @@ meltgc_read_from_rawstring (const char *rawstr, const char *locnam,
     }
   seqv = meltgc_new_list ((meltobject_ptr_t) MELT_PREDEF (DISCR_LIST));
   rds.readmagic = MELT_READING_MAGIC;
-  if (setjmp (rds.readjmpbuf))
-    {
-      warning (0, "MELT reading of string %s failed",
-               melt_string_str ((melt_ptr_t) locnamv));
-      seqv = NULL;
-      goto end;
-    }
   rds.rpfilnam = (melt_ptr_t *) & locnamv;
+  try {
   while (rdcurc ())
     {
       bool got = FALSE;
@@ -8616,6 +8646,13 @@ meltgc_read_from_rawstring (const char *rawstr, const char *locnam,
         MELT_READ_ERROR ("MELT: no value read %.20s", &rdcurc ());
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) valv);
     };
+  }
+  catch (melt_read_error readerr) {
+    warning (0, "MELT reading of string %s line %d col %d failed - %s",
+	     melt_string_str ((melt_ptr_t) locnamv), rd->rlineno, rd->rcol, readerr.what());
+    seqv = NULL;
+    goto end;
+  }
   rd = 0;
   free (rbuf);
 end:
@@ -8680,12 +8717,7 @@ meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
   rds.rhas_file_location = false;
   rd = &rds;
   rds.readmagic = MELT_READING_MAGIC;
-  if (setjmp (rds.readjmpbuf))
-    {
-      warning (0, "MELT reading from value failed");
-      seqv = NULL;
-      goto end;
-    }
+  try {
   MELT_LOCATION_HERE_PRINTF(curlocbuf, "meltgc_read_from_val rbuf=%.70s", rbuf);
   if (locnamv == NULL || melt_magic_discr(locnamv) != MELTOBMAG_STRING)
     {
@@ -8707,6 +8739,14 @@ meltgc_read_from_val (melt_ptr_t strv_p, melt_ptr_t locnam_p)
         MELT_READ_ERROR ("MELT: no value read %.20s", &rdcurc ());
       meltgc_append_list ((melt_ptr_t) seqv, (melt_ptr_t) valv);
     };
+  } catch (melt_read_error readerr)
+    {
+      warning (0, "MELT reading from value line %d col %d failed - %s",
+	       rd->rlineno, rd->rcol, readerr.what());
+      seqv = NULL;
+      goto end;
+    }
+  
   rd = 0;
   free (rbuf);
 end:
@@ -9686,7 +9726,8 @@ meltgc_run_cc_extension (melt_ptr_t basename_p, melt_ptr_t env_p, melt_ptr_t lit
     MELT_LOCATION_HERE_PRINTF (locbuf,
                                "run-cc-extension %s", melt_basename (basenamebuf));
 #endif
-    debugeprintf ("meltgc_run_cc_extension before calling dynr_melt_start_run_extension@%p", (void*) dynr_melt_start_run_extension);
+    debugeprintf ("meltgc_run_cc_extension before calling dynr_melt_start_run_extension@%p",
+		  (void*) dynr_melt_start_run_extension);
     resv = (*dynr_melt_start_run_extension) ((melt_ptr_t)envrefv,
            (melt_ptr_t)litvaltupv);
     debugeprintf ("meltgc_run_cc_extension after call resv=%p", (void*)resv);
