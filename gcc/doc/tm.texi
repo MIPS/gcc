@@ -5194,6 +5194,11 @@ returns bounds for returned pointers.  Arguments meaning is similar to
 @code{TARGET_CHKP_FUNCTION_VALUE}.
 @end deftypefn
 
+@deftypefn {Target Hook} void TARGET_SETUP_INCOMING_VARARG_BOUNDS (cumulative_args_t @var{args_so_far}, enum machine_mode @var{mode}, tree @var{type}, int *@var{pretend_args_size}, int @var{second_time})
+Use it to store bounds for anonymous register arguments stored
+into the stack.
+@end deftypefn
+
 @node Trampolines
 @section Trampolines for Nested Functions
 @cindex trampolines for nested functions
