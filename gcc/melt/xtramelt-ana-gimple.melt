@@ -2758,6 +2758,8 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 				   "\n.. tr=" tr "\n.. g=" g)
 			    (let ( (res (clos val tr g))
 				   (:tree trwalked (null_tree))
+				   (:gimple giwalked (null_gimple))
+				   (:long stop 0)
 				   )
 			    (debug "melt_walk_use_def_chains/internalwalker after call res=" res
 				   "\n.. tr=" tr "\n.. g=" g)
@@ -2767,7 +2769,6 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 			     walkeruse_chk
 			     #{ /* melt_walk_use_def_chains $WALKERUSE_CHK start */
 			     tree tr_$WALKERUSE_CHK = NULL_TREE;
-			     gimple gstmt_$WALKERUSE_CHK = (gimple)NULL;
 			     ssa_op_iter sit_$WALKERUSE_CHK;
 			     memset (& sit_$WALKERUSE_CHK, 0, sizeof(ssa_op_iter));
 			     FOR_EACH_SSA_TREE_OPERAND (tr_$WALKERUSE_CHK, $G,
@@ -2775,12 +2776,24 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 			       {
 			         $TRWALKED = tr_$WALKERUSE_CHK;
 			         $(debug "melt_walk_use_def_chains/internalwalker trwalked=" trwalked)
-			         if ($TRWALKED) {
-	#warning melt_walk_use_def_chains/internalwalker $WALKERUSE_CHK incomplete
+			         if ($TRWALKED && TREE_CODE($TRWALKED) == SSA_NAME) {
+				   $GIWALKED = SSA_NAME_DEF_STMT($TRWALKED);
+				   $(progn
+				      (debug "melt_walk_use_def_chains/internalwalker recurring val=" val
+					   "\n.. trwalked=" trwalked "\n.. giwalked=" giwalked)
+				      (setq res (internalwalker val trwalked giwalked))
+				      (debug "melt_walk_use_def_chains/internalwalker recurred val=" val
+					     "\n.. trwalked=" trwalked "\n.. giwalked=" giwalked)
+				      (void))
+				   $GIWALKED = (gimple) NULL;
+				   if (!$RES)
+				     clear_and_done_ssa_iter(& sit_$WALKERUSE_CHK);
 				 }
+				 $TRWALKED = NULL_TREE;
                                }
 			     /* melt_walk_use_def_chains $WALKERUSE_CHK end */
 			     }#)
+			    (return res)
 			    )
 			    )
 			  )
@@ -2788,8 +2801,10 @@ MELT_EXTERN bool melt_4dot8_walk_hook_use_def_wrapper(tree, gimple, void *);
 		 (debug "melt_walk_use_def_chains recurring walker internalwalker=" internalwalker
 			"\n.. on val=" val
 			"\n.. trvar=" trvar "\n.. gdef=" gdef)
-		 (internalwalker val trvar gdef)
-		 ))
+		 (let ( (resw (internalwalker val trvar gdef))
+			)
+		   (debug "melt_walk_use_def_chains after recurring walker resw=" resw)
+		 )))
 	   )
 	 )				;end melt_walk_use_def_chains
        (export_values melt_walk_use_def_chains)

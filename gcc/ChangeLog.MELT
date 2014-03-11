@@ -1,6 +1,11 @@
 
 2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt/xtramelt-ana-gimple.melt (melt_walk_use_def_chains): Done
+	for GCC 4.9...
+
+2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_really_initialize): Sets melt_flag_debug
 	when melt_debugging_after_mode.
 
