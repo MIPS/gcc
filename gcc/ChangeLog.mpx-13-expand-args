@@ -27,6 +27,7 @@
 	(expand_expr_real_2): Likewise.
 	(expand_expr_real_1): Likewise.
 	* function.c: Include tree-chkp.h, rtl-chkp.h.
+	(bounds_parm_data): New.
 	(use_register_for_decl): Do not registerize decls used for bounds
 	stores and loads.
 	(assign_parms_augmented_arg_list): Add bounds of the result
@@ -35,6 +36,7 @@
 	the stack.
 	(assign_parm_is_stack_parm): Likewise.
 	(assign_parm_load_bounds): New.
+	(assign_bounds): New.
 	(assign_parms): Load bounds and determine a location for
 	returned bounds.
 	(diddle_return_value_1): New.
