@@ -1,6 +1,11 @@
 
 2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
 
+	* melt-runtime.cc (melt_open_ppfile): Also use open_memstream with
+	_GNU_SOURCE....
+
+2014-03-11  Basile Starynkevitch  <basile@starynkevitch.net>
+
 	* melt-runtime.cc (melt_fatal_info): Warn about temporary
 	directory to clean...
 

@@ -11740,20 +11740,18 @@ void melt_warn_for_no_expected_secondary_results_at (const char*fil, int lin)
 char* meltppbuffer;
 size_t meltppbufsiz;
 FILE* meltppfile;
-
-#if !HAVE_OPEN_MEMSTREAM
 static char* meltppfilename;
-#endif
+
 
 /* open the melttppfile for pretty printing, return the old one */
 FILE*
 melt_open_ppfile (void)
 {
   FILE* oldfile = meltppfile;
-#if HAVE_OPEN_MEMSTREAM
+#if HAVE_OPEN_MEMSTREAM || _GNU_SOURCE
   meltppbufsiz = 1024;
-  meltppbuffer = xcalloc (1, meltppbufsiz);
-  meltppfile = open_memstream (&meltppbuffer, &meltppsiz);
+  meltppbuffer = (char*) xcalloc (1, meltppbufsiz);
+  meltppfile = open_memstream (&meltppbuffer, &meltppbufsiz);
   if (!meltppfile)
     melt_fatal_error ("failed to open meltpp file in memory");
 #else
