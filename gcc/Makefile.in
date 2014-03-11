@@ -196,6 +196,7 @@ GCC_WARN_CXXFLAGS = $(LOOSE_WARN) $($(@D)-warn) $(NOCOMMON_FLAG) $($@-warn)
 # flex output may yield harmless "no previous prototype" warnings
 build/gengtype-lex.o-warn = -Wno-error
 gengtype-lex.o-warn = -Wno-error
+gimple-match.o-warn = -Wno-error
 
 # All warnings have to be shut off in stage1 if the compiler used then
 # isn't gcc; configure determines that.  WARN_CFLAGS will be either
@@ -1024,7 +1025,7 @@ BUILD_LIBS = $(BUILD_LIBIBERTY)
 
 BUILD_RTL = build/rtl.o build/read-rtl.o build/ggc-none.o \
 	    build/vec.o build/min-insn-modes.o build/gensupport.o \
-	    build/print-rtl.o
+	    build/print-rtl.o build/hash-table.o
 BUILD_MD = build/read-md.o
 BUILD_ERRORS = build/errors.o
 
@@ -1236,6 +1237,7 @@ OBJS = \
 	gimple-iterator.o \
 	gimple-fold.o \
 	gimple-low.o \
+	gimple-match.o \
 	gimple-pretty-print.o \
 	gimple-ssa-isolate-paths.o \
 	gimple-ssa-strength-reduction.o \
@@ -1504,7 +1506,7 @@ MOSTLYCLEANFILES = insn-flags.h insn-config.h insn-codes.h \
  insn-output.c insn-recog.c insn-emit.c insn-extract.c insn-peep.c \
  insn-attr.h insn-attr-common.h insn-attrtab.c insn-dfatab.c \
  insn-latencytab.c insn-opinit.c insn-opinit.h insn-preds.c insn-constants.h \
- tm-preds.h tm-constrs.h checksum-options \
+ tm-preds.h tm-constrs.h checksum-options gimple-match.c \
  tree-check.h min-insn-modes.c insn-modes.c insn-modes.h \
  genrtl.h gt-*.h gtype-*.h gtype-desc.c gtyp-input.list \
  xgcc$(exeext) cpp$(exeext) \
@@ -2018,7 +2020,7 @@ $(common_out_object_file): $(common_out_file)
 .PRECIOUS: insn-config.h insn-flags.h insn-codes.h insn-constants.h \
   insn-emit.c insn-recog.c insn-extract.c insn-output.c insn-peep.c \
   insn-attr.h insn-attr-common.h insn-attrtab.c insn-dfatab.c \
-  insn-latencytab.c insn-preds.c
+  insn-latencytab.c insn-preds.c gimple-match.c
 
 # Dependencies for the md file.  The first time through, we just assume
 # the md file itself and the generated dependency file (in order to get
@@ -2227,6 +2229,15 @@ s-tm-texi: build/genhooks$(build_exeext) $(srcdir)/doc/tm.texi.in
 	  false; \
 	fi
 
+gimple-match.c: s-match gimple-match-head.c ; @true
+
+s-match: build/genmatch$(build_exeext) $(srcdir)/match.pd
+	$(RUN_GEN) build/genmatch$(build_exeext) $(srcdir)/match.pd \
+	    > tmp-gimple-match.c
+	$(SHELL) $(srcdir)/../move-if-change tmp-gimple-match.c \
+	    					gimple-match.c
+	$(STAMP) s-match
+
 GTFILES = $(CPP_ID_DATA_H) $(srcdir)/input.h $(srcdir)/coretypes.h \
   $(host_xm_file_list) \
   $(tm_file_list) $(HASHTAB_H) $(SPLAY_TREE_H) $(srcdir)/bitmap.h \
@@ -2373,6 +2384,8 @@ build/rtl.o: rtl.c $(BCONFIG_H) coretypes.h $(GTM_H) $(SYSTEM_H)	\
   $(RTL_H) $(GGC_H) errors.h
 build/vec.o : vec.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h $(VEC_H)	\
    $(GGC_H) toplev.h $(DIAGNOSTIC_CORE_H)
+build/hash-table.o : hash-table.c $(BCONFIG_H) $(SYSTEM_H) coretypes.h  \
+   $(HASH_TABLE_H) $(GGC_H) toplev.h $(DIAGNOSTIC_CORE_H)
 build/gencondmd.o : build/gencondmd.c $(BCONFIG_H) $(SYSTEM_H)		\
   coretypes.h $(GTM_H) insn-constants.h					\
   $(filter-out insn-flags.h, $(RTL_H) $(TM_P_H) $(FUNCTION_H) $(REGS_H) \
@@ -2469,6 +2482,8 @@ build/genhooks.o : genhooks.c $(TARGET_DEF) $(C_TARGET_DEF)		\
   $(COMMON_TARGET_DEF) $(BCONFIG_H) $(SYSTEM_H) errors.h
 build/genmddump.o : genmddump.c $(RTL_BASE_H) $(BCONFIG_H) $(SYSTEM_H)	\
   coretypes.h $(GTM_H) errors.h $(READ_MD_H) gensupport.h
+build/genmatch.o : genmatch.c $(BCONFIG_H) $(SYSTEM_H) \
+  coretypes.h errors.h
 
 # Compile the programs that generate insn-* from the machine description.
 # They are compiled with $(COMPILER_FOR_BUILD), and associated libraries,
@@ -2489,10 +2504,13 @@ genprogerr = $(genprogmd) genrtl modes gtype hooks
 $(genprogerr:%=build/gen%$(build_exeext)): $(BUILD_ERRORS)
 
 # Remaining build programs.
-genprog = $(genprogerr) check checksum condmd
+genprog = $(genprogerr) check checksum condmd match
 
 # These programs need libs over and above what they get from the above list.
 build/genautomata$(build_exeext) : BUILD_LIBS += -lm
+
+build/genmatch$(build_exeext) : $(CPPLIB) $(LIBIBERTY) \
+  $(BUILD_ERRORS) build/vec.o build/hash-table.o
 
 # These programs are not linked with the MD reader.
 build/gengtype$(build_exeext) : build/gengtype-lex.o build/gengtype-parse.o \

@@ -1,0 +1,22 @@
+2014-03-11  Richard Biener  <rguenther@suse.de>
+
+	* genmatch.c: New generator progam.
+	* match.pd: New file with match-and-simplify patterns.
+	* gimple-match-head.c: Header of generated gimple-match.c.
+	* gimple-fold.h (gimple_build): New API for a GIMPLE
+	variant of fold_buildN.
+	(gimple_convert): Likewise.
+	(gimple_match_and_simplify): Declare.
+
+	* tree-ssa-sccvn.c (try_to_simplify): Make use of
+	gimple_match_and_simplify.
+	* tree-ssa-forwprop.c (ssa_forward_propagate_and_combine):
+	Make use of gimple_match_and_simplify.
+	* tree-ssa-pre.c: Make use of gimple_build and get rid
+	of force_gimple_operand uses.
+
+	* hash-table.c: Allow to be used in generator programs.
+	* builtins.c (fold_builtin_n): Export.
+	* tree.h (fold_builtin_n): Declare.
+
+	* gcc.dg/tree-ssa/match-1.c: A little testcase.

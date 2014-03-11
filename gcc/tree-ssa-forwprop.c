@@ -3569,6 +3569,24 @@ simplify_mult (gimple_stmt_iterator *gsi)
 
   return false;
 }
+
+
+/* Primitive "lattice" function for gimple_match_and_simplify to discard
+   matches on names whose definition contains abnormal SSA names.  */
+
+static tree
+fwprop_ssa_val (tree name)
+{
+  if (TREE_CODE (name) == SSA_NAME
+      /* ???  Instead match-and-simplify should make sure to not
+         return a sequence that references abnormal SSA names.  */
+      && (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name)
+	  || (gimple_code (SSA_NAME_DEF_STMT (name)) != GIMPLE_PHI
+	      && stmt_references_abnormal_ssa_name (SSA_NAME_DEF_STMT (name)))))
+    return NULL_TREE;
+  return name;
+}
+
 /* Main entry point for the forward propagation and statement combine
    optimizer.  */
 
@@ -3681,6 +3699,21 @@ ssa_forward_propagate_and_combine (void)
 	  /* Mark stmt as potentially needing revisiting.  */
 	  gimple_set_plf (stmt, GF_PLF_1, false);
 
+	  if (gimple_match_and_simplify (&gsi, fwprop_ssa_val))
+	    {
+	      stmt = gsi_stmt (gsi);
+	      if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
+		  && gimple_purge_dead_eh_edges (bb))
+		cfg_changed = true;
+	      changed = true;
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "gimple_match_and_simplified to ");
+		  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+		}
+	    }
+
+	  if (!changed)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_ASSIGN:

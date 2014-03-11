@@ -4567,6 +4567,7 @@ extern bool get_pointer_alignment_1 (tree, unsigned int *,
 				     unsigned HOST_WIDE_INT *);
 extern unsigned int get_pointer_alignment (tree);
 extern tree fold_call_stmt (gimple, bool);
+extern tree fold_builtin_n (location_t, tree, tree *, int, bool);
 extern tree gimple_fold_builtin_snprintf_chk (gimple, tree, enum built_in_function);
 extern void set_builtin_user_assembler_name (tree decl, const char *asmspec);
 extern bool is_simple_builtin (tree);

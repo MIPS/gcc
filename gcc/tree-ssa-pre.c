@@ -2551,9 +2551,8 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
     {
     case CALL_EXPR:
       {
-	tree folded, sc = NULL_TREE;
-	unsigned int nargs = 0;
-	tree fn, *args;
+	tree sc = NULL_TREE;
+	tree fn;
 	if (TREE_CODE (currop->op0) == FUNCTION_DECL)
 	  fn = currop->op0;
 	else
@@ -2566,23 +2565,31 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 	    if (!sc)
 	      return NULL_TREE;
 	  }
-	args = XNEWVEC (tree, ref->operands.length () - 1);
+	auto_vec<tree> args (ref->operands.length () - 1);
 	while (*operand < ref->operands.length ())
 	  {
-	    args[nargs] = create_component_ref_by_pieces_1 (block, ref,
-							    operand, stmts);
-	    if (!args[nargs])
+	    tree arg = create_component_ref_by_pieces_1 (block,
+							 ref, operand, stmts);
+	    if (!arg)
 	      return NULL_TREE;
-	    nargs++;
+	    args.quick_push (arg);
 	  }
-	folded = build_call_array (currop->type,
-				   (TREE_CODE (fn) == FUNCTION_DECL
-				    ? build_fold_addr_expr (fn) : fn),
-				   nargs, args);
-	free (args);
+	gimple call;
+	call = gimple_build_call_vec ((TREE_CODE (fn) == FUNCTION_DECL
+				       ? build_fold_addr_expr (fn) : fn), args);
 	if (sc)
-	  CALL_EXPR_STATIC_CHAIN (folded) = sc;
-	return folded;
+	  gimple_call_set_chain (call, sc);
+	tree forcedname = make_ssa_name (currop->type, NULL);
+	gimple_call_set_lhs (call, forcedname);
+	gimple_seq_add_stmt_without_update (stmts, call);
+	bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (forcedname));
+	VN_INFO_GET (forcedname)->valnum = forcedname;
+	VN_INFO (forcedname)->value_id = get_next_value_id ();
+	pre_expr nameexpr = get_or_alloc_expr_for_name (forcedname);
+	add_to_value (VN_INFO (forcedname)->value_id, nameexpr);
+	bitmap_value_replace_in_set (NEW_SETS (block), nameexpr);
+	bitmap_value_replace_in_set (AVAIL_OUT (block), nameexpr);
+	return forcedname;
       }
 
     case MEM_REF:
@@ -2896,12 +2903,13 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	    if (nary->opcode == POINTER_PLUS_EXPR)
 	      {
 		if (i == 0)
-		  genop[i] = fold_convert (nary->type, genop[i]);
+		  genop[i] = gimple_convert (&forced_stmts, nary->type, genop[i]);
 		else if (i == 1)
-		  genop[i] = convert_to_ptrofftype (genop[i]);
+		  genop[i] = gimple_convert (&forced_stmts, sizetype, genop[i]);
 	      }
 	    else
-	      genop[i] = fold_convert (TREE_TYPE (nary->op[i]), genop[i]);
+	      genop[i] = gimple_convert (&forced_stmts,
+					 TREE_TYPE (nary->op[i]), genop[i]);
 	  }
 	if (nary->opcode == CONSTRUCTOR)
 	  {
@@ -2915,16 +2923,16 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
 	    switch (nary->length)
 	      {
 	      case 1:
-		folded = fold_build1 (nary->opcode, nary->type,
-				      genop[0]);
+		folded = gimple_build (&forced_stmts, nary->opcode, nary->type,
+				       genop[0]);
 		break;
 	      case 2:
-		folded = fold_build2 (nary->opcode, nary->type,
-				      genop[0], genop[1]);
+		folded = gimple_build (&forced_stmts, nary->opcode, nary->type,
+				       genop[0], genop[1]);
 		break;
 	      case 3:
-		folded = fold_build3 (nary->opcode, nary->type,
-				      genop[0], genop[1], genop[2]);
+		folded = gimple_build (&forced_stmts, nary->opcode, nary->type,
+				       genop[0], genop[1], genop[2]);
 		break;
 	      default:
 		gcc_unreachable ();
@@ -2936,15 +2944,7 @@ create_expression_by_pieces (basic_block block, pre_expr expr,
       gcc_unreachable ();
     }
 
-  if (!useless_type_conversion_p (exprtype, TREE_TYPE (folded)))
-    folded = fold_convert (exprtype, folded);
-
-  /* Force the generated expression to be a sequence of GIMPLE
-     statements.
-     We have to call unshare_expr because force_gimple_operand may
-     modify the tree we pass to it.  */
-  folded = force_gimple_operand (unshare_expr (folded), &forced_stmts,
-				 false, NULL);
+  folded = gimple_convert (&forced_stmts, exprtype, folded);
 
   /* If we have any intermediate expressions to the value sets, add them
      to the value sets and chain them in the instruction stream.  */
@@ -3144,68 +3144,12 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 	  /* Constants may not have the right type, fold_convert
 	     should give us back a constant with the right type.  */
 	  tree constant = PRE_EXPR_CONSTANT (eprime);
-	  if (!useless_type_conversion_p (type, TREE_TYPE (constant)))
+	  tree forcedexpr = gimple_convert (&stmts, type, constant);
+	  if (!is_gimple_min_invariant (forcedexpr))
 	    {
-	      tree builtexpr = fold_convert (type, constant);
-	      if (!is_gimple_min_invariant (builtexpr))
-		{
-		  tree forcedexpr = force_gimple_operand (builtexpr,
-							  &stmts, true,
-							  NULL);
-		  if (!is_gimple_min_invariant (forcedexpr))
-		    {
-		      if (forcedexpr != builtexpr)
-			{
-			  VN_INFO_GET (forcedexpr)->valnum = PRE_EXPR_CONSTANT (eprime);
-			  VN_INFO (forcedexpr)->value_id = get_expr_value_id (eprime);
-			}
-		      if (stmts)
-			{
-			  gimple_stmt_iterator gsi;
-			  gsi = gsi_start (stmts);
-			  for (; !gsi_end_p (gsi); gsi_next (&gsi))
-			    {
-			      gimple stmt = gsi_stmt (gsi);
-			      tree lhs = gimple_get_lhs (stmt);
-			      if (TREE_CODE (lhs) == SSA_NAME)
-				bitmap_set_bit (inserted_exprs,
-						SSA_NAME_VERSION (lhs));
-			      gimple_set_plf (stmt, NECESSARY, false);
-			    }
-			  gsi_insert_seq_on_edge (pred, stmts);
-			}
-		      avail[pred->dest_idx]
-			= get_or_alloc_expr_for_name (forcedexpr);
-		    }
-		}
-	      else
-		avail[pred->dest_idx]
-		    = get_or_alloc_expr_for_constant (builtexpr);
-	    }
-	}
-      else if (eprime->kind == NAME)
-	{
-	  /* We may have to do a conversion because our value
-	     numbering can look through types in certain cases, but
-	     our IL requires all operands of a phi node have the same
-	     type.  */
-	  tree name = PRE_EXPR_NAME (eprime);
-	  if (!useless_type_conversion_p (type, TREE_TYPE (name)))
-	    {
-	      tree builtexpr;
-	      tree forcedexpr;
-	      builtexpr = fold_convert (type, name);
-	      forcedexpr = force_gimple_operand (builtexpr,
-						 &stmts, true,
-						 NULL);
-
-	      if (forcedexpr != name)
-		{
-		  VN_INFO_GET (forcedexpr)->valnum = VN_INFO (name)->valnum;
-		  VN_INFO (forcedexpr)->value_id = VN_INFO (name)->value_id;
-		}
-
-	      if (stmts)
+	      VN_INFO_GET (forcedexpr)->valnum = PRE_EXPR_CONSTANT (eprime);
+	      VN_INFO (forcedexpr)->value_id = get_expr_value_id (eprime);
+	      if (!gimple_seq_empty_p (stmts))
 		{
 		  gimple_stmt_iterator gsi;
 		  gsi = gsi_start (stmts);
@@ -3219,8 +3163,41 @@ insert_into_preds_of_block (basic_block block, unsigned int exprnum,
 		    }
 		  gsi_insert_seq_on_edge (pred, stmts);
 		}
-	      avail[pred->dest_idx] = get_or_alloc_expr_for_name (forcedexpr);
+	      avail[pred->dest_idx]
+		= get_or_alloc_expr_for_name (forcedexpr);
 	    }
+	  else
+	    avail[pred->dest_idx]
+	      = get_or_alloc_expr_for_constant (forcedexpr);
+	}
+      else if (eprime->kind == NAME)
+	{
+	  /* We may have to do a conversion because our value
+	     numbering can look through types in certain cases, but
+	     our IL requires all operands of a phi node have the same
+	     type.  */
+	  tree name = PRE_EXPR_NAME (eprime);
+	  tree forcedexpr = gimple_convert (&stmts, type, name);
+	  if (forcedexpr != name)
+	    {
+	      VN_INFO_GET (forcedexpr)->valnum = VN_INFO (name)->valnum;
+	      VN_INFO (forcedexpr)->value_id = VN_INFO (name)->value_id;
+	    }
+	  if (!gimple_seq_empty_p (stmts))
+	    {
+	      gimple_stmt_iterator gsi;
+	      gsi = gsi_start (stmts);
+	      for (; !gsi_end_p (gsi); gsi_next (&gsi))
+		{
+		  gimple stmt = gsi_stmt (gsi);
+		  tree lhs = gimple_get_lhs (stmt);
+		  if (TREE_CODE (lhs) == SSA_NAME)
+		    bitmap_set_bit (inserted_exprs, SSA_NAME_VERSION (lhs));
+		  gimple_set_plf (stmt, NECESSARY, false);
+		}
+	      gsi_insert_seq_on_edge (pred, stmts);
+	    }
+	  avail[pred->dest_idx] = get_or_alloc_expr_for_name (forcedexpr);
 	}
     }
   /* If we didn't want a phi node, and we made insertions, we still have

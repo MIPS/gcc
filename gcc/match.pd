@@ -1,0 +1,169 @@
+/* Match-and-simplify patterns for shared GENERIC and GIMPLE folding.
+   This file is consumed by genmatch which produces gimple-match.c
+   from it.
+
+   Copyright (C) 2014 Free Software Foundation, Inc.
+   Contributed by Richard Biener <rguenther@suse.de>
+
+This file is part of GCC.
+
+GCC is free software; you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free
+Software Foundation; either version 3, or (at your option) any later
+version.
+
+GCC is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or
+FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+for more details.
+
+You should have received a copy of the GNU General Public License
+along with GCC; see the file COPYING3.  If not see
+<http://www.gnu.org/licenses/>.  */
+
+
+/* Transforms formerly done by tree-ssa-forwprop.c:associate_plusminus  */
+
+/* ???  Have match_and_simplify groups guarded with common
+   predicates on the outermost type?  */
+
+/* Contract negates.
+   ???  !TYPE_SATURATING condition missing.  */
+(match_and_simplify
+  (PLUS_EXPR @0 (NEGATE_EXPR @1))
+  /* Ugh, free form mixed in ... ;)  Want (if ...) instead?  */
+  if (!TYPE_SATURATING (TREE_TYPE (@0)))
+  (MINUS_EXPR @0 @1))
+(match_and_simplify
+  /* ???  Allow (MINUS:!TYPE_SATURATING @0 (NEGATE @1)), thus
+     type predicates on operands?  Thus also :INTEGRAL_TYPE_P
+     or @0:INTEGRAL_TYPE_P?  */
+  (MINUS @0 (NEGATE @1))
+  (PLUS @0 @1))
+(match_and_simplify
+  (plus@2 (negate @0) @1)
+  if (!TYPE_SATURATING (TREE_TYPE (@2)))
+  (minus @1 @0))
+
+/* Change to even more free-form like
+
+simplify (plus@2 (negate @0) @1)
+if (!TYPE_SATURATING (TREE_TYPE (@2)))
+to (minus @1 @0)
+
+   so only patterns are lispy, the rest not?  */
+
+/* Match patterns that allow contracting a plus-minus pair
+   irrespective of overflow issues.
+   ???  !TYPE_SATURATING condition missing.
+   ???  !FLOAT_TYPE_P && !FIXED_POINT_TYPE_P condition missing
+   because of saturation to +-Inf.  */
+
+/* (A +- B) - A -> +-B.  */
+(match_and_simplify
+  (MINUS_EXPR (PLUS_EXPR @0 @1) @0)
+  if (!TYPE_SATURATING (TREE_TYPE (@0))
+      && !FLOAT_TYPE_P (TREE_TYPE (@0)) && !FIXED_POINT_TYPE_P (TREE_TYPE (@0)))
+  @1)
+(match_and_simplify
+  (MINUS_EXPR (MINUS_EXPR @0 @1) @0)
+  (NEGATE_EXPR @1))
+/* (A +- B) -+ B -> A.  */
+(match_and_simplify
+  (MINUS_EXPR (PLUS_EXPR @0 @1) @1)
+  @0)
+(match_and_simplify
+  (PLUS_EXPR (MINUS_EXPR @0 @1) @1)
+  @0)
+/* (CST +- A) +- CST -> CST' +- A.  */
+/* match_and_simplify handles constant folding for us so we can
+   implement these as re-association patterns.
+   Watch out for operand order and constant canonicalization
+   we do!  A - CST -> A + -CST, CST + A -> A + CST.  */
+(match_and_simplify
+  (PLUS_EXPR (PLUS_EXPR @0 INTEGER_CST_P@1) INTEGER_CST_P@2)
+  (PLUS_EXPR @0 (PLUS_EXPR @1 @2)))
+(match_and_simplify
+  (PLUS_EXPR (MINUS_EXPR INTEGER_CST_P@0 @1) INTEGER_CST_P@2)
+  (MINUS_EXPR (PLUS_EXPR @0 @2) @1))
+/* TODO:
+   (A +- CST) +- CST  ->  A +- CST
+   ~A + A             ->  -1
+   ~A + 1             ->  -A
+   A - (A +- B)       ->  -+ B
+   A +- (B +- A)      ->  +- B
+   CST +- (CST +- A)  ->  CST +- A
+   CST +- (A +- CST)  ->  CST +- A
+   A + ~A             ->  -1
+   (T)(P + A) - (T)P  -> (T)A
+ */
+
+
+/* Patterns required to avoid SCCVN testsuite regressions.  */
+
+/* (x >> 31) & 1 -> (x >> 31).  Folding in fold-const is more
+   complicated here, it does
+     Fold (X << C1) & C2 into (X << C1) & (C2 | ((1 << C1) - 1))
+     (X >> C1) & C2 into (X >> C1) & (C2 | ~((type) -1 >> C1))
+     if the new mask might be further optimized.  */
+(match_and_simplify
+  (bit_and (rshift@0 @1 INTEGER_CST_P@2) integer_onep)
+  if (compare_tree_int (@2, TYPE_PRECISION (TREE_TYPE (@1)) - 1) == 0)
+  @0)
+
+/* COMPLEX_EXPR and REALPART/IMAGPART_EXPR cancellations.  */
+(match_and_simplify
+  (complex (realpart @0) (imagpart @0))
+  @0)
+(match_and_simplify
+  (realpart (complex @0 @1))
+  @0)
+(match_and_simplify
+  (imagpart (complex @0 @1))
+  @1)
+
+/* One unary pattern.  */
+
+/* fold_negate_exprs convert - (~A) to A + 1.  */
+(match_and_simplify
+  (negate (bit_not @0))
+  if (INTEGRAL_TYPE_P (TREE_TYPE (@0)))
+  (plus @0 { build_int_cst (TREE_TYPE (@0), 1); } ))
+
+/* One ternary pattern.  */
+
+/* Due to COND_EXPRs weirdness in GIMPLE the following won't work
+   without some hacks in the code generator.  */
+(match_and_simplify
+  (cond (bit_not @0) @1 @2)
+  (cond @0 @2 @1))
+
+/* match-and-simplify handles constant folding so we
+   can just do the decomposition here.  */
+(match_and_simplify
+  (fma INTEGER_CST_P@0 INTEGER_CST_P@1 @3)
+  (plus (mult @0 @1) @3))
+
+/* One builtin function to atom.  */
+(match_and_simplify
+  (BUILT_IN_SQRT (mult @0 @0))
+  @0)
+/* One builtin function to builtin function.  */
+(match_and_simplify
+  (BUILT_IN_CABS (complex @0 real_zerop))
+  (BUILT_IN_FABS @0))
+(match_and_simplify
+  (BUILT_IN_CABS (complex real_zerop @0))
+  (BUILT_IN_FABS @0))
+/* One builtin function to expr.  */
+(match_and_simplify
+  (BUILT_IN_CABS (complex @0 @0))
+  (mult (BUILT_IN_FABS @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); }))
+
+/* ????s
+
+   We cannot reasonably match vector CONSTRUCTORs or vector constants
+   without using special predicates.  Nor can we reasonably generate
+   variable-length stuff with pattern expressions.
+
+ */

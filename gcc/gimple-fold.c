@@ -3623,3 +3623,167 @@ rewrite_to_defined_overflow (gimple stmt)
 
   return stmts;
 }
+
+
+
+/* Build the expression CODE OP0 of type TYPE with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   OP0 is expected to be valueized already.  Returns the built
+   expression value and appends statements possibly defining it
+   to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum tree_code code, tree type, tree op0,
+	      tree (*valueize)(tree))
+{
+  if (CONSTANT_CLASS_P (op0))
+    {
+      tree res =  fold_unary_to_constant (code, type, op0);
+      if (res != NULL_TREE)
+	return res;
+    }
+
+  tree res = gimple_match_and_simplify (code, type, op0, seq, valueize);
+  if (!res)
+    {
+      res = make_ssa_name (type, NULL);
+      gimple stmt;
+      if (code == REALPART_EXPR
+	  || code == IMAGPART_EXPR
+	  || code == VIEW_CONVERT_EXPR)
+	stmt = gimple_build_assign_with_ops (code, res,
+					     build1 (code, type,
+						     op0), NULL_TREE);
+      else
+	stmt = gimple_build_assign_with_ops (code, res, op0, NULL_TREE);
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the expression OP0 CODE OP1 of type TYPE with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   OP0 and OP1 are expected to be valueized already.  Returns the built
+   expression value and appends statements possibly defining it
+   to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum tree_code code, tree type, tree op0, tree op1,
+	      tree (*valueize)(tree))
+{
+  if (CONSTANT_CLASS_P (op0) && CONSTANT_CLASS_P (op1))
+    {
+      tree res = fold_binary_to_constant (code, type, op0, op1);
+      /* ???  We can't assert that we fold this to a constant as
+         for example we can't fold things like 1 / 0.  */
+      if (res != NULL_TREE)
+	return res;
+    }
+
+  /* Canonicalize operand order both for matching and fallback stmt
+     generation.  */
+  if (commutative_tree_code (code)
+      && tree_swap_operands_p (op0, op1, false))
+    {
+      tree tem = op0;
+      op0 = op1;
+      op1 = tem;
+    }
+
+  tree res = gimple_match_and_simplify (code, type, op0, op1, seq, valueize);
+  if (!res)
+    {
+      res = make_ssa_name (type, NULL);
+      gimple stmt = gimple_build_assign_with_ops (code, res, op0, op1);
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+
+/* Build the expression (CODE OP0 OP1 OP2) of type TYPE with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   OP0, OP1 and OP2 are expected to be valueized already.  Returns the built
+   expression value and appends statements possibly defining it
+   to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum tree_code code, tree type, tree op0, tree op1, tree op2,
+	      tree (*valueize)(tree))
+{
+  if (CONSTANT_CLASS_P (op0) && CONSTANT_CLASS_P (op1)
+      && CONSTANT_CLASS_P (op2))
+    {
+      tree res = fold_ternary/*_to_constant */ (code, type, op0, op1, op2);
+      if (res != NULL_TREE
+	  && CONSTANT_CLASS_P (res))
+	return res;
+    }
+
+  /* Canonicalize operand order both for matching and fallback stmt
+     generation.  */
+  if (commutative_ternary_tree_code (code)
+      && tree_swap_operands_p (op0, op1, false))
+    {
+      tree tem = op0;
+      op0 = op1;
+      op1 = tem;
+    }
+
+  tree res = gimple_match_and_simplify (code, type, op0, op1, op2,
+					seq, valueize);
+  if (!res)
+    {
+      res = make_ssa_name (type, NULL);
+      gimple stmt;
+      if (code == BIT_FIELD_REF)
+	stmt = gimple_build_assign_with_ops (code, res,
+					     build3 (BIT_FIELD_REF, type,
+						     op0, op1, op2),
+					     NULL_TREE);
+      else
+	stmt = gimple_build_assign_with_ops (code, res, op0, op1, op2);
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
+/* Build the expression CODE OP0 of type TYPE with location LOC,
+   simplifying it first if possible using VALUEIZE if not NULL.
+   OP0 is expected to be valueized already.  Returns the built
+   expression value and appends statements possibly defining it
+   to SEQ.  */
+
+tree
+gimple_build (gimple_seq *seq, location_t loc,
+	      enum built_in_function fn, tree type, tree arg0,
+	      tree (*valueize)(tree))
+{
+  if (CONSTANT_CLASS_P (arg0))
+    {
+      tree decl = builtin_decl_implicit (fn);
+      tree res = fold_builtin_n (loc, decl, &arg0, 1, false);
+      gcc_assert (res != NULL_TREE
+		  && CONSTANT_CLASS_P (res));
+      return res;
+    }
+
+  tree res = gimple_match_and_simplify (fn, type, arg0, seq, valueize);
+  if (!res)
+    {
+      res = make_ssa_name (type, NULL);
+      tree decl = builtin_decl_implicit (fn);
+      gimple stmt = gimple_build_call (decl, 1, arg0);
+      gimple_call_set_lhs (stmt, res);
+      gimple_set_location (stmt, loc);
+      gimple_seq_add_stmt_without_update (seq, stmt);
+    }
+  return res;
+}
+
