@@ -1,3 +1,8 @@
+2014-03-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/harness.h (set_options): Increase optimization level from
+	0 to 3.
+
 2014-03-07  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-functions.c (create_test_of_hidden_function): New,

@@ -79,6 +79,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "pass_manager.h"
 #include "dwarf2out.h"
 #include "ipa-reference.h"
+#include "gcse.h"
 
 #if defined(DBX_DEBUGGING_INFO) || defined(XCOFF_DEBUGGING_INFO)
 #include "dbxout.h"
@@ -2000,6 +2001,7 @@ void toplev_finalize (void)
   cgraphbuild_c_finalize ();
   cgraphunit_c_finalize ();
   dwarf2out_c_finalize ();
+  gcse_c_finalize ();
   ipa_c_finalize ();
   ipa_reference_c_finalize ();
   predict_c_finalize ();

@@ -132,7 +132,7 @@ static void set_options (gcc_jit_context *ctxt, const char *argv0)
   gcc_jit_context_set_int_option (
     ctxt,
     GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL,
-    0);
+    3);
   gcc_jit_context_set_bool_option (
     ctxt,
     GCC_JIT_BOOL_OPTION_DEBUGINFO,

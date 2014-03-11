@@ -1,5 +1,13 @@
 2014-03-11  David Malcolm  <dmalcolm@redhat.com>
 
+	* gcse.c (gcse_c_finalize): New, to clear test_insn between
+	in-process compiles.
+	* gcse.h (gcse_c_finalize): New.
+	* toplev.c: Include "gcse.h" so that we can...
+	(toplev_finalize): Call gcse_c_finalize.
+
+2014-03-11  David Malcolm  <dmalcolm@redhat.com>
+
 	* dwarf2out.c (dwarf2out_c_finalize): Release base_types.
 
 2014-03-10  David Malcolm  <dmalcolm@redhat.com>

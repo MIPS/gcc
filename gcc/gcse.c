@@ -4226,4 +4226,9 @@ make_pass_rtl_hoist (gcc::context *ctxt)
   return new pass_rtl_hoist (ctxt);
 }
 
+void gcse_c_finalize (void)
+{
+  test_insn = NULL;
+}
+
 #include "gt-gcse.h"
