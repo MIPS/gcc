@@ -8502,40 +8502,21 @@ ix86_setup_incoming_vararg_bounds (cumulative_args_t cum_v,
 	rtx bounds;
 	rtx mem;
 
-	/* With no MPX we have to perform calls and therefore cannot use
-	   values in registers and have to use stored ones.  */
-	if (!TARGET_MPX)
-	  {
-	    mem = gen_rtx_MEM (Pmode, addr);
-	    ptr = force_reg (Pmode, mem);
-	  }
-
 	if (bnd_reg <= LAST_BND_REG)
 	  bounds = gen_rtx_REG (BNDmode, bnd_reg);
 	else
 	  {
-	    if (TARGET_MPX)
-	      {
-		rtx ldx_addr = plus_constant (Pmode, arg_pointer_rtx,
-					      (LAST_BND_REG - bnd_reg) * 8);
-		bounds = gen_reg_rtx (BNDmode);
-		emit_insn (TARGET_64BIT
-			   ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
-			   : gen_bnd32_ldx (bounds, ldx_addr, ptr));
-	      }
-	    else
-	      {
-		rtx bnd_slot = GEN_INT (bnd_reg - LAST_BND_REG - 1);
-		bounds = chkp_default_load_bounds_for_arg (reg, ptr, bnd_slot);
-	      }
+	    rtx ldx_addr = plus_constant (Pmode, arg_pointer_rtx,
+					  (LAST_BND_REG - bnd_reg) * 8);
+	    bounds = gen_reg_rtx (BNDmode);
+	    emit_insn (TARGET_64BIT
+		       ? gen_bnd64_ldx (bounds, ldx_addr, ptr)
+		       : gen_bnd32_ldx (bounds, ldx_addr, ptr));
 	  }
 
-	if (TARGET_MPX)
-	  emit_insn (TARGET_64BIT
-		     ? gen_bnd64_stx (addr, ptr, bounds)
-		     : gen_bnd32_stx (addr, ptr, bounds));
-	else
-	  chkp_default_store_bounds_for_arg (ptr, mem, bounds, NULL);
+	emit_insn (TARGET_64BIT
+		   ? gen_bnd64_stx (addr, ptr, bounds)
+		   : gen_bnd32_stx (addr, ptr, bounds));
 
 	bnd_reg++;
       }
