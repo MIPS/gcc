@@ -24326,7 +24326,7 @@ void dwarf2out_c_finalize (void)
   generic_type_instances = NULL;
   frame_pointer_fb_offset = 0;
   frame_pointer_fb_offset_valid = false;
-  //base_types = NULL;
+  base_types.release ();
 }
 
 #include "gt-dwarf2out.h"

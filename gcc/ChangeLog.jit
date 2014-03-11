@@ -1,3 +1,7 @@
+2014-03-11  David Malcolm  <dmalcolm@redhat.com>
+
+	* dwarf2out.c (dwarf2out_c_finalize): Release base_types.
+
 2014-03-10  David Malcolm  <dmalcolm@redhat.com>
 
 	* ipa-reference.c (ipa_init): Move static bool init_p from here
