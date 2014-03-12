@@ -2161,12 +2161,19 @@ chkp_find_const_bounds_var (HOST_WIDE_INT lb,
   tree val = targetm.chkp_make_bounds_constant (lb, ub);
   struct varpool_node *node;
 
+  /* We expect bounds constant is represented as a complex value
+     of two pointer sized integers.  */
+  gcc_assert (TREE_CODE (val) == COMPLEX_CST);
+
   FOR_EACH_VARIABLE (node)
     if (POINTER_BOUNDS_P (node->decl)
 	&& TREE_READONLY (node->decl)
 	&& DECL_INITIAL (node->decl)
-	&& TREE_CODE (DECL_INITIAL (node->decl)) == INTEGER_CST
-	&& TREE_INT_CST (DECL_INITIAL (node->decl)) == TREE_INT_CST (val))
+	&& TREE_CODE (DECL_INITIAL (node->decl)) == COMPLEX_CST
+	&& tree_int_cst_equal (TREE_REALPART (DECL_INITIAL (node->decl)),
+			       TREE_REALPART (val))
+	&& tree_int_cst_equal (TREE_IMAGPART (DECL_INITIAL (node->decl)),
+			       TREE_IMAGPART (val)))
       return node->decl;
 
   return NULL;
