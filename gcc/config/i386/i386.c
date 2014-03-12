@@ -47689,7 +47689,17 @@ ix86_mpx_bound_mode ()
 static tree
 ix86_make_bounds_constant (HOST_WIDE_INT lb, HOST_WIDE_INT ub)
 {
-  return build_int_cst_wide (pointer_bounds_type_node, lb, ~ub);
+  tree low = lb ? build_minus_one_cst (pointer_sized_int_node)
+    : build_zero_cst (pointer_sized_int_node);
+  tree high = ub ? build_zero_cst (pointer_sized_int_node)
+    : build_minus_one_cst (pointer_sized_int_node);
+
+  /* This function is supposed to be used to create zero and
+     none bounds only.  */
+  gcc_assert (lb == 0 || lb == -1);
+  gcc_assert (ub == 0 || ub == -1);
+
+  return build_complex (NULL, low, high);
 }
 
 static int
