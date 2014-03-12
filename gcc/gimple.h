@@ -5823,6 +5823,31 @@ is_gimple_omp_oacc_specifically (const_gimple stmt)
 }
 
 
+/* Return true if OMP_* STMT is offloaded.  */
+
+static inline bool
+is_gimple_omp_offloaded (const_gimple stmt)
+{
+  gcc_assert (is_gimple_omp (stmt));
+  switch (gimple_code (stmt))
+    {
+    case GIMPLE_OACC_KERNELS:
+    case GIMPLE_OACC_PARALLEL:
+      return true;
+    case GIMPLE_OMP_TARGET:
+      switch (gimple_omp_target_kind (stmt))
+	{
+	case GF_OMP_TARGET_KIND_REGION:
+	  return true;
+	default:
+	  return false;
+	}
+    default:
+      return false;
+    }
+}
+
+
 /* Returns TRUE if statement G is a GIMPLE_NOP.  */
 
 static inline bool

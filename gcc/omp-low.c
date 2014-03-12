@@ -1499,31 +1499,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 {
   tree c, decl;
   bool scan_array_reductions = false;
-  bool offloaded;
-  switch (gimple_code (ctx->stmt))
-    {
-    case GIMPLE_OACC_KERNELS:
-    case GIMPLE_OACC_PARALLEL:
-      offloaded = true;
-      break;
-    case GIMPLE_OMP_TARGET:
-      switch (gimple_omp_target_kind (ctx->stmt))
-	{
-	case GF_OMP_TARGET_KIND_REGION:
-	  offloaded = true;
-	  break;
-	case GF_OMP_TARGET_KIND_DATA:
-	case GF_OMP_TARGET_KIND_UPDATE:
-	case GF_OMP_TARGET_KIND_OACC_DATA:
-	  offloaded = false;
-	  break;
-	default:
-	  gcc_unreachable ();
-	}
-      break;
-    default:
-      offloaded = false;
-    }
 
   for (c = clauses; c; c = OMP_CLAUSE_CHAIN (c))
     {
@@ -1696,7 +1671,8 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	      /* Ignore OMP_CLAUSE_MAP_POINTER kind for arrays in
 		 target regions that are not offloaded; there is nothing to map for
 		 those.  */
-	      if (!offloaded && !POINTER_TYPE_P (TREE_TYPE (decl)))
+	      if (!is_gimple_omp_offloaded (ctx->stmt)
+		  && !POINTER_TYPE_P (TREE_TYPE (decl)))
 		break;
 	    }
 	  if (DECL_P (decl))
@@ -1721,7 +1697,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 		    install_var_field (decl, true, 7, ctx);
 		  else
 		    install_var_field (decl, true, 3, ctx);
-		  if (offloaded)
+		  if (is_gimple_omp_offloaded (ctx->stmt))
 		    install_var_local (decl, ctx);
 		}
 	    }
@@ -1845,7 +1821,7 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	  gcc_assert (gimple_code (ctx->stmt) != GIMPLE_OMP_TARGET
 		      || (gimple_omp_target_kind (ctx->stmt)
 			  != GF_OMP_TARGET_KIND_UPDATE));
-	  if (!offloaded)
+	  if (!is_gimple_omp_offloaded (ctx->stmt))
 	    break;
 	  decl = OMP_CLAUSE_DECL (c);
 	  if (DECL_P (decl)

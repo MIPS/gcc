@@ -1,3 +1,9 @@
+2014-03-12  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* omp-low.c (scan_sharing_clauses): Move offloaded logic into...
+	* gimple.h (is_gimple_omp_offloaded): ... this new static inline
+	function.
+
 2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* gimple.def (GIMPLE_OACC_KERNELS): New code.
