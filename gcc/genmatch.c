@@ -278,9 +278,9 @@ expr::gen_gimple_match (FILE *f, const char *name, const char *label)
   if (operation->op->kind == id_base::CODE)
     {
       operator_id *op = static_cast <operator_id *> (operation->op);
-      fprintf (f, "{\n");
-      fprintf (f, "if (TREE_CODE (%s) != SSA_NAME) ", name);
-      gen_gimple_match_fail (f, label);
+      /* The GIMPLE variant.  */
+      fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", name);
+      fprintf (f, "  {\n");
       fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", name);
       fprintf (f, "if (!is_gimple_assign (def_stmt)\n"
 	       "    || gimple_assign_rhs_code (def_stmt) != %s) ",  op->id);
@@ -321,11 +321,83 @@ expr::gen_gimple_match (FILE *f, const char *name, const char *label)
 	      fprintf (f, "   }\n");
 	    }
 	}
-      fprintf (f, "}\n");
+      fprintf (f, "  }\n");
+      /* The GENERIC variant.  */
+      fprintf (f, "else if (TREE_CODE (%s) == %s)\n", name, op->id);
+      fprintf (f, "  {\n");
+      for (unsigned i = 0; i < ops.length (); ++i)
+	{
+	  fprintf (f, "   {\n");
+	  fprintf (f, "     tree op = TREE_OPERAND (%s, %d);\n", name, i);
+	  fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
+	  fprintf (f, "       {\n");
+	  fprintf (f, "         op = valueize (op);\n");
+	  fprintf (f, "         if (!op) ");
+	  gen_gimple_match_fail (f, label);
+	  fprintf (f, "       }\n");
+	  ops[i]->gen_gimple_match (f, "op", label);
+	  fprintf (f, "   }\n");
+	}
+      fprintf (f, "  }\n");
+      fprintf (f, "else ");
+      gen_gimple_match_fail (f, label);
     }
-  else
-    /* FIXME - implement call support.  */
-    gcc_unreachable ();
+  else if (operation->op->kind == id_base::FN)
+    {
+      fn_id *op = static_cast <fn_id *> (operation->op);
+      /* The GIMPLE variant.  */
+      fprintf (f, "if (TREE_CODE (%s) == SSA_NAME)\n", name);
+      fprintf (f, "  {\n");
+      fprintf (f, "gimple def_stmt = SSA_NAME_DEF_STMT (%s);\n", name);
+      fprintf (f, "tree fndecl;\n");
+      fprintf (f, "if (!gimple_call_builtin_p (def_stmt, %s)) ", op->id);
+      gen_gimple_match_fail (f, label);
+      for (unsigned i = 0; i < ops.length (); ++i)
+	{
+	  fprintf (f, "   {\n");
+	  fprintf (f, "     tree op = gimple_call_arg (def_stmt, %d);\n", i);
+	  fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
+	  fprintf (f, "       {\n");
+	  fprintf (f, "         op = valueize (op);\n");
+	  fprintf (f, "         if (!op) ");
+	  gen_gimple_match_fail (f, label);
+	  fprintf (f, "       }\n");
+	  ops[i]->gen_gimple_match (f, "op", label);
+	  fprintf (f, "   }\n");
+	}
+      fprintf (f, "  }\n");
+      /* GENERIC handling for calls.  */
+      fprintf (f, "else if (TREE_CODE (%s) == CALL_EXPR\n"
+	       "    && TREE_CODE (CALL_EXPR_FN (%s)) == ADDR_EXPR\n"
+	       "    && TREE_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == FUNCTION_DECL\n"
+	       "    && DECL_BUILT_IN_CLASS (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == BUILT_IN_NORMAL\n"
+	       "    && DECL_FUNCTION_CODE (TREE_OPERAND (CALL_EXPR_FN (%s), 0)) == %s)\n",
+	       name, name, name, name, name, op->id);
+      fprintf (f, "  {\n");
+      for (unsigned i = 0; i < ops.length (); ++i)
+	{
+	  fprintf (f, "   {\n");
+	  fprintf (f, "     tree op = CALL_EXPR_ARG (%s, %d);\n", name, i);
+	  fprintf (f, "     if (valueize && TREE_CODE (op) == SSA_NAME)\n");
+	  fprintf (f, "       {\n");
+	  fprintf (f, "         op = valueize (op);\n");
+	  fprintf (f, "         if (!op) ");
+	  gen_gimple_match_fail (f, label);
+	  fprintf (f, "       }\n");
+	  ops[i]->gen_gimple_match (f, "op", label);
+	  fprintf (f, "   }\n");
+	}
+      fprintf (f, "  }\n");
+      fprintf (f, "else ");
+      gen_gimple_match_fail (f, label);
+    }
+  /* ???  Specifically COND_EXPR could also match on CFG diamonds.
+     (cond@3 @0 @1 @2) is
+     if (@0) goto bb2;
+     bb3:
+     bb2:
+     @3 = PHI <@1(2), @2(3)>
+   */
 }
 
 void

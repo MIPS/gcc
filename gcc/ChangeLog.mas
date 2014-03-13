@@ -1,5 +1,14 @@
 2014-03-13  Richard Biener  <rguenther@suse.de>
 
+	* match.pd: Add pattern matching a call in a sub-expression.
+	* genmatch.c (expr::gen_gimple_match): Complete call handling.
+	Support matching GENERIC.
+
+	testsuite/
+	* gcc.dg/tree-ssa/match-1.c: Adjust.
+
+2014-03-13  Richard Biener  <rguenther@suse.de>
+
 	* tree-ssa-forwprop.c (ssa_forward_propagate_and_combine):
 	Split out combining with gimple_match_and_simplify to a
 	separate "pass".  Implement a lattice.

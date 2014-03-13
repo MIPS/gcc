@@ -159,6 +159,10 @@ to (minus @1 @0)
 (match_and_simplify
   (BUILT_IN_CABS (complex @0 @0))
   (mult (BUILT_IN_FABS @0) { build_real (TREE_TYPE (@0), real_value_truncate (TYPE_MODE (TREE_TYPE (@0)), dconst_sqrt2 ())); }))
+/* One nested fn.  */
+(match_and_simplify
+  (mult (BUILT_IN_POW @0 @1) @0)
+  (BUILT_IN_POW @0 (PLUS_EXPR @1 { build_one_cst (TREE_TYPE (@1)); })))
 
 /* ????s
 

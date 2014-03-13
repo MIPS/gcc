@@ -1,19 +1,25 @@
 /* { dg-do compile } */
-/* { dg-options "-O -fdump-tree-forwprop2" }  */
+/* { dg-options "-O -fdump-tree-forwprop" }  */
 
-double foo (_Complex double z)
+double test1 (_Complex double z)
 {
   __imag z = 0.;
   return __builtin_cabs (z);
 }
 
-/* We don't have a lattice in forwprop, so the following needs two steps... */
-double bar (double x)
+double test2 (double x)
 {
   _Complex z = x;
   __imag z = x;
   return __builtin_cabs (z);
 }
 
-/* { dg-final { scan-tree-dump-not "cabs" "forwprop2" } } */
+double test3 (double x)
+{
+  double y = __builtin_pow (x, 5.);
+  return y * x;
+}
+
+/* { dg-final { scan-tree-dump-not "cabs" "forwprop1" } } */
+/* { dg-final { scan-tree-dump "pow \\\(\[^,\]*, 6" "forwprop1" } } */
 /* { dg-final { cleanup-tree-dump "forwprop2" } } */
