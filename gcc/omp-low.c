@@ -1978,16 +1978,12 @@ create_omp_child_function (omp_context *ctx, bool task_copy)
     {
       omp_context *octx;
       for (octx = ctx; octx; octx = octx->outer)
-	if (gimple_code (octx->stmt) == GIMPLE_OMP_TARGET
-	    && gimple_omp_target_kind (octx->stmt)
-	       == GF_OMP_TARGET_KIND_REGION)
+	if (is_gimple_omp_offloaded (octx->stmt))
 	  {
 	    target_p = true;
 	    break;
 	  }
     }
-  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt)
-	      || !target_p);
   if (target_p)
     DECL_ATTRIBUTES (decl)
       = tree_cons (get_identifier ("omp declare target"),
