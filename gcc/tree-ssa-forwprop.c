@@ -52,6 +52,8 @@ along with GCC; see the file COPYING3.  If not see
 #include "optabs.h"
 #include "tree-ssa-propagate.h"
 #include "tree-ssa-dom.h"
+#include "tree-cfgcleanup.h"
+#include "tree-into-ssa.h"
 
 /* This pass propagates the RHS of assignment statements into use
    sites of the LHS of the assignment.  It's basically a specialized
@@ -3571,6 +3573,8 @@ simplify_mult (gimple_stmt_iterator *gsi)
 }
 
 
+static vec<tree> lattice;
+
 /* Primitive "lattice" function for gimple_match_and_simplify to discard
    matches on names whose definition contains abnormal SSA names.  */
 
@@ -3578,12 +3582,12 @@ static tree
 fwprop_ssa_val (tree name)
 {
   if (TREE_CODE (name) == SSA_NAME
-      /* ???  Instead match-and-simplify should make sure to not
-         return a sequence that references abnormal SSA names.  */
-      && (SSA_NAME_OCCURS_IN_ABNORMAL_PHI (name)
-	  || (gimple_code (SSA_NAME_DEF_STMT (name)) != GIMPLE_PHI
-	      && stmt_references_abnormal_ssa_name (SSA_NAME_DEF_STMT (name)))))
-    return NULL_TREE;
+      && SSA_NAME_VERSION (name) < lattice.length ())
+    {
+      tree val = lattice[SSA_NAME_VERSION (name)];
+      if (val)
+	return val;
+    }
   return name;
 }
 
@@ -3597,6 +3601,64 @@ ssa_forward_propagate_and_combine (void)
   unsigned int todoflags = 0;
 
   cfg_changed = false;
+
+  /* Combine stmts with the stmts defining their operands.  Do that
+     in an order that guarantees visiting SSA defs before SSA uses.  */
+  lattice.create (num_ssa_names);
+  lattice.quick_grow_cleared (num_ssa_names);
+  int *postorder = XNEWVEC (int, n_basic_blocks_for_fn (cfun));
+  int postorder_num = inverted_post_order_compute (postorder);
+  for (int i = 0; i < postorder_num; ++i)
+    {
+      bb = BASIC_BLOCK_FOR_FN (cfun, postorder[i]);
+      /* ???  Maybe want to handle degenerate PHIs to populate
+	 the lattice more optimistically.  */
+      for (gimple_stmt_iterator gsi = gsi_start_bb (bb);
+	   !gsi_end_p (gsi); gsi_next (&gsi))
+	{
+	  gimple stmt = gsi_stmt (gsi);
+
+	  if (gimple_match_and_simplify (&gsi, fwprop_ssa_val))
+	    {
+	      stmt = gsi_stmt (gsi);
+	      if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
+		  && gimple_purge_dead_eh_edges (bb))
+		cfg_changed = true;
+	      if (dump_file && (dump_flags & TDF_DETAILS))
+		{
+		  fprintf (dump_file, "gimple_match_and_simplified to ");
+		  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
+		}
+	    }
+
+	  /* Fill up the lattice.  */
+	  if (gimple_assign_single_p (stmt))
+	    {
+	      tree lhs = gimple_assign_lhs (stmt);
+	      tree rhs = gimple_assign_rhs1 (stmt);
+	      if (TREE_CODE (lhs) == SSA_NAME)
+		{
+		  if (TREE_CODE (rhs) == SSA_NAME)
+		    lattice[SSA_NAME_VERSION (lhs)] = fwprop_ssa_val (rhs);
+		  else if (is_gimple_min_invariant (rhs))
+		    lattice[SSA_NAME_VERSION (lhs)] = rhs;
+		  else
+		    lattice[SSA_NAME_VERSION (lhs)] = lhs;
+		}
+	    }
+	}
+    }
+  free (postorder);
+  lattice.release ();
+
+  /* ???  Code below doesn't expect non-renamed VOPs and the above
+     doesn't keep virtual operand form up-to-date.  */
+  if (cfg_changed)
+    {
+      cleanup_tree_cfg ();
+      cfg_changed = false;
+    }
+  update_ssa (TODO_update_ssa_only_virtuals);
 
   FOR_EACH_BB_FN (bb, cfun)
     {
@@ -3699,21 +3761,6 @@ ssa_forward_propagate_and_combine (void)
 	  /* Mark stmt as potentially needing revisiting.  */
 	  gimple_set_plf (stmt, GF_PLF_1, false);
 
-	  if (gimple_match_and_simplify (&gsi, fwprop_ssa_val))
-	    {
-	      stmt = gsi_stmt (gsi);
-	      if (maybe_clean_or_replace_eh_stmt (stmt, stmt)
-		  && gimple_purge_dead_eh_edges (bb))
-		cfg_changed = true;
-	      changed = true;
-	      if (dump_file && (dump_flags & TDF_DETAILS))
-		{
-		  fprintf (dump_file, "gimple_match_and_simplified to ");
-		  print_gimple_stmt (dump_file, stmt, 0, TDF_SLIM);
-		}
-	    }
-
-	  if (!changed)
 	  switch (gimple_code (stmt))
 	    {
 	    case GIMPLE_ASSIGN:
