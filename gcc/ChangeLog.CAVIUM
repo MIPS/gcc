@@ -527,6 +527,16 @@
 	* cfgloop.h (exact_loop_iterations_unbounded): Add Prototype.
 	* cfgloopanal.c (exact_loop_iterations_unbounded): New function.
 
+2012-07-16  Andrew Pinski  <apinski@cavium.com>
+
+	* tree-pass.h (pass_profile_loop_bounds): New variable.
+	* timevar.def (TV_PROFILE_LOOP_BOUNDS): New time var.
+	* tree-ssa-loop.c (tree_profile_loop_bounds): New function.
+	(gate_profile_loop_bounds): New function.
+	(pass_profile_loop_bounds): New pass.
+	* passes.c (init_optimization_passes): Add pass_profile_loop_bounds before
+	pass_complete_unrolli.
+
 2012-07-15  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.c-torture/unsorted/dump-noaddr.x (dump_compare): Use

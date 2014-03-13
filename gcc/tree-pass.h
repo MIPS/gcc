@@ -377,6 +377,7 @@ extern gimple_opt_pass *make_pass_vectorize (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_slp_vectorize (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_complete_unroll (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_complete_unrolli (gcc::context *ctxt);
+extern gimple_opt_pass *make_pass_profile_loop_bounds (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_parallelize_loops (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_loop_prefetch (gcc::context *ctxt);
 extern gimple_opt_pass *make_pass_iv_optimize (gcc::context *ctxt);

@@ -40,7 +40,13 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-inline.h"
 #include "tree-scalar-evolution.h"
 #include "diagnostic-core.h"
+#include "gimple-pretty-print.h"
 #include "tree-vectorizer.h"
+#include "tree-ssa-operands.h"
+#include "tree-phinodes.h"
+#include "gimple-ssa.h"
+#include "ssa-iterators.h"
+#include "tree-into-ssa.h"
 
 /* The loop superpass.  */
 
@@ -685,4 +691,136 @@ tree_num_loop_insns (struct loop *loop, eni_weights *weights)
 }
 
 
+/* Try to specialize the loop based on profile data that
+   might have a good idea what the expected loop iterations
+   are. */
+static unsigned int
+tree_profile_loop_bounds (void)
+{
+  unsigned ret = 0;
+  struct loop *loop;
+
+  loop_optimizer_init (LOOPS_NORMAL
+		       | LOOPS_HAVE_RECORDED_EXITS);
+  if (number_of_loops (cfun) > 1)
+    {
+      scev_initialize ();
+      FOR_EACH_LOOP (loop, LI_FROM_INNERMOST)
+	{
+	  tree niter;
+	  int est_niter;
+	  tree cond;
+	  struct loop *nloop;
+	  int new_freq;
+	  niter = number_of_latch_executions (loop);
+	  /* Loops without a known loop bound, we cannot do this specialization. */
+	  if (niter == chrec_dont_know)
+	    continue;
+	  /* Loop bounds known at compile time don't need this specialization. */
+	  if (TREE_CODE (niter) == INTEGER_CST)
+	    continue;
+	  /* Loops that are not optimize for speed don't need this specialization. */
+	  if (!optimize_loop_for_speed_p (loop))
+	    continue;
+	  /* Loops without a known count, cannot get a good idea what the expected
+	     loop iterations is. */
+	  if (!loop->header->count)
+	    continue;
+
+	  est_niter = exact_loop_iterations_unbounded (loop);
+
+	  if (est_niter == -1)
+	    {
+	      int est = expected_loop_iterations (loop);
+	      if (dump_file)
+		{
+		  fprintf (dump_file, ";;Not changing loop #%d as est (%d) is not exact.\n", loop->num, est);
+		}
+	    }
+
+	  /* If the expected loop iterations is less than one,
+	     then we expect it not to loop at all. */
+	  if (est_niter < 1)
+	    continue;
+
+	  cond = fold_build2 (NE_EXPR, TREE_TYPE (niter), niter, build_int_cst_type (TREE_TYPE (niter), est_niter));
+	  if (TREE_CODE (cond) != NE_EXPR)
+	    continue;
+	  if (TREE_CODE (TREE_OPERAND (cond, 0)) != SSA_NAME)
+	    continue;
+	  if (TREE_CODE (TREE_OPERAND (cond, 1)) != INTEGER_CST)
+	    continue;
+	  if (dump_file)
+	    {
+	      fprintf (dump_file, ";; Maybe changing loop #%d to iterate %d.\n", loop->num, est_niter);
+	      print_generic_expr (dump_file, niter, TDF_SLIM);
+	    }
+	  initialize_original_copy_tables ();
+	  new_freq = BB_FREQ_MAX / PARAM_VALUE (HOT_BB_FREQUENCY_FRACTION);
+	  nloop = loop_version (loop, cond,
+		       NULL, new_freq, new_freq,
+		       REG_BR_PROB_BASE - new_freq, false);
+	  if (!nloop)
+	    {
+	      if (dump_file)
+		fprintf (dump_file, "\n;; FAILED to version the loop.\n");
+	      free_original_copy_tables ();
+	      continue;
+   	    }
+	  /* Update the SSA form after specialization.  */
+	  update_ssa (TODO_update_ssa);
+	  free_original_copy_tables ();
+	  if (dump_file)
+	    fprintf (dump_file, "\n;; Loop CHANGED.\n");
+	}
+      free_numbers_of_iterations_estimates ();
+      scev_finalize ();
+    }
+  loop_optimizer_finalize ();
+
+  return ret;
+}
+
+static bool
+gate_profile_loop_bounds (void)
+{
+  return optimize >= 2 && flag_branch_probabilities;
+}
+
+namespace {
+
+const pass_data pass_data_profile_loop_bounds =
+{
+  GIMPLE_PASS,
+  "profile_loop_bounds",		/* name */
+  OPTGROUP_LOOP, 			/* optinfo_flags */
+  true,					/* has_gate */
+  true,				       	/* has_execute */
+  TV_PROFILE_LOOP_BOUNDS,	  		/* tv_id */
+  PROP_cfg | PROP_ssa,			/* properties_required */
+  0,					/* properties_provided */
+  0,					/* properties_destroyed */
+  0,					/* todo_flags_start */
+  TODO_verify_flow,     			/* todo_flags_finish */
+};
+
+class pass_profile_loop_bounds : public gimple_opt_pass
+{
+public:
+  pass_profile_loop_bounds (gcc::context *ctxt)
+    : gimple_opt_pass (pass_data_profile_loop_bounds, ctxt)
+  {}
+
+  /* opt_pass methods: */
+  bool gate () { return gate_profile_loop_bounds (); }
+
+}; // class pass_tree_loop
+
+} // anon namespace
+
+gimple_opt_pass *
+make_pass_profile_loop_bounds (gcc::context *ctxt)
+{
+  return new pass_profile_loop_bounds (ctxt);
+}
 
