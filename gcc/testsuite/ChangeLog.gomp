@@ -1,3 +1,37 @@
+2014-03-13  Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* gfortran.dg/goacc/goacc.exp: New test directory.
+	* gfortran.dg/goacc/assumed.f95: New test.
+	* gfortran.dg/goacc/branch.f95: Likewise.
+	* gfortran.dg/goacc/cache-1.f95: Likewise.
+	* gfortran.dg/goacc/coarray.f95: Likewise.
+	* gfortran.dg/goacc/continuation-free-form.f95: Likewise.
+	* gfortran.dg/goacc/cray.f95: Likewise.
+	* gfortran.dg/goacc/critical.f95: Likewise.
+	* gfortran.dg/goacc/data-clauses.f95: Likewise.
+	* gfortran.dg/goacc/data-tree.f95: Likewise.
+	* gfortran.dg/goacc/declare-1.f95: Likewise.
+	* gfortran.dg/goacc/enter-exit-data.f95: Likewise.
+	* gfortran.dg/goacc/host_data-tree.f95: Likewise.
+	* gfortran.dg/goacc/if.f95: Likewise.
+	* gfortran.dg/goacc/kernels-tree.f95: Likewise.
+	* gfortran.dg/goacc/list.f95: Likewise.
+	* gfortran.dg/goacc/literal.f95: Likewise.
+	* gfortran.dg/goacc/loop-1.f95: Likewise.
+	* gfortran.dg/goacc/loop-2.f95: Likewise.
+	* gfortran.dg/goacc/loop-3.f95: Likewise.
+	* gfortran.dg/goacc/omp.f95: Likewise.
+	* gfortran.dg/goacc/parallel-kernels-clauses.f95: Likewise.
+	* gfortran.dg/goacc/parallel-kernels-regions.f95: Likewise.
+	* gfortran.dg/goacc/parallel-tree.f95: Likewise.
+	* gfortran.dg/goacc/parameter.f95: Likewise.
+	* gfortran.dg/goacc/pure-elemental-procedures.f95: Likewise.
+	* gfortran.dg/goacc/reduction.f95: Likewise.
+	* gfortran.dg/goacc/sentinel-free-form.f95: Likewise.
+	* gfortran.dg/goacc/several-directives.f95: Likewise.
+	* gfortran.dg/goacc/sie.f95: Likewise.
+	* gfortran.dg/gomp/omp_do1.f90: Change error message.	
+
 2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-c++-common/goacc-gomp/nesting-fail-1.c: Extend for OpenACC
