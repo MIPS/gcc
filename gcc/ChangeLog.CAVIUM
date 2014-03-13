@@ -522,6 +522,11 @@
 	(mips_cpu_info_table): Set movz for Octeon to 2 and Octeon2 to 3.
 	(mips_rtx_costs <case IF_THEN_ELSE>): Return mips_cost->movz.
 
+2012-07-18  Andrew Pinski  <apinski@cavium.com>
+
+	* cfgloop.h (exact_loop_iterations_unbounded): Add Prototype.
+	* cfgloopanal.c (exact_loop_iterations_unbounded): New function.
+
 2012-07-15  Andrew Pinski  <apinski@cavium.com>
 
 	* testsuite/gcc.c-torture/unsorted/dump-noaddr.x (dump_compare): Use

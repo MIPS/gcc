@@ -304,6 +304,7 @@ extern void verify_loop_structure (void);
 /* Loop analysis.  */
 extern bool just_once_each_iteration_p (const struct loop *, const_basic_block);
 gcov_type expected_loop_iterations_unbounded (const struct loop *);
+gcov_type exact_loop_iterations_unbounded (const struct loop *);
 extern unsigned expected_loop_iterations (const struct loop *);
 extern rtx doloop_condition_get (rtx);
 

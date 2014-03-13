@@ -225,6 +225,46 @@ average_num_loop_insns (const struct loop *loop)
   return ninsns;
 }
 
+/* Returns exact number of iterations of LOOP, according to
+   measured.  No bounding is done on the value.  If there is
+   no exact number, return -1.  */
+
+gcov_type
+exact_loop_iterations_unbounded (const struct loop *loop)
+{
+  edge e;
+  edge_iterator ei;
+
+  if (loop->latch->count || loop->header->count)
+    {
+      gcov_type count_in, count_latch, expected;
+
+      count_in = 0;
+      count_latch = 0;
+
+      FOR_EACH_EDGE (e, ei, loop->header->preds)
+	if (e->src == loop->latch)
+	  count_latch = e->count;
+	else
+	  count_in += e->count;
+
+      if (count_in == 0)
+	expected = count_latch * 2;
+      else
+	{
+	  gcov_type temp = count_latch + count_in;
+	  expected = temp / count_in;
+	  if ((temp % count_in) != 0)
+	    expected = -1;
+	  else
+	    expected--;
+	}
+
+      return expected;
+    }
+  return -1;
+}
+
 /* Returns expected number of iterations of LOOP, according to
    measured or guessed profile.  No bounding is done on the
    value.  */
