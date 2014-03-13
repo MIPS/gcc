@@ -1,3 +1,159 @@
+2014-03-13  Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	OpenACC 1.0 support to fortran FE.
+
+	gcc/fortran/
+	* dump-parse-tree.c
+	(show_omp_node): Dump also OpenACC executable statements.
+	(show_code_node): Call it.
+	(show_namespace): Dump !$ACC DECLARE directive.
+	* gfortran.h
+	(ST_OACC_PARALLEL_LOOP, ST_OACC_END_PARALLEL_LOOP, ST_OACC_PARALLEL,
+	ST_OACC_END_PARALLEL, ST_OACC_KERNELS, ST_OACC_END_KERNELS,
+	ST_OACC_DATA, ST_OACC_END_DATA, ST_OACC_HOST_DATA,
+	ST_OACC_END_HOST_DATA, ST_OACC_LOOP, ST_OACC_DECLARE, ST_OACC_UPDATE,
+	ST_OACC_WAIT, ST_OACC_CACHE, ST_OACC_KERNELS_LOOP,
+	ST_OACC_END_KERNELS_LOOP, ST_OACC_ENTER_DATA,
+	ST_OACC_EXIT_DATA, ST_OACC_END_LOOP): New statements.
+	(gfc_expr_list): New structure to hold list of expressions.
+	(OMP_LIST_COPY, OMP_LIST_DATA_CLAUSE_FIRST,
+	OMP_LIST_OACC_COPYIN, OMP_LIST_COPYOUT, OMP_LIST_CREATE, OMP_LIST_DELETE,
+	OMP_LIST_PRESENT, OMP_LIST_PRESENT_OR_COPY,
+	OMP_LIST_PRESENT_OR_COPYIN, OMP_LIST_PRESENT_OR_COPYOUT,
+	OMP_LIST_PRESENT_OR_CREATE, OMP_LIST_DEVICEPTR,
+	OMP_LIST_DATA_CLAUSE_LAST, OMP_LIST_USE_DEVICE,
+	OMP_LIST_DEVICE_RESIDENT, OMP_LIST_HOST, OMP_LIST_DEVICE,
+	OMP_LIST_CACHE): New types of list, allowed in clauses.
+	(gfc_omp_clauses): Add OpenACC clauses.
+	(gfc_namespace): Add OpenACC declare directive clauses.
+	(EXEC_OACC_KERNELS_LOOP, EXEC_OACC_PARALLEL_LOOP, EXEC_OACC_PARALLEL,
+	EXEC_OACC_KERNELS, EXEC_OACC_DATA, EXEC_OACC_HOST_DATA, EXEC_OACC_LOOP,
+	EXEC_OACC_UPDATE, EXEC_OACC_WAIT, EXEC_OACC_CACHE, EXEC_OACC_ENTER_DATA,
+	EXEC_OACC_EXIT_DATA): New executable statements.
+	(gfc_free_expr_list): New function declaration.
+	(gfc_resolve_oacc_directive): Likewise.
+	(gfc_resolve_oacc_parallel_loop_blocks): Likewise.
+	(gfc_resolve_oacc_blocks): Likewise.
+	* match.c (match_exit_cycle): Add support of OpenACC regions and loops.
+	* match.h (gfc_match_oacc_cache): New function declaration.
+	(gfc_match_oacc_wait, gfc_match_oacc_update): Likewise.
+	(gfc_match_oacc_declare, gfc_match_oacc_loop): Likewise.
+	(gfc_match_oacc_host_data, gfc_match_oacc_data): Likewise.
+	(gfc_match_oacc_kernels, gfc_match_oacc_kernels_loop): Likewise.
+	(gfc_match_oacc_parallel, gfc_match_oacc_parallel_loop): Likewise.
+	(gfc_match_oacc_enter_data, gfc_match_oacc_exit_data): Likewise.
+	* parse.c (decode_oacc_directive): New function.
+	(verify_token_free, verify_token_fixed): New helper functions.
+	(next_free, next_fixed): Decode !$ACC sentinel.
+	(case_executable): Add ST_OACC_UPDATE, ST_OACC_WAIT, ST_OACC_CACHE,
+	ST_OACC_ENTER_DATA and ST_OACC_EXIT_DATA directives.
+	(case_exec_markers): Add ST_OACC_PARALLEL_LOOP, ST_OACC_PARALLEL,
+	ST_OACC_KERNELS, ST_OACC_DATA, ST_OACC_HOST_DATA, ST_OACC_LOOP and
+	ST_OACC_KERNELS_LOOP directives.
+	(push_state): Initialize OpenACC declare clauses.
+	(gfc_ascii_statement): Dump names of OpenACC directives.
+	(verify_st_order): Verify OpenACC declare directive as declarative.
+	(parse_spec): Push clauses to state stack when declare directive is
+	parsed.
+	(parse_oacc_structured_block, parse_oacc_loop): New functions.
+	(parse_executable): Call them.
+	(parse_progunit): Move declare clauses from state stack to namespace.
+	* parse.h (gfc_state_data): Add declare directive's clauses.
+	* resolve.c (gfc_resolve_blocks): Resolve OpenACC directives.
+	(resolve_code): Likewise.
+	* scanner.c (openacc_flag, openacc_locus): New static variables.
+	(skip_oacc_attribute, skip_omp_attribute): New helper functions.
+	(skip_free_comments, skip_fixed_comments): Don't skip !$ACC sentinel.
+	(gfc_next_char_literal): Support OpenACC directives.
+	* st.c (gfc_free_statement): Free also OpenACC directives. 
+	* gcc/fortran/openmp.c
+	(gfc_free_omp_clauses): Remove also OpenACC clauses.
+	(gfc_free_expr_list): New function to clear expression list.
+	(match_oacc_expr_list): New function to match expression list.
+	(match_oacc_clause_gang): New function to match OpenACC 2.0 gang clauses.
+	(OMP_CLAUSE_ASYNC, OMP_CLAUSE_NUM_GANGS,
+	OMP_CLAUSE_NUM_WORKERS, OMP_CLAUSE_VECTOR_LENGTH,
+	OMP_CLAUSE_COPY, OMP_CLAUSE_OACC_COPYIN,
+	OMP_CLAUSE_COPYOUT, OMP_CLAUSE_CREATE, OMP_CLAUSE_PRESENT,
+	OMP_CLAUSE_PRESENT_OR_COPY, OMP_CLAUSE_PRESENT_OR_COPYIN,
+	OMP_CLAUSE_PRESENT_OR_COPYOUT, OMP_CLAUSE_PRESENT_OR_CREATE,
+	OMP_CLAUSE_DEVICEPTR, OMP_CLAUSE_GANG, OMP_CLAUSE_WORKER,
+	OMP_CLAUSE_VECTOR, OMP_CLAUSE_SEQ, OMP_CLAUSE_INDEPENDENT,
+	OMP_CLAUSE_USE_DEVICE, OMP_CLAUSE_HOST, OMP_CLAUSE_DEVICE_RESIDENT,
+	OMP_CLAUSE_DEVICE, OMP_CLAUSE_DEFAULT, OMP_CLAUSE_WAIT,
+	OMP_CLAUSE_DELETE, OMP_CLAUSE_AUTO, OMP_CLAUSE_TILE): New clauses.
+	(OACC_PARALLEL_CLAUSES, OACC_KERNELS_CLAUSES, OACC_DATA_CLAUSES,
+	OACC_LOOP_CLAUSES, OACC_PARALLEL_LOOP_CLAUSES,
+	OACC_KERNELS_LOOP_CLAUSES, OACC_HOST_DATA_CLAUSES, OACC_DECLARE_CLAUSES,
+	OACC_UPDATE_CLAUSES, OACC_ENTER_DATA_CLAUSES,
+	OACC_EXIT_DATA_CLAUSES): New defines.
+	(gfc_match_oacc_parallel_loop, gfc_match_oacc_parallel,
+	gfc_match_oacc_kernels_loop, gfc_match_oacc_kernels,
+	gfc_match_oacc_data, gfc_match_oacc_host_data, gfc_match_oacc_loop,
+	gfc_match_oacc_declare, gfc_match_oacc_update,
+	gfc_match_oacc_enter_data, gfc_match_oacc_exit_data,
+	gfc_match_oacc_wait, gfc_match_oacc_cache, oacc_is_loop,
+	check_symbol_not_pointer, resolve_oacc_scalar_int_expr,
+	resolve_oacc_positive_int_expr, check_array_not_assumed,
+	resolve_oacc_data_clauses, resolve_oacc_deviceptr_clause,
+	oacc_is_parallel, oacc_is_kernels, omp_code_to_statement,
+	oacc_code_to_statement, resolve_oacc_directive_inside_omp_region,
+	resolve_omp_directive_inside_oacc_region, resolve_oacc_nested_loops,
+	resolve_oacc_params_in_parallel, resolve_oacc_loop_blocks,
+	gfc_resolve_oacc_blocks, resolve_oacc_loop, resolve_oacc_cache,
+	resolve_oacc_wait, gfc_resolve_oacc_declare,
+	gfc_resolve_oacc_directive): New functions.
+	(resolve_omp_clauses): Resolve also OpenACC clauses.
+	(gfc_resolve_omp_directive): Check for enclosing OpenACC region. 
+	gcc/fortran/
+	* trans-decl.c
+	(gfc_generate_function_code): Insert OACC_DECLARE GENERIC node.
+	* trans-openmp.c (gfc_convert_expr_to_tree): New helper function.
+	(gfc_trans_omp_array_reduction): Support also OpenACC. Add parameter.
+	(gfc_trans_omp_reduction_list): Update.
+	(gfc_trans_oacc_construct): New transform function.
+	(gfc_trans_omp_map_clause_list): Likewise.
+	(gfc_trans_oacc_executable_directive): Likewise.
+	(gfc_trans_oacc_combined_directive, gfc_trans_oacc_declare): Likewise.
+	(gfc_trans_oacc_directive): Use them.
+	(gfc_trans_oacc_loop): Stub.
+	(gfc_trans_omp_clauses): Transform OpenACC clauses.
+	* trans-stmt.h  (gfc_trans_oacc_directive): New function prototype.
+	(gfc_trans_oacc_declare): Likewise.
+	* trans.c (trans_code): Transform also OpenACC directives. 
+	gcc/testsuite/gfortran.dg/goacc/
+	* goacc.exp: New test directive.
+	* assumed.f95: New test.
+	* branch.f95: Likewise.
+	* cache-1.f95: Likewise.
+	* coarray.f95: Likewise.
+	* continuation-free-form.f95: Likewise.
+	* cray.f95: Likewise.
+	* critical.f95: Likewise.
+	* data-clauses.f95: Likewise.
+	* data-tree.f95: Likewise.
+	* declare-1.f95: Likewise.
+	* enter-exit-data.f95: Likewise.
+	* host_data-tree.f95: Likewise.
+	* if.f95: Likewise.
+	* kernels-tree.f95: Likewise.
+	* list.f95: Likewise.
+	* literal.f95: Likewise.
+	* loop-1.f95: Likewise.
+	* loop-2.f95: Likewise.
+	* loop-3.f95: Likewise.
+	* omp.f95: Likewise.
+	* parallel-kernels-clauses.f95: Likewise.
+	* parallel-kernels-regions.f95: Likewise.
+	* parallel-tree.f95: Likewise.
+	* parameter.f95: Likewise.
+	* pure-elemental-procedures.f95: Likewise.
+	* reduction.f95: Likewise.
+	* sentinel-free-form.f95: Likewise.
+	* several-directives.f95: Likewise.
+	* sie.f95: Likewise.
+	* gcc/testsuite/gfortran.dg/gomp/omp_do1.f90: Change error message.
+
 2014-03-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* omp-low.c (create_omp_child_function): Use

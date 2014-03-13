@@ -69,9 +69,35 @@ gfc_free_omp_clauses (gfc_omp_clauses *c)
   gfc_free_expr (c->final_expr);
   gfc_free_expr (c->num_threads);
   gfc_free_expr (c->chunk_size);
+  gfc_free_expr (c->async_expr);
+  gfc_free_expr (c->gang_expr);
+  gfc_free_expr (c->worker_expr);
+  gfc_free_expr (c->vector_expr);
+  gfc_free_expr (c->num_gangs_expr);
+  gfc_free_expr (c->num_workers_expr);
+  gfc_free_expr (c->vector_length_expr);
+  gfc_free_expr (c->non_clause_wait_expr);
+
   for (i = 0; i < OMP_LIST_NUM; i++)
     gfc_free_namelist (c->lists[i]);
+
+  gfc_free_expr_list (c->wait_list);
+  gfc_free_expr_list (c->tile_list);
+
   free (c);
+}
+
+/* Free expression list. */
+void
+gfc_free_expr_list (gfc_expr_list *list)
+{
+  gfc_expr_list *n;
+
+  for (; list; list = n)
+    {
+      n = list->next;
+      free (list);
+    }
 }
 
 /* Match a variable/common block list and construct a namelist from it.  */
@@ -169,6 +195,87 @@ cleanup:
   return MATCH_ERROR;
 }
 
+static match
+match_oacc_expr_list (const char *str, gfc_expr_list **list, bool allow_asterisk)
+{
+  gfc_expr_list *head, *tail, *p;
+  locus old_loc;
+  gfc_expr *expr;
+  match m;
+
+  head = tail = NULL;
+
+  old_loc = gfc_current_locus;
+
+  m = gfc_match (str);
+  if (m != MATCH_YES)
+    return m;
+
+  for (;;)
+    {
+      m = gfc_match_expr (&expr);
+      if (m == MATCH_YES || allow_asterisk)
+	{
+	  p = gfc_get_expr_list ();
+	  if (head == NULL)
+	    head = tail = p;
+	  else
+	    {
+	      tail->next = p;
+	      tail = tail->next;
+	    }
+	  if (m == MATCH_YES)
+	    tail->expr = expr;
+	  else if (gfc_match (" *") != MATCH_YES)
+	    goto syntax;
+	  goto next_item;
+	}
+      if (m == MATCH_ERROR)
+	goto cleanup;
+      goto syntax;
+
+    next_item:
+      if (gfc_match_char (')') == MATCH_YES)
+	break;
+      if (gfc_match_char (',') != MATCH_YES)
+	goto syntax;
+    }
+
+  while (*list)
+    list = &(*list)->next;
+
+  *list = head;
+  return MATCH_YES;
+
+syntax:
+  gfc_error ("Syntax error in OpenACC expression list at %C");
+
+cleanup:
+  gfc_free_expr_list (head);
+  gfc_current_locus = old_loc;
+  return MATCH_ERROR;
+}
+
+static match
+match_oacc_clause_gang (gfc_omp_clauses *cp)
+{
+  if (gfc_match_char ('(') != MATCH_YES)
+    return MATCH_NO;
+  if (gfc_match (" num :") == MATCH_YES)
+    {
+      cp->gang_static = false;
+      return gfc_match (" %e )", &cp->gang_expr);
+    }
+  if (gfc_match (" static :") == MATCH_YES)
+    {
+      cp->gang_static = true;
+      if (gfc_match (" * )") != MATCH_YES)
+	return gfc_match (" %e )", &cp->gang_expr);
+      return MATCH_YES;
+    }
+  return gfc_match (" %e )", &cp->gang_expr);
+}
+
 #define OMP_CLAUSE_PRIVATE	(1 << 0)
 #define OMP_CLAUSE_FIRSTPRIVATE	(1 << 1)
 #define OMP_CLAUSE_LASTPRIVATE	(1 << 2)
@@ -186,11 +293,40 @@ cleanup:
 #define OMP_CLAUSE_FINAL	(1 << 14)
 #define OMP_CLAUSE_MERGEABLE	(1 << 15)
 
-/* Match OpenMP directive clauses. MASK is a bitmask of
+/* OpenACC 2.0 clauses. */
+#define OMP_CLAUSE_ASYNC                (1 << 16)
+#define OMP_CLAUSE_NUM_GANGS            (1 << 17)
+#define OMP_CLAUSE_NUM_WORKERS          (1 << 18)
+#define OMP_CLAUSE_VECTOR_LENGTH        (1 << 19)
+#define OMP_CLAUSE_COPY                 (1 << 20)
+#define OMP_CLAUSE_COPYOUT              (1 << 21)
+#define OMP_CLAUSE_CREATE               (1 << 22)
+#define OMP_CLAUSE_PRESENT              (1 << 23)
+#define OMP_CLAUSE_PRESENT_OR_COPY      (1 << 24)
+#define OMP_CLAUSE_PRESENT_OR_COPYIN    (1 << 25)
+#define OMP_CLAUSE_PRESENT_OR_COPYOUT   (1 << 26)
+#define OMP_CLAUSE_PRESENT_OR_CREATE    (1 << 27)
+#define OMP_CLAUSE_DEVICEPTR            (1 << 28)
+#define OMP_CLAUSE_GANG                 (1 << 29)
+#define OMP_CLAUSE_WORKER               (1 << 30)
+#define OMP_CLAUSE_VECTOR               (1 << 31)
+#define OMP_CLAUSE_SEQ                  (1LL << 32)
+#define OMP_CLAUSE_INDEPENDENT          (1LL << 33)
+#define OMP_CLAUSE_USE_DEVICE           (1LL << 34)
+#define OMP_CLAUSE_DEVICE_RESIDENT      (1LL << 35)
+#define OMP_CLAUSE_HOST                 (1LL << 36)
+#define OMP_CLAUSE_DEVICE               (1LL << 37)
+#define OMP_CLAUSE_OACC_COPYIN          (1LL << 38)
+#define OMP_CLAUSE_WAIT                 (1LL << 39)
+#define OMP_CLAUSE_DELETE               (1LL << 40)
+#define OMP_CLAUSE_AUTO                 (1LL << 41)
+#define OMP_CLAUSE_TILE                 (1LL << 42)
+
+/* Match OpenMP and OpenACC directive clauses. MASK is a bitmask of
    clauses that are allowed for a particular directive.  */
 
 static match
-gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
+gfc_match_omp_clauses (gfc_omp_clauses **cp, long long mask)
 {
   gfc_omp_clauses *c = gfc_get_omp_clauses ();
   locus old_loc;
@@ -205,6 +341,52 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
       needs_space = false;
       first = false;
       gfc_gobble_whitespace ();
+      if ((mask & OMP_CLAUSE_ASYNC) && !c->async)
+	if (gfc_match ("async") == MATCH_YES)
+	  {
+	    c->async = true;
+	    if (gfc_match (" ( %e )", &c->async_expr) == MATCH_YES)
+	      needs_space = false;
+	    else
+	      needs_space = true;
+	    continue;
+	  }
+      if ((mask & OMP_CLAUSE_GANG) && !c->gang)
+	if (gfc_match ("gang") == MATCH_YES)
+	  {
+	    c->gang = true;
+	    if (match_oacc_clause_gang(c) == MATCH_YES)
+	      needs_space = false;
+	    else
+	      needs_space = true;
+	    continue;
+	  }
+      if ((mask & OMP_CLAUSE_WORKER) && !c->worker)
+	if (gfc_match ("worker") == MATCH_YES)
+	  {
+	    c->worker = true;
+	    if (gfc_match (" ( num : %e )", &c->worker_expr) == MATCH_YES
+	        || gfc_match (" ( %e )", &c->worker_expr) == MATCH_YES)
+	      needs_space = false;
+	    else
+	      needs_space = true;
+	    continue;
+	  }
+      if ((mask & OMP_CLAUSE_VECTOR_LENGTH) && c->vector_length_expr == NULL
+	  && gfc_match ("vector_length ( %e )", &c->vector_length_expr)
+	  == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_VECTOR) && !c->vector)
+	if (gfc_match ("vector") == MATCH_YES)
+	  {
+	    c->vector = true;
+	    if (gfc_match (" ( length : %e )", &c->vector_expr) == MATCH_YES
+	        || gfc_match (" ( %e )", &c->vector_expr) == MATCH_YES)
+	      needs_space = false;
+	    else
+	      needs_space = true;
+	    continue;
+	  }
       if ((mask & OMP_CLAUSE_IF) && c->if_expr == NULL
 	  && gfc_match ("if ( %e )", &c->if_expr) == MATCH_YES)
 	continue;
@@ -247,6 +429,148 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
 					  &c->lists[OMP_LIST_COPYIN], true)
 	     == MATCH_YES)
 	continue;
+      if ((mask & OMP_CLAUSE_NUM_GANGS) && c->num_gangs_expr == NULL
+	  && gfc_match ("num_gangs ( %e )", &c->num_gangs_expr) == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_NUM_WORKERS) && c->num_workers_expr == NULL
+	  && gfc_match ("num_workers ( %e )", &c->num_workers_expr)
+	  == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_COPY)
+	  && gfc_match_omp_variable_list ("copy (",
+					  &c->lists[OMP_LIST_COPY], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_OACC_COPYIN)
+	  && gfc_match_omp_variable_list ("copyin (",
+					  &c->lists[OMP_LIST_OACC_COPYIN], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_COPYOUT)
+	  && gfc_match_omp_variable_list ("copyout (",
+					  &c->lists[OMP_LIST_COPYOUT], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_CREATE)
+	  && gfc_match_omp_variable_list ("create (",
+					  &c->lists[OMP_LIST_CREATE], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_DELETE)
+	  && gfc_match_omp_variable_list ("delete (",
+					  &c->lists[OMP_LIST_DELETE], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT)
+	  && gfc_match_omp_variable_list ("present (",
+					  &c->lists[OMP_LIST_PRESENT], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_COPY)
+	  && gfc_match_omp_variable_list ("present_or_copy (",
+					  &c->lists[OMP_LIST_PRESENT_OR_COPY],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_COPY)
+	  && gfc_match_omp_variable_list ("pcopy (",
+					  &c->lists[OMP_LIST_PRESENT_OR_COPY], 
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_COPYIN)
+	  && gfc_match_omp_variable_list ("present_or_copyin (",
+					  &c->lists[OMP_LIST_PRESENT_OR_COPYIN],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_COPYIN)
+	  && gfc_match_omp_variable_list ("pcopyin (",
+					  &c->lists[OMP_LIST_PRESENT_OR_COPYIN],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_COPYOUT)
+	  && gfc_match_omp_variable_list ("present_or_copyout (",
+					  &c->lists[OMP_LIST_PRESENT_OR_COPYOUT],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_COPYOUT)
+	  && gfc_match_omp_variable_list ("pcopyout (",
+					  &c->lists[OMP_LIST_PRESENT_OR_COPYOUT],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_CREATE)
+	  && gfc_match_omp_variable_list ("present_or_create (",
+					  &c->lists[OMP_LIST_PRESENT_OR_CREATE],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_PRESENT_OR_CREATE)
+	  && gfc_match_omp_variable_list ("pcreate (",
+					  &c->lists[OMP_LIST_PRESENT_OR_CREATE],
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_DEVICEPTR)
+	  && gfc_match_omp_variable_list ("deviceptr (",
+					  &c->lists[OMP_LIST_DEVICEPTR], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_USE_DEVICE)
+	  && gfc_match_omp_variable_list ("use_device (",
+					  &c->lists[OMP_LIST_USE_DEVICE], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_DEVICE_RESIDENT)
+	  && gfc_match_omp_variable_list ("device_resident (",
+					  &c->lists[OMP_LIST_DEVICE_RESIDENT], 
+					  true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_HOST)
+	  && gfc_match_omp_variable_list ("host (",
+					  &c->lists[OMP_LIST_HOST], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_DEVICE)
+	  && gfc_match_omp_variable_list ("device (",
+					  &c->lists[OMP_LIST_DEVICE], true)
+	     == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_TILE)
+	  && match_oacc_expr_list ("tile (", &c->tile_list, true) == MATCH_YES)
+	continue;
+      if ((mask & OMP_CLAUSE_SEQ) && !c->seq
+	  && gfc_match ("seq") == MATCH_YES)
+	{
+	  c->seq = true;
+	  needs_space = true;
+	  continue;
+	}
+      if ((mask & OMP_CLAUSE_INDEPENDENT) && !c->independent
+	  && gfc_match ("independent") == MATCH_YES)
+	{
+	  c->independent = true;
+	  needs_space = true;
+	  continue;
+	}
+      if ((mask & OMP_CLAUSE_AUTO) && !c->par_auto
+	        && gfc_match ("auto") == MATCH_YES)
+	{
+	  c->par_auto = true;
+	  needs_space = true;
+	  continue;
+	}
+      if ((mask & OMP_CLAUSE_WAIT) && !c->wait
+	        && gfc_match ("wait") == MATCH_YES)
+	{
+	  c->wait = true;
+	  match_oacc_expr_list (" (", &c->wait_list, false);
+	  continue;
+	}
       old_loc = gfc_current_locus;
       if ((mask & OMP_CLAUSE_REDUCTION)
 	  && gfc_match ("reduction ( ") == MATCH_YES)
@@ -433,6 +757,52 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
   return MATCH_YES;
 }
 
+#define OACC_PARALLEL_CLAUSES \
+  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_NUM_GANGS                    \
+   | OMP_CLAUSE_NUM_WORKERS | OMP_CLAUSE_VECTOR_LENGTH | OMP_CLAUSE_REDUCTION \
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_OACC_COPYIN | OMP_CLAUSE_COPYOUT            \
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY      \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+   | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_PRIVATE \
+   | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_WAIT)
+#define OACC_KERNELS_CLAUSES \
+  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_DEVICEPTR                    \
+   | OMP_CLAUSE_COPY | OMP_CLAUSE_OACC_COPYIN | OMP_CLAUSE_COPYOUT            \
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY      \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+   | OMP_CLAUSE_PRESENT_OR_CREATE | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_WAIT)
+#define OACC_DATA_CLAUSES \
+  (OMP_CLAUSE_IF | OMP_CLAUSE_DEVICEPTR  | OMP_CLAUSE_COPY                    \
+   | OMP_CLAUSE_OACC_COPYIN | OMP_CLAUSE_COPYOUT | OMP_CLAUSE_CREATE          \
+   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY                          \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+   | OMP_CLAUSE_PRESENT_OR_CREATE)
+#define OACC_LOOP_CLAUSES \
+  (OMP_CLAUSE_COLLAPSE | OMP_CLAUSE_GANG | OMP_CLAUSE_WORKER     \
+   | OMP_CLAUSE_VECTOR | OMP_CLAUSE_SEQ | OMP_CLAUSE_INDEPENDENT \
+   | OMP_CLAUSE_PRIVATE | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_AUTO \
+   | OMP_CLAUSE_TILE)
+#define OACC_PARALLEL_LOOP_CLAUSES \
+  (OACC_LOOP_CLAUSES | OACC_PARALLEL_CLAUSES)
+#define OACC_KERNELS_LOOP_CLAUSES \
+  (OACC_LOOP_CLAUSES | OACC_KERNELS_CLAUSES)
+#define OACC_HOST_DATA_CLAUSES OMP_CLAUSE_USE_DEVICE
+#define OACC_DECLARE_CLAUSES \
+  (OMP_CLAUSE_COPY | OMP_CLAUSE_OACC_COPYIN | OMP_CLAUSE_COPYOUT              \
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_DEVICEPTR | OMP_CLAUSE_DEVICE_RESIDENT    \
+   | OMP_CLAUSE_PRESENT | OMP_CLAUSE_PRESENT_OR_COPY                          \
+   | OMP_CLAUSE_PRESENT_OR_COPYIN | OMP_CLAUSE_PRESENT_OR_COPYOUT             \
+   | OMP_CLAUSE_PRESENT_OR_CREATE)
+#define OACC_UPDATE_CLAUSES \
+  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_HOST | OMP_CLAUSE_DEVICE)
+#define OACC_ENTER_DATA_CLAUSES \
+  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_OACC_COPYIN \
+   | OMP_CLAUSE_CREATE | OMP_CLAUSE_PRESENT_OR_COPYIN                          \
+   | OMP_CLAUSE_PRESENT_OR_CREATE)
+#define OACC_EXIT_DATA_CLAUSES \
+  (OMP_CLAUSE_IF | OMP_CLAUSE_ASYNC | OMP_CLAUSE_WAIT | OMP_CLAUSE_COPYOUT \
+   | OMP_CLAUSE_DELETE)
+
 #define OMP_PARALLEL_CLAUSES \
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
    | OMP_CLAUSE_COPYIN | OMP_CLAUSE_REDUCTION | OMP_CLAUSE_IF		\
@@ -448,6 +818,187 @@ gfc_match_omp_clauses (gfc_omp_clauses **cp, int mask)
   (OMP_CLAUSE_PRIVATE | OMP_CLAUSE_FIRSTPRIVATE | OMP_CLAUSE_SHARED	\
    | OMP_CLAUSE_IF | OMP_CLAUSE_DEFAULT | OMP_CLAUSE_UNTIED		\
    | OMP_CLAUSE_FINAL | OMP_CLAUSE_MERGEABLE)
+
+
+match
+gfc_match_oacc_parallel_loop (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_LOOP_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_PARALLEL_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_parallel (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_PARALLEL_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_PARALLEL;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_kernels_loop (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_KERNELS_LOOP_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_KERNELS_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_kernels (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_KERNELS_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_KERNELS;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_data (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_DATA_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_host_data (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_HOST_DATA_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_HOST_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_loop (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_LOOP_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_LOOP;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_declare (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_DECLARE_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.ext.omp_clauses = c;
+  new_st.ext.omp_clauses->ext.loc = gfc_current_locus;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_update (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_UPDATE_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_UPDATE;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_enter_data (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_ENTER_DATA_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_ENTER_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_exit_data (void)
+{
+  gfc_omp_clauses *c;
+  if (gfc_match_omp_clauses (&c, OACC_EXIT_DATA_CLAUSES) != MATCH_YES)
+    return MATCH_ERROR;
+
+  new_st.op = EXEC_OACC_EXIT_DATA;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_wait (void)
+{
+  gfc_omp_clauses *c = gfc_get_omp_clauses ();
+  gfc_match (" ( %e )", &c->non_clause_wait_expr);
+
+  new_st.op = EXEC_OACC_WAIT;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
+
+match
+gfc_match_oacc_cache (void)
+{
+  gfc_omp_clauses *c = gfc_get_omp_clauses ();
+  match m = gfc_match_omp_variable_list (" (",&c->lists[OMP_LIST_CACHE], true);
+  if (m != MATCH_YES)
+    {
+      gfc_free_omp_clauses(c);
+      return m;
+    }
+
+  if (gfc_current_state() != COMP_DO 
+      && gfc_current_state() != COMP_DO_CONCURRENT)
+    {
+      gfc_error ("ACC CACHE directive must be inside of loop %C");
+      gfc_free_omp_clauses(c);
+      return MATCH_ERROR;
+    }
+
+  new_st.op = EXEC_OACC_CACHE;
+  new_st.ext.omp_clauses = c;
+  return MATCH_YES;
+}
+
 
 match
 gfc_match_omp_parallel (void)
@@ -793,6 +1344,128 @@ gfc_match_omp_end_single (void)
 }
 
 
+static bool
+oacc_is_loop (gfc_code *code)
+{
+  return code->op == EXEC_OACC_PARALLEL_LOOP
+	 || code->op == EXEC_OACC_KERNELS_LOOP
+	 || code->op == EXEC_OACC_LOOP;
+}
+
+static void
+resolve_oacc_scalar_int_expr (gfc_expr *expr, const char *clause)
+{
+  if (!gfc_resolve_expr (expr)
+      || expr->ts.type != BT_INTEGER || expr->rank != 0)
+    gfc_error ("%s clause at %L requires a scalar INTEGER expression",
+		     clause, &expr->where);
+}
+
+
+static void
+resolve_oacc_positive_int_expr (gfc_expr *expr, const char *clause)
+{
+  resolve_oacc_scalar_int_expr (expr, clause);
+  if (expr->expr_type == EXPR_CONSTANT && expr->ts.type == BT_INTEGER
+      && mpz_sgn(expr->value.integer) <= 0)
+    gfc_warning ("INTEGER expression of %s clause at %L must be positive",
+		     clause, &expr->where);
+}
+
+/* Emits error when symbol is pointer, cray pointer or cray pointee
+   of derived of polymorphic type.  */
+
+static void
+check_symbol_not_pointer (gfc_symbol *sym, locus loc, const char *name)
+{
+  if (sym->ts.type == BT_DERIVED && sym->attr.pointer)
+    gfc_error ("POINTER object '%s' of derived type in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->ts.type == BT_DERIVED && sym->attr.cray_pointer)
+    gfc_error ("Cray pointer object of derived type '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->ts.type == BT_DERIVED && sym->attr.cray_pointee)
+    gfc_error ("Cray pointee object of derived type '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+
+  if ((sym->ts.type == BT_ASSUMED && sym->attr.pointer)
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)
+	  && CLASS_DATA (sym)->attr.pointer))
+    gfc_error ("POINTER object '%s' of polymorphic type in %s clause at %L",
+	       sym->name, name, &loc);
+  if ((sym->ts.type == BT_ASSUMED && sym->attr.cray_pointer)
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)
+	  && CLASS_DATA (sym)->attr.cray_pointer))
+    gfc_error ("Cray pointer object of polymorphic type '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if ((sym->ts.type == BT_ASSUMED && sym->attr.cray_pointee)
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)
+	  && CLASS_DATA (sym)->attr.cray_pointee))
+    gfc_error ("Cray pointee object of polymorphic type '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+}
+
+/* Emits error when symbol represents assumed size/rank array.  */
+
+static void
+check_array_not_assumed (gfc_symbol *sym, locus loc, const char *name)
+{
+  if (sym->as && sym->as->type == AS_ASSUMED_SIZE)
+    gfc_error ("Assumed size array '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->as && sym->as->type == AS_ASSUMED_RANK)
+    gfc_error ("Assumed rank array '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->as && sym->as->type == AS_DEFERRED && sym->attr.pointer
+      && !sym->attr.contiguous)
+    gfc_error ("Noncontiguous deferred shape array '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+}
+
+static void
+resolve_oacc_data_clauses (gfc_symbol *sym, locus loc, const char *name)
+{
+  if (sym->ts.type == BT_DERIVED && sym->attr.allocatable)
+    gfc_error ("ALLOCATABLE object '%s' of derived type in %s clause at %L",
+	       sym->name, name, &loc);
+  if ((sym->ts.type == BT_ASSUMED && sym->attr.allocatable)
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym)
+	  && CLASS_DATA (sym)->attr.allocatable))
+    gfc_error ("ALLOCATABLE object '%s' of polymorphic type "
+	       "in %s clause at %L", sym->name, name, &loc);
+  check_symbol_not_pointer (sym, loc, name);
+  check_array_not_assumed (sym, loc, name);
+}
+
+static void
+resolve_oacc_deviceptr_clause (gfc_symbol *sym, locus loc, const char *name)
+{
+  if (sym->attr.pointer
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym) 
+	  && CLASS_DATA (sym)->attr.class_pointer))
+    gfc_error ("POINTER object '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->attr.cray_pointer
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym) 
+	  && CLASS_DATA (sym)->attr.cray_pointer))
+    gfc_error ("Cray pointer object '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->attr.cray_pointee
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym) 
+	  && CLASS_DATA (sym)->attr.cray_pointee))
+    gfc_error ("Cray pointee object '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->attr.allocatable
+      || (sym->ts.type == BT_CLASS && CLASS_DATA (sym) 
+	  && CLASS_DATA (sym)->attr.allocatable))
+    gfc_error ("ALLOCATABLE object '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  if (sym->attr.value)
+    gfc_error ("VALUE object '%s' in %s clause at %L",
+	       sym->name, name, &loc);
+  check_array_not_assumed (sym, loc, name);
+}
+
 /* OpenMP directive resolving routines.  */
 
 static void
@@ -800,10 +1473,14 @@ resolve_omp_clauses (gfc_code *code)
 {
   gfc_omp_clauses *omp_clauses = code->ext.omp_clauses;
   gfc_namelist *n;
+  gfc_expr_list *el;
   int list;
   static const char *clause_names[]
     = { "PRIVATE", "FIRSTPRIVATE", "LASTPRIVATE", "COPYPRIVATE", "SHARED",
-	"COPYIN", "REDUCTION" };
+	"COPYIN", "COPY", "COPYIN", "COPYOUT", "CREATE", "DELETE",
+	"PRESENT", "PRESENT_OR_COPY", "PRESENT_OR_COPYIN", "PRESENT_OR_COPYOUT",
+	"PRESENT_OR_CREATE", "DEVICEPTR", "DEVICE_RESIDENT", "USE_DEVICE",
+	"HOST", "DEVICE", "CACHE", "REDUCTION"};
 
   if (omp_clauses == NULL)
     return;
@@ -996,7 +1673,9 @@ resolve_omp_clauses (gfc_code *code)
 		      gfc_error ("Cray pointer '%s' in %s clause at %L",
 				 n->sym->name, name, &code->loc);
 		  }
-		if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
+		if (oacc_is_loop (code) || code->op == EXEC_OACC_PARALLEL)
+		  check_array_not_assumed (n->sym, code->loc, name);
+		else if (n->sym->as && n->sym->as->type == AS_ASSUMED_SIZE)
 		  gfc_error ("Assumed size array '%s' in %s clause at %L",
 			     n->sym->name, name, &code->loc);
 		if (n->sym->attr.in_namelist
@@ -1005,6 +1684,17 @@ resolve_omp_clauses (gfc_code *code)
 		  gfc_error ("Variable '%s' in %s clause is used in "
 			     "NAMELIST statement at %L",
 			     n->sym->name, name, &code->loc);
+
+		if (list >= OMP_LIST_DATA_CLAUSE_FIRST
+		    && list < OMP_LIST_DATA_CLAUSE_LAST)
+		  resolve_oacc_data_clauses (n->sym, code->loc, name);
+	
+		if (list > OMP_LIST_DATA_CLAUSE_LAST 
+		    && list < OMP_LIST_REDUCTION_FIRST)
+		  {
+		    check_symbol_not_pointer (n->sym, code->loc, name);
+		    check_array_not_assumed (n->sym, code->loc, name);
+		  }
 		switch (list)
 		  {
 		  case OMP_LIST_PLUS:
@@ -1052,6 +1742,28 @@ resolve_omp_clauses (gfc_code *code)
 		     to be done here for OMP_LIST_PRIVATE.  */
 		  case OMP_LIST_PRIVATE:
 		    gcc_assert (code->op != EXEC_NOP);
+		    break;
+		  case OMP_LIST_DEVICEPTR:
+		    resolve_oacc_deviceptr_clause (n->sym, code->loc, name);
+		    break;
+		  case OMP_LIST_USE_DEVICE:
+		      if (n->sym->attr.allocatable
+			  || (n->sym->ts.type == BT_CLASS && CLASS_DATA (n->sym) 
+			      && CLASS_DATA (n->sym)->attr.allocatable))
+			gfc_error ("ALLOCATABLE object '%s' in %s clause at %L",
+				   n->sym->name, name, &code->loc);
+		      if (n->sym->attr.pointer
+			  || (n->sym->ts.type == BT_CLASS && CLASS_DATA (n->sym) 
+			      && CLASS_DATA (n->sym)->attr.class_pointer))
+			gfc_error ("POINTER object '%s' in %s clause at %L",
+				   n->sym->name, name, &code->loc);
+		      if (n->sym->attr.cray_pointer)
+			gfc_error ("Cray pointer object '%s' in %s clause at %L",
+				   n->sym->name, name, &code->loc);
+		      if (n->sym->attr.cray_pointee)
+			gfc_error ("Cray pointee object '%s' in %s clause at %L",
+				   n->sym->name, name, &code->loc);
+		    break;
 		  default:
 		    break;
 		  }
@@ -1059,6 +1771,25 @@ resolve_omp_clauses (gfc_code *code)
 	    break;
 	  }
       }
+  if (omp_clauses->async)
+    if (omp_clauses->async_expr)
+      resolve_oacc_scalar_int_expr (omp_clauses->async_expr, "ASYNC");
+  if (omp_clauses->num_gangs_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->num_gangs_expr, "NUM_GANGS");
+  if (omp_clauses->num_workers_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->num_workers_expr, "NUM_WORKERS");
+  if (omp_clauses->vector_length_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->vector_length_expr, "VECTOR_LENGTH");
+  if (omp_clauses->gang_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->gang_expr, "GANG");
+  if (omp_clauses->worker_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->worker_expr, "WORKER");
+  if (omp_clauses->vector_expr)
+    resolve_oacc_positive_int_expr (omp_clauses->vector_expr, "VECTOR");
+  if (omp_clauses->wait)
+    if (omp_clauses->wait_list)
+      for (el = omp_clauses->wait_list; el; el = el->next)
+	resolve_oacc_positive_int_expr (el->expr, "WAIT");
 }
 
 
@@ -1727,6 +2458,458 @@ resolve_omp_do (gfc_code *code)
     }
 }
 
+typedef struct omp_context oacc_context;
+oacc_context *oacc_current_ctx;
+
+static bool
+oacc_is_parallel (gfc_code *code)
+{
+  return code->op == EXEC_OACC_PARALLEL || code->op == EXEC_OACC_PARALLEL_LOOP;
+}
+
+static bool
+oacc_is_kernels (gfc_code *code)
+{
+  return code->op == EXEC_OACC_KERNELS || code->op == EXEC_OACC_KERNELS_LOOP;
+}
+
+static gfc_statement 
+omp_code_to_statement (gfc_code *code)
+{
+switch (code->op)
+  {
+  case EXEC_OMP_PARALLEL:
+    return ST_OMP_PARALLEL;
+  case EXEC_OMP_PARALLEL_SECTIONS:
+    return ST_OMP_PARALLEL_SECTIONS;
+  case EXEC_OMP_SECTIONS:
+    return ST_OMP_SECTIONS;
+  case EXEC_OMP_ORDERED:
+    return ST_OMP_ORDERED;
+  case EXEC_OMP_CRITICAL:
+    return ST_OMP_CRITICAL;
+  case EXEC_OMP_MASTER:
+    return ST_OMP_MASTER;
+  case EXEC_OMP_SINGLE:
+    return ST_OMP_SINGLE;
+  case EXEC_OMP_TASK:
+    return ST_OMP_TASK;
+  case EXEC_OMP_WORKSHARE:
+    return ST_OMP_WORKSHARE;
+  case EXEC_OMP_PARALLEL_WORKSHARE:
+    return ST_OMP_PARALLEL_WORKSHARE;
+  case EXEC_OMP_DO:
+    return ST_OMP_DO;
+  default:
+    gcc_unreachable ();
+  }
+}
+
+static gfc_statement 
+oacc_code_to_statement (gfc_code *code)
+{
+switch (code->op)
+  {
+  case EXEC_OACC_PARALLEL:
+    return ST_OACC_PARALLEL;
+  case EXEC_OACC_KERNELS:
+    return ST_OACC_KERNELS;
+  case EXEC_OACC_DATA:
+    return ST_OACC_DATA;
+  case EXEC_OACC_HOST_DATA:
+    return ST_OACC_HOST_DATA;
+  case EXEC_OACC_PARALLEL_LOOP:
+    return ST_OACC_PARALLEL_LOOP;
+  case EXEC_OACC_KERNELS_LOOP:
+    return ST_OACC_KERNELS_LOOP;
+  case EXEC_OACC_LOOP:
+    return ST_OACC_LOOP;
+  default:
+    gcc_unreachable ();
+  }
+}
+
+static void 
+resolve_oacc_directive_inside_omp_region (gfc_code *code)
+{
+  if (omp_current_ctx != NULL)
+    {
+      gfc_statement st = omp_code_to_statement (omp_current_ctx->code);
+      gfc_statement oacc_st = oacc_code_to_statement (code);
+      gfc_error ("The %s directive cannot be specified within "
+		 "a %s region at %L", gfc_ascii_statement (oacc_st), 
+		 gfc_ascii_statement (st), &code->loc);
+    }
+}
+
+static void 
+resolve_omp_directive_inside_oacc_region (gfc_code *code)
+{
+  if (oacc_current_ctx != NULL)
+    {
+      gfc_statement st = oacc_code_to_statement (oacc_current_ctx->code);
+      gfc_statement omp_st = omp_code_to_statement (code);
+      gfc_error ("The %s directive cannot be specified within "
+		 "a %s region at %L", gfc_ascii_statement (omp_st), 
+		 gfc_ascii_statement (st), &code->loc);
+    }
+}
+
+
+static void
+resolve_oacc_nested_loops (gfc_code *code, gfc_code* do_code, int collapse,
+			  const char *clause)
+{
+  gfc_symbol *dovar;
+  gfc_code *c;
+  int i;
+
+  for (i = 1; i <= collapse; i++)
+    {
+      if (do_code->op == EXEC_DO_WHILE)
+	{
+	  gfc_error ("!$ACC LOOP cannot be a DO WHILE or DO without loop control "
+		     "at %L", &do_code->loc);
+	  break;
+	}
+      gcc_assert (do_code->op == EXEC_DO || do_code->op == EXEC_DO_CONCURRENT);
+      if (do_code->ext.iterator->var->ts.type != BT_INTEGER)
+	gfc_error ("!$ACC LOOP iteration variable must be of type integer at %L",
+		   &do_code->loc);
+      dovar = do_code->ext.iterator->var->symtree->n.sym;
+      if (i > 1)
+	{
+	  gfc_code *do_code2 = code->block->next;
+	  int j;
+
+	  for (j = 1; j < i; j++)
+	    {
+	      gfc_symbol *ivar = do_code2->ext.iterator->var->symtree->n.sym;
+	      if (dovar == ivar
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->start)
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->end)
+		  || gfc_find_sym_in_expr (ivar, do_code->ext.iterator->step))
+		{
+		  gfc_error ("!$ACC LOOP %s loops don't form rectangular iteration space at %L",
+			     clause, &do_code->loc);
+		  break;
+		}
+	      if (j < i)
+		break;
+	      do_code2 = do_code2->block->next;
+	    }
+	}
+      if (i == collapse)
+	break;
+      for (c = do_code->next; c; c = c->next)
+	if (c->op != EXEC_NOP && c->op != EXEC_CONTINUE)
+	  {
+	    gfc_error ("%s !$ACC LOOP loops not perfectly nested at %L",
+		       clause, &c->loc);
+	    break;
+	  }
+      if (c)
+	break;
+      do_code = do_code->block;
+      if (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE
+	  && do_code->op != EXEC_DO_CONCURRENT)
+	{
+	  gfc_error ("not enough DO loops for %s !$ACC LOOP at %L",
+		     clause, &code->loc);
+	  break;
+	}
+      do_code = do_code->next;
+      if (do_code == NULL
+	  || (do_code->op != EXEC_DO && do_code->op != EXEC_DO_WHILE
+	      && do_code->op != EXEC_DO_CONCURRENT))
+	{
+	  gfc_error ("not enough DO loops for %s !$ACC LOOP at %L",
+		     clause, &code->loc);
+	  break;
+	}
+    }
+}
+
+
+static void
+resolve_oacc_params_in_parallel (gfc_code *code, const char *clause)
+{
+  oacc_context *c;
+
+  if (oacc_is_parallel (code))
+    gfc_error ("!$ACC LOOP %s in PARALLEL region doesn't allow "
+	       "non-static arguments at %L", clause, &code->loc);
+  for (c = oacc_current_ctx; c; c = c->previous)
+    {
+      if (oacc_is_loop (c->code))
+	break;
+      if (oacc_is_parallel (c->code))
+	gfc_error ("!$ACC LOOP %s in PARALLEL region doesn't allow "
+		   "non-static arguments at %L", clause, &code->loc);
+    }
+}
+
+
+static void
+resolve_oacc_loop_blocks (gfc_code *code)
+{
+  oacc_context *c;
+
+  if (!oacc_is_loop (code))
+    return;
+
+  if (code->op == EXEC_OACC_LOOP)
+    for (c = oacc_current_ctx; c; c = c->previous)
+      {
+	if (oacc_is_loop (c->code))
+	  {
+	    if (code->ext.omp_clauses->gang)
+	      {
+		if (c->code->ext.omp_clauses->gang)
+		  gfc_error ("Loop parallelized across gangs is not allowed "
+			     "inside another loop parallelized across gangs at %L",
+			     &code->loc);
+		if (c->code->ext.omp_clauses->worker)
+		  gfc_error ("Loop parallelized across gangs is not allowed "
+			     "inside loop parallelized across workers at %L",
+			     &code->loc);
+		if (c->code->ext.omp_clauses->vector)
+		  gfc_error ("Loop parallelized across gangs is not allowed "
+			     "inside loop parallelized across workers at %L",
+			     &code->loc);
+	      }
+	    if (code->ext.omp_clauses->worker)
+	      {
+		if (c->code->ext.omp_clauses->worker)
+		  gfc_error ("Loop parallelized across workers is not allowed "
+			     "inside another loop parallelized across workers at %L",
+			     &code->loc);
+		if (c->code->ext.omp_clauses->vector)
+		  gfc_error ("Loop parallelized across workers is not allowed "
+			     "inside another loop parallelized across vectors at %L",
+			     &code->loc);
+	      }
+	    if (code->ext.omp_clauses->vector)
+	      if (c->code->ext.omp_clauses->vector)
+		gfc_error ("Loop parallelized across vectors is not allowed "
+			   "inside another loop parallelized across vectors at %L",
+			   &code->loc);
+	  }
+
+	if (oacc_is_parallel (c->code) || oacc_is_kernels (c->code))
+	  break;
+      }
+
+  if (code->ext.omp_clauses->seq)
+    {
+      if (code->ext.omp_clauses->independent)
+	gfc_error ("Clause SEQ conflicts with INDEPENDENT at %L", &code->loc);
+      if (code->ext.omp_clauses->gang)
+	gfc_error ("Clause SEQ conflicts with GANG at %L", &code->loc);
+      if (code->ext.omp_clauses->worker)
+	gfc_error ("Clause SEQ conflicts with WORKER at %L", &code->loc);
+      if (code->ext.omp_clauses->vector)
+	gfc_error ("Clause SEQ conflicts with VECTOR at %L", &code->loc);
+      if (code->ext.omp_clauses->par_auto)
+	gfc_error ("Clause SEQ conflicts with AUTO at %L", &code->loc);
+    }
+  if (code->ext.omp_clauses->par_auto)
+    {
+      if (code->ext.omp_clauses->gang)
+	gfc_error ("Clause AUTO conflicts with GANG at %L", &code->loc);
+      if (code->ext.omp_clauses->worker)
+	gfc_error ("Clause AUTO conflicts with WORKER at %L", &code->loc);
+      if (code->ext.omp_clauses->vector)
+	gfc_error ("Clause AUTO conflicts with VECTOR at %L", &code->loc);
+    }
+  if (!code->ext.omp_clauses->tile_list)
+    {
+      if (code->ext.omp_clauses->gang)
+	{
+	  if (code->ext.omp_clauses->worker)
+	    gfc_error ("Clause GANG conflicts with WORKER at %L", &code->loc);
+	  if (code->ext.omp_clauses->vector)
+	    gfc_error ("Clause GANG conflicts with VECTOR at %L", &code->loc);
+	}
+      if (code->ext.omp_clauses->worker)
+	if (code->ext.omp_clauses->vector)
+	  gfc_error ("Clause WORKER conflicts with VECTOR at %L", &code->loc);
+    }
+  else if (code->ext.omp_clauses->gang
+	   && code->ext.omp_clauses->worker
+	   && code->ext.omp_clauses->vector)
+    gfc_error ("Tiled loop cannot be parallelized across gangs, workers and "
+	       "vectors at the same time at %L", &code->loc);
+
+  if (code->ext.omp_clauses->gang
+      && code->ext.omp_clauses->gang_expr
+      && !code->ext.omp_clauses->gang_static)
+    resolve_oacc_params_in_parallel (code, "GANG");
+
+  if (code->ext.omp_clauses->worker
+      && code->ext.omp_clauses->worker_expr)
+    resolve_oacc_params_in_parallel (code, "WORKER");
+
+  if (code->ext.omp_clauses->tile_list)
+    {
+      gfc_expr_list *el;
+      int num = 0;
+      for (el = code->ext.omp_clauses->tile_list; el; el = el->next)
+	{
+	  num++;
+	  if (el->expr == NULL)
+	    continue;
+	  resolve_oacc_positive_int_expr (el->expr, "TILE");
+	  if (el->expr->expr_type != EXPR_CONSTANT)
+	    gfc_error ("TILE requires constant expression at %L", &code->loc);
+	}
+      resolve_oacc_nested_loops (code, code->block->next, num, "tiled");
+    }
+}
+
+
+void
+gfc_resolve_oacc_blocks (gfc_code *code, gfc_namespace *ns)
+{
+  oacc_context ctx;
+
+  resolve_oacc_loop_blocks (code);
+
+  ctx.code = code;
+  ctx.previous = oacc_current_ctx;
+  oacc_current_ctx = &ctx;
+
+  gfc_resolve_blocks (code->block, ns);
+
+  oacc_current_ctx = ctx.previous;
+}
+
+
+static void
+resolve_oacc_loop(gfc_code *code)
+{
+  gfc_code *do_code;
+  int collapse;
+
+  if (code->ext.omp_clauses)
+    resolve_omp_clauses (code);
+
+  do_code = code->block->next;
+  collapse = code->ext.omp_clauses->collapse;
+
+  if (collapse <= 0)
+    collapse = 1;
+  resolve_oacc_nested_loops (code, do_code, collapse, "collapsed");
+}
+
+
+static void
+resolve_oacc_cache (gfc_code *code)
+{
+  gfc_error ("Sorry, !$ACC cache unimplemented yet at %L", &code->loc);
+}
+
+
+static void
+resolve_oacc_wait (gfc_code *code)
+{
+  gfc_expr_list* el;
+
+  for (el = code->ext.omp_clauses->wait_list; el; el = el->next)
+    resolve_oacc_positive_int_expr (el->expr, "WAIT");
+}
+
+
+void 
+gfc_resolve_oacc_declare (gfc_namespace *ns)
+{
+  int list;
+  gfc_namelist *n;
+  locus loc;
+  static const char *clause_names[] = {"COPY", "COPYIN", "COPYOUT", "CREATE", 
+	"DELETE", "PRESENT", "PRESENT_OR_COPY", "PRESENT_OR_COPYIN", 
+	"PRESENT_OR_COPYOUT", "PRESENT_OR_CREATE", "DEVICEPTR",
+	"DEVICE_RESIDENT"};
+
+  if (ns->oacc_declare_clauses == NULL)
+    return;
+
+  loc = ns->oacc_declare_clauses->ext.loc;
+
+  for (list = OMP_LIST_DATA_CLAUSE_FIRST; 
+       list <= OMP_LIST_DEVICE_RESIDENT; list++)
+    for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
+      {
+	n->sym->mark = 0;
+	if (n->sym->attr.flavor == FL_PARAMETER)
+	  gfc_error ("PARAMETER object '%s' is not allowed at %L", n->sym->name, &loc);
+      }
+
+  for (list = OMP_LIST_DATA_CLAUSE_FIRST; 
+       list <= OMP_LIST_DEVICE_RESIDENT; list++)
+    for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
+      {
+	if (n->sym->mark)
+	  gfc_error ("Symbol '%s' present on multiple clauses at %L",
+		     n->sym->name, &loc);
+	else
+	  n->sym->mark = 1;
+      }
+
+  for (list = OMP_LIST_DATA_CLAUSE_FIRST; 
+       list < OMP_LIST_DATA_CLAUSE_LAST; /* Skip deviceptr clause.  */
+       list++)
+    {
+      const char *name = clause_names[list - OMP_LIST_DATA_CLAUSE_FIRST];
+      for (n = ns->oacc_declare_clauses->lists[list]; n; n = n->next)
+	resolve_oacc_data_clauses (n->sym, loc, name);
+    }
+
+  for (n = ns->oacc_declare_clauses->lists[OMP_LIST_DEVICEPTR]; n; n = n->next)
+    resolve_oacc_deviceptr_clause (n->sym, loc, 
+				   clause_names[OMP_LIST_DEVICEPTR -
+						OMP_LIST_DATA_CLAUSE_FIRST]);
+
+  for (n = ns->oacc_declare_clauses->lists[OMP_LIST_DEVICE_RESIDENT]; n; 
+       n = n->next)
+    check_array_not_assumed (n->sym, loc, 
+			     clause_names[OMP_LIST_DEVICE_RESIDENT -
+					  OMP_LIST_DATA_CLAUSE_FIRST]);
+}
+
+
+void
+gfc_resolve_oacc_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
+{
+  resolve_oacc_directive_inside_omp_region (code);
+
+  switch (code->op)
+    {
+    case EXEC_OACC_PARALLEL:
+    case EXEC_OACC_KERNELS:
+    case EXEC_OACC_DATA:
+    case EXEC_OACC_HOST_DATA:
+    case EXEC_OACC_UPDATE:
+    case EXEC_OACC_ENTER_DATA:
+    case EXEC_OACC_EXIT_DATA:
+      resolve_omp_clauses (code);
+      break;
+    case EXEC_OACC_PARALLEL_LOOP:
+    case EXEC_OACC_KERNELS_LOOP:
+    case EXEC_OACC_LOOP:
+      resolve_oacc_loop (code);
+      break;
+    case EXEC_OACC_CACHE:
+      resolve_oacc_cache (code);
+      break;
+    case EXEC_OACC_WAIT:
+      resolve_oacc_wait (code);
+      break;
+    default:
+      break;
+    }
+}
+
 
 /* Resolve OpenMP directive clauses and check various requirements
    of each directive.  */
@@ -1734,6 +2917,8 @@ resolve_omp_do (gfc_code *code)
 void
 gfc_resolve_omp_directive (gfc_code *code, gfc_namespace *ns ATTRIBUTE_UNUSED)
 {
+  resolve_omp_directive_inside_oacc_region (code);
+
   if (code->op != EXEC_OMP_ATOMIC)
     gfc_maybe_initialize_eh ();
 
