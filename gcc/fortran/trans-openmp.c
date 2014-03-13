@@ -1191,7 +1191,7 @@ gfc_trans_omp_clauses (stmtblock_t *block, gfc_omp_clauses *clauses,
       tree wait_var = 
 	  gfc_convert_expr_to_tree (block, clauses->non_clause_wait_expr);
       c = build_omp_clause (where.lb->location, OMP_CLAUSE_WAIT);
-      OMP_WAIT_EXPR (c)= wait_var;
+      OMP_CLAUSE_WAIT_EXPR (c)= wait_var;
       omp_clauses = gfc_trans_add_clause (c, omp_clauses);
     }
 

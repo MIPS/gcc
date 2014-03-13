@@ -1,5 +1,12 @@
 2014-03-13  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* tree.h (OMP_CLAUSE_VECTOR_EXPR): Check for OMP_CLAUSE_VECTOR
+	instead of OMP_CLAUSE_VECTOR_LENGTH.
+	(OMP_WAIT_EXPR): Rename to OMP_CLAUSE_WAIT_EXPR.  Change
+	all users.
+
+2014-03-13  Thomas Schwinge  <thomas@codesourcery.com>
+
 	* omp-low.c (create_omp_child_function): Use
 	is_gimple_omp_offloaded when looking for offloaded regions.
 
