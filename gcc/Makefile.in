@@ -1390,6 +1390,7 @@ OBJS = \
 	tree-into-ssa.o \
 	tree-iterator.o \
 	tree-loop-distribution.o \
+	tree-merge-const-bfstores.o \
 	tree-ssa-merge-common-code.o \
 	tree-nested.o \
 	tree-nrv.o \

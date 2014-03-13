@@ -1,3 +1,15 @@
+2014-03-13  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	Ported:
+	2012-07-16  Adam Nemet  <anemet@caviumnetworks.com>
+		Andrew Pinski  <apinski@cavium.com>
+
+	* tree-merge-const-bfstores.c: New file.
+	* Makefile.in (OBJS-common): Add tree-merge-const-bfstores.o.
+	* timevar.def: Add TV_MERGE_CONST_BFSTORES timevar.
+	* tree-pass.h (pass_merge_const_bfstores): Declare.
+	* passes.def: Add pass_merge_const_bfstores.
+
 2014-03-11  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	2012-07-15  Andrew Pinski  <apinski@cavium.com>

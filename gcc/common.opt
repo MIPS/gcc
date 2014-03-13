@@ -1547,6 +1547,10 @@ fmerge-constants
 Common Report Var(flag_merge_constants,1) Optimization
 Attempt to merge identical constants across compilation units
 
+fmerge-const-bfstores
+Common Report Var(flag_merge_const_bfstores)
+Merge adjacent or overlapping constant bitfield stores
+
 fmerge-debug-strings
 Common Report Var(flag_merge_debug_strings) Init(1)
 Attempt to merge identical debug strings across compilation units
