@@ -332,20 +332,32 @@ void
 expr::gen_gimple_transform (FILE *f, const char *label)
 {
   fprintf (f, "({\n");
-  fprintf (f, "  if (!seq) ");
-  gen_gimple_match_fail (f, label);
-  fprintf (f, "  tree ops[%d];\n", ops.length ());
+  fprintf (f, "  tree ops[%d], res;\n", ops.length ());
   for (unsigned i = 0; i < ops.length (); ++i)
     {
-      fprintf (f, "   ops[%u] = ", i);
+      fprintf (f, "  ops[%u] = ", i);
       ops[i]->gen_gimple_transform (f, label);
       fprintf (f, ";\n");
     }
-  fprintf (f, "  gimple_build (seq, UNKNOWN_LOCATION, %s, TREE_TYPE (ops[0])",
+  /* ???  Have another helper that is like gimple_build but may
+     fail if seq == NULL.  */
+  fprintf (f, "  if (!seq)\n"
+	   "    {\n"
+	   "      res = gimple_match_and_simplify (%s, TREE_TYPE (ops[0])",
 	   operation->op->id);
   for (unsigned i = 0; i < ops.length (); ++i)
     fprintf (f, ", ops[%u]", i);
+  fprintf (f, ", seq, valueize);\n");
+  fprintf (f, "      if (!res) ");
+  gen_gimple_match_fail (f, label);
+  fprintf (f, "    }\n");
+  fprintf (f, "  else\n");
+  fprintf (f, "    res = gimple_build (seq, UNKNOWN_LOCATION, %s, "
+	   "TREE_TYPE (ops[0])", operation->op->id);
+  for (unsigned i = 0; i < ops.length (); ++i)
+    fprintf (f, ", ops[%u]", i);
   fprintf (f, ", valueize);\n");
+  fprintf (f, "  res;\n");
   fprintf (f, "})");
 }
 
