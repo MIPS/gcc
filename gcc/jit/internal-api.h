@@ -296,18 +296,21 @@ public:
   compile ();
 
   void
-  add_error (const char *fmt, ...)
-      GNU_PRINTF(2, 3);
+  add_error (location *loc, const char *fmt, ...)
+      GNU_PRINTF(3, 4);
 
   void
-  add_error_va (const char *fmt, va_list ap)
-      GNU_PRINTF(2, 0);
+  add_error_va (location *loc, const char *fmt, va_list ap)
+      GNU_PRINTF(3, 0);
 
   const char *
   get_first_error () const;
 
   bool errors_occurred () const
   {
+    if (m_parent_ctxt)
+      if (m_parent_ctxt->errors_occurred ())
+	return true;
     return m_error_count;
   }
 
@@ -968,6 +971,9 @@ public:
 
   bool validate ();
 
+  location *get_loc () const;
+
+  statement *get_first_statement () const;
   statement *get_last_statement () const;
 
   int get_successor_blocks (block **next1, block **next2) const;
@@ -1351,6 +1357,8 @@ public:
 
   void write_to_dump (dump &d);
 
+  location *get_loc () const { return m_loc; }
+
 protected:
   statement (block *b, location *loc)
   : memento (b->m_ctxt),
@@ -1554,7 +1562,8 @@ public:
   void replay ();
 
   location *
-  new_location (const char *filename,
+  new_location (recording::location *rloc,
+		const char *filename,
 		int line,
 		int column);
 
@@ -1680,12 +1689,12 @@ public:
   compile ();
 
   void
-  add_error (const char *fmt, ...)
-      GNU_PRINTF(2, 3);
+  add_error (location *loc, const char *fmt, ...)
+      GNU_PRINTF(3, 4);
 
   void
-  add_error_va (const char *fmt, va_list ap)
-      GNU_PRINTF(2, 0);
+  add_error_va (location *loc, const char *fmt, va_list ap)
+      GNU_PRINTF(3, 0);
 
   const char *
   get_first_error () const;
@@ -1713,7 +1722,9 @@ private:
   void dump_generated_code ();
 
   tree
-  build_cast (tree expr, tree dst_type);
+  build_cast (location *loc,
+	      rvalue *expr,
+	      type *type_);
 
   source_file *
   get_source_file (const char *filename);
@@ -2016,7 +2027,7 @@ public:
   source_line (source_file *file, int line_num);
 
   location *
-  get_location (int column_num);
+  get_location (recording::location *rloc, int column_num);
 
   int get_line_num () const { return m_line_num; }
 
@@ -2032,13 +2043,16 @@ private:
 class location : public wrapper
 {
 public:
-  location (source_line *line, int column_num);
+  location (recording::location *loc, source_line *line, int column_num);
 
   int get_column_num () const { return m_column_num; }
+
+  recording::location *get_recording_loc () const { return m_recording_loc; }
 
   source_location m_srcloc;
 
 private:
+  recording::location *m_recording_loc;
   source_line *m_line;
   int m_column_num;
 };

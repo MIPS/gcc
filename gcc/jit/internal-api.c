@@ -530,7 +530,8 @@ recording::context::set_str_option (enum gcc_jit_str_option opt,
 {
   if (opt < 0 || opt >= GCC_JIT_NUM_STR_OPTIONS)
     {
-      add_error ("unrecognized (enum gcc_jit_str_option) value: %i", opt);
+      add_error (NULL,
+		 "unrecognized (enum gcc_jit_str_option) value: %i", opt);
       return;
     }
   m_str_options[opt] = value;
@@ -542,7 +543,8 @@ recording::context::set_int_option (enum gcc_jit_int_option opt,
 {
   if (opt < 0 || opt >= GCC_JIT_NUM_INT_OPTIONS)
     {
-      add_error ("unrecognized (enum gcc_jit_int_option) value: %i", opt);
+      add_error (NULL,
+		 "unrecognized (enum gcc_jit_int_option) value: %i", opt);
       return;
     }
   m_int_options[opt] = value;
@@ -554,7 +556,8 @@ recording::context::set_bool_option (enum gcc_jit_bool_option opt,
 {
   if (opt < 0 || opt >= GCC_JIT_NUM_BOOL_OPTIONS)
     {
-      add_error ("unrecognized (enum gcc_jit_bool_option) value: %i", opt);
+      add_error (NULL,
+		 "unrecognized (enum gcc_jit_bool_option) value: %i", opt);
       return;
     }
   m_bool_options[opt] = value ? true : false;
@@ -588,16 +591,16 @@ recording::context::compile ()
 }
 
 void
-recording::context::add_error (const char *fmt, ...)
+recording::context::add_error (location *loc, const char *fmt, ...)
 {
   va_list ap;
   va_start (ap, fmt);
-  add_error_va (fmt, ap);
+  add_error_va (loc, fmt, ap);
   va_end (ap);
 }
 
 void
-recording::context::add_error_va (const char *fmt, va_list ap)
+recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
 {
   char buf[1024];
   vsnprintf (buf, sizeof (buf) - 1, fmt, ap);
@@ -606,9 +609,15 @@ recording::context::add_error_va (const char *fmt, va_list ap)
   if (!progname)
     progname = "libgccjit.so";
 
-  fprintf (stderr, "%s: %s\n",
-	   progname,
-	   buf);
+  if (loc)
+    fprintf (stderr, "%s: %s: error: %s\n",
+	     progname,
+	     loc->get_debug_string (),
+	     buf);
+  else
+    fprintf (stderr, "%s: error: %s\n",
+	     progname,
+	     buf);
 
   if (!m_error_count)
     {
@@ -760,7 +769,10 @@ recording::string::make_debug_string ()
 void
 recording::location::replay_into (replayer *r)
 {
-  m_playback_obj = r->new_location (m_filename->c_str (), m_line, m_column);
+  m_playback_obj = r->new_location (this,
+				    m_filename->c_str (),
+				    m_line,
+				    m_column);
 }
 
 recording::string *
@@ -1375,7 +1387,8 @@ recording::function::validate ()
   if (m_kind != GCC_JIT_FUNCTION_IMPORTED
       && m_return_type != m_ctxt->get_type (GCC_JIT_TYPE_VOID))
     if (0 == m_blocks.length ())
-      m_ctxt->add_error ("function %s returns non-void (type: %s)"
+      m_ctxt->add_error (m_loc,
+			 "function %s returns non-void (type: %s)"
 			 " but has no blocks",
 			 get_debug_string (),
 			 m_return_type->get_debug_string ());
@@ -1431,7 +1444,8 @@ recording::function::validate ()
 	block *b;
 	FOR_EACH_VEC_ELT (m_blocks, i, b)
 	  if (!b->m_is_reachable)
-	    m_ctxt->add_error ("unreachable block: %s",
+	    m_ctxt->add_error (b->get_loc (),
+			       "unreachable block: %s",
 			       b->get_debug_string ());
       }
     }
@@ -1571,13 +1585,35 @@ recording::block::validate ()
 {
   if (!has_been_terminated ())
     {
-      m_func->get_context ()->add_error ("unterminated block in %s: %s",
+      statement *stmt = get_last_statement ();
+      location *loc = stmt ? stmt->get_loc () : NULL;
+      m_func->get_context ()->add_error (loc,
+					 "unterminated block in %s: %s",
 					 m_func->get_debug_string (),
 					 get_debug_string ());
       return false;
     }
 
   return true;
+}
+
+recording::location *
+recording::block::get_loc () const
+{
+  recording::statement *stmt = get_first_statement ();
+  if (stmt)
+    return stmt->get_loc ();
+  else
+    return NULL;
+}
+
+recording::statement *
+recording::block::get_first_statement () const
+{
+  if (m_statements.length ())
+    return m_statements[0];
+  else
+    return NULL;
 }
 
 recording::statement *
@@ -2339,7 +2375,8 @@ get_type (enum gcc_jit_types type_)
   tree type_node = get_tree_node_for_type (type_);
   if (NULL == type_node)
     {
-      add_error ("unrecognized (enum gcc_jit_types) value: %i", type_);
+      add_error (NULL,
+		 "unrecognized (enum gcc_jit_types) value: %i", type_);
       return NULL;
     }
 
@@ -2687,7 +2724,7 @@ new_unary_op (location *loc,
   switch (op)
     {
     default:
-      add_error ("unrecognized (enum gcc_jit_unary_op) value: %i", op);
+      add_error (loc, "unrecognized (enum gcc_jit_unary_op) value: %i", op);
       return NULL;
 
     case GCC_JIT_UNARY_OP_MINUS:
@@ -2735,7 +2772,7 @@ new_binary_op (location *loc,
   switch (op)
     {
     default:
-      add_error ("unrecognized (enum gcc_jit_binary_op) value: %i", op);
+      add_error (loc, "unrecognized (enum gcc_jit_binary_op) value: %i", op);
       return NULL;
 
     case GCC_JIT_BINARY_OP_PLUS:
@@ -2813,7 +2850,7 @@ new_comparison (location *loc,
   switch (op)
     {
     default:
-      add_error ("unrecognized (enum gcc_jit_comparison) value: %i", op);
+      add_error (loc, "unrecognized (enum gcc_jit_comparison) value: %i", op);
       return NULL;
 
     case GCC_JIT_COMPARISON_EQ:
@@ -2887,7 +2924,9 @@ new_call (location *loc,
 }
 
 tree
-playback::context::build_cast (tree expr, tree dst_type)
+playback::context::build_cast (playback::location *loc,
+			       playback::rvalue *expr,
+			       playback::type *type_)
 {
   /* For comparison, see:
      - c/c-typeck.c:build_c_cast
@@ -2895,38 +2934,40 @@ playback::context::build_cast (tree expr, tree dst_type)
      - convert.h
 
      Only some kinds of cast are currently supported here.  */
-  tree ret = NULL;
-  ret = targetm.convert_to_type (dst_type, expr);
-  if (ret)
-      return ret;
-  enum tree_code dst_code = TREE_CODE (dst_type);
+  tree t_expr = expr->as_tree ();
+  tree t_dst_type = type_->as_tree ();
+  tree t_ret = NULL;
+  t_ret = targetm.convert_to_type (t_dst_type, t_expr);
+  if (t_ret)
+      return t_ret;
+  enum tree_code dst_code = TREE_CODE (t_dst_type);
   switch (dst_code)
     {
     case INTEGER_TYPE:
     case ENUMERAL_TYPE:
-      ret = convert_to_integer (dst_type, expr);
+      t_ret = convert_to_integer (t_dst_type, t_expr);
       goto maybe_fold;
 
     case BOOLEAN_TYPE:
       /* Compare with c_objc_common_truthvalue_conversion and
 	 c_common_truthvalue_conversion. */
-      /* For now, convert to: (expr != 0)  */
-      ret = build2 (NE_EXPR, dst_type,
-		    expr, integer_zero_node);
+      /* For now, convert to: (t_expr != 0)  */
+      t_ret = build2 (NE_EXPR, t_dst_type,
+		      t_expr, integer_zero_node);
       goto maybe_fold;
 
     case REAL_TYPE:
-      ret = convert_to_real (dst_type, expr);
+      t_ret = convert_to_real (t_dst_type, t_expr);
       goto maybe_fold;
 
     default:
-      add_error ("can't handle cast");
+      add_error (loc, "can't handle cast");
       return error_mark_node;
 
     maybe_fold:
-      if (TREE_CODE (ret) != C_MAYBE_CONST_EXPR)
-	ret = fold (ret);
-      return ret;
+      if (TREE_CODE (t_ret) != C_MAYBE_CONST_EXPR)
+	t_ret = fold (t_ret);
+      return t_ret;
     }
 }
 
@@ -2937,8 +2978,7 @@ new_cast (playback::location *loc,
 	  playback::type *type_)
 {
 
-  tree t_cast = build_cast (expr->as_tree (),
-			    type_->as_tree ());
+  tree t_cast = build_cast (loc, expr, type_);
   if (loc)
     set_tree_location (t_cast, loc);
   return new rvalue (this, t_cast);
@@ -3486,7 +3526,8 @@ compile ()
   switch (get_int_option (GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL))
     {
     default:
-      add_error ("unrecognized optimization level: %i",
+      add_error (NULL,
+		 "unrecognized optimization level: %i",
 		 get_int_option (GCC_JIT_INT_OPTION_OPTIMIZATION_LEVEL));
       return NULL;
 
@@ -3786,19 +3827,21 @@ handle_locations ()
 
 void
 playback::context::
-add_error (const char *fmt, ...)
+add_error (location *loc, const char *fmt, ...)
 {
   va_list ap;
   va_start (ap, fmt);
-  m_recording_ctxt->add_error_va (fmt, ap);
+  m_recording_ctxt->add_error_va (loc ? loc->get_recording_loc () : NULL,
+				  fmt, ap);
   va_end (ap);
 }
 
 void
 playback::context::
-add_error_va (const char *fmt, va_list ap)
+add_error_va (location *loc, const char *fmt, va_list ap)
 {
-  m_recording_ctxt->add_error_va (fmt, ap);
+  m_recording_ctxt->add_error_va (loc ? loc->get_recording_loc () : NULL,
+				  fmt, ap);
 }
 
 result::
@@ -3835,7 +3878,8 @@ get_code (const char *funcname)
 
 playback::location *
 playback::context::
-new_location (const char *filename,
+new_location (recording::location *rloc,
+	      const char *filename,
 	      int line,
 	      int column)
 {
@@ -3844,7 +3888,7 @@ new_location (const char *filename,
   /* Likewise for the line within the file.  */
   source_line *src_line = src_file->get_source_line (line);
   /* Likewise for the column within the line.  */
-  location *loc = src_line->get_location (column);
+  location *loc = src_line->get_location (rloc, column);
   return loc;
 }
 
@@ -3913,7 +3957,7 @@ playback::source_line::source_line (source_file *file, int line_num) :
 
 playback::location *
 playback::source_line::
-get_location (int column_num)
+get_location (recording::location *rloc, int column_num)
 {
   int i;
   location *loc;
@@ -3924,13 +3968,16 @@ get_location (int column_num)
       return loc;
 
   /* Not found.  */
-  loc = new location (this, column_num);
+  loc = new location (rloc, this, column_num);
   m_locations.safe_push (loc);
   return loc;
 }
 
-playback::location::location (source_line *line, int column_num) :
+playback::location::location (recording::location *loc,
+			      source_line *line,
+			      int column_num) :
   m_srcloc (UNKNOWN_LOCATION),
+  m_recording_loc (loc),
   m_line (line),
   m_column_num(column_num)
 {

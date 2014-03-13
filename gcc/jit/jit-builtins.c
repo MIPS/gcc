@@ -137,7 +137,7 @@ builtins_manager::get_builtin_function (const char *name)
   enum built_in_function builtin_id;
   if (!find_builtin_by_name (name, &builtin_id))
     {
-      m_ctxt->add_error ("builtin \"%s\" not found", name);
+      m_ctxt->add_error (NULL, "builtin \"%s\" not found", name);
       return NULL;
     }
 
@@ -283,7 +283,8 @@ builtins_manager::make_primitive_type (enum jit_builtin_type type_id)
     {
     default:
       // only some of these types are implemented so far:
-      m_ctxt->add_error ("unimplemented primitive type for builtin: %d", type_id);
+      m_ctxt->add_error (NULL,
+			 "unimplemented primitive type for builtin: %d", type_id);
       return NULL;
 
     case BT_VOID: return m_ctxt->get_type (GCC_JIT_TYPE_VOID);

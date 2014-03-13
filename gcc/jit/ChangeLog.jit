@@ -1,3 +1,166 @@
+2014-03-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::recording::context::set_str_option):
+	Provide NULL recording::location to add_error.
+	(gcc::jit::recording::context::set_int_option): Likewise.
+	(gcc::jit::recording::context::set_bool_option): Likewise.
+	(gcc::jit::playback::context::compile): Likewise.
+	(gcc::jit::recording::context::add_error): Add recording::location
+	param.
+	(gcc::jit::recording::context::add_error_va): Likewise; print it
+	when present; add "error: " to stderr messages.
+	(gcc::jit::recording::location::replay_into): Provide
+	recording::location to the playback::location.
+
+	(gcc::jit::recording::function::validate): Add locations to the
+	add_error invocations.
+	(gcc::jit::recording::block::validate): Likewise.
+	(gcc::jit::playback::context::get_type): Likewise.
+	(gcc::jit::playback::context::new_unary_op): Likewise.
+	(gcc::jit::playback::context::new_binary_op): Likewise.
+	(gcc::jit::playback::context::new_comparison): Likewise.
+
+	(gcc::jit::recording::block::get_loc): New.
+	(gcc::jit::recording::block::get_first_statement): New.
+
+	(gcc::jit::playback::context::build_cast): Pass in higher-level
+	arguments in the hope of eventually providing better error
+	messages when a cast isn't possible.
+	(gcc::jit::playback::context::new_cast): As above.
+
+	(gcc::jit::playback::context::add_error): Add playback::location
+	parameter, using it to provide the corresponding
+	recording::location (if any) when reporting the error to the
+	recording::context.
+	(gcc::jit::playback::context::add_error_va): Likewise.
+	(gcc::jit::playback::context::new_location): Likewise.
+	(gcc::jit::playback::source_line::get_location): Likewise.
+	(gcc::jit::playback::location::location): Likewise.
+
+	* internal-api.h (gcc::jit::recording::context::add_error): Add
+	recording::location param.
+	(gcc::jit::recording::context::add_error_va): Likewise.
+
+	(gcc::jit::recording::context::errors_occurred): Also consider
+	errors that occur on a parent or ancestor context, recursively.
+
+	(gcc::jit::recording::block::get_loc): New.
+	(gcc::jit::recording::block::get_first_statement): New.
+	(gcc::jit::recording::statement::get_loc): New.
+
+	(gcc::jit::playback::context::new_location): Add recording::location
+	parameter.
+
+	(gcc::jit::playback::context::add_error): Add playback::location
+	parameter.
+	(gcc::jit::playback::context::add_error_va): Likewise.
+
+	(gcc::jit::playback::context::build_cast): Pass in higher-level
+	arguments in the hope of eventually providing better error
+	messages when a cast isn't possible.
+
+	(gcc::jit::playback::source_line::get_location): Add
+	recording::location parameter.
+	(gcc::jit::playback::location::location): Likewise.
+	(gcc::jit::playback::location::get_recording_loc): New.
+	(gcc::jit::playback::location::m_recording_loc): New.
+
+	* jit-builtins.c (gcc::jit::builtins_manager::get_builtin_function):
+	Provide NULL recording::location to add_error.
+	(gcc::jit::builtins_manager::make_primitive_type): Likewise.
+
+	* libgccjit.c (RETURN_VAL_IF_FAIL): Add location argument.
+	(RETURN_VAL_IF_FAIL_PRINTF1): Likewise.
+	(RETURN_VAL_IF_FAIL_PRINTF2): Likewise.
+	(RETURN_VAL_IF_FAIL_PRINTF3): Likewise.
+	(RETURN_VAL_IF_FAIL_PRINTF4): Likewise.
+	(RETURN_VAL_IF_FAIL_PRINTF6): Likewise.
+	(RETURN_NULL_IF_FAIL): Likewise.
+	(RETURN_NULL_IF_FAIL_PRINTF1): Likewise.
+	(RETURN_NULL_IF_FAIL_PRINTF2): Likewise.
+	(RETURN_NULL_IF_FAIL_PRINTF3): Likewise.
+	(RETURN_NULL_IF_FAIL_PRINTF4): Likewise.
+	(RETURN_NULL_IF_FAIL_PRINTF6): Likewise.
+	(RETURN_IF_FAIL): Likewise.
+	(RETURN_IF_FAIL_PRINTF1): Likewise.
+	(RETURN_IF_FAIL_PRINTF2): Likewise.
+	(RETURN_IF_FAIL_PRINTF4): Likewise.
+	(RETURN_IF_NOT_VALID_BLOCK): Likewise.
+	(RETURN_NULL_IF_NOT_VALID_BLOCK): Likewise.
+
+	(jit_error): Likewise.
+
+	(gcc_jit_location_as_object): Provided location argument to
+	error-handling macros.
+	(gcc_jit_type_as_object): Likewise.
+	(gcc_jit_context_get_type): Likewise.
+	(gcc_jit_context_get_int_type): Likewise.
+	(gcc_jit_type_get_pointer): Likewise.
+	(gcc_jit_type_get_const): Likewise.
+	(gcc_jit_type_get_volatile): Likewise.
+	(gcc_jit_context_new_array_type): Likewise.
+	(gcc_jit_context_new_field): Likewise.
+	(gcc_jit_context_new_struct_type): Likewise.
+	(gcc_jit_context_new_opaque_struct): Likewise.
+	(gcc_jit_struct_as_type): Likewise.
+	(gcc_jit_struct_set_fields): Likewise.
+	(gcc_jit_context_new_param): Likewise.
+	(gcc_jit_param_as_object): Likewise.
+	(gcc_jit_param_as_lvalue): Likewise.
+	(gcc_jit_param_as_rvalue): Likewise.
+	(gcc_jit_context_new_function): Likewise.
+	(gcc_jit_context_get_builtin_function): Likewise.
+	(gcc_jit_function_as_object): Likewise.
+	(gcc_jit_function_get_param): Likewise.
+	(gcc_jit_function_dump_to_dot): Likewise.
+	(gcc_jit_function_new_block): Likewise.
+	(gcc_jit_block_as_object): Likewise.
+	(gcc_jit_block_get_function): Likewise.
+	(gcc_jit_context_new_global): Likewise.
+	(gcc_jit_lvalue_as_object): Likewise.
+	(gcc_jit_lvalue_as_rvalue): Likewise.
+	(gcc_jit_rvalue_as_object): Likewise.
+	(gcc_jit_rvalue_get_type): Likewise.
+	(gcc_jit_context_new_rvalue_from_int): Likewise.
+	(gcc_jit_context_zero): Likewise.
+	(gcc_jit_context_one): Likewise.
+	(gcc_jit_context_new_rvalue_from_double): Likewise.
+	(gcc_jit_context_new_rvalue_from_ptr): Likewise.
+	(gcc_jit_context_null): Likewise.
+	(gcc_jit_context_new_string_literal): Likewise.
+	(gcc_jit_context_new_unary_op): Likewise.
+	(gcc_jit_context_new_binary_op): Likewise.
+	(gcc_jit_context_new_comparison): Likewise.
+	(gcc_jit_context_new_call): Likewise.
+	(gcc_jit_context_new_cast): Likewise.
+	(gcc_jit_context_new_array_access): Likewise.
+	(gcc_jit_object_get_context): Likewise.
+	(gcc_jit_object_get_debug_string): Likewise.
+	(gcc_jit_lvalue_access_field): Likewise.
+	(gcc_jit_rvalue_access_field): Likewise.
+	(gcc_jit_rvalue_dereference_field): Likewise.
+	(gcc_jit_rvalue_dereference_field): Likewise.
+	(gcc_jit_rvalue_dereference): Likewise.
+	(gcc_jit_lvalue_get_address): Likewise.
+	(gcc_jit_function_new_local): Likewise.
+	(gcc_jit_block_add_eval): Likewise.
+	(gcc_jit_block_add_assignment): Likewise.
+	(gcc_jit_block_add_assignment_op): Likewise.
+	(gcc_jit_block_end_with_conditional): Likewise.
+	(gcc_jit_block_add_comment): Likewise.
+	(gcc_jit_block_end_with_jump): Likewise.
+	(gcc_jit_block_end_with_return): Likewise.
+	(gcc_jit_block_end_with_void_return): Likewise.
+	(gcc_jit_context_set_str_option): Likewise.
+	(gcc_jit_context_set_int_option): Likewise.
+	(gcc_jit_context_set_bool_option): Likewise.
+	(gcc_jit_context_compile): Likewise.
+	(gcc_jit_context_dump_to_file): Likewise.
+	(gcc_jit_context_get_first_error): Likewise.
+	(gcc_jit_result_get_code): Likewise.
+	(gcc_jit_result_get_code): Likewise.
+	(gcc_jit_result_release): Likewise.
+
 2014-03-10  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit++.h (gccjit::context::new_rvalue): Make these
