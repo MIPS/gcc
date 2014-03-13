@@ -121,13 +121,17 @@ gimple_resimplify2 (gimple_seq *seq,
 		    code_helper *res_code, tree type, tree *res_ops,
 		    tree (*valueize)(tree))
 {
-  /* FIXME.  */
-  if (!res_code->is_tree_code ())
-    gcc_unreachable ();
   if (CONSTANT_CLASS_P (res_ops[0]) && CONSTANT_CLASS_P (res_ops[1]))
     {
-      tree tem = fold_binary_to_constant (*res_code, type,
-					  res_ops[0], res_ops[1]);
+      tree tem;
+      if (res_code->is_tree_code ())
+	tem = fold_binary_to_constant (*res_code, type,
+				       res_ops[0], res_ops[1]);
+      else
+	{
+	  tree decl = builtin_decl_implicit (*res_code);
+	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 2, false);
+	}
       if (tem != NULL_TREE)
 	{
 	  res_ops[0] = tem;
@@ -137,7 +141,8 @@ gimple_resimplify2 (gimple_seq *seq,
     }
 
   /* Canonicalize operand order.  */
-  if (commutative_tree_code (*res_code)
+  if (res_code->is_tree_code ()
+      && commutative_tree_code (*res_code)
       && tree_swap_operands_p (res_ops[0], res_ops[1], false))
     {
       tree tem = res_ops[0];
@@ -168,14 +173,18 @@ gimple_resimplify3 (gimple_seq *seq,
 		    code_helper *res_code, tree type, tree *res_ops,
 		    tree (*valueize)(tree))
 {
-  /* FIXME.  */
-  if (!res_code->is_tree_code ())
-    gcc_unreachable ();
   if (CONSTANT_CLASS_P (res_ops[0]) && CONSTANT_CLASS_P (res_ops[1])
       && CONSTANT_CLASS_P (res_ops[2]))
     {
-      tree tem = fold_ternary/*_to_constant*/ (*res_code, type, res_ops[0],
-					       res_ops[1], res_ops[2]);
+      tree tem;
+      if (res_code->is_tree_code ())
+	tem = fold_ternary/*_to_constant*/ (*res_code, type, res_ops[0],
+					    res_ops[1], res_ops[2]);
+      else
+	{
+	  tree decl = builtin_decl_implicit (*res_code);
+	  tem = fold_builtin_n (UNKNOWN_LOCATION, decl, res_ops, 3, false);
+	}
       if (tem != NULL_TREE
 	  && CONSTANT_CLASS_P (tem))
 	{
@@ -186,7 +195,8 @@ gimple_resimplify3 (gimple_seq *seq,
     }
 
   /* Canonicalize operand order.  */
-  if (commutative_ternary_tree_code (*res_code)
+  if (res_code->is_tree_code ()
+      && commutative_ternary_tree_code (*res_code)
       && tree_swap_operands_p (res_ops[0], res_ops[1], false))
     {
       tree tem = res_ops[0];
@@ -483,8 +493,6 @@ gimple_match_and_simplify (gimple stmt,
 	}
     }
 
-  /* ???  GIMPLE_CALL handling to be implemented.  */
-
   return false;
 }
 
@@ -532,7 +540,7 @@ gimple_match_and_simplify (gimple_stmt_iterator *gsi, tree (*valueize)(tree))
   else if (gimple_has_lhs (stmt))
     {
       gimple_seq tail = NULL;
-      tree lhs = gimple_call_lhs (stmt);
+      tree lhs = gimple_get_lhs (stmt);
       maybe_push_res_to_seq (rcode, TREE_TYPE (lhs),
 			     ops, &tail, lhs);
       gcc_assert (gimple_seq_singleton_p (tail));
