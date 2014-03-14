@@ -1124,6 +1124,8 @@ copy_reference_ops_from_call (gimple call,
   temp.opcode = CALL_EXPR;
   temp.op0 = gimple_call_fn (call);
   temp.op1 = gimple_call_chain (call);
+  if (gimple_call_with_bounds_p (call))
+    temp.op2 = integer_one_node;
   temp.off = -1;
   result->safe_push (temp);
 
