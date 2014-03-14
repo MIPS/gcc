@@ -33,9 +33,14 @@
 extern tree convert (tree type, tree expr);
 
 tree
-convert (tree /*type*/, tree /*expr*/)
+convert (tree dst_type, tree expr)
 {
-  error ("unhandled conversion");
+  gcc_assert (gcc::jit::active_playback_ctxt);
+  gcc::jit::active_playback_ctxt->add_error (NULL, "unhandled conversion");
+  fprintf (stderr, "input expression:\n");
+  debug_tree (expr);
+  fprintf (stderr, "requested type:\n");
+  debug_tree (dst_type);
   return error_mark_node;
 }
 
@@ -3095,8 +3100,16 @@ playback::context::build_cast (playback::location *loc,
       t_ret = convert_to_real (t_dst_type, t_expr);
       goto maybe_fold;
 
+    case POINTER_TYPE:
+      t_ret = build1 (NOP_EXPR, t_dst_type, t_expr);
+      goto maybe_fold;
+
     default:
-      add_error (loc, "can't handle cast");
+      add_error (loc, "couldn't handle cast during playback");
+      fprintf (stderr, "input expression:\n");
+      debug_tree (t_expr);
+      fprintf (stderr, "requested type:\n");
+      debug_tree (t_dst_type);
       return error_mark_node;
 
     maybe_fold:

@@ -1,3 +1,9 @@
+2014-03-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-expressions.c (called_pointer_checking_function): New.
+	(make_tests_of_casts): Add test of casting from array to pointer.
+	(verify_casts): Likewise.
+
 2014-03-13  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-error-bad-cast.c: New test case.

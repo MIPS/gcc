@@ -905,6 +905,12 @@ is_valid_cast (gcc::jit::recording::type *src_type,
     if (dst_is_int || dst_is_bool)
       return true;
 
+  /* Permit casts between pointer types.  */
+  gcc::jit::recording::type *deref_src_type = src_type->dereference ();
+  gcc::jit::recording::type *deref_dst_type = dst_type->dereference ();
+  if (deref_src_type && deref_dst_type)
+    return true;
+
   return false;
 }
 

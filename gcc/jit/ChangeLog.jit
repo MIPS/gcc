@@ -1,3 +1,13 @@
+2014-03-14  David Malcolm  <dmalcolm@redhat.com>
+
+	* libgccjit.c (is_valid_cast): Permit casts between pointer types.
+
+	* internal-api.c (convert): Report more information if this ever
+	occurs, and make the error occur on the playback context, so that
+	it makes the gcc_jit_result be NULL.
+	(gcc::jit::playback::context::build_cast): Handle pointers.  Report
+	more information if an unhandlable cast reaches here.
+
 2014-03-13  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.c (is_valid_cast): New.

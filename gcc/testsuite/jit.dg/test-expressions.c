@@ -492,6 +492,14 @@ make_test_of_cast (gcc_jit_context *ctxt,
     gcc_jit_rvalue_as_object (cast));
 }
 
+/* For use by test_cast_from_array_of_ints_to_int_ptr.  */
+extern int called_pointer_checking_function (int *ints)
+{
+  CHECK_VALUE (ints[0], 10);
+  CHECK_VALUE (ints[1], 4);
+  return ints[0] * ints[1];
+}
+
 static void
 make_tests_of_casts (gcc_jit_context *ctxt)
 {
@@ -501,6 +509,12 @@ make_tests_of_casts (gcc_jit_context *ctxt)
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_FLOAT);
   gcc_jit_type *bool_type =
     gcc_jit_context_get_type (ctxt, GCC_JIT_TYPE_BOOL);
+  gcc_jit_type *array_int_type =
+    gcc_jit_context_new_array_type (ctxt, NULL,
+				    int_type,
+				    2);
+  gcc_jit_type *int_ptr_type =
+    gcc_jit_type_get_pointer (int_type);
 
   /* float/int conversions */
   CHECK_STRING_VALUE (
@@ -529,6 +543,79 @@ make_tests_of_casts (gcc_jit_context *ctxt)
 		       bool_type,
 		       "test_cast_from_int_to_bool"),
     "(bool)a");
+
+  /* array/ptr conversions */
+  {
+    gcc_jit_function *test_fn =
+      gcc_jit_context_new_function (
+	ctxt, NULL,
+	GCC_JIT_FUNCTION_EXPORTED,
+	int_type,
+	"test_cast_from_array_of_ints_to_int_ptr",
+	0, NULL,
+	0);
+    /* Equivalent to:
+          int test_cast_from_array_of_ints_to_int_ptr (void)
+	  {
+	    int array[2];
+	    array[0] = 10;
+	    array[1] = 4;
+	    return called_pointer_checking_function (array);
+	  }
+    */
+
+    gcc_jit_param *param_ints =
+      gcc_jit_context_new_param (ctxt, NULL, int_ptr_type, "ints");
+    gcc_jit_function *called_fn =
+      gcc_jit_context_new_function (
+	ctxt, NULL,
+	GCC_JIT_FUNCTION_IMPORTED,
+	int_type,
+	"called_pointer_checking_function",
+	1, &param_ints,
+	0);
+
+    gcc_jit_lvalue *array =
+      gcc_jit_function_new_local (test_fn, NULL,
+				  array_int_type,
+				  "array");
+    gcc_jit_block *block =
+      gcc_jit_function_new_block (test_fn, "block");
+    /* array[0] = 10; */
+    gcc_jit_block_add_assignment (
+      block, NULL,
+      gcc_jit_context_new_array_access (
+	ctxt, NULL,
+	gcc_jit_lvalue_as_rvalue (array),
+	gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 0)),
+      gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 10));
+    /* array[1] = 4; */
+    gcc_jit_block_add_assignment (
+      block, NULL,
+      gcc_jit_context_new_array_access (
+	ctxt, NULL,
+	gcc_jit_lvalue_as_rvalue (array),
+	gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 1)),
+      gcc_jit_context_new_rvalue_from_int (ctxt, int_type, 4));
+    gcc_jit_rvalue *cast =
+      gcc_jit_context_new_cast (
+	ctxt,
+	NULL,
+	/* We need a get_address here.  */
+	gcc_jit_lvalue_get_address (array, NULL),
+	int_ptr_type);
+    gcc_jit_block_end_with_return (
+      block, NULL,
+      gcc_jit_context_new_call (
+	ctxt, NULL,
+	called_fn,
+	1, &cast));
+
+    CHECK_STRING_VALUE (
+      gcc_jit_object_get_debug_string (
+	gcc_jit_rvalue_as_object (cast)),
+      "(int *)&array");
+  }
 }
 
 static void
@@ -574,6 +661,17 @@ verify_casts (gcc_jit_result *result)
     CHECK_NON_NULL (test_cast_from_int_to_bool);
     CHECK_VALUE (test_cast_from_int_to_bool (0), 0);
     CHECK_VALUE (test_cast_from_int_to_bool (1), 1);
+  }
+
+  /* array to ptr */
+  {
+    typedef int (*fn_type) (void);
+    fn_type test_cast_from_array_of_ints_to_int_ptr =
+      (fn_type)gcc_jit_result_get_code (
+	result,
+	"test_cast_from_array_of_ints_to_int_ptr");
+    CHECK_NON_NULL (test_cast_from_array_of_ints_to_int_ptr);
+    CHECK_VALUE (test_cast_from_array_of_ints_to_int_ptr (), 40);
   }
 }
 
