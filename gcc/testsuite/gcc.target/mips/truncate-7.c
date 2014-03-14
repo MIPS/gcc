@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mgp64" } */
+/* { dg-options "-mgp64" } */
 /* We should not have a truncation here as the memory load should be truncated. */
 /* { dg-final { scan-assembler-not "sll\t" } } */
 

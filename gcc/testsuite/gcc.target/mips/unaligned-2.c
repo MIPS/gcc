@@ -1,5 +1,5 @@
 /* { dg-do compile } */
-/* { dg-options "-O2 isa_rev>=2" } */
+/* { dg-options "isa_rev>=2" } */
 /* Load from an unaligned short, should only produce an ins and
    no other sign or zero extend instructions. */
 /* { dg-final { scan-assembler "ins\t" } } */
@@ -19,4 +19,3 @@ int f (struct s *s)
 { 
   return s->s;
 } 
-

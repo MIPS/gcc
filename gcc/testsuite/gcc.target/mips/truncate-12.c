@@ -1,5 +1,5 @@
 /* The second shift can be performed on 32-bit operands.  */
-/* { dg-options "-O2 -mgp64" } */
+/* { dg-options "-mgp64" } */
 /* { dg-final { scan-assembler-not "dext" } } */
 /* { dg-final { scan-assembler-not "and" } } */
 /* { dg-final { scan-assembler-not "\tsll\t.*,0" } } */

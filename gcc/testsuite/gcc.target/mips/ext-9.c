@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mgp64 isa_rev>=2" } */
+/* { dg-options "-mgp64 isa_rev>=2" } */
 /* { dg-final { scan-assembler-not "and" } } */
 
 struct s

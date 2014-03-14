@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mgp64" } */
+/* { dg-options "-mgp64" } */
 /* We should only have one shift here. */
 /* { dg-final { scan-assembler-times "sll\t" 1 } } */
 

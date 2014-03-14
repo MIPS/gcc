@@ -1,4 +1,4 @@
-/* { dg-options "-O2 isa_rev>=2" } */
+/* { dg-options "isa_rev>=2" } */
 /* { dg-final { scan-assembler-not "and" } } */
 /* { dg-final { scan-assembler "ext\t" } } */
 

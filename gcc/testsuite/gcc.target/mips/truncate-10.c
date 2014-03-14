@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mgp64" } */
+/* { dg-options "-mgp64" } */
 /* There should only be one sll as the truncation and the shift should have
    been combined. */
 /* { dg-final { scan-assembler-times "sll\t" 1 } } */

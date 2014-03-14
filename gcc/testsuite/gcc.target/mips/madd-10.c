@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mno-madd isa_rev>=1 " } */
+/* { dg-options "-mno-madd isa_rev>=1 " } */
 /* { dg-final { scan-assembler-not "madd\t" } } */
 
 NOMIPS16 int

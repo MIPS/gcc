@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mgp64 isa_rev>=2" } */
+/* { dg-options "-mgp64 isa_rev>=2" } */
 /* { dg-final { scan-assembler-times "ext\\t" 5 } } */
 /* { dg-final { scan-assembler-times "dsll" 2 } } */
 /* { dg-final { scan-assembler-times "\\tsll" 1 } } */

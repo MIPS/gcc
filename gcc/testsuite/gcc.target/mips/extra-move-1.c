@@ -1,4 +1,4 @@
-/* { dg-options "-O2 -mgp64" } */
+/* { dg-options "-mgp64" } */
 /* The sign extend to be able to store into d should be free,
    there should be no sll or move here. */
 /* { dg-final { scan-assembler-not "sll\t" } } */

@@ -1,4 +1,4 @@
-/* { dg-options "-O2 isa_rev>=2 -mgp64" } */
+/* { dg-options "isa_rev>=2 -mgp64" } */
 /* { dg-final { scan-assembler-times "\\tli\[^\\n\]+,-1" 4 } } */
 /* { dg-final { scan-assembler-times "dins" 4 } } */
 /* { dg-final { scan-assembler-times "\\tins" 1 } } */
