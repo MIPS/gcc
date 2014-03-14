@@ -7140,10 +7140,10 @@ function_arg_advance_32 (CUMULATIVE_ARGS *cum, enum machine_mode mode,
       cum->words += words;
       cum->nregs -= words;
       cum->regno += words;
-      res = words;
+      if (cum->nregs >= 0)
+	res = words;
       if (cum->nregs <= 0)
 	{
-	  res += cum->nregs;
 	  cum->nregs = 0;
 	  cum->regno = 0;
 	}
