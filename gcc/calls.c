@@ -1191,7 +1191,8 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 
 	/* Remember last param with pointer and associate it
 	   with following pointer bounds.  */
-	if (chkp_type_has_pointer (argtype))
+	if (CALL_WITH_BOUNDS_P (exp)
+	    && chkp_type_has_pointer (argtype))
 	  {
 	    if (slots)
 	      {
@@ -1204,6 +1205,11 @@ initialize_argument_information (int num_actuals ATTRIBUTE_UNUSED,
 	  }
 	else if (POINTER_BOUNDS_TYPE_P (argtype))
 	  {
+	    /* We expect bounds in instrumented calls only.
+	       Otherwise it is a sign we lost flag due to some optimization
+	       and may emit call args incorrectly.  */
+	    gcc_assert (CALL_WITH_BOUNDS_P (exp));
+
 	    /* For structures look for the next available pointer.  */
 	    if (ptr_arg != -1 && slots)
 	      {
