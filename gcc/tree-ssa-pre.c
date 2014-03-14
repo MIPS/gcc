@@ -2579,6 +2579,8 @@ create_component_ref_by_pieces_1 (basic_block block, vn_reference_t ref,
 				   (TREE_CODE (fn) == FUNCTION_DECL
 				    ? build_fold_addr_expr (fn) : fn),
 				   nargs, args);
+	if (currop->op2 == integer_one_node)
+	  CALL_WITH_BOUNDS_P (folded) = true;
 	free (args);
 	if (sc)
 	  CALL_EXPR_STATIC_CHAIN (folded) = sc;
