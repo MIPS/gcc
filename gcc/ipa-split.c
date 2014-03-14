@@ -1110,6 +1110,7 @@ split_function (struct split_point *split_point)
   edge_iterator ei;
   tree retval = NULL, real_retval = NULL;
   bool split_part_return_p = false;
+  bool with_bounds = chkp_function_instrumented_p (current_function_decl);
   gimple last_stmt = NULL;
   unsigned int i;
   tree arg, ddef;
@@ -1262,6 +1263,12 @@ split_function (struct split_point *split_point)
       DECL_BUILT_IN_CLASS (node->decl) = NOT_BUILT_IN;
       DECL_FUNCTION_CODE (node->decl) = (enum built_in_function) 0;
     }
+
+  /* If the original function is instrumented then it's
+     part is also instrumented.  */
+  if (with_bounds)
+    chkp_function_mark_instrumented (node->decl);
+
   /* If the original function is declared inline, there is no point in issuing
      a warning for the non-inlinable part.  */
   DECL_NO_INLINE_WARNING_P (node->decl) = 1;
@@ -1296,6 +1303,7 @@ split_function (struct split_point *split_point)
 	args_to_pass[i] = arg;
       }
   call = gimple_build_call_vec (node->decl, args_to_pass);
+  gimple_call_set_with_bounds (call, with_bounds);
   gimple_set_block (call, DECL_INITIAL (current_function_decl));
   args_to_pass.release ();
 
