@@ -3431,10 +3431,7 @@ assign_parm_load_bounds (struct assign_parm_data_one *data,
   else if (MEM_P (entry))
     slot = adjust_address (entry, Pmode, offs);
   else if (REG_P (entry))
-    {
-      gcc_assert (GET_MODE_SIZE (GET_MODE (entry)) > offs);
-      ptr = gen_rtx_REG (Pmode, REGNO (entry) + bnd_no);
-    }
+    ptr = gen_rtx_REG (Pmode, REGNO (entry) + bnd_no);
   else if (GET_CODE (entry) == PARALLEL)
     ptr = chkp_get_value_with_offs (entry, GEN_INT (offs));
   else
@@ -3593,6 +3590,9 @@ assign_parms (tree fndecl)
 	 input bounds and load them later.  */
       if (POINTER_BOUNDS_TYPE_P (data.passed_type))
 	{
+	  /* Expect bounds in instrumented functions only.  */
+	  gcc_assert (chkp_function_instrumented_p (fndecl));
+
 	  bdata.parm_data = data;
 	  bdata.bounds_parm = parm;
 	  bdata.ptr_parm = last_arg;
