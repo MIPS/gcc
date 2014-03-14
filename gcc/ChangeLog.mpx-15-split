@@ -2,3 +2,5 @@
 
 	* ipa-split.c: Include tree-chkp.h.
 	(consider_split): Do not split when return bounds.
+	(split_function): Propagate Pointer Bounds Checker
+	instrumentation marks.
