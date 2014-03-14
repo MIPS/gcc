@@ -3447,6 +3447,8 @@ gnat_to_gnu_entity (Entity_Id gnat_entity, tree gnu_expr, int definition)
 			TYPE_NAME (new_variant)
 			  = concat_name (TYPE_NAME (gnu_type),
 					 IDENTIFIER_POINTER (suffix));
+			TYPE_REVERSE_STORAGE_ORDER (new_variant)
+			  = TYPE_REVERSE_STORAGE_ORDER (gnu_type);
 			copy_and_substitute_in_size (new_variant, old_variant,
 						     gnu_subst_list);
 			v->new_type = new_variant;
