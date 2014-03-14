@@ -1,3 +1,17 @@
+2014-03-14  Tobias Burnus  <burnus@net-b.de>
+
+	* caf/libcaf.h (caf_token_t): New typedef.
+	(caf_static_t, _gfortran_caf_register, _gfortran_caf_deregister):
+	Use it.
+	(_gfortran_send): New.
+	* caf/mpi.c (mpi_token_t, TOKEN): New.
+	(_gfortran_caf_register, _gfortran_caf_deregister): Update.
+	(_gfortran_caf_init): Fix prototype.
+	(_gfortran_caf_send): New stub implementation.
+	* caf/single.c (single_token_t, TOKEN): New.
+	(_gfortran_caf_register, _gfortran_caf_deregister): Update.
+	(_gfortran_caf_send): New; implement it.
+
 2014-03-08  Tobias Burnus  <burnus@net-b.de>
 
 	* caf/libcaf.h (_gfortran_caf_this_image, _gfortran_caf_num_images):

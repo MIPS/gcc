@@ -28,6 +28,7 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 
 #include <stdint.h>	/* For int32_t.  */
 #include <stddef.h>	/* For size_t.  */
+#include <stdbool.h>
 
 #ifndef __GNUC__
 #define __attribute__(x)
@@ -55,9 +56,11 @@ typedef enum caf_register_t {
 }
 caf_register_t;
 
+typedef void* caf_token_t;
+
 /* Linked list of static coarrays registered.  */
 typedef struct caf_static_t {
-  void **token;
+  caf_token_t token;
   struct caf_static_t *prev;
 }
 caf_static_t;
@@ -69,10 +72,11 @@ void _gfortran_caf_finalize (void);
 int _gfortran_caf_this_image (int);
 int _gfortran_caf_num_images (int, int);
 
-void * _gfortran_caf_register (size_t, caf_register_t, void ***, int *,
-			       char *, int);
-void _gfortran_caf_deregister (void ***, int *, char *, int);
+void *_gfortran_caf_register (size_t, caf_register_t, caf_token_t *, int *,
+			      char *, int);
+void _gfortran_caf_deregister (caf_token_t *, int *, char *, int);
 
+void _gfortran_send (caf_token_t, size_t, int, void *, size_t, bool);
 
 void _gfortran_caf_sync_all (int *, char *, int);
 void _gfortran_caf_sync_images (int, int[], int *, char *, int);

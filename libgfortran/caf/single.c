@@ -32,6 +32,9 @@ see the files COPYING3 and COPYING.RUNTIME respectively.  If not, see
 /* Define GFC_CAF_CHECK to enable run-time checking.  */
 /* #define GFC_CAF_CHECK  1  */
 
+typedef void* single_token_t;
+#define TOKEN(X) ((single_token_t) (X))
+
 /* Single-image implementation of the CAF library.
    Note: For performance reasons -fcoarry=single should be used
    rather than this library.  */
@@ -68,7 +71,6 @@ _gfortran_caf_finalize (void)
   while (caf_static_list != NULL)
     {
       caf_static_t *tmp = caf_static_list->prev;
-      free (caf_static_list->token[0]);
       free (caf_static_list->token);
       free (caf_static_list);
       caf_static_list = tmp;
@@ -92,14 +94,13 @@ _gfortran_caf_num_images (int distance __attribute__ ((unused)),
 
 
 void *
-_gfortran_caf_register (size_t size, caf_register_t type, void ***token,
+_gfortran_caf_register (size_t size, caf_register_t type, caf_token_t *token,
 			int *stat, char *errmsg, int errmsg_len)
 {
   void *local;
 
   local = malloc (size);
-  *token = malloc (sizeof (void*) * 1);
-  (*token)[0] = local;
+  *token = malloc (sizeof (single_token_t));
 
   if (unlikely (local == NULL || token == NULL))
     {
@@ -121,6 +122,8 @@ _gfortran_caf_register (size_t size, caf_register_t type, void ***token,
 	  caf_runtime_error (msg);
     }
 
+  *token = local;
+
   if (stat)
     *stat = 0;
 
@@ -136,15 +139,25 @@ _gfortran_caf_register (size_t size, caf_register_t type, void ***token,
 
 
 void
-_gfortran_caf_deregister (void ***token, int *stat,
+_gfortran_caf_deregister (caf_token_t *token, int *stat,
 			  char *errmsg __attribute__ ((unused)),
 			  int errmsg_len __attribute__ ((unused)))
 {
-  free ((*token)[0]);
-  free (*token);
+  free (TOKEN(*token));
 
   if (stat)
     *stat = 0;
+}
+
+
+void
+_gfortran_caf_send (caf_token_t token, size_t offset,
+		    int image_id __attribute__ ((unused)),
+		    void *buffer, size_t size,
+		    bool asyn __attribute__ ((unused)))
+{
+    void *dest = (void *)((char *) TOKEN(token) + offset);
+    memmove (dest, buffer, size);
 }
 
 

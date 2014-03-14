@@ -1,3 +1,14 @@
+2014-03-14  Tobias Burnus  <burnus@net-b.de>
+
+	* trans.h (gfc_get_tree_for_caf_expr): Add prototype.
+	(gfor_fndecl_caf_send): Declare.
+	* trans-decl.c (gfor_fndecl_caf_send): Add.
+	(gfc_build_builtin_function_decls): Fix caf_num_image
+	decl bug. Build decl for gfor_fndecl_caf_send.
+	* trans-expr.c (gfc_get_tree_for_caf_expr): Renamed from
+	get_tree_for_caf_expr and made nonstatic.
+	(gfc_conv_procedure_call): Update call.
+
 2014-03-08  Tobias Burnus  <burnus@net-b.de>
 
 	* gfortran.h (gfc_init_coarray_decl): Remove.
