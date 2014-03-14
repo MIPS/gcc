@@ -502,6 +502,19 @@ chkp_function_instrumented_p (tree fndecl)
     && lookup_attribute ("chkp instrumented", DECL_ATTRIBUTES (fndecl));
 }
 
+/* Mark function FNDECL as instrumented.  */
+void
+chkp_function_mark_instrumented (tree fndecl)
+{
+  if (chkp_function_instrumented_p (fndecl))
+    return;
+
+  DECL_ATTRIBUTES (fndecl)
+    = tree_cons (get_identifier ("chkp instrumented"), NULL,
+		 DECL_ATTRIBUTES (fndecl));
+}
+
+
 /* Build clone of FNDECL with added bound params.  */
 static tree
 chkp_build_instrumented_fndecl (tree fndecl)
@@ -828,9 +841,7 @@ chkp_maybe_create_instrumentation_clone (tree fndecl)
       /* Thunks have no body to instrument, therefore mark them as
 	 already instrumented.  */
       if (clone->thunk.thunk_p)
-	DECL_ATTRIBUTES (clone->decl)
-	  = tree_cons (get_identifier ("chkp instrumented"), NULL,
-		       DECL_ATTRIBUTES (clone->decl));
+	chkp_function_mark_instrumented (clone->decl);
 
       /* Add IPA reference.  It's main role is to keep instrumented
 	 version reachable while original node is reachable.  */
@@ -2583,11 +2594,13 @@ chkp_get_bound_for_parm (tree parm)
 tree
 chkp_build_bndldx_call (tree addr, tree ptr)
 {
-  tree call = build1 (ADDR_EXPR,
-		      build_pointer_type (TREE_TYPE (chkp_bndldx_fndecl)),
-		      chkp_bndldx_fndecl);
-  return build_call_nary (TREE_TYPE (TREE_TYPE (chkp_bndldx_fndecl)),
-			  call, 2, addr, ptr);
+  tree fn = build1 (ADDR_EXPR,
+		    build_pointer_type (TREE_TYPE (chkp_bndldx_fndecl)),
+		    chkp_bndldx_fndecl);
+  tree call = build_call_nary (TREE_TYPE (TREE_TYPE (chkp_bndldx_fndecl)),
+			       fn, 2, addr, ptr);
+  CALL_WITH_BOUNDS_P (call) = true;
+  return call;
 }
 
 /* Insert code to load bounds for PTR located by ADDR.
@@ -2630,11 +2643,13 @@ chkp_build_bndldx (tree addr, tree ptr, gimple_stmt_iterator *gsi)
 tree
 chkp_build_bndstx_call (tree addr, tree ptr, tree bounds)
 {
-  tree call = build1 (ADDR_EXPR,
-		      build_pointer_type (TREE_TYPE (chkp_bndstx_fndecl)),
-		      chkp_bndstx_fndecl);
-  return build_call_nary (TREE_TYPE (TREE_TYPE (chkp_bndstx_fndecl)),
-			  call, 3, ptr, bounds, addr);
+  tree fn = build1 (ADDR_EXPR,
+		    build_pointer_type (TREE_TYPE (chkp_bndstx_fndecl)),
+		    chkp_bndstx_fndecl);
+  tree call = build_call_nary (TREE_TYPE (TREE_TYPE (chkp_bndstx_fndecl)),
+			       fn, 3, ptr, bounds, addr);
+  CALL_WITH_BOUNDS_P (call) = true;
+  return call;
 }
 
 /* Insert code to store BOUNDS for PTR stored by ADDR.
@@ -2654,6 +2669,7 @@ chkp_build_bndstx (tree addr, tree ptr, tree bounds,
 
   stmt = gimple_build_call (chkp_bndstx_fndecl, 3, ptr, bounds, addr);
   chkp_mark_stmt (stmt);
+  gimple_call_set_with_bounds (stmt, true);
 
   gimple_seq_add_stmt (&seq, stmt);
 
@@ -4659,9 +4675,7 @@ chkp_execute (void)
 
   chkp_remove_useless_builtins ();
 
-  DECL_ATTRIBUTES (cfun->decl)
-    = tree_cons (get_identifier ("chkp instrumented"), NULL,
-		 DECL_ATTRIBUTES (cfun->decl));
+  chkp_function_mark_instrumented (cfun->decl);
 
   chkp_fix_cfg ();
 
