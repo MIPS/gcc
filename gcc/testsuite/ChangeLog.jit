@@ -1,3 +1,7 @@
+2014-03-13  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-error-bad-cast.c: New test case.
+
 2014-03-11  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/harness.h (set_options): Increase optimization level from

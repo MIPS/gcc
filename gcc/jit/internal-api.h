@@ -493,6 +493,9 @@ public:
     return this;
   }
 
+  virtual bool is_int () const = 0;
+  virtual bool is_float () const = 0;
+  virtual bool is_bool () const = 0;
 
   playback::type *
   playback_type ()
@@ -534,6 +537,10 @@ public:
     return type::accepts_writes_from (rtype);
   }
 
+  bool is_int () const;
+  bool is_float () const;
+  bool is_bool () const;
+
 public:
   void replay_into (replayer *r);
 
@@ -557,6 +564,10 @@ public:
   bool accepts_writes_from (type *rtype);
 
   void replay_into (replayer *r);
+
+  bool is_int () const { return false; }
+  bool is_float () const { return false; }
+  bool is_bool () const { return false; }
 
 private:
   string * make_debug_string ();
@@ -584,6 +595,10 @@ public:
   /* Strip off the "const", giving the underlying type.  */
   type *unqualified () { return m_other_type; }
 
+  bool is_int () const { return m_other_type->is_int (); }
+  bool is_float () const { return m_other_type->is_float (); }
+  bool is_bool () const { return m_other_type->is_bool (); }
+
   void replay_into (replayer *);
 
 private:
@@ -605,6 +620,10 @@ public:
 
   /* Strip off the "volatile", giving the underlying type.  */
   type *unqualified () { return m_other_type; }
+
+  bool is_int () const { return m_other_type->is_int (); }
+  bool is_float () const { return m_other_type->is_float (); }
+  bool is_bool () const { return m_other_type->is_bool (); }
 
   void replay_into (replayer *);
 
@@ -629,6 +648,11 @@ class array_type : public type
   {}
 
   type *dereference ();
+
+  bool is_int () const { return false; }
+  bool is_float () const { return false; }
+  bool is_bool () const { return false; }
+
   void replay_into (replayer *);
 
  private:
@@ -651,6 +675,11 @@ public:
 
   type *dereference ();
   function_type *as_a_function_type () { return this; }
+
+  bool is_int () const { return false; }
+  bool is_float () const { return false; }
+  bool is_bool () const { return false; }
+
   void replay_into (replayer *);
 
   type * get_return_type () const { return m_return_type; }
@@ -723,6 +752,10 @@ public:
 	      field **fields);
 
   type *dereference ();
+
+  bool is_int () const { return false; }
+  bool is_float () const { return false; }
+  bool is_bool () const { return false; }
 
   void replay_into (replayer *r);
 

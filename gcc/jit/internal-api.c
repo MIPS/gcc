@@ -856,6 +856,141 @@ recording::memento_of_get_type::dereference ()
     }
 }
 
+bool
+recording::memento_of_get_type::is_int () const
+{
+  switch (m_kind)
+    {
+    default: gcc_unreachable ();
+
+    case GCC_JIT_TYPE_VOID:
+      return false;
+
+    case GCC_JIT_TYPE_VOID_PTR:
+      return false;
+
+    case GCC_JIT_TYPE_BOOL:
+      return false;
+
+    case GCC_JIT_TYPE_CHAR:
+    case GCC_JIT_TYPE_SIGNED_CHAR:
+    case GCC_JIT_TYPE_UNSIGNED_CHAR:
+    case GCC_JIT_TYPE_SHORT:
+    case GCC_JIT_TYPE_UNSIGNED_SHORT:
+    case GCC_JIT_TYPE_INT:
+    case GCC_JIT_TYPE_UNSIGNED_INT:
+    case GCC_JIT_TYPE_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG:
+    case GCC_JIT_TYPE_LONG_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG_LONG:
+      return true;
+
+    case GCC_JIT_TYPE_FLOAT:
+    case GCC_JIT_TYPE_DOUBLE:
+    case GCC_JIT_TYPE_LONG_DOUBLE:
+      return false;
+
+    case GCC_JIT_TYPE_CONST_CHAR_PTR:
+      return false;
+
+    case GCC_JIT_TYPE_SIZE_T:
+      return true;
+
+    case GCC_JIT_TYPE_FILE_PTR:
+      return false;
+    }
+}
+
+bool
+recording::memento_of_get_type::is_float () const
+{
+  switch (m_kind)
+    {
+    default: gcc_unreachable ();
+
+    case GCC_JIT_TYPE_VOID:
+      return false;
+
+    case GCC_JIT_TYPE_VOID_PTR:
+      return false;
+
+    case GCC_JIT_TYPE_BOOL:
+      return false;
+
+    case GCC_JIT_TYPE_CHAR:
+    case GCC_JIT_TYPE_SIGNED_CHAR:
+    case GCC_JIT_TYPE_UNSIGNED_CHAR:
+    case GCC_JIT_TYPE_SHORT:
+    case GCC_JIT_TYPE_UNSIGNED_SHORT:
+    case GCC_JIT_TYPE_INT:
+    case GCC_JIT_TYPE_UNSIGNED_INT:
+    case GCC_JIT_TYPE_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG:
+    case GCC_JIT_TYPE_LONG_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG_LONG:
+      return false;
+
+    case GCC_JIT_TYPE_FLOAT:
+    case GCC_JIT_TYPE_DOUBLE:
+    case GCC_JIT_TYPE_LONG_DOUBLE:
+      return true;
+
+    case GCC_JIT_TYPE_CONST_CHAR_PTR:
+      return false;
+
+    case GCC_JIT_TYPE_SIZE_T:
+      return false;
+
+    case GCC_JIT_TYPE_FILE_PTR:
+      return false;
+    }
+}
+
+bool
+recording::memento_of_get_type::is_bool () const
+{
+  switch (m_kind)
+    {
+    default: gcc_unreachable ();
+
+    case GCC_JIT_TYPE_VOID:
+      return false;
+
+    case GCC_JIT_TYPE_VOID_PTR:
+      return false;
+
+    case GCC_JIT_TYPE_BOOL:
+      return true;
+
+    case GCC_JIT_TYPE_CHAR:
+    case GCC_JIT_TYPE_SIGNED_CHAR:
+    case GCC_JIT_TYPE_UNSIGNED_CHAR:
+    case GCC_JIT_TYPE_SHORT:
+    case GCC_JIT_TYPE_UNSIGNED_SHORT:
+    case GCC_JIT_TYPE_INT:
+    case GCC_JIT_TYPE_UNSIGNED_INT:
+    case GCC_JIT_TYPE_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG:
+    case GCC_JIT_TYPE_LONG_LONG:
+    case GCC_JIT_TYPE_UNSIGNED_LONG_LONG:
+      return false;
+
+    case GCC_JIT_TYPE_FLOAT:
+    case GCC_JIT_TYPE_DOUBLE:
+    case GCC_JIT_TYPE_LONG_DOUBLE:
+      return false;
+
+    case GCC_JIT_TYPE_CONST_CHAR_PTR:
+      return false;
+
+    case GCC_JIT_TYPE_SIZE_T:
+      return false;
+
+    case GCC_JIT_TYPE_FILE_PTR:
+      return false;
+    }
+}
+
 void
 recording::memento_of_get_type::replay_into (replayer *r)
 {

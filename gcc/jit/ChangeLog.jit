@@ -1,5 +1,47 @@
 2014-03-13  David Malcolm  <dmalcolm@redhat.com>
 
+	* libgccjit.c (is_valid_cast): New.
+	(gcc_jit_context_new_cast): Check for compatible types.
+
+	* internal-api.c (gcc::jit::recording::memento_of_get_type::
+	is_int): New.
+	(gcc::jit::recording::memento_of_get_type::is_float): New.
+	(gcc::jit::recording::memento_of_get_type::is_bool): New.
+
+	* internal-api.h (gcc::jit::recording::type::is_int): New.
+	(gcc::jit::recording::type::is_float): New.
+	(gcc::jit::recording::type::is_bool): New.
+
+	(gcc::jit::recording::memento_of_get_type::is_int): New.
+	(gcc::jit::recording::memento_of_get_type::is_float): New.
+	(gcc::jit::recording::memento_of_get_type::is_bool): New.
+
+	(gcc::jit::recording::memento_of_get_pointer::is_int): New.
+	(gcc::jit::recording::memento_of_get_pointer::is_float): New.
+	(gcc::jit::recording::memento_of_get_pointer::is_bool): New.
+
+	(gcc::jit::recording::memento_of_get_const::is_int): New.
+	(gcc::jit::recording::memento_of_get_const::is_float): New.
+	(gcc::jit::recording::memento_of_get_const::is_bool): New.
+
+	(gcc::jit::recording::memento_of_get_volatile::is_int): New.
+	(gcc::jit::recording::memento_of_get_volatile::is_float): New.
+	(gcc::jit::recording::memento_of_get_volatile::is_bool): New.
+
+	(gcc::jit::recording::array_type::is_int): New.
+	(gcc::jit::recording::array_type::is_float): New.
+	(gcc::jit::recording::array_type::is_bool): New.
+
+	(gcc::jit::recording::function_type::is_int): New.
+	(gcc::jit::recording::function_type::is_float): New.
+	(gcc::jit::recording::function_type::is_bool): New.
+
+	(gcc::jit::recording::struct_::is_int): New.
+	(gcc::jit::recording::struct_::is_float): New.
+	(gcc::jit::recording::struct_::is_bool): New.
+
+2014-03-13  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::recording::context::set_str_option):
 	Provide NULL recording::location to add_error.
 	(gcc::jit::recording::context::set_int_option): Likewise.

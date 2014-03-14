@@ -882,6 +882,32 @@ gcc_jit_context_new_call (gcc_jit_context *ctxt,
 					   (gcc::jit::recording::rvalue **)args);
 }
 
+static bool
+is_valid_cast (gcc::jit::recording::type *src_type,
+	       gcc_jit_type *dst_type)
+{
+  bool src_is_int = src_type->is_int ();
+  bool dst_is_int = dst_type->is_int ();
+  bool src_is_float = src_type->is_float ();
+  bool dst_is_float = dst_type->is_float ();
+  bool src_is_bool = src_type->is_bool ();
+  bool dst_is_bool = dst_type->is_bool ();
+
+  if (src_is_int)
+    if (dst_is_int || dst_is_float || dst_is_bool)
+      return true;
+
+  if (src_is_float)
+    if (dst_is_int || dst_is_float)
+      return true;
+
+  if (src_is_bool)
+    if (dst_is_int || dst_is_bool)
+      return true;
+
+  return false;
+}
+
 gcc_jit_rvalue *
 gcc_jit_context_new_cast (gcc_jit_context *ctxt,
 			  gcc_jit_location *loc,
@@ -891,6 +917,13 @@ gcc_jit_context_new_cast (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (ctxt, NULL, loc, "NULL context");
   RETURN_NULL_IF_FAIL (rvalue, ctxt, loc, "NULL rvalue");
   RETURN_NULL_IF_FAIL (type, ctxt, loc, "NULL type");
+  RETURN_NULL_IF_FAIL_PRINTF3 (
+    is_valid_cast (rvalue->get_type (), type),
+    ctxt, loc,
+    "cannot cast %s from type: %s to type: %s",
+    rvalue->get_debug_string (),
+    rvalue->get_type ()->get_debug_string (),
+    type->get_debug_string ());
 
   return static_cast <gcc_jit_rvalue *> (ctxt->new_cast (loc, rvalue, type));
 }
