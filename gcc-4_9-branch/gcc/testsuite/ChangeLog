@@ -1,3 +1,202 @@
+2014-03-14  Mikael Morin  <mikael@gcc.gnu.org>
+
+	PR fortran/60392
+	* gfortran.dg/transpose_4.f90: New test.
+
+2014-03-14  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/60508
+	* gcc.target/i386/pr60508.c: New.
+
+2014-03-14  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60518
+	* g++.dg/pr60518.C: New testcase.
+
+2014-03-14  Martin Jambor  <mjambor@suse.cz>
+
+	PR lto/60461
+	* gcc.dg/lto/pr60461_0.c: New test.
+
+2014-03-14  Cesar Philippidis  <cesar@codesourcery.com>
+
+	* lib/gcc-dg.exp (cleanup-saved-temps): Handle LTO temporaries.
+	* lib/lto.exp (lto-execute): Cleanup LTO temporaries.
+	* gcc.dg/lto/save-temps_0.c: New testcase.
+
+2014-03-13  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/36282
+	* c-c++-common/pr36282-1.c: New test.
+	* c-c++-common/pr36282-2.c: New test.
+	* c-c++-common/pr36282-3.c: New test.
+	* c-c++-common/pr36282-4.c: New test.
+
+2014-03-13  Richard Henderson  <rth@redhat.com>
+
+	PR debug/60438
+	* g++.dg/torture/pr60438-1.C, g++.dg/torture/pr60438-2.C: New.
+
+2014-03-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60383
+	* g++.dg/template/crash118.C: New.
+	* g++.dg/template/crash95.C: Adjust.
+
+2014-03-13  Vladimir Makarov  <vmakarov@redhat.com>
+
+	PR rtl-optimization/57189
+	* gcc.target/i386/pr57189.c: New.
+
+2014-03-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60254
+	* g++.dg/cpp0x/static_assert10.C: New.
+	* g++.dg/cpp0x/static_assert11.C: Likewise.
+	* g++.dg/cpp0x/static_assert3.C: Adjust.
+
+2014-03-13  Richard Biener  <rguenther@suse.de>
+
+	* lib/lto.exp (lto-execute): Fix error catching for dg-final.
+
+2014-03-12  Michael Meissner  <meissner@linux.vnet.ibm.com>
+
+	* gcc.target/powerpc/p8vector-int128-1.c: New test to test ISA
+	2.07 128-bit arithmetic.
+	* gcc.target/powerpc/p8vector-int128-2.c: Likewise.
+
+	* gcc.target/powerpc/timode_off.c: Restrict cpu type to power5,
+	due to when TImode is allowed in VSX registers, the allowable
+	address modes for TImode is just a single indirect address in
+	order for the value to be loaded and store in either GPR or VSX
+	registers.  This affects the generated code, and it would cause
+	this test to fail, when such an option is used.
+
+2014-03-12  Marcus Shawcroft  <marcus.shawcroft@arm.com>
+
+	* lib/profopt.exp (profopt-execute): Use $testcase in unsupported.
+
+2014-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	* gcc.dg/tree-ssa/ssa-ifcombine-12.c: New test.
+	* gcc.dg/tree-ssa/ssa-ifcombine-13.c: New test.
+	* gcc.dg/tree-ssa/phi-opt-2.c: Pass -mbranch-cost=1 if possible,
+	only test for exactly one if if -mbranch-cost=1 has been passed.
+
+2014-03-12  Christian Bruel  <christian.bruel@st.com>
+
+	PR target/60264
+	* gcc.target/arm/pr60264.c
+
+2014-03-12  Thomas Preud'homme  <thomas.preudhomme@arm.com>
+
+	PR tree-optimization/60454
+	* gcc.c-torture/execute/pr60454.c: New test.
+
+2014-03-12  Jakub Jelinek  <jakub@redhat.com>
+	    Marc Glisse  <marc.glisse@inria.fr>
+
+	PR tree-optimization/60502
+	* gcc.c-torture/compile/pr60502.c: New test.
+
+2014-03-12  Jakub Jelinek  <jakub@redhat.com>
+
+	PR middle-end/60482
+	* gcc.dg/vect/pr60482.c: New test.
+
+2014-03-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60389
+	* g++.dg/cpp0x/inh-ctor19.C: New.
+
+2014-03-11  Richard Biener  <rguenther@suse.de>
+
+	PR tree-optimization/60429
+	PR tree-optimization/60485
+	* gcc.dg/pr60485-1.c: New testcase.
+	* gcc.dg/pr60485-2.c: Likewise.
+
+2014-03-10  Jakub Jelinek  <jakub@redhat.com>
+
+	PR ipa/60457
+	* g++.dg/ipa/pr60457.C: New test.
+
+2014-03-10  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60474
+	* g++.dg/torture/pr60474.C: New testcase.
+
+2014-03-09  Andreas Schwab  <schwab@linux-m68k.org>
+
+	* g++.dg/cpp0x/alias-decl-debug-0.C: Move dg-skip after dg-do.
+
+2014-03-08  Paulo Matos  <paulo@matos-sorge.com>
+
+	* gcc.dg/lto/pr55113_0.c: New testcase.
+
+2014-03-08  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/60033
+	* g++.dg/cpp1y/pr60033.C: New testcase.
+
+	PR c++/60393
+	* g++.dg/cpp1y/pr60393.C: New testcase.
+
+2014-03-08  Dominique d'Humieres  <dominiq@lps.ens.fr>
+
+	PR libfortran/60128
+	* gfortran.dg/fmt_en.f90: New test.
+
+2014-03-07  Jason Merrill  <jason@redhat.com>
+
+	* lib/g++-dg.exp (g++-dg-runtest): Run tests in C++1y mode, too.
+	* lib/target-supports.exp (check_effective_target_c++11): Now
+	means C++11 and up.
+	(check_effective_target_c++11_only): New.
+	(check_effective_target_c++11_down): New.
+	(check_effective_target_c++1y): New.
+	(check_effective_target_c++1y_only): New.
+	(check_effective_target_c++98_only): Rename from
+	check_effective_target_c++98.
+	* g++.dg/*: Use { target c++11 } instead of -std=c++11.
+
+2014-03-07  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/58609
+	* g++.dg/cpp0x/constexpr-ice12.C: New.
+
+2014-03-07  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/gomp/map-1.c: Extend.
+
+2014-03-06  Paul Thomas  <pault@gcc.gnu.org>
+	    Janus Weil  <janus@gcc.gnu.org>
+
+	PR fortran/51976
+	* gfortran.dg/deferred_type_component_1.f90 : New test.
+	* gfortran.dg/deferred_type_component_2.f90 : New test.
+
+2014-03-06  Marek Polacek  <polacek@redhat.com>
+
+	PR c/60197
+	* c-c++-common/cilk-plus/CK/pr60197.c: New test.
+	* c-c++-common/cilk-plus/CK/pr60197-2.c: New test.
+
+2014-03-06  Jakub Jelinek  <jakub@redhat.com>
+
+	PR target/58595
+	* gcc.dg/tls/pr58595.c: New test.
+
+2014-03-06  Richard Biener  <rguenther@suse.de>
+
+	PR middle-end/60445
+	PR lto/60424
+	PR lto/60427
+	Revert
+	2014-03-04  Paulo Matos  <paulo@matos-sorge.com>
+
+	* gcc.dg/lto/pr55113_0.c: New testcase.
+
 2014-03-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR testsuite/59308
@@ -43,7 +242,7 @@
 
 2014-03-04  Paulo Matos  <paulo@matos-sorge.com>
 
-        * gcc.dg/lto/pr55113_0.c: New testcase.
+	* gcc.dg/lto/pr55113_0.c: New testcase.
 
 2014-03-04  Paolo Carlini  <paolo.carlini@oracle.com>
 
@@ -157,10 +356,10 @@
 	* gcc.c-torture/compile/pr52714.c: New test.
 
 2014-02-27  Mikael Pettersson  <mikpe@it.uu.se>
-            Jeff Law  <law@redhat.com>
+	    Jeff Law  <law@redhat.com>
 
-	 PR rtl-optimization/49847
-	 * g++.dg/pr49847.C: New test.
+	PR rtl-optimization/49847
+	* g++.dg/pr49847.C: New test.
 
 2014-02-27  Marek Polacek  <polacek@redhat.com>
 
