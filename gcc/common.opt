@@ -1229,6 +1229,10 @@ Common Report Var(flag_gcse_after_reload) Optimization
 Perform global common subexpression elimination after register allocation
 has finished
 
+fpostreload-load
+Common Report Var(flag_postreload_load)
+Try to remove redundant loads after register allocation
+
 ; This option is not documented yet as its semantics will change.
 fgraphite
 Common Report Var(flag_graphite)

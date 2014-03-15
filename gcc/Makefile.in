@@ -1324,6 +1324,7 @@ OBJS = \
 	pointer-set.o \
 	postreload-gcse.o \
 	postreload.o \
+	postreload-load.o \
 	predict.o \
 	print-rtl.o \
 	print-tree.o \

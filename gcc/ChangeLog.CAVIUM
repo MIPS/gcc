@@ -1,3 +1,16 @@
+2014-03-14  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	Ported:
+	 2012-07-16  Adam Nemet  <anemet@caviumnetworks.com>
+		     Andrew Pinski  <apinski@cavium.com>
+
+	* postreload-load.c: New file.
+	* Makefile.in (OBJS-common): Add postreload-load.o.
+	* common.opt (fpostreload-load): New option.
+	* timevar.def: Add TV_LOAD_AFTER_RELOAD timevar.
+	* tree-pass.h (pass_postreload_load): Declare.
+	* passes.def: Add pass_postreload_load.
+
 2014-03-13  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	Ported:
