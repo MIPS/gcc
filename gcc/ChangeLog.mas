@@ -1,3 +1,8 @@
+2014-03-17  Prathamesh Kulkarni  <bilbotheelffriend@gmail.com>
+
+	* genmatch.c (c_expr::c_expr): use OP_C_EXPR instead of OP_EXPR in
+	call to operand constructor.
+
 2014-03-13  Richard Biener  <rguenther@suse.de>
 
 	* match.pd: Add pattern matching a call in a sub-expression.

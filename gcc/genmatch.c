@@ -191,7 +191,7 @@ struct expr : public operand
 struct c_expr : public operand
 {
   c_expr (const char *code_)
-    : operand (OP_EXPR), code (code_) {}
+    : operand (OP_C_EXPR), code (code_) {}
   const char *code;
   virtual void gen_gimple_match (FILE *, const char *, const char *) { gcc_unreachable (); }
   virtual void gen_gimple_transform (FILE *f, const char *);
