@@ -1,3 +1,10 @@
+2014-03-18  Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* c-parser.c (c_parser_oacc_loop): New function.
+	(c_parser_oacc_kernels): Parse OpenACC combined directive.
+	(c_parser_oacc_parallel): Likewise.
+	(c_parser_omp_construct): Parse OpenACC loop directive.
+
 2014-04-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-parser.c (c_parser_omp_clause_num_gangs)

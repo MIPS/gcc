@@ -4363,6 +4363,7 @@ is_gimple_stmt (tree t)
     case OMP_FOR:
     case OMP_SIMD:
     case CILK_SIMD:
+    case OACC_LOOP:
     case OMP_DISTRIBUTE:
     case OMP_SECTIONS:
     case OMP_SECTION:
@@ -8047,6 +8048,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	case OACC_EXIT_DATA:
 	case OACC_WAIT:
 	case OACC_CACHE:
+	case OACC_LOOP:
 	  sorry ("directive not yet implemented");
 	  ret = GS_ALL_DONE;
 	  break;
@@ -8068,9 +8070,23 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 	  ret = gimplify_omp_for (expr_p, pre_p);
 	  break;
 
-	case OACC_DATA:
 	case OACC_KERNELS:
+	  if (OACC_KERNELS_COMBINED (*expr_p))
+	    sorry ("directive not yet implemented");
+	  else
+	    gimplify_omp_workshare (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
 	case OACC_PARALLEL:
+	  if (OACC_PARALLEL_COMBINED (*expr_p))
+	    sorry ("directive not yet implemented");
+	  else
+	    gimplify_omp_workshare (expr_p, pre_p);
+	  ret = GS_ALL_DONE;
+	  break;
+
+	case OACC_DATA:
 	case OMP_SECTIONS:
 	case OMP_SINGLE:
 	case OMP_TARGET:
@@ -8473,6 +8489,7 @@ gimplify_expr (tree *expr_p, gimple_seq *pre_p, gimple_seq *post_p,
 		  && code != OACC_CACHE
 		  && code != OMP_CRITICAL
 		  && code != OMP_FOR
+		  && code != OACC_LOOP
 		  && code != OMP_MASTER
 		  && code != OMP_TASKGROUP
 		  && code != OMP_ORDERED

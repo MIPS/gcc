@@ -1,3 +1,7 @@
+2014-03-18  Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* c-c++-common/goacc/loop-1.c: New test.
+
 2014-03-13  Ilmir Usmanov  <i.usmanov@samsung.com>
 
 	* gfortran.dg/goacc/goacc.exp: New test directory.

@@ -1,3 +1,12 @@
+2014-03-18  Ilmir Usmanov  <i.usmanov@samsung.com>
+
+	* tree.def (OACC_LOOP): New tree code.
+	* tree-pretty-print.c (dump_generic_node): Show it.
+	* tree.h (OACC_KERNELS_COMBINED, OACC_PARALLEL_COMBINED): New macros.
+	* doc/generic.texi: Document loop directive.
+	* gimplify.c (is_gimple_stmt, gimplify_expr): Stub gimplification of 
+	loop directive and combined directives.
+
 2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* builtin-types.def

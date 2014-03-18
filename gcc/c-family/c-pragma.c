@@ -1172,6 +1172,7 @@ static const struct omp_pragma_def oacc_pragmas[] = {
   { "data", PRAGMA_OACC_DATA },
   { "kernels", PRAGMA_OACC_KERNELS },
   { "parallel", PRAGMA_OACC_PARALLEL },
+  { "loop", PRAGMA_OACC_LOOP },
 };
 static const struct omp_pragma_def omp_pragmas[] = {
   { "atomic", PRAGMA_OMP_ATOMIC },

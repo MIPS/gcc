@@ -1269,6 +1269,15 @@ extern void protected_set_expr_location (tree, location_t);
 #define OMP_SECTION_LAST(NODE) \
   (OMP_SECTION_CHECK (NODE)->base.private_flag)
 
+/* True on an OACC_KERNELS statement if is represents combined kernels loop
+   directive.  */
+#define OACC_KERNELS_COMBINED(NODE) \
+  (OACC_KERNELS_CHECK (NODE)->base.private_flag)
+
+/* Like OACC_KERNELS_COMBINED, but for parallel loop directive.  */
+#define OACC_PARALLEL_COMBINED(NODE) \
+  (OACC_PARALLEL_CHECK (NODE)->base.private_flag)
+
 /* True on an OMP_PARALLEL statement if it represents an explicit
    combined parallel work-sharing constructs.  */
 #define OMP_PARALLEL_COMBINED(NODE) \
