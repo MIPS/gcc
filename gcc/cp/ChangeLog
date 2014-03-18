@@ -1,3 +1,52 @@
+2014-03-17  Adam Butcher  <adam@jessamine.co.uk>
+
+	PR c++/60390
+	* parser.c (cp_parser_member_declaration): Don't allow
+	finish_fully_implicit_template to consider friend declarations to be
+	class member templates.
+	(synthesize_implicit_template_parm): Handling winding back through class
+	scope to the class being defined in order to inject a template argument
+	list.
+
+	PR c++/60391
+	* parser.c (cp_parser_skip_to_end_of_block_or_statement): Unwind generic
+	function scope as per cp_parser_skip_to_end_of_statement.
+
+2014-03-17  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/59571
+	* typeck2.c (check_narrowing): Use fold_non_dependent_expr_sfinae.
+
+2014-03-14  Jason Merrill  <jason@redhat.com>
+
+	PR c++/60532
+	PR c++/58678
+	* search.c (get_pure_virtuals): Handle abstract dtor here.
+	(dfs_get_pure_virtuals): Not here.
+
+	PR c++/58678
+	* search.c (dfs_get_pure_virtuals): Treat the destructor of an
+	abstract class as pure.
+
+2014-03-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60383
+	* pt.c (maybe_process_partial_specialization): Check return value
+	of check_specialization_namespace.
+
+2014-03-13  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60254
+	* semantics.c (finish_static_assert): Call cxx_constant_value only
+	if require_potential_rvalue_constant_expression returns true.
+
+2014-03-11  Paolo Carlini  <paolo.carlini@oracle.com>
+
+	PR c++/60389
+	* method.c (get_inherited_ctor): New.
+	* cp-tree.h (get_inherited_ctor): Declare it.
+	* semantics.c (is_valid_constexpr_fn): Use it.
+
 2014-03-10  Jason Merrill  <jason@redhat.com>
 
 	PR c++/60367
