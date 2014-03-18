@@ -1,5 +1,9 @@
 2014-03-19  Tom Tromey  <tromey@redhat.com>
 
+	* internal-api.c (compile): Use auto_timevar.
+
+2014-03-19  Tom Tromey  <tromey@redhat.com>
+
 	* internal-api.c (compile): Use toplev, not toplev_options.
 	Simplify.
 

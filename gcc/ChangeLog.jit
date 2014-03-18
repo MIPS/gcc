@@ -1,5 +1,9 @@
 2014-03-19  Tom Tromey  <tromey@redhat.com>
 
+	* timevar.h (auto_timevar): New class.
+
+2014-03-19  Tom Tromey  <tromey@redhat.com>
+
 	* diagnostic.c (bt_stop): Use toplev::main.
 	* main.c (main): Update.
 	* toplev.c (do_compile): Remove argument.  Don't check

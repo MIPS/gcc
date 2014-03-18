@@ -3739,8 +3739,6 @@ compile ()
   if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
    dump_generated_code ();
 
-  timevar_push (TV_ASSEMBLE);
-
   /* Gross hacks follow:
      We have a .s file; we want a .so file.
      We could reuse parts of gcc/gcc.c to do this.
@@ -3748,6 +3746,8 @@ compile ()
    */
   /* FIXME: totally faking it for now, not even using pex */
   {
+    auto_timevar assemble_timevar (TV_ASSEMBLE);
+
     char cmd[1024];
     snprintf (cmd, 1024, "gcc -shared %s -o %s",
               m_path_s_file, m_path_so_file);
@@ -3755,20 +3755,16 @@ compile ()
       printf ("cmd: %s\n", cmd);
     int ret = system (cmd);
     if (ret)
-      {
-	timevar_pop (TV_ASSEMBLE);
-	return NULL;
-      }
+      return NULL;
   }
-  timevar_pop (TV_ASSEMBLE);
 
   // TODO: split out assembles vs linker
 
   /* dlopen the .so file. */
   {
-    const char *error;
+    auto_timevar load_timevar (TV_LOAD);
 
-    timevar_push (TV_LOAD);
+    const char *error;
 
     /* Clear any existing error.  */
     dlerror ();
@@ -3781,8 +3777,6 @@ compile ()
       result_obj = new result (handle);
     else
       result_obj = NULL;
-
-    timevar_pop (TV_LOAD);
   }
 
   return result_obj;
