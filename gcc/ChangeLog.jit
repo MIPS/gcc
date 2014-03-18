@@ -1,3 +1,17 @@
+2014-03-19  Tom Tromey  <tromey@redhat.com>
+
+	* diagnostic.c (bt_stop): Use toplev::main.
+	* main.c (main): Update.
+	* toplev.c (do_compile): Remove argument.  Don't check
+	use_TV_TOTAL.
+	(toplev::toplev, toplev::~toplev, toplev::start_timevars): New
+	functions.
+	(toplev::main): Rename from toplev_main.  Update.
+	(toplev::finalize): Rename from toplev_finalize.  Update.
+	* toplev.h (class toplev): New.
+	(struct toplev_options): Remove.
+	(toplev_main, toplev_finalize): Don't declare.
+
 2014-03-11  David Malcolm  <dmalcolm@redhat.com>
 
 	* gcse.c (gcse_c_finalize): New, to clear test_insn between

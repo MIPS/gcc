@@ -3651,7 +3651,7 @@ compile ()
 
   /* Call into the rest of gcc.
      For now, we have to assemble command-line options to pass into
-     toplev_main, so that they can be parsed. */
+     toplev::main, so that they can be parsed. */
 
   /* Pass in user-provided program name as argv0, if any, so that it
      makes it into GCC's "progname" global, used in various diagnostics. */
@@ -3726,25 +3726,15 @@ compile ()
       ADD_ARG ("-fdump-ipa-all");
     }
 
-  toplev_options toplev_opts;
-  toplev_opts.use_TV_TOTAL = false;
+  toplev toplev (false);
 
-  if (time_report || !quiet_flag  || flag_detailed_statistics)
-    timevar_init ();
-
-  timevar_start (TV_TOTAL);
-
-  toplev_main (num_args, const_cast <char **> (fake_args), &toplev_opts);
-  toplev_finalize ();
+  toplev.main (num_args, const_cast <char **> (fake_args));
+  toplev.finalize ();
 
   active_playback_ctxt = NULL;
 
   if (errors_occurred ())
-    {
-      timevar_stop (TV_TOTAL);
-      timevar_print (stderr);
-      return NULL;
-    }
+    return NULL;
 
   if (get_bool_option (GCC_JIT_BOOL_OPTION_DUMP_GENERATED_CODE))
    dump_generated_code ();
@@ -3767,8 +3757,6 @@ compile ()
     if (ret)
       {
 	timevar_pop (TV_ASSEMBLE);
-	timevar_stop (TV_TOTAL);
-	timevar_print (stderr);
 	return NULL;
       }
   }
@@ -3796,9 +3784,6 @@ compile ()
 
     timevar_pop (TV_LOAD);
   }
-
-  timevar_stop (TV_TOTAL);
-  timevar_print (stderr);
 
   return result_obj;
 }

@@ -1,5 +1,5 @@
 /* Top level of GCC compilers (cc1, cc1plus, etc.)
-   Copyright (C) 1987-2013 Free Software Foundation, Inc.
+   Copyright (C) 1987-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -95,7 +95,7 @@ along with GCC; see the file COPYING3.  If not see
 #endif
 
 static void general_init (const char *);
-static void do_compile (const toplev_options *toplev_opts);
+static void do_compile ();
 static void process_options (void);
 static void backend_init (void);
 static int lang_dependent_init (const char *);
@@ -1854,18 +1854,8 @@ finalize (bool no_backend)
 
 /* Initialize the compiler, and compile the input file.  */
 static void
-do_compile (const toplev_options *toplev_opts)
+do_compile ()
 {
-  /* Initialize timing first.  The C front ends read the main file in
-     the post_options hook, and C++ does file timings.  */
-  if (toplev_opts->use_TV_TOTAL)
-    {
-      if (time_report || !quiet_flag  || flag_detailed_statistics)
-        timevar_init ();
-
-      timevar_start (TV_TOTAL);
-    }
-
   process_options ();
 
   /* Don't do any more if an error has already occurred.  */
@@ -1910,13 +1900,28 @@ do_compile (const toplev_options *toplev_opts)
 
       timevar_stop (TV_PHASE_FINALIZE);
     }
+}
 
-  if (toplev_opts->use_TV_TOTAL)
-    {
-      /* Stop timing and print the times.  */
-      timevar_stop (TV_TOTAL);
-      timevar_print (stderr);
-    }
+toplev::toplev (bool use_TV_TOTAL)
+  : m_use_TV_TOTAL (use_TV_TOTAL)
+{
+  if (!m_use_TV_TOTAL)
+    start_timevars ();
+}
+
+toplev::~toplev ()
+{
+  timevar_stop (TV_TOTAL);
+  timevar_print (stderr);
+}
+
+void
+toplev::start_timevars ()
+{
+  if (time_report || !quiet_flag  || flag_detailed_statistics)
+    timevar_init ();
+
+  timevar_start (TV_TOTAL);
 }
 
 /* Entry point of cc1, cc1plus, jc1, f771, etc.
@@ -1926,7 +1931,7 @@ do_compile (const toplev_options *toplev_opts)
    It is not safe to call this function more than once.  */
 
 int
-toplev_main (int argc, char **argv, const toplev_options *toplev_opts)
+toplev::main (int argc, char **argv)
 {
   /* Parsing and gimplification sometimes need quite large stack.
      Increase stack size limits if possible.  */
@@ -1976,7 +1981,11 @@ toplev_main (int argc, char **argv, const toplev_options *toplev_opts)
 
   /* Exit early if we can (e.g. -help).  */
   if (!exit_after_options)
-    do_compile (toplev_opts);
+    {
+      if (m_use_TV_TOTAL)
+	start_timevars ();
+      do_compile ();
+    }
 
   if (warningcount || errorcount || werrorcount)
     print_ignored_options ();
@@ -1994,8 +2003,9 @@ toplev_main (int argc, char **argv, const toplev_options *toplev_opts)
 }
 
 /* For those that want to, this function aims to clean up enough state that
-   you can call toplev_main again. */
-void toplev_finalize (void)
+   you can call toplev::main again. */
+void
+toplev::finalize (void)
 {
   cgraph_c_finalize ();
   cgraphbuild_c_finalize ();

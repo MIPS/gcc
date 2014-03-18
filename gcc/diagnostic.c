@@ -333,7 +333,7 @@ diagnostic_show_locus (diagnostic_context * context,
 static const char * const bt_stop[] =
 {
   "main",
-  "toplev_main",
+  "toplev::main",
   "execute_one_pass",
   "compile_file",
 };
