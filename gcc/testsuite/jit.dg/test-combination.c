@@ -14,6 +14,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-arrays.c */
+#define create_code create_code_arrays
+#define verify_code verify_code_arrays
+#include "test-arrays.c"
+#undef create_code
+#undef verify_code
+
 /* test-calling-external-function.c */
 #define create_code create_code_calling_external_function
 #define verify_code verify_code_calling_external_function
@@ -28,6 +35,9 @@
 #undef create_code
 #undef verify_code
 
+/* test-error-*.c: We don't use these test cases, since they deliberately
+   introduce errors, which we don't want here.  */
+
 /* test-expressions.c */
 #define create_code create_code_expressions
 #define verify_code verify_code_expressions
@@ -41,9 +51,6 @@
 #include "test-factorial.c"
 #undef create_code
 #undef verify_code
-
-/* We don't use test-failure.c; we don't want its failure to affect our
-   combined case.  */
 
 /* test-fibonacci.c */
 #define create_code create_code_fibonacci
@@ -115,6 +122,13 @@
 #undef create_code
 #undef verify_code
 
+/* test-volatile.c */
+#define create_code create_code_volatile
+#define verify_code verify_code_volatile
+#include "test-volatile.c"
+#undef create_code
+#undef verify_code
+
 /* Now construct a test case from all the other test cases.
 
    We undefine TEST_COMBINATION so that we can now include harness.h
@@ -127,6 +141,7 @@ void
 create_code (gcc_jit_context *ctxt, void * user_data)
 {
   create_code_accessing_struct (ctxt, user_data);
+  create_code_arrays (ctxt, user_data);
   create_code_calling_external_function (ctxt, user_data);
   create_code_dot_product (ctxt, user_data);
   create_code_expressions (ctxt, user_data);
@@ -139,12 +154,14 @@ create_code (gcc_jit_context *ctxt, void * user_data)
   create_code_sum_of_squares (ctxt, user_data);
   create_code_types (ctxt, user_data);
   create_code_using_global (ctxt, user_data);
+  create_code_volatile (ctxt, user_data);
 }
 
 void
 verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
 {
   verify_code_accessing_struct (ctxt, result);
+  verify_code_arrays (ctxt, result);
   verify_code_calling_external_function (ctxt, result);
   verify_code_dot_product (ctxt, result);
   verify_code_expressions (ctxt, result);
@@ -157,4 +174,5 @@ verify_code (gcc_jit_context *ctxt, gcc_jit_result *result)
   verify_code_sum_of_squares (ctxt, result);
   verify_code_types (ctxt, result);
   verify_code_using_global (ctxt, result);
+  verify_code_volatile (ctxt, result);
 }

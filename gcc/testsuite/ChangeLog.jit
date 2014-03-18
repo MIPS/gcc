@@ -1,3 +1,12 @@
+2014-03-18  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-combination.c: Add test-arrays.c and test-volatile.c.
+	Add comment about test-error-*.c.  Remove comment about
+	test-failure.c, which was removed in
+	96b218c9a1d5f39fb649e02c0e77586b180e8516.
+	(create_code): Call into test-arrays.c and test-volatile.c.
+	(verify_code): Likewise.
+
 2014-03-14  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-expressions.c (called_pointer_checking_function): New.
