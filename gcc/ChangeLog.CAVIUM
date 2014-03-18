@@ -419,6 +419,10 @@
 	* testsuite/gcc.target/mips/unaligned-4.c: New testcase.
 	* testsuite/gcc.target/mips/unaligned-3.c: New testcase.
 
+2012-07-23  Andrew Pinski  <apinski@caviumnetworks.com>
+
+	* testsuite/gcc.dg/tree-ssa/phi-opt-pass-order.c: New testcase.
+
 2012-07-20  Andrew Pinski  <apinski@caviumnetworks.com>
 
 	Bug #380
