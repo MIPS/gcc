@@ -1,3 +1,8 @@
+2014-03-18  Naveen H.S  <Naveen.Hurugalawadi@caviumnetworks.com>
+
+	* config/aarch64/aarch64.md (mov<mode>cc): Define for floating
+	point modes.
+	
 2014-03-18  Andrew Pinski  <apinski@cavium.com>
 
 	* config/aarch64/aarch64.md (mov<GPF:mode><GPI:mode>cc): Remove
