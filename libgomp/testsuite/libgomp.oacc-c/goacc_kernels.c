@@ -17,7 +17,9 @@ f (void *data)
 int main(void)
 {
   i = -1;
-  GOACC_kernels (0, f, (const void *) 0, 0, (void *) 0, (void *) 0, (void *) 0);
+  GOACC_kernels (0, f, (const void *) 0,
+		 0, (void *) 0, (void *) 0, (void *) 0,
+		 1, 1, 1);
   if (i != 42)
     abort ();
 

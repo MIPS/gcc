@@ -31,7 +31,8 @@
 void
 GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
 		size_t mapnum, void **hostaddrs, size_t *sizes,
-		unsigned short *kinds)
+		unsigned short *kinds,
+		int num_gangs, int num_workers, int vector_length)
 {
   unsigned char kinds_[mapnum];
   size_t i;
@@ -49,6 +50,16 @@ GOACC_parallel (int device, void (*fn) (void *), const void *openmp_target,
 
       kinds_[i] = kind | align << 3;
     }
+  if (num_gangs != 1)
+    gomp_fatal ("num_gangs (%d) different from one is not yet supported",
+		num_gangs);
+  if (num_workers != 1)
+    gomp_fatal ("num_workers (%d) different from one is not yet supported",
+		num_workers);
+  if (vector_length != 1)
+    gomp_fatal ("vector_length (%d) different from one is not yet supported",
+		vector_length);
+
   GOMP_target (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds_);
 }
 
@@ -86,8 +97,10 @@ GOACC_data_end (void)
 void
 GOACC_kernels (int device, void (*fn) (void *), const void *openmp_target,
 	       size_t mapnum, void **hostaddrs, size_t *sizes,
-	       unsigned short *kinds)
+	       unsigned short *kinds,
+	       int num_gangs, int num_workers, int vector_length)
 {
   /* TODO.  */
-  GOACC_parallel (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds);
+  GOACC_parallel (device, fn, openmp_target, mapnum, hostaddrs, sizes, kinds,
+		  num_gangs, num_workers, vector_length);
 }

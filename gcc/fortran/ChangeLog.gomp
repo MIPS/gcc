@@ -1,3 +1,9 @@
+2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* f95-lang.c (DEF_FUNCTION_TYPE_10): Define.
+	* types.def
+	(BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR_INT_INT_INT): New type.
+
 2014-03-13  Ilmir Usmanov  <i.usmanov@samsung.com>
 
 	OpenACC 1.0 support.
@@ -171,7 +177,7 @@
 
 	* f95-lang.c (ATTR_NULL): Define.
 
-Copyright (C) 2013 Free Software Foundation, Inc.
+Copyright (C) 2013-2014 Free Software Foundation, Inc.
 
 Copying and distribution of this file, with or without modification,
 are permitted in any medium without royalty provided the copyright

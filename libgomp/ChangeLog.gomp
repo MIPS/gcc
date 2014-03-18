@@ -1,3 +1,11 @@
+2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* libgomp_g.h (GOACC_kernels, GOACC_parallel): Add three
+	additional int arguments.
+	* oacc-parallel.c (GOACC_kernels, GOACC_parallel): Handle these.
+	* testsuite/libgomp.oacc-c/goacc_kernels.c: Adjust.
+	* testsuite/libgomp.oacc-c/goacc_parallel.c: Likewise.
+
 2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* testsuite/libgomp.oacc-c/goacc_kernels.c: New file.

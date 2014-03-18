@@ -1622,6 +1622,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_DIST_SCHEDULE:
 	case OMP_CLAUSE_DEPEND:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
 	  if (ctx->outer)
 	    scan_omp_op (&OMP_CLAUSE_OPERAND (c, 0), ctx->outer);
 	  break;
@@ -1759,9 +1762,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_NUM_GANGS:
-	case OMP_CLAUSE_NUM_WORKERS:
-	case OMP_CLAUSE_VECTOR_LENGTH:
 	  sorry ("Clause not supported yet");
 	  break;
 
@@ -1886,6 +1886,9 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_TO:
 	case OMP_CLAUSE_FROM:
 	  gcc_assert (!is_gimple_omp_oacc_specifically (ctx->stmt));
+	case OMP_CLAUSE_NUM_GANGS:
+	case OMP_CLAUSE_NUM_WORKERS:
+	case OMP_CLAUSE_VECTOR_LENGTH:
 	  break;
 
 	case OMP_CLAUSE_HOST:
@@ -1899,9 +1902,6 @@ scan_sharing_clauses (tree clauses, omp_context *ctx)
 	case OMP_CLAUSE_INDEPENDENT:
 	case OMP_CLAUSE_WORKER:
 	case OMP_CLAUSE_VECTOR:
-	case OMP_CLAUSE_NUM_GANGS:
-	case OMP_CLAUSE_NUM_WORKERS:
-	case OMP_CLAUSE_VECTOR_LENGTH:
 	  sorry ("Clause not supported yet");
 	  break;
 
@@ -5039,7 +5039,9 @@ expand_oacc_offload (struct omp_region *region)
     }
 
   /* Emit a library call to launch CHILD_FN.  */
-  tree t1, t2, t3, t4, device, c, clauses;
+  tree t1, t2, t3, t4,
+    t_num_gangs, t_num_workers, t_vector_length,
+    device, c, clauses;
   enum built_in_function start_ix;
   location_t clause_loc;
   tree (*gimple_omp_clauses) (const_gimple);
@@ -5058,6 +5060,36 @@ expand_oacc_offload (struct omp_region *region)
     }
 
   clauses = gimple_omp_clauses (entry_stmt);
+
+  /* Default values for NUM_GANGS, NUM_WORKERS, and VECTOR_LENGTH.  */
+  t_num_gangs = t_num_workers = t_vector_length
+    = fold_convert_loc (gimple_location (entry_stmt),
+			integer_type_node, integer_one_node);
+  switch (region->type)
+    {
+    case GIMPLE_OACC_PARALLEL:
+      /* ..., but if present, use the values specified by the respective
+	 clauses, making sure these are of the correct type.  */
+      c = find_omp_clause (clauses, OMP_CLAUSE_NUM_GANGS);
+      if (c)
+	t_num_gangs = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+					integer_type_node,
+					OMP_CLAUSE_NUM_GANGS_EXPR (c));
+      c = find_omp_clause (clauses, OMP_CLAUSE_NUM_WORKERS);
+      if (c)
+	t_num_workers = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+					  integer_type_node,
+					  OMP_CLAUSE_NUM_WORKERS_EXPR (c));
+      c = find_omp_clause (clauses, OMP_CLAUSE_VECTOR_LENGTH);
+      if (c)
+	t_vector_length = fold_convert_loc (OMP_CLAUSE_LOCATION (c),
+					    integer_type_node,
+					    OMP_CLAUSE_VECTOR_LENGTH_EXPR (c));
+      break;
+
+    default:
+      break;
+    }
 
   /* By default, the value of DEVICE is -1 (let runtime library choose).  */
   device = build_int_cst (integer_type_node, -1);
@@ -5100,7 +5132,8 @@ expand_oacc_offload (struct omp_region *region)
   tree openmp_target = build_zero_cst (ptr_type_node);
   tree fnaddr = build_fold_addr_expr (child_fn);
   g = gimple_build_call (builtin_decl_explicit (start_ix),
-			 7, device, fnaddr, openmp_target, t1, t2, t3, t4);
+			 10, device, fnaddr, openmp_target, t1, t2, t3, t4,
+			 t_num_gangs, t_num_workers, t_vector_length);
   gimple_set_location (g, gimple_location (entry_stmt));
   gsi_insert_before (&gsi, g, GSI_SAME_STMT);
 }

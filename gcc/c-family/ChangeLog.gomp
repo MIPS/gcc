@@ -1,3 +1,11 @@
+2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-pragma.h (enum pragma_omp_clause): Add
+	PRAGMA_OMP_CLAUSE_NUM_GANGS, PRAGMA_OMP_CLAUSE_NUM_WORKERS,
+	PRAGMA_OMP_CLAUSE_VECTOR_LENGTH.
+
+	* c-common.c (DEF_FUNCTION_TYPE_10): Define.
+
 2014-02-28  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* c-pragma.c (oacc_pragmas): Add "kernels".

@@ -1,3 +1,14 @@
+2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* builtin-types.def
+	(BT_FN_VOID_INT_OMPFN_PTR_SIZE_PTR_PTR_PTR_INT_INT_INT): New type.
+	* oacc-builtins.def (BUILT_IN_GOACC_KERNELS)
+	(BUILT_IN_GOACC_PARALLEL): Switch to that one.
+	* gimplify.c (gimplify_scan_omp_clauses)
+	(gimplify_adjust_omp_clauses): Handle OMP_CLAUSE_NUM_GANGS,
+	OMP_CLAUSE_NUM_WORKERS, OMP_CLAUSE_VECTOR_LENGTH.
+	* omp-low.c (scan_sharing_clauses, expand_oacc_offload): Likewise.
+
 2014-03-13  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* tree.h (OMP_CLAUSE_VECTOR_EXPR): Check for OMP_CLAUSE_VECTOR
