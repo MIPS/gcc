@@ -1,3 +1,33 @@
+2014-03-18  Ilya Verbin  <ilya.verbin@intel.com>
+
+	* libgomp.map (GOMP_4.0.1): New symbol version.
+	Add GOMP_offload_register.
+	* plugin-host.c (device_available): Replace with:
+	(get_num_devices): This.
+	(get_type): New.
+	(offload_register): Ditto.
+	(device_init): Ditto.
+	(device_get_table): Ditto.
+	(device_run): Ditto.
+	* target.c (target_type): New enum.
+	(offload_image_descr): New struct.
+	(offload_images, num_offload_images): New globals.
+	(struct gomp_device_descr): Remove device_available_func.
+	Add type, is_initialized, get_type_func, get_num_devices_func,
+	offload_register_func, device_init_func, device_get_table_func,
+	device_run_func.
+	(mapping_table): New struct.
+	(GOMP_offload_register): New function.
+	(gomp_init_device): Ditto.
+	(GOMP_target): Add device initialization and lookup for target fn.
+	(GOMP_target_data): Add device initialization.
+	(GOMP_target_update): Ditto.
+	(gomp_load_plugin_for_device): Take handles for get_type,
+	get_num_devices, offload_register, device_init, device_get_table,
+	device_run functions.
+	(gomp_register_images_for_device): New function.
+	(gomp_find_available_plugins): Add registration of offload images.
+
 2014-03-18  Thomas Schwinge  <thomas@codesourcery.com>
 
 	* libgomp_g.h (GOACC_kernels, GOACC_parallel): Add three
