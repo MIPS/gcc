@@ -1250,6 +1250,7 @@ eliminate_unnecessary_stmts (void)
 	  else if (is_gimple_call (stmt))
 	    {
 	      tree name = gimple_call_lhs (stmt);
+	      tree retfn = targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET);
 
 	      notice_special_calls (stmt);
 
@@ -1269,8 +1270,7 @@ eliminate_unnecessary_stmts (void)
 			  && (DECL_FUNCTION_CODE (call)
 			      != BUILT_IN_ALLOCA_WITH_ALIGN)))
 		  /* Avoid doing so for bndret calls for the same reason.  */
-		  && (gimple_call_fndecl (stmt)
-		      != targetm.builtin_chkp_function (BUILT_IN_CHKP_BNDRET)))
+		  && (!retfn || gimple_call_fndecl (stmt) != retfn))
 		{
 		  something_changed = true;
 		  if (dump_file && (dump_flags & TDF_DETAILS))
