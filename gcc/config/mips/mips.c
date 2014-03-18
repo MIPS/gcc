@@ -12319,6 +12319,10 @@ mips_secondary_reload_class (enum reg_class rclass,
 	/* In this case we can use mov.fmt.  */
 	return NO_REGS;
 
+      /* We don't need a reload if the pseudo is in memory in CCF mode */
+      if (mode == CCFmode && regno == -1)
+        return NO_REGS;
+
       /* Otherwise, we need to reload through an integer register.  */
       return GR_REGS;
     }
