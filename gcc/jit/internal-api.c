@@ -1048,7 +1048,7 @@ bool
 recording::memento_of_get_pointer::accepts_writes_from (type *rtype)
 {
   /* Must be a pointer type: */
-  type *rtype_points_to = rtype->dereference ();
+  type *rtype_points_to = rtype->is_pointer ();
   if (!rtype_points_to)
     return false;
 

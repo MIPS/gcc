@@ -496,6 +496,8 @@ public:
   virtual bool is_int () const = 0;
   virtual bool is_float () const = 0;
   virtual bool is_bool () const = 0;
+  virtual type *is_pointer () = 0;
+  virtual type *is_array () = 0;
 
   playback::type *
   playback_type ()
@@ -527,7 +529,7 @@ public:
   bool accepts_writes_from (type *rtype)
   {
     if (m_kind == GCC_JIT_TYPE_VOID_PTR)
-      if (rtype->dereference ())
+      if (rtype->is_pointer ())
 	{
 	  /* LHS (this) is type (void *), and the RHS is a pointer:
 	     accept it:  */
@@ -540,6 +542,8 @@ public:
   bool is_int () const;
   bool is_float () const;
   bool is_bool () const;
+  type *is_pointer () { return dereference (); }
+  type *is_array () { return NULL; }
 
 public:
   void replay_into (replayer *r);
@@ -568,6 +572,8 @@ public:
   bool is_int () const { return false; }
   bool is_float () const { return false; }
   bool is_bool () const { return false; }
+  type *is_pointer () { return m_other_type; }
+  type *is_array () { return NULL; }
 
 private:
   string * make_debug_string ();
@@ -598,6 +604,8 @@ public:
   bool is_int () const { return m_other_type->is_int (); }
   bool is_float () const { return m_other_type->is_float (); }
   bool is_bool () const { return m_other_type->is_bool (); }
+  type *is_pointer () { return m_other_type->is_pointer (); }
+  type *is_array () { return m_other_type->is_array (); }
 
   void replay_into (replayer *);
 
@@ -624,6 +632,8 @@ public:
   bool is_int () const { return m_other_type->is_int (); }
   bool is_float () const { return m_other_type->is_float (); }
   bool is_bool () const { return m_other_type->is_bool (); }
+  type *is_pointer () { return m_other_type->is_pointer (); }
+  type *is_array () { return m_other_type->is_array (); }
 
   void replay_into (replayer *);
 
@@ -652,6 +662,8 @@ class array_type : public type
   bool is_int () const { return false; }
   bool is_float () const { return false; }
   bool is_bool () const { return false; }
+  type *is_pointer () { return NULL; }
+  type *is_array () { return m_element_type; }
 
   void replay_into (replayer *);
 
@@ -679,6 +691,8 @@ public:
   bool is_int () const { return false; }
   bool is_float () const { return false; }
   bool is_bool () const { return false; }
+  type *is_pointer () { return NULL; }
+  type *is_array () { return NULL; }
 
   void replay_into (replayer *);
 
@@ -756,6 +770,8 @@ public:
   bool is_int () const { return false; }
   bool is_float () const { return false; }
   bool is_bool () const { return false; }
+  type *is_pointer () { return NULL; }
+  type *is_array () { return NULL; }
 
   void replay_into (replayer *r);
 

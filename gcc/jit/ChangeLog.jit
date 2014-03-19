@@ -1,3 +1,38 @@
+2014-03-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* internal-api.c (gcc::jit::recording::memento_of_get_pointer::
+	accepts_writes_from): Accept writes from pointers, but not arrays.
+
+	* internal-api.h (gcc::jit::recording::type::is_pointer): New.
+	(gcc::jit::recording::type::is_array): New.
+	(gcc::jit::recording::memento_of_get_type::accepts_writes_from):
+	Allow (void *) to accept writes of pointers, but not arrays.
+	(gcc::jit::recording::memento_of_get_type::is_pointer): New.
+	(gcc::jit::recording::memento_of_get_type::is_array): New.
+	(gcc::jit::recording::memento_of_get_pointer::is_pointer): New.
+	(gcc::jit::recording::memento_of_get_pointer::is_array): New.
+	(gcc::jit::recording::memento_of_get_const::is_pointer): New.
+	(gcc::jit::recording::memento_of_get_const::is_array): New.
+	(gcc::jit::recording::memento_of_get_volatile::is_pointer): New.
+	(gcc::jit::recording::memento_of_get_volatile::is_array): New.
+	(gcc::jit::recording::array_type::is_pointer): New.
+	(gcc::jit::recording::array_type::is_array): New.
+	(gcc::jit::recording::function_type::is_pointer): New.
+	(gcc::jit::recording::function_type::is_array): New.
+	(gcc::jit::recording::struct_::is_pointer): New.
+	(gcc::jit::recording::struct_::is_array): New.
+
+	* libgccjit.c (gcc_jit_context_new_rvalue_from_ptr): Require the
+	pointer_type to be a pointer, not an array.
+	(gcc_jit_context_null): Likewise.
+	(is_valid_cast): Require pointer casts to be between pointer types,
+	not arrays.
+	(gcc_jit_context_new_array_access): Update error message from "not
+	a pointer" to "not a pointer or array".
+	(gcc_jit_rvalue_dereference_field): Require the pointer arg to be
+	of pointer type, not an array.
+	(gcc_jit_rvalue_dereference): Likewise.
+
 2014-03-14  David Malcolm  <dmalcolm@redhat.com>
 
 	* libgccjit.c (is_valid_cast): Permit casts between pointer types.

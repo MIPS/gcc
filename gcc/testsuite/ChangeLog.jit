@@ -1,3 +1,16 @@
+2014-03-19  David Malcolm  <dmalcolm@redhat.com>
+
+	* jit.dg/test-array-as-pointer.c: New test case, verifying that
+	there's a way to treat arrays as pointers.
+	* jit.dg/test-combination.c: Add test-array-as-pointer.c...
+	(create_code): ...here and...
+	(verify_code): ...here.
+
+	* jit.dg/test-error-array-as-pointer.c: New test case, verifying
+	that bogus casts from array to pointer are caught by the type
+	system, rather than leading to ICEs seen in:
+	https://github.com/davidmalcolm/pygccjit/pull/3#issuecomment-37883129
+
 2014-03-18  David Malcolm  <dmalcolm@redhat.com>
 
 	* jit.dg/test-combination.c: Add test-arrays.c and test-volatile.c.

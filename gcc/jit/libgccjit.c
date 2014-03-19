@@ -721,7 +721,7 @@ gcc_jit_context_new_rvalue_from_ptr (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (pointer_type, ctxt, NULL, "NULL type");
   RETURN_NULL_IF_FAIL_PRINTF1 (
-    pointer_type->dereference (),
+    pointer_type->is_pointer (),
     ctxt, NULL,
     "not a pointer type (type: %s)",
     pointer_type->get_debug_string ());
@@ -736,7 +736,7 @@ gcc_jit_context_null (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL (ctxt, NULL, NULL, "NULL context");
   RETURN_NULL_IF_FAIL (pointer_type, ctxt, NULL, "NULL type");
   RETURN_NULL_IF_FAIL_PRINTF1 (
-    pointer_type->dereference (),
+    pointer_type->is_pointer (),
     ctxt, NULL,
     "not a pointer type (type: %s)",
     pointer_type->get_debug_string ());
@@ -906,8 +906,8 @@ is_valid_cast (gcc::jit::recording::type *src_type,
       return true;
 
   /* Permit casts between pointer types.  */
-  gcc::jit::recording::type *deref_src_type = src_type->dereference ();
-  gcc::jit::recording::type *deref_dst_type = dst_type->dereference ();
+  gcc::jit::recording::type *deref_src_type = src_type->is_pointer ();
+  gcc::jit::recording::type *deref_dst_type = dst_type->is_pointer ();
   if (deref_src_type && deref_dst_type)
     return true;
 
@@ -946,7 +946,7 @@ gcc_jit_context_new_array_access (gcc_jit_context *ctxt,
   RETURN_NULL_IF_FAIL_PRINTF2 (
     ptr->get_type ()->dereference (),
     ctxt, loc,
-    "%s (type: %s) is not a pointer",
+    "%s (type: %s) is not a pointer or array",
     ptr->get_debug_string (),
     ptr->get_type ()->get_debug_string ());
 
@@ -1007,7 +1007,7 @@ gcc_jit_rvalue_dereference_field (gcc_jit_rvalue *ptr,
   RETURN_NULL_IF_FAIL (ptr, NULL, loc, "NULL ptr");
   RETURN_NULL_IF_FAIL (field, NULL, loc, "NULL field");
   gcc::jit::recording::type *underlying_type =
-    ptr->get_type ()->dereference ();
+    ptr->get_type ()->is_pointer ();
   RETURN_NULL_IF_FAIL_PRINTF1 (field->get_container (), field->m_ctxt, loc,
 			       "field %s has not been placed in a struct",
 			       field->get_debug_string ());
@@ -1036,7 +1036,7 @@ gcc_jit_rvalue_dereference (gcc_jit_rvalue *rvalue,
   RETURN_NULL_IF_FAIL (rvalue, NULL, loc, "NULL rvalue");
 
   gcc::jit::recording::type *underlying_type =
-    rvalue->get_type ()->dereference ();
+    rvalue->get_type ()->is_pointer ();
 
   RETURN_NULL_IF_FAIL_PRINTF2 (
     underlying_type,
