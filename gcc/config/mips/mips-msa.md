@@ -160,6 +160,14 @@
   UNSPEC_MSA_CAST_TO_VECTOR
 ])
 
+;; Attributes to categorize MSA instructions based on execution units
+(define_attr "msa_execunit" 
+  "unknown, msa_eu_div, msa_eu_float2, msa_eu_float2_l,
+  msa_eu_float4, msa_eu_float5, msa_eu_float8, msa_eu_logic, 
+  msa_eu_logic3, msa_eu_logic_l, msa_eu_mult, msa_eu_cmp, 
+  msa_eu_store4, msa_eu_int_add, msa_eu_fdiv"
+  (const_string "unknown"))
+
 ;; All vector modes with 128 bits.
 (define_mode_iterator MODE128 [V2DF V4SF V2DI V4SI V8HI V16QI])
 (define_mode_iterator MSA     [V2DF V4SF V2DI V4SI V8HI V16QI])
@@ -482,7 +490,8 @@
   "ISA_HAS_MSA"
   "insert.<msafmt>\t%w0[%2],%z3"
   [(set_attr "type"	"mtc")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ; Similar to msa_insert_<msafmt> but with <UNITMODE>mode for operand 3.
 (define_insn "*msa_insert_<msafmt_f>"
@@ -494,7 +503,8 @@
   "ISA_HAS_MSA"
   "insert.<msafmt>\t%w0[%2],%z3"
   [(set_attr "type"     "mtc")
-   (set_attr "mode"     "TI")])
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ;; Note that insert.d and insert.d_f will be split later if !TARGET_64BIT.
 
@@ -533,7 +543,8 @@
   "ISA_HAS_MSA"
   "insve.<msafmt>\t%w0[%2],%w3[0]"
   [(set_attr "type"     "arith")
-   (set_attr "mode"     "TI")])
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ;; operand 3 is a scalar
 (define_insn "msa_insve_<msafmt>_f_s"
@@ -545,7 +556,8 @@
   "ISA_HAS_MSA"
   "insve.<msafmt>\t%w0[%2],%w3[0]"
   [(set_attr "type"     "arith")
-   (set_attr "mode"     "TI")])
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_copy_s_<msafmt_f>"
   [(set (match_operand:<RES> 0 "register_operand" "=d")
@@ -555,7 +567,8 @@
   "ISA_HAS_MSA"
   "copy_s.<msafmt>\t%0,%w1[%2]"
   [(set_attr "type"     "mfc")
-   (set_attr "mode"     "TI")])
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_store4")])
 
 ;; Note that copy_s.d will be split later if !TARGET_64BIT.
 ;; Note that copy_s.d_f will be split later if !TARGET_64BIT.
@@ -592,7 +605,8 @@
   "ISA_HAS_MSA"
   "copy_u.<msafmt>\t%0,%w1[%2]"
   [(set_attr "type"     "mfc")
-   (set_attr "mode"     "TI")])
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_store4")])
 
 ;; Note that copy_u.d will be split later if !TARGET_64BIT.
 ;; Note that copy_u.d will be split later if !TARGET_64BIT.
@@ -657,7 +671,8 @@
   "ISA_HAS_MSA"
   "ldi.<msafmt>\t%w0,%1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_lsa"
  [(set (match_operand:SI 0 "register_operand" "=f")
@@ -678,7 +693,8 @@
   "ISA_HAS_MSA"
   "vshf.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ;; 128-bit integer/MSA vector registers moves
 ;; Note that we prefer floating-point loads, stores, and moves by adding * to
@@ -815,7 +831,8 @@
       }
   }
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "sub<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -824,7 +841,8 @@
   "ISA_HAS_MSA"
   "subv.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"sub")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "mul<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -833,7 +851,8 @@
   "ISA_HAS_MSA"
   "mulv.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"imul3")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_maddv_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -843,7 +862,8 @@
   "ISA_HAS_MSA"
   "maddv.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"     "imadd")
-   (set_attr "mode"     "TI")])
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_msubv_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -853,7 +873,8 @@
   "ISA_HAS_MSA"
   "msubv.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"     "imadd")
-   (set_attr "mode"     "TI")])
+   (set_attr "mode"     "TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "div<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -862,7 +883,8 @@
   "ISA_HAS_MSA"
   { return mips_msa_output_division ("div_s.<msafmt>\t%w0,%w1,%w2", operands); }
   [(set_attr "type"	"idiv3")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_div")])
 
 (define_insn "udiv<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -871,7 +893,8 @@
   "ISA_HAS_MSA"
   { return mips_msa_output_division ("div_u.<msafmt>\t%w0,%w1,%w2", operands); }
   [(set_attr "type"	"idiv3")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_div")])
 
 (define_insn "mod<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -880,7 +903,8 @@
   "ISA_HAS_MSA"
   { return mips_msa_output_division ("mod_s.<msafmt>\t%w0,%w1,%w2", operands); }
   [(set_attr "type"	"idiv3")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_div")])
 
 (define_insn "umod<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -889,7 +913,8 @@
   "ISA_HAS_MSA"
   { return mips_msa_output_division ("mod_u.<msafmt>\t%w0,%w1,%w2", operands); }
   [(set_attr "type"	"idiv3")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_div")])
 
 (define_insn "xorv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
@@ -906,7 +931,8 @@
       return "xor.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"xor")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "xor<mode>3"
   [(set (match_operand:IMSA_X 0 "register_operand" "=f,f")
@@ -926,7 +952,8 @@
       return "xor.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"xor")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "iorv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
@@ -943,7 +970,8 @@
       return "or.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"or")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "ior<mode>3"
   [(set (match_operand:IMSA_X 0 "register_operand" "=f,f")
@@ -963,7 +991,8 @@
       return "or.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"or")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "andv16qi3"
   [(set (match_operand:V16QI 0 "register_operand" "=f,f")
@@ -980,7 +1009,8 @@
        return "and.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"and")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "and<mode>3"
   [(set (match_operand:IMSA_X 0 "register_operand" "=f,f")
@@ -1000,7 +1030,8 @@
        return "and.v\t%w0,%w1,%w2";
   }
   [(set_attr "alu_type"	"and")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_expand "one_cmpl<mode>2"
   [(match_operand:IMSA 0 "register_operand")
@@ -1032,7 +1063,8 @@
   return "srli.<msafmt>\t%w0,%w1,%2";
 }
   [(set_attr "type"	"shift")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "vashr<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
@@ -1048,7 +1080,8 @@
   return "srai.<msafmt>\t%w0,%w1,%2";
 }
   [(set_attr "type"	"shift")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "vashl<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f,f")
@@ -1064,7 +1097,8 @@
   return "slli.<msafmt>\t%w0,%w1,%2";
 }
   [(set_attr "type"	"shift")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 ;; Floating-point operations
 (define_insn "add<mode>3"
@@ -1074,7 +1108,8 @@
   "ISA_HAS_MSA"
   "fadd.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "sub<mode>3"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1083,7 +1118,8 @@
   "ISA_HAS_MSA"
   "fsub.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "mul<mode>3"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1092,7 +1128,8 @@
   "ISA_HAS_MSA"
   "fmul.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fmul")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float5")])
 
 (define_insn "div<mode>3"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1101,7 +1138,8 @@
   "ISA_HAS_MSA"
   "fdiv.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fdiv")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_fdiv")])
 
 (define_insn "msa_fmadd_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1111,7 +1149,8 @@
   "ISA_HAS_MSA"
   "fmadd.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"     "fmadd")
-   (set_attr "mode"     "<UNITMODE>")])
+   (set_attr "mode"     "<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float8")])
 
 (define_insn "msa_fmsub_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1121,7 +1160,8 @@
   "ISA_HAS_MSA"
   "fmsub.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"     "fmadd")
-   (set_attr "mode"     "<UNITMODE>")])
+   (set_attr "mode"     "<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float8")])
 
 (define_insn "sqrt<mode>2"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1129,7 +1169,8 @@
   "ISA_HAS_MSA"
   "fsqrt.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fsqrt")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_fdiv")])
 
 ;; Built-in functions
 (define_insn "msa_add_a_<msafmt>"
@@ -1139,7 +1180,8 @@
   "ISA_HAS_MSA"
   "add_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_adds_a_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1148,7 +1190,8 @@
   "ISA_HAS_MSA"
   "adds_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "ssadd<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1157,7 +1200,8 @@
   "ISA_HAS_MSA"
   "adds_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "usadd<mode>3"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1166,7 +1210,8 @@
   "ISA_HAS_MSA"
   "adds_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_addvi_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1176,7 +1221,8 @@
   "ISA_HAS_MSA"
   "addvi.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_andi_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -1186,7 +1232,8 @@
   "ISA_HAS_MSA"
   "andi.b\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_asub_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1196,7 +1243,8 @@
   "ISA_HAS_MSA"
   "asub_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_asub_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1206,7 +1254,8 @@
   "ISA_HAS_MSA"
   "asub_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_ave_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1216,7 +1265,8 @@
   "ISA_HAS_MSA"
   "ave_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_ave_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1226,7 +1276,8 @@
   "ISA_HAS_MSA"
   "ave_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_aver_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1236,7 +1287,8 @@
   "ISA_HAS_MSA"
   "aver_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_aver_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1246,7 +1298,8 @@
   "ISA_HAS_MSA"
   "aver_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_bclr_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1256,7 +1309,8 @@
   "ISA_HAS_MSA"
   "bclr.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_bclri_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1266,7 +1320,8 @@
   "ISA_HAS_MSA"
   "bclri.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_binsl_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1277,7 +1332,8 @@
   "ISA_HAS_MSA"
   "binsl.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_binsli_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1288,7 +1344,8 @@
   "ISA_HAS_MSA"
   "binsli.<msafmt>\t%w0,%w2,%3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_binsr_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1299,7 +1356,8 @@
   "ISA_HAS_MSA"
   "binsr.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_binsri_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1310,7 +1368,8 @@
   "ISA_HAS_MSA"
   "binsri.<msafmt>\t%w0,%w2,%3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_bsel_v_insn_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1334,7 +1393,8 @@
   "ISA_HAS_MSA"
   "bmnz.v\t%w0,%w1,%w3";
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_bmz_v_insn_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1346,7 +1406,8 @@
   "ISA_HAS_MSA"
   "bmz.v\t%w0,%w1,%w2";
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ;; bmnz D,S,T
 ;; D=operand 0
@@ -1380,7 +1441,8 @@
   "ISA_HAS_MSA"
   "bmnzi.b\t%w0,%w2,%3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 ;; bmz D,S,T
 ;; D=operand 0
@@ -1414,7 +1476,8 @@
   "ISA_HAS_MSA"
   "bmzi.b\t%w0,%w2,%3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_bneg_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1424,7 +1487,8 @@
   "ISA_HAS_MSA"
   "bneg.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_bnegi_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1434,7 +1498,8 @@
   "ISA_HAS_MSA"
   "bnegi.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 ;; bsel D,S,T
 ;; D=operand 0
@@ -1468,7 +1533,8 @@
   "ISA_HAS_MSA"
   "bseli.b\t%w0,%w2,%3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_bset_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1478,7 +1544,8 @@
   "ISA_HAS_MSA"
   "bset.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_bseti_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1488,7 +1555,8 @@
   "ISA_HAS_MSA"
   "bseti.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_code_iterator ICC [eq le leu lt ltu])
 
@@ -1513,7 +1581,8 @@
   "ISA_HAS_MSA"
   "c<ICC:icc>.<IMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_c<ICC:icci>_<IMSA:msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -1523,7 +1592,8 @@
   "ISA_HAS_MSA"
   "c<ICC:icci>.<IMSA:msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_dotp_s_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
@@ -1533,7 +1603,8 @@
   "ISA_HAS_MSA"
   "dotp_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_dotp_u_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
@@ -1543,7 +1614,8 @@
   "ISA_HAS_MSA"
   "dotp_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_dpadd_s_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
@@ -1554,7 +1626,8 @@
   "ISA_HAS_MSA"
   "dpadd_s.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_dpadd_u_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
@@ -1565,7 +1638,8 @@
   "ISA_HAS_MSA"
   "dpadd_u.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_dpsub_s_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
@@ -1576,7 +1650,8 @@
   "ISA_HAS_MSA"
   "dpsub_s.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_dpsub_u_<msafmt>"
   [(set (match_operand:IDOTP128 0 "register_operand" "=f")
@@ -1587,7 +1662,8 @@
   "ISA_HAS_MSA"
   "dpsub_u.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_fclass_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1596,7 +1672,8 @@
   "ISA_HAS_MSA"
   "fclass.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float2_l")])
 
 (define_insn "msa_fcaf_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1606,7 +1683,8 @@
   "ISA_HAS_MSA"
   "fcaf.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fcune_<FMSA:msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1616,7 +1694,8 @@
   "ISA_HAS_MSA"
   "fcune.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_code_iterator FCC [unordered ordered eq ne le lt uneq unle unlt])
 
@@ -1638,7 +1717,8 @@
   "ISA_HAS_MSA"
   "<FCC:fcc>.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsaf_<FMSA:msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1648,7 +1728,8 @@
   "ISA_HAS_MSA"
   "fsaf.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsor_<FMSA:msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1658,7 +1739,8 @@
   "ISA_HAS_MSA"
   "fsor.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsun_<FMSA:msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1668,7 +1750,8 @@
   "ISA_HAS_MSA"
   "fsun.<FMSA:msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsune_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1678,7 +1761,8 @@
   "ISA_HAS_MSA"
   "fsune.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsueq_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1688,7 +1772,8 @@
   "ISA_HAS_MSA"
   "fsueq.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fseq_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1698,7 +1783,8 @@
   "ISA_HAS_MSA"
   "fseq.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsne_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1708,7 +1794,8 @@
   "ISA_HAS_MSA"
   "fsne.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fslt_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1718,7 +1805,8 @@
   "ISA_HAS_MSA"
   "fslt.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsult_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1728,7 +1816,8 @@
   "ISA_HAS_MSA"
   "fsult.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsle_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1738,7 +1827,8 @@
   "ISA_HAS_MSA"
   "fsle.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fsule_<msafmt>"
   [(set (match_operand:<VIMODE> 0 "register_operand" "=f")
@@ -1748,7 +1838,8 @@
   "ISA_HAS_MSA"
   "fsule.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fcmp")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_cmp")])
 
 (define_insn "msa_fexp2_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1758,7 +1849,8 @@
   "ISA_HAS_MSA"
   "fexp2.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fmul")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float2")])
 
 (define_mode_attr FINT
    [(V4SF "V4SI")
@@ -1783,7 +1875,8 @@
   "ffint_s.<msafmt>\t%w0,%w1"
   [(set_attr "type"     "fcvt")
    (set_attr "cnv_mode" "<FINTCNV>")
-   (set_attr "mode"     "<UNITMODE>")])
+   (set_attr "mode"     "<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "floatuns<FMSA:mode><fint>2"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1792,7 +1885,8 @@
   "ffint_u.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV>")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_mode_attr FFQ
   [(V4SF "V8HI")
@@ -1806,7 +1900,8 @@
   "ffql.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV>")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_ffqr_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1816,7 +1911,8 @@
   "ffqr.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV>")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_fill_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
@@ -1825,7 +1921,8 @@
   "ISA_HAS_MSA"
   "fill.<msafmt>\t%w0,%z1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 ;; Note that fill.d and fill_d_f will be split later if !TARGET_64BIT.
 
@@ -1858,7 +1955,8 @@
   "ISA_HAS_MSA"
   "flog2.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fmul")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float2_l")])
 
 ;;UNSPEC_MSA_FMAX
 (define_insn "smax<mode>3"
@@ -1868,7 +1966,8 @@
   "ISA_HAS_MSA"
   "fmax.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float2")])
 
 ;;UNSPEC_MSA_FMAX_A
 (define_insn "umax<mode>3"
@@ -1878,7 +1977,8 @@
   "ISA_HAS_MSA"
   "fmax_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float2")])
 
 ;;UNSPEC_MSA_FMIN
 (define_insn "smin<mode>3"
@@ -1888,7 +1988,8 @@
   "ISA_HAS_MSA"
   "fmin.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float2")])
 
 ;;UNSPEC_MSA_FMIN_A
 (define_insn "umin<mode>3"
@@ -1898,7 +1999,8 @@
   "ISA_HAS_MSA"
   "fmin_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"fadd")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float2")])
 
 (define_insn "msa_frcp_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1916,7 +2018,8 @@
   "ISA_HAS_MSA"
   "frint.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fmul")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_frsqrt_<msafmt>"
   [(set (match_operand:FMSA 0 "register_operand" "=f")
@@ -1935,7 +2038,8 @@
   "ftint_s.<>msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV_2>")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_ftint_u_<msafmt>"
   [(set (match_operand:<FINT> 0 "register_operand" "=f")
@@ -1945,7 +2049,8 @@
   "ftint_u.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV_2>")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_ftrunc_s_<msafmt>"
   [(set (match_operand:<FINT> 0 "register_operand" "=f")
@@ -1955,7 +2060,8 @@
   "ftrunc_s.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV_2>")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_ftrunc_u_<msafmt>"
   [(set (match_operand:<FINT> 0 "register_operand" "=f")
@@ -1965,7 +2071,8 @@
   "ftrunc_u.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"<FINTCNV_2>")
-   (set_attr "mode"	"<UNITMODE>")])
+   (set_attr "mode"	"<UNITMODE>")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_ftq_h"
   [(set (match_operand:V8HI 0 "register_operand" "=f")
@@ -1976,7 +2083,8 @@
   "ftq.h\t%w0,%w1,%w2"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"S2I")
-   (set_attr "mode"	"SF")])
+   (set_attr "mode"	"SF")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_ftq_w"
   [(set (match_operand:V4SI 0 "register_operand" "=f")
@@ -1987,7 +2095,8 @@
   "ftq.w\t%w0,%w1,%w2"
   [(set_attr "type"	"fcvt")
    (set_attr "cnv_mode"	"D2I")
-   (set_attr "mode"	"DF")])
+   (set_attr "mode"	"DF")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_mode_iterator IZMODE [V8HI V4SI V2DI])
 (define_mode_attr IZDOUBLE 
@@ -2003,7 +2112,8 @@
   "ISA_HAS_MSA"
   "hadd_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_hadd_u_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
@@ -2013,7 +2123,8 @@
   "ISA_HAS_MSA"
   "hadd_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_hsub_s_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
@@ -2023,7 +2134,8 @@
   "ISA_HAS_MSA"
   "hsub_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_hsub_u_<msafmt>"
   [(set (match_operand:IZMODE 0 "register_operand" "=f")
@@ -2033,7 +2145,8 @@
   "ISA_HAS_MSA"
   "hsub_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_ilvev_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2053,7 +2166,8 @@
   "ISA_HAS_MSA"
   "ilvl.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_ilvod_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2063,7 +2177,8 @@
   "ISA_HAS_MSA"
   "ilvod.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_ilvr_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2073,7 +2188,8 @@
   "ISA_HAS_MSA"
   "ilvr.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_madd_q_<msafmt>"
   [(set (match_operand:QMSA 0 "register_operand" "=f")
@@ -2084,7 +2200,8 @@
   "ISA_HAS_MSA"
   "madd_q.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_maddr_q_<msafmt>"
   [(set (match_operand:QMSA 0 "register_operand" "=f")
@@ -2095,7 +2212,8 @@
   "ISA_HAS_MSA"
   "maddr_q.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_max_a_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2105,7 +2223,8 @@
   "ISA_HAS_MSA"
   "max_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_max_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2115,7 +2234,8 @@
   "ISA_HAS_MSA"
   "max_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_max_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2125,7 +2245,8 @@
   "ISA_HAS_MSA"
   "max_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_maxi_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2135,7 +2256,8 @@
   "ISA_HAS_MSA"
   "maxi_s.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_maxi_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2145,7 +2267,8 @@
   "ISA_HAS_MSA"
   "maxi_u.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_min_a_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2155,7 +2278,8 @@
   "ISA_HAS_MSA"
   "min_a.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_min_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2165,7 +2289,8 @@
   "ISA_HAS_MSA"
   "min_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_min_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2175,7 +2300,8 @@
   "ISA_HAS_MSA"
   "min_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_mini_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2185,7 +2311,8 @@
   "ISA_HAS_MSA"
   "mini_s.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_mini_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2195,7 +2322,8 @@
   "ISA_HAS_MSA"
   "mini_u.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_msub_q_<msafmt>"
   [(set (match_operand:QMSA 0 "register_operand" "=f")
@@ -2206,7 +2334,8 @@
   "ISA_HAS_MSA"
   "msub_q.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_msubr_q_<msafmt>"
   [(set (match_operand:QMSA 0 "register_operand" "=f")
@@ -2217,7 +2346,8 @@
   "ISA_HAS_MSA"
   "msubr_q.<msafmt>\t%w0,%w2,%w3"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_mul_q_<msafmt>"
   [(set (match_operand:QMSA 0 "register_operand" "=f")
@@ -2227,7 +2357,8 @@
   "ISA_HAS_MSA"
   "mul_q.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_mulr_q_<msafmt>"
   [(set (match_operand:QMSA 0 "register_operand" "=f")
@@ -2237,7 +2368,8 @@
   "ISA_HAS_MSA"
   "mulr_q.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_mult")])
 
 (define_insn "msa_nloc_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2246,7 +2378,8 @@
   "ISA_HAS_MSA"
   "nloc.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "clz<mode>2"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2254,7 +2387,8 @@
   "ISA_HAS_MSA"
   "nlzc.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_nor_v_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2263,7 +2397,8 @@
   "ISA_HAS_MSA"
   "nor.v\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"nor")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_nori_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -2273,7 +2408,8 @@
   "ISA_HAS_MSA"
   "nori.b\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_ori_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -2282,7 +2418,8 @@
   "ISA_HAS_MSA"
   "ori.b\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_pckev_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2292,7 +2429,8 @@
   "ISA_HAS_MSA"
   "pckev.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_pckod_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2302,7 +2440,8 @@
   "ISA_HAS_MSA"
   "pckod.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "alu_type"	"add")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "popcount<mode>2"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2310,7 +2449,8 @@
   "ISA_HAS_MSA"
   "pcnt.<msafmt>\t%w0,%w1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_sat_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2320,7 +2460,8 @@
   "ISA_HAS_MSA"
   "sat_s.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic3")])
 
 (define_insn "msa_sat_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2330,7 +2471,8 @@
   "ISA_HAS_MSA"
   "sat_u.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic3")])
 
 (define_insn "msa_shf_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2340,7 +2482,8 @@
   "ISA_HAS_MSA"
   "shf.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_shf_w_f"
   [(set (match_operand:V4SF 0 "register_operand" "=f")
@@ -2350,7 +2493,8 @@
   "ISA_HAS_MSA"
   "shf.w\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_slli_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2360,7 +2504,8 @@
   "ISA_HAS_MSA"
   "slli.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_srai_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2370,7 +2515,8 @@
   "ISA_HAS_MSA"
   "srai.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_srar_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2380,7 +2526,8 @@
   "ISA_HAS_MSA"
   "srar.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_srari_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2390,7 +2537,8 @@
   "ISA_HAS_MSA"
   "srari.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_srli_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2400,7 +2548,8 @@
   "ISA_HAS_MSA"
   "srli.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_srlr_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2410,7 +2559,8 @@
   "ISA_HAS_MSA"
   "srlr.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_srlri_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2420,7 +2570,8 @@
   "ISA_HAS_MSA"
   "srlri.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_subs_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2430,7 +2581,8 @@
   "ISA_HAS_MSA"
   "subs_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_subs_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2440,7 +2592,8 @@
   "ISA_HAS_MSA"
   "subs_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_subsuu_s_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2450,7 +2603,8 @@
   "ISA_HAS_MSA"
   "subsuu_s.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_subsus_u_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2460,7 +2614,8 @@
   "ISA_HAS_MSA"
   "subsus_u.<msafmt>\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_subvi_<msafmt>"
   [(set (match_operand:IMSA 0 "register_operand" "=f")
@@ -2470,7 +2625,8 @@
   "ISA_HAS_MSA"
   "subvi.<msafmt>\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit"	"msa_eu_int_add")])
 
 (define_insn "msa_xori_b"
   [(set (match_operand:V16QI 0 "register_operand" "=f")
@@ -2480,7 +2636,8 @@
   "ISA_HAS_MSA"
   "xori.b\t%w0,%w1,%2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_sld_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
@@ -2491,7 +2648,8 @@
   "ISA_HAS_MSA"
   "sld.<msafmt>\t%w0,%w2[%z3]"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_sldi_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
@@ -2502,7 +2660,8 @@
   "ISA_HAS_MSA"
   "sldi.<msafmt>\t%w0,%w2[%3]"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic_l")])
 
 (define_insn "msa_splat_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
@@ -2512,7 +2671,8 @@
   "ISA_HAS_MSA"
   "splat.<msafmt>\t%w0,%w1[%z2]"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_splati_<msafmt_f>"
   [(set (match_operand:MSA 0 "register_operand" "=f")
@@ -2522,7 +2682,8 @@
   "ISA_HAS_MSA"
   "splati.<msafmt>\t%w0,%w1[%2]"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 ;; operand 1 is a scalar
 (define_insn "msa_splati_<msafmt_f>_s"
@@ -2533,7 +2694,8 @@
   "ISA_HAS_MSA"
   "splati.<msafmt>\t%w0,%w1[%2]"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_logic")])
 
 (define_insn "msa_cfcmsa"
   [(set (match_operand:SI 0 "register_operand" "=d")
@@ -2542,7 +2704,8 @@
   "ISA_HAS_MSA"
   "cfcmsa\t%0,$%1"
   [(set_attr "type"	"mfc")
-   (set_attr "mode"	"SI")])
+   (set_attr "mode"	"SI")
+   (set_attr "msa_execunit" "msa_eu_store4")])
 
 (define_insn "msa_ctcmsa"
   [(unspec_volatile [(match_operand 0 "const_uimm5_operand" "")
@@ -2551,7 +2714,8 @@
   "ISA_HAS_MSA"
   "ctcmsa\t$%0,%1"
   [(set_attr "type"	"mtc")
-   (set_attr "mode"	"SI")])
+   (set_attr "mode"	"SI")
+   (set_attr "msa_execunit" "msa_eu_store4")])
 
 (define_insn "msa_fexdo_h"
   [(set (match_operand:V8HI 0 "register_operand" "=f")
@@ -2561,7 +2725,8 @@
   "ISA_HAS_MSA"
   "fexdo.h\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_fexdo_w"
   [(set (match_operand:V4SF 0 "register_operand" "=f")
@@ -2571,7 +2736,8 @@
   "ISA_HAS_MSA"
   "fexdo.w\t%w0,%w1,%w2"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_fexupl_w"
   [(set (match_operand:V4SF 0 "register_operand" "=f")
@@ -2580,7 +2746,8 @@
   "ISA_HAS_MSA"
   "fexupl.w\t%w0,%w1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_fexupl_d"
   [(set (match_operand:V2DF 0 "register_operand" "=f")
@@ -2589,7 +2756,8 @@
   "ISA_HAS_MSA"
   "fexupl.d\t%w0,%w1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_fexupr_w"
   [(set (match_operand:V4SF 0 "register_operand" "=f")
@@ -2598,7 +2766,8 @@
   "ISA_HAS_MSA"
   "fexupr.w\t%w0,%w1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_fexupr_d"
   [(set (match_operand:V2DF 0 "register_operand" "=f")
@@ -2607,7 +2776,8 @@
   "ISA_HAS_MSA"
   "fexupr.d\t%w0,%w1"
   [(set_attr "type"	"arith")
-   (set_attr "mode"	"TI")])
+   (set_attr "mode"	"TI")
+   (set_attr "msa_execunit" "msa_eu_float4")])
 
 (define_insn "msa_branch_nz_v_<msafmt_f>" 
  [(set (pc) (if_then_else
@@ -2623,7 +2793,8 @@
 					  MIPS_BRANCH ("bz.v", "%w1,%0"));
  }
  [(set_attr "type"	"branch")
-  (set_attr "mode"	"TI")])
+  (set_attr "mode"	"TI")
+  (set_attr "msa_execunit" "msa_eu_store4")])
 
 (define_expand "msa_bnz_v_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
@@ -2649,7 +2820,8 @@
 					  MIPS_BRANCH ("bnz.v", "%w1,%0"));
  }
  [(set_attr "type"	"branch")
-  (set_attr "mode"	"TI")])
+  (set_attr "mode"	"TI")
+  (set_attr "msa_execunit" "msa_eu_store4")])
 
 (define_expand "msa_bz_v_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
@@ -2677,7 +2849,8 @@
  }
 
  [(set_attr "type"	"branch")
-  (set_attr "mode"	"TI")])
+  (set_attr "mode"	"TI")
+  (set_attr "msa_execunit" "msa_eu_store4")])
 
 (define_expand "msa_bnz_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
@@ -2703,7 +2876,8 @@
 					  MIPS_BRANCH ("bnz.<msafmt>","%w1,%0"));
  }
  [(set_attr "type"	"arith")
-  (set_attr "mode"	"TI")])
+  (set_attr "mode"	"TI")
+  (set_attr "msa_execunit" "msa_eu_store4")])
 
 (define_expand "msa_bz_<msafmt_f>"
   [(set (match_operand:SI 0 "register_operand" "=d")
