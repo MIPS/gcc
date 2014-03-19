@@ -610,18 +610,19 @@ recording::context::add_error_va (location *loc, const char *fmt, va_list ap)
   char buf[1024];
   vsnprintf (buf, sizeof (buf) - 1, fmt, ap);
 
-  const char *progname = get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
-  if (!progname)
-    progname = "libgccjit.so";
+  const char *ctxt_progname =
+    get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
+  if (!ctxt_progname)
+    ctxt_progname = "libgccjit.so";
 
   if (loc)
     fprintf (stderr, "%s: %s: error: %s\n",
-	     progname,
+	     ctxt_progname,
 	     loc->get_debug_string (),
 	     buf);
   else
     fprintf (stderr, "%s: error: %s\n",
-	     progname,
+	     ctxt_progname,
 	     buf);
 
   if (!m_error_count)
@@ -3629,8 +3630,8 @@ playback::context::
 compile ()
 {
   void *handle = NULL;
+  const char *ctxt_progname;
   result *result_obj = NULL;
-  const char *progname;
   const char *fake_args[20];
   unsigned int num_args;
 
@@ -3652,10 +3653,11 @@ compile ()
      For now, we have to assemble command-line options to pass into
      toplev_main, so that they can be parsed. */
 
-  /* Pass in user-provided "progname", if any, so that it makes it
-     into GCC's "progname" global, used in various diagnostics. */
-  progname = get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
-  fake_args[0] = progname ? progname : "libgccjit.so";
+  /* Pass in user-provided program name as argv0, if any, so that it
+     makes it into GCC's "progname" global, used in various diagnostics. */
+  ctxt_progname = get_str_option (GCC_JIT_STR_OPTION_PROGNAME);
+  fake_args[0] =
+    (ctxt_progname ? ctxt_progname : "libgccjit.so");
 
   fake_args[1] = m_path_c_file;
   num_args = 2;

@@ -1,5 +1,12 @@
 2014-03-19  David Malcolm  <dmalcolm@redhat.com>
 
+	* internal-api.c (gcc::jit::recording::context::add_error_va):
+	Rename local "progname" to "ctxt_progname" to avoid shadowing
+	the related global, for clarity.
+	(gcc::jit::playback::context::compile): Likewise.
+
+2014-03-19  David Malcolm  <dmalcolm@redhat.com>
+
 	* internal-api.c (gcc::jit::recording::memento_of_get_pointer::
 	accepts_writes_from): Accept writes from pointers, but not arrays.
 
