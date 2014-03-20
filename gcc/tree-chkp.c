@@ -62,6 +62,7 @@ along with GCC; see the file COPYING3.  If not see
 #include "tree-ssa-propagate.h"
 #include "gimple-fold.h"
 #include "tree-chkp.h"
+#include "gimple-walk.h"
 #include "rtl.h" /* For MEM_P.  */
 #include "tree-dfa.h"
 #include <sstream>
@@ -764,7 +765,7 @@ chkp_add_bounds_params_to_function (struct cgraph_node *node)
 
 /* Return clone created for instrumentation of NODE or NULL.  */
 static struct cgraph_node *
-chkp_maybe_create_instrumentation_clone (tree fndecl)
+chkp_maybe_create_clone (tree fndecl)
 {
   struct cgraph_node *node = cgraph_get_create_node (fndecl), *clone;
 
@@ -785,6 +786,7 @@ chkp_maybe_create_instrumentation_clone (tree fndecl)
       clone->address_taken = node->address_taken;
       clone->thunk = node->thunk;
       clone->alias = node->alias;
+      clone->weakref = node->weakref;
       clone->cpp_implicit_alias = node->cpp_implicit_alias;
 
       if (gimple_has_body_p (fndecl))
@@ -807,26 +809,6 @@ chkp_maybe_create_instrumentation_clone (tree fndecl)
 	    }
 	}
 
-      /* Clone all aliases.  */
-      for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
-	if (ref->use == IPA_REF_ALIAS)
-	  {
-	    struct cgraph_node *alias = dyn_cast <cgraph_node> (ref->referring);
-	    struct cgraph_node *chkp_alias
-	      = chkp_maybe_create_instrumentation_clone (alias->decl);
-	    ipa_record_reference (chkp_alias, clone, IPA_REF_ALIAS, NULL);
-	  }
-
-      /* Clone all thunks.  */
-      for (e = node->callers; e; e = e->next_caller)
-	if (e->caller->thunk.thunk_p)
-	  {
-	    struct cgraph_node *thunk
-	      = chkp_maybe_create_instrumentation_clone (e->caller->decl);
-	    /* Redirect thunk clone edge to the node clone.  */
-	    cgraph_redirect_edge_callee (thunk->callees, clone);
-	  }
-
       chkp_add_bounds_params_to_function (clone);
       clone->instrumented_version = node;
       clone->orig_decl = fndecl;
@@ -843,11 +825,53 @@ chkp_maybe_create_instrumentation_clone (tree fndecl)
       if (clone->thunk.thunk_p)
 	chkp_function_mark_instrumented (clone->decl);
 
+      cgraph_call_function_insertion_hooks (clone);
+
+      /* Clone all aliases.  */
+      for (i = 0; ipa_ref_list_referring_iterate (&node->ref_list, i, ref); i++)
+	if (ref->use == IPA_REF_ALIAS)
+	  {
+	    struct cgraph_node *alias = dyn_cast <cgraph_node> (ref->referring);
+	    struct cgraph_node *chkp_alias
+	      = chkp_maybe_create_clone (alias->decl);
+	    ipa_record_reference (chkp_alias, clone, IPA_REF_ALIAS, NULL);
+	  }
+
+      /* Clone all thunks.  */
+      for (e = node->callers; e; e = e->next_caller)
+	if (e->caller->thunk.thunk_p)
+	  {
+	    struct cgraph_node *thunk
+	      = chkp_maybe_create_clone (e->caller->decl);
+	    /* Redirect thunk clone edge to the node clone.  */
+	    cgraph_redirect_edge_callee (thunk->callees, clone);
+	  }
+
+      /* For aliases and thunks we should make sure target is cloned
+	 to have proper references and edges.  */
+      if (node->thunk.thunk_p)
+	chkp_maybe_create_clone (node->callees->callee->decl);
+      else if (node->alias)
+	{
+	  struct cgraph_node *target;
+
+	  ref = ipa_ref_list_first_reference (&node->ref_list);
+	  if (ref)
+	    chkp_maybe_create_clone (ref->referred->decl);
+
+	  if (node->alias_target)
+	    if (TREE_CODE (node->alias_target) == FUNCTION_DECL)
+	      {
+		target = chkp_maybe_create_clone (node->alias_target);
+		clone->alias_target = target->decl;
+	      }
+	    else
+	      clone->alias_target = node->alias_target;
+	}
+
       /* Add IPA reference.  It's main role is to keep instrumented
 	 version reachable while original node is reachable.  */
       ref = ipa_record_reference (node, clone, IPA_REF_CHKP, NULL);
-
-      cgraph_call_function_insertion_hooks (clone);
     }
 
   return clone;
@@ -869,7 +893,7 @@ chkp_versioning (void)
 	  && (!flag_chkp_instrument_marked_only
 	      || lookup_attribute ("bnd_instrument",
 				   DECL_ATTRIBUTES (node->decl))))
-	chkp_maybe_create_instrumentation_clone (node->decl);
+	chkp_maybe_create_clone (node->decl);
     }
 
   /* Mark all aliases and thunks of functions with no instrumented
@@ -2126,7 +2150,7 @@ chkp_add_bounds_to_call_stmt (gimple_stmt_iterator *gsi)
   /* For direct calls fndecl is replaced with instrumented version.  */
   if (fndecl)
     {
-      tree new_decl = chkp_maybe_create_instrumentation_clone (fndecl)->decl;
+      tree new_decl = chkp_maybe_create_clone (fndecl)->decl;
       gimple_call_set_fndecl (new_call, new_decl);
       gimple_call_set_fntype (new_call, TREE_TYPE (new_decl));
     }
@@ -4440,6 +4464,48 @@ chkp_fix_cfg ()
       }
 }
 
+/* Walker callback for chkp_replace_function_pointers.  Replaces
+   function pointer in the specified operand with pointer to the
+   instrumented function version.  */
+static tree
+chkp_replace_function_pointer (tree *op, int *walk_subtrees,
+			       void *data ATTRIBUTE_UNUSED)
+{
+  if (TREE_CODE (*op) == FUNCTION_DECL)
+    {
+      struct cgraph_node *node = cgraph_get_create_node (*op);
+
+      if (!node->instrumentation_clone)
+	{
+	  node = chkp_maybe_create_clone (*op);
+	  *op = node->decl;
+	}
+
+      *walk_subtrees = 0;
+    }
+
+  return NULL;
+}
+
+/* This function searches for function pointers in statement
+   pointed by GSI and replaces them with pointers to instrumented
+   function versions.  */
+static void
+chkp_replace_function_pointers (gimple_stmt_iterator *gsi)
+{
+  gimple stmt = gsi_stmt (*gsi);
+  /* For calls we want to walk call args only.  */
+  if (gimple_code (stmt) == GIMPLE_CALL)
+    {
+      unsigned i;
+      for (i = 0; i < gimple_call_num_args (stmt); i++)
+	walk_tree (gimple_call_arg_ptr (stmt, i),
+		   chkp_replace_function_pointer, NULL, NULL);
+    }
+  else
+    walk_gimple_stmt (gsi, NULL, chkp_replace_function_pointer, NULL);
+}
+
 /* This function requests intrumentation for all statements
    working with memory, calls and rets.  It also removes
    excess statements from static initializers.  */
@@ -4465,6 +4531,8 @@ chkp_instrument_function (void)
 	      gsi_next (&i);
 	      continue;
 	    }
+
+	  chkp_replace_function_pointers (&i);
 
           switch (gimple_code (s))
             {
@@ -5215,8 +5283,15 @@ chkp_get_check_result (struct check_info *ci, tree bounds)
       tree var;
       tree size;
 
-      gcc_assert (DECL_INITIAL (bnd_var)
-		  && (TREE_CODE (DECL_INITIAL (bnd_var)) == ADDR_EXPR));
+      if (!DECL_INITIAL (bnd_var)
+	  || DECL_INITIAL (bnd_var) == error_mark_node)
+	{
+	  if (dump_file && (dump_flags & TDF_DETAILS))
+	    fprintf (dump_file, "  result: cannot compute bounds\n");
+	  return 0;
+	}
+
+      gcc_assert (TREE_CODE (DECL_INITIAL (bnd_var)) == ADDR_EXPR);
       var = TREE_OPERAND (DECL_INITIAL (bnd_var), 0);
 
       bound_val.pol.create (0);
