@@ -1,0 +1,107 @@
+# Copyright 2007 Cavium Networks, Inc.
+
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  
+
+set gcov_dump [lookfor_file $tool_root_dir gcc/gcov-dump]
+if { $gcov_dump == "" } {
+    set gcov_dump [transform gcov-dump ]
+}
+
+# Return how many number make up the counter/summary TYPE.
+
+proc length { type } {
+    if { $type == "arcs" }    { return 1 }
+    if { $type == "single" }  { return 3 }
+    if { $type == "OBJECT" }  { return 5 }
+    if { $type == "PROGRAM" } { return 5 }
+    return -1
+}
+
+# Returns counters of TYPE in the gcov_dump OUTPUT.  Returns zero if
+# nothing is found.
+
+proc find_counters { output type } {
+    # The first zero on the counters line is just and offset within
+    # that section and is *not* a counter value.
+    if [regexp "COUNTERS $type \\d+ \\w+\\s+\\S+:\\s+0((\\s+\\d+)+)" \
+	$output s m] {
+	set counters [eval list $m]
+	if {[llength $counters] % [length $type] != 0} {
+	    error "mismatch with $type counter $counters, [length $type]"
+	    return ""
+	}
+	return $counters
+    } else {
+	send_log "COUNTERS $type not found\n"
+	return ""
+    }
+}
+
+# Returns summary of TYPE in the gcov_dump OUTPUT.  Returns zero if
+# nothing is found.
+
+proc find_summary { dump type } {
+    set match [regexp -inline "${type}_SUMMARY \\S+\\s+\\S+:\\s+counts=(\\d+), runs=(\\d+), sum_all=(\\d+), run_max=(\\d+), sum_max=(\\d+)" $dump]
+    if { $match != "" } {
+	return [lrange $match 1 5]
+    } else {
+	send_log "summary $type not found\n"
+	return ""
+    }
+}
+
+# See if QUERY a list of regexps matches a list of number in COUNTER.
+
+proc matches { query counter } {
+    foreach pattern $query value $counter { 
+	if { [regexp -inline "^$pattern$" $value] == "" } {
+	    return 0
+	}
+    }
+    return 1
+}
+
+# The main helper function.  See if the gcda output matches the
+# QUERIES.  QUERIES is a list of list where each entry start with a
+# type and then a list of regexps should match by at least one entry
+# in the file GCDA.  It calls pass or fail with the name TEST and and
+# the specific regexp it is checking.
+
+proc check_gcda { test gcda queries } {
+    global gcov_dump
+
+    set output [remote_exec host $gcov_dump "-l $gcda"]
+    foreach query $queries {
+	set type [lindex $query 0]
+	if { $type == "OBJECT" || $type == "PROGRAM" } {
+	    set values [find_summary [lindex $output 1] $type]
+	} else {
+	    set values [find_counters [lindex $output 1] $type]
+	}
+
+	for {set i 0} {$i < [llength $values]} {incr i [length $type]} {
+	    set counter [lrange $values $i [expr $i + [length $type] - 1]]
+	    if [matches [lrange $query 1 end] $counter] {
+		break
+	    }
+	}
+	if { $i < [llength $values] } {
+	    pass "$test,$query"
+	} else {
+	    send_log "expected $query, found $values\n"
+	    fail "$test,$query"
+	}
+    }
+}

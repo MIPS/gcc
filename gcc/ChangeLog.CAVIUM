@@ -236,6 +236,10 @@
 	* testsuite/gcc.target/mips/truncate-9.c: New testcase.
 
 2012-07-24  Adam Nemet  <anemet@caviumnetworks.com>
+
+	* testsuite/lib/scangcda.exp: New file.
+
+2012-07-24  Adam Nemet  <anemet@caviumnetworks.com>
             Andrew Pinski  <apinski@cavium.com>
             Chandrakala Chavva  <cchavva@caviumnetworks.com>
 
