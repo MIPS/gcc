@@ -4,6 +4,7 @@
 	field.
 	(cgraph_node): Add instrumented_version, orig_decl and
 	instrumentation_clone fields.
+	(symtab_alias_target): Allow IPA_REF_CHKP reference.
 	* cgraph.c (cgraph_remove_node): Fix instrumented_version
 	of the referenced node if any.
 	(dump_cgraph_node): Dump instrumentation_clone and
