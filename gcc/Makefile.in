@@ -1904,7 +1904,8 @@ gcc-ranlib.c: gcc-ar.c
 gcc-nm.c: gcc-ar.c
 	cp $^ $@
 
-COLLECT2_OBJS = collect2.o collect2-aix.o tlink.o vec.o ggc-none.o file-find.o
+COLLECT2_OBJS = collect2.o collect2-aix.o tlink.o vec.o ggc-none.o \
+  collect-utils.o file-find.o
 COLLECT2_LIBS = @COLLECT2_LIBS@
 collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
 # Don't try modifying collect2 (aka ld) in place--it might be linking this.
@@ -1915,11 +1916,10 @@ collect2$(exeext): $(COLLECT2_OBJS) $(LIBDEPS)
 CFLAGS-collect2.o += -DTARGET_MACHINE=\"$(target_noncanonical)\" \
 	@TARGET_SYSTEM_ROOT_DEFINE@
 
-lto-wrapper$(exeext): lto-wrapper.o collect-utils.o ggc-none.o \
-              libcommon-target.a $(LIBDEPS)
+LTO_WRAPPER_OBJS = lto-wrapper.o collect-utils.o ggc-none.o
+lto-wrapper$(exeext): $(LTO_WRAPPER_OBJS) libcommon-target.a $(LIBDEPS)
 	+$(LINKER) $(ALL_COMPILERFLAGS) $(LDFLAGS) -o T$@ \
-	    lto-wrapper.o collect-utils.o ggc-none.o libcommon-target.a \
-	    $(LIBS)
+	    $(LTO_WRAPPER_OBJS) libcommon-target.a $(LIBS)
 	mv -f T$@ $@
 
 # Files used by all variants of C or by the stand-alone pre-processor.
