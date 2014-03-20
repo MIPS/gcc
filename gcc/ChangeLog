@@ -1,5 +1,20 @@
 2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
 
+	Mostly by Michael Zolotukhin:
+	* omp-low.c: Include "common/common-target.h".
+	(expand_omp_target): Pass in address of __OPENMP_TARGET__.
+	(add_decls_addresses_to_decl_constructor, omp_finish_file): New
+	functions.
+	* omp-low.h (omp_finish_file): Declare.
+	* toplev.c: Include "omp-low.h".
+	(compile_file): Call omp_finish_file.
+	* target.def (record_offload_symbol): New hook.
+	* doc/tm.texi.in (TARGET_RECORD_OFFLOAD_SYMBOL): Add.
+	* doc/tm.texi: Regenerate.
+	* configure.ac (ENABLE_OFFLOADING): Define if we have offload_targets.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+
 	* config/darwin.c: Include "lto-section-names.h".
 	(LTO_SEGMENT_NAME): Don't define.
 	* config/i386/winnt.c: Include "lto-section-names.h".

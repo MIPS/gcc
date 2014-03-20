@@ -7363,6 +7363,11 @@ cat >>confdefs.h <<_ACEOF
 #define OFFLOAD_TARGETS "$offload_targets"
 _ACEOF
 
+if test x$offload_targets != x; then
+
+$as_echo "#define ENABLE_OFFLOADING 1" >>confdefs.h
+
+fi
 
 
 # Check whether --with-multilib-list was given.
@@ -18008,7 +18013,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18011 "configure"
+#line 18016 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H
@@ -18114,7 +18119,7 @@ else
   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
   lt_status=$lt_dlunknown
   cat > conftest.$ac_ext <<_LT_EOF
-#line 18117 "configure"
+#line 18122 "configure"
 #include "confdefs.h"
 
 #if HAVE_DLFCN_H

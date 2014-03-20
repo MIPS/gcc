@@ -8414,3 +8414,5 @@ and the associated definitions of those functions.
 @hook TARGET_ATOMIC_ALIGN_FOR_MODE
 
 @hook TARGET_ATOMIC_ASSIGN_EXPAND_FENV
+
+@hook TARGET_RECORD_OFFLOAD_SYMBOL
