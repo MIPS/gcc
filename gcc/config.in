@@ -1,5 +1,12 @@
 /* config.in.  Generated from configure.ac by autoheader.  */
 
+/* Define if this compiler should be built and used as the target device
+   compiler for OpenACC. */
+#ifndef USED_FOR_TARGET
+#undef ACCEL_COMPILER
+#endif
+
+
 /* Define if building universal (internal helper macro) */
 #ifndef USED_FOR_TARGET
 #undef AC_APPLE_UNIVERSAL_BUILD
@@ -1726,6 +1733,12 @@
 /* Define to 1 if HOST_WIDE_INT must be 64 bits wide (see hwint.h). */
 #ifndef USED_FOR_TARGET
 #undef NEED_64BIT_HOST_WIDE_INT
+#endif
+
+
+/* Define to hold the list of target names suitable for offloading. */
+#ifndef USED_FOR_TARGET
+#undef OFFLOAD_TARGETS
 #endif
 
 

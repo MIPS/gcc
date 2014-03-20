@@ -1,3 +1,26 @@
+2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	* configure.ac (real_target_noncanonical, tool_prefix,
+	accel_dir_suffix, offload_targets): Compute new variables.
+	(--enable-as-accelerator-for, --enable-as-accelerator,
+	--enable-offload-targets): New options.
+	* configure: Regenerate.
+	* config.in: Regenerate.
+	* Makefile.in (real_target_noncanonical, tool_prefix,
+	accel_dir_suffix, enable_as_accelerator): New variables substituted
+	by configure.
+	(libsubdir, libexecsubdir, GCC_TARGET_INSTALL_NAME): Tweak for the
+	possibility of being configured as an offload compiler.
+	(install_driver): Likewise.
+	(DRIVER_DEFINES): Pass new defines DEFAULT_REAL_TARGET_MACHINE and
+	ACCEL_DIR_SUFFIX.
+	* gcc.c (spec_host_machine, accel_dir_suffix): New variables.
+	(process_command): Tweak path construction for the possibility
+	of being configured as an offload compiler.
+	(main): Likewise. Look up specs in just_machine_suffix only if not
+	ACCEL_COMPILER.  Construct OFFLOAD_TARGET_NAMES environment variable
+	if we have OFFLOAD_TARGETS.
+
 2014-03-05  Jakub Jelinek  <jakub@redhat.com>
 
 	PR plugins/59335
