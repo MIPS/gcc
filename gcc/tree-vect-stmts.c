@@ -2038,6 +2038,15 @@ vectorizable_mask_load_store (gimple stmt, gimple_stmt_iterator *gsi,
 	    STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
 	  prev_stmt_info = vinfo_for_stmt (new_stmt);
 	}
+
+      /* Ensure that even with -fno-tree-dce the scalar MASK_LOAD is removed
+	 from the IL.  */
+      tree lhs = gimple_call_lhs (stmt);
+      new_stmt = gimple_build_assign (lhs, build_zero_cst (TREE_TYPE (lhs)));
+      set_vinfo_for_stmt (new_stmt, stmt_info);
+      set_vinfo_for_stmt (stmt, NULL);
+      STMT_VINFO_STMT (stmt_info) = new_stmt;
+      gsi_replace (gsi, new_stmt, true);
       return true;
     }
   else if (is_store)
@@ -2147,6 +2156,18 @@ vectorizable_mask_load_store (gimple stmt, gimple_stmt_iterator *gsi,
 	    STMT_VINFO_RELATED_STMT (prev_stmt_info) = new_stmt;
 	  prev_stmt_info = vinfo_for_stmt (new_stmt);
 	}
+    }
+
+  if (!is_store)
+    {
+      /* Ensure that even with -fno-tree-dce the scalar MASK_LOAD is removed
+	 from the IL.  */
+      tree lhs = gimple_call_lhs (stmt);
+      new_stmt = gimple_build_assign (lhs, build_zero_cst (TREE_TYPE (lhs)));
+      set_vinfo_for_stmt (new_stmt, stmt_info);
+      set_vinfo_for_stmt (stmt, NULL);
+      STMT_VINFO_STMT (stmt_info) = new_stmt;
+      gsi_replace (gsi, new_stmt, true);
     }
 
   return true;
@@ -5629,6 +5650,20 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
       return false;
     }
 
+  /* Invalidate assumptions made by dependence analysis when vectorization
+     on the unrolled body effectively re-orders stmts.  */
+  if (ncopies > 1
+      && STMT_VINFO_MIN_NEG_DIST (stmt_info) != 0
+      && ((unsigned)LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	  > STMT_VINFO_MIN_NEG_DIST (stmt_info)))
+    {
+      if (dump_enabled_p ())
+	dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			 "cannot perform implicit CSE when unrolling "
+			 "with negative dependence distance\n");
+      return false;
+    }
+
   if (!STMT_VINFO_RELEVANT_P (stmt_info) && !bb_vinfo)
     return false;
 
@@ -5685,6 +5720,20 @@ vectorizable_load (gimple stmt, gimple_stmt_iterator *gsi, gimple *vec_stmt,
 	    load_lanes_p = true;
 	  else if (!vect_grouped_load_supported (vectype, group_size))
 	    return false;
+	}
+
+      /* Invalidate assumptions made by dependence analysis when vectorization
+	 on the unrolled body effectively re-orders stmts.  */
+      if (!PURE_SLP_STMT (stmt_info)
+	  && STMT_VINFO_MIN_NEG_DIST (stmt_info) != 0
+	  && ((unsigned)LOOP_VINFO_VECT_FACTOR (loop_vinfo)
+	      > STMT_VINFO_MIN_NEG_DIST (stmt_info)))
+	{
+	  if (dump_enabled_p ())
+	    dump_printf_loc (MSG_MISSED_OPTIMIZATION, vect_location,
+			     "cannot perform implicit CSE when performing "
+			     "group loads with negative dependence distance\n");
+	  return false;
 	}
     }
 

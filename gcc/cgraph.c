@@ -1519,7 +1519,10 @@ cgraph_update_edges_for_call_stmt_node (struct cgraph_node *node,
 		{
 		  if (callee->decl == new_call
 		      || callee->former_clone_of == new_call)
-		    return;
+		    {
+		      cgraph_set_call_stmt (e, new_stmt);
+		      return;
+		    }
 		  callee = callee->clone_of;
 		}
 	    }
@@ -1529,7 +1532,10 @@ cgraph_update_edges_for_call_stmt_node (struct cgraph_node *node,
 	     attached to edge is invalid.  */
 	  count = e->count;
 	  frequency = e->frequency;
-	  cgraph_remove_edge (e);
+ 	  if (e->indirect_unknown_callee || e->inline_failed)
+	    cgraph_remove_edge (e);
+	  else
+	    cgraph_remove_node_and_inline_clones (e->callee, NULL);
 	}
       else if (new_call)
 	{
