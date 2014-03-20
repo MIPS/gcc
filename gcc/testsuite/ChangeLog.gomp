@@ -1,5 +1,7 @@
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* c-c++-common/goacc/parallel-1.c: Don't recurse.
+
 	* gfortran.dg/goacc/cache-1.f95: Replace dg-excess-errors usage
 	with dg-prune-output.
 	* gfortran.dg/goacc/coarray.f95: Likewise.
