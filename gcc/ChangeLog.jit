@@ -1,3 +1,8 @@
+2014-03-24  Tom Tromey  <tromey@redhat.com>
+
+	* toplev.c (general_init): Initialize input_location.
+	* input.c (input_location): Initialize to UNKNOWN_LOCATION.
+
 2014-03-19  Tom Tromey  <tromey@redhat.com>
 
 	* timevar.h (auto_timevar): New class.

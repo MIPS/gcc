@@ -1161,6 +1161,7 @@ general_init (const char *argv0)
      table.  */
   init_ggc ();
   init_stringpool ();
+  input_location = UNKNOWN_LOCATION;
   line_table = ggc_alloc_line_maps ();
   linemap_init (line_table);
   line_table->reallocator = realloc_for_line_map;

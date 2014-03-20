@@ -1,5 +1,5 @@
 /* Data and functions related to line maps and input files.
-   Copyright (C) 2004-2013 Free Software Foundation, Inc.
+   Copyright (C) 2004-2014 Free Software Foundation, Inc.
 
 This file is part of GCC.
 
@@ -25,7 +25,7 @@ along with GCC; see the file COPYING3.  If not see
 
 /* Current position in real source file.  */
 
-location_t input_location;
+location_t input_location = UNKNOWN_LOCATION;
 
 struct line_maps *line_table;
 
