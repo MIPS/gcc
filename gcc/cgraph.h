@@ -1421,6 +1421,8 @@ symtab_alias_target (symtab_node *n)
 {
   struct ipa_ref *ref;
   ipa_ref_list_reference_iterate (&n->ref_list, 0, ref);
+  if (ref->use == IPA_REF_CHKP)
+    ipa_ref_list_reference_iterate (&n->ref_list, 1, ref);
   gcc_checking_assert (ref->use == IPA_REF_ALIAS);
   return ref->referred;
 }
