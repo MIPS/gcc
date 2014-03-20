@@ -5554,6 +5554,7 @@ vec<alias_pair, va_gc> *alias_pairs;
 void
 do_assemble_alias (tree decl, tree target)
 {
+  tree orig_decl = decl;
   tree id;
 
   /* Emulated TLS had better not get this var.  */
@@ -5563,6 +5564,11 @@ do_assemble_alias (tree decl, tree target)
 
   if (TREE_ASM_WRITTEN (decl))
     return;
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_get_node (decl)->instrumentation_clone
+      && cgraph_get_node (decl)->instrumented_version)
+    orig_decl = cgraph_get_node (decl)->instrumented_version->decl;
 
   id = DECL_ASSEMBLER_NAME (decl);
   ultimate_transparent_alias_target (&id);
@@ -5600,7 +5606,7 @@ do_assemble_alias (tree decl, tree target)
 #ifdef ASM_OUTPUT_DEF
   /* Make name accessible from other files, if appropriate.  */
 
-  if (TREE_PUBLIC (decl))
+  if (TREE_PUBLIC (decl) || TREE_PUBLIC (orig_decl))
     {
       globalize_decl (decl);
       maybe_assemble_visibility (decl);
@@ -5912,6 +5918,11 @@ int
 maybe_assemble_visibility (tree decl)
 {
   enum symbol_visibility vis = DECL_VISIBILITY (decl);
+
+  if (TREE_CODE (decl) == FUNCTION_DECL
+      && cgraph_get_node (decl)->instrumentation_clone
+      && cgraph_get_node (decl)->instrumented_version)
+    vis = DECL_VISIBILITY (cgraph_get_node (decl)->instrumented_version->decl);
 
   if (vis != VISIBILITY_DEFAULT)
     {
