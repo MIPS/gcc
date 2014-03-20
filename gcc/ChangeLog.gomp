@@ -1,5 +1,12 @@
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gimple.h (enum gf_mask): Rewrite "<< 0" shift expressions used
+	for GF_OMP_FOR_KIND_MASK, GF_OMP_FOR_KIND_FOR,
+	GF_OMP_FOR_KIND_DISTRIBUTE, GF_OMP_FOR_KIND_SIMD,
+	GF_OMP_FOR_KIND_CILKSIMD, GF_OMP_TARGET_KIND_MASK,
+	GF_OMP_TARGET_KIND_REGION, GF_OMP_TARGET_KIND_DATA,
+	GF_OMP_TARGET_KIND_UPDATE, GF_OMP_TARGET_KIND_OACC_DATA.
+
 	* omp-low.c (check_omp_nesting_restrictions): Allow nesting of
 	OpenACC constructs inside of OpenACC data constructs.
 
