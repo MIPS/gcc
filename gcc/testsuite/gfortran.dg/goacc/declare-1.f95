@@ -15,6 +15,6 @@ contains
     END BLOCK
   end function foo
 end program test
-! { dg-excess-errors "unimplemented" }
+! { dg-prune-output "unimplemented" }
 ! { dg-final { scan-tree-dump-times "pragma acc declare map\\(force_tofrom:i\\)" 2 "original" } } 
 ! { dg-final { cleanup-tree-dump "original" } } 

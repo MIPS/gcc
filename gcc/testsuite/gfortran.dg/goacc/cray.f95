@@ -51,4 +51,4 @@ contains
     !$acc update device (ptr)
   end subroutine oacc1
 end module test
-! { dg-excess-errors "unimplemented" }
+! { dg-prune-output "unimplemented" }

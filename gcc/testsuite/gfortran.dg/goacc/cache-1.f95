@@ -9,4 +9,4 @@ program test
     !$acc cache (d)
   enddo
 end
-! { dg-excess-errors "unimplemented" }
+! { dg-prune-output "unimplemented" }

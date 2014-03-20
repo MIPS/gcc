@@ -53,4 +53,4 @@ program test
   !$acc end kernels
   
 end program test
-! { dg-excess-errors "unimplemented" }
+! { dg-prune-output "error: may not be nested" }

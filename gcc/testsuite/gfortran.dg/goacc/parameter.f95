@@ -28,4 +28,4 @@ contains
     !$acc update device (a) ! { dg-error "not a variable" }
   end subroutine oacc1
 end module test
-! { dg-excess-errors "unimplemented" }
+! { dg-prune-output "unimplemented" }

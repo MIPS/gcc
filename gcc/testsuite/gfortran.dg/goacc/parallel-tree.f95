@@ -15,7 +15,7 @@ program test
   !$acc end parallel
 
 end program test
-! { dg-excess-errors "unimplemented" }
+! { dg-prune-output "unimplemented" }
 ! { dg-final { scan-tree-dump-times "pragma acc parallel" 1 "original" } } 
 
 ! { dg-final { scan-tree-dump-times "if" 1 "original" } }

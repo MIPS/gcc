@@ -1,5 +1,18 @@
 2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
 
+	* gfortran.dg/goacc/cache-1.f95: Replace dg-excess-errors usage
+	with dg-prune-output.
+	* gfortran.dg/goacc/coarray.f95: Likewise.
+	* gfortran.dg/goacc/cray.f95: Likewise.
+	* gfortran.dg/goacc/data-tree.f95: Likewise.
+	* gfortran.dg/goacc/declare-1.f95: Likewise.
+	* gfortran.dg/goacc/host_data-tree.f95: Likewise.
+	* gfortran.dg/goacc/kernels-tree.f95: Likewise.
+	* gfortran.dg/goacc/loop-1.f95: Likewise.
+	* gfortran.dg/goacc/parallel-kernels-regions.f95: Likewise.
+	* gfortran.dg/goacc/parallel-tree.f95: Likewise.
+	* gfortran.dg/goacc/parameter.f95: Likewise.
+
 	* c-c++-common/goacc/loop-1.c: Replace dg-excess-errors usage with
 	dg-prune-output.
 

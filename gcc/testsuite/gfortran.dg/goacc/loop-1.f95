@@ -167,4 +167,5 @@ subroutine test1
 
 end subroutine test1
 end module test
-! { dg-excess-errors "Deleted" }
+! { dg-prune-output "Deleted" }
+! { dg-prune-output "ACC cache unimplemented" }

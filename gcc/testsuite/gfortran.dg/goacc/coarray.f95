@@ -31,5 +31,4 @@ contains
     !$acc update device (a)
   end subroutine oacc1
 end module test
-! { dg-excess-errors "Unimplemented" }
-! { dg-excess-errors "ACC LOOP" }
+! { dg-prune-output "ACC cache unimplemented" }
