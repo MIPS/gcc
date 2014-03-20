@@ -1,3 +1,21 @@
+2014-03-20  Manjunath Matti  <mmatti@caviumnetworks.com>
+
+	Ported: 
+	2012-07-16  Adam Nemet  <anemet@caviumnetworks.com>
+		    Andrew Pinski  <apinski@cavium.com>
+
+	* basic-block.h (struct basic_block_def): Add new field probability.
+	* builtins.def (BUILT_IN_BLOCK_PROB): New builtin.
+	* predict.def (PRED_BUILTIN_BLOCK_PROB): New predictor.
+	* common.opt (flag_propagate_block_prob): New option.
+	* predict.c (compute_block_prob): New function.  Set basic block
+	probablity from builtin_block_prob
+	(propagate_block_prob): New functions.  Propagate branch
+	probabilities backward in the CFG.
+	(tree_estimate_probability): Invoke them.
+	(tree_predict_by_opcode): Copy BB probablity to edge.
+	* builtins.c (expand_builtin): Handle BUILT_IN_BLOCK_PROB.
+
 2014-03-14  Manjunath Matti  <mmatti@caviumnetworks.com>
 
 	Ported:

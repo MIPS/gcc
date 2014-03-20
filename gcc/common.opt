@@ -1724,6 +1724,10 @@ fprofile-reorder-functions
 Common Report Var(flag_profile_reorder_functions)
 Enable function reordering that improves code placement
 
+fpropagate-block-prob
+Common Var(flag_propagate_block_prob) Init(1)
+Propagate __builtin_block_prob probabilities to preceding blocks
+
 frandom-seed
 Common Var(common_deferred_options) Defer
 

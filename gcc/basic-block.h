@@ -206,6 +206,14 @@ struct GTY((chain_next ("%h.next_bb"), chain_prev ("%h.prev_bb"))) basic_block_d
      among several basic blocks that share a common locus, allowing for
      more accurate sample-based profiling.  */
   int discriminator;
+
+  /* Overall likelyhood of arriving to this bb from all of its predecessors.
+     It is less descriptive as than edge probabilities if there are multiple
+     predecessors.  It's equally descriptive if there is only one predecessor.
+     And it is more descriptive if the predecessor has more than two
+     successors.  The value is biased with REG_BR_PROB_BASE or -1 if
+     unset.  */
+  int probability;
 };
 
 /* This ensures that struct gimple_bb_info is smaller than

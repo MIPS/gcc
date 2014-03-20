@@ -2008,6 +2008,8 @@ tree_predict_by_opcode (basic_block bb)
   enum tree_code cmp;
   bitmap visited;
   edge_iterator ei;
+  int max_prob;
+  edge e, max_prob_edge;
 
   if (!stmt || gimple_code (stmt) != GIMPLE_COND)
     return;
@@ -2030,6 +2032,26 @@ tree_predict_by_opcode (basic_block bb)
         percent = 100 - percent;
       predict_edge (then_edge, PRED_BUILTIN_EXPECT, HITRATE (percent));
     }
+
+/* If any of our successors have BB probability, mark the edge leading to
+     the most likely with its probability.  */
+  max_prob = -1;
+  max_prob_edge = NULL;
+  FOR_EACH_EDGE (e, ei, bb->succs)
+    {
+      if (e->dest->probability > max_prob)
+	{
+	  max_prob = e->dest->probability;
+	  max_prob_edge = e;
+	}
+      /* If we have multiple edges of the same probability we can't really
+	 make a decision so give up.  */
+      else if (e->dest->probability == max_prob)
+	max_prob_edge = NULL;
+    }
+  if (max_prob_edge)
+    predict_edge (max_prob_edge, PRED_BUILTIN_BLOCK_PROB, max_prob);
+
   /* Try "pointer heuristic."
      A comparison ptr == 0 is predicted as false.
      Similarly, a comparison ptr1 == ptr2 is predicted as false.  */
@@ -2259,6 +2281,82 @@ tree_bb_level_predictions (void)
     }
 }
 
+/* Look for builtin_block_prob and fill in basic-block probablities.  */
+
+static void
+compute_block_prob (void)
+{
+  basic_block bb;
+
+  FOR_EACH_BB_FN (bb, cfun)
+    {
+      gimple_stmt_iterator gsi;
+      int probability = -1;
+
+      for (gsi = gsi_start_bb (bb); !gsi_end_p (gsi); gsi_next (&gsi))
+       {
+         tree arg, decl;
+         gimple stmt = gsi_stmt (gsi);
+
+         if (gimple_code (stmt) != GIMPLE_CALL)
+           continue;
+         decl = gimple_call_fndecl (stmt);
+
+         if (!decl
+             || DECL_BUILT_IN_CLASS (decl) != BUILT_IN_NORMAL
+             || DECL_FUNCTION_CODE (decl) != BUILT_IN_BLOCK_PROB)
+           continue;
+         if (gimple_call_num_args (stmt) != 1)
+           continue;
+         arg = gimple_call_arg (stmt, 0);
+         if (!INTEGRAL_TYPE_P (TREE_TYPE (arg))
+             || !TREE_CONSTANT (arg))
+           continue;
+
+         probability = tree_to_uhwi (arg);
+       }
+
+      bb->probability = probability;
+      if (dump_file && probability != -1)
+       fprintf (dump_file, "block %d has probability %d\n",
+                bb->index, probability);
+    }
+}
+
+/* We propagate branch probabilities backward.  Reduce the distance from 50%
+   as we further from the marked basic block.  */
+
+static void
+propagate_block_prob (void)
+{
+  int *post_order;
+  int n, i;
+
+  post_order = (int*)xmalloc (sizeof (int) * n_basic_blocks_for_fn (cfun));
+  n = post_order_compute (post_order, false, false);
+
+  for (i = 0; i < n; i++)
+    {
+      basic_block bb = BASIC_BLOCK_FOR_FN (cfun, post_order[i]);
+      edge_iterator ei;
+      edge e;
+      int prob;
+
+      if (bb->probability == -1)
+       continue;
+      prob = (bb->probability - 5000) / 2 + 5000;
+
+      FOR_EACH_EDGE (e, ei, bb->preds)
+       if (e->src->probability == -1)
+         {
+           e->src->probability = prob;
+           if (dump_file)
+             fprintf (dump_file, "block %d has probability %d\n",
+                      e->src->index, prob);
+         }
+    }
+}
+
 #ifdef ENABLE_CHECKING
 
 /* Callback for pointer_map_traverse, asserts that the pointer map is
@@ -2399,6 +2497,10 @@ tree_estimate_probability (void)
 
   if (number_of_loops (cfun) > 1)
     predict_loops ();
+
+  compute_block_prob ();
+  if (flag_propagate_block_prob)
+    propagate_block_prob ();
 
   FOR_EACH_BB_FN (bb, cfun)
     tree_estimate_probability_bb (bb);

@@ -856,6 +856,8 @@ DEF_GCC_BUILTIN (BUILT_IN_LINE, "LINE", BT_FN_INT, ATTR_NOTHROW_LEAF_LIST)
 /* Synchronization Primitives.  */
 #include "sync-builtins.def"
 
+DEF_GCC_BUILTIN  (BUILT_IN_BLOCK_PROB, "block_prob", BT_FN_VOID_INT,
+                 ATTR_NOTHROW_LIST)
 /* OpenMP builtins.  */
 #include "omp-builtins.def"
 
