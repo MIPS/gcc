@@ -134,17 +134,6 @@ along with GCC; see the file COPYING3.  If not see
      String are represented in the table as pairs, a length in ULEB128
      form followed by the data for the string.  */
 
-/* The string that is the prefix on the section names we make for lto.
-   For decls the DECL_ASSEMBLER_NAME is appended to make the section
-   name for the functions and static_initializers.  For other types of
-   sections a '.' and the section type are appended.  */
-#define LTO_SECTION_NAME_PREFIX         ".gnu.lto_"
-#define OMP_SECTION_NAME_PREFIX         ".gnu.target_lto_"
-
-/* Can be either OMP_SECTION_NAME_PREFIX when we stream pragma omp target
-   stuff, or LTO_SECTION_NAME_PREFIX for lto case.  */
-extern const char  *section_name_prefix;
-
 #define LTO_major_version 3
 #define LTO_minor_version 0
 

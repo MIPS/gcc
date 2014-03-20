@@ -1,5 +1,17 @@
 2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
 
+	* config/darwin.c: Include "lto-section-names.h".
+	(LTO_SEGMENT_NAME): Don't define.
+	* config/i386/winnt.c: Include "lto-section-names.h".
+	* lto-streamer.c: Include "lto-section-names.h".
+	* lto-streamer.h (LTO_SECTION_NAME_PREFIX, OMP_SECTION_NAME_PREFIX):
+	Don't define.
+	(section_name_prefix): Don't declare.
+	* lto-wrapper.c: Include "lto-section-names.h".
+	(LTO_SECTION_NAME_PREFIX): Don't define.
+	* lto-section-names.h: New file.
+	* cgraphunit.c: Include "lto-section-names.h".
+
 	* configure.ac (real_target_noncanonical, tool_prefix,
 	accel_dir_suffix, offload_targets): Compute new variables.
 	(--enable-as-accelerator-for, --enable-as-accelerator,
