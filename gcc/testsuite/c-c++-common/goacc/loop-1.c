@@ -69,4 +69,4 @@ int test1()
     }
   return 0;
 }
-/* { dg-excess-errors "directive not yet implemented" } */
+/* { dg-prune-output "sorry, unimplemented: directive not yet implemented" } */

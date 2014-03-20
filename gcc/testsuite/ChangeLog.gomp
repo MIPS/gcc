@@ -1,3 +1,8 @@
+2014-03-20  Thomas Schwinge  <thomas@codesourcery.com>
+
+	* c-c++-common/goacc/loop-1.c: Replace dg-excess-errors usage with
+	dg-prune-output.
+
 2014-03-18  Ilmir Usmanov  <i.usmanov@samsung.com>
 
 	* c-c++-common/goacc/loop-1.c: New test.
