@@ -96,7 +96,8 @@ add_references_to_partition (ltrans_partition part, symtab_node *node)
        Recursively look into the initializers of the constant variable and add
        references, too.  */
     else if (is_a <varpool_node> (ref->referred)
-	     && ctor_for_folding (ref->referred->decl) != error_mark_node
+	     && (ctor_for_folding (ref->referred->decl) != error_mark_node
+		 || POINTER_BOUNDS_P (ref->referred->decl))
 	     && !lto_symtab_encoder_in_partition_p (part->encoder, ref->referred))
       {
 	if (!part->initializers_visited)
