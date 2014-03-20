@@ -1,3 +1,9 @@
+2014-03-20  Bernd Schmidt  <bernds@codesourcery.com>
+
+	From Nathan Sidwell and Thomas Schwinge.
+	* configure.ac: Add --enable-accelerator.
+	* configure: Rebuilt.
+
 2014-03-04  Jonathan Wakely  <jwakely@redhat.com>
 
 	* MAINTAINERS: Update my email address.
